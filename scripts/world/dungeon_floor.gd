@@ -1007,9 +1007,23 @@ func _sitio_para_formacion(sala: Rect2i, puestas: Array[Vector2i],
 #
 # Nace en el CENTRO de la sala (no pegado a una pared como la morralla), asi que un circulo a su
 # alrededor cae dentro de la sala y no hace falta darle la lista de celdas pisables.
+# Lo que ocupa medio jefe. Es una estimacion a ojo y generosa a proposito: el tamaño de verdad sale
+# del sprite (SpritesEnemigo.tam_cuerpo) y aqui todavia no hay bicho -- el radio se decide al colocar
+# la sala, antes de parirlo. Pasarse un poco solo le quita unos pixeles de paseo; quedarse corto lo
+# encajona contra la pared, que es lo que se venia a arreglar.
+const BOSS_BULTO := 52.0
+
 func _radio_merodeo_boss(sala: Rect2i) -> float:
 	var lado: float = float(mini(sala.size.x, sala.size.y)) * float(DungeonGenerator.CELDA)
-	return clampf(lado * 0.5, 64.0, 220.0)
+	# LA MITAD DEL LADO CORTO ES DEMASIADO para un bicho del tamaño del jefe: el radio se mide desde
+	# el CENTRO del bicho, asi que con medio lado su borde acaba METIDO EN LA PARED -- deambulaba
+	# hacia abajo y se quedaba sin sitio para moverse, encajonado contra el muro.
+	#
+	# Se le descuenta su propio cuerpo (BOSS_BULTO, una estimacion generosa del radio de un jefe:
+	# escala 2,8 sobre una celda de 32 son unos 45 px de medio cuerpo, y se redondea hacia arriba para
+	# que le quede holgura). El suelo de 64 px se respeta igual: una sala minima le deja poco, pero
+	# clavarlo en el sitio es peor.
+	return clampf(lado * 0.5 - BOSS_BULTO, 64.0, 220.0)
 
 
 # El parto del boss, ya con el arbol montado. Lleva el piso al que pertenece: si entre el diferido y
