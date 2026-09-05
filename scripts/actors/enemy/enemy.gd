@@ -738,6 +738,12 @@ func _aliado_mas_cercano() -> Node2D:
 const OIDO_TRAS_PARED := 0.5
 # Capa de fisica de la ROCA (los muros del piso). El bicho ya colisiona solo con ella.
 const CAPA_ROCA := 1
+# La capa de los BOQUETES que deja un parto mientras se repara (WallBirthFx.CAPA_BOQUETE). Los rayos
+# con los que se esquivan obstaculos van contra ESTA mascara, no contra CAPA_ROCA a secas: un
+# obstaculo que no esta en la mascara del rayo existe para la fisica pero NO para la IA, y entonces
+# el bicho choca con algo que no sabe que esta ahi y se queda empujandolo.
+const CAPA_BOQUETE := 8
+const CAPA_OBSTACULOS := CAPA_ROCA | CAPA_BOQUETE
 
 
 # ¿Se ve el punto desde aqui, sin roca de por medio? Rayo contra la capa de los muros.
@@ -747,7 +753,7 @@ const CAPA_ROCA := 1
 # ningun bicho volveria a verte en su vida. Los otros enemigos no estorban (capa 2).
 func _linea_de_vision_libre(punto: Vector2) -> bool:
 	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
-	var query := PhysicsRayQueryParameters2D.create(global_position, punto, CAPA_ROCA)
+	var query := PhysicsRayQueryParameters2D.create(global_position, punto, CAPA_OBSTACULOS)
 	query.exclude = _excluir_del_rayo()
 	return espacio.intersect_ray(query).is_empty()
 
@@ -920,7 +926,7 @@ func _elegir_lado(dir: Vector2, sonda: float, hacia: Vector2) -> Vector2:
 func _recorrido_libre(dir: Vector2, largo: float) -> float:
 	var espacio: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	var query := PhysicsRayQueryParameters2D.create(
-		global_position, global_position + dir * largo, CAPA_ROCA)
+		global_position, global_position + dir * largo, CAPA_OBSTACULOS)
 	query.exclude = _excluir_del_rayo()
 	var hit: Dictionary = espacio.intersect_ray(query)
 	if hit.is_empty():
@@ -959,7 +965,7 @@ func _cabe_por(dir: Vector2, sonda: float) -> bool:
 	var lado: Vector2 = Vector2(-dir.y, dir.x) * media
 	for off in [Vector2.ZERO, lado, -lado]:
 		var desde: Vector2 = global_position + off
-		var query := PhysicsRayQueryParameters2D.create(desde, desde + dir * sonda, CAPA_ROCA)
+		var query := PhysicsRayQueryParameters2D.create(desde, desde + dir * sonda, CAPA_OBSTACULOS)
 		query.exclude = excluir
 		if not espacio.intersect_ray(query).is_empty():
 			return false

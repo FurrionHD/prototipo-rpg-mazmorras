@@ -382,19 +382,26 @@ func _process(delta: float) -> void:
 # quita al cerrarse, celda a celda y EN EL MISMO ORDEN en que se repara: las de fuera vuelven a ser
 # suelo antes que la del centro, igual que se ve.
 #
-# EL BORDE DEL AGUJERO ES PARED, sin mas. Va en la MISMA capa que la roca de la mazmorra (la 1), no
-# en una suya, y eso no es un detalle: las antenas con las que los bichos esquivan muros lanzan sus
-# rayos contra esa capa (Enemy.CAPA_ROCA). En una capa aparte el obstaculo existia para la fisica
-# pero NO PARA LA IA -- el jefe chocaba contra algo que no sabia que estaba ahi y se quedaba
-# empujando el borde sin entender por que no avanzaba. Siendo pared, lo rodea como rodea cualquier
-# muro, y todo lo demas (jugador, companeros, bichos) lo trata igual sin una sola excepcion.
+# EL BORDE DEL AGUJERO. Va en su propia capa, y esa capa la MIRAN TODOS -- jugador, companeros y
+# bichos -- MENOS EL JEFE QUE HA SALIDO DE AHI. Se llego a esto probando las dos alternativas y
+# viendo fallar a las dos:
 #
-# ¿Y como sale el jefe, si nace dentro? Su salida es una ANIMACION con el proceso congelado (ver
-# DungeonFloor._emerger): mueve la posicion directamente, asi que la colision no le frena. Sale
-# trepando y, cuando recupera el control, ya esta fuera.
+#   - En una capa que solo miraban los jugadores, los bichos la cruzaban tan tranquilos (se vio un
+#     slime pasando por encima del agujero).
+#   - En la capa de la roca, con todos mirandola, el jefe nace DENTRO de su propio hoyo: por mucho
+#     que se afine el punto por el que sale, en cuanto roza el borde la fisica lo atasca. Cinco
+#     intentos de afinar la salida y seguia enganchandose.
+#
+# La unica que no tiene ese agujero logico es la de ahora: el hoyo estorba a todo el mundo salvo a
+# quien lo ha hecho. Un jefe no puede quedarse atrapado en el agujero por el que acaba de reventar.
+#
+# Y LOS RAYOS DE LA IA TAMBIEN LA MIRAN (ver Enemy.CAPA_OBSTACULOS): las antenas con las que los
+# bichos esquivan muros lanzan contra una mascara concreta, y si el obstaculo no esta en ella existe
+# para la fisica pero no para la IA -- chocan con algo que no saben que esta ahi y se quedan
+# empujandolo. Ese fue el primer atasco del jefe, y se arregla en el mismo sitio para todos.
 #
 # Solo en el SUELO: en una pared el boquete cae sobre roca, que ya no se cruza.
-const CAPA_BOQUETE := 1
+const CAPA_BOQUETE := 8
 
 var _tapias: Array = []   # [{cuerpo: StaticBody2D, r: float}] -- 'r' es cuando le toca cerrarse
 # CUANTO del boquete corta el paso, en celdas desde su centro. Lo pone quien lo lanza a partir del
@@ -405,8 +412,24 @@ var solido_radio: int = 9999
 var solido_centro := Vector2i.MAX
 
 func _tapiar() -> void:
-	if _es_muro or _capa == null:
-		return   # una pared ya no se cruza; esto es solo para el suelo
+	# DESACTIVADO. El boquete vuelve a ser SOLO DIBUJO, y esto se queda escrito para que no se intente
+	# otra vez sin saber lo que costo.
+	#
+	# La idea era buena -- un agujero por el que se pasa andando no es un agujero -- pero choca con
+	# algo que no se arregla desde aqui: EL JEFE NACE DENTRO DE SU PROPIO HOYO y mide dos o tres
+	# celdas. Se probaron las tres combinaciones y las tres fallan:
+	#
+	#   - Capa que solo miran los jugadores -> los bichos cruzan el agujero tan tranquilos.
+	#   - Capa de la roca, que la miran todos -> el jefe se atasca contra el borde de su propio
+	#     agujero. Se afino cinco veces el punto por el que sale y seguia enganchandose.
+	#   - Capa que miran todos MENOS el jefe -> el jefe camina por encima del agujero, que es
+	#     exactamente lo que se venia a evitar.
+	#
+	# No es un problema de ajustar mejor la salida: es que un cuerpo grande que nace dentro de un
+	# collider y se mueve por animacion acaba en estados imposibles. Para hacerlo bien haria falta que
+	# la IA del jefe SEPA RODEAR el agujero (navegacion de verdad, no antenas y line-of-sight), y eso
+	# es otro trabajo, no un parche mas.
+	return
 	var lado: float = float(DungeonGenerator.CELDA)
 	var caras: Array = _caras_de(_celdas)
 	# El centro del destrozo, para saber que celdas son de fuera (se cierran antes) -- el mismo
@@ -455,57 +478,12 @@ func _tapiar() -> void:
 		# de cerrarse del todo -- quedarte frenado sobre suelo entero es peor que pisar un hoyo casi
 		# cerrado.
 		_tapias.append({"cuerpo": cuerpo, "r": (0.15 + 0.5 * (1.0 - d)) * 0.75})
-	_apartar_a_quien_este_dentro()
 
 
-# A QUIEN LE REVIENTE BAJO LOS PIES. Si alguien esta encima cuando se abre el hoyo, se queda dentro
-# de una caja de colision y no puede salir: clavado ahi hasta que se repare. Se le empuja al borde
-# mas cercano en el mismo momento de abrirse.
-#
-# JUGADORES Y BICHOS, los dos. Cuando la tapia solo estorbaba a los jugadores bastaba con sacarlos a
-# ellos; ahora el boquete es PARED DE VERDAD (misma capa que la roca) y encierra a cualquiera, asi
-# que un slime que estuviera merodeando por esa celda se quedaria emparedado en el agujero.
-#
-# El jefe no entra en esta cuenta porque todavia no ha nacido: sale despues, y sale por animacion.
-func _apartar_a_quien_este_dentro() -> void:
-	if _tapias.is_empty():
-		return
-	var lado: float = float(DungeonGenerator.CELDA)
-	var dentro: Dictionary = {}
-	for c in _celdas:
-		dentro[c] = true
-	var atrapables: Array = []
-	atrapables.append_array(get_tree().get_nodes_in_group("player"))
-	atrapables.append_array(get_tree().get_nodes_in_group("aliado"))
-	atrapables.append_array(get_tree().get_nodes_in_group("enemy"))
-	for quien in atrapables:
-		if not (quien is Node2D) or not is_instance_valid(quien):
-			continue
-		var n: Node2D = quien
-		var suya: Vector2i = Vector2i(
-			int(floor(n.global_position.x / lado)), int(floor(n.global_position.y / lado)))
-		if not dentro.has(suya):
-			continue
-		# La celda libre mas cercana, en anillos: casi siempre la de al lado.
-		for r in range(1, 6):
-			var salida := Vector2.INF
-			for dy in range(-r, r + 1):
-				for dx in range(-r, r + 1):
-					var v: Vector2i = suya + Vector2i(dx, dy)
-					if dentro.has(v):
-						continue
-					if _piso != null and _piso.has_method("celda_pintada") \
-							and not _piso.celda_pintada(v):
-						continue
-					var p: Vector2 = Vector2(v) * lado + Vector2(lado, lado) * 0.5
-					if salida == Vector2.INF or p.distance_to(n.global_position) \
-							< salida.distance_to(n.global_position):
-						salida = p
-					# (se queda la mas cercana del anillo, para sacarte por el borde que tienes al
-					# lado y no de un tiron a la otra punta del agujero)
-			if salida != Vector2.INF:
-				n.global_position = salida
-				break
+# (Aqui habia un EMPUJON: al abrirse el hoyo se sacaba fuera a quien estuviera encima, porque si no
+# se quedaba dentro de una caja de colision y clavado hasta que se reparase. Se ha quitado con la
+# colision: sin tapias no hay a quien sacar, y que el juego te mueva de sitio solo es aceptable
+# cuando la alternativa es dejarte atrapado.)
 
 
 # Quita las tapias que ya les toca, segun lo reparado. 'p' es lo que lleva la reparacion (0 a 1).

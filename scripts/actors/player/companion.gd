@@ -54,7 +54,7 @@ var _facing: Vector2 = Vector2.DOWN
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	collision_layer = 4   # capa "aliados"
-	collision_mask = 1    # solo el mundo (paredes, y los boquetes, que son pared)
+	collision_mask = 1    # solo el mundo (paredes)
 	# Z ABSOLUTO, y a la altura del jugador y de los bichos. Es la unica forma de que se vean: el
 	# z_index normal es RELATIVO al del padre, y el sequito cuelga de un nodo que ya iba a -1, asi
 	# que un -1 suyo los mandaba a -2... justo por DEBAJO del suelo de la mazmorra, que se pinta a
