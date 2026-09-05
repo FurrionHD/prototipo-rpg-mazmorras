@@ -287,6 +287,7 @@ func romper() -> void:
 	_fase = Fase.ROTA
 	_t_rota = 0.0
 	_t_abre = 0.0
+	_tapiar()
 	_dur_rota = minf(REPARAR_TOPE,
 		REPARAR_BASE + REPARAR_POR_CELDA * float(maxi(0, _celdas.size() - 1)))
 	position = _origen        # deja de temblar: la piedra ya esta donde va a quedarse
@@ -374,6 +375,128 @@ func _process(delta: float) -> void:
 	_recolocar()
 
 
+# ============================================================
+#  EL BOQUETE NO SE PUEDE CRUZAR (mientras esta abierto)
+# ============================================================
+# Un agujero por el que se pasa andando no es un agujero. Se le pone colision mientras dura y se le
+# quita al cerrarse, celda a celda y EN EL MISMO ORDEN en que se repara: las de fuera vuelven a ser
+# suelo antes que la del centro, igual que se ve.
+#
+# SOLO ESTORBA A LOS JUGADORES, y esa es la clave de que esto se pueda hacer sin romper nada. Va en
+# su propia capa (CAPA_BOQUETE), que miran el jugador y sus companeros y NO los enemigos: asi el
+# jefe puede salir del hoyo por el que acaba de reventar -- que era el problema gordo -- y los bichos
+# de un brote no se quedan atascados en su propio agujero.
+#
+# Solo en el SUELO: en una pared el boquete cae sobre roca, que ya es intransitable de por si, y
+# ponerle colision encima no cambiaria nada.
+const CAPA_BOQUETE := 8
+
+var _tapias: Array = []   # [{cuerpo: StaticBody2D, r: float}] -- 'r' es cuando le toca cerrarse
+
+func _tapiar() -> void:
+	if _es_muro or _capa == null:
+		return   # una pared ya no se cruza; esto es solo para el suelo
+	var lado: float = float(DungeonGenerator.CELDA)
+	var caras: Array = _caras_de(_celdas)
+	# El centro del destrozo, para saber que celdas son de fuera (se cierran antes) -- el mismo
+	# criterio que usa el dibujo, para que lo que ves y lo que chocas vayan a la par.
+	var centro := Vector2.ZERO
+	for c in _celdas:
+		centro += Vector2(c)
+	centro /= maxf(1.0, float(_celdas.size()))
+	var radio_max: float = 0.0
+	for c in _celdas:
+		radio_max = maxf(radio_max, Vector2(c).distance_to(centro))
+
+	for i in _celdas.size():
+		if i < caras.size() and not bool(caras[i]):
+			continue   # sin agujero pintado, sin tapia
+		var cel: Vector2i = _celdas[i]
+		var cuerpo := StaticBody2D.new()
+		cuerpo.collision_layer = CAPA_BOQUETE
+		cuerpo.collision_mask = 0     # no vigila a nadie: solo esta para que choquen con el
+		var forma := RectangleShape2D.new()
+		# ALGO MAS PEQUEÑA QUE LA CELDA. El agujero pintado tampoco se la come entera (deja el marco
+		# de piedra que lo sujeta), y una caja a celda completa te frenaba con el hoyo todavia a un
+		# palmo -- se nota enseguida al rozarlo.
+		forma.size = Vector2(lado, lado) * 0.86
+		var col := CollisionShape2D.new()
+		col.shape = forma
+		cuerpo.add_child(col)
+		cuerpo.global_position = Vector2(cel) * lado + Vector2(lado, lado) * 0.5
+		# Del PADRE del piso, no de mi nodo: yo tiemblo, y una pared de colision que tiembla te
+		# empuja. Ademas asi no le afecta mi escala ni mi posicion.
+		var mundo: Node = get_parent()
+		if mundo == null:
+			mundo = self
+		mundo.add_child(cuerpo)
+		var d: float = 0.0 if radio_max <= 0.001 else Vector2(cel).distance_to(centro) / radio_max
+		# Se quita cuando su celda ya esta casi cerrada. Mismo reparto que el dibujo: las de fuera
+		# antes. El 0,75 es para que el suelo vuelva a pisarse un pelin ANTES de que el agujero acabe
+		# de cerrarse del todo -- quedarte frenado sobre suelo entero es peor que pisar un hoyo casi
+		# cerrado.
+		_tapias.append({"cuerpo": cuerpo, "r": (0.15 + 0.5 * (1.0 - d)) * 0.75})
+	_apartar_a_quien_este_dentro()
+
+
+# A QUIEN LE REVIENTE BAJO LOS PIES. Si el jugador esta encima cuando se abre el hoyo, se queda
+# dentro de una caja de colision y no puede salir: te deja clavado hasta que se repare. Se le empuja
+# al borde mas cercano en el momento de abrirse.
+#
+# Es el motivo por el que esto no se hizo de entrada, y la razon de que ahora si se pueda: como la
+# tapia solo mira a los jugadores, basta con sacarlos a ellos.
+func _apartar_a_quien_este_dentro() -> void:
+	if _tapias.is_empty():
+		return
+	var lado: float = float(DungeonGenerator.CELDA)
+	var dentro: Dictionary = {}
+	for c in _celdas:
+		dentro[c] = true
+	for quien in get_tree().get_nodes_in_group("player"):
+		if not (quien is Node2D):
+			continue
+		var n: Node2D = quien
+		var suya: Vector2i = Vector2i(
+			int(floor(n.global_position.x / lado)), int(floor(n.global_position.y / lado)))
+		if not dentro.has(suya):
+			continue
+		# La celda libre mas cercana, en anillos: casi siempre la de al lado.
+		for r in range(1, 6):
+			var salida := Vector2.INF
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					var v: Vector2i = suya + Vector2i(dx, dy)
+					if dentro.has(v):
+						continue
+					if _piso != null and _piso.has_method("celda_pintada") \
+							and not _piso.celda_pintada(v):
+						continue
+					var p: Vector2 = Vector2(v) * lado + Vector2(lado, lado) * 0.5
+					if salida == Vector2.INF or p.distance_to(n.global_position) \
+							< salida.distance_to(n.global_position):
+						salida = p
+					# (se queda la mas cercana del anillo, para sacarte por el borde que tienes al
+					# lado y no de un tiron a la otra punta del agujero)
+			if salida != Vector2.INF:
+				n.global_position = salida
+				break
+
+
+# Quita las tapias que ya les toca, segun lo reparado. 'p' es lo que lleva la reparacion (0 a 1).
+func _destapiar(p: float) -> void:
+	if _tapias.is_empty():
+		return
+	var quedan: Array = []
+	for t in _tapias:
+		if p >= float(t["r"]):
+			var cuerpo = t["cuerpo"]
+			if cuerpo != null and is_instance_valid(cuerpo):
+				(cuerpo as Node).queue_free()
+			continue
+		quedan.append(t)
+	_tapias = quedan
+
+
 # LA PIEDRA SE CIERRA SOLA. El boquete se come hacia dentro y las grietas se apagan con el, hasta
 # que la pared vuelve a estar entera y este nodo sobra.
 func _process_rota(delta: float) -> void:
@@ -390,6 +513,7 @@ func _process_rota(delta: float) -> void:
 		return
 	_t_rota += delta
 	var p: float = clampf(_t_rota / _dur_rota, 0.0, 1.0)
+	_destapiar(p)
 	if _grietas != null and is_instance_valid(_grietas):
 		# LO PEQUEÑO CURA ANTES QUE LO GRANDE, como una herida. Las GRIETAS son fisuras: se sellan
 		# primero, en el primer tramo de la reparacion. El BOQUETE es el destrozo gordo y tarda todo
@@ -410,6 +534,14 @@ func _process_rota(delta: float) -> void:
 # TileMapLayer y a nosotros con el, y sin esto un aviso a medias dejaria un agujero permanente en la
 # pared. Es la red de seguridad de todo esto.
 func _exit_tree() -> void:
+	# LAS TAPIAS, FUERA SIEMPRE. Cuelgan del padre del piso, asi que no se las lleva mi queue_free: si
+	# el piso se regenera con un boquete abierto, quedarian cajas de colision invisibles flotando en
+	# el mapa nuevo y el jugador chocaria con nada.
+	for t in _tapias:
+		var cuerpo = t["cuerpo"]
+		if cuerpo != null and is_instance_valid(cuerpo):
+			(cuerpo as Node).queue_free()
+	_tapias.clear()
 	if _capa == null:
 		return
 	# NO HAY NADA QUE RESTAURAR: la piedra original nunca se llego a borrar, la copia solo se pinta

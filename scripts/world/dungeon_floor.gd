@@ -1037,7 +1037,73 @@ func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	# El RADIO es lo que le deja merodear por su sala. Estaba a 0, y por eso el Rey Slime se quedaba
 	# clavado en el centro y solo se movia para perseguirte: sin radio no hay a donde deambular.
 	var e = crear_enemigo(data, pos, _boss_radio, 1.0, -1, true)
-	_emerger(e)
+	# Sale TREPANDO hacia fuera: _mandarlo_al_hueco decide por donde hay sitio y devuelve el hogar, y
+	# _emerger lo lleva del centro del agujero hasta el borde mientras se estira.
+	var hogar: Vector2 = _mandarlo_al_hueco(e, pos)
+	_emerger(e, pos, hogar)
+
+
+# HACIA DONDE TIENE SITIO. El jefe nace en el centro de su sala y de ahi merodea a ciegas: si la
+# sala es alargada o tiene un recodo, se metia por el lado corto y se quedaba encajonado contra el
+# muro, sin espacio ni para moverse -- que es como se le vio salir "para abajo" en una prueba.
+#
+# Se le busca el sitio con MAS HUECO ALREDEDOR y se le pone ahi el hogar de merodeo. No se le mueve:
+# sale por el agujero, que es donde tiene que salir, y a partir de ahi deambula hacia lo despejado en
+# vez de hacia la primera pared que pille.
+const BOSS_SONDAS := 12          # direcciones que se prueban
+const BOSS_ALCANCE_SONDA := 6    # hasta cuantas celdas se mira en cada una
+
+func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
+	if e == null or not is_instance_valid(e) or gen == null:
+		return centro
+	var lado: float = float(DungeonGenerator.CELDA)
+	# FUERA DEL BOQUETE. El jefe sale por el agujero, pero no puede QUEDARSE dentro: se le veia
+	# merodeando encima del negro, como flotando sobre el vacio por el que acababa de salir. Su sitio
+	# es el suelo de alrededor, asi que el corro que ha reventado se descarta entero -- ni para el
+	# hogar ni para los puntos por los que deambula.
+	var cel_centro: Vector2i = celda_de_px(centro)
+	var boquete: Dictionary = {}
+	for dy in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+		for dx in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+			boquete[cel_centro + Vector2i(dx, dy)] = true
+
+	var mejor := centro
+	var mejor_libre: int = -1
+	var puntos: Array = []
+	for i in BOSS_SONDAS:
+		var ang: float = TAU * float(i) / float(BOSS_SONDAS)
+		var dir := Vector2(cos(ang), sin(ang))
+		# Cuanto se puede avanzar por ahi sin salirse del suelo. Se para en la primera celda que no
+		# sea pisable: lo que se busca es hueco de verdad, no un pasillo con un recodo.
+		var libre: int = 0
+		for paso in range(1, BOSS_ALCANCE_SONDA + 1):
+			var p: Vector2 = centro + dir * float(paso) * lado
+			if not _pisable_px(p):
+				break
+			libre = paso
+			if not boquete.has(celda_de_px(p)):
+				puntos.append(p)
+		# Solo vale la direccion que llega MAS ALLA del boquete: si no sale de el, por ahi no hay
+		# adonde ir. El hogar se pone pasado el borde y a medio camino de lo que quede -- en la punta
+		# se pegaria al muro del otro lado y volveriamos a lo mismo por el lado contrario.
+		if libre > BOSS_AVISO_RADIO and libre > mejor_libre:
+			mejor_libre = libre
+			var fuera: float = float(BOSS_AVISO_RADIO + 1)
+			mejor = centro + dir * ((fuera + (float(libre) - fuera) * 0.5) * lado)
+	if puntos.is_empty():
+		puntos.append(centro)
+	if e.has_method("asignar_zona"):
+		e.call("asignar_zona", puntos, mejor)
+	return mejor
+
+
+# ¿Se puede pisar ese punto? Se le pregunta a la CAPA DEL SUELO, que es lo que se ve: si ahi hay
+# baldosa de suelo, se anda.
+func _pisable_px(p: Vector2) -> bool:
+	var suelo: TileMapLayer = _tm.get("suelo", null)
+	if suelo == null:
+		return true
+	return suelo.get_cell_source_id(celda_de_px(p)) >= 0
 
 
 # EL JEFE SALE DEL AGUJERO, no aparece plantado encima de el. Se abre el boquete, y del boquete sale
@@ -1055,7 +1121,7 @@ func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 const EMERGER_DUR := 0.75
 const EMERGER_APLASTADO := 0.12   # el alto con el que arranca, en fraccion del suyo
 
-func _emerger(e: Node2D) -> void:
+func _emerger(e: Node2D, centro: Vector2, hogar: Vector2) -> void:
 	if e == null or not is_instance_valid(e):
 		return
 	var suyo: Vector2 = e.scale
@@ -1069,11 +1135,21 @@ func _emerger(e: Node2D) -> void:
 	e.set_physics_process(false)
 	var t := create_tween()
 	t.set_parallel(true)
-	# Solo la ESCALA, y con el pivote donde este: tocar tambien la posicion era lo que se peleaba con
-	# la IA. El estiramiento desde aplastado ya se lee como salir sin necesidad de moverlo.
 	t.tween_property(e, "scale", suyo, EMERGER_DUR).from(
 		Vector2(suyo.x, suyo.y * EMERGER_APLASTADO)).set_trans(Tween.TRANS_CUBIC).set_ease(
 		Tween.EASE_OUT)
+	# Y SE SALE DEL AGUJERO. Antes solo se estiraba, y el jefe se quedaba merodeando ENCIMA del negro
+	# -- flotando sobre el vacio por el que acababa de salir -- porque hasta su hogar hay que ANDAR y
+	# eso tarda. Aqui se le lleva del centro al borde mientras trepa, que es un paso y se ve.
+	#
+	# La posicion SI se puede animar ahora: durante esto tiene el proceso congelado, asi que su IA no
+	# esta escribiendola en paralelo (que fue lo que hizo que el primer intento saliera desplazado).
+	var salida: Vector2 = centro
+	if hogar != centro:
+		var d: Vector2 = (hogar - centro).normalized()
+		salida = centro + d * float(BOSS_AVISO_RADIO + 1) * float(DungeonGenerator.CELDA)
+	t.tween_property(e, "global_position", salida, EMERGER_DUR).from(centro).set_trans(
+		Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	# Del negro del hueco a su color: viene de dentro, donde no da la luz. Mas rapido que el
 	# estiramiento, asi que lo ultimo que se ve es la forma asentandose.
 	t.tween_property(e, "modulate", Color.WHITE, EMERGER_DUR * 0.7).from(
@@ -1084,6 +1160,14 @@ func _emerger(e: Node2D) -> void:
 		e.set_physics_process(fis)
 		e.scale = suyo
 		e.modulate = Color.WHITE
+		# Y UNA VEZ FUERA, EL AGUJERO TAMBIEN LE ESTORBA A EL. Los enemigos no miran la capa del
+		# boquete -- si la miraran, el jefe naceria atrapado dentro del hoyo por el que tiene que
+		# salir --, pero eso deja que luego se meta otra vez: se le veia deambulando por encima del
+		# negro, flotando sobre el vacio, e incluso entrando de vuelta.
+		#
+		# Asi que se le añade AL TERMINAR de salir, que es cuando ya esta a salvo en el borde. Un hoyo
+		# es un hoyo: se sale de el, y despues no se vuelve a entrar.
+		e.collision_mask |= _FX_PARTO.CAPA_BOQUETE
 
 
 # La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay
