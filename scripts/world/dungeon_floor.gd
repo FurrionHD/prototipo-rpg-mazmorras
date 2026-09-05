@@ -435,6 +435,10 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# Un aviso a medias del piso anterior no puede dejar el candado puesto: su await comprueba el
 	# piso y se va sin plantar nada, pero sin esto _repoblar_boss se quedaria mudo aqui para siempre.
 	_boss_naciendo = false
+	# EL REGISTRO DE OBRAS ES DE ESTE PISO. Sin vaciarlo, el piso nuevo hereda las celdas que estaban
+	# rotas en el anterior -- mismas coordenadas, otro mapa -- y esas paredes no vuelven a parir nunca
+	# ni pueden temblar. Los avisos viejos ya se han ido con la geometria.
+	_celdas_rotas.clear()
 	# El cartel cuelga del PADRE del piso (ver _refrescar_cartel_boss), asi que no se lo lleva el
 	# desmontaje: hay que tirarlo a mano o el del piso 6 seguiria plantado en el 7.
 	if _boss_cartel != null and is_instance_valid(_boss_cartel):
@@ -1555,16 +1559,27 @@ func _anunciar_boss(data: EnemyData) -> void:
 		int(floor(_boss_pos.x / float(DungeonGenerator.CELDA))),
 		int(floor(_boss_pos.y / float(DungeonGenerator.CELDA))))
 	var celdas: Array = []
+	var rejilla: Array = []
 	for dy in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
 		for dx in range(-BOSS_AVISO_RADIO, BOSS_AVISO_RADIO + 1):
+			rejilla.append(centro + Vector2i(dx, dy))
 			celdas.append(gen.centro_px(centro + Vector2i(dx, dy)))
 	if celdas.is_empty():
 		celdas.append(_boss_pos)
+		rejilla.append(centro)
 	var fx: Node2D = _FX_PARTO.new()
 	fx.position = celdas[0]
 	add_child(fx)
-	fx.iniciar_tramo(float(DungeonGenerator.CELDA), BOSS_AVISO_DUR, BOSS_AVISO_AMP,
-		BOSS_AVISO_COLOR, celdas)
+	# EL JEFE NO SALE DE UNA PARED, SALE DEL SUELO de su sala: aqui lo que tiembla, se raja y revienta
+	# es el suelo, y montar_aviso coge la capa que toque mirando donde hay baldosa. Se quedo sin
+	# enganchar cuando el resto paso a la piedra de verdad, asi que el jefe seguia sacando el
+	# rectangulo rojo de color plano mientras los brotes ya reventaban la roca.
+	#
+	# Su corro son veinticinco celdas, asi que la reparacion tarda casi el doble que la de un brote
+	# (ver WallBirthFx.romper) y se cierra de fuera hacia dentro, por las esquinas.
+	if not montar_aviso(fx, rejilla, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR):
+		fx.iniciar_tramo(float(DungeonGenerator.CELDA), BOSS_AVISO_DUR, BOSS_AVISO_AMP,
+			BOSS_AVISO_COLOR, celdas)
 	# El que solo ESPEJA este piso no tiene nada de esto (los bichos no nacen en su maquina), asi que
 	# veria al jefe aparecer de la nada. Es puro FX y viaja por el mismo canal que el brote.
 	if Net.activo:
@@ -2469,7 +2484,10 @@ func montar_aviso(fx: Node, celdas: Array, dur: float, amp: float, col: Color) -
 		libres.append(cel)
 	if capa == null or libres.is_empty():
 		return false
-	if not fx.iniciar_capa(self, capa, libres, float(DungeonGenerator.CELDA), dur, amp, col):
+	# Si lo que revienta es MURO o SUELO. El aviso lo necesita para el boquete: el suelo se ve cenital
+	# y siempre lleva agujero, la pared solo si te enseña la cara (ver WallBirthFx._caras_de).
+	if not fx.iniciar_capa(self, capa, libres, float(DungeonGenerator.CELDA), dur, amp, col,
+			capa == muro):
 		return false
 	for c in libres:
 		_celdas_rotas[c] = true

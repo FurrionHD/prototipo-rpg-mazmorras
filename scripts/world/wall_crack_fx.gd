@@ -75,7 +75,7 @@ const HUECO_ASTILLA := 0.10   # y la mordida fina, la que lo astilla (ver _manch
 # CONTENIDO: no pasa del borde de su celda y deja el marco de piedra que la sujeta (a 0,5 se comeria
 # la celda entera y volveria la cuadricula). ABIERTO: hacia una vecina rota se pasa de largo.
 const HUECO_CONTENIDO := 0.42
-const HUECO_ABIERTO := 0.76
+const HUECO_ABIERTO := 0.88
 
 # --- COMO SE CIERRA ---
 # NO de golpe y a la vez. La piedra se rehace DE FUERA HACIA DENTRO: las celdas del borde -- que
@@ -317,6 +317,9 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 	# El contorno: radio y retardo por angulo.
 	var radios := PackedFloat32Array()
 	var rets := PackedFloat32Array()
+	# Cuanto ABRE cada angulo hacia una vecina rota. Hace falta guardarlo porque no solo decide el
+	# radio: tambien dice si por ahi hay BORDE DE VERDAD. Ver mas abajo.
+	var abres := PackedFloat32Array()
 	for i in HUECO_VERTICES:
 		var ang: float = TAU * float(i) / float(HUECO_VERTICES)
 		var dir := Vector2(cos(ang), sin(ang))
@@ -333,8 +336,16 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 		# DOS MORDIDAS, una gruesa y otra fina. Con una sola el contorno salia redondeado y blando --
 		# una gota, no una rotura --; la segunda, de mas frecuencia y menos amplitud, es la que astilla
 		# el borde y le da el aire de piedra partida de las referencias.
-		var muesca: float = rng.randf_range(-HUECO_MORDIDA, HUECO_MORDIDA) 			+ sin(ang * 5.0 + float(sem % 97)) * HUECO_ASTILLA
+		#
+		# SOLO EN EL PERIMETRO DEL DESTROZO (el "1 - abre"). Aplicada tambien hacia las vecinas rotas,
+		# la mordida encogia el radio justo donde las dos manchas tenian que solaparse y dejaba las
+		# esquinas sin cubrir: el corro del jefe, que son 25 celdas, se veia como una REJILLA de 25
+		# manchitas en vez de un agujero. Hacia dentro el borde no existe, asi que no hay nada que
+		# morder; morderlo solo delataba la cuadricula.
+		var muesca: float = (rng.randf_range(-HUECO_MORDIDA, HUECO_MORDIDA)
+			+ sin(ang * 5.0 + float(sem % 97)) * HUECO_ASTILLA) * (1.0 - abre)
 		radios.append(r * (1.0 + muesca))
+		abres.append(abre)
 		# El punto que da a PIEDRA SANA se cierra antes: por ahi la pared tiene de donde agarrarse
 		# para rehacerse. El que da al hueco es de los ultimos. Con su pizca de azar, para que el
 		# borde no avance como un frente ordenado.
@@ -373,14 +384,21 @@ func _mancha(celda: Vector2i, rotas: Dictionary, sem: int, retardo: float) -> vo
 			#    que es la parte mas honda.
 			var adentro: float = borde - dist             # lo dentro que esta del borde
 			var arriba: float = -v.y / maxf(1.0, dist)    # 1 = borde de arriba, -1 = el de abajo
+			#
+			# EL BORDE SOLO EXISTE HACIA LA PIEDRA SANA. Los dientes, la luz y la sombra se calculaban
+			# por CELDA, asi que en el corro del jefe -- 25 celdas pegadas -- cada una dibujaba su
+			# propio anillo y el agujero se veia como 25 arcos en cuadricula. Donde la vecina tambien
+			# esta rota no hay borde que perfilar: eso es interior, y va a fondo hondo y nada mas.
+			var abre_aqui: float = lerpf(abres[i0], abres[i1], f)
+			var hay_borde: bool = abre_aqui < 0.5
 			var tipo: int = HUECO_FONDO
-			if adentro < _diente(v.angle(), celda, sem):
+			if hay_borde and adentro < _diente(v.angle(), celda, sem):
 				tipo = HUECO_DIENTE
-			elif adentro < 2.0 and arriba < -0.25:
+			elif hay_borde and adentro < 2.0 and arriba < -0.25:
 				tipo = HUECO_LUZ
-			elif adentro < 3.0 and arriba > 0.35:
+			elif hay_borde and adentro < 3.0 and arriba > 0.35:
 				tipo = HUECO_SOMBRA
-			elif adentro > borde * 0.55:
+			elif adentro > borde * 0.55 or not hay_borde:
 				tipo = HUECO_HONDO
 			# EL RETARDO DE UN PIXEL. Un pixel sigue abierto mientras su 'r' aguante por encima de lo
 			# reparado, asi que el que tiene 'r' PEQUEÑO se cierra ANTES.

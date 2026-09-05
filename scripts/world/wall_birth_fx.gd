@@ -31,6 +31,9 @@ var _capa: TileMapLayer = null        # de donde salieron las celdas y adonde vu
 var _celdas: Array[Vector2i] = []
 var _guardadas: Array = []            # para devolverlas IGUAL que estaban
 var _mio: TileMapLayer = null         # mi copia: la que tiembla
+# ¿Lo que revienta es MURO o SUELO? El jefe no sale de una pared, sale del suelo de su sala, y las
+# dos cosas no se ven igual desde 45 grados (ver _caras_de).
+var _es_muro: bool = true
 
 # EL HALO: las celdas de al lado, que tiemblan MENOS. Sin esto se ve un bloque suelto moviendose
 # dentro de una pared quieta, con una costura dura en el borde -y eso no se lee como piedra a punto
@@ -83,7 +86,7 @@ func iniciar(lado: float, dur: float, amp: float, color: Color) -> void:
 # llama se cae entonces al camino de siempre (iniciar_tramo, el rectangulo de color): un aviso feo
 # es muchisimo mejor que ningun aviso, porque sin el los bichos salen de la nada.
 func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, dur: float,
-		amp: float, color: Color) -> bool:
+		amp: float, color: Color, es_muro: bool = true) -> bool:
 	if capa == null or not is_instance_valid(capa) or celdas.is_empty():
 		return false
 	# PRIMERO se apunta todo y SOLO DESPUES se borra nada: si a mitad del reparto apareciera una
@@ -103,6 +106,7 @@ func iniciar_capa(piso: Node, capa: TileMapLayer, celdas: Array, lado: float, du
 
 	_piso = piso
 	_capa = capa
+	_es_muro = es_muro
 	_celdas = buenas
 	_guardadas = datos
 	_dur = maxf(0.05, dur)
@@ -304,6 +308,13 @@ func romper() -> void:
 func _caras_de(celdas: Array[Vector2i]) -> Array:
 	var out: Array = []
 	for c in celdas:
+		# EL SUELO SIEMPRE LLEVA AGUJERO. Se mira cenital, asi que un boquete en el suelo se ve entero
+		# y no hay "cara" que valga. La comprobacion de abajo es SOLO para el muro -- y preguntandosela
+		# al suelo salia que NO para todas (debajo de una celda de suelo hay otra celda de suelo), asi
+		# que el jefe se quedaba sin boquete: solo grietas.
+		if not _es_muro:
+			out.append(true)
+			continue
 		out.append(_capa == null or _capa.get_cell_source_id(c + Vector2i.DOWN) < 0)
 	return out
 
