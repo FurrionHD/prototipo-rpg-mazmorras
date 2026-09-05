@@ -1118,8 +1118,10 @@ func _mandarlo_al_hueco(e: Node2D, centro: Vector2) -> Vector2:
 	for y in range(sala.position.y, sala.position.y + sala.size.y):
 		for x in range(sala.position.x, sala.position.x + sala.size.x):
 			var c := Vector2i(x, y)
-			# Ni el agujero por el que acaba de salir, ni nada pegado a un muro.
-			if maxi(absi(c.x - cel_centro.x), absi(c.y - cel_centro.y)) <= radio_b:
+			# NI EL AGUJERO NI SU ORILLA. No basta con salirse del corro: el jefe mide varias celdas, y
+			# con el centro justo en el borde su CUERPO sigue tapando el hoyo -- se le veia "dentro del
+			# agujero" aunque su celda estuviera fuera. Se aparta ademas su medio cuerpo.
+			if maxi(absi(c.x - cel_centro.x), absi(c.y - cel_centro.y)) <= radio_b + holgura:
 				continue
 			if not _hueco_libre(c, holgura):
 				continue
