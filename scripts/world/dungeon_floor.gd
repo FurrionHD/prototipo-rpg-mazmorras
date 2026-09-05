@@ -2390,6 +2390,70 @@ func dev_brote_cercano() -> void:
 # de quedarse o largarse, que es justo la mecanica. Solo es FX, sin autoridad ni estado: si se pierde
 # un paquete no pasa nada. Cuelga de _geo para morir con el piso, como todo lo demas de aqui.
 # Lo llama Net._pintar_brote; el nacimiento de los bichos sigue viniendo replicado por su via de siempre.
+# ============================================================
+#  LA PIEDRA QUE TIEMBLA: registro de lo que esta en obras
+# ============================================================
+# Un WallBirthFx se LLEVA PRESTADAS unas celdas del TileMapLayer mientras tiemblan y las devuelve al
+# terminar. Si dos partos cogieran la MISMA celda, el segundo la tomaria prestada ya vacia y el
+# primero la devolveria al acabar: la pared se quedaria con un agujero permanente. Este registro es
+# lo que lo impide, y por eso lo consulta quien elige donde parir (SpawnZone._elegir_celda).
+var _celdas_rotas: Dictionary = {}
+
+func celda_rota(c: Vector2i) -> bool:
+	return _celdas_rotas.has(c)
+
+
+func soltar_celdas_rotas(celdas: Array) -> void:
+	for c in celdas:
+		_celdas_rotas.erase(c)
+
+
+# De pixeles del mundo a celda. floor() y no int(): con coordenadas negativas int() trunca hacia
+# cero y la celda sale corrida (misma nota que en _anunciar_boss).
+func celda_de_px(px: Vector2) -> Vector2i:
+	var lado: float = float(DungeonGenerator.CELDA)
+	return Vector2i(int(floor(px.x / lado)), int(floor(px.y / lado)))
+
+
+# Le presta al aviso las celdas de la capa que le toque y las apunta como "en obras". Es el embudo
+# por el que pasan los TRES caminos (el brote de la zona, el parto del jefe y el aviso replicado por
+# red), asi que ninguno se puede saltar el registro.
+#
+# Devuelve false si no ha podido, y entonces quien llama se cae al aviso de color de siempre.
+func montar_aviso(fx: Node, celdas: Array, dur: float, amp: float, col: Color) -> bool:
+	if celdas.is_empty():
+		return false
+	# LA CAPA: si esas celdas son pared, la del muro; si no (el jefe sale del suelo de su sala), la
+	# del suelo. Se decide mirando donde hay baldosa de verdad, no adivinando por quien llama.
+	var muro: TileMapLayer = _tm.get("muro", null)
+	var suelo: TileMapLayer = _tm.get("suelo", null)
+	var capa: TileMapLayer = null
+	var libres: Array = []
+	for c in celdas:
+		var cel: Vector2i = c as Vector2i
+		if _celdas_rotas.has(cel):
+			continue   # ya la tiene otro parto: esa no
+		var en_muro: bool = muro != null and muro.get_cell_source_id(cel) >= 0
+		var la_suya: TileMapLayer = muro if en_muro else suelo
+		if la_suya == null or la_suya.get_cell_source_id(cel) < 0:
+			continue
+		# TODAS DE LA MISMA CAPA. Un tramo a caballo entre muro y suelo tendria que prestar de dos
+		# TileMapLayer a la vez y devolverlas a cada uno: manda la primera y las que no casen se
+		# quedan fuera, que como mucho cuesta una celda sin temblar.
+		if capa == null:
+			capa = la_suya
+		elif capa != la_suya:
+			continue
+		libres.append(cel)
+	if capa == null or libres.is_empty():
+		return false
+	if not fx.iniciar_capa(self, capa, libres, float(DungeonGenerator.CELDA), dur, amp, col):
+		return false
+	for c in libres:
+		_celdas_rotas[c] = true
+	return true
+
+
 func pintar_aviso_pared(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
 	if paredes_px.is_empty() or _geo == null or not is_instance_valid(_geo):
 		return

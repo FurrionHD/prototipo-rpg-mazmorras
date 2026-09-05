@@ -199,7 +199,14 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_rec
 	var dur: float = aviso_dur * (2.2 if brote else 1.0)
 	var amp: float = aviso_amp * (3.0 if brote else 1.0)
 	var col: Color = Color(1.0, 0.35, 0.15) if brote else Color(0.85, 0.35, 0.30)
-	_fx.iniciar_tramo(lado, dur, amp, col, paredes_px)
+	# LA PIEDRA DE VERDAD: se le prestan al aviso las celdas del TileMapLayer, que son las que
+	# tiemblan. Si no se puede (celda sin pintar, o ya prestada a otro parto) se cae al aviso de color
+	# de siempre: un aviso feo es mejor que ninguno, porque sin el los bichos salen de la nada.
+	var celdas_pared: Array = []
+	for c in celdas:
+		celdas_pared.append(c["pared"])
+	if not piso.montar_aviso(_fx, celdas_pared, dur, amp, col):
+		_fx.iniciar_tramo(lado, dur, amp, col, paredes_px)
 	# MULTIJUGADOR: el que solo ESPEJA este piso no tiene zonas vivas (muere en piso.hay_sitio), asi que
 	# sin esto veia salir los bichos de una pared lisa, sin el temblor: el brote se le comia de golpe.
 	if Net.activo:
@@ -324,6 +331,10 @@ func _elegir_celda() -> Dictionary:
 	var puestos: Array = _puestos_a_respetar()
 	var validas: Array = []
 	for p in partos:
+		# Una pared que TODAVIA esta prestada al parto anterior no vuelve a parir: volver a cogerla
+		# dejaria un agujero permanente cuando el primero la devuelva. Ver DungeonFloor.celda_rota.
+		if piso.celda_rota(p["pared"]):
+			continue
 		if _libre_de_jugadores(piso.gen.centro_px(p["suelo"]), puestos):
 			validas.append(p)
 	if validas.is_empty():
