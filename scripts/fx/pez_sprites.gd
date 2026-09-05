@@ -207,8 +207,9 @@ static func paleta(base: Color) -> PackedByteArray:
 # ============================================================
 #  EL DIBUJO
 # ============================================================
-# El pez se dibuja apuntando a la DERECHA (+x), porque el angulo 0 de Godot es +x y el charco le
-# pone al sprite `rotation = vel.angle()` tal cual.
+# El pez SE CONSTRUYE mirando a la izquierda (morro en x0, todo crece hacia la cola) y se VOLTEA al
+# final, para que el sprite acabe apuntando a la DERECHA: el angulo 0 de Godot es +x y el charco le
+# pone `rotation = vel.angle()` tal cual. Ver el volteo al final de esta funcion.
 static func _plantilla(d: MaterialData, talla: int, frame: int) -> PackedByteArray:
 	var t: Vector2i = lienzo(talla)
 	var plant := PackedByteArray()
@@ -321,7 +322,27 @@ static func _plantilla(d: MaterialData, talla: int, frame: int) -> PackedByteArr
 		var sep: float = maxf(1.0, SpriteLienzo.tramos(0.11, perfil) * semi * 0.62)
 		_poner(plant, t, int(round(ox)), int(round(oy - sep)), Tono.OJO, [])
 		_poner(plant, t, int(round(ox)), int(round(oy + sep)), Tono.OJO, [])
-	return plant
+
+	# Y AL FINAL SE VOLTEA, porque el pez se ha dibujado MIRANDO A LA IZQUIERDA: el morro esta en x0
+	# y todo lo demas crece hacia la derecha hasta la cola. Pero el angulo 0 de Godot es +x, y el
+	# charco le pone al sprite `rotation = vel.angle()` tal cual, asi que un pez dibujado hacia -x
+	# nada DE COLA. Se veia sobre todo en el gobio: su cola es pequeña y el cuerpo acaba en punta,
+	# asi que la punta se leia como el morro y el bicho parecia ir marcha atras.
+	#
+	# Se voltea la plantilla entera en vez de invertir los siete calculos de geometria (cuerpo, cola,
+	# aletas, dorsal, barbillones, ojos, coleteo) porque de morro a cola con la x creciendo se razona
+	# bien, y al reves cada uno de esos siete es una ocasion de equivocarse. Aqui es un sitio.
+	return _voltear(plant, t)
+
+
+static func _voltear(plant: PackedByteArray, t: Vector2i) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(plant.size())
+	for y in t.y:
+		var fila: int = y * t.x
+		for x in t.x:
+			out[fila + x] = plant[fila + (t.x - 1 - x)]
+	return out
 
 
 # El desvio lateral del eje en `u` para este frame del coleteo. Cero de la cabeza hasta
