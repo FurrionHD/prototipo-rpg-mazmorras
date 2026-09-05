@@ -435,6 +435,11 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# Un aviso a medias del piso anterior no puede dejar el candado puesto: su await comprueba el
 	# piso y se va sin plantar nada, pero sin esto _repoblar_boss se quedaria mudo aqui para siempre.
 	_boss_naciendo = false
+	# El cartel cuelga del PADRE del piso (ver _refrescar_cartel_boss), asi que no se lo lleva el
+	# desmontaje: hay que tirarlo a mano o el del piso 6 seguiria plantado en el 7.
+	if _boss_cartel != null and is_instance_valid(_boss_cartel):
+		_boss_cartel.queue_free()
+	_boss_cartel = null
 	_zona_aterrizaje = -1
 	_zonas_seguras.clear()
 	_zona_estanque = -1
@@ -854,6 +859,8 @@ func _colocar_boss() -> void:
 	if not Game.boss_disponible(_piso_construido):
 		print("[mazmorra] el jefe del piso ", _piso_construido, " sigue muerto: aun le queda reloj")
 		return
+	# Y se le abre hueco en el aforo, igual que en el respawn por reloj (ver _hacer_sitio_al_jefe).
+	_hacer_sitio_al_jefe()
 	# El BICHO, en cambio, DIFERIDO, por lo mismo que poblar()/_colocar_recolectables:
 	# crear_enemigo cuelga al enemigo de Main (get_parent()), y si el piso se construye desde
 	# _ready (entrar por el ATAJO, o cargar una partida en este piso) Main aun esta montando sus
@@ -1416,7 +1423,19 @@ func _repoblar_agotados(delta: float) -> void:
 # otra: este lleva el suyo) y se comprueba lo minimo, que esto corre en cada frame.
 func _repoblar_boss(delta: float) -> void:
 	if _boss_pos == Vector2.INF or _boss_naciendo:
+		# Ya viene de camino: el cartel sobra (y dejarlo puesto lo congelaria en "vuelve en 0:00"
+		# durante todo el temblor del aviso).
+		if _boss_cartel != null:
+			_boss_cartel.visible = false
 		return   # este piso no tiene jefe, o el suyo ya viene de camino (ver _anunciar_boss)
+	# EL CARTEL LLEVA SU PROPIO LATIDO, mas corto. Colgado del de abajo (2 s) el contador iba a
+	# saltos de dos en dos segundos, que en un reloj se ve fatal: parece que va mal, que es justo lo
+	# contrario de lo que este cartel viene a demostrar. Va ademas ANTES de los guardias de abajo,
+	# porque el que solo espeja el piso no planta al jefe pero tiene el mismo derecho a ver la cuenta.
+	_t_cartel -= delta
+	if _t_cartel <= 0.0:
+		_t_cartel = CARTEL_BOSS_CADA
+		_refrescar_cartel_boss()
 	_t_boss -= delta
 	if _t_boss > 0.0:
 		return
@@ -1432,8 +1451,81 @@ func _repoblar_boss(delta: float) -> void:
 	var data: EnemyData = Game.boss_del_piso(_piso_construido)
 	if data == null:
 		return
+	_hacer_sitio_al_jefe()
 	print("[mazmorra] el jefe del piso ", _piso_construido, " vuelve a su sala")
 	_anunciar_boss(data)
+
+
+# Le abre un hueco en el aforo ANTES de plantarlo. El jefe es el unico bicho que no pasa por
+# hay_sitio() -- se plantaba a pelo y dejaba el piso por encima del tope (28 vivos con tope 27), y
+# entonces el reciclado se ponia a despawnear cosas justo cuando llegabas a la pelea.
+#
+# OJO CON LA INVARIANTE: esto NO es un permiso, es una cortesia. El valor que devuelve hay_sitio se
+# IGNORA y el jefe nace pase lo que pase. Un jefe que no naciera por aforo dejaria el piso tapiado
+# para siempre, porque Game.piso_bloqueado() cierra la bajada y la salida hasta que caiga.
+#
+# Se fuerza (el segundo true) como hacen los brotes gordos: se recicla al vivo mas lejano sea cual
+# sea su distancia. _reciclar_lejano ya se salta al propio boss y a los espejos, y los cadaveres
+# (que llevan tu botin dentro) estan fuera del grupo "enemy", asi que no puede tocar nada de eso.
+func _hacer_sitio_al_jefe() -> void:
+	hay_sitio(true, true)
+
+
+# ============================================================
+#  EL CARTEL DE LA SALA DEL JEFE
+# ============================================================
+# Cuanto le falta al jefe para volver, plantado en el centro de su sala. Solo se ve estando DENTRO de
+# la sala y solo mientras el jefe esta caido: no es un HUD, es un letrero que hay en un sitio.
+#
+# Existe porque el respawn del jefe es lo unico del juego que tarda diez minutos sin dar ninguna
+# señal, y cuando fallo no habia forma de distinguir "va lento" de "esta roto" sin leer el log. Con el
+# numero bajando, que el reloj corre se ve de un vistazo.
+#
+# Es PLACEHOLDER por codigo, como el resto de la UI: el pase visual va al final.
+const BOSS_CARTEL_MARGEN := 1.35   # se ve un poco antes de entrar del todo en el radio de merodeo
+# Cada cuanto se repinta. Cuatro veces por segundo: el numero solo tiene segundos, asi que basta de
+# sobra para que el salto de un segundo al siguiente se vea limpio, y no se repinta un Label en cada
+# frame por un texto que casi nunca cambia.
+const CARTEL_BOSS_CADA := 0.25
+
+var _boss_cartel: Label = null
+var _t_cartel: float = 0.0
+
+func _refrescar_cartel_boss() -> void:
+	var falta: float = Game.boss_restante(_piso_construido)
+	# -1 = el piso no tiene jefe; 0 = ya toca (y entonces esta a punto de plantarse, o ya esta de pie).
+	var mostrar: bool = falta > 0.0 and _boss_pos != Vector2.INF and _jugador_en_la_sala_del_jefe()
+	if not mostrar:
+		if _boss_cartel != null:
+			_boss_cartel.visible = false
+		return
+	if _boss_cartel == null:
+		_boss_cartel = Label.new()
+		_boss_cartel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_boss_cartel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_boss_cartel.offset_left = -90.0
+		_boss_cartel.offset_right = 90.0
+		_boss_cartel.offset_top = -30.0
+		_boss_cartel.offset_bottom = 30.0
+		# Del PADRE del piso, no del piso: el piso va con z_index -1 y un hijo suyo se pintaria por
+		# debajo del suelo. Es la misma razon por la que crear_enemigo cuelga a los bichos ahi.
+		var mundo: Node = get_parent()
+		if mundo == null:
+			mundo = self
+		mundo.add_child(_boss_cartel)
+	_boss_cartel.position = _boss_pos
+	_boss_cartel.visible = true
+	var m: int = int(falta) / 60
+	var s: int = int(falta) % 60
+	_boss_cartel.text = "vuelve en %d:%02d" % [m, s]
+
+
+func _jugador_en_la_sala_del_jefe() -> bool:
+	var player := get_tree().get_first_node_in_group("player")
+	if not (player is Node2D):
+		return false
+	# El mismo radio con el que merodea (lo calcula _colocar_boss): su sala, ni mas ni menos.
+	return (player as Node2D).global_position.distance_to(_boss_pos) <= _boss_radio * BOSS_CARTEL_MARGEN
 
 
 # ============================================================
@@ -2115,6 +2207,10 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	# ver EnemyData.mult_mutante). Y de paso Net.registrar_enemigo, que se llama ahi abajo, ya la
 	# manda puesta en el alta.
 	e.es_boss = boss
+	# DE QUE PISO ES. Se lo lleva puesto porque Game.current_floor es donde esta el JUGADOR y los dos
+	# se desacompasan (ver el comentario de _colocar_boss, y enemy.piso_nacido). Al jefe le importa de
+	# verdad: es con este numero con el que sella su cuenta atras al morir.
+	e.piso_nacido = _piso_construido
 	# 't' impuesta (restaurando el piso): el bicho vuelve con las MISMAS stats que tenia.
 	# Va antes de add_child porque su _ready es quien la lee.
 	e.t_forzada = t

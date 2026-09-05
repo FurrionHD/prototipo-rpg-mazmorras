@@ -433,6 +433,33 @@ static func mult_mutante(es_jefe: bool) -> Dictionary:
 		"escala": MUT_ESCALA, "botin": MUT_BOTIN, "poder": MUT_PODER}
 
 
+# ------------------------------------------------------------
+#  COMO SE VE UN MUTANTE
+# ------------------------------------------------------------
+# Estas tres cosas -tinte carmesi que LATE, aura roja ascendente y mas bulto- son la firma visual del
+# mini-jefe, y viven aqui y no en enemy.gd porque las pintan DOS pantallas: el nodo del mapa
+# (enemy.gd, remote_enemy.gd) y la figura de la pantalla de combate (combat.gd). Estaban solo en el
+# mapa, y por eso al entrar en combate el mutante se volvia un bicho normal con el nombre cambiado:
+# justo cuando decides si peleas o huyes, se te quitaba el aviso.
+#
+# El carmesi va como MODULATE y no cambiando el color base: asi funciona igual con el ColorRect de
+# los que no tienen sprite y con el arte de los que si, sin que cada familia sepa nada.
+const MUT_TINTE := Color(1.35, 0.62, 0.66)
+const MUT_AURA := Color(0.95, 0.18, 0.22)
+# EL LATIDO. El tinte funciona en un golem pardo o en un jabali marron, pero hay bichos que YA son
+# rojos -- el slime, sin ir mas lejos -- y sobre esos no dice nada: al lado del normal se ve el mismo
+# rojo un poco mas vivo, y eso no es un aviso. Un PULSO si: el ojo caza el movimiento aunque el color
+# sea el mismo, y ademas se lee como "esto esta acelerado", que es justo lo que es.
+const MUT_LATIDO_SEG := 0.55
+const MUT_TINTE_PICO := Color(1.75, 0.80, 0.84)
+
+# El color de reposo de un mutante EN ESTE INSTANTE. Va contra el reloj del sistema y no contra un
+# acumulador propio, asi que todo lo que lo llame late a la vez sin tener que sincronizarse.
+static func tinte_mutante() -> Color:
+	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU / MUT_LATIDO_SEG)
+	return MUT_TINTE.lerp(MUT_TINTE_PICO, f)
+
+
 # Como se llama en la barra de combate y en el log. "mutante" y no "mutado/a" a proposito: es
 # invariable en genero, asi que vale para la rata y para el slime sin una tabla de excepciones (y
 # el dia que haya un bicho con nombre compuesto tampoco hay que tocar nada).

@@ -316,10 +316,10 @@ func _crear_fx_elemental() -> void:
 # familia pueden tener escalas distintas de fabrica (el rey rata ya es 1.68), asi que hace falta una
 # marca que no se pueda confundir con "es que este es de los grandes".
 #
-# El carmesi va como MODULATE y no cambiando su color base: asi funciona igual con el ColorRect de
-# los que no tienen sprite y con el arte de los que si, sin que cada familia tenga que saber nada.
-const MUT_TINTE := Color(1.35, 0.62, 0.66)
-const MUT_AURA := Color(0.95, 0.18, 0.22)
+# Los COLORES viven en EnemyData (MUT_TINTE / MUT_AURA / tinte_mutante), no aqui: los pinta tambien la
+# pantalla de combate, y con una copia por pantalla se desincronizan sin dar error.
+const MUT_TINTE := EnemyData.MUT_TINTE
+const MUT_AURA := EnemyData.MUT_AURA
 
 # Cuanto agranda LA MUTACION a este bicho (1.0 = no muto). Sale de la tabla que le toque: la de un
 # jefe es mas suave. Se lee de EnemyData y no se copia aqui para que no puedan discrepar.
@@ -365,14 +365,10 @@ func _marcar_mutante() -> void:
 # capricho: _actualizar_indicadores reescribe el modulate del sprite EN CADA FRAME (es donde vive el
 # aviso del golpe), asi que pintar el bicho de rojo una vez en _ready no dura ni un fotograma. Tiene
 # que haber una sola autoridad sobre el modulate, y es esa.
-const MUT_LATIDO_SEG := 0.55
-const MUT_TINTE_PICO := Color(1.75, 0.80, 0.84)
-
 func _tinte_reposo() -> Color:
 	if not mutante:
 		return Color.WHITE
-	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU / MUT_LATIDO_SEG)
-	return MUT_TINTE.lerp(MUT_TINTE_PICO, f)
+	return EnemyData.tinte_mutante()
 
 
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
@@ -1295,6 +1291,16 @@ func nacer_embistiendo() -> void:
 # pueblo (ver Game.marcar_boss_derrotado).
 var es_boss: bool = false
 
+# EN QUE PISO nacio (lo pone DungeonFloor.crear_enemigo con su _piso_construido). -1 = no lo puso
+# nadie (arena, spawner de dev), y entonces se cae al piso actual del jugador.
+#
+# Existe por el SELLO DEL JEFE: morir() sellaba con Game.current_floor, que es donde esta el JUGADOR,
+# no de donde es el bicho. Los dos se desacompasan (una transicion de escalera a medias, o en multi
+# el piso de otro), y cuando divergen el cronometro se apunta en el piso equivocado -- o no se apunta,
+# porque sellar_boss_caido filtra por BOSSES.has(piso), y entonces boss_disponible dice que si para
+# siempre: jefe infinito. Es la misma trampa que ya se corrigio en dungeon_floor._colocar_boss.
+var piso_nacido: int = -1
+
 
 # Lo que tarda un cadaver en pudrirse si no le sacas el cristal. Va contra Game.tiempo_mazmorra (el
 # reloj de expedicion) y no contra un Timer del nodo: asi respeta el desfase de dev (+10 min con una
@@ -1351,16 +1357,19 @@ func morir() -> void:
 
 	# El boss cae: el piso se abre AHORA MISMO (sin salir ni volver a entrar).
 	if es_boss:
-		Game.marcar_boss_derrotado(Game.current_floor)
+		# EL PISO DEL JEFE, no el del jugador (ver piso_nacido). Los tres avisos de abajo van al
+		# MISMO numero: si se desacompasaran, se abriria un piso y se sellaria otro.
+		var mi_piso: int = piso_nacido if piso_nacido > 0 else Game.current_floor
+		Game.marcar_boss_derrotado(mi_piso)
 		# Y arranca su cuenta atras: el jefe ya no vuelve por que la mazmorra se olvide al pasar por el
 		# pueblo (ya no se olvida), vuelve por reloj (ver Game.BOSS_RESPAWN).
-		Game.sellar_boss_caido(Game.current_floor)
+		Game.sellar_boss_caido(mi_piso)
 		var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 		if piso != null and piso.has_method("abrir_salidas"):
 			piso.abrir_salidas()
 		# MULTIJUGADOR: el atajo y la tienda se abren para TODA la sesion, y a quien este en este
 		# piso se le abren las salidas tambien (si no, no veria aparecer la bajada).
-		Net.avisar_boss_caido(Game.current_floor)
+		Net.avisar_boss_caido(mi_piso)
 
 
 func esta_muerto() -> bool:

@@ -579,6 +579,10 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.sprite_res = String(d.get("spr", ""))
 	c.sprite_t = float(d.get("spr_t", 0.5))
 	c.es_jefe = bool(d.get("jefe", false))
+	# Y si es un MUTANTE, que es lo que decide su aura, su tinte y su tamaño (ver _marcar_mutante).
+	# Un roster de una version anterior no lo trae y se queda en false: el bicho se ve normal, que es
+	# exactamente lo que pasaba antes de esto.
+	c.mutante = bool(d.get("mut", false))
 	# LA FICHA DE ESCAPARATE del aliado (aspecto + equipo). No es un PersonajeData de verdad -- no
 	# tiene stats ni inventario --, solo lo justo para que JugadorSprites le monte las capas. Se
 	# cuelga del maniqui porque Game.pj_de_combatant no lo puede encontrar: en un espejo
@@ -634,6 +638,11 @@ func _fila_de_roster(lista: Array) -> Array:
 			# de sus propios _active_enemies, que estando de espejo estan vacios (los bichos los lleva
 			# la maquina que ejecuta), asi que unirse a la pelea de un jefe sonaba a pelea de rata.
 			"jefe": c.es_jefe,
+			# SI ES UN MUTANTE. Va por la misma razon que "jefe": el espejo no tiene el nodo del mundo
+			# del que sale esta bandera, asi que sin mandarla el que se une a la pelea veia un bicho
+			# corriente -- sin aura, sin tinte y del tamaño normal -- pegando como un mini-jefe. El
+			# nombre ya le llegaba con el "mutante" puesto, y eso hacia la mentira mas rara todavia.
+			"mut": c.mutante,
 			# EL EQUIPO Y EL ASPECTO del aliado, para que el espejo pueda montarle el muñeco. Los
 			# enemigos viajan con su sprite (spr/spr_t) y por eso SI se veian; los aliados no llevaban
 			# nada y salian de cuadrado de color con la cara pegada. Ver Game.pj_de_dict.
@@ -2545,9 +2554,63 @@ func _montar_figura(actor: Control, c: Combatant, numero: int) -> ColorRect:
 		_poner_sprite(fig, c)
 	else:
 		_poner_muneco(fig, c)
+	# LA FIRMA DEL MUTANTE. Va aqui y no dentro de _poner_sprite porque _poner_sprite se va de vacio
+	# para los bichos que aun no tienen generador (se quedan con el cuadrado de color), y un mutante
+	# sin sprite tiene el mismo derecho a avisar de que lo es.
+	_marcar_mutante(actor, fig, c)
 	# El numero NO se repite aqui: cada figura tiene su tarjeta justo encima y ya lo lleva, asi que
 	# ponerlo tambien en el escenario es decir dos veces lo mismo en dos sitios que se miran.
 	return fig
+
+
+# ============================================================
+#  EL MUTANTE, EN COMBATE
+# ============================================================
+# El mini-jefe se leia de un vistazo en el mapa (tinte carmesi que late, aura roja y mas bulto) y al
+# entrar en combate se volvia un bicho corriente con "mutante" pegado al nombre. Se perdia el aviso
+# justo donde se decide si peleas o huyes.
+#
+# Las tres piezas van cada una por su sitio, y no por capricho:
+#   - EL TAMAÑO lo pone _poner_sprite en el alto_base, porque quien reparte el tamaño de todos es
+#     _ajustar_zoom_sprites y tiene que ver a este ya crecido para escalar al resto contra el.
+#   - EL AURA cuelga del ACTOR, no de la figura: el modulate de la figura tiñe a sus hijos (y el aura
+#     saldria carmesi en vez de roja), y _revivir_bloque tira los hijos de la figura para rehacer el
+#     sprite, lo que se llevaria las particulas por delante.
+#   - EL TINTE no se puede pintar aqui y ya: CombatFX._aplicar reescribe el modulate de cada figura EN
+#     CADA FRAME. Se registra como color DE REPOSO en CombatFX y es el quien lo compone. Es el mismo
+#     reparto que en el mapa, donde el latido vive en enemy._tinte_reposo por la misma razon.
+#
+# ES IDEMPOTENTE, y tiene que serlo: un hueco se REESTRENA (_revivir_bloque), asi que la rata que
+# entra donde murio un mutante se quedaria con su aura pegada, y al reves. Se limpia siempre lo de
+# antes y luego se pone lo que toque.
+const _META_AURA_MUT := "aura_mutante"
+
+func _marcar_mutante(actor: Control, fig: ColorRect, c: Combatant) -> void:
+	# Lo de antes, fuera. El aura cuelga del ACTOR y no de la figura, asi que no se la lleva el vaciado
+	# de hijos de _revivir_bloque: hay que tirarla a mano, y por eso va marcada con un meta.
+	if actor.has_meta(_META_AURA_MUT):
+		var vieja = actor.get_meta(_META_AURA_MUT)
+		if vieja != null and is_instance_valid(vieja):
+			(vieja as Node).queue_free()
+		actor.remove_meta(_META_AURA_MUT)
+	if _fx != null:
+		_fx.marcar_mutante(fig, c.mutante)
+	if not c.mutante:
+		return
+	# El tamaño del aura sigue al del bicho, igual que en enemy._marcar_mutante: en una rata diminuta
+	# un aura de trent seria una nube que tapa la pelea.
+	var alto: float = LADO_FIGURA * 0.5 * float(EnemyData.mult_mutante(c.es_jefe)["escala"])
+	# Mas densa que en el mapa (intensidad 2 = el doble de particulas). Alli el bicho ocupa unas
+	# decenas de pixeles y siete motas ya lo envuelven; aqui la figura mide LADO_FIGURA y con las
+	# mismas siete el aura se leia como cuatro puntitos sueltos.
+	var p := Particulas.ascendentes(actor, EnemyData.MUT_AURA, 2.0, maxf(8.0, alto))
+	# ascendentes() coloca la boquilla dando por hecho un cuerpo CENTRADO EN EL ORIGEN (es lo que pasa
+	# en el mapa, donde el padre es el propio bicho). Aqui el padre es un Control y su origen es la
+	# esquina de arriba a la izquierda. Se ASIGNA, no se suma: el desplazamiento hacia los pies que
+	# trae puesto (alto * 0.2) es relativo a un cuerpo centrado, y sumandolo el aura nacia por DEBAJO
+	# del suelo de la figura. El ancla es el punto de apoyo del sprite (ver _poner_sprite).
+	p.position = Vector2(LADO_FIGURA * 0.5, LADO_FIGURA)
+	actor.set_meta(_META_AURA_MUT, p)
 
 
 # EL MUÑECO DE VERDAD encima de la figura del jugador/compañero -- calco de _poner_sprite, pero
@@ -2921,6 +2984,14 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 		alto_base = alto_px * SpritesEnemigo.escala_de(ed)
 		if SpritesEnemigo.hay_que_estirar(ed):
 			alto_base *= ed.escala_visual
+		# EL BULTO DEL MUTANTE. Va en el alto_base y no en el scale del sprite porque quien reparte el
+		# tamaño de toda la pelea es _ajustar_zoom_sprites, contra el mas grande: tocando el scale
+		# despues, el mutante crecia por su cuenta y el reparto ya no cuadraba. Es la misma excepcion
+		# que en el mapa (enemy._marcar_mutante): a los generados se les estira el pixel aunque no
+		# declaren hay_que_estirar, porque la alternativa era una version mutante del generador de
+		# cada uno de los veinte enemigos para decir lo mismo que ya dicen el tinte y el aura.
+		if c.mutante:
+			alto_base *= float(EnemyData.mult_mutante(c.es_jefe)["escala"])
 	fig.set_meta("sprite", sp)
 	fig.set_meta("alto_base", alto_base)
 	# LA VUELTA A REPOSO, enganchada UNA SOLA VEZ y aqui, que es donde nace el sprite. Conectarla
@@ -3535,6 +3606,11 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 			fig.remove_meta("alto_base")
 		fig.color = c.color_visual
 		_poner_sprite(fig, c)
+		# Y su firma de mutante, PUESTA O QUITADA segun el que estrena el hueco: el aura del anterior
+		# cuelga del actor y el vaciado de arriba no la toca (ver _marcar_mutante, que es idempotente).
+		var act: Control = fig.get_parent() as Control
+		if act != null:
+			_marcar_mutante(act, fig, c)
 	# EL APAGADO PENDIENTE DEL CADAVER ANTERIOR, FUERA. Es lo que dejaba GRIS al refuerzo que entra en
 	# el hueco de un muerto: _apagar_diferido no apaga en el acto si quedan golpes por aterrizar, deja
 	# b["fx_apagar"] = true y lo consume despues _saldar_barras, que recorre TODAS las tarjetas. Si
@@ -4695,9 +4771,21 @@ func _accion_disponible(id: int) -> bool:
 		Action.FLEE: return true
 		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
 		Action.MAGIC: return _hay_hechizos() and not _player.silenciado()
-		Action.HABILIDAD: return not _player.abilities_combate.is_empty() \
+		# is_empty() ya NO sirve: abilities_combate mide siempre MAX_HABILIDADES y los huecos vacios
+		# van como null, asi que un array de cuatro nulls "no esta vacio" y el boton se habilitaba
+		# para abrir un submenu sin nada dentro.
+		Action.HABILIDAD: return _tiene_alguna_habilidad() \
 			and not _player.silenciado() and not _player.enraizado()
 		Action.OBJETO: return Game.consumibles_total() > 0
+	return false
+
+
+# ¿Lleva puesta alguna habilidad? Los huecos vacios de abilities_combate son null (ver
+# Game.habilidades_con_huecos), asi que hay que mirar el contenido, no el tamaño.
+func _tiene_alguna_habilidad() -> bool:
+	for ab in _player.abilities_combate:
+		if ab != null:
+			return true
 	return false
 
 
@@ -5878,12 +5966,31 @@ func _accion_habilidad() -> void:
 	_ocultar_cajas()
 	for c in _ability_box.get_children():
 		c.queue_free()
-	# Ordenadas por coste de energia DESCENDENTE (las mas caras arriba). El coste usa las
-	# manos que aportan CADA habilidad (dual solo si ambas armas la traen).
+	# EN EL ORDEN DE LOS HUECOS, el que pusiste tu arrastrando en el gestor. Antes esto hacia un
+	# sort_custom por coste de energia descendente y tiraba tu orden entero: daba igual donde
+	# colocaras cada habilidad, en la pelea salian como quisiera el coste. Y el gestor tiene cuatro
+	# huecos justamente para que el 1 sea el que tienes mas a mano.
 	var abils: Array = _player.abilities_combate.duplicate()
-	abils.sort_custom(func(a, b): return a.coste(_player.ability_manos(a)) > b.coste(_player.ability_manos(b)))
+	# Hasta el ULTIMO hueco ocupado, no siempre los cuatro: los huecos de EN MEDIO se pintan vacios
+	# (si no, el 3 se subiria al sitio del 2 y las posiciones dejarian de ser fijas), pero los que
+	# sobran AL FINAL no se pintan, que serian botones muertos colgando.
+	var ultimo: int = -1
+	for i in abils.size():
+		if abils[i] != null:
+			ultimo = i
+	var celdas: int = ultimo + 1
 	var grid := _rejilla_submenu(_ability_box)
-	for ab in abils:
+	for i in celdas:
+		var ab = abils[i]
+		if ab == null:
+			# Un hueco que dejaste vacio a proposito. Ocupa su sitio y no hace nada.
+			var vacio := Button.new()
+			vacio.text = "—"
+			vacio.disabled = true
+			vacio.tooltip_text = "Hueco %d, sin habilidad puesta" % (i + 1)
+			_celda_submenu(vacio)
+			grid.add_child(vacio)
+			continue
 		var manos: int = _player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
 		var coste: float = _player.current_energy if es_conv else ab.coste(manos)
@@ -5918,7 +6025,7 @@ func _accion_habilidad() -> void:
 			b.pressed.connect(_usar_habilidad.bind(ab))
 		_celda_submenu(b)
 		grid.add_child(b)
-	_cerrar_submenu(_ability_box, abils.size(), _mostrar_acciones)
+	_cerrar_submenu(_ability_box, celdas, _mostrar_acciones)
 	_ocultar_log()   # el submenu ocupa el sitio del historial
 
 

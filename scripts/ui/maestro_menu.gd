@@ -141,14 +141,18 @@ func _rebuild_real() -> void:
 #  Pestaña EQUIPAR: los cuatro huecos del arma que lleva PUESTA
 # ============================================================
 func _pintar_equipar(pj: PersonajeData) -> void:
-	var puestas: Array = Game.habilidades_equipadas(pj)
+	# CON LOS HUECOS: esta pantalla numera "1. / 2. / 3. / 4." y esos numeros TIENEN que ser los del
+	# gestor. Con la lista compactada, dejar el hueco 1 vacio hacia que lo del 2 saliera aqui como "1."
+	# y los dos menus se contradecian.
+	var puestas: Array = Game.habilidades_con_huecos(pj)
 	var pool: Array = Game.pool_habilidades(pj)
 	MenuScaffold.titulo(_header, "%s  ·  %s" % [pj.nombre, _arma_puesta(pj)], 16)
 
 	# --- Izquierda: los huecos, ocupados y libres ---
-	MenuScaffold.titulo(_lista, "Equipadas (%d de %d)" % [puestas.size(), Game.MAX_HABILIDADES], 14)
+	var cuantas: int = Game.habilidades_equipadas(pj).size()   # para el rotulo: cuantas LLEVA
+	MenuScaffold.titulo(_lista, "Equipadas (%d de %d)" % [cuantas, Game.MAX_HABILIDADES], 14)
 	for i in Game.MAX_HABILIDADES:
-		if i < puestas.size():
+		if i < puestas.size() and puestas[i] != null:
 			var ab: AbilityData = puestas[i]
 			var b := TooltipButton.new()
 			b.text = "%d.  %s   ✕" % [i + 1, ab.nombre]

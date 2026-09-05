@@ -206,6 +206,9 @@ var _agotados_sesion: Dictionary = {}
 # diga su propio reloj.
 var _bosses_sello: Dictionary = {}
 var _t_barrido := 0.0
+# Latido APARTE para los jefes. No comparte el de las vetas porque no comparte el guard: aquel solo
+# corre con la expedicion abierta y este corre siempre (ver _process).
+var _t_bosses := 0.0
 const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual que en solitario)
 
 # --- OBJETOS DEL SUELO replicados (hito 2) ---
@@ -348,7 +351,21 @@ func _process(delta: float) -> void:
 			_mi_hogar.rpc_id(1, _mis_filas_hogar())
 		elif es_host:
 			_difundir_hogar()
-	if not activo or not es_host or not expedicion_abierta:
+	if not activo or not es_host:
+		return
+	# LOS JEFES VAN POR SU CUENTA, por encima del guard de expedicion_abierta que hay debajo. Su reloj
+	# es de PARED (Encargos.ahora), asi que corre igual con la mazmorra vacia y con todo el mundo en el
+	# pueblo: no tiene nada que ver con que haya alguien dentro. Colgado del guard, el sello se quedaba
+	# congelado en cuanto el ultimo subia al pueblo y solo se soltaba en la puesta al dia de volver a
+	# bajar (_conceder_entrada) -- por eso el Rey Slime "no volvia" hasta que te ibas y regresabas.
+	#
+	# Es la OTRA MITAD del bug que dejo el comentario de _barrer_bosses: entonces se arreglo el RELOJ
+	# (de tiempo_mazmorra a reloj de pared) y se dejo la CADENCIA colgando de un guard que se apaga.
+	_t_bosses -= delta
+	if _t_bosses <= 0.0:
+		_t_bosses = BARRIDO_RESPAWN_CADA
+		_barrer_bosses()
+	if not expedicion_abierta:
 		return
 	# El reloj del respawn ya lo mueve Game (tiempo_mazmorra): aqui solo se marca cada cuanto tocar
 	# la tabla.
@@ -1308,11 +1325,26 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 		_fotos_piso.erase(piso)
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
+	# Los jefes viajan como SEGUNDOS QUE FALTAN, no como el instante en que cayeron: el instante esta
+	# en el reloj de PARED DEL HOST, y el del que recibe no tiene por que ir a la misma hora. Con
+	# timestamps crudos el contador de la sala del jefe le saldria corrido por el desfase entre los dos
+	# relojes (y con uno mal puesto, absurdo). Los segundos que faltan son los mismos en cualquier reloj.
 	if quien == 1:
-		_entrar_ok(piso, _agotados_sesion, dueno, mem, _bosses_sello, epoca_sesion, _nonces_sesion)
+		_entrar_ok(piso, _agotados_sesion, dueno, mem, _restantes_boss(), epoca_sesion, _nonces_sesion)
 	else:
-		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _bosses_sello,
+		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _restantes_boss(),
 			epoca_sesion, _nonces_sesion)
+
+
+# {piso: segundos que le faltan a ese jefe}. Solo tiene sentido en el host, que es quien lleva la
+# cuenta. Ver _conceder_entrada y _marcar_boss: es la moneda con la que los jefes cruzan la red.
+func _restantes_boss() -> Dictionary:
+	var d: Dictionary = {}
+	for piso in _bosses_sello:
+		var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
+		var pasado: float = float(Encargos.ahora()) - float(_bosses_sello[piso])
+		d[piso] = maxf(0.0, espera - pasado)
+	return d
 
 
 # Corre en QUIEN entra: hace el viaje completo. olvidar_mazmorra() limpia la memoria LOCAL de
@@ -1329,7 +1361,17 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 	_agotados_sesion = agotados.duplicate()
 	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
 	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).
-	_bosses_sello = sellos_boss.duplicate()
+	#
+	# Llegan como SEGUNDOS QUE FALTAN (ver _conceder_entrada) y se pasan aqui a MI reloj de pared, para
+	# que la resta de boss_restante valga igual en las dos maquinas. El HOST no se toca la suya: es la
+	# tabla autoritativa, ya esta en su reloj, y re-hacerla desde su propio mensaje solo podria
+	# estropearla con el redondeo del viaje de ida y vuelta.
+	if not es_host:
+		_bosses_sello.clear()
+		# 'p' y no 'piso': el parametro de esta funcion ya se llama asi (el piso al que entro).
+		for p in sellos_boss:
+			var espera: float = float(Game.BOSS_RESPAWN.get(p, 0.0))
+			_bosses_sello[p] = float(Encargos.ahora()) - (espera - float(sellos_boss[p]))
 	Game.current_floor = piso
 	# La EPOCA y los NONCES del mundo del host: sin ellos el invitado tiraria por su cuenta que
 	# material y que pez sale en cada sitio, y veria cosas distintas de las del host en la MISMA veta.
@@ -1872,9 +1914,10 @@ func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 # tiempo_mazmorra DEL HOST) en vez del de cada maquina, que es local y diverge, asi que la veta
 # revive en todas a la vez. Antes esto no existia y lo picado en sesion no volvia NUNCA.
 func _barrer_respawns() -> void:
-	# Los JEFES van en el mismo barrido (mismo reloj, misma cadencia, y misma puesta al dia cuando
-	# alguien vuelve a bajar). Va ANTES del early-return de abajo: un piso sin vetas picadas puede
-	# perfectamente tener un jefe esperando su hora.
+	# Los JEFES ya NO cuelgan de aqui: tienen su propio latido en _process, por encima del guard de
+	# expedicion_abierta (su reloj es de pared y corre con la mazmorra vacia). Se sigue llamando desde
+	# _conceder_entrada, y esa llamada tambien tiene que ponerlos al dia: es la que planta al jefe ya
+	# de pie ANTES de conceder la entrada, para que el que baja no lo vea aparecer de la nada.
 	_barrer_bosses()
 	if _agotados_sesion.is_empty():
 		return
@@ -1973,19 +2016,27 @@ func _sellar_boss_host(piso: int) -> void:
 	if not Game.BOSSES.has(piso):
 		return
 	_bosses_sello[piso] = float(Encargos.ahora())
-	_marcar_boss(piso, true)
-	_marcar_boss.rpc(piso, true)
+	# Acaba de caer: le queda la espera entera, y eso es lo que se manda (no el instante, ver
+	# _conceder_entrada). El _marcar_boss local no toca nada, que la clave ya esta puesta arriba.
+	var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
+	_marcar_boss(piso, true, espera)
+	_marcar_boss.rpc(piso, true, espera)
 	print("[multi] jefe del piso %d abatido: vuelve en %d s" % [
 		piso, roundi(float(Game.BOSS_RESPAWN.get(piso, 0.0)))])
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _marcar_boss(piso: int, muerto: bool) -> void:
+func _marcar_boss(piso: int, muerto: bool, restan: float = -1.0) -> void:
 	if muerto:
-		# En el cliente el valor da igual (no compara relojes, ver _bosses_sello): lo que cuenta es
-		# que la clave este.
+		# Quien MANDA la decision sigue siendo el host (esta clave puesta = el jefe esta muerto). Lo
+		# que se guarda aqui es el instante EN MI RELOJ en que le tocara volver, para que el contador
+		# de su sala pueda restar en local sin preguntar nada. 'restan' viene del host en segundos por
+		# lo mismo que en _conceder_entrada: los relojes de pared de dos maquinas no van a la par.
+		# Sin 'restan' (el jefe acaba de caer aqui mismo) la cuenta arranca entera.
 		if not _bosses_sello.has(piso):
-			_bosses_sello[piso] = float(Encargos.ahora())
+			var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
+			var falta: float = espera if restan < 0.0 else restan
+			_bosses_sello[piso] = float(Encargos.ahora()) - (espera - falta)
 	else:
 		_bosses_sello.erase(piso)
 
@@ -2014,13 +2065,28 @@ func _barrer_bosses() -> void:
 		_bosses_sello.erase(piso)
 		_marcar_boss(piso, false)
 		_marcar_boss.rpc(piso, false)
-		print("[multi] el jefe del piso %d vuelve a estar de pie" % piso)
+		# El TIEMPO REAL que ha pasado va en el print a proposito: si vuelve a haber una queja de "el
+		# jefe no reaparece", este numero dice de un vistazo si el reloj corrio (pasado ~ espera) o si
+		# el barrido estuvo parado y se puso al dia de golpe (pasado >> espera).
+		print("[multi] el jefe del piso %d vuelve a estar de pie (esperaba %d s, han pasado %d)" % [
+			piso, roundi(espera), roundi(pasado)])
 
 
 # ¿Toca que el jefe de ese piso este de pie? Lo pregunta Game.boss_disponible cuando hay sesion.
 # Es una consulta de TABLA, sin relojes: la resta la hace el host en _barrer_bosses.
 func boss_disponible(piso: int) -> bool:
 	return not _bosses_sello.has(piso)
+
+
+# SEGUNDOS que le faltan a ese jefe, para el contador de su sala. Aqui SI se resta, tambien en el
+# cliente: su entrada de _bosses_sello ya viene re-basada a su reloj (ver _marcar_boss y _entrar_ok).
+# Que el numero baje solo es cosmetico; quien decide que se plante sigue siendo boss_disponible, y esa
+# sigue siendo consulta de tabla contra el host.
+func boss_restante(piso: int) -> float:
+	if not _bosses_sello.has(piso):
+		return 0.0
+	var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
+	return maxf(0.0, espera - (float(Encargos.ahora()) - float(_bosses_sello[piso])))
 
 
 # Corre en TODOS: apunta el hito de mundo y, si estoy en ESE piso, abre sus salidas (la escalera

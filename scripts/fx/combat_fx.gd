@@ -699,6 +699,9 @@ var _tanda_pedida := -1                 # la que ha fijado quien resuelve, o -1 
 var _tanda_auto := -1                   # la ultima estampada: sin peticion, cada golpe va a la suya
 var _numeros: Array[Dictionary] = []    # los que estan volando ahora
 var _pool: Array[Label] = []            # Labels reciclados: nada de crear nodos por frame
+# {actor -> figura} de los MUTANTES. Su carmesi late, asi que hay que repintarlo cada frame desde
+# _aplicar; esta lista es lo unico que hace falta recordar. Lo da de alta combat._marcar_mutante.
+var _mutantes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -718,6 +721,40 @@ func _visual(bloque: Dictionary) -> Control:
 		return null
 	var v: Control = bloque.get("actor")
 	return v if v != null and is_instance_valid(v) else null
+
+
+# ============================================================
+#  EL CARMESI DEL MUTANTE
+# ============================================================
+# Lo da de alta combat._marcar_mutante al montar la figura de un mini-jefe, y lo repinta _aplicar en
+# cada frame porque el color LATE (EnemyData.tinte_mutante). Aqui solo se lleva la lista.
+#
+# 'actor' es el nodo que maneja _aplicar; 'fig' es a quien se le pone el color (ver la nota de alli
+# sobre por que no se tiñe el actor entero).
+func marcar_mutante(fig: Control, si: bool = true) -> void:
+	if fig == null or not is_instance_valid(fig):
+		return
+	var actor: Node = fig.get_parent()
+	if actor == null:
+		return
+	if si:
+		_mutantes[actor] = fig
+	else:
+		_mutantes.erase(actor)
+
+
+func _latir_mutantes() -> void:
+	if _mutantes.is_empty():
+		return
+	var col: Color = EnemyData.tinte_mutante()
+	for actor in _mutantes.keys():
+		var fig = _mutantes[actor]
+		# La referencia se puede quedar colgando (un hueco reestrenado, la pelea que se cierra): se
+		# limpia sola en cuanto se nota, sin que nadie tenga que acordarse de darla de baja.
+		if fig == null or not is_instance_valid(fig):
+			_mutantes.erase(actor)
+			continue
+		(fig as CanvasItem).modulate = col
 
 
 # ============================================================
@@ -1954,6 +1991,11 @@ func _process(delta: float) -> void:
 	var dt: float = delta * escala_tiempo
 	_mover_barras(dt)
 	_mover_numeros(dt)
+	# EL CARMESI DEL MUTANTE, ARRIBA DEL TODO. Va con las barras y los numeros -- lo que corre SIEMPRE
+	# -- y no ahi abajo con _aplicar, que solo se ejecuta mientras hay una racha de animacion en
+	# curso. Puesto dentro de _aplicar el mutante solo latia mientras alguien pegaba, y en reposo (que
+	# es cuando te lo quedas mirando para decidir si peleas) se veia como un bicho corriente.
+	_latir_mutantes()
 	if not _activa:
 		return
 	_t += dt

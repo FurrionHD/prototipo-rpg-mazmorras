@@ -201,20 +201,19 @@ func _marcar_mutante() -> void:
 	_cuerpo.modulate = _tinte_reposo()
 	if _sprite != null:
 		_sprite.modulate = _tinte_reposo()
-	Particulas.ascendentes(self, _ENEMY_GD.MUT_AURA, 1.0,
+	Particulas.ascendentes(self, EnemyData.MUT_AURA, 1.0,
 		32.0 * maxf(0.1, data.escala_visual
 			* float(EnemyData.mult_mutante(es_boss)["escala"])) if data != null else 32.0)
 
 
-# El LATIDO del mutante, con la misma cuenta que enemy._tinte_reposo (las constantes salen de alli).
-# Aqui hace ademas la misma falta que alli: aplicar_estado_visual reescribe el modulate del sprite en
-# cada tick de posiciones, asi que un color puesto una sola vez al nacer se borra al primer paquete.
+# El LATIDO del mutante. Sale de EnemyData, que es de donde lo sacan tambien el nodo del mapa y la
+# figura de combate. Aqui hace ademas la misma falta que alli: aplicar_estado_visual reescribe el
+# modulate del sprite en cada tick de posiciones, asi que un color puesto una sola vez al nacer se
+# borra al primer paquete.
 func _tinte_reposo() -> Color:
 	if not mutante:
 		return Color.WHITE
-	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU
-		/ _ENEMY_GD.MUT_LATIDO_SEG)
-	return _ENEMY_GD.MUT_TINTE.lerp(_ENEMY_GD.MUT_TINTE_PICO, f)
+	return EnemyData.tinte_mutante()
 
 
 # Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.

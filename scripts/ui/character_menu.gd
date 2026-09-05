@@ -1200,7 +1200,10 @@ func _sec_trazos() -> void:
 var _kit: Array = []
 
 func _trazos_habilidades(pj: PersonajeData) -> void:
-	var puestas: Array = Game.habilidades_equipadas(pj)
+	# CON LOS HUECOS. Con la lista compactada (habilidades_equipadas) la posicion que se ve no era la
+	# posicion real: dejando el hueco 1 vacio, lo del 2 se pintaba en el 1 -- y como _soltar_kit usa la
+	# posicion VISUAL como indice al soltar, arrastrar apuntaba al hueco equivocado.
+	var puestas: Array = Game.habilidades_con_huecos(pj)
 	var arma: WeaponData = Game.arma_main(pj)
 	var tipo: String = WEAPON_TIPO_LABELS[clampi(int(arma.tipo), 0,
 		WEAPON_TIPO_LABELS.size() - 1)]

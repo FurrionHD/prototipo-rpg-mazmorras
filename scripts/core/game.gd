@@ -2900,6 +2900,24 @@ func boss_disponible(piso: int) -> bool:
 		return false
 	return pasado >= float(BOSS_RESPAWN.get(piso, 0.0))
 
+# SEGUNDOS que le faltan al jefe de ese piso para volver a estar de pie. 0 = ya toca (o nunca ha
+# caido). -1 = ese piso no tiene jefe.
+#
+# Lo pinta el contador de su sala (dungeon_floor). Es una comodidad de lectura, no una fuente de
+# verdad: quien decide si se planta sigue siendo boss_disponible.
+func boss_restante(piso: int) -> float:
+	if not BOSSES.has(piso):
+		return -1.0
+	if boss_disponible(piso):
+		return 0.0
+	if Net.activo:
+		return Net.boss_restante(piso)
+	if not bosses_sello.has(piso):
+		return 0.0
+	var pasado: float = float(Encargos.ahora()) - float(bosses_sello[piso])
+	return maxf(0.0, float(BOSS_RESPAWN.get(piso, 0.0)) - pasado)
+
+
 func boss_del_piso(piso: int) -> EnemyData:
 	if not BOSSES.has(piso):
 		return null
@@ -5937,8 +5955,24 @@ func _set_guardado(p: PersonajeData) -> Array:
 	return crudo
 
 
-# LO QUE LLEVA PUESTO de verdad, sin los huecos. Es lo que va al combatiente y lo que pinta
-# el menu del maestro.
+# EL SET CON LOS HUECOS: MAX_HABILIDADES posiciones, con null donde no llevas nada. Es lo mismo que
+# _set_guardado, expuesto para quien SI necesita el indice del hueco.
+#
+# Lo necesitan los tres sitios donde el orden es el producto, no un detalle: el gestor (donde
+# arrastras), el menu del maestro y el submenu de habilidades del combate. Todos leian
+# habilidades_equipadas(), que compacta, y entonces el hueco 2 se pintaba en el 1 -- con el agravante
+# de que el gestor usa la posicion VISUAL como indice al soltar, asi que arrastrar apuntaba mal.
+#
+# Se devuelve una copia: el array de dentro es el que vive en loadout_habilidades y lo tocan
+# equipar/desequipar/colocar_habilidad. Que un lector lo modifique sin querer seria un cambio de
+# equipo fantasma.
+func habilidades_con_huecos(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	return _set_guardado(p).duplicate()
+
+
+# LO QUE LLEVA PUESTO de verdad, sin los huecos. Para quien solo quiere saber QUE llevas y le da
+# igual donde (contar, buscar, validar). Si te importa el ORDEN, usa habilidades_con_huecos.
 func habilidades_equipadas(pj: PersonajeData = null) -> Array:
 	var p: PersonajeData = pj if pj != null else lider()
 	var out: Array = []
@@ -6255,7 +6289,10 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# Habilidades del loadout (KAN-57): NO todo lo que dan las armas, sino las que este
 	# personaje SABE y lleva EQUIPADAS (como mucho MAX_HABILIDADES). El pool crudo del equipo
 	# y el saneo del set viven en habilidades_equipadas(); aqui solo se recogen.
-	var abils: Array = habilidades_equipadas(p)
+	# CON LOS HUECOS (los null incluidos): el orden en que las arrastraste es el orden en que salen en
+	# el submenu de combate, y eso solo se sostiene si el indice del hueco llega hasta aqui. Quien
+	# recorra abilities_combate tiene que saltarse los null.
+	var abils: Array = habilidades_con_huecos(p)
 	c.abilities_combate = abils
 	# Mapa habilidad -> indices de MANO (arma) que la aportan. El dual de una habilidad
 	# SOLO se activa si AMBAS armas la traen (daga+daga), no daga+estoque: cada arma tiene
@@ -6263,6 +6300,8 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# escudo/varita no cuelgan de una mano -> mano principal (0). Ver Combatant/_usar_habilidad.
 	var ability_hands: Dictionary = {}
 	for ab in abils:
+		if ab == null:
+			continue
 		var idxs: Array = []
 		# Por la PLANTILLA (habilidades_de_item): con la lista de la copia guardada, una habilidad
 		# nueva no aparecia en NINGUNA mano y caia siempre a la principal, perdiendo el dual.
