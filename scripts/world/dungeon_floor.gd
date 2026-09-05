@@ -1023,6 +1023,53 @@ func _parir_boss(data: EnemyData, pos: Vector2, piso: int) -> void:
 	# El RADIO es lo que le deja merodear por su sala. Estaba a 0, y por eso el Rey Slime se quedaba
 	# clavado en el centro y solo se movia para perseguirte: sin radio no hay a donde deambular.
 	var e = crear_enemigo(data, pos, _boss_radio, 1.0, -1, true)
+	_emerger(e)
+
+
+# EL JEFE SALE DEL AGUJERO, no aparece plantado encima de el. Se abre el boquete, y del boquete sale
+# el bicho: sin esto el agujero quedaba de adorno y el jefe se materializaba a su lado, que era como
+# contar la historia y ensenar el final por separado.
+#
+# El truco es el de siempre en pixel art para lo que emerge: se ESTIRA DESDE LOS PIES. El sprite
+# arranca aplastado contra el suelo (casi sin alto) y crece hasta el suyo, asi que la silueta va
+# asomando de abajo arriba como si trepara. No hace falta recortarlo contra el borde del hueco --
+# que obligaria a una mascara y a meterse en el orden de dibujo del piso -- porque el ojo lee el
+# estiramiento como salir.
+#
+# Y sale OSCURO: viene de dentro del agujero, donde no da la luz, y va cogiendo su color segun
+# asoma. Es lo que hace que no parezca que se ha escalado un dibujo.
+const EMERGER_DUR := 0.75
+const EMERGER_APLASTADO := 0.12   # el alto con el que arranca, en fraccion del suyo
+
+func _emerger(e: Node2D) -> void:
+	if e == null or not is_instance_valid(e):
+		return
+	var suyo: Vector2 = e.scale
+	# QUIETO MIENTRAS SALE. El bicho MERODEA: su propio proceso le escribe la posicion cada frame, y
+	# una animacion de posicion compite con el y pierde -- el jefe acababa saliendo desplazado del
+	# agujero, en cualquier sitio menos en su boca. Se le congela el proceso mientras emerge y se le
+	# devuelve al terminar, que ademas es lo que tiene sentido: todavia no ha salido, no puede andar.
+	var proc: bool = e.is_processing()
+	var fis: bool = e.is_physics_processing()
+	e.set_process(false)
+	e.set_physics_process(false)
+	var t := create_tween()
+	t.set_parallel(true)
+	# Solo la ESCALA, y con el pivote donde este: tocar tambien la posicion era lo que se peleaba con
+	# la IA. El estiramiento desde aplastado ya se lee como salir sin necesidad de moverlo.
+	t.tween_property(e, "scale", suyo, EMERGER_DUR).from(
+		Vector2(suyo.x, suyo.y * EMERGER_APLASTADO)).set_trans(Tween.TRANS_CUBIC).set_ease(
+		Tween.EASE_OUT)
+	# Del negro del hueco a su color: viene de dentro, donde no da la luz. Mas rapido que el
+	# estiramiento, asi que lo ultimo que se ve es la forma asentandose.
+	t.tween_property(e, "modulate", Color.WHITE, EMERGER_DUR * 0.7).from(
+		Color(0.15, 0.15, 0.18))
+	await t.finished
+	if is_instance_valid(e):
+		e.set_process(proc)
+		e.set_physics_process(fis)
+		e.scale = suyo
+		e.modulate = Color.WHITE
 
 
 # La sala mas CENTRADA del mapa. El boss no se esconde en un rincon: se planta en medio y hay
