@@ -86,6 +86,47 @@ const PAL_CUERPO := [
 	Color(0, 0, 0, 0),                # MINERAL_BRILLO
 ]
 
+# ------------------------------------------------------------
+#  LA HOJA DE LAS PLANTAS DE CUEVA VA EN GRIS
+#  Del piso 7 en adelante el suelo es roca AZUL OSCURA y las plantas se perdian contra el. El
+#  problema no era el dibujo sino que la hoja se hornea verde y en el juego se MULTIPLICA por el
+#  color del material (ver tinte_cuerpo): multiplicar un verde por un ambar da un oliva sucio, asi
+#  que por mucho que se le cambiara el color al .tres ninguna especie podia leerse violeta, hueso
+#  ni ambar -- todas acababan en la misma familia apagada, justo la del suelo.
+#
+#  Sobre gris claro, en cambio, el color entra limpio. Es el mismo truco que ya usa el MINERAL en
+#  PAL_TINTE, y ademas sube el BRILLO, que es de donde sale el contraste contra el azul (el musgo de
+#  cueva enseño lo mismo, ver TerrenoSprites.PALETAS).
+#
+#  Solo para las de cueva: las tres de los pisos 1-6 se quedan verdes, que sobre la piedra gris se
+#  ven perfectamente y ya estan dadas por buenas.
+# ------------------------------------------------------------
+const PAL_CUERPO_CUEVA := [
+	Color(0, 0, 0, 0),                # VACIO
+	Color(0.03, 0.03, 0.05),          # BORDE
+	Color(0.16, 0.15, 0.19),          # ROCA_OSC
+	Color(0.27, 0.26, 0.32),          # ROCA
+	Color(0.38, 0.36, 0.44),          # ROCA_CLARA
+	Color(0.16, 0.11, 0.07),          # TRONCO_OSC
+	Color(0.26, 0.18, 0.11),          # TRONCO
+	Color(0.36, 0.26, 0.16),          # TRONCO_CLARO
+	Color(0.45, 0.45, 0.46),          # HOJA_OSC
+	Color(0.62, 0.62, 0.63),          # HOJA
+	Color(0.80, 0.80, 0.81),          # HOJA_CLARA
+	Color(0, 0, 0, 0),                # MINERAL
+	Color(0, 0, 0, 0),                # MINERAL_BRILLO
+]
+
+# Las seis especies de cueva son las formas 3 a 8 (moho de las simas, raiz umbria, liquen abisal,
+# musgo ciego, zarza retorcida y flor de sima): tier 2 y 3, o sea del piso 7 para abajo.
+const PLANTA_PRIMERA_DE_CUEVA := 3
+
+static func _pal_cuerpo(familia: String, forma: int) -> Array:
+	if familia == "planta" and forma >= PLANTA_PRIMERA_DE_CUEVA:
+		return PAL_CUERPO_CUEVA
+	return PAL_CUERPO
+
+
 # Paleta del TINTE: solo el mineral, y en claro para que el modulate del juego lo lleve al color
 # del material sin ensuciarlo (modular un gris oscuro da un color apagado siempre).
 const PAL_TINTE := [
@@ -1011,7 +1052,7 @@ static func generar(familia: String) -> Image:
 		for m in MODELOS:
 			var p: PackedByteArray = _dibujar(familia, f, m)
 			var col: int = _columna(familia, f, m)
-			_volcar(img, p, Vector2i(col * t.x, FILA_CUERPO * t.y), t, PAL_CUERPO)
+			_volcar(img, p, Vector2i(col * t.x, FILA_CUERPO * t.y), t, _pal_cuerpo(familia, f))
 			_volcar(img, p, Vector2i(col * t.x, FILA_TINTE * t.y), t, PAL_TINTE)
 	return img
 

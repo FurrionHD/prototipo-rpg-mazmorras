@@ -69,6 +69,9 @@ func _ready() -> void:
 	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
 	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
 	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	# Las tecnicas van en dos columnas si hay ancho para ellas, asi que hay que repintarlas cuando la
+	# ventana cambia de tamaño (ver _columnas).
+	scroll.resized.connect(_on_lista_redimensionada)
 
 	# LA GENTE, ARRIBA DEL TODO. La misma banda que la ficha de personaje (ver
 	# MenuScaffold.fila_retratos): aprender es por persona, asi que lo primero de la pantalla es a
@@ -321,13 +324,50 @@ func _pintar_tecnicas(pj: PersonajeData, arma: Resource) -> void:
 		MenuScaffold.nota(_lista, "Esta arma no tiene técnicas propias.")
 		return
 	_sel = clampi(_sel, 0, tecnicas.size() - 1)
+	# EN DOS COLUMNAS. Cada arma trae hoy cinco o seis tecnicas y en una sola columna ya llegaban
+	# abajo del todo; segun se vayan añadiendo, la lista empezaria con scroll -- y una lista de la
+	# que solo se ve media no deja comparar, que es justo lo que uno viene a hacer aqui.
+	#
+	# Una sola columna cuando no hay ancho (movil en vertical): a menos de ANCHO_DOS px, dos celdas
+	# dejan el nombre y el estado pisandose.
+	var grid := GridContainer.new()
+	grid.columns = _columnas()
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 4)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.add_child(grid)
+	_cols_pintadas = grid.columns
 	for i in tecnicas.size():
-		_fila_tecnica(pj, tecnicas[i], i)
+		_fila_tecnica(grid, pj, tecnicas[i], i)
 
 
-func _fila_tecnica(pj: PersonajeData, ab: AbilityData, i: int) -> void:
+# Cuantas columnas caben AHORA. Se mide en vez de fijarlo porque el ancho depende de la ventana (y
+# en movil, de la orientacion), igual que en la rejilla del inventario.
+const ANCHO_DOS := 520.0
+
+func _columnas() -> int:
+	var ancho: float = _lista.size.x
+	if ancho <= 1.0:
+		ancho = ANCHO_LISTA_MIN   # primera pasada: aun no esta colocado
+	return 2 if ancho >= ANCHO_DOS else 1
+
+
+# Repintar SOLO si cambia el numero de columnas. Sin el guardia, cada pixel de resize dispara un
+# rebuild entero y arrastrar el borde de la ventana se vuelve un tiron.
+var _cols_pintadas: int = 0
+
+func _on_lista_redimensionada() -> void:
+	if not _root.visible or _columnas() == _cols_pintadas:
+		return
+	_rebuild()
+
+
+func _fila_tecnica(grid: GridContainer, pj: PersonajeData, ab: AbilityData, i: int) -> void:
 	var b := TooltipButton.new()   # tooltip multilinea: el de Godot no parte lineas
 	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+	# Que las dos columnas midan lo mismo: sin esto cada boton pide el ancho de SU texto y la rejilla
+	# sale con una columna gorda y otra flaca segun lo largo que sea el nombre de la primera tecnica.
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.toggle_mode = true
 	b.button_pressed = (i == _sel)
 	b.clip_text = true
@@ -338,7 +378,7 @@ func _fila_tecnica(pj: PersonajeData, ab: AbilityData, i: int) -> void:
 	if ab.descripcion != "":
 		b.tooltip_text += "\n\n" + ab.descripcion
 	b.pressed.connect(_pick.bind(i))
-	_lista.add_child(b)
+	grid.add_child(b)
 
 	# EL ESTADO, pegado al borde derecho del mismo boton. Va dibujado y no en otra etiqueta porque
 	# un Label encima de un Button se come el clic y la fila dejaria de poder elegirse.
