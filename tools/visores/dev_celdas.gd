@@ -62,6 +62,9 @@ func _ready() -> void:
 	piezas.append_array(_consumibles())
 	piezas.append_array(_cristales())
 	piezas.append_array(_equipo())
+	piezas.append_array(_mejoras())
+	piezas.append_array(_pociones_plus())
+	_comprobar_plus_pociones()
 
 	_rejilla(col, piezas)
 	_tira_suelo(col, piezas)
@@ -94,7 +97,7 @@ func _rejilla(col: VBoxContainer, piezas: Array) -> void:
 		# celdas de color, que a solas siempre parece que si.
 		c.button_pressed = (i == 3)
 		caja.add_child(c)
-		c.configurar(p["item"], String(p["pie"]))
+		c.configurar(p["item"], String(p["pie"]), String(p.get("marca", "")))
 		var l := Label.new()
 		l.text = String(p["nota"])
 		l.add_theme_font_size_override("font_size", 9)
@@ -213,6 +216,68 @@ func _equipo() -> Array:
 	for r in Upgrades.RAREZA_COLOR.size():
 		var copia: WeaponData = arma.duplicate() as WeaponData
 		Game.item_meta[copia] = {"tier": 1, "rareza": r, "mejoras": {}, "durabilidad": 1.0, "banda": 0}
-		out.append({"item": copia, "pie": "+%d" % r,
+		# Sin pie: antes ponia "+r", que era la RAREZA disfrazada de nivel de mejora y se leia como lo
+		# que no era. El +N de verdad va ahora en su esquina y sale del propio objeto.
+		out.append({"item": copia, "pie": "",
 			"nota": "%s\n%s" % [copia.nombre, Upgrades.RAREZA_NOMBRE[r]]})
 	return out
+
+
+# LA RAMPA DEL +N ENTERA, del +1 al tope. Es la unica forma de juzgar la escala de color: los
+# niveles se ven de uno en uno jugando, y a solas cualquier tono parece bueno -- lo que hay que
+# mirar es si dos vecinos se distinguen y si el ultimo parece el ultimo.
+#
+# La ultima celda lleva ADEMAS nombre de portador: es el caso en el que las dos etiquetas se pelean
+# por la esquina de arriba a la derecha, y hay que ver que el nombre se ha ido a la banda y no se
+# monta con el texto del pie.
+const NIVELES := [1, 2, 3, 5, 8, 11, 13, 15]
+
+func _mejoras() -> Array:
+	var arma: WeaponData = load("res://resources/weapons/espada_larga.tres") as WeaponData
+	if arma == null:
+		return []
+	var out: Array = []
+	for i in NIVELES.size():
+		var n: int = NIVELES[i]
+		var copia: WeaponData = arma.duplicate() as WeaponData
+		# Las mejoras van por categoria; para pintar da igual cual sea, lo que cuenta es el total.
+		Game.item_meta[copia] = {"tier": 3, "rareza": Upgrades.Rareza.EPICO,
+			"mejoras": {"filo": n}, "durabilidad": 1.0, "banda": 0}
+		var ultima: bool = (i == NIVELES.size() - 1)
+		out.append({"item": copia, "pie": "Principal" if ultima else "",
+			"marca": "Catalardio" if ultima else "",
+			"nota": "+%d%s" % [n, "\n+ portador" if ultima else ""]})
+	return out
+
+
+# LAS POCIONES CON NIVEL. Su +N no vive en la meta como el del equipo: cada nivel es un .tres
+# distinto y el numero va en el NOMBRE (ver ConsumableData.plus), asi que es el unico +N que se
+# puede romper en silencio -- basta con renombrar una pocion.
+func _pociones_plus() -> Array:
+	var out: Array = []
+	for id in ["pocion_menor", "pocion_menor_1", "pocion_menor_2", "pocion_menor_3"]:
+		var cd: ConsumableData = load("res://resources/consumables/%s.tres" % id) as ConsumableData
+		if cd == null:
+			continue
+		out.append({"item": cd, "pie": "x12", "nota": cd.nombre})
+	return out
+
+
+# ¿SE LEE EL NIVEL DE UNA POCION? En la captura se ve un "+2" pintado, pero no si es el suyo: eso
+# se comprueba aqui, que ademas es lo que avisaria de un renombrado.
+func _comprobar_plus_pociones() -> void:
+	var casos := {"pocion_menor": 0, "pocion_menor_1": 1, "pocion_menor_2": 2, "pocion_menor_3": 3}
+	var fallos: Array[String] = []
+	for id in casos:
+		var cd: ConsumableData = load("res://resources/consumables/%s.tres" % id) as ConsumableData
+		if cd == null:
+			fallos.append("%s no se puede cargar" % id)
+			continue
+		var n: int = Game.mejoras_actuales(cd)
+		if n != int(casos[id]):
+			fallos.append("%s ('%s') deberia dar +%d y da +%d" % [id, cd.nombre, casos[id], n])
+	if fallos.is_empty():
+		print("[celdas] OK: el +N de las pociones sale de su nombre (0, 1, 2 y 3).")
+	else:
+		for f in fallos:
+			printerr("[celdas] MAL: %s" % f)

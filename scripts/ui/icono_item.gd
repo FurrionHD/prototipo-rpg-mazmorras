@@ -322,6 +322,35 @@ static func color_tier(tier: int) -> Color:
 		minf(base.v + subida, 1.0), base.a)
 
 
+# EL COLOR DEL +N (el nivel de mejora), para la esquina de arriba a la derecha de la celda.
+#
+# Es una RAMPA y no una lista de colores: el tope no es fijo, sale de la rareza de la pieza
+# (Upgrades.RAREZA_SLOTS va de 3 en la comun a 15 en la pristina), asi que una tabla escrita a mano
+# se queda corta en cuanto alguien suba ese numero. Con la rampa, cada nivel tiene su tono y el
+# ultimo siempre parece el ultimo.
+#
+# El recorrido es el de una barra que se calienta: verde (+1) -> ambar (+6) -> rojo (+11) -> y al
+# final se BLANQUEA, que es como se lee "esto ya no sube mas". El tramo final es lo que hace que
+# +14 y +15 no se confundan con un +11 cualquiera.
+#
+# No choca con los otros dos ejes de color de la celda porque ocupa OTRA esquina: el fondo dice la
+# rareza, la muesca de arriba a la izquierda el tier, y esto el nivel de mejora.
+const MEJORA_TOPE := 15.0   # el mayor +N que existe hoy (rareza pristina); pasado de ahi, se satura
+
+static func color_mejora(n: int) -> Color:
+	var lineal: float = clampf(float(maxi(n, 1) - 1) / (MEJORA_TOPE - 1.0), 0.0, 1.0)
+	# LOS PRIMEROS PASOS, MAS SEPARADOS. Repartiendo los 15 niveles a partes iguales, del +1 al +3
+	# apenas cambia el tono -- y ahi es donde vive casi todo: las pociones solo llegan a +3 y una
+	# pieza comun a +3. El exponente adelanta el recorrido, asi que los de abajo se distinguen entre
+	# si y los de arriba, que ya son pocos y muy vistosos, se juntan un poco.
+	var t: float = pow(lineal, 0.62)
+	# El tono baja de verde (0.33) a rojo (0.0) por ambar, que es el camino corto de la rueda.
+	var tono: float = lerpf(0.33, 0.0, t)
+	# Y el ultimo tercio se lava: menos saturacion y mas brillo, hasta un rojo casi blanco.
+	var blanqueo: float = clampf((t - 0.66) / 0.34, 0.0, 1.0)
+	return Color.from_hsv(tono, lerpf(0.72, 0.30, blanqueo), lerpf(0.72, 1.0, blanqueo))
+
+
 # El TIER de un item, o 0 si eso no tiene tier (un cristal, una pocion sin tier). El equipo lo lleva
 # en su meta por instancia (una espada T2 y otra T3 son el mismo .tres); los materiales, en el .tres.
 #

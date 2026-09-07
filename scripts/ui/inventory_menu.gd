@@ -1124,7 +1124,9 @@ func _build_armas() -> void:
 		# La marca de esquina es QUIEN LA LLEVA, no un "[equipada]" a secas: con grupo, la misma
 		# espada puede estar puesta en cualquiera de los tuyos (ver _marca_dueno).
 		var dueno: PersonajeData = Game.quien_lleva(w)
-		piezas.append(_pieza(w, Game.item_plus(w), _nombre_equipo(w).replace("\n", " "),
+		# La banda va VACIA: el +N que llevaba se pinta ahora en su esquina, con el color de su nivel
+		# (ver CeldaObjeto), que es donde se lee sin tener que buscarlo.
+		piezas.append(_pieza(w, "", _nombre_equipo(w).replace("\n", " "),
 			"" if dueno == null else dueno.nombre))
 	_grid_detail(piezas, _preview_arma)
 

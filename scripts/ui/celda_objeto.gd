@@ -50,18 +50,31 @@ const MARCA := 0.075        # lado de una marca de peldaño
 const BANDA_TIER := 0.62
 
 var item: Resource = null
-var texto_pie: String = ""      # lo que va en la banda: "x12", "+4", "Nv. 3"...
+var texto_pie: String = ""      # lo que va en la banda: "x12", "Casco", "Nv. 3"...
 var marca: String = ""          # etiqueta de esquina: "PUESTA", el nombre de quien lo lleva...
+# EL NIVEL DE MEJORA que se pinta arriba a la derecha. -1 = que lo averigue la celda (lo normal);
+# 0 = no pintar ninguno, para una pantalla que no quiera enseñarlo.
+var plus: int = -1
 var _hover := false
 
 
 # 'pie' vacio = la banda va sin texto (una pieza unica: un arma, una mochila). La banda se dibuja
 # igual, porque es lo que le da el suelo a la celda y sin ella la rejilla se descuadra.
-func configurar(objeto: Resource, pie: String = "", etiqueta: String = "") -> void:
+func configurar(objeto: Resource, pie: String = "", etiqueta: String = "", nivel: int = -1) -> void:
 	item = objeto
 	texto_pie = pie
 	marca = etiqueta
+	plus = nivel
 	queue_redraw()
+
+
+# El +N que toca pintar. Se deriva del propio objeto salvo que se haya pasado uno a mano: asi una
+# pantalla nueva lo enseña sin tener que acordarse de pedirlo, que es como se quedaron las
+# armaduras sin el suyo cuando el +N vivia en el texto del pie.
+func _plus() -> int:
+	if plus >= 0:
+		return plus
+	return Game.mejoras_actuales(item) if item != null else 0
 
 
 func _ready() -> void:
@@ -132,29 +145,62 @@ func _draw() -> void:
 	if item != null:
 		_marcas(w, y_banda, col)
 
-	# LA CANTIDAD, centrada en la banda. La Y es la LINEA BASE del texto, no su borde de arriba: para
-	# centrarlo de verdad hay que bajar desde el centro de la banda por el ascendente de la fuente, o
-	# el numero se queda pegado al borde de abajo (que es donde estaba).
-	if texto_pie != "":
-		var fuente: Font = get_theme_font(&"font")
-		var tam: int = maxi(9, int(h * 0.145))
-		var ancho: float = fuente.get_string_size(texto_pie, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
-		var centro_banda: float = y_banda + (h - y_banda - h * ALTO_LINEA) * 0.5
-		draw_string(fuente, Vector2((w - ancho) * 0.5, centro_banda + float(tam) * 0.36),
-			texto_pie, HORIZONTAL_ALIGNMENT_LEFT, -1, tam, Color(0.94, 0.95, 0.97))
+	# 5. EL +N, arriba a la DERECHA y con el color de su nivel (ver IconoItem.color_mejora). La
+	# esquina de la izquierda es del tier, asi que esta es la unica libre arriba -- y arriba es donde
+	# tiene que estar: es lo que distingue dos piezas iguales, y en el pie se perdia entre el resto.
+	var n_plus: int = _plus()
+	var y_plus: float = 0.0   # hasta donde baja la muesca (0 = no hay), para no pisarla con la marca
+	if n_plus > 0:
+		y_plus = _muesca_plus(w, h, n_plus)
 
 	# LA MARCA DE ESQUINA ("PUESTA", quien lo lleva). Va arriba a la DERECHA porque la izquierda se la
 	# come la muesca, y sobre su propia pastilla oscura: encima del degradado a pelo, la misma
 	# palabra se leia bien en las celdas oscuras y desaparecia en las claras.
-	if marca != "":
+	#
+	# CON +N NO CABEN LAS DOS en la misma esquina, asi que la marca se va a la banda de abajo,
+	# pegada a la derecha. Lo decide la celda y no cada menu: si tuviera que saberlo quien pinta,
+	# bastaria con que una pantalla se olvidara para tener dos textos encima del mismo sitio.
+	var marca_en_banda: bool = (marca != "" and n_plus > 0)
+	if marca != "" and not marca_en_banda:
 		var f2: Font = get_theme_font(&"font")
 		var t2: int = maxi(8, int(h * 0.10))
 		var an: float = f2.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2).x
 		var alto: float = float(t2) + 6.0
-		var caja := Rect2(Vector2(w - an - 12.0, 4.0), Vector2(an + 8.0, alto))
+		var caja := Rect2(Vector2(w - an - 12.0, maxf(4.0, y_plus + 3.0)), Vector2(an + 8.0, alto))
 		draw_rect(caja, Color(0.03, 0.04, 0.06, 0.82))
 		draw_string(f2, Vector2(caja.position.x + 4.0, caja.position.y + float(t2) + 1.0),
 			marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2, Color(0.96, 0.88, 0.62))
+
+	# LA BANDA: el pie centrado y, si la marca ha bajado aqui, el nombre pegado a la derecha. El pie
+	# se centra en el HUECO QUE QUEDA, no en la celda, o los dos textos se montan uno encima del otro
+	# en cuanto el nombre es largo.
+	var fuente: Font = get_theme_font(&"font")
+	var centro_banda: float = y_banda + (h - y_banda - h * ALTO_LINEA) * 0.5
+	var libre: float = w
+	if marca_en_banda:
+		var t3: int = maxi(8, int(h * 0.115))
+		# EL NOMBRE, RECORTADO a poco mas de la mitad de la celda: hay compañeros con nombres largos
+		# ("Agirato ochinan") y sin tope se comian la banda entera y empujaban al pie fuera. El ancho
+		# va en el parametro de draw_string que RECORTA de verdad (el quinto), no en el octavo, que
+		# son las banderas de justificado y deja el texto pasarse igual.
+		var tope3: float = w * 0.56
+		var an3: float = minf(fuente.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t3).x, tope3)
+		draw_string(fuente, Vector2(w - an3 - 5.0, centro_banda + float(t3) * 0.36), marca,
+			HORIZONTAL_ALIGNMENT_LEFT, an3, t3, Color(0.96, 0.88, 0.62))
+		libre = w - an3 - 8.0
+	# LA CANTIDAD (o el slot), centrada en lo que quede. La Y es la LINEA BASE del texto, no su borde
+	# de arriba: para centrarlo de verdad hay que bajar desde el centro de la banda por el ascendente
+	# de la fuente, o el numero se queda pegado al borde de abajo (que es donde estaba).
+	if texto_pie != "":
+		var tam: int = maxi(9, int(h * 0.145))
+		var hueco: float = maxf(libre - 6.0, 0.0)
+		var an_pie: float = fuente.get_string_size(texto_pie, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+		# O CABE ENTERO O NO SE PINTA. Recortado no dice nada y encima engaña: "Principal" se quedaba
+		# en "Prin", que parece el nombre de otra cosa. Lo que se cae es siempre el pie y nunca el
+		# nombre de quien lo lleva, que es el dato que no se puede deducir mirando la celda.
+		if an_pie <= hueco:
+			draw_string(fuente, Vector2(3.0, centro_banda + float(tam) * 0.36), texto_pie,
+				HORIZONTAL_ALIGNMENT_CENTER, hueco, tam, Color(0.94, 0.95, 0.97))
 
 	# EL ESTADO, siempre por encima de todo. Seleccionada = borde blanco grueso, que es lo unico que
 	# se lee de un vistazo en una rejilla donde TODAS las celdas tienen color.
@@ -209,6 +255,49 @@ func _muesca_tier(w: float, h: float) -> void:
 		else Color(1, 1, 1, 0.95)
 	draw_string(fuente, Vector2(c3 - an * 0.5, c3 + float(tam) * 0.38), txt,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, tinta)
+
+
+# LA MUESCA DEL +N: el triangulo de la esquina de arriba a la DERECHA, del color de su nivel y con
+# el numero dentro. Devuelve por donde acaba (la Y de su punta de abajo), que es lo que necesita la
+# marca de esquina para no metersele encima.
+#
+# Es la MISMA figura que la muesca del tier, en espejo, y eso no es un capricho: la celda tiene su
+# lenguaje (chaflan de color con el numero dentro) y una pastilla rectangular ahi arriba se leia
+# como una etiqueta pegada de otra pantalla. Dos datos del mismo tipo -- un numero corto que
+# clasifica -- tienen que pintarse igual y en esquinas opuestas.
+#
+# El color agrupa de un vistazo (los tres +5 de la rejilla se ven de golpe) y el numero lo remata
+# sin que haya que aprenderse la escala. Ver IconoItem.color_mejora.
+func _muesca_plus(w: float, h: float, n: int) -> float:
+	var col: Color = IconoItem.color_mejora(n)
+	var lado: float = minf(w, h) * (MUESCA + MUESCA * BANDA_TIER)   # lo mismo que mide la del tier
+	# El vertice de la derecha NO llega a la esquina: ahi el contorno lleva su chaflan pequeño (ver
+	# _contorno), y pintar hasta el pico se saldria del fondo por dos puntas.
+	var r: float = minf(w, h) * REDONDEO
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(w - lado, 0.0), Vector2(w - r, 0.0), Vector2(w, r), Vector2(w, lado)]), col)
+	# La misma linea clara del canto que en el tier: sobre las rarezas claras el color de la muesca y
+	# el del fondo tiran al mismo sitio y el borde se perdia.
+	draw_line(Vector2(w - lado, 0.0), Vector2(w, lado), col.lightened(0.35), 2.0, true)
+
+	# EL NUMERO, dentro del triangulo y pegado a su lado ancho. El "+" va delante porque es lo que lo
+	# distingue del tier de enfrente: sin el, dos numeros sueltos en las dos esquinas se leen como si
+	# midieran lo mismo.
+	var fuente: Font = get_theme_font(&"font")
+	var txt: String = "+%d" % n
+	# Los de DOS CIFRAS ("+12") en un cuerpo menor: el triangulo se estrecha hacia abajo y a tamaño
+	# completo la punta del "+" se salia por la diagonal, encima del fondo.
+	var tam: int = maxi(int(minf(w, h) * (0.155 if txt.length() <= 2 else 0.128)), 8)
+	var an: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	# ALTO en el triangulo, que es donde tiene ancho: a la altura 'y' el hueco mide (lado - y), asi
+	# que bajar el numero es quedarse sin sitio. Y centrado en ESE hueco, no en el lado entero.
+	var cy: float = lado * 0.26
+	var cx: float = w - (lado - cy) * 0.5
+	var tinta: Color = Color(0.05, 0.05, 0.08, 0.95) if col.get_luminance() > 0.5 \
+		else Color(1, 1, 1, 0.95)
+	draw_string(fuente, Vector2(cx - an * 0.5, cy + float(tam) * 0.38), txt,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, tinta)
+	return lado
 
 
 # El contorno de la celda: rectangulo con la esquina superior izquierda MUY achaflanada (la muesca,

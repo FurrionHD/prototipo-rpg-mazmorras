@@ -93,6 +93,23 @@ class_name ConsumableData
 # el borde, que es donde importa.
 @export var tier: int = 1
 
+
+# EL NIVEL de esta pocion: el "+2" de "Poción de maná media +2", o 0 si no lo lleva.
+#
+# Sale del NOMBRE y no de un campo porque aqui el nivel es parte de la IDENTIDAD del objeto: cada
+# nivel es su propio .tres (pocion_menor.tres, pocion_menor_1.tres, _2, _3), con su precio y su
+# potencia, y no un extra que se le pega a una instancia como las mejoras del equipo. Un campo
+# aparte seria un segundo sitio donde apuntar lo mismo, y el dia que discrepasen ganaria el
+# equivocado.
+#
+# Lo usa la celda para pintarlo en su esquina igual que el +N de un arma (ver Game.mejoras_actuales).
+func plus() -> int:
+	var i: int = nombre.rfind("+")
+	if i < 0:
+		return 0
+	var cola: String = nombre.substr(i + 1).strip_edges()
+	return int(cola) if cola.is_valid_int() else 0
+
 # COLOR del frasco cuando esta TIRADO EN EL SUELO (ver drop_pickup.gd). Se deja en transparente a
 # proposito: asi el color lo DERIVA color_suelo() del propio contenido y no hay que rellenarlo a
 # mano en cincuenta .tres (ni acordarse de tocarlo al crear el siguiente). Solo se pone aqui para

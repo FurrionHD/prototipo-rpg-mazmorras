@@ -26,7 +26,11 @@ const SALIDA := "res://tools/salida/"
 const MATS := ["cobre", "cobre_veteado", "cobre_profundo", "acero", "madera_comun", "madera_negra",
 	"cuero_simple", "cuero_curtido", "baba_slime", "baba_venenosa", "nucleo_slime",
 	"nucleo_minotauro", "carbon_veta", "carbon_negro", "ajo", "cebolla"]
-const CONS := ["pocion_menor", "pocion_media", "pocion_mana_menor", "pocion_mana_media",
+# Las pociones van con sus NIVELES (_1, _2, _3) y no solo la base: el +N de una pocion no vive en
+# su meta como el del equipo, viaja en el nombre (ver ConsumableData.plus), asi que sin ellas la
+# esquina del +N no sale en esta pantalla y un renombrado la rompe sin que nadie lo vea.
+const CONS := ["pocion_menor", "pocion_menor_1", "pocion_menor_2", "pocion_menor_3",
+	"pocion_media", "pocion_mana_menor", "pocion_mana_media_2", "pocion_mana_media_3",
 	"grimorio_bola_fuego", "grimorio_rayo", "plato_kebab_bestia", "plato_sopa_setas",
 	"cebo_gusano", "piedra_retorno"]
 const ARMAS := ["daga", "espada_corta", "espada_larga", "mandobles", "hacha_grande", "baston",
@@ -281,7 +285,8 @@ func _armas() -> void:
 			continue
 		for k in 2:
 			var copia: WeaponData = w.duplicate() as WeaponData
-			Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": (r * 2 + k) % 8, "mejoras": {},
+			var rar: int = (r * 2 + k) % 8
+			Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": rar, "mejoras": _mejoras(rar, r + k),
 				"durabilidad": 1.0 - float(r) * 0.09, "banda": 0}
 			Game.owned_weapons.append(copia)
 		r += 1
@@ -299,8 +304,8 @@ func _armas() -> void:
 			if it == null:
 				continue
 			var copia2: Resource = it.duplicate()
-			Game.item_meta[copia2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": {},
-				"durabilidad": 1.0, "banda": 0}
+			Game.item_meta[copia2] = {"tier": (r % 3) + 1, "rareza": r % 8,
+				"mejoras": _mejoras(r % 8, r), "durabilidad": 1.0, "banda": 0}
 			Game.owned_weapons.append(copia2)
 			r += 1
 
@@ -318,9 +323,24 @@ func _armaduras() -> void:
 		if a == null:
 			continue
 		var copia: ArmorData = a.duplicate() as ArmorData
-		Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": {},
-			"durabilidad": 1.0, "banda": 0}
+		Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": r % 8,
+			"mejoras": _mejoras(r % 8, r + 1), "durabilidad": 1.0, "banda": 0}
 		Game.owned_armor.append(copia)
 		r += 1
 		if r >= 20:
 			return
+
+
+# MEJORAS VARIADAS para que la esquina del +N se pueda juzgar: piezas a pelo, a +1 y hasta el tope
+# de su rareza. Con el baul entero a +0 esa esquina no sale en ninguna captura, que es como se
+# quedaron las armaduras sin enseñar el suyo durante meses.
+#
+# Se respeta el tope por rareza (Upgrades.rareza_slots): una comun no puede llevar +9, y pintar en
+# el visor algo que el juego no deja construir es una captura que miente.
+func _mejoras(rareza: int, semilla: int) -> Dictionary:
+	var n: int = semilla % 5
+	if n == 0:
+		return {}
+	if semilla % 7 == 0:
+		n = Upgrades.rareza_slots(rareza)   # alguna al tope, que es donde la rampa se blanquea
+	return {"filo": mini(n, Upgrades.rareza_slots(rareza))}

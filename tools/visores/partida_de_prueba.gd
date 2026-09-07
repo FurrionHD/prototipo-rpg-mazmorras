@@ -45,8 +45,9 @@ static func _baul() -> void:
 			var copia: WeaponData = w.duplicate() as WeaponData
 			# Desgastes distintos a proposito: la ficha aplica la durabilidad al ataque, y con todo a
 			# estrenar esa parte no se mira nunca.
-			Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": (r * 2 + k) % 8,
-				"mejoras": {}, "durabilidad": 1.0 - float(r) * 0.08, "banda": 0}
+			var rar: int = (r * 2 + k) % 8
+			Game.item_meta[copia] = {"tier": (r % 3) + 1, "rareza": rar,
+				"mejoras": _mejoras(rar, r + k), "durabilidad": 1.0 - float(r) * 0.08, "banda": 0}
 			Game.owned_weapons.append(copia)
 		r += 1
 	# Bastones, varitas y escudos, que es lo que llena la mano secundaria y la rama magica.
@@ -61,7 +62,7 @@ static func _baul() -> void:
 			if it == null:
 				continue
 			var c2: Resource = it.duplicate()
-			Game.item_meta[c2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": {},
+			Game.item_meta[c2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": _mejoras(r % 8, r),
 				"durabilidad": 1.0, "banda": 0}
 			Game.owned_weapons.append(c2)
 			r += 1
@@ -75,7 +76,7 @@ static func _baul() -> void:
 		if a == null:
 			continue
 		var copia2: ArmorData = a.duplicate() as ArmorData
-		Game.item_meta[copia2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": {},
+		Game.item_meta[copia2] = {"tier": (r % 3) + 1, "rareza": r % 8, "mejoras": _mejoras(r % 8, r * 2),
 			"durabilidad": 1.0 - float(r % 5) * 0.11, "banda": 0}
 		Game.owned_armor.append(copia2)
 		r += 1
@@ -203,3 +204,17 @@ static func _perks(pj: PersonajeData) -> void:
 	# pasivas_rng es un Dictionary id -> bool (lo lee Game.tiene_pasiva), no una lista.
 	if not Game.PASIVAS_RNG.is_empty():
 		pj.pasivas_rng[str(Game.PASIVAS_RNG[0]["id"])] = true
+
+
+# MEJORAS VARIADAS: piezas a pelo, a medias y alguna al tope de su rareza. Sin ellas el baul entero
+# sale a +0 y la esquina del +N no aparece en ninguna captura.
+#
+# Se respeta el tope por rareza (Upgrades.rareza_slots): una comun no puede llevar +9, y pintar en
+# un visor algo que el juego no deja construir es una captura que miente.
+static func _mejoras(rareza: int, semilla: int) -> Dictionary:
+	var n: int = semilla % 5
+	if n == 0:
+		return {}
+	if semilla % 7 == 0:
+		n = Upgrades.rareza_slots(rareza)
+	return {"filo": mini(n, Upgrades.rareza_slots(rareza))}

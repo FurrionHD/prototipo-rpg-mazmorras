@@ -978,8 +978,9 @@ func _cambiar_arma() -> void:
 		# Las secundarias incompatibles con la principal se dejan VER pero no elegir.
 		if not es_armadura and _sel == 1 and not Game._secundaria_valida(pj.equipped_main, it):
 			activo = false
+		# Sin "pie": el +N que iba ahi lo pinta la celda en su esquina, con el color de su nivel.
 		piezas.append({
-			"item": it, "pie": Game.item_plus(it),
+			"item": it, "pie": "",
 			"tooltip": _etiqueta_con_dueno(it, Game.item_display_name(it)),
 			"marca": "" if otro == null else otro.nombre, "activo": activo,
 		})

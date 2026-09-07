@@ -1848,9 +1848,12 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 #
 # 'piezas' es una lista de diccionarios, uno por celda:
 #     item     el objeto (lo pinta IconoItem)
-#     pie      lo que va en la banda de abajo: "x12", "+4", "" si no lleva nada
+#     pie      lo que va en la banda de abajo: "x12", "Casco", "" si no lleva nada
+#     marca    la etiqueta de esquina: quien lo lleva, "PUESTA"
 #     tooltip  el texto largo (el nombre entero, la ficha corta)
 #     activo   false = apagada y no responde
+#     plus     OPCIONAL: el +N de la esquina. Sin ponerlo, la celda lo saca del propio objeto (que
+#              es lo que se quiere casi siempre); un 0 lo apaga en esa pantalla.
 #
 # Van en un diccionario y no en cuatro arrays paralelos por lo mismo que colores_de(): cuatro listas
 # que hay que mantener alineadas a mano se descuelgan en cuanto alguien filtra una de ellas.
@@ -1876,7 +1879,8 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 		grid.add_child(c)
 		# DESPUES de meterla en el arbol: configurar() repinta, y repintar un nodo suelto no sirve
 		# de nada porque aun no tiene tamaño (ver el guardia de _draw).
-		c.configurar(p.get("item") as Resource, String(p.get("pie", "")), String(p.get("marca", "")))
+		c.configurar(p.get("item") as Resource, String(p.get("pie", "")), String(p.get("marca", "")),
+			int(p.get("plus", -1)))
 
 
 # EL BANNER DE LA FICHA: la tira ancha con el objeto en grande y su "x N", que es lo primero del

@@ -9224,7 +9224,14 @@ func tope_mejoras(item: Resource, nucleo: MaterialData) -> int:
 		return por_rareza
 	return mini(por_rareza, maxi(0, nucleo.mejora_max))
 
+# EL +N DE CUALQUIER COSA, que es lo que pinta la celda en su esquina. En el equipo son las mejoras
+# que le han puesto (viven en su meta, por instancia); en una POCION es su nivel, que viaja en el
+# nombre porque cada nivel es un .tres distinto (ver ConsumableData.plus). Se pregunta aqui y no en
+# cada pantalla para que las dos clases de "+N" se pinten igual sin que nadie tenga que saber de
+# donde sale cada una.
 func mejoras_actuales(item: Resource) -> int:
+	if item is ConsumableData:
+		return (item as ConsumableData).plus()
 	return Upgrades.total_mejoras(meta_de(item)["mejoras"])
 
 # Nucleos (items, no unidades) que hay en el hogar de ese tipo.
