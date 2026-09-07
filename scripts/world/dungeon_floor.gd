@@ -570,6 +570,10 @@ var _trans := Transicion.new()
 # Si en este piso hay roca de estilo CUEVA (su borde ondula y no llena la celda).
 var _estilo_cueva: bool = false
 var _celdas_agua: Dictionary = {}
+# Hacia donde corre cada celda del riachuelo (lo traza Decorado.agua_dir). Se guarda y no se usa
+# solo de paso porque es lo que decide COMO se coloca cada baldosa (girada hacia su rumbo), y sin
+# tenerlo a mano no hay forma de comprobar que lo pintado casa con el cauce.
+var _celdas_agua_dir: Dictionary = {}
 # EL LAGO, aparte de _celdas_agua aunque este dentro de ella: `agua` es lo que se PINTA (y ahi el
 # lago y el riachuelo son lo mismo), `lago` es donde se PESCA. Ver Decorado.
 var _celdas_lago: Dictionary = {}
@@ -738,6 +742,7 @@ func _decorar() -> void:
 	# sola lamina: `_lamina` es la union, y es contra ella contra la que se calculan las dos
 	# mascaras para que en la desembocadura no haya orilla. Ver _pintar_capa.
 	_celdas_agua = d.agua
+	_celdas_agua_dir = d.agua_dir
 	_celdas_lago = d.lago
 	_celdas_hondo = d.lago_hondo
 	var lamina: Dictionary = d.agua.duplicate()
@@ -756,7 +761,10 @@ func _decorar() -> void:
 			if _boss_sala.grow(1).has_point(c):
 				_celdas_musgo.erase(c)
 				_celdas_flor.erase(c)
-	_pintar_capa("agua", _celdas_agua, sem, lamina)
+	# EL AGUA, con su RUMBO: cada celda del cauce sabe hacia donde corre (Decorado.agua_dir) y la
+	# baldosa se coloca girada hacia alli. Antes se pintaban todas como venian del atlas, o sea
+	# corriendo hacia abajo, y un tramo que iba de lado se veia con la corriente cruzada.
+	_pintar_capa("agua", _celdas_agua, sem, lamina, d.agua_dir)
 	_pintar_capa("lago", _celdas_lago, sem, lamina)
 	# El fondo del lago va DETRAS de las dos: es un velo que ahonda el agua, y tiene que quedar
 	# debajo de todo lo demas que se pinte encima.
@@ -911,7 +919,11 @@ func freno_en(pos: Vector2) -> float:
 # riachuelo y el lago: son dos capas (una corre y la otra no) pero una sola lamina de agua, asi que
 # cada una mira a la UNION. Sin esto, en la celda donde el riachuelo desemboca las dos se verian
 # borde la una a la otra y dibujarian una orilla con espuma en medio del agua.
-func _pintar_capa(capa: String, celdas: Dictionary, sem: int, contra: Dictionary = {}) -> void:
+# 'dirs' (celda -> Vector2i) es para el AGUA: la baldosa esta dibujada corriendo hacia el sur y el
+# riachuelo va a donde va, asi que se coloca GIRADA hacia su rumbo (ver TerrenoSprites.giro_para).
+# Sin direcciones, todo se pinta como siempre.
+func _pintar_capa(capa: String, celdas: Dictionary, sem: int, contra: Dictionary = {},
+		dirs: Dictionary = {}) -> void:
 	var tml: TileMapLayer = _tm.get(capa, null)
 	if tml == null or celdas.is_empty():
 		return
@@ -919,10 +931,13 @@ func _pintar_capa(capa: String, celdas: Dictionary, sem: int, contra: Dictionary
 	var soy := func(v: Vector2i) -> bool: return vecinas.has(v)
 	for c in celdas:
 		var m: int = TerrenoSprites.mascara(c, soy)
+		var giro: int = TerrenoSprites.giro_para(dirs.get(c, Vector2i.ZERO)) if not dirs.is_empty() \
+			else 0
 		# Con la fuente de SU celda: en un piso de corte, el musgo y el agua que caen dentro de la
 		# burbuja de entrada tienen que salir del tramo viejo, o se veria musgo de cueva creciendo
 		# en una pared de mazmorra de piedra.
-		tml.set_cell(c, _trans.fuente(c), TerrenoSprites.celda_para(capa, c, m, sem))
+		tml.set_cell(c, _trans.fuente(c), TerrenoSprites.celda_para(capa, c, m, sem, giro),
+			TerrenoSprites.transformada(giro))
 
 
 

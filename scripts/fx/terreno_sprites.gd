@@ -475,10 +475,77 @@ static func celda_de(capa: String, i: int) -> Vector2i:
 # gratis lo de siempre: es estable entre reconstrucciones del piso y el invitado ve lo mismo que
 # el host sin que viaje nada por la red. La 'semilla' ya no hace falta para elegir (el tapiz es el
 # que es), pero se conserva en la firma porque el dia que haya varios tapices por tramo hara falta.
-static func celda_para(capa: String, celda: Vector2i, mask: int, _semilla: int = 0) -> Vector2i:
+static func celda_para(capa: String, celda: Vector2i, mask: int, _semilla: int = 0,
+		giro: int = 0) -> Vector2i:
 	var b: int = bloque_de(capa)
-	var v: int = posmod(celda.y, b) * b + posmod(celda.x, b)
-	return celda_de(capa, indice(capa, mask, v))
+	var c: Vector2i = celda
+	var m: int = mask
+	if posmod(giro, 4) != 0:
+		# LA BALDOSA VA A SALIR GIRADA (ver transformada), asi que hay que pedir la de "antes de
+		# girar": la mascara girada al REVES -- si no, la orilla que se dibuja arriba acabaria a un
+		# lado -- y el trozo del tapiz que corresponda a las coordenadas giradas al reves, para que
+		# dos celdas seguidas del mismo tramo sigan casando entre ellas despues del giro.
+		m = rotar_mascara(mask, -giro)
+		c = _girar_celda(celda, -giro, b)
+	var v: int = posmod(c.y, b) * b + posmod(c.x, b)
+	return celda_de(capa, indice(capa, m, v))
+
+
+# ============================================================
+#  GIRAR UNA BALDOSA AL COLOCARLA
+#  El agua se dibuja corriendo HACIA EL SUR (ver _pintar_agua: el ruido se desplaza en -Y), y esa
+#  direccion va horneada en el atlas. Un riachuelo, en cambio, va a donde va. La salida NO es
+#  hornear una version por rumbo -- serian cuatro veces las 32 filas que ya ocupa el agua, en cada
+#  uno de los cinco atlas, para dibujar lo mismo girado --: TileMapLayer.set_cell admite banderas de
+#  transformacion, asi que las cuatro orientaciones salen de la misma baldosa y gratis.
+#
+#  'giro' va en cuartos de vuelta EN SENTIDO HORARIO.
+# ============================================================
+# Gira los cuatro bits de la mascara (1 N, 2 E, 4 S, 8 O): un cuarto de vuelta horario los corre una
+# posicion, porque estan escritos en ese mismo orden.
+static func rotar_mascara(m: int, giro: int) -> int:
+	var k: int = posmod(giro, 4)
+	var out: int = m & 0xF
+	for _i in k:
+		out = ((out << 1) | (out >> 3)) & 0xF
+	return out
+
+
+# Las coordenadas de una celda dentro del tapiz de bloque b, giradas. Girar la imagen un cuarto en
+# horario lleva el punto (x, y) a (b-1-y, x).
+static func _girar_celda(c: Vector2i, giro: int, b: int) -> Vector2i:
+	var k: int = posmod(giro, 4)
+	var x: int = posmod(c.x, b)
+	var y: int = posmod(c.y, b)
+	for _i in k:
+		var nx: int = b - 1 - y
+		y = x
+		x = nx
+	return Vector2i(x, y)
+
+
+# Cuartos de vuelta (horarios) del SUR -- como esta dibujada el agua -- a 'dir'.
+static func giro_para(dir: Vector2i) -> int:
+	if dir == Vector2i(-1, 0):
+		return 1     # oeste
+	if dir == Vector2i(0, -1):
+		return 2     # norte
+	if dir == Vector2i(1, 0):
+		return 3     # este
+	return 0         # sur, o cualquier cosa rara: se queda como esta dibujada
+
+
+# Las banderas de set_cell para ese giro. Con volteos y transposicion salen las cuatro vueltas: un
+# giro horario es transponer y voltear en horizontal, y el de 180 son los dos volteos.
+static func transformada(giro: int) -> int:
+	match posmod(giro, 4):
+		1:
+			return TileSetAtlasSource.TRANSFORM_TRANSPOSE | TileSetAtlasSource.TRANSFORM_FLIP_H
+		2:
+			return TileSetAtlasSource.TRANSFORM_FLIP_H | TileSetAtlasSource.TRANSFORM_FLIP_V
+		3:
+			return TileSetAtlasSource.TRANSFORM_TRANSPOSE | TileSetAtlasSource.TRANSFORM_FLIP_V
+	return 0
 
 
 

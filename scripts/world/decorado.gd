@@ -22,6 +22,11 @@ class_name Decorado
 # a sus vecinas de la MISMA capa para saber por donde tiene borde).
 var musgo: Dictionary = {}
 var agua: Dictionary = {}
+# HACIA DONDE CORRE cada celda del riachuelo: { celda: Vector2i unitario }. La sabe el trazado (el
+# cauce va del manantial al lago) y hasta ahora se tiraba, asi que el agua se dibujaba siempre
+# bajando, fuera cual fuera el rumbo del cauce. Quien pinta la gira con ella (ver
+# TerrenoSprites.giro_para y DungeonFloor._pintar_capa).
+var agua_dir: Dictionary = {}
 var sumidero: Dictionary = {}
 # EL LAGO. DISJUNTO de `agua`: son dos capas distintas porque el riachuelo CORRE y el lago esta en
 # calma (ver TerrenoSprites._pintar_agua), y como se mueve una baldosa es cosa del TileSet, no del
@@ -53,6 +58,7 @@ func generar(gen: DungeonGenerator, celda_estanque: Vector2i, tam_estanque: Vect
 	_estanque_tam = tam_estanque
 	musgo.clear()
 	agua.clear()
+	agua_dir.clear()
 	sumidero.clear()
 	flor.clear()
 	lago.clear()
@@ -449,6 +455,10 @@ func _trazar_agua(sem: int) -> void:
 		por_sumidero = not _pega_a_roca(destino)
 
 	# --- Reconstruir el cauce ---
+	# Se recorre de la DESEMBOCADURA al manantial (es lo que sabe `padre`), y de paso se apunta hacia
+	# donde corre cada celda: la de aguas arriba tira HACIA la que acabamos de pisar. La ultima celda
+	# -- la desembocadura -- no tiene siguiente, asi que hereda el rumbo de la anterior: si no, el
+	# agua se pararia justo al entrar en el lago o en la pared, que es donde mas se mira.
 	var c2: Vector2i = destino
 	var guarda: int = 0
 	while guarda < 8192:
@@ -456,7 +466,11 @@ func _trazar_agua(sem: int) -> void:
 		agua[c2] = true
 		if c2 == origen:
 			break
-		c2 = padre[c2]
+		var arriba: Vector2i = padre[c2]
+		agua_dir[arriba] = c2 - arriba
+		if not agua_dir.has(c2):
+			agua_dir[c2] = c2 - arriba   # la desembocadura sigue corriendo hacia donde venia
+		c2 = arriba
 	if por_sumidero:
 		sumidero[destino] = true
 
