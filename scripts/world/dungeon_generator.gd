@@ -99,6 +99,17 @@ func _trazar_salas(max_salas: int, sala_min: Vector2i, sala_max: Vector2i,
 			continue
 		_anadir_sala(r)
 
+	# Y la del jefe se va AL FINAL de la lista. Tiene que ir la primera mientras se trazan (para que
+	# el sitio sea suyo y las demas la esquiven), pero `salas[0]` es LA BOCA DEL PISO para quien
+	# construye el nivel (DungeonFloor._colocar_actores): dejandola ahi, aparecias dentro de la sala
+	# del jefe y la escalera de subir se plantaba en su sala. El orden de `zonas` no se toca -- la
+	# zona de cada celda se pregunta por zona_en(), no por la posicion en esta lista.
+	if sala_jefe >= 0 and salas.size() > 1:
+		var suya: Rect2i = salas[sala_jefe]
+		salas.remove_at(sala_jefe)
+		salas.append(suya)
+		sala_jefe = salas.size() - 1
+
 
 # Da de alta una sala: a la lista, con su zona, y excavada entera.
 func _anadir_sala(r: Rect2i) -> void:

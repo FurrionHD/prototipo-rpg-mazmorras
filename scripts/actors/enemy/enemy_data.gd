@@ -274,6 +274,30 @@ func drop_factor_piso(piso: int) -> float:
 @export_range(0.0, 1.0) var sequito_reduccion_por_slime: float = 0.0
 @export_range(0.0, 1.0) var sequito_reduccion_max: float = 0.0
 
+# ============================================================
+#  SU SALA (solo lo lee el jefe del piso, ver DungeonFloor._decorar_sala_jefe)
+#  La sala del jefe ya es mas grande y con los accesos mas anchos; esto es de que esta HECHA. Los
+#  cuatro motivos (losa, mancha, costra de muro y brote que alumbra) son los mismos para todos y se
+#  dibujan en gris: lo que hace que la sala del Rey Slime no se parezca a la del Minotauro es CUALES
+#  usa, con cuanta densidad y de que color. Todo a 0 = sala normal, que es lo que le pasa a
+#  cualquier bicho que no sea jefe.
+# ============================================================
+# El color de su sala. Lo normal es el suyo propio (el Rey Slime tiñe su sala del azul con el que
+# se le ve venir), pero va aparte de `color` porque no siempre coincide: el Minotauro es marron y su
+# sala es de piedra.
+@export var sala_color: Color = Color(1, 1, 1)
+# Cuanto de cada motivo, 0..1. 0 = ese motivo no aparece en su sala.
+@export_range(0.0, 1.0) var sala_losa: float = 0.0     # suelo enlosado
+@export_range(0.0, 1.0) var sala_mancha: float = 0.0   # charcos por el suelo
+@export_range(0.0, 1.0) var sala_costra: float = 0.0   # lo que trepa por el muro
+@export_range(0.0, 1.0) var sala_brote: float = 0.0    # las motas que ALUMBRAN
+# La luz de esos brotes. El radio va en celdas (la flor de la cueva alumbra 3).
+@export_range(0.0, 12.0) var sala_luz_radio: float = 4.5
+@export_range(0.0, 1.0) var sala_luz_intensidad: float = 0.55
+# Lo que FRENA pisar sus charcos (multiplicador de velocidad del jugador; 1 = no frenan). El limo
+# del Rey Slime se pega a los pies; la piedra del Minotauro no. Ver DungeonFloor.freno_en.
+@export_range(0.3, 1.0) var sala_freno: float = 1.0
+
 
 # Suma total de los PESOS (para normalizar la distribucion).
 func peso_total() -> float:

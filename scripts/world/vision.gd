@@ -418,8 +418,13 @@ func _linea(desde: Vector2, hasta: Vector2) -> bool:
 # roca ya cacheada para saber hasta donde llega la luz de cada una.
 #
 # 'celdas' = { celda de mapa: true }. 'radio' en celdas y 'intensidad' 0..1 (1 = un farolillo).
-func poner_flores(celdas: Dictionary, radio: float, intensidad: float) -> void:
-	_flores.clear()
+# 'acumular' = añadir a las que ya hay en vez de sustituirlas. Existe por los brotes de la sala del
+# jefe, que son luz estatica como las flores pero con otro radio y otra intensidad: se ponen en una
+# segunda pasada, y sin esto la segunda llamada se llevaba por delante las flores del piso.
+func poner_flores(celdas: Dictionary, radio: float, intensidad: float,
+		acumular: bool = false) -> void:
+	if not acumular:
+		_flores.clear()
 	if ancho <= 0 or celdas.is_empty():
 		return
 	var px_sub: float = float(DungeonGenerator.CELDA) / float(SUB)

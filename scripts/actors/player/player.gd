@@ -416,6 +416,12 @@ func _physics_process(delta: float) -> void:
 	# movimiento (sigilo/correr) se calculan arriba y NO se tocan, que es lo que mantiene en pie la
 	# invariante de que correr es siempre mas rapido que andar, lleves lo que lleves encima.
 	speed *= Game.estados_speed_mult_grupo()
+	# Y lo que frena EL SUELO QUE PISAS: hoy, los charcos de limo de la sala del jefe (ver
+	# DungeonFloor.freno_en). Va aqui, en la cola de la cadena y no tocando los modos de movimiento,
+	# por lo mismo que los estados: correr por el limo sigue siendo mas rapido que andar por el limo.
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("freno_en"):
+		speed *= float(piso.freno_en(global_position))
 
 	# PLANTADO MIENTRAS DAS EL ESPADAZO. Dar y andar a la vez no es que quede feo: es que MIENTE.
 	# La animacion de golpe ocupa el cuerpo entero (ver PoseJugador.animacion, que devuelve "golpe_N"

@@ -576,6 +576,15 @@ var _celdas_lago: Dictionary = {}
 var _celdas_hondo: Dictionary = {}
 var _lago_d1: Dictionary = {}
 var _celdas_sumidero: Dictionary = {}
+# LA SALA DEL JEFE: de que esta hecha (ver _decorar_sala_jefe). Los cuatro motivos son los mismos
+# para todos los jefes y se tiñen con el color del suyo; `_celdas_mancha` ademas FRENA al que la
+# pisa, asi que no es solo dibujo (ver freno_en).
+var _celdas_losa: Dictionary = {}
+var _celdas_mancha: Dictionary = {}
+var _celdas_costra: Dictionary = {}
+var _celdas_brote: Dictionary = {}
+# Lo que frena pisar una mancha, del EnemyData del jefe de este piso. 1.0 = no frena (o no hay jefe).
+var _freno_mancha: float = 1.0
 
 
 func _construir_geometria() -> void:
@@ -596,6 +605,11 @@ func _construir_geometria() -> void:
 	_celdas_musgo.clear()
 	_celdas_agua.clear()
 	_celdas_sumidero.clear()
+	_celdas_losa.clear()
+	_celdas_mancha.clear()
+	_celdas_costra.clear()
+	_celdas_brote.clear()
+	_freno_mancha = 1.0
 	# En un piso DE CORTE conviven dos estilos, asi que el TileSet lleva una fuente por tramo y cada
 	# celda se pinta con la suya (ver Transicion). En un piso normal solo hay una y esto es lo de
 	# siempre.
@@ -706,6 +720,12 @@ func _apagar_la_luz() -> void:
 	# funcion, que corre justo despues). Van despues de preparar() porque el precalculo de su luz
 	# necesita la rejilla de roca ya cargada.
 	_niebla.poner_flores(_celdas_flor)
+	# Y los BROTES de la sala del jefe, que son la unica luz que tiene: van despues (acumulan sobre
+	# las flores, no las sustituyen) y con el radio y la intensidad que pida SU jefe.
+	if not _celdas_brote.is_empty():
+		var jefe: EnemyData = Game.boss_del_piso(_piso_construido)
+		if jefe != null:
+			_niebla.poner_brotes(_celdas_brote, jefe.sala_luz_radio, jefe.sala_luz_intensidad)
 
 
 func _decorar() -> void:
@@ -728,6 +748,14 @@ func _decorar() -> void:
 	_lago_d1 = Decorado._dilatar(_celdas_lago, 1)
 	_celdas_sumidero = d.sumidero
 	_celdas_flor = d.flor
+	# EL MUSGO NO ENTRA EN LA SALA DEL JEFE. La sala tiene su propio material y su propio color, y el
+	# verde del musgo encima lo emborronaba: se veian dos manchas discutiendo por la misma celda. Lo
+	# que crece ahi es lo SUYO (la costra y los brotes), que es justo lo que la hace suya.
+	if _boss_sala.size != Vector2i.ZERO:
+		for c in _celdas_musgo.keys():
+			if _boss_sala.grow(1).has_point(c):
+				_celdas_musgo.erase(c)
+				_celdas_flor.erase(c)
 	_pintar_capa("agua", _celdas_agua, sem, lamina)
 	_pintar_capa("lago", _celdas_lago, sem, lamina)
 	# El fondo del lago va DETRAS de las dos: es un velo que ahonda el agua, y tiene que quedar
@@ -737,6 +765,142 @@ func _decorar() -> void:
 	_pintar_capa("musgo", _celdas_musgo, sem)
 	# La flor va DESPUES del musgo: crece en el.
 	_pintar_capa("flor", _celdas_flor, sem)
+	# Y lo ULTIMO, la sala del jefe: lo suyo va por encima de todo lo demas del piso.
+	_decorar_sala_jefe()
+
+
+# ------------------------------------------------------------
+#  DE QUE ESTA HECHA LA SALA DEL JEFE
+#  La sala ya es mas grande y con los accesos mas anchos (ver SALA_JEFE_MULT); esto es el material.
+#  Cuatro motivos en gris que se tiñen con el color de SU jefe, y cuanto hay de cada uno lo dicen
+#  los campos sala_* de su EnemyData: la del Rey Slime se la come el limo azul, la del Minotauro es
+#  piedra enlosada. Ver TerrenoSprites (bloque de CAPAS).
+#
+#  NO ES UN CORTE EN LA PUERTA. Igual que el cambio de tramo del piso 7 no pasa de un estilo al otro
+#  de golpe, su material SALE POR LOS PASILLOS: en la sala esta entero y segun te alejas por el
+#  acceso se va quedando en parches, hasta desaparecer. Con capas de baldosas no se puede bajar el
+#  alfa celda a celda, asi que el degradado se hace por DENSIDAD -- se pintan cada vez menos celdas,
+#  que es lo mismo que hace un tramo de mezcla con sus escalones.
+#
+#  RNG PROPIO (semilla + 4099, como el estanque con +2027): asi tocar esto no mueve ni el trazado ni
+#  las vetas, y el invitado calcula lo mismo sin que viaje nada por la red.
+# ------------------------------------------------------------
+const SALA_JEFE_DEGRADADO := 7   # celdas de pasillo por las que se va deshaciendo su material
+
+func _decorar_sala_jefe() -> void:
+	if _boss_sala.size == Vector2i.ZERO:
+		return
+	var data: EnemyData = Game.boss_del_piso(_piso_construido)
+	if data == null:
+		return
+	_freno_mancha = data.sala_freno
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _semilla_del_piso() + 4099
+
+	# Cuanto "manda" su material en cada celda: 1 dentro de la sala y bajando por los pasillos.
+	var peso: Dictionary = _peso_sala_jefe()
+	var sem_mancha: int = _semilla_del_piso() + 4231
+	for c in peso:
+		var p: float = float(peso[c])
+		# EL AGUA MANDA SOBRE LO SUYO. Un riachuelo puede cruzar cualquier sala, la del jefe incluida
+		# (el trazado del agua no sabe de jefes, y esta bien que no lo sepa: un rio que esquivara una
+		# sala se veria antinatural). Pero enlosar el cauce o llenarlo de baba lo borraria, asi que
+		# donde hay lamina de agua no se pinta nada suyo: el rio la cruza y se le ve cruzarla.
+		if _celdas_agua.has(c) or _celdas_lago.has(c) or _celdas_sumidero.has(c):
+			continue
+		if gen.es_suelo(c):
+			# LA LOSA es el suelo de la sala: va a dados celda a celda, y las que fallan dejan ver la
+			# roca de debajo (un enlosado viejo al que le faltan piezas).
+			if _dado(rng, data.sala_losa * p):
+				_celdas_losa[c] = true
+			# LA MANCHA, en cambio, va por CHARCOS y no a dados sueltos: con un dado por celda salia
+			# una alfombra picada de agujeros que se leia como "el suelo es azul", no como baba
+			# derramada. Con el ruido a escala de mapa (el mismo que reparte el musgo) salen pozas de
+			# varias celdas con su forma, y entre ellas se ve el suelo.
+			if data.sala_mancha > 0.0:
+				var m: float = Decorado.mancha(c, sem_mancha, 3)
+				if m > 1.0 - data.sala_mancha * p:
+					_celdas_mancha[c] = true
+		elif Decorado.muro_visible(gen, c):
+			if _dado(rng, data.sala_costra * p):
+				_celdas_costra[c] = true
+	# Los BROTES solo dentro de la sala: son su luz, y desperdigados por el pasillo delatarian el
+	# camino desde media pantalla.
+	for c in _celdas_mancha.keys() + _celdas_losa.keys():
+		if _en_sala_jefe(c) and _dado(rng, data.sala_brote * 0.35):
+			_celdas_brote[c] = true
+
+	var sem: int = _semilla_del_piso()
+	_pintar_capa("losa", _celdas_losa, sem)
+	_pintar_capa("limo", _celdas_mancha, sem)
+	_pintar_capa("costra", _celdas_costra, sem)
+	_pintar_capa("brote", _celdas_brote, sem)
+	_tenir_sala_jefe(data.sala_color)
+
+
+func _dado(rng: RandomNumberGenerator, prob: float) -> bool:
+	return prob > 0.0 and rng.randf() < prob
+
+
+func _en_sala_jefe(c: Vector2i) -> bool:
+	return _boss_sala.size != Vector2i.ZERO and _boss_sala.has_point(c)
+
+
+# Cuanto manda el material del jefe en cada celda: 1.0 en su sala y cayendo con la DISTANCIA ANDANDO
+# desde ella (no en linea recta: en recta el material aparecería al otro lado de un muro, en la sala
+# de al lado). Se recorre a lo ancho desde el borde de la sala, SALA_JEFE_DEGRADADO celdas.
+func _peso_sala_jefe() -> Dictionary:
+	var peso: Dictionary = {}
+	var cola: Array[Vector2i] = []
+	for y in range(_boss_sala.position.y - 1, _boss_sala.end.y + 1):
+		for x in range(_boss_sala.position.x - 1, _boss_sala.end.x + 1):
+			var c := Vector2i(x, y)
+			peso[c] = 1.0
+			cola.append(c)
+	var paso: int = 0
+	while paso < SALA_JEFE_DEGRADADO and not cola.is_empty():
+		paso += 1
+		# Cae con el CUADRADO de lo que llevas andado: el material se acaba pronto, y lo que dura
+		# hasta el final son cuatro parches sueltos en vez de una alfombra que se va aclarando.
+		var p: float = pow(1.0 - float(paso) / float(SALA_JEFE_DEGRADADO + 1), 2.0)
+		var siguiente: Array[Vector2i] = []
+		for c in cola:
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var v: Vector2i = c + d
+				if peso.has(v):
+					continue
+				# Se propaga por el SUELO; el muro se apunta pero no sigue (o la costra treparia por
+				# la roca hasta la otra punta del piso).
+				if gen.es_suelo(v):
+					peso[v] = p
+					siguiente.append(v)
+				elif Decorado.muro_visible(gen, v):
+					peso[v] = p
+		cola = siguiente
+	return peso
+
+
+# El COLOR de su sala. Los cuatro motivos se dibujan en gris a proposito (ver TerrenoSprites), asi
+# que el tinte va aqui, en la capa entera. Vale porque hay como mucho UN jefe por piso: la capa es
+# suya y de nadie mas.
+func _tenir_sala_jefe(col: Color) -> void:
+	# La LOSA se queda SIN teñir: es piedra, y el suelo de su sala tiene que seguir leyendose como
+	# suelo. Teñida tambien, la sala entera salia de un solo color y parecia una piscina en vez de
+	# una sala enlosada con la baba del bicho encima. Lo que lleva su color es lo que ES suyo: la
+	# mancha, la costra que trepa y los brotes que alumbran.
+	for capa in ["limo", "costra", "brote"]:
+		var tml: TileMapLayer = _tm.get(capa, null)
+		if tml != null:
+			tml.modulate = col
+
+
+# Lo que FRENA el suelo bajo 'pos' (1.0 = nada). Hoy solo lo hacen los charcos de la sala del jefe:
+# el limo del Rey Slime se pega a los pies. Lo pregunta el jugador en cada frame, asi que es un
+# diccionario y una division, nada mas. Ver player._physics_process.
+func freno_en(pos: Vector2) -> float:
+	if _freno_mancha >= 1.0 or _celdas_mancha.is_empty():
+		return 1.0
+	return _freno_mancha if _celdas_mancha.has(celda_de_px(pos)) else 1.0
 
 
 
@@ -2002,12 +2166,17 @@ func _marcar_seguras(celdas: Array) -> void:
 	print("[mazmorra] salas seguras (sin spawn): zonas ", _zonas_seguras)
 
 
+# La sala mas lejana a 'desde' SIN CONTAR la del jefe: ahi van la bajada y la puerta al pueblo, y
+# las tres puertas del piso tienen que quedar fuera de su terreno (ademas, la sala de una puerta se
+# marca SEGURA y la suya no puede serlo).
 func _sala_mas_lejana(desde: Rect2i) -> Rect2i:
 	var mejor := Rect2i()
 	var best_d: float = -1.0
 	var origen: Vector2 = Vector2(desde.get_center())
+	var suya: Rect2i = gen.salas[gen.sala_jefe] if gen.sala_jefe >= 0 \
+		and gen.sala_jefe < gen.salas.size() else Rect2i()
 	for s in gen.salas:
-		if s == desde:
+		if s == desde or (suya.size != Vector2i.ZERO and s == suya):
 			continue
 		var d: float = origen.distance_to(Vector2(s.get_center()))
 		if d > best_d:

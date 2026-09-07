@@ -65,7 +65,7 @@ enum Clase { BASE, MASCARA }
 # El orden de CAPAS_ORDEN fija el reparto del atlas. Añadir una capa AL FINAL no mueve a las de
 # arriba, o sea que un horneado viejo de otra capa sigue valiendo mientras se desarrolla.
 const CAPAS_ORDEN := ["suelo", "muro", "musgo", "agua", "sumidero", "columna", "flor", "hondo",
-	"lago"]
+	"lago", "losa", "limo", "costra", "brote"]
 
 # ------------------------------------------------------------
 #  'bloque': POR QUE LA TEXTURA NO SE VE A CUADROS
@@ -136,6 +136,32 @@ const CAPAS := {
 	# lo que brilla tiene que ser un punto concreto, porque de lo contrario el piso entero se
 	# ilumina y el farolillo deja de hacer falta.
 	"flor": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
+
+	# ------------------------------------------------------------
+	#  LA SALA DEL JEFE
+	#  Cuatro motivos que se pintan SOLO dentro de su sala y del anillo de muro que la rodea. Van en
+	#  GRIS NEUTRO a proposito: el color de cada jefe lo pone el modulate de su TileMapLayer (ver
+	#  DungeonFloor._tenir_sala_jefe), asi que un mismo motivo vale para el limo azul del Rey Slime y
+	#  para la piedra del Minotauro sin duplicar ni una fila de atlas.
+	#
+	#  Y por eso las cuatro son BASE menos "limo": lo que decide si un motivo necesita mascara es si
+	#  tiene ORILLA. Un charco la tiene (se acaba en algun sitio y ese borde se ve); una losa no --
+	#  su borde es la junta, que ya lleva dibujada dentro.
+	# ------------------------------------------------------------
+	# EL SUELO TRABAJADO. Losas con junta, desgaste y alguna esquina rota. Se pinta ENCIMA del suelo
+	# del piso, asi que la roca de debajo sigue asomando por las juntas: es un suelo puesto sobre la
+	# mazmorra, no otro suelo.
+	"losa": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
+	# LA MANCHA (el limo del Rey Slime). Con mascara porque un charco necesita borde, y a bloque 2 y
+	# no 4 por lo mismo que el agua: 16 mascaras x 16 trozos son 32 filas de atlas por cada uno de
+	# los cinco horneados. A bloque 2 son 8, y en una mancha organica la repeticion no canta.
+	"limo": {"clase": Clase.MASCARA, "bloque": 2, "frames": 1, "overlay": true},
+	# LO QUE TREPA POR EL MURO de su sala. Lenguetas que suben desde el suelo: es lo que hace que la
+	# sala se lea como suya tambien de lejos, cuando del suelo solo ves el trozo que alumbras.
+	"costra": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
+	# EL BROTE QUE ALUMBRA. Hermano de "flor" (mismas motas claras, misma idea) pero en su propia
+	# capa: en los pisos de cueva las dos conviven en el mismo piso y cada una lleva su tinte.
+	"brote": {"clase": Clase.BASE, "bloque": 4, "frames": 1, "overlay": true},
 }
 
 
@@ -385,6 +411,12 @@ static func _rampa_pura(tramo: String, capa: String) -> Array:
 	# entre ellos es que uno corre y el otro no (ver _pintar_agua).
 	if capa == "lago":
 		return p.get("agua", p["suelo"]) as Array
+	# LAS CUATRO DE LA SALA DEL JEFE van en gris neutro: se dibujan con la rampa de la piedra del
+	# tramo (asi el relieve y el contraste son los del sitio) y el COLOR se lo pone encima el
+	# modulate de su capa, uno por jefe. Por eso no tienen paleta propia ni deben tenerla: dos jefes
+	# del mismo tramo comparten atlas.
+	if capa == "losa" or capa == "costra" or capa == "limo" or capa == "brote":
+		return p.get("muro", p["suelo"]) as Array
 	return p.get(capa, p["suelo"]) as Array
 
 
@@ -879,6 +911,135 @@ static func _pintar_flor(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
 
 
 # ============================================================
+#  LOS PINTORES DE LA SALA DEL JEFE
+#  Los cuatro pintan en GRIS (la rampa de la piedra del tramo) y dejan que el tinte de la capa les
+#  ponga el color. Ver el bloque de CAPAS.
+# ============================================================
+const LOSA_JUNTA := 0.06      # ancho de la junta, en fraccion de baldosa
+const LOSA_LADO := 16.0       # px de lado de una losa (dos por baldosa)
+
+# EL SUELO TRABAJADO. Losas cuadradas con junta hundida, cada una con su tono (no todas las piedras
+# de un enlosado son la misma) y algun desconchon. Semi-transparente a proposito: por las juntas y
+# por los desconchones sigue asomando el suelo del piso, y por eso se lee como un suelo PUESTO
+# encima de la mazmorra en vez de como otra mazmorra.
+static func _pintar_losa(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	# Tono por losa: un ruido MUY grueso, para que cambie de losa en losa y no dentro de una.
+	var tono: PackedFloat32Array = _campo(4, sem + 311, ox, oy, 1.0, bl)
+	var roto: PackedFloat32Array = _campo(13, sem + 733, ox, oy, 1.0, bl)
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			# Donde cae dentro de SU losa (0..1). Se hace sobre la posicion en el TAPIZ, no en la
+			# baldosa, o la reticula se reiniciaria en cada celda y la junta saldria doble.
+			var u: float = fposmod(float(x) + ox, LOSA_LADO) / LOSA_LADO
+			var v: float = fposmod(float(y) + oy, LOSA_LADO) / LOSA_LADO
+			var junta: bool = u < LOSA_JUNTA or v < LOSA_JUNTA \
+				or u > 1.0 - LOSA_JUNTA or v > 1.0 - LOSA_JUNTA
+			if roto[i] > 0.88:
+				# Desconchon: aqui la losa falta y se ve el suelo de siempre.
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			# Del tercio BAJO de la rampa de la piedra: la losa es del mismo material que la pared,
+			# pero es SUELO -- con el recorrido entero salia mas clara que los muros y la sala parecia
+			# iluminada, que es justo lo que no puede parecer una sala a oscuras.
+			var t: float = clampf(tono[i] * 0.34 + 0.04, 0.0, 0.999)
+			var col: Color = _escalon(t, rampa)
+			if junta:
+				# La junta va HUNDIDA (mas oscura) y bastante opaca: es la linea que dibuja la
+				# cuadricula, y es de lo unico que se entera el ojo desde lejos.
+				col = _escalon(clampf(t * 0.35, 0.0, 0.999), rampa)
+				col.a = 0.85
+			else:
+				col.a = 0.72
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
+# LA MANCHA (limo). Misma familia que el musgo -- mancha organica que se deshilacha hacia el borde
+# de la zona -- pero MAS CUBRIENTE y con brillos: el musgo es seco y esto esta mojado. Los brillos
+# son lo que la separa de una simple mancha de color: sin ellos parecia pintura.
+const LIMO_ORILLA := 9.0
+
+static func _pintar_limo(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var gordo: PackedFloat32Array = _campo(4, sem + 91, ox, oy, 1.0, bl)
+	var fino: PackedFloat32Array = _campo(9, sem + 137, ox, oy, 1.0, bl)
+	var claro: Color = rampa[rampa.size() - 1]
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var borde: float = clampf(_dentro(x, y, mask) / LIMO_ORILLA, 0.0, 1.0)
+			var mota: float = gordo[i] * 0.65 + fino[i] * 0.35
+			# En el corazon del charco cubre bastante (0.32) pero NUNCA del todo: por los huecos se
+			# ve la piedra, y eso es lo que separa "baba derramada" de "el suelo es azul".
+			if mota < lerpf(1.05, 0.32, borde):
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			var v: float = clampf(gordo[i] * 0.5 + fino[i] * 0.5, 0.0, 0.999)
+			var col: Color = _escalon(v, rampa)
+			# El BRILLO: unos pocos puntos donde la baba refleja. Van al tope de la rampa para que el
+			# tinte del jefe los deje casi blancos, que es lo que se lee como mojado.
+			if fino[i] > 0.90:
+				col = claro
+			col.a = lerpf(0.40, 0.80, clampf((mota - 0.32) / 0.45, 0.0, 1.0)) * borde
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
+# LA COSTRA del muro. Sube desde ABAJO: es lo que la distingue del musgo (que se agarra en manchas
+# por toda la pared). Las lenguetas tienen alturas distintas segun un ruido, asi que el borde de
+# arriba es irregular y no una linea de nivel.
+const COSTRA_ALTO := 20.0     # px que puede subir la lengueta mas alta
+
+static func _pintar_costra(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var alto: PackedFloat32Array = _campo(6, sem + 401, ox, oy, 1.0, bl)
+	var grano: PackedFloat32Array = _campo(12, sem + 419, ox, oy, 1.0, bl)
+	for x in LADO:
+		# La altura de ESTA columna: se lee el ruido en la fila de abajo para que la lengueta sea
+		# vertical y no una mancha (si se leyera por pixel, saldria musgo otra vez).
+		var h: float = COSTRA_ALTO * clampf(alto[(LADO - 1) * LADO + x] * 1.15, 0.0, 1.0)
+		for y in LADO:
+			var i: int = y * LADO + x
+			var desde_abajo: float = float(LADO - 1 - y)
+			if desde_abajo > h:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			var t: float = clampf(desde_abajo / maxf(h, 1.0), 0.0, 1.0)   # 0 = pegado al suelo
+			# Se va deshaciendo hacia arriba, y el grano le come motas por el camino.
+			if grano[i] < lerpf(0.05, 0.55, t):
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+				continue
+			var col: Color = _escalon(clampf(grano[i] * 0.6 + (1.0 - t) * 0.4, 0.0, 0.999), rampa)
+			col.a = lerpf(0.90, 0.30, t)
+			_poner(d, W, o.x + x, o.y + y, col)
+
+
+# EL BROTE que alumbra. Es la flor de la cueva con otro nombre y un nucleo mas gordo: lo que tiene
+# que hacer es CANTAR en la oscuridad, porque es la unica luz de la sala (ver Niebla.poner_brotes).
+static func _pintar_brote(d: PackedByteArray, W: int, o: Vector2i, rampa: Array,
+		sem: int, ox: float, oy: float, bl: int) -> void:
+	var donde: PackedFloat32Array = _campo(7, sem + 2311, ox, oy, 1.0, bl)
+	var nucleo: Color = rampa[rampa.size() - 1]
+	var borde: Color = rampa[maxi(0, rampa.size() - 2)]
+	for y in LADO:
+		for x in LADO:
+			var i: int = y * LADO + x
+			var v: float = donde[i]
+			if v > 0.90:
+				_poner(d, W, o.x + x, o.y + y, nucleo)
+			elif v > 0.82:
+				var c: Color = borde
+				c.a = 0.80
+				_poner(d, W, o.x + x, o.y + y, c)
+			elif v > 0.74:
+				var h: Color = borde
+				h.a = 0.30
+				_poner(d, W, o.x + x, o.y + y, h)
+			else:
+				_poner(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+
+
+# ============================================================
 #  LOS PINTORES DE LA CUEVA
 # ============================================================
 # La mazmorra de arriba esta PICADA por alguien: sus paredes son bloques con la cara plana, el filo
@@ -996,6 +1157,14 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 			_pintar_columna(d, W, o, rampa, sem, ox, oy, bl)
 		"flor":
 			_pintar_flor(d, W, o, rampa, sem, ox, oy, bl)
+		"losa":
+			_pintar_losa(d, W, o, rampa, sem, ox, oy, bl)
+		"limo":
+			_pintar_limo(d, W, o, rampa, mask, sem, ox, oy, bl)
+		"costra":
+			_pintar_costra(d, W, o, rampa, sem, ox, oy, bl)
+		"brote":
+			_pintar_brote(d, W, o, rampa, sem, ox, oy, bl)
 
 
 # ============================================================

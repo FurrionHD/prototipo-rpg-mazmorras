@@ -136,6 +136,14 @@ func poner_flores(celdas: Dictionary) -> void:
 	vision.poner_flores(celdas, FLOR_RADIO, FLOR_INTENSIDAD)
 
 
+# LOS BROTES DE LA SALA DEL JEFE. Misma maquinaria que las flores (luz estatica precalculada una vez,
+# coste cero por frame) pero con SU radio y SU intensidad, que los pone cada jefe en su EnemyData:
+# lo que crece en la sala del Rey Slime alumbra mas que una flor de cueva. Va con acumular=true
+# porque se pone DESPUES de las flores del piso y no puede borrarlas.
+func poner_brotes(celdas: Dictionary, radio: float, intensidad: float) -> void:
+	vision.poner_flores(celdas, radio, intensidad, true)
+
+
 # Lo llama DungeonFloor cada vez que rehace el piso: la rejilla de roca es otra.
 func preparar(gen: DungeonGenerator) -> void:
 	vision.preparar(gen)
