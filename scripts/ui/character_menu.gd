@@ -73,12 +73,6 @@ const ALTO_MUNECO := 430.0
 const ESCALA_MUNECO := 6.0
 # El aire que se le deja al muñeco por arriba y por abajo dentro de su caja.
 const MARGEN_MUNECO := 20.0
-# EL RETRATO de la fila de arriba: el cuadro donde se ve la cara, y el alto total contando el nombre
-# de debajo. Grande a proposito -- son la forma de elegir a quien miras, y a 52 px no se distinguia
-# uno de otro.
-const LADO_RETRATO := 74.0
-const ALTO_RETRATO := LADO_RETRATO + 20.0
-
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
 
@@ -197,28 +191,14 @@ func _ready() -> void:
 	lateral.move_child(titulo, 0)
 
 	# --- LA GENTE, ARRIBA ---
-	# Va en el header (la banda que cruza por encima del centro y la ficha) y DENTRO DE UN SCROLL
-	# horizontal: aqui no sale solo el equipo, sale TODA la plantilla —los del hogar tambien—, para
-	# poder tocarle el equipo a cualquiera sin tener que rehacer el grupo antes. Con doce fichados no
-	# caben en una fila, asi que se desliza.
-	_scroll_retratos = ScrollContainer.new()
-	_scroll_retratos.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll_retratos.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_scroll_retratos.custom_minimum_size = Vector2(0, ALTO_RETRATO)
-	_scroll_retratos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# Un poco de aire por arriba: la linea de aviso del esqueleto va oculta en esta pantalla, asi que
-	# sin esto los retratos quedan pegados al canto de la ventana.
-	var hueco_arriba := MarginContainer.new()
-	hueco_arriba.add_theme_constant_override("margin_top", 8)
-	hueco_arriba.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_header.add_child(hueco_arriba)
-	hueco_arriba.add_child(_scroll_retratos)
-	_fila_retratos = HBoxContainer.new()
-	_fila_retratos.add_theme_constant_override("separation", 10)
-	_scroll_retratos.add_child(_fila_retratos)
-	# Deslizar con el dedo, igual que las dos columnas del esqueleto (ver MenuScaffold.construir).
-	if Tactil.activo:
-		ArrastreScroll.enganchar(_scroll_retratos)
+	# Va en el header (la banda que cruza por encima del centro y la ficha). Aqui no sale solo el
+	# equipo, sale TODA la plantilla —los del hogar tambien—, para poder tocarle el equipo a
+	# cualquiera sin tener que rehacer el grupo antes. La banda es de MenuScaffold porque el menu
+	# del maestro lleva la misma.
+	_fila_retratos = MenuScaffold.fila_retratos(_header)
+	# El scroll (el padre de la fila) se guarda porque hay que ESCONDERLO entero con los modales:
+	# ver _ver_muneco.
+	_scroll_retratos = _fila_retratos.get_parent() as ScrollContainer
 
 
 # ESC va en _input y CONSUME el evento: _input corre SIEMPRE antes que _unhandled_input, asi que el
@@ -472,103 +452,10 @@ func _rebuild_real() -> void:
 
 
 # LA FILA DE RETRATOS: TODA la plantilla, el equipo primero y el hogar detras, con una raya que
-# separa los dos grupos. Con una sola persona no se pinta: seria un boton solo que no elige nada.
+# separa los dos grupos. La pinta MenuScaffold, que es de donde la coge tambien el maestro.
 func _pintar_retratos() -> void:
-	MenuScaffold.vaciar(_fila_retratos)
-	var todos: Array = _gente()
-	if todos.size() <= 1:
-		return
-	var en_equipo: int = Game.party.size()
-	for i in todos.size():
-		# LA RAYA entre el equipo y el hogar. Sin ella los doce se leen como una lista sola y no hay
-		# forma de saber cual de ellos baja hoy contigo.
-		if i == en_equipo and i > 0:
-			var sep := VSeparator.new()
-			sep.add_theme_constant_override("separation", 14)
-			_fila_retratos.add_child(sep)
-		_retrato(todos[i], i, i < en_equipo)
+	MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona)
 
-
-# UN RETRATO: la CARA de la persona en un cuadro, con su nombre debajo. Es un Button con el estilo
-# quitado y el dibujo a mano, igual que CeldaObjeto.
-func _retrato(pj: PersonajeData, i: int, en_equipo: bool) -> void:
-	var elegido: bool = (i == _pj_sel)
-
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(LADO_RETRATO, ALTO_RETRATO)
-	b.clip_contents = true
-	b.tooltip_text = "%s%s  ·  %s" % ["👑 " if pj == Game.lider() else "", pj.nombre,
-		"en el equipo" if en_equipo else "en el hogar"]
-	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
-		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
-	b.pressed.connect(_pick_persona.bind(i))
-	_fila_retratos.add_child(b)
-
-	b.draw.connect(func() -> void:
-		var w: float = b.size.x
-		var lado: float = LADO_RETRATO
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.13, 0.14, 0.19, 1.0) if elegido else Color(0.08, 0.09, 0.12, 1.0)
-		sb.border_color = AMBAR if elegido else Color(1, 1, 1, 0.14)
-		sb.set_border_width_all(2 if elegido else 1)
-		# Esquinas SUAVES y no un circulo: el recorte del marco es cuadrado (un Control no recorta en
-		# redondo), asi que con el cuadro redondo las esquinas del muñeco se salian por fuera y el
-		# circulo dejaba de leerse. Ademas es la misma forma que las celdas del inventario.
-		sb.set_corner_radius_all(10)
-		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, lado)))
-		var f: Font = b.get_theme_font(&"font")
-		# EL NOMBRE DEBAJO, recortado si no cabe. Es lo que de verdad distingue a uno de otro: con
-		# cuatro muñecos del mismo tamaño y la misma pose, el color del pelo no llega.
-		var nom: String = pj.nombre
-		var an: float = f.get_string_size(nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		while an > w and nom.length() > 2:
-			nom = nom.substr(0, nom.length() - 1)
-			an = f.get_string_size(nom + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		if nom != pj.nombre:
-			nom += "…"
-		b.draw_string(f, Vector2((w - an) * 0.5, lado + 14.0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
-			AMBAR if elegido else Color(0.82, 0.85, 0.90))
-		# La CORONA del que va en cabeza, arriba a la derecha del cuadro.
-		if pj == Game.lider():
-			b.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
-			b.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
-		# Los del HOGAR, atenuados: siguen siendo tuyos y se les puede tocar el equipo, pero hoy no
-		# bajan. El velo lo dice sin quitarles el nombre ni apagar el boton.
-		if not en_equipo:
-			b.draw_rect(Rect2(Vector2.ZERO, Vector2(w, lado)), Color(0.05, 0.05, 0.07, 0.38)))
-
-	# EL MUÑECO va en SU PROPIO recuadro recortador, no colgado del boton: el boton mide mas que el
-	# cuadro (lleva el nombre debajo), asi que recortando con el la figura invadia el nombre y lo
-	# tapaba -- los hijos de un CanvasItem se dibujan DESPUES del padre.
-	var marco := Control.new()
-	marco.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
-	marco.size = Vector2(LADO_RETRATO, LADO_RETRATO)
-	marco.clip_contents = true
-	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(marco)
-
-	var mu := MunecoJugador.new()
-	mu.montar(pj)
-	mu.tenir(pj.color, 0.0)
-	mu.poner_cara(pj.textura())
-	if mu.hay_dibujo():
-		# LA CARA, encuadrada. Mirando al SUR ("idle_0"): es la unica direccion en la que se te ve la
-		# cara de frente (ver MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N). Un retrato de espaldas no
-		# es un retrato, y de espaldas es justo como estaba.
-		#
-		# Se escala grande y se baja el origen para que el recorte deje SOLO la cabeza y los hombros:
-		# el cuerpo entero en 74 px es un monigote en el que no se distingue quien es.
-		# EL ENCUADRE VA MEDIDO, no calculado con ALTO_MUNDO: el dibujo real no ocupa esos 60 px por
-		# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
-		# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
-		# cara cae en el centro del cuadro y se ven cabeza y hombros.
-		var esc: float = LADO_RETRATO * 2.1 / PoseJugador.ALTO_MUNDO
-		mu.scale = Vector2.ONE * esc
-		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.02)
-		mu.animar("idle_0")
-		marco.add_child(mu)
-	else:
-		mu.queue_free()
 
 
 # ============================================================

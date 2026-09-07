@@ -5968,6 +5968,12 @@ func habilidad_desbloqueada(ab: AbilityData, pj: PersonajeData = null) -> bool:
 
 # Se la enseña el maestro del pueblo. Cobra AQUI (mismo patron que fichar_en_taberna): si no
 # llega el dinero no se cobra nada y no se aprende nada.
+#
+# Y SE LA PONE SOLA si lleva el arma que la da y le queda hueco. Es lo mismo que hace un grimorio
+# con las magias, y hace falta desde que el maestro dejo de tener pestaña de equipar: pagar 320
+# monedas por una tecnica y que no aparezca en ningun sitio se lee como que se ha perdido. Si no
+# cabe (los cuatro huecos llenos) o no lleva esa arma, se queda sabida y la coloca en su ficha:
+# el tope es lo que obliga a elegir, y eso no se toca.
 func aprender_habilidad(ab: AbilityData, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	if ab == null or habilidad_desbloqueada(ab, p):
@@ -5975,6 +5981,7 @@ func aprender_habilidad(ab: AbilityData, pj: PersonajeData = null) -> bool:
 	if not gastar(ab.precio):
 		return false
 	p.habilidades_aprendidas.append(ab)
+	equipar_habilidad(ab, p)   # solo entra si su equipo la da y hay hueco; si no, no hace nada
 	print("[maestro] %s aprende %s por %d monedas." % [p.nombre, ab.nombre, ab.precio])
 	return true
 

@@ -1,39 +1,47 @@
 # ============================================================
 #  maestro_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu del MAESTRO DE HABILIDADES: donde se APRENDEN las habilidades de arma y se elige
-#  cuales lleva puestas cada personaje.
+#  Menu del MAESTRO DE HABILIDADES: aqui se APRENDEN las tecnicas de cada arma. Solo eso.
 #
-#  Dos pestañas, que son las dos mitades del sistema:
-#    EQUIPAR  -> el arma que lleva PUESTA ese personaje, y sus Game.MAX_HABILIDADES huecos.
-#    APRENDER -> el catalogo entero, arma por arma, con lo que cuesta cada una.
+#  Arriba, la fila de armas con su icono -- el mismo con el que se filtran en el inventario -- y
+#  marcada la que el personaje lleva puesta. Debajo, la gente. Al centro, las tecnicas de esa arma
+#  con lo que cuesta cada una, y a la derecha la ficha de la elegida con su boton.
 #
-#  El aprendizaje es POR PERSONAJE (cada compañero paga las suyas), asi que lo primero de todo
-#  es a quien estas mirando: el selector de arriba manda sobre las dos pestañas.
+#  APRENDER ES POR PERSONA (cada compañero paga las suyas), asi que lo primero de todo es a quien
+#  estas mirando: los retratos mandan sobre el resto de la pantalla.
 #
-#  El set equipado se guarda POR TIPO DE ARMA (ver Game.habilidades_equipadas), asi que aqui no
-#  hay nada que "aplicar": tocas un boton y ya esta puesto para la proxima pelea.
+#  COLOCARLAS EN LOS CUATRO HUECOS NO SE HACE AQUI, se hace en la ficha del personaje, que es donde
+#  se arrastran. Aqui hubo una pestaña "Equipar" que hacia lo mismo con botones, y tener el mismo
+#  trabajo en dos sitios con dos gestos distintos solo servia para que uno de los dos se quedara
+#  atras. Lo que si hace aprender es PONERLA SOLA si le cabe (ver Game.aprender_habilidad), para
+#  que pagar por una tecnica se note en el sitio sin tener que ir a buscarla.
 # ============================================================
 
 extends CanvasLayer
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
-const ROJO := Color(0.9, 0.5, 0.5)
 const GRIS := Color(0.6, 0.63, 0.7)
 
+# Las mismas medidas que el inventario y la ficha de personaje: estan calibradas a las unidades
+# logicas de 1280x720 (ver project.godot) y las tres pantallas tienen que verse hermanas.
+const ANCHO_FICHA := 360.0
+const ANCHO_LISTA_MIN := 420.0
+
 var _root: Control = null
-var _side: VBoxContainer = null
 var _header: VBoxContainer = null
-var _content: VBoxContainer = null
-var _lista: VBoxContainer = null
+var _lista: VBoxContainer = null       # la columna del centro: las tecnicas del arma
+var _content: VBoxContainer = null     # la ficha de la derecha
+var _barra_armas: HBoxContainer = null # la fila de iconos de arma
+var _fila_retratos: HBoxContainer = null
+var _titulo_seccion: Label = null      # el nombre del arma que estas mirando
 var _aviso_lbl: Label = null
 var _dinero_lbl: Label = null
 var _aviso: String = ""
 var _aviso_ok: bool = true
 
-var _tab: int = 0        # 0 = equipar, 1 = aprender
-var _pj_idx: int = 0     # a quien estamos mirando, dentro de Game.plantilla_con_lider()
-var _arma_idx: int = 0   # en la pestaña APRENDER: que arma del catalogo
+var _pj_sel: int = 0     # a quien estamos mirando, dentro de _gente()
+var _arma_idx: int = 0   # que arma del catalogo
+var _sel: int = 0        # que tecnica de esa arma
 
 
 func _ready() -> void:
@@ -41,23 +49,93 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("maestro_menu")
 
-	var m: Dictionary = MenuScaffold.construir(self, "MAESTRO DE HABILIDADES",
-		"Las técnicas de cada arma se aprenden aquí, y sólo caben cuatro a la vez. Cambia de arma y llevarás las suyas; vuelve a ésta y te esperan las que dejaste.",
-		_cerrar, true)
+	# con_lateral = FALSE: las armas van en una FILA ARRIBA, no en una columna. Es la misma forma
+	# que el inventario, y por el mismo motivo: con trece armas la columna seria una lista larga y
+	# en fila son trece iconos que se abarcan de un vistazo.
+	var m: Dictionary = MenuScaffold.construir(self, "MAESTRO", "", _cerrar, true, false)
 	_root = m["root"]
-	_side = m["side"]
 	_header = m["header"]
-	_content = m["content"]
 	_lista = m["lista"]
+	_content = m["content"]
 	_aviso_lbl = m["aviso"]
 	_dinero_lbl = m["dinero"]
+
+	# EL REPARTO SE INVIERTE, igual que en el inventario: manda la lista del centro (es donde
+	# eliges) y la ficha se queda con un ancho fijo, el justo para leerla sin barrer la vista.
+	var scroll: ScrollContainer = m["lista_scroll"]
+	scroll.custom_minimum_size = Vector2(ANCHO_LISTA_MIN, 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.size_flags_horizontal = Control.SIZE_FILL
+	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
+	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+
+	# LA GENTE, ARRIBA DEL TODO. La misma banda que la ficha de personaje (ver
+	# MenuScaffold.fila_retratos): aprender es por persona, asi que lo primero de la pantalla es a
+	# quien miras, y despues viene lo que le puedes enseñar.
+	_fila_retratos = MenuScaffold.fila_retratos(_header)
+
+	# LA FILA DE ARMAS, en la COLUMNA DEL CENTRO y encima de las tecnicas, que es lo que manda: es
+	# el mismo sitio que las subpestañas de la ficha de personaje y del inventario. Estuvo arriba
+	# del todo, por encima de la gente, y era justo al reves que los otros dos menus.
+	#
+	# Va FUERA del scroll (hermana suya, no hija) para que no se vaya con la lista al desplazarse:
+	# la fila que elige el arma no puede desaparecer al bajar.
+	var split: BoxContainer = scroll.get_parent()
+	split.remove_child(scroll)
+	var col_centro := VBoxContainer.new()
+	col_centro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_centro.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_centro.add_theme_constant_override("separation", 4)
+	split.add_child(col_centro)
+	split.move_child(col_centro, 0)
+	_barra_armas = HBoxContainer.new()
+	_barra_armas.alignment = BoxContainer.ALIGNMENT_CENTER
+	_barra_armas.add_theme_constant_override("separation", 10)
+	col_centro.add_child(_barra_armas)
+	col_centro.add_child(scroll)
+
+	# La fila de pestañas que trae el esqueleto se queda VACIA y sin sitio: este menu no tiene
+	# secciones, solo armas, y esas ya estan en la columna.
+	var barra_tabs: HBoxContainer = m["side"]
+	var barra: BoxContainer = barra_tabs.get_parent()
+	barra_tabs.visible = false
+
+	# EL TITULO EN DOS LINEAS: "Maestro" pequeño y gris encima del arma, en grande. La etiqueta que
+	# trae el esqueleto se ESCONDE en vez de borrarse: un Control oculto no ocupa sitio.
+	(barra.get_child(0) as Control).visible = false
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	var chico := Label.new()
+	chico.text = "Maestro"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	titulo.add_child(chico)
+	_titulo_seccion = Label.new()
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
+
+	# LAS MONEDAS, A LA BARRA. El esqueleto las cuelga ancladas bajo la esquina de la ✕, que es su
+	# sitio cuando la ✕ flota; con barra superior la ✕ vive dentro de la barra y las monedas se
+	# quedaban solas en mitad de la cabecera y en cuerpo 22.
+	_dinero_lbl.get_parent().remove_child(_dinero_lbl)
+	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_dinero_lbl.custom_minimum_size = Vector2.ZERO
+	_dinero_lbl.add_theme_font_size_override("font_size", 15)
+	barra.add_child(_dinero_lbl)
+	barra.move_child(_dinero_lbl, barra.get_child_count() - 2)
 
 
 func abrir() -> void:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
 	_aviso = ""
-	_pj_idx = 0
+	_pj_sel = 0
+	_sel = 0
+	_abrir_por_su_arma()   # se abre por el arma que lleva en la mano, no por la primera del catalogo
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
@@ -77,26 +155,102 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-# Todo el que puede aprender algo: el que va en cabeza mas la plantilla. El lider NO esta en
-# Game.plantilla (vive en los campos planos), asi que hay que ponerlo delante a mano.
+# ============================================================
+#  QUIEN, QUE ARMA Y QUE TECNICA
+# ============================================================
+
+# Todo el que puede aprender algo, en el MISMO orden que la ficha de personaje: primero los que
+# bajan hoy y detras los del hogar. El orden importa porque la raya de la fila de retratos se pone
+# en Game.party.size(): con otra lista, la raya cae en medio de quien no toca.
 func _gente() -> Array:
-	var todos: Array = [Game.lider()]
-	for pj in Game.plantilla:
-		if pj != Game.lider():
-			todos.append(pj)
-	return todos
+	var out: Array = []
+	for p in Game.party:
+		out.append(p)
+	for p in Game.en_el_banquillo():
+		out.append(p)
+	if out.is_empty():
+		out.append(Game.lider())
+	return out
 
 
 func _pj() -> PersonajeData:
 	var todos: Array = _gente()
-	_pj_idx = clampi(_pj_idx, 0, todos.size() - 1)
-	return todos[_pj_idx]
+	_pj_sel = clampi(_pj_sel, 0, todos.size() - 1)
+	return todos[_pj_sel]
 
 
-# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
-# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
-# pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
-# lleva el herrero desde que se cazo alli.
+# Las plantillas base de todo lo que aporta habilidades: las armas y las secundarias (escudos y
+# varita tambien traen las suyas, y compiten por los mismos cuatro huecos).
+func _plantillas() -> Array:
+	var out: Array = []
+	for ruta in CatalogoEquipo.ARMAS + CatalogoEquipo.SECUNDARIAS:
+		var it: Resource = load(ruta)
+		if it != null and not it.habilidades.is_empty():
+			out.append(it)
+	return out
+
+
+func _arma() -> Resource:
+	var todas: Array = _plantillas()
+	_arma_idx = clampi(_arma_idx, 0, todas.size() - 1)
+	return todas[_arma_idx]
+
+
+# Las tecnicas del arma abierta, sin los huecos vacios de su lista.
+func _tecnicas() -> Array:
+	var out: Array = []
+	for ab in _arma().habilidades:
+		if ab != null:
+			out.append(ab)
+	return out
+
+
+func _pick_persona(i: int) -> void:
+	if i == _pj_sel:
+		return
+	_pj_sel = i
+	_sel = 0
+	_aviso = ""
+	_abrir_por_su_arma()
+	_rebuild()
+
+
+# ABRE POR EL ARMA QUE LLEVA EN LA MANO PRINCIPAL. Es lo que uno viene a mirar: las tecnicas que
+# ese personaje puede usar HOY. Si va a puños (o su arma no da tecnicas) se queda donde estaba, que
+# es mejor que saltar a una cualquiera.
+func _abrir_por_su_arma() -> void:
+	var pj: PersonajeData = _pj()
+	var ruta: String = Game.ruta_base_de(pj.equipped_main) if pj.equipped_main != null else ""
+	if ruta == "":
+		return
+	var todas: Array = _plantillas()
+	for i in todas.size():
+		if String(todas[i].resource_path) == ruta:
+			_arma_idx = i
+			return
+
+
+func _pick_arma(i: int) -> void:
+	if i == _arma_idx:
+		return
+	_arma_idx = i
+	_sel = 0   # el indice viejo apunta a otra lista: sin esto la ficha enseñaba otra tecnica
+	_aviso = ""
+	_rebuild()
+
+
+func _pick(i: int) -> void:
+	_sel = i
+	_rebuild()
+
+
+# ============================================================
+#  PINTAR
+# ============================================================
+
+# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (las señales de red, un
+# _on_* que espera en un await), y entonces el de dentro pinta su panel y el de fuera apila el suyo
+# debajo: el menu salia DUPLICADO. Es el mismo guardia que lleva el herrero desde que se cazo alli.
 var _reconstruyendo := false
 
 func _rebuild() -> void:
@@ -108,239 +262,169 @@ func _rebuild() -> void:
 
 
 func _rebuild_real() -> void:
-	for zona in [_side, _header, _content, _lista]:
-		MenuScaffold.vaciar(zona)
+	# EL HEADER Y LA BARRA NO SE VACIAN: ahi viven la banda de retratos y la fila de armas, que son
+	# de la PANTALLA y no de lo que estes mirando. Vaciarlos se llevaba por delante sus scrolls y
+	# habia que remontarlos en cada pasada.
+	MenuScaffold.vaciar(_lista)
+	MenuScaffold.vaciar(_content)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_dinero_lbl.text = "%d monedas" % Game.money
 
-	MenuScaffold.pestanas(_side, ["Equipar", "Aprender"], _tab, func(i: int):
-		_tab = i
-		_aviso = ""
-		_rebuild())
-
-	# El selector de PERSONA va en la cabecera y no en el lateral: manda sobre las dos pestañas,
-	# asi que tiene que verse siempre y por encima de todo lo demas.
 	var pj: PersonajeData = _pj()
+	var arma: Resource = _arma()
+	_titulo_seccion.text = String(arma.nombre).to_upper()
+	MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona)
+	_pintar_armas(pj)
+	_pintar_tecnicas(pj, arma)
+	_pintar_ficha(pj)
+
+
+# LA FILA DE ARMAS. El icono de cada una es el mismo con el que se filtran en el inventario (ver
+# MenuScaffold.icono_de_arma), y la que el personaje LLEVA PUESTA va marcada: es la que decide que
+# tecnicas puede usar hoy, asi que tiene que verse sin leer nada.
+func _pintar_armas(pj: PersonajeData) -> void:
+	var todas: Array = _plantillas()
 	var nombres: Array = []
-	for p in _gente():
-		nombres.append("%s  Nv.%d" % [p.nombre, p.level])
-	MenuScaffold.titulo(_header, "¿QUIÉN APRENDE?", 14)
-	MenuScaffold.cuadricula(_header, nombres, _pj_idx, func(i: int):
-		_pj_idx = i
-		_aviso = ""
-		_rebuild(), 4, Vector2(120, MenuScaffold.ALTO_BOTON))
-	_header.add_child(HSeparator.new())
+	var iconos: Array = []
+	var marcadas: Array = []
+	# LO QUE LLEVA PUESTO se compara por la RUTA DE LA PLANTILLA y no con ==: la pieza equipada es
+	# una copia (Game.crear_item la duplica) y una copia ha perdido su resource_path, asi que
+	# comparar objetos no acierta nunca. ruta_base_de ademas repara las metas antiguas.
+	var puestas: Array = []
+	for it in [pj.equipped_main, pj.equipped_off]:
+		var r: String = Game.ruta_base_de(it) if it != null else ""
+		if r != "":
+			puestas.append(r)
+	for i in todas.size():
+		var it2: Resource = todas[i]
+		var lleva: bool = puestas.has(String(it2.resource_path))
+		nombres.append("%s%s" % [it2.nombre, "  ·  la lleva puesta" if lleva else ""])
+		iconos.append(MenuScaffold.icono_de_arma(it2))
+		if lleva:
+			marcadas.append(i)
+	MenuScaffold.subpestanas(_barra_armas, nombres, iconos, _arma_idx, _pick_arma, marcadas)
 
-	if _tab == 0:
-		_pintar_equipar(pj)
-	else:
-		_pintar_aprender(pj)
 
-
-# ============================================================
-#  Pestaña EQUIPAR: los cuatro huecos del arma que lleva PUESTA
-# ============================================================
-func _pintar_equipar(pj: PersonajeData) -> void:
-	# CON LOS HUECOS: esta pantalla numera "1. / 2. / 3. / 4." y esos numeros TIENEN que ser los del
-	# gestor. Con la lista compactada, dejar el hueco 1 vacio hacia que lo del 2 saliera aqui como "1."
-	# y los dos menus se contradecian.
-	var puestas: Array = Game.habilidades_con_huecos(pj)
-	var pool: Array = Game.pool_habilidades(pj)
-	MenuScaffold.titulo(_header, "%s  ·  %s" % [pj.nombre, _arma_puesta(pj)], 16)
-
-	# --- Izquierda: los huecos, ocupados y libres ---
-	var cuantas: int = Game.habilidades_equipadas(pj).size()   # para el rotulo: cuantas LLEVA
-	MenuScaffold.titulo(_lista, "Equipadas (%d de %d)" % [cuantas, Game.MAX_HABILIDADES], 14)
-	for i in Game.MAX_HABILIDADES:
-		if i < puestas.size() and puestas[i] != null:
-			var ab: AbilityData = puestas[i]
-			var b := TooltipButton.new()
-			b.text = "%d.  %s   ✕" % [i + 1, ab.nombre]
-			b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-			b.clip_text = true
-			b.tooltip_text = "Pulsa para quitarla del hueco.\n\n" + ab.resumen(Game.manos_de(ab, pj))
-			b.pressed.connect(func():
-				Game.desequipar_habilidad(ab, pj)
-				_aviso = "%s deja de llevar %s." % [pj.nombre, ab.nombre]
-				_aviso_ok = true
-				_rebuild())
-			_lista.add_child(b)
-		else:
-			var vacio := Label.new()
-			vacio.text = "%d.  — hueco libre —" % (i + 1)
-			vacio.add_theme_color_override("font_color", GRIS)
-			vacio.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-			_lista.add_child(vacio)
-
-	# --- Derecha: todo lo que su equipo le permite usar ---
-	if pool.is_empty():
-		MenuScaffold.nota(_content, "Lo que lleva en las manos no aporta ninguna técnica. "
-			+ "Los puños no tienen; cómprale un arma en la tienda.")
+# LAS TECNICAS del arma abierta, una por linea: el nombre a la izquierda y a la derecha lo que hace
+# falta para tenerla. El color dice el estado de un vistazo (verde = ya es suya, gris = no le llega
+# el dinero) y el orden es el de la plantilla, que es el orden en que estan pensadas.
+func _pintar_tecnicas(pj: PersonajeData, arma: Resource) -> void:
+	var lleva: bool = _la_lleva(pj, arma)
+	# Solo "TÉCNICAS": el nombre del arma ya esta arriba, en grande, y repetirlo en la misma pantalla
+	# gasta una linea para no decir nada nuevo.
+	MenuScaffold.titulo(_lista, "TÉCNICAS", 14)
+	MenuScaffold.nota(_lista, ("%s lleva esta arma: lo que aprenda aquí lo usa ya." % pj.nombre)
+		if lleva else ("No hace falta llevar el arma puesta para aprender sus técnicas, "
+		+ "pero sí para usarlas."))
+	var tecnicas: Array = _tecnicas()
+	if tecnicas.is_empty():
+		MenuScaffold.nota(_lista, "Esta arma no tiene técnicas propias.")
 		return
-	MenuScaffold.titulo(_content, "SU EQUIPO LE PERMITE", 14)
-	MenuScaffold.nota(_content, "Sale del arma y del escudo que lleva puestos. Cambiar a otra arma "
-		+ "le pone las de ésa; la misma arma de otro tier o mejorada le conserva estas.")
-	_content.add_child(HSeparator.new())
-	for ab in pool:
-		_fila_pool(pj, ab, puestas)
+	_sel = clampi(_sel, 0, tecnicas.size() - 1)
+	for i in tecnicas.size():
+		_fila_tecnica(pj, tecnicas[i], i)
 
 
-# Una linea por habilidad del pool: nombre, de donde sale, y el boton que la mete o la saca.
-func _fila_pool(pj: PersonajeData, ab: AbilityData, puestas: Array) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	_content.add_child(fila)
-
-	var nom := Label.new()
-	nom.text = ab.nombre
-	nom.custom_minimum_size = Vector2(180, 0)
-	if puestas.has(ab):
-		nom.add_theme_color_override("font_color", VERDE)
-	elif not Game.habilidad_desbloqueada(ab, pj):
-		nom.add_theme_color_override("font_color", GRIS)
-	fila.add_child(nom)
-
-	var b := TooltipButton.new()   # tooltip multilinea: el de Godot no parte lineas (ver tooltip_button.gd)
-	b.custom_minimum_size = Vector2(130, MenuScaffold.ALTO_BOTON)
+func _fila_tecnica(pj: PersonajeData, ab: AbilityData, i: int) -> void:
+	var b := TooltipButton.new()   # tooltip multilinea: el de Godot no parte lineas
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+	b.toggle_mode = true
+	b.button_pressed = (i == _sel)
+	b.clip_text = true
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_constant_override("h_separation", 0)
+	b.text = "  " + ab.nombre
 	b.tooltip_text = ab.resumen(Game.manos_de(ab, pj))
 	if ab.descripcion != "":
 		b.tooltip_text += "\n\n" + ab.descripcion
-	if puestas.has(ab):
-		b.text = "Quitar"
-		b.pressed.connect(func():
-			Game.desequipar_habilidad(ab, pj)
-			_aviso = "%s deja de llevar %s." % [pj.nombre, ab.nombre]
-			_aviso_ok = true
-			_rebuild())
-	elif not Game.habilidad_desbloqueada(ab, pj):
-		b.text = "No la sabe"
-		b.disabled = true
-		b.tooltip_text = "⛔ %s todavía no sabe esta técnica: enséñasela en la pestaña Aprender (%d monedas).\n\n%s" % [
-			pj.nombre, ab.precio, b.tooltip_text]
-	# LAS QUE LLEVA, no el tamaño de la lista: 'puestas' viene de habilidades_con_huecos y mide
-	# SIEMPRE MAX_HABILIDADES (los huecos vacios cuentan como posiciones). Comparando el size, este
-	# boton salia "Sin hueco" y apagado aunque tuviera los cuatro libres.
-	elif Game.habilidades_llenas(pj):
-		b.text = "Sin hueco"
-		b.disabled = true
-		b.tooltip_text = "⛔ Ya lleva %d: quítale una para meter ésta.\n\n%s" % [
-			Game.MAX_HABILIDADES, b.tooltip_text]
-	else:
-		b.text = "Equipar"
-		b.pressed.connect(func():
-			if Game.equipar_habilidad(ab, pj):
-				_aviso = "%s se prepara %s." % [pj.nombre, ab.nombre]
-				_aviso_ok = true
-			_rebuild())
-	fila.add_child(b)
-	# Con los dedos no hay "pasar el raton por encima", asi que la ficha de la habilidad no se podia
-	# leer de ninguna manera. Ver MenuScaffold.info.
-	MenuScaffold.info(fila, b, ab.nombre)
+	b.pressed.connect(_pick.bind(i))
+	_lista.add_child(b)
+
+	# EL ESTADO, pegado al borde derecho del mismo boton. Va dibujado y no en otra etiqueta porque
+	# un Label encima de un Button se come el clic y la fila dejaria de poder elegirse.
+	var estado: String = _estado_de(pj, ab)
+	var col: Color = _color_estado(pj, ab)
+	b.draw.connect(func() -> void:
+		var f: Font = b.get_theme_font(&"font")
+		var an: float = f.get_string_size(estado, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		b.draw_string(f, Vector2(b.size.x - an - 12.0, b.size.y * 0.5 + 5.0), estado,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, col))
 
 
-# ============================================================
-#  Pestaña APRENDER: el catalogo, arma por arma
-# ============================================================
-func _pintar_aprender(pj: PersonajeData) -> void:
-	var plantillas: Array = _plantillas()
-	MenuScaffold.titulo(_header, "%s  ·  %d monedas" % [pj.nombre, Game.money], 16)
-
-	# --- Izquierda: las armas, con cuanto le queda por aprender de cada una ---
-	MenuScaffold.titulo(_lista, "Por arma", 14)
-	_arma_idx = clampi(_arma_idx, 0, plantillas.size() - 1)
-	for i in plantillas.size():
-		var it: Resource = plantillas[i]
-		var quedan: int = 0
-		for ab in it.habilidades:
-			if ab != null and not Game.habilidad_desbloqueada(ab, pj):
-				quedan += 1
-		var b := Button.new()
-		b.text = "%s%s" % [it.nombre, "   (%d)" % quedan if quedan > 0 else ""]
-		b.toggle_mode = true
-		b.button_pressed = (i == _arma_idx)
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-		b.clip_text = true
-		if quedan > 0:
-			b.tooltip_text = "Le quedan %d técnicas por aprender de esta arma." % quedan
-		var idx: int = i
-		b.pressed.connect(func():
-			_arma_idx = idx
-			_aviso = ""
-			_rebuild())
-		_lista.add_child(b)
-
-	# --- Derecha: las tecnicas del arma elegida ---
-	var arma: Resource = plantillas[_arma_idx]
-	MenuScaffold.titulo(_content, arma.nombre.to_upper(), 16)
-	if arma.habilidades.is_empty():
-		MenuScaffold.nota(_content, "Esta arma no tiene técnicas propias.")
-		return
-	MenuScaffold.nota(_content, "No hace falta llevar el arma puesta para aprender sus técnicas, "
-		+ "pero sí para equiparlas.")
-	_content.add_child(HSeparator.new())
-	for ab in arma.habilidades:
-		if ab != null:
-			_fila_aprender(pj, ab)
-
-
-func _fila_aprender(pj: PersonajeData, ab: AbilityData) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	_content.add_child(fila)
-
-	var nom := Label.new()
-	nom.text = ab.nombre
-	nom.custom_minimum_size = Vector2(180, 0)
-	fila.add_child(nom)
-
-	var b := TooltipButton.new()   # idem: la ficha de la habilidad necesita varias lineas
-	b.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
-	# El resumen se pide a UNA mano: aqui no se sabe con que arma acabara peleando, y el numero
-	# de manos solo cambia el dual (que es del loadout, no de la habilidad).
-	b.tooltip_text = ab.resumen(1)
-	if ab.descripcion != "":
-		b.tooltip_text += "\n\n" + ab.descripcion
+func _estado_de(pj: PersonajeData, ab: AbilityData) -> String:
 	if ab.inicial:
-		nom.add_theme_color_override("font_color", VERDE)
-		b.text = "Viene con el arma"
-		b.disabled = true
-	elif Game.habilidad_desbloqueada(ab, pj):
-		nom.add_theme_color_override("font_color", VERDE)
-		b.text = "Ya la sabe"
-		b.disabled = true
+		return "viene con el arma"
+	if Game.habilidad_desbloqueada(ab, pj):
+		return "ya la sabe"
+	if not Game.puede_pagar(ab.precio):
+		return "te faltan %d" % (ab.precio - Game.money)
+	return "%d monedas" % ab.precio
+
+
+func _color_estado(pj: PersonajeData, ab: AbilityData) -> Color:
+	if ab.inicial or Game.habilidad_desbloqueada(ab, pj):
+		return VERDE
+	return GRIS if not Game.puede_pagar(ab.precio) else AMBAR
+
+
+# LA FICHA de la tecnica elegida, con su boton. Todo sale de resumen(), asi que tocar un numero en
+# el .tres se ve aqui sin escribir nada (ver AbilityData.resumen).
+func _pintar_ficha(pj: PersonajeData) -> void:
+	var tecnicas: Array = _tecnicas()
+	if tecnicas.is_empty() or _sel < 0 or _sel >= tecnicas.size():
+		return
+	var ab: AbilityData = tecnicas[_sel]
+	MenuScaffold.titulo(_content, String(ab.nombre), 17)
+	if ab.has_method("es_area"):
+		MenuScaffold.fila(_content, "Alcance", "Área" if ab.es_area() else "Individual")
+	var l := Label.new()
+	l.text = ab.resumen(Game.manos_de(ab, pj))
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(l)
+	if ab.descripcion != "":
+		MenuScaffold.nota(_content, ab.descripcion)
+	_content.add_child(HSeparator.new())
+
+	var sabida: bool = ab.inicial or Game.habilidad_desbloqueada(ab, pj)
+	if sabida:
+		MenuScaffold.nota(_content, ("%s ya se la sabe. Los cuatro huecos se ordenan en su ficha "
+			+ "[C], arrastrando.") % pj.nombre)
 	elif not Game.puede_pagar(ab.precio):
-		b.text = "%d monedas" % ab.precio
-		b.disabled = true
-		b.tooltip_text = "⛔ Te faltan %d monedas.\n\n%s" % [ab.precio - Game.money, b.tooltip_text]
+		MenuScaffold.nota(_content, "Te faltan %d monedas." % (ab.precio - Game.money))
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	_content.add_child(fila)
+	var texto: String = "Ya la sabe" if sabida else "Aprender por %d" % ab.precio
+	var b: Button = MenuScaffold.pastilla(fila, texto, _aprender.bind(ab), true,
+		not sabida and Game.puede_pagar(ab.precio))
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Con los dedos no hay "pasar el raton por encima", asi que la ficha completa necesita su boton.
+	MenuScaffold.info(fila, b, String(ab.nombre))
+
+
+func _aprender(ab: AbilityData) -> void:
+	var pj: PersonajeData = _pj()
+	if not Game.aprender_habilidad(ab, pj):
+		_aviso = "No te llega el dinero."
+		_aviso_ok = false
+		_rebuild()
+		return
+	# APRENDER LA PONE SOLA si le cabe (lo hace Game.aprender_habilidad, igual que un grimorio con
+	# las magias). El aviso dice cual de las dos cosas ha pasado: pagar por una tecnica y que no
+	# aparezca en ningun sitio es lo que hace pensar que se ha perdido.
+	if Game.habilidades_con_huecos(pj).has(ab):
+		_aviso = "%s aprende %s y se la prepara." % [pj.nombre, ab.nombre]
 	else:
-		b.text = "Aprender por %d" % ab.precio
-		b.pressed.connect(func():
-			if Game.aprender_habilidad(ab, pj):
-				_aviso = "%s aprende %s por %d monedas." % [pj.nombre, ab.nombre, ab.precio]
-				_aviso_ok = true
-			else:
-				_aviso = "No te llega el dinero."
-				_aviso_ok = false
-			_rebuild())
-	fila.add_child(b)
-	MenuScaffold.info(fila, b, ab.nombre)   # la ficha, para el que juega con los dedos
+		_aviso = "%s aprende %s, pero tendrá que colocarla en su ficha [C]." % [pj.nombre, ab.nombre]
+	_aviso_ok = true
+	_rebuild()
 
 
-# Las plantillas base de todo lo que aporta habilidades: las armas y las secundarias
-# (escudos y varita tambien traen las suyas, y compiten por los mismos cuatro huecos).
-func _plantillas() -> Array:
-	var out: Array = []
-	for ruta in CatalogoEquipo.ARMAS + CatalogoEquipo.SECUNDARIAS:
-		var it: Resource = load(ruta)
-		if it != null and not it.habilidades.is_empty():
-			out.append(it)
-	return out
-
-
-# Como se llama lo que lleva en las manos, para el titulo de la pestaña Equipar.
-func _arma_puesta(pj: PersonajeData) -> String:
-	var partes: Array = []
-	partes.append(pj.equipped_main.nombre if pj.equipped_main != null else "Puños")
-	if pj.equipped_off != null:
-		partes.append(pj.equipped_off.nombre)
-	return "  +  ".join(partes)
+# ¿Lleva puesta ESTA arma (la plantilla, no la copia)? Ver _pintar_armas.
+func _la_lleva(pj: PersonajeData, arma: Resource) -> bool:
+	var ruta: String = String(arma.resource_path)
+	for it in [pj.equipped_main, pj.equipped_off]:
+		if it != null and Game.ruta_base_de(it) == ruta:
+			return true
+	return false

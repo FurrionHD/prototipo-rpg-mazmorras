@@ -699,7 +699,11 @@ static func pestana_base(b: Button, alto: float) -> void:
 # PESTAÑA CON ICONO. El icono se dibuja encima del boton, no como textura: los iconos del proyecto
 # son funciones de dibujo (ver iconos.gd) para que se vean igual en Windows y en el movil, sin
 # depender de que el aparato tenga una fuente con emoji.
-static func pestana_icono(icono: String, nombre: String) -> Button:
+# 'marcada' es un SEGUNDO estado, independiente de estar elegida: la pestaña no es donde estas, es
+# una que ademas significa algo ahora mismo (en el maestro, el arma que ese personaje lleva puesta).
+# Se dice con el icono en claro y un punto ambar en el hombro, que no se confunde con el subrayado
+# del elegido. Por defecto FALSE: quien no lo pase tiene la pestaña de siempre.
+static func pestana_icono(icono: String, nombre: String, marcada: bool = false) -> Button:
 	var b := Button.new()
 	pestana_base(b, LADO_TAB + 10.0)
 	b.custom_minimum_size.x = LADO_TAB + 14.0
@@ -707,26 +711,59 @@ static func pestana_icono(icono: String, nombre: String) -> Button:
 	var dibujo := Callable(Iconos, icono)
 	b.draw.connect(func() -> void:
 		var pad: float = (b.size.x - LADO_TAB) * 0.5
-		dibujo.call(b, Vector2(pad, 3.0), LADO_TAB,
-			AMBAR if b.button_pressed else TAB_APAGADA))
+		var col: Color = AMBAR if b.button_pressed else (
+			Color(0.86, 0.89, 0.94) if marcada else TAB_APAGADA)
+		dibujo.call(b, Vector2(pad, 3.0), LADO_TAB, col)
+		if marcada:
+			var p := Vector2(pad + LADO_TAB - 3.0, 5.0)
+			b.draw_circle(p, 4.5, Color(0.05, 0.06, 0.08, 0.95))
+			b.draw_circle(p, 3.0, AMBAR))
 	return b
 
 
 # Rellena una fila de SUBpestañas (con icono, igual que la de arriba). La vacia siempre, asi que una
 # seccion sin subpestañas simplemente no la llama y la fila desaparece: su contenedor se queda a cero
 # de alto y lo de debajo sube.
+#
+# 'marcadas' es OPCIONAL y va en paralelo a 'nombres': los indices que llevan el punto (ver
+# pestana_icono). Vacio = ninguna, que es como se comportaba antes de existir.
 static func subpestanas(fila: BoxContainer, nombres: Array, iconos: Array, activa: int,
-		pulsado: Callable) -> void:
+		pulsado: Callable, marcadas: Array = []) -> void:
 	if fila == null:
 		return
 	for b in fila.get_children():
 		fila.remove_child(b)
 		b.queue_free()
 	for i in nombres.size():
-		var b: Button = pestana_icono(String(iconos[i]), String(nombres[i]))
+		var b: Button = pestana_icono(String(iconos[i]), String(nombres[i]), marcadas.has(i))
 		b.button_pressed = (i == activa)
 		b.pressed.connect(pulsado.bind(i))
 		fila.add_child(b)
+
+
+# EL ICONO que le toca a un arma, un escudo o una varita: el mismo dibujo con el que se filtran en
+# el inventario. Se pregunta por el ITEM y no por su nombre para que una plantilla nueva no tenga
+# que darse de alta en dos sitios. Los puños (o cualquier cosa rara) caen en el generico.
+static func icono_de_arma(item: Resource) -> String:
+	if item is ShieldData:
+		match int((item as ShieldData).tamano):
+			0: return "escudo_peq"
+			1: return "escudo_med"
+			_: return "escudo_gra"
+	if item is WandData:
+		return "varita"
+	if item is WeaponData:
+		match int((item as WeaponData).tipo):
+			1: return "daga"
+			2: return "espada_corta"
+			3: return "espada_larga"
+			4: return "mandoble"
+			5: return "estoque"
+			6: return "hacha"
+			7: return "maza"
+			8: return "martillo"
+			9: return "baston"
+	return "espada"
 
 
 # ============================================================
@@ -2095,3 +2132,142 @@ static func estilo_chip(b: Button, marcada: bool) -> void:
 		_pastilla(b, "pressed", Color(1, 1, 1, 0.22), Color(1, 1, 1), r)
 		_pastilla(b, "focus", Color(1, 1, 1, 0.11), Color(0.90, 0.92, 0.96), r)
 	_pastilla(b, "disabled", Color(1, 1, 1, 0.04), Color(0.42, 0.44, 0.48), r)
+
+
+# ============================================================
+#  LA FILA DE RETRATOS
+#  La gente del grupo en una banda arriba, para cambiar de personaje sin salir de la pantalla:
+#  la cara de cada uno en un cuadro, el nombre debajo, recuadro ambar en el elegido y una raya
+#  entre los que bajan hoy y los que se quedan en el hogar.
+#
+#  Vive AQUI y no en un menu porque ya la piden dos (la ficha de personaje y el maestro), y son
+#  cien lineas con muñeco, corona y velo: con una copia por menu, tocar una deja a la otra
+#  distinta sin que nadie se entere.
+# ============================================================
+
+const LADO_RETRATO := 74.0
+const ALTO_RETRATO := LADO_RETRATO + 20.0   # el cuadro, mas el renglon del nombre
+
+
+# Monta la banda dentro del 'header' del esqueleto y devuelve la FILA donde van los retratos
+# (la que hay que pasarle luego a retratos()). Va en un scroll horizontal: con doce fichados no
+# caben de una vez, y un menu no puede tener gente a la que no se llega.
+static func fila_retratos(header: VBoxContainer) -> HBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.custom_minimum_size = Vector2(0, ALTO_RETRATO)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Un poco de aire por arriba: la linea de aviso del esqueleto va oculta en estas pantallas, asi
+	# que sin esto los retratos quedan pegados al canto de la ventana.
+	var hueco := MarginContainer.new()
+	hueco.add_theme_constant_override("margin_top", 8)
+	hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(hueco)
+	hueco.add_child(scroll)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 10)
+	scroll.add_child(fila)
+	# Deslizar con el dedo, igual que las dos columnas del esqueleto (ver construir).
+	if Tactil.activo:
+		ArrastreScroll.enganchar(scroll)
+	return fila
+
+
+# Pinta la fila entera. 'gente' es la lista YA ordenada (equipo primero, hogar detras), 'sel' el
+# indice elegido y 'en_equipo' cuantos de los primeros bajan hoy: ahi va la raya. Con una sola
+# persona no se pinta nada, que seria un boton solo que no elige nada.
+static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int,
+		pulsado: Callable) -> void:
+	vaciar(fila)
+	if gente.size() <= 1:
+		return
+	for i in gente.size():
+		# LA RAYA entre el equipo y el hogar. Sin ella los doce se leen como una lista sola y no hay
+		# forma de saber cual de ellos baja hoy contigo.
+		if i == en_equipo and i > 0:
+			var sep := VSeparator.new()
+			sep.add_theme_constant_override("separation", 14)
+			fila.add_child(sep)
+		_retrato(fila, gente[i], i, i == sel, i < en_equipo, pulsado)
+
+
+# UN RETRATO: la CARA de la persona en un cuadro, con su nombre debajo. Es un Button con el estilo
+# quitado y el dibujo a mano, igual que CeldaObjeto.
+static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bool,
+		en_equipo: bool, pulsado: Callable) -> void:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(LADO_RETRATO, ALTO_RETRATO)
+	b.clip_contents = true
+	b.tooltip_text = "%s%s  ·  %s" % ["👑 " if pj == Game.lider() else "", pj.nombre,
+		"en el equipo" if en_equipo else "en el hogar"]
+	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+	b.pressed.connect(pulsado.bind(i))
+	fila.add_child(b)
+
+	b.draw.connect(func() -> void:
+		var w: float = b.size.x
+		var lado: float = LADO_RETRATO
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.13, 0.14, 0.19, 1.0) if elegido else Color(0.08, 0.09, 0.12, 1.0)
+		sb.border_color = AMBAR if elegido else Color(1, 1, 1, 0.14)
+		sb.set_border_width_all(2 if elegido else 1)
+		# Esquinas SUAVES y no un circulo: el recorte del marco es cuadrado (un Control no recorta en
+		# redondo), asi que con el cuadro redondo las esquinas del muñeco se salian por fuera y el
+		# circulo dejaba de leerse. Ademas es la misma forma que las celdas del inventario.
+		sb.set_corner_radius_all(10)
+		b.draw_style_box(sb, Rect2(Vector2.ZERO, Vector2(w, lado)))
+		var f: Font = b.get_theme_font(&"font")
+		# EL NOMBRE DEBAJO, recortado si no cabe. Es lo que de verdad distingue a uno de otro: con
+		# cuatro muñecos del mismo tamaño y la misma pose, el color del pelo no llega.
+		var nom: String = pj.nombre
+		var an: float = f.get_string_size(nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		while an > w and nom.length() > 2:
+			nom = nom.substr(0, nom.length() - 1)
+			an = f.get_string_size(nom + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		if nom != pj.nombre:
+			nom += "…"
+		b.draw_string(f, Vector2((w - an) * 0.5, lado + 14.0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
+			AMBAR if elegido else Color(0.82, 0.85, 0.90))
+		# La CORONA del que va en cabeza, arriba a la derecha del cuadro.
+		if pj == Game.lider():
+			b.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
+			b.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
+		# Los del HOGAR, atenuados: siguen siendo tuyos y se les puede tocar el equipo, pero hoy no
+		# bajan. El velo lo dice sin quitarles el nombre ni apagar el boton.
+		if not en_equipo:
+			b.draw_rect(Rect2(Vector2.ZERO, Vector2(w, lado)), Color(0.05, 0.05, 0.07, 0.38)))
+
+	# EL MUÑECO va en SU PROPIO recuadro recortador, no colgado del boton: el boton mide mas que el
+	# cuadro (lleva el nombre debajo), asi que recortando con el la figura invadia el nombre y lo
+	# tapaba -- los hijos de un CanvasItem se dibujan DESPUES del padre.
+	var marco := Control.new()
+	marco.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marco.size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marco.clip_contents = true
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(marco)
+
+	var mu := MunecoJugador.new()
+	mu.montar(pj)
+	mu.tenir(pj.color, 0.0)
+	mu.poner_cara(pj.textura())
+	if mu.hay_dibujo():
+		# LA CARA, encuadrada. Mirando al SUR ("idle_0"): es la unica direccion en la que se te ve la
+		# cara de frente (ver MunecoJugador.CARA_DIRS, donde 0 = S y 4 = N). Un retrato de espaldas no
+		# es un retrato, y de espaldas es justo como estaba.
+		#
+		# Se escala grande y se baja el origen para que el recorte deje SOLO la cabeza y los hombros:
+		# el cuerpo entero en 74 px es un monigote en el que no se distingue quien es.
+		# EL ENCUADRE VA MEDIDO, no calculado con ALTO_MUNDO: el dibujo real no ocupa esos 60 px por
+		# encima del origen (el lienzo horneado tiene sus propios margenes), asi que la cuenta "teorica"
+		# dejaba fuera justo la cara. Estos dos numeros salen de mirar la captura: con esta escala, la
+		# cara cae en el centro del cuadro y se ven cabeza y hombros.
+		var esc: float = LADO_RETRATO * 2.1 / PoseJugador.ALTO_MUNDO
+		mu.scale = Vector2.ONE * esc
+		mu.position = Vector2(LADO_RETRATO * 0.5, LADO_RETRATO * 1.02)
+		mu.animar("idle_0")
+		marco.add_child(mu)
+	else:
+		mu.queue_free()
