@@ -73,11 +73,6 @@ func _ready() -> void:
 	# ventana cambia de tamaño (ver _columnas).
 	scroll.resized.connect(_on_lista_redimensionada)
 
-	# LA GENTE, ARRIBA DEL TODO. La misma banda que la ficha de personaje (ver
-	# MenuScaffold.fila_retratos): aprender es por persona, asi que lo primero de la pantalla es a
-	# quien miras, y despues viene lo que le puedes enseñar.
-	_fila_retratos = MenuScaffold.fila_retratos(_header)
-
 	# LA FILA DE ARMAS, en la COLUMNA DEL CENTRO y encima de las tecnicas, que es lo que manda: es
 	# el mismo sitio que las subpestañas de la ficha de personaje y del inventario. Estuvo arriba
 	# del todo, por encima de la gente, y era justo al reves que los otros dos menus.
@@ -92,6 +87,16 @@ func _ready() -> void:
 	col_centro.add_theme_constant_override("separation", 4)
 	split.add_child(col_centro)
 	split.move_child(col_centro, 0)
+
+	# LA GENTE, ARRIBA DEL TODO PERO DENTRO DE LA COLUMNA, no en el header. El header del esqueleto
+	# cruza la pantalla ENTERA, asi que con los retratos ahi la ficha de la derecha empezaba por
+	# debajo de ellos y perdia 90 px de alto -- y esa ficha es larga (el resumen de una tecnica son
+	# quince lineas), asi que lo que se perdia arriba se pagaba en scroll abajo.
+	#
+	# Metidos en la columna, la ficha sube hasta el borde y los retratos siguen donde tienen que
+	# estar: lo primero de la pantalla, porque aprender es por persona.
+	_fila_retratos = MenuScaffold.fila_retratos(col_centro)
+
 	_barra_armas = HBoxContainer.new()
 	_barra_armas.alignment = BoxContainer.ALIGNMENT_CENTER
 	_barra_armas.add_theme_constant_override("separation", 10)
