@@ -24,6 +24,19 @@ class_name CeldaKit
 # del juego (una celda del inventario) se dejaria soltar aqui y llegaria un Resource cualquiera.
 const MARCA := "kit_personaje"
 
+# EL PAQUETE QUE VUELA AHORA MISMO, y si alguna celda lo ha RECOGIDO. Son de la clase (no de cada
+# celda) porque solo puede haber un arrastre a la vez, y hacen falta para lo unico que Godot no
+# cuenta: SOLTAR EN NINGUNA PARTE.
+#
+# Quitar una arrastrandola fuera tiene que funcionar sueltes donde sueltes (en el fondo, en la
+# ficha de la derecha, entre dos celdas), y no se puede resolver poniendo una zona de descarte
+# debajo: al soltar, Godot sube por los padres del control que hay bajo el dedo pero PARA en el
+# primero que tenga mouse_filter STOP -- y todos los contenedores del menu lo tienen. Asi que se
+# hace al reves: la celda que recoge lo apunta aqui, y quien no vea la marca al terminar el gesto
+# (NOTIFICATION_DRAG_END) sabe que se solto en el vacio. Ver character_menu._notification.
+static var en_vuelo: Dictionary = {}
+static var recogido: bool = false
+
 var item: Resource = null      # lo que hay en la celda (null = ranura vacia)
 var indice: int = -1           # su posicion: el hueco si es ranura, el orden si es del pool
 var es_ranura: bool = false    # true = una de las ranuras del set; false = del monton de abajo
@@ -70,7 +83,10 @@ func _get_drag_data(_pos: Vector2) -> Variant:
 	caja.add_theme_stylebox_override("panel", sb)
 	caja.add_child(vista)
 	set_drag_preview(caja)
-	return {"marca": MARCA, "item": item, "indice": indice, "es_ranura": es_ranura}
+	var paquete: Dictionary = {"marca": MARCA, "item": item, "indice": indice, "es_ranura": es_ranura}
+	en_vuelo = paquete
+	recogido = false
+	return paquete
 
 
 # --- SOLTAR ---
@@ -78,15 +94,18 @@ func _get_drag_data(_pos: Vector2) -> Variant:
 func _can_drop_data(_pos: Vector2, data: Variant) -> bool:
 	if not (data is Dictionary) or String((data as Dictionary).get("marca", "")) != MARCA:
 		return false
-	# Soltar algo sobre si mismo no es nada: ni se resalta ni se acepta.
+	# Devolverla a SU PROPIA celda se acepta (aunque no se resalte: no va a pasar nada). Es como se
+	# cancela un arrastre, y tiene que contar como recogido: si no, el "soltar en el vacio quita"
+	# entenderia que la has tirado y te la quitaria justo cuando te habias arrepentido.
 	if bool(data["es_ranura"]) == es_ranura and int(data["indice"]) == indice:
-		return false
+		return true
 	_resaltar(true)
 	return true
 
 
 func _drop_data(_pos: Vector2, data: Variant) -> void:
 	_resaltar(false)
+	recogido = true   # alguien se ha quedado el paquete: ya no es un "soltar fuera"
 	if not al_soltar.is_valid() or not (data is Dictionary):
 		return
 	al_soltar.call(data["item"] as Resource, int(data["indice"]), bool(data["es_ranura"]))

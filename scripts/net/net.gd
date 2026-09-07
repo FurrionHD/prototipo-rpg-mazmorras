@@ -4883,10 +4883,15 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	if not sin_viajar.is_empty():
 		push_warning("[multi] %s viaja SIN: %s (no se pudo identificar su plantilla)" % [
 			pj.nombre, ", ".join(sin_viajar)])
+	# CON LOS HUECOS, y el hueco viaja como "". El set de magias guarda la RANURA de cada una (ver
+	# Game._set_hechizos), asi que saltarse los null aqui corria las magias del doble una posicion:
+	# el clasico campo que se pierde solo en multi y no da ningun error.
 	var hechizos: Array = []
-	for s in pj.equipped_spells:
+	for s in Game.hechizos_con_huecos(pj):
 		if s != null and not String(s.resource_path).is_empty():
 			hechizos.append(s.resource_path)
+		else:
+			hechizos.append("")
 	d["spells"] = hechizos
 	# Y los que SABE, que no son los mismos desde que aprender dejo de tener tope: sin mandarlos, al
 	# otro lado el doble llega sin lista de sabidos y su pantalla de magias sale vacia -- no podria
@@ -4950,11 +4955,13 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 			# (ver Game._meta), no el objeto. Es la misma invariante que restaura
 			# _realinear_equip_meta al cargar una partida.
 			pj.equip_meta[r.replace("equipped_", "")] = Game.meta_de(item)
+	# El "" es un hueco VACIO y se restaura como tal: las ranuras del doble son las del original.
+	# Una ficha vieja llega compacta y sin "": entra tal cual y Game._set_hechizos la rellena de
+	# huecos por detras, que es exactamente lo que era.
 	var hechizos: Array = []
 	for ruta in d.get("spells", []):
-		var s = load(String(ruta))
-		if s != null:
-			hechizos.append(s)
+		var s = load(String(ruta)) if not String(ruta).is_empty() else null
+		hechizos.append(s)
 	pj.equipped_spells = hechizos
 	# Los SABIDOS. Una ficha de una version anterior no trae la clave: se queda vacia y
 	# Game.hechizos_sabidos la reconstruye desde los equipados, que es lo que habia antes.

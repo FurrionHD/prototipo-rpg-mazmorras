@@ -1468,7 +1468,7 @@ func _abrir_casteo() -> void:
 	var pj: PersonajeData = Game.lider()
 	if not Game.lleva_arma_magica(pj):
 		return   # sin baston ni varita no hay nada que sacar: ni aviso, seria ruido de UI
-	if pj.equipped_spells.is_empty():
+	if Game.hechizos_equipados(pj).is_empty():
 		_toast("No llevas hechizos equipados.")
 		return
 	# El objetivo se fija AHORA (el mas cercano dentro del cono, sin pared) y ya no cambia: si
@@ -1654,7 +1654,7 @@ func hay_enemigo_a_tiro() -> bool:
 # encienda mucho antes que a un espadachin, que es justo la gracia.
 func hay_conjuro_a_tiro() -> bool:
 	var pj: PersonajeData = Game.lider()
-	if not Game.lleva_arma_magica(pj) or pj.equipped_spells.is_empty():
+	if not Game.lleva_arma_magica(pj) or Game.hechizos_equipados(pj).is_empty():
 		return false
 	# Con una IMBUICION equipada siempre hay algo que recitar, haya bichos o no: se la pones a los
 	# tuyos. Va aqui y no solo en _abrir_casteo porque un boton APAGADO no acepta el mantenido (ver

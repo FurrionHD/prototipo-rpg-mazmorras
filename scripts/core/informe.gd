@@ -285,10 +285,12 @@ static func _equipo(L: Array[String], pj: PersonajeData) -> void:
 
 
 static func _kit(L: Array[String], pj: PersonajeData) -> void:
+	# CON los huecos, igual que el loadout de habilidades: desde que las magias guardan su ranura
+	# (ver Game._set_hechizos) colapsarlas aqui hacia que el informe mintiera sobre las posiciones,
+	# que es justo lo que uno viene a mirar cuando algo se coloca donde no es.
 	var hechizos: Array[String] = []
 	for sp in pj.equipped_spells:
-		if sp != null:
-			hechizos.append(str(sp.get("nombre")))
+		hechizos.append(str(sp.get("nombre")) if sp != null else "<vacio>")
 	var sabidas: Array[String] = []
 	for ab in pj.habilidades_aprendidas:
 		if ab != null:

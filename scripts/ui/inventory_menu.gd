@@ -924,7 +924,7 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# y el %d/%d es solo de las manos.
 		_row(vb, "Hechizos", "%d sabidos  ·  lleva %d / %d" % [
 			Game.hechizos_sabidos(Game.lider()).size(),
-			Game.lider().equipped_spells.size(), Game.MAX_HECHIZOS])
+			Game.hechizos_equipados(Game.lider()).size(), Game.MAX_HECHIZOS])
 	elif cons.es_plato():
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
 		# escribe ni un numero (ver ConsumableData.resumen_plato).

@@ -1235,7 +1235,10 @@ func _trazos_magias(pj: PersonajeData) -> void:
 	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
 		+ "una, el hechizo se te vuelve en contra.")
 	_pista_arrastre()
-	var puestas: Array = pj.equipped_spells
+	# CON LOS HUECOS, por lo mismo que las habilidades: la ranura donde sueltas es la ranura donde
+	# se guarda (ver Game._set_hechizos). Con la lista compacta de antes, soltar en la 2 con la 1
+	# vacia acababa pintandolo en la 1.
+	var puestas: Array = Game.hechizos_con_huecos(pj)
 	var disponibles: Array = []
 	for s in Game.hechizos_sabidos(pj):
 		if not puestas.has(s):
@@ -1281,7 +1284,7 @@ func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String
 func _pista_arrastre() -> void:
 	if Game.en_pueblo():
 		MenuScaffold.nota(_lista, "Arrastra para colocarlas donde quieras: una encima de otra las "
-			+ "cambia de sitio, y sacarla de su ranura la quita.")
+			+ "cambia de sitio, y sacar una de su ranura y soltarla fuera la quita.")
 
 
 func _rejilla_kit() -> GridContainer:
@@ -1352,6 +1355,31 @@ func _soltar_kit(it: Resource, _origen_pos: int, origen_ranura: bool,
 	_rebuild()
 
 
+# SOLTARLA EN EL VACIO LA QUITA. Es el gesto que se espera de cualquier barra de habilidades:
+# la sacas de su ranura, la sueltas donde sea y deja de estar puesta.
+#
+# Va por NOTIFICATION_DRAG_END y no por una zona de descarte porque al soltar Godot sube por los
+# padres del control que hay bajo el dedo y PARA en el primero con mouse_filter STOP -- que es
+# cualquier contenedor del menu --, asi que un fondo que aceptase el drop no se enteraria casi
+# nunca. Aqui se mira al reves: si el gesto termina y NINGUNA celda lo recogio (CeldaKit.recogido),
+# es que se solto fuera. El aviso llega a todo el arbol, de ahi las guardas de menu abierto y de
+# seccion.
+func _notification(que: int) -> void:
+	if que != NOTIFICATION_DRAG_END:
+		return
+	var paquete: Dictionary = CeldaKit.en_vuelo
+	CeldaKit.en_vuelo = {}
+	if CeldaKit.recogido or paquete.is_empty():
+		return
+	# Solo lo que venia de una RANURA: tirar al vacio algo del monton de abajo no es nada.
+	if not bool(paquete.get("es_ranura", false)):
+		return
+	if _root == null or not _root.visible or _sec != SEC_HABILIDADES:
+		return
+	# El -1 es "no hay ranura de destino": cae en la rama ranura -> monton, que es desequipar.
+	_soltar_kit(paquete.get("item") as Resource, int(paquete.get("indice", -1)), true, -1, false)
+
+
 # El nombre corto de lo que va en una celda del kit: un hechizo lleva ademas su coste, que es lo
 # que decide si lo puedes lanzar hoy.
 func _nombre_kit(it: Resource) -> String:
@@ -1391,8 +1419,7 @@ func _ficha_kit(pj: PersonajeData, es_magia: bool) -> void:
 
 	# EL BOTON. Solo en el pueblo, como el resto del equipo.
 	var pueblo: bool = Game.en_pueblo()
-	var lleno: bool = (pj.equipped_spells.size() >= Game.MAX_HECHIZOS) if es_magia \
-		else Game.habilidades_llenas(pj)
+	var lleno: bool = Game.hechizos_llenos(pj) if es_magia else Game.habilidades_llenas(pj)
 	_content.add_child(HSeparator.new())
 	if not pueblo:
 		_note("Solo se cambia en el pueblo. Aquí es solo consulta.")

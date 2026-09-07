@@ -5312,11 +5312,11 @@ func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		return false
 	if not gastar_consumible(c):
 		return false
-	var hueco: bool = p.equipped_spells.size() < MAX_HECHIZOS
+	var hueco: bool = not hechizos_llenos(p)
 	aprender_hechizo(c.spell, p)
 	if hueco:
 		print("[grimorio] %s estudia %s y aprende %s (lleva %d/%d)." % [
-			p.nombre, c.nombre, c.spell.nombre, p.equipped_spells.size(), MAX_HECHIZOS])
+			p.nombre, c.nombre, c.spell.nombre, hechizos_equipados(p).size(), MAX_HECHIZOS])
 	else:
 		print("[grimorio] %s aprende %s, pero ya lleva %d puestos: se queda sin equipar." % [
 			p.nombre, c.spell.nombre, MAX_HECHIZOS])
@@ -5754,9 +5754,57 @@ func tick_mana_pocion(delta: float) -> void:
 # boton suelto. Con 6 el panel es siempre igual de alto y siempre cabe, se mire donde se mire.
 const MAX_HECHIZOS := 6
 
+# EL SET DE MAGIAS, saneado y CON LOS HUECOS: MAX_HECHIZOS posiciones, cada una con un hechizo o
+# con null. Es el gemelo de _set_guardado (habilidades) y existe por el mismo motivo: la ranura la
+# eliges TU al arrastrar, asi que la posicion es parte del guardado y no un detalle de pintado.
+# Con la lista compacta que habia antes, soltar en la ranura 4 con tres vacias delante caia en un
+# append() y el hechizo aparecia en la 1 -- y "colocar en la 2" pisaba a quien no era.
+#
+# Devuelve el array VIVO (el que cuelga del personaje): quien lo escriba, escribe el equipo. Para
+# leer estan hechizos_con_huecos (copia, con huecos) y hechizos_equipados (copia, compacta).
+#
+# A diferencia de las habilidades NO autorrellena: en magias no hay pool que dependa del arma, asi
+# que un hueco vacio es siempre tuyo y se respeta. Y una lista vieja (compacta, de 3) se convierte
+# en [a,b,c,null,null,null] al primer paso por aqui: mismo contenido, mismas posiciones, sin paso
+# de carga aparte.
+func _set_hechizos(p: PersonajeData) -> Array:
+	var crudo: Array = p.equipped_spells
+	if crudo.size() != MAX_HECHIZOS:
+		crudo.resize(MAX_HECHIZOS)
+	var sabidos: Array = hechizos_sabidos(p)
+	for i in MAX_HECHIZOS:
+		var s = crudo[i]
+		if s == null:
+			continue
+		# Lo que ya no se sabe (o esta repetido por una ficha a medio migrar) deja el hueco VACIO,
+		# no se compacta: las demas no se mueven de su sitio por eso.
+		if not sabidos.has(s) or crudo.find(s) != i:
+			crudo[i] = null
+	p.equipped_spells = crudo
+	return crudo
+
+
+# El set con los huecos, en COPIA. Para quien necesita el indice de la ranura: el gestor donde se
+# arrastra y cualquier pantalla que numere "1. / 2. / 3.".
+func hechizos_con_huecos(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	return _set_hechizos(p).duplicate()
+
+
+# LO QUE LLEVA PUESTO de verdad, sin los huecos. Para quien solo quiere saber CUALES lleva y le da
+# igual donde (contar, listar en combate, validar). Si te importa el ORDEN, usa hechizos_con_huecos.
+func hechizos_equipados(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	var out: Array = []
+	for s in _set_hechizos(p):
+		if s != null:
+			out.append(s)
+	return out
+
+
 func hechizos_llenos(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	return p.equipped_spells.size() >= MAX_HECHIZOS
+	return not _set_hechizos(p).has(null)
 
 
 # TODO lo que este personaje SABE lanzar, lleve puesto lo que lleve. Sin tope: aprender es para
@@ -5770,7 +5818,11 @@ func hechizos_llenos(pj: PersonajeData = null) -> bool:
 func hechizos_sabidos(pj: PersonajeData = null) -> Array:
 	var p: PersonajeData = pj if pj != null else lider()
 	if p.hechizos_aprendidos.is_empty() and not p.equipped_spells.is_empty():
-		p.hechizos_aprendidos = p.equipped_spells.duplicate()
+		# Sin los huecos: desde que el set de magias los guarda (ver _set_hechizos), copiarlo tal cual
+		# metia nulls en la lista de SABIDOS, y eso es una magia fantasma en todas las pantallas.
+		for s0 in p.equipped_spells:
+			if s0 != null:
+				p.hechizos_aprendidos.append(s0)
 	# Y al reves: un equipado que no figure como sabido (una ficha a medio migrar) se apunta. Un
 	# hechizo que puedes lanzar y que la pantalla no lista es peor que uno de mas.
 	for s in p.equipped_spells:
@@ -5788,29 +5840,38 @@ func aprender_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
 	if spell == null or hechizos_sabidos(p).has(spell):
 		return false
 	p.hechizos_aprendidos.append(spell)
-	if p.equipped_spells.size() < MAX_HECHIZOS:
-		p.equipped_spells.append(spell)
+	equipar_hechizo(spell, p)   # si hay hueco entra solo; si no, se queda sabido y ya lo colocara
 	return true
 
 
-# EQUIPAR uno que ya te sabes. false si no te lo sabes, si ya lo llevas o si no te caben mas.
+# EQUIPAR uno que ya te sabes, en el PRIMER hueco libre (igual que equipar_habilidad: el boton
+# "Poner" no elige sitio; para eso esta el arrastre, que llama a colocar_hechizo).
+# false si no te lo sabes, si ya lo llevas o si no te queda ningun hueco.
 func equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	if spell == null or p.equipped_spells.has(spell):
+	if spell == null:
 		return false
 	if not hechizos_sabidos(p).has(spell):
 		return false
-	if p.equipped_spells.size() >= MAX_HECHIZOS:
+	var crudo: Array = _set_hechizos(p)
+	if crudo.has(spell):
 		return false
-	p.equipped_spells.append(spell)
+	var hueco: int = crudo.find(null)
+	if hueco < 0:
+		return false
+	crudo[hueco] = spell
 	return true
 
 
 # QUITARLO DE LAS MANOS, que no es olvidarlo: sigue en la lista de sabidos y se puede volver a
-# poner cuando quieras.
+# poner cuando quieras. Deja el hueco VACIO en su sitio: las otras magias no se mueven por esto
+# (antes el erase() las corria todas una posicion hacia delante).
 func quitar_hechizo(spell: SpellData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
-	p.equipped_spells.erase(spell)
+	var crudo: Array = _set_hechizos(p)
+	var i: int = crudo.find(spell)
+	if i >= 0:
+		crudo[i] = null
 
 
 # ============================================================
@@ -6069,25 +6130,24 @@ func colocar_habilidad(ab: AbilityData, hueco: int, pj: PersonajeData = null) ->
 	return true
 
 
-# Coloca un hechizo en la ranura 'pos'. Aqui la lista es COMPACTA (equipped_spells no guarda
-# huecos), asi que "poner en la ranura 5 teniendo 3" es simplemente ponerlo al final.
+# Deja 's' en la ranura 'pos'. Es el gemelo exacto de colocar_habilidad, y por el mismo motivo:
+# quien arrastra esta eligiendo EL SITIO. Lo que hubiera ahi se va (se queda sabido, sin poner), y
+# si 's' ya estaba en OTRA ranura, las dos se INTERCAMBIAN.
+#
+# Antes esto no podia cumplirse: equipped_spells era compacta, asi que "ponlo en la 4" con tres
+# ranuras vacias delante acababa en un append() y el hechizo salia en la 1.
 func colocar_hechizo(s: SpellData, pos: int, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	if s == null or not hechizos_sabidos(p).has(s):
+	if s == null or pos < 0 or pos >= MAX_HECHIZOS:
 		return false
-	var antes: int = p.equipped_spells.find(s)
-	var destino: int = clampi(pos, 0, MAX_HECHIZOS - 1)
-	if antes >= 0:
-		# Ya lo llevaba: es un cambio de ORDEN. Se saca y se vuelve a meter donde toque.
-		p.equipped_spells.remove_at(antes)
-		p.equipped_spells.insert(mini(destino, p.equipped_spells.size()), s)
-		return true
-	if destino < p.equipped_spells.size():
-		p.equipped_spells[destino] = s   # pisa al que estaba, que se queda solo sabido
-		return true
-	if p.equipped_spells.size() >= MAX_HECHIZOS:
+	if not hechizos_sabidos(p).has(s):
 		return false
-	p.equipped_spells.append(s)
+	var crudo: Array = _set_hechizos(p)
+	var antes: int = crudo.find(s)
+	var desplazado = crudo[pos]
+	crudo[pos] = s
+	if antes >= 0 and antes != pos:
+		crudo[antes] = desplazado   # venia de otra ranura: se cruzan
 	return true
 
 # --- Peso / capacidad de carga ---
@@ -6294,7 +6354,9 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	if p.current_mp < 0.0:
 		p.current_mp = float(c.max_mp)
 	c.current_mp = clampf(p.current_mp, 0.0, float(c.max_mp))
-	c.spells = p.equipped_spells
+	# SIN los huecos: el combatiente solo quiere saber QUE puede lanzar. Los submenus de magia se
+	# pintan seguidos (a 3 columnas), asi que un null aqui saldria como un boton fantasma.
+	c.spells = hechizos_equipados(p)
 
 	_aplicar_loadout(c, p)
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)

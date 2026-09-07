@@ -153,7 +153,9 @@ func _exit_tree() -> void:
 # ------------------------------------------------------------
 func _menu_hechizos() -> void:
 	_vaciar()
-	var spells: Array = _pj.equipped_spells.duplicate()
+	# SIN huecos: el set de magias los guarda (ver Game._set_hechizos) y el sort_custom de abajo
+	# pide el coste de cada uno -- un null aqui reventaba el panel de recitado.
+	var spells: Array = Game.hechizos_equipados(_pj)
 	spells.sort_custom(func(a, b): return _coste(a) > _coste(b))
 	var grid := _rejilla()
 	for sp in spells:

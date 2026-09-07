@@ -112,6 +112,7 @@ func _ready() -> void:
 	men._soltar_kit(men._kit[2]["item"], 2, true, 0, false)
 	await _captura("2_arrastre_magia_fuera")
 	_comprobar_arrastre_tactil(men)
+	await _comprobar_huecos_magias(men)
 
 	# 4) ARMADURA: los cinco slots y la rejilla de cambio de uno de ellos.
 	men._on_seccion(men.SEC_ARMADURA)
@@ -232,6 +233,125 @@ func _comprobar_arrastre_tactil(men: Node) -> void:
 		return
 	print("[arrastre] OK: %d celdas arrastrables con el dedo, el scroll les cede el gesto y la "
 		% llenas + "emulacion de raton desde toque esta puesta.")
+
+
+# ¿LAS MAGIAS SE QUEDAN DONDE LAS SUELTAS? Esto no se ve en una captura: en la pantalla salen seis
+# ranuras numeradas, y que la magia aparezca "en la 2" no dice nada si el guardado la tiene en otro
+# sitio. Se mira el DATO (Game.hechizos_con_huecos), que es lo que luego lee el combate.
+#
+# Era el fallo: equipped_spells era una lista COMPACTA, asi que soltar en la ranura 4 con las tres
+# de delante vacias caia en un append() y la magia salia en la 1.
+func _comprobar_huecos_magias(men: Node) -> void:
+	var pj: PersonajeData = men._pj()
+	var fallos: Array[String] = []
+
+	# 1) DEL MONTON A UNA RANURA CONCRETA, con las de delante vacias.
+	for s in Game.hechizos_con_huecos(pj):
+		if s != null:
+			Game.quitar_hechizo(s, pj)
+	var pool: Array = Game.hechizos_sabidos(pj)
+	if pool.size() < 2:
+		printerr("[magias] El personaje no se sabe ni dos magias: la comprobacion no vale.")
+		return
+	men._rebuild()
+	men._soltar_kit(pool[0], 0, false, 3, true)
+	var set1: Array = Game.hechizos_con_huecos(pj)
+	if set1[3] != pool[0] or set1[0] != null:
+		fallos.append("soltada en la ranura 4 con las tres de delante vacias -> acabo en la %d"
+			% (set1.find(pool[0]) + 1))
+
+	# 2) RANURA -> RANURA: se cruzan y no se pierde ninguna.
+	men._soltar_kit(pool[1], 0, false, 1, true)   # la segunda, en la ranura 2
+	men._soltar_kit(pool[1], 1, true, 3, true)    # y encima de la primera: se cambian
+	var set2: Array = Game.hechizos_con_huecos(pj)
+	if set2[3] != pool[1] or set2[1] != pool[0]:
+		fallos.append("cruzar dos ranuras no las intercambia (quedo %s)" % [_nombres(set2)])
+
+	# 3) EQUIPAR con el boton entra en el PRIMER hueco libre, que ahora es el 1.
+	if pool.size() > 2:
+		Game.equipar_hechizo(pool[2], pj)
+		if Game.hechizos_con_huecos(pj)[0] != pool[2]:
+			fallos.append("equipar_hechizo no usa el primer hueco libre")
+
+	# 4) SOLTAR EN EL VACIO: quita la magia y DEJA EL HUECO en su sitio. Se simula el gesto entero
+	#    (empieza el arrastre, nadie lo recoge, llega el DRAG_END), que es lo unico que prueba el
+	#    camino de verdad -- llamar a _soltar_kit a pelo no pasaria por CeldaKit.
+	var antes: Array = Game.hechizos_con_huecos(pj)
+	CeldaKit.en_vuelo = {"marca": CeldaKit.MARCA, "item": antes[3], "indice": 3, "es_ranura": true}
+	CeldaKit.recogido = false
+	men._notification(Node.NOTIFICATION_DRAG_END)
+	var set4: Array = Game.hechizos_con_huecos(pj)
+	if set4[3] != null:
+		fallos.append("soltar fuera no quita la magia de la ranura 4")
+	elif set4[1] != antes[1]:
+		fallos.append("soltar fuera movio a las demas de ranura")
+	elif not Game.hechizos_sabidos(pj).has(antes[3]):
+		fallos.append("soltar fuera la OLVIDA en vez de solo quitarla")
+
+	# 4b) EL GESTO DE VERDAD. Lo de arriba llama a _notification a mano, asi que prueba la logica
+	#     pero NO que el motor avise. Aqui se arrastra con force_drag y se suelta un click en un
+	#     sitio sin celdas: si Godot no le entregase NOTIFICATION_DRAG_END a la CanvasLayer del menu
+	#     (que es lo unico que no se puede saber leyendo el codigo), soltar fuera no haria nada.
+	Game.colocar_hechizo(pool[0], 2, pj)
+	men._rebuild()
+	await _soltar_en_el_vacio(men)
+	if Game.hechizos_con_huecos(pj)[2] != null:
+		fallos.append("con el gesto REAL (force_drag + soltar en el vacio) la magia no se quita: "
+			+ "el motor no esta entregando el DRAG_END al menu")
+
+	# 5) Y devolverla a su propia celda (el arrastre que uno cancela) NO la quita.
+	Game.colocar_hechizo(antes[3], 3, pj)
+	CeldaKit.en_vuelo = {"marca": CeldaKit.MARCA, "item": antes[3], "indice": 3, "es_ranura": true}
+	CeldaKit.recogido = true   # lo que hace la propia celda al aceptarse a si misma
+	men._notification(Node.NOTIFICATION_DRAG_END)
+	if Game.hechizos_con_huecos(pj)[3] != antes[3]:
+		fallos.append("cancelar el arrastre soltandola en su sitio la quita")
+
+	men._rebuild()
+	await _captura("2_magias_huecos")
+	if fallos.is_empty():
+		print("[magias] OK: las seis ranuras guardan la posicion (soltar, cruzar, equipar y tirar).")
+	else:
+		for f in fallos:
+			printerr("[magias] MAL: %s" % f)
+
+
+# Arrastra la celda de la ranura 3 y suelta el boton donde no hay ninguna celda. Es el gesto
+# entero, con el motor en medio: force_drag arranca el arrastre igual que lo haria un dedo, y el
+# click soltado hace que el viewport busque quien lo recoge, no encuentre a nadie y avise del final.
+func _soltar_en_el_vacio(men: Node) -> void:
+	var celdas: Array = []
+	_recoger(men, celdas)
+	var origen: CeldaKit = null
+	for c in celdas:
+		if c.es_ranura and c.indice == 2 and c.item != null:
+			origen = c
+			break
+	if origen == null:
+		printerr("[magias] No hay celda en la ranura 3: no se puede probar el gesto real.")
+		return
+	# El paquete es el mismo que devuelve _get_drag_data (force_drag no pasa por ahi).
+	var paquete: Dictionary = {"marca": CeldaKit.MARCA, "item": origen.item,
+		"indice": origen.indice, "es_ranura": true}
+	CeldaKit.en_vuelo = paquete
+	CeldaKit.recogido = false
+	origen.force_drag(paquete, Label.new())
+	await get_tree().process_frame
+	# Un punto SIN celdas: el hueco entre el titulo de la ficha y el borde derecho.
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	ev.position = men._content.get_global_rect().get_center()
+	Input.parse_input_event(ev)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func _nombres(set: Array) -> String:
+	var out: Array[String] = []
+	for s in set:
+		out.append(str(s.get("nombre")) if s != null else "-")
+	return ", ".join(out)
 
 
 func _recoger(n: Node, fuera: Array) -> void:

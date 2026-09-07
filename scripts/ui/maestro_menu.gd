@@ -217,7 +217,10 @@ func _fila_pool(pj: PersonajeData, ab: AbilityData, puestas: Array) -> void:
 		b.disabled = true
 		b.tooltip_text = "⛔ %s todavía no sabe esta técnica: enséñasela en la pestaña Aprender (%d monedas).\n\n%s" % [
 			pj.nombre, ab.precio, b.tooltip_text]
-	elif puestas.size() >= Game.MAX_HABILIDADES:
+	# LAS QUE LLEVA, no el tamaño de la lista: 'puestas' viene de habilidades_con_huecos y mide
+	# SIEMPRE MAX_HABILIDADES (los huecos vacios cuentan como posiciones). Comparando el size, este
+	# boton salia "Sin hueco" y apagado aunque tuviera los cuatro libres.
+	elif Game.habilidades_llenas(pj):
 		b.text = "Sin hueco"
 		b.disabled = true
 		b.tooltip_text = "⛔ Ya lleva %d: quítale una para meter ésta.\n\n%s" % [
