@@ -1542,6 +1542,12 @@ func hay_partida() -> bool:
 # DungeonFloor lo lee al construir el piso en vez de mandarte a la entrada.
 var pos_cargada: Vector2 = Vector2.INF
 
+# Habias guardado DENTRO de un piso cuyo trazado ha cambiado con este build (ver el sello de
+# SaveData.trazado): ese piso ya no es el que dejaste, asi que se sale al pueblo en vez de
+# aparecer en mitad de un mapa nuevo. Lo pone cargar_datos y lo lee el menu principal al elegir
+# escena. De un solo uso, y no se guarda: es un recado, no estado.
+var forzar_pueblo_al_cargar: bool = false
+
 # Entras por el ATAJO del selector de pisos (no por la boca de la mazmorra). El acceso directo a un
 # piso de boss ES su puerta al pueblo, que esta en el FONDO: apareces ahi, junto a la bajada, no en
 # la boca. Si te dejara en la boca tendrias que cruzar el piso entero, que es justo lo que el
@@ -1991,6 +1997,9 @@ func exportar_partida() -> SaveData:
 
 	d.en_mazmorra = en_mazmorra
 	d.current_floor = current_floor
+	# Con que version del TRAZADO se recorrieron estos pisos (ver SaveData.TRAZADO_ACTUAL): es lo
+	# que deja saber, al volver a cargar, si lo guardado de un piso sigue casando con su forma.
+	d.trazado = SaveData.TRAZADO_ACTUAL
 	if player is Node2D:
 		d.pos_jugador = (player as Node2D).global_position
 	d.memoria_pisos = memoria_pisos.duplicate(true)
@@ -2639,6 +2648,7 @@ func importar_partida(d: SaveData) -> void:
 	tiempo_mazmorra = d.tiempo_mazmorra
 	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
+	_rehacer_pisos_de_otro_trazado(d)
 
 	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy. El equipo se
 	# reconstruye con los companeros en su orden guardado y el LIDER (yo, ya en party[0]) insertado
@@ -2704,6 +2714,40 @@ func importar_partida(d: SaveData) -> void:
 	var listos: int = repasar_encargos()
 	if listos > 0:
 		print("[encargos] %d encargo(s) habian vuelto mientras no estabas." % listos)
+
+
+# EL TRAZADO DE LA PARTIDA ES DE OTRO BUILD. La forma de un piso no se guarda (sale de su semilla,
+# o sea del codigo del generador), asi que al cambiar la generacion un piso ya visitado se rehace
+# distinto y lo que la partida guardaba de el apunta a sitios que ya no existen: bichos y botin
+# dentro de la roca, niebla levantada en salas equivocadas, sellos de vetas en celdas que ahora son
+# pared. Se tira todo lo de ESOS pisos y se rehacen de cero (hay que volver a explorarlos).
+#
+# De momento solo cambian los pisos con JEFE (ver DungeonFloor.SALA_JEFE_MULT): a los demas no se
+# les toca ni una celda, asi que se les respeta lo suyo. El dia que cambie el trazado general, esta
+# lista es lo unico que hay que ampliar.
+#
+# Y si habias guardado DENTRO de uno de esos pisos, sales al PUEBLO: aparecer en mitad de un mapa
+# que ya no es el que dejaste (dentro de un muro, en el peor caso) es peor que el viaje de vuelta.
+func _rehacer_pisos_de_otro_trazado(d: SaveData) -> void:
+	# En limpio SIEMPRE: es un recado de ESTA carga, y una partida al dia no puede heredar el
+	# "sales al pueblo" de la que se cargo antes en la misma sesion.
+	forzar_pueblo_al_cargar = false
+	if d.trazado == SaveData.TRAZADO_ACTUAL:
+		return
+	var afectados: Array = BOSSES.keys()
+	for piso in afectados:
+		memoria_pisos.erase(piso)
+		mazmorra_persistente.erase(piso)
+		mapa_snapshot.erase(piso)
+		mapa_trabajo.erase(piso)
+		_vistas_baseline.erase(piso)
+	if d.en_mazmorra and afectados.has(current_floor):
+		print("[mazmorra] el piso ", current_floor, " se rehace con este build: sales al pueblo")
+		forzar_pueblo_al_cargar = true
+		current_floor = 1
+		pos_cargada = Vector2.INF
+	print("[mazmorra] trazado v%d -> v%d: rehechos los pisos %s" % [
+		d.trazado, SaveData.TRAZADO_ACTUAL, str(afectados)])
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el

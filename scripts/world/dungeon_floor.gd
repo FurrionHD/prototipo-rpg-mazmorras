@@ -239,6 +239,12 @@ const PASILLO_ANCHO_MAX := 7
 # pasillos" y se convierte en una cueva sin forma: las salas dejan de distinguirse de los tuneles.
 const SALA_MARGEN_SOBRE_PASILLO := 2
 
+# LA SALA DEL JEFE, en los pisos que tienen uno: una vez y media el lado de la sala normal mas
+# grande del piso (o sea, algo mas del doble de superficie), y con los pasillos que la conectan una
+# celda mas anchos que los del resto del piso (eso lo hace el generador, ver sala_jefe_mult). Es
+# terreno, no adorno: la sala se lee como suya antes de verle.
+const SALA_JEFE_MULT := 1.5
+
 # El ancho de pasillo de ESTE piso. El @export `ancho_pasillo` es el del piso 1.
 func _ancho_pasillo_piso() -> int:
 	var piso: int = maxi(1, _piso_construido)
@@ -462,8 +468,14 @@ func _construir(por_la_bajada: bool = false) -> void:
 	# Los pasillos se ensanchan con la profundidad (ver _ancho_pasillo_piso) y la sala minima sube
 	# con ellos para que una sala nunca se confunda con un tunel.
 	var ancho_pas: int = _ancho_pasillo_piso()
+	# Y si el piso tiene JEFE, se le reserva su sala (mas grande, con los accesos mas anchos). El
+	# minimo de sala se mide entonces contra el pasillo MAS ANCHO del piso -el suyo, ancho_pas+1-, o
+	# en los pisos hondos la sala mas pequeña se confundiria con el camino a su puerta.
+	var jefe: bool = Game.BOSSES.has(_piso_construido)
+	var pas_max: int = ancho_pas + (1 if jefe else 0)
 	gen.generar(w, h, _semilla_del_piso(),
-		salas, _sala_min_piso(ancho_pas), sala_max, ancho_pas)
+		salas, _sala_min_piso(pas_max), sala_max, ancho_pas,
+		SALA_JEFE_MULT if jefe else 0.0)
 	# Las columnas de piedra van AQUI, pegadas al generador y antes que todo lo demas: convierten
 	# celdas en roca, y la geometria, la colision, la vision y las zonas de spawn se construyen
 	# despues leyendo esa rejilla. Puestas mas tarde, cada uno de esos sistemas tendria que
@@ -869,7 +881,12 @@ func _colocar_boss() -> void:
 	var data: EnemyData = Game.boss_del_piso(_piso_construido)
 	if data == null:
 		return
+	# LA SALA RESERVADA del generador (la grande del centro, ver SALA_JEFE_MULT). _sala_central se
+	# queda de respaldo: es lo que valia antes y sigue valiendo si por lo que sea no hubo reserva
+	# (un piso demasiado pequeño para la sala grande).
 	var sala: Rect2i = _sala_central()
+	if gen.sala_jefe >= 0 and gen.sala_jefe < gen.salas.size():
+		sala = gen.salas[gen.sala_jefe]
 	if sala.size == Vector2i.ZERO:
 		return
 	# La ZONA se marca AQUI MISMO (sincrono): _crear_zonas la lee justo despues para NO poblar la

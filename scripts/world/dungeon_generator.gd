@@ -26,6 +26,10 @@ var zona_de: PackedInt32Array = PackedInt32Array()   # zona de cada celda; -1 = 
 var zonas: Array[Dictionary] = []                    # {tipo, rect, celdas}
 var salas: Array[Rect2i] = []                        # solo las salas (para colocar puerta/escalera)
 var semilla: int = 0
+# INDICE en `salas` de la sala del JEFE, o -1 si este piso no tiene. La pide quien genera (ver
+# sala_jefe_mult): el generador no sabe que es un jefe, solo que una sala va reservada, mas grande
+# y con los pasillos que la tocan una celda mas anchos.
+var sala_jefe: int = -1
 
 var _rng := RandomNumberGenerator.new()
 
@@ -33,7 +37,8 @@ var _rng := RandomNumberGenerator.new()
 # Traza el piso entero. Los tamaños van en CELDAS.
 func generar(ancho_celdas: int, alto_celdas: int, semilla_: int,
 		max_salas: int = 14, sala_min: Vector2i = Vector2i(8, 6),
-		sala_max: Vector2i = Vector2i(18, 12), ancho_pasillo: int = 3) -> void:
+		sala_max: Vector2i = Vector2i(18, 12), ancho_pasillo: int = 3,
+		sala_jefe_mult: float = 0.0) -> void:
 	ancho = maxi(16, ancho_celdas)
 	alto = maxi(16, alto_celdas)
 	semilla = semilla_
@@ -47,14 +52,32 @@ func generar(ancho_celdas: int, alto_celdas: int, semilla_: int,
 	zona_de.fill(-1)
 	zonas.clear()
 	salas.clear()
+	sala_jefe = -1
 
-	_trazar_salas(max_salas, sala_min, sala_max)
+	_trazar_salas(max_salas, sala_min, sala_max, sala_jefe_mult)
 	_trazar_pasillos(ancho_pasillo)
 	_calcular_rects_de_zona()
 
 
 # --- SALAS: se tiran al azar y se descartan las que se solapan (con margen) ---
-func _trazar_salas(max_salas: int, sala_min: Vector2i, sala_max: Vector2i) -> void:
+#
+# La del JEFE es la excepcion: va la PRIMERA, en el centro y sin dados. Primera porque asi el sitio
+# es suyo -- el rechazo por solape de abajo aparta a las demas, no a ella -- y en el centro porque
+# es donde el resto del codigo la espera (ver DungeonFloor._sala_central, que sigue de respaldo).
+func _trazar_salas(max_salas: int, sala_min: Vector2i, sala_max: Vector2i,
+		jefe_mult: float = 0.0) -> void:
+	if jefe_mult > 0.0:
+		# Su lado es jefe_mult veces el de la sala normal mas grande, recortado a lo que quepa
+		# dejando el borde de roca del mapa. Si ni asi le cabe (un piso diminuto), no hay sala
+		# reservada y el jefe se queda con la central de siempre.
+		var w: int = mini(roundi(float(sala_max.x) * jefe_mult), ancho - 6)
+		var h: int = mini(roundi(float(sala_max.y) * jefe_mult), alto - 6)
+		if w >= sala_min.x and h >= sala_min.y:
+			var p := Vector2i(clampi((ancho - w) / 2, 2, ancho - w - 3),
+				clampi((alto - h) / 2, 2, alto - h - 3))
+			sala_jefe = salas.size()
+			_anadir_sala(Rect2i(p, Vector2i(w, h)))
+
 	var intentos: int = max_salas * 30
 	for _i in range(intentos):
 		if salas.size() >= max_salas:
@@ -74,11 +97,16 @@ func _trazar_salas(max_salas: int, sala_min: Vector2i, sala_max: Vector2i) -> vo
 				break
 		if choca:
 			continue
-		salas.append(r)
-		var idx: int = _nueva_zona("sala", r)
-		for y in range(r.position.y, r.end.y):
-			for x in range(r.position.x, r.end.x):
-				_excavar(Vector2i(x, y), idx)
+		_anadir_sala(r)
+
+
+# Da de alta una sala: a la lista, con su zona, y excavada entera.
+func _anadir_sala(r: Rect2i) -> void:
+	salas.append(r)
+	var idx: int = _nueva_zona("sala", r)
+	for y in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
+			_excavar(Vector2i(x, y), idx)
 
 
 # --- PASILLOS: unen cada sala con la siguiente en L (primero un eje, luego el otro) ---
@@ -90,16 +118,28 @@ func _trazar_pasillos(ancho_pasillo: int) -> void:
 	var orden: Array[Rect2i] = salas.duplicate()
 	orden.sort_custom(func(a: Rect2i, b: Rect2i): return a.get_center().x < b.get_center().x)
 
+	# La sala del jefe, para reconocer sus accesos. Rect2i se compara por valor, asi que basta con
+	# guardarse el rect (el orden de arriba es una copia de la lista y baraja los indices).
+	var rect_jefe := Rect2i()
+	if sala_jefe >= 0 and sala_jefe < salas.size():
+		rect_jefe = salas[sala_jefe]
+
 	for i in range(1, orden.size()):
 		var a: Vector2i = orden[i - 1].get_center()
 		var b: Vector2i = orden[i].get_center()
 		var idx: int = _nueva_zona("pasillo", Rect2i())
+		# LOS ACCESOS AL JEFE VAN UNA CELDA MAS ANCHOS. Se nota al entrar, antes de verle: el camino
+		# a su sala no es un tunel mas del piso.
+		var grosor: int = ancho_pasillo
+		if rect_jefe.size != Vector2i.ZERO \
+				and (orden[i - 1] == rect_jefe or orden[i] == rect_jefe):
+			grosor += 1
 		if _rng.randf() < 0.5:
-			_cavar_h(a.x, b.x, a.y, ancho_pasillo, idx)
-			_cavar_v(a.y, b.y, b.x, ancho_pasillo, idx)
+			_cavar_h(a.x, b.x, a.y, grosor, idx)
+			_cavar_v(a.y, b.y, b.x, grosor, idx)
 		else:
-			_cavar_v(a.y, b.y, a.x, ancho_pasillo, idx)
-			_cavar_h(a.x, b.x, b.y, ancho_pasillo, idx)
+			_cavar_v(a.y, b.y, a.x, grosor, idx)
+			_cavar_h(a.x, b.x, b.y, grosor, idx)
 
 
 # Tramo horizontal de 'grosor' celdas centrado en la fila y.

@@ -211,8 +211,14 @@ func _cargar(slot: int) -> void:
 		return
 	# Vuelves EXACTAMENTE donde guardaste: si fue dentro de la mazmorra, a tu piso y tu sitio
 	# (el DungeonFloor lee Game.pos_cargada y restaura los bichos de Game.memoria_pisos).
+	#
+	# SALVO que el piso que pisabas se rehaga con este build (ver Game._rehacer_pisos_de_otro_trazado):
+	# entonces sales al pueblo. Va por la bandera de Game y no releyendo la cabecera porque el que
+	# decide es quien acaba de importar la partida, y esa cabecera puede venir de la cache de Godot.
 	var datos: SaveData = Perfil.cabecera(slot)
-	get_tree().change_scene_to_file(MAZMORRA if datos.en_mazmorra else PUEBLO)
+	var al_pueblo: bool = Game.forzar_pueblo_al_cargar or not datos.en_mazmorra
+	Game.forzar_pueblo_al_cargar = false   # de un solo uso
+	get_tree().change_scene_to_file(PUEBLO if al_pueblo else MAZMORRA)
 
 
 func _nueva(slot: int) -> void:

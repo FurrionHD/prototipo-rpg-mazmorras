@@ -338,6 +338,24 @@ const VERSION_MUNDO := 1
 # con todos los jefes de pie, que es lo que pasaba antes al cerrar-, asi que no sube VERSION.
 @export var bosses_sello: Dictionary = {}
 
+# ============================================================
+#  SELLO DEL TRAZADO
+#  La FORMA de un piso no se guarda: sale de su semilla, o sea del CODIGO del generador. Cuando ese
+#  codigo cambia, un piso ya visitado se rehace con otro trazado, y todo lo que la partida guardaba
+#  de el POR CELDA o POR POSICION (vetas picadas, niebla del mapa, bichos y lo que dejaste por el
+#  suelo) apunta a un sitio que ya no existe: botin dentro de un muro, niebla levantada en salas
+#  equivocadas, relojes de respawn de vetas fantasma.
+#
+#  Este numero es la version del trazado. Si el del save no es el de este build, Game tira lo
+#  guardado de los pisos afectados y los rehace de cero (ver Game.cargar_datos). Se sube A MANO
+#  cada vez que se toque la generacion de una forma que mueva las celdas.
+#    1 = la sala del jefe pasa a ser reservada, grande y con los accesos mas anchos.
+#  Con default 0 (= "de antes de que esto existiera") las partidas viejas cargan solas y se rehacen
+#  la primera vez, asi que NO sube VERSION_ACTUAL.
+# ============================================================
+const TRAZADO_ACTUAL := 1
+@export var trazado: int = 0
+
 
 # Resumen de una linea para la lista de ranuras.
 func resumen() -> String:
