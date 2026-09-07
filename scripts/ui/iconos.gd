@@ -502,11 +502,11 @@ static func varita(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 		c.draw_line(punta + d * 0.42, punta + d, col, g, true)
 
 
-# --- TRAZOS (el kit de habilidades): un nodo central y tres colgando ---
-# Es la forma del arbol de la pantalla de referencia reducida a lo minimo que se lee a 34 px: el
-# centro relleno (la habilidad que llevas) y tres ramas huecas saliendo de el. Con mas nodos, a este
-# tamaño, se convierte en una mancha.
-static func trazos(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+# --- KIT DE HABILIDADES: un nodo central y tres colgando ---
+# Un arbol de tecnicas reducido a lo minimo que se lee a 34 px: el centro relleno (la habilidad que
+# llevas) y tres ramas huecas saliendo de el. Con mas nodos, a este tamaño, se convierte en una
+# mancha.
+static func habilidades(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.075
 	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
 	var r_centro: float = lado * 0.13
@@ -523,10 +523,10 @@ static func trazos(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 	c.draw_circle(centro, r_centro, col)
 
 
-# --- EIDOLON (desarrollos y pasivas): la flor de petalos de la pantalla de referencia ---
+# --- DESARROLLOS Y PASIVAS: la flor de petalos ---
 # Seis petalos en corona, uno relleno. El relleno no es adorno: dice que esto es algo que se
 # CONSIGUE de uno en uno, que es justo lo que son los desarrollos y las pasivas.
-static func eidolon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+static func flor(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.07
 	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
 	var r: float = lado * 0.30    # a que distancia del centro va el corazon de cada petalo

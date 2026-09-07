@@ -8,7 +8,7 @@
 #
 #  Se llena a mano y no se carga una partida guardada a proposito: hacen falta a la vez un grupo de
 #  cuatro, armas de varias rarezas, un baston (para la rama MAGICA de los atributos), hechizos (para
-#  las subpestañas de Trazos) y desarrollos y pasivas (para las de Eidolon). Una partida real casi
+#  las subpestañas de Habilidades) y desarrollos y pasivas (para las de Desarrollo). Una partida casi
 #  nunca los tiene todos, y ademas asi la captura es siempre la misma y dos versiones se comparan.
 #
 #  Va CON VENTANA (nada de --headless): un Control no se coloca ni se dibuja sin superficie de
@@ -75,10 +75,10 @@ func _ready() -> void:
 	men._equipar()
 	await _captura("1_arma_equipada")
 
-	# 3) TRAZOS, con y sin la subpestaña de magias. El personaje 0 lleva hechizos y el 3 no: es lo
+	# 3) HABILIDADES, con y sin la subpestaña de magias. El personaje 0 lleva hechizos y el 3 no: es lo
 	# unico que enseña que la fila desaparece cuando no hay nada que elegir.
 	men._on_seccion(men.SEC_HABILIDADES)
-	await _captura("2_trazos_habilidades")
+	await _captura("2_kit_habilidades")
 	# PONER una del pool y QUITAR una de las ranuras: es lo unico que comprueba que los botones
 	# hacen algo. Si tras pulsar la rejilla de arriba no cambia, el camino esta roto.
 	men._pick(Game.MAX_HABILIDADES)   # la primera del pool
@@ -88,7 +88,7 @@ func _ready() -> void:
 		men._alternar_kit(h, false, false)
 		await _captura("2_habilidad_puesta")
 	men._on_sub(1)
-	await _captura("2_trazos_magias")
+	await _captura("2_kit_magias")
 	# LA CABEZA LLENA: el personaje 0 se sabe mas magias de las que caben (ver _hechizos), asi que
 	# esta es la pantalla donde se ve el bloque de "se las sabe pero no las lleva" y el aviso de que
 	# hay que quitar una antes. Es el caso que motivo todo el cambio.
@@ -122,12 +122,12 @@ func _ready() -> void:
 	await _captura("3_armadura_cambiar")
 	men._cancelar_cambio()
 
-	# 5) EIDOLON: con las dos clases (subpestañas) y sin ninguna (el hueco vacio, que es justo lo
+	# 5) DESARROLLO: con las dos clases (subpestañas) y sin ninguna (el hueco vacio, que es justo lo
 	# que hay que comprobar que se explica solo).
 	men._on_seccion(men.SEC_DESARROLLO)
-	await _captura("4_eidolon_desarrollo")
+	await _captura("4_desarrollo")
 	men._on_sub(1)
-	await _captura("4_eidolon_pasivas")
+	await _captura("4_pasivas")
 
 	# EL PERSONAJE 3 (pelado: sin hechizos, sin desarrollos, sin pasivas y con las manos vacias).
 	# Es la mitad de las ramas de esta pantalla, y es la que no se ve nunca en una partida madura.
@@ -135,9 +135,9 @@ func _ready() -> void:
 	men._on_seccion(men.SEC_FICHA)
 	await _captura("5_pelado_detalles")
 	men._on_seccion(men.SEC_HABILIDADES)
-	await _captura("5_pelado_trazos")
+	await _captura("5_pelado_kit")
 	men._on_seccion(men.SEC_DESARROLLO)
-	await _captura("5_pelado_eidolon")
+	await _captura("5_pelado_desarrollo")
 	men._on_seccion(men.SEC_ARMAS)
 	await _captura("5_pelado_arma")
 

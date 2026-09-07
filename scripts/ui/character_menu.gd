@@ -16,10 +16,10 @@
 #                   cambian segun el arma (con baston salen los MAGICOS), y la lupa abre el detalle
 #                   entero, fisico y magico, lleves lo que lleves.
 #    2) ARMA      - principal y secundaria. "Cambiar" abre la rejilla del baul.
-#    3) TRAZOS    - las habilidades que llevas equipadas por el arma. Con hechizos, subpestañas
+#    3) HABILIDADES - las que llevas equipadas por el arma. Con hechizos, subpestañas
 #                   [Habilidades | Magias]; sin ellos la fila no aparece.
 #    4) ARMADURA  - las 5 piezas. Igual que las armas: celda -> ficha -> Cambiar.
-#    5) EIDOLON   - desarrollos y pasivas. Subpestañas solo si tienes de las dos clases; sin nada,
+#    5) DESARROLLO - desarrollos y pasivas. Subpestañas solo si tienes de las dos clases; sin nada,
 #                   sale Desarrollo vacio con su explicacion.
 #
 #  Cambiar de equipo, SOLO EN EL PUEBLO. Pausa el juego mientras esta abierto.
@@ -34,16 +34,17 @@ extends CanvasLayer
 
 # --- LAS SECCIONES (la columna de la izquierda) ---
 #
-# LOS NOMBRES SON LOS DEL JUEGO, no los de la pantalla en la que nos fijamos para la FORMA. De ahi
-# se copia el reparto (columna de secciones a la izquierda, gente arriba, ficha a la derecha) y nada
-# mas: "Trazos" y "Eidolon" no significan nada aqui, y estuvieron puestos por copiarlos sin pensar.
+# LOS NOMBRES SON LOS DEL JUEGO. De otras pantallas se copia el REPARTO (columna de secciones a la
+# izquierda, gente arriba, ficha a la derecha) y nada mas: los nombres que traian no significaban
+# nada aqui y estuvieron puestos por copiarlos sin pensar. Cada seccion se llama como lo que hay
+# dentro, y punto.
 #
 # OJO con "Habilidades": aqui son las del ARMA (las que enseña el maestro). Las cinco de DanMachi
 # —Fuerza, Resistencia, Destreza, Agilidad, Magia— se llaman en todo el juego "habilidades BASICAS",
 # y asi se llama tambien su pagina dentro de Ficha. Dos cosas parecidas con el mismo nombre a secas
 # no las distingue nadie.
 const SECCIONES := ["Ficha", "Armas", "Habilidades", "Armadura", "Desarrollo"]
-const SECCION_ICONOS := ["persona", "espada", "trazos", "coraza", "eidolon"]
+const SECCION_ICONOS := ["persona", "espada", "habilidades", "coraza", "flor"]
 const SEC_FICHA := 0
 const SEC_ARMAS := 1
 const SEC_HABILIDADES := 2
@@ -108,7 +109,7 @@ var _sec: int = SEC_FICHA
 # pinta debajo sale de _pj().
 var _pj_sel: int = 0
 var _pagina: int = 0    # Detalles: 0 = atributos, 1 = habilidades
-var _sub: int = 0       # subpestaña de la seccion (Trazos: hab/magias; Eidolon: desarrollo/pasivas)
+var _sub: int = 0       # subpestaña (Habilidades: hab/magias; Desarrollo: desarrollos/pasivas)
 var _sel: int = 0       # lo elegido en la rejilla del centro
 var _cambiando: bool = false   # Arma/Armadura: estas eligiendo pieza del baul
 var _cand: int = 0      # el candidato dentro de ese catalogo
@@ -465,9 +466,9 @@ func _rebuild_real() -> void:
 	match _sec:
 		SEC_FICHA: _sec_detalles()
 		SEC_ARMAS: _sec_arma()
-		SEC_HABILIDADES: _sec_trazos()
+		SEC_HABILIDADES: _sec_kit()
 		SEC_ARMADURA: _sec_armadura()
-		SEC_DESARROLLO: _sec_eidolon()
+		SEC_DESARROLLO: _sec_desarrollo()
 
 
 # LA FILA DE RETRATOS: TODA la plantilla, el equipo primero y el hogar detras, con una raya que
@@ -1163,10 +1164,10 @@ func _equipar() -> void:
 
 
 # ============================================================
-#  3 · TRAZOS   (las habilidades que llevas equipadas)
+#  3 · HABILIDADES   (las que llevas equipadas por el arma)
 # ============================================================
 
-func _sec_trazos() -> void:
+func _sec_kit() -> void:
 	var pj: PersonajeData = _pj()
 	# LAS SUBPESTAÑAS SOLO SI HAY MAGIAS. Con una sola lista, una fila de un icono solo no elige
 	# nada: la fila entera desaparece y el kit del arma ocupa la pantalla.
@@ -1177,9 +1178,9 @@ func _sec_trazos() -> void:
 	else:
 		_sub = 0
 	if con_magia and _sub == 1:
-		_trazos_magias(pj)
+		_kit_magias(pj)
 		return
-	_trazos_habilidades(pj)
+	_kit_habilidades(pj)
 
 
 # ============================================================
@@ -1199,7 +1200,7 @@ func _sec_trazos() -> void:
 
 var _kit: Array = []
 
-func _trazos_habilidades(pj: PersonajeData) -> void:
+func _kit_habilidades(pj: PersonajeData) -> void:
 	# CON LOS HUECOS. Con la lista compactada (habilidades_equipadas) la posicion que se ve no era la
 	# posicion real: dejando el hueco 1 vacio, lo del 2 se pintaba en el 1 -- y como _soltar_kit usa la
 	# posicion VISUAL como indice al soltar, arrastrar apuntaba al hueco equivocado.
@@ -1230,7 +1231,7 @@ func _trazos_habilidades(pj: PersonajeData) -> void:
 	_ficha_kit(pj, false)
 
 
-func _trazos_magias(pj: PersonajeData) -> void:
+func _kit_magias(pj: PersonajeData) -> void:
 	MenuScaffold.titulo(_lista, "Magias", 15)
 	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
 		+ "una, el hechizo se te vuelve en contra.")
@@ -1575,7 +1576,7 @@ func _sec_armadura() -> void:
 
 
 # ============================================================
-#  5 · EIDOLON   (desarrollos y pasivas)
+#  5 · DESARROLLO   (desarrollos y pasivas)
 #
 #  Las dos capas de perks de este personaje, cada una con su regla:
 #    - DESARROLLO: lo eliges tu al subir de nivel, y sube de rango (I..S) solo, con su contador
@@ -1585,7 +1586,7 @@ func _sec_armadura() -> void:
 #      altar. Aqui se ven las que YA tienes; las pendientes no salen, que para eso son pendientes.
 # ============================================================
 
-func _sec_eidolon() -> void:
+func _sec_desarrollo() -> void:
 	var pj: PersonajeData = _pj()
 	var desarrollos: Array = _mis_desarrollos(pj)
 	var pasivas: Array = _mis_pasivas(pj)
@@ -1595,7 +1596,7 @@ func _sec_eidolon() -> void:
 	# va a haber algo algun dia.
 	var las_dos: bool = not desarrollos.is_empty() and not pasivas.is_empty()
 	if las_dos:
-		MenuScaffold.subpestanas(_barra_sub, ["Desarrollo", "Pasivas"], ["engranaje", "eidolon"],
+		MenuScaffold.subpestanas(_barra_sub, ["Desarrollo", "Pasivas"], ["engranaje", "flor"],
 			_sub, _on_sub)
 	elif pasivas.is_empty():
 		_sub = 0
@@ -1603,11 +1604,11 @@ func _sec_eidolon() -> void:
 		_sub = 1   # solo pasivas: se enseñan sin preguntar
 
 	if _sub == 1:
-		_eidolon_lista(pasivas, "HABILIDADES PASIVAS",
+		_lista_desarrollo(pasivas, "HABILIDADES PASIVAS",
 			"No se eligen: aparecen solas al actualizar tu estado en el altar.",
 			"Ninguna. Caen por sí solas, muy de vez en cuando, haciendo lo que sea que las despierta.")
 		return
-	_eidolon_lista(desarrollos, "HABILIDADES DE DESARROLLO",
+	_lista_desarrollo(desarrollos, "HABILIDADES DE DESARROLLO",
 		"Eliges una al subir de nivel. Suben de rango (I → S) haciendo lo suyo.",
 		"Ninguna todavía. Se elige una al subir de nivel, en el altar.",
 		"Sin nada elegido")
@@ -1640,7 +1641,7 @@ func _mis_pasivas(pj: PersonajeData) -> Array:
 # 'vacio' es la explicacion de por que no hay nada, y va SOLO en la columna del centro: repetirla en
 # la ficha de la derecha era decir dos veces la misma frase en la misma pantalla. La derecha se queda
 # con 'titulo_vacio', que dice OTRA cosa (que no hay nada elegido, no por que).
-func _eidolon_lista(nodos: Array, titulo: String, nota: String, vacio: String,
+func _lista_desarrollo(nodos: Array, titulo: String, nota: String, vacio: String,
 		titulo_vacio: String = "Nada todavía") -> void:
 	MenuScaffold.titulo(_lista, titulo, 15)
 	MenuScaffold.nota(_lista, nota)
