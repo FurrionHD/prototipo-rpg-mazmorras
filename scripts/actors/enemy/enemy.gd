@@ -604,17 +604,24 @@ func _vigilar_atasco(delta: float, antes: Vector2) -> void:
 	_stuck_time = 0.0
 	_bordeos += 1
 	if _bordeos > BORDEOS_MAX:
-		# No hay manera. Merodeando, la red de seguridad de siempre: de vuelta a casa de golpe. Pero
-		# a un bicho que te esta persiguiendo NO se le teletransporta delante de las narices: suelta
-		# la presa y se vuelve andando, que ademas te da la salida.
+		# No hay manera. Se vuelve a casa ANDANDO, venga de donde venga: merodeando esto era un salto
+		# seco a _home, y desde fuera eso se ve como un bicho cruzando la roca -- que es justo lo que
+		# el jugador reporto ("no recorren los pasillos, aparecen al otro lado de la pared").
+		# Persiguiendote tampoco se le teletransporta delante de las narices: suelta la presa y se
+		# vuelve, que ademas te da la salida.
+		#
+		# EL SALTO SIGUE EXISTIENDO, pero solo como ULTIMO RECURSO: si ya venia de vuelta y ni asi
+		# avanza, es que esta metido dentro de la roca, y de ahi no se sale andando. Sin esa salida
+		# se quedaria clavado para siempre.
 		_bordeos = 0
-		if _state == State.WANDER:
+		if _state == State.RETURN:
 			global_position = _home
 			_pick_wander_target()
-		else:
-			_cancelar_aviso()
-			_objetivo = null
-			_state = State.RETURN
+			_state = State.WANDER
+			return
+		_cancelar_aviso()
+		_objetivo = null
+		_state = State.RETURN
 		return
 	_desatascar_bordeando()
 
@@ -1580,6 +1587,15 @@ func _companeros_de_manada() -> Array:
 # Tira (o re-tira) cuanta compañia quiere este bicho. Se re-tira solo si ha cambiado el tamaño de
 # tu equipo: si se tirase cada dos por tres, todos acabarian en la media y no habria variedad.
 func _actualizar_manada_objetivo() -> void:
+	# EL JEFE NO SE MUDA NUNCA. Su sala esta excluida de los partos a proposito, asi que siempre
+	# esta solo: pidiendo compañia como cualquiera, cada re-eleccion de destino lo mandaba a buscar
+	# corro, y unirse_a le reescribia _home y zona_puntos con los de OTRA sala -- adios al radio de
+	# merodeo del jefe--. Encadenado, acababa a varias salas de la suya (visto en el piso 6).
+	# Queriendo 1 no entra nunca en esa rama. Que se junten los demas YENDO A SU SALA: eso sigue
+	# permitido (_corro_al_que_unirse puede elegirlo a el como destino).
+	if es_boss:
+		manada_objetivo = 1
+		return
 	var grupo: int = clampi(Game.party.size(), 1, 4)
 	if grupo == _manada_tirada_con:
 		return
