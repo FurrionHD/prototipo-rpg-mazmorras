@@ -850,15 +850,24 @@ static func _sanguinaria(p: PackedByteArray, w: int, h: int, modelo: int, cx: fl
 # T2 bruto: costra de moho -- un racimo de bultos esponjosos pegados al suelo, sin tallo.
 static func _moho_simas(p: PackedByteArray, w: int, h: int, modelo: int, sem: int, cx: float,
 		pie: float) -> void:
+	# Los monticulos en HOJA y no en HOJA_OSC: es una costra BAJA y ancha, y al tamaño que tiene
+	# (unos 20x8 px) casi todo lo que se ve de ella es el tono de relleno. En el escalon mas oscuro
+	# de la rampa se leia como una mancha plana y sucia, y sobre el suelo de cueva ni eso.
 	var n: int = 4 + modelo % 2
 	for i in n:
 		var f: float = float(i) - float(n - 1) * 0.5
 		SpriteLienzo.elipse(p, w, h, cx + f * 3.2, pie - 2.5 - absf(f) * 0.8, 2.6 - absf(f) * 0.3,
-			2.2, HOJA_OSC)
+			2.2, HOJA)
+	# La CRESTA de cada monticulo, un escalon mas clara: sin ella la costra es una silueta plana sin
+	# volumen, que es lo que la hacia parecer una sombra del suelo.
+	for i in n:
+		var f: float = float(i) - float(n - 1) * 0.5
+		SpriteLienzo.elipse(p, w, h, cx + f * 3.2, pie - 3.4 - absf(f) * 0.8, 1.7 - absf(f) * 0.2,
+			1.1, HOJA_CLARA)
 	for y in h:
 		for x in w:
 			var i: int = y * w + x
-			if p[i] == HOJA_OSC and _rnd(x, y, sem) > 0.75:
+			if (p[i] == HOJA or p[i] == HOJA_CLARA) and _rnd(x, y, sem) > 0.78:
 				p[i] = MINERAL
 
 
