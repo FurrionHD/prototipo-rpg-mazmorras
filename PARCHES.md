@@ -2,6 +2,74 @@
 
 ---
 
+# v0.11.5 — «La sala del jefe»
+
+La guarida de un jefe era una sala más, del mismo tamaño y de la misma piedra que las otras
+dieciocho. Ahora se le nota el terreno antes de verle a él.
+
+## 👑 Su sala
+
+**Es la más grande del piso.** Vez y media el lado de la mayor sala normal, reservada en el centro,
+y **los pasillos que llegan hasta ella son más anchos** que los del resto del piso: el camino a su
+puerta ya no es un túnel cualquiera.
+
+**Y está hecha de lo suyo.** La del Rey Slime es un enlosado que se ha comido el limo azul; la del
+Minotauro, un salón tallado. El material no cambia de golpe en la puerta: **sale por los pasillos**
+y se va deshaciendo en parches, como el cambio de piedra a cueva del piso 7.
+
+**El limo se pega a los pies.** Cruzar sus charcos te frena, así que la sala se pelea contigo antes
+de que empiece la pelea. La piedra del Minotauro no frena a nadie.
+
+**La luz sale de lo que crece ahí.** Nada de antorchas: brotes luminosos del color del dueño, así
+que al asomarte se intuye la sala sin dejar de ser una mazmorra a oscuras.
+
+## 🐌 El jefe se queda en casa
+
+**Ya no se va de paseo.** El Rey Slime podía aparecer a varias salas de la suya: se apuntaba a los
+grupos de enemigos y se mudaba con ellos, sala tras sala. Ahora es él quien no se mueve; si quieren
+juntarse, que vengan a su habitación. Te persigue si te ve, y cuando te pierde vuelve a su sitio.
+
+**Y los enemigos ya no cruzan paredes.** Cuando uno se atascaba merodeando se le devolvía a su sitio
+**de un salto**, y desde fuera eso se veía como un bicho atravesando la roca. Ahora vuelve andando.
+
+## 🌊 El río va a donde va
+
+**La corriente sigue el cauce.** Antes el agua bajaba siempre hacia abajo, fuera cual fuera el
+rumbo del riachuelo: un tramo que cruzaba el mapa de lado se veía con la corriente atravesada. Ahora
+cada tramo corre hacia donde de verdad va, hasta desembocar en el lago.
+
+## 🌿 Las plantas de la cueva se ven
+
+**Se perdían contra el suelo.** Del piso 7 en adelante el suelo es roca azul, y el moho de las simas
+llegaba a ser **más oscuro que el suelo que pisas**. Ahora cada especie de esos pisos tiene su color
+propio —moho hueso, raíz umbría violeta, liquen abisal salmón— y se distinguen del suelo y entre
+ellas.
+
+## ⚔️ En la barra de acción se ve a quién apuntas
+
+**El objetivo se marca en la línea de turnos.** Con marco, con una flecha señalándolo y por delante
+de los demás aunque vaya más atrás en la cola: ya no hay que adivinar a cuál le va a caer el golpe.
+
+## 🎓 El maestro y la bolsa
+
+**Las técnicas, en dos columnas**, con los retratos del grupo arriba del todo y la ficha de la
+técnica ocupando la derecha entera. Cada sección se llama como lo que tiene dentro.
+
+**El +N se ve en la celda.** El nivel de mejora va en la esquina de arriba, con un color que sube de
+verde a ámbar a rojo según lo cerca que esté del tope de esa pieza. También en las pociones, que
+antes no lo enseñaban en ningún sitio.
+
+**Las magias se quedan donde las sueltas.** Al arrastrar una a una ranura podía volverse a su sitio
+sin decir nada.
+
+## ⚠️ Partidas ya empezadas
+
+Los pisos con jefe (el 6 y el 12) **se rehacen** al cargar una partida anterior: son otro mapa, hay
+que volver a explorarlos y se pierde lo que hubieras dejado tirado en ellos. Si guardaste **dentro**
+de uno, apareces en el pueblo. El resto de pisos no cambia.
+
+---
+
 # v0.11.4 — «El charco»
 
 Los lagos de pescar eran un rectángulo azul liso, justo al lado de un riachuelo que sí tenía
