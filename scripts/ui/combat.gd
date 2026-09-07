@@ -3160,6 +3160,11 @@ func _seleccionar(idx: int) -> void:
 		var cur: Control = _bloques[i].get("cursor")
 		if cur != null and is_instance_valid(cur):
 			cur.visible = es
+	# Y en la barra de accion: su marcador se enmarca, le sale una flecha y pasa por encima de
+	# los que lo tapen. Va por _objetivo() y no por _enemies[idx] para no duplicar la regla de
+	# "si el apuntado no vale, el siguiente vivo".
+	if _timeline != null:
+		_timeline.marcar_objetivo(_objetivo())
 
 
 # ¿Se puede abrir la ficha de detalle AHORA MISMO? Solo en TU turno: cuando la barra de acciones

@@ -23,15 +23,25 @@ extends Control
 
 const MARGEN := 40.0    # margen a los lados de la linea
 const RADIO := 16.0     # medio lado del marcador (cuadrado de 32x32)
+const MARCO_HOLGURA := 3.0   # cuanto asoma el marco de objetivo alrededor del marcador
+const FLECHA_LARGO := 14.0   # cuanto sobresale por el costado el triangulo que señala al objetivo
+const MARCO_ENCENDIDO := Color(1, 1, 1, 0.95)   # el mismo blanco que el borde de las tarjetas
+const MARCO_APAGADO := Color(0, 0, 0, 0)
 
 # DE PIE en vez de tumbada. Lo pone quien la monta (ver combat._crear_timeline), antes de dar de
 # alta a nadie. En vertical el ratio 0 esta ABAJO y el punto de accion ARRIBA: se lee como una
 # cuenta atras que sube, y deja el ancho de la pantalla libre para el escenario.
 var vertical: bool = false
 
-# Combatant -> {rect: ColorRect, ratio: float}. La clave es el propio Combatant (el mismo
-# dominio que el _gauge del combate): evita inventarse un segundo sistema de indices.
+# Combatant -> {marco: ColorRect, flecha: Control, ratio: float}. Se guarda el MARCO y no el
+# marcador de color, porque el marcador cuelga de el: moviendo el marco se mueve todo. La clave
+# es el propio Combatant (el mismo dominio que el _gauge del combate): evita inventarse un
+# segundo sistema de indices.
 var _marcadores: Dictionary = {}
+
+# A quien apunta el jugador ahora mismo (o null si no hay objetivo, p.ej. en el turno de un
+# enemigo). Lo pone combat.gd via marcar_objetivo() cada vez que cambia _target_idx.
+var _objetivo: Combatant = null
 
 
 # Da de alta un marcador. 'material' puede ser null (color plano, como el cuerpo sin imagen);
@@ -40,16 +50,28 @@ var _marcadores: Dictionary = {}
 func anadir(c: Combatant, color: Color, material: ShaderMaterial, texto: String) -> void:
 	if c == null or _marcadores.has(c):
 		return
+	# MARCO: el borde blanco de "este es tu objetivo". Es mayor que el marcador y va DETRAS -el
+	# marcador cuelga centrado dentro suyo-, asi que alrededor asoma un borde de MARCO_HOLGURA px
+	# por cada lado, igual que el borde de seleccion de las tarjetas de enemigo en combat.gd
+	# (_sb_bloque). Sin marcar se pone TRANSPARENTE, no oculto: ocultarlo se llevaba por delante
+	# al marcador de dentro (la visibilidad se hereda) y desaparecian todos menos el objetivo.
+	var marco := ColorRect.new()
+	marco.size = Vector2(RADIO * 2.0 + MARCO_HOLGURA * 2.0, RADIO * 2.0 + MARCO_HOLGURA * 2.0)
+	marco.color = MARCO_APAGADO
+	marco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(marco)
+
 	var r := ColorRect.new()
 	# CUADRADO obligatorio: el shader del cuerpo mapea la imagen por UV del rect, y uno no
 	# cuadrado deformaria la foto del personaje.
 	r.size = Vector2(RADIO * 2.0, RADIO * 2.0)
+	r.position = Vector2(MARCO_HOLGURA, MARCO_HOLGURA)
 	r.color = color
 	r.material = material
 	# IGNORE en el marcador y en su texto: el mouse_filter del Control padre NO se hereda, asi
 	# que sin esto los marcadores robarian clics a lo que quede debajo.
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(r)
+	marco.add_child(r)
 	if texto != "":
 		var l := Label.new()
 		l.text = texto
@@ -62,15 +84,50 @@ func anadir(c: Combatant, color: Color, material: ShaderMaterial, texto: String)
 		l.add_theme_constant_override("outline_size", 3)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		r.add_child(l)
-	_marcadores[c] = {"rect": r, "ratio": 0.0}
+
+	# FLECHA: señala al marcador desde su COSTADO DERECHO cuando es tu objetivo. Mismo triangulo
+	# blanco semitransparente que el 'cursor' de combat.gd sobre la figura del enemigo, pero de
+	# lado y no por arriba: colgada arriba se metia sobre el marcador que va justo delante en la
+	# cola. Cuelga del marco para moverse con el sin mas.
+	var flecha := Control.new()
+	flecha.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flecha.visible = false
+	flecha.position = Vector2(marco.size.x, 0.0)
+	flecha.size = Vector2(FLECHA_LARGO, marco.size.y)
+	flecha.draw.connect(func() -> void:
+		var h: float = flecha.size.y
+		flecha.draw_colored_polygon(PackedVector2Array([
+			Vector2(0.0, h * 0.5), Vector2(FLECHA_LARGO, h * 0.5 - 9.0),
+			Vector2(FLECHA_LARGO, h * 0.5 + 9.0)]), Color(1, 1, 1, 0.9)))
+	marco.add_child(flecha)
+
+	_marcadores[c] = {"marco": marco, "flecha": flecha, "ratio": 0.0}
 
 
 # Saca un marcador de la barra (al morir su dueño: ya no espera turno).
 func quitar(c: Combatant) -> void:
 	if not _marcadores.has(c):
 		return
-	_marcadores[c]["rect"].queue_free()
+	_marcadores[c]["marco"].queue_free()   # se lleva por delante al marcador y a la flecha: son sus hijos
 	_marcadores.erase(c)
+	if _objetivo == c:
+		_objetivo = null
+
+
+# A quien apuntas ahora. La llama combat.gd cada vez que cambia el objetivo (clic en una
+# tarjeta, salto automatico al caer el actual, o el objetivo inicial al empezar el combate):
+# apaga el marco y la flecha del anterior y enciende los del nuevo. 'c' puede ser null (fuera
+# de tu turno no hay a quien señalar).
+func marcar_objetivo(c: Combatant) -> void:
+	if _objetivo != null and _marcadores.has(_objetivo):
+		var anterior: Dictionary = _marcadores[_objetivo]
+		anterior["marco"].color = MARCO_APAGADO
+		anterior["flecha"].visible = false
+	_objetivo = c
+	if c != null and _marcadores.has(c):
+		var actual: Dictionary = _marcadores[c]
+		actual["marco"].color = MARCO_ENCENDIDO
+		actual["flecha"].visible = true
 
 
 # EL PUNTO de la linea para un avance 'r' (0 = salida, 1 = le toca). Es lo UNICO que sabe en que
@@ -84,15 +141,17 @@ func _punto_de(r: float) -> Vector2:
 
 
 # ratios: Combatant -> 0..1 (cuanto lleno tiene su turno). Coloca cada marcador y ordena la
-# profundidad por avance, para que el que va en cabeza se vea encima de los que le pisan.
+# profundidad por avance, para que el que va en cabeza se vea encima de los que le pisan -salvo
+# el objetivo marcado, que siempre gana esa pelea (z_index 1000, por encima del maximo normal de
+# ~100): si esta tapado por otro, tiene que poder verse igual.
 func set_ratios(ratios: Dictionary) -> void:
 	for c in _marcadores:
 		var r: float = clampf(float(ratios.get(c, 0.0)), 0.0, 1.0)
 		var m: Dictionary = _marcadores[c]
 		m["ratio"] = r
-		var rect: ColorRect = m["rect"]
-		rect.position = _punto_de(r) - Vector2(RADIO, RADIO)
-		rect.z_index = int(r * 100.0)
+		var marco: ColorRect = m["marco"]
+		marco.position = _punto_de(r) - marco.size * 0.5
+		marco.z_index = 1000 if c == _objetivo else int(r * 100.0)
 	queue_redraw()
 
 
