@@ -69,7 +69,13 @@ func _cargar_pool() -> void:
 
 func _probar_pool() -> void:
 	print("\n-- El pool --")
-	_ok("hay 16 hechizos con grimorio", _pool.size() == 16)
+	# Contra el MANIFIESTO, no contra un numero escrito aqui. La primera version decia "16" a pelo y
+	# al añadir el Shock termico fallo por el motivo equivocado: el reparto estaba perfecto y lo que
+	# estaba mal era la expectativa. Un visor que hay que retocar cada vez que añades contenido
+	# acaba desactivado.
+	var Libros = load("res://scripts/core/libros.gd")
+	_ok("el pool son los %d grimorios del manifiesto" % Libros.GRIMORIOS.size(),
+		_pool.size() == Libros.GRIMORIOS.size())
 	var nombres: Array = []
 	for s in _pool:
 		nombres.append(String(s.resource_path).get_file().get_basename())
@@ -106,9 +112,15 @@ func _probar_monotonia() -> void:
 		_ok("cada banda sale menos que la anterior", true)
 	else:
 		_ok("ORDEN ROTO: %s" % " | ".join(rotas), false)
-	# Y el objetivo que se puso a mano: Tormenta en el 2%.
-	var t: float = float(por_banda.get(Upgrades.Rareza.LEGENDARIO, 0.0))
-	_ok("Tormenta sale ~2%% (sale %.2f%%)" % (t * 100.0), absf(t - 0.02) < 0.005)
+	# EL OBJETIVO QUE SE PUSO A MANO: la BANDA legendaria vale un 2%. Se comprueba la banda ENTERA y
+	# no "Tormenta sale el 2%", porque en cuanto entro el segundo legendario cada uno paso a salir el
+	# 1% -- que es lo correcto y lo buscado. Lo que tiene que mantenerse es el peso de la banda.
+	var cuenta: Dictionary = _por_banda()
+	var n_leg: int = int(cuenta.get(Upgrades.Rareza.LEGENDARIO, 0))
+	var por_uno: float = float(por_banda.get(Upgrades.Rareza.LEGENDARIO, 0.0))
+	var banda_leg: float = por_uno * float(n_leg)
+	_ok("la banda legendaria vale ~2%% en total (%.2f%%, repartido entre %d)" % [
+		banda_leg * 100.0, n_leg], absf(banda_leg - 0.02) < 0.005)
 
 
 # --- 3) La cuenta, hechizo a hechizo ---
@@ -191,9 +203,14 @@ func _probar_banda_nueva() -> void:
 	pool2.append(nuevo)
 	var despues: Dictionary = Game.probs_grimorio(pool2, p)
 
-	_ok("ahora Tormenta sale la MITAD (%.2f%% -> %.2f%%)" % [
-		p_antes * 100.0, float(despues[tormenta]) * 100.0],
-		absf(float(despues[tormenta]) - p_antes * 0.5) < 0.0005)
+	# Con N legendarios ya dentro, meter uno mas los deja a N/(N+1) de lo que salian. Se escribe la
+	# razon y no "la mitad": la mitad solo valia cuando Tormenta estaba sola, y en cuanto entro el
+	# Shock termico esa expectativa dejo de ser cierta aunque el reparto estuviera bien.
+	var n_leg: int = int(_por_banda().get(Upgrades.Rareza.LEGENDARIO, 1))
+	var razon: float = float(n_leg) / float(n_leg + 1)
+	_ok("cada legendario baja a %d/%d de lo que salía (%.2f%% -> %.2f%%)" % [
+		n_leg, n_leg + 1, p_antes * 100.0, float(despues[tormenta]) * 100.0],
+		absf(float(despues[tormenta]) - p_antes * razon) < 0.0005)
 	_ok("y el nuevo sale lo mismo que ella",
 		absf(float(despues[nuevo]) - float(despues[tormenta])) < 0.0001)
 	# Las otras bandas NO se enteran: el legendario nuevo se come el trozo de su propia banda.
@@ -217,7 +234,7 @@ func _probar_sorteo() -> void:
 			continue
 		salidas[s] = int(salidas.get(s, 0)) + 1
 	_ok("el sorteo nunca devuelve nada vacío", nulos == 0)
-	_ok("han salido los 16 alguna vez", salidas.size() == 16)
+	_ok("han salido los %d alguna vez" % _pool.size(), salidas.size() == _pool.size())
 
 	var probs: Dictionary = Game.probs_grimorio(_pool, p)
 	var peor: float = 0.0

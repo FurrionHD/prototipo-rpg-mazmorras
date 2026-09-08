@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_quema"]
+script = ExtResource("2")
+estado = 2
+prob = 0.5
+magnitud = 10.0
+elemento_req = 1
+
+[sub_resource type="Resource" id="SA_mojado"]
+script = ExtResource("2")
+estado = 12
+prob = 0.5
+elemento_req = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Shock térmico fulminante"
+frases = Array[String](["Arde hasta el hueso", "Y ahora, hiela", "Que el vidrio se parta"])
+rareza = 4
+coste_mana = 16
+dano_base = 40.0
+elemento = 1
+hits = 4
+elemento_mix = {
+1: 0.5,
+2: 0.5
+}
+alcance = 1
+dano_objetivo = 1.6
+dano_salpicon = 0.7
+efectos = [SubResource("SA_quema"), SubResource("SA_mojado")]
+descripcion = "Prende y apaga en el mismo aliento. La llama entra primero y el agua detras, y lo que revienta no es ninguna de las dos sino el salto entre ellas. A quien aguanta el fuego le llega mojado, y a quien aguanta el agua le llega ardiendo."

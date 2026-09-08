@@ -60,6 +60,7 @@ const GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_pulso_arcano.tres",
 	"res://resources/consumables/grimorio_rayo.tres",
 	"res://resources/consumables/grimorio_rocio.tres",
+	"res://resources/consumables/grimorio_shock_termico.tres",
 	"res://resources/consumables/grimorio_tormenta.tres",
 ]
 

@@ -96,7 +96,11 @@ func _probar_catalogo() -> void:
 # --- 2) El grimorio NO es un tocho ---
 func _probar_grimorio_no_es_tocho() -> void:
 	print("\n-- Grimorio vs tocho --")
-	_ok("hay 16 grimorios", _grimorios.size() == 16)
+	# Contra el MANIFIESTO, no contra un numero a pelo: si no, cada hechizo nuevo rompe el visor por
+	# el motivo equivocado y acaba desactivado a fuerza de dar guerra.
+	var Libros = load("res://scripts/core/libros.gd")
+	_ok("hay %d grimorios (los del manifiesto)" % Libros.GRIMORIOS.size(),
+		_grimorios.size() == Libros.GRIMORIOS.size())
 	var malos: Array = []
 	var fuera: Array = []
 	for c in _grimorios:
@@ -223,10 +227,20 @@ func _probar_secciones() -> void:
 		else:
 			raras.append(s)
 	_ok("no hay secciones inventadas", raras.is_empty())
-	_ok("Grimorios 16 · Sabiduría 6 · Curiosidades 24 (salen %d/%d/%d)" % [
-		cuenta["Grimorios"], cuenta["Sabiduría"], cuenta["Curiosidades"]],
-		cuenta["Grimorios"] == 16 and cuenta["Sabiduría"] == 6 and cuenta["Curiosidades"] == 24)
-	_ok("los 46 libros están repartidos, sin perder ni duplicar ninguno",
+	# La comprobacion buena NO es "salen 16/6/24" —eso caduca con cada libro nuevo— sino que cada
+	# seccion recoge EXACTAMENTE lo suyo: los grimorios los que llevan hechizo, sabiduria los que dan
+	# excelia, y curiosidades el resto. Asi el visor sigue valiendo con 17 libros o con 300.
+	var n_sabios: int = 0
+	for c in _tochos:
+		if c.es_tomo_sabio():
+			n_sabios += 1
+	_ok("Grimorios = los %d que llevan hechizo (salen %d)" % [_grimorios.size(), cuenta["Grimorios"]],
+		cuenta["Grimorios"] == _grimorios.size())
+	_ok("Sabiduría = los %d que dan excelia (salen %d)" % [n_sabios, cuenta["Sabiduría"]],
+		cuenta["Sabiduría"] == n_sabios)
+	_ok("Curiosidades = el resto (%d)" % cuenta["Curiosidades"],
+		cuenta["Curiosidades"] == _tochos.size() - n_sabios)
+	_ok("los %d libros están repartidos, sin perder ni duplicar ninguno" % (_tochos.size() + _grimorios.size()),
 		cuenta["Grimorios"] + cuenta["Sabiduría"] + cuenta["Curiosidades"] == _tochos.size() + _grimorios.size())
 
 

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_cmymt"]
+[ext_resource type="Resource" path="res://resources/spells/shock_termico.tres" id="2_axkmw"]
+
+[resource]
+script = ExtResource("1_cmymt")
+nombre = "Grimorio: Shock térmico fulminante"
+descripcion = "Un tomo que quema por una tapa y hiela por la otra, y que en el medio esta a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frio mas de un rato. Estudialo y aprenderas Shock termico fulminante."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_axkmw")
+tomo_id = &"grimorio_shock_termico"
+valor_base = 4200

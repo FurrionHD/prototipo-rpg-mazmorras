@@ -172,8 +172,10 @@ const RAREZAS := {
 	"manto_brasas": Upgrades.Rareza.EPICO,
 	"manto_centellas": Upgrades.Rareza.EPICO,
 	"manto_marea": Upgrades.Rareza.EPICO,
-	# El techo. Cuando entre el segundo legendario, cada uno saldra la mitad SIN tocar nada.
+	# EL TECHO. Son DOS desde que existe el Shock termico, y ese es el caso que el diseño del reparto
+	# prometia: al entrar el segundo, cada uno pasa a salir la mitad sin tocar un solo numero.
 	"tormenta": Upgrades.Rareza.LEGENDARIO,
+	"shock_termico": Upgrades.Rareza.LEGENDARIO,
 }
 
 
@@ -302,6 +304,7 @@ const SIN_GRIMORIO := ["pulso_menor"]
 # la formula "Estudialo y aprenderas X" al final.
 const TEXTOS_GRIMORIO := {
 	"tormenta": "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma pagina. Las tapas estan alabeadas, como si dentro hiciera su propio tiempo. Estudialo y aprenderas Tormenta.",
+	"shock_termico": "Un tomo que quema por una tapa y hiela por la otra, y que en el medio esta a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frio mas de un rato. Estudialo y aprenderas Shock termico fulminante.",
 }
 
 
