@@ -92,6 +92,13 @@ const STUN_TAKEN_POR_AFINIDAD := {
 # depende de StatusEffects: al reves seria un CICLO de dependencias y no compilaria.
 const AMPLIFICA_POR_ESTADO := {
 	StatusEffects.Id.MOJADO: { Elemento.RAYO: 1.5 },
+	# Quemado -> el agua le da el SHOCK TERMICO (+50%). Es lo mismo que revienta un vaso caliente
+	# al meterlo bajo el grifo: no lo rompe el frio, lo rompe el salto.
+	#
+	# Es una regla GENERAL, no del hechizo que la estrena: cualquier golpe de agua sobre algo que
+	# arde pega mas, venga de quien venga. Por eso vive aqui y no en un campo del Shock termico —
+	# ahi seria un truco de un hechizo, y asi es una ley del mundo que el hechizo aprovecha.
+	StatusEffects.Id.QUEMADURA: { Elemento.AGUA: 1.5 },
 }
 
 

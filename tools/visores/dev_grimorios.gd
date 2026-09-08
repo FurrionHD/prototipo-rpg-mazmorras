@@ -126,6 +126,61 @@ func _probar_pool() -> void:
 	_ok("todos tienen nombre propio" if sin_nombre.is_empty()
 		else "SIN NOMBRE: %s" % ", ".join(sin_nombre), sin_nombre.is_empty())
 	_probar_marcar_desde_debug()
+	_probar_shock_termico()
+
+
+# EL SHOCK TERMICO: que la secuencia sea SECUENCIA y que el x1.5 exista.
+#
+# El hechizo promete "prende y luego moja, y el agua sobre lo que arde pega mas". Eso son tres
+# cosas que se pueden romper por separado y en silencio:
+#   1. que los golpes salgan en ORDEN (con el sorteo, la mitad de las veces el agua iba primera)
+#   2. que exista la regla Quemadura -> Agua x1.5 (antes solo estaba Mojado -> Rayo)
+#   3. que el fuego aplique la quema ANTES de que resuelva el agua
+func _probar_shock_termico() -> void:
+	print("\n-- Shock térmico: la secuencia --")
+	var s: SpellData = load("res://resources/spells/shock_termico.tres") as SpellData
+	if s == null:
+		_ok("el hechizo carga", false)
+		return
+	_ok("va en orden, no al azar", s.mix_en_orden)
+	# El orden REAL de los golpes. Se pide varias veces: si siguiera sorteando, alguna saldria al
+	# reves y la prueba lo cazaria.
+	var siempre_bien: bool = true
+	for _intento in 40:
+		if s.elemento_de_golpe(0, s.hits) != Elementos.Elemento.FUEGO:
+			siempre_bien = false
+		if s.elemento_de_golpe(s.hits - 1, s.hits) != Elementos.Elemento.AGUA:
+			siempre_bien = false
+	_ok("el fuego SIEMPRE va primero y el agua después", siempre_bien)
+
+	# LA REGLA, que es lo que hace que el segundo golpe valga la pena.
+	var amp: Dictionary = Elementos.AMPLIFICA_POR_ESTADO.get(StatusEffects.Id.QUEMADURA, {})
+	_ok("el agua pega más sobre algo que arde (x%.2f)" % float(amp.get(Elementos.Elemento.AGUA, 1.0)),
+		float(amp.get(Elementos.Elemento.AGUA, 1.0)) > 1.0)
+	# Y la que ya existia, que no se puede haber roto al añadir la nueva.
+	var amp2: Dictionary = Elementos.AMPLIFICA_POR_ESTADO.get(StatusEffects.Id.MOJADO, {})
+	_ok("y el rayo sigue pegando más sobre lo mojado",
+		float(amp2.get(Elementos.Elemento.RAYO, 1.0)) > 1.0)
+
+	# LA QUEMA VA ATADA AL FUEGO. Esto es ESTRUCTURA, no balance: si el elemento_req no fuera FUEGO,
+	# la quema podria caer en el golpe de agua y el orden dejaria de significar nada.
+	#
+	# Lo que NO se comprueba aqui es su probabilidad. Se penso ponerla a 1.0 para que el combo no
+	# fallara nunca, y es justo lo que no se debe hacer: los estados pasan por la Eficacia del que
+	# lanza y la resistencia a efectos del que recibe, como todos los demas. Un hechizo que se salta
+	# ese sistema esta roto, y ademas clavar el numero aqui convertiria una decision de balance en
+	# una prueba que hay que retocar cada vez que se ajusta.
+	var quema_de_fuego: bool = false
+	var mojado_de_agua: bool = false
+	for ap in s.efectos:
+		if ap == null:
+			continue
+		if int(ap.estado) == StatusEffects.Id.QUEMADURA:
+			quema_de_fuego = int(ap.elemento_req) == Elementos.Elemento.FUEGO and float(ap.prob) > 0.0
+		if int(ap.estado) == StatusEffects.Id.MOJADO:
+			mojado_de_agua = int(ap.elemento_req) == Elementos.Elemento.AGUA and float(ap.prob) > 0.0
+	_ok("la quema solo la puede dejar el golpe de FUEGO", quema_de_fuego)
+	_ok("y el mojado solo el de AGUA", mojado_de_agua)
 
 
 # LO QUE HACE LA CASILLA DEL PANEL DE DEBUG, calcado.

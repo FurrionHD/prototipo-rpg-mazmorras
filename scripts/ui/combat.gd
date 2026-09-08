@@ -3994,8 +3994,12 @@ func _color_golpe(atacante: Combatant, elem: int, estilo: int) -> Color:
 # 'dispersa' cambia de DONDE SALE: una tormenta cae del cielo sobre cada bicho, mientras que una
 # brasa la lanzas tu desde la mano.
 func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool, salpicon: bool = false) -> int:
+	# EL DIBUJO PROPIO MANDA sobre el reparto por elemento, pero NO sobre el rebote: un rebote es un
+	# arco que salta de una victima a la siguiente y tiene que verse asi venga del hechizo que venga.
 	if rebote:
 		return CombatFX.Estilo.ARCO
+	if spell != null and spell.fx_estilo >= 0:
+		return spell.fx_estilo
 	if salpicon:
 		return _estilo_salpicon(spell, elem)
 	match elem:
@@ -5726,7 +5730,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		if not objetivo.is_alive():
 			break   # ya ha caido: los golpes que quedaban se pierden
 		_fx_tanda(tanda_base + i)
-		var elem: int = spell.elemento_de_golpe()
+		var elem: int = spell.elemento_de_golpe(i, n)
 		var res: Dictionary = StatsMath.resolve_spell(_player, objetivo, spell, elem, frac)
 		var dmg: float = float(res.damage) * foco
 		var mult: float = float(res.get("mult_elem", 1.0))
@@ -5784,7 +5788,7 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 		if vivos.is_empty():
 			break   # no queda nadie: los golpes que faltaban se pierden
 		var principal: Combatant = vivos.pick_random()
-		var elem: int = spell.elemento_de_golpe()   # UN elemento para toda la bola
+		var elem: int = spell.elemento_de_golpe(i, n)   # UN elemento para toda la bola
 		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
 		var objetivos: Array
 		if spell.salpica() and elem == spell.elemento:

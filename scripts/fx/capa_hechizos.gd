@@ -29,6 +29,11 @@ extends Control
 class_name CapaHechizos
 
 const ZIGZAG_CADA := 0.04    # cada cuanto se rehace el chisporroteo
+# Lo que dura el impacto del SHOCK TERMICO despues de llegar la bola. Es una sola constante y la
+# miran los DOS sitios que tienen que decir lo mismo: cuanto vive el efecto (_vida) y sobre que
+# ventana se calcula su animacion. Con dos numeros distintos, el efecto se cortaba antes de acabar
+# o se quedaba clavado esperando.
+const COLETA_SHOCK := 0.34
 const FUERA := -20.0         # de que altura caen los rayos y las gotas (por encima del techo)
 
 # Cada efecto vivo. Se reciclan los diccionarios: en una tormenta se dan de alta 32 en dos
@@ -201,6 +206,12 @@ func _vida(e: Dictionary) -> float:
 	# Los mordiscos casi no tienen vuelo (van con la embestida), asi que TODO lo suyo pasa en la
 	# coleta: cerrarse, el rebote de la mandibula y la marca quedandose un instante. Con los 0.12 de
 	# siempre la dentellada era un parpadeo y no se llegaba a leer.
+	# SHOCK TERMICO: su impacto no es un fogonazo, es una SECUENCIA -- el fuego revienta, se comprime
+	# hacia dentro, y despues hierve el vapor. Con la coleta de 0.12 de siempre se cortaba a la
+	# mitad: la bola llegaba, se veia medio anillo y desaparecia, o sea que lo que hace especial al
+	# hechizo no se llegaba a ver nunca.
+	if es == CombatFX.Estilo.SHOCK_TERMICO:
+		return float(e["dur"]) + COLETA_SHOCK
 	if es == CombatFX.Estilo.MORDISCO:
 		return float(e["dur"]) + 0.30
 	if es == CombatFX.Estilo.COLMILLAZO:
@@ -425,6 +436,7 @@ func _draw() -> void:
 	for e in _efectos:
 		match int(e["estilo"]):
 			CombatFX.Estilo.PROYECTIL: _pintar_fuego(e)
+			CombatFX.Estilo.SHOCK_TERMICO: _pintar_shock(e)
 			CombatFX.Estilo.RAYO, CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.ARCO: _pintar_rayo(e)
 			CombatFX.Estilo.CAIDA_GOTA: _pintar_gotas(e)
 			CombatFX.Estilo.BARRIDO: _pintar_ola(e)
@@ -558,6 +570,142 @@ func _pintar_fuego(e: Dictionary) -> void:
 		# EL REVENTON: un anillo que se abre y se apaga.
 		var v: float = clampf((t - float(e["dur"])) / 0.12, 0.0, 1.0)
 		draw_arc(b, r * (1.0 + 3.0 * v), 0.0, TAU, 20, Color(col.r, col.g, col.b, 1.0 - v), 3.0, true)
+
+
+# SHOCK TERMICO. UNA bola con los dos elementos dentro, y un reventon en DOS TIEMPOS.
+#
+# Existe porque el reparto por elemento no valia aqui: el hechizo tiene dos golpes, uno de fuego y
+# otro de agua, y cada uno cogia el aspecto generico de SU elemento -- una bola de fuego y, detras,
+# la OLA del agua barriendo la fila. Dos ataques distintos y sin relacion, cuando lo que cuenta el
+# hechizo es un solo impacto que primero quema y luego moja.
+#
+# Lo que se dibuja:
+#   - VIAJANDO: una bola partida en dos lobulos, naranja y azul, que gira sobre si misma. La estela
+#     alterna los dos colores. Se ve UNA cosa, no dos.
+#   - AL LLEGAR: el golpe de FUEGO revienta en un anillo naranja; el de AGUA, que entra justo
+#     detras, en uno azul con gotas. El fogonazo blanco del arranque es el crujido -- el vidrio
+#     partiendose, que es de donde viene el nombre.
+#
+# El golpe (e["golpe"]) decide de que color va el reventon, asi que los dos impactos del hechizo se
+# ven como las dos mitades de la misma cosa y no como dos conjuros seguidos.
+func _pintar_shock(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var r: float = e["r"]
+	var t: float = e["t"]
+	var u: float = clampf(t / float(e["dur"]), 0.0, 1.0)
+	var fuego := Color(1.0, 0.5, 0.1)
+	var agua := Color(0.4, 0.7, 1.0)
+	# El golpe 0 es la llama; del 1 en adelante, el agua.
+	var es_agua: bool = int(e.get("golpe", 0)) > 0
+
+	# SE LANZA UNA SOLA BOLA. El hechizo tiene dos golpes, pero son dos tiempos del MISMO impacto,
+	# no dos conjuros: el segundo NO vuela nada. Cuando lo hacia, salian dos bolas cruzando la
+	# pantalla una detras de otra y se perdia justo lo que cuenta el hechizo.
+	#
+	# Asi que el golpe de agua no tiene viaje: nace donde cayo la bola y lo unico que hace es el
+	# VAPOR, abriendose durante toda su vida. Por eso su reloj se mide sobre el efecto entero y no
+	# sobre "lo que queda despues de volar".
+	if es_agua:
+		var w: float = clampf(t / (float(e["dur"]) + COLETA_SHOCK), 0.0, 1.0)
+		_pintar_vapor(b, r * 2.6, w, float(e["semilla"]), agua)
+		return
+
+	if u < 1.0:
+		# LENTA Y PESADA. El proyectil normal usa u*u, que ARRANCA despacio y llega disparado; este
+		# va con suavizado en las dos puntas, asi que sale, cruza a paso constante y se planta. Es lo
+		# que hace que se lea como algo que PESA y no como una bala.
+		var av: float = u * u * (3.0 - 2.0 * u)
+		var p: Vector2 = a.lerp(b, av)
+		# GRANDE: mas del doble que una bola de fuego. Esto no es un proyectil mas, es el legendario,
+		# y tiene que ocupar pantalla desde que sale de la mano.
+		var rr: float = r * 2.6 * (1.0 + 0.06 * sin(t * 9.0 + float(e["semilla"])))
+
+		# ESTELA: dos fantasmas gordos y muy transparentes. Con una bola de este tamaño, tres motas
+		# pequeñas no se veian; lo que hace falta es que arrastre.
+		for k in 2:
+			var uk: float = maxf(0.0, u - 0.09 * float(k + 1))
+			var pk: Vector2 = a.lerp(b, uk * uk * (3.0 - 2.0 * uk))
+			draw_circle(pk, rr * (0.82 - 0.22 * float(k)), Color(0.85, 0.6, 0.55, 0.13 - 0.05 * float(k)))
+
+		# LAS DOS MITADES, partidas por una COSTURA IRREGULAR que ondea. Antes eran dos circulos
+		# superpuestos y se leia como dos pelotas pegadas; con una sola bola cortada por el medio se
+		# lee lo que es -- una cosa con dos cosas dentro peleandose.
+		var seno := PackedVector2Array()
+		var m := 11
+		for i in m:
+			var s: float = -1.0 + 2.0 * float(i) / float(m - 1)   # de arriba (-1) a abajo (+1)
+			# El borde se estrecha en las puntas para que la costura muera en el filo de la bola.
+			var ancho: float = sqrt(maxf(0.0, 1.0 - s * s))
+			var ondeo: float = sin(s * 3.4 + t * 5.0 + float(e["semilla"])) * 0.20 					+ sin(s * 7.1 - t * 3.0) * 0.09
+			seno.append(p + Vector2(ondeo * rr * ancho, s * rr))
+
+		var izq := PackedVector2Array(seno)
+		var der := PackedVector2Array(seno)
+		var n := 14
+		for i in n + 1:
+			# Arco IZQUIERDO: de abajo (PI/2) a arriba (3PI/2), pasando por PI.
+			var ang: float = PI * 0.5 + PI * float(i) / float(n)
+			izq.append(p + Vector2(cos(ang), sin(ang)) * rr)
+			# Arco DERECHO: de abajo a arriba pero por el otro lado (pasando por 0).
+			var ang2: float = PI * 0.5 - PI * float(i) / float(n)
+			der.append(p + Vector2(cos(ang2), sin(ang2)) * rr)
+		draw_colored_polygon(izq, Color(fuego.r, fuego.g, fuego.b, 0.92))
+		draw_colored_polygon(der, Color(agua.r, agua.g, agua.b, 0.92))
+
+		# LA COSTURA AL ROJO BLANCO: es donde los dos se tocan, o sea donde esta toda la tension del
+		# hechizo. Sin ella las dos mitades parecen pintadas; con ella parece que van a reventar.
+		draw_polyline(seno, Color(1.0, 1.0, 0.95, 0.9), maxf(2.0, rr * 0.10), true)
+		return
+
+	# EL IMPACTO DEL FUEGO: revienta hacia FUERA y despues se COMPRIME hacia dentro, hasta un punto.
+	# No es un reventon normal que se apaga: es el calor metiendose para adentro, y deja el hueco que
+	# el agua viene a llenar. Esa implosion es lo que ata los dos tiempos del hechizo.
+	var v: float = clampf((t - float(e["dur"])) / COLETA_SHOCK, 0.0, 1.0)
+	var rg: float = r * 2.6
+	# Fuera hasta v = 0.45, y de vuelta adentro.
+	var fuera: float = v / 0.45 if v < 0.45 else 1.0 - (v - 0.45) / 0.55
+	var rad: float = rg * (0.5 + 1.7 * fuera)
+	draw_arc(b, rad, 0.0, TAU, 26, Color(fuego.r, fuego.g, fuego.b, 0.35 + 0.65 * fuera),
+		maxf(3.0, rg * 0.14 * fuera + 2.0), true)
+	# Lenguas que salen y vuelven con el anillo, para que la compresion se VEA y no haya que
+	# adivinarla por el radio.
+	for i in 8:
+		var ang: float = TAU * float(i) / 8.0 + float(e["semilla"])
+		var dirp := Vector2(cos(ang), sin(ang))
+		draw_line(b + dirp * rad * 0.72, b + dirp * rad,
+			Color(1.0, 0.75, 0.3, 0.75 * fuera), maxf(2.0, rg * 0.10), true)
+	# Y al final, el punto blanco al que se ha comprimido todo: ahi es donde cae el agua.
+	if v > 0.75:
+		draw_circle(b, rg * 0.30 * (1.0 - (v - 0.75) / 0.25), Color(1.0, 0.95, 0.85, 0.95))
+
+
+# EL VAPOR: el segundo tiempo del Shock termico. El agua cae sobre lo que acaba de arder y no
+# salpica, HIERVE.
+#
+# 'w' va de 0 a 1 sobre la vida entera del efecto, no despues de un vuelo: este golpe no viaja.
+func _pintar_vapor(b: Vector2, rg: float, w: float, semilla: float, agua: Color) -> void:
+	# El fogonazo del choque, corto.
+	if w < 0.22:
+		draw_circle(b, rg * (0.6 + 1.4 * w), Color(1.0, 1.0, 1.0, (0.22 - w) * 3.2))
+	# LA NUBE: bolas a distintas distancias y tamaños, abriendose. Deshilachada a proposito -- un
+	# anillo limpio se lee como onda de choque, y esto tiene que ser algo que se expande y se queda.
+	# Casi blanco y con bastante alfa: la primera version iba a 0.45 sobre un gris y, contra el
+	# fondo oscuro del combate, la nube salia como un borron de manchas negras en vez de vapor.
+	var nube := Color(0.94, 0.97, 1.0)
+	for i in 11:
+		var ang: float = TAU * float(i) / 11.0 + semilla
+		var desfase: float = 0.7 + 0.5 * absf(sin(float(i) * 2.3 + semilla))
+		var dist: float = rg * (0.3 + 2.4 * w) * desfase
+		var rp: float = rg * (0.30 + 0.55 * w) * (0.6 + 0.5 * absf(cos(float(i) * 1.7)))
+		draw_circle(b + Vector2(cos(ang), sin(ang)) * dist, rp,
+			Color(nube.r, nube.g, nube.b, 0.62 * (1.0 - w)))
+	draw_circle(b, rg * (0.5 + 1.2 * w), Color(nube.r, nube.g, nube.b, 0.45 * (1.0 - w)))
+	# Gotas azules sueltas saliendo disparadas: es lo que dice que esto era AGUA y no humo.
+	for i in 7:
+		var ang2: float = TAU * float(i) / 7.0 + semilla * 1.7
+		var d: Vector2 = Vector2(cos(ang2), sin(ang2)) * rg * (0.9 + 2.6 * w)
+		draw_circle(b + d, maxf(1.5, rg * 0.11 * (1.0 - w)), Color(agua.r, agua.g, agua.b, 1.0 - w))
 
 
 # RAYO. NO viaja: EXISTE. La polilinea cubre el camino entero desde el primer frame y luego se

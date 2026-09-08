@@ -34,3 +34,5 @@ tools/salida/
 
 # Cachés de los guiones de herramientas
 __pycache__/
+
+!dev_fx_hechizo.*

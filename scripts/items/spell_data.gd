@@ -83,6 +83,30 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # rayo, en orden ALEATORIO. Los pesos no hace falta que sumen 1 (se normalizan solos).
 @export var elemento_mix: Dictionary = {}
 
+# ¿Los golpes siguen el ORDEN del elemento_mix en vez de sortearse?
+#
+# false (lo normal) = mezcla: cada golpe tira su elemento al azar con esos pesos. Es lo que quiere
+# Tormenta, donde llueve y caen rayos sin orden ninguno.
+#
+# true = SECUENCIA: los primeros golpes son del primer elemento escrito, los siguientes del
+# segundo, y asi. Es para los hechizos donde el orden ES el hechizo — el Shock termico prende y
+# LUEGO moja, porque el agua sobre algo que ya arde pega mas (Elementos.AMPLIFICA_POR_ESTADO).
+# Sorteando, la mitad de las veces caia al reves y el hechizo no hacia lo que dice su nombre.
+#
+# OJO: manda el orden en que este ESCRITO el elemento_mix en el .tres, asi que reordenarlo cambia
+# lo que hace el hechizo.
+@export var mix_en_orden: bool = false
+
+# DIBUJO PROPIO. -1 = el de siempre, que se elige por el ELEMENTO de cada golpe (una bola de fuego,
+# un rayo, una ola). Con un valor >= 0 manda este y se usa para TODOS los golpes del hechizo.
+#
+# Hace falta cuando el hechizo es una SOLA cosa contada en varios golpes y el reparto por elemento
+# la parte en pedazos sin relacion: el Shock termico salia como una bola de fuego y, detras, la ola
+# del agua barriendo la fila -- dos conjuros seguidos en vez de un impacto que quema y luego moja.
+#
+# Es el mismo campo que ya tienen las habilidades (AbilityData.fx_estilo) y con el mismo sentido.
+@export var fx_estilo: int = -1
+
 # --- MULTI-OBJETIVO: AREA y REBOTES ---
 # Eje DISTINTO al de 'hits': los golpes son POR OBJETIVO. Un hechizo de area con hits=3 le
 # mete sus 3 golpes a CADA enemigo que alcanza, y cada golpe sigue tirando su elemento del
@@ -198,7 +222,7 @@ func golpes_esperados(elem: int) -> float:
 
 # ELEMENTO de UN golpe: tirada ponderada sobre 'elemento_mix'. Sin reparto, siempre el
 # elemento del hechizo. Es lo que hace que el orden agua/rayo sea ALEATORIO.
-func elemento_de_golpe() -> int:
+func elemento_de_golpe(indice: int = -1, total_golpes: int = 0) -> int:
 	if elemento_mix.is_empty():
 		return elemento
 	var total: float = 0.0
@@ -206,6 +230,22 @@ func elemento_de_golpe() -> int:
 		total += maxf(0.0, float(elemento_mix[e]))
 	if total <= 0.0:
 		return elemento
+
+	# EN ORDEN: los golpes se reparten por tramos siguiendo el ORDEN EN QUE ESTA ESCRITO el
+	# elemento_mix, en vez de sortearse. Hace falta cuando el hechizo CUENTA UNA SECUENCIA y no una
+	# mezcla: en el Shock termico el fuego tiene que entrar ANTES que el agua, porque lo que hace
+	# daño de mas es el agua cayendo sobre algo que ya arde (ver Elementos.AMPLIFICA_POR_ESTADO).
+	# Al azar, la mitad de las veces el agua llegaba primero y el hechizo no hacia lo que promete.
+	if mix_en_orden and indice >= 0 and total_golpes > 0:
+		# El centro del tramo que le toca a este golpe, medido sobre la suma de los pesos.
+		var pos: float = (float(indice) + 0.5) / float(total_golpes) * total
+		var acumulado: float = 0.0
+		for e in elemento_mix:
+			acumulado += maxf(0.0, float(elemento_mix[e]))
+			if pos <= acumulado:
+				return int(e)
+		return elemento
+
 	var r: float = randf() * total
 	for e in elemento_mix:
 		r -= maxf(0.0, float(elemento_mix[e]))
