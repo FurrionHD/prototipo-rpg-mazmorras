@@ -64,6 +64,29 @@ const CLAVES := [
 	"trent_ramazo", "trent_savia_corrosiva",
 ]
 
+# ESTILOS QUE SUENAN CON EL FICHERO DE OTRO. Un estilo busca su .wav por su propio nombre, asi que
+# uno nuevo nace MUDO hasta que alguien lo grabe -- y "mudo" aqui no da error, solo un aviso en
+# debug: la habilidad se dibuja perfecta y no se oye, que es de las cosas que tardan en notarse.
+#
+# Esto NO es un apaño temporal, es la forma correcta de estrenar un estilo: primero suena prestado y
+# el dia que haya fichero propio se quita la fila y ya. Un dibujo nuevo no tiene por que esperar a
+# que exista el audio.
+#
+# NO PASA POR 'CLAVES' a proposito: aquel orden VIAJA POR RED (su indice va empaquetado en los bits
+# del impacto), asi que tocarlo obliga a subir Net.PROTOCOLO. Esto se resuelve en local a partir del
+# estilo, que ya viaja de por si: las dos maquinas llegan a la misma fila sin mandarse nada.
+#
+# Cada una suena con la de su familia, no con una cualquiera:
+const ALIAS_ESTILO := {
+	# La postura de la rodela es una guardia, igual que la del estoque. Misma familia, mismo sonido.
+	CombatFX.Estilo.POSTURA_RODELA: "en_guardia",
+	# La Escolta es marcar por donde entra el otro y entrar detras: es el mismo gesto que señalar
+	# el hueco, y suena a acero corto, no a magia.
+	CombatFX.Estilo.ESCOLTA_FX: "senalar_hueco",
+	# El Muro es la misma plancha de la Cobertura, mas grande y plantada. El sonido pega entero.
+	CombatFX.Estilo.MURO_GUARDIAN: "cobertura",
+}
+
 # CUANTO SE OYE segun el peso del golpe (la fraccion que se lleva ese objetivo: 1.0 el principal,
 # 0.5 un adyacente). El rango es corto a proposito -- un adyacente suena mas flojo, no lejano.
 const DB_FLOJO := -8.0     # peso 0.2
@@ -284,6 +307,11 @@ func _resolver(clave: String, estilo: int) -> String:
 	var nombre: String = _nombre_estilo(estilo)
 	if nombre != "" and not _streams(nombre).is_empty():
 		return nombre
+	# EL PRESTADO, lo ultimo: solo si el estilo no tiene fichero propio. Asi el dia que se grabe el
+	# suyo empieza a sonar SOLO, sin tener que acordarse de venir a quitar el alias.
+	var prestado: String = String(ALIAS_ESTILO.get(estilo, ""))
+	if prestado != "" and not _streams(prestado).is_empty():
+		return prestado
 	return ""
 
 

@@ -256,6 +256,15 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 #   PURIFICAR   sobre UN aliado: le sacas todo lo que lleva encima y se evapora
 #   CHISPA_VINCULADA  el unico que VIAJA de ti a un compañero: un hilo con gotas cayendo por el
 #   EGIDA_MENOR sobre UN aliado: un escudo pequeño de LUZ, pegado a el
+#
+# LAS TRES DE LA PERSONALIDAD DE CADA ESCUDO. Los tres escudos eran el mismo con otros numeros;
+# ahora cada tamaño trae lo suyo, y lo suyo tiene que VERSE distinto o vuelven a ser el mismo:
+#   POSTURA_RODELA  (pequeño) sobre TI: rodela alta y suelta, girando. La guardia que se MUEVE
+#   ESCOLTA_FX      (normal)  sobre UN aliado: dos marcas emparejadas, la tuya detras de la suya
+#   MURO_GUARDIAN   (grande)  sobre TI: la torre plantada y el paso adelante. NO sobre el protegido
+# El MURO va sobre TI aunque la habilidad apunte a un aliado, y es el unico caso asi en todo el
+# fichero: el que levanta el hierro eres tu. Pintarlo sobre el protegido -que es lo que hacia
+# mientras reusaba COBERTURA- se lee como que se tapa el solo, o sea justo lo contrario.
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -285,7 +294,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		VELO_UMBRIO = 92, VIENTO_LIMPIO = 93,
 		PUNOS_GOLPE = 94, EMBESTIDA_ESCUDO = 95, PROVOCACION_FX = 96, GUARDIA_CARNE_FX = 97,
 		COBERTURA = 98,
-		PURIFICAR = 99, CHISPA_VINCULADA = 100, EGIDA_MENOR = 101 }
+		PURIFICAR = 99, CHISPA_VINCULADA = 100, EGIDA_MENOR = 101,
+		POSTURA_RODELA = 102, ESCOLTA_FX = 103, MURO_GUARDIAN = 104 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -332,7 +342,8 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.VELO_UMBRIO, Estilo.VIENTO_LIMPIO,
 	Estilo.PUNOS_GOLPE, Estilo.EMBESTIDA_ESCUDO, Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX,
 	Estilo.COBERTURA,
-	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR,
+	Estilo.POSTURA_RODELA, Estilo.ESCOLTA_FX, Estilo.MURO_GUARDIAN]
 
 # LO QUE **NO** TIÑE LA IMBUICION. La regla es: si en el dibujo aparece TU metal -- el arma o el
 # escudo --, lleva el elemento; si no, no.
@@ -353,7 +364,10 @@ const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 const FX_SIN_IMBUICION := [Estilo.GRITO_GUERRA, Estilo.VOZ_MANDO, Estilo.GRITO_ALIENTO,
 	Estilo.MURO_ALIADOS, Estilo.SED_SANGRE, Estilo.DESVANECER, Estilo.VELO_UMBRIO,
 	Estilo.FOCO_ARCANO, Estilo.SELLO_ARCANO, Estilo.VIENTO_LIMPIO,
-	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR,
+	# La ESCOLTA es un vinculo entre dos, no metal tuyo: no lleva el elemento. Las otras dos SI
+	# pintan tu escudo (rodela y torre), asi que se tiñen como todo lo demas que enseña tu hierro.
+	Estilo.ESCOLTA_FX]
 
 
 # EL GRIS DE UN ARMA SIN IMBUIR. Vive aqui porque lo necesitan los dos lados: combat.gd lo manda
@@ -487,6 +501,10 @@ const T_VUELO := {
 	# La CHISPA es la unica que viaja de verdad -- de tu mano a la suya -- y por eso lleva el vuelo mas
 	# largo de las tres: es un trayecto, no un adelanto.
 	Estilo.PURIFICAR: 0.28, Estilo.CHISPA_VINCULADA: 0.32, Estilo.EGIDA_MENOR: 0.24,
+	# LAS TRES DE LA PERSONALIDAD DEL ESCUDO, y las tres tardan lo que tardan por lo que SON:
+	# la rodela es la mas corta de las posturas (es ligera, ese es su tema entero), la escolta viaja
+	# a otro y el muro es lo mas lento del juego -- una torre plantandose no se hace deprisa.
+	Estilo.POSTURA_RODELA: 0.14, Estilo.ESCOLTA_FX: 0.26, Estilo.MURO_GUARDIAN: 0.30,
 }
 
 # --- ritmo de un impacto -------------------------------------------------------------------
@@ -1884,7 +1902,13 @@ const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.E
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
 	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO,
 	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
-	Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX]
+	Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX,
+	# LA POSTURA DE RODELA es tuya, como el resto de posturas de aqui arriba.
+	# Y EL MURO TAMBIEN, aunque su habilidad apunte a un ALIADO -- es el unico caso asi. El que
+	# levanta el hierro eres tu; lo que le pasa al otro es que deja de recibir, y eso no se dibuja
+	# encima suyo. Mientras reusaba COBERTURA se pintaba sobre el protegido y se leia como que el
+	# mago se tapaba solo. Si esto se saca de la lista, vuelve ese bug.
+	Estilo.POSTURA_RODELA, Estilo.MURO_GUARDIAN]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

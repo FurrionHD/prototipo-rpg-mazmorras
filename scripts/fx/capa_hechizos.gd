@@ -92,7 +92,9 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.VIENTO_LIMPIO, \
 		CombatFX.Estilo.PROVOCACION_FX, CombatFX.Estilo.GUARDIA_CARNE_FX, \
 		CombatFX.Estilo.COBERTURA, \
-		CombatFX.Estilo.PURIFICAR, CombatFX.Estilo.EGIDA_MENOR:
+		CombatFX.Estilo.PURIFICAR, CombatFX.Estilo.EGIDA_MENOR, \
+		CombatFX.Estilo.POSTURA_RODELA, CombatFX.Estilo.ESCOLTA_FX, \
+		CombatFX.Estilo.MURO_GUARDIAN:
 			# No viajan: nacen y mueren sobre la misma tarjeta (el bicho se lo echa ENCIMA, y el
 			# picaro se unta el filo).
 			e["a"] = b
@@ -399,6 +401,13 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_CHISPA
 	if es == CombatFX.Estilo.EGIDA_MENOR:
 		return float(e["dur"]) + COLETA_EGIDA
+	# LA PERSONALIDAD DE CADA ESCUDO.
+	if es == CombatFX.Estilo.POSTURA_RODELA:
+		return float(e["dur"]) + COLETA_RODELA
+	if es == CombatFX.Estilo.ESCOLTA_FX:
+		return float(e["dur"]) + COLETA_ESCOLTA
+	if es == CombatFX.Estilo.MURO_GUARDIAN:
+		return float(e["dur"]) + COLETA_MURO_GUARDIAN
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -507,6 +516,9 @@ func _draw() -> void:
 			CombatFX.Estilo.PURIFICAR: _pintar_purificar(e)
 			CombatFX.Estilo.CHISPA_VINCULADA: _pintar_chispa_vinculada(e)
 			CombatFX.Estilo.EGIDA_MENOR: _pintar_egida_menor(e)
+			CombatFX.Estilo.POSTURA_RODELA: _pintar_postura_rodela(e)
+			CombatFX.Estilo.ESCOLTA_FX: _pintar_escolta(e)
+			CombatFX.Estilo.MURO_GUARDIAN: _pintar_muro_guardian(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -5990,3 +6002,183 @@ func _pintar_egida_menor(e: Dictionary) -> void:
 	var brillo: float = sin(PI * clampf(v / 0.35, 0.0, 1.0))
 	_estrella(b, r * 1.5 * brillo, r * 1.1 * brillo, 0.55,
 		Color(f.r, f.g, f.b, 0.5 * alfa * brillo))
+
+
+# ============================================================
+#  LA PERSONALIDAD DE CADA ESCUDO
+# ============================================================
+# Los tres escudos eran el mismo con otros numeros. Ahora cada tamaño trae una tecnica que los
+# otros no tienen, y aqui es donde eso tiene que VERSE -- si las tres se dibujaran parecido, el
+# jugador seguiria sin notar que ha cambiado de escudo.
+#
+# Se separan por lo mismo que las separa en el combate, el VERBO:
+#   POSTURA_RODELA  "yo devuelvo los golpes"  -> la guardia que se MUEVE. Nada se planta.
+#   ESCOLTA_FX      "yo voy contigo"          -> DOS marcas, y ninguna es un escudo.
+#   MURO_GUARDIAN   "yo recibo tus golpes"    -> la torre plantada. Nada se mueve.
+# La rodela y el muro son deliberadamente opuestos: giro contra quietud, pequeño contra enorme,
+# ligero contra pesado. Son los dos extremos del mismo objeto.
+const COLETA_RODELA := 0.55
+const COLETA_ESCOLTA := 0.70
+const COLETA_MURO_GUARDIAN := 0.95     # la mas larga del juego: una torre tarda en plantarse Y en quitarse
+
+
+# POSTURA DE RODELA. "La rodela no se planta: se mueve contigo." Sobre TI.
+#
+# HAY QUE SEPARARLA DE EN GUARDIA (43), que es la postura del estoque y hace lo mismo mecanicamente
+# (guardia, esquiva, riposte). Se distinguen por CON QUE te cubres:
+#   EN_GUARDIA      la HOJA en alto, quieta, y el arco que barre la punta
+#   POSTURA_RODELA  la CHAPA, suelta y GIRANDO, y dos arcos cruzados que no se cierran
+# El giro es todo el personaje del escudo pequeño: es lo unico del juego que se cubre moviendose.
+func _pintar_postura_rodela(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var monta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_RODELA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.70 else 1.0 - (v - 0.70) / 0.30
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LA RODELA, PEQUEÑA Y EN MOVIMIENTO: no se queda delante, orbita. El radio de la orbita es corto
+	# (0.16) para que se lea como muñeca suelta y no como que se le ha escapado el escudo.
+	var giro: float = g + t * 4.2
+	var orb: Vector2 = Vector2(cos(giro), sin(giro) * 0.55) * caja * 0.16 * monta
+	# 0.26 de caja: por debajo del 0.34 de la Provocacion y muy por debajo del 0.46 de la Cobertura.
+	# El tamaño del dibujo tiene que decir cual de los tres escudos llevas antes de leer nada.
+	_escudo_cara(b + orb, caja * 0.26, col, alfa, sin(giro) * 0.22,
+		int(e.get("escudo", -1)), int(e.get("elem", 0)), t)
+	# LOS DOS ARCOS CRUZADOS que deja la chapa al girar. NO se cierran (queda hueco arriba y abajo):
+	# esta guardia no tapa, desvia. Van en sentidos opuestos para que se lea el vaiven.
+	for i in 2:
+		var s: float = 1.0 if i == 0 else -1.0
+		var r: float = caja * (0.30 + 0.16 * monta)
+		var arco := PackedVector2Array()
+		for j in 13:
+			var a: float = giro * s * 0.6 + PI * 0.15 + PI * 0.70 * float(j) / 12.0
+			arco.append(b + Vector2(cos(a) * r * s, sin(a) * r * 0.80))
+		draw_polyline(arco, Color(f.r, f.g, f.b, 0.42 * alfa * monta),
+			maxf(1.5, caja * 0.020), true)
+	# Y LA RESPUESTA: dos chispas cortas saliendo HACIA FUERA del borde de la chapa. Es lo unico que
+	# dice que esta postura DEVUELVE y no solo aguanta -- sin ellas es una guardia mas.
+	if v <= 0.15:
+		return
+	var w: float = clampf((v - 0.15) / 0.45, 0.0, 1.0)
+	for i in 2:
+		var a2: float = giro + PI * (0.20 + 0.9 * float(i))
+		var u := Vector2(cos(a2), sin(a2) * 0.7)
+		var p0: Vector2 = b + orb + u * caja * 0.26
+		draw_line(p0, p0 + u * caja * 0.30 * w,
+			Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)), maxf(1.5, caja * 0.022), true)
+
+
+# ESCOLTA. "Te pegas a uno de los tuyos y entras detras de cada golpe suyo." Sobre EL ALIADO.
+#
+# ES LA UNICA DE LAS TRES QUE NO DIBUJA UN ESCUDO, y es a proposito: la Escolta no para nada, hace
+# que el otro pegue MAS. Si saliera una chapa se leeria como proteccion, que es justo lo que no es.
+# Lo que se dibuja son DOS MARCAS emparejadas -- la suya delante y la tuya justo detras, desfasada --
+# y las cinco muescas de las CARGAS, porque va por entradas y no por turnos: el jugador tiene que
+# poder contar cuantas le quedan sin abrir nada.
+func _pintar_escolta(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var monta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_ESCOLTA, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.72 else 1.0 - (v - 0.72) / 0.28
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# LAS DOS PUNTAS, una detras de otra y a la MISMA altura: van juntos, no uno protegiendo al otro.
+	# La segunda entra con retraso (el desfase de 0.22) porque eso es literalmente lo que hace la
+	# habilidad: entrar DETRAS del que abre el hueco.
+	for i in 2:
+		var k: float = clampf(monta * 1.4 - float(i) * 0.22, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var x: float = caja * (-0.22 + 0.30 * float(i))
+		var y: float = caja * (0.30 - 0.42 * k)
+		var punta := b + Vector2(x, y)
+		var u := Vector2(0.30, -1.0).normalized()
+		draw_line(punta - u * caja * 0.26, punta,
+			Color(f.r, f.g, f.b, (0.85 if i == 0 else 0.55) * alfa), maxf(1.5, caja * 0.024), true)
+		var perp := Vector2(-u.y, u.x)
+		draw_colored_polygon(PackedVector2Array([punta,
+			punta - u * caja * 0.10 + perp * caja * 0.050,
+			punta - u * caja * 0.10 - perp * caja * 0.050]),
+			Color(f.r, f.g, f.b, (0.9 if i == 0 else 0.6) * alfa))
+	# EL LAZO que las une: una linea corta entre las dos bases. Sin esto son dos golpes sueltos.
+	draw_line(b + Vector2(-caja * 0.22, caja * 0.34), b + Vector2(caja * 0.08, caja * 0.34),
+		Color(f.r, f.g, f.b, 0.40 * alfa * monta), maxf(1.0, caja * 0.014), true)
+	# LAS CINCO MUESCAS DE LAS CARGAS. La Escolta va por ENTRADAS (usos: 5), no por turnos, y esa es
+	# su rareza: la unica forma de que se entienda es enseñar cinco cosas contables.
+	for i in 5:
+		var k2: float = clampf(monta * 2.0 - float(i) * 0.12, 0.0, 1.0)
+		var px: float = b.x + (float(i) - 2.0) * caja * 0.13
+		var py: float = b.y + caja * 0.50
+		draw_line(Vector2(px, py), Vector2(px, py - caja * 0.09 * k2),
+			Color(f.r, f.g, f.b, 0.65 * alfa * k2), maxf(1.5, caja * 0.020), true)
+
+
+# MURO. "Te plantas delante de uno de los tuyos y no te mueves." Sobre TI, aunque apunte a un aliado.
+#
+# EL DIBUJO ES EL OPUESTO EXACTO DE LA RODELA, y esa es toda la idea: donde aquella gira, esta no se
+# mueve; donde aquella es pequeña, esta ocupa media tarjeta. Son el mismo objeto en sus dos extremos.
+#
+# Y HAY QUE SEPARARLO DE LA COBERTURA (98), que es del escudo normal y tambien saca una plancha:
+#   COBERTURA      una plancha adelantandose, y siluetas metiendose detras. Reparte Baluarte al grupo
+#   MURO_GUARDIAN  una plancha PLANTADA, con los pies clavados y UNA flecha entrando y desviandose
+# La diferencia que hay que leer es que aqui los golpes VIENEN, y por eso la flecha es lo ultimo que
+# se dibuja: es la unica de las tres que enseña un golpe llegando.
+func _pintar_muro_guardian(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var col: Color = e["col"]
+	var g: float = float(e["semilla"])
+	var b: Vector2 = e["b"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var planta: float = clampf(t / dur, 0.0, 1.0)
+	var v: float = clampf((t - dur) / COLETA_MURO_GUARDIAN, 0.0, 1.0) if t > dur else 0.0
+	var alfa: float = 1.0 if v < 0.78 else 1.0 - (v - 0.78) / 0.22
+	if alfa <= 0.0:
+		return
+	var f: Color = _filo_col(col)
+	# EL PASO ADELANTE: la plancha BAJA hasta su sitio y ahi se queda. Con un rebote corto al final
+	# -el peso asentandose- que es lo unico que se mueve en todo el dibujo.
+	var asienta: float = 1.0 - pow(1.0 - planta, 3.0)
+	var golpe_suelo: float = maxf(0.0, sin(PI * clampf((planta - 0.75) / 0.25, 0.0, 1.0))) * 0.04
+	var p: Vector2 = b + Vector2(0.0, caja * (-0.18 + 0.30 * asienta + golpe_suelo))
+	# 0.52 de caja: MAS GRANDE que la Cobertura (0.46), que es el segundo mas grande. El escudo
+	# grande tiene que ocupar mas que ningun otro dibujo de escudo del juego.
+	_escudo_cara(p, caja * 0.52, col, alfa, sin(g) * 0.03, int(e.get("escudo", -1)),
+		int(e.get("elem", 0)), t)
+	# LOS PIES CLAVADOS: dos cuñas cortas bajo la plancha. Es lo que dice "y no te mueves".
+	for i in 2:
+		var s: float = float(i) * 2.0 - 1.0
+		var px: float = b.x + s * caja * 0.30
+		var py: float = b.y + caja * 0.56
+		draw_line(Vector2(px, py), Vector2(px + s * caja * 0.16, py),
+			Color(f.r, f.g, f.b, 0.55 * alfa * asienta), maxf(2.0, caja * 0.026), true)
+	# LA FLECHA QUE ENTRA Y SE DESVIA. Es la razon de ser de la habilidad: un golpe que iba a otro
+	# llega aqui y rebota. Viene de arriba, en diagonal, y sale despedida al costado.
+	if v <= 0.10:
+		return
+	var w: float = clampf((v - 0.10) / 0.50, 0.0, 1.0)
+	var lado: float = 1.0 if sin(g) >= 0.0 else -1.0
+	var entra := Vector2(-lado * 0.55, 1.0).normalized()
+	var choque: Vector2 = p + Vector2(lado * caja * 0.10, -caja * 0.06)
+	# El tramo que TODAVIA viene, acortandose segun se acerca.
+	draw_line(choque - entra * caja * (0.95 - 0.55 * w), choque - entra * caja * (0.30 - 0.10 * w),
+		Color(f.r, f.g, f.b, 0.75 * alfa * (1.0 - w * 0.5)), maxf(1.5, caja * 0.024), true)
+	# Y EL REBOTE: sale hacia el otro lado y hacia arriba, que es como rebota algo en una plancha.
+	if w <= 0.25:
+		return
+	var r2: float = clampf((w - 0.25) / 0.75, 0.0, 1.0)
+	var sale := Vector2(lado * 0.85, -0.62).normalized()
+	draw_line(choque, choque + sale * caja * 0.55 * r2,
+		Color(f.r, f.g, f.b, 0.65 * alfa * (1.0 - r2 * 0.7)), maxf(1.5, caja * 0.020), true)

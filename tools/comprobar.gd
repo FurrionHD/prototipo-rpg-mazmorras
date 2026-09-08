@@ -69,6 +69,12 @@ const SCRIPTS := [
 	"res://scripts/items/ability_data.gd",
 	"res://scripts/items/status_application.gd",
 	"res://scripts/core/status_effects.gd",
+	# EL DIBUJO DEL COMBATE. Tampoco estaban, y son de los peores sitios para un fallo de parseo:
+	# combat.gd depende de los dos, asi que un error aqui NO se lee como "error en capa_hechizos",
+	# se lee como "no carga la pantalla de combate" y te manda a buscar al fichero equivocado.
+	"res://scripts/fx/combat_fx.gd",
+	"res://scripts/fx/capa_hechizos.gd",
+	"res://scripts/core/sonido.gd",
 ]
 
 # Los .tres que se cargan a mano para que un campo mal escrito salte AQUI y no en la tienda. Un

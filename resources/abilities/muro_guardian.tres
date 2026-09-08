@@ -13,5 +13,5 @@ objetivo_aliado = 1
 protege_turnos = 3
 bloqueo_turnos = 1
 requiere_escudo = true
-fx_estilo = 98
+fx_estilo = 104
 descripcion = "Te plantas delante de uno de los tuyos y no te mueves. Lo que iba para él viene para ti, y lo recibes con tu escudo. Si te aturden, deja de valer."

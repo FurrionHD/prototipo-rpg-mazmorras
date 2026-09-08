@@ -77,6 +77,12 @@ const GESTOS := [
 	["escudo", "PROVOCACION_FX", "provocacion"],
 	["escudo", "GUARDIA_CARNE_FX", "guardia_de_carne"],
 	["escudo", "COBERTURA", "cobertura"],
+	# LAS TRES DE LA PERSONALIDAD DE CADA ESCUDO. Van seguidas y en este orden a proposito: la
+	# rodela y el muro son los dos extremos del mismo objeto (giro contra quietud, 0.26 de caja
+	# contra 0.52), y solo se ve si esta bien puesto mirandolas una detras de otra.
+	["escudo", "POSTURA_RODELA", "postura_rodela"],
+	["escudo", "ESCOLTA_FX", "escolta"],
+	["escudo", "MURO_GUARDIAN", "muro_guardian"],
 	["varita", "FOCO_ARCANO", "canalizar_varita"],
 	["varita", "PURIFICAR", "purificar"],
 	["varita", "CHISPA_VINCULADA", "chispa_vinculada"],
@@ -91,8 +97,16 @@ const DE_GRUPO := ["MOLINETE", "GRITO_GUERRA", "SEGAR",
 # Los que NO pegan y se pintan sobre uno mismo: van sobre el muñeco de abajo (el que ataca). Las
 # que SI pegan y ademas se echan algo encima (Desaparecer, Voto de guardia) no van aqui: eso sale
 # de su fx_sobre_mi, y el visor pinta las dos mitades.
+#
+# OJO AL REGISTRAR UNO NUEVO: lo que no este en ninguna de las tres listas de aqui abajo cae al caso
+# por defecto y se lanza CONTRA EL ENEMIGO. No da error ni queda raro -- se ve un efecto perfecto en
+# el sitio contrario --, asi que el visor te enseña una mentira y te la crees. Paso con la Voz de
+# mando (ver abajo) y volvio a pasar con estas tres.
+# La lista buena es CombatFX.SOBRE_SI_MISMO: esta de aqui tiene que decir lo mismo que aquella.
 const SOBRE_MI := ["IMBUIR_FILO", "EN_GUARDIA", "DESVANECER", "VOTO_GUARDIA",
-	"FOCO_ARCANO", "VELO_UMBRIO", "PROVOCACION_FX", "GUARDIA_CARNE_FX"]
+	"FOCO_ARCANO", "VELO_UMBRIO", "PROVOCACION_FX", "GUARDIA_CARNE_FX",
+	# El MURO va aqui aunque su habilidad apunte a un aliado: el que levanta el hierro eres tu.
+	"POSTURA_RODELA", "MURO_GUARDIAN"]
 # LOS QUE SE ECHAN A LOS TUYOS. No van contra nadie: se pintan una vez SOBRE CADA ALIADO (en la
 # pelea salen de _fx_adorno recorriendo _objetivos_area_aliados, que es TU fila). Aqui se sueltan
 # sobre los cuatro de ABAJO a la vez -- con uno solo no se entiende que es de grupo, y sobre los de
@@ -104,7 +118,7 @@ const A_LOS_MIOS := ["VOZ_MANDO", "GRITO_ALIENTO", "MURO_ALIADOS", "VIENTO_LIMPI
 	"COBERTURA"]
 # Y estos van a UN SOLO compañero (objetivo_aliado = 1), no a todos: se sueltan sobre el segundo de
 # tu fila, que es un compañero y no el que lanza.
-const A_UN_MIO := ["PURIFICAR", "CHISPA_VINCULADA", "EGIDA_MENOR"]
+const A_UN_MIO := ["PURIFICAR", "CHISPA_VINCULADA", "EGIDA_MENOR", "ESCOLTA_FX"]
 
 var _capa: CapaHechizos
 var _titulo: Label
@@ -200,7 +214,10 @@ func _ready() -> void:
 func _tanda_de_fotos() -> void:
 	DirAccess.make_dir_recursive_absolute("user://capturas")
 	_auto = false
-	for nombre in ["DANZA_ACERO", "FINTAS", "MOLINETE", "SENALAR_HUECO", "TAJO_VERDUGO"]:
+	for nombre in ["DANZA_ACERO", "FINTAS", "MOLINETE", "SENALAR_HUECO", "TAJO_VERDUGO",
+			# Las tres del escudo van juntas: lo que hay que comprobar de un vistazo es que la rodela
+			# sale PEQUEÑA y descentrada, el muro ENORME y plantado, y la escolta sobre OTRO.
+			"POSTURA_RODELA", "ESCOLTA_FX", "MURO_GUARDIAN"]:
 		for i in GESTOS.size():
 			if String(GESTOS[i][1]) == nombre:
 				_idx = i
