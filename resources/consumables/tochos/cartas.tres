@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_fb6uy"]
+
+[resource]
+script = ExtResource("1_fb6uy")
+nombre = "Cartas que no se enviaron"
+descripcion = "Un fajo de cartas escritas desde la mazmorra y nunca mandadas, cosidas después en forma de libro. Todas empiezan pidiendo perdón por tardar en escribir."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"cartas"
+valor_base = 45

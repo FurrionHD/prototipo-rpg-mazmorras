@@ -1779,6 +1779,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	pack_inicial_reclamado = false
 	velocidad_combate = 1.0
 	bosses_derrotados.clear()
+	biblioteca.clear()
 	recompra.clear()
 
 	crystals.clear()
@@ -1932,6 +1933,7 @@ func exportar_partida() -> SaveData:
 	d.pack_inicial = pack_inicial_reclamado
 	d.velocidad_combate = velocidad_combate
 	d.bosses_derrotados = bosses_derrotados.duplicate()
+	d.biblioteca = biblioteca.duplicate()
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
@@ -2520,6 +2522,9 @@ func importar_partida(d: SaveData) -> void:
 	pack_inicial_reclamado = d.pack_inicial
 	velocidad_combate = d.velocidad_combate
 	bosses_derrotados = d.bosses_derrotados.duplicate()
+	# VACIO = partida de antes de que existiera la biblioteca. No hay nada que migrar: se arranca sin
+	# ningun tomo leido, que es exactamente lo que era cierto en esa partida.
+	biblioteca = d.biblioteca.duplicate() if d.biblioteca else {}
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
 	# tendero tal y como lo dejaste hace tres dias.
 	recompra.clear()
@@ -2901,6 +2906,60 @@ const BOSSES := {
 
 # {piso: true} de los bosses YA derrotados alguna vez en esta partida. Se guarda en SaveData.
 var bosses_derrotados: Dictionary = {}
+
+# ============================================================
+#  LA BIBLIOTECA: los tochos que ya se han leido en esta partida.
+#
+#  {tomo_id: true}. Va en SaveData y NO en JugadorData —al reves que el libro del Pescador— porque
+#  el texto lo lees TU, no el personaje: un chiste no se lee dos veces por cambiar de muñeco, y el
+#  grupo entero comparte la coleccion. Un tocho leido no se borra nunca (salvo partida nueva).
+#
+#  Se apunta al LEER, no al conseguir: el libro se gasta y su entrada queda para releerla desde el
+#  menu de Meditacion. Venderlo sin abrirlo pierde la entrada, y esa es toda la tension del objeto.
+var biblioteca: Dictionary = {}
+
+# EXCELIA MAGICA del "tomo de sabiduria" cuando el .tres no dice otra cosa. Es un valor BASE que
+# pasa por ganar(), o sea que los rendimientos decrecientes lo moderan solos segun tu nivel.
+#
+# SIN CUADRAR: esta puesto a ojo para que la mecanica se pueda probar. El numero bueno sale de mirar
+# la curva entera (cuanta excelia magica da un piso, cada cuanto cae un tomo del 25%), no de tocarlo
+# aqui a pelo. No lo des por bueno porque este escrito.
+const TOMO_EXCELIA_BASE := 18.0
+
+
+# ¿Se ha leido ya este tocho en esta partida?
+func tomo_leido(id: StringName) -> bool:
+	return id != &"" and bool(biblioteca.get(id, false))
+
+
+# Cuantos tochos distintos llevas leidos (para el "12 de 30" de la biblioteca).
+func tomos_leidos() -> int:
+	return biblioteca.size()
+
+
+# ¿Este tocho te aporta ALGO todavia? Lo usa el GACHA de la Meditacion para no entregar relleno que
+# ya te has leido: si el texto ya lo tienes, el libro no es un premio, es basura que ocupa sitio —
+# asi que ni se te da, y el gacha vuelve a tirar.
+#
+# El de SABIDURIA siempre aporta, aunque lo tengas: lo que da es la excelia, no el texto.
+#
+# Vive aqui, y no dentro del gacha, porque lo miran DOS sitios (el reparto y el boton de leer del
+# inventario) y el dia que dejaran de decir lo mismo tendrias un libro que se te entrega y que
+# luego no se deja abrir.
+# SOLO el relleno se descarta. Los otros dos SIEMPRE valen, y por motivos distintos, asi que van
+# escritos uno a uno en vez de en una condicion apretada:
+#   - GRIMORIO: aunque tu personaje se sepa el hechizo, el libro sirve para que se lo estudie OTRO
+#     del grupo. Por eso no se gasta al intentarlo dos veces: se guarda en el baul.
+#   - SABIDURIA: lo que da es la excelia, y esa se cobra cada vez que se lee.
+#   - RELLENO: todo lo que tenia era el texto. Leido una vez, ya no es un premio.
+func tocho_aporta_algo(c: ConsumableData) -> bool:
+	if c == null:
+		return false
+	if not c.en_biblioteca():
+		return true          # ni tocho ni grimorio: esta regla no va con el
+	if c.es_grimorio() or c.es_tomo_sabio():
+		return true
+	return not tomo_leido(c.tomo_id)
 
 # --- RESPAWN de jefes POR RELOJ DE PARED ---
 # El jefe volvia porque la mazmorra se olvidaba al pasar por el pueblo: matabas al rey slime, salias
@@ -5194,6 +5253,11 @@ func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		return false
 	if c.es_grimorio():
 		return aprender_de_grimorio(c, pj)
+	# El TOCHO va ANTES que el plato y la poción y DESPUES del grimorio: un tocho no lleva hechizo
+	# (si lo llevara seria un grimorio de verdad) y tiene los campos de poción a 0, asi que si cayera
+	# al final se lo tragaria beber_pocion_fuera y no pasaria nada al pulsar Leer.
+	if c.es_tocho():
+		return leer_tocho(c, pj)
 	if c.es_plato():
 		return comer_plato(c, pj)
 	return beber_pocion_fuera(c, pj)
@@ -5358,6 +5422,11 @@ func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		return false
 	if not gastar_consumible(c):
 		return false
+	# Un grimorio tambien es un LIBRO: su texto queda en la biblioteca igual que el de un tocho. Va
+	# aqui y no en leer_tocho porque el grimorio nunca pasa por ahi (usar_consumible lo desvia antes),
+	# y si no se apuntara, la unica seccion que de verdad te has ganado seria la unica que no sale.
+	if c.en_biblioteca():
+		biblioteca[c.tomo_id] = true
 	var hueco: bool = not hechizos_llenos(p)
 	aprender_hechizo(c.spell, p)
 	if hueco:
@@ -5367,6 +5436,53 @@ func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 		print("[grimorio] %s aprende %s, pero ya lleva %d puestos: se queda sin equipar." % [
 			p.nombre, c.spell.nombre, MAX_HECHIZOS])
 	return true
+
+# LEER UN TOCHO. Se gasta, su entrada queda apuntada en la biblioteca de la partida, y si es un
+# "tomo de sabiduria" ademas suelta un pellizco de excelia MAGICA sobre quien lo lee.
+#
+# LOS REPETIDOS, que es donde los dos sabores dejan de comportarse igual:
+#
+#   - RELLENO ya leido: no pasa nada y NO SE GASTA. Su unico contenido era el texto, y el texto ya
+#     lo tienes en la biblioteca; quemar el ejemplar no te daria nada a cambio. Se queda en la
+#     bolsa y se vende por calderilla, que es para lo que sirve.
+#   - SABIDURIA ya leido: SI se relee y SI se gasta, porque lo que da no es el texto sino la
+#     excelia, y esa se cobra cada vez. Lo que no se repite es la entrada de la biblioteca: ya
+#     estaba, y "lo tienes" no es una cantidad.
+#
+# EL GACHA NO REPARTE RELLENO REPETIDO (ver tocho_aporta_algo), asi que lo normal es que este caso
+# no se de nunca. Pero se da por un camino que si es real: te tocan DOS ejemplares del mismo antes
+# de leer ninguno —entonces los dos eran nuevos— y al leer el primero el segundo se queda sin uso.
+# Para ese es este guardia. Sin el, el segundo se evaporaba sin dar nada.
+#
+# La excelia pasa por ganar() y no se escribe en ability_internal a pelo: ahi viven los rendimientos
+# decrecientes y el multiplicador de desarrollo, que son los que hacen que esto no sea plano.
+func leer_tocho(c: ConsumableData, pj: PersonajeData = null) -> bool:
+	if c == null or not c.es_tocho():
+		return false
+	var p: PersonajeData = pj if pj != null else lider()
+	if p == null:
+		return false
+	# El repetido de relleno se para ANTES de gastar_consumible: el orden importa, porque al reves
+	# el libro desaparecia y encima no hacia nada.
+	if not c.es_tomo_sabio() and tomo_leido(c.tomo_id):
+		print("[tocho] %s ya está en la biblioteca: no se abre otra vez." % c.nombre)
+		return false
+	if not gastar_consumible(c):
+		return false
+	var nuevo: bool = not tomo_leido(c.tomo_id)
+	biblioteca[c.tomo_id] = true
+	if c.es_tomo_sabio():
+		# reto = 1.0: no hay enemigo contra el que medirse leyendo un libro. Lo que modera el
+		# empujon es diminish_factor dentro de ganar(), que mira lo lejos que estas de tu nivel.
+		ganar("magia", 1.0, c.excelia_magia, 1.0, p)
+		print("[tocho] %s lee %s y saca algo en claro (magia +%.0f base)." % [
+			p.nombre, c.nombre, c.excelia_magia])
+	else:
+		print("[tocho] %s lee %s. No aprende nada." % [p.nombre, c.nombre])
+	if nuevo:
+		print("[tocho] biblioteca: %d tomos distintos." % biblioteca.size())
+	return true
+
 
 # BEBER una poción FUERA de combate: arranca la cura/maná-por-tiempo (heal-over-time) de QUIEN
 # se la bebe ('pj', null = el lider). La cola vive en su ficha, asi que cambiar de lider a mitad

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_12cv3"]
+
+[resource]
+script = ExtResource("1_12cv3")
+nombre = "Guía del descenso para principiantes"
+descripcion = "Doce consejos para sobrevivir tu primer piso, explicados con paciencia y muy buena letra. Son consejos razonables. El autor firma como veterano de tres descensos."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"guia_descenso"
+valor_base = 40

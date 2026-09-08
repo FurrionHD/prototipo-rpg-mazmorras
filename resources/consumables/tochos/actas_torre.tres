@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_m2x7c"]
+
+[resource]
+script = ExtResource("1_m2x7c")
+nombre = "Actas de la torre, sesión decimosexta"
+descripcion = "Acta de una reunión de magos discutiendo durante horas si la Resistencia le sirve de algo a quien no piensa dejarse tocar ni una vez. No llegan a ningún acuerdo. Uno suelta de pasada que prueben a subirla igualmente, que además de aguantar golpes te engorda la vida, y nadie le lleva la contraria porque ya era muy tarde."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"actas_torre"
+excelia_magia = 18.0
+valor_base = 180

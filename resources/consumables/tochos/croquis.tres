@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_1o1cr"]
+
+[resource]
+script = ExtResource("1_1o1cr")
+nombre = "Croquis del piso tercero"
+descripcion = "Un plano dibujado a mano, con las salas numeradas y las distancias anotadas a pasos. Está muy logrado hasta la mitad. La segunda mitad es la misma sala repetida once veces."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"croquis"
+valor_base = 30

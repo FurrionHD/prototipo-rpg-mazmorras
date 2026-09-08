@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_kl2fm"]
+
+[resource]
+script = ExtResource("1_kl2fm")
+nombre = "Índice general de la biblioteca"
+descripcion = "Lista alfabética de todos los volúmenes de la biblioteca del gremio, con su estante y su número de orden. Es de una utilidad enorme. La biblioteca ardió."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"indice_biblioteca"
+valor_base = 30

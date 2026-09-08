@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Debilidad"
+descripcion = "Un tomo de tinta palida que cuesta leer sin cansarse la vista. Estudialo y aprenderas Debilidad."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_debilidad"
 valor_base = 7300
-descripcion = "Un tomo de tinta palida que cuesta leer sin cansarse la vista. Estudialo y aprenderas Debilidad."

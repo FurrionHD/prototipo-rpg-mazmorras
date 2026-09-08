@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_v2f05"]
+
+[resource]
+script = ExtResource("1_v2f05")
+nombre = "Las puertas de la mazmorra"
+descripcion = "Un estudio sobre por qué las puertas de ahí abajo se abren solas. Considera el aire, la inclinación del suelo, la humedad y el peso de la madera. Descarta por poco serio que las abra algo."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"puertas"
+valor_base = 30

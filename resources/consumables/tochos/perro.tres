@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_c622x"]
+
+[resource]
+script = ExtResource("1_c622x")
+nombre = "El perro que bajó"
+descripcion = "Historia verídica de un perro que siguió a su dueño hasta el piso cuarto y volvió solo. Está contada con mucho cariño y ocupa muy poco. No dice qué fue del dueño."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"perro"
+valor_base = 45

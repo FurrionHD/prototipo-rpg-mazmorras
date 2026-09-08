@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_1jpvu"]
+
+[resource]
+script = ExtResource("1_1jpvu")
+nombre = "De la respiración del que combate"
+descripcion = "Cuarenta páginas quejándose de los aventureros jóvenes que encadenan habilidades hasta quedarse secos. El tono es insoportable. El consejo, en cambio, es bueno: prueba a meter un ataque básico de vez en cuando para descansar un poco, que recupera más aliento del que gastas en cubrirte."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"respiracion"
+excelia_magia = 18.0
+valor_base = 180

@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Filo fulgurante"
+descripcion = "Un tomo cuyas letras dan chispazos si pasas el dedo por encima. Estudialo y aprenderas Filo fulgurante."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_filo_fulgurante"
 valor_base = 7300
-descripcion = "Un tomo cuyas letras dan chispazos si pasas el dedo por encima. Estudialo y aprenderas Filo fulgurante."

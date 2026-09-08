@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_nrabo"]
+
+[resource]
+script = ExtResource("1_nrabo")
+nombre = "Del agua que gotea"
+descripcion = "Trescientas observaciones sobre goteras en cuevas, ordenadas por ritmo y por sonido. Es un trabajo de una paciencia enorme. Nadie lo pidió."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"goteras"
+valor_base = 25

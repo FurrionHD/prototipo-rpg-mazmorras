@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_6hagm"]
+
+[resource]
+script = ExtResource("1_6hagm")
+nombre = "De cómo nombrar tu espada"
+descripcion = "Defiende que un arma sin nombre nunca llega a ser tuya del todo, y propone un método riguroso para elegirlo. El método ocupa treinta páginas. El autor no llegó a nombrar la suya."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"nombrar_espada"
+valor_base = 45

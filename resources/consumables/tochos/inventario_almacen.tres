@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_81lc2"]
+
+[resource]
+script = ExtResource("1_81lc2")
+nombre = "Inventario del almacén, tercer intento"
+descripcion = "Alguien se puso a contar las antorchas del almacén del gremio. A mitad se dio cuenta de que llevaba un rato contando las mismas dos veces. En vez de volver atrás siguió hasta el final y firmó abajo con mucha seguridad."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"inventario_almacen"
+valor_base = 25

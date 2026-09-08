@@ -77,6 +77,27 @@ class_name ConsumableData
 # cuanto aprieta: asi no hacen falta catorce entradas en el catalogo para siete platos.
 @export var escala_efecto: float = 1.0
 
+# TOCHO: si trae id, este "consumible" no se bebe, ni se estudia, ni se come. Se LEE
+# (Game.usar_consumible -> leer_tocho). Es lo que sale del 65% + 25% de la Meditacion: un libro que
+# NO enseña magia. Al leerlo se gasta y su entrada queda apuntada en la BIBLIOTECA de la partida
+# (Game.biblioteca), donde se puede releer siempre. Venderlo SIN leer pierde la entrada, y eso es a
+# proposito: es lo unico que hace que abrirlo antes de soltarlo por calderilla signifique algo.
+#
+# El id es la CLAVE de la biblioteca y no el nombre: el texto se va a repasar entero cuando el mundo
+# este escrito (hoy son de relleno, con humor y sin lore que ate nada), y un retoque de titulo no
+# puede borrarle a nadie una entrada que ya tenia.
+@export var tomo_id: StringName = &""
+
+# TOMO DE SABIDURIA: el 25% de la Meditacion. Es un tocho como los demas —se lee, se gasta y se
+# colecciona— pero ademas suelta un pellizco de excelia MAGICA al que lo lee. Los de relleno (el
+# 65%) llevan esto a 0 y solo dan el texto.
+#
+# Es un valor BASE, no la excelia que recibes: pasa por Game.ganar, que le aplica los rendimientos
+# decrecientes de siempre segun lo lejos que estes de la base de tu nivel. O sea que el mismo tomo
+# le da un empujon de verdad a un mago pelado y casi nada a uno hecho, sin tablas por tier.
+# EL NUMERO ESTA SIN CUADRAR: ver Game.TOMO_EXCELIA_BASE.
+@export var excelia_magia: float = 0.0
+
 # PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes. Los
 # grimorios conservan el suyo aunque ya no esten a la venta: es lo que te PAGAN por uno, y lo que
 # vale un libro es justo lo que hace que soltarlo duela.
@@ -129,6 +150,11 @@ func color_suelo() -> Color:
 		return color_frasco
 	if es_grimorio():
 		return Color(0.62, 0.42, 0.85)          # morado de libro
+	# El tocho es libro tambien, pero APAGADO: de lejos tiene que distinguirse de un grimorio de
+	# verdad sin leer el nombre, porque la gracia del gacha es justo esa decepcion. El de sabiduria
+	# tira a ocre dorado: no es magia, pero algo da.
+	if es_tocho():
+		return Color(0.72, 0.58, 0.30) if es_tomo_sabio() else Color(0.47, 0.40, 0.33)
 	if es_plato():
 		return Color(0.92, 0.62, 0.28)          # naranja de guiso
 	if es_cebo():
@@ -169,6 +195,31 @@ const POCION_MANA_FUERTE := Color(0.42, 0.66, 1.00)
 func es_grimorio() -> bool:
 	return spell != null
 
+# ¿VA A LA BIBLIOTECA? Grimorios y tochos, los dos: los dos son libros que se leen una vez y los dos
+# quedan apuntados. Es lo que decide si algo tiene entrada en la coleccion.
+func en_biblioteca() -> bool:
+	return tomo_id != &""
+
+# ¿Es un TOCHO, o sea un libro que NO enseña magia? Un grimorio tambien lleva tomo_id (esta en la
+# biblioteca), asi que hay que descontarlo EXPRESAMENTE: sin este `spell == null`, un grimorio
+# entraba por la rama del tocho y su ficha pasaba a decir "se lee una vez" en vez de que hechizo
+# enseña. Las dos preguntas se parecen y no son la misma.
+func es_tocho() -> bool:
+	return tomo_id != &"" and spell == null
+
+# La SECCION de la biblioteca a la que pertenece. Se DERIVA, no se guarda en un campo: un campo
+# seria un segundo sitio donde apuntar lo mismo, y el dia que discrepasen ganaria el equivocado.
+func seccion_biblioteca() -> String:
+	if es_grimorio():
+		return "Grimorios"
+	if es_tomo_sabio():
+		return "Sabiduría"
+	return "Curiosidades"
+
+# ¿Este tocho da excelia al leerlo? (el "tomo de sabiduria" del 25%, frente al relleno del 65%).
+func es_tomo_sabio() -> bool:
+	return es_tocho() and excelia_magia > 0.0
+
 func es_plato() -> bool:
 	return not efectos.is_empty()
 
@@ -208,6 +259,10 @@ func resumen(max_hp: float, max_mp: float) -> String:
 		return "atrae peces a %.0f px del corcho" % cebo_radio
 	if es_plato():
 		return resumen_plato()
+	# El tocho no dice cuanta excelia da EN NUMERO: la que recibes depende de lo lejos que estes de
+	# tu base de nivel (Game.ganar), asi que un numero aqui mentiria a la mitad del grupo.
+	if es_tocho():
+		return "se lee una vez" if not es_tomo_sabio() else "se lee una vez · enseña algo de magia"
 	var p: Array = []
 	if cura_hp():
 		p.append("cura %.0f" % cura_efectiva(max_hp))

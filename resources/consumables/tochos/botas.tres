@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_hkjvx"]
+
+[resource]
+script = ExtResource("1_hkjvx")
+nombre = "Cuidado y conservación de la bota de cuero"
+descripcion = "Cómo engrasar, secar y remendar unas botas para que duren una vida entera. El método es bueno y está probado. Quien lo escribió murió con las botas puestas, pero no de viejo."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"botas"
+valor_base = 35

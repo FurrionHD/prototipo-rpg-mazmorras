@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Rocío"
+descripcion = "Un tomo fino de tapas hinchadas por la humedad. Estudialo y aprenderas Rocío."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_rocio"
 valor_base = 2200
-descripcion = "Un tomo fino de tapas hinchadas por la humedad. Estudialo y aprenderas Rocío."

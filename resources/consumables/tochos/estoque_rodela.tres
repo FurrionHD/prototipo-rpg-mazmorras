@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_e2b14"]
+
+[resource]
+script = ExtResource("1_e2b14")
+nombre = "Del estoque y la rodela"
+descripcion = "Discusión larguísima entre dos maestros de armas sobre cuál de los dos devuelve mejor un golpe. No se ponen de acuerdo en nada, pero coinciden sin querer en el consejo: prueba el estoque si lo tuyo es esquivar y la rodela si lo tuyo es bloquear, porque cada uno contesta en un momento distinto. Con la guardia baja no contesta ninguno."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"estoque_rodela"
+excelia_magia = 18.0
+valor_base = 180

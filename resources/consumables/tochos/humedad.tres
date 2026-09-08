@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_wspeu"]
+
+[resource]
+script = ExtResource("1_wspeu")
+nombre = "Sobre la humedad"
+descripcion = "Un tratado sobre cómo proteger un libro de la humedad de los pisos bajos. Recomienda envolverlo en cuero curtido, guardarlo lejos del suelo y no bajarlo nunca a una mazmorra. Las últimas doce páginas están pegadas entre sí."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"humedad"
+valor_base = 30

@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Pulso menor"
+descripcion = "Un cuadernillo cosido a mano, sin adornos ni tapas. Es lo que le dan a cualquiera el primer dia. Estudialo y aprenderas Pulso menor."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_pulso_menor"
 valor_base = 1700
-descripcion = "Un cuadernillo cosido a mano, sin adornos ni tapas. Es lo que le dan a cualquiera el primer dia. Estudialo y aprenderas Pulso menor."

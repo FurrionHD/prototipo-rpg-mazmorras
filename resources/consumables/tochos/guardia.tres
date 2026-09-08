@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_2d23y"]
+
+[resource]
+script = ExtResource("1_2d23y")
+nombre = "Tratado de la guardia"
+descripcion = "Defiende que aguantar es un oficio como otro cualquiera y que nadie lo entrena a propósito. Al final va al grano: si quieres que tu cuerpo aprenda a recomponerse solo, prueba a parar los golpes con la guardia arriba en vez de esquivarlos todos. Esquivando no se aprende nada, dice, y se queda tan ancho."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"guardia"
+excelia_magia = 18.0
+valor_base = 180

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_mbd73"]
+
+[resource]
+script = ExtResource("1_mbd73")
+nombre = "Del despilfarro del boticario"
+descripcion = "Un boticario arruinado explica, con mucho rencor, por qué la gente gasta el triple de pociones de las que necesita. Su consejo, entre insulto e insulto: prueba a esperar un poco después de beberte una, que la cura va cayendo sola y el impaciente se bebe la siguiente encima de la anterior. Se le nota que le ha costado dinero."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"boticario"
+excelia_magia = 18.0
+valor_base = 180

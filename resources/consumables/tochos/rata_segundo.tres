@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_vxbis"]
+
+[resource]
+script = ExtResource("1_vxbis")
+nombre = "Segundo tratado de la rata común"
+descripcion = "Continuación del primero, escrita años después. El autor se retracta del último capítulo y le pide disculpas al animal por escrito. Luego incluye dos recetas más."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"rata_segundo"
+valor_base = 35

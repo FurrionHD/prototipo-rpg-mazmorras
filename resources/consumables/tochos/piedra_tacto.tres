@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_q0ccl"]
+
+[resource]
+script = ExtResource("1_q0ccl")
+nombre = "Reconocimiento de la piedra por el tacto"
+descripcion = "Enseña a distinguir seis tipos de roca pasando la mano, sin luz. El método es real y funciona. Requiere haber tocado antes las seis con luz."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"piedra_tacto"
+valor_base = 35

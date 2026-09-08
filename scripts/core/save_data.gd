@@ -210,6 +210,13 @@ const VERSION_MUNDO := 1
 # BOSSES ya derrotados ({piso: true}). Es un HITO de la partida, no del piso: memoria_pisos se
 # borra en cada expedicion, pero lo que abre un boss (bajada, salida y atajo) no se pierde.
 @export var bosses_derrotados: Dictionary = {}
+# LA BIBLIOTECA: {tomo_id: true} de los tochos ya leidos (ver Game.biblioteca). Va aqui y no en
+# JugadorData —al reves que registro_pesca— porque el texto lo lee EL JUGADOR, no el personaje.
+#
+# Y NO viaja en el snapshot del mundo del host (Net._congelar_mi_mundo) ni se borra al entrar en un
+# mundo ajeno (Game.limpiar_mundo_heredado), a diferencia de bosses_derrotados: no es progreso DEL
+# MUNDO. Lo que has leido lo has leido, juegues donde juegues, y la coleccion del host no es la tuya.
+@export var biblioteca: Dictionary = {}
 
 # --- Cosas ---
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)

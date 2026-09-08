@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_tpqya"]
+
+[resource]
+script = ExtResource("1_tpqya")
+nombre = "Setas comestibles de la roca"
+descripcion = "Catálogo ilustrado de las setas que crecen en la piedra húmeda, con notas de sabor y textura para cada una. La letra se va torciendo a partir de la seta número seis."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"setas"
+valor_base = 35

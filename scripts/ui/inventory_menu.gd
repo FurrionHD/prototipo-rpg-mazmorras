@@ -897,6 +897,10 @@ func _build_consumibles() -> void:
 func _clase_consumible(c: ConsumableData) -> String:
 	if c.es_grimorio():
 		return "Grimorio"
+	# El de sabiduria se anuncia como lo que es: son los dos unicos tochos que dan algo, y no
+	# distinguirlos obligaria a abrir uno a uno los que te van cayendo para ver cual era.
+	if c.es_tocho():
+		return "Tomo de sabiduría" if c.es_tomo_sabio() else "Tocho"
 	if c.es_plato():
 		return "Plato de cocina"
 	if c.es_cebo():
@@ -952,7 +956,10 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 	# Con UNO SOLO en el grupo no hay nada que preguntar: boton directo, y el motivo por el que no
 	# se puede -si no se puede- debajo. Sale de la MISMA funcion que usa el modal, asi que los dos
 	# caminos no pueden acabar diciendo cosas distintas.
-	var a_alguien: bool = cons.cura_hp() or cons.da_mana() or cons.es_grimorio() or cons.es_plato()
+	# El TOCHO tambien va "a alguien": el de sabiduria le da la excelia a QUIEN lo lee, asi que la
+	# pregunta de a quien se lo das es tan real como la del grimorio.
+	var a_alguien: bool = cons.cura_hp() or cons.da_mana() or cons.es_grimorio() \
+		or cons.es_plato() or cons.es_tocho()
 	if cons.es_cebo():
 		# Un cebo NO se usa desde la bolsa: se pone en el anzuelo, y eso solo significa algo con el
 		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
@@ -1857,6 +1864,16 @@ func _motivo_bloqueo(c: ConsumableData, pj: PersonajeData) -> String:
 		return ""
 	if c.es_plato():
 		return ""   # un plato nuevo pisa al que llevara puesto: se avisa, pero no se prohibe
+	# TOCHO. Va explicito y no colandose por el "no cura nada" de abajo, que es la clase de silencio
+	# que luego cuesta una tarde entender.
+	#
+	# El de RELLENO repetido SE BLOQUEA, con su motivo: todo lo que tenia era el texto, ya lo tienes
+	# en la biblioteca, y dejarte quemarlo para nada seria una trampa. El de SABIDURIA no, porque lo
+	# que da es la excelia y esa se cobra cada vez que lo lees.
+	if c.es_tocho():
+		if Game.tocho_aporta_algo(c):
+			return ""
+		return "Ya lo has leído. Lo tienes en tu biblioteca."
 	# POCIONES. Se bloquea solo si NO PUEDE HACER NADA: una que cura vida y da maná sigue valiendo
 	# con la vida llena si le falta maná, asi que se miran las dos y basta con que una sirva.
 	var sirve: bool = false
@@ -1881,6 +1898,13 @@ func _aviso_uso(c: ConsumableData, pj: PersonajeData) -> String:
 			return "%s ya lleva %d magias puestas: la aprenderá, pero tendrá que colocarla en su ficha." % [
 				pj.nombre, Game.MAX_HECHIZOS]
 		return ""
+	# TOMO DE SABIDURIA repetido: releerlo SI merece la pena (vuelve a dar excelia), pero gasta el
+	# ejemplar. Hay que decirlo antes, no despues: el que colecciona da por hecho que un repetido no
+	# sirve para nada y aqui es justo al reves.
+	if c.es_tocho():
+		if c.es_tomo_sabio() and Game.tomo_leido(c.tomo_id):
+			return "Ya está en tu biblioteca, pero releerlo vuelve a enseñar. Gasta el ejemplar."
+		return ""
 	if not c.es_plato():
 		return ""
 	var puesto: String = Game.plato_puesto(pj)
@@ -1888,7 +1912,11 @@ func _aviso_uso(c: ConsumableData, pj: PersonajeData) -> String:
 
 
 func _verbo_usar(c: ConsumableData) -> String:
-	return "Estudiar" if c.es_grimorio() else ("Comer" if c.es_plato() else "Usar")
+	if c.es_grimorio():
+		return "Estudiar"
+	if c.es_tocho():
+		return "Leer"
+	return "Comer" if c.es_plato() else "Usar"
 
 
 func _abrir_modal_usar(c: ConsumableData) -> void:

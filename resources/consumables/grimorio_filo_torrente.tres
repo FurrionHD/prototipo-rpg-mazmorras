@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Filo de torrente"
+descripcion = "Un tomo de tinta corrida, como si lo hubieran escrito bajo la lluvia. Estudialo y aprenderas Filo de torrente."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_filo_torrente"
 valor_base = 7300
-descripcion = "Un tomo de tinta corrida, como si lo hubieran escrito bajo la lluvia. Estudialo y aprenderas Filo de torrente."

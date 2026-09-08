@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_7a0y5"]
+
+[resource]
+script = ExtResource("1_7a0y5")
+nombre = "Los sueños del que duerme abajo"
+descripcion = "Recoge los sueños que dicen tener los que duermen en la mazmorra, con la fecha y el piso de cada uno. Se repiten muchísimo. El autor concluye que es la mala postura."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"suenos"
+valor_base = 40

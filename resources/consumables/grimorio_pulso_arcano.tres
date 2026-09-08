@@ -6,12 +6,10 @@
 [resource]
 script = ExtResource("1")
 nombre = "Grimorio: Pulso arcano"
+descripcion = "El mismo cuadernillo de siempre, pero con la segunda mitad escrita por otra mano y mucho mas apretada. Estudialo y aprenderas Pulso arcano."
 cura_total = 0.0
-cura_pct = 0.0
-mana_total = 0.0
-mana_pct = 0.0
 turnos = 1
 segundos = 1.0
 spell = ExtResource("2")
+tomo_id = &"grimorio_pulso_arcano"
 valor_base = 5600
-descripcion = "El mismo cuadernillo de siempre, pero con la segunda mitad escrita por otra mano y mucho mas apretada. Estudialo y aprenderas Pulso arcano."

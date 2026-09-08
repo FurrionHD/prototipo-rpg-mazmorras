@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_514x0"]
+
+[resource]
+script = ExtResource("1_514x0")
+nombre = "Del precio justo del kebab"
+descripcion = "Alegato larguísimo a favor de bajar el precio del kebab de rata, con números, comparativas y una carta abierta al cocinero. La carta está sin firmar. El precio sigue igual."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"precio_kebab"
+valor_base = 30

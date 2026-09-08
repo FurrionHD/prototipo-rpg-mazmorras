@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_7pyl6"]
+
+[resource]
+script = ExtResource("1_7pyl6")
+nombre = "Cien maneras de espesar una sopa"
+descripcion = "Recopilación de métodos para espesar una sopa aguada, cada uno con sus proporciones y sus tiempos. Noventa y siete de ellos son harina. Los otros tres también, pero explicados con más ganas."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"sopa"
+valor_base = 25

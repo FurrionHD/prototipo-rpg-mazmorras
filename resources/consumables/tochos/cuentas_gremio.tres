@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_1pw5l"]
+
+[resource]
+script = ExtResource("1_1pw5l")
+nombre = "Libro de cuentas, año seco"
+descripcion = "Ingresos y gastos anotados con una pulcritud admirable, columna a columna. Cuadran hasta el último cobre. En ningún sitio pone de qué gremio."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+tomo_id = &"cuentas_gremio"
+valor_base = 30
