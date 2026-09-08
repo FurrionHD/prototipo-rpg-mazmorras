@@ -227,7 +227,67 @@ func _ready() -> void:
 	if not _cuadrar_grimorios():
 		get_tree().quit(1)
 		return
+	if not _escribir_manifiesto():
+		get_tree().quit(1)
+		return
 	get_tree().quit(0)
+
+
+# EL MANIFIESTO de todos los libros, para que la Biblioteca pueda pintar TAMBIEN los que aun no
+# tienes (en negro, como el libro del Pescador con los peces que te faltan).
+#
+# Hace falta una lista escrita y no un escaneo de la carpeta porque DirAccess sobre res:// no es de
+# fiar en el .exe — es exactamente el motivo por el que existe Game._MANIFIESTO_PLANTILLAS. Y se
+# GENERA en vez de mantenerse a mano justamente para que no se quede corta: una lista a mano se
+# olvida el dia que añades un tocho, y entonces la coleccion dice "29 de 29" para siempre.
+func _escribir_manifiesto() -> bool:
+	var tochos: Array = []
+	for t in TOCHOS:
+		tochos.append("%s%s.tres" % [DESTINO, str(t["id"])])
+	tochos.sort()
+	var grimorios: Array = []
+	var d := DirAccess.open(GRIMORIOS_DIR)
+	if d == null:
+		return false
+	for f in d.get_files():
+		if f.begins_with("grimorio_") and f.ends_with(".tres"):
+			grimorios.append(GRIMORIOS_DIR + f)
+	grimorios.sort()
+
+	var txt := "# ============================================================\n"
+	txt += "#  libros.gd  --  GENERADO por tools/generar_tochos.gd. NO EDITAR A MANO.\n"
+	txt += "#\n"
+	txt += "#  La lista de TODOS los libros que existen, para que la Biblioteca pueda enseñar los que\n"
+	txt += "#  te faltan y no solo los que tienes. Va escrita y no escaneada porque DirAccess sobre\n"
+	txt += "#  res:// no es de fiar en el .exe (mismo motivo que Game._MANIFIESTO_PLANTILLAS).\n"
+	txt += "#\n"
+	txt += "#  Para cambiarla: toca la tabla de tools/generar_tochos.gd y vuelve a pasar\n"
+	txt += "#  herramientas/generar_tochos.bat.\n"
+	txt += "# ============================================================\n\n"
+	txt += "class_name Libros\n\n"
+	txt += "const TOCHOS: Array[String] = [\n"
+	for r in tochos:
+		txt += "\t\"%s\",\n" % r
+	txt += "]\n\nconst GRIMORIOS: Array[String] = [\n"
+	for r in grimorios:
+		txt += "\t\"%s\",\n" % r
+	txt += "]\n\n\n"
+	txt += "# Los 46 de golpe, que es lo que recorre la Biblioteca.\n"
+	txt += "static func todos() -> Array[String]:\n"
+	txt += "\tvar out: Array[String] = []\n"
+	txt += "\tout.append_array(GRIMORIOS)\n"
+	txt += "\tout.append_array(TOCHOS)\n"
+	txt += "\treturn out\n"
+
+	var f2 := FileAccess.open("res://scripts/core/libros.gd", FileAccess.WRITE)
+	if f2 == null:
+		printerr("[manifiesto] no puedo escribir scripts/core/libros.gd")
+		return false
+	f2.store_string(txt)
+	f2.close()
+	print("[manifiesto] scripts/core/libros.gd: %d grimorios + %d tochos = %d libros." % [
+		grimorios.size(), tochos.size(), grimorios.size() + tochos.size()])
+	return true
 
 
 # QUE HECHIZOS LLEVAN GRIMORIO. Es lo que define el pool del gacha, asi que se cuadra aqui y no a

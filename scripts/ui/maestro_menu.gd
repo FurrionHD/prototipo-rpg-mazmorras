@@ -39,6 +39,24 @@ var _dinero_lbl: Label = null
 var _aviso: String = ""
 var _aviso_ok: bool = true
 
+# LAS TRES SECCIONES. Van en la barra de arriba con icono, como las del inventario.
+#   TECNICAS    - lo de siempre: las habilidades del arma que elijas
+#   MEDITACION  - el gacha: pagas y el azar decide (la magia se gana, no se compra)
+#   BIBLIOTECA  - lo que has leido: grimorios, tomos de sabiduria y curiosidades
+# El manifiesto de libros, por PRELOAD y no por su class_name: un class_name recien generado no
+# esta en la cache de clases de Godot hasta que se abre el editor, y las herramientas se lanzan por
+# linea de comandos. Es la misma razon por la que partida_de_prueba.gd se carga asi.
+const Libros = preload("res://scripts/core/libros.gd")
+
+const TABS := ["Técnicas", "Meditación", "Biblioteca"]
+const TAB_ICONOS := ["habilidades", "vela", "libro"]
+const TAB_TECNICAS := 0
+const TAB_MEDITACION := 1
+const TAB_BIBLIOTECA := 2
+
+var _tab: int = TAB_TECNICAS
+var _tab_buttons: Array = []
+
 var _pj_sel: int = 0     # a quien estamos mirando, dentro de _gente()
 var _arma_idx: int = 0   # que arma del catalogo
 var _sel: int = 0        # que tecnica de esa arma
@@ -103,11 +121,33 @@ func _ready() -> void:
 	col_centro.add_child(_barra_armas)
 	col_centro.add_child(scroll)
 
-	# La fila de pestañas que trae el esqueleto se queda VACIA y sin sitio: este menu no tiene
-	# secciones, solo armas, y esas ya estan en la columna.
+	# LA FILA DE SECCIONES, con icono, igual que la del inventario (misma MenuScaffold.pestana_icono).
+	# Estuvo escondida mientras este menu solo eran armas, y eso dejaba en la barra de arriba una
+	# franja negra del ancho de la pantalla sin nada dentro. Ahora es donde viven las tres secciones.
 	var barra_tabs: HBoxContainer = m["side"]
+	barra_tabs.add_theme_constant_override("separation", 14)
+	for i in TABS.size():
+		var bt: Button = MenuScaffold.pestana_icono(TAB_ICONOS[i], TABS[i])
+		bt.pressed.connect(_on_tab.bind(i))
+		barra_tabs.add_child(bt)
+		_tab_buttons.append(bt)
 	var barra: BoxContainer = barra_tabs.get_parent()
-	barra_tabs.visible = false
+
+	# PESTAÑAS CENTRADAS EN LA PANTALLA, igual que en el inventario y por el mismo motivo (ver el
+	# comentario largo de inventory_menu): dentro de la barra "centrar" es centrar entre el titulo y
+	# el dinero, que no miden lo mismo, asi que la fila queda corrida — y ademas baila cuando alguno
+	# de los dos cambia de ancho. Se sacan de la barra y se cuelgan de la raiz en un CenterContainer
+	# a todo lo ancho, que es el unico centro que no depende de los vecinos.
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	# Que no robe los clics de lo que hay debajo: los botones de dentro los siguen recibiendo,
+	# porque un hijo con MOUSE_FILTER_STOP manda sobre el IGNORE del padre.
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
 
 	# EL TITULO EN DOS LINEAS: "Maestro" pequeño y gris encima del arma, en grande. La etiqueta que
 	# trae el esqueleto se ESCONDE en vez de borrarse: un Control oculto no ocupa sitio.
@@ -279,12 +319,52 @@ func _rebuild_real() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
 
 	var pj: PersonajeData = _pj()
-	var arma: Resource = _arma()
-	_titulo_seccion.text = String(arma.nombre).to_upper()
-	MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona)
-	_pintar_armas(pj)
-	_pintar_tecnicas(pj, arma)
-	_pintar_ficha(pj)
+	for i in _tab_buttons.size():
+		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+	# LOS RETRATOS, en TECNICAS y en MEDITACION pero NO en la biblioteca.
+	#
+	# En Meditación no son decoracion: el sesgo del gacha va POR PERSONAJE (ver Game.pesos_grimorio),
+	# asi que quien este elegido cambia lo que te va a tocar, y mandarte a otra pantalla a elegirlo
+	# seria esconder la mitad del mecanismo.
+	#
+	# En BIBLIOTECA sobran, y ademas MIENTEN: la biblioteca es de la PARTIDA y la comparte todo el
+	# grupo (Game.biblioteca vive en SaveData, no en la ficha de nadie). Una fila de caras encima de
+	# la coleccion da a entender que cada uno tiene la suya.
+	# SE ESCONDE EL ENVOLTORIO, no la fila. MenuScaffold.fila_retratos monta
+	# MarginContainer > ScrollContainer > HBox, y el scroll lleva una ALTURA MINIMA fija: ocultando
+	# solo el HBox, el hueco de 90 px se queda ahi vacio — que es exactamente la franja negra que
+	# habia que quitar de esta pantalla, movida de sitio.
+	var caja_retratos: Control = _fila_retratos.get_parent().get_parent() as Control
+	var con_retratos: bool = (_tab != TAB_BIBLIOTECA)
+	if caja_retratos != null:
+		caja_retratos.visible = con_retratos
+	if con_retratos:
+		MenuScaffold.retratos(_fila_retratos, _gente(), _pj_sel, Game.party.size(), _pick_persona)
+
+	# LA FILA DE ARMAS solo tiene sentido en Técnicas: en las otras dos no se elige arma. Se esconde
+	# en vez de vaciarse porque un Control oculto no ocupa sitio y no hay que remontarla al volver.
+	_barra_armas.visible = (_tab == TAB_TECNICAS)
+
+	match _tab:
+		TAB_TECNICAS:
+			var arma: Resource = _arma()
+			_titulo_seccion.text = String(arma.nombre).to_upper()
+			_pintar_armas(pj)
+			_pintar_tecnicas(pj, arma)
+			_pintar_ficha(pj)
+		TAB_MEDITACION:
+			_titulo_seccion.text = "MEDITACIÓN"
+			_pintar_meditacion(pj)
+		TAB_BIBLIOTECA:
+			_titulo_seccion.text = "BIBLIOTECA"
+			_pintar_biblioteca(pj)
+
+
+func _on_tab(i: int) -> void:
+	_tab = i
+	_sel = 0
+	_aviso = ""
+	_rebuild()
 
 
 # LA FILA DE ARMAS. El icono de cada una es el mismo con el que se filtran en el inventario (ver
@@ -316,6 +396,203 @@ func _pintar_armas(pj: PersonajeData) -> void:
 # LAS TECNICAS del arma abierta, una por linea: el nombre a la izquierda y a la derecha lo que hace
 # falta para tenerla. El color dice el estado de un vistazo (verde = ya es suya, gris = no le llega
 # el dinero) y el orden es el de la plantilla, que es el orden en que estan pensadas.
+# ============================================================
+#  MEDITACION (el gacha)
+#
+#  De momento SOLO LA TABLA: que sale y con que probabilidad. Tirar viene despues.
+#
+#  La tabla NO lleva ni un numero escrito a mano: sale de Game.probs_grimorio con el pool y el
+#  personaje de verdad. Una pantalla de porcentajes copiada a mano es la que miente en cuanto
+#  alguien toca un peso, y encima nadie se entera hasta que se juega.
+# ============================================================
+
+func _pintar_meditacion(pj: PersonajeData) -> void:
+	MenuScaffold.titulo(_lista, "MEDITACIÓN", 14)
+	MenuScaffold.nota(_lista, "Medita %s: elige arriba a quién le toca. Lo que ya se sabe le sale "
+		% pj.nombre + "menos, pero nunca deja de salir.")
+	MenuScaffold.nota(_lista, "(la tirada aún no está puesta)")
+	_lista.add_child(HSeparator.new())
+	# LAS PROBABILIDADES VAN DETRAS DE UN BOTON, como en cualquier gacha: la pantalla principal es
+	# para tirar, y la tabla es lo que se consulta de vez en cuando. Teniendola siempre abierta,
+	# ocupaba la pantalla entera con lo que menos se mira.
+	MenuScaffold.boton(_lista, "Ocultar probabilidades" if _ver_probs else "Ver probabilidades",
+		_alternar_probs)
+	if not _ver_probs:
+		return
+	_tabla_probs(pj)
+
+
+func _alternar_probs() -> void:
+	_ver_probs = not _ver_probs
+	_rebuild()
+
+
+var _ver_probs: bool = false
+
+
+# LA TABLA. No lleva ni un numero escrito a mano: sale de Game.probs_grimorio con el pool y el
+# personaje de verdad. Una pantalla de porcentajes copiada a mano es la que miente en cuanto alguien
+# toca un peso, y encima nadie se entera hasta que se juega.
+func _tabla_probs(pj: PersonajeData) -> void:
+	var pool: Array = _pool_grimorios()
+	if pool.is_empty():
+		MenuScaffold.nota(_lista, "(no hay ningún grimorio en el repertorio)")
+		return
+	var probs: Dictionary = Game.probs_grimorio(pool, pj)
+
+	# POR BANDA, no hechizo a hechizo: dieciseis lineas de porcentaje no se leen. Lo que se viene a
+	# saber aqui es "cuanto cuesta un legendario", y eso es una fila por rareza.
+	var por_banda := {}
+	for s in probs:
+		var r: int = int(s.rareza)
+		var d: Dictionary = por_banda.get(r, {"total": 0.0, "cuantos": 0, "sabidos": 0})
+		d["total"] = float(d["total"]) + float(probs[s])
+		d["cuantos"] = int(d["cuantos"]) + 1
+		if Game.hechizos_sabidos(pj).has(s):
+			d["sabidos"] = int(d["sabidos"]) + 1
+		por_banda[r] = d
+
+	var bandas: Array = por_banda.keys()
+	bandas.sort()
+	for r in bandas:
+		var d2: Dictionary = por_banda[r]
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 10)
+		_lista.add_child(fila)
+		var nom := Label.new()
+		nom.text = _nombre_rareza(int(r))
+		nom.add_theme_color_override("font_color", Upgrades.rareza_color(int(r)))
+		nom.custom_minimum_size.x = 130
+		fila.add_child(nom)
+		var pct := Label.new()
+		# El total de la BANDA y, entre parentesis, lo que sale CADA UNO: es la cuenta que hay que
+		# ver junta, porque una banda gorda repartida entre muchos da hechizos individuales raros.
+		pct.text = "%.1f%%   (cada uno %.2f%%)" % [
+			float(d2["total"]) * 100.0, float(d2["total"]) / float(d2["cuantos"]) * 100.0]
+		fila.add_child(pct)
+		var cuantos := Label.new()
+		var n: int = int(d2["cuantos"])
+		cuantos.text = "  ·  %d %s" % [n, "hechizo" if n == 1 else "hechizos"] + (
+			"  ·  %d ya sabidos" % int(d2["sabidos"]) if int(d2["sabidos"]) > 0 else "")
+		cuantos.add_theme_color_override("font_color", MenuScaffold.GRIS)
+		fila.add_child(cuantos)
+
+	_lista.add_child(HSeparator.new())
+	MenuScaffold.nota(_lista, "Estas cuentas salen del reparto de verdad, no están escritas aquí: "
+		+ "si cambia el reparto, cambia esta tabla.")
+
+
+# Los hechizos que pueden salir: los que tienen grimorio. Sale del manifiesto y no de escanear la
+# carpeta porque en el .exe un escaneo de res:// no es de fiar (ver Libros).
+func _pool_grimorios() -> Array:
+	var out: Array = []
+	for ruta in Libros.GRIMORIOS:
+		var c: ConsumableData = load(ruta) as ConsumableData
+		if c != null and c.spell != null:
+			out.append(c.spell)
+	return out
+
+
+func _nombre_rareza(r: int) -> String:
+	var n := ["Común", "Poco común", "Raro", "Épico", "Legendario", "Mítico", "Obra maestra",
+		"Prístino"]
+	return n[r] if r >= 0 and r < n.size() else "?"
+
+
+# ============================================================
+#  BIBLIOTECA
+#
+#  Molde del libro del Pescador: una entrada por libro, y lo que aun no has leido en gris y sin
+#  texto. El libro es tambien la lista de lo que te falta.
+# ============================================================
+
+func _pintar_biblioteca(_pj: PersonajeData) -> void:
+	var todos: Array = Libros.todos()
+	var leidos: int = 0
+	# Por SECCION, que es como se pidio: Grimorios / Sabiduria / Curiosidades. La seccion la DERIVA
+	# el propio libro (ConsumableData.seccion_biblioteca), no una lista de aqui.
+	var secciones := {}
+	for ruta in todos:
+		var c: ConsumableData = load(ruta) as ConsumableData
+		if c == null or not c.en_biblioteca():
+			continue
+		var s: String = c.seccion_biblioteca()
+		if not secciones.has(s):
+			secciones[s] = []
+		(secciones[s] as Array).append(c)
+		if Game.tomo_leido(c.tomo_id):
+			leidos += 1
+
+	MenuScaffold.titulo(_lista, "BIBLIOTECA", 14)
+	MenuScaffold.nota(_lista, "Llevas %d de %d. Lo que leas se queda aquí aunque gastes el libro."
+		% [leidos, todos.size()])
+
+	# Orden fijo y no el del diccionario: un menu que reordena sus secciones entre pasadas marea.
+	for nombre in ["Grimorios", "Sabiduría", "Curiosidades"]:
+		if not secciones.has(nombre):
+			continue
+		var libros: Array = secciones[nombre]
+		var n_leidos: int = 0
+		for c in libros:
+			if Game.tomo_leido(c.tomo_id):
+				n_leidos += 1
+		_lista.add_child(HSeparator.new())
+		MenuScaffold.titulo(_lista, "%s   %d / %d" % [nombre.to_upper(), n_leidos, libros.size()], 13)
+		var grid := GridContainer.new()
+		grid.columns = _columnas()
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 4)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_lista.add_child(grid)
+		for c in libros:
+			_celda_libro(grid, c)
+
+	# LA FICHA DE LA DERECHA: el texto del libro que hayas abierto. Es el sitio donde se LEE, que es
+	# para lo que existe la biblioteca — el libro se gasta, el texto no.
+	if _libro_abierto == null or not Game.tomo_leido(_libro_abierto.tomo_id):
+		MenuScaffold.nota(_content, "Elige un libro de la lista para releerlo.")
+		return
+	var c2: ConsumableData = _libro_abierto
+	MenuScaffold.titulo_item(_content, c2.nombre,
+		Upgrades.rareza_color(int(c2.spell.rareza)) if c2.es_grimorio() else MenuScaffold.AMBAR,
+		Upgrades.rareza_intensidad(int(c2.spell.rareza)) if c2.es_grimorio() else 0.0)
+	var sub := Label.new()
+	sub.text = c2.seccion_biblioteca()
+	sub.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	sub.add_theme_font_size_override("font_size", 11)
+	_content.add_child(sub)
+	_content.add_child(HSeparator.new())
+	var txt := Label.new()
+	txt.text = c2.descripcion
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(txt)
+
+
+# Una entrada de la biblioteca. Sin leer sale en gris y SIN TITULO: enseñar el titulo de lo que no
+# has leido es medio spoiler del chiste, y ademas quita las ganas de buscarlo.
+func _celda_libro(grid: GridContainer, c: ConsumableData) -> void:
+	var leido: bool = Game.tomo_leido(c.tomo_id)
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 34)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.text = "  " + (c.nombre if leido else "— — —")
+	b.disabled = not leido
+	if leido:
+		b.add_theme_color_override("font_color", MenuScaffold.AMBAR
+			if c.es_grimorio() else Color(0.86, 0.89, 0.94))
+		b.pressed.connect(_ver_libro.bind(c))
+	grid.add_child(b)
+
+
+func _ver_libro(c: ConsumableData) -> void:
+	_libro_abierto = c
+	_rebuild()
+
+
+var _libro_abierto: ConsumableData = null
+
+
 func _pintar_tecnicas(pj: PersonajeData, arma: Resource) -> void:
 	var lleva: bool = _la_lleva(pj, arma)
 	# Solo "TÉCNICAS": el nombre del arma ya esta arriba, en grande, y repetirlo en la misma pantalla

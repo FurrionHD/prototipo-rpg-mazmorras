@@ -417,26 +417,11 @@ func _note(vb: VBoxContainer, txt: String) -> void:
 #  un archivador. Lo que dice cual esta abierta es la linea de abajo, como en un navegador.
 # ============================================================
 
-const TAB_APAGADA := Color(0.55, 0.59, 0.67)
-const LADO_TAB := 34.0
+# El COLOR de una pestaña apagada y el LADO del icono viven en MenuScaffold desde que el menu del
+# maestro monta la misma fila: MenuScaffold.TAB_APAGADA y MenuScaffold.LADO_TAB.
 # La fila de subpestañas: vive en la columna IZQUIERDA, encima de la rejilla y fuera de su scroll
 # (ver el montaje en _ready). Se construye una vez y cada pestaña la rellena o la deja vacia.
 var _barra_sub: HBoxContainer = null
-
-# El armazon comun de las dos clases de pestaña (la de arriba, con icono; la de dentro, con texto).
-func _pestana_base(b: Button, alto: float) -> void:
-	b.toggle_mode = true
-	b.custom_minimum_size = Vector2(0, alto)
-	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
-		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
-	b.draw.connect(func() -> void:
-		if not b.button_pressed:
-			return
-		var y: float = b.size.y - 2.0
-		b.draw_rect(Rect2(Vector2(4, y), Vector2(b.size.x - 8.0, 2.0)), AMBAR))
-	# Un Button no se repinta al marcarse/desmarcarse, y aqui lo unico que cambia es lo que dibuja
-	# ese draw: sin esto, el subrayado se quedaba en la pestaña anterior.
-	b.toggled.connect(func(_on): b.queue_redraw())
 
 
 # PESTAÑA CON ICONO (la fila de arriba). El icono se dibuja encima del boton, no como textura: los
@@ -446,16 +431,9 @@ func _pestana_base(b: Button, alto: float) -> void:
 # El NOMBRE va en el tooltip y, sobre todo, escrito arriba a la izquierda bajo "Inventario": una
 # fila de seis iconos pelados sin ningun sitio donde leer que es cada uno seria un acertijo.
 func _pestana_icono(icono: String, nombre: String) -> Button:
-	var b := Button.new()
-	_pestana_base(b, LADO_TAB + 10.0)
-	b.custom_minimum_size.x = LADO_TAB + 14.0
-	b.tooltip_text = nombre
-	var dibujo := Callable(Iconos, icono)
-	b.draw.connect(func() -> void:
-		var pad: float = (b.size.x - LADO_TAB) * 0.5
-		dibujo.call(b, Vector2(pad, 3.0), LADO_TAB,
-			AMBAR if b.button_pressed else TAB_APAGADA))
-	return b
+	# La implementacion se mudo a MenuScaffold cuando el menu del maestro necesito la misma fila.
+	# Aqui se queda el nombre corto, que es el que usan las llamadas de este menu.
+	return MenuScaffold.pestana_icono(icono, nombre)
 
 
 # La fila de SUBpestañas, con icono igual que la de arriba y centrada en el mismo eje (las dos van

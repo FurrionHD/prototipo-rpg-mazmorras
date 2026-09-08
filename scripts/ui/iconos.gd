@@ -66,6 +66,59 @@ static func pergamino(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> v
 		c.draw_line(Vector2(x0, y), Vector2(x0 + largo, y), col, g * 0.55, true)
 
 
+# --- LIBRO (la biblioteca del maestro): tomo cerrado de canto ---
+#
+# CERRADO y no abierto a proposito. Un libro abierto a este tamaño son dos trapecios que se leen
+# como un pajaro o como un sobre; el lomo con el canto de las hojas se reconoce al instante y ademas
+# se distingue del `pergamino`, que es el otro icono con forma de papel.
+static func libro(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var izq: float = pos.x + lado * 0.24
+	var der: float = pos.x + lado * 0.76
+	var arriba: float = pos.y + lado * 0.20
+	var abajo: float = pos.y + lado * 0.80
+	# La TAPA: el rectangulo de fuera.
+	c.draw_rect(Rect2(Vector2(izq, arriba), Vector2(der - izq, abajo - arriba)), col, false, g * 0.8)
+	# EL LOMO: una banda pegada al canto izquierdo. Es lo que lo hace "libro" y no "cuaderno".
+	var lomo: float = izq + lado * 0.13
+	c.draw_line(Vector2(lomo, arriba), Vector2(lomo, abajo), col, g * 0.7, true)
+	# EL CANTO DE LAS HOJAS: dos rayas cortas asomando por la derecha, que es donde se ven.
+	for i in 2:
+		var y: float = pos.y + lado * (0.36 + 0.20 * float(i))
+		c.draw_line(Vector2(lomo + lado * 0.08, y), Vector2(der - lado * 0.06, y), col, g * 0.45, true)
+
+
+# --- VELA (la meditacion): candela con su llama ---
+#
+# Una vela y no una figura sentada ni una flor de loto: a 24 px una silueta humana o unos petalos se
+# convierten en una mancha, y dos formas simples —el cuerpo y la llama— se leen siempre. Ademas dice
+# lo que hace falta que diga: alguien pasando la noche con los libros.
+static func vela(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var cx: float = pos.x + lado * 0.5
+	var ancho: float = lado * 0.15
+	var arriba: float = pos.y + lado * 0.46
+	var abajo: float = pos.y + lado * 0.82
+	# EL CUERPO: estrecho y alto. El primer intento lo hizo ANCHO y con la llama en polilinea, y el
+	# conjunto se leia como una bolsa o un candado -- un rectangulo achaparrado con un bulto encima
+	# es cualquier cosa menos una vela. Estrechandolo ya solo puede ser una vela o un cirio.
+	c.draw_rect(Rect2(Vector2(cx - ancho, arriba), Vector2(ancho * 2.0, abajo - arriba)),
+		col, false, g * 0.7)
+	# EL PLATILLO, ancho, para que no flote y para separarla del cuerpo.
+	c.draw_line(Vector2(cx - lado * 0.30, abajo), Vector2(cx + lado * 0.30, abajo), col, g * 0.8, true)
+	# LA LLAMA, RELLENA: circulo abajo + triangulo arriba. Rellena y no de linea a proposito -- a 34
+	# px una llama contorneada es un garabato de tres pixeles, y maciza se lee de un vistazo. Es la
+	# unica pieza solida del icono, asi que ademas es lo primero que ve el ojo, que es lo correcto.
+	var r: float = lado * 0.115
+	var cy: float = arriba - lado * 0.10
+	c.draw_circle(Vector2(cx, cy), r, col)
+	c.draw_colored_polygon(PackedVector2Array([
+		Vector2(cx - r * 0.92, cy - r * 0.38),
+		Vector2(cx, pos.y + lado * 0.12),
+		Vector2(cx + r * 0.92, cy - r * 0.38),
+	]), col)
+
+
 # --- ENGRANAJE (pausa/opciones): corona de dientes y agujero ---
 static func engranaje(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.08
