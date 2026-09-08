@@ -296,7 +296,7 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		COBERTURA = 98,
 		PURIFICAR = 99, CHISPA_VINCULADA = 100, EGIDA_MENOR = 101,
 		POSTURA_RODELA = 102, ESCOLTA_FX = 103, MURO_GUARDIAN = 104,
-		SHOCK_TERMICO = 105 }
+		SHOCK_TERMICO = 105, SHOCK_VAPOR = 106 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -392,6 +392,10 @@ const T_VUELO := {
 	# efecto en el juego, mientras en el visor de la capa se veia perfecto (alli se da de alta a
 	# mano y esta tabla no pinta nada). Es la misma piedra que se llevo por delante los mordiscos.
 	Estilo.SHOCK_TERMICO: 0.42,
+	# EL VAPOR no viaja: es lo que le llega a un VECINO cuando revienta en el principal, igual que la
+	# EXPLOSION de la Brasa. Un pelin de vuelo para que la nube haya empezado a abrirse cuando entran
+	# el numero y el temblor -- y porque un 0.0 aqui significa "no se dibuja nada".
+	Estilo.SHOCK_VAPOR: 0.10,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado

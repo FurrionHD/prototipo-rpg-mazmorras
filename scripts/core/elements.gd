@@ -12,14 +12,28 @@ class_name Elementos
 
 # OJO: el VENENO no es un elemento, es solo un ESTADO (DoT). Quien resista el veneno lo
 # declara con el override 'inmune_estados', no con una afinidad.
-enum Elemento { NINGUNO, FUEGO, AGUA, RAYO }
+#
+# LUZ y OSCURIDAD van AL FINAL y no se reordena nada. El elemento viaja por red COMO NUMERO y esta
+# escrito en los .tres de resistencias: meter uno en medio le cambiaria el elemento a todo lo que
+# hay detras, en las partidas guardadas y entre un cliente y otro. Al final no rompe nada.
+enum Elemento { NINGUNO, FUEGO, AGUA, RAYO, LUZ, OSCURIDAD }
 
 const NOMBRE := {
 	Elemento.NINGUNO: "Físico",
 	Elemento.FUEGO: "Fuego",
 	Elemento.AGUA: "Agua",
 	Elemento.RAYO: "Rayo",
+	Elemento.LUZ: "Luz",
+	Elemento.OSCURIDAD: "Oscuridad",
 }
+
+# LOS ELEMENTOS DE VERDAD, sin el NINGUNO (que es "físico", o sea la ausencia de elemento).
+#
+# Existe para que nadie tenga que volver a escribir la lista a mano. La ficha de enemigo la tenia
+# escrita con los tres de entonces, asi que al añadir Luz y Oscuridad habria seguido enseñando tres
+# — y una ficha que se calla una debilidad es peor que una que no dice nada.
+const TODOS: Array[int] = [Elemento.FUEGO, Elemento.AGUA, Elemento.RAYO, Elemento.LUZ,
+	Elemento.OSCURIDAD]
 
 # Icono de cada elemento (para el log: el rastro de golpes de un hechizo multi-elemento).
 const ICONO := {
@@ -27,6 +41,8 @@ const ICONO := {
 	Elemento.FUEGO: "🔥",
 	Elemento.AGUA: "💧",
 	Elemento.RAYO: "⚡",
+	Elemento.LUZ: "☀",
+	Elemento.OSCURIDAD: "🌑",
 }
 
 # Color de cada elemento, para las PARTICULAS del cuerpo imbuido y del bicho elemental
@@ -43,6 +59,11 @@ const COLOR := {
 	Elemento.FUEGO: Color(1.0, 0.5, 0.1),
 	Elemento.AGUA: Color(0.4, 0.7, 1.0),
 	Elemento.RAYO: Color(1.0, 0.95, 0.4),
+	# La LUZ tira a blanco calido y no a amarillo: el amarillo ya es el rayo, y dos amarillos en la
+	# misma pantalla no se distinguen. La OSCURIDAD, a morado muy oscuro y NO a negro puro: sobre el
+	# fondo del combate, que ya es casi negro, un efecto negro no se ve.
+	Elemento.LUZ: Color(1.0, 0.97, 0.85),
+	Elemento.OSCURIDAD: Color(0.42, 0.24, 0.55),
 }
 
 # TABLA DE TIPOS por defecto: perfil de resistencia segun la AFINIDAD del defensor
@@ -56,6 +77,14 @@ const PERFIL_DEFECTO := {
 	Elemento.FUEGO: { Elemento.FUEGO: 0.5, Elemento.AGUA: 1.5 },
 	Elemento.AGUA: { Elemento.AGUA: 0.5, Elemento.FUEGO: 0.5, Elemento.RAYO: 1.5 },
 	Elemento.RAYO: { Elemento.RAYO: 0.5 },
+	# LUZ y OSCURIDAD se cuentan la una a la otra: cada una resiste lo suyo y es DEBIL a la
+	# contraria. Es el unico par del juego que se aguanta mutuamente, y es lo que hace que valga la
+	# pena tener las dos en el kit en vez de una sola.
+	#
+	# El x1.5 va contra el elemento OPUESTO y no contra los tres de siempre a proposito: si la luz
+	# fuera fuerte contra todo, seria simplemente el elemento bueno.
+	Elemento.LUZ: { Elemento.LUZ: 0.5, Elemento.OSCURIDAD: 1.5 },
+	Elemento.OSCURIDAD: { Elemento.OSCURIDAD: 0.5, Elemento.LUZ: 1.5 },
 }
 
 # FRANJAS DE INTENSIDAD de la afinidad. El perfil de arriba es el del elemento PURO; esta

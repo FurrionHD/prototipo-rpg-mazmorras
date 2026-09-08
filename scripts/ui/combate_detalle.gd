@@ -605,7 +605,10 @@ func _tab_detalles(c: Combatant) -> void:
 	if _es_enemigo():
 		var deb: PackedStringArray = []
 		var res: PackedStringArray = []
-		for e in [Elementos.Elemento.FUEGO, Elementos.Elemento.AGUA, Elementos.Elemento.RAYO]:
+		# La lista sale de Elementos.TODOS y no escrita aqui: estaba a mano con los tres de entonces,
+		# y un elemento nuevo se habria quedado fuera sin que nadie se enterara -- la ficha diria que
+		# el bicho no tiene mas debilidades que esas tres.
+		for e in Elementos.TODOS:
 			var m: float = Elementos.mult_recibido(e, c)
 			if m > 1.01:
 				deb.append("%s %s ×%.2f" % [Elementos.icono(e), Elementos.nombre(e), m])

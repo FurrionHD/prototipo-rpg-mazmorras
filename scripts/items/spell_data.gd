@@ -107,6 +107,15 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # Es el mismo campo que ya tienen las habilidades (AbilityData.fx_estilo) y con el mismo sentido.
 @export var fx_estilo: int = -1
 
+# DIBUJO DE LA SALPICADURA, o sea lo que le llega a un VECINO. -1 = el de siempre.
+#
+# Va aparte de fx_estilo porque NO es lo mismo: al vecino no le llega el conjuro, le llega lo que ha
+# reventado en el principal. Con un solo campo, el Shock termico mandaba una bola volando a CADA
+# enemigo de al lado -- tres proyectiles cruzando la pantalla en vez de una explosion que alcanza a
+# los que estaban cerca. Es la misma distincion que ya hace _estilo_salpicon con los elementos
+# (a los lados de una Brasa les llega la ONDA, no otra bola).
+@export var fx_estilo_salpicon: int = -1
+
 # --- MULTI-OBJETIVO: AREA y REBOTES ---
 # Eje DISTINTO al de 'hits': los golpes son POR OBJETIVO. Un hechizo de area con hits=3 le
 # mete sus 3 golpes a CADA enemigo que alcanza, y cada golpe sigue tirando su elemento del

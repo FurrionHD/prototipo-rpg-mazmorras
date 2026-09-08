@@ -3998,7 +3998,12 @@ func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool, salpicon: bool =
 	# arco que salta de una victima a la siguiente y tiene que verse asi venga del hechizo que venga.
 	if rebote:
 		return CombatFX.Estilo.ARCO
-	if spell != null and spell.fx_estilo >= 0:
+	# La SALPICADURA tiene su propio dibujo: al vecino no le llega el conjuro, le llega lo que ha
+	# reventado en el principal. Si no se mirase antes que fx_estilo, un hechizo con dibujo propio
+	# mandaria una copia entera del conjuro a cada enemigo de al lado.
+	if salpicon and spell != null and spell.fx_estilo_salpicon >= 0:
+		return spell.fx_estilo_salpicon
+	if not salpicon and spell != null and spell.fx_estilo >= 0:
 		return spell.fx_estilo
 	if salpicon:
 		return _estilo_salpicon(spell, elem)

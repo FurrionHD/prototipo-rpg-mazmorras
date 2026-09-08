@@ -31,6 +31,7 @@ elemento_mix = {
 }
 mix_en_orden = true
 fx_estilo = 105
+fx_estilo_salpicon = 106
 alcance = 1
 dano_objetivo = 1.6
 dano_salpicon = 0.7

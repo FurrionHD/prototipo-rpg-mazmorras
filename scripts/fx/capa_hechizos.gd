@@ -34,6 +34,10 @@ const ZIGZAG_CADA := 0.04    # cada cuanto se rehace el chisporroteo
 # ventana se calcula su animacion. Con dos numeros distintos, el efecto se cortaba antes de acabar
 # o se quedaba clavado esperando.
 const COLETA_SHOCK := 0.34
+# LO GORDO que es el Shock termico comparado con un proyectil normal. Sube de 2.6 a 3.4: el
+# reventon se veia pequeño para lo que es el hechizo. Lo miran la bola, el anillo de fuego y el
+# vapor, asi que crecen los tres a la vez y no se descuadran entre si.
+const RADIO_SHOCK := 3.4
 const FUERA := -20.0         # de que altura caen los rayos y las gotas (por encima del techo)
 
 # Cada efecto vivo. Se reciclan los diccionarios: en una tormenta se dan de alta 32 en dos
@@ -210,7 +214,7 @@ func _vida(e: Dictionary) -> float:
 	# hacia dentro, y despues hierve el vapor. Con la coleta de 0.12 de siempre se cortaba a la
 	# mitad: la bola llegaba, se veia medio anillo y desaparecia, o sea que lo que hace especial al
 	# hechizo no se llegaba a ver nunca.
-	if es == CombatFX.Estilo.SHOCK_TERMICO:
+	if es == CombatFX.Estilo.SHOCK_TERMICO or es == CombatFX.Estilo.SHOCK_VAPOR:
 		return float(e["dur"]) + COLETA_SHOCK
 	if es == CombatFX.Estilo.MORDISCO:
 		return float(e["dur"]) + 0.30
@@ -437,6 +441,9 @@ func _draw() -> void:
 		match int(e["estilo"]):
 			CombatFX.Estilo.PROYECTIL: _pintar_fuego(e)
 			CombatFX.Estilo.SHOCK_TERMICO: _pintar_shock(e)
+			CombatFX.Estilo.SHOCK_VAPOR: _pintar_vapor(e["b"], float(e["r"]) * RADIO_SHOCK,
+				clampf(float(e["t"]) / (float(e["dur"]) + COLETA_SHOCK), 0.0, 1.0),
+				float(e["semilla"]), Color(0.4, 0.7, 1.0))
 			CombatFX.Estilo.RAYO, CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.ARCO: _pintar_rayo(e)
 			CombatFX.Estilo.CAIDA_GOTA: _pintar_gotas(e)
 			CombatFX.Estilo.BARRIDO: _pintar_ola(e)
@@ -608,7 +615,7 @@ func _pintar_shock(e: Dictionary) -> void:
 	# sobre "lo que queda despues de volar".
 	if es_agua:
 		var w: float = clampf(t / (float(e["dur"]) + COLETA_SHOCK), 0.0, 1.0)
-		_pintar_vapor(b, r * 2.6, w, float(e["semilla"]), agua)
+		_pintar_vapor(b, r * RADIO_SHOCK, w, float(e["semilla"]), agua)
 		return
 
 	if u < 1.0:
@@ -619,7 +626,7 @@ func _pintar_shock(e: Dictionary) -> void:
 		var p: Vector2 = a.lerp(b, av)
 		# GRANDE: mas del doble que una bola de fuego. Esto no es un proyectil mas, es el legendario,
 		# y tiene que ocupar pantalla desde que sale de la mano.
-		var rr: float = r * 2.6 * (1.0 + 0.06 * sin(t * 9.0 + float(e["semilla"])))
+		var rr: float = r * RADIO_SHOCK * (1.0 + 0.06 * sin(t * 9.0 + float(e["semilla"])))
 
 		# ESTELA: dos fantasmas gordos y muy transparentes. Con una bola de este tamaño, tres motas
 		# pequeñas no se veian; lo que hace falta es que arrastre.
@@ -662,7 +669,7 @@ func _pintar_shock(e: Dictionary) -> void:
 	# No es un reventon normal que se apaga: es el calor metiendose para adentro, y deja el hueco que
 	# el agua viene a llenar. Esa implosion es lo que ata los dos tiempos del hechizo.
 	var v: float = clampf((t - float(e["dur"])) / COLETA_SHOCK, 0.0, 1.0)
-	var rg: float = r * 2.6
+	var rg: float = r * RADIO_SHOCK
 	# Fuera hasta v = 0.45, y de vuelta adentro.
 	var fuera: float = v / 0.45 if v < 0.45 else 1.0 - (v - 0.45) / 0.55
 	var rad: float = rg * (0.5 + 1.7 * fuera)
