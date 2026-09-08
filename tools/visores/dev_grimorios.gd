@@ -134,6 +134,24 @@ func _probar_pool() -> void:
 	_ok("todos tienen nombre propio" if sin_nombre.is_empty()
 		else "SIN NOMBRE: %s" % ", ".join(sin_nombre), sin_nombre.is_empty())
 
+	# CADA MAGIA CON SUS PROPIAS FRASES. Dos hechizos que empiezan igual son dos hechizos que en
+	# combate no se distinguen hasta la segunda frase -- y el recitado es justo lo que les da
+	# personalidad. Paso al copiar una frase del repositorio en dos curaciones distintas.
+	var de_quien := {}
+	var repes: Array = []
+	for r3 in en_disco:
+		var s3: SpellData = load(r3) as SpellData
+		if s3 == null:
+			continue
+		for fr in s3.frases:
+			var clave: String = String(fr).strip_edges().to_lower()
+			if de_quien.has(clave):
+				repes.append("«%s» (%s y %s)" % [fr, de_quien[clave], s3.nombre])
+			else:
+				de_quien[clave] = s3.nombre
+	_ok("ninguna frase se repite entre hechizos" if repes.is_empty()
+		else "FRASES REPETIDAS: %s" % " | ".join(repes), repes.is_empty())
+
 	# EL QUE PIDE DIBUJO PROPIO TIENE QUE PODER DARSE DE ALTA.
 	#
 	# CombatFX.T_VUELO dice cuanto tarda cada efecto en llegar, y un estilo que no este en esa tabla

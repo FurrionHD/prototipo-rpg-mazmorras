@@ -173,13 +173,15 @@ const RAREZAS := {
 	"filo_torrente": Upgrades.Rareza.RARO,
 	# Los MANTOS, y los dos de LUZ y OSCURIDAD, que son ataque puro de su elemento.
 	"estallido_solar": Upgrades.Rareza.EPICO,
-	"luz_restauradora": Upgrades.Rareza.EPICO,
 	"voragine_sombra": Upgrades.Rareza.EPICO,
 	"manto_brasas": Upgrades.Rareza.EPICO,
 	"manto_centellas": Upgrades.Rareza.EPICO,
 	"manto_marea": Upgrades.Rareza.EPICO,
 	# EL TECHO. Son DOS desde que existe el Shock termico, y ese es el caso que el diseño del reparto
 	# prometia: al entrar el segundo, cada uno pasa a salir la mitad sin tocar un solo numero.
+	# La cura de GRUPO es legendaria: curar a los cuatro de golpe cambia una pelea entera, y ademas
+	# recita tres frases, o sea que se paga tambien en turnos.
+	"luz_restauradora": Upgrades.Rareza.LEGENDARIO,
 	"tormenta": Upgrades.Rareza.LEGENDARIO,
 	"shock_termico": Upgrades.Rareza.LEGENDARIO,
 	# MITICO: la banda de encima del legendario, y de momento con un solo hechizo. Sale la mitad que

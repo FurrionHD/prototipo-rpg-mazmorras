@@ -6,8 +6,8 @@
 script = ExtResource("1")
 nombre = "Luz restauradora"
 tipo = 3
-frases = Array[String](["Lumen, cierra esta herida", "Luz sagrada, restáurame"])
-rareza = 3
+frases = Array[String](["Luz sagrada, restáurame", "Que a nadie le falte aliento", "Hoy no cae ninguno"])
+rareza = 4
 coste_mana = 15
 dano_base = 26.0
 cura_pct = 0.14

@@ -2959,9 +2959,19 @@ const PESO_RAREZA_GRIMORIO := {
 	# legendario no es un mitico. A 0.6 y con un solo hechizo dentro sale un 0,6%, que es una de cada
 	# ciento sesenta y seis tiradas de grimorio.
 	#
-	# Y CUIDADO al meter el segundo mitico: pasarian a 0,3% cada uno. Si eso se queda corto, lo que
-	# hay que subir es el peso de la BANDA, no inventarle nada al hechizo.
-	Upgrades.Rareza.MITICO: 0.6,
+	# Y CUIDADO al meter el segundo mitico: pasarian a la mitad cada uno. Si eso se queda corto, lo
+	# que hay que subir es el peso de la BANDA, no inventarle nada al hechizo.
+	#
+	# BAJADO A 0.33 al entrar el TERCER legendario: la banda legendaria vale 2.0 y repartida entre
+	# tres da 0,66% por hechizo, con lo que el mitico a 0.6 se quedaba practicamente empatado con
+	# ella. La monotonia seguia cumpliendose por los pelos, pero un mitico que sale casi lo mismo que
+	# un legendario no se siente mitico. A 0.33 vuelve a ser LA MITAD que uno de la banda de abajo,
+	# que es el escalon que tenia cuando se creo.
+	#
+	# LA LECCION, que ya ha mordido dos veces en los dos sentidos: al añadir un hechizo NO basta con
+	# mirar que su banda siga por encima de la siguiente. Hay que mirar la DISTANCIA, porque lo que
+	# cambia es cuanto se reparte cada banda entre los suyos.
+	Upgrades.Rareza.MITICO: 0.33,
 }
 
 # LO QUE SE MULTIPLICA EL PESO DE UN HECHIZO QUE EL LECTOR YA SE SABE.
