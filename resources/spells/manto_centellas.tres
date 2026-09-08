@@ -6,15 +6,14 @@
 script = ExtResource("1")
 nombre = "Manto de centellas"
 tipo = 1
-elemento = 3
 frases = Array[String](["Tormenta, hazme tu cauce", "Que el trueno lata en mi pecho", "Soy la centella, y no me alcanzan"])
+rareza = 3
 coste_mana = 14
 dano_base = 0.0
+elemento = 3
 imbue_tipo = 2
 imbue_pct = 0.15
 imbue_usos = 10
 imbue_estado = 8
 imbue_prob = 0.15
-imbue_intensidad = 0.4
-efectos = []
 descripcion = "Un canto largo que te convierte en pura descarga: los golpes te atontan mucho menos. Arde tu maná deprisa y se apaga pronto."

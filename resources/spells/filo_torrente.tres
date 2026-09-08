@@ -6,14 +6,14 @@
 script = ExtResource("1")
 nombre = "Filo de torrente"
 tipo = 1
-elemento = 2
 frases = Array[String](["Que el rio abrace mi acero", "Torrente, muerde por mi"])
+rareza = 2
 coste_mana = 8
 dano_base = 0.0
+elemento = 2
 imbue_tipo = 1
 imbue_pct = 0.3
 imbue_usos = 10
 imbue_estado = 12
 imbue_prob = 0.3
-efectos = []
 descripcion = "Envuelves tu arma en una corriente viva: cada golpe descarga un latigazo de agua a presión. Devastador contra criaturas de fuego."

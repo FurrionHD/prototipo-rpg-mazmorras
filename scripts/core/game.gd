@@ -2918,6 +2918,55 @@ var bosses_derrotados: Dictionary = {}
 #  menu de Meditacion. Venderlo sin abrirlo pierde la entrada, y esa es toda la tension del objeto.
 var biblioteca: Dictionary = {}
 
+# ============================================================
+#  EL REPARTO DE GRIMORIOS DEL GACHA
+#
+#  Cuando la Meditacion saca "grimorio de verdad" (el 10%), ESE 10% es el nuevo 100% y se reparte
+#  aqui. Dos escalones, y el orden importa:
+#
+#    1) LA BANDA: cada rareza tiene su peso. Es lo que hace que Tormenta sea Tormenta.
+#    2) DENTRO DE LA BANDA: a partes iguales entre los hechizos que haya.
+#
+#  Lo segundo es lo que hace que añadir un hechizo NO toque codigo: entra en su banda y el reparto
+#  se recoloca solo. El dia que exista el segundo legendario, cada uno sale la mitad, sin tocar nada.
+#
+#  LEER LA TABLA CON CUIDADO: el peso es DE LA BANDA, no de cada hechizo. Una banda gorda con
+#  muchos miembros da hechizos individuales mas raros que una banda flaca con uno solo. Para saber
+#  lo que sale UN hechizo hay que dividir por cuantos son — es justo la cuenta que se hace mal a ojo
+#  y por la que un legendario acaba sin sentirse legendario. El visor la hace por ti.
+#
+#  PROVISIONALES: estos cinco numeros estan puestos para que la mecanica se pueda probar y mirar.
+#  Los buenos salen de la curva entera (cada cuanto meditas, cuanto cuesta), no de retocarlos aqui.
+#  LA REGLA QUE NO SE PUEDE ROMPER: un hechizo de banda mas alta tiene que salir MENOS que uno de
+#  banda mas baja. Suena obvio y no lo es, porque el peso es de la banda y hay que dividirlo entre
+#  sus miembros: el primer reparto que se escribio aqui (raro 12 entre 5, epico 16 entre 3) hacia
+#  que un RARO saliera la mitad que un EPICO. Con estos numeros, cada hechizo sale:
+#
+#    comun 15%  ·  poco comun 6,5%  ·  raro 3,6%  ·  epico 3%  ·  legendario 2%
+#
+#  El visor comprueba esa monotonia en cada pasada, asi que si tocas un peso y rompes el orden, te
+#  enteras ahi y no tres semanas despues jugando.
+const PESO_RAREZA_GRIMORIO := {
+	Upgrades.Rareza.COMUN: 45.0,
+	Upgrades.Rareza.POCO_COMUN: 26.0,
+	Upgrades.Rareza.RARO: 18.0,
+	Upgrades.Rareza.EPICO: 9.0,
+	Upgrades.Rareza.LEGENDARIO: 2.0,
+}
+
+# LO QUE SE MULTIPLICA EL PESO DE UN HECHIZO QUE EL LECTOR YA SE SABE.
+#
+# Baja, pero NUNCA a cero: en un gacha se pierde, y un gacha que nunca repite deja de ser un gacha.
+# Ademas un repetido no es basura — se guarda en el baul y se lo estudia otro del grupo.
+#
+# VA POR PERSONAJE, no por grupo, y eso NO es un detalle: si contara lo que sabe el grupo, un
+# personaje NUEVO no podria conseguir magias nunca. El grupo ya se las sabe todas, todo estaria
+# penalizado, y el recien llegado se quedaria pelado justo cuando no sabe nada. Por personaje, el
+# que acaba de entrar medita con la tabla limpia.
+#
+# PROVISIONAL, como los pesos de arriba.
+const GRIMORIO_SABIDO_MULT := 0.25
+
 # EXCELIA MAGICA del "tomo de sabiduria" cuando el .tres no dice otra cosa. Es un valor BASE que
 # pasa por ganar(), o sea que los rendimientos decrecientes lo moderan solos segun tu nivel.
 #
@@ -2925,6 +2974,87 @@ var biblioteca: Dictionary = {}
 # la curva entera (cuanta excelia magica da un piso, cada cuanto cae un tomo del 25%), no de tocarlo
 # aqui a pelo. No lo des por bueno porque este escrito.
 const TOMO_EXCELIA_BASE := 18.0
+
+
+# EL PESO DE CADA HECHIZO en el sorteo del grimorio, ya con el sesgo del que lo va a leer aplicado.
+# Devuelve {SpellData: peso}; quien sortee solo tiene que tirar una ruleta con estos pesos.
+#
+# 'pool' son los hechizos que PUEDEN salir (los que tienen grimorio). Se pasa como parametro y no se
+# lee de una lista de aqui dentro a proposito: asi esta cuenta —que es la que se equivoca en
+# silencio— se puede probar con un pool de mentira, y de donde salen los libros de verdad es
+# problema de quien llame.
+#
+# LA CUENTA, en el orden que importa:
+#   1) el peso de la BANDA se reparte a partes iguales entre los de esa banda que esten en el pool
+#   2) y DESPUES se le aplica el sesgo al que el lector ya se sabe
+#
+# El orden no es cosmetico. Al reves —sesgar primero y repartir despues— un comun sabido acabaria
+# saliendo mas que un epico nuevo, porque el reparto le devolveria el peso que el sesgo le quito.
+#
+# Una banda VACIA no reparte nada: su peso no se regala a las demas, simplemente ese trozo de la
+# ruleta no existe y todo lo demas sube en proporcion al normalizar. Es lo que hace que meter el
+# primer legendario cambie el reparto sin tocar ningun numero.
+func pesos_grimorio(pool: Array, pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+	# Cuantos hay en cada banda: hace falta ANTES de repartir, porque el peso de uno es el de su
+	# banda partido por cuantos la comparten.
+	var por_banda := {}
+	for s in pool:
+		if s == null:
+			continue
+		var r: int = int(s.rareza)
+		por_banda[r] = int(por_banda.get(r, 0)) + 1
+	var sabidos: Array = hechizos_sabidos(p) if p != null else []
+	var out := {}
+	for s in pool:
+		if s == null:
+			continue
+		var r2: int = int(s.rareza)
+		var peso_banda: float = float(PESO_RAREZA_GRIMORIO.get(r2, 0.0))
+		var cuantos: int = int(por_banda.get(r2, 1))
+		var w: float = peso_banda / float(maxi(1, cuantos))
+		if sabidos.has(s):
+			w *= GRIMORIO_SABIDO_MULT
+		out[s] = w
+	return out
+
+
+# Lo mismo pero en PROBABILIDAD (suman 1.0). Es lo que hay que mirar para juzgar la tabla: los pesos
+# crudos no se pueden comparar entre si sin normalizar, y es justo ahi donde se cuela el error de
+# creer que una banda gorda da hechizos raros.
+func probs_grimorio(pool: Array, pj: PersonajeData = null) -> Dictionary:
+	var pesos: Dictionary = pesos_grimorio(pool, pj)
+	var total: float = 0.0
+	for s in pesos:
+		total += float(pesos[s])
+	var out := {}
+	if total <= 0.0:
+		return out
+	for s in pesos:
+		out[s] = float(pesos[s]) / total
+	return out
+
+
+# Saca UN hechizo del pool con esos pesos. El rng se pasa de fuera para que el sorteo sea
+# reproducible (y para que en multijugador lo pueda tirar el host con su semilla).
+func sortear_grimorio(pool: Array, rng: RandomNumberGenerator,
+		pj: PersonajeData = null) -> SpellData:
+	var pesos: Dictionary = pesos_grimorio(pool, pj)
+	var total: float = 0.0
+	for s in pesos:
+		total += float(pesos[s])
+	if total <= 0.0:
+		return null
+	var t: float = rng.randf() * total
+	# El ultimo se devuelve por descarte si los redondeos dejan a t justo en el borde: sin esto,
+	# una de cada muchisimas tiradas se caia por el final del bucle y devolvia null.
+	var ultimo: SpellData = null
+	for s in pesos:
+		ultimo = s
+		t -= float(pesos[s])
+		if t <= 0.0:
+			return s
+	return ultimo
 
 
 # ¿Se ha leido ya este tocho en esta partida?

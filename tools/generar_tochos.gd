@@ -138,6 +138,43 @@ const TOCHOS := [
 # que lees al estudiarlo. Lo unico que les falta es la clave de la biblioteca, y se la pone el
 # parcheo de abajo derivandola del nombre del fichero: grimorio_rayo.tres -> &"grimorio_rayo".
 const GRIMORIOS_DIR := "res://resources/consumables/"
+const SPELLS_DIR := "res://resources/spells/"
+
+# LA RAREZA DE CADA HECHIZO, que es lo que manda el reparto del gacha (ver Game.pesos_grimorio).
+# Se escribe aqui y se vuelca al .tres: tenerlas juntas es lo unico que deja mirar la tabla entera
+# de un vistazo y decidir si Tormenta esta donde tiene que estar.
+#
+# NO va por numero de frases. Se penso y no vale: Tormenta y los mantos recitan lo mismo y no estan
+# ni de lejos al mismo nivel. El largo del recitado es largo, no poder.
+#
+# 'pulso_menor' figura pero NO tiene grimorio ni sale en el gacha: es la magia que presta el baston,
+# y regalar el libro de algo que ya viene con el arma no tiene sentido. Se le pone rareza igual por
+# si algun dia sale por otra via.
+const RAREZAS := {
+	# Los de una frase: lo primero que cae y lo que hace jugable a un mago.
+	"descarga": Upgrades.Rareza.COMUN,
+	"brasa": Upgrades.Rareza.COMUN,
+	"rocio": Upgrades.Rareza.COMUN,
+	"pulso_menor": Upgrades.Rareza.COMUN,
+	# Ataque medio de los tres elementos, y el arcano sin elemento.
+	"pulso_arcano": Upgrades.Rareza.POCO_COMUN,
+	"chorro_agua": Upgrades.Rareza.POCO_COMUN,
+	"bola_fuego": Upgrades.Rareza.POCO_COMUN,
+	"rayo": Upgrades.Rareza.POCO_COMUN,
+	# Potenciacion, debuff y los FILOS. Los filos van aqui y los mantos un escalon por encima: son
+	# dos familias distintas de imbuicion y no valen lo mismo.
+	"fortaleza": Upgrades.Rareza.RARO,
+	"debilidad": Upgrades.Rareza.RARO,
+	"filo_ardiente": Upgrades.Rareza.RARO,
+	"filo_fulgurante": Upgrades.Rareza.RARO,
+	"filo_torrente": Upgrades.Rareza.RARO,
+	# Los MANTOS.
+	"manto_brasas": Upgrades.Rareza.EPICO,
+	"manto_centellas": Upgrades.Rareza.EPICO,
+	"manto_marea": Upgrades.Rareza.EPICO,
+	# El techo. Cuando entre el segundo legendario, cada uno saldra la mitad SIN tocar nada.
+	"tormenta": Upgrades.Rareza.LEGENDARIO,
+}
 
 
 func _ready() -> void:
@@ -184,7 +221,122 @@ func _ready() -> void:
 	if not _marcar_grimorios():
 		get_tree().quit(1)
 		return
+	if not _poner_rarezas():
+		get_tree().quit(1)
+		return
+	if not _cuadrar_grimorios():
+		get_tree().quit(1)
+		return
 	get_tree().quit(0)
+
+
+# QUE HECHIZOS LLEVAN GRIMORIO. Es lo que define el pool del gacha, asi que se cuadra aqui y no a
+# mano: un hechizo sin libro no puede salir nunca, y uno con libro de mas ensucia el reparto.
+#
+# 'pulso_menor' NO lleva: viene de serie con el baston y la varita (ver WeaponData.hechizo_base), y
+# regalar el libro de algo que ya te presta el arma no tiene sentido. Ojo al efecto de quitarlo:
+# pulso_menor deja de poderse APRENDER para siempre — si sueltas el arma, lo pierdes. Es lo buscado.
+const SIN_GRIMORIO := ["pulso_menor"]
+
+# El texto de un grimorio nuevo. Mismo patron que los 16 que ya habia: como es el libro al tacto, y
+# la formula "Estudialo y aprenderas X" al final.
+const TEXTOS_GRIMORIO := {
+	"tormenta": "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma pagina. Las tapas estan alabeadas, como si dentro hiciera su propio tiempo. Estudialo y aprenderas Tormenta.",
+}
+
+
+func _cuadrar_grimorios() -> bool:
+	var d := DirAccess.open(SPELLS_DIR)
+	if d == null:
+		return false
+	var creados := 0
+	var borrados := 0
+	for f in d.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var id: String = f.get_basename()
+		var ruta_g: String = "%sgrimorio_%s.tres" % [GRIMORIOS_DIR, id]
+		var existe: bool = ResourceLoader.exists(ruta_g)
+		if SIN_GRIMORIO.has(id):
+			if existe:
+				print("[grimorios] %s viene con el arma: se borra su libro." % id)
+				DirAccess.remove_absolute(ruta_g)
+				borrados += 1
+			continue
+		if existe:
+			continue
+		# Falta el libro de un hechizo que si deberia tenerlo.
+		if not TEXTOS_GRIMORIO.has(id):
+			printerr("[grimorios] falta el libro de '%s' y no hay texto para el. Escribelo en TEXTOS_GRIMORIO." % id)
+			return false
+		var s: SpellData = load(SPELLS_DIR + f) as SpellData
+		if s == null:
+			continue
+		var c: ConsumableData = ConsumableData.new()
+		c.set_script(load("res://scripts/items/consumable_data.gd"))
+		c.nombre = "Grimorio: %s" % s.nombre
+		c.descripcion = str(TEXTOS_GRIMORIO[id])
+		c.spell = s
+		c.tomo_id = StringName("grimorio_" + id)
+		c.cura_total = 0.0
+		c.turnos = 1
+		c.segundos = 1.0
+		# PROVISIONAL, como todo precio de aqui: se pone en el orden de magnitud de los que ya hay
+		# (1700-2920) y se cuadra con la curva entera, no a ojo.
+		c.valor_base = 4200
+		var err: int = ResourceSaver.save(c, ruta_g)
+		if err != OK:
+			printerr("[grimorios] no se pudo crear %s (error %d)" % [ruta_g, err])
+			return false
+		print("[grimorios] creado el libro de %s." % id)
+		creados += 1
+	print("[grimorios] cuadrados: %d creados, %d borrados." % [creados, borrados])
+	return true
+
+
+# Vuelca RAREZAS a los .tres de los hechizos. Avisa —y falla— si la tabla y la carpeta no dicen lo
+# mismo en los dos sentidos: un hechizo sin rareza saldria como comun sin que nadie lo decidiera, y
+# una entrada que sobra suele ser un fichero renombrado que dejo la tabla apuntando al vacio.
+func _poner_rarezas() -> bool:
+	var d := DirAccess.open(SPELLS_DIR)
+	if d == null:
+		printerr("[rarezas] no puedo abrir %s" % SPELLS_DIR)
+		return false
+	var vistos := {}
+	var n := 0
+	for f in d.get_files():
+		if not f.ends_with(".tres"):
+			continue
+		var id: String = f.get_basename()
+		vistos[id] = true
+		if not RAREZAS.has(id):
+			printerr("[rarezas] '%s' no esta en la tabla: saldria comun sin que nadie lo decida." % id)
+			return false
+		var s: SpellData = load(SPELLS_DIR + f) as SpellData
+		if s == null:
+			continue
+		if int(s.rareza) == int(RAREZAS[id]):
+			continue
+		s.rareza = int(RAREZAS[id])
+		var err: int = ResourceSaver.save(s, SPELLS_DIR + f)
+		if err != OK:
+			printerr("[rarezas] no se pudo escribir %s (error %d)" % [f, err])
+			return false
+		n += 1
+	var sobran: Array = []
+	for id in RAREZAS:
+		if not vistos.has(id):
+			sobran.append(id)
+	if not sobran.is_empty():
+		printerr("[rarezas] la tabla nombra hechizos que no existen: %s" % ", ".join(sobran))
+		return false
+	# El reparto que sale de la tabla, para poder juzgarla sin abrir el visor.
+	var cuenta := {}
+	for id in RAREZAS:
+		var r: int = int(RAREZAS[id])
+		cuenta[r] = int(cuenta.get(r, 0)) + 1
+	print("[rarezas] %d hechizos actualizados. Por banda: %s" % [n, cuenta])
+	return true
 
 
 # Borra los .tres de la carpeta que YA NO ESTAN en la tabla. Hace falta porque renombrar un id deja

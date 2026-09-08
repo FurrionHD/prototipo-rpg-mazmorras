@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/visores/dev_grimorios.gd" id="1_gr"]
+
+[node name="DevGrimorios" type="Node"]
+script = ExtResource("1_gr")

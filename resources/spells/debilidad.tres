@@ -7,14 +7,14 @@
 script = ExtResource("2")
 estado = 4
 prob = 0.4
-en_objetivo = true
 
 [resource]
 script = ExtResource("1")
 nombre = "Debilidad"
 tipo = 2
 frases = Array[String](["Languidez, quiebra su fuerza", "Flaqueza, muerde sus huesos"])
+rareza = 2
 coste_mana = 7
 dano_base = 0.0
-efectos = [SubResource("SA_debil")]
 descripcion = "Le pesan los brazos. Cada golpe suyo llega mas blando que el anterior."
+efectos = [SubResource("SA_debil")]

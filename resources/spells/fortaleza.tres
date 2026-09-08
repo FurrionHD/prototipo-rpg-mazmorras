@@ -6,7 +6,6 @@
 [sub_resource type="Resource" id="SA_fort"]
 script = ExtResource("2")
 estado = 6
-prob = 1.0
 en_objetivo = false
 
 [resource]
@@ -14,7 +13,8 @@ script = ExtResource("1")
 nombre = "Fortaleza"
 tipo = 1
 frases = Array[String](["Vigor, colma mis musculos", "Furia ancestral, empuname"])
+rareza = 2
 coste_mana = 7
 dano_base = 0.0
-efectos = [SubResource("SA_fort")]
 descripcion = "Buff: te potencia el daño un rato. Al lanzarlo sobre ti SIEMPRE prende (no falla)."
+efectos = [SubResource("SA_fort")]

@@ -24,18 +24,18 @@ elemento_req = 3
 [resource]
 script = ExtResource("1")
 nombre = "Tormenta"
-tipo = 0
+frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
+rareza = 4
+coste_mana = 15
+dano_base = 46.0
 elemento = 3
+hits = 20
 elemento_mix = {
 2: 0.7,
 3: 0.3
 }
-hits = 20
-frases = Array[String](["Fulgor, desciende del cielo", "Truenos, romped el silencio", "El viento aullara conmigo"])
-coste_mana = 15
-dano_base = 46.0
 alcance = 1
 dano_salpicon = 1.0
 dispersa = true
-efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
 descripcion = "Se abre el cielo. La lluvia cae a cantaros sobre TODOS y, entre ella, los rayos saltan sin rumbo buscando lo que ya esta empapado. Nadie elige donde cae cada gota ni cada trueno."
+efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]

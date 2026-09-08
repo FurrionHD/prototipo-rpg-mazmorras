@@ -33,7 +33,28 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 
 # Frases del encantamiento EN ORDEN. Se recitan una por turno. El tamaño define
 # corto/medio/largo. Deberian salir del repositorio de SpellBook.REPOSITORIO.
+#
+# OJO: el numero de frases es LARGO DE RECITADO, no PODER, y no sirve para saber lo valioso que es
+# un hechizo. Tormenta y los mantos gastan las mismas frases y no estan ni de lejos al mismo nivel.
+# Para "cuanto vale" esta `rareza`, aqui abajo.
 @export var frases: Array[String] = []
+
+# LO VALIOSO QUE ES este hechizo. Escala de Upgrades.Rareza (la MISMA que el equipo, no una nueva):
+# asi un "raro" quiere decir lo mismo en un grimorio que en una espada, y el revelado del gacha se
+# lleva gratis el color y el destello (Upgrades.rareza_color / rareza_intensidad).
+#
+# Es un CAMPO y no algo derivado a proposito. Se intento atarlo al numero de frases y no vale: la
+# longitud del recitado no dice nada del poder. "Cuanto vale este hechizo" es una decision de
+# diseño, y las decisiones de diseño se escriben, no se adivinan.
+#
+# Manda el REPARTO DEL GACHA (ver Game.PESO_RAREZA_GRIMORIO): cada banda tiene su peso y dentro de
+# la banda se reparte a partes iguales. Por eso añadir un hechizo nuevo NO toca codigo — entra en
+# su banda y el reparto se recoloca solo.
+#
+# Va en el HECHIZO y no en el grimorio porque el libro es solo el envoltorio: lo que tiene poder es
+# la magia. Asi los cofres y cualquier fuente futura heredan la rareza sin apuntarla otra vez.
+# Se declara como int, igual que `elemento`, para no atar el .tres al orden de un enum.
+@export var rareza: int = Upgrades.Rareza.COMUN
 
 # Coste de maná (se descuenta AL EMPEZAR el casteo; si fallas, se pierde).
 @export var coste_mana: int = 5
