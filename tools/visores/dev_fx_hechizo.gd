@@ -22,7 +22,7 @@ const DUR := 0.55
 # El reventon dura poco y se apaga enseguida: los ultimos tres van MUY juntos porque si no la
 # ventana entera del impacto se cuela entre dos fotos y sale una captura en negro.
 # Vuelo (0,15-0,50), el reventon de fuego con su compresion (0,58-0,70) y el vapor (0,85-1,20).
-const MOMENTOS := [0.20, 0.45, 0.58, 0.70, 0.85, 1.05]
+const MOMENTOS := [0.15, 0.40, 0.70, 1.00, 1.25, 1.45]
 
 # Una fila por efecto. El color es el que le manda combat.gd en el juego (el del elemento).
 const FILAS := [

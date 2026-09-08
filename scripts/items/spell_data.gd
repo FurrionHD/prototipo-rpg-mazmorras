@@ -116,6 +116,17 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # (a los lados de una Brasa les llega la ONDA, no otra bola).
 @export var fx_estilo_salpicon: int = -1
 
+# UN SOLO DIBUJO PARA TODOS, en vez de uno por enemigo.
+#
+# Los efectos se dan de alta POR OBJETIVO, asi que un hechizo de area saca una copia encima de cada
+# bicho. Para casi todos esta bien (cuatro brasas cayendo son cuatro brasas), pero hay hechizos que
+# son UNA cosa grande que os cae a todos encima: el Eclipse no son cuatro agujeros negros, es uno.
+#
+# Con esto activado, los golpes por objetivo dejan de dibujar —siguen saliendo su numero y su
+# temblor, que eso si es por victima— y se pinta UN efecto, anclado al enemigo del centro y con
+# tamaño para cubrir la fila entera.
+@export var fx_unico: bool = false
+
 # --- MULTI-OBJETIVO: AREA y REBOTES ---
 # Eje DISTINTO al de 'hits': los golpes son POR OBJETIVO. Un hechizo de area con hits=3 le
 # mete sus 3 golpes a CADA enemigo que alcanza, y cada golpe sigue tirando su elemento del

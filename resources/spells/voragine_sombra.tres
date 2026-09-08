@@ -21,4 +21,5 @@ hits = 3
 alcance = 0
 dano_objetivo = 1.0
 fx_estilo = 108
+fx_unico = true
 descripcion = "Se abre un pozo bajo el objetivo y tira de él hacia dentro, a tirones. No revienta ni salpica: aprieta, y el que sale de ahí sale sin fuerza para pegar."

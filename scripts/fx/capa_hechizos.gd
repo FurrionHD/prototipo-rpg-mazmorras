@@ -41,7 +41,11 @@ const RADIO_SHOCK := 3.4
 # Lo que dura el destello de luz / la voragine despues de llegar, y el Eclipse (que son los dos
 # seguidos, asi que necesita casi el doble).
 const COLETA_LUZ := 0.30
-const COLETA_ECLIPSE := 0.62
+# LA VORAGINE Y EL ECLIPSE DURAN MUCHO MAS que un destello, y no es capricho: son de los que pintan
+# UNA sola animacion para TODOS sus golpes (SpellData.fx_unico). Si la animacion se apaga antes que
+# el ultimo golpe, se ven numeros saliendo de un sitio donde ya no hay nada.
+const COLETA_SOMBRA := 0.95
+const COLETA_ECLIPSE := 1.30
 const FUERA := -20.0         # de que altura caen los rayos y las gotas (por encima del techo)
 
 # Cada efecto vivo. Se reciclan los diccionarios: en una tormenta se dan de alta 32 en dos
@@ -220,8 +224,10 @@ func _vida(e: Dictionary) -> float:
 	# hechizo no se llegaba a ver nunca.
 	if es == CombatFX.Estilo.SHOCK_TERMICO or es == CombatFX.Estilo.SHOCK_VAPOR:
 		return float(e["dur"]) + COLETA_SHOCK
-	if es == CombatFX.Estilo.LUZ_ESTALLIDO or es == CombatFX.Estilo.SOMBRA_VORAGINE:
+	if es == CombatFX.Estilo.LUZ_ESTALLIDO:
 		return float(e["dur"]) + COLETA_LUZ
+	if es == CombatFX.Estilo.SOMBRA_VORAGINE:
+		return float(e["dur"]) + COLETA_SOMBRA
 	# El Eclipse son los DOS seguidos: si se le da la coleta de uno, el destello final se corta.
 	if es == CombatFX.Estilo.ECLIPSE:
 		return float(e["dur"]) + COLETA_ECLIPSE
@@ -787,17 +793,18 @@ func _pintar_luz(e: Dictionary) -> void:
 func _pintar_sombra(e: Dictionary) -> void:
 	var b: Vector2 = e["b"]
 	var t: float = float(e["t"])
-	var rg: float = float(e["r"]) * 3.2
+	var rg: float = float(e["r"]) * 4.6
 	var sem: float = float(e["semilla"])
-	var w: float = clampf(t / (float(e["dur"]) + COLETA_LUZ), 0.0, 1.0)
+	var w: float = clampf(t / (float(e["dur"]) + COLETA_SOMBRA), 0.0, 1.0)
 	var vida: float = 1.0 - w * w
-	# Subidos los dos: la primera version se quedaba en un morado apagado sobre un fondo casi negro
-	# y el remolino no se veia. Lo que hace legible una cosa oscura es el FILO claro, no el relleno.
-	var sombra := Color(0.55, 0.30, 0.72)
-	var filo := Color(0.93, 0.88, 1.0)
-
-	# EL POZO del centro, que es a donde va todo.
-	draw_circle(b, rg * (0.42 - 0.30 * w) , Color(0.04, 0.02, 0.07, 0.95 * vida))
+	# LA PALETA VA INVERTIDA, y es la unica forma de que esto funcione: el fondo del combate ya es
+	# casi negro, asi que pintar oscuridad EN OSCURO es pintar nada. En la referencia el agujero se
+	# ve porque lo rodea materia BRILLANTE, no porque el agujero sea mas negro.
+	#
+	# Asi que los brazos van claros —lila casi blanco— y el pozo va negro PURO. El contraste entre
+	# los dos es lo que hace la oscuridad; el negro solo, no.
+	var sombra := Color(0.78, 0.66, 0.95)
+	var filo := Color(1.0, 0.98, 1.0)
 
 	# LAS TIRAS: espirales que se enroscan hacia dentro. El angulo crece con el radio, que es lo que
 	# hace la curva; y el giro entero avanza con el tiempo, que es lo que la hace girar.
@@ -817,6 +824,17 @@ func _pintar_sombra(e: Dictionary) -> void:
 		# El FILO claro, mas fino y desplazado: es lo unico que se ve de una tira negra.
 		draw_polyline(puntos, Color(filo.r, filo.g, filo.b, 0.85 * vida),
 			maxf(1.5, rg * 0.07), true)
+
+	# EL POZO, EL ULTIMO DE TODO. Iba el primero y los brazos se lo pintaban ENCIMA: el agujero se
+	# quedaba en un puntito y toda la oscuridad del hechizo desaparecia debajo de su propia espiral.
+	# Dibujado al final, recorta por encima y es lo que se lee -- el vacio que se lo esta tragando: es un agujero, no una sombra. Crece al principio (se abre) y
+	# luego se cierra. La primera version era un puntito y no se leia como "se lo esta tragando".
+	var boca: float = rg * (0.12 + 0.78 * minf(1.0, w / 0.30)) * (1.0 - 0.20 * w)
+	# El BORDE de luz primero y el pozo negro encima: asi el negro se recorta contra el aro y se lee
+	# como un agujero. Sin el aro, el pozo es un circulo negro invisible sobre fondo negro.
+	draw_circle(b, boca * 1.22, Color(0.86, 0.78, 1.0, 0.75 * vida))
+	draw_circle(b, boca, Color(0.0, 0.0, 0.0, vida))
+
 
 
 # LUZ NEGRA: la estrella de cuatro puntas del Eclipse, hecha de PARTICULAS.
@@ -852,7 +870,7 @@ func _pintar_luz_negra(b: Vector2, rg: float, w: float, sem: float) -> void:
 		var c3: float = pow(absf(cos(th)), 3.0) * signf(cos(th))
 		var s3: float = pow(absf(sin(th)), 3.0) * signf(sin(th))
 		hueco.append(b + Vector2(c3 * rh * 0.55, s3 * rv * 0.55))
-	draw_colored_polygon(hueco, Color(0.03, 0.02, 0.06, 0.95 * vida))
+	draw_colored_polygon(hueco, Color(0.0, 0.0, 0.0, vida))
 
 	# LAS MOTAS. Mas densas cerca del centro y cada vez mas sueltas hacia las puntas, que es lo que
 	# hace que el borde se DESHAGA en vez de terminar en una linea.
@@ -874,8 +892,13 @@ func _pintar_luz_negra(b: Vector2, rg: float, w: float, sem: float) -> void:
 		var col: Color = claro.lerp(violeta, u)
 		draw_circle(pos, rad, Color(col.r, col.g, col.b, (0.95 - 0.55 * u) * vida * (0.5 + 0.5 * h3)))
 
-	# Y el punto blanco del centro mismo, que es de donde sale todo.
-	draw_circle(b, rg * 0.16 * abre * vida, Color(1.0, 0.99, 0.95, vida))
+	# EL DESTELLO del centro. Tres circulos concentricos de menos a mas opaco: es un halo barato y
+	# es lo que hace que BRILLE en vez de solo ser blanco. Un circulo pelado no deslumbra.
+	for k in 3:
+		var f3: float = float(3 - k) / 3.0
+		draw_circle(b, rg * (0.14 + 0.52 * f3) * abre,
+			Color(1.0, 0.99, 0.95, (0.16 + 0.30 * (1.0 - f3)) * vida))
+	draw_circle(b, rg * 0.13 * abre, Color(1.0, 1.0, 1.0, vida))
 
 # ECLIPSE. La voragine entera y, al final, el destello de luz reventando DESDE DENTRO.
 #
@@ -890,7 +913,7 @@ func _pintar_eclipse(e: Dictionary) -> void:
 	if w < CORTE:
 		# Se le pasa un reloj REESCALADO para que la voragine haga su ciclo entero en su trozo.
 		var falso := e.duplicate()
-		falso["t"] = (w / CORTE) * (float(e["dur"]) + COLETA_LUZ)
+		falso["t"] = (w / CORTE) * (float(e["dur"]) + COLETA_SOMBRA)
 		_pintar_sombra(falso)
 		return
 	# EL SEGUNDO TIEMPO ES LA LUZ NEGRA, no el estallido solar. Reusar aquel dejaba al mitico con el

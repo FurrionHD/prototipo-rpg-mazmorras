@@ -4001,6 +4001,11 @@ func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool, salpicon: bool =
 	# La SALPICADURA tiene su propio dibujo: al vecino no le llega el conjuro, le llega lo que ha
 	# reventado en el principal. Si no se mirase antes que fx_estilo, un hechizo con dibujo propio
 	# mandaria una copia entera del conjuro a cada enemigo de al lado.
+	# UN SOLO DIBUJO PARA TODOS: los golpes por objetivo no pintan nada. MELEE tiene vuelo 0.0, que
+	# en esta casa significa exactamente eso -- no se da de alta. El numero y el temblor siguen
+	# saliendo por victima, que es lo correcto: el daño SI es de cada uno.
+	if spell != null and spell.fx_unico:
+		return CombatFX.Estilo.MELEE
 	if spell != null and spell.fx_estilo >= 0:
 		# EL DIBUJO GORDO es SOLO para los golpes del elemento de identidad del hechizo. Los demas
 		# —y las salpicaduras— usan el secundario.
@@ -5498,6 +5503,23 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	var tocados: Array = []
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
+	# EL DIBUJO UNICO, antes de resolver nada: es UNA cosa que cae sobre todos, no una por bicho.
+	# Se ancla al enemigo del CENTRO de los vivos y se le da un peso alto, que es lo que decide su
+	# tamaño (ver CapaHechizos: e["r"] sale del peso). Va como 'solo_dibujo': no es un golpe, es el
+	# decorado -- los golpes de verdad van luego, uno por victima, sin pintar.
+	if spell.fx_unico and _fx != null:
+		# DONDE SE ANCLA: si el hechizo cae sobre TODOS, en el enemigo del centro de la fila, que es
+		# lo mas parecido a "en medio de todos". Si va a uno solo, encima de ESE -- anclarlo al centro
+		# de la fila pondria la voragine sobre un bicho al que no le esta pasando nada.
+		var centro: Combatant = obj
+		if spell.alcance == SpellData.Alcance.TODOS:
+			var vivos_c: Array[Combatant] = _vivos()
+			if not vivos_c.is_empty():
+				centro = vivos_c[vivos_c.size() / 2]
+		if centro != null:
+			_fx_golpe(_player, centro, 0.0, false, false, int(spell.elemento),
+				spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.ARCANO,
+				3.0, true)
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		# Foco arcano (Canalización): gasta 1 carga y amplifica el daño del hechizo. Solo
 		# los OFENSIVOS gastan carga; el largo la gasta AL DISPARAR (respeta el canto). Se

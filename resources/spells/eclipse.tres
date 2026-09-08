@@ -20,5 +20,5 @@ alcance = 2
 dano_objetivo = 1.0
 dano_salpicon = 1.0
 fx_estilo = 109
-fx_estilo_salpicon = 109
+fx_unico = true
 descripcion = "Primero la oscuridad se lo traga todo, y del mismo sitio que se lo tragó sale la luz. Cae sobre todos por igual. Nadie ha explicado todavía por qué funciona en ese orden y no al revés."
