@@ -638,34 +638,46 @@ func _pintar_shock(e: Dictionary) -> void:
 			var pk: Vector2 = a.lerp(b, uk * uk * (3.0 - 2.0 * uk))
 			draw_circle(pk, rr * (0.82 - 0.22 * float(k)), Color(0.85, 0.6, 0.55, 0.13 - 0.05 * float(k)))
 
-		# LAS DOS MITADES, partidas por una COSTURA IRREGULAR que ondea. Antes eran dos circulos
-		# superpuestos y se leia como dos pelotas pegadas; con una sola bola cortada por el medio se
-		# lee lo que es -- una cosa con dos cosas dentro peleandose.
-		var seno := PackedVector2Array()
-		var m := 11
+		# EL NUCLEO DE FUEGO, con el borde DESGARRADO. La primera version era una bola geometrica
+		# partida por una costura limpia, y quedaba de plastico: una figura regular no arde. Aqui el
+		# radio cambia en cada punto y ademas se mueve, asi que el borde no se esta quieto nunca.
+		var sem: float = float(e["semilla"])
+		var nucleo := PackedVector2Array()
+		var m := 22
 		for i in m:
-			var s: float = -1.0 + 2.0 * float(i) / float(m - 1)   # de arriba (-1) a abajo (+1)
-			# El borde se estrecha en las puntas para que la costura muera en el filo de la bola.
-			var ancho: float = sqrt(maxf(0.0, 1.0 - s * s))
-			var ondeo: float = sin(s * 3.4 + t * 5.0 + float(e["semilla"])) * 0.20 					+ sin(s * 7.1 - t * 3.0) * 0.09
-			seno.append(p + Vector2(ondeo * rr * ancho, s * rr))
+			var ang: float = TAU * float(i) / float(m)
+			# Tres senos de frecuencias distintas: uno solo hace una flor, tres hacen un desgarron.
+			var ruido: float = 0.16 * sin(ang * 3.0 + t * 6.0 + sem) 				+ 0.10 * sin(ang * 7.0 - t * 4.0 + sem * 2.0) 				+ 0.06 * sin(ang * 13.0 + t * 9.0)
+			nucleo.append(p + Vector2(cos(ang), sin(ang)) * rr * (0.62 + ruido))
+		draw_colored_polygon(nucleo, Color(fuego.r, fuego.g, fuego.b, 0.95))
+		# El corazon, mas claro y mas quieto: es lo que dice que ahi dentro hay temperatura.
+		draw_circle(p, rr * 0.30, Color(1.0, 0.88, 0.55, 0.95))
+		draw_circle(p, rr * 0.16, Color(1.0, 0.98, 0.88))
 
-		var izq := PackedVector2Array(seno)
-		var der := PackedVector2Array(seno)
-		var n := 14
-		for i in n + 1:
-			# Arco IZQUIERDO: de abajo (PI/2) a arriba (3PI/2), pasando por PI.
-			var ang: float = PI * 0.5 + PI * float(i) / float(n)
-			izq.append(p + Vector2(cos(ang), sin(ang)) * rr)
-			# Arco DERECHO: de abajo a arriba pero por el otro lado (pasando por 0).
-			var ang2: float = PI * 0.5 - PI * float(i) / float(n)
-			der.append(p + Vector2(cos(ang2), sin(ang2)) * rr)
-		draw_colored_polygon(izq, Color(fuego.r, fuego.g, fuego.b, 0.92))
-		draw_colored_polygon(der, Color(agua.r, agua.g, agua.b, 0.92))
-
-		# LA COSTURA AL ROJO BLANCO: es donde los dos se tocan, o sea donde esta toda la tension del
-		# hechizo. Sin ella las dos mitades parecen pintadas; con ella parece que van a reventar.
-		draw_polyline(seno, Color(1.0, 1.0, 0.95, 0.9), maxf(2.0, rr * 0.10), true)
+		# EL AGUA QUE LO ENVUELVE: bandas que giran alrededor del nucleo, cada una un trozo de
+		# anillo y con el grosor cambiando a lo largo -- como una pincelada, no como un aro. Es lo
+		# que hace que se lea "algo envuelto en algo" en vez de "una pelota de dos colores".
+		for k in 4:
+			var base: float = TAU * float(k) / 4.0 + t * 4.2 + sem
+			var rb: float = rr * (0.80 + 0.30 * float(k % 2))
+			var banda := PackedVector2Array()
+			var pasos := 16
+			# El borde de FUERA, de un extremo al otro.
+			for i in pasos + 1:
+				var f: float = float(i) / float(pasos)
+				var ang2: float = base + f * 2.5
+				var gr: float = rr * 0.18 * sin(PI * f) * (0.6 + 0.5 * sin(f * 9.0 + sem))
+				banda.append(p + Vector2(cos(ang2), sin(ang2)) * (rb + gr))
+			# Y el de DENTRO, de vuelta: asi la banda es una cinta y no una linea.
+			for i in pasos + 1:
+				var f2: float = 1.0 - float(i) / float(pasos)
+				var ang3: float = base + f2 * 2.5
+				var gr2: float = rr * 0.18 * sin(PI * f2) * (0.6 + 0.5 * sin(f2 * 9.0 + sem))
+				banda.append(p + Vector2(cos(ang3), sin(ang3)) * (rb - gr2))
+			draw_colored_polygon(banda, Color(agua.r, agua.g, agua.b, 0.88))
+			# El filo claro de la cresta, fino: es lo que le da el brillo de agua.
+			draw_polyline(banda.slice(0, pasos + 1), Color(0.85, 0.95, 1.0, 0.75),
+				maxf(1.5, rr * 0.05), true)
 		return
 
 	# EL IMPACTO DEL FUEGO: revienta hacia FUERA y despues se COMPRIME hacia dentro, hasta un punto.
