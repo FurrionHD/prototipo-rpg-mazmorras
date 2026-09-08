@@ -44,6 +44,8 @@ const COLETA_LUZ := 0.30
 # LA VORAGINE Y EL ECLIPSE DURAN MUCHO MAS que un destello, y no es capricho: son de los que pintan
 # UNA sola animacion para TODOS sus golpes (SpellData.fx_unico). Si la animacion se apaga antes que
 # el ultimo golpe, se ven numeros saliendo de un sitio donde ya no hay nada.
+# La cura se queda un poco en pantalla: tiene que dar tiempo a ver subir la barra de vida.
+const COLETA_CURA := 0.70
 const COLETA_SOMBRA := 0.95
 const COLETA_ECLIPSE := 1.30
 const FUERA := -20.0         # de que altura caen los rayos y las gotas (por encima del techo)
@@ -224,6 +226,8 @@ func _vida(e: Dictionary) -> float:
 	# hechizo no se llegaba a ver nunca.
 	if es == CombatFX.Estilo.SHOCK_TERMICO or es == CombatFX.Estilo.SHOCK_VAPOR:
 		return float(e["dur"]) + COLETA_SHOCK
+	if es == CombatFX.Estilo.CURACION_LUZ or es == CombatFX.Estilo.CURACION_LUZ_MAYOR:
+		return float(e["dur"]) + COLETA_CURA
 	if es == CombatFX.Estilo.LUZ_ESTALLIDO:
 		return float(e["dur"]) + COLETA_LUZ
 	if es == CombatFX.Estilo.SOMBRA_VORAGINE:
@@ -456,6 +460,8 @@ func _draw() -> void:
 		match int(e["estilo"]):
 			CombatFX.Estilo.PROYECTIL: _pintar_fuego(e)
 			CombatFX.Estilo.SHOCK_TERMICO: _pintar_shock(e)
+			CombatFX.Estilo.CURACION_LUZ: _pintar_curacion(e, 1.0)
+			CombatFX.Estilo.CURACION_LUZ_MAYOR: _pintar_curacion(e, 2.1)
 			CombatFX.Estilo.LUZ_ESTALLIDO: _pintar_luz(e)
 			CombatFX.Estilo.SOMBRA_VORAGINE: _pintar_sombra(e)
 			CombatFX.Estilo.ECLIPSE: _pintar_eclipse(e)
@@ -899,6 +905,60 @@ func _pintar_luz_negra(b: Vector2, rg: float, w: float, sem: float) -> void:
 		draw_circle(b, rg * (0.14 + 0.52 * f3) * abre,
 			Color(1.0, 0.99, 0.95, (0.16 + 0.30 * (1.0 - f3)) * vida))
 	draw_circle(b, rg * 0.13 * abre, Color(1.0, 1.0, 1.0, vida))
+
+# CURACION: el halo de luz que se abre encima del que se cura.
+#
+# De la referencia del autor: un centro de LOBULOS redondeados —como petalos apretados— y, saliendo
+# de el, PUAS finas y largas de largos muy distintos. Calido, no blanco frio: la luz que cura tira a
+# dorado, y asi ademas no se confunde con el Estallido solar, que es la que hace daño.
+#
+# LA MENOR Y LA MAYOR SON EL MISMO DIBUJO con distinta ESCALA (dos entradas del enum que caen en
+# esta misma funcion). Con menos radio salen menos puas y el halo mas fino, que es justo lo que
+# pidio el autor -- sin mantener dos dibujos que se irian separando solos.
+func _pintar_curacion(e: Dictionary, escala: float) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	# El tamaño viene por ESCALA y no por el peso: la capa capa el peso a 1.5 (ver alta), asi que
+	# pasarle mas no agranda nada -- la mayor y la menor salian casi iguales.
+	var rg: float = float(e["r"]) * 2.2 * escala
+	var sem: float = float(e["semilla"])
+	var w: float = clampf(t / (float(e["dur"]) + COLETA_CURA), 0.0, 1.0)
+	# Se abre deprisa y se queda un rato antes de irse: una cura que parpadea no se siente.
+	var abre: float = minf(1.0, w / 0.18)
+	var vida: float = 1.0 - pow(maxf(0.0, (w - 0.45) / 0.55), 2.0)
+	if vida <= 0.01:
+		return
+	var oro := Color(1.0, 0.86, 0.52)
+	var blanco := Color(1.0, 0.98, 0.90)
+	# Cuantas puas: MAS CUANTO MAS GRANDE. Es lo que hace que la menor se vea humilde y la mayor
+	# imponga, con el mismo codigo.
+	var puas: int = clampi(int(rg / 7.0), 6, 20)
+
+	# LAS PUAS, finas y de largos muy desiguales. Van DEBAJO del centro para que nazcan de el.
+	for i in puas:
+		var ang: float = TAU * float(i) / float(puas) + sem * 0.2
+		var d := Vector2(cos(ang), sin(ang))
+		var lat := Vector2(-d.y, d.x)
+		var largo: float = rg * (0.85 + 1.55 * absf(sin(sem + float(i) * 2.7))) * abre
+		var ancho: float = rg * 0.055
+		draw_colored_polygon(PackedVector2Array([
+			b + lat * ancho, b + d * largo, b - lat * ancho,
+		]), Color(blanco.r, blanco.g, blanco.b, 0.85 * vida))
+
+	# EL CENTRO DE LOBULOS. El radio va con |cos| de muchas vueltas, que es lo que hace los petalos
+	# pegados de la referencia; un circulo liso aqui parecia una moneda.
+	var lobulos := PackedVector2Array()
+	var m := 64
+	var n_lob: float = float(maxi(7, puas - 2))
+	for i in m:
+		var a2: float = TAU * float(i) / float(m)
+		var rad: float = rg * (0.52 + 0.10 * absf(cos(a2 * n_lob * 0.5 + sem))) * abre
+		lobulos.append(b + Vector2(cos(a2), sin(a2)) * rad)
+	draw_colored_polygon(lobulos, Color(blanco.r, blanco.g, blanco.b, 0.95 * vida))
+	# El halo calido alrededor, que es lo que le da el tono dorado del contraluz.
+	draw_circle(b, rg * 0.74 * abre, Color(oro.r, oro.g, oro.b, 0.28 * vida))
+	draw_circle(b, rg * 0.34 * abre, Color(1.0, 1.0, 1.0, 0.9 * vida))
+
 
 # ECLIPSE. La voragine entera y, al final, el destello de luz reventando DESDE DENTRO.
 #

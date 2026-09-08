@@ -155,6 +155,9 @@ const RAREZAS := {
 	"descarga": Upgrades.Rareza.COMUN,
 	"brasa": Upgrades.Rareza.COMUN,
 	"rocio": Upgrades.Rareza.COMUN,
+	# La cura de UNO. Poco comun y no comun: llega tarde a proposito, para que las pociones sigan
+	# valiendo al principio.
+	"vendaje_de_luz": Upgrades.Rareza.POCO_COMUN,
 	"pulso_menor": Upgrades.Rareza.COMUN,
 	# Ataque medio de los tres elementos, y el arcano sin elemento.
 	"pulso_arcano": Upgrades.Rareza.POCO_COMUN,
@@ -170,6 +173,7 @@ const RAREZAS := {
 	"filo_torrente": Upgrades.Rareza.RARO,
 	# Los MANTOS, y los dos de LUZ y OSCURIDAD, que son ataque puro de su elemento.
 	"estallido_solar": Upgrades.Rareza.EPICO,
+	"luz_restauradora": Upgrades.Rareza.EPICO,
 	"voragine_sombra": Upgrades.Rareza.EPICO,
 	"manto_brasas": Upgrades.Rareza.EPICO,
 	"manto_centellas": Upgrades.Rareza.EPICO,
@@ -327,6 +331,8 @@ const SIN_GRIMORIO := ["pulso_menor"]
 # la formula "Estudialo y aprenderas X" al final.
 const TEXTOS_GRIMORIO := {
 	"tormenta": "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma pagina. Las tapas estan alabeadas, como si dentro hiciera su propio tiempo. Estudialo y aprenderas Tormenta.",
+	"vendaje_de_luz": "Un cuadernillo de tapas blandas con una cruz cosida en el lomo. Se le nota el uso: alguien lo ha abierto muchas veces y siempre por la misma pagina. Estudialo y aprenderas Vendaje de luz.",
+	"luz_restauradora": "Un tomo claro que no coge polvo. Da igual donde lo dejes y cuanto tiempo pase. Estudialo y aprenderas Luz restauradora.",
 	"estallido_solar": "Un tomo de tapas palidas que cuesta mirar de frente si le da la luz de una vela. Las paginas estan gastadas justo por el centro, como si alguien hubiera leido siempre el mismo parrafo. Estudialo y aprenderas Estallido solar.",
 	"voragine_sombra": "Un tomo que pesa mas de lo que deberia por su tamaño, y que si lo dejas en una mesa acaba en el borde. Nadie recuerda haberlo movido. Estudialo y aprenderas Voragine de sombra.",
 	"eclipse": "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber donde acaba el primero. La costura esta hecha por dentro. Estudialo y aprenderas Eclipse.",

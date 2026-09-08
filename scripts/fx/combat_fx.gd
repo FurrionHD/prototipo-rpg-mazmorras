@@ -297,7 +297,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		PURIFICAR = 99, CHISPA_VINCULADA = 100, EGIDA_MENOR = 101,
 		POSTURA_RODELA = 102, ESCOLTA_FX = 103, MURO_GUARDIAN = 104,
 		SHOCK_TERMICO = 105, SHOCK_VAPOR = 106,
-		LUZ_ESTALLIDO = 107, SOMBRA_VORAGINE = 108, ECLIPSE = 109 }
+		LUZ_ESTALLIDO = 107, SOMBRA_VORAGINE = 108, ECLIPSE = 109,
+		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -404,6 +405,9 @@ const T_VUELO := {
 	# El ECLIPSE se abre antes que los otros dos: la voragine tiene que estar girando ya cuando
 	# entra el golpe, porque el destello -- que es el remate -- va DESPUES.
 	Estilo.ECLIPSE: 0.18,
+	# La CURACION nace encima del que se cura, no viaja. Un pelin de adelanto para que el halo ya
+	# este abierto cuando sube la barra de vida. (Y un 0.0 aqui seria "no se dibuja nada".)
+	Estilo.CURACION_LUZ: 0.12, Estilo.CURACION_LUZ_MAYOR: 0.14,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Vendaje de luz"
+tipo = 3
+frases = Array[String](["Lumen, cierra esta herida"])
+rareza = 1
+coste_mana = 6
+dano_base = 11.0
+cura_pct = 0.07
+elemento = 4
+fx_estilo = 110
+hits = 1
+alcance = 0
+descripcion = "Un poco de luz sobre uno de los tuyos, lo justo para cerrar lo que sangra. No es gran cosa, pero llega al instante y cuesta poco."

@@ -19,7 +19,12 @@
 extends Resource
 class_name SpellData
 
-enum TipoEfecto { ATAQUE, BUFF, DEBUFF }
+# CURACION va AL FINAL, como todo enum que viaje en un .tres: meterla en medio le cambiaria el tipo
+# a todos los hechizos que hay detras.
+#
+# Un hechizo de CURACION no pega: su dano_base es lo que CURA (ver StatsMath.resolve_heal) y su
+# alcance se lee sobre los ALIADOS -- OBJETIVO es "a uno del grupo" y TODOS es "a todo el grupo".
+enum TipoEfecto { ATAQUE, BUFF, DEBUFF, CURACION }
 
 # ALCANCE del hechizo: a cuantos enemigos llega el AREA.
 #   OBJETIVO   = solo al que tengas seleccionado (lo de siempre).
@@ -63,6 +68,15 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # magic_amp del arma (bastones/varitas, futuro KAN-95). PROVISIONAL -> Excel.
 # OJO: este NO es el numero que hay que enseñar en pantalla; para eso esta dano_mostrado().
 @export var dano_base: float = 10.0
+
+# CURACION: fraccion de la VIDA MAXIMA del que la recibe que se cura, ademas de la parte que sale
+# del poder magico (dano_base por StatsMath.resolve_heal).
+#
+# Misma FORMA que la pocion (ConsumableData: plano + cura_pct) pero la cura de un hechizo es
+# INSTANTANEA: entra entera al lanzarlo, no gotea por turnos. El % hace que la magia siga sirviendo cuando las vidas son enormes, y la parte
+# magica hace que un mago con buen baston cure mas que uno pelado. Solo con el %, subir la Magia no
+# haria nada; solo con la parte magica, la cura se quedaria en un rasguño a los pocos tiers.
+@export var cura_pct: float = 0.0
 
 # ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
 # NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.

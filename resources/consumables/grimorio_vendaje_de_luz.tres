@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_ukcre"]
+[ext_resource type="Resource" path="res://resources/spells/vendaje_de_luz.tres" id="2_ewgi1"]
+
+[resource]
+script = ExtResource("1_ukcre")
+nombre = "Grimorio: Vendaje de luz"
+descripcion = "Un cuadernillo de tapas blandas con una cruz cosida en el lomo. Se le nota el uso: alguien lo ha abierto muchas veces y siempre por la misma pagina. Estudialo y aprenderas Vendaje de luz."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_ewgi1")
+tomo_id = &"grimorio_vendaje_de_luz"
+valor_base = 4200

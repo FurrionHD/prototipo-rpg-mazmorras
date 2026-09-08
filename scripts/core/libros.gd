@@ -25,6 +25,7 @@ const HECHIZOS: Array[String] = [
 	"res://resources/spells/filo_fulgurante.tres",
 	"res://resources/spells/filo_torrente.tres",
 	"res://resources/spells/fortaleza.tres",
+	"res://resources/spells/luz_restauradora.tres",
 	"res://resources/spells/manto_brasas.tres",
 	"res://resources/spells/manto_centellas.tres",
 	"res://resources/spells/manto_marea.tres",
@@ -34,6 +35,7 @@ const HECHIZOS: Array[String] = [
 	"res://resources/spells/rocio.tres",
 	"res://resources/spells/shock_termico.tres",
 	"res://resources/spells/tormenta.tres",
+	"res://resources/spells/vendaje_de_luz.tres",
 	"res://resources/spells/voragine_sombra.tres",
 ]
 
@@ -82,6 +84,7 @@ const GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_filo_fulgurante.tres",
 	"res://resources/consumables/grimorio_filo_torrente.tres",
 	"res://resources/consumables/grimorio_fortaleza.tres",
+	"res://resources/consumables/grimorio_luz_restauradora.tres",
 	"res://resources/consumables/grimorio_manto_brasas.tres",
 	"res://resources/consumables/grimorio_manto_centellas.tres",
 	"res://resources/consumables/grimorio_manto_marea.tres",
@@ -90,6 +93,7 @@ const GRIMORIOS: Array[String] = [
 	"res://resources/consumables/grimorio_rocio.tres",
 	"res://resources/consumables/grimorio_shock_termico.tres",
 	"res://resources/consumables/grimorio_tormenta.tres",
+	"res://resources/consumables/grimorio_vendaje_de_luz.tres",
 	"res://resources/consumables/grimorio_voragine_sombra.tres",
 ]
 

@@ -5091,7 +5091,12 @@ func _accion_magia() -> void:
 # ¿Este hechizo cae sobre uno de LOS TUYOS? Los Filos y Mantos (imbuicion) y los BUFF puros
 # (Fortaleza). Los de ataque y los DEBUFF van al enemigo y no preguntan nada.
 func _va_a_aliado(spell: SpellData) -> bool:
-	return spell != null and (spell.imbue_tipo > 0 or spell.tipo == SpellData.TipoEfecto.BUFF)
+	# Las de CURACION tambien: se echan sobre uno de los tuyos, asi que pasan por el mismo selector
+	# que los Filos. Las de grupo (alcance TODOS) NO preguntan -- van a todos y no hay nada que
+	# elegir; ver la rama de _curar_con_hechizo.
+	return spell != null and (spell.imbue_tipo > 0 or spell.tipo == SpellData.TipoEfecto.BUFF
+		or (spell.tipo == SpellData.TipoEfecto.CURACION
+			and spell.alcance != SpellData.Alcance.TODOS))
 
 
 # Los tuyos en pie que llevan ARMA. Solo importa para los FILOS: un filo tiñe el acero, y a quien
@@ -5576,6 +5581,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# Los estados de un hechizo sin daño (buff/debuff) se aplican aqui: no hay golpes que
 		# los lleven. Los de ATAQUE ya los ha tirado cada golpe con SU elemento.
 		_aplicar_estado_hechizo(spell)
+	# CURACION: no pega, cura. Va DESPUES del bloque de daño y no dentro, porque un hechizo de
+	# curacion nunca entra por ahi (su tipo no es ATAQUE).
+	if spell.tipo == SpellData.TipoEfecto.CURACION:
+		_curar_con_hechizo(spell)
 	# IMBUICION (KAN-58): el hechizo no pega, tiñe tus GOLPES DE ARMA con su elemento.
 	if spell.imbue_tipo > 0:
 		_aplicar_imbuicion(spell)
@@ -5675,6 +5684,45 @@ func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -
 	# Si el conjuro se los ha llevado a todos, esto cierra la pelea con victoria (y su loot y su
 	# excelia): matar de entrada es un desenlace legitimo, no un caso raro que haya que evitar.
 	_tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
+
+
+# CURAR CON UN HECHIZO. A quien elegiste (_cast_aliado) o a TODO el grupo si su alcance es TODOS.
+#
+# LA CURA SALE POR Combatant.heal Y POR NINGUN OTRO SITIO. Ahi vive status_heal_recv_mult —lo que
+# hace que una Herida profunda te cure menos— asi que escribir 'current_hp += x' aqui se saltaria
+# ese estado en silencio y solo para la magia.
+#
+# ES INSTANTANEA. Se parece a la pocion en la FORMULA (un % de la vida maxima mas una parte fija)
+# pero NO en como llega: la pocion gotea por turnos con el estado Regeneracion, y esto entra entero
+# en el momento en que se lanza. Es lo que justifica que cueste maná y un turno de recitado.
+#
+# Las dos partes son a proposito: el % hace que la magia siga valiendo cuando las vidas son enormes,
+# y la parte magica (dano_base por el poder del que lanza, o sea su Magia y el magic_amp del baston)
+# hace que un mago con buen baston cure mas que uno pelado. Solo con el %, subir la Magia no haria
+# nada; solo con la parte magica, la cura se quedaria en un rasguño a los pocos tiers.
+func _curar_con_hechizo(spell: SpellData) -> void:
+	var destinos: Array[Combatant] = []
+	if spell.alcance == SpellData.Alcance.TODOS:
+		destinos = _aliados_vivos()
+	elif _cast_aliado != null:
+		destinos = [_cast_aliado] as Array[Combatant]
+	else:
+		destinos = [_player] as Array[Combatant]
+
+	var partes: PackedStringArray = []
+	for c in destinos:
+		if c == null or not c.is_alive():
+			continue
+		var antes: float = c.current_hp
+		var cura: float = spell.cura_pct * c.max_hp + StatsMath.resolve_heal(_player, spell)
+		c.heal(cura)
+		# LO QUE HA SUBIDO DE VERDAD, no lo que se pidio: con la vida casi llena la mitad se pierde,
+		# y cantar el numero pedido seria mentir en la unica linea que el jugador lee.
+		var real: float = c.current_hp - antes
+		_fx_golpe(_player, c, 0.0, false, false, int(spell.elemento),
+			spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, true)
+		partes.append("%s +%.0f" % [c.nombre, real])
+	_set_log("✨ %s lanza %s.  %s" % [_player.nombre, spell.nombre, "  ·  ".join(partes)])
 
 
 # IMBUICION (KAN-58): tiñe tus golpes de arma con el elemento del hechizo.

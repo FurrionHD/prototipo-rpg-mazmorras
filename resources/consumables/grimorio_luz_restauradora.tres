@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_xwi66"]
+[ext_resource type="Resource" path="res://resources/spells/luz_restauradora.tres" id="2_iw3ry"]
+
+[resource]
+script = ExtResource("1_xwi66")
+nombre = "Grimorio: Luz restauradora"
+descripcion = "Un tomo claro que no coge polvo. Da igual donde lo dejes y cuanto tiempo pase. Estudialo y aprenderas Luz restauradora."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_iw3ry")
+tomo_id = &"grimorio_luz_restauradora"
+valor_base = 4200

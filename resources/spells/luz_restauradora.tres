@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Luz restauradora"
+tipo = 3
+frases = Array[String](["Lumen, cierra esta herida", "Luz sagrada, restáurame"])
+rareza = 3
+coste_mana = 15
+dano_base = 26.0
+cura_pct = 0.14
+elemento = 4
+fx_estilo = 111
+hits = 1
+alcance = 2
+descripcion = "Se abre una luz sobre todo el grupo a la vez y cierra lo que encuentra. Entra de golpe, no poco a poco: lo que cura, lo cura ya. Cuanto mejor sea el bastón, más da."

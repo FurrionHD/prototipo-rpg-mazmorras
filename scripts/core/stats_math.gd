@@ -508,6 +508,21 @@ const BACKFIRE_PCT := 0.08
 # (damage() es lineal en el ataque); lo que cambia es que cada golpe pasa por la tabla de
 # tipos con su elemento y ve el estado del defensor TAL COMO ESTA en ese instante: si un
 # golpe anterior lo mojo, este rayo ya cobra el ×1.5.
+# LO QUE CURA un hechizo de CURACION. Es la primera mitad EXACTA de resolve_spell —el mismo raw por
+# el mismo magia_factor, magic_amp y SPELL_DAMAGE_MULT— y ahi se para: no hay defensa que restar,
+# porque a un aliado no se le mitiga la cura.
+#
+# Va aqui al lado y no en combat.gd para que la magia de curar escale IGUAL que la de pegar. Si la
+# cuenta viviera en la pantalla, el dia que se toque el escalado de la magia se moveria el daño y la
+# cura se quedaria como estaba, sin que nadie se entere.
+#
+# El multiplicador de "cuanta cura RECIBES" no se aplica aqui: eso es del que la recibe y vive en
+# Combatant.heal (status_heal_recv_mult), que es el paso unico de toda la cura del juego.
+static func resolve_heal(attacker: Combatant, spell: SpellData, frac: float = 1.0) -> float:
+	var raw: float = spell.dano_base * frac
+	return raw * magia_factor(attacker.hab("magia")) * attacker.magic_amp 		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
+
+
 static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData,
 		elem_override: int = -1, dano_frac: float = 1.0) -> Dictionary:
 	var elem: int = elem_override if elem_override >= 0 else spell.elemento

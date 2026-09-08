@@ -32,8 +32,10 @@ const FILAS := [
 		"color": Color(1.0, 0.97, 0.85)},
 	{"estilo": CombatFX.Estilo.SOMBRA_VORAGINE, "elem": 5, "nombre": "Vorágine de sombra",
 		"color": Color(0.42, 0.24, 0.55)},
-	{"estilo": CombatFX.Estilo.ECLIPSE, "elem": 5, "nombre": "Eclipse",
-		"color": Color(0.42, 0.24, 0.55)},
+	{"estilo": CombatFX.Estilo.CURACION_LUZ_MAYOR, "elem": 4, "nombre": "Curación MAYOR",
+		"color": Color(1.0, 0.97, 0.85)},
+	{"estilo": CombatFX.Estilo.CURACION_LUZ, "elem": 4, "nombre": "Curación menor",
+		"color": Color(1.0, 0.97, 0.85), "peso": 1.0},
 ]
 
 var _capa: CapaHechizos = null
@@ -59,13 +61,15 @@ func _ready() -> void:
 	var origen := Vector2(150.0, 380.0)
 	for i in FILAS.size():
 		var fila: Dictionary = FILAS[i]
-		var y: float = 90.0 + 150.0 * float(i)
+		var y: float = 70.0 + 108.0 * float(i)
 		# CADA ESTILO CON SU PROPIO VUELO, el de CombatFX.T_VUELO, no uno comun. Dandoles a todos el
 		# del Shock (0,55) el estallido de luz se pasaba su vida entera desvaneciendose y salia en
 		# blanco: la foto mentia por culpa del visor, no del efecto.
 		var vuelo: float = float(CombatFX.T_VUELO.get(int(fila["estilo"]), DUR))
+		# El PESO decide el tamaño (de ahi sale e["r"]), y en la curacion ademas el numero de puas:
+		# es lo unico que separa la mayor de la menor.
 		_capa.alta(int(fila["estilo"]), origen, Vector2(860.0, y), fila["color"],
-			1.5, vuelo, 120.0, int(fila["elem"]), 0)
+			float(fila.get("peso", 1.5)), vuelo, 120.0, int(fila["elem"]), 0)
 		var et := Label.new()
 		et.text = String(fila["nombre"])
 		et.position = Vector2(950.0, y - 10.0)
