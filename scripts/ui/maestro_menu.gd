@@ -199,7 +199,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			_cerrar()
+			# EL MODAL PRIMERO. Esc cierra lo de encima, no la pantalla entera: abrir los detalles
+			# del gacha y que Esc te echase del maestro es perder el sitio por consultar una tabla.
+			if _modal_abierto():
+				_cerrar_detalles()
+			else:
+				_cerrar()
 			get_viewport().set_input_as_handled()
 
 
@@ -315,6 +320,11 @@ func _rebuild_real() -> void:
 	# habia que remontarlos en cada pasada.
 	MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
+	# EL MODAL DE DETALLES NO ES HIJO DE _lista (cuelga de _root, para flotar sobre todo), asi que
+	# vaciar las columnas no se lo lleva: fuera de Meditacion hay que cerrarlo a mano. Sin esto se
+	# quedaba abierto por encima de la Biblioteca, enseñando las probabilidades de otra pantalla.
+	if _tab != TAB_MEDITACION:
+		_cerrar_detalles()
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_dinero_lbl.text = "%d monedas" % Game.money
 
@@ -399,44 +409,223 @@ func _pintar_armas(pj: PersonajeData) -> void:
 # ============================================================
 #  MEDITACION (el gacha)
 #
-#  De momento SOLO LA TABLA: que sale y con que probabilidad. Tirar viene despues.
+#  Pagas y el azar decide: la magia se GANA, no se compra. Por eso los grimorios salieron de la
+#  tienda -- poder comprar justo el hechizo que te falta vaciaba de sentido toda esta pantalla.
 #
-#  La tabla NO lleva ni un numero escrito a mano: sale de Game.probs_grimorio con el pool y el
+#  EL REPARTO DE LA PANTALLA, copiado del molde de los gachas (ver las capturas de referencia):
+#    - LA COLUMNA DEL CENTRO es para TIRAR. Lo minimo: cuanto falta para cada garantizado y los dos
+#      botones. Nada mas, y a proposito.
+#    - LA COLUMNA DE LA DERECHA es lo que HA SALIDO: la carta de la ultima tirada (o las diez).
+#    - TODO LO DEMAS -- probabilidades, lista de lo que puede caer, historial -- vive DETRAS DE UN
+#      BOTON, en un modal de dos pestañas. Estuvo suelto en la columna del centro y ocupaba la
+#      pantalla entera con lo que menos se mira; la tabla se consulta de vez en cuando, no cada vez.
+#
+#  Y LA TABLA NO LLEVA NI UN NUMERO ESCRITO A MANO: sale de Game.probs_grimorio con el pool y el
 #  personaje de verdad. Una pantalla de porcentajes copiada a mano es la que miente en cuanto
 #  alguien toca un peso, y encima nadie se entera hasta que se juega.
 # ============================================================
 
 func _pintar_meditacion(pj: PersonajeData) -> void:
-	MenuScaffold.titulo(_lista, "MEDITACIÓN", 14)
+	# SIN TITULO PROPIO: "MEDITACIÓN" ya esta arriba del todo, en _titulo_seccion, y repetirlo dos
+	# veces a cuatro dedos de distancia solo gastaba la franja que ahora usa el garantizado.
 	MenuScaffold.nota(_lista, "Medita %s: elige arriba a quién le toca. Lo que ya se sabe le sale "
 		% pj.nombre + "menos, pero nunca deja de salir.")
-	MenuScaffold.nota(_lista, "(la tirada aún no está puesta)")
 	_lista.add_child(HSeparator.new())
-	# LAS PROBABILIDADES VAN DETRAS DE UN BOTON, como en cualquier gacha: la pantalla principal es
-	# para tirar, y la tabla es lo que se consulta de vez en cuando. Teniendola siempre abierta,
-	# ocupaba la pantalla entera con lo que menos se mira.
-	MenuScaffold.boton(_lista, "Ocultar probabilidades" if _ver_probs else "Ver probabilidades",
-		_alternar_probs)
-	if not _ver_probs:
+
+	_pintar_pity(pj)
+	_lista.add_child(HSeparator.new())
+
+	# LOS DOS BOTONES, que son el motivo de que esta pantalla exista. Se apagan solos si no llega el
+	# dinero, en vez de dejarte pulsar y soltarte un aviso: el precio ya esta escrito al lado.
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 6)
+	_lista.add_child(caja)
+	MenuScaffold.boton(caja, "Meditar  ×1        %s monedas" % _con_puntos(Game.GACHA_PRECIO),
+		_meditar_x1, Game.puede_pagar(Game.GACHA_PRECIO))
+	MenuScaffold.boton(caja, "Meditar  ×10      %s monedas   (pagas 9, llevas 10)"
+		% _con_puntos(Game.GACHA_PRECIO_X10),
+		_meditar_x10, Game.puede_pagar(Game.GACHA_PRECIO_X10))
+	if not Game.puede_pagar(Game.GACHA_PRECIO):
+		MenuScaffold.nota(_lista, "No te llega para una tirada.")
+
+	_lista.add_child(HSeparator.new())
+	MenuScaffold.boton(_lista, "Ver detalles", _abrir_detalles)
+
+	# LO QUE HA SALIDO, en la columna de la derecha.
+	_pintar_revelado()
+
+	# Si los detalles estan abiertos, se vuelven a montar: sus probabilidades son LAS DEL PERSONAJE
+	# ELEGIDO, asi que cambiar de retrato con el modal delante tiene que cambiar la tabla. Sin esto
+	# seguia enseñando las del anterior, que es la clase de mentira que nadie comprueba.
+	if _modal_abierto():
+		_montar_modal()
+
+
+# CUANTO FALTA PARA CADA GARANTIZADO. Es la mitad de la pantalla principal porque es la unica
+# informacion que cambia lo que haces ahora mismo ("me quedan tres para el garantizado, tiro").
+#
+# LOS NUMEROS SALEN DE Game.gacha_pity_restante, NO de restar aqui: si esta pantalla hiciera su
+# propia cuenta, el dia que el pity cambie de escalones diria una cosa y el sorteo haria otra, y el
+# jugador se fiaria de la pantalla.
+func _pintar_pity(pj: PersonajeData) -> void:
+	var falta: Dictionary = Game.gacha_pity_restante(pj)
+	MenuScaffold.titulo(_lista, "GARANTIZADO", 13)
+	_fila_pity("Épico o mejor", int(falta["epico"]), Game.GACHA_PITY_EPICO,
+		Upgrades.rareza_color(Upgrades.Rareza.EPICO))
+	_fila_pity("Legendario o mejor", int(falta["legendario"]), Game.GACHA_PITY_LEGENDARIO,
+		Upgrades.rareza_color(Upgrades.Rareza.LEGENDARIO))
+	# LA REGLA, ESCRITA. Es lo contrario de lo que hace casi cualquier otro gacha, asi que si no se
+	# dice, el jugador da por hecho lo de siempre (que un acierto le reinicia el contador) y no se
+	# fia del numero de arriba. Ver la nota larga de Game.tirar_meditacion.
+	MenuScaffold.nota(_lista, "La cuenta es de tiradas: si te sale uno bueno por suerte, el "
+		+ "garantizado llega igual. Solo se reinicia cuando lo cobras.")
+
+
+func _fila_pity(que: String, faltan: int, total: int, color: Color) -> void:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 10)
+	_lista.add_child(fila)
+	var nom := Label.new()
+	nom.text = que
+	nom.add_theme_color_override("font_color", color)
+	nom.custom_minimum_size.x = 180
+	fila.add_child(nom)
+	var n := Label.new()
+	# El singular, a mano: "faltan 1" canta, y esta linea se lee una vez por tirada.
+	if faltan <= 0:
+		n.text = "¡la siguiente!"
+	elif faltan == 1:
+		n.text = "falta 1"
+	else:
+		n.text = "faltan %d" % faltan
+	if faltan <= 0:
+		n.add_theme_color_override("font_color", VERDE)
+	fila.add_child(n)
+	var de := Label.new()
+	de.text = "  ·  de %d" % total
+	de.add_theme_color_override("font_color", GRIS)
+	fila.add_child(de)
+
+
+# ------------------------------------------------------------
+#  TIRAR
+# ------------------------------------------------------------
+
+# Lo que ha salido en la ULTIMA tirada, para pintarlo a la derecha. Es de la pantalla y no de la
+# partida: al cerrar el menu se olvida (lo que perdura es el historial, que si se guarda).
+var _revelado: Array = []
+
+func _meditar_x1() -> void:
+	_meditar(1, Game.GACHA_PRECIO)
+
+
+func _meditar_x10() -> void:
+	_meditar(10, Game.GACHA_PRECIO_X10)
+
+
+# UNA TANDA DE TIRADAS. Cobra UNA VEZ por la tanda (por eso la x10 puede tener descuento) y despues
+# tira: Game.tirar_meditacion no cobra ni entrega nada a proposito, para que se pueda tirar diez mil
+# veces en el visor sin tocar la partida.
+func _meditar(cuantas: int, precio: int) -> void:
+	if not Game.gastar(precio):
+		_aviso = "No te llega."
+		_aviso_ok = false
+		_rebuild()
 		return
-	_tabla_probs(pj)
-
-
-func _alternar_probs() -> void:
-	_ver_probs = not _ver_probs
+	var pj: PersonajeData = _pj()
+	var pool: Array = _pool_grimorios()
+	var tochos: Array = _pool_tochos()
+	# UN RNG NUEVO POR TANDA, sin semilla fija: aqui se quiere azar de verdad. El parametro existe
+	# para que el visor pueda repetir una racha y, el dia que esto vaya por red, para que las tire
+	# el host con su semilla (ver Game.sortear_grimorio).
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	_revelado.clear()
+	for i in cuantas:
+		var t: Dictionary = Game.tirar_meditacion(pj, rng, pool, tochos)
+		var c: ConsumableData = t.get("item")
+		if c == null:
+			continue
+		Game.add_consumable(c, 1)
+		Game.gacha_apuntar(pj, c, int(t.get("pity", 0)))
+		_revelado.append(t)
+	_aviso = "%s medita." % pj.nombre
+	_aviso_ok = true
+	# NO se guarda aqui: ninguna pantalla del juego guarda al comprar (tampoco la tienda). El
+	# guardado va por los caminos de siempre, y meter un volcado a disco por tirada haria que una
+	# x10 escribiera la partida diez veces.
 	_rebuild()
 
 
-var _ver_probs: bool = false
+# LO QUE HA SALIDO, en la columna de la derecha: una linea por libro, con el nombre del color de su
+# rareza. Los buenos ademas CENTELLEAN (MenuScaffold.titulo_item con brillo), que es lo que hace que
+# una tirada afortunada se note sin leer nada.
+func _pintar_revelado() -> void:
+	if _revelado.is_empty():
+		MenuScaffold.nota(_content, "Aquí sale lo que te toque.")
+		return
+	MenuScaffold.titulo(_content, "TE HA SALIDO", 14)
+	for t in _revelado:
+		var c: ConsumableData = t.get("item")
+		if c == null:
+			continue
+		var s: SpellData = t.get("spell")
+		var r: int = int(s.rareza) if s != null else -1
+		# El tocho no tiene rareza (r = -1) y va en gris: pintarlo del color del comun lo haria pasar
+		# por un premio de la escala, que es justo lo que no es.
+		var color: Color = Upgrades.rareza_color(r) if r >= 0 else GRIS
+		# La intensidad del destello sube con la rareza y SOLO a partir de epico: si centellea todo,
+		# no centellea nada. Es la misma idea que el destello relativo del equipo.
+		var brillo: float = 0.0
+		if r >= Upgrades.Rareza.EPICO:
+			brillo = clampf(float(r - Upgrades.Rareza.EPICO + 1) / 3.0, 0.34, 1.0)
+		MenuScaffold.titulo_item(_content, c.nombre, color, brillo)
+		var pie := Label.new()
+		var partes: Array = [c.seccion_biblioteca()]
+		if int(t.get("pity", 0)) > 0:
+			partes.append("garantizado")
+		pie.text = "  " + "  ·  ".join(partes)
+		pie.add_theme_color_override("font_color", GRIS)
+		_content.add_child(pie)
+	_content.add_child(HSeparator.new())
+	MenuScaffold.nota(_content, "Los libros van a la bolsa: se leen desde el inventario.")
+
+
+# Los tochos que pueden caer. Del manifiesto y no de escanear la carpeta, por lo mismo que los
+# grimorios: en el .exe un escaneo de res:// no es de fiar (ver Libros).
+func _pool_tochos() -> Array:
+	var out: Array = []
+	for ruta in Libros.TOCHOS:
+		var c: ConsumableData = load(ruta) as ConsumableData
+		if c != null:
+			out.append(c)
+	return out
+
+
+# 20000 -> "20.000". El punto de los miles, que es como se escriben aqui los precios.
+func _con_puntos(n: int) -> String:
+	var s: String = str(n)
+	var out: String = ""
+	var c: int = 0
+	for i in range(s.length() - 1, -1, -1):
+		out = s[i] + out
+		c += 1
+		if c % 3 == 0 and i > 0:
+			out = "." + out
+	return out
 
 
 # LA TABLA. No lleva ni un numero escrito a mano: sale de Game.probs_grimorio con el pool y el
 # personaje de verdad. Una pantalla de porcentajes copiada a mano es la que miente en cuanto alguien
 # toca un peso, y encima nadie se entera hasta que se juega.
-func _tabla_probs(pj: PersonajeData) -> void:
+#
+# Recibe el VBox DONDE pintar en vez de escribir en _lista: la misma tabla se enseña ahora dentro
+# del modal de detalles, y duplicarla para cambiarle el destino era garantizar que una de las dos
+# se quedase atras.
+func _tabla_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 	var pool: Array = _pool_grimorios()
 	if pool.is_empty():
-		MenuScaffold.nota(_lista, "(no hay ningún grimorio en el repertorio)")
+		MenuScaffold.nota(vb, "(no hay ningún grimorio en el repertorio)")
 		return
 	var probs: Dictionary = Game.probs_grimorio(pool, pj)
 
@@ -458,7 +647,7 @@ func _tabla_probs(pj: PersonajeData) -> void:
 		var d2: Dictionary = por_banda[r]
 		var fila := HBoxContainer.new()
 		fila.add_theme_constant_override("separation", 10)
-		_lista.add_child(fila)
+		vb.add_child(fila)
 		var nom := Label.new()
 		nom.text = _nombre_rareza(int(r))
 		nom.add_theme_color_override("font_color", Upgrades.rareza_color(int(r)))
@@ -477,9 +666,248 @@ func _tabla_probs(pj: PersonajeData) -> void:
 		cuantos.add_theme_color_override("font_color", MenuScaffold.GRIS)
 		fila.add_child(cuantos)
 
-	_lista.add_child(HSeparator.new())
-	MenuScaffold.nota(_lista, "Estas cuentas salen del reparto de verdad, no están escritas aquí: "
+	vb.add_child(HSeparator.new())
+	MenuScaffold.nota(vb, "Estas cuentas salen del reparto de verdad, no están escritas aquí: "
 		+ "si cambia el reparto, cambia esta tabla.")
+
+
+# ------------------------------------------------------------
+#  EL MODAL DE DETALLES: dos pestañas, "Probabilidades" e "Historial".
+#
+#  Va SUPERPUESTO sobre la pantalla del maestro (hijo de _root, que es el Control de pantalla
+#  completa del scaffold) y no como una seccion mas de la columna: lo que se consulta de vez en
+#  cuando no puede quedarse ocupando el sitio de lo que se usa siempre.
+#
+#  Se monta y se destruye entero en cada apertura. Es una pantalla de consultar, sin estado que
+#  conservar, y un panel que se esconde en vez de morir es un panel que se queda con datos viejos
+#  el dia que alguien cambie de personaje con el abierto.
+# ------------------------------------------------------------
+
+const MODAL_TABS := ["Probabilidades", "Historial"]
+
+var _modal: Control = null
+var _modal_tab: int = 0
+
+func _abrir_detalles() -> void:
+	_modal_tab = 0
+	_montar_modal()
+
+
+func _cerrar_detalles() -> void:
+	if _modal != null:
+		# SE SACA DEL ARBOL EN EL ACTO, y ademas se libera. queue_free() no borra hasta el final del
+		# frame, asi que al cambiar de pestaña el modal viejo seguia dibujandose DEBAJO del nuevo: se
+		# veian los dos superpuestos y medio pisados, con el titulo de uno asomando por detras del
+		# otro. Con remove_child el sitio queda libre ya, y el queue_free solo se ocupa de la memoria.
+		if _modal.get_parent() != null:
+			_modal.get_parent().remove_child(_modal)
+		_modal.queue_free()
+		_modal = null
+
+
+func _modal_abierto() -> bool:
+	return _modal != null and is_instance_valid(_modal)
+
+
+func _on_modal_tab(i: int) -> void:
+	_modal_tab = i
+	_montar_modal()
+
+
+func _montar_modal() -> void:
+	_cerrar_detalles()
+	var pj: PersonajeData = _pj()
+
+	_modal = Control.new()
+	_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# EL Z A TOPE, y no basta con ser el ultimo hijo. Los RETRATOS llevan dentro un MunecoJugador,
+	# que va con z_as_relative = false y se reparte z_index de hasta 2048 para ordenar sus propias
+	# capas (ver muneco_jugador.gd): con z absoluto, esas caras se dibujan por encima de CUALQUIER
+	# Control de z 0 aunque este detras en el arbol. Sin esto, las cuatro cabezas salian flotando
+	# sobre el panel y tapaban el titulo del modal.
+	# 4096 es el tope que acepta Godot; pasarse no lo recorta, lo rechaza y deja el valor anterior.
+	_modal.z_index = 4096
+	_root.add_child(_modal)
+
+	# EL VELO. Ademas de oscurecer, COME LOS CLICS (MOUSE_FILTER_STOP): sin el se podia pulsar
+	# "Meditar" a traves del modal, que es gastarse 2.000 monedas sin ver lo que sale.
+	var velo := ColorRect.new()
+	velo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	velo.color = Color(0, 0, 0, 0.6)
+	velo.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal.add_child(velo)
+
+	var panel := PanelContainer.new()
+	panel.theme = MenuScaffold.tema()
+	# POR MARGENES Y NO POR TAMAÑO FIJO. Con PRESET_CENTER y un custom_minimum_size, el panel se
+	# queda anclado a su centro pero el CONTENIDO lo estira: la primera version tenia la pestaña
+	# "Probabilidades" saliendose por el borde izquierdo y cortada a la mitad. Atado a los cuatro
+	# lados, el que se tiene que apañar con el hueco es el contenido, que para eso lleva scroll.
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = MODAL_MARGEN_X
+	panel.offset_right = -MODAL_MARGEN_X
+	panel.offset_top = MODAL_MARGEN_Y
+	panel.offset_bottom = -MODAL_MARGEN_Y
+	_modal.add_child(panel)
+
+	var margen := MarginContainer.new()
+	for lado in ["left", "right", "top", "bottom"]:
+		margen.add_theme_constant_override("margin_" + lado, 16)
+	panel.add_child(margen)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	margen.add_child(col)
+
+	var cabecera := HBoxContainer.new()
+	cabecera.add_theme_constant_override("separation", 8)
+	col.add_child(cabecera)
+	MenuScaffold.pestanas(cabecera, MODAL_TABS, _modal_tab, _on_modal_tab, MODAL_TAB_ANCHO)
+	var empuja := Control.new()
+	empuja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cabecera.add_child(empuja)
+	MenuScaffold.boton(cabecera, "✕", _cerrar_detalles)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(scroll)
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 4)
+	scroll.add_child(vb)
+
+	if _modal_tab == 0:
+		_pintar_detalles_probs(pj, vb)
+	else:
+		_pintar_detalles_historial(vb)
+
+
+# Lo que el modal deja ver de la pantalla de debajo, por lado. Sobre las unidades logicas de
+# 1280x720 (ver project.godot) esto es un panel de 1040x580: casi toda la pantalla, como en el
+# molde del que se copia. Deja el marco justo para que se siga entendiendo que hay algo detras.
+const MODAL_MARGEN_X := 120.0
+const MODAL_MARGEN_Y := 70.0
+# Las pestañas del modal son mas anchas que las de 120 por defecto: "Probabilidades" no cabe.
+const MODAL_TAB_ANCHO := 180
+
+
+# PESTAÑA 1: que puede caer y con que probabilidad. Dos tablas, y en este orden a proposito:
+# primero QUE CLASE de libro (que es el reparto que mas manda y el que nadie se espera: nueve de
+# cada diez tiradas NO son un grimorio) y despues, dentro del grimorio, que rareza.
+func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
+	MenuScaffold.titulo(vb, "QUÉ PUEDE CAER", 14)
+	MenuScaffold.nota(vb, "Cada tirada saca un libro. Primero se decide de qué clase es:")
+	_fila_reparto(vb, "Grimorio", Game.GACHA_P_GRIMORIO, "enseña un hechizo", AMBAR)
+	_fila_reparto(vb, "Tomo de sabiduría", Game.GACHA_P_TOMO_SABIO, "da excelia mágica al leerlo",
+		VERDE)
+	_fila_reparto(vb, "Curiosidad", 1.0 - Game.GACHA_P_GRIMORIO - Game.GACHA_P_TOMO_SABIO,
+		"para la biblioteca", GRIS)
+	MenuScaffold.nota(vb, "Las curiosidades que ya te has leído no vuelven a salir.")
+
+	vb.add_child(HSeparator.new())
+	MenuScaffold.titulo(vb, "Y SI SALE GRIMORIO, DE QUÉ RAREZA", 14)
+	MenuScaffold.nota(vb, "Para %s. A cada uno le sale menos lo que ya se sabe." % pj.nombre)
+	_tabla_probs(pj, vb)
+
+	vb.add_child(HSeparator.new())
+	MenuScaffold.titulo(vb, "GARANTIZADOS", 14)
+	# El texto del pity, DERIVADO de las constantes: escribir "50" y "200" a mano aqui es la forma
+	# clasica de que la pantalla siga prometiendo lo de antes cuando se muevan los escalones.
+	MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio épico o mejor."
+		% Game.GACHA_PITY_EPICO)
+	MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio legendario o mejor."
+		% Game.GACHA_PITY_LEGENDARIO)
+	MenuScaffold.nota(vb, "Se cuentan TIRADAS, no la racha: que te salga uno bueno por suerte no "
+		+ "retrasa el garantizado. Los dos van por personaje.")
+
+
+func _fila_reparto(vb: VBoxContainer, que: String, p: float, para_que: String, color: Color) -> void:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 10)
+	vb.add_child(fila)
+	var nom := Label.new()
+	nom.text = que
+	nom.add_theme_color_override("font_color", color)
+	nom.custom_minimum_size.x = 180
+	fila.add_child(nom)
+	var pct := Label.new()
+	pct.text = "%.0f%%" % (p * 100.0)
+	pct.custom_minimum_size.x = 70
+	fila.add_child(pct)
+	var q := Label.new()
+	q.text = "·  " + para_que
+	q.add_theme_color_override("font_color", GRIS)
+	fila.add_child(q)
+
+
+# PESTAÑA 2: EL HISTORIAL. Una fila por tirada, lo mas nuevo arriba, con el nombre del color de su
+# rareza -- que es lo que hace que se pueda barrer con la vista buscando los buenos.
+func _pintar_detalles_historial(vb: VBoxContainer) -> void:
+	MenuScaffold.titulo(vb, "LO QUE TE HA IDO SALIENDO", 14)
+	if Game.gacha_historial.is_empty():
+		MenuScaffold.nota(vb, "Todavía no has meditado.")
+		return
+	MenuScaffold.nota(vb, "Las últimas %d tiradas, la más reciente arriba."
+		% Game.GACHA_HISTORIAL_MAX)
+	vb.add_child(HSeparator.new())
+
+	# EN REJILLA Y NO EN FILAS DE HBox. Con HBox las columnas se corrian: un ancho minimo solo es un
+	# MINIMO, asi que un nombre largo ("Reconocimiento de la piedra por el tacto") empujaba su fila y
+	# la de al lado quedaba desalineada. Un GridContainer reparte por COLUMNA, que es lo que hace que
+	# una tabla se pueda barrer con la vista.
+	var tabla := GridContainer.new()
+	tabla.columns = 4
+	tabla.add_theme_constant_override("h_separation", 18)
+	tabla.add_theme_constant_override("v_separation", 4)
+	tabla.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.add_child(tabla)
+
+	for cab in ["Qué", "De qué", "Quién", "Cuándo"]:
+		var h := Label.new()
+		h.text = cab
+		h.add_theme_color_override("font_color", AMBAR)
+		tabla.add_child(h)
+
+	for e in Game.gacha_historial:
+		var nom := Label.new()
+		var r: int = int(e.get("rareza", -1))
+		# El "★" delante marca el garantizado. Va PEGADO al nombre y no en una quinta columna porque
+		# lo que se busca al abrir esto es "¿qué me salió?", y una columna casi siempre vacia solo
+		# roba ancho a la que se lee.
+		nom.text = ("★ " if int(e.get("pity", 0)) > 0 else "") + String(e.get("nombre", ""))
+		# El color ES la informacion de esta tabla: es lo que deja encontrar los buenos sin leer.
+		# Un tocho no tiene rareza (-1) y va en gris, para que no pase por un premio de la escala.
+		nom.add_theme_color_override("font_color",
+			Upgrades.rareza_color(r) if r >= 0 else GRIS)
+		tabla.add_child(nom)
+
+		var sec := Label.new()
+		sec.text = String(e.get("seccion", ""))
+		sec.add_theme_color_override("font_color", GRIS)
+		tabla.add_child(sec)
+
+		var quien := Label.new()
+		quien.text = String(e.get("quien", ""))
+		quien.add_theme_color_override("font_color", GRIS)
+		tabla.add_child(quien)
+
+		var cuando := Label.new()
+		cuando.text = _fecha_corta(int(e.get("cuando", 0)))
+		cuando.add_theme_color_override("font_color", GRIS)
+		tabla.add_child(cuando)
+
+
+# El sello de una tirada, en corto: "07-09 09:45". Sin año ni segundos -- esto se mira para situar
+# una tirada dentro de la sesion ("esto fue antes o despues de comer"), no para fecharla.
+func _fecha_corta(unix: int) -> String:
+	if unix <= 0:
+		return ""
+	# EN HORA LOCAL. get_datetime_dict_from_unix_time devuelve UTC, asi que hay que sumarle el huso
+	# a mano: sin esto, en España las tiradas salian fechadas una o dos horas antes de haberlas
+	# hecho, que es de las cosas que se miran una vez y se dan por buenas.
+	var bias: int = int(Time.get_time_zone_from_system().get("bias", 0))
+	var t: Dictionary = Time.get_datetime_dict_from_unix_time(unix + bias * 60)
+	return "%02d-%02d %02d:%02d" % [int(t["day"]), int(t["month"]), int(t["hour"]), int(t["minute"])]
 
 
 # Los hechizos que pueden salir: los que tienen grimorio. Sale del manifiesto y no de escanear la

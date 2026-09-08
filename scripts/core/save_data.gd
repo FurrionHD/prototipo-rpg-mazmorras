@@ -218,6 +218,23 @@ const VERSION_MUNDO := 1
 # MUNDO. Lo que has leido lo has leido, juegues donde juegues, y la coleccion del host no es la tuya.
 @export var biblioteca: Dictionary = {}
 
+# EL HISTORIAL DE LA MEDITACION: lo ultimo que ha salido en el gacha, lo mas nuevo primero. Cada
+# entrada es {"quien": String, "nombre": String, "seccion": String, "rareza": int, "pity": int,
+# "cuando": int (unix)}. Ver Game.GACHA_HISTORIAL_MAX: se corta, no crece sin fin.
+#
+# Va SUELTO y no dentro de cada PersonajeData aunque el pity si sea por persona: la pantalla lo
+# enseña como UNA lista con la columna de quien meditaba, que es como se lee ("¿que me ha salido
+# hoy?"), y repartido en cinco fichas habria que recomponerlo y reordenarlo por fecha cada vez.
+@export var gacha_historial: Array = []
+
+# EL PITY DEL LIDER, desmontado. Los compañeros se guardan enteros dentro de `plantilla`, asi que
+# sus contadores viajan solos con el Resource; el lider NO esta en plantilla (vive en estos campos
+# planos), asi que los suyos hay que escribirlos y leerlos A MANO en las dos puntas del guardado.
+# Sin esto, el unico personaje al que se le olvidaria el pity al cargar seria justo el principal.
+@export var player_gacha_n50: int = 0
+@export var player_gacha_n200: int = 0
+@export var player_gacha_total: int = 0
+
 # --- Cosas ---
 @export var crystals: Array = []            # Cristal (runtime -> se incrustan)
 @export var materiales: Array = []          # MaterialItem de la BOLSA (runtime)

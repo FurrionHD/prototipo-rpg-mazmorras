@@ -318,6 +318,21 @@ func imbue_elemento() -> int:
 # MISMOS objetos que Game.item_meta[item] (por referencia): mejorar lo equipado mejora lo del baul.
 @export var equip_meta: Dictionary = {}
 
+# --- EL PITY DE LA MEDITACION (ver Game.tirar_meditacion) ---
+# Va POR PERSONAJE, igual que el sesgo del repetido: si contara por grupo, un compañero recien
+# llegado no llegaria nunca a su garantizado porque se lo habrian gastado los demas.
+#
+# SON DOS CONTADORES INDEPENDIENTES, uno por escalon (50 = epico o mejor, 200 = legendario o mejor),
+# y CADA UNO SE REINICIA SOLO CUANDO DISPARA EL SUYO. No son "tiradas desde el ultimo epico": son
+# TIRADAS A SECAS. Que te salga un epico de suerte en la 30 no toca este contador, asi que en la 50
+# cobras el garantizado igual y te llevas los dos. Ver la nota larga de Game.tirar_meditacion: es
+# justo al reves de lo que hacen casi todos los gachas, y por eso es lo primero que se implementa
+# mal si alguien lo "arregla" de memoria.
+@export var gacha_n50: int = 0
+@export var gacha_n200: int = 0
+# Cuantas ha tirado en total. Solo es para enseñarlo; no manda en nada.
+@export var gacha_total: int = 0
+
 # Cache de la textura del cuerpo (no se guarda: se reconstruye del PNG). Ver textura().
 var _tex: Texture2D = null
 

@@ -1780,6 +1780,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	velocidad_combate = 1.0
 	bosses_derrotados.clear()
 	biblioteca.clear()
+	gacha_historial.clear()
 	recompra.clear()
 
 	crystals.clear()
@@ -1806,6 +1807,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	lider().hechizos_aprendidos.clear()
 	lider().habilidades_aprendidas.clear()
 	lider().loadout_habilidades.clear()
+	lider().gacha_n50 = 0
+	lider().gacha_n200 = 0
+	lider().gacha_total = 0
 	item_meta.clear()
 
 	equipped_main = null
@@ -1934,6 +1938,7 @@ func exportar_partida() -> SaveData:
 	d.velocidad_combate = velocidad_combate
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 	d.biblioteca = biblioteca.duplicate()
+	d.gacha_historial = gacha_historial.duplicate(true)
 
 	d.crystals = crystals.duplicate()
 	d.materiales = materiales.duplicate()
@@ -1980,6 +1985,11 @@ func exportar_partida() -> SaveData:
 	d.equipped_spells = equipped_spells.duplicate()
 	d.hechizos_aprendidos = hechizos_sabidos(lider()).duplicate()
 	d.habilidades_aprendidas = lider().habilidades_aprendidas.duplicate()
+	# El pity del LIDER, a mano: los compañeros lo llevan dentro de su Resource en d.plantilla, pero
+	# el lider no esta ahi (ver el comentario del uid del lider mas arriba).
+	d.player_gacha_n50 = lider().gacha_n50
+	d.player_gacha_n200 = lider().gacha_n200
+	d.player_gacha_total = lider().gacha_total
 	d.loadout_habilidades = lider().loadout_habilidades.duplicate(true)
 	d.tool_hit_reduction = tool_hit_reduction
 	d.tool_destreza_bonus = tool_destreza_bonus
@@ -2525,6 +2535,9 @@ func importar_partida(d: SaveData) -> void:
 	# VACIO = partida de antes de que existiera la biblioteca. No hay nada que migrar: se arranca sin
 	# ningun tomo leido, que es exactamente lo que era cierto en esa partida.
 	biblioteca = d.biblioteca.duplicate() if d.biblioteca else {}
+	# Igual que la biblioteca: vacio es una partida anterior al gacha, y empezar sin historial es la
+	# verdad de esa partida.
+	gacha_historial = d.gacha_historial.duplicate(true) if d.gacha_historial else []
 	# El historial de recompra es de SESION: cargar partida no te devuelve el mostrador del
 	# tendero tal y como lo dejaste hace tres dias.
 	recompra.clear()
@@ -2604,6 +2617,11 @@ func importar_partida(d: SaveData) -> void:
 	# autorrellena el set con las `inicial` del arma que lleve puesta.
 	lider().habilidades_aprendidas.assign(d.habilidades_aprendidas)
 	lider().loadout_habilidades = d.loadout_habilidades.duplicate(true)
+	# El pity del lider, la otra punta de lo que se escribe a mano al guardar. Una partida anterior
+	# al gacha llega con los tres a 0, que es empezar el pity de cero: correcto.
+	lider().gacha_n50 = d.player_gacha_n50
+	lider().gacha_n200 = d.player_gacha_n200
+	lider().gacha_total = d.player_gacha_total
 	tool_hit_reduction = d.tool_hit_reduction
 	tool_destreza_bonus = d.tool_destreza_bonus
 	# HERRAMIENTAS. Baul + las tres equipadas, como instancias con su meta.
@@ -3106,6 +3124,209 @@ func tocho_aporta_algo(c: ConsumableData) -> bool:
 	if c.es_grimorio() or c.es_tomo_sabio():
 		return true
 	return not tomo_leido(c.tomo_id)
+
+
+# ============================================================
+#  EL GACHA DE LA MEDITACION
+#
+#  Pagas y el azar decide: la magia se GANA, no se compra. Por eso los grimorios salieron de la
+#  tienda — poder elegir el hechizo que te falta con dinero vaciaba de sentido todo esto.
+#
+#  UNA TIRADA ES DOS SORTEOS ENCADENADOS, y conviene no mezclarlos:
+#    1) QUE CLASE de libro cae -- grimorio / tomo de sabiduria / relleno, con el reparto de abajo.
+#    2) SI ES GRIMORIO, cual: eso ya lo sabe hacer sortear_grimorio() con el sesgo del que medita.
+#  El pity solo toca el PRIMERO: fuerza que salga grimorio, y ademas de una banda minima.
+# ============================================================
+
+# Lo que cuesta meditar. La x10 lleva descuento: PAGAS 9 Y LLEVAS 10. No es solo comodidad como en
+# los gachas de los que copiamos la pantalla, es un empujon a ahorrar y tirar de golpe.
+const GACHA_PRECIO := 2000
+const GACHA_PRECIO_X10 := 18000
+
+# EL REPARTO de que clase de libro cae. Suman 1.0; el relleno es lo que sobra y por eso no tiene
+# constante propia (una tercera constante se quedaria descuadrada el dia que se toque otra).
+const GACHA_P_GRIMORIO := 0.10
+const GACHA_P_TOMO_SABIO := 0.25
+
+# ------------------------------------------------------------
+#  EL PITY. LEE ESTO ENTERO ANTES DE TOCARLO.
+#
+#  Dos escalones, cada uno con SU contador (PersonajeData.gacha_n50 / gacha_n200):
+#    50  tiradas -> grimorio EPICO O MEJOR, garantizado.
+#    200 tiradas -> grimorio LEGENDARIO O MEJOR, garantizado.
+#
+#  LA REGLA QUE SE IMPLEMENTA MAL POR DEFECTO, y es deliberada:
+#
+#      EL CONTADOR CUENTA TIRADAS, NO "TIRADAS DESDE EL ULTIMO EPICO".
+#
+#  Que te salga un epico por suerte en la tirada 30 NO cancela ni retrasa el garantizado de la 50:
+#  te llevas los dos. El contador se reinicia UNICAMENTE cuando el pity dispara, nunca por un golpe
+#  de suerte. Casi todos los gachas hacen lo contrario (resetean al acertar), asi que este es
+#  exactamente el sitio donde alguien "arreglaria" el codigo de memoria y lo rompería sin que
+#  saltase ningun test: seguiria dando epicos, solo que menos.
+#
+#  Lo bueno de que sea un suelo duro e independiente de la suerte: se explica en una linea en
+#  pantalla y se comprueba tirando 200 veces y contando que salieron al menos los garantizados.
+#
+#  El 200 es LEGENDARIO y no mitico A PROPOSITO. Con un mitico garantizado cada 200, Tormenta
+#  costaria como mucho 200 x 2000 = 400.000 monedas, y esta puesta para costar ~1.000.000: dejaria
+#  de ser el chase de la coleccion. El mitico solo cae por suerte.
+# ------------------------------------------------------------
+const GACHA_PITY_EPICO := 50
+const GACHA_PITY_LEGENDARIO := 200
+
+# Cuantas entradas del historial se guardan. Se corta por arriba porque el historial va en el
+# SaveData: sin tope, una partida de mil tiradas se lleva mil diccionarios en cada guardado.
+const GACHA_HISTORIAL_MAX := 200
+
+# Lo ultimo que ha salido, LO MAS NUEVO PRIMERO. Ver SaveData.gacha_historial para la forma de cada
+# entrada y para por que es una lista suelta y no una por personaje.
+var gacha_historial: Array = []
+
+
+# Cuantas tiradas le faltan a este personaje para cada garantizado. Devuelve
+# {"epico": int, "legendario": int}: es lo que pinta la pantalla, y sale de aqui para que el numero
+# de la UI no pueda desviarse del que usa el sorteo.
+func gacha_pity_restante(pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+	return {
+		"epico": maxi(0, GACHA_PITY_EPICO - p.gacha_n50),
+		"legendario": maxi(0, GACHA_PITY_LEGENDARIO - p.gacha_n200),
+	}
+
+
+# El pool de grimorios de una rareza minima. Es lo unico que hace falta para aplicar el pity:
+# sortear_grimorio() ya recibe el pool por parametro, asi que un garantizado no es un camino aparte
+# del sorteo —con su propio bug esperando— sino el MISMO sorteo con menos candidatos.
+func _pool_desde_rareza(pool: Array, minimo: int) -> Array:
+	var out: Array = []
+	for s in pool:
+		if s != null and int(s.rareza) >= minimo:
+			out.append(s)
+	return out
+
+
+# UNA TIRADA. Devuelve un diccionario con lo que ha caido, o {} si no habia nada que dar.
+#   {"item": ConsumableData, "spell": SpellData|null, "pity": int}
+# 'pity' es 0 (tirada normal), GACHA_PITY_EPICO o GACHA_PITY_LEGENDARIO: la pantalla lo usa para
+# marcar la carta como garantizada.
+#
+# NO COBRA Y NO ENTREGA NADA: solo decide. Cobrar es de quien llama (asi la x10 cobra una vez), y
+# entregar tambien, para que esto se pueda tirar diez mil veces en un visor sin tocar la partida.
+func tirar_meditacion(pj: PersonajeData, rng: RandomNumberGenerator,
+		pool_grimorios: Array, pool_tochos: Array) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
+
+	# 1) SE CUENTA LA TIRADA ANTES DE NADA. Los dos contadores suben SIEMPRE, pase lo que pase
+	# despues: es lo que hace que el pity sea un suelo por tiradas y no por sequia.
+	p.gacha_n50 += 1
+	p.gacha_n200 += 1
+	p.gacha_total += 1
+
+	# 2) ¿DISPARA ALGUN GARANTIZADO? Se mira el de 200 primero: en la tirada 200 vencen los dos a la
+	# vez, y el que manda es el mas alto. Los dos se reinician igual —el de 50 tambien ha cobrado,
+	# porque un legendario ES "epico o mejor"— y por eso el reinicio de n50 va fuera del if.
+	var pity: int = 0
+	var mini_rareza: int = -1
+	if p.gacha_n200 >= GACHA_PITY_LEGENDARIO:
+		p.gacha_n200 = 0
+		p.gacha_n50 = 0
+		pity = GACHA_PITY_LEGENDARIO
+		mini_rareza = Upgrades.Rareza.LEGENDARIO
+	elif p.gacha_n50 >= GACHA_PITY_EPICO:
+		p.gacha_n50 = 0
+		pity = GACHA_PITY_EPICO
+		mini_rareza = Upgrades.Rareza.EPICO
+
+	# 3) EL PREMIO.
+	var c: ConsumableData = null
+	if mini_rareza >= 0:
+		c = _gacha_grimorio(rng, pool_grimorios, p, mini_rareza)
+		# Si no existe ni un grimorio de esa banda (un pool a medio montar), el garantizado no se
+		# pierde: baja a lo mejor que haya. Antes que tragarse la tirada, dar de menos.
+		if c == null:
+			c = _gacha_grimorio(rng, pool_grimorios, p, -1)
+	else:
+		c = _gacha_normal(rng, pool_grimorios, pool_tochos, p)
+	if c == null:
+		return {}
+	return {"item": c, "spell": c.spell, "pity": pity}
+
+
+# El sorteo de una tirada CORRIENTE: primero que clase de libro, y si toca grimorio, cual.
+func _gacha_normal(rng: RandomNumberGenerator, pool_grimorios: Array, pool_tochos: Array,
+		p: PersonajeData) -> ConsumableData:
+	var t: float = rng.randf()
+	if t < GACHA_P_GRIMORIO:
+		var g: ConsumableData = _gacha_grimorio(rng, pool_grimorios, p, -1)
+		if g != null:
+			return g
+	elif t < GACHA_P_GRIMORIO + GACHA_P_TOMO_SABIO:
+		var s: ConsumableData = _gacha_tocho(rng, pool_tochos, true)
+		if s != null:
+			return s
+	# EL RELLENO, y el de por descarte si lo de arriba se quedo sin candidatos. Puede volver vacio
+	# de verdad: cuando ya te has leido TODOS los de relleno, no hay ninguno que te aporte nada
+	# (ver tocho_aporta_algo). En ese caso cae al tomo de sabiduria, que nunca se agota porque lo
+	# que da es la excelia y esa se cobra cada vez que se lee.
+	var r: ConsumableData = _gacha_tocho(rng, pool_tochos, false)
+	return r if r != null else _gacha_tocho(rng, pool_tochos, true)
+
+
+# Saca el CONSUMIBLE del grimorio de un hechizo sorteado. La rareza minima es para el pity.
+func _gacha_grimorio(rng: RandomNumberGenerator, pool: Array, p: PersonajeData,
+		minimo: int) -> ConsumableData:
+	var candidatos: Array = pool if minimo < 0 else _pool_desde_rareza(pool, minimo)
+	if candidatos.is_empty():
+		return null
+	var s: SpellData = sortear_grimorio(candidatos, rng, p)
+	if s == null:
+		return null
+	# Por _Libros (preload) y NO por el class_name Libros: libros.gd lo GENERA
+	# tools/generar_tochos.gd, y un class_name recien generado no esta en la cache de clases de
+	# Godot hasta que se abre el editor -- o sea que por linea de comandos, que es como corren los
+	# visores, esto reventaria.
+	for ruta in _Libros.GRIMORIOS:
+		var c: ConsumableData = load(ruta) as ConsumableData
+		if c != null and c.spell == s:
+			return c
+	return null
+
+
+# Un tocho al azar entre los que valen. 'sabio' elige la familia: los de sabiduria (los que sueltan
+# excelia magica) o los de relleno. Los de relleno YA LEIDOS no entran, que es la regla de
+# tocho_aporta_algo: un texto que ya tienes no es un premio.
+func _gacha_tocho(rng: RandomNumberGenerator, pool: Array, sabio: bool) -> ConsumableData:
+	var candidatos: Array = []
+	for c in pool:
+		var cd: ConsumableData = c as ConsumableData
+		if cd == null or cd.es_tomo_sabio() != sabio:
+			continue
+		if not tocho_aporta_algo(cd):
+			continue
+		candidatos.append(cd)
+	if candidatos.is_empty():
+		return null
+	return candidatos[rng.randi() % candidatos.size()]
+
+
+# Apunta lo que ha salido. Se llama DESPUES de entregar, y solo desde la pantalla: el visor tira
+# diez mil veces y no tiene por que ensuciar el historial de la partida.
+func gacha_apuntar(p: PersonajeData, c: ConsumableData, pity: int) -> void:
+	if c == null:
+		return
+	gacha_historial.push_front({
+		"quien": p.nombre if p != null else "",
+		"nombre": c.nombre,
+		"seccion": c.seccion_biblioteca(),
+		# La rareza es la DEL HECHIZO: un tocho no tiene, y por eso va a -1 en vez de a 0 (que seria
+		# "comun" y lo pintaria de color de rareza en la tabla del historial).
+		"rareza": int(c.spell.rareza) if c.spell != null else -1,
+		"pity": pity,
+		"cuando": int(Time.get_unix_time_from_system()),
+	})
+	while gacha_historial.size() > GACHA_HISTORIAL_MAX:
+		gacha_historial.pop_back()
 
 # --- RESPAWN de jefes POR RELOJ DE PARED ---
 # El jefe volvia porque la mazmorra se olvidaba al pasar por el pueblo: matabas al rey slime, salias

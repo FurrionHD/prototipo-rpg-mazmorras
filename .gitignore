@@ -29,6 +29,11 @@ dev_*.png
 !dev_panel_hechizos.*
 !dev_fx_hechizo.*
 !dev_magias.*
+# ver_maestro.bat llevaba commiteado desde que existe el maestro, pero su visor NO estaba en esta
+# lista: el .bat sin el dev_ al que llama es justo el doble clic con error que explica el parrafo de
+# arriba. Se cazo al añadir el del gacha.
+!dev_maestro.*
+!dev_gacha.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
