@@ -5,6 +5,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/purificar.tres" id="n0_purifi"]
 [ext_resource type="Resource" path="res://resources/abilities/chispa_vinculada.tres" id="n1_chispa"]
 [ext_resource type="Resource" path="res://resources/abilities/egida_menor.tres" id="n2_egida_"]
+[ext_resource type="Resource" path="res://resources/spells/pulso_menor.tres" id="n3_pulso_"]
 
 [resource]
 script = ExtResource("1")
@@ -15,4 +16,5 @@ cast_vel_mult = 1.2
 bloqueo = 0.0
 evasion_penal = 0.0
 habilidades = [ExtResource("2"), ExtResource("n0_purifi"), ExtResource("n1_chispa"), ExtResource("n2_egida_")]
+hechizo_base = ExtResource("n3_pulso_")
 valor_base = 480

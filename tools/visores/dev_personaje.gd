@@ -145,6 +145,22 @@ func _ready() -> void:
 	men._abrir_modal_atributos()
 	await _captura("6_mago_lupa")
 	men._cerrar_modal()
+	# Y SUS MAGIAS, que es donde se ve el hechizo que PRESTA el baston (el Pulso menor): se puede
+	# lanzar sin haberlo aprendido y desaparece al soltar el arma. Con el lider no sale, porque va
+	# con espada. La logica la prueba dev_magia_arma; esto es para MIRAR que se pinta como una mas.
+	men._on_seccion(men.SEC_HABILIDADES)
+	men._on_sub(1)
+	await _captura("6_mago_magias")
+
+	# EL MAGO RECIEN HECHO: el personaje 3 va pelado (sin una sola magia aprendida). Con el baston en
+	# la mano tiene que poder lanzar el Pulso menor igual -- es lo que hace que un mago sea jugable
+	# desde el minuto uno, ahora que los grimorios no se compran. Y aqui SI sale la nota de "lo trae
+	# el arma de serie", que con Sedaki no se ve porque el se lo sabe de verdad.
+	men._pick_persona(3)
+	Game.equipar_arma(load("res://resources/weapons/baston.tres"), men._pj())
+	men._on_seccion(men.SEC_HABILIDADES)
+	men._on_sub(1)
+	await _captura("7_mago_novato_magias")
 
 	get_tree().quit()
 

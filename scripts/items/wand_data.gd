@@ -36,5 +36,9 @@ class_name WandData
 # soporte y se lleva con OTRAS armas, su Canalizar da maná a peor ratio que el bastón.
 @export var habilidades: Array = []
 
+# HECHIZO DE SERIE de la varita (ver WeaponData.hechizo_base): se puede lanzar mientras la lleves,
+# no se aprende, y al soltarla se va.
+@export var hechizo_base: SpellData = null
+
 # PRECIO base de la tienda (ver WeaponData.valor_base).
 @export var valor_base: int = 480

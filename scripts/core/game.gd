@@ -4861,11 +4861,13 @@ var _dev_spells: Array[String] = [
 	"res://resources/spells/debilidad.tres",
 ]
 
-# ¿SABE alguno? Por los SABIDOS y no por los equipados: quien se sabe tres y hoy no lleva ninguno
-# puesto sigue siendo un mago, y su pantalla de magias tiene que aparecer para que pueda ponerselos.
+# ¿SABE alguno? Por los DISPONIBLES y no por los equipados: quien se sabe tres y hoy no lleva
+# ninguno puesto sigue siendo un mago, y su pantalla de magias tiene que aparecer para que pueda
+# ponerselos. Y por disponibles y no por sabidos para que al que solo tiene la varita (sin ningun
+# grimorio leido) tambien le salga la pantalla: si no, no podria lanzar lo que el arma le presta.
 func tiene_hechizos(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	return hechizos_sabidos(p).size() > 0
+	return hechizos_disponibles(p).size() > 0
 
 # Mana maximo del jugador segun su Magia (para el HUD; en combate lo lleva el Combatant).
 # Con los ESTADOS puestos (abilities_eff_de): un plato de Magia sube el maná maximo de verdad.
@@ -5807,15 +5809,22 @@ const MAX_HECHIZOS := 6
 # Devuelve el array VIVO (el que cuelga del personaje): quien lo escriba, escribe el equipo. Para
 # leer estan hechizos_con_huecos (copia, con huecos) y hechizos_equipados (copia, compacta).
 #
-# A diferencia de las habilidades NO autorrellena: en magias no hay pool que dependa del arma, asi
-# que un hueco vacio es siempre tuyo y se respeta. Y una lista vieja (compacta, de 3) se convierte
+# A diferencia de las habilidades NO autorrellena: un hueco vacio es siempre tuyo y se respeta.
+#
+# OJO, QUE ESTO YA NO ES DEL TODO CIERTO: desde el hechizo de serie del arma (WeaponData.hechizo_base)
+# SI hay una magia que depende del equipo. Lo que sigue siendo verdad es que no se autorrellena: el
+# prestado entra UNA vez, al equipar el arma (_equipar_hechizo_del_arma), y si lo quitas de la ranura
+# no vuelve. Lo que si pasa por aqui es lo contrario: al SOLTAR el arma el prestado deja de estar
+# disponible y el saneado de abajo vacia su ranura solo, sin codigo de desequipar en ningun sitio.
+#
+# Y una lista vieja (compacta, de 3) se convierte
 # en [a,b,c,null,null,null] al primer paso por aqui: mismo contenido, mismas posiciones, sin paso
 # de carga aparte.
 func _set_hechizos(p: PersonajeData) -> Array:
 	var crudo: Array = p.equipped_spells
 	if crudo.size() != MAX_HECHIZOS:
 		crudo.resize(MAX_HECHIZOS)
-	var sabidos: Array = hechizos_sabidos(p)
+	var sabidos: Array = hechizos_disponibles(p)
 	for i in MAX_HECHIZOS:
 		var s = crudo[i]
 		if s == null:
@@ -5861,18 +5870,82 @@ func hechizos_llenos(pj: PersonajeData = null) -> bool:
 # de que a alguno se le olvide.
 func hechizos_sabidos(pj: PersonajeData = null) -> Array:
 	var p: PersonajeData = pj if pj != null else lider()
+	# EL HECHIZO DEL ARMA SE SALTA LAS DOS MIGRACIONES DE ABAJO, y es la parte delicada de todo el
+	# asunto: va EQUIPADO SIN ESTAR APRENDIDO, que es un estado que antes no existia. Las dos
+	# migraciones dan por hecho lo contrario ("si lo llevas puesto, es que te lo sabes") y apuntarian
+	# el prestado como sabido en la primera lectura. A partir de ahi ya no se perderia al soltar el
+	# baston -- lo contrario de lo que tiene que pasar -- y como 'sabidos' es lo UNICO que se guarda
+	# (ver d.hechizos_aprendidos en el volcado del save), se quedaria ahi para siempre.
+	# Son DOS bucles y hay que saltarlo en LOS DOS: saltarlo solo en el segundo no sirve de nada,
+	# porque el primero se dispara justo en el caso que importa (mago recien hecho, sin nada
+	# aprendido todavia).
+	var prestado: SpellData = hechizo_del_arma(p)
 	if p.hechizos_aprendidos.is_empty() and not p.equipped_spells.is_empty():
 		# Sin los huecos: desde que el set de magias los guarda (ver _set_hechizos), copiarlo tal cual
 		# metia nulls en la lista de SABIDOS, y eso es una magia fantasma en todas las pantallas.
 		for s0 in p.equipped_spells:
-			if s0 != null:
+			if s0 != null and s0 != prestado:
 				p.hechizos_aprendidos.append(s0)
 	# Y al reves: un equipado que no figure como sabido (una ficha a medio migrar) se apunta. Un
 	# hechizo que puedes lanzar y que la pantalla no lista es peor que uno de mas.
 	for s in p.equipped_spells:
-		if s != null and not p.hechizos_aprendidos.has(s):
+		if s != null and s != prestado and not p.hechizos_aprendidos.has(s):
 			p.hechizos_aprendidos.append(s)
 	return p.hechizos_aprendidos
+
+
+# EL HECHIZO QUE TE PRESTA EL ARMA, o null. El baston lo lleva en la principal y la varita en la
+# secundaria; no pueden coincidir (el baston es de dos manos), pero si alguna vez coincidieran manda
+# la principal.
+func hechizo_del_arma(pj: PersonajeData = null) -> SpellData:
+	var p: PersonajeData = pj if pj != null else lider()
+	var main = p.equipped_main
+	if main is WeaponData and main.hechizo_base != null:
+		return main.hechizo_base
+	var off = p.equipped_off
+	if off is WandData and off.hechizo_base != null:
+		return off.hechizo_base
+	return null
+
+
+# LO QUE PUEDES LANZAR AHORA MISMO: lo aprendido MAS lo que te presta el arma. Es lo que hay que
+# mirar para equipar, para colocar y para pintar la lista; 'hechizos_sabidos' es lo que has
+# aprendido DE VERDAD y es lo unico que se guarda.
+#
+# Estan separadas justo por eso: mezclarlas hacia que el prestado acabara en el save.
+func hechizos_disponibles(pj: PersonajeData = null) -> Array:
+	var p: PersonajeData = pj if pj != null else lider()
+	var out: Array = hechizos_sabidos(p).duplicate()
+	var prestado: SpellData = hechizo_del_arma(p)
+	if prestado != null and not out.has(prestado):
+		out.append(prestado)
+	return out
+
+
+# Ajusta el kit de magias al CAMBIAR DE ARMA. Recibe el hechizo que se prestaba ANTES del cambio
+# porque hacen falta los dos lados y, una vez cambiada el arma, el de antes ya no hay quien lo sepa.
+#
+#   - EL DE ANTES SALE de su ranura, si ya no lo presta nadie y no lo has aprendido. Y tiene que
+#     salir AQUI, no en el saneado de _set_hechizos: para cuando llega alli, el arma ya no lo presta
+#     y un hechizo puesto-pero-no-sabido es indistinguible de una ficha a medio migrar, asi que la
+#     reparacion de hechizos_sabidos lo "arregla" APRENDIENDOLO -- y entonces ya no se pierde nunca
+#     y ademas se cuela en el save. Es exactamente el fallo que cazo dev_magia_arma.
+#   - EL DE AHORA ENTRA en el primer hueco libre, y solo por aqui: metido en _set_hechizos se
+#     reinyectaria en cada lectura y no habria forma de quitarlo a mano.
+func _sincronizar_hechizo_del_arma(p: PersonajeData, antes: SpellData) -> void:
+	var ahora: SpellData = hechizo_del_arma(p)
+	if antes != null and antes != ahora and not p.hechizos_aprendidos.has(antes):
+		var i: int = p.equipped_spells.find(antes)
+		if i >= 0:
+			p.equipped_spells[i] = null   # deja el hueco en su sitio; las demas no se mueven
+	if ahora == null:
+		return
+	var crudo: Array = _set_hechizos(p)
+	if crudo.has(ahora):
+		return
+	var hueco: int = crudo.find(null)
+	if hueco >= 0:
+		crudo[hueco] = ahora
 
 
 # APRENDER: entra en la lista de sabidos y, si hay hueco, se equipa solo. Lo segundo es para que
@@ -5895,7 +5968,7 @@ func equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	if spell == null:
 		return false
-	if not hechizos_sabidos(p).has(spell):
+	if not hechizos_disponibles(p).has(spell):
 		return false
 	var crudo: Array = _set_hechizos(p)
 	if crudo.has(spell):
@@ -6191,7 +6264,7 @@ func colocar_hechizo(s: SpellData, pos: int, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	if s == null or pos < 0 or pos >= MAX_HECHIZOS:
 		return false
-	if not hechizos_sabidos(p).has(s):
+	if not hechizos_disponibles(p).has(s):
 		return false
 	var crudo: Array = _set_hechizos(p)
 	var antes: int = crudo.find(s)
@@ -6737,21 +6810,28 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 # vacias con un arma en la off), la quita.
 func equipar_arma(w: WeaponData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
+	var prestado_antes: SpellData = hechizo_del_arma(p)   # hay que leerlo ANTES de cambiar de manos
 	_quitar_a_los_demas(w, p)
 	p.equipped_main = w
 	p.equip_meta["main"] = meta_de(w)   # null -> meta por defecto: el puño no se mejora
 	if not _secundaria_valida(w, p.equipped_off):
 		p.equipped_off = null
 		p.equip_meta["off"] = _meta_por_defecto()
+	# El baston trae su hechizo de serie puesto -- y al soltarlo se lo lleva. Ojo: esta llamada va
+	# DESPUES de revalidar la secundaria, porque un main de dos manos tira la varita y con ella su
+	# hechizo prestado.
+	_sincronizar_hechizo_del_arma(p, prestado_antes)
 
 # Equipa la mano secundaria (arma dual o escudo); null = vacia.
 func equipar_secundaria(item: Resource, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	if not _secundaria_valida(p.equipped_main as WeaponData, item):
 		return false
+	var prestado_antes: SpellData = hechizo_del_arma(p)
 	_quitar_a_los_demas(item, p)
 	p.equipped_off = item
 	p.equip_meta["off"] = meta_de(item)
+	_sincronizar_hechizo_del_arma(p, prestado_antes)   # la varita trae su hechizo de serie
 	return true
 
 # Equipa una pieza de armadura en su slot ("casco", "pecho", ...); null = vacio.

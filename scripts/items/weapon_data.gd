@@ -93,6 +93,12 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # lo rapido que recitas con ella. Solo cuenta si es_magica (a las demas se les ignora: sin
 # arma magica se recita a velocidad normal, un mandoble no te frena el conjuro).
 @export var cast_vel_mult: float = 1.0
+# HECHIZO DE SERIE del arma: lo puedes lanzar MIENTRAS la lleves puesta, sin haberlo aprendido.
+# Es el gemelo de 'habilidades' (el arma es la fuente de verdad del pool), y existe porque un mago
+# recien hecho no tiene de donde sacar su primer hechizo: los grimorios ya no se compran.
+# NO se aprende: al soltar el arma se va, y la ranura se vacia sola (ver Game.hechizos_disponibles).
+# Se puede quitar de la ranura a mano como cualquier otro, y entonces NO vuelve solo.
+@export var hechizo_base: SpellData = null
 
 # --- Desgaste / mantenimiento (FASE futura, sustituye al "filo" de MH) ---
 # El arma se desgasta con el uso; al bajar, pega menos, y en el pueblo pagas

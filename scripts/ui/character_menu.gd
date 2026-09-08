@@ -1128,8 +1128,11 @@ func _kit_magias(pj: PersonajeData) -> void:
 	# se guarda (ver Game._set_hechizos). Con la lista compacta de antes, soltar en la 2 con la 1
 	# vacia acababa pintandolo en la 1.
 	var puestas: Array = Game.hechizos_con_huecos(pj)
+	# DISPONIBLES y no sabidos: aqui tiene que salir tambien el hechizo que presta el arma (el pulso
+	# menor del baston / la varita), que se puede lanzar sin haberlo aprendido. Si se quita de la
+	# ranura cae a este pool y se puede volver a poner; al soltar el arma desaparece de los dos.
 	var disponibles: Array = []
-	for s in Game.hechizos_sabidos(pj):
+	for s in Game.hechizos_disponibles(pj):
 		if not puestas.has(s):
 			disponibles.append(s)
 	_pintar_kit(puestas, disponibles, Game.MAX_HECHIZOS, "ranura",
@@ -1390,6 +1393,21 @@ func _ficha_hechizo(s: SpellData) -> void:
 	if s.descripcion != "":
 		_content.add_child(HSeparator.new())
 		_note(s.descripcion)
+
+	# LO QUE TE PRESTA EL ARMA. Hay que decirlo: en la rejilla se pinta igual que las demas, asi que
+	# sin esta linea el dia que cambias de arma la magia desaparece de la ficha y parece un fallo del
+	# juego. Solo sale si NO te lo has aprendido: leido el grimorio ya es tuyo y deja de ser prestado.
+	var p_pres: PersonajeData = _pj()
+	if s == Game.hechizo_del_arma(p_pres) and not Game.hechizos_sabidos(p_pres).has(s):
+		var fuente = p_pres.equipped_main
+		if not (fuente is WeaponData and fuente.hechizo_base == s):
+			fuente = p_pres.equipped_off
+		_content.add_child(HSeparator.new())
+		# Se habla de "el arma" y no del nombre para lo demas: en femenino (Varita) y en masculino
+		# (Baston) tiene que leerse igual, y encadenar generos aqui es como suenan las traducciones malas.
+		_note("Viene de serie con tu %s: puedes lanzarlo mientras el arma siga en tus manos, pero no "
+			% (str(fuente.nombre) if fuente != null else "arma")
+			+ "te lo has aprendido. Si la sueltas se va; su grimorio te lo dejaria para siempre.")
 
 
 # Lo que te da y lo que te cuesta la afinidad de un imbue de CUERPO. Los % se DERIVAN de la tabla y
