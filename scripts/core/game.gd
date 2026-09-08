@@ -5029,26 +5029,20 @@ var _dev_off_idx: int = 0
 var equipped_spells: Array:
 	get: return lider().equipped_spells
 	set(v): lider().equipped_spells = v
-# Lista para el panel de debug (equipar/quitar). Rutas de los .tres de hechizos.
-var _dev_spells: Array[String] = [
-	"res://resources/spells/pulso_menor.tres",
-	"res://resources/spells/pulso_arcano.tres",
-	"res://resources/spells/descarga.tres",
-	"res://resources/spells/brasa.tres",
-	"res://resources/spells/rocio.tres",
-	"res://resources/spells/bola_fuego.tres",
-	"res://resources/spells/chorro_agua.tres",
-	"res://resources/spells/rayo.tres",
-	"res://resources/spells/filo_torrente.tres",
-	"res://resources/spells/manto_marea.tres",
-	"res://resources/spells/filo_ardiente.tres",
-	"res://resources/spells/manto_brasas.tres",
-	"res://resources/spells/filo_fulgurante.tres",
-	"res://resources/spells/manto_centellas.tres",
-	"res://resources/spells/tormenta.tres",
-	"res://resources/spells/fortaleza.tres",
-	"res://resources/spells/debilidad.tres",
-]
+# TODOS los hechizos, para el panel de debug (equipar/quitar).
+#
+# SALE DEL MANIFIESTO, no de una lista escrita aqui. Antes era una lista a mano de diecisiete rutas,
+# y paso lo que tenia que pasar: el primer hechizo que se creo despues (el Shock termico) no se podia
+# ni equipar para probarlo, porque nadie se acordo de apuntarlo. Una herramienta de pruebas que no
+# ve el contenido nuevo es justo la que no sirve el dia que la necesitas.
+#
+# El manifiesto lo genera tools/generar_tochos.gd escaneando la carpeta, asi que un hechizo nuevo
+# aparece aqui solo con volver a pasar la herramienta. Por PRELOAD y no por su class_name: un
+# class_name generado no esta en la cache de clases hasta que se abre el editor.
+const _Libros = preload("res://scripts/core/libros.gd")
+
+var _dev_spells: Array[String]:
+	get: return _Libros.HECHIZOS
 
 # ¿SABE alguno? Por los DISPONIBLES y no por los equipados: quien se sabe tres y hoy no lleva
 # ninguno puesto sigue siendo un mago, y su pantalla de magias tiene que aparecer para que pueda

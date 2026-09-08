@@ -266,8 +266,22 @@ func _escribir_manifiesto() -> bool:
 	txt += "#  Para cambiarla: toca la tabla de tools/generar_tochos.gd y vuelve a pasar\n"
 	txt += "#  herramientas/generar_tochos.bat.\n"
 	txt += "# ============================================================\n\n"
+	# TODOS los hechizos que existen. No es solo para la biblioteca: lo usa el panel de DEBUG para
+	# poder equipar cualquiera sin que nadie tenga que apuntarlo a mano. Antes eso era una lista
+	# clavada en Game._dev_spells, y el primer hechizo nuevo que se creo (el Shock termico) no se
+	# podia ni probar porque no estaba en ella.
+	var hechizos: Array = []
+	for id in RAREZAS:
+		hechizos.append("%s%s.tres" % [SPELLS_DIR, id])
+	hechizos.sort()
+
 	txt += "class_name Libros\n\n"
-	txt += "const TOCHOS: Array[String] = [\n"
+	txt += "# Todos los hechizos del juego. La fuente es la tabla RAREZAS de tools/generar_tochos.gd,\n"
+	txt += "# que ya falla si un .tres de la carpeta no esta apuntado: por ahi no se puede quedar corta.\n"
+	txt += "const HECHIZOS: Array[String] = [\n"
+	for r in hechizos:
+		txt += "\t\"%s\",\n" % r
+	txt += "]\n\nconst TOCHOS: Array[String] = [\n"
 	for r in tochos:
 		txt += "\t\"%s\",\n" % r
 	txt += "]\n\nconst GRIMORIOS: Array[String] = [\n"

@@ -11,6 +11,29 @@
 
 class_name Libros
 
+# Todos los hechizos del juego. La fuente es la tabla RAREZAS de tools/generar_tochos.gd,
+# que ya falla si un .tres de la carpeta no esta apuntado: por ahi no se puede quedar corta.
+const HECHIZOS: Array[String] = [
+	"res://resources/spells/bola_fuego.tres",
+	"res://resources/spells/brasa.tres",
+	"res://resources/spells/chorro_agua.tres",
+	"res://resources/spells/debilidad.tres",
+	"res://resources/spells/descarga.tres",
+	"res://resources/spells/filo_ardiente.tres",
+	"res://resources/spells/filo_fulgurante.tres",
+	"res://resources/spells/filo_torrente.tres",
+	"res://resources/spells/fortaleza.tres",
+	"res://resources/spells/manto_brasas.tres",
+	"res://resources/spells/manto_centellas.tres",
+	"res://resources/spells/manto_marea.tres",
+	"res://resources/spells/pulso_arcano.tres",
+	"res://resources/spells/pulso_menor.tres",
+	"res://resources/spells/rayo.tres",
+	"res://resources/spells/rocio.tres",
+	"res://resources/spells/shock_termico.tres",
+	"res://resources/spells/tormenta.tres",
+]
+
 const TOCHOS: Array[String] = [
 	"res://resources/consumables/tochos/actas_torre.tres",
 	"res://resources/consumables/tochos/antorchas.tres",

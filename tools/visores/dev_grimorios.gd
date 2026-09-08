@@ -85,6 +85,47 @@ func _probar_pool() -> void:
 	print("     por banda: %s" % cuenta)
 	_ok("las cinco bandas tienen a alguien", cuenta.size() == 5)
 
+	# EL PANEL DE DEBUG TIENE QUE VERLOS TODOS. Se comprueba contra un escaneo REAL de la carpeta y
+	# no contra el manifiesto, que es lo unico que caza las dos averias posibles: que el manifiesto
+	# se haya quedado corto, y que alguien vuelva a clavar una lista a mano en otro sitio.
+	#
+	# Esto existe porque paso: _dev_spells era una lista escrita a mano y el Shock termico no se
+	# podia ni equipar para probarlo. Una herramienta de pruebas que no ve el contenido nuevo es
+	# justo la que falla el dia que la necesitas.
+	var en_disco: Array = []
+	var dd := DirAccess.open(SPELLS_DIR)
+	if dd != null:
+		for f in dd.get_files():
+			if f.ends_with(".tres"):
+				en_disco.append(SPELLS_DIR + f)
+	en_disco.sort()
+	var del_panel: Array = Array(Game._dev_spells)
+	del_panel.sort()
+	var faltan: Array = []
+	for r in en_disco:
+		if not del_panel.has(r):
+			faltan.append(String(r).get_file().get_basename())
+	_ok("el panel de debug ve los %d hechizos de la carpeta" % en_disco.size() if faltan.is_empty()
+		else "EL PANEL DE DEBUG NO VE: %s" % ", ".join(faltan), faltan.is_empty())
+
+	# QUE CADA .tres ESTE COMPLETO. Los hechizos se escriben a mano y un campo mal tecleado no da
+	# error: se queda en su valor por defecto. Un hechizo sin frases no se puede recitar —o sea, no
+	# se puede lanzar— y el panel de debug lo pintaria como "0 frases" sin quejarse de nada.
+	var mudos: Array = []
+	var sin_nombre: Array = []
+	for r in en_disco:
+		var s: SpellData = load(r) as SpellData
+		if s == null:
+			continue
+		if s.frases.is_empty():
+			mudos.append(String(r).get_file().get_basename())
+		if s.nombre.strip_edges() == "" or s.nombre == "Hechizo":
+			sin_nombre.append(String(r).get_file().get_basename())
+	_ok("todos tienen frases de recitado" if mudos.is_empty()
+		else "SIN FRASES (no se pueden lanzar): %s" % ", ".join(mudos), mudos.is_empty())
+	_ok("todos tienen nombre propio" if sin_nombre.is_empty()
+		else "SIN NOMBRE: %s" % ", ".join(sin_nombre), sin_nombre.is_empty())
+
 
 # --- 2) LA MONOTONIA, que es la comprobacion que justifica este visor ---
 func _probar_monotonia() -> void:
