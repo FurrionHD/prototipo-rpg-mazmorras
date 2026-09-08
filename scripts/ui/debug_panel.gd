@@ -886,16 +886,25 @@ func _build_spells(vb: VBoxContainer) -> void:
 
 
 func _set_spell(pressed: bool, spell: SpellData) -> void:
+	var pj: PersonajeData = Game.lider()
 	if not pressed:
-		Game.quitar_hechizo(spell)
+		Game.quitar_hechizo(spell, pj)
 		return
-	# El tope de MAX_HECHIZOS tambien vale aqui: si no cabe, se desmarca la casilla (si no,
-	# se quedaria marcada mintiendo sobre un hechizo que no tienes).
-	if not Game.equipar_hechizo(spell):
-		var cb: CheckBox = _spell_checks.get(spell.resource_path)
-		if cb != null:
-			cb.set_pressed_no_signal(false)
-		print("[debug] No caben mas de %d hechizos." % Game.MAX_HECHIZOS)
+
+	# Marcar la casilla CONCEDE el hechizo: este panel esta justo para eso, para dar contenido y
+	# probarlo. Toda la maña esta en Game.conceder_y_equipar_hechizo, y no aqui, porque su visor
+	# llama a lo mismo -- con una copia en cada sitio, la prueba seguiria pasando mientras esto se
+	# rompe.
+	if Game.conceder_y_equipar_hechizo(spell, pj):
+		return
+	# No ha entrado: la casilla no puede quedarse marcada mintiendo. El motivo se dice de verdad —
+	# antes se imprimia "no caben mas" pasara lo que pasara, y con la causa real siendo "no te lo
+	# sabes" ese mensaje mandaba a mirar al sitio equivocado.
+	var cb: CheckBox = _spell_checks.get(spell.resource_path)
+	if cb != null:
+		cb.set_pressed_no_signal(false)
+	print("[debug] %s no entra: %s lleva %d puestos y el tope es %d." % [
+		spell.nombre, pj.nombre, Game.hechizos_equipados(pj).size(), Game.MAX_HECHIZOS])
 
 
 func _build_mejoras(vb: VBoxContainer) -> void:

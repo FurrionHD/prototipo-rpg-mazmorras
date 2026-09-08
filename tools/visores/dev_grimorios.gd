@@ -125,6 +125,54 @@ func _probar_pool() -> void:
 		else "SIN FRASES (no se pueden lanzar): %s" % ", ".join(mudos), mudos.is_empty())
 	_ok("todos tienen nombre propio" if sin_nombre.is_empty()
 		else "SIN NOMBRE: %s" % ", ".join(sin_nombre), sin_nombre.is_empty())
+	_probar_marcar_desde_debug()
+
+
+# LO QUE HACE LA CASILLA DEL PANEL DE DEBUG, calcado.
+#
+# El fallo que arregla: equipar_hechizo corta si el hechizo no esta entre los DISPONIBLES, asi que
+# marcar la casilla de uno SIN APRENDER no hacia nada de nada. Solo se dejaban poner y quitar los
+# que ya te sabias, que es exactamente el sintoma que se vio jugando.
+#
+# Se prueba con un personaje PELADO a proposito: con uno que ya se lo sepa todo, el caso roto no
+# existe y la prueba pasaria sin comprobar nada.
+func _probar_marcar_desde_debug() -> void:
+	print("\n-- Marcar un hechizo desde el panel de debug --")
+	var pj := PersonajeData.new()
+	var s: SpellData = _pool[0]
+	_ok("de partida no se lo sabe", not Game.hechizos_sabidos(pj).has(s))
+
+	# Se llama a LA MISMA funcion que el panel, no a una copia de sus pasos.
+	_ok("al marcar la casilla, entra", Game.conceder_y_equipar_hechizo(s, pj))
+	_ok("y se lo ha aprendido", Game.hechizos_sabidos(pj).has(s))
+	_ok("y se lo pone", Game.hechizos_con_huecos(pj).has(s))
+
+	# Y el ida y vuelta, que es lo unico que si funcionaba antes.
+	Game.quitar_hechizo(s, pj)
+	_ok("al desmarcar, se lo quita", not Game.hechizos_con_huecos(pj).has(s))
+	_ok("pero sigue sabiendoselo", Game.hechizos_sabidos(pj).has(s))
+	_ok("y al volver a marcar, vuelve", Game.conceder_y_equipar_hechizo(s, pj))
+
+	# EL TOPE sigue mandando: con las manos llenas, el siguiente NO entra (y la casilla se desmarca).
+	var puestos: int = 1
+	for otro in _pool:
+		if puestos >= Game.MAX_HECHIZOS:
+			break
+		if Game.hechizos_con_huecos(pj).has(otro):
+			continue
+		Game.conceder_y_equipar_hechizo(otro, pj)
+		puestos += 1
+	var sobrante: SpellData = null
+	for otro2 in _pool:
+		if not Game.hechizos_con_huecos(pj).has(otro2):
+			sobrante = otro2
+			break
+	if sobrante == null:
+		_ok("(no hay hechizos de sobra para probar el tope)", true)
+		return
+	_ok("con los %d huecos llenos, el siguiente NO entra" % Game.MAX_HECHIZOS,
+		not Game.conceder_y_equipar_hechizo(sobrante, pj))
+	_ok("aunque sí se lo haya aprendido", Game.hechizos_sabidos(pj).has(sobrante))
 
 
 # --- 2) LA MONOTONIA, que es la comprobacion que justifica este visor ---

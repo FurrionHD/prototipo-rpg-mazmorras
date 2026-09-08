@@ -6220,6 +6220,29 @@ func equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
 	return true
 
 
+# CONCEDER UN HECHIZO Y PONERSELO, que es lo que hace la casilla del panel de DEBUG. Devuelve si
+# ha acabado PUESTO.
+#
+# Vive aqui y no dentro del panel porque lo llaman dos sitios (el panel y su visor), y una copia por
+# sitio es la receta para que la prueba siga pasando mientras el panel se rompe.
+#
+# Las dos cosas que hace falta saber para escribirlo bien:
+#   - equipar_hechizo corta en seco si el hechizo no esta entre los DISPONIBLES. Marcar la casilla de
+#     uno sin aprender no hacia NADA; solo se dejaban poner y quitar los que ya te sabias.
+#   - aprender_hechizo YA LO COLOCA si habia hueco, y entonces equipar_hechizo devuelve false por
+#     "ya lo llevas". Por eso se mira el ESTADO FINAL y no lo que devuelve nadie: fiarse de ese
+#     false desmarcaba la casilla de un hechizo que si habia entrado.
+func conceder_y_equipar_hechizo(spell: SpellData, pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	if spell == null:
+		return false
+	if not hechizos_sabidos(p).has(spell):
+		aprender_hechizo(spell, p)
+	if not hechizos_con_huecos(p).has(spell):
+		equipar_hechizo(spell, p)
+	return hechizos_con_huecos(p).has(spell)
+
+
 # QUITARLO DE LAS MANOS, que no es olvidarlo: sigue en la lista de sabidos y se puede volver a
 # poner cuando quieras. Deja el hueco VACIO en su sitio: las otras magias no se mueven por esto
 # (antes el erase() las corria todas una posicion hacia delante).
