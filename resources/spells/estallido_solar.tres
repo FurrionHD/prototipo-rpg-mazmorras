@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_vulnerable"]
+script = ExtResource("2")
+estado = 5
+prob = 0.4
+magnitud = 0.2
+
+[resource]
+script = ExtResource("1")
+nombre = "Estallido solar"
+frases = Array[String](["Que no quede sombra donde mirar", "Abre los ojos y no los cierres"])
+rareza = 3
+coste_mana = 13
+dano_base = 30.0
+elemento = 4
+hits = 1
+alcance = 1
+dano_objetivo = 1.4
+dano_salpicon = 0.8
+fx_estilo = 107
+fx_estilo_salpicon = 107
+efectos = [SubResource("SA_vulnerable")]
+descripcion = "Un golpe de luz que revienta en el sitio y no deja donde esconderse. Alcanza a los de al lado casi igual que al del medio: la luz no distingue. A quien pilla de lleno lo deja deslumbrado y con la guardia abierta."

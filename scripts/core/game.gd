@@ -2952,6 +2952,16 @@ const PESO_RAREZA_GRIMORIO := {
 	Upgrades.Rareza.RARO: 18.0,
 	Upgrades.Rareza.EPICO: 9.0,
 	Upgrades.Rareza.LEGENDARIO: 2.0,
+	# MITICO: el techo por encima del legendario.
+	#
+	# OJO AL NUMERO: se puso primero a 1.0 y quedo EMPATADO con el legendario -- porque el peso es de
+	# la BANDA y los legendarios ya son dos, o sea 1.0 cada uno. Un mitico que sale lo mismo que un
+	# legendario no es un mitico. A 0.6 y con un solo hechizo dentro sale un 0,6%, que es una de cada
+	# ciento sesenta y seis tiradas de grimorio.
+	#
+	# Y CUIDADO al meter el segundo mitico: pasarian a 0,3% cada uno. Si eso se queda corto, lo que
+	# hay que subir es el peso de la BANDA, no inventarle nada al hechizo.
+	Upgrades.Rareza.MITICO: 0.6,
 }
 
 # LO QUE SE MULTIPLICA EL PESO DE UN HECHIZO QUE EL LECTOR YA SE SABE.

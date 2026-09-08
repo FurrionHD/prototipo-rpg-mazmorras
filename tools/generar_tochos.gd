@@ -168,7 +168,9 @@ const RAREZAS := {
 	"filo_ardiente": Upgrades.Rareza.RARO,
 	"filo_fulgurante": Upgrades.Rareza.RARO,
 	"filo_torrente": Upgrades.Rareza.RARO,
-	# Los MANTOS.
+	# Los MANTOS, y los dos de LUZ y OSCURIDAD, que son ataque puro de su elemento.
+	"estallido_solar": Upgrades.Rareza.EPICO,
+	"voragine_sombra": Upgrades.Rareza.EPICO,
 	"manto_brasas": Upgrades.Rareza.EPICO,
 	"manto_centellas": Upgrades.Rareza.EPICO,
 	"manto_marea": Upgrades.Rareza.EPICO,
@@ -176,6 +178,9 @@ const RAREZAS := {
 	# prometia: al entrar el segundo, cada uno pasa a salir la mitad sin tocar un solo numero.
 	"tormenta": Upgrades.Rareza.LEGENDARIO,
 	"shock_termico": Upgrades.Rareza.LEGENDARIO,
+	# MITICO: la banda de encima del legendario, y de momento con un solo hechizo. Sale la mitad que
+	# un legendario, o sea una de cada cien tiradas de grimorio.
+	"eclipse": Upgrades.Rareza.MITICO,
 }
 
 
@@ -318,6 +323,9 @@ const SIN_GRIMORIO := ["pulso_menor"]
 # la formula "Estudialo y aprenderas X" al final.
 const TEXTOS_GRIMORIO := {
 	"tormenta": "Un volumen que hay que sujetar con las dos manos y que nunca se deja abrir del todo por la misma pagina. Las tapas estan alabeadas, como si dentro hiciera su propio tiempo. Estudialo y aprenderas Tormenta.",
+	"estallido_solar": "Un tomo de tapas palidas que cuesta mirar de frente si le da la luz de una vela. Las paginas estan gastadas justo por el centro, como si alguien hubiera leido siempre el mismo parrafo. Estudialo y aprenderas Estallido solar.",
+	"voragine_sombra": "Un tomo que pesa mas de lo que deberia por su tamaño, y que si lo dejas en una mesa acaba en el borde. Nadie recuerda haberlo movido. Estudialo y aprenderas Voragine de sombra.",
+	"eclipse": "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber donde acaba el primero. La costura esta hecha por dentro. Estudialo y aprenderas Eclipse.",
 	"shock_termico": "Un tomo que quema por una tapa y hiela por la otra, y que en el medio esta a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frio mas de un rato. Estudialo y aprenderas Shock termico fulminante.",
 }
 

@@ -83,7 +83,15 @@ func _probar_pool() -> void:
 	_ok("tormenta SÍ está (ya tiene libro)", nombres.has("tormenta"))
 	var cuenta: Dictionary = _por_banda()
 	print("     por banda: %s" % cuenta)
-	_ok("las cinco bandas tienen a alguien", cuenta.size() == 5)
+	# Que TODA banda con peso tenga a alguien dentro. Antes decia "las cinco bandas" a pelo y al
+	# entrar la mitica fallo por el motivo equivocado: habia seis y el reparto estaba perfecto.
+	var vacias: Array = []
+	for banda in Game.PESO_RAREZA_GRIMORIO:
+		if int(cuenta.get(banda, 0)) == 0:
+			vacias.append(_nombre_banda(int(banda)))
+	_ok("las %d bandas con peso tienen a alguien" % Game.PESO_RAREZA_GRIMORIO.size()
+		if vacias.is_empty() else "BANDAS CON PESO Y SIN HECHIZOS: %s" % ", ".join(vacias),
+		vacias.is_empty())
 
 	# EL PANEL DE DEBUG TIENE QUE VERLOS TODOS. Se comprueba contra un escaneo REAL de la carpeta y
 	# no contra el manifiesto, que es lo unico que caza las dos averias posibles: que el manifiesto

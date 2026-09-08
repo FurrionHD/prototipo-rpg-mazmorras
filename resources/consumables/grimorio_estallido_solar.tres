@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_lqibh"]
+[ext_resource type="Resource" path="res://resources/spells/estallido_solar.tres" id="2_vaa8j"]
+
+[resource]
+script = ExtResource("1_lqibh")
+nombre = "Grimorio: Estallido solar"
+descripcion = "Un tomo de tapas palidas que cuesta mirar de frente si le da la luz de una vela. Las paginas estan gastadas justo por el centro, como si alguien hubiera leido siempre el mismo parrafo. Estudialo y aprenderas Estallido solar."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_vaa8j")
+tomo_id = &"grimorio_estallido_solar"
+valor_base = 4200

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_n4jx8"]
+[ext_resource type="Resource" path="res://resources/spells/eclipse.tres" id="2_jkwfs"]
+
+[resource]
+script = ExtResource("1_n4jx8")
+nombre = "Grimorio: Eclipse"
+descripcion = "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber donde acaba el primero. La costura esta hecha por dentro. Estudialo y aprenderas Eclipse."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_jkwfs")
+tomo_id = &"grimorio_eclipse"
+valor_base = 4200

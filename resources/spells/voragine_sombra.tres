@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_debil"]
+script = ExtResource("2")
+estado = 4
+prob = 0.45
+magnitud = 0.2
+
+[resource]
+script = ExtResource("1")
+nombre = "Vorágine de sombra"
+frases = Array[String](["Que se lo trague todo", "Y que no devuelva nada"])
+rareza = 3
+coste_mana = 13
+dano_base = 32.0
+elemento = 5
+hits = 3
+alcance = 0
+dano_objetivo = 1.0
+fx_estilo = 108
+descripcion = "Se abre un pozo bajo el objetivo y tira de él hacia dentro, a tirones. No revienta ni salpica: aprieta, y el que sale de ahí sale sin fuerza para pegar."

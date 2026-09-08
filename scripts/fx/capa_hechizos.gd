@@ -38,6 +38,10 @@ const COLETA_SHOCK := 0.34
 # reventon se veia pequeño para lo que es el hechizo. Lo miran la bola, el anillo de fuego y el
 # vapor, asi que crecen los tres a la vez y no se descuadran entre si.
 const RADIO_SHOCK := 3.4
+# Lo que dura el destello de luz / la voragine despues de llegar, y el Eclipse (que son los dos
+# seguidos, asi que necesita casi el doble).
+const COLETA_LUZ := 0.30
+const COLETA_ECLIPSE := 0.62
 const FUERA := -20.0         # de que altura caen los rayos y las gotas (por encima del techo)
 
 # Cada efecto vivo. Se reciclan los diccionarios: en una tormenta se dan de alta 32 en dos
@@ -216,6 +220,11 @@ func _vida(e: Dictionary) -> float:
 	# hechizo no se llegaba a ver nunca.
 	if es == CombatFX.Estilo.SHOCK_TERMICO or es == CombatFX.Estilo.SHOCK_VAPOR:
 		return float(e["dur"]) + COLETA_SHOCK
+	if es == CombatFX.Estilo.LUZ_ESTALLIDO or es == CombatFX.Estilo.SOMBRA_VORAGINE:
+		return float(e["dur"]) + COLETA_LUZ
+	# El Eclipse son los DOS seguidos: si se le da la coleta de uno, el destello final se corta.
+	if es == CombatFX.Estilo.ECLIPSE:
+		return float(e["dur"]) + COLETA_ECLIPSE
 	if es == CombatFX.Estilo.MORDISCO:
 		return float(e["dur"]) + 0.30
 	if es == CombatFX.Estilo.COLMILLAZO:
@@ -441,6 +450,9 @@ func _draw() -> void:
 		match int(e["estilo"]):
 			CombatFX.Estilo.PROYECTIL: _pintar_fuego(e)
 			CombatFX.Estilo.SHOCK_TERMICO: _pintar_shock(e)
+			CombatFX.Estilo.LUZ_ESTALLIDO: _pintar_luz(e)
+			CombatFX.Estilo.SOMBRA_VORAGINE: _pintar_sombra(e)
+			CombatFX.Estilo.ECLIPSE: _pintar_eclipse(e)
 			CombatFX.Estilo.SHOCK_VAPOR: _pintar_vapor(e["b"], float(e["r"]) * RADIO_SHOCK,
 				clampf(float(e["t"]) / (float(e["dur"]) + COLETA_SHOCK), 0.0, 1.0),
 				float(e["semilla"]), Color(0.4, 0.7, 1.0))
@@ -602,22 +614,13 @@ func _pintar_shock(e: Dictionary) -> void:
 	var t: float = e["t"]
 	var u: float = clampf(t / float(e["dur"]), 0.0, 1.0)
 	var fuego := Color(1.0, 0.5, 0.1)
-	var agua := Color(0.4, 0.7, 1.0)
-	# El golpe 0 es la llama; del 1 en adelante, el agua.
-	var es_agua: bool = int(e.get("golpe", 0)) > 0
-
-	# SE LANZA UNA SOLA BOLA. El hechizo tiene dos golpes, pero son dos tiempos del MISMO impacto,
-	# no dos conjuros: el segundo NO vuela nada. Cuando lo hacia, salian dos bolas cruzando la
-	# pantalla una detras de otra y se perdia justo lo que cuenta el hechizo.
+	var agua := Color(0.4, 0.7, 1.0)   # la mitad azul de la bola
+	# ESTE ESTILO ES SOLO LA BOLA. El golpe de agua NO pasa por aqui: usa SHOCK_VAPOR, que tiene su
+	# propio vuelo (casi cero) y por eso nace cuando la bola ya ha caido.
 	#
-	# Asi que el golpe de agua no tiene viaje: nace donde cayo la bola y lo unico que hace es el
-	# VAPOR, abriendose durante toda su vida. Por eso su reloj se mide sobre el efecto entero y no
-	# sobre "lo que queda despues de volar".
-	if es_agua:
-		var w: float = clampf(t / (float(e["dur"]) + COLETA_SHOCK), 0.0, 1.0)
-		_pintar_vapor(b, r * RADIO_SHOCK, w, float(e["semilla"]), agua)
-		return
-
+	# Antes el agua entraba por aqui con el vuelo de la BOLA, o sea que se daba de alta 0.42 s antes
+	# de que le tocara y el vapor se abria mientras el proyectil aun cruzaba la pantalla. El estilo
+	# no es solo el dibujo: es tambien CUANDO nace.
 	if u < 1.0:
 		# LENTA Y PESADA. El proyectil normal usa u*u, que ARRANCA despacio y llega disparado; este
 		# va con suavizado en las dos puntas, asi que sale, cruza a paso constante y se planta. Es lo
@@ -713,6 +716,116 @@ func _pintar_vapor(b: Vector2, rg: float, w: float, semilla: float, agua: Color)
 		var ang2: float = TAU * float(i) / 7.0 + semilla * 1.7
 		var d: Vector2 = Vector2(cos(ang2), sin(ang2)) * rg * (0.9 + 2.6 * w)
 		draw_circle(b + d, maxf(1.5, rg * 0.11 * (1.0 - w)), Color(agua.r, agua.g, agua.b, 1.0 - w))
+
+
+# ============================================================
+#  LUZ Y OSCURIDAD
+#  Los tres son de la MISMA familia visual y por eso van juntos: la luz SALE (puas rectas hacia
+#  fuera), la oscuridad ENTRA (tiras curvas que giran hacia el centro), y el Eclipse hace las dos
+#  cosas seguidas. Dibujados a partir de las referencias que paso el autor.
+# ============================================================
+
+# ESTALLIDO DE LUZ. Puas rectas y muy afiladas saliendo de un nucleo blanco, de largos MUY
+# desiguales. Lo que lo hace luz y no una explosion es que las puas son RECTAS y finas como agujas:
+# en cuanto se curvan o engordan, se lee como fuego.
+func _pintar_luz(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var rg: float = float(e["r"]) * 3.0
+	var sem: float = float(e["semilla"])
+	var w: float = clampf(t / (float(e["dur"]) + COLETA_LUZ), 0.0, 1.0)
+	# Sale de golpe y AGUANTA, y solo al final se va de golpe. Con un desvanecido lineal el destello
+	# se pasaba media vida a medio gas y se leia como un adorno gris en vez de como luz.
+	var vida: float = 1.0 - w * w * w
+	var abre: float = minf(1.0, w / 0.22)
+	var blanco := Color(1.0, 0.99, 0.94)
+
+	# EL NUCLEO, que es lo que de verdad se lee como "luz".
+	draw_circle(b, rg * (0.30 + 0.25 * abre) * vida, Color(blanco.r, blanco.g, blanco.b, vida))
+	draw_circle(b, rg * (0.55 + 0.45 * abre) * vida, Color(1.0, 0.94, 0.72, 0.45 * vida))
+
+	# LAS PUAS. Doce, con largos de 0.5 a 1.0 y cada una con su fase, para que no parezca una
+	# estrella de plantilla. Se dibujan como triangulos finos y no como lineas: una linea de grosor
+	# constante no tiene punta, y la punta es todo.
+	var n := 12
+	for i in n:
+		var ang: float = TAU * float(i) / float(n) + sem * 0.3
+		var d := Vector2(cos(ang), sin(ang))
+		var lat := Vector2(-d.y, d.x)
+		var largo: float = rg * (0.9 + 2.3 * (0.45 + 0.55 * absf(sin(sem + float(i) * 2.1)))) * abre
+		# GRUESA EN LA BASE. La primera version iba a 0.13 y salian alambres: en la referencia las
+		# puas son anchas donde nacen y acaban en punta, y eso es lo que las hace luz y no rayas.
+		var ancho: float = rg * 0.30 * vida
+		# Dos capas: la pua ancha en un blanco calido, y un nucleo mas fino y mas claro encima, que
+		# es lo que le da temperatura (mismo truco que las lenguas del proyectil de fuego).
+		draw_colored_polygon(PackedVector2Array([
+			b + lat * ancho, b + d * largo, b - lat * ancho,
+		]), Color(1.0, 0.93, 0.70, 0.85 * vida))
+		draw_colored_polygon(PackedVector2Array([
+			b + lat * ancho * 0.42, b + d * largo * 0.92, b - lat * ancho * 0.42,
+		]), Color(blanco.r, blanco.g, blanco.b, vida))
+
+
+# VORAGINE DE SOMBRA. Tiras curvas que giran hacia el centro y se lo tragan todo. Al reves que la
+# luz: aqui nada sale, todo ENTRA.
+#
+# El color NO es negro: sobre el fondo del combate, que ya es casi negro, un efecto negro no existe.
+# Se pinta en morado oscuro y se le ponen filos claros a las tiras, que es lo que las hace legibles
+# -- igual que en la referencia, donde lo que se ve del remolino son los brillos de los bordes.
+func _pintar_sombra(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var rg: float = float(e["r"]) * 3.2
+	var sem: float = float(e["semilla"])
+	var w: float = clampf(t / (float(e["dur"]) + COLETA_LUZ), 0.0, 1.0)
+	var vida: float = 1.0 - w * w
+	# Subidos los dos: la primera version se quedaba en un morado apagado sobre un fondo casi negro
+	# y el remolino no se veia. Lo que hace legible una cosa oscura es el FILO claro, no el relleno.
+	var sombra := Color(0.55, 0.30, 0.72)
+	var filo := Color(0.93, 0.88, 1.0)
+
+	# EL POZO del centro, que es a donde va todo.
+	draw_circle(b, rg * (0.42 - 0.30 * w) , Color(0.04, 0.02, 0.07, 0.95 * vida))
+
+	# LAS TIRAS: espirales que se enroscan hacia dentro. El angulo crece con el radio, que es lo que
+	# hace la curva; y el giro entero avanza con el tiempo, que es lo que la hace girar.
+	var n := 9
+	for i in n:
+		var base: float = TAU * float(i) / float(n) + t * 3.4 + sem
+		var puntos := PackedVector2Array()
+		var m := 14
+		for k in m:
+			var f: float = float(k) / float(m - 1)
+			# De fuera (1.0) hacia dentro (0.1), enroscandose.
+			var rad: float = rg * lerpf(1.15, 0.12, f) * (0.25 + 0.75 * minf(1.0, w / 0.25))
+			var ang: float = base + f * 2.3
+			puntos.append(b + Vector2(cos(ang), sin(ang)) * rad)
+		draw_polyline(puntos, Color(sombra.r, sombra.g, sombra.b, 0.95 * vida),
+			maxf(3.0, rg * 0.22), true)
+		# El FILO claro, mas fino y desplazado: es lo unico que se ve de una tira negra.
+		draw_polyline(puntos, Color(filo.r, filo.g, filo.b, 0.85 * vida),
+			maxf(1.5, rg * 0.07), true)
+
+
+# ECLIPSE. La voragine entera y, al final, el destello de luz reventando DESDE DENTRO.
+#
+# Los dos tiempos van en el mismo efecto y no en dos: lo que cuenta el hechizo es que la luz sale
+# del sitio que se lo habia tragado todo, y con dos efectos sueltos esa relacion se pierde.
+func _pintar_eclipse(e: Dictionary) -> void:
+	var t: float = float(e["t"])
+	var total: float = float(e["dur"]) + COLETA_ECLIPSE
+	var w: float = clampf(t / total, 0.0, 1.0)
+	# EL REPARTO: dos tercios de voragine, y el ultimo tercio es el destello.
+	const CORTE := 0.62
+	if w < CORTE:
+		# Se le pasa un reloj REESCALADO para que la voragine haga su ciclo entero en su trozo.
+		var falso := e.duplicate()
+		falso["t"] = (w / CORTE) * (float(e["dur"]) + COLETA_LUZ)
+		_pintar_sombra(falso)
+		return
+	var falso2 := e.duplicate()
+	falso2["t"] = ((w - CORTE) / (1.0 - CORTE)) * (float(e["dur"]) + COLETA_LUZ)
+	_pintar_luz(falso2)
 
 
 # RAYO. NO viaja: EXISTE. La polilinea cubre el camino entero desde el primer frame y luego se

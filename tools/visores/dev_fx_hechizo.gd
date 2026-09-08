@@ -22,7 +22,19 @@ const DUR := 0.55
 # El reventon dura poco y se apaga enseguida: los ultimos tres van MUY juntos porque si no la
 # ventana entera del impacto se cuela entre dos fotos y sale una captura en negro.
 # Vuelo (0,15-0,50), el reventon de fuego con su compresion (0,58-0,70) y el vapor (0,85-1,20).
-const MOMENTOS := [0.15, 0.35, 0.50, 0.58, 0.66, 0.72, 0.85, 1.00, 1.20]
+const MOMENTOS := [0.20, 0.45, 0.58, 0.70, 0.85, 1.05]
+
+# Una fila por efecto. El color es el que le manda combat.gd en el juego (el del elemento).
+const FILAS := [
+	{"estilo": CombatFX.Estilo.SHOCK_TERMICO, "elem": 1, "nombre": "Shock térmico (bola)",
+		"color": Color(1.0, 0.5, 0.1)},
+	{"estilo": CombatFX.Estilo.LUZ_ESTALLIDO, "elem": 4, "nombre": "Estallido solar",
+		"color": Color(1.0, 0.97, 0.85)},
+	{"estilo": CombatFX.Estilo.SOMBRA_VORAGINE, "elem": 5, "nombre": "Vorágine de sombra",
+		"color": Color(0.42, 0.24, 0.55)},
+	{"estilo": CombatFX.Estilo.ECLIPSE, "elem": 5, "nombre": "Eclipse",
+		"color": Color(0.42, 0.24, 0.55)},
+]
 
 var _capa: CapaHechizos = null
 
@@ -41,31 +53,31 @@ func _ready() -> void:
 	add_child(_capa)
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 
-	# LOS DOS GOLPES DEL SHOCK TERMICO, uno debajo del otro, para verlos a la vez: el de FUEGO
-	# (golpe 0) y el de AGUA (golpe 1). Son las dos mitades del mismo impacto y hay que juzgarlas
-	# juntas, no una foto de cada.
-	# UNA SOLA BOLA. El golpe de fuego es el que vuela; el de agua NO viaja -- nace donde cayo la
-	# bola y solo hace el vapor.
-	#
-	# Y EL DE AGUA SE LANZA MAS TARDE, no a la vez. En combate los dos golpes van en TANDAS distintas
-	# (CombatFX.tanda), asi que el vapor sale cuando la bola ya ha reventado. Lanzandolos juntos, la
-	# primera captura salio con la nube de vapor abierta mientras la bola aun cruzaba la pantalla:
-	# una foto que enseña algo que en el juego no pasa es peor que no tener foto.
-	var origen := Vector2(180.0, 380.0)
-	var blanco := Vector2(880.0, 300.0)
-	_capa.alta(CombatFX.Estilo.SHOCK_TERMICO, origen, blanco,
-		Color(1.0, 0.5, 0.1), 1.5, DUR, 120.0, Elementos.Elemento.FUEGO, 0)
-	# La BOLA DE FUEGO de siempre, como referencia de TAMAÑO: la nueva tiene que verse claramente
-	# mas gorda o no habra servido de nada.
-	_capa.alta(CombatFX.Estilo.PROYECTIL, origen + Vector2(0.0, 240.0),
-		blanco + Vector2(0.0, 300.0), Color(1.0, 0.5, 0.1), 1.5, DUR, 120.0,
-		Elementos.Elemento.FUEGO, 0)
+	# LOS EFECTOS QUE SE MIRAN. Cada uno en su fila, todos a la vez, porque lo que hay que juzgar no
+	# es solo si cada uno esta bien: es si se DISTINGUEN entre si de un vistazo. Un estallido de luz
+	# que se lee igual que una explosion de fuego no sirve por bonito que sea.
+	var origen := Vector2(150.0, 380.0)
+	for i in FILAS.size():
+		var fila: Dictionary = FILAS[i]
+		var y: float = 90.0 + 150.0 * float(i)
+		# CADA ESTILO CON SU PROPIO VUELO, el de CombatFX.T_VUELO, no uno comun. Dandoles a todos el
+		# del Shock (0,55) el estallido de luz se pasaba su vida entera desvaneciendose y salia en
+		# blanco: la foto mentia por culpa del visor, no del efecto.
+		var vuelo: float = float(CombatFX.T_VUELO.get(int(fila["estilo"]), DUR))
+		_capa.alta(int(fila["estilo"]), origen, Vector2(860.0, y), fila["color"],
+			1.5, vuelo, 120.0, int(fila["elem"]), 0)
+		var et := Label.new()
+		et.text = String(fila["nombre"])
+		et.position = Vector2(950.0, y - 10.0)
+		et.add_theme_color_override("font_color", Color(0.7, 0.74, 0.8))
+		add_child(et)
 
 	# Se espera por el RELOJ DE VERDAD y no contando fotogramas a 60 por segundo: la ventana del
 	# visor no va a 60 fijos, asi que con el contador las fotos salian todas antes de tiempo -- la
 	# del "impacto" pillaba la bola aun a media distancia.
 	var t0: int = Time.get_ticks_msec()
 	var vapor_lanzado: bool = false
+	var blanco := Vector2(860.0, 90.0)
 	for m in MOMENTOS:
 		while float(Time.get_ticks_msec() - t0) / 1000.0 < float(m):
 			await get_tree().process_frame

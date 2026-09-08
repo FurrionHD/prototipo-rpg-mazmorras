@@ -4001,10 +4001,20 @@ func _estilo_hechizo(spell: SpellData, elem: int, rebote: bool, salpicon: bool =
 	# La SALPICADURA tiene su propio dibujo: al vecino no le llega el conjuro, le llega lo que ha
 	# reventado en el principal. Si no se mirase antes que fx_estilo, un hechizo con dibujo propio
 	# mandaria una copia entera del conjuro a cada enemigo de al lado.
-	if salpicon and spell != null and spell.fx_estilo_salpicon >= 0:
-		return spell.fx_estilo_salpicon
-	if not salpicon and spell != null and spell.fx_estilo >= 0:
-		return spell.fx_estilo
+	if spell != null and spell.fx_estilo >= 0:
+		# EL DIBUJO GORDO es SOLO para los golpes del elemento de identidad del hechizo. Los demas
+		# —y las salpicaduras— usan el secundario.
+		#
+		# No es cosmetico, es de TIEMPO: cada estilo tiene su propio vuelo en CombatFX.T_VUELO, y el
+		# efecto se da de alta ese rato ANTES de su impacto. El golpe de agua del Shock termico
+		# usaba el estilo de la bola (vuelo 0.42) y por eso nacia casi medio segundo antes de que le
+		# tocara: el vapor se abria mientras la bola aun estaba cruzando la pantalla. Con el estilo
+		# del vapor (vuelo 0.10) nace cuando toca.
+		if salpicon or elem != spell.elemento:
+			if spell.fx_estilo_salpicon >= 0:
+				return spell.fx_estilo_salpicon
+		else:
+			return spell.fx_estilo
 	if salpicon:
 		return _estilo_salpicon(spell, elem)
 	match elem:
