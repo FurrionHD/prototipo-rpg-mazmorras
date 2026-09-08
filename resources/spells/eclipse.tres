@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Eclipse"
-frases = Array[String](["Luz y oscuridad", "Oscuridad y luz", "Feliz aniversario veinte", "Corazones del reino"])
+frases = Array[String](["Luz y oscuridad", "Oscuridad y luz", "Feliz aniversario 20", "Kingdom Hearts"])
 rareza = 5
 coste_mana = 22
 dano_base = 58.0

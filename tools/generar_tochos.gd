@@ -180,6 +180,10 @@ const RAREZAS := {
 	"shock_termico": Upgrades.Rareza.LEGENDARIO,
 	# MITICO: la banda de encima del legendario, y de momento con un solo hechizo. Sale la mitad que
 	# un legendario, o sea una de cada cien tiradas de grimorio.
+	# OJO CON SUS FRASES: el recitado del Eclipse es un MEME y es PROVISIONAL. Lleva una marca
+	# registrada ajena escrita tal cual, asi que NO puede salir en una version publicada -- va contra
+	# la norma de no meter referencias externas en la UI, y ademas es de otro. Esta puesto porque el
+	# autor lo pidio asi mientras se prueba el gacha, y hay que cambiarlo en el pase de textos.
 	"eclipse": Upgrades.Rareza.MITICO,
 }
 
