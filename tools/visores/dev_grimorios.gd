@@ -287,10 +287,20 @@ func _probar_monotonia() -> void:
 		por_banda[int(s.rareza)] = float(probs[s])
 	var bandas: Array = por_banda.keys()
 	bandas.sort()
+	# LAS DOS VISTAS, siempre juntas. La tabla enseñaba solo la de "por hechizo" y eso llevo a bajar
+	# el peso mitico creyendo que estaba empatado con el legendario, cuando POR BANDA seguia siendo
+	# tres veces mas raro. Son dos preguntas distintas y las dos importan:
+	#   BANDA   - cada cuanto sale uno DE ESA RAREZA (lo que se siente al tirar)
+	#   HECHIZO - cuanto cuesta UNO CONCRETO (lo que decide si un chase item es alcanzable)
+	var cnt: Dictionary = _por_banda()
 	var linea: Array = []
+	var linea2: Array = []
 	for b in bandas:
-		linea.append("%s %.2f%%" % [_nombre_banda(int(b)), float(por_banda[b]) * 100.0])
-	print("     cada hechizo sale: %s" % "  ·  ".join(linea))
+		var n_b: int = int(cnt.get(b, 1))
+		linea.append("%s %.2f%%" % [_nombre_banda(int(b)), float(por_banda[b]) * float(n_b) * 100.0])
+		linea2.append("%s %.2f%%" % [_nombre_banda(int(b)), float(por_banda[b]) * 100.0])
+	print("     sale la BANDA:    %s" % "  ·  ".join(linea))
+	print("     sale UN hechizo:  %s" % "  ·  ".join(linea2))
 	var rotas: Array = []
 	for i in range(bandas.size() - 1):
 		var baja: float = float(por_banda[bandas[i]])

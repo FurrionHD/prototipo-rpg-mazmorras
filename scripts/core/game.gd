@@ -2954,24 +2954,20 @@ const PESO_RAREZA_GRIMORIO := {
 	Upgrades.Rareza.LEGENDARIO: 2.0,
 	# MITICO: el techo por encima del legendario.
 	#
-	# OJO AL NUMERO: se puso primero a 1.0 y quedo EMPATADO con el legendario -- porque el peso es de
-	# la BANDA y los legendarios ya son dos, o sea 1.0 cada uno. Un mitico que sale lo mismo que un
-	# legendario no es un mitico. A 0.6 y con un solo hechizo dentro sale un 0,6%, que es una de cada
-	# ciento sesenta y seis tiradas de grimorio.
+	# HAY DOS FORMAS DE LEER ESTA TABLA Y CONVIENE NO MEZCLARLAS:
+	#   POR BANDA    - cada cuanto sale un mitico DE LOS QUE SEA. Es 0,6 contra los 2,0 de la banda
+	#                  legendaria: tres veces mas raro. Es lo que se SIENTE al tirar ("me ha salido
+	#                  un mitico"), y por eso es la que manda para el gacha.
+	#   POR HECHIZO  - cuanto cuesta ESTE mitico contra ESTE legendario. Depende de entre cuantos se
+	#                  reparte cada banda, asi que se mueve sola cada vez que se añade un hechizo.
 	#
-	# Y CUIDADO al meter el segundo mitico: pasarian a la mitad cada uno. Si eso se queda corto, lo
-	# que hay que subir es el peso de la BANDA, no inventarle nada al hechizo.
+	# Se bajo a 0.33 mirando solo la segunda —al entrar el tercer legendario, 0,66 por legendario
+	# contra 0,60 el mitico parecia un empate— y fue una sobrecorreccion: por banda seguia siendo
+	# tres veces mas raro y ya estaba bien. Vuelve a 0.6.
 	#
-	# BAJADO A 0.33 al entrar el TERCER legendario: la banda legendaria vale 2.0 y repartida entre
-	# tres da 0,66% por hechizo, con lo que el mitico a 0.6 se quedaba practicamente empatado con
-	# ella. La monotonia seguia cumpliendose por los pelos, pero un mitico que sale casi lo mismo que
-	# un legendario no se siente mitico. A 0.33 vuelve a ser LA MITAD que uno de la banda de abajo,
-	# que es el escalon que tenia cuando se creo.
-	#
-	# LA LECCION, que ya ha mordido dos veces en los dos sentidos: al añadir un hechizo NO basta con
-	# mirar que su banda siga por encima de la siguiente. Hay que mirar la DISTANCIA, porque lo que
-	# cambia es cuanto se reparte cada banda entre los suyos.
-	Upgrades.Rareza.MITICO: 0.33,
+	# LA LECCION: al tocar estos pesos, mira LAS DOS COLUMNAS de la tabla del visor. Comparar la de
+	# uno con la del otro lleva a arreglar algo que no estaba roto.
+	Upgrades.Rareza.MITICO: 0.6,
 }
 
 # LO QUE SE MULTIPLICA EL PESO DE UN HECHIZO QUE EL LECTOR YA SE SABE.
