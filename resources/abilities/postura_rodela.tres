@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Postura de rodela"
+precio = 2200
+coste_energia = 42
+cooldown = 0
+dano_mult = 0.0
+postura_contraataque = true
+requiere_escudo = true
+bloqueo_turnos = 1
+guardia_spd_mult = 0.45
+evasion_bonus = 0.14
+contra_mult = 0.75
+fx_estilo = 43
+descripcion = "La rodela no se planta: se mueve contigo. Entras en guardia hasta tu próxima acción, esquivando más y con el escudo alto a la vez. Todo lo que falle contra ti lo devuelves, lo esquives o lo pares."

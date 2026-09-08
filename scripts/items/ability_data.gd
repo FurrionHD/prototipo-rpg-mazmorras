@@ -352,6 +352,15 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 # Daño del contraataque (riposte) respecto a un básico (1.0 = golpe normal).
 @export var contra_mult: float = 1.0
 
+# --- COBERTURA REAL (escudo torre, "Muro"): te plantas DELANTE de un aliado N turnos suyos y los
+# golpes que el sorteo le manda a el te llegan a TI. Es lo unico del juego que MUEVE un golpe de
+# un objetivo a otro; la Provocacion solo inclina la balanza del sorteo.
+# El golpe se resuelve entero contra el que cubre, asi que su defensa, su defend_defense y su
+# bloqueo entran solos: te tapa con SU escudo, sin tocar StatsMath.
+# Pide objetivo_aliado = ALIADO (a alguien hay que ponerse delante). El estado (a quien y cuantos
+# turnos) vive en el Combatant, como provocar_turnos. Ver combat.gd._elegir_objetivo_enemigo.
+@export var protege_turnos: int = 0
+
 
 # Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene). 'enemigos' = nº de
 # rivales VIVOS: si la habilidad escala por multitud (golpes_extra_por_enemigo), suma golpes
@@ -538,6 +547,10 @@ func resumen(manos: int = 1) -> String:
 		l.append("Durante %d turnos los enemigos tienden a atacarte a ti." % provoca_turnos)
 	if postura_contraataque:
 		l.append("Te pones en guardia: esquivas más y devuelves los golpes que esquives, pero vas más lento.")
+	if protege_turnos > 0:
+		l.append(("Te plantas delante del aliado %d turno%s: los golpes que le busquen a él te"
+			+ " llegan a TI, con tu bloqueo y tu defensa.") % [
+				protege_turnos, "" if protege_turnos == 1 else "s"])
 	if foco_cargas > 0:
 		l.append("Te da %d cargas de Foco arcano para tus próximos hechizos." % foco_cargas)
 	if mana_gain > 0.0:

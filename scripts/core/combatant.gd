@@ -114,6 +114,32 @@ var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un b
 # (EVADE_MAX 0.35 -> EVADE_MAX_BUFF 0.65) en StatsMath.resolve_attack.
 var evasion_bonus: float = 0.0
 
+# --- RIPOSTE AL BLOQUEAR (la personalidad del escudo PEQUEÑO) ---
+# El estoque ripostea al ESQUIVAR (en_guardia, arriba); la rodela ripostea al BLOQUEAR. Son dos
+# cosas distintas y pueden convivir en el mismo personaje: result.evaded bifurca, asi que un mismo
+# golpe nunca dispara las dos.
+# NO es permanente: solo salta con la guardia arriba (Defender o bloqueo_turnos), igual que la
+# autorregeneracion. Y va por PROBABILIDAD porque devolver CADA golpe parado es roto.
+# Estos dos los pone Game desde el escudo equipado; 0 = este escudo no ripostea.
+var escudo_contra_prob: float = 0.0   # probabilidad de devolver el golpe que paras
+var escudo_contra_mult: float = 0.0   # fraccion del daño con la que lo devuelves
+
+# --- COBERTURA / CUBRIR A UN ALIADO (la personalidad del escudo GRANDE) ---
+# "Yo recibo tus golpes": mientras dure, los golpes que el sorteo manda al PROTEGIDO llegan a
+# ESTE combatiente. No es un estado de status_effects porque no tiene magnitud ni stacks ni corre
+# fuera de combate: es una relacion entre dos combatientes y punto.
+# El golpe se resuelve entero contra el que cubre, asi que su defensa, su defend_defense y su
+# bloqueo entran solos -- que es justo lo que se busca: te tapa con SU escudo.
+# Ver combat.gd._elegir_objetivo_enemigo (la redireccion) y AbilityData.protege_turnos.
+# La pareja va en LOS DOS SENTIDOS a proposito. El de vuelta ('protegido_por') es el que lee la
+# redireccion, que corre en cada sorteo de objetivo: asi es mirar un campo y no recorrer a todos
+# los aliados preguntando "¿cubres a este?". Y tenerlos los dos deja romper la pareja entera desde
+# cualquiera de las dos puntas cuando uno cae, que es la mitad de los bugs de puntero colgado.
+# Quien los toca, los toca por pares: ver combat.gd._romper_cobertura.
+var protegiendo_a: Combatant = null   # a QUIEN cubro (null = a nadie)
+var protegido_por: Combatant = null   # QUIEN se pone delante de mi
+var proteger_turnos: int = 0          # turnos que me quedan cubriendole. Baja 1 por turno mio.
+
 # --- AGGRO / PROVOCACION (rol de tanque) ---
 # Peso PASIVO al sortear a quien pega el enemigo (1.0 = uno mas del monton). Llevar ESCUDO lo sube
 # SIN gastar turno: el que va tapado y plantado delante se come mas golpes de forma natural. Lo pone
@@ -1453,10 +1479,20 @@ func enraizado() -> bool:
 func puede_atacar() -> bool:
 	if enraizado():
 		return false
+	return not aturdido()
+
+
+# ¿Le han quitado el turno? Aturdido y Miedo, que es lo que llevan is_stun. NO incluye Enraizado:
+# al enraizado no le han quitado el turno, le han quitado el sitio.
+# Vive aparte porque lo miran dos cosas con criterios distintos: puede_atacar() (que ademas exige
+# no estar enraizado) y la COBERTURA del escudo grande, que solo pregunta si sigues consciente --
+# a un tanque enraizado le han clavado los pies delante de su protegido, que es justamente donde
+# lo quieres. Si esto se copiara en los dos sitios, un dia dejarian de decir lo mismo.
+func aturdido() -> bool:
 	for e in statuses:
 		if e.is_stun():
-			return false
-	return true
+			return true
+	return false
 
 # NOTA: aqui vivia stun_taken_mult(), el multiplicador propio del aturdimiento. Se retiro al
 # unificar: su contenido (stun_resist, la afinidad y el estado Rayo) es ahora resistencia de FAMILIA

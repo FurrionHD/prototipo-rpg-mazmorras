@@ -16,6 +16,14 @@
 #   - La velocidad y la penalizacion de esquiva son del TAMAÑO y NO escalan: lo que estorba un
 #     escudo grande es que es grande, no que este mal hecho.
 #  Ver Upgrades.shield_mods(), que es donde vive esa math.
+#
+#  LA PERSONALIDAD DE CADA TAMAÑO (lo que arregla el "los tres son el mismo escudo"):
+#   - PEQUEÑO (rodela)  = DUELISTA:            "yo devuelvo los golpes". aggro bajo + riposte.
+#   - NORMAL  (heater)  = GUARDIAN:            "yo te pongo fuerte y te limpio". apoya sin comerselo.
+#   - GRANDE  (torre)   = DEFENSOR DEFINITIVO: "yo recibo tus golpes". aggro alto + cover real.
+#  Se separan por el VERBO, no por el numero: el reparto de stats de arriba NO se toca. Parte va
+#  en campos de aqui (aggro_mult, contra_*) y parte en la lista de `habilidades`, que ahora es
+#  DISTINTA en cada tamaño (nucleo comun + 2 propias).
 # ============================================================
 
 extends Resource
@@ -39,6 +47,25 @@ enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
 @export var resist_estados_base: float = 0.12
 @export var velocidad_mult: float = 0.95  # penaliza algo la velocidad de combate (<1). NO escala
 @export var evasion_penal: float = 0.03   # baja la esquiva (grande penaliza mas). NO escala
+
+# --- PERSONALIDAD DEL TAMAÑO ---
+# Los tres escudos eran el MISMO escudo con otros numeros: mismas habilidades, mismo aggro, y solo
+# cambiaba la magnitud. Con todo igualado el grande es siempre el correcto y los otros dos son
+# escalones de una escalera, no opciones. Estos campos son lo que cada tamaño HACE y los otros no.
+# Van CRUDOS (sin tier ni rareza), como velocidad_mult y evasion_penal: son del tamaño, y un
+# escudo pristino no atrae mas golpes por ser pristino.
+
+# CUANTO ATRAE LOS GOLPES, sobre el x2 de base por llevar escudo (Combatant.AGGRO_ESCUDO).
+# 0.6 / 1.0 / 1.6 -> aggro efectivo 1.2 / 2.0 / 3.2. Sin esto el pequeño era "el grande peor":
+# se comia los mismos golpes y paraba menos. Ahora la rodela te deja escurrirte.
+@export var aggro_mult: float = 1.0
+# RIPOSTE AL BLOQUEAR: probabilidad de devolver el golpe que paras, y con que fraccion del daño.
+# Por PROBABILIDAD a proposito: contraatacar en CADA bloqueo es roto. Solo salta con la guardia
+# arriba (igual que la autorregeneracion), asi que hay que gastar el turno en Defender o traerlo
+# de gorra con el Golpe de escudo, que ya deja bloqueo_turnos = 1.
+# Es la identidad del PEQUEÑO: el duelista que devuelve los golpes.
+@export var contra_prob: float = 0.0
+@export var contra_mult: float = 0.0
 
 # --- HABILIDADES (KAN-57): las que aporta ESTE escudo (golpe de escudo...) ---
 @export var habilidades: Array = []

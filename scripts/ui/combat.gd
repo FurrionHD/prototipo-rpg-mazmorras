@@ -288,6 +288,10 @@ var _dueno_aliado: Dictionary = {}
 # filtran en _aliados_vivos(), que es el embudo de a quien pegan, quien recibe area, cuando se
 # pierde y quien cobra el mana de la victoria.
 var _huidos: Dictionary = {}
+# COBERTURAS que llegaron por red y todavia son un INDICE, no un puntero (Combatant -> int). Vive
+# entre _aplicar_volatil y _reenlazar_coberturas, y se vacia ahi mismo. Solo se llena en el traspaso
+# de anfitrion: en una pelea normal esta siempre vacio.
+var _cobertura_pendiente: Dictionary = {}
 # Identidad de cada combatiente dentro de ESTA pelea (ver _uid_de). En el anfitrion se asigna sola;
 # en el espejo se copia del roster, para poder casar fila con maniqui sin depender del nombre.
 var _uid: Dictionary = {}
@@ -849,8 +853,15 @@ func _volatil(c: Combatant) -> Dictionary:
 	# —que es el criterio de esta funcion— y sin el, traspasar la pelea le regalaba al que la recoge
 	# las cargas que ya tenia puestas (o se las quitaba). Faltaba desde siempre; se vio tirando del
 	# hilo del "uso una habilidad y sale un basico", que era este mismo campo por otra puerta.
+	# COBERTURA: los turnos y A QUIEN, como INDICE en _aliados y nunca como referencia -- igual que
+	# hace el casteo con su destinatario unas lineas mas abajo. Un Combatant no cruza la red; lo que
+	# no se copia campo a campo se pierde SOLO en multi, y en silencio.
+	# El re-enlace no se puede hacer aqui: al reconstruir el aliado 0 su protector puede no existir
+	# todavia. Lo cierra _reenlazar_coberturas, en una segunda pasada. Ver retomar().
 	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy, "foco": c.foco_cargas,
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
+		"cubre": [_aliados.find(c.protegiendo_a) if c.protegiendo_a != null else -1,
+			c.proteger_turnos],
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
 			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza]}
@@ -864,6 +875,15 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.current_energy = float(v.get("en", c.current_energy))
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
+	# COBERTURA: aqui solo se apunta el indice en bruto; el puntero lo cierra _reenlazar_coberturas
+	# cuando ya estan todos montados. Se guarda EN EL DICT y no en el Combatant para no dejar un
+	# campo a medias en el que la redireccion pueda creerse.
+	var cub: Array = v.get("cubre", [-1, 0])
+	if cub.size() >= 2 and int(cub[1]) > 0 and int(cub[0]) >= 0:
+		_cobertura_pendiente[c] = int(cub[0])
+		c.proteger_turnos = int(cub[1])
+	else:
+		_romper_cobertura(c)
 	c.statuses.clear()
 	for e in v.get("estados", []):
 		var def: Dictionary = StatusEffects.def(int(e[0]))
@@ -974,6 +994,10 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
 				_casteos[c] = {"spell": sp, "idx": int(cst[1]),
 					"aliado": _aliados[idest] if idest >= 0 and idest < _aliados.size() else null,
 					"pagado": bool(cst[3]) if cst.size() > 3 else false}
+	# SEGUNDA PASADA: ya estan todos los aliados montados, asi que ahora los indices de cobertura
+	# se pueden convertir en punteros. Antes no: al reconstruir el primero, su protector todavia
+	# no existia.
+	_reenlazar_coberturas()
 	for i in mini(_enemies.size(), filas_e.size()):
 		var e: Combatant = _enemies[i]
 		_aplicar_volatil(e, filas_e[i].get("vol", {}))
@@ -1598,8 +1622,75 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	for i in vivos.size():
 		r -= pesos[i]
 		if r < 0.0:
-			return vivos[i]
-	return vivos[vivos.size() - 1]
+			return _redirigir_cobertura(vivos[i])
+	return _redirigir_cobertura(vivos[vivos.size() - 1])
+
+
+# COBERTURA (escudo grande): el golpe que el sorteo le manda al protegido se lo come su protector.
+# Es lo unico del juego que MUEVE un golpe de un objetivo a otro; la Provocacion solo inclina la
+# balanza del sorteo, y por eso son dos cosas y no una.
+#
+# VA AQUI, en la eleccion de objetivo, y no al aplicar el daño. Tres motivos:
+#   - los ~16 sitios que eligen objetivo lo heredan gratis, en vez de parchear las dos ramas de daño;
+#   - el _fx_golpe sale con la direccion buena: la tarjeta que se sacude es la del que se lo come;
+#   - la defensa, el defend_defense y el bloqueo del protector entran SOLOS, sin tocar StatsMath.
+#     "Te tapa con SU escudo" sale de aqui, no de una formula nueva.
+#
+# Se evalua EN EL MOMENTO de elegir, no al activarla: un protector que acaba de caer o de huir deja
+# de tapar sin que nadie tenga que ir a limpiarlo.
+#
+# SOLO EL OBJETIVO PRINCIPAL. Los secundarios de un area no pasan por aqui (los saca
+# _objetivos_area_aliados de los VECINOS del principal), asi que la regla se cumple sola: un area
+# que pilla a tres no puede colapsar en tres golpes al tanque. No hay que escribir nada para eso,
+# pero queda dicho para que no se "arregle" mas adelante.
+#
+# ATURDIDO: ese golpe NO se redirige, pero la cobertura NO cae. Estas grogui y se te cuela uno;
+# cuando te recuperas sigues plantado delante. Enraizado si tapa (ver Combatant.aturdido).
+func _redirigir_cobertura(obj: Combatant) -> Combatant:
+	if obj == null:
+		return null
+	var p: Combatant = obj.protegido_por
+	if p == null or p == obj or p.proteger_turnos <= 0:
+		return obj
+	if not p.is_alive() or _huidos.has(p) or p.aturdido():
+		return obj
+	return p
+
+
+# Cierra las coberturas que llegaron por red como INDICE (ver _volatil / _aplicar_volatil). Corre
+# una vez, con todos los aliados ya montados.
+# Si el indice no cuadra -- el protector era del que se fue, o habia huido, y estado_para_traspaso
+# se los salta -- la cobertura se rompe EN SILENCIO. Mejor quedarse sin protector que quedarse con
+# el equivocado: lo primero se nota (te pegan) y lo segundo manda golpes a quien no toca.
+func _reenlazar_coberturas() -> void:
+	for c in _cobertura_pendiente:
+		var idx: int = int(_cobertura_pendiente[c])
+		var otro: Combatant = _aliados[idx] if idx >= 0 and idx < _aliados.size() else null
+		if otro == null or otro == c or not otro.is_alive() or _huidos.has(otro):
+			_romper_cobertura(c)
+			continue
+		c.protegiendo_a = otro
+		otro.protegido_por = c
+	_cobertura_pendiente.clear()
+
+
+# Rompe la pareja de cobertura POR LOS DOS LADOS. Vive aparte porque se llama desde cuatro sitios
+# (se acaba el tiempo, cae el protector, cae el protegido, se pone una cobertura nueva) y dejar un
+# solo lado puesto es un puntero colgado que solo se nota en la pelea siguiente.
+func _romper_cobertura(c: Combatant) -> void:
+	if c == null:
+		return
+	if c.protegiendo_a != null:
+		if c.protegiendo_a.protegido_por == c:
+			c.protegiendo_a.protegido_por = null
+		c.protegiendo_a = null
+	c.proteger_turnos = 0
+	# Y por el otro lado: si a ESTE lo estaban cubriendo, el que lo cubria se queda sin trabajo.
+	if c.protegido_por != null:
+		if c.protegido_por.protegiendo_a == c:
+			c.protegido_por.protegiendo_a = null
+			c.protegido_por.proteger_turnos = 0
+		c.protegido_por = null
 
 
 # PESO DE AGGRO de un aliado: el PASIVO (x2 si lleva escudo) x el de PROVOCAR (x4 mientras dure).
@@ -3460,6 +3551,10 @@ func _caer_aliado(c: Combatant) -> void:
 	_gauge.erase(c)
 	_defendiendo.erase(c)
 	_casteos.erase(c)
+	# COBERTURA: caiga el que cubre o el cubierto, la pareja se deshace entera. Si no, el muerto se
+	# queda apuntado en el vivo y la redireccion mandaria golpes a un cadaver -- o los dejaria de
+	# mandar al que ya no tiene quien le tape.
+	_romper_cobertura(c)
 	c.statuses.clear()
 	var i: int = _aliados.find(c)
 	if i >= 0 and i < _bloques_aliados.size():
@@ -4028,6 +4123,19 @@ func _chips_de(c: Combatant) -> Array:
 		out.append(["🎯%dt" % c.provocar_turnos,
 			"Provocación (%d turno%s)\nLos enemigos centran su atención en ti: te atacan más." % [
 				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"]])
+	# COBERTURA (escudo grande). Va en los DOS: quien cubre y a quien cubren. Sin el segundo chip,
+	# el que esta tapado no tiene forma de saber por que de pronto no le pega nadie -- y cuando se
+	# le acabe, tampoco sabra por que ha vuelto a llover. La flecha dice el sentido.
+	if c.proteger_turnos > 0 and c.protegiendo_a != null:
+		out.append(["🛡→%dt" % c.proteger_turnos,
+			("Cubres a %s (%d turno%s)\nLos golpes que le busquen a él te llegan a ti, con tu"
+			+ " bloqueo y tu defensa. Mientras dure, cuentas como si estuvieras defendiendo.") % [
+				c.protegiendo_a.nombre, c.proteger_turnos,
+				"" if c.proteger_turnos == 1 else "s"]])
+	if c.protegido_por != null and c.protegido_por.proteger_turnos > 0:
+		out.append(["🛡←",
+			"Te cubre %s\nSe ha puesto delante: los golpes que te buscaban van a él." % \
+				c.protegido_por.nombre])
 	var imb: String = c.imbue_etiqueta()
 	if imb != "":
 		out.append([imb, c.imbue_resumen()])
@@ -4576,6 +4684,20 @@ func _begin_player_turn() -> void:
 	# enemigos ya la han "sentido" al elegir objetivo). Al llegar a 0 deja de atraer golpes.
 	if _player.provocar_turnos > 0:
 		_player.provocar_turnos -= 1
+	# COBERTURA (escudo grande): igual que la Provocacion, dura N turnos SUYOS y baja al empezarlos.
+	# Al llegar a 0 se rompe la pareja por los dos lados, o el protegido se queda con un protector
+	# que ya no le tapa nada y la redireccion tendria que estar comprobandolo en cada sorteo.
+	# La guardia sigue arriba mientras cubres: ver mas abajo, donde se marca _defendiendo.
+	if _player.proteger_turnos > 0:
+		_player.proteger_turnos -= 1
+		if _player.proteger_turnos <= 0:
+			_romper_cobertura(_player)
+	# Mientras CUBRES, cuentas como que estas defendiendo. Si no, "los recibes con tu escudo" seria
+	# mentira salvo que ademas gastaras el turno en Defender -- y el turno ya te lo ha costado poner
+	# la cobertura. Va sobre el DICT y no sobre _player_defending, que solo vale dentro del turno
+	# del que actua (con grupo, ese flag es del que le toca, no del que encaja el golpe).
+	if _player.proteger_turnos > 0:
+		_defendiendo[_player] = true
 	# La IMBUICION ya NO baja aqui: dura ATAQUES, no turnos. Ver _gastar_imbue().
 	# Estados alterados (KAN-58): tick al inicio del turno (DoT, expira, aturdido).
 	var ev: Dictionary = _player.tick_statuses()
@@ -6494,6 +6616,21 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Provocacion no da cargas de Foco, no se aplicaba NUNCA.
 	if ab.provoca_turnos > 0:
 		_player.provocar_turnos = ab.provoca_turnos
+	# COBERTURA (escudo grande, "Muro"): te plantas delante del aliado elegido. Va al MISMO nivel
+	# que la Provocacion, no dentro de nada -- ver el aviso de ahi arriba, que a la Provocacion le
+	# paso justo eso y no se aplicaba nunca.
+	# La pareja se monta por LOS DOS LADOS y se rompe la anterior primero: solo se puede cubrir a
+	# uno, y sin el _romper_cobertura de delante el aliado viejo se quedaba con un protegido_por
+	# apuntando a alguien que ya cubre a otro.
+	if ab.protege_turnos > 0:
+		var a_cubrir: Combatant = _hab_objetivo_aliado()
+		if a_cubrir != null and a_cubrir != _player:
+			_romper_cobertura(_player)
+			_romper_cobertura(a_cubrir)   # y si a EL ya lo cubria otro, ese otro se queda libre
+			_player.protegiendo_a = a_cubrir
+			a_cubrir.protegido_por = _player
+			_player.proteger_turnos = ab.protege_turnos
+			_defendiendo[_player] = true   # cubrir es tener el escudo alto: ver _begin_player_turn
 	# IMBUICION DESDE EL ARMA (el veneno de la daga). Reutiliza la misma maquinaria que los Filos:
 	# se gasta 1 carga por ATAQUE, aguanta entre combates y se ve en el mismo chip. OJO: aplicar_imbue
 	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola
@@ -7243,10 +7380,27 @@ func _enemy_turn(e: Combatant) -> void:
 	# Estados "al golpear" del enemigo (pegajoso/veneno de slimes, KAN-58 Fase 3).
 	for nom in e.roll_on_hit(obj):
 		msg += "  Le inflige %s." % nom
+	# RIPOSTE AL BLOQUEAR (escudo pequeño): el golpe ha conectado y lo has parado con la guardia
+	# arriba, asi que puede volver. Va DESPUES del mensaje del golpe enemigo para que el log se lea
+	# en orden (primero te pegan, luego respondes); el FX lo encola _contras_pendientes y sale tras
+	# la accion del bicho. Esta es UNA de las dos ramas: la otra esta en _enemy_resolver_golpes, y
+	# si solo se toca una, el escudo ripostea contra los ataques a secas y no contra las tecnicas.
+	var contra_bloq: String = _riposte_bloqueo(e, obj, defendiendo)
 	_set_log(msg)
+	# Como ENTRADA APARTE del log, no pegado con un \n al golpe del bicho: cada linea del log es una
+	# entrada, y metiendo dos en una se cuentan como una sola para el tope y para el anti-repetido.
+	if contra_bloq != "":
+		_set_log(contra_bloq)
 	_update_hp()
 	e.advance_hand()  # (sin efecto ahora; los enemigos aun no llevan 2 armas)
 
+	# El riposte puede haberlo MATADO en mitad de su propio turno: la misma rama que ya existe en
+	# el contraataque por esquiva, unas lineas mas arriba.
+	if not e.is_alive():
+		_morir_enemigo(e)
+		if _vivos().is_empty():
+			_end(true)
+			return
 	if not obj.is_alive():
 		_caer_aliado(obj)
 		if derrota():
@@ -7637,6 +7791,15 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 				if not ap.is_empty():
 					et += "  -> " + ", ".join(ap)
 			print("        " + et)
+			# RIPOSTE AL BLOQUEAR (escudo pequeño). La OTRA punta del de _enemy_turn. Va en el
+			# 'else' del evaded a proposito: el de esquiva es de la POSTURA y ya esta arriba.
+			# Comparte la MISMA cuota que aquel ('contra == ""'): uno por accion. Sin eso, una
+			# habilidad de seis golpes contra una rodela al 35% devolveria dos estocadas por turno
+			# y el escudo pequeño pasaria a ser el que mas daño hace del juego.
+			if permitir_contra and contra == "":
+				contra = _riposte_bloqueo(e, t, defendiendo)
+				if not e.is_alive():
+					break
 		if not t.is_alive():
 			break
 	# Efectos NO por golpe: una tirada si conecto algo y siguen vivos ambos (un contraataque puede
@@ -7760,26 +7923,65 @@ func _soltar_contraataques() -> void:
 	_contras_pendientes.clear()
 
 
-# CONTRAATAQUE del estoque (KAN-57): al esquivar en guardia, devuelves el golpe con el arma
-# principal (el estoque). Aplica el daño al enemigo y devuelve el texto para el log.
+# RIPOSTE AL BLOQUEAR (escudo pequeño). El hermano del de esquivar: aquel es de la POSTURA del
+# estoque, este es del ESCUDO que llevas. Devuelve "" si no salta.
+#
+# TRES CONDICIONES, y ninguna es el daño:
+#   - 'defendiendo': solo con la guardia ARRIBA. Es lo que lo convierte en una decision (gastas el
+#     turno en Defender, o lo traes de gorra con el Golpe de escudo) y no en un peaje pasivo.
+#   - probabilidad: devolver CADA golpe que paras es roto. Por eso la rodela va al 35% y no al 100%.
+#   - los dos vivos. Un riposte puede matar al bicho en mitad de su propio turno.
+# OJO CON EL MUÑECO: el Saco pega con dummy_dmg_out_mult = 0, asi que su golpe hace 0 de daño pero
+# SE RESUELVE igual. Si esto se gateara por 'dmg > 0' no saltaria nunca contra el, y probarlo ahi
+# daria un falso negativo. Se gatea por defendiendo + acierto, que es lo que de verdad pasa.
+#
+# NO pasa por StatusEffects.prob_final: esa es la puerta de los ESTADOS. Meter aqui la resistencia
+# del bicho significaria que un jefe "resiste" que le devuelvas el golpe, y eso no quiere decir nada.
+func _riposte_bloqueo(atacante: Combatant, victima: Combatant, defendiendo: bool) -> String:
+	if not defendiendo or atacante == null or victima == null:
+		return ""
+	if not atacante.is_alive() or not victima.is_alive():
+		return ""
+	var p: float = victima.escudo_contra_prob
+	if p <= 0.0 or randf() >= p:
+		return ""
+	return _contraatacar(atacante, victima, victima.escudo_contra_mult, true)
+
+
+# CONTRAATAQUE: devuelves el golpe con el arma principal. Aplica el daño al enemigo y devuelve el
+# texto para el log.
 # 'atacante' es QUIEN TE HA GOLPEADO, y no tu objetivo seleccionado: el riposte responde al
 # que se te ha echado encima. Si pegase a tu objetivo, con varios enemigos estarias hiriendo
 # a uno que no te ha tocado, y a la vez dejando ileso al que si.
-# 'quien' es EL QUE ESTABA EN GUARDIA (el que ha esquivado), no necesariamente el que tiene el
-# turno: el enemigo pega a cualquiera de los tuyos y el riposte es de quien encaja el golpe.
-func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
-	quien.set_active_hand(0)   # el estoque va en la mano principal
+# 'quien' es EL QUE HA PARADO O ESQUIVADO, no necesariamente el que tiene el turno: el enemigo pega
+# a cualquiera de los tuyos y el riposte es de quien encaja el golpe.
+#
+# HAY DOS RIPOSTES Y ESTA FUNCION SIRVE A LOS DOS. Son cosas distintas y conviven:
+#   - AL ESQUIVAR: la postura del estoque (en_guardia, KAN-57). Es el original.
+#   - AL BLOQUEAR: el escudo PEQUEÑO, por probabilidad (ver _riposte_bloqueo).
+# Un mismo golpe nunca dispara los dos: result.evaded bifurca antes.
+# 'mult' < 0 = usa el de la postura (comportamiento historico del estoque, cero regresion).
+# 'al_bloquear' solo elige la frase del log: es la unica pista de cual de los dos ha saltado.
+func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
+		al_bloquear: bool = false) -> String:
+	quien.set_active_hand(0)   # se devuelve con la mano PRINCIPAL (el estoque, la espada...)
 	# EL GESTO DEL ARMA que contraataca. Se lee DESPUES de fijar la mano principal, que es la que
 	# devuelve el golpe. Sin esto, el riposte caia en el MELEE de siempre, o sea que no dibujaba
 	# NADA: el bicho fallaba, se comia un contraataque y en pantalla no pasaba nada.
 	var estilo: int = _estilo_de_habilidad(null, quien)
 	var result := StatsMath.resolve_attack(quien, atacante, false)
 	_debug_ataque(quien, atacante, result, false)
+	# COMO EMPIEZA LA FRASE. Se arma aqui y no en cada return porque las dos ramas (el riposte que
+	# conecta y el que le esquivan) cuentan lo mismo: como paraste el golpe.
+	var abrir: String = "%s para el golpe y responde" % quien.nombre if al_bloquear \
+		else "%s esquiva y contraataca" % quien.nombre
 	if result.evaded:
 		_contras_pendientes.append({"a": quien, "v": atacante, "dmg": 0.0, "crit": false,
 			"evadido": true, "elem": Elementos.Elemento.NINGUNO, "estilo": estilo})
-		return "%s esquiva y contraataca, pero %s lo esquiva. 💨" % [quien.nombre, atacante.nombre]
-	var dmg: float = result.damage * quien.guardia_contra_mult
+		return "%s, pero %s lo esquiva. 💨" % [abrir, atacante.nombre]
+	# El multiplicador manda desde fuera cuando el riposte es del ESCUDO; si no viene, el de la
+	# postura. Nunca se suman los dos: un golpe lo devuelves de UNA manera.
+	var dmg: float = result.damage * (mult if mult >= 0.0 else quien.guardia_contra_mult)
 	atacante.take_damage(dmg)
 	# Golpe INVERTIDO: aqui el que embiste es el tuyo y el que tiembla es el bicho, en mitad de la
 	# accion del bicho. Sale solo porque se pasan los dos combatientes y la direccion la calcula
@@ -7796,7 +7998,14 @@ func _contraatacar(atacante: Combatant, quien: Combatant) -> String:
 	Game.ganar("fuerza", _reto(atacante, pj_contra) * quien.motion_value, Game.GAIN_FUERZA_ATAQUE,
 		Game.RETO_MAX_FISICO, pj_contra)
 	var extra := "un CRITICO 💥 " if result.crit else ""
-	return "%s esquiva y CONTRAATACA con el estoque: %s%.2f de daño! 🤺" % [quien.nombre, extra, dmg]
+	# EL ARMA SALE DEL COMBATIENTE, no escrita a mano. Decia "el estoque" siempre, y desde que el
+	# escudo pequeño tambien ripostea eso mentia con cualquier otra arma. set_active_hand(0) de
+	# arriba ya ha fijado la principal, asi que current_hand_name() es exactamente con lo que pega.
+	var arma: String = quien.current_hand_name()
+	if arma == "":
+		arma = "lo que tiene a mano"
+	return "%s con %s: %s%.2f de daño! %s" % [abrir, arma, extra, dmg,
+		"🛡️⚔" if al_bloquear else "🤺"]
 
 
 # CIERRA la accion del enemigo y congela el ATB mientras se ve. Es el unico sitio que decide

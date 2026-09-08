@@ -58,6 +58,27 @@ const SCRIPTS := [
 	"res://scripts/ui/map_menu.gd",
 	"res://scripts/ui/debug_panel.gd",
 	"res://scripts/ui/touch_pad.gd",
+	# La MATH del equipo y los recursos que la alimentan. No estaban, y son los que tocas cada vez
+	# que se ajusta el balance: un campo nuevo mal escrito en shield_data o en ability_data no da
+	# la cara al cargar el juego, sino al abrir la ficha del objeto que lo usa.
+	"res://scripts/core/combatant.gd",
+	"res://scripts/core/stats_math.gd",
+	"res://scripts/core/upgrades.gd",
+	"res://scripts/items/shield_data.gd",
+	"res://scripts/items/weapon_data.gd",
+	"res://scripts/items/ability_data.gd",
+	"res://scripts/items/status_application.gd",
+	"res://scripts/core/status_effects.gd",
+]
+
+# Los .tres que se cargan a mano para que un campo mal escrito salte AQUI y no en la tienda. Un
+# @export que no existe no impide cargar el recurso: Godot se lo traga y lo deja al default, asi
+# que un `aggro_mult` mal tecleado se ve como "el escudo grande no atrae mas golpes" tres dias
+# despues. Por eso no basta con cargarlos: hay que comprobar el VALOR (ver _comprobar_escudos).
+const ESCUDOS := [
+	"res://resources/shields/escudo_pequeno.tres",
+	"res://resources/shields/escudo_normal.tres",
+	"res://resources/shields/escudo_grande.tres",
 ]
 
 func _initialize() -> void:
@@ -70,6 +91,7 @@ func _initialize() -> void:
 		else:
 			print("  ok  %s" % r)
 	mal += _comprobar_slots()
+	mal += _comprobar_escudos()
 	# Y de paso que el TileSet se monte de verdad (create_tile con celdas repetidas revienta).
 	var ts: TileSet = TerrenoSprites.tileset_de("roca")
 	var src := ts.get_source(0) as TileSetAtlasSource
@@ -103,3 +125,44 @@ func _comprobar_slots() -> int:
 	push_error("SLOT_NOMBRES no tiene: %s" % str(faltan))
 	print("  FALLO  a SLOT_NOMBRES le faltan: %s" % str(faltan))
 	return 1
+
+
+# LOS TRES ESCUDOS TIENEN QUE SER TRES ESCUDOS DISTINTOS. Eran el mismo con otros numeros; ahora
+# cada tamaño tiene su papel (rodela duelista / heater guardian / torre defensor) y eso vive
+# repartido entre campos del .tres y su lista de habilidades. Dos formas de romperlo en silencio:
+#   - un @export mal tecleado: Godot carga el recurso igual y deja el campo al DEFAULT, asi que
+#     el escudo grande simplemente "no atrae mas golpes" y nadie se entera;
+#   - copiar un .tres sobre otro y dejar la misma lista de habilidades en dos tamaños, que es
+#     literalmente el bug que este trabajo viene a arreglar.
+# Por eso no basta con que carguen: se comprueba que los VALORES son distintos entre si.
+func _comprobar_escudos() -> int:
+	var vistos: Dictionary = {}     # aggro_mult -> nombre, para cazar dos tamaños iguales
+	var habs: Dictionary = {}       # firma de la lista de habilidades -> nombre
+	var faltan: Array = []
+	for r in ESCUDOS:
+		var sh = load(r)
+		if sh == null:
+			push_error("NO CARGA: %s" % r)
+			faltan.append(r)
+			continue
+		# Si el campo no existe, get() devuelve null: eso es el @export mal escrito.
+		for campo in ["aggro_mult", "contra_prob", "contra_mult"]:
+			if sh.get(campo) == null:
+				faltan.append("%s: sin campo '%s'" % [r, campo])
+		var a: float = float(sh.get("aggro_mult"))
+		if vistos.has(a):
+			faltan.append("%s y %s tienen el MISMO aggro_mult (%.2f)" % [sh.nombre, vistos[a], a])
+		vistos[a] = sh.nombre
+		var firma := ""
+		for ab in sh.habilidades:
+			firma += (ab.resource_path if ab != null else "null") + "|"
+		if habs.has(firma):
+			faltan.append("%s y %s traen LAS MISMAS habilidades" % [sh.nombre, habs[firma]])
+		habs[firma] = sh.nombre
+	if faltan.is_empty():
+		print("  ok  los %d escudos tienen personalidad propia" % ESCUDOS.size())
+		return 0
+	for f in faltan:
+		push_error("ESCUDOS: %s" % str(f))
+		print("  FALLO  %s" % str(f))
+	return faltan.size()

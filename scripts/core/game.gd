@@ -6467,7 +6467,14 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# AGGRO PASIVO: llevar ESCUDO ya te hace mas apetecible como objetivo, sin gastar turno (el que
 	# va tapado y plantado delante se come mas golpes). defend_defense > 0 <=> hay escudo en la off.
 	# La Provocacion multiplica esto durante unos turnos. Ver combat.gd._elegir_objetivo_enemigo.
-	c.aggro_base = Combatant.AGGRO_ESCUDO if float(m["defend_defense"]) > 0.0 else 1.0
+	# El x2 es la BASE de llevar escudo; el aggro_mult del TAMAÑO lo inclina (0.6/1.0/1.6 -> 1.2/2.0/
+	# 3.2). La rodela te deja escurrirte y la torre se planta delante: es lo que separa al duelista
+	# del defensor definitivo. Ver ShieldData.aggro_mult.
+	c.aggro_base = Combatant.AGGRO_ESCUDO * float(m["aggro_mult"]) if float(m["defend_defense"]) > 0.0 else 1.0
+	# RIPOSTE AL BLOQUEAR: la rodela devuelve el golpe que para, por probabilidad y solo con la
+	# guardia arriba. Ver combat.gd (las DOS ramas del golpe enemigo: basico y habilidad).
+	c.escudo_contra_prob = float(m["contra_prob"])
+	c.escudo_contra_mult = float(m["contra_mult"])
 	# QUE ESCUDO SE LE DIBUJA. Sale del objeto y no de los mods porque es el TAMAÑO, que no lo toca
 	# ni el tier ni la rareza (ver ShieldData.Tamano): un escudo pequeño mejorado sigue siendo
 	# pequeño, y tiene que seguir viendose redondo.
@@ -6536,6 +6543,12 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# 0 = sin escudo (un arma no te tapa).
 		"defend_defense": 0.0,
 		"resist_estados": 0.0,
+		# PERSONALIDAD DEL ESCUDO (ver shield_data.gd). Los defaults viven AQUI y no solo en la rama
+		# del escudo: sin escudo (dos manos, dual, mano libre) estas claves tienen que existir igual,
+		# o el que las lee revienta. 1.0 = aggro normal, 0.0 = no ripostas al bloquear.
+		"aggro_mult": 1.0,
+		"contra_prob": 0.0,
+		"contra_mult": 0.0,
 		# EFICACIA del loadout: la mayor de las dos manos, NO la suma. Es una propiedad del golpe
 		# (con que fuerza empujas los estados), no algo que se acumule por llevar dos armas: sumandola
 		# el dual metia estados el doble de bien solo por serlo.
@@ -6561,6 +6574,11 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		m["evasion_penal"] += float(sh_m["evasion_penal"])
 		m["defend_defense"] = float(sh_m["def"])         # lo que de verdad distingue a un escudo
 		m["resist_estados"] = float(sh_m["resist_estados"])
+		# Lo que hace que este escudo no sea otro con otros numeros: cuanto atrae los golpes y si
+		# devuelve los que para. Se ASIGNAN (no se acumulan): solo cabe un escudo en la off.
+		m["aggro_mult"] = float(sh_m["aggro_mult"])
+		m["contra_prob"] = float(sh_m["contra_prob"])
+		m["contra_mult"] = float(sh_m["contra_mult"])
 	elif p.equipped_off is WeaponData:
 		var off: WeaponData = p.equipped_off
 		# Mods de la secundaria ya resueltos: de aqui salen su bloqueo y su RAPIDEZ (mas abajo).

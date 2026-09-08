@@ -940,6 +940,17 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 		filas.append(["Resist. estados", "+%.0f%%" % (float(m["resist_estados"]) * 100.0)])
 	filas.append(["Velocidad", "×%.2f" % float(m["vel_mult"])])
 	filas.append(["Penal. esquiva", "-%.0f%%" % (float(m["evasion_penal"]) * 100.0)])
+	# EL PAPEL DEL ESCUDO, derivado de los mismos numeros que lo producen. Es la unica traduccion
+	# numero -> palabra del escudo y vive aqui, no en las tres pantallas que llaman a esta funcion.
+	# Sin estas filas, elegir escudo volvia a ser mirar cual tiene la defensa mas alta.
+	var ag: float = float(m.get("aggro_mult", 1.0))
+	filas.append(["Atrae golpes", "×%.1f%s" % [Combatant.AGGRO_ESCUDO * ag,
+		"" if is_equal_approx(ag, 1.0)
+		else ("  (menos que lo normal)" if ag < 1.0 else "  (más que lo normal)")]])
+	# Solo si de verdad ripostea: el escudo grande no lo hace y una fila con "0%" no dice nada.
+	if float(m.get("contra_prob", 0.0)) > 0.0:
+		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [
+			roundi(float(m["contra_prob"]) * 100.0), roundi(float(m["contra_mult"]) * 100.0)]])
 	return filas
 
 
