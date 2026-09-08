@@ -125,6 +125,27 @@ func _probar_pool() -> void:
 		else "SIN FRASES (no se pueden lanzar): %s" % ", ".join(mudos), mudos.is_empty())
 	_ok("todos tienen nombre propio" if sin_nombre.is_empty()
 		else "SIN NOMBRE: %s" % ", ".join(sin_nombre), sin_nombre.is_empty())
+
+	# EL QUE PIDE DIBUJO PROPIO TIENE QUE PODER DARSE DE ALTA.
+	#
+	# CombatFX.T_VUELO dice cuanto tarda cada efecto en llegar, y un estilo que no este en esa tabla
+	# se queda en 0.0 -- que NO significa "sale al instante", significa "no se dibuja nada": el
+	# `vuelo > 0` es lo que decide si el efecto llega siquiera a la capa.
+	#
+	# Esto no es teoria: el Shock termico se lanzo sin apuntar ahi y salia SIN NINGUN efecto en el
+	# juego, mientras en el visor de la capa se veia perfecto (alli se da de alta a mano y la tabla
+	# no interviene). Y es la segunda vez que muerde la misma piedra -- la primera se llevo por
+	# delante las tres habilidades de la rata.
+	var mudos_fx: Array = []
+	for r2 in en_disco:
+		var s2: SpellData = load(r2) as SpellData
+		if s2 == null or s2.fx_estilo < 0:
+			continue
+		if float(CombatFX.T_VUELO.get(s2.fx_estilo, 0.0)) <= 0.0:
+			mudos_fx.append("%s (estilo %d)" % [s2.nombre, s2.fx_estilo])
+	_ok("los que piden dibujo propio están en CombatFX.T_VUELO" if mudos_fx.is_empty()
+		else "SIN VUELO, o sea SIN EFECTO en el juego: %s" % ", ".join(mudos_fx),
+		mudos_fx.is_empty())
 	_probar_marcar_desde_debug()
 	_probar_shock_termico()
 

@@ -384,6 +384,14 @@ const ACERO := Color(0.72, 0.76, 0.82)
 # instante del golpe, de forma que el impacto aterrice EXACTAMENTE cuando salen el numero y la
 # sacudida: si el rayo llegara despues del temblor, se leeria al reves.
 const T_VUELO := {
+	# EL SHOCK TERMICO es el vuelo mas largo del juego, y a proposito: es una bola gorda que tiene
+	# que verse CRUZAR. El doble que un proyectil normal.
+	#
+	# Y ojo, que este es el sitio donde se rompio: al nacer el estilo no se apunto aqui, se quedo en
+	# el 0.0 por defecto -- que significa "no se dibuja nada" -- y el hechizo salia SIN NINGUN
+	# efecto en el juego, mientras en el visor de la capa se veia perfecto (alli se da de alta a
+	# mano y esta tabla no pinta nada). Es la misma piedra que se llevo por delante los mordiscos.
+	Estilo.SHOCK_TERMICO: 0.42,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
