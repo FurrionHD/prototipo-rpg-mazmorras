@@ -28,6 +28,7 @@ dev_*.png
 !dev_grimorios.*
 !dev_panel_hechizos.*
 !dev_fx_hechizo.*
+!dev_magias.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.

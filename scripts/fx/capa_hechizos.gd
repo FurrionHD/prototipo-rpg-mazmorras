@@ -819,6 +819,64 @@ func _pintar_sombra(e: Dictionary) -> void:
 			maxf(1.5, rg * 0.07), true)
 
 
+# LUZ NEGRA: la estrella de cuatro puntas del Eclipse, hecha de PARTICULAS.
+#
+# De la referencia del autor: puntas verticales largas, horizontales cortas, los lados CONCAVOS
+# (no un aspa: una estrella de destello), y el borde deshaciendose en motas sueltas.
+#
+# La forma es una ASTROIDE -- cos^3 / sin^3 -- que da esos lados hundidos sin tener que dibujarlos
+# a mano. Con un radio vertical mayor que el horizontal salen las dos puntas largas.
+#
+# EL COLOR VA AL REVES QUE EN LA REFERENCIA, y a proposito: alli es negro sobre blanco, pero el
+# fondo del combate ya es casi negro y una luz literalmente negra no se veria. Se queda el NUCLEO en
+# vacio oscuro y son las PARTICULAS las que brillan -- lo que hace legible una cosa oscura es su
+# filo, no su relleno (misma leccion que la voragine).
+#
+# El azar es DETERMINISTA (un hash de seno sobre el indice) y no randf(): _draw puede llamarse cero
+# o varias veces en el mismo frame, y con azar de verdad las motas bailarian solas.
+func _pintar_luz_negra(b: Vector2, rg: float, w: float, sem: float) -> void:
+	var abre: float = minf(1.0, w / 0.30)
+	var vida: float = 1.0 - w * w
+	if vida <= 0.01:
+		return
+	var rh: float = rg * 1.15 * abre          # radio horizontal (puntas cortas)
+	var rv: float = rg * 2.60 * abre          # vertical (las largas)
+	var violeta := Color(0.72, 0.55, 1.0)
+	var claro := Color(0.97, 0.93, 1.0)
+
+	# EL VACIO del centro: la astroide pequeña, en oscuro. Es "la luz negra" propiamente dicha.
+	var hueco := PackedVector2Array()
+	var m := 40
+	for i in m:
+		var th: float = TAU * float(i) / float(m)
+		var c3: float = pow(absf(cos(th)), 3.0) * signf(cos(th))
+		var s3: float = pow(absf(sin(th)), 3.0) * signf(sin(th))
+		hueco.append(b + Vector2(c3 * rh * 0.55, s3 * rv * 0.55))
+	draw_colored_polygon(hueco, Color(0.03, 0.02, 0.06, 0.95 * vida))
+
+	# LAS MOTAS. Mas densas cerca del centro y cada vez mas sueltas hacia las puntas, que es lo que
+	# hace que el borde se DESHAGA en vez de terminar en una linea.
+	var n := 260
+	for i in n:
+		var f: float = float(i)
+		# Hash de seno: estable entre frames, distinto para cada mota.
+		var h1: float = fposmod(sin(f * 12.9898 + sem) * 43758.5453, 1.0)
+		var h2: float = fposmod(sin(f * 78.233 + sem * 1.7) * 12345.6789, 1.0)
+		var h3: float = fposmod(sin(f * 39.425 + sem * 2.3) * 24634.6345, 1.0)
+		var th2: float = h1 * TAU
+		# u^1.7: amontona las motas hacia dentro. Con u lineal quedaba una nube uniforme.
+		var u: float = pow(h2, 1.7)
+		var c3b: float = pow(absf(cos(th2)), 3.0) * signf(cos(th2))
+		var s3b: float = pow(absf(sin(th2)), 3.0) * signf(sin(th2))
+		var pos: Vector2 = b + Vector2(c3b * rh, s3b * rv) * u
+		# Las de fuera son mas pequeñas y mas apagadas: asi la estrella se disuelve.
+		var rad: float = maxf(0.8, rg * 0.075 * (1.0 - u * 0.75))
+		var col: Color = claro.lerp(violeta, u)
+		draw_circle(pos, rad, Color(col.r, col.g, col.b, (0.95 - 0.55 * u) * vida * (0.5 + 0.5 * h3)))
+
+	# Y el punto blanco del centro mismo, que es de donde sale todo.
+	draw_circle(b, rg * 0.16 * abre * vida, Color(1.0, 0.99, 0.95, vida))
+
 # ECLIPSE. La voragine entera y, al final, el destello de luz reventando DESDE DENTRO.
 #
 # Los dos tiempos van en el mismo efecto y no en dos: lo que cuenta el hechizo es que la luz sale
@@ -835,9 +893,11 @@ func _pintar_eclipse(e: Dictionary) -> void:
 		falso["t"] = (w / CORTE) * (float(e["dur"]) + COLETA_LUZ)
 		_pintar_sombra(falso)
 		return
-	var falso2 := e.duplicate()
-	falso2["t"] = ((w - CORTE) / (1.0 - CORTE)) * (float(e["dur"]) + COLETA_LUZ)
-	_pintar_luz(falso2)
+	# EL SEGUNDO TIEMPO ES LA LUZ NEGRA, no el estallido solar. Reusar aquel dejaba al mitico con el
+	# mismo remate que un epico, y ademas el hechizo no es "luz": es luz Y oscuridad a la vez, que es
+	# justo lo que dice esa estrella de puntas que se deshace.
+	_pintar_luz_negra(e["b"], float(e["r"]) * 3.0,
+		(w - CORTE) / (1.0 - CORTE), float(e["semilla"]))
 
 
 # RAYO. NO viaja: EXISTE. La polilinea cubre el camino entero desde el primer frame y luego se
