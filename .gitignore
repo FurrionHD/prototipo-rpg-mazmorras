@@ -23,6 +23,7 @@ dev_*.png
 !dev_tiers.*
 !dev_personaje.*
 !dev_magia_arma.*
+!dev_tienda.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.

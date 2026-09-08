@@ -10544,8 +10544,9 @@ func reto(poder_enemigo: float, nivel_enemigo: int = 1, pj: PersonajeData = null
 	return clampf(poder_enemigo / denom, 0.0, RETO_MAX)
 
 # Reto RELATIVO A UNA STAT concreta (no al poder TOTAL): deja subir una habilidad rezagada aunque
-# el resto ya sean altas. Lo usa la MAGIA: el grimorio se compra tarde (2200), cuando ya tienes
-# cuerpo, asi que con el reto por poder total la magia arrancaba a 0 y nunca despegaba. Con esto,
+# el resto ya sean altas. Lo usa la MAGIA: el primer grimorio llega tarde (ya no se compra; lo dan
+# el maestro y los cofres), cuando ya tienes cuerpo, asi que con el reto por poder total la magia
+# arrancaba a 0 y nunca despegaba. Con esto,
 # una magia baja entrena rapido hasta ponerse a la altura del piso que farmeas y se frena sola
 # despues (para subir mas hacen falta pisos mas profundos: mismo techo por piso que cualquier stat,
 # no es exploit). Mismo criterio de denominador que reto(), pero con la stat suelta.

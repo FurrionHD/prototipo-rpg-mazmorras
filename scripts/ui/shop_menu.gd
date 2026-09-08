@@ -8,8 +8,9 @@
 #                     / Equipo (armas y armaduras). Cantidad por modal, igual que "soltar" en
 #                     el inventario. Boton de "vender todos los cristales" de un clic.
 #   2) RECOMPRAR    - lo que le has vendido al tendero (hasta 7), al mismo precio que te pago.
-#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones, grimorios y la COMIDA (que
-#                     no es un consumible: son MATERIALES para cocinar, ver Game.comprar_material).
+#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones y la COMIDA (que no es un
+#                     consumible: son MATERIALES para cocinar, ver Game.comprar_material). NO hay
+#                     grimorios: la magia se gana (maestro y cofres), no se compra por ventanilla.
 #   4) PACK INICIAL - una vez por partida: un arma gratis (ni bastón ni varita) + 3 pociones.
 #
 #  Toda la MATH vive en Game (precio_compra_tier / vender_item / comprar_equipo_tier / recomprar...);
@@ -22,11 +23,11 @@ extends CanvasLayer
 # inicial desaparece al reclamarlo. Un menu vacio no merece su boton.
 const TABS := ["Vender", "Tienda", "Tienda T2", "Recomprar", "Pack inicial"]
 const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
-# El grimorio es un consumible en el inventario, pero en el mostrador va aparte: buscar un
-# libro de 2200 entre las pociones es incomodo.
+# Los GRIMORIOS ya no se venden aqui: la magia se gana, no se compra (la da el maestro y la
+# mazmorra). Se siguen pudiendo VENDER los que traigas, pero el mostrador no los repone.
 # "Comida" va la ULTIMA: _build_tienda despacha las subpestañas por INDICE, asi que meter una en
 # medio le cambia el contenido a todas las de detras.
-const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Grimorios", "Comida"]
+const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Comida"]
 
 const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
@@ -53,15 +54,6 @@ const CAT_POCIONES: Array[String] = [
 	"res://resources/consumables/pocion_mana_menor.tres",
 	"res://resources/consumables/piedra_retorno.tres",
 ]
-const CAT_GRIMORIOS: Array[String] = [
-	# El PULSO va el primero y mas barato (1700 contra 2200): es la magia sin elemento, la que se le
-	# vende a cualquiera que empiece. Pega a UNO solo y no hace nada mas, asi que su sitio natural es
-	# ser lo primero que compras.
-	"res://resources/consumables/grimorio_pulso_menor.tres",
-	"res://resources/consumables/grimorio_descarga.tres",
-	"res://resources/consumables/grimorio_brasa.tres",
-	"res://resources/consumables/grimorio_rocio.tres",
-]
 # La DESPENSA del tendero. Son MATERIALES, no consumibles: no se comen, se cocinan. La sal y los
 # silvestres NO estan aqui a proposito —esos se bajan a buscar—, y tampoco hay lista T2: una cebolla
 # es una cebolla, la maten a quien maten los de los pisos hondos.
@@ -80,27 +72,11 @@ const CAT_COMIDA: Array[String] = [
 
 # --- Catalogo del mostrador T2 (el que abre el Rey Slime) ---
 # El EQUIPO no tiene lista propia: son las mismas plantillas, que se venden a T2 (el tier no vive en
-# el .tres, lo pone la compra). Los consumibles y los grimorios SI son recursos distintos.
+# el .tres, lo pone la compra). Los consumibles SI son recursos distintos.
 const CAT_POCIONES_T2: Array[String] = [
 	"res://resources/consumables/pocion_media.tres",
 	"res://resources/consumables/pocion_mana_media.tres",
 	"res://resources/consumables/piedra_retorno_t2.tres",
-]
-# Los de 2 frases: ataque medio de los tres elementos, potenciacion, debuff e imbuiciones. Los de 1
-# frase se quedan en el mostrador T1; los de 3 (Tormenta) no se venden.
-const CAT_GRIMORIOS_T2: Array[String] = [
-	"res://resources/consumables/grimorio_pulso_arcano.tres",
-	"res://resources/consumables/grimorio_chorro_agua.tres",
-	"res://resources/consumables/grimorio_bola_fuego.tres",
-	"res://resources/consumables/grimorio_rayo.tres",
-	"res://resources/consumables/grimorio_fortaleza.tres",
-	"res://resources/consumables/grimorio_debilidad.tres",
-	"res://resources/consumables/grimorio_filo_ardiente.tres",
-	"res://resources/consumables/grimorio_filo_fulgurante.tres",
-	"res://resources/consumables/grimorio_filo_torrente.tres",
-	"res://resources/consumables/grimorio_manto_brasas.tres",
-	"res://resources/consumables/grimorio_manto_centellas.tres",
-	"res://resources/consumables/grimorio_manto_marea.tres",
 ]
 # Armaduras: los 4 tipos x los 5 slots, en orden de cobertura (Game.ARMOR_SLOT_ORDEN).
 const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
@@ -562,7 +538,7 @@ func _on_vender_equipo() -> void:
 # --- Vender CONSUMIBLES (pociones y grimorios) ---
 
 func _build_vender_consumibles() -> void:
-	_note(_header, "Pociones y grimorios de tu inventario. No van al mostrador de recompra: el tendero ya los vende de serie, así que si te arrepientes los compras otra vez en la Tienda.")
+	_note(_header, "Pociones y grimorios de tu inventario. Ojo con los grimorios: el tendero NO los vende, así que uno que sueltes aquí no se recupera —ni siquiera en Recomprar—. Piénsatelo antes de soltar magia por calderilla.")
 	_stacks = []
 	for c in Game.consumables.keys():
 		var n: int = int(Game.consumables[c])
@@ -653,7 +629,7 @@ func _on_recomprar() -> void:
 # ============================================================
 
 # Pinta el mostrador de un TIER. Es el mismo mostrador para los dos: cambian el catalogo de
-# consumibles/grimorios y el precio, no la estructura. Parametrizado en vez de duplicado para que
+# consumibles y el precio, no la estructura. Parametrizado en vez de duplicado para que
 # añadir una subpestaña siga siendo un solo sitio.
 func _build_tienda(tier: int) -> void:
 	_tienda_tier = tier
@@ -680,9 +656,6 @@ func _build_tienda(tier: int) -> void:
 			rutas = CAT_POCIONES_T2 if tier >= 2 else CAT_POCIONES
 			_note(_header, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
 		4:
-			rutas = CAT_GRIMORIOS_T2 if tier >= 2 else CAT_GRIMORIOS
-			_note(_header, "Un libro por hechizo. Se estudia desde Consumibles, en el inventario [I]. Caben %d hechizos a la vez." % Game.MAX_HECHIZOS)
-		5:
 			rutas = CAT_COMIDA
 			_note(_header, "Género de la superficie, para cocinar. Crudo no hace nada: son ingredientes. La sal y lo que crece abajo no se venden aquí — eso se baja a buscar.")
 
@@ -699,7 +672,7 @@ func _build_tienda(tier: int) -> void:
 
 
 # Precio de lo que hay en el mostrador que se esta pintando. Al EQUIPO le pone el recargo del tier
-# (el tier no vive en el .tres); a pociones y grimorios NO, porque el T2 ya son recursos aparte con
+# (el tier no vive en el .tres); a las pociones NO, porque el T2 ya son recursos aparte con
 # su propio valor_base y multiplicarlos otra vez los cobraria dos veces.
 func _precio_de(base: Resource) -> int:
 	if base is ConsumableData:
@@ -730,23 +703,11 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 	_row(vb, "Tienes", "%d monedas" % Game.money)
 
 	if base is ConsumableData:
+		# En el mostrador ya no hay grimorios (la magia se gana), asi que todo consumible de aqui
+		# es una pocion o una piedra: se pinta su efecto y punto.
 		var c := base as ConsumableData
-		if c.es_grimorio():
-			_row(vb, "Enseña", c.spell.nombre)
-			_row(vb, "Coste del hechizo", "%d de maná" % c.spell.coste_mana)
-			# QUIEN de los tuyos tiene hueco, no la cuenta del lider a secas: el libro lo estudia
-			# quien tu elijas en el inventario, asi que lo util aqui es saber si le sirve a ALGUIEN.
-			# Aprender ya NO tiene tope (solo lo tiene lo que se lleva puesto), asi que aqui basta con
-			# quien NO se lo sepa todavia. A quien tenga las manos llenas se le avisa en el inventario,
-			# al estudiarlo, que es donde importa.
-			var libres: Array = []
-			for pj in Game.party:
-				if not Game.hechizos_sabidos(pj).has(c.spell):
-					libres.append(pj.nombre)
-			_row(vb, "Puede aprenderlo", ", ".join(libres) if not libres.is_empty() else "nadie del grupo")
-		else:
-			_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
-			_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
+		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
+		_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
 	elif base is MaterialData:
 		var md := base as MaterialData
 		_row(vb, "Tipo", "%s (ingrediente de cocina)" % md.tipo_texto())
@@ -801,15 +762,12 @@ func _preview_tienda(vb: VBoxContainer) -> void:
 
 	vb.add_child(HSeparator.new())
 	# La comida y las pociones se compran a puñados: un solo boton con su − n +, y el maximo es lo
-	# que te llega (tope 99). El grimorio y el equipo van de uno en uno: no hay cantidad que elegir.
-	var a_punados: bool = base is MaterialData \
-		or (base is ConsumableData and not (base as ConsumableData).es_grimorio())
+	# que te llega (tope 99). El equipo va de uno en uno: no hay cantidad que elegir.
+	var a_punados: bool = base is MaterialData or base is ConsumableData
 	if a_punados:
 		var precio_u: int = _precio_de(base)
 		_fila_accion(vb, 99 if precio_u <= 0 else clampi(Game.money / precio_u, 1, 99), precio_u,
 			"Comprar", _on_comprar_cantidad, llego)
-	elif base is ConsumableData:
-		_boton(vb, "Comprar", _on_comprar_consumible.bind(1), llego)
 	else:
 		_boton(vb, "Comprar", _on_comprar_equipo, llego)
 	if not llego:
@@ -850,11 +808,7 @@ func _on_comprar_equipo() -> void:
 func _on_comprar_consumible(n: int) -> void:
 	var base: ConsumableData = _stacks[_sel]["modelo"]
 	if Game.comprar_consumible(base, n):
-		if base.es_grimorio():
-			_decir("Compras %s. Úsalo desde Consumibles en el inventario [I] para aprender %s." % [
-				base.nombre, base.spell.nombre])
-		else:
-			_decir("Compras %d x %s." % [n, base.nombre])
+		_decir("Compras %d x %s." % [n, base.nombre])
 	else:
 		_decir("No te llega para %d x %s." % [n, base.nombre], false)
 	_rebuild()

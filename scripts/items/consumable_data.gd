@@ -77,8 +77,9 @@ class_name ConsumableData
 # cuanto aprieta: asi no hacen falta catorce entradas en el catalogo para siete platos.
 @export var escala_efecto: float = 1.0
 
-# PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes, y
-# los grimorios son el gasto gordo del principio.
+# PRECIO base de la tienda. Las de maná valen ~2.5 veces lo que las de vida equivalentes. Los
+# grimorios conservan el suyo aunque ya no esten a la venta: es lo que te PAGAN por uno, y lo que
+# vale un libro es justo lo que hace que soltarlo duela.
 @export var valor_base: int = 100
 
 # TIER del objeto: 1 = las "menores" de la tienda T1, 2 = las "medias" del Rey Slime, y asi.
