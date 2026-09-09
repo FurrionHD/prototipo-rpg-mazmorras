@@ -245,32 +245,56 @@ func _probar_por_personaje() -> void:
 	_ok("al otro le siguen faltando sus 50", int(falta["epico"]) == 50)
 
 
-# --- 7) Con todo el relleno leído, el gacha no se queda vacío ---
+# --- 7) EL REPARTO NO CAMBIA POR LO QUE TENGAS LEIDO ---
+#
+# Esta prueba antes afirmaba lo CONTRARIO ("ninguna tirada entrega relleno ya leído") y por eso dejo
+# pasar el fallo: el gacha se saltaba los libros leidos, asi que un jugador con las curiosidades
+# leidas no tenia ninguna que recibir y la tirada se caia al tomo de sabiduria por descarte. El 65%
+# de curiosidades se volvia sabiduria EN SILENCIO, con la tabla de probabilidades prometiendo otra
+# cosa. Se vio jugando: trece paginas de historial sin apenas una curiosidad.
+#
+# Lo repetido ya no desaparece del reparto: se entrega y se convierte en monedas al entrar en la
+# bolsa (ver Game.add_consumable). Asi que lo que hay que comprobar es que el reparto sale IGUAL con
+# la biblioteca vacia y con ella llena.
 func _probar_relleno_agotado() -> void:
-	print("\n-- Con todo el relleno ya leído --")
+	print("\n-- Tenerlos leídos NO cambia el reparto --")
+	var limpio: Dictionary = _reparto_con_biblioteca(false)
+	var lleno: Dictionary = _reparto_con_biblioteca(true)
+	print("  sin leer nada:   grimorio %.1f%%  sabiduría %.1f%%  relleno %.1f%%"
+		% [limpio["g"] * 100.0, limpio["s"] * 100.0, limpio["r"] * 100.0])
+	print("  todo leído:      grimorio %.1f%%  sabiduría %.1f%%  relleno %.1f%%"
+		% [lleno["g"] * 100.0, lleno["s"] * 100.0, lleno["r"] * 100.0])
+	_ok("con TODO leído sigue cayendo relleno (%.1f%%)" % (lleno["r"] * 100.0),
+		absf(float(lleno["r"]) - 0.65) < 0.02)
+	_ok("y la sabiduría NO se come su parte (%.1f%%)" % (lleno["s"] * 100.0),
+		absf(float(lleno["s"]) - 0.25) < 0.02)
+	_ok("ninguna tirada se queda vacía", int(lleno["vacias"]) == 0)
+
+
+# El reparto de 3000 tiradas, con la biblioteca vacía o con TODOS los tochos marcados como leídos.
+func _reparto_con_biblioteca(todo_leido: bool) -> Dictionary:
 	Game.biblioteca.clear()
-	var leidos: int = 0
-	for c in _tochos:
-		if not c.es_tomo_sabio():
+	if todo_leido:
+		for c in _tochos:
 			Game.biblioteca[c.tomo_id] = true
-			leidos += 1
-	print("  (marcados %d de relleno como leídos)" % leidos)
 	var p := _pj()
 	var rng := _rng(70)
-	var vacias: int = 0
-	var repetidos: int = 0
-	for i in 500:
+	var n := 3000
+	var cuenta := {"g": 0, "s": 0, "r": 0, "vacias": 0}
+	for i in n:
+		# El pity apagado: aqui se mide el reparto CORRIENTE, y un garantizado cada 50 lo empujaria
+		# hacia el grimorio.
 		p.gacha_n50 = 0
 		p.gacha_n200 = 0
 		var t: Dictionary = Game.tirar_meditacion(p, rng, _grimorios, _tochos)
 		var c2: ConsumableData = t.get("item")
 		if c2 == null:
-			vacias += 1
+			cuenta["vacias"] = int(cuenta["vacias"]) + 1
 			continue
-		if not Game.tocho_aporta_algo(c2):
-			repetidos += 1
-	_ok("ninguna tirada se queda vacía", vacias == 0)
-	_ok("y ninguna entrega relleno ya leído", repetidos == 0)
+		var k: String = "g" if c2.es_grimorio() else ("s" if c2.es_tomo_sabio() else "r")
+		cuenta[k] = int(cuenta[k]) + 1
+	return {"g": float(cuenta["g"]) / n, "s": float(cuenta["s"]) / n,
+		"r": float(cuenta["r"]) / n, "vacias": cuenta["vacias"]}
 
 
 # --- 8) Guardar y cargar ---

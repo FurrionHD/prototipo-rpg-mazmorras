@@ -3272,10 +3272,13 @@ func _gacha_normal(rng: RandomNumberGenerator, pool_grimorios: Array, pool_tocho
 		var s: ConsumableData = _gacha_tocho(rng, pool_tochos, true)
 		if s != null:
 			return s
-	# EL RELLENO, y el de por descarte si lo de arriba se quedo sin candidatos. Puede volver vacio
-	# de verdad: cuando ya te has leido TODOS los de relleno, no hay ninguno que te aporte nada
-	# (ver tocho_aporta_algo). En ese caso cae al tomo de sabiduria, que nunca se agota porque lo
-	# que da es la excelia y esa se cobra cada vez que se lee.
+	# EL RELLENO, y el de por descarte si lo de arriba se quedo sin candidatos.
+	#
+	# ESTE DESCARTE YA CASI NO SE USA, y conviene saber por que estaba ahi: cuando el gacha filtraba
+	# los libros ya leidos, un jugador con todas las curiosidades leidas no tenia NINGUNA que recibir
+	# y la tirada se caia aqui, al tomo de sabiduria. O sea que el 65% de curiosidades se convertia en
+	# sabiduria en silencio, con la tabla de probabilidades prometiendo otra cosa al lado. Ese filtro
+	# se quito (ver _gacha_tocho); esto solo salta ya si el pool no trae curiosidades siquiera.
 	var r: ConsumableData = _gacha_tocho(rng, pool_tochos, false)
 	return r if r != null else _gacha_tocho(rng, pool_tochos, true)
 
@@ -3303,13 +3306,23 @@ func _gacha_grimorio(rng: RandomNumberGenerator, pool: Array, p: PersonajeData,
 # Un tocho al azar entre los que valen. 'sabio' elige la familia: los de sabiduria (los que sueltan
 # excelia magica) o los de relleno. Los de relleno YA LEIDOS no entran, que es la regla de
 # tocho_aporta_algo: un texto que ya tienes no es un premio.
+#
+# AQUI NO SE FILTRA POR "YA LEIDO", Y ESO ES UN ARREGLO, NO UN OLVIDO.
+#
+# Antes se saltaba los que no aportaban nada (tocho_aporta_algo), y el efecto era demoledor en cuanto
+# el jugador se leia las curiosidades: como no quedaba ninguna que dar, la tirada se caia al tomo de
+# sabiduria por descarte. Resultado, EL 65% DE CURIOSIDADES SE CONVERTIA EN SABIDURIA -- en una
+# partida real salieron trece paginas de historial casi sin una sola curiosidad, con el reparto que
+# la pantalla de probabilidades seguia prometiendo al lado.
+#
+# Ya no hace falta filtrar: un libro que ya te has leido NO ENTRA EN LA BOLSA, se convierte en
+# monedas al recogerlo (ver add_consumable). Asi que el gacha reparte con sus pesos de verdad y lo
+# repetido se paga solo, que es lo que se pidio -- devolver dinero, no desaparecer del reparto.
 func _gacha_tocho(rng: RandomNumberGenerator, pool: Array, sabio: bool) -> ConsumableData:
 	var candidatos: Array = []
 	for c in pool:
 		var cd: ConsumableData = c as ConsumableData
 		if cd == null or cd.es_tomo_sabio() != sabio:
-			continue
-		if not tocho_aporta_algo(cd):
 			continue
 		candidatos.append(cd)
 	if candidatos.is_empty():
