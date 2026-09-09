@@ -1968,9 +1968,19 @@ func _pintar_modal_usar() -> void:
 		_franja(vb, motivo if motivo != "" else aviso, motivo != "")
 
 	MenuScaffold.pastilla(m["acciones"], "Cancelar", _cerrar_modal_barra, false)
+	# EL MODAL SE QUEDA ABIERTO al usar, y solo se cierra cuando se acaban las unidades o cuando lo
+	# cierras tu. Antes se cerraba en cada uso, y con cinco copias de un grimorio eso son cinco viajes
+	# de ida y vuelta -- abrir la bolsa, buscar el libro, abrir el modal, elegir persona -- para hacer
+	# LO MISMO cinco veces. El caso normal de un grimorio repetido es justo ese: enseñarselo a varios.
+	#
+	# 'quedan' se vuelve a leer dentro y no se usa el de fuera: es de ANTES de gastar (ver
+	# lambdas-capturan-por-valor -- la lambda se lleva el valor viejo y el contador se quedaba clavado).
 	MenuScaffold.pastilla(m["acciones"], _verbo_usar(c), func():
-		_cerrar_modal_barra()
-		_on_usar(c, pj), true, motivo == "" and quedan > 0)
+		_on_usar(c, pj)
+		if int(Game.consumables.get(c, 0)) > 0:
+			_pintar_modal_usar()      # repinta con el nuevo "Restantes" y las barras ya cambiadas
+		else:
+			_cerrar_modal_barra(), true, motivo == "" and quedan > 0)
 
 
 # LA FRANJA DE MOTIVO, sobre los botones. Roja si impide usarlo, ambar si solo avisa. Va pegada al

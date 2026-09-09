@@ -218,6 +218,29 @@ func _probar_secciones() -> void:
 	_ok("un grimorio ya leído SÍ se entrega (se lo puede estudiar otro)",
 		Game.tocho_aporta_algo(g))
 
+	# Y LO QUE PASA CUANDO AUN ASI TE LLEGA UNO: no entra en la bolsa, se convierte en monedas. Las
+	# curiosidades son el 65% de lo que cae y no valen para nada una vez leidas, asi que sin esto
+	# media pestaña de consumibles acababa siendo tomos muertos.
+	print("\n-- Un libro ya leído no ocupa sitio --")
+	Game.biblioteca.clear()
+	Game.consumables.clear()
+	Game.money = 0
+	Game.biblioteca[relleno.tomo_id] = true
+	var pago: int = Game.add_consumable(relleno, 1)
+	_ok("un relleno YA LEÍDO no entra en la bolsa", int(Game.consumables.get(relleno, 0)) == 0)
+	_ok("y paga monedas (%d)" % pago, pago > 0 and Game.money == pago)
+	# Los otros dos SI entran, y cada uno por su motivo.
+	Game.add_consumable(sabio, 1)
+	_ok("un tomo de sabiduría SÍ entra (da excelia cada vez)",
+		int(Game.consumables.get(sabio, 0)) == 1)
+	Game.add_consumable(g, 1)
+	_ok("un grimorio ya leído SÍ entra (se lo estudia otro del grupo)",
+		int(Game.consumables.get(g, 0)) == 1)
+	# Y uno SIN leer entra como siempre: la regla es "ya leído", no "es un tocho".
+	Game.biblioteca.clear()
+	Game.add_consumable(relleno, 1)
+	_ok("un relleno SIN leer entra normal", int(Game.consumables.get(relleno, 0)) == 1)
+
 	var cuenta := {"Grimorios": 0, "Sabiduría": 0, "Curiosidades": 0}
 	var raras: Array = []
 	for c in _tochos + _grimorios:

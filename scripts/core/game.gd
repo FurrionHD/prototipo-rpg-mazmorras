@@ -5513,10 +5513,33 @@ func en_pueblo() -> bool:
 	return s != null and s.scene_file_path.ends_with("town.tscn")
 
 # --- OBJETOS / pociones ---
-func add_consumable(c: ConsumableData, n: int = 1) -> void:
+# UN LIBRO QUE YA TE HAS LEIDO NO ENTRA EN LA BOLSA: se convierte en monedas al vuelo y se avisa.
+#
+# El problema que resuelve es de sitio, no de dinero: las curiosidades del gacha son el 65% de lo que
+# cae, se leen UNA vez y despues no valen para nada, asi que la bolsa se llenaba de libros muertos que
+# habia que ir vendiendo a mano de uno en uno. Sin esto, media pestaña de consumibles eran tomos ya
+# leidos.
+#
+# SOLO EL RELLENO YA LEIDO, y el criterio es 'tocho_aporta_algo' -- el MISMO que usa el gacha para no
+# repartirlos. Un grimorio y un tomo de sabiduria SIEMPRE entran aunque los tengas leidos, y cada uno
+# por su motivo (el grimorio se lo puede estudiar otro del grupo; el sabio da excelia cada vez).
+#
+# Va aqui, en el embudo por el que entra TODO consumible, y no en el gacha ni en la recogida: si se
+# pusiera en cada sitio, el dia que alguien añada una via nueva (un cofre, un encargo, un regalo por
+# red) se olvidaria de ponerlo y la bolsa volveria a llenarse por ahi.
+#
+# Devuelve las MONEDAS pagadas (0 si el objeto entro normal), por si quien llama quiere decir algo.
+func add_consumable(c: ConsumableData, n: int = 1) -> int:
 	if c == null:
-		return
+		return 0
+	if n > 0 and not tocho_aporta_algo(c):
+		var pago: int = precio_venta_consumible(c) * n
+		ingresar(pago)
+		print("[libro] '%s' ya está en la biblioteca: se vende por %d." % [c.nombre, pago])
+		_aviso_recogida("%s (ya leído)  +%d monedas" % [c.nombre, pago], n, "")
+		return pago
 	consumables[c] = int(consumables.get(c, 0)) + n
+	return 0
 
 # Quita hasta n unidades de un consumible; devuelve cuantas quito de verdad (para el cofre multi).
 func quitar_consumible(c: Resource, n: int) -> int:
@@ -10820,7 +10843,10 @@ func embolsar(item: Resource) -> void:
 	elif item is ConsumableData:
 		# Por el mismo embudo que las compra la tienda: es un contador, no una lista.
 		var cd := item as ConsumableData
-		add_consumable(cd, 1)
+		# Si era un libro ya leido, add_consumable lo ha vendido y YA ha avisado el: aqui no se vuelve
+		# a avisar, o saldrian dos carteles seguidos diciendo cosas distintas del mismo objeto.
+		if add_consumable(cd, 1) > 0:
+			return
 		print("Recoges: ", cd.nombre, ". Total consumibles: ", consumibles_total())
 		_aviso_recogida(cd.nombre, 1, "")
 

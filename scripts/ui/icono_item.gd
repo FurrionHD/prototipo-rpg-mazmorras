@@ -59,8 +59,13 @@ static func pintar(ci: CanvasItem, centro: Vector2, lado: float, item: Resource,
 		return
 	if item is ConsumableData:
 		var cd := item as ConsumableData
-		if cd.es_grimorio():
-			_libro(ci, centro, lado * (ENCAJE["libro"] if encajar else 1.0), cd.color_suelo())
+		# TODO LO QUE VA A LA BIBLIOTECA SE DIBUJA COMO LIBRO, no solo los grimorios. Antes esto
+		# preguntaba `es_grimorio()`, asi que los TOCHOS -- los tomos de sabiduria y las curiosidades --
+		# se caian al `else` y salian pintados como FRASCOS: media bolsa eran botellas marrones que en
+		# realidad eran libros. Son la mitad de lo que reparte el gacha.
+		if cd.en_biblioteca():
+			_libro(ci, centro, lado * (ENCAJE["libro"] if encajar else 1.0), cd.color_suelo(),
+				cd.es_grimorio(), cd.es_tomo_sabio())
 		elif cd.es_plato():
 			_cuenco(ci, centro, lado * (ENCAJE["cuenco"] if encajar else 1.0), cd.color_suelo())
 		else:
@@ -152,18 +157,47 @@ static func _frasco(ci: CanvasItem, centro: Vector2, k: float, col: Color, tier:
 		Vector2(k, alto)), Color(1, 1, 1, 0.30))
 
 
-# EL LIBRO (grimorios). Tapa de su color, lomo mas oscuro a la izquierda y el canto de las hojas
-# en crema a la derecha: con esos tres bloques ya no se confunde con un frasco a 16 px.
-static func _libro(ci: CanvasItem, centro: Vector2, lado: float, col: Color) -> void:
+# EL LIBRO. Tapa de su color, lomo mas oscuro a la izquierda y el canto de las hojas en crema a la
+# derecha: con esos tres bloques ya no se confunde con un frasco a 16 px.
+#
+# LAS TRES FAMILIAS SE DISTINGUEN POR LA MARCA DE LA TAPA, no solo por el color, y es la misma
+# gramatica que usa el gacha al revelar (ver GachaBanner.dibujar_tomo):
+#
+#     ROMBO = grimorio      ·      CHISPA = tomo de sabiduria      ·      NADA = curiosidad
+#
+# Hace falta ADEMAS del color porque los colores de estos tres (morado, ocre y marron, ver
+# ConsumableData.color_suelo) son parecidos entre si a 16 px, y sobre todo porque en la cuadricula lo
+# que se compara de un vistazo es la FORMA. Y tiene que ser la misma marca que en el gacha: si el
+# tomo que acabas de sacar se dibuja de una manera al revelarlo y de otra en la bolsa, no se lee como
+# el mismo objeto.
+static func _libro(ci: CanvasItem, centro: Vector2, lado: float, col: Color,
+		grimorio: bool = true, sabio: bool = false) -> void:
 	var h: float = lado * 0.5
 	var c := centro
 	ci.draw_rect(Rect2(c + Vector2(-h * 0.8, -h * 0.85), Vector2(h * 1.6, h * 1.7)), col)
 	ci.draw_rect(Rect2(c + Vector2(-h * 0.8, -h * 0.85), Vector2(h * 0.35, h * 1.7)), col.darkened(0.45))
 	ci.draw_rect(Rect2(c + Vector2(h * 0.45, -h * 0.65), Vector2(h * 0.35, h * 1.3)),
 		Color(0.92, 0.89, 0.78))
-	# El cierre metalico, que es lo que lo hace "grimorio" y no "cuaderno".
-	ci.draw_rect(Rect2(c + Vector2(-h * 0.1, -h * 0.15), Vector2(h * 0.5, h * 0.3)),
-		Color(0.85, 0.78, 0.45))
+	var marca := Color(0.92, 0.86, 0.58)
+	var cen := c + Vector2(h * 0.15, 0.0)
+	if grimorio:
+		# EL ROMBO: "esto enseña un hechizo". Lo llevan TODOS los grimorios, hasta el mas comun.
+		var r: float = h * 0.34
+		ci.draw_colored_polygon(PackedVector2Array([
+			cen + Vector2(0, -r), cen + Vector2(r * 0.72, 0),
+			cen + Vector2(0, r), cen + Vector2(-r * 0.72, 0)]), marca)
+	elif sabio:
+		# LA CHISPA de cuatro puntas: "esto te enseña algo aunque no sea magia". Dos husos cruzados.
+		var r2: float = h * 0.32
+		var f: float = r2 * 0.34
+		ci.draw_colored_polygon(PackedVector2Array([
+			cen + Vector2(0, -r2), cen + Vector2(f, 0), cen + Vector2(0, r2),
+			cen + Vector2(-f, 0)]), marca)
+		ci.draw_colored_polygon(PackedVector2Array([
+			cen + Vector2(-r2, 0), cen + Vector2(0, -f), cen + Vector2(r2, 0),
+			cen + Vector2(0, f)]), marca)
+	# La CURIOSIDAD no lleva nada: es la unica de las tres que no te da mas que el texto, y la tapa
+	# desnuda es justo lo que la distingue de un vistazo.
 
 
 # EL CUENCO (comida). Visto un poco desde arriba: el borde de barro por fuera, el contenido de su

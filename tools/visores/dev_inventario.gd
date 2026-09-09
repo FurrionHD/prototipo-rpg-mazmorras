@@ -32,7 +32,12 @@ const MATS := ["cobre", "cobre_veteado", "cobre_profundo", "acero", "madera_comu
 const CONS := ["pocion_menor", "pocion_menor_1", "pocion_menor_2", "pocion_menor_3",
 	"pocion_media", "pocion_mana_menor", "pocion_mana_media_2", "pocion_mana_media_3",
 	"grimorio_bola_fuego", "grimorio_rayo", "plato_kebab_bestia", "plato_sopa_setas",
-	"cebo_gusano", "piedra_retorno"]
+	"cebo_gusano", "piedra_retorno",
+	# LOS DOS TIPOS DE TOCHO, que son la mitad de lo que reparte el gacha y aqui no estaban: por eso
+	# se paso mucho tiempo sin ver que salian dibujados como FRASCOS en vez de como libros. Van los
+	# dos porque lo que hay que juzgar es que se distingan ENTRE SI y del grimorio (rombo / chispa /
+	# tapa desnuda, ver IconoItem._libro).
+	"tochos/errores_propios", "tochos/rata_comun"]
 const ARMAS := ["daga", "espada_corta", "espada_larga", "mandobles", "hacha_grande", "baston",
 	"estoque", "maza_peq"]
 
@@ -113,7 +118,72 @@ func _ready() -> void:
 		await _captura("modal_usar_bloqueado")
 		inv._cerrar_modal_barra()
 		break
+
+	_probar_modal_no_se_cierra(inv)
 	get_tree().quit()
+
+
+# EL MODAL DE USAR SE QUEDA ABIERTO al usar, y solo se cierra al acabarse las unidades.
+#
+# Antes se cerraba en CADA uso, y con cinco copias de un grimorio eso son cinco viajes de ida y
+# vuelta (abrir bolsa, buscar el libro, abrir modal, elegir persona) para hacer lo mismo cinco veces
+# -- que es justo el caso normal de un grimorio repetido: enseñarselo a varios del grupo.
+#
+# Se pulsa el BOTON de verdad y no se llama a _on_usar a mano: lo que hay que comprobar es el
+# cableado del modal, y llamando por dentro pasaria igual aunque el boton estuviera mal conectado.
+func _probar_modal_no_se_cierra(inv: Node) -> void:
+	var c: ConsumableData = load("res://resources/consumables/pocion_menor.tres") as ConsumableData
+	if c == null:
+		printerr("[modal] no encuentro la poción de prueba.")
+		return
+	Game.consumables[c] = 3
+	# A alguien a quien SI se le pueda dar, o el boton sale apagado y no se puede pulsar.
+	Game.party[0].current_hp = 5.0
+	inv._abrir_modal_usar(c)
+	inv._usar_sel = 0
+	inv._pintar_modal_usar()
+
+	var b: Button = _boton(inv._modal_capa, inv._verbo_usar(c))
+	if b == null:
+		printerr("[modal] no encuentro el botón de usar.")
+		return
+	b.pressed.emit()
+	if inv._modal_capa == null or not is_instance_valid(inv._modal_capa):
+		printerr("[modal] MAL: el modal se ha cerrado al usar; tenía que quedarse abierto.")
+	elif int(Game.consumables.get(c, 0)) != 2:
+		printerr("[modal] MAL: quedan %d y tenían que quedar 2." % int(Game.consumables.get(c, 0)))
+	else:
+		print("[modal] OK: se usa una y el modal sigue abierto (quedan 2).")
+
+	# Y AL GASTAR LA ULTIMA si se cierra: dejarlo abierto sobre cero seria un modal que ya no hace
+	# nada, con el boton apagado y sin decir por que.
+	Game.consumables[c] = 1
+	inv._pintar_modal_usar()
+	var b2: Button = _boton(inv._modal_capa, inv._verbo_usar(c))
+	if b2 != null:
+		b2.pressed.emit()
+	if inv._modal_capa != null and is_instance_valid(inv._modal_capa):
+		printerr("[modal] MAL: gastada la última, el modal sigue abierto.")
+	else:
+		print("[modal] OK: al gastar la última, el modal se cierra solo.")
+
+
+# Busca un Button por su texto dentro de un árbol. Por texto y no por ruta: la pantalla se monta por
+# código y una ruta a mano se queda desfasada en cuanto se mueve un contenedor.
+func _boton(raiz: Node, texto: String) -> Button:
+	if raiz == null or not is_instance_valid(raiz):
+		return null
+	for n in _todos(raiz):
+		if n is Button and String((n as Button).text).strip_edges() == texto.strip_edges():
+			return n
+	return null
+
+
+func _todos(n: Node) -> Array:
+	var out: Array = [n]
+	for h in n.get_children():
+		out.append_array(_todos(h))
+	return out
 
 
 # ¿EL ORDEN POR TIER ORDENA DE VERDAD? A ojo no se puede decir: la muesca son 20 px y hay que
