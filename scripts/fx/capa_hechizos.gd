@@ -146,7 +146,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO, \
 		CombatFX.Estilo.SELLO_ARCANO, \
 		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO, \
-		CombatFX.Estilo.NUBE_ESPORAS, CombatFX.Estilo.MICELIO:
+		CombatFX.Estilo.NUBE_ESPORAS, CombatFX.Estilo.MICELIO, \
+		CombatFX.Estilo.VENTOSA, CombatFX.Estilo.DRENAR:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -450,6 +451,11 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_ESPORAS
 	if es == CombatFX.Estilo.MICELIO:
 		return float(e["dur"]) + COLETA_MICELIO
+	# LA SANGUIJUELA. Las dos con coleta larga: "se pega y no la despegas".
+	if es == CombatFX.Estilo.VENTOSA:
+		return float(e["dur"]) + COLETA_VENTOSA
+	if es == CombatFX.Estilo.DRENAR:
+		return float(e["dur"]) + COLETA_DRENAR
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -572,6 +578,8 @@ func _draw() -> void:
 			CombatFX.Estilo.MURO_GUARDIAN: _pintar_muro_guardian(e)
 			CombatFX.Estilo.NUBE_ESPORAS: _pintar_esporas(e)
 			CombatFX.Estilo.MICELIO: _pintar_micelio(e)
+			CombatFX.Estilo.VENTOSA: _pintar_ventosa(e)
+			CombatFX.Estilo.DRENAR: _pintar_drenar(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -750,6 +758,144 @@ func _pintar_vapor(b: Vector2, rg: float, w: float, semilla: float, agua: Color)
 		var ang2: float = TAU * float(i) / 7.0 + semilla * 1.7
 		var d: Vector2 = Vector2(cos(ang2), sin(ang2)) * rg * (0.9 + 2.6 * w)
 		draw_circle(b + d, maxf(1.5, rg * 0.11 * (1.0 - w)), Color(agua.r, agua.g, agua.b, 1.0 - w))
+
+
+# ============================================================
+#  LA SANGUIJUELA: LA VENTOSA Y EL DRENAJE
+# ============================================================
+# Los dos entraron con el chupasimas. Hasta hoy sus tres ataques pedian MORDISCO (el basico y el
+# Drenaje) y ENROSQUE (Adherirse), o sea DOS HILERAS DE PALETOS DE ROEDOR y los anillos del ciempies.
+#
+# UNA SANGUIJUELA NO MUERDE CON MANDIBULAS. No hay arriba y abajo: su boca es un ANILLO -- una
+# ventosa redonda con los dientes apuntando hacia DENTRO por todo el borde y la garganta negra en
+# medio -- y se clava entera de golpe. Toda la familia de dentelladas del juego (_dentellada, con sus
+# dos hileras que se acercan) es justo lo que aqui no vale, asi que estos dos no la reusan.
+
+# Cuanto se quedan despues del impacto. La ventosa aguanta -- "se pega y no la despegas" -- y el
+# drenaje mas todavia, porque son tres o cuatro bombeos seguidos.
+const COLETA_VENTOSA := 0.42
+const COLETA_DRENAR := 0.52
+
+# Cuantos dientes lleva el anillo. Impares a proposito: con un numero par quedan enfrentados dos a
+# dos y el ojo los empareja como si fueran mandibulas, que es lo contrario de lo que se busca.
+const _VENTOSA_DIENTES := 15
+
+
+# Pinta el anillo de dientes de una ventosa: la carne de alrededor, la garganta negra del centro y
+# los dientes clavandose hacia DENTRO. 'cierra' va de 0 (abierta de par en par) a 1 (clavada).
+#
+# Devuelve el radio exterior, que lo usan los dos estilos para saber donde poner lo suyo.
+func _anillo_dientes(c: Vector2, rad: float, cierra: float, alfa: float, col: Color,
+		sem: float = 0.0) -> float:
+	# LA CARNE del labio, un aro grueso. Va del color del bicho pero MUY oscurecido y hacia el rojo:
+	# es carne, no quitina, y tiene que leerse como algo humedo.
+	var carne := Color(col.r * 0.55 + 0.28, col.g * 0.25 + 0.05, col.b * 0.25 + 0.09)
+	draw_arc(c, rad * 0.94, 0.0, TAU, 30, Color(carne.r, carne.g, carne.b, 0.92 * alfa),
+		maxf(3.0, rad * 0.30), true)
+	# LA GARGANTA: el agujero. Casi negro y con un punto de rojo, y se CIERRA al clavarse -- es lo que
+	# se traga lo que agarra. Un circulo negro plano se leeria como un agujero pintado; con el borde
+	# mas claro por dentro se lee como un tubo.
+	var hueco: float = rad * (0.62 - 0.16 * cierra)
+	draw_circle(c, hueco, Color(0.10, 0.02, 0.04, 0.95 * alfa))
+	draw_arc(c, hueco * 0.98, 0.0, TAU, 24, Color(0.32, 0.06, 0.09, 0.75 * alfa),
+		maxf(1.5, rad * 0.06), true)
+	# LOS DIENTES: triangulos apuntando al centro, clavados en el borde. Se dibujan como poligonos y
+	# no como lineas porque un diente es una CUÑA -- ancho en la base y en punta al final --, y una
+	# linea de grosor constante se lee como una pestaña.
+	#
+	# Y SE METEN HACIA DENTRO AL CERRARSE, que es todo el gesto: la punta viaja del borde del hueco
+	# hasta pasarlo. Girados en vez de desplazados parecerian un iris de camara.
+	var largo: float = rad * (0.30 + 0.16 * cierra)
+	var base: float = rad * 0.115
+	var desde: float = rad * (0.86 - 0.10 * cierra)
+	for i in _VENTOSA_DIENTES:
+		var a: float = TAU * float(i) / float(_VENTOSA_DIENTES)
+		var dirp := Vector2(cos(a), sin(a))
+		var lat := Vector2(-dirp.y, dirp.x)
+		# DESIGUALES. Con los quince dientes exactamente iguales y a la misma distancia el anillo salia
+		# como un ICONO -- una rueda dentada dibujada con compas --, y esto es una boca. Basta con un
+		# 25% de variacion en el largo y un pelin de ladeo para que se lea organico; mas, y se pierde
+		# el anillo. La variacion va por la SEMILLA del golpe, asi que dos mordiscos seguidos no salen
+		# calcados (es la misma razon por la que _dentellada ladea cada mordida).
+		var var_i: float = 1.0 + 0.25 * sin(float(i) * 2.7 + sem * 3.1)
+		var ladeo: float = sin(float(i) * 1.9 + sem * 2.3) * 0.10
+		var raiz: Vector2 = c + dirp.rotated(ladeo) * desde
+		var pta: Vector2 = raiz - dirp.rotated(ladeo) * largo * var_i
+		var p := PackedVector2Array([raiz + lat * base, raiz - lat * base, pta])
+		draw_colored_polygon(p, Color(0.96, 0.94, 0.88, 0.95 * alfa))
+	return rad
+
+
+# LA VENTOSA: el mordisco del chupasimas y su Adherirse. Llega ABIERTA, se posa y SE CLAVA de golpe
+# -- el anillo se encoge y los quince dientes entran a la vez.
+#
+# El gesto entero esta en el primer cuarto de vida; lo demas es que SE QUEDA ahi, que es lo que dice
+# su ficha ("se pega y no la despegas"). Por eso la coleta es larga y el desvanecido, tardio.
+func _pintar_ventosa(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_VENTOSA, 0.12)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# SE CLAVA EN EL PRIMER CUARTO. Repartido por toda la vida se leia como una boca cerrandose a
+	# camara lenta; de golpe se lee como un zarpazo redondo.
+	var cierra: float = clampf(v / 0.25, 0.0, 1.0)
+	# Y EL ANILLO SE ENCOGE AL CLAVARSE: llega ancho y aprieta. Ese apreton es lo que lo separa de un
+	# simple circulo dibujado encima.
+	var rad: float = caja * (0.50 - 0.13 * cierra)
+	_anillo_dientes(b, rad, cierra, alfa, e["col"], float(e["semilla"]))
+	# LA SANGRE del momento en que entra: unas gotas saltando hacia fuera, y solo entonces.
+	if v < 0.45:
+		var g: float = float(e["semilla"])
+		var k: float = 1.0 - v / 0.45
+		for i in 7:
+			var a: float = TAU * float(i) / 7.0 + g * 1.7
+			var d: float = rad * (1.0 + 0.9 * (1.0 - k))
+			draw_circle(b + Vector2(cos(a), sin(a)) * d, maxf(1.5, caja * 0.045 * k),
+				Color(0.62, 0.05, 0.07, 0.9 * k * alfa))
+
+
+# EL DRENAJE: ya esta clavada y lo que se ve es que BOMBEA. "Se le ve el cuerpo llenarse a tirones
+# mientras a ti se te va."
+#
+# Es la misma ventosa pero SIN el gesto de clavarse -- llega puesta -- y con dos cosas que la otra no
+# tiene: el anillo LATE (tres tirones a lo largo de la vida) y la sangre va HACIA DENTRO en vez de
+# saltar hacia fuera. Ese sentido es todo lo que distingue chupar de morder.
+func _pintar_drenar(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_DRENAR, 0.10)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# TRES TIRONES, y en dientes de sierra: cada uno aprieta de golpe y afloja despacio. Con un seno
+	# limpio el bicho parecia respirar; asi se lee como una bomba.
+	var ciclo: float = fmod(v * 3.0, 1.0)
+	var tiron: float = 1.0 - pow(ciclo, 0.45)
+	var rad: float = caja * (0.37 - 0.05 * tiron)
+	_anillo_dientes(b, rad, 0.75 + 0.25 * tiron, alfa, e["col"], g)
+	# LA SANGRE ENTRANDO: chorros cortos que vienen de fuera y se meten en la garganta. Se acortan
+	# segun avanzan, que es lo que se lee como que los absorbe.
+	# CORTOS Y PEGADOS AL ANILLO. Largos y saliendo lejos se leian como PINCHOS -- el bicho parecia un
+	# sol, no una boca chupando --, y ademas se comian la silueta redonda, que es lo que hay que
+	# reconocer. Lo que dice que la sangre ENTRA no es que los chorros sean largos, es que se acortan
+	# hacia el centro segun avanza el tiron.
+	for i in 9:
+		var a: float = TAU * float(i) / 9.0 + g + v * 1.2
+		var dirp := Vector2(cos(a), sin(a))
+		# Cada chorro va por su cuenta dentro del tiron, para que no entren los nueve a la vez.
+		var s: float = fmod(ciclo + float(i) * 0.11, 1.0)
+		var fuera: float = rad * (1.32 - 0.42 * s)
+		var dentro: float = maxf(rad * 0.55, fuera - rad * (0.42 - 0.26 * s))
+		draw_line(b + dirp * fuera, b + dirp * dentro,
+			Color(0.66, 0.06, 0.08, 0.85 * (1.0 - s) * alfa), maxf(2.0, caja * 0.055), true)
+	# Y EL LATIDO de la garganta al tragar: un destello rojo oscuro en el centro con cada tiron.
+	if tiron > 0.45:
+		draw_circle(b, rad * 0.50 * tiron, Color(0.55, 0.04, 0.06, 0.55 * (tiron - 0.45) * alfa))
 
 
 # ============================================================

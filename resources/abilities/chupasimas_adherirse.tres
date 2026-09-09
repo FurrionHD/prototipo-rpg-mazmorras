@@ -21,5 +21,6 @@ descripcion = "Se pega y no la despegas. La boca es un anillo de dientes hacia d
 coste_energia = 0.0
 dano_mult = 0.85
 efectos = [SubResource("SA_san"), SubResource("SA_moj")]
-fx_estilo = 30
+fx_estilo = 114
+fx_anim = &"adherirse"
 cooldown = 3

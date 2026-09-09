@@ -24,7 +24,7 @@ enemy_name = "Chupasimas"
 historia = "Una sanguijuela del largo de un brazo que vive en los charcos de las simas. Se deja caer del techo mojada, se pega, y para cuando la notas ya pesa el doble que al empezar."
 color = Color(0.42, 0.24, 0.3, 1)
 escala_visual = 1.6
-sprite_gen = &"ciempies"
+sprite_gen = &"chupasimas"
 resistencia = 35
 fuerza = 35
 destreza = 30
@@ -48,7 +48,7 @@ resist_elemental = {
 2: 0.7,
 3: 1.5
 }
-fx_basico = 14
+fx_basico = 114
 habilidades = [ExtResource("3_adh"), ExtResource("4_dre")]
 prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

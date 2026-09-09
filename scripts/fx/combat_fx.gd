@@ -102,6 +102,14 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 #   MIRADA    un OJO que se abre en el lanzador y suelta una onda hacia el objetivo
 #   LATIGAZO  verdugones de azote que aparecen SOBRE EL GOLPEADO
 #
+# Y LOS DOS DE LA SANGUIJUELA (114-115), que entraron con el chupasimas:
+#   VENTOSA   la boca REDONDA: un anillo de dientes hacia dentro que se clava de golpe
+#   DRENAR    la misma ventosa ya clavada, LATIENDO, con la sangre entrando hacia el centro
+#
+# Los dos existen porque una sanguijuela NO MUERDE CON MANDIBULAS y toda la familia de dentelladas
+# del juego (MORDISCO, COLMILLAZO, YUGULAR, PONZONA) son dos hileras que se acercan. Sus tres ataques
+# pedian MORDISCO y ENROSQUE, o sea paletos de roedor y los anillos del ciempies.
+#
 # Y LOS DOS DE LOS HONGOS (112-113), que se añadieron con el miconido:
 #   NUBE_ESPORAS  una nube de polvo CASI BLANCO que se abre y SE QUEDA posandose
 #   MICELIO       un cordon blanco que sube del suelo y se enrosca en la pierna
@@ -313,7 +321,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		SHOCK_TERMICO = 105, SHOCK_VAPOR = 106,
 		LUZ_ESTALLIDO = 107, SOMBRA_VORAGINE = 108, ECLIPSE = 109,
 		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111,
-		NUBE_ESPORAS = 112, MICELIO = 113 }
+		NUBE_ESPORAS = 112, MICELIO = 113,
+		VENTOSA = 114, DRENAR = 115 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -427,6 +436,10 @@ const T_VUELO := {
 	# suelo, asi que su vuelo es solo el ADELANTO con el que empieza a dibujarse. La nube lo lleva
 	# largo porque tiene que verse ABRIRSE antes del impacto -- ahi esta toda la habilidad.
 	Estilo.NUBE_ESPORAS: 0.20, Estilo.MICELIO: 0.10,
+	# LOS DE LA SANGUIJUELA. Ninguno viaja: la tarjeta embiste y la boca llega con ella, asi que el
+	# vuelo es solo el ADELANTO con el que empieza a dibujarse. El drenaje lo lleva mas corto porque
+	# son tres o cuatro golpes seguidos y con adelantos largos se pisan unos a otros.
+	Estilo.VENTOSA: 0.07, Estilo.DRENAR: 0.05,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
@@ -1912,6 +1925,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.YUGULAR, Estilo.ZARPAZO, Estilo.PLACAJE, Estilo.CORNADA, Estilo.CARGA,
 	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
 	Estilo.RODADA, Estilo.LATIGAZO,
+	Estilo.VENTOSA, Estilo.DRENAR,
 	# Los del jugador van aqui por lo mismo que los mordiscos: para dar un tajo hay que LLEGAR, y es
 	# la embestida la que lleva el arma al sitio. El IMBUIR_FILO no, que es sobre uno mismo.
 	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,

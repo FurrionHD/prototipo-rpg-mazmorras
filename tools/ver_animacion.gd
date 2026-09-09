@@ -10,9 +10,22 @@
 #  si se pegaran los recortes a secas, cada uno saldria centrado en si mismo y la tira mentiria
 #  justo sobre lo unico que importa aqui -- cuanto se mueve el bicho de un frame al siguiente.
 #
-#  Se lanza con herramientas/ver_animacion.bat [enemigo] [anim] [dir], p.ej.:
+#  Se lanza con herramientas/ver_animacion.bat [enemigo] [anim] [dir] [t], p.ej.:
 #      herramientas/ver_animacion.bat slime encaje
 #      herramientas/ver_animacion.bat rey_slime muerte
+#      herramientas/ver_animacion.bat chupasimas walk 2 1     (la variante mas clara)
+#
+#  LA 't' ES EL COLOR DEL BICHO DENTRO DE SU FRANJA, y hay que saber lo que hace o esta herramienta
+#  MIENTE. 'EnemyData.color_visual(t)' es 'color.lerp(WHITE, t * 0.45)': con t = 1 el bicho sale
+#  ACLARADO UN 45% HACIA EL BLANCO, y al cuantizar despues se le va casi toda la saturacion.
+#
+#  Estaba clavada en 1.0 y costo seis renders del chupasimas: su granate (0.42, 0.24, 0.30) llegaba
+#  al generador convertido en (0.68, 0.58, 0.62) -- un gris malva --, asi que el bicho salia palido y
+#  parecia que la paleta del generador estaba rota. No lo estaba: se estaba mirando su variante mas
+#  lavada y creyendo que era el bicho.
+#
+#  Por eso ahora el valor POR DEFECTO es 0 (el color tal cual lo escribe la ficha, que es lo que hay
+#  que juzgar al dibujar) y la variante clara se pide a proposito.
 #  No toca nada del juego: solo escribe en tools/salida/.
 #
 #  Va como ESCENA (Node) y no como script suelto de SceneTree: con '--script' Godot no arranca los
@@ -32,13 +45,14 @@ func _ready() -> void:
 	var enemigo: String = args[0] if args.size() > 0 else "slime"
 	var anim: String = args[1] if args.size() > 1 else "encaje"
 	var dir: int = int(args[2]) if args.size() > 2 else 0
+	var t: float = float(args[3]) if args.size() > 3 else 0.0
 
 	var ed = load(DIR_ENEMIGOS + enemigo + ".tres")
 	if ed == null or not (ed is EnemyData):
 		push_error("[ver animacion] no encuentro %s%s.tres" % [DIR_ENEMIGOS, enemigo])
 		get_tree().quit(1)
 		return
-	var sf: SpriteFrames = SpritesEnemigo.frames_de(ed, 1.0)
+	var sf: SpriteFrames = SpritesEnemigo.frames_de(ed, t)
 	if sf == null:
 		push_error("[ver animacion] %s no tiene sprite generado" % enemigo)
 		get_tree().quit(1)
@@ -59,9 +73,10 @@ func _ready() -> void:
 	var tira: Image = _tira(sf, nom)
 	var ruta: String = "%stira_%s_%s.png" % [SALIDA, enemigo, nom]
 	tira.save_png(ruta)
-	print("[ver animacion] %s  ·  %d fotogramas a %.0f fps%s"
+	print("[ver animacion] %s  ·  %d fotogramas a %.0f fps%s  ·  t=%.2f (color %s)"
 		% [nom, sf.get_frame_count(nom), sf.get_animation_speed(nom),
-			"  (loop)" if sf.get_animation_loop(nom) else ""])
+			"  (loop)" if sf.get_animation_loop(nom) else "", t,
+			ed.color_visual(t).to_html(false)])
 	print("[ver animacion] ", ProjectSettings.globalize_path(ruta))
 	get_tree().quit()
 

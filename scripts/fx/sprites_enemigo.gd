@@ -74,6 +74,11 @@ static var GENERADORES_POR_NOMBRE := {
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
 	&"ciempies": CiempiesSprites,
+	# Y EL CHUPASIMAS, que NO es un insecto pero comparte con el ciempies el esqueleto de CADENA -- un
+	# tubo de anillos sin centro -- y por eso se dibujaba con el suyo: una sanguijuela salia con veinte
+	# patas amarillas. Con generador propio se separan por donde de verdad se distinguen, que es el
+	# movimiento (bucle de oruga contra onda lateral) y la boca (ventosa contra forcipulas).
+	&"chupasimas": ChupasimasSprites,
 	# LOS CONSTRUCTOS, IGUAL: golem, gargola y coloso son los tres familia PIEDRA -- y tambien lo es
 	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
 	# pegote de barro, una estatua con alas y una mole labrada no se parecen en nada.
