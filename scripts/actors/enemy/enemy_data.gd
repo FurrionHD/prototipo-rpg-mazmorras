@@ -237,6 +237,16 @@ func drop_factor_piso(piso: int) -> float:
 @export var elemento_intensidad: float = 1.0
 @export var resist_elemental: Dictionary = {}
 @export var inmune_estados: Array = []
+# VULNERABILIDAD (o aguante) a UN estado concreto: {StatusEffects.Id: delta_de_resistencia}.
+# Es el hermano fino de inmune_estados, que solo sabe decir que si o que no. Aqui se puede decir
+# "al trent el fuego le prende MAS facil" sin hacerlo inmune a nada.
+#
+# El valor NO es un multiplicador de probabilidad, es un SUMANDO a la resistencia, porque asi es
+# como esta montada la formula (ver StatusEffects.prob_final): p = base x (1+eficacia) / (1+resist).
+#   -0.5 = vulnerable  (le entra ~x1.4 mas facil, segun lo que ya resistiera)
+#   +1.0 = aguanta el doble
+# Negativo = vulnerable, positivo = resistente. Lo que no aparezca no toca nada.
+@export var resist_estado: Dictionary = {}
 # RASGOS de resistencia. resist_aturdir: aguante EXTRA al control (aturdir/miedo) por encima de su
 # resistencia general -- los de piedra apenas se inmutan con el martillo.
 #
@@ -517,6 +527,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.elemento_intensidad = elemento_intensidad
 	c.resist_elemental = resist_elemental
 	c.inmune_estados = inmune_estados
+	c.resist_estado = resist_estado
 	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
 	c.stun_resist = resist_aturdir
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes

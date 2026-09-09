@@ -36,6 +36,10 @@ nucleo = ExtResource("6_nuc")
 drop_piso_debut = 8
 drop_piso_pleno = 11
 al_golpear = [SubResource("SA_deb")]
+resist_elemental = {
+4: 1.5,
+5: 0.6
+}
 status_resist = 1.7
 fx_basico = 34
 habilidades = [ExtResource("3_emb"), ExtResource("4_chi"), ExtResource("5_mir")]

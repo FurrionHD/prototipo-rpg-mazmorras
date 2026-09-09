@@ -592,6 +592,39 @@ func _pintar_tabs() -> void:
 
 # --- Pestaña: Detalles ----------------------------------------------------
 
+# Vulnerabilidad o aguante a estados CONCRETOS (Combatant.resist_estado), que es lo que
+# inmune_estados no sabe decir: "el fuego le prende mas facil" en vez de "no le prende nunca".
+#
+# El dato guardado es un SUMANDO a la resistencia y eso no se le puede enseñar a nadie, asi que
+# aqui se traduce a lo unico que importa: cuanto cambia la PROBABILIDAD de que le prenda. Se saca
+# comparando su resistencia real con la que tendria sin el rasgo, o sea con el mismo motor que
+# decide el combate -- ni un numero escrito a mano.
+func _fila_estados_propios(c: Combatant) -> void:
+	if c.resist_estado.is_empty():
+		return
+	var deb: PackedStringArray = []
+	var res: PackedStringArray = []
+	for id in c.resist_estado:
+		var delta: float = float(c.resist_estado[id])
+		if is_zero_approx(delta):
+			continue
+		var d: Dictionary = StatusEffects.def(int(id))
+		if d.is_empty():
+			continue
+		var r_con: float = c.resist_estados(int(id))
+		var r_sin: float = maxf(r_con - delta, -0.9)
+		var mult: float = (1.0 + r_sin) / maxf(1.0 + r_con, 0.1)
+		var txt: String = "%s %s ×%.2f" % [String(d.get("icono", "")), String(d.get("nombre", "?")), mult]
+		if mult > 1.0:
+			deb.append(txt)
+		else:
+			res.append(txt)
+	if not deb.is_empty():
+		MenuScaffold.fila(_panel, "Le prende más fácil", ", ".join(deb))
+	if not res.is_empty():
+		MenuScaffold.fila(_panel, "Aguanta mejor", ", ".join(res))
+
+
 func _tab_detalles(c: Combatant) -> void:
 	var elem: String = ""
 	if c.elemento != Elementos.Elemento.NINGUNO:
@@ -618,6 +651,7 @@ func _tab_detalles(c: Combatant) -> void:
 			MenuScaffold.fila(_panel, "Debilidades", ", ".join(deb))
 		if not res.is_empty():
 			MenuScaffold.fila(_panel, "Resistencias", ", ".join(res))
+		_fila_estados_propios(c)
 
 	# Rejilla de stats: para un ALIADO, con el aporte del equipo desglosado en azul.
 	if not _es_enemigo():

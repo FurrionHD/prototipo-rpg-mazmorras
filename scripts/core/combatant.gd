@@ -279,6 +279,9 @@ var fx_escudo: int = -1
 var elemento_intensidad: float = Elementos.INTENSIDAD_PURA
 var resist_elemental: Dictionary = {}
 var inmune_estados: Array = []
+# Vulnerabilidad/aguante a UN estado concreto: {StatusEffects.Id: delta_de_resistencia}.
+# Negativo = le prende mas facil. Lo rellena EnemyData; ver el comentario de resist_estados().
+var resist_estado: Dictionary = {}
 
 # Elemento del que va tu GOLPE ENTERO (lo usan los enemigos: el slime de fuego pega fuego).
 # En el JUGADOR se queda siempre NINGUNO: su daño elemental sale de la IMBUICION (abajo), no
@@ -1235,6 +1238,11 @@ func resist_estados(id: int = -1, con_afinidad: bool = true) -> float:
 	var r: float = status_resist + status_resist_flat()
 	if id >= 0 and StatusEffects.es_control(id):
 		r += _resist_control_extra(con_afinidad)
+	# Y lo que este bicho tenga DICHO sobre ESE estado en concreto (al trent el fuego le prende mas
+	# facil). Suma, no multiplica, porque el carril de la formula es la resistencia -- meterlo por
+	# un multiplicador aparte es justo el lio del que se saco stun_taken_mult en su dia.
+	if id >= 0 and resist_estado.has(id):
+		r += float(resist_estado[id])
 	return maxf(r, -0.9)
 
 

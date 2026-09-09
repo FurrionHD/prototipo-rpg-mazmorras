@@ -1327,7 +1327,8 @@ func tanda(n: int) -> void:
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
-		gesto: int = -1, anim: StringName = &"", semilla: int = 0) -> void:
+		gesto: int = -1, anim: StringName = &"", semilla: int = 0,
+		mult_elem: float = 1.0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1339,6 +1340,12 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 	_cola.append({
 		"ba": b_atacante, "bv": b_victima, "dmg": dmg, "crit": crit,
 		"evadido": evadido, "color": color_elem, "t": 0.0, "lanzado": false,
+		# CUANTO ha multiplicado la debilidad/resistencia elemental del que lo encaja. Va al numero
+		# que vuela (ver _soltar_numero_de). 1.0 = neutro, que es lo que llega DEL ESPEJO: no viaja
+		# por red a proposito -- el paquete de impactos ya manda el daño final, y el marcador es una
+		# ayuda de lectura, no una cuenta. Si algun dia hace falta, se deriva en el espejo igual que
+		# el color.
+		"mult_elem": mult_elem,
 		"estilo": estilo, "peso": clampf(peso, 0.2, 1.5), "fx_lanzado": false,
 		"tanda": t_ev, "solo_dibujo": solo_dibujo,
 		"sfx": sfx, "sfx_lanzado": false,
@@ -2339,6 +2346,16 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		lbl.text = "%.2f" % maxf(float(ev["dmg"]), 0.0)
 		if crit:
 			lbl.text += "!"
+		# LA DEBILIDAD ELEMENTAL, con flecha y no con otro "!": el "!" ya es del critico y dos
+		# marcas iguales no se distinguen en vuelo. Arriba = le ha entrado mejor de lo normal,
+		# abajo = lo ha resistido. El numero ya sale del color del elemento, asi que la flecha solo
+		# tiene que decir en que direccion, y por eso no se escribe el x1.5 -- eso esta en el log,
+		# que es donde se leen las cuentas.
+		var mult: float = float(ev.get("mult_elem", 1.0))
+		if mult > 1.01:
+			lbl.text += " ▲"
+		elif mult < 0.99:
+			lbl.text += " ▼"
 		lbl.add_theme_color_override("font_color", ev["color"])
 		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 

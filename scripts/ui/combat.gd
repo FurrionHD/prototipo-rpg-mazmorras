@@ -3879,7 +3879,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
 		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
-		semilla: int = 0) -> void:
+		semilla: int = 0, mult_elem: float = 1.0) -> void:
 	if _fx == null:
 		return
 	var bv: Dictionary = _bloque_de(victima)
@@ -3902,7 +3902,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# estoque haciendo el salto del Rey Slime.
 	_fx.encolar(_bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
-		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla)
+		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,
@@ -5831,7 +5831,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		# _estilo_salpicon.
 		var es_salpicon: bool = desde != null and not rebote
 		_fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
-			_estilo_hechizo(spell, elem, rebote, es_salpicon), peso)
+			_estilo_hechizo(spell, elem, rebote, es_salpicon), peso, false, "",
+			AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
 		_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
 		total += dmg
 		# CRITICO MAGICO: mismo 💥 que en el rastro del golpe fisico, para que se lea igual.
@@ -5902,7 +5903,8 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			_fx_golpe(_player if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
 				_estilo_hechizo(spell, elem, false, obj != principal),
-				_peso_hechizo(spell, float(t.escala)))
+				_peso_hechizo(spell, float(t.escala)), false, "",
+				AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
 			_apuntar_dano(obj, dmg, _player)   # contador oculto de Cazador
 			if not acc.has(obj):
 				acc[obj] = {"c": obj, "dano": 0.0, "mult": 1.0, "crit": false, "golpes": 0, "trail": [], "estados": []}
@@ -6054,6 +6056,49 @@ func _imbue_dmg_txt(result: Dictionary, escala: float = 1.0) -> String:
 	return _desglose_imbue(float(result.damage) * escala,
 		float(result.get("dmg_imbue", 0.0)) * escala,
 		float(result.get("mult_imbue", 1.0)))
+
+
+# Feedback elemental de un GOLPE FISICO ya resuelto, para LAS DOS RAMAS del combate.
+#
+# Existe porque la rama del enemigo se lo callaba: el slime de fuego aplicaba su ×1.5 contra un
+# cuerpo imbuido de agua y el log decia "te ataca por 12.40" a secas, con lo que el jugador no tenia
+# forma de enterarse de que su manto estaba haciendo algo. Y esa es justo la trampa de las ramas
+# espejo: arreglar solo la mia deja la mitad del sistema invisible.
+#
+# 'elem' es el elemento del ATACANTE (Combatant.elemento_ataque). En el jugador es siempre NINGUNO
+# -- su parte elemental sale de la imbuicion y la cuenta _desglose_imbue -- asi que aqui devuelve "".
+func _elem_golpe_txt(result: Dictionary, elem: int) -> String:
+	if elem == Elementos.Elemento.NINGUNO:
+		return ""
+	var txt: String = _elem_txt(float(result.get("mult_elem", 1.0)))
+	if txt == "":
+		return ""   # neutro: no se dice nada, como en los hechizos
+	return "  %s%s" % [Elementos.icono(elem), txt.strip_edges()]
+
+
+# Lo mismo para una habilidad enemiga, que puede tocar a VARIOS con multiplicadores distintos
+# (un area de fuego contra un grupo donde solo uno lleva el manto de agua). Si a todos les entro
+# igual se dice una vez y en corto; si no, se dice por nombre, que es la unica forma de que el
+# jugador sepa a quien le esta sirviendo su manto.
+func _elem_reparto_txt(elem: int, mult_por_obj: Dictionary) -> String:
+	if elem == Elementos.Elemento.NINGUNO or mult_por_obj.is_empty():
+		return ""
+	var notas: PackedStringArray = []
+	var iguales: bool = true
+	var primero: float = -1.0
+	for c in mult_por_obj:
+		var m: float = float(mult_por_obj[c])
+		if primero < 0.0:
+			primero = m
+		elif not is_equal_approx(m, primero):
+			iguales = false
+		if _elem_txt(m) != "":
+			notas.append("%s%s" % [c.nombre, _elem_txt(m)])
+	if notas.is_empty():
+		return ""
+	if iguales:
+		return "  %s%s" % [Elementos.icono(elem), _elem_txt(primero).strip_edges()]
+	return "  %s %s" % [Elementos.icono(elem), ", ".join(notas)]
 
 
 # Feedback elemental de un hechizo de UN solo golpe. OJO: GDScript no soporta %g.
@@ -7424,7 +7469,8 @@ func _enemy_turn(e: Combatant) -> void:
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	obj.take_damage(dmg)
-	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas)
+	_fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
+		1.0, false, "", AbilityData.Gesto.AUTO, &"", 0, float(result.get("mult_elem", 1.0)))
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
@@ -7461,6 +7507,7 @@ func _enemy_turn(e: Combatant) -> void:
 		msg = "%s CLAVA un critico a %s: %.2f de daño! 💥" % [_etq(e), obj.nombre, dmg]
 	else:
 		msg = "%s ataca a %s por %.2f de daño." % [_etq(e), obj.nombre, dmg]
+	msg += _elem_golpe_txt(result, e.elemento_ataque)
 	if bool(_defendiendo.get(obj, false)):
 		msg += " (defendido 🛡️)"
 	# Aturdir/retrasar del enemigo (si algun dia lleva arma contundente).
@@ -7652,6 +7699,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# Desglose para el log (como en tus habilidades): rastro golpe a golpe y reparto por aliado.
 	var rastro: Array = []
 	var dano_por_obj: Dictionary = {}
+	# Y el multiplicador ELEMENTAL con el que le entro a cada uno: un area de fuego sobre el grupo
+	# puede pegar x1.5 a uno y x0.5 al que lleva el manto, y eso hay que poder contarlo por separado.
+	var mult_por_obj: Dictionary = {}
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		if ab.es_area():
@@ -7666,6 +7716,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 					es_princ or ab.area_efectos_secundarios, esc_prob)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
+				mult_por_obj[t] = float(sub["mult_elem"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -7692,6 +7743,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				total += float(sub["total"]); estados_log += sub["estados"]
 				conecto_algo += int(sub["conecto"])
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
+				mult_por_obj[t] = float(sub["mult_elem"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -7707,6 +7759,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
 			total = float(sub["total"]); estados_log = sub["estados"]; contra_txt = String(sub["contra"])
 			rastro = sub["rastro"]; dano_por_obj[obj] = float(sub["total"])
+			mult_por_obj[obj] = float(sub["mult_elem"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
@@ -7769,6 +7822,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			nombres_def.append(c.nombre)
 		msg += "  🛡️ %s aguanta%s en guardia (menos daño)." % [
 			", ".join(nombres_def), "" if defendieron.size() == 1 else "n"]
+	msg += _elem_reparto_txt(e.elemento_ataque, mult_por_obj)
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)
@@ -7857,7 +7911,8 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
-			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
+			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false,
+				sfx_ab, gesto_ab, anim_ab, 0, float(result.get("mult_elem", 1.0)))
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
 			if t.resiste_por_afinidad(e.elemento_ataque):
@@ -7918,8 +7973,12 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			Game.GAIN_AGILIDAD_ESQUIVAR, Game.RETO_MAX_FISICO, pj_t)
 	# 'defendio' sube al log: la guardia dura TODO el turno y tapa todos los golpes, pero si no se
 	# dice, con una habilidad multi-golpe parece que el escudo no ha hecho nada.
+	# El multiplicador ELEMENTAL de este atacante contra ESTE objetivo. Es constante para el par
+	# (e, t) -- sale del perfil del defensor, no del golpe -- asi que se saca una vez y sube al
+	# que llama, que es quien monta el mensaje y sabe cuantos objetivos hubo.
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
-		"defendio": defendiendo, "rastro": rastro}
+		"defendio": defendiendo, "rastro": rastro,
+		"mult_elem": Elementos.mult_recibido(e.elemento_ataque, t)}
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':

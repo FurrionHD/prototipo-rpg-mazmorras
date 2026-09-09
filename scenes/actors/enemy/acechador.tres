@@ -47,6 +47,10 @@ drop_extra_max = 2
 drop_piso_debut = 10
 drop_piso_pleno = 12
 al_golpear = [SubResource("SA_san")]
+resist_elemental = {
+4: 1.5,
+5: 0.7
+}
 fx_basico = 15
 resist_aturdir = 0.15
 habilidades = [ExtResource("4_zar"), ExtResource("5_emb"), ExtResource("6_mor")]
