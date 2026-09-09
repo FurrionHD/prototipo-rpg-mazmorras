@@ -76,6 +76,11 @@ static var GENERADORES_POR_NOMBRE := {
 	# generador propio no habia otra cosa que prestarle.
 	&"miconido": MiconidoSprites,
 	&"arana": AranaSprites,
+	# Y LA SEGADORA, que SI es familia INSECTO como la araña y por eso se dibujaba con el suyo: una
+	# mantis salia con ocho patas y un racimo de ojos. Se separan por el cuerpo LARGO (cabeza, protorax
+	# y abdomen, contra las dos bolas de la araña), por las CUATRO patas mas las dos guadañas, y por
+	# que esta acecha ERGUIDA y aquella agazapada.
+	&"segadora": SegadoraSprites,
 	&"escarabajo": EscarabajoSprites,
 	&"ciempies": CiempiesSprites,
 	# Y EL CHUPASIMAS, que NO es un insecto pero comparte con el ciempies el esqueleto de CADENA -- un

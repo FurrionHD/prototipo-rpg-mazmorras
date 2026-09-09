@@ -17,4 +17,8 @@ if not exist "%GODOT%" (
     pause
     exit /b 1
 )
-"%GODOT%" --path "%~dp0.." res://tools/ver_fx.tscn -- %1 %2 %3
+REM --quit-after ES UNA RED DE SEGURIDAD, no un limite: el script se cierra solo en cuanto guarda el
+REM PNG (medio segundo), asi que esto no llega a usarse nunca cuando todo va bien. Esta para cuando
+REM algo NO compila: entonces la escena no llega a su get_tree().quit(), la ventana se queda EN GRIS
+REM para siempre y hay que matarla a mano. Con esto se cierra sola a los ~10 segundos.
+"%GODOT%" --quit-after 600 --path "%~dp0.." res://tools/ver_fx.tscn -- %1 %2 %3

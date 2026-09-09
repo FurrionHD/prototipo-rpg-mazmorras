@@ -114,6 +114,15 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 #   NUBE_ESPORAS  un chorro de polvo CASI BLANCO que sale del bicho, cruza y se abre en una nube
 #                 que SE QUEDA posandose
 #   ALETEO (116)  el golpe de ala de la polilla: dos arcos de ala y una rafaga de polvo por delante
+#
+# Y LOS DOS DE LA SEGADORA (117-118), que entraron con la mantis:
+#   GUADANA   UN tajo largo y curvo cayendo de arriba. El lado sale del numero de golpe, asi que su
+#             Doble guadaña -- que tira dos -- cae uno por cada lado sin necesitar estilo propio
+#   ENSARTE   una estocada que entra y sale por el mismo sitio, y deja el agujero
+#
+# Existen porque una MANTIS NO ARAÑA, CORTA. Su basico y su Doble guadaña pedian ZARPAZO, que son
+# cuatro surcos dentados en diagonal -- la marca de una zarpa CON DEDOS --, y ella tiene dos hojas
+# que dejan un tajo limpio cada una.
 #   MICELIO       un cordon blanco que sube del suelo y se enrosca en la pierna
 #
 # LA NUBE ES EL HUECO MAS VIEJO DE ESTA LISTA. Habia ya DOS habilidades de nube en el juego -- la
@@ -325,7 +334,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111,
 		NUBE_ESPORAS = 112, MICELIO = 113,
 		VENTOSA = 114, DRENAR = 115,
-		ALETEO = 116 }
+		ALETEO = 116,
+		GUADANA = 117, ENSARTE = 118 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -446,6 +456,8 @@ const T_VUELO := {
 	# EL ALETEO VIAJA DE VERDAD, y la NUBE tambien (antes nacia encima de la victima): el polvo sale de
 	# las alas de la polilla y cruza hasta la cara. Si no se ve salir, no se entiende de donde viene.
 	Estilo.ALETEO: 0.22,
+	# LOS DE LA SEGADORA. No viajan: la tarjeta embiste y la hoja llega con ella.
+	Estilo.GUADANA: 0.06, Estilo.ENSARTE: 0.06,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
@@ -1932,6 +1944,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 	Estilo.PISOTON, Estilo.GOLPETAZO, Estilo.PONZONA, Estilo.ENROSQUE, Estilo.PATAS,
 	Estilo.RODADA, Estilo.LATIGAZO,
 	Estilo.VENTOSA, Estilo.DRENAR,
+	Estilo.GUADANA, Estilo.ENSARTE,
 	# Los del jugador van aqui por lo mismo que los mordiscos: para dar un tajo hay que LLEGAR, y es
 	# la embestida la que lleva el arma al sitio. El IMBUIR_FILO no, que es sobre uno mismo.
 	Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,

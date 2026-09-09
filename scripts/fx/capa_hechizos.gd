@@ -147,7 +147,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.SELLO_ARCANO, \
 		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO, \
 		CombatFX.Estilo.MICELIO, \
-		CombatFX.Estilo.VENTOSA, CombatFX.Estilo.DRENAR:
+		CombatFX.Estilo.VENTOSA, CombatFX.Estilo.DRENAR, \
+		CombatFX.Estilo.GUADANA, CombatFX.Estilo.ENSARTE:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -458,6 +459,11 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_VENTOSA
 	if es == CombatFX.Estilo.DRENAR:
 		return float(e["dur"]) + COLETA_DRENAR
+	# LA SEGADORA. El ensarte dura mas que la guadaña: su agujero se queda despues de la hoja.
+	if es == CombatFX.Estilo.GUADANA:
+		return float(e["dur"]) + COLETA_GUADANA
+	if es == CombatFX.Estilo.ENSARTE:
+		return float(e["dur"]) + COLETA_ENSARTE
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -583,6 +589,8 @@ func _draw() -> void:
 			CombatFX.Estilo.MICELIO: _pintar_micelio(e)
 			CombatFX.Estilo.VENTOSA: _pintar_ventosa(e)
 			CombatFX.Estilo.DRENAR: _pintar_drenar(e)
+			CombatFX.Estilo.GUADANA: _pintar_guadana(e)
+			CombatFX.Estilo.ENSARTE: _pintar_ensarte(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -761,6 +769,121 @@ func _pintar_vapor(b: Vector2, rg: float, w: float, semilla: float, agua: Color)
 		var ang2: float = TAU * float(i) / 7.0 + semilla * 1.7
 		var d: Vector2 = Vector2(cos(ang2), sin(ang2)) * rg * (0.9 + 2.6 * w)
 		draw_circle(b + d, maxf(1.5, rg * 0.11 * (1.0 - w)), Color(agua.r, agua.g, agua.b, 1.0 - w))
+
+
+# ============================================================
+#  LA SEGADORA: LA GUADAÑA Y EL ENSARTE
+# ============================================================
+# Los dos entraron con la mantis. Hasta hoy su basico y su Doble guadaña pedian ZARPAZO -- CUATRO
+# surcos diagonales dentados, o sea la marca de una zarpa con dedos -- y su Ensarte pedia YUGULAR,
+# que es un mordisco.
+#
+# UNA MANTIS NO ARAÑA: CORTA. Tiene DOS hojas, y cada una deja UN tajo limpio, no cuatro rayas
+# paralelas. Esa es toda la diferencia entre estos dos estilos y la familia del zarpazo, y es la que
+# pidio el autor viendo el bicho: "que sea de una garra unica y no de garras de depredador".
+
+const COLETA_GUADANA := 0.34
+const COLETA_ENSARTE := 0.40
+
+
+# LA GUADAÑA: UN tajo, largo y curvo, cayendo de arriba y de un lado.
+#
+# Se apoya en '_tajo', que es el trazo de hoja que ya usan las armas del jugador: asi el corte de la
+# segadora esta hecho del mismo material que los demas cortes del juego en vez de ser un dibujo
+# aparte. Lo que le da personalidad es que va MUY largo y MUY combado -- es una hoja curva, no una
+# espada -- y que cae casi vertical.
+#
+# EL LADO SALE DEL NUMERO DE GOLPE, y eso es lo que hace que la Doble guadaña funcione sin un estilo
+# propio: la habilidad tira DOS golpes, asi que el primero cae de un lado y el segundo del otro.
+# "Los dos brazos caen a la vez y desde arriba, uno por cada lado. No hay hueco entre los dos."
+func _pintar_guadana(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_GUADANA, 0.06)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var g: float = float(e["semilla"])
+	var col: Color = e["col"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# EL GOLPE PAR CAE DEL OTRO LADO. Sin esto, la Doble guadaña serian dos tajos iguales encima uno
+	# del otro y se leeria como un solo corte parpadeando.
+	var lado: float = -1.0 if int(e.get("golpe", 0)) % 2 == 1 else 1.0
+	# CASI VERTICAL: cae de arriba. El zarpazo va en diagonal y el barrido de Segar en horizontal;
+	# este baja. Un poco ladeado por la semilla, para que dos guadañas seguidas no salgan calcadas.
+	var ang: float = lado * (1.30 + sin(g * 2.1) * 0.16)
+	var largo: float = caja * 1.55
+	# 'k' es cuanto lleva recorrido el trazo: se traza DE UNA PUNTA A LA OTRA en vez de aparecer
+	# entero, que es lo que se lee como que la hoja PASA.
+	var k: float = 1.0 - pow(1.0 - v, 2.2)
+	# COMBA GENEROSA: es una hoja CURVA. Con la comba de una espada (0,03) salia una raya recta y se
+	# perdia lo que tiene de guadaña.
+	# EL TAJO NO VA DEL COLOR DEL BICHO, VA DE HUESO. Los demas golpes de enemigo se pintan con su
+	# tono y aqui no vale: el ocre apagado de la segadora sobre el fondo oscuro del combate dejaba el
+	# corte casi invisible -- y este bicho ES el corte. Sus guadañas son quitina palida (asi se pintan
+	# tambien en el sprite, ver SegadoraSprites.Tono.HOJA), asi que el trazo hereda ese material.
+	var hoja := Color(col.r * 0.32 + 0.62, col.g * 0.32 + 0.62, col.b * 0.28 + 0.54)
+	var punta: Array = _tajo(b, ang, largo, 0.20 * lado, k, hoja, alfa, caja * 0.14,
+		int(e.get("elem", 0)), g)
+	# LA SANGRE salta de la PUNTA de la hoja mientras corre, no del centro de la tarjeta: es lo que
+	# ata el corte al trazo en vez de dejar dos dibujos sueltos.
+	if v < 0.55:
+		var cab: Vector2 = punta[0]
+		var kk: float = 1.0 - v / 0.55
+		for i in 5:
+			var a2: float = TAU * float(i) / 5.0 + g * 1.7
+			draw_circle(cab + Vector2(cos(a2), sin(a2)) * caja * 0.16 * (1.0 - kk),
+				maxf(1.5, caja * 0.040 * kk), Color(0.66, 0.06, 0.08, 0.85 * kk * alfa))
+
+
+# EL ENSARTE: NO es un tajo, es una ESTOCADA. "Se queda quieta, muy quieta, y de pronto ya esta
+# dentro. Sale por el mismo sitio por el que entro y el agujero no se cierra solo."
+#
+# Por eso no reusa '_tajo': una hoja que entra recta y sale por el mismo sitio no deja un trazo, deja
+# un AGUJERO. Se dibuja la hoja entrando y saliendo, y lo que queda cuando se va es la herida --
+# que dura mas que la propia estocada, porque eso es lo que dice la habilidad.
+func _pintar_ensarte(e: Dictionary) -> void:
+	var r0: Array = _golpe_cuerpo(e, COLETA_ENSARTE, 0.05)
+	var v: float = r0[0]
+	if v < 0.0 or float(r0[1]) <= 0.0:
+		return
+	var alfa: float = r0[1]
+	var b: Vector2 = r0[2]
+	var g: float = float(e["semilla"])
+	var col: Color = e["col"]
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# Entra en diagonal desde arriba, ladeada por la semilla.
+	var ang: float = -PI * 0.5 + sin(g * 1.9) * 0.55
+	var dirp := Vector2(cos(ang), sin(ang))
+	var lat := Vector2(-dirp.y, dirp.x)
+
+	# LA HOJA: entra en el primer tercio y sale en el segundo. Es un triangulo largo y estrecho -- una
+	# punta, no un filo -- dibujado como poligono para que tenga forma de pincho.
+	var dentro: float = clampf(v / 0.30, 0.0, 1.0) if v < 0.30 \
+		else 1.0 - clampf((v - 0.30) / 0.34, 0.0, 1.0)
+	if dentro > 0.01:
+		var largo: float = caja * 1.25
+		var base: Vector2 = b + dirp * largo * (1.0 - dentro * 0.92)
+		var pta: Vector2 = base - dirp * largo * 0.92
+		var ancho: float = caja * 0.085
+		var hoja := PackedVector2Array([base + lat * ancho, base - lat * ancho, pta])
+		var acero := Color(col.r * 0.35 + 0.62, col.g * 0.35 + 0.62, col.b * 0.30 + 0.52)
+		draw_colored_polygon(hoja, Color(acero.r, acero.g, acero.b, 0.95 * alfa))
+
+	# EL AGUJERO, que se queda. Aparece cuando la punta llega y NO se va con ella: al final del efecto
+	# la hoja ya no esta y la herida si. Ese desfase es toda la habilidad.
+	if v > 0.22:
+		var w: float = clampf((v - 0.22) / 0.20, 0.0, 1.0)
+		draw_circle(b, caja * 0.115 * w, Color(0.10, 0.02, 0.03, 0.92 * alfa))
+		draw_circle(b, caja * 0.115 * w * 0.55, Color(0.62, 0.05, 0.07, 0.95 * alfa))
+		# Y el reguero cayendo de la herida: poco y espeso, que es lo que hace una punzada honda.
+		for i in 3:
+			var s: float = clampf((v - 0.30 - float(i) * 0.07) / 0.45, 0.0, 1.0)
+			if s <= 0.0:
+				continue
+			var px: float = b.x + sin(g * 2.7 + float(i) * 2.1) * caja * 0.07
+			draw_line(Vector2(px, b.y), Vector2(px, b.y + caja * 0.42 * s),
+				Color(0.58, 0.05, 0.07, 0.8 * (1.0 - s * 0.4) * alfa), maxf(1.5, caja * 0.035), true)
 
 
 # ============================================================

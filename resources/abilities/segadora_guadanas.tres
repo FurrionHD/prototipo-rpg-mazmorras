@@ -18,5 +18,6 @@ golpes_max = 2
 dano_mult = 0.95
 efectos = [SubResource("SA_san")]
 efectos_por_golpe = true
-fx_estilo = 18
+fx_estilo = 117
+fx_anim = &"guadanas"
 cooldown = 3

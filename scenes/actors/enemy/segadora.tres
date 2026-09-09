@@ -20,7 +20,7 @@ enemy_name = "Segadora"
 historia = "Espera con los dos brazos plegados contra el pecho y no se mueve ni un dedo. Lo que la delata es que no parpadea: cuando por fin se mueve, ya te ha cortado."
 color = Color(0.5, 0.44, 0.28, 1)
 escala_visual = 2.2
-sprite_gen = &"arana"
+sprite_gen = &"segadora"
 resistencia = 30
 fuerza = 55
 destreza = 55
@@ -43,7 +43,7 @@ al_golpear = [SubResource("SA_san")]
 resist_estado = {
 1: -0.5
 }
-fx_basico = 18
+fx_basico = 117
 habilidades = [ExtResource("3_gua"), ExtResource("4_ens")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -15,5 +15,6 @@ descripcion = "Se queda quieta, muy quieta, y de pronto ya está dentro. Sale po
 coste_energia = 0.0
 dano_mult = 1.75
 efectos = [SubResource("SA_her")]
-fx_estilo = 16
+fx_estilo = 118
+fx_anim = &"ensarte"
 cooldown = 4
