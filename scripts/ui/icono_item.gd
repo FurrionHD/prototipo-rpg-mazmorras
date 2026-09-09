@@ -296,6 +296,12 @@ static func techo(item: Resource) -> int:
 	if item is MaterialItem or item is MaterialData:
 		return int(MaterialData.Rango.AMARILLO)
 	if item is ConsumableData:
+		# El grimorio se mide contra la escala de RAREZA (ver tier_de), no contra los 3 tiers de
+		# poción: con techo 2, un legendario y un mítico ya se salian de la escala y centelleaban
+		# los dos al maximo, o sea que el destello dejaba de distinguir justo arriba, que es donde
+		# hace falta.
+		if (item as ConsumableData).es_grimorio():
+			return Upgrades.RAREZA_COLOR.size() - 1
 		return 2
 	if item is Cristal:
 		return 2
@@ -404,7 +410,17 @@ static func tier_de(item: Resource) -> int:
 	if item is MaterialData:
 		return (item as MaterialData).tier_de_equipo()
 	if item is ConsumableData:
-		return int((item as ConsumableData).tier)
+		# UN GRIMORIO PONE SU RAREZA DONDE LOS DEMAS PONEN EL TIER, y no es un apaño: los grimorios
+		# son TODOS de tier 1, asi que su muesca decia siempre lo mismo -- un rombo -- mientras que la
+		# rareza, que es lo unico que los separa (de comun a mitico), no se veia en ninguna parte. La
+		# escalera esta hecha para aguantar T20, o sea que seis escalones le sobran.
+		#
+		# +1 porque la escalera cuenta desde 1 y la rareza desde 0: un comun saca un rombo y un mitico
+		# seis, que es como se cuentan las estrellas en el gacha.
+		var cd := item as ConsumableData
+		if cd.es_grimorio():
+			return int(cd.spell.rareza) + 1
+		return int(cd.tier)
 	if item is WeaponData or item is ShieldData or item is WandData or item is ArmorData \
 			or item is BackpackData or item is ToolData:
 		return int(Game.meta_de(item)["tier"])

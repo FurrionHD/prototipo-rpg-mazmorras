@@ -264,6 +264,22 @@ func _llenar() -> void:
 		j += 1
 		Game.consumables[c] = (j * 5) % 47 + 1
 
+	# UN GRIMORIO DE CADA RAREZA, sacados del manifiesto y no escritos a mano: lo que hay que juzgar
+	# aqui es la ESCALA (que un comun y un mitico no se vean iguales), y con dos grimorios sueltos de
+	# la misma banda esa comprobacion no existe. Cogidos por rareza, la captura sigue enseñando la
+	# escala entera el dia que se añada un hechizo o se le cambie la banda a otro.
+	var por_rareza := {}
+	for ruta in Libros.GRIMORIOS:
+		var g: ConsumableData = load(ruta) as ConsumableData
+		if g != null and g.spell != null and not por_rareza.has(int(g.spell.rareza)):
+			por_rareza[int(g.spell.rareza)] = g
+	var bandas: Array = por_rareza.keys()
+	bandas.sort()
+	for r in bandas:
+		j += 1
+		Game.consumables[por_rareza[r]] = (j * 5) % 47 + 1
+	print("[inventario] grimorios de prueba, una rareza cada uno: %s" % str(bandas))
+
 	_armas()
 	_armaduras()
 	_equipo()
