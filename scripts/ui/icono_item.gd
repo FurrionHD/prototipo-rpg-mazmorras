@@ -275,7 +275,13 @@ static func escalon(item: Resource) -> int:
 	if item is MaterialData:
 		return (item as MaterialData).rango_color()
 	if item is ConsumableData:
-		return clampi((item as ConsumableData).tier - 1, 0, 2)
+		# EL GRIMORIO PUNTUA POR LA RAREZA DE SU HECHIZO, que es su escala de verdad: son todos de
+		# tier 1, asi que por tier los dieciseis daban el mismo escalon y el fondo de la celda salia
+		# gris para todos -- uno comun y Tormenta, el chase de la coleccion, exactamente iguales.
+		var cd := item as ConsumableData
+		if cd.es_grimorio():
+			return clampi(int(cd.spell.rareza), 0, GRIMORIO_TECHO)
+		return clampi(cd.tier - 1, 0, 2)
 	if item is Cristal:
 		# Su escala propia: intacto arriba, dañado abajo. La CATEGORIA no entra aqui -- es el tier del
 		# bicho del que salio, no lo bueno que es el cristal, y meterla haria que un cristal roto de
@@ -292,16 +298,24 @@ static func escalon(item: Resource) -> int:
 
 # El TECHO de la escala de este item: cuantos peldaños tiene en total. Es lo que deja dibujar las
 # marcas como "3 de 5" y no como un numero suelto sin referencia.
+# EL TECHO DE LA ESCALA DE UN GRIMORIO: MITICO, no PRISTINO.
+#
+# Las marcas de la celda son "cuanto queda por encima de esto EN SU ESCALA", asi que el techo tiene
+# que ser el de la escala DE VERDAD. La rareza del EQUIPO llega a prístino (7), pero un hechizo no:
+# el tope de la tabla de grimorios es el mítico (ver Game.PESO_RAREZA_GRIMORIO, que no reparte nada
+# por encima). Con el techo del equipo salian OCHO rombos en un libro y los dos ultimos no los podia
+# llenar nadie -- dos huecos que no significan nada.
+const GRIMORIO_TECHO := Upgrades.Rareza.MITICO
+
 static func techo(item: Resource) -> int:
 	if item is MaterialItem or item is MaterialData:
 		return int(MaterialData.Rango.AMARILLO)
 	if item is ConsumableData:
-		# El grimorio se mide contra la escala de RAREZA (ver tier_de), no contra los 3 tiers de
-		# poción: con techo 2, un legendario y un mítico ya se salian de la escala y centelleaban
-		# los dos al maximo, o sea que el destello dejaba de distinguir justo arriba, que es donde
-		# hace falta.
+		# El grimorio se mide contra la escala de RAREZA (ver escalon), no contra los 3 tiers de
+		# poción: con techo 2, un legendario y un mítico se salian de la escala y sacaban las mismas
+		# marcas, o sea que la cuenta dejaba de distinguir justo arriba, que es donde hace falta.
 		if (item as ConsumableData).es_grimorio():
-			return Upgrades.RAREZA_COLOR.size() - 1
+			return GRIMORIO_TECHO
 		return 2
 	if item is Cristal:
 		return 2
@@ -410,17 +424,13 @@ static func tier_de(item: Resource) -> int:
 	if item is MaterialData:
 		return (item as MaterialData).tier_de_equipo()
 	if item is ConsumableData:
-		# UN GRIMORIO PONE SU RAREZA DONDE LOS DEMAS PONEN EL TIER, y no es un apaño: los grimorios
-		# son TODOS de tier 1, asi que su muesca decia siempre lo mismo -- un rombo -- mientras que la
-		# rareza, que es lo unico que los separa (de comun a mitico), no se veia en ninguna parte. La
-		# escalera esta hecha para aguantar T20, o sea que seis escalones le sobran.
-		#
-		# +1 porque la escalera cuenta desde 1 y la rareza desde 0: un comun saca un rombo y un mitico
-		# seis, que es como se cuentan las estrellas en el gacha.
-		var cd := item as ConsumableData
-		if cd.es_grimorio():
-			return int(cd.spell.rareza) + 1
-		return int(cd.tier)
+		# EL TIER DE UN GRIMORIO ES SU TIER Y NO SE TOCA. Hubo un intento de meter aqui su rareza
+		# "porque todos son T1 y la muesca no decia nada": esta MAL de dos maneras. La primera, que la
+		# rareza ya tiene su sitio -- el FONDO de la celda, que es donde vive en todo el juego (ver
+		# escalon y CeldaObjeto._draw: fondo = rareza, muesca = tier, dos ejes en dos sitios). Y la
+		# segunda, que hoy sean todos T1 es TEMPORAL: van a existir magias de tier 2, y entonces esta
+		# muesca dira lo que tiene que decir sola.
+		return int((item as ConsumableData).tier)
 	if item is WeaponData or item is ShieldData or item is WandData or item is ArmorData \
 			or item is BackpackData or item is ToolData:
 		return int(Game.meta_de(item)["tier"])

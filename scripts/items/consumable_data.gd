@@ -148,13 +148,13 @@ func plus() -> int:
 func color_suelo() -> Color:
 	if color_frasco.a > 0.0:
 		return color_frasco
-	# EL GRIMORIO VA DEL COLOR DE LA RAREZA DE SU HECHIZO, no de un morado fijo. Con el morado unico,
-	# los dieciseis grimorios se veian EXACTAMENTE IGUALES en la bolsa -- uno comun y Tormenta, que es
-	# el chase de toda la coleccion, eran el mismo icono --, y encima contradecia al gacha, que si los
-	# revela con el color de su banda. La rareza es lo unico que distingue a un grimorio de otro de un
-	# vistazo; el nombre hay que leerlo.
+	# El morado de grimorio, IGUAL PARA TODOS, y es lo correcto: este color es el del DIBUJO (la tapa
+	# del libro), y lo que dice es la FAMILIA -- morado el grimorio, ocre el tomo sabio, marron la
+	# curiosidad. LA RAREZA NO VA AQUI: va en el FONDO de la celda, que es donde vive en todo el juego
+	# (ver IconoItem.escalon). Hubo un intento de pintar la tapa del color de la rareza y lo que
+	# conseguia era que un grimorio comun -- tapa gris -- pareciera una curiosidad.
 	if es_grimorio():
-		return Upgrades.rareza_color(int(spell.rareza))
+		return Color(0.62, 0.42, 0.85)          # morado de libro
 	# El tocho es libro tambien, pero APAGADO: de lejos tiene que distinguirse de un grimorio de
 	# verdad sin leer el nombre, porque la gracia del gacha es justo esa decepcion. El de sabiduria
 	# tira a ocre dorado: no es magia, pero algo da.
