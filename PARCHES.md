@@ -632,9 +632,18 @@ hay ataques sin dibujo.
 
 ## 🛠️ Herramientas (para desarrollo)
 
-`hornear_sprites.bat` (sprites a PNG), `ver_enemigos_animaciones.bat`, `ver_enemigos_ataques.bat`,
-`ver_gestos.bat`, y en `tools/`: `ver_terreno`, `ver_lampara`, `ver_nucleos`, `probar_vision`,
-`comprobar`.
+**Todas se lanzan con doble clic desde `herramientas/`.** Son 31 `.bat` y esa es la única lista que
+hay que mirar: cada uno dice en su cabecera qué comprueba y si abre ventana o escribe por consola.
+
+Hasta el 09/09/2026 había ocho herramientas **sin lanzador**, que solo se podían usar escribiendo
+una línea de comandos de Godot — o sea que en la práctica no las usaba nadie. Seis tenían valor y
+ya tienen su `.bat` (`ver_lampara`, `ver_nucleos`, `probar_vision`, `ver_escudos`,
+`ver_encargos_calidad`, `ver_fx_hechizo`); las otras dos se declaraban desechables en su propia
+cabecera (`dev_tira`, "de usar y tirar", y `dev_guardado_magias`, "de un solo uso") y se han
+borrado.
+
+`hornear_sprites.bat` es la que hay que acordarse de pasar: convierte los sprites a PNG y el juego
+lee los PNG, no los generadores.
 
 ---
 
