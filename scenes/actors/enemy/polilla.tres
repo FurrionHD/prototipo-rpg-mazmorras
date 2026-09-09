@@ -1,0 +1,49 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/polilla_nube.tres" id="3_nub"]
+[ext_resource type="Resource" path="res://resources/abilities/polilla_aleteo.tres" id="4_ale"]
+[ext_resource type="Resource" path="res://resources/materials/polvo_de_alas.tres" id="5_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_polilla.tres" id="6_nuc"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2")
+estado = 0
+prob = 0.4
+
+[resource]
+script = ExtResource("1")
+familia = 3
+enemy_name = "Polilla de esporas"
+historia = "Sube de los pisos hondos siguiendo la única luz que hay. Las alas no le sirven casi para volar: son dos sacos de polvo que suelta al batirlas, y ahí está todo lo que tiene."
+color = Color(0.58, 0.5, 0.6, 1)
+escala_visual = 1.9
+sprite_gen = &"aberracion"
+resistencia = 25
+fuerza = 30
+destreza = 35
+agilidad = 50
+magia = 30
+base_hp = 58.0
+base_attack = 5.0
+base_defense = 3.2
+base_speed = 5.2
+crystal_category_min = 7
+crystal_category_max = 9
+crystal_category_weights = PackedFloat32Array(0.4, 0.4, 0.2)
+drop_material = ExtResource("5_mat")
+nucleo = ExtResource("6_nuc")
+drop_piso_debut = 9
+drop_piso_pleno = 12
+al_golpear = [SubResource("SA_ven")]
+inmune_estados = [0]
+resist_elemental = {
+1: 1.6,
+5: 0.7
+}
+eficacia = 1.3
+fx_basico = 10
+habilidades = [ExtResource("3_nub"), ExtResource("4_ale")]
+prob_habilidad = 0.6
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

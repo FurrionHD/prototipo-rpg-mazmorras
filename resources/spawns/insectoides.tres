@@ -5,6 +5,7 @@
 [ext_resource type="Resource" uid="uid://b4elqyvf1lubc" path="res://scenes/actors/enemy/arana.tres" id="3_arana"]
 [ext_resource type="Resource" uid="uid://bbp7160yj720b" path="res://scenes/actors/enemy/escarabajo.tres" id="4_escara"]
 [ext_resource type="Resource" uid="uid://bmxnj2tu4anc7" path="res://scenes/actors/enemy/ciempies.tres" id="5_ciem"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/segadora.tres" id="6_sega"]
 
 [sub_resource type="Resource" id="E_arana"]
 script = ExtResource("2_entrada")
@@ -27,8 +28,17 @@ peso = 30.0
 piso_min = 7
 piso_max = 11
 
+; La SEGADORA cierra la familia por arriba: es el insecto de los tres ultimos pisos del bloque,
+; el que trae el nucleo de armadura de la banda alta.
+[sub_resource type="Resource" id="E_sega"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("6_sega")
+peso = 25.0
+piso_min = 10
+piso_max = 12
+
 [resource]
 script = ExtResource("1_tabla")
-nombre = "Arácnidos"
-entradas = Array[ExtResource("2_entrada")]([SubResource("E_arana"), SubResource("E_escara"), SubResource("E_ciem")])
+nombre = "Insectoides"
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_arana"), SubResource("E_escara"), SubResource("E_ciem"), SubResource("E_sega")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

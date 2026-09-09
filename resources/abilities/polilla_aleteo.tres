@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_deb"]
+script = ExtResource("2")
+estado = 4
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Aleteo cegador"
+descripcion = "Se te viene a la cara y bate. No pega: te llena los ojos de polvo y para cuando ves algo, ya no está donde la buscabas."
+coste_energia = 0.0
+dano_mult = 0.7
+efectos = [SubResource("SA_deb")]
+fx_estilo = 10
+cooldown = 3

@@ -1,0 +1,49 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/segadora_guadanas.tres" id="3_gua"]
+[ext_resource type="Resource" path="res://resources/abilities/segadora_ensarte.tres" id="4_ens"]
+[ext_resource type="Resource" path="res://resources/materials/quitina_segada.tres" id="5_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_segadora.tres" id="6_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/carne_insecto.tres" id="7_carne"]
+
+[sub_resource type="Resource" id="SA_san"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+familia = 3
+enemy_name = "Segadora"
+historia = "Espera con los dos brazos plegados contra el pecho y no se mueve ni un dedo. Lo que la delata es que no parpadea: cuando por fin se mueve, ya te ha cortado."
+color = Color(0.5, 0.44, 0.28, 1)
+escala_visual = 2.2
+sprite_gen = &"arana"
+resistencia = 30
+fuerza = 55
+destreza = 55
+agilidad = 40
+base_hp = 74.0
+base_attack = 5.8
+base_defense = 3.8
+base_speed = 4.8
+crystal_category_min = 8
+crystal_category_max = 9
+crystal_category_weights = PackedFloat32Array(0.55, 0.45)
+drop_material = ExtResource("5_mat")
+nucleo = ExtResource("6_nuc")
+drop_extra = ExtResource("7_carne")
+drop_extra_chance = 0.1
+drop_extra_max = 2
+drop_piso_debut = 10
+drop_piso_pleno = 12
+al_golpear = [SubResource("SA_san")]
+resist_estado = {
+1: -0.5
+}
+fx_basico = 18
+habilidades = [ExtResource("3_gua"), ExtResource("4_ens")]
+prob_habilidad = 0.55
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

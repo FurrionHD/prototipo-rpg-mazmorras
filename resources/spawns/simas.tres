@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="SpawnTable" format=3]
+
+[ext_resource type="Script" uid="uid://cf6tilfbph4mq" path="res://scripts/world/spawn_table.gd" id="1_tabla"]
+[ext_resource type="Script" uid="uid://js2s473s3ult" path="res://scripts/world/spawn_entry.gd" id="2_entrada"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/miconido.tres" id="3_mico"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/chupasimas.tres" id="4_chup"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/chillon.tres" id="5_chil"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/polilla.tres" id="6_poli"]
+
+; LAS SIMAS: lo que puebla los pisos 7-12 desde que los constructos se fueron al fondo.
+; Todo lo de aqui es de carne, quitina, moho o agua -- nada de piedra, que es lo que no pegaba.
+; Los cuatro entran escalonados para que la franja no se vea igual en el 7 que en el 12.
+[sub_resource type="Resource" id="E_mico"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("3_mico")
+peso = 45.0
+piso_min = 7
+piso_max = 10
+
+[sub_resource type="Resource" id="E_chup"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("4_chup")
+peso = 40.0
+piso_min = 7
+piso_max = 12
+
+[sub_resource type="Resource" id="E_chil"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("5_chil")
+peso = 30.0
+piso_min = 8
+piso_max = 12
+
+[sub_resource type="Resource" id="E_poli"]
+script = ExtResource("2_entrada")
+enemy_data = ExtResource("6_poli")
+peso = 22.0
+piso_min = 9
+piso_max = 12
+
+[resource]
+script = ExtResource("1_tabla")
+nombre = "Simas"
+entradas = Array[ExtResource("2_entrada")]([SubResource("E_mico"), SubResource("E_chup"), SubResource("E_chil"), SubResource("E_poli")])
+metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

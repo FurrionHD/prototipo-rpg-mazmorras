@@ -5,6 +5,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_reventon.tres" id="3_rev"]
 [ext_resource type="Resource" uid="uid://divj4yifpx26l" path="res://resources/abilities/slime_doble_embate.tres" id="4_emb"]
 [ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="5_baba"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_profundo.tres" id="6_nuc"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -29,6 +30,7 @@ crystal_category_min = 5
 crystal_category_max = 7
 crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
 drop_material = ExtResource("5_baba")
+nucleo = ExtResource("6_nuc")
 drop_piso_debut = 7
 drop_piso_pleno = 9
 al_golpear = [SubResource("SA_peg")]

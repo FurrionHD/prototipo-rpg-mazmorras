@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Picado"
+descripcion = "Cae desde el techo sin que lo oigas venir, muerde una vez y ya está otra vez arriba. Lo único que queda es el corte."
+coste_energia = 0.0
+golpes_min = 2
+golpes_max = 3
+dano_mult = 0.7
+fx_estilo = 14
+cooldown = 2

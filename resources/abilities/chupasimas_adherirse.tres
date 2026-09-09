@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_san"]
+script = ExtResource("2")
+estado = 1
+prob = 0.75
+stacks = 2
+
+[sub_resource type="Resource" id="SA_moj"]
+script = ExtResource("2")
+estado = 12
+prob = 0.8
+
+[resource]
+script = ExtResource("1")
+nombre = "Adherirse"
+descripcion = "Se pega y no la despegas. La boca es un anillo de dientes hacia dentro: no muerde, se enrosca en la carne y empieza a tirar."
+coste_energia = 0.0
+dano_mult = 0.85
+efectos = [SubResource("SA_san"), SubResource("SA_moj")]
+fx_estilo = 30
+cooldown = 3

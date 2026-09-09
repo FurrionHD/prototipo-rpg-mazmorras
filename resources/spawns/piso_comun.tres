@@ -7,9 +7,10 @@
 [ext_resource type="Resource" uid="uid://mdo8ycqj6c0g" path="res://scenes/actors/enemy/jabali.tres" id="5_jabali"]
 [ext_resource type="Resource" uid="uid://dmqtpt17gcbfw" path="res://scenes/actors/enemy/trent.tres" id="6_trent"]
 [ext_resource type="Resource" uid="uid://bwhel80e4ydds" path="res://scenes/actors/enemy/slime_profundo.tres" id="7_slimep"]
-[ext_resource type="Resource" uid="uid://bt2rlm7msmiqd" path="res://resources/spawns/aracnidos.tres" id="8_aracn"]
+[ext_resource type="Resource" uid="uid://bt2rlm7msmiqd" path="res://resources/spawns/insectoides.tres" id="8_aracn"]
 [ext_resource type="Resource" uid="uid://djoktaq34w4xi" path="res://resources/spawns/constructos.tres" id="9_const"]
 [ext_resource type="Resource" uid="uid://dkc34hp48jed0" path="res://resources/spawns/bestias.tres" id="10_best"]
+[ext_resource type="Resource" path="res://resources/spawns/simas.tres" id="11_simas"]
 
 [sub_resource type="Resource" id="F_slimes"]
 script = ExtResource("2_entrada")
@@ -66,8 +67,17 @@ tabla = ExtResource("10_best")
 peso = 40.0
 piso_min = 8
 
+; LAS SIMAS ocupan el hueco que dejaron los constructos, con su mismo peso: el bloque 7-12 tenia
+; que seguir teniendo la misma cantidad de bicho, solo que de carne y moho en vez de piedra.
+[sub_resource type="Resource" id="F_simas"]
+script = ExtResource("2_entrada")
+tabla = ExtResource("11_simas")
+peso = 38.0
+piso_min = 7
+piso_max = 12
+
 [resource]
 script = ExtResource("1_tabla")
 nombre = "Piso común"
-entradas = Array[ExtResource("2_entrada")]([SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali"), SubResource("E_trent"), SubResource("E_slimep"), SubResource("F_aracn"), SubResource("F_const"), SubResource("F_best")])
+entradas = Array[ExtResource("2_entrada")]([SubResource("F_slimes"), SubResource("F_ratas"), SubResource("E_jabali"), SubResource("E_trent"), SubResource("E_slimep"), SubResource("F_aracn"), SubResource("F_const"), SubResource("F_best"), SubResource("F_simas")])
 metadata/_custom_type_script = "res://scripts/world/spawn_table.gd"

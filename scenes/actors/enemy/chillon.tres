@@ -1,0 +1,49 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_chillido.tres" id="3_chi"]
+[ext_resource type="Resource" path="res://resources/abilities/chillon_picado.tres" id="4_pic"]
+[ext_resource type="Resource" path="res://resources/materials/humor_ciego.tres" id="5_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_chillon.tres" id="6_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/carne_bestia.tres" id="7_carne"]
+
+[sub_resource type="Resource" id="SA_sil"]
+script = ExtResource("2")
+estado = 18
+prob = 0.25
+
+[resource]
+script = ExtResource("1")
+familia = 5
+enemy_name = "Chillón de las simas"
+historia = "Nació sin ojos y no los echa de menos. Cuelga del techo en racimos de veinte y baja de uno en uno, siempre por detrás, siempre en el silencio de después del chillido."
+color = Color(0.42, 0.48, 0.55, 1)
+escala_visual = 1.4
+sprite_gen = &"gargola"
+resistencia = 20
+fuerza = 30
+destreza = 40
+agilidad = 60
+base_hp = 48.0
+base_attack = 4.8
+base_defense = 2.8
+base_speed = 6.0
+crystal_category_min = 6
+crystal_category_max = 8
+crystal_category_weights = PackedFloat32Array(0.5, 0.35, 0.15)
+drop_material = ExtResource("5_mat")
+nucleo = ExtResource("6_nuc")
+drop_extra = ExtResource("7_carne")
+drop_extra_chance = 0.1
+drop_piso_debut = 8
+drop_piso_pleno = 11
+al_golpear = [SubResource("SA_sil")]
+resist_elemental = {
+4: 1.5,
+5: 0.7
+}
+fx_basico = 17
+habilidades = [ExtResource("3_chi"), ExtResource("4_pic")]
+prob_habilidad = 0.6
+metadata/_custom_type_script = "uid://le6jfvhlcbou"

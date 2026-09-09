@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_rai"]
+script = ExtResource("2")
+estado = 31
+prob = 0.55
+
+[resource]
+script = ExtResource("1")
+nombre = "Latigazo de micelio"
+descripcion = "Del pie le sale un cordón blanco, fino como un hilo y duro como un alambre, que te cruza la pierna y se queda enganchado."
+coste_energia = 0.0
+dano_mult = 1.25
+efectos = [SubResource("SA_rai")]
+fx_estilo = 34
+cooldown = 3

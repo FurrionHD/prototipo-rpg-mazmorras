@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_sil"]
+script = ExtResource("2")
+estado = 18
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Chillido"
+descripcion = "Un pitido tan agudo que no se oye, se siente. Te deja los oídos en blanco y la palabra que ibas a decir se te va de la cabeza."
+coste_energia = 0.0
+dano_mult = 0.35
+area_modo = 1
+area_secundario = 0.8
+area_efectos_secundarios = true
+area_prob_secundario = 0.7
+efectos = [SubResource("SA_sil")]
+fx_estilo = 17
+cooldown = 4
