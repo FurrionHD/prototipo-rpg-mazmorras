@@ -109,18 +109,31 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 # Y VA A LA ALTURA DE LA CORONILLA, no de la frente: puesta a POSA*0,62 el ala caia justo por delante
 # de la cara y, con el zoom del creador, el personaje no tenia cara -- solo un ala morada con una
 # barba asomando por debajo. Un sombrero se apoya ENCIMA de la cabeza.
+#
+# Y EL RADIO EN PROFUNDIDAD (Y) ES LA MITAD DEL DE ANCHO (X), no casi igual. Es lo que arreglo que el
+# ala tapara los ojos, y el motivo es la camara: esta a 45 grados, asi que lo que se adelanta en Y
+# BAJA EN PANTALLA. Con el ala casi circular en planta (Y = 0,92 del ancho) su borde delantero se
+# proyectaba un radio entero hacia abajo y caia justo sobre la mirada -- de frente los ojos asomaban
+# por los pelos y de perfil desaparecian.
+#
+# Aplastarla en Y no se nota como "ala estrecha": desde arriba sigue viendose el disco entero, porque
+# lo que la camara acorta es precisamente ese eje.
 static func _ala(piezas: Array, esq: Dictionary, cab: Vector3, ancho: float, alto: float) -> void:
 	PoseJugador.poner(piezas, esq,
-		cab + Vector3(0.0, -ATRAS * 0.5, POSA * 0.95),
-		Vector3(R * ancho, R * ancho * 0.92, R * alto), Tono.TELA)
+		cab + Vector3(0.0, -ATRAS * 0.5, POSA * 1.15),
+		Vector3(R * ancho, R * ancho * 0.48, R * alto), Tono.TELA)
 
 
 # LA COPA: la masa que cubre el craneo. 'alto' en radios de cabeza y 'ancho' como fraccion.
+#
+# TAMBIEN ACHATADA EN Y (0,66 del ancho), por lo mismo que el ala: lo que se adelanta en profundidad
+# baja en pantalla, y una copa redonda en planta se derrama sobre la frente. Menos que el ala porque
+# la copa se apoya mas arriba y tiene menos margen que ganar.
 static func _copa(piezas: Array, esq: Dictionary, cab: Vector3, alto: float, ancho: float) -> void:
 	var g: float = GROSOR
 	PoseJugador.poner(piezas, esq,
 		cab + Vector3(0.0, -ATRAS, POSA + R * alto * 0.35),
-		Vector3(R * ancho + g * 0.5, R * ancho * 0.92 + g * 0.4, R * alto + g * 0.4), Tono.TELA)
+		Vector3(R * ancho + g * 0.5, R * ancho * 0.66 + g * 0.3, R * alto + g * 0.4), Tono.TELA)
 
 
 # LA VUELTA del gorro de lana: la franja de abajo, mas gorda. Es lo que lo hace gorro y no calva.
@@ -164,9 +177,11 @@ static func _capucha(piezas: Array, esq: Dictionary, cab: Vector3, caida: float)
 	PoseJugador.poner(piezas, esq,
 		cab + Vector3(0.0, -R * 0.75 * largo, -R * 0.30 * largo),
 		Vector3(R * 0.90, R * (0.30 + 0.25 * largo), R * (0.45 + 0.30 * largo)), Tono.TELA_S)
+	# Achatada en Y y algo mas arriba, por lo mismo que el ala y la copa: la capucha redonda en planta
+	# se derramaba sobre la cara.
 	PoseJugador.poner(piezas, esq,
-		cab + Vector3(0.0, -ATRAS * 0.8, POSA * 0.75),
-		Vector3(R * 1.06 + g * 0.5, R * 1.00 + g * 0.4, R * 0.86 + g * 0.4), Tono.TELA)
+		cab + Vector3(0.0, -ATRAS * 0.8, POSA * 0.95),
+		Vector3(R * 1.06 + g * 0.5, R * 0.70 + g * 0.3, R * 0.86 + g * 0.4), Tono.TELA)
 	# EL PICO de la capucha, caido hacia atras: es lo que la distingue de un gorro liso desde arriba.
 	var base: Vector3 = cab + Vector3(0.0, -ATRAS, POSA * 0.9)
 	PoseJugador.cadena(piezas, esq, base,
