@@ -2289,6 +2289,48 @@ func _set_bote(v: int) -> void:
 	hogar_cambiado.emit()
 
 
+# --- LA BIBLIOTECA DEL MUNDO -----------------------------------------------------------------
+#
+# COMUN MIENTRAS JUGAIS JUNTOS, y de cada uno al volver a su partida. Lo que lea cualquiera queda
+# leido para todos: es una estanteria compartida, y si tu hermano ya se ha leido el del kebab el
+# texto esta desbloqueado -- no tiene sentido que a ti te lo siga dando el gacha.
+#
+# NO SE PISA, SE SUMA. Es lo que hace que valga para las dos direcciones: el invitado entra con lo
+# que el host tenga leido, y lo que el invitado traiga de su casa tambien queda disponible en la
+# sesion. Sustituir en vez de sumar le borraria al invitado su coleccion en cuanto entrara.
+#
+# Lo que NO hace es quedarse: al desconectar, exportar_partida_invitado devuelve la biblioteca a como
+# estaba al entrar (ver Net._congelar_mi_mundo). Una tarde con tu hermano no te completa la coleccion.
+@rpc("authority", "call_remote", "reliable")
+func _set_biblioteca(v: Dictionary) -> void:
+	for k in v:
+		Game.biblioteca[k] = true
+
+
+# Alguien ha leido un tomo: se apunta en todas las estanterias de la sesion. Lo llama Game al leer
+# (leer_tocho y aprender_de_grimorio), y va por el host para que el reparto sea el mismo que el del
+# resto del estado del hogar.
+@rpc("any_peer", "call_remote", "reliable")
+func _apuntar_tomo(id: String) -> void:
+	if id == "":
+		return
+	Game.biblioteca[StringName(id)] = true
+	# El host lo reparte a los demas; un cliente solo se lo apunta. Sin esto, lo que leyera un
+	# invitado solo lo sabria el host y el otro invitado seguiria recibiendolo del gacha.
+	if es_host:
+		_apuntar_tomo.rpc(id)
+
+
+# Avisa a la sesion de que este tomo ya esta leido. Lo llama Game; aqui vive el reparto.
+func apuntar_tomo_en_la_sesion(id: StringName) -> void:
+	if not activo or id == &"":
+		return
+	if es_host:
+		_apuntar_tomo.rpc(String(id))
+	else:
+		_apuntar_tomo.rpc_id(1, String(id))
+
+
 # --- COFRE de armas/armaduras (hito 4) -------------------------------------------------------
 #
 # Meter: el que deposita saca la pieza de SU baul (local) y manda su serializacion; el host la
@@ -5621,6 +5663,11 @@ func _congelar_mi_mundo() -> void:
 		# "LAN de siempre" del bug de los sub-tiers regalados; la otra mitad (mundo compartido) la
 		# tapa Game.limpiar_mundo_heredado.
 		"materiales_vistos": Game.materiales_vistos.duplicate(),
+		# LA BIBLIOTECA con la que entre. Mientras dure la sesion es COMUN (lo que lea uno vale para
+		# todos, ver _set_biblioteca), pero al salir cada uno recupera la suya: una tarde jugando con
+		# tu hermano no te puede completar media coleccion. Es lo mismo que se hace con los bosses y
+		# con los materiales conocidos.
+		"biblioteca": Game.biblioteca.duplicate(),
 	}
 
 
@@ -5988,6 +6035,11 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	_set_roster_hogar.rpc_id(quien, _construir_roster())
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
 	_set_mapa_sesion.rpc_id(quien, _mapa_sesion, _vistas_sesion)
+	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que
+	# es lo que se espera de una estanteria compartida -- si tu hermano ya se ha leido el del kebab,
+	# el texto esta desbloqueado y no tiene sentido que a ti te lo vuelva a dar el gacha.
+	# Al desconectar, cada uno recupera la suya (ver Game.exportar_partida_invitado).
+	_set_biblioteca.rpc_id(quien, Game.biblioteca)
 
 
 # ============================================================

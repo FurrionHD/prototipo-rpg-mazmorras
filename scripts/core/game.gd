@@ -2406,6 +2406,10 @@ func exportar_partida_invitado() -> SaveData:
 	# Los materiales CONOCIDOS vuelven a los que sabia al entrar: los sub-tiers que haya descubierto
 	# picando en el mundo del host son de ese mundo, no del mio (ver Net._congelar_mi_mundo).
 	d.materiales_vistos = (mio.get("materiales_vistos", {}) as Dictionary).duplicate()
+	# La BIBLIOTECA vuelve a la que traje. En la sesion es comun -- lo que lea cualquiera cuenta para
+	# todos --, pero lo leido en el mundo del host es de ESE mundo: quedandose, una tarde acompañado
+	# te completaria media coleccion y el coleccionable dejaria de serlo.
+	d.biblioteca = (mio.get("biblioteca", {}) as Dictionary).duplicate()
 	# vistas_baseline apunta a la niebla de la SESION (ver iniciar_expedicion_mapa): en mi save no
 	# significa nada. Se deja vacio; la proxima expedicion en mi mundo lo rehace al entrar.
 	d.vistas_baseline = {}
@@ -3123,6 +3127,26 @@ func tomos_leidos() -> int:
 #     del grupo. Por eso no se gasta al intentarlo dos veces: se guarda en el baul.
 #   - SABIDURIA: lo que da es la excelia, y esa se cobra cada vez que se lee.
 #   - RELLENO: todo lo que tenia era el texto. Leido una vez, ya no es un premio.
+# APUNTAR UN TOMO EN LA BIBLIOTECA, y avisar a la sesion EN EL MOMENTO si hay partida en red.
+#
+# LA BIBLIOTECA ES COMUN MIENTRAS JUGAIS JUNTOS: lo que lea cualquiera queda leido para todos. Es una
+# estanteria compartida -- si tu hermano ya se ha leido el del kebab, el texto esta desbloqueado y no
+# tiene sentido que a ti te lo siga dando el gacha.
+#
+# EL AVISO VA AL INSTANTE, no al guardar: en una sesion de dos horas, esperar al guardado significa
+# que los dos os pasais la tarde recibiendo los mismos libros que el otro ya leyo.
+#
+# Es la UNICA puerta para escribir en la biblioteca. Escribir 'biblioteca[id] = true' a pelo por ahi
+# funciona en solitario y falla SOLO en multi -- que es la clase de fallo que no se ve hasta que
+# alguien juega acompañado (ver snapshot-mapa-campo-a-campo: lo mismo, otro campo).
+func apuntar_en_biblioteca(id: StringName) -> void:
+	if id == &"":
+		return
+	biblioteca[id] = true
+	if Net.activo:
+		Net.apuntar_tomo_en_la_sesion(id)
+
+
 func tocho_aporta_algo(c: ConsumableData) -> bool:
 	if c == null:
 		return false
@@ -5867,7 +5891,7 @@ func aprender_de_grimorio(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	# aqui y no en leer_tocho porque el grimorio nunca pasa por ahi (usar_consumible lo desvia antes),
 	# y si no se apuntara, la unica seccion que de verdad te has ganado seria la unica que no sale.
 	if c.en_biblioteca():
-		biblioteca[c.tomo_id] = true
+		apuntar_en_biblioteca(c.tomo_id)
 	var hueco: bool = not hechizos_llenos(p)
 	aprender_hechizo(c.spell, p)
 	if hueco:
@@ -5911,7 +5935,7 @@ func leer_tocho(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	if not gastar_consumible(c):
 		return false
 	var nuevo: bool = not tomo_leido(c.tomo_id)
-	biblioteca[c.tomo_id] = true
+	apuntar_en_biblioteca(c.tomo_id)
 	if c.es_tomo_sabio():
 		# reto = 1.0: no hay enemigo contra el que medirse leyendo un libro. Lo que modera el
 		# empujon es diminish_factor dentro de ganar(), que mira lo lejos que estas de tu nivel.
