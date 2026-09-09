@@ -57,6 +57,16 @@ const TAB_BIBLIOTECA := 2
 var _tab: int = TAB_TECNICAS
 var _tab_buttons: Array = []
 
+# LAS DOS COLUMNAS del esqueleto (lista + ficha). La Meditación NO las usa: es un CARTEL a pantalla
+# completa, como cualquier banner de gacha, asi que ahi se esconden enteras y manda _capa_med.
+var _split: BoxContainer = null
+# La capa de la Meditación: el cartel, los retratos y los botones de tirar. Se monta una vez y se
+# enseña o se esconde; volver a montarla en cada _rebuild se llevaria por delante la animacion del
+# revelado a media reproduccion.
+var _capa_med: Control = null
+const GachaBanner = preload("res://scripts/ui/gacha_banner.gd")
+var _banner: Control = null
+
 var _pj_sel: int = 0     # a quien estamos mirando, dentro de _gente()
 var _arma_idx: int = 0   # que arma del catalogo
 var _sel: int = 0        # que tecnica de esa arma
@@ -98,6 +108,7 @@ func _ready() -> void:
 	# Va FUERA del scroll (hermana suya, no hija) para que no se vaya con la lista al desplazarse:
 	# la fila que elige el arma no puede desaparecer al bajar.
 	var split: BoxContainer = scroll.get_parent()
+	_split = split
 	split.remove_child(scroll)
 	var col_centro := VBoxContainer.new()
 	col_centro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -199,9 +210,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			# EL MODAL PRIMERO. Esc cierra lo de encima, no la pantalla entera: abrir los detalles
-			# del gacha y que Esc te echase del maestro es perder el sitio por consultar una tabla.
-			if _modal_abierto():
+			# DE FUERA HACIA DENTRO. Esc cierra lo de encima, no la pantalla entera: abrir los
+			# detalles del gacha y que Esc te echase del maestro es perder el sitio por consultar una
+			# tabla. Los resultados van los primeros porque se dibujan por encima del modal.
+			if _resultados != null and is_instance_valid(_resultados):
+				_cerrar_resultados()
+			elif _modal_abierto():
 				_cerrar_detalles()
 			else:
 				_cerrar()
@@ -325,6 +339,16 @@ func _rebuild_real() -> void:
 	# quedaba abierto por encima de la Biblioteca, enseñando las probabilidades de otra pantalla.
 	if _tab != TAB_MEDITACION:
 		_cerrar_detalles()
+		# Y LOS RESULTADOS DE LA TIRADA, que si no se quedaban flotando sobre la Biblioteca: tiras,
+		# cambias de pestaña sin pulsar "Continuar" y las cartas seguian ahi encima.
+		_tirar_resultados()
+		# Y SE DESHACE EL CARTEL: la Meditación esconde las dos columnas del esqueleto para ocupar la
+		# pantalla entera, asi que al salir hay que devolverlas. Sin esto, la Biblioteca aparecia en
+		# blanco -- sus columnas seguian ocultas -- con el cartel del gacha por encima.
+		if _capa_med != null and is_instance_valid(_capa_med):
+			_capa_med.visible = false
+		if _split != null:
+			_split.visible = true
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_dinero_lbl.text = "%d monedas" % Game.money
 
@@ -345,7 +369,10 @@ func _rebuild_real() -> void:
 	# solo el HBox, el hueco de 90 px se queda ahi vacio — que es exactamente la franja negra que
 	# habia que quitar de esta pantalla, movida de sitio.
 	var caja_retratos: Control = _fila_retratos.get_parent().get_parent() as Control
-	var con_retratos: bool = (_tab != TAB_BIBLIOTECA)
+	# SOLO EN TECNICAS. En la Biblioteca sobran y ademas MIENTEN (ver abajo), y en la Meditación hay
+	# otra fila propia dentro del cartel: pintar tambien esta seria montar cuatro muñecos escondidos
+	# detras del split en cada repintado.
+	var con_retratos: bool = (_tab == TAB_TECNICAS)
 	if caja_retratos != null:
 		caja_retratos.visible = con_retratos
 	if con_retratos:
@@ -412,13 +439,17 @@ func _pintar_armas(pj: PersonajeData) -> void:
 #  Pagas y el azar decide: la magia se GANA, no se compra. Por eso los grimorios salieron de la
 #  tienda -- poder comprar justo el hechizo que te falta vaciaba de sentido toda esta pantalla.
 #
-#  EL REPARTO DE LA PANTALLA, copiado del molde de los gachas (ver las capturas de referencia):
-#    - LA COLUMNA DEL CENTRO es para TIRAR. Lo minimo: cuanto falta para cada garantizado y los dos
-#      botones. Nada mas, y a proposito.
-#    - LA COLUMNA DE LA DERECHA es lo que HA SALIDO: la carta de la ultima tirada (o las diez).
-#    - TODO LO DEMAS -- probabilidades, lista de lo que puede caer, historial -- vive DETRAS DE UN
-#      BOTON, en un modal de dos pestañas. Estuvo suelto en la columna del centro y ocupaba la
-#      pantalla entera con lo que menos se mira; la tabla se consulta de vez en cuando, no cada vez.
+#  EL REPARTO DE LA PANTALLA. Aqui NO valen las dos columnas del esqueleto: esto es un CARTEL a
+#  pantalla completa, con el molde del banner de ARMAS y no el de personaje. La diferencia importa y
+#  fue la primera correccion que hubo que hacer: en el de personaje manda la ilustracion del muñeco,
+#  y en el de armas manda EL OBJETO, que es lo que se viene a buscar.
+#    - El CARTEL (ver gacha_banner.gd): el grimorio mas raro en grande a la derecha con su nombre y
+#      sus estrellas, y un abanico de los de la banda del garantizado abajo a la izquierda.
+#    - Los RETRATOS arriba: el sesgo del gacha va por personaje, asi que quien medita se elige aqui.
+#    - Los dos botones de tirar ABAJO A LA DERECHA y "Ver detalles" ABAJO A LA IZQUIERDA, que es
+#      donde estan en todos.
+#    - TODO LO DEMAS -- probabilidades, lista de lo que puede caer, historial -- detras del boton de
+#      detalles, en un modal de dos pestañas.
 #
 #  Y LA TABLA NO LLEVA NI UN NUMERO ESCRITO A MANO: sale de Game.probs_grimorio con el pool y el
 #  personaje de verdad. Una pantalla de porcentajes copiada a mano es la que miente en cuanto
@@ -426,33 +457,14 @@ func _pintar_armas(pj: PersonajeData) -> void:
 # ============================================================
 
 func _pintar_meditacion(pj: PersonajeData) -> void:
-	# SIN TITULO PROPIO: "MEDITACIÓN" ya esta arriba del todo, en _titulo_seccion, y repetirlo dos
-	# veces a cuatro dedos de distancia solo gastaba la franja que ahora usa el garantizado.
-	MenuScaffold.nota(_lista, "Medita %s: elige arriba a quién le toca. Lo que ya se sabe le sale "
-		% pj.nombre + "menos, pero nunca deja de salir.")
-	_lista.add_child(HSeparator.new())
-
-	_pintar_pity(pj)
-	_lista.add_child(HSeparator.new())
-
-	# LOS DOS BOTONES, que son el motivo de que esta pantalla exista. Se apagan solos si no llega el
-	# dinero, en vez de dejarte pulsar y soltarte un aviso: el precio ya esta escrito al lado.
-	var caja := VBoxContainer.new()
-	caja.add_theme_constant_override("separation", 6)
-	_lista.add_child(caja)
-	MenuScaffold.boton(caja, "Meditar  ×1        %s monedas" % _con_puntos(Game.GACHA_PRECIO),
-		_meditar_x1, Game.puede_pagar(Game.GACHA_PRECIO))
-	MenuScaffold.boton(caja, "Meditar  ×10      %s monedas   (pagas 9, llevas 10)"
-		% _con_puntos(Game.GACHA_PRECIO_X10),
-		_meditar_x10, Game.puede_pagar(Game.GACHA_PRECIO_X10))
-	if not Game.puede_pagar(Game.GACHA_PRECIO):
-		MenuScaffold.nota(_lista, "No te llega para una tirada.")
-
-	_lista.add_child(HSeparator.new())
-	MenuScaffold.boton(_lista, "Ver detalles", _abrir_detalles)
-
-	# LO QUE HA SALIDO, en la columna de la derecha.
-	_pintar_revelado()
+	# LAS DOS COLUMNAS DEL ESQUELETO, FUERA. El cartel ocupa la pantalla entera; con el split debajo
+	# se veian los separadores y el hueco de la ficha por detras.
+	if _split != null:
+		_split.visible = false
+	_montar_capa_med()
+	_capa_med.visible = true
+	_banner.refrescar(pj, _pool_grimorios())
+	_refrescar_botones_med()
 
 	# Si los detalles estan abiertos, se vuelven a montar: sus probabilidades son LAS DEL PERSONAJE
 	# ELEGIDO, asi que cambiar de retrato con el modal delante tiene que cambiar la tabla. Sin esto
@@ -461,50 +473,106 @@ func _pintar_meditacion(pj: PersonajeData) -> void:
 		_montar_modal()
 
 
-# CUANTO FALTA PARA CADA GARANTIZADO. Es la mitad de la pantalla principal porque es la unica
-# informacion que cambia lo que haces ahora mismo ("me quedan tres para el garantizado, tiro").
+# LA CAPA DE LA MEDITACION, montada UNA VEZ. Lo que cambia en cada repintado son los textos de los
+# botones y el cartel, no el andamio: remontarlo entero cortaria el revelado por la mitad.
+func _montar_capa_med() -> void:
+	if _capa_med != null and is_instance_valid(_capa_med):
+		return
+	_capa_med = Control.new()
+	_capa_med.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_capa_med.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_capa_med)
+
+	_banner = GachaBanner.new()
+	_banner.montar(_capa_med)
+
+	# LOS RETRATOS, arriba: quien medita. Se monta una fila PROPIA en vez de reaprovechar la del
+	# esqueleto porque aquella vive dentro del split, que aqui va escondido.
+	_fila_retratos_med = MenuScaffold.fila_retratos(_caja_arriba_med())
+
+	# LA BOTONERA DE ABAJO. Los de tirar a la derecha y los detalles a la izquierda, anclados al
+	# fondo de la pantalla: es el sitio del molde y ademas es donde llega el pulgar en movil.
+	var pie := HBoxContainer.new()
+	pie.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	pie.offset_left = 24
+	pie.offset_right = -24
+	pie.offset_top = -66
+	pie.offset_bottom = -18
+	pie.add_theme_constant_override("separation", 10)
+	# POR ENCIMA DE LOS MUÑECOS de los retratos, igual que el cartel (ver gacha_banner.montar).
+	pie.z_index = 2600
+	_capa_med.add_child(pie)
+
+	_bt_detalles = MenuScaffold.boton(pie, "Ver detalles", _abrir_detalles)
+	_bt_detalles.custom_minimum_size = Vector2(180, 46)
+	var empuja := Control.new()
+	empuja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pie.add_child(empuja)
+	# LA CUENTA DEL GARANTIZADO, pegada a los botones y alineada con ellos en vertical.
+	_lbl_pity = Label.new()
+	_lbl_pity.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lbl_pity.add_theme_font_size_override("font_size", 12)
+	_lbl_pity.add_theme_color_override("font_color", GRIS)
+	pie.add_child(_lbl_pity)
+	_bt_x1 = MenuScaffold.boton(pie, "", _meditar_x1)
+	_bt_x1.custom_minimum_size = Vector2(250, 46)
+	_bt_x10 = MenuScaffold.boton(pie, "", _meditar_x10)
+	_bt_x10.custom_minimum_size = Vector2(290, 46)
+
+
+var _fila_retratos_med: HBoxContainer = null
+var _bt_detalles: Button = null
+var _bt_x1: Button = null
+var _bt_x10: Button = null
+var _lbl_pity: Label = null
+
+
+# La franja de arriba donde van los retratos, por debajo de la barra de pestañas del esqueleto.
+func _caja_arriba_med() -> VBoxContainer:
+	var caja := VBoxContainer.new()
+	caja.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	caja.offset_left = 24
+	caja.offset_right = -24
+	# 104 y no 84: ahi arriba esta la linea de aviso del esqueleto ("Sedaki medita"), y con los
+	# retratos a 84 el texto salia cortado por las cabezas.
+	caja.offset_top = 104
+	caja.offset_bottom = 198
+	_capa_med.add_child(caja)
+	return caja
+
+
+# Lo que cambia en cada repintado: el precio, si llega el dinero, y a quien se le pinta el retrato
+# marcado. El andamio de _montar_capa_med se queda quieto.
+func _refrescar_botones_med() -> void:
+	MenuScaffold.retratos(_fila_retratos_med, _gente(), _pj_sel, Game.party.size(), _pick_persona)
+	_lbl_pity.text = _texto_pity(_pj())
+	_bt_x1.text = "Meditar ×1      %s" % _con_puntos(Game.GACHA_PRECIO)
+	_bt_x1.disabled = not Game.puede_pagar(Game.GACHA_PRECIO)
+	_bt_x10.text = "Meditar ×10     %s  (pagas 9)" % _con_puntos(Game.GACHA_PRECIO_X10)
+	_bt_x10.disabled = not Game.puede_pagar(Game.GACHA_PRECIO_X10)
+
+
+# CUANTO FALTA PARA CADA GARANTIZADO, en UNA linea encima de los botones de tirar. Es la unica
+# informacion que cambia lo que haces ahora mismo ("me quedan tres, tiro"), asi que va pegada al
+# boton y no en el cartel: en el cartel esta la REGLA, que se lee una vez, y aqui la CUENTA, que se
+# mira en cada tirada.
 #
 # LOS NUMEROS SALEN DE Game.gacha_pity_restante, NO de restar aqui: si esta pantalla hiciera su
 # propia cuenta, el dia que el pity cambie de escalones diria una cosa y el sorteo haria otra, y el
 # jugador se fiaria de la pantalla.
-func _pintar_pity(pj: PersonajeData) -> void:
+func _texto_pity(pj: PersonajeData) -> String:
 	var falta: Dictionary = Game.gacha_pity_restante(pj)
-	MenuScaffold.titulo(_lista, "GARANTIZADO", 13)
-	_fila_pity("Épico o mejor", int(falta["epico"]), Game.GACHA_PITY_EPICO,
-		Upgrades.rareza_color(Upgrades.Rareza.EPICO))
-	_fila_pity("Legendario o mejor", int(falta["legendario"]), Game.GACHA_PITY_LEGENDARIO,
-		Upgrades.rareza_color(Upgrades.Rareza.LEGENDARIO))
-	# LA REGLA, ESCRITA. Es lo contrario de lo que hace casi cualquier otro gacha, asi que si no se
-	# dice, el jugador da por hecho lo de siempre (que un acierto le reinicia el contador) y no se
-	# fia del numero de arriba. Ver la nota larga de Game.tirar_meditacion.
-	MenuScaffold.nota(_lista, "La cuenta es de tiradas: si te sale uno bueno por suerte, el "
-		+ "garantizado llega igual. Solo se reinicia cuando lo cobras.")
+	return "Garantizado:  épico %s   ·   legendario %s" % [
+		_cuantas(int(falta["epico"])), _cuantas(int(falta["legendario"]))]
 
 
-func _fila_pity(que: String, faltan: int, total: int, color: Color) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 10)
-	_lista.add_child(fila)
-	var nom := Label.new()
-	nom.text = que
-	nom.add_theme_color_override("font_color", color)
-	nom.custom_minimum_size.x = 180
-	fila.add_child(nom)
-	var n := Label.new()
-	# El singular, a mano: "faltan 1" canta, y esta linea se lee una vez por tirada.
-	if faltan <= 0:
-		n.text = "¡la siguiente!"
-	elif faltan == 1:
-		n.text = "falta 1"
-	else:
-		n.text = "faltan %d" % faltan
-	if faltan <= 0:
-		n.add_theme_color_override("font_color", VERDE)
-	fila.add_child(n)
-	var de := Label.new()
-	de.text = "  ·  de %d" % total
-	de.add_theme_color_override("font_color", GRIS)
-	fila.add_child(de)
+# El singular, a mano: "en 1 tiradas" canta, y esta linea se lee una vez por tirada.
+func _cuantas(n: int) -> String:
+	if n <= 0:
+		return "¡la siguiente!"
+	if n == 1:
+		return "en 1 tirada"
+	return "en %d tiradas" % n
 
 
 # ------------------------------------------------------------
@@ -555,40 +623,144 @@ func _meditar(cuantas: int, precio: int) -> void:
 	# guardado va por los caminos de siempre, y meter un volcado a disco por tirada haria que una
 	# x10 escribiera la partida diez veces.
 	_rebuild()
+	_mostrar_resultados()
 
 
-# LO QUE HA SALIDO, en la columna de la derecha: una linea por libro, con el nombre del color de su
-# rareza. Los buenos ademas CENTELLEAN (MenuScaffold.titulo_item con brillo), que es lo que hace que
-# una tirada afortunada se note sin leer nada.
-func _pintar_revelado() -> void:
-	if _revelado.is_empty():
-		MenuScaffold.nota(_content, "Aquí sale lo que te toque.")
+# ------------------------------------------------------------
+#  LO QUE HA SALIDO: la pantalla de resultados.
+#
+#  Va DELANTE de todo y a pantalla completa, como en cualquier gacha, y no en una columna al lado
+#  del cartel: la tirada es el momento de la pantalla, y enseñarla en una lista lateral mientras el
+#  cartel sigue mandando es justo lo que hacia que esto no pareciera un gacha.
+#
+#  Las diez cartas van en REJILLA de cinco por dos, con la misma carta que el cartel (el mismo
+#  dibujo, en pequeño) para que se lean como el mismo objeto.
+# ------------------------------------------------------------
+
+var _resultados: Control = null
+
+# Destruir y REPINTAR van separados a proposito: _rebuild tambien tiene que poder tirar los
+# resultados (al cambiar de pestaña), y si tirarlos llamara a _rebuild seria una recursion. La
+# guardia _reconstruyendo la cortaria, pero calladamente y dejando a medias el repintado de fuera.
+func _tirar_resultados() -> void:
+	if _resultados == null:
 		return
-	MenuScaffold.titulo(_content, "TE HA SALIDO", 14)
+	# remove_child ADEMAS de queue_free: queue_free no saca del arbol hasta el final del frame, y
+	# dos tandas seguidas se dibujaban superpuestas (la misma trampa que el modal de detalles).
+	if _resultados.get_parent() != null:
+		_resultados.get_parent().remove_child(_resultados)
+	_resultados.queue_free()
+	_resultados = null
+
+
+func _cerrar_resultados() -> void:
+	_tirar_resultados()
+	_rebuild()
+
+
+func _mostrar_resultados() -> void:
+	if _resultados != null:
+		_cerrar_resultados()
+	if _revelado.is_empty():
+		return
+	_resultados = Control.new()
+	_resultados.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Por encima de los muñecos de los retratos, igual que el cartel (ver gacha_banner.montar).
+	_resultados.z_index = 3000
+	_root.add_child(_resultados)
+
+	# EL VELO se come los clics: sin el se podia pulsar "Meditar" a traves de los resultados, que es
+	# gastarse otras 2.000 monedas sin haber visto lo que salio.
+	var velo := ColorRect.new()
+	velo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# 0.94 y no 0.88: con 0.88 se colaba el naranja del cartel por detras de las cartas y competia
+	# con ellas, que son lo unico que hay que mirar en este momento.
+	velo.color = Color(0.02, 0.02, 0.04, 0.94)
+	velo.mouse_filter = Control.MOUSE_FILTER_STOP
+	_resultados.add_child(velo)
+
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_top = 40
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 14)
+	_resultados.add_child(col)
+
+	var tit := Label.new()
+	tit.text = "TE HA SALIDO"
+	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tit.add_theme_font_size_override("font_size", 20)
+	tit.add_theme_color_override("font_color", AMBAR)
+	col.add_child(tit)
+
+	# LA REJILLA, centrada. Cinco por fila: con diez en una sola fila las cartas salen a 110 px y el
+	# nombre no cabe debajo.
+	var centro := CenterContainer.new()
+	col.add_child(centro)
+	var rejilla := GridContainer.new()
+	rejilla.columns = 5
+	rejilla.add_theme_constant_override("h_separation", 14)
+	rejilla.add_theme_constant_override("v_separation", 12)
+	centro.add_child(rejilla)
 	for t in _revelado:
-		var c: ConsumableData = t.get("item")
-		if c == null:
-			continue
-		var s: SpellData = t.get("spell")
-		var r: int = int(s.rareza) if s != null else -1
-		# El tocho no tiene rareza (r = -1) y va en gris: pintarlo del color del comun lo haria pasar
-		# por un premio de la escala, que es justo lo que no es.
-		var color: Color = Upgrades.rareza_color(r) if r >= 0 else GRIS
-		# La intensidad del destello sube con la rareza y SOLO a partir de epico: si centellea todo,
-		# no centellea nada. Es la misma idea que el destello relativo del equipo.
-		var brillo: float = 0.0
-		if r >= Upgrades.Rareza.EPICO:
-			brillo = clampf(float(r - Upgrades.Rareza.EPICO + 1) / 3.0, 0.34, 1.0)
-		MenuScaffold.titulo_item(_content, c.nombre, color, brillo)
-		var pie := Label.new()
-		var partes: Array = [c.seccion_biblioteca()]
-		if int(t.get("pity", 0)) > 0:
-			partes.append("garantizado")
-		pie.text = "  " + "  ·  ".join(partes)
-		pie.add_theme_color_override("font_color", GRIS)
-		_content.add_child(pie)
-	_content.add_child(HSeparator.new())
-	MenuScaffold.nota(_content, "Los libros van a la bolsa: se leen desde el inventario.")
+		_carta_resultado(rejilla, t)
+
+	# LA NOTA VA ANTES DEL BOTON, no despues: el VBox esta centrado en la pantalla, asi que la ultima
+	# linea caia por debajo del centro y se plantaba encima de los botones de tirar del cartel.
+	var nota := Label.new()
+	nota.text = "Los libros van a la bolsa: se leen desde el inventario."
+	nota.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nota.add_theme_font_size_override("font_size", 11)
+	nota.add_theme_color_override("font_color", GRIS)
+	col.add_child(nota)
+
+	var pie := CenterContainer.new()
+	col.add_child(pie)
+	var b: Button = MenuScaffold.boton(pie, "Continuar", _cerrar_resultados)
+	b.custom_minimum_size = Vector2(240, 46)
+
+
+# UNA CARTA del resultado: el dibujo del tomo arriba y el nombre debajo, del color de su rareza.
+func _carta_resultado(rejilla: GridContainer, t: Dictionary) -> void:
+	var c: ConsumableData = t.get("item")
+	if c == null:
+		return
+	var s: SpellData = t.get("spell")
+	var r: int = int(s.rareza) if s != null else -1
+	# El tocho no tiene rareza (r = -1) y va en gris: pintarlo del color del comun lo haria pasar
+	# por un premio de la escala, que es justo lo que no es.
+	var color: Color = Upgrades.rareza_color(r) if r >= 0 else GRIS
+
+	var caja := VBoxContainer.new()
+	caja.custom_minimum_size = Vector2(150, 0)
+	caja.add_theme_constant_override("separation", 4)
+	rejilla.add_child(caja)
+
+	var dib := Control.new()
+	dib.custom_minimum_size = Vector2(150, 200)
+	dib.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_child(dib)
+	# EL MISMO DIBUJO QUE EL CARTEL, en pequeño: es el mismo objeto y tiene que leerse igual. El
+	# 'gordo' se reserva para lo bueno, asi que una tirada afortunada se ve de lejos por el halo.
+	var gordo: bool = r >= Upgrades.Rareza.EPICO
+	dib.draw.connect(_banner._dibujar_tomo.bind(dib, color, gordo))
+
+	var nom := Label.new()
+	nom.text = c.nombre
+	nom.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nom.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nom.add_theme_font_size_override("font_size", 12)
+	nom.add_theme_color_override("font_color", color)
+	caja.add_child(nom)
+
+	if int(t.get("pity", 0)) > 0:
+		var g := Label.new()
+		g.text = "★ garantizado"
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		g.add_theme_font_size_override("font_size", 10)
+		g.add_theme_color_override("font_color", AMBAR)
+		caja.add_child(g)
 
 
 # Los tochos que pueden caer. Del manifiesto y no de escanear la carpeta, por lo mismo que los

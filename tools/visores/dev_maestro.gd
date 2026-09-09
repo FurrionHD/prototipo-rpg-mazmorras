@@ -123,6 +123,9 @@ func _ready() -> void:
 	else:
 		print("[maestro] OK: la x10 cobra %d y reparte 10 libros." % Game.GACHA_PRECIO_X10)
 	await _captura("6b_meditacion_tirada")
+	# Y LOS RESULTADOS CERRADOS, que es como se ve el cartel despues de tirar.
+	men._cerrar_resultados()
+	await _captura("6b2_meditacion_tras_cerrar")
 
 	# EL MODAL DE DETALLES, sus dos pestañas. Es donde vive todo lo que no cabe en la principal, y
 	# las dos hay que mirarlas: la de probabilidades por si los porcentajes se salen de la columna,
