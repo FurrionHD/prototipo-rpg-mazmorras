@@ -7813,22 +7813,54 @@ const _MANIFIESTO_ENEMIGOS := [
 	"res://scenes/actors/enemy/slime.tres", "res://scenes/actors/enemy/slime_abisal.tres",
 	"res://scenes/actors/enemy/slime_fuego.tres", "res://scenes/actors/enemy/slime_profundo.tres",
 	"res://scenes/actors/enemy/slime_veneno.tres", "res://scenes/actors/enemy/trent.tres",
+	# Los cinco de las simas (pisos 7-12).
+	"res://scenes/actors/enemy/chillon.tres", "res://scenes/actors/enemy/chupasimas.tres",
+	"res://scenes/actors/enemy/miconido.tres", "res://scenes/actors/enemy/polilla.tres",
+	"res://scenes/actors/enemy/segadora.tres",
 ]
 
 
 # Todas las rutas de MaterialData del juego. Las consumen material_spawner, debug_panel y
 # dev_curva_drops, que antes hacian su propio DirAccess cada uno.
 func rutas_materiales() -> Array:
-	if OS.has_feature("editor"):
-		_avisar_manifiesto_corto_de(_CARPETA_MATERIALES, _MANIFIESTO_MATERIALES, "materiales")
-	return _MANIFIESTO_MATERIALES
+	return _rutas_de(_CARPETA_MATERIALES, _MANIFIESTO_MATERIALES, "materiales")
 
 
 # Todas las rutas de EnemyData del juego (el spawner de la arena y dev_curva_drops).
 func rutas_enemigos() -> Array:
-	if OS.has_feature("editor"):
-		_avisar_manifiesto_corto_de(_CARPETA_ENEMIGOS, _MANIFIESTO_ENEMIGOS, "enemigos")
-	return _MANIFIESTO_ENEMIGOS
+	return _rutas_de(_CARPETA_ENEMIGOS, _MANIFIESTO_ENEMIGOS, "enemigos")
+
+
+# EL MANIFIESTO MAS LO QUE HAYA EN LA CARPETA, y esa suma es el arreglo de un problema real: la lista
+# se queda corta SOLA. Al meter los cinco bichos de las simas nadie la toco, asi que la arena de
+# pruebas (la tecla T) no los colocaba -- y no fallaba, simplemente no estaban, que es la forma mas
+# facil de no enterarte.
+#
+# En el EDITOR se escanea la carpeta de verdad y se usa TODO lo que aparezca: un bicho nuevo sale en
+# la arena desde el minuto cero, sin tener que acordarse de apuntarlo. En el .EXE se devuelve el
+# manifiesto tal cual, porque ahi no queda otra: DirAccess no enumera los recursos del .pck y un
+# escaneo saldria VACIO (ver la cabecera de los manifiestos).
+#
+# El aviso por consola se queda: apuntar el bicho en la lista SIGUE siendo obligatorio para que
+# viaje en el .exe. Lo que cambia es que olvidarlo ya no te rompe las pruebas en el editor, solo te
+# canta que lo apuntes.
+func _rutas_de(carpeta: String, manifiesto: Array, que: String) -> Array:
+	if not OS.has_feature("editor"):
+		return manifiesto
+	_avisar_manifiesto_corto_de(carpeta, manifiesto, que)
+	var dir := DirAccess.open(carpeta)
+	if dir == null:
+		return manifiesto
+	var fuera: Array = []
+	for f in dir.get_files():
+		if not (f.ends_with(".tres") or f.ends_with(".res")):
+			continue
+		var ruta: String = carpeta + "/" + f
+		if not manifiesto.has(ruta):
+			fuera.append(ruta)
+	# Ordenadas, para que la arena no cambie de orden entre arranques segun como liste el disco.
+	fuera.sort()
+	return manifiesto + fuera if not fuera.is_empty() else manifiesto
 
 
 # SOLO EDITOR: escanea la carpeta de verdad y canta lo que no este en la lista. Es el mismo servicio
