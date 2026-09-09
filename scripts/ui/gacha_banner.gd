@@ -20,7 +20,7 @@
 #  Un cartel con el nombre del premio a pelo es de las cosas que se quedan mintiendo un año.
 #
 #  Se dibuja POR CODIGO, como el resto del arte del juego: no hay ilustracion que poner, asi que el
-#  tomo es una carta pintada a mano alzada con el color de su rareza (ver _dibujar_tomo).
+#  tomo es una carta pintada a mano alzada con el color de su rareza (ver dibujar_tomo).
 # ============================================================
 
 extends Control
@@ -199,7 +199,7 @@ func _montar_abanico(padre: Control) -> void:
 			- Vector2(MINI_ANCHO, MINI_ALTO) * 0.5
 		mini_c.rotation = desvio * MINI_GIRO
 		padre.add_child(mini_c)
-		mini_c.draw.connect(_dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false))
+		mini_c.draw.connect(dibujar_tomo.bind(mini_c, Upgrades.rareza_color(int(s.rareza)), false, FAM_GRIMORIO))
 
 
 # --- EL DESTACADO: la carta gorda y su nombre ---
@@ -222,7 +222,7 @@ func _montar_destacado(padre: Control) -> void:
 	carta.offset_bottom = CARTA_ALTO * 0.5
 	carta.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	padre.add_child(carta)
-	carta.draw.connect(_dibujar_tomo.bind(carta, col, true))
+	carta.draw.connect(dibujar_tomo.bind(carta, col, true, FAM_GRIMORIO))
 
 	# EL NOMBRE Y LAS ESTRELLAS, A LA IZQUIERDA de la carta y no debajo: debajo hay que estrechar la
 	# carta para que quepan las dos cosas, y la carta es lo que se ha venido a ver.
@@ -274,7 +274,19 @@ func _montar_destacado(padre: Control) -> void:
 # Una carta con el tomo dentro. 'gordo' es la del destacado: lleva halo, doble marco y el canto de
 # las hojas mas marcado. Las pequeñas del abanico van con lo justo, que a 92 px el detalle se
 # convierte en suciedad.
-func _dibujar_tomo(c: Control, col: Color, gordo: bool) -> void:
+# 'familia' dice QUE CLASE de libro es, y va aparte del color a proposito:
+#   FAM_CURIOSIDAD (0) -> sin marca
+#   FAM_SABIDURIA  (1) -> una chispa
+#   FAM_GRIMORIO   (2) -> el rombo del emblema
+# EL COLOR Y LAS ESTRELLAS DICEN LA RAREZA; LA MARCA DICE LA FAMILIA. Cuando las dos cosas iban por
+# el color, un tomo de sabiduria (teal, vistoso) parecia mejor premio que un GRIMORIO comun (gris),
+# y es al reves: cualquier grimorio vale mas que un tocho. Separandolas, el rombo dice "esto enseña
+# un hechizo" aunque su gris sea el mas apagado de la escala.
+const FAM_CURIOSIDAD := 0
+const FAM_SABIDURIA := 1
+const FAM_GRIMORIO := 2
+
+func dibujar_tomo(c: Control, col: Color, gordo: bool, familia: int = FAM_CURIOSIDAD) -> void:
 	var w: float = c.size.x
 	var h: float = c.size.y
 	var r := Rect2(Vector2.ZERO, Vector2(w, h))
@@ -329,6 +341,55 @@ func _dibujar_tomo(c: Control, col: Color, gordo: bool) -> void:
 	var lado: float = minf(w * 0.62 / OCUPA_ANCHO, h * 0.56 / OCUPA_ALTO)
 	var pos := Vector2((w - lado) * 0.5, (h - lado) * 0.5)
 	Iconos.libro(c, pos, lado, Color(col.r, col.g, col.b, 0.95))
+
+	# LA MARCA DE LA FAMILIA, sobre la tapa. Sin ella los tres tipos de libro eran el mismo dibujo y
+	# solo se distinguian leyendo el nombre.
+	var marca := Color(col.r, col.g, col.b, 0.95)
+	var cen := Vector2(w * 0.53, pos.y + lado * 0.42)
+	if familia == FAM_GRIMORIO:
+		# EL ROMBO, el mismo emblema que lleva la portada del destacado: es lo que dice "esto enseña
+		# un hechizo", y por eso lo llevan TODOS los grimorios, hasta el mas comun.
+		var rad: float = lado * 0.10
+		var rombo := PackedVector2Array([
+			cen + Vector2(0, -rad), cen + Vector2(rad * 0.72, 0),
+			cen + Vector2(0, rad), cen + Vector2(-rad * 0.72, 0)])
+		c.draw_colored_polygon(rombo, Color(col.r, col.g, col.b, 0.35))
+		c.draw_polyline(rombo + PackedVector2Array([rombo[0]]), marca, maxf(1.0, lado * 0.012), true)
+	elif familia == FAM_SABIDURIA:
+		_dibujar_chispa(c, cen, lado * 0.09, marca)
+
+
+# UNA CHISPA de cuatro puntas: dos husos cruzados. Es la marca de "esto enseña algo".
+func _dibujar_chispa(c: Control, cen: Vector2, rad: float, col: Color) -> void:
+	var fino: float = rad * 0.32
+	c.draw_colored_polygon(PackedVector2Array([
+		cen + Vector2(0, -rad), cen + Vector2(fino, 0),
+		cen + Vector2(0, rad), cen + Vector2(-fino, 0)]), col)
+	c.draw_colored_polygon(PackedVector2Array([
+		cen + Vector2(-rad, 0), cen + Vector2(0, -fino),
+		cen + Vector2(rad, 0), cen + Vector2(0, fino)]), col)
+
+
+# EL DORSO: lo que se ve antes de voltear. Es IGUAL PARA TODAS y a proposito no lleva ni una pista
+# del color de la rareza -- si el dorso de un mitico se distinguiera, el volteo no tendria gracia
+# porque ya sabrias lo que hay antes de darle la vuelta.
+func dibujar_dorso(c: Control) -> void:
+	var w: float = c.size.x
+	var h: float = c.size.y
+	var r := Rect2(Vector2.ZERO, Vector2(w, h))
+	var tinta := Color(0.30, 0.32, 0.42, 1.0)
+
+	c.draw_rect(r, Color(0.09, 0.10, 0.15, 1.0), true)
+	c.draw_rect(r, tinta, false, 2.0)
+	var m: float = w * 0.07
+	c.draw_rect(Rect2(Vector2(m, m), Vector2(w - m * 2.0, h - m * 2.0)),
+		Color(tinta.r, tinta.g, tinta.b, 0.5), false, 1.0)
+
+	# LA VELA, que es el icono de la Meditación en la barra de secciones: el dorso dice de que baraja
+	# es, no que carta es.
+	var lado: float = minf(w, h) * 0.42
+	Iconos.vela(c, Vector2((w - lado) * 0.5, (h - lado) * 0.5), lado,
+		Color(tinta.r, tinta.g, tinta.b, 0.85))
 
 
 # LA PORTADA DEL TOMO DESTACADO, a tamaño de cartel. Todo por codigo, como el resto del arte.

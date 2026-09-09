@@ -109,9 +109,8 @@ func _ready() -> void:
 	men._rebuild()
 	await _captura("6_meditacion")
 
-	# EL GACHA, TIRANDO DE VERDAD. Con dinero de sobra para la x10, porque lo que hay que juzgar es
-	# la rejilla de diez cartas de la derecha: es el estado que llena la pantalla y el unico donde
-	# se ve si los colores de rareza se distinguen unos de otros.
+	# EL GACHA, TIRANDO DE VERDAD. Con dinero de sobra para la x10, que es la tanda que hay que
+	# juzgar: el revelado va de una carta en una y el resumen del final enseña las diez.
 	Game.money = maxi(Game.money, Game.GACHA_PRECIO_X10 * 3)
 	var antes_gacha: int = Game.money
 	men._meditar_x10()
@@ -122,7 +121,83 @@ func _ready() -> void:
 		printerr("[maestro] MAL: la x10 ha soltado %d libros." % men._revelado.size())
 	else:
 		print("[maestro] OK: la x10 cobra %d y reparte 10 libros." % Game.GACHA_PRECIO_X10)
-	await _captura("6b_meditacion_tirada")
+
+	# EL GUARDADO INSTANTANEO. Es lo que impide rehacer una tirada mala cerrando con alt+F4, asi que
+	# se comprueba sobre el DISCO y no sobre la memoria: que el historial ya este en la partida
+	# guardada es la unica prueba de que cerrar ahora no borraria nada.
+	# Por cabecera() y no cargando la partida: aqui solo hay que LEER lo que hay en el disco, y
+	# cargarla de verdad se llevaria por delante la del visor a media prueba.
+	#
+	# SOLO SI HAY RANURA. La partida de prueba del visor no vive en ninguna (ranura_actual = 0), asi
+	# que aqui no se puede comprobar el guardado sin escribir en una ranura de verdad -- y machacar
+	# una partida suya para pasar un test seria mucho peor que no probarlo.
+	if Perfil.ranura_actual <= 0:
+		print("[maestro] (el guardado al tirar no se comprueba: la partida de prueba no tiene ranura)")
+	else:
+		var guardada: SaveData = Perfil.cabecera(Perfil.ranura_actual)
+		if guardada == null:
+			printerr("[maestro] MAL: no hay partida guardada; la tirada no se ha escrito.")
+		elif guardada.gacha_historial.size() < 10:
+			printerr("[maestro] MAL: en el disco hay %d tiradas apuntadas, no las 10."
+				% guardada.gacha_historial.size())
+		else:
+			print("[maestro] OK: la tirada queda guardada al instante (%d en el disco)."
+				% guardada.gacha_historial.size())
+
+	# LA PRIMERA CARTA, boca abajo o a medio girar. Si saliera ya destapada, el volteo no estaria
+	# corriendo (un tween de un nodo pausado no avanza, y este menu PARA el arbol).
+	await _captura("6b_meditacion_carta")
+
+	# SE PASA UNA POR CLIC. Aqui se dan DOS toques por carta a proposito: como el visor no deja correr
+	# el tween entre clic y clic, cada carta nace a medio girar, y un toque a media vuelta la TERMINA
+	# en vez de saltarsela (si no, un impaciente se salta justo la buena sin verla). El segundo toque
+	# es el que pasa a la siguiente. Jugando de verdad el giro ya ha acabado y basta con uno.
+	var toques: int = men._revelado.size() * 2 + 1
+	for i in toques:
+		men._velo_pulsado(_clic())
+	if men._res_idx < men._revelado.size():
+		printerr("[maestro] MAL: tras %d toques sigue en la carta %d de %d." % [
+			toques, men._res_idx, men._revelado.size()])
+	elif men._bt_continuar == null or not is_instance_valid(men._bt_continuar):
+		printerr("[maestro] MAL: al acabar las cartas no ha salido el resumen.")
+	else:
+		print("[maestro] OK: se pasa una carta por clic y al final sale el resumen.")
+	await _captura("6b1_meditacion_resumen")
+
+	# LA JERARQUIA DE LAS TRES FAMILIAS, con una de cada y a proposito con el GRIMORIO MAS FLOJO que
+	# haya. Es la foto que hay que mirar para juzgar que un grimorio comun NO parezca peor premio que
+	# un tomo de sabiduria: el color solo no basta (el comun va en gris palido y el sabio en teal),
+	# asi que el grimorio lleva ademas el rombo y sus estrellas.
+	# Se arma a mano porque una tanda de verdad casi nunca saca las tres juntas.
+	var trio: Array = []
+	var g_flojo: ConsumableData = null
+	for ruta3 in Libros.GRIMORIOS:
+		var gg: ConsumableData = load(ruta3) as ConsumableData
+		if gg != null and gg.spell != null:
+			if g_flojo == null or int(gg.spell.rareza) < int(g_flojo.spell.rareza):
+				g_flojo = gg
+	var sabio3: ConsumableData = null
+	var curio3: ConsumableData = null
+	for ruta4 in Libros.TOCHOS:
+		var tt: ConsumableData = load(ruta4) as ConsumableData
+		if tt == null:
+			continue
+		if tt.es_tomo_sabio() and sabio3 == null:
+			sabio3 = tt
+		elif not tt.es_tomo_sabio() and curio3 == null:
+			curio3 = tt
+	for pieza in [g_flojo, sabio3, curio3]:
+		if pieza != null:
+			trio.append({"item": pieza, "spell": pieza.spell, "pity": 0})
+	if trio.size() == 3:
+		print("[maestro] jerarquía: %s (rareza %d) / %s / %s" % [
+			g_flojo.nombre, int(g_flojo.spell.rareza), sabio3.nombre, curio3.nombre])
+		men._revelado = trio
+		men._mostrar_resultados()
+		for i in trio.size() * 2 + 1:
+			men._velo_pulsado(_clic())
+		await _captura("6b3_familias")
+
 	# Y LOS RESULTADOS CERRADOS, que es como se ve el cartel despues de tirar.
 	men._cerrar_resultados()
 	await _captura("6b2_meditacion_tras_cerrar")
@@ -244,6 +319,15 @@ func _primera_por_aprender(men: Node) -> AbilityData:
 		if not Game.habilidad_desbloqueada(ab, pj) and Game.puede_pagar(ab.precio):
 			return ab
 	return null
+
+
+# Un clic de raton, para simular los toques del revelado. Solo el PULSADO: el menu ignora el
+# soltado a proposito (un clic manda los dos eventos y si no se comeria dos cartas de golpe).
+func _clic() -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = true
+	return e
 
 
 func _captura(nombre: String) -> void:

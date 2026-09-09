@@ -278,6 +278,9 @@ func _pick_persona(i: int) -> void:
 	_pj_sel = i
 	_sel = 0
 	_aviso = ""
+	# El historial es DEL PERSONAJE ELEGIDO, asi que al cambiar de cara hay que volver a la primera
+	# pagina: con el otro en la 4, uno con tres tiradas se quedaba en blanco.
+	_hist_pagina = 0
 	_abrir_por_su_arma()
 	_rebuild()
 
@@ -619,9 +622,18 @@ func _meditar(cuantas: int, precio: int) -> void:
 		_revelado.append(t)
 	_aviso = "%s medita." % pj.nombre
 	_aviso_ok = true
-	# NO se guarda aqui: ninguna pantalla del juego guarda al comprar (tampoco la tienda). El
-	# guardado va por los caminos de siempre, y meter un volcado a disco por tirada haria que una
-	# x10 escribiera la partida diez veces.
+
+	# SE GUARDA AQUI MISMO, ANTES DE ENSEÑAR NADA. Es la excepcion a la regla de la casa (ninguna
+	# pantalla guarda al comprar, tampoco la tienda) y tiene un motivo que solo se da en el gacha:
+	# el resultado es AZAR, asi que sin guardar bastaba con ver una tirada mala y cerrar por la ✕ o
+	# con alt+F4 para que no hubiera pasado nada -- y volver a tirar hasta que saliera el mitico. Un
+	# gacha en el que la tirada se puede deshacer no es un gacha.
+	#
+	# Va DESPUES del bucle y no dentro: una sola escritura por tanda, no diez en una x10. Y por
+	# guardar_mi_partida, que es el punto unico (en un mundo compartido o de invitado, escribir la
+	# partida entera en la ranura seria justo lo que ese metodo existe para evitar).
+	Game.guardar_mi_partida()
+
 	_rebuild()
 	_mostrar_resultados()
 
@@ -643,6 +655,17 @@ var _resultados: Control = null
 # resultados (al cambiar de pestaña), y si tirarlos llamara a _rebuild seria una recursion. La
 # guardia _reconstruyendo la cortaria, pero calladamente y dejando a medias el repintado de fuera.
 func _tirar_resultados() -> void:
+	# LOS TWEENS PRIMERO, siempre. Un tween sigue vivo aunque su nodo se libere, y al llegar a su
+	# tween_property sobre un Control muerto revienta. Cerrar los resultados a media animacion (Esc,
+	# o cambiar de pestaña) es justo el caso que lo provoca.
+	for tw in _tweens_res:
+		if tw != null and is_instance_valid(tw) and tw.is_valid():
+			tw.kill()
+	_tweens_res.clear()
+	_carta_actual = null
+	_zona_res = null
+	_bt_continuar = null
+	_res_idx = 0
 	if _resultados == null:
 		return
 	# remove_child ADEMAS de queue_free: queue_free no saca del arbol hasta el final del frame, y
@@ -659,8 +682,10 @@ func _cerrar_resultados() -> void:
 
 
 func _mostrar_resultados() -> void:
-	if _resultados != null:
-		_cerrar_resultados()
+	# _tirar_resultados y NO _cerrar_resultados: cerrar repinta, y aqui venimos justo de un repintado.
+	# Ademas hay que pasar por aqui SIEMPRE y no solo si quedaba una pantalla abierta, porque es lo
+	# que vacia las cartas y los tweens de la tanda anterior.
+	_tirar_resultados()
 	if _revelado.is_empty():
 		return
 	_resultados = Control.new()
@@ -679,13 +704,240 @@ func _mostrar_resultados() -> void:
 	velo.mouse_filter = Control.MOUSE_FILTER_STOP
 	_resultados.add_child(velo)
 
+	# EL CLIC ES EL MANDO: cada toque pasa a la siguiente carta. En un gacha se le da a la pantalla,
+	# no se busca un boton.
+	velo.gui_input.connect(_velo_pulsado)
+
+	# LA ZONA donde se pinta lo de cada momento (una carta, o el resumen del final). Se vacia y se
+	# vuelve a llenar en cada paso; el velo y la capa se quedan.
+	_zona_res = Control.new()
+	_zona_res.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_zona_res.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_resultados.add_child(_zona_res)
+
+	_res_idx = 0
+	_pintar_paso_res()
+
+
+# ------------------------------------------------------------
+#  EL REVELADO, UNA CARTA POR CLIC
+#
+#  Asi lo pidio y asi es en el molde: NO una rejilla que se voltea sola. Sale una carta a pantalla
+#  completa, con su nombre y sus estrellas AL LADO (la cinta del tipo encima, como en la referencia),
+#  y cada toque pasa a la siguiente. Al acabar las diez se enseña el resumen de la tanda entera, que
+#  es lo unico que se ve de un vistazo.
+#
+#  El VOLTEO de cada carta es un escalado en X: se cierra hasta quedar de canto, ahi se cambia el
+#  dibujo, y se vuelve a abrir. Ni 3D ni shader, y se lee perfectamente como "se ha dado la vuelta".
+# ------------------------------------------------------------
+
+const CARTA_RES_ANCHO := 250.0
+const CARTA_RES_ALTO := 340.0
+const VOLTEO_MEDIO := 0.13       # lo que tarda en cerrarse (y otro tanto en abrirse)
+
+var _zona_res: Control = null
+var _res_idx: int = 0
+var _carta_actual: Control = null      # el dibujo de la carta que se esta enseñando
+var _caja_actual: Control = null       # su etiqueta (nombre y estrellas), oculta hasta el volteo
+var _tweens_res: Array = []
+var _bt_continuar: Button = null
+
+
+# ¿La carta de ahora esta ya destapada? Es lo que decide si un clic la voltea o pasa a la siguiente.
+func _carta_destapada() -> bool:
+	return _carta_actual == null or not is_instance_valid(_carta_actual) \
+		or bool(_carta_actual.get_meta("volteada", false))
+
+
+func _velo_pulsado(e: InputEvent) -> void:
+	# Solo el BOTON PULSADO, y no cualquier evento: un clic manda dos eventos (abajo y arriba) y sin
+	# esto un solo toque se comeria DOS cartas.
+	if not (e is InputEventMouseButton and (e as InputEventMouseButton).pressed):
+		return
+	get_viewport().set_input_as_handled()
+	# Si la de ahora esta a medio voltear, el toque la termina en vez de saltarsela: si no, un
+	# impaciente se salta justo la carta buena sin verla.
+	if not _carta_destapada():
+		_destapar_ya()
+		return
+	_res_idx += 1
+	_pintar_paso_res()
+
+
+func _pintar_paso_res() -> void:
+	if _zona_res == null or not is_instance_valid(_zona_res):
+		return
+	_matar_tweens_res()
+	for h in _zona_res.get_children():
+		_zona_res.remove_child(h)
+		h.queue_free()
+	_carta_actual = null
+	if _res_idx < _revelado.size():
+		_pintar_carta_res(_revelado[_res_idx])
+	else:
+		_pintar_resumen_res()
+# UNA CARTA, a pantalla completa. La carta al centro-derecha y su ETIQUETA a la izquierda: cinta con
+# el tipo de libro, el nombre en grande y las estrellas debajo. Es el reparto de la referencia, y el
+# motivo de que el nombre vaya al lado y no debajo es el mismo que en el cartel: debajo hay que
+# estrechar la carta para que quepa, y la carta es lo que se ha venido a ver.
+func _pintar_carta_res(t: Dictionary) -> void:
+	var c: ConsumableData = t.get("item")
+	if c == null:
+		return
+	var s: SpellData = t.get("spell")
+	var r: int = int(s.rareza) if s != null else -1
+	var seccion: String = c.seccion_biblioteca()
+	var color: Color = _color_entrada(r, seccion)
+	var familia: int = _familia_de(r, seccion)
+
+	var dib := Control.new()
+	dib.set_anchors_preset(Control.PRESET_CENTER)
+	dib.custom_minimum_size = Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO)
+	dib.size = Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO)
+	dib.offset_left = -CARTA_RES_ANCHO * 0.5 + 150.0
+	dib.offset_right = CARTA_RES_ANCHO * 0.5 + 150.0
+	dib.offset_top = -CARTA_RES_ALTO * 0.5
+	dib.offset_bottom = CARTA_RES_ALTO * 0.5
+	dib.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# EL PIVOTE EN EL CENTRO: el volteo encoge la carta en X hasta cero y la vuelve a abrir, y con el
+	# pivote en la esquina (el de fabrica) la carta se iria hacia la izquierda en vez de girar sobre
+	# si misma.
+	dib.pivot_offset = Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO) * 0.5
+	# EL ESTADO VIVE EN EL PROPIO NODO (set_meta) y no en una variable de fuera: el dibujo se dispara
+	# cuando a Godot le apetece redibujar, y una variable de fuera es lo que se queda desfasado
+	# cuando la carta se libera a media animacion.
+	dib.set_meta("volteada", false)
+	# La rareza y el color van tambien en el nodo: los necesita _destapar_ya, que entra por un clic y
+	# no tiene de donde sacarlos.
+	dib.set_meta("rareza", r)
+	dib.set_meta("color", color)
+	var gordo: bool = r >= Upgrades.Rareza.EPICO
+	dib.draw.connect(_dibujar_carta_res.bind(dib, color, gordo, familia))
+	_zona_res.add_child(dib)
+	_carta_actual = dib
+
+	# LA ETIQUETA, oculta hasta que la carta se da la vuelta: enseñar el nombre antes de voltear seria
+	# contar el final.
+	var caja := VBoxContainer.new()
+	caja.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	caja.offset_left = 150.0
+	caja.offset_right = 560.0
+	caja.offset_top = -50.0
+	caja.offset_bottom = 50.0
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	caja.add_theme_constant_override("separation", 4)
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.visible = false
+	_zona_res.add_child(caja)
+	_caja_actual = caja
+
+	var cinta := Label.new()
+	cinta.text = "  %s  " % seccion
+	cinta.add_theme_font_size_override("font_size", 11)
+	cinta.add_theme_color_override("font_color", Color(0.06, 0.07, 0.10))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.set_corner_radius_all(3)
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	cinta.add_theme_stylebox_override("normal", sb)
+	cinta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	caja.add_child(cinta)
+
+	var nom := Label.new()
+	nom.text = c.nombre
+	nom.add_theme_font_size_override("font_size", 26)
+	nom.add_theme_color_override("font_color", Color(0.95, 0.96, 0.99))
+	nom.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	caja.add_child(nom)
+
+	var est := Label.new()
+	est.text = _estrellas(r)
+	est.add_theme_font_size_override("font_size", 15)
+	est.add_theme_color_override("font_color", color)
+	est.visible = est.text != ""
+	caja.add_child(est)
+
+	if int(t.get("pity", 0)) > 0:
+		var g := Label.new()
+		g.text = "★ garantizado"
+		g.add_theme_font_size_override("font_size", 11)
+		g.add_theme_color_override("font_color", AMBAR)
+		caja.add_child(g)
+
+	# EL CONTADOR y la pista del gesto, abajo del todo.
+	var pie := Label.new()
+	pie.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	pie.offset_top = -70.0
+	pie.offset_bottom = -40.0
+	pie.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pie.text = "%d de %d      ·      toca para seguir" % [_res_idx + 1, _revelado.size()]
+	pie.add_theme_font_size_override("font_size", 12)
+	pie.add_theme_color_override("font_color", GRIS)
+	_zona_res.add_child(pie)
+
+	_voltear_carta(dib, caja, r, color)
+
+
+func _dibujar_carta_res(c: Control, col: Color, gordo: bool, familia: int) -> void:
+	if bool(c.get_meta("volteada", false)):
+		_banner.dibujar_tomo(c, col, gordo, familia)
+	else:
+		_banner.dibujar_dorso(c)
+
+
+# EL GIRO de la carta que acaba de salir. El tween lo crea ESTE nodo, que va con
+# PROCESS_MODE_ALWAYS: el menu para el arbol entero al abrirse (Game.abrir_menu), y un tween de un
+# nodo pausado no avanza -- la carta se quedaria boca abajo para siempre.
+func _voltear_carta(dib: Control, caja: Control, r: int, color: Color) -> void:
+	var tw: Tween = create_tween()
+	_tweens_res.append(tw)
+	tw.tween_property(dib, "scale:x", 0.0, VOLTEO_MEDIO)
+	tw.tween_callback(_destapar.bind(dib, caja, r, color))
+	tw.tween_property(dib, "scale:x", 1.0, VOLTEO_MEDIO)
+
+
+# El momento del cambio, con la carta de canto: se cambia el dibujo y sale la etiqueta.
+func _destapar(dib: Control, caja: Control, r: int, color: Color) -> void:
+	if not is_instance_valid(dib):
+		return
+	dib.set_meta("volteada", true)
+	dib.queue_redraw()
+	if is_instance_valid(caja):
+		caja.visible = true
+	# EL DESTELLO, solo en las buenas. Si centellea todo no centellea nada: es la misma idea que el
+	# brillo relativo del equipo.
+	if r >= Upgrades.Rareza.EPICO:
+		var p: CPUParticles2D = Particulas.destellos(dib, color,
+			Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO), 1.0)
+		# PROCESS_MODE_ALWAYS obligatorio, por lo mismo que el tween: con el arbol parado las
+		# particulas no emiten ni una.
+		p.process_mode = Node.PROCESS_MODE_ALWAYS
+		p.position = Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO) * 0.5
+
+
+# Termina el giro de golpe (un toque impaciente a media vuelta). Mata el tween ANTES: si se deja
+# correr, sigue escalando y deja la carta a media anchura para siempre.
+func _destapar_ya() -> void:
+	_matar_tweens_res()
+	if _carta_actual == null or not is_instance_valid(_carta_actual):
+		return
+	_carta_actual.scale.x = 1.0
+	_destapar(_carta_actual, _caja_actual,
+		int(_carta_actual.get_meta("rareza", -1)),
+		_carta_actual.get_meta("color", Color.WHITE))
+
+
+# EL RESUMEN de la tanda, al final: las diez juntas, que es lo unico que se ve de un vistazo. Aqui ya
+# no hay misterio, asi que van todas destapadas y pequeñas.
+func _pintar_resumen_res() -> void:
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.offset_top = 40
 	col.offset_bottom = -24
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 14)
-	_resultados.add_child(col)
+	_zona_res.add_child(col)
 
 	var tit := Label.new()
 	tit.text = "TE HA SALIDO"
@@ -694,8 +946,7 @@ func _mostrar_resultados() -> void:
 	tit.add_theme_color_override("font_color", AMBAR)
 	col.add_child(tit)
 
-	# LA REJILLA, centrada. Cinco por fila: con diez en una sola fila las cartas salen a 110 px y el
-	# nombre no cabe debajo.
+	# CINCO POR FILA: con diez en una sola fila las cartas salen a 110 px y el nombre no cabe debajo.
 	var centro := CenterContainer.new()
 	col.add_child(centro)
 	var rejilla := GridContainer.new()
@@ -704,10 +955,8 @@ func _mostrar_resultados() -> void:
 	rejilla.add_theme_constant_override("v_separation", 12)
 	centro.add_child(rejilla)
 	for t in _revelado:
-		_carta_resultado(rejilla, t)
+		_mini_resumen(rejilla, t)
 
-	# LA NOTA VA ANTES DEL BOTON, no despues: el VBox esta centrado en la pantalla, asi que la ultima
-	# linea caia por debajo del centro y se plantaba encima de los botones de tirar del cartel.
 	var nota := Label.new()
 	nota.text = "Los libros van a la bolsa: se leen desde el inventario."
 	nota.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -717,34 +966,45 @@ func _mostrar_resultados() -> void:
 
 	var pie := CenterContainer.new()
 	col.add_child(pie)
-	var b: Button = MenuScaffold.boton(pie, "Continuar", _cerrar_resultados)
-	b.custom_minimum_size = Vector2(240, 46)
+	_bt_continuar = MenuScaffold.boton(pie, "Continuar", _cerrar_resultados)
+	_bt_continuar.custom_minimum_size = Vector2(240, 46)
 
 
-# UNA CARTA del resultado: el dibujo del tomo arriba y el nombre debajo, del color de su rareza.
-func _carta_resultado(rejilla: GridContainer, t: Dictionary) -> void:
+const MINI_RES_ANCHO := 150.0
+const MINI_RES_ALTO := 200.0
+
+func _mini_resumen(rejilla: GridContainer, t: Dictionary) -> void:
 	var c: ConsumableData = t.get("item")
 	if c == null:
 		return
 	var s: SpellData = t.get("spell")
 	var r: int = int(s.rareza) if s != null else -1
-	# El tocho no tiene rareza (r = -1) y va en gris: pintarlo del color del comun lo haria pasar
-	# por un premio de la escala, que es justo lo que no es.
-	var color: Color = Upgrades.rareza_color(r) if r >= 0 else GRIS
+	var seccion: String = c.seccion_biblioteca()
+	var color: Color = _color_entrada(r, seccion)
+	var familia: int = _familia_de(r, seccion)
 
 	var caja := VBoxContainer.new()
-	caja.custom_minimum_size = Vector2(150, 0)
-	caja.add_theme_constant_override("separation", 4)
+	caja.custom_minimum_size = Vector2(MINI_RES_ANCHO, 0)
+	caja.add_theme_constant_override("separation", 2)
 	rejilla.add_child(caja)
 
 	var dib := Control.new()
-	dib.custom_minimum_size = Vector2(150, 200)
+	dib.custom_minimum_size = Vector2(MINI_RES_ANCHO, MINI_RES_ALTO)
 	dib.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	caja.add_child(dib)
-	# EL MISMO DIBUJO QUE EL CARTEL, en pequeño: es el mismo objeto y tiene que leerse igual. El
-	# 'gordo' se reserva para lo bueno, asi que una tirada afortunada se ve de lejos por el halo.
 	var gordo: bool = r >= Upgrades.Rareza.EPICO
-	dib.draw.connect(_banner._dibujar_tomo.bind(dib, color, gordo))
+	dib.draw.connect(_banner.dibujar_tomo.bind(dib, color, gordo, familia))
+
+	# LAS ESTRELLAS TAMBIEN AQUI. Sin ellas, un GRIMORIO comun se veia igual que una curiosidad
+	# -- mismo dibujo, y el gris del comun y el de los menus son casi el mismo color -- asi que un
+	# premio pasaba por un libro cualquiera. Las estrellas son lo que dice "esto va en la escala".
+	var est := Label.new()
+	est.text = _estrellas(r)
+	est.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	est.add_theme_font_size_override("font_size", 12)
+	est.add_theme_color_override("font_color", color)
+	est.visible = est.text != ""
+	caja.add_child(est)
 
 	var nom := Label.new()
 	nom.text = c.nombre
@@ -761,6 +1021,13 @@ func _carta_resultado(rejilla: GridContainer, t: Dictionary) -> void:
 		g.add_theme_font_size_override("font_size", 10)
 		g.add_theme_color_override("font_color", AMBAR)
 		caja.add_child(g)
+
+
+func _matar_tweens_res() -> void:
+	for tw in _tweens_res:
+		if tw != null and is_instance_valid(tw) and tw.is_valid():
+			tw.kill()
+	_tweens_res.clear()
 
 
 # Los tochos que pueden caer. Del manifiesto y no de escanear la carpeta, por lo mismo que los
@@ -862,6 +1129,7 @@ var _modal_tab: int = 0
 
 func _abrir_detalles() -> void:
 	_modal_tab = 0
+	_hist_pagina = 0
 	_montar_modal()
 
 
@@ -1014,13 +1282,36 @@ func _fila_reparto(vb: VBoxContainer, que: String, p: float, para_que: String, c
 
 # PESTAÑA 2: EL HISTORIAL. Una fila por tirada, lo mas nuevo arriba, con el nombre del color de su
 # rareza -- que es lo que hace que se pueda barrer con la vista buscando los buenos.
+# 16 y no 10: con diez filas el modal se quedaba medio vacio -- media pantalla de nada debajo de la
+# tabla. El modal mide 580 de alto y una fila ronda los 24, asi que dieciseis lo llenan sin apretar.
+const HIST_POR_PAGINA := 16
+
+# La pagina que se esta mirando. Se pone a cero al abrir el modal y al cambiar de personaje: si no,
+# abrir el historial de alguien con tres tiradas te dejaba en la pagina 4, o sea en blanco.
+var _hist_pagina: int = 0
+
 func _pintar_detalles_historial(vb: VBoxContainer) -> void:
-	MenuScaffold.titulo(vb, "LO QUE TE HA IDO SALIENDO", 14)
-	if Game.gacha_historial.is_empty():
-		MenuScaffold.nota(vb, "Todavía no has meditado.")
+	var pj: PersonajeData = _pj()
+	# SOLO LAS DE QUIEN ESTA ELEGIDO ARRIBA. El pity ya va por personaje, asi que el historial de
+	# todos mezclado no respondia a la pregunta que se viene a hacer aqui ("¿cómo le está yendo a
+	# ESTE?"). Y filtrando sobra la columna "Quién", que era la misma palabra repetida diez veces.
+	#
+	# Se compara por NOMBRE porque es lo que guarda gacha_apuntar. Dos compañeros con el mismo nombre
+	# compartirian historial; es un mal menor frente a guardar una referencia al Resource, que no
+	# sobrevive a guardar y cargar.
+	var mias: Array = []
+	for e in Game.gacha_historial:
+		if String(e.get("quien", "")) == pj.nombre:
+			mias.append(e)
+
+	MenuScaffold.titulo(vb, "LO QUE LE HA IDO SALIENDO A %s" % pj.nombre.to_upper(), 14)
+	if mias.is_empty():
+		MenuScaffold.nota(vb, "%s todavía no ha meditado." % pj.nombre)
 		return
-	MenuScaffold.nota(vb, "Las últimas %d tiradas, la más reciente arriba."
-		% Game.GACHA_HISTORIAL_MAX)
+
+	var paginas: int = int(ceil(float(mias.size()) / float(HIST_POR_PAGINA)))
+	_hist_pagina = clampi(_hist_pagina, 0, paginas - 1)
+	MenuScaffold.nota(vb, "%d tiradas, la más reciente arriba." % mias.size())
 	vb.add_child(HSeparator.new())
 
 	# EN REJILLA Y NO EN FILAS DE HBox. Con HBox las columnas se corrian: un ancho minimo solo es un
@@ -1034,39 +1325,130 @@ func _pintar_detalles_historial(vb: VBoxContainer) -> void:
 	tabla.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(tabla)
 
-	for cab in ["Qué", "De qué", "Quién", "Cuándo"]:
+	for cab in ["Qué", "", "De qué", "Cuándo"]:
 		var h := Label.new()
 		h.text = cab
 		h.add_theme_color_override("font_color", AMBAR)
 		tabla.add_child(h)
 
-	for e in Game.gacha_historial:
+	var desde: int = _hist_pagina * HIST_POR_PAGINA
+	var hasta: int = mini(desde + HIST_POR_PAGINA, mias.size())
+	for i in range(desde, hasta):
+		var e: Dictionary = mias[i]
 		var nom := Label.new()
 		var r: int = int(e.get("rareza", -1))
-		# El "★" delante marca el garantizado. Va PEGADO al nombre y no en una quinta columna porque
+		# El "★" delante marca el garantizado. Va PEGADO al nombre y no en una columna aparte porque
 		# lo que se busca al abrir esto es "¿qué me salió?", y una columna casi siempre vacia solo
 		# roba ancho a la que se lee.
+		var seccion: String = String(e.get("seccion", ""))
 		nom.text = ("★ " if int(e.get("pity", 0)) > 0 else "") + String(e.get("nombre", ""))
 		# El color ES la informacion de esta tabla: es lo que deja encontrar los buenos sin leer.
-		# Un tocho no tiene rareza (-1) y va en gris, para que no pase por un premio de la escala.
-		nom.add_theme_color_override("font_color",
-			Upgrades.rareza_color(r) if r >= 0 else GRIS)
+		nom.add_theme_color_override("font_color", _color_entrada(r, seccion))
+		# ANCHO MINIMO, NO EXPAND_FILL: expandiendo, la columna del nombre se comia todo el ancho del
+		# modal y las otras tres se iban al borde derecho, con medio palmo de vacio en medio. Con un
+		# minimo, la tabla queda junta y las columnas siguen alineadas.
+		nom.custom_minimum_size.x = 330
 		tabla.add_child(nom)
 
+		# LAS ESTRELLAS, en columna propia: es lo que distingue un GRIMORIO (aunque sea comun) de un
+		# tocho de un vistazo, sin tener que leer la seccion.
+		var est := Label.new()
+		est.text = _estrellas(r)
+		est.add_theme_color_override("font_color", _color_entrada(r, seccion))
+		tabla.add_child(est)
+
 		var sec := Label.new()
-		sec.text = String(e.get("seccion", ""))
+		sec.text = seccion
 		sec.add_theme_color_override("font_color", GRIS)
 		tabla.add_child(sec)
-
-		var quien := Label.new()
-		quien.text = String(e.get("quien", ""))
-		quien.add_theme_color_override("font_color", GRIS)
-		tabla.add_child(quien)
 
 		var cuando := Label.new()
 		cuando.text = _fecha_corta(int(e.get("cuando", 0)))
 		cuando.add_theme_color_override("font_color", GRIS)
 		tabla.add_child(cuando)
+
+	if paginas > 1:
+		_pintar_paginador(vb, paginas)
+
+
+# LAS FLECHAS DE PAGINA, centradas debajo de la tabla. Se apagan solas en los extremos en vez de dar
+# la vuelta: en una lista ordenada por fecha, saltar de la primera pagina a la ultima desorienta.
+func _pintar_paginador(vb: VBoxContainer, paginas: int) -> void:
+	var centro := CenterContainer.new()
+	vb.add_child(centro)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 14)
+	centro.add_child(fila)
+
+	var izq: Button = MenuScaffold.boton(fila, "◀", _hist_anterior, _hist_pagina > 0)
+	izq.custom_minimum_size = Vector2(52, 34)
+	var n := Label.new()
+	n.text = "%d / %d" % [_hist_pagina + 1, paginas]
+	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	n.custom_minimum_size = Vector2(70, 0)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fila.add_child(n)
+	var der: Button = MenuScaffold.boton(fila, "▶", _hist_siguiente, _hist_pagina < paginas - 1)
+	der.custom_minimum_size = Vector2(52, 34)
+
+
+func _hist_anterior() -> void:
+	_hist_pagina -= 1
+	_montar_modal()
+
+
+func _hist_siguiente() -> void:
+	_hist_pagina += 1
+	_montar_modal()
+
+
+# EL GRIS DE LOS TOCHOS, y por que no vale el GRIS de la casa: el comun de la escala de rareza es
+# Color(0.70,0.72,0.76) y el GRIS de los menus es (0.6,0.63,0.7) -- practicamente el mismo color. Con
+# eso, un GRIMORIO COMUN (que es un premio, aunque flojo) se veia exactamente igual que una
+# curiosidad de relleno, y encima sin estrellas: parecia un libro normal. Este gris esta bastante mas
+# apagado para que la diferencia se vea de un vistazo.
+const TOCHO_GRIS := Color(0.44, 0.46, 0.53)
+
+# Y EL DE LOS TOMOS DE SABIDURIA, que tampoco pueden ir del mismo gris que las curiosidades: los dos
+# son tochos y se veian identicos, pero uno te sube la magia al leerlo y el otro solo tiene texto.
+#
+# TEAL y no un dorado: el dorado se confunde con el amarillo del legendario y el verde con el del
+# poco comun. Este frio no lo usa ninguna banda de rareza, asi que no puede leerse como "una rareza
+# mas" -- que es justo lo que no es.
+#
+# Y VA APAGADO A PROPOSITO. La primera version era (0.35, 0.72, 0.74), un teal vivo, y el resultado
+# fue que un tomo de sabiduria LLAMABA MAS que un grimorio comun (que va en el gris palido de su
+# banda) -- o sea, el premio peor parecia el mejor. Cualquier grimorio vale mas que un tocho, asi
+# que ningun tocho puede brillar por encima del comun.
+const SABIO_TEAL := Color(0.30, 0.50, 0.53)
+
+# La seccion que devuelve ConsumableData.seccion_biblioteca para los tomos de sabiduria. Se compara
+# por ese texto porque es lo unico que guarda el historial de cada tirada.
+const SEC_SABIDURIA := "Sabiduría"
+
+
+# El color de una entrada del gacha. Las TRES familias tienen que distinguirse de un vistazo:
+#   grimorio   -> el color de su rareza (y lleva estrellas)
+#   sabiduria  -> teal (sin estrellas: no esta en la escala)
+#   curiosidad -> gris apagado
+func _color_entrada(r: int, seccion: String = "") -> Color:
+	if r >= 0:
+		return Upgrades.rareza_color(r)
+	return SABIO_TEAL if seccion == SEC_SABIDURIA else TOCHO_GRIS
+
+
+# La familia para el dibujo (ver GachaBanner.FAM_*). Sale de la rareza y la seccion, que es lo unico
+# que guarda el historial: un grimorio siempre tiene rareza, y los dos tochos se separan por seccion.
+func _familia_de(r: int, seccion: String) -> int:
+	if r >= 0:
+		return GachaBanner.FAM_GRIMORIO
+	return GachaBanner.FAM_SABIDURIA if seccion == SEC_SABIDURIA else GachaBanner.FAM_CURIOSIDAD
+
+
+# Las estrellas de una rareza: cuentan desde 1, asi que el comun saca UNA y el mitico seis. Un tocho
+# (r < 0) se queda sin ninguna, que es la verdad: no esta en la escala.
+func _estrellas(r: int) -> String:
+	return "★".repeat(r + 1) if r >= 0 else ""
 
 
 # El sello de una tirada, en corto: "07-09 09:45". Sin año ni segundos -- esto se mira para situar
