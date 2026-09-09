@@ -46,6 +46,17 @@ class_name AbilityData
 # Daño por impacto respecto a un ataque normal (1.0 = como un básico; <1 = flurry).
 @export var dano_mult: float = 1.0
 
+# ROBO DE VIDA: fracción del daño HECHO que se cura el que pega. 0 = ninguno (lo normal).
+# 0.5 = se cura la mitad de lo que saca.
+#
+# Se mide sobre el daño que de verdad ha ENTRADO (ya mitigado por la defensa y la armadura), no
+# sobre el daño teórico: contra un tanque, drenar tiene que rendir poco — que es justo lo que hace
+# que valga la pena ir a por el que va ligero.
+#
+# Vale para las DOS ramas. Lo estrena el Drenaje del chupasimas, pero está en AbilityData y no en
+# el enemigo a propósito: el día que una técnica del jugador robe vida, funciona sola.
+@export var robo_vida: float = 0.0
+
 # Lo que aporta la SEGUNDA MANO pega ALGO MENOS: los golpes EXTRA que solo existen porque
 # llevas dos armas (los que pasan del rango de UNA mano) pegan a este multiplicador. A 0.6 el
 # dual vale ~1.6x la version a una mano (subido de 0.5/~1.5x: las ligeras/dual iban ~8% bajo el

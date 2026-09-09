@@ -42,7 +42,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PLATO_GUARDIA, PLATO_BRIO, PLATO_FURIA, PLATO_ARCANO, PLATO_NUCLEO, PLATO_REMEDIO,
 	PLATO_ESTOMAGO, PLATO_FORTUNA,
 	ENRAIZADO,
-	RESGUARDO }
+	RESGUARDO,
+	CEGUERA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -317,6 +318,19 @@ static var _defs: Dictionary = {
 		"limpia": [Id.VENENO],
 		"inmune": [Id.VENENO],
 		"descripcion": "El veneno que llevabas se corta, y durante un rato el que te echen encima no prende.",
+	},
+	# CEGUERA: no ves, asi que FALLAS. Va por 'precision_flat' en NEGATIVO y no por un "evade_flat"
+	# al reves, y la diferencia importa: la precision es del que PEGA y la esquiva es del que
+	# ENCAJA. Cegado no esquivas peor -- pegas peor, y le pegas peor a todo el mundo. Ponerlo por
+	# el otro lado habria hecho que un ciego fuera mas facil de acertar, que es justo lo contrario.
+	#
+	# 0.12 sobre una esquiva base de ~0.15 la sube a ~0.27 y el techo normal es 0.35: se nota mucho
+	# sin llegar a que falles la mitad de los golpes.
+	Id.CEGUERA: {
+		"id": Id.CEGUERA, "nombre": "Ceguera", "icono": "🌫", "color": Color(0.72, 0.68, 0.5),
+		"turns": 3, "debuff": true,
+		"precision_flat": -0.12,
+		"descripcion": "Con los ojos llenos de polvo apuntas a bulto. Fallas más, y da igual contra quién.",
 	},
 	Id.MIEDO: {   # pierde el turno SIEMPRE; al llegarle el turno tira a ver si se DISIPA
 		"id": Id.MIEDO, "nombre": "Miedo", "icono": "😱", "color": Color(0.55, 0.35, 0.7),
@@ -695,6 +709,10 @@ class Instance extends RefCounted:
 				continue
 			lineas.append(str(par[1] if pct > 0 else par[2]) % absi(pct))
 		# Los ADITIVOS (puntos porcentuales, no multiplicadores).
+		# La ceguera es el unico de estos que va en NEGATIVO, asi que su frase ya lo dice: pasarla
+		# por "Aciertas un -12% mas" seria ilegible.
+		if d.has("precision_flat"):
+			lineas.append("Fallas un %d%% más a menudo." % absi(roundi(flat_de("precision_flat") * 100.0)))
 		for par in [["crit_flat", "Criticas un %d%% más a menudo."],
 				["evade_flat", "Esquivas un %d%% más a menudo."],
 				["status_resist_flat", "Resistes un %d%% más los estados alterados."],
@@ -831,6 +849,7 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 	# pasarlo por la formula de arriba lo pintaria como "-95%".
 	var etiquetas_flat: Dictionary = {
 		"crit_flat": "crítico", "evade_flat": "esquiva",
+		"precision_flat": "acierto",
 		"status_resist_flat": "resistencia a estados",
 		"drop_doble_flat": "de que el botín salga doble",
 	}

@@ -1215,6 +1215,15 @@ func status_evade_flat() -> float:
 		s += e.flat_de("evade_flat")
 	return s
 
+# ACIERTO que aportan (o quitan) mis estados. La Ceguera lo pone en NEGATIVO, y por eso se suma a
+# 'precision' en vez de restarse a la esquiva del otro: cegado fallo yo, no me esquivan mejor a mi.
+# Es el espejo exacto de status_evade_flat, y va aqui al lado para que se lean juntos.
+func status_precision_flat() -> float:
+	var s: float = 0.0
+	for e in statuses:
+		s += e.flat_de("precision_flat")
+	return s
+
 # RESISTENCIA A ESTADOS de este combatiente, TODO junto: la suya de siempre (armadura + base, la
 # pone Game al montarlo) mas lo que aporten los estados (plato de Estómago).
 #

@@ -6351,7 +6351,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# campo que usan los resultados de hechizo, ver _log_hechizo). 'm_golpe' = el multiplicador que
 	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).
 	var r := {"c": objetivo, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
-		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": ""}
+		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": "",
+		"robado": 0.0}
 	# Los golpes DE ESCUDO pegan con tu DEFENSA, no con tu arma (ver AbilityData.escudo_desde_golpe).
 	# En Guardia rota / Aplastamiento eso significa que el golpe 0 va con Ataque y el 1 con Defensa:
 	# cada uno con su atributo.
@@ -6387,6 +6388,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
 	objetivo.take_damage(dmg)
+	# ROBO DE VIDA (AbilityData.robo_vida): sobre el daño que de verdad ha entrado. Hoy no lo usa
+	# ninguna tecnica del jugador -- lo estrena el Drenaje del chupasimas, en la rama de enfrente --
+	# pero va tambien aqui porque el campo es de AbilityData: si solo se enchufara en la rama del
+	# enemigo, una habilidad del jugador con robo_vida no curaria nada y no daria ningun error.
+	if ab.robo_vida > 0.0:
+		r.robado = dmg * ab.robo_vida
+		_player.heal(r.robado)
 	_fx_golpe(_player, objetivo, dmg, result.crit, false,
 		_player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab)
 	_apuntar_dano(objetivo, dmg, _player)   # contador oculto de Cazador
@@ -7706,6 +7714,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# Y el multiplicador ELEMENTAL con el que le entro a cada uno: un area de fuego sobre el grupo
 	# puede pegar x1.5 a uno y x0.5 al que lleva el manto, y eso hay que poder contarlo por separado.
 	var mult_por_obj: Dictionary = {}
+	var robado_total: float = 0.0   # lo que se ha curado chupando (AbilityData.robo_vida)
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
 		if ab.es_area():
@@ -7720,7 +7729,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 					es_princ or ab.area_efectos_secundarios, esc_prob)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
-				mult_por_obj[t] = float(sub["mult_elem"])
+				mult_por_obj[t] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -7747,7 +7756,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				total += float(sub["total"]); estados_log += sub["estados"]
 				conecto_algo += int(sub["conecto"])
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
-				mult_por_obj[t] = float(sub["mult_elem"])
+				mult_por_obj[t] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 				if not tocados.has(t): tocados.append(t)
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
@@ -7763,7 +7772,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			var sub := _enemy_resolver_golpes(e, ab, obj, golpes, 1.0, true, true)
 			total = float(sub["total"]); estados_log = sub["estados"]; contra_txt = String(sub["contra"])
 			rastro = sub["rastro"]; dano_por_obj[obj] = float(sub["total"])
-			mult_por_obj[obj] = float(sub["mult_elem"])
+			mult_por_obj[obj] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
@@ -7827,6 +7836,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		msg += "  🛡️ %s aguanta%s en guardia (menos daño)." % [
 			", ".join(nombres_def), "" if defendieron.size() == 1 else "n"]
 	msg += _elem_reparto_txt(e.elemento_ataque, mult_por_obj)
+	# Que se CHUPA lo que te saca. Sin decirlo, un bicho que drena se lee como un bicho que
+	# simplemente no baja de vida, y eso parece un fallo en vez de su mecanica.
+	if robado_total > 0.0:
+		msg += "  🩸 Se cura %.2f con lo que te saca." % robado_total
 	if not estados_log.is_empty():
 		# Neutro: las entradas ya dicen "(a sí mismo)" cuando el estado es un buff propio.
 		msg += "  Aplica: %s." % ", ".join(estados_log)
@@ -7879,6 +7892,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var contra: String = ""
 	var rastro: Array = []   # un token por golpe para el desglose del log (mismo formato que el jugador)
 	var esquivados: int = 0  # para la excelia de Agilidad, que se paga UNA vez al final
+	var robado: float = 0.0  # vida que se ha chupado con esta tanda (AbilityData.robo_vida)
 	# EL ASPECTO lo pide la habilidad y, si no pide nada, el propio bicho (ver _estilo_de_habilidad).
 	# Por aqui pasan LOS DOS caminos: con 'ab' cuando lanza tecnica y con 'ab' nulo cuando pega su
 	# ataque basico, asi que pasarle el atacante es lo que hace que la rata muerda tambien sin
@@ -7915,6 +7929,13 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
+			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
+			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va
+			# ligero. Se acumula para decirlo UNA vez en el log y no una por golpe.
+			if ab.robo_vida > 0.0:
+				var cur: float = dmg * ab.robo_vida
+				e.heal(cur)
+				robado += cur
 			_fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false,
 				sfx_ab, gesto_ab, anim_ab, 0, float(result.get("mult_elem", 1.0)))
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
@@ -7981,7 +8002,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# (e, t) -- sale del perfil del defensor, no del golpe -- asi que se saca una vez y sube al
 	# que llama, que es quien monta el mensaje y sabe cuantos objetivos hubo.
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
-		"defendio": defendiendo, "rastro": rastro,
+		"defendio": defendiendo, "rastro": rastro, "robado": robado,
 		"mult_elem": Elementos.mult_recibido(e.elemento_ataque, t)}
 
 

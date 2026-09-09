@@ -11,11 +11,12 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Drenaje"
-descripcion = "Bombea. Se le ve el cuerpo llenarse a tirones mientras a ti se te va, y con cada tirón la herida se abre un poco más."
+descripcion = "Bombea. Se le ve el cuerpo llenarse a tirones mientras a ti se te va: la mitad de lo que te saca se la queda."
 coste_energia = 0.0
 golpes_min = 3
 golpes_max = 4
 dano_mult = 0.6
+robo_vida = 0.5
 efectos = [SubResource("SA_her")]
 fx_estilo = 14
 cooldown = 4

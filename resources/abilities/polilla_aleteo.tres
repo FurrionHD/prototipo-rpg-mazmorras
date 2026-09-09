@@ -5,13 +5,14 @@
 
 [sub_resource type="Resource" id="SA_deb"]
 script = ExtResource("2")
-estado = 4
-prob = 0.5
+estado = 33
+prob = 0.6
+turns = 3
 
 [resource]
 script = ExtResource("1")
 nombre = "Aleteo cegador"
-descripcion = "Se te viene a la cara y bate. No pega: te llena los ojos de polvo y para cuando ves algo, ya no está donde la buscabas."
+descripcion = "Se te viene a la cara y bate. No pega: te llena los ojos de polvo, y a partir de ahí apuntas a bulto."
 coste_energia = 0.0
 dano_mult = 0.7
 efectos = [SubResource("SA_deb")]

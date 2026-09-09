@@ -386,7 +386,11 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Generico: hoy lo alimenta la postura del estoque, manana cualquier buff de esquiva.
 	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
 	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
-	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - attacker.precision + evasion_extra, 0.0, evade_cap)
+	# ACIERTO del atacante mas lo que le pongan sus ESTADOS. La Ceguera va aqui en negativo, con lo
+	# que sube la esquiva del otro sin tocarsela: pega peor EL, contra todo el mundo. Como esto es la
+	# funcion unica de las dos ramas, cegar vale igual contra el jugador que contra un enemigo.
+	var acierto := attacker.precision + attacker.status_precision_flat()
+	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - acierto + evasion_extra, 0.0, evade_cap)
 	# RESIST. CRITICOS del defensor (armadura pesada) baja el crit del atacante.
 	# Defender NO anula el critico: lo deja a la MITAD (DEFEND_CRIT_MULT). El x0.5 va DESPUES del
 	# clamp, sobre la probabilidad ya resuelta, para que reduzca lo que de verdad te iban a sacar.
