@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_res"]
+script = ExtResource("2")
+estado = 32
+prob = 1.0
+turns = 5
+
+[resource]
+script = ExtResource("1")
+nombre = "Antídoto +1"
+descripcion = "El mismo trago con polvo de alas dentro. No corta más fuerte: corta durante más rato, que es lo que hace falta cuando lo que te envenena son diez a la vez."
+turnos = 0
+segundos = 0.0
+es_comida = false
+efectos = [SubResource("SA_res")]
+valor_base = 480
+tier = 2
+color_frasco = Color(0.6, 0.88, 0.5, 1)

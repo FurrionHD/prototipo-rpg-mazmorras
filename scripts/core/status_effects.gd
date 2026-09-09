@@ -41,7 +41,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ESCOLTA,
 	PLATO_GUARDIA, PLATO_BRIO, PLATO_FURIA, PLATO_ARCANO, PLATO_NUCLEO, PLATO_REMEDIO,
 	PLATO_ESTOMAGO, PLATO_FORTUNA,
-	ENRAIZADO }
+	ENRAIZADO,
+	RESGUARDO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -302,6 +303,20 @@ static var _defs: Dictionary = {
 		"id": Id.ENRAIZADO, "nombre": "Enraizado", "icono": "🌱", "color": Color(0.45, 0.62, 0.3),
 		"turns": 2, "enraiza": true, "debuff": true,
 		"descripcion": "Las raíces te agarran los pies. Los brazos los tienes libres; los pies, no.",
+	},
+	# EL ANTIDOTO, y es un BUFF, no una curacion. Un antidoto que solo te quitara el veneno no
+	# valdria de nada donde hace falta: en los pisos donde TODO lo que hay te envenena, te lo
+	# volverian a poner en el mismo turno en que te lo has bebido.
+	#
+	# Por eso hace las dos cosas a la vez, y las dos salen del mismo sitio que ya usa el Mojado con
+	# la quemadura: 'limpia' te quita el que llevas puesto y 'inmune' impide que te pongan otro
+	# mientras dura. No hay codigo nuevo detras de esto -- es la misma pareja de claves.
+	Id.RESGUARDO: {
+		"id": Id.RESGUARDO, "nombre": "Resguardo", "icono": "🧪", "color": Color(0.55, 0.85, 0.45),
+		"turns": 3,
+		"limpia": [Id.VENENO],
+		"inmune": [Id.VENENO],
+		"descripcion": "El veneno que llevabas se corta, y durante un rato el que te echen encima no prende.",
 	},
 	Id.MIEDO: {   # pierde el turno SIEMPRE; al llegarle el turno tira a ver si se DISIPA
 		"id": Id.MIEDO, "nombre": "Miedo", "icono": "😱", "color": Color(0.55, 0.35, 0.7),

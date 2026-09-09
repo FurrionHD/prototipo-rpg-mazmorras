@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/recipe_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/consumables/antidoto.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/materials/esporas_densas.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/materials/humor_ciego.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/materials/moho_simas.tres" id="6"]
+
+[sub_resource type="Resource" id="I_esp"]
+script = ExtResource("2")
+material = ExtResource("4")
+unidades = 2
+
+[sub_resource type="Resource" id="I_hum"]
+script = ExtResource("2")
+material = ExtResource("5")
+unidades = 2
+
+[sub_resource type="Resource" id="I_moh"]
+script = ExtResource("2")
+material = ExtResource("6")
+unidades = 3
+
+[resource]
+script = ExtResource("1")
+resultado = ExtResource("3")
+ingredientes = [SubResource("I_esp"), SubResource("I_hum"), SubResource("I_moh")]
+metadata/_custom_type_script = "res://scripts/items/recipe_data.gd"

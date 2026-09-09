@@ -5626,7 +5626,10 @@ func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	# al final se lo tragaria beber_pocion_fuera y no pasaria nada al pulsar Leer.
 	if c.es_tocho():
 		return leer_tocho(c, pj)
-	if c.es_plato():
+	# El ANTIDOTO va por la misma puerta que el plato aunque se beba: los dos ponen un estado y ya,
+	# y beber_pocion_fuera lo rechazaria de plano -- su primer filtro es "¿te hace falta vida o
+	# mana?", y un antidoto no da ni lo uno ni lo otro.
+	if c.es_plato() or c.es_brebaje_de_estado():
 		return comer_plato(c, pj)
 	return beber_pocion_fuera(c, pj)
 
@@ -5639,7 +5642,7 @@ func usar_consumible(c: ConsumableData, pj: PersonajeData = null) -> bool:
 # aqui —se hace en Combatant.apply_status por la "familia" del estado— para que valga igual comiendo
 # en el mapa que comiendo en mitad de una pelea.
 func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
-	if c == null or not c.es_plato():
+	if c == null or not (c.es_plato() or c.es_brebaje_de_estado()):
 		return false
 	var p: PersonajeData = pj if pj != null else lider()
 	if p == null:
@@ -5655,7 +5658,11 @@ func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
 	# inventario apila por instancia de ConsumableData: sellar la potencia en el plato obligaria a
 	# duplicar el recurso por cada rango y cada plato dejaria de apilar con los demas. La lectura es
 	# "sabes cocinar, tu comida alimenta mas", y sube con el rango como todo lo demas.
-	var escala: float = c.escala_efecto * (1.0 + COCINA_POTENCIA_MAX * cocina_activa())
+	#
+	# El bono del cocinero solo vale para la COMIDA: saber guisar no te hace mejor el antidoto.
+	var escala: float = c.escala_efecto
+	if c.es_plato():
+		escala *= 1.0 + COCINA_POTENCIA_MAX * cocina_activa()
 	for ap in c.efectos:
 		if ap == null:
 			continue
@@ -5663,7 +5670,10 @@ func comer_plato(c: ConsumableData, pj: PersonajeData = null) -> bool:
 			maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), escala)
 	p.estados = StatusEffects.estados_que_salen(c_tmp.statuses)
 	refrescar_cache_estados(p)
-	print("[cocina] %s se come %s" % [p.nombre, c.nombre])
+	if c.es_plato():
+		print("[cocina] %s se come %s" % [p.nombre, c.nombre])
+	else:
+		print("[objeto] %s se bebe %s" % [p.nombre, c.nombre])
 	return true
 
 
@@ -10639,6 +10649,12 @@ const _RECIPE_PATHS_MEDIANAS: Array[String] = [
 	"res://resources/recipes/pocion_mana_t2_1.tres",
 	"res://resources/recipes/pocion_mana_t2_2.tres",
 	"res://resources/recipes/pocion_mana_t2_3.tres",
+	# EL ANTIDOTO. No cura ni da mana: corta el veneno que llevas y te deja inmune un rato (estado
+	# Resguardo). Es el destino de las tres cosas que sueltan los bichos nuevos de los pisos 7-12 y
+	# que si no se quedarian en mercancia -- y cada una va acompañada de su PLANTA, como el resto de
+	# la boticaria.
+	"res://resources/recipes/antidoto_base.tres",
+	"res://resources/recipes/antidoto_1.tres",
 ]
 
 # RECETAS DE COCINA (el Cocinero del pueblo), por tiers como las de la boticaria. Ocho platos, uno

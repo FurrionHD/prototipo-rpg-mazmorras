@@ -220,8 +220,24 @@ func seccion_biblioteca() -> String:
 func es_tomo_sabio() -> bool:
 	return es_tocho() and excelia_magia > 0.0
 
+# SER UN PLATO no es lo mismo que PONER UN ESTADO, aunque hasta ahora fueran la misma cosa: los
+# platos eran lo unico del juego que usaba 'efectos', asi que "tiene efectos" bastaba para
+# reconocerlos. El antidoto es lo segundo sin ser lo primero -- pone un estado y se BEBE -- y sin
+# esta distincion el juego anunciaria que te lo comes, lo metia en la familia excluyente de la
+# comida (tirandote el plato que llevaras puesto) y lo enseñaba con el resumen de un guiso.
+#
+# El por defecto es 'true' para que los diecisiete platos que ya existen sigan siendo platos sin
+# tocarles el .tres: lo declara quien NO lo es.
+@export var es_comida: bool = true
+
 func es_plato() -> bool:
-	return not efectos.is_empty()
+	return es_comida and not efectos.is_empty()
+
+
+# ¿Pone estados al usarse SIN ser comida? (el antidoto). Se bebe como una pocion, pero antes de
+# repartir la cura hay que aplicarle lo suyo -- ver Game.beber_pocion_fuera y Combat._usar_consumible.
+func es_brebaje_de_estado() -> bool:
+	return not es_comida and not efectos.is_empty()
 
 func es_vuelta_pueblo() -> bool:
 	return vuelve_al_pueblo
@@ -285,12 +301,22 @@ func resumen_plato() -> String:
 		var d: Dictionary = StatusEffects.def(int(ap.estado))
 		if d.is_empty():
 			continue
+		# efecto_legible sabe traducir NUMEROS (un +12% de defensa, un 6 de daño por turno), asi que
+		# con un estado que no mueve ninguna cifra -el Resguardo solo limpia y hace inmune- devuelve
+		# vacio y quedaba un "🧪 Resguardo:" sin decir nada. Ahi lo que lo cuenta es su descripcion.
 		var que: String = StatusEffects.efecto_legible(int(ap.estado), 0.0, escala_efecto)
+		if que.strip_edges() == "":
+			que = str(d.get("descripcion", ""))
 		lineas.append("%s %s: %s" % [str(d.get("icono", "")), str(d.get("nombre", "?")), que])
 	var turnos: int = StatusEffects.PLATO_TURNOS
 	for ap in efectos:
 		if ap != null and int(ap.turns) > 0:
 			turnos = int(ap.turns)
 			break
-	lineas.append("Dura %d minutos." % int(round(float(turnos) * 5.0 / 60.0)))
+	# UN PLATO se mide en MINUTOS (dura 20 y lo llevas puesto por el mapa); un brebaje de combate,
+	# en TURNOS. Con la cuenta del plato, un antidoto de 3 turnos anunciaba "dura 0 minutos".
+	if es_comida:
+		lineas.append("Dura %d minutos." % int(round(float(turnos) * 5.0 / 60.0)))
+	else:
+		lineas.append("Dura %d turno%s." % [turnos, "" if turnos == 1 else "s"])
 	return "\n".join(lineas)

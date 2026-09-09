@@ -6865,7 +6865,7 @@ func _accion_objeto() -> void:
 		# El cuanto/en cuantos turnos se va al tooltip: a media anchura solo caben nombre y cantidad.
 		b.text = "%s  x%d" % [cons.nombre, n]
 		# Un PLATO no se reparte en turnos: su ficha ya dice lo que hace y cuanto dura.
-		b.tooltip_text = cons.resumen_plato() if cons.es_plato() \
+		b.tooltip_text = cons.resumen_plato() if (cons.es_plato() or cons.es_brebaje_de_estado()) \
 			else "%s en %d turnos" % [cons.resumen(_player.max_hp, _player.max_mp), cons.turnos]
 		if cons.descripcion != "":
 			b.tooltip_text += "\n\n" + cons.descripcion
@@ -6925,14 +6925,18 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 	# no tiene nada que repartir (turnos = 0), y va por apply_status como todo lo demas: es el que
 	# sabe de la familia excluyente, o sea que comer aqui tira el plato anterior igual que comer por
 	# el mapa. Gasta el turno igual que beber.
-	if cons.es_plato():
+	# El ANTIDOTO entra por aqui con el plato: por dentro hacen lo mismo (poner un estado y gastar el
+	# turno) y lo unico que cambia es como se cuenta. Si cayera al reparto de la pocion de abajo, sus
+	# efectos no se aplicarian nunca -- ese camino solo sabe de vida y mana.
+	if cons.es_plato() or cons.es_brebaje_de_estado():
 		for ap in cons.efectos:
 			if ap == null:
 				continue
 			objetivo.apply_status(int(ap.estado), int(ap.turns), float(ap.magnitud),
 				maxi(1, int(ap.stacks)), false, int(ap.cap), float(ap.mult), cons.escala_efecto)
-		print("[cocina] %s le da %s a %s (en combate)" % [_player.nombre, cons.nombre, objetivo.nombre])
-		_set_log("%s se come %s." % [objetivo.nombre, cons.nombre] if objetivo == _player
+		var verbo: String = "se come" if cons.es_plato() else "se bebe"
+		print("[objeto] %s le da %s a %s (en combate)" % [_player.nombre, cons.nombre, objetivo.nombre])
+		_set_log("%s %s %s." % [objetivo.nombre, verbo, cons.nombre] if objetivo == _player
 			else "%s le da %s a %s." % [_player.nombre, cons.nombre, objetivo.nombre])
 		_update_hp()
 		_fin_de_eleccion()
