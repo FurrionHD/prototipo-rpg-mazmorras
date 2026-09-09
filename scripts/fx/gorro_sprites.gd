@@ -171,18 +171,28 @@ static func _capucha(piezas: Array, esq: Dictionary, cab: Vector3, caida: float)
 	# lineal seguia saliendose en el fotograma de en medio, justo el del cuerpo a 45 grados.
 	var tumbado: float = clampf(absf(caida) / (PI * 0.5), 0.0, 1.0)
 	var largo: float = lerpf(1.0, 0.40, sqrt(tumbado))
-	# La caida por la nuca, primero: va detras y se pinta antes (no hay z-buffer dentro de una capa).
-	# Se recoge con 'largo' igual que el pico: TUMBADO Y DE ESPALDAS es esta masa -- y no el pico --
-	# la que llegaba al borde del lienzo, que es lo que cazaba el validador en 'muerte_4 f4'.
+	# UNA SOLA SILUETA, no tres bultos. La primera version eran tres elipsoides sueltos -- la caida de
+	# la nuca, la copa y un pico -- colocados cerca pero sin solaparse de verdad, y lo que salia era
+	# un muñeco con DOS LOBULOS pegados y un cuerno apuntando al cielo. Textualmente: "los sombreros
+	# tienen tumores".
+	#
+	# El arreglo es de forma, no de tamaño: la caida va con CADENA desde dentro de la copa, asi que
+	# las dos masas comparten volumen y se leen como una sola tela. Y el pico se ha ido: un pico de
+	# capucha cae hacia ATRAS Y ABAJO, y aquel subia -- por eso se veia como un cuerno y no como tela.
+	#
+	# LA CAIDA VA PRIMERO: esta detras y se pinta antes (no hay z-buffer dentro de una capa).
+	# 'largo' la recoge al caerse, igual que la coleta del pelo: tiesa, con el cuerpo tumbado llegaba
+	# al borde del lienzo y el horno la cortaba en seco (lo cazo en 'muerte_4 f4').
+	var dentro: Vector3 = cab + Vector3(0.0, -ATRAS * 0.8, POSA * 0.55)
+	var nuca: Vector3 = cab + Vector3(0.0, -R * (0.30 + 0.34 * largo), -R * 0.34 * largo)
+	PoseJugador.cadena(piezas, esq, dentro, nuca,
+		R * 0.86, R * (0.34 + 0.22 * largo), Tono.TELA_S)
+	# Y LA COPA. Achatada en Y por lo mismo que el ala (la capucha redonda en planta se derramaba sobre
+	# la cara) y sobre todo BIEN ATRAS: es lo unico que abre la capucha por delante.
+	#
+	# ATRAS * 2,2 y no * 0,8: retrasarla en Y la SUBE en pantalla (pantalla_y va con y - z), y eso es
+	# justo lo que descubre la cara de frente sin moverla de sitio de espaldas -- el mismo truco que
+	# usa el casquete del pelo. Con 0,8 la capucha era un casco: tapaba la cara entera.
 	PoseJugador.poner(piezas, esq,
-		cab + Vector3(0.0, -R * 0.75 * largo, -R * 0.30 * largo),
-		Vector3(R * 0.90, R * (0.30 + 0.25 * largo), R * (0.45 + 0.30 * largo)), Tono.TELA_S)
-	# Achatada en Y y algo mas arriba, por lo mismo que el ala y la copa: la capucha redonda en planta
-	# se derramaba sobre la cara.
-	PoseJugador.poner(piezas, esq,
-		cab + Vector3(0.0, -ATRAS * 0.8, POSA * 0.95),
-		Vector3(R * 1.06 + g * 0.5, R * 0.70 + g * 0.3, R * 0.86 + g * 0.4), Tono.TELA)
-	# EL PICO de la capucha, caido hacia atras: es lo que la distingue de un gorro liso desde arriba.
-	var base: Vector3 = cab + Vector3(0.0, -ATRAS, POSA * 0.9)
-	PoseJugador.cadena(piezas, esq, base,
-		base + Vector3(0.0, -R * 1.05 * largo, R * 0.55 * largo), R * 0.52, R * 0.22, Tono.TELA_S)
+		cab + Vector3(0.0, -ATRAS * 2.2, POSA * 0.95),
+		Vector3(R * 1.00 + g * 0.5, R * 0.66 + g * 0.3, R * 0.80 + g * 0.4), Tono.TELA)
