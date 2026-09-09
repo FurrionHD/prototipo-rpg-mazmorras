@@ -466,7 +466,7 @@ func _pintar_meditacion(pj: PersonajeData) -> void:
 		_split.visible = false
 	_montar_capa_med()
 	_capa_med.visible = true
-	_banner.refrescar(pj, _pool_grimorios())
+	_banner.refrescar(pj, _pool_grimorios(), BANNER_NOMBRE)
 	_refrescar_botones_med()
 
 	# Si los detalles estan abiertos, se vuelven a montar: sus probabilidades son LAS DEL PERSONAJE
@@ -1463,6 +1463,20 @@ func _fecha_corta(unix: int) -> String:
 	var t: Dictionary = Time.get_datetime_dict_from_unix_time(unix + bias * 60)
 	return "%02d-%02d %02d:%02d" % [int(t["day"]), int(t["month"]), int(t["hour"]), int(t["minute"])]
 
+
+# EL NOMBRE DE ESTE BANNER, al lado de su pool: las dos cosas son lo que define un banner, y por eso
+# viven juntas y no dentro del cartel (el cartel las pinta, no las decide).
+#
+# ES UN NOMBRE PROPIO, no una formula del tipo "el circulo de <el tomo mas raro>". Se probo derivarlo
+# y no vale: cada banner se llama como se llama, igual que en cualquier gacha, y el siguiente no va a
+# ser "el circulo de" nada.
+#
+# Y NOMBRA A ECLIPSE PORQUE ECLIPSE ES EL DESTACADO. El placeholder decia "la tormenta" y era
+# literalmente falso: Tormenta es legendario (rareza 4), la misma banda que Luz restauradora y Shock
+# termico; el mitico del pool -- el que sale en grande en el cartel -- es Eclipse. Si algun dia entra
+# un mitico nuevo por encima, ESTA LINEA HAY QUE CAMBIARLA A MANO: es la unica del cartel que no se
+# deriva sola, a proposito.
+const BANNER_NOMBRE := "El círculo del eclipse"
 
 # Los hechizos que pueden salir: los que tienen grimorio. Sale del manifiesto y no de escanear la
 # carpeta porque en el .exe un escaneo de res:// no es de fiar (ver Libros).

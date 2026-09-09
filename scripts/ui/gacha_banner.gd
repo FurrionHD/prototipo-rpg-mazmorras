@@ -30,9 +30,11 @@ const Iconos = preload("res://scripts/ui/iconos.gd")
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
 
-# EL NOMBRE DEL BANNER. PLACEHOLDER: el tono de los textos lo decide el, no yo. Puesto aqui solo
-# para que la pantalla no salga con un hueco.
-const BANNER_NOMBRE := "El círculo de la tormenta"
+# EL NOMBRE DEL BANNER NO VIVE AQUI: llega por 'refrescar', al lado del pool. Cada banner tiene
+# NOMBRE PROPIO -- no una formula del tipo "el circulo de <lo mas raro>" --, y el nombre y el pool son
+# las dos mitades de lo mismo: el dia que entre el banner de nivel 2 trae los suyos y esta pantalla no
+# se toca. Ver maestro_menu.BANNER_NOMBRE.
+var _nombre: String = ""
 
 # La medida del lienzo y de la carta grande, sobre las unidades logicas de 1280x720 (project.godot).
 const LIENZO_MARGEN_X := 24.0
@@ -66,9 +68,10 @@ func montar(padre: Control) -> void:
 
 # Repinta con quien medita y con el pool de hoy. Se llama en cada _rebuild: el cartel no guarda
 # estado propio, para que no pueda quedarse enseñando el destacado de otra partida.
-func refrescar(pj: PersonajeData, pool: Array) -> void:
+func refrescar(pj: PersonajeData, pool: Array, nombre: String = "") -> void:
 	_pj = pj
 	_pool = pool
+	_nombre = nombre
 	for h in get_children():
 		remove_child(h)
 		h.queue_free()
@@ -140,7 +143,7 @@ func _montar_texto(padre: Control) -> void:
 	col.add_child(cinta)
 
 	var titulo := Label.new()
-	titulo.text = BANNER_NOMBRE
+	titulo.text = _nombre
 	titulo.add_theme_font_size_override("font_size", 28)
 	titulo.add_theme_color_override("font_color", Color(0.93, 0.94, 0.98))
 	col.add_child(titulo)
