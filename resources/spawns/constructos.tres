@@ -6,24 +6,34 @@
 [ext_resource type="Resource" uid="uid://b0ypqhnwcpnd3" path="res://scenes/actors/enemy/gargola.tres" id="4_garg"]
 [ext_resource type="Resource" uid="uid://cnx0bs3dnh61c" path="res://scenes/actors/enemy/coloso.tres" id="5_colo"]
 
+; LOS CONSTRUCTOS SE VAN AL FONDO. Estaban en los pisos 7-11 y no se sostenia: un bicho hecho de
+; piedra, basalto y metal antiguo no puede ser lo que te encuentras a mitad de la segunda tanda de
+; pisos. La regla es que la DUREZA del material dice la profundidad, asi que cada uno se va al tier
+; que le corresponde y el bloque 7-12 se repuebla con cosas de carne, quitina y moho (ver simas.tres).
+;
+; Golem = T3 (pisos 13-18). Gargola = T5 (25-30). Coloso = T6 (31-36).
+;
+; Los dos ultimos son CONTENIDO APARCADO: hoy el juego se corta en el 12 y no existen ni el equipo ni
+; las cadenas de material de T4 en adelante, asi que no salen. Se quedan aqui, con su piso puesto, y
+; el dia que existan esos pisos aparecen solos sin tocar nada.
 [sub_resource type="Resource" id="E_golem"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("3_golem")
 peso = 55.0
-piso_min = 7
-piso_max = 11
+piso_min = 13
+piso_max = 18
 
 [sub_resource type="Resource" id="E_garg"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("4_garg")
 peso = 15.0
-piso_min = 10
+piso_min = 25
 
 [sub_resource type="Resource" id="E_colo"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("5_colo")
 peso = 15.0
-piso_min = 10
+piso_min = 31
 
 [resource]
 script = ExtResource("1_tabla")

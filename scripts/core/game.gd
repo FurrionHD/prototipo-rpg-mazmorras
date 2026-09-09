@@ -7763,7 +7763,22 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/patata.tres", "res://resources/materials/piedra_sal.tres",
 	"res://resources/materials/pimiento.tres", "res://resources/materials/placa_antigua.tres",
 	"res://resources/materials/puerro_gruta.tres", "res://resources/materials/queso.tres",
-	"res://resources/materials/quitina.tres", "res://resources/materials/raiz_amarga.tres",
+	"res://resources/materials/quitina.tres",
+	# El bloque T2 rehecho: los cuatro bichos nuevos de los pisos 7-12 y sus nucleos, mas los tres
+	# equivalentes que le dan destino a lo que antes solo se vendia.
+	"res://resources/materials/cuero_acorazado.tres",
+	"res://resources/materials/esporas_densas.tres",
+	"res://resources/materials/humor_ciego.tres",
+	"res://resources/materials/polvo_de_alas.tres",
+	"res://resources/materials/quitina_segada.tres",
+	"res://resources/materials/nucleo_acechador.tres",
+	"res://resources/materials/nucleo_chillon.tres",
+	"res://resources/materials/nucleo_miconido.tres",
+	"res://resources/materials/nucleo_polilla.tres",
+	"res://resources/materials/nucleo_profundo.tres",
+	"res://resources/materials/nucleo_sanguijuela.tres",
+	"res://resources/materials/nucleo_segadora.tres",
+	"res://resources/materials/raiz_amarga.tres",
 	"res://resources/materials/raiz_umbria.tres", "res://resources/materials/runa_arcilla.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
@@ -8651,13 +8666,26 @@ const _CUERO_CRUDO := "res://resources/materials/cuero_simple.tres"
 const _CUERO_CURTIDO := "res://resources/materials/cuero_curtido.tres"
 # Las PIELES que se curten, en el mismo orden que _CUEROS (su curtido). Cada bicho suelta la suya:
 # rata / rey rata / jabali en el T1, y araña / bestia acorazada / (el de los pisos hondos) en el T2.
+#
+# HAY MAS DE UNA PIEL POR CASILLA, y no es un descuido. curtido_de() empareja por TIER y BANDA, no
+# por posicion en esta lista, asi que dos pieles distintas de la misma casilla curten al MISMO
+# cuero. Eso es lo que deja que cada bicho suelte lo suyo -- quitina el escarabajo, cuero el
+# chupasimas -- sin que ninguno se quede con un drop que no sirve para nada y sin duplicar la
+# cadena del peletero. Para meter otra equivalencia basta con el .tres y esta linea.
 const _CUEROS_CRUDOS: Array = [
 	"res://resources/materials/cuero_simple.tres",       # T1 base  <- rata
 	"res://resources/materials/cuero_curado.tres",       # T1 +1    <- rey rata
 	"res://resources/materials/cuero_brunido.tres",      # T1 +2    <- jabali
 	"res://resources/materials/cuero_reforzado.tres",    # T2 base  <- araña
-	"res://resources/materials/cuero_endurecido.tres",   # T2 +1    <- bestia acorazada
-	"res://resources/materials/cuero_placado.tres",      # T2 +2    <- bicho de los pisos hondos
+	"res://resources/materials/quitina.tres",            # T2 base  <- escarabajo (equivalente)
+	"res://resources/materials/cuero_endurecido.tres",   # T2 +1    <- chupasimas
+	"res://resources/materials/cuero_placado.tres",      # T2 +2    <- acechador
+	"res://resources/materials/quitina_segada.tres",     # T2 +2    <- segadora (equivalente)
+	# T3: existen las PIELES pero todavia no sus curtidos, asi que curtido_de() devuelve null y el
+	# peletero no las ofrece. Se declaran ya para que el dia que entren los curtidos T3 se emparejen
+	# solos por tier+banda, que es justo lo que hace esta tabla.
+	"res://resources/materials/cuero_t3.tres",           # T3 base  <- minotauro
+	"res://resources/materials/cuero_acorazado.tres",    # T3 +1    <- bestia acorazada
 ]
 # Las CORREAS, por TIER, indexadas como _CUEROS: son los tirantes de la mochila, y cada tier se cose
 # con las suyas. Una correa sale del CURTIDO BASE de su mismo tier (ver correa_de_tier), asi que la
@@ -9257,18 +9285,29 @@ const _NUCLEOS: Array = [
 	"res://resources/materials/nucleo_slime_abisal.tres",
 	"res://resources/materials/nucleo_trent.tres",
 	"res://resources/materials/nucleo_rey_slime.tres",
-	# T2 armas
+	# T2 armas: 0..3, 3..6, 6..9, 9..12
 	"res://resources/materials/nucleo_arana.tres",
+	"res://resources/materials/nucleo_profundo.tres",     # equivalente del de araña
 	"res://resources/materials/nucleo_ciempies.tres",
+	"res://resources/materials/nucleo_chillon.tres",      # equivalente del de ciempiés
 	"res://resources/materials/nucleo_aberracion.tres",
-	"res://resources/materials/nucleo_gargola.tres",
-	# T2 armadura
+	"res://resources/materials/nucleo_polilla.tres",
+	# T2 armadura: 0..3, 3..6, 6..9, 9..12
 	"res://resources/materials/nucleo_escarabajo.tres",
-	"res://resources/materials/nucleo_golem.tres",
-	"res://resources/materials/nucleo_bestia.tres",
-	"res://resources/materials/nucleo_coloso.tres",
+	"res://resources/materials/nucleo_miconido.tres",
+	"res://resources/materials/nucleo_sanguijuela.tres",
+	"res://resources/materials/nucleo_segadora.tres",
+	"res://resources/materials/nucleo_acechador.tres",    # equivalente del de segadora
 	# T2 techo global
 	"res://resources/materials/nucleo_minotauro.tres",
+	# T3+ APARCADOS. Sus bichos se fueron a los pisos hondos (ver constructos.tres) y estos se
+	# fueron con ellos: siguen en la lista porque una partida vieja puede tener uno en el baul y
+	# escalera_nucleos tiene que saber reconocerlo, pero su tier_equipo ya no es 2 y por eso
+	# nucleo_vale los descarta contra cualquier pieza de las que hay hoy.
+	"res://resources/materials/nucleo_golem.tres",        # T3 armadura
+	"res://resources/materials/nucleo_bestia.tres",       # T3 armadura
+	"res://resources/materials/nucleo_gargola.tres",      # T5 arma
+	"res://resources/materials/nucleo_coloso.tres",       # T6 armadura
 ]
 
 # La escalera de nucleos de ESTA pieza (arma o armadura), ordenada por la banda que cubre cada

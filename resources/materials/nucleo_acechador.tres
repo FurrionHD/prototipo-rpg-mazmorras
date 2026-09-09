@@ -4,20 +4,20 @@
 
 [resource]
 script = ExtResource("1")
-id = &"nucleo_gargola"
-nombre = "Núcleo de gárgola"
-descripcion = "Piedra que pesa como el hierro y guarda el frío de la altura. En la hoja adecuada, cada golpe cae como si lo tirara una cornisa."
+id = &"nucleo_acechador"
+nombre = "Núcleo de acechador"
+descripcion = "Compacto y sin una grieta, como el bicho. Hace lo mismo que el de la segadora y por eso los dos valen para la misma placa: cambia de qué te lo trajiste."
 familia = 1
 tipo = 4
 tier = 5
 exigencia = 0.0
-peso_base = 1.0
+peso_base = 0.7
 valor_base = 700
-color = Color(0.4, 0.42, 0.45, 1)
+color = Color(0.3, 0.3, 0.36, 1)
 mejora_max = 12
 mejora_min = 9
-uso_mejora = 1
-tier_equipo = 5
-piso_min = 25
+uso_mejora = 2
+tier_equipo = 2
+piso_min = 10
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

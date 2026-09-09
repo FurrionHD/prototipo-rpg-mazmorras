@@ -13,11 +13,14 @@ peso = 55.0
 piso_min = 8
 piso_max = 12
 
+; LA BESTIA ACORAZADA SE VA AL T3/T4 (piso 16). Por lo mismo que los constructos: va blindada de
+; placa, y eso no es un bicho del piso 8. De paso su piel deja de ser la T2 +1 -- ahora la trae el
+; chupasimas -- y pasa a ser LA PIEL T3, que era justo la que faltaba para poder forjar armadura T3.
 [sub_resource type="Resource" id="E_best"]
 script = ExtResource("2_entrada")
 enemy_data = ExtResource("4_best")
 peso = 45.0
-piso_min = 8
+piso_min = 16
 
 [sub_resource type="Resource" id="E_acech"]
 script = ExtResource("2_entrada")

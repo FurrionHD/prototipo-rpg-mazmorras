@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nucleo_profundo"
+nombre = "Núcleo profundo"
+descripcion = "Un grumo denso del fondo de un slime de los pisos hondos. Sigue frío horas después de sacarlo."
+familia = 1
+tipo = 4
+tier = 2
+exigencia = 0.0
+peso_base = 0.7
+valor_base = 250
+color = Color(0.28, 0.4, 0.5, 1)
+mejora_max = 3
+mejora_min = 0
+uso_mejora = 1
+tier_equipo = 2
+piso_min = 7
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

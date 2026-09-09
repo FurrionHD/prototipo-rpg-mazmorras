@@ -50,11 +50,15 @@ tabla = ExtResource("8_aracn")
 peso = 45.0
 piso_min = 7
 
+; LA PUERTA DE LA FAMILIA TAMBIEN SUBE, no solo la de sus bichos. Si aqui se quedara en 7 con los
+; constructos ya mudados al 13, la ruleta elegiria "Constructos" en el piso 8, entraria en una tabla
+; sin nada disponible y elegir() devolveria null -- o sea un bicho MENOS en el piso, en silencio y
+; sin error. Las dos puertas o ninguna.
 [sub_resource type="Resource" id="F_const"]
 script = ExtResource("2_entrada")
 tabla = ExtResource("9_const")
 peso = 38.0
-piso_min = 7
+piso_min = 13
 
 [sub_resource type="Resource" id="F_best"]
 script = ExtResource("2_entrada")

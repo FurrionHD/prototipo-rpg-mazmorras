@@ -4,20 +4,20 @@
 
 [resource]
 script = ExtResource("1")
-id = &"nucleo_golem"
-nombre = "Núcleo de gólem"
-descripcion = "Un pedazo de arcilla cocida que aún guarda calor y un runa medio borrada. Lo que mantenía al gólem en pie ahora sostiene tu armadura."
+id = &"nucleo_miconido"
+nombre = "Núcleo de miconido"
+descripcion = "El bulbo del que sale todo el hongo. Late despacio, y mientras late la placa que sujeta no se agrieta."
 familia = 1
 tipo = 4
 tier = 3
 exigencia = 0.0
-peso_base = 0.9
+peso_base = 0.7
 valor_base = 400
-color = Color(0.6, 0.45, 0.3, 1)
+color = Color(0.5, 0.45, 0.28, 1)
 mejora_max = 6
 mejora_min = 3
 uso_mejora = 2
-tier_equipo = 3
-piso_min = 13
+tier_equipo = 2
+piso_min = 7
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"

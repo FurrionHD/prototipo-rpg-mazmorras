@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"quitina_segada"
+nombre = "Quitina de guadaña"
+descripcion = "La lámina del filo de una segadora. Es quitina, pero con la veta apretada de tanto cortar: el peletero la trabaja como la placada y sale la misma pieza, más ligera."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 1.1
+valor_base = 360
+mejora_min = 9
+mejora_max = 15
+color = Color(0.5, 0.44, 0.28, 1)
+piso_min = 10
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cuero_acorazado"
+nombre = "Piel acorazada"
+descripcion = "Cuero de bestia de placa: viene con las escamas todavía prendidas y hay que arrancarlas una a una antes de curtir. Lo que queda debajo no lo pasa una punta."
+familia = 0
+tipo = 3
+tier = 3
+exigencia = 0.0
+peso_base = 3.4
+valor_base = 340
+mejora_min = 3
+mejora_max = 9
+color = Color(0.34, 0.29, 0.3, 1)
+piso_min = 16
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

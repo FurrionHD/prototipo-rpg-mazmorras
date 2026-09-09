@@ -4,18 +4,18 @@
 
 [resource]
 script = ExtResource("1")
-id = &"quitina"
-nombre = "Quitina lustrosa"
-descripcion = "Placas del caparazón, ligeras y con un brillo aceitoso. El peletero las trabaja igual que una piel: ablandadas y cosidas dan el mismo cuero reforzado, y pesan la mitad."
+id = &"humor_ciego"
+nombre = "Humor ciego"
+descripcion = "El líquido de los ojos que el chillón ya no usa. Nunca vio nada y por eso está limpio: es la base más clara que hay para una poción que no admite turbios."
 familia = 0
-tipo = 3
+tipo = 1
 tier = 2
 exigencia = 0.0
-peso_base = 0.8
-valor_base = 150
+peso_base = 0.4
+valor_base = 130
 mejora_min = 0
 mejora_max = 3
-color = Color(0.35, 0.42, 0.3, 1)
-piso_min = 7
+color = Color(0.45, 0.52, 0.58, 1)
+piso_min = 8
 piso_max = 0
 metadata/_custom_type_script = "res://scripts/items/material_data.gd"
