@@ -238,8 +238,33 @@ func _probar_secciones() -> void:
 		int(Game.consumables.get(g, 0)) == 1)
 	# Y uno SIN leer entra como siempre: la regla es "ya leído", no "es un tocho".
 	Game.biblioteca.clear()
+	Game.consumables.clear()
 	Game.add_consumable(relleno, 1)
 	_ok("un relleno SIN leer entra normal", int(Game.consumables.get(relleno, 0)) == 1)
+
+	# EL TOPE DE UNA COPIA, y SOLO para las curiosidades. Una segunda no sirve ni para otro personaje
+	# (la biblioteca es de la PARTIDA), asi que se vende sola. Los otros dos si se acumulan: el
+	# grimorio es la unica forma de enseñar el mismo hechizo a varios del grupo, y el sabio da excelia
+	# cada vez que se lee.
+	print("\n-- Solo se acumula lo que se reutiliza --")
+	Game.money = 0
+	var pago2: int = Game.add_consumable(relleno, 1)
+	_ok("una curiosidad repetida NO se acumula (sigue habiendo 1)",
+		int(Game.consumables.get(relleno, 0)) == 1)
+	_ok("y la de más se vende (%d monedas)" % pago2, pago2 > 0 and Game.money == pago2)
+	# Y si llegan VARIAS de golpe con la bolsa vacía: entra una y se venden las demás.
+	Game.consumables.clear()
+	Game.money = 0
+	var pago3: int = Game.add_consumable(relleno, 4)
+	_ok("de cuatro de golpe entra UNA", int(Game.consumables.get(relleno, 0)) == 1)
+	_ok("y se venden las otras tres", pago3 == Game.precio_venta_consumible(relleno) * 3)
+
+	Game.consumables.clear()
+	Game.add_consumable(sabio, 3)
+	_ok("los tomos de sabiduría SÍ se acumulan (dan excelia cada vez)",
+		int(Game.consumables.get(sabio, 0)) == 3)
+	Game.add_consumable(g, 3)
+	_ok("y los grimorios también (uno por compañero)", int(Game.consumables.get(g, 0)) == 3)
 
 	var cuenta := {"Grimorios": 0, "Sabiduría": 0, "Curiosidades": 0}
 	var raras: Array = []

@@ -5533,26 +5533,53 @@ func en_pueblo() -> bool:
 # habia que ir vendiendo a mano de uno en uno. Sin esto, media pestaña de consumibles eran tomos ya
 # leidos.
 #
-# SOLO EL RELLENO YA LEIDO, y el criterio es 'tocho_aporta_algo' -- el MISMO que usa el gacha para no
-# repartirlos. Un grimorio y un tomo de sabiduria SIEMPRE entran aunque los tengas leidos, y cada uno
-# por su motivo (el grimorio se lo puede estudiar otro del grupo; el sabio da excelia cada vez).
+# DOS MOTIVOS PARA QUE UN LIBRO SE VENDA SOLO, y no son el mismo:
+#
+#   1. YA ESTA LEIDO. Criterio: 'tocho_aporta_algo'. Un grimorio y un tomo de sabiduria SIEMPRE
+#      entran aunque los tengas leidos, y cada uno por su motivo -- el grimorio se lo puede estudiar
+#      OTRO del grupo, y el sabio suelta excelia CADA VEZ que se lee.
+#
+#   2. YA TIENES UNO EN LA BOLSA, y es una CURIOSIDAD. Ahi el tope es UNA copia: leerla la mete en la
+#      biblioteca y a partir de eso la segunda no sirve para nada, ni siquiera para otro personaje
+#      (la biblioteca es de la partida, no de nadie -- ver Game.biblioteca).
+#
+#      Y ESTE TOPE ES SOLO PARA LAS CURIOSIDADES, a proposito. Un grimorio repetido se acumula porque
+#      es la unica forma de enseñar el mismo hechizo a varios compañeros; un tomo de sabiduria se
+#      acumula porque cada lectura vale excelia. Poner el tope a los tres se cargaria las dos cosas.
 #
 # Va aqui, en el embudo por el que entra TODO consumible, y no en el gacha ni en la recogida: si se
 # pusiera en cada sitio, el dia que alguien añada una via nueva (un cofre, un encargo, un regalo por
 # red) se olvidaria de ponerlo y la bolsa volveria a llenarse por ahi.
 #
-# Devuelve las MONEDAS pagadas (0 si el objeto entro normal), por si quien llama quiere decir algo.
+# Devuelve las MONEDAS pagadas (0 si entro todo). Si llegan varios de golpe y solo cabe uno, entra
+# ese y se venden los demas.
 func add_consumable(c: ConsumableData, n: int = 1) -> int:
-	if c == null:
+	if c == null or n <= 0:
 		return 0
-	if n > 0 and not tocho_aporta_algo(c):
-		var pago: int = precio_venta_consumible(c) * n
-		ingresar(pago)
-		print("[libro] '%s' ya está en la biblioteca: se vende por %d." % [c.nombre, pago])
-		_aviso_recogida("%s (ya leído)  +%d monedas" % [c.nombre, pago], n, "")
-		return pago
-	consumables[c] = int(consumables.get(c, 0)) + n
-	return 0
+	var caben: int = n
+	var motivo: String = ""
+	if not tocho_aporta_algo(c):
+		caben = 0
+		motivo = "ya leído"
+	elif _tope_una_copia(c):
+		caben = maxi(0, 1 - int(consumables.get(c, 0)))
+		motivo = "ya tienes uno"
+	var sobran: int = n - caben
+	if caben > 0:
+		consumables[c] = int(consumables.get(c, 0)) + caben
+	if sobran <= 0:
+		return 0
+	var pago: int = precio_venta_consumible(c) * sobran
+	ingresar(pago)
+	print("[libro] '%s' (%s): se venden %d por %d." % [c.nombre, motivo, sobran, pago])
+	_aviso_recogida("%s (%s)  +%d monedas" % [c.nombre, motivo, pago], sobran, "")
+	return pago
+
+
+# ¿Este libro esta limitado a UNA copia en la bolsa? Solo las curiosidades: ver el motivo 2 de
+# add_consumable. Un grimorio (lleva hechizo) y un tomo de sabiduria (da excelia) no lo estan.
+func _tope_una_copia(c: ConsumableData) -> bool:
+	return c != null and c.es_tocho() and not c.es_tomo_sabio()
 
 # Quita hasta n unidades de un consumible; devuelve cuantas quito de verdad (para el cofre multi).
 func quitar_consumible(c: Resource, n: int) -> int:
