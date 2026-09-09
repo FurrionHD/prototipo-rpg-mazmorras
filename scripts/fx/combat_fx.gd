@@ -102,6 +102,20 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 #   MIRADA    un OJO que se abre en el lanzador y suelta una onda hacia el objetivo
 #   LATIGAZO  verdugones de azote que aparecen SOBRE EL GOLPEADO
 #
+# Y LOS DOS DE LOS HONGOS (112-113), que se añadieron con el miconido:
+#   NUBE_ESPORAS  una nube de polvo CASI BLANCO que se abre y SE QUEDA posandose
+#   MICELIO       un cordon blanco que sube del suelo y se enrosca en la pierna
+#
+# LA NUBE ES EL HUECO MAS VIEJO DE ESTA LISTA. Habia ya DOS habilidades de nube en el juego -- la
+# Bocanada del miconido y la Nube de esporas de la polilla -- y las dos pedian PONZONA, que es la
+# dentellada de queliceros de la araña: soltabas una nube que cubria la fila entera y lo que se veia
+# era un mordisco. No es que estuviera mal elegido, es que no habia ninguna nube que elegir.
+#
+# Se diseña de una vez PARA LAS DOS: el color sale casi blanco con solo un punto del tono del bicho,
+# asi que el miconido la suelta con un dejo pardo y la polilla, blanca. Y el tamaño sale de
+# _radio_grupo, no de 'r' a secas -- al contrario que el vapor del Shock termico, que es la otra
+# nube del juego y NO crece con a cuantos coge.
+#
 # Y DEL 35 EN ADELANTE, LO DEL JUGADOR. Hasta ahora TODO lo suyo iba con MELEE, o sea sin dibujo:
 # daba lo mismo el arma que llevaras y la habilidad que gastaras, era el mismo empujon de tarjeta.
 # Cada arma tiene su gesto (lo pide su tipo, ver FX_ARMA) y cada habilidad puede pedir el suyo por
@@ -298,7 +312,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		POSTURA_RODELA = 102, ESCOLTA_FX = 103, MURO_GUARDIAN = 104,
 		SHOCK_TERMICO = 105, SHOCK_VAPOR = 106,
 		LUZ_ESTALLIDO = 107, SOMBRA_VORAGINE = 108, ECLIPSE = 109,
-		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111 }
+		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111,
+		NUBE_ESPORAS = 112, MICELIO = 113 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -408,6 +423,10 @@ const T_VUELO := {
 	# La CURACION nace encima del que se cura, no viaja. Un pelin de adelanto para que el halo ya
 	# este abierto cuando sube la barra de vida. (Y un 0.0 aqui seria "no se dibuja nada".)
 	Estilo.CURACION_LUZ: 0.12, Estilo.CURACION_LUZ_MAYOR: 0.14,
+	# LOS DE LOS HONGOS. Ninguno viaja: la nube brota encima del alcanzado y el micelio sale del
+	# suelo, asi que su vuelo es solo el ADELANTO con el que empieza a dibujarse. La nube lo lleva
+	# largo porque tiene que verse ABRIRSE antes del impacto -- ahi esta toda la habilidad.
+	Estilo.NUBE_ESPORAS: 0.20, Estilo.MICELIO: 0.10,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
@@ -1949,7 +1968,12 @@ const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo
 	Estilo.MOLINETE, Estilo.SEGAR, Estilo.GRITO_GUERRA,
 	# Las tres del martillo que sacuden el SUELO. Un terremoto es UNO y coge a los que coge: pintar
 	# uno por bicho serian tres temblores pequeños al lado, que es justo lo contrario.
-	Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.TEMBLOR_SUELO]
+	Estilo.GOLPE_SISMICO, Estilo.ONDA_EXPANSIVA, Estilo.TEMBLOR_SUELO,
+	# LA NUBE DE ESPORAS, por lo mismo: es UNA nube que cubre a los que cubre. Pintada por victima
+	# saldrian tres nubecitas pequeñas una al lado de otra, que es justo lo contrario de lo que dice
+	# la habilidad de la polilla ("no hay donde apartarse"). El MICELIO no va aqui: es un latigazo a
+	# uno, y cada uno se lleva el suyo.
+	Estilo.NUBE_ESPORAS]
 
 func _marcar_efectos_de_grupo() -> void:
 	var por_tanda: Dictionary = {}   # "tanda:estilo" -> [indices de la cola]

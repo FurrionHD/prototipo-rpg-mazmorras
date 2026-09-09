@@ -66,6 +66,11 @@ static var GENERADORES_POR_NOMBRE := {
 	# ARBOL. Ahi ni siquiera hay una familia mal elegida que aprovechar -- NINGUNA quiere decir
 	# literalmente que no se parece a nada, asi que por fuerza va por nombre.
 	&"aberracion": AberracionSprites,
+	# Y EL MICONIDO, que es el tercero de familia NINGUNA -- la comparte con el Trent y la Aberracion,
+	# o sea con un ARBOL y con un pegote de tentaculos. Hasta ahora se dibujaba con el generador del
+	# trent, asi que un hongo andante salia con forma de arbol; y no era un despiste, es que sin un
+	# generador propio no habia otra cosa que prestarle.
+	&"miconido": MiconidoSprites,
 	&"arana": AranaSprites,
 	&"escarabajo": EscarabajoSprites,
 	&"ciempies": CiempiesSprites,

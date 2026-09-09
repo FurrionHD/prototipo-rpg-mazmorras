@@ -15,5 +15,6 @@ descripcion = "Del pie le sale un cordón blanco, fino como un hilo y duro como 
 coste_energia = 0.0
 dano_mult = 1.25
 efectos = [SubResource("SA_rai")]
-fx_estilo = 34
+fx_estilo = 113
+fx_anim = &"micelio"
 cooldown = 3

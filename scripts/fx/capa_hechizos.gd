@@ -145,7 +145,8 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.MARTILLO_GUERRA, CombatFX.Estilo.TEMBLOR_SUELO, \
 		CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO, \
 		CombatFX.Estilo.SELLO_ARCANO, \
-		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO:
+		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO, \
+		CombatFX.Estilo.NUBE_ESPORAS, CombatFX.Estilo.MICELIO:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
@@ -442,6 +443,13 @@ func _vida(e: Dictionary) -> float:
 		return float(e["dur"]) + COLETA_ESCOLTA
 	if es == CombatFX.Estilo.MURO_GUARDIAN:
 		return float(e["dur"]) + COLETA_MURO_GUARDIAN
+	# LOS HONGOS. Las dos llevan coleta LARGA, y es lo que las define: una nube de esporas no pasa, se
+	# QUEDA flotando ("basta con estar dentro"), y un cordon de micelio no azota, se ENGANCHA. Con la
+	# coleta corta de 0,12 las dos se leerian como un golpe que pasa, que es justo lo contrario.
+	if es == CombatFX.Estilo.NUBE_ESPORAS:
+		return float(e["dur"]) + COLETA_ESPORAS
+	if es == CombatFX.Estilo.MICELIO:
+		return float(e["dur"]) + COLETA_MICELIO
 	var extra: float = 0.18 if _es_rayo(es) else 0.12
 	return float(e["dur"]) + extra
 
@@ -562,6 +570,8 @@ func _draw() -> void:
 			CombatFX.Estilo.POSTURA_RODELA: _pintar_postura_rodela(e)
 			CombatFX.Estilo.ESCOLTA_FX: _pintar_escolta(e)
 			CombatFX.Estilo.MURO_GUARDIAN: _pintar_muro_guardian(e)
+			CombatFX.Estilo.NUBE_ESPORAS: _pintar_esporas(e)
+			CombatFX.Estilo.MICELIO: _pintar_micelio(e)
 
 
 # BOLA DE FUEGO que vuela acelerando (u*u: sale de la mano despacio y llega lanzada), con estela
@@ -740,6 +750,164 @@ func _pintar_vapor(b: Vector2, rg: float, w: float, semilla: float, agua: Color)
 		var ang2: float = TAU * float(i) / 7.0 + semilla * 1.7
 		var d: Vector2 = Vector2(cos(ang2), sin(ang2)) * rg * (0.9 + 2.6 * w)
 		draw_circle(b + d, maxf(1.5, rg * 0.11 * (1.0 - w)), Color(agua.r, agua.g, agua.b, 1.0 - w))
+
+
+# ============================================================
+#  LOS HONGOS: LA NUBE DE ESPORAS Y EL MICELIO
+# ============================================================
+# Los dos entraron con el miconido de los pisos 7-12. Ver la nota del enum en CombatFX: hasta hoy las
+# dos habilidades de NUBE del juego (la Bocanada del miconido y la Nube de la polilla) se pintaban
+# con PONZONA, que es una dentellada de araña -- no habia ninguna nube que elegir.
+
+# Cuanto se quedan despues del impacto. Largas las dos a proposito, y es lo que las define: la nube
+# no pasa, SE POSA; el micelio no azota, se ENGANCHA.
+const COLETA_ESPORAS := 0.55
+const COLETA_MICELIO := 0.48
+
+
+# LA NUBE DE ESPORAS. Se abre de golpe desde el centro y luego se queda, deshilachandose y bajando.
+#
+# ESTA HECHA PARA DOS BICHOS, no para uno: la suelta el miconido (esporas pardas) y la polilla
+# (polvo de alas blanco). Por eso el polvo se pinta CASI BLANCO y el color del bicho entra solo como
+# un tinte del 22%: asi la del miconido tira a parda y la de la polilla sale blanca, con un solo
+# estilo y sin un 'if' por bicho.
+#
+# Y EL TAMAÑO SALE DE _radio_grupo, no de 'r' a secas. Es lo que la separa del vapor del Shock
+# termico -- que es la otra nube del juego y NO crece con a cuantos coge -- y es justo lo que estas
+# dos habilidades necesitan: las dos son de area, y la de la polilla llega a la fila entera
+# ("no hay donde apartarse"). Ademas esta en _ESTILOS_DE_GRUPO, o sea que se pinta UNA para todos.
+func _pintar_esporas(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	var col: Color = e["col"]
+	# El polvo: blanco sucio con un punto del tono del bicho.
+	var polvo: Color = Color(0.94, 0.93, 0.88).lerp(col, 0.22)
+	# EL TAMAÑO, MEDIDO Y NO A OJO. Con 0,62 la nube salia con 122 px de radio sobre una tarjeta de 96
+	# de ancho: no cubria al objetivo, cubria la pantalla, y a ese tamaño las bolas del polvo se leian
+	# una a una -- un racimo de globos grises. Una nube tiene que ser algo MAS ancha que a quien tapa,
+	# no cuatro veces.
+	var rg: float = _radio_grupo(e, 0.30, 24.0)
+	# 'w' recorre la vida entera contando el vuelo: la nube tiene que verse ABRIRSE antes de que
+	# llegue el daño, que es donde esta toda la habilidad.
+	var w: float = clampf(t / maxf(0.01, dur + COLETA_ESPORAS), 0.0, 1.0)
+	# LA APERTURA es rapida y luego se frena: el polvo sale de golpe y despues solo flota. Con una
+	# rampa lineal la nube se leia como un anillo creciendo, o sea como una onda de choque.
+	var abre: float = sqrt(w)
+	# Y SE DESVANECE TARDE. Hasta el 0,55 esta a plena opacidad -- lo que dice que se QUEDA -- y solo
+	# entonces empieza a irse. Bajando desde el principio pasa por delante y no cubre nada.
+	var alfa: float = 1.0 if w < 0.55 else 1.0 - (w - 0.55) / 0.45
+
+	# EL SOPLIDO inicial, corto: el fogonazo palido del momento en que revienta.
+	if w < 0.18:
+		draw_circle(b, rg * (0.30 + 1.1 * w), Color(polvo.r, polvo.g, polvo.b, (0.18 - w) * 3.0))
+
+	# LA NUBE: catorce bolas a distancias y tamaños desiguales, abriendose. Deshilachada a proposito,
+	# como el vapor: un disco limpio se lee como una explosion, y esto tiene que leerse como algo que
+	# se expande y SE QUEDA. Y BAJA un poco segun se abre -- el polvo pesa, y es lo que dice que se
+	# esta posando en vez de subiendo como humo.
+	# MUCHAS Y PEQUEÑAS, Y CON POCO ALFA CADA UNA. Es POLVO: la densidad tiene que salir de que se
+	# SOLAPEN, no de que cada bola sea opaca. Con catorce bolas gordas a 0,42 se veian las catorce
+	# bolas, no la nube.
+	for i in 22:
+		var ang: float = TAU * float(i) / 22.0 + g
+		# EL DESFASE ARRANCA CASI EN CERO Y NO A MEDIO RADIO. Con todas a partir del 0,55 del radio la
+		# nube salia HUECA -- un donut de polvo con un agujero negro justo encima del objetivo, que es
+		# el unico sitio que de verdad tiene que tapar. Repartidas desde el centro hasta el borde, el
+		# medio se llena solo por acumulacion.
+		var desfase: float = 0.12 + 1.00 * absf(sin(float(i) * 2.7 + g))
+		var dist: float = rg * (0.20 + 1.05 * abre) * desfase
+		var rp: float = rg * (0.16 + 0.20 * abre) * (0.6 + 0.6 * absf(cos(float(i) * 1.9 + g)))
+		var p: Vector2 = b + Vector2(cos(ang), sin(ang)) * dist + Vector2(0.0, rg * 0.26 * w * w)
+		draw_circle(p, rp, Color(polvo.r, polvo.g, polvo.b, 0.30 * alfa))
+	# Y el cuerpo central, que es lo que de verdad tapa.
+	draw_circle(b + Vector2(0.0, rg * 0.20 * w * w), rg * (0.30 + 0.62 * abre),
+		Color(polvo.r, polvo.g, polvo.b, 0.26 * alfa))
+
+	# LAS MOTAS QUE SE POSAN: puntos sueltos y opacos cayendo, que duran mas que la nube. Son lo que
+	# dice que esto no se ha disipado -- que sigue ahi, en el aire y encima de ti. Sin ellas la nube
+	# se desvanece del todo y la habilidad se lee como un humo decorativo.
+	for i in 9:
+		var a2: float = TAU * float(i) / 9.0 + g * 1.7
+		var cae: float = w * w
+		var pm: Vector2 = b + Vector2(cos(a2), sin(a2)) * rg * (0.5 + 1.5 * abre) \
+			+ Vector2(sin(g + float(i)) * rg * 0.12, rg * (0.10 + 1.05 * cae))
+		draw_circle(pm, maxf(1.5, rg * 0.075 * (1.0 - 0.4 * w)),
+			Color(polvo.r, polvo.g, polvo.b, 0.90 * (1.0 - w * 0.75)))
+
+
+# EL MICELIO: el cordon del miconido. No es un latigazo (que es lo que reproducia hasta hoy, o sea
+# el ataque basico de la Aberracion, verdugones de tentaculo sobre la carne): es "un cordon blanco,
+# fino como un hilo y duro como un alambre, que te cruza la pierna y se queda enganchado".
+#
+# Asi que SUBE DEL SUELO, no llega por el aire, y no deja marca: se ENROSCA. Se dibuja a la altura de
+# las PIERNAS del golpeado, con un par de vueltas -- es el par visual del Enraizado que aplica.
+func _pintar_micelio(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	# A LA ALTURA DE LAS PIERNAS, no del pecho: la habilidad dice "te cruza la pierna". Ahi ademas no
+	# se pisa con el numero de daño, que sale por arriba.
+	var pie: Vector2 = b + Vector2(0.0, caja * 0.42)
+	var hilo := Color(0.93, 0.92, 0.86)
+	# UN SOLO RELOJ PARA LAS TRES PARTES, y no uno por cada una. El primer intento tenia un 'v' que
+	# arrancaba en el impacto y un 'sale' que corria durante el vuelo, y con dos relojes distintos las
+	# vueltas ya estaban dibujadas en el fotograma CERO -- o sea que el cordon llegaba a un nudo que ya
+	# estaba hecho. Con uno solo, el orden se lee en la propia cuenta: primero llega, luego aprieta.
+	var w: float = clampf(t / maxf(0.01, dur + COLETA_MICELIO), 0.0, 1.0)
+	var alfa: float = 1.0 if w < 0.62 else 1.0 - (w - 0.62) / 0.38
+	if alfa <= 0.0:
+		return
+	var sale: float = clampf(w / 0.30, 0.0, 1.0)              # el cordon llega en el primer tercio
+	var aprieta: float = clampf((w - 0.26) / 0.44, 0.0, 1.0)  # y luego se enrosca
+
+	# EL CORDON SUBIENDO DEL SUELO. Dos hilos que nacen JUSTO DEBAJO del golpeado y suben hasta la
+	# pierna. Van combados hacia fuera: un hilo recto se lee como una cuerda tirada, y este TIRA.
+	#
+	# NACEN CERCA, y esto hubo que corregirlo mirando: a caja·1,5 de distancia (105 px) arrancaban
+	# fuera de la pantalla y lo que se veia era una raya casi horizontal cruzando el ancho entero --
+	# no un cordon que sube del suelo, una cuerda tendida. Lo que dice "del suelo" es que venga de
+	# ABAJO, no de lejos.
+	for k in 2:
+		var lado: float = 1.0 if k == 0 else -1.0
+		# Y NO MUY ABAJO: a caja·0,80 el arranque se salia por debajo de la tarjeta y el cordon aparecia
+		# cortado, naciendo de la nada en el borde de la pantalla.
+		var desde: Vector2 = pie + Vector2(lado * caja * (0.50 + 0.16 * absf(sin(g + float(k)))),
+			caja * (0.46 + 0.12 * absf(cos(g + float(k)))))
+		var pts := PackedVector2Array()
+		for i in 10:
+			var s: float = float(i) / 9.0
+			var p: Vector2 = desde.lerp(pie, s * sale)
+			p.x += lado * sin(s * PI) * caja * 0.08      # se arquea hacia fuera
+			pts.append(p)
+		draw_polyline(pts, Color(hilo.r, hilo.g, hilo.b, 0.85 * alfa), maxf(2.0, caja * 0.05), true)
+
+	# LAS VUELTAS: dos anillos apretandose sobre la pierna. Es lo que separa esto de un latigazo --
+	# aquel pasa y deja marca, este se queda dando vueltas. El segundo entra mas tarde, para que se
+	# lean como dos vueltas seguidas y no como un dibujo que aparece de golpe.
+	for k in 2:
+		var q: float = clampf(aprieta * 1.35 - float(k) * 0.30, 0.0, 1.0)
+		if q <= 0.0:
+			continue
+		var cy: float = pie.y - caja * (0.04 + 0.17 * float(k))
+		# APRIETA: el anillo empieza ancho y se cierra sobre la pierna.
+		var rx: float = caja * (0.38 - 0.17 * q)
+		_anillo(Vector2(pie.x, cy), rx, rx * 0.34,
+			Color(hilo.r, hilo.g, hilo.b, 0.95 * alfa), maxf(2.0, caja * 0.045))
+
+	# Y LOS HILILLOS que se ramifican del nudo hacia abajo, buscando el suelo. Cortos y finos: es
+	# micelio, no raices -- las raices del trent son otra cosa y tienen su propio estilo.
+	for i in 5:
+		var ang: float = PI * 0.5 + (float(i) - 2.0) * 0.42 + sin(g * 2.1) * 0.25
+		var largo: float = caja * (0.16 + 0.12 * absf(sin(g + float(i) * 1.7))) * aprieta
+		if largo <= 0.0:
+			continue
+		var dirh := Vector2(cos(ang), sin(ang))
+		draw_line(pie, pie + dirh * largo, Color(hilo.r, hilo.g, hilo.b, 0.60 * alfa),
+			maxf(1.5, caja * 0.028), true)
 
 
 # ============================================================

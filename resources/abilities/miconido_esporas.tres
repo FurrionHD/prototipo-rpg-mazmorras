@@ -19,5 +19,6 @@ area_modo = 1
 area_secundario = 0.75
 area_efectos_secundarios = true
 efectos = [SubResource("SA_ven")]
-fx_estilo = 28
+fx_estilo = 112
+fx_anim = &"esporas"
 cooldown = 3
