@@ -34,6 +34,10 @@ dev_*.png
 # arriba. Se cazo al añadir el del gacha.
 !dev_maestro.*
 !dev_gacha.*
+# Y volvio a pasar EXACTAMENTE IGUAL con el de la animacion previa: ver_ritual.bat entro en el commit
+# y dev_ritual.* se quedo fuera, ignorado en silencio. Al crear un visor nuevo, la linea de aqui va
+# EN EL MISMO commit que su .bat -- 'git add -A' no avisa de lo que no añade.
+!dev_ritual.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
