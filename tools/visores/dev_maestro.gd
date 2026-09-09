@@ -144,6 +144,41 @@ func _ready() -> void:
 			print("[maestro] OK: la tirada queda guardada al instante (%d en el disco)."
 				% guardada.gacha_historial.size())
 
+	# LA ANIMACION PREVIA, UNA FOTO POR FASE. Se le CLAVA el reloj (ritual.plantar) en vez de dejarla
+	# correr: son casi seis segundos y, esperando, la captura caeria donde cayera -- que es la forma
+	# de dar por buena una animacion sin haber visto justo el fotograma que falla.
+	#
+	# LAS CINCO SON DISTINTAS Y HAY QUE MIRAR UNA COSA EN CADA UNA: que llega andando de espaldas,
+	# que el brazo llega al hueco de la balda, que se ha girado y el tomo se ve, que el libro esta
+	# abierto y creciendo, y -- la unica que importa de verdad -- que al final el brillo es DEL COLOR
+	# de lo mejor de la tanda y no del blanco de vela con el que empieza.
+	if men._ritual == null or not is_instance_valid(men._ritual):
+		printerr("[maestro] MAL: tirar no ha montado la animación previa.")
+	else:
+		var rit: Control = men._ritual
+		var dur: float = rit.duracion()
+		# LAS FRACCIONES SE MIDEN CONTRA LAS FASES, no a ojo. La primera version llevaba 0,10 / 0,62 /
+		# 0,80 / 0,90 / 0,99 y las tres de en medio caian TODAS dentro del zoom: la foto del "brazo"
+		# salia con el libro ya abierto y flotando, o sea que la fase que se creia estar comprobando no
+		# se fotografio ni una vez. Con los tiempos de hoy (1,5 + 0,8 + 0,7 + 1,4 + 1,3 = 5,7) las
+		# fases empiezan en 0,26 / 0,40 / 0,53 / 0,77, asi que se coge un punto dentro de cada una.
+		var fases := {"7a_ritual_anda": 0.15, "7b_ritual_brazo": 0.34, "7c_ritual_gira": 0.47,
+			"7d_ritual_libro": 0.68, "7e_ritual_brillo": 0.95}
+		for k in fases:
+			rit.plantar(dur * float(fases[k]))
+			await _captura(k)
+		# Y SE LA SALTA, que es lo que hara el jugador. Con 'await' de por medio porque el final va
+		# DIFERIDO a proposito (la capa no puede sacarse del arbol dentro de su propio fotograma), asi
+		# que el revelado no existe hasta el frame siguiente. Sin la espera, las fotos de las cartas
+		# de aqui abajo saldrian todas de una pantalla vacia.
+		rit.saltar()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if men._resultados == null or not is_instance_valid(men._resultados):
+			printerr("[maestro] MAL: saltarse la animación no ha llevado al revelado.")
+		else:
+			print("[maestro] OK: la animación previa se salta y entra el revelado.")
+
 	# LA PRIMERA CARTA, boca abajo o a medio girar. Si saliera ya destapada, el volteo no estaria
 	# corriendo (un tween de un nodo pausado no avanza, y este menu PARA el arbol).
 	await _captura("6b_meditacion_carta")
@@ -225,6 +260,12 @@ func _ready() -> void:
 	# en diez tochos grises seis de cada diez veces, y esa foto no deja juzgar lo que importa.
 	Game.money = maxi(Game.money, Game.GACHA_PRECIO * 3)
 	men._meditar_x1()
+	# La animacion previa tambien entra aqui, y esta foto es de la CARTA del garantizado: saltarsela
+	# es lo que deja el revelado montado. Sus fotos ya se han sacado arriba.
+	if men._ritual != null and is_instance_valid(men._ritual):
+		men._ritual.saltar()
+		await get_tree().process_frame
+		await get_tree().process_frame
 	if men._revelado.is_empty() or int(men._revelado[0].get("pity", 0)) == 0:
 		printerr("[maestro] MAL: con el contador en %d la tirada tenía que ser la garantizada."
 			% (Game.GACHA_PITY_EPICO - 1))

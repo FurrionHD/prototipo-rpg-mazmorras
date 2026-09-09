@@ -213,7 +213,14 @@ func _input(event: InputEvent) -> void:
 			# DE FUERA HACIA DENTRO. Esc cierra lo de encima, no la pantalla entera: abrir los
 			# detalles del gacha y que Esc te echase del maestro es perder el sitio por consultar una
 			# tabla. Los resultados van los primeros porque se dibujan por encima del modal.
-			if _resultados != null and is_instance_valid(_resultados):
+			#
+			# Y EL RITUAL, ANTES QUE ELLOS: mientras corre la animacion no hay resultados montados
+			# todavia, asi que Esc habria cerrado el menu entero -- y con el la unica pantalla desde
+			# la que se puede ver lo que acabas de pagar. Esc aqui SE LA SALTA (llama a su fin, que
+			# monta el revelado), no la cancela: la tirada ya esta hecha y guardada.
+			if _ritual != null and is_instance_valid(_ritual):
+				_ritual.saltar()
+			elif _resultados != null and is_instance_valid(_resultados):
 				_cerrar_resultados()
 			elif _modal_abierto():
 				_cerrar_detalles()
@@ -343,8 +350,10 @@ func _rebuild_real() -> void:
 	if _tab != TAB_MEDITACION:
 		_cerrar_detalles()
 		# Y LOS RESULTADOS DE LA TIRADA, que si no se quedaban flotando sobre la Biblioteca: tiras,
-		# cambias de pestaña sin pulsar "Continuar" y las cartas seguian ahi encima.
+		# cambias de pestaña sin pulsar "Continuar" y las cartas seguian ahi encima. La animacion
+		# previa entra por lo mismo, y ademas se lleva por delante su _process.
 		_tirar_resultados()
+		_tirar_ritual()
 		# Y SE DESHACE EL CARTEL: la Meditación esconde las dos columnas del esqueleto para ocupar la
 		# pantalla entera, asi que al salir hay que devolverlas. Sin esto, la Biblioteca aparecia en
 		# blanco -- sus columnas seguian ocultas -- con el cartel del gacha por encima.
@@ -635,7 +644,65 @@ func _meditar(cuantas: int, precio: int) -> void:
 	Game.guardar_mi_partida()
 
 	_rebuild()
-	_mostrar_resultados()
+	_mostrar_ritual()
+
+
+# ------------------------------------------------------------
+#  LA ANIMACION PREVIA
+#
+#  Va ENTRE la tirada y el revelado, no antes de tirar: los dados ya estan echados y guardados (ver
+#  arriba), asi que lo que se anima es enseñar un resultado que ya existe. Hacerlo al reves -- animar
+#  y tirar despues -- seria la puerta para que alguien "arreglara" el orden y dejara la tirada sin
+#  guardar durante seis segundos, que es justo lo que el guardado inmediato viene a impedir.
+# ------------------------------------------------------------
+
+const GachaRitual = preload("res://scripts/ui/gacha_ritual.gd")
+var _ritual: Control = null
+
+
+func _mostrar_ritual() -> void:
+	_tirar_ritual()
+	if _revelado.is_empty():
+		return
+	_ritual = GachaRitual.new()
+	_ritual.montar(_root, _color_mejor_tirada(), _mostrar_resultados)
+	# LOS OTROS MUÑECOS, ESCONDIDOS mientras dura. No es que estorben: es que MunecoJugador dibuja con
+	# z ABSOLUTO, asi que un retrato se cuela por delante de cualquier velo -- y subir el velo por
+	# encima de ellos taparia tambien al maestro, que es un muñeco igual. La misma salida que usa la
+	# ficha de personaje (ver character_menu._ver_muneco). Se vuelven a enseñar solos al morir la capa.
+	_ritual.tapar([_capa_med])
+
+
+func _tirar_ritual() -> void:
+	if _ritual == null:
+		return
+	if is_instance_valid(_ritual):
+		# remove_child ADEMAS de queue_free, como en los resultados y en el modal: queue_free no saca
+		# del arbol hasta el final del frame, y dos tandas seguidas se dibujarian superpuestas.
+		if _ritual.get_parent() != null:
+			_ritual.get_parent().remove_child(_ritual)
+		_ritual.queue_free()
+	_ritual = null
+
+
+# EL COLOR DE LO MEJOR QUE HA SALIDO, que es lo unico que la animacion necesita saber. Se resuelve
+# aqui y no alli: quien sabe lo que es una rareza y una seccion de biblioteca es esta pantalla.
+#
+# MANDA LA RAREZA, y el desempate no existe: si en la tanda hay un legendario, el brillo es el suyo
+# aunque haya salido el primero de los diez. Es lo que hace que el color valga de aviso.
+func _color_mejor_tirada() -> Color:
+	var mejor: int = -1
+	var seccion: String = ""
+	for t in _revelado:
+		var c: ConsumableData = t.get("item")
+		if c == null:
+			continue
+		var s: SpellData = t.get("spell")
+		var r: int = int(s.rareza) if s != null else -1
+		if r > mejor:
+			mejor = r
+			seccion = c.seccion_biblioteca()
+	return _color_entrada(mejor, seccion)
 
 
 # ------------------------------------------------------------
@@ -686,6 +753,12 @@ func _mostrar_resultados() -> void:
 	# Ademas hay que pasar por aqui SIEMPRE y no solo si quedaba una pantalla abierta, porque es lo
 	# que vacia las cartas y los tweens de la tanda anterior.
 	_tirar_resultados()
+	# Y LA ANIMACION PREVIA, que es justo quien nos ha llamado: se destruye AQUI y no dentro de ella
+	# misma. Un nodo que se libera a si mismo desde dentro de su propio _process deja el resto del
+	# fotograma corriendo sobre un objeto muerto, y el ultimo sitio donde uno quiere eso es en el
+	# camino que acaba de cobrar 2.000 monedas. Ademas es lo que devuelve la visibilidad a los
+	# retratos, que ella escondio (ver _mostrar_ritual).
+	_tirar_ritual()
 	if _revelado.is_empty():
 		return
 	_resultados = Control.new()
