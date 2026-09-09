@@ -78,6 +78,20 @@ func _ready() -> void:
 	get_viewport().get_texture().get_image().save_png(ruta_m)
 	print("[creador] ", ProjectSettings.globalize_path(ruta_m))
 
+	# LA CAPUCHA, con su propia foto. Es la pieza que mas veces se ha dado por buena en gris y estaba
+	# mal en color: en la hoja de contacto todas las capas salen en el mismo gris del horneado, asi
+	# que la tela y el pelo son indistinguibles y no hay forma de ver si la abertura se lee. Aqui va
+	# teñida, con pelo debajo y a este zoom, que es donde se juzga.
+	pj.poner_pieza("gorro", "capucha", Color(0.42, 0.46, 0.60))
+	pj.poner_pieza("pelo", "corto", Color(0.34, 0.22, 0.14))
+	pj.poner_pieza("barba", "", Color(0.9, 0.9, 0.9))
+	_repintar_muneco(c)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var ruta_c: String = SALIDA + "creador_10_capucha.png"
+	get_viewport().get_texture().get_image().save_png(ruta_c)
+	print("[creador] ", ProjectSettings.globalize_path(ruta_c))
+
 	_probar_guardado()
 	get_tree().quit()
 

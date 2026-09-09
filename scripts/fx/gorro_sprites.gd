@@ -158,141 +158,100 @@ static func _cono(piezas: Array, esq: Dictionary, cab: Vector3, alto: float, cae
 	PoseJugador.cadena(piezas, esq, medio, punta, R * 0.34, R * 0.08, Tono.TELA_S)
 
 
-# LA CAPUCHA: envuelve la cabeza por arriba y por detras, y deja la cara al aire.
+# LA CAPUCHA
 #
-# LA ABERTURA NO SE DIBUJA -- no hay forma de restar un agujero de una masa de elipsoides --, asi que
-# se consigue de dos maneras a la vez, y hacen falta LAS DOS:
-#   1. TODA masa que caiga en la vertical de la cara se queda POR ENCIMA de los ojos.
-#   2. Lo que enmarca la cara se aparta EN X, a los lados, donde ya puede colgar hasta la mandibula.
+# ESTA COPIADA DEL CASCO ABIERTO DE CUERO (ver ArmaduraSprites._casco_abierto). No por ahorrar
+# trabajo: es que es EL MISMO PROBLEMA -- una masa que envuelve el craneo y tiene que parar justo por
+# encima de los ojos -- y alli ya esta resuelto y medido. De hecho el comentario de aquel fichero lo
+# dice antes de que hiciera falta: el canto oscuro del casco de cuero va fino "que es lo que tiene
+# una capucha".
 #
-# Y esto se mide, no se estima. La cuenta unica es la BAJADA = y - z (ver la cabecera de
-# CaraSprites y la memoria de la altura en pantalla): la camara va a 45 grados, asi que adelantarse
-# baja lo mismo que hundirse. En radios de cabeza, los OJOS estan en BAJADA 0,76 y ocupan de 0,19 a
-# 0,49 de ancho; la boca, en BAJADA 1,00. El borde de abajo de una masa central es
-# 'bajada_centro + sqrt(ry^2 + rz^2)' -- no 'bajada + rz', que es el error que se cometio aqui.
+# Antes de copiarlo, esta pieza se intento tres veces a mano y las tres salieron mal, cada una peor
+# que la anterior:
+#   1. Tres elipsoides sueltos: el muñeco con "tumores" -- dos lobulos y un cuerno.
+#   2. Una copa achatada + faldones a los lados: ni un ojo visible en las ocho direcciones. Lo que
+#      tapaba la cara no era la copa sino LA CAIDA, una bola de 0,86 R plantada en el centro del
+#      craneo cuyo borde llegaba a BAJADA 0,95 (los ojos estan en 0,76 y la boca en 1,00).
+#   3. Los mismos faldones con un arco de sombra: un moño enorme con dos orejas.
+# La leccion no es sobre capuchas: cuando una pieza nueva es la misma jugada que una que ya funciona,
+# se parte de aquella y se cambia lo que de verdad la distingue. Aqui son DOS cosas -- la caida de la
+# nuca, que un casco no tiene, y que la tela es mas gorda que el cuero.
 #
-# LO QUE ESTABA MAL, Y NO ERA LA COPA. La copa ya libraba de sobra (borde en 0,56 R contra los ojos
-# en 0,76), y aun asi en la hoja de contacto no habia UN SOLO OJO en las ocho direcciones: la que
-# tapaba la cara era LA CAIDA, una bola de radio 0,86 R plantada casi en el centro del craneo, cuyo
-# borde caia en BAJADA 0,95 -- por debajo de los ojos y casi en la boca. Y como la capa del gorro va
-# por encima de la cara (z 2051 contra 2048), no hay profundidad que valga: lo que solape en
-# PANTALLA, tapa. Estar "detras de la cabeza" no salva a nada dentro de esta capa.
+# LA CUENTA CON LA QUE SE COMPRUEBA TODO ESTO es la BAJADA = y - z (ver la memoria de la altura en
+# pantalla): la camara va a 45 grados, asi que adelantarse baja lo mismo que hundirse. El borde de
+# abajo de una masa central esta en 'bajada_centro + sqrt(ry^2 + rz^2)' -- NO en 'bajada + rz', que
+# es el error del que salieron los tres intentos. Aqui: -(1,6 + 4,8) + sqrt(13,2^2 + 9,0^2) = 9,6,
+# y los ojos en 9,7. O sea que la capucha muere en la ceja, como el casco.
+#
+# Y ojo con la capa: el gorro va por encima de la cara (z 2051 contra 2048), asi que no hay
+# profundidad que valga. Lo que solape EN PANTALLA, tapa, este delante o detras de la cabeza.
+
+# Los tres numeros de la cazoleta, heredados del casco abierto (ABIERTO_ATRAS / ARRIBA / ALTO).
+# ARRIBA sube de 4,4 a 4,8 y no es un retoque a ojo: la tela es mas gorda que el cuero (GROSOR 1,7
+# contra 1,4) y ese grosor de mas baja el borde cuatro decimas justo encima de los ojos. Al engordar
+# una pieza copiada hay que devolverle la altura que el grosor le quita.
+const CAP_ATRAS := 1.6
+const CAP_ARRIBA := 4.8
+const CAP_ALTO := 0.64
+# EL CANTO: la media luna oscura del filo, que es el borde de la abertura. Se hace pintando la masa
+# entera en sombra y repitiendola en tono base UN POCO MAS ARRIBA (ver ArmaduraSprites._chapa); lo
+# que asoma por debajo es el filo. NO se hace con una banda plana: en esta camara el FONDO de una
+# banda ancha proyecta hacia arriba y se come la pieza entera -- alli costo dos intentos y aqui otro.
+const CAP_CANTO := 2.4
+# CUANTO BAJA LA TELA POR EL LADO DE LA CARA. El casco lo llama CARRILLERA y lo gradua por tipo
+# (cuero 0,35, hierro 0,62); una capucha tapa mas que un capacete y menos que un yelmo.
+const CAP_MEJILLA := 0.55
+
+
 static func _capucha(piezas: Array, esq: Dictionary, cab: Vector3, caida: float) -> void:
 	var g: float = GROSOR
-	# EL PICO SE RECOGE AL CAERSE, igual que la coleta del pelo y la punta de la barba larga. Tieso,
-	# con el cuerpo tumbado el pico queda extendido en horizontal y LLEGA AL BORDE del lienzo: el
-	# validador de recortes del horno lo cazo en 'muerte_4 f4', y lo que se ve cuando eso pasa es la
-	# capucha cortada en seco por una raya recta, sin ningun error de por medio.
-	# Con raiz y no lineal: se recoge desde el primer grado de caida, que es lo que hacia falta -- con
-	# lineal seguia saliendose en el fotograma de en medio, justo el del cuerpo a 45 grados.
+	# LA CAIDA SE RECOGE AL TUMBARSE, igual que la coleta del pelo y la punta de la barba larga.
+	# Tiesa, con el cuerpo tumbado queda extendida en horizontal y LLEGA AL BORDE del lienzo: lo caza
+	# el validador de recortes del horno ('muerte_4 f4'), y lo que se ve es la capucha cortada en seco
+	# por una raya recta, sin ningun error de por medio. Con raiz y no lineal: se recoge desde el
+	# primer grado de caida, que es lo que hacia falta -- con lineal seguia saliendose en el fotograma
+	# de en medio, justo el del cuerpo a 45 grados.
 	var tumbado: float = clampf(absf(caida) / (PI * 0.5), 0.0, 1.0)
 	var largo: float = lerpf(1.0, 0.40, sqrt(tumbado))
-	# UNA SOLA SILUETA, no tres bultos. La primera version eran tres elipsoides sueltos -- la caida de
-	# la nuca, la copa y un pico -- colocados cerca pero sin solaparse de verdad, y lo que salia era
-	# un muñeco con DOS LOBULOS pegados y un cuerno apuntando al cielo. Textualmente: "los sombreros
-	# tienen tumores".
+
+	var centro: Vector3 = cab + Vector3(0.0, -CAP_ATRAS, CAP_ARRIBA)
+	var r := Vector3(R + g, R * 0.90 + g, R * CAP_ALTO + g * 0.5)
+
+	# 1. LA CAIDA DE LA NUCA, LO PRIMERO: esta detras y dentro de una capa no hay z-buffer -- el orden
+	# de la lista ES la profundidad, asi que lo de detras se pinta antes. Es lo UNICO que separa esta
+	# pieza de un casco: un casco acaba en el craneo y una capucha sigue por el cuello.
 	#
-	# El arreglo es de forma, no de tamaño: la caida va con CADENA desde dentro de la copa, asi que
-	# las dos masas comparten volumen y se leen como una sola tela. Y el pico se ha ido: un pico de
-	# capucha cae hacia ATRAS Y ABAJO, y aquel subia -- por eso se veia como un cuerno y no como tela.
-	#
-	# LA CAIDA VA PRIMERO: esta detras y se pinta antes (no hay z-buffer dentro de una capa).
-	# 'largo' la recoge al caerse, igual que la coleta del pelo: tiesa, con el cuerpo tumbado llegaba
-	# al borde del lienzo y el horno la cortaba en seco (lo cazo en 'muerte_4 f4').
-	#
-	# EL EXTREMO DE ARRIBA NO VA EN EL CENTRO DE LA CABEZA, va DENTRO DE LA COPA (retrasado y alto).
-	# Es lo unico que hay que entender de esta pieza: la caida y la copa tienen que compartir volumen
-	# para leerse como una sola tela, y hay dos sitios donde compartirlo -- el centro del craneo, que
-	# derrama sobre la cara, y el hueco de la copa, que no.
-	#
-	# Y ADELGAZA de 0,86 R a 0,62. Con 0,86 la bola se salia de la copa por ARRIBA y por DETRAS -- la
-	# capucha se leia como un moño enorme, mas alta y mas larga que la cabeza --, y el bulto de mas no
-	# aportaba nada: lo que tiene que verse de la caida es la tela bajando por la nuca, no una masa
-	# asomando por encima del craneo. La regla, para cualquier pieza que se funda dentro de otra: si el
-	# extremo interior sobresale de la masa que lo contiene, deja de ser una fusion y es un bulto.
+	# ARRANCA DENTRO DE LA CAZOLETA, no en el centro de la cabeza. Es el fallo que costo el segundo
+	# intento: las dos masas tienen que compartir volumen para leerse como una sola tela, y hay dos
+	# sitios donde compartirlo -- el centro del craneo, que derrama sobre la cara, y el hueco de la
+	# cazoleta, que no. Y no puede sobresalir de ella: si el extremo interior asoma por arriba, deja
+	# de ser una fusion y es un bulto (asi salio el moño).
 	var dentro: Vector3 = cab + Vector3(0.0, -R * 0.30, R * 0.10)
 	var nuca: Vector3 = cab + Vector3(0.0, -R * (0.30 + 0.34 * largo), -R * 0.34 * largo)
 	PoseJugador.cadena(piezas, esq, dentro, nuca,
-		R * 0.62, R * (0.28 + 0.18 * largo), Tono.TELA_S)
-	# Y LA COPA. Achatada en Y por lo mismo que el ala (la capucha redonda en planta se derramaba sobre
-	# la cara) y sobre todo BIEN ATRAS: retrasarla en Y la SUBE en pantalla (pantalla_y va con y - z),
-	# que es el mismo truco que usa el casquete del pelo. Con ATRAS * 0,8 la capucha era un casco.
+		R * 0.55, R * (0.26 + 0.16 * largo), Tono.TELA_S)
+
+	# 2. LA TELA QUE BAJA POR LOS LADOS DE LA CARA, y va antes que la cazoleta para que esta le tape
+	# el arranque. Son las carrilleras del casco con otro nombre.
 	#
-	# Y ACHATADA TAMBIEN EN Z (0,62 R y no 0,80), subida a POSA * 1,15: una capucha es una CAPUCHA
-	# APOYADA sobre el craneo, no una bola que lo envuelve. Con la bola el borde de abajo quedaba a dos
-	# unidades de los ojos -- libraba en la cuenta y en el dibujo los ojos asomaban por los pelos --, y
-	# asi se queda a cinco. Lo que deja de cubrir por los lados lo cubren los faldones.
-	var c_copa: Vector3 = cab + Vector3(0.0, -ATRAS * 2.2, POSA * 1.15)
-	var r_copa := Vector3(R * 1.00 + g * 0.5, R * 0.66 + g * 0.3, R * 0.62 + g * 0.4)
-	PoseJugador.poner(piezas, esq, c_copa, r_copa, Tono.TELA)
-	# LOS FALDONES ANTES QUE EL REBORDE, y no al reves: el filo de la abertura es un borde CONTINUO
-	# que pasa por delante de todo lo que rodea la cara, faldones incluidos. Pintado antes, los
-	# faldones lo repintaban con el tono claro por los dos lados y del filo solo quedaba el trozo
-	# central. Dentro de una capa no hay z-buffer: el orden ES la profundidad.
-	_faldones(piezas, esq, cab, largo)
-	_reborde(piezas, esq, cab)
+	# NO SON UN ADORNO -- la nota del casco lo explica y aqui pasa igual: la cazoleta tiene su fila
+	# mas ancha por encima de la del craneo, asi que justo debajo de su borde asoman las dos mejillas
+	# desnudas y el conjunto parece un sombrero apoyado en una cabeza mas gorda que el.
+	#
+	# Y VAN ESTRECHAS EN X (0,26 R) Y HONDAS EN Y (0,56 R). Ese reparto es lo que hace que quepan: a
+	# 0,84 de ancho quedan fuera de la columna de los ojos (que llega a 0,49) y pueden colgar hasta el
+	# pomulo sin estorbar. Mis faldones iban gordos en X y por eso salian como orejas.
+	var p: float = CAP_MEJILLA
+	for lado in [-1.0, 1.0]:
+		PoseJugador.poner(piezas, esq, cab + Vector3(lado * R * 0.84, -0.8, -R * 0.14 * p),
+			Vector3(R * 0.26, R * 0.56, R * (0.30 + 0.42 * p)), Tono.TELA_S)
 
-
-# EL REBORDE: el filo de la abertura, en sombra, justo por encima de la cara.
-#
-# ES LO QUE LA CONVIERTE EN UN HUECO. Con la copa lisa la capucha era una cupula gris perfecta y se
-# leia como PELO -- una masa redonda apoyada en la cabeza --, por mucho que la cara asomara debajo.
-# Lo que dice "esto es una abertura y no una superficie" no es la forma, es que el filo este mas
-# oscuro que la tela: es la unica pista que separa un agujero de un bulto a este tamaño.
-#
-# ES UN FILO, NO UNA MASA ENCOGIDA. Se probo antes con la propia elipse de la copa un 14% mas
-# pequeña y bajada, contando con que asomara solo la franja de abajo, y lo que salio fue una RAYA
-# VERTICAL POR EL CENTRO DE LA CUPULA: los faldones repintan los lados con el tono claro, asi que de
-# la elipse oscura solo quedaba a la vista la columna de en medio. La leccion vale para cualquier
-# sombreado de estas capas -- una pieza "de dentro" solo se ve donde no la tape lo que se pinta
-# despues, asi que hay que dibujar LA FRANJA QUE SE QUIERE VER, no un bulto del que se espera que
-# asome un trozo.
-#
-# ES UN ARCO, NO UNA FRANJA RECTA. Primero se probo con un disco ancho tumbado en el filo de la
-# copa, y lo que salia era una BANDA HORIZONTAL cruzando la cupula de lado a lado: eso no es una
-# capucha, es una GORRA CON VISERA. El borde de una capucha SUBE en la frente y BAJA por los lados de
-# la cara, y esa curva es justo lo que dice "aqui hay un agujero y la cabeza esta dentro".
-#
-# LOS DOS EXTREMOS PUEDEN BAJAR MAS QUE EL CENTRO porque estan a 0,62 de ancho, fuera de la columna
-# de los ojos (que llega a 0,49). PERO LO QUE HAY QUE MIRAR NO SON LOS EXTREMOS, ES LA MITAD DE LA
-# CURVA: la primera version iba de BAJADA 0,45 en la frente a 0,80 en el costado y tapaba los ojos,
-# porque a media cadena -- todavia a 0,33 de ancho, o sea DENTRO de la mirada -- ya iba por 0,62 y con
-# su grosor llegaba a 0,80. Una cadena interpola en linea recta, asi que la comprobacion es en el
-# punto donde cruza 0,52 de ancho, no en la punta. Ahora: frente 0,30, costado 0,62, y al cruzar 0,52
-# de ancho va por 0,57 + 0,18 de grosor = 0,75, justo por encima de los ojos (0,76).
-#
-# Y SOLO POR DELANTE (3, 4 y 5 son la nuca). Una capucha tiene UNA abertura y esta delante; pintado
-# tambien de espaldas, el arco aparece como una banda oscura cruzando la coronilla. Estas capas van
-# con z fijo y por encima, asi que nada las oculta al girar -- hay que apagarlas a mano.
-static func _reborde(piezas: Array, esq: Dictionary, cab: Vector3) -> void:
-	var d: int = int(esq.get("dir", 0))
-	if d == 3 or d == 4 or d == 5:
-		return
-	var frente: Vector3 = cab + Vector3(0.0, R * 0.20, -R * 0.10)
-	for lado in 2:
-		var s: float = 1.0 if lado == 0 else -1.0
-		var costado: Vector3 = cab + Vector3(s * R * 0.62, R * 0.12, -R * 0.50)
-		PoseJugador.cadena(piezas, esq, frente, costado, R * 0.13, R * 0.12, Tono.TELA_S)
-
-
-# LOS FALDONES: los dos lienzos que caen por los lados de la cara, de la copa a la mandibula.
-#
-# SON LO QUE HACE QUE SE LEA COMO CAPUCHA ABIERTA, y no un detalle. Sin ellos la copa sola es un
-# GORRO: una masa apoyada encima de la cabeza y la cara al aire por completo. Lo que dice "capucha"
-# es que la tela BAJE al lado de la cara, o sea que la cara este DENTRO de un hueco. Es la misma
-# jugada que las patillas del pelo (ver PeloSprites._casquete), y por el mismo motivo.
-#
-# VAN A 0,78 R DE ANCHO, y ese numero es toda la pieza: los ojos ocupan hasta 0,49 de ancho, asi que
-# a partir de ~0,52 una masa ya no estorba a la mirada y puede colgar todo lo que quiera. Puestos mas
-# al centro volverian a ser el problema de la caida, solo que por duplicado.
-#
-# Y SE RECOGEN CON 'largo' como la caida: tiesos, con el cuerpo tumbado (muerte, encaje) se quedan
-# extendidos y llegan al borde del lienzo, que es lo que caza el validador de recortes del horno.
-static func _faldones(piezas: Array, esq: Dictionary, cab: Vector3, largo: float) -> void:
-	for lado in 2:
-		var s: float = 1.0 if lado == 0 else -1.0
-		# Arriba, METIDO EN LA COPA (z alto y retrasado) para que funda con ella; abajo, a la altura
-		# de la mandibula y un pelin adelantado, que es como cae una tela que rodea una cara.
-		var alto: Vector3 = cab + Vector3(s * R * 0.72, -R * 0.26, R * 0.44)
-		var bajo: Vector3 = cab + Vector3(s * R * 0.70, R * 0.04, -R * 0.50 * largo)
-		PoseJugador.cadena(piezas, esq, alto, bajo, R * 0.38, R * 0.26, Tono.TELA)
+	# 3. LA CAZOLETA con su volumen, igual que la chapa del casco: la masa en sombra, la misma masa en
+	# tono base un poco mas arriba (lo que asoma por debajo es el filo de la abertura) y un parche de
+	# luz pequeño y alto. En el casco eso lee "acero curvo"; con los grises mas claros del gorro y el
+	# canto fino, lee "tela".
+	PoseJugador.poner(piezas, esq, centro, r, Tono.TELA_S)
+	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, 0.0, CAP_CANTO), r, Tono.TELA,
+		{"solo_sobre": [Tono.TELA_S]})
+	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -r.y * 0.10, r.z * 0.46),
+		Vector3(r.x * 0.58, r.y * 0.52, r.z * 0.28), Tono.TELA_L, {"solo_sobre": [Tono.TELA]})
