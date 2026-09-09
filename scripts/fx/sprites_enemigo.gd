@@ -75,6 +75,12 @@ static var GENERADORES_POR_NOMBRE := {
 	# trent, asi que un hongo andante salia con forma de arbol; y no era un despiste, es que sin un
 	# generador propio no habia otra cosa que prestarle.
 	&"miconido": MiconidoSprites,
+	# Y EL CHILLON, que es el SEGUNDO bicho que vuela (con la polilla) y el unico murcielago. Se
+	# dibujaba con el de la GARGOLA -- o sea que salia como una estatua de basalto agazapada --, y no
+	# era un despiste: la gargola era lo unico con alas membranosas que habia para prestarle. De ella
+	# se queda la tecnica del ala y nada mas: aquella es de piedra, bipeda y las lleva plegadas casi
+	# siempre; este no se posa nunca, bate sin parar y ademas no tiene ojos que dibujar.
+	&"chillon": ChillonSprites,
 	&"arana": AranaSprites,
 	# Y LA SEGADORA, que SI es familia INSECTO como la araña y por eso se dibujaba con el suyo: una
 	# mantis salia con ocho patas y un racimo de ojos. Se separan por el cuerpo LARGO (cabeza, protorax

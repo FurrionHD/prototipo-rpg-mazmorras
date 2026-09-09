@@ -20,4 +20,5 @@ area_efectos_secundarios = true
 area_prob_secundario = 0.7
 efectos = [SubResource("SA_sil")]
 fx_estilo = 17
+fx_anim = &"chillido"
 cooldown = 4
