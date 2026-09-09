@@ -21,6 +21,17 @@
 extends RefCounted
 class_name JugadorSprites
 
+# LOS DOS GENERADORES NUEVOS, POR PRELOAD Y NO POR SU class_name. Un class_name recien creado NO esta
+# en la cache de clases de Godot hasta que se abre el editor, y el horno y los visores se lanzan por
+# linea de comandos: tal cual, `hornear_sprites.bat` moria con "Identifier BarbaSprites not declared"
+# y se llevaba por delante la compilacion de medio proyecto. Es la misma razon por la que Game carga
+# libros.gd como _Libros.
+#
+# Con OTRO nombre (no "BarbaSprites") a proposito: asi la const local no compite con el class_name
+# global el dia que si este en la cache.
+const BarbaGen = preload("res://scripts/fx/barba_sprites.gd")
+const GorroGen = preload("res://scripts/fx/gorro_sprites.gd")
+
 # LAS CAPAS, DE ABAJO ARRIBA. El orden de esta lista es el orden de apilado por defecto; la
 # profundidad fina (que el escudo se vaya detras del cuerpo al mirar al este) NO se decide aqui sino
 # fotograma a fotograma, preguntandole a PoseJugador por donde cae su punto de anclaje.
@@ -34,7 +45,7 @@ class_name JugadorSprites
 # hay debajo es que un casco NO sustituye al pelo entero (la melena sigue saliendo), asi que las dos
 # capas coexisten y necesitan cada una la suya.
 enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, PELO, CASCO, MANO_DER, MANO_IZQ,
-	ARMA_CADERA, ARMA_ESPALDA }
+	ARMA_CADERA, ARMA_ESPALDA, BARBA, GORRO }
 
 # 'tinte' = si esta capa se pinta con un color de fuera (ver MunecoJugador.tenir). Casi todas lo
 # haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
@@ -55,6 +66,16 @@ const Z_PIERNAS := 2
 const Z_TORSO := 3
 const Z_PELO := 2047
 const Z_CARA := 2048
+# 2049 es TU FOTO (ver MunecoJugador: Z_CARA + 1), asi que estas dos van por encima de ella.
+#
+# LA BARBA POR ENCIMA DE LA FOTO, al reves que el pelo, y no es un descuido: el pelo va DEBAJO para
+# ENMARCAR la foto (queda el anillo de alrededor), pero una barba no enmarca, TAPA -- cubre la
+# mandibula y la boca. Por debajo, de una barba solo se veria el pelin que asoma por fuera del
+# circulo de la cara, o sea nada.
+const Z_BARBA := 2050
+# Y EL GORRO POR ENCIMA DE TODO lo de la cabeza: un sombrero tapa la frente y aplasta el flequillo.
+# Por debajo del pelo, el flequillo se dibujaba sobre el ala y parecia atravesarla.
+const Z_GORRO := 2051
 
 # EL ARMA ENVAINADA (espalda o cadera). NO lleva doble posicion de z: ArmaSprites decide por
 # DIRECCION si se dibuja o no (ver _visible_envainada), y cuando se dibuja va SIEMPRE delante del
@@ -158,6 +179,37 @@ static var CATALOGO := {
 			"puntos": {"piezas": 3, "nombre": "Ojos simples"},
 			"chibi": {"piezas": 3, "nombre": "Con brillo"},
 			"linea": {"piezas": 3, "nombre": "Tranquilos"},
+		},
+	},
+	# LA BARBA. Como el pelo: no se ordena por profundidad (el ancla esta en x=0 y el signo lo
+	# decidiria el redondeo), asi que lleva z fijo. Ver BarbaSprites.
+	#
+	# 'piezas' = los trozos SUELTOS. El bigote va separado de la mandibula a este tamaño, y las
+	# patillas pueden quedar sueltas de perfil, asi que se admiten hasta tres sin avisar. La 'larga'
+	# suma la punta, que en las poses en las que se mece se despega: cuatro.
+	"barba": {
+		"ranura": Ranura.BARBA, "gen": BarbaGen, "ancla": PoseJugador.P_CABEZA,
+		"z": Z_BARBA, "titulo": "Barba", "sin_nada": "Afeitado",
+		"modelos": {
+			"bigote": {"piezas": 1, "nombre": "Bigote"},
+			"perilla": {"piezas": 2, "nombre": "Perilla"},
+			"candado": {"piezas": 3, "nombre": "Candado"},
+			"poblada": {"piezas": 3, "nombre": "Poblada"},
+			"larga": {"piezas": 4, "nombre": "Larga"},
+		},
+	},
+	# EL GORRO. Lo que mas cambia la silueta vista desde arriba, que es como se ve el personaje en el
+	# mapa. El de mago es ademas el del MAESTRO de la Meditación (ver GorroSprites).
+	"gorro": {
+		"ranura": Ranura.GORRO, "gen": GorroGen, "ancla": PoseJugador.P_CABEZA,
+		"z": Z_GORRO, "titulo": "Gorro", "sin_nada": "Sin nada",
+		"modelos": {
+			# El ala y el cono son dos trozos que se tocan casi siempre, pero de perfil la punta caida
+			# se despega del ala: dos.
+			"mago": {"piezas": 2, "nombre": "Sombrero de mago"},
+			"chambergo": {"piezas": 2, "nombre": "Chambergo"},
+			"capucha": {"piezas": 2, "nombre": "Capucha"},
+			"gorro": {"piezas": 2, "nombre": "Gorro"},
 		},
 	},
 }

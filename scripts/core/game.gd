@@ -1881,6 +1881,9 @@ func exportar_partida() -> SaveData:
 	d.metalico = player_metalico
 	d.imagen = player_imagen_png
 	d.color_alpha = player_color_alpha
+	# Las PIEZAS del lider (peinado, cara, ropa, barba, gorro). A mano, como todo lo suyo: no esta en
+	# d.plantilla. Ver SaveData.player_aspecto -- hasta ahora no se guardaba ninguna.
+	d.player_aspecto = lider().aspecto.duplicate(true)
 	d.ability_internal = ability_internal.duplicate()
 	d.ability_consolidado = ability_consolidado.duplicate()
 	d.player_level = player_level
@@ -2488,6 +2491,10 @@ func importar_partida(d: SaveData) -> void:
 	player_metalico = d.metalico
 	player_color_alpha = d.color_alpha
 	set_imagen_cuerpo(d.imagen)   # por el setter: hay que tirar la textura cacheada de la anterior
+	# LAS PIEZAS DEL LIDER. Vacio = partida anterior a que esto se guardara: se deja el traje de serie
+	# que ya trae el personaje, que es exactamente lo que se veia antes.
+	if not d.player_aspecto.is_empty():
+		lider().aspecto = d.player_aspecto.duplicate(true)
 
 	ability_internal = d.ability_internal.duplicate()
 	# VACIO = partida guardada antes de que existiera el campo: se iguala al interno, o sea, se

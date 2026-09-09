@@ -59,7 +59,80 @@ func _ready() -> void:
 			String(pest[i].text).to_lower().replace(" ", "_")]
 		img.save_png(ruta)
 		print("[creador] ", ProjectSettings.globalize_path(ruta))
+
+	# EL MAGO: sombrero picudo y barba larga blanca sobre pelo blanco. Es la unica foto donde se ven
+	# las dos piezas nuevas PUESTAS Y EN COLOR -- en la hoja de contacto salen todas en gris (los
+	# atlas se hornean en gris y se tiñen en el juego), asi que ahi no se puede juzgar si la barba se
+	# distingue del pelo ni si el ala tapa la cara.
+	#
+	# Y ademas es el MAESTRO de la Meditación, que es para quien se han hecho.
+	var pj: PersonajeData = Game.lider()
+	pj.poner_pieza("pelo", "largo", Color(0.86, 0.86, 0.90))
+	pj.poner_pieza("barba", "larga", Color(0.93, 0.93, 0.95))
+	pj.poner_pieza("gorro", "mago", Color(0.32, 0.24, 0.52))
+	pj.poner_pieza("torso", "tunica", Color(0.28, 0.22, 0.46))
+	_repintar_muneco(c)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var ruta_m: String = SALIDA + "creador_9_mago.png"
+	get_viewport().get_texture().get_image().save_png(ruta_m)
+	print("[creador] ", ProjectSettings.globalize_path(ruta_m))
+
+	_probar_guardado()
 	get_tree().quit()
+
+
+# ¿SOBREVIVEN LAS PIEZAS A GUARDAR Y CARGAR? Lo que se elige en esta pantalla no sirve de nada si al
+# cargar la partida vuelve el traje de serie.
+#
+# Va aqui y no en un banco aparte porque es el visor del CREADOR: lo que se prueba es justo lo que
+# esta pantalla produce. Y hace falta que sea permanente porque el fallo que caza es MUDO -- el juego
+# arranca igual, el personaje se ve bien mientras juegas, y solo al volver a cargar aparece con otro
+# pelo.
+#
+# EL LIDER ES EL CASO DELICADO: los compañeros viajan enteros dentro de SaveData.plantilla (son
+# Resources y Godot los incrusta), pero el lider va DESMONTADO en campos planos, asi que cada cosa
+# suya hay que escribirla a mano en las dos puntas. De hecho su aspecto NO se guardaba: se descubrio
+# con esta misma comprobacion al meter la barba, y el pelo llevaba perdiendose desde siempre.
+func _probar_guardado() -> void:
+	var pj: PersonajeData = Game.lider()
+	var quiero := {"pelo": "largo", "barba": "larga", "gorro": "mago"}
+	for k in quiero:
+		pj.poner_pieza(k, String(quiero[k]), Color(0.9, 0.9, 0.9))
+	var d: SaveData = Game.exportar_partida()
+	# Se ensucia a proposito ANTES de cargar: si importar_partida no escribiera el aspecto, la prueba
+	# pasaria igual leyendo lo que ya habia en memoria.
+	pj.aspecto = {}
+	Game.importar_partida(d)
+	var l2: PersonajeData = Game.lider()
+	var malas: Array = []
+	for k in quiero:
+		if l2.pieza(k)["modelo"] != String(quiero[k]):
+			malas.append("%s (esperaba %s y sale '%s')" % [k, quiero[k], l2.pieza(k)["modelo"]])
+	if malas.is_empty():
+		print("[creador] OK: el aspecto del líder sobrevive a guardar y cargar.")
+	else:
+		printerr("[creador] MAL: el aspecto del líder NO se guarda -> %s" % ", ".join(malas))
+
+
+# Vuelve a montar el muñeco de la izquierda con el aspecto que tenga ahora el lider. Se busca el
+# MunecoJugador por el arbol y no por una ruta fija, por lo mismo que las pestañas: la pantalla se
+# monta por codigo y una ruta a mano se queda desfasada en cuanto se mueve un contenedor.
+func _repintar_muneco(raiz: Node) -> void:
+	var pj: PersonajeData = Game.lider()
+	for n in _todos(raiz):
+		if n.has_method("montar") and n.has_method("tenir"):
+			n.montar(pj)
+			n.tenir(pj.color, pj.metalico)
+			return
+	printerr("[creador] no encuentro el muñeco: la foto del mago no vale.")
+
+
+func _todos(n: Node) -> Array:
+	var out: Array = [n]
+	for h in n.get_children():
+		out.append_array(_todos(h))
+	return out
 
 
 func _pestanas(raiz: Node) -> Array:

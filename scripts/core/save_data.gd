@@ -60,6 +60,19 @@ const VERSION_MUNDO := 1
 # Cuanto tiñe el color por encima de esa imagen (0 = imagen limpia, 1 = solo color). Sin imagen
 # no pinta nada. Default 1 = como se comportaba antes de que existieran las imagenes.
 @export var color_alpha: float = 1.0
+
+# EL ASPECTO DEL LIDER: que lleva puesto pieza a pieza (ver PersonajeData.aspecto). Aqui van el
+# peinado, la cara, la ropa, la barba y el gorro; el color, la foto y el alpha ya van sueltos arriba.
+#
+# ESTO FALTABA, y no es una pieza nueva: el pelo del lider NO SE GUARDABA. Creabas un personaje con
+# melena, guardabas, cargabas y volvia con el corte de serie -- porque los compañeros viajan enteros
+# dentro de `plantilla` (son Resources y Godot los incrusta) pero el LIDER va desmontado en campos
+# planos, y de su aspecto no se desmontaba nada. Se cazo al añadir la barba, comprobando si la
+# barba sobrevivia a guardar y cargar: no sobrevivia, y el pelo tampoco.
+#
+# VACIO ES LO NORMAL en una partida anterior a esto: PersonajeData.pieza() rellena lo que falte, asi
+# que el personaje sale con el traje de serie -- que es exactamente lo que se veia antes.
+@export var player_aspecto: Dictionary = {}
 # UID del LIDER. Los compañeros llevan el suyo dentro de su PersonajeData (@export), pero el que va
 # en cabeza viaja en los campos planos de aqui y al cargar se reconstruye entero: sin este campo
 # estrenaria identificador en cada carga. Vacio en los saves viejos -> Game.asegurar_uids() le pone

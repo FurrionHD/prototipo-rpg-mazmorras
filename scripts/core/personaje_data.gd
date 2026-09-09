@@ -49,7 +49,7 @@ class_name PersonajeData
 
 # Las piezas que hay hoy, EN ORDEN DE APILADO (de abajo arriba). El arma y la armadura equipada
 # entraran por su propio camino: no se eligen, se llevan puestas.
-const PIEZAS := ["piernas", "torso", "pelo", "cara"]
+const PIEZAS := ["piernas", "torso", "pelo", "cara", "barba", "gorro"]
 
 # Con que nace un personaje a estrenar. El color de la ropa es EL SUYO -- es lo que hace que el
 # color que eliges al crear la partida por fin se vea, ahora que la piel no se tiñe.
@@ -61,6 +61,13 @@ static func aspecto_nuevo(col: Color = Color(0.45, 0.72, 1.0)) -> Dictionary:
 		# La cara no se tiñe (los ojos van en su color), pero lleva la misma forma que las demas para
 		# que nadie tenga que saber cual es la excepcion.
 		"cara": {"modelo": "chibi", "color": Color(1, 1, 1), "metal": 0.0},
+		# BARBA Y GORRO NACEN VACIOS ("modelo" en blanco = no se lleva). Son las dos unicas piezas que
+		# de serie no se ponen: todo el mundo tiene piernas, torso, pelo y cara, pero la barba y el
+		# sombrero son una eleccion. Naciendo puestas, cada personaje viejo de cada partida guardada
+		# amanecia con barba.
+		# La barba arranca del color del pelo y no del de la ropa: es pelo.
+		"barba": {"modelo": "", "color": Color(0.24, 0.15, 0.10), "metal": 0.0},
+		"gorro": {"modelo": "", "color": col, "metal": 0.0},
 	}
 
 

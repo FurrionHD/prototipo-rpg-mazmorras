@@ -164,7 +164,10 @@ func _montar(titulo: String, subtitulo: String, texto_boton: String, previo: Dic
 		fases = [
 			{"n": "Quién es", "c": _fase_quien(previo)},
 			{"n": "Cara", "c": _fase_cara()},
-			{"n": "Pelo", "c": _fase_pieza("pelo")},
+			# PELO Y BARBA JUNTOS: son lo mismo (pelo) y comparten pestaña, pero cada uno con su
+			# COLOR PROPIO -- un viejo con el pelo blanco y la barba castaña no existe, pero al reves
+			# (barba mas blanca que el pelo) es justo el maestro de la Meditación.
+			{"n": "Pelo", "c": _fase_piezas(["pelo", "barba"], ["el pelo", "la barba"])},
 			{"n": "Ropa", "c": _fase_ropa()},
 		]
 	else:
@@ -288,14 +291,20 @@ func _fase_pieza(pieza: String) -> Control:
 	return v
 
 
-# LA ROPA son DOS piezas y por tanto dos modelos, pero UN SOLO ColorPicker: dos no caben, y ademas
-# tener dos selectores de color abiertos a la vez invita a compararlos en vez de mirar al personaje.
-# Se elige que prenda se esta pintando con los dos botones de arriba del picker.
-func _fase_ropa() -> Control:
+# VARIAS PIEZAS EN UNA FASE: un selector de modelo por pieza y UN SOLO ColorPicker, con botones
+# arriba para elegir cual se esta pintando.
+#
+# Existe porque las fases ya no son una pieza cada una: el PELO lleva ademas la BARBA (son lo mismo,
+# pelo, y comparten pestaña) y la ROPA lleva el GORRO. Meterlas como pestañas propias habria dejado
+# SEIS pestañas, y en la columna de 320 px no caben -- se salen por el lado.
+#
+# Dos ColorPicker a la vez tampoco valen: no caben, y ademas tener dos abiertos invita a compararlos
+# entre si en vez de mirar al personaje.
+func _fase_piezas(piezas: Array, etiquetas: Array) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	v.add_child(_selector_modelo("torso"))
-	v.add_child(_selector_modelo("piernas"))
+	for pz in piezas:
+		v.add_child(_selector_modelo(String(pz)))
 
 	var cual := HBoxContainer.new()
 	cual.add_theme_constant_override("separation", 4)
@@ -304,27 +313,36 @@ func _fase_ropa() -> Control:
 	cual.add_child(lbl)
 	v.add_child(cual)
 
-	var picker := _selector_color("torso")
+	var picker := _selector_color(String(piezas[0]))
 	v.add_child(picker)
 
-	var b_torso := Button.new()
-	b_torso.text = "la camisa"
-	b_torso.toggle_mode = true
-	b_torso.button_pressed = true
-	var b_piernas := Button.new()
-	b_piernas.text = "el pantalón"
-	b_piernas.toggle_mode = true
-	cual.add_child(b_torso)
-	cual.add_child(b_piernas)
-	b_torso.pressed.connect(func():
-		b_torso.button_pressed = true
-		b_piernas.button_pressed = false
-		_apuntar_picker(picker, "torso"))
-	b_piernas.pressed.connect(func():
-		b_piernas.button_pressed = true
-		b_torso.button_pressed = false
-		_apuntar_picker(picker, "piernas"))
+	var botones: Array[Button] = []
+	for i in piezas.size():
+		var b := Button.new()
+		b.text = String(etiquetas[i])
+		b.toggle_mode = true
+		b.button_pressed = (i == 0)
+		cual.add_child(b)
+		botones.append(b)
+	for i in botones.size():
+		var b2: Button = botones[i]
+		var pz2: String = String(piezas[i])
+		# Se apagan los demas A MANO y no con un ButtonGroup: el grupo emite su propia señal ademas
+		# de la del boton, y el picker acababa apuntando dos veces a piezas distintas en el mismo
+		# clic -- o sea que el color se escribia en la pieza equivocada una de cada dos veces.
+		b2.pressed.connect(func():
+			for otro in botones:
+				otro.button_pressed = (otro == b2)
+			_apuntar_picker(picker, pz2))
 	return v
+
+
+# LA ROPA son TRES piezas y por tanto tres modelos, pero UN SOLO ColorPicker (ver _fase_piezas).
+# El GORRO va aqui y no en su propia pestaña: es una prenda, y con pestaña propia habria seis y no
+# caben en la columna.
+func _fase_ropa() -> Control:
+	return _fase_piezas(["torso", "piernas", "gorro"],
+		["la camisa", "el pantalón", "el gorro"])
 
 
 # LA PANTALLA SIMPLE: nombre, color e imagen, sin fases ni muñeco. Es la de bautizar un MUNDO.
