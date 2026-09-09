@@ -16,5 +16,6 @@ descripcion = "Se te viene a la cara y bate. No pega: te llena los ojos de polvo
 coste_energia = 0.0
 dano_mult = 0.7
 efectos = [SubResource("SA_deb")]
-fx_estilo = 10
+fx_estilo = 116
+fx_anim = &"aletear"
 cooldown = 3

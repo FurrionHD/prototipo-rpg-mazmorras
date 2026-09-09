@@ -146,7 +146,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 		CombatFX.Estilo.BASTON_GOLPE, CombatFX.Estilo.BASTONAZO, \
 		CombatFX.Estilo.SELLO_ARCANO, \
 		CombatFX.Estilo.PUNOS_GOLPE, CombatFX.Estilo.EMBESTIDA_ESCUDO, \
-		CombatFX.Estilo.NUBE_ESPORAS, CombatFX.Estilo.MICELIO, \
+		CombatFX.Estilo.MICELIO, \
 		CombatFX.Estilo.VENTOSA, CombatFX.Estilo.DRENAR:
 			# Tampoco viajan, pero por el motivo CONTRARIO al aura: lo que se desplaza es la tarjeta
 			# del que muerde (embiste, ver CombatFX), asi que las fauces tienen que estar ya donde
@@ -449,6 +449,8 @@ func _vida(e: Dictionary) -> float:
 	# coleta corta de 0,12 las dos se leerian como un golpe que pasa, que es justo lo contrario.
 	if es == CombatFX.Estilo.NUBE_ESPORAS:
 		return float(e["dur"]) + COLETA_ESPORAS
+	if es == CombatFX.Estilo.ALETEO:
+		return float(e["dur"]) + COLETA_ALETEO
 	if es == CombatFX.Estilo.MICELIO:
 		return float(e["dur"]) + COLETA_MICELIO
 	# LA SANGUIJUELA. Las dos con coleta larga: "se pega y no la despegas".
@@ -577,6 +579,7 @@ func _draw() -> void:
 			CombatFX.Estilo.ESCOLTA_FX: _pintar_escolta(e)
 			CombatFX.Estilo.MURO_GUARDIAN: _pintar_muro_guardian(e)
 			CombatFX.Estilo.NUBE_ESPORAS: _pintar_esporas(e)
+			CombatFX.Estilo.ALETEO: _pintar_aleteo(e)
 			CombatFX.Estilo.MICELIO: _pintar_micelio(e)
 			CombatFX.Estilo.VENTOSA: _pintar_ventosa(e)
 			CombatFX.Estilo.DRENAR: _pintar_drenar(e)
@@ -908,6 +911,8 @@ func _pintar_drenar(e: Dictionary) -> void:
 # Cuanto se quedan despues del impacto. Largas las dos a proposito, y es lo que las define: la nube
 # no pasa, SE POSA; el micelio no azota, se ENGANCHA.
 const COLETA_ESPORAS := 0.55
+# El aleteo pasa: es una rafaga, no una nube que se queda.
+const COLETA_ALETEO := 0.30
 const COLETA_MICELIO := 0.48
 
 
@@ -935,9 +940,36 @@ func _pintar_esporas(e: Dictionary) -> void:
 	# una a una -- un racimo de globos grises. Una nube tiene que ser algo MAS ancha que a quien tapa,
 	# no cuatro veces.
 	var rg: float = _radio_grupo(e, 0.30, 24.0)
-	# 'w' recorre la vida entera contando el vuelo: la nube tiene que verse ABRIRSE antes de que
-	# llegue el daño, que es donde esta toda la habilidad.
-	var w: float = clampf(t / maxf(0.01, dur + COLETA_ESPORAS), 0.0, 1.0)
+
+	# EL VIAJE: las esporas SALEN DEL BICHO y cruzan hasta el objetivo antes de abrirse ahi.
+	#
+	# Al principio esto no viajaba -- la nube brotaba directamente encima de la victima -- y para el
+	# miconido colaba, porque su bocanada sale del sombrero y el sombrero ya esta pegado a quien
+	# muerde. Para la POLILLA no: ella suelta el polvo DE LAS ALAS y desde donde esta, asi que sin
+	# recorrido no se entendia de donde salia la nube. Con el viaje sirve para los dos: una bocanada
+	# tambien se ve salir.
+	#
+	# Y no es un proyectil, es un CHORRO: no viaja una bola, viaja un reguero de motas que se abre en
+	# abanico segun avanza (por eso el desvio lateral crece con 's').
+	if t < dur:
+		var vuela: float = clampf(t / maxf(0.01, dur), 0.0, 1.0)
+		var a: Vector2 = e["a"]
+		for i in 12:
+			var s: float = clampf(vuela * 1.35 - float(i) * 0.06, 0.0, 1.0)
+			if s <= 0.0:
+				continue
+			var p: Vector2 = a.lerp(b, s)
+			# Se abre en abanico: perpendicular al camino y creciendo con el recorrido.
+			var eje: Vector2 = (b - a).normalized()
+			var lat := Vector2(-eje.y, eje.x)
+			p += lat * sin(float(i) * 2.3 + g) * rg * 0.55 * s
+			p.y += rg * 0.20 * s * s      # el polvo pesa: cae un poco por el camino
+			draw_circle(p, maxf(1.5, rg * (0.10 + 0.16 * s)),
+				Color(polvo.r, polvo.g, polvo.b, 0.70 * (1.0 - 0.35 * s)))
+		return
+
+	# 'w' recorre lo que queda DESPUES del impacto: la nube se abre donde cae, no por el camino.
+	var w: float = clampf((t - dur) / COLETA_ESPORAS, 0.0, 1.0)
 	# LA APERTURA es rapida y luego se frena: el polvo sale de golpe y despues solo flota. Con una
 	# rampa lineal la nube se leia como un anillo creciendo, o sea como una onda de choque.
 	var abre: float = sqrt(w)
@@ -981,6 +1013,65 @@ func _pintar_esporas(e: Dictionary) -> void:
 			+ Vector2(sin(g + float(i)) * rg * 0.12, rg * (0.10 + 1.05 * cae))
 		draw_circle(pm, maxf(1.5, rg * 0.075 * (1.0 - 0.4 * w)),
 			Color(polvo.r, polvo.g, polvo.b, 0.90 * (1.0 - w * 0.75)))
+
+
+# EL ALETEO CEGADOR de la polilla. "Se te viene a la cara y bate. No pega: te llena los ojos de
+# polvo y para cuando ves algo, ya no esta donde la buscabas."
+#
+# NO ES LA NUBE, y por eso son dos estilos y no uno. La nube es polvo que se QUEDA flotando y cubre a
+# quien pille; esto es una RAFAGA -- un golpe de aire con polvo dentro que llega, ciega y pasa. Lo
+# cuentan tres cosas: los dos ARCOS de ala barriendo (la nube no tiene alas), que el polvo va en
+# vetas ALARGADAS en la direccion del golpe en vez de en bolas, y que se va rapido (coleta corta).
+#
+# Hasta hoy pedia ESCUPITAJO, o sea una bola de saliva con parabola: una polilla escupiendo.
+func _pintar_aleteo(e: Dictionary) -> void:
+	var b: Vector2 = e["b"]
+	var a: Vector2 = e["a"]
+	var t: float = float(e["t"])
+	var dur: float = float(e["dur"])
+	var g: float = float(e["semilla"])
+	var col: Color = e["col"]
+	var polvo: Color = Color(0.94, 0.93, 0.88).lerp(col, 0.20)
+	var caja: float = clampf(float(e["ancho"]) * 0.72, 38.0, 118.0)
+	var w: float = clampf(t / maxf(0.01, dur + COLETA_ALETEO), 0.0, 1.0)
+	var alfa: float = 1.0 if w < 0.55 else 1.0 - (w - 0.55) / 0.45
+	if alfa <= 0.0:
+		return
+	var eje: Vector2 = (b - a).normalized()
+	if eje == Vector2.ZERO:
+		eje = Vector2.DOWN
+	var lat := Vector2(-eje.y, eje.x)
+
+	# LOS DOS ARCOS DE ALA, uno a cada lado, barriendo hacia delante. Son lo que dice que esto lo hace
+	# un bicho CON ALAS y no un soplido cualquiera. Se abren y se cierran con el golpe.
+	var barre: float = clampf(w / 0.45, 0.0, 1.0)
+	for k in 2:
+		var lado: float = 1.0 if k == 0 else -1.0
+		var centro: Vector2 = a.lerp(b, 0.30 + 0.30 * barre)
+		var r: float = caja * (0.30 + 0.55 * barre)
+		var a0: float = eje.angle() + lado * (0.25 + 1.05 * barre)
+		var a1: float = eje.angle() + lado * (0.25 + 0.25 * barre)
+		draw_arc(centro, r, minf(a0, a1), maxf(a0, a1), 14,
+			Color(polvo.r, polvo.g, polvo.b, 0.55 * alfa * (1.0 - barre * 0.4)),
+			maxf(2.0, caja * 0.07), true)
+
+	# LAS VETAS DE POLVO: rayas ALARGADAS en la direccion del golpe, no bolas. Es lo que separa una
+	# rafaga de una nube -- el polvo aqui no flota, lo empujan.
+	for i in 11:
+		var s: float = clampf(w * 1.5 - float(i) * 0.05, 0.0, 1.0)
+		if s <= 0.0:
+			continue
+		var off: float = sin(float(i) * 2.7 + g) * caja * 0.55 * (0.35 + 0.65 * s)
+		var p: Vector2 = a.lerp(b, s) + lat * off
+		var largo: float = caja * (0.18 + 0.22 * s)
+		draw_line(p - eje * largo * 0.5, p + eje * largo * 0.5,
+			Color(polvo.r, polvo.g, polvo.b, 0.75 * alfa * (1.0 - s * 0.45)),
+			maxf(1.5, caja * 0.05), true)
+
+	# Y EL DESTELLO EN LA CARA al llegar: el momento en que te ciega. Corto y solo al final del vuelo.
+	if w > 0.42 and w < 0.72:
+		var k2: float = 1.0 - absf((w - 0.57) / 0.15)
+		draw_circle(b, caja * 0.34 * k2, Color(polvo.r, polvo.g, polvo.b, 0.45 * k2 * alfa))
 
 
 # EL MICELIO: el cordon del miconido. No es un latigazo (que es lo que reproducia hasta hoy, o sea

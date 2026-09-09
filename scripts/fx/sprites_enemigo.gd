@@ -66,6 +66,10 @@ static var GENERADORES_POR_NOMBRE := {
 	# ARBOL. Ahi ni siquiera hay una familia mal elegida que aprovechar -- NINGUNA quiere decir
 	# literalmente que no se parece a nada, asi que por fuerza va por nombre.
 	&"aberracion": AberracionSprites,
+	# Y LA POLILLA, que es el UNICO BICHO QUE VUELA. Se dibujaba con el de la aberracion -- o sea que
+	# salia como un pegote de tentaculos arrastrandose --, y no habia nada mejor que prestarle: es la
+	# unica del juego con alas ademas de la gargola, y aquella es de piedra y las lleva plegadas.
+	&"polilla": PolillaSprites,
 	# Y EL MICONIDO, que es el tercero de familia NINGUNA -- la comparte con el Trent y la Aberracion,
 	# o sea con un ARBOL y con un pegote de tentaculos. Hasta ahora se dibujaba con el generador del
 	# trent, asi que un hongo andante salia con forma de arbol; y no era un despiste, es que sin un

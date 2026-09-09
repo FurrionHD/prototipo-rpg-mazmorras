@@ -22,5 +22,6 @@ area_secundario = 0.9
 area_efectos_secundarios = true
 area_prob_secundario = 1.0
 efectos = [SubResource("SA_ven")]
-fx_estilo = 28
+fx_estilo = 112
+fx_anim = &"nube"
 cooldown = 4

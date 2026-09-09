@@ -111,7 +111,9 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 # pedian MORDISCO y ENROSQUE, o sea paletos de roedor y los anillos del ciempies.
 #
 # Y LOS DOS DE LOS HONGOS (112-113), que se añadieron con el miconido:
-#   NUBE_ESPORAS  una nube de polvo CASI BLANCO que se abre y SE QUEDA posandose
+#   NUBE_ESPORAS  un chorro de polvo CASI BLANCO que sale del bicho, cruza y se abre en una nube
+#                 que SE QUEDA posandose
+#   ALETEO (116)  el golpe de ala de la polilla: dos arcos de ala y una rafaga de polvo por delante
 #   MICELIO       un cordon blanco que sube del suelo y se enrosca en la pierna
 #
 # LA NUBE ES EL HUECO MAS VIEJO DE ESTA LISTA. Habia ya DOS habilidades de nube en el juego -- la
@@ -322,7 +324,8 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		LUZ_ESTALLIDO = 107, SOMBRA_VORAGINE = 108, ECLIPSE = 109,
 		CURACION_LUZ = 110, CURACION_LUZ_MAYOR = 111,
 		NUBE_ESPORAS = 112, MICELIO = 113,
-		VENTOSA = 114, DRENAR = 115 }
+		VENTOSA = 114, DRENAR = 115,
+		ALETEO = 116 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -435,11 +438,14 @@ const T_VUELO := {
 	# LOS DE LOS HONGOS. Ninguno viaja: la nube brota encima del alcanzado y el micelio sale del
 	# suelo, asi que su vuelo es solo el ADELANTO con el que empieza a dibujarse. La nube lo lleva
 	# largo porque tiene que verse ABRIRSE antes del impacto -- ahi esta toda la habilidad.
-	Estilo.NUBE_ESPORAS: 0.20, Estilo.MICELIO: 0.10,
+	Estilo.NUBE_ESPORAS: 0.26, Estilo.MICELIO: 0.10,
 	# LOS DE LA SANGUIJUELA. Ninguno viaja: la tarjeta embiste y la boca llega con ella, asi que el
 	# vuelo es solo el ADELANTO con el que empieza a dibujarse. El drenaje lo lleva mas corto porque
 	# son tres o cuatro golpes seguidos y con adelantos largos se pisan unos a otros.
 	Estilo.VENTOSA: 0.07, Estilo.DRENAR: 0.05,
+	# EL ALETEO VIAJA DE VERDAD, y la NUBE tambien (antes nacia encima de la victima): el polvo sale de
+	# las alas de la polilla y cruza hasta la cara. Si no se ve salir, no se entiende de donde viene.
+	Estilo.ALETEO: 0.22,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
