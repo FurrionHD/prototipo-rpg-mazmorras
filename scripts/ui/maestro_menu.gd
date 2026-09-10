@@ -485,6 +485,15 @@ func _pintar_armas(pj: PersonajeData) -> void:
 # ============================================================
 
 func _pintar_meditacion(pj: PersonajeData) -> void:
+	# SI EL BANNER ABIERTO SE HA GASTADO, se sale de el: su pestaña ya no esta en la columna (ver
+	# _banner_agotado) y quedarse dentro seria un cartel sin forma de volver a el ni de salir salvo
+	# pulsando otra pestaña. Pasa exactamente una vez por mundo, justo al volver de la tirada 30.
+	#
+	# EL REVELADO NO SE TIRA AQUI, y esa es la diferencia con _pick_banner: las cartas que hay puestas
+	# son las de ESA misma tanda, la que acaba de cerrar el cupo, y borrarlas dejaria la ultima tirada
+	# del mundo sin enseñar.
+	if _banner_agotado(_banner_idx):
+		_banner_idx = Game.BANNER_ATAQUE
 	# LAS DOS COLUMNAS DEL ESQUELETO, FUERA. El cartel ocupa la pantalla entera; con el split debajo
 	# se veian los separadores y el hueco de la ficha por detras.
 	if _split != null:
@@ -637,8 +646,15 @@ func _pick_banner(i: int) -> void:
 # El tamaño y el apagado de cada pestaña. Va aqui y no en el montaje porque cambia con la que este
 # abierta, y el montaje se hace UNA vez (ver _montar_capa_med).
 func _pintar_pestanas_banner() -> void:
+	var vis: int = 0
 	for i in _pest_banner.size():
 		var bt: Button = _pest_banner[i]
+		# LA GASTADA NI SE PINTA. Se esconde en vez de sacarla del arbol porque el VBox no le guarda
+		# sitio a un hijo invisible, asi que la columna se cierra sola, y porque _pest_banner sigue
+		# indexado por el numero de banner: sacar una desalinearia la lista con Game.BANNERS.
+		bt.visible = not _banner_agotado(i)
+		if bt.visible:
+			vis += 1
 		var sel: bool = i == _banner_idx
 		bt.custom_minimum_size = Vector2(BANNER_ANCHO_SEL if sel else BANNER_ANCHO, BANNER_ALTO)
 		# LA APAGADA, a media luz. Se escribe en cada repintado a proposito: el modulate de esta casa
@@ -646,6 +662,10 @@ func _pintar_pestanas_banner() -> void:
 		bt.modulate = Color(1, 1, 1, 1.0 if sel else 0.55)
 		if bt.get_child_count() > 0:
 			(bt.get_child(0) as Control).queue_redraw()
+	# LA COLUMNA SE RECENTRA CON LAS QUE QUEDAN. El offset del montaje esta calculado para las tres, y
+	# al irse la de novato la columna se quedaba colgando hacia arriba, descuadrada con el cartel: el
+	# hueco de la que falta seguia ahi abajo aunque la pestaña ya no estuviera.
+	_col_banners.offset_top = -float(maxi(1, vis)) * float(BANNER_ALTO + 10) * 0.5
 
 
 # UNA PESTAÑA. La miniatura es EL MISMO DIBUJO del cartel a escala (GachaBanner.dibujar_tomo), asi
@@ -771,33 +791,69 @@ func _refrescar_botones_med() -> void:
 	_lbl_pity.text = _texto_pity(_pj())
 	_pintar_pestanas_banner()
 	var b: Dictionary = Game.banner(_banner_idx)
-	var p1: int = int(b["precio"])
-	var p10: int = int(b["precio_x10"])
 	# CON CUPO AGOTADO se apagan los dos botones, y esa es la unica razon por la que el x10 se apaga:
 	# mientras quede aunque sea UNA tirada sigue encendido, porque el x10 con cupo corto tira lo que
 	# queda y cobra por ello. Apagarlo al bajar de diez dejaba el final del cupo inalcanzable salvo de
 	# una en una.
 	var quedan: int = _quedan_del_cupo()
 	var agotado: bool = quedan == 0
-	_bt_x1.text = "Meditar ×1      %s" % _con_puntos(p1)
-	_bt_x1.disabled = agotado or not Game.puede_pagar(p1)
+	# LOS PRECIOS SALEN DE Game.gacha_precio_tanda, no de multiplicar aqui: es la MISMA cuenta con la
+	# que se cobra unas lineas mas abajo, asi que el boton no puede prometer un precio y la caja
+	# aplicar otro. Y es lo que hace que la tirada de bienvenida se lea "Gratis" sin un if de pantalla.
+	var ya: int = Net.tiradas_novato_visibles()
+	var c1: int = Game.gacha_precio_tanda(_banner_idx, ya, 1)
+	_bt_x1.text = "Meditar ×1      %s" % _precio_txt(c1)
+	_bt_x1.disabled = agotado or not Game.puede_pagar(c1)
 	# Con menos de 10 de cupo, el boton dice lo que va a pasar de verdad: cuantas van a caer y cuanto
 	# cuestan. Un boton que promete diez y da tres es la clase de mentira que no se perdona en un gacha.
-	if quedan > 0 and quedan < 10:
-		_bt_x10.text = "Meditar ×%d      %s" % [quedan, _con_puntos(p1 * quedan)]
-		_bt_x10.disabled = not Game.puede_pagar(p1 * quedan)
+	var n10: int = quedan if quedan > 0 and quedan < 10 else 10
+	var c10: int = Game.gacha_precio_tanda(_banner_idx, ya, n10)
+	if n10 != 10:
+		_bt_x10.text = "Meditar ×%d      %s" % [n10, _precio_txt(c10)]
+		_bt_x10.disabled = not Game.puede_pagar(c10)
 	else:
-		_bt_x10.text = "Meditar ×10     %s  (pagas 9)" % _con_puntos(p10)
-		_bt_x10.disabled = agotado or not Game.puede_pagar(p10)
+		# LA COLETILLA DICE POR QUE ESE PRECIO, y manda la gratis sobre el descuento del pack. Con una
+		# gratis dentro se cobran nueve SUELTAS y el pack no se aplica -- da la casualidad de que en el
+		# novato las nueve sueltas valen lo mismo que el pack (4.500), asi que decir "pagas 9" ahi seria
+		# cierto en monedas y falso en el motivo, y ademas se callaria justo el gancho.
+		var gratis: int = Game.gacha_gratis_en_tanda(_banner_idx, ya, n10)
+		var coletilla: String = ""
+		if gratis > 0:
+			coletilla = "  (%s gratis)" % ("1" if gratis == 1 else str(gratis))
+		elif c10 == int(b["precio_x10"]):
+			coletilla = "  (pagas 9)"
+		_bt_x10.text = "Meditar ×10     %s%s" % [_precio_txt(c10), coletilla]
+		_bt_x10.disabled = agotado or not Game.puede_pagar(c10)
+
+
+# Un precio para un boton. Cero no se escribe "0 monedas": se escribe GRATIS, que es lo que hace que
+# la tirada de bienvenida se vea desde la otra punta de la pantalla.
+func _precio_txt(c: int) -> String:
+	return "Gratis" if c <= 0 else _con_puntos(c)
 
 
 # CUANTAS TIRADAS QUEDAN del cupo de este banner, o -1 si no tiene tope. Se lee de Net y NUNCA de
 # Game.tiradas_novato: en un mundo compartido el cupo es el del host (ver Net.tiradas_novato_visibles).
 func _quedan_del_cupo() -> int:
-	var cupo: int = int(Game.banner(_banner_idx).get("cupo", 0))
+	return _quedan_del_cupo_de(_banner_idx)
+
+
+func _quedan_del_cupo_de(i: int) -> int:
+	var cupo: int = int(Game.banner(i).get("cupo", 0))
 	if cupo <= 0:
 		return -1
 	return maxi(0, cupo - Net.tiradas_novato_visibles())
+
+
+# UN BANNER GASTADO SE BORRA DE LA COLUMNA. No se deja apagado ni con un cartel de "agotado": el de
+# novato es un banner de TEMPORADA -- 30 tiradas y se acabo para todo el mundo --, y una pestaña que
+# ya no se puede pulsar es sitio robado a las dos que si. Ademas asi la columna cuenta sola la
+# historia del mundo: se entra con tres circulos y se acaba con dos.
+#
+# ES DEL MUNDO, no del personaje: se mira por Net (ver _quedan_del_cupo_de), asi que en un mundo
+# compartido desaparece para todos a la vez, tambien para el que no tiro ninguna.
+func _banner_agotado(i: int) -> bool:
+	return _quedan_del_cupo_de(i) == 0
 
 
 # CUANTO FALTA PARA CADA GARANTIZADO, en UNA linea encima de los botones de tirar. Es la unica
@@ -816,6 +872,15 @@ func _texto_pity(pj: PersonajeData) -> String:
 		var cupo: int = int(Game.banner(_banner_idx).get("cupo", 0))
 		if quedan == 0:
 			return "Agotado:  las %d tiradas de este mundo ya se han gastado" % cupo
+		# LA GRATIS MANDA SOBRE TODO LO DEMAS mientras quede: es lo que decide si tiras AHORA, que es
+		# para lo que esta esta linea. La cuenta del cupo sigue estando en el cartel.
+		var free: int = Game.gacha_gratis_en_tanda(_banner_idx, Net.tiradas_novato_visibles(), 10)
+		if free > 0:
+			var seguro: bool = int(Game.banner(_banner_idx).get("gratis_garantiza", -1)) >= 0
+			if free == 1:
+				return "La primera tirada es GRATIS%s" % ("  ·  y asegura grimorio" if seguro else "")
+			return "Las %d primeras tiradas son GRATIS%s" % [
+				free, "  ·  y aseguran grimorio" if seguro else ""]
 		var g: int = int(Game.banner(_banner_idx).get("cupo_garantiza", -1))
 		var txt: String = "Quedan %d de %d tiradas en este mundo" % [quedan, cupo]
 		if g >= 0:
@@ -851,19 +916,17 @@ func _cuantas(n: int) -> String:
 var _revelado: Array = []
 
 func _meditar_x1() -> void:
-	_meditar(1, int(Game.banner(_banner_idx)["precio"]))
+	_meditar(1)
 
 
 func _meditar_x10() -> void:
-	# EL PRECIO DEL PACK va aqui, pero con cupo corto no manda: si el host concede menos de diez,
-	# _cupo_concedido recalcula a precio suelto. Este numero solo vale para la tanda entera.
-	_meditar(10, int(Game.banner(_banner_idx)["precio_x10"]))
+	_meditar(10)
 
 
 # UNA TANDA DE TIRADAS. Cobra UNA VEZ por la tanda (por eso la x10 puede tener descuento) y despues
 # tira: Game.tirar_meditacion no cobra ni entrega nada a proposito, para que se pueda tirar diez mil
 # veces en el visor sin tocar la partida.
-func _meditar(cuantas: int, precio: int) -> void:
+func _meditar(cuantas: int) -> void:
 	# EL CUPO SE PIDE ANTES DE COBRAR, y esto no es manía: en un mundo compartido las 30 tiradas del
 	# novato las lleva el HOST, asi que cobrar primero y preguntar despues es pagar 4500 y que te
 	# digan que no quedan. Ademas la respuesta puede ser PARCIAL (pides 10, quedan 3), y entonces
@@ -872,7 +935,9 @@ func _meditar(cuantas: int, precio: int) -> void:
 		_pidiendo_cupo = cuantas
 		Net.pedir_tiradas_novato(cuantas)
 		return
-	_meditar_ya(cuantas, precio)
+	# Sin cupo, 'ya' da igual (esos banners no tienen tiradas gratis) pero se pasa el de verdad: el
+	# dia que un banner grande regale la primera, esta linea ya esta bien.
+	_meditar_ya(cuantas, Game.gacha_precio_tanda(_banner_idx, Net.tiradas_novato_visibles(), cuantas))
 
 
 # Lo que el host (o yo mismo, en solitario) me ha concedido del cupo. 'k' puede ser MENOS de lo que
@@ -887,10 +952,12 @@ func _cupo_concedido(k: int) -> void:
 		_aviso_ok = false
 		_rebuild()
 		return
-	# EL DESCUENTO DEL PACK SOLO SI VA ENTERO. Con 3 de 10 se cobra a precio suelto: el "pagas 9 y
-	# llevas 10" es por llevarse las diez, y regalar el descuento por tres seria cobrar de menos.
-	var b: Dictionary = Game.banner(_banner_idx)
-	var precio: int = int(b["precio_x10"]) if k >= 10 else int(b["precio"]) * k
+	# EL PRECIO SE CALCULA CON LO CONCEDIDO Y CON LO YA GASTADO, no con lo pedido: el host acaba de
+	# apuntar las k tiradas, asi que las de esta tanda son las que van de 'ya + 1' a 'ya + k' -- y ahi
+	# dentro puede estar la primera del mundo, que es gratis. (El descuento del pack solo sale si se
+	# pagan las diez; eso lo decide Game.gacha_precio_tanda.)
+	var ya: int = maxi(0, Net.tiradas_novato_visibles() - k)
+	var precio: int = Game.gacha_precio_tanda(_banner_idx, ya, k)
 	if k < pedidas:
 		_aviso_cupo_corto = k
 	_meditar_ya(k, precio)
@@ -915,8 +982,6 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 	var pj: PersonajeData = _pj()
 	var pool: Array = _pool_grimorios()
 	var tochos: Array = _pool_tochos()
-	var b: Dictionary = Game.banner(_banner_idx)
-	var cupo: int = int(b.get("cupo", 0))
 	# UN RNG NUEVO POR TANDA, sin semilla fija: aqui se quiere azar de verdad. El parametro existe
 	# para que el visor pueda repetir una racha y, el dia que esto vaya por red, para que las tire
 	# el host con su semilla (ver Game.sortear_grimorio).
@@ -924,12 +989,12 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 	rng.randomize()
 	_revelado.clear()
 	for i in cuantas:
-		# LA ULTIMA DEL CUPO se despide con su garantizado. Las tiradas ya estan apuntadas en
-		# Game.tiradas_novato (las apunto el host al conceder), asi que la que cierra es aquella en la
-		# que las que quedan por detras de ella son cero.
-		var garantiza: int = -1
-		if cupo > 0 and Net.tiradas_novato_visibles() - (cuantas - 1 - i) >= cupo:
-			garantiza = int(b.get("cupo_garantiza", -1))
+		# EL NUMERO DE TIRADA DEL MUNDO de esta de aqui. Las de la tanda ya estan apuntadas en
+		# Game.tiradas_novato (las apunto el host al conceder), asi que la ultima lleva el numero de
+		# hoy y las de delante van restando. De ese numero salen los dos garantizados sueltos: el de
+		# bienvenida (la primera del mundo) y el de despedida (la que cierra el cupo).
+		var num: int = Net.tiradas_novato_visibles() - (cuantas - 1 - i)
+		var garantiza: int = Game.gacha_garantia_suelta(_banner_idx, num)
 		var t: Dictionary = Game.tirar_meditacion(pj, rng, pool, tochos, _banner_idx, garantiza)
 		var c: ConsumableData = t.get("item")
 		if c == null:
@@ -1881,6 +1946,14 @@ func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 		if g >= 0:
 			MenuScaffold.nota(vb, "La última de las %d garantiza un grimorio %s o mejor."
 				% [cupo, _nombre_rareza(g).to_lower()])
+		# LA BIENVENIDA, en el mismo sitio que la despedida: son las dos puntas del mismo cupo.
+		var free: int = int(b.get("gratis", 0))
+		if free > 0:
+			var txt: String = ("La primera de las %d no cuesta nada" % cupo) if free == 1 \
+				else ("Las %d primeras de las %d no cuestan nada" % [free, cupo])
+			if int(b.get("gratis_garantiza", -1)) >= 0:
+				txt += ", y cae grimorio seguro: la rareza ya es cosa del azar"
+			MenuScaffold.nota(vb, txt + ". Y también es del mundo: la regala el primero que se siente.")
 	else:
 		for r in Game._pity_por_rareza(b.get("pity", {})):
 			MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio %s o mejor."

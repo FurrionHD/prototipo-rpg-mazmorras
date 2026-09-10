@@ -168,6 +168,16 @@ func _montar_texto(padre: Control) -> void:
 	# cada banner tiene los suyos, asi que un texto fijo mentiria en dos de cada tres.
 	var cupo: int = int(_ficha.get("cupo", 0))
 	if cupo > 0:
+		# LA GRATIS PRIMERO Y EN AMBAR: es el gancho del cartel, no una nota al pie. Y en presente
+		# aunque ya se haya gastado -- el cartel dice la REGLA del circulo, no en que punto va el
+		# mundo; eso lo cuenta la linea de encima de los botones (ver maestro_menu._texto_pity).
+		var free: int = int(_ficha.get("gratis", 0))
+		if free > 0:
+			var txt: String = "La primera meditación es GRATIS" if free == 1 \
+				else "Las %d primeras meditaciones son GRATIS" % free
+			if int(_ficha.get("gratis_garantiza", -1)) >= 0:
+				txt += ", y cae grimorio seguro"
+			_linea(col, txt + ".", AMBAR, 13)
 		_linea(col, "Solo %d meditaciones en todo el mundo." % cupo, GRIS, 13)
 		var g: int = int(_ficha.get("cupo_garantiza", -1))
 		if g >= 0:

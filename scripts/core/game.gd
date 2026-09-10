@@ -3243,12 +3243,17 @@ const BANNER_IMBUICIONES := 2
 # 'cupo': tiradas MAXIMAS en todo el mundo (0 = sin limite). Ver Game.tiradas_novato.
 # 'pity': {rareza_garantizada: cada cuantas tiradas}. El novato no lleva: su unico garantizado es el
 #         de la ultima tirada del cupo, que no es un contador que se reinicia sino un final.
+# 'gratis': las N PRIMERAS tiradas DEL MUNDO no se cobran (0 = ninguna).
+# 'gratis_garantiza': y ademas aseguran grimorio de esa rareza O MEJOR (-1 = no aseguran nada).
+#         COMUN (0) es "un grimorio, el que sea": es justo lo que se quiere en la de bienvenida --
+#         que salga MAGIA y no un tocho de relleno --, sin prometer banda ninguna.
 const BANNERS := [
 	{
 		"id": &"novato", "nombre": "El primer círculo",
 		"precio": 500, "precio_x10": 4500,
 		"imbuiciones": null, "tope": Upgrades.Rareza.EPICO,
 		"cupo": 30, "cupo_garantiza": Upgrades.Rareza.RARO,
+		"gratis": 1, "gratis_garantiza": Upgrades.Rareza.COMUN,
 		"pity": {},
 	},
 	{
@@ -3274,6 +3279,61 @@ const BANNERS := [
 # rango tiene que devolver una ruleta que funcione, no petar la pantalla del maestro.
 func banner(i: int) -> Dictionary:
 	return BANNERS[i] if i >= 0 and i < BANNERS.size() else BANNERS[BANNER_ATAQUE]
+
+
+# ------------------------------------------------------------
+#  LAS TIRADAS GRATIS (la de bienvenida)
+#
+#  Las N primeras tiradas del banner de novato no se cobran, y ademas garantizan grimorio. Es el
+#  anzuelo: el que entra por primera vez ve MAGIA cayendo antes de gastar una moneda.
+#
+#  SON DEL MUNDO, no del personaje ni de la sesion, y por el mismo motivo que el cupo: se cuentan con
+#  el MISMO contador (tiradas_novato). Si fueran por personaje, cuatro compañeros darian cuatro
+#  bienvenidas y en un mundo compartido se repartiria la gente el regalo. La primera tirada del mundo
+#  es gratis; punto.
+#
+#  Y POR ESO ESTAS DOS CUENTAS RECIBEN 'ya' -- las tiradas ya gastadas del cupo ANTES de la tanda --
+#  en vez de mirarlo por su cuenta: quien tira es el unico que sabe si el host se las acaba de
+#  conceder o no (ver maestro_menu._cupo_concedido), igual que pasa con el garantizado de despedida.
+# ------------------------------------------------------------
+
+# Cuantas de las 'cuantas' tiradas de una tanda caen dentro de las gratis.
+func gacha_gratis_en_tanda(i: int, ya: int, cuantas: int) -> int:
+	var n: int = int(banner(i).get("gratis", 0))
+	if n <= 0:
+		return 0
+	return clampi(n - ya, 0, cuantas)
+
+
+# LO QUE CUESTA UNA TANDA, con las gratis ya descontadas. Es el unico sitio donde se calcula un
+# precio de meditacion: la pantalla lo usa para el texto del boton Y para cobrar, asi que el numero
+# que se lee y el que se paga no pueden separarse.
+#
+# EL DESCUENTO DEL PACK SOLO SI SE PAGAN LAS DIEZ. Con el cupo corto (quedan 3) o con una gratis
+# dentro se cobra a precio suelto: el "pagas 9 y llevas 10" es por llevarse las diez.
+func gacha_precio_tanda(i: int, ya: int, cuantas: int) -> int:
+	var b: Dictionary = banner(i)
+	var pagan: int = cuantas - gacha_gratis_en_tanda(i, ya, cuantas)
+	if pagan <= 0:
+		return 0
+	if pagan >= 10:
+		return int(b["precio_x10"])
+	return int(b["precio"]) * pagan
+
+
+# EL GARANTIZADO SUELTO de la tirada numero 'num' DEL MUNDO en este banner, o -1 si esa no lleva.
+# Son dos: la de bienvenida (las primeras) y la de despedida (la que cierra el cupo). Si una tirada
+# fuera las dos cosas -- un banner de una sola tirada --, manda la mejor.
+func gacha_garantia_suelta(i: int, num: int) -> int:
+	var b: Dictionary = banner(i)
+	var out: int = -1
+	var cupo: int = int(b.get("cupo", 0))
+	if cupo > 0 and num >= cupo:
+		out = int(b.get("cupo_garantiza", -1))
+	var gratis: int = int(b.get("gratis", 0))
+	if gratis > 0 and num >= 1 and num <= gratis:
+		out = maxi(out, int(b.get("gratis_garantiza", -1)))
+	return out
 
 
 # QUE HECHIZOS ENTRAN en un banner. 'todos' es el catalogo entero (los que tienen grimorio); lo pasa

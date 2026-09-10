@@ -109,6 +109,30 @@ func _ready() -> void:
 	men._rebuild()
 	await _captura("6_meditacion")
 
+	# EL CÍRCULO DE NOVATO, EN SUS DOS ESTADOS. Se miran aquí porque en una partida de verdad cada uno
+	# pasa UNA VEZ EN TODO EL MUNDO y no hay forma de volver a verlos: la tirada de bienvenida (el
+	# cartel con su línea en ámbar y el botón diciendo "Gratis") y el momento en que el cupo se agota
+	# y la pestaña desaparece de la columna.
+	var cupo_novato: int = int(Game.banner(Game.BANNER_NOVATO).get("cupo", 0))
+	Game.tiradas_novato = 0
+	men._banner_idx = Game.BANNER_NOVATO
+	men._rebuild()
+	await _captura("6b_novato_gratis")
+	Game.tiradas_novato = cupo_novato
+	men._rebuild()
+	await _captura("6c_novato_agotado")
+	# LO QUE LA FOTO NO DEMUESTRA: que la pestaña se ha ido de verdad y que el cartel no se ha quedado
+	# dentro de un círculo al que ya no se puede volver.
+	if men._banner_idx == Game.BANNER_NOVATO:
+		printerr("[maestro] MAL: el círculo agotado sigue abierto y su pestaña ya no está.")
+	elif (men._pest_banner[Game.BANNER_NOVATO] as Button).visible:
+		printerr("[maestro] MAL: el círculo de novato está agotado y su pestaña sigue en la columna.")
+	else:
+		print("[maestro] OK: al agotarse el cupo, el círculo de novato desaparece de la columna.")
+	Game.tiradas_novato = 0
+	men._banner_idx = Game.BANNER_ATAQUE
+	men._rebuild()
+
 	# EL GACHA, TIRANDO DE VERDAD. Con dinero de sobra para la x10, que es la tanda que hay que
 	# juzgar: el revelado va de una carta en una y el resumen del final enseña las diez.
 	var precio_x10: int = int(Game.banner(men._banner_idx)["precio_x10"])
