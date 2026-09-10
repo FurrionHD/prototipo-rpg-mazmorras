@@ -29,6 +29,10 @@ const SALTO := 200.0
 # situacion que enemy.EMBESTIDA_IMPACTO). Si se toca uno, tocar los tres.
 const DUR_GOLPE := 8.0 / 12.0
 const DUR_GOLPE_2M := 8.0 / 10.0
+# Y en que punto del gesto contacta el arma, que es cuando suena. Duplicados de player.gd por el
+# mismo motivo que los de arriba: si se tocan alli, tocarlos aqui.
+const CONTACTO_GOLPE := 0.55
+const CONTACTO_GOLPE_2M := 0.60
 
 var _objetivo := Vector2.INF   # ultimo destino recibido; INF = aun no ha llegado ninguno
 # LA POSE que llega por red (ver aplicar_pose). _golpe_seq = -1 hasta el primer paquete: asi el
@@ -38,6 +42,18 @@ var _desenvainado: bool = false
 var _golpe_t: float = 0.0
 var _golpe_variante: int = 0
 var _golpe_seq: int = -1
+# Lo que falta para que SU arma contacte, o -1 si no hay golpe en curso. Es el reloj del sonido,
+# calcado del de player.gd.
+var _golpe_sfx_t: float = -1.0
+# QUE GESTO hace cada una de sus manos, para que su espadazo suene igual aqui que en su pantalla.
+# Se guardan al recibir su ASPECTO, que es por donde llega su equipo: el paquete de pose son unos
+# pocos bits y ahi no cabe un arma.
+#
+# EL RESPALDO ES MELEE Y NO PUNOS_GOLPE aunque a mano limpia se DIBUJE el puñetazo: es lo que
+# devuelve player._estilo_del_golpe cuando no hay arma, y estas dos ramas tienen que dar la misma
+# clave o el mismo golpe sonaria distinto en cada pantalla, que es justo lo que se viene a arreglar.
+var _fx_main: int = CombatFX.Estilo.MELEE
+var _fx_off: int = CombatFX.Estilo.MELEE
 var _cuerpo: ColorRect = null
 var _nombre: Label = null
 # Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira, deducido de su movimiento.
@@ -118,6 +134,10 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 	pj.aspecto = PersonajeData.aspecto_nuevo(pj.color)
 	if not piezas.is_empty():
 		pj.aplicar_aspecto({"piezas": piezas})
+	# Su arma, para el sonido de sus golpes. Sale del mismo PersonajeData que acaba de montarse el
+	# muñeco, o sea del equipo que ya viajaba: no hace falta mensaje nuevo.
+	_fx_main = _fx_de_arma(pj.equipped_main)
+	_fx_off = _fx_de_arma(pj.equipped_off)
 	_muneco.montar(pj)
 	if _muneco.hay_dibujo():
 		_muneco.tenir(Color(color.r, color.g, color.b, 1.0), metal)
@@ -208,7 +228,47 @@ func aplicar_pose(pose: int) -> void:
 		if _golpe_seq >= 0:
 			_golpe_variante = variante
 			_golpe_t = DUR_GOLPE_2M if variante == 2 else DUR_GOLPE
+			# NO suena aqui: aqui el brazo apenas se esta echando hacia atras. Se apunta cuando
+			# tiene que sonar, igual que hace el jugador consigo mismo.
+			_golpe_sfx_t = _golpe_t * (CONTACTO_GOLPE_2M if variante == 2 else CONTACTO_GOLPE)
 		_golpe_seq = seq
+
+
+# SU ESPADAZO, OIDO DESDE AQUI. Hasta esto, en el mapa cada uno solo oia sus propios golpes y los
+# de los bichos que simula: el compañero podia estar aporreando algo a tu lado en silencio.
+#
+# NO HACE FALTA MENSAJE NUEVO: el contador de golpe ya viajaba (es lo que anima el muñeco) y el
+# arma llega con el aspecto. Lo unico que faltaba era sonarlo.
+#
+# SE OYE SEGUN LO LEJOS QUE ESTE, y esto no es un adorno: sin ello oirias igual de fuerte a alguien
+# que esta al otro lado del piso, y el sonido dejaria de decirte donde mirar. Con el zoom de 1.8 de
+# la camara la pantalla abarca unos 711x400 px de mundo, o sea 408 de media diagonal: por eso a
+# partir de OYE_NADA no suena nada -- justo cuando ya no cabe en tu pantalla.
+#
+# El peso es el MISMO mando que usa el area en combate (ver Sonido._db): 1.0 es un golpe de lleno y
+# 0.2 el mas flojo que existe. Reutilizarlo, y no inventar otro volumen, es lo que hace que un
+# espadazo lejano suene como un adyacente y no como otra cosa.
+const OYE_LLENO := 200.0   # px: hasta aqui suena como si fuera tuyo
+const OYE_NADA := 420.0    # px: a partir de aqui, silencio (ya no cabe en la pantalla)
+
+func _sonar_golpe(variante: int) -> void:
+	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	if yo == null:
+		return
+	var d: float = global_position.distance_to(yo.global_position)
+	if d >= OYE_NADA:
+		return
+	var peso: float = 1.0
+	if d > OYE_LLENO:
+		peso = lerpf(1.0, 0.2, (d - OYE_LLENO) / (OYE_NADA - OYE_LLENO))
+	Sonido.golpe("", _fx_off if variante == 1 else _fx_main, peso)
+
+
+# El gesto que hace un arma suya, con el MISMO respaldo que player._estilo_del_golpe (ver _fx_main).
+func _fx_de_arma(arma) -> int:
+	if not (arma is WeaponData):
+		return CombatFX.Estilo.MELEE
+	return int(CombatFX.FX_ARMA.get(int(arma.tipo), CombatFX.Estilo.MELEE))
 
 
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).
@@ -238,6 +298,13 @@ func _physics_process(delta: float) -> void:
 	var andando: bool = velocity.length() > 6.0
 	if andando:
 		_facing = velocity.normalized()
+	# EL SONIDO DE SU ESPADAZO, en el instante del contacto. Va pegado al mismo reloj que la
+	# animacion -- como en el jugador local -- para que el filo y el sonido caigan en el mismo
+	# fotograma tambien en esta pantalla.
+	if _golpe_sfx_t >= 0.0:
+		_golpe_sfx_t -= delta
+		if _golpe_sfx_t < 0.0:
+			_sonar_golpe(_golpe_variante)
 	if _golpe_t > 0.0:
 		_golpe_t -= delta
 		# MIENTRAS PEGA, MIRA A DONDE PEGABA. Deducir el facing del movimiento (que es lo correcto
