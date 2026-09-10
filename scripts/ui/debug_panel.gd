@@ -128,6 +128,8 @@ func _ready() -> void:
 	_sep(vb)
 	_build_enemy(vb)
 	_sep(vb)
+	_build_dinero(vb)
+	_sep(vb)
 	_build_forja(vb)
 	_sep(vb)
 	_build_spells(vb)
@@ -478,6 +480,64 @@ func _build_enemy(vb: VBoxContainer) -> void:
 #  las MEJORAS. "Crear" duplica la plantilla .tres: cada copia es un objeto
 #  propio con sus stats, asi que puedes forjar dos espadas cortas y llevar una
 #  en cada mano. NO se equipa: se equipa desde el menu de personaje [C].
+
+# ============================================================
+#  DINERO: meterse monedas a mano
+#
+#  POR QUE HACE FALTA, y por que estos numeros: es para probar el GACHA. Una tirada son 2.000
+#  monedas y la x10 son 18.000, asi que con los ingresos normales una tarde de pruebas se va en
+#  bajar a la mazmorra a por cristales en vez de en mirar lo que se queria mirar. Y el mitico esta
+#  a ~1.000.000 de coste esperado: sin un boton de millon, el chase no se puede ver ni una vez.
+#
+#  Los saltos son x10 a proposito (mil, diez mil, cien mil, millon) y no cantidades "redondas de
+#  tienda": lo que se pide aqui no es comprarse una espada, es tener DE SOBRA para no volver.
+# ============================================================
+
+const DINERO_SALTOS := [1000, 10000, 100000, 1000000]
+
+var _dinero_lbl: Label = null
+
+func _build_dinero(vb: VBoxContainer) -> void:
+	_header(vb, "DINERO (para probar el gacha)")
+	_dinero_lbl = Label.new()
+	vb.add_child(_dinero_lbl)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 4)
+	vb.add_child(fila)
+	for n in DINERO_SALTOS:
+		# EL VALOR SE CAPTURA POR VALOR en la lambda, que es lo que se quiere aqui: cada boton se
+		# lleva SU cantidad. Capturando la variable del bucle, los cuatro darian el ultimo salto.
+		_atajo(fila, "+%s" % _con_puntos(n), "Te ingresa %s monedas" % _con_puntos(n),
+			func() -> void: _dar_dinero(n))
+	# Y a cero, para lo contrario: comprobar que la pantalla se comporta SIN dinero (los botones de
+	# meditar se apagan, el aviso de "No te llega"...). Sin esto habria que gastarselo a mano.
+	_atajo(fila, "A cero", "Te deja sin monedas, para ver la pantalla sin poder pagar",
+		func() -> void: _dar_dinero(-Game.money))
+	_sync_dinero()
+
+
+func _dar_dinero(n: int) -> void:
+	# NO se usa Game.ingresar: esa suma solo positivos (maxi(0, n)), asi que no sabe restar y el
+	# boton de "A cero" no haria nada. Aqui se toca el campo, que para eso es el panel de trampas.
+	Game.money = maxi(0, Game.money + n)
+	_sync_dinero()
+
+
+func _sync_dinero() -> void:
+	if _dinero_lbl != null and is_instance_valid(_dinero_lbl):
+		_dinero_lbl.text = "Tienes %s monedas" % _con_puntos(Game.money)
+
+
+# 1234567 -> "1.234.567". El dinero de las pruebas llega a siete cifras y sin los puntos no hay
+# forma de leer de un vistazo si te has puesto cien mil o un millon.
+func _con_puntos(n: int) -> String:
+	var s: String = str(absi(n))
+	var out: String = ""
+	while s.length() > 3:
+		out = "." + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
 
 func _build_forja(vb: VBoxContainer) -> void:
 	_header(vb, "FORJA (crear objeto -> baúl)")
@@ -1043,6 +1103,10 @@ func _sync_from_game() -> void:
 	_floor_edit.text = str(Game.current_floor)
 	_rebuild_mejoras()
 	_sync_desarrollo()
+	# El contador de monedas, al abrir: el panel se construye UNA vez y se esconde, asi que sin esto
+	# enseña lo que tenias la primera vez que lo abriste -- y justo despues de gastarte 18.000 en una
+	# x10 es cuando mas engaña.
+	_sync_dinero()
 
 func _sync_spells() -> void:
 	for path in _spell_checks:
