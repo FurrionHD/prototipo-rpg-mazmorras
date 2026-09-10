@@ -86,14 +86,20 @@ También suenan en el mapa:
 
 ## Lo que falta
 
-- **`sfx_mirada.wav` es el único estilo mudo** de los 102, y hoy no se nota: los dos que usan
+- **`sfx_mirada.wav` es el único estilo mudo** de los 120, y hoy no se nota: los dos que usan
   MIRADA (gárgola y aberración) tienen su propio fichero de habilidad. Un enemigo nuevo con ese
-  estilo y sin clave propia sí saldría mudo.
+  estilo y sin clave propia sí saldría mudo. (Aparte están POSTURA_RODELA, ESCOLTA_FX y
+  MURO_GUARDIAN, que suenan prestados por `Sonido.ALIAS_ESTILO` hasta que tengan el suyo.)
+- **Todo el gacha está mudo**, y no por falta de ficheros: `Sonido.golpe()` es la única entrada y
+  solo la llama `CombatFX`, así que no hay camino para que la interfaz pida un sonido. Hace falta
+  un `Sonido.ui(clave)` y una cadena de estrellas (el mismo plin N veces subiendo el tono).
 - **`sfx_elem_veneno.wav` está sin usar**: el veneno no es un elemento, es un estado
   (ver `elements.gd`), así que no entra en `Sonido.ELEMENTOS`.
 - **Dos mapeos por confirmar de oído** (el prompt del fichero venía cortado y son intercambiables):
   `cambio_ritmo` ↔ `senalar_hueco`, y `martillo_en_alto` ↔ `martillo_guerra`. Si suenan al revés,
   se cambian en el manifiesto del guión y se vuelve a lanzar.
-- **El golpe en el mapa no viaja por red**: en multijugador oyes tu espadazo y el del bicho que
-  simulas, pero no el del compañero que pega a tu lado (los `remote_player` no replican el gesto).
+- **El golpe del ENEMIGO espejo no suena** en multijugador: de un bicho que simula el otro solo
+  viaja el aviso (el telegrafiado), no el impacto, así que hace falta mensaje nuevo. El espadazo del
+  compañero **sí suena** desde que `remote_player` lo dispara con el contador de golpe que ya
+  viajaba, atenuado por la distancia (ver `_sonar_golpe`).
 - **`sfx_aura.wav` es una copia de `sfx_arrastre_v1.wav`**, a falta de uno propio.
