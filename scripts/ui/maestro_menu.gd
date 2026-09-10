@@ -992,6 +992,21 @@ const MUS_FINAL := {
 	Upgrades.Rareza.LEGENDARIO: "gacha_final_god",
 	Upgrades.Rareza.MITICO: "gacha_final_god",
 }
+# EL AMAGO. Cada cuantas tandas buenas la animacion miente y luego se transforma.
+#
+# QUE SEA RARO ES LA MECANICA, no una tacañeria. Si el amago fuera frecuente, el jugador aprende en
+# dos tardes que el color bajo no significa nada, deja de decepcionarle -- y con eso se anula justo
+# la emocion que esto viene a crear. El color malo tiene que doler de verdad casi siempre para que
+# la transformacion valga algo.
+#
+# Y SOLO DE EPICO PARA ARRIBA: fingir para acabar en un raro es gastar el truco en un premio que no
+# lo paga, y ademas enseña que el amago tampoco garantiza nada bueno.
+#
+# Y SOLO SUBE, nunca baja: enseñar dorado y quedarse en morado se lee como estafa y quema la
+# animacion entera. Por eso se miente siempre con algo por DEBAJO de lo que ha salido -- y nunca por
+# debajo del suelo que el jugador ya tenia garantizado (ver donde se decide).
+const FAKEOUT_PROB := 0.22
+
 # Y el volteo de cada carta, por su propia rareza (no la de la tanda): relleno, bueno y god.
 const SFX_VOLTEA := {
 	Upgrades.Rareza.RARO: "gacha_voltea_bueno",
@@ -1027,10 +1042,25 @@ func _mostrar_ritual() -> void:
 		return
 	_ritual = GachaRitual.new()
 	_musica_gacha_dentro()
-	var r: int = _mejor_de_la_tanda()[0]
+	var m: Array = _mejor_de_la_tanda()
+	var r: int = int(m[0])
+	# ¿AMAGO? Solo de epico para arriba y solo a veces (ver FAKEOUT_*).
+	#
+	# CON QUE SE MIENTE: con el SUELO QUE EL JUGADOR YA SABE. Normalmente es el comun, que es el que
+	# mas se ve. Pero si esta tanda traia un garantizado, mentir por debajo de el se delata SOLO: si
+	# sabes que como minimo te toca un epico y la luz dice "comun", eso no es una decepcion, es un
+	# amago cantado antes de empezar. Fingiendo el propio garantizado sigue siendo creible -- "vale,
+	# el minimo" -- y la transformacion a legendario conserva entero el golpe.
+	var falso_col: Color = Color.WHITE
+	var falso_sfx: String = ""
+	var suelo: int = maxi(Upgrades.Rareza.COMUN, _suelo_garantizado())
+	if r >= Upgrades.Rareza.EPICO and suelo < r and randf() < FAKEOUT_PROB:
+		falso_col = _color_entrada(suelo, String(m[1]))
+		falso_sfx = String(SFX_BRILLO.get(suelo, "gacha_brillo_comun"))
 	_ritual.montar(_root, _color_mejor_tirada(), _mostrar_resultados,
 		String(SFX_BRILLO.get(r, "gacha_brillo_comun")),
-		String(MUS_FINAL.get(r, "gacha_final_comun")))
+		String(MUS_FINAL.get(r, "gacha_final_comun")),
+		falso_col, falso_sfx)
 	# LOS OTROS MUÑECOS, ESCONDIDOS mientras dura. No es que estorben: es que MunecoJugador dibuja con
 	# z ABSOLUTO, asi que un retrato se cuela por delante de cualquier velo -- y subir el velo por
 	# encima de ellos taparia tambien al maestro, que es un muñeco igual. La misma salida que usa la
@@ -1063,6 +1093,20 @@ func _color_mejor_tirada() -> Color:
 # [rareza, seccion] de lo mejor que ha salido. Va aparte porque lo miran DOS cosas -- el color del
 # brillo y su sonido -- y la regla de quien manda tiene que ser una sola: en cuanto se copie el
 # bucle, un dia el color dira legendario y el sonido dira epico.
+# LA RAREZA MAS ALTA QUE ESTA TANDA TENIA GARANTIZADA, o -1 si no habia ninguna. Es lo que el
+# jugador SABE antes de ver nada: la pantalla le enseña cuanto le falta para cada garantizado, asi
+# que un suelo cumplido no es una sorpresa para nadie.
+#
+# Sale del propio resultado: cada tirada guarda de QUE era su garantizado ('pity' es la rareza, no
+# el numero de tiradas; -1 es tirada limpia). Asi vale igual para el pity de 50, el de 100, el de
+# 200 y para el garantizado de despedida del cupo de novato, sin tener que preguntarle a nadie.
+func _suelo_garantizado() -> int:
+	var suelo: int = -1
+	for t in _revelado:
+		suelo = maxi(suelo, int(t.get("pity", -1)))
+	return suelo
+
+
 func _mejor_de_la_tanda() -> Array:
 	var mejor: int = -1
 	var seccion: String = ""

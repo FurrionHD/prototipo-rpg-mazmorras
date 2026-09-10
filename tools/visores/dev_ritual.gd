@@ -31,6 +31,10 @@ const RAREZAS := ["Común", "Poco común", "Raro", "Épico", "Legendario", "Mít
 	"Prístino"]
 
 var _rareza: int = 5
+# EL AMAGO, forzado. En el juego sale en el 22% de las tandas buenas y se finge el suelo que el
+# jugador ya sabe; aqui se enciende con F porque si no, para verlo una vez habria que tirar veinte
+# veces -- y es justo lo que hay que mirar despacio.
+var _amago: bool = false
 var _vel: float = 1.0
 var _pausa: bool = false
 var _ritual: Control = null
@@ -70,7 +74,9 @@ func _lanzar() -> void:
 	_ritual = GachaRitual.new()
 	# AL ACABAR, VUELVE A EMPEZAR. En el juego aqui entra el revelado de las cartas; aqui el bucle es
 	# lo que permite mirarla cinco veces seguidas, que es como se decide si el ritmo esta bien.
-	_ritual.montar(self, Upgrades.rareza_color(_rareza), _lanzar)
+	# El comun hace de mentira, igual que en el caso normal del juego.
+	_ritual.montar(self, Upgrades.rareza_color(_rareza), _lanzar, "", "",
+		Upgrades.rareza_color(0), "gacha_brillo_comun" if _amago and _rareza > 0 else "")
 	# SU RELOJ, APAGADO: lo lleva este visor (ver _process). Con los dos corriendo la animacion iba al
 	# doble de velocidad, que en un visor de RITMO es el peor fallo posible -- no da error y lo que se
 	# juzga es una mentira.
@@ -80,8 +86,9 @@ func _lanzar() -> void:
 
 func _pintar_hud() -> void:
 	var col: Color = Upgrades.rareza_color(_rareza)
-	_hud.text = "%s     ·  x%.2f%s     ·  ESPACIO repite  ←/→ rareza  P pausa  ,/. paso  +/- velocidad" % [
-		RAREZAS[_rareza], _vel, "  (EN PAUSA)" if _pausa else ""]
+	_hud.text = "%s%s     ·  x%.2f%s     ·  ESPACIO repite  ←/→ rareza  F amago  P pausa  ,/. paso  +/- velocidad" % [
+		RAREZAS[_rareza], "  + AMAGO" if _amago and _rareza > 0 else "", _vel,
+		"  (EN PAUSA)" if _pausa else ""]
 	_hud.add_theme_color_override("font_color", col)
 
 
@@ -111,6 +118,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			_lanzar()
 		KEY_LEFT:
 			_rareza = maxi(_rareza - 1, 0)
+			_lanzar()
+		KEY_F:
+			_amago = not _amago
 			_lanzar()
 		KEY_P:
 			_pausa = not _pausa
