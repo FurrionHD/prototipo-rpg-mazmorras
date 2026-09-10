@@ -2,6 +2,65 @@
 
 ---
 
+# v0.12.0 — «El maestro habla»
+
+La Meditación era muda de principio a fin: pagabas, el maestro hacía todo el ritual y las cartas se
+volteaban en silencio. Ahora suena entera — y a veces miente.
+
+---
+
+## 🎲 El gacha suena
+
+**Cada momento tiene el suyo**: las monedas al pagar, los pasos del maestro y el roce de los lomos
+en la estantería, las páginas pasando cuando el tomo se te viene encima, y el brillo del final.
+
+**El brillo suena distinto según lo que haya caído.** Cuatro escalones, del que se apaga sin
+resolver al que desborda y sigue sonando por encima de la primera carta.
+
+**Un «plin» por estrella.** Una tirada común suena una vez; una mítica, seis, subiendo. El número de
+campanadas es la noticia, y se oye antes de leer nada.
+
+**La carta buena se voltea distinto.** El papel de relleno, el que trae peso detrás y el dorado. Y
+de épico para arriba entra una alfombra por debajo que deja las campanadas resonando.
+
+## 🌫️ El amago
+
+**A veces la carta te miente.** Sale con la cara de una común, se queda ahí el rato justo para que te
+lo creas, y entonces revienta en blanco y sale la de verdad.
+
+**No pasa siempre**, y es a propósito: si pasara mucho, un color malo dejaría de doler y el truco no
+valdría nada. **Y nunca miente por debajo de lo que ya tenías asegurado** — si el suelo te garantiza
+un épico, el amago finge un épico, no un común.
+
+## 🎵 Música propia
+
+**Una pieza para el ritual** y otra para mientras vas volteando cartas, con su transición. Y
+**cuatro remates** según lo mejor de la tanda, del que se apaga sin más al que suelta el coro.
+
+## 🔊 Y todo lo que faltaba por sonar
+
+**Los hechizos nuevos**: el Shock térmico con su vapor, el Estallido solar, la Vorágine de sombra, el
+Eclipse, las dos curaciones y el Mar de brasas.
+
+**Las armas imbuidas de luz y oscuridad** ya chisporrotean como las de fuego, agua y rayo.
+
+**Los enemigos del piso 7 y siguientes**: las esporas del micónido y de la polilla, el latigazo de
+micelio, la ventosa y el drenaje del chupasimas, el aleteo cegador y las dos guadañas de la segadora.
+
+**El espadazo de tu compañero.** En un mundo compartido podía estar aporreando algo a tu lado en
+silencio; ahora se oye, y más flojo cuanto más lejos esté.
+
+## 🔧 Arreglos
+
+**La música y el ambiente estaban mal medidos.** La música venía tres decibelios pasada y el fondo de
+la mazmorra catorce por debajo, o sea casi sin oírse. Ahora todo está a su nivel.
+
+**En un mundo compartido, cerrar de golpe deshacía la tirada del gacha.** Se guardaba en tu disco
+pero no se subía, y al volver a entrar mandaba la copia de la nube: recuperabas el dinero y perdías
+los libros. Ya no.
+
+---
+
 # v0.11.5 — «La sala del jefe»
 
 La guarida de un jefe era una sala más, del mismo tamaño y de la misma piedra que las otras
