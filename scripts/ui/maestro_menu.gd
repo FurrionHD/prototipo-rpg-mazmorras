@@ -748,7 +748,7 @@ func _dibujar_pestana(c: Control, i: int) -> void:
 	# apilados son un parrafo, y lo que se lee de una cerrada es su color y su etiqueta.
 	if sel:
 		var nom: String = String(b.get("nombre", ""))
-		# En dos lineas partiendo por el ultimo espacio que quepa: "El círculo del eclipse" en una
+		# En dos lineas partiendo por el ultimo espacio que quepa: "La hora del eclipse" en una
 		# sola linea a 10 px se sale de los 150 de ancho.
 		var corte: int = nom.rfind(" ")
 		var l1: String = nom.substr(0, corte) if corte > 8 else nom
@@ -948,7 +948,7 @@ func _cupo_concedido(k: int) -> void:
 	if pedidas <= 0:
 		return
 	if k <= 0:
-		_aviso = "Este círculo ya se ha agotado en este mundo."
+		_aviso = "Este rito ya se ha agotado en este mundo."
 		_aviso_ok = false
 		_rebuild()
 		return
@@ -1970,7 +1970,7 @@ func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 	var b: Dictionary = Game.banner(_banner_idx)
 	var cupo: int = int(b.get("cupo", 0))
 	if cupo > 0:
-		MenuScaffold.nota(vb, "Este círculo se abre %d veces en todo el mundo, y se acabó. "
+		MenuScaffold.nota(vb, "Este rito se abre %d veces en todo el mundo, y se acabó. "
 			% cupo + "Las gaste quien las gaste: son del mundo, no de cada uno.")
 		var g: int = int(b.get("cupo_garantiza", -1))
 		if g >= 0:
@@ -1989,7 +1989,7 @@ func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 			MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio %s o mejor."
 				% [int(b["pity"][r]), _nombre_rareza(int(r)).to_lower()])
 		MenuScaffold.nota(vb, "Se cuentan TIRADAS, no la racha: que te salga uno bueno por suerte no "
-			+ "retrasa el garantizado. Van por personaje Y POR CÍRCULO: meditar aquí no acerca los "
+			+ "retrasa el garantizado. Van por personaje Y POR RITO: meditar aquí no acerca los "
 			+ "garantizados del de al lado.")
 		MenuScaffold.nota(vb, "Y si vencen varios en la misma tirada, se cobran TODOS: el mejor cae "
 			+ "ahí y los demás en las siguientes tiradas, aunque las tires otro día.")

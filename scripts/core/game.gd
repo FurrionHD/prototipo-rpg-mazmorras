@@ -3249,7 +3249,7 @@ const BANNER_IMBUICIONES := 2
 #         que salga MAGIA y no un tocho de relleno --, sin prometer banda ninguna.
 const BANNERS := [
 	{
-		"id": &"novato", "nombre": "El primer círculo",
+		"id": &"novato", "nombre": "El primer umbral",
 		"precio": 500, "precio_x10": 4500,
 		"imbuiciones": null, "tope": Upgrades.Rareza.EPICO,
 		"cupo": 30, "cupo_garantiza": Upgrades.Rareza.RARO,
@@ -3257,7 +3257,7 @@ const BANNERS := [
 		"pity": {},
 	},
 	{
-		"id": &"ataque", "nombre": "El círculo del eclipse",
+		"id": &"ataque", "nombre": "La hora del eclipse",
 		"precio": GACHA_PRECIO, "precio_x10": GACHA_PRECIO_X10,
 		"imbuiciones": false, "tope": -1,
 		"cupo": 0, "cupo_garantiza": -1,
@@ -3265,7 +3265,7 @@ const BANNERS := [
 			Upgrades.Rareza.MITICO: 200},
 	},
 	{
-		"id": &"imbuiciones", "nombre": "El círculo del prisma",
+		"id": &"imbuiciones", "nombre": "El prisma roto",
 		"precio": GACHA_PRECIO, "precio_x10": GACHA_PRECIO_X10,
 		"imbuiciones": true, "tope": -1,
 		"cupo": 0, "cupo_garantiza": -1,

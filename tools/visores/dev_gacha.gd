@@ -123,7 +123,7 @@ func _rng(semilla: int = 1234) -> RandomNumberGenerator:
 # justo por eso hay que comprobarlo: el dia que alguien añada un manto legendario o una magia epica,
 # el reparto se mueve solo y esta prueba dice si se ha descuadrado.
 func _probar_reparto_banners() -> void:
-	print("\n-- El reparto del catálogo entre los círculos --")
+	print("\n-- El reparto del catálogo entre los ritos --")
 	for i in Game.BANNERS.size():
 		var b: Dictionary = Game.banner(i)
 		var pool: Array = _pool(i)

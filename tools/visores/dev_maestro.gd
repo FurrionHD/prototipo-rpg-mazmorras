@@ -109,7 +109,7 @@ func _ready() -> void:
 	men._rebuild()
 	await _captura("6_meditacion")
 
-	# EL CÍRCULO DE NOVATO, EN SUS DOS ESTADOS. Se miran aquí porque en una partida de verdad cada uno
+	# EL RITO DE NOVATO, EN SUS DOS ESTADOS. Se miran aquí porque en una partida de verdad cada uno
 	# pasa UNA VEZ EN TODO EL MUNDO y no hay forma de volver a verlos: la tirada de bienvenida (el
 	# cartel con su línea en ámbar y el botón diciendo "Gratis") y el momento en que el cupo se agota
 	# y la pestaña desaparece de la columna.
@@ -122,13 +122,13 @@ func _ready() -> void:
 	men._rebuild()
 	await _captura("6c_novato_agotado")
 	# LO QUE LA FOTO NO DEMUESTRA: que la pestaña se ha ido de verdad y que el cartel no se ha quedado
-	# dentro de un círculo al que ya no se puede volver.
+	# dentro de un rito al que ya no se puede volver.
 	if men._banner_idx == Game.BANNER_NOVATO:
-		printerr("[maestro] MAL: el círculo agotado sigue abierto y su pestaña ya no está.")
+		printerr("[maestro] MAL: el rito agotado sigue abierto y su pestaña ya no está.")
 	elif (men._pest_banner[Game.BANNER_NOVATO] as Button).visible:
-		printerr("[maestro] MAL: el círculo de novato está agotado y su pestaña sigue en la columna.")
+		printerr("[maestro] MAL: el rito de novato está agotado y su pestaña sigue en la columna.")
 	else:
-		print("[maestro] OK: al agotarse el cupo, el círculo de novato desaparece de la columna.")
+		print("[maestro] OK: al agotarse el cupo, el rito de novato desaparece de la columna.")
 	Game.tiradas_novato = 0
 	men._banner_idx = Game.BANNER_ATAQUE
 	men._rebuild()
