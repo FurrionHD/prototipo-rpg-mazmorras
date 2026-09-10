@@ -216,6 +216,40 @@ SFX = {
 		"Light_splash_layered": ("elem_agua", ""),
 		"Sharp_electric_crack": ("elem_rayo", ""),
 		"Toxic_hiss_layered_o": ("elem_veneno", ""),
+		# Luz y oscuridad: las piden los filos y mantos de esos dos elementos, y el Manto
+		# prismatico, que sortea el elemento al lanzarlo.
+		"Short_bright_metalli": ("elem_luz", ""),
+		"Short_dark_inward_su": ("elem_oscuridad", ""),
+	},
+	# LOS HECHIZOS CON DIBUJO PROPIO. Sin esto suenan al generico de su elemento, y el Shock
+	# termico -- que son dos momentos distintos -- sonaria a un solo golpe de fuego.
+	"Magias Nuevas": {
+		"A_heavy_low_humming": ("shock_termico", ""),
+		"Water_hitting_red-ho": ("shock_vapor", ""),
+		# La toma larga trae ocho segundos de cola; el tope de 2 s se la lleva y esta bien asi.
+		"A_sudden_burst_of_wh": ("luz_estallido", ""),
+		"A_pit_opening_in_the": ("sombra_voragine", ""),
+		"Two-part_spell_first": ("eclipse", ""),
+		"A_warm_halo_opening": ("curacion_luz", ""),
+		"The_same_warm_halo_b": ("curacion_luz_mayor", ""),
+		"A_wave_of_fire_sweep": ("ola_ignea", ""),
+	},
+	# LOS GESTOS DE LOS ENEMIGOS DEL REBESTIARIO. Van aqui y no con los 61 de la tanda vieja
+	# porque aquellos ya venian recortados de antes de que existiera este guion (ver hacer_enemigos)
+	# y estos hay que recortarlos como los demas.
+	"Enemigos Nuevos": {
+		"A_burst_of_dry_powde": ("nube_esporas", ""),
+		"Wet_fibrous_strands": ("micelio", ""),
+		"A_wet_suction_cup_cl": ("ventosa", ""),
+		"Thick_liquid_being_p": ("drenar", ""),
+		# Siete versiones: la toma corta mas SEIS trozos sacados de una de 14 segundos que traia
+		# rachas de aleteo sueltas. Los golpes de ala de uno en uno no valen -- el estilo pide una
+		# racha de ~0,7 s, no un aletazo.
+		"Large_dusty_moth_win": ("aleteo", ""),
+		# La Doble guadaña pega DOS golpes (golpes_min/max = 2) y el juego dispara el sonido una vez
+		# por golpe, asi que la muestra tiene que traer UN corte. Medida: trae uno solo.
+		"Two_fast_slicing_cut": ("guadana", ""),
+		"A_hard_chitin_spike": ("ensarte", ""),
 	},
 }
 
@@ -852,6 +886,16 @@ def main():
 	informe = []
 	print("== SFX del jugador ==")
 	hacer_sfx(informe)
+	print("\n".join(informe))
+
+	# LOS 61 DE ENEMIGOS, TRAIDOS DEL ORIGINAL. Va ANTES de igualar y no es opcional: sin esto,
+	# igualar_todo los coge tal y como los dejo la pasada anterior y les vuelve a sumar el realce de
+	# graves encima de si mismo. Medido el 10/09/2026: el Pisoton del coloso subia de 7364 a 7447 y
+	# a 7836 de RMS en tres pasadas seguidas, o sea que NO converge. La funcion estaba escrita desde
+	# el principio -- con su comentario explicando este mismo fallo -- pero nadie la llamaba.
+	informe = []
+	print("\n== Enemigos (del original, para que no se acumule el realce) ==")
+	hacer_enemigos(informe)
 	print("\n".join(informe))
 
 	informe = []

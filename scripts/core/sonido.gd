@@ -108,6 +108,8 @@ const ELEMENTOS := {
 	Elementos.Elemento.FUEGO: "fuego",
 	Elementos.Elemento.AGUA: "agua",
 	Elementos.Elemento.RAYO: "rayo",
+	Elementos.Elemento.LUZ: "luz",
+	Elementos.Elemento.OSCURIDAD: "oscuridad",
 }
 
 # La misma muestra seis veces seguidas suena a metralleta. Un pelin de tono cada vez y la racha se
