@@ -111,16 +111,23 @@ func _ready() -> void:
 
 	# EL GACHA, TIRANDO DE VERDAD. Con dinero de sobra para la x10, que es la tanda que hay que
 	# juzgar: el revelado va de una carta en una y el resumen del final enseña las diez.
-	Game.money = maxi(Game.money, Game.GACHA_PRECIO_X10 * 3)
+	var precio_x10: int = int(Game.banner(men._banner_idx)["precio_x10"])
+	Game.money = maxi(Game.money, precio_x10 * 3)
 	var antes_gacha: int = Game.money
 	men._meditar_x10()
-	if Game.money != antes_gacha - Game.GACHA_PRECIO_X10:
-		printerr("[maestro] MAL: la x10 tenía que cobrar %d y ha cobrado %d." % [
-			Game.GACHA_PRECIO_X10, antes_gacha - Game.money])
+	# EL NETO NO ES EL PRECIO, y comprobarlo asi era una trampa que acabo saltando: los libros
+	# REPETIDOS se venden solos al entrar en la bolsa (ver Game.add_consumable, del 65% que vuelve al
+	# gacha), asi que una x10 con repetidos devuelve unas monedas y el neto sale por debajo del precio.
+	# Lo que se puede afirmar es que se ha cobrado el precio Y ALGO SE HA DEVUELTO, nunca lo contrario.
+	var neto: int = antes_gacha - Game.money
+	if neto > precio_x10:
+		printerr("[maestro] MAL: la x10 tenía que cobrar %d como mucho y ha cobrado %d." % [
+			precio_x10, neto])
 	elif men._revelado.size() != 10:
 		printerr("[maestro] MAL: la x10 ha soltado %d libros." % men._revelado.size())
 	else:
-		print("[maestro] OK: la x10 cobra %d y reparte 10 libros." % Game.GACHA_PRECIO_X10)
+		print("[maestro] OK: la x10 cobra %d (neto %d tras vender repetidos) y reparte 10 libros."
+			% [precio_x10, neto])
 
 	# EL GUARDADO INSTANTANEO. Es lo que impide rehacer una tirada mala cerrando con alt+F4, asi que
 	# se comprueba sobre el DISCO y no sobre la memoria: que el historial ya este en la partida
@@ -223,7 +230,8 @@ func _ready() -> void:
 			curio3 = tt
 	for pieza in [g_flojo, sabio3, curio3]:
 		if pieza != null:
-			trio.append({"item": pieza, "spell": pieza.spell, "pity": 0})
+			# -1 = tirada limpia (0 seria "garantizado de rareza COMUN" y saldria con su marca).
+			trio.append({"item": pieza, "spell": pieza.spell, "pity": -1})
 	if trio.size() == 3:
 		print("[maestro] jerarquía: %s (rareza %d) / %s / %s" % [
 			g_flojo.nombre, int(g_flojo.spell.rareza), sabio3.nombre, curio3.nombre])
@@ -250,15 +258,32 @@ func _ready() -> void:
 	# que hay que ver en la foto es el "¡la siguiente!" y las dos filas de garantizado, y llegar ahi
 	# tirando cuesta cien mil monedas de mentira.
 	var pj_med: PersonajeData = men._pj()
-	pj_med.gacha_n50 = Game.GACHA_PITY_EPICO - 1
-	pj_med.gacha_n200 = Game.GACHA_PITY_LEGENDARIO - 12
+	var est: Dictionary = Game.gacha_estado(pj_med, men._banner_idx)
+	var pity_b: Dictionary = Game.banner(men._banner_idx).get("pity", {})
+	# A UNA de cantar el de epico, y a doce del siguiente: asi en la foto sale el "¡la siguiente!" al
+	# lado de una cuenta normal, que es lo que hay que poder leer de un vistazo.
+	est["n"][Upgrades.Rareza.EPICO] = int(pity_b[Upgrades.Rareza.EPICO]) - 1
+	est["n"][Upgrades.Rareza.LEGENDARIO] = int(pity_b[Upgrades.Rareza.LEGENDARIO]) - 12
 	men._rebuild()
 	await _captura("6e_meditacion_pity")
+
+	# LOS TRES CIRCULOS, uno por foto. Es la comprobacion de la columna nueva: hay que ver que la
+	# abierta se ensancha, que las otras se apagan, y que el cartel entero (nombre, destacado, texto
+	# del garantizado) cambia con ella. Una sola foto no lo enseña.
+	for bi in Game.BANNERS.size():
+		men._pick_banner(bi)
+		await _captura("6g_banner_%d" % bi)
+	men._pick_banner(Game.BANNER_ATAQUE)
+	men._rebuild()
 
 	# Y LA TIRADA GARANTIZADA. Es la unica foto donde se ve la carta BUENA -- nombre del color de su
 	# rareza y centelleando -- y hay que forzarla: con el 10% de grimorio, una x10 corriente se queda
 	# en diez tochos grises seis de cada diez veces, y esa foto no deja juzgar lo que importa.
 	Game.money = maxi(Game.money, Game.GACHA_PRECIO * 3)
+	# El contador se vuelve a dejar a una de cantar: las fotos de los tres circulos de arriba han
+	# pasado por _rebuild, pero no por _meditar, asi que sigue donde estaba. Se repone por si acaso,
+	# que esta foto no vale nada si la tirada no es la garantizada.
+	est["n"][Upgrades.Rareza.EPICO] = int(pity_b[Upgrades.Rareza.EPICO]) - 1
 	men._meditar_x1()
 	# La animacion previa tambien entra aqui, y esta foto es de la CARTA del garantizado: saltarsela
 	# es lo que deja el revelado montado. Sus fotos ya se han sacado arriba.
@@ -266,9 +291,9 @@ func _ready() -> void:
 		men._ritual.saltar()
 		await get_tree().process_frame
 		await get_tree().process_frame
-	if men._revelado.is_empty() or int(men._revelado[0].get("pity", 0)) == 0:
+	if men._revelado.is_empty() or int(men._revelado[0].get("pity", -1)) < 0:
 		printerr("[maestro] MAL: con el contador en %d la tirada tenía que ser la garantizada."
-			% (Game.GACHA_PITY_EPICO - 1))
+			% (int(pity_b[Upgrades.Rareza.EPICO]) - 1))
 	else:
 		var s_pity: SpellData = men._revelado[0].get("spell")
 		print("[maestro] OK: el garantizado da %s (rareza %d)." % [

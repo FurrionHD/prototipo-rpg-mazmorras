@@ -335,6 +335,21 @@ func imbue_elemento() -> int:
 # cobras el garantizado igual y te llevas los dos. Ver la nota larga de Game.tirar_meditacion: es
 # justo al reves de lo que hacen casi todos los gachas, y por eso es lo primero que se implementa
 # mal si alguien lo "arregla" de memoria.
+# CADA BANNER LLEVA LOS SUYOS. Tirar en el de imbuiciones no acerca el garantizado del de ataque:
+# es lo normal en un gacha y ademas es lo unico que hace que separar en banners signifique algo. La
+# forma es {banner_id: {"n50": int, "n100": int, "n200": int, "cola": Array[int]}}; un banner que
+# nunca se ha tocado simplemente no tiene entrada.
+#
+# LA COLA es el arreglo del fallo que se vio jugando: en la tirada 200 vencen los TRES escalones a la
+# vez, y el codigo viejo (un if/elif) entregaba solo el mejor y tiraba los otros dos a la basura --
+# se llego a la 200 y cayo la legendaria sola, sin la epica que tambien tocaba. Ahora lo que no cabe
+# en esta tirada se APUNTA y se cobra en las siguientes, aunque sea otro dia: un garantizado que se
+# ha ganado no se pierde por coincidir con otro.
+@export var gacha_pity: Dictionary = {}
+
+# LEGADO: los contadores de cuando habia un solo banner y dos escalones. Ya NO mandan en el sorteo;
+# se conservan declarados porque las partidas guardadas antes de los banners los traen, y
+# Game.gacha_migrar_pity los vuelca al banner de ataque la primera vez que se leen. No los uses.
 @export var gacha_n50: int = 0
 @export var gacha_n200: int = 0
 # Cuantas ha tirado en total. Solo es para enseñarlo; no manda en nada.

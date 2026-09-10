@@ -231,6 +231,11 @@ const VERSION_MUNDO := 1
 # MUNDO. Lo que has leido lo has leido, juegues donde juegues, y la coleccion del host no es la tuya.
 @export var biblioteca: Dictionary = {}
 
+# CUANTAS TIRADAS SE HAN GASTADO YA en el banner de novato. Este SI es progreso DEL MUNDO, al reves
+# que la biblioteca de aqui arriba: viaja en el snapshot del host y se borra al entrar en un mundo
+# ajeno. Las 30 son 30 para todo el mundo, y una visita no te da otras 30.
+@export var tiradas_novato: int = 0
+
 # EL HISTORIAL DE LA MEDITACION: lo ultimo que ha salido en el gacha, lo mas nuevo primero. Cada
 # entrada es {"quien": String, "nombre": String, "seccion": String, "rareza": int, "pity": int,
 # "cuando": int (unix)}. Ver Game.GACHA_HISTORIAL_MAX: se corta, no crece sin fin.
@@ -244,6 +249,11 @@ const VERSION_MUNDO := 1
 # sus contadores viajan solos con el Resource; el lider NO esta en plantilla (vive en estos campos
 # planos), asi que los suyos hay que escribirlos y leerlos A MANO en las dos puntas del guardado.
 # Sin esto, el unico personaje al que se le olvidaria el pity al cargar seria justo el principal.
+#
+# player_gacha_pity es el de VERDAD desde que hay banners: {banner_id: {"n": {...}, "cola": [...]}}.
+# Los otros tres son de cuando habia una sola ruleta; se siguen escribiendo y leyendo porque una
+# partida vieja los trae, y Game.gacha_migrar_pity los vuelca al banner de ataque al leerlos.
+@export var player_gacha_pity: Dictionary = {}
 @export var player_gacha_n50: int = 0
 @export var player_gacha_n200: int = 0
 @export var player_gacha_total: int = 0

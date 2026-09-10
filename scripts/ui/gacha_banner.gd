@@ -52,6 +52,13 @@ const MINI_GIRO := 0.20      # radianes que se abre cada una de las laterales
 var _pj: PersonajeData = null
 var _pool: Array = []
 var _lienzo: PanelContainer = null
+var _ficha: Dictionary = {}
+
+# LO QUE SE APARTA DEL BORDE IZQUIERDO, encima del margen de siempre. Lo pone quien monta el cartel
+# (ver maestro_menu), y existe por la COLUMNA DE BANNERS: sin esto el cartel ocupa el ancho entero y
+# la columna le cae encima justo del abanico de destacados. El cartel no sabe que hay una columna --
+# solo que le han pedido sitio.
+var margen_izq: float = 0.0
 
 
 # Monta el cartel dentro de 'padre'. Los tres Callable son los botones: no los conoce el cartel,
@@ -68,10 +75,14 @@ func montar(padre: Control) -> void:
 
 # Repinta con quien medita y con el pool de hoy. Se llama en cada _rebuild: el cartel no guarda
 # estado propio, para que no pueda quedarse enseñando el destacado de otra partida.
-func refrescar(pj: PersonajeData, pool: Array, nombre: String = "") -> void:
+func refrescar(pj: PersonajeData, pool: Array, nombre: String = "",
+		ficha: Dictionary = {}) -> void:
 	_pj = pj
 	_pool = pool
 	_nombre = nombre
+	# La ficha del banner (Game.BANNERS[i]): de ahi salen los escalones del garantizado, el cupo y el
+	# techo de rareza. Vacia = el cartel no promete nada, que es mejor que prometer lo que no es.
+	_ficha = ficha
 	for h in get_children():
 		remove_child(h)
 		h.queue_free()
@@ -81,7 +92,7 @@ func refrescar(pj: PersonajeData, pool: Array, nombre: String = "") -> void:
 func _montar_lienzo() -> void:
 	_lienzo = PanelContainer.new()
 	_lienzo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_lienzo.offset_left = LIENZO_MARGEN_X
+	_lienzo.offset_left = LIENZO_MARGEN_X + margen_izq
 	_lienzo.offset_right = -LIENZO_MARGEN_X
 	_lienzo.offset_top = LIENZO_ARRIBA
 	_lienzo.offset_bottom = -(720.0 - LIENZO_ABAJO)
@@ -152,13 +163,39 @@ func _montar_texto(padre: Control) -> void:
 	hueco.custom_minimum_size = Vector2(0, 10)
 	col.add_child(hueco)
 
-	# EL GARANTIZADO, derivado de las constantes. Escribir "50" y "200" aqui es la forma clasica de
-	# que el cartel siga prometiendo lo de antes cuando se muevan los escalones.
-	_linea(col, "Cada %d meditaciones, un grimorio épico o mejor."
-		% Game.GACHA_PITY_EPICO, GRIS, 13)
-	_linea(col, "Cada %d, uno legendario o mejor."
-		% Game.GACHA_PITY_LEGENDARIO, GRIS, 13)
-	_linea(col, "Se cuentan tiradas: la suerte no retrasa el garantizado.", Color(0.45, 0.48, 0.56), 11)
+	# EL GARANTIZADO, derivado de la ficha del banner. Escribir "50" y "200" aqui es la forma clasica
+	# de que el cartel siga prometiendo lo de antes cuando se muevan los escalones -- y ahora ademas
+	# cada banner tiene los suyos, asi que un texto fijo mentiria en dos de cada tres.
+	var cupo: int = int(_ficha.get("cupo", 0))
+	if cupo > 0:
+		_linea(col, "Solo %d meditaciones en todo el mundo." % cupo, GRIS, 13)
+		var g: int = int(_ficha.get("cupo_garantiza", -1))
+		if g >= 0:
+			_linea(col, "La última garantiza un grimorio %s o mejor."
+				% _nombre_rareza(g).to_lower(), GRIS, 13)
+		var tope: int = int(_ficha.get("tope", -1))
+		if tope >= 0:
+			_linea(col, "Aquí no sale nada por encima de %s." % _nombre_rareza(tope).to_lower(),
+				Color(0.45, 0.48, 0.56), 11)
+		return
+	# LOS ESCALONES SE RECORREN, de mejor a peor, para que añadir uno no pida tocar esta funcion.
+	var pity: Dictionary = _ficha.get("pity", {})
+	var rs: Array = pity.keys()
+	rs.sort()
+	rs.reverse()
+	for i in rs.size():
+		var r: int = int(rs[i])
+		# El primero (el mejor) se lee entero; los de debajo abrevian, que si no son tres frases
+		# calcadas una detras de otra.
+		if i == 0:
+			_linea(col, "Cada %d meditaciones, un grimorio %s." % [
+				int(pity[r]), _nombre_rareza(r).to_lower()], GRIS, 13)
+		else:
+			_linea(col, "Cada %d, uno %s o mejor." % [int(pity[r]), _nombre_rareza(r).to_lower()],
+				GRIS, 13)
+	if not rs.is_empty():
+		_linea(col, "Se cuentan tiradas: la suerte no retrasa el garantizado.",
+			Color(0.45, 0.48, 0.56), 11)
 
 
 func _linea(vb: BoxContainer, txt: String, col: Color, tam: int) -> void:

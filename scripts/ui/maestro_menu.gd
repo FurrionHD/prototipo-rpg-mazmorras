@@ -77,6 +77,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("maestro_menu")
 
+	# EL CUPO del banner de novato lo concede el host y la respuesta llega por señal, tambien en
+	# solitario (ahi en el mismo frame). Se conecta aqui y no al abrir la pestaña: si se conectara y
+	# desconectara con la pantalla, una respuesta que llegara con el menu ya cerrado se perderia y la
+	# tirada quedaria cobrada del cupo sin darse.
+	Net.tiradas_novato_concedidas.connect(_cupo_concedido)
+
 	# con_lateral = FALSE: las armas van en una FILA ARRIBA, no en una columna. Es la misma forma
 	# que el inventario, y por el mismo motivo: con trece armas la columna seria una lista larga y
 	# en fila son trece iconos que se abarcan de un vistazo.
@@ -475,7 +481,7 @@ func _pintar_meditacion(pj: PersonajeData) -> void:
 		_split.visible = false
 	_montar_capa_med()
 	_capa_med.visible = true
-	_banner.refrescar(pj, _pool_grimorios(), BANNER_NOMBRE)
+	_banner.refrescar(pj, _pool_grimorios(), _banner_nombre(), Game.banner(_banner_idx))
 	_refrescar_botones_med()
 
 	# Si los detalles estan abiertos, se vuelven a montar: sus probabilidades son LAS DEL PERSONAJE
@@ -496,7 +502,12 @@ func _montar_capa_med() -> void:
 	_root.add_child(_capa_med)
 
 	_banner = GachaBanner.new()
+	# El cartel se corre a la derecha lo que ocupa la columna abierta, mas un respiro. Se le da el
+	# ancho de la ABIERTA aunque haya una estrecha delante: si el hueco cambiara al cambiar de
+	# pestaña, el cartel entero bailaria de sitio en cada clic.
+	_banner.margen_izq = BANNER_ANCHO_SEL + 16
 	_banner.montar(_capa_med)
+	_montar_pestanas_banner()
 
 	# LOS RETRATOS, arriba: quien medita. Se monta una fila PROPIA en vez de reaprovechar la del
 	# esqueleto porque aquella vive dentro del split, que aqui va escondido.
@@ -537,6 +548,170 @@ var _bt_detalles: Button = null
 var _bt_x1: Button = null
 var _bt_x10: Button = null
 var _lbl_pity: Label = null
+# QUE BANNER ESTA ABIERTO. Es de la PANTALLA y no de la partida: al cerrar el menu se olvida y la
+# proxima vez se entra por el de ataque, que es el de siempre. Guardarlo en el save seria una linea
+# mas en el guardado a cambio de nada -- nadie echa de menos "el banner en el que estaba".
+var _banner_idx: int = Game.BANNER_ATAQUE
+
+
+# ------------------------------------------------------------
+#  LA COLUMNA DE BANNERS
+#
+#  Molde de Reverse: 1999 y de Honkai: Star Rail, que hacen lo mismo -- una columna de pestañas
+#  pegada al borde izquierdo, una por banner. Las dos reglas que comparten son las que importan:
+#
+#    1) LA ACTIVA SE ENSANCHA Y SE ILUMINA; las demas quedan estrechas y apagadas. EL ANCHO es lo
+#       que dice cual esta abierta. Un borde de color no basta: se pierde entre el cartel, que ya va
+#       lleno de color.
+#    2) SOLO LA ACTIVA LLEVA EL NOMBRE ESCRITO. Las demas son la miniatura sola. Es lo que evita
+#       que la columna sea tres parrafos.
+#
+#  Y de Reverse se coge ademas la ETIQUETA de arriba, que aqui distingue de un vistazo el de novato
+#  de los dos grandes.
+#
+#  VA EN EL HUECO DE EN MEDIO: los retratos estan anclados arriba (104-198) y la botonera abajo, asi
+#  que la columna no pelea con nadie. Y el cartel se corre a la derecha para dejarle sitio (ver
+#  GachaBanner.margen_izq): montarsela encima taparia justo el abanico de destacados.
+# ------------------------------------------------------------
+
+const BANNER_ANCHO := 96      # la que no esta abierta
+const BANNER_ANCHO_SEL := 150 # la abierta
+const BANNER_ALTO := 64
+
+var _col_banners: VBoxContainer = null
+var _pest_banner: Array = []
+
+
+func _montar_pestanas_banner() -> void:
+	_col_banners = VBoxContainer.new()
+	# Anclada a la IZQUIERDA y centrada en vertical: entre los retratos (que acaban en 198) y la
+	# botonera (que empieza en -66) hay sitio de sobra para tres de 64.
+	_col_banners.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_col_banners.offset_left = 24
+	_col_banners.offset_top = -float(Game.BANNERS.size()) * (BANNER_ALTO + 10) * 0.5
+	_col_banners.add_theme_constant_override("separation", 10)
+	# Igual que el cartel y la botonera: por encima de los muñecos de los retratos, que dibujan con z
+	# ABSOLUTO y se colarian por delante. 2700 para quedar sobre el cartel (2500), que si no le pisa
+	# el borde a la pestaña abierta, que es justo lo que dice cual esta abierta.
+	_col_banners.z_index = 2700
+	_capa_med.add_child(_col_banners)
+	_pest_banner.clear()
+	for i in Game.BANNERS.size():
+		var bt := Button.new()
+		bt.flat = true
+		bt.custom_minimum_size = Vector2(BANNER_ANCHO, BANNER_ALTO)
+		bt.focus_mode = Control.FOCUS_NONE
+		# El dibujo va en un hijo que ocupa el boton entero: asi el que recibe el clic sigue siendo el
+		# Button (con su zona tactil), y el que pinta no tiene que saber nada de pulsaciones.
+		var lienzo := Control.new()
+		lienzo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lienzo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bt.add_child(lienzo)
+		var idx: int = i
+		lienzo.draw.connect(func() -> void: _dibujar_pestana(lienzo, idx))
+		bt.pressed.connect(func() -> void: _pick_banner(idx))
+		_col_banners.add_child(bt)
+		_pest_banner.append(bt)
+
+
+func _pick_banner(i: int) -> void:
+	if i == _banner_idx:
+		return
+	_banner_idx = i
+	# El REVELADO de la tanda anterior se tira: eran cartas de OTRO banner, y dejarlas puestas al
+	# cambiar de pestaña haria creer que han salido de este.
+	_revelado.clear()
+	_rebuild()
+
+
+# El tamaño y el apagado de cada pestaña. Va aqui y no en el montaje porque cambia con la que este
+# abierta, y el montaje se hace UNA vez (ver _montar_capa_med).
+func _pintar_pestanas_banner() -> void:
+	for i in _pest_banner.size():
+		var bt: Button = _pest_banner[i]
+		var sel: bool = i == _banner_idx
+		bt.custom_minimum_size = Vector2(BANNER_ANCHO_SEL if sel else BANNER_ANCHO, BANNER_ALTO)
+		# LA APAGADA, a media luz. Se escribe en cada repintado a proposito: el modulate de esta casa
+		# se lo reescriben otros por debajo, y fijarlo solo al montar no aguanta.
+		bt.modulate = Color(1, 1, 1, 1.0 if sel else 0.55)
+		if bt.get_child_count() > 0:
+			(bt.get_child(0) as Control).queue_redraw()
+
+
+# UNA PESTAÑA. La miniatura es EL MISMO DIBUJO del cartel a escala (GachaBanner.dibujar_tomo), asi
+# que un banner nuevo no necesita arte: su tomo sale de lo mejor que puede caer en el, igual que el
+# destacado grande. El color dice la rareza de ese destacado.
+func _dibujar_pestana(c: Control, i: int) -> void:
+	var sel: bool = i == _banner_idx
+	var b: Dictionary = Game.banner(i)
+	var pool: Array = Game.pool_banner(_todos_los_grimorios(), i)
+	var mejor: SpellData = null
+	for s in pool:
+		if s != null and (mejor == null or int(s.rareza) > int(mejor.rareza)):
+			mejor = s
+	var col: Color = Upgrades.rareza_color(int(mejor.rareza)) if mejor != null else GRIS
+	var w: float = c.size.x
+	var h: float = c.size.y
+
+	# EL FONDO de la pestaña, con el tinte de su rareza. La abierta lleva marco claro y la cerrada uno
+	# apenas visible: es el segundo aviso de cual esta abierta, detras del ancho.
+	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
+		Color(col.r * 0.14 + 0.05, col.g * 0.14 + 0.05, col.b * 0.14 + 0.07, 1.0), true)
+	c.draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)),
+		Color(1, 1, 1, 0.75) if sel else Color(1, 1, 1, 0.12), false, 2.0 if sel else 1.0)
+
+	# EL TOMO, a la izquierda y siempre del mismo tamaño: lo que cambia entre abierta y cerrada es el
+	# hueco de al lado (donde cabe el nombre), no la miniatura.
+	var mini := Control.new()
+	mini.size = Vector2(30, 40)
+	var tomo_r := Rect2(Vector2(8, (h - 40) * 0.5), Vector2(30, 40))
+	c.draw_rect(tomo_r, Color(col.r * 0.2 + 0.06, col.g * 0.2 + 0.06, col.b * 0.2 + 0.08, 1.0), true)
+	for k in 8:
+		var t: float = float(k) / 8.0
+		c.draw_rect(Rect2(tomo_r.position + Vector2(0, tomo_r.size.y * t),
+			Vector2(tomo_r.size.x, tomo_r.size.y / 8.0 + 1.0)),
+			Color(col.r, col.g, col.b, 0.16 * (1.0 - t)), true)
+	c.draw_rect(tomo_r, Color(col.r, col.g, col.b, 0.85), false, 1.0)
+	# El ROMBO de los grimorios, el mismo que usa el cartel para la familia.
+	var cen: Vector2 = tomo_r.position + tomo_r.size * 0.5
+	c.draw_colored_polygon(PackedVector2Array([
+		cen + Vector2(0, -6), cen + Vector2(5, 0), cen + Vector2(0, 6), cen + Vector2(-5, 0)]),
+		Color(col.r, col.g, col.b, 0.9))
+
+	# LA ETIQUETA de familia, arriba del todo y en pequeño. Es lo que separa de un vistazo el de
+	# novato de los dos grandes, que es la unica distincion que cambia lo que haces.
+	# La fuente se le pide AL CONTROL que dibuja y no a self: este menu es un CanvasLayer, y un
+	# CanvasLayer no tiene tema del que sacarla.
+	var fnt: Font = c.get_theme_default_font()
+	var etq: String = _etiqueta_banner(i)
+	if etq != "":
+		c.draw_string(fnt, Vector2(44, 16), etq, HORIZONTAL_ALIGNMENT_LEFT, -1, 9,
+			Color(col.r, col.g, col.b, 0.95))
+
+	# EL NOMBRE, SOLO EN LA ABIERTA. En las cerradas no cabe y ademas no hace falta: tres nombres
+	# apilados son un parrafo, y lo que se lee de una cerrada es su color y su etiqueta.
+	if sel:
+		var nom: String = String(b.get("nombre", ""))
+		# En dos lineas partiendo por el ultimo espacio que quepa: "El círculo del eclipse" en una
+		# sola linea a 10 px se sale de los 150 de ancho.
+		var corte: int = nom.rfind(" ")
+		var l1: String = nom.substr(0, corte) if corte > 8 else nom
+		var l2: String = nom.substr(corte + 1) if corte > 8 else ""
+		c.draw_string(fnt, Vector2(44, 36), l1, HORIZONTAL_ALIGNMENT_LEFT, w - 50, 10, AMBAR)
+		if l2 != "":
+			c.draw_string(fnt, Vector2(44, 50), l2, HORIZONTAL_ALIGNMENT_LEFT, w - 50, 10, AMBAR)
+
+
+# Lo que dice la etiqueta de arriba de cada pestaña. Se DERIVA de la ficha del banner y no se escribe
+# a mano: el de cupo se llama por su cupo, y los demas por su tema.
+func _etiqueta_banner(i: int) -> String:
+	var b: Dictionary = Game.banner(i)
+	if int(b.get("cupo", 0)) > 0:
+		return "NOVATO"
+	var q = b.get("imbuiciones", null)
+	if q == null:
+		return ""
+	return "IMBUICIÓN" if bool(q) else "ATAQUE"
 
 
 # La franja de arriba donde van los retratos, por debajo de la barra de pestañas del esqueleto.
@@ -558,10 +733,35 @@ func _caja_arriba_med() -> VBoxContainer:
 func _refrescar_botones_med() -> void:
 	MenuScaffold.retratos(_fila_retratos_med, _gente(), _pj_sel, Game.party.size(), _pick_persona)
 	_lbl_pity.text = _texto_pity(_pj())
-	_bt_x1.text = "Meditar ×1      %s" % _con_puntos(Game.GACHA_PRECIO)
-	_bt_x1.disabled = not Game.puede_pagar(Game.GACHA_PRECIO)
-	_bt_x10.text = "Meditar ×10     %s  (pagas 9)" % _con_puntos(Game.GACHA_PRECIO_X10)
-	_bt_x10.disabled = not Game.puede_pagar(Game.GACHA_PRECIO_X10)
+	_pintar_pestanas_banner()
+	var b: Dictionary = Game.banner(_banner_idx)
+	var p1: int = int(b["precio"])
+	var p10: int = int(b["precio_x10"])
+	# CON CUPO AGOTADO se apagan los dos botones, y esa es la unica razon por la que el x10 se apaga:
+	# mientras quede aunque sea UNA tirada sigue encendido, porque el x10 con cupo corto tira lo que
+	# queda y cobra por ello. Apagarlo al bajar de diez dejaba el final del cupo inalcanzable salvo de
+	# una en una.
+	var quedan: int = _quedan_del_cupo()
+	var agotado: bool = quedan == 0
+	_bt_x1.text = "Meditar ×1      %s" % _con_puntos(p1)
+	_bt_x1.disabled = agotado or not Game.puede_pagar(p1)
+	# Con menos de 10 de cupo, el boton dice lo que va a pasar de verdad: cuantas van a caer y cuanto
+	# cuestan. Un boton que promete diez y da tres es la clase de mentira que no se perdona en un gacha.
+	if quedan > 0 and quedan < 10:
+		_bt_x10.text = "Meditar ×%d      %s" % [quedan, _con_puntos(p1 * quedan)]
+		_bt_x10.disabled = not Game.puede_pagar(p1 * quedan)
+	else:
+		_bt_x10.text = "Meditar ×10     %s  (pagas 9)" % _con_puntos(p10)
+		_bt_x10.disabled = agotado or not Game.puede_pagar(p10)
+
+
+# CUANTAS TIRADAS QUEDAN del cupo de este banner, o -1 si no tiene tope. Se lee de Net y NUNCA de
+# Game.tiradas_novato: en un mundo compartido el cupo es el del host (ver Net.tiradas_novato_visibles).
+func _quedan_del_cupo() -> int:
+	var cupo: int = int(Game.banner(_banner_idx).get("cupo", 0))
+	if cupo <= 0:
+		return -1
+	return maxi(0, cupo - Net.tiradas_novato_visibles())
 
 
 # CUANTO FALTA PARA CADA GARANTIZADO, en UNA linea encima de los botones de tirar. Es la unica
@@ -573,9 +773,28 @@ func _refrescar_botones_med() -> void:
 # propia cuenta, el dia que el pity cambie de escalones diria una cosa y el sorteo haria otra, y el
 # jugador se fiaria de la pantalla.
 func _texto_pity(pj: PersonajeData) -> String:
-	var falta: Dictionary = Game.gacha_pity_restante(pj)
-	return "Garantizado:  épico %s   ·   legendario %s" % [
-		_cuantas(int(falta["epico"])), _cuantas(int(falta["legendario"]))]
+	# EL DE CUPO NO TIENE PITY, tiene un FINAL: lo que hay que saber ahi no es cuanto falta para el
+	# siguiente garantizado sino cuantas tiradas le quedan al mundo, que es lo que decide si tiras hoy.
+	var quedan: int = _quedan_del_cupo()
+	if quedan >= 0:
+		var cupo: int = int(Game.banner(_banner_idx).get("cupo", 0))
+		if quedan == 0:
+			return "Agotado:  las %d tiradas de este mundo ya se han gastado" % cupo
+		var g: int = int(Game.banner(_banner_idx).get("cupo_garantiza", -1))
+		var txt: String = "Quedan %d de %d tiradas en este mundo" % [quedan, cupo]
+		if g >= 0:
+			txt += "   ·   la última garantiza %s" % _nombre_rareza(g).to_lower()
+		return txt
+	# LOS ESCALONES SE RECORREN, no se escriben: el dia que un banner tenga otros, esta linea los dice
+	# sin tocarla. Antes estaban los dos a mano ("épico ... legendario ...") y al entrar el tercero la
+	# pantalla se habria callado el del mítico sin que saltara nada.
+	var falta: Dictionary = Game.gacha_pity_restante(pj, _banner_idx)
+	var partes: PackedStringArray = []
+	for r in Game._pity_por_rareza(Game.banner(_banner_idx).get("pity", {})):
+		partes.append("%s %s" % [_nombre_rareza(int(r)).to_lower(), _cuantas(int(falta[r]))])
+	if partes.is_empty():
+		return ""
+	return "Garantizado:  %s" % "   ·   ".join(partes)
 
 
 # El singular, a mano: "en 1 tiradas" canta, y esta linea se lee una vez por tirada.
@@ -596,17 +815,59 @@ func _cuantas(n: int) -> String:
 var _revelado: Array = []
 
 func _meditar_x1() -> void:
-	_meditar(1, Game.GACHA_PRECIO)
+	_meditar(1, int(Game.banner(_banner_idx)["precio"]))
 
 
 func _meditar_x10() -> void:
-	_meditar(10, Game.GACHA_PRECIO_X10)
+	# EL PRECIO DEL PACK va aqui, pero con cupo corto no manda: si el host concede menos de diez,
+	# _cupo_concedido recalcula a precio suelto. Este numero solo vale para la tanda entera.
+	_meditar(10, int(Game.banner(_banner_idx)["precio_x10"]))
 
 
 # UNA TANDA DE TIRADAS. Cobra UNA VEZ por la tanda (por eso la x10 puede tener descuento) y despues
 # tira: Game.tirar_meditacion no cobra ni entrega nada a proposito, para que se pueda tirar diez mil
 # veces en el visor sin tocar la partida.
 func _meditar(cuantas: int, precio: int) -> void:
+	# EL CUPO SE PIDE ANTES DE COBRAR, y esto no es manía: en un mundo compartido las 30 tiradas del
+	# novato las lleva el HOST, asi que cobrar primero y preguntar despues es pagar 4500 y que te
+	# digan que no quedan. Ademas la respuesta puede ser PARCIAL (pides 10, quedan 3), y entonces
+	# tanto el precio como el numero de tiradas son otros.
+	if int(Game.banner(_banner_idx).get("cupo", 0)) > 0:
+		_pidiendo_cupo = cuantas
+		Net.pedir_tiradas_novato(cuantas)
+		return
+	_meditar_ya(cuantas, precio)
+
+
+# Lo que el host (o yo mismo, en solitario) me ha concedido del cupo. 'k' puede ser MENOS de lo que
+# pedi, y entonces se tira y se cobra por lo concedido, nunca por lo pedido.
+func _cupo_concedido(k: int) -> void:
+	var pedidas: int = _pidiendo_cupo
+	_pidiendo_cupo = 0
+	if pedidas <= 0:
+		return
+	if k <= 0:
+		_aviso = "Este círculo ya se ha agotado en este mundo."
+		_aviso_ok = false
+		_rebuild()
+		return
+	# EL DESCUENTO DEL PACK SOLO SI VA ENTERO. Con 3 de 10 se cobra a precio suelto: el "pagas 9 y
+	# llevas 10" es por llevarse las diez, y regalar el descuento por tres seria cobrar de menos.
+	var b: Dictionary = Game.banner(_banner_idx)
+	var precio: int = int(b["precio_x10"]) if k >= 10 else int(b["precio"]) * k
+	if k < pedidas:
+		_aviso_cupo_corto = k
+	_meditar_ya(k, precio)
+
+
+# EL NUMERO DE TIRADA DEL MUNDO de la ULTIMA de esta tanda. Hace falta para saber cual de las diez es
+# la que cierra el cupo y se lleva el garantizado de despedida: Game.tirar_meditacion no puede
+# mirarlo por su cuenta porque en una x10 valdria lo mismo en las diez llamadas.
+var _pidiendo_cupo: int = 0
+var _aviso_cupo_corto: int = 0
+
+
+func _meditar_ya(cuantas: int, precio: int) -> void:
 	if not Game.gastar(precio):
 		_aviso = "No te llega."
 		_aviso_ok = false
@@ -615,6 +876,8 @@ func _meditar(cuantas: int, precio: int) -> void:
 	var pj: PersonajeData = _pj()
 	var pool: Array = _pool_grimorios()
 	var tochos: Array = _pool_tochos()
+	var b: Dictionary = Game.banner(_banner_idx)
+	var cupo: int = int(b.get("cupo", 0))
 	# UN RNG NUEVO POR TANDA, sin semilla fija: aqui se quiere azar de verdad. El parametro existe
 	# para que el visor pueda repetir una racha y, el dia que esto vaya por red, para que las tire
 	# el host con su semilla (ver Game.sortear_grimorio).
@@ -622,15 +885,26 @@ func _meditar(cuantas: int, precio: int) -> void:
 	rng.randomize()
 	_revelado.clear()
 	for i in cuantas:
-		var t: Dictionary = Game.tirar_meditacion(pj, rng, pool, tochos)
+		# LA ULTIMA DEL CUPO se despide con su garantizado. Las tiradas ya estan apuntadas en
+		# Game.tiradas_novato (las apunto el host al conceder), asi que la que cierra es aquella en la
+		# que las que quedan por detras de ella son cero.
+		var garantiza: int = -1
+		if cupo > 0 and Net.tiradas_novato_visibles() - (cuantas - 1 - i) >= cupo:
+			garantiza = int(b.get("cupo_garantiza", -1))
+		var t: Dictionary = Game.tirar_meditacion(pj, rng, pool, tochos, _banner_idx, garantiza)
 		var c: ConsumableData = t.get("item")
 		if c == null:
 			continue
 		Game.add_consumable(c, 1)
-		Game.gacha_apuntar(pj, c, int(t.get("pity", 0)))
+		Game.gacha_apuntar(pj, c, int(t.get("pity", -1)))
 		_revelado.append(t)
-	_aviso = "%s medita." % pj.nombre
-	_aviso_ok = true
+	if _aviso_cupo_corto > 0:
+		_aviso = "Solo quedaban %d tiradas en este mundo." % _aviso_cupo_corto
+		_aviso_ok = true
+		_aviso_cupo_corto = 0
+	else:
+		_aviso = "%s medita." % pj.nombre
+		_aviso_ok = true
 
 	# SE GUARDA AQUI MISMO, ANTES DE ENSEÑAR NADA. Es la excepcion a la regla de la casa (ninguna
 	# pantalla guarda al comprar, tampoco la tienda) y tiene un motivo que solo se da en el gacha:
@@ -931,9 +1205,11 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	est.visible = est.text != ""
 	caja.add_child(est)
 
-	if int(t.get("pity", 0)) > 0:
+	# -1 = tirada limpia. Se compara con >= 0 y no con > 0 porque el valor es LA RAREZA garantizada,
+	# y la rareza 0 es COMUN: con > 0, el dia que un banner garantizara un comun la marca no saldria.
+	if int(t.get("pity", -1)) >= 0:
 		var g := Label.new()
-		g.text = "★ garantizado"
+		g.text = "★ garantizado (%s)" % _nombre_rareza(int(t["pity"])).to_lower()
 		g.add_theme_font_size_override("font_size", 11)
 		g.add_theme_color_override("font_color", AMBAR)
 		caja.add_child(g)
@@ -1087,7 +1363,7 @@ func _mini_resumen(rejilla: GridContainer, t: Dictionary) -> void:
 	nom.add_theme_color_override("font_color", color)
 	caja.add_child(nom)
 
-	if int(t.get("pity", 0)) > 0:
+	if int(t.get("pity", -1)) >= 0:
 		var g := Label.new()
 		g.text = "★ garantizado"
 		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1324,14 +1600,26 @@ func _pintar_detalles_probs(pj: PersonajeData, vb: VBoxContainer) -> void:
 
 	vb.add_child(HSeparator.new())
 	MenuScaffold.titulo(vb, "GARANTIZADOS", 14)
-	# El texto del pity, DERIVADO de las constantes: escribir "50" y "200" a mano aqui es la forma
-	# clasica de que la pantalla siga prometiendo lo de antes cuando se muevan los escalones.
-	MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio épico o mejor."
-		% Game.GACHA_PITY_EPICO)
-	MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio legendario o mejor."
-		% Game.GACHA_PITY_LEGENDARIO)
-	MenuScaffold.nota(vb, "Se cuentan TIRADAS, no la racha: que te salga uno bueno por suerte no "
-		+ "retrasa el garantizado. Los dos van por personaje.")
+	# DERIVADO de la ficha del banner y recorriendo los escalones: escribirlos a mano aqui es la forma
+	# clasica de que la pantalla siga prometiendo lo de antes cuando se muevan.
+	var b: Dictionary = Game.banner(_banner_idx)
+	var cupo: int = int(b.get("cupo", 0))
+	if cupo > 0:
+		MenuScaffold.nota(vb, "Este círculo se abre %d veces en todo el mundo, y se acabó. "
+			% cupo + "Las gaste quien las gaste: son del mundo, no de cada uno.")
+		var g: int = int(b.get("cupo_garantiza", -1))
+		if g >= 0:
+			MenuScaffold.nota(vb, "La última de las %d garantiza un grimorio %s o mejor."
+				% [cupo, _nombre_rareza(g).to_lower()])
+	else:
+		for r in Game._pity_por_rareza(b.get("pity", {})):
+			MenuScaffold.nota(vb, "Cada %d tiradas, un grimorio %s o mejor."
+				% [int(b["pity"][r]), _nombre_rareza(int(r)).to_lower()])
+		MenuScaffold.nota(vb, "Se cuentan TIRADAS, no la racha: que te salga uno bueno por suerte no "
+			+ "retrasa el garantizado. Van por personaje Y POR CÍRCULO: meditar aquí no acerca los "
+			+ "garantizados del de al lado.")
+		MenuScaffold.nota(vb, "Y si vencen varios en la misma tirada, se cobran TODOS: el mejor cae "
+			+ "ahí y los demás en las siguientes tiradas, aunque las tires otro día.")
 
 
 func _fila_reparto(vb: VBoxContainer, que: String, p: float, para_que: String, color: Color) -> void:
@@ -1414,7 +1702,11 @@ func _pintar_detalles_historial(vb: VBoxContainer) -> void:
 		# lo que se busca al abrir esto es "¿qué me salió?", y una columna casi siempre vacia solo
 		# roba ancho a la que se lee.
 		var seccion: String = String(e.get("seccion", ""))
-		nom.text = ("★ " if int(e.get("pity", 0)) > 0 else "") + String(e.get("nombre", ""))
+		# > 0 Y NO >= 0, y aqui SI importa: en el historial se mezclan DOS formatos. Las entradas de
+		# antes de los banners guardaban el numero de tiradas (0 = normal, 50, 200) y las de ahora
+		# guardan la rareza (-1 = normal, 2..5). El unico corte que acierta en los dos es "> 0", y
+		# vale porque ningun banner garantiza comun (que es justo la rareza 0).
+		nom.text = ("★ " if int(e.get("pity", -1)) > 0 else "") + String(e.get("nombre", ""))
 		# El color ES la informacion de esta tabla: es lo que deja encontrar los buenos sin leer.
 		nom.add_theme_color_override("font_color", _color_entrada(r, seccion))
 		# ANCHO MINIMO, NO EXPAND_FILL: expandiendo, la columna del nombre se comia todo el ancho del
@@ -1537,29 +1829,32 @@ func _fecha_corta(unix: int) -> String:
 	return "%02d-%02d %02d:%02d" % [int(t["day"]), int(t["month"]), int(t["hour"]), int(t["minute"])]
 
 
-# EL NOMBRE DE ESTE BANNER, al lado de su pool: las dos cosas son lo que define un banner, y por eso
-# viven juntas y no dentro del cartel (el cartel las pinta, no las decide).
+# EL NOMBRE Y EL POOL DE CADA BANNER viven en Game.BANNERS, junto al precio y al pity: son lo que
+# define un banner y no tienen por que estar repartidos entre el motor y la pantalla. Aqui solo se
+# leen.
 #
-# ES UN NOMBRE PROPIO, no una formula del tipo "el circulo de <el tomo mas raro>". Se probo derivarlo
-# y no vale: cada banner se llama como se llama, igual que en cualquier gacha, y el siguiente no va a
-# ser "el circulo de" nada.
-#
-# Y NOMBRA A ECLIPSE PORQUE ECLIPSE ES EL DESTACADO. El placeholder decia "la tormenta" y era
-# literalmente falso: Tormenta es legendario (rareza 4), la misma banda que Luz restauradora y Shock
-# termico; el mitico del pool -- el que sale en grande en el cartel -- es Eclipse. Si algun dia entra
-# un mitico nuevo por encima, ESTA LINEA HAY QUE CAMBIARLA A MANO: es la unica del cartel que no se
-# deriva sola, a proposito.
-const BANNER_NOMBRE := "El círculo del eclipse"
+# EL NOMBRE ES PROPIO, no una formula del tipo "el circulo de <el tomo mas raro>". Se probo derivarlo
+# y no vale: cada banner se llama como se llama, igual que en cualquier gacha.
+func _banner_nombre() -> String:
+	return String(Game.banner(_banner_idx).get("nombre", ""))
 
-# Los hechizos que pueden salir: los que tienen grimorio. Sale del manifiesto y no de escanear la
-# carpeta porque en el .exe un escaneo de res:// no es de fiar (ver Libros).
-func _pool_grimorios() -> Array:
+
+# TODO el catalogo: los hechizos que tienen grimorio. Sale del manifiesto y no de escanear la carpeta
+# porque en el .exe un escaneo de res:// no es de fiar (ver Libros).
+func _todos_los_grimorios() -> Array:
 	var out: Array = []
 	for ruta in Libros.GRIMORIOS:
 		var c: ConsumableData = load(ruta) as ConsumableData
 		if c != null and c.spell != null:
 			out.append(c.spell)
 	return out
+
+
+# Los que pueden salir EN EL BANNER ABIERTO. El filtro es de Game (pool_banner), no de aqui: es la
+# misma cuenta que usa el sorteo, y tenerla dos veces es como la tabla de probabilidades acaba
+# prometiendo una cosa y la ruleta dando otra.
+func _pool_grimorios() -> Array:
+	return Game.pool_banner(_todos_los_grimorios(), _banner_idx)
 
 
 func _nombre_rareza(r: int) -> String:

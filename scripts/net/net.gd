@@ -269,6 +269,11 @@ func cofre_consumibles_visible() -> Dictionary:
 	return _cofre_consum_mirror if _soy_cliente() else Game.cofre_consumibles
 func encargos_visibles() -> Array:
 	return _encargos_mirror if _soy_cliente() else Game.encargos
+# Las tiradas ya gastadas del banner de novato. La pantalla del maestro lee SIEMPRE de aqui y nunca
+# de Game.tiradas_novato: un cliente que mirase su propia copia creeria tener 30 cuando el host las
+# tiene gastadas, y le dejaria darle al boton para nada.
+func tiradas_novato_visibles() -> int:
+	return _tiradas_novato_mirror if _soy_cliente() else Game.tiradas_novato
 
 # --- ALMACEN del hogar (bote/cofre): viven en Game (PERSISTEN en la partida, solo y multi). En
 # solitario son tu almacen personal; en multi los del HOST son los compartidos. Aqui solo guardo
@@ -283,6 +288,8 @@ var _cofre_consum_mirror: Dictionary = {}
 # esta lista no podria ni ver a los personajes de su compañero para mandarlos.
 var _encargos_mirror: Array = []
 var _roster_mirror: Array = []
+# El CUPO del banner de novato del mundo del host. Mismo papel que _bote_mirror.
+var _tiradas_novato_mirror: int = 0
 # SOLO HOST: identidad -> las filas del hogar de ESE jugador, EN VIVO, calculadas por el.
 #
 # Antes las filas de los demas se sacaban de Game.jugadores_mundo, que es una FOTO que solo se
@@ -520,6 +527,7 @@ func desconectar() -> void:
 	# invitado hecho por error volcaria el baul y el mapa de una sesion ya cerrada.
 	_mundo_propio = {}
 	_bote_mirror = 0
+	_tiradas_novato_mirror = 0
 	_cofre_mirror = []
 	_encargos_mirror = []
 	_roster_mirror = []
@@ -2287,6 +2295,68 @@ func _difundir_bote() -> void:
 func _set_bote(v: int) -> void:
 	_bote_mirror = v   # cliente: reflejo del bote del host
 	hogar_cambiado.emit()
+
+
+# --- EL CUPO DEL BANNER DE NOVATO ------------------------------------------------------------
+#
+# 30 tiradas para TODO EL MUNDO, no por persona ni por personaje. Es el bote del hogar del reves: en
+# vez de "¿hay bastante para retirar?", "¿queda cupo para gastar?". Y como todo lo que es del mundo,
+# lo lleva el HOST: si cada cliente contara las suyas, dos jugadores tirando a la vez se gastarian 60.
+#
+# SE CONCEDE LO QUE HAYA, NO TODO O NADA. Pides x10 y quedan 3 -> te da 3, y la pantalla cobra 3. La
+# otra opcion era apagar el boton del x10 al bajar de 10, y eso deja el final del cupo inalcanzable
+# salvo de una en una. El que llama TIENE QUE MIRAR lo que se le concede y cobrar por eso, nunca por
+# lo que pidio.
+signal tiradas_novato_concedidas(n: int)
+
+
+# La pantalla llama aqui y espera la señal. En solitario y de host llega en el mismo frame; de
+# cliente, cuando conteste el host. Por eso se pide ANTES de cobrar: al reves, un cliente podria
+# pagar 4500 y que el host le dijera que no quedan.
+func pedir_tiradas_novato(n: int) -> void:
+	if _soy_cliente():
+		_pedir_tiradas_novato.rpc_id(1, n)
+	else:
+		_resolver_tiradas_novato(n, 1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_tiradas_novato(n: int) -> void:
+	if not es_host:
+		return
+	_resolver_tiradas_novato(n, multiplayer.get_remote_sender_id())
+
+
+# Host o solitario: cuantas de las que pide caben en lo que queda. quien=1 = yo mismo.
+func _resolver_tiradas_novato(n: int, quien: int) -> void:
+	var cupo: int = int(Game.banner(Game.BANNER_NOVATO).get("cupo", 0))
+	var quedan: int = maxi(0, cupo - Game.tiradas_novato)
+	var k: int = mini(maxi(0, n), quedan)
+	if k > 0:
+		# SE APUNTAN AL CONCEDER, no al tirar. El que las tiene concedidas ya las ha gastado aunque
+		# tarde un segundo en darle al boton: si se apuntaran despues, dos clientes pidiendo a la vez
+		# se llevarian los dos las mismas ultimas tiradas.
+		Game.tiradas_novato += k
+		_difundir_tiradas_novato()
+	if quien == 1:
+		tiradas_novato_concedidas.emit(k)
+	else:
+		_tiradas_novato_ok.rpc_id(quien, k)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _tiradas_novato_ok(k: int) -> void:
+	tiradas_novato_concedidas.emit(k)
+
+
+func _difundir_tiradas_novato() -> void:
+	if activo:
+		_set_tiradas_novato.rpc(Game.tiradas_novato)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_tiradas_novato(v: int) -> void:
+	_tiradas_novato_mirror = v
 
 
 # --- LA BIBLIOTECA DEL MUNDO -----------------------------------------------------------------
@@ -5668,6 +5738,9 @@ func _congelar_mi_mundo() -> void:
 		# tu hermano no te puede completar media coleccion. Es lo mismo que se hace con los bosses y
 		# con los materiales conocidos.
 		"biblioteca": Game.biblioteca.duplicate(),
+		# El cupo del novato de MI mundo. Mientras juegue de invitado gasto el del host, y este vuelve
+		# intacto al salir (Game.exportar_partida_invitado).
+		"tiradas_novato": Game.tiradas_novato,
 	}
 
 
@@ -6040,6 +6113,7 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# el texto esta desbloqueado y no tiene sentido que a ti te lo vuelva a dar el gacha.
 	# Al desconectar, cada uno recupera la suya (ver Game.exportar_partida_invitado).
 	_set_biblioteca.rpc_id(quien, Game.biblioteca)
+	_set_tiradas_novato.rpc_id(quien, Game.tiradas_novato)
 
 
 # ============================================================

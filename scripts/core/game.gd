@@ -1786,6 +1786,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	velocidad_combate = 1.0
 	bosses_derrotados.clear()
 	biblioteca.clear()
+	tiradas_novato = 0
 	gacha_historial.clear()
 	recompra.clear()
 
@@ -1813,6 +1814,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	lider().hechizos_aprendidos.clear()
 	lider().habilidades_aprendidas.clear()
 	lider().loadout_habilidades.clear()
+	lider().gacha_pity.clear()
 	lider().gacha_n50 = 0
 	lider().gacha_n200 = 0
 	lider().gacha_total = 0
@@ -1947,6 +1949,7 @@ func exportar_partida() -> SaveData:
 	d.velocidad_combate = velocidad_combate
 	d.bosses_derrotados = bosses_derrotados.duplicate()
 	d.biblioteca = biblioteca.duplicate()
+	d.tiradas_novato = tiradas_novato
 	d.gacha_historial = gacha_historial.duplicate(true)
 
 	d.crystals = crystals.duplicate()
@@ -1996,6 +1999,9 @@ func exportar_partida() -> SaveData:
 	d.habilidades_aprendidas = lider().habilidades_aprendidas.duplicate()
 	# El pity del LIDER, a mano: los compañeros lo llevan dentro de su Resource en d.plantilla, pero
 	# el lider no esta ahi (ver el comentario del uid del lider mas arriba).
+	# duplicate(true) y no a secas: dentro hay un dict por banner con su cuenta y su cola, y una copia
+	# superficial dejaria esos de dentro COMPARTIDOS con el personaje vivo.
+	d.player_gacha_pity = lider().gacha_pity.duplicate(true)
 	d.player_gacha_n50 = lider().gacha_n50
 	d.player_gacha_n200 = lider().gacha_n200
 	d.player_gacha_total = lider().gacha_total
@@ -2250,6 +2256,11 @@ func limpiar_mundo_heredado() -> void:
 	# El progreso del mundo: los jefes y los guardianes que cayeron son los de MI mundo, no los de este.
 	bosses_derrotados.clear()
 	guardianes_vencidos.clear()
+	# El CUPO del banner de novato es progreso del mundo, igual que los jefes: las 30 tiradas son de
+	# ESTE mundo. El host me mandara las que queden en el suyo (_set_tiradas_novato), y las mias
+	# vuelven intactas al salir (exportar_partida_invitado). Ojo: aqui SI se limpia, a diferencia de
+	# la biblioteca, que es coleccion y no progreso.
+	tiradas_novato = 0
 	# Lo que CONOCES de los materiales (que sub-tiers te ofrece el herrero / el carpintero). Faltaba
 	# aqui, y era el bug de "al invitado le salen todos los sub-tiers del T1 de base": si venias de
 	# tu propia partida con cobre veteado descubierto, te lo llevabas puesto al mundo ajeno aunque tu
@@ -2416,6 +2427,9 @@ func exportar_partida_invitado() -> SaveData:
 	# todos --, pero lo leido en el mundo del host es de ESE mundo: quedandose, una tarde acompañado
 	# te completaria media coleccion y el coleccionable dejaria de serlo.
 	d.biblioteca = (mio.get("biblioteca", {}) as Dictionary).duplicate()
+	# Y el cupo del novato vuelve a ser EL MIO. Lo que se gastara en el mundo del host es de ese
+	# mundo: si me trajera el suyo, una tarde en casa ajena me dejaria sin mis tiradas.
+	d.tiradas_novato = int(mio.get("tiradas_novato", 0))
 	# vistas_baseline apunta a la niebla de la SESION (ver iniciar_expedicion_mapa): en mi save no
 	# significa nada. Se deja vacio; la proxima expedicion en mi mundo lo rehace al entrar.
 	d.vistas_baseline = {}
@@ -2552,6 +2566,8 @@ func importar_partida(d: SaveData) -> void:
 	# VACIO = partida de antes de que existiera la biblioteca. No hay nada que migrar: se arranca sin
 	# ningun tomo leido, que es exactamente lo que era cierto en esa partida.
 	biblioteca = d.biblioteca.duplicate() if d.biblioteca else {}
+	# 0 = partida anterior al banner de novato: sus 30 tiradas estan intactas, que es lo justo.
+	tiradas_novato = d.tiradas_novato
 	# Igual que la biblioteca: vacio es una partida anterior al gacha, y empezar sin historial es la
 	# verdad de esa partida.
 	gacha_historial = d.gacha_historial.duplicate(true) if d.gacha_historial else []
@@ -2636,9 +2652,13 @@ func importar_partida(d: SaveData) -> void:
 	lider().loadout_habilidades = d.loadout_habilidades.duplicate(true)
 	# El pity del lider, la otra punta de lo que se escribe a mano al guardar. Una partida anterior
 	# al gacha llega con los tres a 0, que es empezar el pity de cero: correcto.
+	lider().gacha_pity = d.player_gacha_pity.duplicate(true) if d.player_gacha_pity else {}
 	lider().gacha_n50 = d.player_gacha_n50
 	lider().gacha_n200 = d.player_gacha_n200
 	lider().gacha_total = d.player_gacha_total
+	# Si venia de una partida sin banners, sus contadores viejos se vuelcan AQUI, al cargar, y no la
+	# primera vez que abra el maestro: asi el informe y cualquier otro que mire el pity ya lo ven bien.
+	gacha_migrar_pity(lider())
 	tool_hit_reduction = d.tool_hit_reduction
 	tool_destreza_bonus = d.tool_destreza_bonus
 	# HERRAMIENTAS. Baul + las tres equipadas, como instancias con su meta.
@@ -2953,6 +2973,16 @@ var bosses_derrotados: Dictionary = {}
 #  menu de Meditacion. Venderlo sin abrirlo pierde la entrada, y esa es toda la tension del objeto.
 var biblioteca: Dictionary = {}
 
+# TIRADAS GASTADAS EN EL BANNER DE NOVATO. Es DEL MUNDO, no del personaje ni del jugador: las 30 son
+# 30 para todo el mundo entero, las gaste quien las gaste. Por eso vive aqui suelto y no en
+# PersonajeData, y por eso se limpia en limpiar_mundo_heredado igual que bosses_derrotados -- entrar
+# de invitado en un mundo ajeno no te regala otras 30.
+#
+# EN MULTIJUGADOR NO SE LEE DE AQUI. Manda el host y la pantalla pregunta a Net.tiradas_novato_visibles
+# (ver el patron del bote del hogar): un cliente que mirase su propia copia podria tirar treinta veces
+# mas de las que quedan.
+var tiradas_novato: int = 0
+
 # ============================================================
 #  EL REPARTO DE GRIMORIOS DEL GACHA
 #
@@ -3180,6 +3210,92 @@ func tocho_aporta_algo(c: ConsumableData) -> bool:
 const GACHA_PRECIO := 2000
 const GACHA_PRECIO_X10 := 18000
 
+
+# ============================================================
+#  LOS BANNERS
+#
+#  Tres ruletas con temas distintos, y la tabla de abajo es TODO lo que las separa: no hay un solo
+#  `if banner == ...` en el sorteo. El dia que entre el cuarto es una fila mas aqui.
+#
+#  EL REPARTO DEL CATALOGO NO ESTA ESCRITO A MANO, y eso es lo mejor que tiene: sale de preguntarle
+#  a cada hechizo si es una imbuicion (imbue_tipo > 0). Con esa sola regla cuadra el reparto entero
+#  que se pidio -- 1 mitico, 2+ legendarios y 4+ epicos por banner -- sin una lista de nombres que
+#  se quede desfasada en cuanto alguien añada un hechizo:
+#
+#    RARO Y POR DEBAJO  van a los DOS banners grandes (son el fondo comun: los filos elementales,
+#                       Fortaleza, Debilidad y todo el ataque de entrada).
+#    EPICO Y POR ENCIMA se parte: las imbuiciones a su banner y el resto al de ataque.
+#
+#  Y EL DE NOVATO es el mismo catalogo con un techo: nada por encima de epico.
+# ============================================================
+
+# Hasta que rareza reparte el fondo COMUN a los dos banners grandes. Por debajo de epico no hay
+# suficientes hechizos de cada familia como para llenar dos ruletas, y ademas los hechizos de
+# entrada no son "de un tema": los quiere el que va a por magia igual que el que va a por mantos.
+const BANNER_CORTE_TEMA := Upgrades.Rareza.EPICO
+
+const BANNER_NOVATO := 0
+const BANNER_ATAQUE := 1
+const BANNER_IMBUICIONES := 2
+
+# 'imbuiciones': null = le da igual (entra todo) | true = solo imbuiciones | false = todo menos.
+# 'tope': rareza maxima que puede salir (-1 = sin tope).
+# 'cupo': tiradas MAXIMAS en todo el mundo (0 = sin limite). Ver Game.tiradas_novato.
+# 'pity': {rareza_garantizada: cada cuantas tiradas}. El novato no lleva: su unico garantizado es el
+#         de la ultima tirada del cupo, que no es un contador que se reinicia sino un final.
+const BANNERS := [
+	{
+		"id": &"novato", "nombre": "El primer círculo",
+		"precio": 500, "precio_x10": 4500,
+		"imbuiciones": null, "tope": Upgrades.Rareza.EPICO,
+		"cupo": 30, "cupo_garantiza": Upgrades.Rareza.RARO,
+		"pity": {},
+	},
+	{
+		"id": &"ataque", "nombre": "El círculo del eclipse",
+		"precio": GACHA_PRECIO, "precio_x10": GACHA_PRECIO_X10,
+		"imbuiciones": false, "tope": -1,
+		"cupo": 0, "cupo_garantiza": -1,
+		"pity": {Upgrades.Rareza.EPICO: 50, Upgrades.Rareza.LEGENDARIO: 100,
+			Upgrades.Rareza.MITICO: 200},
+	},
+	{
+		"id": &"imbuiciones", "nombre": "El círculo del prisma",
+		"precio": GACHA_PRECIO, "precio_x10": GACHA_PRECIO_X10,
+		"imbuiciones": true, "tope": -1,
+		"cupo": 0, "cupo_garantiza": -1,
+		"pity": {Upgrades.Rareza.EPICO: 50, Upgrades.Rareza.LEGENDARIO: 100,
+			Upgrades.Rareza.MITICO: 200},
+	},
+]
+
+
+# La ficha de un banner por su indice, con el de ataque de red de seguridad: un indice fuera de
+# rango tiene que devolver una ruleta que funcione, no petar la pantalla del maestro.
+func banner(i: int) -> Dictionary:
+	return BANNERS[i] if i >= 0 and i < BANNERS.size() else BANNERS[BANNER_ATAQUE]
+
+
+# QUE HECHIZOS ENTRAN en un banner. 'todos' es el catalogo entero (los que tienen grimorio); lo pasa
+# la pantalla, igual que hace pesos_grimorio, para que esta cuenta se pueda probar con un pool de
+# mentira.
+func pool_banner(todos: Array, i: int) -> Array:
+	var b: Dictionary = banner(i)
+	var tope: int = int(b.get("tope", -1))
+	var quiere = b.get("imbuiciones", null)
+	var out: Array = []
+	for s in todos:
+		if s == null:
+			continue
+		var r: int = int(s.rareza)
+		if tope >= 0 and r > tope:
+			continue
+		# Por debajo del corte no hay tema que valga: el fondo comun es de los dos.
+		if quiere != null and r >= BANNER_CORTE_TEMA and (int(s.imbue_tipo) > 0) != bool(quiere):
+			continue
+		out.append(s)
+	return out
+
 # EL REPARTO de que clase de libro cae. Suman 1.0; el relleno es lo que sobra y por eso no tiene
 # constante propia (una tercera constante se quedaria descuadrada el dia que se toque otra).
 const GACHA_P_GRIMORIO := 0.10
@@ -3188,9 +3304,13 @@ const GACHA_P_TOMO_SABIO := 0.25
 # ------------------------------------------------------------
 #  EL PITY. LEE ESTO ENTERO ANTES DE TOCARLO.
 #
-#  Dos escalones, cada uno con SU contador (PersonajeData.gacha_n50 / gacha_n200):
-#    50  tiradas -> grimorio EPICO O MEJOR, garantizado.
-#    200 tiradas -> grimorio LEGENDARIO O MEJOR, garantizado.
+#  TRES escalones por banner, cada uno con SU contador (ver BANNERS[i].pity):
+#     50 tiradas -> grimorio EPICO O MEJOR
+#    100 tiradas -> grimorio LEGENDARIO O MEJOR
+#    200 tiradas -> grimorio MITICO
+#
+#  Con esos tres, el que llega a 200 tiradas en un banner tiene ya TODOS sus epicos y legendarios:
+#  esa es la promesa de la que salen los numeros, y no al reves.
 #
 #  LA REGLA QUE SE IMPLEMENTA MAL POR DEFECTO, y es deliberada:
 #
@@ -3202,15 +3322,27 @@ const GACHA_P_TOMO_SABIO := 0.25
 #  exactamente el sitio donde alguien "arreglaria" el codigo de memoria y lo rompería sin que
 #  saltase ningun test: seguiria dando epicos, solo que menos.
 #
-#  Lo bueno de que sea un suelo duro e independiente de la suerte: se explica en una linea en
-#  pantalla y se comprueba tirando 200 veces y contando que salieron al menos los garantizados.
+#  Y LA SEGUNDA REGLA, que es la que faltaba y se vio jugando:
 #
-#  El 200 es LEGENDARIO y no mitico A PROPOSITO. Con un mitico garantizado cada 200, Tormenta
-#  costaria como mucho 200 x 2000 = 400.000 monedas, y esta puesta para costar ~1.000.000: dejaria
-#  de ser el chase de la coleccion. El mitico solo cae por suerte.
+#      CUANDO VENCEN VARIOS A LA VEZ, SE COBRAN TODOS. NINGUNO SE PIERDE.
+#
+#  En la tirada 200 vencen los tres de golpe. El codigo viejo era un if/elif: se quedaba con el mas
+#  alto y tiraba los demas. Se llego a la 200 con una x10 y cayo la legendaria sola, sin la epica que
+#  tambien tocaba, y desde fuera parecia mala suerte. Ahora el mejor se resuelve en esta tirada y los
+#  otros se APUNTAN EN LA COLA (PersonajeData.gacha_pity[banner].cola), que se cobra en las tiradas
+#  siguientes -- las del mismo x10 si las hay, y si tiraste de x1, las de mañana. Se guarda con la
+#  partida a proposito: un garantizado ganado no caduca al cerrar el juego.
 # ------------------------------------------------------------
-const GACHA_PITY_EPICO := 50
-const GACHA_PITY_LEGENDARIO := 200
+
+# El orden en que se cobran los escalones cuando vencen varios: SIEMPRE lo mejor primero. Aqui no se
+# ordena por el numero de tiradas (100, 200...) sino por la RAREZA, que es lo que le importa al que
+# mira la carta. Si algun dia un banner pusiera el mitico a menos tiradas que el legendario, esto
+# seguiria dando primero el mitico, que es lo correcto.
+func _pity_por_rareza(pity: Dictionary) -> Array:
+	var rs: Array = pity.keys()
+	rs.sort()
+	rs.reverse()
+	return rs
 
 # Cuantas entradas del historial se guardan. Se corta por arriba porque el historial va en el
 # SaveData: sin tope, una partida de mil tiradas se lleva mil diccionarios en cada guardado.
@@ -3221,15 +3353,59 @@ const GACHA_HISTORIAL_MAX := 200
 var gacha_historial: Array = []
 
 
-# Cuantas tiradas le faltan a este personaje para cada garantizado. Devuelve
-# {"epico": int, "legendario": int}: es lo que pinta la pantalla, y sale de aqui para que el numero
-# de la UI no pueda desviarse del que usa el sorteo.
-func gacha_pity_restante(pj: PersonajeData = null) -> Dictionary:
+# EL ESTADO DEL PITY de un personaje en un banner, creandolo si es su primera vez. Devuelve el
+# diccionario DE DENTRO (por referencia), asi que quien lo pida puede escribir en el.
+#
+# La clave del contador es la RAREZA garantizada y no el numero de tiradas ("n50"): asi cambiar un
+# escalon de 50 a 40 en la tabla de BANNERS no deja huerfano el contador de nadie.
+func gacha_estado(p: PersonajeData, i: int) -> Dictionary:
+	var id: StringName = StringName(banner(i).get("id", &"ataque"))
+	if not p.gacha_pity.has(id):
+		p.gacha_pity[id] = {"n": {}, "cola": []}
+	var d: Dictionary = p.gacha_pity[id]
+	# Los saves viejos pueden traer el dict sin alguna de las dos claves.
+	if not d.has("n"):
+		d["n"] = {}
+	if not d.has("cola"):
+		d["cola"] = []
+	return d
+
+
+# MIGRACION de las partidas anteriores a los banners: los dos contadores planos que habia se vuelcan
+# al banner de ATAQUE, que es el que era. Se hace una sola vez (en cuanto hay entrada, ya no vuelve a
+# entrar) y deja los viejos a cero para que no se pueda cobrar dos veces.
+#
+# El de 200 tiradas era de LEGENDARIO y ahora ese escalon esta en 100, asi que lo que llevara
+# acumulado puede pasarse de la raya: no se recorta a proposito, y el que venia con 180 tiradas
+# encima cobra su legendario en la siguiente. Le debiamos una.
+func gacha_migrar_pity(p: PersonajeData) -> void:
+	if p == null or p.gacha_pity.has(&"ataque"):
+		return
+	if p.gacha_n50 <= 0 and p.gacha_n200 <= 0:
+		return
+	var d: Dictionary = gacha_estado(p, BANNER_ATAQUE)
+	d["n"][Upgrades.Rareza.EPICO] = p.gacha_n50
+	d["n"][Upgrades.Rareza.LEGENDARIO] = p.gacha_n200
+	print("[gacha] pity migrado a banners: %s traia %d/%d" % [p.nombre, p.gacha_n50, p.gacha_n200])
+	p.gacha_n50 = 0
+	p.gacha_n200 = 0
+
+
+# Cuantas tiradas le faltan a este personaje para cada garantizado DE ESTE BANNER. Devuelve
+# {rareza: tiradas_que_faltan}: es lo que pinta la pantalla, y sale de aqui para que el numero de la
+# UI no pueda desviarse del que usa el sorteo.
+#
+# Lo que hay en la COLA cuenta como "la siguiente" (0 tiradas): ya esta ganado y cae en cuanto tires.
+func gacha_pity_restante(pj: PersonajeData = null, i: int = BANNER_ATAQUE) -> Dictionary:
 	var p: PersonajeData = pj if pj != null else lider()
-	return {
-		"epico": maxi(0, GACHA_PITY_EPICO - p.gacha_n50),
-		"legendario": maxi(0, GACHA_PITY_LEGENDARIO - p.gacha_n200),
-	}
+	gacha_migrar_pity(p)
+	var d: Dictionary = gacha_estado(p, i)
+	var cola: Array = d["cola"]
+	var out := {}
+	for r in banner(i).get("pity", {}):
+		var cada: int = int(banner(i)["pity"][r])
+		out[r] = 0 if cola.has(r) else maxi(0, cada - int((d["n"] as Dictionary).get(r, 0)))
+	return out
 
 
 # El pool de grimorios de una rareza minima. Es lo unico que hace falta para aplicar el pity:
@@ -3251,42 +3427,62 @@ func _pool_desde_rareza(pool: Array, minimo: int) -> Array:
 # NO COBRA Y NO ENTREGA NADA: solo decide. Cobrar es de quien llama (asi la x10 cobra una vez), y
 # entregar tambien, para que esto se pueda tirar diez mil veces en un visor sin tocar la partida.
 func tirar_meditacion(pj: PersonajeData, rng: RandomNumberGenerator,
-		pool_grimorios: Array, pool_tochos: Array) -> Dictionary:
+		pool_grimorios: Array, pool_tochos: Array, i: int = BANNER_ATAQUE,
+		garantiza_min: int = -1) -> Dictionary:
 	var p: PersonajeData = pj if pj != null else lider()
+	gacha_migrar_pity(p)
+	var b: Dictionary = banner(i)
+	var d: Dictionary = gacha_estado(p, i)
+	var cuenta: Dictionary = d["n"]
+	var cola: Array = d["cola"]
 
-	# 1) SE CUENTA LA TIRADA ANTES DE NADA. Los dos contadores suben SIEMPRE, pase lo que pase
+	# 1) SE CUENTA LA TIRADA ANTES DE NADA. TODOS los contadores suben SIEMPRE, pase lo que pase
 	# despues: es lo que hace que el pity sea un suelo por tiradas y no por sequia.
-	p.gacha_n50 += 1
-	p.gacha_n200 += 1
 	p.gacha_total += 1
+	for r in b.get("pity", {}):
+		cuenta[r] = int(cuenta.get(r, 0)) + 1
 
-	# 2) ¿DISPARA ALGUN GARANTIZADO? Se mira el de 200 primero: en la tirada 200 vencen los dos a la
-	# vez, y el que manda es el mas alto. Los dos se reinician igual —el de 50 tambien ha cobrado,
-	# porque un legendario ES "epico o mejor"— y por eso el reinicio de n50 va fuera del if.
-	var pity: int = 0
-	var mini_rareza: int = -1
-	if p.gacha_n200 >= GACHA_PITY_LEGENDARIO:
-		p.gacha_n200 = 0
-		p.gacha_n50 = 0
-		pity = GACHA_PITY_LEGENDARIO
-		mini_rareza = Upgrades.Rareza.LEGENDARIO
-	elif p.gacha_n50 >= GACHA_PITY_EPICO:
-		p.gacha_n50 = 0
-		pity = GACHA_PITY_EPICO
-		mini_rareza = Upgrades.Rareza.EPICO
+	# 2) ¿QUE GARANTIZADOS VENCEN? Pueden vencer VARIOS en la misma tirada (en la 200 vencen los
+	# tres), y aqui esta la diferencia con la version vieja: los que vencen se apuntan TODOS en la
+	# cola. Reiniciar el contador de un escalon que vence es correcto aunque su premio se cobre tres
+	# tiradas mas tarde -- lo que cuenta es que la deuda ya esta anotada.
+	for r in _pity_por_rareza(b.get("pity", {})):
+		if int(cuenta.get(r, 0)) >= int(b["pity"][r]):
+			cuenta[r] = 0
+			cola.append(r)
 
-	# 3) EL PREMIO.
+	# 3) UN GARANTIZADO SUELTO que pone quien llama. Es como entra el de la ULTIMA tirada del cupo del
+	# novato: esa no es un contador que se reinicie, es un final, y ademas depende de un numero DEL
+	# MUNDO (tiradas_novato) que aqui no se puede mirar. Si esta funcion lo consultara, en una x10
+	# valdria lo mismo en las diez llamadas y regalaria diez garantizados en vez de uno. Quien tira
+	# sabe cual de sus diez es la del final; esta funcion no tiene por que.
+	if garantiza_min >= 0:
+		cola.append(garantiza_min)
+
+	# 4) EL PREMIO. Si hay algo en la cola se cobra LO MEJOR (la cola no esta ordenada: en la misma
+	# tirada se apuntan de mejor a peor, pero una de x1 deja mezclas de tandas distintas).
+	var pity: int = -1
 	var c: ConsumableData = null
-	if mini_rareza >= 0:
-		c = _gacha_grimorio(rng, pool_grimorios, p, mini_rareza)
-		# Si no existe ni un grimorio de esa banda (un pool a medio montar), el garantizado no se
-		# pierde: baja a lo mejor que haya. Antes que tragarse la tirada, dar de menos.
+	if not cola.is_empty():
+		var mejor: int = cola[0]
+		for r in cola:
+			if int(r) > mejor:
+				mejor = int(r)
+		cola.erase(mejor)
+		pity = mejor
+		c = _gacha_grimorio(rng, pool_grimorios, p, mejor)
+		# Si no existe ni un grimorio de esa banda (un pool a medio montar, o un banner con techo),
+		# el garantizado no se pierde: baja a lo mejor que haya. Antes que tragarse la tirada, dar de
+		# menos.
 		if c == null:
 			c = _gacha_grimorio(rng, pool_grimorios, p, -1)
 	else:
 		c = _gacha_normal(rng, pool_grimorios, pool_tochos, p)
 	if c == null:
 		return {}
+	# 'pity' es la RAREZA garantizada, no el numero de tiradas: es lo que la pantalla necesita para
+	# marcar la carta y decir DE QUE era el garantizado. -1 (y no 0) significa "tirada limpia",
+	# porque 0 es COMUN y algun dia un banner podria garantizar justo eso.
 	return {"item": c, "spell": c.spell, "pity": pity}
 
 
