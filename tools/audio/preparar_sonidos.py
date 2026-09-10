@@ -88,6 +88,8 @@ DEST_MUS = os.path.join(RAIZ, "audio", "musica")
 #                    corta justo antes del segundo, o sonarian nueve estocadas en vez de tres.
 #    "largo"         no es un impacto sino un estado (cubrir el filo, echarse el manto): la
 #                    muestra dura 20 s y se recorta a TOPE_LARGO.
+#    "seco"          se corta a TOPE_LARGO/4 y con fundido triple: para lo que se dispara varias
+#                    veces seguidas y no puede arrastrar cola (el plin de las estrellas).
 #    (a, b)          ventana a mano, en segundos. El buscador automatico de golpes acierta en la
 #                    mayoria, pero hay muestras donde los impactos estan FUNDIDOS (la carniceria
 #                    del hacha es una masa sostenida, no tres hachazos) o donde el bueno es el
@@ -100,6 +102,16 @@ DEST_MUS = os.path.join(RAIZ, "audio", "musica")
 TOPE_NORMAL = 2.0    # segundos: ningun golpe del jugador dura mas que esto
 TOPE_LARGO = 1.8     # segundos: los estados, recortados a una pincelada
 FUNDIDO_MS = 30      # el corte a pelo hace 'clic'
+
+# EL MODO 'seco', que existe por UN sonido: el plin de las estrellas del gacha. Ese se dispara
+# HASTA SEIS VECES SEGUIDAS con 0,12 s entre uno y otro (una por estrella, ver maestro_menu), asi
+# que su cola es el enemigo: la muestra viene de cinco segundos y con ella entera los seis plines de
+# un mitico se solapan en una masa en vez de oirse como seis campanadas subiendo.
+#
+# El fundido es TRIPLE que el normal a proposito. Cortar una campana a 30 ms se oye como un corte;
+# a 90 se oye como una campana APAGADA CON LA MANO, que es justo el gesto que se quiere.
+TOPE_SECO = 0.45
+FUNDIDO_SECO_MS = 90
 
 SFX = {
 	"Daga": {
@@ -251,6 +263,30 @@ SFX = {
 		"Two_fast_slicing_cut": ("guadana", ""),
 		"A_hard_chitin_spike": ("ensarte", ""),
 	},
+	# EL GACHA. Estos NO son estilos de combate: los pide la interfaz por Sonido.ui(), asi que su
+	# clave no sale de ningun enum -- se llaman como se llaman y punto.
+	#
+	# OJO CON LOS DOS BRILLOS: sus prompts empiezan igual ("A rising swell of li...") y el
+	# manifiesto indexa por los primeros caracteres, asi que los dos ficheros caian en la MISMA
+	# clave y uno se habria comido al otro como si fuera su version 2. Se renombraron metiendo la
+	# marca ANTES del '#' (A_rising_swell_of_li_epico_#1-...) porque es lo unico que mira
+	# clave_de_fichero. Si algun dia se regeneran, hay que volver a hacerlo.
+	"Gacha": {
+		"Handful_of_gold_coin": ("gacha_tirada", ""),
+		"Quiet_library_room_s": ("gacha_estante", ""),
+		"A_heavy_leather_book": ("gacha_paginas", ""),
+		"A_neutral_rising_swe": ("gacha_brillo_comun", ""),
+		"A_rising_swell_of_wa": ("gacha_brillo_raro", ""),
+		"A_rising_swell_of_li_epico": ("gacha_brillo_epico", ""),
+		"A_rising_swell_of_li_god": ("gacha_brillo_god", ""),
+		"A_single_thick_playi": ("gacha_voltea", ""),
+		"A_heavy_card_flipped": ("gacha_voltea_bueno", ""),
+		"A_golden_card_turnin": ("gacha_voltea_god", ""),
+		# El unico 'seco' del juego: seis plines seguidos con la cola de cinco segundos que trae la
+		# muestra son una masa, no una escalera. Ver TOPE_SECO.
+		"One_single_clean_bel": ("gacha_estrella", "seco"),
+		"A_warm_resonant_bed": ("gacha_remate", ""),
+	},
 }
 
 # Los cortos del ambiente: se sueltan de vez en cuando, como un golpe mas.
@@ -287,6 +323,18 @@ MUSICA = {
 	"victoria": "victoria",
 	"derrota": "derrota",
 	"piso nuevo": "piso",
+	# EL GACHA. 'gacha_ritual' se apila al empezar la animacion y 'gacha_abriendo' la releva cuando
+	# empieza el revelado (Musica.cambiar_cima, con su cruce de 1,5 s); al cerrar se desapila y
+	# vuelve sola la del pueblo.
+	"gacha ritual": "gacha_ritual",
+	"gacha abriendo": "gacha_abriendo",
+	# LOS CUATRO FINALES van por Musica.remate(), no por poner(): un remate suena ENCIMA del fondo
+	# y se va solo, que es exactamente lo que tiene que hacer el veredicto -- la base del ritual
+	# sigue por debajo mientras el color vira.
+	"gacha final comun": "gacha_final_comun",
+	"gacha final raro": "gacha_final_raro",
+	"gacha final epico": "gacha_final_epico",
+	"gacha final god": "gacha_final_god",
 }
 
 
@@ -411,10 +459,18 @@ def recortar(muestras, fr, modo):
 
 	a = max(0, ini * n - int(fr * 0.005))
 	b = min(len(muestras), (fin + 1) * n + int(fr * 0.04))
-	tope = int(fr * (TOPE_LARGO if modo == "largo" else TOPE_NORMAL))
+	tope_s = TOPE_NORMAL
+	fundido = FUNDIDO_MS
+	if modo == "largo":
+		tope_s = TOPE_LARGO
+	elif modo == "seco":
+		tope_s = TOPE_SECO
+		fundido = FUNDIDO_SECO_MS
+		nota = "cortado seco a %.2fs" % TOPE_SECO
+	tope = int(fr * tope_s)
 	if b - a > tope:
 		b = a + tope
-	return _fundir(array.array("h", muestras[a:b]), fr), nota
+	return _fundir(array.array("h", muestras[a:b]), fr, fundido), nota
 
 
 # ============================================================
@@ -652,9 +708,13 @@ def igualar(muestras, fr, extra_db=0.0):
 	return muestras, 20.0 * math.log10(g)
 
 
-def _fundir(fuera, fr):
-	"""El corte a pelo hace 'clic'. Un fundido corto de salida y no se nota."""
-	f = min(len(fuera), int(fr * FUNDIDO_MS / 1000))
+def _fundir(fuera, fr, ms=FUNDIDO_MS):
+	"""El corte a pelo hace 'clic'. Un fundido corto de salida y no se nota.
+
+	'ms' se alarga para el modo 'seco': ahi no se trata de disimular el corte sino de apagar una
+	campana a mano (ver TOPE_SECO).
+	"""
+	f = min(len(fuera), int(fr * ms / 1000))
 	for i in range(f):
 		k = 1.0 - (i / float(f))
 		fuera[len(fuera) - f + i] = int(fuera[len(fuera) - f + i] * k)
