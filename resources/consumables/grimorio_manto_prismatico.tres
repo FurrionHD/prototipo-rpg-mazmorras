@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_6fwq0"]
+[ext_resource type="Resource" path="res://resources/spells/manto_prismatico.tres" id="2_85qjk"]
+
+[resource]
+script = ExtResource("1_6fwq0")
+nombre = "Grimorio: Manto prismático"
+descripcion = "Un tomo cuyas tapas cambian de color segun quien lo tenga en la mano, y nunca dos veces el mismo. La primera pagina esta en blanco a proposito: hay un hueco donde deberia decir de que es. Estudialo y aprenderas Manto prismatico."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_85qjk")
+tomo_id = &"grimorio_manto_prismatico"
+valor_base = 4200

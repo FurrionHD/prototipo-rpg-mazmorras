@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_rayo"]
+script = ExtResource("2")
+estado = 8
+prob = 0.5
+
+[sub_resource type="Resource" id="SA_aturde"]
+script = ExtResource("2")
+estado = 7
+prob = 0.15
+
+[resource]
+script = ExtResource("1")
+nombre = "Venablo de tormenta"
+frases = Array[String](["Basta de repartir", "Todo el cielo, en un solo sitio"])
+rareza = 3
+coste_mana = 15
+dano_base = 38.0
+elemento = 3
+hits = 2
+descripcion = "El rayo de siempre va saltando de uno a otro y se gasta por el camino. Este no salta: baja entero sobre UNO y baja dos veces. Lo normal es que se quede quieto un rato despues."
+efectos = [SubResource("SA_rayo"), SubResource("SA_aturde")]

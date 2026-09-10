@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_m01do"]
+[ext_resource type="Resource" path="res://resources/spells/filo_umbrio.tres" id="2_pgc08"]
+
+[resource]
+script = ExtResource("1_m01do")
+nombre = "Grimorio: Filo umbrío"
+descripcion = "Un tomo negro que no refleja la vela: la apaga a medias. Si lo miras un rato de cerca, tardas en volver a ver bien el resto de la estanteria. Estudialo y aprenderas Filo umbrio."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_pgc08")
+tomo_id = &"grimorio_filo_umbrio"
+valor_base = 4200

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Manto prismático"
+tipo = 1
+frases = Array[String](["No pido un elemento: los pido todos", "Que el mundo elija por mí esta vez", "Y que lo que salga me dure hasta el final"])
+rareza = 5
+coste_mana = 24
+dano_base = 0.0
+elemento = 0
+imbue_tipo = 2
+imbue_pct = 0.5
+imbue_usos = 25
+imbue_estado = -1
+imbue_prob = 0.0
+imbue_intensidad = 0.6
+imbue_elemento_aleatorio = true
+imbue_spd_mult = 1.1
+descripcion = "El canto más largo del tomo, y ni el que lo recita sabe cómo va a terminar. Algo se decide ahí arriba y baja hecho fuego, agua, rayo, luz o noche. Sea lo que sea, se queda mucho tiempo, y mientras esté te pesa menos todo."

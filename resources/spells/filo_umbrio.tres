@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Filo umbrío"
+tipo = 1
+frases = Array[String](["Que mi acero beba la luz", "Y que corte antes de que lo vean"])
+rareza = 3
+coste_mana = 13
+dano_base = 0.0
+elemento = 5
+imbue_tipo = 1
+imbue_pct = 0.5
+imbue_usos = 15
+imbue_estado = 33
+imbue_prob = 0.3
+descripcion = "El arma se traga la luz que le cae encima. No brilla, no avisa, y quien la mira de cerca se queda un rato sin ver."

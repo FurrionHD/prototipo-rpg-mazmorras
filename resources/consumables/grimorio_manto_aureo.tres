@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_k30k8"]
+[ext_resource type="Resource" path="res://resources/spells/manto_aureo.tres" id="2_73p5u"]
+
+[resource]
+script = ExtResource("1_k30k8")
+nombre = "Grimorio: Manto áureo"
+descripcion = "Un tomo tibio, del calor justo de una manta recien quitada. Lleva asi desde que lo trajeron y nadie sabe de donde saca el calor. Estudialo y aprenderas Manto aureo."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_73p5u")
+tomo_id = &"grimorio_manto_aureo"
+valor_base = 4200

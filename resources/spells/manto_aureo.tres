@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Manto áureo"
+tipo = 1
+frases = Array[String](["Amanece dentro de mí", "Que la piel me arda sin quemarse", "Soy el mediodía, y el mediodía no tiene sombra"])
+rareza = 4
+coste_mana = 19
+dano_base = 0.0
+elemento = 4
+imbue_tipo = 2
+imbue_pct = 0.25
+imbue_usos = 15
+imbue_estado = 5
+imbue_prob = 0.15
+imbue_intensidad = 0.6
+descripcion = "Un canto largo que te enciende por dentro hasta no proyectar sombra. Nada de lo oscuro te alcanza igual... y lo oscuro lo sabe, y viene con más ganas."

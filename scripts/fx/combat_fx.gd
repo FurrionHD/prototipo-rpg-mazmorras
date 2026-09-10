@@ -335,7 +335,11 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		NUBE_ESPORAS = 112, MICELIO = 113,
 		VENTOSA = 114, DRENAR = 115,
 		ALETEO = 116,
-		GUADANA = 117, ENSARTE = 118 }
+		GUADANA = 117, ENSARTE = 118,
+		# La ola del AGUA, pero de fuego: un frente de ascuas que barre la fila entera. Es un estilo
+		# aparte y no el BARRIDO con otro color porque la cresta de una ola es una linea limpia y la
+		# de un incendio son lenguas: pintado con el mismo trazo se leia como agua naranja.
+		OLA_IGNEA = 119 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -460,6 +464,9 @@ const T_VUELO := {
 	Estilo.GUADANA: 0.06, Estilo.ENSARTE: 0.06,
 	Estilo.MELEE: 0.0, Estilo.PROYECTIL: 0.20, Estilo.ARCANO: 0.18, Estilo.RAYO: 0.10,
 	Estilo.CAIDA_RAYO: 0.16, Estilo.CAIDA_GOTA: 0.22, Estilo.BARRIDO: 0.26, Estilo.ARCO: 0.14,
+	# El mismo vuelo que la ola de agua: las dos son un frente que cruza la fila, y si una tardara
+	# menos que la otra el fuego llegaria antes que el numero.
+	Estilo.OLA_IGNEA: 0.26,
 	# La EXPLOSION no viaja: nace donde revienta. Un pelin de vuelo para que la onda haya empezado
 	# a abrirse cuando entran el numero y el temblor, y no salga toda de golpe con ellos.
 	Estilo.EXPLOSION: 0.08,
@@ -1993,7 +2000,7 @@ const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.E
 	# encima suyo. Mientras reusaba COBERTURA se pintaba sobre el protegido y se leia como que el
 	# mago se tapaba solo. Si esto se saca de la lista, vuelve ese bug.
 	Estilo.POSTURA_RODELA, Estilo.MURO_GUARDIAN]
-const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
+const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.OLA_IGNEA, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,
 	# Los del mandoble que alcanzan a varios: un molinete es UN giro que coge a tres, no tres

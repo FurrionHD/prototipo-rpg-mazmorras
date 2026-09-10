@@ -22,7 +22,10 @@ const DUR := 0.55
 # El reventon dura poco y se apaga enseguida: los ultimos tres van MUY juntos porque si no la
 # ventana entera del impacto se cuela entre dos fotos y sale una captura en negro.
 # Vuelo (0,15-0,50), el reventon de fuego con su compresion (0,58-0,70) y el vapor (0,85-1,20).
-const MOMENTOS := [0.15, 0.40, 0.70, 1.00, 1.25, 1.45]
+# El 0,25 es POR LAS OLAS: vuelan 0,26 y se apagan a 0,38, asi que entre el 0,15 y el 0,40 les cabe
+# la vida entera. Sin esta foto solo se las veia recien salidas y no a medio barrer, que es cuando
+# hay que juzgar si el frente se lee.
+const MOMENTOS := [0.15, 0.25, 0.40, 0.70, 1.00, 1.25, 1.45]
 
 # Una fila por efecto. El color es el que le manda combat.gd en el juego (el del elemento).
 const FILAS := [
@@ -36,6 +39,13 @@ const FILAS := [
 		"color": Color(1.0, 0.97, 0.85)},
 	{"estilo": CombatFX.Estilo.CURACION_LUZ, "elem": 4, "nombre": "Curación menor",
 		"color": Color(1.0, 0.97, 0.85), "peso": 1.0},
+	# LAS DOS OLAS, UNA ENCIMA DE OTRA y en este orden a proposito. La de fuego se hizo copiando la
+	# de agua, asi que lo unico que hay que juzgar aqui es si se DISTINGUEN: si la de fuego se lee
+	# como la de agua con otro color, no vale y hay que subirle las lenguas.
+	{"estilo": CombatFX.Estilo.BARRIDO, "elem": 2, "nombre": "Ola de agua (Torrente)",
+		"color": Color(0.4, 0.7, 1.0)},
+	{"estilo": CombatFX.Estilo.OLA_IGNEA, "elem": 1, "nombre": "Ola de fuego (Mar de brasas)",
+		"color": Color(1.0, 0.5, 0.1)},
 ]
 
 var _capa: CapaHechizos = null
@@ -43,7 +53,9 @@ var _capa: CapaHechizos = null
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	DisplayServer.window_set_size(Vector2i(1280, 720))
+	# 940 y no 720: con siete filas la ultima caia FUERA de la ventana y su captura salia cortada por
+	# la mitad. Una foto que no coge el efecto entero no sirve para juzgarlo.
+	DisplayServer.window_set_size(Vector2i(1280, 940))
 
 	# Un fondo oscuro como el del combate: sobre gris claro, un efecto naranja miente.
 	var fondo := ColorRect.new()

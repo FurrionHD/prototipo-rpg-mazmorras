@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Manto umbrío"
+tipo = 1
+frases = Array[String](["Que se apague lo que me alumbra", "Que la sombra me tome por suya", "Soy la medianoche, y la medianoche no teme"])
+rareza = 4
+coste_mana = 19
+dano_base = 0.0
+elemento = 5
+imbue_tipo = 2
+imbue_pct = 0.25
+imbue_usos = 15
+imbue_estado = 33
+imbue_prob = 0.15
+imbue_intensidad = 0.6
+descripcion = "Te cubres de una sombra que no es tuya. Ves sin luz y ya nada de ahí dentro te asusta, pero al sol te encuentra a la primera."

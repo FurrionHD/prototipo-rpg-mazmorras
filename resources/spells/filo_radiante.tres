@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Filo radiante"
+tipo = 1
+frases = Array[String](["Que mi acero recuerde el sol", "Y que no quede sombra donde corte"])
+rareza = 3
+coste_mana = 13
+dano_base = 0.0
+elemento = 4
+imbue_tipo = 1
+imbue_pct = 0.5
+imbue_usos = 15
+imbue_estado = 5
+imbue_prob = 0.3
+descripcion = "El filo se pone blanco y deja de tener sombra. Lo que toca queda a la vista, y lo que queda a la vista se defiende peor."

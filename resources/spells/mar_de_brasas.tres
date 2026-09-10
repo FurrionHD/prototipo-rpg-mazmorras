@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="SpellData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/spell_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_quema"]
+script = ExtResource("2")
+estado = 2
+prob = 0.35
+magnitud = 10.0
+
+[resource]
+script = ExtResource("1")
+nombre = "Mar de brasas"
+frases = Array[String](["Que el suelo se acuerde de arder", "Y que no quede sitio donde pisar"])
+rareza = 3
+coste_mana = 15
+dano_base = 26.0
+elemento = 1
+alcance = 2
+dano_salpicon = 0.9
+fx_estilo = 119
+fx_estilo_salpicon = 119
+descripcion = "El fuego deja de caer del cielo y sale de abajo: el suelo entero se abre en ascuas y arde a la vez para todos. No pega tan fuerte como una andanada bien puesta, pero es muy raro que alguien salga de ahi sin humear."
+efectos = [SubResource("SA_quema")]

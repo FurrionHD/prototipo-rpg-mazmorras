@@ -154,7 +154,7 @@ func alta(estilo: int, a: Vector2, b: Vector2, color: Color, peso: float, dur: f
 			# van a cerrarse. Si salieran del atacante se veria un par de dientes cruzando la
 			# pantalla por su cuenta mientras el bicho llega por detras.
 			e["a"] = b
-		CombatFX.Estilo.BARRIDO:
+		CombatFX.Estilo.BARRIDO, CombatFX.Estilo.OLA_IGNEA:
 			# RECTA, NUNCA EN DIAGONAL. Un frente de agua avanza de una fila a la otra; si sale de la
 			# tarjeta del que lanza y va al centro de lo barrido, cuando esos dos no estan alineados
 			# la lamina cruza la pantalla torcida y se ve rarisimo -- ademas de que una ola inclinada
@@ -493,6 +493,7 @@ func _draw() -> void:
 			CombatFX.Estilo.RAYO, CombatFX.Estilo.CAIDA_RAYO, CombatFX.Estilo.ARCO: _pintar_rayo(e)
 			CombatFX.Estilo.CAIDA_GOTA: _pintar_gotas(e)
 			CombatFX.Estilo.BARRIDO: _pintar_ola(e)
+			CombatFX.Estilo.OLA_IGNEA: _pintar_ola_ignea(e)
 			CombatFX.Estilo.ARCANO: _pintar_arcano(e)
 			CombatFX.Estilo.EXPLOSION: _pintar_explosion(e)
 			CombatFX.Estilo.SPLAT: _pintar_splat(e)
@@ -1638,6 +1639,88 @@ func _pintar_ola(e: Dictionary) -> void:
 		cresta.append(pts[i])
 	draw_polyline(cresta, Color(minf(1.0, col.r + 0.45), minf(1.0, col.g + 0.35),
 		minf(1.0, col.b + 0.25), 0.95 * alfa), maxf(2.0, float(e["r"]) * 0.18), true)
+
+
+# LA MISMA OLA, PERO DE FUEGO (Mar de brasas). El frente, el avance y la cola son los de _pintar_ola
+# — no se reinventa lo que ya barre bien una fila — y lo que cambia es lo que la lee como incendio y
+# no como agua naranja:
+#   - LA CRESTA no es una linea limpia, son LENGUAS: la ola de agua tiene un borde continuo, y un
+#     frente de fuego tiene puntas que suben y se apagan. Es la diferencia que se ve de un vistazo.
+#   - EL CUERPO va en DOS capas, la de fuera mas oscura y la de dentro mas clara y encogida, que es
+#     como se lee una brasa: el rojo por fuera y el amarillo por dentro.
+#   - RESCOLDOS sueltos por delante del frente: lo que ya ha prendido antes de que llegue la ola.
+func _pintar_ola_ignea(e: Dictionary) -> void:
+	var a: Vector2 = e["a"]
+	var b: Vector2 = e["b"]
+	var col: Color = e["col"]
+	var t: float = e["t"]
+	var u: float = clampf(t / float(e["dur"]), 0.0, 1.0)
+	var dir: Vector2 = (b - a).normalized() if a.distance_to(b) > 1.0 else Vector2.DOWN
+	var lado := Vector2(-dir.y, dir.x)
+	var p: Vector2 = a.lerp(b, u)
+	var ancho: float = maxf(40.0, float(e["ancho"]) * 0.5 + 10.0)
+	var fondo: float = float(e["r"]) * 0.9
+	var alfa: float = 1.0 if u < 1.0 else clampf(1.0 - (t - float(e["dur"])) / 0.12, 0.0, 1.0)
+	var g: float = float(e["semilla"])
+
+	# EL CUERPO, igual que la ola: frente abombado por delante y cola que se estrecha por detras.
+	var n := 7
+	var frente := PackedVector2Array()
+	var pts := PackedVector2Array()
+	for i in n:
+		var k: float = float(i) / float(n - 1)
+		var x: float = lerpf(-1.0, 1.0, k)
+		# El temblor va MAS RAPIDO que en el agua (14 contra 11): una llama titila, no ondula.
+		var avance: float = (1.0 - x * x) * fondo * (1.0 + 0.22 * sin(t * 14.0 + k * 5.0 + g))
+		var q: Vector2 = p + lado * x * ancho + dir * avance
+		frente.append(q)
+		pts.append(q)
+	for i in n:
+		var k2: float = 1.0 - float(i) / float(n - 1)
+		var x2: float = lerpf(-1.0, 1.0, k2)
+		var cola: float = -fondo * (0.55 + 0.45 * (1.0 - absf(x2)))
+		pts.append(p + lado * x2 * ancho * 0.82 + dir * cola)
+	var oscuro := Color(col.r * 0.85, col.g * 0.45, col.b * 0.30, 0.85 * alfa)
+	draw_colored_polygon(pts, oscuro)
+	# LA CAPA DE DENTRO: la misma figura encogida hacia el centro, mas clara. Encoger hacia 'p' y no
+	# escalar la figura entera la mantiene pegada al frente, que es donde tiene que estar lo caliente.
+	var dentro := PackedVector2Array()
+	for q in pts:
+		dentro.append(p + (q - p) * 0.62)
+	draw_colored_polygon(dentro, Color(minf(1.0, col.r + 0.15), minf(1.0, col.g + 0.35), 0.25, 0.8 * alfa))
+
+	# LAS LENGUAS del frente. Son TRIANGULOS y no una polilinea: una linea, por gruesa que sea, sigue
+	# leyendose como borde de ola. Tres cosas las separan de una sierra de dientes, y las tres hubo
+	# que corregirlas MIRANDO la captura al lado de la de agua:
+	#   - MAS QUE PUNTOS TIENE EL FRENTE (13 contra 7) e interpoladas entre ellos: con una por punto
+	#     se contaban las siete y se leia como una corona, no como fuego.
+	#   - MAS ALTAS QUE ANCHAS. Con el ancho de antes salian chatas, o sea dientes.
+	#   - DESIGUALES DE VERDAD: el alto de cada una mezcla DOS ondas de periodos que no encajan, asi
+	#     que no hay dos vecinas iguales ni se ve el patron repetirse.
+	# El claro tira a AMBAR y no al amarillo limon de antes: con verde alto salia verdoso.
+	var claro := Color(1.0, minf(1.0, col.g + 0.35), 0.22, 0.95 * alfa)
+	var nl := 13
+	for i in nl:
+		var kl: float = float(i) / float(nl - 1)
+		# Donde cae esta lengua sobre el frente ya dibujado, interpolando entre sus puntos.
+		var fk: float = kl * float(n - 1)
+		var i0: int = clampi(int(fk), 0, n - 2)
+		var q: Vector2 = frente[i0].lerp(frente[i0 + 1], fk - float(i0))
+		var v1: float = sin(t * 12.0 + float(i) * 2.3 + g)
+		var v2: float = sin(t * 7.3 + float(i) * 5.1 + g * 1.7)
+		var alto: float = fondo * (0.55 + 0.75 * absf(v1 * 0.6 + v2 * 0.4))
+		var media: float = ancho / float(nl) * 0.75
+		draw_colored_polygon(PackedVector2Array([
+			q - lado * media, q + lado * media, q + dir * alto]), claro)
+
+	# RESCOLDOS por delante: lo que ya ha prendido antes de que llegue el frente. Se apagan con la
+	# distancia, asi que los de mas adelante son los mas tenues.
+	for i in 5:
+		var kk: float = float(i) / 4.0
+		var d: float = fondo * (1.3 + 1.5 * kk)
+		var lat: float = sin(g + float(i) * 2.7) * ancho * 0.85
+		draw_circle(p + dir * d + lado * lat, maxf(1.5, float(e["r"]) * 0.10 * (1.0 - kk * 0.6)),
+			Color(claro.r, claro.g, claro.b, 0.55 * alfa * (1.0 - kk * 0.7)))
 
 
 # EXPLOSION: no viaja, REVIENTA donde esta. Es lo que se lleva el SALPICON de las magias de fuego:

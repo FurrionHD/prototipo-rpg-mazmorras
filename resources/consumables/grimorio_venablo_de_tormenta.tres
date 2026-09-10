@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1_0qrjc"]
+[ext_resource type="Resource" path="res://resources/spells/venablo_de_tormenta.tres" id="2_d022p"]
+
+[resource]
+script = ExtResource("1_0qrjc")
+nombre = "Grimorio: Venablo de tormenta"
+descripcion = "Un tomo con una sola raja de arriba abajo, muy recta, que no atraviesa del todo. No se abre por ahi. Estudialo y aprenderas Venablo de tormenta."
+cura_total = 0.0
+turnos = 1
+segundos = 1.0
+spell = ExtResource("2_d022p")
+tomo_id = &"grimorio_venablo_de_tormenta"
+valor_base = 4200

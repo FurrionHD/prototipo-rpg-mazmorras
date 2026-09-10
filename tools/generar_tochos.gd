@@ -177,6 +177,15 @@ const RAREZAS := {
 	"manto_brasas": Upgrades.Rareza.EPICO,
 	"manto_centellas": Upgrades.Rareza.EPICO,
 	"manto_marea": Upgrades.Rareza.EPICO,
+	# Los FILOS de luz y oscuridad: un escalon POR ENCIMA de los otros filos (que son raros) porque
+	# pegan +50% en vez de +30% y duran 15 ataques en vez de 10. Son la version cara de la familia.
+	"filo_radiante": Upgrades.Rareza.EPICO,
+	"filo_umbrio": Upgrades.Rareza.EPICO,
+	# Y los DOS EPICOS DE ATAQUE que faltaban. El hueco no era de nivel, era de FORMA: en esta banda
+	# no habia nada de fuego, agua ni rayo, y ademas el fuego no tenia ningun barrido a todos y el
+	# rayo solo sabia rebotar. Cada uno hace justo lo que su elemento no sabia hacer.
+	"mar_de_brasas": Upgrades.Rareza.EPICO,
+	"venablo_de_tormenta": Upgrades.Rareza.EPICO,
 	# EL TECHO. Son DOS desde que existe el Shock termico, y ese es el caso que el diseño del reparto
 	# prometia: al entrar el segundo, cada uno pasa a salir la mitad sin tocar un solo numero.
 	# La cura de GRUPO es legendaria: curar a los cuatro de golpe cambia una pelea entera, y ademas
@@ -184,13 +193,24 @@ const RAREZAS := {
 	"luz_restauradora": Upgrades.Rareza.LEGENDARIO,
 	"tormenta": Upgrades.Rareza.LEGENDARIO,
 	"shock_termico": Upgrades.Rareza.LEGENDARIO,
-	# MITICO: la banda de encima del legendario, y de momento con un solo hechizo. Sale la mitad que
-	# un legendario, o sea una de cada cien tiradas de grimorio.
+	# Los MANTOS de luz y oscuridad, tambien un escalon por encima de los suyos: +25% en vez de +15%,
+	# 15 ataques en vez de 10 y la afinidad en franja 0.6 (x0.7/x1.3) en vez de 0.4 (x0.8/x1.2).
+	# Ese x1.3 no es un descuido: luz y oscuridad se baten la una a la otra, y un manto mas fuerte
+	# tambien te deja mas abierto a su contrario. La coraza que sube, sube por los dos lados.
+	"manto_aureo": Upgrades.Rareza.LEGENDARIO,
+	"manto_umbrio": Upgrades.Rareza.LEGENDARIO,
+	# MITICO: la banda de encima del legendario. Son DOS, uno por banner, y ese reparto es lo que
+	# salva la regla de que una banda alta salga MENOS que una baja: si los dos cayeran en la misma
+	# ruleta se partirian el peso a la mitad (0.30 cada uno) y se pondrian por debajo de nada.
 	# OJO CON SUS FRASES: el recitado del Eclipse es un MEME y es PROVISIONAL. Lleva una marca
 	# registrada ajena escrita tal cual, asi que NO puede salir en una version publicada -- va contra
 	# la norma de no meter referencias externas en la UI, y ademas es de otro. Esta puesto porque el
 	# autor lo pidio asi mientras se prueba el gacha, y hay que cambiarlo en el pase de textos.
 	"eclipse": Upgrades.Rareza.MITICO,
+	# El techo de las IMBUICIONES, y el unico hechizo del juego que no sabe de que elemento es hasta
+	# que lo lanzas. Paga ese azar con todo lo demas: +50%, 25 ataques (mas del doble que nadie) y
+	# un 10% de velocidad mientras dure.
+	"manto_prismatico": Upgrades.Rareza.MITICO,
 }
 
 
@@ -339,6 +359,13 @@ const TEXTOS_GRIMORIO := {
 	"voragine_sombra": "Un tomo que pesa mas de lo que deberia por su tamaño, y que si lo dejas en una mesa acaba en el borde. Nadie recuerda haberlo movido. Estudialo y aprenderas Voragine de sombra.",
 	"eclipse": "Dos tomos cosidos en uno, uno claro y otro oscuro, y no hay forma de saber donde acaba el primero. La costura esta hecha por dentro. Estudialo y aprenderas Eclipse.",
 	"shock_termico": "Un tomo que quema por una tapa y hiela por la otra, y que en el medio esta a temperatura de sala. Nadie ha conseguido dejarlo apoyado del lado frio mas de un rato. Estudialo y aprenderas Shock termico fulminante.",
+	"filo_radiante": "Un tomo estrecho, de canto tan afilado que hay que cogerlo por las tapas. No proyecta sombra sobre la mesa. Estudialo y aprenderas Filo radiante.",
+	"filo_umbrio": "Un tomo negro que no refleja la vela: la apaga a medias. Si lo miras un rato de cerca, tardas en volver a ver bien el resto de la estanteria. Estudialo y aprenderas Filo umbrio.",
+	"manto_aureo": "Un tomo tibio, del calor justo de una manta recien quitada. Lleva asi desde que lo trajeron y nadie sabe de donde saca el calor. Estudialo y aprenderas Manto aureo.",
+	"manto_umbrio": "Un tomo que se lee bien sin luz y mal con ella. Los que lo han intentado a mediodia dicen que las letras se corren. Estudialo y aprenderas Manto umbrio.",
+	"manto_prismatico": "Un tomo cuyas tapas cambian de color segun quien lo tenga en la mano, y nunca dos veces el mismo. La primera pagina esta en blanco a proposito: hay un hueco donde deberia decir de que es. Estudialo y aprenderas Manto prismatico.",
+	"mar_de_brasas": "Un tomo con las tapas requemadas por abajo, como si lo hubieran dejado sobre un rescoldo. El calor sube por las paginas y no llega arriba. Estudialo y aprenderas Mar de brasas.",
+	"venablo_de_tormenta": "Un tomo con una sola raja de arriba abajo, muy recta, que no atraviesa del todo. No se abre por ahi. Estudialo y aprenderas Venablo de tormenta.",
 }
 
 
