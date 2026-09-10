@@ -954,10 +954,31 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 	# Va DESPUES del bucle y no dentro: una sola escritura por tanda, no diez en una x10. Y por
 	# guardar_mi_partida, que es el punto unico (en un mundo compartido o de invitado, escribir la
 	# partida entera en la ranura seria justo lo que ese metodo existe para evitar).
-	Game.guardar_mi_partida()
+	_guardar_tirada()
 
 	_rebuild()
 	_mostrar_ritual()
+
+
+# GUARDAR LA TIRADA DE VERDAD, TAMBIEN EN UN MUNDO COMPARTIDO.
+#
+# EL FALLO QUE ESTO ARREGLA, medido el 10/09/2026: en un mundo, `guardar_mi_partida` acaba en
+# `Mundos.guardar_actual`, que escribe SOLO EN EL DISCO. A la nube se sube cada 60 s (SEG_AUTOGUARDADO)
+# o al cerrar el mundo bien. Y al abrirlo, los bytes que baja la nube MACHACAN la copia local a
+# proposito (puede haber jugado otro). O sea que un alt+F4 despues de tirar volvia a poner la copia
+# de la nube y la tirada no habia pasado: se recupero el dinero, los grimorios y el pity. Justo lo
+# que el guardado inmediato existe para impedir -- funcionaba en ranura y no en mundo.
+#
+# NO SE ESPERA A QUE SUBA, y es deliberado: `autoguardar` recoge los estados de los demas (hasta
+# segundo y medio) y luego habla con la red. Bloquear ahi dejaria la pantalla congelada justo al
+# pulsar Meditar. Se lanza y sube MIENTRAS CORRE EL RITUAL, que son casi seis segundos de animacion
+# durante los que no se puede tocar nada: para cuando la primera carta se voltea, ya esta arriba.
+# En disco esta desde el primer instante igual, porque `autoguardar` escribe antes de subir.
+func _guardar_tirada() -> void:
+	if Mundos.abierto == "":
+		Game.guardar_mi_partida()
+		return
+	await Mundos.autoguardar()
 
 
 # ------------------------------------------------------------
