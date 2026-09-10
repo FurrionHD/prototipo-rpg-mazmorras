@@ -304,11 +304,24 @@ func _ready() -> void:
 	await _captura("7_biblioteca")
 	# Con un libro ABIERTO, que es donde se lee el texto: la ficha de la derecha es la mitad que
 	# justifica la pantalla y sin abrir ninguno no sale en la foto.
-	for ruta2 in Libros.TOCHOS:
+	#
+	# UN GRIMORIO Y NO UN TOCHO CUALQUIERA, aunque los dos sirvan igual para la ficha: los grimorios
+	# son la PRIMERA seccion de la lista, asi que el boton del libro abierto cae dentro de la foto.
+	# Con un tocho de Curiosidades la ficha salia bien pero su boton se quedaba fuera del scroll, y
+	# entonces esta captura no vale para juzgar como se MARCA el libro abierto en la lista, que es la
+	# otra mitad de la pantalla. Si no hay ninguno leido se cae al primero que haya, como antes.
+	var abrir: ConsumableData = null
+	for ruta2 in Libros.todos():
 		var t: ConsumableData = load(ruta2) as ConsumableData
-		if t != null and Game.tomo_leido(t.tomo_id):
-			men._ver_libro(t)
+		if t == null or not t.en_biblioteca() or not Game.tomo_leido(t.tomo_id):
+			continue
+		if t.es_grimorio():
+			abrir = t
 			break
+		if abrir == null:
+			abrir = t
+	if abrir != null:
+		men._ver_libro(abrir)
 	# SE COMPRUEBA QUE SE HA ABIERTO. Sin esto, la vez anterior salio una foto identica a la de la
 	# lista —no habia ni un tocho leido, asi que no se abrio ninguno— y la ficha de la derecha se
 	# quedo sin mirar. Una captura que sale "bien" porque no ha pasado nada es peor que un error.

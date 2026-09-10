@@ -72,6 +72,13 @@ var _arma_idx: int = 0   # que arma del catalogo
 var _sel: int = 0        # que tecnica de esa arma
 
 
+# LA TERCERA PUERTA DE SALIDA: cerrar el menu entero con la tirada a medias. Las otras dos son
+# "Continuar" y cambiar de pestaña. Si esta falta, cierras el maestro mientras suena el gacha y esa
+# musica se queda puesta por el pueblo para siempre -- la pila nunca se deshace.
+func _exit_tree() -> void:
+	_musica_gacha_fuera()
+
+
 func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
@@ -360,6 +367,9 @@ func _rebuild_real() -> void:
 		# previa entra por lo mismo, y ademas se lleva por delante su _process.
 		_tirar_resultados()
 		_tirar_ritual()
+		# Y LA MUSICA: salir por la pestaña es una de las tres puertas, y la unica que no pasa por
+		# "Continuar". Sin esto te llevas la del gacha a la Biblioteca y ya no vuelve la del pueblo.
+		_musica_gacha_fuera()
 		# Y SE DESHACE EL CARTEL: la Meditación esconde las dos columnas del esqueleto para ocupar la
 		# pantalla entera, asi que al salir hay que devolverlas. Sin esto, la Biblioteca aparecia en
 		# blanco -- sus columnas seguian ocultas -- con el cartel del gacha por encima.
@@ -899,6 +909,9 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 		_aviso_ok = false
 		_rebuild()
 		return
+	# EL SONIDO DE PAGAR, aqui y no en el boton: solo suena si el cobro ha salido bien. Pulsar sin
+	# monedas contesta con el aviso, no con el ruido de la caja.
+	Sonido.ui("gacha_tirada")
 	var pj: PersonajeData = _pj()
 	var pool: Array = _pool_grimorios()
 	var tochos: Array = _pool_tochos()
@@ -959,13 +972,65 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 const GachaRitual = preload("res://scripts/ui/gacha_ritual.gd")
 var _ritual: Control = null
 
+# QUE SUENA Y QUE MUSICA REMATA segun lo mejor de la tanda. Los tramos NO son uno por rareza: el
+# escalon fino ya lo dan los plines (uno por estrella, de 1 a 6), asi que aqui basta con cuatro
+# peldaños. Comun y poco comun comparten el brillo que no resuelve -- que es lo que significa una
+# tanda de relleno -- y legendario y mitico comparten el que desborda.
+const SFX_BRILLO := {
+	Upgrades.Rareza.COMUN: "gacha_brillo_comun",
+	Upgrades.Rareza.POCO_COMUN: "gacha_brillo_comun",
+	Upgrades.Rareza.RARO: "gacha_brillo_raro",
+	Upgrades.Rareza.EPICO: "gacha_brillo_epico",
+	Upgrades.Rareza.LEGENDARIO: "gacha_brillo_god",
+	Upgrades.Rareza.MITICO: "gacha_brillo_god",
+}
+const MUS_FINAL := {
+	Upgrades.Rareza.COMUN: "gacha_final_comun",
+	Upgrades.Rareza.POCO_COMUN: "gacha_final_comun",
+	Upgrades.Rareza.RARO: "gacha_final_raro",
+	Upgrades.Rareza.EPICO: "gacha_final_epico",
+	Upgrades.Rareza.LEGENDARIO: "gacha_final_god",
+	Upgrades.Rareza.MITICO: "gacha_final_god",
+}
+# Y el volteo de cada carta, por su propia rareza (no la de la tanda): relleno, bueno y god.
+const SFX_VOLTEA := {
+	Upgrades.Rareza.RARO: "gacha_voltea_bueno",
+	Upgrades.Rareza.EPICO: "gacha_voltea_bueno",
+	Upgrades.Rareza.LEGENDARIO: "gacha_voltea_god",
+	Upgrades.Rareza.MITICO: "gacha_voltea_god",
+}
+
+# LA MUSICA DEL GACHA SE APILA, no se pone: al salir, `desapilar` devuelve sola la del pueblo por
+# donde iba. Y lleva su propia bandera porque hay TRES puertas de salida (Continuar, cambiar de
+# pestaña y cerrar el menu) y una pila desbalanceada no se nota hasta que la musica del pueblo no
+# vuelve nunca.
+var _mus_apilada: bool = false
+
+
+func _musica_gacha_dentro() -> void:
+	if _mus_apilada:
+		return
+	_mus_apilada = true
+	Musica.apilar("gacha_ritual")
+
+
+func _musica_gacha_fuera() -> void:
+	if not _mus_apilada:
+		return
+	_mus_apilada = false
+	Musica.desapilar()
+
 
 func _mostrar_ritual() -> void:
 	_tirar_ritual()
 	if _revelado.is_empty():
 		return
 	_ritual = GachaRitual.new()
-	_ritual.montar(_root, _color_mejor_tirada(), _mostrar_resultados)
+	_musica_gacha_dentro()
+	var r: int = _mejor_de_la_tanda()[0]
+	_ritual.montar(_root, _color_mejor_tirada(), _mostrar_resultados,
+		String(SFX_BRILLO.get(r, "gacha_brillo_comun")),
+		String(MUS_FINAL.get(r, "gacha_final_comun")))
 	# LOS OTROS MUÑECOS, ESCONDIDOS mientras dura. No es que estorben: es que MunecoJugador dibuja con
 	# z ABSOLUTO, asi que un retrato se cuela por delante de cualquier velo -- y subir el velo por
 	# encima de ellos taparia tambien al maestro, que es un muñeco igual. La misma salida que usa la
@@ -991,6 +1056,14 @@ func _tirar_ritual() -> void:
 # MANDA LA RAREZA, y el desempate no existe: si en la tanda hay un legendario, el brillo es el suyo
 # aunque haya salido el primero de los diez. Es lo que hace que el color valga de aviso.
 func _color_mejor_tirada() -> Color:
+	var m: Array = _mejor_de_la_tanda()
+	return _color_entrada(int(m[0]), String(m[1]))
+
+
+# [rareza, seccion] de lo mejor que ha salido. Va aparte porque lo miran DOS cosas -- el color del
+# brillo y su sonido -- y la regla de quien manda tiene que ser una sola: en cuanto se copie el
+# bucle, un dia el color dira legendario y el sonido dira epico.
+func _mejor_de_la_tanda() -> Array:
 	var mejor: int = -1
 	var seccion: String = ""
 	for t in _revelado:
@@ -1002,7 +1075,7 @@ func _color_mejor_tirada() -> Color:
 		if r > mejor:
 			mejor = r
 			seccion = c.seccion_biblioteca()
-	return _color_entrada(mejor, seccion)
+	return [mejor, seccion]
 
 
 # ------------------------------------------------------------
@@ -1045,6 +1118,7 @@ func _tirar_resultados() -> void:
 
 func _cerrar_resultados() -> void:
 	_tirar_resultados()
+	_musica_gacha_fuera()
 	_rebuild()
 
 
@@ -1060,7 +1134,13 @@ func _mostrar_resultados() -> void:
 	# retratos, que ella escondio (ver _mostrar_ritual).
 	_tirar_ritual()
 	if _revelado.is_empty():
+		_musica_gacha_fuera()
 		return
+	# LA MUSICA CAMBIA DE CIMA, que es un cruce de 1,5 s: la del ritual da paso a la de abrir cartas
+	# sin cortarse. Cambiar la CIMA y no apilar otra vez es lo que hace que al cerrar baste con un
+	# desapilar para volver a la del pueblo.
+	_musica_gacha_dentro()   # por si se llego aqui sin pasar por el ritual
+	Musica.cambiar_cima("gacha_abriendo")
 	_resultados = Control.new()
 	_resultados.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Por encima de los muñecos de los retratos, igual que el cartel (ver gacha_banner.montar).
@@ -1265,6 +1345,10 @@ func _dibujar_carta_res(c: Control, col: Color, gordo: bool, familia: int) -> vo
 # PROCESS_MODE_ALWAYS: el menu para el arbol entero al abrirse (Game.abrir_menu), y un tween de un
 # nodo pausado no avanza -- la carta se quedaria boca abajo para siempre.
 func _voltear_carta(dib: Control, caja: Control, r: int, color: Color) -> void:
+	# EL SONIDO DEL VOLTEO ARRANCA CON EL GESTO, no en el destape: es el papel girando, y llega antes
+	# de que se vea nada. La carta buena suena distinta de la de relleno, asi que se sabe que ha
+	# caido algo antes de poder leerlo -- que es medio chiste de un gacha.
+	Sonido.ui(String(SFX_VOLTEA.get(r, "gacha_voltea")))
 	var tw: Tween = create_tween()
 	_tweens_res.append(tw)
 	tw.tween_property(dib, "scale:x", 0.0, VOLTEO_MEDIO)
@@ -1280,6 +1364,14 @@ func _destapar(dib: Control, caja: Control, r: int, color: Color) -> void:
 	dib.queue_redraw()
 	if is_instance_valid(caja):
 		caja.visible = true
+	# LOS PLINES: uno por estrella, y las estrellas son rareza+1 (comun una, mitico seis). El numero
+	# de plines ES la noticia, asi que van aqui -- con la carta ya destapada -- y no con el gesto.
+	Sonido.estrellas(r + 1)
+	# Y LA ALFOMBRA, solo de epico para arriba: los plines solos se quedan finos cuando la cosa es
+	# gorda. Entra por debajo y los deja resonando. Mismo umbral que el destello de abajo, que es la
+	# misma idea: si suena en todas, no significa nada en ninguna.
+	if r >= Upgrades.Rareza.EPICO:
+		Sonido.ui("gacha_remate")
 	# EL DESTELLO, solo en las buenas. Si centellea todo no centellea nada: es la misma idea que el
 	# brillo relativo del equipo.
 	if r >= Upgrades.Rareza.EPICO:
@@ -1972,6 +2064,20 @@ func _celda_libro(grid: GridContainer, c: ConsumableData) -> void:
 		b.add_theme_color_override("font_color", MenuScaffold.AMBAR
 			if c.es_grimorio() else Color(0.86, 0.89, 0.94))
 		b.pressed.connect(_ver_libro.bind(c))
+	# EL LIBRO ABIERTO, MARCADO. Con veinticuatro botones iguales y el texto a la derecha, no habia
+	# forma de saber cual de ellos estabas leyendo: pulsabas uno, cambiaba el panel y la lista se
+	# quedaba tal cual. El marco ambar es el mismo con el que se marca el retrato elegido y la celda
+	# del inventario, asi que no hay que aprenderse nada nuevo.
+	if leido and _libro_abierto == c:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.16, 0.13, 0.08, 1.0)
+		sb.border_color = MenuScaffold.AMBAR
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(6)
+		# LOS TRES ESTADOS o el marco se cae al pasar el raton por encima, que es justo cuando lo
+		# estas mirando: el tema repone con su gris cualquiera que no se sobreescriba.
+		for estado in ["normal", "hover", "pressed"]:
+			b.add_theme_stylebox_override(estado, sb)
 	grid.add_child(b)
 
 

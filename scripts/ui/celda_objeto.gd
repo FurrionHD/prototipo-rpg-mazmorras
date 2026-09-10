@@ -77,8 +77,16 @@ func _plus() -> int:
 	return Game.mejoras_actuales(item) if item != null else 0
 
 
-func _ready() -> void:
+# EN EL _init Y NO EN EL _ready, Y NO ES UN DETALLE: BaseButton.set_pressed() SE SALE SIN HACER NADA
+# si el boton todavia no es de tipo toggle. Quien pinta una rejilla construye la celda, le pone
+# 'button_pressed = (i == sel)' y la mete en el arbol; con el toggle_mode puesto en _ready -- que
+# corre AL ENTRAR, o sea DESPUES -- esa marca se tiraba a la basura en silencio y NINGUNA celda salia
+# marcada nunca. El borde de seleccionada llevaba escrito desde el principio y no se veia por esto.
+func _init() -> void:
 	toggle_mode = true
+
+
+func _ready() -> void:
 	# El estilo del tema se quita entero: lo pinta _draw(). Hay que poner los CINCO estados o Godot
 	# rellena los que falten con su gris y la celda cambia de aspecto al pasar el raton por encima.
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
@@ -202,10 +210,18 @@ func _draw() -> void:
 			draw_string(fuente, Vector2(3.0, centro_banda + float(tam) * 0.36), texto_pie,
 				HORIZONTAL_ALIGNMENT_CENTER, hueco, tam, Color(0.94, 0.95, 0.97))
 
-	# EL ESTADO, siempre por encima de todo. Seleccionada = borde blanco grueso, que es lo unico que
-	# se lee de un vistazo en una rejilla donde TODAS las celdas tienen color.
+	# EL ESTADO, siempre por encima de todo. Seleccionada = marco AMBAR, el mismo color con el que se
+	# marca el retrato elegido: un solo idioma para "esto es lo que estas mirando" en todo el menu.
+	#
+	# VA EN DOS TRAZOS Y NO EN UNO. Aqui el fondo de la celda es de un color distinto en cada rareza,
+	# asi que un trazo suelto -- de cualquier color -- se pierde contra alguna: el blanco desaparecia
+	# sobre el dorado del legendario y el ambar se confunde con el. El de fuera es casi negro y hace
+	# de sombra contra el fondo sea cual sea; el de dentro es el ambar, que ya solo tiene que
+	# destacar contra ese negro. Asi el marco se lee igual sobre las ocho.
 	if button_pressed:
-		draw_polyline(_cerrar(borde), Color(1, 1, 1, 0.95), maxf(2.0, w * 0.028))
+		var g: float = maxf(2.5, w * 0.034)
+		draw_polyline(_cerrar(borde), Color(0.03, 0.04, 0.06, 0.92), g * 1.9)
+		draw_polyline(_cerrar(_encoger(borde, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
 	elif _hover or has_focus():
 		draw_polyline(_cerrar(borde), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
 	if disabled:
@@ -312,6 +328,19 @@ func _contorno(w: float, h: float) -> PackedVector2Array:
 		Vector2(r, h), Vector2(0.0, h - r),                          # abajo izquierda
 		Vector2(0.0, m),                                             # sube hasta la muesca
 	])
+
+
+# El mismo contorno metido 'd' pixeles hacia DENTRO. Se hace tirando cada vertice hacia el centro de
+# la celda, que no es el encogido exacto de un poligono (las esquinas se meten un pelin de mas) pero
+# a esta escala no se distingue y no hay que calcular bisectrices para un marco de 3 px.
+func _encoger(p: PackedVector2Array, w: float, h: float, d: float) -> PackedVector2Array:
+	var centro := Vector2(w, h) * 0.5
+	var radio: float = minf(w, h) * 0.5
+	var k: float = clampf(1.0 - d / maxf(radio, 1.0), 0.0, 1.0)
+	var out := PackedVector2Array()
+	for v in p:
+		out.append(centro + (v - centro) * k)
+	return out
 
 
 func _cerrar(p: PackedVector2Array) -> PackedVector2Array:
