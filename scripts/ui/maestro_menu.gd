@@ -1099,9 +1099,9 @@ const AMAGO_ESPERA := 0.75
 # Y lo que tarda en volver del fogonazo blanco a su color.
 const AMAGO_FOGONAZO := 0.35
 
-# La rareza que se finge en ESTA tanda (-1 = no hay amago) y cual de las cartas se transforma.
+# LA RAREZA QUE FINGE ESTA TANDA, o -1 si no hay amago. Es UNA para toda la tirada: no hay "la carta
+# del amago", hay un TECHO FINGIDO, y todo lo que lo pase sale disfrazado y se rompe al destaparse.
 var _amago_falso: int = -1
-var _amago_idx: int = -1
 
 # Y el volteo de cada carta, por su propia rareza (no la de la tanda): relleno, bueno y god.
 const SFX_VOLTEA := {
@@ -1139,14 +1139,13 @@ func _mostrar_ritual() -> void:
 	_ritual = GachaRitual.new()
 	_musica_gacha_dentro()
 	_elegir_amago()
-	# LO QUE VE EL RITUAL ES LO MEJOR DE LO QUE SE VA A VER, con el amago ya aplicado: si la que
-	# finge es la mejor de la tanda, la animacion entra con la mentira entera -- color, brillo y
-	# remate del comun -- y la carta es quien la deshace. Si la que finge es una cualquiera de en
-	# medio, la luz es la de la mejor DE VERDAD, que ya se va a ver igual.
+	# EL RITUAL ENTRA CON LA MENTIRA: color, brillo y remate del techo fingido. Es lo mismo que ve la
+	# tanda entera, porque la mentira es una sola (ver _elegir_amago), y por eso esto es un simple
+	# "lo mejor de la tanda, mirado por lo que se ve" y no un caso aparte.
 	#
-	# ESTO NO SE PUEDE HACER AL REVES (luz siempre real, amago solo en la carta): la luz de la tanda
-	# es lo primero que se ve, y una luz dorada sobre una tanda que empieza destapando comunes ya
-	# habria contado el final antes de la primera carta.
+	# LA ANIMACION NO SE CORRIGE NUNCA: quien deshace el engaño es la carta, que es donde pega. Y no
+	# vale dejar la luz real y disfrazar solo las cartas -- la luz es lo PRIMERO que se ve, y una luz
+	# dorada sobre una tanda que empieza destapando comunes cuenta el final antes de la primera carta.
 	var m: Array = _mejor_de_la_tanda(true)
 	var visto: int = int(m[0])
 	var col: Color = _color_entrada(visto, String(m[1]))
@@ -1178,67 +1177,40 @@ func _tirar_ritual() -> void:
 # MANDA LA RAREZA, y el desempate no existe: si en la tanda hay un legendario, el brillo es el suyo
 # aunque haya salido el primero de los diez. Es lo que hace que el color valga de aviso.
 # ------------------------------------------------------------
-#  A QUIEN LE TOCA EL AMAGO, Y CON QUE SE MIENTE
+#  CON QUE SE MIENTE: UNA SOLA MENTIRA PARA LA TANDA ENTERA
 #
-#  CUALQUIER CARTA Y CUALQUIER SALTO. No es solo el premio gordo el que puede fingir: una poco comun
-#  que sale con cara de comun y se transforma tambien tiene su momento, y ademas es la que mas veces
-#  va a pasar. Antes esto solo entraba de epico para arriba y solo sobre la mejor de la tanda, o sea
-#  que en una tanda de relleno -- que son casi todas -- la animacion no podia sorprender nunca.
+#  El amago no es de una carta: es de la TIRADA. Se sortea UNA rareza fingida y a partir de ahi toda
+#  la tanda se enseña como si ese fuera su techo -- la luz de la animacion previa y TODAS las cartas
+#  que esten por encima, que salen con esa cara y revientan al destaparse.
 #
-#  Y EN UNA x10 PUEDE TOCARLE A LA DE EN MEDIO. Si caen una poco comun, una rara y una epica, el
-#  amago puede ir sobre cualquiera de las tres: la epica fingiendo rara, la rara fingiendo comun, la
-#  poco comun fingiendo comun... Todas las combinaciones valen mientras se respeten las dos reglas de
-#  siempre, que son las que hacen que el truco no queme:
+#  POR QUE NO UNA CARTA SUELTA, que fue el primer intento: si finge la rara y la epica de al lado
+#  sale desnuda, el jugador ve la epica y ya sabe que la tanda era buena -- y encima ve una mentira
+#  a medias, con una carta disfrazada al lado de otra que no. La mentira tiene que ser coherente o no
+#  es mentira: si se finge comun, en esta tanda no hay NADA por encima de comun hasta que se rompa.
 #
-#    1) SOLO SE MIENTE HACIA ABAJO. Enseñar dorado y quedarse en morado se lee como estafa. Por eso
-#       la fingida va siempre por DEBAJO de la real, y una comun no puede fingir nada (no hay nada
-#       debajo): no es que se prohiba, es que no existe la mentira.
+#  CUALQUIER SALTO, no solo al comun. Se sortea entre todos los que caben: fingir raro cuando hay un
+#  mitico es tan valido como fingir comun cuando hay una poco comun, y variar el salto es lo que
+#  impide aprenderse el truco ("si se ve comun es que hay legendaria").
+#
+#  LAS DOS REGLAS DE SIEMPRE, que son las que hacen que esto no queme:
+#
+#    1) SOLO SE MIENTE HACIA ABAJO. Enseñar dorado y quedarse en morado se lee como estafa. La
+#       fingida va siempre por DEBAJO de lo mejor que ha salido, asi que una tanda cuyo techo es
+#       comun no puede fingir nada: no es que se prohiba, es que no existe la mentira.
 #    2) NUNCA POR DEBAJO DE LO QUE EL JUGADOR YA TIENE PROMETIDO. Si esta tanda traia un garantizado
-#       de epico y la luz dice "comun", eso no es una decepcion: es un amago cantado antes de
-#       empezar, porque el jugador sabe que el epico esta ahi. OJO AL MATIZ: el garantizado promete
-#       que ALGUNA carta lo cumple, no todas -- asi que si otra carta de la tanda ya llega al suelo
-#       prometido, esta puede fingir hasta el comun sin delatar nada. Solo se queda atada la que es
-#       la unica que sostiene la promesa.
-#
-#  El salto se sortea entre todos los que caben, no siempre al comun: el que ve romperse una carta
-#  rara para dar una epica se lleva su sorpresa igual, y variar el salto es lo que impide aprenderse
-#  el truco ("si finge comun es que hay legendaria").
+#       de epico y todo se ve comun, eso no es una decepcion: es un amago cantado antes de empezar,
+#       porque el jugador sabe que el epico esta ahi (la pantalla se lo enseña antes de tirar).
+#       Fingiendo el propio garantizado sigue siendo creible -- "vale, el minimo" -- y la
+#       transformacion a legendario conserva entero el golpe.
 func _elegir_amago() -> void:
 	_amago_falso = -1
-	_amago_idx = -1
 	if randf() >= FAKEOUT_PROB:
 		return
-	var cand: Array = _candidatas_amago()
-	if cand.is_empty():
-		return
-	var e: Array = cand[randi() % cand.size()]
-	_amago_idx = int(e[0])
-	_amago_falso = randi_range(int(e[1]), int(e[2]) - 1)
-
-
-# Las cartas que PUEDEN fingir, como [indice, rareza minima que puede fingir, su rareza real]. Un
-# tocho no entra: no esta en la escala de rarezas, asi que no hay nada que fingir ni con que.
-func _candidatas_amago() -> Array:
+	var techo: int = int(_mejor_de_la_tanda()[0])
 	var suelo: int = maxi(Upgrades.Rareza.COMUN, _suelo_garantizado())
-	var out: Array = []
-	for i in _revelado.size():
-		var s: SpellData = _revelado[i].get("spell")
-		if s == null:
-			continue
-		var r: int = int(s.rareza)
-		# Lo mejor DE LAS DEMAS. Si alguna otra ya cumple sola lo prometido, esta queda libre de la
-		# regla 2 y puede bajar hasta el comun.
-		var otras: int = -1
-		for j in _revelado.size():
-			if j == i:
-				continue
-			var s2: SpellData = _revelado[j].get("spell")
-			if s2 != null:
-				otras = maxi(otras, int(s2.rareza))
-		var minimo: int = Upgrades.Rareza.COMUN if otras >= suelo else suelo
-		if minimo <= r - 1:
-			out.append([i, minimo, r])
-	return out
+	if suelo > techo - 1:
+		return
+	_amago_falso = randi_range(suelo, techo - 1)
 
 
 func _color_mejor_tirada() -> Color:
@@ -1276,7 +1248,7 @@ func _mejor_de_la_tanda(visto: bool = false) -> Array:
 			continue
 		var s: SpellData = t.get("spell")
 		var r: int = int(s.rareza) if s != null else -1
-		if visto and i == _amago_idx and _amago_falso >= 0:
+		if visto and _amago_falso >= 0 and r > _amago_falso:
 			r = _amago_falso
 		if r > mejor:
 			mejor = r
@@ -1478,7 +1450,7 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	# LO QUE SE PINTA VA EN EL NODO Y NO ATADO AL 'draw', y es lo que hace posible el amago: con el
 	# color pegado a la conexion (bind), una carta no puede cambiar de aspecto sin volver a crearla.
 	# Aqui 'col/gordo/familia' es lo que se VE ahora mismo, y arriba 'rareza/color' lo que ES.
-	var finge: bool = _amago_falso >= 0 and _res_idx == _amago_idx and r > _amago_falso
+	var finge: bool = _amago_falso >= 0 and r > _amago_falso
 	var vista: int = _amago_falso if finge else r
 	dib.set_meta("finge", finge)
 	dib.set_meta("col", _color_entrada(vista, seccion) if finge else color)
