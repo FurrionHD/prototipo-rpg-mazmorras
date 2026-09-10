@@ -1006,6 +1006,15 @@ const MUS_FINAL := {
 # animacion entera. Por eso se miente siempre con algo por DEBAJO de lo que ha salido -- y nunca por
 # debajo del suelo que el jugador ya tenia garantizado (ver donde se decide).
 const FAKEOUT_PROB := 0.22
+# Lo que la carta se queda fingiendo antes de romperse. Es el tiempo de tragarse la decepcion: mas
+# corto y no da tiempo ni a leerla, mas largo y quien ya ha visto veinte se impacienta.
+const AMAGO_ESPERA := 0.75
+# Y lo que tarda en volver del fogonazo blanco a su color.
+const AMAGO_FOGONAZO := 0.35
+
+# La rareza que se finge en ESTA tanda (-1 = no hay amago) y cual de las cartas se transforma.
+var _amago_falso: int = -1
+var _amago_idx: int = -1
 
 # Y el volteo de cada carta, por su propia rareza (no la de la tanda): relleno, bueno y god.
 const SFX_VOLTEA := {
@@ -1051,16 +1060,25 @@ func _mostrar_ritual() -> void:
 	# sabes que como minimo te toca un epico y la luz dice "comun", eso no es una decepcion, es un
 	# amago cantado antes de empezar. Fingiendo el propio garantizado sigue siendo creible -- "vale,
 	# el minimo" -- y la transformacion a legendario conserva entero el golpe.
-	var falso_col: Color = Color.WHITE
-	var falso_sfx: String = ""
+	_amago_falso = -1
+	_amago_idx = -1
 	var suelo: int = maxi(Upgrades.Rareza.COMUN, _suelo_garantizado())
 	if r >= Upgrades.Rareza.EPICO and suelo < r and randf() < FAKEOUT_PROB:
-		falso_col = _color_entrada(suelo, String(m[1]))
-		falso_sfx = String(SFX_BRILLO.get(suelo, "gacha_brillo_comun"))
-	_ritual.montar(_root, _color_mejor_tirada(), _mostrar_resultados,
-		String(SFX_BRILLO.get(r, "gacha_brillo_comun")),
-		String(MUS_FINAL.get(r, "gacha_final_comun")),
-		falso_col, falso_sfx)
+		_amago_falso = suelo
+		# LA CARTA QUE SE TRANSFORMA es la PRIMERA que trae lo mejor de la tanda. Si hubiera dos
+		# legendarios, transformar el segundo dejaria al primero destapando el final antes.
+		for i in _revelado.size():
+			var s: SpellData = _revelado[i].get("spell")
+			if s != null and int(s.rareza) == r:
+				_amago_idx = i
+				break
+	# LO QUE VE EL RITUAL ES LA MENTIRA COMPLETA cuando hay amago: color, brillo y remate del suelo.
+	# La animacion no se corrige nunca -- quien deshace el engaño es la carta, que es donde pega.
+	var visto: int = _amago_falso if _amago_falso >= 0 else r
+	var col: Color = _color_entrada(visto, String(m[1])) if _amago_falso >= 0 else _color_mejor_tirada()
+	_ritual.montar(_root, col, _mostrar_resultados,
+		String(SFX_BRILLO.get(visto, "gacha_brillo_comun")),
+		String(MUS_FINAL.get(visto, "gacha_final_comun")))
 	# LOS OTROS MUÑECOS, ESCONDIDOS mientras dura. No es que estorben: es que MunecoJugador dibuja con
 	# z ABSOLUTO, asi que un retrato se cuela por delante de cualquier velo -- y subir el velo por
 	# encima de ellos taparia tambien al maestro, que es un muñeco igual. La misma salida que usa la
@@ -1241,9 +1259,13 @@ var _bt_continuar: Button = null
 
 
 # ¿La carta de ahora esta ya destapada? Es lo que decide si un clic la voltea o pasa a la siguiente.
+# UNA CARTA QUE FINGE NO CUENTA COMO DESTAPADA aunque ya este del derecho: si contara, un toque
+# impaciente durante el amago pasaria a la siguiente y te saltarias justo la transformacion, que es
+# lo unico que habia que ver. Con esto, ese toque la ROMPE en el acto (ver _destapar_ya).
 func _carta_destapada() -> bool:
 	return _carta_actual == null or not is_instance_valid(_carta_actual) \
-		or bool(_carta_actual.get_meta("volteada", false))
+		or (bool(_carta_actual.get_meta("volteada", false))
+			and not bool(_carta_actual.get_meta("finge", false)))
 
 
 func _velo_pulsado(e: InputEvent) -> void:
@@ -1308,8 +1330,17 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	# no tiene de donde sacarlos.
 	dib.set_meta("rareza", r)
 	dib.set_meta("color", color)
-	var gordo: bool = r >= Upgrades.Rareza.EPICO
-	dib.draw.connect(_dibujar_carta_res.bind(dib, color, gordo, familia))
+	dib.set_meta("seccion", seccion)
+	# LO QUE SE PINTA VA EN EL NODO Y NO ATADO AL 'draw', y es lo que hace posible el amago: con el
+	# color pegado a la conexion (bind), una carta no puede cambiar de aspecto sin volver a crearla.
+	# Aqui 'col/gordo/familia' es lo que se VE ahora mismo, y arriba 'rareza/color' lo que ES.
+	var finge: bool = _amago_falso >= 0 and _res_idx == _amago_idx and r > _amago_falso
+	var vista: int = _amago_falso if finge else r
+	dib.set_meta("finge", finge)
+	dib.set_meta("col", _color_entrada(vista, seccion) if finge else color)
+	dib.set_meta("gordo", vista >= Upgrades.Rareza.EPICO)
+	dib.set_meta("familia", _familia_de(vista, seccion))
+	dib.draw.connect(_dibujar_carta_res.bind(dib))
 	_zona_res.add_child(dib)
 	_carta_actual = dib
 
@@ -1378,9 +1409,10 @@ func _pintar_carta_res(t: Dictionary) -> void:
 	_voltear_carta(dib, caja, r, color)
 
 
-func _dibujar_carta_res(c: Control, col: Color, gordo: bool, familia: int) -> void:
+func _dibujar_carta_res(c: Control) -> void:
 	if bool(c.get_meta("volteada", false)):
-		_banner.dibujar_tomo(c, col, gordo, familia)
+		_banner.dibujar_tomo(c, c.get_meta("col", Color.WHITE),
+			bool(c.get_meta("gordo", false)), int(c.get_meta("familia", 0)))
 	else:
 		_banner.dibujar_dorso(c)
 
@@ -1392,7 +1424,11 @@ func _voltear_carta(dib: Control, caja: Control, r: int, color: Color) -> void:
 	# EL SONIDO DEL VOLTEO ARRANCA CON EL GESTO, no en el destape: es el papel girando, y llega antes
 	# de que se vea nada. La carta buena suena distinta de la de relleno, asi que se sabe que ha
 	# caido algo antes de poder leerlo -- que es medio chiste de un gacha.
-	Sonido.ui(String(SFX_VOLTEA.get(r, "gacha_voltea")))
+	#
+	# Y SUENA LA RAREZA QUE SE VE, no la que es: en una carta con amago, el volteo dorado sobre una
+	# carta que se ve comun canta el truco antes de que la imagen llegue a contarlo.
+	var visible: int = _amago_falso if bool(dib.get_meta("finge", false)) else r
+	Sonido.ui(String(SFX_VOLTEA.get(visible, "gacha_voltea")))
 	var tw: Tween = create_tween()
 	_tweens_res.append(tw)
 	tw.tween_property(dib, "scale:x", 0.0, VOLTEO_MEDIO)
@@ -1406,6 +1442,22 @@ func _destapar(dib: Control, caja: Control, r: int, color: Color) -> void:
 		return
 	dib.set_meta("volteada", true)
 	dib.queue_redraw()
+	# LA QUE FINGE SE PARA AQUI. Sale con la cara del comun -- sin etiqueta, sin plines y sin
+	# destellos, porque cualquiera de las tres delataria lo que hay debajo -- y a los AMAGO_ESPERA
+	# segundos se rompe. Esa espera es el rato de tragarse la decepcion, que es la mecanica entera.
+	if bool(dib.get_meta("finge", false)):
+		var esp: Tween = create_tween()
+		_tweens_res.append(esp)
+		esp.tween_interval(AMAGO_ESPERA)
+		esp.tween_callback(_transformar_carta.bind(dib, caja, r, color))
+		return
+	_rematar_carta(dib, caja, r, color)
+
+
+# LO QUE PASA AL VER DE VERDAD UNA CARTA: su etiqueta, sus plines y su destello. Esta aparte porque
+# lo hacen DOS caminos -- el destape normal y el final del amago -- y si se copiara, el dia que se
+# toque uno la carta transformada dejaria de sonar como las demas.
+func _rematar_carta(dib: Control, caja: Control, r: int, color: Color) -> void:
 	if is_instance_valid(caja):
 		caja.visible = true
 	# LOS PLINES: uno por estrella, y las estrellas son rareza+1 (comun una, mitico seis). El numero
@@ -1418,13 +1470,39 @@ func _destapar(dib: Control, caja: Control, r: int, color: Color) -> void:
 		Sonido.ui("gacha_remate")
 	# EL DESTELLO, solo en las buenas. Si centellea todo no centellea nada: es la misma idea que el
 	# brillo relativo del equipo.
-	if r >= Upgrades.Rareza.EPICO:
+	if r >= Upgrades.Rareza.EPICO and is_instance_valid(dib):
 		var p: CPUParticles2D = Particulas.destellos(dib, color,
 			Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO), 1.0)
 		# PROCESS_MODE_ALWAYS obligatorio, por lo mismo que el tween: con el arbol parado las
 		# particulas no emiten ni una.
 		p.process_mode = Node.PROCESS_MODE_ALWAYS
 		p.position = Vector2(CARTA_RES_ANCHO, CARTA_RES_ALTO) * 0.5
+
+
+# EL MOMENTO DEL AMAGO: la carta que se veia comun revienta en blanco y sale la de verdad.
+#
+# EL FOGONAZO NO ES ADORNO. Cambiar el color a secas se lee como que la pantalla se ha corregido;
+# con el blanco de por medio se lee como que la carta se ha ROTO y ha salido otra cosa, que es lo
+# que la mecanica esta contando. Va por 'modulate' y no repintando: el dibujo ya esta hecho, lo
+# unico que hace falta es quemarlo un instante.
+func _transformar_carta(dib: Control, caja: Control, r: int, color: Color) -> void:
+	if not is_instance_valid(dib):
+		return
+	dib.set_meta("finge", false)
+	dib.set_meta("col", color)
+	dib.set_meta("gordo", r >= Upgrades.Rareza.EPICO)
+	dib.set_meta("familia", _familia_de(r, String(dib.get_meta("seccion", ""))))
+	dib.queue_redraw()
+	dib.modulate = Color(2.4, 2.4, 2.4)
+	var tw: Tween = create_tween()
+	_tweens_res.append(tw)
+	tw.tween_property(dib, "modulate", Color.WHITE, AMAGO_FOGONAZO)
+	# EL GOLPE DE LA TRANSFORMACION. Hoy se toma prestado el volteo dorado, que es un estallido de
+	# luz y pega: cuando exista un sonido propio del amago, se cambia SOLO aqui.
+	Sonido.ui("gacha_voltea_god")
+	# Y LA MUSICA DE VERDAD, que en el ritual se quedo sin sonar: alli sono la del suelo fingido.
+	Musica.remate(String(MUS_FINAL.get(r, "gacha_final_comun")))
+	_rematar_carta(dib, caja, r, color)
 
 
 # Termina el giro de golpe (un toque impaciente a media vuelta). Mata el tween ANTES: si se deja
@@ -1434,6 +1512,15 @@ func _destapar_ya() -> void:
 	if _carta_actual == null or not is_instance_valid(_carta_actual):
 		return
 	_carta_actual.scale.x = 1.0
+	# SI ESTABA FINGIENDO, el toque adelanta la transformacion en vez de repetir el destape: volver a
+	# _destapar la dejaria fingiendo otra vez y armando una espera nueva, o sea que a base de clics
+	# el amago no terminaria nunca.
+	if bool(_carta_actual.get_meta("volteada", false)) \
+			and bool(_carta_actual.get_meta("finge", false)):
+		_transformar_carta(_carta_actual, _caja_actual,
+			int(_carta_actual.get_meta("rareza", -1)),
+			_carta_actual.get_meta("color", Color.WHITE))
+		return
 	_destapar(_carta_actual, _caja_actual,
 		int(_carta_actual.get_meta("rareza", -1)),
 		_carta_actual.get_meta("color", Color.WHITE))

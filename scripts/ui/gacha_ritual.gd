@@ -47,17 +47,6 @@ const T_GIRA := 0.7
 const T_ZOOM := 1.4
 const T_BRILLO := 1.3
 
-# EL AMAGO (el "fakeout" de cualquier gacha): el brillo vira a un color PEOR, el jugador se traga la
-# decepcion, y a mitad de la fase se rompe y se transforma en el de verdad.
-#
-# LA FASE 5 SE ALARGA cuando lo hay, y no es un capricho: el engaño necesita tiempo para que te lo
-# creas. En 1,3 s no caben las dos cosas -- el color falso se leeria como un fotograma raro, no como
-# una decepcion. Con esto son 0,9 s de mentira y 1,3 de verdad.
-const T_FAKE_EXTRA := 0.9
-# Cuando se rompe, contado desde que empieza la fase del brillo.
-const FAKE_EN := 0.9
-# Y lo que dura el fogonazo blanco del cambio. Corto: es un golpe, no una transicion.
-const FAKE_FOGONAZO := 0.16
 
 # El color con el que arranca el brillo: un blanco de vela, deliberadamente NEUTRO. Es el que tiene
 # que no decir nada todavia.
@@ -94,9 +83,6 @@ var _color: Color = Color.WHITE
 var _sfx_brillo: String = ""
 var _mus_final: String = ""
 var _hito: int = 0
-# EL AMAGO. Sin el, _falso_sfx queda vacio y todo lo demas se comporta como siempre.
-var _falso_color: Color = Color.WHITE
-var _falso_sfx: String = ""
 var _al_acabar: Callable = Callable()
 var _t: float = 0.0
 var _acabado: bool = false
@@ -141,12 +127,7 @@ static func maestro() -> PersonajeData:
 # 'color' es el de lo mejor que ha salido; 'al_acabar' se llama UNA sola vez, al terminar o al
 # saltarsela.
 func montar(padre: Control, color: Color, al_acabar: Callable,
-		sfx_brillo: String = "", mus_final: String = "",
-		falso_color: Color = Color.WHITE, falso_sfx: String = "") -> void:
-	# EL AMAGO TAMBIEN LLEGA RESUELTO: quien decide si toca y con que color miente es el menu, que es
-	# quien sabe de rarezas. Aqui solo se sabe pintar dos colores en vez de uno.
-	_falso_color = falso_color
-	_falso_sfx = falso_sfx
+		sfx_brillo: String = "", mus_final: String = "") -> void:
 	_color = color
 	_al_acabar = al_acabar
 	# EL SONIDO DEL BRILLO Y EL REMATE LLEGAN RESUELTOS, igual que el color y por el mismo motivo:
@@ -256,23 +237,14 @@ func _sonar_si_toca() -> void:
 		Sonido.ui("gacha_paginas")
 	if _hito == 2 and _t >= T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM:
 		_hito = 3
-		# CON AMAGO SUENA LA MENTIRA, y la musica NO entra todavia: un remate de legendario mientras
-		# la luz dice "comun" lo cantaria antes que la imagen, y el amago se caeria por el sonido.
-		if hay_amago():
-			Sonido.ui(_falso_sfx)
-		else:
-			if _sfx_brillo != "":
-				Sonido.ui(_sfx_brillo)
-			# EL REMATE Y NO UN CAMBIO DE PISTA: un remate suena ENCIMA del fondo y se va solo, asi
-			# que la base del ritual sigue por debajo mientras el color vira. Cambiando la cima, la
-			# base se cortaria justo en el momento que tiene que sostener.
-			if _mus_final != "":
-				Musica.remate(_mus_final)
-	if _hito == 3 and hay_amago() and _t >= T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM + FAKE_EN:
-		_hito = 4
-		# EL MOMENTO. Aqui entran de golpe el brillo de verdad y su remate, encima del fogonazo.
+		# EL COLOR Y EL SONIDO SON LOS QUE LE HAYAN DADO, sin mas. Cuando la tirada lleva amago, lo
+		# que llega aqui es el color y el sonido de la MENTIRA -- esta pantalla no se entera, y es
+		# justo lo que la mantiene tonta: quien decide que se finge es el menu, que sabe de rarezas.
 		if _sfx_brillo != "":
 			Sonido.ui(_sfx_brillo)
+		# EL REMATE Y NO UN CAMBIO DE PISTA: un remate suena ENCIMA del fondo y se va solo, asi que
+		# la base del ritual sigue por debajo mientras el color vira. Cambiando la cima, la base se
+		# cortaria justo en el momento que tiene que sostener.
 		if _mus_final != "":
 			Musica.remate(_mus_final)
 
@@ -318,33 +290,7 @@ func reloj() -> float:
 # Cuanto dura entera. La necesita el visor para repartir sus fotos, y asi los tiempos siguen viviendo
 # en un solo sitio: sumarlos alli seria la clase de copia que se queda desfasada al tocar una fase.
 func duracion() -> float:
-	return T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM + _dura_brillo()
-
-
-# Lo que dura la fase del brillo, que con amago es mas larga (ver T_FAKE_EXTRA). Todo lo que mire la
-# fase 5 tiene que pasar por aqui: si un sitio usa T_BRILLO a pelo, en una tirada con amago el
-# dibujo y el reloj dejan de ir juntos.
-func _dura_brillo() -> float:
-	return T_BRILLO + (T_FAKE_EXTRA if hay_amago() else 0.0)
-
-
-func hay_amago() -> bool:
-	return _falso_sfx != ""
-
-
-# EL COLOR QUE TIENE LA LUZ AHORA MISMO. Sin amago es el de siempre. Con amago son tres tramos: el
-# falso, un FOGONAZO BLANCO que es el momento en que se rompe, y el de verdad.
-#
-# El blanco de por medio no es un adorno: pasar de morado a dorado sin mas se lee como que la
-# pantalla ha cambiado de idea. Con el fogonazo se lee como que algo ha REVENTADO, que es lo que la
-# mecanica esta contando.
-func _color_de_ahora() -> Color:
-	if not hay_amago():
-		return _color
-	var desde: float = T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM + FAKE_EN
-	if _t < desde:
-		return _falso_color
-	return Color.WHITE.lerp(_color, clampf((_t - desde) / FAKE_FOGONAZO, 0.0, 1.0))
+	return T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM + T_BRILLO
 
 
 func _pulsado(e: InputEvent) -> void:
@@ -546,7 +492,7 @@ func _dibujar_frente() -> void:
 	var b: float = _fase(T_ACERCA, T_BRAZO)
 	var g: float = _fase(T_ACERCA + T_BRAZO, T_GIRA)
 	var z: float = _fase(T_ACERCA + T_BRAZO + T_GIRA, T_ZOOM)
-	var br: float = _fase(T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM, _dura_brillo())
+	var br: float = _fase(T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM, T_BRILLO)
 
 	# EL RECORRIDO. Del hueco a la mano (mientras estira el brazo), de la mano al pecho (mientras se
 	# gira) y del pecho a la camara (el zoom). Tres tramos y ninguna curva: lo que da la sensacion de
@@ -578,7 +524,7 @@ func _dibujar_frente() -> void:
 	# LA LUZ, DEBAJO DEL LIBRO. Arranca en blanco de vela y solo en la ultima fase se va al color de
 	# lo mejor de la tirada: ESE viraje es toda la informacion que da esta pantalla, asi que no puede
 	# empezar antes ni llegar antes de tiempo. Ver la cabecera.
-	var col: Color = LUZ_VELA.lerp(_color_de_ahora(), pow(br, 1.6))
+	var col: Color = LUZ_VELA.lerp(_color, pow(br, 1.6))
 	var fuerza: float = z * 0.35 + br * 1.0
 	if fuerza > 0.01:
 		# El latido: un temblor pequeño y rapido. Sin el, un circulo que crece se lee como una
