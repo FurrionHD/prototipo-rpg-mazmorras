@@ -1540,11 +1540,15 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: PersonajeData = 
 # combat._aplicar_imbuicion, que es la que manda.
 func _aplicar_imbuicion_mapa(spell: SpellData, pj: PersonajeData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
+	# UNA sola pregunta por el elemento, como en combat._aplicar_imbuicion: los que van al azar dan
+	# uno distinto cada vez que se les pregunta, y el toast tiene que decir el que se ha puesto.
+	var elem_id: int = spell.elemento_imbuido()
 	var c := Combatant.new(pj.nombre, 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
-	c.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
-		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
+	c.aplicar_imbue(elem_id, spell.imbue_pct, spell.imbue_usos, cuerpo,
+		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad,
+		0.0, false, spell.imbue_spd_mult)
 	Game.guardar_imbue_en_ficha(c, pj)
-	var elem: String = Elementos.nombre(spell.elemento)
+	var elem: String = Elementos.nombre(elem_id)
 	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
 	print("[imbuicion] %s imbuye %s de %s a %s desde el mapa: +%d%% durante %s" % [
 		Game.lider().nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, pj.nombre,

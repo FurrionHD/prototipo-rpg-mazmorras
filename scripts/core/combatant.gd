@@ -353,6 +353,10 @@ var imbue_prob_doble: float = 0.0
 var imbue_por_destreza: bool = false
 # ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
 var imbue_def_gastada: bool = false
+# VELOCIDAD mientras la imbuicion siga puesta (1.0 = no la toca). Vive aqui y no como estado a
+# proposito: tiene que apagarse cuando se agoten los USOS, y un estado se apagaria por turnos.
+# Lo lee spd() igual que lee los estados, y consumir_imbue lo devuelve a 1.0.
+var imbue_spd_mult: float = 1.0
 
 
 # Un golpe de 'elem' GASTA los estados que lo amplificaban: el rayo evapora el Mojado al
@@ -403,7 +407,8 @@ func resiste_por_afinidad(elem: int) -> bool:
 func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
-		prob_doble: float = 0.0, por_destreza: bool = false) -> void:
+		prob_doble: float = 0.0, por_destreza: bool = false,
+		spd_mult: float = 1.0) -> void:
 	imbue_elemento = elem
 	imbue_pct = pct
 	imbue_usos = maxi(1, usos)
@@ -413,6 +418,7 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 	imbue_prob_doble = prob_doble
 	imbue_por_destreza = por_destreza
 	imbue_def_gastada = false
+	imbue_spd_mult = maxf(0.01, spd_mult)
 	# La afinidad ANTERIOR se limpia SIEMPRE, aunque la nueva sea de arma. Antes solo se tocaba
 	# cuando la nueva era de cuerpo, asi que ponerse un Filo encima de un Manto dejaba la afinidad
 	# del Manto pegada -- y al agotarse el Filo tampoco se limpiaba (imbue_cuerpo ya era false):
@@ -488,6 +494,8 @@ func imbue_resumen() -> String:
 	if imbue_estado >= 0 and imbue_prob > 0.0:
 		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
 			% [str(StatusEffects.def(imbue_estado).get("nombre", "?")), roundi(imbue_prob * 100.0)])
+	if imbue_spd_mult > 1.0:
+		lineas.append("Y mientras la lleves, te mueves un %d%% más rápido." % roundi((imbue_spd_mult - 1.0) * 100.0))
 	# Se gasta por ATAQUE, no por turno: es la diferencia que hay que entender para no
 	# fundirsela recitando un conjuro largo.
 	lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
@@ -552,6 +560,7 @@ func consumir_imbue() -> bool:
 	imbue_cuerpo = false
 	imbue_estado = -1
 	imbue_prob = 0.0
+	imbue_spd_mult = 1.0   # la ligereza se va con el manto: por eso no es un estado por turnos
 	return true
 
 
@@ -615,9 +624,10 @@ func def_value() -> float:
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
-	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd()
+	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
-func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd()
+# El imbue entra en las DOS igual que los estados: el manto te ligerea entero, no solo al pegar.
+func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
 	var ab: Abilities = abilities_eff()

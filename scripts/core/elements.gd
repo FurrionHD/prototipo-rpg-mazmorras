@@ -108,6 +108,11 @@ const INMUNIDAD_POR_AFINIDAD := {
 	# debilidad x1.5 al Rayo ES su humedad; mojarlo encima cobraria dos veces lo mismo (x2.25).
 	Elemento.AGUA: [StatusEffects.Id.QUEMADURA, StatusEffects.Id.MOJADO],
 	Elemento.RAYO: [StatusEffects.Id.RAYO],
+	# A la LUZ no la deslumbras: es ella la que deslumbra.
+	Elemento.LUZ: [StatusEffects.Id.CEGUERA],
+	# La OSCURIDAD lleva DOS, como el agua, y por el mismo motivo: las dos le salen del mismo sitio.
+	# Quien ES la sombra ve sin luz (no hay ceguera que valga) y no le teme a lo que hay dentro.
+	Elemento.OSCURIDAD: [StatusEffects.Id.CEGUERA, StatusEffects.Id.MIEDO],
 }
 
 # Resistencia al ATURDIMIENTO por afinidad: multiplica la probabilidad de aturdir que RECIBES.

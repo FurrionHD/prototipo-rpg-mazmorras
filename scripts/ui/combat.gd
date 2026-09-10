@@ -5731,11 +5731,16 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 #             vuelves INMUNE a los estados de ese elemento (imbuido en agua no te queman).
 func _aplicar_imbuicion(spell: SpellData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
+	# EL ELEMENTO SE PREGUNTA UNA VEZ y se usa el resto de la funcion: los que van al azar sacan uno
+	# distinto en cada llamada, asi que releer spell.elemento mas abajo pondria en el log un elemento
+	# y en el cuerpo otro. Todo lo que sigue mira 'elem_id', nunca spell.elemento.
+	var elem_id: int = spell.elemento_imbuido()
 	# Al DESTINATARIO elegido (ver _elegir_objetivo_aliado), que puede no ser el que lanza.
 	var quien: Combatant = _cast_aliado
-	quien.aplicar_imbue(spell.elemento, spell.imbue_pct, spell.imbue_usos, cuerpo,
-		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad)
-	var elem: String = Elementos.nombre(spell.elemento)
+	quien.aplicar_imbue(elem_id, spell.imbue_pct, spell.imbue_usos, cuerpo,
+		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad,
+		0.0, false, spell.imbue_spd_mult)
+	var elem: String = Elementos.nombre(elem_id)
 	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
 	print("[imbuicion] %s imbuye %s de %s a %s: +%d%% de daño %s durante %s" % [
 		_player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, quien.nombre,
@@ -5751,7 +5756,7 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 		# la intensidad, este texto se actualiza solo y dice el % de verdad.
 		var resiste: Array = []
 		var debil: Array = []
-		for e in Elementos.PERFIL_DEFECTO.get(spell.elemento, {}):
+		for e in Elementos.PERFIL_DEFECTO.get(elem_id, {}):
 			var m: float = Elementos.mult_recibido(e, quien)
 			# En positivo y sin restas mentales: "20% de resistencia" / "+20% de daño".
 			if m < 0.99:
@@ -5761,7 +5766,7 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 		if not resiste.is_empty():
 			msg += "  🛡 Resistes: %s." % ", ".join(resiste)
 		var inm: Array = []
-		for id in Elementos.inmunidades_de(spell.elemento):
+		for id in Elementos.inmunidades_de(elem_id):
 			inm.append(str(StatusEffects.def(id).get("nombre", "?")))
 		if not inm.is_empty():
 			msg += "  Inmune a: %s." % ", ".join(inm)
@@ -5769,6 +5774,10 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 			msg += "  ⚠ Débil a: %s." % ", ".join(debil)
 		print("[imbuicion] afinidad %s (intensidad %.2f) -> resiste %s | inmune %s | debil a %s" % [
 			elem, spell.imbue_intensidad, resiste, inm, debil])
+	# La velocidad va DESPUES de la afinidad: es lo ultimo que gana, y asi la linea se lee en el
+	# mismo orden en que se aplica.
+	if spell.imbue_spd_mult > 1.0:
+		msg += "  🌀 Y te mueves un %d%% más rápido." % roundi((spell.imbue_spd_mult - 1.0) * 100.0)
 	_set_log(msg)
 
 

@@ -195,6 +195,14 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # 1.0 = como una criatura PURA del elemento (×0.5 / ×1.5). 0.4 = imbuido (×0.8 / ×1.2):
 # no es lo mismo SER de fuego que haberte echado un manto encima. Ver Elementos.
 @export var imbue_intensidad: float = 0.4
+# El elemento NO esta escrito: se sortea entre Elementos.TODOS al lanzarlo. El 'elemento' del .tres
+# deja de mandar y solo sirve de color por defecto en la ficha (ahi no hay a quien preguntarle que
+# salio). Es lo que separa al mitico de un manto normal: pega mucho mas, pero no eliges CONTRA QUE.
+@export var imbue_elemento_aleatorio: bool = false
+# VELOCIDAD mientras dure la imbuicion (1.10 = +10%). Va pegado a los USOS y no a los turnos: es el
+# manto el que te ligerea, asi que tiene que apagarse con el manto y no con un contador aparte.
+# Por eso NO es el estado Presteza, que dura turnos y se te caeria a mitad de los 25 ataques.
+@export var imbue_spd_mult: float = 1.0
 
 @export_multiline var descripcion: String = ""
 
@@ -528,10 +536,21 @@ func _texto_estados(a_quien: String) -> String:
 	return " ".join(out)
 
 
+# EL ELEMENTO CON EL QUE ENTRA esta imbuicion. Los normales devuelven el suyo; el que va al azar
+# saca uno de los cinco. Vive AQUI y no en cada punta a proposito: el combate y el mapa aplican
+# imbuiciones por caminos separados, y si cada uno sorteara por su cuenta acabarian teniendo reglas
+# distintas sin que nadie se enterase — que es exactamente como se cuela un bug de rama espejo.
+func elemento_imbuido() -> int:
+	if not imbue_elemento_aleatorio:
+		return elemento
+	return Elementos.TODOS[randi() % Elementos.TODOS.size()]
+
+
 # Los FILOS y MANTOS no pegan: tiñen tus golpes. Frase propia.
 func _texto_imbuicion() -> String:
 	var que: String = "tu cuerpo" if imbue_tipo == 2 else "tu arma"
-	var elem: String = Elementos.nombre(elemento)
+	# Con elemento al azar la ficha NO puede nombrar uno: seria mentir en la mitad de las tiradas.
+	var elem: String = "un elemento al azar" if imbue_elemento_aleatorio else Elementos.nombre(elemento)
 	# Mismo registro por LINEAS que los de ataque: como llega / que hace / que deja.
 	var lineas: Array = ["Envuelve %s en %s durante %d ataque%s." % [
 		que, elem, imbue_usos, "" if imbue_usos == 1 else "s"]]
@@ -544,6 +563,10 @@ func _texto_imbuicion() -> String:
 	lineas.append(linea + ".")
 	if imbue_tipo == 2:
 		lineas.append("Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele.")
+	# La velocidad va en su propia linea y no colgando de la anterior: es un efecto de otra clase
+	# (no tiñe tus golpes, te mueve antes) y el que lee la ficha decide por el.
+	if imbue_spd_mult > 1.0:
+		lineas.append("Mientras dure, te mueves un %s más rápido." % _pct(imbue_spd_mult - 1.0))
 	return "\n".join(lineas)
 
 

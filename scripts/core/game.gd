@@ -1124,7 +1124,10 @@ func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 	pj.imbue = {"elem": c.imbue_elemento, "pct": c.imbue_pct, "usos": c.imbue_usos,
 		"cuerpo": c.imbue_cuerpo, "estado": c.imbue_estado, "prob": c.imbue_prob,
 		"intensidad": c.elemento_intensidad,
-		"prob_doble": c.imbue_prob_doble, "destreza": c.imbue_por_destreza}
+		"prob_doble": c.imbue_prob_doble, "destreza": c.imbue_por_destreza,
+		# La VELOCIDAD viaja con lo demas: si no, el manto mitico duraria 25 ataques pero solo
+		# ligerearia en el combate donde se lanzo, y al siguiente volveria mudo sin decir por que.
+		"spd": c.imbue_spd_mult}
 
 
 # Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
@@ -1220,7 +1223,10 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 	c.aplicar_imbue(int(d["elem"]), float(d["pct"]), int(d["usos"]), bool(d["cuerpo"]),
 		int(d.get("estado", -1)), float(d.get("prob", 0.0)),
 		float(d.get("intensidad", Elementos.INTENSIDAD_IMBUIDO)),
-		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)))
+		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)),
+		# 1.0 por defecto: las fichas guardadas ANTES de que existiera el mitico no llevan la clave,
+		# y sin el default entrarian a velocidad 0.
+		float(d.get("spd", 1.0)))
 
 
 # CIERRA la mazmorra: se olvida como quedaron los pisos y todo vuelve a nacer poblado.
