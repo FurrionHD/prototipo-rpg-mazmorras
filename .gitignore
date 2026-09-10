@@ -44,6 +44,9 @@ dev_*.png
 # Si estas creando un visor: esta linea va EN EL MISMO commit que su .bat, y se comprueba con
 # `git status --short` mirando que aparezcan los DOS.
 !dev_imbuiciones.*
+# CUARTA. Esta vez el aviso funciono: 'git add' se nego en voz alta al añadir dev_amagos y por eso
+# ver_amagos.bat y su visor entran juntos. La regla, otra vez: la linea va EN EL MISMO commit.
+!dev_amagos.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
