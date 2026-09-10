@@ -672,11 +672,37 @@ func _dibujar_pestana(c: Control, i: int) -> void:
 			Vector2(tomo_r.size.x, tomo_r.size.y / 8.0 + 1.0)),
 			Color(col.r, col.g, col.b, 0.16 * (1.0 - t)), true)
 	c.draw_rect(tomo_r, Color(col.r, col.g, col.b, 0.85), false, 1.0)
-	# El ROMBO de los grimorios, el mismo que usa el cartel para la familia.
+
+	# LA MARCA DE LA PORTADA, UNA POR FAMILIA. Y esto NO es adorno: el color dice la rareza, y los dos
+	# circulos grandes tienen los dos un mitico -- o sea el MISMO color y, con un rombo para todos, el
+	# mismo dibujo. Quedaban distinguibles solo leyendo la etiqueta, y en esta casa lo que se lee de un
+	# vistazo manda. Cada uno lleva ahora la marca de lo que reparte.
 	var cen: Vector2 = tomo_r.position + tomo_r.size * 0.5
-	c.draw_colored_polygon(PackedVector2Array([
-		cen + Vector2(0, -6), cen + Vector2(5, 0), cen + Vector2(0, 6), cen + Vector2(-5, 0)]),
-		Color(col.r, col.g, col.b, 0.9))
+	var tinta := Color(col.r, col.g, col.b, 0.9)
+	match _etiqueta_banner(i):
+		"ATAQUE":
+			# UNA RAFAGA: cuatro puntas largas y cuatro cortas, que es lo que se lee como "esto pega".
+			for k in 8:
+				var ang: float = TAU * float(k) / 8.0
+				var largo: float = 8.0 if k % 2 == 0 else 4.5
+				var dir := Vector2(cos(ang), sin(ang))
+				var perp := Vector2(-dir.y, dir.x) * 1.6
+				c.draw_colored_polygon(PackedVector2Array([
+					cen + perp, cen - perp, cen + dir * largo]), tinta)
+		"IMBUICIÓN":
+			# EL ROMBO ATRAVESADO POR UN FILO: la imbuicion no es un golpe, es algo que se le pone
+			# encima a lo que ya tienes. Por eso la hoja va CRUZADA sobre la marca y no en su sitio.
+			c.draw_colored_polygon(PackedVector2Array([
+				cen + Vector2(0, -7), cen + Vector2(5, 0), cen + Vector2(0, 7),
+				cen + Vector2(-5, 0)]), Color(tinta.r, tinta.g, tinta.b, 0.45))
+			c.draw_line(cen + Vector2(-8, 6), cen + Vector2(8, -6), tinta, 2.0)
+			c.draw_colored_polygon(PackedVector2Array([
+				cen + Vector2(8, -6), cen + Vector2(3.5, -6.5), cen + Vector2(6.5, -2.5)]), tinta)
+		_:
+			# EL NOVATO: el rombo pelado de los grimorios, sin nada encima. Es el de entrada.
+			c.draw_colored_polygon(PackedVector2Array([
+				cen + Vector2(0, -6), cen + Vector2(5, 0), cen + Vector2(0, 6),
+				cen + Vector2(-5, 0)]), tinta)
 
 	# LA ETIQUETA de familia, arriba del todo y en pequeño. Es lo que separa de un vistazo el de
 	# novato de los dos grandes, que es la unica distincion que cambia lo que haces.
