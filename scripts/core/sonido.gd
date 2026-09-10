@@ -187,6 +187,59 @@ func golpe(clave: String, estilo: int, peso: float = 1.0, crit: bool = false, el
 		_soltar(_una_version("elem_" + String(ELEMENTOS[elem]), rng), db + DB_ELEMENTO, tono, ahora)
 
 
+# ============================================================
+#  LA INTERFAZ  (hoy, el gacha)
+# ============================================================
+# UN SONIDO DE PANTALLA. No pasa por golpe() a proposito: alli TODO lo que hay -- el peso, el
+# critico, la pizca de tono al azar y la capa del elemento -- son cosas del combate que aqui no
+# significan nada. Una carta que se voltea tiene que sonar exactamente igual las diez veces, y con
+# el tono al azar de golpe() sonaria diez cartas distintas.
+#
+# Tampoco pasa por el antisolape, y es imprescindible: la cadena de estrellas dispara el MISMO
+# fichero seis veces con 0,12 s entre uno y otro, y MS_ANTISOLAPE se comeria del segundo en adelante
+# -- justo la mecanica que esto viene a servir.
+const UI_DB := -2.0
+
+func ui(clave: String, db: float = UI_DB, tono: float = 1.0) -> void:
+	var v: Array = _streams(clave)
+	if v.is_empty():
+		return
+	_soltar(v[randi() % v.size()], db, tono, Time.get_ticks_msec())
+	disparos += 1
+
+
+# LA CADENA DE ESTRELLAS: un plin por estrella, subiendo. El numero de plines ES la noticia (comun
+# 1, mitico 6), y por eso no hay un fichero por rareza: hay UNO y se repite.
+#
+# LA MISMA CAMPANA EN TODA LA CADENA. Se sortea una version al empezar y esa suena las seis veces:
+# sorteando en cada plin salen seis campanas DISTINTAS subiendo, que no se lee como una escalera
+# sino como seis sonidos sueltos que coinciden.
+const ESTRELLA_PASO := 0.12       # segundos entre uno y otro
+const ESTRELLA_SUBIDA := 1.06     # cuanto sube el tono en cada paso (~un semitono)
+
+func estrellas(cuantas: int, db: float = UI_DB) -> void:
+	var v: Array = _streams("gacha_estrella")
+	if v.is_empty() or cuantas <= 0:
+		return
+	var s: AudioStream = v[randi() % v.size()]
+	for i in cuantas:
+		var tono: float = pow(ESTRELLA_SUBIDA, i)
+		if i == 0:
+			_soltar(s, db, tono, Time.get_ticks_msec())
+			disparos += 1
+			continue
+		# EL RELOJ IGNORA LA PAUSA (es lo que trae de fabrica create_timer). Hace falta: el menu
+		# para el arbol entero al abrirse (ver game.abrir_menu), y con un temporizador pausable la
+		# cadena se quedaria en el primer plin -- que es justo el caso comun, porque todo esto pasa
+		# dentro de un menu.
+		#
+		# La lambda captura POR VALOR, que aqui es lo que se quiere: cada una se lleva SU tono.
+		get_tree().create_timer(ESTRELLA_PASO * i).timeout.connect(
+			func() -> void:
+				_soltar(s, db, tono, Time.get_ticks_msec())
+				disparos += 1)
+
+
 func _soltar(stream: AudioStream, db: float, tono: float, ahora: int) -> void:
 	if stream == null:
 		return

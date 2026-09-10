@@ -76,6 +76,12 @@ const HUECO_ANCHO := 26.0  # lo ancho que es el vacio, en unidades logicas
 const MAESTRO_ALTO := 320.0
 
 var _color: Color = Color.WHITE
+# Los dos nombres que llegan ya resueltos (ver montar), y por donde va la banda sonora: 0 = aun no
+# ha sonado nada, 1 = la estanteria, 2 = las paginas, 3 = el brillo. Un contador y no tres banderas
+# porque las fases van en orden y lo unico que hay que saber es por cual se va.
+var _sfx_brillo: String = ""
+var _mus_final: String = ""
+var _hito: int = 0
 var _al_acabar: Callable = Callable()
 var _t: float = 0.0
 var _acabado: bool = false
@@ -119,9 +125,15 @@ static func maestro() -> PersonajeData:
 # ============================================================
 # 'color' es el de lo mejor que ha salido; 'al_acabar' se llama UNA sola vez, al terminar o al
 # saltarsela.
-func montar(padre: Control, color: Color, al_acabar: Callable) -> void:
+func montar(padre: Control, color: Color, al_acabar: Callable,
+		sfx_brillo: String = "", mus_final: String = "") -> void:
 	_color = color
 	_al_acabar = al_acabar
+	# EL SONIDO DEL BRILLO Y EL REMATE LLEGAN RESUELTOS, igual que el color y por el mismo motivo:
+	# esta pantalla no sabe lo que es una rareza (ver la cabecera). Recibe un color, dos nombres y
+	# una llamada para cuando termine, y con eso le basta.
+	_sfx_brillo = sfx_brillo
+	_mus_final = mus_final
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	padre.add_child(self)
@@ -193,6 +205,7 @@ func _montar_maestro() -> void:
 # ============================================================
 func _process(delta: float) -> void:
 	_t += delta
+	_sonar_si_toca()
 	if _mu != null and is_instance_valid(_mu):
 		_colocar_maestro()
 	if _fondo != null:
@@ -201,6 +214,35 @@ func _process(delta: float) -> void:
 		_frente.queue_redraw()
 	if _t >= duracion():
 		_terminar()
+
+
+# LA BANDA SONORA, colgada del mismo reloj que dibuja. Tres momentos y en este orden:
+#   1. la estanteria y los pasos, en cuanto arranca
+#   2. las paginas, cuando el tomo se viene encima (fase 4)
+#   3. el brillo y el remate de la musica, cuando vira el color (fase 5)
+#
+# VA EN _process Y NO EN UN TWEEN a proposito: aqui el reloj es _t, y el visor puede clavarlo
+# (plantar) o correrlo a otra velocidad. Colgado de _t, el sonido acompaña siempre a lo que se ve;
+# con tiempos propios, en el visor a media velocidad se oiria el brillo con el maestro aun andando.
+#
+# Y por eso mismo un salto (clic o Esc) no dispara nada de lo que faltaba: quien se la salta no
+# quiere oir el final, quiere ver las cartas.
+func _sonar_si_toca() -> void:
+	if _hito == 0:
+		_hito = 1
+		Sonido.ui("gacha_estante")
+	if _hito == 1 and _t >= T_ACERCA + T_BRAZO + T_GIRA:
+		_hito = 2
+		Sonido.ui("gacha_paginas")
+	if _hito == 2 and _t >= T_ACERCA + T_BRAZO + T_GIRA + T_ZOOM:
+		_hito = 3
+		if _sfx_brillo != "":
+			Sonido.ui(_sfx_brillo)
+		# EL REMATE Y NO UN CAMBIO DE PISTA: un remate suena ENCIMA del fondo y se va solo, asi que
+		# la base del ritual sigue por debajo mientras el color vira. Cambiando la cima, la base se
+		# cortaria justo en el momento que tiene que sostener.
+		if _mus_final != "":
+			Musica.remate(_mus_final)
 
 
 # Saltarsela desde fuera (Esc). Es la misma puerta que el clic: no cancela nada, adelanta el final.
