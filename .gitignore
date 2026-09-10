@@ -38,6 +38,12 @@ dev_*.png
 # y dev_ritual.* se quedo fuera, ignorado en silencio. Al crear un visor nuevo, la linea de aqui va
 # EN EL MISMO commit que su .bat -- 'git add -A' no avisa de lo que no añade.
 !dev_ritual.*
+# TERCERA VEZ, y con el mismo sintoma exacto: ver_imbuiciones.bat entro en su commit y
+# dev_imbuiciones.* se quedo fuera. 'git add -A' no dice nada de lo que NO añade, asi que el commit
+# se ve limpio y el fallo aparece semanas despues, en otra maquina, como un doble clic con error.
+# Si estas creando un visor: esta linea va EN EL MISMO commit que su .bat, y se comprueba con
+# `git status --short` mirando que aparezcan los DOS.
+!dev_imbuiciones.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
