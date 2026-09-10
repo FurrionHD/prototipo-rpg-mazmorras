@@ -1085,12 +1085,13 @@ const MUS_FINAL := {
 # la emocion que esto viene a crear. El color malo tiene que doler de verdad casi siempre para que
 # la transformacion valga algo.
 #
-# Y SOLO DE EPICO PARA ARRIBA: fingir para acabar en un raro es gastar el truco en un premio que no
-# lo paga, y ademas enseña que el amago tampoco garantiza nada bueno.
-#
 # Y SOLO SUBE, nunca baja: enseñar dorado y quedarse en morado se lee como estafa y quema la
 # animacion entera. Por eso se miente siempre con algo por DEBAJO de lo que ha salido -- y nunca por
-# debajo del suelo que el jugador ya tenia garantizado (ver donde se decide).
+# debajo del suelo que el jugador ya tenia garantizado.
+#
+# EN QUE CARTAS ENTRA Y CON QUE SALTOS: en cualquiera y con cualquiera, ver _elegir_amago. Esta
+# probabilidad es la de que la TANDA lleve amago, no la de cada carta: dentro de una tanda solo
+# finge una, asi que meter mas cartas candidatas no hace el truco mas frecuente, solo mas variado.
 const FAKEOUT_PROB := 0.22
 # Lo que la carta se queda fingiendo antes de romperse. Es el tiempo de tragarse la decepcion: mas
 # corto y no da tiempo ni a leerla, mas largo y quien ya ha visto veinte se impacienta.
@@ -1137,31 +1138,18 @@ func _mostrar_ritual() -> void:
 		return
 	_ritual = GachaRitual.new()
 	_musica_gacha_dentro()
-	var m: Array = _mejor_de_la_tanda()
-	var r: int = int(m[0])
-	# ¿AMAGO? Solo de epico para arriba y solo a veces (ver FAKEOUT_*).
+	_elegir_amago()
+	# LO QUE VE EL RITUAL ES LO MEJOR DE LO QUE SE VA A VER, con el amago ya aplicado: si la que
+	# finge es la mejor de la tanda, la animacion entra con la mentira entera -- color, brillo y
+	# remate del comun -- y la carta es quien la deshace. Si la que finge es una cualquiera de en
+	# medio, la luz es la de la mejor DE VERDAD, que ya se va a ver igual.
 	#
-	# CON QUE SE MIENTE: con el SUELO QUE EL JUGADOR YA SABE. Normalmente es el comun, que es el que
-	# mas se ve. Pero si esta tanda traia un garantizado, mentir por debajo de el se delata SOLO: si
-	# sabes que como minimo te toca un epico y la luz dice "comun", eso no es una decepcion, es un
-	# amago cantado antes de empezar. Fingiendo el propio garantizado sigue siendo creible -- "vale,
-	# el minimo" -- y la transformacion a legendario conserva entero el golpe.
-	_amago_falso = -1
-	_amago_idx = -1
-	var suelo: int = maxi(Upgrades.Rareza.COMUN, _suelo_garantizado())
-	if r >= Upgrades.Rareza.EPICO and suelo < r and randf() < FAKEOUT_PROB:
-		_amago_falso = suelo
-		# LA CARTA QUE SE TRANSFORMA es la PRIMERA que trae lo mejor de la tanda. Si hubiera dos
-		# legendarios, transformar el segundo dejaria al primero destapando el final antes.
-		for i in _revelado.size():
-			var s: SpellData = _revelado[i].get("spell")
-			if s != null and int(s.rareza) == r:
-				_amago_idx = i
-				break
-	# LO QUE VE EL RITUAL ES LA MENTIRA COMPLETA cuando hay amago: color, brillo y remate del suelo.
-	# La animacion no se corrige nunca -- quien deshace el engaño es la carta, que es donde pega.
-	var visto: int = _amago_falso if _amago_falso >= 0 else r
-	var col: Color = _color_entrada(visto, String(m[1])) if _amago_falso >= 0 else _color_mejor_tirada()
+	# ESTO NO SE PUEDE HACER AL REVES (luz siempre real, amago solo en la carta): la luz de la tanda
+	# es lo primero que se ve, y una luz dorada sobre una tanda que empieza destapando comunes ya
+	# habria contado el final antes de la primera carta.
+	var m: Array = _mejor_de_la_tanda(true)
+	var visto: int = int(m[0])
+	var col: Color = _color_entrada(visto, String(m[1]))
 	_ritual.montar(_root, col, _mostrar_resultados,
 		String(SFX_BRILLO.get(visto, "gacha_brillo_comun")),
 		String(MUS_FINAL.get(visto, "gacha_final_comun")))
@@ -1189,6 +1177,70 @@ func _tirar_ritual() -> void:
 #
 # MANDA LA RAREZA, y el desempate no existe: si en la tanda hay un legendario, el brillo es el suyo
 # aunque haya salido el primero de los diez. Es lo que hace que el color valga de aviso.
+# ------------------------------------------------------------
+#  A QUIEN LE TOCA EL AMAGO, Y CON QUE SE MIENTE
+#
+#  CUALQUIER CARTA Y CUALQUIER SALTO. No es solo el premio gordo el que puede fingir: una poco comun
+#  que sale con cara de comun y se transforma tambien tiene su momento, y ademas es la que mas veces
+#  va a pasar. Antes esto solo entraba de epico para arriba y solo sobre la mejor de la tanda, o sea
+#  que en una tanda de relleno -- que son casi todas -- la animacion no podia sorprender nunca.
+#
+#  Y EN UNA x10 PUEDE TOCARLE A LA DE EN MEDIO. Si caen una poco comun, una rara y una epica, el
+#  amago puede ir sobre cualquiera de las tres: la epica fingiendo rara, la rara fingiendo comun, la
+#  poco comun fingiendo comun... Todas las combinaciones valen mientras se respeten las dos reglas de
+#  siempre, que son las que hacen que el truco no queme:
+#
+#    1) SOLO SE MIENTE HACIA ABAJO. Enseñar dorado y quedarse en morado se lee como estafa. Por eso
+#       la fingida va siempre por DEBAJO de la real, y una comun no puede fingir nada (no hay nada
+#       debajo): no es que se prohiba, es que no existe la mentira.
+#    2) NUNCA POR DEBAJO DE LO QUE EL JUGADOR YA TIENE PROMETIDO. Si esta tanda traia un garantizado
+#       de epico y la luz dice "comun", eso no es una decepcion: es un amago cantado antes de
+#       empezar, porque el jugador sabe que el epico esta ahi. OJO AL MATIZ: el garantizado promete
+#       que ALGUNA carta lo cumple, no todas -- asi que si otra carta de la tanda ya llega al suelo
+#       prometido, esta puede fingir hasta el comun sin delatar nada. Solo se queda atada la que es
+#       la unica que sostiene la promesa.
+#
+#  El salto se sortea entre todos los que caben, no siempre al comun: el que ve romperse una carta
+#  rara para dar una epica se lleva su sorpresa igual, y variar el salto es lo que impide aprenderse
+#  el truco ("si finge comun es que hay legendaria").
+func _elegir_amago() -> void:
+	_amago_falso = -1
+	_amago_idx = -1
+	if randf() >= FAKEOUT_PROB:
+		return
+	var cand: Array = _candidatas_amago()
+	if cand.is_empty():
+		return
+	var e: Array = cand[randi() % cand.size()]
+	_amago_idx = int(e[0])
+	_amago_falso = randi_range(int(e[1]), int(e[2]) - 1)
+
+
+# Las cartas que PUEDEN fingir, como [indice, rareza minima que puede fingir, su rareza real]. Un
+# tocho no entra: no esta en la escala de rarezas, asi que no hay nada que fingir ni con que.
+func _candidatas_amago() -> Array:
+	var suelo: int = maxi(Upgrades.Rareza.COMUN, _suelo_garantizado())
+	var out: Array = []
+	for i in _revelado.size():
+		var s: SpellData = _revelado[i].get("spell")
+		if s == null:
+			continue
+		var r: int = int(s.rareza)
+		# Lo mejor DE LAS DEMAS. Si alguna otra ya cumple sola lo prometido, esta queda libre de la
+		# regla 2 y puede bajar hasta el comun.
+		var otras: int = -1
+		for j in _revelado.size():
+			if j == i:
+				continue
+			var s2: SpellData = _revelado[j].get("spell")
+			if s2 != null:
+				otras = maxi(otras, int(s2.rareza))
+		var minimo: int = Upgrades.Rareza.COMUN if otras >= suelo else suelo
+		if minimo <= r - 1:
+			out.append([i, minimo, r])
+	return out
+
+
 func _color_mejor_tirada() -> Color:
 	var m: Array = _mejor_de_la_tanda()
 	return _color_entrada(int(m[0]), String(m[1]))
@@ -1211,15 +1263,21 @@ func _suelo_garantizado() -> int:
 	return suelo
 
 
-func _mejor_de_la_tanda() -> Array:
+# Con 'visto' en true se mira la tanda POR LO QUE SE VE y no por lo que es: la carta que finge
+# cuenta con su rareza fingida. Es lo que decide la luz de entrada del ritual (ver _mostrar_ritual);
+# el resto de la pantalla la pide por lo que ES, que es lo que se guarda y se entrega.
+func _mejor_de_la_tanda(visto: bool = false) -> Array:
 	var mejor: int = -1
 	var seccion: String = ""
-	for t in _revelado:
+	for i in _revelado.size():
+		var t: Dictionary = _revelado[i]
 		var c: ConsumableData = t.get("item")
 		if c == null:
 			continue
 		var s: SpellData = t.get("spell")
 		var r: int = int(s.rareza) if s != null else -1
+		if visto and i == _amago_idx and _amago_falso >= 0:
+			r = _amago_falso
 		if r > mejor:
 			mejor = r
 			seccion = c.seccion_biblioteca()

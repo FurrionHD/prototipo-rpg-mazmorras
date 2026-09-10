@@ -1,14 +1,16 @@
 # ============================================================
 #  dev_amagos.gd  --  EL AMAGO DE LA CARTA, los seis, uno detras de otro.
 #
-#  El amago (el "fakeout") pasa AL VOLTEAR: la carta sale con la cara del comun, se queda asi el rato
-#  justo para que te la creas, y entonces revienta en blanco y sale la de verdad. En el juego cae en
-#  el 22% de las tandas de epico o mejor, asi que verlo a base de tirar seria cosa de veinte tiradas
-#  por cada combinacion: esto las pone las seis en fila.
+#  El amago (el "fakeout") pasa AL VOLTEAR: la carta sale con la cara de una rareza mas baja, se
+#  queda asi el rato justo para que te la creas, y entonces revienta en blanco y sale la de verdad.
+#  En el juego cae en el 22% de las tandas, asi que verlo a base de tirar seria cosa de veinte
+#  tiradas por cada combinacion: esto las pone TODAS en fila.
 #
-#  QUE COMBINACIONES SALEN, y no son todas las posibles: son las que el juego puede dar (ver
-#  maestro_menu._mostrar_ritual). Solo hay amago de EPICO para arriba, y se finge el SUELO QUE EL
-#  JUGADOR YA SABE -- el comun de normal, o el garantizado si esa tanda traia pity. De ahi salen seis.
+#  QUE COMBINACIONES SALEN: las quince que el juego puede dar (ver maestro_menu._elegir_amago).
+#  Cualquier carta puede fingir, y puede fingir cualquier rareza por debajo de la suya -- las dos
+#  unicas ataduras son que se miente hacia abajo y nunca por debajo de un garantizado que el jugador
+#  ya sabia. Aqui se ven todas seguidas para juzgar si el salto corto (una rara que sale de una poco
+#  comun) tiene bastante golpe o si se queda en nada.
 #
 #  LOS TIEMPOS SALEN DE maestro_menu, no copiados aqui. Es lo unico que impide que el visor y el
 #  juego se separen: el dia que la espera del amago cambie alla, esto cambia solo. Lo que si es una
@@ -26,18 +28,23 @@ const GachaBanner = preload("res://scripts/ui/gacha_banner.gd")
 # instancia nada suyo: es una CanvasLayer con su estado, su pool y su guardado.
 const MM = preload("res://scripts/ui/maestro_menu.gd")
 
-# [rareza fingida, rareza real]. Las tres primeras son las corrientes (se miente con el comun); las
-# tres de abajo son las de una tanda CON GARANTIZADO, donde mentir por debajo del suelo se delataria.
-const AMAGOS := [
-	[Upgrades.Rareza.COMUN, Upgrades.Rareza.EPICO],
-	[Upgrades.Rareza.COMUN, Upgrades.Rareza.LEGENDARIO],
-	[Upgrades.Rareza.COMUN, Upgrades.Rareza.MITICO],
-	[Upgrades.Rareza.EPICO, Upgrades.Rareza.LEGENDARIO],
-	[Upgrades.Rareza.EPICO, Upgrades.Rareza.MITICO],
-	[Upgrades.Rareza.LEGENDARIO, Upgrades.Rareza.MITICO],
-]
-
 const NOMBRE := ["Común", "Poco común", "Raro", "Épico", "Legendario", "Mítico"]
+
+# [rareza fingida, rareza real], TODAS las que el juego puede dar: cualquier pareja con la fingida
+# por debajo de la real. Se generan en vez de escribirse a mano porque son quince y porque el dia que
+# entre una rareza nueva en la escala el visor la coge solo -- una lista a mano se quedaria enseñando
+# seis combinaciones de las veintiuna y nadie miraria si faltaba alguna.
+#
+# El ORDEN es por rareza real y luego por salto: asi se ven juntas las de un mismo premio y se puede
+# comparar de un vistazo si el salto corto (rara -> epica) aguanta tan bien como el largo.
+static var AMAGOS: Array = _todas_las_combinaciones()
+
+static func _todas_las_combinaciones() -> Array:
+	var out: Array = []
+	for real in range(1, NOMBRE.size()):
+		for falso in real:
+			out.append([falso, real])
+	return out
 
 # Misma tabla que la del menu, para que se oiga lo que se va a oir en el juego.
 const SFX_VOLTEA := {
