@@ -23,6 +23,8 @@
 extends RefCounted
 class_name MenuScaffold
 
+const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
 const FONDO := Color(0.05, 0.06, 0.08, 1.0)
@@ -1909,6 +1911,11 @@ static func banner_item(vb: VBoxContainer, item: Resource, pie: String, etiqueta
 	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(caja)
+	# EL RETRATO de la pieza (su dibujo del muñeco), para el equipo que lo tiene; lo demas, con su
+	# icono. En su nodo propio por el shader de la paleta: ver RetratoPieza.nodo.
+	var retrato: TextureRect = RetratoPieza.nodo()
+	caja.add_child(retrato)
+	var con_retrato: bool = RetratoPieza.poner(retrato, item, RetratoPieza.ESC_CELDA)
 	caja.draw.connect(func() -> void:
 		var w: float = caja.size.x
 		var h: float = caja.size.y
@@ -1922,7 +1929,10 @@ static func banner_item(vb: VBoxContainer, item: Resource, pie: String, etiqueta
 		var der: Color = col.lerp(Color(1, 1, 1), 0.06).darkened(0.12)
 		caja.draw_polygon(pts, PackedColorArray([izq, der, der, izq]))
 		# El objeto GRANDE a la derecha; el texto respira a la izquierda.
-		IconoItem.pintar(caja, Vector2(w * 0.76, h * 0.5), h * 0.72, item, true)
+		if con_retrato:
+			RetratoPieza.encajar(retrato, Vector2(w * 0.76, h * 0.5), h * 0.78)
+		else:
+			IconoItem.pintar(caja, Vector2(w * 0.76, h * 0.5), h * 0.72, item, true)
 		var fuente: Font = caja.get_theme_font(&"font")
 		if etiqueta != "":
 			caja.draw_string(fuente, Vector2(16, 26), etiqueta, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,

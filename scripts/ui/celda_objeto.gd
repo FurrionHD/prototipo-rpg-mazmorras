@@ -37,6 +37,8 @@
 extends Button
 class_name CeldaObjeto
 
+const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+
 # --- proporciones, todas relativas al lado de la celda ---
 const MUESCA := 0.24        # lo que se come el chaflan de la esquina superior izquierda
 const REDONDEO := 0.07      # chaflan pequeño de las otras tres esquinas
@@ -56,6 +58,14 @@ var marca: String = ""          # etiqueta de esquina: "PUESTA", el nombre de qu
 # 0 = no pintar ninguno, para una pantalla que no quiera enseñarlo.
 var plus: int = -1
 var _hover := false
+# EL RETRATO DE LA PIEZA (el dibujo del muñeco, ver retrato_pieza.gd), para el equipo que lo tiene.
+# Es un nodo hijo y no un draw_texture de aqui: lleva el shader de la paleta, y en la celda ese
+# shader se comeria tambien el fondo. Lo que no tiene dibujo (materiales, pociones) sigue con su
+# icono de IconoItem.
+var _retrato: TextureRect = null
+# Lo que mide el hueco del retrato, en fraccion del lado. Un pelo mas que el icono (LADO_ICONO): el
+# retrato se recorta a la silueta de la pieza, sin el aire que lleva el cubo alrededor.
+const LADO_RETRATO := 0.56
 
 
 # 'pie' vacio = la banda va sin texto (una pieza unica: un arma, una mochila). La banda se dibuja
@@ -65,6 +75,7 @@ func configurar(objeto: Resource, pie: String = "", etiqueta: String = "", nivel
 	texto_pie = pie
 	marca = etiqueta
 	plus = nivel
+	RetratoPieza.poner(_retrato, item, RetratoPieza.ESC_CELDA)
 	queue_redraw()
 
 
@@ -84,6 +95,8 @@ func _plus() -> int:
 # marcada nunca. El borde de seleccionada llevaba escrito desde el principio y no se veia por esto.
 func _init() -> void:
 	toggle_mode = true
+	_retrato = RetratoPieza.nodo()
+	add_child(_retrato)
 
 
 func _ready() -> void:
@@ -147,7 +160,14 @@ func _draw() -> void:
 	# 3. EL ICONO, centrado en el hueco que queda POR ENCIMA de la banda (no en la celda entera: con
 	# la banda debajo, centrarlo en el total lo deja visiblemente bajo). Con 'encajar' para que un
 	# frasco y un cubo ocupen lo mismo -- ver IconoItem.ENCAJE.
-	IconoItem.pintar(self, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * LADO_ICONO, item, true)
+	# Con retrato (el equipo con dibujo), el retrato; si no, el icono de siempre.
+	if _retrato.visible:
+		RetratoPieza.encajar(_retrato, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * LADO_RETRATO)
+		# EL RETRATO VA ENCIMA DE TODO lo que pinta este _draw (es un hijo, y los hijos se pintan
+		# despues del padre), asi que el velo de apagada no lo tapa: se le oscurece a el directamente.
+		_retrato.modulate = Color(0.42, 0.43, 0.46) if disabled else Color.WHITE
+	else:
+		IconoItem.pintar(self, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * LADO_ICONO, item, true)
 
 	# 4. LAS MARCAS DE PELDAÑO, apoyadas justo encima de la banda.
 	if item != null:

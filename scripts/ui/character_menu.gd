@@ -206,15 +206,9 @@ func _ready() -> void:
 	_vitrina.visible = false
 	_vitrina.draw.connect(_pintar_vitrina)
 	_vitrina.resized.connect(_vitrina.queue_redraw)
-	# EL RETRATO va en un nodo PROPIO y no con draw_texture en la vitrina: lleva el shader de la
-	# paleta, y un material se aplica al CanvasItem entero -- el halo y el aro saldrian "traducidos" a
-	# los colores de la pieza. Lo coloca _pintar_vitrina, que es quien sabe donde cae el aro.
-	_vitrina_pieza = TextureRect.new()
-	_vitrina_pieza.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_vitrina_pieza.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_vitrina_pieza.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_vitrina_pieza.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_vitrina_pieza.visible = false
+	# EL RETRATO, en su nodo propio (ver RetratoPieza.nodo). Lo coloca _pintar_vitrina, que es quien
+	# sabe donde cae el aro.
+	_vitrina_pieza = RetratoPieza.nodo()
 	_vitrina.add_child(_vitrina_pieza)
 	split.add_child(_vitrina)
 	split.move_child(_vitrina, 1)
@@ -1158,11 +1152,7 @@ func _on_hueco(i: int) -> void:
 # El retrato de la pieza para la vitrina, con el color de SU tier y SU +N. Se calcula aqui, al
 # elegirla, y no en el dibujo: el dibujo corre en cada resize y el retrato no cambia por eso.
 func _poner_retrato(item: Resource) -> void:
-	var r: Dictionary = RetratoPieza.de(item, int(Game.meta_de(item).get("tier", 1)),
-		Game.mejoras_actuales(item))
-	_vitrina_pieza.visible = not r.is_empty()
-	_vitrina_pieza.texture = r.get("tex", null)
-	_vitrina_pieza.material = r.get("material", null)
+	RetratoPieza.poner(_vitrina_pieza, item, RetratoPieza.ESC)
 
 
 # LA VITRINA: el candidato en grande sobre un halo del color de su peldaño, con su +N debajo. La
@@ -1192,22 +1182,8 @@ func _pintar_vitrina() -> void:
 	# El aro, del color del peldaño: la misma "esto es lo bueno que es" que el fondo de la celda.
 	_vitrina.draw_arc(centro, radio, 0.0, TAU, 96, Color(col.lightened(0.2), 0.75), 2.5, true)
 	# LA PIEZA: su retrato de verdad si tiene dibujo (ver retrato_pieza.gd); si no, el icono de siempre.
-	var tex: Texture2D = _vitrina_pieza.texture
-	if _vitrina_pieza.visible and tex != null:
-		# Encajada en un cuadrado dentro del aro, sin deformarla: manda su lado largo.
-		var caja_p: float = radio * 1.25
-		var k: float = caja_p / float(maxi(tex.get_width(), tex.get_height()))
-		var tam_p := Vector2(tex.get_width(), tex.get_height()) * k
-		_vitrina_pieza.position = centro - tam_p * 0.5
-		_vitrina_pieza.size = tam_p
-		# EL DESTELLO DEL METAL VA EN PIXELES DE PANTALLA (ver paleta_equipo.gdshader): sus numeros
-		# estan medidos para la pieza a su tamaño del mapa, asi que aqui se escalan con ella o la
-		# linea cruzaria como un hilo por el centro de un casco de trescientos pixeles.
-		var mat := _vitrina_pieza.material as ShaderMaterial
-		if mat != null:
-			var f: float = k * RetratoPieza.ESC
-			mat.set_shader_parameter("grosor", 7.0 * f)
-			mat.set_shader_parameter("recorrido", maxf(38.0 * f, tam_p.length() * 0.6))
+	if _vitrina_pieza.visible:
+		RetratoPieza.encajar(_vitrina_pieza, centro, radio * 1.25)
 	else:
 		IconoItem.pintar(_vitrina, centro, radio * 1.05, item, true)
 	# EL +N, en una pastilla bajo el aro. Solo si lo hay: "+0" no dice nada.

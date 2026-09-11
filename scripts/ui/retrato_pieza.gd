@@ -18,9 +18,14 @@
 extends RefCounted
 
 const SHADER_PALETA: Shader = preload("res://shaders/paleta_equipo.gdshader")
-# A cuanto se pinta. x4 da ~100 celdas de ancho a un peto: en la vitrina salen a dos pixeles de
-# pantalla por celda, que sigue leyendose como el pixel-art del juego sin verse a bloques.
+# A cuanto se pinta, SEGUN DONDE SE ENSEÑE. La idea es que cada celda del dibujo caiga en uno o dos
+# pixeles de pantalla enteros:
+#   - la VITRINA (~300 px): x4, ~100 celdas de ancho un peto -> dos pixeles por celda.
+#   - la CELDA de la rejilla y la tira de la ficha (~55-85 px): x2. A x4 habria que ENCOGERLA a
+#     menos de un pixel por celda, y encoger pixel-art con NEAREST se come filas sueltas: el
+#     contorno salia mordido a trozos.
 const ESC := 4.0
+const ESC_CELDA := 2.0
 const ANIM := "idle"
 const DIR_SUR := 0
 const DIR_NE := 3
@@ -30,16 +35,62 @@ const HUECO_PAR := 0.25
 static var _cache: Dictionary = {}   # clave de capa(s) -> ImageTexture ya recortada
 
 
-# {tex: ImageTexture, material: ShaderMaterial, escala: float} o {} si esa pieza no tiene dibujo
-# (los puños, un objeto que no es equipo). 'tier' y 'mejoras' son los de ESTA instancia: dos yelmos
-# iguales a +0 y a +15 no son del mismo color. 'escala' es por cuanto se ha pintado (ESC), para que
-# quien lo enseñe pueda ajustar el destello al tamaño.
-static func de(item: Resource, tier: int, mejoras: int) -> Dictionary:
+# ============================================================
+#  LO QUE USAN LAS PANTALLAS
+# ============================================================
+# El TextureRect donde se enseña un retrato. Va en un nodo PROPIO, y no con draw_texture en quien lo
+# enseña, porque lleva el shader de la paleta: un material se aplica al CanvasItem ENTERO, y el fondo
+# de la celda (o el halo de la vitrina) saldria "traducido" a los colores de la pieza.
+static func nodo() -> TextureRect:
+	var tr := TextureRect.new()
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tr.visible = false
+	return tr
+
+
+# Carga en 'tr' el retrato de 'item' con SU tier y SU +N. Devuelve false si no tiene dibujo (un
+# material, una pocion, los puños): entonces 'tr' se esconde y quien lo enseña pinta su icono.
+static func poner(tr: TextureRect, item: Resource, esc: float) -> bool:
+	var r: Dictionary = {}
+	if item != null:
+		r = de(item, int(Game.meta_de(item).get("tier", 1)), Game.mejoras_actuales(item), esc)
+	tr.visible = not r.is_empty()
+	tr.texture = r.get("tex", null)
+	tr.material = r.get("material", null)
+	tr.set_meta("esc", esc)
+	return tr.visible
+
+
+# Coloca 'tr' centrado en 'centro' y encajado en un cuadrado de lado 'caja', sin deformarlo (manda
+# su lado largo). Y le ajusta el destello: el shader lo mide en PIXELES DE PANTALLA con numeros
+# pensados para la pieza a su tamaño del mapa, asi que sin escalarlo la linea cruzaria como un hilo.
+static func encajar(tr: TextureRect, centro: Vector2, caja: float) -> void:
+	var tex: Texture2D = tr.texture
+	if tex == null:
+		return
+	var k: float = caja / float(maxi(tex.get_width(), tex.get_height()))
+	var tam := Vector2(tex.get_width(), tex.get_height()) * k
+	tr.position = centro - tam * 0.5
+	tr.size = tam
+	var mat := tr.material as ShaderMaterial
+	if mat != null:
+		var f: float = k * float(tr.get_meta("esc", ESC))
+		mat.set_shader_parameter("grosor", 7.0 * f)
+		mat.set_shader_parameter("recorrido", maxf(38.0 * f, tam.length() * 0.6))
+
+
+# {tex: ImageTexture, material: ShaderMaterial} o {} si esa pieza no tiene dibujo (los puños, un
+# objeto que no es equipo). 'tier' y 'mejoras' son los de ESTA instancia: dos yelmos iguales a +0 y a
+# +15 no son del mismo color.
+static func de(item: Resource, tier: int, mejoras: int, esc: float = ESC) -> Dictionary:
 	var d: Dictionary = _datos(item)
 	if d.is_empty():
 		return {}
 	var tex: ImageTexture = _textura(d["claves"], d["pintor"], String(d.get("anim", ANIM)),
-		int(d.get("dir", DIR_SUR)), bool(d.get("voltear", false)))
+		int(d.get("dir", DIR_SUR)), bool(d.get("voltear", false)), esc)
 	if tex == null:
 		return {}
 	var m := ShaderMaterial.new()
@@ -49,7 +100,7 @@ static func de(item: Resource, tier: int, mejoras: int) -> Dictionary:
 	m.set_shader_parameter("tonos", float(CapaJugador.RAMPA_TONOS))
 	m.set_shader_parameter("metal", PaletaEquipo.metal_de(d["familia"], mejoras))
 	m.set_shader_parameter("luz_ref", PaletaEquipo.luz_ref(d["familia"], maxi(tier, 1), mejoras))
-	return {"tex": tex, "material": m, "escala": ESC}
+	return {"tex": tex, "material": m}
 
 
 # QUE CAPA(S) ES y con que pintor y paleta. Es el mismo reparto que JugadorSprites._capas_armadura /
@@ -106,13 +157,14 @@ static func _datos(item: Resource) -> Dictionary:
 # mano, con el ancho de un cuerpo entre las dos, y en la vitrina salian dos manchas en los bordes del
 # aro. El color es el de la rampa (el gris que dice el numero de tono): lo pone el shader.
 static func _textura(claves: Array, pintor: Callable, anim: String, dir: int,
-		voltear: bool = false) -> ImageTexture:
-	var ck: String = "%s_%s_%d_%s" % ["|".join(claves), anim, dir, voltear]
+		voltear: bool = false, esc: float = ESC) -> ImageTexture:
+	var ck: String = "%s_%s_%d_%s_%.2f" % ["|".join(claves), anim, dir, voltear, esc]
 	if _cache.has(ck):
 		return _cache[ck]
 	var trozos: Array = []   # [{celdas, w, h}]
 	for c in claves:
-		var t: Dictionary = _recorte(CapaJugador.plantilla(pintor.bind(String(c)), anim, 0, dir, ESC))
+		var t: Dictionary = _recorte(CapaJugador.plantilla(pintor.bind(String(c)), anim, 0, dir, esc),
+			esc)
 		if not t.is_empty():
 			trozos.append(t)
 	if trozos.is_empty():
@@ -149,8 +201,8 @@ static func _textura(claves: Array, pintor: Callable, anim: String, dir: int,
 
 # UNA capa recortada a lo que ocupa de verdad. Sin el recorte, un casco es una mancha pequeña arriba
 # de un lienzo pensado para el cuerpo entero, y no habria forma de centrarlo ni de agrandarlo.
-static func _recorte(p: PackedByteArray) -> Dictionary:
-	var lz: Vector2i = PoseJugador.lienzo(ESC)
+static func _recorte(p: PackedByteArray, esc: float) -> Dictionary:
+	var lz: Vector2i = PoseJugador.lienzo(esc)
 	var x0: int = lz.x
 	var y0: int = lz.y
 	var x1: int = -1
