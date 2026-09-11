@@ -218,12 +218,17 @@ func _draw() -> void:
 	# sobre el dorado del legendario y el ambar se confunde con el. El de fuera es casi negro y hace
 	# de sombra contra el fondo sea cual sea; el de dentro es el ambar, que ya solo tiene que
 	# destacar contra ese negro. Asi el marco se lee igual sobre las ocho.
+	#
+	# Y SIGUE LA SILUETA QUE SE VE, no la del contorno: con tier, el triangulo de la muesca rellena el
+	# chaflan y la esquina queda en angulo recto. Siguiendo la diagonal del chaflan, el marco pasaba
+	# justo por encima del numero del tier y lo tapaba.
+	var marco: PackedVector2Array = _contorno_marco(w, h)
 	if button_pressed:
 		var g: float = maxf(2.5, w * 0.034)
-		draw_polyline(_cerrar(borde), Color(0.03, 0.04, 0.06, 0.92), g * 1.9)
-		draw_polyline(_cerrar(_encoger(borde, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
+		draw_polyline(_cerrar(marco), Color(0.03, 0.04, 0.06, 0.92), g * 1.9)
+		draw_polyline(_cerrar(_encoger(marco, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
 	elif _hover or has_focus():
-		draw_polyline(_cerrar(borde), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
+		draw_polyline(_cerrar(marco), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
 	if disabled:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
 
@@ -328,6 +333,18 @@ func _contorno(w: float, h: float) -> PackedVector2Array:
 		Vector2(r, h), Vector2(0.0, h - r),                          # abajo izquierda
 		Vector2(0.0, m),                                             # sube hasta la muesca
 	])
+
+
+# Por donde va el MARCO de seleccionada/hover. Sin tier es el contorno de siempre; con tier, el
+# triangulo de la muesca tapa el chaflan (llega hasta la esquina, ver _muesca_tier) y lo que se ve es
+# una esquina en angulo recto, asi que el marco la rodea por fuera en vez de cortar el triangulo.
+func _contorno_marco(w: float, h: float) -> PackedVector2Array:
+	var c: PackedVector2Array = _contorno(w, h)
+	if item == null or IconoItem.tier_de(item) <= 0:
+		return c
+	# El contorno empieza en (m, 0) y acaba en (0, m): la esquina va entre esos dos, cerrando el recorrido.
+	c.append(Vector2.ZERO)
+	return c
 
 
 # El mismo contorno metido 'd' pixeles hacia DENTRO. Se hace tirando cada vertice hacia el centro de
