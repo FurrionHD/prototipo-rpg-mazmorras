@@ -35,6 +35,10 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # verdad): el Rey Slime la lleva hecha de su propio gel (ver SlimeSprites._corona_para). false = las
 # dos orejitas de un slime normal.
 @export var corona_slime: bool = false
+# CUERPO DE LAVA en el sprite generado del slime: placas de roca oscura con las juntas encendidas (lo
+# pidio el jefe para el slime de fuego, a partir de una textura de lava de referencia). Solo aplica si
+# es_slime; ver SlimeSprites._lava_encima.
+@export var lava_slime: bool = false
 # VARIANTE del sprite generado, para los bichos que tienen una version "especial" del mismo dibujo
 # (hoy: &"rey" en el Rey Rata, que lleva la cola anudada y una oreja rasgada). Es una etiqueta
 # generica a proposito: el generador de cada familia decide que hace con ella, asi no hace falta un

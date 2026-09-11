@@ -174,16 +174,20 @@ const DIR_VECS := [
 # TONOS de la plantilla: la geometria no guarda COLORES, guarda a que "capa" pertenece cada celda.
 # Asi la parte cara (elipses, contorno) se calcula UNA vez y sirve para cualquier color.
 enum Tono { VACIO, SOMBRA_SUELO, BORDE, DETRAS, SOMBRA, BASE, CLARO, CLARO_TENUE,
-	ORNAMENTO, OJO_T, GEMA }
+	ORNAMENTO, OJO_T, GEMA, LAVA, LAVA_CALIENTE }
 
 const COLOR_PASOS := 6.0
 static var _cache: Dictionary = {}
 static var _cache_plantillas: Dictionary = {}
+# Si la variante que se esta generando es de LAVA (el slime de fuego). Va en una variable y no como
+# parametro de cada _montar_* porque solo lo necesitan dos sitios -- la clave de la cache de
+# plantillas y _plantilla --, y enhebrarlo por las diez animaciones seria tocarlas todas para nada.
+static var _lava: bool = false
 
 
 # --- Contrato de SpritesEnemigo (el registro que decide quien dibuja a quien) ---
 static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
-	return generar(ed.color_visual(t), ed.corona_slime, ed.escala_visual)
+	return generar(ed.color_visual(t), ed.corona_slime, ed.escala_visual, ed.lava_slime)
 
 
 # La CLAVE de esta variante: la misma que usa el cache y la que da nombre al fichero horneado (ver
@@ -191,11 +195,12 @@ static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 # si no coincidieran, el juego generaria al vuelo un PNG que ya esta en disco y nadie se enteraria.
 static func clave_de(ed: EnemyData, t: float) -> String:
 	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS),
-		ed.corona_slime, snappedf(ed.escala_visual, 0.05))
+		ed.corona_slime, snappedf(ed.escala_visual, 0.05), ed.lava_slime)
 
 
-static func _clave(col: Color, corona: bool, esc: float) -> String:
-	return "slime_%s_%.2f%s" % [col.to_html(false), esc, "_corona" if corona else ""]
+static func _clave(col: Color, corona: bool, esc: float, lava: bool = false) -> String:
+	return "slime_%s_%.2f%s%s" % [col.to_html(false), esc, "_corona" if corona else "",
+		"_lava" if lava else ""]
 
 
 # El pixel mide lo mismo para TODOS los bichos: el tamaño sale de cuantas celdas ocupa cada uno.
@@ -241,16 +246,17 @@ static func _origen(escala: float) -> Vector2:
 
 
 static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
-		escala: float = 1.0) -> SpriteFrames:
+		escala: float = 1.0, lava: bool = false) -> SpriteFrames:
 	# cuantizar_hsv y no cuantizar a secas: redondear canal a canal CAMBIA EL TONO de los colores
 	# apagados. El Slime profundo (0.30, 0.40, 0.50) caia en (0.33, 0.33, 0.50) -- rojo y verde en el
 	# mismo escalon -- y perdia su azul. Antes esto no se veia porque el slime de referencia era rojo
 	# puro, con el canal rojo clavado en 1.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)      # se cuantiza tambien, o el cache no acierta
-	var clave: String = _clave(col, corona, esc)
+	var clave: String = _clave(col, corona, esc, lava)
 	if _cache.has(clave):
 		return _cache[clave]
+	_lava = lava
 	# Las tres animaciones se recolectan primero y se montan de una vez: asi TODOS los frames caben
 	# en un solo atlas recortado (ver SpriteLienzo.montar_frames), en vez de 192 texturas del tamaño
 	# del lienzo entero -- que era casi todo aire.
@@ -267,7 +273,8 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_cadaver(anims, corona, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
-		anims, SpriteLienzo.paleta(_colores(col, corona)), lz.x, lz.y)
+		anims, SpriteLienzo.paleta(_colores(col, corona, lava)), lz.x, lz.y)
+	_lava = false
 	_cache[clave] = sf
 	return sf
 
@@ -506,7 +513,8 @@ static func _montar_animacion(anims: Array, corona: bool, esc: float,
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, corona, escala) y NO por color:
 			# otro slime de otro tono reusa estas plantillas y solo repinta. Es lo que evita que
 			# entrar a un piso lleno de slimes congele el juego.
-			var clave: String = "%s_%d_%d_%d_%.2f" % [nombre, i, dir, 1 if corona else 0, esc]
+			var clave: String = "%s_%d_%d_%d_%.2f%s" % [nombre, i, dir, 1 if corona else 0, esc,
+				"_lava" if _lava else ""]
 			var plant: PackedByteArray = _cache_plantillas.get(clave, PackedByteArray())
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), corona, esc)
@@ -517,7 +525,27 @@ static func _montar_animacion(anims: Array, corona: bool, esc: float,
 
 
 # Los colores de cada Tono, EN EL ORDEN DEL ENUM (contrato con SpriteLienzo.paleta).
-static func _colores(color: Color, corona: bool) -> Array:
+static func _colores(color: Color, corona: bool, lava: bool = false) -> Array:
+	if lava:
+		# EL SLIME DE LAVA: el cuerpo es ROCA OSCURA (placas granates, con su luz y su sombra para que
+		# siga leyendose como una bola) y lo que es de su color -- el naranja -- son las JUNTAS
+		# encendidas, con el centro amarillo. Es la textura de lava de la referencia del jefe.
+		return [
+			Color(0, 0, 0, 0),                  # VACIO
+			Color(0, 0, 0, 0.22),               # SOMBRA_SUELO
+			Color(0.16, 0.03, 0.05),            # BORDE
+			Color(0.30, 0.07, 0.09),            # DETRAS
+			Color(0.32, 0.06, 0.10),            # SOMBRA (placa en penumbra)
+			Color(0.44, 0.10, 0.12),            # BASE (placa)
+			Color(0.62, 0.20, 0.16),            # CLARO (placa al sol)
+			Color(0.52, 0.15, 0.14),            # CLARO_TENUE
+			Color(0.36, 0.08, 0.10),            # ORNAMENTO (los cuernos, de roca)
+			# Los ojos, BLANCOS (brasa al rojo blanco): en amarillo se perdian entre las juntas.
+			Color(1.0, 0.99, 0.92),             # OJO_T
+			Color(1.0, 0.95, 0.72),             # GEMA
+			color,                              # LAVA (la junta, del color del slime)
+			Color(1.0, 0.86, 0.34),             # LAVA_CALIENTE (el centro de la junta)
+		]
 	return [
 		Color(0, 0, 0, 0),                  # VACIO
 		Color(0, 0, 0, 0.22),               # SOMBRA_SUELO
@@ -536,6 +564,8 @@ static func _colores(color: Color, corona: bool) -> Array:
 		_gel_ornamento(color, corona),      # ORNAMENTO (cuernos o corona)
 		Color(0.95, 0.97, 0.85),            # OJO_T
 		Color(1.0, 0.95, 0.72),             # GEMA
+		color.lightened(0.3),               # LAVA (sin uso fuera del slime de lava)
+		Color(1.0, 0.9, 0.5),               # LAVA_CALIENTE
 	]
 
 
@@ -747,6 +777,58 @@ static func _ornamentos(corona: bool) -> Array:
 	return out
 
 
+# LA LAVA: sobre el cuerpo ya pintado se abren las JUNTAS encendidas entre placas (un patron de
+# celdas tipo Voronoi: donde un punto queda casi a la misma distancia de dos semillas, hay junta).
+#
+# EL PATRON VA PEGADO AL CUERPO, no a la pantalla: se mide en coordenadas de la elipse del cuerpo de
+# ESTE fotograma (su centro y su radio), asi que bota, se estira y se lanza con el. Pegado al lienzo,
+# el bicho se moveria por debajo de un dibujo quieto -- la lava resbalando sobre el slime.
+#
+# Solo toca las celdas del CUERPO (sombra, base y brillos): los ojos, el contorno y los cuernos se
+# quedan como estan.
+const LAVA_SEMILLAS := [
+	Vector2(-0.55, -0.55), Vector2(0.05, -0.70), Vector2(0.60, -0.45), Vector2(-0.75, 0.05),
+	Vector2(-0.15, -0.10), Vector2(0.45, 0.10), Vector2(0.85, -0.05), Vector2(-0.45, 0.55),
+	Vector2(0.15, 0.55), Vector2(0.70, 0.60), Vector2(-0.05, 0.95), Vector2(-0.90, -0.60),
+]
+const LAVA_JUNTA := 0.16      # ancho de la junta, en fraccion del cuerpo
+const LAVA_NUCLEO := 0.06     # dentro de ella, la parte al rojo blanco
+
+static func _lava_encima(plant: PackedByteArray, lz: Vector2i, piezas: Array) -> void:
+	var cuerpo: Dictionary = {}
+	for p in piezas:
+		if int(p["tono"]) == Tono.SOMBRA:
+			cuerpo = p
+			break
+	if cuerpo.is_empty():
+		return
+	var c: Vector2 = cuerpo["pos"]
+	var r: Vector2 = cuerpo["radio"]
+	if r.x <= 0.5 or r.y <= 0.5:
+		return
+	var cuerpo_tonos := [Tono.SOMBRA, Tono.BASE, Tono.CLARO, Tono.CLARO_TENUE]
+	for y in lz.y:
+		for x in lz.x:
+			var i: int = y * lz.x + x
+			if not cuerpo_tonos.has(int(plant[i])):
+				continue
+			var q := Vector2((float(x) + 0.5 - c.x) / r.x, (float(y) + 0.5 - c.y) / r.y)
+			var d1: float = 99.0
+			var d2: float = 99.0
+			for s in LAVA_SEMILLAS:
+				var d: float = q.distance_to(s)
+				if d < d1:
+					d2 = d1
+					d1 = d
+				elif d < d2:
+					d2 = d
+			var borde: float = d2 - d1
+			if borde < LAVA_NUCLEO:
+				plant[i] = Tono.LAVA_CALIENTE
+			elif borde < LAVA_JUNTA:
+				plant[i] = Tono.LAVA
+
+
 # La plantilla de un frame: que tono le toca a cada celda.
 static func _plantilla(dir: int, pose: Dictionary, corona: bool, esc: float) -> PackedByteArray:
 	var lz: Vector2i = _lienzo(esc)
@@ -762,6 +844,9 @@ static func _plantilla(dir: int, pose: Dictionary, corona: bool, esc: float) -> 
 		var r: Vector2 = p["radio"]
 		SpriteLienzo.elipse(plant, lz.x, lz.y, pos.x, pos.y, r.x, r.y, int(p["tono"]),
 			0.0, p["solo_sobre"], float(p["persp"]))
+
+	if _lava:
+		_lava_encima(plant, lz, piezas)
 
 	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear). La sombra del
 	# suelo cuenta como hueco: es una mancha translucida, no parte del bicho, y perfilarla la

@@ -26,6 +26,7 @@ enemy_name = "Slime de fuego"
 color = Color(1, 0.5, 0.12, 1)
 escala_visual = 1.6
 es_slime = true
+lava_slime = true
 base_hp = 46.0
 base_attack = 4.0
 crystal_category_min = 2

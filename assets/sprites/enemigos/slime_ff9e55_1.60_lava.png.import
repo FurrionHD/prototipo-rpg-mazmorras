@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bp48ofd7wyapl"
-path="res://.godot/imported/slime_ff862b_1.60.png-46b1c136e780b51862e1a6fb379a9a1d.ctex"
+uid="uid://3yx4kim5k3t"
+path="res://.godot/imported/slime_ff9e55_1.60_lava.png-a69372daa7b9b47647e2abe85caa4a98.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/slime_ff862b_1.60.png"
-dest_files=["res://.godot/imported/slime_ff862b_1.60.png-46b1c136e780b51862e1a6fb379a9a1d.ctex"]
+source_file="res://assets/sprites/enemigos/slime_ff9e55_1.60_lava.png"
+dest_files=["res://.godot/imported/slime_ff9e55_1.60_lava.png-a69372daa7b9b47647e2abe85caa4a98.ctex"]
 
 [params]
 
