@@ -22,6 +22,7 @@ dev_*.png
 !dev_inventario.*
 !dev_tiers.*
 !dev_personaje.*
+!dev_iconos.*
 !dev_magia_arma.*
 !dev_tienda.*
 !dev_tochos.*

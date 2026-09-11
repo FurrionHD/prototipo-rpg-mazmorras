@@ -46,6 +46,9 @@ const LADO_BASE := 16.0
 # lo unico que consigue la diferencia de tamaño es que el cubo aplaste a todo lo demas -- que es
 # exactamente lo que pasaba en la primera version.
 const ENCAJE := {"cubo": 0.68, "frasco": 1.0, "libro": 0.92, "cuenco": 1.0}
+const ENCAJE_DIBUJO := 1.12
+
+const SpritesObjeto = preload("res://scripts/ui/sprites_objeto.gd")
 
 
 # Dibuja el item CENTRADO en 'centro', ocupando un cuadrado de 'lado'. 'ci' es cualquier CanvasItem
@@ -56,6 +59,11 @@ const ENCAJE := {"cubo": 0.68, "frasco": 1.0, "libro": 0.92, "cuenco": 1.0}
 static func pintar(ci: CanvasItem, centro: Vector2, lado: float, item: Resource,
 		encajar: bool = false) -> void:
 	if item == null:
+		return
+	# LOS DIBUJOS DE VERDAD primero (ver sprites_objeto.gd): mineral, lingote, piel, libro, cristal...
+	# Lo que todavia no tiene dibujo cae a lo de abajo (cubo, frasco, cuenco). Con 'encajar' se le da
+	# un pelo mas de hueco que al cubo: el dibujo ya trae su aire dentro de la rejilla.
+	if SpritesObjeto.pintar_item(ci, centro, lado * (ENCAJE_DIBUJO if encajar else 1.0), item):
 		return
 	if item is ConsumableData:
 		var cd := item as ConsumableData
