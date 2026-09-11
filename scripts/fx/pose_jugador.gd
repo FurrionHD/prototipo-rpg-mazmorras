@@ -291,15 +291,18 @@ const ANIMS := [
 	# 'segar': agachado, la mano izquierda sujeta la mata y la derecha da el tajo corto con la hoz.
 	# Mismo reparto que talar (0 = 7 remate, 1-3 armar, 4-7 tajo con el corte en el 6).
 	{"n": "segar", "loop": false, "fps": 16.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
+	# 'extraer': de rodillas junto al cadaver, la izquierda apoyada en el cuerpo y la derecha metiendo
+	# el cuchillo de arriba abajo. Mismo reparto (0 = 7 remate, 1-3 alzar, 4-7 el corte en el 6).
+	{"n": "extraer", "loop": false, "fps": 16.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
 ]
 
 # Las faenas, por su nombre base. Las capas que se ven "envainadas" (la espada a la cadera) tambien
 # salen en ellas, y cada herramienta en la mano sale SOLO en la suya (ver ArmaSprites.HERRAMIENTA_ANIM).
-const FAENAS := ["picar", "talar", "segar"]
+const FAENAS := ["picar", "talar", "segar", "extraer"]
 # En que fotograma de cada faena empieza la DESCARGA y en cual pega. La faena arranca la animacion
 # desde el primero al soltar el golpe, y del segundo sale cuando saltan las esquirlas.
-const FAENA_DESCARGA := {"picar": 4, "talar": 4, "segar": 4}
-const FAENA_IMPACTO := {"picar": 6, "talar": 6, "segar": 6}
+const FAENA_DESCARGA := {"picar": 4, "talar": 4, "segar": 4, "extraer": 4}
+const FAENA_IMPACTO := {"picar": 6, "talar": 6, "segar": 6, "extraer": 6}
 # Las que se ARMAN CON LA CARGA del minijuego (el pico sube mientras mantienes). Las demas van de
 # COMPAS: tras cada golpe se vuelven a armar solas y esperan armadas al siguiente.
 const FAENA_CARGA := ["picar"]
@@ -912,6 +915,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"picar": return _pose_picar(t)
 		"talar": return _pose_talar(t)
 		"segar": return _pose_segar(t)
+		"extraer": return _pose_extraer(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1113,6 +1117,22 @@ static func _pose_segar(t: float) -> Dictionary:
 	return {"brazo_der": SpriteLienzo.tramos(t, der_keys), "brazo_izq": 0.80,
 		"torsion": SpriteLienzo.tramos(t, tor_keys),
 		"agacha": 0.78, "inclina": 0.20, "paso": 0.10}
+
+
+# EXTRAER EL CRISTAL. De rodillas (mas bajo que segar: el cuerpo esta tirado en el suelo), el tronco
+# echado sobre el cadaver y la izquierda apoyada en el. La derecha sube el cuchillo y lo mete de arriba
+# abajo, en corto: es trabajo fino, no una puñalada. Un pelo de 'rumbo' hacia la camara para que la
+# mano del cuchillo no quede tapada detras de la cabeza.
+static func _pose_extraer(t: float) -> Dictionary:
+	# RECORRIDO GRANDE (de 2,15 a 0,55): el cuchillo va en la linea del antebrazo -- no hay muñeca que
+	# doblar --, asi que lo unico que lo hace bajar a cortar es el brazo entero bajando. Con un vaiven
+	# corto (0,7-1,4) el cuchillo se quedaba casi en horizontal y parecia que APUNTABA al cadaver.
+	var der_keys := [[0.0, 0.62], [0.143, 1.15], [0.286, 1.75], [0.429, 2.15],
+		[0.571, 2.05], [0.714, 1.30], [0.857, 0.55], [1.0, 0.62]]
+	var incl_keys := [[0.0, 0.28], [0.429, 0.20], [0.857, 0.32], [1.0, 0.28]]
+	return {"brazo_der": SpriteLienzo.tramos(t, der_keys), "brazo_izq": 0.95,
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"agacha": 0.86, "paso": 0.08, "rumbo": 0.30}
 
 
 # EN GUARDIA: con el arma fuera pero sin atacar. Como el idle (respira) pero con los dos brazos

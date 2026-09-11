@@ -13091,15 +13091,8 @@ func start_extraction(corpse: Node) -> void:
 	# MULTIJUGADOR: el net_id del cuerpo, para poder DEVOLVER el candado si la extraccion se cancela
 	# sola. Se guarda aqui porque en ese caso el nodo ya esta liberado cuando toca soltarlo.
 	_extraccion_net_id = int(corpse.get_meta("net_id")) if corpse.has_meta("net_id") else 0
-
-	var layer := CanvasLayer.new()
-	layer.layer = 100
-	layer.process_mode = Node.PROCESS_MODE_ALWAYS
-	get_tree().root.add_child(layer)
-	layer.add_child(ex)
-	_active_layer = layer
-	entrar_modal(Modal.EXTRACCION, layer)
-	esconder_mundo(true)
+	# De rodillas junto al cuerpo, en el mapa (ver scripts/world/faena.gd).
+	_abrir_faena("extraer", corpse, ex, cu, Modal.EXTRACCION)
 
 
 # 'corpse' SIN tipar a proposito: al salir del piso a media extraccion se libera con la escena, y
@@ -13107,7 +13100,7 @@ func start_extraction(corpse: Node) -> void:
 # lee siempre con is_instance_valid() antes de tocarlo.
 func _on_extraction_finished(cristal: Cristal, progreso: float, corpse) -> void:
 	salir_modal(_active_layer)
-	esconder_mundo(false)
+	_cerrar_faena()
 	# El minijuego se juega con ESPACIO, que ahora es TAMBIEN la tecla de atacar/interactuar:
 	# sin esto, la ultima pulsacion del minijuego te lanzaria contra el bicho que tengas al
 	# lado nada mas volver al mapa.
@@ -13644,15 +13637,18 @@ func _aviso_recogida(nombre: String, cantidad: int = 1, calidad_txt: String = ""
 
 # Monta la pantalla de un minijuego encima del mapa y congela el mundo. Lo comparten la
 # mineria y la herboristeria (la extraccion lo hace a mano por su cuenta, ya estaba escrito).
-func _abrir_pantalla(pantalla: Control) -> void:
+func _abrir_pantalla(pantalla: Control, modal: int = Modal.RECOLECCION) -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 100
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().root.add_child(layer)
 	layer.add_child(pantalla)
 	_active_layer = layer
-	entrar_modal(Modal.RECOLECCION, layer)
+	entrar_modal(modal, layer)
 	esconder_mundo(true)
+	# Ahora el minijuego es un medidor pequeño (ver MedidorFaena): en esta pantalla de respaldo se
+	# centra, que es donde iba cuando ocupaba la pantalla entera.
+	pantalla.position = ((pantalla.get_viewport_rect().size - pantalla.size) * 0.5).round()
 
 
 # LA FAENA EN EL MAPA (ver scripts/world/faena.gd): el hermano de _abrir_pantalla para los minijuegos
@@ -13663,10 +13659,11 @@ func _abrir_pantalla(pantalla: Control) -> void:
 var _faena: Node = null
 const _FAENA_SCRIPT := preload("res://scripts/world/faena.gd")
 
-func _abrir_faena(nombre: String, nodo, pantalla: Control, herramienta: ToolData) -> void:
+func _abrir_faena(nombre: String, nodo, pantalla: Control, herramienta: ToolData,
+		modal: int = Modal.RECOLECCION) -> void:
 	var jugador: Node = get_tree().get_first_node_in_group("player")
 	if jugador == null or not jugador.has_method("empezar_faena"):
-		_abrir_pantalla(pantalla)
+		_abrir_pantalla(pantalla, modal)
 		return
 	var layer := CanvasLayer.new()
 	layer.layer = 100
@@ -13674,12 +13671,22 @@ func _abrir_faena(nombre: String, nodo, pantalla: Control, herramienta: ToolData
 	get_tree().root.add_child(layer)
 	layer.add_child(pantalla)
 	_active_layer = layer
-	entrar_modal(Modal.RECOLECCION, layer)
+	entrar_modal(modal, layer)
 	var meta: Dictionary = item_meta.get(herramienta, {}) if herramienta != null else {}
 	_faena = _FAENA_SCRIPT.new()
 	layer.add_child(_faena)
 	_faena.empezar(nombre, nodo, jugador, pantalla, layer, int(meta.get("tier", 1)),
 		mejoras_actuales(herramienta) if es_herramienta_forjada(herramienta) else 0)
+
+
+# Deshace lo de _abrir_faena (o lo de _abrir_pantalla, si se cayo a ella). Lo llaman los dos cierres:
+# el de la recoleccion y el de la extraccion.
+func _cerrar_faena() -> void:
+	if _faena != null and is_instance_valid(_faena):
+		_faena.cerrar()
+	else:
+		esconder_mundo(false)
+	_faena = null
 
 
 # ESCONDE (o devuelve) el mapa mientras hay una pantalla modal encima.
@@ -13702,11 +13709,7 @@ func esconder_mundo(esconder: bool) -> void:
 # ahora ni cuando vuelvas al piso (su celda queda apuntada en la memoria del piso).
 func _cerrar_recoleccion(nodo) -> void:
 	salir_modal(_active_layer)
-	if _faena != null and is_instance_valid(_faena):
-		_faena.cerrar()
-	else:
-		esconder_mundo(false)
-	_faena = null
+	_cerrar_faena()
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
 		# CUANTO tarda ESTE en volver. Se decide AQUI porque es el unico punto de la cadena que

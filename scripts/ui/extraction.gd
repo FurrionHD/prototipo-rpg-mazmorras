@@ -13,6 +13,10 @@
 extends Control
 
 signal extraction_finished(cristal: Cristal, progreso: float)
+# Para la FAENA (ver scripts/world/faena.gd): cada corte, con como ha salido. SALVADO es el fallo que
+# perdona el cuchillo: se ve como un fallo, pero el cristal no se entera.
+enum Golpe { FALLO, ACIERTO, SALVADO }
+signal golpe(tipo: int)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -67,14 +71,27 @@ const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
 
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(MedidorFaena.ANCHO, MedidorFaena.ALTO)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_randomize_zone()
 	if Tactil.activo:
 		# La pantalla entera es el cuchillo (ver touch_pad.gd) y el boton es la puerta de salida, que
-		# hasta ahora no existia: sin teclado, esto era una ratonera.
-		var pad: Control = _TOUCH_PAD.new()
-		add_child(pad)
-		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+		# hasta ahora no existia: sin teclado, esto era una ratonera. Diferido y en la capa, como en
+		# mining.gd: el medidor es pequeño y la zona de pulsar tiene que seguir siendo la pantalla.
+		_montar_pad.call_deferred()
+
+
+func _montar_pad() -> void:
+	var capa: Node = get_parent()
+	if capa == null:
+		return
+	var pad: Control = _TOUCH_PAD.new()
+	capa.add_child(pad)
+	pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+func terminado() -> bool:
+	return _state == FINISHED
 
 
 # Dejar el cuerpo a medias lo CONSUME, igual que si el cristal se hubiera partido: sale por el mismo
@@ -134,12 +151,15 @@ func _attempt() -> void:
 	if _marker >= _zone_start and _marker <= _zone_start + _zone_ratio:
 		# Acierto: acelera el marcador, pero nunca por encima del techo (ver VEL_MAX).
 		_marker_speed = minf(_marker_speed + _speed_step, VEL_MAX)
+		golpe.emit(Golpe.ACIERTO)
 	elif _perdones > 0:
 		_perdones -= 1
 		_salvados += 1
 		_aviso_salvado = 1.2
+		golpe.emit(Golpe.SALVADO)
 	else:
 		_misses += 1
+		golpe.emit(Golpe.FALLO)
 	_randomize_zone()
 	# Si ya has fallado lo suficiente (roto seguro), se acaba YA.
 	if _misses >= mini(3, _presses):
@@ -181,46 +201,41 @@ func _randomize_zone() -> void:
 	_zone_start = randf() * (1.0 - _zone_ratio)
 
 
+# EL MEDIDOR, al lado del personaje (ver MedidorFaena para el estilo comun): el carril vertical con la
+# zona buena en el violeta de los cristales y el marcador que sube y baja. Debajo, las pulsaciones que
+# llevas (azul), los fallos (rojo) y, si el cuchillo perdona, los perdones que le quedan (ambar).
+const VIOLETA := Color(0.70, 0.48, 0.95)
+
 func _draw() -> void:
 	var w: float = size.x
-	var h: float = size.y
-	draw_rect(Rect2(0, 0, w, h), Color(0.08, 0.08, 0.1, 1.0))
+	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
+	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, "Cristal T%d" % _categoria, 12)
 
-	var bar_w: float = w * 0.6
-	var bar_h: float = 36.0
-	var bar_x: float = (w - bar_w) / 2.0
-	var bar_y: float = h * 0.5
+	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	MedidorFaena.carril(self, cr)
+	var zona := Rect2(cr.position.x, cr.position.y + _zone_start * cr.size.y,
+		cr.size.x, _zone_ratio * cr.size.y)
+	draw_rect(zona, VIOLETA)
+	draw_rect(Rect2(zona.position, Vector2(zona.size.x, 2.0)), Color(1, 1, 1, 0.45))
+	# Marcador GRUESO y sobresaliendo del carril: en movimiento, una raya fina se lee mucho peor.
+	var my: float = cr.position.y + _marker * cr.size.y
+	draw_rect(Rect2(cr.position.x - 7.0, my - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.25, 0.25, 0.28))
-	draw_rect(Rect2(bar_x + _zone_start * bar_w, bar_y, _zone_ratio * bar_w, bar_h),
-		Color(0.2, 0.8, 0.2))
-	# Marcador GRUESO: en movimiento, un palo de 4 px se lee mucho peor que uno de 6.
-	var mx: float = bar_x + _marker * bar_w
-	draw_rect(Rect2(mx - 3.0, bar_y - 8.0, 6.0, bar_h + 16.0), Color.WHITE)
+	MedidorFaena.marcas(self, w * 0.5, 218.0, _presses, _done - _misses, MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, 232.0, mini(3, _presses), _misses, MedidorFaena.ROJO)
+	if _perdones > 0:
+		MedidorFaena.marcas(self, w * 0.5, 244.0, _perdones, _perdones, MedidorFaena.AMBAR, 5.0)
 
-	var font: Font = ThemeDB.fallback_font
-	draw_string(font, Vector2(bar_x, bar_y - 64.0),
-		"Extracción de cristal (categoría %d)" % _categoria,
-		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
-	if _state == READY:
-		draw_string(font, Vector2(bar_x, bar_y - 30.0),
-			"Pulsa ESPACIO para empezar",
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
-	elif _state == RUNNING:
-		var cuchillo_txt: String = ""
-		if _perdones > 0:
-			cuchillo_txt = "   Cuchillo: perdona %d" % _perdones
-		draw_string(font, Vector2(bar_x, bar_y - 30.0),
-			"Pulsación %d/%d   Fallos: %d%s   ·  pulsa ESPACIO" % [
-				_done + 1, _presses, _misses, cuchillo_txt],
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
-	else:
-		var txt: String = "Cristal ROTO: lo has perdido" if _result.se_pierde() \
-			else "¡Cristal %s!" % _result.calidad_texto()
-		draw_string(font, Vector2(bar_x, bar_y - 30.0),
-			txt + "   -  ESPACIO para continuar",
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
+	var estado: String
+	var col: Color = MedidorFaena.TEXTO_SUAVE
 	if _aviso_salvado > 0.0:
-		draw_string(font, Vector2(bar_x, bar_y + bar_h + 40.0),
-			"¡El cuchillo salva el corte!", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18,
-			Color(1.0, 0.85, 0.4, minf(1.0, _aviso_salvado * 2.0)))
+		estado = "¡El cuchillo salva!"
+		col = MedidorFaena.AMBAR
+	elif _state == READY:
+		estado = "ESPACIO: empezar"
+	elif _state == RUNNING:
+		estado = "Pulsa en la zona"
+	else:
+		estado = "Roto: perdido" if _result.se_pierde() else _result.calidad_texto()
+		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
+	MedidorFaena.texto(self, 260.0, 4.0, w - 8.0, estado, 12, col)

@@ -74,12 +74,16 @@ const GEO := {
 	"hacha_talar":     {"mango": 14.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 5.0, "cabeza_forma": "hacha"},
 	# La hoz: mango corto y la hoja en MEDIA LUNA que sale de su punta (ver la forma "hoz").
 	"hoz":             {"mango": 5.5,  "hoja": 0.0,  "r_mango": 1.3, "cabeza": 5.2, "cabeza_forma": "hoz"},
+	# El cuchillo de desollar: una hoja corta y ancha con guarda pequeña, mas gruesa que la de la daga
+	# para que a ras del cadaver no se pierda.
+	"cuchillo":        {"mango": 3.5,  "hoja": 7.0,  "r_mango": 1.4, "r_hoja": 1.9, "guarda": 2.4, "punta": true, "cuerpo": 0.5, "pomo": true},
 }
 
 # LAS HERRAMIENTAS en la mano: cada una sale SOLO en la animacion de su faena (ver PoseJugador.FAENAS),
 # y no se monta en el muñeco mas que mientras dura (ver JugadorSprites.capa_herramienta). Las de dos
 # manos se agarran con las dos, como un hacha grande.
-const HERRAMIENTA_ANIM := {"pico": "picar", "hacha_talar": "talar", "hoz": "segar"}
+const HERRAMIENTA_ANIM := {"pico": "picar", "hacha_talar": "talar", "hoz": "segar",
+	"cuchillo": "extraer"}
 const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 
 # En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver

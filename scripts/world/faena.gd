@@ -44,6 +44,12 @@ const REACCION := {
 		"sonido": ["talar_fallo", "talar_limpio"]},
 	"segar": {"fuerza": [0.8, 0.45, 0.6], "trozos": [8, 5, 6], "altura": 0.25, "gravedad": 110.0,
 		"sonido": ["segar_fallo", "segar_limpio", "segar_sucio"]},
+	#   extraer: FALLO raja el cristal (esquirlas rojas del cuerpo), ACIERTO lo va soltando (destellos
+	#            violeta, del color de los cristales), SALVADO es el fallo que perdona el cuchillo (se
+	#            ve fallar, pero salta cristal y no carne).
+	"extraer": {"fuerza": [0.7, 0.35, 0.5], "trozos": [6, 5, 5], "altura": 0.0, "gravedad": 180.0,
+		"colores": [Color(0.55, 0.10, 0.10), Color(0.78, 0.55, 1.0), Color(0.95, 0.80, 0.45)],
+		"sonido": ["extraer_fallo", "extraer_acierto", "extraer_salvado"]},
 }
 const COLOR_PIEDRA := Color(0.55, 0.52, 0.48)
 const COLOR_MADERA := Color(0.62, 0.45, 0.28)
@@ -105,8 +111,9 @@ func empezar(faena_: String, nodo_, jugador_, medidor_: Control, layer_: CanvasL
 	var destino: Vector2 = jugador.global_position
 	var gen = _generador()
 	var libre: bool = false
+	var celda: Vector2i = _celda_de(nodo)
 	for s in [pref, -pref]:
-		if gen == null or gen.es_suelo(nodo.celda + Vector2i(int(s), 0)):
+		if gen == null or gen.es_suelo(celda + Vector2i(int(s), 0)):
 			_lado = s
 			libre = true
 			break
@@ -143,8 +150,24 @@ func _plantarse(tier: int, mejoras: int) -> void:
 	_listo = true
 
 
+# EL CADAVER va aparte: no es un recurso del mapa sino un bicho muerto, y los hay desde una rata hasta
+# un jefe. Se aparta la mitad de lo que mide su cuerpo (el mismo tam_cuerpo con el que choca en vida)
+# mas un margen, para arrodillarse AL LADO y no encima.
 func _dist() -> float:
+	if faena == "extraer" and nodo != null and is_instance_valid(nodo):
+		var tam = nodo.get("_tam_cuerpo")
+		var ancho: float = (tam as Vector2).x if tam is Vector2 and tam != Vector2.ZERO else 24.0
+		return 12.0 + ancho * 0.5
 	return float(DIST.get(faena, 20.0))
+
+
+# La casilla del recurso. Los del mapa la traen; el cadaver se la calcula por donde ha caido.
+func _celda_de(n) -> Vector2i:
+	var c = n.get("celda")
+	if c is Vector2i:
+		return c
+	var lado: float = float(DungeonGenerator.CELDA)
+	return Vector2i(floori(n.global_position.x / lado), floori(n.global_position.y / lado))
 
 
 func _generador():
@@ -193,6 +216,12 @@ func _devolver_camara() -> void:
 #  CADA FOTOGRAMA
 # ============================================================
 func _process(delta: float) -> void:
+	# SI TE SACAN DEL PISO A MEDIAS (multijugador: otro cambia de piso y te lleva), el jugador y su
+	# muñeco se van con la escena vieja. La extraccion se auto-cancela sola (extraction.gd) y Game
+	# cierra esto; mientras tanto, no se toca nada que ya no existe.
+	if jugador == null or not is_instance_valid(jugador):
+		_muneco = null
+		return
 	_colocar_medidor()
 	# La oscuridad sigue a la camara aunque el juego este en pausa (ver Niebla.seguir_en_pausa).
 	var niebla: Node = get_tree().get_first_node_in_group("niebla")
@@ -225,7 +254,8 @@ func _process(delta: float) -> void:
 
 # El medidor sigue al personaje en pantalla, al lado CONTRARIO al recurso (que no tape el golpe).
 func _colocar_medidor() -> void:
-	if medidor == null or not is_instance_valid(medidor) or jugador == null:
+	if medidor == null or not is_instance_valid(medidor) or jugador == null \
+			or not is_instance_valid(jugador):
 		return
 	var vp: Viewport = medidor.get_viewport()
 	if vp == null:
@@ -268,13 +298,17 @@ func _impacto() -> void:
 	var fuerza: float = float(r["fuerza"][i])
 	if nodo.has_method("sacudir"):
 		nodo.sacudir(fuerza)
+	else:
+		_sacudir(nodo, fuerza)
 	var base: Color = {"talar": COLOR_MADERA, "segar": COLOR_HOJA}.get(faena, COLOR_PIEDRA)
 	var col: Color = base
-	var md: MaterialData = nodo.get("material_data")
-	if md != null:
-		col = md.color.lerp(base, 0.45)
+	var md = nodo.get("material_data")
+	if md is MaterialData:
+		col = (md as MaterialData).color.lerp(base, 0.45)
+	if r.has("colores"):
+		col = r["colores"][i]
 	var donde: Vector2 = nodo.punto_golpe(float(r["altura"])) if nodo.has_method("punto_golpe") \
-		else nodo.global_position
+		else nodo.global_position + Vector2(0.0, -4.0)
 	var padre: Node = nodo.get_parent()
 	if padre != null:
 		var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-_lado, 0.0),
@@ -288,6 +322,23 @@ func _impacto() -> void:
 			h.global_position = donde + Vector2(0.0, -10.0)
 			h.z_index = 50
 	Sonido.ui(String(r["sonido"][i]))
+
+
+# El temblor de lo que no sabe temblar solo (el cadaver): un vaiven corto de lado a lado que vuelve
+# a su sitio. Mismo gesto que ResourceNode.sacudir, saltandose la pausa igual.
+var _temblor: Tween = null
+var _base_pos := Vector2.INF
+
+func _sacudir(n: Node2D, fuerza: float) -> void:
+	if _base_pos == Vector2.INF:
+		_base_pos = n.position
+	if _temblor != null and _temblor.is_valid():
+		_temblor.kill()
+	n.position = _base_pos
+	var a: float = 1.8 * fuerza
+	_temblor = n.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	for k in [1.0, -0.7, 0.4, 0.0]:
+		_temblor.tween_property(n, "position", _base_pos + Vector2(a * k, 0.0), 0.035)
 
 
 # ============================================================
