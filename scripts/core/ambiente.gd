@@ -149,7 +149,11 @@ func poner(contexto: String) -> void:
 	else:
 		_fondo[_cual].volume_db = DB_FONDO
 	_fondo[_cual].stream = s
-	_fondo[_cual].play()
+	# POR UN SITIO AL AZAR, como los posicionales (ver pegar). Los bucles son grabaciones de un
+	# minuto CON SUCESOS DENTRO, no un zumbido plano, y el pueblo solo tiene dos:
+	# arrancando del segundo 0, cada vez que entrabas sonaba lo mismo, en el mismo orden y nada mas
+	# llegar, y lo que era fondo se oia como una secuencia.
+	_fondo[_cual].play(randf() * maxf(0.1, s.get_length()))
 
 
 func callar() -> void:
