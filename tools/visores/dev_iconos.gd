@@ -46,6 +46,9 @@ func _ready() -> void:
 	items.append_array(_por_tipo(MaterialData.Tipo.TABLON))
 	items.append_array(_por_tipo(MaterialData.Tipo.CUERO))
 	items.append_array(_por_tipo(MaterialData.Tipo.NUCLEO))
+	items.append_array(_por_tipo(MaterialData.Tipo.BABA))
+	items.append_array(_por_tipo(MaterialData.Tipo.PLANTA))
+	items.append_array(_por_tipo(MaterialData.Tipo.COMBUSTIBLE))
 	for r in ["res://resources/consumables/grimorio_bola_fuego.tres",
 			"res://resources/consumables/grimorio_tormenta.tres"]:
 		items.append(load(r))

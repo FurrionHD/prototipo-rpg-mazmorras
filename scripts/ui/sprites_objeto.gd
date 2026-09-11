@@ -42,6 +42,9 @@ const FIJOS := {
 	"W": Color(1.0, 1.0, 1.0), "Y": Color(1.0, 0.95, 0.72),       # el destello del PURO
 	"F": Color(0.46, 0.74, 0.30), "f": Color(0.27, 0.52, 0.20),   # la hojita del tronco y de la rama
 	"L": Color(1.0, 0.50, 0.12), "K": Color(1.0, 0.86, 0.36),     # las grietas encendidas de la lava
+	"P": Color(0.88, 0.60, 0.62), "p": Color(0.64, 0.38, 0.42),   # la carne rosa de colas y orejas
+	"R": Color(0.92, 0.18, 0.16), "E": Color(1.0, 0.84, 0.24),    # ojos: rojo de araña, amarillo de fiera
+	"I": Color(0.95, 0.92, 0.82), "i": Color(0.70, 0.64, 0.52),   # marfil de cuernos y colmillos
 }
 # 'A' y 'N' son la CARNE CLARA de la madera cortada y sus ANILLOS. No son fijos: salen del color de
 # cada madera (ver _paleta), porque el corte de un tronco negro no es del mismo tono que el de un pino.
@@ -57,6 +60,12 @@ static func pintar_item(ci: CanvasItem, centro: Vector2, lado: float, item: Reso
 	var e: Dictionary = _encargo(item)
 	if e.is_empty():
 		return false
+	if e.has("planta"):
+		_pintar_imagen(ci, centro, lado, _imagen_planta(int(e["planta"]), e["color"],
+			int(e.get("grietas", 0))))
+		if bool(e.get("puro", false)):
+			_destello(ci, centro, lado, RES_SUELO if lado < LADO_SUELO else RES_GRANDE)
+		return true
 	var res: int = RES_SUELO if lado < LADO_SUELO else RES_GRANDE
 	var clave: String = "%s|%d|%d" % [e["forma"], int(e.get("grietas", 0)), res]
 	var celdas: PackedByteArray = _cache.get(clave, PackedByteArray())
@@ -95,7 +104,12 @@ static func _encargo(item: Resource) -> Dictionary:
 		var marca: String = "rombo" if cd.es_grimorio() else ("chispa" if cd.es_tomo_sabio() else "nada")
 		return {"forma": "libro_" + marca, "color": cd.color_suelo()}
 	if item is BackpackData:
-		return {"forma": "mochila", "color": Color(0.58, 0.36, 0.20)}
+		# EL CUERO DE SU TIER Y SU MEJORA, el mismo que lleva una armadura de cuero (PaletaEquipo): antes
+		# todas las mochilas salian del mismo marron y una T3 no se distinguia de la basica.
+		var m: Dictionary = Game.meta_de(item)
+		var mej: int = Game.mejoras_actuales(item)
+		return {"forma": "mochila",
+			"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 	return {}
 
 
@@ -104,7 +118,24 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 		return {}
 	var id: String = String(d.id)
 	var forma: String = ""
+	# LAS PLANTAS QUE SE RECOGEN salen con SU dibujo del suelo (el del nodo del mapa, lo pidio el jefe):
+	# la misma hierba que arrancas es la que ves en la bolsa. El indice es el de resource_node.
+	if d.tipo == MaterialData.Tipo.PLANTA and PLANTAS_DEL_SUELO.has(id):
+		return {"planta": (clampi(d.tier, 1, 3) - 1) * 3 + d.forma_recolectable(), "color": d.color}
 	match d.tipo:
+		MaterialData.Tipo.BABA:
+			# Las babas de SLIME, como gelatina (la referencia del jefe); la de fuego, de lava. El icor y
+			# el veneno de insecto no son de slime: esperan su dibujo.
+			if id == "baba_fuego":
+				forma = "baba_lava"
+			elif id.begins_with("baba_"):
+				forma = "baba"
+		MaterialData.Tipo.COMBUSTIBLE:
+			var de_madera: bool = false
+			for m in ["vegetal", "anillado", "calcinada", "latente", "petrificado"]:
+				if id.contains(m):
+					de_madera = true
+			forma = "carbon_vegetal" if de_madera else "carbon"
 		MaterialData.Tipo.MINERAL:
 			forma = ["mineral", "mineral_veteado", "mineral_profundo"][clampi(d.forma_recolectable(), 0, 2)]
 		MaterialData.Tipo.LINGOTE:
@@ -119,19 +150,14 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 		MaterialData.Tipo.TABLON:
 			forma = "tablon"
 		MaterialData.Tipo.NUCLEO:
-			forma = "nucleo_" + _estilo_nucleo(id)
+			forma = "nucleo_" + id.trim_prefix("nucleo_")
 		MaterialData.Tipo.CUERO:
-			if id.begins_with("curtido_"):
-				forma = "cuero"
+			if id.begins_with("curtido_") or id == "cuero_curtido":
+				forma = "cuero"   # cuero_curtido se llama "Cuero simple": ya esta trabajado, no es pellejo
 			elif id.begins_with("correa_"):
 				forma = "correa"
-			elif id.begins_with("quitina"):
-				forma = "quitina"
-			elif id.begins_with("cuero_"):
-				# LAS PIELES NO SON TODAS IGUALES: salen de bichos distintos, asi que unas van lisas, otras
-				# con manchas y otras con rayas (como la hoja de referencia del jefe). Se elige por el id,
-				# para que la misma piel salga siempre igual.
-				forma = ["piel_lisa", "piel_manchas", "piel_rayas"][absi(hash(id)) % 3]
+			elif PIEL_DE.has(id):
+				forma = PIEL_DE[id]
 	if forma == "":
 		return {}
 	# La VETA es otro color, no el mismo mas claro (la leccion de las vetas del mapa): se tuerce el tono
@@ -139,6 +165,21 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 	var veta: Color = Color.from_hsv(fposmod(d.color.h + 0.05, 1.0), d.color.s * 0.55,
 		minf(1.0, d.color.v + 0.42))
 	return {"forma": forma, "color": d.color, "veta": veta}
+
+
+const PLANTAS_DEL_SUELO := ["hierba_palida", "raiz_amarga", "sanguinaria", "moho_simas",
+	"raiz_umbria", "liquen_abisal", "musgo_ciego", "zarza_retorcida", "flor_de_sima"]
+
+
+# DE QUE BICHO ES CADA PIEL, sacado de los drops de scenes/actors/enemy/. Cada una lleva el pellejo
+# de SU bicho (lo pidio el jefe: la rata con su cola, el jabali con sus cerdas...). Si una piel nueva
+# no esta aqui, sale el cubo: mejor eso que el pellejo de otro.
+const PIEL_DE := {
+	"cuero_simple": "piel_rata", "cuero_curado": "piel_rey_rata", "cuero_brunido": "piel_jabali",
+	"cuero_placado": "piel_acechador", "cuero_endurecido": "piel_chupasimas",
+	"cuero_reforzado": "piel_arana", "cuero_acorazado": "piel_bestia", "cuero_t3": "piel_minotauro",
+	"quitina": "quitina", "quitina_segada": "quitina_segada",
+}
 
 
 # Cuantas grietas lleva cada estado. Mismo criterio para todo lo que tiene calidad (lo pidio el jefe:
@@ -196,7 +237,12 @@ static func _facetas(forma: String) -> Array:
 		return _nucleo(forma.trim_prefix("nucleo_"))
 	match forma:
 		"tronco": return _tronco()
-		"quitina": return _quitina()
+		"baba": return _baba(false)
+		"baba_lava": return _baba(true)
+		"carbon": return _carbon()
+		"carbon_vegetal": return _carbon_vegetal()
+		"quitina": return _quitina(false)
+		"quitina_segada": return _quitina(true)
 		"mineral": return _mineral(0)
 		"mineral_veteado": return _mineral(1)
 		"mineral_profundo": return _mineral(2)
@@ -223,6 +269,23 @@ static func _pol(t: String, v: Array) -> Dictionary:
 
 static func _lin(t: String, v: Array) -> Dictionary:
 	return {"l": P(v), "t": t}
+
+
+# Una TIRA con grosor a lo largo de una polilinea: colas, patas, tentaculos, antenas. El grosor va de
+# 'a0' en la punta de salida a 'a1' en la de llegada, asi una cola nace gorda y acaba en punta.
+static func _tira(t: String, v: Array, a0: float, a1: float) -> Dictionary:
+	var pts: PackedVector2Array = P(v)
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	for i in pts.size():
+		var dir: Vector2 = (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var nn := Vector2(-dir.y, dir.x)
+		var a: float = lerpf(a0, a1, float(i) / float(maxi(pts.size() - 1, 1))) * 0.5
+		izq.append(pts[i] + nn * a)
+		der.append(pts[i] - nn * a)
+	der.reverse()
+	izq.append_array(der)
+	return {"p": izq, "t": t}
 
 
 # Una elipse como poligono (para lo redondo: anillas, ruedas de correa).
@@ -381,39 +444,125 @@ static func _correa() -> Array:
 	]
 
 
-# LA PIEL EN BRUTO: el pellejo abierto, con sus cuatro patas, la cabeza arriba y la cola abajo. Como
-# la hoja de referencia del jefe, y como alli, no todas iguales: lisas, con manchas o con rayas.
-static func _piel(dibujo: String) -> Array:
-	var out: Array = [
-		# patas
-		_pol("b", [0.34, 0.30, 0.16, 0.18, 0.10, 0.24, 0.28, 0.42]),
-		_pol("b", [0.66, 0.30, 0.84, 0.18, 0.90, 0.24, 0.72, 0.42]),
-		_pol("s", [0.32, 0.66, 0.10, 0.76, 0.14, 0.84, 0.36, 0.76]),
-		_pol("s", [0.68, 0.66, 0.90, 0.76, 0.86, 0.84, 0.64, 0.76]),
-		# la cola
-		_pol("s", [0.46, 0.82, 0.54, 0.82, 0.60, 0.96, 0.54, 0.97]),
-		# el cuerpo, con el borde mordido de un pellejo (no un ovalo limpio)
-		_pol("b", [0.36, 0.18, 0.42, 0.14, 0.50, 0.10, 0.58, 0.14, 0.64, 0.18, 0.70, 0.30, 0.73, 0.40,
-			0.71, 0.50, 0.74, 0.60, 0.70, 0.72, 0.62, 0.82, 0.50, 0.87, 0.38, 0.82, 0.30, 0.72, 0.26, 0.60,
-			0.29, 0.50, 0.27, 0.40, 0.30, 0.30]),
-		# la cabeza
-		_pol("s", [0.42, 0.16, 0.50, 0.04, 0.58, 0.16, 0.50, 0.22]),
-		# la barriga clara y el costado en sombra
-		_pol("l", [0.42, 0.28, 0.58, 0.28, 0.62, 0.52, 0.50, 0.70, 0.38, 0.52]),
-		_pol("s", [0.66, 0.30, 0.73, 0.40, 0.71, 0.50, 0.74, 0.60, 0.70, 0.72, 0.64, 0.66, 0.66, 0.48]),
-		# el pelo: trazos cortos
-		_lin("s", [0.36, 0.34, 0.38, 0.40]), _lin("s", [0.60, 0.60, 0.62, 0.66]),
-		_lin("h", [0.46, 0.34, 0.48, 0.40]),
-	]
-	match dibujo:
-		"manchas":
-			for m in [[0.40, 0.44, 0.06], [0.58, 0.36, 0.05], [0.50, 0.62, 0.06], [0.64, 0.56, 0.04],
-					[0.34, 0.62, 0.04]]:
-				out.append(_elipse("d", m[0], m[1], m[2], m[2] * 0.8, 8))
-		"rayas":
-			for yy in [0.30, 0.42, 0.54, 0.66, 0.76]:
-				out.append(_lin("d", [0.30, yy, 0.40, yy + 0.03]))
-				out.append(_lin("d", [0.70, yy, 0.60, yy + 0.03]))
+# LA PIEL EN BRUTO: el pellejo abierto de SU bicho, visto desde arriba, con la cabeza arriba (la hoja
+# de referencia del jefe). Cada una se reconoce por lo que tenia el animal: la cola rosa de la rata,
+# las cerdas del jabali, las ocho patas de la araña... El color es el del .tres de la piel.
+static func _piel(bicho: String) -> Array:
+	var out: Array = []
+	match bicho:
+		"rata", "rey_rata":
+			var rey: bool = bicho == "rey_rata"
+			var k: float = 1.15 if rey else 1.0
+			# la cola rosa, larga y enroscada, y las orejas: es lo que dice "rata" de un vistazo
+			out.append(_tira("P", [0.50, 0.74, 0.54, 0.86, 0.66, 0.92, 0.80, 0.86, 0.84, 0.76], 0.07 * k, 0.02))
+			out.append(_elipse("p", 0.40, 0.14, 0.06 * k, 0.06 * k, 10))
+			out.append(_elipse("p", 0.60, 0.14, 0.06 * k, 0.06 * k, 10))
+			out.append_array(_patas4(0.5, 0.46, 0.14 * k, 0.24 * k, 0.12, "b"))
+			out.append(_elipse("b", 0.5, 0.46, 0.17 * k, 0.28 * k, 22))
+			out.append(_pol("b", [0.42, 0.22, 0.50, 0.08, 0.58, 0.22]))
+			out.append({"p": _elipse("l", 0.47, 0.44, 0.08 * k, 0.18 * k, 14)["p"], "t": "l", "dentro": true})
+			out.append(_lin("s", [0.40, 0.40, 0.42, 0.48]))
+			out.append(_lin("s", [0.58, 0.52, 0.60, 0.60]))
+			if rey:
+				# EL REY: mas grande, rasgado y con cicatrices -- ha vivido mucho mas que una rata
+				out.append(_pol(".", [0.66, 0.36, 0.72, 0.40, 0.66, 0.44]))
+				out.append(_lin("d", [0.38, 0.56, 0.46, 0.64]))
+				out.append(_lin("d", [0.54, 0.30, 0.62, 0.36]))
+				out.append({"p": _elipse("d", 0.5, 0.46, 0.04, 0.24, 10)["p"], "t": "d", "dentro": true})
+		"jabali":
+			# ANCHO Y CORTO, con la CRESTA de cerdas oscuras por el lomo y las pezuñas en las patas
+			out.append_array(_patas4(0.5, 0.50, 0.22, 0.24, 0.11, "s"))
+			for pz in [[0.22, 0.26], [0.78, 0.26], [0.22, 0.76], [0.78, 0.76]]:
+				out.append(_elipse("d", pz[0], pz[1], 0.035, 0.035, 8))
+			out.append(_tira("s", [0.50, 0.78, 0.54, 0.86, 0.50, 0.90], 0.04, 0.02))
+			out.append(_elipse("b", 0.5, 0.50, 0.26, 0.28, 24))
+			out.append(_pol("b", [0.40, 0.26, 0.44, 0.10, 0.50, 0.16, 0.56, 0.10, 0.60, 0.26]))
+			out.append({"p": _elipse("l", 0.44, 0.48, 0.12, 0.18, 14)["p"], "t": "l", "dentro": true})
+			out.append(_pol("d", [0.47, 0.18, 0.53, 0.18, 0.56, 0.30, 0.52, 0.42, 0.56, 0.56, 0.52, 0.70,
+				0.50, 0.78, 0.48, 0.70, 0.44, 0.56, 0.48, 0.42, 0.44, 0.30]))
+			for i in 5:
+				var y: float = 0.30 + 0.09 * float(i)
+				out.append(_lin("s", [0.36, y, 0.42, y + 0.03]))
+				out.append(_lin("s", [0.64, y, 0.58, y + 0.03]))
+		"acechador":
+			# ESBELTO y MOTEADO, con las patas largas y una cola larguisima: un felino, lo contrario del jabali
+			out.append(_tira("s", [0.52, 0.80, 0.58, 0.90, 0.72, 0.94, 0.86, 0.88, 0.90, 0.78], 0.06, 0.03))
+			out.append_array(_patas4(0.5, 0.48, 0.13, 0.24, 0.07, "b", 1.5))
+			out.append(_elipse("b", 0.5, 0.48, 0.15, 0.32, 22))
+			out.append(_pol("b", [0.40, 0.18, 0.44, 0.08, 0.50, 0.12, 0.56, 0.08, 0.60, 0.18]))
+			out.append({"p": _elipse("s", 0.56, 0.52, 0.06, 0.26, 12)["p"], "t": "s", "dentro": true})
+			for m in [[0.46, 0.30], [0.54, 0.40], [0.44, 0.50], [0.56, 0.60], [0.48, 0.70], [0.42, 0.40],
+					[0.58, 0.28]]:
+				var e: Dictionary = _elipse("d", m[0], m[1], 0.03, 0.025, 8)
+				e["dentro"] = true
+				out.append(e)
+		"chupasimas":
+			# PIEL DE SANGUIJUELA: sin patas, larga como una babosa, anillada y brillante, con una ventosa
+			# en cada punta.
+			out.append(_pol("b", [0.40, 0.12, 0.60, 0.12, 0.66, 0.30, 0.68, 0.50, 0.66, 0.70, 0.60, 0.88,
+				0.40, 0.88, 0.34, 0.70, 0.32, 0.50, 0.34, 0.30]))
+			out.append({"p": P([0.40, 0.12, 0.48, 0.12, 0.42, 0.30, 0.40, 0.50, 0.42, 0.70, 0.46, 0.88,
+				0.40, 0.88, 0.34, 0.70, 0.32, 0.50, 0.34, 0.30]), "t": "l", "dentro": true})
+			for i in 7:
+				var y2: float = 0.20 + 0.10 * float(i)
+				out.append(_lin("d", [0.34, y2, 0.50, y2 + 0.02, 0.66, y2]))
+			out.append(_elipse("s", 0.5, 0.14, 0.07, 0.04, 10))
+			out.append(_elipse("s", 0.5, 0.86, 0.08, 0.05, 10))
+			out.append(_lin("h", [0.40, 0.24, 0.39, 0.40]))
+		"arana":
+			# OCHO PATAS finas y dobladas alrededor de un cuerpo redondo y peludo.
+			for lado in [-1.0, 1.0]:
+				for i in 4:
+					var y3: float = 0.36 + 0.08 * float(i)
+					var x0: float = 0.5 + lado * 0.14
+					var x1: float = 0.5 + lado * 0.36
+					var x2: float = 0.5 + lado * 0.44
+					out.append(_tira("d", [x0, y3, x1, y3 - 0.10 + 0.05 * float(i), x2,
+						y3 + 0.06 + 0.05 * float(i)], 0.05, 0.025))
+			out.append(_elipse("b", 0.5, 0.56, 0.18, 0.22, 20))
+			out.append(_elipse("b", 0.5, 0.30, 0.10, 0.09, 14))
+			out.append({"p": _elipse("l", 0.46, 0.52, 0.08, 0.10, 12)["p"], "t": "l", "dentro": true})
+			out.append(_pol("R", [0.50, 0.50, 0.54, 0.56, 0.50, 0.66, 0.46, 0.56]))
+			for m in [[0.42, 0.64], [0.58, 0.46], [0.60, 0.62]]:
+				out.append(_lin("s", [m[0], m[1], m[0] + 0.02, m[1] + 0.04]))
+		"bestia":
+			# PELLEJO ANCHO CON BANDAS DE PLACAS, como un armadillo: es la piel de un animal blindado.
+			out.append_array(_patas4(0.5, 0.50, 0.24, 0.22, 0.12, "s"))
+			out.append(_elipse("b", 0.5, 0.50, 0.28, 0.30, 24))
+			out.append(_pol("s", [0.42, 0.24, 0.46, 0.12, 0.54, 0.12, 0.58, 0.24]))
+			for i in 6:
+				var y4: float = 0.28 + 0.08 * float(i)
+				out.append({"p": P([0.20, y4, 0.80, y4, 0.80, y4 + 0.035, 0.20, y4 + 0.035]), "t": "l",
+					"dentro": true})
+				out.append(_lin("d", [0.22, y4 + 0.05, 0.78, y4 + 0.05]))
+		"minotauro":
+			# LA PIEL DE TORO: ancha, las cuatro patas abiertas, manchas oscuras y los CUERNOS en la
+			# cabeza, que es lo que la separa de cualquier otra piel grande.
+			out.append_array(_patas4(0.5, 0.52, 0.22, 0.26, 0.12, "b"))
+			out.append(_tira("s", [0.50, 0.80, 0.52, 0.92], 0.04, 0.03))
+			out.append(_elipse("b", 0.5, 0.52, 0.24, 0.30, 24))
+			out.append(_pol("b", [0.40, 0.28, 0.44, 0.14, 0.56, 0.14, 0.60, 0.28]))
+			out.append(_tira("I", [0.44, 0.16, 0.34, 0.12, 0.30, 0.04], 0.05, 0.02))
+			out.append(_tira("I", [0.56, 0.16, 0.66, 0.12, 0.70, 0.04], 0.05, 0.02))
+			for m in [[0.40, 0.44, 0.08], [0.60, 0.58, 0.07], [0.46, 0.70, 0.05]]:
+				var e2: Dictionary = _elipse("d", m[0], m[1], m[2], m[2] * 0.8, 10)
+				e2["dentro"] = true
+				out.append(e2)
+			out.append({"p": _elipse("l", 0.46, 0.34, 0.06, 0.06, 10)["p"], "t": "l", "dentro": true})
+	return out
+
+
+# LAS CUATRO PATAS de un pellejo, abiertas en aspa desde el cuerpo (centro cx,cy; semiejes rx,ry).
+# 'largo' es cuanto sobresalen; 'estira' las hace mas largas y finas (el acechador).
+static func _patas4(cx: float, cy: float, rx: float, ry: float, largo: float, t: String,
+		estira: float = 1.0) -> Array:
+	var out: Array = []
+	for s in [[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]]:
+		var bx: float = cx + s[0] * rx * 0.6
+		var by: float = cy + s[1] * ry * 0.55
+		var px: float = bx + s[0] * largo * estira
+		var py: float = by + s[1] * largo * 0.6 * estira
+		out.append(_tira(t, [bx, by, px, py], 0.10 / estira, 0.06 / estira))
 	return out
 
 
@@ -531,9 +680,168 @@ static func _tronco() -> Array:
 	]
 
 
-# LA QUITINA: una placa de caparazon curvada, como el ala dura de un escarabajo, con sus segmentos y un
-# brillo duro. Es cuero en el juego (se trabaja igual), pero no es un pellejo: es concha.
-static func _quitina() -> Array:
+# LA BABA: una cupula de gelatina con el pie plano, el brillo arriba a la izquierda y el borde de abajo
+# en sombra, con los dos bultitos del pie a los lados (la referencia del jefe). La de FUEGO es la misma
+# cupula hecha de LAVA: placas oscuras con las juntas encendidas.
+static func _baba(lava: bool) -> Array:
+	var cupula: Array = [0.14, 0.80, 0.15, 0.62, 0.22, 0.46, 0.34, 0.35, 0.50, 0.31, 0.66, 0.35,
+		0.78, 0.46, 0.85, 0.62, 0.86, 0.80]
+	var out: Array = [
+		_pol("s", [0.06, 0.82, 0.12, 0.72, 0.18, 0.82]),
+		_pol("s", [0.82, 0.82, 0.88, 0.72, 0.94, 0.82]),
+	]
+	if lava:
+		out.append(_pol("L", cupula))
+		for pl in [[0.24, 0.52, 0.34, 0.40, 0.46, 0.42, 0.42, 0.56, 0.28, 0.60],
+				[0.50, 0.38, 0.64, 0.38, 0.72, 0.50, 0.58, 0.54],
+				[0.20, 0.66, 0.36, 0.64, 0.40, 0.78, 0.18, 0.78],
+				[0.46, 0.60, 0.62, 0.60, 0.66, 0.78, 0.44, 0.78],
+				[0.70, 0.56, 0.82, 0.60, 0.82, 0.78, 0.72, 0.78]]:
+			out.append(_sobre({"p": P(pl), "t": "d"}))
+		out.append(_lin("K", [0.42, 0.58, 0.46, 0.44, 0.50, 0.40]))
+		out.append(_lin("K", [0.40, 0.62, 0.44, 0.76]))
+		return out
+	out.append(_pol("b", cupula))
+	out.append(_sobre(_pol("s", [0.10, 0.70, 0.90, 0.70, 0.90, 0.84, 0.10, 0.84])))
+	out.append(_sobre(_pol("d", [0.10, 0.77, 0.90, 0.77, 0.90, 0.84, 0.10, 0.84])))
+	out.append(_sobre(_elipse("l", 0.42, 0.46, 0.20, 0.10, 16)))
+	out.append(_sobre(_pol("h", [0.30, 0.46, 0.34, 0.40, 0.44, 0.36, 0.46, 0.39, 0.36, 0.44])))
+	out.append(_sobre(_elipse("W", 0.30, 0.52, 0.02, 0.02, 4)))
+	out.append(_sobre(_elipse("h", 0.64, 0.56, 0.025, 0.025, 6)))
+	return out
+
+
+# EL CARBON MINERAL: como un mineral pero NEGRO y con otra forma (lo pidio el jefe): no un pedrusco
+# sino un MONTON de terrones tallados, con los cantos brillantes que tiene el carbon de verdad.
+static func _carbon() -> Array:
+	var out: Array = []
+	for t in [
+			# [x, y, escala] de cada terron, de atras adelante
+			[0.62, 0.40, 0.95], [0.34, 0.46, 0.90], [0.52, 0.66, 1.0], [0.24, 0.72, 0.60], [0.80, 0.72, 0.55]]:
+		var x: float = t[0]
+		var y: float = t[1]
+		var k: float = float(t[2]) * 0.20
+		out.append(_pol("s", [x - k, y + k * 0.3, x - k * 0.6, y - k * 0.8, x + k * 0.3, y - k, x + k,
+			y - k * 0.2, x + k * 0.8, y + k * 0.8, x - k * 0.2, y + k]))
+		out.append(_pol("l", [x - k, y + k * 0.3, x - k * 0.6, y - k * 0.8, x + k * 0.3, y - k, x, y]))
+		out.append(_pol("b", [x, y, x + k * 0.3, y - k, x + k, y - k * 0.2]))
+		out.append(_lin("h", [x - k * 0.55, y - k * 0.7, x + k * 0.25, y - k * 0.92]))
+	return out
+
+
+# EL CARBON DE MADERA: dos palos carbonizados, con el corte negro agrietado y alguna brasa: es madera
+# quemada, no piedra, y a primera vista tiene que notarse la diferencia con el mineral.
+static func _carbon_vegetal() -> Array:
+	var out: Array = []
+	for pal in [[0.20, 0.44, 0.78, 0.30], [0.16, 0.72, 0.80, 0.56]]:
+		out.append(_tira("b", [pal[0], pal[1], pal[2], pal[3]], 0.20, 0.18))
+		out.append(_tira("l", [pal[0] + 0.02, pal[1] - 0.06, pal[2], pal[3] - 0.06], 0.05, 0.04))
+		out.append(_elipse("s", pal[0], pal[1], 0.09, 0.10, 12))
+		out.append(_elipse("d", pal[0], pal[1], 0.05, 0.06, 10))
+		out.append(_lin("o", [pal[0] + 0.14, pal[1] - 0.03, pal[0] + 0.30, pal[1] - 0.06]))
+		out.append(_lin("o", [pal[0] + 0.30, pal[1] + 0.02, pal[0] + 0.46, pal[1] - 0.02]))
+	out.append(_elipse("L", 0.62, 0.60, 0.02, 0.02, 6))
+	out.append(_elipse("K", 0.40, 0.38, 0.015, 0.015, 4))
+	return out
+
+
+# ============================================================
+#  LAS PLANTAS: el mismo dibujo que tienen en el suelo
+# ============================================================
+# Se juntan las dos capas del nodo del mapa (el cuerpo, con un lavado del color, y el fruto, con el
+# color a saco -- exactamente como las pinta resource_node), se recorta a lo que ocupa y se le echan
+# las grietas del estado. Queda una imagen de colores que se pinta por rachas como el resto.
+static var _cache_imagen: Dictionary = {}
+
+static func _imagen_planta(idx: int, col: Color, grietas: int) -> Image:
+	var clave: String = "%d|%s|%d" % [idx, col.to_html(), grietas]
+	if _cache_imagen.has(clave):
+		return _cache_imagen[clave]
+	var cuerpo: Image = RecolectableSprites.textura("planta", idx, 0, false).get_image()
+	var fruto: Image = RecolectableSprites.textura("planta", idx, 0, true).get_image()
+	var lavado: Color = RecolectableSprites.tinte_cuerpo(col)
+	var w: int = cuerpo.get_width()
+	var h: int = cuerpo.get_height()
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var x0: int = w
+	var y0: int = h
+	var x1: int = -1
+	var y1: int = -1
+	for y in h:
+		for x in w:
+			var f: Color = fruto.get_pixel(x, y)
+			var c: Color = cuerpo.get_pixel(x, y)
+			var px: Color = Color(0, 0, 0, 0)
+			if f.a > 0.5:
+				px = f * col
+				px.a = 1.0
+			elif c.a > 0.5:
+				px = c * lavado
+				px.a = 1.0
+			img.set_pixel(x, y, px)
+			if px.a > 0.0:
+				x0 = mini(x0, x)
+				y0 = mini(y0, y)
+				x1 = maxi(x1, x)
+				y1 = maxi(y1, y)
+	if x1 < 0:
+		return img
+	var rec: Image = img.get_region(Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1))
+	# LAS GRIETAS, sobre la planta y solo donde hay planta (las mismas lineas que en todo lo demas).
+	for g in mini(grietas, GRIETAS.size()):
+		var pts: PackedVector2Array = P(GRIETAS[g])
+		for i in pts.size() - 1:
+			var a: Vector2 = pts[i] * Vector2(rec.get_size())
+			var b: Vector2 = pts[i + 1] * Vector2(rec.get_size())
+			var pasos: int = maxi(1, int(ceil(a.distance_to(b) * 2.0)))
+			for k in pasos + 1:
+				var p: Vector2 = a.lerp(b, float(k) / float(pasos))
+				var xi: int = clampi(int(p.x), 0, rec.get_width() - 1)
+				var yi: int = clampi(int(p.y), 0, rec.get_height() - 1)
+				var o: Color = rec.get_pixel(xi, yi)
+				if o.a > 0.0:
+					rec.set_pixel(xi, yi, o.darkened(0.6))
+	_cache_imagen[clave] = rec
+	return rec
+
+
+# Pinta una imagen de colores por rachas, centrada y encajada en 'lado' sin deformarla.
+static func _pintar_imagen(ci: CanvasItem, centro: Vector2, lado: float, img: Image) -> void:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	if w <= 0 or h <= 0:
+		return
+	var k: float = lado * 0.92 / float(maxi(w, h))
+	var org: Vector2 = centro - Vector2(w, h) * k * 0.5
+	for y in h:
+		var ya: float = round(org.y + float(y) * k)
+		var yb: float = round(org.y + float(y + 1) * k)
+		var x: int = 0
+		while x < w:
+			var c: Color = img.get_pixel(x, y)
+			var xs: int = x
+			while x < w and img.get_pixel(x, y) == c:
+				x += 1
+			if c.a <= 0.0:
+				continue
+			var xa: float = round(org.x + float(xs) * k)
+			ci.draw_rect(Rect2(xa, ya, round(org.x + float(x) * k) - xa, yb - ya), c)
+
+
+# LA QUITINA: una placa de caparazon curvada. La del ESCARABAJO es el ala dura, abombada, con su
+# costura en medio y un brillo duro; la de la SEGADORA es el filo de su guadaña, una media luna con el
+# canto afilado en luz. Es cuero en el juego (se trabaja igual), pero no es un pellejo: es concha.
+static func _quitina(segada: bool) -> Array:
+	if segada:
+		return [
+			_pol("s", [0.14, 0.82, 0.20, 0.52, 0.34, 0.28, 0.56, 0.14, 0.80, 0.12, 0.90, 0.18, 0.70, 0.24,
+				0.52, 0.36, 0.40, 0.56, 0.34, 0.80]),
+			{"p": P([0.20, 0.74, 0.24, 0.52, 0.36, 0.32, 0.56, 0.18, 0.78, 0.15, 0.66, 0.22, 0.48, 0.34,
+				0.36, 0.54, 0.30, 0.76]), "t": "b", "dentro": true},
+			_lin("h", [0.30, 0.44, 0.42, 0.26, 0.60, 0.16, 0.80, 0.14]),
+			_lin("d", [0.30, 0.60, 0.40, 0.44, 0.54, 0.32]),
+			_lin("d", [0.26, 0.72, 0.32, 0.62]),
+		]
 	return [
 		_pol("s", [0.14, 0.62, 0.20, 0.36, 0.36, 0.18, 0.58, 0.14, 0.78, 0.22, 0.88, 0.40, 0.86, 0.62,
 			0.72, 0.80, 0.50, 0.86, 0.28, 0.80]),
@@ -549,124 +857,290 @@ static func _quitina() -> Array:
 	]
 
 
-# EL NUCLEO: una ESFERA con la textura del bicho del que sale (las referencias del jefe: pelo, baba,
-# piedra, lava, corteza, escamas...). El color es el del .tres del nucleo; el ESTILO sale del bicho.
-static func _estilo_nucleo(id: String) -> String:
-	for par in [
-		["pelo", ["rata", "jabali", "bestia", "minotauro", "chillon", "polilla"]],
-		["baba", ["slime", "venenoso", "sanguijuela"]],
-		["piedra", ["gargola", "golem", "coloso"]],
-		["madera", ["trent"]],
-		["lava", ["fuego"]],
-		["escamas", ["arana", "escarabajo", "ciempies", "segadora"]],
-		["hongo", ["miconido"]],
-		["gema", ["profundo", "acechador", "aberracion"]]]:
-		for clave in par[1]:
-			if id.contains(clave):
-				return par[0]
-	return "baba"
+# ============================================================
+#  LOS NUCLEOS: UNO POR MONSTRUO
+# ============================================================
+# Cada nucleo es una ESFERA (las referencias del jefe) con lo que identifica a SU bicho: las orejas y
+# la cola de la rata, los colmillos del jabali, los cuernos del minotauro, el ojo de la aberracion...
+# El color es el del .tres del nucleo. Lo pidio el jefe asi, uno a uno y no por familias: "quedan
+# mas god".
+#
+# El orden importa: lo que va DETRAS de la bola (colas, alas, patas, tentaculos) se pinta antes; la
+# bola despues; su textura "dentro" de ella; y lo que va DELANTE (coronas, cuernos, colmillos) al final.
+const NUC_C := Vector2(0.5, 0.54)
+const NUC_R := 0.31
+
+# La bola con su volumen: sombra honda, sombra, base y luz, cada una un poco hacia la luz de arriba a
+# la izquierda. 'brillo' añade el reflejo de algo mojado o duro (baba, caparazon, ojo).
+static func _bola(out: Array, brillo: bool, r: float = NUC_R, c: Vector2 = NUC_C) -> void:
+	out.append(_elipse("d", c.x, c.y, r, r, 32))
+	for capa in [["s", -0.02, -0.02, 0.94], ["b", -0.05, -0.06, 0.78], ["l", -0.10, -0.11, 0.44]]:
+		var e: Dictionary = _elipse(capa[0], c.x + capa[1], c.y + capa[2], r * capa[3], r * capa[3], 28)
+		e["dentro"] = true
+		out.append(e)
+	if brillo:
+		var h: Dictionary = _elipse("h", c.x - r * 0.40, c.y - r * 0.45, r * 0.20, r * 0.16, 12)
+		h["dentro"] = true
+		out.append(h)
+		var w: Dictionary = _elipse("W", c.x - r * 0.46, c.y - r * 0.50, r * 0.07, r * 0.07, 8)
+		w["dentro"] = true
+		out.append(w)
 
 
-static func _nucleo(estilo: String) -> Array:
-	var c := Vector2(0.5, 0.50)
-	var r: float = 0.36
-	var bola := func(t: String, dx: float, dy: float, rr: float, dentro: bool = true) -> Dictionary:
-		var e: Dictionary = _elipse(t, c.x + dx, c.y + dy, rr, rr, 28)
-		e["dentro"] = dentro
-		return e
-	if estilo == "gema":
-		# LA GEMA no es una bola: un cristal tallado (la roja de la referencia), cara por cara.
-		return [
-			_pol("s", [0.50, 0.12, 0.84, 0.32, 0.84, 0.68, 0.50, 0.90, 0.16, 0.68, 0.16, 0.32]),
-			_pol("l", [0.50, 0.12, 0.16, 0.32, 0.36, 0.40, 0.50, 0.30]),
-			_pol("h", [0.50, 0.12, 0.50, 0.30, 0.64, 0.40, 0.84, 0.32]),
-			_pol("b", [0.36, 0.40, 0.50, 0.30, 0.64, 0.40, 0.64, 0.60, 0.50, 0.70, 0.36, 0.60]),
-			_pol("l", [0.16, 0.32, 0.36, 0.40, 0.36, 0.60, 0.16, 0.68]),
-			_pol("d", [0.16, 0.68, 0.36, 0.60, 0.50, 0.70, 0.50, 0.90]),
-			_pol("s", [0.64, 0.60, 0.84, 0.68, 0.50, 0.90, 0.50, 0.70]),
-			_lin("W", [0.42, 0.36, 0.48, 0.32]),
-		]
+# Algo pintado SOLO sobre la bola (manchas, motas, ojos pegados a ella).
+static func _sobre(e: Dictionary) -> Dictionary:
+	e["dentro"] = true
+	return e
+
+
+# Trazos de pelo sobre la bola: a favor del pelo, oscuros, y un par de luces. El pelo es MATE.
+static func _pelo(out: Array) -> void:
+	for m in [[0.32, 0.42, 0.35, 0.50], [0.42, 0.34, 0.44, 0.42], [0.56, 0.34, 0.58, 0.42],
+			[0.66, 0.46, 0.69, 0.54], [0.38, 0.60, 0.41, 0.68], [0.52, 0.56, 0.54, 0.64],
+			[0.62, 0.64, 0.64, 0.72], [0.46, 0.46, 0.47, 0.52]]:
+		out.append(_lin("d", m))
+	for m in [[0.36, 0.38, 0.38, 0.44], [0.48, 0.30, 0.50, 0.36]]:
+		out.append(_lin("h", m))
+
+
+# Una corona de oro encima de la bola: la llevan los dos reyes.
+static func _corona(out: Array, y: float = 0.20) -> void:
+	out.append(_pol("g", [0.34, y + 0.10, 0.34, y - 0.02, 0.40, y + 0.04, 0.45, y - 0.06, 0.50, y + 0.03,
+		0.55, y - 0.06, 0.60, y + 0.04, 0.66, y - 0.02, 0.66, y + 0.10]))
+	out.append(_pol("G", [0.34, y + 0.07, 0.66, y + 0.07, 0.66, y + 0.11, 0.34, y + 0.11]))
+	out.append(_elipse("R", 0.50, y + 0.05, 0.02, 0.02, 6))
+
+
+# Las gotas que chorrean por debajo de una bola de baba.
+static func _gotas(out: Array) -> void:
+	out.append(_tira("s", [0.36, 0.76, 0.36, 0.88], 0.07, 0.05))
+	out.append(_elipse("s", 0.36, 0.90, 0.035, 0.035, 8))
+	out.append(_tira("s", [0.60, 0.78, 0.61, 0.85], 0.06, 0.04))
+
+
+static func _nucleo(bicho: String) -> Array:
 	var out: Array = []
-	# LO QUE CUELGA POR DEBAJO va antes que la bola (asi la bola lo tapa por arriba y asoma solo abajo).
-	if estilo == "pelo":
-		# el flequillo del pelo, colgando por debajo de la bola (el "hair" de la referencia)
-		out.append(_pol("d", [0.16, 0.56, 0.84, 0.56, 0.86, 0.70, 0.80, 0.78, 0.76, 0.72, 0.70, 0.88,
-			0.64, 0.80, 0.58, 0.92, 0.50, 0.82, 0.42, 0.92, 0.36, 0.80, 0.30, 0.88, 0.24, 0.72, 0.20, 0.78,
-			0.14, 0.70]))
-	elif estilo == "baba":
-		# las gotas que chorrean
-		out.append(_pol("s", [0.30, 0.74, 0.40, 0.74, 0.39, 0.90, 0.35, 0.94, 0.31, 0.90]))
-		out.append(_pol("s", [0.56, 0.78, 0.66, 0.76, 0.64, 0.86, 0.61, 0.89, 0.58, 0.86]))
-	elif estilo == "madera":
-		# la rama con su hoja, asomando por la derecha
-		out.append(_pol("s", [0.74, 0.40, 0.90, 0.26, 0.94, 0.30, 0.80, 0.46]))
-		out.append(_pol("F", [0.88, 0.26, 0.86, 0.12, 0.96, 0.08, 0.96, 0.22]))
-	# LA BOLA con su volumen: sombra honda, sombra, base, luz y brillo, cada una un poco hacia la luz.
-	out.append(_elipse("d" if estilo != "lava" else "o", c.x, c.y, r, r, 32))
-	if estilo == "lava":
-		# LA LAVA es la bola apagada y oscura, y lo que brilla son las GRIETAS, no la superficie.
-		out.append(bola.call("d", -0.03, -0.03, r * 0.9))
-		out.append(bola.call("s", -0.10, -0.10, r * 0.45))
-		for g in [[0.28, 0.40, 0.40, 0.46, 0.46, 0.38, 0.58, 0.44, 0.70, 0.36],
-				[0.40, 0.46, 0.36, 0.60, 0.46, 0.70, 0.60, 0.66, 0.68, 0.74],
-				[0.58, 0.44, 0.62, 0.56, 0.76, 0.58],
-				[0.24, 0.58, 0.36, 0.60],
-				[0.50, 0.24, 0.46, 0.38]]:
-			out.append(_lin("L", g))
-		out.append(_lin("K", [0.40, 0.46, 0.46, 0.38, 0.58, 0.44]))
-		out.append(_lin("K", [0.36, 0.60, 0.46, 0.70]))
-		return out
-	out.append(bola.call("s", -0.03, -0.03, r * 0.94))
-	out.append(bola.call("b", -0.06, -0.07, r * 0.78))
-	out.append(bola.call("l", -0.12, -0.13, r * 0.44))
-	match estilo:
-		"pelo":
-			# mechones: trazos cortos a favor del pelo, y sin brillo (el pelo es mate)
-			for m in [[0.30, 0.34, 0.34, 0.44], [0.42, 0.26, 0.44, 0.36], [0.56, 0.28, 0.58, 0.38],
-					[0.66, 0.40, 0.70, 0.50], [0.36, 0.54, 0.40, 0.64], [0.52, 0.50, 0.54, 0.60],
-					[0.62, 0.60, 0.64, 0.70]]:
-				out.append(_lin("d", m))
-			for m in [[0.36, 0.30, 0.38, 0.38], [0.48, 0.24, 0.50, 0.32]]:
-				out.append(_lin("h", m))
-		"baba":
-			# brillo grande de cosa mojada, y burbujas por dentro
-			out.append(bola.call("h", -0.14, -0.15, r * 0.20))
-			out.append(bola.call("W", -0.16, -0.17, r * 0.08))
-			out.append(bola.call("l", 0.10, 0.08, r * 0.10))
-			out.append(bola.call("l", 0.02, 0.18, r * 0.06))
-		"piedra":
-			# las juntas de las piedras (la bola de "stones" de la referencia), con luz en cada cara
-			for g in [[0.18, 0.44, 0.34, 0.46, 0.44, 0.36, 0.44, 0.18],
-					[0.44, 0.36, 0.60, 0.44, 0.74, 0.30],
-					[0.34, 0.46, 0.36, 0.62, 0.22, 0.70],
-					[0.36, 0.62, 0.54, 0.64, 0.60, 0.44],
-					[0.54, 0.64, 0.60, 0.82],
-					[0.60, 0.44, 0.84, 0.56]]:
-				out.append(_lin("o", g))
-			for g in [[0.26, 0.40, 0.32, 0.38], [0.50, 0.30, 0.56, 0.32], [0.42, 0.52, 0.48, 0.52]]:
-				out.append(_lin("h", g))
-		"madera":
-			# la corteza: surcos de arriba abajo, curvados con la bola
-			for g in [[0.30, 0.22, 0.24, 0.50, 0.30, 0.78], [0.44, 0.16, 0.40, 0.50, 0.44, 0.86],
-					[0.58, 0.16, 0.60, 0.50, 0.56, 0.86], [0.72, 0.24, 0.76, 0.50, 0.70, 0.78]]:
+	var c: Vector2 = NUC_C
+	match bicho:
+		"rata", "rey_rata":
+			out.append(_tira("P", [0.74, 0.70, 0.86, 0.76, 0.90, 0.88, 0.80, 0.92], 0.05, 0.02))
+			for ox in [0.32, 0.68]:
+				out.append(_elipse("P", ox, 0.28, 0.09, 0.09, 12))
+				out.append(_elipse("p", ox, 0.29, 0.05, 0.05, 10))
+			_bola(out, false)
+			_pelo(out)
+			if bicho == "rey_rata":
+				_corona(out, 0.16)
+		"slime", "rey_slime", "slime_abisal":
+			# GELATINA con el NUCLEO de verdad flotando dentro: una bola mas oscura en el centro.
+			_gotas(out)
+			_bola(out, true)
+			out.append(_sobre(_elipse("s", 0.54, 0.60, 0.10, 0.10, 14)))
+			out.append(_sobre(_elipse("d", 0.55, 0.61, 0.06, 0.06, 10)))
+			if bicho == "slime_abisal":
+				for m in [[0.38, 0.62], [0.64, 0.46], [0.46, 0.74], [0.70, 0.64]]:
+					out.append(_sobre(_elipse("W", m[0], m[1], 0.012, 0.012, 4)))
+			if bicho == "rey_slime":
+				_corona(out, 0.14)
+		"venenoso":
+			# baba toxica: burbujas que REVIENTAN por encima del borde, y gotas
+			_gotas(out)
+			_bola(out, true)
+			for b in [[0.40, 0.25, 0.05], [0.56, 0.22, 0.04], [0.66, 0.30, 0.03]]:
+				out.append(_elipse("l", b[0], b[1], b[2], b[2], 10))
+			for b in [[0.60, 0.62, 0.05], [0.44, 0.68, 0.035], [0.66, 0.44, 0.03]]:
+				out.append(_sobre(_elipse("h", b[0], b[1], b[2], b[2], 10)))
+		"fuego":
+			# ROCA DE LAVA: placas oscuras con las JUNTAS ENCENDIDAS (la referencia del jefe). La bola se
+			# pinta entera de lava y las placas encima, dejando las juntas a la vista.
+			out.append(_elipse("L", c.x, c.y, NUC_R + 0.04, NUC_R + 0.04, 32))
+			out.append(_elipse("K", c.x - 0.02, c.y - 0.02, NUC_R * 0.7, NUC_R * 0.7, 24))
+			var placas: Array = [
+				[0.30, 0.34, 0.44, 0.26, 0.48, 0.40, 0.36, 0.46],
+				[0.50, 0.26, 0.66, 0.30, 0.64, 0.42, 0.52, 0.40],
+				[0.22, 0.52, 0.34, 0.50, 0.40, 0.62, 0.26, 0.68],
+				[0.40, 0.46, 0.54, 0.46, 0.58, 0.60, 0.44, 0.62],
+				[0.60, 0.46, 0.76, 0.44, 0.78, 0.60, 0.64, 0.62],
+				[0.32, 0.72, 0.46, 0.68, 0.50, 0.82, 0.38, 0.84],
+				[0.52, 0.68, 0.66, 0.68, 0.64, 0.80, 0.54, 0.82],
+				[0.70, 0.66, 0.78, 0.64, 0.72, 0.76],
+				[0.24, 0.42, 0.28, 0.36, 0.34, 0.46, 0.24, 0.48],
+			]
+			for pl in placas:
+				out.append(_sobre({"p": P(pl), "t": "d"}))
+				# la cara de arriba de cada placa, en luz: las placas son roca, no manchas planas
+				var p0: Vector2 = Vector2(pl[0], pl[1])
+				var p1: Vector2 = Vector2(pl[2], pl[3])
+				out.append(_lin("s", [p0.x + 0.01, p0.y + 0.01, p1.x - 0.01, p1.y + 0.01]))
+		"profundo":
+			# AGUA: la bola azul con olas claras cruzandola y el fondo mas hondo abajo
+			_bola(out, true)
+			out.append(_sobre(_pol("s", [0.14, 0.64, 0.30, 0.60, 0.46, 0.64, 0.62, 0.60, 0.86, 0.64, 0.86, 0.90, 0.14, 0.90])))
+			out.append(_lin("h", [0.24, 0.60, 0.32, 0.56, 0.42, 0.60]))
+			out.append(_lin("l", [0.50, 0.58, 0.60, 0.54, 0.70, 0.58]))
+			out.append(_lin("l", [0.30, 0.74, 0.44, 0.70, 0.56, 0.74]))
+		"sanguijuela":
+			# CARNE con la BOCA de la sanguijuela: un anillo de dientes
+			_bola(out, true)
+			out.append(_sobre(_elipse("o", 0.52, 0.58, 0.11, 0.11, 16)))
+			out.append(_sobre(_elipse("R", 0.52, 0.58, 0.06, 0.06, 12)))
+			for k in 8:
+				var a: float = TAU * float(k) / 8.0
+				out.append(_sobre(_elipse("I", 0.52 + cos(a) * 0.085, 0.58 + sin(a) * 0.085, 0.015, 0.015, 4)))
+		"jabali":
+			# LA CRESTA de cerdas por detras y los COLMILLOS por delante
+			out.append(_pol("d", [0.30, 0.34, 0.34, 0.16, 0.40, 0.26, 0.46, 0.12, 0.52, 0.24, 0.58, 0.12,
+				0.62, 0.26, 0.68, 0.18, 0.70, 0.36]))
+			_bola(out, false)
+			_pelo(out)
+			out.append(_tira("I", [0.38, 0.74, 0.30, 0.66, 0.30, 0.54], 0.06, 0.02))
+			out.append(_tira("I", [0.62, 0.74, 0.70, 0.66, 0.70, 0.54], 0.06, 0.02))
+		"bestia":
+			# BANDAS DE ARMADURA, como un armadillo
+			_bola(out, true)
+			for i in 5:
+				var y: float = 0.32 + 0.09 * float(i)
+				out.append(_sobre(_pol("l", [0.10, y, 0.90, y, 0.90, y + 0.025, 0.10, y + 0.025])))
+				out.append(_lin("o", [0.12, y + 0.045, 0.88, y + 0.045]))
+		"minotauro":
+			# LOS CUERNOS y el ARO de la nariz
+			_bola(out, false)
+			_pelo(out)
+			out.append(_tira("I", [0.30, 0.34, 0.18, 0.26, 0.14, 0.12], 0.08, 0.02))
+			out.append(_tira("I", [0.70, 0.34, 0.82, 0.26, 0.86, 0.12], 0.08, 0.02))
+			out.append(_lin("i", [0.28, 0.32, 0.18, 0.24]))
+			out.append(_lin("i", [0.72, 0.32, 0.82, 0.24]))
+			out.append(_lin("g", [0.46, 0.74, 0.46, 0.80, 0.50, 0.83, 0.54, 0.80, 0.54, 0.74]))
+		"trent":
+			out.append(_pol("s", [0.72, 0.42, 0.88, 0.28, 0.92, 0.32, 0.78, 0.48]))
+			out.append(_pol("F", [0.86, 0.28, 0.84, 0.14, 0.94, 0.10, 0.94, 0.24]))
+			_bola(out, false)
+			for g in [[0.30, 0.30, 0.25, 0.54, 0.30, 0.78], [0.44, 0.24, 0.40, 0.54, 0.44, 0.86],
+					[0.58, 0.24, 0.60, 0.54, 0.56, 0.86], [0.70, 0.32, 0.74, 0.54, 0.68, 0.78]]:
 				out.append(_lin("d", g))
-			out.append(_lin("l", [0.36, 0.24, 0.33, 0.44]))
-		"escamas":
-			# filas de escamas: arquitos, y un brillo duro de caparazon
-			for fila in [0.30, 0.44, 0.58, 0.72]:
-				var x: float = 0.18 + (0.07 if int(fila * 100) % 28 == 2 else 0.0)
-				while x < 0.82:
-					out.append(_lin("d", [x, fila, x + 0.05, fila + 0.05, x + 0.10, fila]))
-					x += 0.12
-			out.append(bola.call("h", -0.14, -0.15, r * 0.12))
-		"hongo":
-			# un sombrero con motas claras (el micónido)
-			for m in [[0.36, 0.34, 0.07], [0.58, 0.30, 0.05], [0.66, 0.52, 0.06], [0.44, 0.60, 0.05],
-					[0.28, 0.54, 0.04]]:
-				var e: Dictionary = _elipse("m", m[0], m[1], m[2], m[2] * 0.85, 10)
-				e["dentro"] = true
-				out.append(e)
+			out.append(_lin("l", [0.36, 0.30, 0.33, 0.48]))
+		"gargola":
+			# PIEDRA con dos ALAS de piedra asomando por los lados
+			for s in [-1.0, 1.0]:
+				out.append(_pol("s", [0.5 + s * 0.22, 0.40, 0.5 + s * 0.46, 0.22, 0.5 + s * 0.44, 0.36,
+					0.5 + s * 0.48, 0.46, 0.5 + s * 0.40, 0.50, 0.5 + s * 0.42, 0.60, 0.5 + s * 0.26, 0.60]))
+			_bola(out, false)
+			_juntas(out, false)
+		"golem":
+			# ARCILLA agrietada con una RUNA encendida en el centro: lo que lo mueve
+			_bola(out, false)
+			out.append(_lin("d", [0.30, 0.40, 0.38, 0.46, 0.36, 0.56]))
+			out.append(_lin("d", [0.64, 0.36, 0.62, 0.46, 0.70, 0.52]))
+			out.append(_lin("K", [0.50, 0.44, 0.50, 0.66]))
+			out.append(_lin("K", [0.44, 0.50, 0.50, 0.44, 0.56, 0.50]))
+			out.append(_lin("K", [0.44, 0.62, 0.56, 0.62]))
+		"coloso":
+			# BLOQUES DE PIEDRA con el CORAZON brillando por la junta del centro
+			_bola(out, false)
+			_juntas(out, true)
+		"arana":
+			# OCHO PATAS por detras y el racimo de OJOS rojos delante
+			for s in [-1.0, 1.0]:
+				for i in 4:
+					var y2: float = 0.36 + 0.10 * float(i)
+					out.append(_tira("d", [0.5 + s * 0.20, y2, 0.5 + s * 0.40, y2 - 0.10, 0.5 + s * 0.48,
+						y2 + 0.06], 0.045, 0.02))
+			_bola(out, true)
+			for e in [[0.44, 0.40, 0.04], [0.56, 0.40, 0.04], [0.40, 0.48, 0.025], [0.60, 0.48, 0.025],
+					[0.47, 0.50, 0.02], [0.53, 0.50, 0.02]]:
+				out.append(_sobre(_elipse("R", e[0], e[1], e[2], e[2], 8)))
+		"escarabajo":
+			# LOS ELITROS: la costura del medio y un brillo duro en cada mitad
+			_bola(out, true)
+			out.append(_lin("o", [0.50, 0.24, 0.51, 0.84]))
+			out.append(_sobre(_elipse("h", 0.62, 0.40, 0.04, 0.06, 10)))
+			out.append(_lin("v", [0.30, 0.54, 0.36, 0.70]))
+			out.append(_lin("v", [0.64, 0.60, 0.68, 0.72]))
+		"ciempies":
+			# SEGMENTOS en anillo y PATITAS por los lados
+			for s in [-1.0, 1.0]:
+				for i in 5:
+					var y3: float = 0.34 + 0.09 * float(i)
+					out.append(_tira("d", [0.5 + s * 0.28, y3, 0.5 + s * 0.42, y3 + 0.04], 0.035, 0.02))
+			_bola(out, true)
+			for i in 5:
+				var y4: float = 0.32 + 0.09 * float(i)
+				out.append(_lin("o", [0.20, y4, 0.50, y4 + 0.03, 0.80, y4]))
+		"segadora":
+			# el FILO de la guadaña asomando por detras
+			out.append(_tira("l", [0.64, 0.40, 0.80, 0.22, 0.94, 0.20, 0.96, 0.30], 0.08, 0.02))
+			out.append(_lin("h", [0.72, 0.28, 0.82, 0.20, 0.92, 0.20]))
+			_bola(out, true)
+			out.append(_lin("d", [0.30, 0.48, 0.50, 0.44, 0.70, 0.50]))
+			out.append(_lin("d", [0.32, 0.64, 0.50, 0.62, 0.68, 0.66]))
+		"polilla":
+			# PELUSA con dos ANTENAS de pluma y el polvo de sus alas
+			for s in [-1.0, 1.0]:
+				out.append(_tira("s", [0.5 + s * 0.08, 0.26, 0.5 + s * 0.18, 0.12, 0.5 + s * 0.24, 0.06], 0.03, 0.02))
+				for k in 3:
+					var yy: float = 0.10 + 0.05 * float(k)
+					var xx: float = 0.5 + s * (0.16 + 0.03 * float(2 - k))
+					out.append(_lin("s", [xx, yy, xx + s * 0.05, yy - 0.02]))
+			_bola(out, false)
+			_pelo(out)
+			for m in [[0.36, 0.52], [0.62, 0.40], [0.56, 0.68], [0.42, 0.34]]:
+				out.append(_sobre(_elipse("h", m[0], m[1], 0.02, 0.02, 6)))
+		"chillon":
+			# PELO con dos ALAS de murcielago abiertas
+			for s in [-1.0, 1.0]:
+				out.append(_pol("d", [0.5 + s * 0.24, 0.40, 0.5 + s * 0.46, 0.26, 0.5 + s * 0.48, 0.52,
+					0.5 + s * 0.42, 0.46, 0.5 + s * 0.38, 0.60, 0.5 + s * 0.32, 0.52, 0.5 + s * 0.28, 0.62]))
+				out.append(_lin("s", [0.5 + s * 0.28, 0.42, 0.5 + s * 0.44, 0.30]))
+			for ox in [0.38, 0.62]:
+				out.append(_pol("b", [ox - 0.06, 0.30, ox, 0.14, ox + 0.06, 0.30]))
+			_bola(out, false)
+			_pelo(out)
+		"acechador":
+			# UN OJO de fiera con la PUPILA RASGADA
+			_bola(out, true)
+			out.append(_sobre(_elipse("E", 0.52, 0.54, 0.14, 0.08, 16)))
+			out.append(_sobre(_pol("o", [0.515, 0.47, 0.53, 0.47, 0.535, 0.61, 0.51, 0.61])))
+			out.append(_lin("W", [0.44, 0.52, 0.46, 0.51]))
+		"aberracion":
+			# TENTACULOS por debajo y UN OJO enorme
+			for t in [[0.34, 0.76, 0.26, 0.86, 0.30, 0.94], [0.50, 0.80, 0.52, 0.92, 0.46, 0.97],
+					[0.66, 0.76, 0.76, 0.84, 0.74, 0.94]]:
+				out.append(_tira("s", t, 0.07, 0.02))
+			_bola(out, true)
+			out.append(_sobre(_elipse("W", 0.52, 0.52, 0.14, 0.13, 18)))
+			out.append(_sobre(_elipse("R", 0.54, 0.53, 0.07, 0.07, 12)))
+			out.append(_sobre(_elipse("o", 0.55, 0.54, 0.03, 0.03, 8)))
+		"miconido":
+			# UNA SETA: el pie claro y el sombrero con motas
+			out.append(_pol("x", [0.42, 0.56, 0.58, 0.56, 0.60, 0.86, 0.40, 0.86]))
+			out.append(_pol("w", [0.42, 0.56, 0.52, 0.56, 0.52, 0.86, 0.40, 0.86]))
+			out.append(_pol("s", [0.14, 0.60, 0.18, 0.40, 0.30, 0.24, 0.50, 0.16, 0.70, 0.24, 0.82, 0.40,
+				0.86, 0.60]))
+			out.append(_sobre(_pol("b", [0.16, 0.56, 0.20, 0.40, 0.32, 0.26, 0.50, 0.18, 0.66, 0.24, 0.74,
+				0.38, 0.70, 0.54])))
+			out.append(_sobre(_elipse("l", 0.38, 0.32, 0.10, 0.06, 12)))
+			for m in [[0.34, 0.40, 0.05], [0.54, 0.28, 0.04], [0.66, 0.46, 0.05], [0.46, 0.50, 0.03]]:
+				out.append(_sobre(_elipse("m", m[0], m[1], m[2], m[2] * 0.85, 10)))
+		_:
+			_bola(out, true)
 	return out
+
+
+# Las JUNTAS de una bola de piedra (la de "stones" de la referencia), con luz en cada cara. Con
+# 'corazon', la junta del centro brilla: el coloso tiene algo vivo dentro.
+static func _juntas(out: Array, corazon: bool) -> void:
+	for g in [[0.20, 0.50, 0.34, 0.52, 0.44, 0.42, 0.44, 0.24],
+			[0.44, 0.42, 0.60, 0.50, 0.74, 0.36],
+			[0.34, 0.52, 0.36, 0.68, 0.22, 0.74],
+			[0.36, 0.68, 0.54, 0.70, 0.60, 0.50],
+			[0.54, 0.70, 0.60, 0.86],
+			[0.60, 0.50, 0.84, 0.62]]:
+		out.append(_lin("o", g))
+	for g in [[0.26, 0.46, 0.32, 0.44], [0.50, 0.36, 0.56, 0.38], [0.42, 0.58, 0.48, 0.58]]:
+		out.append(_lin("h", g))
+	if corazon:
+		out.append(_lin("K", [0.44, 0.44, 0.52, 0.49, 0.60, 0.51]))
+		out.append(_lin("L", [0.36, 0.54, 0.36, 0.66, 0.52, 0.69]))
 
 
 # EL CRISTAL: un racimo que CRECE con el tier. 'i' = 0..9 (la posicion dentro de su tanda de diez) y
