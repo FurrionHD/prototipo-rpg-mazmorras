@@ -2,8 +2,8 @@
 #  ambiente.gd  (autoload "Ambiente")
 #  El ruido del sitio donde estas. Tres capas, y hacen falta las tres:
 #
-#    1. EL FONDO. Un bucle largo, siempre puesto: la mazmorra o el pueblo. Es lo que hace que el
-#       silencio no sea silencio de verdad.
+#    1. EL FONDO. Un bucle largo, siempre puesto. Es lo que hace que el silencio no sea silencio de
+#       verdad. Hoy solo lo tiene la mazmorra: el del pueblo se quito (ver poner).
 #    2. LOS GOLPES SUELTOS. Cada 12-30 segundos cae uno: una gota, un hueso, un chillido lejos.
 #       El fondo solo no basta -- una capa constante se vuelve invisible a los dos minutos, y estos
 #       son los que hacen levantar la cabeza.
@@ -35,7 +35,7 @@ const DB_GOLPE := -4.0           # los sueltos, mas presentes: son los que hacen
 const ESPERA_MIN := 12.0         # segundos entre golpes sueltos
 const ESPERA_MAX := 30.0
 
-const VOCES := 3                 # de sobra: no caen dos a la vez casi nunca
+const VOCES := 3                # de sobra: no caen dos a la vez casi nunca
 
 # Los bucles pegados al mundo van a un grupo para poder pausarlos todos de golpe al entrar en
 # combate. Los crea `pegar` y viven colgados del nodo al que se pegaron, no de aqui.
@@ -137,9 +137,15 @@ func poner(contexto: String) -> void:
 	_contexto = contexto
 	# SIN AVISO: que un sitio no tenga ambiente es NORMAL, no un fallo. Los menus no lo tienen (ahi
 	# solo hay musica) y avisar por ellos llenaba la consola de un "mudo" que no hay que arreglar.
+	#
+	# Y SE CALLA SOLO EL FONDO, sin callar(): esa borra el contexto, y con el se iban tambien los
+	# golpes sueltos. El PUEBLO no tiene fondo (su bucle era un zumbido plano que no dejaba oir nada,
+	# 11/09/2026) pero si su viento y su metal lejano.
 	var s: AudioStream = _una_version("bucle_" + contexto, false)
 	if s == null:
-		callar()
+		for p in _fondo:
+			p.stop()
+		_cruce = 0.0
 		return
 	if s is AudioStreamOggVorbis:
 		(s as AudioStreamOggVorbis).loop = true
@@ -150,9 +156,9 @@ func poner(contexto: String) -> void:
 		_fondo[_cual].volume_db = DB_FONDO
 	_fondo[_cual].stream = s
 	# POR UN SITIO AL AZAR, como los posicionales (ver pegar). Los bucles son grabaciones de un
-	# minuto CON SUCESOS DENTRO, no un zumbido plano, y el pueblo solo tiene dos:
-	# arrancando del segundo 0, cada vez que entrabas sonaba lo mismo, en el mismo orden y nada mas
-	# llegar, y lo que era fondo se oia como una secuencia.
+	# minuto CON SUCESOS DENTRO, no un zumbido plano: arrancando del segundo 0, cada vez que
+	# entrabas sonaba lo mismo, en el mismo orden y nada mas llegar, y lo que era fondo se oia
+	# como una secuencia.
 	_fondo[_cual].play(randf() * maxf(0.1, s.get_length()))
 
 

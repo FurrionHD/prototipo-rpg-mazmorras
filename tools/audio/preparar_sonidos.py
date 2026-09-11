@@ -380,7 +380,9 @@ AMB_CORTOS = {
 # Los bucles del ambiente: largos, van a OGG.
 AMB_BUCLES = {
 	"Sonidos ambiente mazmorra": "mazmorra",
-	"Sonidos ambiente pueblo": "pueblo",
+	# EL PUEBLO NO LLEVA FONDO (11/09/2026). Sus dos tomas eran ruido de banda ancha plano -- una sin
+	# un solo suceso en un minuto -- y en el juego se oia como un zumbido constante casi a la altura
+	# de la musica. Los originales siguen en Descargas; si se regenera, que no sea eso.
 	"Sonidos ambiente antorcha": "antorcha",
 	"Sonidos ambiente charco": "charco",
 }
