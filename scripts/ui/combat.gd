@@ -1874,6 +1874,8 @@ func _ready() -> void:
 	# Forzamos que esta pantalla ocupe toda la ventana, aunque se abra como
 	# overlay encima de la mazmorra (si no, sale descentrada/pequeña).
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Y que siga ocupandola si la ventana cambia a mitad de pelea (ver _on_viewport_cambia).
+	get_viewport().size_changed.connect(_on_viewport_cambia)
 
 	# ANTES que nada: _crear_bloque le cuelga a cada tarjeta su capa de efectos, asi que el nodo
 	# de FX tiene que existir antes de que se monte la primera.
@@ -3378,6 +3380,31 @@ func _avanzar_retiradas(delta: float) -> void:
 		recomponer = true
 	if recomponer:
 		_recomponer_fila_enemigos()
+
+
+# LA VENTANA HA CAMBIADO DE TAMAÑO (maximizar, restaurar, que Windows la recoloque...). Las bandas se
+# estiran solas por sus anclajes, pero el ancho de cada tarjeta es un MINIMO que se calculo al montar la
+# pelea con el viewport de entonces (ver _ancho_bloque). Con la ventana mas estrecha despues, las
+# columnas seguian midiendo lo de antes y la fila se salia por la derecha: el quinto bicho y el cuarto
+# del grupo acababan debajo del registro y de los botones (captura del jefe, 11/09/2026, a 1920x1017
+# de area util). El ancho logico SI cambia con la PROPORCION de la ventana (ver la nota de las
+# unidades logicas: nunca baja de 1280, pero sube por encima en ventanas mas apaisadas que 16:9).
+func _on_viewport_cambia() -> void:
+	if not is_inside_tree():
+		return
+	var ene: Array = []
+	for b in _bloques:
+		var col: Control = b.get("columna")
+		if col != null and is_instance_valid(col) and col.visible:
+			ene.append(b)
+	_reajustar_anchos(ene, ene.size())
+	var ali: Array = []
+	for ba in _bloques_aliados:
+		var cola: Control = ba.get("columna")
+		if cola != null and is_instance_valid(cola) and cola.visible:
+			ali.append(ba)
+	_reajustar_anchos(ali, ali.size())
+	_ajustar_zoom_sprites()
 
 
 # Reparte el ancho entre las tarjetas que SE VEN. Es lo que hace que al morir uno de cinco la fila
