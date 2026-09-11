@@ -13,11 +13,18 @@
 #  y no un machaque de espacio como el del cristal.
 #
 #  La DESTREZA ensancha el nucleo y frena la pasada. Se crea por codigo (sin .tscn).
+#
+#  YA NO ES UNA PANTALLA: es un MEDIDOR vertical al lado del personaje mientras se le ve segar en el
+#  mapa (ver scripts/world/faena.gd). El marcador BAJA por el carril hacia la raya de corte; la
+#  mecanica de arriba es la misma, solo girada.
 # ============================================================
 
 extends Control
 
 signal recoleccion_finished(item: MaterialItem, progreso: float)
+# Para la FAENA: cada tajo que se da. Dejar pasar el tallo sin pulsar NO lo emite (no hay tajo).
+enum Golpe { FALLO, LIMPIO, SUCIO }
+signal golpe(tipo: int)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -33,6 +40,7 @@ var _destrozo: int = 0
 var _marker: float = 0.0
 var _linea: float = 0.5     # donde esta el corte en esta pasada
 var _ultimo: String = ""
+var _ultimo_t: float = 0.0   # cuanto le queda en pantalla a ese texto
 var _state: int = READY   # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
 var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar
@@ -55,14 +63,27 @@ const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
 
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(MedidorFaena.ANCHO, MedidorFaena.ALTO)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_nuevo_tallo()
 	if Tactil.activo:
 		# La pantalla entera es la hoz (ver touch_pad.gd) y el boton es la puerta de salida, que
-		# hasta ahora no existia: sin teclado, esto era una ratonera.
-		var pad: Control = _TOUCH_PAD.new()
-		add_child(pad)
-		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+		# hasta ahora no existia: sin teclado, esto era una ratonera. Diferido y en la capa, como en
+		# mining.gd: el medidor es pequeño y la zona de pulsar tiene que seguir siendo la pantalla.
+		_montar_pad.call_deferred()
+
+
+func _montar_pad() -> void:
+	var capa: Node = get_parent()
+	if capa == null:
+		return
+	var pad: Control = _TOUCH_PAD.new()
+	capa.add_child(pad)
+	pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+func terminado() -> bool:
+	return _state == FINISHED
 
 
 # Irse a medias ABANDONA la planta: sales sin nada, igual que si hubiera quedado hecha jirones. Si
@@ -76,6 +97,7 @@ func _process(delta: float) -> void:
 	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
+	_ultimo_t = maxf(0.0, _ultimo_t - delta)
 
 	if _state == FINISHED:
 		if edge:
@@ -105,17 +127,22 @@ func _process(delta: float) -> void:
 # d = distancia del marcador a la linea de corte; d < 0 -> ni lo has intentado.
 func _resolver(pos: float) -> void:
 	if pos < 0.0:
-		_fallo("Se te pasa el tallo: lo destrozas")
+		_fallo("Se te pasa")
 	else:
 		var d: float = absf(pos - _linea)
 		if d <= _nucleo:
 			_limpios += 1
-			_ultimo = "¡Corte limpio!"
+			_ultimo = "¡Limpio!"
+			_ultimo_t = 1.4
+			golpe.emit(Golpe.LIMPIO)
 		elif d <= _borde:
 			_destrozo += 1
-			_ultimo = "Corte sucio: magullas la planta"
+			_ultimo = "Sucio: magulla"
+			_ultimo_t = 1.4
+			golpe.emit(Golpe.SUCIO)
 		else:
-			_fallo("Tajo en falso: destrozas el tallo")
+			golpe.emit(Golpe.FALLO)
+			_fallo("En falso")
 
 	_siguiente()
 
@@ -123,6 +150,7 @@ func _resolver(pos: float) -> void:
 func _fallo(txt: String) -> void:
 	_destrozo += 2
 	_ultimo = txt
+	_ultimo_t = 1.4
 	_vel *= AGITACION   # la planta se agita: lo que queda va mas rapido
 
 
@@ -164,50 +192,44 @@ func _terminar() -> void:
 	queue_redraw()
 
 
+# EL MEDIDOR, al lado del personaje (ver MedidorFaena para el estilo comun): el carril vertical con la
+# raya de corte y sus dos franjas (el nucleo del corte limpio en verde vivo, el borde del sucio mas
+# apagado), y el marcador que BAJA de una pasada. Debajo, los tallos (azul) y el destrozo (rojo).
+const VERDE_VIVO := Color(0.62, 0.95, 0.42)
+const VERDE_BORDE := Color(0.42, 0.66, 0.30, 0.65)
+
 func _draw() -> void:
 	var w: float = size.x
-	var h: float = size.y
-	draw_rect(Rect2(0, 0, w, h), Color(0.07, 0.11, 0.08, 1.0))
-
-	var font: Font = ThemeDB.fallback_font
+	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Planta"
+	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
 
-	var bar_w: float = w * 0.6
-	var bar_h: float = 26.0
-	var bar_x: float = (w - bar_w) / 2.0
-	var bar_y: float = h * 0.5
-
-	# Banda del tallo.
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.2, 0.26, 0.2))
+	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	MedidorFaena.carril(self, cr)
 	if _state == RUNNING:
-		# Borde (corte sucio) y nucleo (corte limpio): dos anillos concentricos.
-		draw_rect(Rect2(bar_x + (_linea - _borde) * bar_w, bar_y, 2.0 * _borde * bar_w, bar_h),
-			Color(0.55, 0.75, 0.35, 0.55))
-		draw_rect(Rect2(bar_x + (_linea - _nucleo) * bar_w, bar_y, 2.0 * _nucleo * bar_w, bar_h),
-			Color(0.65, 1.0, 0.45))
-		# La linea de corte, fina, en el centro exacto.
-		draw_rect(Rect2(bar_x + _linea * bar_w - 1.0, bar_y - 6.0, 2.0, bar_h + 12.0),
-			Color(1.0, 1.0, 1.0, 0.5))
-		# El marcador: una hoja que baja por el tallo, de una pasada.
-		var mx: float = bar_x + _marker * bar_w
-		draw_rect(Rect2(mx - 2.0, bar_y - 12.0, 4.0, bar_h + 24.0), Color(0.95, 0.95, 0.8))
+		var yb: float = cr.position.y + (_linea - _borde) * cr.size.y
+		draw_rect(Rect2(cr.position.x, yb, cr.size.x, 2.0 * _borde * cr.size.y), VERDE_BORDE)
+		var yn: float = cr.position.y + (_linea - _nucleo) * cr.size.y
+		draw_rect(Rect2(cr.position.x, yn, cr.size.x, 2.0 * _nucleo * cr.size.y), VERDE_VIVO)
+		# La raya de corte, fina, en el centro exacto.
+		var yl: float = cr.position.y + _linea * cr.size.y
+		draw_rect(Rect2(cr.position.x - 3.0, yl - 1.0, cr.size.x + 6.0, 2.0), Color(1, 1, 1, 0.55))
+		# El marcador: la hoja de la hoz que baja por el tallo, sobresaliendo del carril.
+		var ym: float = cr.position.y + _marker * cr.size.y
+		draw_rect(Rect2(cr.position.x - 7.0, ym - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	draw_string(font, Vector2(bar_x, bar_y - 76.0), "Recolectando: %s" % nombre,
-		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
+	MedidorFaena.marcas(self, w * 0.5, 218.0, _cortes, _corte_actual, MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, 232.0, DESTROZO_ROTO, _destrozo, MedidorFaena.ROJO)
+
+	var estado: String
+	var col: Color = MedidorFaena.TEXTO_SUAVE
 	if _state == READY:
-		draw_string(font, Vector2(bar_x, bar_y - 50.0),
-			"Pulsa ESPACIO para empezar",
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = "ESPACIO: empezar"
 	elif _state == RUNNING:
-		draw_string(font, Vector2(bar_x, bar_y - 50.0),
-			"Tallo %d/%d   ·   ESPACIO justo en la línea (una sola pasada)" % [
-				_corte_actual + 1, _cortes],
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
-		draw_string(font, Vector2(bar_x, bar_y + bar_h + 28.0),
-			"Destrozo: %d/%d   ·   %s" % [_destrozo, DESTROZO_ROTO, _ultimo],
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = _ultimo if _ultimo_t > 0.0 else "Pulsa en la raya"
+		if _ultimo_t > 0.0:
+			col = MedidorFaena.TEXTO
 	else:
-		var txt: String = "La planta queda hecha jirones: no sirve" if _result.se_pierde() \
-			else "Recoges %s (%s)" % [nombre, _result.calidad_texto()]
-		draw_string(font, Vector2(bar_x, bar_y + bar_h + 28.0),
-			txt + "   ·   ESPACIO para continuar", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = "Hecha jirones" if _result.se_pierde() else _result.calidad_texto()
+		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
+	MedidorFaena.texto(self, 258.0, 4.0, w - 8.0, estado, 12, col)

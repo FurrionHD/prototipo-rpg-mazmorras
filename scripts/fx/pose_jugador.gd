@@ -288,15 +288,18 @@ const ANIMS := [
 	# 'talar': 0 remate (= el 7, para que empalme), 1-3 armar el hachazo a la derecha, 4-7 el barrido
 	# lateral hasta el tronco (impacto en el 6). Ver _pose_talar.
 	{"n": "talar", "loop": false, "fps": 14.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
+	# 'segar': agachado, la mano izquierda sujeta la mata y la derecha da el tajo corto con la hoz.
+	# Mismo reparto que talar (0 = 7 remate, 1-3 armar, 4-7 tajo con el corte en el 6).
+	{"n": "segar", "loop": false, "fps": 16.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
 ]
 
 # Las faenas, por su nombre base. Las capas que se ven "envainadas" (la espada a la cadera) tambien
 # salen en ellas, y cada herramienta en la mano sale SOLO en la suya (ver ArmaSprites.HERRAMIENTA_ANIM).
-const FAENAS := ["picar", "talar"]
+const FAENAS := ["picar", "talar", "segar"]
 # En que fotograma de cada faena empieza la DESCARGA y en cual pega. La faena arranca la animacion
 # desde el primero al soltar el golpe, y del segundo sale cuando saltan las esquirlas.
-const FAENA_DESCARGA := {"picar": 4, "talar": 4}
-const FAENA_IMPACTO := {"picar": 6, "talar": 6}
+const FAENA_DESCARGA := {"picar": 4, "talar": 4, "segar": 4}
+const FAENA_IMPACTO := {"picar": 6, "talar": 6, "segar": 6}
 # Las que se ARMAN CON LA CARGA del minijuego (el pico sube mientras mantienes). Las demas van de
 # COMPAS: tras cada golpe se vuelven a armar solas y esperan armadas al siguiente.
 const FAENA_CARGA := ["picar"]
@@ -908,6 +911,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"muerte": return _pose_muerte(t)
 		"picar": return _pose_picar(t)
 		"talar": return _pose_talar(t)
+		"segar": return _pose_segar(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1089,6 +1093,26 @@ static func _pose_talar(t: float) -> Dictionary:
 	return {"brazo_der": b, "brazo_izq": b,
 		"torsion": SpriteLienzo.tramos(t, tor_keys),
 		"inclina": 0.12, "agacha": 0.12, "paso": 0.22}
+
+
+# SEGAR. Agachado de verdad junto a la mata: la mano IZQUIERDA la agarra (quieta, al frente y abajo) y
+# la DERECHA da tajos cortos y bajos con la hoz, de su lado hacia el centro. El barrido lo hace una
+# torsion PEQUEÑA del tronco, como el hachazo pero en corto: una hoz no se lanza, se tira.
+#
+# Mucho mas agachado que el sigilo (0,78 frente a 0,44) porque la hierba esta a ras de suelo, pero con
+# la inclinacion CONTENIDA: echar mucho el tronco adelante saca la cabeza por delante del pecho y la
+# silueta pasa a leerse como un ganso (ver _pose_sigilo).
+static func _pose_segar(t: float) -> Dictionary:
+	var tor_keys := [[0.0, -0.40], [0.143, 0.05], [0.286, 0.40], [0.429, 0.60],
+		[0.571, 0.55], [0.714, 0.15], [0.857, -0.30], [1.0, -0.40]]
+	var der_keys := [[0.0, 0.85], [0.143, 0.95], [0.286, 1.05], [0.429, 1.10],
+		[0.571, 1.08], [0.714, 0.95], [0.857, 0.82], [1.0, 0.85]]
+	# LOS PIES JUNTOS (paso 0,10). Las piernas son rigidas, no hay rodilla que doblar: lo unico que dice
+	# "agachado" es la silueta aplastada, y con las piernas abiertas (0,34) eso se leia como una ZANCADA,
+	# alguien corriendo. Juntas y bien aplastado (0,78) es una sentadilla.
+	return {"brazo_der": SpriteLienzo.tramos(t, der_keys), "brazo_izq": 0.80,
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"agacha": 0.78, "inclina": 0.20, "paso": 0.10}
 
 
 # EN GUARDIA: con el arma fuera pero sin atacar. Como el idle (respira) pero con los dos brazos

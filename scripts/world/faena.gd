@@ -27,7 +27,7 @@ extends Node
 
 # A cuanto del centro del recurso se planta el personaje, en pixeles de mundo, POR FAENA. Lo justo
 # para que la herramienta caiga encima del recurso y no delante ni detras.
-const DIST := {"picar": 19.0, "talar": 23.0}
+const DIST := {"picar": 19.0, "talar": 23.0, "segar": 20.0}
 # Lo que tarda en volver a ARMARSE una faena de compas tras el golpe (ver PoseJugador.FAENA_CARGA).
 const T_REARME := 0.32
 
@@ -35,11 +35,15 @@ const T_REARME := 0.32
 # de su minijuego): cuanto tiembla, cuantos trozos saltan, a que altura del dibujo pega y como suena.
 #   picar: FLOJO rebota, LIMPIO hace ceder la veta, BRUTO la revienta.
 #   talar: FALLO (a destiempo) astilla sin morder, LIMPIO muerde el tronco.
+#   segar: FALLO (en falso) destroza la mata, LIMPIO la corta, SUCIO la magulla. Lo que salta son
+#          BRIZNAS: pocas, ligeras y cayendo despacio ('gravedad' baja), del verde de la planta.
 const REACCION := {
 	"picar": {"fuerza": [0.35, 1.0, 1.6], "trozos": [3, 7, 12], "altura": 0.4,
 		"sonido": ["picar_flojo", "picar_limpio", "picar_bruto"]},
 	"talar": {"fuerza": [0.55, 1.0], "trozos": [9, 6], "hojas": [1, 4], "altura": 0.3,
 		"sonido": ["talar_fallo", "talar_limpio"]},
+	"segar": {"fuerza": [0.8, 0.45, 0.6], "trozos": [8, 5, 6], "altura": 0.25, "gravedad": 110.0,
+		"sonido": ["segar_fallo", "segar_limpio", "segar_sucio"]},
 }
 const COLOR_PIEDRA := Color(0.55, 0.52, 0.48)
 const COLOR_MADERA := Color(0.62, 0.45, 0.28)
@@ -264,7 +268,7 @@ func _impacto() -> void:
 	var fuerza: float = float(r["fuerza"][i])
 	if nodo.has_method("sacudir"):
 		nodo.sacudir(fuerza)
-	var base: Color = COLOR_MADERA if faena == "talar" else COLOR_PIEDRA
+	var base: Color = {"talar": COLOR_MADERA, "segar": COLOR_HOJA}.get(faena, COLOR_PIEDRA)
 	var col: Color = base
 	var md: MaterialData = nodo.get("material_data")
 	if md != null:
@@ -274,7 +278,7 @@ func _impacto() -> void:
 	var padre: Node = nodo.get_parent()
 	if padre != null:
 		var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-_lado, 0.0),
-			int(r["trozos"][i]), 0.8 + 0.25 * fuerza)
+			int(r["trozos"][i]), 0.8 + 0.25 * fuerza, float(r.get("gravedad", 260.0)))
 		p.global_position = donde
 		p.z_index = 50
 		# Las HOJAS caen despacio y en abanico ancho: un arbol sacudido suelta hojas, no piedras.

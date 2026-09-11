@@ -72,12 +72,14 @@ const GEO := {
 	# El hacha de LEÑADOR: la misma forma de hacha que la de guerra, con el astil algo mas corto y la
 	# cabeza mas estrecha -- la de guerra es un arma y esta una herramienta.
 	"hacha_talar":     {"mango": 14.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 5.0, "cabeza_forma": "hacha"},
+	# La hoz: mango corto y la hoja en MEDIA LUNA que sale de su punta (ver la forma "hoz").
+	"hoz":             {"mango": 5.5,  "hoja": 0.0,  "r_mango": 1.3, "cabeza": 5.2, "cabeza_forma": "hoz"},
 }
 
 # LAS HERRAMIENTAS en la mano: cada una sale SOLO en la animacion de su faena (ver PoseJugador.FAENAS),
 # y no se monta en el muñeco mas que mientras dura (ver JugadorSprites.capa_herramienta). Las de dos
 # manos se agarran con las dos, como un hacha grande.
-const HERRAMIENTA_ANIM := {"pico": "picar", "hacha_talar": "talar"}
+const HERRAMIENTA_ANIM := {"pico": "picar", "hacha_talar": "talar", "hoz": "segar"}
 const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 
 # En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver
@@ -385,6 +387,27 @@ static func _dibujar(piezas: Array, esq: Dictionary, grip: Vector3, eje: Vector3
 			"orbe":
 				PoseJugador.poner(piezas, esq, mango_fin,
 					Vector3(cabeza, cabeza, cabeza), Tono.METAL_L, op)
+			"hoz":
+				# LA MEDIA LUNA: arranca en la punta del mango y da la vuelta en el plano del tajo
+				# (lado/eje), abriendose hacia un costado y volviendo hacia delante como un gancho. Se
+				# afila hacia la punta y lleva el filo en luz por dentro, que es por donde corta.
+				var rr: float = cabeza
+				var c0: Vector3 = mango_fin + lado * rr
+				# GRUESA EN LA RAIZ (0,34 del radio): con la mitad, a tamaño de juego era una raya de un
+				# pixel y la hoz no se veia.
+				var n: int = 9
+				var prev: Vector3 = mango_fin
+				for k in range(1, n + 1):
+					var a: float = PI * 1.15 * float(k) / float(n)
+					var pt: Vector3 = c0 - lado * (rr * cos(a)) + eje * (rr * 0.9 * sin(a))
+					var f0: float = float(k - 1) / float(n)
+					var f: float = float(k) / float(n)
+					PoseJugador.cadena(piezas, esq, prev, pt, lerpf(0.34, 0.08, f0) * rr,
+						lerpf(0.34, 0.08, f) * rr, Tono.METAL, op)
+					if k < n:
+						PoseJugador.cadena(piezas, esq, prev, pt, rr * 0.09, rr * 0.07, Tono.METAL_L,
+							op.merged({"solo_sobre": [Tono.METAL]}))
+					prev = pt
 			"pico":
 				# LA CABEZA DEL PICO VA EN EL PLANO DEL GOLPE, no cruzada a lo ancho como el martillo:
 				# es lo que la hace un pico. 'plano' es el eje girado un cuarto de vuelta sobre la linea de

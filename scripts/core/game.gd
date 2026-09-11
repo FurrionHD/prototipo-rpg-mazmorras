@@ -13440,7 +13440,7 @@ func start_herboristeria(nodo) -> void:
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, cortes, nucleo, borde, vel)
 	ex.recoleccion_finished.connect(_on_herboristeria_finished.bind(nodo))
-	_abrir_pantalla(ex)
+	_abrir_faena("segar", nodo, ex, h)
 
 
 func _on_herboristeria_finished(item: MaterialItem, progreso: float, nodo) -> void:
