@@ -383,23 +383,57 @@ static func banda_columna(mejora_min: int) -> int:
 		return 1
 	return 0
 
-# Lo que aporta una herramienta forjada. 'tipo' es ToolData.Tipo (PICO/HOZ/HACHA/CANA) y hoy NO se
-# usa: las cuatro comparten tabla porque los minijuegos comparten la forma de la dificultad. Entra
-# en la firma a proposito, para que el dia que el pico y el hacha tengan que divergir no haya que
-# tocar a ninguno de los que llaman aqui.
+# Lo que aporta una herramienta forjada. 'tipo' es ToolData.Tipo: pico, hoz, hacha y caña comparten
+# tabla porque los minijuegos comparten la forma de la dificultad. El que diverge es el CUCHILLO
+# (sin golpes_menos, con 'perdona'; ver CUCHILLO_PERDONA), y por eso el tipo esta en la firma.
 #
 # La CAÑA es la que mas se aleja del molde: su 'golpes_menos' no descuenta golpes (no los hay), lo
 # gasta en ALARGAR la ventana del tiron (ver fishing_spot.VENTANA_POR_PUNTO). La afinidad si entra
 # igual que en los otros tres, por el denominador de Game._reto_recoleccion.
-static func tool_mods(_tipo: int, tier: int, rareza: int, banda: int) -> Dictionary:
+static func tool_mods(tipo: int, tier: int, rareza: int, banda: int) -> Dictionary:
 	var t: int = clampi(tier - 1, 0, TOOL_AFINIDAD_TIER.size() - 1)
 	var r: int = clampi(rareza, 0, TOOL_GOLPES_MENOS.size() - 1)
 	var col: int = banda_columna(banda)
+	var afinidad: float = float(TOOL_AFINIDAD_TIER[t]) * float(TOOL_AFINIDAD_RAREZA[r]) \
+		* float(TOOL_AFINIDAD_VETA[col])
+	if tipo == ToolData.Tipo.CUCHILLO:
+		return {"afinidad": afinidad, "golpes_menos": 0,
+			"perdona": int(CUCHILLO_PERDONA[clampi(rareza, 0, CUCHILLO_PERDONA.size() - 1)])}
 	return {
-		"afinidad": float(TOOL_AFINIDAD_TIER[t]) * float(TOOL_AFINIDAD_RAREZA[r])
-			* float(TOOL_AFINIDAD_VETA[col]),
+		"afinidad": afinidad,
 		"golpes_menos": int((TOOL_GOLPES_MENOS[r] as Array)[col]),
 	}
+
+
+# EL CUCHILLO DE DESOLLAR (la extraccion del cristal). Comparte la AFINIDAD de las demas, pero la
+# gasta distinto porque asi lo pidio el jefe (11/09/2026): quitar pulsaciones le parecio demasiado
+# roto para esto. Lo que da:
+#
+#   afinidad  -> SOLO ensancha la zona. Entra en el denominador de la dificultad con la que se
+#                calcula el ANCHO (Game.start_extraction), no en la del marcador ni en la de las
+#                pulsaciones: te da margen, no te frena el minijuego.
+#   perdona   -> fallos que no cuentan, por RAREZA (Epico+ uno, Obra maestra y Pristino dos).
+#   drop      -> ver cuchillo_drop_mult.
+#
+# Y NO lleva golpes_menos: tool_mods se lo deja a 0 y le añade 'perdona', asi que todo el que lee
+# tool_mods (la ficha, la forja, el log) lo ve bien sin tener que saber que es un cuchillo.
+const CUCHILLO_PERDONA := [0, 0, 0, 1, 1, 1, 2, 2]   # Comun..Pristino
+
+# DROP DEL CUERPO: MULTIPLICA la probabilidad del material y del nucleo por (1 + bono), con el bono
+# = min(TOPE, K x afinidad / exigencia del cristal). Dos cosas que pidio el jefe:
+#   - PORCENTUAL sobre lo que ya tiene el bicho (un 10% con el tope sale 20%), nunca un +X plano
+#     que acabaria regalando el 100%.
+#   - Que dependa del CRISTAL: un cuchillo flojo en un tier alto casi no da nada, y en un t1 si.
+#     Dividir por la exigencia del tier lo hace solo, sin tablas.
+# K esta puesto para que el MEJOR cuchillo (T3 Pristino de veta profunda, afinidad ~47) toque el
+# tope justo en los cristales t1 (exigencia 35). Un T1 Comun ahi da +21%, y en un t4 un +3%.
+const CUCHILLO_DROP_K := 0.75
+const CUCHILLO_DROP_TOPE := 1.0
+
+static func cuchillo_drop_mult(afinidad: float, exigencia: float) -> float:
+	if afinidad <= 0.0 or exigencia <= 0.0:
+		return 1.0
+	return 1.0 + minf(CUCHILLO_DROP_TOPE, CUCHILLO_DROP_K * afinidad / exigencia)
 
 
 static func rareza_mult(r: int) -> float:

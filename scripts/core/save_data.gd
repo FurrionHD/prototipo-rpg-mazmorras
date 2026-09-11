@@ -323,6 +323,9 @@ const VERSION_MUNDO := 1
 # viaja en `plantilla`). Ver PersonajeData.habilidades_aprendidas / loadout_habilidades.
 @export var habilidades_aprendidas: Array = []
 @export var loadout_habilidades: Dictionary = {}
+# LEGACY: el hueco que guardaba el sitio al cuchillo de extraccion antes de que existiera. Nadie los
+# subio nunca de 0; ya no se escriben ni se leen (el cuchillo de verdad va en tool_cuchillo).
+# Se conservan para que un save viejo cargue sin quejarse, como los pico/hoz/hacha de abajo.
 @export var tool_hit_reduction: int = 0
 @export var tool_destreza_bonus: int = 0
 
@@ -347,6 +350,7 @@ const VERSION_MUNDO := 1
 @export var tool_hacha: Resource = null
 @export var tool_cana: Resource = null
 @export var tool_lampara: Resource = null
+@export var tool_cuchillo: Resource = null
 
 # El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Ver Game.registro_pesca.
 @export var registro_pesca: Dictionary = {}

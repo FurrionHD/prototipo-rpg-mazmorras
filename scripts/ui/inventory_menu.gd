@@ -846,8 +846,8 @@ func _preview_herramienta(vb: VBoxContainer) -> void:
 		if t.es_cana():
 			_note(vb, "Sin caña no puedes pescar: no hay una de serie a la que volver.")
 		else:
-			_note(vb, "Al quitarla vuelves a la %s de serie, que no ayuda en nada."
-				% t.tipo_texto().to_lower())
+			_note(vb, "Al quitar%s vuelves a %s de serie, que no ayuda en nada."
+				% ["la" if t.es_femenina() else "lo", t.con_articulo()])
 
 
 # ============================================================

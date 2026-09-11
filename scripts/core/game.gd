@@ -783,6 +783,9 @@ var _last_extraction_reto: float = 1.0
 # falta para DEVOLVER el candado si la extraccion se auto-cancela: en ese caso el nodo del cadaver ya
 # esta liberado y no se le puede preguntar su id (ver _on_extraction_finished).
 var _extraccion_net_id: int = 0
+# Cuanto multiplica el CUCHILLO el botin del cuerpo que estoy extrayendo (1.0 = nada). Se fija al
+# abrir (start_extraction, que es donde se sabe la exigencia del cristal) y lo lee _tirar_drop.
+var _extraccion_drop_mult: float = 1.0
 
 # NOTA: las stats base de los enemigos ya NO son globales. Cada EnemyData declara las
 # SUYAS (base_hp/base_attack/base_defense/base_speed), porque un goblin y un minotauro no
@@ -1828,8 +1831,6 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	equipped_pantalones = null
 	equipped_botas = null
 
-	tool_hit_reduction = 0
-	tool_destreza_bonus = 0
 	# Bajas a la mazmorra con un pico, una hoz y un hacha de serie: recolectar no es una
 	# habilidad que haya que desbloquear, es lo que hace cualquiera que entre ahi a buscarse
 	# la vida. Van a NULL y no al .tres basico: los getters pico()/hoz()/hacha() ya caen a la
@@ -1840,6 +1841,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	equipped_hoz = null
 	equipped_hacha = null
 	equipped_cana = null
+	equipped_cuchillo = null
 	registro_pesca.clear()
 	# Empiezas sin conocer NINGUN metal: el herrero solo te enseñara los que te traigas.
 	materiales_vistos.clear()
@@ -2006,8 +2008,6 @@ func exportar_partida() -> SaveData:
 	d.player_gacha_n200 = lider().gacha_n200
 	d.player_gacha_total = lider().gacha_total
 	d.loadout_habilidades = lider().loadout_habilidades.duplicate(true)
-	d.tool_hit_reduction = tool_hit_reduction
-	d.tool_destreza_bonus = tool_destreza_bonus
 	# HERRAMIENTAS: el baul y las tres equipadas, como instancias (llevan tier/rareza/banda en su
 	# item_meta). Se guardan las VARIABLES y no los getters pico()/hoz()/hacha(): el getter devuelve
 	# la basica cuando no llevas nada, y guardar eso metería el .tres COMPARTIDO del proyecto dentro
@@ -2019,6 +2019,7 @@ func exportar_partida() -> SaveData:
 	d.tool_hacha = equipped_hacha
 	d.tool_cana = equipped_cana
 	d.tool_lampara = equipped_lampara
+	d.tool_cuchillo = equipped_cuchillo
 	d.materiales_vistos = materiales_vistos.duplicate()
 	d.registro_pesca = registro_pesca.duplicate(true)
 
@@ -2123,6 +2124,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_hacha = equipped_hacha
 	jd.equipped_cana = equipped_cana
 	jd.equipped_lampara = equipped_lampara
+	jd.equipped_cuchillo = equipped_cuchillo
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
@@ -2278,13 +2280,12 @@ func limpiar_mundo_heredado() -> void:
 	# Las herramientas SI viajan en el JugadorData desde el 29/07 (las repone _adoptar_jugador), pero
 	# aqui se limpian igual que el resto del mundo heredado: las que tengo puestas son de MI partida
 	# y no de este mundo. Null = las basicas, que es con lo que cualquiera entra a la mazmorra.
-	tool_hit_reduction = 0
-	tool_destreza_bonus = 0
 	owned_tools.clear()
 	equipped_pico = null
 	equipped_hoz = null
 	equipped_hacha = null
 	equipped_cana = null
+	equipped_cuchillo = null
 	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
 	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
 	Perfil.ranura_actual = 0
@@ -2366,6 +2367,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	equipped_hacha = jd.equipped_hacha as ToolData
 	equipped_cana = jd.equipped_cana as ToolData
 	equipped_lampara = jd.equipped_lampara as ToolData
+	equipped_cuchillo = jd.equipped_cuchillo as ToolData
 	# El libro del Pescador viaja CON LA PERSONA (como las herramientas): tus records son tuyos,
 	# no del mundo en el que los sacaste.
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
@@ -2659,8 +2661,6 @@ func importar_partida(d: SaveData) -> void:
 	# Si venia de una partida sin banners, sus contadores viejos se vuelcan AQUI, al cargar, y no la
 	# primera vez que abra el maestro: asi el informe y cualquier otro que mire el pity ya lo ven bien.
 	gacha_migrar_pity(lider())
-	tool_hit_reduction = d.tool_hit_reduction
-	tool_destreza_bonus = d.tool_destreza_bonus
 	# HERRAMIENTAS. Baul + las tres equipadas, como instancias con su meta.
 	#
 	# MIGRACION de las partidas anteriores al 29/07: traen d.pico/hoz/hacha (rutas) y los campos
@@ -2674,11 +2674,13 @@ func importar_partida(d: SaveData) -> void:
 	equipped_hacha = d.tool_hacha as ToolData
 	equipped_cana = d.tool_cana as ToolData
 	equipped_lampara = d.tool_lampara as ToolData
+	equipped_cuchillo = d.tool_cuchillo as ToolData
 	registro_pesca = (d.registro_pesca as Dictionary).duplicate(true)
 	# Una equipada que NO este en el baul es una herramienta huerfana: no se puede cambiar desde el
 	# inventario (que lista owned_tools) y ademas se quedaria fuera del baul para siempre. Godot
 	# conserva la identidad al cargar, asi que no deberia pasar; si pasa, se adopta.
-	for eq in [equipped_pico, equipped_hoz, equipped_hacha, equipped_cana, equipped_lampara]:
+	for eq in [equipped_pico, equipped_hoz, equipped_hacha, equipped_cana, equipped_lampara,
+			equipped_cuchillo]:
 		if eq != null and not owned_tools.has(eq):
 			owned_tools.append(eq as ToolData)
 
@@ -4816,12 +4818,6 @@ func _process(delta: float) -> void:
 	tiempo_mazmorra += delta
 
 
-# Bonus del CUCHILLO de extraccion (el cristal del cadaver). Placeholder hasta tener
-# sistema de equipo: la herramienta rellenara estos valores. OJO: esto es la extraccion,
-# NO la recoleccion: el pico y la hoz son otra cosa y van en sus propios slots (abajo).
-var tool_hit_reduction: int = 0    # reduce pulsaciones necesarias
-var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
-
 # --- HERRAMIENTAS DE RECOLECCION: pico (vetas), hoz (plantas) y hacha (madera) ---
 # Slots APARTE: no ocupan mano, no pesan y no entran en el combate. Una herramienta mejor
 # no te entrena mas rapido: hace el minijuego menos hostil y te deja sacar mas material por rato
@@ -4829,12 +4825,14 @@ var tool_destreza_bonus: int = 0   # Destreza extra para la extraccion
 const PICO_BASICO := preload("res://resources/tools/pico_basico.tres")
 const HOZ_BASICA := preload("res://resources/tools/hoz_basica.tres")
 const HACHA_BASICA := preload("res://resources/tools/hacha_basica.tres")
+const CUCHILLO_BASICO := preload("res://resources/tools/cuchillo_basico.tres")
 
 var equipped_pico: ToolData = null
 var equipped_hoz: ToolData = null
 var equipped_hacha: ToolData = null
 var equipped_cana: ToolData = null
 var equipped_lampara: ToolData = null
+var equipped_cuchillo: ToolData = null
 
 func pico() -> ToolData:
 	return equipped_pico if equipped_pico != null else (PICO_BASICO as ToolData)
@@ -4844,6 +4842,12 @@ func hoz() -> ToolData:
 
 func hacha() -> ToolData:
 	return equipped_hacha if equipped_hacha != null else (HACHA_BASICA as ToolData)
+
+# El CUCHILLO de desollar (la extraccion del cristal) SI tiene respaldo, como el pico: sacar un
+# cristal se ha hecho siempre con lo puesto y asi se queda. El basico no aporta nada (no esta en
+# item_meta, ver es_herramienta_forjada): quien no lo forja extrae exactamente igual que antes.
+func cuchillo() -> ToolData:
+	return equipped_cuchillo if equipped_cuchillo != null else (CUCHILLO_BASICO as ToolData)
 
 # La CAÑA es la unica SIN respaldo a la basica, y es la regla del oficio: a picar, cortar y talar se
 # puede ir con lo puesto, pero a pescar NO se va sin caña. Devuelve null si no llevas ninguna, y el
@@ -4875,7 +4879,7 @@ func es_herramienta_forjada(t: ToolData) -> bool:
 # que lees es exactamente lo que juegas. Una basica (o null) no aporta nada: es la linea base.
 func tool_mods(t: ToolData) -> Dictionary:
 	if not es_herramienta_forjada(t):
-		return {"afinidad": 0.0, "golpes_menos": 0}
+		return {"afinidad": 0.0, "golpes_menos": 0, "perdona": 0}
 	var m: Dictionary = item_meta[t]
 	return Upgrades.tool_mods(int(t.tipo), int(m.get("tier", 1)),
 		int(m.get("rareza", Upgrades.Rareza.COMUN)), int(m.get("banda", 0)))
@@ -4887,6 +4891,7 @@ func herramienta_de_tipo(tipo: int) -> ToolData:
 		ToolData.Tipo.HOZ: return hoz()
 		ToolData.Tipo.CANA: return cana()
 		ToolData.Tipo.LAMPARA: return lampara()
+		ToolData.Tipo.CUCHILLO: return cuchillo()
 		_: return hacha()
 
 # Equipar / quitar. Trivial como equipar_mochila: no tiene dueño (es del GRUPO, no de un
@@ -4899,6 +4904,7 @@ func equipar_herramienta(t: ToolData) -> void:
 		ToolData.Tipo.HOZ: equipped_hoz = t
 		ToolData.Tipo.CANA: equipped_cana = t
 		ToolData.Tipo.LAMPARA: equipped_lampara = t
+		ToolData.Tipo.CUCHILLO: equipped_cuchillo = t
 		_: equipped_hacha = t
 
 func desequipar_herramienta(tipo: int) -> void:
@@ -4907,6 +4913,7 @@ func desequipar_herramienta(tipo: int) -> void:
 		ToolData.Tipo.HOZ: equipped_hoz = null
 		ToolData.Tipo.CANA: equipped_cana = null
 		ToolData.Tipo.LAMPARA: equipped_lampara = null
+		ToolData.Tipo.CUCHILLO: equipped_cuchillo = null
 		_: equipped_hacha = null
 
 # ============================================================
@@ -5027,7 +5034,7 @@ func radio_lampara(piso: int = -1) -> float:
 # ¿La llevas puesta? Lo consultan la UI (para el boton Equipar/Quitar) y la venta.
 func herramienta_equipada(t: ToolData) -> bool:
 	return t != null and (t == equipped_pico or t == equipped_hoz or t == equipped_hacha
-		or t == equipped_cana or t == equipped_lampara)
+		or t == equipped_cana or t == equipped_lampara or t == equipped_cuchillo)
 
 # --- Equipamiento: loadout de DOS manos (arma principal + secundaria) ---
 # La secundaria puede ser otra WeaponData (dual-wield), un ShieldData o null.
@@ -10164,6 +10171,7 @@ const HERRAMIENTA_BASE := {
 	ToolData.Tipo.HACHA: "res://resources/tools/hacha_basica.tres",
 	ToolData.Tipo.CANA: "res://resources/tools/cana_basica.tres",
 	ToolData.Tipo.LAMPARA: "res://resources/tools/farolillo_basico.tres",
+	ToolData.Tipo.CUCHILLO: "res://resources/tools/cuchillo_basico.tres",
 }
 # En unidades (puro 4 / intacto 3 / normal 2 / dañado 1), como el resto del crafteo. 6 en total
 # frente a las 12 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
@@ -12980,6 +12988,9 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 # Exigencia de extraccion de una CATEGORIA de cristal. Dentro de la tabla, el valor afinado a mano;
 # por ENCIMA de la tabla se extrapola con pendiente fija (EXTRACTION_REQ_STEP), asi escala a
 # cualquier categoria (10, 50, 100...) sin escribir cientos de entradas.
+func exigencia_extraccion(categoria: int) -> float:
+	return _extraction_req(categoria)
+
 func _extraction_req(categoria: int) -> float:
 	var cat: int = maxi(1, categoria)
 	var ultimo: int = EXTRACTION_REQ_POR_TIER.size() - 1
@@ -13018,7 +13029,9 @@ func start_extraction(corpse: Node) -> void:
 	# Destreza CONSOLIDADA (la del ultimo altar) y con el plato puesto si lo llevas: es la stat de
 	# efecto fuera de combate. No se endurece al subir de nivel (a diferencia de la visible, que cae
 	# a 0) y no se mueve con la excelia que aun no has descansado. Ver stat_consolidado_eff.
-	var eff_destreza: int = int(round(stat_consolidado_eff("destreza"))) + tool_destreza_bonus
+	var eff_destreza: int = int(round(stat_consolidado_eff("destreza")))
+	var cu: ToolData = cuchillo()
+	var tm: Dictionary = tool_mods(cu)
 
 	# Exigencia por TIER del cristal (no por enemigo ni por piso): un t4 cuesta lo mismo lo saques
 	# donde lo saques. La tabla cubre las categorias bajas y por encima se extrapola (ver _extraction_req).
@@ -13027,11 +13040,17 @@ func start_extraction(corpse: Node) -> void:
 	# Dificultad RELATIVA: exigencia del tier / tu DESTREZA (solo Destreza, con peso y suelo).
 	# ~1 = a la par; >1 mas dificil. Subir Destreza sigue facilitando los tiers altos.
 	var difficulty: float = req / (float(eff_destreza) * RECOLECCION_STAT_PESO + EXTRACTION_DESTREZA_FLOOR)
-	var zone_ratio: float = clampf(EXTRACTION_BASE_ZONE / difficulty, 0.05, 0.35)
+	# EL CUCHILLO SOLO ENSANCHA LA ZONA: su afinidad entra en el denominador de ESTA dificultad y de
+	# ninguna otra. El marcador y las pulsaciones salen de la de arriba, como si no lo llevaras (asi lo
+	# pidio el jefe: margen para acertar, no un minijuego mas lento ni mas corto). Por ir dividiendo,
+	# el alivio decae solo con el tier del cristal, igual que en los otros minijuegos.
+	var d_zona: float = _reto_recoleccion(req, float(eff_destreza), EXTRACTION_DESTREZA_FLOOR,
+		float(tm["afinidad"]))
+	var zone_ratio: float = clampf(EXTRACTION_BASE_ZONE / d_zona, 0.05, 0.35)
 
 	# Pulsaciones: base del enemigo, ajustadas por la DIFICULTAD:
 	#   dificil (enemigo muy superior) -> MAS pulsaciones (~2x = +1, ~3x = +2...);
-	#   facil (tu muy superior) -> MENOS. Y las herramientas restan.
+	#   facil (tu muy superior) -> MENOS. El cuchillo NO resta (ver arriba).
 	# El minimo baja a DOS: superar a un bicho tiene que notarse en que lo despachas rapido, y con
 	# el suelo en tres, a un carnicero veterano una rata le costaba lo mismo que el primer dia. En
 	# uno no se queda a proposito: una extraccion no puede ser un "toque y listo".
@@ -13041,26 +13060,33 @@ func start_extraction(corpse: Node) -> void:
 	else:
 		ajuste_hits = -(floori(1.0 / difficulty) - 1)
 	var required_hits: int = maxi(EXTRACTION_HITS_MIN,
-		data.extraction_hits + ajuste_hits - tool_hit_reduction)
+		data.extraction_hits + ajuste_hits)
 	# LA QUE ENSEÑA, aparte: con la Destreza INTERNA (lo ganado hasta el ultimo golpe) y SIN el plato.
-	# El bonus de la herramienta si entra, igual que la afinidad en los otros cuatro minijuegos (ver
-	# _reto_recoleccion). Ni la zona ni las pulsaciones entran aqui: las dos estan topadas por
-	# jugabilidad y con ellas el aprendizaje se congelaba.
-	_last_extraction_reto = req / (float(stat_total("destreza") + tool_destreza_bonus)
+	# Y SIN el cuchillo, al reves que la afinidad en los otros minijuegos: alli entra en la excelia
+	# porque la herramienta quita golpes y asi la excelia POR GOLPE sale plana (ver _reto_recoleccion).
+	# El cuchillo no quita ninguna pulsacion, asi que cada extraccion cuesta lo mismo y paga lo mismo.
+	# Ni la zona ni las pulsaciones entran aqui: las dos estan topadas por jugabilidad y con ellas el
+	# aprendizaje se congelaba.
+	_last_extraction_reto = req / (float(stat_total("destreza"))
 		* RECOLECCION_STAT_PESO + EXTRACTION_DESTREZA_FLOOR)
+	# Lo que hace falta al CERRAR para el botin (ver _tirar_drop): el multiplicador del cuchillo se
+	# fija aqui, con la exigencia del cristal que sale, y se lee alli.
+	_extraccion_drop_mult = Upgrades.cuchillo_drop_mult(float(tm["afinidad"]), req)
 	# Marcador: mas rapido cuanto mas DIFICIL (ahora la dificultad la pone el TIER, no el piso),
 	# con TECHO y con SUELO (ver RECOLECCION_VEL_RETO_MIN: ser bueno no puede frenar el marcador).
 	var marker_speed: float = EXTRACTION_BASE_MARKER \
 		* clampf(difficulty, RECOLECCION_VEL_RETO_MIN, RECOLECCION_VEL_RETO_MAX)
 	marker_speed = minf(marker_speed, EXTRACTION_MARKER_MAX)
 	var speed_step: float = 0.15
-	print("[reco] extraccion tier %d (req %.0f) · Destreza %.0f (crudo %d) -> reto %.2f (paga %.2f)  (zona %.3f, marcador %.2f, pulsaciones %d)" % [
+	print("[reco] extraccion tier %d (req %.0f) · Destreza %.0f (crudo %d) -> reto %.2f (zona con cuchillo %.2f, paga %.2f)  (zona %.3f, marcador %.2f, pulsaciones %d)%s, perdona %d, drop x%.2f" % [
 		categoria, req, stat_consolidado_eff("destreza"), stat_total("destreza"),
-		difficulty, _last_extraction_reto, zone_ratio, marker_speed, required_hits])
+		difficulty, d_zona, _last_extraction_reto, zone_ratio, marker_speed, required_hits,
+		_log_herramienta(cu, tm), int(tm["perdona"]), _extraccion_drop_mult])
 
 	var ex: Control = _extraction_script.new()
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
-	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step, corpse)
+	ex.setup(categoria, required_hits, zone_ratio, marker_speed, speed_step, corpse,
+		int(tm["perdona"]))
 	ex.extraction_finished.connect(_on_extraction_finished.bind(corpse))
 	# MULTIJUGADOR: el net_id del cuerpo, para poder DEVOLVER el candado si la extraccion se cancela
 	# sola. Se guarda aqui porque en ese caso el nodo ya esta liberado cuando toca soltarlo.
@@ -13195,7 +13221,11 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	var mut: float = float(EnemyData.mult_mutante(bool(corpse.get("es_boss")))["botin"]) \
 		if bool(corpse.get("mutante")) else 1.0
 
-	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso * suerte * mut + mas, 0.0, 1.0)
+	# CUCHILLO DE DESOLLAR: multiplica, como la suerte, lo que ya tiene el bicho (ver
+	# Upgrades.cuchillo_drop_mult). Solo material y nucleo: la carne se queda como esta, lo pidio el jefe.
+	var cuchillo_m: float = _extraccion_drop_mult
+	_extraccion_drop_mult = 1.0
+	var chance: float = 1.0 if dev_force_drop else clampf(data.drop_chance * f_piso * suerte * mut * cuchillo_m + mas, 0.0, 1.0)
 	if data.drop_material != null and randf() < chance:
 		var cuantos: int = randi_range(maxi(1, data.drop_cantidad_min), maxi(1, data.drop_cantidad_max))
 		if doble > 0.0 and randf() < doble:
@@ -13203,7 +13233,7 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 		for _i in range(cuantos):
 			caidos.append(MaterialItem.crear(data.drop_material, _calidad_joyero(calidad, joyero)))
 
-	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso * suerte * mut + mas_n, 0.0, 1.0)
+	var chance_n: float = 1.0 if dev_force_drop else clampf(data.nucleo_chance * f_piso * suerte * mut * cuchillo_m + mas_n, 0.0, 1.0)
 	if data.nucleo != null and randf() < chance_n:
 		caidos.append(MaterialItem.crear(data.nucleo, _calidad_joyero(calidad, joyero)))
 		# El nucleo tambien puede salir doble: es lo caro, y dejarlo fuera haria que el plato solo se

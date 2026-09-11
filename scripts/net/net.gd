@@ -4890,6 +4890,7 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		"hoz": Game.serializar_equipo(jd.equipped_hoz),
 		"hacha": Game.serializar_equipo(jd.equipped_hacha),
 		"cana": Game.serializar_equipo(jd.equipped_cana),
+		"cuchillo": Game.serializar_equipo(jd.equipped_cuchillo),
 		"registro_pesca": jd.registro_pesca.duplicate(true),
 		"mezcla": jd.mezcla_exp, "metalurgia": jd.metalurgia_exp,
 		"peleteria": jd.peleteria_exp, "herreria": jd.herreria_exp,
@@ -4944,7 +4945,7 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	# bug de las 6 hachas multiplicado por tres.
 	jd.owned_tools = []
 	for par in [["pico", "equipped_pico"], ["hoz", "equipped_hoz"], ["hacha", "equipped_hacha"],
-			["cana", "equipped_cana"]]:
+			["cana", "equipped_cana"], ["cuchillo", "equipped_cuchillo"]]:
 		var t: Resource = Game.deserializar_equipo(d.get(String(par[0]), {}), registrar)
 		if t is ToolData:
 			jd.set(String(par[1]), t)
@@ -5839,7 +5840,8 @@ func _olvidar_meta_de(jd) -> void:
 				_olvidar_meta_item((pj as PersonajeData).get(r))
 	_olvidar_meta_item((jd as JugadorData).equipped_mochila)
 	for t in [(jd as JugadorData).equipped_pico, (jd as JugadorData).equipped_hoz,
-			(jd as JugadorData).equipped_hacha, (jd as JugadorData).equipped_cana]:
+			(jd as JugadorData).equipped_hacha, (jd as JugadorData).equipped_cana,
+			(jd as JugadorData).equipped_cuchillo]:
 		_olvidar_meta_item(t)
 
 

@@ -869,6 +869,16 @@ static func filas_herramienta(t: ToolData) -> Array:
 	filas.append(["Metal", "T%d  ·  %s" % [int(meta.get("tier", 1)),
 		TOOL_VETA[Upgrades.banda_columna(int(meta.get("banda", 0)))]]])
 	filas.append(["Afinidad", "+%.0f  (tier, rareza y veta)" % float(m["afinidad"])])
+	# EL CUCHILLO gasta la afinidad SOLO en la zona, no quita pulsaciones y a cambio perdona fallos y
+	# mejora el botin del cuerpo. El botin depende del cristal, asi que se enseña en dos tiers para
+	# que se vea como se apaga al subir (ver Upgrades.cuchillo_drop_mult).
+	if t.es_cuchillo():
+		var p: int = int(m["perdona"])
+		filas.append(["Zona", "más ancha (el marcador va igual)"])
+		filas.append(["Perdona", "ningún fallo" if p <= 0
+			else "%d %s  (rareza)" % [p, "fallo" if p == 1 else "fallos"]])
+		filas.append(["Botín del cuerpo", texto_botin_cuchillo(float(m["afinidad"]))])
+		return filas
 	var n: int = int(m["golpes_menos"])
 	# La CAÑA gasta ese mismo numero en OTRA moneda: no quita tirones, alarga la ventana en la que
 	# puedes clavar el tiron. Se enseña en segundos porque es lo que se juega.
@@ -914,7 +924,31 @@ static func _filas_farolillo(t: ToolData, meta: Dictionary) -> Array:
 const VENTANA_TIRON_POR_PUNTO := 0.15
 
 const TOOL_PARA := ["Vetas de mineral  ·  Fuerza", "Plantas  ·  Destreza", "Madera  ·  Agilidad",
-	"Estanques  ·  Resistencia", "Ver en la oscuridad  ·  quema carbón"]
+	"Estanques  ·  Resistencia", "Ver en la oscuridad  ·  quema carbón",
+	"Cristales de los cuerpos  ·  Destreza"]
+
+
+# Lo que aporta una herramienta en UNA linea, para las tablas de la forja y la ficha de deshacer. El
+# cuchillo no ahorra pulsaciones: lo suyo es perdonar fallos, y eso es lo que tiene que decir.
+static func texto_efecto_herramienta(t: ToolData, m: Dictionary) -> String:
+	var txt: String = "afinidad +%.0f" % float(m["afinidad"])
+	if t != null and t.es_cuchillo():
+		var p: int = int(m.get("perdona", 0))
+		if p > 0:
+			txt += ",  perdona %d %s" % [p, "fallo" if p == 1 else "fallos"]
+		return txt
+	var n: int = int(m["golpes_menos"])
+	if n > 0:
+		txt += ",  -%d %s" % [n, t.unidad_golpes(n) if t != null else "golpes"]
+	return txt
+
+
+# El botin del cuerpo con este cuchillo, en un tier bajo y en uno alto: el bono se apaga segun sube el
+# cristal, y enseñar un solo numero haria creer que es plano.
+static func texto_botin_cuchillo(afinidad: float) -> String:
+	var bajo: float = Upgrades.cuchillo_drop_mult(afinidad, Game.exigencia_extraccion(1))
+	var alto: float = Upgrades.cuchillo_drop_mult(afinidad, Game.exigencia_extraccion(4))
+	return "+%.0f%% en cristales T1  ·  +%.0f%% en T4" % [(bajo - 1.0) * 100.0, (alto - 1.0) * 100.0]
 const TOOL_VETA := ["en bruto", "veteado", "profundo"]
 
 

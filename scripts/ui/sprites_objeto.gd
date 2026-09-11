@@ -382,7 +382,7 @@ static func _encargo(item: Resource) -> Dictionary:
 			# candil con asa y farol labrado de luz azul. Pasado el T3 se queda con el ultimo.
 			var ft: int = clampi(tier, 1, 3)
 			return {"forma": "farol_%d" % ft, "color": FAROL_COLOR[ft - 1]}
-		var forma_h: String = ["pico", "hoz", "hacha", "cana", "farol_1"][int(td.tipo)]
+		var forma_h: String = ["pico", "hoz", "hacha", "cana", "farol_1", "cuchillo"][int(td.tipo)]
 		# La cabeza, del METAL de su tier y su mejora -- el mismo que una espada (PaletaEquipo).
 		return {"forma": forma_h, "color": PaletaEquipo.base(PaletaEquipo.METAL, tier,
 			Game.mejoras_actuales(item))}

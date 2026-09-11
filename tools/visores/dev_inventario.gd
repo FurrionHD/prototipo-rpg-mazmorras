@@ -61,6 +61,13 @@ func _ready() -> void:
 			for j in inv.SUBS_EQUIPO.size():
 				inv._on_sub_equipo(j)
 				await _captura("%d_equipo_%s" % [i, String(inv.SUBS_EQUIPO[j]).to_lower()])
+				# Y la ficha del CUCHILLO puesto: es la herramienta que no habla de golpes ahorrados.
+				if String(inv.SUBS_EQUIPO[j]) == "Herramientas":
+					for k in inv._stacks.size():
+						if inv._stacks[k]["modelo"] == Game.equipped_cuchillo:
+							inv._pick(k)
+							await _captura("%d_equipo_cuchillo" % i)
+							break
 			continue
 		await _captura("%d_%s" % [i, String(inv.TABS[i]).to_lower()])
 		# ARMAS y ARMADURAS llevan fila de filtros: se captura ademas UNO puesto, para ver que la
@@ -332,7 +339,8 @@ func _equipo() -> void:
 
 	Game.owned_tools = []
 	var r2: int = 0
-	for id in ["pico_basico", "hoz_basica", "hacha_basica", "cana_basica", "farolillo_basico"]:
+	for id in ["pico_basico", "hoz_basica", "hacha_basica", "cana_basica", "farolillo_basico",
+			"cuchillo_basico"]:
 		var t: ToolData = load("res://resources/tools/%s.tres" % id) as ToolData
 		if t == null:
 			continue
@@ -342,6 +350,11 @@ func _equipo() -> void:
 				"durabilidad": 1.0, "banda": 0}
 			Game.owned_tools.append(c2)
 		r2 += 1
+	# Un CUCHILLO puesto, para ver la marca de esquina y su ficha (la unica que no habla de golpes).
+	for t in Game.owned_tools:
+		if (t as ToolData).es_cuchillo():
+			Game.equipar_herramienta(t)
+			break
 
 	# CARBON: dos calidades del mismo material, que es el caso que la cabecera vieja contaba mal
 	# (cogia un trozo de muestra y daba SUS minutos para todo el monton).

@@ -41,7 +41,11 @@ class_name ToolData
 #  aqui y no en el equipo de combate porque comparte todo lo que define a una herramienta: slot
 #  propio, no ocupa mano, no pesa, no entra en la pelea y su identidad vive en item_meta.
 #  Es ademas la primera herramienta MEJORABLE (ver Upgrades.LUMINOSIDAD).
-enum Tipo { PICO, HOZ, HACHA, CANA, LAMPARA }
+#  El CUCHILLO de desollar es la sexta: la de la EXTRACCION del cristal de los cadaveres. Tampoco
+#  quita pulsaciones (el jefe lo vio demasiado roto para esto): lo suyo es ENSANCHAR la zona sin
+#  frenar el marcador, PERDONAR fallos en las rarezas altas y mejorar el botin del cuerpo. Ver
+#  Upgrades.CUCHILLO_PERDONA / cuchillo_drop_mult y Game.start_extraction.
+enum Tipo { PICO, HOZ, HACHA, CANA, LAMPARA, CUCHILLO }
 
 @export var tipo: Tipo = Tipo.PICO
 @export var nombre: String = "Herramienta"
@@ -68,6 +72,9 @@ func es_cana() -> bool:
 func es_lampara() -> bool:
 	return tipo == Tipo.LAMPARA
 
+func es_cuchillo() -> bool:
+	return tipo == Tipo.CUCHILLO
+
 
 func tipo_texto() -> String:
 	match tipo:
@@ -75,7 +82,18 @@ func tipo_texto() -> String:
 		Tipo.HOZ: return "Hoz"
 		Tipo.CANA: return "Caña"
 		Tipo.LAMPARA: return "Farolillo"
+		Tipo.CUCHILLO: return "Cuchillo"
 		_: return "Hacha"
+
+
+# El GENERO, para los textos que hablan de "la/el" herramienta. Decia "vuelves a la pico de serie".
+func es_femenina() -> bool:
+	return tipo == Tipo.HOZ or tipo == Tipo.HACHA or tipo == Tipo.CANA
+
+# Con su articulo: "el hacha" es femenina pero lleva EL (a tónica), asi que no sale de es_femenina.
+func con_articulo() -> String:
+	var art: String = "la" if es_femenina() and tipo != Tipo.HACHA else "el"
+	return "%s %s" % [art, tipo_texto().to_lower()]
 
 
 # Como se llama lo que ESTA herramienta te ahorra, en el idioma de su minijuego. Lo usa la ficha
@@ -86,4 +104,6 @@ func unidad_golpes(n: int) -> String:
 		Tipo.HOZ: return "tallo" if n == 1 else "tallos"
 		# La caña no descuenta nada: lo suyo se lee en tiempo (ver filas_herramienta).
 		Tipo.CANA: return "tirón" if n == 1 else "tirones"
+		# El cuchillo tampoco descuenta (perdona fallos en su lugar), pero que no diga "hachazos".
+		Tipo.CUCHILLO: return "pulsación" if n == 1 else "pulsaciones"
 		_: return "hachazo" if n == 1 else "hachazos"

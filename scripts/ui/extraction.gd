@@ -6,6 +6,7 @@
 #  acierto o fallo, y cada ACIERTO acelera un poco el marcador.
 #  La calidad sale de la PROPORCION de fallos (asi vale para 2, 3, 4, 5...):
 #    0 fallos = INTACTO, <=1/3 = NORMAL, <=2/3 = DAÑADO, mas = ROTO.
+#  El CUCHILLO de rareza alta perdona los primeros fallos (ver _perdones): no cuentan para nada.
 #  Se crea por codigo (sin .tscn). Devuelve el Cristal por la señal.
 # ============================================================
 
@@ -30,6 +31,12 @@ const VEL_MAX := 1.4
 
 var _done: int = 0
 var _misses: int = 0
+# Fallos que el CUCHILLO aun te perdona (Upgrades.CUCHILLO_PERDONA: Epico+ uno, Obra maestra y
+# Pristino dos). Un fallo perdonado NO cuenta en _misses: ni baja la calidad ni rompe el cristal,
+# ni acelera el marcador (eso solo lo hacen los aciertos). Solo se ve en el texto.
+var _perdones: int = 0
+var _salvados: int = 0
+var _aviso_salvado: float = 0.0   # segundos que queda en pantalla el "¡el cuchillo lo salva!"
 var _marker: float = 0.0
 var _marker_dir: float = 1.0
 var _zone_start: float = 0.0
@@ -45,8 +52,9 @@ var _tiene_corpse := false   # ¿me pasaron cadaver? (distingue "no habia" de "l
 
 
 func setup(categoria: int, presses: int, zone_ratio: float,
-		marker_speed: float, speed_step: float, corpse = null) -> void:
+		marker_speed: float, speed_step: float, corpse = null, perdones: int = 0) -> void:
 	_categoria = categoria
+	_perdones = maxi(0, perdones)
 	_presses = presses
 	_zone_ratio = zone_ratio
 	_marker_speed = marker_speed
@@ -90,11 +98,14 @@ func _process(delta: float) -> void:
 	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
+	_aviso_salvado = maxf(0.0, _aviso_salvado - delta)
 
 	if _state == FINISHED:
 		if edge:
 			extraction_finished.emit(_result, progreso_frac())
 			queue_free()
+		elif _aviso_salvado > 0.0:
+			queue_redraw()   # que el aviso del cuchillo se apague aunque la pulsacion fuese la ultima
 		return
 
 	# En espera: el marcador no se mueve hasta que pulsas ESPACIO para empezar.
@@ -123,6 +134,10 @@ func _attempt() -> void:
 	if _marker >= _zone_start and _marker <= _zone_start + _zone_ratio:
 		# Acierto: acelera el marcador, pero nunca por encima del techo (ver VEL_MAX).
 		_marker_speed = minf(_marker_speed + _speed_step, VEL_MAX)
+	elif _perdones > 0:
+		_perdones -= 1
+		_salvados += 1
+		_aviso_salvado = 1.2
 	else:
 		_misses += 1
 	_randomize_zone()
@@ -192,8 +207,12 @@ func _draw() -> void:
 			"Pulsa ESPACIO para empezar",
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
 	elif _state == RUNNING:
+		var cuchillo_txt: String = ""
+		if _perdones > 0:
+			cuchillo_txt = "   Cuchillo: perdona %d" % _perdones
 		draw_string(font, Vector2(bar_x, bar_y - 30.0),
-			"Pulsación %d/%d   Fallos: %d   ·  pulsa ESPACIO" % [_done + 1, _presses, _misses],
+			"Pulsación %d/%d   Fallos: %d%s   ·  pulsa ESPACIO" % [
+				_done + 1, _presses, _misses, cuchillo_txt],
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
 	else:
 		var txt: String = "Cristal ROTO: lo has perdido" if _result.se_pierde() \
@@ -201,3 +220,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(bar_x, bar_y - 30.0),
 			txt + "   -  ESPACIO para continuar",
 			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18)
+	if _aviso_salvado > 0.0:
+		draw_string(font, Vector2(bar_x, bar_y + bar_h + 40.0),
+			"¡El cuchillo salva el corte!", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 18,
+			Color(1.0, 0.85, 0.4, minf(1.0, _aviso_salvado * 2.0)))

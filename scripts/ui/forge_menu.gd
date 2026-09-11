@@ -1387,8 +1387,7 @@ func _build_herramientas() -> void:
 
 	# --- QUE herramienta ---
 	_title(_content, "Qué forjas", 13)
-	var tipos: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA,
-		ToolData.Tipo.CANA, ToolData.Tipo.LAMPARA]
+	var tipos: Array = HERR_TIPOS
 	var etq_t: Array = []
 	var pistas_t: Array = []
 	for tp in tipos:
@@ -1396,7 +1395,7 @@ func _build_herramientas() -> void:
 		etq_t.append(b.tipo_texto() if b != null else "?")
 		pistas_t.append(_para_que(int(tp)))
 	MenuScaffold.cuadricula(_content, etq_t, tipos.find(_herr_tipo), _on_herr_tipo,
-		5, MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
+		tipos.size(), MenuScaffold.TAM_SELECTOR, [], [], pistas_t)
 
 	# --- CON QUE metal: DOS niveles (gama -> veta) ---
 	# El tier y la veta son dos preguntas distintas y responden a dos cosas distintas (el tier pone la
@@ -1434,7 +1433,8 @@ func _build_herramientas() -> void:
 	var cuantas: int = maxi(1, piezas)
 	_contadores(_content, lingote, _sel_herr_met, int(cst["metal"]) * cuantas)
 	_contadores(_content, tab, _sel_herr_tab, int(cst["tablon"]) * cuantas)
-	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella los golpes que te ahorras.")
+	_note(_content, "Puro = 4 unidades · intacto = 3 · normal = 2 · dañado = 1. Meter buen material no abarata la herramienta: mejora la RAREZA, y con ella %s." % (
+		"los fallos que te perdona" if _herr_tipo == ToolData.Tipo.CUCHILLO else "los golpes que te ahorras"))
 
 	# --- Rareza EN VIVO, con lo que daria cada una CON ESTA VETA ---
 	_content.add_child(HSeparator.new())
@@ -1474,11 +1474,8 @@ func _build_herramientas() -> void:
 			continue
 		var efecto: String = _alcance_rareza(tier, banda, i)
 		if not _es_farol():
-			var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
-			var n: int = int(md["golpes_menos"])
-			efecto = "afinidad +%.0f" % float(md["afinidad"])
-			if n > 0:
-				efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
+			efecto = MenuScaffold.texto_efecto_herramienta(base_t,
+				Upgrades.tool_mods(_herr_tipo, tier, i, banda))
 		_row(_content, Upgrades.rareza_nombre(i), "%s%%   →  %s" % [
 			str(snappedf(p * 100.0, 0.1)), efecto], Upgrades.rareza_color(i))
 	_herr_llevas(base_t)
@@ -1507,12 +1504,8 @@ func _efectos_herramienta(tier: int, banda: int, base_t: ToolData) -> Array:
 			out.append(_alcance_rareza(tier, banda, i))
 		return out
 	for i in Upgrades.RAREZA_NOMBRE.size():
-		var md: Dictionary = Upgrades.tool_mods(_herr_tipo, tier, i, banda)
-		var n: int = int(md["golpes_menos"])
-		var efecto: String = "afinidad +%.0f" % float(md["afinidad"])
-		if n > 0:
-			efecto += ",  -%d %s" % [n, base_t.unidad_golpes(n)]
-		out.append(efecto)
+		out.append(MenuScaffold.texto_efecto_herramienta(base_t,
+			Upgrades.tool_mods(_herr_tipo, tier, i, banda)))
 	return out
 
 
@@ -1521,10 +1514,8 @@ func _herr_llevas(base_t: ToolData) -> void:
 	if _es_farol():
 		_row(_content, "Llevas ahora", "alcance %.1f casillas" % Game.radio_lampara())
 		return
-	var pm: Dictionary = Game.tool_mods(puesta)
-	_row(_content, "Llevas ahora", "afinidad +%.0f, -%d %s" % [
-		float(pm["afinidad"]), int(pm["golpes_menos"]),
-		base_t.unidad_golpes(int(pm["golpes_menos"]))])
+	_row(_content, "Llevas ahora", MenuScaffold.texto_efecto_herramienta(base_t,
+		Game.tool_mods(puesta)))
 
 
 # La fila de conveniencia + el boton de forjar de la pestaña de herramientas. Misma forma que la de
@@ -1592,12 +1583,17 @@ func _para_que(tipo: int) -> String:
 		ToolData.Tipo.HOZ: return "Plantas  ·  entrena Destreza"
 		ToolData.Tipo.CANA: return "Estanques  ·  entrena Resistencia"
 		ToolData.Tipo.LAMPARA: return "Ver en la oscuridad  ·  quema carbón"
+		ToolData.Tipo.CUCHILLO: return "Cristales de los cuerpos  ·  entrena Destreza"
 		_: return "Madera  ·  entrena Agilidad"
 
 
+# Las que se forjan, en el orden del selector. Una sola lista para pintar y para elegir: eran dos
+# copias a mano, con el tope del indice escrito aparte.
+const HERR_TIPOS: Array = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA,
+	ToolData.Tipo.CANA, ToolData.Tipo.LAMPARA, ToolData.Tipo.CUCHILLO]
+
 func _on_herr_tipo(i: int) -> void:
-	_herr_tipo = [ToolData.Tipo.PICO, ToolData.Tipo.HOZ, ToolData.Tipo.HACHA,
-		ToolData.Tipo.CANA, ToolData.Tipo.LAMPARA][clampi(i, 0, 4)]
+	_herr_tipo = HERR_TIPOS[clampi(i, 0, HERR_TIPOS.size() - 1)]
 	_rebuild()
 
 
@@ -1784,9 +1780,7 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 	elif item is ToolData:
 		# Tampoco se mejora ni se desgasta: lo que pierdes al deshacerla es lo que te ahorraba.
 		var tm: Dictionary = Game.tool_mods(item as ToolData)
-		var n: int = int(tm["golpes_menos"])
-		_row(vb, "Afinidad", "+%.0f" % float(tm["afinidad"]))
-		_row(vb, "Ahorro", "sin ahorro" if n <= 0 else "-%d %s" % [n, (item as ToolData).unidad_golpes(n)])
+		_row(vb, "Aporta", MenuScaffold.texto_efecto_herramienta(item as ToolData, tm))
 	else:
 		_row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
