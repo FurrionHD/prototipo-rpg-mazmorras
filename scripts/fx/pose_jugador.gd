@@ -285,15 +285,21 @@ const ANIMS := [
 	# se lee un golpe de arriba abajo: el arco entero cae en el plano de la pantalla.
 	# 'picar': 0 guardia, 1-3 alzar (los fija la CARGA del minijuego), 4-7 descarga (impacto en el 6).
 	{"n": "picar", "loop": false, "fps": 14.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
+	# 'talar': 0 remate (= el 7, para que empalme), 1-3 armar el hachazo a la derecha, 4-7 el barrido
+	# lateral hasta el tronco (impacto en el 6). Ver _pose_talar.
+	{"n": "talar", "loop": false, "fps": 14.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
 ]
 
 # Las faenas, por su nombre base. Las capas que se ven "envainadas" (la espada a la cadera) tambien
 # salen en ellas, y cada herramienta en la mano sale SOLO en la suya (ver ArmaSprites.HERRAMIENTA_ANIM).
-const FAENAS := ["picar"]
+const FAENAS := ["picar", "talar"]
 # En que fotograma de cada faena empieza la DESCARGA y en cual pega. La faena arranca la animacion
 # desde el primero al soltar el golpe, y del segundo sale cuando saltan las esquirlas.
-const FAENA_DESCARGA := {"picar": 4}
-const FAENA_IMPACTO := {"picar": 6}
+const FAENA_DESCARGA := {"picar": 4, "talar": 4}
+const FAENA_IMPACTO := {"picar": 6, "talar": 6}
+# Las que se ARMAN CON LA CARGA del minijuego (el pico sube mientras mantienes). Las demas van de
+# COMPAS: tras cada golpe se vuelven a armar solas y esperan armadas al siguiente.
+const FAENA_CARGA := ["picar"]
 
 
 # El nombre de animacion que le toca a un estado del mapa. Vive aqui, y no en player.gd, por lo
@@ -604,6 +610,7 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 	return {
 		"puntos": p, "ang": ang, "dir": dir, "esc": esc, "pose": pose,
 		"ancho": ancho, "alto": alto, "caida": caida,
+		"torsion": float(pose.get("torsion", 0.0)),
 		"origen": origen(esc), "u": u(esc), "lienzo": lienzo(esc),
 	}
 
@@ -695,7 +702,10 @@ static func proyectar(esq: Dictionary, local: Vector3, r: Vector3,
 		opts: Dictionary = {}) -> Dictionary:
 	var org: Vector2 = esq["origen"]
 	var uu: float = esq["u"]
-	var ang: float = esq["ang"]
+	# 'z_torsion': la altura con la que se decide cuanto gira la pieza con la torsion. Por defecto la
+	# suya; el ARMA EN LA MANO pasa la de las manos para girar ENTERA -- si no, el trozo del astil que
+	# baja de la cadera giraba menos que el que agarras y el hacha salia doblada como un sable.
+	var ang: float = ang_en(esq, float(opts.get("z_torsion", local.z)))
 	var an: float = esq["ancho"]
 	var al: float = esq["alto"]
 	# 'en_suelo' se salta la altura: es para la sombra de contacto, que es una mancha en el suelo y
@@ -771,7 +781,29 @@ static func cadena(piezas: Array, esq: Dictionary, a: Vector3, b: Vector3, r0: f
 # cuerpo sola.
 static func profundidad(esq: Dictionary, punto: StringName) -> float:
 	var p: Vector3 = esq["puntos"].get(punto, Vector3.ZERO)
-	return Vector2(p.x, p.y).rotated(float(esq["ang"])).y
+	return Vector2(p.x, p.y).rotated(ang_en(esq, p.z)).y
+
+
+# EL GIRO EN PLANTA DE UNA PIEZA, contando la TORSION (girar el tronco sobre la cadera con los pies
+# plantados: el hachazo lateral de 'talar').
+#
+# POR QUE AQUI Y NO GIRANDO LOS PUNTOS en 'montar', como 'inclina'. Porque el pecho es una ELIPSE ancha
+# de hombro a hombro (CuerpoSprites.R_TORSO: 8,8 de ancho y 5,6 de fondo): girando solo los puntos, al
+# torcer el tronco tres cuartos de vuelta los hombros se quedaban FUERA del pecho, que seguia de frente.
+# Girando la pieza entera al proyectarla -- posicion Y forma --, el pecho, los brazos, la cabeza, el
+# pelo, la armadura y el arma giran juntos, y sin tocar ni una capa: todas pasan por aqui.
+#
+# Cuanto gira cada pieza sale de su ALTURA: nada por debajo de la cadera (las piernas se quedan
+# plantadas), todo por encima del pecho, y un tramo corto entre medias para que la cintura no se parta.
+const TORSION_TRAMO := 4.5   # de la cadera (z 24) al pecho (z 28,5)
+
+static func ang_en(esq: Dictionary, z: float) -> float:
+	var ang: float = float(esq["ang"])
+	var tor: float = float(esq.get("torsion", 0.0))
+	if is_zero_approx(tor):
+		return ang
+	var base: float = CADERA.z * float(esq.get("alto", 1.0))
+	return ang + tor * clampf((z - base) / TORSION_TRAMO, 0.0, 1.0)
 
 
 # ============================================================
@@ -875,6 +907,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"encaje": return _pose_encaje(t)
 		"muerte": return _pose_muerte(t)
 		"picar": return _pose_picar(t)
+		"talar": return _pose_talar(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1028,6 +1061,34 @@ static func _pose_picar(t: float) -> Dictionary:
 		"agacha": SpriteLienzo.tramos(t, agacha_keys),
 		# Pies abiertos, el de delante adelantado: se planta para dar el golpe.
 		"paso": 0.18, "rumbo": 0.28}
+
+
+# TALAR. El hachazo es LATERAL y a dos manos, "desde la derecha hacia el arbol" (el jefe): los brazos
+# van al frente, casi en horizontal, y lo que barre es el TRONCO girando sobre la cadera ('torsion',
+# ver ang_en) con los pies plantados. Los brazos solos no pueden: son rigidos y solo giran hacia
+# delante y hacia atras.
+#
+# Se arma a la DERECHA (+torsion) y no a la izquierda: mirando al este, el costado derecho es el que
+# da a la camara, asi que el hacha armada queda a la vista en vez de escondida detras del cuerpo.
+# El fotograma 0 y el 7 son la misma pose (el remate) para que el compas empalme: tras cada hachazo la
+# faena vuelve a armar del 0 al 3 y espera ahi.
+static func _pose_talar(t: float) -> Dictionary:
+	# ARMADA, EL HACHA APUNTA A LA CAMARA Y ALGO HACIA ABAJO. Es cuestion de proyeccion y costo tres
+	# intentos: con la camara a 45 grados, "hacia la camara" baja en pantalla y "hacia arriba" sube, asi
+	# que un hacha armada a la altura del hombro (o mas alta) apuntando a la camara se ANULA y queda en
+	# un muñon pegado a la cara. Por debajo de la horizontal las dos cosas suman y el hacha se ve
+	# entera, apuntando abajo; el barrido la lleva en un cuarto de vuelta hasta el tronco.
+	# Tampoco se arma pasado el cuarto de vuelta: de espaldas a la camara el cuerpo la tapa.
+	var tor_keys := [[0.0, -0.30], [0.143, 0.45], [0.286, 1.10], [0.429, 1.45],
+		[0.571, 1.40], [0.714, 0.65], [0.857, -0.15], [1.0, -0.30]]
+	# El golpe a la altura de la CINTURA y con el astil algo caido: en horizontal puro y a la altura del
+	# pecho, el hacha al frente se leia como alguien apuntando con un FUSIL.
+	var brazo_keys := [[0.0, 1.05], [0.143, 1.10], [0.286, 1.15], [0.429, 1.15],
+		[0.571, 1.15], [0.714, 1.15], [0.857, 1.12], [1.0, 1.05]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"inclina": 0.12, "agacha": 0.12, "paso": 0.22}
 
 
 # EN GUARDIA: con el arma fuera pero sin atacar. Como el idle (respira) pero con los dos brazos

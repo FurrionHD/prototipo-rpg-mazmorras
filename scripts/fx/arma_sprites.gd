@@ -69,13 +69,16 @@ const GEO := {
 	# LAS HERRAMIENTAS DE RECOLECTAR (ver HERRAMIENTA_ANIM). El pico: astil largo y la cabeza CRUZADA
 	# en el plano del golpe, con las dos puntas curvadas hacia el mango.
 	"pico":            {"mango": 15.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 6.5, "cabeza_forma": "pico"},
+	# El hacha de LEÑADOR: la misma forma de hacha que la de guerra, con el astil algo mas corto y la
+	# cabeza mas estrecha -- la de guerra es un arma y esta una herramienta.
+	"hacha_talar":     {"mango": 14.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 5.0, "cabeza_forma": "hacha"},
 }
 
 # LAS HERRAMIENTAS en la mano: cada una sale SOLO en la animacion de su faena (ver PoseJugador.FAENAS),
 # y no se monta en el muñeco mas que mientras dura (ver JugadorSprites.capa_herramienta). Las de dos
 # manos se agarran con las dos, como un hacha grande.
-const HERRAMIENTA_ANIM := {"pico": "picar"}
-const HERRAMIENTAS_2M := ["pico"]
+const HERRAMIENTA_ANIM := {"pico": "picar", "hacha_talar": "talar"}
+const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 
 # En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver
 # _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
@@ -253,7 +256,10 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 		if eje.length() > 0.01:
 			eje = eje.normalized()
 
-	_dibujar(piezas, esq, grip, eje, g)
+	# En la mano gira ENTERA con la torsion del tronco, a la altura de las manos (ver
+	# PoseJugador.proyectar, 'z_torsion').
+	_dibujar(piezas, esq, grip, eje, g, Vector3.ZERO,
+		{"z_torsion": grip.z} if estado == "mano" else {})
 
 
 # ============================================================

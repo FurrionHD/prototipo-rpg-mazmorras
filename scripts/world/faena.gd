@@ -25,9 +25,25 @@
 
 extends Node
 
-# A cuanto del centro del recurso se planta el personaje, en pixeles de mundo. Lo justo para que el
-# pico caiga encima de la veta y no delante ni detras.
-const DIST := 19.0
+# A cuanto del centro del recurso se planta el personaje, en pixeles de mundo, POR FAENA. Lo justo
+# para que la herramienta caiga encima del recurso y no delante ni detras.
+const DIST := {"picar": 19.0, "talar": 23.0}
+# Lo que tarda en volver a ARMARSE una faena de compas tras el golpe (ver PoseJugador.FAENA_CARGA).
+const T_REARME := 0.32
+
+# LO QUE LE PASA AL RECURSO EN CADA GOLPE, por faena y por tipo de golpe (el indice es el enum Golpe
+# de su minijuego): cuanto tiembla, cuantos trozos saltan, a que altura del dibujo pega y como suena.
+#   picar: FLOJO rebota, LIMPIO hace ceder la veta, BRUTO la revienta.
+#   talar: FALLO (a destiempo) astilla sin morder, LIMPIO muerde el tronco.
+const REACCION := {
+	"picar": {"fuerza": [0.35, 1.0, 1.6], "trozos": [3, 7, 12], "altura": 0.4,
+		"sonido": ["picar_flojo", "picar_limpio", "picar_bruto"]},
+	"talar": {"fuerza": [0.55, 1.0], "trozos": [9, 6], "hojas": [1, 4], "altura": 0.3,
+		"sonido": ["talar_fallo", "talar_limpio"]},
+}
+const COLOR_PIEDRA := Color(0.55, 0.52, 0.48)
+const COLOR_MADERA := Color(0.62, 0.45, 0.28)
+const COLOR_HOJA := Color(0.36, 0.58, 0.26)
 const T_LLEGAR := 0.22        # lo que tarda en ponerse en su sitio
 const ZOOM_EXTRA := 1.6       # cuanto se acerca la camara sobre la que tengas
 const T_CAMARA := 0.35
@@ -50,6 +66,7 @@ var _listo: bool = false           # ya ha llegado a su sitio
 var _descargando: bool = false
 var _impacto_t: float = -1.0
 var _golpe_tipo: int = 1
+var _rearme_t: float = INF        # faenas de compas: tiempo desde el ultimo golpe (INF = armada)
 
 var _cam: Camera2D = null
 var _cam_zoom0 := Vector2.ONE
@@ -90,7 +107,7 @@ func empezar(faena_: String, nodo_, jugador_, medidor_: Control, layer_: CanvasL
 			libre = true
 			break
 	if libre:
-		destino = nodo.global_position + Vector2(_lado * DIST, 0.0)
+		destino = nodo.global_position + Vector2(_lado * _dist(), 0.0)
 	# La animacion mira al ESTE, o sea que la de la izquierda del recurso va tal cual y la de la
 	# derecha, volteada.
 	_volteado = _lado > 0.0
@@ -122,6 +139,10 @@ func _plantarse(tier: int, mejoras: int) -> void:
 	_listo = true
 
 
+func _dist() -> float:
+	return float(DIST.get(faena, 20.0))
+
+
 func _generador():
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	return piso.get("gen") if piso != null else null
@@ -141,7 +162,7 @@ func _acercar_camara() -> void:
 	# camino del sitio nuevo del jugador.
 	_cam.process_mode = Node.PROCESS_MODE_ALWAYS
 	# El centro, a medio camino entre el personaje (ya en su sitio) y el recurso.
-	var centro: Vector2 = Vector2(-_lado * DIST * 0.5, ALZA_CAMARA)
+	var centro: Vector2 = Vector2(-_lado * _dist() * 0.5, ALZA_CAMARA)
 	_tw_cam = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_tw_cam.tween_property(_cam, "zoom", _cam_zoom0 * ZOOM_EXTRA, T_CAMARA)
@@ -184,11 +205,18 @@ func _process(delta: float) -> void:
 			_descargando = false
 		else:
 			return
-	# Entre golpe y golpe: el pico sube con la carga (fotogramas 0..DESCARGA-1).
+	# Entre golpe y golpe, los fotogramas 0..DESCARGA-1 (el armado):
+	#   - las de CARGA (picar) los sacan de lo que llevas cargado: el pico sube mientras mantienes;
+	#   - las de COMPAS (talar...) se rearman solas tras el golpe y esperan ARMADAS al siguiente.
 	var tope: int = int(PoseJugador.FAENA_DESCARGA.get(faena, 1)) - 1
-	var c: float = float(medidor.call("carga")) if medidor != null and is_instance_valid(medidor) \
-		and medidor.has_method("carga") else 0.0
-	_muneco.fijar(_anim, clampi(roundi(c * float(tope)), 0, tope))
+	var f: float
+	if PoseJugador.FAENA_CARGA.has(faena):
+		f = float(medidor.call("carga")) if medidor != null and is_instance_valid(medidor) \
+			and medidor.has_method("carga") else 0.0
+	else:
+		_rearme_t += delta
+		f = clampf(_rearme_t / T_REARME, 0.0, 1.0)
+	_muneco.fijar(_anim, clampi(roundi(f * float(tope)), 0, tope))
 
 
 # El medidor sigue al personaje en pantalla, al lado CONTRARIO al recurso (que no tape el golpe).
@@ -222,30 +250,40 @@ func _on_golpe(tipo: int) -> void:
 	var pega: int = int(PoseJugador.FAENA_IMPACTO.get(faena, desde))
 	_muneco.animar_desde(_anim, desde)
 	_descargando = true
+	_rearme_t = 0.0
 	_impacto_t = float(pega - desde) / maxf(1.0, PoseJugador.fps_de(faena))
 
 
-# Lo que le pasa a la veta cuando el pico llega. Un golpe FLOJO rebota (casi no se mueve y salta
-# poca cosa), el LIMPIO la hace ceder y el BRUTO la revienta: mas temblor y mas esquirlas.
+# Lo que le pasa al recurso cuando la herramienta llega (ver REACCION): tiembla, saltan trozos del
+# color de lo que es -- roca con su mineral, madera con su veta -- y, si es un arbol, caen hojas.
 func _impacto() -> void:
 	if nodo == null or not is_instance_valid(nodo):
 		return
-	var fuerza: float = [0.35, 1.0, 1.6][clampi(_golpe_tipo, 0, 2)]
-	var cuantas: int = [3, 7, 12][clampi(_golpe_tipo, 0, 2)]
+	var r: Dictionary = REACCION.get(faena, REACCION["picar"])
+	var i: int = clampi(_golpe_tipo, 0, (r["fuerza"] as Array).size() - 1)
+	var fuerza: float = float(r["fuerza"][i])
 	if nodo.has_method("sacudir"):
 		nodo.sacudir(fuerza)
-	var col: Color = Color(0.55, 0.52, 0.48)
+	var base: Color = COLOR_MADERA if faena == "talar" else COLOR_PIEDRA
+	var col: Color = base
 	var md: MaterialData = nodo.get("material_data")
 	if md != null:
-		col = md.color.lerp(Color(0.55, 0.52, 0.48), 0.45)
-	var donde: Vector2 = nodo.punto_golpe() if nodo.has_method("punto_golpe") else nodo.global_position
+		col = md.color.lerp(base, 0.45)
+	var donde: Vector2 = nodo.punto_golpe(float(r["altura"])) if nodo.has_method("punto_golpe") \
+		else nodo.global_position
 	var padre: Node = nodo.get_parent()
 	if padre != null:
-		var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-_lado, 0.0), cuantas,
-			0.8 + 0.25 * fuerza)
+		var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-_lado, 0.0),
+			int(r["trozos"][i]), 0.8 + 0.25 * fuerza)
 		p.global_position = donde
 		p.z_index = 50
-	Sonido.ui(["picar_flojo", "picar_limpio", "picar_bruto"][clampi(_golpe_tipo, 0, 2)])
+		# Las HOJAS caen despacio y en abanico ancho: un arbol sacudido suelta hojas, no piedras.
+		if r.has("hojas") and int(r["hojas"][i]) > 0:
+			var h: CPUParticles2D = Particulas.esquirlas(padre, COLOR_HOJA, Vector2(-_lado, 0.0),
+				int(r["hojas"][i]), 0.35, 45.0)
+			h.global_position = donde + Vector2(0.0, -10.0)
+			h.z_index = 50
+	Sonido.ui(String(r["sonido"][i]))
 
 
 # ============================================================

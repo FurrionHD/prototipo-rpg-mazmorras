@@ -361,8 +361,11 @@ func _animar_faena() -> void:
 		_faena_golpe_pendiente = false
 		_muneco.animar_desde(anim, int(PoseJugador.FAENA_DESCARGA.get(base, 0)))
 	elif _muneco.anim_actual() != anim or _muneco.terminada():
-		# Entre golpe y golpe, de vuelta a la guardia con el pico abajo.
-		_muneco.fijar(anim, 0)
+		# Entre golpe y golpe: las de CARGA vuelven a la guardia (el pico abajo) y las de COMPAS
+		# esperan ARMADAS, que es como las ve su dueño (ver faena.gd).
+		var reposo: int = 0 if PoseJugador.FAENA_CARGA.has(base) \
+			else int(PoseJugador.FAENA_DESCARGA.get(base, 1)) - 1
+		_muneco.fijar(anim, reposo)
 
 
 # Lo mismo que el compañero y por lo mismo: el otro humano se dibuja con el mismo cuerpo, asi que

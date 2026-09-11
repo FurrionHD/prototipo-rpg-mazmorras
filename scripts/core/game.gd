@@ -13504,7 +13504,7 @@ func start_talado(nodo) -> void:
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, hachazos, ancho, tempo)
 	ex.talado_finished.connect(_on_talado_finished.bind(nodo))
-	_abrir_pantalla(ex)
+	_abrir_faena("talar", nodo, ex, a)
 
 
 func _on_talado_finished(item: MaterialItem, progreso: float, nodo) -> void:

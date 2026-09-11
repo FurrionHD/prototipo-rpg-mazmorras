@@ -16,11 +16,19 @@
 #  espacio no sirve de nada (el primer toque resuelve el tiempo, acierte o falle).
 #
 #  La AGILIDAD ensancha la ventana y frena el compas. Se crea por codigo (sin .tscn).
+#
+#  YA NO ES UNA PANTALLA: es un MEDIDOR vertical que va al lado del personaje mientras se le ve talar
+#  en el mapa (ver scripts/world/faena.gd). La franja BAJA por el carril y la raya del tronco esta a
+#  media altura; la mecanica de arriba es la misma, solo girada.
 # ============================================================
 
 extends Control
 
 signal talado_finished(item: MaterialItem, progreso: float)
+# Para la FAENA: cada hachazo que se da (limpio o a destiempo). Dejar pasar la franja sin pulsar NO
+# lo emite: ahi no se ha dado ningun golpe, solo se ha perdido el compas.
+enum Golpe { FALLO, LIMPIO }
+signal golpe(tipo: int)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -46,6 +54,7 @@ var _progreso: int = 0
 var _astillas: int = 0
 var _tiempo_resuelto: bool = false   # ¿ya has dado (o fallado) el hachazo de esta vuelta?
 var _ultimo: String = ""
+var _ultimo_t: float = 0.0   # cuanto le queda en pantalla a ese texto
 var _state: int = READY   # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
 var _press_was: bool = true   # true al abrir: exige una pulsacion NUEVA para empezar
@@ -62,14 +71,27 @@ const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
 
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(MedidorFaena.ANCHO, MedidorFaena.ALTO)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_nueva_vuelta()
 	if Tactil.activo:
 		# La pantalla entera es el hacha (ver touch_pad.gd) y el boton es la puerta de salida, que
-		# hasta ahora no existia: sin teclado, esto era una ratonera.
-		var pad: Control = _TOUCH_PAD.new()
-		add_child(pad)
-		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+		# hasta ahora no existia: sin teclado, esto era una ratonera. Diferido y en la capa, como en
+		# mining.gd: el medidor es pequeño y la zona de pulsar tiene que seguir siendo la pantalla.
+		_montar_pad.call_deferred()
+
+
+func _montar_pad() -> void:
+	var capa: Node = get_parent()
+	if capa == null:
+		return
+	var pad: Control = _TOUCH_PAD.new()
+	capa.add_child(pad)
+	pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+func terminado() -> bool:
+	return _state == FINISHED
 
 
 # Irse a medias ABANDONA el tronco: sales sin la madera, igual que si se hubiera rajado. Si no,
@@ -83,6 +105,7 @@ func _process(delta: float) -> void:
 	var pressed: bool = Input.is_action_pressed(&"recolectar")
 	var edge: bool = pressed and not _press_was
 	_press_was = pressed
+	_ultimo_t = maxf(0.0, _ultimo_t - delta)
 
 	if _state == FINISHED:
 		if edge:
@@ -101,7 +124,7 @@ func _process(delta: float) -> void:
 
 	# La ventana ha REBASADO el tronco y no has pulsado: has perdido el tiempo.
 	if not _tiempo_resuelto and _pos > TRONCO:
-		_fallar("Se te va el compás: el hacha muerde en falso")
+		_fallar("Se te va el compás")
 
 	# Ha salido por la derecha: empieza la siguiente vuelta.
 	if _pos >= 1.0:
@@ -117,18 +140,22 @@ func _hachazo() -> void:
 	if _pos <= TRONCO and _pos + _ancho >= TRONCO:
 		_tiempo_resuelto = true
 		_progreso += 1
-		_ultimo = "¡Hachazo limpio!"
+		_ultimo = "¡Limpio!"
+		_ultimo_t = 1.4
 		_vel *= TEMPO_SUBE   # le has cogido el ritmo: el compas se acelera
+		golpe.emit(Golpe.LIMPIO)
 		if _progreso >= _hachazos:
 			_terminar()
 	else:
-		_fallar("Golpe a destiempo: astillas la madera")
+		golpe.emit(Golpe.FALLO)
+		_fallar("A destiempo")
 
 
 func _fallar(txt: String) -> void:
 	_tiempo_resuelto = true
 	_astillas += 1
 	_ultimo = txt
+	_ultimo_t = 1.4
 	# Cada astilla te encoge la ventana: el siguiente tiempo es mas dificil que el anterior.
 	_ancho = maxf(VENTANA_MIN, _ancho * VENTANA_ENCOGE)
 	if _astillas >= ASTILLAS_ROTO:
@@ -166,48 +193,40 @@ func _terminar() -> void:
 	queue_redraw()
 
 
+# EL MEDIDOR, al lado del personaje (ver MedidorFaena para el estilo comun): el carril vertical con la
+# raya del TRONCO a media altura y la franja que BAJA por el. Debajo, los hachazos (azul) y las astillas
+# (rojo), y una linea de estado.
 func _draw() -> void:
 	var w: float = size.x
-	var h: float = size.y
-	draw_rect(Rect2(0, 0, w, h), Color(0.09, 0.08, 0.06, 1.0))
-
-	var font: Font = ThemeDB.fallback_font
+	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Madera"
+	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
 
-	var bar_w: float = w * 0.6
-	var bar_h: float = 40.0
-	var bar_x: float = (w - bar_w) / 2.0
-	var bar_y: float = h * 0.5
-
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.19, 0.16, 0.13))
-
+	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	MedidorFaena.carril(self, cr)
 	if _state == RUNNING:
-		# La VENTANA: lo unico que se mueve. Se dibuja recortada a la banda.
-		var vx: float = bar_x + maxf(_pos, 0.0) * bar_w
-		var vfin: float = bar_x + minf(_pos + _ancho, 1.0) * bar_w
-		if vfin > vx:
-			draw_rect(Rect2(vx, bar_y, vfin - vx, bar_h), Color(0.85, 0.62, 0.25, 0.85))
+		# La VENTANA, recortada al carril: entra por arriba y sale por abajo.
+		var y0: float = cr.position.y + maxf(_pos, 0.0) * cr.size.y
+		var y1: float = cr.position.y + minf(_pos + _ancho, 1.0) * cr.size.y
+		if y1 > y0:
+			draw_rect(Rect2(cr.position.x, y0, cr.size.x, y1 - y0), MedidorFaena.AMBAR)
+			draw_rect(Rect2(cr.position.x, y0, cr.size.x, 2.0), Color(1, 1, 1, 0.4))
+	# El TRONCO: fijo, a media altura. Se dibuja SIEMPRE (es la referencia), sobresaliendo del carril.
+	var ty: float = cr.position.y + TRONCO * cr.size.y
+	draw_rect(Rect2(cr.position.x - 7.0, ty - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	# El TRONCO: fijo, en el centro. Se dibuja SIEMPRE (es la referencia).
-	var tx: float = bar_x + TRONCO * bar_w
-	draw_rect(Rect2(tx - 3.0, bar_y - 12.0, 6.0, bar_h + 24.0), Color(0.95, 0.95, 0.9))
+	MedidorFaena.marcas(self, w * 0.5, 218.0, _hachazos, _progreso, MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, 232.0, ASTILLAS_ROTO, _astillas, MedidorFaena.ROJO)
 
-	draw_string(font, Vector2(bar_x, bar_y - 76.0), "Talando: %s" % nombre,
-		HORIZONTAL_ALIGNMENT_CENTER, bar_w, 22)
+	var estado: String
+	var col: Color = MedidorFaena.TEXTO_SUAVE
 	if _state == READY:
-		draw_string(font, Vector2(bar_x, bar_y - 50.0),
-			"Pulsa ESPACIO para empezar",
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = "ESPACIO: empezar"
 	elif _state == RUNNING:
-		draw_string(font, Vector2(bar_x, bar_y - 50.0),
-			"ESPACIO cuando la franja pase por el tronco  ·  un hachazo por pasada",
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
-		draw_string(font, Vector2(bar_x, bar_y + bar_h + 30.0),
-			"Hachazos: %d/%d   ·   Astillas: %d/%d   ·   %s" % [
-				_progreso, _hachazos, _astillas, ASTILLAS_ROTO, _ultimo],
-			HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = _ultimo if _ultimo_t > 0.0 else "Pulsa en la raya"
+		if _ultimo_t > 0.0:
+			col = MedidorFaena.TEXTO
 	else:
-		var txt: String = "El tronco se raja: no sacas nada" if _result.se_pierde() \
-			else "Sacas %s (%s)" % [nombre, _result.calidad_texto()]
-		draw_string(font, Vector2(bar_x, bar_y + bar_h + 30.0),
-			txt + "   ·   ESPACIO para continuar", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 16)
+		estado = "Se raja" if _result.se_pierde() else _result.calidad_texto()
+		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
+	MedidorFaena.texto(self, 258.0, 4.0, w - 8.0, estado, 12, col)

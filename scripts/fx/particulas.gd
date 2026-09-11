@@ -342,8 +342,9 @@ static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
 #
 # PROCESS_MODE_ALWAYS a proposito: la faena se juega con el arbol en pausa (como la pesca), y una
 # rafaga que respeta la pausa se quedaria congelada en el aire.
+# 'gravedad' baja para lo que CAE FLOTANDO (las hojas de un arbol sacudido) en vez de a plomo.
 static func esquirlas(padre: Node, color: Color, hacia: Vector2, cuantas: int = 7,
-		fuerza: float = 1.0) -> CPUParticles2D:
+		fuerza: float = 1.0, gravedad: float = 260.0) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.process_mode = Node.PROCESS_MODE_ALWAYS
 	p.texture = textura()
@@ -356,7 +357,10 @@ static func esquirlas(padre: Node, color: Color, hacia: Vector2, cuantas: int = 
 	p.randomness = 1.0
 	p.direction = (hacia.normalized() + Vector2(0.0, -1.3)).normalized()
 	p.spread = 38.0
-	p.gravity = Vector2(0.0, 260.0)
+	p.gravity = Vector2(0.0, gravedad)
+	if gravedad < 150.0:
+		p.lifetime = 1.1
+		p.spread = 70.0
 	p.initial_velocity_min = 45.0 * fuerza
 	p.initial_velocity_max = 95.0 * fuerza
 	p.angular_velocity_min = -360.0

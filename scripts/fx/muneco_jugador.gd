@@ -72,7 +72,8 @@ var _capas: Array = []          # [{clave, ranura, ancla, tinte, nodo: AnimatedS
 var _idx_arma_mano: PackedInt32Array = []
 # Solo en estas: son golpes de un solo barrido (la mano cruza el eje UNA vez, volteo limpio). En
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
-const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "picar"]
+# Las FAENAS (PoseJugador.FAENAS) tambien entran, ver _reordenar_arma_mano.
+const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -527,7 +528,7 @@ func _escribir(i: int) -> void:
 # en los golpes de _BASES_REORDEN_ARMA; fuera de ahi manda lo que dejo _ordenar.
 func _reordenar_arma_mano(i: int) -> void:
 	var base: String = _base_de(_anim)
-	if _idx_arma_mano.is_empty() or not _BASES_REORDEN_ARMA.has(base):
+	if _idx_arma_mano.is_empty() or not (_BASES_REORDEN_ARMA.has(base) or PoseJugador.FAENAS.has(base)):
 		return
 	var esq: Dictionary = _esqueleto_de(base, i, _dir_de(_anim))
 	# EL HACHAZO A DOS MANOS, EN LA DESCARGA, SE FUERZA DELANTE. El golpe empuja la empuñadura

@@ -136,11 +136,13 @@ func sacudir(fuerza: float = 1.0) -> void:
 
 # Donde cae el golpe, en coordenadas de MUNDO: el centro del dibujo, que asoma por encima del pie
 # de la celda (ver _crear_sprite). De ahi saltan las esquirlas.
-func punto_golpe() -> Vector2:
-	var alto: float = 10.0
+# 'altura' es la fraccion del dibujo, desde el pie: la veta se pica por la mitad y la enredadera, que
+# es alta, se tala abajo.
+func punto_golpe(altura: float = 0.4) -> Vector2:
+	var alto: float = 25.0 * altura
 	var fam: String = _familia_sprite()
 	if fam != "":
-		alto = float(RecolectableSprites.lienzo(fam).y) * 0.4
+		alto = float(RecolectableSprites.lienzo(fam).y) * altura
 	return global_position + Vector2(0.0, 6.0 - alto)
 
 
