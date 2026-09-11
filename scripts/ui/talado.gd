@@ -202,7 +202,7 @@ func _draw() -> void:
 	var nombre: String = _material.nombre if _material != null else "Madera"
 	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
 
-	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
 	if _state == RUNNING:
 		# La VENTANA, recortada al carril: entra por arriba y sale por abajo.
@@ -215,8 +215,8 @@ func _draw() -> void:
 	var ty: float = cr.position.y + TRONCO * cr.size.y
 	draw_rect(Rect2(cr.position.x - 7.0, ty - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	MedidorFaena.marcas(self, w * 0.5, 218.0, _hachazos, _progreso, MedidorFaena.AZUL)
-	MedidorFaena.marcas(self, w * 0.5, 232.0, ASTILLAS_ROTO, _astillas, MedidorFaena.ROJO)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _hachazos, _progreso, MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, ASTILLAS_ROTO, _astillas, MedidorFaena.ROJO)
 
 	var estado: String
 	var col: Color = MedidorFaena.TEXTO_SUAVE
@@ -229,4 +229,4 @@ func _draw() -> void:
 	else:
 		estado = "Se raja" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, 258.0, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)

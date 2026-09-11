@@ -12,13 +12,25 @@
 extends RefCounted
 class_name MedidorFaena
 
-const ANCHO := 118.0
-const ALTO := 268.0
+# EL CARRIL ES LARGO A PROPOSITO (300 px). La dificultad EN TIEMPO no depende de lo que mida -- el
+# marcador recorre la barra entera en los mismos segundos y la zona es la misma FRACCION --, pero lo
+# que se VE si: cuando todo era una pantalla, la barra media ~770 px y una zona del 5% (reto muy alto)
+# eran 38 px; con un carril de 176 se quedaba en 9 y en un movil no se veia (lo aviso el jefe). Con 300
+# son 15, y en tactil el medidor entero va ademas un 30% mas grande (ver ESCALA_TACTIL).
+const ANCHO := 124.0
+const ALTO := 420.0
+const CARRIL := Rect2(47.0, 34.0, 30.0, 300.0)
+# Donde van las filas de marcas (progreso, fallos, extra) y la linea de estado, bajo el carril.
+const Y_MARCAS := 346.0
+const Y_MARCAS_2 := 360.0
+const Y_MARCAS_3 := 373.0
+const Y_ESTADO := 404.0
+const ESCALA_TACTIL := 1.3
 
 const FONDO := Color(0.05, 0.06, 0.08, 0.80)
 const BORDE := Color(0.62, 0.55, 0.42, 0.95)
 const BORDE_LUZ := Color(1.0, 0.92, 0.72, 0.18)
-const CARRIL := Color(0.14, 0.13, 0.13, 0.95)
+const COLOR_CARRIL := Color(0.14, 0.13, 0.13, 0.95)
 const TEXTO := Color(0.93, 0.90, 0.84)
 const TEXTO_SUAVE := Color(0.70, 0.68, 0.64)
 const AMBAR := Color(0.95, 0.70, 0.22)
@@ -36,7 +48,7 @@ static func panel(ci: CanvasItem, r: Rect2) -> void:
 # El carril vacio por donde corre la mecanica, con su borde oscuro.
 static func carril(ci: CanvasItem, r: Rect2) -> void:
 	ci.draw_rect(r.grow(2.0), Color(0, 0, 0, 0.85))
-	ci.draw_rect(r, CARRIL)
+	ci.draw_rect(r, COLOR_CARRIL)
 
 
 # Texto centrado en un ancho, con contorno para que se lea sobre cualquier suelo. Si no cabe, se

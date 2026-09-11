@@ -225,7 +225,7 @@ func _draw() -> void:
 	var nombre: String = _material.nombre if _material != null else "Veta"
 	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
 
-	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
 	# Lo que te PASA (encima de la franja) en rojo tenue: es lo que agrieta la pieza.
 	var tope_franja: float = cr.position.y + cr.size.y * (1.0 - _opt_ini - _opt_ancho)
@@ -244,8 +244,8 @@ func _draw() -> void:
 		draw_rect(Rect2(cr.position.x - 7.0, cy - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
 	# Lo que ha cedido la veta y las grietas que lleva.
-	MedidorFaena.marcas(self, w * 0.5, 218.0, _golpes_necesarios, int(_progreso), MedidorFaena.AZUL)
-	MedidorFaena.marcas(self, w * 0.5, 232.0, GRIETAS_ROTO, _grietas, MedidorFaena.ROJO)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _golpes_necesarios, int(_progreso), MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, GRIETAS_ROTO, _grietas, MedidorFaena.ROJO)
 
 	var estado: String
 	var col: Color = MedidorFaena.TEXTO_SUAVE
@@ -258,4 +258,4 @@ func _draw() -> void:
 	else:
 		estado = "Escombro" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, 258.0, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)

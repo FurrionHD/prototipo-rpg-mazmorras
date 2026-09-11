@@ -211,7 +211,7 @@ func _draw() -> void:
 	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, "Cristal T%d" % _categoria, 12)
 
-	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	var cr: Rect2 = MedidorFaena.CARRIL
 	MedidorFaena.carril(self, cr)
 	var zona := Rect2(cr.position.x, cr.position.y + _zone_start * cr.size.y,
 		cr.size.x, _zone_ratio * cr.size.y)
@@ -221,10 +221,10 @@ func _draw() -> void:
 	var my: float = cr.position.y + _marker * cr.size.y
 	draw_rect(Rect2(cr.position.x - 7.0, my - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	MedidorFaena.marcas(self, w * 0.5, 218.0, _presses, _done - _misses, MedidorFaena.AZUL)
-	MedidorFaena.marcas(self, w * 0.5, 232.0, mini(3, _presses), _misses, MedidorFaena.ROJO)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS, _presses, _done - _misses, MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_2, mini(3, _presses), _misses, MedidorFaena.ROJO)
 	if _perdones > 0:
-		MedidorFaena.marcas(self, w * 0.5, 244.0, _perdones, _perdones, MedidorFaena.AMBAR, 5.0)
+		MedidorFaena.marcas(self, w * 0.5, MedidorFaena.Y_MARCAS_3, _perdones, _perdones, MedidorFaena.AMBAR, 5.0)
 
 	var estado: String
 	var col: Color = MedidorFaena.TEXTO_SUAVE
@@ -238,4 +238,4 @@ func _draw() -> void:
 	else:
 		estado = "Roto: perdido" if _result.se_pierde() else _result.calidad_texto()
 		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
-	MedidorFaena.texto(self, 260.0, 4.0, w - 8.0, estado, 12, col)
+	MedidorFaena.texto(self, MedidorFaena.Y_ESTADO, 4.0, w - 8.0, estado, 12, col)

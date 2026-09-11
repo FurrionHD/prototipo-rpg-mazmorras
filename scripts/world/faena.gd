@@ -260,14 +260,19 @@ func _colocar_medidor() -> void:
 	var vp: Viewport = medidor.get_viewport()
 	if vp == null:
 		return
+	# CON LOS DEDOS, MAS GRANDE: en un movil la pantalla es pequeña en la mano y una zona estrecha de
+	# reto alto se quedaba en nada (ver MedidorFaena.CARRIL).
+	var esc: float = MedidorFaena.ESCALA_TACTIL if Tactil.activo else 1.0
+	medidor.scale = Vector2.ONE * esc
+	var tam: Vector2 = medidor.size * esc
 	var pant: Vector2 = vp.get_canvas_transform() * (jugador.global_position + Vector2(0.0, -18.0))
 	var zoom: float = _cam.zoom.x if _cam != null and is_instance_valid(_cam) else 1.0
 	var sep: float = HUECO_MEDIDOR * zoom
-	var x: float = pant.x + sep if _lado > 0.0 else pant.x - sep - medidor.size.x
-	var y: float = pant.y - medidor.size.y * 0.5
+	var x: float = pant.x + sep if _lado > 0.0 else pant.x - sep - tam.x
+	var y: float = pant.y - tam.y * 0.5
 	var vis: Vector2 = vp.get_visible_rect().size
-	medidor.position = Vector2(clampf(x, 8.0, vis.x - medidor.size.x - 8.0),
-		clampf(y, 8.0, vis.y - medidor.size.y - 8.0)).round()
+	medidor.position = Vector2(clampf(x, 8.0, vis.x - tam.x - 8.0),
+		clampf(y, 8.0, vis.y - tam.y - 8.0)).round()
 
 
 # ============================================================
