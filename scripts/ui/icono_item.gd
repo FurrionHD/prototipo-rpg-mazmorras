@@ -289,6 +289,12 @@ static func escalon(item: Resource) -> int:
 		var cd := item as ConsumableData
 		if cd.es_grimorio():
 			return clampi(int(cd.spell.rareza), 0, GRIMORIO_TECHO)
+		# LA POCION PUNTUA POR SU +N, NO POR SU TIER (lo cazo el jefe): la base es comun, la +1 poco
+		# comun, la +2 rara y la +3 epica -- cuatro marcas, como el equipo. Al subir de tier vuelve a
+		# comun: el tier ya lo dice la muesca de arriba a la izquierda, y dos sitios diciendo lo mismo
+		# dejaban sin decir el +N, que es lo que distingue dos pociones del mismo frasco.
+		if es_pocion(cd):
+			return clampi(cd.plus(), 0, techo_pocion(cd))
 		return clampi(cd.tier - 1, 0, 2)
 	if item is Cristal:
 		# Su escala propia: intacto arriba, dañado abajo. La CATEGORIA no entra aqui -- es el tier del
@@ -314,6 +320,21 @@ static func escalon(item: Resource) -> int:
 # por encima). Con el techo del equipo salian OCHO rombos en un libro y los dos ultimos no los podia
 # llenar nadie -- dos huecos que no significan nada.
 const GRIMORIO_TECHO := Upgrades.Rareza.MITICO
+# Una pocion llega a +3: cuatro peldaños (comun, poco comun, rara, epica).
+const POCION_TECHO := 3
+# EL ANTIDOTO SOLO TIENE DOS (base y +1): sus marcas son "N de 2", no de 4 -- contarlas contra el
+# techo de las pociones dejaria dos huecos que no puede llenar nadie (lo cazo el jefe).
+const ANTIDOTO_TECHO := 1
+
+static func techo_pocion(cd: ConsumableData) -> int:
+	return ANTIDOTO_TECHO if cd.es_brebaje_de_estado() else POCION_TECHO
+
+
+# ¿Es algo que se BEBE (una pocion, un antidoto)? Todo consumible que no es libro, ni plato, ni cebo,
+# ni piedra de vuelta. Su escala es su +N, no su tier (ver escalon).
+static func es_pocion(cd: ConsumableData) -> bool:
+	return not cd.en_biblioteca() and not cd.es_plato() and not cd.es_cebo() \
+		and not cd.es_vuelta_pueblo()
 
 static func techo(item: Resource) -> int:
 	if item is MaterialItem or item is MaterialData:
@@ -324,6 +345,8 @@ static func techo(item: Resource) -> int:
 		# marcas, o sea que la cuenta dejaba de distinguir justo arriba, que es donde hace falta.
 		if (item as ConsumableData).es_grimorio():
 			return GRIMORIO_TECHO
+		if es_pocion(item as ConsumableData):
+			return techo_pocion(item as ConsumableData)
 		return 2
 	if item is Cristal:
 		return 2

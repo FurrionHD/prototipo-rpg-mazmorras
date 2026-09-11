@@ -55,6 +55,15 @@ func _ready() -> void:
 	for f in _ficheros("res://resources/consumables/tochos/").slice(0, 4):
 		items.append(load(f))
 	items.append(load("res://resources/backpacks/mochila_basica.tres"))
+	# LAS POCIONES: T1 y T2 de vida y mana en sus cuatro +N, y los NUEVE frascos (tiers futuros).
+	for base in ["pocion_menor", "pocion_media", "pocion_mana_menor", "pocion_mana_media"]:
+		for n in ["", "_1", "_2", "_3"]:
+			items.append(load("res://resources/consumables/%s%s.tres" % [base, n]))
+	for t in range(3, 10):
+		var pf: ConsumableData = (load("res://resources/consumables/pocion_media_3.tres") as ConsumableData).duplicate()
+		pf.tier = t
+		items.append(pf)
+	items.append(load("res://resources/consumables/antidoto.tres"))
 	# LAS HERRAMIENTAS, y el farolillo en sus tres tiers (cada uno con su aspecto).
 	for f in _ficheros("res://resources/tools/"):
 		items.append(load(f))

@@ -48,6 +48,8 @@ const FIJOS := {
 	# la MADERA de los mangos y su cuerda de atar: son de madera sea cual sea el metal de la cabeza
 	"u": Color(0.56, 0.37, 0.20), "U": Color(0.36, 0.22, 0.12), "j": Color(0.72, 0.52, 0.30),
 	"k": Color(0.82, 0.68, 0.42),
+	# el VIDRIO de los frascos y su sombra
+	"T": Color(0.80, 0.87, 0.92), "t": Color(0.56, 0.64, 0.72),
 	# el CRISTAL AZUL del farolillo de tier 3
 	"Q": Color(0.82, 0.96, 1.0), "C": Color(0.44, 0.78, 1.0), "q": Color(0.20, 0.42, 0.82),
 }
@@ -104,6 +106,20 @@ static func _encargo(item: Resource) -> Dictionary:
 			"grietas": _grietas_de(int(cr.calidad), Cristal.Calidad)}
 		e2["puro"] = false
 		return e2
+	if item is ConsumableData and _se_bebe(item as ConsumableData):
+		# LA POCION: la FORMA del frasco la dice el TIER (una por tier, como la cuadricula de
+		# referencia del jefe) y el +N la hace un poco mas GRANDE dentro del mismo tier. El color, lo
+		# que lleva dentro.
+		var cp := item as ConsumableData
+		var n: int = clampi(cp.plus(), 0, 3)
+		# Y EL +N TAMBIEN SE VE EN EL COLOR (lo pidio el jefe): la base es PALIDA -- mas lavada y mas
+		# clara -- y la del tope INTENSA. La de vida va de un rosa desvaido a un rojo vivo. El tope es
+		# el de SU escala: el antidoto solo llega a +1 (ver IconoItem.techo_pocion), y ahi ya es intenso.
+		var base: Color = cp.color_suelo()
+		var f: float = clampf(float(n) / (1.0 if cp.es_brebaje_de_estado() else 3.0), 0.0, 1.0)
+		var col: Color = Color.from_hsv(base.h, base.s * lerpf(0.45, 1.0, f),
+			lerpf(minf(1.0, base.v + 0.22), base.v, f))
+		return {"forma": "pocion_%d_%d" % [(maxi(cp.tier, 1) - 1) % 9, n], "color": col}
 	if item is ConsumableData and (item as ConsumableData).en_biblioteca():
 		var cd := item as ConsumableData
 		var marca: String = "rombo" if cd.es_grimorio() else ("chispa" if cd.es_tomo_sabio() else "nada")
@@ -129,6 +145,12 @@ static func _encargo(item: Resource) -> Dictionary:
 		return {"forma": "mochila",
 			"color": PaletaEquipo.base(PaletaEquipo.FIBRA, maxi(int(m.get("tier", 1)), 1), mej)}
 	return {}
+
+
+# Lo que se BEBE (pociones y antidotos). El mismo criterio que IconoItem.es_pocion.
+static func _se_bebe(cd: ConsumableData) -> bool:
+	return not cd.en_biblioteca() and not cd.es_plato() and not cd.es_cebo() \
+		and not cd.es_vuelta_pueblo()
 
 
 static func _encargo_material(d: MaterialData) -> Dictionary:
@@ -263,6 +285,9 @@ static func _facetas(forma: String) -> Array:
 		return _piel(forma.trim_prefix("piel_"))
 	if forma.begins_with("nucleo_"):
 		return _nucleo(forma.trim_prefix("nucleo_"))
+	if forma.begins_with("pocion_"):
+		var pp: PackedStringArray = forma.split("_")
+		return _pocion(int(pp[1]), int(pp[2]))
 	match forma:
 		"tronco": return _tronco()
 		"pico": return _pico()
@@ -936,6 +961,86 @@ static func _frasquito() -> Array:
 		_sobre(_pol("l", [0.26, 0.46, 0.74, 0.46, 0.74, 0.50, 0.26, 0.50])),
 		_lin("W", [0.34, 0.52, 0.32, 0.66]),
 	]
+
+
+# ============================================================
+#  LAS POCIONES: un frasco por tier
+# ============================================================
+# Nueve frascos, como la cuadricula de referencia del jefe: probeta, lagrima, matraz, cuello largo,
+# gema, hexagonal, bola grande, cuenco y cuadrado. El TIER elige el frasco (del T10 vuelve a empezar);
+# el +N lo agranda un poco (+0 al 80 %, +3 entero), asi dos pociones del mismo tier se distinguen
+# tambien por el bulto. Van un poco inclinadas, como en la referencia.
+#
+# Cada frasco es: el VIDRIO (la silueta), el LIQUIDO dentro hasta su nivel, el tapon de corcho, el
+# reflejo del cristal y un par de burbujas.
+const POCION_GIRO := -0.38
+
+static func _pocion(forma: int, plus: int) -> Array:
+	var cuerpo: Array = []    # la panza de vidrio (poligono o elipse)
+	var cuello: Array = [0.45, 0.20, 0.55, 0.20, 0.55, 0.38, 0.45, 0.38]
+	var nivel: float = 0.50   # por donde va el liquido
+	match forma:
+		0:   # probeta
+			cuerpo = [_elipse("T", 0.50, 0.74, 0.10, 0.10, 14), _pol("T", [0.40, 0.24, 0.60, 0.24, 0.60, 0.74, 0.40, 0.74])]
+			cuello = [0.40, 0.20, 0.60, 0.20, 0.60, 0.26, 0.40, 0.26]
+			nivel = 0.40
+		1:   # lagrima
+			cuerpo = [_elipse("T", 0.50, 0.66, 0.21, 0.21, 20), _pol("T", [0.44, 0.36, 0.56, 0.36, 0.70, 0.60, 0.30, 0.60])]
+			nivel = 0.54
+		2:   # matraz redondo
+			cuerpo = [_elipse("T", 0.50, 0.64, 0.25, 0.25, 22)]
+		3:   # cuello largo
+			cuerpo = [_elipse("T", 0.50, 0.68, 0.22, 0.22, 22)]
+			cuello = [0.46, 0.14, 0.54, 0.14, 0.54, 0.48, 0.46, 0.48]
+			nivel = 0.58
+		4:   # gema
+			cuerpo = [_pol("T", [0.50, 0.36, 0.72, 0.50, 0.66, 0.78, 0.50, 0.88, 0.34, 0.78, 0.28, 0.50])]
+			nivel = 0.56
+		5:   # hexagonal
+			cuerpo = [_pol("T", [0.38, 0.38, 0.62, 0.38, 0.76, 0.58, 0.64, 0.84, 0.36, 0.84, 0.24, 0.58])]
+			nivel = 0.54
+		6:   # bola grande
+			cuerpo = [_elipse("T", 0.50, 0.62, 0.30, 0.29, 24)]
+			cuello = [0.45, 0.16, 0.55, 0.16, 0.55, 0.34, 0.45, 0.34]
+			nivel = 0.48
+		7:   # cuenco ancho
+			cuerpo = [_elipse("T", 0.50, 0.68, 0.32, 0.22, 24)]
+			cuello = [0.45, 0.24, 0.55, 0.24, 0.55, 0.48, 0.45, 0.48]
+			nivel = 0.60
+		_:   # cuadrado
+			cuerpo = [_pol("T", [0.26, 0.40, 0.74, 0.40, 0.76, 0.86, 0.24, 0.86])]
+			nivel = 0.52
+	var out: Array = []
+	out.append(_pol("T", cuello))
+	out.append_array(cuerpo)
+	# el liquido hasta su nivel, con la sombra abajo y la superficie en luz
+	out.append(_sobre(_pol("b", [0.0, nivel, 1.0, nivel, 1.0, 1.0, 0.0, 1.0])))
+	out.append(_sobre(_pol("s", [0.0, nivel + 0.22, 1.0, nivel + 0.22, 1.0, 1.0, 0.0, 1.0])))
+	out.append(_sobre(_pol("l", [0.0, nivel, 1.0, nivel, 1.0, nivel + 0.03, 0.0, nivel + 0.03])))
+	out.append(_sobre(_elipse("h", 0.58, nivel + 0.12, 0.025, 0.025, 6)))
+	out.append(_sobre(_elipse("h", 0.46, nivel + 0.20, 0.018, 0.018, 6)))
+	# el reflejo del cristal, a la izquierda, de arriba abajo de la panza
+	out.append(_lin("W", [0.36, nivel - 0.06, 0.34, nivel + 0.14]))
+	# el tapon
+	var c0: float = cuello[1] - 0.08
+	out.append(_pol("u", [0.43, c0, 0.57, c0, 0.58, cuello[1] + 0.02, 0.42, cuello[1] + 0.02]))
+	out.append(_lin("j", [0.45, c0 + 0.02, 0.55, c0 + 0.02]))
+	# EL +N AGRANDA Y TODO SE INCLINA: se escala y se gira cada punto alrededor del centro del frasco.
+	return _transformar(out, 0.80 + 0.066 * float(plus), POCION_GIRO, Vector2(0.5, 0.56))
+
+
+# Escala y gira una forma entera alrededor de 'c' (sirve para inclinar y agrandar sin redibujar).
+static func _transformar(pasos: Array, esc: float, ang: float, c: Vector2) -> Array:
+	var out: Array = []
+	for paso in pasos:
+		var nuevo: Dictionary = paso.duplicate()
+		var clave: String = "p" if paso.has("p") else "l"
+		var pts := PackedVector2Array()
+		for q in paso[clave]:
+			pts.append(c + ((q as Vector2) - c).rotated(ang) * esc)
+		nuevo[clave] = pts
+		out.append(nuevo)
+	return out
 
 
 # LA BABA: una cupula de gelatina con el pie plano, el brillo arriba a la izquierda y el borde de abajo
