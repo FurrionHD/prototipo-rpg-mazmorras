@@ -13657,6 +13657,7 @@ func _abrir_pantalla(pantalla: Control, modal: int = Modal.RECOLECCION) -> void:
 # (pausa el arbol en solitario, como la pesca). Si no hay jugador en el mapa (una escena de pruebas),
 # cae a la pantalla de siempre y el minijuego se juega igual.
 var _faena: Node = null
+var _cerro_una_faena: bool = false   # ¿lo que se esta cerrando era una faena? (ver _cerrar_recoleccion)
 const _FAENA_SCRIPT := preload("res://scripts/world/faena.gd")
 
 func _abrir_faena(nombre: String, nodo, pantalla: Control, herramienta: ToolData,
@@ -13709,6 +13710,7 @@ func esconder_mundo(esconder: bool) -> void:
 # ahora ni cuando vuelvas al piso (su celda queda apuntada en la memoria del piso).
 func _cerrar_recoleccion(nodo) -> void:
 	salir_modal(_active_layer)
+	_cerro_una_faena = _faena != null and is_instance_valid(_faena)
 	_cerrar_faena()
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
@@ -13727,8 +13729,11 @@ func _cerrar_recoleccion(nodo) -> void:
 			if nodo.has_method("agotar"):
 				nodo.agotar()
 		# ALBOROTO: picar y talar suenan. Menos que pelear, pero un rato dando golpes a una veta
-		# tambien te delata y ayuda a cebar un brote.
-		sumar_alboroto(ALBOROTO_RECOLECTAR)
+		# tambien te delata y ayuda a cebar un brote. CON FAENA se suma POR GOLPE (ver
+		# faena.REACCION), que es lo que deja contarlo tambien a la maquina que simula el piso cuando
+		# el que trabaja es otro; aqui solo queda el respaldo de la pantalla sin jugador.
+		if not _cerro_una_faena:
+			sumar_alboroto(ALBOROTO_RECOLECTAR)
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null

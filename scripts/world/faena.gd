@@ -37,18 +37,31 @@ const T_REARME := 0.32
 #   talar: FALLO (a destiempo) astilla sin morder, LIMPIO muerde el tronco.
 #   segar: FALLO (en falso) destroza la mata, LIMPIO la corta, SUCIO la magulla. Lo que salta son
 #          BRIZNAS: pocas, ligeras y cayendo despacio ('gravedad' baja), del verde de la planta.
+#
+# EL RUIDO DE CADA GOLPE ('ruido', en las mismas unidades que la velocidad: ver Player.hacer_ruido).
+# Solo pesa en MULTIJUGADOR, que es donde el mundo no se para mientras trabajas: un bicho lo oye a
+# ruido x hearing_factor (0,66) con tope en hearing_max (130 px), y a la mitad a traves de la roca.
+# Picar es lo que mas se oye y el bruto llega al tope; talar un poco menos; segar es casi callado y
+# extraer, un cuchillo en un cadaver, apenas nada. 'alboroto' es lo que suma cada golpe al medidor de
+# brotes del piso (Game.sumar_alboroto): antes se sumaba entero al CERRAR, y ahora se reparte por
+# golpe para que la maquina que simula el piso lo cuente tambien cuando el que trabaja es otro.
+const RUIDO_DUR := 0.9
 const REACCION := {
 	"picar": {"fuerza": [0.35, 1.0, 1.6], "trozos": [3, 7, 12], "altura": 0.4,
+		"ruido": [120.0, 170.0, 260.0], "alboroto": 3.5,
 		"sonido": ["picar_flojo", "picar_limpio", "picar_bruto"]},
 	"talar": {"fuerza": [0.55, 1.0], "trozos": [9, 6], "hojas": [1, 4], "altura": 0.3,
+		"ruido": [170.0, 200.0], "alboroto": 3.5,
 		"sonido": ["talar_fallo", "talar_limpio"]},
 	"segar": {"fuerza": [0.8, 0.45, 0.6], "trozos": [8, 5, 6], "altura": 0.25, "gravedad": 110.0,
+		"ruido": [110.0, 70.0, 90.0], "alboroto": 2.0,
 		"sonido": ["segar_fallo", "segar_limpio", "segar_sucio"]},
 	#   extraer: FALLO raja el cristal (esquirlas rojas del cuerpo), ACIERTO lo va soltando (destellos
 	#            violeta, del color de los cristales), SALVADO es el fallo que perdona el cuchillo (se
 	#            ve fallar, pero salta cristal y no carne).
 	"extraer": {"fuerza": [0.7, 0.35, 0.5], "trozos": [6, 5, 5], "altura": 0.0, "gravedad": 180.0,
 		"colores": [Color(0.55, 0.10, 0.10), Color(0.78, 0.55, 1.0), Color(0.95, 0.80, 0.45)],
+		"ruido": [80.0, 50.0, 60.0], "alboroto": 0.0,
 		"sonido": ["extraer_fallo", "extraer_acierto", "extraer_salvado"]},
 }
 const COLOR_PIEDRA := Color(0.55, 0.52, 0.48)
@@ -280,8 +293,17 @@ func _colocar_medidor() -> void:
 # ============================================================
 func _on_golpe(tipo: int) -> void:
 	_golpe_tipo = tipo
-	if jugador != null and jugador.has_method("faena_golpe"):
-		jugador.faena_golpe()
+	var r: Dictionary = REACCION.get(faena, REACCION["picar"])
+	if jugador != null and is_instance_valid(jugador):
+		if jugador.has_method("faena_golpe"):
+			jugador.faena_golpe(tipo)
+		# EL RUIDO, al dar el golpe y no al impacto: es lo que te delata, y el golpe ya esta dado.
+		if jugador.has_method("hacer_ruido"):
+			jugador.hacer_ruido(float(r["ruido"][clampi(tipo, 0, (r["ruido"] as Array).size() - 1)]),
+				RUIDO_DUR)
+	# Y el ALBOROTO del piso, por golpe (ver REACCION). Game solo lo cuenta si ESTA maquina simula el
+	# piso; si lo simula otro, lo cuenta el al ver el golpe en tu pose (RemotePlayer).
+	Game.sumar_alboroto(float(r.get("alboroto", 0.0)))
 	if _muneco == null:
 		_impacto()
 		return
@@ -293,57 +315,109 @@ func _on_golpe(tipo: int) -> void:
 	_impacto_t = float(pega - desde) / maxf(1.0, PoseJugador.fps_de(faena))
 
 
-# Lo que le pasa al recurso cuando la herramienta llega (ver REACCION): tiembla, saltan trozos del
-# color de lo que es -- roca con su mineral, madera con su veta -- y, si es un arbol, caen hojas.
 func _impacto() -> void:
 	if nodo == null or not is_instance_valid(nodo):
 		return
-	var r: Dictionary = REACCION.get(faena, REACCION["picar"])
-	var i: int = clampi(_golpe_tipo, 0, (r["fuerza"] as Array).size() - 1)
+	reaccionar(nodo, faena, _golpe_tipo, _lado)
+	# El tuyo suena entero: lo estas haciendo tu. Los demas lo oyen por distancia (ver sonar_lejos).
+	Sonido.ui(sonido_de(faena, _golpe_tipo))
+
+
+static func sonido_de(f: String, tipo: int) -> String:
+	var r: Dictionary = REACCION.get(f, REACCION["picar"])
+	return String(r["sonido"][clampi(tipo, 0, (r["sonido"] as Array).size() - 1)])
+
+
+# LO QUE LE PASA AL RECURSO cuando la herramienta llega (ver REACCION): tiembla, saltan trozos del
+# color de lo que es -- roca con su mineral, madera con su veta -- y, si es un arbol, caen hojas.
+# ESTATICA porque la usan DOS: esta faena y el jugador REMOTO, que ve al otro trabajar y tiene que ver
+# temblar la misma veta (ver RemotePlayer._faena_golpe_remoto). 'lado' es por donde esta quien golpea
+# (-1 izquierda, +1 derecha): los trozos saltan hacia el lado contrario.
+static func reaccionar(n: Node2D, f: String, tipo: int, lado: float) -> void:
+	var r: Dictionary = REACCION.get(f, REACCION["picar"])
+	var i: int = clampi(tipo, 0, (r["fuerza"] as Array).size() - 1)
 	var fuerza: float = float(r["fuerza"][i])
-	if nodo.has_method("sacudir"):
-		nodo.sacudir(fuerza)
+	if n.has_method("sacudir"):
+		n.sacudir(fuerza)
 	else:
-		_sacudir(nodo, fuerza)
-	var base: Color = {"talar": COLOR_MADERA, "segar": COLOR_HOJA}.get(faena, COLOR_PIEDRA)
+		_sacudir(n, fuerza)
+	var base: Color = {"talar": COLOR_MADERA, "segar": COLOR_HOJA}.get(f, COLOR_PIEDRA)
 	var col: Color = base
-	var md = nodo.get("material_data")
+	var md = n.get("material_data")
 	if md is MaterialData:
 		col = (md as MaterialData).color.lerp(base, 0.45)
 	if r.has("colores"):
 		col = r["colores"][i]
-	var donde: Vector2 = nodo.punto_golpe(float(r["altura"])) if nodo.has_method("punto_golpe") \
-		else nodo.global_position + Vector2(0.0, -4.0)
-	var padre: Node = nodo.get_parent()
-	if padre != null:
-		var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-_lado, 0.0),
-			int(r["trozos"][i]), 0.8 + 0.25 * fuerza, float(r.get("gravedad", 260.0)))
-		p.global_position = donde
-		p.z_index = 50
-		# Las HOJAS caen despacio y en abanico ancho: un arbol sacudido suelta hojas, no piedras.
-		if r.has("hojas") and int(r["hojas"][i]) > 0:
-			var h: CPUParticles2D = Particulas.esquirlas(padre, COLOR_HOJA, Vector2(-_lado, 0.0),
-				int(r["hojas"][i]), 0.35, 45.0)
-			h.global_position = donde + Vector2(0.0, -10.0)
-			h.z_index = 50
-	Sonido.ui(String(r["sonido"][i]))
+	var donde: Vector2 = n.punto_golpe(float(r["altura"])) if n.has_method("punto_golpe") \
+		else n.global_position + Vector2(0.0, -4.0)
+	var padre: Node = n.get_parent()
+	if padre == null:
+		return
+	var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-lado, 0.0),
+		int(r["trozos"][i]), 0.8 + 0.25 * fuerza, float(r.get("gravedad", 260.0)))
+	p.global_position = donde
+	p.z_index = 50
+	# Las HOJAS caen despacio y en abanico ancho: un arbol sacudido suelta hojas, no piedras.
+	if r.has("hojas") and int(r["hojas"][i]) > 0:
+		var h: CPUParticles2D = Particulas.esquirlas(padre, COLOR_HOJA, Vector2(-lado, 0.0),
+			int(r["hojas"][i]), 0.35, 45.0)
+		h.global_position = donde + Vector2(0.0, -10.0)
+		h.z_index = 50
 
 
 # El temblor de lo que no sabe temblar solo (el cadaver): un vaiven corto de lado a lado que vuelve
-# a su sitio. Mismo gesto que ResourceNode.sacudir, saltandose la pausa igual.
-var _temblor: Tween = null
-var _base_pos := Vector2.INF
-
-func _sacudir(n: Node2D, fuerza: float) -> void:
-	if _base_pos == Vector2.INF:
-		_base_pos = n.position
-	if _temblor != null and _temblor.is_valid():
-		_temblor.kill()
-	n.position = _base_pos
+# a su sitio. Mismo gesto que ResourceNode.sacudir, saltandose la pausa igual. El sitio de reposo va
+# en una META del propio nodo (la funcion es estatica): con dos golpes seguidos, el segundo tiene que
+# volver al sitio de verdad y no al que dejo el primero a medio temblar.
+static func _sacudir(n: Node2D, fuerza: float) -> void:
+	if not n.has_meta("faena_reposo"):
+		n.set_meta("faena_reposo", n.position)
+	var base: Vector2 = n.get_meta("faena_reposo")
+	var viejo = n.get_meta("faena_temblor", null)
+	if viejo is Tween and (viejo as Tween).is_valid():
+		(viejo as Tween).kill()
+	n.position = base
 	var a: float = 1.8 * fuerza
-	_temblor = n.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var tw: Tween = n.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	for k in [1.0, -0.7, 0.4, 0.0]:
-		_temblor.tween_property(n, "position", _base_pos + Vector2(a * k, 0.0), 0.035)
+		tw.tween_property(n, "position", base + Vector2(a * k, 0.0), 0.035)
+	n.set_meta("faena_temblor", tw)
+
+
+# EL SONIDO DE LA FAENA DE OTRO, por DISTANCIA a ti: entero de cerca, bajando, y nada cuando ya no
+# cabe en tu pantalla. Mismos umbrales que el espadazo de otro jugador (RemotePlayer.OYE_LLENO/NADA)
+# y el mismo mando de peso (1 = de lleno, 0,2 = lo mas flojo), pasado a decibelios.
+static func sonar_lejos(f: String, tipo: int, donde: Vector2, yo: Vector2, lleno: float,
+		nada: float) -> void:
+	var d: float = donde.distance_to(yo)
+	if d >= nada:
+		return
+	var peso: float = 1.0
+	if d > lleno:
+		peso = lerpf(1.0, 0.2, (d - lleno) / (nada - lleno))
+	Sonido.ui(sonido_de(f, tipo), Sonido.UI_DB + linear_to_db(peso))
+
+
+# EL RECURSO QUE ESTA TRABAJANDO OTRO JUGADOR, visto desde aqui: no viaja (seria un mensaje mas por
+# golpe), se deduce. Es el de su tipo mas cercano a su avatar, dentro de lo que alcanza una faena.
+static func buscar_objetivo(arbol: SceneTree, f: String, pos: Vector2) -> Node2D:
+	var grupo: String = "corpse" if f == "extraer" else "recolectable"
+	var mejor: Node2D = null
+	var mejor_d: float = 60.0
+	for n in arbol.get_nodes_in_group(grupo):
+		if not (n is Node2D) or not is_instance_valid(n):
+			continue
+		if f == "picar" and not (n.has_method("es_veta") and n.es_veta()):
+			continue
+		if f == "talar" and not (n.has_method("es_madera") and n.es_madera()):
+			continue
+		if f == "segar" and (not n.has_method("es_veta") or n.es_veta() or n.es_madera()):
+			continue
+		var d: float = (n as Node2D).global_position.distance_to(pos)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = n as Node2D
+	return mejor
 
 
 # ============================================================

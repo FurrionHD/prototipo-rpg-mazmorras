@@ -42,7 +42,7 @@ const MAX_JUGADORES := 4
 #    version del fichero de sonido y su tono, para que el golpe suene identico en las dos pantallas
 #    en vez de que cada maquina se saque la suya. Un build del 5 lee el paquete CORRIDO desde el
 #    segundo impacto: victimas, daños y efectos inventados, y sin dar ni un error.
-const PROTOCOLO := 7
+const PROTOCOLO := 8
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -605,11 +605,11 @@ const POSE_SEQ := 0xFF << 5      # bits 5-12: contador de espadazos, da la vuelt
 
 
 static func empaquetar_pose(modo: int, desenvainado: bool, variante: int, seq: int,
-		faena: int = 0, volteo: bool = false, tier: int = 1) -> int:
+		faena: int = 0, volteo: bool = false, tier: int = 1, golpe: int = 0) -> int:
 	return (clampi(modo, 0, 3)) | (POSE_DESENV if desenvainado else 0) \
 		| (clampi(variante, 0, 3) << 3) | ((seq & 0xFF) << 5) \
 		| (clampi(faena, 0, 7) << POSE_FAENA_BIT) | ((1 << POSE_VOLTEO_BIT) if volteo else 0) \
-		| (clampi(tier, 0, 7) << POSE_TIER_BIT)
+		| (clampi(tier, 0, 7) << POSE_TIER_BIT) | (clampi(golpe, 0, 3) << POSE_GOLPE_BIT)
 
 
 # LA FAENA (picar, talar...) viaja en la misma pose, en los bits de arriba: cual es (0 = ninguna,
@@ -619,6 +619,13 @@ static func empaquetar_pose(modo: int, desenvainado: bool, variante: int, seq: i
 const POSE_FAENA_BIT := 13
 const POSE_VOLTEO_BIT := 16
 const POSE_TIER_BIT := 17
+# COMO HA SALIDO el ultimo golpe de la faena (el enum Golpe de su minijuego: flojo/limpio/bruto...).
+# Con el, los demas oyen el golpe que toca y la maquina que mueve a los bichos sabe cuanto ruido ha
+# hecho (ver RemotePlayer._faena_golpe_remoto).
+const POSE_GOLPE_BIT := 20
+
+static func golpe_de_pose(pose: int) -> int:
+	return (pose >> POSE_GOLPE_BIT) & 0b11
 
 static func faena_de_pose(pose: int) -> int:
 	return (pose >> POSE_FAENA_BIT) & 0b111

@@ -226,7 +226,7 @@ func aplicar_pose(pose: int) -> void:
 	if seq != _golpe_seq and _faena > 0:
 		# EN FAENA el contador de golpe es el del pico, no el de un espadazo: se ve la descarga.
 		if _golpe_seq >= 0:
-			_faena_golpe_pendiente = true
+			_faena_golpe_remoto(Net.golpe_de_pose(pose))
 		_golpe_seq = seq
 		return
 	if seq != _golpe_seq:
@@ -287,6 +287,15 @@ func ir_a(pos: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# EL RUIDO Y EL IMPACTO DE LA FAENA van ANTES de la salida de abajo: mientras trabaja esta QUIETO,
+	# y un avatar que no se mueve puede pasar ratos sin paquete de posicion nuevo. Puestos despues,
+	# su ruido se quedaba en el pico para siempre y los bichos lo oian aunque ya hubiera parado.
+	if _ruido_t > 0.0:
+		_ruido_t -= delta
+	if _faena_impacto_t >= 0.0:
+		_faena_impacto_t -= delta
+		if _faena_impacto_t < 0.0:
+			_faena_impacto_remoto()
 	if _objetivo == Vector2.INF or delta <= 0.0:
 		return
 	# Lerp exponencial clasico hacia el ultimo objetivo: tapa el hueco entre paquetes.
@@ -332,6 +341,57 @@ var _faena: int = 0
 var _faena_volteo: bool = false
 var _faena_tier: int = 1
 var _faena_golpe_pendiente: bool = false
+var _faena_golpe_tipo: int = 0
+var _faena_impacto_t: float = -1.0
+const _FAENA := preload("res://scripts/world/faena.gd")
+
+
+# UN GOLPE SUYO DE FAENA, visto desde aqui. En multijugador el mundo NO se para mientras alguien pica,
+# y ese golpe tiene que existir para los demas igual que para el:
+#   - se VE: la descarga en su muñeco y, al llegar la herramienta, el recurso tiembla y suelta trozos;
+#   - se OYE: por distancia a ti, igual que su espadazo (ver _FAENA.sonar_lejos);
+#   - ALERTA: su avatar "hace ruido" (ruido_oido), y los bichos de quien simule el piso lo oyen igual
+#     que oirian al propio jugador -- que en esa maquina ES este avatar;
+#   - y si ESTA maquina simula el piso, suma al ALBOROTO, que antes solo contaba lo del anfitrion.
+# Nada de esto necesita un mensaje nuevo: el golpe y como ha salido ya viajan en la pose.
+func _faena_golpe_remoto(tipo: int) -> void:
+	_faena_golpe_pendiente = true
+	_faena_golpe_tipo = tipo
+	var base: String = PoseJugador.FAENAS[_faena - 1]
+	# El trozo que salta y el sonido, cuando LLEGA la herramienta, como en su pantalla. El reloj
+	# arranca AQUI y no al animar: el golpe existe aunque su muñeco aun no se haya podido montar.
+	var desde: int = int(PoseJugador.FAENA_DESCARGA.get(base, 0))
+	_faena_impacto_t = float(int(PoseJugador.FAENA_IMPACTO.get(base, desde)) - desde) \
+		/ maxf(1.0, PoseJugador.fps_de(base))
+	var r: Dictionary = _FAENA.REACCION.get(base, {})
+	if r.is_empty():
+		return
+	var ruidos: Array = r["ruido"]
+	hacer_ruido(float(ruidos[clampi(tipo, 0, ruidos.size() - 1)]), _FAENA.RUIDO_DUR)
+	if Net.simulo_mi_piso():
+		Game.sumar_alboroto(float(r.get("alboroto", 0.0)))
+
+
+# EL RUIDO QUE HACE, para el oido de los bichos (enemy._detecta_a pregunta por esto antes que por la
+# velocidad). Mismo trato que Player.hacer_ruido: se queda el mas fuerte y se desinfla solo.
+var _ruido_pico: float = 0.0
+var _ruido_t: float = 0.0
+var _ruido_dur: float = 1.0
+
+func hacer_ruido(cuanto: float, segundos: float) -> void:
+	if cuanto <= ruido_extra_actual():
+		return
+	_ruido_pico = cuanto
+	_ruido_dur = maxf(0.01, segundos)
+	_ruido_t = _ruido_dur
+
+
+func ruido_extra_actual() -> float:
+	return _ruido_pico * clampf(_ruido_t / _ruido_dur, 0.0, 1.0) if _ruido_t > 0.0 else 0.0
+
+
+func ruido_oido() -> float:
+	return velocity.length() + ruido_extra_actual()
 
 func _aplicar_faena(faena: int, volteo: bool, tier: int) -> void:
 	if faena == _faena and volteo == _faena_volteo and tier == _faena_tier:
@@ -352,6 +412,21 @@ func _aplicar_faena(faena: int, volteo: bool, tier: int) -> void:
 			if String(ArmaSprites.HERRAMIENTA_ANIM[tn]) == nombre_faena:
 				capa = JugadorSprites.capa_herramienta(tn, tier, 0)
 	_muneco.poner_herramienta(capa)
+
+
+func _faena_impacto_remoto() -> void:
+	if _faena <= 0:
+		return
+	var base: String = PoseJugador.FAENAS[_faena - 1]
+	# Volteado = esta a la DERECHA del recurso (ver faena.gd), y los trozos saltan hacia el otro lado.
+	var lado: float = 1.0 if _faena_volteo else -1.0
+	var obj: Node2D = _FAENA.buscar_objetivo(get_tree(), base, global_position)
+	if obj != null:
+		_FAENA.reaccionar(obj, base, _faena_golpe_tipo, lado)
+	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	if yo != null:
+		_FAENA.sonar_lejos(base, _faena_golpe_tipo, global_position, yo.global_position,
+			OYE_LLENO, OYE_NADA)
 
 
 func _animar_faena() -> void:

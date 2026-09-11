@@ -323,6 +323,10 @@ func _physics_process(delta: float) -> void:
 			if _exhausted and current_stamina >= max_stamina * exhausted_recover_ratio:
 				_exhausted = false
 		_refrescar_barras()
+		# EL RUIDO SE DESINFLA TAMBIEN AQUI. Con una faena abierta (picar, talar...) se esta en esta
+		# rama, y en multijugador el mundo sigue: sin esto, el primer golpe bruto dejaba el ruido
+		# clavado en su pico toda la faena, porque hacer_ruido no acepta uno mas flojo encima.
+		_tick_ruido(delta)
 		if Net.activo:
 			# Que el otro te vea QUIETO, no congelado. Con tu sequito: sus cuerpos tambien viajan.
 			Net.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
@@ -1293,7 +1297,7 @@ const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hec
 # arma en la mano y sin dar un solo golpe.
 func _pose_red() -> int:
 	return Net.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq,
-		_faena_red, _faena_volteo, _faena_tier)
+		_faena_red, _faena_volteo, _faena_tier, _faena_golpe_tipo)
 
 
 # ============================================================
@@ -1309,6 +1313,7 @@ var _en_faena: bool = false
 var _faena_red: int = 0
 var _faena_volteo: bool = false
 var _faena_tier: int = 1
+var _faena_golpe_tipo: int = 0
 
 func empezar_faena(faena: String, volteado: bool, tier: int) -> MunecoJugador:
 	_en_faena = true
@@ -1323,8 +1328,10 @@ func empezar_faena(faena: String, volteado: bool, tier: int) -> MunecoJugador:
 	return _muneco if _muneco != null and _muneco.hay_dibujo() else null
 
 
-# Un golpe de la faena: solo para que el otro jugador lo vea caer a la vez (ver remote_player).
-func faena_golpe() -> void:
+# Un golpe de la faena: para que el otro jugador lo vea caer a la vez y lo OIGA (ver remote_player),
+# con como ha salido (el enum Golpe de su minijuego).
+func faena_golpe(tipo: int = 0) -> void:
+	_faena_golpe_tipo = tipo
 	_golpe_seq = (_golpe_seq + 1) & 0xFF
 
 
