@@ -30,7 +30,8 @@ const VOCES := 12
 const CARPETA := "res://audio/sfx/"
 
 # Hasta que version se busca. Se para en el primer hueco, asi que esto es solo el tope de la
-# busqueda: seis es el maximo que hay hoy (los caparazones) y sobra sitio.
+# busqueda: siete es el maximo que hay hoy (picar_flojo) y sobra sitio. Una octava y novena
+# tomas caben; la decima se quedaria fuera SIN AVISO.
 const TOPE_VERSIONES := 9
 
 # LOS VOLUMENES QUE SE PUEDEN TOCAR. La clave es la que se guarda en disco y la que pide la UI; el

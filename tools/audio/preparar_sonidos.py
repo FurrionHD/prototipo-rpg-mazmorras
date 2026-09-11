@@ -94,6 +94,9 @@ DEST_MUS = os.path.join(RAIZ, "audio", "musica")
 #                    mayoria, pero hay muestras donde los impactos estan FUNDIDOS (la carniceria
 #                    del hacha es una masa sostenida, no tres hachazos) o donde el bueno es el
 #                    SEGUNDO y no el primero. Ahi se dice el trozo y se acabo.
+#    {toma: (a, b)}  ventana a mano POR TOMA, para cuando un prefijo trae varias y solo algunas la
+#                    necesitan. La toma es lo que va detras del '#' sin la extension ("3-1789151759677");
+#                    las que no salen en el diccionario van con el recorte normal.
 #
 #  Las que se quedan ENTERAS a proposito aunque la habilidad sea de varios golpes van marcadas con
 #  un comentario: son las que no tienen costura por donde cortar.
@@ -286,6 +289,76 @@ SFX = {
 		# muestra son una masa, no una escalera. Ver TOPE_SECO.
 		"One_single_clean_bel": ("gacha_estrella", "seco"),
 		"A_warm_resonant_bed": ("gacha_remate", ""),
+	},
+	# LAS FAENAS DEL MAPA (Faena.REACCION[...]["sonido"]). Tambien van por Sonido.ui() y la clave es
+	# la que pide REACCION, un sonido por tipo de golpe.
+	#
+	# CASI TODAS LLEVAN VENTANA, y por toma: el generador deja delante del golpe ruiditos, un amago o
+	# una subida larga, y el recorte automatico arranca en lo PRIMERO que pasa del 5% del pico. Aqui
+	# eso no se perdona: el sonido sale en el fotograma del impacto, y un 'talar_fallo' con el hachazo
+	# a 0,8 s de su principio sonaba cuando el hacha ya estaba de vuelta. Las ventanas cortan tambien
+	# el SEGUNDO golpe que traen algunas: con uno por pulsacion, un sonido de dos se oye como dos.
+	# Medidas sobre la forma de onda, no de oido: si alguna suena rara, se mueve aqui.
+	"Picar": {
+		# La #3-503 trae 0,3 s de cola con rebotes: un golpe flojo tiene que ser corto.
+		"Pickaxe_tip_glancing": ("picar_flojo", {"3-1789151503382": (0.11, 0.42)}),
+		# La #1 es una sola rafaga (golpe y esquirlas); la #3 trae una masa de 0,3 s y un golpe
+		# limpio al final: se coge ese. La #4 empieza con el golpe y va entera.
+		"Pickaxe_biting_clean": ("picar_limpio", {
+			"1-1789151787943": (0.07, 0.46),
+			"3-1789151759677": (0.46, 0.72),
+		}),
+		"Pickaxe_smashing_roc": ("picar_bruto", {
+			"3-1789151835373": (0.19, 0.80),     # 0,1 s de grava antes del golpe
+			"4-1789151839986": (0.38, 0.90),     # 0,4 s de arrastre antes del crujido
+		}),
+	},
+	"Talar": {
+		"Woodcutter's_axe_bit": ("talar_limpio", {
+			"1-1789151956083": (0.37, 0.82),     # amago a 0,27 s: fuera
+			"1-1789151992135": (0.23, 0.62),
+			"2-1789151952113": (0.11, 0.50),     # corta antes del segundo hachazo (0,60 s)
+			"3-1789151940142": (0.05, 0.56),
+			"3-1789151987720": (0.27, 0.62),     # el golpe esta a 0,30 s de ruido
+			"4-1789151963304": (0.00, 0.27),     # trae tres hachazos: el primero
+		}),
+		# Las cuatro con el golpe entre 0,6 y 1,4 s de silencio con chasquidos sueltos.
+		"Axe_glancing_off_bar": ("talar_fallo", {
+			"1-1789152058843": (0.56, 1.02),
+			"3-1789152042407": (1.33, 1.80),
+			"4-1789152046903": (0.67, 1.12),
+			"4-1789152068132": (0.58, 1.03),
+		}),
+	},
+	"Segar": {
+		# Dos de las tres traen un SEGUNDO barrido flojo detras: fuera.
+		"Sickle_slicing_a_bun": ("segar_limpio", {
+			"1-1789152111201": (0.12, 0.52),
+			"2-1789152107230": (0.16, 0.60),     # la subida es larga: se entra a media
+			"4-1789152159730": (0.00, 0.42),
+		}),
+		"Sickle_tearing_uneve": ("segar_sucio", {
+			"1-1789152178374": (1.16, 1.55),
+			"2-1789152181923": (0.50, 1.00),     # un desgarro de 0,8 s: el trozo mas denso
+			"3-1789152204318": (0.30, 0.62),
+		}),
+		"Sickle_thrashing_thr": ("segar_fallo", {"2-1789152266333": (0.00, 0.55)}),
+	},
+	"Extraer": {
+		"Small_knife_working": ("extraer_acierto", {
+			"2-1789152321537": (0.16, 0.62),
+			"3-1789152398146": (0.20, 0.66),
+		}),
+		"Knife_slipping_and_s": ("extraer_fallo", {
+			"2-1789152438161": (1.00, 1.30),
+			"3-1789152441755": (0.37, 0.72),
+			"4-1789152445172": (0.40, 0.80),     # sin el chasquido suelto de 1,09 s
+		}),
+		# El resbalon SUBE hasta el clic final: se deja ~0,2 s de subida, no medio segundo.
+		"Knife_slips,_then_ca": ("extraer_salvado", {
+			"2-1789152501821": (0.40, 0.68),
+			"3-1789152506524": (0.52, 0.84),
+		}),
 	},
 }
 
@@ -532,6 +605,10 @@ GANANCIAS = {
 	"minotauro_pisoton": 7.0,     # el Pisoton atronador: no se oia
 	# El Endurecerse del golem suena por el generico de ESCUDO.
 	"escudo": 3.0,
+	# PICAR, graduado: igualados, el golpe flojo y el bruto sonaban igual de fuertes, y la diferencia
+	# es justo lo que el jugador tiene que oir. Punto de partida, sin oir en el juego todavia.
+	"picar_flojo": -3.0,
+	"picar_bruto": 2.0,
 }
 
 # El limitador empieza a apretar a partir de esta fraccion del techo. Por debajo no toca nada.
@@ -763,6 +840,12 @@ def clave_de_fichero(nombre):
 	return base.split("#")[0].rstrip("_")
 
 
+def toma_de_fichero(ruta):
+	"""Lo de detras del '#': el numero de variante y la marca de tiempo. Distingue tomas de una clave."""
+	base = os.path.splitext(os.path.basename(ruta))[0]
+	return base.split("#", 1)[1] if "#" in base else ""
+
+
 def agrupar(carpeta, tabla):
 	"""{clave destino: [rutas ordenadas]} y la lista de lo que sobro."""
 	grupos = {}
@@ -797,9 +880,15 @@ def hacer_sfx(informe):
 		for prefijo, rutas in sorted(grupos.items()):
 			clave, modo = tabla[prefijo]
 			salidas = nombres_de_salida(clave, len(rutas), "sfx_", "wav")
+			if isinstance(modo, dict):
+				tomas = set(toma_de_fichero(r) for r in rutas)
+				for t in modo:
+					if t not in tomas:
+						informe.append("  !! '%s' tiene ventana para la toma %s y no existe" % (prefijo, t))
 			for ruta, nombre in zip(rutas, salidas):
 				m, fr = leer_mono(ruta)
-				m, nota = recortar(m, fr, modo)
+				modo_toma = modo.get(toma_de_fichero(ruta), "") if isinstance(modo, dict) else modo
+				m, nota = recortar(m, fr, modo_toma)
 				# Aqui NO se iguala el volumen: de eso se encarga una sola pasada al final, sobre
 				# audio/sfx entero. Haciendolo en los dos sitios, estos ficheros pasaban dos veces
 				# y se saltaban el tope de ganancia.
