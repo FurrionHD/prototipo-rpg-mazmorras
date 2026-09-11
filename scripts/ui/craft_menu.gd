@@ -111,15 +111,36 @@ func _recompute_recetas() -> void:
 		return
 	if _tier >= 2 and not Game.medianas_desbloqueadas():
 		_tier = 1
+	# Sin antidotos en este tier, su pestaña no sale: se vuelve a Vida en vez de enseñar una vacia.
+	if _tipo == TIPO_ANTIDOTO and not _hay_antidotos(_tier):
+		_tipo = 0
 	_recetas = []
 	for r in Game.recetas_boticaria_tier(_tier):
 		var res: ConsumableData = (r as RecipeData).resultado
 		if res == null:
 			continue
-		var encaja: bool = res.cura_hp() if _tipo == 0 else res.da_mana()
-		if encaja:
+		if _tipo_de(res) == _tipo:
 			_recetas.append(r)
 	_sel = clampi(_sel, 0, maxi(0, _recetas.size() - 1))
+
+
+# A que pestaña va cada pocion. LOS ANTIDOTOS VAN APARTE: "curan" algo de vida, asi que antes caian en
+# Vida mezclados con las pociones de verdad, y no se hacen para lo mismo -- se hacen para quitarte un
+# veneno. Por eso se miran antes que la cura.
+const TIPO_ANTIDOTO := 2
+
+static func _tipo_de(res: ConsumableData) -> int:
+	if res.es_brebaje_de_estado():
+		return TIPO_ANTIDOTO
+	return 0 if res.cura_hp() else (1 if res.da_mana() else -1)
+
+
+func _hay_antidotos(tier: int) -> bool:
+	for r in Game.recetas_boticaria_tier(tier):
+		var res: ConsumableData = (r as RecipeData).resultado
+		if res != null and res.es_brebaje_de_estado():
+			return true
+	return false
 
 
 # Vacia la seleccion y la dimensiona a los ingredientes de la receta actual (una entrada
@@ -190,7 +211,10 @@ func _rebuild_real() -> void:
 		if Game.medianas_desbloqueadas():
 			tier_labels.append("Medianas")
 		MenuScaffold.pestanas(_header, tier_labels, _tier - 1, _on_tier)
-		MenuScaffold.pestanas(_header, ["Vida", "Maná"], _tipo, _on_tipo)
+		var tipos: Array = ["Vida", "Maná"]
+		if _hay_antidotos(_tier):
+			tipos.append("Antídotos")
+		MenuScaffold.pestanas(_header, tipos, _tipo, _on_tipo)
 	_header.add_child(HSeparator.new())
 
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
