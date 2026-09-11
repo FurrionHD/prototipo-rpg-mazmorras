@@ -85,6 +85,12 @@ func _ready() -> void:
 	_hornear_props()
 	_hornear_peces()
 	_hornear_jugador()
+	# LOS ICONOS DE LOS OBJETOS (materiales, consumibles, cristales), como el resto: ver
+	# SpritesObjeto.hornear_iconos. Van en su carpeta y se limpian solos.
+	print("")
+	print("=== ICONOS DE OBJETOS ===")
+	print("  %d iconos en %s" % [IconoItem.SpritesObjeto.hornear_iconos(),
+		IconoItem.SpritesObjeto.CARPETA_ICONOS])
 
 	# Y LO ULTIMO, TIRAR LO QUE YA NO SE GENERA. La clave de un horneado lleva dentro el color y la
 	# escala del bicho, asi que tocar cualquiera de los dos lo renombra y deja el anterior en disco

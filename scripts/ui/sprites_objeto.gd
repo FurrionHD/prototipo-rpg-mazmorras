@@ -104,26 +104,99 @@ static func textura_item(item: Resource) -> Dictionary:
 	var e: Dictionary = _encargo(item)
 	if e.is_empty():
 		return {}
-	var col: Color = e["color"]
-	var clave: String = "%s|%s|%d|%s|%s" % [String(e.get("forma", "")), col.to_html(),
-		int(e.get("grietas", 0)), bool(e.get("puro", false)),
-		String(e["pez"].id) if e.has("pez") else str(e.get("planta", ""))]
+	var clave: String = clave_icono(item)
 	if _cache_tex.has(clave):
 		return _cache_tex[clave]
+	var caja: float = 0.92 if (e.has("pez") or e.has("planta")) else 1.0
+	# HORNEADO PRIMERO, como los enemigos y el jugador: si el PNG esta en disco se carga (ver
+	# hornear_iconos); si no -- algo nuevo que aun no ha pasado por el horno --, se genera al vuelo.
+	var ruta: String = ruta_icono(clave)
+	var tex: Texture2D = null
+	if ResourceLoader.exists(ruta):
+		tex = load(ruta) as Texture2D
+	if tex == null:
+		tex = ImageTexture.create_from_image(_imagen_de(e))
+	var out: Dictionary = {"tex": tex, "caja": caja}
+	_cache_tex[clave] = out
+	return out
+
+
+# La clave con la que se cachea y se hornea el icono de 'item' ("" si no tiene dibujo aqui).
+static func clave_icono(item: Resource) -> String:
+	var e: Dictionary = _encargo(item)
+	if e.is_empty():
+		return ""
+	return "%s|%s|%d|%s|%s" % [String(e.get("forma", "")), (e["color"] as Color).to_html(),
+		int(e.get("grietas", 0)), bool(e.get("puro", false)),
+		String(e["pez"].id) if e.has("pez") else str(e.get("planta", ""))]
+
+
+const CARPETA_ICONOS := "res://assets/sprites/iconos/"
+
+static func ruta_icono(clave: String) -> String:
+	return CARPETA_ICONOS + clave.replace("|", "_").replace(" ", "") + ".png"
+
+
+# El dibujo de un encargo, hecho imagen (lo que se hornea y lo que se genera al vuelo).
+static func _imagen_de(e: Dictionary) -> Image:
+	var col: Color = e["color"]
 	var img: Image
-	var caja: float = 1.0
 	if e.has("pez") or e.has("planta"):
 		img = (_imagen_pez(e["pez"], col, int(e.get("grietas", 0))) if e.has("pez")
 			else _imagen_planta(int(e["planta"]), col, int(e.get("grietas", 0)))).duplicate()
-		caja = 0.92
 	else:
 		var celdas: PackedByteArray = _celdas_de(String(e["forma"]), int(e.get("grietas", 0)), RES_GRANDE)
 		img = _a_imagen(celdas, RES_GRANDE, _paleta(col, e.get("veta", Color(0, 0, 0, 0))))
 	if bool(e.get("puro", false)):
 		_destello_en(img)
-	var out: Dictionary = {"tex": ImageTexture.create_from_image(img), "caja": caja}
-	_cache_tex[clave] = out
+	return img
+
+
+# Todo lo que puede salir en una rejilla con su dibujo: cada material en sus cuatro estados, cada
+# consumible y los cristales T1..T10 en sus estados. Lo usan el horno y la precarga.
+static func items_con_icono() -> Array:
+	var out: Array = []
+	for r in Game.rutas_materiales():
+		var d: MaterialData = load(r) as MaterialData
+		if d == null:
+			continue
+		for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+				MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]:
+			out.append(MaterialItem.crear(d, cal))
+	for r in Game.rutas_consumibles():
+		var c: Resource = load(r)
+		if c != null:
+			out.append(c)
+	for t in range(1, 11):
+		for cal in [Cristal.Calidad.INTACTO, Cristal.Calidad.NORMAL, Cristal.Calidad.DANADO]:
+			var cr := Cristal.new()
+			cr.categoria = t
+			cr.calidad = cal
+			out.append(cr)
 	return out
+
+
+# EL HORNO DE LOS ICONOS (lo llama tools/hornear_sprites.gd): los guarda en PNG y tira los que ya no
+# genera nadie. Devuelve cuantos ha escrito.
+static func hornear_iconos() -> int:
+	DirAccess.make_dir_recursive_absolute(CARPETA_ICONOS)
+	var hechas: Dictionary = {}
+	for it in items_con_icono():
+		var clave: String = clave_icono(it)
+		if clave == "" or hechas.has(clave):
+			continue
+		var e: Dictionary = _encargo(it)
+		_imagen_de(e).save_png(ProjectSettings.globalize_path(ruta_icono(clave)))
+		hechas[ruta_icono(clave).get_file()] = true
+		hechas[clave] = true
+	var dir := DirAccess.open(CARPETA_ICONOS)
+	if dir != null:
+		for f in dir.get_files():
+			if f.ends_with(".png") and not hechas.has(f):
+				dir.remove(f)
+				if dir.file_exists(f + ".import"):
+					dir.remove(f + ".import")
+	return hechas.size() / 2
 
 
 # LA PRECARGA: genera en segundo plano los dibujos de todo lo que puede salir en una rejilla (cada
