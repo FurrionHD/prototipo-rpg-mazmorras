@@ -2,6 +2,96 @@
 
 ---
 
+# v0.12.1 — «Manos a la obra»
+
+Picar, talar, segar y sacarle el cristal a un cadáver eran una pantalla negra con una barra. Ahora
+se hacen en el mapa, a la vista, con tu personaje dando cada golpe. Y los objetos dejan de ser
+cubitos de color.
+
+---
+
+## ⛏️ Las faenas, en el mapa
+
+**Picar.** Te colocas junto a la veta, la cámara se acerca y se te ve alzar el pico mientras cargas
+y descargarlo al soltar. La veta tiembla y suelta esquirlas.
+
+**Talar.** Te plantas a un lado del árbol y le das hachazos de lado, a compás. El tronco tiembla y
+suelta astillas y hojas.
+
+**Segar.** Agachado junto a la mata, la sujetas con una mano y le das tajos cortos con la hoz. Vale
+también para el huerto.
+
+**Extraer.** De rodillas junto al cadáver, cuchillo de arriba abajo. El corte bueno suelta destellos
+violeta; el malo salpica.
+
+**Las reglas no cambian**: son los mismos minijuegos. Los medidores van ahora al lado del personaje
+y son más grandes — la zona más estrecha ya se ve bien, y en el móvil van todavía más grandes.
+
+**Y cada golpe suena.** El golpe flojo, el limpio y el bruto no suenan igual, y lo notarás.
+
+## 🔪 El cuchillo de desollar
+
+**La sexta herramienta**, y se forja en el herrero como las demás. Sin él se extrae igual que
+siempre. Con él, la zona buena es más ancha, te perdona fallos (uno de épico para arriba, dos las
+obras maestras y las prístinas) y saca más material y núcleo del cadáver, hasta el doble, aunque
+rinde menos cuanto más alto es el cristal.
+
+## 👥 En compañía
+
+**Tu compañero trabajando se ve y se oye**: el recurso tiembla con sus golpes, y suena más flojo
+cuanto más lejos está.
+
+**Y los enemigos también lo oyen.** Picar a lo bruto se oye de lejos; sacar un cristal, casi nada.
+Mientras trabajas el mundo no se para.
+
+## 🎨 Los objetos, con su dibujo
+
+**Ya no queda ni un cubo de color.** Minerales, lingotes, las pieles de cada enemigo, un núcleo
+distinto por monstruo, plantas, carbón, carne, pescado, la despensa entera, los dieciséis platos,
+cebos, herramientas del metal de su tier, un farolillo por tier… y los cristales, que crecen de tier
+en tier.
+
+**El estado se ve**: cuanto más estropeado, más grietas, y el puro destella (antes salía oscurecido).
+
+**Las pociones**, un frasco por tier, que crece y se aviva con el +N.
+
+**Las armas, retocadas**: la hoja tiene cuerpo, guarda y pomo, y el hacha, el martillo y la maza se
+reconocen de un vistazo.
+
+**Tu equipo sale con su dibujo** en las celdas y en la ficha.
+
+## 🧥 Cambiar equipo
+
+**Pestañas por hueco**, y la pieza que estás mirando, en grande y con su +N. **Equipar ya no te
+saca**: puedes probarte varias seguidas.
+
+## 🧘 Meditación
+
+**La primera meditación del mundo es gratis**, con grimorio asegurado. Una por mundo, no una por
+compañero.
+
+**Cada rito con su nombre**: El primer umbral, La hora del eclipse y El prisma roto. Y el de
+novato desaparece cuando se agota.
+
+**El amago engaña mejor.** Puede disfrazar cualquier carta, no solo la mejor, y cuando finge, finge
+la tanda entera: ya no se delata por la carta de al lado.
+
+## 🔧 Arreglos y detalles
+
+**El inventario va unas diez veces más rápido** al abrir una pestaña llena.
+
+**El pueblo ya no zumba.** Su sonido de fondo era un ruido plano que no dejaba oír nada: fuera. Y el
+de la mazmorra ya no empieza siempre por el mismo sitio.
+
+**Si cambias el tamaño de la ventana en un combate**, las columnas se reajustan. Antes el quinto
+enemigo se quedaba debajo de los botones.
+
+**Los antídotos**, en su propia pestaña de la boticaria. **El inventario** ordena cada material de
+mejor a peor estado. **El slime de fuego** es ahora de roca de lava. **El número del tier** ya no
+queda tapado al elegir una celda.
+
+---
+
 # v0.12.0 — «El maestro habla»
 
 La Meditación era muda de principio a fin: pagabas, el maestro hacía todo el ritual y las cartas se
