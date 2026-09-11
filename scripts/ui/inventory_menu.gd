@@ -1458,11 +1458,61 @@ func _nombre_orden(s: Dictionary) -> String:
 	return Game.item_display_name(m)
 
 
+# PREDETERMINADO: el orden en el que lo conseguiste, CON LOS ESTADOS DE UN MISMO MATERIAL JUNTOS Y DE
+# MEJOR A PEOR -- puro, intacto, normal, dañado (lo pidio el jefe). Cada material sigue saliendo
+# donde salio la primera vez; lo unico que cambia es que sus montones ya no van desperdigados ni con
+# el dañado delante del puro. Los cristales, igual, por categoria.
+func _orden_predeterminado(stacks: Array) -> Array:
+	var primero: Dictionary = {}
+	for i in stacks.size():
+		var k: String = _grupo_orden(stacks[i]["modelo"], i)
+		if not primero.has(k):
+			primero[k] = i
+	var idx: Array = range(stacks.size())
+	idx.sort_custom(func(a, b):
+		var ga: int = primero[_grupo_orden(stacks[a]["modelo"], a)]
+		var gb: int = primero[_grupo_orden(stacks[b]["modelo"], b)]
+		if ga != gb:
+			return ga < gb
+		var ra: float = _rango_estado(stacks[a]["modelo"])
+		var rb: float = _rango_estado(stacks[b]["modelo"])
+		if ra != rb:
+			return ra > rb
+		return a < b)   # a igualdad, el orden de siempre (sort_custom no es estable)
+	var out: Array = []
+	for i in idx:
+		out.append(stacks[i])
+	return out
+
+
+# De que grupo es un monton para el orden predeterminado: el material (o la categoria del cristal).
+# Lo que no tiene estados va solo, con su propio indice.
+func _grupo_orden(m: Resource, i: int) -> String:
+	if m is MaterialItem and (m as MaterialItem).data != null:
+		return "m|" + String((m as MaterialItem).data.id)
+	if m is Cristal:
+		return "c|%d" % (m as Cristal).categoria
+	return "u|%d" % i
+
+
+# Lo bueno que es su estado: el puro arriba del todo (ver MaterialItem.score_calidad, la escala
+# ordenada de verdad -- el enum no lo esta).
+func _rango_estado(m: Resource) -> float:
+	if m is MaterialItem:
+		return (m as MaterialItem).score_calidad()
+	if m is Cristal:
+		match (m as Cristal).calidad:
+			Cristal.Calidad.INTACTO: return 1.0
+			Cristal.Calidad.NORMAL: return 0.5
+		return 0.0
+	return 0.0
+
+
 func _ordenar(stacks: Array) -> Array:
 	var o: Dictionary = _orden_actual()
 	var campo: String = String(o["campo"])
 	if campo == "":
-		return stacks   # Predeterminado: el orden en el que lo conseguiste. No se toca.
+		return _orden_predeterminado(stacks)
 	var desc: bool = bool(o["desc"])
 	var out: Array = stacks.duplicate()
 	if campo == "nombre":

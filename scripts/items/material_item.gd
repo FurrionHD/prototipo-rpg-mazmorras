@@ -170,6 +170,9 @@ func peso() -> float:
 func color() -> Color:
 	var c: Color = data.color if data != null else Color.WHITE
 	match calidad:
-		Calidad.INTACTO: return c.lightened(0.25)
+		# EL PURO VA CON EL INTACTO, NO CON EL DAÑADO: caia en el '_' de abajo y salia OSCURECIDO,
+		# como un material estropeado, siendo el mejor que hay (lo cazo el jefe). Lo que lo distingue
+		# del intacto es su destello, que lo pinta el dibujo (ver sprites_objeto._destello).
+		Calidad.INTACTO, Calidad.PURO: return c.lightened(0.25)
 		Calidad.NORMAL: return c
 		_: return c.darkened(0.35)
