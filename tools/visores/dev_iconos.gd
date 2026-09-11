@@ -49,6 +49,9 @@ func _ready() -> void:
 	items.append_array(_por_tipo(MaterialData.Tipo.BABA))
 	items.append_array(_por_tipo(MaterialData.Tipo.PLANTA))
 	items.append_array(_por_tipo(MaterialData.Tipo.COMBUSTIBLE))
+	items.append_array(_por_tipo(MaterialData.Tipo.CARNE))
+	items.append_array(_por_tipo(MaterialData.Tipo.PESCADO))
+	items.append_array(_por_tipo(MaterialData.Tipo.DESPENSA))
 	for r in ["res://resources/consumables/grimorio_bola_fuego.tres",
 			"res://resources/consumables/grimorio_tormenta.tres"]:
 		items.append(load(r))
@@ -64,6 +67,8 @@ func _ready() -> void:
 		pf.tier = t
 		items.append(pf)
 	items.append(load("res://resources/consumables/antidoto.tres"))
+	for r in ["piedra_retorno", "piedra_retorno_t2", "cebo_gusano", "cebo_sanguijuela"]:
+		items.append(load("res://resources/consumables/%s.tres" % r))
 	# LAS HERRAMIENTAS, y el farolillo en sus tres tiers (cada uno con su aspecto).
 	for f in _ficheros("res://resources/tools/"):
 		items.append(load(f))

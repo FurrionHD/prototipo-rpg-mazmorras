@@ -67,9 +67,10 @@ static func pintar_item(ci: CanvasItem, centro: Vector2, lado: float, item: Reso
 	var e: Dictionary = _encargo(item)
 	if e.is_empty():
 		return false
-	if e.has("planta"):
-		_pintar_imagen(ci, centro, lado, _imagen_planta(int(e["planta"]), e["color"],
-			int(e.get("grietas", 0))))
+	if e.has("planta") or e.has("pez"):
+		var img: Image = _imagen_pez(e["pez"], e["color"], int(e.get("grietas", 0))) if e.has("pez") \
+			else _imagen_planta(int(e["planta"]), e["color"], int(e.get("grietas", 0)))
+		_pintar_imagen(ci, centro, lado, img)
 		if bool(e.get("puro", false)):
 			_destello(ci, centro, lado, RES_SUELO if lado < LADO_SUELO else RES_GRANDE)
 		return true
@@ -106,6 +107,18 @@ static func _encargo(item: Resource) -> Dictionary:
 			"grietas": _grietas_de(int(cr.calidad), Cristal.Calidad)}
 		e2["puro"] = false
 		return e2
+	if item is ConsumableData and (item as ConsumableData).es_vuelta_pueblo():
+		# LA PIEDRA DE RETORNO: un monolito con la runa encendida, y la runa lleva el simbolo del JEFE
+		# del tramo de pisos que cubre (lo pidio el jefe): la de 1-6 la corona del Rey Slime, la de
+		# 1-12 los cuernos del Minotauro. Se decide por su ALCANCE, no por su nombre.
+		var hasta: int = int((item as ConsumableData).piso_max_vuelta)
+		return {"forma": "piedra_" + RUNA_DE_TRAMO.get(hasta, "corona"),
+			"color": Color(0.56, 0.58, 0.63)}
+	if item is ConsumableData and (item as ConsumableData).es_cebo():
+		# LOS CEBOS, literalmente lo que son: un gusano y una sanguijuela.
+		var sang: bool = String((item as ConsumableData).resource_path).contains("sanguijuela")
+		return {"forma": "cebo_sanguijuela" if sang else "cebo_gusano",
+			"color": Color(0.42, 0.22, 0.28) if sang else Color(0.86, 0.56, 0.56)}
 	if item is ConsumableData and _se_bebe(item as ConsumableData):
 		# LA POCION: la FORMA del frasco la dice el TIER (una por tier, como la cuadricula de
 		# referencia del jefe) y el +N la hace un poco mas GRANDE dentro del mismo tier. El color, lo
@@ -164,6 +177,13 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 		return {"planta": (clampi(d.tier, 1, 3) - 1) * 3 + d.forma_recolectable(), "color": d.color}
 	if SUELTOS.has(id):
 		return {"forma": SUELTOS[id], "color": d.color}
+	# EL PESCADO, con su sprite del minijuego de pesca (lo pidio el jefe: reutilizarlo).
+	if d.tipo == MaterialData.Tipo.PESCADO:
+		return {"pez": d, "color": d.color}
+	if d.tipo == MaterialData.Tipo.CARNE:
+		return {"forma": id, "color": d.color}
+	if d.tipo == MaterialData.Tipo.DESPENSA and DESPENSA.has(id):
+		return {"forma": id, "color": d.color}
 	match d.tipo:
 		MaterialData.Tipo.BABA:
 			# Las babas de SLIME, como gelatina (la referencia del jefe); la de fuego, de lava. El icor y
@@ -216,6 +236,15 @@ const FAROL_COLOR := [Color(0.70, 0.44, 0.22), Color(0.78, 0.56, 0.26), Color(0.
 # esporas como una nube de bolitas y los liquidos en un frasquito, cada uno de su color.
 const SUELTOS := {"polvo_de_alas": "saquito", "esporas_densas": "esporas", "icor": "frasquito",
 	"veneno_insecto": "frasquito", "humor_ciego": "frasquito"}
+
+# EL SIMBOLO DE LA RUNA de cada piedra de retorno, por el ULTIMO piso que cubre = el jefe que cierra
+# ese tramo. Un tramo nuevo (13-18...) se añade aqui con el simbolo de SU jefe, y su dibujo en _piedra.
+const RUNA_DE_TRAMO := {6: "corona", 12: "cuernos"}
+
+# LA DESPENSA que tiene dibujo propio (el resto de la tanda de comida va aparte, uno a uno).
+const DESPENSA := ["tomate", "pimiento", "zanahoria", "patata", "cebolla", "ajo", "lechuga",
+	"puerro_gruta", "tuberculo_palido", "seta_simas", "hongo_azufre", "pan", "queso", "aceite",
+	"piedra_sal"]
 
 const PLANTAS_DEL_SUELO := ["hierba_palida", "raiz_amarga", "sanguinaria", "moho_simas",
 	"raiz_umbria", "liquen_abisal", "musgo_ciego", "zarza_retorcida", "flor_de_sima"]
@@ -285,11 +314,21 @@ static func _facetas(forma: String) -> Array:
 		return _piel(forma.trim_prefix("piel_"))
 	if forma.begins_with("nucleo_"):
 		return _nucleo(forma.trim_prefix("nucleo_"))
+	if DESPENSA.has(forma):
+		return _despensa(forma)
 	if forma.begins_with("pocion_"):
 		var pp: PackedStringArray = forma.split("_")
 		return _pocion(int(pp[1]), int(pp[2]))
 	match forma:
 		"tronco": return _tronco()
+		"piedra_corona": return _piedra("corona")
+		"piedra_cuernos": return _piedra("cuernos")
+		"cebo_gusano": return _gusano()
+		"cebo_sanguijuela": return _sanguijuela()
+		"carne_rata": return _muslo()
+		"carne_jabali": return _jamon()
+		"carne_bestia": return _chuleton()
+		"carne_insecto": return _pata_insecto()
 		"pico": return _pico()
 		"hacha": return _hacha()
 		"hoz": return _hoz()
@@ -1043,6 +1082,284 @@ static func _transformar(pasos: Array, esc: float, ang: float, c: Vector2) -> Ar
 	return out
 
 
+# LA PIEDRA DE RETORNO: un monolito de piedra agrietada sobre su losa, con la RUNA encendida en azul
+# (la referencia del jefe). El simbolo de la runa es el del jefe del tramo (ver RUNA_DE_TRAMO).
+static func _piedra(simbolo: String) -> Array:
+	var out: Array = [
+		# la losa y las piedras del pie
+		_pol("d", [0.10, 0.84, 0.18, 0.78, 0.82, 0.78, 0.90, 0.84, 0.84, 0.92, 0.16, 0.92]),
+		_lin("s", [0.16, 0.80, 0.84, 0.80]),
+		_elipse("s", 0.24, 0.78, 0.07, 0.04, 10), _elipse("s", 0.76, 0.79, 0.08, 0.04, 10),
+		# el monolito, en caras
+		_pol("s", [0.26, 0.78, 0.22, 0.44, 0.30, 0.16, 0.50, 0.08, 0.70, 0.14, 0.78, 0.40, 0.74, 0.78]),
+		_pol("l", [0.26, 0.78, 0.22, 0.44, 0.30, 0.16, 0.50, 0.08, 0.46, 0.40, 0.40, 0.78]),
+		_pol("h", [0.30, 0.16, 0.50, 0.08, 0.70, 0.14, 0.48, 0.20]),
+		_lin("o", [0.46, 0.20, 0.44, 0.40, 0.48, 0.60]),
+		_lin("o", [0.66, 0.22, 0.62, 0.36]),
+		_lin("o", [0.30, 0.56, 0.36, 0.66]),
+	]
+	# LA RUNA: primero el halo, luego el trazo encendido
+	var trazos: Array = []
+	match simbolo:
+		"corona":
+			trazos = [[0.36, 0.54, 0.36, 0.34, 0.44, 0.44, 0.52, 0.28, 0.60, 0.44, 0.66, 0.34, 0.66, 0.54],
+				[0.36, 0.56, 0.66, 0.56], [0.38, 0.62, 0.64, 0.62]]
+		"cuernos":
+			trazos = [[0.44, 0.44, 0.34, 0.38, 0.30, 0.26, 0.34, 0.22],
+				[0.60, 0.44, 0.70, 0.38, 0.74, 0.26, 0.70, 0.22],
+				[0.44, 0.44, 0.46, 0.60, 0.52, 0.66, 0.58, 0.60, 0.60, 0.44, 0.44, 0.44],
+				[0.50, 0.52, 0.54, 0.52]]
+	for tz in trazos:
+		out.append(_tira("C", tz, 0.07, 0.07))
+	for tz in trazos:
+		out.append(_lin("Q", tz))
+	out.append({"l": P([0.16, 0.30, 0.16, 0.30]), "t": "Q", "libre": true})
+	out.append({"l": P([0.86, 0.54, 0.86, 0.54]), "t": "C", "libre": true})
+	return out
+
+
+# EL CEBO DE GUSANO: una lombriz rosa enroscada, a anillos.
+static func _gusano() -> Array:
+	var cuerpo: Array = [0.16, 0.66, 0.26, 0.48, 0.44, 0.44, 0.56, 0.58, 0.70, 0.66, 0.82, 0.54, 0.84, 0.38]
+	var out: Array = [_tira("b", cuerpo, 0.12, 0.09), _tira("l", [0.18, 0.62, 0.27, 0.46, 0.44, 0.41,
+		0.56, 0.55, 0.70, 0.62, 0.80, 0.52], 0.03, 0.02)]
+	for a in [[0.24, 0.52, 0.30, 0.54], [0.38, 0.44, 0.40, 0.50], [0.52, 0.52, 0.56, 0.56],
+			[0.66, 0.62, 0.68, 0.68], [0.78, 0.56, 0.84, 0.58]]:
+		out.append(_lin("s", a))
+	out.append(_elipse("s", 0.84, 0.36, 0.035, 0.035, 8))
+	return out
+
+
+# EL CEBO DE SANGUIJUELA: una sanguijuela gorda y oscura, brillante, con su ventosa.
+static func _sanguijuela() -> Array:
+	return [
+		_tira("b", [0.14, 0.70, 0.30, 0.50, 0.52, 0.44, 0.72, 0.50, 0.86, 0.36], 0.16, 0.10),
+		_tira("l", [0.18, 0.64, 0.31, 0.46, 0.52, 0.40, 0.70, 0.44], 0.04, 0.03),
+		_lin("d", [0.26, 0.60, 0.32, 0.62]), _lin("d", [0.42, 0.50, 0.44, 0.56]),
+		_lin("d", [0.58, 0.48, 0.60, 0.54]), _lin("d", [0.72, 0.46, 0.76, 0.50]),
+		_elipse("d", 0.14, 0.72, 0.07, 0.06, 10),
+		_elipse("R", 0.14, 0.72, 0.03, 0.03, 6),
+		_lin("W", [0.44, 0.42, 0.50, 0.40]),
+	]
+
+
+# ============================================================
+#  LA CARNE (las referencias del jefe)
+# ============================================================
+# LA DE RATA: un muslito, la carne gorda arriba y el hueso con su nudo abajo.
+static func _muslo() -> Array:
+	return [
+		_tira("I", [0.46, 0.54, 0.22, 0.80], 0.09, 0.08),
+		_elipse("I", 0.17, 0.80, 0.05, 0.05, 8), _elipse("I", 0.22, 0.86, 0.05, 0.05, 8),
+		_lin("i", [0.40, 0.62, 0.24, 0.80]),
+		_elipse("b", 0.60, 0.40, 0.26, 0.24, 22),
+		_sobre(_elipse("s", 0.64, 0.46, 0.22, 0.20, 18)),
+		_sobre(_elipse("b", 0.58, 0.38, 0.19, 0.17, 18)),
+		_sobre(_elipse("l", 0.54, 0.32, 0.10, 0.07, 12)),
+		_lin("h", [0.50, 0.28, 0.58, 0.26]),
+	]
+
+
+# LA DE JABALI: un jamon con su piel, el corte rojo con la veta de grasa y el hueso asomando.
+static func _jamon() -> Array:
+	return [
+		_tira("I", [0.30, 0.66, 0.12, 0.86], 0.08, 0.07),
+		_elipse("I", 0.10, 0.88, 0.05, 0.05, 8),
+		_pol("s", [0.24, 0.62, 0.34, 0.36, 0.52, 0.18, 0.72, 0.14, 0.88, 0.26, 0.90, 0.46, 0.76, 0.64,
+			0.52, 0.74, 0.34, 0.74]),
+		_sobre(_pol("d", [0.30, 0.70, 0.52, 0.72, 0.76, 0.62, 0.90, 0.46, 0.90, 0.60, 0.74, 0.76, 0.40, 0.80])),
+		_elipse("P", 0.70, 0.32, 0.18, 0.15, 18),
+		_sobre(_elipse("b", 0.70, 0.32, 0.14, 0.11, 16)),
+		_sobre(_elipse("l", 0.66, 0.29, 0.06, 0.04, 10)),
+		_elipse("I", 0.72, 0.34, 0.03, 0.03, 6),
+		_lin("l", [0.38, 0.40, 0.50, 0.26]),
+	]
+
+
+# LA DE BESTIA: un chuleton gordo en perspectiva, veteado de grasa, con el hueso en T y el canto.
+static func _chuleton() -> Array:
+	return [
+		_pol("d", [0.12, 0.54, 0.20, 0.34, 0.40, 0.20, 0.66, 0.18, 0.86, 0.30, 0.90, 0.52, 0.74, 0.72,
+			0.44, 0.78, 0.20, 0.72]),
+		_pol("b", [0.12, 0.48, 0.20, 0.28, 0.40, 0.14, 0.66, 0.12, 0.86, 0.24, 0.90, 0.44, 0.74, 0.62,
+			0.44, 0.68, 0.20, 0.64]),
+		_lin("P", [0.14, 0.48, 0.22, 0.30, 0.40, 0.16]),
+		_lin("P", [0.22, 0.64, 0.44, 0.68, 0.72, 0.62]),
+		_lin("l", [0.30, 0.34, 0.44, 0.40, 0.52, 0.34]),
+		_lin("l", [0.58, 0.46, 0.70, 0.40, 0.78, 0.44]),
+		_lin("l", [0.34, 0.52, 0.42, 0.56]),
+		_lin("I", [0.50, 0.16, 0.54, 0.40, 0.46, 0.62]),
+		_lin("I", [0.36, 0.40, 0.54, 0.40, 0.70, 0.36]),
+		_lin("h", [0.62, 0.20, 0.72, 0.22]),
+	]
+
+
+# LA DE INSECTO (sin referencia: la carne de insecto no la tiene nadie): una pata de caparazon, a
+# segmentos, abierta por la punta con la carne clara asomando -- como una pata de cangrejo.
+static func _pata_insecto() -> Array:
+	return [
+		_tira("s", [0.14, 0.86, 0.34, 0.62], 0.16, 0.14),
+		_tira("s", [0.36, 0.60, 0.58, 0.40], 0.15, 0.13),
+		_tira("s", [0.60, 0.38, 0.78, 0.22], 0.14, 0.12),
+		_elipse("d", 0.35, 0.61, 0.06, 0.06, 10),
+		_elipse("d", 0.59, 0.39, 0.055, 0.055, 10),
+		_lin("l", [0.14, 0.80, 0.30, 0.60]),
+		_lin("l", [0.38, 0.54, 0.54, 0.38]),
+		_lin("l", [0.62, 0.32, 0.74, 0.20]),
+		_elipse("b", 0.80, 0.20, 0.09, 0.08, 12),
+		_elipse("W", 0.79, 0.18, 0.03, 0.03, 6),
+	]
+
+
+# ============================================================
+#  LA DESPENSA (la referencia de verduras del jefe, y el resto de la alacena)
+# ============================================================
+static func _despensa(id: String) -> Array:
+	match id:
+		"tomate":
+			return [
+				_elipse("b", 0.50, 0.56, 0.32, 0.28, 24),
+				_sobre(_elipse("s", 0.55, 0.62, 0.28, 0.24, 22)),
+				_sobre(_elipse("b", 0.47, 0.52, 0.24, 0.20, 20)),
+				_sobre(_elipse("h", 0.36, 0.46, 0.05, 0.04, 8)),
+				_pol("F", [0.34, 0.30, 0.44, 0.32, 0.50, 0.22, 0.56, 0.32, 0.66, 0.30, 0.58, 0.38, 0.50, 0.36, 0.42, 0.38]),
+				_tira("f", [0.50, 0.30, 0.52, 0.18], 0.04, 0.03),
+			]
+		"pimiento":
+			return [
+				_pol("b", [0.26, 0.34, 0.40, 0.28, 0.50, 0.32, 0.60, 0.28, 0.74, 0.34, 0.76, 0.60, 0.70, 0.84,
+					0.58, 0.90, 0.50, 0.84, 0.42, 0.90, 0.30, 0.84, 0.24, 0.60]),
+				_sobre(_pol("s", [0.58, 0.30, 0.76, 0.34, 0.78, 0.60, 0.70, 0.86, 0.56, 0.90])),
+				_lin("d", [0.50, 0.36, 0.50, 0.80]),
+				_sobre(_pol("h", [0.32, 0.40, 0.36, 0.38, 0.38, 0.62, 0.34, 0.64])),
+				_tira("f", [0.50, 0.30, 0.54, 0.14, 0.62, 0.10], 0.06, 0.04),
+				_pol("F", [0.40, 0.30, 0.60, 0.30, 0.56, 0.34, 0.44, 0.34]),
+			]
+		"zanahoria":
+			return [
+				_pol("F", [0.66, 0.30, 0.70, 0.08, 0.76, 0.26]),
+				_pol("F", [0.70, 0.32, 0.88, 0.12, 0.84, 0.30]),
+				_pol("f", [0.72, 0.34, 0.92, 0.30, 0.82, 0.38]),
+				_tira("b", [0.72, 0.34, 0.16, 0.88], 0.20, 0.03),
+				_tira("l", [0.66, 0.34, 0.20, 0.82], 0.05, 0.01),
+				_lin("s", [0.54, 0.44, 0.60, 0.50]),
+				_lin("s", [0.42, 0.56, 0.48, 0.62]),
+				_lin("s", [0.30, 0.68, 0.35, 0.72]),
+			]
+		"patata":
+			return [
+				_pol("b", [0.16, 0.50, 0.24, 0.32, 0.44, 0.24, 0.66, 0.26, 0.84, 0.38, 0.86, 0.58, 0.72, 0.74,
+					0.48, 0.78, 0.26, 0.72]),
+				_sobre(_pol("s", [0.20, 0.64, 0.50, 0.70, 0.80, 0.60, 0.86, 0.60, 0.72, 0.76, 0.48, 0.80, 0.24, 0.74])),
+				_sobre(_elipse("l", 0.40, 0.36, 0.14, 0.06, 12)),
+				_elipse("d", 0.36, 0.50, 0.02, 0.02, 4), _elipse("d", 0.60, 0.44, 0.02, 0.02, 4),
+				_elipse("d", 0.66, 0.62, 0.02, 0.02, 4), _elipse("d", 0.44, 0.64, 0.015, 0.015, 4),
+			]
+		"cebolla", "ajo":
+			var ajo: bool = id == "ajo"
+			var out: Array = [
+				_tira("f" if not ajo else "s", [0.50, 0.30, 0.48, 0.10], 0.06, 0.02),
+				_pol("b", [0.50, 0.26, 0.70, 0.40, 0.78, 0.60, 0.70, 0.80, 0.50, 0.86, 0.30, 0.80, 0.22, 0.60, 0.30, 0.40]),
+				_sobre(_pol("s", [0.56, 0.30, 0.74, 0.44, 0.78, 0.62, 0.70, 0.82, 0.56, 0.86])),
+				_sobre(_pol("l", [0.34, 0.44, 0.40, 0.38, 0.42, 0.66, 0.36, 0.70])),
+				_lin("s", [0.50, 0.30, 0.46, 0.60, 0.50, 0.84]),
+				_lin("s", [0.40, 0.40, 0.34, 0.62, 0.40, 0.80]),
+				_lin("s", [0.62, 0.40, 0.66, 0.62, 0.60, 0.80]),
+				_lin("x", [0.44, 0.88, 0.50, 0.92, 0.56, 0.88]),
+			]
+			return out
+		"lechuga":
+			return [
+				_elipse("s", 0.50, 0.56, 0.34, 0.30, 24),
+				_sobre(_elipse("b", 0.47, 0.52, 0.30, 0.26, 22)),
+				_elipse("s", 0.28, 0.46, 0.12, 0.12, 12), _elipse("s", 0.72, 0.46, 0.12, 0.12, 12),
+				_elipse("b", 0.50, 0.40, 0.18, 0.14, 16),
+				_sobre(_elipse("l", 0.46, 0.36, 0.10, 0.07, 12)),
+				_lin("l", [0.50, 0.46, 0.50, 0.78]),
+				_lin("l", [0.50, 0.60, 0.34, 0.50]),
+				_lin("l", [0.50, 0.62, 0.66, 0.52]),
+			]
+		"puerro_gruta":
+			return [
+				_tira("w", [0.20, 0.86, 0.50, 0.50], 0.16, 0.15),
+				_tira("x", [0.24, 0.88, 0.52, 0.54], 0.05, 0.05),
+				_lin("x", [0.16, 0.90, 0.22, 0.94]),
+				_pol("b", [0.44, 0.52, 0.56, 0.44, 0.84, 0.08, 0.86, 0.18, 0.62, 0.50]),
+				_pol("s", [0.48, 0.50, 0.58, 0.42, 0.70, 0.10, 0.74, 0.16, 0.60, 0.48]),
+				_pol("l", [0.52, 0.48, 0.60, 0.44, 0.92, 0.30, 0.90, 0.38, 0.62, 0.52]),
+			]
+		"tuberculo_palido":
+			return [
+				_pol("F", [0.40, 0.28, 0.34, 0.08, 0.46, 0.24]),
+				_pol("F", [0.50, 0.26, 0.50, 0.04, 0.56, 0.22]),
+				_pol("f", [0.58, 0.28, 0.68, 0.10, 0.62, 0.30]),
+				_elipse("b", 0.50, 0.52, 0.28, 0.26, 22),
+				_sobre(_pol("P", [0.0, 0.0, 1.0, 0.0, 1.0, 0.40, 0.0, 0.40])),
+				_sobre(_elipse("s", 0.56, 0.58, 0.22, 0.20, 18)),
+				_sobre(_elipse("b", 0.48, 0.52, 0.18, 0.16, 16)),
+				_tira("s", [0.50, 0.76, 0.52, 0.94], 0.05, 0.01),
+			]
+		"seta_simas":
+			return [
+				_pol("w", [0.42, 0.50, 0.58, 0.50, 0.62, 0.86, 0.38, 0.86]),
+				_pol("x", [0.52, 0.50, 0.58, 0.50, 0.62, 0.86, 0.52, 0.86]),
+				_pol("b", [0.14, 0.54, 0.18, 0.36, 0.32, 0.20, 0.50, 0.14, 0.68, 0.20, 0.82, 0.36, 0.86, 0.54]),
+				_sobre(_pol("s", [0.60, 0.18, 0.82, 0.36, 0.86, 0.54, 0.62, 0.54])),
+				_sobre(_elipse("l", 0.38, 0.30, 0.10, 0.06, 12)),
+				_lin("d", [0.16, 0.54, 0.84, 0.54]),
+			]
+		"hongo_azufre":
+			var h_out: Array = []
+			for rep in [[0.50, 0.30, 0.24], [0.44, 0.52, 0.30], [0.54, 0.74, 0.26]]:
+				h_out.append(_elipse("s", rep[0], rep[1] + 0.03, rep[2], rep[2] * 0.40, 18))
+				h_out.append(_elipse("b", rep[0] - 0.02, rep[1], rep[2] * 0.92, rep[2] * 0.34, 18))
+				h_out.append(_lin("h", [rep[0] - rep[2] * 0.6, rep[1] - 0.02, rep[0] + rep[2] * 0.2, rep[1] - 0.05]))
+				h_out.append(_lin("d", [rep[0] - rep[2] * 0.8, rep[1] + 0.05, rep[0] + rep[2] * 0.8, rep[1] + 0.05]))
+			return h_out
+		"pan":
+			return [
+				_elipse("s", 0.50, 0.58, 0.38, 0.24, 24),
+				_sobre(_elipse("b", 0.48, 0.54, 0.34, 0.20, 22)),
+				_sobre(_elipse("l", 0.44, 0.48, 0.24, 0.10, 18)),
+				_lin("h", [0.30, 0.48, 0.38, 0.40]),
+				_lin("h", [0.44, 0.50, 0.52, 0.40]),
+				_lin("h", [0.58, 0.52, 0.66, 0.42]),
+				_lin("d", [0.18, 0.66, 0.50, 0.78, 0.82, 0.66]),
+			]
+		"queso":
+			return [
+				_pol("s", [0.14, 0.60, 0.86, 0.46, 0.86, 0.74, 0.14, 0.86]),
+				_pol("b", [0.14, 0.60, 0.62, 0.22, 0.86, 0.46]),
+				_sobre(_pol("l", [0.20, 0.58, 0.60, 0.26, 0.64, 0.30, 0.26, 0.60])),
+				_sobre(_elipse("d", 0.40, 0.68, 0.04, 0.035, 8)),
+				_sobre(_elipse("d", 0.64, 0.64, 0.05, 0.04, 8)),
+				_sobre(_elipse("d", 0.26, 0.78, 0.03, 0.03, 6)),
+				_sobre(_elipse("s", 0.56, 0.40, 0.04, 0.03, 8)),
+				_sobre(_elipse("s", 0.72, 0.46, 0.03, 0.025, 6)),
+			]
+		"aceite":
+			return [
+				_pol("u", [0.43, 0.08, 0.57, 0.08, 0.58, 0.18, 0.42, 0.18]),
+				_pol("T", [0.44, 0.18, 0.56, 0.18, 0.56, 0.30, 0.44, 0.30]),
+				_pol("T", [0.36, 0.30, 0.64, 0.30, 0.74, 0.46, 0.72, 0.84, 0.28, 0.84, 0.26, 0.46]),
+				_sobre(_pol("b", [0.0, 0.46, 1.0, 0.46, 1.0, 1.0, 0.0, 1.0])),
+				_sobre(_pol("s", [0.0, 0.70, 1.0, 0.70, 1.0, 1.0, 0.0, 1.0])),
+				_sobre(_pol("l", [0.0, 0.46, 1.0, 0.46, 1.0, 0.49, 0.0, 0.49])),
+				_lin("W", [0.34, 0.40, 0.33, 0.62]),
+				_tira("k", [0.30, 0.56, 0.70, 0.56], 0.04, 0.04),
+			]
+		"piedra_sal":
+			return [
+				_pol("s", [0.14, 0.66, 0.30, 0.40, 0.56, 0.30, 0.80, 0.40, 0.88, 0.66, 0.66, 0.84, 0.34, 0.84]),
+				_pol("h", [0.30, 0.40, 0.56, 0.30, 0.80, 0.40, 0.56, 0.52]),
+				_pol("b", [0.14, 0.66, 0.30, 0.40, 0.56, 0.52, 0.52, 0.80, 0.34, 0.84]),
+				_pol("l", [0.56, 0.52, 0.80, 0.40, 0.88, 0.66, 0.66, 0.84, 0.52, 0.80]),
+				_lin("W", [0.36, 0.42, 0.50, 0.36]),
+				_elipse("W", 0.24, 0.28, 0.015, 0.015, 4),
+			]
+	return []
+
+
 # LA BABA: una cupula de gelatina con el pie plano, el brillo arriba a la izquierda y el borde de abajo
 # en sombra, con los dos bultitos del pie a los lados (la referencia del jefe). La de FUEGO es la misma
 # cupula hecha de LAVA: placas oscuras con las juntas encendidas.
@@ -1150,7 +1467,29 @@ static func _imagen_planta(idx: int, col: Color, grietas: int) -> Image:
 	if x1 < 0:
 		return img
 	var rec: Image = img.get_region(Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1))
-	# LAS GRIETAS, sobre la planta y solo donde hay planta (las mismas lineas que en todo lo demas).
+	_grietas_imagen(rec, grietas)
+	_cache_imagen[clave] = rec
+	return rec
+
+
+# EL PEZ: un fotograma quieto de su sprite de pesca, de talla media, recortado a lo que ocupa.
+static func _imagen_pez(d: MaterialData, col: Color, grietas: int) -> Image:
+	var clave: String = "pez|%s|%s|%d" % [d.id, col.to_html(), grietas]
+	if _cache_imagen.has(clave):
+		return _cache_imagen[clave]
+	var talla: int = PezSprites.talla_de(26.0)
+	var t: Vector2i = PezSprites.lienzo(talla)
+	var img: Image = SpriteLienzo.a_textura(PezSprites._plantilla(d, talla, 0), PezSprites.paleta(col),
+		t.x, t.y).get_image()
+	var uso: Rect2i = img.get_used_rect()
+	var rec: Image = img.get_region(uso) if uso.size.x > 0 else img
+	_grietas_imagen(rec, grietas)
+	_cache_imagen[clave] = rec
+	return rec
+
+
+# LAS GRIETAS sobre una imagen, solo donde hay algo pintado (las mismas lineas que en todo lo demas).
+static func _grietas_imagen(rec: Image, grietas: int) -> void:
 	for g in mini(grietas, GRIETAS.size()):
 		var pts: PackedVector2Array = P(GRIETAS[g])
 		for i in pts.size() - 1:
@@ -1164,8 +1503,6 @@ static func _imagen_planta(idx: int, col: Color, grietas: int) -> Image:
 				var o: Color = rec.get_pixel(xi, yi)
 				if o.a > 0.0:
 					rec.set_pixel(xi, yi, o.darkened(0.6))
-	_cache_imagen[clave] = rec
-	return rec
 
 
 # Pinta una imagen de colores por rachas, centrada y encajada en 'lado' sin deformarla.
