@@ -73,8 +73,12 @@ const ALTO_MUNECO := 430.0
 const ESCALA_MUNECO := 6.0
 # El aire que se le deja al muñeco por arriba y por abajo dentro de su caja.
 const MARGEN_MUNECO := 20.0
-# Ancho de la vitrina de Cambiar (la pieza en grande del centro).
+# Ancho MINIMO de la vitrina de Cambiar (la pieza en grande del centro). Es minimo y no fijo: la
+# vitrina se queda con todo el hueco entre la rejilla y la ficha, que es donde tiene que lucirse.
 const ANCHO_VITRINA := 260.0
+# En Cambiar la rejilla va a CUATRO columnas fijas, y no a las que quepan: con la vitrina en medio
+# lo que se mira es la pieza grande, y la rejilla es solo el catalogo de donde se elige.
+const COLUMNAS_CAMBIO := 4
 # Lo que baja la ficha de Cambiar para no meterse bajo la ✕: lo que mide la cabecera de la izquierda
 # ("Cambiar armadura" + el nombre), asi el titulo queda a la altura de las pestañas.
 const ALTO_CAB_CAMBIO := 46.0
@@ -104,6 +108,7 @@ var _pies_y: float = 0.0
 # LA PANTALLA DE CAMBIAR va limpia: sin la columna de secciones ni la fila de retratos, que ahi solo
 # estorban (estas eligiendo UNA pieza para UNA persona). Se esconden y vuelven al salir.
 var _lateral: Control = null
+var _col_centro: Control = null   # la columna de la rejilla: en Cambiar se estrecha a COLUMNAS_CAMBIO
 var _cab_cambio: VBoxContainer = null
 var _cab_cambio_que: Label = null
 var _cab_cambio_quien: Label = null
@@ -160,6 +165,7 @@ func _ready() -> void:
 	var split: BoxContainer = scroll.get_parent()
 	split.remove_child(scroll)
 	var col_centro := VBoxContainer.new()
+	_col_centro = col_centro
 	col_centro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col_centro.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col_centro.add_theme_constant_override("separation", 4)
@@ -448,6 +454,8 @@ func _on_centro_redimensionado() -> void:
 # depende de la ventana (y en movil, de la orientacion). El 6.0 es la separacion de rejilla_objetos:
 # se cuenta una celda de mas y se resta, que es la cuenta de "n celdas y n-1 huecos" del derecho.
 func _columnas() -> int:
+	if _cambiando and (_sec == SEC_ARMAS or _sec == SEC_ARMADURA):
+		return COLUMNAS_CAMBIO
 	var ancho: float = _lista.size.x
 	if ancho <= 1.0:
 		ancho = ANCHO_REJILLA_MIN   # primera pasada: aun no lo ha colocado el contenedor
@@ -496,6 +504,10 @@ func _rebuild_real() -> void:
 	_scroll_retratos.visible = not cambiando and _modal == null
 	_cab_cambio.visible = cambiando
 	_vitrina.visible = cambiando
+	# La rejilla se estrecha a sus cuatro columnas y la vitrina se lleva el resto; fuera de Cambiar,
+	# la rejilla vuelve a quedarse con todo el ancho.
+	_col_centro.size_flags_horizontal = Control.SIZE_FILL if cambiando else Control.SIZE_EXPAND_FILL
+	_vitrina.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_vitrina_item = null
 	_vitrina.queue_redraw()
 
@@ -1135,17 +1147,19 @@ func _pintar_vitrina() -> void:
 	if item == null or w <= 1.0 or h <= 1.0:
 		return
 	var col: Color = IconoItem.color_escala(item)
-	var lado: float = minf(w * 0.78, h * 0.5)
-	# El centro, a la altura de la rejilla y no en medio del alto entero: con la ventana alta, la
-	# pieza se iba al fondo y quedaba lejos de las celdas que la eligen.
-	var centro := Vector2(w * 0.5, minf(h * 0.42, lado * 0.75 + 40.0))
+	# EL ARO, TAN GRANDE COMO QUEPA: casi todo el ancho del hueco, con el tope del alto para que
+	# quede sitio al +N de debajo. Es la pieza protagonista de esta pantalla.
+	var radio: float = minf(w * 0.47, (h - 70.0) * 0.5)
+	# El centro, pegado arriba y no en medio del alto entero: con la ventana alta, la pieza se iba al
+	# fondo y quedaba lejos de las celdas que la eligen.
+	var centro := Vector2(w * 0.5, radio + 16.0)
 	# El HALO: circulos concentricos cada vez mas tenues, como la sombra del muñeco de la ficha.
 	for i in 5:
 		var t: float = float(i) / 5.0
-		_vitrina.draw_circle(centro, lado * (0.62 - t * 0.10), Color(col, 0.05 + t * 0.05))
+		_vitrina.draw_circle(centro, radio * (1.0 - t * 0.16), Color(col, 0.05 + t * 0.05))
 	# El aro, del color del peldaño: la misma "esto es lo bueno que es" que el fondo de la celda.
-	_vitrina.draw_arc(centro, lado * 0.62, 0.0, TAU, 64, Color(col.lightened(0.2), 0.75), 2.0, true)
-	IconoItem.pintar(_vitrina, centro, lado * 0.62, item, true)
+	_vitrina.draw_arc(centro, radio, 0.0, TAU, 96, Color(col.lightened(0.2), 0.75), 2.5, true)
+	IconoItem.pintar(_vitrina, centro, radio * 1.05, item, true)
 	# EL +N, en una pastilla bajo el aro. Solo si lo hay: "+0" no dice nada.
 	var n: int = Game.mejoras_actuales(item)
 	if n <= 0:
@@ -1154,7 +1168,7 @@ func _pintar_vitrina() -> void:
 	var txt: String = "+%d" % n
 	var tam: int = 18
 	var an: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
-	var caja := Rect2(Vector2(centro.x - an * 0.5 - 14.0, centro.y + lado * 0.62 + 12.0),
+	var caja := Rect2(Vector2(centro.x - an * 0.5 - 14.0, centro.y + radio + 12.0),
 		Vector2(an + 28.0, float(tam) + 10.0))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.04, 0.06, 0.9)
