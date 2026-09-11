@@ -52,6 +52,8 @@ const FIJOS := {
 	"T": Color(0.80, 0.87, 0.92), "t": Color(0.56, 0.64, 0.72),
 	# el CRISTAL AZUL del farolillo de tier 3
 	"Q": Color(0.82, 0.96, 1.0), "C": Color(0.44, 0.78, 1.0), "q": Color(0.20, 0.42, 0.82),
+	# el BARRO de ollas y cazuelas: luz, medio y sombra
+	"B": Color(0.80, 0.54, 0.34), "M": Color(0.64, 0.38, 0.24), "Z": Color(0.42, 0.24, 0.15),
 }
 # 'A' y 'N' son la CARNE CLARA de la madera cortada y sus ANILLOS. No son fijos: salen del color de
 # cada madera (ver _paleta), porque el corte de un tronco negro no es del mismo tono que el de un pino.
@@ -93,7 +95,8 @@ static func _encargo(item: Resource) -> Dictionary:
 		var e: Dictionary = _encargo_material(mi.data)
 		if e.is_empty():
 			return e
-		e["color"] = mi.color()
+		if not bool(e.get("color_fijo", false)):
+			e["color"] = mi.color()
 		e["grietas"] = _grietas_de(int(mi.calidad), MaterialItem.Calidad)
 		e["puro"] = mi.calidad == MaterialItem.Calidad.PURO
 		return e
@@ -114,6 +117,13 @@ static func _encargo(item: Resource) -> Dictionary:
 		var hasta: int = int((item as ConsumableData).piso_max_vuelta)
 		return {"forma": "piedra_" + RUNA_DE_TRAMO.get(hasta, "corona"),
 			"color": Color(0.56, 0.58, 0.63)}
+	if item is ConsumableData and (item as ConsumableData).es_plato():
+		# LOS PLATOS COCINADOS: cada uno con su dibujo (las referencias del jefe), por el nombre de su
+		# fichero. El color es el de lo que lleva dentro, no el naranja comun de todos los guisos.
+		var pid: String = String((item as ConsumableData).resource_path).get_file().get_basename()
+		if PLATO_COLOR.has(pid):
+			return {"forma": pid, "color": PLATO_COLOR[pid]}
+		return {}
 	if item is ConsumableData and (item as ConsumableData).es_cebo():
 		# LOS CEBOS, literalmente lo que son: un gusano y una sanguijuela.
 		var sang: bool = String((item as ConsumableData).resource_path).contains("sanguijuela")
@@ -181,6 +191,10 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 	if d.tipo == MaterialData.Tipo.PESCADO:
 		return {"pez": d, "color": d.color}
 	if d.tipo == MaterialData.Tipo.CARNE:
+		# La de insecto tira a VERDE en el dibujo (lo pidio el jefe); su .tres no se toca, que ese
+		# color lo usan tambien los destellos del suelo y los menus.
+		if id == "carne_insecto":
+			return {"forma": id, "color": Color(0.56, 0.70, 0.34), "color_fijo": true}
 		return {"forma": id, "color": d.color}
 	if d.tipo == MaterialData.Tipo.DESPENSA and DESPENSA.has(id):
 		return {"forma": id, "color": d.color}
@@ -240,6 +254,18 @@ const SUELTOS := {"polvo_de_alas": "saquito", "esporas_densas": "esporas", "icor
 # EL SIMBOLO DE LA RUNA de cada piedra de retorno, por el ULTIMO piso que cubre = el jefe que cierra
 # ese tramo. Un tramo nuevo (13-18...) se añade aqui con el simbolo de SU jefe, y su dibujo en _piedra.
 const RUNA_DE_TRAMO := {6: "corona", 12: "cuernos"}
+
+# EL COLOR DE LO QUE LLEVA DENTRO cada plato (la carne del kebab, el caldo de la sopa...).
+const PLATO_COLOR := {
+	"plato_kebab_rata": Color(0.74, 0.36, 0.32), "plato_kebab_bestia": Color(0.46, 0.22, 0.18),
+	"plato_parrillada_jabali": Color(0.56, 0.30, 0.22), "plato_parrillada_insecto": Color(0.52, 0.68, 0.30),
+	"plato_anguila_ajillo": Color(0.36, 0.32, 0.26), "plato_bagre_guisado": Color(0.64, 0.46, 0.28),
+	"plato_lubina_horno": Color(0.96, 0.56, 0.34), "plato_gobio_sal": Color(0.62, 0.62, 0.54),
+	"plato_espejo_sal": Color(0.62, 0.68, 0.74), "plato_caldo_puerro": Color(0.72, 0.80, 0.44),
+	"plato_sopa_setas": Color(0.56, 0.40, 0.26), "plato_crema_hongo": Color(0.92, 0.80, 0.46),
+	"plato_revuelto_setas": Color(0.98, 0.84, 0.36), "plato_pure_tuberculo": Color(0.92, 0.88, 0.72),
+	"plato_encurtidos_hongo": Color(0.74, 0.62, 0.30), "plato_encurtidos_sal": Color(0.80, 0.82, 0.62),
+}
 
 # LA DESPENSA que tiene dibujo propio (el resto de la tanda de comida va aparte, uno a uno).
 const DESPENSA := ["tomate", "pimiento", "zanahoria", "patata", "cebolla", "ajo", "lechuga",
@@ -316,6 +342,8 @@ static func _facetas(forma: String) -> Array:
 		return _nucleo(forma.trim_prefix("nucleo_"))
 	if DESPENSA.has(forma):
 		return _despensa(forma)
+	if forma.begins_with("plato_"):
+		return _plato(forma.trim_prefix("plato_"))
 	if forma.begins_with("pocion_"):
 		var pp: PackedStringArray = forma.split("_")
 		return _pocion(int(pp[1]), int(pp[2]))
@@ -1141,6 +1169,183 @@ static func _sanguijuela() -> Array:
 		_elipse("R", 0.14, 0.72, 0.03, 0.03, 6),
 		_lin("W", [0.44, 0.42, 0.50, 0.40]),
 	]
+
+
+# ============================================================
+#  LOS PLATOS COCINADOS (las referencias del jefe)
+# ============================================================
+static func _plato(p: String) -> Array:
+	match p:
+		"kebab_rata", "kebab_bestia":
+			return _kebab()
+		"parrillada_jabali", "parrillada_insecto":
+			return _tabla_parrilla(p == "parrillada_insecto")
+		"lubina_horno":
+			return _rodaja_brasa()
+		"anguila_ajillo":
+			return _cazuela_anguila()
+		"gobio_sal", "espejo_sal":
+			return _costra_sal(p == "espejo_sal")
+		"revuelto_setas":
+			return _revuelto()
+		"encurtidos_hongo", "encurtidos_sal":
+			return _tarro(p == "encurtidos_hongo")
+	# el resto son OLLAS de barro, cada una con lo suyo dentro
+	var cosas: Array = []
+	match p:
+		"bagre_guisado":   # trozos de pescado y zanahoria
+			cosas = [["I", 0.40, 0.46, 0.06], ["I", 0.58, 0.50, 0.05], ["L", 0.50, 0.42, 0.035],
+				["L", 0.66, 0.44, 0.03], ["F", 0.34, 0.50, 0.025]]
+		"caldo_puerro":    # rodajas de puerro y verde
+			cosas = [["w", 0.40, 0.46, 0.045], ["w", 0.58, 0.44, 0.045], ["F", 0.50, 0.50, 0.03],
+				["F", 0.66, 0.50, 0.025], ["f", 0.34, 0.44, 0.02]]
+		"sopa_setas":      # setas
+			cosas = [["x", 0.40, 0.46, 0.05], ["x", 0.60, 0.46, 0.05], ["w", 0.40, 0.44, 0.025],
+				["w", 0.60, 0.44, 0.025], ["F", 0.50, 0.50, 0.02]]
+		"crema_hongo":     # crema lisa con su hilo de nata y el verde
+			cosas = [["h", 0.48, 0.46, 0.08], ["F", 0.56, 0.46, 0.02], ["F", 0.44, 0.48, 0.02]]
+		"pure_tuberculo":  # el monte de pure con su mantequilla
+			cosas = [["l", 0.50, 0.40, 0.14], ["E", 0.52, 0.34, 0.04], ["F", 0.40, 0.46, 0.02]]
+	return _olla(cosas)
+
+
+# UNA OLLA DE BARRO con sus asas y el caldo del color del plato, con los tropezones dentro.
+static func _olla(cosas: Array) -> Array:
+	var out: Array = [
+		_elipse("M", 0.14, 0.50, 0.06, 0.05, 10), _elipse(".", 0.14, 0.50, 0.025, 0.02, 6),
+		_elipse("M", 0.86, 0.50, 0.06, 0.05, 10), _elipse(".", 0.86, 0.50, 0.025, 0.02, 6),
+		_pol("M", [0.16, 0.48, 0.84, 0.48, 0.80, 0.72, 0.66, 0.84, 0.34, 0.84, 0.20, 0.72]),
+		_sobre(_pol("Z", [0.56, 0.48, 0.84, 0.48, 0.80, 0.72, 0.66, 0.84, 0.54, 0.84])),
+		_elipse("B", 0.50, 0.48, 0.35, 0.16, 26),
+		_elipse("b", 0.50, 0.49, 0.30, 0.12, 24),
+		_sobre(_elipse("l", 0.44, 0.46, 0.16, 0.05, 16)),
+	]
+	for c in cosas:
+		out.append(_sobre(_elipse(c[0], c[1], c[2], c[3], c[3] * 0.8, 10)))
+	out.append(_lin("B", [0.24, 0.62, 0.30, 0.74]))
+	return out
+
+
+# EL KEBAB: el rollo de pan en diagonal (el de la referencia), abierto por arriba con la lechuga, el
+# tomate, la salsa y la carne -- la carne es lo que cambia de uno a otro (el color del plato).
+static func _kebab() -> Array:
+	return [
+		_tira("k", [0.30, 0.34, 0.66, 0.84], 0.36, 0.30),
+		_tira("u", [0.40, 0.30, 0.76, 0.78], 0.10, 0.10),
+		_tira("j", [0.24, 0.40, 0.56, 0.84], 0.07, 0.06),
+		_lin("u", [0.30, 0.52, 0.36, 0.56]), _lin("u", [0.44, 0.66, 0.50, 0.70]),
+		_elipse("s", 0.34, 0.28, 0.20, 0.10, 18),
+		_elipse("b", 0.36, 0.26, 0.12, 0.06, 14),
+		_elipse("R", 0.26, 0.26, 0.04, 0.035, 8),
+		_lin("E", [0.30, 0.24, 0.40, 0.30]),
+		_elipse("F", 0.22, 0.20, 0.07, 0.05, 10), _elipse("F", 0.42, 0.16, 0.08, 0.05, 10),
+		_elipse("f", 0.32, 0.16, 0.05, 0.04, 8),
+	]
+
+
+# LA PARRILLADA: la carne a la brasa, gorda, con las marcas de la parrilla, sobre su tabla de madera y
+# con un par de hojas (la referencia). La de insecto sale verdosa: es el color del plato.
+static func _tabla_parrilla(insecto: bool) -> Array:
+	var out: Array = [
+		_elipse("U", 0.50, 0.66, 0.44, 0.20, 26),
+		_elipse("u", 0.50, 0.63, 0.42, 0.17, 26),
+		_lin("j", [0.14, 0.62, 0.40, 0.70]), _lin("j", [0.52, 0.72, 0.84, 0.62]),
+		_pol("d", [0.24, 0.62, 0.26, 0.40, 0.40, 0.30, 0.62, 0.30, 0.76, 0.40, 0.76, 0.62, 0.62, 0.70, 0.36, 0.70]),
+		_pol("s", [0.26, 0.40, 0.40, 0.30, 0.62, 0.30, 0.76, 0.40, 0.62, 0.48, 0.38, 0.48]),
+		_pol("R" if not insecto else "l", [0.34, 0.54, 0.62, 0.54, 0.64, 0.64, 0.34, 0.64]),
+	]
+	for g in [[0.34, 0.34, 0.44, 0.46], [0.46, 0.32, 0.56, 0.46], [0.58, 0.32, 0.68, 0.44]]:
+		out.append(_lin("o", g))
+	out.append(_elipse("F", 0.18, 0.56, 0.05, 0.03, 8))
+	out.append(_elipse("f", 0.78, 0.70, 0.05, 0.03, 8))
+	out.append(_elipse("F", 0.56, 0.78, 0.04, 0.025, 8))
+	return out
+
+
+# LA LUBINA AL HORNO: la rodaja a la brasa de la referencia, con la piel, las marcas y su limon.
+static func _rodaja_brasa() -> Array:
+	return [
+		_pol("t", [0.16, 0.56, 0.20, 0.30, 0.40, 0.18, 0.64, 0.18, 0.84, 0.32, 0.86, 0.60, 0.70, 0.80,
+			0.52, 0.74, 0.42, 0.86, 0.22, 0.78]),
+		_pol("b", [0.18, 0.52, 0.22, 0.30, 0.40, 0.20, 0.64, 0.20, 0.82, 0.32, 0.84, 0.56, 0.70, 0.74,
+			0.52, 0.68, 0.42, 0.80, 0.22, 0.72]),
+		_sobre(_elipse("l", 0.40, 0.34, 0.14, 0.06, 14)),
+		_lin("s", [0.30, 0.30, 0.24, 0.62]), _lin("s", [0.42, 0.24, 0.36, 0.66]),
+		_lin("s", [0.54, 0.24, 0.48, 0.60]), _lin("s", [0.66, 0.26, 0.60, 0.60]),
+		_lin("d", [0.48, 0.44, 0.44, 0.72]),
+		_elipse("E", 0.70, 0.40, 0.11, 0.09, 14),
+		_elipse("Y", 0.70, 0.40, 0.07, 0.055, 12),
+		_lin("F", [0.64, 0.34, 0.76, 0.46]),
+	]
+
+
+# LA ANGUILA AL AJILLO: una cazuelita de barro con las rodajas de anguila y las laminas de ajo.
+static func _cazuela_anguila() -> Array:
+	var out: Array = [
+		_elipse("Z", 0.50, 0.60, 0.40, 0.22, 26),
+		_elipse("M", 0.50, 0.57, 0.38, 0.19, 26),
+		_elipse("E", 0.50, 0.56, 0.32, 0.14, 24),
+	]
+	for r in [[0.36, 0.52], [0.52, 0.50], [0.66, 0.56], [0.44, 0.62], [0.60, 0.64]]:
+		out.append(_sobre(_elipse("b", r[0], r[1], 0.06, 0.045, 10)))
+		out.append(_sobre(_elipse("l", r[0] - 0.01, r[1] - 0.01, 0.03, 0.02, 8)))
+	for a in [[0.30, 0.60], [0.52, 0.58], [0.72, 0.50]]:
+		out.append(_sobre(_elipse("I", a[0], a[1], 0.025, 0.018, 6)))
+	out.append(_elipse("R", 0.40, 0.44, 0.02, 0.02, 6))
+	return out
+
+
+# EN SAL: el pescado entero enterrado en su costra de sal, con la cabeza y la cola asomando. El espejo
+# es redondo y plano; el gobio, pequeño y alargado.
+static func _costra_sal(espejo: bool) -> Array:
+	var rx: float = 0.30 if espejo else 0.36
+	var ry: float = 0.22 if espejo else 0.14
+	return [
+		_pol("s", [0.08, 0.54, 0.16, 0.44, 0.16, 0.64]),                 # la cola
+		_elipse("b", 0.86, 0.56, 0.08, ry * 0.7, 12),                    # la cabeza
+		_elipse("o", 0.88, 0.54, 0.012, 0.012, 4),
+		_elipse("x", 0.50, 0.60, rx + 0.04, ry + 0.06, 24),
+		_elipse("w", 0.49, 0.57, rx, ry + 0.02, 24),
+		_sobre(_elipse("W", 0.42, 0.50, rx * 0.5, ry * 0.4, 16)),
+		_lin("x", [0.30, 0.60, 0.40, 0.56]), _lin("x", [0.54, 0.66, 0.66, 0.60]),
+		_elipse("F", 0.50, 0.44 - ry * 0.3, 0.04, 0.025, 8),
+	]
+
+
+# EL REVUELTO DE SETAS: en un plato blanco, el huevo amarillo a grumos con las setas.
+static func _revuelto() -> Array:
+	var out: Array = [
+		_elipse("x", 0.50, 0.62, 0.42, 0.20, 26),
+		_elipse("w", 0.50, 0.60, 0.40, 0.17, 26),
+	]
+	for g in [[0.40, 0.56, 0.10], [0.56, 0.54, 0.11], [0.48, 0.62, 0.10], [0.64, 0.62, 0.08], [0.34, 0.62, 0.07]]:
+		out.append(_elipse("s", g[0], g[1] + 0.01, g[2], g[2] * 0.55, 12))
+		out.append(_elipse("b", g[0] - 0.01, g[1], g[2] * 0.85, g[2] * 0.45, 12))
+	for s in [[0.46, 0.52], [0.60, 0.58], [0.38, 0.60]]:
+		out.append(_elipse("u", s[0], s[1], 0.03, 0.02, 6))
+	out.append(_elipse("F", 0.52, 0.56, 0.02, 0.015, 4))
+	return out
+
+
+# LOS ENCURTIDOS (sin referencia; propuesta): un tarro de cristal con tapa, y dentro, en su salmuera,
+# setas (el de hongo) o cebollitas y pimiento (el de sal).
+static func _tarro(hongo: bool) -> Array:
+	var out: Array = [
+		_pol("M", [0.30, 0.12, 0.70, 0.12, 0.72, 0.22, 0.28, 0.22]),
+		_lin("B", [0.32, 0.14, 0.68, 0.14]),
+		_pol("T", [0.28, 0.22, 0.72, 0.22, 0.76, 0.32, 0.76, 0.84, 0.70, 0.90, 0.30, 0.90, 0.24, 0.84, 0.24, 0.32]),
+		_sobre(_pol("b", [0.0, 0.36, 1.0, 0.36, 1.0, 1.0, 0.0, 1.0])),
+		_sobre(_pol("l", [0.0, 0.36, 1.0, 0.36, 1.0, 0.39, 0.0, 0.39])),
+	]
+	var piezas: Array = [["u", 0.38, 0.50], ["u", 0.58, 0.54], ["u", 0.46, 0.70], ["u", 0.64, 0.76],
+		["u", 0.36, 0.78]] if hongo else [["I", 0.38, 0.50], ["R", 0.58, 0.54], ["I", 0.48, 0.70],
+		["F", 0.64, 0.74], ["I", 0.36, 0.80]]
+	for pz in piezas:
+		out.append(_sobre(_elipse(pz[0], pz[1], pz[2], 0.06, 0.05, 10)))
+		if hongo:
+			out.append(_sobre(_elipse("j", pz[1] - 0.01, pz[2] - 0.02, 0.03, 0.02, 6)))
+	out.append(_lin("W", [0.30, 0.30, 0.30, 0.80]))
+	return out
 
 
 # ============================================================

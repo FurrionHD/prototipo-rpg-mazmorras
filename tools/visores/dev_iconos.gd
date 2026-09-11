@@ -69,6 +69,9 @@ func _ready() -> void:
 	items.append(load("res://resources/consumables/antidoto.tres"))
 	for r in ["piedra_retorno", "piedra_retorno_t2", "cebo_gusano", "cebo_sanguijuela"]:
 		items.append(load("res://resources/consumables/%s.tres" % r))
+	for f in _ficheros("res://resources/consumables/"):
+		if f.get_file().begins_with("plato_"):
+			items.append(load(f))
 	# LAS HERRAMIENTAS, y el farolillo en sus tres tiers (cada uno con su aspecto).
 	for f in _ficheros("res://resources/tools/"):
 		items.append(load(f))
