@@ -507,6 +507,22 @@ static func _pintura_arma(pj: PersonajeData, slot: String, familia: String,
 		"luz_ref": PaletaEquipo.luz_ref(familia, tier, mej)}
 
 
+# LA CAPA DE UNA HERRAMIENTA EN LA MANO (el pico al picar...). No sale de capas_de: una herramienta
+# no se lleva en la mano por el mapa, solo durante su faena, y montarla siempre obligaria a cada
+# compañero y a cada figura de combate a cargar un atlas que no enseña nunca. La pide la faena y la
+# pone MunecoJugador.poner_herramienta mientras dura.
+#
+# El color, del METAL de su tier y su mejora: el mismo que ya tiene su icono (ver SpritesObjeto).
+static func capa_herramienta(tn: String, tier: int, mejoras: int) -> Dictionary:
+	var clave: String = ArmaSprites.clave_herramienta(tn)
+	var fam: String = PaletaEquipo.METAL
+	return {"clave": clave, "ranura": Ranura.MANO_DER, "ancla": PoseJugador.P_EMPUNADURA_DER,
+		"tinte": false, "frames": ArmaSprites.frames(clave, 1.0),
+		"paleta": PaletaEquipo.lut(ArmaSprites.CLAVE_ROLES, ArmaSprites.ROLES, fam, maxi(1, tier), mejoras),
+		"metal": PaletaEquipo.metal_de(fam, mejoras),
+		"luz_ref": PaletaEquipo.luz_ref(fam, maxi(1, tier), mejoras)}
+
+
 # 'lado': 0 = mano/cadera derecha (principal), 1 = izquierda (secundaria).
 static func _arma_de(out: Array, item, lado: int, pj: PersonajeData) -> void:
 	if item == null:

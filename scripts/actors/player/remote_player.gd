@@ -222,6 +222,13 @@ func aplicar_pose(pose: int) -> void:
 	_desenvainado = (pose & Net.POSE_DESENV) != 0
 	var variante: int = (pose >> 3) & 0b11
 	var seq: int = (pose >> 5) & 0xFF
+	_aplicar_faena(Net.faena_de_pose(pose), Net.volteo_de_pose(pose), Net.tier_de_pose(pose))
+	if seq != _golpe_seq and _faena > 0:
+		# EN FAENA el contador de golpe es el del pico, no el de un espadazo: se ve la descarga.
+		if _golpe_seq >= 0:
+			_faena_golpe_pendiente = true
+		_golpe_seq = seq
+		return
 	if seq != _golpe_seq:
 		# Un golpe nuevo. El primer paquete que llega tras crear el cuerpo NO cuenta como golpe: sin
 		# esto, cualquiera que se acabara de conectar arrancaba dando un espadazo al aire.
@@ -312,8 +319,50 @@ func _physics_process(delta: float) -> void:
 		# direccion ninguna y el espadazo saldria siempre hacia el ultimo lado por el que se movio.
 		andando = false
 	if _muneco != null and _muneco.hay_dibujo():
+		if _faena > 0:
+			_animar_faena()
+			return
 		_muneco.animar(PoseJugador.animacion(_facing, _modo, andando,
 			_golpe_t > 0.0, _desenvainado, _golpe_variante))
+
+
+# SU FAENA, VISTA DESDE AQUI (ver Net.empaquetar_pose). Solo se ve el golpe caer, no la carga: la
+# carga no viaja y no merece la pena mandarla a 10 Hz para un pico que sube un momento.
+var _faena: int = 0
+var _faena_volteo: bool = false
+var _faena_tier: int = 1
+var _faena_golpe_pendiente: bool = false
+
+func _aplicar_faena(faena: int, volteo: bool, tier: int) -> void:
+	if faena == _faena and volteo == _faena_volteo and tier == _faena_tier:
+		return
+	var nombre_faena: String = ""
+	if faena > 0 and faena <= PoseJugador.FAENAS.size():
+		nombre_faena = String(PoseJugador.FAENAS[faena - 1])
+	_faena = faena if nombre_faena != "" else 0
+	_faena_volteo = volteo
+	_faena_tier = tier
+	_faena_golpe_pendiente = false
+	if _muneco == null:
+		return
+	_muneco.scale.x = -1.0 if (_faena > 0 and volteo) else 1.0
+	var capa: Dictionary = {}
+	if _faena > 0:
+		for tn in ArmaSprites.HERRAMIENTA_ANIM:
+			if String(ArmaSprites.HERRAMIENTA_ANIM[tn]) == nombre_faena:
+				capa = JugadorSprites.capa_herramienta(tn, tier, 0)
+	_muneco.poner_herramienta(capa)
+
+
+func _animar_faena() -> void:
+	var base: String = PoseJugador.FAENAS[_faena - 1]
+	var anim: String = "%s_%d" % [base, PoseJugador.ancla_de(base)]
+	if _faena_golpe_pendiente:
+		_faena_golpe_pendiente = false
+		_muneco.animar_desde(anim, int(PoseJugador.FAENA_DESCARGA.get(base, 0)))
+	elif _muneco.anim_actual() != anim or _muneco.terminada():
+		# Entre golpe y golpe, de vuelta a la guardia con el pico abajo.
+		_muneco.fijar(anim, 0)
 
 
 # Lo mismo que el compañero y por lo mismo: el otro humano se dibuja con el mismo cuerpo, asi que

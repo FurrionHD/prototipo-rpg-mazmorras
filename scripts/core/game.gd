@@ -13379,7 +13379,7 @@ func start_mineria(nodo) -> void:
 	ex.process_mode = Node.PROCESS_MODE_ALWAYS
 	ex.setup(m, golpes, ini, ancho, carga)
 	ex.mineria_finished.connect(_on_mineria_finished.bind(nodo))
-	_abrir_pantalla(ex)
+	_abrir_faena("picar", nodo, ex, p)
 
 
 func _on_mineria_finished(item: MaterialItem, progreso: float, nodo) -> void:
@@ -13655,6 +13655,33 @@ func _abrir_pantalla(pantalla: Control) -> void:
 	esconder_mundo(true)
 
 
+# LA FAENA EN EL MAPA (ver scripts/world/faena.gd): el hermano de _abrir_pantalla para los minijuegos
+# que ya se ven jugando. NO esconde el mundo -- es justo lo que se quiere ver --, y el medidor del
+# minijuego va en una capa como siempre, pero pequeño y al lado del personaje. El modal es el mismo
+# (pausa el arbol en solitario, como la pesca). Si no hay jugador en el mapa (una escena de pruebas),
+# cae a la pantalla de siempre y el minijuego se juega igual.
+var _faena: Node = null
+const _FAENA_SCRIPT := preload("res://scripts/world/faena.gd")
+
+func _abrir_faena(nombre: String, nodo, pantalla: Control, herramienta: ToolData) -> void:
+	var jugador: Node = get_tree().get_first_node_in_group("player")
+	if jugador == null or not jugador.has_method("empezar_faena"):
+		_abrir_pantalla(pantalla)
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().root.add_child(layer)
+	layer.add_child(pantalla)
+	_active_layer = layer
+	entrar_modal(Modal.RECOLECCION, layer)
+	var meta: Dictionary = item_meta.get(herramienta, {}) if herramienta != null else {}
+	_faena = _FAENA_SCRIPT.new()
+	layer.add_child(_faena)
+	_faena.empezar(nombre, nodo, jugador, pantalla, layer, int(meta.get("tier", 1)),
+		mejoras_actuales(herramienta) if es_herramienta_forjada(herramienta) else 0)
+
+
 # ESCONDE (o devuelve) el mapa mientras hay una pantalla modal encima.
 #
 # Pausar el arbol congela la LOGICA, pero no el DIBUJADO: la mazmorra entera (miles de
@@ -13675,7 +13702,11 @@ func esconder_mundo(esconder: bool) -> void:
 # ahora ni cuando vuelvas al piso (su celda queda apuntada en la memoria del piso).
 func _cerrar_recoleccion(nodo) -> void:
 	salir_modal(_active_layer)
-	esconder_mundo(false)
+	if _faena != null and is_instance_valid(_faena):
+		_faena.cerrar()
+	else:
+		esconder_mundo(false)
+	_faena = null
 	_bloquear_interaccion_jugador()   # el minijuego se juega a ESPACIAZOS: que no ataque al salir
 	if is_instance_valid(nodo):
 		# CUANTO tarda ESTE en volver. Se decide AQUI porque es el unico punto de la cadena que

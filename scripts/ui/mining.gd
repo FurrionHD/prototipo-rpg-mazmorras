@@ -16,11 +16,18 @@
 #  La FUERZA no golpea por ti: hace la franja mas ANCHA y mas BAJA (un brazo fuerte no
 #  necesita cargar tanto) y baja los golpes necesarios. Sigues teniendo que soltar tu.
 #  Se crea por codigo (sin .tscn), como extraction.gd.
+#
+#  YA NO ES UNA PANTALLA: es un MEDIDOR pequeño que va al lado del personaje mientras se le ve picar
+#  en el mapa (ver scripts/world/faena.gd, que lo coloca y anima el muñeco con las señales de abajo).
+#  La mecanica de arriba no se ha tocado: solo como se ve.
 # ============================================================
 
 extends Control
 
 signal mineria_finished(item: MaterialItem, progreso: float)
+# Para la FAENA: cada golpe (con como ha salido) y la carga, que es lo alto que va el pico.
+enum Golpe { FLOJO, LIMPIO, BRUTO }
+signal golpe(tipo: int)
 
 enum { READY, RUNNING, FINISHED }
 
@@ -37,6 +44,7 @@ var _progreso: float = 0.0
 var _grietas: int = 0
 var _golpes: int = 0
 var _ultimo: String = ""       # texto del ultimo golpe (para el HUD)
+var _ultimo_t: float = 0.0     # cuanto le queda en pantalla a ese texto
 var _state: int = READY        # empieza en espera: no arranca hasta pulsar ESPACIO
 var _result: MaterialItem = null
 var _press_was: bool = false
@@ -62,14 +70,36 @@ const _TOUCH_PAD := preload("res://scripts/ui/touch_pad.gd")
 
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = Vector2(MedidorFaena.ANCHO, MedidorFaena.ALTO)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sortear_franja()
 	if Tactil.activo:
 		# Con los dedos la pantalla entera es el pico (ver touch_pad.gd) y hace falta una PUERTA:
 		# hasta ahora de aqui no se salia mas que picando, y sin teclado eso es una ratonera.
-		var pad: Control = _TOUCH_PAD.new()
-		add_child(pad)
-		pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+		# El pad va en la CAPA y no dentro del medidor: el medidor es pequeño y la zona de pulsar
+		# tiene que seguir siendo la pantalla entera (lo mismo hace la pesca).
+		# DIFERIDO, y el boton con el: la capa esta montando a sus hijos en este instante y no admite
+		# otro, y el boton se cuelga de un contenedor que el pad crea en SU _ready (pedirselo antes
+		# reventaba con "add_child on a null value" al darle a la veta).
+		_montar_pad.call_deferred()
+
+
+func _montar_pad() -> void:
+	var capa: Node = get_parent()
+	if capa == null:
+		return
+	var pad: Control = _TOUCH_PAD.new()
+	capa.add_child(pad)
+	pad.anadir_boton("Salir", Color(0.42, 0.20, 0.22)).pressed.connect(_abandonar)
+
+
+# Lo que lee la faena para alzar el pico mientras cargas.
+func carga() -> float:
+	return _carga if _cargando else 0.0
+
+
+func terminado() -> bool:
+	return _state == FINISHED
 
 
 # Largarse a medias ABANDONA la veta: sales sin la pieza, igual que si se hubiera roto. Sin ese
@@ -82,6 +112,7 @@ func _abandonar() -> void:
 
 func _process(delta: float) -> void:
 	var pressed: bool = Input.is_action_pressed(&"recolectar")
+	_ultimo_t = maxf(0.0, _ultimo_t - delta)
 
 	if _state == FINISHED:
 		# Se sale con una pulsacion NUEVA (no con la que acabo de romper la veta).
@@ -118,15 +149,20 @@ func _process(delta: float) -> void:
 func _golpear() -> void:
 	_cargando = false
 	_golpes += 1
+	var tipo: int = Golpe.LIMPIO
 	if _carga < _opt_ini:
-		_ultimo = "Golpe flojo: el pico rebota"   # no avanza: has gastado un golpe y ya
+		_ultimo = "Flojo: rebota"   # no avanza: has gastado un golpe y ya
+		tipo = Golpe.FLOJO
 	elif _carga <= _opt_ini + _opt_ancho:
 		_progreso += 1.0
-		_ultimo = "¡Golpe limpio!"
+		_ultimo = "¡Limpio!"
 	else:
 		_progreso += 1.0
 		_grietas += 1
-		_ultimo = "Golpe bruto: agrietas el mineral"
+		_ultimo = "Bruto: se agrieta"
+		tipo = Golpe.BRUTO
+	_ultimo_t = 1.4
+	golpe.emit(tipo)
 
 	_carga = 0.0
 	_sortear_franja()
@@ -179,55 +215,47 @@ func _sortear_franja() -> void:
 	_opt_ini = clampf(ini, 0.05, 1.0 - _opt_ancho - 0.02)
 
 
+# EL MEDIDOR, al lado del personaje (ver MedidorFaena para el estilo comun):
+#   arriba el nombre de la veta; en medio el CARRIL DE CARGA vertical (0 abajo), con la franja buena
+#   en ambar y lo que te pasa en rojo; debajo, las marcas de lo que ha cedido la veta (azul) y de las
+#   grietas (rojo), y una linea de estado.
 func _draw() -> void:
 	var w: float = size.x
-	var h: float = size.y
-	draw_rect(Rect2(0, 0, w, h), Color(0.1, 0.08, 0.07, 1.0))
-
-	var font: Font = ThemeDB.fallback_font
+	MedidorFaena.panel(self, Rect2(Vector2.ZERO, size))
 	var nombre: String = _material.nombre if _material != null else "Veta"
+	MedidorFaena.texto(self, 20.0, 4.0, w - 8.0, nombre, 12)
 
-	# --- BARRA DE CARGA: VERTICAL, y a proposito (que no se confunda con la del cristal) ---
-	var bar_w: float = 64.0
-	var bar_h: float = h * 0.5
-	var bar_x: float = w * 0.5 - bar_w * 0.5
-	var bar_y: float = h * 0.5 - bar_h * 0.35
+	var cr := Rect2(w * 0.5 - 15.0, 32.0, 30.0, 176.0)
+	MedidorFaena.carril(self, cr)
+	# Lo que te PASA (encima de la franja) en rojo tenue: es lo que agrieta la pieza.
+	var tope_franja: float = cr.position.y + cr.size.y * (1.0 - _opt_ini - _opt_ancho)
+	draw_rect(Rect2(cr.position, Vector2(cr.size.x, tope_franja - cr.position.y)),
+		Color(MedidorFaena.ROJO, 0.30))
+	# La franja buena.
+	var franja := Rect2(cr.position.x, tope_franja, cr.size.x, cr.size.y * _opt_ancho)
+	draw_rect(franja, MedidorFaena.AMBAR)
+	draw_rect(Rect2(franja.position, Vector2(franja.size.x, 2.0)), Color(1, 1, 1, 0.4))
+	# La carga: una columna que sube desde abajo y una raya blanca que la remata, que sobresale del
+	# carril por los dos lados para que se lea aunque la columna caiga dentro de la franja.
+	var c: float = carga()
+	if c > 0.0:
+		var cy: float = cr.position.y + cr.size.y * (1.0 - c)
+		draw_rect(Rect2(cr.position.x + 5.0, cy, cr.size.x - 10.0, cr.end.y - cy), Color(0.95, 0.93, 0.86, 0.55))
+		draw_rect(Rect2(cr.position.x - 7.0, cy - 2.0, cr.size.x + 14.0, 4.0), Color.WHITE)
 
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), Color(0.22, 0.2, 0.19))
-	# La franja optima (se dibuja de abajo a arriba: carga 0 = abajo).
-	var zy: float = bar_y + bar_h * (1.0 - _opt_ini - _opt_ancho)
-	draw_rect(Rect2(bar_x, zy, bar_w, bar_h * _opt_ancho), Color(0.95, 0.7, 0.2))
-	# Por encima de la franja: zona de PASARSE (rojiza: es la que te agrieta la pieza).
-	draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h * (1.0 - _opt_ini - _opt_ancho)),
-		Color(0.7, 0.2, 0.15, 0.28))
-	# Carga actual.
-	var cy: float = bar_y + bar_h * (1.0 - _carga)
-	draw_rect(Rect2(bar_x - 6.0, cy - 2.0, bar_w + 12.0, 4.0), Color.WHITE)
+	# Lo que ha cedido la veta y las grietas que lleva.
+	MedidorFaena.marcas(self, w * 0.5, 218.0, _golpes_necesarios, int(_progreso), MedidorFaena.AZUL)
+	MedidorFaena.marcas(self, w * 0.5, 232.0, GRIETAS_ROTO, _grietas, MedidorFaena.ROJO)
 
-	# --- INTEGRIDAD de la veta (cuanto le queda) ---
-	var pw: float = 260.0
-	var px: float = w * 0.5 - pw * 0.5
-	var py: float = bar_y + bar_h + 34.0
-	draw_rect(Rect2(px, py, pw, 14.0), Color(0.25, 0.25, 0.28))
-	var frac: float = clampf(_progreso / float(_golpes_necesarios), 0.0, 1.0)
-	draw_rect(Rect2(px, py, pw * frac, 14.0), Color(0.4, 0.75, 0.95))
-
-	draw_string(font, Vector2(px - 60.0, bar_y - 70.0), "Picando: %s" % nombre,
-		HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 22)
+	var estado: String
+	var col: Color = MedidorFaena.TEXTO_SUAVE
 	if _state == READY:
-		draw_string(font, Vector2(px - 60.0, bar_y - 44.0),
-			"Pulsa ESPACIO para empezar",
-			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)
+		estado = "ESPACIO: empezar"
 	elif _state == RUNNING:
-		draw_string(font, Vector2(px - 60.0, bar_y - 44.0),
-			"MANTÉN ESPACIO para cargar y SUÉLTALO en la franja",
-			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)
-		draw_string(font, Vector2(px - 60.0, py + 36.0),
-			"Golpes: %d/%d   ·   Grietas: %d/%d   ·   %s" % [
-				_golpes, _golpes_max(), _grietas, GRIETAS_ROTO, _ultimo],
-			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)
+		estado = _ultimo if _ultimo_t > 0.0 else "Mantén y suelta"
+		if _ultimo_t > 0.0:
+			col = MedidorFaena.TEXTO
 	else:
-		var txt: String = "El mineral se deshace en escombro: lo has perdido" if _result.se_pierde() \
-			else "Sacas %s (%s)" % [nombre, _result.calidad_texto()]
-		draw_string(font, Vector2(px - 60.0, py + 36.0), txt + "   ·   ESPACIO para continuar",
-			HORIZONTAL_ALIGNMENT_CENTER, pw + 120.0, 16)
+		estado = "Escombro" if _result.se_pierde() else _result.calidad_texto()
+		col = MedidorFaena.ROJO if _result.se_pierde() else MedidorFaena.AMBAR
+	MedidorFaena.texto(self, 258.0, 4.0, w - 8.0, estado, 12, col)

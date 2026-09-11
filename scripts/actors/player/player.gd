@@ -933,7 +933,7 @@ func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 			Sonido.golpe("", _estilo_del_golpe())
 	if _desenv_t > 0.0:
 		_desenv_t -= delta
-	if _muneco == null or not _muneco.hay_dibujo():
+	if _muneco == null or not _muneco.hay_dibujo() or _en_faena:
 		return
 	# El gesto de sacar el arma manda mientras dura (como el golpe): es una transicion, no se elige
 	# desde PoseJugador.animacion.
@@ -1292,7 +1292,57 @@ const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hec
 # y remote_player.aplicar_pose): sin esto los demas me ven cruzar la mazmorra a paso de andar, sin
 # arma en la mano y sin dar un solo golpe.
 func _pose_red() -> int:
-	return Net.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq)
+	return Net.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq,
+		_faena_red, _faena_volteo, _faena_tier)
+
+
+# ============================================================
+#  LA FAENA (picar, talar...): ver scripts/world/faena.gd
+# ============================================================
+# Mientras dura, el muñeco NO lo anima este script: lo lleva la faena, que sabe cuanto has cargado y
+# cuando pega el golpe. Aqui solo se le deja correr con el arbol en pausa (en solitario el minijuego
+# pausa el juego, igual que la pesca) y se le devuelve todo como estaba al acabar.
+var _en_faena: bool = false
+# Lo que viaja por red de la faena (ver Net.empaquetar_pose): cual es (0 = ninguna, indice en
+# PoseJugador.FAENAS + 1), si va volteada y el tier de la herramienta, para que el otro vea el pico
+# de su color. Cada golpe sube _golpe_seq, el mismo contador de los espadazos.
+var _faena_red: int = 0
+var _faena_volteo: bool = false
+var _faena_tier: int = 1
+
+func empezar_faena(faena: String, volteado: bool, tier: int) -> MunecoJugador:
+	_en_faena = true
+	_faena_red = PoseJugador.FAENAS.find(faena) + 1
+	_faena_volteo = volteado
+	_faena_tier = clampi(tier, 1, 7)
+	_golpe_t = 0.0
+	_desenv_t = 0.0
+	if _muneco != null:
+		_muneco.process_mode = Node.PROCESS_MODE_ALWAYS
+		_muneco.scale.x = -1.0 if volteado else 1.0
+	return _muneco if _muneco != null and _muneco.hay_dibujo() else null
+
+
+# Un golpe de la faena: solo para que el otro jugador lo vea caer a la vez (ver remote_player).
+func faena_golpe() -> void:
+	_golpe_seq = (_golpe_seq + 1) & 0xFF
+
+
+func terminar_faena(mirada: Vector2) -> void:
+	_en_faena = false
+	_faena_red = 0
+	_faena_volteo = false
+	if mirada != Vector2.ZERO:
+		_facing = mirada.normalized()
+	if _muneco != null:
+		_muneco.scale.x = 1.0
+		_muneco.process_mode = Node.PROCESS_MODE_INHERIT
+		_muneco.poner_herramienta({})
+		_muneco.animar(PoseJugador.animacion(_facing, movement_mode, false))
+
+
+func en_faena() -> bool:
+	return _en_faena
 
 
 func _elegir_golpe() -> int:

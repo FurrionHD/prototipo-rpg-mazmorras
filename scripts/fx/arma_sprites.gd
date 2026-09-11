@@ -66,9 +66,19 @@ const GEO := {
 	"martillo_grande": {"mango": 17.0, "hoja": 0.0,  "r_mango": 2.2, "cabeza": 5.4, "cabeza_forma": "caja"},
 	"baston":          {"mango": 22.0, "hoja": 0.0,  "r_mango": 1.7, "cabeza": 2.8, "cabeza_forma": "orbe"},
 	"varita":          {"mango": 8.0,  "hoja": 0.0,  "r_mango": 1.2, "cabeza": 2.0, "cabeza_forma": "orbe"},
+	# LAS HERRAMIENTAS DE RECOLECTAR (ver HERRAMIENTA_ANIM). El pico: astil largo y la cabeza CRUZADA
+	# en el plano del golpe, con las dos puntas curvadas hacia el mango.
+	"pico":            {"mango": 15.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 6.5, "cabeza_forma": "pico"},
 }
 
-# En qué animaciones dibuja cada capa (nombre BASE, sin dirección).
+# LAS HERRAMIENTAS en la mano: cada una sale SOLO en la animacion de su faena (ver PoseJugador.FAENAS),
+# y no se monta en el muñeco mas que mientras dura (ver JugadorSprites.capa_herramienta). Las de dos
+# manos se agarran con las dos, como un hacha grande.
+const HERRAMIENTA_ANIM := {"pico": "picar"}
+const HERRAMIENTAS_2M := ["pico"]
+
+# En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver
+# _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq"]
 const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m"]
@@ -143,7 +153,21 @@ static func todas_las_claves() -> Array:
 		out.append_array(claves_de(tn))
 	for tn in EXTRA:
 		out.append_array(claves_de(tn))
+	out.append_array(claves_herramientas())
 	return out
+
+
+# Las capas de las herramientas: UNA por herramienta, siempre en la mano derecha (las de dos manos
+# se agarran por el punto medio igualmente, ver pintar).
+static func claves_herramientas() -> Array:
+	var out: Array = []
+	for tn in HERRAMIENTA_ANIM:
+		out.append(clave_herramienta(tn))
+	return out
+
+
+static func clave_herramienta(tn: String) -> String:
+	return "arma_%s_mano_der" % tn
 
 
 # ============================================================
@@ -168,8 +192,10 @@ static func _parse(clave: String) -> Dictionary:
 
 
 static func _dibuja_en(anim: String, tipo: String, estado: String) -> bool:
+	if HERRAMIENTA_ANIM.has(tipo):
+		return anim == String(HERRAMIENTA_ANIM[tipo])
 	if estado != "mano":
-		return _ANIM_ENVAINADA.has(anim)
+		return _ANIM_ENVAINADA.has(anim) or PoseJugador.FAENAS.has(anim)
 	return (_ANIM_MANO_2H if tipo in DOS_MANOS else _ANIM_MANO_1H).has(anim)
 
 
@@ -212,7 +238,7 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 		return
 
 	var mano: int = int(info["mano"])
-	if estado == "mano" and tipo in DOS_MANOS:
+	if estado == "mano" and (tipo in DOS_MANOS or tipo in HERRAMIENTAS_2M):
 		mano = 2
 
 	var ag: Dictionary = PoseJugador.agarre_arma(esq, mano, estado)
@@ -353,6 +379,28 @@ static func _dibujar(piezas: Array, esq: Dictionary, grip: Vector3, eje: Vector3
 			"orbe":
 				PoseJugador.poner(piezas, esq, mango_fin,
 					Vector3(cabeza, cabeza, cabeza), Tono.METAL_L, op)
+			"pico":
+				# LA CABEZA DEL PICO VA EN EL PLANO DEL GOLPE, no cruzada a lo ancho como el martillo:
+				# es lo que la hace un pico. 'plano' es el eje girado un cuarto de vuelta sobre la linea de
+				# los hombros (X), o sea perpendicular al mango y dentro del arco que describe. Con 'lado'
+				# (el de las demas) la cabeza quedaba de canto a la camara mirando al este y se veia un
+				# martillo visto de frente.
+				var plano := Vector3(0.0, -eje.z, eje.y)
+				plano = plano.normalized() if plano.length() > 0.01 else lado
+				var cen: Vector3 = mango_fin - eje * (cabeza * 0.12)
+				# El ojo donde entra el astil: un bulto que las une, o las dos puntas salen sueltas.
+				PoseJugador.poner(piezas, esq, cen, Vector3.ONE * (cabeza * 0.34), Tono.METAL, op)
+				for s in [-1.0, 1.0]:
+					# Cada punta sale recta y se CURVA hacia el mango al final: con dos tramos rectos
+					# en linea era una T, y un pico sin curva se lee como una cruz.
+					var medio: Vector3 = cen + plano * (s * cabeza * 0.55) - eje * (cabeza * 0.10)
+					var punta: Vector3 = cen + plano * (s * cabeza) - eje * (cabeza * 0.38)
+					PoseJugador.cadena(piezas, esq, cen, medio, cabeza * 0.28, cabeza * 0.22, Tono.METAL, op)
+					PoseJugador.cadena(piezas, esq, medio, punta, cabeza * 0.22, cabeza * 0.07, Tono.METAL, op)
+					# El brillo por el lomo (el lado de fuera de la curva).
+					PoseJugador.cadena(piezas, esq, cen + eje * (cabeza * 0.08),
+						medio + eje * (cabeza * 0.06), cabeza * 0.10, cabeza * 0.08, Tono.METAL_L,
+						op.merged({"solo_sobre": [Tono.METAL]}))
 			_:
 				# LA MAZA, con pinchos: la bola sola era un sonajero.
 				for k in 4:

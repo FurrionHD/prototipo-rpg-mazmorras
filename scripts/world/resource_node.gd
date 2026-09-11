@@ -107,6 +107,43 @@ func agotar() -> void:
 	tw.tween_callback(queue_free)
 
 
+# ============================================================
+#  LA FAENA: lo que le pasa al recurso cuando le das (ver scripts/world/faena.gd)
+# ============================================================
+# Un golpe lo SACUDE: un temblor corto de lado a lado que se apaga. 'fuerza' 1 = golpe limpio; el
+# bruto sacude mas y el flojo casi nada. Va con el arbol en PAUSA (la faena pausa el juego en
+# solitario, como la pesca), asi que el tween se salta la pausa a proposito.
+var _base_pos := Vector2.INF
+var _temblor: Tween = null
+
+# Mientras lo trabajas, el cartel de [F] sobra: tapa el golpe y ya sabes que se interactua.
+func en_faena(si: bool) -> void:
+	if _lbl != null:
+		_lbl.visible = not si
+
+
+func sacudir(fuerza: float = 1.0) -> void:
+	if _base_pos == Vector2.INF:
+		_base_pos = position
+	if _temblor != null and _temblor.is_valid():
+		_temblor.kill()
+	position = _base_pos
+	var a: float = 2.2 * fuerza
+	_temblor = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	for k in [1.0, -0.75, 0.5, -0.3, 0.0]:
+		_temblor.tween_property(self, "position", _base_pos + Vector2(a * k, 0.0), 0.035)
+
+
+# Donde cae el golpe, en coordenadas de MUNDO: el centro del dibujo, que asoma por encima del pie
+# de la celda (ver _crear_sprite). De ahi saltan las esquirlas.
+func punto_golpe() -> Vector2:
+	var alto: float = 10.0
+	var fam: String = _familia_sprite()
+	if fam != "":
+		alto = float(RecolectableSprites.lienzo(fam).y) * 0.4
+	return global_position + Vector2(0.0, 6.0 - alto)
+
+
 func _crear_aspecto() -> void:
 	var color: Color = material_data.color if material_data != null else Color(0.7, 0.7, 0.7)
 

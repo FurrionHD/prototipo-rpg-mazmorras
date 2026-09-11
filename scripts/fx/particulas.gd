@@ -336,6 +336,45 @@ static func chispas(padre: Node, color: Color, zona: Vector2, intensidad := 1.0,
 	return p
 
 
+# ESQUIRLAS: lo que salta al dar un golpe a algo duro (el pico contra la veta). UNA RAFAGA y se va:
+# one_shot + explosiveness 1, y el nodo se borra solo. Salen hacia 'hacia' (en contra de quien golpea)
+# abiertas en abanico y CAEN con gravedad de verdad -- son trozos de piedra, no chispas que flotan.
+#
+# PROCESS_MODE_ALWAYS a proposito: la faena se juega con el arbol en pausa (como la pesca), y una
+# rafaga que respeta la pausa se quedaria congelada en el aire.
+static func esquirlas(padre: Node, color: Color, hacia: Vector2, cuantas: int = 7,
+		fuerza: float = 1.0) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.process_mode = Node.PROCESS_MODE_ALWAYS
+	p.texture = textura()
+	p.local_coords = false
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = maxi(2, cuantas)
+	p.lifetime = 0.55
+	p.lifetime_randomness = 0.4
+	p.randomness = 1.0
+	p.direction = (hacia.normalized() + Vector2(0.0, -1.3)).normalized()
+	p.spread = 38.0
+	p.gravity = Vector2(0.0, 260.0)
+	p.initial_velocity_min = 45.0 * fuerza
+	p.initial_velocity_max = 95.0 * fuerza
+	p.angular_velocity_min = -360.0
+	p.angular_velocity_max = 360.0
+	p.scale_amount_min = 0.55
+	p.scale_amount_max = 1.15
+	var g := Gradient.new()
+	g.set_color(0, Color(color.r, color.g, color.b, 1.0))
+	g.set_color(1, Color(color.r * 0.7, color.g * 0.7, color.b * 0.7, 0.0))
+	g.set_offset(1, 1.0)
+	g.add_point(0.7, Color(color.r * 0.85, color.g * 0.85, color.b * 0.85, 1.0))
+	p.color_ramp = g
+	padre.add_child(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
+	return p
+
+
 # SANGRE que cae. Es un chorreton pero mas pequeño, mas rapido y mas nervioso: la baba escurre,
 # la sangre GOTEA. Sale de toda la caja (estas sangrando por la herida que sea, no por un punto).
 static func sangre(padre: Node, color: Color, zona: Vector2, intensidad := 1.0) -> CPUParticles2D:

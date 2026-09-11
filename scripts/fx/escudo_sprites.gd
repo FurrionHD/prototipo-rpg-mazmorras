@@ -111,7 +111,7 @@ static func _parse(clave: String) -> Dictionary:
 static func _dibuja_en(anim: String, estado: String) -> bool:
 	if estado == "mano":
 		return _ANIM_MANO.has(anim)
-	return _ANIM_ENVAINADA.has(anim)
+	return _ANIM_ENVAINADA.has(anim) or PoseJugador.FAENAS.has(anim)
 
 
 # Direcciones en las que se ve el escudo ENVAINADO (en la espalda). En el resto el cuerpo lo tapa

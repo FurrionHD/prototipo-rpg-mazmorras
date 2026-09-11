@@ -101,6 +101,7 @@ func _algo_se_movio(ojo: Vector2, focos: Array, vista: Rect2) -> bool:
 
 
 func _ready() -> void:
+	add_to_group("niebla")
 	_piso = get_parent() as Node2D
 	# La capa 3 no es un numero al azar: el mundo va en la 0 y el HUD en la 5 (ver hud.gd), asi
 	# que la niebla tiene que caer justo en medio. Por encima del HUD taparia la vida y el mapa.
@@ -166,7 +167,21 @@ func _process(delta: float) -> void:
 	# el arbol a proposito (ver Game.abrir_menu), asi que con ALWAYS revisar el inventario o
 	# pararte en la forja te iria quemando el carbon: cobrarte luz por no estar jugando.
 	Game.gastar_llama(delta)
+	_seguir(delta)
 
+
+# LA NIEBLA CON EL ARBOL EN PAUSA. Lo llama la FAENA (scripts/world/faena.gd), que se juega en el mapa
+# con el juego parado igual que la pesca: ahi la camara se ACERCA y el jugador da un paso hasta su
+# sitio, y con la niebla congelada el circulo de luz se quedaba del tamaño y en el sitio de antes --
+# todo negro menos un redondel. No se pone la niebla entera en ALWAYS porque entonces quemaria el
+# carbon con cualquier menu abierto (ver arriba): esto refresca la mascara y la camara, y el carbon
+# se queda quieto, igual que mientras pescas.
+func seguir_en_pausa(delta: float) -> void:
+	if get_tree().paused:
+		_seguir(delta)
+
+
+func _seguir(delta: float) -> void:
 	_t += delta
 	if _t < CADA:
 		# La CAMARA si se refresca cada frame: si no, la niebla se arrastra por detras del

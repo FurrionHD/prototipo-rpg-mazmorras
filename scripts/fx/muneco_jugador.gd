@@ -72,7 +72,7 @@ var _capas: Array = []          # [{clave, ranura, ancla, tinte, nodo: AnimatedS
 var _idx_arma_mano: PackedInt32Array = []
 # Solo en estas: son golpes de un solo barrido (la mano cruza el eje UNA vez, volteo limpio). En
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
-const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m"]
+const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "picar"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -114,7 +114,12 @@ func _ready() -> void:
 # Deja el muñeco con las capas que le tocan a este personaje. Se puede llamar las veces que haga
 # falta (al cambiar de arma, al equiparse un peto): reaprovecha los nodos que siguen valiendo.
 func montar(pj: PersonajeData) -> void:
+	_pj = pj
 	var quiere: Array = JugadorSprites.capas_de(pj)
+	# LA HERRAMIENTA DE LA FAENA, al final (ver poner_herramienta): va en la mano y se ordena por
+	# profundidad como un arma mas.
+	if not _herramienta.is_empty():
+		quiere.append(_herramienta)
 	# Reconstruir solo si ha cambiado la LISTA. Un cambio de color o de tinte no toca los nodos.
 	#
 	# PERO SI REPINTA: en la pantalla de creacion se toca el ColorPicker sin parar y ahi la lista de
@@ -165,6 +170,33 @@ func montar(pj: PersonajeData) -> void:
 	_reindexar_arma_mano()
 	if _anim != "":
 		_aplicar_anim(_anim, true)
+
+
+# LA HERRAMIENTA DE UNA FAENA (el pico al picar). {} la quita. Remonta con el mismo personaje: la
+# lista de capas cambia, pero todo lo demas se reaprovecha.
+var _pj: PersonajeData = null
+var _herramienta: Dictionary = {}
+
+func poner_herramienta(capa: Dictionary) -> void:
+	_herramienta = capa
+	montar(_pj)
+
+
+# Arranca una animacion DESDE un fotograma dado, con el reloj corriendo. Lo usa la faena: el pico se
+# alza con la carga (fijar) y al soltar la descarga sale desde donde empieza el golpe, no desde 0.
+func animar_desde(nombre: String, marco: int) -> void:
+	_aplicar_anim(nombre, true)
+	_reloj = float(clampi(marco, 0, maxi(0, _marcos - 1))) / maxf(0.001, _fps)
+	_escribir(_marco_actual())
+
+
+func anim_actual() -> String:
+	return _anim
+
+
+# ¿La animacion de un solo tiro que va ahora ha llegado al final? (la de 'finished', sin señal).
+func terminada() -> bool:
+	return _fin_emitido and _fijo < 0
 
 
 # Cachea que capas son "arma en mano" para el reordenado por fotograma. Se llama al final de cada
@@ -507,6 +539,11 @@ func _reordenar_arma_mano(i: int) -> void:
 	# tardia de los fotogramas: el windup se queda con su profundidad real, recogido detras del
 	# hombro tiene que poder ocultarse igual que al sur).
 	var forzar: bool = base == "golpe_2m" and i >= _marcos / 2
+	# LAS FAENAS, SIEMPRE DELANTE. Se agarran por el centro del cuerpo (las dos manos juntas, x = 0),
+	# asi que su profundidad cae en el mismo plano que la cabeza y el redondeo decidia: alzado, el pico
+	# se iba detras del pelo y no se veia subir. En una faena la herramienta ES lo que se mira.
+	if PoseJugador.FAENAS.has(base):
+		forzar = true
 	for k in _idx_arma_mano:
 		var c: Dictionary = _capas[k]
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])

@@ -279,7 +279,21 @@ const ANIMS := [
 	{"n": "encaje", "loop": false, "fps": 18.0, "dirs": 1, "ancla": 4, "marcos": 4, "ultimo": true},
 	{"n": "muerte", "loop": false, "fps": 10.0, "dirs": 1, "ancla": 4, "marcos": 8, "ultimo": true},
 	{"n": "cadaver", "loop": false, "fps": 1.0, "dirs": 8, "marcos": 1, "ultimo": false},
+	# LAS FAENAS de recolectar (ver scripts/world/faena.gd). UNA sola direccion, el ESTE (2): el
+	# personaje se coloca siempre a un lado del recurso, y el otro lado es este mismo dibujo VOLTEADO
+	# (idea del jefe: asi no se dibujan ocho direcciones de cada faena). De lado es ademas donde mejor
+	# se lee un golpe de arriba abajo: el arco entero cae en el plano de la pantalla.
+	# 'picar': 0 guardia, 1-3 alzar (los fija la CARGA del minijuego), 4-7 descarga (impacto en el 6).
+	{"n": "picar", "loop": false, "fps": 14.0, "dirs": 1, "ancla": 2, "marcos": 8, "ultimo": true},
 ]
+
+# Las faenas, por su nombre base. Las capas que se ven "envainadas" (la espada a la cadera) tambien
+# salen en ellas, y cada herramienta en la mano sale SOLO en la suya (ver ArmaSprites.HERRAMIENTA_ANIM).
+const FAENAS := ["picar"]
+# En que fotograma de cada faena empieza la DESCARGA y en cual pega. La faena arranca la animacion
+# desde el primero al soltar el golpe, y del segundo sale cuando saltan las esquirlas.
+const FAENA_DESCARGA := {"picar": 4}
+const FAENA_IMPACTO := {"picar": 6}
 
 
 # El nombre de animacion que le toca a un estado del mapa. Vive aqui, y no en player.gd, por lo
@@ -839,6 +853,12 @@ static func ancla_de(base: String) -> int:
 	return int(_anim(base).get("ancla", 0))
 
 
+# Los fotogramas por segundo de una animacion. La faena lo necesita para saber cuanto tarda el pico en
+# llegar desde que sueltas (ver FAENA_IMPACTO).
+static func fps_de(base: String) -> float:
+	return float(_anim(base).get("fps", 12.0))
+
+
 static func _pose(anim: String, t: float) -> Dictionary:
 	match anim:
 		"idle": return _pose_idle(t)
@@ -854,6 +874,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"desenvainar": return _pose_desenvainar(t)
 		"encaje": return _pose_encaje(t)
 		"muerte": return _pose_muerte(t)
+		"picar": return _pose_picar(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -980,6 +1001,33 @@ static func _pose_golpe_2m(t: float) -> Dictionary:
 		"inclina": SpriteLienzo.tramos(t, inclina_keys),
 		"rumbo": SpriteLienzo.tramos(t, rumbo_keys),
 		"agacha": 0.12}
+
+
+# PICAR UNA VETA. A dos manos, de arriba abajo, siempre mirando al este (ver ANIMS). Sus ocho
+# fotogramas NO se reproducen de corrido: la faena FIJA el 0-3 segun lo que llevas cargado (el pico
+# sube mientras mantienes ESPACIO) y al soltar arranca desde el 4, que es la descarga.
+#
+# EL GOLPE ACABA ABAJO Y DELANTE (+0.95): la veta esta al pie de la pared, a ras de suelo, y el pico
+# tiene que llegarle ahi. Con +1.15 (y no digamos el +1.45 del hachazo de combate) bajaba tan
+# empinado que se clavaba en el suelo delante de los pies, a medio camino de la veta.
+# 'rumbo' FIJO y hacia la camara (+0.28): de perfil puro el brazo lejano queda escondido detras del
+# cercano y el mango parece salir de una sola mano.
+static func _pose_picar(t: float) -> Dictionary:
+	# EN ALTO DE VERDAD (-2.75, las manos por encima de la coronilla). Con -2.10 el pico se quedaba a la
+	# altura de la cabeza y, con la camara a 45 grados y la cabeza tan grande, el pelo lo tapaba entero:
+	# no se leia que lo levantara. Y en reposo va por DELANTE (+0.5), en guardia, no colgando a los pies.
+	var brazo_keys := [[0.0, 0.50], [0.143, -0.70], [0.286, -1.90], [0.429, -2.75],
+		[0.571, -2.10], [0.714, -0.10], [0.857, 0.95], [1.0, 0.80]]
+	var inclina_keys := [[0.0, 0.10], [0.429, -0.18], [0.571, -0.10], [0.857, 0.34], [1.0, 0.28]]
+	var avance_keys := [[0.0, 0.0], [0.429, -0.8], [0.571, -0.4], [0.857, 1.6], [1.0, 1.2]]
+	var agacha_keys := [[0.0, 0.10], [0.429, 0.04], [0.857, 0.22], [1.0, 0.18]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"inclina": SpriteLienzo.tramos(t, inclina_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		# Pies abiertos, el de delante adelantado: se planta para dar el golpe.
+		"paso": 0.18, "rumbo": 0.28}
 
 
 # EN GUARDIA: con el arma fuera pero sin atacar. Como el idle (respira) pero con los dos brazos
