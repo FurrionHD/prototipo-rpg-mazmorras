@@ -1878,22 +1878,51 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 	grid.add_theme_constant_override("v_separation", 6)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(grid)
-	for i in piezas.size():
-		var p: Dictionary = piezas[i]
-		var c := CeldaObjeto.new()
-		c.custom_minimum_size = Vector2(lado, lado)
-		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		c.button_pressed = (i == sel)
-		c.tooltip_text = String(p.get("tooltip", ""))
-		if bool(p.get("activo", true)):
-			c.pressed.connect(pulsado.bind(i))
-		else:
-			c.disabled = true
-		grid.add_child(c)
-		# DESPUES de meterla en el arbol: configurar() repinta, y repintar un nodo suelto no sirve
-		# de nada porque aun no tiene tamaño (ver el guardia de _draw).
-		c.configurar(p.get("item") as Resource, String(p.get("pie", "")), String(p.get("marca", "")),
-			int(p.get("plus", -1)))
+	# LAS QUE SE VEN, YA; EL RESTO, EN LOS FOTOGRAMAS SIGUIENTES. Crear seiscientas celdas de golpe (el
+	# baul lleno) eran ~100 ms de cambio de pestaña, y a la vez solo caben unas cuarenta en pantalla:
+	# esas salen en el acto y las de abajo se van creando de tanda en tanda, fuera de la vista. Para
+	# cuando bajas con el scroll ya estan.
+	var de_golpe: int = mini(piezas.size(), maxi(1, columnas) * CELDAS_FILAS_AL_ABRIR)
+	for i in de_golpe:
+		_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
+	if de_golpe < piezas.size():
+		_resto_de_rejilla(grid, piezas, de_golpe, sel, pulsado, lado, maxi(1, columnas) * CELDAS_FILAS_POR_TANDA)
+
+
+const CELDAS_FILAS_AL_ABRIR := 8    # filas que se crean en el acto (una pantalla y algo)
+const CELDAS_FILAS_POR_TANDA := 6   # y las que se añaden en cada fotograma despues
+
+
+static func _resto_de_rejilla(grid: GridContainer, piezas: Array, desde: int, sel: int,
+		pulsado: Callable, lado: float, por_tanda: int) -> void:
+	var i: int = desde
+	while i < piezas.size():
+		await grid.get_tree().process_frame
+		# La rejilla puede haberse ido mientras tanto (cambias de pestaña a media carga): se para.
+		if not is_instance_valid(grid) or not grid.is_inside_tree() or muriendo(grid):
+			return
+		var hasta: int = mini(piezas.size(), i + por_tanda)
+		while i < hasta:
+			_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
+			i += 1
+
+
+static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: int,
+		pulsado: Callable, lado: float) -> void:
+	var c := CeldaObjeto.new()
+	c.custom_minimum_size = Vector2(lado, lado)
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.button_pressed = (i == sel)
+	c.tooltip_text = String(p.get("tooltip", ""))
+	if bool(p.get("activo", true)):
+		c.pressed.connect(pulsado.bind(i))
+	else:
+		c.disabled = true
+	grid.add_child(c)
+	# DESPUES de meterla en el arbol: configurar() repinta, y repintar un nodo suelto no sirve
+	# de nada porque aun no tiene tamaño (ver el guardia de _draw).
+	c.configurar(p.get("item") as Resource, String(p.get("pie", "")), String(p.get("marca", "")),
+		int(p.get("plus", -1)))
 
 
 # EL BANNER DE LA FICHA: la tira ancha con el objeto en grande y su "x N", que es lo primero del

@@ -65,6 +65,9 @@ func _ready() -> void:
 	# Input.action_press no genera un evento de tecla y este menu escucha eventos, asi que el camino
 	# es llamarle a _toggle() directamente.
 	add_to_group("menu_inventario")
+	# LA PRECARGA de los dibujos de los objetos, en segundo plano y una sola vez por partida (ver
+	# SpritesObjeto.precargar): la primera pestaña llena que abras ya los tiene hechos.
+	(func(): IconoItem.SpritesObjeto.precargar(get_tree())).call_deferred()
 
 	# con_lateral = FALSE: las pestañas van en una FILA ARRIBA, no en una columna a la izquierda. Es
 	# la forma que tiene el menu en escritorio, y ademas devuelve a la rejilla los 230 px que se

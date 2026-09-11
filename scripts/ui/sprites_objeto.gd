@@ -88,6 +88,114 @@ static func pintar_item(ci: CanvasItem, centro: Vector2, lado: float, item: Reso
 	return true
 
 
+# ============================================================
+#  EL DIBUJO YA HECHO IMAGEN (para las rejillas)
+# ============================================================
+# Pintar un icono rectangulo a rectangulo cuesta cientos de draw_rect, y una rejilla con seiscientos
+# montones (el baul lleno) se llevaba MEDIO SEGUNDO solo en eso cada vez que se abria la pestaña --
+# medido. Aqui cada dibujo se pinta UNA vez en una imagen y se guarda: la celda solo la enseña, en un
+# TextureRect con filtro NEAREST (el pixel sale nitido aunque se amplie).
+#
+# Devuelve {tex, caja} -- 'caja' es cuanto del hueco ocupa (el dibujo en rejilla trae su aire; la
+# planta y el pez vienen recortados) -- o {} si ese objeto no tiene dibujo aqui.
+static var _cache_tex: Dictionary = {}
+
+static func textura_item(item: Resource) -> Dictionary:
+	var e: Dictionary = _encargo(item)
+	if e.is_empty():
+		return {}
+	var col: Color = e["color"]
+	var clave: String = "%s|%s|%d|%s|%s" % [String(e.get("forma", "")), col.to_html(),
+		int(e.get("grietas", 0)), bool(e.get("puro", false)),
+		String(e["pez"].id) if e.has("pez") else str(e.get("planta", ""))]
+	if _cache_tex.has(clave):
+		return _cache_tex[clave]
+	var img: Image
+	var caja: float = 1.0
+	if e.has("pez") or e.has("planta"):
+		img = (_imagen_pez(e["pez"], col, int(e.get("grietas", 0))) if e.has("pez")
+			else _imagen_planta(int(e["planta"]), col, int(e.get("grietas", 0)))).duplicate()
+		caja = 0.92
+	else:
+		var celdas: PackedByteArray = _celdas_de(String(e["forma"]), int(e.get("grietas", 0)), RES_GRANDE)
+		img = _a_imagen(celdas, RES_GRANDE, _paleta(col, e.get("veta", Color(0, 0, 0, 0))))
+	if bool(e.get("puro", false)):
+		_destello_en(img)
+	var out: Dictionary = {"tex": ImageTexture.create_from_image(img), "caja": caja}
+	_cache_tex[clave] = out
+	return out
+
+
+# LA PRECARGA: genera en segundo plano los dibujos de todo lo que puede salir en una rejilla (cada
+# material en sus cuatro estados y cada consumible), unos pocos por fotograma, para que la primera
+# vez que se abre una pestaña llena ya esten hechos. Sin esto, esa primera vez se llevaba ~230 ms
+# generandolos todos de golpe (medido con el baul lleno). Se llama una vez; si ya esta en marcha o
+# hecha, no hace nada.
+static var _precarga_hecha: bool = false
+
+static func precargar(arbol: SceneTree, por_fotograma: int = 10) -> void:
+	if _precarga_hecha:
+		return
+	_precarga_hecha = true
+	# Tambien la CARGA de los .tres va repartida: cargar los ~250 de golpe antes de empezar era un
+	# tiron de 43 ms en un solo fotograma (medido).
+	var n: int = 0
+	for r in Game.rutas_materiales() + Game.rutas_consumibles():
+		var res: Resource = load(r)
+		if res is MaterialData:
+			for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+					MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]:
+				textura_item(MaterialItem.crear(res as MaterialData, cal))
+				n += 1
+		elif res != null:
+			textura_item(res)
+			n += 1
+		if n >= por_fotograma:
+			n = 0
+			await arbol.process_frame
+
+
+static func _celdas_de(forma: String, grietas: int, res: int) -> PackedByteArray:
+	var clave: String = "%s|%d|%d" % [forma, grietas, res]
+	var celdas: PackedByteArray = _cache.get(clave, PackedByteArray())
+	if celdas.is_empty():
+		celdas = _rasterizar(_facetas(forma), grietas, res)
+		_cache[clave] = celdas
+	return celdas
+
+
+static func _a_imagen(celdas: PackedByteArray, res: int, pal: Dictionary) -> Image:
+	var img := Image.create(res, res, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for i in celdas.size():
+		var c: int = celdas[i]
+		if c != 0 and pal.has(c):
+			img.set_pixel(i % res, i / res, pal[c])
+	return img
+
+
+# El destello del puro, pintado DENTRO de la imagen (el mismo dibujo que _destello, en pixeles).
+static func _destello_en(img: Image) -> void:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var oro: Color = FIJOS["Y"]
+	var pon := func(x: int, y: int, c: Color) -> void:
+		if x >= 0 and y >= 0 and x < w and y < h:
+			img.set_pixel(x, y, c if c.a >= 1.0 else img.get_pixel(x, y).blend(c))
+	var brazo: int = maxi(2, w / 10)
+	var cx: int = int(w * 0.78)
+	var cy: int = int(h * 0.20)
+	for d in range(1, brazo + 1):
+		var c: Color = oro if d < brazo else Color(oro, 0.6)
+		pon.call(cx + d, cy, c)
+		pon.call(cx - d, cy, c)
+		pon.call(cx, cy + d, c)
+		pon.call(cx, cy - d, c)
+	for dd in [Vector2i(1, 1), Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1)]:
+		pon.call(cx + dd.x, cy + dd.y, Color(oro, 0.7))
+	pon.call(cx, cy, FIJOS["W"])
+
+
 # QUE FORMA, DE QUE COLOR Y CON QUE ESTADO. {} = sin dibujo todavia.
 static func _encargo(item: Resource) -> Dictionary:
 	if item is MaterialItem:

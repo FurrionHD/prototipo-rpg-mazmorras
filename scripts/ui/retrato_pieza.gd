@@ -54,7 +54,10 @@ static func nodo() -> TextureRect:
 # material, una pocion, los puños): entonces 'tr' se esconde y quien lo enseña pinta su icono.
 static func poner(tr: TextureRect, item: Resource, esc: float) -> bool:
 	var r: Dictionary = {}
-	if item != null:
+	# PRIMERO si tiene dibujo del muñeco, y SOLO ENTONCES su meta: Game.meta_de CREA la entrada si no
+	# existe, y preguntarla para cada material de la rejilla llenaba item_meta de cientos de entradas
+	# de materiales que no la necesitan (medido: 592 al abrir el baul lleno).
+	if item != null and not _datos(item).is_empty():
 		r = de(item, int(Game.meta_de(item).get("tier", 1)), Game.mejoras_actuales(item), esc)
 	tr.visible = not r.is_empty()
 	tr.texture = r.get("tex", null)

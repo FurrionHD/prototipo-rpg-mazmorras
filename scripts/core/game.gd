@@ -10331,6 +10331,11 @@ func tope_mejoras(item: Resource, nucleo: MaterialData) -> int:
 func mejoras_actuales(item: Resource) -> int:
 	if item is ConsumableData:
 		return (item as ConsumableData).plus()
+	# SIN META NO HAY MEJORAS, y no se le crea una para averiguarlo: meta_de() CREA la entrada si
+	# falta, y la celda pregunta esto por CADA objeto de la rejilla -- materiales y cristales
+	# incluidos --, asi que abrir el baul lleno metia cientos de entradas inutiles en item_meta.
+	if item == null or not item_meta.has(item):
+		return 0
 	return Upgrades.total_mejoras(meta_de(item)["mejoras"])
 
 # Nucleos (items, no unidades) que hay en el hogar de ese tipo.

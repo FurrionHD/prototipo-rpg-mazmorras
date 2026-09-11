@@ -66,6 +66,16 @@ var _retrato: TextureRect = null
 # Lo que mide el hueco del retrato, en fraccion del lado. Un pelo mas que el icono (LADO_ICONO): el
 # retrato se recorta a la silueta de la pieza, sin el aire que lleva el cubo alrededor.
 const LADO_RETRATO := 0.56
+const SpritesObjeto = preload("res://scripts/ui/sprites_objeto.gd")
+var _caja_icono: float = LADO_RETRATO   # lo que ocupa lo que haya en _retrato (retrato o dibujo)
+# SOLO SE PINTA LO QUE SE VE. Una rejilla con el baul lleno son ~600 celdas y cada una es un fondo en
+# degradado, sus marcas y sus textos: pintarlas todas al abrir la pestaña costaba casi medio segundo
+# (medido), aunque a la vez solo se ven unas cuarenta. Las de fuera se quedan PENDIENTES y se pintan
+# al entrar con el scroll.
+var _scroll: ScrollContainer = null
+var _pendiente: bool = false
+static var _vacio: StyleBoxEmpty = null
+var _tiene_retrato: bool = false   # si _retrato lleva algo que enseñar (su 'visible' se apaga fuera de vista)
 
 
 # 'pie' vacio = la banda va sin texto (una pieza unica: un arma, una mochila). La banda se dibuja
@@ -75,7 +85,18 @@ func configurar(objeto: Resource, pie: String = "", etiqueta: String = "", nivel
 	texto_pie = pie
 	marca = etiqueta
 	plus = nivel
-	RetratoPieza.poner(_retrato, item, RetratoPieza.ESC_CELDA)
+	_caja_icono = LADO_RETRATO
+	# El equipo con dibujo del muñeco, su retrato; si no, el dibujo del objeto YA HECHO IMAGEN (ver
+	# SpritesObjeto.textura_item). Los dos en el mismo TextureRect: pintarlo aqui rectangulo a
+	# rectangulo costaba medio segundo con el baul lleno.
+	if not RetratoPieza.poner(_retrato, item, RetratoPieza.ESC_CELDA) and item != null:
+		var t: Dictionary = SpritesObjeto.textura_item(item)
+		if not t.is_empty():
+			_retrato.texture = t["tex"]
+			_retrato.material = null
+			_retrato.visible = true
+			_caja_icono = LADO_ICONO * IconoItem.ENCAJE_DIBUJO * float(t["caja"])
+	_tiene_retrato = _retrato.visible
 	queue_redraw()
 
 
@@ -102,8 +123,12 @@ func _init() -> void:
 func _ready() -> void:
 	# El estilo del tema se quita entero: lo pinta _draw(). Hay que poner los CINCO estados o Godot
 	# rellena los que falten con su gris y la celda cambia de aspecto al pasar el raton por encima.
+	# UNO para todas las celdas, no cinco por celda: con el baul lleno eran casi tres mil objetos
+	# identicos creados para nada al abrir la pestaña.
+	if _vacio == null:
+		_vacio = StyleBoxEmpty.new()
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
-		add_theme_stylebox_override(estado, StyleBoxEmpty.new())
+		add_theme_stylebox_override(estado, _vacio)
 	mouse_entered.connect(func():
 		_hover = true
 		queue_redraw())
@@ -114,6 +139,26 @@ func _ready() -> void:
 	# blanco): sin esto, seleccionar otra dejaba las dos encendidas hasta el siguiente rebuild.
 	toggled.connect(func(_on): queue_redraw())
 	resized.connect(queue_redraw)
+	# EL SCROLL que la contiene, si hay: al desplazarse, las celdas que se habian quedado sin pintar
+	# por estar fuera de la vista se pintan al entrar (ver _draw).
+	var p: Node = get_parent()
+	while p != null and not (p is ScrollContainer):
+		p = p.get_parent()
+	if p != null:
+		_scroll = p as ScrollContainer
+		_scroll.get_v_scroll_bar().value_changed.connect(func(_v):
+			if _pendiente:
+				queue_redraw())
+		_scroll.resized.connect(func():
+			if _pendiente:
+				queue_redraw())
+
+
+# ¿Se ve ahora mismo dentro de su scroll? Sin scroll, siempre.
+func _a_la_vista() -> bool:
+	if _scroll == null or not is_instance_valid(_scroll):
+		return true
+	return _scroll.get_global_rect().grow(size.y).intersects(get_global_rect())
 
 
 func _draw() -> void:
@@ -121,6 +166,11 @@ func _draw() -> void:
 	var h: float = size.y
 	if w <= 1.0 or h <= 1.0:
 		return   # el contenedor aun no ha colocado la celda; ya volvera por resized
+	if not _a_la_vista():
+		_pendiente = true
+		_retrato.visible = false   # su dibujo tampoco: se enseña cuando la celda se pinte
+		return
+	_pendiente = false
 	var col: Color = IconoItem.color_escala(item) if item != null else Color(0.5, 0.5, 0.55)
 	var borde: PackedVector2Array = _contorno(w, h)
 
@@ -161,8 +211,9 @@ func _draw() -> void:
 	# la banda debajo, centrarlo en el total lo deja visiblemente bajo). Con 'encajar' para que un
 	# frasco y un cubo ocupen lo mismo -- ver IconoItem.ENCAJE.
 	# Con retrato (el equipo con dibujo), el retrato; si no, el icono de siempre.
-	if _retrato.visible:
-		RetratoPieza.encajar(_retrato, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * LADO_RETRATO)
+	if _tiene_retrato:
+		_retrato.visible = true
+		RetratoPieza.encajar(_retrato, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * _caja_icono)
 		# EL RETRATO VA ENCIMA DE TODO lo que pinta este _draw (es un hijo, y los hijos se pintan
 		# despues del padre), asi que el velo de apagada no lo tapa: se le oscurece a el directamente.
 		_retrato.modulate = Color(0.42, 0.43, 0.46) if disabled else Color.WHITE
