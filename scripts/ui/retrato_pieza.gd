@@ -28,7 +28,6 @@ const ESC := 4.0
 const ESC_CELDA := 2.0
 const ANIM := "idle"
 const DIR_SUR := 0
-const DIR_NE := 3
 # El hueco entre dos capas que se retratan JUNTAS (los dos guanteletes), en fraccion de su ancho.
 const HUECO_PAR := 0.25
 
@@ -139,15 +138,11 @@ static func _datos(item: Resource) -> Dictionary:
 		tn2 = ArmaSprites.TIPO_NOMBRE[int((item as WeaponData).tipo)]
 	else:
 		return {}
-	# La varita no se desenvaina nunca (solo tiene capa de cadera), asi que va de pie.
-	var clave: String = "arma_varita_cadera_izq" if tn2 == "varita" else "arma_%s_mano_der" % tn2
-	# EN DIAGONAL Y DADA LA VUELTA. Se miraron las ocho direcciones de la guardia en una hoja de
-	# contactos: en todas el arma cuelga con la punta hacia ABAJO de la imagen (la camara va desde
-	# arriba y el arma apunta hacia delante). La 3 (NE) es la que la deja en diagonal y entera; volteada
-	# en vertical queda la empuñadura abajo y la punta arriba, que es como se lee un arma suelta.
-	return {"claves": [clave], "pintor": ArmaSprites.pintar,
-		"anim": ANIM if tn2 == "varita" else "guardia", "dir": DIR_SUR if tn2 == "varita" else DIR_NE,
-		"voltear": tn2 != "varita",
+	# LAS ARMAS NO SALEN DE NINGUNA POSE DEL MUÑECO: en todas las de guardia cuelgan con la punta hacia
+	# abajo y escorzadas (se miro en una hoja de contactos de las ocho direcciones). Tienen un pintor
+	# de retrato propio que las dibuja enteras, rectas y en diagonal: ArmaSprites.pintar_retrato. La
+	# "clave" que se le pasa es el TIPO de arma.
+	return {"claves": [tn2], "pintor": ArmaSprites.pintar_retrato,
 		"clave_roles": ArmaSprites.CLAVE_ROLES, "roles": ArmaSprites.ROLES,
 		"familia": ArmaSprites.familia_de(tn2)}
 

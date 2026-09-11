@@ -47,12 +47,20 @@ const DOS_MANOS := ["mandoble", "hacha_grande", "martillo_grande", "baston"]
 # GEOMETRÍA por tipo, en unidades de mundo (PoseJugador.ALTO_MUNDO = 60). 'mango' es el trozo que
 # va del puño a la guarda, 'hoja' de la guarda a la punta. Las romas (maza/martillo/hacha) no
 # tienen hoja: llevan 'cabeza'. Ver PoseJugador.agarre_arma para el eje.
+#
+# LA HOJA NO ES UN CONO. Iba de 'r_hoja' en la guarda a la punta en una sola rampa, asi que toda
+# espada era un triangulo largo -- en el retrato de la vitrina se leia como una hoja de arbol. Ahora
+# 'cuerpo' es la fraccion de la hoja que mantiene el ancho (casi) entero, y solo el resto se afila:
+# la silueta de una espada de verdad.
+#
+# 'pomo' y 'copa' SI SE DIBUJAN: la copa del estoque estaba en esta tabla desde el principio y el
+# pintor no la leia nunca.
 const GEO := {
-	"daga":            {"mango": 3.5,  "hoja": 8.0,  "r_mango": 1.5, "r_hoja": 2.1, "guarda": 2.8, "punta": true},
-	"espada_corta":    {"mango": 4.0,  "hoja": 14.0, "r_mango": 1.6, "r_hoja": 2.5, "guarda": 4.0, "punta": true},
-	"espada_larga":    {"mango": 5.0,  "hoja": 19.0, "r_mango": 1.7, "r_hoja": 2.7, "guarda": 4.6, "punta": true, "pomo": true},
-	"estoque":         {"mango": 4.6,  "hoja": 18.0, "r_mango": 1.3, "r_hoja": 1.5, "guarda": 3.0, "punta": true, "copa": true},
-	"mandoble":        {"mango": 8.0,  "hoja": 17.0, "r_mango": 2.0, "r_hoja": 3.4, "guarda": 5.4, "punta": true},
+	"daga":            {"mango": 3.5,  "hoja": 8.0,  "r_mango": 1.5, "r_hoja": 2.1, "guarda": 3.4, "punta": true, "cuerpo": 0.55, "pomo": true},
+	"espada_corta":    {"mango": 4.0,  "hoja": 14.0, "r_mango": 1.6, "r_hoja": 2.4, "guarda": 5.0, "punta": true, "cuerpo": 0.70, "pomo": true},
+	"espada_larga":    {"mango": 5.0,  "hoja": 19.0, "r_mango": 1.7, "r_hoja": 2.6, "guarda": 6.0, "punta": true, "cuerpo": 0.76, "pomo": true},
+	"estoque":         {"mango": 4.6,  "hoja": 18.0, "r_mango": 1.3, "r_hoja": 1.4, "guarda": 3.0, "punta": true, "cuerpo": 0.80, "pomo": true, "copa": true},
+	"mandoble":        {"mango": 8.0,  "hoja": 17.0, "r_mango": 2.0, "r_hoja": 3.3, "guarda": 7.0, "punta": true, "cuerpo": 0.74, "pomo": true},
 	"maza_peq":        {"mango": 9.0,  "hoja": 0.0,  "r_mango": 1.8, "cabeza": 3.8, "cabeza_forma": "bola"},
 	"hacha_grande":    {"mango": 17.0, "hoja": 0.0,  "r_mango": 2.1, "cabeza": 6.2, "cabeza_forma": "hacha"},
 	"martillo_grande": {"mango": 17.0, "hoja": 0.0,  "r_mango": 2.2, "cabeza": 5.4, "cabeza_forma": "caja"},
@@ -222,37 +230,93 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	_dibujar(piezas, esq, grip, eje, g)
 
 
+# ============================================================
+#  EL RETRATO: el arma SUELTA, recta y en diagonal
+# ============================================================
+# Para la vitrina y las celdas del menu (ver scripts/ui/retrato_pieza.gd). No sale de ninguna pose
+# del muñeco: en todas las de guardia el arma cuelga hacia delante, o sea hacia abajo y escorzada en
+# pantalla, y retratada asi una espada era un palito corto. Aqui se dibuja entera, con la empuñadura
+# abajo a la izquierda y la punta arriba a la derecha, como se enseña un arma suelta.
+#
+# Con 'gira': false (el giro de la direccion no pinta nada: el arma no la lleva nadie) y el EJE
+# COMPENSADO: la camara aplasta la altura (SIN_CAM), asi que para que en pantalla salga a 45 grados
+# y con su largo de verdad, la componente z se estira lo que la camara va a encoger.
+const RETRATO_DIR := Vector2(0.7071, 0.7071)   # en pantalla: x a la derecha, y hacia ARRIBA
+const RETRATO_ALTURA := 30.0                  # a que altura del lienzo se centra (media figura)
+
+static func pintar_retrato(esq: Dictionary, piezas: Array, tipo: String) -> void:
+	var g: Dictionary = GEO.get(tipo, {})
+	if g.is_empty():
+		return
+	var eje := Vector3(RETRATO_DIR.x, 0.0, RETRATO_DIR.y / SpriteLienzo.SIN_CAM)
+	var perp := Vector2(-RETRATO_DIR.y, RETRATO_DIR.x)
+	var lado := Vector3(perp.x, 0.0, perp.y / SpriteLienzo.SIN_CAM)
+	# CENTRADA: se mide lo largo que es entera (del pomo a la punta o a la cabeza) y se coloca la
+	# empuñadura media arma por debajo del centro. Asi un baston y una daga caen en el mismo sitio.
+	var largo: float = float(g.get("mango", 4.0)) + float(g.get("hoja", 0.0)) \
+		+ float(g.get("cabeza", 0.0))
+	var grip: Vector3 = Vector3(0.0, 0.0, RETRATO_ALTURA) - eje * (largo * 0.5)
+	_dibujar(piezas, esq, grip, eje, g, lado, {"gira": false})
+
+
+# 'lado' es hacia donde se cruzan la guarda y la cabeza del hacha o del martillo. Vacio = el de
+# siempre (perpendicular al eje en horizontal), que es lo que quiere el muñeco; el retrato pasa el
+# suyo, perpendicular EN PANTALLA. 'op' va a todas las piezas (el retrato manda 'gira': false).
 static func _dibujar(piezas: Array, esq: Dictionary, grip: Vector3, eje: Vector3,
-		g: Dictionary) -> void:
+		g: Dictionary, lado: Vector3 = Vector3.ZERO, op: Dictionary = {}) -> void:
+	if lado == Vector3.ZERO:
+		lado = eje.cross(Vector3(0.0, 0.0, 1.0))
+		if lado.length() < 0.01:
+			lado = Vector3(1.0, 0.0, 0.0)
+		lado = lado.normalized()
 	var r_mango: float = float(g.get("r_mango", 1.2))
 	var mango_fin: Vector3 = grip + eje * float(g.get("mango", 4.0))
-	# El mango / astil.
-	PoseJugador.cadena(piezas, esq, grip, mango_fin, r_mango, r_mango, Tono.MANGO)
+	# El mango / astil, con su lado en sombra: un solo tono se leia como un palo pintado.
+	PoseJugador.cadena(piezas, esq, grip, mango_fin, r_mango, r_mango, Tono.MANGO, op)
+	PoseJugador.cadena(piezas, esq, grip - lado * (r_mango * 0.45), mango_fin - lado * (r_mango * 0.45),
+		r_mango * 0.55, r_mango * 0.55, Tono.MANGO_S, op.merged({"solo_sobre": [Tono.MANGO]}))
 
-	# La guarda: una barra corta cruzada, centrada en el final del mango (pasa por él -> queda
-	# pegada al astil, no suelta).
+	# EL POMO: el remate del puño. Es lo que cierra la empuñadura; sin el, el mango acababa en seco.
+	if g.get("pomo", false):
+		PoseJugador.poner(piezas, esq, grip - eje * (r_mango * 0.7),
+			Vector3.ONE * (r_mango * 1.25), Tono.METAL, op)
+
+	# La guarda: una barra cruzada, centrada en el final del mango (pasa por el -> queda pegada al
+	# astil, no suelta), con los extremos engordados para que se lea como guarda y no como una raya.
 	var guarda: float = float(g.get("guarda", 0.0))
 	if guarda > 0.0:
-		var perp: Vector3 = eje.cross(Vector3(0.0, 0.0, 1.0))
-		if perp.length() < 0.01:
-			perp = Vector3(1.0, 0.0, 0.0)
-		perp = perp.normalized() * guarda * 0.5
-		PoseJugador.cadena(piezas, esq, mango_fin - perp, mango_fin + perp,
-			r_mango * 0.9, r_mango * 0.9, Tono.METAL)
+		var pg: Vector3 = lado * guarda * 0.5
+		PoseJugador.cadena(piezas, esq, mango_fin - pg, mango_fin + pg,
+			r_mango * 0.85, r_mango * 0.85, Tono.METAL, op)
+		for s in [-1.0, 1.0]:
+			PoseJugador.poner(piezas, esq, mango_fin + pg * s, Vector3.ONE * (r_mango * 1.05),
+				Tono.METAL, op)
+	# LA COPA del estoque: la cazoleta que le tapa la mano. Es lo que lo distingue de una espada fina.
+	if g.get("copa", false):
+		PoseJugador.poner(piezas, esq, mango_fin - eje * (r_mango * 0.6),
+			Vector3.ONE * (r_mango * 2.0), Tono.METAL, op)
 
-	# La hoja.
+	# LA HOJA: el CUERPO mantiene el ancho y solo la punta se afila (ver GEO).
 	var hoja: float = float(g.get("hoja", 0.0))
 	if hoja > 0.0:
 		var r_hoja: float = float(g.get("r_hoja", 1.8))
-		var r_punta: float = r_hoja * (0.25 if g.get("punta", false) else 1.0)
+		var r_punta: float = r_hoja * (0.2 if g.get("punta", false) else 1.0)
+		var cuerpo: float = clampf(float(g.get("cuerpo", 0.0)), 0.0, 0.95)
 		var hoja_fin: Vector3 = mango_fin + eje * hoja
-		PoseJugador.cadena(piezas, esq, mango_fin, hoja_fin, r_hoja, r_punta, Tono.METAL)
-		# El filo: un realce fino por el centro, solo sobre el acero (no se sale de la hoja).
-		PoseJugador.cadena(piezas, esq, mango_fin, hoja_fin,
-			r_hoja * 0.45, r_punta * 0.45, Tono.METAL_L, {"solo_sobre": [Tono.METAL]})
-		if g.get("pomo", false):
-			PoseJugador.poner(piezas, esq, grip - eje * (r_mango * 0.8),
-				Vector3(r_mango * 1.3, r_mango * 1.3, r_mango * 1.3), Tono.METAL)
+		var quiebre: Vector3 = mango_fin + eje * (hoja * cuerpo)
+		var r_quiebre: float = r_hoja * 0.9
+		if cuerpo > 0.0:
+			PoseJugador.cadena(piezas, esq, mango_fin, quiebre, r_hoja, r_quiebre, Tono.METAL, op)
+			PoseJugador.cadena(piezas, esq, quiebre, hoja_fin, r_quiebre, r_punta, Tono.METAL, op)
+		else:
+			PoseJugador.cadena(piezas, esq, mango_fin, hoja_fin, r_hoja, r_punta, Tono.METAL, op)
+		# EL LADO EN SOMBRA y EL FILO en luz, los dos solo sobre el acero (no se salen de la hoja). Con
+		# un tono liso la hoja era plana; con la sombra a un lado y el brillo al otro, tiene arista.
+		var sombra: Dictionary = op.merged({"solo_sobre": [Tono.METAL]})
+		PoseJugador.cadena(piezas, esq, mango_fin - lado * (r_hoja * 0.5),
+			hoja_fin - lado * (r_punta * 0.5), r_hoja * 0.5, r_punta * 0.5, Tono.METAL_S, sombra)
+		PoseJugador.cadena(piezas, esq, mango_fin + lado * (r_hoja * 0.15),
+			hoja_fin, r_hoja * 0.32, r_punta * 0.4, Tono.METAL_L, sombra)
 
 	# La cabeza (romas).
 	var cabeza: float = float(g.get("cabeza", 0.0))
@@ -261,19 +325,41 @@ static func _dibujar(piezas: Array, esq: Dictionary, grip: Vector3, eje: Vector3
 		var centro: Vector3 = mango_fin + eje * (cabeza * 0.25)
 		match forma:
 			"hacha":
-				# Media luna: un bulto ancho desplazado a un lado del astil.
-				var lado: Vector3 = eje.cross(Vector3(0.0, 0.0, 1.0))
-				if lado.length() < 0.01:
-					lado = Vector3(1.0, 0.0, 0.0)
-				lado = lado.normalized() * cabeza * 0.55
-				PoseJugador.poner(piezas, esq, centro + lado,
-					Vector3(cabeza * 0.75, cabeza * 0.5, cabeza * 0.95), Tono.METAL)
+				# EL FILO en media luna a un lado del astil, con su borde en brillo, y un PICO corto al
+				# otro: una sola elipse de lado se leia como una bola pegada al palo.
+				# La hoja va ALARGADA A LO LARGO DEL ASTIL (una cadena paralela al mango, apartada a un
+				# lado), no redonda: una bola grande de lado era un sonajero, por mucho pico que llevara.
+				var hc: Vector3 = centro + lado * (cabeza * 0.7)
+				var alto: Vector3 = eje * (cabeza * 0.8)
+				PoseJugador.cadena(piezas, esq, hc - alto, hc + alto, cabeza * 0.42, cabeza * 0.42,
+					Tono.METAL, op)
+				PoseJugador.cadena(piezas, esq, centro, hc, cabeza * 0.34, cabeza * 0.4, Tono.METAL, op)
+				# El FILO en brillo por el borde de fuera.
+				PoseJugador.cadena(piezas, esq, hc - alto + lado * (cabeza * 0.3),
+					hc + alto + lado * (cabeza * 0.3), cabeza * 0.2, cabeza * 0.2, Tono.METAL_L,
+					op.merged({"solo_sobre": [Tono.METAL]}))
+				# El PICO de atras.
+				PoseJugador.cadena(piezas, esq, centro, centro - lado * (cabeza * 0.75),
+					cabeza * 0.3, cabeza * 0.1, Tono.METAL, op)
 			"caja":
-				PoseJugador.poner(piezas, esq, centro,
-					Vector3(cabeza, cabeza * 0.8, cabeza * 0.8), Tono.METAL)
+				# LA CABEZA CRUZADA AL MANGO, como un martillo: una barra gruesa a lo ancho. Centrada en
+				# el mango se leia como un bulto al final de un palo (una maza).
+				var pc: Vector3 = lado * (cabeza * 0.75)
+				PoseJugador.cadena(piezas, esq, centro - pc, centro + pc,
+					cabeza * 0.62, cabeza * 0.62, Tono.METAL, op)
+				PoseJugador.cadena(piezas, esq, centro - pc + eje * (cabeza * 0.2),
+					centro + pc + eje * (cabeza * 0.2), cabeza * 0.25, cabeza * 0.25, Tono.METAL_L,
+					op.merged({"solo_sobre": [Tono.METAL]}))
 			"orbe":
 				PoseJugador.poner(piezas, esq, mango_fin,
-					Vector3(cabeza, cabeza, cabeza), Tono.METAL_L)
+					Vector3(cabeza, cabeza, cabeza), Tono.METAL_L, op)
 			_:
-				PoseJugador.poner(piezas, esq, centro,
-					Vector3(cabeza, cabeza, cabeza), Tono.METAL)
+				# LA MAZA, con pinchos: la bola sola era un sonajero.
+				for k in 4:
+					var a: float = TAU * float(k) / 4.0 + PI * 0.25
+					var d: Vector3 = lado * cos(a) + eje * sin(a)
+					PoseJugador.cadena(piezas, esq, centro, centro + d * (cabeza * 1.35),
+						cabeza * 0.4, cabeza * 0.12, Tono.METAL, op)
+				PoseJugador.poner(piezas, esq, centro, Vector3(cabeza, cabeza, cabeza), Tono.METAL, op)
+				PoseJugador.poner(piezas, esq, centro + (lado + eje) * (cabeza * 0.25),
+					Vector3.ONE * (cabeza * 0.4), Tono.METAL_L, op.merged({"solo_sobre": [Tono.METAL]}))
