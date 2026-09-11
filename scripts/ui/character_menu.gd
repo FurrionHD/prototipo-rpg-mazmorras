@@ -73,6 +73,11 @@ const ALTO_MUNECO := 430.0
 const ESCALA_MUNECO := 6.0
 # El aire que se le deja al muñeco por arriba y por abajo dentro de su caja.
 const MARGEN_MUNECO := 20.0
+# Ancho de la vitrina de Cambiar (la pieza en grande del centro).
+const ANCHO_VITRINA := 260.0
+# Lo que baja la ficha de Cambiar para no meterse bajo la ✕: lo que mide la cabecera de la izquierda
+# ("Cambiar armadura" + el nombre), asi el titulo queda a la altura de las pestañas.
+const ALTO_CAB_CAMBIO := 46.0
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)
 
@@ -96,6 +101,14 @@ var _caja_muneco: Control = null
 # el dibujo de la sombra: son dos lambdas distintas y con dos cuentas parecidas la sombra acababa
 # flotando por debajo de los talones.
 var _pies_y: float = 0.0
+# LA PANTALLA DE CAMBIAR va limpia: sin la columna de secciones ni la fila de retratos, que ahi solo
+# estorban (estas eligiendo UNA pieza para UNA persona). Se esconden y vuelven al salir.
+var _lateral: Control = null
+var _cab_cambio: VBoxContainer = null
+var _cab_cambio_que: Label = null
+var _cab_cambio_quien: Label = null
+var _vitrina: Control = null
+var _vitrina_item: Resource = null   # lo que pinta la vitrina: el candidato marcado
 
 var _sec: int = SEC_FICHA
 # A QUIEN le estas mirando la ficha (indice en Game.party). Con companeros este menu deja de ser "tu
@@ -152,11 +165,38 @@ func _ready() -> void:
 	col_centro.add_theme_constant_override("separation", 4)
 	split.add_child(col_centro)
 	split.move_child(col_centro, 0)
+	# LA CABECERA DE CAMBIAR ("Cambiar armadura" sobre el nombre de quien), solo dentro de Cambiar. Esa
+	# pantalla esconde la columna de secciones —que es donde vive el titulo de siempre—, asi que
+	# sin esto no quedaria escrito en ningun sitio que estas haciendo ni a quien.
+	_cab_cambio = VBoxContainer.new()
+	_cab_cambio.add_theme_constant_override("separation", 0)
+	_cab_cambio.visible = false
+	_cab_cambio_que = Label.new()
+	_cab_cambio_que.add_theme_font_size_override("font_size", 11)
+	_cab_cambio_que.add_theme_color_override("font_color", GRIS)
+	_cab_cambio.add_child(_cab_cambio_que)
+	_cab_cambio_quien = Label.new()
+	_cab_cambio_quien.add_theme_font_size_override("font_size", 20)
+	_cab_cambio_quien.add_theme_color_override("font_color", AMBAR)
+	_cab_cambio.add_child(_cab_cambio_quien)
+	col_centro.add_child(_cab_cambio)
 	_barra_sub = HBoxContainer.new()
 	_barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	_barra_sub.add_theme_constant_override("separation", 14)
 	col_centro.add_child(_barra_sub)
 	col_centro.add_child(scroll)
+
+	# LA VITRINA: la pieza en grande entre la rejilla y la ficha, solo dentro de Cambiar. Es lo que
+	# confirma de un vistazo que lo que has tocado es lo que querias, sin leer la ficha.
+	_vitrina = Control.new()
+	_vitrina.custom_minimum_size = Vector2(ANCHO_VITRINA, 0)
+	_vitrina.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_vitrina.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vitrina.visible = false
+	_vitrina.draw.connect(_pintar_vitrina)
+	_vitrina.resized.connect(_vitrina.queue_redraw)
+	split.add_child(_vitrina)
+	split.move_child(_vitrina, 1)
 
 	# --- LA COLUMNA DE SECCIONES (izquierda) ---
 	var col_tabs: VBoxContainer = m["side"]
@@ -173,6 +213,7 @@ func _ready() -> void:
 	# La etiqueta del esqueleto se esconde en vez de borrarse: un Control oculto no ocupa sitio en un
 	# contenedor, asi que basta con eso y no hay que tocar construir().
 	var lateral: BoxContainer = col_tabs.get_parent()
+	_lateral = lateral
 	(lateral.get_child(0) as Control).visible = false
 	var titulo := VBoxContainer.new()
 	titulo.add_theme_constant_override("separation", 0)
@@ -247,7 +288,12 @@ func _toggle() -> void:
 		_set_open(false)
 
 
+# La ✕ de la esquina. Dentro de Cambiar hace de "volver", como el Esc: Cambiar es una pantalla
+# dentro de la seccion, y cerrar el menu entero desde ahi te sacaba dos niveles de golpe.
 func _cerrar() -> void:
+	if _cambiando and _root.visible:
+		_cancelar_cambio()
+		return
 	_set_open(false)
 
 
@@ -442,6 +488,16 @@ func _rebuild_real() -> void:
 	# (Cambiar) lo pisan con lo que estan haciendo.
 	_titulo_seccion.text = _pj().nombre.to_upper()
 	_pintar_retratos()
+	# LA PANTALLA DE CAMBIAR, LIMPIA: fuera la columna de secciones y la fila de retratos, dentro la
+	# cabecera propia y la vitrina. Se decide aqui, en un solo sitio, y no en cada seccion: asi salir
+	# de Cambiar por donde sea (Esc, la ✕, Volver, cambiar de seccion) lo deja todo como estaba.
+	var cambiando: bool = _cambiando and (_sec == SEC_ARMAS or _sec == SEC_ARMADURA)
+	_lateral.visible = not cambiando
+	_scroll_retratos.visible = not cambiando and _modal == null
+	_cab_cambio.visible = cambiando
+	_vitrina.visible = cambiando
+	_vitrina_item = null
+	_vitrina.queue_redraw()
 
 	match _sec:
 		SEC_FICHA: _sec_detalles()
@@ -812,8 +868,10 @@ func _cerrar_modal() -> void:
 func _ver_muneco(visible_: bool) -> void:
 	if _caja_muneco != null and is_instance_valid(_caja_muneco):
 		_caja_muneco.visible = visible_
+	# Dentro de Cambiar los retratos van escondidos de por si (ver _rebuild_real): cerrar el modal de
+	# "lo lleva puesto Fulano" no puede sacarlos otra vez.
 	if _scroll_retratos != null and is_instance_valid(_scroll_retratos):
-		_scroll_retratos.visible = visible_
+		_scroll_retratos.visible = visible_ and not _cambiando
 
 
 # ============================================================
@@ -956,7 +1014,22 @@ func _cambiar_arma() -> void:
 		rotulo = ARMOR_SLOT_LABELS[ARMOR_SLOTS[clampi(_sel, 0, 4)]]
 	else:
 		rotulo = "Arma principal" if _sel == 0 else "Mano secundaria"
-	_titulo_seccion.text = "CAMBIAR: %s" % rotulo.to_upper()
+	_cab_cambio_que.text = "Cambiar armadura" if es_armadura else "Cambiar arma"
+	_cab_cambio_quien.text = pj.nombre.to_upper()
+
+	# LAS PESTAÑAS DE HUECO, encima de la rejilla: saltar de casco a guantes (o de la principal a la
+	# secundaria) sin salir a la seccion y volver a entrar. Cada una con el dibujo de lo que va ahi.
+	var nombres: Array = []
+	var iconos: Array = []
+	if es_armadura:
+		for s in ARMOR_SLOTS:
+			nombres.append(ARMOR_SLOT_LABELS[s])
+		iconos = ["casco", "coraza", "mano", "pantalon", "botas"]
+	else:
+		nombres = ["Arma principal", "Mano secundaria"]
+		iconos = [MenuScaffold.icono_de_arma(pj.equipped_main),
+			MenuScaffold.icono_de_arma(pj.equipped_off) if pj.equipped_off != null else "escudo_med"]
+	MenuScaffold.subpestanas(_barra_sub, nombres, iconos, _sel, _on_hueco)
 
 	if cat.is_empty():
 		_note_en(_lista, "No tienes nada de esto en el baúl.")
@@ -986,8 +1059,20 @@ func _cambiar_arma() -> void:
 		})
 	MenuScaffold.rejilla_objetos(_lista, piezas, _cand, _pick_cand, _columnas(), LADO_CELDA)
 
-	# La ficha del candidato.
+	# Con la principal a dos manos no cabe nada en la otra mano: la rejilla sale entera apagada (lo
+	# decide _secundaria_valida) y esto dice por que, en vez de dejar adivinarlo.
+	if not es_armadura and _sel == 1 and pj.equipped_main != null and Game.arma_main(pj).dos_manos:
+		_note_en(_lista, "El arma principal es a dos manos: no admite secundaria.")
+
+	# La ficha del candidato. EMPIEZA A LA ALTURA DE LAS PESTAÑAS y no arriba del todo: sin la fila de
+	# retratos, que era la que la empujaba hacia abajo, el titulo subia hasta la esquina y se metia
+	# debajo de la ✕.
+	var hueco := Control.new()
+	hueco.custom_minimum_size = Vector2(0, ALTO_CAB_CAMBIO)
+	_content.add_child(hueco)
 	var item: Resource = cat[_cand]
+	_vitrina_item = item
+	_vitrina.queue_redraw()
 	MenuScaffold.titulo_item(_content, Game.item_display_name(item),
 		Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
 	MenuScaffold.banner_item(_content, item, Game.item_plus(item), rotulo)
@@ -1025,8 +1110,60 @@ func _cambiar_arma() -> void:
 	var eq: Button = MenuScaffold.pastilla(fila,
 		"Desequipar" if _cand_equipado() else "Equipar", _equipar, true, puede)
 	eq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var ca: Button = MenuScaffold.pastilla(fila, "Cancelar", _cancelar_cambio, false)
+	# "Volver" y no "Cancelar": equipar ya no saca de aqui, asi que lo puesto se queda puesto y este
+	# boton no deshace nada, solo sale.
+	var ca: Button = MenuScaffold.pastilla(fila, "Volver", _cancelar_cambio, false)
 	ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+# Salta a otro hueco SIN salir de Cambiar: la pestaña de guantes abre el catalogo de guantes, con el
+# candidato en lo que ya llevas puesto ahi.
+func _on_hueco(i: int) -> void:
+	if i == _sel:
+		return
+	_sel = i
+	_cand = _indice_equipado()
+	_rebuild()
+
+
+# LA VITRINA: el candidato en grande sobre un halo del color de su peldaño, con su +N debajo. Hoy es
+# el cubito de IconoItem, el mismo de la celda; el dia que las piezas tengan dibujo, sale aqui solo.
+func _pintar_vitrina() -> void:
+	var item: Resource = _vitrina_item
+	var w: float = _vitrina.size.x
+	var h: float = _vitrina.size.y
+	if item == null or w <= 1.0 or h <= 1.0:
+		return
+	var col: Color = IconoItem.color_escala(item)
+	var lado: float = minf(w * 0.78, h * 0.5)
+	# El centro, a la altura de la rejilla y no en medio del alto entero: con la ventana alta, la
+	# pieza se iba al fondo y quedaba lejos de las celdas que la eligen.
+	var centro := Vector2(w * 0.5, minf(h * 0.42, lado * 0.75 + 40.0))
+	# El HALO: circulos concentricos cada vez mas tenues, como la sombra del muñeco de la ficha.
+	for i in 5:
+		var t: float = float(i) / 5.0
+		_vitrina.draw_circle(centro, lado * (0.62 - t * 0.10), Color(col, 0.05 + t * 0.05))
+	# El aro, del color del peldaño: la misma "esto es lo bueno que es" que el fondo de la celda.
+	_vitrina.draw_arc(centro, lado * 0.62, 0.0, TAU, 64, Color(col.lightened(0.2), 0.75), 2.0, true)
+	IconoItem.pintar(_vitrina, centro, lado * 0.62, item, true)
+	# EL +N, en una pastilla bajo el aro. Solo si lo hay: "+0" no dice nada.
+	var n: int = Game.mejoras_actuales(item)
+	if n <= 0:
+		return
+	var fuente: Font = _vitrina.get_theme_font(&"font")
+	var txt: String = "+%d" % n
+	var tam: int = 18
+	var an: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	var caja := Rect2(Vector2(centro.x - an * 0.5 - 14.0, centro.y + lado * 0.62 + 12.0),
+		Vector2(an + 28.0, float(tam) + 10.0))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.04, 0.06, 0.9)
+	sb.border_color = IconoItem.color_mejora(n)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(int(caja.size.y * 0.5))
+	_vitrina.draw_style_box(sb, caja)
+	_vitrina.draw_string(fuente, Vector2(caja.position.x + 14.0, caja.position.y + float(tam) + 1.0),
+		txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam, Color(0.97, 0.98, 1.0))
 
 
 # Equipar el candidato... o DESEQUIPAR, si es justo lo que ya llevas puesto.
@@ -1046,7 +1183,11 @@ func _equipar() -> void:
 			Game.equipar_arma(elegido as WeaponData, _pj())
 		else:
 			Game.equipar_secundaria(elegido, _pj())
-		_cambiando = false
+		# SE QUEDA EN CAMBIAR: aqui se equipa pieza a pieza (casco, luego guantes...) y echarte a la
+		# seccion tras cada una obligaba a volver a entrar. El candidato va a lo que te acabas de poner;
+		# si has desequipado, se queda donde estaba.
+		if elegido != null:
+			_cand = _indice_equipado()
 		_rebuild()
 		_refrescar_mundo())
 

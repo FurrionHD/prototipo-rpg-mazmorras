@@ -63,12 +63,17 @@ func _ready() -> void:
 	men._abrir_cambio()
 	await _captura("1_arma_cambiar")
 	# EQUIPAR DE VERDAD, que es lo unico que comprueba que el boton hace algo: se elige otra arma del
-	# baul, se pulsa Equipar y se captura la seccion YA con el arma nueva puesta. Si la ficha de la
-	# derecha no cambia, el camino esta roto.
+	# baul, se pulsa Equipar y se captura. Equipar NO saca de Cambiar: la captura tiene que seguir en
+	# la rejilla, con la celda nueva marcada y el boton ya en "Desequipar".
 	men._pick_cand(3)
 	await _captura("1_arma_candidato")
 	men._equipar()
 	await _captura("1_arma_equipada")
+	# LA PESTAÑA DE LA SECUNDARIA, sin salir de Cambiar.
+	men._on_hueco(1)
+	await _captura("1_arma_cambiar_secundaria")
+	men._cancelar_cambio()
+	await _captura("1_arma_vuelta")
 
 	# 3) HABILIDADES, con y sin la subpestaña de magias. El personaje 0 lleva hechizos y el 3 no: es lo
 	# unico que enseña que la fila desaparece cuando no hay nada que elegir.
@@ -115,7 +120,16 @@ func _ready() -> void:
 	men._pick(1)   # pecho, que es el slot con mas piezas en el baul
 	men._abrir_cambio()
 	await _captura("3_armadura_cambiar")
+	# SALTAR A LOS GUANTES por la pestaña y equipar unos: tiene que seguir en Cambiar, en guantes.
+	men._on_hueco(2)
+	await _captura("3_armadura_cambiar_manos")
+	# La ULTIMA del catalogo y no la primera: la primera suele ser la que ya lleva, y Equipar sobre lo
+	# puesto DESEQUIPA (la captura salia con los guantes quitados).
+	men._pick_cand(men._catalogo().size() - 1)
+	men._equipar()
+	await _captura("3_armadura_manos_equipada")
 	men._cancelar_cambio()
+	await _captura("3_armadura_vuelta")
 
 	# 5) DESARROLLO: con las dos clases (subpestañas) y sin ninguna (el hueco vacio, que es justo lo
 	# que hay que comprobar que se explica solo).
