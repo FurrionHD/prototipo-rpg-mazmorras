@@ -110,7 +110,7 @@ static func textura_item(item: Resource) -> Dictionary:
 	var caja: float = 0.92 if (e.has("pez") or e.has("planta")) else 1.0
 	# HORNEADO PRIMERO, como los enemigos y el jugador: si el PNG esta en disco se carga (ver
 	# hornear_iconos); si no -- algo nuevo que aun no ha pasado por el horno --, se genera al vuelo.
-	var ruta: String = ruta_icono(clave)
+	var ruta: String = ruta_icono(clave, item)
 	var tex: Texture2D = null
 	if ResourceLoader.exists(ruta):
 		tex = load(ruta) as Texture2D
@@ -133,8 +133,43 @@ static func clave_icono(item: Resource) -> String:
 
 const CARPETA_ICONOS := "res://assets/sprites/iconos/"
 
-static func ruta_icono(clave: String) -> String:
-	return CARPETA_ICONOS + clave.replace("|", "_").replace(" ", "") + ".png"
+# EN SU CARPETA, no todos juntos (lo pidio el jefe): 663 ficheros en un solo sitio no hay quien los
+# mire. materiales/<tipo>, consumibles/<clase> y cristales.
+static func ruta_icono(clave: String, item: Resource) -> String:
+	return CARPETA_ICONOS + _carpeta_de(item) + "/" + clave.replace("|", "_").replace(" ", "") + ".png"
+
+
+const CARPETA_TIPO := {
+	MaterialData.Tipo.MINERAL: "minerales", MaterialData.Tipo.LINGOTE: "lingotes",
+	MaterialData.Tipo.MADERA: "maderas", MaterialData.Tipo.TABLON: "tablones",
+	MaterialData.Tipo.CUERO: "cueros", MaterialData.Tipo.NUCLEO: "nucleos",
+	MaterialData.Tipo.BABA: "babas", MaterialData.Tipo.PLANTA: "plantas",
+	MaterialData.Tipo.COMBUSTIBLE: "carbon", MaterialData.Tipo.CARNE: "carne",
+	MaterialData.Tipo.PESCADO: "pescado", MaterialData.Tipo.DESPENSA: "despensa",
+}
+
+static func _carpeta_de(item: Resource) -> String:
+	var d: MaterialData = (item as MaterialItem).data if item is MaterialItem else item as MaterialData
+	if d != null:
+		return "materiales/" + String(CARPETA_TIPO.get(int(d.tipo), "otros"))
+	if item is Cristal:
+		return "cristales"
+	if item is ConsumableData:
+		var c := item as ConsumableData
+		if c.es_grimorio():
+			return "consumibles/grimorios"
+		if c.es_tocho():
+			return "consumibles/tochos"
+		if c.es_plato():
+			return "consumibles/platos"
+		if c.es_cebo():
+			return "consumibles/cebos"
+		if c.es_vuelta_pueblo():
+			return "consumibles/piedras"
+		return "consumibles/pociones"
+	if item is ToolData:
+		return "herramientas"
+	return "otros"
 
 
 # El dibujo de un encargo, hecho imagen (lo que se hornea y lo que se genera al vuelo).
@@ -179,24 +214,34 @@ static func items_con_icono() -> Array:
 # EL HORNO DE LOS ICONOS (lo llama tools/hornear_sprites.gd): los guarda en PNG y tira los que ya no
 # genera nadie. Devuelve cuantos ha escrito.
 static func hornear_iconos() -> int:
-	DirAccess.make_dir_recursive_absolute(CARPETA_ICONOS)
-	var hechas: Dictionary = {}
+	var hechas: Dictionary = {}   # ruta -> true
 	for it in items_con_icono():
 		var clave: String = clave_icono(it)
-		if clave == "" or hechas.has(clave):
+		if clave == "":
 			continue
-		var e: Dictionary = _encargo(it)
-		_imagen_de(e).save_png(ProjectSettings.globalize_path(ruta_icono(clave)))
-		hechas[ruta_icono(clave).get_file()] = true
-		hechas[clave] = true
-	var dir := DirAccess.open(CARPETA_ICONOS)
-	if dir != null:
-		for f in dir.get_files():
-			if f.ends_with(".png") and not hechas.has(f):
-				dir.remove(f)
-				if dir.file_exists(f + ".import"):
-					dir.remove(f + ".import")
-	return hechas.size() / 2
+		var ruta: String = ruta_icono(clave, it)
+		if hechas.has(ruta):
+			continue
+		DirAccess.make_dir_recursive_absolute(ruta.get_base_dir())
+		_imagen_de(_encargo(it)).save_png(ProjectSettings.globalize_path(ruta))
+		hechas[ruta] = true
+	_limpiar_iconos(CARPETA_ICONOS.trim_suffix("/"), hechas)
+	return hechas.size()
+
+
+# Tira, carpeta por carpeta, los PNG que ya no genera nadie (y su .import).
+static func _limpiar_iconos(carpeta: String, hechas: Dictionary) -> void:
+	var dir := DirAccess.open(carpeta)
+	if dir == null:
+		return
+	for f in dir.get_files():
+		var ruta: String = carpeta + "/" + f
+		if f.ends_with(".png") and not hechas.has(ruta):
+			dir.remove(f)
+			if dir.file_exists(f + ".import"):
+				dir.remove(f + ".import")
+	for sub in dir.get_directories():
+		_limpiar_iconos(carpeta + "/" + sub, hechas)
 
 
 # LA PRECARGA: genera en segundo plano los dibujos de todo lo que puede salir en una rejilla (cada
