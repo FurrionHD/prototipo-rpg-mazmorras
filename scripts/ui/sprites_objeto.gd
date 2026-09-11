@@ -45,6 +45,11 @@ const FIJOS := {
 	"P": Color(0.88, 0.60, 0.62), "p": Color(0.64, 0.38, 0.42),   # la carne rosa de colas y orejas
 	"R": Color(0.92, 0.18, 0.16), "E": Color(1.0, 0.84, 0.24),    # ojos: rojo de araña, amarillo de fiera
 	"I": Color(0.95, 0.92, 0.82), "i": Color(0.70, 0.64, 0.52),   # marfil de cuernos y colmillos
+	# la MADERA de los mangos y su cuerda de atar: son de madera sea cual sea el metal de la cabeza
+	"u": Color(0.56, 0.37, 0.20), "U": Color(0.36, 0.22, 0.12), "j": Color(0.72, 0.52, 0.30),
+	"k": Color(0.82, 0.68, 0.42),
+	# el CRISTAL AZUL del farolillo de tier 3
+	"Q": Color(0.82, 0.96, 1.0), "C": Color(0.44, 0.78, 1.0), "q": Color(0.20, 0.42, 0.82),
 }
 # 'A' y 'N' son la CARNE CLARA de la madera cortada y sus ANILLOS. No son fijos: salen del color de
 # cada madera (ver _paleta), porque el corte de un tronco negro no es del mismo tono que el de un pino.
@@ -103,6 +108,19 @@ static func _encargo(item: Resource) -> Dictionary:
 		var cd := item as ConsumableData
 		var marca: String = "rombo" if cd.es_grimorio() else ("chispa" if cd.es_tomo_sabio() else "nada")
 		return {"forma": "libro_" + marca, "color": cd.color_suelo()}
+	if item is ToolData:
+		var td := item as ToolData
+		var meta: Dictionary = Game.meta_de(item)
+		var tier: int = maxi(int(meta.get("tier", 1)), 1)
+		if td.es_lampara():
+			# EL FAROLILLO CAMBIA DE ASPECTO CON EL TIER (las tres referencias del jefe): farol cuadrado,
+			# candil con asa y farol labrado de luz azul. Pasado el T3 se queda con el ultimo.
+			var ft: int = clampi(tier, 1, 3)
+			return {"forma": "farol_%d" % ft, "color": FAROL_COLOR[ft - 1]}
+		var forma_h: String = ["pico", "hoz", "hacha", "cana", "farol_1"][int(td.tipo)]
+		# La cabeza, del METAL de su tier y su mejora -- el mismo que una espada (PaletaEquipo).
+		return {"forma": forma_h, "color": PaletaEquipo.base(PaletaEquipo.METAL, tier,
+			Game.mejoras_actuales(item))}
 	if item is BackpackData:
 		# EL CUERO DE SU TIER Y SU MEJORA, el mismo que lleva una armadura de cuero (PaletaEquipo): antes
 		# todas las mochilas salian del mismo marron y una T3 no se distinguia de la basica.
@@ -122,6 +140,8 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 	# la misma hierba que arrancas es la que ves en la bolsa. El indice es el de resource_node.
 	if d.tipo == MaterialData.Tipo.PLANTA and PLANTAS_DEL_SUELO.has(id):
 		return {"planta": (clampi(d.tier, 1, 3) - 1) * 3 + d.forma_recolectable(), "color": d.color}
+	if SUELTOS.has(id):
+		return {"forma": SUELTOS[id], "color": d.color}
 	match d.tipo:
 		MaterialData.Tipo.BABA:
 			# Las babas de SLIME, como gelatina (la referencia del jefe); la de fuego, de lava. El icor y
@@ -166,6 +186,14 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 		minf(1.0, d.color.v + 0.42))
 	return {"forma": forma, "color": d.color, "veta": veta}
 
+
+# El cuerpo de cada farolillo: bronce, laton y hierro oscuro (el azul lo pone su cristal).
+const FAROL_COLOR := [Color(0.70, 0.44, 0.22), Color(0.78, 0.56, 0.26), Color(0.30, 0.31, 0.38)]
+
+# LOS SUELTOS que no son de ninguna familia (lo acordado con el jefe): el polvo en un saquito, las
+# esporas como una nube de bolitas y los liquidos en un frasquito, cada uno de su color.
+const SUELTOS := {"polvo_de_alas": "saquito", "esporas_densas": "esporas", "icor": "frasquito",
+	"veneno_insecto": "frasquito", "humor_ciego": "frasquito"}
 
 const PLANTAS_DEL_SUELO := ["hierba_palida", "raiz_amarga", "sanguinaria", "moho_simas",
 	"raiz_umbria", "liquen_abisal", "musgo_ciego", "zarza_retorcida", "flor_de_sima"]
@@ -237,6 +265,17 @@ static func _facetas(forma: String) -> Array:
 		return _nucleo(forma.trim_prefix("nucleo_"))
 	match forma:
 		"tronco": return _tronco()
+		"pico": return _pico()
+		"hacha": return _hacha()
+		"hoz": return _hoz()
+		"cana": return _cana()
+		"cuchillo": return _cuchillo()
+		"farol_1": return _farol_1()
+		"farol_2": return _farol_2()
+		"farol_3": return _farol_3()
+		"saquito": return _saquito()
+		"esporas": return _esporas()
+		"frasquito": return _frasquito()
 		"baba": return _baba(false)
 		"baba_lava": return _baba(true)
 		"carbon": return _carbon()
@@ -677,6 +716,225 @@ static func _tronco() -> Array:
 		cara.call("N", 0.30, true),
 		{"p": PackedVector2Array([a - Vector2(0.015, 0.015), a + Vector2(0.015, -0.015),
 			a + Vector2(0.015, 0.015), a + Vector2(-0.015, 0.015)]), "t": "N"},
+	]
+
+
+# ============================================================
+#  LAS HERRAMIENTAS (la referencia del jefe: en diagonal, mango abajo a la izquierda)
+# ============================================================
+# El MANGO es de madera siempre; la CABEZA, del metal de su tier (el color que llega).
+const MANGO_A := Vector2(0.12, 0.90)   # el pie del mango
+const MANGO_B := Vector2(0.66, 0.34)   # donde se encaja la cabeza
+
+static func _mango(out: Array, a: Vector2 = MANGO_A, b: Vector2 = MANGO_B, grosor: float = 0.09) -> void:
+	out.append(_tira("u", [a.x, a.y, b.x, b.y], grosor, grosor * 0.9))
+	out.append(_tira("j", [a.x - 0.01, a.y - 0.03, b.x - 0.02, b.y - 0.02], grosor * 0.3, grosor * 0.25))
+	out.append(_lin("U", [a.x + 0.03, a.y + 0.01, b.x + 0.02, b.y + 0.03]))
+
+
+# EL PICO: dos brazos curvos cruzados al mango, afilados en las puntas, y la cuerda que los ata.
+static func _pico() -> Array:
+	var out: Array = []
+	_mango(out)
+	var h: Vector2 = MANGO_B + Vector2(0.03, -0.03)
+	var p := Vector2(0.707, 0.707)     # a lo ancho de la cabeza
+	var baja := Vector2(-0.707, 0.707) # hacia el pie del mango: los brazos se curvan hacia alli
+	for s in [-1.0, 1.0]:
+		var m: Vector2 = h + p * (s * 0.18) - baja * 0.03
+		var fin: Vector2 = h + p * (s * 0.36) + baja * 0.10
+		out.append(_tira("b", [h.x, h.y, m.x, m.y, fin.x, fin.y], 0.10, 0.02))
+		out.append(_tira("l", [h.x - 0.01, h.y - 0.03, m.x - 0.01, m.y - 0.03], 0.03, 0.02))
+	out.append(_elipse("s", h.x, h.y, 0.06, 0.06, 10))
+	out.append(_lin("k", [h.x - 0.05, h.y + 0.02, h.x + 0.02, h.y + 0.06]))
+	out.append(_lin("k", [h.x - 0.03, h.y - 0.02, h.x + 0.04, h.y + 0.02]))
+	return out
+
+
+# EL HACHA: la hoja ancha a un lado, con el filo en luz, y el talon corto al otro.
+static func _hacha() -> Array:
+	var out: Array = []
+	_mango(out)
+	var h: Vector2 = MANGO_B + Vector2(0.02, -0.02)
+	var eje := Vector2(0.707, -0.707)   # a lo largo del mango, hacia arriba
+	var p := Vector2(0.707, 0.707)      # hacia el filo
+	var pts: Array = []
+	for q in [h - p * 0.07 - eje * 0.08, h - p * 0.07 + eje * 0.08, h + p * 0.10 + eje * 0.09,
+			h + p * 0.26 + eje * 0.16, h + p * 0.30 + eje * 0.02, h + p * 0.26 - eje * 0.14,
+			h + p * 0.10 - eje * 0.08]:
+		pts.append(q.x)
+		pts.append(q.y)
+	out.append(_pol("b", pts))
+	var f0: Vector2 = h + p * 0.24 + eje * 0.13
+	var f1: Vector2 = h + p * 0.27 - eje * 0.11
+	out.append(_tira("h", [f0.x, f0.y, (h + p * 0.29).x, (h + p * 0.29).y, f1.x, f1.y], 0.04, 0.04))
+	var l0: Vector2 = h - p * 0.04 + eje * 0.06
+	out.append(_lin("l", [l0.x, l0.y, (h + p * 0.12 + eje * 0.08).x, (h + p * 0.12 + eje * 0.08).y]))
+	out.append(_lin("s", [(h - p * 0.05 - eje * 0.06).x, (h - p * 0.05 - eje * 0.06).y,
+		(h + p * 0.10 - eje * 0.07).x, (h + p * 0.10 - eje * 0.07).y]))
+	return out
+
+
+# LA HOZ: el mango corto y la hoja en media luna, afilada por dentro.
+static func _hoz() -> Array:
+	var out: Array = []
+	_mango(out, Vector2(0.20, 0.90), Vector2(0.44, 0.60), 0.09)
+	var c := Vector2(0.54, 0.40)
+	var arco: Array = []
+	var filo: Array = []
+	for i in 9:
+		var a: float = lerpf(PI * 0.80, PI * 2.05, float(i) / 8.0)
+		var r: float = 0.28
+		arco.append(c.x + cos(a) * r)
+		arco.append(c.y + sin(a) * r * 0.9)
+		filo.append(c.x + cos(a) * (r - 0.03))
+		filo.append(c.y + sin(a) * (r - 0.03) * 0.9)
+	out.append(_tira("b", arco, 0.10, 0.02))
+	out.append(_lin("h", filo.slice(0, 14)))
+	out.append(_elipse("s", 0.44, 0.60, 0.045, 0.045, 8))
+	return out
+
+
+# LA CAÑA: la vara larga y fina, el puño de corcho, el carrete y el sedal colgando con su corcho de
+# pesca rojo. La vara es madera; el carrete y la anilla, del metal de su tier.
+static func _cana() -> Array:
+	return [
+		_tira("u", [0.10, 0.92, 0.84, 0.10], 0.06, 0.025),
+		_tira("j", [0.09, 0.90, 0.82, 0.10], 0.02, 0.01),
+		_tira("k", [0.10, 0.92, 0.26, 0.74], 0.08, 0.075),
+		_elipse("b", 0.30, 0.74, 0.06, 0.06, 12),
+		_elipse("s", 0.30, 0.74, 0.03, 0.03, 8),
+		{"l": P([0.84, 0.10, 0.85, 0.40, 0.84, 0.62]), "t": "x", "libre": true},
+		_elipse("R", 0.84, 0.66, 0.035, 0.035, 8),
+		_elipse("W", 0.84, 0.70, 0.03, 0.02, 8),
+	]
+
+
+# EL CUCHILLO DE DESOLLAR: hoja corta y curva, de un solo filo. Dibujado ya para cuando entre la
+# herramienta (lo pidio el jefe: servira para sacar los cristales de los enemigos).
+static func _cuchillo() -> Array:
+	var out: Array = []
+	_mango(out, Vector2(0.20, 0.86), Vector2(0.42, 0.62), 0.11)
+	out.append(_pol("b", [0.40, 0.58, 0.50, 0.46, 0.66, 0.30, 0.86, 0.14, 0.78, 0.34, 0.62, 0.52, 0.48, 0.66]))
+	out.append(_lin("h", [0.52, 0.48, 0.66, 0.32, 0.84, 0.16]))
+	out.append(_lin("s", [0.50, 0.62, 0.64, 0.50, 0.78, 0.34]))
+	out.append(_pol("s", [0.36, 0.56, 0.42, 0.52, 0.52, 0.62, 0.46, 0.68]))
+	return out
+
+
+# ============================================================
+#  LOS FAROLILLOS, UNO POR TIER (las tres referencias del jefe)
+# ============================================================
+# T1: el farol CUADRADO de siempre, con el tejadillo en punta y la luz calida por los cristales.
+static func _farol_1() -> Array:
+	return [
+		_tira("s", [0.50, 0.04, 0.50, 0.14], 0.05, 0.05),
+		_pol("s", [0.24, 0.30, 0.50, 0.12, 0.76, 0.30]),
+		_pol("l", [0.24, 0.30, 0.50, 0.12, 0.50, 0.30]),
+		_pol("d", [0.22, 0.30, 0.78, 0.30, 0.78, 0.36, 0.22, 0.36]),
+		_pol("b", [0.24, 0.36, 0.76, 0.36, 0.76, 0.80, 0.24, 0.80]),
+		# los dos cristales encendidos, con su llama
+		_pol("L", [0.30, 0.40, 0.48, 0.40, 0.48, 0.76, 0.30, 0.76]),
+		_pol("L", [0.52, 0.40, 0.70, 0.40, 0.70, 0.76, 0.52, 0.76]),
+		_pol("K", [0.33, 0.48, 0.46, 0.48, 0.46, 0.72, 0.33, 0.72]),
+		_pol("K", [0.54, 0.48, 0.67, 0.48, 0.67, 0.72, 0.54, 0.72]),
+		_elipse("Y", 0.40, 0.62, 0.035, 0.06, 8),
+		_elipse("Y", 0.60, 0.62, 0.035, 0.06, 8),
+		_pol("d", [0.20, 0.80, 0.80, 0.80, 0.76, 0.88, 0.24, 0.88]),
+		_lin("h", [0.26, 0.38, 0.26, 0.78]),
+	]
+
+
+# T2: el CANDIL: la tapa, el asa en arco, el globo de cristal con la luz dentro y el pie.
+static func _farol_2() -> Array:
+	var asa: Array = []
+	for i in 9:
+		var a: float = lerpf(PI * 1.05, PI * 1.95, float(i) / 8.0)
+		asa.append(0.50 + cos(a) * 0.30)
+		asa.append(0.50 + sin(a) * 0.40)
+	return [
+		_tira("s", asa, 0.04, 0.04),
+		_elipse("d", 0.50, 0.20, 0.14, 0.05, 12),
+		_pol("b", [0.38, 0.20, 0.62, 0.20, 0.66, 0.30, 0.34, 0.30]),
+		_lin("l", [0.40, 0.22, 0.60, 0.22]),
+		_elipse("L", 0.50, 0.54, 0.22, 0.20, 20),
+		_elipse("K", 0.49, 0.53, 0.16, 0.14, 18),
+		_elipse("Y", 0.48, 0.55, 0.06, 0.07, 10),
+		# las varillas que protegen el cristal
+		_lin("s", [0.36, 0.34, 0.30, 0.54, 0.36, 0.74]),
+		_lin("s", [0.64, 0.34, 0.70, 0.54, 0.64, 0.74]),
+		_lin("s", [0.50, 0.34, 0.50, 0.74]),
+		_pol("b", [0.32, 0.72, 0.68, 0.72, 0.72, 0.80, 0.28, 0.80]),
+		_pol("d", [0.26, 0.80, 0.74, 0.80, 0.70, 0.88, 0.30, 0.88]),
+		_lin("l", [0.34, 0.74, 0.66, 0.74]),
+	]
+
+
+# T3: el farol LABRADO de luz azul: la anilla, el tejado con los aleros vueltos y el cristal azul con
+# un destello por fuera.
+static func _farol_3() -> Array:
+	return [
+		_elipse("b", 0.50, 0.06, 0.05, 0.045, 10),
+		_elipse(".", 0.50, 0.06, 0.02, 0.02, 6),
+		_tira("b", [0.50, 0.10, 0.50, 0.18], 0.04, 0.04),
+		_pol("s", [0.14, 0.34, 0.26, 0.28, 0.36, 0.18, 0.64, 0.18, 0.74, 0.28, 0.86, 0.34, 0.74, 0.34]),
+		_pol("l", [0.26, 0.28, 0.36, 0.20, 0.64, 0.20, 0.50, 0.26]),
+		_pol("b", [0.28, 0.34, 0.72, 0.34, 0.72, 0.78, 0.28, 0.78]),
+		_pol("q", [0.32, 0.38, 0.68, 0.38, 0.68, 0.74, 0.32, 0.74]),
+		_pol("C", [0.34, 0.44, 0.66, 0.44, 0.66, 0.72, 0.34, 0.72]),
+		_elipse("Q", 0.46, 0.58, 0.07, 0.09, 10),
+		_lin("b", [0.50, 0.38, 0.50, 0.74]),
+		_lin("q", [0.34, 0.44, 0.50, 0.40, 0.66, 0.44]),
+		_pol("s", [0.24, 0.78, 0.76, 0.78, 0.76, 0.84, 0.24, 0.84]),
+		_pol("d", [0.20, 0.84, 0.80, 0.84, 0.80, 0.90, 0.20, 0.90]),
+		{"l": P([0.14, 0.52, 0.14, 0.52]), "t": "Q", "libre": true},
+		{"l": P([0.86, 0.60, 0.86, 0.60]), "t": "C", "libre": true},
+	]
+
+
+# ============================================================
+#  LOS SUELTOS
+# ============================================================
+# EL POLVO DE ALAS: un saquito atado, del color del polvo, con brillos saliendo por la boca.
+static func _saquito() -> Array:
+	return [
+		_pol("b", [0.26, 0.46, 0.36, 0.34, 0.64, 0.34, 0.74, 0.46, 0.80, 0.66, 0.74, 0.84, 0.26, 0.84,
+			0.20, 0.66]),
+		_sobre(_pol("s", [0.60, 0.40, 0.74, 0.46, 0.80, 0.66, 0.74, 0.84, 0.56, 0.84])),
+		_sobre(_elipse("l", 0.38, 0.56, 0.08, 0.10, 12)),
+		_pol("b", [0.38, 0.34, 0.44, 0.24, 0.56, 0.24, 0.62, 0.34]),
+		_tira("k", [0.34, 0.36, 0.66, 0.36], 0.04, 0.04),
+		_elipse("W", 0.50, 0.14, 0.02, 0.02, 4),
+		_elipse("h", 0.40, 0.10, 0.015, 0.015, 4),
+		_elipse("h", 0.60, 0.16, 0.015, 0.015, 4),
+		_elipse("W", 0.66, 0.06, 0.015, 0.015, 4),
+	]
+
+
+# LAS ESPORAS DENSAS: una nube de bolitas apretadas, con alguna suelta flotando.
+static func _esporas() -> Array:
+	var out: Array = []
+	for b in [[0.36, 0.60, 0.13], [0.60, 0.62, 0.14], [0.48, 0.44, 0.15], [0.30, 0.44, 0.09],
+			[0.68, 0.44, 0.10], [0.50, 0.72, 0.10]]:
+		out.append(_elipse("s", b[0], b[1], b[2], b[2], 14))
+		out.append(_sobre(_elipse("b", b[0] - 0.02, b[1] - 0.02, b[2] * 0.8, b[2] * 0.8, 12)))
+		out.append(_sobre(_elipse("l", b[0] - 0.04, b[1] - 0.04, b[2] * 0.35, b[2] * 0.35, 8)))
+	for m in [[0.20, 0.26], [0.78, 0.24], [0.84, 0.66], [0.16, 0.72]]:
+		out.append(_elipse("b", m[0], m[1], 0.025, 0.025, 6))
+	return out
+
+
+# EL FRASQUITO: tapon de corcho, cuello, y la panza de cristal con el liquido de su color dentro.
+static func _frasquito() -> Array:
+	return [
+		_pol("u", [0.42, 0.10, 0.58, 0.10, 0.58, 0.20, 0.42, 0.20]),
+		_lin("j", [0.44, 0.12, 0.56, 0.12]),
+		_pol("x", [0.42, 0.20, 0.58, 0.20, 0.58, 0.32, 0.42, 0.32]),
+		_elipse("x", 0.50, 0.60, 0.27, 0.28, 24),
+		_sobre(_elipse("b", 0.50, 0.63, 0.23, 0.23, 22)),
+		_sobre(_pol("w", [0.20, 0.30, 0.80, 0.30, 0.80, 0.46, 0.20, 0.46])),
+		_sobre(_pol("s", [0.20, 0.70, 0.80, 0.70, 0.80, 0.92, 0.20, 0.92])),
+		_sobre(_pol("l", [0.26, 0.46, 0.74, 0.46, 0.74, 0.50, 0.26, 0.50])),
+		_lin("W", [0.34, 0.52, 0.32, 0.66]),
 	]
 
 
@@ -1233,6 +1491,9 @@ static func _rasterizar(pasos: Array, grietas: int, res: int) -> PackedByteArray
 						if paso.get("dentro", false) and celdas[y * res + x] == 0:
 							continue
 						celdas[y * res + x] = 0 if t == 46 else t   # 46 = "."
+		elif paso.get("libre", false):
+			# una linea AL AIRE (el sedal de la caña): se traza aunque debajo no haya nada
+			_trazar(celdas, paso["l"], t, res, func(_i: int) -> bool: return true)
 		else:
 			_trazar(celdas, paso["l"], t, res, lleno)
 	for g in mini(grietas, GRIETAS.size()):

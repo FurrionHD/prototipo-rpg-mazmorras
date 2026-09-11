@@ -55,6 +55,13 @@ func _ready() -> void:
 	for f in _ficheros("res://resources/consumables/tochos/").slice(0, 4):
 		items.append(load(f))
 	items.append(load("res://resources/backpacks/mochila_basica.tres"))
+	# LAS HERRAMIENTAS, y el farolillo en sus tres tiers (cada uno con su aspecto).
+	for f in _ficheros("res://resources/tools/"):
+		items.append(load(f))
+	for t in [2, 3]:
+		var far: Resource = (load("res://resources/tools/farolillo_basico.tres") as Resource).duplicate()
+		Game.meta_de(far)["tier"] = t
+		items.append(far)
 	# LOS CRISTALES: T1..T10 normales, luego los estados de T1, T5 y T10, y un T11 y un T21.
 	for t in range(1, 11):
 		items.append(_cristal(t, Cristal.Calidad.NORMAL))
