@@ -32,6 +32,10 @@
 
 extends CanvasLayer
 
+# Por preload y no por class_name: un class_name nuevo obliga a pasar por --import antes de que lo
+# vean las herramientas headless, y sin eso se cuelgan sin decir por que.
+const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
+
 # --- LAS SECCIONES (la columna de la izquierda) ---
 #
 # LOS NOMBRES SON LOS DEL JUEGO. De otras pantallas se copia el REPARTO (columna de secciones a la
@@ -114,6 +118,7 @@ var _cab_cambio_que: Label = null
 var _cab_cambio_quien: Label = null
 var _vitrina: Control = null
 var _vitrina_item: Resource = null   # lo que pinta la vitrina: el candidato marcado
+var _vitrina_pieza: TextureRect = null   # su retrato (ver retrato_pieza.gd), encima del halo
 
 var _sec: int = SEC_FICHA
 # A QUIEN le estas mirando la ficha (indice en Game.party). Con companeros este menu deja de ser "tu
@@ -201,6 +206,16 @@ func _ready() -> void:
 	_vitrina.visible = false
 	_vitrina.draw.connect(_pintar_vitrina)
 	_vitrina.resized.connect(_vitrina.queue_redraw)
+	# EL RETRATO va en un nodo PROPIO y no con draw_texture en la vitrina: lleva el shader de la
+	# paleta, y un material se aplica al CanvasItem entero -- el halo y el aro saldrian "traducidos" a
+	# los colores de la pieza. Lo coloca _pintar_vitrina, que es quien sabe donde cae el aro.
+	_vitrina_pieza = TextureRect.new()
+	_vitrina_pieza.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_vitrina_pieza.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_vitrina_pieza.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_vitrina_pieza.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vitrina_pieza.visible = false
+	_vitrina.add_child(_vitrina_pieza)
 	split.add_child(_vitrina)
 	split.move_child(_vitrina, 1)
 
@@ -509,6 +524,7 @@ func _rebuild_real() -> void:
 	_col_centro.size_flags_horizontal = Control.SIZE_FILL if cambiando else Control.SIZE_EXPAND_FILL
 	_vitrina.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_vitrina_item = null
+	_vitrina_pieza.visible = false
 	_vitrina.queue_redraw()
 
 	match _sec:
@@ -1084,6 +1100,7 @@ func _cambiar_arma() -> void:
 	_content.add_child(hueco)
 	var item: Resource = cat[_cand]
 	_vitrina_item = item
+	_poner_retrato(item)
 	_vitrina.queue_redraw()
 	MenuScaffold.titulo_item(_content, Game.item_display_name(item),
 		Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
@@ -1138,8 +1155,18 @@ func _on_hueco(i: int) -> void:
 	_rebuild()
 
 
-# LA VITRINA: el candidato en grande sobre un halo del color de su peldaño, con su +N debajo. Hoy es
-# el cubito de IconoItem, el mismo de la celda; el dia que las piezas tengan dibujo, sale aqui solo.
+# El retrato de la pieza para la vitrina, con el color de SU tier y SU +N. Se calcula aqui, al
+# elegirla, y no en el dibujo: el dibujo corre en cada resize y el retrato no cambia por eso.
+func _poner_retrato(item: Resource) -> void:
+	var r: Dictionary = RetratoPieza.de(item, int(Game.meta_de(item).get("tier", 1)),
+		Game.mejoras_actuales(item))
+	_vitrina_pieza.visible = not r.is_empty()
+	_vitrina_pieza.texture = r.get("tex", null)
+	_vitrina_pieza.material = r.get("material", null)
+
+
+# LA VITRINA: el candidato en grande sobre un halo del color de su peldaño, con su +N debajo. La
+# pieza sale con su dibujo del muñeco (ver retrato_pieza.gd); lo que no lo tiene, con su icono.
 func _pintar_vitrina() -> void:
 	var item: Resource = _vitrina_item
 	var w: float = _vitrina.size.x
@@ -1150,16 +1177,39 @@ func _pintar_vitrina() -> void:
 	# EL ARO, TAN GRANDE COMO QUEPA: casi todo el ancho del hueco, con el tope del alto para que
 	# quede sitio al +N de debajo. Es la pieza protagonista de esta pantalla.
 	var radio: float = minf(w * 0.47, (h - 70.0) * 0.5)
-	# El centro, pegado arriba y no en medio del alto entero: con la ventana alta, la pieza se iba al
-	# fondo y quedaba lejos de las celdas que la eligen.
-	var centro := Vector2(w * 0.5, radio + 16.0)
+	# CENTRADO EN VERTICAL, aro y +N juntos como un bloque: pegado arriba dejaba media columna vacia
+	# debajo. Los 44 son lo que ocupa la pastilla del +N con su aire.
+	var centro := Vector2(w * 0.5, maxf((h - 44.0) * 0.5, radio + 16.0))
 	# El HALO: circulos concentricos cada vez mas tenues, como la sombra del muñeco de la ficha.
 	for i in 5:
 		var t: float = float(i) / 5.0
 		_vitrina.draw_circle(centro, radio * (1.0 - t * 0.16), Color(col, 0.05 + t * 0.05))
+	# Y LUZ EN EL CENTRO, detras de la pieza: el cuero y el hierro negro son muy oscuros y sobre el
+	# fondo apagado del aro se quedaban en una silueta negra. Con un foco claro detras se leen.
+	for i in 6:
+		var t: float = float(i) / 6.0
+		_vitrina.draw_circle(centro, radio * (0.80 - t * 0.55), Color(col.lightened(0.45), 0.06))
 	# El aro, del color del peldaño: la misma "esto es lo bueno que es" que el fondo de la celda.
 	_vitrina.draw_arc(centro, radio, 0.0, TAU, 96, Color(col.lightened(0.2), 0.75), 2.5, true)
-	IconoItem.pintar(_vitrina, centro, radio * 1.05, item, true)
+	# LA PIEZA: su retrato de verdad si tiene dibujo (ver retrato_pieza.gd); si no, el icono de siempre.
+	var tex: Texture2D = _vitrina_pieza.texture
+	if _vitrina_pieza.visible and tex != null:
+		# Encajada en un cuadrado dentro del aro, sin deformarla: manda su lado largo.
+		var caja_p: float = radio * 1.25
+		var k: float = caja_p / float(maxi(tex.get_width(), tex.get_height()))
+		var tam_p := Vector2(tex.get_width(), tex.get_height()) * k
+		_vitrina_pieza.position = centro - tam_p * 0.5
+		_vitrina_pieza.size = tam_p
+		# EL DESTELLO DEL METAL VA EN PIXELES DE PANTALLA (ver paleta_equipo.gdshader): sus numeros
+		# estan medidos para la pieza a su tamaño del mapa, asi que aqui se escalan con ella o la
+		# linea cruzaria como un hilo por el centro de un casco de trescientos pixeles.
+		var mat := _vitrina_pieza.material as ShaderMaterial
+		if mat != null:
+			var f: float = k * RetratoPieza.ESC
+			mat.set_shader_parameter("grosor", 7.0 * f)
+			mat.set_shader_parameter("recorrido", maxf(38.0 * f, tam_p.length() * 0.6))
+	else:
+		IconoItem.pintar(_vitrina, centro, radio * 1.05, item, true)
 	# EL +N, en una pastilla bajo el aro. Solo si lo hay: "+0" no dice nada.
 	var n: int = Game.mejoras_actuales(item)
 	if n <= 0:

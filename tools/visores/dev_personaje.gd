@@ -72,6 +72,13 @@ func _ready() -> void:
 	# LA PESTAÑA DE LA SECUNDARIA, sin salir de Cambiar.
 	men._on_hueco(1)
 	await _captura("1_arma_cambiar_secundaria")
+	# UN ESCUDO en la vitrina: tiene su propio pintor y su propia pose (en guardia, de frente).
+	var cat_off: Array = men._catalogo()
+	for i in cat_off.size():
+		if cat_off[i] is ShieldData:
+			men._pick_cand(i)
+			await _captura("1_arma_vitrina_escudo")
+			break
 	men._cancelar_cambio()
 	await _captura("1_arma_vuelta")
 
@@ -120,6 +127,11 @@ func _ready() -> void:
 	men._pick(1)   # pecho, que es el slot con mas piezas en el baul
 	men._abrir_cambio()
 	await _captura("3_armadura_cambiar")
+	# LA VITRINA DE CADA RANURA: el retrato de la pieza sale de su capa del muñeco, y cada ranura
+	# tiene su pintor. Solo mirandolas todas se sabe que ninguna sale vacia, cortada o descentrada.
+	for h in 5:
+		men._on_hueco(h)
+		await _captura("3_vitrina_%d" % h)
 	# SALTAR A LOS GUANTES por la pestaña y equipar unos: tiene que seguir en Cambiar, en guantes.
 	men._on_hueco(2)
 	await _captura("3_armadura_cambiar_manos")
