@@ -60,6 +60,10 @@ var _mat_material_opt: OptionButton = null
 var _mat_calidad_opt: OptionButton = null
 var _mat_cantidad_spin: SpinBox = null
 var _mat_cats: Array = []   # [{nombre:String, rutas:Array}] (Todos + una por categoria)
+var _obj_cat_opt: OptionButton = null
+var _obj_opt: OptionButton = null
+var _obj_cantidad_spin: SpinBox = null
+var _obj_cats: Array = []   # igual que _mat_cats, pero de consumibles
 # MEJORAS
 var _mej_slot_opt: OptionButton = null
 var _mej_info: Label = null
@@ -730,14 +734,113 @@ func _on_crear() -> void:
 
 # OBJETOS (KAN-57): botones para AÑADIR pociones al inventario (Game.consumables).
 # El jugador las usa con "Objeto" en combate o con [Q] fuera de combate.
+# TODOS los consumibles, sacados de las carpetas (Game.rutas_consumibles): antes eran seis pociones
+# escritas a mano y el resto (grimorios, platos, cebos, antidotos...) no se podia añadir para probar.
+# Misma cascada que los materiales: clase -> objeto (o todos) -> cantidad -> Añadir.
 func _build_objetos(vb: VBoxContainer) -> void:
-	_header(vb, "OBJETOS (añadir pociones)")
-	for path in Game._dev_consumables:
-		var cons: ConsumableData = load(path)
-		var b := Button.new()
-		b.text = "+1 %s  (%s)" % [cons.nombre, cons.resumen(Game.player_max_hp(), Game.player_max_mp())]
-		b.pressed.connect(func(): Game.add_consumable(cons, 1))
-		vb.add_child(b)
+	_header(vb, "OBJETOS (añadir a la bolsa)")
+	_obj_cats = _categorias_consumibles()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	vb.add_child(row)
+	_obj_cat_opt = OptionButton.new()
+	_obj_cat_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in _obj_cats.size():
+		_obj_cat_opt.add_item("%s (%d)" % [_obj_cats[i]["nombre"], (_obj_cats[i]["rutas"] as Array).size()], i)
+	_obj_cat_opt.select(0)
+	_obj_cat_opt.item_selected.connect(_poblar_objetos)
+	row.add_child(_obj_cat_opt)
+	_obj_opt = OptionButton.new()
+	_obj_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_obj_opt)
+	_poblar_objetos(0)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 6)
+	vb.add_child(row2)
+	var lc := Label.new()
+	lc.text = "Cantidad (de cada)"
+	row2.add_child(lc)
+	_obj_cantidad_spin = SpinBox.new()
+	_obj_cantidad_spin.min_value = 1
+	_obj_cantidad_spin.max_value = 99
+	_obj_cantidad_spin.value = 1
+	row2.add_child(_obj_cantidad_spin)
+	var add := Button.new()
+	add.text = "Añadir a la bolsa"
+	add.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add.pressed.connect(_on_add_objetos)
+	row2.add_child(add)
+
+
+func _poblar_objetos(cat_idx: int) -> void:
+	_obj_opt.clear()
+	_obj_opt.add_item("Todos de la clase", 0)
+	if cat_idx < 0 or cat_idx >= _obj_cats.size():
+		return
+	var rutas: Array = _obj_cats[cat_idx]["rutas"]
+	for i in rutas.size():
+		var c: ConsumableData = load(rutas[i]) as ConsumableData
+		if c != null:
+			_obj_opt.add_item(c.nombre, i + 1)
+	_obj_opt.select(0)
+
+
+func _on_add_objetos() -> void:
+	_obj_cantidad_spin.apply()   # lo tecleado no llega a .value hasta confirmarlo (ver _on_add_materiales)
+	var n: int = int(_obj_cantidad_spin.value)
+	var cat_idx: int = _obj_cat_opt.get_selected_id()
+	if cat_idx < 0 or cat_idx >= _obj_cats.size():
+		return
+	var rutas_cat: Array = _obj_cats[cat_idx]["rutas"]
+	var oid: int = _obj_opt.get_selected_id()
+	var rutas: Array = rutas_cat if oid == 0 else [rutas_cat[oid - 1]]
+	var total: int = 0
+	for r in rutas:
+		var c: ConsumableData = load(r) as ConsumableData
+		if c != null:
+			Game.add_consumable(c, n)
+			total += n
+	print("[dev] Bolsa: +", total, " consumibles")
+
+
+# La CLASE de un consumible para el desplegable (el mismo criterio que la pestaña del inventario).
+func _clase_de(c: ConsumableData) -> String:
+	if c.es_grimorio():
+		return "Grimorios"
+	if c.es_tocho():
+		return "Tochos"
+	if c.es_plato():
+		return "Platos"
+	if c.es_cebo():
+		return "Cebos"
+	if c.es_vuelta_pueblo():
+		return "Piedras de retorno"
+	if c.es_brebaje_de_estado():
+		return "Antídotos"
+	if c.da_mana() and not c.cura_hp():
+		return "Pociones de maná"
+	if c.cura_hp():
+		return "Pociones de vida"
+	return "Otros"
+
+
+func _categorias_consumibles() -> Array:
+	var todas: Array = Game.rutas_consumibles()
+	var por: Dictionary = {}
+	for r in todas:
+		var c: ConsumableData = load(r) as ConsumableData
+		if c == null:
+			continue
+		var k: String = _clase_de(c)
+		if not por.has(k):
+			por[k] = []
+		(por[k] as Array).append(r)
+	var out: Array = [{"nombre": "Todos", "rutas": todas}]
+	for k in ["Pociones de vida", "Pociones de maná", "Antídotos", "Grimorios", "Tochos", "Platos",
+			"Cebos", "Piedras de retorno", "Otros"]:
+		if por.has(k):
+			out.append({"nombre": k, "rutas": por[k]})
+	return out
 
 
 # MATERIALES: mete materiales de crafteo en el baul del Hogar (para probar todo sin farmear).
@@ -772,7 +875,9 @@ func _build_materiales(vb: VBoxContainer) -> void:
 	vb.add_child(row1b)
 	_mat_calidad_opt = OptionButton.new()
 	_mat_calidad_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_mat_calidad_opt.add_item("Todas (I/N/D)", 0)   # id 0 = las tres recolectables
+	# id 0 = TODAS DE VERDAD, el puro incluido (lo pidio el jefe: "todo" tiene que ser todo). El roto
+	# no: se pierde al recogerlo, asi que no llega nunca a la bolsa.
+	_mat_calidad_opt.add_item("Todas (I/N/D/Puro)", 0)
 	_mat_calidad_opt.add_item("Intacto", 1)
 	_mat_calidad_opt.add_item("Normal", 2)
 	_mat_calidad_opt.add_item("Dañado", 3)
@@ -847,7 +952,8 @@ func _on_add_materiales() -> void:
 	var cals: Array = []
 	var cid: int = _mat_calidad_opt.get_selected_id()
 	match cid:
-		0: cals = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+		0: cals = [MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO,
+			MaterialItem.Calidad.PURO]
 		1: cals = [MaterialItem.Calidad.INTACTO]
 		2: cals = [MaterialItem.Calidad.NORMAL]
 		3: cals = [MaterialItem.Calidad.DANADO]
@@ -890,6 +996,7 @@ func _categoria_de(d: MaterialData) -> String:
 		MaterialData.Tipo.PLANTA: return "Plantas y hierbas"
 		MaterialData.Tipo.CARNE, MaterialData.Tipo.PESCADO, MaterialData.Tipo.DESPENSA:
 			return "Cocina"
+		MaterialData.Tipo.COMBUSTIBLE: return "Carbón"
 		MaterialData.Tipo.NUCLEO:
 			match int(d.uso_mejora):
 				MaterialData.UsoMejora.ARMA: return "Núcleos (arma)"
@@ -914,7 +1021,7 @@ func _categorias_materiales() -> Array:
 	# "Cocina" faltaba en esta lista (la carne y el pescado se quedaban sin pestaña propia y solo
 	# salian en "Todos"): quien añada una categoria arriba tiene que apuntarla TAMBIEN aqui.
 	var orden: Array = ["Minerales", "Maderas", "Tablones", "Refinados (metal)", "Cueros",
-		"Babas y fluidos", "Plantas y hierbas", "Cocina", "Núcleos (arma)", "Núcleos (armadura)",
+		"Babas y fluidos", "Plantas y hierbas", "Carbón", "Cocina", "Núcleos (arma)", "Núcleos (armadura)",
 		"Núcleos (comodín)", "Otros"]
 	var out: Array = [{"nombre": "Todos", "rutas": todas}]
 	for cat in orden:

@@ -8175,6 +8175,22 @@ func rutas_materiales() -> Array:
 	return _rutas_de(_CARPETA_MATERIALES, _MANIFIESTO_MATERIALES, "materiales")
 
 
+# Todos los CONSUMIBLES del juego (pociones, grimorios, tochos, platos, cebos, piedras), para el panel
+# de debug. Salen de las carpetas, como los materiales: antes el panel tenia seis pociones escritas a
+# mano (_dev_consumables) y todo lo demas no se podia añadir para probar. La lista vieja queda de
+# respaldo por si el listado saliera vacio.
+func rutas_consumibles() -> Array:
+	var out: Array = []
+	for carpeta in ["res://resources/consumables", "res://resources/consumables/tochos"]:
+		for f in ResourceLoader.list_directory(carpeta):
+			if f.ends_with(".tres") or f.ends_with(".res"):
+				out.append(carpeta + "/" + f)
+	if out.is_empty():
+		return Array(_dev_consumables)
+	out.sort()
+	return out
+
+
 # Todas las rutas de EnemyData del juego (el spawner de la arena y dev_curva_drops).
 func rutas_enemigos() -> Array:
 	return _rutas_de(_CARPETA_ENEMIGOS, _MANIFIESTO_ENEMIGOS, "enemigos")
