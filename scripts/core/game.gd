@@ -8193,15 +8193,19 @@ func rutas_enemigos() -> Array:
 # El aviso por consola se queda: apuntar el bicho en la lista SIGUE siendo obligatorio para que
 # viaje en el .exe. Lo que cambia es que olvidarlo ya no te rompe las pruebas en el editor, solo te
 # canta que lo apuntes.
+#
+# Y AHORA TAMBIEN EN EL .EXE: ResourceLoader.list_directory (Godot 4.4+) SI enumera los recursos del
+# .pck, con sus nombres de antes de exportar (sin el .remap). Con eso la carpeta manda en los dos
+# sitios y un material nuevo sale en el menu de debug sin tocar la lista (lo pidio el jefe: probar
+# sin editar codigo cada vez). El manifiesto se queda de RESPALDO, por si el listado saliera vacio.
 func _rutas_de(carpeta: String, manifiesto: Array, que: String) -> Array:
-	if not OS.has_feature("editor"):
-		return manifiesto
-	_avisar_manifiesto_corto_de(carpeta, manifiesto, que)
-	var dir := DirAccess.open(carpeta)
-	if dir == null:
+	if OS.has_feature("editor"):
+		_avisar_manifiesto_corto_de(carpeta, manifiesto, que)
+	var nombres: PackedStringArray = ResourceLoader.list_directory(carpeta)
+	if nombres.is_empty():
 		return manifiesto
 	var fuera: Array = []
-	for f in dir.get_files():
+	for f in nombres:
 		if not (f.ends_with(".tres") or f.ends_with(".res")):
 			continue
 		var ruta: String = carpeta + "/" + f
