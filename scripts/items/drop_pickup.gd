@@ -38,7 +38,7 @@ func _ready() -> void:
 #
 # Se dibuja en vez de instanciar un nodo por trazo porque son cuatro trazos: un nodo por trazo
 # multiplicaria por cuatro lo que hay en el suelo de un piso (con el tope en 60 drops, ver
-# Net.SUELO_TOPE_POR_LUGAR, eso son 240 nodos de mas para pintar lo mismo).
+# Net.suelo.SUELO_TOPE_POR_LUGAR, eso son 240 nodos de mas para pintar lo mismo).
 func _draw() -> void:
 	IconoItem.pintar(self, Vector2.ZERO, LADO, item)
 
@@ -47,7 +47,7 @@ func _draw() -> void:
 # el suelo canta morado y no hay que acercarse a leer el nombre.
 #
 # MULTIJUGADOR: aqui no hay nada que sincronizar, y es a proposito. El drop viaja como
-# {ruta del material, calidad} (ver Net._item_a_dict) y CADA peer llama a este _ready(), asi que
+# {ruta del material, calidad} (ver Net.suelo._item_a_dict) y CADA peer llama a este _ready(), asi que
 # los dos derivan el mismo color del mismo MaterialData. El color no va por el cable.
 #
 # Sirve igual para las DOS formas de acabar en el suelo: lo que suelta el bicho al morir y lo que

@@ -50,7 +50,6 @@ const PROTOCOLO := 9
 const _PLAZO_SALUDO := 5.0
 const _REMOTE_PLAYER := preload("res://scripts/actors/player/remote_player.gd")
 const _REMOTE_ENEMY := preload("res://scripts/actors/enemy/remote_enemy.gd")
-const _DROP_PICKUP := preload("res://scripts/items/drop_pickup.gd")
 const _PROYECTIL_HECHIZO := preload("res://scripts/actors/player/proyectil_hechizo.gd")
 
 # ¿Hay una sesion de red en marcha? El resto del juego (player.gd) lo consulta para decidir si
@@ -220,14 +219,6 @@ var _t_barrido := 0.0
 var _t_bosses := 0.0
 const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual que en solitario)
 
-# --- OBJETOS DEL SUELO replicados (hito 2) ---
-# El HOST es la fuente de verdad: _suelo apunta cada drop vivo por id. Todos los peers (host
-# incluido) mantienen _drops con el NODO visual de cada id. Quien recoge se lo PIDE al host:
-# el primero en llegar se lo lleva y el resto ni se entera (el drop simplemente desaparece).
-var _suelo: Dictionary = {}        # id -> dict del item (solo lo llena el host)
-var _drops: Dictionary = {}        # id -> nodo drop_pickup (en todos los peers)
-var _next_id: int = 1              # contador de ids del host
-
 # --- ENEMIGOS replicados (hito 5.1) ----------------------------------------------------------
 # En multi los enemigos los SIMULA el host (IA, spawns, aforo: su codigo de siempre); los
 # clientes solo los VEN. El host es la fuente de verdad: _enemigos apunta cada bicho vivo por id,
@@ -365,6 +356,9 @@ func _ready() -> void:
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
+	suelo = NetSuelo.new()
+	suelo.name = "Suelo"
+	add_child(suelo)
 	var args: PackedStringArray = _trab.argumentos()
 	if not args.is_empty():
 		_trab.arrancar.call_deferred(args)
@@ -372,7 +366,9 @@ func _ready() -> void:
 
 # --- LOS TEMAS, cada uno en su archivo ---
 const NetPesca = preload("res://scripts/net/net_pesca.gd")
+const NetSuelo = preload("res://scripts/net/net_suelo.gd")
 var pesca: NetPesca = null
+var suelo: NetSuelo = null
 
 # --- TRABAJADORES DE PISO (ver trabajadores.gd) ---
 var _trab: Node = null
@@ -526,8 +522,8 @@ func desconectar() -> void:
 	# Net.activo=false el net_id deja de importar y F los coge por la rama de siempre). Solo se
 	# vacian los registros. En el pueblo nada persiste, asi que el riesgo de duplicado tras una
 	# desconexion es anecdotico y asumido (ver docs/MULTIJUGADOR.md).
-	_suelo.clear()
-	_drops.clear()
+	suelo._suelo.clear()
+	suelo._drops.clear()
 	# Enemigos: el host deja de simularlos por red; los cuerpos remotos del cliente se van (en el
 	# pueblo no hay bichos, y al desconectar el cliente vuelve a su mundo sin sesion).
 	for id in _enem_nodos.keys():
@@ -1416,15 +1412,15 @@ func _reconstruir_vista() -> void:
 	for id in _peers:
 		if _peers[id]["lugar"] == _mi_lugar:
 			_crear_avatar_nodo(id)
-	for id in _drops.keys():
-		var n = _drops[id]
+	for id in suelo._drops.keys():
+		var n = suelo._drops[id]
 		if is_instance_valid(n):
 			n.queue_free()
-	_drops.clear()
+	suelo._drops.clear()
 	if es_host:
-		for id in _suelo:
-			if _suelo[id]["lugar"] == _mi_lugar:
-				_spawn_drop(id, _suelo[id]["d"], _suelo[id]["pos"], _mi_lugar)
+		for id in suelo._suelo:
+			if suelo._suelo[id]["lugar"] == _mi_lugar:
+				suelo._spawn_drop(id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], _mi_lugar)
 	else:
 		_pedir_suelo.rpc_id(1, _mi_lugar)
 	# ENEMIGOS (hito 5.1/5.2): los cuerpos remotos murieron con la escena vieja. Si SIMULO este
@@ -1451,9 +1447,9 @@ func _pedir_suelo(lugar: String) -> void:
 	if not es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	for id in _suelo:
-		if _suelo[id]["lugar"] == lugar:
-			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
+	for id in suelo._suelo:
+		if suelo._suelo[id]["lugar"] == lugar:
+			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
 
 
 # --- EXPEDICION compartida (hito 3b) ---------------------------------------------------------
@@ -1568,12 +1564,12 @@ func _montar_sesion_desde_dentro(piso: int) -> void:
 	for pk in get_tree().get_nodes_in_group("pickup"):
 		if not is_instance_valid(pk) or pk.has_meta("net_id") or pk.get("item") == null:
 			continue
-		var d: Dictionary = _item_a_dict(pk.item)
+		var d: Dictionary = suelo._item_a_dict(pk.item)
 		if d.is_empty():
 			continue
 		var pos: Vector2 = (pk as Node2D).global_position
 		pk.queue_free()
-		_registrar_y_difundir(d, pos, lugar)
+		suelo._registrar_y_difundir(d, pos, lugar)
 		n_suelo += 1
 	print("[multi] sala abierta desde el piso %d: %d enemigos y %d cosas del suelo a la sesion" % [
 		piso, n_enem, n_suelo])
@@ -1737,11 +1733,11 @@ func _olvidar_expedicion() -> void:
 	Game.renovar_epoca()
 	epoca_sesion = Game.epoca_mazmorra
 	_nonces_sesion.clear()
-	for id in _suelo.keys():
-		if str(_suelo[id]["lugar"]).begins_with("piso:"):
-			_suelo.erase(id)
-			_despawn_drop.rpc(id)
-			_despawn_drop(id)
+	for id in suelo._suelo.keys():
+		if str(suelo._suelo[id]["lugar"]).begins_with("piso:"):
+			suelo._suelo.erase(id)
+			suelo._despawn_drop.rpc(id)
+			suelo._despawn_drop(id)
 	for piso in _bosses_sello.keys():
 		_marcar_boss(piso, false)
 		_marcar_boss.rpc(piso, false)
@@ -1996,9 +1992,9 @@ func _asumir_piso(piso: int, mem: Dictionary) -> void:
 	if (mem.get("enemigos", []) as Array).is_empty():
 		mem = _foto_de_mis_espejos()
 	_limpiar_espejo()   # respeta los que esté peleando (ver alli)
-	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if suelo != null and suelo.has_method("adoptar_foto"):
-		suelo.adoptar_foto(_mem_de_red(mem))
+	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso_nodo != null and piso_nodo.has_method("adoptar_foto"):
+		piso_nodo.adoptar_foto(_mem_de_red(mem))
 
 
 # Solo host: el heredero de un traspaso contesta. Bien -> la copia guardada ya sobra. Mal (ya no estaba
@@ -2215,9 +2211,9 @@ func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
 	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
-	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if suelo != null and suelo.has_method("marcar_agotado"):
-		suelo.marcar_agotado(celda, retraso)
+	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso_nodo != null and piso_nodo.has_method("marcar_agotado"):
+		piso_nodo.marcar_agotado(celda, retraso)
 	for n in get_tree().get_nodes_in_group("recolectable"):
 		if is_instance_valid(n) and n.celda == celda:
 			n.agotar()
@@ -2283,9 +2279,9 @@ func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
 		(Game.persistente_piso(piso)["agotados"] as Dictionary).erase(celda)
 	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
 		return
-	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if suelo != null and suelo.has_method("revivir_celda"):
-		suelo.revivir_celda(celda, nonce)
+	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso_nodo != null and piso_nodo.has_method("revivir_celda"):
+		piso_nodo.revivir_celda(celda, nonce)
 
 
 # ¿Este sitio ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
@@ -3295,14 +3291,14 @@ func _set_cofre_consumibles(d: Dictionary) -> void:
 func _almacen_dicts() -> Array:
 	var out: Array = []
 	for m in Game.almacen_materiales:
-		out.append(_item_a_dict(m))
+		out.append(suelo._item_a_dict(m))
 	return out
 
 
 func _cargar_almacen(arr: Array) -> void:
 	var lista: Array[MaterialItem] = []
 	for d in arr:
-		var it := _item_de_dict(d)
+		var it := suelo._item_de_dict(d)
 		if it is MaterialItem:
 			lista.append(it)
 	Game.almacen_materiales = lista
@@ -3530,162 +3526,6 @@ func _mismas_reservas(a: Dictionary, b: Dictionary) -> bool:
 		if not _misma_reserva(a[peer] as Dictionary, b[peer] as Dictionary):
 			return false
 	return true
-
-
-# --- OBJETOS DEL SUELO (hito 2): soltar y recoger con autoridad del host --------------------
-
-# Item -> dict de red. Lo minimo para reconstruirlo en la otra maquina: el MaterialData es un
-# .tres del proyecto (viaja por ruta, igual que los consumibles en el guardado) y el Cristal
-# son dos enteros. Mismo criterio que save_data, pero desmontado.
-func _item_a_dict(item: Resource) -> Dictionary:
-	if item is MaterialItem:
-		var m := item as MaterialItem
-		return {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad)}
-	if item is Cristal:
-		var c := item as Cristal
-		return {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
-	if item is ConsumableData:
-		# Solo la RUTA: un consumible no tiene estado por unidad (la bolsa es un contador por .tres),
-		# asi que el .tres del proyecto ES el objeto. load() cachea, o sea que al rehidratarlo sale
-		# la MISMA instancia que usa Game.consumables como clave -- y por eso recogerlo suma en la
-		# pila que ya tenias en vez de abrir una segunda entrada con el mismo nombre.
-		return {"t": "con", "ruta": (item as ConsumableData).resource_path}
-	return {}
-
-
-func _item_de_dict(d: Dictionary) -> Resource:
-	if d.get("t") == "mat":
-		var data: MaterialData = load(str(d["ruta"]))   # load() cachea: misma instancia que la bolsa
-		if data == null:
-			return null
-		return MaterialItem.crear(data, int(d["calidad"]))
-	if d.get("t") == "cri":
-		var c := Cristal.new()
-		c.categoria = int(d["categoria"])
-		c.calidad = int(d["calidad"])
-		return c
-	if d.get("t") == "con":
-		return load(str(d["ruta"])) as ConsumableData
-	return null
-
-
-# La llama Game.soltar_item cuando hay sesion: en vez de plantar el pickup en local, se pide
-# al host (que asigna id y lo difunde a TODOS, tu incluido). El offset aleatorio ya viene
-# calculado en pos por quien suelta: asi ambas maquinas ven el drop en el MISMO sitio.
-func solicitar_soltar(item: Resource, pos: Vector2) -> void:
-	var d := _item_a_dict(item)
-	if d.is_empty():
-		return
-	if es_host:
-		_registrar_y_difundir(d, pos, _mi_lugar)
-	else:
-		_pedir_soltar.rpc_id(1, d, pos, _mi_lugar)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_soltar(d: Dictionary, pos: Vector2, lugar: String) -> void:
-	if not es_host:
-		return
-	_registrar_y_difundir(d, pos, lugar)
-
-
-# Solo host: apunta el drop en el registro y lo difunde (a los peers por RPC, a si mismo directo).
-# Guarda pos y LUGAR: un peer que entre despues (o que viaje a ese lugar) tiene que verlo.
-func _registrar_y_difundir(d: Dictionary, pos: Vector2, lugar: String) -> void:
-	_hacer_hueco_en(lugar)
-	var id := _next_id
-	_next_id += 1
-	_suelo[id] = {"d": d, "pos": pos, "lugar": lugar}
-	_spawn_drop.rpc(id, d, pos, lugar)
-	_spawn_drop(id, d, pos, lugar)
-
-
-# TOPE de cosas tiradas por LUGAR. Desde que la mazmorra no se cierra al volver al pueblo (ver
-# _cerrar_expedicion), el suelo de un piso no lo vacia nadie: en una sesion larga se acumulan cientos
-# de pickups que el host difunde a todo el que entra. El tope es generoso a proposito —cabe de sobra
-# lo que se te caiga por sobrepeso en una bajada— y al llegar tira el MAS VIEJO, que es el que menos
-# posibilidades tiene de que alguien vuelva a por el (los ids son crecientes, asi que la clave mas
-# baja de ese lugar es la mas antigua).
-const SUELO_TOPE_POR_LUGAR := 60
-
-func _hacer_hueco_en(lugar: String) -> void:
-	var ids: Array = []
-	for id in _suelo:
-		if _suelo[id]["lugar"] == lugar:
-			ids.append(id)
-	if ids.size() < SUELO_TOPE_POR_LUGAR:
-		return
-	ids.sort()
-	var sobran: int = ids.size() - SUELO_TOPE_POR_LUGAR + 1
-	for i in range(sobran):
-		var viejo: int = ids[i]
-		_suelo.erase(viejo)
-		_despawn_drop.rpc(viejo)
-		_despawn_drop(viejo)
-	print("[suelo] %s estaba lleno (%d): se van los %d mas viejos" % [lugar, ids.size(), sobran])
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
-	if lugar != _mi_lugar:
-		return   # eso esta en OTRO sitio (otro piso, o el pueblo): aqui no se pinta
-	var item := _item_de_dict(d)
-	var mundo: Node = get_tree().current_scene
-	if item == null or mundo == null:
-		return
-	var pickup: Node2D = _DROP_PICKUP.new()
-	pickup.setup(item)
-	pickup.set_meta("net_id", id)   # la clase no se toca: el id de red viaja como meta
-	mundo.add_child(pickup)
-	pickup.global_position = pos
-	_drops[id] = pickup
-
-
-# La llama player.gd al pulsar F sobre un drop CON net_id: se pide al host en vez de cogerlo.
-func solicitar_recoger(id: int) -> void:
-	if es_host:
-		_resolver_recogida(id, 1)
-	else:
-		_pedir_recoger.rpc_id(1, id)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_recoger(id: int) -> void:
-	if not es_host:
-		return
-	_resolver_recogida(id, multiplayer.get_remote_sender_id())
-
-
-# Solo host: arbitra la carrera. El PRIMERO que llega se lo lleva; a los demas ni agua (regla
-# del diseño: sin mensaje, el drop simplemente ya no esta — su nodo cae con _despawn_drop).
-func _resolver_recogida(id: int, ganador: int) -> void:
-	if not _suelo.has(id):
-		return   # llego tarde: silencio
-	var d: Dictionary = _suelo[id]["d"]
-	_suelo.erase(id)
-	_despawn_drop.rpc(id)
-	_despawn_drop(id)
-	if ganador == 1:
-		_recoger_concedido(d)          # el host se lo queda: sin viaje de red
-	else:
-		_recoger_concedido.rpc_id(ganador, d)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _despawn_drop(id: int) -> void:
-	var n = _drops.get(id)
-	if n != null and is_instance_valid(n):
-		n.queue_free()
-	_drops.erase(id)
-
-
-# SOLO le llega al ganador: reconstruye el item y lo embolsa. Como esto corre unicamente en su
-# proceso, el aviso del HUD ("Recoges X") sale solo en SU pantalla.
-@rpc("any_peer", "call_remote", "reliable")
-func _recoger_concedido(d: Dictionary) -> void:
-	var item := _item_de_dict(d)
-	if item != null:
-		Game.embolsar(item)
 
 
 # --- ENEMIGOS replicados (hito 5.1, repartidos por dueño en 5.2) -----------------------------
@@ -5074,17 +4914,17 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 			huecos.append(i)
 	var bolsa: Array = []
 	for it in jd.materiales:
-		var m: Dictionary = _item_a_dict(it)
+		var m: Dictionary = suelo._item_a_dict(it)
 		if not m.is_empty():
 			bolsa.append(m)
 	var cris: Array = []
 	for it in jd.crystals:
-		var c: Dictionary = _item_a_dict(it)
+		var c: Dictionary = suelo._item_a_dict(it)
 		if not c.is_empty():
 			cris.append(c)
 	var carbonera: Array = []
 	for it in jd.carbon:
-		var cb: Dictionary = _item_a_dict(it)
+		var cb: Dictionary = suelo._item_a_dict(it)
 		if not cb.is_empty():
 			carbonera.append(cb)
 	return {
@@ -5139,17 +4979,17 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	jd.dinero = int(d.get("dinero", 0))
 	jd.materiales = []
 	for m in d.get("materiales", []):
-		var it: Resource = _item_de_dict(m as Dictionary)
+		var it: Resource = suelo._item_de_dict(m as Dictionary)
 		if it != null:
 			jd.materiales.append(it)
 	jd.crystals = []
 	for c in d.get("crystals", []):
-		var it2: Resource = _item_de_dict(c as Dictionary)
+		var it2: Resource = suelo._item_de_dict(c as Dictionary)
 		if it2 != null:
 			jd.crystals.append(it2)
 	jd.carbon = []
 	for cb in d.get("carbon", []):
-		var it3: Resource = _item_de_dict(cb as Dictionary)
+		var it3: Resource = suelo._item_de_dict(cb as Dictionary)
 		if it3 != null:
 			jd.carbon.append(it3)
 	jd.lampara_llama = float(d.get("lampara_llama", 0.0))
@@ -6332,9 +6172,9 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha, true, piezas)
 	estado_cambiado.emit("%s se ha unido." % nombre)
 	# Y ponerle al dia el SUELO de su lugar: lo que ya estaba soltado antes de que entrara.
-	for id in _suelo:
-		if _suelo[id]["lugar"] == lugar:
-			_spawn_drop.rpc_id(quien, id, _suelo[id]["d"], _suelo[id]["pos"], lugar)
+	for id in suelo._suelo:
+		if suelo._suelo[id]["lugar"] == lugar:
+			suelo._spawn_drop.rpc_id(quien, id, suelo._suelo[id]["d"], suelo._suelo[id]["pos"], lugar)
 	# Estado compartido del hogar (el del HOST): baul de materiales, bote y cofre.
 	_set_almacen.rpc_id(quien, _almacen_dicts())
 	_set_bote.rpc_id(quien, Game.bote_dinero)

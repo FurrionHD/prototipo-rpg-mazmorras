@@ -11302,7 +11302,7 @@ func soltar_item(modelo: Resource, cantidad: int) -> int:
 		if Net.activo:
 			# MULTIJUGADOR: el suelo es del host. El drop lo planta Net en TODOS los mundos
 			# (el mio incluido) con su id de red; aqui solo se saca de la bolsa.
-			Net.solicitar_soltar(item, pos)
+			Net.suelo.solicitar_soltar(item, pos)
 		else:
 			var pickup: Node2D = _drop_pickup_script.new()
 			pickup.setup(item)
@@ -13456,7 +13456,7 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 		# (quien llega primero se lo lleva). Era el unico drop del juego que se plantaba en local
 		# saltandose Net: el compañero no llegaba a ver el botin siquiera. Misma via que soltar_item.
 		if Net.activo:
-			Net.solicitar_soltar(item, donde)
+			Net.suelo.solicitar_soltar(item, donde)
 		else:
 			var pickup: Node2D = _drop_pickup_script.new()
 			pickup.setup(item)

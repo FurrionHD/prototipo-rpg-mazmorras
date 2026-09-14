@@ -1887,9 +1887,9 @@ func _try_interact() -> void:
 	if pickup != null and pickup.has_method("recoger"):
 		# MULTIJUGADOR: un drop replicado (con net_id) no se coge a pelo: se le PIDE al host,
 		# que arbitra la carrera (el primero se lo lleva; a los demas, silencio). El item
-		# llegara por Net._recoger_concedido -> Game.embolsar si me lo dan.
+		# llegara por Net.suelo._recoger_concedido -> Game.embolsar si me lo dan.
 		if Net.activo and pickup.has_meta("net_id"):
-			Net.solicitar_recoger(pickup.get_meta("net_id"))
+			Net.suelo.solicitar_recoger(pickup.get_meta("net_id"))
 			return
 		Game.embolsar(pickup.recoger())
 		return
