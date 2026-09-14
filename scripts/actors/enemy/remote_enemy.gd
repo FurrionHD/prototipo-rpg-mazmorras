@@ -344,7 +344,7 @@ func salir_de_pelea() -> void:
 
 
 # Ya le han sacado el cristal: se desvanece aqui. El cuerpo DE VERDAD lo desvanece su dueño
-# (Net.notificar_extraido), y su baja acabara despawnando este espejo de todas formas.
+# (Net.extraccion.notificar_extraido), y su baja acabara despawnando este espejo de todas formas.
 func desvanecer() -> void:
 	remove_from_group("corpse")
 	var t := create_tween()

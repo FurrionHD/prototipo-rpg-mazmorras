@@ -13202,9 +13202,9 @@ func start_extraction(corpse: Node) -> void:
 		return
 	# MULTIJUGADOR: un cuerpo, un extractor. Se pide el candado a quien simula el piso; si es de
 	# otro, avisa y no se abre nada. Cuando hay que esperar respuesta, la pantalla la abre despues
-	# Net._extraccion_concedida llamando aqui otra vez (ya con el permiso dado).
+	# Net.extraccion._extraccion_concedida llamando aqui otra vez (ya con el permiso dado).
 	if Net.activo and corpse.has_meta("net_id") and not corpse.has_meta("permiso_extraccion"):
-		if not Net.solicitar_extraccion(corpse.get_meta("net_id")):
+		if not Net.extraccion.solicitar_extraccion(corpse.get_meta("net_id")):
 			return
 		corpse.set_meta("permiso_extraccion", true)
 
@@ -13307,7 +13307,7 @@ func _on_extraction_finished(cristal: Cristal, progreso: float, corpse) -> void:
 		# el candado. Su baja despawnea los espejos de todos, asi que el cadaver desaparece para
 		# todo el mundo y nadie puede volver a extraerlo.
 		if Net.activo and corpse.has_meta("net_id"):
-			Net.notificar_extraido(corpse.get_meta("net_id"))
+			Net.extraccion.notificar_extraido(corpse.get_meta("net_id"))
 		if corpse.has_method("desvanecer"):
 			corpse.desvanecer()  # el cuerpo se desvanece y desaparece
 	elif Net.activo and net_id != 0:
@@ -13315,7 +13315,7 @@ func _on_extraction_finished(cristal: Cristal, progreso: float, corpse) -> void:
 		# alguien me saco de aqui; ver extraction.gd). El cuerpo NO se ha consumido, asi que hay que
 		# devolver el candado: si no, ese cuerpo se queda diciendo "lo trabaja tu compañero" para
 		# siempre. El net_id se guarda al abrir porque aqui el nodo ya no existe para preguntarselo.
-		Net.soltar_extraccion(net_id)
+		Net.extraccion.soltar_extraccion(net_id)
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
