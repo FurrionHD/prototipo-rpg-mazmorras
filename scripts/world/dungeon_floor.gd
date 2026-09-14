@@ -1047,10 +1047,6 @@ func abrir_salidas() -> void:
 #  BOSS: guarda la sala central y bloquea la bajada hasta que cae (la primera vez).
 # ------------------------------------------------------------
 func _colocar_boss() -> void:
-	# MULTIJUGADOR (hito 5.2): el boss lo coloca el DUEÑO del piso, que es quien lo simula; el que
-	# solo espeja no lo coloca (lo ve por Net).
-	if not Net.simulo_mi_piso():
-		return
 	# EL PISO QUE SE ESTA CONSTRUYENDO, no Game.current_floor. Era el unico sitio de todo el bloque
 	# del jefe que preguntaba por current_floor (los demas -las lineas de abajo, _repoblar_boss y la
 	# restauracion de memoria- ya usan _piso_construido), y los dos pueden ir desacompasados: una
@@ -1079,6 +1075,14 @@ func _colocar_boss() -> void:
 	_boss_sala = sala
 	_boss_pos = gen.centro_px(sala.get_center())  # donde renace si su reloj cumple (ver _repoblar_boss)
 	_boss_radio = _radio_merodeo_boss(sala)
+
+	# MULTIJUGADOR (hito 5.2): el BICHO lo pare el DUEÑO del piso, que es quien lo simula; el que
+	# solo espeja lo ve por Net. Pero la SALA de arriba se marca en TODAS las maquinas: el estanque,
+	# el rio, el musgo y el decorado del jefe la leen, y con este corte encima del marcado el espejo
+	# se quedaba sin sala del jefe, la metia en el sorteo del estanque y dibujaba OTRO mapa (playtest
+	# del 11/09/2026: agua, musgo y peces en sitios distintos para cada uno).
+	if not Net.simulo_mi_piso():
+		return
 
 	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
 	if Game.memoria_pisos.has(_piso_construido):
@@ -2513,6 +2517,11 @@ func _restaurar_estado() -> void:
 			# entonces morir() se lo pone ahora (empiezan a contar desde que vuelves, no se quedan).
 			e.sello_pudre = float(d.get("pudre", -1.0))
 			e.morir()   # vuelve a ser un cadaver: gris, sin IA y con su cristal dentro
+		elif era_boss and _boss_sala.size != Vector2i.ZERO:
+			# EL JEFE VUELVE A SU SALA. No tiene zona (zona_idx -1), asi que caia en _zona_mas_cercana y
+			# la adoptaba: se lo llevaba a merodear por otra sala. Se le dan los puntos de la suya, los
+			# mismos que al parirlo.
+			_mandarlo_al_hueco(e, _boss_pos)
 		elif zona != null:
 			zona.adoptar(e)   # la zona lo cuenta como suyo, o parira por encima de su aforo
 
@@ -2534,7 +2543,9 @@ func _zona_mas_cercana(pos: Vector2):
 	var mejor = null
 	var mejor_d: float = INF
 	for hijo in _zonas.get_children():
-		var d: float = hijo.global_position.distance_squared_to(pos)
+		# Contra su HOGAR, no contra global_position: las zonas son nodos sin posicion (todas en 0,0),
+		# asi que medir el nodo devolvia siempre la PRIMERA zona.
+		var d: float = (hijo.hogar as Vector2).distance_squared_to(pos)
 		if d < mejor_d:
 			mejor_d = d
 			mejor = hijo
