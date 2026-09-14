@@ -299,10 +299,17 @@ func _nacer(pos: Vector2, reciclar: bool = true, saltar_aforo: bool = false, for
 func _cerca_del_jugador(sitio: Dictionary) -> bool:
 	if piso == null or sitio.is_empty():
 		return false
+	var suelo: Vector2 = piso.gen.centro_px(sitio["suelo"])
+	# En un TRABAJADOR de piso no hay jugador propio (su cuerpo esta apagado en la entrada): cuentan los
+	# humanos que ve.
+	if Net.soy_trabajador:
+		for r in Net.jugadores.jugadores_remotos_aqui():
+			if suelo.distance_to(r["pos"]) <= RECICLA_CERCA:
+				return true
+		return false
 	var jugador := get_tree().get_first_node_in_group("player")
 	if not (jugador is Node2D):
 		return false
-	var suelo: Vector2 = piso.gen.centro_px(sitio["suelo"])
 	return suelo.distance_to((jugador as Node2D).global_position) <= RECICLA_CERCA
 
 
@@ -311,7 +318,7 @@ func _cerca_del_jugador(sitio: Dictionary) -> bool:
 func _puestos_a_respetar() -> Array:
 	var out: Array = []
 	var jugador := get_tree().get_first_node_in_group("player")
-	if jugador is Node2D:
+	if jugador is Node2D and not Net.soy_trabajador:   # el cuerpo de un trabajador no es nadie
 		# Espejar la pelea de otro cuenta como estar peleando: tampoco ves venir al que nace al lado.
 		var d: float = DIST_MIN_PELEANDO if Game.hay_pelea_en_pantalla() else dist_min_jugador
 		out.append([(jugador as Node2D).global_position, d])

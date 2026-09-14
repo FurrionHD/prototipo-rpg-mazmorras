@@ -2621,11 +2621,14 @@ func aforo_de_zona(idx: int) -> int:
 # lejano SEA CUAL SEA su distancia, para hacer aforo si o si -> un brote entra siempre completo, y
 # lo que se cae es lo que tienes mas lejos (lo menos molesto). Los CADAVERES no se tocan jamas:
 # llevan tu loot dentro y morir() ya los saca del grupo "enemy", asi que ni aparecen por aqui.
+#
+# LEJOS DE TODOS, no solo de mi jugador: el piso lo simulo para todos los que estan en el, asi que
+# medir solo desde mi cuerpo podia borrarle al compañero el bicho que tenia delante. Y un trabajador de
+# piso ni siquiera tiene cuerpo (el suyo esta apagado en la entrada).
 func _reciclar_lejano(forzar: bool = false) -> bool:
-	var player := get_tree().get_first_node_in_group("player")
-	if not (player is Node2D):
+	var refs: Array[Vector2] = _posiciones_de_jugadores()
+	if refs.is_empty():
 		return false
-	var pj: Vector2 = (player as Node2D).global_position
 
 	var lejano: Node = null
 	# Forzando, el liston de distancia se cae: vale cualquiera (arranca en -1 para aceptar hasta el
@@ -2646,7 +2649,10 @@ func _reciclar_lejano(forzar: bool = false) -> bool:
 		# que sigue vivisimo en la maquina que simula el piso.
 		if e.has_meta("es_espejo"):
 			continue
-		var d: float = pj.distance_to((e as Node2D).global_position)
+		var pos_e: Vector2 = (e as Node2D).global_position
+		var d: float = INF
+		for r in refs:
+			d = minf(d, r.distance_to(pos_e))
 		if d > best:
 			best = d
 			lejano = e
@@ -2730,6 +2736,11 @@ func _process(delta: float) -> void:
 	if not (player is Node2D):
 		return
 	var pj: Vector2 = (player as Node2D).global_position
+	# UN TRABAJADOR DE PISO no tiene libreta ni cuerpo: su jugador esta apagado en la entrada. Sin esto
+	# marcaria la entrada como vista en el mapa de todos y mantendria despiertos a los bichos de alli.
+	if Net.soy_trabajador:
+		_congelar_lejanos(_posiciones_de_jugadores())
+		return
 
 	# NIEBLA del mapa: la zona que pisas queda vista para siempre. Va con MI posicion a proposito: el
 	# mapa es mi libreta, no la de mi compañero. En sesion se apunta en la libreta del mundo del HOST y
@@ -2744,11 +2755,24 @@ func _process(delta: float) -> void:
 	# MULTIJUGADOR (hito 5.4): el congelado se mide contra el aliado MAS CERCANO, no solo contra mi.
 	# Yo simulo el piso para TODOS, asi que medir solo desde mi cuerpo dejaba dormidos a los bichos
 	# que rodean a mi compañero: no lo perseguirian ni podrian saltarle encima nunca.
-	var referencias: Array[Vector2] = [pj]
+	_congelar_lejanos(_posiciones_de_jugadores())
+
+
+# Donde estan TODOS los que me importan en este piso: mi jugador (salvo en un trabajador, que no tiene)
+# y todo el grupo "aliado" (companeros y jugadores remotos). Es la vara de medir del congelado y del
+# reciclado.
+func _posiciones_de_jugadores() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	var player := get_tree().get_first_node_in_group("player")
+	if player is Node2D and not Net.soy_trabajador:
+		out.append((player as Node2D).global_position)
 	for a in get_tree().get_nodes_in_group("aliado"):
 		if is_instance_valid(a) and a is Node2D:
-			referencias.append((a as Node2D).global_position)
+			out.append((a as Node2D).global_position)
+	return out
 
+
+func _congelar_lejanos(referencias: Array[Vector2]) -> void:
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e) or not (e is Node2D):
 			continue
