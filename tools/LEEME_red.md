@@ -21,6 +21,16 @@ piso, pelea ejecutada por el y jugada desde el espejo (se cierra sola y vuelve l
 a esperar la siguiente, caida en plena pelea (se deshace) y cierre de procesos. Los registros de los trabajadores: `AppData/Roaming/DungeonOratoria/logs/`.
 Que el enemigo "me vea y embista solo" es aleatorio (cono + ruido): se apunta, no se exige.
 
+```sh
+"$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn   # host + jugador B + trabajadores (~2 min)
+```
+
+La de DOS JUGADORES lanza ademas al jugador B como otro proceso (`prueba_town_dos_cliente.tscn`): dos peleas
+a la vez en dos trabajadores de pelea, B se une a la pelea del host y huye (la pelea sigue para el host).
+Se coordinan por un fichero de fase (`user://logs/prueba_dos_fase.txt`) y B apunta lo suyo en
+`logs/prueba_jugador_b.log`, que el host lee al final. Ojo al elegir grupos de la partida de referencia: el
+personaje 1 es enorme y acaba las peleas del piso 1 antes de que al otro le llegue un turno.
+
 ## Trocear
 
 ```sh
