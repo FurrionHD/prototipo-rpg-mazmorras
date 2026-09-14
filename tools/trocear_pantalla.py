@@ -136,9 +136,22 @@ for nombre, (tipo, i) in todas.items():
                 and not L[c - 1].startswith("# ===") and (c - 1) not in en_tramo:
             c -= 1
         mudadas.append((c, i, nombre))
+def fin_declaracion(i):
+    """Ultima linea de una declaracion que puede ocupar varias (una lista o un dict entre corchetes)."""
+    prof = 0
+    k = i
+    while True:
+        codigo = re.sub(r'"(?:[^"\\]|\\.)*"', '""', partir(L[k])[0])
+        prof += codigo.count("[") + codigo.count("{") + codigo.count("(")
+        prof -= codigo.count("]") + codigo.count("}") + codigo.count(")")
+        if prof <= 0 or k + 1 >= len(L):
+            return k
+        k += 1
+
+
 lineas_mudadas = set()
 for c, i, _ in mudadas:
-    lineas_mudadas.update(range(c, i + 1))
+    lineas_mudadas.update(range(c, fin_declaracion(i) + 1))
 
 nombres_mod = set(propias) | {n for _, _, n in mudadas}
 nombres_host = set(todas) - nombres_mod
