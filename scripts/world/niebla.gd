@@ -249,14 +249,14 @@ func _refrescar_camara() -> void:
 # farolillo apagado o con uno mejor. Se notaba justo cuando importa.
 #
 # El motor de vision ya sabia hacer esto (vision.gd lee 'radio' e 'intensidad' foco a foco); lo que
-# faltaba era rellenar la lista bien, y que el radio ajeno VIAJARA (ver Net.anunciar_luz).
+# faltaba era rellenar la lista bien, y que el radio ajeno VIAJARA (ver Net.jugadores.anunciar_luz).
 func _focos(jugador: Node2D) -> Array:
 	var r: float = radio_actual()
 	# Y de paso se lo cuento a los demas. Va aqui y no colgado de los seis sitios que mueven el radio
 	# (encender, acabarse el trozo, prender el siguiente, cambiar de farolillo, bajar un piso) porque
 	# a esa lista siempre se le olvida uno; anunciar_luz solo manda cuando el numero cambia de verdad.
 	if Net.activo:
-		Net.anunciar_luz()
+		Net.jugadores.anunciar_luz()
 	var out: Array = [{"pos": jugador.global_position, "radio": r}]
 	# Los compañeros de tu grupo van pegados a ti, pero su luz cuenta: en una esquina, el que va
 	# detras te alumbra el trozo que tu ya has dejado atras.

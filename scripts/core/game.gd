@@ -1123,7 +1123,7 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 # con la de combat._aplicar_imbuicion, que es la que manda.
 #
 # Vive aqui y no en el player porque la usan DOS maquinas: la del que la lanza a los suyos, y en multi
-# la del dueño del personaje cuando se la pone otro jugador (ver Net._apoyarte).
+# la del dueño del personaje cuando se la pone otro jugador (ver Net.jugadores._apoyarte).
 func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) -> int:
 	var cuerpo: bool = spell.imbue_tipo == 2
 	# UNA sola pregunta por el elemento, como en combat._aplicar_imbuicion: los que van al azar dan
@@ -1139,7 +1139,7 @@ func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) ->
 		roundi(spell.imbue_pct * 100.0), spell.imbue_usos])
 	# Y que se le vea el rastro a los demas: la imbuicion tiene su propio canal de red, y sin esto en
 	# la pantalla del compañero seguiria sin teñir hasta el siguiente combate.
-	Net.anunciar_imbue()
+	Net.jugadores.anunciar_imbue()
 	return elem_id
 
 
@@ -6173,7 +6173,7 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 	if Net.activo:
 		# El VIAJE COMPARTIDO: los que estan dentro y a los que la piedra alcanza reciben la oferta
 		# de subirse. Va ANTES de viajar, que despues ya estamos en otra escena.
-		Net.anunciar_retorno(c.piso_max_vuelta, player_nombre)
+		Net.jugadores.anunciar_retorno(c.piso_max_vuelta, player_nombre)
 		capturar_mapa()
 		comprometer_mapa()
 		Net.pisos.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
@@ -13055,7 +13055,7 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
 	# MULTI: que los demas sepan que estoy peleando. En multi el mundo NO se para, asi que las
 	# paredes seguirian pariendo: saberlo les sirve para no plantarme un bicho en las narices
 	# mientras estoy en una pantalla donde no puedo ni verlo (ver spawn_zone).
-	Net.avisar_combate(true)
+	Net.jugadores.avisar_combate(true)
 
 
 # RECOJO UNA PELEA QUE ME TRASPASAN (hito 5.4-C): el que la ejecutaba se ha ido (huyo o se le
@@ -13172,7 +13172,7 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 	Musica.desapilar()
 	Ambiente.pausar(false)
 	_bloquear_interaccion_jugador()
-	Net.avisar_combate(false)
+	Net.jugadores.avisar_combate(false)
 	Net.peleas.salir_del_espejo()
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
@@ -14022,7 +14022,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
-	Net.avisar_combate(false)
+	Net.jugadores.avisar_combate(false)
 	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su
 	# doble, y lo lee de la ficha del doble... que todavia no se ha actualizado con el resultado
 	# (eso pasa unas lineas mas abajo, con hp_left/mp_left/energy_left). Llamandola aqui se les

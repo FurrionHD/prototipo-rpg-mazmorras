@@ -55,7 +55,7 @@ func _ready() -> void:
 
 
 # MULTIJUGADOR: donde esta cada uno de mis acompañantes, para que los demas los vean en su mundo
-# (Net.enviar_estado). En el mismo ORDEN que Game.companeros(), que es como los espera el receptor.
+# (Net.jugadores.enviar_estado). En el mismo ORDEN que Game.companeros(), que es como los espera el receptor.
 # OJO: no confundir con posiciones() (mas abajo), que devuelve un Dictionary por PersonajeData y la
 # usa el cambio de lider.
 func posiciones_red() -> Array:

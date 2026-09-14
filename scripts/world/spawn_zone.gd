@@ -315,7 +315,7 @@ func _puestos_a_respetar() -> Array:
 		# Espejar la pelea de otro cuenta como estar peleando: tampoco ves venir al que nace al lado.
 		var d: float = DIST_MIN_PELEANDO if Game.hay_pelea_en_pantalla() else dist_min_jugador
 		out.append([(jugador as Node2D).global_position, d])
-	for r in Net.jugadores_remotos_aqui():
+	for r in Net.jugadores.jugadores_remotos_aqui():
 		out.append([r["pos"], DIST_MIN_PELEANDO if r["peleando"] else dist_min_jugador])
 	return out
 

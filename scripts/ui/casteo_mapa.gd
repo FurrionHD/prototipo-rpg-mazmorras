@@ -236,7 +236,7 @@ const RANGO_APOYO := 400.0
 # eligen grupo (el tuyo, o el de otro jugador).
 #
 # MULTIJUGADOR: los otros jugadores cerca de ti, y los suyos. Van como diccionario, porque su ficha vive
-# en SU maquina (ver Net.apoyo_a_otro). El orden es el de su grupo, [lider] + companeros(), el mismo del
+# en SU maquina (ver Net.jugadores.apoyo_a_otro). El orden es el de su grupo, [lider] + companeros(), el mismo del
 # canal de imbuiciones. Si estan PELEANDO tambien salen: echarsela es entrar en su pelea con ella lista
 # (ver player._soltar_conjuro). Decision del usuario tras el playtest del 11/09/2026.
 func _candidatos_imbue(sp: SpellData) -> Array:
@@ -628,7 +628,7 @@ func _globo_estado(texto: String, color: Color) -> void:
 			_globo.ocultar()
 		else:
 			_globo.mostrar(texto, color)
-	Net.anunciar_canto(texto, color)
+	Net.jugadores.anunciar_canto(texto, color)
 
 
 func _color_spell() -> Color:

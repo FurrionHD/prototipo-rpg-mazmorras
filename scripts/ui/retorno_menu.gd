@@ -3,7 +3,7 @@
 #  LA OFERTA DE SUBIRSE al viaje de la piedra de retorno de otro (solo multijugador).
 #
 #  Un compañero gasta su piedra y se va al pueblo; a los que estaban dentro y a tiro de esa piedra
-#  les llega la oferta de subirse GRATIS (ver Game.oferta_retorno y Net.anunciar_retorno). Este
+#  les llega la oferta de subirse GRATIS (ver Game.oferta_retorno y Net.jugadores.anunciar_retorno). Este
 #  nodo es el que decide CUANDO se enseña y en que forma. Tiene dos caras:
 #
 #   - TARJETA: una frase y tres botones pequeños en UNA fila. Mientras esta delante no corre

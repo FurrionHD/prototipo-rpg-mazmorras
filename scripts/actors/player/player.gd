@@ -354,7 +354,7 @@ func _physics_process(delta: float) -> void:
 		_tick_ruido(delta)
 		if Net.activo:
 			# Que el otro te vea QUIETO, no congelado. Con tu sequito: sus cuerpos tambien viajan.
-			Net.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
+			Net.jugadores.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
 		return
 
 	var direction: Vector2 = Input.get_vector(
@@ -522,7 +522,7 @@ func _physics_process(delta: float) -> void:
 	# MULTIJUGADOR (hito 1): si hay sesion de red, difunde donde estoy para que el otro me vea
 	# moverme. En un jugador (Net.activo == false) esto no hace nada.
 	if Net.activo:
-		Net.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
+		Net.jugadores.enviar_estado(global_position, _facing, _sequito.posiciones_red(), _pose_red())
 
 
 # Aguante maximo segun la Resistencia y la Agilidad. Usa lo CONSOLIDADO (lo del ultimo altar), no
@@ -677,10 +677,10 @@ func refrescar_grupo() -> void:
 	#
 	# Las dos son no-op sin sesion, y reparten a TODOS los peers (no asumen un solo invitado).
 	Net.pisos.anunciar_aspecto()
-	Net.anunciar_grupo()
+	Net.jugadores.anunciar_grupo()
 	# Y sus imbuiciones: al cambiar el equipo cambia QUIEN va en cada hueco, asi que el paquete de
 	# imbuiciones (que va por posicion) se queda desfasado si no se reemite aqui tambien.
-	Net.anunciar_imbue()
+	Net.jugadores.anunciar_imbue()
 	_rehacer_barras()
 	_refrescar_barras()
 	# La MOCHILA del HUD va detras de la ultima columna de barras: si el grupo crece o mengua,
@@ -716,7 +716,7 @@ func refrescar_imbue() -> void:
 	if _sequito != null and _sequito.has_method("refrescar_imbue"):
 		_sequito.refrescar_imbue()
 	# MULTIJUGADOR: canal propio y barato (un int por persona), no el aspecto completo.
-	Net.anunciar_imbue()
+	Net.jugadores.anunciar_imbue()
 
 
 # Los elementos imbuidos del grupo, en orden. El criterio de "que cuenta como imbuido" vive en la
@@ -1324,11 +1324,11 @@ const CASTEO_MANTENER := 1.0   # segundos aguantando el boton para sacar los hec
 # (dual) alterna derecha/izquierda golpe a golpe; si no, siempre la derecha. Es solo el DIBUJO --
 # el cono y el daño de _try_attack no cambian (el combate va aparte).
 # LO QUE HAY QUE MANDAR PARA QUE ME DIBUJEN HACIENDO ALGO: como ando, si llevo el arma fuera y el
-# espadazo en curso. Va empaquetado en un int dentro del paquete de posicion (ver Net.empaquetar_pose
+# espadazo en curso. Va empaquetado en un int dentro del paquete de posicion (ver Net.jugadores.empaquetar_pose
 # y remote_player.aplicar_pose): sin esto los demas me ven cruzar la mazmorra a paso de andar, sin
 # arma en la mano y sin dar un solo golpe.
 func _pose_red() -> int:
-	return Net.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq,
+	return Net.jugadores.empaquetar_pose(movement_mode, _desenvainado, _golpe_variante, _golpe_seq,
 		_faena_red, _faena_volteo, _faena_tier, _faena_golpe_tipo)
 
 
@@ -1339,7 +1339,7 @@ func _pose_red() -> int:
 # cuando pega el golpe. Aqui solo se le deja correr con el arbol en pausa (en solitario el minijuego
 # pausa el juego, igual que la pesca) y se le devuelve todo como estaba al acabar.
 var _en_faena: bool = false
-# Lo que viaja por red de la faena (ver Net.empaquetar_pose): cual es (0 = ninguna, indice en
+# Lo que viaja por red de la faena (ver Net.jugadores.empaquetar_pose): cual es (0 = ninguna, indice en
 # PoseJugador.FAENAS + 1), si va volteada y el tier de la herramienta, para que el otro vea el pico
 # de su color. Cada golpe sube _golpe_seq, el mismo contador de los espadazos.
 var _faena_red: int = 0
@@ -1695,14 +1695,14 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) 
 		return
 	mundo.add_child(p)
 	p.impacto.connect(_impacto_conjuro.bind(spell))
-	Net.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
+	Net.jugadores.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
 
 
 # Un destino que no es un personaje mio suelto: mi grupo entero, o alguien de OTRO jugador.
 #   - de otro y PELEANDO -> entro en su pelea con el conjuro ya recitado y apuntado a el (o a todos).
 #     Es la misma nota que el conjuro de ataque con el que abres una pelea: viaja con mi ficha y el
 #     anfitrion me saca el disparo en mi primer turno (ver Game.apuntar_hechizo_de_entrada).
-#   - de otro y libre    -> se le aplica en su maquina (Net.apoyo_a_otro).
+#   - de otro y libre    -> se le aplica en su maquina (Net.jugadores.apoyo_a_otro).
 func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
 	var peer: int = int(d.get("peer", 0))
 	var grupo: bool = bool(d.get("grupo", false))
@@ -1716,10 +1716,10 @@ func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
 	if peleando:
 		Game.apuntar_hechizo_de_entrada(spell, null, Game.lider(),
 			{"peer": peer, "nombre": nombre, "grupo": grupo})
-		Net.unirme_a_la_pelea_del_jugador(peer)
+		Net.jugadores.unirme_a_la_pelea_del_jugador(peer)
 		_toast("⚔ Entras en la pelea con %s listo." % spell.nombre)
 		return
-	Net.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
+	Net.jugadores.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
 	_toast("✨ Le echas %s a %s." % [spell.nombre, nombre])
 
 

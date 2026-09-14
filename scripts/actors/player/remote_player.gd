@@ -209,7 +209,7 @@ func cantar(texto: String, color: Color) -> void:
 	_globo.mostrar(texto, color)
 
 
-# LA POSE que viene pegada al paquete de posicion (ver Net.empaquetar_pose): como anda, si lleva el
+# LA POSE que viene pegada al paquete de posicion (ver Net.jugadores.empaquetar_pose): como anda, si lleva el
 # arma fuera y si esta soltando un espadazo. Hasta esto, remote_player pintaba "modo andar" a pelo y
 # nada mas: al otro jugador se le veia cruzar la mazmorra sin desenvainar y sin dar un solo golpe,
 # aunque estuviera aporreando a un bicho delante de tus narices.
@@ -218,15 +218,15 @@ func cantar(texto: String, color: Color) -> void:
 # pierde paquetes se queda encendido o apagado de mas. El contador solo dice "ha empezado otro", y
 # el reloj de aqui es el que decide cuanto dura -- el mismo numero que usa el jugador local.
 func aplicar_pose(pose: int) -> void:
-	_modo = pose & Net.POSE_MODO
-	_desenvainado = (pose & Net.POSE_DESENV) != 0
+	_modo = pose & Net.jugadores.POSE_MODO
+	_desenvainado = (pose & Net.jugadores.POSE_DESENV) != 0
 	var variante: int = (pose >> 3) & 0b11
 	var seq: int = (pose >> 5) & 0xFF
-	_aplicar_faena(Net.faena_de_pose(pose), Net.volteo_de_pose(pose), Net.tier_de_pose(pose))
+	_aplicar_faena(Net.jugadores.faena_de_pose(pose), Net.jugadores.volteo_de_pose(pose), Net.jugadores.tier_de_pose(pose))
 	if seq != _golpe_seq and _faena > 0:
 		# EN FAENA el contador de golpe es el del pico, no el de un espadazo: se ve la descarga.
 		if _golpe_seq >= 0:
-			_faena_golpe_remoto(Net.golpe_de_pose(pose))
+			_faena_golpe_remoto(Net.jugadores.golpe_de_pose(pose))
 		_golpe_seq = seq
 		return
 	if seq != _golpe_seq:
@@ -335,7 +335,7 @@ func _physics_process(delta: float) -> void:
 			_golpe_t > 0.0, _desenvainado, _golpe_variante))
 
 
-# SU FAENA, VISTA DESDE AQUI (ver Net.empaquetar_pose). Solo se ve el golpe caer, no la carga: la
+# SU FAENA, VISTA DESDE AQUI (ver Net.jugadores.empaquetar_pose). Solo se ve el golpe caer, no la carga: la
 # carga no viaja y no merece la pena mandarla a 10 Hz para un pico que sube un momento.
 var _faena: int = 0
 var _faena_volteo: bool = false

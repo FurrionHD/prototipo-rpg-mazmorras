@@ -1104,7 +1104,7 @@ func _editar_aspecto(pj: PersonajeData) -> void:
 			# los DOS (lider y sequito) porque el editado puede ser cualquiera; es barato.
 			if Net.activo:
 				Net.pisos.anunciar_aspecto()
-				Net.anunciar_grupo()
+				Net.jugadores.anunciar_grupo()
 			_aviso = "%s cambia de aspecto." % pj.nombre
 			_aviso_ok = true
 			_rebuild())

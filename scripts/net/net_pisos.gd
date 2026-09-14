@@ -107,8 +107,8 @@ func _crear_cuerpo_companero(peer_id: int, idx: int):
 			float(d.get("alpha", 1.0)), d.get("piezas", {}), d.get("equipo", {}))
 	# Su imbuicion, de lo ultimo que anuncio. Sin esto un companero recreado (al viajar, o al
 	# entrar tu a la partida) nace sin rastro aunque su dueño lleve el manto puesto.
-	# +1 porque el hueco 0 del paquete es el LIDER (ver Net.anunciar_imbue).
-	c.aplicar_imbue(Net._imbue_en(Net._peers[peer_id].get("imbue", PackedInt32Array()), idx + 1))
+	# +1 porque el hueco 0 del paquete es el LIDER (ver Net.jugadores.anunciar_imbue).
+	c.aplicar_imbue(Net.jugadores._imbue_en(Net._peers[peer_id].get("imbue", PackedInt32Array()), idx + 1))
 	return c
 
 
