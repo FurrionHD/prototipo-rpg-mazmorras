@@ -506,10 +506,21 @@ func cerrar_y_subir() -> Dictionary:
 # es la ultima que se guardo. El cerrojo se queda cogido hasta que caduque el arrendamiento (para
 # eso existe), y por eso quien llama tiene que DECIRLO.
 func abandonar() -> String:
+	# En el menu principal no estoy dentro de NINGUN mundo, tampoco de uno ajeno. Esto se quedaba
+	# puesto al salir por los caminos normales (el de unirse no lo limpiaba nadie), y el siguiente
+	# intento de entrar arrancaba con banderas de la sesion anterior.
+	uniendome = ""
 	if abierto == "":
+		Game.mundo_compartido = false
 		return ""
 	var clave := abierto
 	push_warning("[mundos] se abandona %s sin cerrar: el cerrojo caducara solo" % clave)
+	# "Caducara solo" solo es verdad si se deja de LATIR: Nube late cada 30 s mientras este en HOST, asi
+	# que el arrendamiento no caducaba nunca y el mundo decia "ya tienes uno abierto" hasta cerrar el
+	# juego. Se olvida en local; el almacen lo suelta al vencer el arrendamiento (y a mi me lo devuelve
+	# antes, porque reconoce mi identidad).
+	if Nube.estado == Nube.HOST:
+		Nube._olvidar()
 	abierto = ""
 	_contrasena = ""
 	_hostear_al_llegar = false

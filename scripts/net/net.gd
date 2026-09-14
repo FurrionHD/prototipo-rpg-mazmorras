@@ -253,6 +253,9 @@ var _enem_acum: float = 0.0
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
+# El host ha contestado a un pedir_guardar_todos (corre en el invitado). Lo espera el "Guardar y salir"
+# del invitado para no cortar antes de que su estado haya llegado y se haya escrito.
+signal guardado_respondido(ok: bool)
 
 # Se emite cuando cambia CUALQUIER estado compartido del hogar (bote, cofre, baul de materiales):
 # los menus del pueblo abiertos se re-dibujan al oirlo (hoy la UI solo se refresca por accion
@@ -5968,6 +5971,7 @@ func _pedir_guardar(cerrando: bool = false) -> void:
 # Corre en el INVITADO que pidio guardar: si el host no pudo, que no se quede pensando que si.
 @rpc("authority", "call_remote", "reliable")
 func _aviso_guardado(ok: bool) -> void:
+	guardado_respondido.emit(ok)
 	if not ok:
 		_toast("El anfitrión no ha podido guardar: tu partida tampoco se ha guardado.")
 
@@ -6040,11 +6044,16 @@ func _on_connected_to_server() -> void:
 # EL PLAZO. Si el host es de otro build, su _saludar tiene otra firma y Godot tira el paquete SIN
 # error: sin esto, el jugador se queda mirando "Validando codigo..." para siempre.
 var _respondio := false
+# Cada intento de entrar lleva su numero. El plazo de un intento VIEJO (salir y volver a entrar en
+# menos de _PLAZO_SALUDO) veia el _respondio del nuevo a false y cortaba la conexion buena.
+var _intento_saludo: int = 0
 
 func _esperar_respuesta() -> void:
 	_respondio = false
+	_intento_saludo += 1
+	var intento: int = _intento_saludo
 	await get_tree().create_timer(_PLAZO_SALUDO).timeout
-	if _respondio or not activo or es_host:
+	if intento != _intento_saludo or _respondio or not activo or es_host:
 		return
 	estado_cambiado.emit("El anfitrión no contesta. Lo más probable es que no coincida la versión "
 		+ "del juego: tenéis que ser el mismo build.")
@@ -6514,6 +6523,11 @@ func _on_peer_disconnected(id: int) -> void:
 		# Somos uno menos: el host recuenta y difunde; los apartados por cupo van volviendo.
 		if es_host:
 			_sync_humanos()
+	# SU IDENTIDAD SE VA CON EL, y va AL FINAL porque lo de arriba todavia la lee. _saludar rechaza a
+	# quien traiga una identidad que ya esta dentro, y esto no se borraba nunca: el que salia al menu
+	# no podia volver a entrar hasta que el host cerrase la sesion (playtest del 11/09/2026).
+	_identidades.erase(id)
+	_en_la_puerta.erase(id)
 
 
 # El resto de señales de multiplayer.

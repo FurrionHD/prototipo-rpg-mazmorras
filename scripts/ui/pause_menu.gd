@@ -240,8 +240,20 @@ func _guardar_y_salir() -> void:
 		# anfitrion que guarde y se le da un respiro para que mi estado llegue antes de cortar.
 		if Net.mundo_compartido:
 			_aviso.text = "Guardando tu personaje en el mundo..."
+			# Se ESPERA a que el host diga que ha escrito, con un tope. Antes era un segundo a ciegas, y
+			# el host puede tardar hasta _PLAZO_ESTADOS en recoger: con un poco de lag se cortaba antes
+			# de que llegase lo ultimo que habias hecho.
+			var llego: Array = [false]   # Array y no bool: la lambda captura por valor
+			var al_llegar := func(_ok: bool) -> void: llego[0] = true
+			Net.guardado_respondido.connect(al_llegar)
 			Net.pedir_guardar_todos()
-			await get_tree().create_timer(1.0).timeout
+			var esperado: float = 0.0
+			while not llego[0] and esperado < 5.0:
+				await get_tree().create_timer(0.1).timeout
+				esperado += 0.1
+			if Net.guardado_respondido.is_connected(al_llegar):
+				Net.guardado_respondido.disconnect(al_llegar)
+			await get_tree().create_timer(0.2).timeout   # respiro antes de cortar (ver desconectar)
 			Game.limpiar_modales()
 			Net.desconectar()
 			get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
