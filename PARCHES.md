@@ -2,6 +2,69 @@
 
 ---
 
+# v0.13.0 — «Todos a una»
+
+Jugar acompañado tenía una pega de fondo: cada ordenador llevaba su parte de la mazmorra y de las
+peleas, y a veces a uno le pasaba algo que al otro no. Ahora el piso y las peleas no son de ningún
+jugador: los lleva el juego por detrás, igual para todos.
+
+---
+
+## 👥 Una sola mazmorra para todos
+
+**El piso ya no depende de nadie.** Los enemigos, los brotes de pared y lo que hay por el suelo se
+mueven igual en las dos pantallas, entre quien entre y salga.
+
+**Las peleas, igual.** Cuando atacas (o te embisten), la pelea empieza al instante y los dos veis
+exactamente la misma. Podéis tener cada uno la vuestra a la vez en el mismo piso.
+
+**Unirse es pulsar.** Los enemigos de la pelea de tu compañero van atados con líneas rojas: atacar a
+cualquiera de ellos te mete en su pelea. Arrimarse ya no te mete sin querer.
+
+**Huir es de cada uno.** Si escapas, te vas tú con los tuyos y la pelea sigue para los demás.
+
+**Apoyo desde fuera.** Las curas, los Mantos, los Filos y los buffs se recitan en el mapa sin enemigo
+delante, también sobre otro jugador. Si está peleando, entras en su pelea con el conjuro listo.
+
+**Lo que descubre uno, lo descubre el mundo.** Si alguien del grupo ya ha visto un material, el
+crafteo se desbloquea para todos.
+
+**La sala se abre también desde la mazmorra**, sin volver al pueblo, y se puede **volver a entrar al
+mundo** sin cerrar el juego.
+
+## ⚔️ Pelear
+
+**La pelea llena no deja a nadie fuera.** El enemigo que llega cuando ya no cabe nadie más espera
+dentro de la pelea ("+N esperando") y entra en cuanto cae otro, en vez de embestir en bucle desde fuera.
+
+**Los golpes van por delante.** El espadazo alcanza lo que tienes delante, no lo que tienes al costado,
+y pega cuando baja la espada: si el enemigo se aparta a tiempo, fallas.
+
+**Bastón y varita: tocar o mantener.** Un toque es un bastonazo; si mantienes, recitas sin dar el golpe
+y el gesto sale al lanzar el hechizo.
+
+**El Muro ya no se puede usar sobre uno mismo**, y en compañía cae sobre el aliado que eliges.
+
+## 🔧 Arreglos
+
+**Al pelear en compañía se perdían cosas, y ya no**: la excelia ganada, el desgaste del arma y la
+armadura, las pasivas raras de los enemigos abatidos, la poción que seguía curando al salir y la
+Agilidad por huir. Y salir de una pelea con todo tu grupo caído vuelve a mandarte al pueblo.
+
+**Los tomos de sabiduría** daban demasiada excelia mágica: ahora un tercio.
+
+**En compañía**, el invitado ya no pierde el farolillo, el carbón ni el cebo al guardar; el compañero
+ve las grietas de los brotes en la pared; la sala del jefe y el lago salen igual para los dos, y el
+jefe vuelve a su sala.
+
+**El Auto del farolillo** en la forja rellena también las hebillas.
+
+**El inventario** ya no salta arriba del todo al pulsar un objeto de abajo.
+
+**Hay que tener todos la misma versión** para jugar juntos: con una anterior no se puede entrar.
+
+---
+
 # v0.12.1 — «Manos a la obra»
 
 Picar, talar, segar y sacarle el cristal a un cadáver eran una pantalla negra con una barra. Ahora
