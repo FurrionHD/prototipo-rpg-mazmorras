@@ -1125,6 +1125,13 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 		pj.stamina = c.current_energy
 	guardar_imbue_en_ficha(c, pj)
 	guardar_estados_en_ficha(c, pj)
+	# Y la POCION que le quedara goteando, igual que al pulsar Continuar (combat._on_continue_pressed). Quien
+	# sale por aqui (huye, o cierra su espejo antes que quien ejecuta la pelea -en la de un trabajador,
+	# siempre-) no pasa por aquel, y la cura a medias se perdia. Los estados de curacion no se guardan
+	# arriba (StatusEffects.estados_que_salen), asi que no cuenta dos veces.
+	if c.is_alive():
+		arrastrar_regen(c.regen_pendiente(), pj, c.regen_turnos_pendientes())
+		arrastrar_regen_mana(c.regen_mana_pendiente(), pj, c.regen_mana_turnos_pendientes())
 
 
 # La IMBUICION que quede al salir de la pelea se queda en la ficha: dura ENTRE combates. Se llama
@@ -5488,8 +5495,8 @@ func _avisar_durabilidad(slot: String, p: PersonajeData, antes: float, ahora: fl
 	if ahora >= antes:
 		return
 	# EN MULTI la pelea la resuelve UNA maquina para todos, asi que aqui pasa tambien el equipo del
-	# personaje de otro humano: sus avisos son suyos, no mios. El desgaste ya le vuelve por el
-	# paquete de siempre y lo vera en su pantalla.
+	# personaje de otro humano: sus avisos son suyos, no mios. El desgaste le vuelve en el lote
+	# (desgaste_a_dict, "dur") y el aviso le sale al aplicarlo (Net.partida.aplicar_desgaste).
 	if not plantilla.has(p):
 		return
 	var hud: Node = get_tree().get_first_node_in_group("hud") if is_inside_tree() else null

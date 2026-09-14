@@ -353,6 +353,17 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	var vivo: Combatant = Game.combatant_de_pj(pj)
 	d["cds"] = Game.cds_a_rutas(vivo.ability_cooldowns if vivo != null \
 		else Game.ability_cooldowns_persist.get(pj, {}))
+	# LA DURABILIDAD de lo que lleva puesto, por ranura. La pelea desgasta el arma y la armadura DEL
+	# DOBLE (su equip_meta), que es una copia: sin esto el equipo de quien peleaba en otra maquina no se
+	# gastaba nunca. Con la pelea en un trabajador eso seria el de TODOS.
+	var dur: Dictionary = {}
+	for slot in pj.equip_meta:
+		var m = pj.equip_meta[slot]
+		if m is Dictionary and (m as Dictionary).has("durabilidad"):
+			dur[slot] = float(m["durabilidad"])
+	d["dur"] = dur
+	# Y LAS PASIVAS que haya sacado dentro (una tirada de 1 entre 500.000 no puede quedarse en la copia).
+	d["pasivas_pendientes"] = (pj.pasivas_pendientes as Dictionary).duplicate()
 	return d
 
 
@@ -381,6 +392,19 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 			pj.set(campo, d[campo])
 	if d.has("cds"):
 		Game.ability_cooldowns_persist[pj] = Game.cds_de_rutas(d["cds"] as Dictionary)
+	# La durabilidad solo BAJA en una pelea: se queda la menor (un lote rezagado no puede reparar nada).
+	# El aviso de pieza gastada/rota sale aqui, en la maquina de su dueño, que es quien lo tiene que ver.
+	var dur: Dictionary = d.get("dur", {})
+	for slot in dur:
+		if not (pj.equip_meta.get(slot) is Dictionary):
+			continue
+		var antes: float = Game.durabilidad_slot(String(slot), pj)
+		var ahora: float = minf(antes, float(dur[slot]))
+		if ahora < antes:
+			pj.equip_meta[slot]["durabilidad"] = ahora
+			Game._avisar_durabilidad(String(slot), pj, antes, ahora)
+	for id in (d.get("pasivas_pendientes", {}) as Dictionary):
+		pj.pasivas_pendientes[id] = true
 	# Los estados vuelven como datos, pero lo que el mapa lee de ellos (cuanto te frenan, sus chips)
 	# esta CACHEADO en la ficha: sin recalcularlo, el que se une a una pelea salia con el Pegajoso
 	# puesto y andando a velocidad normal, y sin chips que lo dijeran.

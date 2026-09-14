@@ -133,6 +133,7 @@ func _ready() -> void:
 	# 5b) La juego desde el espejo (Atacar en cada turno mio) hasta que acabe y pulso Continuar: el
 	# trabajador tiene que cerrarla SOLO (no tiene quien pulse) y devolverme lo mio.
 	var excelia_antes: float = _excelia_grupo()
+	var dur_antes: float = Game.durabilidad_slot("main", Game.lider())
 	t = 0.0
 	var mia: Node = Net.peleas._pantalla_combate()
 	while is_instance_valid(mia) and t < 90.0 and not (mia.acabada() if mia.has_method("acabada") else true):
@@ -154,6 +155,9 @@ func _ready() -> void:
 	_ok(not Game.hay_pelea_en_pantalla() and not Net.peleas.espejando() and not Net.peleas._desgaste_pendiente,
 		"vuelvo al mapa con lo mio de vuelta")
 	_ok(_excelia_grupo() > excelia_antes, "la excelia de la pelea llega a mis personajes (%.2f -> %.2f)" % [excelia_antes, _excelia_grupo()])
+	var dur_despues: float = Game.durabilidad_slot("main", Game.lider())
+	_ok(Game.lider().equipped_main == null or dur_despues < dur_antes,
+		"el arma del lider se gasta en la pelea del trabajador (%.4f -> %.4f)" % [dur_antes, dur_despues])
 
 	_ok(not Net._trab._de_pelea.has(f1) or Net._trab.pelea_libre_en(1) != 0,
 		"al acabar, el que peleo deja sitio al que ya esperaba")

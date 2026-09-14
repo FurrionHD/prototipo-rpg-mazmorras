@@ -304,6 +304,9 @@ func _process(delta: float) -> void:
 		p._on_continue_pressed()
 
 
+# A que trabajador le he mandado mis fichas y todavia no me ha contestado (0 = a ninguno).
+var _fichas_mandadas_a: int = 0
+
 func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) -> void:
 	if ids.is_empty():
 		# Ese bicho ya lo pelea alguien: en vez de rebotar, ME UNO A SU PELEA. Es lo que espera el
@@ -326,8 +329,16 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		if Game._active_layer != null or ocupado_en_pelea():
 			_devolver_bichos(ids)
 			return
+		_fichas_mandadas_a = ejecutor
 		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo())
 		return
+	# MANDE MIS FICHAS A UN TRABAJADOR Y NO HA PODIDO: me devuelve los bichos y la pelea va aqui. Con las
+	# fichas se fue tambien el conjuro que traia (Game.casteo_para_viajar lo aparta): vuelve a su nota para
+	# que esta pelea lo suelte, en vez de perderse.
+	if _fichas_mandadas_a != 0:
+		_fichas_mandadas_a = 0
+		_mis_en_pelea.clear()
+		Game.devolver_casteo_en_vuelo()
 	var nodos: Array = []
 	for i in ids:
 		var n = Net.enemigos._enem_nodos.get(i)
@@ -1080,6 +1091,7 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 # que mande las fichas. Con ellos se sabe a quien muevo yo cuando el anfitrion pide una accion.
 @rpc("any_peer", "call_remote", "reliable")
 func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
+	_fichas_mandadas_a = 0
 	# NO PUEDO ABRIR EL ESPEJO (me ha caido otra pelea encima mientras llegaba este). Mis personajes YA
 	# estan dentro de la suya: hay que decirle que me saque, o la pelea se quedaria esperando turnos mios
 	# que nunca van a llegar. Lo que le devuelva no tiene dueño aqui (se descarta): no pelearon.

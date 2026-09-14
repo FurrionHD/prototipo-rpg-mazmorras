@@ -1326,10 +1326,7 @@ func _on_continue_pressed() -> void:
 		# cayo, forzarlo a muerto evita que Game reanime al original (con la vida del invocado) al huir.
 		if e_muerto or _slots_invocados.has(i):
 			muertos.append(i)
-		# Pasiva RNG slayer: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro).
-		if e_muerto:
-			Game.rodar_slayer_por_familia(int(_enemies[i].familia),
-				_ultimo_en_golpear.get(_enemies[i]))
+		# (La pasiva slayer de cada abatido se tira en _end, no aqui: ver alli.)
 		hp_left.append(_enemies[i].current_hp)
 		estados_left.append(StatusEffects.estados_que_salen(_enemies[i].statuses))
 	# Como sale cada uno de los tuyos, por indice (el mismo orden que llego a setup()).
@@ -1504,9 +1501,15 @@ func _accion_huir() -> void:
 	# mismo criterio que el mapa: huyendo corren todos, no solo el que va delante. El reto se calcula
 	# para CADA UNO (al mas flojo el mismo bicho le exige mas).
 	#
-	# Solo si el que huye es de LOS TUYOS: si es el personaje de otro humano, su excelia es suya y
-	# vive en su maquina (pj_de_combatant devuelve null para ellos, y eso acabaria sumandoselo a tu
-	# lider por la puerta de atras).
+	# Lo cobra el GRUPO DE QUIEN HUYE. Si es de otro humano, a sus DOBLES (nunca a mi party ni a mi lider):
+	# su ficha le vuelve en el lote. Antes solo pagaba a los mios, y en la pelea de un trabajador -donde
+	# todos son de otros- nadie ganaba nada por huir.
+	if dueno != 0:
+		for c in _aliados:
+			var pj_d: PersonajeData = Game.pj_de_combatant(c) if int(_dueno_aliado.get(c, 0)) == dueno else null
+			if pj_d != null:
+				Game.ganar("agilidad", _reto(perseguidor, pj_d), Game.GAIN_AGILIDAD_HUIDA_COMBATE,
+					Game.RETO_MAX_FISICO, pj_d)
 	if dueno == 0:
 		for pj in Game.party:
 			Game.ganar("agilidad", _reto(perseguidor, pj), Game.GAIN_AGILIDAD_HUIDA_COMBATE,
@@ -1904,6 +1907,14 @@ func _end(player_won: bool, fled: bool = false) -> void:
 	espejo._soltar_impactos_red()
 	_dps_resumen()
 	_player_won = player_won
+	# PASIVA RNG SLAYER: cada bicho ABATIDO de verdad tira por su slayer de familia (ultra-raro), a nombre
+	# de quien le dio el ultimo golpe. Va AL ACABAR y no al pulsar Continuar: en multi, quien sale de su
+	# espejo antes se lleva su lote en ese momento (y en la pelea de un trabajador, que no pulsa nada, se
+	# van todos antes), asi que tirada despues se quedaba en la copia de su personaje.
+	if not _espejo and _state != State.FINISHED:
+		for e in _enemies:
+			if not e.is_alive():
+				Game.rodar_slayer_por_familia(int(e.familia), _ultimo_en_golpear.get(e))
 	_state = State.FINISHED
 	magia._limpiar_casteo()
 	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos
