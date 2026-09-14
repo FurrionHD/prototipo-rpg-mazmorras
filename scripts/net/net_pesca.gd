@@ -184,7 +184,7 @@ func _encaminar_fin_pesca(de: int, lugar: String, nonce: int, cobrado: bool) -> 
 		return
 	if not Net.es_host:
 		return
-	var dueno: int = Net.peleas._dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != de:
 		_fin_pesca_a.rpc_id(dueno, de, lugar, nonce, cobrado)
 

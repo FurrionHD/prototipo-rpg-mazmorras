@@ -1005,7 +1005,13 @@ const ALBOROTO_KILL := 5.0          # por cada bicho abatido
 const ALBOROTO_RECOLECTAR := 12.0   # picar / talar / recolectar (al cerrar el minijuego)
 # Tras un brote, el medidor no puede volver a dispararse en este tiempo (evita encadenarlos).
 const ALBOROTO_ENFRIAMIENTO := 120.0   # subido de 60: el doble de respiro entre brotes
+# HASTA CUANDO dura el respiro, en segundos del reloj del motor (0 = no hay). Antes era una cuenta
+# atras que solo bajaba en tick_alboroto, o sea mientras se movia el jugador de ESTA maquina: en un
+# trabajador de piso (que no tiene jugador) no bajaba nunca y tras el primer brote no salia otro.
 var _alboroto_enfriando: float = 0.0
+# QUIEN hizo el ultimo ruido que subio el medidor (peer; 0 = yo). El brote revienta la pared a la
+# vista de ESE jugador: el que simula el piso puede ser un trabajador sin cuerpo, o estar en otra sala.
+var _alboroto_causante: int = 0
 
 
 # El movimiento del jugador llama a esto cada frame con su modo (0 sigilo, 1 andar, 2 correr).
@@ -1013,8 +1019,6 @@ var _alboroto_enfriando: float = 0.0
 func tick_alboroto(delta: float, movement_mode: int) -> void:
 	if en_pueblo():
 		return
-	if _alboroto_enfriando > 0.0:
-		_alboroto_enfriando -= delta
 	var ritmo: float = ALBOROTO_ANDAR
 	if movement_mode == 2:
 		ritmo = ALBOROTO_CORRER
@@ -1025,18 +1029,27 @@ func tick_alboroto(delta: float, movement_mode: int) -> void:
 
 # Suma (o resta) ruido al medidor y dispara el brote si se llena. Publico: lo llaman el combate y
 # los minijuegos, no solo el movimiento.
-func sumar_alboroto(cuanto: float) -> void:
-	# MULTIJUGADOR: el alboroto es del PISO, y solo puede cebarlo quien lo SIMULA (es el unico que
-	# puede engendrar bichos por la pared: ver dungeon_floor.hay_sitio). En un espejo, acumularlo
-	# solo desincroniza. Antes esto era un `if Net.activo: return` seco, que mataba la mecanica
-	# entera en sesion: el medidor nunca subia y no salia un solo brote en toda una expedicion.
-	if not Net.pisos.simulo_mi_piso():
-		return
+#
+# 'causante' = el peer que hizo el ruido (0 = yo): lo pone la red al entregarle al dueño el ruido de otro.
+func sumar_alboroto(cuanto: float, causante: int = 0) -> void:
 	if en_pueblo():
 		return
+	# MULTIJUGADOR: el alboroto es del PISO y lo lleva quien lo SIMULA (es el unico que puede engendrar
+	# bichos por la pared: ver dungeon_floor.hay_sitio). Si lo simula otro, mi ruido SE LE MANDA: antes
+	# se tiraba, y con los trabajadores de piso -donde todos los humanos son espejos- el medidor no
+	# habria subido nunca y no saldria un solo brote.
+	if not Net.pisos.simulo_mi_piso():
+		Net.pisos.aportar_alboroto(cuanto)
+		return
 	alboroto = clampf(alboroto + cuanto, 0.0, ALBOROTO_MAX)
-	if alboroto >= ALBOROTO_MAX and _alboroto_enfriando <= 0.0:
+	if cuanto > 0.0:
+		_alboroto_causante = causante
+	if alboroto >= ALBOROTO_MAX and _segundos_motor() >= _alboroto_enfriando:
 		_disparar_brote_por_alboroto()
+
+
+func _segundos_motor() -> float:
+	return float(Time.get_ticks_msec()) / 1000.0
 
 
 func _disparar_brote_por_alboroto() -> void:
@@ -1045,9 +1058,11 @@ func _disparar_brote_por_alboroto() -> void:
 		return
 	# Solo se gasta el medidor si el brote SALE (puede fallar si no tienes una pared a la vista):
 	# asi el escandalo no se desperdicia en mitad de una sala abierta, salta en cuanto te arrimes.
-	if piso.provocar_brote():
+	# A la vista de quien hizo el ruido. Si fui yo (o ya no esta), el piso usa mi jugador, como siempre;
+	# y un trabajador, que no tiene jugador, busca al humano mas cercano a la pared.
+	if piso.provocar_brote(Net.posicion_de_peer(_alboroto_causante)):
 		alboroto = 0.0
-		_alboroto_enfriando = ALBOROTO_ENFRIAMIENTO
+		_alboroto_enfriando = _segundos_motor() + ALBOROTO_ENFRIAMIENTO
 		print("[alboroto] ¡el jaleo ha llamado a algo! Brote disparado.")
 
 

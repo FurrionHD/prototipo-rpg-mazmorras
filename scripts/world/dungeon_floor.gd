@@ -2825,11 +2825,18 @@ const BROTE_VISTA_MAX := 460.0
 # brote se queda en nada. Se busca la mas cercana (dentro del rango de vista) que ademas de para un
 # TRAMO GORDO -al menos el tamaño del brote-; si ninguna llega, la que mas de. Asi la pared que
 # revienta siempre suelta el grupo entero, no un bicho triste.
-func provocar_brote() -> bool:
-	var player := get_tree().get_first_node_in_group("player")
-	if not (player is Node2D) or _zonas == null:
+#
+# 'centro' = a la vista de QUIEN (lo pasa el alboroto: el jugador que hizo el ruido). Sin el, mi jugador;
+# y en un trabajador de piso no hay jugador que valga (su cuerpo esta apagado en la entrada).
+func provocar_brote(centro: Vector2 = Vector2.INF) -> bool:
+	if _zonas == null:
 		return false
-	var pj: Vector2 = (player as Node2D).global_position
+	var pj: Vector2 = centro
+	if pj == Vector2.INF:
+		var player := get_tree().get_first_node_in_group("player")
+		if not (player is Node2D) or Net.soy_trabajador:
+			return false
+		pj = (player as Node2D).global_position
 
 	var mejor_zona = null
 	var mejor_celda: Dictionary = {}

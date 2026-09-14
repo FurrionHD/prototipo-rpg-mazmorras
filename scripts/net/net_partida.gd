@@ -482,7 +482,7 @@ func _dame_tu_estado(cerrando: bool) -> void:
 		return
 	_mi_estado.rpc_id(1, jd_a_dict(Game.mi_jugador_data()))
 	if not cerrando:
-		Net.peleas._aviso_esquina("Partida guardada")
+		Net._aviso_esquina("Partida guardada")
 		return
 	# El mundo se cierra: aqui no me queda nada (mi personaje se queda dentro de el). Un respiro para
 	# que el paquete de arriba salga antes de cortar, o se guardaria sin mi ultimo rato.
@@ -617,7 +617,7 @@ func _pedir_guardar(cerrando: bool = false) -> void:
 func _aviso_guardado(ok: bool) -> void:
 	Net.guardado_respondido.emit(ok)
 	if not ok:
-		Net.peleas._toast("El anfitrión no ha podido guardar: tu partida tampoco se ha guardado.")
+		Net._toast("El anfitrión no ha podido guardar: tu partida tampoco se ha guardado.")
 
 
 # Corre en el INVITADO: guarda en SU ranura, en el pueblo de SU mundo.
@@ -629,9 +629,9 @@ func _guardar_ahora(cerrando: bool = false) -> void:
 	if not cerrando:
 		# El exito es rutina (va a la esquina); el FALLO si es una noticia y sale en grande.
 		if ok:
-			Net.peleas._aviso_esquina("Partida guardada")
+			Net._aviso_esquina("Partida guardada")
 		else:
-			Net.peleas._toast("El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
+			Net._toast("El anfitrión ha guardado, pero tu partida NO se pudo guardar.")
 		return
 	# El host cierra la sesion. Me vuelvo A MI MUNDO con lo que se acaba de guardar: se RECARGA de la
 	# ranura, que es la unica forma de garantizar que no me llevo nada del mundo del host (baul, mapa,

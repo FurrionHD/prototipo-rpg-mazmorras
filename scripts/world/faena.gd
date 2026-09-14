@@ -301,8 +301,7 @@ func _on_golpe(tipo: int) -> void:
 		if jugador.has_method("hacer_ruido"):
 			jugador.hacer_ruido(float(r["ruido"][clampi(tipo, 0, (r["ruido"] as Array).size() - 1)]),
 				RUIDO_DUR)
-	# Y el ALBOROTO del piso, por golpe (ver REACCION). Game solo lo cuenta si ESTA maquina simula el
-	# piso; si lo simula otro, lo cuenta el al ver el golpe en tu pose (RemotePlayer).
+	# Y el ALBOROTO del piso, por golpe (ver REACCION). Si el piso lo simula otro, Game se lo manda.
 	Game.sumar_alboroto(float(r.get("alboroto", 0.0)))
 	if _muneco == null:
 		_impacto()

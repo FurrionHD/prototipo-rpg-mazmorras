@@ -347,7 +347,7 @@ func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: f
 	# Metido en una pelea, la ficha la lleva el combate y la pisaria al cerrarse. No deberia llegar aqui
 	# (quien lanza te ve peleando y entra en tu pelea en vez de mandar esto), pero la carrera existe.
 	if Game.hay_pelea_en_pantalla():
-		Net.peleas._toast("✨ %s intentó echarte %s, pero estabas peleando." % [lanzador, sp.nombre])
+		Net._toast("✨ %s intentó echarte %s, pero estabas peleando." % [lanzador, sp.nombre])
 		return
 	var mios: Array = [Game.lider()]
 	mios.append_array(Game.companeros())
@@ -367,7 +367,7 @@ func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: f
 		if hecho != "":
 			partes.append("%s: %s" % ["tú" if pj == Game.lider() else (pj as PersonajeData).nombre, hecho])
 	if not partes.is_empty():
-		Net.peleas._toast("✨ %s te echa %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
+		Net._toast("✨ %s te echa %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
 
 
 # --- ENTRAR EN LA PELEA DE UN JUGADOR (el que la ejecuta puede no ser el) ---------------------
@@ -389,7 +389,7 @@ func _dime_tu_pelea() -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _esta_es_mi_pelea(anfitrion: int) -> void:
 	if anfitrion == 0:
-		Net.peleas._toast("Esa pelea ya ha terminado.")
+		Net._toast("Esa pelea ya ha terminado.")
 		return   # la nota del conjuro caduca sola y devuelve el mana (Game.tick_hechizo_de_entrada)
 	Net.peleas.solicitar_unirse(anfitrion)
 

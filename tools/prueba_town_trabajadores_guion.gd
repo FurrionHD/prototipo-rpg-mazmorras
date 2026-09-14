@@ -22,6 +22,21 @@ func _espejos_vivos() -> int:
 	return n
 
 
+# Cuantas lineas con 'texto' hay en los registros de los trabajadores de esta pasada. Los registros se
+# escriben con retraso (buffer), asi que se relee el fichero entero cada vez.
+func _lineas_en_registros(texto: String) -> int:
+	var dir := OS.get_user_data_dir().path_join("logs")
+	var n := 0
+	for f in DirAccess.get_files_at(dir):
+		if not f.begins_with("trabajador_"):
+			continue
+		var fa := FileAccess.open(dir.path_join(f), FileAccess.READ)
+		if fa == null:
+			continue
+		n += fa.get_as_text().count(texto)
+	return n
+
+
 func _trabajador_libre() -> int:
 	for w in Net._trab._estado:
 		if int(Net._trab._estado[w]) == 0:
@@ -76,6 +91,18 @@ func _ready() -> void:
 	_ok(Net.es_trabajador(dueno2), "al volver, el piso lo simula un trabajador otra vez")
 	var espejos2 := _espejos_vivos()
 	_ok(espejos2 == n_foto, "vuelven los mismos enemigos (%d de %d)" % [espejos2, n_foto])
+
+	# 4b) EL ALBOROTO: yo soy espejo, asi que mi ruido tiene que llegarle al trabajador y reventar una
+	# pared delante de MI (su cuerpo esta apagado en la entrada).
+	var brotes_antes := _lineas_en_registros("[brote] revienta")
+	Game.sumar_alboroto(Game.ALBOROTO_MAX + 10.0)
+	t = 0.0
+	while _lineas_en_registros("[brote] revienta") <= brotes_antes and t < 6.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(_lineas_en_registros("[brote] revienta") > brotes_antes,
+		"mi ruido de espejo llega al trabajador y revienta una pared (%.1f s)" % t)
+	_ok(Game.alboroto == 0.0, "el espejo no acumula alboroto propio (%.0f)" % Game.alboroto)
 
 	# 5) Me planto al lado de un enemigo: el trabajador tiene que perseguirme y mandarme la pelea a MI.
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D

@@ -32,7 +32,7 @@ func solicitar_extraccion(id: int) -> bool:
 		# propia (una segunda F antes de que abriera la pantalla) se contestaba "lo trabaja tu
 		# compañero" siendo yo mismo.
 		if Net.peleas._enem_ocupados.has(id) and int(Net.peleas._enem_ocupados[id]) != yo:
-			Net.peleas._toast("Ese cuerpo lo está trabajando tu compañero.")
+			Net._toast("Ese cuerpo lo está trabajando tu compañero.")
 			return false
 		Net.peleas._enem_ocupados[id] = yo
 		_apuntar_extrayendo(id, yo)
@@ -61,7 +61,7 @@ func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_resolver_extraccion(id, quien)
 		return
-	var dueno: int = Net.peleas._dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_pedir_extraccion_dueno.rpc_id(dueno, id, lugar, quien)
 	else:
@@ -111,7 +111,7 @@ func _rel_resp_extraccion(para: int, id: int, ok: bool) -> void:
 func _extraccion_concedida(id: int, ok: bool) -> void:
 	_extraccion_pidiendo = false   # la peticion ya no esta en vuelo, salga bien o mal
 	if not ok:
-		Net.peleas._toast("Ese cuerpo lo está trabajando tu compañero.")
+		Net._toast("Ese cuerpo lo está trabajando tu compañero.")
 		return
 	var n = Net.enemigos._enem_nodos.get(id)
 	# Si el cuerpo ya no esta, o si mientras viajaba la respuesta se me ha puesto una pantalla delante
@@ -150,7 +150,7 @@ func _encaminar_consumir(id: int, lugar: String) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_consumir_cadaver(id)
 		return
-	var dueno: int = Net.peleas._dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_consumir.rpc_id(dueno, id, lugar)
 
@@ -187,7 +187,7 @@ func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_liberar_cadaver(id)
 		return
-	var dueno: int = Net.peleas._dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_soltar_cuerpo.rpc_id(dueno, id, lugar)
 

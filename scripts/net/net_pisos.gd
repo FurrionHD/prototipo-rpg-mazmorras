@@ -824,3 +824,66 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 			"hp": d.get("hp", -1.0),
 		})
 	return {"enemigos": out, "suelo": []}
+
+
+# ============================================================
+#  EL ALBOROTO DE LOS QUE NO SIMULAN EL PISO
+# ============================================================
+# El medidor de ruido que dispara los brotes es del PISO y lo lleva su dueño (Game.sumar_alboroto). El
+# ruido de los demas (correr, pelear, picar, cantar) se le MANDA: se acumula aqui y sale cada
+# ALBOROTO_ENVIO_CADA segundos, porque correr suma un poco en CADA frame y un mensaje por frame seria
+# tirar la red. Va por el host (estrella) con quien lo hizo, para que el brote salga delante de el.
+const ALBOROTO_ENVIO_CADA := 0.5
+var _alboroto_pendiente: float = 0.0
+var _t_alboroto: float = 0.0
+
+
+func aportar_alboroto(cuanto: float) -> void:
+	if not Net.activo or mi_piso() < 0:
+		return
+	_alboroto_pendiente += cuanto
+
+
+func _process(delta: float) -> void:
+	if _alboroto_pendiente == 0.0:
+		return
+	_t_alboroto -= delta
+	if _t_alboroto > 0.0:
+		return
+	_t_alboroto = ALBOROTO_ENVIO_CADA
+	var cuanto: float = _alboroto_pendiente
+	_alboroto_pendiente = 0.0
+	if not Net.activo or multiplayer.multiplayer_peer == null or mi_piso() < 0:
+		return
+	if Net.es_host:
+		_encaminar_alboroto(1, Net._mi_lugar, cuanto)
+	else:
+		_pedir_alboroto.rpc_id(1, Net._mi_lugar, cuanto)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_alboroto(lugar: String, cuanto: float) -> void:
+	if Net.es_host:
+		_encaminar_alboroto(multiplayer.get_remote_sender_id(), lugar, cuanto)
+
+
+# SOLO host: el ruido de 'de' va al dueño de ese piso (o me lo quedo, si el dueño soy yo).
+func _encaminar_alboroto(de: int, lugar: String, cuanto: float) -> void:
+	var dueno: int = Net._dueno_de(lugar)
+	if dueno == 0 or dueno == de:
+		return
+	if dueno == 1:
+		_alboroto_en_dueno(de, lugar, cuanto)
+	else:
+		_alboroto_a.rpc_id(dueno, de, lugar, cuanto)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _alboroto_a(de: int, lugar: String, cuanto: float) -> void:
+	_alboroto_en_dueno(de, lugar, cuanto)
+
+
+func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:
+	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		return
+	Game.sumar_alboroto(cuanto, de)

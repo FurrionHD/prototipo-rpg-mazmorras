@@ -352,7 +352,7 @@ const _FAENA := preload("res://scripts/world/faena.gd")
 #   - se OYE: por distancia a ti, igual que su espadazo (ver _FAENA.sonar_lejos);
 #   - ALERTA: su avatar "hace ruido" (ruido_oido), y los bichos de quien simule el piso lo oyen igual
 #     que oirian al propio jugador -- que en esa maquina ES este avatar;
-#   - y si ESTA maquina simula el piso, suma al ALBOROTO, que antes solo contaba lo del anfitrion.
+#   - el ALBOROTO no se suma aqui: cada jugador manda el suyo al dueño del piso (Net.pisos.aportar_alboroto).
 # Nada de esto necesita un mensaje nuevo: el golpe y como ha salido ya viajan en la pose.
 func _faena_golpe_remoto(tipo: int) -> void:
 	_faena_golpe_pendiente = true
@@ -368,8 +368,6 @@ func _faena_golpe_remoto(tipo: int) -> void:
 		return
 	var ruidos: Array = r["ruido"]
 	hacer_ruido(float(ruidos[clampi(tipo, 0, ruidos.size() - 1)]), _FAENA.RUIDO_DUR)
-	if Net.pisos.simulo_mi_piso():
-		Game.sumar_alboroto(float(r.get("alboroto", 0.0)))
 
 
 # EL RUIDO QUE HACE, para el oido de los bichos (enemy._detecta_a pregunta por esto antes que por la

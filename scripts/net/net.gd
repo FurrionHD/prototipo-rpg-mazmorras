@@ -179,6 +179,48 @@ signal hogar_cambiado()
 func _soy_cliente() -> bool:
 	return activo and not es_host
 
+
+# DONDE ESTA ahora el cuerpo de ese peer en MI escena, o Vector2.INF si no lo tengo. Con 0 ("yo")
+# devuelve INF y quien pregunte usa mi jugador; salvo en un TRABAJADOR, que no tiene jugador: ahi vale
+# el primer humano que tenga a la vista. Lo usa el brote del alboroto para reventar la pared delante de
+# quien ha hecho el ruido.
+func posicion_de_peer(peer: int) -> Vector2:
+	var a = _avatares.get(peer) if peer != 0 else null   # sin tipar: puede estar liberado
+	if a != null and is_instance_valid(a):
+		return (a as Node2D).global_position
+	if soy_trabajador:
+		for id in _avatares:
+			var b = _avatares[id]
+			if is_instance_valid(b):
+				return (b as Node2D).global_position
+	return Vector2.INF
+
+
+# Quien simula ese lugar (0 = nadie). Solo el host lo sabe.
+func _dueno_de(lugar: String) -> int:
+	if not lugar.begins_with("piso:"):
+		return 0
+	return _dueno_piso.get(int(lugar.substr(5)), 0)
+
+
+# Aviso corto en MI pantalla (el HUD es local: los avisos no se replican).
+func _toast(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast(texto)
+	else:
+		print("[net] ", texto)
+
+
+# Acuse de recibo DISCRETO, en la esquina de abajo. Para lo rutinario (el autoguardado salta cada
+# minuto): un cartelon en mitad de la pantalla cada 60 segundos era insufrible.
+func _aviso_esquina(texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_aviso_esquina"):
+		hud.mostrar_aviso_esquina(texto)
+	else:
+		print("[net] ", texto)
+
 # Se emite cuando cambia CUALQUIER reserva: los menus de profesion abiertos se redibujan para que el
 # "disponible" del otro baje/suba en vivo.
 signal reservas_cambiadas()

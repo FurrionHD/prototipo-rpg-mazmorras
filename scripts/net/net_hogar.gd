@@ -159,7 +159,7 @@ func _retiro_fallido() -> void:
 # escribe quien lo rechaza, que es el unico que lo sabe.
 @rpc("any_peer", "call_remote", "reliable")
 func _aviso_remoto(texto: String) -> void:
-	Net.peleas._aviso_esquina(texto)
+	Net._aviso_esquina(texto)
 
 
 # Difunde el bote a los clientes (solo si hay sesion) y refresca la UI.
@@ -397,7 +397,7 @@ func _resolver_saca_cofre(id: int, quien: int) -> void:
 	# pero el que manda es el host: un cliente con la lista desfasada podria pedirla igual.
 	if int(Game.cofre_equipo[idx].get("encargo", 0)) != 0:
 		if quien == 1:
-			Net.peleas._aviso_esquina("Esa pieza está en un encargo")
+			Net._aviso_esquina("Esa pieza está en un encargo")
 		else:
 			_aviso_remoto.rpc_id(quien, "Esa pieza está en un encargo")
 		return
@@ -449,7 +449,7 @@ func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofr
 		if Net.activo:
 			var motivo: String = _motivo_no_disponible(uids)
 			if not motivo.is_empty():
-				Net.peleas._toast(motivo)
+				Net._toast(motivo)
 				_difundir_hogar()
 				return
 		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases) != 0:
@@ -762,7 +762,7 @@ func _set_excelia_encargo(entradas: Array) -> void:
 		Game.ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), pj)
 		tocados += 1
 	if tocados > 0:
-		Net.peleas._aviso_esquina("Los tuyos han vuelto de un encargo")
+		Net._aviso_esquina("Los tuyos han vuelto de un encargo")
 
 
 # Y el PARTE DE TRABAJO: las pasivas RNG y los contadores ocultos de los desarrollos. Va por su

@@ -74,7 +74,7 @@ func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_resolver_pelea(id, quien, lugar)
 		return
-	var dueno: int = _dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_pedir_pelea_dueno.rpc_id(dueno, id, lugar, quien)
 	else:
@@ -215,7 +215,7 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 		if anfitrion != 0:
 			solicitar_unirse(anfitrion)
 		else:
-			_toast("Ese enemigo ya está peleando con otro.")
+			Net._toast("Ese enemigo ya está peleando con otro.")
 		return
 	# ESTOY ESPEJANDO la pelea de otro: estos bichos me han alcanzado a MI, pero la pelea la ejecuta
 	# el anfitrion y los combatientes son suyos. Se los paso para que los meta en ella. Asi un
@@ -335,7 +335,7 @@ func _encaminar_reasignacion(ids: Array, lugar: String, para: int) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_aplicar_reasignacion(ids, para)
 		return
-	var dueno: int = _dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_reasignacion.rpc_id(dueno, ids, lugar, para)
 
@@ -376,7 +376,7 @@ func _encaminar_resultado(id: int, ha_muerto: bool, hp: float, lugar: String) ->
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_aplicar_resultado(id, ha_muerto, hp)
 		return
-	var dueno: int = _dueno_de(lugar)
+	var dueno: int = Net._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_resultado.rpc_id(dueno, id, ha_muerto, hp, lugar)
 
@@ -419,32 +419,6 @@ func _soltar_reservas_de(quien: int) -> void:
 		var nodo = e.get("nodo") if not e.is_empty() else null
 		if nodo != null and is_instance_valid(nodo) and not nodo.esta_muerto():
 			nodo.reanudar_tras_combate(-1.0)   # vuelve a la vida normal, sin heridas nuevas
-
-
-# Quien simula ese lugar (0 = nadie). Solo el host lo sabe.
-func _dueno_de(lugar: String) -> int:
-	if not lugar.begins_with("piso:"):
-		return 0
-	return Net._dueno_piso.get(int(lugar.substr(5)), 0)
-
-
-# Aviso corto en MI pantalla (el HUD es local: los avisos no se replican).
-func _toast(texto: String) -> void:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast(texto)
-	else:
-		print("[net] ", texto)
-
-
-# Acuse de recibo DISCRETO, en la esquina de abajo. Para lo rutinario (el autoguardado salta cada
-# minuto): un cartelon en mitad de la pantalla cada 60 segundos era insufrible.
-func _aviso_esquina(texto: String) -> void:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud != null and hud.has_method("mostrar_aviso_esquina"):
-		hud.mostrar_aviso_esquina(texto)
-	else:
-		print("[net] ", texto)
 
 
 # --- PELEAS COMPARTIDAS: unirse a la pelea de otro (hito 5.4-C) -------------------------------
@@ -594,7 +568,7 @@ func _anfitrion_perdido() -> void:
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("cerrar_espejo"):
 		p.cerrar_espejo()
-	_toast("Tu compañero se ha desconectado: la pelea se ha deshecho.")
+	Net._toast("Tu compañero se ha desconectado: la pelea se ha deshecho.")
 
 
 # Corre en un ESPEJO de tercero: la pelea que sigo ha cambiado de manos.
@@ -778,7 +752,7 @@ func ocupado_en_pelea() -> bool:
 		# Y SE DICE. El sintoma de este atasco es "no me entra en combate", que desde el mando no se
 		# distingue de un juego roto: sin una linea que lo explique se pierde la tarde buscando el bug
 		# en el sitio equivocado (que es justo lo que paso).
-		_toast("Se perdio lo de tu ultima pelea, pero ya puedes volver a pelear.")
+		Net._toast("Se perdio lo de tu ultima pelea, pero ya puedes volver a pelear.")
 		return false
 	return true
 
@@ -944,7 +918,7 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 	_mis_en_pelea.clear()
 	# El motivo lo manda el anfitrion: "no existe" y "esta llena" son cosas distintas y el jugador
 	# necesita saber cual de las dos, o se pone a recolocarse pensando que apunta mal.
-	_toast(motivo)
+	Net._toast(motivo)
 
 
 # Corre en EL QUE SE UNE: abre su pantalla en espejo.
