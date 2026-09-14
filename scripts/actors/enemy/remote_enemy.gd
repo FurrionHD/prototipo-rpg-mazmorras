@@ -8,7 +8,7 @@
 #  colision, sin vision, sin combate. NO entra en el grupo "enemy" ni "corpse": es un
 #  fantasma visual que se mueve donde diga la red.
 #
-#  La posicion llega por RPC (Net._tick_enemigos) a ritmo de red; entre paquete y paquete se
+#  La posicion llega por RPC (Net.enemigos._tick_enemigos) a ritmo de red; entre paquete y paquete se
 #  INTERPOLA hacia el ultimo objetivo, igual que remote_player.
 #
 #  5.1 = SOLO ver los mismos bichos en las mismas posiciones. El combate replicado (barras,
@@ -39,7 +39,7 @@ var hp_restante: float = -1.0
 var es_boss: bool = false
 # MUTANTE (mini-jefe). Parte del contrato del grupo "enemy" igual que es_boss: Game.start_combat lo
 # lee con get() para montarle sus multiplicadores, asi que sin esto el invitado pelearia una rata
-# normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net._datos_enemigo).
+# normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net.enemigos._datos_enemigo).
 var mutante: bool = false
 
 # --- DIRECCION (hito 5.4) ---------------------------------------------------------------------
@@ -60,7 +60,7 @@ var _avisando: bool = false       # esta telegrafiando el golpe
 # jabalies y trents, y el invitado cuadrados de colores. Mismo bicho, dos juegos distintos.
 #
 # No hace falta mandar nada nuevo por el cable: el alta ya trae la RUTA del .tres y la 't' (ver
-# Net._datos_enemigo), que es exactamente lo que necesita el generador para sacar el MISMO sprite,
+# Net.enemigos._datos_enemigo), que es exactamente lo que necesita el generador para sacar el MISMO sprite,
 # pixel por pixel, en las dos maquinas.
 var _sprite: AnimatedSprite2D = null
 var _anim_actual: String = ""
@@ -146,7 +146,7 @@ func _pintar_elemento(elem: int, einten: float, lado: float) -> void:
 # Los datos con los que se puede pelear/extraer. 'ruta' es el .tres del EnemyData.
 #
 # 'vision' y 'medio_angulo' ya no se usan (eran para dibujar el cono, que se quito): se dejan en la
-# firma porque el alta que manda el dueño los sigue trayendo (ver Net._datos_enemigo) y quitarlos de
+# firma porque el alta que manda el dueño los sigue trayendo (ver Net.enemigos._datos_enemigo) y quitarlos de
 # aqui obligaria a tocar el mensaje — y dos maquinas con builds distintas dejarian de entenderse.
 func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130.0,
 		_medio_angulo: float = 50.0, mut: bool = false) -> void:

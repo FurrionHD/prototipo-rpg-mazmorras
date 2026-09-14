@@ -1378,7 +1378,7 @@ func morir() -> void:
 		sello_pudre = Game.tiempo_mazmorra + CADAVER_SEGUNDOS
 	# MULTIJUGADOR: que los demas lo vean caer. Sin esto seguirian viendo un bicho VIVO donde ya
 	# solo hay un cadaver (el nodo no se libera al morir, asi que baja_enemigo no salta).
-	Net.enemigo_muerto(self)
+	Net.enemigos.enemigo_muerto(self)
 
 	# El boss cae: el piso se abre AHORA MISMO (sin salir ni volver a entrar).
 	if es_boss:
@@ -1466,9 +1466,9 @@ func estado_visual_red() -> Array:
 
 # MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el
 # host da de baja el bicho para que su cuerpo remoto desaparezca en los clientes. En solitario /
-# de cliente no hace nada (Net.baja_enemigo corta).
+# de cliente no hace nada (Net.enemigos.baja_enemigo corta).
 func _exit_tree() -> void:
-	Net.baja_enemigo(self)
+	Net.enemigos.baja_enemigo(self)
 
 
 # "t" (0..1): donde cae este bicho dentro de su franja (flojo..fuerte).

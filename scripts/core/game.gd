@@ -2944,7 +2944,7 @@ func morir_jugador() -> void:
 
 	# MULTIJUGADOR: caer es SALIR del piso, y hay que decirlo antes de desmontar la escena. Si no, te
 	# vas siendo aun el dueño del piso y cada bicho, al morir con la escena, difunde su propia baja
-	# (_exit_tree -> Net.baja_enemigo): al compañero que se queda dentro se le vacia el piso entero
+	# (_exit_tree -> Net.enemigos.baja_enemigo): al compañero que se queda dentro se le vacia el piso entero
 	# delante de las narices. Y ademas nadie recoge el relevo de la simulacion.
 	#
 	# La mazmorra COMPARTIDA no se olvida por que caiga uno: eso pasa cuando habeis caido TODOS (ver

@@ -2683,7 +2683,7 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	e.wander_radius = radio
 	# LA BANDERA DE JEFE VA AQUI, antes de add_child, y no despues como estaba: su _ready la
 	# necesita para saber cuanto agrandarlo si le ha tocado mutar (un jefe mutante se agranda menos,
-	# ver EnemyData.mult_mutante). Y de paso Net.registrar_enemigo, que se llama ahi abajo, ya la
+	# ver EnemyData.mult_mutante). Y de paso Net.enemigos.registrar_enemigo, que se llama ahi abajo, ya la
 	# manda puesta en el alta.
 	e.es_boss = boss
 	# DE QUE PISO ES. Se lo lleva puesto porque Game.current_floor es donde esta el JUGADOR y los dos
@@ -2695,7 +2695,7 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	e.t_forzada = t
 	# Lo mismo con la MUTACION (-1 = que la tire el, que es lo normal): el jefe la trae apagada y
 	# un piso restaurado trae la que tenia. Va antes de add_child por lo mismo, y ademas antes de
-	# Net.registrar_enemigo, que la manda ya resuelta al otro lado.
+	# Net.enemigos.registrar_enemigo, que la manda ya resuelta al otro lado.
 	e.mut_forzada = mut
 	# Cuelgan del PADRE del piso (junto al jugador) y no del piso: asi no heredan su
 	# z_index de -1 y no se dibujan por debajo del suelo.
@@ -2706,7 +2706,7 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	e.recolocar(pos)
 	# MULTIJUGADOR (hito 5.1): el host lo registra para replicarlo a los clientes de este piso
 	# (ya con su posicion puesta). En solitario / de cliente no hace nada.
-	Net.registrar_enemigo(e, "piso:%d" % _piso_construido)
+	Net.enemigos.registrar_enemigo(e, "piso:%d" % _piso_construido)
 	return e
 
 
@@ -2775,7 +2775,7 @@ func _process(delta: float) -> void:
 #
 # MULTIJUGADOR: lo decide el DUEÑO del piso y punto. El espejo no cuenta cadaveres por su cuenta —su
 # reloj de expedicion es otro y se irian en momentos distintos—; se entera porque desvanecer() acaba
-# en queue_free() y el _exit_tree del bicho ya llama a Net.baja_enemigo, que difunde el despawn.
+# en queue_free() y el _exit_tree del bicho ya llama a Net.enemigos.baja_enemigo, que difunde el despawn.
 func _pudrir_cadaveres() -> void:
 	if not Net.simulo_mi_piso():
 		return
