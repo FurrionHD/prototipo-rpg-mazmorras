@@ -1,0 +1,43 @@
+GRUPO Agirato ochinan (Baston), Catalardio (Martillo grande), Dasui (Mandobles), Daniel (Maza pequeña)
+f1 LOG ¡Ataque por la espalda! Tienes la iniciativa. 🗡️  ¡Le acompañan 2 más! ⚔️
+f1 Agirato ochinan hp=198.795 mp=14.063 en=177.425
+f1 Catalardio hp=198.733 mp=24.620 en=181.275
+f1 Dasui hp=199.642 mp=20.000 en=181.300
+f1 Daniel hp=190.990 mp=20.000 en=181.025
+f1 Araña de las simas hp=56.050 mp=20.429 en=0.000
+f1 Trent hp=69.950 mp=20.627 en=0.000
+f1 Jabalí hp=54.750 mp=20.297 en=0.000
+f49 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f49 Agirato ochinan hp=198.795 mp=14.485 en=177.425
+f51 PULSA Habilidad
+f54 PULSA _ability_box: Bastonazo  (26 EN)
+f55 LOG … 16.77 de daño (1 de 1 golpes).  +0.2 MP.  ✨Lento.
+f55 Agirato ochinan hp=198.795 mp=14.685 en=151.425
+f55 Araña de las simas hp=39.281 mp=20.429 en=0.000
+f151 LOG ¡Turno de Daniel! Elige una acción.
+f153 PULSA Atacar
+f154 LOG Daniel golpea con Maza pequeña por 5.13 de daño.
+f154 Araña de las simas hp=34.150 mp=20.429 en=0.000
+f209 LOG ¡Turno de Dasui! Elige una acción.
+f211 PULSA Atacar
+f212 LOG Dasui golpea con Mandobles por 12.50 de daño.
+f212 Araña de las simas hp=21.650 mp=20.429 en=0.000
+f267 LOG ¡Turno de Catalardio! Elige una acción.
+f269 PULSA Defender
+f270 LOG 1. Araña de las simas ataca a Agirato ochinan por 0.41 de daño.
+f270 Agirato ochinan hp=198.383 mp=14.685 en=151.425
+f270 Catalardio hp=198.733 mp=24.620 en=166.275
+f322 LOG … no te ha dado con ninguno de los 1 golpe.
+f417 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f417 Agirato ochinan hp=198.383 mp=15.107 en=151.425
+f419 PULSA Objeto
+f422 PULSA _objeto_box: Poción de maná media  x3
+f425 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  15/37 🔷)
+f426 LOG Agirato ochinan se bebe Poción de maná media. 🔷 29 de maná (10 ya), repartido en 3 turnos.
+f426 Agirato ochinan hp=198.383 mp=24.901 en=151.425
+f436 LOG 2. Trent ataca a Agirato ochinan por 0.36 de daño.  Le inflige Pegajoso.
+f436 Agirato ochinan hp=198.019 mp=24.901 en=151.425
+f529 LOG ¡Turno de Daniel! Elige una acción.
+f531 PULSA Huir
+f532 LOG Habéis escapado. 🏃  (Dejáis atrás 3 enemigos en pie)
+FIN f532 estado=3
