@@ -109,12 +109,25 @@ func _ready() -> void:
 		"mi ruido de espejo llega al trabajador y revienta una pared (%.1f s)" % t)
 	_ok(Game.alboroto == 0.0, "el espejo no acumula alboroto propio (%.0f)" % Game.alboroto)
 
-	# 5) LA PELEA LA EJECUTA EL TRABAJADOR (Parte 3): me planto al lado de un enemigo o le ataco; el
-	# trabajador monta la pelea con mis fichas y yo la veo en ESPEJO.
+	# 5) LA PELEA LA EJECUTA UN TRABAJADOR DE PELEA (Parte 3): en el piso espera uno dentro, que no es el
+	# dueño. Me planto al lado de un enemigo o le ataco; monta la pelea con mis fichas y yo la veo en ESPEJO.
+	t = 0.0
+	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	var f1: int = Net._trab.pelea_libre_en(1)
+	_ok(f1 != 0 and f1 != dueno2, "en el piso 1 espera un trabajador de pelea que no es el dueño (%.1f s)" % t)
+	await _esperar(3.0)   # que cargue el piso y reciba los enemigos
 	await _abrir_pelea_con_un_enemigo()
 	_ok(Game.hay_pelea_en_pantalla(), "se abre la pelea contra un enemigo del trabajador")
-	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == dueno2,
-		"la pelea la ejecuta el trabajador y yo la espejo (anfitrion=%d, dueño=%d)" % [Net.peleas._pelea_anfitrion, dueno2])
+	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f1,
+		"la pelea la ejecuta el de pelea y yo la espejo (anfitrion=%d, de pelea=%d, dueño=%d)" % [
+			Net.peleas._pelea_anfitrion, f1, dueno2])
+	t = 0.0
+	while (Net._trab.pelea_libre_en(1) == 0 or Net._trab.pelea_libre_en(1) == f1) and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(Net._trab.pelea_libre_en(1) not in [0, f1], "mientras peleo, entra otro a esperar la siguiente (%.1f s)" % t)
 	_ok(not Game.combate_activo(), "en mi PC no se simula ningun enemigo de la pelea")
 
 	# 5b) La juego desde el espejo (Atacar en cada turno mio) hasta que acabe y pulso Continuar: el
@@ -142,10 +155,14 @@ func _ready() -> void:
 		"vuelvo al mapa con lo mio de vuelta")
 	_ok(_excelia_grupo() > excelia_antes, "la excelia de la pelea llega a mis personajes (%.2f -> %.2f)" % [excelia_antes, _excelia_grupo()])
 
-	# 5c) Otra pelea, para el paso 6.
-	await _esperar(2.0)
+	_ok(not Net._trab._de_pelea.has(f1) or Net._trab.pelea_libre_en(1) != 0,
+		"al acabar, el que peleo deja sitio al que ya esperaba")
+
+	# 5c) Otra pelea, para el paso 6: la lleva el que estaba esperando.
+	await _esperar(3.0)
 	await _abrir_pelea_con_un_enemigo()
-	_ok(Net.peleas.espejando(), "abro otra pelea en el trabajador para tirarlo")
+	_ok(Net.peleas.espejando() and Net._trab._de_pelea.has(Net.peleas._pelea_anfitrion),
+		"la segunda pelea la ejecuta otro trabajador de pelea")
 
 	# 6) SE CAE EL TRABAJADOR (F4) MIENTRAS PELEO contra sus bichos: se matan sus procesos a lo bruto. El
 	# piso lo hereda el humano de dentro con la foto de sus espejos, la pelea SE DESHACE (la llevaba el,
@@ -166,7 +183,12 @@ func _ready() -> void:
 	_ok(reales > 0 and absi(reales - espejos_antes) <= 6,
 		"hereda los enemigos que veia (%d reales, veia %d)" % [reales, espejos_antes])
 	# Que se deshace = ya no espejo nada. Puede haber pantalla igual: al heredar el piso, el enemigo que tengo
-	# al lado es MIO y me embiste, y esa pelea nueva ya va en mi PC (no hay trabajador).
+	# al lado es MIO y me embiste, y esa pelea nueva ya va en mi PC (no hay trabajador). El de pelea es OTRO
+	# proceso: su caida se detecta por su cuenta (hasta 5 s de ENet), no a la vez que la del dueño.
+	t = 0.0
+	while Net.peleas.espejando() and t < 8.0:
+		await _esperar(0.5)
+		t += 0.5
 	_ok(not Net.peleas.espejando(), "la pelea del trabajador caido se deshace (ahora %s)" % [
 		"peleo en mi PC" if Game.combate_activo() else "sin pelea"])
 	t = 0.0

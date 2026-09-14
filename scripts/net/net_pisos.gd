@@ -224,6 +224,7 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	Net._dentro[quien] = true
 	Net._muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
 	Net._trab.asegurar_dueno(piso)   # si hay un trabajador libre, el piso es suyo y yo entro de espejo
+	Net._trab.asegurar_pelea(piso, true)   # y otro dentro esperando peleas, si queda en la reserva
 	var dueno: bool = _asignar_dueno(piso, quien)
 	var mem: Dictionary = {}
 	if dueno:
@@ -568,6 +569,7 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> 
 	var viejo: int = _piso_de(quien)
 	_soltar_piso(quien, foto)
 	Net._trab.asegurar_dueno(nuevo)
+	Net._trab.asegurar_pelea(nuevo, true)
 	var dueno_nuevo: bool = _asignar_dueno(nuevo, quien)
 	if quien != 1:
 		Net._viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _sigue_en)

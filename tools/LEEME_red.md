@@ -15,9 +15,10 @@ python tools/verificar_net.py                                  # toda ref Net.x 
 "$G" --headless --path . res://tools/prueba_town_trabajadores.tscn   # host + trabajadores reales
 ```
 
-La de trabajadores lanza procesos de verdad (~60 s): sala, trabajador de reserva, piso 1 con dueño
-trabajador, espejos, foto al subir, vuelta con los mismos enemigos, pelea abierta en el PC del humano y
-cierre de procesos. Los registros de los trabajadores: `AppData/Roaming/DungeonOratoria/logs/`.
+La de trabajadores lanza procesos de verdad (~95 s): sala, trabajador de reserva, piso 1 con dueño
+trabajador, espejos, foto al subir, vuelta con los mismos enemigos, trabajador DE PELEA esperando en el
+piso, pelea ejecutada por el y jugada desde el espejo (se cierra sola y vuelve la excelia), otro que entra
+a esperar la siguiente, caida en plena pelea (se deshace) y cierre de procesos. Los registros de los trabajadores: `AppData/Roaming/DungeonOratoria/logs/`.
 Que el enemigo "me vea y embista solo" es aleatorio (cono + ruido): se apunta, no se exige.
 
 ## Trocear

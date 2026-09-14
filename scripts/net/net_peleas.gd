@@ -186,17 +186,10 @@ func empujar_pelea(nodo: Node, peer: int) -> bool:
 # que solo soy YO si yo soy el host; en un dueño CLIENTE, tratarlo como propio se comia la
 # respuesta y el que ataco se quedaba sin pelea (sin error ninguno, que es lo traicionero).
 func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
-	# SOY UN TRABAJADOR y estoy libre: la pelea no se la doy a montar en su PC, la ejecuto YO y el la ve
-	# en espejo (Parte 3). Le pido sus fichas; los bichos ya estan reservados a su nombre. Si no puedo
-	# (ya llevo otra), va por el camino de siempre y la monta el.
-	if not ids.is_empty() and anfitrion == 0 and puedo_ejecutar_pelea() \
-			and quien != multiplayer.get_unique_id():
-		_pelea_en_ejecutor.rpc_id(quien, ids, emboscada)
-		return
-	if quien == multiplayer.get_unique_id():
+	if Net.es_host:
+		_entregar_pelea(quien, ids, emboscada, anfitrion)
+	elif quien == multiplayer.get_unique_id():
 		_pelea_resuelta(ids, emboscada, anfitrion)
-	elif Net.es_host:
-		_pelea_resuelta.rpc_id(quien, ids, emboscada, anfitrion)
 	else:
 		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada, anfitrion)
 
@@ -205,6 +198,21 @@ func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 
 func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if not Net.es_host:
 		return
+	_entregar_pelea(para, ids, emboscada, anfitrion)
+
+
+# SOLO host: la pelea ya reservada llega a su destinatario. Si en su piso espera un TRABAJADOR DE PELEA
+# libre (Parte 3), la ejecutara el: se le dice al jugador a quien mandarle sus fichas. Si no, la monta el
+# jugador en su PC, como siempre.
+func _entregar_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int) -> void:
+	if not ids.is_empty() and anfitrion == 0:
+		var ejecutor: int = Net._trab.pelea_libre_en(Net.pisos._piso_de(para))
+		if ejecutor != 0 and ejecutor != para:
+			if para == 1:
+				_pelea_en_ejecutor(ids, emboscada, ejecutor)
+			else:
+				_pelea_en_ejecutor.rpc_id(para, ids, emboscada, ejecutor)
+			return
 	if para == 1:
 		_pelea_resuelta(ids, emboscada, anfitrion)
 	else:
@@ -221,52 +229,57 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 
 # --- LA PELEA LA EJECUTA UN TRABAJADOR (Parte 3) ----------------------------------------------
 #
-# El dueño del piso es un trabajador sin ventana y esta libre: en vez de devolverme los bichos para que
-# monte la pelea en MI PC, me pide mis fichas, la monta EL (Game.abrir_pelea_de_fichas) y yo la veo en
-# espejo, igual que quien se une a la pelea de otro. Asi la pelea pasa en UN sitio que no es de ningun
-# jugador y nadie ve una distinta. Si algo falla por el camino, vuelve al camino de siempre.
+# En el piso espera un TRABAJADOR DE PELEA (un Godot sin ventana dentro del piso como espejo, ver
+# trabajadores.gd): en vez de devolverme los bichos para que monte la pelea en MI PC, le mando mis fichas,
+# la monta EL (Game.abrir_pelea_de_fichas) contra sus espejos y yo la veo en espejo, igual que quien se une
+# a la pelea de otro. Es el mismo camino que un jugador peleando en un piso que simula otro. Asi la pelea
+# pasa en UN sitio que no es de ningun jugador y nadie ve una distinta. Si algo falla, camino de siempre.
 
-# ¿Puedo ejecutar yo una pelea ahora? Solo un trabajador dueño de su piso y sin otra pelea (una por maquina).
+# ¿Puedo ejecutar yo una pelea ahora? Solo un trabajador DE PELEA (dentro de un piso sin ser su dueño) y
+# sin otra pelea (una por maquina).
 func puedo_ejecutar_pelea() -> bool:
-	return Net.activo and Net.soy_trabajador and Net._soy_dueno and _pelea_id == 0 \
-		and not Game.combate_activo() and Game._active_layer == null
+	return Net.activo and Net.soy_trabajador and not Net._soy_dueno and Net.pisos.mi_piso() > 0 \
+		and _pelea_id == 0 and not Game.combate_activo() and Game._active_layer == null
 
 
-# Corre en EL QUE ATACA (o al que embisten): el trabajador le ofrece ejecutar la pelea.
+# Corre en EL QUE ATACA (o al que embisten): el host le dice que su pelea la ejecuta 'ejecutor'.
 @rpc("any_peer", "call_remote", "reliable")
-func _pelea_en_ejecutor(ids: Array, emboscada: bool) -> void:
-	_llega_pelea(ids, emboscada, 0, multiplayer.get_remote_sender_id())
+func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
+	_llega_pelea(ids, emboscada, 0, ejecutor)
 
 
-# Corre en EL TRABAJADOR: llegan las fichas del que pelea. Se monta la pelea con los bichos de verdad y se
-# le abre el espejo. Si ya no se puede (entre medias ha empezado otra), se le devuelven los bichos para
-# que la monte el, como siempre: nunca queda peor que antes.
+# Corre en EL TRABAJADOR DE PELEA: llegan las fichas del que pelea. Se monta la pelea con mis espejos de
+# esos bichos y se le abre el espejo. Si ya no se puede (entre medias ha empezado otra), se le devuelven
+# los bichos para que la monte el, como siempre: nunca queda peor que antes.
 @rpc("any_peer", "call_remote", "reliable")
 func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var nodos: Array = []
 	for i in ids:
-		var e: Dictionary = Net.enemigos._enemigos.get(int(i), {})
-		var n = e.get("nodo") if not e.is_empty() else null
-		if n != null and is_instance_valid(n) and not n.esta_muerto() \
-				and int(_enem_ocupados.get(int(i), 0)) == quien:
+		var n = Net.enemigos._enem_nodos.get(int(i))
+		if n != null and is_instance_valid(n) and not n.esta_muerto():
 			nodos.append(n)
 	var huecos: Dictionary = {}
 	if puedo_ejecutar_pelea() and not nodos.is_empty() and not fichas.is_empty():
-		# La pelea pasa a ser MIA: sin reserva y congelados es como se reconoce (ver _anfitrion_de_enemigo),
-		# y es lo que manda aqui a quien venga a ayudar.
 		for n in nodos:
-			_enem_ocupados.erase(int(n.get_meta("net_id")))
+			n.entrar_en_pelea()
 		huecos = Game.abrir_pelea_de_fichas(nodos, emboscada, [{"peer": quien, "fichas": fichas}])
 		if huecos.is_empty():
 			for n in nodos:
-				_enem_ocupados[int(n.get_meta("net_id"))] = quien
+				n._combat_triggered = false
 	var p: Node = _pantalla_combate()
 	if huecos.is_empty() or p == null:
-		print("[pelea] no puedo ejecutar la pelea de %d (%d bichos): la monta el" % [quien, nodos.size()])
+		print("[pelea] no puedo ejecutar la pelea de %d (%d de %d bichos): la monta el" % [quien, nodos.size(), ids.size()])
 		_pelea_resuelta.rpc_id(quien, ids, emboscada, 0)
 		return
 	print("[pelea] ejecuto la pelea de %d: %d bichos, huecos %s" % [quien, nodos.size(), str(huecos[quien])])
+	# Los bichos los peleo YO: que el dueño apunte la reserva a mi nombre (a quien venga a ayudar lo manda
+	# aqui, y si el jugador se va no se los encuentra "libres").
+	var mis_ids: Array = []
+	for n in nodos:
+		mis_ids.append(int(n.get_meta("net_id")))
+	reasignar_reservas(mis_ids)
+	Net._trab.avisar_pelea_empezada()
 	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo(), huecos[quien])
 
 
@@ -756,6 +769,8 @@ func _salgo_de_la_pelea() -> void:
 # 'derrotados' = peers cuyo grupo ENTERO cayo: en vez de devolverles el desgaste y cerrarles el
 # espejo, se les manda al pueblo con la penalizacion (_moriste corre morir_jugador en SU maquina).
 func cerrar_pelea(derrotados: Array = []) -> void:
+	if _pelea_id != 0 and Net.soy_trabajador:
+		Net._trab.avisar_pelea_acabada()   # el host decide si sigo esperando peleas en este piso
 	if _pelea_id != 0:
 		for p in _pelea_participantes:
 			if derrotados.has(p):

@@ -51,7 +51,12 @@ var _pids: Array[int] = []        # procesos lanzados por ESTA maquina (para cer
 # Lanzados que aun no se han presentado, por su numero de lanzamiento. Se saca el mas viejo al
 # presentarse uno (no se sabe cual es cual, y da igual: solo importa CUANTOS faltan).
 var _pendientes: Array[int] = []
-var _estado: Dictionary = {}      # peer_id -> piso que simula (0 = en la reserva)
+var _estado: Dictionary = {}      # peer_id -> piso en el que esta (0 = en la reserva)
+# LOS DE PELEA (Parte 3). Un trabajador con piso puede ser su DUEÑO (simula el piso) o estar alli DE
+# PELEA: dentro como espejo, sin simular nada, esperando a ejecutar la proxima pelea de ese piso. Asi
+# la pelea empieza al instante (no hay que cargar el piso) y ningun jugador la lleva en su PC.
+var _de_pelea: Dictionary = {}    # peer_id -> true: esta en su piso para peleas
+var _peleando: Dictionary = {}    # peer_id -> true: ejecutando una pelea ahora mismo
 var _n_lanzados: int = 0          # para numerar los ficheros de registro
 
 # --- TRABAJADOR ---
@@ -194,6 +199,8 @@ func al_cerrar_sala() -> void:
 			OS.kill(pid)
 	_pids.clear()
 	_estado.clear()
+	_de_pelea.clear()
+	_peleando.clear()
 	_pendientes.clear()
 	_token = ""
 
@@ -279,6 +286,9 @@ func _saludar_trabajador(token: String, protocolo: int) -> void:
 			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []),
 			p.get("piezas", {}))
 	print("[trabajadores] se presenta el peer %d (reserva: %d)" % [quien, _libres()])
+	# ¿Hay algun piso con gente esperando a su trabajador de pelea? (el que salio de la reserva hacia falta.)
+	for piso in Net._dueno_piso.keys():
+		asegurar_pelea(int(piso))
 
 
 # Un piso sin dueño vivo: se le da a uno de reserva. Devuelve si ha habido trabajador para el. Lo llaman
@@ -315,10 +325,12 @@ func asegurar_dueno(piso: int) -> bool:
 func revisar_vacio(piso: int, salvo: int = 0) -> void:
 	if not Net.es_host or piso < 1:
 		return
+	if Net.pisos._alguien_en(piso, salvo) != 0:
+		return
+	# Sin gente no hay peleas que esperar (lleve el piso quien lo lleve).
+	_soltar_los_de_pelea(piso)
 	var w: int = Net._dueno_piso.get(piso, 0)
 	if not es_trabajador(w):
-		return
-	if Net.pisos._alguien_en(piso, salvo) != 0:
 		return
 	_dame_foto.rpc_id(w, piso)
 
@@ -353,5 +365,111 @@ func _foto(piso: int, foto: Dictionary) -> void:
 func al_irse(peer_id: int) -> void:
 	if not _estado.has(peer_id):
 		return
+	var piso: int = int(_estado[peer_id])
 	_estado.erase(peer_id)
+	_de_pelea.erase(peer_id)
+	_peleando.erase(peer_id)
 	_rellenar_reserva()
+	if piso > 0:
+		asegurar_pelea(piso)
+
+
+# ============================================================
+#  TRABAJADORES DE PELEA (en el host)
+# ============================================================
+
+# El de pelea que esta en 'piso' y libre para una pelea nueva (0 = ninguno).
+func pelea_libre_en(piso: int) -> int:
+	for w in _de_pelea:
+		if int(_estado.get(w, 0)) == piso and not _peleando.has(w):
+			return w
+	return 0
+
+
+# Que 'piso' tenga uno de pelea esperando dentro, si hay gente y queda alguno en la reserva. Se llama al
+# dar un piso a alguien, al presentarse uno nuevo y cuando uno se pone a pelear (para la siguiente).
+# 'entra_alguien': lo llama quien le esta dando el piso a un humano, que aun no cuenta como dentro.
+func asegurar_pelea(piso: int, entra_alguien: bool = false) -> void:
+	if not Net.es_host or piso < 1 or pelea_libre_en(piso) != 0:
+		return
+	if not entra_alguien and Net.pisos._alguien_en(piso, 0) == 0:
+		return
+	var w := 0
+	for id in _estado:
+		if int(_estado[id]) == 0:
+			w = id
+			break
+	if w == 0:
+		_rellenar_reserva()   # cuando se presente, _saludar_trabajador vuelve a llamar aqui
+		return
+	_estado[w] = piso
+	_de_pelea[w] = true
+	Net._viajando[w] = piso
+	# Entra como ESPEJO (dueño=false): ve los enemigos del dueño igual que un jugador.
+	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, false, {}, Net.pisos._restantes_boss(),
+		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
+	print("[trabajadores] el peer %d espera peleas en el piso %d" % [w, piso])
+	_rellenar_reserva()
+
+
+# Corre en EL HOST: un trabajador de pelea ha empezado una. Ya no esta libre: que entre otro para la siguiente.
+@rpc("any_peer", "call_remote", "reliable")
+func _pelea_empezada() -> void:
+	var w := multiplayer.get_remote_sender_id()
+	if not Net.es_host or not _de_pelea.has(w):
+		return
+	_peleando[w] = true
+	asegurar_pelea(int(_estado.get(w, 0)))
+
+
+# Corre en EL HOST: ha cerrado su pelea. Si ya hay otro esperando en ese piso (o el piso se ha quedado sin
+# gente), este sobra ahi y vuelve a la reserva.
+@rpc("any_peer", "call_remote", "reliable")
+func _pelea_acabada() -> void:
+	var w := multiplayer.get_remote_sender_id()
+	if not Net.es_host or not _de_pelea.has(w):
+		return
+	_peleando.erase(w)
+	var piso: int = int(_estado.get(w, 0))
+	for otro in _de_pelea:
+		if otro != w and int(_estado.get(otro, 0)) == piso and not _peleando.has(otro):
+			_soltar_de_pelea(w)
+			return
+	if Net.pisos._alguien_en(piso, 0) == 0:
+		_soltar_de_pelea(w)
+
+
+# El piso se queda sin gente: los de pelea que no esten peleando vuelven a la reserva (el que pelea lo
+# hara al acabar, ver _pelea_acabada).
+func _soltar_los_de_pelea(piso: int) -> void:
+	for w in _de_pelea.keys():
+		if int(_estado.get(w, 0)) == piso and not _peleando.has(w):
+			_soltar_de_pelea(w)
+
+
+func _soltar_de_pelea(w: int) -> void:
+	_de_pelea.erase(w)
+	_peleando.erase(w)
+	_estado[w] = 0
+	Net._viajando.erase(w)
+	if _libres() > RESERVA:
+		_estado.erase(w)
+		Net._peers.erase(w)
+		_cierrate.rpc_id(w)
+	else:
+		_a_la_reserva.rpc_id(w)
+	print("[trabajadores] el peer %d deja de esperar peleas" % w)
+
+
+# ============================================================
+#  TRABAJADOR DE PELEA (en el trabajador): avisos al host
+# ============================================================
+
+func avisar_pelea_empezada() -> void:
+	if Net.soy_trabajador and multiplayer.multiplayer_peer != null:
+		_pelea_empezada.rpc_id(1)
+
+
+func avisar_pelea_acabada() -> void:
+	if Net.soy_trabajador and multiplayer.multiplayer_peer != null:
+		_pelea_acabada.rpc_id(1)
