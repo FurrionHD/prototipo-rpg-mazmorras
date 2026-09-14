@@ -46,10 +46,14 @@ var abierto: String = ""
 # demas. Asi se escribe una vez.
 var _contrasena: String = ""
 
-# Hay que hostear en cuanto se pise el pueblo: Net.hostear() no se puede llamar desde el menu
-# (exige estar en el pueblo, ver net.gd:260) y el mundo tiene que quedar ABIERTO desde el minuto uno
-# para que los demas entren cuando quieran.
+# Hay que hostear en cuanto se llegue a la partida: Net.hostear() no se puede llamar desde el menu
+# (exige pueblo o un piso ya construido, ver Net.puede_abrir_sala) y el mundo tiene que quedar ABIERTO
+# desde el minuto uno para que los demas entren cuando quieran.
 var _hostear_al_llegar := false
+# Cuanto lleva la escena lista para abrir sala. Se espera un poco en la mazmorra: el piso pare y
+# restaura a sus enemigos DIFERIDOS, y los que nacieran despues de registrar se quedarian fuera.
+var _t_listo := 0.0
+const ESPERA_SALA := 1.0
 
 var _acum := 0.0
 
@@ -67,9 +71,16 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if _hostear_al_llegar and not Net.activo and Net.puede_abrir_sala():
-		_hostear_al_llegar = false
-		Net.hostear(_contrasena)
-		aviso.emit("Mundo abierto. Tus compañeros ya pueden entrar.")
+		_t_listo += delta
+		if _t_listo >= ESPERA_SALA:
+			_hostear_al_llegar = false
+			_t_listo = 0.0
+			if Net.hostear(_contrasena) == OK:
+				aviso.emit("Mundo abierto. Tus compañeros ya pueden entrar.")
+			else:
+				_hostear_al_llegar = true   # p.ej. te han metido en una pelea justo ahora: se reintenta
+	else:
+		_t_listo = 0.0
 
 	if abierto == "":
 		return

@@ -594,9 +594,14 @@ func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 			if bool(r.get("solo_local", false)):
 				_decir("Ojo: en el almacén no había partida de este mundo, se juega con la copia de "
 					+ "este ordenador. Al cerrar se sube.", false)
-			# Se vuelve EXACTAMENTE donde se guardo, como en las ranuras de un jugador.
-			var datos: SaveData = Mundos.datos_cabecera(clave)
-			get_tree().change_scene_to_file(MAZMORRA if datos != null and datos.en_mazmorra else PUEBLO)
+			# Se vuelve EXACTAMENTE donde se guardo, como en las ranuras de un jugador, y la sala se abre
+			# tambien desde dentro (ver Net.puede_abrir_sala). DONDE lo dice MI JugadorData (Mundos.cargar
+			# ya lo ha adoptado: pos_cargada solo vale algo si estaba en la mazmorra), no la cabecera,
+			# que es de quien guardo el mundo la ultima vez. Y se respeta el "al pueblo" de un piso que
+			# este build rehace, igual que main_menu.
+			var al_pueblo: bool = Game.forzar_pueblo_al_cargar or Game.pos_cargada == Vector2.INF
+			Game.forzar_pueblo_al_cargar = false   # de un solo uso
+			get_tree().change_scene_to_file(PUEBLO if al_pueblo else MAZMORRA)
 
 
 # Al abrir, DECIR que direccion se ha publicado. Era la pregunta que no tenia respuesta en ninguna

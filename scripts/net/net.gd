@@ -413,17 +413,32 @@ func _en_el_pueblo() -> bool:
 	return esc != null and esc.scene_file_path.contains("town")
 
 
-# Lo mismo, pero para que lo pregunte quien esta FUERA. Lo usa Mundos: al abrir un mundo
-# compartido hay que hostear en cuanto se pise el pueblo (desde el menu no se puede), y el mundo
-# tiene que quedar abierto desde el minuto uno para que los demas entren cuando quieran.
+# ¿Se puede abrir sala AQUI? En el pueblo, siempre. Y en la MAZMORRA tambien (playtest del
+# 11/09/2026): si el host guardaba dentro y reabria el mundo, la sala no existia hasta que pisaba el
+# pueblo y su compañero se comia un "no se encontro ninguna partida". Dentro hace falta el piso ya
+# construido (sus enemigos se registran al abrir, ver _montar_sesion_desde_dentro) y nada delante: ni
+# una pelea ni una faena, que se montaron en solitario y no sabrian pasar a sesion.
 func puede_abrir_sala() -> bool:
-	return _en_el_pueblo()
+	if _en_el_pueblo():
+		return true
+	return _piso_listo_para_sesion() != null
+
+
+# El piso en el que estoy, si se puede convertir en el de una sesion; null si no.
+func _piso_listo_para_sesion():
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.is_node_ready() or int(piso.get("_piso_construido")) <= 0:
+		return null
+	if Game.hay_pelea_en_pantalla() or Game.combate_activo():
+		return null
+	return piso
 
 
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
-	if not _en_el_pueblo():
-		estado_cambiado.emit("Solo se puede abrir una sala desde el pueblo.")
+	if not puede_abrir_sala():
+		estado_cambiado.emit("Ahora no se puede abrir la sala: sal de la pelea o de la faena.")
 		return ERR_UNAVAILABLE
+	var piso_dentro = null if _en_el_pueblo() else _piso_listo_para_sesion()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(puerto, MAX_JUGADORES)
 	if err != OK:
@@ -437,6 +452,8 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	mundo_compartido = Mundos.abierto != ""
 	_sembrar_mapa_sesion()    # el mapa de la sesion arranca siendo el MIO: se juega en mi mundo
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
+	if piso_dentro != null:
+		_montar_sesion_desde_dentro(int(piso_dentro.get("_piso_construido")))
 	estado_cambiado.emit("Servidor abierto. Esperando a que se unan...")
 	return OK
 
@@ -1471,6 +1488,56 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	else:
 		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _restantes_boss(),
 			epoca_sesion, _nonces_sesion)
+
+
+# ABRIR LA SALA ESTANDO YA DENTRO DE UN PISO. Es _conceder_entrada + _entrar_ok sin viajar: el piso
+# ya esta construido (en solitario) y hay que convertirlo en el de una sesion. Sin esto el host se
+# quedaba con _mi_lugar "pueblo", la expedicion cerrada (las escaleras no contestaban), sin simular
+# nada (los enemigos congelados) y con los enemigos fuera de _enemigos (al compañero le llegaba el
+# piso vacio).
+func _montar_sesion_desde_dentro(piso: int) -> void:
+	if epoca_sesion == 0:
+		if Game.epoca_mazmorra == 0:
+			Game.renovar_epoca()
+		epoca_sesion = Game.epoca_mazmorra
+	expedicion_abierta = true
+	_sembrar_agotados_del_save()
+	# Los NONCES tambien: las vetas de este piso nacieron con los de MI save (el piso se construyo en
+	# solitario), y el que baje construira el suyo con los de la sesion. Sin sembrarlos veria otro
+	# material en la misma veta.
+	for p in Game.mazmorra_persistente:
+		var nn = (Game.mazmorra_persistente[p] as Dictionary).get("nonces", {})
+		if nn is Dictionary:
+			for celda in nn:
+				_nonces_sesion[_sitio(int(p), celda as Vector2i)] = int(nn[celda])
+	_barrer_respawns()
+	_dentro[1] = true
+	_dueno_piso[piso] = 1
+	_soy_dueno = true
+	var lugar := "piso:%d" % piso
+	anunciar_lugar(lugar)
+	# Lo que ya existe se da de alta en la red, igual que si hubiera nacido con la sesion abierta.
+	var n_enem: int = 0
+	for grupo in ["enemy", "corpse"]:
+		for e in get_tree().get_nodes_in_group(grupo):
+			if is_instance_valid(e) and not e.has_meta("net_id") and e is Node2D:
+				registrar_enemigo(e, lugar)
+				n_enem += 1
+	# Y lo que hay por el suelo: los pickups locales pasan a ser drops de la sesion (_suelo), o el
+	# compañero no los veria y yo los recogeria por la rama de solitario.
+	var n_suelo: int = 0
+	for pk in get_tree().get_nodes_in_group("pickup"):
+		if not is_instance_valid(pk) or pk.has_meta("net_id") or pk.get("item") == null:
+			continue
+		var d: Dictionary = _item_a_dict(pk.item)
+		if d.is_empty():
+			continue
+		var pos: Vector2 = (pk as Node2D).global_position
+		pk.queue_free()
+		_registrar_y_difundir(d, pos, lugar)
+		n_suelo += 1
+	print("[multi] sala abierta desde el piso %d: %d enemigos y %d cosas del suelo a la sesion" % [
+		piso, n_enem, n_suelo])
 
 
 # {piso: segundos que le faltan a ese jefe}. Solo tiene sentido en el host, que es quien lleva la
@@ -6545,6 +6612,9 @@ func _tu_jugador(d: Dictionary, semilla: int) -> void:
 	Game.limpiar_mundo_heredado()
 	var jd: JugadorData = jd_de_dict(d)
 	Game.aplicar_jugador_mundo(jd, semilla)
+	# Entro SIEMPRE por el pueblo: la posicion de la mazmorra que traiga mi JugadorData es de una
+	# expedicion que no es esta, y sin esto mi primera bajada me dejaba en ese sitio viejo.
+	Game.pos_cargada = Vector2.INF
 	mundo_compartido = true
 	var l: PersonajeData = Game.lider()
 	# Y ahora si tengo cara: se manda con el "estoy listo" para que el host me registre con ella.
