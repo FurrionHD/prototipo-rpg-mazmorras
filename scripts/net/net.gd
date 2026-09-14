@@ -1,13 +1,24 @@
 # ============================================================
 #  net.gd  (autoload "Net")
-#  Capa de RED del juego. HITO 1: esqueleto andante en LAN.
+#  Capa de RED del juego: el NUCLEO de la sesion. Aqui viven la conexion (host/cliente sobre ENet),
+#  el saludo, quien es cada peer y donde esta (_peers, lugar, avatares), el cupo de personajes y el
+#  estado de los dueños de piso, que leen casi todos los temas. Ver docs/MULTIJUGADOR.md.
 #
-#  Dueño de la conexion (host/cliente sobre ENet) y de la replicacion MINIMA del hito 1:
-#  la POSICION de cada jugador y su ASPECTO (color/brillo/nombre). Nada mas: ni inventario, ni
-#  combate, ni estado de Game. Eso son hitos posteriores (ver docs/MULTIJUGADOR.md).
-#
-#  TODOS los RPC pasan por este singleton a proposito: como el autoload vive en la MISMA ruta
-#  (/root/Net) en el host y en el cliente, no hay que casar rutas de nodos del mundo.
+#  CADA TEMA EN SU ARCHIVO, colgado de Net como hijo con NOMBRE FIJO (sus RPC viajan por la ruta del
+#  nodo, que es la misma en todas las maquinas: /root/Net/<Nodo>). Se llaman como Net.<tema>.<funcion>:
+#    jugadores   net_jugadores.gd    lo que los demas ven de ti (posicion, pose, aspecto, farolillo...)
+#    pisos       net_pisos.gd        expedicion, muerte, escaleras, dueño de piso, relevos y fotos
+#    enemigos    net_enemigos.gd     altas, bajas y posiciones de los bichos del dueño del piso
+#    peleas      net_peleas.gd       pedir/unirse/traspasar peleas y el espejo del combate
+#    extraccion  net_extraccion.gd   extraer cadaveres con candado del dueño
+#    suelo       net_suelo.gd        soltar y recoger objetos
+#    recoleccion net_recoleccion.gd  vetas, agotados, nonces y respawn
+#    jefes       net_jefes.gd        jefe caido, sellos y su vuelta por reloj
+#    pesca       net_pesca.gd        el charco compartido
+#    hogar       net_hogar.gd        bote, cofres, baul, reservas, encargos y roster del hogar
+#    mapa        net_mapa.gd         la libreta del mundo (mapa y niebla)
+#    partida     net_partida.gd      personajes por red, guardado y entrar a un mundo compartido
+#    _trab       trabajadores.gd     los Godot sin ventana que simulan los pisos
 #
 #  TRAMPA DE GDSCRIPT (costo 471 errores en una prueba headless): los diccionarios de NODOS
 #  (_avatares, _drops, _enem_nodos) guardan referencias que pueden quedar LIBERADAS al cambiar de
@@ -44,7 +55,9 @@ const MAX_JUGADORES := 4
 #    segundo impacto: victimas, daños y efectos inventados, y sin dar ni un error.
 # 9: mensajes nuevos (lo descubierto del mundo, imbuir a otro jugador) y el tick de enemigos lleva de
 #    quien es la pelea. Añadir @rpc corre los ids de los demas: un build del 8 se entenderia MAL.
-const PROTOCOLO := 9
+# 10: net.gd se parte en temas (Net.<tema>) y llegan los trabajadores de piso. Los RPC cambian de nodo
+#     (/root/Net/<Tema>), asi que un build del 9 no entiende casi nada de lo que le llega.
+const PROTOCOLO := 10
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -131,7 +144,6 @@ var _traspasos: Dictionary = {}
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 
-# --- PELEAS COMPARTIDAS (hito 5.4-C) ---------------------------------------------------------
 # FOTO de los pisos sin nadie dentro: el piso se congela tal cual (bichos y cadaveres) y se
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
@@ -150,8 +162,6 @@ var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmor
 # muerto todos?", que es lo unico que olvida la mazmorra compartida (ver _registrar_muerte). Se le
 # borra la marca al que vuelve a entrar: ha vuelto a la pelea.
 var _muertos: Dictionary = {}
-
-# --- RESERVAS de enemigos y EXTRACCION (hito 5.3) ---
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
