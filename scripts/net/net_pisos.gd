@@ -314,6 +314,8 @@ func _restantes_boss() -> Dictionary:
 @rpc("any_peer", "call_remote", "reliable")
 func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 		sellos_boss: Dictionary = {}, epoca: int = 0, nonces: Dictionary = {}) -> void:
+	if Net.soy_trabajador:
+		Net._trab.al_recibir_piso()
 	Net.recoleccion._agotados_sesion = agotados.duplicate()
 	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
 	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).

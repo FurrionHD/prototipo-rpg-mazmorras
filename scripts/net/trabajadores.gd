@@ -38,6 +38,11 @@ const PLAZO_ARRANQUE := 30.0
 # Cuanto aguanta el host a un trabajador que no contesta antes de darlo por caido (ver _saludar_trabajador).
 const TIMEOUT_MIN_MS := 2000
 const TIMEOUT_MAX_MS := 5000
+# TOPE DE FOTOGRAMAS. Sin ventana no hay vsync que frene, y Godot da vueltas tan rapido como puede:
+# medido, un trabajador de RESERVA que no hacia nada se comia un 25% de un nucleo. La fisica (IA y
+# movimiento de los bichos) sigue a su ritmo fijo; esto solo limita las vueltas de _process.
+const FPS_SIMULANDO := 30
+const FPS_RESERVA := 5
 
 # --- HOST ---
 var _token := ""
@@ -107,6 +112,7 @@ func arrancar(args: PackedStringArray) -> void:
 	var puerto := int(args[1])
 	_mi_token = args[2]
 	Net.soy_trabajador = true
+	Engine.max_fps = FPS_RESERVA
 	print("[trabajador] arrancando contra %s:%d" % [ip, puerto])
 	# Fuera el menu principal: un trabajador no pinta nada y espera en una escena vacia.
 	get_tree().change_scene_to_node(Node.new())
@@ -152,6 +158,12 @@ func _a_la_reserva() -> void:
 	Game.memoria_pisos.clear()
 	get_tree().change_scene_to_node(Node.new())
 	Net.anunciar_lugar(ARG)
+	Engine.max_fps = FPS_RESERVA
+
+
+# Me acaban de dar un piso (Net.pisos._entrar_ok): a ritmo de simulacion.
+func al_recibir_piso() -> void:
+	Engine.max_fps = FPS_SIMULANDO
 
 
 @rpc("authority", "call_remote", "reliable")
