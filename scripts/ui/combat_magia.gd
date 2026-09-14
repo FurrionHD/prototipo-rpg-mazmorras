@@ -1126,8 +1126,8 @@ func _backfire() -> void:
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	if not _pantalla._player.is_alive():
-		_pantalla._caer_aliado(_pantalla._player)   # el conjuro descontrolado puede tumbar al que lo recitaba
-		if _pantalla.derrota():
+		_pantalla.altas._caer_aliado(_pantalla._player)   # el conjuro descontrolado puede tumbar al que lo recitaba
+		if _pantalla.altas.derrota():
 			_pantalla._end(false)
 			return
 	_pantalla._state = _pantalla.State.ADVANCING

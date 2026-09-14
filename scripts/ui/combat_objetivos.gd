@@ -174,7 +174,7 @@ func _mult_resistencia_aggro(obj: Combatant) -> float:
 # Los muertos no cuentan y no absorben nada: nada se lanza al vacio (misma regla que _objetivo()).
 func _adyacentes_vivos(principal: Combatant) -> Array[Combatant]:
 	var out: Array[Combatant] = []
-	var fila: Array[Combatant] = _pantalla._fila_visual_enemigos()
+	var fila: Array[Combatant] = _pantalla.altas._fila_visual_enemigos()
 	var centro: int = fila.find(principal)
 	if centro < 0:
 		return out

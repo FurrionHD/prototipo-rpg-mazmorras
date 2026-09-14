@@ -233,8 +233,8 @@ func _enemy_turn(e: Combatant) -> void:
 			_pantalla._end(true)
 			return
 	if not obj.is_alive():
-		_pantalla._caer_aliado(obj)
-		if _pantalla.derrota():
+		_pantalla.altas._caer_aliado(obj)
+		if _pantalla.altas.derrota():
 			_pantalla._end(false)
 			return
 	_pantalla._pausa_lectura()
@@ -483,7 +483,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	if ab.invoca_cantidad > 0 and not ab.invoca_pool.is_empty():
 		for _k in range(ab.invoca_cantidad):
 			var pick: EnemyData = ab.invoca_pool[randi() % ab.invoca_pool.size()]
-			var cria: Combatant = _pantalla._invocar_slime(pick)
+			var cria: Combatant = _pantalla.altas._invocar_slime(pick)
 			if cria == null:
 				break   # no cabe ninguno mas
 			invocados += 1
@@ -546,9 +546,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var alguno_cayo: bool = false
 	for t in tocados:
 		if not t.is_alive():
-			_pantalla._caer_aliado(t)
+			_pantalla.altas._caer_aliado(t)
 			alguno_cayo = true
-	if alguno_cayo and _pantalla.derrota():
+	if alguno_cayo and _pantalla.altas.derrota():
 		_pantalla._end(false)
 		return
 	_pantalla._pausa_lectura()
