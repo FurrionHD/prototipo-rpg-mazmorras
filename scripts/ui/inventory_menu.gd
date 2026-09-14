@@ -284,6 +284,9 @@ func _on_tab(i: int) -> void:
 # pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
 # lleva el herrero desde que se cazo alli.
 var _reconstruyendo := false
+# El rebuild viene de PULSAR una celda: la rejilla ya esta pintada y no se rehace (solo se marca la
+# celda y se repintan la ficha y la cabecera). Si se rehiciera, el scroll saltaria arriba del todo.
+var _solo_seleccion := false
 
 func _rebuild() -> void:
 	if _reconstruyendo:
@@ -307,7 +310,7 @@ func _rebuild_real() -> void:
 	# aqui, las tres de Equipo se quedaban encima de la rejilla de la Bolsa. La pestaña que tenga
 	# subpestañas la vuelve a poner en su _build.
 	_subpestanas([], [], -1, Callable())
-	for zona in [_header, _lista, _content]:
+	for zona in ([_header, _content] if _solo_seleccion else [_header, _lista, _content]):
 		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
@@ -499,8 +502,10 @@ func _grid_detail(piezas: Array, preview: Callable) -> void:
 		_note(_content, "(vacío)")
 		return
 	_sel = clampi(_sel, 0, piezas.size() - 1)
-	_cols_pintadas = _columnas()
-	MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _cols_pintadas, LADO_CELDA)
+	if not (_solo_seleccion and MenuScaffold.marcar_en_rejilla(_lista, _sel)):
+		MenuScaffold.vaciar(_lista)   # no habia rejilla que marcar: se pinta entera
+		_cols_pintadas = _columnas()
+		MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _cols_pintadas, LADO_CELDA)
 	preview.call(_content)
 
 
@@ -523,7 +528,9 @@ func _piezas_stacks(stacks: Array) -> Array:
 
 func _pick(i: int) -> void:
 	_sel = i
+	_solo_seleccion = true
 	_rebuild()
+	_solo_seleccion = false
 
 
 # ============================================================

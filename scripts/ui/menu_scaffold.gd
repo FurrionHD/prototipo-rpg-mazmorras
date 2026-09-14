@@ -1911,6 +1911,7 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.set_meta(META_SEL_REJILLA, sel)   # la seleccion VIVA (ver marcar_en_rejilla)
 	vb.add_child(grid)
 	# LAS QUE SE VEN, YA; EL RESTO, EN LOS FOTOGRAMAS SIGUIENTES. Crear seiscientas celdas de golpe (el
 	# baul lleno) eran ~100 ms de cambio de pestaña, y a la vez solo caben unas cuarenta en pantalla:
@@ -1924,6 +1925,29 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 
 
 const CELDAS_FILAS_AL_ABRIR := 8    # filas que se crean en el acto (una pantalla y algo)
+const META_SEL_REJILLA := "rejilla_sel"
+
+
+# CAMBIAR LA SELECCION SIN REHACER LA REJILLA. Devuelve false si en 'vb' no hay rejilla que marcar (y
+# entonces toca pintarla con rejilla_objetos).
+#
+# Existe por el SCROLL: rehacer la rejilla al pulsar una celda la dejaba sin altura un instante (las
+# filas de abajo se crean a tandas, ver _resto_de_rejilla), el ScrollContainer se recolocaba arriba del
+# todo y pulsar algo de muy abajo te subia al principio de la lista. Asi la rejilla no se toca.
+static func marcar_en_rejilla(vb: VBoxContainer, sel: int) -> bool:
+	if vb == null:
+		return false
+	for h in vb.get_children():
+		if h is GridContainer and not muriendo(h):
+			h.set_meta(META_SEL_REJILLA, sel)   # las celdas que aun esten por crear, con la nueva
+			var i: int = 0
+			for c in h.get_children():
+				if c is BaseButton:
+					# button_pressed (no set_pressed_no_signal): emite 'toggled', que es lo que repinta la celda.
+					(c as BaseButton).button_pressed = (i == sel)
+				i += 1
+			return true
+	return false
 const CELDAS_FILAS_POR_TANDA := 6   # y las que se añaden en cada fotograma despues
 
 
@@ -1946,7 +1970,9 @@ static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: i
 	var c := CeldaObjeto.new()
 	c.custom_minimum_size = Vector2(lado, lado)
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c.button_pressed = (i == sel)
+	# La seleccion se lee de la rejilla y no de 'sel': una celda creada a tandas despues de cambiar la
+	# seleccion (ver marcar_en_rejilla) tiene que salir con la de ahora.
+	c.button_pressed = (i == int(grid.get_meta(META_SEL_REJILLA, sel)))
 	c.tooltip_text = String(p.get("tooltip", ""))
 	if bool(p.get("activo", true)):
 		c.pressed.connect(pulsado.bind(i))

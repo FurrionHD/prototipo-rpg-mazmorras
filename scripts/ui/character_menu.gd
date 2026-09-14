@@ -481,6 +481,8 @@ func _columnas() -> int:
 # lleva el herrero desde que se cazo alli.
 var _reconstruyendo := false
 
+var _solo_seleccion := false   # el rebuild viene de elegir otro candidato (ver _pick_cand)
+
 func _rebuild() -> void:
 	if _reconstruyendo:
 		return
@@ -494,7 +496,8 @@ func _rebuild_real() -> void:
 	# El HEADER no se vacia: ahi vive la fila de retratos, que es de la PANTALLA y no de la seccion.
 	# Vaciarlo liberaba el scroll y su HBox, y el _pintar_retratos de dos lineas mas abajo se
 	# encontraba con nodos ya muertos. Los retratos se repintan solos (_pintar_retratos vacia SU fila).
-	MenuScaffold.vaciar(_lista)
+	if not _solo_seleccion:
+		MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
 	MenuScaffold.subpestanas(_barra_sub, [], [], 0, Callable())
 	for i in _tab_buttons.size():
@@ -973,7 +976,11 @@ func _cancelar_cambio() -> void:
 
 func _pick_cand(i: int) -> void:
 	_cand = i
+	# Solo cambia la ficha: la rejilla del baul no se rehace (ver MenuScaffold.marcar_en_rejilla). Si se
+	# rehiciera, el scroll saltaria arriba del todo al elegir algo de muy abajo.
+	_solo_seleccion = true
 	_rebuild()
+	_solo_seleccion = false
 
 
 # El catalogo del que se elige AHORA: el del arma de la mano elegida, o el del slot de armadura. Es
@@ -1079,11 +1086,15 @@ func _cambiar_arma() -> void:
 			"tooltip": _etiqueta_con_dueno(it, Game.item_display_name(it)),
 			"marca": "" if otro == null else otro.nombre, "activo": activo,
 		})
-	MenuScaffold.rejilla_objetos(_lista, piezas, _cand, _pick_cand, _columnas(), LADO_CELDA)
+	var marcada: bool = _solo_seleccion and MenuScaffold.marcar_en_rejilla(_lista, _cand)
+	if not marcada:
+		MenuScaffold.vaciar(_lista)   # no habia rejilla que marcar: se pinta entera (con su nota)
+		MenuScaffold.rejilla_objetos(_lista, piezas, _cand, _pick_cand, _columnas(), LADO_CELDA)
 
 	# Con la principal a dos manos no cabe nada en la otra mano: la rejilla sale entera apagada (lo
-	# decide _secundaria_valida) y esto dice por que, en vez de dejar adivinarlo.
-	if not es_armadura and _sel == 1 and pj.equipped_main != null and Game.arma_main(pj).dos_manos:
+	# decide _secundaria_valida) y esto dice por que, en vez de dejar adivinarlo. Si solo se ha marcado
+	# otra celda, la nota ya esta puesta.
+	if not marcada and not es_armadura and _sel == 1 and pj.equipped_main != null and Game.arma_main(pj).dos_manos:
 		_note_en(_lista, "El arma principal es a dos manos: no admite secundaria.")
 
 	# La ficha del candidato. EMPIEZA A LA ALTURA DE LAS PESTAÑAS y no arriba del todo: sin la fila de
