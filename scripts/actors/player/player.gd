@@ -459,7 +459,6 @@ func _physics_process(delta: float) -> void:
 	# Agilidad: HUIR de verdad. Ver _tick_huida. No le pasamos la velocidad del grupo: cada
 	# personaje se mide con la SUYA (_vel_carrera_de), que es lo que de verdad le cuesta la fuga.
 	_tick_huida()
-	_tick_unirse_por_contacto(delta)
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -1061,42 +1060,6 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #  pagan todos, asi que la Agilidad no puede quedarsela el que va en cabeza.
 # ============================================================
 
-# UNIRSE A LA PELEA DE UN COMPAÑERO TOCANDO CUALQUIERA DE SUS ENEMIGOS (multi). Los que ya pelean
-# estan congelados y no te embisten, asi que la unica via era atacarlos de frente con el espacio, y
-# ademas solo si el golpe iba al que tocaba. En el playtest del 11/09/2026 costaba un mundo entrar:
-# ahora basta con arrimarse a cualquiera de los atados en rojo (ver enemy_links.COLOR_PELEA).
-const CONTACTO_UNIRSE := 10.0   # px de hueco entre cuerpos: arrimarse, no hace falta empujar
-const REINTENTO_UNIRSE := 3.0   # s entre peticiones: si esta llena, el aviso no te sale cada segundo
-# Al SALIR de una pelea (huir, o acabar con bichos de otra pelea al lado) te quedas pegado a enemigos
-# que siguen peleando: sin este respiro, huir te volvia a meter dentro en el mismo instante.
-const RESPIRO_TRAS_PELEA := 5.0
-var _t_unirse: float = 0.0
-var _en_pelea_antes: bool = false
-
-func _tick_unirse_por_contacto(delta: float) -> void:
-	if not Net.activo:
-		return
-	var en_pelea: bool = Game.hay_pelea_en_pantalla() or Game.combate_activo() or Net.ocupado_en_pelea()
-	if _en_pelea_antes and not en_pelea:
-		_t_unirse = RESPIRO_TRAS_PELEA
-	_en_pelea_antes = en_pelea
-	_t_unirse -= delta
-	if _t_unirse > 0.0 or en_pelea:
-		return
-	var yo: int = Net.multiplayer.get_unique_id()
-	for n in get_tree().get_nodes_in_group("enemy"):
-		if not is_instance_valid(n) or not n.has_meta("net_id"):
-			continue
-		var pelea: int = Net.pelea_de_enemigo(n)
-		if pelea == 0 or pelea == yo:
-			continue
-		if Cuerpos.hueco(n, self) > CONTACTO_UNIRSE:
-			continue
-		_t_unirse = REINTENTO_UNIRSE
-		Net.unirme_a_la_pelea_de(int(n.get_meta("net_id")))
-		return
-
-
 func _tick_huida() -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)
 	if _huida_perseguidor != null and (not is_instance_valid(_huida_perseguidor) \
@@ -1595,7 +1558,7 @@ func _abrir_casteo() -> void:
 # delante. Se pregunta por el hechizo y no por el arma: una de CUERPO vale aunque vayas a puños.
 func _lleva_imbuicion(pj: PersonajeData) -> bool:
 	for sp in pj.equipped_spells:
-		if sp != null and sp.es_imbuicion() and not sp.frases.is_empty():
+		if sp != null and sp.es_apoyo() and not sp.frases.is_empty():
 			return true
 	return false
 
@@ -1606,14 +1569,11 @@ func _lleva_imbuicion(pj: PersonajeData) -> bool:
 # personaje elegido y ya. Es la diferencia entera entre las dos ramas -- una imbuicion no vuela.
 func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) -> void:
 	_casteo = null
-	# El personaje de OTRO jugador (multi): su ficha esta en su maquina, alli se le pone.
 	if destino is Dictionary:
-		var d: Dictionary = destino
-		Net.imbuir_a_otro(spell, int(d.get("peer", 0)), int(d.get("idx", 0)), String(d.get("nombre", "")))
-		_toast("✨ Le pones %s a %s." % [spell.nombre, String(d.get("nombre", "?"))])
+		_soltar_apoyo(spell, destino)
 		return
 	if destino is PersonajeData:
-		_aplicar_imbuicion_mapa(spell, destino)
+		_apoyo_a_los_mios(spell, [destino])
 		return
 	if not is_instance_valid(objetivo):
 		return
@@ -1631,20 +1591,45 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) 
 	Net.anunciar_conjuro(objetivo, color, spell)   # que se vea volar EL MISMO en las otras pantallas
 
 
-# IMBUIR A UNO DE LOS TUYOS DESDE EL MAPA. Nada de proyectil ni de abrir pelea: se le pone y ya.
-#
-# Las cargas viven en el Combatant, que es de la pelea, pero la imbuicion PERSISTE entre combates por
-# diseño (ver Game.guardar_imbue_en_ficha) y la ficha tiene su hueco. Asi que el camino es el mismo
-# que usa el propio Game para pintarla en la hoja de personaje: un Combatant de usar y tirar que sabe
-# aplicarla, y de ahi a la ficha. Sin una segunda implementacion que se desincronice con la de
-# combat._aplicar_imbuicion, que es la que manda.
-func _aplicar_imbuicion_mapa(spell: SpellData, pj: PersonajeData) -> void:
-	var cuerpo: bool = spell.imbue_tipo == 2
-	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
-	var elem: String = Elementos.nombre(Game.imbuir_desde_mapa(spell, pj, Game.lider().nombre))
-	var quien_txt: String = "tu" if pj == Game.lider() else pj.nombre
-	_toast("✨ %s: %s de %s (%s)." % [
-		quien_txt, ("cuerpo" if cuerpo else "arma"), elem, usos_txt])
+# Un destino que no es un personaje mio suelto: mi grupo entero, o alguien de OTRO jugador.
+#   - de otro y PELEANDO -> entro en su pelea con el conjuro ya recitado y apuntado a el (o a todos).
+#     Es la misma nota que el conjuro de ataque con el que abres una pelea: viaja con mi ficha y el
+#     anfitrion me saca el disparo en mi primer turno (ver Game.apuntar_hechizo_de_entrada).
+#   - de otro y libre    -> se le aplica en su maquina (Net.apoyo_a_otro).
+func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
+	var peer: int = int(d.get("peer", 0))
+	var grupo: bool = bool(d.get("grupo", false))
+	var nombre: String = String(d.get("nombre", "?"))
+	if peer == 0:
+		_apoyo_a_los_mios(spell, Game.party)
+		return
+	# Se vuelve a mirar AHORA si pelea: se eligio hace tres frases y la pelea puede haber empezado o
+	# acabado entre medias.
+	var peleando: bool = Net._peers.has(peer) and bool((Net._peers[peer] as Dictionary).get("peleando", false))
+	if peleando:
+		Game.apuntar_hechizo_de_entrada(spell, null, Game.lider(),
+			{"peer": peer, "nombre": nombre, "grupo": grupo})
+		Net.unirme_a_la_pelea_del_jugador(peer)
+		_toast("⚔ Entras en la pelea con %s listo." % spell.nombre)
+		return
+	Net.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
+	_toast("✨ Le echas %s a %s." % [spell.nombre, nombre])
+
+
+# APOYO A LOS DE MI GRUPO desde el mapa (imbuir, curar o buff). Se aplica en la ficha y ya: nada vuela
+# ni abre pelea. Ver Game.apoyo_desde_mapa, que es la que manda.
+func _apoyo_a_los_mios(spell: SpellData, quienes: Array) -> void:
+	var cura: float = Game.cura_magica_de(spell, Game.lider())
+	var partes: PackedStringArray = []
+	for q in quienes:
+		var pj := q as PersonajeData
+		if pj == null:
+			continue
+		var hecho: String = Game.apoyo_desde_mapa(spell, pj, Game.lider().nombre, cura)
+		if hecho != "":
+			partes.append("%s: %s" % ["tú" if pj == Game.lider() else pj.nombre, hecho])
+	if not partes.is_empty():
+		_toast("✨ %s.  %s" % [spell.nombre, "  ·  ".join(partes)])
 
 
 # El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo

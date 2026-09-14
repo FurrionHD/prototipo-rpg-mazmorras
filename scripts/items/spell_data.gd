@@ -362,6 +362,30 @@ func dispersa_texto() -> String:
 func es_imbuicion() -> bool:
 	return imbue_tipo > 0
 
+# ¿Cae sobre los TUYOS en vez de sobre un enemigo? Filos y Mantos, curaciones y buffs puros. Son las que
+# se pueden recitar en el mapa sin bicho delante (ver casteo_mapa) y las que te meten en la pelea de un
+# compañero si se las echas a alguien que esta peleando.
+func es_apoyo() -> bool:
+	return imbue_tipo > 0 or tipo == TipoEfecto.CURACION or tipo == TipoEfecto.BUFF
+
+# ¿Va a TODO EL GRUPO, sin elegir a nadie? Las curaciones de alcance TODOS y los buffs cuyos estados
+# son todos a_todo_el_grupo. Mismo criterio que combat._va_a_aliado, pero al reves.
+func es_de_grupo() -> bool:
+	if imbue_tipo > 0:
+		return false
+	if tipo == TipoEfecto.CURACION:
+		return alcance == Alcance.TODOS
+	if tipo != TipoEfecto.BUFF:
+		return false
+	var alguno := false
+	for a in efectos:
+		if a == null or a.estado < 0 or a.en_objetivo:
+			continue
+		if not bool(a.get("a_todo_el_grupo")):
+			return false
+		alguno = true
+	return alguno
+
 func imbue_texto() -> String:
 	return "cuerpo" if imbue_tipo == 2 else "arma"
 

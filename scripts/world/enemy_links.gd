@@ -35,7 +35,7 @@ const RADIO_ACTIVO := 700.0
 
 const COLOR_LINEA := Color(1.0, 0.55, 0.2, 0.55)
 # MULTIJUGADOR: los que YA estan peleando con un compañero se atan entre ellos, en rojo. Es la otra
-# promesa: tocar cualquiera de los atados te mete en ESA pelea (ver player._tick_unirse_por_contacto).
+# promesa: atacar a cualquiera de los atados te mete en ESA pelea (ver Net.unirme_a_la_pelea_de).
 const COLOR_PELEA := Color(1.0, 0.2, 0.2, 0.7)
 const GROSOR := 2.0
 

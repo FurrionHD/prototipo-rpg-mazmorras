@@ -5653,6 +5653,25 @@ func retomar_canto(spell: SpellData, idx_frase: int, idx_lanzador: int) -> void:
 	_update_hp()   # repinta el chip del conjuro en su bloque
 
 
+# A QUIEN iba la magia de apoyo con la que entra alguien (ver Game.apuntar_hechizo_de_entrada): el
+# personaje 'nombre' del jugador 'peer'. Se busca por DUEÑO + nombre de la ficha, que es lo unico que
+# significa lo mismo en las dos maquinas. null = a si mismo, o a todos si es de grupo (ahi da igual).
+func _aliado_de_apoyo(apoyo) -> Combatant:
+	if not (apoyo is Dictionary) or (apoyo as Dictionary).is_empty() or bool(apoyo.get("grupo", false)):
+		return null
+	var peer: int = int(apoyo.get("peer", 0))
+	# En _dueno_aliado los mios no estan (dueño 0): si el destino soy yo, busco entre los de dueño 0.
+	var dueno: int = 0 if peer == Net.multiplayer.get_unique_id() else peer
+	var nombre: String = String(apoyo.get("nombre", ""))
+	for c in _aliados:
+		if int(_dueno_aliado.get(c, 0)) != dueno:
+			continue
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		if pj != null and pj.nombre == nombre:
+			return c
+	return null
+
+
 # EL CONJURO QUE TRAE EL QUE SE UNE A MI PELEA. Hermana de retomar_canto, pero para un aliado que
 # entra a mitad desde OTRA maquina: su nota de casteo no puede soltarse en su pantalla (alli solo hay
 # un espejo), asi que viaja con la ficha y se siembra aqui, sobre su doble.
@@ -5673,7 +5692,7 @@ func aplicar_casteo_entrante(idx_aliado: int, d: Dictionary) -> void:
 	var frase: int = clampi(int(d.get("frase", 0)), 0, sp.longitud())
 	# 'pagado' = el maná se gasto YA, fuera, al recitarlo en el mapa (casteo_mapa lo cobra antes del
 	# impacto). Sin esta marca, _disparar_hechizo se lo volveria a cobrar aqui.
-	_casteos[quien] = {"spell": sp, "idx": frase, "aliado": null,
+	_casteos[quien] = {"spell": sp, "idx": frase, "aliado": _aliado_de_apoyo(d.get("apoyo", {})),
 		"pagado": bool(d.get("pagado", false))}
 	if frase >= sp.longitud():
 		_set_log("✨ %s entra con %s ya recitado." % [quien.nombre, sp.nombre])

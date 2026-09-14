@@ -173,13 +173,13 @@ func _menu_hechizos() -> void:
 		elif sp.frases.is_empty():
 			# Un hechizo sin frases no se puede recitar: aqui no hay turnos que gastar en su lugar.
 			b.disabled = true
-		elif sp.es_imbuicion():
-			# LAS IMBUICIONES NO NECESITAN BICHO. No se disparan contra nadie: tiñen el arma (o el
-			# cuerpo) de uno de los tuyos, asi que se pueden recitar en el pasillo vacio o en el
-			# pueblo. Lo unico que hace falta es que haya a quien ponersela.
+		elif sp.es_apoyo():
+			# LAS DE APOYO NO NECESITAN BICHO (Filos, Mantos, curas y buffs). No se disparan contra
+			# nadie: caen sobre uno de los tuyos, asi que se pueden recitar en el pasillo vacio o en el
+			# pueblo. Lo unico que hace falta es que haya a quien echarsela.
 			if _candidatos_imbue(sp).is_empty():
 				b.disabled = true
-				b.tooltip_text = "⛔ Nadie lleva arma que teñir\n\n%s" % b.tooltip_text
+				b.tooltip_text = "⛔ No hay nadie a quien echárselo\n\n%s" % b.tooltip_text
 		elif not is_instance_valid(_objetivo):
 			# Y las de ATAQUE si lo necesitan. Antes esto no se podia ni ver: sin bicho a tiro el panel
 			# no llegaba a abrirse (ver player._abrir_casteo), asi que no habia forma de imbuirse
@@ -207,10 +207,10 @@ func _elegir(sp: SpellData) -> void:
 	_spell = sp
 	_frase = 0
 	_destino_pj = null
-	# Las imbuiciones preguntan A QUIEN antes de recitar. Con un solo candidato NO se pregunta y se va
+	# Las de apoyo preguntan A QUIEN antes de recitar. Con un solo candidato NO se pregunta y se va
 	# directo, igual que en combate (_elegir_objetivo_aliado): un menu de una sola opcion es un clic
 	# de peaje.
-	if sp.es_imbuicion():
+	if sp.es_apoyo():
 		var quienes: Array = _candidatos_imbue(sp)
 		if quienes.is_empty():
 			return
@@ -224,39 +224,71 @@ func _elegir(sp: SpellData) -> void:
 
 
 # ------------------------------------------------------------
-#  PASO 1b (solo IMBUICIONES): a quien se la pones
+#  PASO 1b (solo las de APOYO): a quien se la echas
 # ------------------------------------------------------------
-# A QUIEN se le puede poner esta imbuicion. Mismo criterio que en combate (ver _con_arma_vivos): las
-# de ARMA (imbue_tipo == 1) solo valen para quien lleve algo con lo que pegar -a manos vacias no hay
-# acero que teñir-, y las de CUERPO valen para cualquiera. Los KO no cuentan.
+# Hasta donde llega una magia de apoyo a OTRO jugador. Los tuyos van pegados a ti (party_trail) y no
+# miran distancia; el compañero tiene que estar cerca: echarle un Manto de punta a punta del piso no
+# se lee como nada.
+const RANGO_APOYO := 400.0
+
+# A QUIEN se le puede echar. Mismo criterio que en combate (ver _con_arma_vivos): los FILOS (imbue_tipo
+# == 1) solo a quien lleve algo con lo que pegar, y los KO no cuentan. Las de GRUPO no eligen persona:
+# eligen grupo (el tuyo, o el de otro jugador).
+#
+# MULTIJUGADOR: los otros jugadores cerca de ti, y los suyos. Van como diccionario, porque su ficha vive
+# en SU maquina (ver Net.apoyo_a_otro). El orden es el de su grupo, [lider] + companeros(), el mismo del
+# canal de imbuiciones. Si estan PELEANDO tambien salen: echarsela es entrar en su pelea con ella lista
+# (ver player._soltar_conjuro). Decision del usuario tras el playtest del 11/09/2026.
 func _candidatos_imbue(sp: SpellData) -> Array:
 	var out: Array = []
+	var de_grupo: bool = sp.es_de_grupo()
+	var mios: Array = []
 	for pj in Game.party:
 		var p := pj as PersonajeData
 		if p == null or Game.player_hp(p) <= 0.0:
 			continue
 		if int(sp.imbue_tipo) == 1 and p.equipped_main == null:
 			continue
-		out.append(p)
-	# MULTIJUGADOR: los otros jugadores que tengas en tu mismo sitio, y los suyos. Un Manto es de apoyo, y
-	# no poder ponerselo al compañero era lo raro (playtest del 11/09/2026). Van como diccionario: su
-	# ficha vive en SU maquina, y alli se aplica (ver Net.imbuir_a_otro). El orden es el de su grupo,
-	# [lider] + companeros(), el mismo del canal de imbuiciones. No se ofrece a quien este peleando: su
-	# ficha esta dentro de la pelea y la pisaria al cerrarla.
-	if Net.activo:
-		for pid in Net._peers:
-			var peer: Dictionary = Net._peers[pid]
-			if String(peer.get("lugar", "")) != Net._mi_lugar or bool(peer.get("peleando", false)):
+		mios.append(p)
+	if de_grupo:
+		if not mios.is_empty():
+			out.append({"peer": 0, "grupo": true, "nombre": "Tu grupo"})
+	else:
+		out.append_array(mios)
+	if not Net.activo:
+		return out
+	for pid in Net._peers:
+		var peer: Dictionary = Net._peers[pid]
+		if String(peer.get("lugar", "")) != Net._mi_lugar:
+			continue
+		var pelea: bool = bool(peer.get("peleando", false))
+		var jugador: String = String(peer.get("nombre", "?"))
+		if de_grupo:
+			if _a_tiro(Net._avatares.get(pid)):
+				out.append({"peer": int(pid), "grupo": true, "nombre": "Grupo de %s" % jugador,
+					"jugador": jugador, "pelea": pelea})
+			continue
+		var fichas: Array = [{"nombre": jugador, "equipo": peer.get("equipo", {})}]
+		fichas.append_array(peer.get("comps", []) as Array)
+		var cuerpos: Array = [Net._avatares.get(pid)]
+		cuerpos.append_array(Net._avatares_comp.get(pid, []) as Array)
+		for i in fichas.size():
+			var f: Dictionary = fichas[i]
+			if int(sp.imbue_tipo) == 1 and not (f.get("equipo", {}) as Dictionary).has("equipped_main"):
 				continue
-			var fichas: Array = [{"nombre": peer.get("nombre", "?"), "equipo": peer.get("equipo", {})}]
-			fichas.append_array(peer.get("comps", []) as Array)
-			for i in fichas.size():
-				var f: Dictionary = fichas[i]
-				if int(sp.imbue_tipo) == 1 and not (f.get("equipo", {}) as Dictionary).has("equipped_main"):
-					continue
-				out.append({"peer": int(pid), "idx": i, "nombre": String(f.get("nombre", "?")),
-					"jugador": String(peer.get("nombre", "?"))})
+			if not _a_tiro(cuerpos[i] if i < cuerpos.size() else null):
+				continue
+			out.append({"peer": int(pid), "idx": i, "nombre": String(f.get("nombre", "?")),
+				"jugador": jugador, "pelea": pelea})
 	return out
+
+
+# ¿Ese cuerpo (el avatar de otro jugador o de uno de los suyos) esta a tiro? SIN tipar: el avatar puede
+# ser una instancia ya liberada (ver la cabecera de net.gd).
+func _a_tiro(cuerpo) -> bool:
+	if cuerpo == null or not is_instance_valid(cuerpo) or not is_instance_valid(_jugador):
+		return false
+	return (cuerpo as Node2D).global_position.distance_to(_jugador.global_position) <= RANGO_APOYO
 
 
 func _menu_aliados(sp: SpellData, quienes: Array) -> void:
@@ -270,14 +302,17 @@ func _menu_aliados(sp: SpellData, quienes: Array) -> void:
 		var b := Button.new()
 		var corona: String = "👑 " if pj == Game.lider() else ""
 		b.text = "%s%s" % [corona, pj.nombre]
-		# LO QUE YA LLEVA PUESTO, porque la nueva SUSTITUYE a la de antes y eso hay que verlo antes de
-		# recitar tres frases. La etiqueta la sabe hacer el Combatant, asi que se monta uno de usar y
-		# tirar solo para preguntarle (mismo truco que Game usa para la ficha).
-		var puesta: String = _imbue_puesta(pj)
-		b.tooltip_text = ("Ahora lleva: %s\nLa nueva la sustituye." % puesta) if puesta != "" \
-			else "No lleva ninguna imbuición puesta."
-		if puesta != "":
-			b.text += "  (%s)" % puesta
+		if sp.es_imbuicion():
+			# LO QUE YA LLEVA PUESTO, porque la nueva SUSTITUYE a la de antes y eso hay que verlo antes de
+			# recitar tres frases. La etiqueta la sabe hacer el Combatant, asi que se monta uno de usar y
+			# tirar solo para preguntarle (mismo truco que Game usa para la ficha).
+			var puesta: String = _imbue_puesta(pj)
+			b.tooltip_text = ("Ahora lleva: %s\nLa nueva la sustituye." % puesta) if puesta != "" \
+				else "No lleva ninguna imbuición puesta."
+			if puesta != "":
+				b.text += "  (%s)" % puesta
+		else:
+			b.text += "  (%.0f/%.0f ♥)" % [Game.player_hp(pj), Game.player_max_hp(pj)]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 		b.clip_text = true
@@ -292,13 +327,20 @@ func _menu_aliados(sp: SpellData, quienes: Array) -> void:
 	_globo_estado("🔮 %s · ¿a quién?" % sp.nombre, Color(0.75, 0.75, 0.9))
 
 
-# El boton de un personaje de OTRO jugador. Lo que lleve puesto no se sabe desde aqui (su ficha esta en
-# su maquina), asi que solo se avisa de que la nueva sustituye a la que tenga.
+# El boton de un destino que no es un PersonajeData mio: tu grupo entero, o el personaje (o el grupo) de
+# OTRO jugador. De los de otro no se sabe lo que llevan puesto (su ficha esta en su maquina).
 func _boton_de_otro(d: Dictionary) -> Button:
 	var b := Button.new()
-	var es_el: bool = int(d.get("idx", 0)) == 0
-	b.text = String(d.get("nombre", "?")) if es_el 		else "%s  (de %s)" % [String(d.get("nombre", "?")), String(d.get("jugador", "?"))]
-	b.tooltip_text = "Otro jugador. Si ya lleva una imbuición, la nueva la sustituye."
+	var nombre: String = String(d.get("nombre", "?"))
+	if bool(d.get("grupo", false)) or int(d.get("idx", 0)) == 0:
+		b.text = nombre
+	else:
+		b.text = "%s  (de %s)" % [nombre, String(d.get("jugador", "?"))]
+	if bool(d.get("pelea", false)):
+		b.text = "⚔ " + b.text
+		b.tooltip_text = "Está peleando: al terminar de recitar entras en su pelea con el conjuro listo."
+	elif int(d.get("peer", 0)) != 0:
+		b.tooltip_text = "Otro jugador. Si ya lleva una imbuición, la nueva la sustituye."
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.custom_minimum_size = Vector2(0, ALTO_BOTON)
 	b.clip_text = true

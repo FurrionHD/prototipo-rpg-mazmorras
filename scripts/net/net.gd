@@ -1048,57 +1048,88 @@ func _imbue_en(elems: PackedInt32Array, i: int) -> int:
 	return int(elems[i]) if i >= 0 and i < elems.size() else Elementos.Elemento.NINGUNO
 
 
-# --- IMBUIR AL PERSONAJE DE OTRO JUGADOR (Mantos fuera de combate) ----------------------------
+# --- APOYO AL PERSONAJE DE OTRO JUGADOR (Mantos, curas y buffs desde el mapa) -----------------
 # La ficha de ese personaje vive en la maquina de su dueño, asi que se aplica ALLI. Viaja la ruta del
 # hechizo y a quien: 'idx' en el orden [lider] + companeros() (el de _mis_imbues) y el nombre como
-# comprobacion, por si su grupo ha cambiado entre medias. El mana ya lo cobro quien lo recito.
-func imbuir_a_otro(spell: SpellData, peer: int, idx: int, nombre: String) -> void:
+# comprobacion, por si su grupo ha cambiado entre medias; 'grupo' = a todos los suyos. La cura que pone
+# el que lanza ya va calculada (Game.cura_magica_de). El mana ya lo cobro quien lo recito.
+func apoyo_a_otro(spell: SpellData, peer: int, idx: int, nombre: String, grupo: bool) -> void:
 	if not activo or spell == null or peer == 0:
 		return
 	var lanzador: String = Game.lider().nombre
+	var cura: float = Game.cura_magica_de(spell, Game.lider())
 	if es_host:
-		_imbuirte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador)
+		_apoyarte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador, cura, grupo)
 	else:
-		_rel_imbuir.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador)
+		_rel_apoyo.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador, cura, grupo)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rel_imbuir(peer: int, ruta: String, idx: int, nombre: String, lanzador: String) -> void:
+func _rel_apoyo(peer: int, ruta: String, idx: int, nombre: String, lanzador: String, cura: float,
+		grupo: bool) -> void:
 	if not es_host:
 		return
 	if peer == _mi_id():
-		_imbuirte(ruta, idx, nombre, lanzador)
+		_apoyarte(ruta, idx, nombre, lanzador, cura, grupo)
 	elif _peers.has(peer):
-		_imbuirte.rpc_id(peer, ruta, idx, nombre, lanzador)
+		_apoyarte.rpc_id(peer, ruta, idx, nombre, lanzador, cura, grupo)
 
 
 # Corre en el DUEÑO del personaje.
 @rpc("authority", "call_remote", "reliable")
-func _imbuirte(ruta: String, idx: int, nombre: String, lanzador: String) -> void:
+func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool) -> void:
 	var spell = load(ruta) if ruta.begins_with("res://") else null
-	if not (spell is SpellData) or not (spell as SpellData).es_imbuicion():
+	if not (spell is SpellData) or not (spell as SpellData).es_apoyo():
 		return
-	# Metido en una pelea, la ficha la lleva el combate y la pisaria al cerrarse: no se aplica.
+	var sp: SpellData = spell
+	# Metido en una pelea, la ficha la lleva el combate y la pisaria al cerrarse. No deberia llegar aqui
+	# (quien lanza te ve peleando y entra en tu pelea en vez de mandar esto), pero la carrera existe.
 	if Game.hay_pelea_en_pantalla():
-		_toast("✨ %s intentó ponerte %s, pero estabas peleando." % [lanzador, (spell as SpellData).nombre])
+		_toast("✨ %s intentó echarte %s, pero estabas peleando." % [lanzador, sp.nombre])
 		return
-	var grupo: Array = [Game.lider()]
-	grupo.append_array(Game.companeros())
-	var pj: PersonajeData = null
-	if idx >= 0 and idx < grupo.size() and (grupo[idx] as PersonajeData).nombre == nombre:
-		pj = grupo[idx]
+	var mios: Array = [Game.lider()]
+	mios.append_array(Game.companeros())
+	var destinos: Array = []
+	if grupo:
+		destinos = mios
+	elif idx >= 0 and idx < mios.size() and (mios[idx] as PersonajeData).nombre == nombre:
+		destinos = [mios[idx]]
 	else:
-		for g in grupo:
+		for g in mios:
 			if (g as PersonajeData).nombre == nombre:
-				pj = g
+				destinos = [g]
 				break
-	if pj == null:
+	var partes: PackedStringArray = []
+	for pj in destinos:
+		var hecho: String = Game.apoyo_desde_mapa(sp, pj, lanzador, cura)
+		if hecho != "":
+			partes.append("%s: %s" % ["tú" if pj == Game.lider() else (pj as PersonajeData).nombre, hecho])
+	if not partes.is_empty():
+		_toast("✨ %s te echa %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
+
+
+# --- ENTRAR EN LA PELEA DE UN JUGADOR (el que la ejecuta puede no ser el) ---------------------
+# Para echarle una magia de apoyo a alguien que esta peleando hay que entrar en SU pelea, pero esa
+# pelea la puede estar ejecutando otro (el esta espejando). Asi que se le pregunta a EL quien la lleva,
+# que es el unico que lo sabe seguro, y con la respuesta se pide sitio por la via de siempre.
+func unirme_a_la_pelea_del_jugador(peer: int) -> void:
+	if not activo or peer == 0 or peer == _mi_id():
 		return
-	if int((spell as SpellData).imbue_tipo) == 1 and pj.equipped_main == null:
-		return   # a manos vacias no hay acero que teñir
-	var elem: int = Game.imbuir_desde_mapa(spell, pj, lanzador)
-	var quien: String = "te pone" if pj == Game.lider() else "le pone a %s" % pj.nombre
-	_toast("✨ %s %s %s (%s)." % [lanzador, quien, (spell as SpellData).nombre, Elementos.nombre(elem)])
+	_dime_tu_pelea.rpc_id(peer)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _dime_tu_pelea() -> void:
+	var anfitrion: int = _mi_id() if _pelea_id != 0 else _pelea_anfitrion
+	_esta_es_mi_pelea.rpc_id(multiplayer.get_remote_sender_id(), anfitrion)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _esta_es_mi_pelea(anfitrion: int) -> void:
+	if anfitrion == 0:
+		_toast("Esa pelea ya ha terminado.")
+		return   # la nota del conjuro caduca sola y devuelve el mana (Game.tick_hechizo_de_entrada)
+	solicitar_unirse(anfitrion)
 
 
 @rpc("any_peer", "call_remote", "reliable")

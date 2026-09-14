@@ -1123,7 +1123,7 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 # con la de combat._aplicar_imbuicion, que es la que manda.
 #
 # Vive aqui y no en el player porque la usan DOS maquinas: la del que la lanza a los suyos, y en multi
-# la del dueño del personaje cuando se la pone otro jugador (ver Net._imbuirte).
+# la del dueño del personaje cuando se la pone otro jugador (ver Net._apoyarte).
 func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) -> int:
 	var cuerpo: bool = spell.imbue_tipo == 2
 	# UNA sola pregunta por el elemento, como en combat._aplicar_imbuicion: los que van al azar dan
@@ -1141,6 +1141,55 @@ func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) ->
 	# la pantalla del compañero seguiria sin teñir hasta el siguiente combate.
 	Net.anunciar_imbue()
 	return elem_id
+
+
+# APOYO DESDE EL MAPA a UN personaje: imbuir, curar o poner un buff. Devuelve lo que le ha hecho, en
+# corto ("" = nada, p.ej. porque estaba KO). Como imbuir_desde_mapa, la usan las dos maquinas: la del
+# que la lanza a los suyos y la del dueño del personaje cuando se la echa otro jugador.
+#
+# 'cura_magica' es la parte de la cura que sale del PODER DEL QUE LANZA (StatsMath.resolve_heal): se
+# calcula en su maquina, que es donde estan su Magia y su baston, y viaja ya hecha.
+#
+# La cura y el buff pasan por un Combatant montado con la fabrica de siempre y vuelven a la ficha: asi
+# la Herida profunda sigue recortando la cura (Combatant.heal) y el buff queda en pj.estados, que es
+# donde lo recoge la siguiente pelea. Sin una segunda implementacion.
+func apoyo_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String, cura_magica: float) -> String:
+	if spell == null or pj == null:
+		return ""
+	if spell.es_imbuicion():
+		if int(spell.imbue_tipo) == 1 and pj.equipped_main == null:
+			return ""   # a manos vacias no hay acero que teñir
+		var elem: int = imbuir_desde_mapa(spell, pj, lanzador)
+		return "%s de %s" % [spell.imbue_texto(), Elementos.nombre(elem)]
+	if player_hp(pj) <= 0.0:
+		return ""
+	var c: Combatant = crear_player_combatant(pj)
+	var partes: PackedStringArray = []
+	if spell.tipo == SpellData.TipoEfecto.CURACION:
+		var antes: float = c.current_hp
+		c.heal(spell.cura_pct * c.max_hp + cura_magica)
+		pj.current_hp = c.current_hp
+		partes.append("+%.0f de vida" % (c.current_hp - antes))
+	var con_estado := false
+	for a in spell.efectos:
+		if a == null or a.estado < 0 or a.en_objetivo:
+			continue
+		if c.es_inmune(a.estado):
+			continue
+		c.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+		partes.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+		con_estado = true
+	if con_estado:
+		guardar_estados_en_ficha(c, pj)
+	print("[apoyo] %s echa %s a %s desde el mapa: %s" % [lanzador, spell.nombre, pj.nombre, ", ".join(partes)])
+	return ", ".join(partes)
+
+
+# La parte de la cura que pone EL QUE LANZA (su Magia y su baston). 0 si el hechizo no cura.
+func cura_magica_de(spell: SpellData, lanzador: PersonajeData) -> float:
+	if spell == null or spell.tipo != SpellData.TipoEfecto.CURACION:
+		return 0.0
+	return StatsMath.resolve_heal(crear_player_combatant(lanzador), spell)
 
 
 func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
@@ -5705,8 +5754,11 @@ var _hechizo_entrada: Dictionary = {}
 const HECHIZO_ENTRADA_ESPERA := 5.0
 var _hechizo_entrada_t: float = 0.0
 
-func apuntar_hechizo_de_entrada(spell: SpellData, enemigo: Node, pj: PersonajeData) -> void:
-	_hechizo_entrada = {"spell": spell, "enemigo": enemigo, "pj": pj}
+# 'apoyo' = si es una magia de apoyo echada a alguien que estaba PELEANDO: {peer, nombre, grupo}. Viaja
+# con la ficha al unirte a esa pelea y el anfitrion la dirige a ese aliado (combat.aplicar_casteo_entrante).
+func apuntar_hechizo_de_entrada(spell: SpellData, enemigo: Node, pj: PersonajeData,
+		apoyo: Dictionary = {}) -> void:
+	_hechizo_entrada = {"spell": spell, "enemigo": enemigo, "pj": pj, "apoyo": apoyo}
 	_hechizo_entrada_t = HECHIZO_ENTRADA_ESPERA
 
 
@@ -5761,7 +5813,7 @@ func tick_hechizo_de_entrada(delta: float) -> void:
 		spell.nombre, devuelto])
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("El conjuro se disipa: esa pelea la lleva otro. (Maná devuelto)")
+		hud.mostrar_toast("El conjuro se disipa: no ha llegado a ninguna pelea. (Maná devuelto)")
 
 
 # Se lo pasa a la pantalla de combate y lo borra. El bicho viaja como INDICE dentro de los enemigos
@@ -5812,7 +5864,8 @@ func casteo_para_viajar(pj: PersonajeData) -> Dictionary:
 			_hechizo_entrada_t = 0.0
 			# La frase es la ULTIMA + 1 = "ya esta terminado": es lo que mira combat._begin_player_turn
 			# para ir al disparo en vez de al examen.
-			return {"ruta": sp.resource_path, "frase": sp.longitud(), "pagado": true}
+			return {"ruta": sp.resource_path, "frase": sp.longitud(), "pagado": true,
+				"apoyo": (_casteo_en_vuelo["datos"] as Dictionary).get("apoyo", {})}
 	if not _canto_a_medias.is_empty() and _canto_a_medias.get("pj") == pj:
 		var sp2: SpellData = _canto_a_medias.get("spell")
 		if sp2 != null:
