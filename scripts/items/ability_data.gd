@@ -372,6 +372,12 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 # turnos) vive en el Combatant, como provocar_turnos. Ver combat.gd._elegir_objetivo_enemigo.
 @export var protege_turnos: int = 0
 
+# ¿Se puede usar sobre UNO MISMO? No, si lo que hace es ponerse delante de otro: cubrirte a ti mismo
+# no mitiga nada y te cobraba la energia igual (playtest del 11/09/2026, el Muro). Sale del campo y no
+# de una bandera aparte para que ninguna habilidad nueva de cobertura se olvide de marcarla.
+func excluye_al_lanzador() -> bool:
+	return protege_turnos > 0
+
 
 # Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene). 'enemigos' = nº de
 # rivales VIVOS: si la habilidad escala por multitud (golpes_extra_por_enemigo), suma golpes

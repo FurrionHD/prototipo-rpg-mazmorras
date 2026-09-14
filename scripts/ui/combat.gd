@@ -1223,6 +1223,8 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 					elegida = ab
 					break
 			if elegida != null:
+				var ia_h: int = int(accion.get("aliado", -1))
+				_hab_aliado = _aliados[ia_h] if ia_h >= 0 and ia_h < _aliados.size() else null
 				_usar_habilidad(elegida)
 			else:
 				_accion_atacar()   # ya no la tiene: no se pierde el turno
@@ -6315,6 +6317,9 @@ func _accion_habilidad() -> void:
 		elif not es_conv and not _player.has_energy(coste):
 			b.disabled = true
 			b.tooltip_text = "⛔ Sin energía suficiente\n\n%s" % b.tooltip_text
+		elif ab.excluye_al_lanzador() and _aliados_hab(ab).is_empty():
+			b.disabled = true
+			b.tooltip_text = "⛔ No tienes a nadie más a quien cubrir\n\n%s" % b.tooltip_text
 		# Las que caen sobre un aliado preguntan A QUIEN antes de resolverse, igual que un Filo.
 		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
 			b.pressed.connect(_elegir_aliado_habilidad.bind(ab))
@@ -6471,13 +6476,23 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	return r
 
 
+# A quien se le puede echar una habilidad de aliado: los vivos, sin el que la usa si es de cubrir.
+func _aliados_hab(ab: AbilityData) -> Array[Combatant]:
+	var vivos: Array[Combatant] = _aliados_vivos()
+	if ab.excluye_al_lanzador():
+		vivos.erase(_player)
+	return vivos
+
+
 # Segundo paso de las habilidades que caen sobre UN ALIADO (Purificar, Égida menor): a quien.
 # Mismo patron que el de los hechizos (_elegir_objetivo_aliado), pero en la caja de habilidades.
 # Con un solo aliado en pie no se pregunta nada: va directa a el.
 func _elegir_aliado_habilidad(ab: AbilityData) -> void:
-	var vivos: Array[Combatant] = _aliados_vivos()
-	if vivos.size() <= 1:
-		_hab_aliado = vivos[0] if not vivos.is_empty() else _player
+	var vivos: Array[Combatant] = _aliados_hab(ab)
+	if vivos.is_empty():
+		return   # el boton ya sale apagado en este caso (ver el menu de habilidades)
+	if vivos.size() == 1:
+		_hab_aliado = vivos[0]
 		_usar_habilidad(ab)
 		return
 	for c in _ability_box.get_children():
@@ -6522,7 +6537,13 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# En el espejo se elige, pero resuelve el anfitrion: le viaja QUE habilidad (por su ruta) y
 	# contra quien. El la busca en el loadout de mi personaje, que es el mismo que tiene el.
 	if _espejo and ab != null:
-		_responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _target_idx})
+		# Y A QUIEN, si es de aliado: como la magia, por indice en _aliados. No viajaba, y el anfitrion
+		# resolvia el Muro del que se unia siempre sobre si mismo.
+		var ia_h: int = -1
+		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO and _hab_aliado != null:
+			ia_h = _aliados.find(_hab_aliado)
+		_responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _target_idx,
+			"aliado": ia_h})
 		return
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
 	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
