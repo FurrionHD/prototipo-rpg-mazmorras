@@ -1118,14 +1118,26 @@ func _lanzar_embestida(hacia: Node2D) -> void:
 # La CARGA: corre recto en la direccion comprometida. Si toca a CUALQUIERA del grupo, empieza el
 # combate. Si se acaba (o se estampa contra la roca) sin tocar a nadie, ha fallado: descansa un poco
 # y vuelve a perseguir. Es lo que convierte "escapar" en algo que se juega y no en un parpadeo.
+# Cuanto llega la embestida por DELANTE de su cuerpo. Lo mismo que el margen con el que arranca la
+# carga (margen_ataque), y algo mas en los grandes, que tambien alcanzan mas.
+const AVANCE_EMBESTIDA := 12.0
+
+func zona_embestida() -> Rect2:
+	var lado: float = (Cuerpos.MEDIO_BASE + float(radio_extra)) * 2.0
+	return Cuerpos.zona_delante(self, _embiste_dir, AVANCE_EMBESTIDA + float(radio_extra) * 0.5, lado)
+
+
 func _embestida(delta: float) -> void:
 	velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
 	_embiste_t -= delta
 	# ¿Ha alcanzado a alguien? Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los
 	# cuerpos que colisionan nunca llegan a solaparse), no el margen de ataque: la carga tiene que
 	# CONECTAR, no basta con pasar cerca.
+	var zona: Rect2 = zona_embestida()
 	for n in _aliados():
-		if hueco_hasta(n) <= CONTACTO:
+		# Conecta si le TOCA o si el otro esta en la zona de DELANTE de la carga: un golpe tiene que
+		# llegar un palmo antes que el cuerpo, o se lee como un empujon (peticion del usuario).
+		if hueco_hasta(n) <= CONTACTO or Cuerpos.hueco_entre(zona, Cuerpos.caja_de(n)) <= 0.0:
 			_objetivo = n
 			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
 			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).

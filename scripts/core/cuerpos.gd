@@ -65,6 +65,26 @@ static func hueco(a: Node2D, b: Node2D) -> float:
 	return hueco_entre(caja_de(a), caja_de(b))
 
 
+# LA ZONA DEL GOLPE: un rectangulo pegado al borde de la caja de 'n' en la direccion 'dir', de
+# 'fondo' hacia delante y 'ancho' de lado. Es lo que hace que un golpe se lea como un golpe: el arma
+# del jugador pega DELANTE de el (no en su cuerpo) y la embestida de un bicho conecta un palmo antes
+# de que los cuerpos se toquen. Se cruza con la caja del otro con hueco_entre(zona, caja) <= 0.
+#
+# Sigue siendo un AABB, como todo lo de aqui: en diagonal el fondo y el ancho se mezclan en los dos
+# ejes (medio y medio), que es lo mas parecido a girar el rectangulo sin dejar de ser una caja.
+static func zona_delante(n: Node2D, dir: Vector2, fondo: float, ancho: float) -> Rect2:
+	var caja: Rect2 = caja_de(n)
+	if caja.size == Vector2.ZERO:
+		return Rect2()
+	var d: Vector2 = dir.normalized() if dir.length() > 0.001 else Vector2.DOWN
+	var ax: float = absf(d.x)
+	var ay: float = absf(d.y)
+	var borde: float = ax * caja.size.x * 0.5 + ay * caja.size.y * 0.5
+	var centro: Vector2 = caja.get_center() + d * (borde + fondo * 0.5)
+	var tam := Vector2(ax * fondo + ay * ancho, ax * ancho + ay * fondo)
+	return Rect2(centro - tam * 0.5, tam)
+
+
 # Lo mismo con las cajas ya resueltas, por si quien llama ya las tiene.
 static func hueco_entre(ra: Rect2, rb: Rect2) -> float:
 	var gx: float = maxf(rb.position.x - ra.end.x, ra.position.x - rb.end.x)

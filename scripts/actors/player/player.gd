@@ -110,6 +110,15 @@ const _DESENVAINAR_DUR := 5.0 / 14.0   # los 5 fotogramas de 'desenvainar' a 14 
 # Hueco a partir del cual se considera que ya NO es cuerpo a cuerpo: es el alcance de antes
 # (44 - 32). Por debajo de esto el bicho esta literalmente encima y no se le pide linea de vision.
 const HUECO_CUERPO_A_CUERPO := 12.0
+# LA ZONA DEL ESPADAZO: delante de tu cuerpo, no alrededor. Antes valia cualquier bicho a 17 px del
+# cuerpo dentro de un cono de 70 grados, asi que uno pegado a tu costado contaba como golpeado. Fondo =
+# hasta donde llega el filo; ancho = lo que barre de lado. Algo mas de alcance hacia delante que antes y
+# nada hacia los lados ni detras. Se ve con el visor de hitboxes (Game.dev_hitboxes).
+const ZONA_GOLPE_FONDO := 24.0
+const ZONA_GOLPE_ANCHO := 34.0
+# Hay un espadazo en el aire que ha salido con alguien delante: se resuelve al CONTACTAR el arma
+# (cuando salta _golpe_sfx_t), no al pulsar. Si para entonces el bicho se ha apartado, fallas.
+var _golpe_pendiente: bool = false
 
 # Interaccion (F) con cadaveres para extraer el cristal.
 @export var interact_range: float = 40.0
@@ -312,6 +321,7 @@ func _physics_process(delta: float) -> void:
 	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal():
 		velocity = Vector2.ZERO
 		_atk_buffer = 0.0   # el golpe pendiente no sobrevive a una pantalla: se pulso para OTRO momento
+		_golpe_pendiente = false
 		# EN COMBATE NO se regenera aguante. La energia con la que entras a la pelea es la stamina
 		# de exploracion ("correr antes de pelear se paga", ver Game.start_combat): en un jugador
 		# esto se congelaba con el arbol, pero en multi el arbol sigue vivo y quedarse en una pelea
@@ -935,6 +945,11 @@ func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 		_golpe_sfx_t -= delta
 		if _golpe_sfx_t < 0.0:
 			Sonido.golpe("", _estilo_del_golpe())
+			# Y AHORA SI se pega: el filo acaba de llegar. Lo que queda de animacion es lo que se le pasa
+			# al bicho para que se quede paralizado encajando el golpe antes de que salte la pelea.
+			if _golpe_pendiente:
+				_golpe_pendiente = false
+				_try_attack(maxf(_golpe_t, 0.0))
 	if _desenv_t > 0.0:
 		_desenv_t -= delta
 	if _muneco == null or not _muneco.hay_dibujo() or _en_faena:
@@ -1383,30 +1398,19 @@ func _tick_ataque(delta: float) -> void:
 		return
 	if atk and not _attack_was:
 		_atk_hold = 0.0
-		# EL ESPADAZO SE VE AUNQUE NO ACIERTE, y ese es justo el caso que importa: si acierta, el
-		# combate se lleva la escena y no da tiempo a ver nada. Golpear al aire, en cambio, es lo que
-		# el jugador necesita distinguir de "el boton no ha respondido" -- que era exactamente la
-		# queja que llevo a que este boton avise por texto cuando el bicho esta lejos.
-		_golpe_variante = _elegir_golpe()
-		_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
-		_golpe_seq = (_golpe_seq + 1) & 0xFF   # que los demas vean el espadazo (ver _pose_red)
-		# EL ESPADAZO SE OYE AUNQUE NO ACIERTE, por lo mismo que se VE: golpear al aire tiene que
-		# distinguirse de "el boton no ha respondido". Por eso se arma AQUI y no dentro de
-		# _try_attack, que solo pasa cuando hay alguien delante.
-		#
-		# Pero NO suena todavia: aqui el brazo apenas ha empezado a echarse hacia atras. Se apunta
-		# CUANDO tiene que sonar -- el instante en que el filo llega -- y lo suelta el reloj de
-		# _actualizar_animacion. Sonando en la pulsacion se oye el impacto antes de que el arma se
-		# haya movido, y se nota enseguida: parece el clic de un boton, no un tajo.
-		_golpe_sfx_t = _golpe_t * (CONTACTO_GOLPE_2M if _golpe_variante == 2 else CONTACTO_GOLPE)
-		if not _try_attack():
+		_arrancar_golpe()
+		# El golpe NO se resuelve aqui: sale el espadazo y se pega cuando el filo llega (ver
+		# _golpe_pendiente). Solo se mira si hay alguien delante para saber si la pulsacion va a por
+		# alguien o se queda en el buffer esperando a que alguien entre.
+		if _enemigos_a_tiro().is_empty():
 			_atk_buffer = ATK_BUFFER
 			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
 			# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
 			if hay_conjuro_a_tiro():
 				_toast("Está lejos: MANTÉN para recitar un hechizo.")
 		else:
-			_atk_hold = -1.0   # ya ha entrado en combate: este mantenido no cuenta
+			_golpe_pendiente = true
+			_atk_hold = -1.0   # va a por alguien: este mantenido no cuenta
 	elif atk and _atk_hold >= 0.0:
 		_atk_hold += delta
 		if _atk_hold >= CASTEO_MANTENER:
@@ -1419,16 +1423,40 @@ func _tick_ataque(delta: float) -> void:
 	# mantenido, le pegas y el canto no llega a abrirse.
 	if not (atk and not _attack_was) and _atk_buffer > 0.0:
 		_atk_buffer -= delta
-		if _try_attack():
+		if not _enemigos_a_tiro().is_empty():
+			# Alguien ha entrado a tiro con el espacio recordado. Si el espadazo aun no ha llegado, este
+			# mismo lo alcanza; si ya paso, sale uno nuevo. En los dos casos pega al contactar.
+			if _golpe_sfx_t < 0.0 or _golpe_pendiente:
+				_arrancar_golpe()
+			_golpe_pendiente = true
 			_atk_buffer = 0.0
 			_atk_hold = -1.0
 	_attack_was = atk
 
 
-# Busca un enemigo VIVO justo enfrente y muy cerca; si lo hay, inicia el combate
-# con NUESTRA iniciativa. Devuelve true si ataco (lo usa _try_interact para saber
-# si ya ha consumido la pulsacion de F).
-func _try_attack() -> bool:
+# Arranca el ESPADAZO del mapa: la animacion, la red y el reloj del instante en que el filo llega.
+#
+# EL ESPADAZO SE VE Y SE OYE AUNQUE NO ACIERTE, y ese es justo el caso que importa: golpear al aire es
+# lo que el jugador necesita distinguir de "el boton no ha respondido". Pero NO suena al pulsar: ahi
+# el brazo apenas se echa hacia atras. Se apunta CUANDO tiene que sonar y lo suelta el reloj de
+# _actualizar_animacion; en ese mismo instante se resuelve el golpe (ver _golpe_pendiente).
+func _arrancar_golpe() -> void:
+	_golpe_variante = _elegir_golpe()
+	_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
+	_golpe_seq = (_golpe_seq + 1) & 0xFF   # que los demas vean el espadazo (ver _pose_red)
+	_golpe_sfx_t = _golpe_t * (CONTACTO_GOLPE_2M if _golpe_variante == 2 else CONTACTO_GOLPE)
+
+
+# La zona que barre el espadazo ahora mismo (ver ZONA_GOLPE_FONDO). La usa tambien el visor de hitboxes.
+func zona_golpe() -> Rect2:
+	return Cuerpos.zona_delante(self, _facing, ZONA_GOLPE_FONDO, ZONA_GOLPE_ANCHO)
+
+
+# Busca un enemigo VIVO en la zona del espadazo; si lo hay, inicia el combate con NUESTRA iniciativa.
+# 'golpe_restante' = lo que le queda a la animacion: el bicho se queda ese rato encajando el golpe.
+func _try_attack(golpe_restante: float = -1.0) -> bool:
+	if golpe_restante < 0.0:
+		golpe_restante = _golpe_t
 	var candidatos: Array = _enemigos_a_tiro()
 	for par in candidatos:
 		var e = par[1]
@@ -1442,7 +1470,7 @@ func _try_attack() -> bool:
 		# _golpe_t: lo que queda del espadazo en el mapa. El bicho se paraliza ese rato antes de que
 		# la pantalla de combate se lleve la escena -- antes se cortaba el mismo fotograma y el
 		# espadazo (que YA se planta y dura lo suyo, ver _tick_ataque) no se llegaba a ver nunca.
-		if bool(e.atacado_por_jugador(_golpe_t)):
+		if bool(e.atacado_por_jugador(golpe_restante)):
 			return true
 	# Habia bichos a tiro pero ninguno ha admitido la pelea: decirlo. Callarse era lo que dejaba al
 	# jugador pensando que estaba mal colocado.
@@ -1459,7 +1487,9 @@ func _try_attack() -> bool:
 # dos medios cuerpos). Se le pasa otro numero para el CANTO, que llega mucho mas lejos que un
 # espadazo: el filtro (hueco + cono + pared) tiene que ser el mismo, solo cambia la distancia.
 func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
-	var rango: float = alcance if alcance > 0.0 else attack_range
+	if alcance <= 0.0:
+		return _enemigos_en_zona_golpe()
+	var rango: float = alcance
 	var out: Array = []
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
@@ -1495,12 +1525,32 @@ func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
 	return out
 
 
+# El ESPADAZO: los que tocan la zona de delante (zona_golpe), ordenados del mas cercano a la punta del
+# filo al mas lejano. Formato [hueco, nodo] como el de _enemigos_a_tiro. La pared en medio sigue
+# mandando, igual que antes, salvo con el bicho encima.
+func _enemigos_en_zona_golpe() -> Array:
+	var zona: Rect2 = zona_golpe()
+	var punta: Vector2 = zona.get_center()
+	var out: Array = []
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(e) or not (e is Node2D):
+			continue
+		if Cuerpos.hueco_entre(zona, Cuerpos.caja_de(e)) > 0.0:
+			continue
+		var hueco: float = _hueco_hasta(e)
+		if hueco > HUECO_CUERPO_A_CUERPO and not _vision_libre(e.global_position):
+			continue
+		out.append([punta.distance_to((e as Node2D).global_position), e])
+	out.sort_custom(func(a, b): return a[0] < b[0])
+	return out
+
+
 # ¿Tengo la intencion de atacar a ESTE bicho ahora mismo? La pregunta el enemigo antes de abrirse la
 # pelea a su nombre: si yo tenia el espacio puesto y le estaba mirando, el CONTRA es mio y la
 # iniciativa (media barra de ATB) tambien, aunque su carga haya llegado antes en este frame.
 # Golpear una embestida es leer el telegrafiado, no ganar una carrera de frames.
 func quiere_atacarme(bicho: Node) -> bool:
-	if _atk_buffer <= 0.0 or bicho == null or not is_instance_valid(bicho):
+	if (_atk_buffer <= 0.0 and not _golpe_pendiente) or bicho == null or not is_instance_valid(bicho):
 		return false
 	for par in _enemigos_a_tiro():
 		if par[1] == bicho:

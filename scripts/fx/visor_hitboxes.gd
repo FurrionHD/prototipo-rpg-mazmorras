@@ -202,13 +202,14 @@ func _alcances(j: Node2D) -> void:
 		draw_arc(p, float(j.interact_range), 0.0, TAU, 32, C_INTERACT, 1.5)
 	if not ("attack_range" in j and "attack_half_angle_deg" in j):
 		return
-	var r: float = float(j.attack_range)
-	var media: float = deg_to_rad(float(j.attack_half_angle_deg))
-	var mira: Vector2 = j._facing if "_facing" in j else Vector2.DOWN
-	var a0: float = mira.angle() - media
-	draw_arc(p, r, a0, a0 + media * 2.0, 32, C_ATAQUE, 2.0)
-	draw_line(p, p + Vector2.RIGHT.rotated(a0) * r, C_ATAQUE, 1.5)
-	draw_line(p, p + Vector2.RIGHT.rotated(a0 + media * 2.0) * r, C_ATAQUE, 1.5)
+	# EL ESPADAZO ya no es un cono: es la zona de delante, la misma que pide el juego (zona_golpe).
+	if j.has_method("zona_golpe"):
+		draw_rect(j.zona_golpe(), C_ATAQUE, false, 2.0)
+	# Y LA CARGA DE CADA BICHO que este embistiendo, por lo mismo: la zona real con la que conecta.
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(e) and e.has_method("zona_embestida") and int(e.get("_state")) == 3 \
+				and (e as Node2D).global_position.distance_to(p) <= RADIO:
+			draw_rect(e.zona_embestida(), C_TOCANDO, false, 1.5)
 
 
 # ============================================================
