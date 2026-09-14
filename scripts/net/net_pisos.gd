@@ -762,6 +762,11 @@ func _foto_de_mis_espejos() -> Dictionary:
 			continue
 		if String(n.data.resource_path).is_empty():
 			continue
+		# LOS QUE ESTAN EN LA PELEA DE OTRA MAQUINA (un trabajador de pelea, o un compañero) no se heredan:
+		# siguen en esa pelea, y recrearlos aqui con id nuevo los dejaria DUPLICADOS (uno suelto por el mapa y
+		# otro peleando). Lo que pase en esa pelea ya no vuelve al piso (su dueño se ha ido con los ids viejos).
+		if int(n.get("pelea_de")) != 0 and not Game._active_enemies.has(n):
+			continue
 		out.append({"ruta": n.data.resource_path, "pos": n.global_position,
 			"t": n.current_t, "zona": -1, "muerto": n.esta_muerto(),
 			"hp": n.hp_restante})

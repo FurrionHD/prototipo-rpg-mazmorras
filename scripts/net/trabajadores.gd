@@ -57,6 +57,9 @@ var _estado: Dictionary = {}      # peer_id -> piso en el que esta (0 = en la re
 # la pelea empieza al instante (no hay que cargar el piso) y ningun jugador la lleva en su PC.
 var _de_pelea: Dictionary = {}    # peer_id -> true: esta en su piso para peleas
 var _peleando: Dictionary = {}    # peer_id -> true: ejecutando una pelea ahora mismo
+# El PROCESO de cada trabajador (su pid, que manda al presentarse). Para cerrar uno concreto: hoy lo usan las
+# pruebas para tirar SOLO al dueño del piso y ver que la pelea de otro trabajador sigue.
+var _pid_de: Dictionary = {}
 var _n_lanzados: int = 0          # para numerar los ficheros de registro
 
 # --- TRABAJADOR ---
@@ -135,7 +138,7 @@ func arrancar(args: PackedStringArray) -> void:
 
 # Lo llama Net._on_connected_to_server en vez del saludo de un jugador.
 func saludar() -> void:
-	_saludar_trabajador.rpc_id(1, _mi_token, Net.PROTOCOLO)
+	_saludar_trabajador.rpc_id(1, _mi_token, Net.PROTOCOLO, OS.get_process_id())
 
 
 # La sala se ha cerrado o no me ha aceptado: sin sala no tengo nada que simular.
@@ -201,6 +204,7 @@ func al_cerrar_sala() -> void:
 	_estado.clear()
 	_de_pelea.clear()
 	_peleando.clear()
+	_pid_de.clear()
 	_pendientes.clear()
 	_token = ""
 
@@ -253,7 +257,7 @@ func _plazo_de_arranque(n: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _saludar_trabajador(token: String, protocolo: int) -> void:
+func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
@@ -263,6 +267,7 @@ func _saludar_trabajador(token: String, protocolo: int) -> void:
 	if not _pendientes.is_empty():
 		_pendientes.pop_front()
 	_estado[quien] = 0
+	_pid_de[quien] = pid
 	# Si se CUELGA o lo matan, que se note pronto. Por defecto ENet tarda mas de 15 s en dar por muerta
 	# una conexion que se corta sin avisar, y todo ese rato el piso se queda con sus bichos quietos para
 	# los humanos de dentro. Un trabajador que no contesta en 5 s no va a contestar.
@@ -367,6 +372,7 @@ func al_irse(peer_id: int) -> void:
 		return
 	var piso: int = int(_estado[peer_id])
 	_estado.erase(peer_id)
+	_pid_de.erase(peer_id)
 	_de_pelea.erase(peer_id)
 	_peleando.erase(peer_id)
 	_rellenar_reserva()

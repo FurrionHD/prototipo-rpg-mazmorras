@@ -185,13 +185,33 @@ func empujar_pelea(nodo: Node, peer: int) -> bool:
 # OJO: hay que comparar con MI id, no con 1. "quien == 1" significa "el peticionario es el host",
 # que solo soy YO si yo soy el host; en un dueño CLIENTE, tratarlo como propio se comia la
 # respuesta y el que ataco se quedaba sin pelea (sin error ninguno, que es lo traicionero).
+# Todo pasa por el HOST, tambien cuando el que pelea soy yo (un dueño CLIENTE con sus propios bichos): es
+# el unico que sabe si en ese piso espera un trabajador de pelea (ver _entregar_pelea).
 func _responder_pelea(quien: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if Net.es_host:
 		_entregar_pelea(quien, ids, emboscada, anfitrion)
-	elif quien == multiplayer.get_unique_id():
-		_pelea_resuelta(ids, emboscada, anfitrion)
 	else:
 		_rel_respuesta_pelea.rpc_id(1, quien, ids, emboscada, anfitrion)
+
+
+# EL DUEÑO HUMANO DE UN PISO tambien pelea fuera de su PC (se cayo su trabajador, o no lo habia): sus bichos
+# le alcanzan o les ataca, y en vez de montar la pelea aqui se reservan a mi nombre y van por el mismo
+# reparto que las de los demas. Si en el piso no espera nadie de pelea, el host me los devuelve y la pelea
+# va aqui (ver _llega_pelea). Devuelve si se ha encaminado (entonces el que llama no monta nada).
+func pelea_fuera_de_mi_pc(nodo: Node, emboscada: bool) -> bool:
+	if not Net.activo or not Net._soy_dueno or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+		return false
+	if nodo == null or not nodo.has_meta("net_id"):
+		return false
+	# El host lo sabe en el acto: si no hay nadie de pelea, ni reserva ni viaje.
+	if Net.es_host and Net._trab.pelea_libre_en(Net.pisos.mi_piso()) == 0:
+		return false
+	var yo: int = multiplayer.get_unique_id()
+	var ids: Array = _reservar_grupo(nodo, int(nodo.get_meta("net_id")), yo)
+	if ids.is_empty():
+		return false
+	_responder_pelea(yo, ids, emboscada)
+	return true
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -339,6 +359,30 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		_fichas_mandadas_a = 0
 		_mis_en_pelea.clear()
 		Game.devolver_casteo_en_vuelo()
+	# SOY EL DUEÑO HUMANO DEL PISO y la pelea me ha vuelto (no habia trabajador de pelea libre, ver
+	# pelea_fuera_de_mi_pc): son mis bichos DE VERDAD, no espejos. Se sueltan sus reservas -una pelea propia
+	# no las lleva (ver _anfitrion_de_enemigo), y dejarlas los haria imposibles de volver a pelear- y se monta
+	# aqui como siempre.
+	if Net._soy_dueno:
+		var reales: Array = []
+		for i in ids:
+			_enem_ocupados.erase(int(i))
+			var nr = _nodo_de_id(int(i))
+			if nr != null and is_instance_valid(nr) and not nr.esta_muerto():
+				reales.append(nr)
+		var dentro := false
+		if Game.combate_activo():
+			for nr in reales:
+				if not Game.unir_enemigo_al_combate(nr):
+					nr.reanudar_tras_combate(-1.0)
+			return
+		if not reales.is_empty():
+			dentro = Game.start_combat(reales, emboscada)
+		if not dentro:
+			for nr in reales:
+				if is_instance_valid(nr):
+					nr.reanudar_tras_combate(-1.0)
+		return
 	var nodos: Array = []
 	for i in ids:
 		var n = Net.enemigos._enem_nodos.get(i)

@@ -168,35 +168,73 @@ func _ready() -> void:
 	_ok(Net.peleas.espejando() and Net._trab._de_pelea.has(Net.peleas._pelea_anfitrion),
 		"la segunda pelea la ejecuta otro trabajador de pelea")
 
-	# 6) SE CAE EL TRABAJADOR (F4) MIENTRAS PELEO contra sus bichos: se matan sus procesos a lo bruto. El
-	# piso lo hereda el humano de dentro con la foto de sus espejos, la pelea SE DESHACE (la llevaba el,
-	# decidido asi) y la reserva vuelve a llenarse.
+	# 6a) SE CAE SOLO EL DUEÑO DEL PISO mientras otro trabajador lleva mi pelea. El piso lo hereda el humano de
+	# dentro con la foto de sus espejos, MENOS los enemigos que estan en esa pelea (si no, saldrian duplicados:
+	# uno suelto y otro peleando). La pelea sigue en el de pelea y se termina.
+	var f_pelea: int = Net.peleas._pelea_anfitrion
+	var dueno_vivo: int = int(Net._dueno_piso.get(1, 0))
 	var espejos_antes := _espejos_vivos()
-	var muertos: Array = Net._trab._estado.keys()   # los que voy a matar: la reserva tiene que ser OTRO
-	for pid in Net._trab._pids:
-		if OS.is_process_running(pid):
-			OS.kill(pid)
+	var en_pelea := 0
+	for id in Net.enemigos._enem_nodos:
+		var n = Net.enemigos._enem_nodos[id]
+		if is_instance_valid(n) and int(n.get("pelea_de")) == f_pelea:
+			en_pelea += 1
+	var pid_dueno: int = int(Net._trab._pid_de.get(dueno_vivo, 0))
+	_ok(pid_dueno > 0 and en_pelea > 0, "tengo el proceso del dueño (%d) y %d enemigo(s) en la pelea" % [pid_dueno, en_pelea])
+	if pid_dueno > 0:
+		OS.kill(pid_dueno)
 	t = 0.0
 	while not Net._soy_dueno and t < 15.0:
 		await _esperar(0.5)
 		t += 0.5
-	_ok(Net._soy_dueno, "al caerse el trabajador, el piso lo hereda el humano de dentro (%.1f s)" % t)
+	_ok(Net._soy_dueno, "al caerse el dueño, el piso lo hereda el humano de dentro (%.1f s)" % t)
 	await _esperar(1.0)
 	var reales := get_tree().get_nodes_in_group("enemy").filter(
 		func(e): return is_instance_valid(e) and not e.has_meta("es_espejo")).size()
-	_ok(reales > 0 and absi(reales - espejos_antes) <= 6,
-		"hereda los enemigos que veia (%d reales, veia %d)" % [reales, espejos_antes])
-	# Que se deshace = ya no espejo nada. Puede haber pantalla igual: al heredar el piso, el enemigo que tengo
-	# al lado es MIO y me embiste, y esa pelea nueva ya va en mi PC (no hay trabajador). El de pelea es OTRO
-	# proceso: su caida se detecta por su cuenta (hasta 5 s de ENet), no a la vez que la del dueño.
+	_ok(reales > 0 and reales <= espejos_antes - en_pelea,
+		"hereda los enemigos que veia SIN los de la pelea (%d reales, veia %d, %d en la pelea)" % [reales, espejos_antes, en_pelea])
+	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f_pelea, "mi pelea SIGUE en el trabajador de pelea")
+	var mia2: Node = Net.peleas._pantalla_combate()
 	t = 0.0
-	while Net.peleas.espejando() and t < 8.0:
+	while is_instance_valid(mia2) and not mia2.acabada() and t < 60.0:
+		if int(mia2.get("_state")) == 1 and not _caja_abierta(mia2):
+			var b2: BaseButton = (mia2.get("_action_buttons") as Dictionary).get(0)
+			if b2 != null and not b2.disabled and b2.is_visible_in_tree():
+				b2.pressed.emit()
+		await _esperar(0.25)
+		t += 0.25
+	_ok(is_instance_valid(mia2) and mia2.acabada(), "y se termina (%.1f s)" % t)
+	if is_instance_valid(mia2):
+		mia2._on_continue_pressed()
+	t = 0.0
+	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and t < 10.0:
+		await _esperar(0.25)
+		t += 0.25
+	_ok(not Game.hay_pelea_en_pantalla(), "vuelvo al mapa del piso heredado")
+
+	# 6b) SE CAE TODO (F4) EN PLENA PELEA: se matan todos los procesos a lo bruto. La pelea SE DESHACE (la
+	# llevaba un trabajador, decidido asi) y la reserva vuelve a llenarse.
+	t = 0.0
+	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	await _esperar(3.0)
+	await _abrir_pelea_con_un_enemigo()
+	_ok(Net.peleas.espejando(), "con el piso en mi PC, la pelea sigue yendo a un trabajador de pelea")
+	var muertos: Array = Net._trab._estado.keys()   # los que voy a matar: la reserva tiene que ser OTRO
+	for pid in Net._trab._pids:
+		if OS.is_process_running(pid):
+			OS.kill(pid)
+	# Que se deshace = ya no espejo nada. Puede haber pantalla igual: el enemigo que tengo al lado es MIO y me
+	# embiste, y esa pelea nueva ya va en mi PC (no hay trabajador).
+	t = 0.0
+	while Net.peleas.espejando() and t < 10.0:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(not Net.peleas.espejando(), "la pelea del trabajador caido se deshace (ahora %s)" % [
 		"peleo en mi PC" if Game.combate_activo() else "sin pelea"])
 	t = 0.0
-	while (_trabajador_libre() == 0 or muertos.has(_trabajador_libre())) and t < 40.0:
+	while (_trabajador_libre() == 0 or muertos.has(_trabajador_libre())) and t < 45.0:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(_trabajador_libre() != 0 and not muertos.has(_trabajador_libre()),
@@ -209,9 +247,11 @@ func _ready() -> void:
 func _abrir_pelea_con_un_enemigo() -> void:
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var presa = null
-	for id in Net.enemigos._enem_nodos:
-		var n = Net.enemigos._enem_nodos[id]
-		if is_instance_valid(n) and not n.esta_muerto() and int(n.get("pelea_de")) == 0:
+	# Espejos si el piso lo simula otro; los de VERDAD si lo he heredado yo (paso 6).
+	var ids: Array = Net.enemigos._enemigos.keys() if Net._soy_dueno else Net.enemigos._enem_nodos.keys()
+	for id in ids:
+		var n = Net.peleas.nodo_de_id(int(id))
+		if is_instance_valid(n) and not n.esta_muerto() and Net.peleas.pelea_de_enemigo(n) == 0:
 			presa = n
 			break
 	if jugador == null or presa == null:

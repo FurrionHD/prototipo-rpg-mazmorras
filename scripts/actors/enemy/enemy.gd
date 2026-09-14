@@ -1837,6 +1837,10 @@ func _start_combat(enemy_initiated: bool) -> void:
 		velocity = Vector2.ZERO
 		_cancelar_aviso()
 		return
+	# EN MULTI LA PELEA NO VA EN ESTE PC si en el piso espera un trabajador de pelea (Parte 3), aunque este PC
+	# sea el dueño humano del piso: asi todas las peleas van por el mismo sitio. La reserva ya congela al grupo.
+	if Net.peleas.pelea_fuera_de_mi_pc(self, enemy_initiated):
+		return
 	var grupo: Array = vecinos()
 	# Se congela al GRUPO ENTERO, no solo a mi: los vecinos entran a la pelea, asi que no pueden
 	# seguir merodeando (ni disparar su propio combate) por el mapa mientras tanto.
