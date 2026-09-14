@@ -453,13 +453,13 @@ func _confirmar_venta(cant: int) -> void:
 		# Era el unico menu que tocaba el baul sin pedirlo: la venta desde el hogar no hacia NADA en
 		# multi. Vender de la BOLSA es personal y no pasa por aqui.
 		if del_hogar and Net.activo:
-			if not await Net.abrir_taller():
+			if not await Net.hogar.abrir_taller():
 				_decir("El hogar está ocupado: tu compañero está en el taller.", false)
 				_pending_modelo = null
 				_rebuild()
 				return
 			var cobrado_h: int = Game.vender_item(_pending_modelo, cant, true)
-			Net.cerrar_taller()   # devuelve el baul ya modificado y suelta el candado
+			Net.hogar.cerrar_taller()   # devuelve el baul ya modificado y suelta el candado
 			_decir("Vendes %d x %s por %d monedas." % [
 				cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado_h])
 			_pending_modelo = null

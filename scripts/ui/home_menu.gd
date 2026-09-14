@@ -217,7 +217,7 @@ func _build_encargos() -> void:
 	# Al abrir la pestaña se repasa: puede haber vencido alguno mientras no mirabas. De cliente esto
 	# es una PETICION al host (el unico que puede resolver), asi que la respuesta llega despues por
 	# hogar_cambiado y re-dibuja sola; aqui no se puede avisar de nada todavia.
-	Net.pedir_repasar_encargos()
+	Net.hogar.pedir_repasar_encargos()
 	# La purga va AQUI y no solo dentro de "Mandar uno": el roster cambia en vivo (tu compañero mete a
 	# alguien en su equipo y se le cae del selector a todo el mundo), y si solo se limpiara al pintar
 	# esa sub-pestaña, mirando "En marcha" te quedaria una seleccion mentirosa esperando.
@@ -231,7 +231,7 @@ func _build_encargos() -> void:
 # Los del hogar a los que se puede mandar AHORA: ni bajando con su dueño, ni ya de encargo.
 func _libres_del_hogar() -> Array:
 	var out: Array = []
-	for f in Net.roster_hogar():
+	for f in Net.hogar.roster_hogar():
 		var ficha := f as Dictionary
 		if not bool(ficha.get("en_equipo", false)) and not bool(ficha.get("de_encargo", false)):
 			out.append(ficha)
@@ -247,7 +247,7 @@ func _purgar_seleccion(libres: Array) -> void:
 		por_uid[String((f as Dictionary).get("uid", ""))] = true
 	# El nombre hay que cogerlo del roster COMPLETO: el que se cae ya no esta en 'libres'.
 	var nombres: Dictionary = {}
-	for f in Net.roster_hogar():
+	for f in Net.hogar.roster_hogar():
 		nombres[String((f as Dictionary).get("uid", ""))] = String((f as Dictionary).get("nombre", "?"))
 
 	var vivos: Array = []
@@ -287,7 +287,7 @@ func _limpiar_ordenes_sueltas() -> void:
 
 
 func _build_encargos_curso() -> void:
-	var lista: Array = Net.encargos_visibles()
+	var lista: Array = Net.hogar.encargos_visibles()
 	MenuScaffold.titulo(_lista, "En marcha (%d)" % lista.size(), 14)
 	if lista.is_empty():
 		MenuScaffold.nota(_lista, "No hay nadie fuera. En «Mandar uno» eliges a quién mandas, a qué "
@@ -345,14 +345,14 @@ func _fila_encargo(e: Dictionary) -> void:
 		recoger.pressed.connect(func():
 			# De cliente el informe llega por _aviso_remoto: el botin lo reparte el host.
 			if Net._soy_cliente():
-				Net.solicitar_recoger_encargo(int(e["id"]))
+				Net.hogar.solicitar_recoger_encargo(int(e["id"]))
 				_aviso = "Recogiendo…"
 				_aviso_ok = true
 			else:
 				var inf: Dictionary = Game.recoger_encargo(int(e["id"]))
 				_aviso = _texto_informe(inf)
 				_aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
-				Net._difundir_hogar()
+				Net.hogar._difundir_hogar()
 			_rebuild())
 		acciones.add_child(recoger)
 	else:
@@ -361,7 +361,7 @@ func _fila_encargo(e: Dictionary) -> void:
 		traer.tooltip_text = "Los hace volver YA, con lo que lleven recogido hasta ahora. A media " \
 			+ "faena traen la mitad: el trabajo hecho no se pierde."
 		traer.pressed.connect(func():
-			Net.solicitar_traer_encargo(int(e["id"]))
+			Net.hogar.solicitar_traer_encargo(int(e["id"]))
 			_aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
 			_aviso_ok = true
 			_rebuild())
@@ -380,7 +380,7 @@ func _fila_encargo(e: Dictionary) -> void:
 		dev.tooltip_text += "esperarlo de verdad. Botón de pruebas, se quitará."
 		dev.modulate = Color(0.75, 0.85, 1.0)
 		dev.pressed.connect(func():
-			Net.solicitar_dev_terminar_encargo(int(e["id"]))
+			Net.hogar.solicitar_dev_terminar_encargo(int(e["id"]))
 			_aviso = "[dev] Encargo terminado al 100%. Ya se puede recoger."
 			_aviso_ok = true
 			_rebuild())
@@ -629,8 +629,8 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 func _build_encargo_utiles() -> void:
 	MenuScaffold.titulo(_content, "Útiles del cofre", 14)
 	var hay: bool = false
-	# Net.cofre_visible() y no Game.cofre_equipo: de cliente el cofre del hogar es el del HOST.
-	for entrada_ in Net.cofre_visible():
+	# Net.hogar.cofre_visible() y no Game.cofre_equipo: de cliente el cofre del hogar es el del HOST.
+	for entrada_ in Net.hogar.cofre_visible():
 		var entrada := entrada_ as Dictionary
 		var clase: String = String(entrada.get("clase", ""))
 		if clase != "herramienta" and clase != "mochila":
@@ -694,7 +694,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 
 	var entradas: Array = []
 	for id in _enc_utiles:
-		for entrada in Net.cofre_visible():
+		for entrada in Net.hogar.cofre_visible():
 			if int((entrada as Dictionary).get("id", -1)) == int(id):
 				entradas.append(entrada)
 				break
@@ -764,7 +764,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	b.disabled = not pega.is_empty()
 	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.pressed.connect(func():
-		Net.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles,
+		Net.hogar.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles,
 			_enc_faena.duplicate(), _enc_clase.duplicate())
 		_aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
 		_aviso_ok = true
@@ -1194,13 +1194,13 @@ func _on_guardar() -> void:
 	# MULTIJUGADOR: depositar toca el baul compartido -> coger el candado un momento, guardar y
 	# soltarlo. Si tu companero esta en el taller, "ocupado".
 	if Net.activo:
-		if not await Net.abrir_taller():
+		if not await Net.hogar.abrir_taller():
 			_aviso = "El hogar está ocupado (tu compañero está en el taller)."
 			_aviso_ok = false
 			_rebuild()
 			return
 		var n: int = Game.guardar_materiales_en_hogar()
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 		_aviso = "Guardas %d materiales en casa." % n
 		_aviso_ok = true
 		_rebuild()
@@ -1214,13 +1214,13 @@ func _on_guardar() -> void:
 # Sacar del baul a la bolsa. Mismo baile del candado que al depositar: en multi el baul es del host.
 func _on_recoger(todo: bool) -> void:
 	if Net.activo:
-		if not await Net.abrir_taller():
+		if not await Net.hogar.abrir_taller():
 			_aviso = "El hogar está ocupado (tu compañero está en el taller)."
 			_aviso_ok = false
 			_rebuild()
 			return
 		var n_multi: int = Game.recoger_materiales_del_hogar(todo)
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 		_decir_recogida(n_multi, todo)
 		return
 	var n: int = Game.recoger_materiales_del_hogar(todo)
@@ -1256,7 +1256,7 @@ func _build_bote() -> void:
 	if _lista_scroll != null:
 		_lista_scroll.visible = false
 	MenuScaffold.titulo(_content, "La hucha de casa", 14)
-	MenuScaffold.fila(_content, "En la hucha", "%d monedas" % Net.bote_visible())
+	MenuScaffold.fila(_content, "En la hucha", "%d monedas" % Net.hogar.bote_visible())
 	MenuScaffold.fila(_content, "En tu bolsillo", "%d monedas" % Game.money)
 	var nota: String = "Guarda dinero en casa. " + ("En multijugador es común: deposita para que "
 		+ "tu compañero pueda cogerlo." if Net.activo else "Se guarda con tu partida.")
@@ -1290,7 +1290,7 @@ func _build_bote() -> void:
 		var n: int = _cantidad_bote()
 		if n <= 0:
 			_aviso = "Escribe una cantidad."; _aviso_ok = false
-		elif Net.depositar_bote(n):
+		elif Net.hogar.depositar_bote(n):
 			_aviso = "Depositas %d en el bote." % n; _aviso_ok = true
 		else:
 			_aviso = "No tienes tanto en el bolsillo."; _aviso_ok = false
@@ -1305,7 +1305,7 @@ func _build_bote() -> void:
 		if n <= 0:
 			_aviso = "Escribe una cantidad."; _aviso_ok = false
 		else:
-			Net.retirar_bote(n)   # el host valida que hay tanto (si no, avisa por toast)
+			Net.hogar.retirar_bote(n)   # el host valida que hay tanto (si no, avisa por toast)
 			_aviso = "Pides retirar %d del bote." % n; _aviso_ok = true
 		_rebuild())
 	caja.add_child(ret)
@@ -1378,7 +1378,7 @@ func _build_cofre() -> void:
 		meter.text = "Al cofre"
 		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		meter.pressed.connect(func():
-			if Net.meter_en_cofre(item):
+			if Net.hogar.meter_en_cofre(item):
 				_aviso = "Guardas %s en el cofre." % Game.item_display_name(item)
 				_aviso_ok = true
 			else:
@@ -1393,7 +1393,7 @@ func _build_cofre() -> void:
 	MenuScaffold.titulo(_content, "En el cofre", 14)
 	var clases: Array = COFRE_CLASES[sub_id]
 	var hay := false
-	for entrada in Net.cofre_visible():
+	for entrada in Net.hogar.cofre_visible():
 		if not clases.has(str(entrada.get("clase", ""))):
 			continue
 		hay = true
@@ -1407,7 +1407,7 @@ func _build_cofre() -> void:
 		# aqui no hay que reconstruir la pieza para saber de que color va su nombre.
 		l.add_theme_color_override("font_color", Upgrades.rareza_color(int(entrada.get("rareza", 0))))
 		# EN USO en un encargo: se ve en gris y no se puede sacar. El host lo rechaza igualmente
-		# (ver Net._resolver_saca_cofre); esto es solo para no ofrecer un boton que no va a funcionar.
+		# (ver Net.hogar._resolver_saca_cofre); esto es solo para no ofrecer un boton que no va a funcionar.
 		var en_encargo: bool = int(entrada.get("encargo", 0)) != 0
 		if en_encargo:
 			l.text += "   · en un encargo"
@@ -1421,7 +1421,7 @@ func _build_cofre() -> void:
 			sacar.tooltip_text = "Se la han llevado a un encargo. Vuelve cuando lo recojas."
 		var id: int = int(entrada.get("id", 0))
 		sacar.pressed.connect(func():
-			Net.sacar_de_cofre(id)
+			Net.hogar.sacar_de_cofre(id)
 			_aviso = "Sacas la pieza del cofre."
 			_aviso_ok = true
 			_rebuild())
@@ -1451,7 +1451,7 @@ func _build_cofre_consumibles() -> void:
 		meter.text = "Al cofre"
 		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		meter.pressed.connect(func():
-			Net.meter_consumible_cofre(ruta, 1)
+			Net.hogar.meter_consumible_cofre(ruta, 1)
 			_aviso = "Guardas 1 en el cofre."
 			_aviso_ok = true
 			_rebuild())
@@ -1461,7 +1461,7 @@ func _build_cofre_consumibles() -> void:
 
 	MenuScaffold.titulo(_content, "En el cofre", 14)
 	var hay := false
-	var consum: Dictionary = Net.cofre_consumibles_visible()
+	var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
 	for ruta in consum:
 		var cant: int = int(consum[ruta])
 		if cant <= 0:
@@ -1479,7 +1479,7 @@ func _build_cofre_consumibles() -> void:
 		sacar.text = "Sacar"
 		sacar.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
 		sacar.pressed.connect(func():
-			Net.sacar_consumible_cofre(ruta, 1)
+			Net.hogar.sacar_consumible_cofre(ruta, 1)
 			_aviso = "Sacas 1 del cofre."
 			_aviso_ok = true
 			_rebuild())

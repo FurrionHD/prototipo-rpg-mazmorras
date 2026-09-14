@@ -122,7 +122,7 @@ func fichar(pj: PersonajeData) -> void:
 	if party.size() < mini(PARTY_MAX, Net.cupo_party()):
 		party.append(pj)
 	print("[grupo] ficha %s (plantilla %d, equipo %d)" % [pj.nombre, plantilla.size(), party.size()])
-	Net.marcar_hogar_sucio()   # uno mas en el hogar: entra en el selector de todos
+	Net.hogar.marcar_hogar_sucio()   # uno mas en el hogar: entra en el selector de todos
 
 # --- UID: el identificador estable de un personaje (ver personaje_data.gd) ---
 # Formato "identidad-microsegundos-contador". Lleva la identidad delante para que dos personas que
@@ -216,8 +216,8 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 		return false
 	party.append(pj)
 	# EL HOGAR CAMBIA: hay que publicarlo YA, no dentro de 60 s. Si el compañero tenia a este marcado
-	# en el selector de encargos, se le tiene que caer en el acto (ver Net.marcar_hogar_sucio).
-	Net.marcar_hogar_sucio()
+	# en el selector de encargos, se le tiene que caer en el acto (ver Net.hogar.marcar_hogar_sucio).
+	Net.hogar.marcar_hogar_sucio()
 	return true
 
 # EL personaje creado al empezar la partida (es_original). Fallback al lider por si un save
@@ -254,7 +254,7 @@ func sacar_del_equipo(pj: PersonajeData) -> bool:
 	# maxi(...) porque con el equipo ya vacio el tope seria -1 y clampi devolveria -1, que es un
 	# indice sucio que se acabaria serializando en lider_pos.
 	lider_idx = clampi(lider_idx, 0, maxi(0, party.size() - 1))
-	Net.marcar_hogar_sucio()   # vuelve a estar libre: que lo vean todos ya
+	Net.hogar.marcar_hogar_sucio()   # vuelve a estar libre: que lo vean todos ya
 	return true
 
 
@@ -3067,7 +3067,7 @@ var biblioteca: Dictionary = {}
 # PersonajeData, y por eso se limpia en limpiar_mundo_heredado igual que bosses_derrotados -- entrar
 # de invitado en un mundo ajeno no te regala otras 30.
 #
-# EN MULTIJUGADOR NO SE LEE DE AQUI. Manda el host y la pantalla pregunta a Net.tiradas_novato_visibles
+# EN MULTIJUGADOR NO SE LEE DE AQUI. Manda el host y la pantalla pregunta a Net.hogar.tiradas_novato_visibles
 # (ver el patron del bote del hogar): un cliente que mirase su propia copia podria tirar treinta veces
 # mas de las que quedan.
 var tiradas_novato: int = 0
@@ -3273,7 +3273,7 @@ func apuntar_en_biblioteca(id: StringName) -> void:
 		return
 	biblioteca[id] = true
 	if Net.activo:
-		Net.apuntar_tomo_en_la_sesion(id)
+		Net.hogar.apuntar_tomo_en_la_sesion(id)
 
 
 func tocho_aporta_algo(c: ConsumableData) -> bool:
@@ -4253,7 +4253,7 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		if uid_de_encargo(String(uid)) != 0:
 			return 0
 		# 'party' es la del HOST, asi que esto solo caza a los suyos. La disponibilidad de verdad —la
-		# del equipo de CADA dueño, en vivo— la comprueba Net._motivo_no_disponible antes de llegar
+		# del equipo de CADA dueño, en vivo— la comprueba Net.hogar._motivo_no_disponible antes de llegar
 		# aqui; esto queda como la valla de casa.
 		var pj: PersonajeData = pj_por_uid(String(uid))
 		if pj != null and party.has(pj):
@@ -4291,7 +4291,7 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		})
 
 	# EL PISO LO CIERRA EL ANFITRION. El selector del menu ya lo topa a lo explorado, pero esa era
-	# la UNICA valla del sistema: por Net.solicitar_encargo un cliente podia pedir la profundidad
+	# la UNICA valla del sistema: por Net.hogar.solicitar_encargo un cliente podia pedir la profundidad
 	# que le diera la gana. Mismo tope que la UI: la libreta de pisos traidos a salvo al pueblo.
 	var tope_piso: int = 1
 	for p in mapa_visible().keys():
@@ -4464,10 +4464,10 @@ func recoger_encargo(id: int) -> Dictionary:
 	if e.is_empty() or int(e.get("estado", 0)) != Encargos.ESTADO_LISTO:
 		return {}
 	# En mundo compartido el almacen es COMUN, asi que escribir en el sin el candado del taller lo
-	# desincroniza (Net._set_almacen se niega a pisar el baul de quien lo tiene prestado, y
+	# desincroniza (Net.hogar._set_almacen se niega a pisar el baul de quien lo tiene prestado, y
 	# saltarselo es peor). Si esta ocupado NO se fuerza: el encargo se queda en LISTO y se recoge
 	# luego, que no caduca.
-	if Net.activo and Net.es_host and Net.taller_ocupado():
+	if Net.activo and Net.es_host and Net.hogar.taller_ocupado():
 		return {"ocupado": true}
 
 	var n_mat: int = 0
@@ -4515,7 +4515,7 @@ func recoger_encargo(id: int) -> Dictionary:
 				ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), otro)
 				d["aplicada"] = true
 	for dueno in para_otros:
-		Net.mandar_excelia(String(dueno), para_otros[dueno])
+		Net.hogar.mandar_excelia(String(dueno), para_otros[dueno])
 
 	# EL PARTE DE TRABAJO (pasivas RNG y contadores de desarrollo) va por LAS MISMAS DOS VIAS que la
 	# excelia y por el mismo motivo: solo la maquina del dueño tiene su PersonajeData. Se manda junto
@@ -4544,7 +4544,7 @@ func recoger_encargo(id: int) -> Dictionary:
 				aplicar_parte_encargo(parte, piso_e, otro2)
 				parte["aplicada"] = true
 	for dueno in partes_otros:
-		Net.mandar_partes_encargo(String(dueno), partes_otros[dueno])
+		Net.hogar.mandar_partes_encargo(String(dueno), partes_otros[dueno])
 
 	_soltar_utiles(e)
 	var informe: Dictionary = {
@@ -4565,7 +4565,7 @@ func recoger_encargo(id: int) -> Dictionary:
 # ocho horas de encargo cuenta como currar, no como un caso aparte con su propia loteria. Y el
 # slayer, una vez por bicho abatido, contra una familia sacada de la tabla de spawns del piso.
 #
-# La llaman las DOS vias del reparto (aqui y Net._set_partes_encargo), como la excelia.
+# La llaman las DOS vias del reparto (aqui y Net.hogar._set_partes_encargo), como la excelia.
 func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> void:
 	if pj == null:
 		return
@@ -8493,7 +8493,7 @@ func pj_de_dict(d: Dictionary) -> PersonajeData:
 func sacar_de_baul(item: Resource) -> bool:
 	# item_equipado y NO quien_lleva: la MOCHILA es del GRUPO (mochila_equipo), no de un equipped_*,
 	# asi que quien_lleva devuelve null para ella y la mochila que llevabas puesta se podia meter en
-	# el cofre del hogar (via Net.meter_en_cofre, que pasa por aqui) sin quitartela.
+	# el cofre del hogar (via Net.hogar.meter_en_cofre, que pasa por aqui) sin quitartela.
 	if item == null or item_equipado(item):
 		return false
 	# OJO: Array.erase() devuelve void en GDScript; se comprueba la pertenencia ANTES.
@@ -8560,7 +8560,7 @@ const ARMOR_SLOT_ORDEN := ["casco", "pecho", "manos", "pantalones", "botas"]
 func guardar_materiales_en_hogar() -> int:
 	# MULTIJUGADOR: mover al baul compartido exige tener el candado del taller (la UI lo coge
 	# antes). Sin el, se bloquea para no desincronizar el baul del host.
-	if not Net.tengo_taller():
+	if not Net.hogar.tengo_taller():
 		return 0
 	var n: int = materiales.size()
 	if n == 0:
@@ -8590,7 +8590,7 @@ func guardar_materiales_en_hogar() -> int:
 # Devuelve cuantos se recogieron.
 func recoger_materiales_del_hogar(todo: bool = true) -> int:
 	# El mismo candado que para depositar: en multi el baul es del host y no se toca sin el taller.
-	if not Net.tengo_taller():
+	if not Net.hogar.tengo_taller():
 		return 0
 	if almacen_materiales.is_empty():
 		return 0
@@ -8705,7 +8705,7 @@ func vender_item(modelo: Resource, cantidad: int, desde_hogar: bool = false) -> 
 		return 0
 	# MULTIJUGADOR: vender del baul compartido exige tener el candado del taller (si no, se
 	# operaria sobre un mirror desfasado). Vender de la BOLSA (personal) va siempre.
-	if desde_hogar and not Net.tengo_taller():
+	if desde_hogar and not Net.hogar.tengo_taller():
 		return 0
 	var total: int = 0
 	var vendidos: int = 0
@@ -9427,9 +9427,9 @@ func descubrir(mat: MaterialData) -> void:
 	if materiales_vistos.has(id):
 		return
 	materiales_vistos[id] = true
-	# En sesion, lo que descubre uno se enseña a todos (ver Net._set_vistos_mundo).
+	# En sesion, lo que descubre uno se enseña a todos (ver Net.hogar._set_vistos_mundo).
 	if not vistos_mundo.has(id):
-		Net.apuntar_visto_en_la_sesion(id)
+		Net.hogar.apuntar_visto_en_la_sesion(id)
 
 # LO QUE HAN DESCUBIERTO LOS DEMAS en esta sesion (id -> true). No se guarda: lo tuyo va en
 # materiales_vistos; esto solo hace que el crafteo te enseñe lo que ya conoce el mundo.
@@ -10864,12 +10864,12 @@ func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 
 
 # DISPONIBLE para MI: lo que hay en el baul menos lo que otros humanos tienen RESERVADO ahora mismo
-# (profesiones concurrentes, ver Net.reservado_por_otros). Es lo que la UI enseña y el tope de los
+# (profesiones concurrentes, ver Net.hogar.reservado_por_otros). Es lo que la UI enseña y el tope de los
 # steppers; el consumo real sigue viendo el baul entero bajo el candado. En solitario == items_*.
 func disponible_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 	if mat == null:
 		return 0
-	return maxi(0, items_calidad_en_hogar(mat, cal) - Net.reservado_por_otros(str(mat.id), int(cal)))
+	return maxi(0, items_calidad_en_hogar(mat, cal) - Net.hogar.reservado_por_otros(str(mat.id), int(cal)))
 
 
 # Gemelo en UNIDADES DE FORJA (puro 4 / intacto 3...): resta lo reservado por otros calidad a calidad.

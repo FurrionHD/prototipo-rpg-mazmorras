@@ -414,7 +414,7 @@ static func decir(aviso: Label, txt: String, ok: bool = true) -> void:
 # dos veces el selector de materiales y el boton de Crear.
 #
 # Y hay tres caminos que repintan antes de ese flush, los tres en la forja:
-#   - los _on_* son corrutinas: `await Net.abrir_taller()` espera frames enteros en el cliente.
+#   - los _on_* son corrutinas: `await Net.hogar.abrir_taller()` espera frames enteros en el cliente.
 #   - Net.hogar_cambiado / reservas_cambiadas estan conectadas a _rebuild y llegan por red.
 #   - el focus_exited del stepper salta al liberar el LineEdit que tenia el foco -> _rebuild reentrante.
 #

@@ -626,7 +626,7 @@ static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
 	var valores: Array = []
 	for pj in pjs:
 		# La CONSOLIDADA con su plato: es lo que decide la CALIDAD de lo que traen, o sea un efecto, y
-		# los efectos esperan al altar. Ver Game.stat_consolidado_eff. Ojo si se toca: Net._fila_roster
+		# los efectos esperan al altar. Ver Game.stat_consolidado_eff. Ojo si se toca: Net.hogar._fila_roster
 		# publica estas mismas cinco stats para que el invitado haga su pronostico -- las dos tienen
 		# que leer lo mismo o vera una calidad y le llegara otra.
 		valores.append(Game.stat_consolidado_eff(String(of["stat"]), pj as PersonajeData))

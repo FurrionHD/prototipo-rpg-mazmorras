@@ -204,7 +204,7 @@ func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.liberar_mis_reservas()   # suelto lo que tenia seleccionado: vuelve al pool del otro
+		Net.hogar.liberar_mis_reservas()   # suelto lo que tenia seleccionado: vuelve al pool del otro
 
 
 # MULTI: el compañero tocó el baul o su reserva -> redibujo para que el disponible cambie en vivo.
@@ -217,12 +217,12 @@ func _on_cambio_externo() -> void:
 # justo en ese instante (crear es casi instantaneo, asi que el choque es rarisimo). En solitario no
 # hay candado. La reserva se PUBLICA aparte (mientras seleccionas); esto es solo el consumo.
 func _crear_con_taller(accion: Callable) -> bool:
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		return false
 	accion.call()
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	return true
 
 
@@ -275,8 +275,8 @@ var _reconstruyendo: bool = false
 # pestaña que reserve (forjar y herramientas hoy) y lo publica _rebuild_real UNA SOLA VEZ al final.
 #
 # Esa unica publicacion por rebuild es lo importante, no un detalle de estilo. Antes cada rebuild
-# soltaba la reserva al empezar (`Net.reservar({})`) y el build la volvia a pedir: DOS reservas
-# distintas, asi que la deduplicacion de Net.reservar nunca las cortaba. En el HOST daba igual (el
+# soltaba la reserva al empezar (`Net.hogar.reservar({})`) y el build la volvia a pedir: DOS reservas
+# distintas, asi que la deduplicacion de Net.hogar.reservar nunca las cortaba. En el HOST daba igual (el
 # eco es sincrono y lo descarta la guarda de reentrada de arriba), pero en el CLIENTE la respuesta de
 # cada una llega en OTRO frame, cuando la guarda ya no esta puesta -> otro rebuild -> otras dos
 # reservas -> cuatro respuestas... El trafico y los repintados se doblaban solos hasta que el juego
@@ -325,7 +325,7 @@ func _rebuild_real() -> void:
 	# final a proposito — que un build se corte antes de tiempo (sin metal conocido, sin tablon a
 	# juego...) no puede dejarme material apartado a espaldas del compañero.
 	if Net.activo:
-		Net.reservar(_claim_reserva)
+		Net.hogar.reservar(_claim_reserva)
 
 
 func _decir(txt: String, ok: bool = true) -> void:
@@ -630,7 +630,7 @@ func _on_refinar(que: int, cal: int, veces: int) -> void:
 		return
 	_metal_idx = _fila_de(metales, clave, origen)
 	# MULTI: coger el candado solo este instante (los dos podeis estar en la profesion a la vez).
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
@@ -640,7 +640,7 @@ func _on_refinar(que: int, cal: int, veces: int) -> void:
 		Refinado.HEBILLAS: n = Game.hacer_hebillas(origen, cal, veces)
 		_: n = Game.fundir(origen, cal, veces)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if n > 0:
 		_decir("Sacas %d x %s de calidad %s." % [n,
 			metales[_metal_idx][_clave_destino(que)].nombre.to_lower(),
@@ -780,13 +780,13 @@ func _refinar_madera(cal: int, veces: int, quemar: bool) -> void:
 	var origen: MaterialData = _madera_elegida()
 	if origen == null:
 		return
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	var n: int = Game.carbonizar(origen, cal, veces) if quemar else Game.aserrar(origen, cal, veces)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if n > 0:
 		var sale: MaterialData = Game.carbon_de(origen) if quemar else Game.tablon_de(origen)
 		_decir("Sacas %d x %s de calidad %s." % [n, sale.nombre.to_lower(), _cal_txt(cal).to_lower()])
@@ -1335,7 +1335,7 @@ func _on_limpiar() -> void:
 func _on_forjar() -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var metal: MaterialData = Game.metal_de_forja(base, _lingote_idx)
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
@@ -1344,8 +1344,8 @@ func _on_forjar() -> void:
 	var items: Array = Game.forjar_tanda(base, metal, _sel_forja,
 		Game.piezas_de_seleccion_forja(base, metal, _sel_forja))
 	if Net.activo:
-		Net.cerrar_taller()
-		Net.liberar_mis_reservas()   # ya consumido: suelto la reserva ya
+		Net.hogar.cerrar_taller()
+		Net.hogar.liberar_mis_reservas()   # ya consumido: suelto la reserva ya
 	if items.size() == 1:
 		_decir("Forjas %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(items[0]))
 	elif items.size() > 1:
@@ -1663,7 +1663,7 @@ func _on_forjar_herramienta() -> void:
 		return
 	# El candado del taller y la reserva, igual que _on_forjar: sin esto, en multi dos jugadores
 	# pueden gastar el mismo lingote.
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
@@ -1671,8 +1671,8 @@ func _on_forjar_herramienta() -> void:
 	var items: Array = Game.fabricar_herramienta_tanda(_herr_tipo, lingote, _sel_herr_met,
 		_sel_herr_tab, Game.piezas_de_seleccion_herramienta(_herr_tipo, lingote, _sel_herr_met, _sel_herr_tab))
 	if Net.activo:
-		Net.cerrar_taller()
-		Net.liberar_mis_reservas()
+		Net.hogar.cerrar_taller()
+		Net.hogar.liberar_mis_reservas()
 	if items.size() == 1:
 		_decir("Forjas %s. Equípala en el inventario [I], pestaña Equipo." % Game.item_display_name(items[0]))
 	elif items.size() > 1:
@@ -1814,13 +1814,13 @@ func _preview_deshacer(vb: VBoxContainer) -> void:
 func _on_deshacer() -> void:
 	var item: Resource = _stacks[_sel]["modelo"]
 	var nombre: String = Game.item_display_name(item)
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	var ok: bool = Game.fundir_item(item)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if ok:
 		_sel = 0   # la pieza ya no existe: la cuadricula se rehace desde el principio
 		_decir("Deshaces %s. El material está en tu baúl." % nombre)
@@ -2110,14 +2110,14 @@ func _on_mejorar_farol() -> void:
 	if nucleo == null:
 		_decir("No se pudo mejorar.", false)
 		return
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	# La categoria va fijada: el farolillo solo tiene una (ver Upgrades.LUMINOSIDAD).
 	var ok: bool = Game.mejorar_item(item, Upgrades.LUMINOSIDAD, nucleo)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if ok:
 		_decir("El %s alumbra más: %.1f casillas." % [str(item.get("nombre")).to_lower(),
 			Game.radio_lampara()])
@@ -2154,13 +2154,13 @@ func _on_mejorar() -> void:
 		return
 	var cats: Array = _categorias(item)
 	var cat: String = str(cats[clampi(_cat_idx, 0, cats.size() - 1)])
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	var ok: bool = Game.mejorar_item(item, cat, nucleo)
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if ok:
 		_decir("%s ahora es %s." % [Upgrades.cat_nombre(cat), Game.item_display_name(item)])
 	else:

@@ -88,7 +88,7 @@ func _ready() -> void:
 	# solitario (ahi en el mismo frame). Se conecta aqui y no al abrir la pestaña: si se conectara y
 	# desconectara con la pantalla, una respuesta que llegara con el menu ya cerrado se perderia y la
 	# tirada quedaria cobrada del cupo sin darse.
-	Net.tiradas_novato_concedidas.connect(_cupo_concedido)
+	Net.hogar.tiradas_novato_concedidas.connect(_cupo_concedido)
 
 	# con_lateral = FALSE: las armas van en una FILA ARRIBA, no en una columna. Es la misma forma
 	# que el inventario, y por el mismo motivo: con trece armas la columna seria una lista larga y
@@ -800,7 +800,7 @@ func _refrescar_botones_med() -> void:
 	# LOS PRECIOS SALEN DE Game.gacha_precio_tanda, no de multiplicar aqui: es la MISMA cuenta con la
 	# que se cobra unas lineas mas abajo, asi que el boton no puede prometer un precio y la caja
 	# aplicar otro. Y es lo que hace que la tirada de bienvenida se lea "Gratis" sin un if de pantalla.
-	var ya: int = Net.tiradas_novato_visibles()
+	var ya: int = Net.hogar.tiradas_novato_visibles()
 	var c1: int = Game.gacha_precio_tanda(_banner_idx, ya, 1)
 	_bt_x1.text = "Meditar ×1      %s" % _precio_txt(c1)
 	_bt_x1.disabled = agotado or not Game.puede_pagar(c1)
@@ -833,7 +833,7 @@ func _precio_txt(c: int) -> String:
 
 
 # CUANTAS TIRADAS QUEDAN del cupo de este banner, o -1 si no tiene tope. Se lee de Net y NUNCA de
-# Game.tiradas_novato: en un mundo compartido el cupo es el del host (ver Net.tiradas_novato_visibles).
+# Game.tiradas_novato: en un mundo compartido el cupo es el del host (ver Net.hogar.tiradas_novato_visibles).
 func _quedan_del_cupo() -> int:
 	return _quedan_del_cupo_de(_banner_idx)
 
@@ -842,7 +842,7 @@ func _quedan_del_cupo_de(i: int) -> int:
 	var cupo: int = int(Game.banner(i).get("cupo", 0))
 	if cupo <= 0:
 		return -1
-	return maxi(0, cupo - Net.tiradas_novato_visibles())
+	return maxi(0, cupo - Net.hogar.tiradas_novato_visibles())
 
 
 # UN BANNER GASTADO SE BORRA DE LA COLUMNA. No se deja apagado ni con un cartel de "agotado": el de
@@ -874,7 +874,7 @@ func _texto_pity(pj: PersonajeData) -> String:
 			return "Agotado:  las %d tiradas de este mundo ya se han gastado" % cupo
 		# LA GRATIS MANDA SOBRE TODO LO DEMAS mientras quede: es lo que decide si tiras AHORA, que es
 		# para lo que esta esta linea. La cuenta del cupo sigue estando en el cartel.
-		var free: int = Game.gacha_gratis_en_tanda(_banner_idx, Net.tiradas_novato_visibles(), 10)
+		var free: int = Game.gacha_gratis_en_tanda(_banner_idx, Net.hogar.tiradas_novato_visibles(), 10)
 		if free > 0:
 			var seguro: bool = int(Game.banner(_banner_idx).get("gratis_garantiza", -1)) >= 0
 			if free == 1:
@@ -933,11 +933,11 @@ func _meditar(cuantas: int) -> void:
 	# tanto el precio como el numero de tiradas son otros.
 	if int(Game.banner(_banner_idx).get("cupo", 0)) > 0:
 		_pidiendo_cupo = cuantas
-		Net.pedir_tiradas_novato(cuantas)
+		Net.hogar.pedir_tiradas_novato(cuantas)
 		return
 	# Sin cupo, 'ya' da igual (esos banners no tienen tiradas gratis) pero se pasa el de verdad: el
 	# dia que un banner grande regale la primera, esta linea ya esta bien.
-	_meditar_ya(cuantas, Game.gacha_precio_tanda(_banner_idx, Net.tiradas_novato_visibles(), cuantas))
+	_meditar_ya(cuantas, Game.gacha_precio_tanda(_banner_idx, Net.hogar.tiradas_novato_visibles(), cuantas))
 
 
 # Lo que el host (o yo mismo, en solitario) me ha concedido del cupo. 'k' puede ser MENOS de lo que
@@ -956,7 +956,7 @@ func _cupo_concedido(k: int) -> void:
 	# apuntar las k tiradas, asi que las de esta tanda son las que van de 'ya + 1' a 'ya + k' -- y ahi
 	# dentro puede estar la primera del mundo, que es gratis. (El descuento del pack solo sale si se
 	# pagan las diez; eso lo decide Game.gacha_precio_tanda.)
-	var ya: int = maxi(0, Net.tiradas_novato_visibles() - k)
+	var ya: int = maxi(0, Net.hogar.tiradas_novato_visibles() - k)
 	var precio: int = Game.gacha_precio_tanda(_banner_idx, ya, k)
 	if k < pedidas:
 		_aviso_cupo_corto = k
@@ -993,7 +993,7 @@ func _meditar_ya(cuantas: int, precio: int) -> void:
 		# Game.tiradas_novato (las apunto el host al conceder), asi que la ultima lleva el numero de
 		# hoy y las de delante van restando. De ese numero salen los dos garantizados sueltos: el de
 		# bienvenida (la primera del mundo) y el de despedida (la que cierra el cupo).
-		var num: int = Net.tiradas_novato_visibles() - (cuantas - 1 - i)
+		var num: int = Net.hogar.tiradas_novato_visibles() - (cuantas - 1 - i)
 		var garantiza: int = Game.gacha_garantia_suelta(_banner_idx, num)
 		var t: Dictionary = Game.tirar_meditacion(pj, rng, pool, tochos, _banner_idx, garantiza)
 		var c: ConsumableData = t.get("item")

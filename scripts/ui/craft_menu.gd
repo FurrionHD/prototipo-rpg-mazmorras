@@ -158,7 +158,7 @@ func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.liberar_mis_reservas()
+		Net.hogar.liberar_mis_reservas()
 
 
 func _on_cambio_externo() -> void:
@@ -220,7 +220,7 @@ func _rebuild_real() -> void:
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	if _recetas.is_empty():
 		if Net.activo:
-			Net.reservar({})   # sin receta no reservo nada
+			Net.hogar.reservar({})   # sin receta no reservo nada
 		var l := Label.new()
 		l.text = "(no hay recetas aquí todavía)"
 		_detail.add_child(l)
@@ -564,14 +564,14 @@ func _on_fabricar() -> void:
 	var receta: RecipeData = _recetas[_sel]
 	# El nombre ANTES de fabricar/resetear (la seleccion se limpia despues).
 	var nombre: String = receta.resultado.nombre if receta.resultado != null else _pieza()
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	var total: int = Game.craftear_con(receta, _seleccion)
 	if Net.activo:
-		Net.cerrar_taller()
-		Net.liberar_mis_reservas()   # consumido: suelto la reserva
+		Net.hogar.cerrar_taller()
+		Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
 	if total > 0:
 		_decir("Fabricas %d × %s. Está en tu bolsa." % [total, nombre])
 		_reset_seleccion()   # los materiales cambiaron: empezar limpio
@@ -599,4 +599,4 @@ func _capar_y_publicar(r: RecipeData) -> void:
 				var clave: String = "%s|%d" % [ing.material.id, int(cal)]
 				claim[clave] = int(claim.get(clave, 0)) + n
 	if Net.activo:
-		Net.reservar(claim)
+		Net.hogar.reservar(claim)

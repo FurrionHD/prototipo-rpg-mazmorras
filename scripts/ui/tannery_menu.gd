@@ -108,7 +108,7 @@ func _cerrar() -> void:
 	_root.visible = false
 	Game.cerrar_menu(self)
 	if Net.activo:
-		Net.liberar_mis_reservas()
+		Net.hogar.liberar_mis_reservas()
 
 
 func _on_cambio_externo() -> void:
@@ -166,7 +166,7 @@ func _rebuild_real() -> void:
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	# Solo la pestaña MOCHILAS reserva (seleccion persistente); curtir/correas son instantaneas.
 	if Net.activo and _tab != 2:
-		Net.reservar({})
+		Net.hogar.reservar({})
 
 	match _tab:
 		0: _build_refinar(false)   # piel -> cuero curtido
@@ -300,13 +300,13 @@ func _piel_elegida() -> MaterialData:
 
 
 func _on_refinar(correas: bool, cal: int, veces: int) -> void:
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
 	var n: int = Game.hacer_correa(cal, veces, _tier_correa()) if correas 		else Game.curtir(cal, veces, _piel_elegida())
 	if Net.activo:
-		Net.cerrar_taller()
+		Net.hogar.cerrar_taller()
 	if n > 0:
 		_decir("Sacas %d %s de calidad %s." % [n, "correa(s)" if correas else "cuero(s)",
 			_cal_txt(cal).to_lower()])
@@ -387,7 +387,7 @@ func _build_mochilas() -> void:
 		_sumar_claim(claim, heb, _sel_heb)
 		_sumar_claim(claim, cor, _sel_cor)
 		_sumar_claim(claim, cue, _sel_cue)
-		Net.reservar(claim)
+		Net.hogar.reservar(claim)
 	# CUANTAS mochilas salen con lo elegido: los contadores cuentan la TANDA entera, no una pieza.
 	var mats: Array = [heb, cor, cue]
 	var sels: Array = [_sel_heb, _sel_cor, _sel_cue]
@@ -582,7 +582,7 @@ func _on_coser() -> void:
 	if hebillas.is_empty():
 		return
 	var heb: MaterialData = hebillas[clampi(_heb_idx, 0, hebillas.size() - 1)]
-	if Net.activo and not await Net.abrir_taller():
+	if Net.activo and not await Net.hogar.abrir_taller():
 		_ocupado()
 		_rebuild()
 		return
@@ -594,8 +594,8 @@ func _on_coser() -> void:
 		[int(coste["hebillas"]), int(coste["correa"]), int(coste["cuero"])])
 	var hechas: Array = Game.fabricar_mochila_tanda(heb, _sel_heb, _sel_cor, _sel_cue, piezas)
 	if Net.activo:
-		Net.cerrar_taller()
-		Net.liberar_mis_reservas()   # consumido: suelto la reserva
+		Net.hogar.cerrar_taller()
+		Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
 	if hechas.size() == 1:
 		_decir("Coses %s: +%.0f de carga. Equípala en el menú de personaje [C]." % [
 			Game.item_display_name(hechas[0]), Game.capacidad_mochila(hechas[0] as BackpackData)])
