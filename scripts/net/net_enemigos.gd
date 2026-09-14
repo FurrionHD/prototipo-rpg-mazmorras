@@ -259,7 +259,7 @@ func _difundir_posiciones_enemigos() -> void:
 		# aviso suelto a proposito: una pelea se abre y se cierra por media docena de caminos (reservar,
 		# empujar, devolver, morir, traspasar...), y un estado que se repite 20 veces por segundo no se
 		# desincroniza aunque alguno de esos caminos se olvide de avisar.
-		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net._anfitrion_de_enemigo(id, nd)])
+		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd)])
 	if Net.es_host:
 		for peer_id in Net._peers:
 			if Net._peers[peer_id].get("lugar", "") == Net._mi_lugar:

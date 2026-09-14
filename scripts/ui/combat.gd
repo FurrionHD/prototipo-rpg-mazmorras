@@ -810,7 +810,7 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	var rev: int = int(snap.get("rev", _rev))
 	if rev != _rev and not _rev_pedida:
 		_rev_pedida = true
-		Net.pedir_roster_pelea()
+		Net.peleas.pedir_roster_pelea()
 	_volcar(_aliados, snap.get("a", []))
 	_volcar(_enemies, snap.get("e", []))
 	_apagar_caidos()
@@ -1048,7 +1048,7 @@ func turno_mio(idx: int, seq: int = 0) -> void:
 	# submenus salian vacios ("solo deja hacer basicos"). Se los pongo desde MI PROPIA ficha —la de
 	# ESTE hueco, que puede ser mi lider o un acompañante mio—: aqui solo sirven para ELEGIR, quien
 	# lo resuelve es el anfitrion. La vida, el mana y la energia NO se tocan: manda su instantanea.
-	var mio: PersonajeData = Net.mi_pj_en_pelea(idx)
+	var mio: PersonajeData = Net.peleas.mi_pj_en_pelea(idx)
 	var real: Combatant = Game.crear_player_combatant(mio) if mio != null else null
 	if real != null:
 		_vestir_maniqui(_player, real)
@@ -1114,14 +1114,14 @@ func _enviar_peticion() -> void:
 	var seq: int = int(pet.get("seq", 0))
 	match String(pet.get("tipo", "")):
 		"accion":
-			Net.pedir_accion(_esperando_a, int(pet.get("idx", 0)), seq)
+			Net.peleas.pedir_accion(_esperando_a, int(pet.get("idx", 0)), seq)
 		"frase":
-			Net.pedir_frase(_esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
+			Net.peleas.pedir_frase(_esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
 				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
 		"disparo":
-			Net.pedir_disparo(_esperando_a, String(pet.get("nombre", "")), seq)
+			Net.peleas.pedir_disparo(_esperando_a, String(pet.get("nombre", "")), seq)
 		"soltar":
-			Net.pedir_soltar(_esperando_a, String(pet.get("nombre", "")), seq)
+			Net.peleas.pedir_soltar(_esperando_a, String(pet.get("nombre", "")), seq)
 
 
 # Deja de esperar (llego su respuesta, o se fue).
@@ -1145,7 +1145,7 @@ func _heartbeat_remoto(delta: float) -> void:
 	_espera_acum = 0.0
 	# ¿Sigue en la pelea? Si se fue, sus personajes salen y la pelea continua (no se espera a un
 	# fantasma). Si sigue, se le repite lo que le pedi.
-	if not Net.esta_en_mi_pelea(_esperando_a):
+	if not Net.peleas.esta_en_mi_pelea(_esperando_a):
 		var quien: int = _esperando_a
 		_fin_de_espera()
 		sacar_a(quien)
@@ -1313,7 +1313,7 @@ func cerrar_espejo() -> void:
 func _difundir() -> void:
 	if _espejo or not Net.activo:
 		return
-	Net.difundir_instantanea(instantanea())
+	Net.peleas.difundir_instantanea(instantanea())
 
 
 # LA BARRA DE ACCION en los espejos. El ATB corre SOLO aqui, asi que alli los marcadores se
@@ -1333,7 +1333,7 @@ func _difundir_atb(delta: float) -> void:
 		r.append(float(_gauge.get(c, 0.0)) / UMBRAL)
 	for e in _enemies:
 		r.append(float(_gauge.get(e, 0.0)) / UMBRAL)
-	Net.difundir_atb(r)
+	Net.peleas.difundir_atb(r)
 
 
 # --- IMPACTOS PARA EL ESPEJO -----------------------------------------------------------------
@@ -1432,7 +1432,7 @@ func _soltar_impactos_red() -> void:
 	if _impactos_red.is_empty():
 		return
 	if not _espejo and Net.activo:
-		Net.difundir_impactos(_impactos_red)
+		Net.peleas.difundir_impactos(_impactos_red)
 	_impactos_red = PackedInt32Array()
 	_ult_tanda_red = -1   # la accion se ha ido: la siguiente vuelve a empezar por su tanda 0
 
@@ -2381,7 +2381,7 @@ func _alta_de_combatiente() -> void:
 	_rev += 1
 	if _espejo or not Net.activo:
 		return
-	Net.difundir_roster(roster_para_espejo())
+	Net.peleas.difundir_roster(roster_para_espejo())
 
 
 # Dos personajes con el mismo nombre eran indistinguibles en la pelea (el log decia "Dasui ataca" y
@@ -4402,7 +4402,7 @@ func _desatascar() -> void:
 
 	# --- Intento 1: soltar la espera de un turno remoto que no va a llegar.
 	if _state == State.WAITING_PLAYER and _esperando_a != 0:
-		if not Net.esta_en_mi_pelea(_esperando_a):
+		if not Net.peleas.esta_en_mi_pelea(_esperando_a):
 			var quien: int = _esperando_a
 			_fin_de_espera()
 			sacar_a(quien)
@@ -4431,7 +4431,7 @@ func _desatascar() -> void:
 			var dueno_p: int = int(_dueno_aliado.get(_player, 0))
 			if dueno_p != 0:
 				_state = State.WAITING_PLAYER
-				if not Net.esta_en_mi_pelea(dueno_p):
+				if not Net.peleas.esta_en_mi_pelea(dueno_p):
 					sacar_a(dueno_p)
 					_set_log("🔧 %s ya no está en la pelea: fuera. La pelea sigue." % dueno_p)
 					return
@@ -4476,7 +4476,7 @@ func _diagnostico() -> Array:
 	if _esperando_a != 0:
 		out.append("esperando a peer %d (%s) desde %.1fs, ¿sigue?=%s" % [
 			_esperando_a, String(_peticion_pendiente.get("tipo", "?")), _espera_acum,
-			"si" if Net.esta_en_mi_pelea(_esperando_a) else "NO"])
+			"si" if Net.peleas.esta_en_mi_pelea(_esperando_a) else "NO"])
 	else:
 		out.append("no espero a nadie")
 	out.append("turno de=%s" % (_player.nombre if _player != null else "nadie"))
@@ -4527,8 +4527,8 @@ func _volcado_p() -> void:
 	# --- LA PELEA A OJOS DE LA CAPA DE RED
 	L.append("--- LA PELEA (segun Net) ---")
 	for campo in ["_pelea_id", "_pelea_anfitrion", "_pelea_sigo"]:
-		L.append("  %s = %s" % [campo, str(Net.get(campo))])
-	var parts = Net.get("_pelea_participantes")
+		L.append("  %s = %s" % [campo, str(Net.peleas.get(campo))])
+	var parts = Net.peleas.get("_pelea_participantes")
 	L.append("  participantes: %s" % str(parts))
 
 	# --- EL ESTADO DEL MOTOR
@@ -4543,7 +4543,7 @@ func _volcado_p() -> void:
 	if _esperando_a != 0:
 		L.append("  ESPERANDO al peer %d desde hace %.2fs" % [_esperando_a, _espera_acum])
 		L.append("    lo que le pedi: %s" % str(_peticion_pendiente))
-		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.esta_en_mi_pelea(_esperando_a) else "NO"))
+		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.peleas.esta_en_mi_pelea(_esperando_a) else "NO"))
 		L.append("    proximo reenvio en: %.2fs" % maxf(0.0, REENVIO_TURNO - _espera_acum))
 	else:
 		L.append("  no espero respuesta de nadie")
@@ -4876,7 +4876,7 @@ func _begin_player_turn() -> void:
 # pierde turnos por pensar.
 func _pedir_accion_del_turno() -> void:
 	var dueno: int = int(_dueno_aliado.get(_player, 0))
-	if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
 		# seria esperar para siempre. Sus personajes salen y la pelea sigue.
 		sacar_a(dueno)
@@ -5047,7 +5047,7 @@ func _on_continue_pressed() -> void:
 	# Lo unico que hace el espejo al pulsar Continuar es CERRAR SU PANTALLA, y cerrarla de verdad:
 	# antes se quedaba con un "esperando..." y el boton apagado hasta que el anfitrion pulsaba el
 	# suyo, o sea que el final de la pelea lo decidia otro por ti. Lo que vivieron tus personajes
-	# viene igual, por el camino de siempre (Net.salir_del_espejo se lo pide al anfitrion y llega en
+	# viene igual, por el camino de siempre (Net.peleas.salir_del_espejo se lo pide al anfitrion y llega en
 	# _devolver_desgaste); no hace falta seguir mirando la pantalla para cobrarlo.
 	if _espejo:
 		combat_finished.emit(false, [], [], [], [], [], [], [])
@@ -5428,7 +5428,7 @@ func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 # La carga esta lista y hay que decidir a quien cae. Gemela de _pedir_accion_del_turno.
 func _pedir_soltar_carga(ab: AbilityData) -> void:
 	var dueno: int = int(_dueno_aliado.get(_player, 0))
-	if dueno != 0 and not Net.esta_en_mi_pelea(dueno):
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		# Ya no esta en la pelea: pedirle la orden seria esperar para siempre (mismo criterio que
 		# _pedir_accion_del_turno).
 		sacar_a(dueno)
@@ -7188,7 +7188,7 @@ func _responder_al_anfitrion(accion: Dictionary) -> void:
 	_ocultar_cajas()
 	_state = State.ADVANCING
 	_traza_add("CONTESTO #%d '%s'" % [_seq_espejo, String(accion.get("tipo", "?"))])
-	Net.enviar_accion(accion)
+	Net.peleas.enviar_accion(accion)
 
 
 func _accion_atacar() -> void:
@@ -7357,7 +7357,7 @@ func _accion_huir() -> void:
 # el se monta la pantalla de verdad y sigue desde donde estaba. Devuelve false si no hay a quien
 # pasarsela (entonces la pelea se cierra como siempre).
 func _traspasar() -> bool:
-	var nuevo: int = Net.heredero_de_pelea()
+	var nuevo: int = Net.peleas.heredero_de_pelea()
 	if nuevo == 0:
 		return false
 	# Los bichos VIVOS se van con la pelea: al cerrar la mia NO hay que reanudarlos (siguen
@@ -7366,7 +7366,7 @@ func _traspasar() -> bool:
 	for i in _enemies.size():
 		if _enemies[i].is_alive():
 			siguen.append(i)
-	if not Net.traspasar_pelea(estado_para_traspaso(nuevo)):
+	if not Net.peleas.traspasar_pelea(estado_para_traspaso(nuevo)):
 		return false
 	Game.enemigos_traspasados = siguen
 	_set_log("Escapas y le dejas la pelea a tus compañeros. 🏃")
@@ -7393,7 +7393,7 @@ func _huir_solo(peer: int) -> bool:
 	# quedarian colgadas de alguien que ya no esta.
 	if _huidos.has(_player):
 		_player = _aliados_vivos()[0]
-	Net.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
+	Net.peleas.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
 	_update_hp()
 	return true
 

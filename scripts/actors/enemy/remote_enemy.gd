@@ -77,7 +77,7 @@ const _AVISO_TINTE := Color(1.0, 0.45, 0.30)     # el mismo que enemy.gd
 var _combat_triggered: bool = false    # se la reservo el dueño y la estoy peleando yo
 # De QUIEN es la pelea en la que esta metido (0 = suelto), segun el tick del dueño. No es lo mismo que
 # _combat_triggered: ese es "la peleo YO"; esto es "la pelea alguien", y es lo que dice a que pelea
-# unirse al tocarlo y con quien atarlo en las lineas. Ver Net.pelea_de_enemigo.
+# unirse al tocarlo y con quien atarlo en las lineas. Ver Net.peleas.pelea_de_enemigo.
 var pelea_de: int = 0
 var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la lleva el dueño
 # Espadazo en curso contra este espejo: lo que queda para pedirle la pelea a su dueño (-1 = nada
@@ -315,9 +315,9 @@ func _lanzar_peticion() -> void:
 	# para ECHAR UNA MANO (enemy.gd) y el espejo se la habia quedado sin ella, asi que si el piso lo
 	# simulaba tu compañero no habia forma de entrar en su pelea pegandole a un bicho.
 	if _combat_triggered or pelea_de != 0:
-		Net.unirme_a_la_pelea_de(get_meta("net_id"))
+		Net.peleas.unirme_a_la_pelea_de(get_meta("net_id"))
 		return
-	Net.solicitar_pelea(get_meta("net_id"))
+	Net.peleas.solicitar_pelea(get_meta("net_id"))
 
 
 # Corre SIEMPRE, tambien antes del primer paquete de posicion (por eso esta arriba del todo de
@@ -340,7 +340,7 @@ func entrar_en_pelea() -> void:
 func salir_de_pelea() -> void:
 	_combat_triggered = false
 	if has_meta("net_id"):
-		Net.resultado_bicho(get_meta("net_id"), false, -1.0)
+		Net.peleas.resultado_bicho(get_meta("net_id"), false, -1.0)
 
 
 # Ya le han sacado el cristal: se desvanece aqui. El cuerpo DE VERDAD lo desvanece su dueño
@@ -360,7 +360,7 @@ func morir() -> void:
 	# Si HEREDE el piso a media pelea, ya no hay dueño a quien contarselo: yo soy la autoridad
 	# ahora, asi que se queda como cadaver aqui y punto (sin esto se mandaria un resultado a nadie).
 	if has_meta("net_id") and not Net._soy_dueno:
-		Net.resultado_bicho(get_meta("net_id"), true, 0.0)
+		Net.peleas.resultado_bicho(get_meta("net_id"), true, 0.0)
 
 
 # ...y a esto sobre los SUPERVIVIENTES, con las heridas que les dejaste. El dueño se las guarda
@@ -374,7 +374,7 @@ func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 	_combat_triggered = false
 	hp_restante = hp
 	if has_meta("net_id") and not Net._soy_dueno:
-		Net.resultado_bicho(get_meta("net_id"), false, hp)
+		Net.peleas.resultado_bicho(get_meta("net_id"), false, hp)
 
 
 # Ha caido en la maquina que simula el piso: aqui pasa a verse como cadaver. Mismo gris apagado

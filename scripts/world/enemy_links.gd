@@ -35,7 +35,7 @@ const RADIO_ACTIVO := 700.0
 
 const COLOR_LINEA := Color(1.0, 0.55, 0.2, 0.55)
 # MULTIJUGADOR: los que YA estan peleando con un compañero se atan entre ellos, en rojo. Es la otra
-# promesa: atacar a cualquiera de los atados te mete en ESA pelea (ver Net.unirme_a_la_pelea_de).
+# promesa: atacar a cualquiera de los atados te mete en ESA pelea (ver Net.peleas.unirme_a_la_pelea_de).
 const COLOR_PELEA := Color(1.0, 0.2, 0.2, 0.7)
 const GROSOR := 2.0
 
@@ -76,7 +76,7 @@ func _recalcular() -> void:
 			continue
 		if _player != null and _player.global_position.distance_to(n.global_position) > RADIO_ACTIVO:
 			continue
-		var pelea: int = Net.pelea_de_enemigo(n)
+		var pelea: int = Net.peleas.pelea_de_enemigo(n)
 		if pelea != 0 and pelea != yo:
 			if not peleas.has(pelea):
 				peleas[pelea] = []

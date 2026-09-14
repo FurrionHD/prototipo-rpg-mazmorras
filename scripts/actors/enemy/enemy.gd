@@ -1286,7 +1286,7 @@ func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 	# NADA. Ahora es la via para ECHAR UNA MANO: se pide entrar en esa pelea (hito 5.4-C).
 	if _combat_triggered:
 		if Net.activo and has_meta("net_id"):
-			Net.unirme_a_la_pelea_de(get_meta("net_id"))
+			Net.peleas.unirme_a_la_pelea_de(get_meta("net_id"))
 			return true
 		# En solitario no hay pelea de otro a la que unirse: la pulsacion NO cuenta, para que el
 		# jugador pueda probar con el siguiente bicho en vez de perderla aqui.
@@ -1785,9 +1785,9 @@ func _start_combat(enemy_initiated: bool) -> void:
 	# He alcanzado el cuerpo de OTRO JUGADOR (hito 5.4): la pelea es SUYA, no mia — yo solo simulo
 	# el piso. Se le empuja con emboscada (le he saltado encima) y aqui no se abre nada.
 	if _objetivo != null and is_instance_valid(_objetivo) and _objetivo.has_meta("peer_id"):
-		# OJO: el congelado lo pone la RESERVA (Net._reservar_grupo), que ademas rechaza a los que
+		# OJO: el congelado lo pone la RESERVA (Net.peleas._reservar_grupo), que ademas rechaza a los que
 		# ya lo tengan puesto. Marcarlo aqui antes haria que la reserva se rechazara a si misma.
-		if not Net.empujar_pelea(self, _objetivo.get_meta("peer_id")):
+		if not Net.peleas.empujar_pelea(self, _objetivo.get_meta("peer_id")):
 			_rebotar()   # no ha colado (ya lo pelea alguien, o el otro esta ocupado): no insistir
 		return
 	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de
@@ -1806,8 +1806,8 @@ func _start_combat(enemy_initiated: bool) -> void:
 		return
 	# Al que ESPEJA la pelea de otro no se le abre una pelea nueva (le robaria la pantalla y dejaria
 	# al anfitrion esperando su turno para siempre): me uno a LA SUYA, que es donde esta peleando.
-	if Net.espejando():
-		if Net.refuerzo_a_mi_pelea(self):
+	if Net.peleas.espejando():
+		if Net.peleas.refuerzo_a_mi_pelea(self):
 			_combat_triggered = true
 		else:
 			_esperando_hueco = true    # no cabia: espero pegado como en cualquier pelea llena
@@ -1819,10 +1819,10 @@ func _start_combat(enemy_initiated: bool) -> void:
 	# ASIGNA sobre la ficha y le pisaria lo que hiciera en esta.
 	#
 	# Quieto y sin marcar nada: esto son milisegundos (el lote sale en cuanto el anfitrion recibe el
-	# aviso, ver Net.salir_del_espejo) y el contacto vuelve a llamar aqui al frame siguiente. NO se
+	# aviso, ver Net.peleas.salir_del_espejo) y el contacto vuelve a llamar aqui al frame siguiente. NO se
 	# usa _esperando_hueco, que es para una pelea LLENA y ademas se suelta solo en cuanto no hay
 	# pantalla delante -y aqui justo acaba de cerrarse-, asi que solo haria que parpadeara.
-	if Net.ocupado_en_pelea():
+	if Net.peleas.ocupado_en_pelea():
 		velocity = Vector2.ZERO
 		return
 	# Hay una PANTALLA delante que NO es una pelea: un minijuego de recoleccion (extraer un cristal,

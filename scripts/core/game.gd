@@ -5858,7 +5858,7 @@ var _casteo_en_vuelo: Dictionary = {}
 # OJO: NO limpia _casteo_en_vuelo al entrar. Se llama en bucle, una vez por personaje del grupo, y
 # solo UNO puede traer nota; si limpiara aqui, la llamada del segundo (que devuelve {}) borraria la
 # del primero y ya no habria nada que devolver si la union se deniega. Lo limpia quien abre el
-# viaje: Net.solicitar_unirse (ver soltar_casteo_en_vuelo).
+# viaje: Net.peleas.solicitar_unirse (ver soltar_casteo_en_vuelo).
 func casteo_para_viajar(pj: PersonajeData) -> Dictionary:
 	if not _hechizo_entrada.is_empty() and _hechizo_entrada.get("pj") == pj:
 		var sp: SpellData = _hechizo_entrada.get("spell")
@@ -12886,7 +12886,7 @@ func _soltar_cola_combate() -> void:
 # DEVUELVE si la pelea se ha montado. Antes era void y rechazaba EN SILENCIO, y quien la pedia ya
 # habia congelado a los bichos (_combat_triggered) sin manera de enterarse de que no habia pelea:
 # se quedaban de estatua para siempre, "peleando" con nadie. Ahora el que llama tiene que mirar el
-# resultado y devolverlos si sale false. Ver enemy._start_combat y Net._pelea_resuelta.
+# resultado y devolverlos si sale false. Ver enemy._start_combat y Net.peleas._pelea_resuelta.
 func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return false  # ya hay un combate o faltan datos
@@ -13003,7 +13003,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
-	Net.registrar_pelea()
+	Net.peleas.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
 	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
@@ -13074,7 +13074,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 	for e in estado.get("enemigos", []):
 		if not bool(e.get("vivo", true)):
 			continue
-		var n = Net.nodo_de_id(int(e.get("net_id", 0)))
+		var n = Net.peleas.nodo_de_id(int(e.get("net_id", 0)))
 		if not is_instance_valid(n):
 			continue
 		n.hp_restante = float(e["vol"].get("hp", -1.0))   # start_combat lo lee de aqui
@@ -13098,7 +13098,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 		for n in nodos:
 			if is_instance_valid(n) and n.has_meta("net_id"):
 				ids_vuelta.append(n.get_meta("net_id"))
-		Net.devolver_bichos(ids_vuelta)
+		Net.peleas.devolver_bichos(ids_vuelta)
 		return false
 	# Los aliados: los MIOS ya los ha puesto start_combat con mi equipo (y en el mismo orden en que
 	# los ofreci al unirme); a los de otros humanos se les monta un doble, igual que al unirse.
@@ -13122,7 +13122,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 					combat.marcar_dueno(c, dp)
 		cs.append(c)
 	combat.retomar(estado, cs, filas_e)
-	Net.asumir_pelea(dobles_por_peer, combat)
+	Net.peleas.asumir_pelea(dobles_por_peer, combat)
 	return true
 
 
@@ -13153,7 +13153,7 @@ func _hay_jefe_en_roster(roster: Dictionary) -> bool:
 # lleva quien ejecuta la pelea, y sus vidas vuelven por el camino de siempre). Solo se recoge la
 # pantalla y se devuelve el mundo.
 #
-# El desenganche de la red lo lleva Net.salir_del_espejo y NO cerrar_pelea, que es lo que habia
+# El desenganche de la red lo lleva Net.peleas.salir_del_espejo y NO cerrar_pelea, que es lo que habia
 # aqui. La diferencia importa solo en un caso -cuando el que cierra soy YO, pulsando Continuar
 # antes que el anfitrion-, pero en ese caso cerrar_pelea vaciaba _mis_en_pelea y tiraba a la basura
 # el desgaste que venia de camino: salias de la pelea sin la excelia que habias ganado. Los demas
@@ -13173,7 +13173,7 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 	Ambiente.pausar(false)
 	_bloquear_interaccion_jugador()
 	Net.avisar_combate(false)
-	Net.salir_del_espejo()
+	Net.peleas.salir_del_espejo()
 	if is_instance_valid(_active_layer):
 		_active_layer.queue_free()
 	_active_layer = null
@@ -14023,7 +14023,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	esconder_mundo(false)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.avisar_combate(false)
-	# OJO: Net.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su
+	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su
 	# doble, y lo lee de la ficha del doble... que todavia no se ha actualizado con el resultado
 	# (eso pasa unas lineas mas abajo, con hp_left/mp_left/energy_left). Llamandola aqui se les
 	# mandaba la vida y el mana con los que ENTRARON: el que se unia salia de la pelea intacto.
@@ -14087,7 +14087,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
 	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo. A los peers DERROTADOS
 	# (todo su grupo cayo) se les manda al pueblo en vez de devolverles el desgaste (ver _moriste).
-	Net.cerrar_pelea(peers_derrotados)
+	Net.peleas.cerrar_pelea(peers_derrotados)
 
 	_active_player_cs = []
 	_active_player_pjs = []

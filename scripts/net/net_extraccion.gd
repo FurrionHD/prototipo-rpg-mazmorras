@@ -1,7 +1,7 @@
 # ============================================================
 #  net_extraccion.gd  (hijo de Net: /root/Net/Extraccion)
 #  EXTRAER UN CADAVER en multi: se le pide el cuerpo al dueño del piso (candado compartido con las
-#  peleas en Net._enem_ocupados), se consume o se suelta, y se difunde quien esta extrayendo que para
+#  peleas en Net.peleas._enem_ocupados), se consume o se suelta, y se difunde quien esta extrayendo que para
 #  que la F de los demas lo esquive. Se llama como Net.extraccion.<funcion>.
 # ============================================================
 extends Node
@@ -31,10 +31,10 @@ func solicitar_extraccion(id: int) -> bool:
 		# Idempotente: si el candado ya es MIO, se me vuelve a conceder. Antes cualquier re-peticion
 		# propia (una segunda F antes de que abriera la pantalla) se contestaba "lo trabaja tu
 		# compañero" siendo yo mismo.
-		if Net._enem_ocupados.has(id) and int(Net._enem_ocupados[id]) != yo:
-			Net._toast("Ese cuerpo lo está trabajando tu compañero.")
+		if Net.peleas._enem_ocupados.has(id) and int(Net.peleas._enem_ocupados[id]) != yo:
+			Net.peleas._toast("Ese cuerpo lo está trabajando tu compañero.")
 			return false
-		Net._enem_ocupados[id] = yo
+		Net.peleas._enem_ocupados[id] = yo
 		_apuntar_extrayendo(id, yo)
 		return true
 	# Una peticion a la vez: la respuesta tarda un viaje de ida y vuelta y en ese hueco una segunda F
@@ -61,7 +61,7 @@ func _encaminar_extraccion(id: int, lugar: String, quien: int) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_resolver_extraccion(id, quien)
 		return
-	var dueno: int = Net._dueno_de(lugar)
+	var dueno: int = Net.peleas._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_pedir_extraccion_dueno.rpc_id(dueno, id, lugar, quien)
 	else:
@@ -78,10 +78,10 @@ func _pedir_extraccion_dueno(id: int, lugar: String, para: int) -> void:
 # SOLO el dueño: concede el cuerpo al primero que lo pida. Idempotente: si el candado YA es de quien
 # pregunta, se le vuelve a conceder (una re-peticion suya no es una colision).
 func _resolver_extraccion(id: int, quien: int) -> void:
-	var mio_ya: bool = Net._enem_ocupados.has(id) and int(Net._enem_ocupados[id]) == quien
-	var libre: bool = Net.enemigos._enemigos.has(id) and (mio_ya or not Net._enem_ocupados.has(id))
+	var mio_ya: bool = Net.peleas._enem_ocupados.has(id) and int(Net.peleas._enem_ocupados[id]) == quien
+	var libre: bool = Net.enemigos._enemigos.has(id) and (mio_ya or not Net.peleas._enem_ocupados.has(id))
 	if libre:
-		Net._enem_ocupados[id] = quien
+		Net.peleas._enem_ocupados[id] = quien
 		_apuntar_extrayendo(id, quien)
 	_responder_extraccion(quien, id, libre)
 
@@ -111,7 +111,7 @@ func _rel_resp_extraccion(para: int, id: int, ok: bool) -> void:
 func _extraccion_concedida(id: int, ok: bool) -> void:
 	_extraccion_pidiendo = false   # la peticion ya no esta en vuelo, salga bien o mal
 	if not ok:
-		Net._toast("Ese cuerpo lo está trabajando tu compañero.")
+		Net.peleas._toast("Ese cuerpo lo está trabajando tu compañero.")
 		return
 	var n = Net.enemigos._enem_nodos.get(id)
 	# Si el cuerpo ya no esta, o si mientras viajaba la respuesta se me ha puesto una pantalla delante
@@ -150,7 +150,7 @@ func _encaminar_consumir(id: int, lugar: String) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_consumir_cadaver(id)
 		return
-	var dueno: int = Net._dueno_de(lugar)
+	var dueno: int = Net.peleas._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_consumir.rpc_id(dueno, id, lugar)
 
@@ -187,7 +187,7 @@ func _encaminar_soltar_cuerpo(id: int, lugar: String) -> void:
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_liberar_cadaver(id)
 		return
-	var dueno: int = Net._dueno_de(lugar)
+	var dueno: int = Net.peleas._dueno_de(lugar)
 	if dueno != 0 and dueno != 1:
 		_rel_soltar_cuerpo.rpc_id(dueno, id, lugar)
 
@@ -201,7 +201,7 @@ func _rel_soltar_cuerpo(id: int, lugar: String) -> void:
 
 # SOLO el dueño: devuelve el candado de un cuerpo que sigue ahi, intacto y extraible.
 func _liberar_cadaver(id: int) -> void:
-	Net._enem_ocupados.erase(id)
+	Net.peleas._enem_ocupados.erase(id)
 	_borrar_extrayendo(id)
 
 
@@ -259,7 +259,7 @@ func cuerpo_ocupado_por_otro(net_id: int) -> bool:
 
 
 func _consumir_cadaver(id: int) -> void:
-	Net._enem_ocupados.erase(id)
+	Net.peleas._enem_ocupados.erase(id)
 	_borrar_extrayendo(id)
 	var e: Dictionary = Net.enemigos._enemigos.get(id, {})
 	var nodo = e.get("nodo") if not e.is_empty() else null
