@@ -588,7 +588,7 @@ func _poblar() -> void:
 # un _exit_tree no es sitio para tocar el save.
 #
 # MULTIJUGADOR: lo escribe EL DUEÑO del piso, que es el unico que lleva el banco de verdad. Misma
-# regla que los sellos de las vetas (Net._registrar_agotado): el mundo es el suyo, asi que los sellos
+# regla que los sellos de las vetas (Net.recoleccion._registrar_agotado): el mundo es el suyo, asi que los sellos
 # de diez minutos van a SU save. El invitado no escribe nada — vaciarle el charco al host no puede
 # dejar rastro en la partida propia del invitado, que es de otro mundo y otra semilla.
 func _guardar_estado() -> void:

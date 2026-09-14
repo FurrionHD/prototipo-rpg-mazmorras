@@ -13913,9 +13913,9 @@ func _cerrar_recoleccion(nodo) -> void:
 		# RESPAWN_RETRASO_DESPENSA para el porque de un retraso y no una duracion).
 		var retraso: float = RESPAWN_RETRASO_DESPENSA if nodo.es_despensa() else 0.0
 		# MULTIJUGADOR: el agotado pasa por el host, que suelta el lock de la veta y lo difunde
-		# a TODOS (Net._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
+		# a TODOS (Net.recoleccion._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
 		if Net.activo:
-			Net.notificar_agotado(nodo.celda, current_floor, retraso)
+			Net.recoleccion.notificar_agotado(nodo.celda, current_floor, retraso)
 		else:
 			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 			if piso != null and piso.has_method("marcar_agotado"):

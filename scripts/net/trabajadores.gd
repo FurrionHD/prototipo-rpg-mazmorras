@@ -279,8 +279,8 @@ func asegurar_dueno(piso: int) -> bool:
 	Net._viajando[w] = piso
 	var mem: Dictionary = Net._fotos_piso.get(piso, {})
 	Net._fotos_piso.erase(piso)
-	Net._entrar_ok.rpc_id(w, piso, Net._agotados_sesion, true, mem, Net._restantes_boss(),
-		Net.epoca_sesion, Net._nonces_sesion)
+	Net._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, true, mem, Net._restantes_boss(),
+		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
 	print("[trabajadores] el piso %d lo simula el peer %d" % [piso, w])
 	_rellenar_reserva()
 	return true

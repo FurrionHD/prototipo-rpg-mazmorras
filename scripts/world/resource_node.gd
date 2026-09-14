@@ -77,7 +77,7 @@ func interactuar() -> void:
 	# MULTIJUGADOR: la veta la trabaja UNO a la vez. Se le pide al host; si esta libre, el te
 	# abre el minijuego (abrir_minijuego via Net); si no, te llega el toast "esta ocupado".
 	if Net.activo:
-		Net.solicitar_veta(celda, Game.current_floor)
+		Net.recoleccion.solicitar_veta(celda, Game.current_floor)
 		return
 	abrir_minijuego()
 
@@ -267,7 +267,7 @@ func _crear_aspecto_placeholder(color: Color) -> void:
 # MULTIJUGADOR: nada que sincronizar AQUI, pero no es gratis. El invitado genera el mismo piso con
 # Net.semilla_host y deriva el color por su cuenta; que le salga el MISMO material depende de que la
 # tirada este sembrada con (semilla del piso, celda, nonce), y el nonce del respawn lo manda el host
-# (ver dungeon_floor._material_del_sitio y Net._revivir_celda). Cuando esa tirada iba al randf()
+# (ver dungeon_floor._material_del_sitio y Net.recoleccion._revivir_celda). Cuando esa tirada iba al randf()
 # global, cada uno veia un sub-tier distinto en la misma veta.
 func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
 	if material_data == null:

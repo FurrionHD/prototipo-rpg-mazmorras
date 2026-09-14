@@ -1098,3 +1098,15 @@ func _mismas_reservas(a: Dictionary, b: Dictionary) -> bool:
 		if not _misma_reserva(a[peer] as Dictionary, b[peer] as Dictionary):
 			return false
 	return true
+
+
+# EL HOGAR, agrupado por frame (ver _hogar_sucio): publicar tu equipo no tiene nada que ver con estar en
+# la mazmorra, asi que no mira ni si soy host ni si hay expedicion.
+func _process(_delta: float) -> void:
+	if not _hogar_sucio:
+		return
+	_hogar_sucio = false
+	if Net._soy_cliente():
+		_mi_hogar.rpc_id(1, _mis_filas_hogar())
+	elif Net.es_host:
+		_difundir_hogar()

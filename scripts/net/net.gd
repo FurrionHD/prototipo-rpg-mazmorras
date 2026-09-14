@@ -96,13 +96,6 @@ var semilla_host: int = 0
 # Un 0 significa "aun no me la han dicho": Game.epoca_actual cae entonces a la local.
 var epoca_sesion: int = 0
 
-# NONCE VIVO de cada sitio de recoleccion de la sesion: sitio -> el numero con el que nacio lo que
-# hay ahi ahora. Hermano de _agotados_sesion y con su misma clave (Vector3i(piso, x, y)).
-#
-# Es lo que hace que el sub-tier de una veta SOBREVIVA a reconstruir el piso: sin esto, al bajar y
-# volver a subir la celda renacia con nonce 0 y volvia a ser lo de siempre. Lo estrena _revivir_celda
-# (respawn) y lo reparte _entrar_ok al que baja.
-var _nonces_sesion: Dictionary = {}
 
 # El surtido de la tienda manda el MUNDO DEL HOST: si el tiene la T2 abierta (Rey Slime muerto),
 # ambos la ven. Llega en el handshake; no cambia en sesion (los enemigos estan apagados en multi,
@@ -158,21 +151,6 @@ var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmor
 # muerto todos?", que es lo unico que olvida la mazmorra compartida (ver _registrar_muerte). Se le
 # borra la marca al que vuelve a entrar: ha vuelto a la pelea.
 var _muertos: Dictionary = {}
-# CLAVE de un sitio de recoleccion: Vector3i(piso, celda.x, celda.y). Va el PISO dentro a
-# proposito: los pisos se generan con el mismo molde y repiten coordenadas, asi que con la celda
-# pelada picar una veta en el piso 3 borraba la del mismo hueco en el 4.
-var _vetas_ocupadas: Dictionary = {}  # sitio -> peer_id que la trabaja (host)
-# sitio -> momento en que se pico. El VALOR es lo que permite el respawn: el host barre la tabla y
-# suelta lo que ya ha cumplido su tiempo (ver _barrer_respawns).
-#
-# EL RELOJ ES EL DE PARED (Game.reloj_mundo, unix time), el mismo que en una partida de un jugador.
-# Hubo dos antes que este y los dos se rompian por el mismo sitio: un `_reloj_expedicion` propio, que
-# moria con la expedicion y al volver a bajar te encontrabas TODAS las vetas otra vez; y
-# tiempo_mazmorra, que ademas de eso se CONGELA con cualquier menu abierto -- y como aqui barre el
-# HOST, bastaba con que el anfitrion tuviera el hogar abierto para que las vetas no volvieran para
-# nadie. Con el reloj de pared no hay nada que congelar ni que se muera al salir: cinco minutos son
-# cinco minutos en las dos maquinas, aunque las dos esten en un menu.
-var _agotados_sesion: Dictionary = {}
 # JEFES caidos de la sesion: piso -> unix time (reloj de pared) en que cayo. Mismo mecanismo que
 # _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
 # atras tiene que sobrevivir a que os subais todos al pueblo.
@@ -183,11 +161,9 @@ var _agotados_sesion: Dictionary = {}
 # dueño de un piso (que puede ser un cliente) planta el jefe cuando lo dice el host y no cuando se lo
 # diga su propio reloj.
 var _bosses_sello: Dictionary = {}
-var _t_barrido := 0.0
 # Latido APARTE para los jefes. No comparte el de las vetas porque no comparte el guard: aquel solo
 # corre con la expedicion abierta y este corre siempre (ver _process).
 var _t_bosses := 0.0
-const BARRIDO_RESPAWN_CADA := 2.0   # cada cuanto repasa el host la tabla (igual que en solitario)
 
 # --- RESERVAS de enemigos y EXTRACCION (hito 5.3) ---
 
@@ -229,6 +205,9 @@ func _ready() -> void:
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
+	recoleccion = NetRecoleccion.new()
+	recoleccion.name = "Recoleccion"
+	add_child(recoleccion)
 	hogar = NetHogar.new()
 	hogar.name = "Hogar"
 	add_child(hogar)
@@ -251,12 +230,14 @@ func _ready() -> void:
 
 # --- LOS TEMAS, cada uno en su archivo ---
 const NetPesca = preload("res://scripts/net/net_pesca.gd")
+const NetRecoleccion = preload("res://scripts/net/net_recoleccion.gd")
 const NetHogar = preload("res://scripts/net/net_hogar.gd")
 const NetPeleas = preload("res://scripts/net/net_peleas.gd")
 const NetExtraccion = preload("res://scripts/net/net_extraccion.gd")
 const NetEnemigos = preload("res://scripts/net/net_enemigos.gd")
 const NetSuelo = preload("res://scripts/net/net_suelo.gd")
 var pesca: NetPesca = null
+var recoleccion: NetRecoleccion = null
 var hogar: NetHogar = null
 var peleas: NetPeleas = null
 var extraccion: NetExtraccion = null
@@ -275,16 +256,8 @@ func es_trabajador(peer_id: int) -> bool:
 	return _trab != null and _trab.es_trabajador(peer_id)
 
 
-# El HOST lleva el reloj de la expedicion y decide que vetas/plantas reviven. Ver _barrer_respawns.
+# El HOST lleva el reloj de los jefes (ver _barrer_bosses). El del hogar y el de las vetas van en sus temas.
 func _process(delta: float) -> void:
-	# EL HOGAR, agrupado por frame (ver _hogar_sucio). Va ARRIBA del todo, antes de los guardias de
-	# host y de expedicion: publicar tu equipo no tiene nada que ver con estar en la mazmorra.
-	if hogar._hogar_sucio:
-		hogar._hogar_sucio = false
-		if _soy_cliente():
-			hogar._mi_hogar.rpc_id(1, hogar._mis_filas_hogar())
-		elif es_host:
-			hogar._difundir_hogar()
 	if not activo or not es_host:
 		return
 	# LOS JEFES VAN POR SU CUENTA, por encima del guard de expedicion_abierta que hay debajo. Su reloj
@@ -297,16 +270,8 @@ func _process(delta: float) -> void:
 	# (de tiempo_mazmorra a reloj de pared) y se dejo la CADENCIA colgando de un guard que se apaga.
 	_t_bosses -= delta
 	if _t_bosses <= 0.0:
-		_t_bosses = BARRIDO_RESPAWN_CADA
+		_t_bosses = recoleccion.BARRIDO_RESPAWN_CADA
 		_barrer_bosses()
-	if not expedicion_abierta:
-		return
-	# El reloj del respawn ya lo mueve Game (tiempo_mazmorra): aqui solo se marca cada cuanto tocar
-	# la tabla.
-	_t_barrido -= delta
-	if _t_barrido <= 0.0:
-		_t_barrido = BARRIDO_RESPAWN_CADA
-		_barrer_respawns()
 
 
 # --- ARRANQUE (lo unico especifico de ENet) -------------------------------------------------
@@ -420,9 +385,9 @@ func desconectar() -> void:
 	_peers.clear()
 	_dentro.clear()
 	_muertos.clear()
-	_vetas_ocupadas.clear()
-	_agotados_sesion.clear()
-	_nonces_sesion.clear()
+	recoleccion._vetas_ocupadas.clear()
+	recoleccion._agotados_sesion.clear()
+	recoleccion._nonces_sesion.clear()
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	epoca_sesion = 0
@@ -1378,12 +1343,12 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 		expedicion_abierta = true
 		# Se abre la mazmorra: vuelven los sellos de lo que ya se pico en expediciones anteriores,
 		# que estan en el save del host. Sin esto la tabla nacería vacia y todo estaria disponible.
-		_sembrar_agotados_del_save()
+		recoleccion._sembrar_agotados_del_save()
 		# Y se barren YA los que hayan cumplido su tiempo mientras no habia nadie. Va antes de
 		# conceder la entrada a proposito: el que baja construye su piso con la lista de agotados que
 		# le mandamos aqui abajo, asi que si esto se dejara al barrido periodico (cada 2 s) bajaria a
 		# un piso sin la veta y se la veria brotar de la nada dos segundos despues.
-		_barrer_respawns()
+		recoleccion._barrer_respawns()
 	_dentro[quien] = true
 	_muertos.erase(quien)   # el que vuelve a bajar ya no cuenta como caido (ver _registrar_muerte)
 	_trab.asegurar_dueno(piso)   # si hay un trabajador libre, el piso es suyo y yo entro de espejo
@@ -1399,10 +1364,10 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	# timestamps crudos el contador de la sala del jefe le saldria corrido por el desfase entre los dos
 	# relojes (y con uno mal puesto, absurdo). Los segundos que faltan son los mismos en cualquier reloj.
 	if quien == 1:
-		_entrar_ok(piso, _agotados_sesion, dueno, mem, _restantes_boss(), epoca_sesion, _nonces_sesion)
+		_entrar_ok(piso, recoleccion._agotados_sesion, dueno, mem, _restantes_boss(), epoca_sesion, recoleccion._nonces_sesion)
 	else:
-		_entrar_ok.rpc_id(quien, piso, _agotados_sesion, dueno, mem, _restantes_boss(),
-			epoca_sesion, _nonces_sesion)
+		_entrar_ok.rpc_id(quien, piso, recoleccion._agotados_sesion, dueno, mem, _restantes_boss(),
+			epoca_sesion, recoleccion._nonces_sesion)
 
 
 # ABRIR LA SALA ESTANDO YA DENTRO DE UN PISO. Es _conceder_entrada + _entrar_ok sin viajar: el piso
@@ -1416,7 +1381,7 @@ func _montar_sesion_desde_dentro(piso: int) -> void:
 			Game.renovar_epoca()
 		epoca_sesion = Game.epoca_mazmorra
 	expedicion_abierta = true
-	_sembrar_agotados_del_save()
+	recoleccion._sembrar_agotados_del_save()
 	# Los NONCES tambien: las vetas de este piso nacieron con los de MI save (el piso se construyo en
 	# solitario), y el que baje construira el suyo con los de la sesion. Sin sembrarlos veria otro
 	# material en la misma veta.
@@ -1424,8 +1389,8 @@ func _montar_sesion_desde_dentro(piso: int) -> void:
 		var nn = (Game.mazmorra_persistente[p] as Dictionary).get("nonces", {})
 		if nn is Dictionary:
 			for celda in nn:
-				_nonces_sesion[_sitio(int(p), celda as Vector2i)] = int(nn[celda])
-	_barrer_respawns()
+				recoleccion._nonces_sesion[recoleccion._sitio(int(p), celda as Vector2i)] = int(nn[celda])
+	recoleccion._barrer_respawns()
 	_dentro[1] = true
 	_dueno_piso[piso] = 1
 	_soy_dueno = true
@@ -1477,7 +1442,7 @@ func _restantes_boss() -> Dictionary:
 @rpc("any_peer", "call_remote", "reliable")
 func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 		sellos_boss: Dictionary = {}, epoca: int = 0, nonces: Dictionary = {}) -> void:
-	_agotados_sesion = agotados.duplicate()
+	recoleccion._agotados_sesion = agotados.duplicate()
 	# Que jefes de la sesion estan muertos ahora mismo. Sin esto, el que baja al piso 6 por el atajo
 	# plantaria un rey slime que para los demas sigue muerto (y solo el lo veria).
 	#
@@ -1496,7 +1461,7 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 	# material y que pez sale en cada sitio, y veria cosas distintas de las del host en la MISMA veta.
 	# Se cogen ANTES de olvidar_mazmorra a proposito: esa renueva la epoca LOCAL (la de mi propio
 	# mundo, que aqui no pinta nada) y lo que vale mientras dure la sesion es epoca_sesion.
-	_nonces_sesion = nonces.duplicate()
+	recoleccion._nonces_sesion = nonces.duplicate()
 	Game.olvidar_mazmorra()
 	if epoca != 0:
 		epoca_sesion = epoca
@@ -1612,7 +1577,7 @@ func _olvidar_expedicion() -> void:
 	# demas les llega todo en el _entrar_ok de la proxima bajada.
 	Game.renovar_epoca()
 	epoca_sesion = Game.epoca_mazmorra
-	_nonces_sesion.clear()
+	recoleccion._nonces_sesion.clear()
 	for id in suelo._suelo.keys():
 		if str(suelo._suelo[id]["lugar"]).begins_with("piso:"):
 			suelo._suelo.erase(id)
@@ -1651,8 +1616,8 @@ func _cerrar_expedicion() -> void:
 			_dueno_piso.erase(p)
 	_traspasos.clear()
 	_viajando.clear()
-	_vetas_ocupadas.clear()
-	_t_barrido = 0.0
+	recoleccion._vetas_ocupadas.clear()
+	recoleccion._t_barrido = 0.0
 	estado_cambiado.emit("Expedicion terminada: la mazmorra queda como la habeis dejado.")
 
 
@@ -1989,192 +1954,6 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 	return {"enemigos": out, "suelo": []}
 
 
-# --- VETAS: una a la vez, con "esta ocupado" --------------------------------------------------
-
-# La clave de un sitio: el piso va DENTRO (ver _agotados_sesion).
-func _sitio(piso: int, celda: Vector2i) -> Vector3i:
-	return Vector3i(piso, celda.x, celda.y)
-
-
-# La llama resource_node.interactuar() (rama multi): pedir la veta antes de abrir el minijuego.
-func solicitar_veta(celda: Vector2i, piso: int) -> void:
-	if es_host:
-		_resolver_veta(celda, piso, 1)
-	else:
-		_pedir_veta.rpc_id(1, celda, piso)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_veta(celda: Vector2i, piso: int) -> void:
-	if not es_host:
-		return
-	_resolver_veta(celda, piso, multiplayer.get_remote_sender_id())
-
-
-# Solo host: arbitra. Libre -> lock y concedida; ocupada -> "esta ocupado" (AQUI si hay mensaje,
-# regla del usuario; en los drops del suelo, silencio).
-func _resolver_veta(celda: Vector2i, piso: int, quien: int) -> void:
-	var s: Vector3i = _sitio(piso, celda)
-	if _agotados_sesion.has(s):
-		return   # ya no existe: su nodo esta cayendo, no hay nada que decir
-	if _vetas_ocupadas.has(s) and _vetas_ocupadas[s] != quien:
-		if quien == 1:
-			_veta_ocupada()
-		else:
-			_veta_ocupada.rpc_id(quien)
-		return
-	_vetas_ocupadas[s] = quien
-	if quien == 1:
-		_veta_concedida(celda)
-	else:
-		_veta_concedida.rpc_id(quien, celda)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _veta_concedida(celda: Vector2i) -> void:
-	for n in get_tree().get_nodes_in_group("recolectable"):
-		if is_instance_valid(n) and n.celda == celda:
-			n.abrir_minijuego()
-			return
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _veta_ocupada() -> void:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Esta ocupado: tu companero ya lo esta trabajando.")
-
-
-# La llama Game._cerrar_recoleccion (rama multi) al terminar el minijuego de una celda.
-#
-# 'retraso' = lo que ESTE sitio tarda de mas en volver (la despensa, el doble; ver
-# Game.RESPAWN_RETRASO_DESPENSA). Viaja con el mensaje porque el host no puede deducirlo: solo
-# recibe la celda, y puede no estar ni en ese piso para mirar que hay plantado en ella.
-func notificar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
-	if es_host:
-		_registrar_agotado(celda, piso, retraso)
-	else:
-		_pedir_agotar.rpc_id(1, celda, piso, retraso)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_agotar(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
-	if not es_host:
-		return
-	_registrar_agotado(celda, piso, retraso)
-
-
-# Solo host: suelta el lock, sella el sitio con la hora (es lo que hara que reviva), lo APUNTA EN SU
-# SAVE y difunde el agotado a todos.
-#
-# Lo del save es lo que hace que el CD sobreviva a que salgais todos: la mazmorra es la del mundo del
-# host, asi que sus sellos van a mazmorra_persistente igual que en una partida de un jugador, y de
-# ahi se vuelven a sembrar en la siguiente expedicion (ver _sembrar_agotados_del_save).
-func _registrar_agotado(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
-	var s: Vector3i = _sitio(piso, celda)
-	var sello: float = Game.reloj_mundo() + retraso
-	_vetas_ocupadas.erase(s)
-	_agotados_sesion[s] = sello
-	(Game.persistente_piso(piso)["agotados"] as Dictionary)[celda] = sello
-	_agotar_celda.rpc(celda, piso, retraso)
-	_agotar_celda(celda, piso, retraso)
-
-
-# Corre en TODOS los que esten en la mazmorra: la veta de ese sitio desaparece tambien aqui.
-# A los clientes el VALOR del sello no les sirve de nada, solo la presencia ("esto no esta"): quien
-# decide el respawn es el host, en _barrer_respawns.
-#
-# En el host esto corre justo despues de _registrar_agotado (que lo llama directo), asi que tiene que
-# sellar con el MISMO reloj o le pisaria el valor bueno al que se acaba de guardar en el save.
-@rpc("any_peer", "call_remote", "reliable")
-func _agotar_celda(celda: Vector2i, piso: int, retraso: float = 0.0) -> void:
-	_agotados_sesion[_sitio(piso, celda)] = Game.reloj_mundo() + retraso
-	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
-		return
-	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso_nodo != null and piso_nodo.has_method("marcar_agotado"):
-		piso_nodo.marcar_agotado(celda, retraso)
-	for n in get_tree().get_nodes_in_group("recolectable"):
-		if is_instance_valid(n) and n.celda == celda:
-			n.agotar()
-			return
-
-
-# SOLO HOST: repasa los sitios picados y suelta los que ya han cumplido su tiempo. Es el equivalente
-# por red de dungeon_floor._repoblar_agotados, con la diferencia que importa: aqui manda UN reloj (el
-# tiempo_mazmorra DEL HOST) en vez del de cada maquina, que es local y diverge, asi que la veta
-# revive en todas a la vez. Antes esto no existia y lo picado en sesion no volvia NUNCA.
-func _barrer_respawns() -> void:
-	# Los JEFES ya NO cuelgan de aqui: tienen su propio latido en _process, por encima del guard de
-	# expedicion_abierta (su reloj es de pared y corre con la mazmorra vacia). Se sigue llamando desde
-	# _conceder_entrada, y esa llamada tambien tiene que ponerlos al dia: es la que planta al jefe ya
-	# de pie ANTES de conceder la entrada, para que el que baja no lo vea aparecer de la nada.
-	_barrer_bosses()
-	if _agotados_sesion.is_empty():
-		return
-	for s in _agotados_sesion.keys():
-		if Game.reloj_mundo() - float(_agotados_sesion[s]) < Game.RESPAWN_SEGUNDOS:
-			continue
-		_agotados_sesion.erase(s)
-		var celda := Vector2i(s.y, s.z)
-		# El NONCE lo pone el host y viaja con el mensaje: es lo que hace que la tirada del material
-		# salga IGUAL en todas las maquinas (ver dungeon_floor._material_del_sitio). Antes cada una
-		# tiraba por su cuenta y la misma veta salia de cobre normal en una y veteado en la otra.
-		var nonce: int = randi()
-		_revivir_celda.rpc(celda, s.x, nonce)
-		_revivir_celda(celda, s.x, nonce)
-
-
-# SOLO HOST: rellena la tabla de la sesion con los sellos que quedaron guardados en el save. Se llama
-# al abrir la expedicion, y es la otra mitad de que el CD sobreviva: _registrar_agotado los escribe
-# en mazmorra_persistente, y esto los vuelve a traer cuando alguien baja de nuevo. Sin esto, la
-# tabla nacia vacia en cada sesion (se limpia al montarla) y daba igual lo que hubiera en el save.
-func _sembrar_agotados_del_save() -> void:
-	if not es_host:
-		return
-	for piso in Game.mazmorra_persistente:
-		var ag = (Game.mazmorra_persistente[piso] as Dictionary).get("agotados", {})
-		if not (ag is Dictionary):
-			continue
-		for celda in ag:
-			_agotados_sesion[_sitio(int(piso), celda as Vector2i)] = float(ag[celda])
-	if not _agotados_sesion.is_empty():
-		print("[multi] sembrados %d sitios ya picados de expediciones anteriores" % _agotados_sesion.size())
-
-
-# Corre en TODOS: se levanta el sello y, si estoy en ese piso, brota el nodo otra vez (con el
-# material RE-TIRADO, igual que en solitario). Si no estoy alli basta con soltar el sello: cuando
-# baje, el piso se construye y la celda vuelve a nacer sola.
-@rpc("any_peer", "call_remote", "reliable")
-func _revivir_celda(celda: Vector2i, piso: int, nonce: int = 0) -> void:
-	_agotados_sesion.erase(_sitio(piso, celda))
-	# El nonce se APUNTA, no solo se usa: es lo que hace que el sub-tier con el que acaba de brotar
-	# siga siendo el mismo cuando alguien reconstruya el piso (bajar y volver a subir). Sin esto, la
-	# veta que revivio de estaño profundo volvia a ser la de siempre en cuanto se rehacia la escena.
-	_nonces_sesion[_sitio(piso, celda)] = nonce
-	# Y FUERA DEL SAVE DEL HOST, o el sello volveria a sembrarse en la proxima expedicion y la veta
-	# que acaba de revivir nacería agotada otra vez. Es lo mismo que hace _olvidar_agotado en
-	# solitario. Solo el host: en el invitado ese diccionario es de SU mundo, no de este.
-	if es_host:
-		(Game.persistente_piso(piso)["agotados"] as Dictionary).erase(celda)
-	if not _mi_lugar.begins_with("piso:") or Game.current_floor != piso:
-		return
-	var piso_nodo: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if piso_nodo != null and piso_nodo.has_method("revivir_celda"):
-		piso_nodo.revivir_celda(celda, nonce)
-
-
-# ¿Este sitio ya se agoto en ESTA expedicion? Lo consulta dungeon_floor al construir el piso.
-func celda_agotada_sesion(celda: Vector2i, piso: int) -> bool:
-	return _agotados_sesion.has(_sitio(piso, celda))
-
-
-# Con que nonce nacio lo que hay AHORA en ese sitio (0 = lo original de esta epoca, nunca ha
-# rebrotado). Lo consulta dungeon_floor al construir el piso, igual que celda_agotada_sesion.
-func nonce_celda_sesion(celda: Vector2i, piso: int) -> int:
-	return int(_nonces_sesion.get(_sitio(piso, celda), 0))
-
-
 # --- BOSS CAIDO (hito 5.3) --------------------------------------------------------------------
 #
 # Lo llama enemy.morir() del jefe, en la maquina que simula ese piso. Decision del usuario: el
@@ -2384,9 +2163,9 @@ func _aplicar_cupo() -> void:
 # Solo host: suelta todos los locks de un peer que se va (salida o desconexion a mitad de
 # minijuego).
 func _liberar_vetas_de(quien: int) -> void:
-	for c in _vetas_ocupadas.keys():
-		if _vetas_ocupadas[c] == quien:
-			_vetas_ocupadas.erase(c)
+	for c in recoleccion._vetas_ocupadas.keys():
+		if recoleccion._vetas_ocupadas[c] == quien:
+			recoleccion._vetas_ocupadas.erase(c)
 
 
 func _identidad_de_peer(peer: int) -> String:

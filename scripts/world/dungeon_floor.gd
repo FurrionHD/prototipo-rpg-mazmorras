@@ -1726,7 +1726,7 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 	_sitios[celda] = {"tipo": tipo}
 	# MULTIJUGADOR: lo agotado en ESTA expedicion no vuelve a nacer al reconstruir el piso
 	# (p. ej. al bajar y volver a subir): el sello de sesion vive en Net, no en mi save.
-	if Net.activo and Net.celda_agotada_sesion(celda, _piso_construido):
+	if Net.activo and Net.recoleccion.celda_agotada_sesion(celda, _piso_construido):
 		return false
 	# ¿Agotada? Reaparece cuando han pasado RESPAWN_SEGUNDOS de RELOJ DE PARED desde que la picaste.
 	# le toca, se limpia el sello y nace como nueva; si no, no nace todavia.
@@ -1745,7 +1745,7 @@ func _crear_recolectable(tipo: int, celda: Vector2i) -> bool:
 # solitario, el de mi save. 0 = nunca ha rebrotado, sale lo que puso la epoca.
 func _nonce_del_sitio(celda: Vector2i) -> int:
 	if Net.activo:
-		return Net.nonce_celda_sesion(celda, _piso_construido)
+		return Net.recoleccion.nonce_celda_sesion(celda, _piso_construido)
 	return int(_nonces.get(celda, 0))
 
 
@@ -1754,7 +1754,7 @@ func _nonce_del_sitio(celda: Vector2i) -> int:
 func _apuntar_nonce(celda: Vector2i, nonce: int) -> void:
 	_nonces[celda] = nonce
 	if Net.activo:
-		return   # en multi lo lleva Net._nonces_sesion, que es del mundo del host
+		return   # en multi lo lleva Net.recoleccion._nonces_sesion, que es del mundo del host
 	(Game.persistente_piso(_piso_construido)["nonces"] as Dictionary)[celda] = nonce
 
 
@@ -1773,7 +1773,7 @@ func _apuntar_nonce(celda: Vector2i, nonce: int) -> void:
 # La solucion se queda con las dos cosas: la tirada es de verdad (cada nacimiento vuelve a rodar)
 # pero SEMBRADA, con la semilla del piso —que en multi es la del host— + la celda + un 'nonce' que
 # identifica ESTE nacimiento. Al construir el piso el nonce es 0 en todas las maquinas; al revivir,
-# el host manda el suyo por RPC (ver Net._revivir_celda). Mismos tres numeros = mismo material, sin
+# el host manda el suyo por RPC (ver Net.recoleccion._revivir_celda). Mismos tres numeros = mismo material, sin
 # necesidad de transportar la ruta del .tres ni de mantener una tabla sincronizada.
 #
 # Lo que sigue saliendo de la semilla a secas es DONDE hay sitios de recoleccion (la forma del piso).
@@ -1840,7 +1840,7 @@ func _olvidar_agotado(celda: Vector2i) -> void:
 func _repoblar_agotados(delta: float) -> void:
 	# MULTIJUGADOR: el barrido NO se hace aqui, porque el sello es LOCAL y diverge
 	# entre maquinas (la veta reviviria en una y en la otra no). Lo lleva el HOST contra el reloj de
-	# la expedicion y lo anuncia por red: Net._barrer_respawns -> Net._revivir_celda -> revivir_celda.
+	# la expedicion y lo anuncia por red: Net.recoleccion._barrer_respawns -> Net.recoleccion._revivir_celda -> revivir_celda.
 	if Net.activo:
 		return
 	_t_respawn -= delta
@@ -2057,7 +2057,7 @@ func _anunciar_boss(data: EnemyData) -> void:
 
 # Hace BROTAR otra vez la celda: levanta el sello y planta el nodo con el material RE-TIRADO.
 # Sale de _repoblar_agotados porque lo llaman DOS sitios: el barrido local (solitario) y, en
-# multijugador, Net._revivir_celda cuando el host decide que a ese sitio le toca volver.
+# multijugador, Net.recoleccion._revivir_celda cuando el host decide que a ese sitio le toca volver.
 #
 # 'nonce' identifica ESTE nacimiento y es lo que hace que la tirada del material sea la misma en
 # todas las maquinas: en solitario lo pone quien llama (un numero al azar, para que revivir vuelva a
