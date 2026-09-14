@@ -24,7 +24,7 @@ func interact_with_player() -> void:
 	# MULTIJUGADOR (hito 5.2): cada uno baja y sube POR SU CUENTA; el compañero se queda donde
 	# este. El viaje pasa por el host porque hay que repartir quien SIMULA cada piso: sueltas el
 	# que dejas (con su foto) y el host te dice si el nuevo lo simulas tu o solo lo espejas. El
-	# cambio de piso local lo hace Net._viaje_ok cuando llega la respuesta.
+	# cambio de piso local lo hace Net.pisos._viaje_ok cuando llega la respuesta.
 	if Net.activo:
 		if sube and Game.current_floor <= 1:
 			return   # en el piso 1 no hay escalera de subir: ahi esta la puerta al pueblo
@@ -33,7 +33,7 @@ func interact_with_player() -> void:
 		# true). Iba invertido: al bajar en multi aparecias en el FONDO del piso nuevo, pegado a su
 		# escalera de BAJAR, mientras la de SUBIR se plantaba en la boca al otro extremo del mapa. De
 		# ahi el "solo deja bajar y donde deberia estar la subida pone bajar".
-		Net.solicitar_piso(Game.current_floor + (-1 if sube else 1), sube)
+		Net.pisos.solicitar_piso(Game.current_floor + (-1 if sube else 1), sube)
 		return
 	if sube:
 		Game.subir_piso()

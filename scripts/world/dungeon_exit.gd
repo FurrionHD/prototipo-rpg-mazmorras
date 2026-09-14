@@ -35,7 +35,7 @@ func interact_with_player() -> void:
 	# host: comprometer_mapa ya distingue por dentro y en sesion no escribe en tu save (ver door.gd).
 	if Net.activo:
 		Game.comprometer_mapa()
-		Net.viajar_al_pueblo()
+		Net.pisos.viajar_al_pueblo()
 		return
 	Game.comprometer_mapa()
 	Game.cerrar_bajada()   # el piso del jefe queda como lo dejas, y el alboroto se apaga (ver Game)

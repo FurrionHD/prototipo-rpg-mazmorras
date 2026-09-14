@@ -1779,7 +1779,7 @@ func _start_combat(enemy_initiated: bool) -> void:
 		return
 	# Solo monta peleas quien SIMULA este piso: los bichos espejados no tienen IA ni son autoridad
 	# de nada (ver Net y remote_enemy.gd).
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		_rebotar()
 		return
 	# He alcanzado el cuerpo de OTRO JUGADOR (hito 5.4): la pelea es SUYA, no mia — yo solo simulo

@@ -1081,7 +1081,7 @@ func _colocar_boss() -> void:
 	# el rio, el musgo y el decorado del jefe la leen, y con este corte encima del marcado el espejo
 	# se quedaba sin sala del jefe, la metia en el sorteo del estanque y dibujaba OTRO mapa (playtest
 	# del 11/09/2026: agua, musgo y peces en sitios distintos para cada uno).
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		return
 
 	# Si el piso se RESTAURA de memoria, el boss ya vendra con los demas enemigos: no duplicar.
@@ -1886,7 +1886,7 @@ func _repoblar_boss(delta: float) -> void:
 	_t_boss = RESPAWN_CHECK_CADA
 	# MULTIJUGADOR: lo planta el DUEÑO del piso, el mismo que lo coloca al construirlo. El que espeja
 	# lo vera aparecer por red.
-	if not Net.simulo_mi_piso() or not Game.boss_disponible(_piso_construido):
+	if not Net.pisos.simulo_mi_piso() or not Game.boss_disponible(_piso_construido):
 		return
 	# ¿Ya hay uno de pie? Los cadaveres estan en el grupo "corpse", asi que basta con mirar "enemy".
 	for n in get_tree().get_nodes_in_group("enemy"):
@@ -2032,7 +2032,7 @@ func _anunciar_boss(data: EnemyData) -> void:
 	# El que solo ESPEJA este piso no tiene nada de esto (los bichos no nacen en su maquina), asi que
 	# veria al jefe aparecer de la nada. Es puro FX y viaja por el mismo canal que el brote.
 	if Net.activo:
-		Net.anunciar_brote(celdas, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR)
+		Net.pisos.anunciar_brote(celdas, BOSS_AVISO_DUR, BOSS_AVISO_AMP, BOSS_AVISO_COLOR)
 	# Y el jefe, cuando acaba el aviso. El piso viaja en la llamada por lo mismo que en _colocar_boss:
 	# si entre medias te has ido a otro piso, este jefe ya no es de aqui.
 	var piso: int = _piso_construido
@@ -2292,7 +2292,7 @@ func _crear_zonas() -> void:
 	# MULTIJUGADOR (hito 5.2): el DUEÑO del piso puebla/restaura como en solitario (y replica sus
 	# bichos por Net). Quien solo lo espeja no puebla NADA en local (recrearia bichos rancios de
 	# expediciones viejas de ESTA maquina). En sesion, la memoria que se restaura la siembra Net
-	# con la FOTO del piso (ver Net._viaje_ok), asi que 'recordado' ya sale bien.
+	# con la FOTO del piso (ver Net.pisos._viaje_ok), asi que 'recordado' ya sale bien.
 	# hay_sitio() ya corta, pero saltarselo ahorra el trabajo entero.
 	# LOS SPRITES, ANTES DE QUE NAZCA NADIE. Generarlos cuesta de 0,2 a 1,2 s por tipo, y se pagaba
 	# en el _ready del bicho: o sea la primera vez que una pared paria un jabali, en mitad de la
@@ -2303,7 +2303,7 @@ func _crear_zonas() -> void:
 	# Va tambien cuando el piso viene RECORDADO: los bichos restaurados necesitan su sprite igual.
 	_precalentar_sprites()
 
-	var simulo_bichos: bool = Net.simulo_mi_piso()
+	var simulo_bichos: bool = Net.pisos.simulo_mi_piso()
 	if not recordado and simulo_bichos:
 		_poblar_el_piso(zona_entrada)
 
@@ -2488,7 +2488,7 @@ func _restaurar_estado() -> void:
 	var data_boss: EnemyData = Game.boss_del_piso(_piso_construido)
 	for d in (mem.get("enemigos", []) as Array):
 		# zona < 0 = la foto no sabe de que sala era (la rehizo un espejo tras caerse su dueño,
-		# ver Net._foto_de_mis_espejos): se le busca la mas cercana, o la sala no lo contaria en su
+		# ver Net.pisos._foto_de_mis_espejos): se le busca la mas cercana, o la sala no lo contaria en su
 		# aforo y pariria bichos de mas encima de los que ya estan.
 		var zona = _zona(int(d["zona"]))
 		if zona == null and int(d["zona"]) < 0:
@@ -2582,7 +2582,7 @@ func hay_sitio(reciclar: bool = true, forzar: bool = false) -> bool:
 	# MULTIJUGADOR (hito 5.2): este es el embudo por el que pasan la poblacion inicial, el goteo y
 	# los brotes (SpawnZone._nacer pregunta aqui antes de crear nada). Solo crea bichos el DUEÑO
 	# del piso; el que solo lo espeja no crea ninguno en local (los ve por Net).
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		return false
 	if _vivos_en_el_piso() < max_vivos():
 		return true
@@ -2777,7 +2777,7 @@ func _process(delta: float) -> void:
 # reloj de expedicion es otro y se irian en momentos distintos—; se entera porque desvanecer() acaba
 # en queue_free() y el _exit_tree del bicho ya llama a Net.enemigos.baja_enemigo, que difunde el despawn.
 func _pudrir_cadaveres() -> void:
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		return
 	for c in get_tree().get_nodes_in_group("corpse"):
 		if not is_instance_valid(c) or c.has_meta("es_espejo"):
@@ -2873,7 +2873,7 @@ func dev_brote_cercano() -> void:
 # Devuelve el motivo cuando no se puede, para que el boton lo cante en pantalla: sin esto, pulsar y
 # que no pase nada era indistinguible de un bug.
 func dev_forzar_jefe() -> String:
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		return "este piso lo simula el otro: que lo fuerce quien lo lleve"
 	if _boss_pos == Vector2.INF:
 		return "el piso %d no tiene jefe" % _piso_construido
@@ -2897,7 +2897,7 @@ func dev_forzar_jefe() -> String:
 # que veia salir los bichos de la pared SIN el temblor de aviso: un susto gratis en vez de la decision
 # de quedarse o largarse, que es justo la mecanica. Solo es FX, sin autoridad ni estado: si se pierde
 # un paquete no pasa nada. Cuelga de _geo para morir con el piso, como todo lo demas de aqui.
-# Lo llama Net._pintar_brote; el nacimiento de los bichos sigue viniendo replicado por su via de siempre.
+# Lo llama Net.pisos._pintar_brote; el nacimiento de los bichos sigue viniendo replicado por su via de siempre.
 # ============================================================
 #  LA PIEDRA QUE TIEMBLA: registro de lo que esta en obras
 # ============================================================

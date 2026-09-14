@@ -132,7 +132,7 @@ func boss_restante(piso: int) -> float:
 @rpc("any_peer", "call_remote", "reliable")
 func _boss_caido(piso: int) -> void:
 	Game.marcar_boss_derrotado(piso)
-	if Net.mi_piso() != piso:
+	if Net.pisos.mi_piso() != piso:
 		return
 	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if f != null and f.has_method("abrir_salidas"):

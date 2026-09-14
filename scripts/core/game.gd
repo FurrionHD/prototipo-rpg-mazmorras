@@ -1030,7 +1030,7 @@ func sumar_alboroto(cuanto: float) -> void:
 	# puede engendrar bichos por la pared: ver dungeon_floor.hay_sitio). En un espejo, acumularlo
 	# solo desincroniza. Antes esto era un `if Net.activo: return` seco, que mataba la mecanica
 	# entera en sesion: el medidor nunca subia y no salia un solo brote en toda una expedicion.
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		return
 	if en_pueblo():
 		return
@@ -1347,7 +1347,7 @@ func olvidar_mazmorra() -> void:
 #     solo, pero el que estas pisando al salir por la puerta no se guardaba nunca. Con la mazmorra
 #     persistente ese es el caso mas comun (bajas al 4, tiras cosas y te vuelves andando: el 4 quedaba
 #     guardado y el 1, por el que sales, nacia repoblado).
-#     En sesion esto no se hace: alli la foto la saca Net._foto_de_mi_piso y se la queda el host.
+#     En sesion esto no se hace: alli la foto la saca Net.pisos._foto_de_mi_piso y se la queda el host.
 #  2. Apaga el ALBOROTO. El jaleo es de la bajada, no del piso: si se quedara puesto, volver a entrar
 #     te reventaria una pared en la cara por el escandalo que armaste hace media hora.
 func cerrar_bajada() -> void:
@@ -1597,7 +1597,7 @@ var semilla_mundo: int = 0
 # bajar NO rebaraja nada. Lo que si rebaraja es el respawn de una celda concreta, que lleva su
 # propio nonce (ver DungeonFloor._material_del_sitio).
 #
-# MULTIJUGADOR: manda la del host y viaja con el resto del estado de expedicion (Net._entrar_ok).
+# MULTIJUGADOR: manda la del host y viaja con el resto del estado de expedicion (Net.pisos._entrar_ok).
 var epoca_mazmorra: int = 0
 
 
@@ -2948,10 +2948,10 @@ func morir_jugador() -> void:
 	# delante de las narices. Y ademas nadie recoge el relevo de la simulacion.
 	#
 	# La mazmorra COMPARTIDA no se olvida por que caiga uno: eso pasa cuando habeis caido TODOS (ver
-	# Net._registrar_muerte). Va ANTES de olvidar_mazmorra, que es quien vacia la memoria local de la
+	# Net.pisos._registrar_muerte). Va ANTES de olvidar_mazmorra, que es quien vacia la memoria local de la
 	# que sale la foto que se le pasa al que sigue dentro.
 	if Net.activo:
-		Net.morir_en_la_mazmorra()
+		Net.pisos.morir_en_la_mazmorra()
 
 	# Tu expedicion se acaba: vuelves al piso 1 y la mazmorra se olvida de lo que dejaste. En sesion
 	# esto solo tira TU cache local (la mazmorra de verdad la lleva el host).
@@ -6176,7 +6176,7 @@ func volver_al_pueblo_con_objeto(c: ConsumableData) -> bool:
 		Net.anunciar_retorno(c.piso_max_vuelta, player_nombre)
 		capturar_mapa()
 		comprometer_mapa()
-		Net.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
+		Net.pisos.viajar_al_pueblo()   # se lleva la foto, suelta el piso, avisa al host y anuncia el lugar
 		return true
 	# Misma secuencia que la puerta del piso del boss (dungeon_exit.interact_with_player): vuelves
 	# VIVO, asi que lo cartografiado esta bajada SE COMETE al mapa permanente. Y como en todas las
@@ -6232,7 +6232,7 @@ func aceptar_oferta_retorno() -> bool:
 	# Exactamente el mismo camino que el que gasto la piedra (y que la puerta del pueblo).
 	capturar_mapa()
 	comprometer_mapa()
-	Net.viajar_al_pueblo()
+	Net.pisos.viajar_al_pueblo()
 	return true
 
 # Estudia un grimorio: aprendes su hechizo y el libro se gasta. Si YA te lo sabias no se gasta: un
@@ -12439,7 +12439,7 @@ func dev_brote() -> void:
 	# Solo quien SIMULA el piso puede parir bichos. Pulsada desde un espejo, el aviso de pared se
 	# pintaba en todas las pantallas y luego no nacia nada (el gate esta en dungeon_floor.hay_sitio):
 	# un brote fantasma que hacia perder el tiempo buscando el bug donde no estaba.
-	if not Net.simulo_mi_piso():
+	if not Net.pisos.simulo_mi_piso():
 		print("[dev] este piso lo simula el otro: que pulse B quien lo lleve")
 		return
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")

@@ -91,7 +91,7 @@ func _bajar(piso: int) -> void:
 	# current_floor, entrada_por_atajo, olvidar_mazmorra y el cambio de escena.
 	if Net.activo:
 		Game.cerrar_menu(self)
-		Net.solicitar_entrar(maxi(1, piso))
+		Net.pisos.solicitar_entrar(maxi(1, piso))
 		return
 	# Igual que entrar por la boca (door.gd). Lo unico distinto es por que piso empiezas: la mazmorra
 	# NO se olvida (los pisos siguen como los dejaste; ver el comentario de door.gd).

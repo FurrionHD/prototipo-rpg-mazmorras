@@ -15,7 +15,7 @@
 #
 #  EL CICLO (todo lo decide el host):
 #    - Al abrir la sala se lanza uno de RESERVA, que espera en una escena vacia.
-#    - Alguien entra a un piso sin dueño -> se le da a un trabajador de reserva (Net._entrar_ok con
+#    - Alguien entra a un piso sin dueño -> se le da a un trabajador de reserva (Net.pisos._entrar_ok con
 #      dueño=true y la foto congelada) y se lanza otro de repuesto. Si no hay ninguno listo, el dueño es
 #      el humano, como siempre: nunca queda peor que antes.
 #    - El piso se queda sin humanos -> se le pide la FOTO, se congela en _fotos_piso y el trabajador
@@ -80,7 +80,7 @@ func _process(delta: float) -> void:
 				mejor = d
 				estado = "%s%s" % [str(e.get("_state")), " (pelea)" if e.get("_combat_triggered") else ""]
 		humanos.append("peer %d a %.0f px de un enemigo en estado %s" % [id, mejor, estado])
-	print("[trabajador] piso %d: %d enemigos | %s" % [Net.mi_piso(), enemigos.size(),
+	print("[trabajador] piso %d: %d enemigos | %s" % [Net.pisos.mi_piso(), enemigos.size(),
 		", ".join(humanos) if not humanos.is_empty() else "sin humanos a la vista"])
 
 
@@ -132,18 +132,18 @@ func me_han_soltado(motivo: String) -> void:
 # alguien entra mientras la foto viaja, el host la descarta y sigo siendo el dueño.
 @rpc("authority", "call_remote", "reliable")
 func _dame_foto(piso: int) -> void:
-	if Net.mi_piso() != piso or not Net._soy_dueno:
+	if Net.pisos.mi_piso() != piso or not Net._soy_dueno:
 		_foto.rpc_id(1, piso, {})
 		return
-	_foto.rpc_id(1, piso, Net._foto_de_mi_piso())
+	_foto.rpc_id(1, piso, Net.pisos._foto_de_mi_piso())
 
 
 # El host se ha quedado la foto: a la reserva, a esperar otro piso.
 @rpc("authority", "call_remote", "reliable")
 func _a_la_reserva() -> void:
-	print("[trabajador] piso %d congelado: vuelvo a la reserva" % Net.mi_piso())
+	print("[trabajador] piso %d congelado: vuelvo a la reserva" % Net.pisos.mi_piso())
 	Net._soy_dueno = false
-	Net._olvidar_mis_enemigos()
+	Net.pisos._olvidar_mis_enemigos()
 	Game.memoria_pisos.clear()
 	get_tree().change_scene_to_node(Node.new())
 	Net.anunciar_lugar(ARG)
@@ -264,7 +264,7 @@ func asegurar_dueno(piso: int) -> bool:
 	if not Net.es_host or piso < 1:
 		return false
 	var actual: int = Net._dueno_piso.get(piso, 0)
-	if actual != 0 and Net._sigue_en(actual, piso):
+	if actual != 0 and Net.pisos._sigue_en(actual, piso):
 		return es_trabajador(actual)
 	var w := 0
 	for id in _estado:
@@ -279,7 +279,7 @@ func asegurar_dueno(piso: int) -> bool:
 	Net._viajando[w] = piso
 	var mem: Dictionary = Net._fotos_piso.get(piso, {})
 	Net._fotos_piso.erase(piso)
-	Net._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, true, mem, Net._restantes_boss(),
+	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, true, mem, Net.pisos._restantes_boss(),
 		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
 	print("[trabajadores] el piso %d lo simula el peer %d" % [piso, w])
 	_rellenar_reserva()
@@ -294,7 +294,7 @@ func revisar_vacio(piso: int, salvo: int = 0) -> void:
 	var w: int = Net._dueno_piso.get(piso, 0)
 	if not es_trabajador(w):
 		return
-	if Net._alguien_en(piso, salvo) != 0:
+	if Net.pisos._alguien_en(piso, salvo) != 0:
 		return
 	_dame_foto.rpc_id(w, piso)
 
@@ -307,7 +307,7 @@ func _foto(piso: int, foto: Dictionary) -> void:
 	if int(_estado.get(w, -1)) != piso:
 		return
 	# Alguien ha entrado mientras la foto venia: el trabajador sigue, la foto sobra.
-	if Net._alguien_en(piso, 0) != 0:
+	if Net.pisos._alguien_en(piso, 0) != 0:
 		return
 	# Una foto vacia es "no la tengo", no "piso vacio" (esa trae la clave aunque sea sin bichos).
 	if not foto.is_empty() or not Net._fotos_piso.has(piso):

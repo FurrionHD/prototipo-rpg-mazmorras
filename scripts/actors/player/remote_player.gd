@@ -12,7 +12,7 @@
 #  "player" a proposito: medio codigo hace get_first_node_in_group("player") dando por hecho que
 #  solo hay uno, el MIO.
 #
-#  La posicion llega por RPC (Net._recibir_estado) a un ritmo de red: entre paquete y paquete se
+#  La posicion llega por RPC (Net.pisos._recibir_estado) a un ritmo de red: entre paquete y paquete se
 #  INTERPOLA hacia el ultimo objetivo para que no se vea a tirones.
 # ============================================================
 
@@ -368,7 +368,7 @@ func _faena_golpe_remoto(tipo: int) -> void:
 		return
 	var ruidos: Array = r["ruido"]
 	hacer_ruido(float(ruidos[clampi(tipo, 0, ruidos.size() - 1)]), _FAENA.RUIDO_DUR)
-	if Net.simulo_mi_piso():
+	if Net.pisos.simulo_mi_piso():
 		Game.sumar_alboroto(float(r.get("alboroto", 0.0)))
 
 

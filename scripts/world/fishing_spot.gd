@@ -60,7 +60,7 @@
 #  UN PEZ SOLO LO PESCA UNO: el que esta enganchado lleva de QUIEN es. Para los demas rebota como si
 #  no estuviera, y en el espejo se pinta mas claro — ves como tu compañero lo esta peleando.
 #
-#  En SOLITARIO no cambia nada: Net.simulo_mi_piso() devuelve true y todo corre como siempre.
+#  En SOLITARIO no cambia nada: Net.pisos.simulo_mi_piso() devuelve true y todo corre como siempre.
 #
 #  EL AGUA NO SE PINTA AQUI. La pinta el TileMapLayer del piso, con la MISMA capa "agua" que el
 #  riachuelo (ver Decorado._trazar_lago): por eso el charco tiene forma, ondas y orilla, y por eso
@@ -293,7 +293,7 @@ var _t_corcho: float = 0.0
 
 # ¿Simulo YO este charco? En solitario siempre. En multi, solo el dueño del piso.
 func _soy_dueno() -> bool:
-	return Net.simulo_mi_piso()
+	return Net.pisos.simulo_mi_piso()
 
 
 func _ready() -> void:

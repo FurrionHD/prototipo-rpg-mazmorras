@@ -55,14 +55,14 @@ func interact_with_player() -> void:
 	# entra la abre; el que llega despues se une sin resetear nada al que ya esta dentro; el ultimo
 	# que sale la cierra. Los ATAJOS tambien valen aqui: el menu es el mismo que en solitario y la
 	# lista ya incluye los del mundo del host (ver Game.pisos_desbloqueados). Lo que cambia es quien
-	# ejecuta el viaje: Net.solicitar_entrar(piso), que es el que reparte los dueños de piso.
+	# ejecuta el viaje: Net.pisos.solicitar_entrar(piso), que es el que reparte los dueños de piso.
 	if Net.activo:
 		if _destination == dungeon_path:
 			var menu_net: Node = get_tree().get_first_node_in_group("floor_menu")
 			if Game.pisos_desbloqueados().size() > 1 and menu_net != null and menu_net.has_method("abrir"):
 				menu_net.abrir()
 				return
-			Net.solicitar_entrar()
+			Net.pisos.solicitar_entrar()
 		else:
 			# Volver a casa con vida: se captura el mapa y se COMETE, lo seas o no host. El gate
 			# "solo el host" que habia aqui sobraba: comprometer_mapa ya distingue por dentro y en
@@ -71,7 +71,7 @@ func interact_with_player() -> void:
 			# asi que su mapa solo cambiaba al reconectar.
 			Game.capturar_mapa()
 			Game.comprometer_mapa()
-			Net.viajar_al_pueblo()
+			Net.pisos.viajar_al_pueblo()
 		return
 	# Entrar a la mazmorra = EXPEDICION NUEVA: siempre se empieza por el piso 1. La
 	# profundidad vive en el autoload Game y no se reinicia sola, asi que al volver al

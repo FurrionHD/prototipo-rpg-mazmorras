@@ -676,7 +676,7 @@ func refrescar_grupo() -> void:
 	#     caras de detras: si no, hay un instante con dos iguales.
 	#
 	# Las dos son no-op sin sesion, y reparten a TODOS los peers (no asumen un solo invitado).
-	Net.anunciar_aspecto()
+	Net.pisos.anunciar_aspecto()
 	Net.anunciar_grupo()
 	# Y sus imbuiciones: al cambiar el equipo cambia QUIEN va en cada hueco, asi que el paquete de
 	# imbuiciones (que va por posicion) se queda desfasado si no se reemite aqui tambien.

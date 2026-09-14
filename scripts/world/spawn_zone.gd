@@ -78,7 +78,7 @@ var prob_brote: float = 0.01    # ~1 de cada 100 partos (brote espontaneo; el go
 # imposible. En multi cuenta tambien el grupo del otro humano si esta en este piso: con Game.party
 # a secas el brote salia PEQUEÑO justo cuando estabais dos, que es cuando deberia dar mas.
 func brote_tamano() -> int:
-	return mini(Enemy.MAX_COMBATIENTES, Net.personajes_en_mi_piso() + 1)
+	return mini(Enemy.MAX_COMBATIENTES, Net.pisos.personajes_en_mi_piso() + 1)
 
 # Enemigos vivos que ha parido ESTA zona. Sin tipar el elemento: los enemigos exponen
 # metodos propios (esta_muerto) que un Array[Node] no dejaria llamar.
@@ -210,7 +210,7 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_rec
 	# MULTIJUGADOR: el que solo ESPEJA este piso no tiene zonas vivas (muere en piso.hay_sitio), asi que
 	# sin esto veia salir los bichos de una pared lisa, sin el temblor: el brote se le comia de golpe.
 	if Net.activo:
-		Net.anunciar_brote(paredes_px, dur, amp, col)
+		Net.pisos.anunciar_brote(paredes_px, dur, amp, col)
 
 	_fx_t = dur
 	_fx_brote = brote

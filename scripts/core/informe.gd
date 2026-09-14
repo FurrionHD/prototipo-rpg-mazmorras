@@ -159,7 +159,7 @@ static func _cabecera(L: Array[String]) -> void:
 			Net.multiplayer.get_unique_id() if Net.multiplayer.multiplayer_peer != null else 0])
 		L.append("  identidad ........ %s (%s)" % [Identidad.id, Identidad.nombre])
 		L.append("  mi lugar ......... %s" % str(Net.get("_mi_lugar")))
-		L.append("  ¿simulo mi piso?.. %s" % str(Net.simulo_mi_piso()))
+		L.append("  ¿simulo mi piso?.. %s" % str(Net.pisos.simulo_mi_piso()))
 		L.append("  epoca_sesion ..... %d" % Net.epoca_sesion)
 		L.append("  semilla_host ..... %d" % Net.semilla_host)
 	_oficios(L)
