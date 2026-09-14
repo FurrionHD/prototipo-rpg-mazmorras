@@ -27,7 +27,7 @@ var _espera_refuerzo := false
 # compañero que se une necesita exactamente esto y nada mas.
 func _anadir_bloque_aliado(c: Combatant) -> void:
 	var ba: Dictionary = _pantalla.figuras._crear_bloque(c, 0, -1)
-	_pantalla._crear_barras_aliado(ba, c)
+	_pantalla.efectos._crear_barras_aliado(ba, c)
 	_pantalla._bloques_aliados.append(ba)
 	_pantalla._aliados_box.add_child(ba["columna"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).

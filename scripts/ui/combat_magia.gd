@@ -412,7 +412,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			if not vivos_c.is_empty():
 				centro = vivos_c[vivos_c.size() / 2]
 		if centro != null:
-			_pantalla._fx_golpe(_pantalla._player, centro, 0.0, false, false, int(spell.elemento),
+			_pantalla.efectos._fx_golpe(_pantalla._player, centro, 0.0, false, false, int(spell.elemento),
 				spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.ARCANO,
 				3.0, true)
 	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
@@ -628,7 +628,7 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 		# LO QUE HA SUBIDO DE VERDAD, no lo que se pidio: con la vida casi llena la mitad se pierde,
 		# y cantar el numero pedido seria mentir en la unica linea que el jugador lee.
 		var real: float = c.current_hp - antes
-		_pantalla._fx_golpe(_pantalla._player, c, 0.0, false, false, int(spell.elemento),
+		_pantalla.efectos._fx_golpe(_pantalla._player, c, 0.0, false, false, int(spell.elemento),
 			spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, true)
 		partes.append("%s +%.0f" % [c.nombre, real])
 	_pantalla._set_log("✨ %s lanza %s.  %s" % [_pantalla._player.nombre, spell.nombre, "  ·  ".join(partes)])
@@ -718,7 +718,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		rebote: bool = false, tanda_base: int = 0) -> Dictionary:
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
-	var peso: float = _pantalla._peso_hechizo(spell, escala)
+	var peso: float = _pantalla.efectos._peso_hechizo(spell, escala)
 	var lanzador: Combatant = desde if desde != null else _pantalla._player
 	var multi: bool = n > 1
 	var total: float = 0.0
@@ -732,7 +732,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	for i in n:
 		if not objetivo.is_alive():
 			break   # ya ha caido: los golpes que quedaban se pierden
-		_pantalla._fx_tanda(tanda_base + i)
+		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var elem: int = spell.elemento_de_golpe(i, n)
 		var res: Dictionary = StatsMath.resolve_spell(_pantalla._player, objetivo, spell, elem, frac)
 		var dmg: float = float(res.damage) * foco
@@ -748,8 +748,8 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		# mano) sin ser rebote, que es la otra cosa que trae 'desde'. Se pinta distinto: ver
 		# _estilo_salpicon.
 		var es_salpicon: bool = desde != null and not rebote
-		_pantalla._fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
-			_pantalla._estilo_hechizo(spell, elem, rebote, es_salpicon), peso, false, "",
+		_pantalla.efectos._fx_golpe(lanzador, objetivo, dmg, bool(res.get("crit", false)), false, elem,
+			_pantalla.efectos._estilo_hechizo(spell, elem, rebote, es_salpicon), peso, false, "",
 			AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
 		_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
 		total += dmg
@@ -815,13 +815,13 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 			# uno y de ahi alcanza a sus vecinos (ver _resolver_hechizo, misma regla).
 			# La bola y SU salpicon son el mismo instante: cae en uno y revienta, no va tocando
 			# vecinos de uno en uno. Cada bola (i) si es su propia tanda. Ver _fx_tanda.
-			_pantalla._fx_tanda(i)
+			_pantalla.efectos._fx_tanda(i)
 			# Igual que en _resolver_golpes_hechizo: al vecino le llega la ONDA de lo que ha
 			# reventado en el principal, no otra bola. Ver _estilo_salpicon.
-			_pantalla._fx_golpe(_pantalla._player if obj == principal else principal, obj, dmg,
+			_pantalla.efectos._fx_golpe(_pantalla._player if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
-				_pantalla._estilo_hechizo(spell, elem, false, obj != principal),
-				_pantalla._peso_hechizo(spell, float(t.escala)), false, "",
+				_pantalla.efectos._estilo_hechizo(spell, elem, false, obj != principal),
+				_pantalla.efectos._peso_hechizo(spell, float(t.escala)), false, "",
 				AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
 			_pantalla._apuntar_dano(obj, dmg, _pantalla._player)   # contador oculto de Cazador
 			if not acc.has(obj):

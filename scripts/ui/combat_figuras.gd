@@ -234,7 +234,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	# de seleccion en toda esa mitad.
 	hp.mouse_filter = Control.MOUSE_FILTER_PASS
 	vb.add_child(hp)
-	var hp_lbl: Label = _pantalla._crear_label_barra(hp, 13)
+	var hp_lbl: Label = _pantalla.efectos._crear_label_barra(hp, 13)
 
 	if numero > 0:
 		panel.gui_input.connect(_on_bloque_gui_input.bind(idx))

@@ -256,7 +256,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# TODO lo de este golpe cae a la vez, alcance a uno o a cuatro: un molinete es UN barrido por
 	# golpe, no un golpecito por bicho. La resolucion sigue yendo objetivo a objetivo; lo unico que
 	# se agrupa es como se ve (ver _fx_tanda).
-	_pantalla._fx_tanda(i)
+	_pantalla.efectos._fx_tanda(i)
 	# Manda lo que pida la habilidad (fx_estilo) y, si no pide nada, el gesto del arma con la que
 	# esta pegando. Igual que la rata, que muerde le salga la tecnica o no.
 	#
@@ -270,14 +270,14 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# el suyo (ver AbilityData.es_toda_de_escudo). La Embestida se da toda con el escudo pero no es un
 	# escudazo -- es una carga con el hombro detras --, y sin esto no habia forma de que lo enseñara.
 	# El Golpe de escudo, que si es un escudazo y punto, no pide nada y se queda con el respaldo.
-	var estilo_ab: int = _pantalla._estilo_de_habilidad(ab, _pantalla._player)
+	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
 	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
-		_pantalla._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab)
+		_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab)
 		return r
 	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala
 	r.dmg = dmg
@@ -291,7 +291,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if ab.robo_vida > 0.0:
 		r.robado = dmg * ab.robo_vida
 		_pantalla._player.heal(r.robado)
-	_pantalla._fx_golpe(_pantalla._player, objetivo, dmg, result.crit, false,
+	_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, dmg, result.crit, false,
 		_pantalla._player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab)
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
 	r.mana = _pantalla._ganar_mana_golpe()       # cada golpe que conecta repone maná

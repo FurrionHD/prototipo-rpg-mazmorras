@@ -126,13 +126,13 @@ func _enemy_turn(e: Combatant) -> void:
 	# COMO PEGA ESTE BICHO a secas. Este es EL OTRO CAMINO del golpe enemigo: sin habilidad de por
 	# medio, asi que el estilo sale entero del Combatant (EnemyData.fx_basico). Hay que ponerlo en
 	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
-	var estilo_bas: int = _pantalla._estilo_de_habilidad(null, e)
+	var estilo_bas: int = _pantalla.efectos._estilo_de_habilidad(null, e)
 	var result := StatsMath.resolve_attack(e, obj, defendiendo)
 	_pantalla._debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
 		# El "FALLA" se apunta aqui arriba y no en cada rama: por debajo esto se bifurca en
 		# esquiva a secas y esquiva-con-contraataque, y el golpe fallado es el mismo en las dos.
-		_pantalla._fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo_bas)
+		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo_bas)
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
 		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _pantalla._reto(e, pj_obj), Game.GAIN_AGILIDAD_ESQUIVAR,
@@ -164,7 +164,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	obj.take_damage(dmg)
-	_pantalla._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
+	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
 		1.0, false, "", AbilityData.Gesto.AUTO, &"", 0, float(result.get("mult_elem", 1.0)))
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
@@ -291,23 +291,23 @@ func _elem_encima(e: Combatant) -> int:
 func _fx_sobre_mi(ab: AbilityData) -> void:
 	if ab == null or ab.fx_sobre_mi < 0 or _pantalla._fx == null:
 		return
-	_pantalla._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
-	_pantalla._fx_golpe(_pantalla._player, _pantalla._player, 0.0, false, false, _elem_encima(_pantalla._player),
+	_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
+	_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._player, 0.0, false, false, _elem_encima(_pantalla._player),
 		ab.fx_sobre_mi, 1.3, true)
 
 
 func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	if ab == null or ab.dano_mult > 0.0:
 		return
-	var estilo: int = _pantalla._estilo_de_habilidad(ab, e)
+	var estilo: int = _pantalla.efectos._estilo_de_habilidad(ab, e)
 	if estilo == CombatFX.Estilo.MELEE:
 		return   # sin dibujo propio: un empujon de tarjeta sin golpe no se ve, y mejor asi
 	# Estas son las que MAS piden sonido: un bramido o un caparazon no hacen ni un punto de daño y
 	# aun asi tienen que oirse. Por eso CombatFX dispara el sonido ANTES de descartar los adornos.
-	var sfx: String = _pantalla._clave_sfx(ab)
+	var sfx: String = _pantalla.efectos._clave_sfx(ab)
 	var el: int = _elem_encima(e)
 	if CombatFX.SOBRE_SI_MISMO.has(estilo):
-		_pantalla._fx_golpe(e, e, 0.0, false, false, el, estilo, 1.3, true, sfx)
+		_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, el, estilo, 1.3, true, sfx)
 		return
 	# LAS DE APOYO (objetivo_aliado ALIADO/GRUPO -- Muro de aliados, Grito de aliento, Purificar...)
 	# van sobre QUIEN LAS RECIBE, no sobre 'obj'. 'obj' es el enemigo que tengas seleccionado (el que
@@ -319,19 +319,19 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	# tiene "principal" que golpear, va a TODOS por igual.
 	if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
 		for al in _pantalla._aliados_vivos():
-			_pantalla._fx_golpe(e, al, 0.0, false, false, el, estilo, 1.0, true, sfx)
+			_pantalla.efectos._fx_golpe(e, al, 0.0, false, false, el, estilo, 1.0, true, sfx)
 		return
 	if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
-		_pantalla._fx_golpe(e, _pantalla._hab_objetivo_aliado(), 0.0, false, false, el, estilo, 1.0, true, sfx)
+		_pantalla.efectos._fx_golpe(e, _pantalla._hab_objetivo_aliado(), 0.0, false, false, el, estilo, 1.0, true, sfx)
 		return
 	if obj == null:
 		return
 	if ab.es_area():
 		for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
-			_pantalla._fx_golpe(e, o["c"], 0.0, false, false, el, estilo,
+			_pantalla.efectos._fx_golpe(e, o["c"], 0.0, false, false, el, estilo,
 				float(o["escala"]), true, sfx)
 	else:
-		_pantalla._fx_golpe(e, obj, 0.0, false, false, el, estilo, 1.0, true, sfx)
+		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, false, el, estilo, 1.0, true, sfx)
 
 
 func _invocacion_lista(e: Combatant) -> AbilityData:
@@ -491,8 +491,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# el hueco donde nace el secuaz, con su mismo color. Sin esto los slimes aparecian de la
 			# nada y no se leia que habian salido de su masa, que es toda la gracia de la habilidad.
 			# Cada gota en SU tanda, para que las dos no salgan pegadas.
-			_pantalla._fx_tanda(_k)
-			_pantalla._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
+			_pantalla.efectos._fx_tanda(_k)
+			_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
 				CombatFX.Estilo.ESCUPITAJO, 1.2, true)
 		_pantalla._update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
@@ -582,24 +582,24 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# tecnica. Se saca UNA vez, fuera del bucle: es el mismo para todos sus golpes. Tambien se usa
 	# en los que FALLAN, para que un escupitajo esquivado se vea salir y pasar de largo en vez de
 	# convertirse en un empujon de tarjeta.
-	var estilo_ab: int = _pantalla._estilo_de_habilidad(ab, e)
+	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, e)
 	# Y EL SONIDO igual: el suyo si lo tiene, y si no el generico de su estilo. Tambien fuera del
 	# bucle, y tambien en los que fallan -- un escupitajo esquivado se oye salir.
-	var sfx_ab: String = _pantalla._clave_sfx(ab)
+	var sfx_ab: String = _pantalla.efectos._clave_sfx(ab)
 	# QUE HACE SU CUERPO. Tambien fuera del bucle: el gesto es de la ACCION entera, no de cada golpe
 	# (el Frenesi es una racha de seis mordiscos, pero la rata ataca desde su sitio UNA vez, no seis
 	# veces cada una a su aire).
-	var gesto_ab: int = _pantalla._gesto_de_habilidad(ab)
+	var gesto_ab: int = _pantalla.efectos._gesto_de_habilidad(ab)
 	var anim_ab: StringName = ab.fx_anim if ab != null else &""
 	for i in n_golpes:
-		_pantalla._fx_tanda(tanda_base + i)
+		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
-			_pantalla._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
+			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
 			if t.en_guardia and permitir_contra and contra == "":
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
@@ -619,7 +619,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 				var cur: float = dmg * ab.robo_vida
 				e.heal(cur)
 				robado += cur
-			_pantalla._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false,
+			_pantalla.efectos._fx_golpe(e, t, dmg, result.crit, false, e.elemento_ataque, estilo_ab, 1.0, false,
 				sfx_ab, gesto_ab, anim_ab, 0, float(result.get("mult_elem", 1.0)))
 			# Igual que en el golpe basico: si el manto ha recortado el daño, se cobra la carga.
 			# El tope por accion hace que una habilidad de cinco golpes cueste una, no cinco.
@@ -773,8 +773,8 @@ func _soltar_contraataques() -> void:
 		return
 	for c in _contras_pendientes:
 		# Una tanda nueva por contraataque: caen uno detras de otro, no todos a la vez.
-		_pantalla._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
-		_pantalla._fx_golpe(c["a"], c["v"], float(c["dmg"]), bool(c["crit"]), bool(c["evadido"]),
+		_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
+		_pantalla.efectos._fx_golpe(c["a"], c["v"], float(c["dmg"]), bool(c["crit"]), bool(c["evadido"]),
 			int(c["elem"]), int(c["estilo"]))
 	_contras_pendientes.clear()
 
@@ -824,7 +824,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	# EL GESTO DEL ARMA que contraataca. Se lee DESPUES de fijar la mano principal, que es la que
 	# devuelve el golpe. Sin esto, el riposte caia en el MELEE de siempre, o sea que no dibujaba
 	# NADA: el bicho fallaba, se comia un contraataque y en pantalla no pasaba nada.
-	var estilo: int = _pantalla._estilo_de_habilidad(null, quien)
+	var estilo: int = _pantalla.efectos._estilo_de_habilidad(null, quien)
 	var result := StatsMath.resolve_attack(quien, atacante, false)
 	_pantalla._debug_ataque(quien, atacante, result, false)
 	# COMO EMPIEZA LA FRASE. Se arma aqui y no en cada return porque las dos ramas (el riposte que
