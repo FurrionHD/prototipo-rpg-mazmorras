@@ -1115,6 +1115,34 @@ func volcar_desgaste_en_ficha(pj: PersonajeData) -> void:
 # La IMBUICION que quede al salir de la pelea se queda en la ficha: dura ENTRE combates. Se llama
 # desde los dos caminos de salida -- el cierre normal (_on_combat_finished) y la huida individual
 # (volcar_desgaste_en_ficha) -- porque si solo estuviera en uno, escapar te la borraria.
+# IMBUIR A ALGUIEN DESDE EL MAPA (fuera de combate). Devuelve el elemento que se le ha puesto.
+#
+# Las cargas viven en el Combatant, que es de la pelea, pero la imbuicion PERSISTE entre combates por
+# diseño (ver guardar_imbue_en_ficha) y la ficha tiene su hueco. Asi que se monta un Combatant de usar
+# y tirar que sabe aplicarla y de ahi a la ficha: sin una segunda implementacion que se desincronice
+# con la de combat._aplicar_imbuicion, que es la que manda.
+#
+# Vive aqui y no en el player porque la usan DOS maquinas: la del que la lanza a los suyos, y en multi
+# la del dueño del personaje cuando se la pone otro jugador (ver Net._imbuirte).
+func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) -> int:
+	var cuerpo: bool = spell.imbue_tipo == 2
+	# UNA sola pregunta por el elemento, como en combat._aplicar_imbuicion: los que van al azar dan
+	# uno distinto cada vez que se les pregunta, y el aviso tiene que decir el que se ha puesto.
+	var elem_id: int = spell.elemento_imbuido()
+	var c := Combatant.new(pj.nombre, 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
+	c.aplicar_imbue(elem_id, spell.imbue_pct, spell.imbue_usos, cuerpo,
+		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad,
+		0.0, false, spell.imbue_spd_mult)
+	guardar_imbue_en_ficha(c, pj)
+	print("[imbuicion] %s imbuye %s de %s a %s desde el mapa: +%d%% durante %d cargas" % [
+		lanzador, ("el CUERPO" if cuerpo else "el ARMA"), Elementos.nombre(elem_id), pj.nombre,
+		roundi(spell.imbue_pct * 100.0), spell.imbue_usos])
+	# Y que se le vea el rastro a los demas: la imbuicion tiene su propio canal de red, y sin esto en
+	# la pantalla del compañero seguiria sin teñir hasta el siguiente combate.
+	Net.anunciar_imbue()
+	return elem_id
+
+
 func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 	if c == null or pj == null:
 		return

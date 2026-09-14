@@ -1046,6 +1046,59 @@ func _imbue_en(elems: PackedInt32Array, i: int) -> int:
 	return int(elems[i]) if i >= 0 and i < elems.size() else Elementos.Elemento.NINGUNO
 
 
+# --- IMBUIR AL PERSONAJE DE OTRO JUGADOR (Mantos fuera de combate) ----------------------------
+# La ficha de ese personaje vive en la maquina de su dueño, asi que se aplica ALLI. Viaja la ruta del
+# hechizo y a quien: 'idx' en el orden [lider] + companeros() (el de _mis_imbues) y el nombre como
+# comprobacion, por si su grupo ha cambiado entre medias. El mana ya lo cobro quien lo recito.
+func imbuir_a_otro(spell: SpellData, peer: int, idx: int, nombre: String) -> void:
+	if not activo or spell == null or peer == 0:
+		return
+	var lanzador: String = Game.lider().nombre
+	if es_host:
+		_imbuirte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador)
+	else:
+		_rel_imbuir.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_imbuir(peer: int, ruta: String, idx: int, nombre: String, lanzador: String) -> void:
+	if not es_host:
+		return
+	if peer == _mi_id():
+		_imbuirte(ruta, idx, nombre, lanzador)
+	elif _peers.has(peer):
+		_imbuirte.rpc_id(peer, ruta, idx, nombre, lanzador)
+
+
+# Corre en el DUEÑO del personaje.
+@rpc("authority", "call_remote", "reliable")
+func _imbuirte(ruta: String, idx: int, nombre: String, lanzador: String) -> void:
+	var spell = load(ruta) if ruta.begins_with("res://") else null
+	if not (spell is SpellData) or not (spell as SpellData).es_imbuicion():
+		return
+	# Metido en una pelea, la ficha la lleva el combate y la pisaria al cerrarse: no se aplica.
+	if Game.hay_pelea_en_pantalla():
+		_toast("✨ %s intentó ponerte %s, pero estabas peleando." % [lanzador, (spell as SpellData).nombre])
+		return
+	var grupo: Array = [Game.lider()]
+	grupo.append_array(Game.companeros())
+	var pj: PersonajeData = null
+	if idx >= 0 and idx < grupo.size() and (grupo[idx] as PersonajeData).nombre == nombre:
+		pj = grupo[idx]
+	else:
+		for g in grupo:
+			if (g as PersonajeData).nombre == nombre:
+				pj = g
+				break
+	if pj == null:
+		return
+	if int((spell as SpellData).imbue_tipo) == 1 and pj.equipped_main == null:
+		return   # a manos vacias no hay acero que teñir
+	var elem: int = Game.imbuir_desde_mapa(spell, pj, lanzador)
+	var quien: String = "te pone" if pj == Game.lider() else "le pone a %s" % pj.nombre
+	_toast("✨ %s %s %s (%s)." % [lanzador, quien, (spell as SpellData).nombre, Elementos.nombre(elem)])
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_imbue(elems: PackedInt32Array) -> void:
 	if not es_host:

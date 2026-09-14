@@ -30,7 +30,9 @@ const GloboCasteoS = preload("res://scripts/ui/globo_casteo.gd")
 # 'destino' es a QUIEN de los tuyos va, y solo lo llevan las IMBUICIONES: esas no se disparan contra
 # nadie, se le ponen a un compañero (o a ti). Para el resto de hechizos es null y manda 'objetivo',
 # que es el bicho.
-signal lanzado(spell: SpellData, objetivo: Node, destino: PersonajeData)
+# 'destino': un PersonajeData de mi grupo, o en multi un Dictionary {peer, idx, nombre} con el personaje
+# de OTRO jugador (ver _candidatos_imbue).
+signal lanzado(spell: SpellData, objetivo: Node, destino: Variant)
 # Se ha fallado una frase: backfire ya aplicado (daño y mana). 'muerto' = te ha matado.
 signal fallado(spell: SpellData, dano: float, muerto: bool)
 # Se ha cerrado sin cantar nada (Volver, o interrumpido): no se ha cobrado nada.
@@ -69,7 +71,7 @@ var _spell: SpellData = null
 # A QUIEN DE LOS TUYOS va la imbuicion. null = el hechizo va contra el bicho de _objetivo, como
 # siempre. Se elige en un paso intermedio, entre escoger el hechizo y ponerse a recitar, igual que
 # en combate (ver combat._elegir_objetivo_aliado).
-var _destino_pj: PersonajeData = null
+var _destino_pj = null   # PersonajeData, o Dictionary si es de otro jugador (ver lanzado)
 var _frase: int = 0                 # por que frase vamos (0 = ninguna recitada aun)
 var _cerrado: bool = false
 
@@ -177,7 +179,7 @@ func _menu_hechizos() -> void:
 			# pueblo. Lo unico que hace falta es que haya a quien ponersela.
 			if _candidatos_imbue(sp).is_empty():
 				b.disabled = true
-				b.tooltip_text = "⛔ Nadie de tu grupo lleva arma que teñir\n\n%s" % b.tooltip_text
+				b.tooltip_text = "⛔ Nadie lleva arma que teñir\n\n%s" % b.tooltip_text
 		elif not is_instance_valid(_objetivo):
 			# Y las de ATAQUE si lo necesitan. Antes esto no se podia ni ver: sin bicho a tiro el panel
 			# no llegaba a abrirse (ver player._abrir_casteo), asi que no habia forma de imbuirse
@@ -236,6 +238,24 @@ func _candidatos_imbue(sp: SpellData) -> Array:
 		if int(sp.imbue_tipo) == 1 and p.equipped_main == null:
 			continue
 		out.append(p)
+	# MULTIJUGADOR: los otros jugadores que tengas en tu mismo sitio, y los suyos. Un Manto es de apoyo, y
+	# no poder ponerselo al compañero era lo raro (playtest del 11/09/2026). Van como diccionario: su
+	# ficha vive en SU maquina, y alli se aplica (ver Net.imbuir_a_otro). El orden es el de su grupo,
+	# [lider] + companeros(), el mismo del canal de imbuiciones. No se ofrece a quien este peleando: su
+	# ficha esta dentro de la pelea y la pisaria al cerrarla.
+	if Net.activo:
+		for pid in Net._peers:
+			var peer: Dictionary = Net._peers[pid]
+			if String(peer.get("lugar", "")) != Net._mi_lugar or bool(peer.get("peleando", false)):
+				continue
+			var fichas: Array = [{"nombre": peer.get("nombre", "?"), "equipo": peer.get("equipo", {})}]
+			fichas.append_array(peer.get("comps", []) as Array)
+			for i in fichas.size():
+				var f: Dictionary = fichas[i]
+				if int(sp.imbue_tipo) == 1 and not (f.get("equipo", {}) as Dictionary).has("equipped_main"):
+					continue
+				out.append({"peer": int(pid), "idx": i, "nombre": String(f.get("nombre", "?")),
+					"jugador": String(peer.get("nombre", "?"))})
 	return out
 
 
@@ -243,6 +263,9 @@ func _menu_aliados(sp: SpellData, quienes: Array) -> void:
 	_vaciar()
 	var grid := _rejilla()
 	for pj_ in quienes:
+		if pj_ is Dictionary:
+			grid.add_child(_boton_de_otro(pj_ as Dictionary))
+			continue
 		var pj := pj_ as PersonajeData
 		var b := Button.new()
 		var corona: String = "👑 " if pj == Game.lider() else ""
@@ -267,6 +290,22 @@ func _menu_aliados(sp: SpellData, quienes: Array) -> void:
 	_panel.offset_top = _panel.offset_bottom \
 		- (filas * ALTO_BOTON + (filas - 1) * 10.0 + 12.0 + ALTO_BOTON_VOLVER) - 20.0
 	_globo_estado("🔮 %s · ¿a quién?" % sp.nombre, Color(0.75, 0.75, 0.9))
+
+
+# El boton de un personaje de OTRO jugador. Lo que lleve puesto no se sabe desde aqui (su ficha esta en
+# su maquina), asi que solo se avisa de que la nueva sustituye a la que tenga.
+func _boton_de_otro(d: Dictionary) -> Button:
+	var b := Button.new()
+	var es_el: bool = int(d.get("idx", 0)) == 0
+	b.text = String(d.get("nombre", "?")) if es_el 		else "%s  (de %s)" % [String(d.get("nombre", "?")), String(d.get("jugador", "?"))]
+	b.tooltip_text = "Otro jugador. Si ya lleva una imbuición, la nueva la sustituye."
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, ALTO_BOTON)
+	b.clip_text = true
+	b.pressed.connect(func() -> void:
+		_destino_pj = d
+		_mostrar_frase())
+	return b
 
 
 # La imbuicion que ese personaje lleva AHORA, en corto ("" si ninguna). La ficha guarda el dict
@@ -351,7 +390,7 @@ func _completar() -> void:
 	print("[casteo] %s lanza %s desde el mapa | -%.2f MP" % [_pj.nombre, _spell.nombre, coste])
 	var sp := _spell
 	var obj := _objetivo
-	var destino := _destino_pj
+	var destino = _destino_pj
 	_cerrar()
 	lanzado.emit(sp, obj, destino)
 

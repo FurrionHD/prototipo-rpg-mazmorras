@@ -1567,9 +1567,15 @@ func _lleva_imbuicion(pj: PersonajeData) -> bool:
 #
 # 'destino' solo viene en las IMBUICIONES: entonces no sale proyectil ni se abre pelea, se le pone al
 # personaje elegido y ya. Es la diferencia entera entre las dos ramas -- una imbuicion no vuela.
-func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: PersonajeData = null) -> void:
+func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) -> void:
 	_casteo = null
-	if destino != null:
+	# El personaje de OTRO jugador (multi): su ficha esta en su maquina, alli se le pone.
+	if destino is Dictionary:
+		var d: Dictionary = destino
+		Net.imbuir_a_otro(spell, int(d.get("peer", 0)), int(d.get("idx", 0)), String(d.get("nombre", "")))
+		_toast("✨ Le pones %s a %s." % [spell.nombre, String(d.get("nombre", "?"))])
+		return
+	if destino is PersonajeData:
 		_aplicar_imbuicion_mapa(spell, destino)
 		return
 	if not is_instance_valid(objetivo):
@@ -1597,25 +1603,11 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: PersonajeData = 
 # combat._aplicar_imbuicion, que es la que manda.
 func _aplicar_imbuicion_mapa(spell: SpellData, pj: PersonajeData) -> void:
 	var cuerpo: bool = spell.imbue_tipo == 2
-	# UNA sola pregunta por el elemento, como en combat._aplicar_imbuicion: los que van al azar dan
-	# uno distinto cada vez que se les pregunta, y el toast tiene que decir el que se ha puesto.
-	var elem_id: int = spell.elemento_imbuido()
-	var c := Combatant.new(pj.nombre, 1, Abilities.new(), 1.0, 0.0, 0.0, 0.0)
-	c.aplicar_imbue(elem_id, spell.imbue_pct, spell.imbue_usos, cuerpo,
-		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad,
-		0.0, false, spell.imbue_spd_mult)
-	Game.guardar_imbue_en_ficha(c, pj)
-	var elem: String = Elementos.nombre(elem_id)
 	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
-	print("[imbuicion] %s imbuye %s de %s a %s desde el mapa: +%d%% durante %s" % [
-		Game.lider().nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, pj.nombre,
-		roundi(spell.imbue_pct * 100.0), usos_txt])
+	var elem: String = Elementos.nombre(Game.imbuir_desde_mapa(spell, pj, Game.lider().nombre))
 	var quien_txt: String = "tu" if pj == Game.lider() else pj.nombre
 	_toast("✨ %s: %s de %s (%s)." % [
 		quien_txt, ("cuerpo" if cuerpo else "arma"), elem, usos_txt])
-	# Y que se le vea el rastro a los demas: la imbuicion tiene su propio canal de red, y sin esto en
-	# la pantalla del compañero seguiria sin teñir hasta el siguiente combate.
-	Net.anunciar_imbue()
 
 
 # El conjuro ha llegado: se abre la pelea a mi nombre (con la iniciativa de siempre) y el hechizo
