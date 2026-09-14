@@ -129,6 +129,10 @@ var expedicion_abierta := false    # solo fiable en el host
 # cada piso tiene UN DUEÑO, que es quien corre la IA/spawns alli y replica sus bichos. Estar solo
 # en un piso = ser su dueño; si coincidis, manda uno y el otro espeja.
 var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO host)
+# peer_id -> piso al que se le CONCEDIO viajar y aun no ha anunciado su lugar (SOLO host). Construir
+# un piso lleva segundos y el lugar solo llega al acabar: sin esto, si otro bajaba en esa ventana el
+# host no veia al viajero en el piso y nombraba DOS dueños (cada uno con sus bichos, sin verse).
+var _viajando: Dictionary = {}
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 
@@ -492,6 +496,7 @@ func desconectar() -> void:
 	_bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
+	_viajando.clear()
 	_fotos_piso.clear()
 	_soy_dueno = false
 	_peleando = false
@@ -1237,6 +1242,7 @@ func _rel_lugar(lugar: String) -> void:
 	if not es_host:
 		return
 	var de := multiplayer.get_remote_sender_id()
+	_viajando.erase(de)   # ya ha llegado: a partir de aqui manda su lugar de verdad
 	# Aplicar en el host PRIMERO (actualiza _peers[de]["lugar"]) y luego repartir a los demas: asi
 	# cualquier decision posterior por lugar ve ya el sitio nuevo.
 	_cambiar_lugar(de, lugar)
@@ -1557,6 +1563,7 @@ func _olvidar_expedicion() -> void:
 func _cerrar_expedicion() -> void:
 	expedicion_abierta = false
 	_dueno_piso.clear()
+	_viajando.clear()
 	_vetas_ocupadas.clear()
 	_t_barrido = 0.0
 	estado_cambiado.emit("Expedicion terminada: la mazmorra queda como la habeis dejado.")
@@ -1633,6 +1640,8 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> 
 		return
 	_soltar_piso(quien, foto)
 	var dueno_nuevo: bool = _asignar_dueno(nuevo, quien)
+	if quien != 1:
+		_viajando[quien] = nuevo   # hasta que llegue su _rel_lugar (ver _sigue_en)
 	# Si voy a simularlo, me llevo la foto congelada de ese piso (bichos y cadaveres tal cual).
 	var mem: Dictionary = {}
 	if dueno_nuevo:
@@ -1690,7 +1699,12 @@ func _alguien_en(piso: int, salvo: int) -> int:
 	if salvo != 1 and _mi_lugar == lugar:
 		return 1            # el host tambien cuenta como candidato
 	for id in _peers:
-		if id != salvo and _peers[id].get("lugar", "") == lugar:
+		if id != salvo and _peers[id].get("lugar", "") == lugar and not _viajando.has(id):
+			return id
+	# Uno que viene de camino tambien cuenta: si el dueño se va mientras el otro aun construye, el
+	# piso se le pasa a el en vez de congelarse con alguien dentro.
+	for id in _viajando:
+		if id != salvo and int(_viajando[id]) == piso and _peers.has(id):
 			return id
 	return 0
 
@@ -1700,7 +1714,11 @@ func _sigue_en(quien: int, piso: int) -> bool:
 	var lugar := "piso:%d" % piso
 	if quien == 1:
 		return _mi_lugar == lugar
-	return _peers.has(quien) and _peers[quien].get("lugar", "") == lugar
+	if not _peers.has(quien):
+		return false
+	if _viajando.has(quien):
+		return int(_viajando[quien]) == piso   # va de camino: cuenta el piso AL QUE va, no el que deja
+	return _peers[quien].get("lugar", "") == lugar
 
 
 # Corre en EL VIAJERO: ya se sabe si simula el piso nuevo, asi que se puede reconstruir.
@@ -6403,6 +6421,7 @@ func _olvidar_peer(peer_id: int) -> void:
 	_avatares.erase(peer_id)
 	_quitar_companeros(peer_id)
 	_peers.erase(peer_id)
+	_viajando.erase(peer_id)
 
 
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).
