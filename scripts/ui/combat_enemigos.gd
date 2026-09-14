@@ -96,7 +96,7 @@ func _enemy_turn(e: Combatant) -> void:
 				listas.append(ab)
 	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
-	var obj: Combatant = _pantalla._elegir_objetivo_enemigo()
+	var obj: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo()
 	if obj == null:
 		# No queda nadie de los tuyos a quien pegar. Sale con _pausa_lectura (no con un return
 		# pelado): el enemigo YA perdio su barra en _process, asi que sin devolver el estado a
@@ -189,7 +189,7 @@ func _enemy_turn(e: Combatant) -> void:
 	var dmg_mult: float = clampf(dmg_bruto / maxf(1.0, float(obj.max_hp) * 0.1), 0.5, 2.0)
 	# El reparto por AGGRO va en el 'base', NO en el reto_val: el reto_val lo capa RETO_MAX_FISICO
 	# dentro de ganar(), y con un enemigo duro el bono se lo comeria el techo sin dejar rastro.
-	var aggro_mult: float = _pantalla._mult_resistencia_aggro(obj)
+	var aggro_mult: float = _pantalla.objetivos._mult_resistencia_aggro(obj)
 	Game.ganar("resistencia", _pantalla._reto(e, pj_obj) * dmg_mult, Game.GAIN_RESISTENCIA_GOLPE * aggro_mult,
 		Game.RETO_MAX_FISICO, pj_obj)
 	# Excelia: si BLOQUEAS (Defender), entrenas Resistencia EXTRA segun cuanto
@@ -327,7 +327,7 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	if obj == null:
 		return
 	if ab.es_area():
-		for o in _pantalla._objetivos_area_aliados(ab, obj):
+		for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
 			_pantalla._fx_golpe(e, o["c"], 0.0, false, false, el, estilo,
 				float(o["escala"]), true, sfx)
 	else:
@@ -373,7 +373,7 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
 # resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
-	var obj: Combatant = victima if victima != null and victima.is_alive() else _pantalla._elegir_objetivo_enemigo()
+	var obj: Combatant = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
 	if obj == null:
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
@@ -403,7 +403,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		if ab.es_area():
 			# AREA (SPLASH sobre tu grupo): el principal encaja los golpes al 100%; los adyacentes,
 			# a area_secundario. Los estados llegan a los lados solo si area_efectos_secundarios.
-			for o in _pantalla._objetivos_area_aliados(ab, obj):
+			for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
 				var t: Combatant = o["c"]
 				var esc: float = float(o["escala"])
 				var es_princ: bool = t == obj
@@ -431,7 +431,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			var principal: Combatant = null
 			var conecto_algo: int = 0
 			for i in golpes:
-				var t: Combatant = _pantalla._elegir_objetivo_enemigo(i > 0)
+				var t: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo(i > 0)
 				if t == null: break
 				if principal == null: principal = t
 				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "",
@@ -464,7 +464,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		# Habilidad de PURO ESTADO (sin daño): tira sus efectos a-objetivo. Si es de area (Bramido,
 		# Alarido), el debuff cae sobre TODA la fila alcanzada; si no, solo sobre el objetivo.
 		if ab.es_area():
-			for o in _pantalla._objetivos_area_aliados(ab, obj):
+			for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
 				var t: Combatant = o["c"]
 				estados_log += _enemy_tirar_efectos(e, ab, t, 1.0, "objetivo")
 				if not tocados.has(t): tocados.append(t)
@@ -664,7 +664,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# parte del GOLPE, asi que defender contra las habilidades —justo cuando mas falta hace— no
 	# entrenaba nada, y con lo aficionados que son los bichos a las habilidades eso era un agujero
 	# gordo en la Resistencia del que hace de tanque.
-	var aggro_mult: float = _pantalla._mult_resistencia_aggro(t)
+	var aggro_mult: float = _pantalla.objetivos._mult_resistencia_aggro(t)
 	if total > 0.0:
 		var dmg_mult: float = clampf(total_bruto / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
 		Game.ganar("resistencia", _pantalla._reto(e, pj_t) * dmg_mult,

@@ -435,7 +435,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			# sale DEL PRINCIPAL, no de tu mano. Si reparte IGUAL a todos (Rocío, Torrente), si
 			# es que has barrido a todo el mundo, y entonces cada ola sale de ti.
 			var reparte_igual: bool = spell.alcance == SpellData.Alcance.TODOS
-			for t in _pantalla._objetivos_area(spell, obj):
+			for t in _pantalla.objetivos._objetivos_area(spell, obj):
 				var de: Combatant = null if (reparte_igual or t.c == obj) else obj
 				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala),
 					true, de))
@@ -796,7 +796,7 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
 		var objetivos: Array
 		if spell.salpica() and elem == spell.elemento:
-			objetivos = _pantalla._objetivos_area(spell, principal)
+			objetivos = _pantalla.objetivos._objetivos_area(spell, principal)
 		else:
 			objetivos = [{"c": principal, "escala": spell.dano_objetivo}]
 		# El dano_base se reparte entre las N bolas: escala/N.

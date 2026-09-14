@@ -679,8 +679,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.protege_turnos > 0:
 		var a_cubrir: Combatant = _pantalla._hab_objetivo_aliado()
 		if a_cubrir != null and a_cubrir != _pantalla._player:
-			_pantalla._romper_cobertura(_pantalla._player)
-			_pantalla._romper_cobertura(a_cubrir)   # y si a EL ya lo cubria otro, ese otro se queda libre
+			_pantalla.objetivos._romper_cobertura(_pantalla._player)
+			_pantalla.objetivos._romper_cobertura(a_cubrir)   # y si a EL ya lo cubria otro, ese otro se queda libre
 			_pantalla._player.protegiendo_a = a_cubrir
 			a_cubrir.protegido_por = _pantalla._player
 			_pantalla._player.proteger_turnos = ab.protege_turnos
