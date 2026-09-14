@@ -776,7 +776,8 @@ func jugadores_remotos_aqui() -> Array:
 # Los partos los simula UN dueño por piso, asi que el AVISO (la pared que late y tiembla) solo se
 # montaba en su maquina: el compañero veia salir cuatro bichos de un muro liso, sin advertencia. El
 # aviso ES la mecanica (decides si te quedas o te largas), asi que se replica a quien este en mi piso.
-# Es puro FX: sin autoridad, sin estado y sin acuse. Si se pierde un paquete, se pierde un temblor.
+# Es puro FX: sin autoridad y sin estado. Va FIABLE: son pocos y sueltos, y perder uno era que al
+# compañero le salieran los bichos de una pared lisa (lo vio en el playtest del 11/09/2026).
 func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
 	if not activo or multiplayer.multiplayer_peer == null or paredes_px.is_empty():
 		return
@@ -791,7 +792,7 @@ func anunciar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> vo
 
 
 # Solo host: reparte el aviso de un cliente entre los demas de ESE lugar (el emisor ya lo ve).
-@rpc("any_peer", "call_remote", "unreliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: String) -> void:
 	if not es_host:
 		return
@@ -803,7 +804,7 @@ func _rel_brote(paredes_px: Array, dur: float, amp: float, col: Color, lugar: St
 			_pintar_brote.rpc_id(pid, paredes_px, dur, amp, col)
 
 
-@rpc("any_peer", "call_remote", "unreliable")
+@rpc("any_peer", "call_remote", "reliable")
 func _pintar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> void:
 	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
 	if piso != null and piso.has_method("pintar_aviso_pared"):

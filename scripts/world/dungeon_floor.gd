@@ -3001,6 +3001,14 @@ func pintar_aviso_pared(paredes_px: Array, dur: float, amp: float, col: Color) -
 	var fx = _fx_pared_script.new()
 	fx.position = paredes_px[0]
 	_geo.add_child(fx)
-	fx.iniciar_tramo(float(DungeonGenerator.CELDA), dur, amp, col, paredes_px)
+	# LA PIEDRA DE VERDAD tambien en el espejo, por el mismo embudo que el aviso propio. Esto se quedo
+	# en el aviso de color cuando se hizo la piedra, y el compañero veia el cuadro rojo de antes (salvo
+	# cuando le tocaba simular el piso a el). Las dos maquinas tienen las mismas baldosas, asi que las
+	# celdas que llegan en pixeles caen sobre la misma pared.
+	var celdas: Array = []
+	for px in paredes_px:
+		celdas.append(celda_de_px(px as Vector2))
+	if not montar_aviso(fx, celdas, dur, amp, col):
+		fx.iniciar_tramo(float(DungeonGenerator.CELDA), dur, amp, col, paredes_px)
 	# El espejo no tiene reloj de parto: el aviso se borra solo cuando se cumple su duracion.
 	fx.borrarse_al_acabar(dur)
