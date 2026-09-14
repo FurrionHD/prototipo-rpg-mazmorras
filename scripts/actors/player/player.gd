@@ -459,6 +459,7 @@ func _physics_process(delta: float) -> void:
 	# Agilidad: HUIR de verdad. Ver _tick_huida. No le pasamos la velocidad del grupo: cada
 	# personaje se mide con la SUYA (_vel_carrera_de), que es lo que de verdad le cuesta la fuga.
 	_tick_huida()
+	_tick_unirse_por_contacto(delta)
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -1059,6 +1060,42 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #  Y lo cobra el GRUPO ENTERO, cada uno con SU reto: corriendo va todo el mundo y el aguante lo
 #  pagan todos, asi que la Agilidad no puede quedarsela el que va en cabeza.
 # ============================================================
+
+# UNIRSE A LA PELEA DE UN COMPAÑERO TOCANDO CUALQUIERA DE SUS ENEMIGOS (multi). Los que ya pelean
+# estan congelados y no te embisten, asi que la unica via era atacarlos de frente con el espacio, y
+# ademas solo si el golpe iba al que tocaba. En el playtest del 11/09/2026 costaba un mundo entrar:
+# ahora basta con arrimarse a cualquiera de los atados en rojo (ver enemy_links.COLOR_PELEA).
+const CONTACTO_UNIRSE := 10.0   # px de hueco entre cuerpos: arrimarse, no hace falta empujar
+const REINTENTO_UNIRSE := 3.0   # s entre peticiones: si esta llena, el aviso no te sale cada segundo
+# Al SALIR de una pelea (huir, o acabar con bichos de otra pelea al lado) te quedas pegado a enemigos
+# que siguen peleando: sin este respiro, huir te volvia a meter dentro en el mismo instante.
+const RESPIRO_TRAS_PELEA := 5.0
+var _t_unirse: float = 0.0
+var _en_pelea_antes: bool = false
+
+func _tick_unirse_por_contacto(delta: float) -> void:
+	if not Net.activo:
+		return
+	var en_pelea: bool = Game.hay_pelea_en_pantalla() or Game.combate_activo() or Net.ocupado_en_pelea()
+	if _en_pelea_antes and not en_pelea:
+		_t_unirse = RESPIRO_TRAS_PELEA
+	_en_pelea_antes = en_pelea
+	_t_unirse -= delta
+	if _t_unirse > 0.0 or en_pelea:
+		return
+	var yo: int = Net.multiplayer.get_unique_id()
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(n) or not n.has_meta("net_id"):
+			continue
+		var pelea: int = Net.pelea_de_enemigo(n)
+		if pelea == 0 or pelea == yo:
+			continue
+		if Cuerpos.hueco(n, self) > CONTACTO_UNIRSE:
+			continue
+		_t_unirse = REINTENTO_UNIRSE
+		Net.unirme_a_la_pelea_de(int(n.get_meta("net_id")))
+		return
+
 
 func _tick_huida() -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)

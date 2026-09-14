@@ -75,6 +75,10 @@ const _AVISO_TINTE := Color(1.0, 0.45, 0.30)     # el mismo que enemy.gd
 #   esta_muerto()     -> vecinos() y las manadas
 # Si falta alguno, el juego revienta con "Invalid access to property" en cuanto alguien lo mire.
 var _combat_triggered: bool = false    # se la reservo el dueño y la estoy peleando yo
+# De QUIEN es la pelea en la que esta metido (0 = suelto), segun el tick del dueño. No es lo mismo que
+# _combat_triggered: ese es "la peleo YO"; esto es "la pelea alguien", y es lo que dice a que pelea
+# unirse al tocarlo y con quien atarlo en las lineas. Ver Net.pelea_de_enemigo.
+var pelea_de: int = 0
 var zona_idx: int = -1                 # no soy de ninguna sala: la ocupacion la lleva el dueño
 # Espadazo en curso contra este espejo: lo que queda para pedirle la pelea a su dueño (-1 = nada
 # pendiente). Ver atacado_por_jugador.
@@ -310,7 +314,7 @@ func _lanzar_peticion() -> void:
 	# YA lo esta peleando alguien. Esto era un callejon sin salida: el bicho de verdad si tenia la via
 	# para ECHAR UNA MANO (enemy.gd) y el espejo se la habia quedado sin ella, asi que si el piso lo
 	# simulaba tu compañero no habia forma de entrar en su pelea pegandole a un bicho.
-	if _combat_triggered:
+	if _combat_triggered or pelea_de != 0:
 		Net.unirme_a_la_pelea_de(get_meta("net_id"))
 		return
 	Net.solicitar_pelea(get_meta("net_id"))

@@ -42,7 +42,9 @@ const MAX_JUGADORES := 4
 #    version del fichero de sonido y su tono, para que el golpe suene identico en las dos pantallas
 #    en vez de que cada maquina se saque la suya. Un build del 5 lee el paquete CORRIDO desde el
 #    segundo impacto: victimas, daños y efectos inventados, y sin dar ni un error.
-const PROTOCOLO := 8
+# 9: mensajes nuevos (lo descubierto del mundo, imbuir a otro jugador) y el tick de enemigos lleva de
+#    quien es la pelea. Añadir @rpc corre los ids de los demas: un build del 8 se entenderia MAL.
+const PROTOCOLO := 9
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -3715,7 +3717,11 @@ func _difundir_posiciones_enemigos() -> void:
 	for id in _enemigos:
 		var nd = _enemigos[id]["nodo"]
 		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false]
-		lote.append([id, (nd as Node2D).global_position, est[0], est[1]])
+		# El QUINTO, de quien es la pelea en la que esta metido (0 = suelto). Va en el tick y no en un
+		# aviso suelto a proposito: una pelea se abre y se cierra por media docena de caminos (reservar,
+		# empujar, devolver, morir, traspasar...), y un estado que se repite 20 veces por segundo no se
+		# desincroniza aunque alguno de esos caminos se olvide de avisar.
+		lote.append([id, (nd as Node2D).global_position, est[0], est[1], _anfitrion_de_enemigo(id, nd)])
 	if es_host:
 		for peer_id in _peers:
 			if _peers[peer_id].get("lugar", "") == _mi_lugar:
@@ -3733,6 +3739,8 @@ func _tick_enemigos(lote: Array) -> void:
 		n.ir_a(par[1])
 		if par.size() >= 4:
 			n.aplicar_estado_visual(float(par[2]), bool(par[3]))
+		if par.size() >= 5:
+			n.pelea_de = int(par[4])
 
 
 # Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Siempre se
@@ -4011,15 +4019,42 @@ func _resolver_pelea(id: int, quien: int, _lugar: String) -> void:
 	# ¿Ese bicho YA lo esta peleando alguien? Entonces la respuesta no es "ocupado", es una
 	# INVITACION A UNIRSE a esa pelea (hito 5.4-C): es lo que espera el jugador cuando ve a su
 	# compañero peleando y va a echar una mano.
-	var anfitrion: int = int(_enem_ocupados.get(id, 0))
-	if anfitrion == 0 and nodo != null and is_instance_valid(nodo) and nodo.get("_combat_triggered"):
-		# Nadie lo tiene reservado pero esta congelado: lo estoy peleando YO (mis propias peleas no
-		# pasan por _enem_ocupados, las monta enemy._start_combat directamente).
-		anfitrion = multiplayer.get_unique_id()
+	var anfitrion: int = _anfitrion_de_enemigo(id, nodo)
 	if anfitrion != 0 and anfitrion != quien:
 		_responder_pelea(quien, [], false, anfitrion)
 		return
 	_responder_pelea(quien, _reservar_grupo(nodo, id, quien), false)
+
+
+# SOLO el dueño: ¿en la pelea de QUIEN esta metido este bicho? 0 = en ninguna.
+#
+# La reserva dice a nombre de quien se congelo. Sin reserva pero congelado es una pelea MIA (las
+# propias no pasan por _enem_ocupados, las monta enemy._start_combat) -- salvo que ahora mismo yo solo
+# este ESPEJANDO la de otro, y entonces la pelea es de ese otro. Antes se daba siempre por mia, y al que
+# venia a ayudar se le mandaba a pedir sitio a alguien que no ejecutaba nada ("ya no esta disponible").
+func _anfitrion_de_enemigo(id: int, nodo) -> int:
+	var a: int = int(_enem_ocupados.get(id, 0))
+	if a != 0:
+		return a
+	if nodo == null or not is_instance_valid(nodo) or not nodo.get("_combat_triggered"):
+		return 0
+	if nodo.has_method("esta_muerto") and nodo.esta_muerto():
+		return 0
+	if espejando() and _pelea_anfitrion != 0:
+		return _pelea_anfitrion
+	return multiplayer.get_unique_id()
+
+
+# De quien es la pelea en la que esta este bicho, en CUALQUIER maquina: el dueño lo sabe por sus
+# reservas y los demas por el tick (remote_enemy.pelea_de). 0 = suelto. Lo usan las lineas de vinculo y
+# el unirse por contacto.
+func pelea_de_enemigo(n) -> int:
+	if not activo or n == null or not is_instance_valid(n) or not n.has_meta("net_id"):
+		return 0
+	var id: int = int(n.get_meta("net_id"))
+	if _soy_dueno and _enemigos.has(id):
+		return _anfitrion_de_enemigo(id, n)
+	return int(n.get("pelea_de")) if "pelea_de" in n else 0
 
 
 # SOLO el dueño: reserva un bicho y a sus vecinos para la pelea de 'quien' y los congela. Devuelve
@@ -4930,9 +4965,17 @@ func unirme_a_la_pelea_de(id: int) -> void:
 	if Game.combate_activo() or ocupado_en_pelea():
 		return
 	if not _soy_dueno:
-		solicitar_pelea(id)   # el dueño del piso sabe de quien es esa pelea y me lo dira
+		# Si el tick ya me ha dicho de quien es la pelea, voy directo; si no, se lo pregunto al dueño
+		# del piso, que lleva las reservas. Si el dato del tick se ha quedado viejo, _pedir_unirme lo
+		# rechaza con su aviso, que es lo mismo que pasaria preguntando.
+		var n = _enem_nodos.get(id)
+		var directo: int = int(n.pelea_de) if n != null and is_instance_valid(n) else 0
+		if directo != 0 and directo != multiplayer.get_unique_id():
+			solicitar_unirse(directo)
+		else:
+			solicitar_pelea(id)
 		return
-	var peer: int = int(_enem_ocupados.get(id, 0))
+	var peer: int = _anfitrion_de_enemigo(id, _nodo_de_id(id))
 	if peer != 0 and peer != multiplayer.get_unique_id():
 		solicitar_unirse(peer)
 
