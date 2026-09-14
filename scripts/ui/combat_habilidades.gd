@@ -751,10 +751,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# puesto en ese instante (ver _color_golpe), y la imbuicion se aplica en este mismo bloque de
 	# efectos. Pintandolo antes, el Filo emponzoñado salia de acero -- el bote gris, el liquido gris y
 	# la hoja sin cambiar de color-- porque todavia no se habia envenenado nada.
-	_pantalla._fx_adorno(_pantalla._player, ab, _pantalla._objetivo())
+	_pantalla.enemigos._fx_adorno(_pantalla._player, ab, _pantalla._objetivo())
 	# Y LO QUE TE ECHAS TU ENCIMA (el Voto de guardia: pegas Y te cubres). Va aparte del adorno
 	# porque estas SI hacen daño, asi que su dibujo de golpe ya se ha pintado sobre el enemigo.
-	_pantalla._fx_sobre_mi(ab)
+	_pantalla.enemigos._fx_sobre_mi(ab)
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).
