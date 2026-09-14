@@ -12592,6 +12592,7 @@ func _destrabar_combate() -> void:
 	if not is_instance_valid(_active_layer):
 		push_warning("[combate] Habia %d enemigos apuntados sin pantalla de combate: pelea a medio montar. Se sueltan." % _active_enemies.size())
 		_active_enemies.clear()
+		_soltar_cola_combate()
 
 
 # ¿Tengo una pantalla de combate delante? Es distinto de combate_activo(): un ESPEJO (la pelea de
@@ -12786,23 +12787,43 @@ func _cds_de_meta(pj: PersonajeData) -> Dictionary:
 # Mantiene el cruce por INDICE entre combat._enemies y _active_enemies, que es como vuelven los
 # muertos al cerrar: si el refuerzo reutiliza el hueco de un cadaver, el nodo desplazado se mata
 # aqui mismo y el nuevo ocupa su puesto en la lista.
-func unir_enemigo_al_combate(nodo: Node) -> bool:
+# LA COLA DE LA PELEA (idea del usuario tras el playtest del 11/09/2026). La pantalla solo pinta
+# MAX_ENEMIGOS; el que llega con la pelea llena entra igual, como el sexto, septimo..., congelado y
+# sin tarjeta, y sale en cuanto cae uno (meter_de_la_cola, desde combat._morir_enemigo). Antes se
+# quedaba en el MAPA reintentando con su IA a medias: embestia en bucle, sonaba su golpe sin parar y
+# podia arrastrar a otro jugador a una pelea aparte. Siendo parte de la pelea no hace nada de eso, y
+# las lineas rojas y el "atacarle te une" le salen solos (esta congelado y reservado a esta pelea).
+var _cola_combate: Array = []
+
+func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	if not combate_activo() or not is_instance_valid(nodo):
 		return false
 	if not ("data" in nodo) or nodo.data == null or _active_enemies.has(nodo):
 		return false
+	if _cola_combate.has(nodo):
+		return true   # ya esta dentro, esperando turno
 	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
 		and _active_layer.get_child_count() > 0 else null
 	if combat == null or not combat.has_method("anadir_enemigo"):
 		return false
+	if combat.has_method("acabada") and combat.acabada():
+		return false   # se esta cerrando: ni entra ni se encola
 	var t: float = float(nodo.current_t) if "current_t" in nodo else 0.5
 	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
 	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
 	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")),
-		bool(nodo.get("mutante")))
+		bool(nodo.get("mutante")), hueco)
 	if slot < 0:
-		return false   # pelea llena: a la cola
+		# Pelea llena: A LA COLA, dentro de la pelea.
+		_cola_combate.append(nodo)
+		if nodo.has_method("congelar_en_cola"):
+			nodo.congelar_en_cola()
+		elif nodo.has_method("entrar_en_pelea"):
+			nodo.entrar_en_pelea()   # un espejo: el de verdad ya lo congelo su dueño al reservarlo
+		_pintar_cola(combat)
+		print("[cola] %s espera hueco en la pelea (%d en cola)" % [String(nodo.data.resource_path).get_file(), _cola_combate.size()])
+		return true
 	if slot < _active_enemies.size():
 		matar_enemigo_de_combate(_active_enemies[slot])   # el cadaver al que releva
 		_active_enemies[slot] = nodo
@@ -12813,6 +12834,43 @@ func unir_enemigo_al_combate(nodo: Node) -> bool:
 	if bool(nodo.get("es_boss")):
 		Musica.cambiar_cima("jefe")
 	return true
+
+
+# Ha caido uno en la pelea: el primero de la cola entra en SU hueco. En ese hueco y no en "el primer
+# cadaver": con un golpe de area caen varios a la vez y el siguiente todavia no se ha procesado, asi
+# que meterlo encima de ese le quitaria la tarjeta a un muerto a medio rematar.
+func meter_de_la_cola(hueco: int) -> void:
+	while not _cola_combate.is_empty():
+		var n = _cola_combate.pop_front()   # sin tipar: puede estar liberado
+		if not is_instance_valid(n) or (n.has_method("esta_muerto") and n.esta_muerto()):
+			continue
+		if not unir_enemigo_al_combate(n, hueco):
+			_cola_combate.push_front(n)   # la pelea se cierra: se queda para que la suelte el cierre
+			break
+		# Si ha vuelto a la cola es que no cabia (el hueco ya no estaba libre): se deja para el siguiente.
+		if _cola_combate.has(n):
+			_cola_combate.erase(n)
+			_cola_combate.push_front(n)
+		break
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	_pintar_cola(combat)
+
+
+func _pintar_cola(combat: Node) -> void:
+	if combat != null and combat.has_method("fijar_cola"):
+		combat.fijar_cola(_cola_combate.size())
+
+
+# Se cierra la pelea con gente en la cola: salen como los supervivientes (quietos un rato y con sus
+# heridas). En multi un espejo avisa a su dueño desde su propio reanudar_tras_combate.
+func _soltar_cola_combate() -> void:
+	for n in _cola_combate:
+		if is_instance_valid(n) and n.has_method("reanudar_tras_combate"):
+			var hp: float = float(n.hp_restante) if "hp_restante" in n else -1.0
+			var est: Array = n.estados_restantes if "estados_restantes" in n else []
+			n.reanudar_tras_combate(hp, est)
+	_cola_combate.clear()
 
 
 # Abre el combate contra un enemigo de la mazmorra.
@@ -14059,6 +14117,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		var est: Array = enemy_estados_left[i] if i < enemy_estados_left.size() else []
 		n.reanudar_tras_combate(hp, est)
 	_active_enemies.clear()
+	_soltar_cola_combate()
 	enemigos_traspasados = []   # la marca dura solo este cierre
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear

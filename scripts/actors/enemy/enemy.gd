@@ -1858,6 +1858,18 @@ func _start_combat(enemy_initiated: bool) -> void:
 # huir no serviria de nada (te alcanzaria al instante y volveria a empezar la pelea).
 # 'hp' son las heridas que le dejaste: se guardan y se le aplican en el proximo combate. 'estados'
 # igual: el veneno que le pusiste sigue corriendo por el mapa (ver _tick_estados_fuera).
+# A LA COLA DE UNA PELEA LLENA (ver Game._cola_combate): ya es parte de ella, asi que se congela como
+# cualquier combatiente. Y fuera de la embestida: si no, al soltarlo salia embistiendo en el acto.
+func congelar_en_cola() -> void:
+	_combat_triggered = true
+	_esperando_hueco = false
+	velocity = Vector2.ZERO
+	_cancelar_aviso()
+	_impacto_t = -1.0
+	if _state == State.EMBESTIDA:
+		_state = State.CHASE
+
+
 func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	if _dead:
 		return

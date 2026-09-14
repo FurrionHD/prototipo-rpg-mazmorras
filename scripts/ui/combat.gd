@@ -3615,7 +3615,7 @@ func _invocar_slime(data: EnemyData) -> Combatant:
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
 func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [],
-		es_jefe: bool = false, mutante: bool = false) -> int:
+		es_jefe: bool = false, mutante: bool = false, hueco: int = -1) -> int:
 	if data == null or _state == State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
 	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
@@ -3635,17 +3635,52 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# es el que siempre se queda sin lo que se escribe en el otro: sin esto, el que llegaba tarde
 	# entraba con sus stats de verdad y ensuciaba la medida en silencio.
 	Game.volver_muneco(c, _player)
-	return _meter_enemigo(c, false)
+	return _meter_enemigo(c, false, hueco)
+
+
+# ¿Se esta cerrando? Lo pregunta Game antes de meter a alguien en la cola: a una pelea que acaba no
+# se le encola nadie (se quedaria congelado sin nadie que lo soltara).
+func acabada() -> bool:
+	return _state == State.FINISHED
+
+
+# "+N esperando" junto a los enemigos: los de la cola de la pelea, que no tienen tarjeta (ver
+# Game._cola_combate). Sin esto el jugador no sabria que matar a uno trae a otro.
+var _lbl_cola: Label = null
+
+func fijar_cola(n: int) -> void:
+	if _lbl_cola == null or not is_instance_valid(_lbl_cola):
+		if n <= 0:
+			return
+		# FUERA de la fila de tarjetas a proposito: esa fila reparte el ancho y reordena sus hijos
+		# (_recomponer_fila_enemigos / _ordenar_fila_enemigos) contando que todos son columnas.
+		_lbl_cola = Label.new()
+		_lbl_cola.add_theme_font_size_override("font_size", 16)
+		_lbl_cola.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+		_lbl_cola.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		_lbl_cola.add_theme_constant_override("outline_size", 4)
+		_lbl_cola.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_lbl_cola.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_lbl_cola.offset_top = 6.0
+		add_child(_lbl_cola)
+	_lbl_cola.text = "+%d esperando" % n
+	_lbl_cola.tooltip_text = "Enemigos que esperan hueco: entran en cuanto cae uno."
+	_lbl_cola.visible = n > 0
 
 
 # El motor comun de "un enemigo mas en la pelea en curso". Prefiere REUTILIZAR el hueco de un
 # cadaver (mantiene el tope y la numeracion estable, sin apilar bloques); si no hay cadaver y queda
 # sitio, añade uno al final. Devuelve el slot, o -1 si no cabe.
-func _meter_enemigo(c: Combatant, es_invocado: bool) -> int:
+func _meter_enemigo(c: Combatant, es_invocado: bool, hueco: int = -1) -> int:
 	if c == null:
 		return -1
 	var idx: int = -1
+	# Un hueco CONCRETO (el del que acaba de caer, ver Game.meter_de_la_cola), si de verdad esta libre.
+	if hueco >= 0 and hueco < _enemies.size() and not _enemies[hueco].is_alive():
+		idx = hueco
 	for i in _enemies.size():
+		if idx >= 0:
+			break
 		if not _enemies[i].is_alive():
 			idx = i   # hueco de cadaver: se reutiliza
 			break
@@ -8330,6 +8365,15 @@ func _morir_enemigo(e: Combatant) -> void:
 	# solo, pero hay que mover _target_idx para que el borde blanco se pinte donde toca.
 	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx] == e:
 		_reseleccionar()
+	# LA COLA: el que esperaba entra en este hueco. Va aqui, en el embudo de todas las muertes, y no
+	# delante de cada "¿quedan vivos?": asi, cuando se pregunta, el que entra ya cuenta y la pelea no
+	# se da por ganada con gente esperando. El espejo no simula: lo hace quien ejecuta la pelea.
+	if not _espejo:
+		var hueco: int = _enemies.find(e)
+		Game.meter_de_la_cola(hueco)
+		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
+				and _target_idx == hueco:
+			_seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado
 
 
 # Pasa el objetivo al siguiente enemigo VIVO (buscando hacia abajo y dando la vuelta desde el
