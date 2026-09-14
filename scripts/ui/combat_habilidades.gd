@@ -67,7 +67,7 @@ func _apuntar_al_primer_vivo() -> void:
 		return
 	for i in _pantalla._enemies.size():
 		if _pantalla._enemies[i].is_alive():
-			_pantalla._seleccionar(i)
+			_pantalla.figuras._seleccionar(i)
 			return
 
 

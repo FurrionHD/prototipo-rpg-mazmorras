@@ -214,6 +214,9 @@ def reescribir(linea, nombres, prefijo):
     trozos = re.split(r'("(?:[^"\\]|\\.)*")', codigo)   # no tocar dentro de cadenas
     for j in range(0, len(trozos), 2):
         trozos[j] = pat.sub(prefijo + r"\1", trozos[j])
+        # En un TEMA, el 'self' del codigo movido era la PANTALLA (lo escribio ella).
+        if prefijo == "_pantalla.":
+            trozos[j] = re.sub(r"(?<![\w.])self\b", "_pantalla", trozos[j])
     return "".join(trozos) + com
 
 
