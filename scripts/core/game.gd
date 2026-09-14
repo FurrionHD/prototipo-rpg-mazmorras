@@ -2544,6 +2544,10 @@ func guardar_partida_invitado() -> bool:
 # ranura el baul, el mapa, los bosses y el PISO del mundo del HOST: justo lo que
 # exportar_partida_invitado existe para evitar.
 func guardar_mi_partida() -> bool:
+	# UN TRABAJADOR DE PISO no tiene partida: es un proceso sin ventana que simula un piso para la sala
+	# (ver trabajadores.gd). Le llegan las mismas ordenes de "guardad" que a todos, y no debe escribir nada.
+	if Net.soy_trabajador:
+		return true
 	# MUNDO COMPARTIDO: la partida no es de una ranura, es del mundo (user://mundos/<clave>.tres) y
 	# lleva dentro a todos los jugadores. Va primero porque en un mundo abierto Perfil.ranura_actual
 	# esta a 0 a proposito: cualquier camino que acabara en Perfil solo avisaria de que no hay ranura.

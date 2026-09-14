@@ -216,6 +216,16 @@ const CAPA_ROCA := 1
 
 
 func _ready() -> void:
+	# UN TRABAJADOR DE PISO (Godot sin ventana que simula el piso para la sala, ver trabajadores.gd) no
+	# juega: el cuerpo se queda en la escena porque medio juego lo busca en el grupo "player" y lo
+	# comprueba contra null, pero apagado, invisible y FUERA de "aliado" (ningun bicho le persigue ni
+	# le choca). Sin HUD ni menus: nadie los ve y costarian memoria por cada piso.
+	if Net.soy_trabajador:
+		visible = false
+		collision_layer = 0
+		collision_mask = 0
+		process_mode = Node.PROCESS_MODE_DISABLED
+		return
 	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.
