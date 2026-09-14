@@ -26,7 +26,7 @@ func _ready() -> void:
 	if args.has("grabar"):
 		_modo = "grabar"
 	var fallos := 0
-	for esc in ["prueba_4v3_atacar", "mundo_rey_slime", "mundo_venenos_huir"]:
+	for esc in ["prueba_4v3_atacar", "mundo_rey_slime", "mundo_venenos_huir", "espejo_rey_slime"]:
 		var traza: PackedStringArray = await _jugar(esc)
 		fallos += _guardar_o_comparar(esc, traza)
 	print("[huella] RESULTADO: ", "TODO IGUAL" if fallos == 0 else "CAMBIA %d" % fallos)
@@ -39,11 +39,28 @@ func _jugar(escenario: String) -> PackedStringArray:
 	_ultimo_log = ""
 	_ultimo_estado = {}
 	var pelea: Node = load("res://scenes/ui/combat.tscn").instantiate()
-	if escenario.begins_with("mundo_"):
-		if not _montar_con_mundo(pelea, escenario):
+	var espejo: Node = null
+	var red_falsa = null
+	var peleas_de_verdad = Net.peleas
+	if escenario.begins_with("mundo_") or escenario.begins_with("espejo_"):
+		if not _montar_con_mundo(pelea, escenario.replace("espejo_", "mundo_")):
 			pelea.free()
 			return PackedStringArray(["SIN PARTIDA DE REFERENCIA (tools/huellas/mundo_ref.tres)"])
+	if escenario.begins_with("espejo_"):
+		# La pelea la lleva 'pelea' y la sigue 'espejo', unidas por la red falsa (ver su cabecera).
+		red_falsa = load("res://tools/prueba_huella_red_falsa.gd").new()
+		red_falsa._pelea_id = 1
+		red_falsa._pelea_participantes = [999]
+		red_falsa.anfitrion = pelea
+		Net.peleas = red_falsa
+		Net.activo = true
 	add_child(pelea)
+	if red_falsa != null:
+		await get_tree().process_frame
+		espejo = load("res://scenes/ui/combat.tscn").instantiate()
+		espejo.setup_espejo(pelea.roster_para_espejo())
+		red_falsa.espejo = espejo
+		add_child(espejo)
 	var f := 0
 	var turnos := 0
 	var espera := 0
@@ -51,7 +68,9 @@ func _jugar(escenario: String) -> PackedStringArray:
 	while f < MAX_FRAMES:
 		await get_tree().process_frame
 		f += 1
-		_apuntar(pelea, f)
+		# En el escenario de espejo la huella es LO QUE VE EL ESPEJO; la del anfitrion ya la cubre su
+		# escenario de siempre.
+		_apuntar(espejo if espejo != null else pelea, f)
 		var st: int = int(pelea.get("_state"))
 		if st == 3:   # FINISHED
 			break
@@ -69,15 +88,24 @@ func _jugar(escenario: String) -> PackedStringArray:
 			_traza.append("f%d ATASCADO: nadie contesta en el turno %d" % [f, turnos])
 			break
 		match escenario:
+			"espejo_rey_slime":
+				var pulsado_e: String = _piloto(pelea, "mundo_rey_slime", turnos)
+				if pulsado_e != "":
+					_traza.append("f%d PULSA %s" % [f, pulsado_e])
 			"prueba_4v3_atacar":
 				pelea._accion_atacar()
 			_:
 				var pulsado: String = _piloto(pelea, escenario, turnos)
 				if pulsado != "":
 					_traza.append("f%d PULSA %s" % [f, pulsado])
-	_apuntar(pelea, f)
+	_apuntar(espejo if espejo != null else pelea, f)
 	_traza.append("FIN f%d estado=%d" % [f, int(pelea.get("_state"))])
 	pelea.queue_free()
+	if espejo != null:
+		espejo.queue_free()
+	if red_falsa != null:
+		Net.peleas = peleas_de_verdad
+		Net.activo = false
 	await get_tree().process_frame
 	return _traza
 
