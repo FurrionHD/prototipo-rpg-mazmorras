@@ -135,6 +135,9 @@ var _dueno_piso: Dictionary = {}   # piso:int -> peer_id que lo simula (SOLO hos
 # un piso lleva segundos y el lugar solo llega al acabar: sin esto, si otro bajaba en esa ventana el
 # host no veia al viajero en el piso y nombraba DOS dueños (cada uno con sus bichos, sin verse).
 var _viajando: Dictionary = {}
+# piso -> {heredero, foto}: la foto que le mande a quien hereda un piso, hasta que confirme (SOLO host).
+# Ver _soltar_piso y _piso_asumido.
+var _traspasos: Dictionary = {}
 var _soy_dueno := false            # ¿simulo YO el piso en el que estoy? (cada maquina)
 var _peleando := false             # ¿estoy en un combate ahora mismo? (se difunde: ver avisar_combate)
 
@@ -503,6 +506,7 @@ func desconectar() -> void:
 	_dueno_piso.clear()
 	_viajando.clear()
 	_fotos_piso.clear()
+	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
 	_peleando = false
@@ -1616,6 +1620,7 @@ func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
 # mazmorra_persistente. Su CD es su CD.
 func _olvidar_expedicion() -> void:
 	_fotos_piso.clear()
+	_traspasos.clear()
 	_muertos.clear()
 	# EPOCA NUEVA, como en solitario (Game.olvidar_mazmorra): la mazmorra vuelve a nacer, asi que se
 	# rebaraja QUE hay en ella. Los nonces vivos se van con ella —ya no significan nada— y a los
@@ -1654,6 +1659,7 @@ func _olvidar_expedicion() -> void:
 func _cerrar_expedicion() -> void:
 	expedicion_abierta = false
 	_dueno_piso.clear()
+	_traspasos.clear()
 	_viajando.clear()
 	_vetas_ocupadas.clear()
 	_t_barrido = 0.0
@@ -1756,9 +1762,19 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 	if piso < 0:
 		return
 	_dueno_piso.erase(piso)
+	# EL RELEVO A MEDIAS. Si 'quien' era el heredero de un traspaso que aun no ha confirmado, su foto
+	# llega VACIA (no llego a simular el piso: _foto_de_mi_piso exige ser dueño), pero la de verdad la
+	# tengo yo, la que le mande. Sin esto el piso se congelaba con {} y perdia todos sus enemigos.
+	var pend: Dictionary = _traspasos.get(piso, {})
+	_traspasos.erase(piso)
+	if foto.is_empty() and int(pend.get("heredero", 0)) == quien:
+		foto = pend.get("foto", {})
 	var heredero: int = _alguien_en(piso, quien)
 	if heredero == 0:
-		_fotos_piso[piso] = foto   # nadie mas: el piso queda congelado tal cual
+		# Nadie mas: el piso queda congelado tal cual. Una foto VACIA no significa "piso vacio" (esa
+		# trae la clave "enemigos" aunque sea sin nadie), significa "no tengo foto": nunca pisa una buena.
+		if not foto.is_empty() or not _fotos_piso.has(piso):
+			_fotos_piso[piso] = foto
 		return
 	_dueno_piso[piso] = heredero
 	# Los OTROS que sigan en ese piso tiran sus espejos: el dueño nuevo va a recrear los bichos con
@@ -1772,6 +1788,9 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 	if heredero == 1:
 		_asumir_piso(piso, foto)
 	else:
+		# Me QUEDO la foto hasta que confirme (_piso_asumido): si se va antes de procesarla, es la unica
+		# copia que queda.
+		_traspasos[piso] = {"heredero": heredero, "foto": foto}
 		_asumir_piso.rpc_id(heredero, piso, foto)
 
 
@@ -1833,8 +1852,13 @@ func _viaje_ok(nuevo: int, bajando: bool, dueno: bool, mem: Dictionary) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _asumir_piso(piso: int, mem: Dictionary) -> void:
 	if mi_piso() != piso:
+		# Ya no estoy ahi (me fui entre medias): que el host se lo pase a otro con la foto que guarda.
+		if not es_host:
+			_piso_asumido.rpc_id(1, piso, false)
 		return
 	_soy_dueno = true
+	if not es_host:
+		_piso_asumido.rpc_id(1, piso, true)
 	# CAIDA BRUSCA: al que se le corto la conexion no le dio tiempo a mandar la foto de su piso, y
 	# antes se heredaba PELADO (las paredes lo repoblaban de cero, delante de tus narices). Pero yo
 	# estaba alli VIENDO sus bichos: mis propios espejos son una foto casi fiel —tipo, posicion,
@@ -1845,6 +1869,22 @@ func _asumir_piso(piso: int, mem: Dictionary) -> void:
 	var suelo: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if suelo != null and suelo.has_method("adoptar_foto"):
 		suelo.adoptar_foto(_mem_de_red(mem))
+
+
+# Solo host: el heredero de un traspaso contesta. Bien -> la copia guardada ya sobra. Mal (ya no estaba
+# en ese piso) -> si sigue apuntado como dueño, se suelta otra vez y la foto guardada va al siguiente.
+@rpc("any_peer", "call_remote", "reliable")
+func _piso_asumido(piso: int, ok: bool) -> void:
+	if not es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	var pend: Dictionary = _traspasos.get(piso, {})
+	if ok:
+		if int(pend.get("heredero", 0)) == de:
+			_traspasos.erase(piso)
+		return
+	if int(_dueno_piso.get(piso, 0)) == de:
+		_soltar_piso(de, {})
 
 
 # --- FOTO de un piso: el formato de Game.memoria_pisos, apto para la red -----------------------
