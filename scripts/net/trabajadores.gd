@@ -35,12 +35,17 @@ const ARG := "trabajador"
 const RESERVA := 1
 # Si un trabajador lanzado no se ha presentado en este tiempo, se da por perdido (no arranco, se colgo).
 const PLAZO_ARRANQUE := 30.0
+# Cuanto aguanta el host a un trabajador que no contesta antes de darlo por caido (ver _saludar_trabajador).
+const TIMEOUT_MIN_MS := 2000
+const TIMEOUT_MAX_MS := 5000
 
 # --- HOST ---
 var _token := ""
 var _puerto := 0
 var _pids: Array[int] = []        # procesos lanzados por ESTA maquina (para cerrarlos al cerrar la sala)
-var _lanzando: int = 0            # lanzados que aun no se han presentado
+# Lanzados que aun no se han presentado, por su numero de lanzamiento. Se saca el mas viejo al
+# presentarse uno (no se sabe cual es cual, y da igual: solo importa CUANTOS faltan).
+var _pendientes: Array[int] = []
 var _estado: Dictionary = {}      # peer_id -> piso que simula (0 = en la reserva)
 var _n_lanzados: int = 0          # para numerar los ficheros de registro
 
@@ -177,7 +182,7 @@ func al_cerrar_sala() -> void:
 			OS.kill(pid)
 	_pids.clear()
 	_estado.clear()
-	_lanzando = 0
+	_pendientes.clear()
 	_token = ""
 
 
@@ -192,7 +197,7 @@ func _libres() -> int:
 func _rellenar_reserva() -> void:
 	if not Net.es_host or _token == "":
 		return
-	while _libres() + _lanzando < RESERVA:
+	while _libres() + _pendientes.size() < RESERVA:
 		if not _lanzar():
 			return
 
@@ -213,19 +218,19 @@ func _lanzar() -> bool:
 		push_warning("[trabajadores] no se pudo lanzar un trabajador: los pisos los llevaran los jugadores")
 		return false
 	_pids.append(pid)
-	_lanzando += 1
+	_pendientes.append(_n_lanzados)
 	print("[trabajadores] lanzado el %d (pid %d)" % [_n_lanzados, pid])
-	_plazo_de_arranque()
+	_plazo_de_arranque(_n_lanzados)
 	return true
 
 
-func _plazo_de_arranque() -> void:
-	var antes := _estado.size()
+func _plazo_de_arranque(n: int) -> void:
 	await get_tree().create_timer(PLAZO_ARRANQUE).timeout
-	# Si en este rato no se ha presentado nadie nuevo, ese lanzamiento no va a llegar.
-	if _lanzando > 0 and _estado.size() <= antes:
-		_lanzando -= 1
-		push_warning("[trabajadores] un trabajador no se presento a tiempo")
+	# Sigue pendiente: ese lanzamiento no va a llegar. Se quita y se repone la reserva.
+	if _pendientes.has(n):
+		_pendientes.erase(n)
+		push_warning("[trabajadores] el trabajador %d no se presento a tiempo" % n)
+		_rellenar_reserva()
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -236,8 +241,15 @@ func _saludar_trabajador(token: String, protocolo: int) -> void:
 	if _token == "" or token != _token or protocolo != Net.PROTOCOLO:
 		Net._echar(quien, "No eres un trabajador de esta sala.")
 		return
-	_lanzando = maxi(0, _lanzando - 1)
+	if not _pendientes.is_empty():
+		_pendientes.pop_front()
 	_estado[quien] = 0
+	# Si se CUELGA o lo matan, que se note pronto. Por defecto ENet tarda mas de 15 s en dar por muerta
+	# una conexion que se corta sin avisar, y todo ese rato el piso se queda con sus bichos quietos para
+	# los humanos de dentro. Un trabajador que no contesta en 5 s no va a contestar.
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet != null and enet.get_peer(quien) != null:
+		enet.get_peer(quien).set_timeout(32, TIMEOUT_MIN_MS, TIMEOUT_MAX_MS)
 	Net._peers[quien] = {"color": Color.WHITE, "metal": 0.0, "nombre": ARG, "lugar": ARG,
 		"pos": Vector2.INF, "peleando": false, "comps": [], "imagen": PackedByteArray(),
 		"alpha": 1.0, "piezas": {}, "trabajador": true}

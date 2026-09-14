@@ -133,6 +133,32 @@ func _ready() -> void:
 	else:
 		_ok(false, "no hay jugador o enemigo para la prueba de la pelea")
 
+	# 6) SE CAE EL TRABAJADOR (F4) MIENTRAS PELEO contra sus bichos: se matan sus procesos a lo bruto. El
+	# piso lo hereda el humano de dentro con la foto de sus espejos (menos los que pelea, que siguen en la
+	# pelea), la pelea sigue en pie y la reserva vuelve a llenarse.
+	var espejos_antes := _espejos_vivos()
+	var muertos: Array = Net._trab._estado.keys()   # los que voy a matar: la reserva tiene que ser OTRO
+	for pid in Net._trab._pids:
+		if OS.is_process_running(pid):
+			OS.kill(pid)
+	t = 0.0
+	while not Net._soy_dueno and t < 15.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(Net._soy_dueno, "al caerse el trabajador, el piso lo hereda el humano de dentro (%.1f s)" % t)
+	await _esperar(1.0)
+	var reales := get_tree().get_nodes_in_group("enemy").filter(
+		func(e): return is_instance_valid(e) and not e.has_meta("es_espejo")).size()
+	_ok(reales > 0 and absi(reales - espejos_antes) <= 6,
+		"hereda los enemigos que veia (%d reales, veia %d)" % [reales, espejos_antes])
+	_ok(Game.hay_pelea_en_pantalla(), "la pelea sigue abierta tras la caida")
+	t = 0.0
+	while (_trabajador_libre() == 0 or muertos.has(_trabajador_libre())) and t < 40.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(_trabajador_libre() != 0 and not muertos.has(_trabajador_libre()),
+		"la reserva se repone con un trabajador NUEVO tras la caida (%.1f s)" % t)
+
 	_fin()
 
 
