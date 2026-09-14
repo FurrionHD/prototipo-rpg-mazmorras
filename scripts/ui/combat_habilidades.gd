@@ -296,7 +296,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
 	r.mana = _pantalla._ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
-		_pantalla._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)
+		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)
 	r.conecto = true
 	r.crit = result.crit
 	var esc_txt: String = "" if is_equal_approx(escala, 1.0) else " [%d%%]" % roundi(escala * 100.0)
@@ -312,7 +312,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		mano_txt = " [2ª mano %d%%]" % roundi(m_golpe * 100.0)
 	r.linea = "golpe %d%s%s%s: %s %.2f%s" % [i + 1, etq, mano_txt, esc_txt,
 		("CRITICO 💥" if result.crit else "acierta"), dmg,
-		_pantalla._imbue_dmg_txt(result, ab.dano_mult * m_golpe * escala)]
+		_pantalla.magia._imbue_dmg_txt(result, ab.dano_mult * m_golpe * escala)]
 	# IMBUICION: cada golpe que acierta tira su estado (multi-golpe = más tiradas).
 	if ab.efectos_por_golpe and objetivo.is_alive():
 		# "objetivo": los buffs propios NO se tiran aqui (un multi-golpe los aplicaria una vez por
@@ -624,7 +624,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				Game.GAIN_AGILIDAD_CRITICO, Game.RETO_MAX_FISICO, pj_hab)
 		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
-			_pantalla._desglose_imbue(total, total_imbue, mult_imbue),
+			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue),
 			0.0 if soltando else coste, _pantalla._player.current_energy, _pantalla._player.max_energy,
 			"" if mana_ganado_golpes <= 0.0 else " | MP +%.1f -> %.1f/%.1f" % [
 				mana_ganado_golpes, _pantalla._player.current_mp, _pantalla._player.max_mp]])
@@ -634,7 +634,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		_pantalla._dps_add(ab.nombre, total)
 		# Una habilidad = UN uso de imbuicion, traiga los golpes que traiga (si no, las
 		# multi-golpe la fundirian de una). Las de utilidad pura (Canalizar) no la gastan.
-		_pantalla._gastar_imbue()
+		_pantalla.magia._gastar_imbue()
 	else:
 		# UTILIDAD PURA (dano_mult 0): no hay golpes, pero SI puede llevar efectos que le lanzas al
 		# rival (un debuff sin daño). Sin esta rama se perdian: no hay acierto que comprobar, asi que
@@ -724,8 +724,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _pantalla._etq(obj)]
 		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
 			rastro.size(), "" if rastro.size() == 1 else "s"]
-		msg = _pantalla._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
-			_pantalla._desglose_imbue(total, total_imbue, mult_imbue))
+		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar,
+			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue))
 	else:
 		msg = "%s usa %s." % [_pantalla._player.nombre, ab.nombre]
 	if mana_ganado > 0.0:

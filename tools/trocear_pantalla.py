@@ -126,6 +126,10 @@ for nombre, (tipo, i) in todas.items():
         continue
     if L[i].startswith("@onready"):
         continue
+    # Una PROPIEDAD con get/set debajo (la declaracion acaba en ':') no se muda: solo se moveria la
+    # primera linea y su bloque se quedaria colgando.
+    if partir(L[i])[0].rstrip().endswith(":"):
+        continue
     if nombre in forzadas or (usos(nombre, sorted(en_tramo)) > 0 and usos(nombre, fuera) == 0):
         c = i
         while c > 0 and L[c - 1].startswith("#") and not L[c - 1].startswith("# ---") \
@@ -140,11 +144,17 @@ nombres_mod = set(propias) | {n for _, _, n in mudadas}
 nombres_host = set(todas) - nombres_mod
 
 # --- quien usa lo movido DESDE FUERA (otros scripts o escenas): se le deja un puente ---
+# Los TEMAS HERMANOS (otros <prefijo>_*.gd ya partidos) no cuentan como "de fuera": a esos se les
+# reescribe la llamada (_pantalla.x -> _pantalla.<tema>.x) en vez de dejar un puente.
+hermanos = [os.path.abspath(f) for f in glob.glob(os.path.join(os.path.dirname(HOST), prefijo_archivo + "_*.gd"))
+            if os.path.abspath(f) != os.path.abspath(MOD)]
 otros = [f for f in glob.glob(os.path.join(RAIZ, "scripts", "**", "*.gd"), recursive=True)
-         if os.path.abspath(f) != os.path.abspath(HOST)] + \
+         if os.path.abspath(f) != os.path.abspath(HOST) and os.path.abspath(f) not in hermanos] + \
         glob.glob(os.path.join(RAIZ, "scenes", "**", "*.tscn"), recursive=True) + \
         glob.glob(os.path.join(RAIZ, "tools", "*.gd"))
-txt_otros = {f: open(f, encoding="utf-8").read() for f in otros}
+# Sin comentarios: un "ver combat._pintar_test" en un comentario no es alguien que lo llame.
+txt_otros = {f: "\n".join(partir(l)[0] for l in open(f, encoding="utf-8").read().split("\n"))
+             if f.endswith(".gd") else open(f, encoding="utf-8").read() for f in otros}
 puentes = []
 avisos_cadena = []
 for nombre, (tipo, i) in propias.items():
@@ -334,7 +344,24 @@ if avisos_cadena:
     print("AVISO nombres en cadena en el host:", avisos_cadena)
 if any(re.search(r"\bself\b", partir(l)[0]) for l in txt_mod):
     print("AVISO: el tramo usa 'self': revisalo (en el tema 'self' es el tema, no la pantalla)")
+cambios_hermanos = {}
+for f in hermanos:
+    t = open(f, encoding="utf-8").read()
+    contador = [0]
+
+    def sub(m):
+        if m.group(1) in nombres_mod:
+            contador[0] += 1
+            return "_pantalla.%s.%s" % (tema, m.group(1))
+        return m.group(0)
+
+    t2 = re.sub(r"\b_pantalla\.(\w+)\b", sub, t)
+    if contador[0]:
+        cambios_hermanos[f] = t2
+        print("tema hermano %s: %d llamadas pasan a _pantalla.%s" % (os.path.basename(f), contador[0], tema))
 if not seco:
+    for f, t2 in cambios_hermanos.items():
+        open(f, "w", encoding="utf-8", newline="").write(t2)
     open(MOD, "w", encoding="utf-8", newline="").write(modulo_txt)
     open(HOST, "w", encoding="utf-8", newline="").write("\n".join(limpio))
     print("escrito", os.path.relpath(MOD, RAIZ))
