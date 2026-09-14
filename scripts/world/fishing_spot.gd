@@ -312,7 +312,7 @@ func _ready() -> void:
 	# que hace que se note DONDE esta sin tener que verlo.
 	Ambiente.pegar(self, "charco", -3.0, 340.0)
 	# MULTI: Net necesita saber cual es el charco de este piso para encaminarle los paquetes.
-	Net.registrar_charco(self)
+	Net.pesca.registrar_charco(self)
 	# El ESPEJO no puebla: sus peces llegan en la primera foto del dueño. Poblar aqui crearia peces
 	# que no existen para nadie mas y que la primera foto tendria que borrar (parpadeo garantizado).
 	if _soy_dueno():
@@ -320,7 +320,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	Net.olvidar_charco(self)
+	Net.pesca.olvidar_charco(self)
 
 
 # ------------------------------------------------------------
@@ -1083,11 +1083,11 @@ func _process(delta: float) -> void:
 		_t_red += delta
 		if _t_red >= RED_TICK:
 			_t_red = 0.0
-			Net.difundir_charco(estado_red())
+			Net.pesca.difundir_charco(estado_red())
 	else:
 		_interpolar_peces(delta)
 	# EL CORCHO SE PUBLICA SIEMPRE, tambien si el piso es mio: es lo que los demas pintan para verme
-	# pescar (ver Net.publicar_corcho). Y los sedales ajenos se repintan siempre, este yo pescando o
+	# pescar (ver Net.pesca.publicar_corcho). Y los sedales ajenos se repintan siempre, este yo pescando o
 	# no: ver a tu compañero con la caña echada desde la orilla es medio motivo de que esto exista.
 	_publicar_mi_corcho(delta)
 	_pintar_sedales(delta)
@@ -1310,7 +1310,7 @@ func _quitar_pez(pescado: bool) -> void:
 		# a otro pez -o a ninguno- y el cobro se caia en silencio: la pieza se quedaba en el agua y
 		# en el banco. Eso es lo que hacia que los peces del invitado "se auto-sustituyeran". El nonce
 		# es la identidad del animal y no baila (ver _nacer_pez).
-		Net.resolver_pesca(int(_pez.get("nonce", 0)), pescado)
+		Net.pesca.resolver_pesca(int(_pez.get("nonce", 0)), pescado)
 		_pez = {}
 		_idx_enganchado = -1
 		_espero_mordida = false
@@ -1666,7 +1666,7 @@ func _mordidas_remotas() -> void:
 		p["de"] = peer
 		p["de_t"] = Game.reloj_mundo()   # cuando se le reservo (ver _caducar_candados)
 		c["activo"] = false   # ya tiene pieza: su corcho deja de pescar hasta que resuelva
-		Net.avisar_mordida(peer, int(p.get("nonce", 0)))
+		Net.pesca.avisar_mordida(peer, int(p.get("nonce", 0)))
 
 
 # ESPEJO: le mando al dueño donde tengo el corcho, y solo mientras de verdad este pescando. Fuera de
@@ -1691,7 +1691,7 @@ func _publicar_mi_corcho(delta: float) -> void:
 	_t_corcho = CORCHO_LATIDO
 	_corcho_ultimo_activo = pescando
 	_corcho_ultimo_pos = _corcho_base
-	Net.publicar_corcho(_corcho_base, pescando)
+	Net.pesca.publicar_corcho(_corcho_base, pescando)
 
 
 # LA PUERTA UNICA del corcho de otro. Dos cosas distintas y no hay que confundirlas:
@@ -1742,7 +1742,7 @@ func _pintar_sedales(delta: float) -> void:
 	_t_cabeceo += delta
 	for peer in _sedales:
 		var s: Dictionary = _sedales[peer]
-		var cuerpo = Net.cuerpo_de(peer)
+		var cuerpo = Net.pesca.cuerpo_de(peer)
 		var hilo: Line2D = s["hilo"]
 		var corcho: ColorRect = s["corcho"]
 		if cuerpo == null:
@@ -1812,7 +1812,7 @@ func _caducar_candados() -> void:
 
 # ESPEJO: el dueño me dice que me ha picado el pez 'idx'. A partir de aqui el minijuego es MIO y va
 # en local (el picoteo, el tiron y la barra de tension): lo unico que el dueño necesita saber es como
-# acaba, y eso se lo digo en Net.resolver_pesca.
+# acaba, y eso se lo digo en Net.pesca.resolver_pesca.
 #
 # Llega el NONCE del pez, no su indice: el indice del dueño y el mio no tienen por que coincidir (una
 # fila que no se pudo reconstruir en aplicar_red desalinea el array entero), y el nonce es la
