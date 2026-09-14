@@ -57,7 +57,10 @@ const MAX_JUGADORES := 4
 #    quien es la pelea. Añadir @rpc corre los ids de los demas: un build del 8 se entenderia MAL.
 # 10: net.gd se parte en temas (Net.<tema>) y llegan los trabajadores de piso. Los RPC cambian de nodo
 #     (/root/Net/<Tema>), asi que un build del 9 no entiende casi nada de lo que le llega.
-const PROTOCOLO := 10
+# 11: las peleas las ejecutan los TRABAJADORES DE PELEA (RPC nuevos en Net.peleas y en los trabajadores, el
+#     saludo del trabajador lleva su pid) y el lote de desgaste trae uid, durabilidad y pasivas. Un build
+#     del 10 montaria la pelea en su PC mientras el otro la espera en un trabajador.
+const PROTOCOLO := 11
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
