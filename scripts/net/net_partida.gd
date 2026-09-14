@@ -252,6 +252,13 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	# el otro vive en Game.ability_cooldowns_persist). Los CD viajan por RUTA, ver Game.cds_a_rutas.
 	d["sin_fuelle"] = bool(pj.get_meta("sin_fuelle", false))
 	d["cds"] = Game.cds_a_rutas(Game.ability_cooldowns_persist.get(pj, {}))
+	# Y SU AGUANTE [actual, maximo], medido AQUI, que es donde esta su cuerpo. La pelea que ejecuta un
+	# trabajador no tiene jugador en el mapa del que leerlo; y aun con jugador, el del LIDER vive en
+	# variables del cuerpo (current_stamina), no en la ficha, asi que el doble entraba con el rancio.
+	var pnode: Node = get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("aguante_de_grupo"):
+		var ag: Vector2 = pnode.aguante_de_grupo(pj)
+		d["aguante"] = [ag.x, ag.y]
 	return d
 
 
@@ -313,6 +320,8 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	# pelea. Los cooldowns siguen aqui en RUTAS; se traducen al aplicarlos.
 	pj.set_meta("sin_fuelle", bool(d.get("sin_fuelle", false)))
 	pj.set_meta("cds", d.get("cds", {}))
+	if d.has("aguante"):
+		pj.set_meta("aguante", d["aguante"])   # lo lee Game.aguante_para_combate
 	return pj
 
 

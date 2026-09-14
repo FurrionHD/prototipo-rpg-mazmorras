@@ -12707,10 +12707,9 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	# el aguante del mapa. Un aliado que se une A MITAD no pasa por ahi, asi que entraba con la
 	# barra a CERO y sin poder usar habilidades ni Defender. aguante_de_grupo tira de la ficha para
 	# quien no es el lider, asi que sirve igual para el personaje de otro humano (su stamina viaja
-	# con la ficha).
-	var pnode := get_tree().get_first_node_in_group("player")
-	if pnode != null and pnode.has_method("aguante_de_grupo"):
-		var ag: Vector2 = pnode.aguante_de_grupo(pj)
+	# con la ficha; y si la trae medida por su dueño, esa manda: ver aguante_para_combate).
+	var ag: Vector2 = aguante_para_combate(pj)
+	if ag.y >= 0.0:
 		c.max_energy = maxf(1.0, ag.y)
 		c.current_energy = clampf(ag.x if ag.x >= 0.0 else ag.y, 0.0, c.max_energy)
 	# Y su POCION a medias, por el mismo motivo que la energia: quien se une a mitad no pasa por
@@ -12903,6 +12902,71 @@ func _soltar_cola_combate() -> void:
 # se quedaban de estatua para siempre, "peleando" con nadie. Ahora el que llama tiene que mirar el
 # resultado y devolverlos si sale false. Ver enemy._start_combat y Net.peleas._pelea_resuelta.
 func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
+	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
+	# (es el que ha dado el espadazo, y el que se lleva la iniciativa si atacaste tu).
+	var pjs: Array = [lider()]
+	for comp in companeros():
+		pjs.append(comp)
+	return _abrir_pelea(enemy_nodes, enemy_initiated, pjs)
+
+
+# LA PELEA SIN GRUPO PROPIO (Parte 3: el combate lo ejecuta un trabajador sin ventana). Aqui no hay
+# jugador ni equipo: TODOS los aliados son DOBLES montados con las fichas que mandan los humanos, y
+# cada uno queda marcado con su dueño, asi que sus turnos se les piden a ellos y al cerrar a cada uno
+# le vuelve lo suyo (Net.peleas.cerrar_pelea). No es un combate nuevo: el primer grupo entra por el
+# mismo _abrir_pelea que la pelea de siempre (con la iniciativa) y los demas por el camino de unirse.
+#
+# 'grupos' = [{"peer": id, "fichas": [Net.partida.ficha_a_dict...]}], el primero el que la abre.
+# Devuelve {peer: [huecos en la fila de aliados]} de los que han entrado; {} si no se ha montado.
+func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Array) -> Dictionary:
+	if grupos.is_empty():
+		return {}
+	var peer0: int = int((grupos[0] as Dictionary).get("peer", 0))
+	var fichas0: Array = (grupos[0] as Dictionary).get("fichas", [])
+	var dobles0: Array = []
+	for f in fichas0:
+		dobles0.append(Net.partida.ficha_de_dict(f))
+	if dobles0.is_empty() or not _abrir_pelea(enemy_nodes, enemy_initiated, dobles0):
+		return {}
+	var combat: Node = _active_layer.get_child(0)
+	var huecos: Dictionary = {peer0: []}
+	var dobles_por_peer: Dictionary = {peer0: dobles0}
+	for i in dobles0.size():
+		var f: Dictionary = fichas0[i]
+		var c: Combatant = _active_player_cs[i]
+		# setup le puso a todos el sobrepeso de ESTA maquina (que no tiene mochila): va el de su dueño.
+		c.overload_factor = float(f.get("overload", 1.0))
+		combat.marcar_dueno(c, peer0)
+		var idx: int = combat.indice_de_aliado(c)
+		huecos[peer0].append(idx)
+		var cast: Dictionary = f.get("casteo", {})
+		if not cast.is_empty():
+			combat.aplicar_casteo_entrante(idx, cast)
+	for g in grupos.slice(1):
+		var peer: int = int((g as Dictionary).get("peer", 0))
+		var r: Dictionary = Net.peleas.meter_dobles(combat, peer, (g as Dictionary).get("fichas", []))
+		if (r["dobles"] as Array).is_empty():
+			continue
+		dobles_por_peer[peer] = r["dobles"]
+		huecos[peer] = r["idxs"]
+	Net.peleas.adoptar_pelea(dobles_por_peer)
+	return huecos
+
+
+# EL AGUANTE con el que entra un personaje a pelear, como Vector2(actual, maximo); (-1, -1) = no se
+# sabe (y entonces no se toca la energia). Manda el que trae la FICHA (lo midio su dueño, con su cuerpo
+# delante, ver Net.partida.ficha_a_dict); si no lo trae, el del jugador de esta maquina.
+func aguante_para_combate(pj: PersonajeData) -> Vector2:
+	var ag = pj.get_meta("aguante", null) if pj != null else null
+	if ag is Array and (ag as Array).size() == 2:
+		return Vector2(float(ag[0]), float(ag[1]))
+	var pnode := get_tree().get_first_node_in_group("player")
+	if pnode != null and pnode.has_method("aguante_de_grupo"):
+		return pnode.aguante_de_grupo(pj)
+	return Vector2(-1.0, -1.0)
+
+
+func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool:
 	if not _active_enemies.is_empty() or enemy_nodes.is_empty():
 		return false  # ya hay un combate o faltan datos
 	# UNA PANTALLA POR MAQUINA, sin excepciones. Sin esto, alguien que estuviera espejando la pelea
@@ -12932,11 +12996,7 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 		_montaje_ms = 0
 		return false
 
-	# EL GRUPO ENTERO baja a la pelea: un Combatant por miembro del equipo, con el LIDER el primero
-	# (es el que ha dado el espadazo, y el que se lleva la iniciativa si atacaste tu).
-	var pjs: Array = [lider()]
-	for comp in companeros():
-		pjs.append(comp)
+	# 'pjs' = quienes bajan a la pelea, el primero con la iniciativa (ver start_combat).
 	var player_cs: Array = []
 	for pj in pjs:
 		player_cs.append(crear_player_combatant(pj))
@@ -12986,14 +13046,14 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 
 	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRA CADA UNO (correr por
 	# la mazmorra lo pagan todos, ver player.gd), y quien llegue sin fuelle empieza lento. El
-	# aguante del que va en cabeza vive en el nodo del jugador; el de los demas, en su ficha.
-	var pnode := get_tree().get_first_node_in_group("player")
+	# aguante del que va en cabeza vive en el nodo del jugador; el de los demas, en su ficha. Un DOBLE
+	# lo trae medido por su dueño (ver aguante_para_combate).
 	var exhausted: Array = []
 	for i in pjs.size():
 		var pj_i: PersonajeData = pjs[i]
 		var c_i: Combatant = player_cs[i]
-		if pnode != null and pnode.has_method("aguante_de_grupo"):
-			var ag: Vector2 = pnode.aguante_de_grupo(pj_i)
+		var ag: Vector2 = aguante_para_combate(pj_i)
+		if ag.y >= 0.0:
 			c_i.max_energy = ag.y
 			c_i.current_energy = clampf(ag.x, 0.0, ag.y)
 		exhausted.append(bool(pj_i.get_meta("sin_fuelle", false)))
@@ -13001,10 +13061,10 @@ func start_combat(enemy_nodes: Array, enemy_initiated: bool) -> bool:
 	# COOLDOWNS que viajan entre combates: bajan 1 por ENTRAR a este combate (ademas de por turno
 	# dentro), y se cargan en el combatiente para que un nuke usado en la pelea anterior siga
 	# cociendo. Sin esto, el Combatant nace con los CD a cero cada combate y podias repetir el
-	# mazazo en cada pelea. Van POR PERSONA: son SUS habilidades.
+	# mazazo en cada pelea. Van POR PERSONA: son SUS habilidades. Los de un DOBLE llegan con su ficha.
 	for i in pjs.size():
 		var cd_carry: Dictionary = {}
-		var suyos: Dictionary = ability_cooldowns_persist.get(pjs[i], {})
+		var suyos: Dictionary = ability_cooldowns_persist.get(pjs[i], _cds_de_meta(pjs[i]))
 		for ab in suyos:
 			var left: int = int(suyos[ab]) - 1
 			if left > 0:

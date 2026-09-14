@@ -871,6 +871,29 @@ func _pedir_unirme(fichas: Array) -> void:
 	# dejando al que venia de rescate con una pelea muerta.
 	if p.has_method("esperar_refuerzo"):
 		p.esperar_refuerzo(true)
+	var r: Dictionary = meter_dobles(p, quien, fichas)
+	var dobles: Array = r["dobles"]
+	var idxs: Array = r["idxs"]
+	if p.has_method("esperar_refuerzo"):
+		p.esperar_refuerzo(false)
+	if dobles.is_empty():
+		# La pelea existe: lo que pasa es que NO CABE nadie mas. Decirlo tal cual; el mensaje de
+		# "ya no esta disponible" mandaba a buscar un problema que no era.
+		_union_denegada.rpc_id(quien, "La pelea está llena: no cabe nadie más.")
+		return
+	_dobles[quien] = dobles       # de quien es cada doble, para devolverle lo suyo al acabar
+	if not _pelea_participantes.has(quien):
+		_pelea_participantes.append(quien)
+	# Los INDICES le dicen cual de sus personajes es cada aliado de la pantalla: es lo unico que
+	# significa lo mismo en las dos maquinas (y lo que necesita para saber a quien mover).
+	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo(), idxs)
+
+
+# Mete en la pelea de la pantalla 'p' un DOBLE por cada ficha de 'quien', marcados como suyos y con el
+# conjuro que traigan sembrado. Devuelve {"dobles": [...], "idxs": [huecos en la fila de aliados]}.
+# Lo usan las dos formas de meter a otro humano: que se una a mi pelea (_pedir_unirme) y que la pelea
+# se monte entera con fichas en un trabajador (Game.abrir_pelea_de_fichas).
+func meter_dobles(p: Node, quien: int, fichas: Array) -> Dictionary:
 	# Un DOBLE por personaje suyo: pelean aqui con sus stats y su equipo. Se meten POR ORDEN DE
 	# FORMACION y entra lo que quepa (MAX_ALIADOS): su pos 1 seguro, la pos 2 si queda hueco.
 	var dobles: Array = []
@@ -892,19 +915,16 @@ func _pedir_unirme(fichas: Array) -> void:
 		var cast := (f as Dictionary).get("casteo", {}) as Dictionary
 		if not cast.is_empty() and p.has_method("aplicar_casteo_entrante"):
 			p.aplicar_casteo_entrante(idx_al, cast)
-	if p.has_method("esperar_refuerzo"):
-		p.esperar_refuerzo(false)
-	if dobles.is_empty():
-		# La pelea existe: lo que pasa es que NO CABE nadie mas. Decirlo tal cual; el mensaje de
-		# "ya no esta disponible" mandaba a buscar un problema que no era.
-		_union_denegada.rpc_id(quien, "La pelea está llena: no cabe nadie más.")
-		return
-	_dobles[quien] = dobles       # de quien es cada doble, para devolverle lo suyo al acabar
-	if not _pelea_participantes.has(quien):
-		_pelea_participantes.append(quien)
-	# Los INDICES le dicen cual de sus personajes es cada aliado de la pantalla: es lo unico que
-	# significa lo mismo en las dos maquinas (y lo que necesita para saber a quien mover).
-	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo(), idxs)
+	return {"dobles": dobles, "idxs": idxs}
+
+
+# La pelea que acabo de montar con fichas (Game.abrir_pelea_de_fichas) es de ESTOS humanos: sus dobles
+# (para devolverles lo suyo al cerrar) y como participantes (reciben instantaneas y se les piden turnos).
+func adoptar_pelea(dobles_por_peer: Dictionary) -> void:
+	for peer in dobles_por_peer:
+		_dobles[peer] = dobles_por_peer[peer]
+		if not _pelea_participantes.has(peer):
+			_pelea_participantes.append(peer)
 
 
 @rpc("any_peer", "call_remote", "reliable")

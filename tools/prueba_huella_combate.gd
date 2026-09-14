@@ -26,8 +26,18 @@ func _ready() -> void:
 	if args.has("grabar"):
 		_modo = "grabar"
 	var fallos := 0
-	for esc in ["prueba_4v3_atacar", "mundo_rey_slime", "mundo_venenos_huir", "espejo_rey_slime"]:
-		var traza: PackedStringArray = await _jugar(esc)
+	var escenarios: Array = ["prueba_4v3_atacar", "mundo_rey_slime", "mundo_venenos_huir", "espejo_rey_slime",
+		"fichas_rey_slime"]
+	# PRUEBA CORTA: "solo=<escenario>" juega una pelea sola (para ver rapido si algo revienta).
+	for a in args:
+		if String(a).begins_with("solo="):
+			escenarios = [String(a).trim_prefix("solo=")]
+	for esc in escenarios:
+		var traza: PackedStringArray
+		if esc.begins_with("fichas_"):
+			traza = await _jugar_fichas(esc)
+		else:
+			traza = await _jugar(esc)
 		fallos += _guardar_o_comparar(esc, traza)
 	print("[huella] RESULTADO: ", "TODO IGUAL" if fallos == 0 else "CAMBIA %d" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
@@ -111,6 +121,138 @@ func _jugar(escenario: String) -> PackedStringArray:
 
 
 # ------------------------------------------------------------
+#  LA PELEA DEL TRABAJADOR: montada SOLO CON FICHAS (Game.abrir_pelea_de_fichas), sin grupo propio.
+#  El grupo de la partida de referencia se reparte entre DOS humanos falsos; cada uno tiene su pantalla
+#  espejo, y el piloto pulsa en la del humano al que el anfitrion le ha pedido el turno. La huella es
+#  la pantalla del anfitrion (la del trabajador) y lo que pulsa cada humano.
+# ------------------------------------------------------------
+const PEERS_FALSOS := [998, 999]
+
+func _jugar_fichas(escenario: String) -> PackedStringArray:
+	# Game cuelga la pantalla de la RAIZ, y mientras la escena de la prueba se esta montando (su _ready)
+	# la raiz no admite hijos: sin este fotograma la pantalla no llegaba a existir.
+	await get_tree().process_frame
+	seed(SEMILLA)
+	_traza = []
+	_ultimo_log = ""
+	_ultimo_estado = {}
+	var base: String = escenario.replace("fichas_", "mundo_")
+	if not FileAccess.file_exists(MUNDO_REF):
+		return PackedStringArray(["SIN PARTIDA DE REFERENCIA (tools/huellas/mundo_ref.tres)"])
+	Game.importar_partida(ResourceLoader.load(MUNDO_REF, "", ResourceLoader.CACHE_MODE_IGNORE))
+	var pjs: Array = [Game.lider()]
+	for comp in Game.companeros():
+		pjs.append(comp)
+	# Reparto: la primera mitad (redondeando hacia arriba) es del que abre la pelea, el resto del otro.
+	var corte: int = ceili(pjs.size() / 2.0)
+	var grupos: Array = []
+	var dueno_de: Dictionary = {}   # PersonajeData original -> peer
+	for g in 2:
+		var suyos: Array = pjs.slice(0, corte) if g == 0 else pjs.slice(corte)
+		if suyos.is_empty():
+			continue
+		var fichas: Array = []
+		for pj in suyos:
+			var f: Dictionary = Net.partida.ficha_a_dict(pj)
+			# Sin cuerpo en el mapa no hay aguante que medir: entra descansado (misma formula que el jugador).
+			var maxi_: float = 100.0 + Game.stat_consolidado("resistencia", pj) * 0.075 \
+				+ Game.stat_consolidado("agilidad", pj) * 0.025
+			f["aguante"] = [maxi_, maxi_]
+			fichas.append(f)
+			dueno_de[pj] = PEERS_FALSOS[g]
+		grupos.append({"peer": PEERS_FALSOS[g], "fichas": fichas})
+	var nodos: Array = []
+	for spec in ENEMIGOS[base]:
+		var n: Node = load("res://tools/prueba_huella_enemigo_falso.gd").new()
+		n.data = load("res://scenes/actors/enemy/%s.tres" % spec[0])
+		n.current_t = float(spec[1])
+		n.es_boss = bool(spec[2])
+		add_child(n)
+		nodos.append(n)
+	var red_falsa = load("res://tools/prueba_huella_red_falsa.gd").new()
+	red_falsa._pelea_id = 1
+	add_child(red_falsa)   # en el arbol, que la pelea le pregunta por 'multiplayer'
+	var peleas_de_verdad = Net.peleas
+	Net.peleas = red_falsa
+	Net.activo = true
+	var huecos: Dictionary = Game.abrir_pelea_de_fichas(nodos, false, grupos)
+	var pelea: Node = Game._active_layer.get_child(0) if is_instance_valid(Game._active_layer) else null
+	if pelea == null or huecos.is_empty():
+		_traza.append("NO SE HA MONTADO la pelea de fichas")
+	else:
+		red_falsa.anfitrion = pelea
+		_traza.append("HUECOS " + str(huecos) + " participantes=" + str(red_falsa._pelea_participantes))
+		await get_tree().process_frame
+		for peer in huecos:
+			var e: Node = load("res://scenes/ui/combat.tscn").instantiate()
+			e.setup_espejo(pelea.roster_para_espejo())
+			red_falsa.espejos[peer] = e
+			add_child(e)
+			# Cada hueco, con el personaje ORIGINAL de su dueño (con el que su espejo viste al maniqui).
+			var originales: Array = pjs.filter(func(p): return dueno_de.get(p) == peer)
+			for i in mini(originales.size(), (huecos[peer] as Array).size()):
+				red_falsa.pjs_por_hueco[int(huecos[peer][i])] = originales[i]
+		var f := 0
+		var turnos := 0
+		var espera := 0
+		var ultimo_estado := -1
+		while f < MAX_FRAMES:
+			await get_tree().process_frame
+			f += 1
+			_apuntar(pelea, f)
+			var st: int = int(pelea.get("_state"))
+			if st == 3:   # FINISHED
+				break
+			if st != ultimo_estado:
+				ultimo_estado = st
+				espera = 0
+				if st == 1:
+					turnos += 1
+			if st != 1:
+				continue
+			espera += 1
+			if espera < 3 or espera % 3 != 0:
+				continue
+			if espera > 600:
+				_traza.append("f%d ATASCADO: nadie contesta en el turno %d (esperando a %d)" % [
+					f, turnos, int(pelea.get("_esperando_a"))])
+				break
+			var quien: int = int(pelea.get("_esperando_a"))
+			var e2: Node = red_falsa.espejos.get(quien)
+			if e2 == null:
+				continue   # un aliado sin dueño en una pelea sin grupo propio: no deberia pasar
+			if int(e2.get("_state")) != 1:
+				continue
+			var pulsado: String = _piloto(e2, base, turnos, pelea)
+			if pulsado != "":
+				_traza.append("f%d %d PULSA %s" % [f, quien, pulsado])
+		_apuntar(pelea, f)
+		_traza.append("FIN f%d estado=%d" % [f, int(pelea.get("_state"))])
+	# Recoger lo que monto Game SIN cerrar la pelea por su camino (ese cierre mataria enemigos, tocaria
+	# fichas y mandaria lotes: no es lo que mide esta huella).
+	for peer in red_falsa.espejos:
+		if is_instance_valid(red_falsa.espejos[peer]):
+			red_falsa.espejos[peer].queue_free()
+	if is_instance_valid(Game._active_layer):
+		Game.salir_modal(Game._active_layer)
+		Game._active_layer.queue_free()
+		Musica.desapilar()
+		Ambiente.pausar(false)
+	Game._active_layer = null
+	Game._active_enemies.clear()
+	Game._active_player_cs = []
+	Game._active_player_pjs = []
+	Game.esconder_mundo(false)
+	for n in nodos:
+		n.queue_free()
+	Net.peleas = peleas_de_verdad
+	Net.activo = false
+	red_falsa.queue_free()
+	await get_tree().process_frame
+	return _traza
+
+
+# ------------------------------------------------------------
 #  CON UNA PARTIDA DE VERDAD: el grupo de la partida congelada contra enemigos del juego
 # ------------------------------------------------------------
 const MUNDO_REF := "res://tools/huellas/mundo_ref.tres"
@@ -162,12 +304,15 @@ const POLITICA := {
 
 var _turno_atras := -1   # el turno en el que el piloto ya tuvo que volver atras de un submenu
 
-func _piloto(pelea: Node, escenario: String, turno: int) -> String:
+# 'sabe' = la pantalla que conoce la frase correcta. En un ESPEJO no viaja (la comprueba el anfitrion),
+# asi que el piloto del espejo la lee de la del anfitrion, como un jugador que se sabe su conjuro.
+func _piloto(pelea: Node, escenario: String, turno: int, sabe: Node = null) -> String:
 	var cast: Control = pelea.get("_cast_box")
 	if cast != null and cast.visible:
 		var botones := _botones(cast)
-		var sp = pelea.get("_cast_spell")
-		var idx: int = int(pelea.get("_cast_index"))
+		var fuente: Node = sabe if sabe != null else pelea
+		var sp = fuente.get("_cast_spell")
+		var idx: int = int(fuente.get("_cast_index"))
 		if sp != null and idx < sp.frases.size():
 			var correcta: String = sp.frases[idx]
 			for b in botones:
