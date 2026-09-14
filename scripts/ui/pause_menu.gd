@@ -213,7 +213,7 @@ func _guardar() -> void:
 	# host y hay que volcarlo tambien -- asi que se lo PIDE, y el host hace lo mismo que si hubiera
 	# pulsado el boton el: se guarda, y de ahi salen los guardados de TODOS los invitados.
 	if Net.activo and not Net.es_host:
-		Net.pedir_guardar_todos()
+		Net.partida.pedir_guardar_todos()
 		_aviso.text = "Guardando: se lo pides al anfitrión y quedáis todos a salvo."
 		return
 	# MUNDO COMPARTIDO: se guarda en el mundo, no en una ranura, y ademas se SUBE (sin soltar el
@@ -225,7 +225,7 @@ func _guardar() -> void:
 		return
 	var ok: bool = Perfil.guardar_actual()
 	if ok and Net.activo:
-		Net.guardar_todos()
+		Net.partida.guardar_todos()
 		_aviso.text = "Partida guardada (y tus compañeros, a salvo en su pueblo)."
 		return
 	_aviso.text = "Partida guardada." if ok else "No se pudo guardar."
@@ -246,7 +246,7 @@ func _guardar_y_salir() -> void:
 			var llego: Array = [false]   # Array y no bool: la lambda captura por valor
 			var al_llegar := func(_ok: bool) -> void: llego[0] = true
 			Net.guardado_respondido.connect(al_llegar)
-			Net.pedir_guardar_todos()
+			Net.partida.pedir_guardar_todos()
 			var esperado: float = 0.0
 			while not llego[0] and esperado < 5.0:
 				await get_tree().create_timer(0.1).timeout
@@ -258,7 +258,7 @@ func _guardar_y_salir() -> void:
 			Net.desconectar()
 			get_tree().change_scene_to_file("res://scenes/ui/multi_menu.tscn")
 			return
-		Net.pedir_guardar_todos(true)
+		Net.partida.pedir_guardar_todos(true)
 		_aviso.text = "Guardando y cerrando: se lo pides al anfitrión."
 		return
 	# MUNDO COMPARTIDO: guardar, subir y SOLTAR EL CERROJO, en ese orden. Si la subida falla el mundo
@@ -278,7 +278,7 @@ func _guardar_y_salir() -> void:
 	# (si no, se comeria un "el host ha cerrado" a secas). Se ESPERA a que el aviso salga de verdad:
 	# _salir() desconecta, y cortar en el mismo frame tiraria el paquete sin enviarlo.
 	if Net.activo:
-		await Net.guardar_todos(true)
+		await Net.partida.guardar_todos(true)
 	_salir()
 
 

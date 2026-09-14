@@ -458,7 +458,7 @@ func autoguardar() -> bool:
 	# PRIMERO se recoge lo de los demas y DESPUES se escribe: al reves (como estaba) el save saldria
 	# sin el ultimo rato de tu compañero. Cada uno manda lo suyo y de aqui sale UN save.
 	if Net.activo and Net.es_host:
-		await Net.recoger_estados()
+		await Net.partida.recoger_estados()
 	if not guardar_actual():
 		_avisar_hud("No se pudo guardar")
 		return false
@@ -489,7 +489,7 @@ func cerrar_y_subir() -> Dictionary:
 	# Lo mismo que en el autoguardado: primero lo de los demas, y AVISANDOLES de que se cierra (se van
 	# al menu con su personaje ya dentro del save), y despues se escribe.
 	if Net.activo and Net.es_host:
-		await Net.recoger_estados(true)
+		await Net.partida.recoger_estados(true)
 	if not guardar_actual():
 		return {"ok": false, "mensaje": "No se pudo guardar el mundo (no se cierra)."}
 	var r: Dictionary = await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), _meta())

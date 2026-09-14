@@ -2242,7 +2242,7 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 	asegurar_uids()
 
 
-# EL INVITADO ADOPTA SU JUGADOR, el que le acaba de mandar el host (ver Net._tu_jugador).
+# EL INVITADO ADOPTA SU JUGADOR, el que le acaba de mandar el host (ver Net.partida._tu_jugador).
 #
 # Es el mismo mecanismo que al cargar un mundo del disco, pero la partida no viene de un fichero:
 # viene por cable, y aqui NO hay `importar_partida` que haya montado el mundo antes. Lo unico que
@@ -2487,7 +2487,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 # el SITIO, no el personaje. Conservar el sitio es el hito 6 completo (ver docs/MULTIJUGADOR.md).
 func exportar_partida_invitado() -> SaveData:
 	var d: SaveData = exportar_partida()
-	var mio: Dictionary = Net.mundo_propio_congelado()
+	var mio: Dictionary = Net.partida.mundo_propio_congelado()
 	if mio.is_empty():
 		return d   # no estoy de invitado: nada que devolver
 
@@ -2506,7 +2506,7 @@ func exportar_partida_invitado() -> SaveData:
 	d.mapa_trabajo = (mio["mapa_trabajo"] as Dictionary).duplicate(true)
 	d.bosses_derrotados = (mio["bosses_derrotados"] as Dictionary).duplicate()
 	# Los materiales CONOCIDOS vuelven a los que sabia al entrar: los sub-tiers que haya descubierto
-	# picando en el mundo del host son de ese mundo, no del mio (ver Net._congelar_mi_mundo).
+	# picando en el mundo del host son de ese mundo, no del mio (ver Net.partida._congelar_mi_mundo).
 	d.materiales_vistos = (mio.get("materiales_vistos", {}) as Dictionary).duplicate()
 	# La BIBLIOTECA vuelve a la que traje. En la sesion es comun -- lo que lea cualquiera cuenta para
 	# todos --, pero lo leido en el mundo del host es de ESE mundo: quedandose, una tarde acompañado
@@ -2531,7 +2531,7 @@ func exportar_partida_invitado() -> SaveData:
 
 # Guarda MI partida de invitado en MI ranura. Vive aqui y no en Net porque es Game quien habla con
 # Perfil: llamar a Perfil desde net.gd cierra un ciclo net -> Perfil -> Game -> net y GDScript deja de
-# poder inferir los tipos de Game.* dentro de net.gd. Lo llama Net._guardar_ahora.
+# poder inferir los tipos de Game.* dentro de net.gd. Lo llama Net.partida._guardar_ahora.
 func guardar_partida_invitado() -> bool:
 	return Perfil.guardar_actual_con(exportar_partida_invitado())
 
@@ -2558,13 +2558,13 @@ func guardar_mi_partida() -> bool:
 		# no hay nada que escribir en MI disco. Se le pide a el, que es quien tiene el save (y de paso
 		# esto cubre los dos autoguardados que llaman aqui a pelo: morir y subir de nivel).
 		if Net.mundo_compartido:
-			Net.pedir_guardar_todos()
+			Net.partida.pedir_guardar_todos()
 			return true
 		return guardar_partida_invitado()
 	return Perfil.guardar_actual()
 
 
-# LO MIO, empaquetado para mandarselo al anfitrion de un mundo compartido (ver Net._dame_tu_estado).
+# LO MIO, empaquetado para mandarselo al anfitrion de un mundo compartido (ver Net.partida._dame_tu_estado).
 # Calcula igual que exportar_partida donde estoy: el piso solo cuenta si de verdad estoy en el.
 func mi_jugador_data() -> JugadorData:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
@@ -4488,7 +4488,7 @@ func recoger_encargo(id: int) -> Dictionary:
 	#
 	# EN MULTI HAY DOS VIAS Y SOLO SE TOMA UNA, nunca las dos:
 	#   - el dueño esta CONECTADO -> se le manda por RPC y la aplica EL en su maquina. Escribirla
-	#     tambien aqui, sobre jugadores_mundo, seria trabajo tirado: Net._mi_estado sobrescribe ese
+	#     tambien aqui, sobre jugadores_mundo, seria trabajo tirado: Net.partida._mi_estado sobrescribe ese
 	#     snapshot entero en el siguiente autoguardado. O peor, doble contabilidad si llega antes.
 	#   - el dueño NO esta -> su JugadorData en jugadores_mundo ES la copia buena, y se aplica aqui.
 	var para_otros: Dictionary = {}   # identidad -> [entradas]
@@ -8945,7 +8945,7 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 
 
 # REPARACION de los invitados de un mundo compartido que perdieron el farolillo: hasta el 14/09/2026
-# la lampara no viajaba en el JugadorData (ver Net.jd_a_dict) y cada autoguardado se la borraba. Como
+# la lampara no viajaba en el JugadorData (ver Net.partida.jd_a_dict) y cada autoguardado se la borraba. Como
 # ya habian reclamado el pack, no habia forma de recuperarla. Solo se devuelve la del pack, y solo a
 # quien lo reclamo y no tiene NINGUNA lampara: a nadie se le regala una segunda.
 func _devolver_farolillo_perdido() -> void:
@@ -12706,7 +12706,7 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	# esto, unirse a mitad de pelea te los reseteaba: soltabas el nuke, salias, te unias a la pelea
 	# del compañero y lo volvias a tener listo. Para el doble de otro humano no valia mirar
 	# ability_cooldowns_persist (es un PersonajeData recien creado, no ha estado nunca ahi): sus CD
-	# llegan con la ficha, en la meta 'cds' que pone Net.ficha_de_dict ({ruta: turnos}).
+	# llegan con la ficha, en la meta 'cds' que pone Net.partida.ficha_de_dict ({ruta: turnos}).
 	var cd_carry: Dictionary = {}
 	var suyos: Dictionary = ability_cooldowns_persist.get(pj, _cds_de_meta(pj))
 	for ab in suyos:
@@ -12721,7 +12721,7 @@ func unir_aliado_al_combate(pj: PersonajeData, overload: float = 1.0) -> bool:
 	# reentrar por append dejaba DOS entradas del mismo personaje: en el anfitrion se veia por el
 	# "(2)" que le pone _desambiguar, y en la pantalla del compañero directamente duplicado. La guarda
 	# de arriba no lo pilla porque compara identidad de objeto y el que reentra llega con un
-	# PersonajeData recien creado por Net.ficha_de_dict; la llave buena es el uid, que si viaja.
+	# PersonajeData recien creado por Net.partida.ficha_de_dict; la llave buena es el uid, que si viaja.
 	var hueco: int = -1
 	if combat.has_method("hueco_huido_de"):
 		hueco = int(combat.hueco_huido_de(pj.uid))
@@ -12781,7 +12781,7 @@ func cds_de_rutas(rutas: Dictionary) -> Dictionary:
 			d[ab] = int(rutas[ruta])
 	return d
 
-# Los cooldowns que trae la ficha de un doble (los deja Net.ficha_de_dict al reconstruirla).
+# Los cooldowns que trae la ficha de un doble (los deja Net.partida.ficha_de_dict al reconstruirla).
 func _cds_de_meta(pj: PersonajeData) -> Dictionary:
 	return cds_de_rutas(pj.get_meta("cds", {}) as Dictionary)
 
@@ -13111,7 +13111,7 @@ func retomar_combate(estado: Dictionary) -> bool:
 			c = _active_player_cs[mios] if mios < _active_player_cs.size() else null
 			mios += 1
 		else:
-			var doble: PersonajeData = Net.ficha_de_dict(fila.get("ficha", {}))
+			var doble: PersonajeData = Net.partida.ficha_de_dict(fila.get("ficha", {}))
 			if unir_aliado_al_combate(doble, float((fila.get("ficha", {}) as Dictionary).get("overload", 1.0))):
 				c = combatant_de_pj(doble)
 				var dp: int = int(fila.get("dueno", 0))

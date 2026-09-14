@@ -248,7 +248,7 @@ func _set_tiradas_novato(v: int) -> void:
 # sesion. Sustituir en vez de sumar le borraria al invitado su coleccion en cuanto entrara.
 #
 # Lo que NO hace es quedarse: al desconectar, exportar_partida_invitado devuelve la biblioteca a como
-# estaba al entrar (ver Net._congelar_mi_mundo). Una tarde con tu hermano no te completa la coleccion.
+# estaba al entrar (ver Net.partida._congelar_mi_mundo). Una tarde con tu hermano no te completa la coleccion.
 @rpc("authority", "call_remote", "reliable")
 func _set_biblioteca(v: Dictionary) -> void:
 	for k in v:

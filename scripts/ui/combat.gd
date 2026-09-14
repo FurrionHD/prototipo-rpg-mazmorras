@@ -945,7 +945,7 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 			var pj: PersonajeData = Game.pj_de_combatant(c)
 			if pj != null:
 				Game.volcar_desgaste_en_ficha(pj)
-				fila["ficha"] = Net.ficha_a_dict(pj)
+				fila["ficha"] = Net.partida.ficha_a_dict(pj)
 		if _casteos.has(c):
 			# El tercer campo es A QUIEN va (indice en _aliados; -1 = a si mismo): un conjuro de
 			# los que caen sobre un aliado dura 2-3 turnos y puede pillar el traspaso a medias.
@@ -2290,7 +2290,7 @@ func anadir_aliado(c: Combatant, agotado: bool = false) -> bool:
 # anadir_aliado hacia un append y en la pelea acababa habiendo DOS entradas del mismo personaje:
 # _desambiguar le ponia "(2)" al nuevo, y en el espejo -que no recibe quien ha huido y solo añade
 # por el final- se veian los dos bloques. La guarda de Game.unir_aliado_al_combate no lo pillaba
-# porque compara identidad de objeto, y el que reentra llega por Net.ficha_de_dict, que crea un
+# porque compara identidad de objeto, y el que reentra llega por Net.partida.ficha_de_dict, que crea un
 # PersonajeData NUEVO cada vez.
 #
 # La llave es el UID de la ficha, que si sobrevive a ficha_de_dict (viaja como un campo mas).

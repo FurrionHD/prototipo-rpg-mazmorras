@@ -77,8 +77,8 @@ func _ready() -> void:
 	# Unirse a un mundo pasa por aqui: la red avisa y la pantalla responde. Abrir el creador de
 	# personaje NO es cosa de la capa de red, y menos dentro de un RPC.
 	Net.estado_cambiado.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
-	Net.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
-	Net.entrada_lista.connect(_entrar_al_mundo_ajeno)
+	Net.partida.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
+	Net.partida.entrada_lista.connect(_entrar_al_mundo_ajeno)
 	_pintar()
 
 
@@ -494,7 +494,7 @@ func _estrenar_con_importado(slot: int, capa: Control, creador: Node, clave: Str
 	if jd == null:
 		_decir("Esa partida no se puede leer: no se ha traído nada.", false)
 		return
-	var congelado: Dictionary = Net.jd_a_dict(jd)
+	var congelado: Dictionary = Net.partida.jd_a_dict(jd)
 
 	capa.queue_free()
 	if is_instance_valid(creador):
@@ -503,7 +503,7 @@ func _estrenar_con_importado(slot: int, capa: Control, creador: Node, clave: Str
 	# Mundo NUEVO: semilla nueva, baul vacio, almacen vacio, herramientas de serie. Lo de la persona
 	# entra despues y por encima.
 	Game.nueva_partida()
-	var llegado: JugadorData = Net.jd_de_dict(congelado)
+	var llegado: JugadorData = Net.partida.jd_de_dict(congelado)
 	Game.aplicar_jugador_mundo(llegado, 0)   # 0 = no toques la semilla que acaba de salir
 
 	if not Mundos.estrenar(clave):
@@ -664,7 +664,7 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 			# personaje FANTASMA: no se le puede mirar si esta de encargo (uid_de_encargo("") = 0), no
 			# se le encuentra por uid, y en el reparto de la excelia de un encargo aparecia como "?".
 			Game.asegurar_uid(pj)
-			Net.mandar_alta_personaje(pj)
+			Net.partida.mandar_alta_personaje(pj)
 			_decir("Creando tu personaje en el mundo..."))
 
 
@@ -736,7 +736,7 @@ func _mudar_personaje(slot: int, capa: Control, creador: Node) -> void:
 	capa.queue_free()
 	if is_instance_valid(creador):
 		creador.queue_free()   # ya no hay nada que crear
-	Net.mandar_alta_jugador(jd)
+	Net.partida.mandar_alta_jugador(jd)
 	_decir("Trayendo a %s al mundo..." % jd.resumen())
 
 

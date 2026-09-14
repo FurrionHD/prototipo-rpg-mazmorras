@@ -631,7 +631,7 @@ func sacar_de_la_pelea(peer: int) -> void:
 			# A mitad de pelea la vida y el mana viven en el COMBATIENTE: hay que bajarlos a la
 			# ficha antes de mandarlos, o se iria con los que entro.
 			Game.volcar_desgaste_en_ficha(doble)
-			lote.append(Net.desgaste_a_dict(doble))
+			lote.append(Net.partida.desgaste_a_dict(doble))
 		_devolver_desgaste.rpc_id(peer, lote)
 		_dobles.erase(peer)
 	_fin_espejo.rpc_id(peer)
@@ -688,7 +688,7 @@ func cerrar_pelea(derrotados: Array = []) -> void:
 			if _dobles.has(p):
 				var lote: Array = []
 				for doble in _dobles[p]:
-					lote.append(Net.desgaste_a_dict(doble))
+					lote.append(Net.partida.desgaste_a_dict(doble))
 				_devolver_desgaste.rpc_id(p, lote)
 			_fin_espejo.rpc_id(p)
 		_pelea_participantes.clear()
@@ -736,7 +736,7 @@ func _devolver_desgaste(lote: Array) -> void:
 		if pj == null:
 			push_warning("[multi] desgaste sin dueño (uid '%s'): se descarta" % String(d.get("uid", "")))
 			continue
-		Net.aplicar_desgaste(pj, d)
+		Net.partida.aplicar_desgaste(pj, d)
 	# Ya tengo lo mio: si me habia salido del espejo por mi cuenta, se acabo la espera y puedo
 	# volver a meterme en peleas (ver salir_del_espejo).
 	_desgaste_pendiente = false
@@ -863,7 +863,7 @@ func solicitar_unirse(anfitrion: int) -> void:
 	_mis_en_pelea = _mi_formacion()
 	var fichas: Array = []
 	for pj in _mis_en_pelea:
-		var f: Dictionary = Net.ficha_a_dict(pj)
+		var f: Dictionary = Net.partida.ficha_a_dict(pj)
 		# Y con el CONJURO que traiga puesto (recitado entero en el mapa, o a medias). Va como una
 		# clave mas DENTRO de la ficha y no como un parametro nuevo del rpc: cambiar la aridad de un
 		# @rpc rompe a cualquier peer con la version anterior, una clave de mas se ignora sola.
@@ -902,7 +902,7 @@ func _pedir_unirme(fichas: Array) -> void:
 	var dobles: Array = []
 	var idxs: Array = []
 	for f in fichas:
-		var doble: PersonajeData = Net.ficha_de_dict(f)
+		var doble: PersonajeData = Net.partida.ficha_de_dict(f)
 		if not Game.unir_aliado_al_combate(doble, float(f.get("overload", 1.0))):
 			break   # la pelea esta llena: los que falten se quedan fuera
 		dobles.append(doble)
