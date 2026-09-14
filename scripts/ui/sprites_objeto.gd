@@ -270,7 +270,14 @@ static func precargar(arbol: SceneTree, por_fotograma: int = 10) -> void:
 			n += 1
 		if n >= por_fotograma:
 			n = 0
+			# SI SE CIERRA EL JUEGO A MEDIAS, el arbol ya no existe y esperar a su siguiente fotograma
+			# revienta ("process_frame on null instance"). Se comprueba antes y despues de esperar: el
+			# cierre puede llegar justo durante la espera.
+			if not is_instance_valid(arbol):
+				return
 			await arbol.process_frame
+			if not is_instance_valid(arbol):
+				return
 
 
 static func _celdas_de(forma: String, grietas: int, res: int) -> PackedByteArray:
