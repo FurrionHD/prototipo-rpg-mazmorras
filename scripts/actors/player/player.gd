@@ -119,6 +119,10 @@ const ZONA_GOLPE_ANCHO := 34.0
 # Hay un espadazo en el aire que ha salido con alguien delante: se resuelve al CONTACTAR el arma
 # (cuando salta _golpe_sfx_t), no al pulsar. Si para entonces el bicho se ha apartado, fallas.
 var _golpe_pendiente: bool = false
+# Con baston o varita y nadie delante, la pulsacion puede ser un TOQUE o el principio de un recitado:
+# el espadazo se GUARDA hasta saberlo. Sale al soltar (toque) o no sale nunca (recitado; entonces la
+# animacion va al lanzar el hechizo, ver _soltar_conjuro). Ver _tick_ataque.
+var _golpe_diferido: bool = false
 
 # Interaccion (F) con cadaveres para extraer el cristal.
 @export var interact_range: float = 40.0
@@ -322,6 +326,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		_atk_buffer = 0.0   # el golpe pendiente no sobrevive a una pantalla: se pulso para OTRO momento
 		_golpe_pendiente = false
+		_golpe_diferido = false
 		# EN COMBATE NO se regenera aguante. La energia con la que entras a la pelea es la stamina
 		# de exploracion ("correr antes de pelear se paga", ver Game.start_combat): en un jugador
 		# esto se congelaba con el arbol, pero en multi el arbol sigue vivo y quedarse en una pelea
@@ -1294,10 +1299,12 @@ func _nivel_enemigo_nodo(e: Node) -> int:
 #   TOQUE CORTO  -> el ataque de siempre (entrar en combate cuerpo a cuerpo).
 #   MANTENER 1 s -> si llevas baston o varita, sacas tus hechizos y recitas AHI MISMO (casteo_mapa).
 #
-# El flanco de pulsacion NO ha cambiado de sitio a proposito: el ataque cuerpo a cuerpo sigue
-# saliendo en el instante en que pulsas, no al soltar. Si se esperara a saber si es toque o
-# mantenido, pegar se sentiria con medio segundo de retraso — y contra una embestida eso es la
-# diferencia entre entrar tu o entrar el.
+# TOQUE O MANTENIDO (decision del usuario, 14/09/2026): con enemigo en la zona de golpe, o sin arma
+# magica, el espadazo sale en el instante en que pulsas — esperar se sentiria con retraso, y contra una
+# embestida eso es la diferencia entre entrar tu o entrar el. Pero con baston o varita y NADIE delante
+# el espadazo se guarda (_golpe_diferido): sale al soltar si era un toque, y si mantienes se abre el
+# recitado sin bastonazo y el gesto sale al lanzar el hechizo. Si a mitad del mantenido alguien entra
+# en la zona, le pegas igual (el buffer no caduca mientras mantienes, y con el el contra).
 #
 # Solo si el flanco NO ha entrado en combate empieza a contar el mantenido: teniendo al bicho
 # pegado, la pulsacion ya se ha gastado en pegarle.
@@ -1395,39 +1402,67 @@ func _tick_ataque(delta: float) -> void:
 	if is_instance_valid(_casteo):
 		_attack_was = atk
 		_atk_hold = 0.0
+		_golpe_diferido = false
 		return
 	if atk and not _attack_was:
 		_atk_hold = 0.0
-		_arrancar_golpe()
 		# El golpe NO se resuelve aqui: sale el espadazo y se pega cuando el filo llega (ver
 		# _golpe_pendiente). Solo se mira si hay alguien delante para saber si la pulsacion va a por
 		# alguien o se queda en el buffer esperando a que alguien entre.
-		if _enemigos_a_tiro().is_empty():
-			_atk_buffer = ATK_BUFFER
-			# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
-			# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
-			if hay_conjuro_a_tiro():
-				_toast("Está lejos: MANTÉN para recitar un hechizo.")
-		else:
+		if not _enemigos_a_tiro().is_empty():
+			_arrancar_golpe()
 			_golpe_pendiente = true
 			_atk_hold = -1.0   # va a por alguien: este mantenido no cuenta
+		elif _mantener_recita():
+			# Puede ser un TOQUE o el principio de un recitado: todavia no se sabe, asi que no sale
+			# el bastonazo. Sale al soltar (toque) o no sale (recitado). Ver _golpe_diferido.
+			_golpe_diferido = true
+			_atk_buffer = ATK_BUFFER
+		else:
+			_arrancar_golpe()
+			_atk_buffer = ATK_BUFFER
 	elif atk and _atk_hold >= 0.0:
 		_atk_hold += delta
 		if _atk_hold >= CASTEO_MANTENER:
 			_atk_hold = -1.0   # un canto por pulsacion: hay que soltar y volver a mantener
+			var diferido: bool = _golpe_diferido
+			_golpe_diferido = false
+			_atk_buffer = 0.0   # recitar no deja un espadazo esperando
 			_abrir_casteo()
+			# No se ha podido abrir (nada a tiro): el golpe que se guardaba sale ahora, al aire, para
+			# que el boton no parezca muerto.
+			if diferido and not is_instance_valid(_casteo):
+				_arrancar_golpe()
 	if not atk:
+		if _golpe_diferido:
+			# Era un TOQUE: ahora si, el espadazo. Y el buffer cuenta desde aqui, como si acabaras de pulsar.
+			_golpe_diferido = false
+			_arrancar_golpe()
+			if not _enemigos_a_tiro().is_empty():
+				_golpe_pendiente = true
+				_atk_buffer = 0.0
+			else:
+				_atk_buffer = ATK_BUFFER
+				# Toque corto a distancia de CONJURO: no ha llegado el espadazo, pero algo se puede
+				# hacer. Se dice, que si no el boton esta encendido y parece que no responde.
+				if hay_conjuro_a_tiro():
+					_toast("Está lejos: MANTÉN para recitar un hechizo.")
 		_atk_hold = 0.0
 	# El ESPACIO que no encontro a nadie se RECUERDA y se reintenta (ver ATK_BUFFER). Ojo: esto corre
 	# tambien mientras mantienes, y es lo que quieres — si el bicho llega hasta ti a mitad del
 	# mantenido, le pegas y el canto no llega a abrirse.
+	# Con el golpe DIFERIDO (manteniendo con baston) el buffer no caduca: la intencion de pegar sigue
+	# ahi mientras no sueltes, y es lo que mantiene vivo el contra (quiere_atacarme) durante el mantenido.
 	if not (atk and not _attack_was) and _atk_buffer > 0.0:
-		_atk_buffer -= delta
+		if not _golpe_diferido:
+			_atk_buffer -= delta
 		if not _enemigos_a_tiro().is_empty():
 			# Alguien ha entrado a tiro con el espacio recordado. Si el espadazo aun no ha llegado, este
-			# mismo lo alcanza; si ya paso, sale uno nuevo. En los dos casos pega al contactar.
-			if _golpe_sfx_t < 0.0 or _golpe_pendiente:
+			# mismo lo alcanza; si ya paso (o nunca salio, por diferido), sale uno nuevo. En los dos
+			# casos pega al contactar.
+			if _golpe_sfx_t < 0.0 or _golpe_pendiente or _golpe_diferido:
 				_arrancar_golpe()
+			_golpe_diferido = false
 			_golpe_pendiente = true
 			_atk_buffer = 0.0
 			_atk_hold = -1.0
@@ -1604,6 +1639,15 @@ func _abrir_casteo() -> void:
 	_casteo = c
 
 
+# ¿Puede un MANTENIDO del espacio acabar en recitado? Es lo que decide si el espadazo espera a saber
+# si es toque o mantenido (ver _golpe_diferido). Un guerrero no tiene nada que mantener: pega al pulsar.
+func _mantener_recita() -> bool:
+	if Game.combate_activo():
+		return false
+	var pj: PersonajeData = Game.lider()
+	return Game.lleva_arma_magica(pj) and not Game.hechizos_equipados(pj).is_empty()
+
+
 # ¿Lleva equipada alguna imbuicion? Es lo que decide si el panel de recitado se abre sin bichos
 # delante. Se pregunta por el hechizo y no por el arma: una de CUERPO vale aunque vayas a puños.
 func _lleva_imbuicion(pj: PersonajeData) -> bool:
@@ -1619,6 +1663,9 @@ func _lleva_imbuicion(pj: PersonajeData) -> bool:
 # personaje elegido y ya. Es la diferencia entera entre las dos ramas -- una imbuicion no vuela.
 func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) -> void:
 	_casteo = null
+	# EL GESTO va aqui y no al empezar a mantener: el baston se mueve cuando el conjuro sale. Solo la
+	# animacion (y su sonido y la red), sin _golpe_pendiente: no pega a nadie cuerpo a cuerpo.
+	_arrancar_golpe()
 	if destino is Dictionary:
 		_soltar_apoyo(spell, destino)
 		return
@@ -1874,6 +1921,7 @@ func recolocar(pos: Vector2) -> void:
 func bloquear_interaccion() -> void:
 	_interact_was = true
 	_attack_was = true
+	_golpe_diferido = false
 
 
 # Devuelve el nodo mas cercano del grupo dentro del rango de interaccion.
