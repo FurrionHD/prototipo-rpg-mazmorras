@@ -1368,13 +1368,13 @@ func cerrar_bajada() -> void:
 # mazmorra, que es otra semilla). Mismo criterio que marcar_agotado, que ya tenia su guardia de red.
 func vistas_de_piso(piso: int) -> Dictionary:
 	if Net.activo:
-		return Net.vistas_sesion(piso)
+		return Net.mapa.vistas_sesion(piso)
 	return persistente_piso(piso)["zonas_vistas"]
 
 
 # Lo que DIBUJA el mapa (tecla M): en sesion, la libreta del mundo del host; en solitario, la tuya.
 func mapa_visible() -> Dictionary:
-	return Net.mapa_sesion() if Net.activo else mapa_snapshot
+	return Net.mapa.mapa_sesion() if Net.activo else mapa_snapshot
 
 
 # El estado persistente del piso (agotados + zonas_vistas), creandolo vacio si no existe.
@@ -1539,8 +1539,8 @@ func iniciar_expedicion_mapa() -> void:
 	# sesion a como estaba al bajar (lo que ya estuviera comprometido en el host no se pierde: alli
 	# sigue, y me llega entero la proxima vez que suba al pueblo con vida).
 	if Net.activo:
-		for p in Net.vistas_sesion_todas():
-			_vistas_baseline[p] = (Net.vistas_sesion(int(p))).duplicate()
+		for p in Net.mapa.vistas_sesion_todas():
+			_vistas_baseline[p] = (Net.mapa.vistas_sesion(int(p))).duplicate()
 		return
 	for p in mazmorra_persistente:
 		_vistas_baseline[p] = (mazmorra_persistente[p]["zonas_vistas"] as Dictionary).duplicate()
@@ -1555,7 +1555,7 @@ func comprometer_mapa() -> void:
 	# Este es el UNICO momento en que mi copia se refresca -- y por eso lo que descubra mi compañero no
 	# me aparece cuando sube EL, sino cuando subo YO (decision del usuario).
 	if Net.activo:
-		Net.comprometer_mapa_sesion(mapa_trabajo)
+		Net.mapa.comprometer_mapa_sesion(mapa_trabajo)
 		mapa_trabajo.clear()
 		return
 	for p in mapa_trabajo:
@@ -1569,7 +1569,7 @@ func comprometer_mapa() -> void:
 func revertir_mapa_expedicion() -> void:
 	mapa_trabajo.clear()
 	if Net.activo:
-		Net.revertir_vistas_sesion(_vistas_baseline)
+		Net.mapa.revertir_vistas_sesion(_vistas_baseline)
 		return
 	for p in mazmorra_persistente:
 		var vb: Dictionary = _vistas_baseline.get(p, {})
@@ -2116,13 +2116,13 @@ func exportar_partida() -> SaveData:
 	# que hubiera explorado jugando con mi compañero. Al invitado NO le toca esto, que su mundo es otro
 	# (ver exportar_partida_invitado, que ademas devuelve estos campos a como estaban al conectar).
 	if Net.activo and Net.es_host:
-		d.mapa_snapshot = Net.mapa_sesion().duplicate(true)
-		for p in Net.vistas_sesion_todas():
+		d.mapa_snapshot = Net.mapa.mapa_sesion().duplicate(true)
+		for p in Net.mapa.vistas_sesion_todas():
 			var np: int = int(p)
 			if not d.mazmorra_persistente.has(np):
 				d.mazmorra_persistente[np] = {"agotados": {}, "zonas_vistas": {}}
 			(d.mazmorra_persistente[np]["zonas_vistas"] as Dictionary).merge(
-				Net.vistas_sesion(np), true)
+				Net.mapa.vistas_sesion(np), true)
 	# Estado de la EXPEDICION en curso (para no cometer ni perder mapa por un guardar+recargar a
 	# media bajada): el snapshot de trabajo y el baseline de la niebla.
 	d.mapa_trabajo = mapa_trabajo.duplicate(true)
