@@ -1394,7 +1394,7 @@ func morir() -> void:
 			piso.abrir_salidas()
 		# MULTIJUGADOR: el atajo y la tienda se abren para TODA la sesion, y a quien este en este
 		# piso se le abren las salidas tambien (si no, no veria aparecer la bajada).
-		Net.avisar_boss_caido(mi_piso)
+		Net.jefes.avisar_boss_caido(mi_piso)
 
 
 func esta_muerto() -> bool:

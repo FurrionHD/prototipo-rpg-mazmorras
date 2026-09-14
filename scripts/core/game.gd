@@ -3749,7 +3749,7 @@ const BOSS_RESPAWN := {
 # muerto se sigue rehaciendo con el juego cerrado, y dejarlo en RAM haria que apagar y volver a
 # entrar los resucitara a todos de golpe -- que es exactamente el atajo que este sistema quita.
 # Sin entrada = el jefe esta de pie.
-# En sesion la tabla que manda es la del HOST (ver Net.boss_disponible): aqui solo se lleva la del
+# En sesion la tabla que manda es la del HOST (ver Net.jefes.boss_disponible): aqui solo se lleva la del
 # mundo propio.
 var bosses_sello: Dictionary = {}
 
@@ -3771,7 +3771,7 @@ func boss_disponible(piso: int) -> bool:
 	# EN SESION decide el host: si cada maquina llevara su propia cuenta, el dueño del piso plantaria
 	# el jefe cuando le tocara A EL y los demas verian aparecer uno que para ellos seguia muerto.
 	if Net.activo:
-		return Net.boss_disponible(piso)
+		return Net.jefes.boss_disponible(piso)
 	if not bosses_sello.has(piso):
 		return true
 	# El reloj puede haber ido HACIA ATRAS (el jugador cambia la hora del sistema, o un cambio de
@@ -3794,7 +3794,7 @@ func boss_restante(piso: int) -> float:
 	if boss_disponible(piso):
 		return 0.0
 	if Net.activo:
-		return Net.boss_restante(piso)
+		return Net.jefes.boss_restante(piso)
 	if not bosses_sello.has(piso):
 		return 0.0
 	var pasado: float = float(Encargos.ahora()) - float(bosses_sello[piso])
@@ -3839,7 +3839,7 @@ func marcar_boss_derrotado(piso: int) -> void:
 #
 # EN SESION se UNEN los del mundo del HOST (Net.pisos_host, llegan en el handshake): juegas en su
 # mundo, asi que sus accesos abiertos estan ahi. Misma regla que la tienda T2, y hermana de
-# Net._boss_caido, que abre el atajo para todos los de la sesion cuando cae un jefe.
+# Net.jefes._boss_caido, que abre el atajo para todos los de la sesion cuando cae un jefe.
 func pisos_desbloqueados() -> Array:
 	var out: Array = [1]
 	for piso in BOSSES:
@@ -8662,7 +8662,7 @@ func tienda_t2_abierta() -> bool:
 	# MULTIJUGADOR: el surtido de partida lo manda el mundo del HOST (flag del handshake), PERO
 	# desde el hito 5.3 el jefe puede caer EN SESION y entonces se abre para todos (decision del
 	# usuario: el atajo y la tienda son de todos; lo que NO se comparte es el credito de nivel, que
-	# va por personaje en guardianes_vencidos). Net._boss_caido apunta el hito en cada maquina, asi
+	# va por personaje en guardianes_vencidos). Net.jefes._boss_caido apunta el hito en cada maquina, asi
 	# que basta con mirar tambien el progreso propio.
 	if Net.activo and not Net.es_host:
 		return Net.tienda_t2_host or boss_derrotado(PISO_TIENDA_T2)

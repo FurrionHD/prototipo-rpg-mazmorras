@@ -152,7 +152,7 @@ func _barrer_respawns() -> void:
 	# expedicion_abierta (su reloj es de pared y corre con la mazmorra vacia). Se sigue llamando desde
 	# _conceder_entrada, y esa llamada tambien tiene que ponerlos al dia: es la que planta al jefe ya
 	# de pie ANTES de conceder la entrada, para que el que baja no lo vea aparecer de la nada.
-	Net._barrer_bosses()
+	Net.jefes._barrer_bosses()
 	if _agotados_sesion.is_empty():
 		return
 	for s in _agotados_sesion.keys():

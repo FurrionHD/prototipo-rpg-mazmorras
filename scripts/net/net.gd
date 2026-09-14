@@ -151,19 +151,6 @@ var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmor
 # muerto todos?", que es lo unico que olvida la mazmorra compartida (ver _registrar_muerte). Se le
 # borra la marca al que vuelve a entrar: ha vuelto a la pelea.
 var _muertos: Dictionary = {}
-# JEFES caidos de la sesion: piso -> unix time (reloj de pared) en que cayo. Mismo mecanismo que
-# _agotados_sesion y por la misma razon: el jefe reaparece por RELOJ (Game.BOSS_RESPAWN) y su cuenta
-# atras tiene que sobrevivir a que os subais todos al pueblo.
-#
-# ESTAR EN LA TABLA = ESTA MUERTO. La resta contra el reloj la hace SOLO el host (_barrer_bosses), y
-# cuando cumple borra la entrada y lo difunde. En los clientes el valor no significa nada —su
-# tiempo_mazmorra es el de su mundo, no el del host— y solo se mira si la clave esta o no: asi el
-# dueño de un piso (que puede ser un cliente) planta el jefe cuando lo dice el host y no cuando se lo
-# diga su propio reloj.
-var _bosses_sello: Dictionary = {}
-# Latido APARTE para los jefes. No comparte el de las vetas porque no comparte el guard: aquel solo
-# corre con la expedicion abierta y este corre siempre (ver _process).
-var _t_bosses := 0.0
 
 # --- RESERVAS de enemigos y EXTRACCION (hito 5.3) ---
 
@@ -205,6 +192,9 @@ func _ready() -> void:
 	pesca = NetPesca.new()
 	pesca.name = "Pesca"
 	add_child(pesca)
+	jefes = NetJefes.new()
+	jefes.name = "Jefes"
+	add_child(jefes)
 	recoleccion = NetRecoleccion.new()
 	recoleccion.name = "Recoleccion"
 	add_child(recoleccion)
@@ -230,6 +220,7 @@ func _ready() -> void:
 
 # --- LOS TEMAS, cada uno en su archivo ---
 const NetPesca = preload("res://scripts/net/net_pesca.gd")
+const NetJefes = preload("res://scripts/net/net_jefes.gd")
 const NetRecoleccion = preload("res://scripts/net/net_recoleccion.gd")
 const NetHogar = preload("res://scripts/net/net_hogar.gd")
 const NetPeleas = preload("res://scripts/net/net_peleas.gd")
@@ -237,6 +228,7 @@ const NetExtraccion = preload("res://scripts/net/net_extraccion.gd")
 const NetEnemigos = preload("res://scripts/net/net_enemigos.gd")
 const NetSuelo = preload("res://scripts/net/net_suelo.gd")
 var pesca: NetPesca = null
+var jefes: NetJefes = null
 var recoleccion: NetRecoleccion = null
 var hogar: NetHogar = null
 var peleas: NetPeleas = null
@@ -254,24 +246,6 @@ var soy_trabajador := false
 # ¿Ese peer es un trabajador y no un humano? Solo lo sabe el host.
 func es_trabajador(peer_id: int) -> bool:
 	return _trab != null and _trab.es_trabajador(peer_id)
-
-
-# El HOST lleva el reloj de los jefes (ver _barrer_bosses). El del hogar y el de las vetas van en sus temas.
-func _process(delta: float) -> void:
-	if not activo or not es_host:
-		return
-	# LOS JEFES VAN POR SU CUENTA, por encima del guard de expedicion_abierta que hay debajo. Su reloj
-	# es de PARED (Encargos.ahora), asi que corre igual con la mazmorra vacia y con todo el mundo en el
-	# pueblo: no tiene nada que ver con que haya alguien dentro. Colgado del guard, el sello se quedaba
-	# congelado en cuanto el ultimo subia al pueblo y solo se soltaba en la puesta al dia de volver a
-	# bajar (_conceder_entrada) -- por eso el Rey Slime "no volvia" hasta que te ibas y regresabas.
-	#
-	# Es la OTRA MITAD del bug que dejo el comentario de _barrer_bosses: entonces se arreglo el RELOJ
-	# (de tiempo_mazmorra a reloj de pared) y se dejo la CADENCIA colgando de un guard que se apaga.
-	_t_bosses -= delta
-	if _t_bosses <= 0.0:
-		_t_bosses = recoleccion.BARRIDO_RESPAWN_CADA
-		_barrer_bosses()
 
 
 # --- ARRANQUE (lo unico especifico de ENet) -------------------------------------------------
@@ -391,7 +365,7 @@ func desconectar() -> void:
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	epoca_sesion = 0
-	_bosses_sello.clear()
+	jefes._bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
 	_viajando.clear()
@@ -1424,9 +1398,9 @@ func _montar_sesion_desde_dentro(piso: int) -> void:
 # cuenta. Ver _conceder_entrada y _marcar_boss: es la moneda con la que los jefes cruzan la red.
 func _restantes_boss() -> Dictionary:
 	var d: Dictionary = {}
-	for piso in _bosses_sello:
+	for piso in jefes._bosses_sello:
 		var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-		var pasado: float = float(Encargos.ahora()) - float(_bosses_sello[piso])
+		var pasado: float = float(Encargos.ahora()) - float(jefes._bosses_sello[piso])
 		d[piso] = maxf(0.0, espera - pasado)
 	return d
 
@@ -1451,11 +1425,11 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 	# tabla autoritativa, ya esta en su reloj, y re-hacerla desde su propio mensaje solo podria
 	# estropearla con el redondeo del viaje de ida y vuelta.
 	if not es_host:
-		_bosses_sello.clear()
+		jefes._bosses_sello.clear()
 		# 'p' y no 'piso': el parametro de esta funcion ya se llama asi (el piso al que entro).
 		for p in sellos_boss:
 			var espera: float = float(Game.BOSS_RESPAWN.get(p, 0.0))
-			_bosses_sello[p] = float(Encargos.ahora()) - (espera - float(sellos_boss[p]))
+			jefes._bosses_sello[p] = float(Encargos.ahora()) - (espera - float(sellos_boss[p]))
 	Game.current_floor = piso
 	# La EPOCA y los NONCES del mundo del host: sin ellos el invitado tiraria por su cuenta que
 	# material y que pez sale en cada sitio, y veria cosas distintas de las del host en la MISMA veta.
@@ -1583,9 +1557,9 @@ func _olvidar_expedicion() -> void:
 			suelo._suelo.erase(id)
 			suelo._despawn_drop.rpc(id)
 			suelo._despawn_drop(id)
-	for piso in _bosses_sello.keys():
-		_marcar_boss(piso, false)
-		_marcar_boss.rpc(piso, false)
+	for piso in jefes._bosses_sello.keys():
+		jefes._marcar_boss(piso, false)
+		jefes._marcar_boss.rpc(piso, false)
 	print("[multi] habeis caido todos: la mazmorra se olvida")
 	estado_cambiado.emit("Habéis caído todos: la mazmorra se olvida.")
 
@@ -1952,124 +1926,6 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 			"hp": d.get("hp", -1.0),
 		})
 	return {"enemigos": out, "suelo": []}
-
-
-# --- BOSS CAIDO (hito 5.3) --------------------------------------------------------------------
-#
-# Lo llama enemy.morir() del jefe, en la maquina que simula ese piso. Decision del usuario: el
-# ATAJO y la TIENDA se abren para TODOS los de la sesion (lo habeis hecho juntos), pero el CREDITO
-# DE NIVEL es POR PERSONAJE y no se toca aqui: guardianes_vencidos solo lo apuntan los personajes
-# que estuvieron en ESA pelea (ver Game._on_combat_finished). Si no participaste, se te abre el
-# atajo pero no cuentas con haberlo matado.
-func avisar_boss_caido(piso: int) -> void:
-	if not activo or multiplayer.multiplayer_peer == null:
-		return
-	_boss_caido.rpc(piso)
-	# Y que el HOST arranque su cuenta atras, que es el unico que la lleva. Va aparte de _boss_caido
-	# porque ese es "call_remote" (quien mata ya hizo su parte en local) y porque el sello no es un
-	# hito de mundo: es un cronometro.
-	if es_host:
-		_sellar_boss_host(piso)
-	else:
-		_pedir_sellar_boss.rpc_id(1, piso)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_sellar_boss(piso: int) -> void:
-	if es_host:
-		_sellar_boss_host(piso)
-
-
-# Solo host: el jefe de ese piso queda MUERTO en la tabla de sesion, y se difunde para que todos
-# sepan que no toca plantarlo (el dueño del piso puede ser cualquiera).
-func _sellar_boss_host(piso: int) -> void:
-	if not Game.BOSSES.has(piso):
-		return
-	_bosses_sello[piso] = float(Encargos.ahora())
-	# Acaba de caer: le queda la espera entera, y eso es lo que se manda (no el instante, ver
-	# _conceder_entrada). El _marcar_boss local no toca nada, que la clave ya esta puesta arriba.
-	var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-	_marcar_boss(piso, true, espera)
-	_marcar_boss.rpc(piso, true, espera)
-	print("[multi] jefe del piso %d abatido: vuelve en %d s" % [
-		piso, roundi(float(Game.BOSS_RESPAWN.get(piso, 0.0)))])
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _marcar_boss(piso: int, muerto: bool, restan: float = -1.0) -> void:
-	if muerto:
-		# Quien MANDA la decision sigue siendo el host (esta clave puesta = el jefe esta muerto). Lo
-		# que se guarda aqui es el instante EN MI RELOJ en que le tocara volver, para que el contador
-		# de su sala pueda restar en local sin preguntar nada. 'restan' viene del host en segundos por
-		# lo mismo que en _conceder_entrada: los relojes de pared de dos maquinas no van a la par.
-		# Sin 'restan' (el jefe acaba de caer aqui mismo) la cuenta arranca entera.
-		if not _bosses_sello.has(piso):
-			var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-			var falta: float = espera if restan < 0.0 else restan
-			_bosses_sello[piso] = float(Encargos.ahora()) - (espera - falta)
-	else:
-		_bosses_sello.erase(piso)
-
-
-# SOLO HOST: repasa los jefes muertos y levanta a los que han cumplido su tiempo. Va colgado del
-# mismo barrido que las vetas (_barrer_respawns), asi que hereda sus dos propiedades: corre cada
-# BARRIDO_RESPAWN_CADA con la expedicion abierta, y se pone al dia de golpe cuando alguien vuelve a
-# entrar despues de un rato en el pueblo.
-#
-# Aqui NO se planta el bicho: solo se suelta el sello. Plantarlo es cosa del dueño del piso, que es
-# quien simula alli (dungeon_floor._repoblar_boss), o del propio piso al construirse.
-func _barrer_bosses() -> void:
-	if not es_host:
-		return
-	for piso in _bosses_sello.keys():
-		var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-		# RELOJ DE PARED, el mismo que en solitario (ver Game.bosses_sello). Con tiempo_mazmorra el
-		# barrido iba al ritmo de los MENUS DEL HOST: si el anfitrion tenia el hogar abierto, el jefe
-		# no se rehacia para nadie. Era la mitad del "el Rey Slime tardo media hora".
-		var pasado: float = float(Encargos.ahora()) - float(_bosses_sello[piso])
-		if pasado < 0.0:
-			_bosses_sello[piso] = float(Encargos.ahora())   # el reloj se fue atras: se reinicia
-			continue
-		if pasado < espera:
-			continue
-		_bosses_sello.erase(piso)
-		_marcar_boss(piso, false)
-		_marcar_boss.rpc(piso, false)
-		# El TIEMPO REAL que ha pasado va en el print a proposito: si vuelve a haber una queja de "el
-		# jefe no reaparece", este numero dice de un vistazo si el reloj corrio (pasado ~ espera) o si
-		# el barrido estuvo parado y se puso al dia de golpe (pasado >> espera).
-		print("[multi] el jefe del piso %d vuelve a estar de pie (esperaba %d s, han pasado %d)" % [
-			piso, roundi(espera), roundi(pasado)])
-
-
-# ¿Toca que el jefe de ese piso este de pie? Lo pregunta Game.boss_disponible cuando hay sesion.
-# Es una consulta de TABLA, sin relojes: la resta la hace el host en _barrer_bosses.
-func boss_disponible(piso: int) -> bool:
-	return not _bosses_sello.has(piso)
-
-
-# SEGUNDOS que le faltan a ese jefe, para el contador de su sala. Aqui SI se resta, tambien en el
-# cliente: su entrada de _bosses_sello ya viene re-basada a su reloj (ver _marcar_boss y _entrar_ok).
-# Que el numero baje solo es cosmetico; quien decide que se plante sigue siendo boss_disponible, y esa
-# sigue siendo consulta de tabla contra el host.
-func boss_restante(piso: int) -> float:
-	if not _bosses_sello.has(piso):
-		return 0.0
-	var espera: float = float(Game.BOSS_RESPAWN.get(piso, 0.0))
-	return maxf(0.0, espera - (float(Encargos.ahora()) - float(_bosses_sello[piso])))
-
-
-# Corre en TODOS: apunta el hito de mundo y, si estoy en ESE piso, abre sus salidas (la escalera
-# de bajada y la puerta al pueblo). Sin esto, el compañero que estaba en la sala del jefe nunca
-# veria aparecer la bajada.
-@rpc("any_peer", "call_remote", "reliable")
-func _boss_caido(piso: int) -> void:
-	Game.marcar_boss_derrotado(piso)
-	if mi_piso() != piso:
-		return
-	var f: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	if f != null and f.has_method("abrir_salidas"):
-		f.abrir_salidas()
 
 
 # --- CUPO de personajes (max 4 en total en la sesion) ----------------------------------------
