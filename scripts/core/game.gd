@@ -9336,11 +9336,34 @@ func cuero_de_tier(tier: int, nivel: int = -1) -> MaterialData:
 var materiales_vistos: Dictionary = {}
 
 func descubrir(mat: MaterialData) -> void:
-	if mat != null:
-		materiales_vistos[String(mat.id)] = true
+	if mat == null:
+		return
+	var id := String(mat.id)
+	if materiales_vistos.has(id):
+		return
+	materiales_vistos[id] = true
+	# En sesion, lo que descubre uno se enseña a todos (ver Net._set_vistos_mundo).
+	if not vistos_mundo.has(id):
+		Net.apuntar_visto_en_la_sesion(id)
+
+# LO QUE HAN DESCUBIERTO LOS DEMAS en esta sesion (id -> true). No se guarda: lo tuyo va en
+# materiales_vistos; esto solo hace que el crafteo te enseñe lo que ya conoce el mundo.
+var vistos_mundo: Dictionary = {}
 
 func material_visto(mat: MaterialData) -> bool:
-	return mat != null and materiales_vistos.has(String(mat.id))
+	if mat == null:
+		return false
+	var id := String(mat.id)
+	if materiales_vistos.has(id) or vistos_mundo.has(id):
+		return true
+	# En un MUNDO COMPARTIDO tambien cuenta lo que sepa cualquiera que haya jugado en el, aunque hoy no
+	# este: el host entrando solo sigue viendo lo que descubrio su hermano.
+	if mundo_compartido:
+		for ident in jugadores_mundo:
+			var jd = jugadores_mundo[ident]
+			if jd is JugadorData and (jd as JugadorData).materiales_vistos.has(id):
+				return true
+	return false
 
 
 # Los metales que el herrero te va a ENSEÑAR. El TIER 1 (cobre) SIEMPRE se enseña, lo hayas

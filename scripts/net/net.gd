@@ -501,6 +501,7 @@ func desconectar() -> void:
 	_dueno_piso.clear()
 	_viajando.clear()
 	_fotos_piso.clear()
+	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
 	_peleando = false
 	_pelea_id = 0
@@ -2449,6 +2450,56 @@ func apuntar_tomo_en_la_sesion(id: StringName) -> void:
 		_apuntar_tomo.rpc(String(id))
 	else:
 		_apuntar_tomo.rpc_id(1, String(id))
+
+
+# --- LO DESCUBIERTO EN EL MUNDO (recetas del crafteo) -----------------------------------------
+#
+# El herrero, el carpintero, el peletero y la boticaria enseñan lo que has VISTO (Game.material_visto).
+# Eso es por persona, y en el playtest del 11/09/2026 el invitado solo veia T1 aunque el host ya forjaba
+# T2. Decision del usuario: lo que descubra CUALQUIERA se desbloquea para TODOS. Mismo patron que la
+# biblioteca: se SUMA, nunca se pisa, y va por el host.
+#
+# Lo propio de cada uno sigue en su materiales_vistos (y en su JugadorData); lo de los demas vive en
+# Game.vistos_mundo, que es de la sesion. Asi nadie se lleva a su partida lo que descubrio otro.
+@rpc("authority", "call_remote", "reliable")
+func _set_vistos_mundo(v: Dictionary) -> void:
+	for k in v:
+		Game.vistos_mundo[String(k)] = true
+	hogar_cambiado.emit()   # los menus de crafteo abiertos se repintan con lo nuevo
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apuntar_visto(id: String) -> void:
+	if id == "" or Game.vistos_mundo.has(id):
+		return
+	Game.vistos_mundo[id] = true
+	hogar_cambiado.emit()
+	if es_host:
+		_apuntar_visto.rpc(id)   # el host lo reparte a los demas (en estrella no se ven entre ellos)
+
+
+# Lo llama Game.descubrir cuando alguien ve un material por primera vez.
+func apuntar_visto_en_la_sesion(id: String) -> void:
+	if not activo or id == "":
+		return
+	if es_host:
+		_apuntar_visto.rpc(id)
+	else:
+		_apuntar_visto.rpc_id(1, id)
+
+
+# Todo lo que sabe el mundo, para ponerle al dia al que entra: lo mio, lo que me han contado en esta
+# sesion y lo que tenga guardado cada jugador del mundo (aunque hoy no este).
+func _vistos_de_todos() -> Dictionary:
+	var out: Dictionary = Game.materiales_vistos.duplicate()
+	for k in Game.vistos_mundo:
+		out[k] = true
+	for ident in Game.jugadores_mundo:
+		var jd = Game.jugadores_mundo[ident]
+		if jd is JugadorData:
+			for k in (jd as JugadorData).materiales_vistos:
+				out[k] = true
+	return out
 
 
 # --- COFRE de armas/armaduras (hito 4) -------------------------------------------------------
@@ -6191,6 +6242,8 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# el texto esta desbloqueado y no tiene sentido que a ti te lo vuelva a dar el gacha.
 	# Al desconectar, cada uno recupera la suya (ver Game.exportar_partida_invitado).
 	_set_biblioteca.rpc_id(quien, Game.biblioteca)
+	# Y LO DESCUBIERTO: las recetas que ya se enseñan en este mundo (ver _set_vistos_mundo).
+	_set_vistos_mundo.rpc_id(quien, _vistos_de_todos())
 	_set_tiradas_novato.rpc_id(quien, Game.tiradas_novato)
 
 
