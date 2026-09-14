@@ -150,7 +150,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE   # el clic sigue siendo del panel, que va en STOP
 	wrap.clip_contents = false                        # la embestida TIENE que poder desbordar
 	# Mismo ancho para todos los de su fila, tuyo o enemigo: es lo que les permite ir en fila.
-	wrap.custom_minimum_size = Vector2(_pantalla._ancho_bloque(
+	wrap.custom_minimum_size = Vector2(_pantalla.montaje._ancho_bloque(
 		_pantalla._enemies.size() if numero > 0 else _pantalla._aliados.size()), 0)
 
 	var panel := PanelContainer.new()
@@ -802,10 +802,10 @@ func _ajustar_zoom_sprites() -> void:
 	var factor: float = _pantalla.ALTO_ACTOR / mayor
 	if mas_ancho > 0.0:
 		if vivos_enemigos > 0:
-			var hueco_e: float = _pantalla._ancho_bloque(maxi(visibles_enemigos, vivos_enemigos)) - MARGEN_SPRITE * 2.0
+			var hueco_e: float = _pantalla.montaje._ancho_bloque(maxi(visibles_enemigos, vivos_enemigos)) - MARGEN_SPRITE * 2.0
 			factor = minf(factor, hueco_e / mas_ancho)
 		if vivos_aliados > 0:
-			var hueco_a: float = _pantalla._ancho_bloque(maxi(visibles_aliados, vivos_aliados)) - MARGEN_SPRITE * 2.0
+			var hueco_a: float = _pantalla.montaje._ancho_bloque(maxi(visibles_aliados, vivos_aliados)) - MARGEN_SPRITE * 2.0
 			factor = minf(factor, hueco_a / mas_ancho)
 	for b in _pantalla._bloques:
 		var fig2: ColorRect = b.get("figura")

@@ -29,9 +29,9 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	var ba: Dictionary = _pantalla.figuras._crear_bloque(c, 0, -1)
 	_pantalla.efectos._crear_barras_aliado(ba, c)
 	_pantalla._bloques_aliados.append(ba)
-	_pantalla._aliados_box.add_child(ba["columna"])
+	_pantalla.montaje._aliados_box.add_child(ba["columna"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
-	_pantalla._reajustar_anchos(_pantalla._bloques_aliados, _pantalla._bloques_aliados.size())
+	_pantalla.montaje._reajustar_anchos(_pantalla._bloques_aliados, _pantalla._bloques_aliados.size())
 	# Y puede que el que se une sea mas grande (o mas pequeño) que el resto de la pelea -- el factor
 	# de zoom es compartido con los enemigos, ver _ajustar_zoom_sprites.
 	_pantalla.figuras._ajustar_zoom_sprites()
@@ -276,7 +276,7 @@ func _recomponer_fila_enemigos() -> void:
 		var col: Control = b.get("columna")
 		if col != null and is_instance_valid(col) and col.visible:
 			visibles.append(b)
-	_pantalla._reajustar_anchos(visibles, visibles.size())
+	_pantalla.montaje._reajustar_anchos(visibles, visibles.size())
 	_ordenar_fila_enemigos()
 	# La fila ha cambiado: puede haber entrado uno mas grande, o haberse ido el que mandaba.
 	_pantalla.figuras._ajustar_zoom_sprites()

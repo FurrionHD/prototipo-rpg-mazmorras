@@ -344,15 +344,15 @@ func _crear_estados_dev() -> void:
 	toggle.focus_mode = Control.FOCUS_NONE
 	toggle.tooltip_text = "Panel de pruebas de estados (dev)"
 	toggle.toggled.connect(func(on: bool): _estados_panel.visible = on)
-	if _pantalla._log_fila != null and is_instance_valid(_pantalla._log_fila):
-		_pantalla._log_fila.add_child(toggle)
+	if _pantalla.montaje._log_fila != null and is_instance_valid(_pantalla.montaje._log_fila):
+		_pantalla.montaje._log_fila.add_child(toggle)
 	else:
 		_pantalla.add_child(toggle)
 
 	# Panel anclado ABAJO-izda; crece hacia ARRIBA (encima del toggle).
 	_estados_panel = PanelContainer.new()
 	_estados_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	_estados_panel.offset_left = _pantalla.ANCHO_TIMELINE + 8.0
+	_estados_panel.offset_left = _pantalla.montaje.ANCHO_TIMELINE + 8.0
 	_estados_panel.offset_bottom = -40   # justo encima del boton toggle
 	_estados_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_estados_panel.custom_minimum_size = Vector2(260, 0)

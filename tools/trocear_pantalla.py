@@ -227,9 +227,11 @@ def reescribir(linea, nombres, prefijo):
     trozos = re.split(r'("(?:[^"\\]|\\.)*")', codigo)   # no tocar dentro de cadenas
     for j in range(0, len(trozos), 2):
         trozos[j] = pat.sub(prefijo + r"\1", trozos[j])
-        # En un TEMA, el 'self' del codigo movido era la PANTALLA (lo escribio ella).
+        # En un TEMA, el 'self' del codigo movido era la PANTALLA (lo escribio ella), y el atajo $Ruta
+        # buscaba el nodo en la escena de la pantalla: en un RefCounted no existe ninguno de los dos.
         if prefijo == "_pantalla.":
             trozos[j] = re.sub(r"(?<![\w.])self\b", "_pantalla", trozos[j])
+            trozos[j] = re.sub(r"\$([A-Za-z_][\w/]*)", r'_pantalla.get_node("\1")', trozos[j])
     return "".join(trozos) + com
 
 
