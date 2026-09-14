@@ -174,10 +174,10 @@ func _alta_de_aliado(c: Combatant, agotado: bool, bloque_nuevo: bool = true) -> 
 # FIABLE: la instantanea es solo numeros y ademas va sin garantia, asi que un alta no puede viajar
 # en ella (era el bug de "los enemigos que se añaden no los ve el otro jugador").
 func _alta_de_combatiente() -> void:
-	_pantalla._rev += 1
+	_pantalla.espejo._rev += 1
 	if _pantalla._espejo or not Net.activo:
 		return
-	Net.peleas.difundir_roster(_pantalla.roster_para_espejo())
+	Net.peleas.difundir_roster(_pantalla.espejo.roster_para_espejo())
 
 
 # Dos personajes con el mismo nombre eran indistinguibles en la pelea (el log decia "Dasui ataca" y

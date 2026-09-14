@@ -120,9 +120,12 @@ def usos(nombre, idx):
 
 fuera = [i for i in range(len(L)) if i not in en_tramo]
 forzadas = [n for n in os.environ.get("MUDAR", "").split(",") if n]
+# QUEDAR=v1,v2: variables que NO se mudan aunque solo las use el tramo dentro del host (p. ej. porque las
+# usan los temas hermanos y son de otro tema: un contenedor de la pantalla, un estado compartido).
+quedan = [n for n in os.environ.get("QUEDAR", "").split(",") if n]
 mudadas = []
 for nombre, (tipo, i) in todas.items():
-    if nombre in propias or tipo not in ("var", "const") or i in en_tramo:
+    if nombre in propias or tipo not in ("var", "const") or i in en_tramo or nombre in quedan:
         continue
     if L[i].startswith("@onready"):
         continue

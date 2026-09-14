@@ -82,7 +82,7 @@ func _usar_objeto(cons: ConsumableData, objetivo: Combatant, cobrar: bool = true
 	if _pantalla._espejo and cons != null:
 		if not Game.gastar_consumible(cons):
 			return
-		_pantalla._responder_al_anfitrion({"tipo": "objeto", "ruta": cons.resource_path,
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "objeto", "ruta": cons.resource_path,
 			"aliado": _pantalla._aliados.find(objetivo)})
 		return
 	if _pantalla._state != _pantalla.State.WAITING_PLAYER or objetivo == null or not objetivo.is_alive():

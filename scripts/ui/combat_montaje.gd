@@ -197,7 +197,7 @@ func _crear_boton_velocidad() -> void:
 		_pantalla._aplicar_velocidad(Game.velocidad_combate)
 		icono.queue_redraw()
 		# Que le llegue YA al compañero, sin esperar al proximo cambio de vida.
-		_pantalla._difundir())
+		_pantalla.espejo._difundir())
 	# Al lado del boton del registro, arriba de la columna derecha. Suelto en la esquina se
 	# quedaba ENCIMA del registro, que ahora vive justo ahi.
 	if _log_fila != null and is_instance_valid(_log_fila):

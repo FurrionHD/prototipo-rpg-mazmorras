@@ -141,7 +141,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem)
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_pantalla._apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,
+	_pantalla.espejo._apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,
 		sfx, semilla)
 
 
@@ -341,7 +341,7 @@ func _chips_de(c: Combatant) -> Array:
 	if c == null:
 		return []
 	if _pantalla._espejo:
-		return _pantalla._chips_espejo.get(c, [])
+		return _pantalla.espejo._chips_espejo.get(c, [])
 	var out: Array = []
 	# ATAQUE CARGADO (telegrafiado): el aviso del log se lo lleva el turno siguiente, asi que sin
 	# esto no hay forma de saber CUAL de los tres bichos te esta preparando el pepino. Va como chip

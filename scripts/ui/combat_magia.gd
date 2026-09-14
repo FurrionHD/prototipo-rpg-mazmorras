@@ -140,7 +140,7 @@ func _elegir_hechizo(spell: SpellData, aliado: Combatant = null) -> void:
 	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test). El destinatario
 	# viaja como INDICE en _aliados, igual que ya hacia la pocion.
 	if _pantalla._espejo and spell != null:
-		_pantalla._responder_al_anfitrion({"tipo": "magia", "ruta": spell.resource_path,
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "magia", "ruta": spell.resource_path,
 			"aliado": _pantalla._aliados.find(aliado) if aliado != null else -1})
 		return
 	if not _pantalla._player.has_mana(_coste_efectivo(spell)):
@@ -163,7 +163,7 @@ func _mostrar_test(idx: int) -> void:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
 			_pantalla._player.nombre, _pantalla._cast_spell.nombre, idx + 1, _pantalla._cast_spell.longitud()])
-		_pantalla._pedir_a_remoto(dueno, {"tipo": "frase", "idx": idx, "opciones": opciones,
+		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "frase", "idx": idx, "opciones": opciones,
 			"nombre": _pantalla._cast_spell.nombre, "largo": _pantalla._cast_spell.longitud()})
 		return
 	_pintar_test(idx, opciones, _pantalla._cast_spell.nombre, _pantalla._cast_spell.longitud(), correcta)
@@ -220,11 +220,11 @@ func _pintar_test(idx: int, opciones: Array, nombre: String, largo: int, correct
 func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:
 	if not _pantalla._espejo:
 		return
-	if seq != 0 and seq == _pantalla._seq_contestada:
+	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
 		_pantalla._traza_add("me repiten la frase #%d, que YA conteste: la ignoro" % seq)
 		return
 	if seq != 0:
-		_pantalla._seq_espejo = seq
+		_pantalla.espejo._seq_espejo = seq
 	# Repeticion del anfitrion: si ya tengo el examen delante, no se re-sortea (ver turno_mio).
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._cast_box != null and _pantalla._cast_box.visible:
 		return
@@ -249,7 +249,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		return
 	# ESPEJO: no se si he acertado (la frase correcta no viaja: la comprueba el anfitrion).
 	if _pantalla._espejo:
-		_pantalla._responder_al_anfitrion({"tipo": "frase", "texto": elegida})
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "frase", "texto": elegida})
 		return
 	if elegida == correcta:
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
@@ -287,7 +287,7 @@ func _cancelar_casteo() -> void:
 	if _pantalla._espejo:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("Cancelando el conjuro...")
-		_pantalla._responder_al_anfitrion({"tipo": "cancelar"})
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "cancelar"})
 		return
 	if _pantalla._cast_spell == null or _pantalla._cast_index > 0:
 		return
@@ -304,7 +304,7 @@ func _mostrar_disparo() -> void:
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre)
-		_pantalla._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre})
+		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "disparo", "nombre": _pantalla._cast_spell.nombre})
 		return
 	_pintar_disparo(_pantalla._cast_spell.nombre)
 
@@ -330,11 +330,11 @@ func _pintar_disparo(nombre: String) -> void:
 func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 	if not _pantalla._espejo:
 		return
-	if seq != 0 and seq == _pantalla._seq_contestada:
+	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
 		_pantalla._traza_add("me repiten el disparo #%d, que YA conteste: lo ignoro" % seq)
 		return
 	if seq != 0:
-		_pantalla._seq_espejo = seq
+		_pantalla.espejo._seq_espejo = seq
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._cast_box != null and _pantalla._cast_box.visible:
 		return   # repeticion del anfitrion: ya tengo el boton delante
 	_pantalla._traza_add("ME PIDEN EL DISPARO (#%d) de %s" % [seq, nombre])
@@ -348,7 +348,7 @@ func _disparar_hechizo() -> void:
 	# ESPEJO: el objetivo viaja como indice; lo resuelve el anfitrion con el conjuro que ya tiene
 	# recitado en la ficha del doble.
 	if _pantalla._espejo:
-		_pantalla._responder_al_anfitrion({"tipo": "disparar", "obj": _pantalla._target_idx})
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "disparar", "obj": _pantalla._target_idx})
 		return
 	var spell := _pantalla._cast_spell
 	# ¿ESTE YA ESTABA PAGADO? Lo esta el conjuro que alguien recito en el MAPA y se trajo al unirse a

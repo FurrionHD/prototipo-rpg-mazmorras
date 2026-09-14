@@ -91,23 +91,23 @@ func _desatascar() -> void:
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._esperando_a != 0:
 		if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a):
 			var quien: int = _pantalla._esperando_a
-			_pantalla._fin_de_espera()
+			_pantalla.espejo._fin_de_espera()
 			_pantalla.sacar_a(quien)
 			_pantalla._set_log("🔧 %d ya no está en la pelea: fuera. La pelea sigue." % quien)
 			return
 		# Sigue conectado: se le repite la peticion ya, sin esperar al heartbeat.
-		_pantalla._espera_acum = 0.0
+		_pantalla.espejo._espera_acum = 0.0
 		_pantalla._traza_add("REENVIO A MANO (P) #%d '%s' al peer %d" % [
-			int(_pantalla._peticion_pendiente.get("seq", 0)),
-			String(_pantalla._peticion_pendiente.get("tipo", "?")), _pantalla._esperando_a])
-		_pantalla._enviar_peticion()
+			int(_pantalla.espejo._peticion_pendiente.get("seq", 0)),
+			String(_pantalla.espejo._peticion_pendiente.get("tipo", "?")), _pantalla._esperando_a])
+		_pantalla.espejo._enviar_peticion()
 		_pantalla._set_log("🔧 Le repito la petición a %d. Si no contesta, vuelve a pulsar P." % _pantalla._esperando_a)
 		return
 
 	# --- Intento 2: estado raro (esperando a nadie, o una pausa de lectura que no baja).
 	# Se devuelve el mando a quien le toque y se reanuda el ATB.
 	if _pantalla._state != _pantalla.State.ADVANCING:
-		_pantalla._fin_de_espera()
+		_pantalla.espejo._fin_de_espera()
 		_pantalla._pause_left = 0.0
 		if _pantalla._player != null and _pantalla._player.is_alive() and not _pantalla._huidos.has(_pantalla._player):
 			# ¿DE QUIEN ES EL QUE TIENE EL TURNO? Esto no se miraba, y era el tercer camino por el que
@@ -123,7 +123,7 @@ func _desatascar() -> void:
 					_pantalla._set_log("🔧 %s ya no está en la pelea: fuera. La pelea sigue." % dueno_p)
 					return
 				_pantalla._ocultar_cajas()
-				_pantalla._pedir_a_remoto(dueno_p, {"tipo": "accion", "idx": _pantalla._aliados.find(_pantalla._player)})
+				_pantalla.espejo._pedir_a_remoto(dueno_p, {"tipo": "accion", "idx": _pantalla._aliados.find(_pantalla._player)})
 				_pantalla._set_log("🔧 El turno es de %s, que lo lleva otro jugador: se lo vuelvo a pedir."
 					% _pantalla._player.nombre)
 				return
@@ -162,7 +162,7 @@ func _diagnostico() -> Array:
 		out.append("pausa_lectura=%.1fs" % _pantalla._pause_left)
 	if _pantalla._esperando_a != 0:
 		out.append("esperando a peer %d (%s) desde %.1fs, ¿sigue?=%s" % [
-			_pantalla._esperando_a, String(_pantalla._peticion_pendiente.get("tipo", "?")), _pantalla._espera_acum,
+			_pantalla._esperando_a, String(_pantalla.espejo._peticion_pendiente.get("tipo", "?")), _pantalla.espejo._espera_acum,
 			"si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a) else "NO"])
 	else:
 		out.append("no espero a nadie")
@@ -222,16 +222,16 @@ func _volcado_p() -> void:
 	L.append("--- ESTADO ---")
 	L.append("  state = %s" % (nombres[_pantalla._state] if _pantalla._state < nombres.size() else str(_pantalla._state)))
 	L.append("  pausa de lectura pendiente: %.2fs" % _pantalla._pause_left)
-	L.append("  revision del roster: %d (pedida: %s)" % [_pantalla._rev, str(_pantalla._rev_pedida)])
-	L.append("  numero de peticion actual: %d" % _pantalla._pet_seq)
+	L.append("  revision del roster: %d (pedida: %s)" % [_pantalla.espejo._rev, str(_pantalla.espejo._rev_pedida)])
+	L.append("  numero de peticion actual: %d" % _pantalla.espejo._pet_seq)
 	if _pantalla._espejo:
 		L.append("  [espejo] me han pedido la #%d y ya conteste hasta la #%d" % [
-			_pantalla._seq_espejo, _pantalla._seq_contestada])
+			_pantalla.espejo._seq_espejo, _pantalla.espejo._seq_contestada])
 	if _pantalla._esperando_a != 0:
-		L.append("  ESPERANDO al peer %d desde hace %.2fs" % [_pantalla._esperando_a, _pantalla._espera_acum])
-		L.append("    lo que le pedi: %s" % str(_pantalla._peticion_pendiente))
+		L.append("  ESPERANDO al peer %d desde hace %.2fs" % [_pantalla._esperando_a, _pantalla.espejo._espera_acum])
+		L.append("    lo que le pedi: %s" % str(_pantalla.espejo._peticion_pendiente))
 		L.append("    ¿sigue en la pelea?: %s" % ("si" if Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a) else "NO"))
-		L.append("    proximo reenvio en: %.2fs" % maxf(0.0, _pantalla.REENVIO_TURNO - _pantalla._espera_acum))
+		L.append("    proximo reenvio en: %.2fs" % maxf(0.0, _pantalla.espejo.REENVIO_TURNO - _pantalla.espejo._espera_acum))
 	else:
 		L.append("  no espero respuesta de nadie")
 		# Esta pareja es LA firma del cuelgue: parado esperando a alguien... a quien ya no se espera.

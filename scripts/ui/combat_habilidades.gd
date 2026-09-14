@@ -33,7 +33,7 @@ func _pedir_soltar_carga(ab: AbilityData) -> void:
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("%s tiene %s lista. Esperando su objetivo..." % [_pantalla._player.nombre, ab.nombre])
-		_pantalla._pedir_a_remoto(dueno, {"tipo": "soltar", "nombre": ab.nombre})
+		_pantalla.espejo._pedir_a_remoto(dueno, {"tipo": "soltar", "nombre": ab.nombre})
 		return
 	_pintar_soltar(ab.nombre)
 
@@ -76,11 +76,11 @@ func _apuntar_al_primer_vivo() -> void:
 func soltar_carga(nombre: String, seq: int = 0) -> void:
 	if not _pantalla._espejo:
 		return
-	if seq != 0 and seq == _pantalla._seq_contestada:
+	if seq != 0 and seq == _pantalla.espejo._seq_contestada:
 		_pantalla._traza_add("me repiten la carga #%d, que YA conteste: la ignoro" % seq)
 		return
 	if seq != 0:
-		_pantalla._seq_espejo = seq
+		_pantalla.espejo._seq_espejo = seq
 	if _pantalla._state == _pantalla.State.WAITING_PLAYER and _pantalla._cast_box != null and _pantalla._cast_box.visible:
 		return   # repeticion del anfitrion: ya tengo el boton delante
 	_pantalla._traza_add("ME PIDEN SOLTAR (#%d) %s" % [seq, nombre])
@@ -95,7 +95,7 @@ func _on_soltar_pulsado() -> void:
 	if _pantalla._state != _pantalla.State.WAITING_PLAYER:
 		return
 	if _pantalla._espejo:
-		_pantalla._responder_al_anfitrion({"tipo": "soltar", "obj": _pantalla._target_idx})
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "soltar", "obj": _pantalla._target_idx})
 		return
 	_soltar_la_carga()
 
@@ -397,7 +397,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var ia_h: int = -1
 		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO and _pantalla._hab_aliado != null:
 			ia_h = _pantalla._aliados.find(_pantalla._hab_aliado)
-		_pantalla._responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _pantalla._target_idx,
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _pantalla._target_idx,
 			"aliado": ia_h})
 		return
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
