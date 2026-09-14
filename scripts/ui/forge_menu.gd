@@ -1562,7 +1562,10 @@ func _herr_acciones(vb: VBoxContainer, piezas: int) -> void:
 # Los dos Autos de las herramientas, para `_cantidad` piezas (ver _on_auto en la pestaña de forjar).
 func _on_auto_herr(mejor_primero: bool) -> void:
 	var lingote: MaterialData = _herr_lingote()
-	var tab: MaterialData = Game.tablon_de_herramienta(lingote)
+	# EL MISMO complemento que pinta y consume la receta (_build_herramientas). Aqui se pedia el tablon a
+	# pelo, y el farolillo lleva HEBILLAS: el Auto elegia tablon, el capado lo tiraba y las hebillas se
+	# quedaban sin rellenar.
+	var tab: MaterialData = Game.complemento_de_herramienta(_herr_tipo, lingote)
 	if lingote == null or tab == null:
 		return
 	var veces: int = maxi(1, _cantidad)
