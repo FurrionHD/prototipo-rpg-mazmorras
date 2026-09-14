@@ -2286,6 +2286,11 @@ func limpiar_mundo_heredado() -> void:
 	equipped_hacha = null
 	equipped_cana = null
 	equipped_cuchillo = null
+	equipped_lampara = null
+	# La carbonera y la llama tambien son de MI partida: llegan en el JugadorData como la lampara.
+	carbon.clear()
+	lampara_llama = 0.0
+	lampara_llama_total = 0.0
 	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
 	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
 	Perfil.ranura_actual = 0
@@ -2379,6 +2384,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	cocina_exp = jd.cocina_exp
 	materiales_vistos = jd.materiales_vistos.duplicate()
 	pack_inicial_reclamado = jd.pack_inicial
+	_devolver_farolillo_perdido()
 
 	# DONDE SE QUEDO. La expedicion la resuelve quien carga la escena: si la mazmorra ya se cerro,
 	# ese piso es de otro mapa (ver la nota de JugadorData.pos).
@@ -8847,6 +8853,24 @@ func reclamar_pack_inicial(base_arma: Resource) -> bool:
 	print("[tienda] Reclamas el pack inicial: %s + %d pociones + farolillo y %d carbones." % [
 		item_display_name(arma), PACK_POCIONES_N, PACK_CARBON_N])
 	return true
+
+
+# REPARACION de los invitados de un mundo compartido que perdieron el farolillo: hasta el 14/09/2026
+# la lampara no viajaba en el JugadorData (ver Net.jd_a_dict) y cada autoguardado se la borraba. Como
+# ya habian reclamado el pack, no habia forma de recuperarla. Solo se devuelve la del pack, y solo a
+# quien lo reclamo y no tiene NINGUNA lampara: a nadie se le regala una segunda.
+func _devolver_farolillo_perdido() -> void:
+	if not pack_inicial_reclamado or equipped_lampara != null:
+		return
+	for t in owned_tools:
+		if t is ToolData and int((t as ToolData).tipo) == ToolData.Tipo.LAMPARA:
+			return
+	var base_lampara: Resource = load(PACK_LAMPARA)
+	if base_lampara == null:
+		return
+	var farol: Resource = crear_item(base_lampara, 1, Upgrades.Rareza.COMUN, {})
+	equipar_herramienta(farol as ToolData)
+	print("[mundo] se devuelve el farolillo del pack a un jugador que lo habia perdido")
 
 
 # ============================================================

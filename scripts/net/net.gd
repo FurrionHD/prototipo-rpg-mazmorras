@@ -4928,6 +4928,11 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		var c: Dictionary = _item_a_dict(it)
 		if not c.is_empty():
 			cris.append(c)
+	var carbonera: Array = []
+	for it in jd.carbon:
+		var cb: Dictionary = _item_a_dict(it)
+		if not cb.is_empty():
+			carbonera.append(cb)
 	return {
 		"id": jd.id, "nombre_visible": jd.nombre_visible,
 		"personajes": fichas, "equipo": huecos, "lider_pos": jd.lider_pos,
@@ -4941,6 +4946,13 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		"hacha": Game.serializar_equipo(jd.equipped_hacha),
 		"cana": Game.serializar_equipo(jd.equipped_cana),
 		"cuchillo": Game.serializar_equipo(jd.equipped_cuchillo),
+		# EL FAROLILLO Y SU CARBON. No viajaban: cada autoguardado del mundo escribia al invitado sin
+		# lampara, sin carbonera y sin la llama que llevaba encendida, y al volver a entrar se lo
+		# encontraba a oscuras (playtest del 11/09/2026). El cebo tampoco venia.
+		"lampara": Game.serializar_equipo(jd.equipped_lampara),
+		"carbon": carbonera,
+		"lampara_llama": jd.lampara_llama, "lampara_llama_total": jd.lampara_llama_total,
+		"cebo": jd.cebo,
 		"registro_pesca": jd.registro_pesca.duplicate(true),
 		"mezcla": jd.mezcla_exp, "metalurgia": jd.metalurgia_exp,
 		"peleteria": jd.peleteria_exp, "herreria": jd.herreria_exp,
@@ -4981,6 +4993,14 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 		var it2: Resource = _item_de_dict(c as Dictionary)
 		if it2 != null:
 			jd.crystals.append(it2)
+	jd.carbon = []
+	for cb in d.get("carbon", []):
+		var it3: Resource = _item_de_dict(cb as Dictionary)
+		if it3 != null:
+			jd.carbon.append(it3)
+	jd.lampara_llama = float(d.get("lampara_llama", 0.0))
+	jd.lampara_llama_total = float(d.get("lampara_llama_total", 0.0))
+	jd.cebo = String(d.get("cebo", ""))
 	jd.consumibles = (d.get("consumibles", {}) as Dictionary).duplicate()
 	# La mochila va por el MISMO criterio que el resto del equipo (antes llevaba un `true` a pelo, y
 	# por ahi se colaba una mochila nueva en el baul en cada sincronizacion). Es suya y vive en este
@@ -4995,7 +5015,7 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 	# bug de las 6 hachas multiplicado por tres.
 	jd.owned_tools = []
 	for par in [["pico", "equipped_pico"], ["hoz", "equipped_hoz"], ["hacha", "equipped_hacha"],
-			["cana", "equipped_cana"], ["cuchillo", "equipped_cuchillo"]]:
+			["cana", "equipped_cana"], ["cuchillo", "equipped_cuchillo"], ["lampara", "equipped_lampara"]]:
 		var t: Resource = Game.deserializar_equipo(d.get(String(par[0]), {}), registrar)
 		if t is ToolData:
 			jd.set(String(par[1]), t)
@@ -5891,7 +5911,7 @@ func _olvidar_meta_de(jd) -> void:
 	_olvidar_meta_item((jd as JugadorData).equipped_mochila)
 	for t in [(jd as JugadorData).equipped_pico, (jd as JugadorData).equipped_hoz,
 			(jd as JugadorData).equipped_hacha, (jd as JugadorData).equipped_cana,
-			(jd as JugadorData).equipped_cuchillo]:
+			(jd as JugadorData).equipped_cuchillo, (jd as JugadorData).equipped_lampara]:
 		_olvidar_meta_item(t)
 
 
