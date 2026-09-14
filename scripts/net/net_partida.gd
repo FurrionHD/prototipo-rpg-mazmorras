@@ -186,6 +186,10 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
 			"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]:
 		d[campo] = pj.get(campo)
+	# SU UID. Sin el, el lote que vuelve de la pelea (desgaste_a_dict lo sella con el uid del DOBLE) llegaba
+	# con uid '' y _devolver_desgaste lo descartaba entero: quien peleaba en otra maquina salia sin la
+	# excelia ganada y con la vida de la entrada. Tambien es la llave de hueco_huido_de al reentrar.
+	d["uid"] = String(pj.uid)
 	# Y su pocion a medias, para que el anfitrion pueda meterla en la pelea (ver _COLAS_POCION), y lo
 	# que lleve puesto: estados, cargas de Foco e imbuicion (ver _LO_PUESTO).
 	for campo in Net.peleas._COLAS_POCION + Net.peleas._LO_PUESTO:

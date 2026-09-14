@@ -12957,7 +12957,8 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 # sabe (y entonces no se toca la energia). Manda el que trae la FICHA (lo midio su dueño, con su cuerpo
 # delante, ver Net.partida.ficha_a_dict); si no lo trae, el del jugador de esta maquina.
 func aguante_para_combate(pj: PersonajeData) -> Vector2:
-	var ag = pj.get_meta("aguante", null) if pj != null else null
+	# has_meta y no get_meta(..., null): con null de valor por defecto Godot lo da por "sin defecto" y protesta.
+	var ag = pj.get_meta("aguante") if pj != null and pj.has_meta("aguante") else null
 	if ag is Array and (ag as Array).size() == 2:
 		return Vector2(float(ag[0]), float(ag[1]))
 	var pnode := get_tree().get_first_node_in_group("player")
