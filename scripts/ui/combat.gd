@@ -35,6 +35,18 @@
 extends Control
 
 # --- LOS TEMAS de esta pantalla, cada uno en su archivo (ver su cabecera) ---
+# Aqui se queda el MOTOR: preparar la pelea (setup), el estado por aliado, el ATB y los turnos
+# (_process, _begin_player_turn), las acciones basicas (atacar, defender, huir), cerrar la pelea (_end)
+# y los ayudantes que usa todo lo demas (_update_hp, _vivos, _set_log...). Cada tema es un RefCounted
+# con esta pantalla en _pantalla, y se llama como <tema>.<funcion>:
+#   objetos      pociones y a quien se las das          habilidades  submenu, cargas y resolucion
+#   magia        hechizos, recitado y disparo            enemigos     su turno, habilidades y contraataques
+#   objetivos    a quien se pega (amenaza, areas)        figuras      tarjetas, sprites y poses
+#   altas        quien entra y sale a media pelea        efectos      barras, golpes y chips de estado
+#   diagnostico  tecla P y herramientas de dev           montaje      construir la pantalla una vez
+#   espejo       la pelea compartida en multi
+# Lo que la red o Game llaman por su nombre queda como PUENTE al final de este archivo. Comprobar tras
+# tocar: tools/verificar_pantalla.py y la huella del combate (tools/prueba_huella_combate.tscn).
 const CombatObjetos = preload("res://scripts/ui/combat_objetos.gd")
 var objetos = CombatObjetos.new(self)
 const CombatHabilidades = preload("res://scripts/ui/combat_habilidades.gd")
