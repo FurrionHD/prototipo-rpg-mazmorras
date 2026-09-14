@@ -114,22 +114,22 @@ const TOCHOS := [
 	#
 	# LA OTRA REGLA: el consejo tiene que ser CIERTO. Cada uno de estos seis esta contrastado contra
 	# el codigo, no contra lo que uno cree recordar. Si tocas la mecanica, el tomo se corrige aqui.
-	{"id": "respiracion", "nombre": "De la respiración del que combate", "precio": 180, "excelia": 18.0,
+	{"id": "respiracion", "nombre": "De la respiración del que combate", "precio": 180, "excelia": 6.0,
 	"texto": "Cuarenta páginas quejándose de los aventureros jóvenes que encadenan habilidades hasta quedarse secos. El tono es insoportable. El consejo, en cambio, es bueno: prueba a meter un ataque básico de vez en cuando para descansar un poco, que recupera más aliento del que gastas en cubrirte."},
 
-	{"id": "errores_propios", "nombre": "Mis errores, por un archimago", "precio": 200, "excelia": 22.0,
+	{"id": "errores_propios", "nombre": "Mis errores, por un archimago", "precio": 200, "excelia": 7.0,
 	"texto": "Un archimago repasa los errores más graves de su carrera, uno por capítulo y sin ahorrarse ninguno. En uno se pasó una batalla entera cubriéndose de un rival que pegaba críticos, convencido de que así no le entraba ninguno. Su consejo: cúbrete igualmente, que ayuda bastante, pero no te fíes — alguno te va a entrar."},
 
-	{"id": "guardia", "nombre": "Tratado de la guardia", "precio": 180, "excelia": 18.0,
+	{"id": "guardia", "nombre": "Tratado de la guardia", "precio": 180, "excelia": 6.0,
 	"texto": "Defiende que aguantar es un oficio como otro cualquiera y que nadie lo entrena a propósito. Al final va al grano: si quieres que tu cuerpo aprenda a recomponerse solo, prueba a parar los golpes con la guardia arriba en vez de esquivarlos todos. Esquivando no se aprende nada, dice, y se queda tan ancho."},
 
-	{"id": "estoque_rodela", "nombre": "Del estoque y la rodela", "precio": 180, "excelia": 18.0,
+	{"id": "estoque_rodela", "nombre": "Del estoque y la rodela", "precio": 180, "excelia": 6.0,
 	"texto": "Discusión larguísima entre dos maestros de armas sobre cuál de los dos devuelve mejor un golpe. No se ponen de acuerdo en nada, pero coinciden sin querer en el consejo: prueba el estoque si lo tuyo es esquivar y la rodela si lo tuyo es bloquear, porque cada uno contesta en un momento distinto. Con la guardia baja no contesta ninguno."},
 
-	{"id": "actas_torre", "nombre": "Actas de la torre, sesión decimosexta", "precio": 180, "excelia": 18.0,
+	{"id": "actas_torre", "nombre": "Actas de la torre, sesión decimosexta", "precio": 180, "excelia": 6.0,
 	"texto": "Acta de una reunión de magos discutiendo durante horas si la Resistencia le sirve de algo a quien no piensa dejarse tocar ni una vez. No llegan a ningún acuerdo. Uno suelta de pasada que prueben a subirla igualmente, que además de aguantar golpes te engorda la vida, y nadie le lleva la contraria porque ya era muy tarde."},
 
-	{"id": "boticario", "nombre": "Del despilfarro del boticario", "precio": 180, "excelia": 18.0,
+	{"id": "boticario", "nombre": "Del despilfarro del boticario", "precio": 180, "excelia": 6.0,
 	"texto": "Un boticario arruinado explica, con mucho rencor, por qué la gente gasta el triple de pociones de las que necesita. Su consejo, entre insulto e insulto: prueba a esperar un poco después de beberte una, que la cura va cayendo sola y el impaciente se bebe la siguiente encima de la anterior. Se le nota que le ha costado dinero."},
 ]
 

@@ -3062,7 +3062,11 @@ const GRIMORIO_SABIDO_MULT := 0.25
 # SIN CUADRAR: esta puesto a ojo para que la mecanica se pueda probar. El numero bueno sale de mirar
 # la curva entera (cuanta excelia magica da un piso, cada cuanto cae un tomo del 25%), no de tocarlo
 # aqui a pelo. No lo des por bueno porque este escrito.
-const TOMO_EXCELIA_BASE := 18.0
+#
+# ⚠️ Esta constante NO la lee nadie: el numero que cuenta es el excelia_magia de cada .tres (y el de
+# tools/generar_tochos.gd, que los escribe). Se deja como referencia. 14/09/2026: bajado a un TERCIO
+# (18 -> 6, y el del archimago 22 -> 7) tras el playtest: daban una barbaridad.
+const TOMO_EXCELIA_BASE := 6.0
 
 
 # EL PESO DE CADA HECHIZO en el sorteo del grimorio, ya con el sesgo del que lo va a leer aplicado.
