@@ -109,9 +109,23 @@ func _retirar() -> void:
 	if n <= 0:
 		_decir("Escribe una cantidad.", false)
 		return
-	Net.hogar.retirar_bote(n)   # el host valida que hay tanto (si no, avisa por toast)
+	# SE MIRA ANTES si hay tanto: el aviso decia "Sacas 1100" con 1000 en la hucha, porque se escribia sin
+	# esperar a saber si la retirada habia salido.
+	var hay: int = Net.hogar.bote_visible()
+	if n > hay:
+		_decir("Solo hay %d monedas en la hucha." % hay, false)
+		return
+	var antes: int = Game.money
+	Net.hogar.retirar_bote(n)
 	_input = ""
-	_decir("Sacas %d monedas de la hucha." % n, true)
+	if Net._soy_cliente():
+		# De invitado la respuesta llega por red: la hucha que se ve es la copia del host, asi que casi
+		# siempre acierta; si el host lo rechaza igualmente, avisa el (toast de _retiro_fallido).
+		_decir("Pides sacar %d monedas de la hucha." % n, true)
+	elif Game.money > antes:
+		_decir("Sacas %d monedas de la hucha." % n, true)
+	else:
+		_decir("No se han podido sacar: no hay tanto en la hucha.", false)
 
 
 func _decir(txt: String, ok: bool) -> void:
