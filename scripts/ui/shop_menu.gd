@@ -1,143 +1,214 @@
 # ============================================================
 #  shop_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu de la TIENDA. Lo abre el tendero del pueblo (shop.gd -> abrir()); no tiene tecla
-#  propia. Congela al jugador via Game.inventory_open mientras esta abierto.
+#  Menu de la TIENDA. Lo abre el tendero del pueblo (shop.gd -> abrir()); no tiene tecla propia.
+#
+#  REHECHO el 16/09/2026 con la cara del inventario (referencia Honkai Star Rail). Las quejas del
+#  playtest: era fea, habia cosas que no se podian vender y vender no era visual (botones de texto,
+#  sin buscador ni filtros). Ahora: rejilla de celdas a la izquierda, ficha a la derecha, pestañas con
+#  icono, buscador, orden y filtros por modal, y una CESTA para vender o comprar varias cosas de una.
 #
 #  Cuatro pestañas:
-#   1) VENDER       - subpestañas Bolsa (cristales+materiales) / Hogar (materiales del baul)
-#                     / Equipo (armas y armaduras). Cantidad por modal, igual que "soltar" en
-#                     el inventario. Boton de "vender todos los cristales" de un clic.
-#   2) RECOMPRAR    - lo que le has vendido al tendero (hasta 7), al mismo precio que te pago.
-#   3) TIENDA       - armas/escudos/varita/bastón a T1 comun, pociones y la COMIDA (que no es un
-#                     consumible: son MATERIALES para cocinar, ver Game.comprar_material). NO hay
-#                     grimorios: la magia se gana (maestro y cofres), no se compra por ventanilla.
-#   4) PACK INICIAL - una vez por partida: un arma gratis (ni bastón ni varita) + 3 pociones.
+#   1) VENDER     - tienda/tienda_vender.gd: Botin · Equipo · Consumibles · Hogar (baul + cofre).
+#   2) COMPRAR    - tienda/tienda_comprar.gd: Armas · Armaduras · Mochilas · Consumibles · Comida,
+#                   con el mostrador T2 (el que abre el Rey Slime) como selector T1/T2.
+#   3) RECOMPRAR  - lo que le has vendido al tendero (hasta 7), al mismo precio. Solo si hay algo.
+#   4) PACK       - una vez por partida: un arma gratis + pociones. Desaparece al reclamarlo.
 #
-#  Toda la MATH vive en Game (precio_compra_tier / vender_item / comprar_equipo_tier / recomprar...);
-#  aqui solo se pinta.
+#  Este archivo es el ARMAZON: montaje, pestañas, barra de abajo, bandeja de la cesta, la ficha comun
+#  de un objeto y las dos pestañas pequeñas. Toda la MATH vive en Game.
 # ============================================================
 
 extends CanvasLayer
 
-# Recomprar va DEBAJO de Tienda (y solo aparece si le has vendido algo al tendero); el pack
-# inicial desaparece al reclamarlo. Un menu vacio no merece su boton.
-const TABS := ["Vender", "Tienda", "Tienda T2", "Recomprar", "Pack inicial"]
-const SUBS_VENDER := ["Bolsa", "Hogar", "Equipo", "Consumibles"]
-# Los GRIMORIOS ya no se venden aqui: la magia se gana, no se compra (la da el maestro y la
-# mazmorra). Se siguen pudiendo VENDER los que traigas, pero el mostrador no los repone.
-# "Comida" va la ULTIMA: _build_tienda despacha las subpestañas por INDICE, asi que meter una en
-# medio le cambia el contenido a todas las de detras.
-const SUBS_TIENDA := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Comida"]
+const TiendaVender = preload("res://scripts/ui/tienda/tienda_vender.gd")
+const TiendaComprar = preload("res://scripts/ui/tienda/tienda_comprar.gd")
+const TiendaOrden = preload("res://scripts/ui/tienda/tienda_orden.gd")
 
-const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
-const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
+const TABS := ["Vender", "Comprar", "Recomprar", "Pack inicial"]
+const TAB_ICONOS := ["moneda", "bolsa", "flecha_arriba", "pergamino"]
+const TAB_VENDER := 0
+const TAB_COMPRAR := 1
+const TAB_RECOMPRAR := 2
+const TAB_PACK := 3
+
+# Las mismas medidas que el inventario: 96 de celda y la ficha a 360.
+const LADO_CELDA := 96.0
+const ANCHO_FICHA := 360.0
+const ANCHO_REJILLA_MIN := 420.0
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
 const ROJO := Color(0.9, 0.5, 0.5)
 const GRIS := Color(0.6, 0.63, 0.7)
 
-# Catalogo de la tienda: lo que hay a la venta, por bloques.
-# Armas y secundarias: la lista vive en CatalogoEquipo, porque el maestro de habilidades recorre
-# esas MISMAS plantillas para saber que habilidades trae cada arma. Duplicarla aqui hacia que un
-# arma nueva se pudiera comprar sin habilidades que aprender (o al reves).
-const CAT_ARMAS: Array[String] = CatalogoEquipo.ARMAS
-const CAT_SECUNDARIAS: Array[String] = CatalogoEquipo.SECUNDARIAS
-# La mochila basica: la unica que se compra hecha. Las buenas las cose el peletero.
-const CAT_MOCHILAS: Array[String] = [
-	"res://resources/backpacks/mochila_basica.tres",
-]
-# Solo las pociones BASE. Las +1/+2 no se venden: si las quieres, te las mejora la boticaria (te
-# compras la normal y te apañas).
-const CAT_POCIONES: Array[String] = [
-	"res://resources/consumables/pocion_menor.tres",
-	"res://resources/consumables/pocion_mana_menor.tres",
-	"res://resources/consumables/piedra_retorno.tres",
-]
-# La DESPENSA del tendero. Son MATERIALES, no consumibles: no se comen, se cocinan. La sal y los
-# silvestres NO estan aqui a proposito —esos se bajan a buscar—, y tampoco hay lista T2: una cebolla
-# es una cebolla, la maten a quien maten los de los pisos hondos.
-const CAT_COMIDA: Array[String] = [
-	"res://resources/materials/cebolla.tres",
-	"res://resources/materials/ajo.tres",
-	"res://resources/materials/tomate.tres",
-	"res://resources/materials/lechuga.tres",
-	"res://resources/materials/patata.tres",
-	"res://resources/materials/zanahoria.tres",
-	"res://resources/materials/pimiento.tres",
-	"res://resources/materials/pan.tres",
-	"res://resources/materials/queso.tres",
-	"res://resources/materials/aceite.tres",
-]
-
-# --- Catalogo del mostrador T2 (el que abre el Rey Slime) ---
-# El EQUIPO no tiene lista propia: son las mismas plantillas, que se venden a T2 (el tier no vive en
-# el .tres, lo pone la compra). Los consumibles SI son recursos distintos.
-const CAT_POCIONES_T2: Array[String] = [
-	"res://resources/consumables/pocion_media.tres",
-	"res://resources/consumables/pocion_mana_media.tres",
-	"res://resources/consumables/piedra_retorno_t2.tres",
-]
-# Armaduras: los 4 tipos x los 5 slots, en orden de cobertura (Game.ARMOR_SLOT_ORDEN).
-const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
+const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
+	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
+const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 var _root: Control = null
-var _header: VBoxContainer = null    # cabecera FIJA (titulo + subpestañas)
-var _lista: VBoxContainer = null     # cuadricula, con su scroll
-var _scroll_lista: ScrollContainer = null
-var _content: VBoxContainer = null   # detalle, con el suyo
-var _dinero_top: Label = null        # monedas arriba a la derecha
-var _aviso_lbl: Label = null         # linea de aviso, de altura fija (no empuja el titulo)
+var _header: VBoxContainer = null
+var _lista: VBoxContainer = null
+var _content: VBoxContainer = null
+var _dinero_lbl: Label = null
+var _contador_lbl: Label = null
+var _aviso_lbl: Label = null
+var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
+var barra_sub: HBoxContainer = null   # subpestañas (las rellena cada seccion)
+var _buscador: LineEdit = null
+var _fila_buscador: HBoxContainer = null
+var _bandeja: PanelContainer = null
+var _barra_pie: HBoxContainer = null
+var _modal_capa: Control = null
+var _modal_cuerpo: VBoxContainer = null
 
-var _tab: int = 0
-var _sub: int = 0                    # subpestaña de VENDER (Bolsa / Hogar / Equipo)
-var _sel: int = 0                    # seleccion dentro de la cuadricula actual
-# TIER del mostrador que se esta pintando (1 = el de siempre, 2 = el del Rey Slime). Lo fija
-# _build_tienda y lo leen la ficha y el boton de comprar, que no reciben parametros.
-var _tienda_tier: int = 1
-var _stacks: Array = []              # lo que hay pintado en la cuadricula actual
-var _aviso: String = ""              # mensaje de la ultima accion (compra fallida, etc.)
+var vender = null     # TiendaVender
+var comprar = null    # TiendaComprar
+var orden = TiendaOrden.new()
+
+var _tab: int = TAB_VENDER
+var sel: int = 0
+var stacks: Array = []       # lo pintado en la rejilla, en el mismo orden que las celdas
+var cant: int = 1            # la cantidad del − n + de la ficha (de ESTE monton, no del menu)
+var _aviso: String = ""
 var _aviso_ok: bool = true
-
-# CUANTAS unidades de lo elegido (la del − n + del panel). Vive fuera del preview porque el panel se
-# repinta entero en cada _rebuild y hay que recordar lo que el jugador acababa de marcar. Se vuelve a
-# 1 al cambiar de seleccion o de pestaña: la cantidad es DE ESE monton, no del menu.
-var _cant: int = 1
-var _pending_modelo: Resource = null  # el stack que se esta vendiendo (lo lee _confirmar_venta)
 
 
 func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("shop_menu")
+	vender = TiendaVender.new(self)
+	comprar = TiendaComprar.new(self)
 
-	var m: Dictionary = MenuScaffold.construir(self, "TIENDA", "", _cerrar, true)
+	# El MISMO montaje que el inventario (ver inventory_menu._ready, que explica cada paso): barra arriba
+	# sin lateral, pestañas-icono centradas en la pantalla, rejilla que manda y ficha de ancho fijo.
+	var m: Dictionary = MenuScaffold.construir(self, "TIENDA", "", _cerrar, true, false)
 	_root = m["root"]
 	_header = m["header"]
 	_lista = m["lista"]
-	_scroll_lista = m["lista_scroll"]
 	_content = m["content"]
-	_dinero_top = m["dinero"]
+	_dinero_lbl = m["dinero"]
+	# La linea de aviso SI se queda (el inventario la esconde): aqui cada venta y cada compra dicen lo
+	# que has cobrado o pagado, y ese es su sitio fijo.
 	_aviso_lbl = m["aviso"]
 
+	var scroll: ScrollContainer = m["lista_scroll"]
+	scroll.custom_minimum_size = Vector2(ANCHO_REJILLA_MIN, 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.size_flags_horizontal = Control.SIZE_FILL
+	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
+	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	scroll.resized.connect(_on_lista_redimensionada)
+
+	# LA COLUMNA IZQUIERDA: subpestañas, buscador, rejilla, bandeja de la cesta y barra de orden. Todo
+	# lo que manda sobre la REJILLA va en su columna, fuera del scroll para que no se vaya al bajar.
+	var split: BoxContainer = scroll.get_parent()
+	split.remove_child(scroll)
+	var col_izq := VBoxContainer.new()
+	col_izq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_izq.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_izq.add_theme_constant_override("separation", 6)
+	split.add_child(col_izq)
+	split.move_child(col_izq, 0)
+	barra_sub = HBoxContainer.new()
+	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_sub)
+
+	# EL BUSCADOR, encima de la rejilla que filtra. Filtra al escribir (no hace falta Enter) y NO rehace
+	# la ficha ni se pierde el foco: vive fuera de la zona que se vacia en cada pasada.
+	_fila_buscador = HBoxContainer.new()
+	col_izq.add_child(_fila_buscador)
+	_buscador = LineEdit.new()
+	_buscador.placeholder_text = "Buscar por nombre…"
+	_buscador.clear_button_enabled = true
+	_buscador.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_buscador.custom_minimum_size = Vector2(0, 36)
+	_buscador.text_changed.connect(_on_buscar)
+	_fila_buscador.add_child(_buscador)
+
+	col_izq.add_child(scroll)
+
+	_bandeja = PanelContainer.new()
+	var caja := StyleBoxFlat.new()
+	caja.bg_color = Color(0.07, 0.08, 0.11, 0.95)
+	caja.border_color = Color(AMBAR, 0.55)
+	caja.set_border_width_all(1)
+	caja.set_corner_radius_all(8)
+	caja.set_content_margin_all(8)
+	_bandeja.add_theme_stylebox_override("panel", caja)
+	_bandeja.visible = false
+	col_izq.add_child(_bandeja)
+
+	_barra_pie = HBoxContainer.new()
+	_barra_pie.add_theme_constant_override("separation", 10)
+	col_izq.add_child(_barra_pie)
+
+	var barra_tabs: HBoxContainer = m["side"]
+	barra_tabs.add_theme_constant_override("separation", 14)
 	for i in TABS.size():
-		var b := Button.new()
-		b.text = TABS[i]
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+		var b: Button = MenuScaffold.pestana_icono(TAB_ICONOS[i], TABS[i])
 		b.pressed.connect(_on_tab.bind(i))
-		(m["side"] as VBoxContainer).add_child(b)
+		barra_tabs.add_child(b)
 		_tab_buttons.append(b)
+
+	var barra: BoxContainer = barra_tabs.get_parent()
+	(barra.get_child(0) as Control).visible = false
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	var chico := Label.new()
+	chico.text = "Tienda"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	titulo.add_child(chico)
+	_titulo_seccion = Label.new()
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
+
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
+
+	_contador_lbl = Label.new()
+	_contador_lbl.add_theme_font_size_override("font_size", 15)
+	_contador_lbl.add_theme_color_override("font_color", Color(0.78, 0.82, 0.90))
+	_dinero_lbl.get_parent().remove_child(_dinero_lbl)
+	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_dinero_lbl.custom_minimum_size = Vector2.ZERO
+	_dinero_lbl.add_theme_font_size_override("font_size", 15)
+	for l in [_contador_lbl, _dinero_lbl]:
+		barra.add_child(l)
+		barra.move_child(l, barra.get_child_count() - 2)
+
+	# MULTI: el cofre del hogar lo cambia el host (y lo que vendes de el se cobra cuando llega).
+	if Net.has_signal("hogar_cambiado"):
+		Net.hogar_cambiado.connect(func():
+			if _root.visible and _tab == TAB_VENDER:
+				_rebuild())
+	if Net.has_signal("venta_cofre"):
+		Net.venta_cofre.connect(func(txt: String):
+			decir(txt)
+			if _root.visible:
+				_rebuild())
 
 
 func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	_tab = 0
-	_sub = 0
-	_sel = 0
+	_tab = TAB_VENDER
+	sel = 0
+	cant = -1
 	_aviso = ""
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
@@ -145,41 +216,56 @@ func abrir() -> void:
 
 
 func _cerrar() -> void:
+	_cerrar_modal()
+	vender.al_cerrar()
+	comprar.al_cerrar()
 	_root.visible = false
 	Game.cerrar_menu(self)
 
 
+# ESC: primero el modal que haya encima, y solo despues la tienda. En _input y consumido, para que la
+# pausa (que escucha en _unhandled_input) no se abra por detras.
 func _input(event: InputEvent) -> void:
 	if not _root.visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			_cerrar()
-			get_viewport().set_input_as_handled()
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if (event as InputEventKey).keycode != KEY_ESCAPE:
+		return
+	if _modal_capa != null:
+		_cerrar_modal()
+	else:
+		_cerrar()
+	get_viewport().set_input_as_handled()
 
 
 func _on_tab(i: int) -> void:
 	_tab = i
-	_sub = 0   # Vender y Tienda tienen subpestañas distintas: no arrastres la del otro
-	_sel = 0
-	_cant = 1   # la cantidad es del monton que estabas mirando, no del menu
+	sel = 0
+	cant = -1
 	_aviso = ""
 	_rebuild()
 
 
-func _on_sub(i: int) -> void:
-	_sub = i
-	_sel = 0
-	_cant = 1
+# Lo llaman las secciones al cambiar de subpestaña.
+func cambiar_pantalla() -> void:
+	sel = 0
+	cant = -1
 	_aviso = ""
 	_rebuild()
 
 
-# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
-# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
-# pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
-# lleva el herrero desde que se cazo alli.
+func decir(txt: String, ok: bool = true) -> void:
+	_aviso = txt
+	_aviso_ok = ok
+
+
+# ============================================================
+#  RECONSTRUIR
+# ============================================================
+
 var _reconstruyendo := false
+var _solo_seleccion := false
 
 func _rebuild() -> void:
 	if _reconstruyendo:
@@ -189,392 +275,508 @@ func _rebuild() -> void:
 	_reconstruyendo = false
 
 
+# Para las secciones (un nombre sin guion bajo que se pueda llamar desde fuera).
+func rebuild() -> void:
+	_rebuild()
+
+
 func _rebuild_real() -> void:
-	for zona in [_header, _lista, _content]:
+	_dinero_lbl.text = "%d monedas" % Game.money
+	contador("")
+	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
+	for zona in ([_header, _content] if _solo_seleccion else [_header, _lista, _content]):
 		MenuScaffold.vaciar(zona)
-	# Pestañas que solo existen cuando tienen algo dentro: el mostrador T2 (2), que lo abre el Rey
-	# Slime, el de recompra (3) y el pack inicial (4), que es de usar y tirar.
-	var visible_tab := {2: Game.tienda_t2_abierta(), 3: not Game.recompra.is_empty(),
-		4: not Game.pack_inicial_reclamado}
+	# Pestañas que solo existen cuando tienen algo dentro: recompra y pack inicial.
+	var visible_tab := {TAB_RECOMPRAR: not Game.recompra.is_empty(), TAB_PACK: not Game.pack_inicial_reclamado}
 	if not bool(visible_tab.get(_tab, true)):
-		_tab = 0
+		_tab = TAB_VENDER
 	for i in _tab_buttons.size():
 		var b := _tab_buttons[i] as Button
 		b.visible = bool(visible_tab.get(i, true))
 		b.button_pressed = (i == _tab)
-	_dinero_top.text = "%d monedas" % Game.money
+	_titulo_seccion.text = TABS[_tab]
+	var seccion = _seccion()
+	_fila_buscador.visible = seccion != null
+	if seccion != null and _buscador.text != orden.texto(seccion.clave()):
+		_buscador.text = orden.texto(seccion.clave())   # asignar texto no dispara text_changed
+	match _tab:
+		TAB_VENDER: vender.build()
+		TAB_COMPRAR: comprar.build()
+		TAB_RECOMPRAR: _build_recomprar()
+		TAB_PACK: _build_pack()
+	_pintar_bandeja()
+	_pintar_barra_pie()
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 
+
+# La seccion con rejilla filtrable de la pestaña actual (null en Recomprar y Pack).
+func _seccion():
 	match _tab:
-		0: _build_vender()
-		1: _build_tienda(1)
-		2: _build_tienda(2)
-		3: _build_recomprar()
-		4: _build_pack()
+		TAB_VENDER: return vender
+		TAB_COMPRAR: return comprar
+	return null
 
 
-func _decir(txt: String, ok: bool = true) -> void:
-	_aviso = txt
-	_aviso_ok = ok
+func contador(txt: String, alerta: bool = false) -> void:
+	_contador_lbl.text = txt
+	_contador_lbl.visible = txt != ""
+	_contador_lbl.add_theme_color_override("font_color",
+		Color(1.0, 0.52, 0.52) if alerta else Color(0.78, 0.82, 0.90))
 
 
-# ============================================================
-#  Helpers de UI (mismos que el inventario)
-# ============================================================
-
-func _title(vb: VBoxContainer, txt: String, color: Color = AMBAR) -> void:
-	MenuScaffold.titulo(vb, txt, 16, color)
-
-func _row(vb: VBoxContainer, etiqueta: String, valor: String) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var k := Label.new()
-	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
-	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	row.add_child(k)
-	var v := Label.new()
-	v.text = valor
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(v)
-	vb.add_child(row)
-
-func _note(vb: VBoxContainer, txt: String) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", GRIS)
-	l.add_theme_font_size_override("font_size", 11)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# Sin ancho MINIMO: en el panel de detalle (estrecho) un minimo de 420 px empuja la columna
-	# fuera de la pantalla. Que se ajuste a lo que haya y parta las lineas.
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vb.add_child(l)
+func titulo_seccion(txt: String) -> void:
+	_titulo_seccion.text = txt
 
 
-# La cuadricula va a la columna de la LISTA (con su scroll) y la ficha al DETALLE (con el
-# suyo). La cabecera se queda quieta arriba.
-func _grid_detail(labels: Array, preview: Callable) -> void:
-	if labels.is_empty():
-		_note(_content, "(nada por aquí)")
+func _on_buscar(t: String) -> void:
+	var seccion = _seccion()
+	if seccion == null:
 		return
-	_sel = clampi(_sel, 0, labels.size() - 1)
-	# Los colores salen de _stacks, la MISMA lista de la que salieron las etiquetas: asi no pueden
-	# desalinearse del nombre que acompañan (ver MenuScaffold.colores_de).
-	MenuScaffold.cuadricula(_lista, labels, _sel, _pick, 2, Vector2(150, 44),
-		MenuScaffold.colores_de(_stacks))
+	orden.poner_texto(seccion.clave(), t)
+	sel = 0
+	cant = -1
+	_rebuild()
+
+
+# ============================================================
+#  LA REJILLA
+# ============================================================
+
+func _columnas() -> int:
+	var ancho: float = _lista.size.x
+	if ancho <= 1.0:
+		ancho = ANCHO_REJILLA_MIN
+	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+
+
+var _cols_pintadas: int = 0
+
+func _on_lista_redimensionada() -> void:
+	if _root.visible and _columnas() != _cols_pintadas:
+		_rebuild()
+
+
+# Pinta la rejilla y la ficha del elegido. 'vacio' = lo que se dice cuando no hay nada.
+func grid_detail(piezas: Array, preview: Callable, vacio: String = "(nada por aquí)") -> void:
+	if piezas.is_empty():
+		MenuScaffold.nota(_lista, vacio)
+		return
+	sel = clampi(sel, 0, piezas.size() - 1)
+	if not (_solo_seleccion and MenuScaffold.marcar_en_rejilla(_lista, sel)):
+		MenuScaffold.vaciar(_lista)
+		_cols_pintadas = _columnas()
+		MenuScaffold.rejilla_objetos(_lista, piezas, sel, _pick, _cols_pintadas, LADO_CELDA)
 	preview.call(_content)
 
 
 func _pick(i: int) -> void:
-	_sel = i
-	_cant = 1   # otro monton, otra cantidad: no heredes la del anterior
+	sel = i
+	cant = -1   # -1 = que la ficha elija (lo que haya en la cesta, o 1)
+	_solo_seleccion = true
 	_rebuild()
+	_solo_seleccion = false
 
 
-# Fila de subpestañas (la usan Vender y Tienda).
-# Las subpestañas van a la CABECERA: no se van con el scroll.
-func _subpestanas(nombres: Array) -> void:
-	MenuScaffold.pestanas(_header, nombres, _sub, _on_sub, 110)
-	_header.add_child(HSeparator.new())
+# Una celda de la rejilla (ver MenuScaffold.rejilla_objetos).
+static func pieza(modelo: Resource, pie: String, tooltip: String, marca: String = "") -> Dictionary:
+	return {"item": modelo, "pie": pie, "tooltip": tooltip, "marca": marca, "activo": true}
 
 
-func _boton(vb: VBoxContainer, txt: String, cb: Callable, activo: bool = true) -> void:
-	MenuScaffold.boton(vb, txt, cb, activo)
+# ============================================================
+#  LA BARRA DE ABAJO: orden, filtros y lo que ponga la seccion
+# ============================================================
+
+func _pintar_barra_pie() -> void:
+	MenuScaffold.vaciar(_barra_pie)
+	var seccion = _seccion()
+	if seccion == null:
+		return
+	var clave: String = seccion.clave()
+	if not seccion.grupos().is_empty():
+		var embudo: Button = MenuScaffold.pastilla(_barra_pie, "Filtros", _abrir_modal_filtros, false)
+		if orden.hay_filtro(clave):
+			MenuScaffold.estilo_chip(embudo, true)
+			embudo.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_PASTILLA)
+	if seccion.criterios().size() > 1:
+		MenuScaffold.pastilla(_barra_pie, orden.rotulo_orden(clave, seccion.criterios(),
+			seccion.por_defecto()), _abrir_modal_orden, false)
+	var hueco := Control.new()
+	hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_barra_pie.add_child(hueco)
+	seccion.pie_extra(_barra_pie)
 
 
-# UNA fila con todo lo de la operacion: "Cantidad  −  n  +   N monedas   [Vender]". El boton va DENTRO
-# de la fila, al final: es lo siguiente que haces despues de tocar el +, asi que tenerlo bajo el mismo
-# dedo ahorra el viaje hasta un boton ancho en otra linea. Mismo reparto que MenuScaffold.fila_refino.
+func _abrir_modal_orden() -> void:
+	var seccion = _seccion()
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	_modal_capa = m["capa"]
+	var crit: Array = seccion.criterios()
+	var o: Dictionary = orden.orden_de(seccion.clave(), seccion.por_defecto())
+	var marcadas: Array = []
+	for i in crit.size():
+		if String(crit[i]["campo"]) == String(o["campo"]):
+			marcadas.append(i)
+	MenuScaffold.chips(m["cuerpo"], "", crit, marcadas, func(i: int):
+		orden.pulsar_criterio(seccion.clave(), String(crit[i]["campo"]), seccion.por_defecto())
+		_cerrar_modal()
+		sel = 0
+		_rebuild(), 3)
+	MenuScaffold.nota(m["cuerpo"], "Vuelve a pulsar el mismo criterio para invertirlo.")
+	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal, false)
+
+
+func _abrir_modal_filtros() -> void:
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	_modal_capa = m["capa"]
+	_modal_cuerpo = m["cuerpo"]
+	_refrescar_modal_filtros()
+	MenuScaffold.pastilla(m["acciones"], "Quitar todo", func():
+		orden.limpiar(_seccion().clave())
+		sel = 0
+		_refrescar_modal_filtros()
+		_rebuild(), false)
+	MenuScaffold.pastilla(m["acciones"], "Listo", _cerrar_modal)
+
+
+func _refrescar_modal_filtros() -> void:
+	if _modal_cuerpo == null or not is_instance_valid(_modal_cuerpo):
+		return
+	var seccion = _seccion()
+	if seccion == null:
+		return
+	MenuScaffold.vaciar(_modal_cuerpo)
+	var clave: String = seccion.clave()
+	var f: Dictionary = orden.filtros_de(clave)
+	for g in seccion.grupos():
+		var grupo: String = String(g["clave"])
+		var marcados: Array = f.get(grupo, [])
+		var opciones: Array = []
+		var marcadas: Array = []
+		var vals: Array = g["opciones"]
+		for i in vals.size():
+			var valor: int = int(vals[i]["valor"])
+			opciones.append({"nombre": String(vals[i]["nombre"]), "cuantos": orden.cuantos_con(grupo, valor)})
+			if marcados.has(valor):
+				marcadas.append(i)
+		MenuScaffold.chips(_modal_cuerpo, String(g["titulo"]), opciones, marcadas, func(idx: int):
+			orden.alternar(clave, grupo, int(vals[idx]["valor"]))
+			sel = 0
+			_refrescar_modal_filtros()
+			_rebuild(), 4)
+
+
+func _cerrar_modal() -> void:
+	if _modal_capa != null and is_instance_valid(_modal_capa):
+		_modal_capa.queue_free()
+	_modal_capa = null
+	_modal_cuerpo = null
+
+
+# Un modal suelto para las secciones (confirmar la cesta). Devuelve lo de MenuScaffold.modal.
+func abrir_modal(titulo: String, ancho: float = 520.0) -> Dictionary:
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, titulo, ancho)
+	_modal_capa = m["capa"]
+	return m
+
+
+func cerrar_modal() -> void:
+	_cerrar_modal()
+
+
+# ============================================================
+#  LA BANDEJA DE LA CESTA (debajo de la rejilla)
+#  Una fila que se desliza con lo apuntado ("Cebolla ×6 ✕": tocarlo lo quita), el total y los dos
+#  botones. Solo aparece con algo dentro.
+# ============================================================
+
+func _pintar_bandeja() -> void:
+	MenuScaffold.vaciar(_bandeja)
+	var seccion = _seccion()
+	if seccion == null or seccion.cesta.vacia():
+		_bandeja.visible = false
+		return
+	seccion.cesta.sanear(seccion.disponible)
+	if seccion.cesta.vacia():
+		_bandeja.visible = false
+		return
+	_bandeja.visible = true
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	_bandeja.add_child(vb)
+
+	var desliza := ScrollContainer.new()
+	desliza.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	desliza.custom_minimum_size = Vector2(0, 38)
+	vb.add_child(desliza)
+	if Tactil.activo:
+		ArrastreScroll.enganchar(desliza)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 6)
+	desliza.add_child(fila)
+	for e in seccion.cesta.entradas:
+		var s: Dictionary = e["stack"]
+		var chip := Button.new()
+		var n: int = int(e["n"])
+		chip.text = "%s%s  ✕" % [seccion.nombre_corto(s), (" ×%d" % n) if n > 1 or int(s.get("cantidad", 1)) > 1 else ""]
+		chip.tooltip_text = "Quitar de la cesta"
+		MenuScaffold.estilo_chip(chip, false)
+		var clave: String = String(e["clave"])
+		chip.pressed.connect(func():
+			seccion.cesta.quitar(clave)
+			_rebuild())
+		fila.add_child(chip)
+
+	var abajo := HBoxContainer.new()
+	abajo.add_theme_constant_override("separation", 10)
+	vb.add_child(abajo)
+	var total := Label.new()
+	var cosas: int = seccion.cesta.entradas.size()
+	total.text = "Cesta: %d %s · %d monedas" % [cosas, "cosa" if cosas == 1 else "cosas",
+		seccion.cesta.total(seccion.precio_unidad)]
+	total.add_theme_color_override("font_color", AMBAR)
+	total.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	abajo.add_child(total)
+	MenuScaffold.pastilla(abajo, "Vaciar", func():
+		seccion.cesta.vaciar()
+		_rebuild(), false)
+	MenuScaffold.pastilla(abajo, seccion.rotulo_cesta(), seccion.confirmar_cesta)
+
+
+# ============================================================
+#  LA FICHA COMUN DE UN OBJETO (titulo, banner y sus filas)
+#  Vale para lo que se vende (tu objeto, con su meta de verdad) y para lo que se compra (una copia de
+#  escaparate con su tier, ver vitrina()): la ficha no distingue, y por eso lo que ves al comprar es lo
+#  mismo que veras en el inventario.
+# ============================================================
+
+func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
+	var pie: String = ("× %d" % cantidad) if cantidad > 1 else ""
+	if m is Cristal:
+		var c := m as Cristal
+		MenuScaffold.titulo(vb, "Cristal Cat %d (%s)" % [c.categoria, c.calidad_texto()], 16, AMBAR)
+		MenuScaffold.banner_item(vb, c, pie, "Cristal")
+		row(vb, "Categoría", str(c.categoria))
+		row(vb, "Calidad", c.calidad_texto())
+		row(vb, "Peso", "%.1f" % c.peso())
+	elif m is MaterialItem:
+		var mi := m as MaterialItem
+		if mi.data != null:
+			MenuScaffold.titulo_item(vb, "%s (%s)" % [mi.nombre_mostrado(), mi.calidad_texto()],
+				mi.data.color_rango(), mi.data.rango_intensidad())
+		MenuScaffold.banner_item(vb, mi, pie, "Combustible" if _es_combustible(mi) else "Material")
+		if mi.data != null:
+			row(vb, "Material", mi.data.resumen())
+		row(vb, "Calidad", mi.calidad_texto())
+		row(vb, "Peso", "%.1f" % mi.peso())
+		if mi.data != null and mi.data.descripcion != "":
+			note(vb, mi.data.descripcion)
+	elif m is MaterialData:
+		var md := m as MaterialData
+		MenuScaffold.titulo_item(vb, md.nombre, md.color_rango(), md.rango_intensidad())
+		MenuScaffold.banner_item(vb, md, pie, "Ingrediente de cocina")
+		row(vb, "Tipo", md.tipo_texto())
+		row(vb, "Peso", "%.1f por unidad" % md.peso_base)
+		# Cuantas llevas ENCIMA: lo que decide si hace falta comprar mas antes de bajar es la bolsa.
+		var llevas: int = 0
+		for x in Game.materiales:
+			if x != null and x.data == md:
+				llevas += 1
+		row(vb, "Llevas", "%d en la bolsa" % llevas)
+	elif m is ConsumableData:
+		var cd := m as ConsumableData
+		MenuScaffold.titulo(vb, cd.nombre, 16, AMBAR)
+		MenuScaffold.banner_item(vb, cd, pie, _clase_consumible(cd))
+		if cd.es_grimorio():
+			row(vb, "Enseña", cd.spell.nombre)
+		elif cd.es_plato():
+			note(vb, cd.resumen_plato())
+		elif cd.es_cebo():
+			row(vb, "Atracción", cd.resumen(0.0, 0.0))
+		elif not cd.es_tocho():
+			row(vb, "Efecto", cd.resumen(Game.player_max_hp(), Game.player_max_mp()))
+		row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(cd, 0)))
+		if cd.descripcion != "":
+			note(vb, cd.descripcion)
+	elif m is WeaponData or m is ShieldData or m is WandData or m is ArmorData \
+			or m is BackpackData or m is ToolData:
+		_ficha_equipo(vb, m)
+
+
+func _ficha_equipo(vb: VBoxContainer, m: Resource) -> void:
+	var meta: Dictionary = Game.meta_de(m)
+	var tier: int = int(meta["tier"])
+	var rareza: int = int(meta["rareza"])
+	var dueno: PersonajeData = Game.quien_lleva(m)
+	MenuScaffold.titulo_item(vb, Game.item_display_name(m) + ("   [lo lleva %s]" % dueno.nombre if dueno != null else ""),
+		Game.color_rareza_de(m), Game.intensidad_rareza_de(m))
+	if m is WeaponData:
+		var w := m as WeaponData
+		MenuScaffold.banner_item(vb, w, "", WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)])
+		for fila in MenuScaffold.filas_arma(w, tier, rareza, meta["mejoras"], null, Game.durabilidad_item(w)):
+			row(vb, fila[0], fila[1])
+	elif m is ShieldData:
+		MenuScaffold.banner_item(vb, m, "", "Escudo")
+		for fila in MenuScaffold.filas_escudo(m as ShieldData, tier, rareza, meta["mejoras"]):
+			row(vb, fila[0], fila[1])
+	elif m is WandData:
+		var wd := m as WandData
+		MenuScaffold.banner_item(vb, wd, "", "Varita")
+		var mg: Dictionary = Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(tier), rareza, meta["mejoras"])
+		row(vb, "Amplif. magia", "×%.2f" % float(mg["magic_amp"]))
+		row(vb, "Vel. casteo", "×%.2f" % (wd.cast_vel_mult + float(mg["cast_vel_add"])))
+		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
+			row(vb, fila[0], fila[1])
+	elif m is ArmorData:
+		var a := m as ArmorData
+		MenuScaffold.banner_item(vb, a, "", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
+		for fila in MenuScaffold.filas_armadura(a, tier, rareza, meta["mejoras"], Game.durabilidad_item(a)):
+			row(vb, fila[0], fila[1])
+	elif m is BackpackData:
+		MenuScaffold.banner_item(vb, m, "", "Mochila del equipo")
+		row(vb, "Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m as BackpackData))
+		row(vb, "Carga ahora", "%d" % roundi(Game.capacidad_carga()))
+	elif m is ToolData:
+		var t := m as ToolData
+		MenuScaffold.banner_item(vb, t, "", t.tipo_texto())
+		for fila in MenuScaffold.filas_herramienta(t):
+			row(vb, fila[0], fila[1])
+	# La durabilidad solo dice algo de una pieza USADA; en el mostrador todo sale nuevo.
+	if not _es_vitrina(m):
+		row(vb, "Durabilidad", Game.durabilidad_txt_item(m), Game.durabilidad_color(m))
+	var desc: Variant = m.get("descripcion")
+	if desc != null and str(desc) != "":
+		note(vb, str(desc))
+
+
+static func _es_combustible(mi: MaterialItem) -> bool:
+	return mi.data != null and int(mi.data.tipo) == MaterialData.Tipo.COMBUSTIBLE
+
+
+static func _clase_consumible(c: ConsumableData) -> String:
+	if c.es_grimorio():
+		return "Grimorio"
+	if c.es_tocho():
+		return "Tomo de sabiduría" if c.es_tomo_sabio() else "Tocho"
+	if c.es_plato():
+		return "Plato de cocina"
+	if c.es_cebo():
+		return "Cebo de pesca"
+	if c.da_mana() and not c.cura_hp():
+		return "Poción de maná"
+	if c.cura_hp():
+		return "Poción de vida"
+	return "Consumible"
+
+
+func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
+	var r := HBoxContainer.new()
+	r.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = etiqueta
+	k.custom_minimum_size = Vector2(150, 0)
+	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	r.add_child(k)
+	var v := Label.new()
+	v.text = valor
+	if color_valor is Color:
+		v.add_theme_color_override("font_color", color_valor)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	r.add_child(v)
+	vb.add_child(r)
+
+
+func note(vb: VBoxContainer, txt: String) -> void:
+	MenuScaffold.nota(vb, txt)
+
+
+# ============================================================
+#  LA FILA DE LA OPERACION: cantidad, total y los dos botones
 #
-# Antes la cantidad se pedia en un modal a pantalla completa con un SpinBox: dos pulsaciones de mas y
-# un teclado diminuto para lo que mas se hace en la tienda.
-#
-# Con UNA sola unidad el stepper se pinta igual pero en gris (el propio stepper se deshabilita cuando
-# maximo <= minimo). Se prefiere a esconderlo: si apareciera y desapareciera segun el monton, la fila
-# bailaria de sitio entre un item y el siguiente.
-#
-# El total se reescribe EN SITIO desde el on_set (nunca con un _rebuild): reconstruir el panel desde
-# dentro del stepper es la trampa que el propio MenuScaffold.stepper avisa —el focus_exited del campo
-# salta en mitad del vaciado y el menu se repinta dos veces—.
-func _fila_accion(vb: VBoxContainer, maximo: int, precio: int, texto: String, cb: Callable,
-		activo: bool = true) -> void:
-	_cant = clampi(_cant, 1, maxi(1, maximo))
+#  "Cantidad  −  n  +"  ·  "Total: 420 monedas"  ·  [A la cesta] [Vender]
+#  El numero vale en cuanto lo escribes (ver MenuScaffold.stepper). El total se reescribe EN SITIO, sin
+#  rehacer el panel, que es la trampa que avisa el propio stepper.
+#  'en_cesta' = lo que ya hay apuntado de este monton: el stepper arranca ahi, y el boton de la cesta
+#  pasa a "Cambiar en la cesta" (poner otra vez REEMPLAZA, no suma).
+# ============================================================
+
+func fila_accion(vb: VBoxContainer, maximo: int, precio: int, verbo: String, al_hacer: Callable,
+		al_cesta: Callable, en_cesta: int, activo: bool = true) -> void:
+	maximo = maxi(1, maximo)
+	if cant < 1:
+		cant = en_cesta if en_cesta > 0 else 1
+	cant = clampi(cant, 1, maximo)
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = "Cantidad"
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(90, 0)
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	fila.add_child(k)
 	var total := Label.new()
-	total.text = "%d monedas" % (precio * _cant)
 	total.add_theme_color_override("font_color", AMBAR)
-	MenuScaffold.stepper(fila, _cant, 1, maxi(1, maximo), func(n: int) -> void:
-		_cant = n
+	total.add_theme_font_size_override("font_size", 18)
+	total.text = "%d monedas" % (precio * cant)
+	MenuScaffold.stepper(fila, cant, 1, maximo, func(n: int) -> void:
+		cant = n
 		total.text = "%d monedas" % (precio * n))
-	fila.add_child(total)
-	# El muelle empuja el boton al extremo derecho de la fila.
-	var muelle := Control.new()
-	muelle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fila.add_child(muelle)
-	var b := MenuScaffold.boton(fila, texto, cb, activo)
-	b.custom_minimum_size = Vector2(140, MenuScaffold.ALTO_BOTON)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_END
 	vb.add_child(fila)
+	var fila_total := HBoxContainer.new()
+	var kt := Label.new()
+	kt.text = "Total"
+	kt.custom_minimum_size = Vector2(90, 0)
+	kt.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+	fila_total.add_child(kt)
+	fila_total.add_child(total)
+	vb.add_child(fila_total)
 
-
-# Agrupa Cristal/MaterialItem en stacks {modelo, cantidad} (igual que el inventario).
-func _agrupar(items: Array) -> Array:
-	var claves: Array = []
-	var mapa: Dictionary = {}
-	for it in items:
-		var k: String = _clave_item(it)
-		if not mapa.has(k):
-			mapa[k] = {"modelo": it, "cantidad": 0}
-			claves.append(k)
-		mapa[k]["cantidad"] += 1
-	var res: Array = []
-	for k in claves:
-		res.append(mapa[k])
-	return res
-
-
-func _clave_item(it: Resource) -> String:
-	if it is Cristal:
-		var c := it as Cristal
-		return "c|%d|%d" % [c.categoria, int(c.calidad)]
-	if it is MaterialItem:
-		var m := it as MaterialItem
-		# La TALLA entra en la clave: dos peces de la misma especie con tallas distintas valen
-		# distinto (ver MaterialItem.valor_estimado), asi que no pueden ir al mismo monton.
-		return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
-	return "?"
-
-
-func _nombre_item(it: Resource) -> String:
-	if it is Cristal:
-		var c := it as Cristal
-		return "Cristal Cat %d\n(%s)" % [c.categoria, c.calidad_texto()]
-	if it is MaterialItem:
-		var m := it as MaterialItem
-		return "%s\n(%s)" % [m.nombre_mostrado(), m.calidad_texto()]
-	return "?"
-
-
-func _labels_stacks(stacks: Array) -> Array:
-	var labels: Array = []
-	for s in stacks:
-		labels.append("%s  x%d" % [_nombre_item(s["modelo"]), int(s["cantidad"])])
-	return labels
+	var botones := HBoxContainer.new()
+	botones.add_theme_constant_override("separation", 8)
+	botones.alignment = BoxContainer.ALIGNMENT_END
+	vb.add_child(botones)
+	MenuScaffold.pastilla(botones, "Cambiar en la cesta" if en_cesta > 0 else "A la cesta",
+		func(): al_cesta.call(cant), false, activo)
+	MenuScaffold.pastilla(botones, verbo, func(): al_hacer.call(cant), true, activo)
+	if en_cesta > 0:
+		var quitar := HBoxContainer.new()
+		quitar.alignment = BoxContainer.ALIGNMENT_END
+		vb.add_child(quitar)
+		var l := Label.new()
+		l.text = "En la cesta: %d" % en_cesta
+		l.add_theme_color_override("font_color", AMBAR)
+		quitar.add_child(l)
+		MenuScaffold.pastilla(quitar, "Quitar", func(): al_cesta.call(0), false)
 
 
 # ============================================================
-#  Pestaña VENDER
+#  LA VITRINA: copias de escaparate del catalogo
+#  Los .tres del catalogo son COMPARTIDOS y no tienen tier: la celda y la ficha los leen por
+#  Game.meta_de, que les crearia una meta T1 (en el mostrador T2 la muesca diria "T1") y ensuciaria
+#  item_meta con recursos que no son de nadie. Se enseña una COPIA con su meta (Game.crear_item sin
+#  registrar), la misma forma que tendra lo que te llevas. Las metas se borran al cerrar la tienda.
 # ============================================================
 
-func _build_vender() -> void:
-	_title(_header, "VENDER")
-	_note(_header, "Te pagan el valor estimado que ya ves en el inventario: sin regateo ni sorpresas. Los cristales solo se sacan de encima aquí.")
+var _vitrina: Dictionary = {}   # "ruta|tier" -> copia
 
-	_subpestanas(SUBS_VENDER)
-	match _sub:
-		0: _build_vender_bolsa()
-		1: _build_vender_hogar()
-		2: _build_vender_equipo()
-		3: _build_vender_consumibles()
+func vitrina(base: Resource, tier: int) -> Resource:
+	var k: String = "%s|%d" % [base.resource_path, tier]
+	if not _vitrina.has(k):
+		_vitrina[k] = Game.crear_item(base, tier, Upgrades.Rareza.COMUN, {}, false)
+	return _vitrina[k]
 
 
-func _build_vender_bolsa() -> void:
-	var cristales: int = Game.crystals.size()
-	if cristales > 0:
-		var total: int = 0
-		for c in Game.crystals:
-			total += Game.precio_venta_item(c)
-		_boton(_header, "Vender TODOS los cristales  (%d → %d monedas)" % [cristales, total],
-			_on_vender_todos)
-		_header.add_child(HSeparator.new())
-
-	var items: Array = []
-	for c in Game.crystals:
-		items.append(c)
-	for m in Game.materiales:
-		items.append(m)
-	_stacks = _agrupar(items)
-	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
+func _es_vitrina(m: Resource) -> bool:
+	return _vitrina.values().has(m)
 
 
-func _build_vender_hogar() -> void:
-	var aviso: String = "Los materiales que tienes guardados en el Hogar. Piénsatelo: lo que vendas hoy te tocará farmearlo mañana para craftear."
-	if Net.activo:
-		aviso += " El baúl es COMÚN: si tu compañero está en un taller, tendrás que esperar."
-	_note(_header, aviso)
-	_stacks = _agrupar(Game.almacen_materiales)
-	_grid_detail(_labels_stacks(_stacks), _preview_venta_bolsa)
-
-
-func _preview_venta_bolsa(vb: VBoxContainer) -> void:
-	var s: Dictionary = _stacks[_sel]
-	var modelo: Resource = s["modelo"]
-	var n: int = int(s["cantidad"])
-	var precio: int = Game.precio_venta_item(modelo)
-	# El material lleva su color de RANGO (gris/verde/azul...), no de rareza: ver
-	# MaterialData.rango_color. Un cristal no entra, que tiene su propia escala de categoria/calidad.
-	var md: MaterialData = (modelo as MaterialItem).data if modelo is MaterialItem else null
-	if md == null:
-		_title(vb, _nombre_item(modelo).replace("\n", " "))
-	else:
-		MenuScaffold.titulo_item(vb, _nombre_item(modelo).replace("\n", " "),
-			md.color_rango(), md.rango_intensidad())
-	_row(vb, "Cantidad", str(n))
-	if modelo is Cristal:
-		_row(vb, "Categoría", str((modelo as Cristal).categoria))
-	elif modelo is MaterialItem and (modelo as MaterialItem).data != null:
-		_row(vb, "Material", (modelo as MaterialItem).data.resumen())
-	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
-	vb.add_child(HSeparator.new())
-	_fila_accion(vb, n, precio, "Vender", _on_vender_stack)
-
-
-func _on_vender_stack() -> void:
-	var s: Dictionary = _stacks[_sel]
-	_pending_modelo = s["modelo"]
-	_confirmar_venta(clampi(_cant, 1, int(s["cantidad"])))
-
-
-func _confirmar_venta(cant: int) -> void:
-	# La cantidad marcada muere con la venta: el monton ya no es el mismo, y heredar un 5 para la
-	# siguiente pila (que a lo mejor tiene 2) solo lleva a vender de mas sin querer.
-	_cant = 1
-	if _pending_modelo != null:
-		var del_hogar: bool = _sub == 1
-		# MULTIJUGADOR: el baul del hogar es COMPARTIDO, asi que vender de ahi exige el candado del
-		# taller igual que depositar o craftear (Game.vender_item lo comprueba y devuelve 0 sin el).
-		# Era el unico menu que tocaba el baul sin pedirlo: la venta desde el hogar no hacia NADA en
-		# multi. Vender de la BOLSA es personal y no pasa por aqui.
-		if del_hogar and Net.activo:
-			if not await Net.hogar.abrir_taller():
-				_decir("El hogar está ocupado: tu compañero está en el taller.", false)
-				_pending_modelo = null
-				_rebuild()
-				return
-			var cobrado_h: int = Game.vender_item(_pending_modelo, cant, true)
-			Net.hogar.cerrar_taller()   # devuelve el baul ya modificado y suelta el candado
-			_decir("Vendes %d x %s por %d monedas." % [
-				cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado_h])
-			_pending_modelo = null
-			_rebuild()
-			return
-		var cobrado: int = Game.vender_item(_pending_modelo, cant, del_hogar)
-		_decir("Vendes %d x %s por %d monedas." % [
-			cant, _nombre_item(_pending_modelo).replace("\n", " "), cobrado])
-		_pending_modelo = null
-	_rebuild()
-
-
-func _on_vender_todos() -> void:
-	var n: int = Game.crystals.size()
-	var total: int = Game.vender_todos_cristales()
-	_decir("Vendes %d cristales por %d monedas." % [n, total])
-	_rebuild()
-
-
-# --- Vender EQUIPO (con derecho a recompra) ---
-
-func _build_vender_equipo() -> void:
-	_note(_header, "Lo que le vendas al tendero se queda en su mostrador: puedes recomprarlo (pestaña Recomprar) por lo mismo que te pagó, hasta que se le acumulen más de %d trastos. Lo que llevas puesto ni sale aquí: desequípalo antes [C]." % Game.RECOMPRA_MAX)
-	# Lo EQUIPADO no se lista. Antes salia y el aviso te decia que no se podia vender: enseñar
-	# una fila que no puedes tocar es peor que no enseñarla.
-	_stacks = []
-	for w in Game.owned_weapons:
-		if not Game.item_equipado(w):
-			_stacks.append({"modelo": w, "cantidad": 1})
-	for a in Game.owned_armor:
-		if not Game.item_equipado(a):
-			_stacks.append({"modelo": a, "cantidad": 1})
-	# Las mochilas viven en su propio array y por eso no se podian vender: la tienda te las vendia
-	# pero no te las recompraba. item_equipado ya reconoce la que llevas puesta.
-	for mo in Game.owned_mochilas:
-		if not Game.item_equipado(mo):
-			_stacks.append({"modelo": mo, "cantidad": 1})
-	var labels: Array = []
-	for s in _stacks:
-		var item: Resource = s["modelo"]
-		labels.append("%s%s\n%d monedas" % [
-			str(item.get("nombre")), Game.item_plus(item), Game.precio_venta_equipo(item)])
-	_grid_detail(labels, _preview_venta_equipo)
-
-
-func _preview_venta_equipo(vb: VBoxContainer) -> void:
-	var item: Resource = _stacks[_sel]["modelo"]
-	# Quien lo lleva, del GRUPO entero (Game.quien_lleva). Antes esto solo miraba al lider y por eso
-	# lo que llevaba puesto un compañero salia como libre y se podia vender... sin quitarselo.
-	var dueno: PersonajeData = Game.quien_lleva(item)
-	var puesto: bool = dueno != null
-	MenuScaffold.titulo_item(vb,
-		Game.item_display_name(item) + ("   [lo lleva %s]" % dueno.nombre if puesto else ""),
-		Game.color_rareza_de(item), Game.intensidad_rareza_de(item))
-	_row(vb, "Precio de tienda", "%d (a T1 común)" % Game.precio_compra(item))
-	_row(vb, "Te pagan", "%d monedas" % Game.precio_venta_equipo(item))
-	vb.add_child(HSeparator.new())
-	_boton(vb, "Vender", _on_vender_equipo, not puesto)
-	if puesto:
-		_note(vb, "Lo lleva puesto %s. Desequípaselo en el menú de personaje [C] antes de venderlo."
-			% dueno.nombre)
-
-
-func _on_vender_equipo() -> void:
-	var item: Resource = _stacks[_sel]["modelo"]
-	var nombre: String = Game.item_display_name(item)
-	var cobrado: int = Game.vender_equipo(item)
-	if cobrado > 0:
-		_decir("Vendes %s por %d monedas." % [nombre, cobrado])
-	else:
-		_decir("No puedes vender eso.", false)
-	_sel = 0
-	_rebuild()
-
-
-# --- Vender CONSUMIBLES (pociones y grimorios) ---
-
-func _build_vender_consumibles() -> void:
-	_note(_header, "Pociones y grimorios de tu inventario. Ojo con los grimorios: el tendero NO los vende, así que uno que sueltes aquí no se recupera —ni siquiera en Recomprar—. Piénsatelo antes de soltar magia por calderilla.")
-	_stacks = []
-	for c in Game.consumables.keys():
-		var n: int = int(Game.consumables[c])
-		if n > 0:
-			_stacks.append({"modelo": c, "cantidad": n})
-	var labels: Array = []
-	for s in _stacks:
-		var c: ConsumableData = s["modelo"]
-		labels.append("%s x%d\n%d monedas" % [c.nombre, int(s["cantidad"]),
-			Game.precio_venta_consumible(c)])
-	_grid_detail(labels, _preview_venta_consumible)
-
-
-func _preview_venta_consumible(vb: VBoxContainer) -> void:
-	var c: ConsumableData = _stacks[_sel]["modelo"]
-	var n: int = int(_stacks[_sel]["cantidad"])
-	var precio: int = Game.precio_venta_consumible(c)
-	_title(vb, c.nombre)
-	_row(vb, "Cantidad", str(n))
-	if c.es_grimorio():
-		_row(vb, "Enseña", c.spell.nombre)
-	else:
-		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
-	_row(vb, "Te pagan", "%d por unidad  (todo: %d)" % [precio, precio * n])
-	vb.add_child(HSeparator.new())
-	_fila_accion(vb, n, precio, "Vender", _on_vender_consumible)
-
-
-func _on_vender_consumible() -> void:
-	var c: ConsumableData = _stacks[_sel]["modelo"]
-	var cant: int = clampi(_cant, 1, int(_stacks[_sel]["cantidad"]))
-	var cobrado: int = Game.vender_consumible(c, cant)
-	_decir("Vendes %d x %s por %d monedas." % [cant, c.nombre, cobrado])
-	_sel = 0
-	_cant = 1
-	_rebuild()
+func vaciar_vitrina() -> void:
+	for copia in _vitrina.values():
+		Game.item_meta.erase(copia)
+	_vitrina.clear()
 
 
 # ============================================================
@@ -582,256 +784,41 @@ func _on_vender_consumible() -> void:
 # ============================================================
 
 func _build_recomprar() -> void:
-	_title(_header, "RECOMPRAR")
-	_note(_header, "El mostrador del tendero: lo último que le has vendido (máx. %d). Vuelve a ti tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % [Game.RECOMPRA_MAX, Game.RECOMPRA_MAX])
-	_header.add_child(HSeparator.new())
-
-	_stacks = []
+	contador("%d / %d" % [Game.recompra.size(), Game.RECOMPRA_MAX])
+	stacks = []
 	for i in Game.recompra.size():
-		_stacks.append({"modelo": Game.recompra[i]["item"], "idx": i,
-			"precio": int(Game.recompra[i]["precio"])})
-	var labels: Array = []
-	for s in _stacks:
-		var item: Resource = s["modelo"]
-		labels.append("%s%s\n%d monedas" % [
-			str(item.get("nombre")), Game.item_plus(item), int(s["precio"])])
-	_grid_detail(labels, _preview_recompra)
+		stacks.append({"modelo": Game.recompra[i]["item"], "idx": i, "precio": int(Game.recompra[i]["precio"])})
+	var piezas: Array = []
+	for s in stacks:
+		piezas.append(pieza(s["modelo"], "%d" % int(s["precio"]), Game.item_display_name(s["modelo"])))
+	grid_detail(piezas, _preview_recompra)
 
 
 func _preview_recompra(vb: VBoxContainer) -> void:
-	var s: Dictionary = _stacks[_sel]
-	var item: Resource = s["modelo"]
+	var s: Dictionary = stacks[sel]
 	var precio: int = int(s["precio"])
 	var llego: bool = Game.puede_pagar(precio)
-	MenuScaffold.titulo_item(vb, Game.item_display_name(item), Game.color_rareza_de(item),
-		Game.intensidad_rareza_de(item))
-	_row(vb, "Precio", "%d monedas" % precio)
-	_row(vb, "Tienes", "%d monedas" % Game.money)
+	ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
-	_boton(vb, "Recomprar", _on_recomprar, llego)
+	row(vb, "Precio", "%d monedas" % precio, AMBAR)
+	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % Game.RECOMPRA_MAX)
+	var botones := HBoxContainer.new()
+	botones.alignment = BoxContainer.ALIGNMENT_END
+	vb.add_child(botones)
+	MenuScaffold.pastilla(botones, "Recomprar", _on_recomprar, true, llego)
 	if not llego:
-		_note(vb, "No te llega.")
+		note(vb, "No te llega.")
 
 
 func _on_recomprar() -> void:
-	var s: Dictionary = _stacks[_sel]
+	var s: Dictionary = stacks[sel]
 	var nombre: String = Game.item_display_name(s["modelo"])
 	if Game.recomprar(int(s["idx"])):
-		_decir("Recompras %s por %d monedas." % [nombre, int(s["precio"])])
+		decir("Recompras %s por %d monedas." % [nombre, int(s["precio"])])
 	else:
-		_decir("No te llega para recomprar %s." % nombre, false)
-	_sel = 0
+		decir("No te llega para recomprar %s." % nombre, false)
+	sel = 0
 	_rebuild()
-
-
-# ============================================================
-#  Pestaña TIENDA (comprar)
-# ============================================================
-
-# Pinta el mostrador de un TIER. Es el mismo mostrador para los dos: cambian el catalogo de
-# consumibles y el precio, no la estructura. Parametrizado en vez de duplicado para que
-# añadir una subpestaña siga siendo un solo sitio.
-func _build_tienda(tier: int) -> void:
-	_tienda_tier = tier
-	if tier >= 2:
-		_title(_header, "A LA VENTA · T2")
-		_note(_header, "El género que el tendero solo saca desde que corrió la voz del Rey Slime. Sale a tier 2 y calidad común, y se paga como lo que es: cosa de los pisos hondos.")
-	else:
-		_title(_header, "A LA VENTA")
-		_note(_header, "Todo lo de aquí sale a tier 1 y calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú.")
-	_subpestanas(SUBS_TIENDA)
-
-	var rutas: Array = []
-	match _sub:
-		0:
-			rutas = CAT_ARMAS + CAT_SECUNDARIAS
-			_note(_header, "Armas de mano principal, y escudos y varita para la secundaria.")
-		1:
-			rutas = _rutas_armaduras()
-			_note(_header, "Cinco piezas por juego: casco, pecho, manos, pantalones y botas. Cuanto más cubre, más frena; los huecos vacíos te dejan ir ligero.")
-		2:
-			rutas = CAT_MOCHILAS
-			_note(_header, "Lo único que sube tu capacidad de carga. Esta es la básica y la única que se compra hecha: las buenas (mejor tier y rareza, más carga) las cose el Peletero.")
-		3:
-			rutas = CAT_POCIONES_T2 if tier >= 2 else CAT_POCIONES
-			_note(_header, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
-		4:
-			rutas = CAT_COMIDA
-			_note(_header, "Género de la superficie, para cocinar. Crudo no hace nada: son ingredientes. La sal y lo que crece abajo no se venden aquí — eso se baja a buscar.")
-
-	_stacks = []
-	for ruta in rutas:
-		var base: Resource = load(ruta)
-		if base != null:
-			_stacks.append({"modelo": base})
-	var labels: Array = []
-	for s in _stacks:
-		var base: Resource = s["modelo"]
-		labels.append("%s\n%d monedas" % [str(base.get("nombre")), _precio_de(base)])
-	_grid_detail(labels, _preview_tienda)
-
-
-# Precio de lo que hay en el mostrador que se esta pintando. Al EQUIPO le pone el recargo del tier
-# (el tier no vive en el .tres); a las pociones NO, porque el T2 ya son recursos aparte con
-# su propio valor_base y multiplicarlos otra vez los cobraria dos veces.
-func _precio_de(base: Resource) -> int:
-	if base is ConsumableData:
-		return Game.precio_compra(base)
-	# La comida lleva su propio margen (y tampoco escala con el tier del mostrador): ver
-	# Game.COMIDA_MARGEN, que es lo que impide comprarla y revenderla sin perder nada.
-	if base is MaterialData:
-		return Game.precio_comida(base as MaterialData)
-	return Game.precio_compra_tier(base, _tienda_tier)
-
-
-# Las 20 piezas de armadura: por TIPO (de la mas ligera a la mas pesada) y, dentro de cada
-# tipo, por slot en el orden de siempre (Game.ARMOR_SLOT_ORDEN).
-func _rutas_armaduras() -> Array:
-	var out: Array = []
-	for tipo in ARMOR_TIPOS:
-		for slot in Game.ARMOR_SLOT_ORDEN:
-			out.append("res://resources/armor/%s_%s.tres" % [tipo, slot])
-	return out
-
-
-func _preview_tienda(vb: VBoxContainer) -> void:
-	var base: Resource = _stacks[_sel]["modelo"]
-	var precio: int = _precio_de(base)
-	var llego: bool = Game.puede_pagar(precio)
-	_title(vb, str(base.get("nombre")))
-	_row(vb, "Precio", "%d monedas" % precio)
-	_row(vb, "Tienes", "%d monedas" % Game.money)
-
-	if base is ConsumableData:
-		# En el mostrador ya no hay grimorios (la magia se gana), asi que todo consumible de aqui
-		# es una pocion o una piedra: se pinta su efecto y punto.
-		var c := base as ConsumableData
-		_row(vb, "Efecto", c.resumen(Game.player_max_hp(), Game.player_max_mp()))
-		_row(vb, "Tienes", "%d en la bolsa" % int(Game.consumables.get(c, 0)))
-	elif base is MaterialData:
-		var md := base as MaterialData
-		_row(vb, "Tipo", "%s (ingrediente de cocina)" % md.tipo_texto())
-		_row(vb, "Peso", "%.1f por unidad" % md.peso_base)
-		# Cuantas llevas ENCIMA, no en el baul: lo que decide si te hace falta comprar mas antes de
-		# bajar es la bolsa. Se cuenta a mano porque los materiales son una unidad por elemento.
-		var llevas: int = 0
-		for m in Game.materiales:
-			if m != null and m.data == md:
-				llevas += 1
-		_row(vb, "Llevas", "%d en la bolsa" % llevas)
-	elif base is BackpackData:
-		var mo := base as BackpackData
-		# La carga de la mochila sale de una TABLA por tier (15/25/40), no de tier_mult.
-		_row(vb, "Capacidad", "+%.0f de carga" % (mo.capacidad * Game.mochila_tier_factor(_tienda_tier)))
-		_row(vb, "Llevas ahora", "%d" % roundi(Game.capacidad_carga()))
-	elif base is ArmorData:
-		var a := base as ArmorData
-		# La DEF sale de la MISMA funcion que usa el combate: lo que ves es lo que te pones. La
-		# reduccion y la velocidad NO escalan con el tier (son de tipo/tamaño), por eso van crudas.
-		var pm := Upgrades.armor_piece_mods(a, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN,
-			{}, _tienda_tier)
-		_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
-		_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
-		_row(vb, "Defensa", "%.2f" % float(pm["def"]))
-		_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
-		_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
-	elif base is WeaponData:
-		_stats_arma_base(vb, base as WeaponData, _tienda_tier)
-	elif base is ShieldData:
-		# Por la MISMA funcion que usa el combate, como la armadura de aqui arriba: lo que ves es lo
-		# que te llevas. Lo que sube con el tier es la DEFENSA; el bloqueo es del tamaño y solo lo
-		# mueven las mejoras (ver la cabecera de shield_data.gd), asi que un T2 no bloquea mas: para
-		# lo que sirve es para aguantar mas cuando bloqueas.
-		for fila in MenuScaffold.filas_escudo(base as ShieldData, _tienda_tier, Upgrades.Rareza.COMUN, {}):
-			_row(vb, fila[0], fila[1])
-	elif base is WandData:
-		var wd := base as WandData
-		var mm := Upgrades.magic_mods(wd.magic_amp, Game.tier_mult(_tienda_tier), Upgrades.Rareza.COMUN, {})
-		_row(vb, "Tipo", "Varita (mano secundaria, magia)")
-		_row(vb, "Amplif. magia", "×%.2f" % float(mm["magic_amp"]))
-		_row(vb, "Vel. casteo", "×%.2f" % wd.cast_vel_mult)
-		for fila in MenuScaffold.filas_critico_magico(mm, wd.crit_bonus):
-			_row(vb, fila[0], fila[1])
-	else:
-		_row(vb, "Tipo", _tipo_equipo(base))
-	# OJO: WeaponData no tiene campo 'descripcion', asi que base.get() devuelve null y str(null)
-	# pintaba un "<null>" de nota. Se comprueba que no sea null ANTES de convertir a texto.
-	var desc: Variant = base.get("descripcion")
-	if desc != null and str(desc) != "":
-		_note(vb, str(desc))
-
-	vb.add_child(HSeparator.new())
-	# La comida y las pociones se compran a puñados: un solo boton con su − n +, y el maximo es lo
-	# que te llega (tope 99). El equipo va de uno en uno: no hay cantidad que elegir.
-	var a_punados: bool = base is MaterialData or base is ConsumableData
-	if a_punados:
-		var precio_u: int = _precio_de(base)
-		_fila_accion(vb, 99 if precio_u <= 0 else clampi(Game.money / precio_u, 1, 99), precio_u,
-			"Comprar", _on_comprar_cantidad, llego)
-	else:
-		_boton(vb, "Comprar", _on_comprar_equipo, llego)
-	if not llego:
-		_note(vb, "No te llega. Baja a por más cristales.")
-
-
-# Ficha de un arma del CATALOGO, al tier con el que se vende y calidad comun (la rareza no se
-# compra: sale de la forja). Tira de la ficha COMPARTIDA (MenuScaffold.filas_arma), la misma del
-# inventario y el menu de personaje: una sola fuente, y añadir una stat se hace en un solo sitio.
-# El tier por DEFECTO es 1 porque el pack inicial tambien la usa y siempre regala a T1.
-func _stats_arma_base(vb: VBoxContainer, w: WeaponData, tier: int = 1) -> void:
-	for fila in MenuScaffold.filas_arma(w, tier, Upgrades.Rareza.COMUN, {}):
-		_row(vb, fila[0], fila[1])
-
-
-func _tipo_equipo(base: Resource) -> String:
-	if base is ShieldData:
-		return "Escudo (mano secundaria)"
-	if base is WandData:
-		return "Varita (mano secundaria, magia)"
-	if base is WeaponData:
-		var w := base as WeaponData
-		var t: String = "Arma a dos manos" if w.dos_manos else "Arma a una mano"
-		return t + ("  ·  mágica" if w.es_magica else "")
-	return "?"
-
-
-func _on_comprar_equipo() -> void:
-	var base: Resource = _stacks[_sel]["modelo"]
-	var item: Resource = Game.comprar_equipo_tier(base, _tienda_tier)
-	if item != null:
-		_decir("Compras %s. Está en tu baúl: equípalo en el menú de personaje [C]." % Game.item_display_name(item))
-	else:
-		_decir("No te llega para %s." % str(base.get("nombre")), false)
-	_rebuild()
-
-
-func _on_comprar_consumible(n: int) -> void:
-	var base: ConsumableData = _stacks[_sel]["modelo"]
-	if Game.comprar_consumible(base, n):
-		_decir("Compras %d x %s." % [n, base.nombre])
-	else:
-		_decir("No te llega para %d x %s." % [n, base.nombre], false)
-	_rebuild()
-
-
-func _on_comprar_comida(n: int) -> void:
-	var base: MaterialData = _stacks[_sel]["modelo"]
-	if Game.comprar_material(base, n):
-		_decir("Compras %d x %s. Está en tu bolsa, listo para cocinar." % [n, base.nombre])
-	else:
-		_decir("No te llega para %d x %s." % [n, base.nombre], false)
-	_rebuild()
-
-
-# Comprar lo que diga el − n +. La comida y los consumibles comparten boton: se despachan por el
-# tipo, que es lo mismo que hacia el modal que habia antes.
-func _on_comprar_cantidad() -> void:
-	var n: int = _cant
-	_cant = 1   # igual que al vender: la cantidad es de esa compra, no del menu
-	if _stacks[_sel]["modelo"] is MaterialData:
-		_on_comprar_comida(n)
-	else:
-		_on_comprar_consumible(n)
 
 
 # ============================================================
@@ -839,39 +826,34 @@ func _on_comprar_cantidad() -> void:
 # ============================================================
 
 func _build_pack() -> void:
-	_title(_header, "PACK INICIAL")
-	if Game.pack_inicial_reclamado:
-		_note(_header, "Ya reclamaste tu pack. Lo que quieras a partir de ahora sale de tu bolsillo: vende cristales en la pestaña Vender y compra en la Tienda.")
-		return
-
-	_note(_header, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
-	_header.add_child(HSeparator.new())
-
-	_stacks = []
+	stacks = []
 	for ruta in Game.PACK_ARMAS:
 		var base: Resource = load(ruta)
 		if base != null:
-			_stacks.append({"modelo": base})
-	var labels: Array = []
-	for s in _stacks:
-		labels.append(str((s["modelo"] as Resource).get("nombre")))
-	_grid_detail(labels, _preview_pack)
+			stacks.append({"modelo": vitrina(base, 1), "base": base})
+	var piezas: Array = []
+	for s in stacks:
+		piezas.append(pieza(s["modelo"], "Gratis", str((s["base"] as Resource).get("nombre"))))
+	grid_detail(piezas, _preview_pack)
 
 
 func _preview_pack(vb: VBoxContainer) -> void:
-	var base: WeaponData = _stacks[_sel]["modelo"]
-	_title(vb, base.nombre)
-	_stats_arma_base(vb, base)   # misma ficha completa que la tienda (crit, evasion, aturdir...)
-	_row(vb, "Valor", "%d monedas (gratis para ti)" % Game.precio_compra(base))
+	var s: Dictionary = stacks[sel]
+	ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
-	_boton(vb, "Reclamar el pack con esta arma", _on_reclamar_pack)
+	note(vb, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
+	var botones := HBoxContainer.new()
+	botones.alignment = BoxContainer.ALIGNMENT_END
+	vb.add_child(botones)
+	MenuScaffold.pastilla(botones, "Reclamar con esta arma", _on_reclamar_pack)
 
 
 func _on_reclamar_pack() -> void:
-	var base: Resource = _stacks[_sel]["modelo"]
+	var base: Resource = stacks[sel]["base"]
 	if Game.reclamar_pack_inicial(base):
-		_decir("Te llevas %s y %d pociones menores. Equípala en el menú de personaje [C]." % [
+		decir("Te llevas %s y %d pociones menores. Equípala en el menú de personaje [C]." % [
 			str(base.get("nombre")), Game.PACK_POCIONES_N])
 	else:
-		_decir("El pack ya estaba reclamado.", false)
+		decir("El pack ya estaba reclamado.", false)
+	sel = 0
 	_rebuild()

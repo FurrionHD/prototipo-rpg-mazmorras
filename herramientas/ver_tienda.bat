@@ -1,8 +1,8 @@
 @echo off
-REM Doble clic aqui para recorrer la TIENDA de verdad, subpestaña a subpestaña, en los dos
-REM mostradores (T1 y el T2 del Rey Slime). Comprueba que cada una pinta lo suyo -- que es donde
-REM pega el fallo de renumerar el match por indice -- y que ya no se vende magia en ninguna.
-REM Saca una captura de cada una en tools\salida\tienda_*.png y se cierra.
+REM Doble clic aqui para recorrer la TIENDA de verdad (la rehecha con la cara del inventario):
+REM vender (botin, equipo, consumibles, hogar), la cesta, filtros, buscador y los dos mostradores.
+REM Comprueba que se vende todo lo que tienes y se cobra lo anunciado, y saca capturas en
+REM tools\salida\tienda_*.png. Se cierra sola al terminar.
 set GODOT=%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7-stable_win64.exe
 if not exist "%GODOT%" (
     echo No encuentro Godot en:

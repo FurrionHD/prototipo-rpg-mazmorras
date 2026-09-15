@@ -9085,6 +9085,40 @@ func comprar_material(base: MaterialData, n: int = 1) -> bool:
 	return true
 
 
+# Precio de UNA unidad de lo que hay en un mostrador de un TIER. Al EQUIPO le pone el recargo del tier
+# (el tier no vive en el .tres); a las pociones NO, porque las T2 ya son recursos aparte con su propio
+# valor_base y multiplicarlas otra vez las cobraria dos veces. La comida lleva su margen y no escala.
+func precio_mostrador(base: Resource, tier: int) -> int:
+	if base is ConsumableData:
+		return precio_compra(base)
+	if base is MaterialData:
+		return precio_comida(base as MaterialData)
+	return precio_compra_tier(base, tier)
+
+
+# LA CESTA DE LA COMPRA: [{base, tier, n}]. O se compra ENTERA o nada: si al tendero le pagas la mitad
+# de la cesta y te quedas sin dinero a medias, no sabes que te has llevado. Devuelve lo cobrado (0 = no
+# llegaba o no habia nada).
+func comprar_lote(entradas: Array) -> int:
+	var total: int = 0
+	for e in entradas:
+		total += precio_mostrador(e["base"], int(e["tier"])) * maxi(0, int(e["n"]))
+	if total <= 0 or not puede_pagar(total):
+		return 0
+	var antes: int = money
+	for e in entradas:
+		var base: Resource = e["base"]
+		var n: int = maxi(0, int(e["n"]))
+		if base is ConsumableData:
+			comprar_consumible(base as ConsumableData, n)
+		elif base is MaterialData:
+			comprar_material(base as MaterialData, n)
+		else:
+			for _i in range(n):
+				comprar_equipo_tier(base, int(e["tier"]))
+	return antes - money
+
+
 # --- PACK INICIAL ---
 # Regalo de bienvenida, UNA vez por partida: un arma a elegir (ni bastón ni varita: la magia
 # te la pagas tu) y tres pociones menores. Es la red de seguridad de que nadie baje a la
