@@ -326,6 +326,41 @@ static func pico(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 		col, g, true)
 
 
+# --- HOZ (plantas): mango corto y la hoja en media luna abierta hacia dentro ---
+# Lo que la separa del pico a 34 px es que el arco NO cruza el mango: sale de su punta y se curva
+# hacia el lado, como una C, en vez de ser una T.
+static func hoz(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	c.draw_line(pos + Vector2(lado * 0.30, lado * 0.86), pos + Vector2(lado * 0.44, lado * 0.50),
+		col, g, true)
+	c.draw_arc(pos + Vector2(lado * 0.56, lado * 0.38), lado * 0.26, PI * 0.85, PI * 2.05, 22,
+		col, g, true)
+
+
+# --- CAÑA (pesca): la vara en diagonal, el hilo cayendo y el anzuelo ---
+static func cana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	c.draw_line(pos + Vector2(lado * 0.18, lado * 0.86), pos + Vector2(lado * 0.80, lado * 0.14),
+		col, g, true)
+	# El hilo: fino, desde la punta hasta abajo, que es lo que dice "pesca" y no "lanza".
+	c.draw_line(pos + Vector2(lado * 0.80, lado * 0.14), pos + Vector2(lado * 0.80, lado * 0.66),
+		col, g * 0.45, true)
+	c.draw_arc(pos + Vector2(lado * 0.74, lado * 0.66), lado * 0.06, 0.0, PI, 10, col, g * 0.7, true)
+
+
+# --- CUCHILLO (desollar): hoja ANCHA y corta con el filo curvo, sin guarda ---
+# Sin guarda y con barriga, que es lo que lo separa de la daga (recta, fina y con guarda).
+static func cuchillo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.10
+	# El mango.
+	c.draw_line(pos + Vector2(lado * 0.20, lado * 0.84), pos + Vector2(lado * 0.40, lado * 0.62),
+		col, g, true)
+	# La hoja: un triangulo con la barriga hacia abajo.
+	c.draw_colored_polygon(PackedVector2Array([
+		pos + Vector2(lado * 0.38, lado * 0.58), pos + Vector2(lado * 0.82, lado * 0.16),
+		pos + Vector2(lado * 0.70, lado * 0.44), pos + Vector2(lado * 0.48, lado * 0.70)]), col)
+
+
 # --- FAROLILLO: la caja de la luz con su asa ---
 # PRIMERA VERSION: SE LEIA COMO UN CANDADO. Un asa en arco sobre una caja con un CIRCULO en medio
 # es exactamente el dibujo de un candado, y a 34 px nadie lo iba a leer de otra forma.

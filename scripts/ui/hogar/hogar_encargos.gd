@@ -514,6 +514,13 @@ func _build_duracion() -> void:
 		fila.add_child(b)
 
 
+# ============================================================
+#  DERECHA
+# ============================================================
+
+# --- QUIÉN VA ---
+# Una tarjeta por persona libre, con su CARA. Se pulsa la tarjeta entera (o la cara) para que vaya o
+# se quede; la elegida lleva el borde ambar y se despliega con sus dos ordenes.
 func _build_encargo_gente(libres: Array) -> void:
 	MenuScaffold.titulo(hogar._content, "Quién va (%d de %d)" % [_enc_uids.size(), Encargos.MIEMBROS_MAX], 14)
 	if libres.is_empty():
@@ -521,117 +528,298 @@ func _build_encargo_gente(libres: Array) -> void:
 			+ "en la pestaña «Equipo», o contrata gente en la taberna.")
 		return
 	for f in libres:
-		var ficha := f as Dictionary
-		var uid: String = String(ficha.get("uid", ""))
-		var t: Dictionary = hogar._tarjeta(hogar._content)
-		var fila: HBoxContainer = t["info"]
-		fila.add_child(hogar._punto_color(ficha.get("color", Color.WHITE)))
-		var l := Label.new()
-		var de_quien: String = ""
-		if Net.activo and String(ficha.get("dueno", "")) != Identidad.id:
-			de_quien = "  (de %s)" % String(ficha.get("dueno_nombre", "tu compañero"))
-		l.text = "%s  ·  Nv.%d  ·  Poder %d%s" % [String(ficha.get("nombre", "?")),
-			int(ficha.get("level", 1)), int(ficha.get("poder", 0)), de_quien]
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if de_quien != "":
-			l.add_theme_color_override("font_color", GRIS)
-		fila.add_child(l)
-		var b := Button.new()
-		var va: bool = _enc_uids.has(uid)
-		b.text = "Quitar" if va else "Que vaya"
-		b.disabled = not va and _enc_uids.size() >= Encargos.MIEMBROS_MAX
-		b.pressed.connect(func():
-			if _enc_uids.has(uid):
-				_enc_uids.erase(uid)
-			else:
-				_enc_uids.append(uid)
-			hogar._rebuild())
-		(t["botones"] as HBoxContainer).add_child(b)
-		if va:
-			_build_ordenes(t["caja"] as VBoxContainer, ficha)
+		_tarjeta_persona(f as Dictionary)
 
 
-# Las dos ordenes que le das a UNA persona: a por que va, y con que pelea.
+func _tarjeta_persona(ficha: Dictionary) -> void:
+	var uid: String = String(ficha.get("uid", ""))
+	var va: bool = _enc_uids.has(uid)
+	var lleno: bool = not va and _enc_uids.size() >= Encargos.MIEMBROS_MAX
+
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _fondo_persona(va))
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.tooltip_text = "Ya van cuatro: quita a alguien antes." if lleno else (
+		"Pulsa para que se quede en casa." if va else "Pulsa para que vaya.")
+	hogar._content.add_child(panel)
+	var alternar := func():
+		if _enc_uids.has(uid):
+			_enc_uids.erase(uid)
+		elif _enc_uids.size() < Encargos.MIEMBROS_MAX:
+			_enc_uids.append(uid)
+		hogar._rebuild()
+	# La tarjeta entera responde, no solo la cara. Solo el boton IZQUIERDO al SOLTAR: con la emulacion
+	# tactil cada toque llega dos veces (raton emulado y pantalla), y el emulado ya basta.
+	panel.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
+				and not (ev as InputEventMouseButton).pressed and not lleno:
+			alternar.call())
+
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 8)
+	caja.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(caja)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 12)
+	fila.mouse_filter = Control.MOUSE_FILTER_PASS
+	caja.add_child(fila)
+
+	# LA CARA. Solo se puede pintar si esta maquina tiene su PersonajeData: los tuyos siempre, y los del
+	# compañero en el host. Si no, el cuadrado de su color, que es lo que habia.
+	var pj: PersonajeData = Game.pj_por_uid(uid)
+	if pj == null and not Net._soy_cliente():
+		pj = Game._pj_en_mundo(uid)
+	if pj != null:
+		MenuScaffold._retrato(fila, pj, 0, va, true, func(_i: int):
+			if not lleno:
+				alternar.call())
+	else:
+		var hueco := CenterContainer.new()
+		hueco.custom_minimum_size = Vector2(MenuScaffold.LADO_RETRATO, MenuScaffold.LADO_RETRATO)
+		hueco.mouse_filter = Control.MOUSE_FILTER_PASS
+		hueco.add_child(hogar._punto_color(ficha.get("color", Color.WHITE)))
+		fila.add_child(hueco)
+
+	var datos := VBoxContainer.new()
+	datos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	datos.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	datos.mouse_filter = Control.MOUSE_FILTER_PASS
+	fila.add_child(datos)
+	var cab := HBoxContainer.new()
+	cab.add_theme_constant_override("separation", 8)
+	cab.mouse_filter = Control.MOUSE_FILTER_PASS
+	datos.add_child(cab)
+	cab.add_child(hogar._punto_color(ficha.get("color", Color.WHITE)))
+	var nombre := Label.new()
+	nombre.text = String(ficha.get("nombre", "?"))
+	nombre.add_theme_font_size_override("font_size", 17)
+	nombre.add_theme_color_override("font_color", AMBAR if va else Color(0.92, 0.93, 0.96))
+	cab.add_child(nombre)
+	var sub := Label.new()
+	var de_quien: String = ""
+	if Net.activo and String(ficha.get("dueno", "")) != Identidad.id:
+		de_quien = "  ·  de %s" % String(ficha.get("dueno_nombre", "tu compañero"))
+	sub.text = "Nv. %d  ·  Poder %d%s" % [int(ficha.get("level", 1)), int(ficha.get("poder", 0)), de_quien]
+	sub.add_theme_font_size_override("font_size", 13)
+	sub.add_theme_color_override("font_color", GRIS)
+	datos.add_child(sub)
+	if lleno:
+		panel.modulate = Color(1, 1, 1, 0.55)
+
+	# Las ordenes solo para el que va: al que se queda en casa no se le manda nada.
+	if va:
+		_build_ordenes(caja, ficha)
+
+
+func _fondo_persona(elegida: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.13, 0.12, 0.10, 0.92) if elegida else Color(0.10, 0.11, 0.14, 0.85)
+	sb.border_color = AMBAR if elegida else Color(0.30, 0.33, 0.40, 0.55)
+	sb.set_border_width_all(2 if elegida else 1)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 10
+	return sb
+
+
+# Las dos ordenes de UNA persona: a por que va (de lo que hay en el objetivo) y con que pelea.
+const LADO_CELDA_FAENA := 58.0
+
 func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	var uid: String = String(ficha.get("uid", ""))
 	var suyas: Array = _enc_faena.get(uid, [])
-	var et: Array = []
-	var vals: Array = []
-	for g in _enc_grupos:
-		et.append("%s %s" % ["☑" if suyas.has(int(g)) else "☐", String(Encargos.NOMBRE_GRUPO.get(int(g), "?"))])
-		vals.append(int(g))
-	MenuScaffold.nota(caja, "A por qué va" if not suyas.is_empty()
-		else "A por qué va  ·  sin marcar nada, a lo que haga falta")
-	MenuScaffold.cuadricula(caja, et, -1, func(i: int):
-		var lista: Array = (_enc_faena.get(uid, []) as Array).duplicate()
-		var g: int = int(vals[i])
-		if lista.has(g):
-			lista.erase(g)
-		else:
-			lista.append(g)
-		_enc_faena[uid] = lista
-		hogar._rebuild(), 3, Vector2(0, 26))
 
+	var t1 := Label.new()
+	t1.text = "A por qué va" if not suyas.is_empty() else "A por qué va  ·  sin marcar ninguna, a lo que haga falta"
+	t1.add_theme_font_size_override("font_size", 12)
+	t1.add_theme_color_override("font_color", GRIS)
+	caja.add_child(t1)
+	var flujo := HFlowContainer.new()
+	flujo.add_theme_constant_override("h_separation", 6)
+	flujo.add_theme_constant_override("v_separation", 6)
+	caja.add_child(flujo)
+	for g_ in Encargos.Grupo.values():
+		var g: int = int(g_)
+		if not _enc_grupos.has(g):
+			continue
+		var c := CeldaObjeto.new()
+		c.custom_minimum_size = Vector2(LADO_CELDA_FAENA, LADO_CELDA_FAENA)
+		c.button_pressed = suyas.has(g)
+		c.tooltip_text = String(Encargos.NOMBRE_GRUPO.get(g, "?"))
+		c.pressed.connect(func():
+			var lista: Array = (_enc_faena.get(uid, []) as Array).duplicate()
+			if lista.has(g):
+				lista.erase(g)
+			else:
+				lista.append(g)
+			_enc_faena[uid] = lista
+			hogar._rebuild())
+		flujo.add_child(c)
+		c.configurar(_icono_grupo(g, Encargos.opciones(g, _enc_piso)), "", "", 0)
+
+	var t2 := Label.new()
+	t2.text = "Con qué pelea"
+	t2.add_theme_font_size_override("font_size", 12)
+	t2.add_theme_color_override("font_color", GRIS)
+	caja.add_child(t2)
+	# Las clases DISPONIBLES viajan ya calculadas en la ficha: dependen de lo que lleve puesto, y de los
+	# personajes del compañero no tenemos el equipo.
 	var disp: Array = ficha.get("clases", [int(Encargos.Clase.GUERRERO)])
-	var et_c: Array = []
-	var vals_c: Array = []
-	var off: Array = []
-	var tips: Array = []
-	for c in Encargos.Clase.values():
-		if not disp.has(int(c)):
-			off.append(vals_c.size())
-		et_c.append(String(Encargos.ABREV_CLASE.get(c, "?")))
-		vals_c.append(int(c))
-		tips.append(String(Encargos.NOMBRE_CLASE.get(c, "?")) if disp.has(int(c))
-			else String(Encargos.REQUISITO_CLASE.get(c, "")))
 	var actual: int = int(_enc_clase.get(uid, int(disp[0]) if not disp.is_empty() else 0))
 	if not disp.has(actual):
 		actual = int(disp[0]) if not disp.is_empty() else int(Encargos.Clase.GUERRERO)
 	# Se deja escrito el que se enseña: si no, quien no toque la fila iria con la clase por defecto.
 	_enc_clase[uid] = actual
-	MenuScaffold.nota(caja, "Con qué pelea")
-	MenuScaffold.cuadricula(caja, et_c, vals_c.find(actual), func(i: int):
-		_enc_clase[uid] = int(vals_c[i])
-		hogar._rebuild(), 3, Vector2(0, 26), [], off, tips)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caja.add_child(grid)
+	for c_ in Encargos.Clase.values():
+		var cl: int = int(c_)
+		var b := Button.new()
+		b.text = String(Encargos.ABREV_CLASE.get(cl, "?"))
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		MenuScaffold.estilo_chip(b, cl == actual)
+		b.disabled = not disp.has(cl)
+		b.tooltip_text = String(Encargos.NOMBRE_CLASE.get(cl, "?")) if disp.has(cl) \
+			else String(Encargos.REQUISITO_CLASE.get(cl, ""))
+		b.pressed.connect(func():
+			_enc_clase[uid] = cl
+			hogar._rebuild())
+		grid.add_child(b)
 
+
+# --- ÚTILES DEL COFRE ---
+# Una subpestaña con icono por TIPO de util y, dentro, sus celdas de inventario del mejor al peor.
+# Pulsar la lleva y volver a pulsar la deja. Una mochila por persona y una herramienta de cada tipo:
+# pulsar otra del mismo tipo CAMBIA la que llevabas, en vez de negarse.
+const UTILES_SUBS := [
+	{"nombre": "Mochilas", "icono": "mochila", "tipo": -1},
+	{"nombre": "Picos", "icono": "pico", "tipo": ToolData.Tipo.PICO},
+	{"nombre": "Hoces", "icono": "hoz", "tipo": ToolData.Tipo.HOZ},
+	{"nombre": "Hachas", "icono": "hacha", "tipo": ToolData.Tipo.HACHA},
+	{"nombre": "Cañas", "icono": "cana", "tipo": ToolData.Tipo.CANA},
+	{"nombre": "Cuchillos", "icono": "cuchillo", "tipo": ToolData.Tipo.CUCHILLO},
+]
+const LADO_CELDA_UTIL := 82.0
+var _enc_util_sub: int = 0
+# Los objetos del cofre ya reconstruidos, por id de entrada. Reconstruir SIN registrar (el bug de las
+# seis hachas) y una sola vez: la pantalla se rehace a cada toque.
+var _cache_utiles: Dictionary = {}
 
 func _build_encargo_utiles() -> void:
+	_aire(hogar._content)
 	MenuScaffold.titulo(hogar._content, "Útiles del cofre", 14)
-	var hay: bool = false
-	for entrada_ in Net.hogar.cofre_visible():
-		var entrada := entrada_ as Dictionary
-		var clase: String = String(entrada.get("clase", ""))
-		if clase != "herramienta" and clase != "mochila":
+	var entradas: Array = []
+	var vivos: Dictionary = {}
+	for e_ in Net.hogar.cofre_visible():
+		var e := e_ as Dictionary
+		var clase: String = String(e.get("clase", ""))
+		if clase != "mochila" and clase != "herramienta":
 			continue
-		hay = true
-		var id: int = int(entrada.get("id", -1))
-		var ocupada: int = int(entrada.get("encargo", 0))
-		var tar: Dictionary = hogar._tarjeta(hogar._content)
-		var fila: HBoxContainer = tar["info"]
-		var l := Label.new()
-		l.text = String(entrada.get("desc", "?"))
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fila.add_child(l)
-		var ap := Label.new()
-		ap.text = ("+%.0f kg" if clase == "mochila" else "+%.0f afinidad") % Encargos.aporte_util(entrada)
-		ap.add_theme_color_override("font_color", VERDE)
-		fila.add_child(ap)
-		var b := Button.new()
-		var puesta: bool = _enc_utiles.has(id)
-		b.text = "Quitar" if puesta else "Llevar"
-		b.disabled = ocupada != 0
-		b.pressed.connect(func():
-			if _enc_utiles.has(id):
-				_enc_utiles.erase(id)
-			else:
-				_enc_utiles.append(id)
-			hogar._rebuild())
-		(tar["botones"] as HBoxContainer).add_child(b)
-	if not hay:
-		MenuScaffold.nota(hogar._content, "El cofre no tiene herramientas ni mochilas. Mete ahí las que "
-			+ "quieras prestarles: mientras están fuera nadie puede sacarlas.")
+		vivos[int(e.get("id", -1))] = true
+		entradas.append(e)
+	for id in _cache_utiles.keys():
+		if not vivos.has(id):
+			_cache_utiles.erase(id)
+
+	# Las pestañas: con PUNTO las que llevan algo, para ver de un vistazo que se llevan sin abrirlas.
+	var nombres: Array = []
+	var iconos: Array = []
+	var marcadas: Array = []
+	for i in UTILES_SUBS.size():
+		nombres.append(String(UTILES_SUBS[i]["nombre"]))
+		iconos.append(String(UTILES_SUBS[i]["icono"]))
+		for e in entradas:
+			if _enc_utiles.has(int(e.get("id", -1))) and _tipo_util(e) == int(UTILES_SUBS[i]["tipo"]):
+				marcadas.append(i)
+				break
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 4)
+	hogar._content.add_child(fila)
+	MenuScaffold.subpestanas(fila, nombres, iconos, _enc_util_sub, func(i: int):
+		_enc_util_sub = i
+		hogar._rebuild(), marcadas)
+
+	var tipo: int = int(UTILES_SUBS[_enc_util_sub]["tipo"])
+	var mias: Array = []
+	for e in entradas:
+		if _tipo_util(e) == tipo:
+			mias.append(e)
+	if mias.is_empty():
+		MenuScaffold.nota(hogar._content, "No hay %s en el cofre. Mete ahí las que quieras prestarles: mientras están fuera nadie puede sacarlas."
+			% String(UTILES_SUBS[_enc_util_sub]["nombre"]).to_lower())
+		return
+	mias.sort_custom(func(a, b): return Encargos.aporte_util(a) > Encargos.aporte_util(b))
+
+	var grid := GridContainer.new()
+	grid.columns = 8
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	hogar._content.add_child(grid)
+	for e in mias:
+		var id: int = int(e.get("id", -1))
+		var fuera: bool = int(e.get("encargo", 0)) != 0
+		var c := CeldaObjeto.new()
+		c.custom_minimum_size = Vector2(LADO_CELDA_UTIL, LADO_CELDA_UTIL)
+		c.button_pressed = _enc_utiles.has(id)
+		c.tooltip_text = String(e.get("desc", "?"))
+		if fuera:
+			c.disabled = true
+			c.tooltip_text += "\nEn otro encargo."
+		else:
+			c.pressed.connect(func(): _alternar_util(e, entradas))
+		grid.add_child(c)
+		if not _cache_utiles.has(id):
+			_cache_utiles[id] = Game.deserializar_equipo(e.get("dict", {}), false)
+		var aporte: float = Encargos.aporte_util(e)
+		var pie: String = ("+%d kg" % int(round(aporte))) if tipo < 0 else ("+%d" % int(round(aporte)))
+		c.configurar(_cache_utiles[id] as Resource, pie, "FUERA" if fuera else "")
 
 
+# El tipo de util de una entrada: -1 las mochilas, el ToolData.Tipo las herramientas, -2 lo demas.
+func _tipo_util(e: Dictionary) -> int:
+	match String(e.get("clase", "")):
+		"mochila": return -1
+		"herramienta": return Encargos.tipo_herramienta(e)
+	return -2
+
+
+func _alternar_util(e: Dictionary, entradas: Array) -> void:
+	var id: int = int(e.get("id", -1))
+	if _enc_utiles.has(id):
+		_enc_utiles.erase(id)
+		hogar._rebuild()
+		return
+	var tipo: int = _tipo_util(e)
+	if tipo == -1:
+		var llevan: int = 0
+		for x in entradas:
+			if _enc_utiles.has(int(x.get("id", -1))) and _tipo_util(x) == -1:
+				llevan += 1
+		if llevan >= maxi(1, _enc_uids.size()):
+			hogar._aviso = "Una mochila por persona: con %d, como mucho %d." % [
+				_enc_uids.size(), maxi(1, _enc_uids.size())]
+			hogar._aviso_ok = false
+			hogar._rebuild()
+			return
+	else:
+		# Una de cada tipo: la nueva sustituye a la que llevaban.
+		for x in entradas:
+			if _enc_utiles.has(int(x.get("id", -1))) and _tipo_util(x) == tipo:
+				_enc_utiles.erase(int(x.get("id", -1)))
+	_enc_utiles.append(id)
+	hogar._rebuild()
+
+
+# --- PRONÓSTICO ---
+# Lo que se puede saber ANTES de mandarlos: si vuelven bien y cuanto pueden cargar. Lo que traen no
+# se enseña: va por persona y por suerte, y un numero aqui seria mentira.
 func _build_encargo_pronostico(libres: Array) -> void:
 	var fichas: Array = []
 	for uid in _enc_uids:
@@ -639,6 +827,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 			if String((f as Dictionary).get("uid", "")) == String(uid):
 				fichas.append(f)
 				break
+	_aire(hogar._content)
 	MenuScaffold.titulo(hogar._content, "Pronóstico", 14)
 	if fichas.is_empty():
 		MenuScaffold.nota(hogar._content, "Elige a alguien para ver cómo le iría.")
@@ -660,15 +849,17 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	MenuScaffold.fila(hogar._content, "Poder del grupo", "%d" % int(round(pg)))
 	MenuScaffold.fila(hogar._content, "El piso %d pide" % _enc_piso,
 		"%d" % int(round(Encargos.requisito_mostrado(_enc_piso))))
-	var exito := Label.new()
-	var pct: float = 100.0 * float(probs[0])
-	exito.text = "ÉXITO %s   ·   éxito parcial %s   ·   fracaso %s" % [
-		Encargos.pct(float(probs[0])), Encargos.pct(float(probs[1])), Encargos.pct(float(probs[2]))]
-	exito.add_theme_font_size_override("font_size", 16)
-	exito.add_theme_color_override("font_color",
-		VERDE if pct > 85.0 else (AMBAR if pct >= 60.0 else Color(0.90, 0.45, 0.40)))
-	hogar._content.add_child(exito)
-	MenuScaffold.fila(hogar._content, "Pueden cargar", "%.0f kg" % Encargos.tope_carga_de(fuerzas, entradas))
+	var linea := HBoxContainer.new()
+	linea.add_theme_constant_override("separation", 18)
+	hogar._content.add_child(linea)
+	for i in 3:
+		var l := Label.new()
+		l.text = "%s %s" % [String(Encargos.NOMBRE_DESENLACE[i]), Encargos.pct(float(probs[i]))]
+		l.add_theme_font_size_override("font_size", 16 if i == 0 else 14)
+		l.add_theme_color_override("font_color", [VERDE, AMBAR, Color(0.90, 0.45, 0.40)][i]
+			if float(probs[i]) > 0.0 else GRIS)
+		linea.add_child(l)
+	MenuScaffold.fila(hogar._content, "Pueden cargar", "%d kg" % int(round(Encargos.tope_carga_de(fuerzas, entradas))))
 
 	var dur: int = int(Encargos.DURACIONES[_enc_dur])
 	var pega: String = Encargos.motivo_no_puede(_enc_grupos, entradas, fichas.size())
@@ -678,11 +869,8 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		aviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		aviso.add_theme_color_override("font_color", Color(0.90, 0.45, 0.40))
 		hogar._content.add_child(aviso)
-	var b := Button.new()
-	b.text = "Mandarlos"
-	b.disabled = not pega.is_empty()
-	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	b.pressed.connect(func():
+	_aire(hogar._content, 4)
+	MenuScaffold.pastilla(hogar._content, "Mandarlos", func():
 		Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, _enc_uids, _enc_utiles,
 			_enc_faena.duplicate(), _enc_clase.duplicate())
 		hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
@@ -692,8 +880,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		_enc_faena.clear()
 		_enc_clase.clear()
 		_enc_sub = 0
-		hogar._rebuild())
-	hogar._content.add_child(b)
+		hogar._rebuild(), true, pega.is_empty())
 
 
 # Un respiro entre apartados: sin el, cada titulo iba pegado a lo de encima y la columna se leia
