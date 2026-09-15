@@ -340,7 +340,7 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 	b_up.pressed.connect(func():
 		if not Game.puede_subir_nivel():
 			Game.guardianes_vencidos[Game.player_level + 1] = true
-			if Game.stat_total("fuerza") < Game.RANGO_C_MIN:
+			if not Game.tiene_rango_c(Game.lider()):
 				Game.debug_set_abilities(600, Game.player_resistencia, Game.player_destreza,
 					Game.player_agilidad, Game.player_magia)
 		_toggle()   # cierra el panel de debug

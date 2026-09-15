@@ -23,6 +23,10 @@ temblando** contra la orilla del lago.
 
 **El mapa** ya no enseña dos lagos donde hay uno (se corrige solo al volver a pasar por el piso).
 
+**Subir de nivel pide el rango C de verdad**: tiene que verse en la ficha, o sea, hay que actualizar el
+estado antes. Hasta ahora contaba lo que llevabas por dentro sin consolidar, y del nivel 2 en adelante
+bastaba con vencer al guardián.
+
 ## ⚖️ Balance
 
 **Bastones y varitas**: el T1 no cambia; del T2 en adelante hacen un 25% menos de daño mágico.

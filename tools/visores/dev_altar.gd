@@ -4,12 +4,13 @@
 #  Abre el menu del ALTAR de verdad (scripts/ui/altar_menu.gd) y el de SUBIR DE NIVEL
 #  (scripts/ui/desarrollo_menu.gd) con un escenario donde sale TODO a la vez, para poder tocarlo:
 #
-#    - el LIDER (Ilyan) a nivel 1, con el guardian vencido y rango C: puede subir, y como no tiene
-#      ningun desarrollo y todos los contadores estan llenos, al subir salen LAS ONCE.
+#    - el LIDER (Ilyan) a nivel 1, con el guardian vencido y 620 de Fuerza SIN CONSOLIDAR (a la vista,
+#      320): el boton de subir sale solo despues de Actualizar. Como no tiene ningun desarrollo y
+#      todos los contadores estan llenos, al subir salen LAS ONCE.
 #    - Sedaki tiene LAS ONCE aprendidas en rango I con los contadores de sobra: al actualizar le
 #      suben todas a la vez.
 #    - todos (menos Bram, el pelado) llevan LAS NUEVE PASIVAS pendientes y excelia sin consolidar:
-#      punto ambar en el retrato y, al actualizar, el modal con todo.
+#      punto ambar en el retrato y, al actualizar, todo marcado en la ficha.
 #    - Oriol espera en el Hogar con excelia pendiente: el caso del banquillo.
 #
 #  NO SE CIERRA SOLO. Abajo a la izquierda hay una barrita para reabrir el altar si lo cierras con
@@ -199,9 +200,12 @@ func _rehacer() -> void:
 
 
 # Por el ALTAR, como en el juego: asi al elegir o al aplazar se vuelve a el y no a la nada.
+# Actualiza antes al lider: el rango C se mira en lo VISIBLE (ver Game.puede_subir_nivel), y sin
+# consolidar su Fuerza sigue en 320 a la vista y la subida no se deja hacer.
 func _subir_directo() -> void:
 	_cerrar_todo()
 	_altar.abrir()
+	_altar._actualizar(Game.lider())
 	_altar._subir()
 
 
@@ -212,22 +216,21 @@ func _subir_directo() -> void:
 func _pasada() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	await _captura("0_lider_pendiente")
-	# _actualizar espera dos frames para bajar la ficha: hay que esperarle.
-	await _altar._actualizar(Game.lider())
+	_altar._actualizar(Game.lider())
 	await _captura("1_lider_actualizado")
 	await _bajar_scroll(_altar._root)
 	await _captura("2_lider_abajo")
 
 	_altar._pick_persona(1)
 	await _captura("3_sedaki_pendiente")
-	await _altar._actualizar(Game.party[1])
+	_altar._actualizar(Game.party[1])
 	await _captura("4_sedaki_actualizado")
 	await _bajar_scroll(_altar._root)
 	await _captura("4_sedaki_abajo")
 	# Otra vez a Sedaki, sin nada nuevo: la lista sigue ahi, sin marcas.
 	_altar._pick_persona(0)
 	_altar._pick_persona(1)
-	await _altar._actualizar(Game.party[1])
+	_altar._actualizar(Game.party[1])
 	await _captura("4b_sedaki_sin_novedades")
 
 	_altar._pick_persona(3)
@@ -236,10 +239,9 @@ func _pasada() -> void:
 	_altar._pick_persona(4)
 	await _captura("6_banquillo")
 
-	# SUBIR DE NIVEL: primero se rehace el escenario (el lider ya ha consolidado arriba, pero sus
-	# contadores siguen llenos, asi que da igual) y se abre directo.
+	# SUBIR DE NIVEL: se rehace el escenario y se entra como en el juego, actualizando antes.
 	_rehacer()
-	_altar._subir()
+	_subir_directo()
 	await _captura("7_subir")
 	await _bajar_scroll(_subida._root)
 	await _captura("7_subir_abajo")

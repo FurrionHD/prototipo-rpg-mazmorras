@@ -49,7 +49,6 @@ var _deltas: Dictionary = {}
 # Lo que SALIO A LA LUZ en ese mismo "Actualizar", tambien por persona, para marcarlo en la lista:
 var _subidas: Dictionary = {}   # {PersonajeData: {id_desarrollo: rango_antes}}
 var _nuevas: Dictionary = {}    # {PersonajeData: [id_pasiva, ...]}
-var _ancla_perks: Control = null   # donde empieza la lista, para bajar la ficha hasta ahi
 var _aviso: String = ""
 
 
@@ -165,7 +164,10 @@ func _pick_persona(i: int) -> void:
 
 # La llama el selector de desarrollo tras subir de nivel: refresca y enseña el reset. El nivel es
 # del LIDER, asi que la subida se muestra en SU ficha.
-func mostrar_subida() -> void:
+#
+# 'aprendido' = el id del desarrollo elegido ("" = ninguno): sale marcado como recien salido ("— → I").
+# Lo que se marco en el Actualizar de antes de subir se borra: ya no es de esta visita al estado.
+func mostrar_subida(aprendido: String = "") -> void:
 	if not _root.visible:
 		return
 	_pj_sel = maxi(0, _pjs().find(Game.lider()))
@@ -173,6 +175,8 @@ func mostrar_subida() -> void:
 	for s in STATS:
 		d[s] = [-1, 0]
 	_deltas[Game.lider()] = d
+	_nuevas[Game.lider()] = []
+	_subidas[Game.lider()] = {aprendido: 0} if aprendido != "" else {}
 	_aviso = "¡%s sube a nivel %d! Su poder queda grabado en su base y sus básicas vuelven a rango I." % [
 		Game.lider().nombre, Game.player_level]
 	_rebuild()
@@ -240,16 +244,16 @@ func _pintar_lateral(pj: PersonajeData) -> void:
 			% (_pj_sel + 1))
 		return
 
-	# EL LIDER: los dos requisitos, marcados. Es lo que antes era una frase suelta que solo salia
-	# cuando ya tenias uno de los dos.
-	MenuScaffold.titulo(_side, "Para subir a nivel %d" % (pj.level + 1), 13, GRIS)
+	# EL LIDER: los dos requisitos, marcados, y dichos SIN desvelar el como (ni que es un guardian, ni
+	# que es un 600): el jugador tiene que intuirlo. El rango se mira en lo VISIBLE, igual que
+	# Game.puede_subir_nivel, asi que hasta que no actualizas el estado no se marca.
+	MenuScaffold.titulo(_side, "Requisitos para ascender", 13, GRIS)
 	var guardian: bool = bool(Game.guardianes_vencidos.get(pj.level + 1, false))
-	var rango_c: bool = false
-	for s in STATS:
-		if Game.stat_total(s, pj) >= Game.RANGO_C_MIN:
-			rango_c = true
-	_requisito("Vencer al guardián", guardian)
-	_requisito("Rango C en una básica", rango_c)
+	var rango_c: bool = Game.tiene_rango_c(pj)
+	_requisito("He logrado una hazaña digna de ascender" if guardian
+		else "Lograr una hazaña digna de ascender", guardian)
+	_requisito("Ya me siento lo bastante fuerte" if rango_c
+		else "Creo que aún me falta ser más fuerte", rango_c)
 
 
 func _requisito(txt: String, hecho: bool) -> void:
@@ -262,6 +266,10 @@ func _requisito(txt: String, hecho: bool) -> void:
 	fila.add_child(marca)
 	var l := Label.new()
 	l.text = txt
+	# Con AUTOWRAP y expandido: sin el, una frase larga pide su ancho entero y la columna crece y
+	# empuja los retratos de arriba.
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.add_theme_font_size_override("font_size", 13)
 	l.add_theme_color_override("font_color", Color(0.82, 0.85, 0.90) if hecho else GRIS)
 	fila.add_child(l)
@@ -358,6 +366,10 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 		var b_lvl: Button = MenuScaffold.pastilla(acc, "★ Subir de nivel  (%d → %d)" % [
 			pj.level, pj.level + 1], _subir, false)
 		b_lvl.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+	# Si al actualizar ha salido algo, se AVISA aqui, donde esta la vista, en vez de bajar la ficha:
+	# lo nuevo queda mas abajo, marcado en verde.
+	if not (_subidas.get(pj, {}) as Dictionary).is_empty() or not (_nuevas.get(pj, []) as Array).is_empty():
+		MenuScaffold.titulo(_content, "★ Ha salido algo nuevo. Míralo más abajo.", 12, VERDE)
 
 
 # Una basica: nombre a la izquierda, numero y letra a la derecha, y la barra fina debajo.
@@ -444,7 +456,6 @@ func _pintar_perks(pj: PersonajeData) -> void:
 	var hueco := Control.new()
 	hueco.custom_minimum_size = Vector2(0, 18)
 	_content.add_child(hueco)
-	_ancla_perks = hueco
 
 	MenuScaffold.titulo(_content, "Habilidades de desarrollo", 13, GRIS)
 	_content.add_child(HSeparator.new())
@@ -551,15 +562,9 @@ func _actualizar(pj: PersonajeData) -> void:
 	for p in revelado.get("pasivas", []):
 		nuevas.append(str(p.get("id", "")))
 	_nuevas[pj] = nuevas
+	# La ficha NO baja sola hasta lo nuevo: se dejaria de ver como han quedado las basicas, que es lo
+	# primero que se mira al actualizar. Lo nuevo esta marcado en verde; se baja a verlo con la rueda.
 	_rebuild()
-	# Si ha salido algo, la ficha BAJA sola hasta ahi: con cinco basicas y dos botones encima, lo
-	# nuevo quedaria fuera de la vista y parecería que no ha pasado nada.
-	if not sub.is_empty() or not nuevas.is_empty():
-		await get_tree().process_frame
-		await get_tree().process_frame
-		if _ancla_perks != null and is_instance_valid(_ancla_perks):
-			var scroll := _content.get_parent() as ScrollContainer
-			scroll.scroll_vertical = int(_ancla_perks.position.y)
 
 
 func _subir() -> void:

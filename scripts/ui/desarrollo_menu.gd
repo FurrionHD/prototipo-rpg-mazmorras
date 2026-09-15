@@ -252,10 +252,11 @@ func _pick(i: int) -> void:
 
 
 func _elegir(id: String) -> void:
-	if Game.subir_nivel(id):
+	var subio: bool = Game.subir_nivel(id)
+	if subio:
 		print("[desarrollo] Subes de nivel eligiendo ", id)
 	_cerrar()   # si venias del altar, esto ya lo ha vuelto a abrir
 	# Refrescar el menu del altar si sigue vivo (para que muestre el nuevo nivel / el antes-despues).
 	var altar: Node = get_tree().get_first_node_in_group("altar_menu")
-	if altar != null and altar.has_method("mostrar_subida"):
-		altar.mostrar_subida()
+	if subio and altar != null and altar.has_method("mostrar_subida"):
+		altar.mostrar_subida(id)

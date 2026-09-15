@@ -11908,12 +11908,26 @@ func stat_consolidado_eff(s: String, pj: PersonajeData = null) -> float:
 # ============================================================
 
 # ¿Puedes subir de nivel? Haber vencido al enemigo disparador Y tener rango C (600) en alguna
-# habilidad (por el TOTAL). El orden no importa: si lo venciste antes de tener el rango, cuenta.
+# habilidad. El orden no importa: si lo venciste antes de tener el rango, cuenta.
+#
+# El rango se mira en lo VISIBLE (lo consolidado de ESTE nivel, lo que enseña la ficha) y NO en el
+# total oculto. Hasta el 15/09 iba por stat_total, y eso fallaba por los dos lados:
+#   - te salia "Subir de nivel" con un 300 en la ficha solo porque por dentro ya llevabas 600: sin
+#     haber actualizado el estado, aun no los tienes (lo pidio asi el usuario).
+#   - a partir del nivel 2 el total oculto ya pasa de 600 PARA SIEMPRE (arrastra lo de los niveles de
+#     antes), asi que el rango C dejaba de pedirse y bastaba con el guardian. La curva (ver
+#     MOCHILA_FUERZA_SATURACION) cuenta con que en cada nivel se vuelve a llegar a C.
 func puede_subir_nivel() -> bool:
 	if not guardianes_vencidos.get(player_level + 1, false):
 		return false   # aún no has vencido al guardián de tu SIGUIENTE nivel
+	return tiene_rango_c(lider())
+
+
+# ¿Alguna basica VISIBLE en rango C? La comparten la regla de arriba y la lista del altar, para que
+# el ✓ y el boton no puedan decir cosas distintas.
+func tiene_rango_c(pj: PersonajeData) -> bool:
 	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
-		if stat_total(s) >= RANGO_C_MIN:
+		if int(pj.get(s)) >= RANGO_C_MIN:
 			return true
 	return false
 
