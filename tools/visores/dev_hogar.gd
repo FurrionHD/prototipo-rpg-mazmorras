@@ -43,9 +43,95 @@ func _ready() -> void:
 	_menu.abrir()
 	_barra()
 
-	if args.has("capturas"):
+	if args.has("encargos"):
+		await _pasada_encargos()
+		get_tree().quit()
+	elif args.has("capturas"):
 		await _pasada()
 		get_tree().quit()
+
+
+# SOLO LA PANTALLA DE ENCARGOS, en los estados que hay que mirar: un grupo solo, tres repartidos y
+# con un deslizador movido, y otro piso. Mucho mas rapida que la pasada entera.
+func _pasada_encargos() -> void:
+	DirAccess.make_dir_recursive_absolute(SALIDA)
+	_menu._on_tab(_menu.TABS.find("Encargos"))
+	var enc = _seccion("encargos")
+	enc._enc_sub = 1
+	_menu._rebuild()
+	await _captura("enc_un_grupo")
+	enc._enc_grupos = {Encargos.Grupo.MINERAL: 34, Encargos.Grupo.CUERO: 33, Encargos.Grupo.CRISTAL: 33}
+	_menu._rebuild()
+	await _captura("enc_tres_grupos")
+	# Mover un deslizador como lo haria el raton: por value_changed, sin rehacer el menu.
+	if enc._desliz.has(Encargos.Grupo.CUERO):
+		(enc._desliz[Encargos.Grupo.CUERO]["s"] as HSlider).value = 60
+	await _captura("enc_deslizador_movido")
+	print("[hogar] reparto tras mover: ", enc._enc_grupos)
+	enc._enc_piso = 7
+	enc._enc_dur = 2
+	_menu._rebuild()
+	await _captura("enc_piso7_8h")
+
+	# LA DERECHA: gente libre en casa (se saca a los compañeros del equipo), dos elegidos y utiles.
+	for pj in Game.party.duplicate():
+		if pj != Game.lider():
+			Game.sacar_del_equipo(pj)
+	_menu._rebuild()
+	await _captura("enc_gente_libre")
+	var libres: Array = enc._libres_del_hogar()
+	for k in mini(2, libres.size()):
+		enc._enc_uids.append(String(libres[k]["uid"]))
+	_menu._rebuild()
+	await _captura("enc_dos_elegidos")
+	var mochila_id: int = -1
+	for e in Net.hogar.cofre_visible():
+		if String(e.get("clase", "")) == "mochila" and mochila_id < 0:
+			mochila_id = int(e["id"])
+			enc._enc_utiles.append(mochila_id)
+	enc._enc_util_sub = 1
+	_menu._rebuild()
+	await _captura("enc_utiles_picos")
+	# Bajar el scroll de la derecha hasta el pronostico.
+	var det: ScrollContainer = _menu._content.get_parent() as ScrollContainer
+	if det != null:
+		det.scroll_vertical = 100000
+	await _captura("enc_pronostico")
+
+	# DE PUNTA A PUNTA: mandarlo de verdad, terminarlo, mirar lo que traen y recogerlo.
+	# Por el BOTON de verdad (el ultimo de la columna derecha), no llamando a la red a mano: el aviso
+	# rojo de "ya no estan disponibles" solo salia por el orden de ese boton.
+	enc._enc_utiles = [mochila_id]
+	enc._enc_dur = 2
+	_menu._rebuild()
+	var ids_antes: int = Game.encargos.size()
+	var boton: Button = null
+	for h in _menu._content.get_children():
+		if h is Button and (h as Button).text == "Mandarlos":
+			boton = h
+	if boton != null:
+		boton.pressed.emit()
+	print("[hogar] encargos: %d -> %d · aviso: %s" % [ids_antes, Game.encargos.size(), _menu._aviso])
+	_menu._rebuild()
+	await _captura("enc_en_marcha")
+	var id: int = int((Game.encargos.back() as Dictionary).get("id", 0)) if not Game.encargos.is_empty() else 0
+	Game.dev_terminar_encargo(id)
+	_menu._rebuild()
+	await _captura("enc_de_vuelta")
+	var e: Dictionary = Game.encargo_por_id(id)
+	print("[hogar] vuelta: desenlace %s, botin %s, cristales %s, dinero %d, rotos %d, perdido %d, peleas %d" % [
+		str(e.get("desenlace")), str((e.get("botin", []) as Array).size()), str(e.get("cristales")),
+		int(e.get("dinero", 0)), int(e.get("rotos", 0)), int(e.get("perdido", 0)), int(e.get("peleas", 0))])
+	var bote_antes: int = Game.bote_dinero
+	var almacen_antes: int = Game.almacen_materiales.size()
+	var inf: Dictionary = Game.recoger_encargo(id)
+	print("[hogar] recoger: %s | hucha %d -> %d | almacen %d -> %d" % [str(inf), bote_antes, Game.bote_dinero,
+		almacen_antes, Game.almacen_materiales.size()])
+	enc._enc_sub = 0
+	_menu._aviso = enc._texto_informe(inf)
+	_menu._aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
+	_menu._rebuild()
+	await _captura("enc_recogido")
 
 
 # Dinero en la hucha, piezas del baul en el cofre, consumibles dentro y fuera.
