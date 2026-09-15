@@ -797,7 +797,7 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 	else:
 		# El desgaste cuenta igual sin dueño: es de ESTA pieza, no de quien la lleve. Lo que no se
 		# puede aplicar aqui es la Fuerza, asi que se queda el raw y su motion value aparte.
-		filas.append(["Ataque", "%.1f" % (float(m["raw"])
+		filas.append(["Ataque", "%.1f" % (float(m["raw"]) * Upgrades.dano_mult_arma(w)
 			* Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0)))])
 		filas.append(["Motion value", "×%.2f" % w.motion_value])
 	filas.append(["Velocidad", "×%.2f" % (w.velocidad_mult * float(m["vel_mult"]))])
@@ -812,6 +812,8 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		filas.append(["Evasión", "+%.0f%%" % (float(m["evasion"]) * 100.0)])
 	if float(m["aturdir"]) > 0.0:
 		filas.append(["Aturdir", "%.0f%%" % (float(m["aturdir"]) * 100.0)])
+	if Upgrades.penetracion_arma(w) > 0.0:
+		filas.append(["Ignora defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0)])
 	if float(m["bloqueo"]) > 0.0:
 		filas.append(["Bloqueo", "+%.2f" % float(m["bloqueo"])])
 	if w.es_magica:
@@ -1091,7 +1093,7 @@ static func dano_arma(w: WeaponData, raw: float, pj: PersonajeData,
 	if w == null or pj == null:
 		return raw
 	return raw * Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0)) \
-		* StatsMath.fuerza_factor(float(pj.fuerza)) * w.motion_value
+		* StatsMath.fuerza_factor(float(pj.fuerza)) * w.motion_value * Upgrades.dano_mult_arma(w)
 
 
 # EL HECHIZO CON EL QUE SE MIDE el ataque magico. Es el mas basico que hay: sin elemento, una sola

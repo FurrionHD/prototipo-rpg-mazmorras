@@ -16,12 +16,12 @@ f55 Agirato ochinan hp=198.795 mp=14.685 en=151.425
 f55 Araña de las simas hp=39.281 mp=20.429 en=0.000
 f151 LOG ¡Turno de Daniel! Elige una acción.
 f153 PULSA Atacar
-f154 LOG Daniel golpea con Maza pequeña por 5.13 de daño.
-f154 Araña de las simas hp=34.150 mp=20.429 en=0.000
+f154 LOG Daniel golpea con Maza pequeña por 5.47 de daño.
+f154 Araña de las simas hp=33.808 mp=20.429 en=0.000
 f209 LOG ¡Turno de Dasui! Elige una acción.
 f211 PULSA Atacar
-f212 LOG Dasui golpea con Mandobles por 12.50 de daño.
-f212 Araña de las simas hp=21.650 mp=20.429 en=0.000
+f212 LOG Dasui golpea con Mandobles por 13.12 de daño.
+f212 Araña de las simas hp=20.683 mp=20.429 en=0.000
 f267 LOG ¡Turno de Catalardio! Elige una acción.
 f269 PULSA Defender
 f270 LOG 1. Araña de las simas ataca a Agirato ochinan por 0.21 de daño.

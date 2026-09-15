@@ -420,7 +420,10 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# 2) Daño base (raw×motion_value en atk()) mitigado por la defensa. FLOAT.
 	# Si esta DEFENDIENDO, su escudo suma su defensa aqui (defend_defense): un escudo solo protege
 	# de lo que paras con el, asi que no puede ir en def_value() como la armadura.
-	var def_val := defender.def_value() + (defender.defend_defense if defending else 0.0)
+	# La PENETRACION del arma (ligeras) come una parte de la defensa del CUERPO, no la del escudo con
+	# el que te paran. Un escudazo (atk_override) no pega con el arma, asi que no la lleva.
+	var penetra := clampf(attacker.penetracion, 0.0, 1.0) if atk_override < 0.0 else 0.0
+	var def_val := defender.def_value() * (1.0 - penetra) + (defender.defend_defense if defending else 0.0)
 	var dmg := damage(atk_override if atk_override >= 0.0 else attacker.atk(), def_val)
 	# CUANTO SE HA COMIDO LA MITIGACION, como un solo factor. Se va acumulando en los TRES sitios
 	# que mitigan (defensa, armadura, bloqueo) y sale por 'dmg_sin_mitigar': el golpe que te habrian

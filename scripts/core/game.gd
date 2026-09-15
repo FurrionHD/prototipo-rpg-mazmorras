@@ -7774,6 +7774,9 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"slot": slot,   # para saber que arma desgastar al golpear (main/off)
 		"motion_value": w.motion_value,
 		"ataque_arma": float(wm["raw"]) * dur_mult,
+		# Extra de daño del cuerpo a cuerpo y defensa que ignora. Por mano: en dual cada arma trae lo suyo.
+		"dano_mult": Upgrades.dano_mult_arma(w),
+		"penetracion": Upgrades.penetracion_arma(w),
 		"crit_bonus": float(wm["crit"]),
 		"crit_dmg": float(wm["crit_dmg"]),
 		"precision": wm["precision"],

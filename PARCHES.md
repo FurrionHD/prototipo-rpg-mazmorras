@@ -35,6 +35,10 @@ temblando** contra la orilla del lago.
 de cuero, 7,7 el de hierro, 9,9 el de hierro completo y 12,1 el de placas (antes 1,25 / 2,5 / 4 / 5,5), y
 cada tier sigue multiplicando igual. También las que ya tienes.
 
+**Las armas cuerpo a cuerpo pegan un 5% más**, y **las ligeras atraviesan la armadura**: la daga, el estoque y
+la espada corta ignoran el 25% de la defensa del enemigo, y la espada larga y la maza, el 12%. Se nota más
+cuanto más acorazado es lo que tienes delante. Las armas grandes se quedan con el 5%.
+
 ## 🪶 Y además
 
 **Un puntero propio**: una pluma.
