@@ -78,6 +78,22 @@ tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vu
   tienen además guardar todo, recoger sin sobrecargarte y recoger todo. La
   pestaña Almacén desaparece: sus materiales están en el Cofre.
 
+**Encargos, rehechos por dentro y por fuera.** Traían tanto que ya no hacía falta bajar a picar.
+- **Eliges a por qué van**: mineral, madera, plantas, comida, pescado, cuero, núcleos, materiales de poción
+  o cristales, y con unos deslizadores cuánto quieres de cada cosa.
+- **Cada persona recoge 4 cosas por hora**, y la calidad depende de quien lo recoja: el fuerte trae el
+  hierro entero y el flojo puede traerlo dañado o romperlo.
+- **La caza es de verdad**: pelean contra los enemigos del piso y cada uno suelta lo suyo con su
+  probabilidad (el cuchillo ayuda). Si vas a por cuero y te tocan slimes, no hay cuero.
+- **Traen cristales**, que pesan en la mochila y se venden solos al recoger: el dinero va a la hucha. Si la
+  mochila se llena, cada cosa ocupa la parte que le diste.
+- **El éxito se lee mejor**: llegar a lo que pide el piso es un éxito seguro, y salir mal ya no es un
+  castigo a suertes. Un éxito parcial pierde el 20% de cada cosa y un fracaso el 40%.
+- **Una mochila por persona y una herramienta de cada tipo**, y el equipo se gasta con las peleas.
+- La pantalla, nueva: los materiales como en el inventario, la cara de quien va, los útiles por tipo, y al
+  volver ves lo que traen antes de recogerlo.
+- Los encargos que tuvieras en marcha se adaptan solos.
+
 **Las áreas contra un grupo con el Rey Slime** alcanzan ya a los que tiene al lado en pantalla (antes, a
 veces, a un slime de otra punta).
 
