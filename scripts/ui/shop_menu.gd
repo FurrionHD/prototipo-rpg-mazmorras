@@ -23,6 +23,7 @@ extends CanvasLayer
 const TiendaVender = preload("res://scripts/ui/tienda/tienda_vender.gd")
 const TiendaComprar = preload("res://scripts/ui/tienda/tienda_comprar.gd")
 const TiendaOrden = preload("res://scripts/ui/tienda/tienda_orden.gd")
+const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
 
 const TABS := ["Vender", "Comprar", "Recomprar", "Pack inicial"]
 const TAB_ICONOS := ["moneda", "bolsa", "flecha_arriba", "pergamino"]
@@ -55,6 +56,7 @@ var _contador_lbl: Label = null
 var _aviso_lbl: Label = null
 var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
+var barra_tier: HBoxContainer = null  # mostrador T1/T2 (solo Comprar, con el Rey Slime muerto)
 var barra_sub: HBoxContainer = null   # subpestañas (las rellena cada seccion)
 var _buscador: LineEdit = null
 var _fila_buscador: HBoxContainer = null
@@ -90,9 +92,10 @@ func _ready() -> void:
 	_lista = m["lista"]
 	_content = m["content"]
 	_dinero_lbl = m["dinero"]
-	# La linea de aviso SI se queda (el inventario la esconde): aqui cada venta y cada compra dicen lo
-	# que has cobrado o pagado, y ese es su sitio fijo.
-	_aviso_lbl = m["aviso"]
+	# FUERA la cabecera entera (linea de aviso + header): aunque vacias, reservaban su alto y dejaban un
+	# hueco enorme entre la barra de arriba y las subpestañas (playtest del 16/09). El aviso de lo cobrado
+	# se muda a la columna de la ficha, justo encima de los botones que lo provocan (ver mas abajo).
+	((m["aviso"] as Control).get_parent().get_parent() as Control).visible = false
 
 	var scroll: ScrollContainer = m["lista_scroll"]
 	scroll.custom_minimum_size = Vector2(ANCHO_REJILLA_MIN, 0)
@@ -116,6 +119,10 @@ func _ready() -> void:
 	split_der.add_child(col_der)
 	col_der.add_child(scroll_det)
 	scroll_det.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_aviso_lbl = Label.new()
+	_aviso_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_aviso_lbl.add_theme_font_size_override("font_size", 13)
+	col_der.add_child(_aviso_lbl)
 	_acciones = VBoxContainer.new()
 	_acciones.add_theme_constant_override("separation", 4)
 	col_der.add_child(_acciones)
@@ -130,6 +137,11 @@ func _ready() -> void:
 	col_izq.add_theme_constant_override("separation", 6)
 	split.add_child(col_izq)
 	split.move_child(col_izq, 0)
+	# La fila del MOSTRADOR (T1 / T2), encima de las subpestañas: en Comprar primero se elige el tier.
+	barra_tier = HBoxContainer.new()
+	barra_tier.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_tier.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_tier)
 	barra_sub = HBoxContainer.new()
 	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	barra_sub.add_theme_constant_override("separation", 14)
@@ -224,7 +236,8 @@ func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	_tab = TAB_VENDER
+	# Con el pack de bienvenida sin reclamar se abre ahi: es lo primero que hay que hacer en la tienda.
+	_tab = TAB_PACK if not Game.pack_inicial_reclamado else TAB_VENDER
 	sel = 0
 	cant = -1
 	_aviso = ""
@@ -301,6 +314,7 @@ func rebuild() -> void:
 func _rebuild_real() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
 	contador("")
+	MenuScaffold.subpestanas(barra_tier, [], [], -1, Callable())
 	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
 	for zona in ([_header, _content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
@@ -325,6 +339,7 @@ func _rebuild_real() -> void:
 	_pintar_bandeja()
 	_pintar_barra_pie()
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
+	_aviso_lbl.visible = _aviso != ""
 
 
 # La seccion con rejilla filtrable de la pestaña actual (null en Recomprar y Pack).
@@ -848,6 +863,9 @@ func _on_recomprar() -> void:
 #  Pestaña PACK INICIAL
 # ============================================================
 
+# El pack NO es solo el arma: tambien trae el farolillo (que se pone solo), carbon para alumbrarlo y
+# pociones. Con la celda del arma a secas no se entendia (playtest del 16/09), asi que la celda del pack
+# es COMPUESTA: el arma delante y el resto asomando detras. Y la ficha lo enumera con sus celdas.
 func _build_pack() -> void:
 	stacks = []
 	for ruta in Game.PACK_ARMAS:
@@ -856,15 +874,76 @@ func _build_pack() -> void:
 			stacks.append({"modelo": vitrina(base, 1), "base": base})
 	var piezas: Array = []
 	for s in stacks:
-		piezas.append(pieza(s["modelo"], "Gratis", str((s["base"] as Resource).get("nombre"))))
+		piezas.append(pieza(s["modelo"], "Gratis",
+			"Pack: %s + farolillo, carbón y pociones" % str((s["base"] as Resource).get("nombre"))))
 	grid_detail(piezas, _preview_pack)
+	for g in _lista.get_children():
+		if g is GridContainer:
+			for celda in g.get_children():
+				if celda is CeldaObjeto and not celda.has_meta("pack"):
+					_decorar_pack(celda)
+
+
+# Lo que trae el pack ademas del arma, como objetos que se puedan dibujar: [objeto, cantidad].
+func _extras_pack() -> Array:
+	var out: Array = []
+	var farol: Resource = load(Game.PACK_LAMPARA)
+	if farol != null:
+		out.append([vitrina(farol, 1), 1])
+	var carbon: Resource = load(Game.PACK_CARBON)
+	if carbon is MaterialData:
+		out.append([MaterialItem.crear(carbon as MaterialData), Game.PACK_CARBON_N])
+	var pocion: Resource = load(Game.PACK_POCION)
+	if pocion != null:
+		out.append([pocion, Game.PACK_POCIONES_N])
+	return out
+
+
+# Los extras DETRAS del arma: se meten como hijos al PRINCIPIO de la celda, antes de su retrato, asi que
+# se pintan encima del fondo pero debajo del arma. Mas pequeños y un poco apagados, para que se lean como
+# "y ademas" y el protagonista siga siendo el arma que eliges.
+const PACK_HUECOS := [Vector2(0.76, 0.26), Vector2(0.24, 0.50), Vector2(0.78, 0.60)]
+
+func _decorar_pack(celda: CeldaObjeto) -> void:
+	celda.set_meta("pack", true)
+	celda._caja_icono *= 0.80
+	var dibujos: Array = []
+	var extras: Array = _extras_pack()
+	for i in mini(extras.size(), PACK_HUECOS.size()):
+		var tr: TextureRect = RetratoPieza.nodo()
+		if not RetratoPieza.poner(tr, extras[i][0], RetratoPieza.ESC_CELDA):
+			var t: Dictionary = IconoItem.SpritesObjeto.textura_item(extras[i][0])
+			if t.is_empty():
+				continue
+			tr.texture = t["tex"]
+			tr.visible = true
+		tr.modulate = Color(0.82, 0.82, 0.86)
+		celda.add_child(tr)
+		celda.move_child(tr, 0)
+		dibujos.append([tr, PACK_HUECOS[i]])
+	var colocar := func() -> void:
+		var w: float = celda.size.x
+		for d in dibujos:
+			RetratoPieza.encajar(d[0], Vector2(w * d[1].x, w * d[1].y), w * 0.30)
+	celda.resized.connect(colocar)
+	colocar.call()
 
 
 func _preview_pack(vb: VBoxContainer) -> void:
 	var s: Dictionary = stacks[sel]
 	ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
-	note(vb, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
+	MenuScaffold.titulo(vb, "El pack incluye", 14, AMBAR)
+	var piezas: Array = [pieza(s["modelo"], "", str((s["base"] as Resource).get("nombre")))]
+	for e in _extras_pack():
+		var nombre: String = Game.item_display_name(e[0]) if e[0] is ToolData else (
+			(e[0] as MaterialItem).nombre() if e[0] is MaterialItem else str(e[0].get("nombre")))
+		piezas.append(pieza(e[0], ("x%d" % e[1]) if int(e[1]) > 1 else "", nombre))
+	MenuScaffold.rejilla_objetos(vb, piezas, -1, func(_i: int): pass, 4, 76.0, false)
+	# Son de mirar, no de pulsar: sin esto cada toque las dejaba marcadas.
+	for c in (vb.get_child(vb.get_child_count() - 1) as Node).get_children():
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note(vb, "Regalo de bienvenida, UNA sola vez: el arma que elijas, un farolillo (se pone solo), %d carbones para alumbrarlo y %d pociones menores. El bastón y la varita no entran: la magia te la pagas tú." % [Game.PACK_CARBON_N, Game.PACK_POCIONES_N])
 	var botones := HBoxContainer.new()
 	botones.alignment = BoxContainer.ALIGNMENT_END
 	_acciones.add_child(botones)
@@ -874,8 +953,8 @@ func _preview_pack(vb: VBoxContainer) -> void:
 func _on_reclamar_pack() -> void:
 	var base: Resource = stacks[sel]["base"]
 	if Game.reclamar_pack_inicial(base):
-		decir("Te llevas %s y %d pociones menores. Equípala en el menú de personaje [C]." % [
-			str(base.get("nombre")), Game.PACK_POCIONES_N])
+		decir("Te llevas %s, el farolillo (ya puesto), %d carbones y %d pociones menores. Equipa el arma en el menú de personaje [C]." % [
+			str(base.get("nombre")), Game.PACK_CARBON_N, Game.PACK_POCIONES_N])
 	else:
 		decir("El pack ya estaba reclamado.", false)
 	sel = 0

@@ -94,8 +94,23 @@ func al_cerrar() -> void:
 func build() -> void:
 	if not Game.tienda_t2_abierta():
 		_tier = 1
-	MenuScaffold.subpestanas(t.barra_sub, SUBS, SUBS_ICONOS, _sub, _on_sub)
-	t.titulo_seccion(SUBS[_sub] + ("  ·  T2" if _tier >= 2 and _sub != SUB_COMIDA else ""))
+	# PRIMERO EL MOSTRADOR, en su fila de iconos encima de las subpestañas (lo pidio el usuario: antes era
+	# un par de chips abajo, lejos de lo que cambia). Sin el Rey Slime muerto no hay nada que elegir.
+	if Game.tienda_t2_abierta():
+		MenuScaffold.subpestanas(t.barra_tier, ["Mostrador T1", "Mostrador T2"], ["tier_1", "tier_2"],
+			_tier - 1, _on_tier)
+	# La COMIDA solo en el T1: no hay comida T2 que vender (una cebolla es una cebolla).
+	var subs: Array = _subs_visibles()
+	if not subs.has(_sub):
+		_sub = SUB_ARMAS
+	var nombres: Array = []
+	var iconos: Array = []
+	for i in subs:
+		nombres.append(SUBS[i])
+		iconos.append(SUBS_ICONOS[i])
+	MenuScaffold.subpestanas(t.barra_sub, nombres, iconos, subs.find(_sub),
+		func(i: int): _on_sub(int(subs[i])))
+	t.titulo_seccion(SUBS[_sub] + ("  ·  T2" if _tier >= 2 else ""))
 	var todos: Array = _recoger()
 	t.stacks = t.orden.aplicar(clave(), todos, self, por_defecto())
 	var piezas: Array = []
@@ -111,6 +126,22 @@ func _on_sub(i: int) -> void:
 		return
 	_sub = i
 	t.cambiar_pantalla()
+
+
+func _on_tier(i: int) -> void:
+	if i + 1 == _tier:
+		return
+	_tier = i + 1
+	t.cambiar_pantalla()
+
+
+func _subs_visibles() -> Array:
+	var out: Array = []
+	for i in SUBS.size():
+		if i == SUB_COMIDA and _tier >= 2:
+			continue
+		out.append(i)
+	return out
 
 
 func _recoger() -> Array:
@@ -210,21 +241,9 @@ func grupos() -> Array:
 	return []
 
 
-# El selector del mostrador, solo cuando el Rey Slime ya ha caido. En la Comida no pinta nada.
-func pie_extra(barra: HBoxContainer) -> void:
-	if not Game.tienda_t2_abierta() or _sub == SUB_COMIDA:
-		return
-	for tier in [1, 2]:
-		var b := Button.new()
-		b.text = "Mostrador T%d" % tier
-		b.toggle_mode = true
-		b.button_pressed = tier == _tier
-		MenuScaffold.estilo_chip(b, tier == _tier)
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_PASTILLA)
-		b.pressed.connect(func():
-			_tier = tier
-			t.cambiar_pantalla())
-		barra.add_child(b)
+# El mostrador T1/T2 se elige ahora en su fila de arriba (ver build): aqui abajo no queda nada.
+func pie_extra(_barra: HBoxContainer) -> void:
+	pass
 
 
 # ============================================================

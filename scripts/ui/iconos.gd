@@ -464,6 +464,32 @@ static func _capsula(c: CanvasItem, a: Vector2, b: Vector2, grosor: float, col: 
 # ============================================================
 
 # --- TODO (el primero de cada fila de filtros): cuatro celdas, o sea "la rejilla entera" ---
+# --- TIER DEL MOSTRADOR (la tienda): el rombo de la muesca de las celdas con su numero dentro ---
+# El mismo idioma que la esquina de las celdas, donde el tier ya se lee como "numero en su chaflan":
+# asi la pestaña del mostrador T2 dice lo mismo que la muesca "2" de lo que vende.
+static func tier_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_tier_n(c, pos, lado, col, "1")
+
+
+static func tier_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_tier_n(c, pos, lado, col, "2")
+
+
+static func _tier_n(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: String) -> void:
+	var g: float = lado * 0.08
+	var ctr: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
+	var r: float = lado * 0.40
+	var pts := PackedVector2Array([ctr + Vector2(0, -r), ctr + Vector2(r, 0), ctr + Vector2(0, r),
+		ctr + Vector2(-r, 0), ctr + Vector2(0, -r)])
+	c.draw_polyline(pts, col, g, true)
+	var fuente: Font = ThemeDB.fallback_font
+	var tam: int = int(lado * 0.46)
+	var txt: String = "T" + n
+	var ancho: float = fuente.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	c.draw_string(fuente, Vector2(ctr.x - ancho * 0.5, ctr.y + float(tam) * 0.36), txt,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, col)
+
+
 static func todo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 	var g: float = lado * 0.09
 	var l: float = lado * 0.26

@@ -526,11 +526,11 @@ func _taller_listo() -> void:
 		0:
 			_taller = 2
 			_pedir_taller()
-			MenuScaffold.nota(t._header, "Abriendo el baúl de materiales…")
+			t.decir("Abriendo el baúl de materiales…")
 		2:
-			MenuScaffold.nota(t._header, "Abriendo el baúl de materiales…")
+			t.decir("Abriendo el baúl de materiales…")
 		-1:
-			MenuScaffold.nota(t._header, "Tu compañero está usando el baúl de materiales en el taller: por ahora solo sale lo del cofre.")
+			t.decir("Tu compañero está usando el baúl de materiales en el taller: por ahora solo sale lo del cofre.", false)
 
 
 func _pedir_taller() -> void:
@@ -541,6 +541,8 @@ func _pedir_taller() -> void:
 		_taller = 0
 		return
 	_taller = 1 if ok else -1
+	if ok:
+		t.decir("")   # fuera el "Abriendo el baúl…"
 	t.rebuild()
 
 

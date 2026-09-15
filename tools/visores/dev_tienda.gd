@@ -38,9 +38,15 @@ func _ready() -> void:
 
 	var men: CanvasLayer = preload("res://scripts/ui/shop_menu.gd").new()
 	add_child(men)
+	Game.pack_inicial_reclamado = false
 	men.abrir()
 	var V = men.vender
 	var C = men.comprar
+
+	print("=== PACK INICIAL ===")
+	_ok("con el pack sin reclamar, la tienda abre en el pack", men._tab == men.TAB_PACK)
+	await get_tree().process_frame
+	await _captura("pack")
 
 	print("=== VENDER: sale todo lo que tienes ===")
 	await _ir(men, men.TAB_VENDER, V, V.SUB_BOTIN)
@@ -125,7 +131,9 @@ func _ready() -> void:
 	print("\n=== COMPRAR ===")
 	for tier in [1, 2]:
 		C._tier = tier
-		for sub in C.SUBS.size():
+		if tier == 2:
+			_ok("el mostrador T2 no enseña Comida", not C._subs_visibles().has(C.SUB_COMIDA))
+		for sub in C._subs_visibles():
 			await _ir(men, men.TAB_COMPRAR, C, sub)
 			var nombre: String = C.SUBS[sub]
 			_ok("T%d %s no está vacía" % [tier, nombre], not men.stacks.is_empty())
