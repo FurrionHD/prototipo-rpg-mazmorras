@@ -60,7 +60,9 @@ const MAX_JUGADORES := 4
 # 11: las peleas las ejecutan los TRABAJADORES DE PELEA (RPC nuevos en Net.peleas y en los trabajadores, el
 #     saludo del trabajador lleva su pid) y el lote de desgaste trae uid, durabilidad y pasivas. Un build
 #     del 10 montaria la pelea en su PC mientras el otro la espera en un trabajador.
-const PROTOCOLO := 11
+# 12: el corcho de pesca viaja como modo (int: nada / visible / pescando) en vez de bool; los aliados de la
+#     instantanea del combate llevan los numeros de su ficha de detalle.
+const PROTOCOLO := 12
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

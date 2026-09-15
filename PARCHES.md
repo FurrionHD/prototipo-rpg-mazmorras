@@ -2,6 +2,43 @@
 
 ---
 
+# v0.13.1 — «Todos a una» (arreglos)
+
+Lo que salió jugando la 0.13.0 en compañía.
+
+---
+
+## 🔧 Arreglos
+
+**La ficha de detalle del combate en compañía** enseñaba Defensa 0, Velocidad 0 y Vel. recitado 0. Era
+solo lo que se pintaba: la armadura sí se aplicaba (comprobado número a número). Ahora enseña los de verdad.
+
+**Salir del piso con un enemigo encima** ya no le mete la pelea a tu compañero.
+
+**Las embestidas de los enemigos** ya no se oyen igual de fuerte en la otra punta del piso: suenan según lo
+lejos que estén.
+
+**Pesca en compañía**: el hilo del otro ya no desaparece cuando le pica, y **los peces ya no se quedan
+temblando** contra la orilla del lago.
+
+**El mapa** ya no enseña dos lagos donde hay uno (se corrige solo al volver a pasar por el piso).
+
+## ⚖️ Balance
+
+**Bastones y varitas**: el T1 no cambia; del T2 en adelante hacen un 25% menos de daño mágico.
+
+**El bastón recita más despacio** en todos los tiers.
+
+**Los cristales de los pisos 7 a 12** bajan un nivel (el del Minotauro no cambia).
+
+## 🪶 Y además
+
+**Un puntero propio**: una pluma.
+
+**Hay que tener todos la misma versión** para jugar juntos: con la 0.13.0 no se puede entrar.
+
+---
+
 # v0.13.0 — «Todos a una»
 
 Jugar acompañado tenía una pega de fondo: cada ordenador llevaba su parte de la mazmorra y de las
