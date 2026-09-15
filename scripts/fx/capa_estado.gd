@@ -425,18 +425,27 @@ static func _raiz_en(ci: CanvasItem, base: Vector2, dir: Vector2, largo: float, 
 
 # Una banda de niebla con las dos orillas onduladas. Se recorta a la caja por arriba y por abajo
 # para que ninguna se salga de la tarjeta.
+#
+# VA POR TROZOS y no como un poligono entero. Recortada contra el borde, la banda se aplasta (las dos
+# orillas en la misma y) y draw_colored_polygon no sabe triangular eso: escupia "Invalid polygon
+# data" en cada fotograma mientras entraba o salia una vedija (cientos de errores en la pelea del Rey
+# Slime, playtest del 15/09). draw_primitive no triangula, y los trozos sin alto ni se pintan.
 func _vedija(y0: float, alto: float, fase: float, col: Color) -> void:
-	var pts := PackedVector2Array()
 	var n := 14
+	var arriba := PackedVector2Array()
+	var abajo := PackedVector2Array()
 	for i in n + 1:
 		var u: float = float(i) / float(n)
-		pts.append(Vector2(u * size.x,
-			clampf(y0 + sin(u * 5.0 + fase) * 3.5, 0.0, size.y)))
-	for i in n + 1:
-		var u2: float = 1.0 - float(i) / float(n)
-		pts.append(Vector2(u2 * size.x,
-			clampf(y0 + alto + sin(u2 * 4.0 - fase * 1.3) * 4.0, 0.0, size.y)))
-	draw_colored_polygon(pts, col)
+		var ya: float = clampf(y0 + sin(u * 5.0 + fase) * 3.5, 0.0, size.y)
+		var yb: float = clampf(y0 + alto + sin(u * 4.0 - fase * 1.3) * 4.0, 0.0, size.y)
+		arriba.append(Vector2(u * size.x, ya))
+		abajo.append(Vector2(u * size.x, maxf(yb, ya)))
+	var cols := PackedColorArray([col, col, col, col])
+	for i in n:
+		if abajo[i].y - arriba[i].y < 0.01 and abajo[i + 1].y - arriba[i + 1].y < 0.01:
+			continue
+		draw_primitive(PackedVector2Array([arriba[i], arriba[i + 1], abajo[i + 1], abajo[i]]), cols,
+			PackedVector2Array())
 
 
 # El contorno de la tarjeta con las esquinas redondeadas, como poligono.

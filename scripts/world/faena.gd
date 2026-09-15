@@ -372,7 +372,9 @@ static func _sacudir(n: Node2D, fuerza: float) -> void:
 	if not n.has_meta("faena_reposo"):
 		n.set_meta("faena_reposo", n.position)
 	var base: Vector2 = n.get_meta("faena_reposo")
-	var viejo = n.get_meta("faena_temblor", null)
+	# has_meta antes: get_meta con null de respaldo cuenta como "sin respaldo" y escupe un ERROR la
+	# primera vez (salia en cada desuello del playtest del 15/09).
+	var viejo = n.get_meta("faena_temblor") if n.has_meta("faena_temblor") else null
 	if viejo is Tween and (viejo as Tween).is_valid():
 		(viejo as Tween).kill()
 	n.position = base
