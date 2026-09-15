@@ -75,7 +75,9 @@ const MAX_CONEXIONES := 32
 #     tick de enemigos trae un sexto campo (contador de embestidas); la instantanea del combate lleva el
 #     registro como Array de frases nuevas + "logn" (antes un String con la cola) y hay RPC nuevos para
 #     pedir el registro entero.
-const PROTOCOLO := 15
+# 16: sacar del cofre del hogar (equipo y consumibles) lleva "vender" en sus RPC, para vender desde la
+#     tienda. Un build del 15 no casaria los argumentos y la peticion se perderia.
+const PROTOCOLO := 16
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -191,6 +193,9 @@ signal guardado_respondido(ok: bool)
 # los menus del pueblo abiertos se re-dibujan al oirlo (hoy la UI solo se refresca por accion
 # propia; en multi el OTRO puede cambiar el estado y hay que enterarse).
 signal hogar_cambiado()
+# Una venta desde el cofre del hogar ya cobrada (en multi llega tarde: la concede el host). La escucha
+# la tienda para decir lo que has cobrado.
+signal venta_cofre(texto: String)
 
 # ¿Soy un CLIENTE en sesion? (uso el almacen del host via mirror). El host y el modo un jugador
 # usan Game.* directo.

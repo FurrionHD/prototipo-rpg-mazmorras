@@ -6131,9 +6131,18 @@ func quitar_consumible(c: Resource, n: int) -> int:
 		return 0
 	if tengo - quita <= 0:
 		consumables.erase(c)
+		_soltar_cebo_si_era(c)
 	else:
 		consumables[c] = tengo - quita
 	return quita
+
+# Si se acaba el cebo que llevas en el anzuelo, fuera del anzuelo tambien: dejarlo puesto seguia
+# atrayendo peces con un cebo que ya no tienes. Va AQUI, en los dos sitios por donde sale un consumible
+# (quitar y gastar), porque el cebo se iba por caminos que no lo miraban: venderlo en la tienda o
+# meterlo en el cofre del hogar.
+func _soltar_cebo_si_era(c: Resource) -> void:
+	if c != null and cebo_activo == c:
+		cebo_activo = null
 
 # Total de pociones en el inventario (para el contador del HUD).
 func consumibles_total() -> int:
@@ -6150,6 +6159,7 @@ func gastar_consumible(c: ConsumableData) -> bool:
 	n -= 1
 	if n <= 0:
 		consumables.erase(c)
+		_soltar_cebo_si_era(c)
 	else:
 		consumables[c] = n
 	return true
@@ -8912,10 +8922,17 @@ func _sacar_del_hogar(modelo: Resource) -> Resource:
 	var mm := modelo as MaterialItem
 	for i in almacen_materiales.size():
 		var m := almacen_materiales[i]
-		if m.data == mm.data and m.calidad == mm.calidad:
+		if _mismo_material(m, mm):
 			almacen_materiales.remove_at(i)
 			return m
 	return null
+
+# Dos unidades de material son la MISMA a efectos de vender/soltar: misma especie, calidad y TALLA. La
+# talla faltaba: los menus agrupan los peces por talla (valen distinto, ver MaterialItem.valor_estimado)
+# pero aqui se sacaba cualquiera de la especie, asi que vendiendo el monton de 12 cm podia irse el trofeo
+# de 30 y cobrar otra cosa de lo anunciado. roundi, igual que la clave de los montones.
+func _mismo_material(a: MaterialItem, b: MaterialItem) -> bool:
+	return a.data == b.data and a.calidad == b.calidad and roundi(a.cm) == roundi(b.cm)
 
 # Lo que te pagan por una poción/grimorio: la misma fraccion que por el equipo. No van al
 # mostrador de recompra (son apilables y el tendero los vende de serie: si te arrepientes,
@@ -11580,7 +11597,7 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 		var mm := modelo as MaterialItem
 		for i in materiales.size():
 			var m := materiales[i]
-			if m.data == mm.data and m.calidad == mm.calidad:
+			if _mismo_material(m, mm):
 				materiales.remove_at(i)
 				return m
 		# Y LA CARBONERA, que es otro saco. El carbon vive fuera de 'materiales' (no pesa, no va al
@@ -11589,7 +11606,7 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 		# buscaba donde esta. Al recogerlo, guardar_material() ya lo devuelve solo a la carbonera.
 		for i in carbon.size():
 			var c2 := carbon[i]
-			if c2.data == mm.data and c2.calidad == mm.calidad:
+			if _mismo_material(c2, mm):
 				carbon.remove_at(i)
 				return c2
 	elif modelo is ConsumableData:
@@ -11599,12 +11616,9 @@ func _sacar_de_bolsa(modelo: Resource) -> Resource:
 		# Como el .tres es compartido, el pickup no puede guardar estado por unidad; tampoco lo
 		# necesita.
 		var cd := modelo as ConsumableData
+		# Si era el ultimo cebo puesto, quitar_consumible ya lo saca del anzuelo.
 		if quitar_consumible(cd, 1) <= 0:
 			return null
-		# Si sueltas el ultimo cebo, se queda tambien fuera del anzuelo: dejarlo puesto seguiria
-		# atrayendo peces con un cebo que ya no tienes.
-		if cd.es_cebo() and cebo_activo == cd and int(consumables.get(cd, 0)) <= 0:
-			cebo_activo = null
 		return cd
 	return null
 

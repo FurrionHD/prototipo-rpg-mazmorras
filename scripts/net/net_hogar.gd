@@ -369,23 +369,26 @@ func _apuntar_en_cofre(d: Dictionary) -> void:
 
 
 # La UI llama a esta con el id de una entrada del cofre. El host la concede al que la pide.
-func sacar_de_cofre(id: int) -> void:
+# vender=true: la TIENDA. Sale del cofre por el mismo camino (manda el host, el primero se la lleva, las
+# de encargo no salen) y quien la pidio la vende al recibirla en vez de guardarla. Se vende en SU maquina
+# porque el dinero y el mostrador de recompra son suyos.
+func sacar_de_cofre(id: int, vender: bool = false) -> void:
 	if Net._soy_cliente():
-		_pedir_sacar_cofre.rpc_id(1, id)
+		_pedir_sacar_cofre.rpc_id(1, id, vender)
 	else:
-		_resolver_saca_cofre(id, 1)
+		_resolver_saca_cofre(id, 1, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_sacar_cofre(id: int) -> void:
+func _pedir_sacar_cofre(id: int, vender: bool) -> void:
 	if not Net.es_host:
 		return
-	_resolver_saca_cofre(id, multiplayer.get_remote_sender_id())
+	_resolver_saca_cofre(id, multiplayer.get_remote_sender_id(), vender)
 
 
 # Host o solitario: el primero que la pide se la lleva; el resto, silencio (ya no esta). quien=1 =
 # yo mismo (host/solitario); otro id = un cliente al que hay que enviarsela.
-func _resolver_saca_cofre(id: int, quien: int) -> void:
+func _resolver_saca_cofre(id: int, quien: int, vender: bool = false) -> void:
 	var idx := -1
 	for i in Game.cofre_equipo.size():
 		if int(Game.cofre_equipo[i]["id"]) == id:
@@ -405,15 +408,26 @@ func _resolver_saca_cofre(id: int, quien: int) -> void:
 	Game.cofre_equipo.remove_at(idx)
 	_difundir_cofre()
 	if quien == 1:
-		Game.deserializar_equipo(d)
+		_recibir_del_cofre(d, vender)
 	else:
-		_cofre_concedido.rpc_id(quien, d)
+		_cofre_concedido.rpc_id(quien, d, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _cofre_concedido(d: Dictionary) -> void:
-	Game.deserializar_equipo(d)   # se reconstruye en MI baul
+func _cofre_concedido(d: Dictionary, vender: bool) -> void:
+	_recibir_del_cofre(d, vender)
 	Net.hogar_cambiado.emit()
+
+
+# La pieza se reconstruye en MI baul; si era para vender, se vende ahi mismo (y queda en Recomprar, como
+# cualquier venta de equipo: si te equivocas, vuelve a tu baul, no al cofre).
+func _recibir_del_cofre(d: Dictionary, vender: bool) -> void:
+	var item: Resource = Game.deserializar_equipo(d)
+	if not vender or item == null:
+		return
+	var nombre: String = Game.item_display_name(item)
+	var cobrado: int = Game.vender_equipo(item)
+	Net.venta_cofre.emit("Vendes %s por %d monedas." % [nombre, cobrado])
 
 
 func _difundir_cofre() -> void:
@@ -843,20 +857,21 @@ func _apuntar_consumible(ruta: String, n: int) -> void:
 	_difundir_cofre_consumibles()
 
 
-func sacar_consumible_cofre(ruta: String, n: int) -> void:
+# vender=true: la TIENDA, igual que sacar_de_cofre.
+func sacar_consumible_cofre(ruta: String, n: int, vender: bool = false) -> void:
 	if Net._soy_cliente():
-		_pedir_sacar_consumible.rpc_id(1, ruta, n)
+		_pedir_sacar_consumible.rpc_id(1, ruta, n, vender)
 	else:
-		_resolver_saca_consumible(ruta, n, 1)
+		_resolver_saca_consumible(ruta, n, 1, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_sacar_consumible(ruta: String, n: int) -> void:
+func _pedir_sacar_consumible(ruta: String, n: int, vender: bool) -> void:
 	if Net.es_host:
-		_resolver_saca_consumible(ruta, n, multiplayer.get_remote_sender_id())
+		_resolver_saca_consumible(ruta, n, multiplayer.get_remote_sender_id(), vender)
 
 
-func _resolver_saca_consumible(ruta: String, n: int, quien: int) -> void:
+func _resolver_saca_consumible(ruta: String, n: int, quien: int, vender: bool = false) -> void:
 	var hay: int = int(Game.cofre_consumibles.get(ruta, 0))
 	var da: int = mini(hay, maxi(0, n))
 	if da <= 0:
@@ -867,15 +882,29 @@ func _resolver_saca_consumible(ruta: String, n: int, quien: int) -> void:
 		Game.cofre_consumibles[ruta] = hay - da
 	_difundir_cofre_consumibles()
 	if quien == 1:
-		Game.add_consumable(load(ruta), da)
+		_recibir_consumible(ruta, da, vender)
 	else:
-		_consumible_concedido.rpc_id(quien, ruta, da)
+		_consumible_concedido.rpc_id(quien, ruta, da, vender)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _consumible_concedido(ruta: String, n: int) -> void:
-	Game.add_consumable(load(ruta), n)
+func _consumible_concedido(ruta: String, n: int, vender: bool) -> void:
+	_recibir_consumible(ruta, n, vender)
 	Net.hogar_cambiado.emit()
+
+
+# Para vender NO pasa por el inventario: add_consumable descarta tochos leidos y copias de mas, y lo que
+# ha salido del cofre tiene que cobrarse entero, unidad por unidad.
+func _recibir_consumible(ruta: String, n: int, vender: bool) -> void:
+	var c: Resource = load(ruta)
+	if not vender:
+		Game.add_consumable(c, n)
+		return
+	if not (c is ConsumableData):
+		return
+	var cobrado: int = Game.precio_venta_consumible(c) * n
+	Game.ingresar(cobrado)
+	Net.venta_cofre.emit("Vendes %d x %s por %d monedas." % [n, (c as ConsumableData).nombre, cobrado])
 
 
 func _difundir_cofre_consumibles() -> void:
