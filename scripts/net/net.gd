@@ -36,6 +36,11 @@ extends Node
 
 const PUERTO := 24567
 const MAX_JUGADORES := 4
+# CONEXIONES, que no es lo mismo que jugadores: los TRABAJADORES (uno por piso ocupado, mas los que
+# esperan peleas) tambien son clientes ENet. Mientras create_server recibia MAX_JUGADORES, dos humanos
+# con un piso y dos de pelea llenaban la sala y todo trabajador nuevo se quedaba en la puerta (playtest
+# del 15/09: del 4 al 35 "no he podido conectar"). El tope de humanos lo pone ahora _saludar.
+const MAX_CONEXIONES := 32
 
 # VERSION DEL PROTOCOLO. Sube cuando cambia lo que viaja en el saludo (o lo que significa).
 #
@@ -369,7 +374,7 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 		return ERR_UNAVAILABLE
 	var piso_dentro = null if _en_el_pueblo() else _piso_listo_para_sesion()
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(puerto, MAX_JUGADORES)
+	var err := peer.create_server(puerto, MAX_CONEXIONES)
 	if err != OK:
 		estado_cambiado.emit("No se pudo abrir el servidor (puerto %d ocupado?)" % puerto)
 		return err
@@ -828,6 +833,17 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 		estado_cambiado.emit("Rechazado: version de juego distinta (la suya %d, la mia %d)." % [
 			protocolo, PROTOCOLO])
 		await _echar(quien, "No coincide la versión del juego: tenéis que tener el mismo build.")
+		return
+	# EL TOPE DE HUMANOS. Antes lo ponia ENet de rebote (create_server con MAX_JUGADORES); ahora ENet
+	# deja sitio a los trabajadores y la cuenta se hace aqui: yo, los que ya estan y los que estan en
+	# la puerta creando personaje.
+	var humanos := 1 + _en_la_puerta.size()
+	for pid in _peers:
+		if not es_trabajador(pid) and not _en_la_puerta.has(pid):
+			humanos += 1
+	if humanos >= MAX_JUGADORES:
+		estado_cambiado.emit("Rechazado: la sala ya tiene %d jugadores." % MAX_JUGADORES)
+		await _echar(quien, "La sala está llena.")
 		return
 
 	if mundo_compartido:

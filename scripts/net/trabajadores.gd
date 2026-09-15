@@ -35,6 +35,11 @@ const ARG := "trabajador"
 const RESERVA := 1
 # Si un trabajador lanzado no se ha presentado en este tiempo, se da por perdido (no arranco, se colgo).
 const PLAZO_ARRANQUE := 30.0
+# Tantos seguidos sin presentarse y se deja de lanzar: algo impide conectar y relanzar cada 30 s solo
+# fabrica procesos (el 15/09 llegaron al 35). Se prueba uno cada ESPERA_TRAS_FALLOS, y en cuanto se
+# presenta alguno se vuelve al ritmo normal.
+const FALLOS_PARA_PARAR := 3
+const ESPERA_TRAS_FALLOS := 120.0
 # Cuanto aguanta el host a un trabajador que no contesta antes de darlo por caido (ver _saludar_trabajador).
 const TIMEOUT_MIN_MS := 2000
 const TIMEOUT_MAX_MS := 5000
@@ -61,6 +66,8 @@ var _peleando: Dictionary = {}    # peer_id -> true: ejecutando una pelea ahora 
 # pruebas para tirar SOLO al dueño del piso y ver que la pelea de otro trabajador sigue.
 var _pid_de: Dictionary = {}
 var _n_lanzados: int = 0          # para numerar los ficheros de registro
+var _fallos_seguidos: int = 0     # lanzados que no llegaron, desde el ultimo que si (ver FALLOS_PARA_PARAR)
+var _reintento_en_marcha := false
 
 # --- TRABAJADOR ---
 var _mi_token := ""
@@ -206,6 +213,7 @@ func al_cerrar_sala() -> void:
 	_peleando.clear()
 	_pid_de.clear()
 	_pendientes.clear()
+	_fallos_seguidos = 0
 	_token = ""
 
 
@@ -219,6 +227,8 @@ func _libres() -> int:
 
 func _rellenar_reserva() -> void:
 	if not Net.es_host or _token == "":
+		return
+	if _fallos_seguidos >= FALLOS_PARA_PARAR:
 		return
 	while _libres() + _pendientes.size() < RESERVA:
 		if not _lanzar():
@@ -253,6 +263,19 @@ func _plazo_de_arranque(n: int) -> void:
 	if _pendientes.has(n):
 		_pendientes.erase(n)
 		push_warning("[trabajadores] el trabajador %d no se presento a tiempo" % n)
+		_fallos_seguidos += 1
+		if _fallos_seguidos >= FALLOS_PARA_PARAR:
+			if _reintento_en_marcha:
+				return   # otro plazo vencido ya esta esperando para probar: con uno basta
+			_reintento_en_marcha = true
+			push_warning("[trabajadores] %d seguidos sin llegar: pruebo otro dentro de %d s"
+				% [_fallos_seguidos, int(ESPERA_TRAS_FALLOS)])
+			await get_tree().create_timer(ESPERA_TRAS_FALLOS).timeout
+			_reintento_en_marcha = false
+			if _token == "":
+				return   # la sala se cerro mientras tanto
+			# Uno solo de prueba: si tampoco llega, vuelve a caer aqui y espera otra vez.
+			_fallos_seguidos = FALLOS_PARA_PARAR - 1
 		_rellenar_reserva()
 
 
@@ -266,6 +289,7 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 		return
 	if not _pendientes.is_empty():
 		_pendientes.pop_front()
+	_fallos_seguidos = 0
 	_estado[quien] = 0
 	_pid_de[quien] = pid
 	# Si se CUELGA o lo matan, que se note pronto. Por defecto ENet tarda mas de 15 s en dar por muerta

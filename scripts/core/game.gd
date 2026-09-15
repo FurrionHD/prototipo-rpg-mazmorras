@@ -13232,7 +13232,11 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	var player_cs: Array = []
 	for pj in pjs:
 		player_cs.append(crear_player_combatant(pj))
-	_active_player_pjs = pjs
+	# UNA COPIA, no la lista que me pasan. unir_aliado_al_combate le hace append a _active_player_pjs,
+	# y abrir_pelea_de_fichas se guarda ESA MISMA lista como "los dobles del primer humano": cada uno
+	# que se unia pasaba tambien por suyo, y al cerrar se le mandaba su desgaste al que abrio la pelea
+	# (el "desgaste sin dueño" del playtest del 15/09).
+	_active_player_pjs = pjs.duplicate()
 	_active_player_cs = player_cs
 	var player_c: Combatant = player_cs[0]   # el lider (el modo prueba de dev se calibra con el)
 
