@@ -720,7 +720,7 @@ func _barras(c: Combatant) -> void:
 
 
 # Ataque total (raw, sin motion value: ese se aplica por golpe) igual que la ficha del menu C.
-func _atk_total(c: Combatant) -> float:
+static func _atk_total(c: Combatant) -> float:
 	return (c.base_attack + c.ataque_arma) \
 		* StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
@@ -763,23 +763,31 @@ func _factor_resistencia(c: Combatant) -> float:
 #
 # NADA puede quedar por debajo del boton de la lupa: es el final de la lista.
 func _rejilla_stats(c: Combatant) -> void:
-	var pj: PersonajeData = Game.pj_de_combatant(c)
-	MenuScaffold.fila(_panel, "Ataque", "%.0f" % _atk_total(c))
-	if pj != null:
-		MenuScaffold.fila(_panel, "Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj))
-	MenuScaffold.fila(_panel, "Defensa", "%.0f" % c.def_value())
-	MenuScaffold.fila(_panel, "Defensa mágica", "%.0f" % StatsMath.magic_jugador(
-		c.abilities_eff(), c.base_magic))
-	MenuScaffold.fila(_panel, "Velocidad", "%.0f" % c.spd())
-	MenuScaffold.fila(_panel, "Vel. recitado", "%.1f" % c.cast_spd())
+	# EN EL ESPEJO los aliados son MANIQUIES (nacen con todo a 0 y solo se les viste lo que hace falta para
+	# elegir), asi que calcular aqui enseñaba "Defensa 0 / Velocidad 0" aunque en la pelea de verdad no lo
+	# fueran. Los numeros los calcula quien ejecuta la pelea con esta misma funcion y llegan en la
+	# instantanea (combat_espejo._valores). Si aun no han llegado, se calcula sobre lo que haya.
+	var n: Array = _combat.espejo.numeros_de(c) if _combat._espejo else []
+	if n.size() < NUMEROS_TAM:
+		n = CombateDetalle.numeros_aliado(c)
+	MenuScaffold.fila(_panel, "Ataque", "%.0f" % float(n[0]))
+	if float(n[1]) >= 0.0:
+		MenuScaffold.fila(_panel, "Ataque mágico", "%.0f" % float(n[1]))
+	MenuScaffold.fila(_panel, "Defensa", "%.0f" % float(n[2]))
+	MenuScaffold.fila(_panel, "Defensa mágica", "%.0f" % float(n[3]))
+	MenuScaffold.fila(_panel, "Velocidad", "%.0f" % float(n[4]))
+	MenuScaffold.fila(_panel, "Vel. recitado", "%.1f" % float(n[5]))
 	# CRITICO FISICO Y MAGICO POR SEPARADO: son cuatro campos distintos en Combatant y el arma
 	# magica solo toca los suyos. Con uno solo, un mago no tenia forma de ver su critico de verdad.
-	MenuScaffold.fila(_panel, "Prob. crítico", _pct(_crit_fisico(c)))
-	MenuScaffold.fila(_panel, "Daño crítico", _crit_dmg_txt(c.crit_dmg))
-	MenuScaffold.fila(_panel, "Prob. crít. mágico", _pct(_crit_magico(c)))
-	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(c.crit_dmg_magico))
-	if c.mp_regen_turno > 0.0:
-		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % c.mp_regen_turno)
+	MenuScaffold.fila(_panel, "Prob. crítico", _pct(float(n[6])))
+	MenuScaffold.fila(_panel, "Daño crítico", _crit_dmg_txt(float(n[7])))
+	MenuScaffold.fila(_panel, "Prob. crít. mágico", _pct(float(n[8])))
+	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(float(n[9])))
+	if float(n[10]) > 0.0:
+		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % float(n[10]))
+	# La lupa desglosa sobre el combatiente, y en el espejo ese es el maniqui: se quedaria en ceros.
+	if _combat._espejo:
+		return
 	var lupa := Button.new()
 	lupa.text = "⌕  Información de los atributos"
 	lupa.focus_mode = Control.FOCUS_NONE
@@ -788,15 +796,28 @@ func _rejilla_stats(c: Combatant) -> void:
 	_panel.add_child(lupa)
 
 
+# LOS NUMEROS DE LA REJILLA de un aliado, en el orden en que se pintan: ataque, ataque magico (-1 si no hay
+# ficha), defensa, defensa magica, velocidad, vel. recitado, prob. critico, extra de daño critico, prob.
+# critico magico, extra de daño critico magico y regen de mana. Estatica y sin pantalla: la usa tambien
+# quien EJECUTA la pelea para mandarselos a los espejos (combat_espejo._valores).
+const NUMEROS_TAM := 11
+
+static func numeros_aliado(c: Combatant) -> Array:
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	return [_atk_total(c), MenuScaffold.dano_magico(pj) if pj != null else -1.0, c.def_value(),
+		StatsMath.magic_jugador(c.abilities_eff(), c.base_magic), c.spd(), c.cast_spd(),
+		_crit_fisico(c), c.crit_dmg, _crit_magico(c), c.crit_dmg_magico, c.mp_regen_turno]
+
+
 # El critico es un CONTEST (tu Destreza contra la Agilidad de quien recibe el golpe); aqui no hay
 # rival delante, asi que se mide contra un maniqui con TUS mismas stats, igual que el menu C.
-func _crit_fisico(c: Combatant) -> float:
+static func _crit_fisico(c: Combatant) -> float:
 	return clampf(StatsMath.crit_chance(float(c.abilities.destreza),
 		float(c.abilities.agilidad)) + c.crit_bonus_promedio() + c.crit_flat, 0.0, 1.0)
 
 
 # El magico NO se promedia por manos: loadout_mods ya suma lo del baston y lo de la varita.
-func _crit_magico(c: Combatant) -> float:
+static func _crit_magico(c: Combatant) -> float:
 	return clampf(StatsMath.crit_chance(float(c.abilities.destreza),
 		float(c.abilities.agilidad)) + c.crit_magico, 0.0, 1.0)
 

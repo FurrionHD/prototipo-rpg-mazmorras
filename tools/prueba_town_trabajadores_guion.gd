@@ -37,6 +37,22 @@ func _lineas_en_registros(texto: String) -> int:
 	return n
 
 
+# La ultima linea de los registros de los trabajadores que empieza por 'prefijo' ("" si no hay).
+func _linea_de_registros(prefijo: String) -> String:
+	var dir := OS.get_user_data_dir().path_join("logs")
+	var ultima := ""
+	for f in DirAccess.get_files_at(dir):
+		if not f.begins_with("trabajador_"):
+			continue
+		var fa := FileAccess.open(dir.path_join(f), FileAccess.READ)
+		if fa == null:
+			continue
+		for l in fa.get_as_text().split("\n"):
+			if l.begins_with(prefijo):
+				ultima = l.strip_edges()
+	return ultima
+
+
 func _trabajador_libre() -> int:
 	for w in Net._trab._estado:
 		if int(Net._trab._estado[w]) == 0:
@@ -129,6 +145,40 @@ func _ready() -> void:
 		t += 0.5
 	_ok(Net._trab.pelea_libre_en(1) not in [0, f1], "mientras peleo, entra otro a esperar la siguiente (%.1f s)" % t)
 	_ok(not Game.combate_activo(), "en mi PC no se simula ningun enemigo de la pelea")
+	# LOS DOBLES PELEAN CON MIS NUMEROS: el trabajador apunta los de cada doble al montar la pelea
+	# (Game.abrir_pelea_de_fichas); aqui se comparan con los que tendria el personaje en solitario.
+	await _esperar(1.5)   # los registros se escriben con retraso
+	var comparados := 0
+	var distintos: Array = []
+	for pj in [Game.lider()] + Game.companeros():
+		var linea := _linea_de_registros("[pelea] doble %s " % pj.uid)
+		if linea == "":
+			continue
+		comparados += 1
+		var c: Combatant = Game.crear_player_combatant(pj)
+		var mio := "def=%.3f red=%.4f spd=%.3f cast=%.3f amp=%.3f hpmax=%.2f" % [
+			c.def_value(), c.armor_reduction, c.spd(), c.cast_spd(), c.magic_amp, c.max_hp]
+		if not linea.ends_with(mio):
+			distintos.append("%s: trabajador '%s' / mi PC '%s'" % [pj.nombre, linea.get_slice(" ", 3), mio])
+	_ok(comparados > 0 and distintos.is_empty(),
+		"los dobles del trabajador pelean con mis mismos numeros (%d comparados) %s" % [comparados, "; ".join(distintos)])
+	# Y LOS ENEMIGOS con los mismos que les saldrian en mi PC (misma tirada, mutacion, jefe y piso).
+	var enem_comp := 0
+	var enem_dist: Array = []
+	for nid in Net.enemigos._enem_nodos:
+		var ne = Net.enemigos._enem_nodos[nid]
+		if not is_instance_valid(ne) or ne.data == null:
+			continue
+		var linea_e := _linea_de_registros("[pelea] enemigo %d " % int(nid))
+		if linea_e == "":
+			continue
+		enem_comp += 1
+		var ce: Combatant = ne.data.crear_combatant(ne.current_t, bool(ne.mutante), bool(ne.es_boss))
+		var mio_e := "atk=%.3f def=%.3f spd=%.3f hpmax=%.2f piso=%d" % [ce.atk(), ce.def_value(), ce.spd(), ce.max_hp, Game.current_floor]
+		if not linea_e.ends_with(mio_e):
+			enem_dist.append("%d: trabajador '%s' / mi PC '%s'" % [int(nid), linea_e.substr(linea_e.find("atk=")), mio_e])
+	_ok(enem_comp > 0 and enem_dist.is_empty(),
+		"los enemigos del trabajador tienen los mismos numeros que en mi PC (%d comparados) %s" % [enem_comp, "; ".join(enem_dist)])
 
 	# 5b) La juego desde el espejo (Atacar en cada turno mio) hasta que acabe y pulso Continuar: el
 	# trabajador tiene que cerrarla SOLO (no tiene quien pulse) y devolverme lo mio.

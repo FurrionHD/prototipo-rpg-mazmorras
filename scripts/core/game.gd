@@ -12957,6 +12957,23 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 		dobles_por_peer[peer] = r["dobles"]
 		huecos[peer] = r["idxs"]
 	Net.peleas.adoptar_pelea(dobles_por_peer)
+	# LOS NUMEROS CON LOS QUE PELEA CADA DOBLE, al registro de quien ejecuta la pelea. Es lo unico que dice, sin
+	# ventana, si un personaje entro con menos defensa de la que tiene en casa (ver prueba_town_trabajadores).
+	for i in _active_player_cs.size():
+		var cc: Combatant = _active_player_cs[i]
+		var pp: PersonajeData = _active_player_pjs[i] if i < _active_player_pjs.size() else null
+		if cc != null and pp != null:
+			print("[pelea] doble %s def=%.3f red=%.4f spd=%.3f cast=%.3f amp=%.3f hpmax=%.2f" % [
+				String(pp.uid), cc.def_value(), cc.armor_reduction, cc.spd(), cc.cast_spd(), cc.magic_amp, cc.max_hp])
+	# Y los de cada ENEMIGO: se montan desde el nodo (espejo) con su tirada, mutacion y piso; si algo no viaja,
+	# aqui se ve que pega o aguanta distinto que en casa del jugador.
+	var pantalla_e: Array = combat.get("_enemies")
+	for i in mini(_active_enemies.size(), pantalla_e.size()):
+		var ne = _active_enemies[i]
+		var ce: Combatant = pantalla_e[i]
+		if is_instance_valid(ne) and ne.has_meta("net_id") and ce != null:
+			print("[pelea] enemigo %d atk=%.3f def=%.3f spd=%.3f hpmax=%.2f piso=%d" % [
+				int(ne.get_meta("net_id")), ce.atk(), ce.def_value(), ce.spd(), ce.max_hp, current_floor])
 	return huecos
 
 

@@ -39,8 +39,29 @@ func _ready() -> void:
 		else:
 			traza = await _jugar(esc)
 		fallos += _guardar_o_comparar(esc, traza)
+	fallos += _numeros_fallos
 	print("[huella] RESULTADO: ", "TODO IGUAL" if fallos == 0 else "CAMBIA %d" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
+
+
+# Aparte de la traza: la ficha de detalle del ESPEJO tiene que enseñar los numeros de quien ejecuta la pelea
+# (no los del maniqui, que nacen a 0). No entra en las huellas grabadas; cuenta como un fallo mas.
+var _numeros_fallos := 0
+
+func _comparar_numeros(pelea: Node, espejo: Node, escenario: String) -> int:
+	var malos: Array = []
+	for i in mini((pelea.get("_aliados") as Array).size(), (espejo.get("_aliados") as Array).size()):
+		var real: Array = CombateDetalle.numeros_aliado(pelea._aliados[i])
+		var visto: Array = espejo.espejo.numeros_de(espejo._aliados[i])
+		if visto.size() != real.size():
+			malos.append("%d sin numeros" % i)
+			continue
+		for k in real.size():
+			if absf(float(real[k]) - float(visto[k])) > 0.001:
+				malos.append("%d campo %d: %.3f vs %.3f" % [i, k, real[k], visto[k]])
+				break
+	print("[huella] %s: numeros del detalle en el espejo %s" % [escenario, "IGUALES" if malos.is_empty() else "DISTINTOS: " + ", ".join(malos)])
+	return 0 if malos.is_empty() else 1
 
 
 func _jugar(escenario: String) -> PackedStringArray:
@@ -110,6 +131,8 @@ func _jugar(escenario: String) -> PackedStringArray:
 					_traza.append("f%d PULSA %s" % [f, pulsado])
 	_apuntar(espejo if espejo != null else pelea, f)
 	_traza.append("FIN f%d estado=%d" % [f, int(pelea.get("_state"))])
+	if espejo != null:
+		_numeros_fallos += _comparar_numeros(pelea, espejo, escenario)
 	pelea.queue_free()
 	if espejo != null:
 		espejo.queue_free()
@@ -228,6 +251,8 @@ func _jugar_fichas(escenario: String) -> PackedStringArray:
 				_traza.append("f%d %d PULSA %s" % [f, quien, pulsado])
 		_apuntar(pelea, f)
 		_traza.append("FIN f%d estado=%d" % [f, int(pelea.get("_state"))])
+		for peer in red_falsa.espejos:
+			_numeros_fallos += _comparar_numeros(pelea, red_falsa.espejos[peer], escenario)
 	# Recoger lo que monto Game SIN cerrar la pelea por su camino (ese cierre mataria enemigos, tocaria
 	# fichas y mandaria lotes: no es lo que mide esta huella).
 	for peer in red_falsa.espejos:

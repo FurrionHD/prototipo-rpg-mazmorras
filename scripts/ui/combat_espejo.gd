@@ -292,7 +292,7 @@ const _LOG_COLA_ESPEJO := 12
 func instantanea() -> Dictionary:
 	# 'vel' va en CADA instantanea (no solo en el roster) para que si el dueño la cambia a mitad de
 	# pelea, al que la espeja le cambie sola. Es un float: sale mas barato que un aviso aparte.
-	return {"a": _valores(_pantalla._aliados), "e": _valores(_pantalla._enemies),
+	return {"a": _valores(_pantalla._aliados, true), "e": _valores(_pantalla._enemies),
 		"turno": _pantalla._aliados.find(_pantalla._player), "log": _cola_log(), "fin": _pantalla._state == _pantalla.State.FINISHED,
 		"rev": _rev, "vel": _pantalla._vel_pelea}
 
@@ -312,7 +312,7 @@ func _cola_log() -> String:
 # quedaba congelado con el maximo del principio: en cuanto alguien lanzaba Guardia de carne -que
 # DUPLICA max_hp en vivo- uno veia "130/150" y el otro "130/75", con la barra roja desbordada. Son
 # tres numeros mas por combatiente y ahorran una clase entera de desincronizacion.
-func _valores(lista: Array) -> Array:
+func _valores(lista: Array, aliados: bool = false) -> Array:
 	var out: Array = []
 	for c in lista:
 		# Los campos 8 y 9 son las CARGAS DE FOCO y los COOLDOWNS. Van aqui y no en el roster porque
@@ -322,9 +322,19 @@ func _valores(lista: Array) -> Array:
 		#
 		# Los cooldowns van por RUTA y solo los que estan corriendo: casi siempre es un dict vacio, asi
 		# que no engorda el paquete en el caso normal.
+		# El campo 9, solo de ALIADOS: los numeros de su ficha de detalle (ver CombateDetalle.numeros_aliado).
+		# El maniqui del espejo no tiene de donde sacarlos y pintaba "Defensa 0" aunque peleara con la suya.
 		out.append([c.current_hp, c.current_mp, c.current_energy, _pantalla.efectos._chips_de(c),
-			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas, _cds_activos(c)])
+			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas, _cds_activos(c),
+			CombateDetalle.numeros_aliado(c) if aliados and not _pantalla._espejo else []])
 	return out
+
+
+# ESPEJO: los numeros de la ficha de detalle de un aliado tal como los calculo quien ejecuta la pelea.
+var _numeros_espejo: Dictionary = {}
+
+func numeros_de(c: Combatant) -> Array:
+	return _numeros_espejo.get(c, [])
 
 
 # Los cooldowns que estan CORRIENDO, por ruta. Los de 0 no se mandan: en el caso normal esto es un
@@ -1076,6 +1086,8 @@ func _volcar(lista: Array, valores: Array) -> void:
 		# Y los COOLDOWNS, que son la otra puerta. Se reconstruyen enteros en vez de fusionar: lo que
 		# no viene en el paquete es que ya no esta corriendo, y dejarlo puesto apagaria un boton que
 		# el anfitrion ya considera listo.
+		if v.size() > 9 and not (v[9] as Array).is_empty():
+			_numeros_espejo[lista[i]] = v[9]
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for ruta in (v[8] as Dictionary):
