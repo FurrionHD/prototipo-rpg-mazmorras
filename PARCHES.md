@@ -50,6 +50,16 @@ cuanto más acorazado es lo que tienes delante. Las armas grandes se quedan con 
 
 **Un puntero propio**: una pluma.
 
+**El altar, con cara nueva.** Arriba eliges a quién le actualizas el estado, y un punto naranja marca a
+quien tiene experiencia sin consolidar. Al actualizar, las básicas enseñan en verde lo que han subido, y
+lo que sale a la luz (pasivas nuevas, desarrollos que suben de rango) aparece en una ventana aparte con su
+propio desplazamiento. A la izquierda se ve qué te falta para subir de nivel.
+
+**Subir de nivel**: las habilidades de desarrollo ya no se salen de la pantalla cuando hay muchas. Van en
+tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vuelves al altar.
+
+**La corona del que va en cabeza** se ve por fin en los retratos de arriba (la tapaba el pelo).
+
 **Hay que tener todos la misma versión** para jugar juntos: con la 0.13.0 no se puede entrar (cambia la red).
 
 ---
