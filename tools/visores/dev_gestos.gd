@@ -105,8 +105,7 @@ const DE_GRUPO := ["MOLINETE", "GRITO_GUERRA", "SEGAR",
 # La lista buena es CombatFX.SOBRE_SI_MISMO: esta de aqui tiene que decir lo mismo que aquella.
 const SOBRE_MI := ["IMBUIR_FILO", "EN_GUARDIA", "DESVANECER", "VOTO_GUARDIA",
 	"FOCO_ARCANO", "VELO_UMBRIO", "PROVOCACION_FX", "GUARDIA_CARNE_FX",
-	# El MURO va aqui aunque su habilidad apunte a un aliado: el que levanta el hierro eres tu.
-	"POSTURA_RODELA", "MURO_GUARDIAN"]
+	"POSTURA_RODELA"]
 # LOS QUE SE ECHAN A LOS TUYOS. No van contra nadie: se pintan una vez SOBRE CADA ALIADO (en la
 # pelea salen de _fx_adorno recorriendo _objetivos_area_aliados, que es TU fila). Aqui se sueltan
 # sobre los cuatro de ABAJO a la vez -- con uno solo no se entiende que es de grupo, y sobre los de
@@ -118,7 +117,8 @@ const A_LOS_MIOS := ["VOZ_MANDO", "GRITO_ALIENTO", "MURO_ALIADOS", "VIENTO_LIMPI
 	"COBERTURA"]
 # Y estos van a UN SOLO compañero (objetivo_aliado = 1), no a todos: se sueltan sobre el segundo de
 # tu fila, que es un compañero y no el que lanza.
-const A_UN_MIO := ["PURIFICAR", "CHISPA_VINCULADA", "EGIDA_MENOR", "ESCOLTA_FX"]
+# El MURO tambien, desde el 15/09/2026: el escudo sale sobre el protegido, no sobre quien lo lanza.
+const A_UN_MIO := ["PURIFICAR", "CHISPA_VINCULADA", "EGIDA_MENOR", "ESCOLTA_FX", "MURO_GUARDIAN"]
 
 var _capa: CapaHechizos
 var _titulo: Label

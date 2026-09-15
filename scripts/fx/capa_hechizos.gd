@@ -7159,7 +7159,8 @@ func _pintar_escolta(e: Dictionary) -> void:
 			Color(f.r, f.g, f.b, 0.65 * alfa * k2), maxf(1.5, caja * 0.020), true)
 
 
-# MURO. "Te plantas delante de uno de los tuyos y no te mueves." Sobre TI, aunque apunte a un aliado.
+# MURO. "Te plantas delante de uno de los tuyos y no te mueves." Sobre EL PROTEGIDO (desde el 15/09/2026:
+# la torre aparece encima de a quien defiendes, y la flecha que rebota es el golpe que ya no le llega).
 #
 # EL DIBUJO ES EL OPUESTO EXACTO DE LA RODELA, y esa es toda la idea: donde aquella gira, esta no se
 # mueve; donde aquella es pequeña, esta ocupa media tarjeta. Son el mismo objeto en sus dos extremos.

@@ -294,10 +294,9 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 # ahora cada tamaño trae lo suyo, y lo suyo tiene que VERSE distinto o vuelven a ser el mismo:
 #   POSTURA_RODELA  (pequeño) sobre TI: rodela alta y suelta, girando. La guardia que se MUEVE
 #   ESCOLTA_FX      (normal)  sobre UN aliado: dos marcas emparejadas, la tuya detras de la suya
-#   MURO_GUARDIAN   (grande)  sobre TI: la torre plantada y el paso adelante. NO sobre el protegido
-# El MURO va sobre TI aunque la habilidad apunte a un aliado, y es el unico caso asi en todo el
-# fichero: el que levanta el hierro eres tu. Pintarlo sobre el protegido -que es lo que hacia
-# mientras reusaba COBERTURA- se lee como que se tapa el solo, o sea justo lo contrario.
+#   MURO_GUARDIAN   (grande)  sobre EL PROTEGIDO: la torre plantada delante de a quien defiendes
+# Hasta el 15/09/2026 el Muro iba sobre quien lo lanzaba; el usuario pidio que el escudo saliera
+# encima del aliado defendido, que es lo que se lee como "a este le estan cubriendo".
 enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CAIDA_GOTA = 5, BARRIDO = 6, ARCO = 7, EXPLOSION = 8,
 		SPLAT = 9, ESCUPITAJO = 10, AURA = 11, VORTICE = 12, ARRASTRE = 13,
@@ -1995,11 +1994,10 @@ const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.E
 	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
 	Estilo.PROVOCACION_FX, Estilo.GUARDIA_CARNE_FX,
 	# LA POSTURA DE RODELA es tuya, como el resto de posturas de aqui arriba.
-	# Y EL MURO TAMBIEN, aunque su habilidad apunte a un ALIADO -- es el unico caso asi. El que
-	# levanta el hierro eres tu; lo que le pasa al otro es que deja de recibir, y eso no se dibuja
-	# encima suyo. Mientras reusaba COBERTURA se pintaba sobre el protegido y se leia como que el
-	# mago se tapaba solo. Si esto se saca de la lista, vuelve ese bug.
-	Estilo.POSTURA_RODELA, Estilo.MURO_GUARDIAN]
+	# EL MURO NO ESTA: va sobre el PROTEGIDO (decision del usuario del 15/09/2026). Estuvo aqui,
+	# pintado sobre quien lo lanza, para que no se leyera como que el protegido se tapaba solo; el
+	# usuario lo quiere al reves: que el escudo aparezca encima de a quien estas defendiendo.
+	Estilo.POSTURA_RODELA]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.OLA_IGNEA, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,
