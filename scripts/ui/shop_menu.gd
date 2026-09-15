@@ -49,6 +49,7 @@ var _root: Control = null
 var _header: VBoxContainer = null
 var _lista: VBoxContainer = null
 var _content: VBoxContainer = null
+var _acciones: VBoxContainer = null   # bajo la ficha, fuera de su scroll: siempre a la vista
 var _dinero_lbl: Label = null
 var _contador_lbl: Label = null
 var _aviso_lbl: Label = null
@@ -98,9 +99,26 @@ func _ready() -> void:
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.size_flags_horizontal = Control.SIZE_FILL
 	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
-	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
-	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	var scroll_det: ScrollContainer = _content.get_parent() as ScrollContainer
+	scroll_det.size_flags_horizontal = Control.SIZE_FILL
+	scroll_det.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
 	scroll.resized.connect(_on_lista_redimensionada)
+
+	# LA COLUMNA DERECHA: la ficha con su scroll y, DEBAJO Y FUERA DEL SCROLL, las acciones (cantidad,
+	# total, Vender/Comprar). La ficha de un arma son quince filas: con los botones al final de ella se
+	# quedaban por debajo del borde y habia que bajar a buscarlos para cada venta (visto en captura).
+	var split_der: BoxContainer = scroll_det.get_parent()
+	split_der.remove_child(scroll_det)
+	var col_der := VBoxContainer.new()
+	col_der.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_der.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	col_der.add_theme_constant_override("separation", 6)
+	split_der.add_child(col_der)
+	col_der.add_child(scroll_det)
+	scroll_det.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_acciones = VBoxContainer.new()
+	_acciones.add_theme_constant_override("separation", 4)
+	col_der.add_child(_acciones)
 
 	# LA COLUMNA IZQUIERDA: subpestañas, buscador, rejilla, bandeja de la cesta y barra de orden. Todo
 	# lo que manda sobre la REJILLA va en su columna, fuera del scroll para que no se vaya al bajar.
@@ -284,7 +302,7 @@ func _rebuild_real() -> void:
 	_dinero_lbl.text = "%d monedas" % Game.money
 	contador("")
 	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
-	for zona in ([_header, _content] if _solo_seleccion else [_header, _lista, _content]):
+	for zona in ([_header, _content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
 	# Pestañas que solo existen cuando tienen algo dentro: recompra y pack inicial.
 	var visible_tab := {TAB_RECOMPRAR: not Game.recompra.is_empty(), TAB_PACK: not Game.pack_inicial_reclamado}
@@ -698,33 +716,38 @@ func note(vb: VBoxContainer, txt: String) -> void:
 #  LA FILA DE LA OPERACION: cantidad, total y los dos botones
 #
 #  "Cantidad  −  n  +"  ·  "Total: 420 monedas"  ·  [A la cesta] [Vender]
+#  Va en el PIE FIJO de la ficha (_acciones), no dentro de ella: siempre a la vista, sin bajar.
 #  El numero vale en cuanto lo escribes (ver MenuScaffold.stepper). El total se reescribe EN SITIO, sin
 #  rehacer el panel, que es la trampa que avisa el propio stepper.
+#  Con UNA sola unidad (una pieza de equipo) no hay cantidad que elegir y la fila no sale.
 #  'en_cesta' = lo que ya hay apuntado de este monton: el stepper arranca ahi, y el boton de la cesta
 #  pasa a "Cambiar en la cesta" (poner otra vez REEMPLAZA, no suma).
 # ============================================================
 
-func fila_accion(vb: VBoxContainer, maximo: int, precio: int, verbo: String, al_hacer: Callable,
+func fila_accion(maximo: int, precio: int, verbo: String, al_hacer: Callable,
 		al_cesta: Callable, en_cesta: int, activo: bool = true) -> void:
+	var vb: VBoxContainer = _acciones
+	vb.add_child(HSeparator.new())
 	maximo = maxi(1, maximo)
 	if cant < 1:
 		cant = en_cesta if en_cesta > 0 else 1
 	cant = clampi(cant, 1, maximo)
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	var k := Label.new()
-	k.text = "Cantidad"
-	k.custom_minimum_size = Vector2(90, 0)
-	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	fila.add_child(k)
 	var total := Label.new()
 	total.add_theme_color_override("font_color", AMBAR)
 	total.add_theme_font_size_override("font_size", 18)
 	total.text = "%d monedas" % (precio * cant)
-	MenuScaffold.stepper(fila, cant, 1, maximo, func(n: int) -> void:
-		cant = n
-		total.text = "%d monedas" % (precio * n))
-	vb.add_child(fila)
+	if maximo > 1:
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 8)
+		var k := Label.new()
+		k.text = "Cantidad"
+		k.custom_minimum_size = Vector2(90, 0)
+		k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+		fila.add_child(k)
+		MenuScaffold.stepper(fila, cant, 1, maximo, func(n: int) -> void:
+			cant = n
+			total.text = "%d monedas" % (precio * n))
+		vb.add_child(fila)
 	var fila_total := HBoxContainer.new()
 	var kt := Label.new()
 	kt.text = "Total"
@@ -802,12 +825,12 @@ func _preview_recompra(vb: VBoxContainer) -> void:
 	vb.add_child(HSeparator.new())
 	row(vb, "Precio", "%d monedas" % precio, AMBAR)
 	note(vb, "Vuelve tal y como estaba, con su tier y sus mejoras, por lo mismo que te pagó. Al pasarse de %d, lo más viejo se pierde." % Game.RECOMPRA_MAX)
-	var botones := HBoxContainer.new()
-	botones.alignment = BoxContainer.ALIGNMENT_END
-	vb.add_child(botones)
-	MenuScaffold.pastilla(botones, "Recomprar", _on_recomprar, true, llego)
 	if not llego:
 		note(vb, "No te llega.")
+	var botones := HBoxContainer.new()
+	botones.alignment = BoxContainer.ALIGNMENT_END
+	_acciones.add_child(botones)
+	MenuScaffold.pastilla(botones, "Recomprar", _on_recomprar, true, llego)
 
 
 func _on_recomprar() -> void:
@@ -844,7 +867,7 @@ func _preview_pack(vb: VBoxContainer) -> void:
 	note(vb, "Regalo de bienvenida, UNA sola vez: elige un arma y llévatela gratis, con %d pociones menores de propina. El bastón y la varita no entran: la magia te la pagas tú." % Game.PACK_POCIONES_N)
 	var botones := HBoxContainer.new()
 	botones.alignment = BoxContainer.ALIGNMENT_END
-	vb.add_child(botones)
+	_acciones.add_child(botones)
 	MenuScaffold.pastilla(botones, "Reclamar con esta arma", _on_reclamar_pack)
 
 

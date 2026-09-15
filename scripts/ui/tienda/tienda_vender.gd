@@ -142,7 +142,7 @@ func _ficha(vb: VBoxContainer) -> void:
 			t.note(vb, "Si te arrepientes, lo recompras por lo mismo en la pestaña Recomprar (guarda los últimos %d)." % Game.RECOMPRA_MAX)
 	if m is ConsumableData and (m as ConsumableData).es_grimorio():
 		t.note(vb, "Ojo: el tendero no vende grimorios. Uno que sueltes aquí no se recupera.")
-	t.fila_accion(vb, n, precio, "Vender",
+	t.fila_accion(n, precio, "Vender",
 		func(cuantas: int): _vender_uno(s, cuantas),
 		func(cuantas: int):
 			cesta.poner(s, cuantas)

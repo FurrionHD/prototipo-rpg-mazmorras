@@ -144,7 +144,7 @@ func _ficha(vb: VBoxContainer) -> void:
 	t.ficha_objeto(vb, s["modelo"])
 	vb.add_child(HSeparator.new())
 	t.row(vb, "Precio", "%d monedas" % precio, t.AMBAR)
-	t.row(vb, "Tienes", "%d monedas" % Game.money)
+	t.row(vb, "Tu dinero", "%d monedas" % Game.money)
 	match _sub:
 		SUB_ARMAS, SUB_ARMADURAS:
 			t.note(vb, "Sale a calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú." if _tier < 2
@@ -156,7 +156,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		SUB_COMIDA:
 			t.note(vb, "Género de la superficie, para cocinar: crudo no hace nada. La sal y lo que crece abajo no se venden aquí.")
 	var tope: int = TOPE_PUNADO if (base is ConsumableData or base is MaterialData) else TOPE_EQUIPO
-	t.fila_accion(vb, tope, precio, "Comprar",
+	t.fila_accion(tope, precio, "Comprar",
 		func(n: int): _comprar([{"base": base, "tier": int(s["tier"]), "n": n}], n, nombre_de(s)),
 		func(n: int):
 			cesta.poner(s, n)
@@ -255,7 +255,7 @@ func confirmar_cesta() -> void:
 		t.row(cuerpo, "%s  ×%d" % [nombre_corto(s), int(e["n"])], "%d monedas" % (precio_unidad(s) * int(e["n"])))
 	cuerpo.add_child(HSeparator.new())
 	t.row(cuerpo, "Total", "%d monedas" % total, t.AMBAR)
-	t.row(cuerpo, "Tienes", "%d monedas" % Game.money)
+	t.row(cuerpo, "Tu dinero", "%d monedas" % Game.money)
 	var llego: bool = Game.puede_pagar(total)
 	if not llego:
 		t.note(cuerpo, "No te llega para toda la cesta: quita algo o baja a por más cristales.")
