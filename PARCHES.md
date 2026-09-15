@@ -21,6 +21,9 @@ leer la pelea entera, dure lo que dure.
 
 **El Muro** saca el escudo sobre el compañero al que defiendes, no sobre ti.
 
+**Los golpes con escudo en compañía** (Escudazo, Muro, Cobertura…) dibujan tu escudo de verdad: con uno
+grande se veía el escudo normal.
+
 **En el inventario**, el nombre de quien lleva cada pieza sale siempre abajo y entero (antes unas veces
 arriba tapando el dibujo y otras abajo cortado).
 

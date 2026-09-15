@@ -140,6 +140,13 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	var pjd: Dictionary = d.get("pj", {})
 	if not pjd.is_empty():
 		c.pj_escaparate = Game.pj_de_dict(pjd)
+		# EL TAMAÑO DE SU ESCUDO, que es lo que decide que escudo se dibuja en sus golpes (Escudazo,
+		# Muro, Cobertura...: ver CapaHechizos._escudo_cara). En el que ejecuta la pelea lo pone
+		# Game.crear_player_combatant; el maniqui no pasa por ahi y se quedaba en -1, o sea el escudo por
+		# defecto, aunque llevara uno grande (playtest del 15/09). Sale de la ficha de escaparate, que ya
+		# trae la pieza puesta, y no hace falta mandar nada mas.
+		var off = c.pj_escaparate.equipped_off
+		c.fx_escudo = int((off as ShieldData).tamano) if off is ShieldData else -1
 	# Su cara, para el marcador de turnos: se monta aqui una vez y se cachea por maniqui.
 	var png: PackedByteArray = d.get("imagen", PackedByteArray())
 	var metal: float = float(d.get("metal", 0.0))
