@@ -886,11 +886,19 @@ static func _peso_mult(cal: int) -> float:
 static func _peor_primero(a: Dictionary, b: Dictionary) -> bool:
 	return _rango_calidad(int(a["calidad"])) < _rango_calidad(int(b["calidad"]))
 
-# LA MOCHILA LLENA SE RECORTA EN PROPORCION AL OBJETIVO. Antes se tiraba lo peor de todo junto, y si
-# el hierro pesaba mas que las hierbas volvias sin una sola piedra habiendo pedido "un poco de todo".
-# Ahora cada grupo tiene su parte del tope; lo que un grupo no llena pasa a los demas, y dentro de cada
-# grupo se deja lo peor.
+# LA MOCHILA LLENA SE RECORTA SEGUN EL OBJETIVO. Antes se tiraba lo peor de todo junto, y si el
+# hierro pesaba mas que las hierbas volvias sin una sola piedra habiendo pedido "un poco de todo".
+#
+#   1. Cada grupo llena SU PARTE: su porcentaje de la mochila, en kilos.
+#   2. Si sobra hueco (algun grupo no llego a llenar la suya), se reparte entre los que se dejaron
+#      cosas fuera, en proporcion a su porcentaje, y cada uno puede pasarse como mucho EXTRA_RECORTE
+#      de la mochila: el que pidio un 10% vuelve con un 20% como mucho, el de 60 con un 70. Lo que
+#      no quepa ni asi se queda ahi abajo. El porcentaje es lo que pediste, no una sugerencia.
+#
+# Dentro de cada grupo se queda lo MEJOR (ver _mejor_primero).
 # Devuelve {"traidas": Array, "perdido": int, "kg": float}.
+const EXTRA_RECORTE := 0.10
+
 static func recortar_por_peso(piezas: Array, tope_kg: float, grupos: Dictionary) -> Dictionary:
 	var total: float = 0.0
 	for p in piezas:
@@ -898,55 +906,79 @@ static func recortar_por_peso(piezas: Array, tope_kg: float, grupos: Dictionary)
 	if total <= tope_kg:
 		return {"traidas": piezas, "perdido": 0, "kg": total}
 
-	var por_grupo: Dictionary = {}
+	var fuera: Dictionary = {}     # grupo -> lo que aun no ha entrado, de mejor a peor
 	for p in piezas:
 		var g: int = int(p["grupo"])
-		if not por_grupo.has(g):
-			por_grupo[g] = []
-		(por_grupo[g] as Array).append(p)
+		if not fuera.has(g):
+			fuera[g] = []
+		(fuera[g] as Array).append(p)
+	for g in fuera:
+		(fuera[g] as Array).sort_custom(_mejor_primero)
 
-	var activos: Array = por_grupo.keys()
-	var restante: float = tope_kg
 	var traidas: Array = []
-	# Primero entran enteros los grupos que caben en su parte; con lo que sobra se recalcula la parte
-	# de los que quedan. Se repite hasta que ninguno cabe entero.
-	var cambio: bool = true
-	while cambio and not activos.is_empty():
-		cambio = false
-		var suma_pct: float = 0.0
-		for g in activos:
-			suma_pct += maxf(1.0, float(grupos.get(int(g), 1)))
-		for g in activos.duplicate():
-			var parte: float = restante * maxf(1.0, float(grupos.get(int(g), 1))) / suma_pct
-			var peso_g: float = 0.0
-			for p in por_grupo[g]:
-				peso_g += _peso_de(p)
-			if peso_g <= parte:
-				traidas.append_array(por_grupo[g])
-				restante -= peso_g
-				activos.erase(g)
-				cambio = true
-		if cambio:
-			continue
-	# Los que no caben: cada uno llena su parte con lo MEJOR que tiene.
-	var suma_final: float = 0.0
-	for g in activos:
-		suma_final += maxf(1.0, float(grupos.get(int(g), 1)))
-	for g in activos:
-		var parte: float = restante * maxf(1.0, float(grupos.get(int(g), 1))) / maxf(1.0, suma_final)
-		var lista: Array = (por_grupo[g] as Array).duplicate()
-		lista.sort_custom(func(a, b): return _peor_primero(b, a))
-		var llevo: float = 0.0
-		for p in lista:
-			var w: float = _peso_de(p)
-			if llevo + w > parte:
-				continue
-			llevo += w
-			traidas.append(p)
 	var kg: float = 0.0
-	for p in traidas:
-		kg += _peso_de(p)
+	# 1. Su parte.
+	for g in fuera:
+		kg += _llenar(fuera[g], tope_kg * float(grupos.get(int(g), 0)) / 100.0, traidas)
+	# 2. El hueco que sobre, a los que se dejaron cosas, con su tope de extra. Varias vueltas: lo que uno
+	# no puede coger por su tope vuelve al bote para los demas.
+	var extra: Dictionary = {}
+	for _vuelta in 6:
+		var libre: float = tope_kg - kg
+		if libre <= 0.01:
+			break
+		var quieren: Array = []
+		var suma_pct: float = 0.0
+		for g in fuera:
+			if not (fuera[g] as Array).is_empty() \
+					and float(extra.get(g, 0.0)) < tope_kg * EXTRA_RECORTE - 0.01:
+				quieren.append(g)
+				suma_pct += maxf(1.0, float(grupos.get(int(g), 0)))
+		if quieren.is_empty():
+			break
+		var cogido: float = 0.0
+		for g in quieren:
+			var hueco: float = minf(libre * maxf(1.0, float(grupos.get(int(g), 0))) / suma_pct,
+				tope_kg * EXTRA_RECORTE - float(extra.get(g, 0.0)))
+			var w: float = _llenar(fuera[g], hueco, traidas)
+			extra[g] = float(extra.get(g, 0.0)) + w
+			cogido += w
+		kg += cogido
+		if cogido <= 0.0:
+			break
 	return {"traidas": traidas, "perdido": piezas.size() - traidas.size(), "kg": kg}
+
+# Mete en `traidas` lo que quepa en `hueco` kilos, en orden, y lo saca de `restantes`. Si una pieza no
+# cabe se salta y se prueba la siguiente (una piedra pesada no deja fuera a tres hierbas que si caben).
+# Devuelve los kilos metidos.
+static func _llenar(restantes: Array, hueco: float, traidas: Array) -> float:
+	var llevo: float = 0.0
+	var i: int = 0
+	while i < restantes.size():
+		var w: float = _peso_de(restantes[i])
+		if llevo + w <= hueco:
+			llevo += w
+			traidas.append(restantes[i])
+			restantes.remove_at(i)
+		else:
+			i += 1
+	return llevo
+
+# QUE ES "LO MEJOR" dentro de un grupo:
+#   - CRISTALES: lo que mas DINERO da por kilo. Van a la tienda y nada mas, asi que en el hueco que les
+#     toca se mete el maximo de monedas; un intacto pequeño puede valer menos por kilo que un normal
+#     de categoria alta.
+#   - MATERIALES: la mejor CALIDAD, que es lo que cuenta al craftear.
+static func _mejor_primero(a: Dictionary, b: Dictionary) -> bool:
+	if a.has("cristal") and b.has("cristal"):
+		return _valor_kg_cristal(a) > _valor_kg_cristal(b)
+	return _rango_calidad(int(a["calidad"])) > _rango_calidad(int(b["calidad"]))
+
+static func _valor_kg_cristal(p: Dictionary) -> float:
+	var c := Cristal.new()
+	c.categoria = int(p["cristal"])
+	c.calidad = int(p["calidad"])
+	return float(c.valor_estimado()) / maxf(0.1, c.peso())
 
 # EL CASTIGO DEL DESENLACE: la misma parte de CADA grupo, sin azar. Se va lo peor primero.
 static func aplicar_perdida(piezas: Array, desenlace: int) -> Dictionary:
