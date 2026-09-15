@@ -269,8 +269,13 @@ const POTENCIA_CAP := 0.25        # tope del bonus de Potencia
 const MAGIC_TIER_POWER := 0.8141
 const EFICIENCIA_STEP := 0.05     # -% coste de maná (dim_sum asintota a 0.25 -> hay que invertir MUCHO)
 const EFICIENCIA_CAP := 0.25
-const CELERIDAD_STEP := 0.03      # +velocidad de casteo
-const CELERIDAD_CAP := 0.10
+# CELERIDAD (+velocidad de recitado) SIN TOPE y con rendimientos decrecientes SUAVES (decision del usuario del
+# 15/09/2026): con el paso de 0.03, el DECAY comun de 0.8 y un tope del 10%, tres mejoras ya lo llenaban y el
+# resto no servian. Ahora cada mejora da un poco menos que la anterior pero nunca se para (asintota 0.3125
+# x rareza): comun 3 -> +6.9%, epico 6 -> +15%, pristino 15 -> +39%. Multiplica la velocidad BASE del arma,
+# asi que respeta los recortes de recitado del baston y la varita.
+const CELERIDAD_STEP := 0.025
+const CELERIDAD_DECAY := 0.92
 const REGENERACION_STEP := 0.08   # +% sobre el regen de maná del arma
 const REGENERACION_CAP := 0.40
 # TIER del REGEN de maná: curva PROPIA y mas empinada que la del daño magico (MAGIC_TIER_POWER
@@ -460,6 +465,12 @@ static func cat_nombre(cat: String) -> String:
 	return CAT_NOMBRE.get(cat, cat)
 
 # Suma DECRECIENTE de k puntos: step·(1-decay^k)/(1-decay).
+# dim_sum con su propio decaimiento (la Celeridad decae mas despacio que el resto).
+static func dim_sum_suave(step: float, k: int, decay: float) -> float:
+	if k <= 0:
+		return 0.0
+	return step * (1.0 - pow(decay, float(k))) / (1.0 - decay)
+
 static func dim_sum(step: float, k: int) -> float:
 	if k <= 0:
 		return 0.0
@@ -673,7 +684,7 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 	return {
 		"magic_amp": amp,
 		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA)) * rmult),
-		"cast_vel_add": minf(cap_rareza(CELERIDAD_CAP, rareza), dim_sum(CELERIDAD_STEP, _count(mejoras, CELERIDAD)) * rmult),
+		"cast_vel_add": dim_sum_suave(CELERIDAD_STEP, _count(mejoras, CELERIDAD), CELERIDAD_DECAY) * rmult,
 		# REGEN de maná: multiplicador COMPLETO del regen base del arma, no solo el de la mejora.
 		# Lleva rareza y TIER (curva propia) como el magic_amp, porque antes no llevaba ninguno de
 		# los dos: un baston T3 legendario regeneraba exactamente lo mismo que uno T1 comun, y sin

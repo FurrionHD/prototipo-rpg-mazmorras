@@ -51,9 +51,9 @@ f538 998 PULSA _objeto_box: Poción de maná media  x2
 f541 998 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  34/37 🔷)
 f542 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f542 Agirato ochinan hp=198.795 mp=36.500 en=177.425
-f552 LOG 🔮 Agirato ochinan recita Shock térmico fulminante (3/3). Esperando...
-f554 998 PULSA frase Que el vidrio se parta
-f555 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
+f553 LOG 🔮 Agirato ochinan recita Shock térmico fulminante (3/3). Esperando...
+f555 998 PULSA frase Que el vidrio se parta
+f556 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
 f567 LOG … 0.20 de daño (1 de 1 golpes).  Aplica: Veneno.
 f567 Catalardio hp=198.529 mp=24.620 en=181.275
 f626 LOG Dasui esquiva el ataque de 2. Slime. 💨
@@ -722,11 +722,11 @@ f860 Slime hp=26.559 mp=20.429 en=0.000
 f860 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f860 Slime hp=32.050 mp=20.363 en=0.000
 f860 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f861 LOG Agirato ochinan tiene el conjuro listo. Esperando...
 f861 Slime hp=26.559 mp=20.429 en=0.000
 f861 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f861 Slime hp=32.050 mp=20.363 en=0.000
 f861 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f862 LOG Agirato ochinan tiene el conjuro listo. Esperando...
 f862 Slime hp=26.559 mp=20.429 en=0.000
 f862 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f862 Slime hp=32.050 mp=20.363 en=0.000
@@ -735,14 +735,14 @@ f863 Slime hp=26.559 mp=20.429 en=0.000
 f863 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f863 Slime hp=32.050 mp=20.363 en=0.000
 f863 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f863 998 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f864 LOG … 1148.17 de daño en total.
-f864 Agirato ochinan hp=198.795 mp=22.444 en=177.425
-f864 Rey Slime hp=233.872 mp=21.188 en=0.000
 f864 Slime hp=26.559 mp=20.429 en=0.000
-f864 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f864 Slime hp=0.000 mp=20.363 en=0.000
+f864 Slime venenoso hp=39.250 mp=20.495 en=0.000
+f864 Slime hp=32.050 mp=20.363 en=0.000
 f864 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f864 998 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
+f865 LOG … 1148.17 de daño en total.
+f865 Agirato ochinan hp=198.795 mp=22.444 en=177.425
+f865 Rey Slime hp=233.872 mp=21.188 en=0.000
 f865 Slime hp=26.559 mp=20.429 en=0.000
 f865 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f865 Slime hp=0.000 mp=20.363 en=0.000
@@ -2155,8 +2155,6 @@ f1212 Slime hp=26.559 mp=20.429 en=0.000
 f1212 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1212 Slime hp=0.000 mp=20.363 en=0.000
 f1212 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1213 LOG Turno de Agirato ochinan. Esperando su acción...
-f1213 Agirato ochinan hp=198.448 mp=36.500 en=177.425
 f1213 Slime hp=26.559 mp=20.429 en=0.000
 f1213 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1213 Slime hp=0.000 mp=20.363 en=0.000
@@ -2165,11 +2163,12 @@ f1214 Slime hp=26.559 mp=20.429 en=0.000
 f1214 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1214 Slime hp=0.000 mp=20.363 en=0.000
 f1214 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1215 LOG Turno de Agirato ochinan. Esperando su acción...
+f1215 Agirato ochinan hp=198.448 mp=36.500 en=177.425
 f1215 Slime hp=26.559 mp=20.429 en=0.000
 f1215 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1215 Slime hp=0.000 mp=20.363 en=0.000
 f1215 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1215 998 PULSA Habilidad
 f1216 Slime hp=26.559 mp=20.429 en=0.000
 f1216 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1216 Slime hp=0.000 mp=20.363 en=0.000
@@ -2178,14 +2177,11 @@ f1217 Slime hp=26.559 mp=20.429 en=0.000
 f1217 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1217 Slime hp=0.000 mp=20.363 en=0.000
 f1217 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1217 998 PULSA Habilidad
 f1218 Slime hp=26.559 mp=20.429 en=0.000
 f1218 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1218 Slime hp=0.000 mp=20.363 en=0.000
 f1218 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1218 998 PULSA _ability_box: Bastonazo  (26 EN)
-f1219 LOG … 17.52 de daño (1 de 1 golpes).  ✨Lento.
-f1219 Agirato ochinan hp=198.448 mp=36.500 en=151.425
-f1219 Rey Slime hp=211.317 mp=21.188 en=0.000
 f1219 Slime hp=26.559 mp=20.429 en=0.000
 f1219 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1219 Slime hp=0.000 mp=20.363 en=0.000
@@ -2194,6 +2190,10 @@ f1220 Slime hp=26.559 mp=20.429 en=0.000
 f1220 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1220 Slime hp=0.000 mp=20.363 en=0.000
 f1220 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1220 998 PULSA _ability_box: Bastonazo  (26 EN)
+f1221 LOG … 17.52 de daño (1 de 1 golpes).  ✨Lento.
+f1221 Agirato ochinan hp=198.448 mp=36.500 en=151.425
+f1221 Rey Slime hp=211.317 mp=21.188 en=0.000
 f1221 Slime hp=26.559 mp=20.429 en=0.000
 f1221 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1221 Slime hp=0.000 mp=20.363 en=0.000
@@ -3500,11 +3500,11 @@ f1542 Slime hp=26.559 mp=20.429 en=0.000
 f1542 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1542 Slime hp=0.000 mp=20.363 en=0.000
 f1542 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1543 LOG Turno de Agirato ochinan. Esperando su acción...
 f1543 Slime hp=26.559 mp=20.429 en=0.000
 f1543 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1543 Slime hp=0.000 mp=20.363 en=0.000
 f1543 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1544 LOG Turno de Agirato ochinan. Esperando su acción...
 f1544 Slime hp=26.559 mp=20.429 en=0.000
 f1544 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1544 Slime hp=0.000 mp=20.363 en=0.000
@@ -3513,13 +3513,13 @@ f1545 Slime hp=26.559 mp=20.429 en=0.000
 f1545 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1545 Slime hp=0.000 mp=20.363 en=0.000
 f1545 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1545 998 PULSA Defender
-f1546 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f1546 Agirato ochinan hp=198.448 mp=36.500 en=136.425
 f1546 Slime hp=26.559 mp=20.429 en=0.000
 f1546 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1546 Slime hp=0.000 mp=20.363 en=0.000
 f1546 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1546 998 PULSA Defender
+f1547 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f1547 Agirato ochinan hp=198.448 mp=36.500 en=136.425
 f1547 Slime hp=26.559 mp=20.429 en=0.000
 f1547 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1547 Slime hp=0.000 mp=20.363 en=0.000
@@ -4509,14 +4509,14 @@ f1790 Slime hp=26.559 mp=20.429 en=0.000
 f1790 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1790 Slime hp=0.000 mp=20.363 en=0.000
 f1790 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1791 LOG … 1.34 de daño: Daniel (0.97), Dasui (0.10), Catalardio (0.26)  Aplica: Pegajoso.
+f1791 Catalardio hp=188.947 mp=24.620 en=181.275
+f1791 Dasui hp=199.169 mp=20.000 en=109.300
+f1791 Daniel hp=189.412 mp=20.000 en=124.025
 f1791 Slime hp=26.559 mp=20.429 en=0.000
 f1791 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1791 Slime hp=0.000 mp=20.363 en=0.000
 f1791 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1792 LOG … 1.34 de daño: Daniel (0.97), Dasui (0.10), Catalardio (0.26)  Aplica: Pegajoso.
-f1792 Catalardio hp=188.947 mp=24.620 en=181.275
-f1792 Dasui hp=199.169 mp=20.000 en=109.300
-f1792 Daniel hp=189.412 mp=20.000 en=124.025
 f1792 Slime hp=26.559 mp=20.429 en=0.000
 f1792 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1792 Slime hp=0.000 mp=20.363 en=0.000
@@ -4909,7 +4909,7 @@ f1889 Slime hp=26.559 mp=20.429 en=0.000
 f1889 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1889 Slime hp=0.000 mp=20.363 en=0.000
 f1889 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1890 LOG Turno de Agirato ochinan. Esperando su acción...
+f1890 LOG Turno de Daniel. Esperando su acción...
 f1890 Slime hp=26.559 mp=20.429 en=0.000
 f1890 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1890 Slime hp=0.000 mp=20.363 en=0.000
@@ -4922,10 +4922,10 @@ f1892 Slime hp=26.559 mp=20.429 en=0.000
 f1892 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1892 Slime hp=0.000 mp=20.363 en=0.000
 f1892 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1892 998 PULSA Atacar
-f1893 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 11.17 de daño. 💥
-f1893 Agirato ochinan hp=198.448 mp=36.500 en=164.425
-f1893 Rey Slime hp=149.734 mp=21.188 en=0.000
+f1892 999 PULSA Atacar
+f1893 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 7.31 de daño. 💥
+f1893 Daniel hp=189.412 mp=20.000 en=159.025
+f1893 Rey Slime hp=152.816 mp=21.188 en=0.000
 f1893 Slime hp=26.559 mp=20.429 en=0.000
 f1893 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1893 Slime hp=0.000 mp=20.363 en=0.000
@@ -5130,11 +5130,11 @@ f1943 Slime hp=26.559 mp=20.429 en=0.000
 f1943 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1943 Slime hp=0.000 mp=20.363 en=0.000
 f1943 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1944 LOG Turno de Daniel. Esperando su acción...
 f1944 Slime hp=26.559 mp=20.429 en=0.000
 f1944 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1944 Slime hp=0.000 mp=20.363 en=0.000
 f1944 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1945 LOG Turno de Agirato ochinan. Esperando su acción...
 f1945 Slime hp=26.559 mp=20.429 en=0.000
 f1945 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1945 Slime hp=0.000 mp=20.363 en=0.000
@@ -5143,11 +5143,11 @@ f1946 Slime hp=26.559 mp=20.429 en=0.000
 f1946 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1946 Slime hp=0.000 mp=20.363 en=0.000
 f1946 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1946 999 PULSA Objeto
 f1947 Slime hp=26.559 mp=20.429 en=0.000
 f1947 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1947 Slime hp=0.000 mp=20.363 en=0.000
 f1947 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1947 998 PULSA Objeto
 f1948 Slime hp=26.559 mp=20.429 en=0.000
 f1948 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1948 Slime hp=0.000 mp=20.363 en=0.000
@@ -5156,11 +5156,11 @@ f1949 Slime hp=26.559 mp=20.429 en=0.000
 f1949 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1949 Slime hp=0.000 mp=20.363 en=0.000
 f1949 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1949 999 PULSA _objeto_box: Poción de maná media +1  x2
 f1950 Slime hp=26.559 mp=20.429 en=0.000
 f1950 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1950 Slime hp=0.000 mp=20.363 en=0.000
 f1950 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1950 998 PULSA _objeto_box: Poción de maná media +1  x2
 f1951 Slime hp=26.559 mp=20.429 en=0.000
 f1951 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1951 Slime hp=0.000 mp=20.363 en=0.000
@@ -5169,12 +5169,12 @@ f1952 Slime hp=26.559 mp=20.429 en=0.000
 f1952 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1952 Slime hp=0.000 mp=20.363 en=0.000
 f1952 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1952 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f1953 LOG Daniel le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1953 Slime hp=26.559 mp=20.429 en=0.000
 f1953 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1953 Slime hp=0.000 mp=20.363 en=0.000
 f1953 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1953 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f1954 LOG Agirato ochinan se bebe Poción de maná media +1. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1954 Slime hp=26.559 mp=20.429 en=0.000
 f1954 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1954 Slime hp=0.000 mp=20.363 en=0.000
@@ -5264,7 +5264,7 @@ f1975 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1975 Slime hp=0.000 mp=20.363 en=0.000
 f1975 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1976 LOG … 0.10 de daño: Agirato ochinan (0.10), Catalardio (0.00)
-f1976 Agirato ochinan hp=198.348 mp=36.500 en=164.425
+f1976 Agirato ochinan hp=198.348 mp=36.500 en=136.425
 f1976 Slime hp=26.559 mp=20.429 en=0.000
 f1976 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1976 Slime hp=0.000 mp=20.363 en=0.000
@@ -5606,7 +5606,7 @@ f2059 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2059 Slime hp=0.000 mp=20.363 en=0.000
 f2059 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2060 LOG … 0.41 de daño (1 de 1 golpes).  Aplica: Veneno.
-f2060 Daniel hp=188.999 mp=20.000 en=124.025
+f2060 Daniel hp=188.999 mp=20.000 en=159.025
 f2060 Slime hp=26.559 mp=20.429 en=0.000
 f2060 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2060 Slime hp=0.000 mp=20.363 en=0.000
@@ -5941,7 +5941,7 @@ f2141 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2141 998 PULSA _ability_box: Golpe sísmico  (60 EN)
 f2142 LOG … 26.79 de daño: 1. Rey Slime (18.96), 2. Slime (7.83), 5. Slime venenoso (0.00)  ✨Aturdido.
 f2142 Catalardio hp=185.947 mp=24.620 en=121.275
-f2142 Rey Slime hp=134.567 mp=21.188 en=0.000
+f2142 Rey Slime hp=137.649 mp=21.188 en=0.000
 f2142 Slime hp=18.727 mp=20.429 en=0.000
 f2142 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2142 Slime hp=0.000 mp=20.363 en=0.000
@@ -6254,11 +6254,11 @@ f2219 Slime hp=18.727 mp=20.429 en=0.000
 f2219 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2219 Slime hp=0.000 mp=20.363 en=0.000
 f2219 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2220 LOG Turno de Agirato ochinan. Esperando su acción...
 f2220 Slime hp=18.727 mp=20.429 en=0.000
 f2220 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2220 Slime hp=0.000 mp=20.363 en=0.000
 f2220 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2221 LOG Turno de Agirato ochinan. Esperando su acción...
 f2221 Slime hp=18.727 mp=20.429 en=0.000
 f2221 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2221 Slime hp=0.000 mp=20.363 en=0.000
@@ -6267,11 +6267,11 @@ f2222 Slime hp=18.727 mp=20.429 en=0.000
 f2222 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2222 Slime hp=0.000 mp=20.363 en=0.000
 f2222 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2222 998 PULSA Magia
 f2223 Slime hp=18.727 mp=20.429 en=0.000
 f2223 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2223 Slime hp=0.000 mp=20.363 en=0.000
 f2223 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2223 998 PULSA Magia
 f2224 Slime hp=18.727 mp=20.429 en=0.000
 f2224 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2224 Slime hp=0.000 mp=20.363 en=0.000
@@ -6280,12 +6280,12 @@ f2225 Slime hp=18.727 mp=20.429 en=0.000
 f2225 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2225 Slime hp=0.000 mp=20.363 en=0.000
 f2225 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2225 998 PULSA _spell_box: Eclipse  (19.33 MP)
-f2226 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f2226 Slime hp=18.727 mp=20.429 en=0.000
 f2226 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2226 Slime hp=0.000 mp=20.363 en=0.000
 f2226 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2226 998 PULSA _spell_box: Eclipse  (19.33 MP)
+f2227 LOG 🔮 Agirato ochinan recita Eclipse (1/4). Esperando...
 f2227 Slime hp=18.727 mp=20.429 en=0.000
 f2227 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2227 Slime hp=0.000 mp=20.363 en=0.000
@@ -6294,15 +6294,14 @@ f2228 Slime hp=18.727 mp=20.429 en=0.000
 f2228 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2228 Slime hp=0.000 mp=20.363 en=0.000
 f2228 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2228 998 PULSA frase Luz y oscuridad
-f2229 LOG ✓ Frase correcta. Continua el proximo turno...
-f2229 Agirato ochinan hp=198.348 mp=36.500 en=177.425
 f2229 Slime hp=18.727 mp=20.429 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2229 Slime hp=0.000 mp=20.363 en=0.000
 f2229 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2229 998 PULSA frase Luz y oscuridad
 f2230 LOG Turno de Daniel. Esperando su acción...
-f2230 Daniel hp=185.999 mp=20.000 en=124.025
+f2230 Agirato ochinan hp=198.348 mp=36.500 en=164.425
+f2230 Daniel hp=185.999 mp=20.000 en=159.025
 f2230 Slime hp=18.727 mp=20.429 en=0.000
 f2230 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2230 Slime hp=0.000 mp=20.363 en=0.000
@@ -6317,8 +6316,8 @@ f2232 Slime hp=0.000 mp=20.363 en=0.000
 f2232 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2232 999 PULSA Atacar
 f2233 LOG Daniel golpea con Maza pequeña por 6.06 de daño.
-f2233 Daniel hp=185.999 mp=20.000 en=159.025
-f2233 Rey Slime hp=129.717 mp=21.188 en=0.000
+f2233 Daniel hp=185.999 mp=20.000 en=181.025
+f2233 Rey Slime hp=132.799 mp=21.188 en=0.000
 f2233 Slime hp=18.727 mp=20.429 en=0.000
 f2233 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2233 Slime hp=0.000 mp=20.363 en=0.000
@@ -6696,7 +6695,10 @@ f2326 Slime hp=18.727 mp=20.429 en=0.000
 f2326 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2326 Slime hp=0.000 mp=20.363 en=0.000
 f2326 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2326 999 PULSA Objeto
+f2326 999 PULSA Atacar
+f2327 LOG Dasui golpea con Mandobles por 11.99 de daño.
+f2327 Dasui hp=199.169 mp=20.000 en=136.300
+f2327 Rey Slime hp=123.203 mp=21.188 en=0.000
 f2327 Slime hp=18.727 mp=20.429 en=0.000
 f2327 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2327 Slime hp=0.000 mp=20.363 en=0.000
@@ -6709,7 +6711,6 @@ f2329 Slime hp=18.727 mp=20.429 en=0.000
 f2329 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2329 Slime hp=0.000 mp=20.363 en=0.000
 f2329 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2329 999 PULSA _objeto_box: Poción de maná media +1  x1
 f2330 Slime hp=18.727 mp=20.429 en=0.000
 f2330 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2330 Slime hp=0.000 mp=20.363 en=0.000
@@ -6722,8 +6723,6 @@ f2332 Slime hp=18.727 mp=20.429 en=0.000
 f2332 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2332 Slime hp=0.000 mp=20.363 en=0.000
 f2332 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2332 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f2333 LOG Dasui le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f2333 Slime hp=18.727 mp=20.429 en=0.000
 f2333 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2333 Slime hp=0.000 mp=20.363 en=0.000
@@ -6768,8 +6767,6 @@ f2343 Slime hp=18.727 mp=20.429 en=0.000
 f2343 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2343 Slime hp=0.000 mp=20.363 en=0.000
 f2343 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2344 LOG 2. Slime ataca a Daniel por 0.34 de daño.  Le inflige Pegajoso.
-f2344 Daniel hp=185.662 mp=20.000 en=159.025
 f2344 Slime hp=18.727 mp=20.429 en=0.000
 f2344 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2344 Slime hp=0.000 mp=20.363 en=0.000
@@ -6950,6 +6947,8 @@ f2388 Slime hp=18.727 mp=20.429 en=0.000
 f2388 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2388 Slime hp=0.000 mp=20.363 en=0.000
 f2388 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2389 LOG … 0.12 de daño (1 de 1 golpes).  Aplica: Pegajoso.
+f2389 Dasui hp=199.049 mp=20.000 en=136.300
 f2389 Slime hp=18.727 mp=20.429 en=0.000
 f2389 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2389 Slime hp=0.000 mp=20.363 en=0.000
@@ -7022,7 +7021,6 @@ f2406 Slime hp=18.727 mp=20.429 en=0.000
 f2406 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2406 Slime hp=0.000 mp=20.363 en=0.000
 f2406 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2407 LOG 1. Rey Slime está aturdido y pierde el turno. 💫
 f2407 Slime hp=18.727 mp=20.429 en=0.000
 f2407 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2407 Slime hp=0.000 mp=20.363 en=0.000
@@ -7203,12 +7201,11 @@ f2451 Slime hp=18.727 mp=20.429 en=0.000
 f2451 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2451 Slime hp=0.000 mp=20.363 en=0.000
 f2451 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2452 LOG 1. Rey Slime está aturdido y pierde el turno. 💫
 f2452 Slime hp=18.727 mp=20.429 en=0.000
 f2452 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2452 Slime hp=0.000 mp=20.363 en=0.000
 f2452 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2453 LOG … 0.42 de daño (1 de 1 golpes).
-f2453 Daniel hp=185.240 mp=20.000 en=159.025
 f2453 Slime hp=18.727 mp=20.429 en=0.000
 f2453 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2453 Slime hp=0.000 mp=20.363 en=0.000
@@ -7389,6 +7386,8 @@ f2497 Slime hp=18.727 mp=20.429 en=0.000
 f2497 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2497 Slime hp=0.000 mp=20.363 en=0.000
 f2497 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2498 LOG … 0.50 de daño (1 de 1 golpes).
+f2498 Daniel hp=185.498 mp=20.000 en=181.025
 f2498 Slime hp=18.727 mp=20.429 en=0.000
 f2498 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2498 Slime hp=0.000 mp=20.363 en=0.000
@@ -7453,7 +7452,6 @@ f2513 Slime hp=18.727 mp=20.429 en=0.000
 f2513 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2513 Slime hp=0.000 mp=20.363 en=0.000
 f2513 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2514 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
 f2514 Slime hp=18.727 mp=20.429 en=0.000
 f2514 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2514 Slime hp=0.000 mp=20.363 en=0.000
@@ -7466,8 +7464,6 @@ f2516 Slime hp=18.727 mp=20.429 en=0.000
 f2516 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2516 Slime hp=0.000 mp=20.363 en=0.000
 f2516 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2516 998 PULSA frase Oscuridad y luz
-f2517 LOG ✓ Frase correcta. Continua el proximo turno...
 f2517 Slime hp=18.727 mp=20.429 en=0.000
 f2517 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2517 Slime hp=0.000 mp=20.363 en=0.000
@@ -7504,7 +7500,6 @@ f2525 Slime hp=18.727 mp=20.429 en=0.000
 f2525 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2525 Slime hp=0.000 mp=20.363 en=0.000
 f2525 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2526 LOG Turno de Catalardio. Esperando su acción...
 f2526 Slime hp=18.727 mp=20.429 en=0.000
 f2526 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2526 Slime hp=0.000 mp=20.363 en=0.000
@@ -7517,7 +7512,6 @@ f2528 Slime hp=18.727 mp=20.429 en=0.000
 f2528 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2528 Slime hp=0.000 mp=20.363 en=0.000
 f2528 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2528 998 PULSA Habilidad
 f2529 Slime hp=18.727 mp=20.429 en=0.000
 f2529 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2529 Slime hp=0.000 mp=20.363 en=0.000
@@ -7530,7 +7524,6 @@ f2531 Slime hp=18.727 mp=20.429 en=0.000
 f2531 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2531 Slime hp=0.000 mp=20.363 en=0.000
 f2531 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2531 998 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳3 [⛔ En cooldown: 3 turnos])
 f2532 Slime hp=18.727 mp=20.429 en=0.000
 f2532 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2532 Slime hp=0.000 mp=20.363 en=0.000
@@ -7543,9 +7536,6 @@ f2534 Slime hp=18.727 mp=20.429 en=0.000
 f2534 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2534 Slime hp=0.000 mp=20.363 en=0.000
 f2534 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2534 998 PULSA Atacar
-f2535 LOG 1. Rey Slime esquiva tu ataque (Martillo grande). 💨
-f2535 Catalardio hp=185.947 mp=24.620 en=163.275
 f2535 Slime hp=18.727 mp=20.429 en=0.000
 f2535 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2535 Slime hp=0.000 mp=20.363 en=0.000
@@ -7646,6 +7636,7 @@ f2559 Slime hp=18.727 mp=20.429 en=0.000
 f2559 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2559 Slime hp=0.000 mp=20.363 en=0.000
 f2559 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2560 LOG 🔮 Agirato ochinan recita Eclipse (2/4). Esperando...
 f2560 Slime hp=18.727 mp=20.429 en=0.000
 f2560 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2560 Slime hp=0.000 mp=20.363 en=0.000
@@ -7658,6 +7649,9 @@ f2562 Slime hp=18.727 mp=20.429 en=0.000
 f2562 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2562 Slime hp=0.000 mp=20.363 en=0.000
 f2562 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2562 998 PULSA frase Oscuridad y luz
+f2563 LOG ✓ Frase correcta. Continua el proximo turno...
+f2563 Agirato ochinan hp=198.348 mp=36.500 en=177.425
 f2563 Slime hp=18.727 mp=20.429 en=0.000
 f2563 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2563 Slime hp=0.000 mp=20.363 en=0.000
@@ -7690,6 +7684,7 @@ f2570 Slime hp=18.727 mp=20.429 en=0.000
 f2570 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2570 Slime hp=0.000 mp=20.363 en=0.000
 f2570 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2571 LOG Turno de Catalardio. Esperando su acción...
 f2571 Slime hp=18.727 mp=20.429 en=0.000
 f2571 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2571 Slime hp=0.000 mp=20.363 en=0.000
@@ -7702,6 +7697,9 @@ f2573 Slime hp=18.727 mp=20.429 en=0.000
 f2573 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2573 Slime hp=0.000 mp=20.363 en=0.000
 f2573 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2573 998 PULSA Defender
+f2574 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f2574 Catalardio hp=185.947 mp=24.620 en=106.275
 f2574 Slime hp=18.727 mp=20.429 en=0.000
 f2574 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2574 Slime hp=0.000 mp=20.363 en=0.000
@@ -7714,6 +7712,8 @@ f2576 Slime hp=18.727 mp=20.429 en=0.000
 f2576 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2576 Slime hp=0.000 mp=20.363 en=0.000
 f2576 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2577 LOG Turno de Daniel. Esperando su acción...
+f2577 Daniel hp=182.498 mp=20.000 en=181.025
 f2577 Slime hp=18.727 mp=20.429 en=0.000
 f2577 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2577 Slime hp=0.000 mp=20.363 en=0.000
@@ -7726,6 +7726,7 @@ f2579 Slime hp=18.727 mp=20.429 en=0.000
 f2579 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2579 Slime hp=0.000 mp=20.363 en=0.000
 f2579 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2579 999 PULSA Habilidad
 f2580 Slime hp=18.727 mp=20.429 en=0.000
 f2580 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2580 Slime hp=0.000 mp=20.363 en=0.000
@@ -7738,3050 +7739,2966 @@ f2582 Slime hp=18.727 mp=20.429 en=0.000
 f2582 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2582 Slime hp=0.000 mp=20.363 en=0.000
 f2582 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2583 Slime hp=18.727 mp=20.429 en=0.000
+f2582 999 PULSA _ability_box: Golpe demoledor  (42 EN)
+f2583 LOG … 11.37 de daño: 1. Rey Slime (6.87), 2. Slime (4.50)  ✨Aturdido.
+f2583 Daniel hp=182.498 mp=20.000 en=139.025
+f2583 Rey Slime hp=117.708 mp=21.188 en=0.000
+f2583 Slime hp=14.230 mp=20.429 en=0.000
 f2583 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2583 Slime hp=0.000 mp=20.363 en=0.000
 f2583 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2584 Slime hp=18.727 mp=20.429 en=0.000
+f2584 Slime hp=14.230 mp=20.429 en=0.000
 f2584 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2584 Slime hp=0.000 mp=20.363 en=0.000
 f2584 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2585 Slime hp=18.727 mp=20.429 en=0.000
+f2585 Slime hp=14.230 mp=20.429 en=0.000
 f2585 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2585 Slime hp=0.000 mp=20.363 en=0.000
 f2585 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2586 Slime hp=18.727 mp=20.429 en=0.000
+f2586 Slime hp=14.230 mp=20.429 en=0.000
 f2586 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2586 Slime hp=0.000 mp=20.363 en=0.000
 f2586 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2587 Slime hp=18.727 mp=20.429 en=0.000
+f2587 Slime hp=14.230 mp=20.429 en=0.000
 f2587 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2587 Slime hp=0.000 mp=20.363 en=0.000
 f2587 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2588 Slime hp=18.727 mp=20.429 en=0.000
+f2588 Slime hp=14.230 mp=20.429 en=0.000
 f2588 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2588 Slime hp=0.000 mp=20.363 en=0.000
 f2588 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2589 Slime hp=18.727 mp=20.429 en=0.000
+f2589 Slime hp=14.230 mp=20.429 en=0.000
 f2589 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2589 Slime hp=0.000 mp=20.363 en=0.000
 f2589 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2590 Slime hp=18.727 mp=20.429 en=0.000
+f2590 Slime hp=14.230 mp=20.429 en=0.000
 f2590 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2590 Slime hp=0.000 mp=20.363 en=0.000
 f2590 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2591 Slime hp=18.727 mp=20.429 en=0.000
+f2591 Slime hp=14.230 mp=20.429 en=0.000
 f2591 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2591 Slime hp=0.000 mp=20.363 en=0.000
 f2591 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2592 LOG Turno de Daniel. Esperando su acción...
-f2592 Daniel hp=182.240 mp=20.000 en=159.025
-f2592 Slime hp=18.727 mp=20.429 en=0.000
+f2592 Slime hp=14.230 mp=20.429 en=0.000
 f2592 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2592 Slime hp=0.000 mp=20.363 en=0.000
 f2592 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2593 Slime hp=18.727 mp=20.429 en=0.000
+f2593 Slime hp=14.230 mp=20.429 en=0.000
 f2593 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2593 Slime hp=0.000 mp=20.363 en=0.000
 f2593 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2594 Slime hp=18.727 mp=20.429 en=0.000
+f2594 Slime hp=14.230 mp=20.429 en=0.000
 f2594 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2594 Slime hp=0.000 mp=20.363 en=0.000
 f2594 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2594 999 PULSA Atacar
-f2595 LOG Daniel golpea con Maza pequeña por 5.82 de daño.
-f2595 Daniel hp=182.240 mp=20.000 en=181.025
-f2595 Rey Slime hp=125.063 mp=21.188 en=0.000
-f2595 Slime hp=18.727 mp=20.429 en=0.000
+f2595 Slime hp=14.230 mp=20.429 en=0.000
 f2595 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2595 Slime hp=0.000 mp=20.363 en=0.000
 f2595 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2596 Slime hp=18.727 mp=20.429 en=0.000
+f2596 Slime hp=14.230 mp=20.429 en=0.000
 f2596 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2596 Slime hp=0.000 mp=20.363 en=0.000
 f2596 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2597 Slime hp=18.727 mp=20.429 en=0.000
+f2597 Slime hp=14.230 mp=20.429 en=0.000
 f2597 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2597 Slime hp=0.000 mp=20.363 en=0.000
 f2597 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2598 Slime hp=18.727 mp=20.429 en=0.000
+f2598 Slime hp=14.230 mp=20.429 en=0.000
 f2598 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2598 Slime hp=0.000 mp=20.363 en=0.000
 f2598 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2599 Slime hp=18.727 mp=20.429 en=0.000
+f2599 Slime hp=14.230 mp=20.429 en=0.000
 f2599 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2599 Slime hp=0.000 mp=20.363 en=0.000
 f2599 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2600 Slime hp=18.727 mp=20.429 en=0.000
+f2600 Slime hp=14.230 mp=20.429 en=0.000
 f2600 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2600 Slime hp=0.000 mp=20.363 en=0.000
 f2600 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2601 Slime hp=18.727 mp=20.429 en=0.000
+f2601 Slime hp=14.230 mp=20.429 en=0.000
 f2601 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2601 Slime hp=0.000 mp=20.363 en=0.000
 f2601 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2602 Slime hp=18.727 mp=20.429 en=0.000
+f2602 Slime hp=14.230 mp=20.429 en=0.000
 f2602 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2602 Slime hp=0.000 mp=20.363 en=0.000
 f2602 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2603 Slime hp=18.727 mp=20.429 en=0.000
+f2603 Slime hp=14.230 mp=20.429 en=0.000
 f2603 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2603 Slime hp=0.000 mp=20.363 en=0.000
 f2603 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2604 Slime hp=18.727 mp=20.429 en=0.000
+f2604 Slime hp=14.230 mp=20.429 en=0.000
 f2604 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2604 Slime hp=0.000 mp=20.363 en=0.000
 f2604 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2605 Slime hp=18.727 mp=20.429 en=0.000
+f2605 Slime hp=14.230 mp=20.429 en=0.000
 f2605 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2605 Slime hp=0.000 mp=20.363 en=0.000
 f2605 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2606 Slime hp=18.727 mp=20.429 en=0.000
+f2606 Slime hp=14.230 mp=20.429 en=0.000
 f2606 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2606 Slime hp=0.000 mp=20.363 en=0.000
 f2606 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2607 Slime hp=18.727 mp=20.429 en=0.000
+f2607 Slime hp=14.230 mp=20.429 en=0.000
 f2607 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2607 Slime hp=0.000 mp=20.363 en=0.000
 f2607 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2608 Slime hp=18.727 mp=20.429 en=0.000
+f2608 Slime hp=14.230 mp=20.429 en=0.000
 f2608 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2608 Slime hp=0.000 mp=20.363 en=0.000
 f2608 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2609 Slime hp=18.727 mp=20.429 en=0.000
+f2609 Slime hp=14.230 mp=20.429 en=0.000
 f2609 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2609 Slime hp=0.000 mp=20.363 en=0.000
 f2609 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2610 Slime hp=18.727 mp=20.429 en=0.000
+f2610 Slime hp=14.230 mp=20.429 en=0.000
 f2610 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2610 Slime hp=0.000 mp=20.363 en=0.000
 f2610 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2611 Slime hp=18.727 mp=20.429 en=0.000
+f2611 Slime hp=14.230 mp=20.429 en=0.000
 f2611 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2611 Slime hp=0.000 mp=20.363 en=0.000
 f2611 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2612 Slime hp=18.727 mp=20.429 en=0.000
+f2612 Slime hp=14.230 mp=20.429 en=0.000
 f2612 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2612 Slime hp=0.000 mp=20.363 en=0.000
 f2612 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2613 Slime hp=18.727 mp=20.429 en=0.000
+f2613 Slime hp=14.230 mp=20.429 en=0.000
 f2613 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2613 Slime hp=0.000 mp=20.363 en=0.000
 f2613 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2614 Slime hp=18.727 mp=20.429 en=0.000
+f2614 Slime hp=14.230 mp=20.429 en=0.000
 f2614 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2614 Slime hp=0.000 mp=20.363 en=0.000
 f2614 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2615 Slime hp=18.727 mp=20.429 en=0.000
+f2615 Slime hp=14.230 mp=20.429 en=0.000
 f2615 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2615 Slime hp=0.000 mp=20.363 en=0.000
 f2615 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2616 Slime hp=18.727 mp=20.429 en=0.000
+f2616 Slime hp=14.230 mp=20.429 en=0.000
 f2616 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2616 Slime hp=0.000 mp=20.363 en=0.000
 f2616 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2617 Slime hp=18.727 mp=20.429 en=0.000
+f2617 Slime hp=14.230 mp=20.429 en=0.000
 f2617 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2617 Slime hp=0.000 mp=20.363 en=0.000
 f2617 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2618 Slime hp=18.727 mp=20.429 en=0.000
+f2618 Slime hp=14.230 mp=20.429 en=0.000
 f2618 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2618 Slime hp=0.000 mp=20.363 en=0.000
 f2618 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2619 Slime hp=18.727 mp=20.429 en=0.000
+f2619 Slime hp=14.230 mp=20.429 en=0.000
 f2619 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2619 Slime hp=0.000 mp=20.363 en=0.000
 f2619 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2620 Slime hp=18.727 mp=20.429 en=0.000
+f2620 Slime hp=14.230 mp=20.429 en=0.000
 f2620 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2620 Slime hp=0.000 mp=20.363 en=0.000
 f2620 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2621 Slime hp=18.727 mp=20.429 en=0.000
+f2621 Slime hp=14.230 mp=20.429 en=0.000
 f2621 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2621 Slime hp=0.000 mp=20.363 en=0.000
 f2621 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2622 Slime hp=18.727 mp=20.429 en=0.000
+f2622 Slime hp=14.230 mp=20.429 en=0.000
 f2622 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2622 Slime hp=0.000 mp=20.363 en=0.000
 f2622 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2623 Slime hp=18.727 mp=20.429 en=0.000
+f2623 Slime hp=14.230 mp=20.429 en=0.000
 f2623 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2623 Slime hp=0.000 mp=20.363 en=0.000
 f2623 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2624 Slime hp=18.727 mp=20.429 en=0.000
+f2624 Slime hp=14.230 mp=20.429 en=0.000
 f2624 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2624 Slime hp=0.000 mp=20.363 en=0.000
 f2624 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2625 Slime hp=18.727 mp=20.429 en=0.000
+f2625 Slime hp=14.230 mp=20.429 en=0.000
 f2625 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2625 Slime hp=0.000 mp=20.363 en=0.000
 f2625 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2626 Slime hp=18.727 mp=20.429 en=0.000
+f2626 Slime hp=14.230 mp=20.429 en=0.000
 f2626 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2626 Slime hp=0.000 mp=20.363 en=0.000
 f2626 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2627 Slime hp=18.727 mp=20.429 en=0.000
+f2627 Slime hp=14.230 mp=20.429 en=0.000
 f2627 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2627 Slime hp=0.000 mp=20.363 en=0.000
 f2627 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2628 Slime hp=18.727 mp=20.429 en=0.000
+f2628 Slime hp=14.230 mp=20.429 en=0.000
 f2628 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2628 Slime hp=0.000 mp=20.363 en=0.000
 f2628 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2629 Slime hp=18.727 mp=20.429 en=0.000
+f2629 Slime hp=14.230 mp=20.429 en=0.000
 f2629 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2629 Slime hp=0.000 mp=20.363 en=0.000
 f2629 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2630 Slime hp=18.727 mp=20.429 en=0.000
+f2630 Slime hp=14.230 mp=20.429 en=0.000
 f2630 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2630 Slime hp=0.000 mp=20.363 en=0.000
 f2630 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2631 Slime hp=18.727 mp=20.429 en=0.000
+f2631 Slime hp=14.230 mp=20.429 en=0.000
 f2631 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2631 Slime hp=0.000 mp=20.363 en=0.000
 f2631 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2632 Slime hp=18.727 mp=20.429 en=0.000
+f2632 Slime hp=14.230 mp=20.429 en=0.000
 f2632 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2632 Slime hp=0.000 mp=20.363 en=0.000
 f2632 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2633 Slime hp=18.727 mp=20.429 en=0.000
+f2633 Slime hp=14.230 mp=20.429 en=0.000
 f2633 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2633 Slime hp=0.000 mp=20.363 en=0.000
 f2633 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2634 Slime hp=18.727 mp=20.429 en=0.000
+f2634 Slime hp=14.230 mp=20.429 en=0.000
 f2634 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2634 Slime hp=0.000 mp=20.363 en=0.000
 f2634 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2635 Slime hp=18.727 mp=20.429 en=0.000
+f2635 Slime hp=14.230 mp=20.429 en=0.000
 f2635 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2635 Slime hp=0.000 mp=20.363 en=0.000
 f2635 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2636 Slime hp=18.727 mp=20.429 en=0.000
+f2636 Slime hp=14.230 mp=20.429 en=0.000
 f2636 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2636 Slime hp=0.000 mp=20.363 en=0.000
 f2636 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2637 Slime hp=18.727 mp=20.429 en=0.000
+f2637 Slime hp=14.230 mp=20.429 en=0.000
 f2637 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2637 Slime hp=0.000 mp=20.363 en=0.000
 f2637 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2638 Slime hp=18.727 mp=20.429 en=0.000
+f2638 Slime hp=14.230 mp=20.429 en=0.000
 f2638 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2638 Slime hp=0.000 mp=20.363 en=0.000
 f2638 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2639 Slime hp=18.727 mp=20.429 en=0.000
+f2639 Slime hp=14.230 mp=20.429 en=0.000
 f2639 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2639 Slime hp=0.000 mp=20.363 en=0.000
 f2639 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2640 Slime hp=18.727 mp=20.429 en=0.000
+f2640 Slime hp=14.230 mp=20.429 en=0.000
 f2640 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2640 Slime hp=0.000 mp=20.363 en=0.000
 f2640 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2641 Slime hp=18.727 mp=20.429 en=0.000
+f2641 Slime hp=14.230 mp=20.429 en=0.000
 f2641 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2641 Slime hp=0.000 mp=20.363 en=0.000
 f2641 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2642 Slime hp=18.727 mp=20.429 en=0.000
+f2642 Slime hp=14.230 mp=20.429 en=0.000
 f2642 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2642 Slime hp=0.000 mp=20.363 en=0.000
 f2642 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2643 Slime hp=18.727 mp=20.429 en=0.000
+f2643 Slime hp=14.230 mp=20.429 en=0.000
 f2643 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2643 Slime hp=0.000 mp=20.363 en=0.000
 f2643 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2644 Slime hp=18.727 mp=20.429 en=0.000
+f2644 Slime hp=14.230 mp=20.429 en=0.000
 f2644 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2644 Slime hp=0.000 mp=20.363 en=0.000
 f2644 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2645 Slime hp=18.727 mp=20.429 en=0.000
+f2645 Slime hp=14.230 mp=20.429 en=0.000
 f2645 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2645 Slime hp=0.000 mp=20.363 en=0.000
 f2645 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2646 Slime hp=18.727 mp=20.429 en=0.000
+f2646 Slime hp=14.230 mp=20.429 en=0.000
 f2646 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2646 Slime hp=0.000 mp=20.363 en=0.000
 f2646 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2647 Slime hp=18.727 mp=20.429 en=0.000
+f2647 Slime hp=14.230 mp=20.429 en=0.000
 f2647 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2647 Slime hp=0.000 mp=20.363 en=0.000
 f2647 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2648 Slime hp=18.727 mp=20.429 en=0.000
+f2648 Slime hp=14.230 mp=20.429 en=0.000
 f2648 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2648 Slime hp=0.000 mp=20.363 en=0.000
 f2648 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2649 Slime hp=18.727 mp=20.429 en=0.000
+f2649 Slime hp=14.230 mp=20.429 en=0.000
 f2649 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2649 Slime hp=0.000 mp=20.363 en=0.000
 f2649 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2650 Slime hp=18.727 mp=20.429 en=0.000
+f2650 Slime hp=14.230 mp=20.429 en=0.000
 f2650 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2650 Slime hp=0.000 mp=20.363 en=0.000
 f2650 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2651 Slime hp=18.727 mp=20.429 en=0.000
+f2651 Slime hp=14.230 mp=20.429 en=0.000
 f2651 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2651 Slime hp=0.000 mp=20.363 en=0.000
 f2651 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2652 Slime hp=18.727 mp=20.429 en=0.000
+f2652 Slime hp=14.230 mp=20.429 en=0.000
 f2652 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2652 Slime hp=0.000 mp=20.363 en=0.000
 f2652 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2653 Slime hp=18.727 mp=20.429 en=0.000
+f2653 Slime hp=14.230 mp=20.429 en=0.000
 f2653 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2653 Slime hp=0.000 mp=20.363 en=0.000
 f2653 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2654 Slime hp=18.727 mp=20.429 en=0.000
+f2654 Slime hp=14.230 mp=20.429 en=0.000
 f2654 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2654 Slime hp=0.000 mp=20.363 en=0.000
 f2654 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2655 Slime hp=18.727 mp=20.429 en=0.000
+f2655 Slime hp=14.230 mp=20.429 en=0.000
 f2655 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2655 Slime hp=0.000 mp=20.363 en=0.000
 f2655 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2656 Slime hp=18.727 mp=20.429 en=0.000
+f2656 Slime hp=14.230 mp=20.429 en=0.000
 f2656 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2656 Slime hp=0.000 mp=20.363 en=0.000
 f2656 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2657 Slime hp=18.727 mp=20.429 en=0.000
+f2657 Slime hp=14.230 mp=20.429 en=0.000
 f2657 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2657 Slime hp=0.000 mp=20.363 en=0.000
 f2657 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2658 Slime hp=18.727 mp=20.429 en=0.000
+f2658 Slime hp=14.230 mp=20.429 en=0.000
 f2658 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2658 Slime hp=0.000 mp=20.363 en=0.000
 f2658 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2659 Slime hp=18.727 mp=20.429 en=0.000
+f2659 Slime hp=14.230 mp=20.429 en=0.000
 f2659 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2659 Slime hp=0.000 mp=20.363 en=0.000
 f2659 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2660 Slime hp=18.727 mp=20.429 en=0.000
+f2660 Slime hp=14.230 mp=20.429 en=0.000
 f2660 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2660 Slime hp=0.000 mp=20.363 en=0.000
 f2660 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2661 Slime hp=18.727 mp=20.429 en=0.000
+f2661 Slime hp=14.230 mp=20.429 en=0.000
 f2661 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2661 Slime hp=0.000 mp=20.363 en=0.000
 f2661 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2662 Slime hp=18.727 mp=20.429 en=0.000
+f2662 Slime hp=14.230 mp=20.429 en=0.000
 f2662 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2662 Slime hp=0.000 mp=20.363 en=0.000
 f2662 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2663 Slime hp=18.727 mp=20.429 en=0.000
+f2663 Slime hp=14.230 mp=20.429 en=0.000
 f2663 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2663 Slime hp=0.000 mp=20.363 en=0.000
 f2663 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2664 Slime hp=18.727 mp=20.429 en=0.000
+f2664 Slime hp=14.230 mp=20.429 en=0.000
 f2664 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2664 Slime hp=0.000 mp=20.363 en=0.000
 f2664 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2665 Slime hp=18.727 mp=20.429 en=0.000
+f2665 Slime hp=14.230 mp=20.429 en=0.000
 f2665 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2665 Slime hp=0.000 mp=20.363 en=0.000
 f2665 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2666 Slime hp=18.727 mp=20.429 en=0.000
+f2666 Slime hp=14.230 mp=20.429 en=0.000
 f2666 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2666 Slime hp=0.000 mp=20.363 en=0.000
 f2666 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2667 Slime hp=18.727 mp=20.429 en=0.000
+f2667 Slime hp=14.230 mp=20.429 en=0.000
 f2667 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2667 Slime hp=0.000 mp=20.363 en=0.000
 f2667 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2668 Slime hp=18.727 mp=20.429 en=0.000
+f2668 Slime hp=14.230 mp=20.429 en=0.000
 f2668 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2668 Slime hp=0.000 mp=20.363 en=0.000
 f2668 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2669 Slime hp=18.727 mp=20.429 en=0.000
+f2669 Slime hp=14.230 mp=20.429 en=0.000
 f2669 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2669 Slime hp=0.000 mp=20.363 en=0.000
 f2669 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2670 Slime hp=18.727 mp=20.429 en=0.000
+f2670 Slime hp=14.230 mp=20.429 en=0.000
 f2670 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2670 Slime hp=0.000 mp=20.363 en=0.000
 f2670 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2671 Slime hp=18.727 mp=20.429 en=0.000
+f2671 Slime hp=14.230 mp=20.429 en=0.000
 f2671 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2671 Slime hp=0.000 mp=20.363 en=0.000
 f2671 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2672 Slime hp=18.727 mp=20.429 en=0.000
+f2672 Slime hp=14.230 mp=20.429 en=0.000
 f2672 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2672 Slime hp=0.000 mp=20.363 en=0.000
 f2672 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2673 Slime hp=18.727 mp=20.429 en=0.000
+f2673 Slime hp=14.230 mp=20.429 en=0.000
 f2673 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2673 Slime hp=0.000 mp=20.363 en=0.000
 f2673 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2674 Slime hp=18.727 mp=20.429 en=0.000
+f2674 Slime hp=14.230 mp=20.429 en=0.000
 f2674 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2674 Slime hp=0.000 mp=20.363 en=0.000
 f2674 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2675 Slime hp=18.727 mp=20.429 en=0.000
+f2675 Slime hp=14.230 mp=20.429 en=0.000
 f2675 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2675 Slime hp=0.000 mp=20.363 en=0.000
 f2675 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2676 Slime hp=18.727 mp=20.429 en=0.000
+f2676 Slime hp=14.230 mp=20.429 en=0.000
 f2676 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2676 Slime hp=0.000 mp=20.363 en=0.000
 f2676 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2677 Slime hp=18.727 mp=20.429 en=0.000
+f2677 Slime hp=14.230 mp=20.429 en=0.000
 f2677 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2677 Slime hp=0.000 mp=20.363 en=0.000
 f2677 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2678 Slime hp=18.727 mp=20.429 en=0.000
+f2678 Slime hp=14.230 mp=20.429 en=0.000
 f2678 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2678 Slime hp=0.000 mp=20.363 en=0.000
 f2678 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2679 Slime hp=18.727 mp=20.429 en=0.000
+f2679 Slime hp=14.230 mp=20.429 en=0.000
 f2679 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2679 Slime hp=0.000 mp=20.363 en=0.000
 f2679 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2680 Slime hp=18.727 mp=20.429 en=0.000
+f2680 Slime hp=14.230 mp=20.429 en=0.000
 f2680 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2680 Slime hp=0.000 mp=20.363 en=0.000
 f2680 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2681 Slime hp=18.727 mp=20.429 en=0.000
+f2681 Slime hp=14.230 mp=20.429 en=0.000
 f2681 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2681 Slime hp=0.000 mp=20.363 en=0.000
 f2681 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2682 Slime hp=18.727 mp=20.429 en=0.000
+f2682 Slime hp=14.230 mp=20.429 en=0.000
 f2682 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2682 Slime hp=0.000 mp=20.363 en=0.000
 f2682 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2683 Slime hp=18.727 mp=20.429 en=0.000
+f2683 Slime hp=14.230 mp=20.429 en=0.000
 f2683 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2683 Slime hp=0.000 mp=20.363 en=0.000
 f2683 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2684 Slime hp=18.727 mp=20.429 en=0.000
+f2684 Slime hp=14.230 mp=20.429 en=0.000
 f2684 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2684 Slime hp=0.000 mp=20.363 en=0.000
 f2684 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2685 Slime hp=18.727 mp=20.429 en=0.000
+f2685 LOG Turno de Dasui. Esperando su acción...
+f2685 Slime hp=14.230 mp=20.429 en=0.000
 f2685 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2685 Slime hp=0.000 mp=20.363 en=0.000
 f2685 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2686 Slime hp=18.727 mp=20.429 en=0.000
+f2686 Slime hp=14.230 mp=20.429 en=0.000
 f2686 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2686 Slime hp=0.000 mp=20.363 en=0.000
 f2686 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2687 Slime hp=18.727 mp=20.429 en=0.000
+f2687 Slime hp=14.230 mp=20.429 en=0.000
 f2687 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2687 Slime hp=0.000 mp=20.363 en=0.000
 f2687 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2688 Slime hp=18.727 mp=20.429 en=0.000
+f2687 999 PULSA Atacar
+f2688 LOG Dasui golpea con Mandobles por 11.44 de daño.
+f2688 Dasui hp=199.049 mp=20.000 en=178.300
+f2688 Rey Slime hp=108.557 mp=21.188 en=0.000
+f2688 Slime hp=14.230 mp=20.429 en=0.000
 f2688 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2688 Slime hp=0.000 mp=20.363 en=0.000
 f2688 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2689 LOG Turno de Dasui. Esperando su acción...
-f2689 Slime hp=18.727 mp=20.429 en=0.000
+f2689 Slime hp=14.230 mp=20.429 en=0.000
 f2689 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2689 Slime hp=0.000 mp=20.363 en=0.000
 f2689 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2690 Slime hp=18.727 mp=20.429 en=0.000
+f2690 Slime hp=14.230 mp=20.429 en=0.000
 f2690 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2690 Slime hp=0.000 mp=20.363 en=0.000
 f2690 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2691 Slime hp=18.727 mp=20.429 en=0.000
+f2691 Slime hp=14.230 mp=20.429 en=0.000
 f2691 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2691 Slime hp=0.000 mp=20.363 en=0.000
 f2691 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2691 999 PULSA Atacar
-f2692 LOG ¡CRITICO! Dasui golpea con Mandobles por 16.12 de daño. 💥
-f2692 Dasui hp=199.169 mp=20.000 en=136.300
-f2692 Rey Slime hp=112.170 mp=21.188 en=0.000
-f2692 Slime hp=18.727 mp=20.429 en=0.000
+f2692 Slime hp=14.230 mp=20.429 en=0.000
 f2692 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2692 Slime hp=0.000 mp=20.363 en=0.000
 f2692 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2693 Slime hp=18.727 mp=20.429 en=0.000
+f2693 Slime hp=14.230 mp=20.429 en=0.000
 f2693 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2693 Slime hp=0.000 mp=20.363 en=0.000
 f2693 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2694 Slime hp=18.727 mp=20.429 en=0.000
+f2694 Slime hp=14.230 mp=20.429 en=0.000
 f2694 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2694 Slime hp=0.000 mp=20.363 en=0.000
 f2694 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2695 Slime hp=18.727 mp=20.429 en=0.000
+f2695 Slime hp=14.230 mp=20.429 en=0.000
 f2695 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2695 Slime hp=0.000 mp=20.363 en=0.000
 f2695 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2696 Slime hp=18.727 mp=20.429 en=0.000
+f2696 Slime hp=14.230 mp=20.429 en=0.000
 f2696 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2696 Slime hp=0.000 mp=20.363 en=0.000
 f2696 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2697 Slime hp=18.727 mp=20.429 en=0.000
+f2697 Slime hp=14.230 mp=20.429 en=0.000
 f2697 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2697 Slime hp=0.000 mp=20.363 en=0.000
 f2697 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2698 Slime hp=18.727 mp=20.429 en=0.000
+f2698 Slime hp=14.230 mp=20.429 en=0.000
 f2698 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2698 Slime hp=0.000 mp=20.363 en=0.000
 f2698 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2699 Slime hp=18.727 mp=20.429 en=0.000
+f2699 Slime hp=14.230 mp=20.429 en=0.000
 f2699 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2699 Slime hp=0.000 mp=20.363 en=0.000
 f2699 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2700 Slime hp=18.727 mp=20.429 en=0.000
+f2700 Slime hp=14.230 mp=20.429 en=0.000
 f2700 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2700 Slime hp=0.000 mp=20.363 en=0.000
 f2700 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2701 Slime hp=18.727 mp=20.429 en=0.000
+f2701 Slime hp=14.230 mp=20.429 en=0.000
 f2701 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2701 Slime hp=0.000 mp=20.363 en=0.000
 f2701 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2702 Slime hp=18.727 mp=20.429 en=0.000
+f2702 Slime hp=14.230 mp=20.429 en=0.000
 f2702 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2702 Slime hp=0.000 mp=20.363 en=0.000
 f2702 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2703 Slime hp=18.727 mp=20.429 en=0.000
+f2703 Slime hp=14.230 mp=20.429 en=0.000
 f2703 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2703 Slime hp=0.000 mp=20.363 en=0.000
 f2703 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2704 Slime hp=18.727 mp=20.429 en=0.000
+f2704 Slime hp=14.230 mp=20.429 en=0.000
 f2704 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2704 Slime hp=0.000 mp=20.363 en=0.000
 f2704 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2705 Slime hp=18.727 mp=20.429 en=0.000
+f2705 Slime hp=14.230 mp=20.429 en=0.000
 f2705 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2705 Slime hp=0.000 mp=20.363 en=0.000
 f2705 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2706 Slime hp=18.727 mp=20.429 en=0.000
+f2706 Slime hp=14.230 mp=20.429 en=0.000
 f2706 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2706 Slime hp=0.000 mp=20.363 en=0.000
 f2706 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2707 Slime hp=18.727 mp=20.429 en=0.000
+f2707 Slime hp=14.230 mp=20.429 en=0.000
 f2707 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2707 Slime hp=0.000 mp=20.363 en=0.000
 f2707 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2708 Slime hp=18.727 mp=20.429 en=0.000
+f2708 Slime hp=14.230 mp=20.429 en=0.000
 f2708 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2708 Slime hp=0.000 mp=20.363 en=0.000
 f2708 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2709 Slime hp=18.727 mp=20.429 en=0.000
+f2709 Slime hp=14.230 mp=20.429 en=0.000
 f2709 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2709 Slime hp=0.000 mp=20.363 en=0.000
 f2709 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2710 Slime hp=18.727 mp=20.429 en=0.000
+f2710 Slime hp=14.230 mp=20.429 en=0.000
 f2710 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2710 Slime hp=0.000 mp=20.363 en=0.000
 f2710 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2711 Slime hp=18.727 mp=20.429 en=0.000
+f2711 Slime hp=14.230 mp=20.429 en=0.000
 f2711 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2711 Slime hp=0.000 mp=20.363 en=0.000
 f2711 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2712 Slime hp=18.727 mp=20.429 en=0.000
+f2712 Slime hp=14.230 mp=20.429 en=0.000
 f2712 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2712 Slime hp=0.000 mp=20.363 en=0.000
 f2712 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2713 Slime hp=18.727 mp=20.429 en=0.000
+f2713 Slime hp=14.230 mp=20.429 en=0.000
 f2713 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2713 Slime hp=0.000 mp=20.363 en=0.000
 f2713 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2714 Slime hp=18.727 mp=20.429 en=0.000
+f2714 Slime hp=14.230 mp=20.429 en=0.000
 f2714 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2714 Slime hp=0.000 mp=20.363 en=0.000
 f2714 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2715 Slime hp=18.727 mp=20.429 en=0.000
+f2715 Slime hp=14.230 mp=20.429 en=0.000
 f2715 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2715 Slime hp=0.000 mp=20.363 en=0.000
 f2715 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2716 Slime hp=18.727 mp=20.429 en=0.000
+f2716 Slime hp=14.230 mp=20.429 en=0.000
 f2716 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2716 Slime hp=0.000 mp=20.363 en=0.000
 f2716 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2717 Slime hp=18.727 mp=20.429 en=0.000
+f2717 Slime hp=14.230 mp=20.429 en=0.000
 f2717 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2717 Slime hp=0.000 mp=20.363 en=0.000
 f2717 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2718 Slime hp=18.727 mp=20.429 en=0.000
+f2718 Slime hp=14.230 mp=20.429 en=0.000
 f2718 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2718 Slime hp=0.000 mp=20.363 en=0.000
 f2718 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2719 Slime hp=18.727 mp=20.429 en=0.000
+f2719 Slime hp=14.230 mp=20.429 en=0.000
 f2719 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2719 Slime hp=0.000 mp=20.363 en=0.000
 f2719 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2720 Slime hp=18.727 mp=20.429 en=0.000
+f2720 Slime hp=14.230 mp=20.429 en=0.000
 f2720 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2720 Slime hp=0.000 mp=20.363 en=0.000
 f2720 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2721 Slime hp=18.727 mp=20.429 en=0.000
+f2721 Slime hp=14.230 mp=20.429 en=0.000
 f2721 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2721 Slime hp=0.000 mp=20.363 en=0.000
 f2721 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2722 Slime hp=18.727 mp=20.429 en=0.000
+f2722 Slime hp=14.230 mp=20.429 en=0.000
 f2722 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2722 Slime hp=0.000 mp=20.363 en=0.000
 f2722 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2723 Slime hp=18.727 mp=20.429 en=0.000
+f2723 Slime hp=14.230 mp=20.429 en=0.000
 f2723 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2723 Slime hp=0.000 mp=20.363 en=0.000
 f2723 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2724 Slime hp=18.727 mp=20.429 en=0.000
+f2724 Slime hp=14.230 mp=20.429 en=0.000
 f2724 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2724 Slime hp=0.000 mp=20.363 en=0.000
 f2724 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2725 Slime hp=18.727 mp=20.429 en=0.000
+f2725 Slime hp=14.230 mp=20.429 en=0.000
 f2725 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2725 Slime hp=0.000 mp=20.363 en=0.000
 f2725 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2726 Slime hp=18.727 mp=20.429 en=0.000
+f2726 Slime hp=14.230 mp=20.429 en=0.000
 f2726 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2726 Slime hp=0.000 mp=20.363 en=0.000
 f2726 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2727 Slime hp=18.727 mp=20.429 en=0.000
+f2727 Slime hp=14.230 mp=20.429 en=0.000
 f2727 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2727 Slime hp=0.000 mp=20.363 en=0.000
 f2727 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2728 Slime hp=18.727 mp=20.429 en=0.000
+f2728 Slime hp=14.230 mp=20.429 en=0.000
 f2728 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2728 Slime hp=0.000 mp=20.363 en=0.000
 f2728 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2729 Slime hp=18.727 mp=20.429 en=0.000
+f2729 Slime hp=14.230 mp=20.429 en=0.000
 f2729 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2729 Slime hp=0.000 mp=20.363 en=0.000
 f2729 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2730 Slime hp=18.727 mp=20.429 en=0.000
+f2730 Slime hp=14.230 mp=20.429 en=0.000
 f2730 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2730 Slime hp=0.000 mp=20.363 en=0.000
 f2730 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2731 Slime hp=18.727 mp=20.429 en=0.000
+f2731 Slime hp=14.230 mp=20.429 en=0.000
 f2731 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2731 Slime hp=0.000 mp=20.363 en=0.000
 f2731 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2732 Slime hp=18.727 mp=20.429 en=0.000
+f2732 Slime hp=14.230 mp=20.429 en=0.000
 f2732 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2732 Slime hp=0.000 mp=20.363 en=0.000
 f2732 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2733 Slime hp=18.727 mp=20.429 en=0.000
+f2733 Slime hp=14.230 mp=20.429 en=0.000
 f2733 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2733 Slime hp=0.000 mp=20.363 en=0.000
 f2733 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2734 Slime hp=18.727 mp=20.429 en=0.000
+f2734 Slime hp=14.230 mp=20.429 en=0.000
 f2734 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2734 Slime hp=0.000 mp=20.363 en=0.000
 f2734 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2735 Slime hp=18.727 mp=20.429 en=0.000
+f2735 Slime hp=14.230 mp=20.429 en=0.000
 f2735 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2735 Slime hp=0.000 mp=20.363 en=0.000
 f2735 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2736 Slime hp=18.727 mp=20.429 en=0.000
+f2736 Slime hp=14.230 mp=20.429 en=0.000
 f2736 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2736 Slime hp=0.000 mp=20.363 en=0.000
 f2736 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2737 Slime hp=18.727 mp=20.429 en=0.000
+f2737 Slime hp=14.230 mp=20.429 en=0.000
 f2737 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2737 Slime hp=0.000 mp=20.363 en=0.000
 f2737 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2738 Slime hp=18.727 mp=20.429 en=0.000
+f2738 Slime hp=14.230 mp=20.429 en=0.000
 f2738 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2738 Slime hp=0.000 mp=20.363 en=0.000
 f2738 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2739 Slime hp=18.727 mp=20.429 en=0.000
+f2739 Slime hp=14.230 mp=20.429 en=0.000
 f2739 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2739 Slime hp=0.000 mp=20.363 en=0.000
 f2739 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2740 Slime hp=18.727 mp=20.429 en=0.000
+f2740 Slime hp=14.230 mp=20.429 en=0.000
 f2740 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2740 Slime hp=0.000 mp=20.363 en=0.000
 f2740 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2741 Slime hp=18.727 mp=20.429 en=0.000
+f2741 Slime hp=14.230 mp=20.429 en=0.000
 f2741 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2741 Slime hp=0.000 mp=20.363 en=0.000
 f2741 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2742 Slime hp=18.727 mp=20.429 en=0.000
+f2742 Slime hp=14.230 mp=20.429 en=0.000
 f2742 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2742 Slime hp=0.000 mp=20.363 en=0.000
 f2742 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2743 Slime hp=18.727 mp=20.429 en=0.000
+f2743 Slime hp=14.230 mp=20.429 en=0.000
 f2743 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2743 Slime hp=0.000 mp=20.363 en=0.000
 f2743 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2744 Slime hp=18.727 mp=20.429 en=0.000
+f2744 Slime hp=14.230 mp=20.429 en=0.000
 f2744 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2744 Slime hp=0.000 mp=20.363 en=0.000
 f2744 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2745 Slime hp=18.727 mp=20.429 en=0.000
+f2745 Slime hp=14.230 mp=20.429 en=0.000
 f2745 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2745 Slime hp=0.000 mp=20.363 en=0.000
 f2745 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2746 Slime hp=18.727 mp=20.429 en=0.000
+f2746 Slime hp=14.230 mp=20.429 en=0.000
 f2746 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2746 Slime hp=0.000 mp=20.363 en=0.000
 f2746 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2747 Slime hp=18.727 mp=20.429 en=0.000
+f2747 Slime hp=14.230 mp=20.429 en=0.000
 f2747 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2747 Slime hp=0.000 mp=20.363 en=0.000
 f2747 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2748 Slime hp=18.727 mp=20.429 en=0.000
+f2748 Slime hp=14.230 mp=20.429 en=0.000
 f2748 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2748 Slime hp=0.000 mp=20.363 en=0.000
 f2748 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2749 Slime hp=18.727 mp=20.429 en=0.000
+f2749 Slime hp=14.230 mp=20.429 en=0.000
 f2749 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2749 Slime hp=0.000 mp=20.363 en=0.000
 f2749 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2750 Slime hp=18.727 mp=20.429 en=0.000
+f2750 Slime hp=14.230 mp=20.429 en=0.000
 f2750 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2750 Slime hp=0.000 mp=20.363 en=0.000
 f2750 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2751 Slime hp=18.727 mp=20.429 en=0.000
+f2751 Slime hp=14.230 mp=20.429 en=0.000
 f2751 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2751 Slime hp=0.000 mp=20.363 en=0.000
 f2751 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2752 Slime hp=18.727 mp=20.429 en=0.000
+f2752 Slime hp=14.230 mp=20.429 en=0.000
 f2752 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2752 Slime hp=0.000 mp=20.363 en=0.000
 f2752 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2753 Slime hp=18.727 mp=20.429 en=0.000
+f2753 Slime hp=14.230 mp=20.429 en=0.000
 f2753 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2753 Slime hp=0.000 mp=20.363 en=0.000
 f2753 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2754 Slime hp=18.727 mp=20.429 en=0.000
+f2754 Slime hp=14.230 mp=20.429 en=0.000
 f2754 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2754 Slime hp=0.000 mp=20.363 en=0.000
 f2754 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2755 Slime hp=18.727 mp=20.429 en=0.000
+f2755 Slime hp=14.230 mp=20.429 en=0.000
 f2755 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2755 Slime hp=0.000 mp=20.363 en=0.000
 f2755 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2756 Slime hp=18.727 mp=20.429 en=0.000
+f2756 Slime hp=14.230 mp=20.429 en=0.000
 f2756 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2756 Slime hp=0.000 mp=20.363 en=0.000
 f2756 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2757 Slime hp=18.727 mp=20.429 en=0.000
+f2757 Slime hp=14.230 mp=20.429 en=0.000
 f2757 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2757 Slime hp=0.000 mp=20.363 en=0.000
 f2757 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2758 Slime hp=18.727 mp=20.429 en=0.000
+f2758 Slime hp=14.230 mp=20.429 en=0.000
 f2758 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2758 Slime hp=0.000 mp=20.363 en=0.000
 f2758 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2759 Slime hp=18.727 mp=20.429 en=0.000
+f2759 Slime hp=14.230 mp=20.429 en=0.000
 f2759 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2759 Slime hp=0.000 mp=20.363 en=0.000
 f2759 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2760 Slime hp=18.727 mp=20.429 en=0.000
+f2760 Slime hp=14.230 mp=20.429 en=0.000
 f2760 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2760 Slime hp=0.000 mp=20.363 en=0.000
 f2760 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2761 Slime hp=18.727 mp=20.429 en=0.000
+f2761 Slime hp=14.230 mp=20.429 en=0.000
 f2761 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2761 Slime hp=0.000 mp=20.363 en=0.000
 f2761 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2762 Slime hp=18.727 mp=20.429 en=0.000
+f2762 Slime hp=14.230 mp=20.429 en=0.000
 f2762 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2762 Slime hp=0.000 mp=20.363 en=0.000
 f2762 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2763 Slime hp=18.727 mp=20.429 en=0.000
+f2763 Slime hp=14.230 mp=20.429 en=0.000
 f2763 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2763 Slime hp=0.000 mp=20.363 en=0.000
 f2763 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2764 Slime hp=18.727 mp=20.429 en=0.000
+f2764 Slime hp=14.230 mp=20.429 en=0.000
 f2764 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2764 Slime hp=0.000 mp=20.363 en=0.000
 f2764 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2765 Slime hp=18.727 mp=20.429 en=0.000
+f2765 Slime hp=14.230 mp=20.429 en=0.000
 f2765 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2765 Slime hp=0.000 mp=20.363 en=0.000
 f2765 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2766 Slime hp=18.727 mp=20.429 en=0.000
+f2766 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
+f2766 Slime hp=14.230 mp=20.429 en=0.000
 f2766 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2766 Slime hp=0.000 mp=20.363 en=0.000
 f2766 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2767 Slime hp=18.727 mp=20.429 en=0.000
+f2767 Slime hp=14.230 mp=20.429 en=0.000
 f2767 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2767 Slime hp=0.000 mp=20.363 en=0.000
 f2767 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2768 Slime hp=18.727 mp=20.429 en=0.000
+f2768 Slime hp=14.230 mp=20.429 en=0.000
 f2768 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2768 Slime hp=0.000 mp=20.363 en=0.000
 f2768 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2769 Slime hp=18.727 mp=20.429 en=0.000
+f2768 998 PULSA frase Feliz aniversario 20
+f2769 LOG ✓ Frase correcta. Continua el proximo turno...
+f2769 Slime hp=14.230 mp=20.429 en=0.000
 f2769 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2769 Slime hp=0.000 mp=20.363 en=0.000
 f2769 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2770 Slime hp=18.727 mp=20.429 en=0.000
+f2770 LOG 2. Slime está aturdido y pierde el turno. 💫
+f2770 Slime hp=14.230 mp=20.429 en=0.000
 f2770 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2770 Slime hp=0.000 mp=20.363 en=0.000
 f2770 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2771 Slime hp=18.727 mp=20.429 en=0.000
+f2771 Slime hp=14.230 mp=20.429 en=0.000
 f2771 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2771 Slime hp=0.000 mp=20.363 en=0.000
 f2771 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2772 LOG 🔮 Agirato ochinan recita Eclipse (3/4). Esperando...
-f2772 Slime hp=18.727 mp=20.429 en=0.000
+f2772 Slime hp=14.230 mp=20.429 en=0.000
 f2772 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2772 Slime hp=0.000 mp=20.363 en=0.000
 f2772 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2773 Slime hp=18.727 mp=20.429 en=0.000
+f2773 Slime hp=14.230 mp=20.429 en=0.000
 f2773 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2773 Slime hp=0.000 mp=20.363 en=0.000
 f2773 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2774 Slime hp=18.727 mp=20.429 en=0.000
+f2774 Slime hp=14.230 mp=20.429 en=0.000
 f2774 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2774 Slime hp=0.000 mp=20.363 en=0.000
 f2774 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2774 998 PULSA frase Feliz aniversario 20
-f2775 LOG ✓ Frase correcta. Continua el proximo turno...
-f2775 Slime hp=18.727 mp=20.429 en=0.000
+f2775 Slime hp=14.230 mp=20.429 en=0.000
 f2775 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2775 Slime hp=0.000 mp=20.363 en=0.000
 f2775 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2776 Slime hp=18.727 mp=20.429 en=0.000
+f2776 Slime hp=14.230 mp=20.429 en=0.000
 f2776 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2776 Slime hp=0.000 mp=20.363 en=0.000
 f2776 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2777 Slime hp=18.727 mp=20.429 en=0.000
+f2777 Slime hp=14.230 mp=20.429 en=0.000
 f2777 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2777 Slime hp=0.000 mp=20.363 en=0.000
 f2777 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2778 Slime hp=18.727 mp=20.429 en=0.000
+f2778 Slime hp=14.230 mp=20.429 en=0.000
 f2778 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2778 Slime hp=0.000 mp=20.363 en=0.000
 f2778 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2779 LOG Catalardio esquiva el ataque de 2. Slime. 💨
-f2779 Slime hp=18.727 mp=20.429 en=0.000
+f2779 Slime hp=14.230 mp=20.429 en=0.000
 f2779 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2779 Slime hp=0.000 mp=20.363 en=0.000
 f2779 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2780 Slime hp=18.727 mp=20.429 en=0.000
+f2780 Slime hp=14.230 mp=20.429 en=0.000
 f2780 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2780 Slime hp=0.000 mp=20.363 en=0.000
 f2780 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2781 Slime hp=18.727 mp=20.429 en=0.000
+f2781 Slime hp=14.230 mp=20.429 en=0.000
 f2781 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2781 Slime hp=0.000 mp=20.363 en=0.000
 f2781 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2782 Slime hp=18.727 mp=20.429 en=0.000
+f2782 Slime hp=14.230 mp=20.429 en=0.000
 f2782 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2782 Slime hp=0.000 mp=20.363 en=0.000
 f2782 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2783 Slime hp=18.727 mp=20.429 en=0.000
+f2783 Slime hp=14.230 mp=20.429 en=0.000
 f2783 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2783 Slime hp=0.000 mp=20.363 en=0.000
 f2783 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2784 Slime hp=18.727 mp=20.429 en=0.000
+f2784 Slime hp=14.230 mp=20.429 en=0.000
 f2784 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2784 Slime hp=0.000 mp=20.363 en=0.000
 f2784 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2785 Slime hp=18.727 mp=20.429 en=0.000
+f2785 Slime hp=14.230 mp=20.429 en=0.000
 f2785 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2785 Slime hp=0.000 mp=20.363 en=0.000
 f2785 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2786 Slime hp=18.727 mp=20.429 en=0.000
+f2786 Slime hp=14.230 mp=20.429 en=0.000
 f2786 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2786 Slime hp=0.000 mp=20.363 en=0.000
 f2786 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2787 Slime hp=18.727 mp=20.429 en=0.000
+f2787 Slime hp=14.230 mp=20.429 en=0.000
 f2787 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2787 Slime hp=0.000 mp=20.363 en=0.000
 f2787 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2788 Slime hp=18.727 mp=20.429 en=0.000
+f2788 Slime hp=14.230 mp=20.429 en=0.000
 f2788 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2788 Slime hp=0.000 mp=20.363 en=0.000
 f2788 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2789 Slime hp=18.727 mp=20.429 en=0.000
+f2789 Slime hp=14.230 mp=20.429 en=0.000
 f2789 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2789 Slime hp=0.000 mp=20.363 en=0.000
 f2789 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2790 Slime hp=18.727 mp=20.429 en=0.000
+f2790 Slime hp=14.230 mp=20.429 en=0.000
 f2790 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2790 Slime hp=0.000 mp=20.363 en=0.000
 f2790 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2791 Slime hp=18.727 mp=20.429 en=0.000
+f2791 Slime hp=14.230 mp=20.429 en=0.000
 f2791 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2791 Slime hp=0.000 mp=20.363 en=0.000
 f2791 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2792 Slime hp=18.727 mp=20.429 en=0.000
+f2792 Slime hp=14.230 mp=20.429 en=0.000
 f2792 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2792 Slime hp=0.000 mp=20.363 en=0.000
 f2792 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2793 Slime hp=18.727 mp=20.429 en=0.000
+f2793 Slime hp=14.230 mp=20.429 en=0.000
 f2793 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2793 Slime hp=0.000 mp=20.363 en=0.000
 f2793 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2794 Slime hp=18.727 mp=20.429 en=0.000
+f2794 Slime hp=14.230 mp=20.429 en=0.000
 f2794 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2794 Slime hp=0.000 mp=20.363 en=0.000
 f2794 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2795 Slime hp=18.727 mp=20.429 en=0.000
+f2795 Slime hp=14.230 mp=20.429 en=0.000
 f2795 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2795 Slime hp=0.000 mp=20.363 en=0.000
 f2795 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2796 Slime hp=18.727 mp=20.429 en=0.000
+f2796 Slime hp=14.230 mp=20.429 en=0.000
 f2796 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2796 Slime hp=0.000 mp=20.363 en=0.000
 f2796 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2797 Slime hp=18.727 mp=20.429 en=0.000
+f2797 Slime hp=14.230 mp=20.429 en=0.000
 f2797 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2797 Slime hp=0.000 mp=20.363 en=0.000
 f2797 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2798 Slime hp=18.727 mp=20.429 en=0.000
+f2798 Slime hp=14.230 mp=20.429 en=0.000
 f2798 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2798 Slime hp=0.000 mp=20.363 en=0.000
 f2798 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2799 Slime hp=18.727 mp=20.429 en=0.000
+f2799 Slime hp=14.230 mp=20.429 en=0.000
 f2799 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2799 Slime hp=0.000 mp=20.363 en=0.000
 f2799 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2800 Slime hp=18.727 mp=20.429 en=0.000
+f2800 Slime hp=14.230 mp=20.429 en=0.000
 f2800 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2800 Slime hp=0.000 mp=20.363 en=0.000
 f2800 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2801 Slime hp=18.727 mp=20.429 en=0.000
+f2801 Slime hp=14.230 mp=20.429 en=0.000
 f2801 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2801 Slime hp=0.000 mp=20.363 en=0.000
 f2801 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2802 Slime hp=18.727 mp=20.429 en=0.000
+f2802 Slime hp=14.230 mp=20.429 en=0.000
 f2802 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2802 Slime hp=0.000 mp=20.363 en=0.000
 f2802 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2803 Slime hp=18.727 mp=20.429 en=0.000
+f2803 Slime hp=14.230 mp=20.429 en=0.000
 f2803 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2803 Slime hp=0.000 mp=20.363 en=0.000
 f2803 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2804 Slime hp=18.727 mp=20.429 en=0.000
+f2804 Slime hp=14.230 mp=20.429 en=0.000
 f2804 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2804 Slime hp=0.000 mp=20.363 en=0.000
 f2804 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2805 Slime hp=18.727 mp=20.429 en=0.000
+f2805 Slime hp=14.230 mp=20.429 en=0.000
 f2805 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2805 Slime hp=0.000 mp=20.363 en=0.000
 f2805 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2806 Slime hp=18.727 mp=20.429 en=0.000
+f2806 Slime hp=14.230 mp=20.429 en=0.000
 f2806 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2806 Slime hp=0.000 mp=20.363 en=0.000
 f2806 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2807 Slime hp=18.727 mp=20.429 en=0.000
+f2807 Slime hp=14.230 mp=20.429 en=0.000
 f2807 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2807 Slime hp=0.000 mp=20.363 en=0.000
 f2807 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2808 Slime hp=18.727 mp=20.429 en=0.000
+f2808 Slime hp=14.230 mp=20.429 en=0.000
 f2808 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2808 Slime hp=0.000 mp=20.363 en=0.000
 f2808 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2809 Slime hp=18.727 mp=20.429 en=0.000
+f2809 Slime hp=14.230 mp=20.429 en=0.000
 f2809 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2809 Slime hp=0.000 mp=20.363 en=0.000
 f2809 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2810 Slime hp=18.727 mp=20.429 en=0.000
+f2810 Slime hp=14.230 mp=20.429 en=0.000
 f2810 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2810 Slime hp=0.000 mp=20.363 en=0.000
 f2810 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2811 Slime hp=18.727 mp=20.429 en=0.000
+f2811 Slime hp=14.230 mp=20.429 en=0.000
 f2811 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2811 Slime hp=0.000 mp=20.363 en=0.000
 f2811 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2812 Slime hp=18.727 mp=20.429 en=0.000
+f2812 Slime hp=14.230 mp=20.429 en=0.000
 f2812 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2812 Slime hp=0.000 mp=20.363 en=0.000
 f2812 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2813 Slime hp=18.727 mp=20.429 en=0.000
+f2813 Slime hp=14.230 mp=20.429 en=0.000
 f2813 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2813 Slime hp=0.000 mp=20.363 en=0.000
 f2813 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2814 Slime hp=18.727 mp=20.429 en=0.000
+f2814 Slime hp=14.230 mp=20.429 en=0.000
 f2814 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2814 Slime hp=0.000 mp=20.363 en=0.000
 f2814 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2815 Slime hp=18.727 mp=20.429 en=0.000
+f2815 Slime hp=14.230 mp=20.429 en=0.000
 f2815 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2815 Slime hp=0.000 mp=20.363 en=0.000
 f2815 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2816 Slime hp=18.727 mp=20.429 en=0.000
+f2816 Slime hp=14.230 mp=20.429 en=0.000
 f2816 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2816 Slime hp=0.000 mp=20.363 en=0.000
 f2816 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2817 Slime hp=18.727 mp=20.429 en=0.000
+f2817 Slime hp=14.230 mp=20.429 en=0.000
 f2817 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2817 Slime hp=0.000 mp=20.363 en=0.000
 f2817 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2818 Slime hp=18.727 mp=20.429 en=0.000
+f2818 Slime hp=14.230 mp=20.429 en=0.000
 f2818 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2818 Slime hp=0.000 mp=20.363 en=0.000
 f2818 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2819 Slime hp=18.727 mp=20.429 en=0.000
+f2819 Slime hp=14.230 mp=20.429 en=0.000
 f2819 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2819 Slime hp=0.000 mp=20.363 en=0.000
 f2819 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2820 Slime hp=18.727 mp=20.429 en=0.000
+f2820 Slime hp=14.230 mp=20.429 en=0.000
 f2820 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2820 Slime hp=0.000 mp=20.363 en=0.000
 f2820 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2821 Slime hp=18.727 mp=20.429 en=0.000
+f2821 Slime hp=14.230 mp=20.429 en=0.000
 f2821 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2821 Slime hp=0.000 mp=20.363 en=0.000
 f2821 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2822 Slime hp=18.727 mp=20.429 en=0.000
+f2822 Slime hp=14.230 mp=20.429 en=0.000
 f2822 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2822 Slime hp=0.000 mp=20.363 en=0.000
 f2822 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2823 Slime hp=18.727 mp=20.429 en=0.000
+f2823 Slime hp=14.230 mp=20.429 en=0.000
 f2823 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2823 Slime hp=0.000 mp=20.363 en=0.000
 f2823 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2824 Slime hp=18.727 mp=20.429 en=0.000
+f2824 LOG Turno de Daniel. Esperando su acción...
+f2824 Daniel hp=179.498 mp=20.000 en=139.025
+f2824 Slime hp=14.230 mp=20.429 en=0.000
 f2824 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2824 Slime hp=0.000 mp=20.363 en=0.000
 f2824 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2825 Slime hp=18.727 mp=20.429 en=0.000
+f2825 Slime hp=14.230 mp=20.429 en=0.000
 f2825 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2825 Slime hp=0.000 mp=20.363 en=0.000
 f2825 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2826 Slime hp=18.727 mp=20.429 en=0.000
+f2826 Slime hp=14.230 mp=20.429 en=0.000
 f2826 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2826 Slime hp=0.000 mp=20.363 en=0.000
 f2826 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2827 Slime hp=18.727 mp=20.429 en=0.000
+f2826 999 PULSA Objeto
+f2827 Slime hp=14.230 mp=20.429 en=0.000
 f2827 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2827 Slime hp=0.000 mp=20.363 en=0.000
 f2827 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2828 Slime hp=18.727 mp=20.429 en=0.000
+f2828 Slime hp=14.230 mp=20.429 en=0.000
 f2828 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2828 Slime hp=0.000 mp=20.363 en=0.000
 f2828 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2829 Slime hp=18.727 mp=20.429 en=0.000
+f2829 Slime hp=14.230 mp=20.429 en=0.000
 f2829 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2829 Slime hp=0.000 mp=20.363 en=0.000
 f2829 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2830 Slime hp=18.727 mp=20.429 en=0.000
+f2829 999 PULSA _objeto_box: Poción de maná media +1  x1
+f2830 Slime hp=14.230 mp=20.429 en=0.000
 f2830 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2830 Slime hp=0.000 mp=20.363 en=0.000
 f2830 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2831 Slime hp=18.727 mp=20.429 en=0.000
+f2831 Slime hp=14.230 mp=20.429 en=0.000
 f2831 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2831 Slime hp=0.000 mp=20.363 en=0.000
 f2831 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2832 Slime hp=18.727 mp=20.429 en=0.000
+f2832 Slime hp=14.230 mp=20.429 en=0.000
 f2832 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2832 Slime hp=0.000 mp=20.363 en=0.000
 f2832 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2833 Slime hp=18.727 mp=20.429 en=0.000
+f2832 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f2833 LOG Daniel le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná (10 ya), repartido en 4 turnos.
+f2833 Slime hp=14.230 mp=20.429 en=0.000
 f2833 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2833 Slime hp=0.000 mp=20.363 en=0.000
 f2833 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2834 Slime hp=18.727 mp=20.429 en=0.000
+f2834 Slime hp=14.230 mp=20.429 en=0.000
 f2834 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2834 Slime hp=0.000 mp=20.363 en=0.000
 f2834 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2835 Slime hp=18.727 mp=20.429 en=0.000
+f2835 Slime hp=14.230 mp=20.429 en=0.000
 f2835 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2835 Slime hp=0.000 mp=20.363 en=0.000
 f2835 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2836 Slime hp=18.727 mp=20.429 en=0.000
+f2836 Slime hp=14.230 mp=20.429 en=0.000
 f2836 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2836 Slime hp=0.000 mp=20.363 en=0.000
 f2836 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2837 Slime hp=18.727 mp=20.429 en=0.000
+f2837 LOG … 0.32 de daño: Dasui (0.08), Daniel (0.25)  Aplica: Pegajoso, Pegajoso.
+f2837 Dasui hp=198.974 mp=20.000 en=178.300
+f2837 Daniel hp=179.250 mp=20.000 en=139.025
+f2837 Slime hp=14.230 mp=20.429 en=0.000
 f2837 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2837 Slime hp=0.000 mp=20.363 en=0.000
 f2837 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2838 Slime hp=18.727 mp=20.429 en=0.000
+f2838 Slime hp=14.230 mp=20.429 en=0.000
 f2838 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2838 Slime hp=0.000 mp=20.363 en=0.000
 f2838 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2839 Slime hp=18.727 mp=20.429 en=0.000
+f2839 Slime hp=14.230 mp=20.429 en=0.000
 f2839 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2839 Slime hp=0.000 mp=20.363 en=0.000
 f2839 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2840 Slime hp=18.727 mp=20.429 en=0.000
+f2840 Slime hp=14.230 mp=20.429 en=0.000
 f2840 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2840 Slime hp=0.000 mp=20.363 en=0.000
 f2840 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2841 Slime hp=18.727 mp=20.429 en=0.000
+f2841 Slime hp=14.230 mp=20.429 en=0.000
 f2841 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2841 Slime hp=0.000 mp=20.363 en=0.000
 f2841 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2842 Slime hp=18.727 mp=20.429 en=0.000
+f2842 Slime hp=14.230 mp=20.429 en=0.000
 f2842 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2842 Slime hp=0.000 mp=20.363 en=0.000
 f2842 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2843 Slime hp=18.727 mp=20.429 en=0.000
+f2843 Slime hp=14.230 mp=20.429 en=0.000
 f2843 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2843 Slime hp=0.000 mp=20.363 en=0.000
 f2843 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2844 Slime hp=18.727 mp=20.429 en=0.000
+f2844 Slime hp=14.230 mp=20.429 en=0.000
 f2844 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2844 Slime hp=0.000 mp=20.363 en=0.000
 f2844 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2845 Slime hp=18.727 mp=20.429 en=0.000
+f2845 Slime hp=14.230 mp=20.429 en=0.000
 f2845 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2845 Slime hp=0.000 mp=20.363 en=0.000
 f2845 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2846 Slime hp=18.727 mp=20.429 en=0.000
+f2846 Slime hp=14.230 mp=20.429 en=0.000
 f2846 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2846 Slime hp=0.000 mp=20.363 en=0.000
 f2846 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2847 Slime hp=18.727 mp=20.429 en=0.000
+f2847 Slime hp=14.230 mp=20.429 en=0.000
 f2847 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2847 Slime hp=0.000 mp=20.363 en=0.000
 f2847 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2848 Slime hp=18.727 mp=20.429 en=0.000
+f2848 Slime hp=14.230 mp=20.429 en=0.000
 f2848 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2848 Slime hp=0.000 mp=20.363 en=0.000
 f2848 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2849 Slime hp=18.727 mp=20.429 en=0.000
+f2849 Slime hp=14.230 mp=20.429 en=0.000
 f2849 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2849 Slime hp=0.000 mp=20.363 en=0.000
 f2849 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2850 Slime hp=18.727 mp=20.429 en=0.000
+f2850 Slime hp=14.230 mp=20.429 en=0.000
 f2850 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2850 Slime hp=0.000 mp=20.363 en=0.000
 f2850 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2851 Slime hp=18.727 mp=20.429 en=0.000
+f2851 Slime hp=14.230 mp=20.429 en=0.000
 f2851 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2851 Slime hp=0.000 mp=20.363 en=0.000
 f2851 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2852 Slime hp=18.727 mp=20.429 en=0.000
+f2852 Slime hp=14.230 mp=20.429 en=0.000
 f2852 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2852 Slime hp=0.000 mp=20.363 en=0.000
 f2852 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2853 Slime hp=18.727 mp=20.429 en=0.000
+f2853 Slime hp=14.230 mp=20.429 en=0.000
 f2853 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2853 Slime hp=0.000 mp=20.363 en=0.000
 f2853 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2854 Slime hp=18.727 mp=20.429 en=0.000
+f2854 Slime hp=14.230 mp=20.429 en=0.000
 f2854 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2854 Slime hp=0.000 mp=20.363 en=0.000
 f2854 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2855 Slime hp=18.727 mp=20.429 en=0.000
+f2855 Slime hp=14.230 mp=20.429 en=0.000
 f2855 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2855 Slime hp=0.000 mp=20.363 en=0.000
 f2855 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2856 Slime hp=18.727 mp=20.429 en=0.000
+f2856 Slime hp=14.230 mp=20.429 en=0.000
 f2856 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2856 Slime hp=0.000 mp=20.363 en=0.000
 f2856 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2857 Slime hp=18.727 mp=20.429 en=0.000
+f2857 Slime hp=14.230 mp=20.429 en=0.000
 f2857 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2857 Slime hp=0.000 mp=20.363 en=0.000
 f2857 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2858 LOG 5. Slime venenoso ataca a Daniel por 0.34 de daño.
-f2858 Daniel hp=181.899 mp=20.000 en=181.025
-f2858 Slime hp=18.727 mp=20.429 en=0.000
+f2858 Slime hp=14.230 mp=20.429 en=0.000
 f2858 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2858 Slime hp=0.000 mp=20.363 en=0.000
 f2858 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2859 Slime hp=18.727 mp=20.429 en=0.000
+f2859 Slime hp=14.230 mp=20.429 en=0.000
 f2859 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2859 Slime hp=0.000 mp=20.363 en=0.000
 f2859 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2860 Slime hp=18.727 mp=20.429 en=0.000
+f2860 Slime hp=14.230 mp=20.429 en=0.000
 f2860 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2860 Slime hp=0.000 mp=20.363 en=0.000
 f2860 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2861 Slime hp=18.727 mp=20.429 en=0.000
+f2861 Slime hp=14.230 mp=20.429 en=0.000
 f2861 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2861 Slime hp=0.000 mp=20.363 en=0.000
 f2861 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2862 Slime hp=18.727 mp=20.429 en=0.000
+f2862 Slime hp=14.230 mp=20.429 en=0.000
 f2862 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2862 Slime hp=0.000 mp=20.363 en=0.000
 f2862 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2863 Slime hp=18.727 mp=20.429 en=0.000
+f2863 Slime hp=14.230 mp=20.429 en=0.000
 f2863 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2863 Slime hp=0.000 mp=20.363 en=0.000
 f2863 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2864 Slime hp=18.727 mp=20.429 en=0.000
+f2864 Slime hp=14.230 mp=20.429 en=0.000
 f2864 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2864 Slime hp=0.000 mp=20.363 en=0.000
 f2864 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2865 Slime hp=18.727 mp=20.429 en=0.000
+f2865 Slime hp=14.230 mp=20.429 en=0.000
 f2865 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2865 Slime hp=0.000 mp=20.363 en=0.000
 f2865 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2866 Slime hp=18.727 mp=20.429 en=0.000
+f2866 Slime hp=14.230 mp=20.429 en=0.000
 f2866 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2866 Slime hp=0.000 mp=20.363 en=0.000
 f2866 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2867 Slime hp=18.727 mp=20.429 en=0.000
+f2867 Slime hp=14.230 mp=20.429 en=0.000
 f2867 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2867 Slime hp=0.000 mp=20.363 en=0.000
 f2867 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2868 Slime hp=18.727 mp=20.429 en=0.000
+f2868 Slime hp=14.230 mp=20.429 en=0.000
 f2868 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2868 Slime hp=0.000 mp=20.363 en=0.000
 f2868 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2869 Slime hp=18.727 mp=20.429 en=0.000
+f2869 Slime hp=14.230 mp=20.429 en=0.000
 f2869 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2869 Slime hp=0.000 mp=20.363 en=0.000
 f2869 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2870 Slime hp=18.727 mp=20.429 en=0.000
+f2870 Slime hp=14.230 mp=20.429 en=0.000
 f2870 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2870 Slime hp=0.000 mp=20.363 en=0.000
 f2870 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2871 Slime hp=18.727 mp=20.429 en=0.000
+f2871 Slime hp=14.230 mp=20.429 en=0.000
 f2871 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2871 Slime hp=0.000 mp=20.363 en=0.000
 f2871 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2872 Slime hp=18.727 mp=20.429 en=0.000
+f2872 Slime hp=14.230 mp=20.429 en=0.000
 f2872 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2872 Slime hp=0.000 mp=20.363 en=0.000
 f2872 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2873 Slime hp=18.727 mp=20.429 en=0.000
+f2873 Slime hp=14.230 mp=20.429 en=0.000
 f2873 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2873 Slime hp=0.000 mp=20.363 en=0.000
 f2873 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2874 Slime hp=18.727 mp=20.429 en=0.000
+f2874 Slime hp=14.230 mp=20.429 en=0.000
 f2874 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2874 Slime hp=0.000 mp=20.363 en=0.000
 f2874 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2875 Slime hp=18.727 mp=20.429 en=0.000
+f2875 Slime hp=14.230 mp=20.429 en=0.000
 f2875 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2875 Slime hp=0.000 mp=20.363 en=0.000
 f2875 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2876 Slime hp=18.727 mp=20.429 en=0.000
+f2876 Slime hp=14.230 mp=20.429 en=0.000
 f2876 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2876 Slime hp=0.000 mp=20.363 en=0.000
 f2876 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2877 Slime hp=18.727 mp=20.429 en=0.000
+f2877 Slime hp=14.230 mp=20.429 en=0.000
 f2877 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2877 Slime hp=0.000 mp=20.363 en=0.000
 f2877 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2878 Slime hp=18.727 mp=20.429 en=0.000
+f2878 Slime hp=14.230 mp=20.429 en=0.000
 f2878 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2878 Slime hp=0.000 mp=20.363 en=0.000
 f2878 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2879 Slime hp=18.727 mp=20.429 en=0.000
+f2879 Slime hp=14.230 mp=20.429 en=0.000
 f2879 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2879 Slime hp=0.000 mp=20.363 en=0.000
 f2879 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2880 Slime hp=18.727 mp=20.429 en=0.000
+f2880 Slime hp=14.230 mp=20.429 en=0.000
 f2880 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2880 Slime hp=0.000 mp=20.363 en=0.000
 f2880 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2881 Slime hp=18.727 mp=20.429 en=0.000
+f2881 Slime hp=14.230 mp=20.429 en=0.000
 f2881 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2881 Slime hp=0.000 mp=20.363 en=0.000
 f2881 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2882 Slime hp=18.727 mp=20.429 en=0.000
+f2882 Slime hp=14.230 mp=20.429 en=0.000
 f2882 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2882 Slime hp=0.000 mp=20.363 en=0.000
 f2882 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2883 Slime hp=18.727 mp=20.429 en=0.000
+f2883 Slime hp=14.230 mp=20.429 en=0.000
 f2883 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2883 Slime hp=0.000 mp=20.363 en=0.000
 f2883 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2884 Slime hp=18.727 mp=20.429 en=0.000
+f2884 Slime hp=14.230 mp=20.429 en=0.000
 f2884 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2884 Slime hp=0.000 mp=20.363 en=0.000
 f2884 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2885 Slime hp=18.727 mp=20.429 en=0.000
+f2885 Slime hp=14.230 mp=20.429 en=0.000
 f2885 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2885 Slime hp=0.000 mp=20.363 en=0.000
 f2885 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2886 Slime hp=18.727 mp=20.429 en=0.000
+f2886 Slime hp=14.230 mp=20.429 en=0.000
 f2886 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2886 Slime hp=0.000 mp=20.363 en=0.000
 f2886 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2887 Slime hp=18.727 mp=20.429 en=0.000
+f2887 Slime hp=14.230 mp=20.429 en=0.000
 f2887 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2887 Slime hp=0.000 mp=20.363 en=0.000
 f2887 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2888 Slime hp=18.727 mp=20.429 en=0.000
+f2888 Slime hp=14.230 mp=20.429 en=0.000
 f2888 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2888 Slime hp=0.000 mp=20.363 en=0.000
 f2888 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2889 Slime hp=18.727 mp=20.429 en=0.000
+f2889 Slime hp=14.230 mp=20.429 en=0.000
 f2889 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2889 Slime hp=0.000 mp=20.363 en=0.000
 f2889 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2890 Slime hp=18.727 mp=20.429 en=0.000
+f2890 Slime hp=14.230 mp=20.429 en=0.000
 f2890 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2890 Slime hp=0.000 mp=20.363 en=0.000
 f2890 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2891 Slime hp=18.727 mp=20.429 en=0.000
+f2891 Slime hp=14.230 mp=20.429 en=0.000
 f2891 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2891 Slime hp=0.000 mp=20.363 en=0.000
 f2891 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2892 Slime hp=18.727 mp=20.429 en=0.000
+f2892 Slime hp=14.230 mp=20.429 en=0.000
 f2892 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2892 Slime hp=0.000 mp=20.363 en=0.000
 f2892 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2893 Slime hp=18.727 mp=20.429 en=0.000
+f2893 Slime hp=14.230 mp=20.429 en=0.000
 f2893 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2893 Slime hp=0.000 mp=20.363 en=0.000
 f2893 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2894 Slime hp=18.727 mp=20.429 en=0.000
+f2894 Slime hp=14.230 mp=20.429 en=0.000
 f2894 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2894 Slime hp=0.000 mp=20.363 en=0.000
 f2894 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2895 Slime hp=18.727 mp=20.429 en=0.000
+f2895 Slime hp=14.230 mp=20.429 en=0.000
 f2895 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2895 Slime hp=0.000 mp=20.363 en=0.000
 f2895 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2896 Slime hp=18.727 mp=20.429 en=0.000
+f2896 Slime hp=14.230 mp=20.429 en=0.000
 f2896 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2896 Slime hp=0.000 mp=20.363 en=0.000
 f2896 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2897 Slime hp=18.727 mp=20.429 en=0.000
+f2897 Slime hp=14.230 mp=20.429 en=0.000
 f2897 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2897 Slime hp=0.000 mp=20.363 en=0.000
 f2897 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2898 Slime hp=18.727 mp=20.429 en=0.000
+f2898 Slime hp=14.230 mp=20.429 en=0.000
 f2898 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2898 Slime hp=0.000 mp=20.363 en=0.000
 f2898 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2899 Slime hp=18.727 mp=20.429 en=0.000
+f2899 Slime hp=14.230 mp=20.429 en=0.000
 f2899 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2899 Slime hp=0.000 mp=20.363 en=0.000
 f2899 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2900 Slime hp=18.727 mp=20.429 en=0.000
+f2900 Slime hp=14.230 mp=20.429 en=0.000
 f2900 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2900 Slime hp=0.000 mp=20.363 en=0.000
 f2900 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2901 Slime hp=18.727 mp=20.429 en=0.000
+f2901 Slime hp=14.230 mp=20.429 en=0.000
 f2901 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2901 Slime hp=0.000 mp=20.363 en=0.000
 f2901 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2902 Slime hp=18.727 mp=20.429 en=0.000
+f2902 Slime hp=14.230 mp=20.429 en=0.000
 f2902 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2902 Slime hp=0.000 mp=20.363 en=0.000
 f2902 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2903 Slime hp=18.727 mp=20.429 en=0.000
+f2903 Slime hp=14.230 mp=20.429 en=0.000
 f2903 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2903 Slime hp=0.000 mp=20.363 en=0.000
 f2903 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2904 Slime hp=18.727 mp=20.429 en=0.000
+f2904 Slime hp=14.230 mp=20.429 en=0.000
 f2904 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2904 Slime hp=0.000 mp=20.363 en=0.000
 f2904 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2905 Slime hp=18.727 mp=20.429 en=0.000
+f2905 Slime hp=14.230 mp=20.429 en=0.000
 f2905 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2905 Slime hp=0.000 mp=20.363 en=0.000
 f2905 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2906 Slime hp=18.727 mp=20.429 en=0.000
+f2906 Slime hp=14.230 mp=20.429 en=0.000
 f2906 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2906 Slime hp=0.000 mp=20.363 en=0.000
 f2906 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2907 Slime hp=18.727 mp=20.429 en=0.000
+f2907 Slime hp=14.230 mp=20.429 en=0.000
 f2907 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2907 Slime hp=0.000 mp=20.363 en=0.000
 f2907 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2908 Slime hp=18.727 mp=20.429 en=0.000
+f2908 Slime hp=14.230 mp=20.429 en=0.000
 f2908 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2908 Slime hp=0.000 mp=20.363 en=0.000
 f2908 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2909 Slime hp=18.727 mp=20.429 en=0.000
+f2909 LOG Turno de Catalardio. Esperando su acción...
+f2909 Slime hp=14.230 mp=20.429 en=0.000
 f2909 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2909 Slime hp=0.000 mp=20.363 en=0.000
 f2909 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2910 Slime hp=18.727 mp=20.429 en=0.000
+f2910 Slime hp=14.230 mp=20.429 en=0.000
 f2910 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2910 Slime hp=0.000 mp=20.363 en=0.000
 f2910 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2911 Slime hp=18.727 mp=20.429 en=0.000
+f2911 Slime hp=14.230 mp=20.429 en=0.000
 f2911 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2911 Slime hp=0.000 mp=20.363 en=0.000
 f2911 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2912 LOG Turno de Daniel. Esperando su acción...
-f2912 Daniel hp=178.899 mp=20.000 en=181.025
-f2912 Slime hp=18.727 mp=20.429 en=0.000
+f2911 998 PULSA Defender
+f2912 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
+f2912 Catalardio hp=185.947 mp=24.620 en=91.275
+f2912 Slime hp=14.230 mp=20.429 en=0.000
 f2912 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2912 Slime hp=0.000 mp=20.363 en=0.000
 f2912 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2913 Slime hp=18.727 mp=20.429 en=0.000
+f2913 Slime hp=14.230 mp=20.429 en=0.000
 f2913 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2913 Slime hp=0.000 mp=20.363 en=0.000
 f2913 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2914 Slime hp=18.727 mp=20.429 en=0.000
+f2914 Slime hp=14.230 mp=20.429 en=0.000
 f2914 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2914 Slime hp=0.000 mp=20.363 en=0.000
 f2914 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2914 999 PULSA Defender
-f2915 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f2915 Daniel hp=178.899 mp=20.000 en=166.025
-f2915 Slime hp=18.727 mp=20.429 en=0.000
+f2915 Slime hp=14.230 mp=20.429 en=0.000
 f2915 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2915 Slime hp=0.000 mp=20.363 en=0.000
 f2915 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2916 Slime hp=18.727 mp=20.429 en=0.000
+f2916 Slime hp=14.230 mp=20.429 en=0.000
 f2916 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2916 Slime hp=0.000 mp=20.363 en=0.000
 f2916 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2917 Slime hp=18.727 mp=20.429 en=0.000
+f2917 Slime hp=14.230 mp=20.429 en=0.000
 f2917 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2917 Slime hp=0.000 mp=20.363 en=0.000
 f2917 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2918 Slime hp=18.727 mp=20.429 en=0.000
+f2918 Slime hp=14.230 mp=20.429 en=0.000
 f2918 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2918 Slime hp=0.000 mp=20.363 en=0.000
 f2918 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2919 Slime hp=18.727 mp=20.429 en=0.000
+f2919 Slime hp=14.230 mp=20.429 en=0.000
 f2919 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2919 Slime hp=0.000 mp=20.363 en=0.000
 f2919 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2920 Slime hp=18.727 mp=20.429 en=0.000
+f2920 Slime hp=14.230 mp=20.429 en=0.000
 f2920 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2920 Slime hp=0.000 mp=20.363 en=0.000
 f2920 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2921 Slime hp=18.727 mp=20.429 en=0.000
+f2921 Slime hp=14.230 mp=20.429 en=0.000
 f2921 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2921 Slime hp=0.000 mp=20.363 en=0.000
 f2921 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2922 Slime hp=18.727 mp=20.429 en=0.000
+f2922 Slime hp=14.230 mp=20.429 en=0.000
 f2922 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2922 Slime hp=0.000 mp=20.363 en=0.000
 f2922 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2923 Slime hp=18.727 mp=20.429 en=0.000
+f2923 Slime hp=14.230 mp=20.429 en=0.000
 f2923 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2923 Slime hp=0.000 mp=20.363 en=0.000
 f2923 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2924 Slime hp=18.727 mp=20.429 en=0.000
+f2924 Slime hp=14.230 mp=20.429 en=0.000
 f2924 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2924 Slime hp=0.000 mp=20.363 en=0.000
 f2924 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2925 Slime hp=18.727 mp=20.429 en=0.000
+f2925 Slime hp=14.230 mp=20.429 en=0.000
 f2925 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2925 Slime hp=0.000 mp=20.363 en=0.000
 f2925 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2926 LOG Turno de Catalardio. Esperando su acción...
-f2926 Slime hp=18.727 mp=20.429 en=0.000
+f2926 Slime hp=14.230 mp=20.429 en=0.000
 f2926 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2926 Slime hp=0.000 mp=20.363 en=0.000
 f2926 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2927 Slime hp=18.727 mp=20.429 en=0.000
+f2927 Slime hp=14.230 mp=20.429 en=0.000
 f2927 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2927 Slime hp=0.000 mp=20.363 en=0.000
 f2927 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2928 Slime hp=18.727 mp=20.429 en=0.000
+f2928 Slime hp=14.230 mp=20.429 en=0.000
 f2928 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2928 Slime hp=0.000 mp=20.363 en=0.000
 f2928 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2928 998 PULSA Habilidad
-f2929 Slime hp=18.727 mp=20.429 en=0.000
+f2929 Slime hp=14.230 mp=20.429 en=0.000
 f2929 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2929 Slime hp=0.000 mp=20.363 en=0.000
 f2929 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2930 Slime hp=18.727 mp=20.429 en=0.000
+f2930 Slime hp=14.230 mp=20.429 en=0.000
 f2930 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2930 Slime hp=0.000 mp=20.363 en=0.000
 f2930 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2931 Slime hp=18.727 mp=20.429 en=0.000
+f2931 Slime hp=14.230 mp=20.429 en=0.000
 f2931 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2931 Slime hp=0.000 mp=20.363 en=0.000
 f2931 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2931 998 PULSA _ability_box: atras (apagados: Golpe sísmico  (60 EN)  ⏳2 [⛔ En cooldown: 2 turnos])
-f2932 Slime hp=18.727 mp=20.429 en=0.000
+f2932 Slime hp=14.230 mp=20.429 en=0.000
 f2932 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2932 Slime hp=0.000 mp=20.363 en=0.000
 f2932 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2933 Slime hp=18.727 mp=20.429 en=0.000
+f2933 Slime hp=14.230 mp=20.429 en=0.000
 f2933 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2933 Slime hp=0.000 mp=20.363 en=0.000
 f2933 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2934 Slime hp=18.727 mp=20.429 en=0.000
+f2934 Slime hp=14.230 mp=20.429 en=0.000
 f2934 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2934 Slime hp=0.000 mp=20.363 en=0.000
 f2934 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2934 998 PULSA Atacar
-f2935 LOG Catalardio golpea con Martillo grande por 11.37 de daño.
-f2935 Catalardio hp=185.947 mp=24.620 en=181.275
-f2935 Rey Slime hp=103.075 mp=21.188 en=0.000
-f2935 Slime hp=18.727 mp=20.429 en=0.000
+f2935 Slime hp=14.230 mp=20.429 en=0.000
 f2935 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2935 Slime hp=0.000 mp=20.363 en=0.000
 f2935 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2936 Slime hp=18.727 mp=20.429 en=0.000
+f2936 Slime hp=14.230 mp=20.429 en=0.000
 f2936 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2936 Slime hp=0.000 mp=20.363 en=0.000
 f2936 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2937 Slime hp=18.727 mp=20.429 en=0.000
+f2937 Slime hp=14.230 mp=20.429 en=0.000
 f2937 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2937 Slime hp=0.000 mp=20.363 en=0.000
 f2937 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2938 Slime hp=18.727 mp=20.429 en=0.000
+f2938 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
+f2938 Slime hp=14.230 mp=20.429 en=0.000
 f2938 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2938 Slime hp=0.000 mp=20.363 en=0.000
 f2938 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2939 Slime hp=18.727 mp=20.429 en=0.000
+f2939 Slime hp=14.230 mp=20.429 en=0.000
 f2939 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2939 Slime hp=0.000 mp=20.363 en=0.000
 f2939 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2940 Slime hp=18.727 mp=20.429 en=0.000
+f2940 Slime hp=14.230 mp=20.429 en=0.000
 f2940 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2940 Slime hp=0.000 mp=20.363 en=0.000
 f2940 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2941 Slime hp=18.727 mp=20.429 en=0.000
+f2941 Slime hp=14.230 mp=20.429 en=0.000
 f2941 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2941 Slime hp=0.000 mp=20.363 en=0.000
 f2941 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2942 Slime hp=18.727 mp=20.429 en=0.000
+f2942 Slime hp=14.230 mp=20.429 en=0.000
 f2942 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2942 Slime hp=0.000 mp=20.363 en=0.000
 f2942 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2943 Slime hp=18.727 mp=20.429 en=0.000
+f2943 Slime hp=14.230 mp=20.429 en=0.000
 f2943 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2943 Slime hp=0.000 mp=20.363 en=0.000
 f2943 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2944 Slime hp=18.727 mp=20.429 en=0.000
+f2944 Slime hp=14.230 mp=20.429 en=0.000
 f2944 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2944 Slime hp=0.000 mp=20.363 en=0.000
 f2944 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2945 Slime hp=18.727 mp=20.429 en=0.000
+f2945 Slime hp=14.230 mp=20.429 en=0.000
 f2945 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2945 Slime hp=0.000 mp=20.363 en=0.000
 f2945 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2946 Slime hp=18.727 mp=20.429 en=0.000
+f2946 Slime hp=14.230 mp=20.429 en=0.000
 f2946 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2946 Slime hp=0.000 mp=20.363 en=0.000
 f2946 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2947 Slime hp=18.727 mp=20.429 en=0.000
+f2947 Slime hp=14.230 mp=20.429 en=0.000
 f2947 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2947 Slime hp=0.000 mp=20.363 en=0.000
 f2947 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2948 Slime hp=18.727 mp=20.429 en=0.000
+f2948 Slime hp=14.230 mp=20.429 en=0.000
 f2948 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2948 Slime hp=0.000 mp=20.363 en=0.000
 f2948 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2949 Slime hp=18.727 mp=20.429 en=0.000
+f2949 Slime hp=14.230 mp=20.429 en=0.000
 f2949 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2949 Slime hp=0.000 mp=20.363 en=0.000
 f2949 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2950 Slime hp=18.727 mp=20.429 en=0.000
+f2950 Slime hp=14.230 mp=20.429 en=0.000
 f2950 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2950 Slime hp=0.000 mp=20.363 en=0.000
 f2950 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2951 Slime hp=18.727 mp=20.429 en=0.000
+f2951 Slime hp=14.230 mp=20.429 en=0.000
 f2951 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2951 Slime hp=0.000 mp=20.363 en=0.000
 f2951 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2952 Slime hp=18.727 mp=20.429 en=0.000
+f2952 Slime hp=14.230 mp=20.429 en=0.000
 f2952 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2952 Slime hp=0.000 mp=20.363 en=0.000
 f2952 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2953 Slime hp=18.727 mp=20.429 en=0.000
+f2953 Slime hp=14.230 mp=20.429 en=0.000
 f2953 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2953 Slime hp=0.000 mp=20.363 en=0.000
 f2953 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2954 Slime hp=18.727 mp=20.429 en=0.000
+f2954 Slime hp=14.230 mp=20.429 en=0.000
 f2954 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2954 Slime hp=0.000 mp=20.363 en=0.000
 f2954 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2955 Slime hp=18.727 mp=20.429 en=0.000
+f2955 Slime hp=14.230 mp=20.429 en=0.000
 f2955 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2955 Slime hp=0.000 mp=20.363 en=0.000
 f2955 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2956 Slime hp=18.727 mp=20.429 en=0.000
+f2956 Slime hp=14.230 mp=20.429 en=0.000
 f2956 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2956 Slime hp=0.000 mp=20.363 en=0.000
 f2956 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2957 Slime hp=18.727 mp=20.429 en=0.000
+f2957 Slime hp=14.230 mp=20.429 en=0.000
 f2957 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2957 Slime hp=0.000 mp=20.363 en=0.000
 f2957 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2958 Slime hp=18.727 mp=20.429 en=0.000
+f2958 Slime hp=14.230 mp=20.429 en=0.000
 f2958 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2958 Slime hp=0.000 mp=20.363 en=0.000
 f2958 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2959 Slime hp=18.727 mp=20.429 en=0.000
+f2959 Slime hp=14.230 mp=20.429 en=0.000
 f2959 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2959 Slime hp=0.000 mp=20.363 en=0.000
 f2959 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2960 Slime hp=18.727 mp=20.429 en=0.000
+f2960 Slime hp=14.230 mp=20.429 en=0.000
 f2960 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2960 Slime hp=0.000 mp=20.363 en=0.000
 f2960 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2961 Slime hp=18.727 mp=20.429 en=0.000
+f2961 Slime hp=14.230 mp=20.429 en=0.000
 f2961 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2961 Slime hp=0.000 mp=20.363 en=0.000
 f2961 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2962 Slime hp=18.727 mp=20.429 en=0.000
+f2962 Slime hp=14.230 mp=20.429 en=0.000
 f2962 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2962 Slime hp=0.000 mp=20.363 en=0.000
 f2962 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2963 Slime hp=18.727 mp=20.429 en=0.000
+f2963 Slime hp=14.230 mp=20.429 en=0.000
 f2963 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2963 Slime hp=0.000 mp=20.363 en=0.000
 f2963 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2964 Slime hp=18.727 mp=20.429 en=0.000
+f2964 Slime hp=14.230 mp=20.429 en=0.000
 f2964 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2964 Slime hp=0.000 mp=20.363 en=0.000
 f2964 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2965 Slime hp=18.727 mp=20.429 en=0.000
+f2965 Slime hp=14.230 mp=20.429 en=0.000
 f2965 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2965 Slime hp=0.000 mp=20.363 en=0.000
 f2965 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2966 Slime hp=18.727 mp=20.429 en=0.000
+f2966 Slime hp=14.230 mp=20.429 en=0.000
 f2966 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2966 Slime hp=0.000 mp=20.363 en=0.000
 f2966 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2967 Slime hp=18.727 mp=20.429 en=0.000
+f2967 Slime hp=14.230 mp=20.429 en=0.000
 f2967 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2967 Slime hp=0.000 mp=20.363 en=0.000
 f2967 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2968 Slime hp=18.727 mp=20.429 en=0.000
+f2968 Slime hp=14.230 mp=20.429 en=0.000
 f2968 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2968 Slime hp=0.000 mp=20.363 en=0.000
 f2968 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2969 Slime hp=18.727 mp=20.429 en=0.000
+f2969 Slime hp=14.230 mp=20.429 en=0.000
 f2969 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2969 Slime hp=0.000 mp=20.363 en=0.000
 f2969 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2970 Slime hp=18.727 mp=20.429 en=0.000
+f2970 Slime hp=14.230 mp=20.429 en=0.000
 f2970 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2970 Slime hp=0.000 mp=20.363 en=0.000
 f2970 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2971 Slime hp=18.727 mp=20.429 en=0.000
+f2971 Slime hp=14.230 mp=20.429 en=0.000
 f2971 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2971 Slime hp=0.000 mp=20.363 en=0.000
 f2971 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2972 Slime hp=18.727 mp=20.429 en=0.000
+f2972 Slime hp=14.230 mp=20.429 en=0.000
 f2972 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2972 Slime hp=0.000 mp=20.363 en=0.000
 f2972 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2973 Slime hp=18.727 mp=20.429 en=0.000
+f2973 Slime hp=14.230 mp=20.429 en=0.000
 f2973 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2973 Slime hp=0.000 mp=20.363 en=0.000
 f2973 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2974 Slime hp=18.727 mp=20.429 en=0.000
+f2974 Slime hp=14.230 mp=20.429 en=0.000
 f2974 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2974 Slime hp=0.000 mp=20.363 en=0.000
 f2974 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2975 Slime hp=18.727 mp=20.429 en=0.000
+f2975 Slime hp=14.230 mp=20.429 en=0.000
 f2975 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2975 Slime hp=0.000 mp=20.363 en=0.000
 f2975 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2976 Slime hp=18.727 mp=20.429 en=0.000
+f2976 Slime hp=14.230 mp=20.429 en=0.000
 f2976 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2976 Slime hp=0.000 mp=20.363 en=0.000
 f2976 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2977 Slime hp=18.727 mp=20.429 en=0.000
+f2977 Slime hp=14.230 mp=20.429 en=0.000
 f2977 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2977 Slime hp=0.000 mp=20.363 en=0.000
 f2977 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2978 Slime hp=18.727 mp=20.429 en=0.000
+f2978 Slime hp=14.230 mp=20.429 en=0.000
 f2978 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2978 Slime hp=0.000 mp=20.363 en=0.000
 f2978 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2979 Slime hp=18.727 mp=20.429 en=0.000
+f2979 Slime hp=14.230 mp=20.429 en=0.000
 f2979 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2979 Slime hp=0.000 mp=20.363 en=0.000
 f2979 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2980 Slime hp=18.727 mp=20.429 en=0.000
+f2980 Slime hp=14.230 mp=20.429 en=0.000
 f2980 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2980 Slime hp=0.000 mp=20.363 en=0.000
 f2980 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2981 Slime hp=18.727 mp=20.429 en=0.000
+f2981 Slime hp=14.230 mp=20.429 en=0.000
 f2981 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2981 Slime hp=0.000 mp=20.363 en=0.000
 f2981 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2982 Slime hp=18.727 mp=20.429 en=0.000
+f2982 Slime hp=14.230 mp=20.429 en=0.000
 f2982 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2982 Slime hp=0.000 mp=20.363 en=0.000
 f2982 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2983 Slime hp=18.727 mp=20.429 en=0.000
+f2983 Slime hp=14.230 mp=20.429 en=0.000
 f2983 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2983 Slime hp=0.000 mp=20.363 en=0.000
 f2983 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2984 Slime hp=18.727 mp=20.429 en=0.000
+f2984 Slime hp=14.230 mp=20.429 en=0.000
 f2984 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2984 Slime hp=0.000 mp=20.363 en=0.000
 f2984 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2985 Slime hp=18.727 mp=20.429 en=0.000
+f2985 Slime hp=14.230 mp=20.429 en=0.000
 f2985 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2985 Slime hp=0.000 mp=20.363 en=0.000
 f2985 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2986 Slime hp=18.727 mp=20.429 en=0.000
+f2986 Slime hp=14.230 mp=20.429 en=0.000
 f2986 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2986 Slime hp=0.000 mp=20.363 en=0.000
 f2986 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2987 Slime hp=18.727 mp=20.429 en=0.000
+f2987 Slime hp=14.230 mp=20.429 en=0.000
 f2987 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2987 Slime hp=0.000 mp=20.363 en=0.000
 f2987 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2988 Slime hp=18.727 mp=20.429 en=0.000
+f2988 LOG Turno de Dasui. Esperando su acción...
+f2988 Slime hp=14.230 mp=20.429 en=0.000
 f2988 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2988 Slime hp=0.000 mp=20.363 en=0.000
 f2988 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2989 Slime hp=18.727 mp=20.429 en=0.000
+f2989 Slime hp=14.230 mp=20.429 en=0.000
 f2989 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2989 Slime hp=0.000 mp=20.363 en=0.000
 f2989 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2990 Slime hp=18.727 mp=20.429 en=0.000
+f2990 Slime hp=14.230 mp=20.429 en=0.000
 f2990 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2990 Slime hp=0.000 mp=20.363 en=0.000
 f2990 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2991 Slime hp=18.727 mp=20.429 en=0.000
+f2990 999 PULSA Atacar
+f2991 LOG Dasui golpea con Mandobles por 11.22 de daño.
+f2991 Dasui hp=198.974 mp=20.000 en=181.300
+f2991 Rey Slime hp=99.581 mp=21.188 en=0.000
+f2991 Slime hp=14.230 mp=20.429 en=0.000
 f2991 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2991 Slime hp=0.000 mp=20.363 en=0.000
 f2991 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2992 Slime hp=18.727 mp=20.429 en=0.000
+f2992 Slime hp=14.230 mp=20.429 en=0.000
 f2992 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2992 Slime hp=0.000 mp=20.363 en=0.000
 f2992 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2993 Slime hp=18.727 mp=20.429 en=0.000
+f2993 Slime hp=14.230 mp=20.429 en=0.000
 f2993 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2993 Slime hp=0.000 mp=20.363 en=0.000
 f2993 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2994 Slime hp=18.727 mp=20.429 en=0.000
+f2994 Slime hp=14.230 mp=20.429 en=0.000
 f2994 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2994 Slime hp=0.000 mp=20.363 en=0.000
 f2994 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2995 Slime hp=18.727 mp=20.429 en=0.000
+f2995 Slime hp=14.230 mp=20.429 en=0.000
 f2995 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2995 Slime hp=0.000 mp=20.363 en=0.000
 f2995 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2996 Slime hp=18.727 mp=20.429 en=0.000
+f2996 Slime hp=14.230 mp=20.429 en=0.000
 f2996 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2996 Slime hp=0.000 mp=20.363 en=0.000
 f2996 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2997 Slime hp=18.727 mp=20.429 en=0.000
+f2997 Slime hp=14.230 mp=20.429 en=0.000
 f2997 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2997 Slime hp=0.000 mp=20.363 en=0.000
 f2997 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2998 Slime hp=18.727 mp=20.429 en=0.000
+f2998 Slime hp=14.230 mp=20.429 en=0.000
 f2998 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2998 Slime hp=0.000 mp=20.363 en=0.000
 f2998 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2999 Slime hp=18.727 mp=20.429 en=0.000
+f2999 Slime hp=14.230 mp=20.429 en=0.000
 f2999 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2999 Slime hp=0.000 mp=20.363 en=0.000
 f2999 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3000 Slime hp=18.727 mp=20.429 en=0.000
+f3000 Slime hp=14.230 mp=20.429 en=0.000
 f3000 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3000 Slime hp=0.000 mp=20.363 en=0.000
 f3000 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3001 Slime hp=18.727 mp=20.429 en=0.000
+f3001 Slime hp=14.230 mp=20.429 en=0.000
 f3001 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3001 Slime hp=0.000 mp=20.363 en=0.000
 f3001 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3002 Slime hp=18.727 mp=20.429 en=0.000
+f3002 Slime hp=14.230 mp=20.429 en=0.000
 f3002 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3002 Slime hp=0.000 mp=20.363 en=0.000
 f3002 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3003 Slime hp=18.727 mp=20.429 en=0.000
+f3003 Slime hp=14.230 mp=20.429 en=0.000
 f3003 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3003 Slime hp=0.000 mp=20.363 en=0.000
 f3003 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3004 Slime hp=18.727 mp=20.429 en=0.000
+f3004 Slime hp=14.230 mp=20.429 en=0.000
 f3004 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3004 Slime hp=0.000 mp=20.363 en=0.000
 f3004 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3005 Slime hp=18.727 mp=20.429 en=0.000
+f3005 Slime hp=14.230 mp=20.429 en=0.000
 f3005 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3005 Slime hp=0.000 mp=20.363 en=0.000
 f3005 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3006 Slime hp=18.727 mp=20.429 en=0.000
+f3006 Slime hp=14.230 mp=20.429 en=0.000
 f3006 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3006 Slime hp=0.000 mp=20.363 en=0.000
 f3006 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3007 Slime hp=18.727 mp=20.429 en=0.000
+f3007 Slime hp=14.230 mp=20.429 en=0.000
 f3007 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3007 Slime hp=0.000 mp=20.363 en=0.000
 f3007 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3008 Slime hp=18.727 mp=20.429 en=0.000
+f3008 Slime hp=14.230 mp=20.429 en=0.000
 f3008 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3008 Slime hp=0.000 mp=20.363 en=0.000
 f3008 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3009 Slime hp=18.727 mp=20.429 en=0.000
+f3009 Slime hp=14.230 mp=20.429 en=0.000
 f3009 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3009 Slime hp=0.000 mp=20.363 en=0.000
 f3009 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3010 Slime hp=18.727 mp=20.429 en=0.000
+f3010 Slime hp=14.230 mp=20.429 en=0.000
 f3010 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3010 Slime hp=0.000 mp=20.363 en=0.000
 f3010 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3011 Slime hp=18.727 mp=20.429 en=0.000
+f3011 Slime hp=14.230 mp=20.429 en=0.000
 f3011 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3011 Slime hp=0.000 mp=20.363 en=0.000
 f3011 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3012 Slime hp=18.727 mp=20.429 en=0.000
+f3012 Slime hp=14.230 mp=20.429 en=0.000
 f3012 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3012 Slime hp=0.000 mp=20.363 en=0.000
 f3012 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3013 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
-f3013 Slime hp=18.727 mp=20.429 en=0.000
+f3013 Slime hp=14.230 mp=20.429 en=0.000
 f3013 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3013 Slime hp=0.000 mp=20.363 en=0.000
 f3013 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3014 Slime hp=18.727 mp=20.429 en=0.000
+f3014 Slime hp=14.230 mp=20.429 en=0.000
 f3014 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3014 Slime hp=0.000 mp=20.363 en=0.000
 f3014 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3015 Slime hp=18.727 mp=20.429 en=0.000
+f3015 Slime hp=14.230 mp=20.429 en=0.000
 f3015 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3015 Slime hp=0.000 mp=20.363 en=0.000
 f3015 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3016 Slime hp=18.727 mp=20.429 en=0.000
+f3016 Slime hp=14.230 mp=20.429 en=0.000
 f3016 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3016 Slime hp=0.000 mp=20.363 en=0.000
 f3016 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3017 Slime hp=18.727 mp=20.429 en=0.000
+f3017 Slime hp=14.230 mp=20.429 en=0.000
 f3017 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3017 Slime hp=0.000 mp=20.363 en=0.000
 f3017 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3018 Slime hp=18.727 mp=20.429 en=0.000
+f3018 Slime hp=14.230 mp=20.429 en=0.000
 f3018 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3018 Slime hp=0.000 mp=20.363 en=0.000
 f3018 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3019 Slime hp=18.727 mp=20.429 en=0.000
+f3019 Slime hp=14.230 mp=20.429 en=0.000
 f3019 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3019 Slime hp=0.000 mp=20.363 en=0.000
 f3019 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3020 Slime hp=18.727 mp=20.429 en=0.000
+f3020 Slime hp=14.230 mp=20.429 en=0.000
 f3020 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3020 Slime hp=0.000 mp=20.363 en=0.000
 f3020 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3021 Slime hp=18.727 mp=20.429 en=0.000
+f3021 Slime hp=14.230 mp=20.429 en=0.000
 f3021 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3021 Slime hp=0.000 mp=20.363 en=0.000
 f3021 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3022 Slime hp=18.727 mp=20.429 en=0.000
+f3022 Slime hp=14.230 mp=20.429 en=0.000
 f3022 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3022 Slime hp=0.000 mp=20.363 en=0.000
 f3022 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3023 Slime hp=18.727 mp=20.429 en=0.000
+f3023 Slime hp=14.230 mp=20.429 en=0.000
 f3023 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3023 Slime hp=0.000 mp=20.363 en=0.000
 f3023 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3024 Slime hp=18.727 mp=20.429 en=0.000
+f3024 Slime hp=14.230 mp=20.429 en=0.000
 f3024 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3024 Slime hp=0.000 mp=20.363 en=0.000
 f3024 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3025 Slime hp=18.727 mp=20.429 en=0.000
+f3025 Slime hp=14.230 mp=20.429 en=0.000
 f3025 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3025 Slime hp=0.000 mp=20.363 en=0.000
 f3025 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3026 Slime hp=18.727 mp=20.429 en=0.000
+f3026 Slime hp=14.230 mp=20.429 en=0.000
 f3026 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3026 Slime hp=0.000 mp=20.363 en=0.000
 f3026 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3027 Slime hp=18.727 mp=20.429 en=0.000
+f3027 Slime hp=14.230 mp=20.429 en=0.000
 f3027 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3027 Slime hp=0.000 mp=20.363 en=0.000
 f3027 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3028 Slime hp=18.727 mp=20.429 en=0.000
+f3028 Slime hp=14.230 mp=20.429 en=0.000
 f3028 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3028 Slime hp=0.000 mp=20.363 en=0.000
 f3028 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3029 Slime hp=18.727 mp=20.429 en=0.000
+f3029 Slime hp=14.230 mp=20.429 en=0.000
 f3029 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3029 Slime hp=0.000 mp=20.363 en=0.000
 f3029 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3030 Slime hp=18.727 mp=20.429 en=0.000
+f3030 Slime hp=14.230 mp=20.429 en=0.000
 f3030 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3030 Slime hp=0.000 mp=20.363 en=0.000
 f3030 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3031 Slime hp=18.727 mp=20.429 en=0.000
+f3031 Slime hp=14.230 mp=20.429 en=0.000
 f3031 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3031 Slime hp=0.000 mp=20.363 en=0.000
 f3031 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3032 Slime hp=18.727 mp=20.429 en=0.000
+f3032 Slime hp=14.230 mp=20.429 en=0.000
 f3032 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3032 Slime hp=0.000 mp=20.363 en=0.000
 f3032 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3033 Slime hp=18.727 mp=20.429 en=0.000
+f3033 Slime hp=14.230 mp=20.429 en=0.000
 f3033 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3033 Slime hp=0.000 mp=20.363 en=0.000
 f3033 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3034 Slime hp=18.727 mp=20.429 en=0.000
+f3034 Slime hp=14.230 mp=20.429 en=0.000
 f3034 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3034 Slime hp=0.000 mp=20.363 en=0.000
 f3034 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3035 Slime hp=18.727 mp=20.429 en=0.000
+f3035 Slime hp=14.230 mp=20.429 en=0.000
 f3035 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3035 Slime hp=0.000 mp=20.363 en=0.000
 f3035 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3036 Slime hp=18.727 mp=20.429 en=0.000
+f3036 Slime hp=14.230 mp=20.429 en=0.000
 f3036 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3036 Slime hp=0.000 mp=20.363 en=0.000
 f3036 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3037 Slime hp=18.727 mp=20.429 en=0.000
+f3037 Slime hp=14.230 mp=20.429 en=0.000
 f3037 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3037 Slime hp=0.000 mp=20.363 en=0.000
 f3037 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3038 Slime hp=18.727 mp=20.429 en=0.000
+f3038 Slime hp=14.230 mp=20.429 en=0.000
 f3038 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3038 Slime hp=0.000 mp=20.363 en=0.000
 f3038 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3039 Slime hp=18.727 mp=20.429 en=0.000
+f3039 Slime hp=14.230 mp=20.429 en=0.000
 f3039 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3039 Slime hp=0.000 mp=20.363 en=0.000
 f3039 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3040 Slime hp=18.727 mp=20.429 en=0.000
+f3040 Slime hp=14.230 mp=20.429 en=0.000
 f3040 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3040 Slime hp=0.000 mp=20.363 en=0.000
 f3040 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3041 Slime hp=18.727 mp=20.429 en=0.000
+f3041 Slime hp=14.230 mp=20.429 en=0.000
 f3041 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3041 Slime hp=0.000 mp=20.363 en=0.000
 f3041 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3042 Slime hp=18.727 mp=20.429 en=0.000
+f3042 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
+f3042 Slime hp=14.230 mp=20.429 en=0.000
 f3042 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3042 Slime hp=0.000 mp=20.363 en=0.000
 f3042 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3043 Slime hp=18.727 mp=20.429 en=0.000
+f3043 Slime hp=14.230 mp=20.429 en=0.000
 f3043 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3043 Slime hp=0.000 mp=20.363 en=0.000
 f3043 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3044 Slime hp=18.727 mp=20.429 en=0.000
+f3044 Slime hp=14.230 mp=20.429 en=0.000
 f3044 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3044 Slime hp=0.000 mp=20.363 en=0.000
 f3044 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3045 Slime hp=18.727 mp=20.429 en=0.000
+f3044 998 PULSA frase Kingdom Hearts
+f3045 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
+f3045 Slime hp=14.230 mp=20.429 en=0.000
 f3045 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3045 Slime hp=0.000 mp=20.363 en=0.000
 f3045 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3046 Slime hp=18.727 mp=20.429 en=0.000
+f3046 Slime hp=14.230 mp=20.429 en=0.000
 f3046 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3046 Slime hp=0.000 mp=20.363 en=0.000
 f3046 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3047 Slime hp=18.727 mp=20.429 en=0.000
+f3047 Slime hp=14.230 mp=20.429 en=0.000
 f3047 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3047 Slime hp=0.000 mp=20.363 en=0.000
 f3047 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3048 LOG Turno de Dasui. Esperando su acción...
-f3048 Slime hp=18.727 mp=20.429 en=0.000
+f3048 Slime hp=14.230 mp=20.429 en=0.000
 f3048 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3048 Slime hp=0.000 mp=20.363 en=0.000
 f3048 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3049 Slime hp=18.727 mp=20.429 en=0.000
+f3049 Slime hp=14.230 mp=20.429 en=0.000
 f3049 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3049 Slime hp=0.000 mp=20.363 en=0.000
 f3049 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3050 Slime hp=18.727 mp=20.429 en=0.000
+f3050 Slime hp=14.230 mp=20.429 en=0.000
 f3050 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3050 Slime hp=0.000 mp=20.363 en=0.000
 f3050 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3050 999 PULSA Atacar
-f3051 LOG Dasui golpea con Mandobles por 10.19 de daño.
-f3051 Dasui hp=199.169 mp=20.000 en=178.300
-f3051 Rey Slime hp=94.924 mp=21.188 en=0.000
-f3051 Slime hp=18.727 mp=20.429 en=0.000
+f3051 Slime hp=14.230 mp=20.429 en=0.000
 f3051 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3051 Slime hp=0.000 mp=20.363 en=0.000
 f3051 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3052 Slime hp=18.727 mp=20.429 en=0.000
+f3052 Slime hp=14.230 mp=20.429 en=0.000
 f3052 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3052 Slime hp=0.000 mp=20.363 en=0.000
 f3052 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3053 Slime hp=18.727 mp=20.429 en=0.000
+f3053 Slime hp=14.230 mp=20.429 en=0.000
 f3053 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3053 Slime hp=0.000 mp=20.363 en=0.000
 f3053 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3054 Slime hp=18.727 mp=20.429 en=0.000
+f3054 Slime hp=14.230 mp=20.429 en=0.000
 f3054 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3054 Slime hp=0.000 mp=20.363 en=0.000
 f3054 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3055 Slime hp=18.727 mp=20.429 en=0.000
+f3055 Slime hp=14.230 mp=20.429 en=0.000
 f3055 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3055 Slime hp=0.000 mp=20.363 en=0.000
 f3055 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3056 Slime hp=18.727 mp=20.429 en=0.000
+f3056 Slime hp=14.230 mp=20.429 en=0.000
 f3056 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3056 Slime hp=0.000 mp=20.363 en=0.000
 f3056 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3057 Slime hp=18.727 mp=20.429 en=0.000
+f3057 Slime hp=14.230 mp=20.429 en=0.000
 f3057 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3057 Slime hp=0.000 mp=20.363 en=0.000
 f3057 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3058 Slime hp=18.727 mp=20.429 en=0.000
+f3058 Slime hp=14.230 mp=20.429 en=0.000
 f3058 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3058 Slime hp=0.000 mp=20.363 en=0.000
 f3058 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3059 Slime hp=18.727 mp=20.429 en=0.000
+f3059 Slime hp=14.230 mp=20.429 en=0.000
 f3059 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3059 Slime hp=0.000 mp=20.363 en=0.000
 f3059 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3060 Slime hp=18.727 mp=20.429 en=0.000
+f3060 Slime hp=14.230 mp=20.429 en=0.000
 f3060 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3060 Slime hp=0.000 mp=20.363 en=0.000
 f3060 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3061 Slime hp=18.727 mp=20.429 en=0.000
+f3061 Slime hp=14.230 mp=20.429 en=0.000
 f3061 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3061 Slime hp=0.000 mp=20.363 en=0.000
 f3061 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3062 Slime hp=18.727 mp=20.429 en=0.000
+f3062 Slime hp=14.230 mp=20.429 en=0.000
 f3062 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3062 Slime hp=0.000 mp=20.363 en=0.000
 f3062 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3063 Slime hp=18.727 mp=20.429 en=0.000
+f3063 Slime hp=14.230 mp=20.429 en=0.000
 f3063 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3063 Slime hp=0.000 mp=20.363 en=0.000
 f3063 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3064 Slime hp=18.727 mp=20.429 en=0.000
+f3064 Slime hp=14.230 mp=20.429 en=0.000
 f3064 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3064 Slime hp=0.000 mp=20.363 en=0.000
 f3064 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3065 Slime hp=18.727 mp=20.429 en=0.000
+f3065 Slime hp=14.230 mp=20.429 en=0.000
 f3065 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3065 Slime hp=0.000 mp=20.363 en=0.000
 f3065 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3066 Slime hp=18.727 mp=20.429 en=0.000
+f3066 Slime hp=14.230 mp=20.429 en=0.000
 f3066 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3066 Slime hp=0.000 mp=20.363 en=0.000
 f3066 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3067 Slime hp=18.727 mp=20.429 en=0.000
+f3067 Slime hp=14.230 mp=20.429 en=0.000
 f3067 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3067 Slime hp=0.000 mp=20.363 en=0.000
 f3067 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3068 Slime hp=18.727 mp=20.429 en=0.000
+f3068 Slime hp=14.230 mp=20.429 en=0.000
 f3068 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3068 Slime hp=0.000 mp=20.363 en=0.000
 f3068 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3069 Slime hp=18.727 mp=20.429 en=0.000
+f3069 Slime hp=14.230 mp=20.429 en=0.000
 f3069 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3069 Slime hp=0.000 mp=20.363 en=0.000
 f3069 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3070 Slime hp=18.727 mp=20.429 en=0.000
+f3070 Slime hp=14.230 mp=20.429 en=0.000
 f3070 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3070 Slime hp=0.000 mp=20.363 en=0.000
 f3070 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3071 Slime hp=18.727 mp=20.429 en=0.000
+f3071 Slime hp=14.230 mp=20.429 en=0.000
 f3071 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3071 Slime hp=0.000 mp=20.363 en=0.000
 f3071 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3072 Slime hp=18.727 mp=20.429 en=0.000
+f3072 Slime hp=14.230 mp=20.429 en=0.000
 f3072 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3072 Slime hp=0.000 mp=20.363 en=0.000
 f3072 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3073 Slime hp=18.727 mp=20.429 en=0.000
+f3073 Slime hp=14.230 mp=20.429 en=0.000
 f3073 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3073 Slime hp=0.000 mp=20.363 en=0.000
 f3073 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3074 Slime hp=18.727 mp=20.429 en=0.000
+f3074 Slime hp=14.230 mp=20.429 en=0.000
 f3074 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3074 Slime hp=0.000 mp=20.363 en=0.000
 f3074 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3075 Slime hp=18.727 mp=20.429 en=0.000
+f3075 Slime hp=14.230 mp=20.429 en=0.000
 f3075 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3075 Slime hp=0.000 mp=20.363 en=0.000
 f3075 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3076 Slime hp=18.727 mp=20.429 en=0.000
+f3076 Slime hp=14.230 mp=20.429 en=0.000
 f3076 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3076 Slime hp=0.000 mp=20.363 en=0.000
 f3076 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3077 Slime hp=18.727 mp=20.429 en=0.000
+f3077 Slime hp=14.230 mp=20.429 en=0.000
 f3077 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3077 Slime hp=0.000 mp=20.363 en=0.000
 f3077 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3078 Slime hp=18.727 mp=20.429 en=0.000
+f3078 Slime hp=14.230 mp=20.429 en=0.000
 f3078 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3078 Slime hp=0.000 mp=20.363 en=0.000
 f3078 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3079 Slime hp=18.727 mp=20.429 en=0.000
+f3079 Slime hp=14.230 mp=20.429 en=0.000
 f3079 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3079 Slime hp=0.000 mp=20.363 en=0.000
 f3079 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3080 Slime hp=18.727 mp=20.429 en=0.000
+f3080 Slime hp=14.230 mp=20.429 en=0.000
 f3080 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3080 Slime hp=0.000 mp=20.363 en=0.000
 f3080 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3081 Slime hp=18.727 mp=20.429 en=0.000
+f3081 Slime hp=14.230 mp=20.429 en=0.000
 f3081 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3081 Slime hp=0.000 mp=20.363 en=0.000
 f3081 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3082 Slime hp=18.727 mp=20.429 en=0.000
+f3082 Slime hp=14.230 mp=20.429 en=0.000
 f3082 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3082 Slime hp=0.000 mp=20.363 en=0.000
 f3082 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3083 Slime hp=18.727 mp=20.429 en=0.000
+f3083 Slime hp=14.230 mp=20.429 en=0.000
 f3083 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3083 Slime hp=0.000 mp=20.363 en=0.000
 f3083 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3084 Slime hp=18.727 mp=20.429 en=0.000
+f3084 Slime hp=14.230 mp=20.429 en=0.000
 f3084 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3084 Slime hp=0.000 mp=20.363 en=0.000
 f3084 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3085 Slime hp=18.727 mp=20.429 en=0.000
+f3085 Slime hp=14.230 mp=20.429 en=0.000
 f3085 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3085 Slime hp=0.000 mp=20.363 en=0.000
 f3085 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3086 Slime hp=18.727 mp=20.429 en=0.000
+f3086 LOG Turno de Daniel. Esperando su acción...
+f3086 Daniel hp=176.250 mp=20.000 en=139.025
+f3086 Slime hp=14.230 mp=20.429 en=0.000
 f3086 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3086 Slime hp=0.000 mp=20.363 en=0.000
 f3086 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3087 Slime hp=18.727 mp=20.429 en=0.000
+f3087 Slime hp=14.230 mp=20.429 en=0.000
 f3087 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3087 Slime hp=0.000 mp=20.363 en=0.000
 f3087 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3088 Slime hp=18.727 mp=20.429 en=0.000
+f3088 Slime hp=14.230 mp=20.429 en=0.000
 f3088 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3088 Slime hp=0.000 mp=20.363 en=0.000
 f3088 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3089 Slime hp=18.727 mp=20.429 en=0.000
+f3088 999 PULSA Atacar
+f3089 LOG Daniel golpea con Maza pequeña por 5.47 de daño.
+f3089 Daniel hp=176.250 mp=20.000 en=174.025
+f3089 Rey Slime hp=95.202 mp=21.188 en=0.000
+f3089 Slime hp=14.230 mp=20.429 en=0.000
 f3089 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3089 Slime hp=0.000 mp=20.363 en=0.000
 f3089 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3090 Slime hp=18.727 mp=20.429 en=0.000
+f3090 Slime hp=14.230 mp=20.429 en=0.000
 f3090 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3090 Slime hp=0.000 mp=20.363 en=0.000
 f3090 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3091 Slime hp=18.727 mp=20.429 en=0.000
+f3091 Slime hp=14.230 mp=20.429 en=0.000
 f3091 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3091 Slime hp=0.000 mp=20.363 en=0.000
 f3091 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3092 Slime hp=18.727 mp=20.429 en=0.000
+f3092 Slime hp=14.230 mp=20.429 en=0.000
 f3092 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3092 Slime hp=0.000 mp=20.363 en=0.000
 f3092 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3093 Slime hp=18.727 mp=20.429 en=0.000
+f3093 Slime hp=14.230 mp=20.429 en=0.000
 f3093 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3093 Slime hp=0.000 mp=20.363 en=0.000
 f3093 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3094 Slime hp=18.727 mp=20.429 en=0.000
+f3094 Slime hp=14.230 mp=20.429 en=0.000
 f3094 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3094 Slime hp=0.000 mp=20.363 en=0.000
 f3094 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3095 Slime hp=18.727 mp=20.429 en=0.000
+f3095 Slime hp=14.230 mp=20.429 en=0.000
 f3095 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3095 Slime hp=0.000 mp=20.363 en=0.000
 f3095 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3096 Slime hp=18.727 mp=20.429 en=0.000
+f3096 Slime hp=14.230 mp=20.429 en=0.000
 f3096 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3096 Slime hp=0.000 mp=20.363 en=0.000
 f3096 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3097 Slime hp=18.727 mp=20.429 en=0.000
+f3097 Slime hp=14.230 mp=20.429 en=0.000
 f3097 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3097 Slime hp=0.000 mp=20.363 en=0.000
 f3097 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3098 Slime hp=18.727 mp=20.429 en=0.000
+f3098 Slime hp=14.230 mp=20.429 en=0.000
 f3098 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3098 Slime hp=0.000 mp=20.363 en=0.000
 f3098 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3099 Slime hp=18.727 mp=20.429 en=0.000
+f3099 Slime hp=14.230 mp=20.429 en=0.000
 f3099 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3099 Slime hp=0.000 mp=20.363 en=0.000
 f3099 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3100 Slime hp=18.727 mp=20.429 en=0.000
+f3100 Slime hp=14.230 mp=20.429 en=0.000
 f3100 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3100 Slime hp=0.000 mp=20.363 en=0.000
 f3100 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3101 Slime hp=18.727 mp=20.429 en=0.000
+f3101 Slime hp=14.230 mp=20.429 en=0.000
 f3101 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3101 Slime hp=0.000 mp=20.363 en=0.000
 f3101 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3102 Slime hp=18.727 mp=20.429 en=0.000
+f3102 Slime hp=14.230 mp=20.429 en=0.000
 f3102 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3102 Slime hp=0.000 mp=20.363 en=0.000
 f3102 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3103 Slime hp=18.727 mp=20.429 en=0.000
+f3103 Slime hp=14.230 mp=20.429 en=0.000
 f3103 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3103 Slime hp=0.000 mp=20.363 en=0.000
 f3103 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3104 Slime hp=18.727 mp=20.429 en=0.000
+f3104 Slime hp=14.230 mp=20.429 en=0.000
 f3104 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3104 Slime hp=0.000 mp=20.363 en=0.000
 f3104 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3105 Slime hp=18.727 mp=20.429 en=0.000
+f3105 Slime hp=14.230 mp=20.429 en=0.000
 f3105 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3105 Slime hp=0.000 mp=20.363 en=0.000
 f3105 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3106 Slime hp=18.727 mp=20.429 en=0.000
+f3106 Slime hp=14.230 mp=20.429 en=0.000
 f3106 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3106 Slime hp=0.000 mp=20.363 en=0.000
 f3106 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3107 Slime hp=18.727 mp=20.429 en=0.000
+f3107 Slime hp=14.230 mp=20.429 en=0.000
 f3107 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3107 Slime hp=0.000 mp=20.363 en=0.000
 f3107 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3108 Slime hp=18.727 mp=20.429 en=0.000
+f3108 Slime hp=14.230 mp=20.429 en=0.000
 f3108 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3108 Slime hp=0.000 mp=20.363 en=0.000
 f3108 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3109 Slime hp=18.727 mp=20.429 en=0.000
+f3109 Slime hp=14.230 mp=20.429 en=0.000
 f3109 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3109 Slime hp=0.000 mp=20.363 en=0.000
 f3109 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3110 Slime hp=18.727 mp=20.429 en=0.000
+f3110 Slime hp=14.230 mp=20.429 en=0.000
 f3110 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3110 Slime hp=0.000 mp=20.363 en=0.000
 f3110 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3111 Slime hp=18.727 mp=20.429 en=0.000
+f3111 Slime hp=14.230 mp=20.429 en=0.000
 f3111 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3111 Slime hp=0.000 mp=20.363 en=0.000
 f3111 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3112 Slime hp=18.727 mp=20.429 en=0.000
+f3112 Slime hp=14.230 mp=20.429 en=0.000
 f3112 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3112 Slime hp=0.000 mp=20.363 en=0.000
 f3112 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3113 LOG 🔮 Agirato ochinan recita Eclipse (4/4). Esperando...
-f3113 Slime hp=18.727 mp=20.429 en=0.000
+f3113 Slime hp=14.230 mp=20.429 en=0.000
 f3113 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3113 Slime hp=0.000 mp=20.363 en=0.000
 f3113 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3114 Slime hp=18.727 mp=20.429 en=0.000
+f3114 Slime hp=14.230 mp=20.429 en=0.000
 f3114 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3114 Slime hp=0.000 mp=20.363 en=0.000
 f3114 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3115 Slime hp=18.727 mp=20.429 en=0.000
+f3115 Slime hp=14.230 mp=20.429 en=0.000
 f3115 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3115 Slime hp=0.000 mp=20.363 en=0.000
 f3115 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3115 998 PULSA frase Kingdom Hearts
-f3116 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
-f3116 Slime hp=18.727 mp=20.429 en=0.000
+f3116 Slime hp=14.230 mp=20.429 en=0.000
 f3116 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3116 Slime hp=0.000 mp=20.363 en=0.000
 f3116 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3117 Slime hp=18.727 mp=20.429 en=0.000
+f3117 Slime hp=14.230 mp=20.429 en=0.000
 f3117 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3117 Slime hp=0.000 mp=20.363 en=0.000
 f3117 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3118 Slime hp=18.727 mp=20.429 en=0.000
+f3118 Slime hp=14.230 mp=20.429 en=0.000
 f3118 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3118 Slime hp=0.000 mp=20.363 en=0.000
 f3118 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3119 Slime hp=18.727 mp=20.429 en=0.000
+f3119 Slime hp=14.230 mp=20.429 en=0.000
 f3119 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3119 Slime hp=0.000 mp=20.363 en=0.000
 f3119 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3120 Slime hp=18.727 mp=20.429 en=0.000
+f3120 Slime hp=14.230 mp=20.429 en=0.000
 f3120 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3120 Slime hp=0.000 mp=20.363 en=0.000
 f3120 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3121 Slime hp=18.727 mp=20.429 en=0.000
+f3121 Slime hp=14.230 mp=20.429 en=0.000
 f3121 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3121 Slime hp=0.000 mp=20.363 en=0.000
 f3121 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3122 Slime hp=18.727 mp=20.429 en=0.000
+f3122 Slime hp=14.230 mp=20.429 en=0.000
 f3122 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3122 Slime hp=0.000 mp=20.363 en=0.000
 f3122 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3123 Slime hp=18.727 mp=20.429 en=0.000
+f3123 Slime hp=14.230 mp=20.429 en=0.000
 f3123 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3123 Slime hp=0.000 mp=20.363 en=0.000
 f3123 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3124 Slime hp=18.727 mp=20.429 en=0.000
+f3124 Slime hp=14.230 mp=20.429 en=0.000
 f3124 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3124 Slime hp=0.000 mp=20.363 en=0.000
 f3124 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3125 Slime hp=18.727 mp=20.429 en=0.000
+f3125 Slime hp=14.230 mp=20.429 en=0.000
 f3125 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3125 Slime hp=0.000 mp=20.363 en=0.000
 f3125 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3126 Slime hp=18.727 mp=20.429 en=0.000
+f3126 Slime hp=14.230 mp=20.429 en=0.000
 f3126 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3126 Slime hp=0.000 mp=20.363 en=0.000
 f3126 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3127 Slime hp=18.727 mp=20.429 en=0.000
+f3127 Slime hp=14.230 mp=20.429 en=0.000
 f3127 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3127 Slime hp=0.000 mp=20.363 en=0.000
 f3127 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3128 Slime hp=18.727 mp=20.429 en=0.000
+f3128 Slime hp=14.230 mp=20.429 en=0.000
 f3128 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3128 Slime hp=0.000 mp=20.363 en=0.000
 f3128 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3129 Slime hp=18.727 mp=20.429 en=0.000
+f3129 Slime hp=14.230 mp=20.429 en=0.000
 f3129 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3129 Slime hp=0.000 mp=20.363 en=0.000
 f3129 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3130 Slime hp=18.727 mp=20.429 en=0.000
+f3130 Slime hp=14.230 mp=20.429 en=0.000
 f3130 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3130 Slime hp=0.000 mp=20.363 en=0.000
 f3130 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3131 Slime hp=18.727 mp=20.429 en=0.000
+f3131 Slime hp=14.230 mp=20.429 en=0.000
 f3131 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3131 Slime hp=0.000 mp=20.363 en=0.000
 f3131 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3132 Slime hp=18.727 mp=20.429 en=0.000
+f3132 Slime hp=14.230 mp=20.429 en=0.000
 f3132 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3132 Slime hp=0.000 mp=20.363 en=0.000
 f3132 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3133 Slime hp=18.727 mp=20.429 en=0.000
+f3133 Slime hp=14.230 mp=20.429 en=0.000
 f3133 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3133 Slime hp=0.000 mp=20.363 en=0.000
 f3133 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3134 Slime hp=18.727 mp=20.429 en=0.000
+f3134 Slime hp=14.230 mp=20.429 en=0.000
 f3134 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3134 Slime hp=0.000 mp=20.363 en=0.000
 f3134 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3135 Slime hp=18.727 mp=20.429 en=0.000
+f3135 Slime hp=14.230 mp=20.429 en=0.000
 f3135 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3135 Slime hp=0.000 mp=20.363 en=0.000
 f3135 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3136 Slime hp=18.727 mp=20.429 en=0.000
+f3136 Slime hp=14.230 mp=20.429 en=0.000
 f3136 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3136 Slime hp=0.000 mp=20.363 en=0.000
 f3136 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3137 Slime hp=18.727 mp=20.429 en=0.000
+f3137 Slime hp=14.230 mp=20.429 en=0.000
 f3137 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3137 Slime hp=0.000 mp=20.363 en=0.000
 f3137 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3138 Slime hp=18.727 mp=20.429 en=0.000
+f3138 Slime hp=14.230 mp=20.429 en=0.000
 f3138 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3138 Slime hp=0.000 mp=20.363 en=0.000
 f3138 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3139 Slime hp=18.727 mp=20.429 en=0.000
+f3139 Slime hp=14.230 mp=20.429 en=0.000
 f3139 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3139 Slime hp=0.000 mp=20.363 en=0.000
 f3139 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3140 Slime hp=18.727 mp=20.429 en=0.000
+f3140 LOG … no te ha dado con ninguno de los 2 golpes.
+f3140 Slime hp=14.230 mp=20.429 en=0.000
 f3140 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3140 Slime hp=0.000 mp=20.363 en=0.000
 f3140 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3141 Slime hp=18.727 mp=20.429 en=0.000
+f3141 Slime hp=14.230 mp=20.429 en=0.000
 f3141 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3141 Slime hp=0.000 mp=20.363 en=0.000
 f3141 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3142 Slime hp=18.727 mp=20.429 en=0.000
+f3142 Slime hp=14.230 mp=20.429 en=0.000
 f3142 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3142 Slime hp=0.000 mp=20.363 en=0.000
 f3142 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3143 Slime hp=18.727 mp=20.429 en=0.000
+f3143 Slime hp=14.230 mp=20.429 en=0.000
 f3143 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3143 Slime hp=0.000 mp=20.363 en=0.000
 f3143 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3144 Slime hp=18.727 mp=20.429 en=0.000
+f3144 Slime hp=14.230 mp=20.429 en=0.000
 f3144 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3144 Slime hp=0.000 mp=20.363 en=0.000
 f3144 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3145 Slime hp=18.727 mp=20.429 en=0.000
+f3145 Slime hp=14.230 mp=20.429 en=0.000
 f3145 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3145 Slime hp=0.000 mp=20.363 en=0.000
 f3145 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3146 Slime hp=18.727 mp=20.429 en=0.000
+f3146 Slime hp=14.230 mp=20.429 en=0.000
 f3146 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3146 Slime hp=0.000 mp=20.363 en=0.000
 f3146 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3147 Slime hp=18.727 mp=20.429 en=0.000
+f3147 Slime hp=14.230 mp=20.429 en=0.000
 f3147 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3147 Slime hp=0.000 mp=20.363 en=0.000
 f3147 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3148 Slime hp=18.727 mp=20.429 en=0.000
+f3148 Slime hp=14.230 mp=20.429 en=0.000
 f3148 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3148 Slime hp=0.000 mp=20.363 en=0.000
 f3148 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3149 Slime hp=18.727 mp=20.429 en=0.000
+f3149 Slime hp=14.230 mp=20.429 en=0.000
 f3149 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3149 Slime hp=0.000 mp=20.363 en=0.000
 f3149 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3150 Slime hp=18.727 mp=20.429 en=0.000
+f3150 Slime hp=14.230 mp=20.429 en=0.000
 f3150 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3150 Slime hp=0.000 mp=20.363 en=0.000
 f3150 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3151 Slime hp=18.727 mp=20.429 en=0.000
+f3151 Slime hp=14.230 mp=20.429 en=0.000
 f3151 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3151 Slime hp=0.000 mp=20.363 en=0.000
 f3151 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3152 Slime hp=18.727 mp=20.429 en=0.000
+f3152 Slime hp=14.230 mp=20.429 en=0.000
 f3152 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3152 Slime hp=0.000 mp=20.363 en=0.000
 f3152 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3153 Slime hp=18.727 mp=20.429 en=0.000
+f3153 Slime hp=14.230 mp=20.429 en=0.000
 f3153 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3153 Slime hp=0.000 mp=20.363 en=0.000
 f3153 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3154 Slime hp=18.727 mp=20.429 en=0.000
+f3154 Slime hp=14.230 mp=20.429 en=0.000
 f3154 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3154 Slime hp=0.000 mp=20.363 en=0.000
 f3154 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3155 Slime hp=18.727 mp=20.429 en=0.000
+f3155 Slime hp=14.230 mp=20.429 en=0.000
 f3155 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3155 Slime hp=0.000 mp=20.363 en=0.000
 f3155 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3156 Slime hp=18.727 mp=20.429 en=0.000
+f3156 Slime hp=14.230 mp=20.429 en=0.000
 f3156 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3156 Slime hp=0.000 mp=20.363 en=0.000
 f3156 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3157 Slime hp=18.727 mp=20.429 en=0.000
+f3157 Slime hp=14.230 mp=20.429 en=0.000
 f3157 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3157 Slime hp=0.000 mp=20.363 en=0.000
 f3157 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3158 Slime hp=18.727 mp=20.429 en=0.000
+f3158 Slime hp=14.230 mp=20.429 en=0.000
 f3158 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3158 Slime hp=0.000 mp=20.363 en=0.000
 f3158 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3159 Slime hp=18.727 mp=20.429 en=0.000
+f3159 Slime hp=14.230 mp=20.429 en=0.000
 f3159 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3159 Slime hp=0.000 mp=20.363 en=0.000
 f3159 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3160 LOG … 0.12 de daño (1 de 1 golpes).  🛡️ Daniel aguanta en guardia (menos daño).  Aplica: Lento.
-f3160 Daniel hp=178.779 mp=20.000 en=166.025
-f3160 Slime hp=18.727 mp=20.429 en=0.000
+f3160 Slime hp=14.230 mp=20.429 en=0.000
 f3160 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3160 Slime hp=0.000 mp=20.363 en=0.000
 f3160 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3161 Slime hp=18.727 mp=20.429 en=0.000
+f3161 Slime hp=14.230 mp=20.429 en=0.000
 f3161 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3161 Slime hp=0.000 mp=20.363 en=0.000
 f3161 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3162 Slime hp=18.727 mp=20.429 en=0.000
+f3162 Slime hp=14.230 mp=20.429 en=0.000
 f3162 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3162 Slime hp=0.000 mp=20.363 en=0.000
 f3162 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3163 Slime hp=18.727 mp=20.429 en=0.000
+f3163 Slime hp=14.230 mp=20.429 en=0.000
 f3163 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3163 Slime hp=0.000 mp=20.363 en=0.000
 f3163 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3164 Slime hp=18.727 mp=20.429 en=0.000
+f3164 Slime hp=14.230 mp=20.429 en=0.000
 f3164 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3164 Slime hp=0.000 mp=20.363 en=0.000
 f3164 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3165 Slime hp=18.727 mp=20.429 en=0.000
+f3165 Slime hp=14.230 mp=20.429 en=0.000
 f3165 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3165 Slime hp=0.000 mp=20.363 en=0.000
 f3165 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3166 Slime hp=18.727 mp=20.429 en=0.000
+f3166 Slime hp=14.230 mp=20.429 en=0.000
 f3166 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3166 Slime hp=0.000 mp=20.363 en=0.000
 f3166 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3167 Slime hp=18.727 mp=20.429 en=0.000
+f3167 Slime hp=14.230 mp=20.429 en=0.000
 f3167 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3167 Slime hp=0.000 mp=20.363 en=0.000
 f3167 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3168 Slime hp=18.727 mp=20.429 en=0.000
+f3168 Slime hp=14.230 mp=20.429 en=0.000
 f3168 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3168 Slime hp=0.000 mp=20.363 en=0.000
 f3168 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3169 Slime hp=18.727 mp=20.429 en=0.000
+f3169 Slime hp=14.230 mp=20.429 en=0.000
 f3169 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3169 Slime hp=0.000 mp=20.363 en=0.000
 f3169 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3170 Slime hp=18.727 mp=20.429 en=0.000
+f3170 Slime hp=14.230 mp=20.429 en=0.000
 f3170 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3170 Slime hp=0.000 mp=20.363 en=0.000
 f3170 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3171 Slime hp=18.727 mp=20.429 en=0.000
+f3171 Slime hp=14.230 mp=20.429 en=0.000
 f3171 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3171 Slime hp=0.000 mp=20.363 en=0.000
 f3171 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3172 Slime hp=18.727 mp=20.429 en=0.000
+f3172 Slime hp=14.230 mp=20.429 en=0.000
 f3172 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3172 Slime hp=0.000 mp=20.363 en=0.000
 f3172 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3173 Slime hp=18.727 mp=20.429 en=0.000
+f3173 Slime hp=14.230 mp=20.429 en=0.000
 f3173 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3173 Slime hp=0.000 mp=20.363 en=0.000
 f3173 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3174 Slime hp=18.727 mp=20.429 en=0.000
+f3174 Slime hp=14.230 mp=20.429 en=0.000
 f3174 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3174 Slime hp=0.000 mp=20.363 en=0.000
 f3174 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3175 Slime hp=18.727 mp=20.429 en=0.000
+f3175 Slime hp=14.230 mp=20.429 en=0.000
 f3175 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3175 Slime hp=0.000 mp=20.363 en=0.000
 f3175 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3176 Slime hp=18.727 mp=20.429 en=0.000
+f3176 Slime hp=14.230 mp=20.429 en=0.000
 f3176 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3176 Slime hp=0.000 mp=20.363 en=0.000
 f3176 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3177 Slime hp=18.727 mp=20.429 en=0.000
+f3177 Slime hp=14.230 mp=20.429 en=0.000
 f3177 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3177 Slime hp=0.000 mp=20.363 en=0.000
 f3177 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3178 Slime hp=18.727 mp=20.429 en=0.000
+f3178 Slime hp=14.230 mp=20.429 en=0.000
 f3178 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3178 Slime hp=0.000 mp=20.363 en=0.000
 f3178 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3179 Slime hp=18.727 mp=20.429 en=0.000
+f3179 Slime hp=14.230 mp=20.429 en=0.000
 f3179 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3179 Slime hp=0.000 mp=20.363 en=0.000
 f3179 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3180 Slime hp=18.727 mp=20.429 en=0.000
+f3180 Slime hp=14.230 mp=20.429 en=0.000
 f3180 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3180 Slime hp=0.000 mp=20.363 en=0.000
 f3180 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3181 Slime hp=18.727 mp=20.429 en=0.000
+f3181 Slime hp=14.230 mp=20.429 en=0.000
 f3181 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3181 Slime hp=0.000 mp=20.363 en=0.000
 f3181 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3182 Slime hp=18.727 mp=20.429 en=0.000
+f3182 Slime hp=14.230 mp=20.429 en=0.000
 f3182 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3182 Slime hp=0.000 mp=20.363 en=0.000
 f3182 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3183 Slime hp=18.727 mp=20.429 en=0.000
+f3183 Slime hp=14.230 mp=20.429 en=0.000
 f3183 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3183 Slime hp=0.000 mp=20.363 en=0.000
 f3183 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3184 Slime hp=18.727 mp=20.429 en=0.000
+f3184 Slime hp=14.230 mp=20.429 en=0.000
 f3184 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3184 Slime hp=0.000 mp=20.363 en=0.000
 f3184 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3185 Slime hp=18.727 mp=20.429 en=0.000
+f3185 Slime hp=14.230 mp=20.429 en=0.000
 f3185 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3185 Slime hp=0.000 mp=20.363 en=0.000
 f3185 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3186 Slime hp=18.727 mp=20.429 en=0.000
+f3186 Slime hp=14.230 mp=20.429 en=0.000
 f3186 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3186 Slime hp=0.000 mp=20.363 en=0.000
 f3186 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3187 Slime hp=18.727 mp=20.429 en=0.000
+f3187 Slime hp=14.230 mp=20.429 en=0.000
 f3187 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3187 Slime hp=0.000 mp=20.363 en=0.000
 f3187 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3188 Slime hp=18.727 mp=20.429 en=0.000
+f3188 Slime hp=14.230 mp=20.429 en=0.000
 f3188 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3188 Slime hp=0.000 mp=20.363 en=0.000
 f3188 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3189 Slime hp=18.727 mp=20.429 en=0.000
+f3189 Slime hp=14.230 mp=20.429 en=0.000
 f3189 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3189 Slime hp=0.000 mp=20.363 en=0.000
 f3189 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3190 Slime hp=18.727 mp=20.429 en=0.000
+f3190 Slime hp=14.230 mp=20.429 en=0.000
 f3190 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3190 Slime hp=0.000 mp=20.363 en=0.000
 f3190 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3191 Slime hp=18.727 mp=20.429 en=0.000
+f3191 Slime hp=14.230 mp=20.429 en=0.000
 f3191 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3191 Slime hp=0.000 mp=20.363 en=0.000
 f3191 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3192 Slime hp=18.727 mp=20.429 en=0.000
+f3192 Slime hp=14.230 mp=20.429 en=0.000
 f3192 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3192 Slime hp=0.000 mp=20.363 en=0.000
 f3192 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3193 Slime hp=18.727 mp=20.429 en=0.000
+f3193 Slime hp=14.230 mp=20.429 en=0.000
 f3193 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3193 Slime hp=0.000 mp=20.363 en=0.000
 f3193 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3194 Slime hp=18.727 mp=20.429 en=0.000
+f3194 Slime hp=14.230 mp=20.429 en=0.000
 f3194 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3194 Slime hp=0.000 mp=20.363 en=0.000
 f3194 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3195 Slime hp=18.727 mp=20.429 en=0.000
+f3195 Slime hp=14.230 mp=20.429 en=0.000
 f3195 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3195 Slime hp=0.000 mp=20.363 en=0.000
 f3195 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3196 Slime hp=18.727 mp=20.429 en=0.000
+f3196 Slime hp=14.230 mp=20.429 en=0.000
 f3196 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3196 Slime hp=0.000 mp=20.363 en=0.000
 f3196 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3197 Slime hp=18.727 mp=20.429 en=0.000
+f3197 Slime hp=14.230 mp=20.429 en=0.000
 f3197 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3197 Slime hp=0.000 mp=20.363 en=0.000
 f3197 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3198 Slime hp=18.727 mp=20.429 en=0.000
+f3198 Slime hp=14.230 mp=20.429 en=0.000
 f3198 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3198 Slime hp=0.000 mp=20.363 en=0.000
 f3198 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3199 Slime hp=18.727 mp=20.429 en=0.000
+f3199 Slime hp=14.230 mp=20.429 en=0.000
 f3199 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3199 Slime hp=0.000 mp=20.363 en=0.000
 f3199 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3200 Slime hp=18.727 mp=20.429 en=0.000
+f3200 Slime hp=14.230 mp=20.429 en=0.000
 f3200 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3200 Slime hp=0.000 mp=20.363 en=0.000
 f3200 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3201 Slime hp=18.727 mp=20.429 en=0.000
+f3201 Slime hp=14.230 mp=20.429 en=0.000
 f3201 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3201 Slime hp=0.000 mp=20.363 en=0.000
 f3201 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3202 Slime hp=18.727 mp=20.429 en=0.000
+f3202 Slime hp=14.230 mp=20.429 en=0.000
 f3202 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3202 Slime hp=0.000 mp=20.363 en=0.000
 f3202 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3203 Slime hp=18.727 mp=20.429 en=0.000
+f3203 Slime hp=14.230 mp=20.429 en=0.000
 f3203 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3203 Slime hp=0.000 mp=20.363 en=0.000
 f3203 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3204 Slime hp=18.727 mp=20.429 en=0.000
+f3204 Slime hp=14.230 mp=20.429 en=0.000
 f3204 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3204 Slime hp=0.000 mp=20.363 en=0.000
 f3204 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3205 Slime hp=18.727 mp=20.429 en=0.000
+f3205 Slime hp=14.230 mp=20.429 en=0.000
 f3205 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3205 Slime hp=0.000 mp=20.363 en=0.000
 f3205 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3206 Slime hp=18.727 mp=20.429 en=0.000
+f3206 Slime hp=14.230 mp=20.429 en=0.000
 f3206 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3206 Slime hp=0.000 mp=20.363 en=0.000
 f3206 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3207 Slime hp=18.727 mp=20.429 en=0.000
+f3207 Slime hp=14.230 mp=20.429 en=0.000
 f3207 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3207 Slime hp=0.000 mp=20.363 en=0.000
 f3207 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3208 Slime hp=18.727 mp=20.429 en=0.000
+f3208 Slime hp=14.230 mp=20.429 en=0.000
 f3208 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3208 Slime hp=0.000 mp=20.363 en=0.000
 f3208 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3209 Slime hp=18.727 mp=20.429 en=0.000
+f3209 Slime hp=14.230 mp=20.429 en=0.000
 f3209 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3209 Slime hp=0.000 mp=20.363 en=0.000
 f3209 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3210 Slime hp=18.727 mp=20.429 en=0.000
+f3210 Slime hp=14.230 mp=20.429 en=0.000
 f3210 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3210 Slime hp=0.000 mp=20.363 en=0.000
 f3210 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3211 Slime hp=18.727 mp=20.429 en=0.000
+f3211 Slime hp=14.230 mp=20.429 en=0.000
 f3211 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3211 Slime hp=0.000 mp=20.363 en=0.000
 f3211 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3212 Slime hp=18.727 mp=20.429 en=0.000
+f3212 Slime hp=14.230 mp=20.429 en=0.000
 f3212 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3212 Slime hp=0.000 mp=20.363 en=0.000
 f3212 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3213 Slime hp=18.727 mp=20.429 en=0.000
+f3213 Slime hp=14.230 mp=20.429 en=0.000
 f3213 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3213 Slime hp=0.000 mp=20.363 en=0.000
 f3213 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3214 Slime hp=18.727 mp=20.429 en=0.000
+f3214 Slime hp=14.230 mp=20.429 en=0.000
 f3214 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3214 Slime hp=0.000 mp=20.363 en=0.000
 f3214 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3215 Slime hp=18.727 mp=20.429 en=0.000
+f3215 Slime hp=14.230 mp=20.429 en=0.000
 f3215 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3215 Slime hp=0.000 mp=20.363 en=0.000
 f3215 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3216 Slime hp=18.727 mp=20.429 en=0.000
+f3216 Slime hp=14.230 mp=20.429 en=0.000
 f3216 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3216 Slime hp=0.000 mp=20.363 en=0.000
 f3216 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3217 Slime hp=18.727 mp=20.429 en=0.000
+f3217 Slime hp=14.230 mp=20.429 en=0.000
 f3217 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3217 Slime hp=0.000 mp=20.363 en=0.000
 f3217 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3218 Slime hp=18.727 mp=20.429 en=0.000
+f3218 Slime hp=14.230 mp=20.429 en=0.000
 f3218 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3218 Slime hp=0.000 mp=20.363 en=0.000
 f3218 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3219 Slime hp=18.727 mp=20.429 en=0.000
+f3219 Slime hp=14.230 mp=20.429 en=0.000
 f3219 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3219 Slime hp=0.000 mp=20.363 en=0.000
 f3219 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3220 Slime hp=18.727 mp=20.429 en=0.000
+f3220 Slime hp=14.230 mp=20.429 en=0.000
 f3220 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3220 Slime hp=0.000 mp=20.363 en=0.000
 f3220 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3221 Slime hp=18.727 mp=20.429 en=0.000
+f3221 Slime hp=14.230 mp=20.429 en=0.000
 f3221 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3221 Slime hp=0.000 mp=20.363 en=0.000
 f3221 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3222 LOG Turno de Daniel. Esperando su acción...
-f3222 Daniel hp=175.779 mp=20.000 en=166.025
-f3222 Slime hp=18.727 mp=20.429 en=0.000
+f3222 Slime hp=14.230 mp=20.429 en=0.000
 f3222 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3222 Slime hp=0.000 mp=20.363 en=0.000
 f3222 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3223 Slime hp=18.727 mp=20.429 en=0.000
+f3223 Slime hp=14.230 mp=20.429 en=0.000
 f3223 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3223 Slime hp=0.000 mp=20.363 en=0.000
 f3223 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3224 Slime hp=18.727 mp=20.429 en=0.000
+f3224 Slime hp=14.230 mp=20.429 en=0.000
 f3224 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3224 Slime hp=0.000 mp=20.363 en=0.000
 f3224 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3224 999 PULSA Objeto
-f3225 Slime hp=18.727 mp=20.429 en=0.000
+f3225 Slime hp=14.230 mp=20.429 en=0.000
 f3225 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3225 Slime hp=0.000 mp=20.363 en=0.000
 f3225 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3226 Slime hp=18.727 mp=20.429 en=0.000
+f3226 Slime hp=14.230 mp=20.429 en=0.000
 f3226 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3226 Slime hp=0.000 mp=20.363 en=0.000
 f3226 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3227 Slime hp=18.727 mp=20.429 en=0.000
+f3227 LOG 5. Slime venenoso ataca a Daniel por 0.35 de daño.  Le inflige Pegajoso.
+f3227 Daniel hp=175.897 mp=20.000 en=174.025
+f3227 Slime hp=14.230 mp=20.429 en=0.000
 f3227 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3227 Slime hp=0.000 mp=20.363 en=0.000
 f3227 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3227 999 PULSA _objeto_box: Poción de maná media +2  x2
-f3228 Slime hp=18.727 mp=20.429 en=0.000
+f3228 Slime hp=14.230 mp=20.429 en=0.000
 f3228 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3228 Slime hp=0.000 mp=20.363 en=0.000
 f3228 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3229 Slime hp=18.727 mp=20.429 en=0.000
+f3229 Slime hp=14.230 mp=20.429 en=0.000
 f3229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3229 Slime hp=0.000 mp=20.363 en=0.000
 f3229 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3230 Slime hp=18.727 mp=20.429 en=0.000
+f3230 Slime hp=14.230 mp=20.429 en=0.000
 f3230 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3230 Slime hp=0.000 mp=20.363 en=0.000
 f3230 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3230 999 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f3231 LOG Daniel le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
-f3231 Slime hp=18.727 mp=20.429 en=0.000
+f3231 Slime hp=14.230 mp=20.429 en=0.000
 f3231 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3231 Slime hp=0.000 mp=20.363 en=0.000
 f3231 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3232 Slime hp=18.727 mp=20.429 en=0.000
+f3232 Slime hp=14.230 mp=20.429 en=0.000
 f3232 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3232 Slime hp=0.000 mp=20.363 en=0.000
 f3232 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3233 Slime hp=18.727 mp=20.429 en=0.000
+f3233 Slime hp=14.230 mp=20.429 en=0.000
 f3233 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3233 Slime hp=0.000 mp=20.363 en=0.000
 f3233 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3234 Slime hp=18.727 mp=20.429 en=0.000
+f3234 Slime hp=14.230 mp=20.429 en=0.000
 f3234 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3234 Slime hp=0.000 mp=20.363 en=0.000
 f3234 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3235 Slime hp=18.727 mp=20.429 en=0.000
+f3235 Slime hp=14.230 mp=20.429 en=0.000
 f3235 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3235 Slime hp=0.000 mp=20.363 en=0.000
 f3235 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3236 Slime hp=18.727 mp=20.429 en=0.000
+f3236 Slime hp=14.230 mp=20.429 en=0.000
 f3236 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3236 Slime hp=0.000 mp=20.363 en=0.000
 f3236 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3237 Slime hp=18.727 mp=20.429 en=0.000
+f3237 Slime hp=14.230 mp=20.429 en=0.000
 f3237 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3237 Slime hp=0.000 mp=20.363 en=0.000
 f3237 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3238 Slime hp=18.727 mp=20.429 en=0.000
+f3238 Slime hp=14.230 mp=20.429 en=0.000
 f3238 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3238 Slime hp=0.000 mp=20.363 en=0.000
 f3238 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3239 Slime hp=18.727 mp=20.429 en=0.000
+f3239 Slime hp=14.230 mp=20.429 en=0.000
 f3239 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3239 Slime hp=0.000 mp=20.363 en=0.000
 f3239 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3240 Slime hp=18.727 mp=20.429 en=0.000
+f3240 Slime hp=14.230 mp=20.429 en=0.000
 f3240 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3240 Slime hp=0.000 mp=20.363 en=0.000
 f3240 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3241 Slime hp=18.727 mp=20.429 en=0.000
+f3241 Slime hp=14.230 mp=20.429 en=0.000
 f3241 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3241 Slime hp=0.000 mp=20.363 en=0.000
 f3241 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3242 Slime hp=18.727 mp=20.429 en=0.000
+f3242 Slime hp=14.230 mp=20.429 en=0.000
 f3242 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3242 Slime hp=0.000 mp=20.363 en=0.000
 f3242 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3243 Slime hp=18.727 mp=20.429 en=0.000
+f3243 Slime hp=14.230 mp=20.429 en=0.000
 f3243 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3243 Slime hp=0.000 mp=20.363 en=0.000
 f3243 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3244 Slime hp=18.727 mp=20.429 en=0.000
+f3244 Slime hp=14.230 mp=20.429 en=0.000
 f3244 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3244 Slime hp=0.000 mp=20.363 en=0.000
 f3244 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3245 Slime hp=18.727 mp=20.429 en=0.000
+f3245 Slime hp=14.230 mp=20.429 en=0.000
 f3245 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3245 Slime hp=0.000 mp=20.363 en=0.000
 f3245 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3246 Slime hp=18.727 mp=20.429 en=0.000
+f3246 Slime hp=14.230 mp=20.429 en=0.000
 f3246 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3246 Slime hp=0.000 mp=20.363 en=0.000
 f3246 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3247 Slime hp=18.727 mp=20.429 en=0.000
+f3247 Slime hp=14.230 mp=20.429 en=0.000
 f3247 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3247 Slime hp=0.000 mp=20.363 en=0.000
 f3247 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3248 Slime hp=18.727 mp=20.429 en=0.000
+f3248 Slime hp=14.230 mp=20.429 en=0.000
 f3248 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3248 Slime hp=0.000 mp=20.363 en=0.000
 f3248 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3249 Slime hp=18.727 mp=20.429 en=0.000
+f3249 Slime hp=14.230 mp=20.429 en=0.000
 f3249 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3249 Slime hp=0.000 mp=20.363 en=0.000
 f3249 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3250 LOG … 0.20 de daño: Catalardio (0.12), Dasui (0.08)  Aplica: Pegajoso, Pegajoso.
-f3250 Catalardio hp=185.825 mp=24.620 en=181.275
-f3250 Dasui hp=199.094 mp=20.000 en=178.300
-f3250 Slime hp=18.727 mp=20.429 en=0.000
+f3250 Slime hp=14.230 mp=20.429 en=0.000
 f3250 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3250 Slime hp=0.000 mp=20.363 en=0.000
 f3250 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3251 Slime hp=18.727 mp=20.429 en=0.000
+f3251 Slime hp=14.230 mp=20.429 en=0.000
 f3251 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3251 Slime hp=0.000 mp=20.363 en=0.000
 f3251 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3252 Slime hp=18.727 mp=20.429 en=0.000
+f3252 Slime hp=14.230 mp=20.429 en=0.000
 f3252 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3252 Slime hp=0.000 mp=20.363 en=0.000
 f3252 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3253 Slime hp=18.727 mp=20.429 en=0.000
+f3253 Slime hp=14.230 mp=20.429 en=0.000
 f3253 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3253 Slime hp=0.000 mp=20.363 en=0.000
 f3253 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3254 Slime hp=18.727 mp=20.429 en=0.000
+f3254 Slime hp=14.230 mp=20.429 en=0.000
 f3254 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3254 Slime hp=0.000 mp=20.363 en=0.000
 f3254 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3255 Slime hp=18.727 mp=20.429 en=0.000
+f3255 Slime hp=14.230 mp=20.429 en=0.000
 f3255 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3255 Slime hp=0.000 mp=20.363 en=0.000
 f3255 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3256 Slime hp=18.727 mp=20.429 en=0.000
+f3256 Slime hp=14.230 mp=20.429 en=0.000
 f3256 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3256 Slime hp=0.000 mp=20.363 en=0.000
 f3256 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3257 Slime hp=18.727 mp=20.429 en=0.000
+f3257 Slime hp=14.230 mp=20.429 en=0.000
 f3257 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3257 Slime hp=0.000 mp=20.363 en=0.000
 f3257 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3258 Slime hp=18.727 mp=20.429 en=0.000
+f3258 Slime hp=14.230 mp=20.429 en=0.000
 f3258 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3258 Slime hp=0.000 mp=20.363 en=0.000
 f3258 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3259 Slime hp=18.727 mp=20.429 en=0.000
+f3259 Slime hp=14.230 mp=20.429 en=0.000
 f3259 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3259 Slime hp=0.000 mp=20.363 en=0.000
 f3259 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3260 Slime hp=18.727 mp=20.429 en=0.000
+f3260 Slime hp=14.230 mp=20.429 en=0.000
 f3260 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3260 Slime hp=0.000 mp=20.363 en=0.000
 f3260 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3261 Slime hp=18.727 mp=20.429 en=0.000
+f3261 Slime hp=14.230 mp=20.429 en=0.000
 f3261 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3261 Slime hp=0.000 mp=20.363 en=0.000
 f3261 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3262 Slime hp=18.727 mp=20.429 en=0.000
+f3262 Slime hp=14.230 mp=20.429 en=0.000
 f3262 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3262 Slime hp=0.000 mp=20.363 en=0.000
 f3262 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3263 Slime hp=18.727 mp=20.429 en=0.000
+f3263 Slime hp=14.230 mp=20.429 en=0.000
 f3263 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3263 Slime hp=0.000 mp=20.363 en=0.000
 f3263 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3264 Slime hp=18.727 mp=20.429 en=0.000
+f3264 Slime hp=14.230 mp=20.429 en=0.000
 f3264 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3264 Slime hp=0.000 mp=20.363 en=0.000
 f3264 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3265 Slime hp=18.727 mp=20.429 en=0.000
+f3265 Slime hp=14.230 mp=20.429 en=0.000
 f3265 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3265 Slime hp=0.000 mp=20.363 en=0.000
 f3265 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3266 Slime hp=18.727 mp=20.429 en=0.000
+f3266 Slime hp=14.230 mp=20.429 en=0.000
 f3266 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3266 Slime hp=0.000 mp=20.363 en=0.000
 f3266 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3267 Slime hp=18.727 mp=20.429 en=0.000
+f3267 Slime hp=14.230 mp=20.429 en=0.000
 f3267 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3267 Slime hp=0.000 mp=20.363 en=0.000
 f3267 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3268 Slime hp=18.727 mp=20.429 en=0.000
+f3268 Slime hp=14.230 mp=20.429 en=0.000
 f3268 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3268 Slime hp=0.000 mp=20.363 en=0.000
 f3268 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3269 Slime hp=18.727 mp=20.429 en=0.000
+f3269 Slime hp=14.230 mp=20.429 en=0.000
 f3269 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3269 Slime hp=0.000 mp=20.363 en=0.000
 f3269 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3270 Slime hp=18.727 mp=20.429 en=0.000
+f3270 Slime hp=14.230 mp=20.429 en=0.000
 f3270 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3270 Slime hp=0.000 mp=20.363 en=0.000
 f3270 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3271 Slime hp=18.727 mp=20.429 en=0.000
+f3271 Slime hp=14.230 mp=20.429 en=0.000
 f3271 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3271 Slime hp=0.000 mp=20.363 en=0.000
 f3271 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3272 Slime hp=18.727 mp=20.429 en=0.000
+f3272 Slime hp=14.230 mp=20.429 en=0.000
 f3272 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3272 Slime hp=0.000 mp=20.363 en=0.000
 f3272 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3273 Slime hp=18.727 mp=20.429 en=0.000
+f3273 Slime hp=14.230 mp=20.429 en=0.000
 f3273 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3273 Slime hp=0.000 mp=20.363 en=0.000
 f3273 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3274 Slime hp=18.727 mp=20.429 en=0.000
+f3274 Slime hp=14.230 mp=20.429 en=0.000
 f3274 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3274 Slime hp=0.000 mp=20.363 en=0.000
 f3274 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3275 Slime hp=18.727 mp=20.429 en=0.000
+f3275 Slime hp=14.230 mp=20.429 en=0.000
 f3275 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3275 Slime hp=0.000 mp=20.363 en=0.000
 f3275 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3276 Slime hp=18.727 mp=20.429 en=0.000
+f3276 Slime hp=14.230 mp=20.429 en=0.000
 f3276 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3276 Slime hp=0.000 mp=20.363 en=0.000
 f3276 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3277 Slime hp=18.727 mp=20.429 en=0.000
+f3277 Slime hp=14.230 mp=20.429 en=0.000
 f3277 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3277 Slime hp=0.000 mp=20.363 en=0.000
 f3277 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3278 Slime hp=18.727 mp=20.429 en=0.000
+f3278 Slime hp=14.230 mp=20.429 en=0.000
 f3278 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3278 Slime hp=0.000 mp=20.363 en=0.000
 f3278 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3279 Slime hp=18.727 mp=20.429 en=0.000
+f3279 Slime hp=14.230 mp=20.429 en=0.000
 f3279 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3279 Slime hp=0.000 mp=20.363 en=0.000
 f3279 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3280 Slime hp=18.727 mp=20.429 en=0.000
+f3280 Slime hp=14.230 mp=20.429 en=0.000
 f3280 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3280 Slime hp=0.000 mp=20.363 en=0.000
 f3280 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3281 Slime hp=18.727 mp=20.429 en=0.000
+f3281 LOG Turno de Catalardio. Esperando su acción...
+f3281 Slime hp=14.230 mp=20.429 en=0.000
 f3281 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3281 Slime hp=0.000 mp=20.363 en=0.000
 f3281 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3282 Slime hp=18.727 mp=20.429 en=0.000
+f3282 Slime hp=14.230 mp=20.429 en=0.000
 f3282 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3282 Slime hp=0.000 mp=20.363 en=0.000
 f3282 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3283 Slime hp=18.727 mp=20.429 en=0.000
+f3283 Slime hp=14.230 mp=20.429 en=0.000
 f3283 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3283 Slime hp=0.000 mp=20.363 en=0.000
 f3283 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3284 Slime hp=18.727 mp=20.429 en=0.000
+f3283 998 PULSA Objeto
+f3284 Slime hp=14.230 mp=20.429 en=0.000
 f3284 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3284 Slime hp=0.000 mp=20.363 en=0.000
 f3284 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3285 Slime hp=18.727 mp=20.429 en=0.000
+f3285 Slime hp=14.230 mp=20.429 en=0.000
 f3285 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3285 Slime hp=0.000 mp=20.363 en=0.000
 f3285 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3286 Slime hp=18.727 mp=20.429 en=0.000
+f3286 Slime hp=14.230 mp=20.429 en=0.000
 f3286 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3286 Slime hp=0.000 mp=20.363 en=0.000
 f3286 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3287 Slime hp=18.727 mp=20.429 en=0.000
+f3286 998 PULSA _objeto_box: Poción de maná media +2  x2
+f3287 Slime hp=14.230 mp=20.429 en=0.000
 f3287 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3287 Slime hp=0.000 mp=20.363 en=0.000
 f3287 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3288 Slime hp=18.727 mp=20.429 en=0.000
+f3288 Slime hp=14.230 mp=20.429 en=0.000
 f3288 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3288 Slime hp=0.000 mp=20.363 en=0.000
 f3288 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3289 Slime hp=18.727 mp=20.429 en=0.000
+f3289 Slime hp=14.230 mp=20.429 en=0.000
 f3289 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3289 Slime hp=0.000 mp=20.363 en=0.000
 f3289 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3290 Slime hp=18.727 mp=20.429 en=0.000
+f3289 998 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f3290 LOG Catalardio le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
+f3290 Slime hp=14.230 mp=20.429 en=0.000
 f3290 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3290 Slime hp=0.000 mp=20.363 en=0.000
 f3290 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3291 Slime hp=18.727 mp=20.429 en=0.000
+f3291 Slime hp=14.230 mp=20.429 en=0.000
 f3291 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3291 Slime hp=0.000 mp=20.363 en=0.000
 f3291 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3292 Slime hp=18.727 mp=20.429 en=0.000
+f3292 Slime hp=14.230 mp=20.429 en=0.000
 f3292 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3292 Slime hp=0.000 mp=20.363 en=0.000
 f3292 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3293 Slime hp=18.727 mp=20.429 en=0.000
+f3293 Slime hp=14.230 mp=20.429 en=0.000
 f3293 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3293 Slime hp=0.000 mp=20.363 en=0.000
 f3293 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3294 Slime hp=18.727 mp=20.429 en=0.000
+f3294 Slime hp=14.230 mp=20.429 en=0.000
 f3294 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3294 Slime hp=0.000 mp=20.363 en=0.000
 f3294 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3295 Slime hp=18.727 mp=20.429 en=0.000
+f3295 Slime hp=14.230 mp=20.429 en=0.000
 f3295 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3295 Slime hp=0.000 mp=20.363 en=0.000
 f3295 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3296 Slime hp=18.727 mp=20.429 en=0.000
+f3296 Slime hp=14.230 mp=20.429 en=0.000
 f3296 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3296 Slime hp=0.000 mp=20.363 en=0.000
 f3296 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3297 Slime hp=18.727 mp=20.429 en=0.000
+f3297 Slime hp=14.230 mp=20.429 en=0.000
 f3297 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3297 Slime hp=0.000 mp=20.363 en=0.000
 f3297 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3298 Slime hp=18.727 mp=20.429 en=0.000
+f3298 Slime hp=14.230 mp=20.429 en=0.000
 f3298 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3298 Slime hp=0.000 mp=20.363 en=0.000
 f3298 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3299 Slime hp=18.727 mp=20.429 en=0.000
+f3299 Slime hp=14.230 mp=20.429 en=0.000
 f3299 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3299 Slime hp=0.000 mp=20.363 en=0.000
 f3299 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3300 Slime hp=18.727 mp=20.429 en=0.000
+f3300 Slime hp=14.230 mp=20.429 en=0.000
 f3300 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3300 Slime hp=0.000 mp=20.363 en=0.000
 f3300 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3301 Slime hp=18.727 mp=20.429 en=0.000
+f3301 Slime hp=14.230 mp=20.429 en=0.000
 f3301 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3301 Slime hp=0.000 mp=20.363 en=0.000
 f3301 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3302 Slime hp=18.727 mp=20.429 en=0.000
+f3302 Slime hp=14.230 mp=20.429 en=0.000
 f3302 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3302 Slime hp=0.000 mp=20.363 en=0.000
 f3302 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3303 Slime hp=18.727 mp=20.429 en=0.000
+f3303 Slime hp=14.230 mp=20.429 en=0.000
 f3303 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3303 Slime hp=0.000 mp=20.363 en=0.000
 f3303 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3304 Slime hp=18.727 mp=20.429 en=0.000
+f3304 Slime hp=14.230 mp=20.429 en=0.000
 f3304 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3304 Slime hp=0.000 mp=20.363 en=0.000
 f3304 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3305 Slime hp=18.727 mp=20.429 en=0.000
+f3305 LOG Agirato ochinan tiene el conjuro listo. Esperando...
+f3305 Slime hp=14.230 mp=20.429 en=0.000
 f3305 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3305 Slime hp=0.000 mp=20.363 en=0.000
 f3305 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3306 Slime hp=18.727 mp=20.429 en=0.000
+f3306 Slime hp=14.230 mp=20.429 en=0.000
 f3306 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3306 Slime hp=0.000 mp=20.363 en=0.000
 f3306 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3307 Slime hp=18.727 mp=20.429 en=0.000
+f3307 Slime hp=14.230 mp=20.429 en=0.000
 f3307 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3307 Slime hp=0.000 mp=20.363 en=0.000
 f3307 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3308 Slime hp=18.727 mp=20.429 en=0.000
+f3307 998 PULSA 🔥 ¡Lanzar Eclipse!
+f3308 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.9 MP.
+f3308 Agirato ochinan hp=198.348 mp=19.110 en=177.425
+f3308 Rey Slime hp=0.000 mp=21.188 en=0.000
+f3308 Slime hp=0.000 mp=20.429 en=0.000
 f3308 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3308 Slime hp=0.000 mp=20.363 en=0.000
-f3308 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3309 Slime hp=18.727 mp=20.429 en=0.000
-f3309 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3309 Slime hp=0.000 mp=20.363 en=0.000
-f3309 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3310 LOG Turno de Catalardio. Esperando su acción...
-f3310 Slime hp=18.727 mp=20.429 en=0.000
-f3310 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3310 Slime hp=0.000 mp=20.363 en=0.000
-f3310 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3311 Slime hp=18.727 mp=20.429 en=0.000
-f3311 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3311 Slime hp=0.000 mp=20.363 en=0.000
-f3311 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3312 Slime hp=18.727 mp=20.429 en=0.000
-f3312 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3312 Slime hp=0.000 mp=20.363 en=0.000
-f3312 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3312 998 PULSA Defender
-f3313 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f3313 Catalardio hp=185.825 mp=24.620 en=166.275
-f3313 Slime hp=18.727 mp=20.429 en=0.000
-f3313 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3313 Slime hp=0.000 mp=20.363 en=0.000
-f3313 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3314 Slime hp=18.727 mp=20.429 en=0.000
-f3314 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3314 Slime hp=0.000 mp=20.363 en=0.000
-f3314 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3315 Slime hp=18.727 mp=20.429 en=0.000
-f3315 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3315 Slime hp=0.000 mp=20.363 en=0.000
-f3315 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3316 Slime hp=18.727 mp=20.429 en=0.000
-f3316 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3316 Slime hp=0.000 mp=20.363 en=0.000
-f3316 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3317 Slime hp=18.727 mp=20.429 en=0.000
-f3317 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3317 Slime hp=0.000 mp=20.363 en=0.000
-f3317 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3318 Slime hp=18.727 mp=20.429 en=0.000
-f3318 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3318 Slime hp=0.000 mp=20.363 en=0.000
-f3318 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3319 Slime hp=18.727 mp=20.429 en=0.000
-f3319 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3319 Slime hp=0.000 mp=20.363 en=0.000
-f3319 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3320 Slime hp=18.727 mp=20.429 en=0.000
-f3320 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3320 Slime hp=0.000 mp=20.363 en=0.000
-f3320 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3321 Slime hp=18.727 mp=20.429 en=0.000
-f3321 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3321 Slime hp=0.000 mp=20.363 en=0.000
-f3321 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3322 Slime hp=18.727 mp=20.429 en=0.000
-f3322 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3322 Slime hp=0.000 mp=20.363 en=0.000
-f3322 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3323 Slime hp=18.727 mp=20.429 en=0.000
-f3323 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3323 Slime hp=0.000 mp=20.363 en=0.000
-f3323 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3324 Slime hp=18.727 mp=20.429 en=0.000
-f3324 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3324 Slime hp=0.000 mp=20.363 en=0.000
-f3324 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3325 LOG Agirato ochinan tiene el conjuro listo. Esperando...
-f3325 Slime hp=18.727 mp=20.429 en=0.000
-f3325 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3325 Slime hp=0.000 mp=20.363 en=0.000
-f3325 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3326 Slime hp=18.727 mp=20.429 en=0.000
-f3326 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3326 Slime hp=0.000 mp=20.363 en=0.000
-f3326 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3327 Slime hp=18.727 mp=20.429 en=0.000
-f3327 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3327 Slime hp=0.000 mp=20.363 en=0.000
-f3327 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3327 998 PULSA 🔥 ¡Lanzar Eclipse!
-f3328 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.9 MP.
-f3328 Agirato ochinan hp=198.348 mp=19.110 en=177.425
-f3328 Rey Slime hp=0.000 mp=21.188 en=0.000
-f3328 Slime hp=0.000 mp=20.429 en=0.000
-f3328 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3328 Slime hp=0.000 mp=20.363 en=0.000
-f3328 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f3328 Slime hp=0.000 mp=20.429 en=0.000
-f3328 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f3328 Slime hp=0.000 mp=20.363 en=0.000
-f3328 Slime venenoso hp=0.000 mp=20.363 en=0.000
-FIN f3328 estado=3
+f3308 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f3308 Slime hp=0.000 mp=20.429 en=0.000
+f3308 Slime venenoso hp=0.000 mp=20.495 en=0.000
+f3308 Slime hp=0.000 mp=20.363 en=0.000
+f3308 Slime venenoso hp=0.000 mp=20.363 en=0.000
+FIN f3308 estado=3

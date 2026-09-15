@@ -29,6 +29,9 @@ temblando** contra la orilla del lago.
 
 **El bastón y la varita recitan más despacio** en todos los tiers.
 
+**La mejora de Celeridad ya no tiene tope.** Antes se llenaba con tres mejoras y el resto no servían; ahora
+cada una da un poco menos que la anterior pero siempre suma.
+
 **Los cristales de los pisos 7 a 12** bajan un nivel (el del Minotauro no cambia).
 
 **Las armaduras defienden más, sobre todo las ligeras.** Un set completo de T1 da ahora 5,5 de defensa el

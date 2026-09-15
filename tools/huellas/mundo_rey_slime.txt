@@ -52,9 +52,9 @@ f539 PULSA _objeto_box: Poción de maná media  x2
 f542 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  34/37 🔷)
 f543 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f543 Agirato ochinan hp=198.795 mp=36.500 en=177.425
-f553 LOG 🔮 Shock térmico fulminante — recita la frase 3/3:
-f555 PULSA frase Que el vidrio se parta
-f556 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
+f554 LOG 🔮 Shock térmico fulminante — recita la frase 3/3:
+f556 PULSA frase Que el vidrio se parta
+f557 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
 f572 LOG … 0.14 de daño: Catalardio (0.14), Dasui (0.00)
 f572 Catalardio hp=195.459 mp=24.620 en=166.275
 f641 LOG 2. Slime ataca a Daniel por 0.32 de daño.
@@ -510,20 +510,19 @@ f919 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f919 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f920 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f920 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f921 LOG El conjuro está listo. ¡Lánzalo!
 f921 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f921 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f922 LOG El conjuro está listo. ¡Lánzalo!
 f922 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f922 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f923 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f923 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
-f924 LOG … 984.78 de daño en total.
-f924 Agirato ochinan hp=198.795 mp=22.444 en=177.425
-f924 Rey Slime hp=386.364 mp=21.188 en=0.000
-f924 Slime venenoso hp=0.000 mp=20.495 en=0.000
-f924 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f924 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f924 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f924 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
+f925 LOG … 984.78 de daño en total.
+f925 Agirato ochinan hp=198.795 mp=22.444 en=177.425
+f925 Rey Slime hp=386.364 mp=21.188 en=0.000
 f925 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f925 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f925 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -1428,37 +1427,37 @@ f1219 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1220 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1220 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1220 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1221 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f1221 Agirato ochinan hp=198.654 mp=36.500 en=177.425
 f1221 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1221 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1221 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1222 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1222 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1222 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1223 LOG ¡Turno de Agirato ochinan! Elige una acción.
+f1223 Agirato ochinan hp=198.654 mp=36.500 en=177.425
 f1223 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1223 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1223 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1223 PULSA Habilidad
 f1224 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1224 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1224 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1225 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1225 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1225 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1225 PULSA Habilidad
 f1226 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1226 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1226 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1226 PULSA _ability_box: Bastonazo  (26 EN)
-f1227 LOG … 17.44 de daño (1 de 1 golpes).
-f1227 Agirato ochinan hp=198.654 mp=36.500 en=151.425
-f1227 Rey Slime hp=372.415 mp=21.188 en=0.000
 f1227 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1227 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1227 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1228 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1228 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1228 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1228 PULSA _ability_box: Bastonazo  (26 EN)
+f1229 LOG … 17.44 de daño (1 de 1 golpes).
+f1229 Agirato ochinan hp=198.654 mp=36.500 en=151.425
+f1229 Rey Slime hp=372.415 mp=21.188 en=0.000
 f1229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1229 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1229 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -2270,23 +2269,22 @@ f1492 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1493 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1493 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1493 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1494 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f1494 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1494 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1494 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1495 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f1495 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1495 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1495 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1496 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1496 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1496 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1496 PULSA Defender
-f1497 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f1497 Agirato ochinan hp=198.654 mp=36.500 en=136.425
 f1497 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1497 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1497 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1497 PULSA Defender
 f1498 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
+f1498 Agirato ochinan hp=198.654 mp=36.500 en=136.425
 f1498 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1498 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1498 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -3495,44 +3493,44 @@ f1891 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1892 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1892 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1892 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1893 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f1893 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1893 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1893 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1894 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1894 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1894 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1895 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f1895 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1895 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1895 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1895 PULSA Objeto
 f1896 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1896 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1896 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1897 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1897 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1897 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1897 PULSA Objeto
 f1898 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1898 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1898 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1898 PULSA _objeto_box: Poción de maná media +1  x2
 f1899 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1899 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1899 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1900 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1900 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1900 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1900 PULSA _objeto_box: Poción de maná media +1  x2
 f1901 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1901 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1901 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1901 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f1902 LOG Agirato ochinan se bebe Poción de maná media +1. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1902 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1902 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1902 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1903 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1903 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1903 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f1903 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f1904 LOG Agirato ochinan se bebe Poción de maná media +1. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1904 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1904 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1904 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -4521,23 +4519,23 @@ f2224 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2225 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2225 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2225 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2226 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f2226 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2226 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2226 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2227 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f2227 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2227 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2227 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2228 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2228 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2228 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2228 PULSA Atacar
-f2229 LOG Agirato ochinan golpea con Baston por 5.17 de daño.
-f2229 Agirato ochinan hp=197.615 mp=36.500 en=164.425
-f2229 Rey Slime hp=299.313 mp=21.188 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2229 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2229 PULSA Atacar
+f2230 LOG Agirato ochinan golpea con Baston por 5.17 de daño.
+f2230 Agirato ochinan hp=197.615 mp=36.500 en=164.425
+f2230 Rey Slime hp=299.313 mp=21.188 en=0.000
 f2230 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2230 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2230 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -5629,46 +5627,46 @@ f2584 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2585 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2585 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2585 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2586 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f2586 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2586 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2586 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2587 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2587 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2587 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2588 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f2588 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2588 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2588 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2588 PULSA Magia
 f2589 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2589 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2589 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2590 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2590 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2590 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2590 PULSA Magia
 f2591 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2591 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2591 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2591 PULSA _spell_box: Eclipse  (19.33 MP)
-f2592 LOG 🔮 Eclipse — recita la frase 1/4:
 f2592 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2592 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2592 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2593 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2593 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2593 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2593 PULSA _spell_box: Eclipse  (19.33 MP)
+f2594 LOG 🔮 Eclipse — recita la frase 1/4:
 f2594 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2594 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2594 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2594 PULSA frase Luz y oscuridad
-f2595 LOG ✓ Frase correcta. Continua el proximo turno...
-f2595 Agirato ochinan hp=197.615 mp=36.500 en=177.425
 f2595 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2595 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2595 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2596 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2596 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2596 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2596 PULSA frase Luz y oscuridad
+f2597 LOG ✓ Frase correcta. Continua el proximo turno...
+f2597 Agirato ochinan hp=197.615 mp=36.500 en=177.425
 f2597 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2597 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2597 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -6402,24 +6400,24 @@ f2835 Daniel hp=187.591 mp=20.000 en=124.025
 f2835 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2835 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2835 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2836 LOG 🔮 Eclipse — recita la frase 2/4:
 f2836 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2836 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2836 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2837 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2837 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2837 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2838 LOG 🔮 Eclipse — recita la frase 2/4:
 f2838 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2838 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2838 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2838 PULSA frase Oscuridad y luz
-f2839 LOG ✓ Frase correcta. Continua el proximo turno...
 f2839 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2839 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2839 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2840 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2840 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2840 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f2840 PULSA frase Oscuridad y luz
+f2841 LOG ✓ Frase correcta. Continua el proximo turno...
 f2841 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2841 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2841 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -7020,24 +7018,24 @@ f3037 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3038 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3038 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3038 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3039 LOG 🔮 Eclipse — recita la frase 3/4:
 f3039 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3039 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3039 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3040 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3040 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3040 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f3041 LOG 🔮 Eclipse — recita la frase 3/4:
 f3041 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3041 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3041 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3041 PULSA frase Feliz aniversario 20
-f3042 LOG ✓ Frase correcta. Continua el proximo turno...
 f3042 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3042 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3042 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3043 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3043 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3043 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f3043 PULSA frase Feliz aniversario 20
+f3044 LOG ✓ Frase correcta. Continua el proximo turno...
 f3044 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3044 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3044 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -7938,8 +7936,6 @@ f3335 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3336 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3336 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3336 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3337 LOG 🔮 Eclipse — recita la frase 4/4:
-f3337 Agirato ochinan hp=194.497 mp=36.500 en=177.425
 f3337 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3337 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3337 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -7949,8 +7945,8 @@ f3338 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3339 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3339 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3339 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3339 PULSA frase Kingdom Hearts
-f3340 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
+f3340 LOG 🔮 Eclipse — recita la frase 4/4:
+f3340 Agirato ochinan hp=194.497 mp=36.500 en=177.425
 f3340 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3340 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3340 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -7960,6 +7956,8 @@ f3341 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3342 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3342 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3342 Slime venenoso hp=38.050 mp=20.363 en=0.000
+f3342 PULSA frase Kingdom Hearts
+f3343 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
 f3343 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3343 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3343 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -8689,21 +8687,133 @@ f3600 Slime hp=16.323 mp=20.429 en=0.000
 f3600 Slime hp=32.050 mp=20.363 en=0.000
 f3601 Slime hp=16.323 mp=20.429 en=0.000
 f3601 Slime hp=32.050 mp=20.363 en=0.000
-f3602 LOG El conjuro está listo. ¡Lánzalo!
-f3602 Agirato ochinan hp=191.497 mp=36.500 en=177.425
+f3602 LOG 5. Slime venenoso ataca a Daniel por 0.40 de daño.
+f3602 Daniel hp=186.877 mp=20.000 en=159.025
 f3602 Slime hp=16.323 mp=20.429 en=0.000
 f3602 Slime hp=32.050 mp=20.363 en=0.000
 f3603 Slime hp=16.323 mp=20.429 en=0.000
 f3603 Slime hp=32.050 mp=20.363 en=0.000
 f3604 Slime hp=16.323 mp=20.429 en=0.000
 f3604 Slime hp=32.050 mp=20.363 en=0.000
-f3604 PULSA 🔥 ¡Lanzar Eclipse!
-f3605 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.6 MP.
-f3605 Agirato ochinan hp=191.497 mp=18.748 en=177.425
-f3605 Rey Slime hp=0.000 mp=21.188 en=0.000
-f3605 Slime hp=0.000 mp=20.429 en=0.000
-f3605 Slime hp=0.000 mp=20.363 en=0.000
-f3605 Slime venenoso hp=0.000 mp=20.363 en=0.000
-f3605 Slime hp=0.000 mp=20.429 en=0.000
-f3605 Slime hp=0.000 mp=20.363 en=0.000
-FIN f3605 estado=3
+f3605 Slime hp=16.323 mp=20.429 en=0.000
+f3605 Slime hp=32.050 mp=20.363 en=0.000
+f3606 Slime hp=16.323 mp=20.429 en=0.000
+f3606 Slime hp=32.050 mp=20.363 en=0.000
+f3607 Slime hp=16.323 mp=20.429 en=0.000
+f3607 Slime hp=32.050 mp=20.363 en=0.000
+f3608 Slime hp=16.323 mp=20.429 en=0.000
+f3608 Slime hp=32.050 mp=20.363 en=0.000
+f3609 Slime hp=16.323 mp=20.429 en=0.000
+f3609 Slime hp=32.050 mp=20.363 en=0.000
+f3610 Slime hp=16.323 mp=20.429 en=0.000
+f3610 Slime hp=32.050 mp=20.363 en=0.000
+f3611 Slime hp=16.323 mp=20.429 en=0.000
+f3611 Slime hp=32.050 mp=20.363 en=0.000
+f3612 Slime hp=16.323 mp=20.429 en=0.000
+f3612 Slime hp=32.050 mp=20.363 en=0.000
+f3613 Slime hp=16.323 mp=20.429 en=0.000
+f3613 Slime hp=32.050 mp=20.363 en=0.000
+f3614 Slime hp=16.323 mp=20.429 en=0.000
+f3614 Slime hp=32.050 mp=20.363 en=0.000
+f3615 Slime hp=16.323 mp=20.429 en=0.000
+f3615 Slime hp=32.050 mp=20.363 en=0.000
+f3616 Slime hp=16.323 mp=20.429 en=0.000
+f3616 Slime hp=32.050 mp=20.363 en=0.000
+f3617 Slime hp=16.323 mp=20.429 en=0.000
+f3617 Slime hp=32.050 mp=20.363 en=0.000
+f3618 Slime hp=16.323 mp=20.429 en=0.000
+f3618 Slime hp=32.050 mp=20.363 en=0.000
+f3619 Slime hp=16.323 mp=20.429 en=0.000
+f3619 Slime hp=32.050 mp=20.363 en=0.000
+f3620 Slime hp=16.323 mp=20.429 en=0.000
+f3620 Slime hp=32.050 mp=20.363 en=0.000
+f3621 Slime hp=16.323 mp=20.429 en=0.000
+f3621 Slime hp=32.050 mp=20.363 en=0.000
+f3622 Slime hp=16.323 mp=20.429 en=0.000
+f3622 Slime hp=32.050 mp=20.363 en=0.000
+f3623 Slime hp=16.323 mp=20.429 en=0.000
+f3623 Slime hp=32.050 mp=20.363 en=0.000
+f3624 Slime hp=16.323 mp=20.429 en=0.000
+f3624 Slime hp=32.050 mp=20.363 en=0.000
+f3625 Slime hp=16.323 mp=20.429 en=0.000
+f3625 Slime hp=32.050 mp=20.363 en=0.000
+f3626 Slime hp=16.323 mp=20.429 en=0.000
+f3626 Slime hp=32.050 mp=20.363 en=0.000
+f3627 Slime hp=16.323 mp=20.429 en=0.000
+f3627 Slime hp=32.050 mp=20.363 en=0.000
+f3628 Slime hp=16.323 mp=20.429 en=0.000
+f3628 Slime hp=32.050 mp=20.363 en=0.000
+f3629 Slime hp=16.323 mp=20.429 en=0.000
+f3629 Slime hp=32.050 mp=20.363 en=0.000
+f3630 Slime hp=16.323 mp=20.429 en=0.000
+f3630 Slime hp=32.050 mp=20.363 en=0.000
+f3631 Slime hp=16.323 mp=20.429 en=0.000
+f3631 Slime hp=32.050 mp=20.363 en=0.000
+f3632 Slime hp=16.323 mp=20.429 en=0.000
+f3632 Slime hp=32.050 mp=20.363 en=0.000
+f3633 Slime hp=16.323 mp=20.429 en=0.000
+f3633 Slime hp=32.050 mp=20.363 en=0.000
+f3634 Slime hp=16.323 mp=20.429 en=0.000
+f3634 Slime hp=32.050 mp=20.363 en=0.000
+f3635 Slime hp=16.323 mp=20.429 en=0.000
+f3635 Slime hp=32.050 mp=20.363 en=0.000
+f3636 Slime hp=16.323 mp=20.429 en=0.000
+f3636 Slime hp=32.050 mp=20.363 en=0.000
+f3637 Slime hp=16.323 mp=20.429 en=0.000
+f3637 Slime hp=32.050 mp=20.363 en=0.000
+f3638 Slime hp=16.323 mp=20.429 en=0.000
+f3638 Slime hp=32.050 mp=20.363 en=0.000
+f3639 Slime hp=16.323 mp=20.429 en=0.000
+f3639 Slime hp=32.050 mp=20.363 en=0.000
+f3640 Slime hp=16.323 mp=20.429 en=0.000
+f3640 Slime hp=32.050 mp=20.363 en=0.000
+f3641 Slime hp=16.323 mp=20.429 en=0.000
+f3641 Slime hp=32.050 mp=20.363 en=0.000
+f3642 Slime hp=16.323 mp=20.429 en=0.000
+f3642 Slime hp=32.050 mp=20.363 en=0.000
+f3643 Slime hp=16.323 mp=20.429 en=0.000
+f3643 Slime hp=32.050 mp=20.363 en=0.000
+f3644 Slime hp=16.323 mp=20.429 en=0.000
+f3644 Slime hp=32.050 mp=20.363 en=0.000
+f3645 Slime hp=16.323 mp=20.429 en=0.000
+f3645 Slime hp=32.050 mp=20.363 en=0.000
+f3646 Slime hp=16.323 mp=20.429 en=0.000
+f3646 Slime hp=32.050 mp=20.363 en=0.000
+f3647 Slime hp=16.323 mp=20.429 en=0.000
+f3647 Slime hp=32.050 mp=20.363 en=0.000
+f3648 Slime hp=16.323 mp=20.429 en=0.000
+f3648 Slime hp=32.050 mp=20.363 en=0.000
+f3649 Slime hp=16.323 mp=20.429 en=0.000
+f3649 Slime hp=32.050 mp=20.363 en=0.000
+f3650 Slime hp=16.323 mp=20.429 en=0.000
+f3650 Slime hp=32.050 mp=20.363 en=0.000
+f3651 Slime hp=16.323 mp=20.429 en=0.000
+f3651 Slime hp=32.050 mp=20.363 en=0.000
+f3652 Slime hp=16.323 mp=20.429 en=0.000
+f3652 Slime hp=32.050 mp=20.363 en=0.000
+f3653 Slime hp=16.323 mp=20.429 en=0.000
+f3653 Slime hp=32.050 mp=20.363 en=0.000
+f3654 Slime hp=16.323 mp=20.429 en=0.000
+f3654 Slime hp=32.050 mp=20.363 en=0.000
+f3655 Slime hp=16.323 mp=20.429 en=0.000
+f3655 Slime hp=32.050 mp=20.363 en=0.000
+f3656 Slime hp=16.323 mp=20.429 en=0.000
+f3656 Slime hp=32.050 mp=20.363 en=0.000
+f3657 LOG El conjuro está listo. ¡Lánzalo!
+f3657 Agirato ochinan hp=191.497 mp=36.500 en=177.425
+f3657 Slime hp=16.323 mp=20.429 en=0.000
+f3657 Slime hp=32.050 mp=20.363 en=0.000
+f3658 Slime hp=16.323 mp=20.429 en=0.000
+f3658 Slime hp=32.050 mp=20.363 en=0.000
+f3659 Slime hp=16.323 mp=20.429 en=0.000
+f3659 Slime hp=32.050 mp=20.363 en=0.000
+f3659 PULSA 🔥 ¡Lanzar Eclipse!
+f3660 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.6 MP.
+f3660 Agirato ochinan hp=191.497 mp=18.748 en=177.425
+f3660 Rey Slime hp=0.000 mp=21.188 en=0.000
+f3660 Slime hp=0.000 mp=20.429 en=0.000
+f3660 Slime hp=0.000 mp=20.363 en=0.000
+f3660 Slime venenoso hp=0.000 mp=20.363 en=0.000
+f3660 Slime hp=0.000 mp=20.429 en=0.000
+f3660 Slime hp=0.000 mp=20.363 en=0.000
+FIN f3660 estado=3
