@@ -7516,6 +7516,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	var a := abilities_de(p)
 	var c := Combatant.new(p.nombre, p.level, a,
 		p.base_hp, p.base_attack, p.base_defense, p.base_speed)
+	c.uid_formacion = String(p.uid)   # su sitio en la fila del combate sale de la formacion (ver pos_formacion)
 	c.base_magic = p.base_magic
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
 	c.crit_flat = p.base_crit

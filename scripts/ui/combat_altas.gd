@@ -32,6 +32,7 @@ func _anadir_bloque_aliado(c: Combatant) -> void:
 	_pantalla.montaje._aliados_box.add_child(ba["columna"])
 	# La fila acaba de crecer: puede que lo que cabia antes ya no quepa (ver _ancho_bloque).
 	_pantalla.montaje._reajustar_anchos(_pantalla._bloques_aliados, _pantalla._bloques_aliados.size())
+	_ordenar_fila_aliados()   # cada uno a su puesto de la formacion, entre quien haya dentro
 	# Y puede que el que se une sea mas grande (o mas pequeño) que el resto de la pelea -- el factor
 	# de zoom es compartido con los enemigos, ver _ajustar_zoom_sprites.
 	_pantalla.figuras._ajustar_zoom_sprites()
@@ -132,6 +133,7 @@ func readmitir_aliado(idx: int, c: Combatant, agotado: bool = false) -> bool:
 		if col != null and is_instance_valid(col):
 			col.visible = true
 			col.modulate = Color.WHITE
+		_ordenar_fila_aliados()   # vuelve a SU puesto de la formacion, no al del hueco que dejo
 		# LA FIGURA es la que monto el Combatant de antes, y este es OTRO objeto: mientras estuvo
 		# fuera pudo cambiarse el arma o la armadura. Se tira entera y se monta de nuevo, igual que
 		# hace _revivir_bloque con el hueco de un cadaver, para que ademas nazca en REPOSO y no
@@ -318,6 +320,68 @@ func _ordenar_fila_enemigos() -> void:
 	for w in orden + ocultos:
 		_pantalla._bloques_box.move_child(w, idx)
 		idx += 1
+
+
+# LOS TUYOS, EN EL ORDEN DE LA FORMACION. Mismo truco que el jefe al centro: se mueve la COLUMNA en
+# pantalla (move_child) y NUNCA las entradas de _aliados, _bloques_aliados ni _active_player_*, porque
+# combat_finished y los codigos de red cruzan POR INDICE. Asi, si entras solo con tu personaje de la
+# derecha se pone a la derecha, y si tu compañero entra despues y estais intercalados en el Hogar, se
+# intercala igual aqui.
+func _ordenar_fila_aliados() -> void:
+	var box: HBoxContainer = _pantalla.montaje._aliados_box
+	if box == null or not is_instance_valid(box):
+		return
+	var idx: int = 0
+	for c in _orden_formacion(false):
+		var i: int = _pantalla._aliados.find(c)
+		if i < 0 or i >= _pantalla._bloques_aliados.size():
+			continue
+		var col: Control = _pantalla._bloques_aliados[i].get("columna")
+		if col != null and is_instance_valid(col) and col.get_parent() == box:
+			box.move_child(col, idx)
+			idx += 1
+
+
+# Los aliados ordenados por su puesto de la formacion (Game.pos_formacion) y, a igualdad o sin puesto,
+# por orden de entrada. Sale de los DATOS y no de las columnas, asi que da lo mismo en todas las
+# maquinas, tambien en un trabajador de pelea sin pantalla. 'sin_huidos' = quita a los que se fueron.
+func _orden_formacion(sin_huidos: bool) -> Array[Combatant]:
+	var pares: Array = []
+	for i in _pantalla._aliados.size():
+		var c: Combatant = _pantalla._aliados[i]
+		if sin_huidos and _pantalla._huidos.has(c):
+			continue
+		var pos: int = Game.pos_formacion(c.uid_formacion)
+		pares.append([pos if pos >= 0 else 1000, i, c])
+	pares.sort_custom(func(x, y):
+		if int(x[0]) != int(y[0]):
+			return int(x[0]) < int(y[0])
+		return int(x[1]) < int(y[1]))
+	var out: Array[Combatant] = []
+	for p in pares:
+		out.append(p[2])
+	return out
+
+
+# La fila de los TUYOS tal como se ve (los que siguen en la pelea, KO incluidos: sus tarjetas se quedan
+# puestas). Es lo que manda para "el de al lado" de un area enemiga.
+func _fila_visual_aliados() -> Array[Combatant]:
+	return _orden_formacion(true)
+
+
+# La fila de enemigos ENTERA en el orden en que se ve (vivos y muertos que aun tienen su columna), para
+# buscar vecinos por lo que ve el jugador. Sin columna, cae al orden del array (el de antes).
+func _orden_visual_enemigos_todos() -> Array[Combatant]:
+	var pares: Array = []
+	for i in _pantalla._enemies.size():
+		var col: Control = _pantalla._bloques[i].get("columna") if i < _pantalla._bloques.size() else null
+		var orden: int = col.get_index() if col != null and is_instance_valid(col) else 1000 + i
+		pares.append([orden, _pantalla._enemies[i]])
+	pares.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
+	var out: Array[Combatant] = []
+	for p in pares:
+		out.append(p[1])
+	return out
 
 
 # La fila de enemigos TAL COMO SE VE: los vivos y visibles, de izquierda a derecha. Es lo que manda

@@ -128,6 +128,7 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	c.sprite_res = String(d.get("spr", ""))
 	c.sprite_t = float(d.get("spr_t", 0.5))
 	c.es_jefe = bool(d.get("jefe", false))
+	c.uid_formacion = String(d.get("uidf", ""))
 	# Y si es un MUTANTE, que es lo que decide su aura, su tinte y su tamaño (ver _marcar_mutante).
 	# Un roster de una version anterior no lo trae y se queda en false: el bicho se ve normal, que es
 	# exactamente lo que pasaba antes de esto.
@@ -192,6 +193,8 @@ func _fila_de_roster(lista: Array) -> Array:
 			# corriente -- sin aura, sin tinte y del tamaño normal -- pegando como un mini-jefe. El
 			# nombre ya le llegaba con el "mutante" puesto, y eso hacia la mentira mas rara todavia.
 			"mut": c.mutante,
+			# DE QUIEN ES el aliado, para colocarlo en su puesto de la formacion (ver _fila_visual_aliados).
+			"uidf": c.uid_formacion,
 			# EL EQUIPO Y EL ASPECTO del aliado, para que el espejo pueda montarle el muñeco. Los
 			# enemigos viajan con su sprite (spr/spr_t) y por eso SI se veian; los aliados no llevaban
 			# nada y salian de cuadrado de color con la cara pegada. Ver Game.pj_de_dict.

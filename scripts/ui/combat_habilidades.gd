@@ -194,7 +194,10 @@ func _objetivos_hab(ab: AbilityData, principal: Combatant) -> Array[Combatant]:
 	var out: Array[Combatant] = [principal]
 	if not ab.es_area() or ab.area_max <= 1:
 		return out
-	var centro: int = _pantalla._enemies.find(principal)
+	# POR LA FILA QUE SE VE y no por el array: con el Rey Slime recolocado al centro, el array y la
+	# pantalla no coinciden, y "el de al lado" tiene que ser el que el jugador ve al lado.
+	var fila: Array[Combatant] = _pantalla.altas._orden_visual_enemigos_todos()
+	var centro: int = fila.find(principal)
 	if centro < 0:
 		return out
 	# Punteros que se alejan del centro a cada lado; cogemos el primer vivo de cada tanda.
@@ -204,16 +207,16 @@ func _objetivos_hab(ab: AbilityData, principal: Combatant) -> Array[Combatant]:
 		var anadido := false
 		# Izquierda: primer vivo hacia el borde.
 		while izq >= 0:
-			if _pantalla._enemies[izq].is_alive():
-				out.append(_pantalla._enemies[izq]); izq -= 1; anadido = true
+			if fila[izq].is_alive():
+				out.append(fila[izq]); izq -= 1; anadido = true
 				break
 			izq -= 1
 		if out.size() >= ab.area_max:
 			break
 		# Derecha: primer vivo hacia el borde.
-		while der < _pantalla._enemies.size():
-			if _pantalla._enemies[der].is_alive():
-				out.append(_pantalla._enemies[der]); der += 1; anadido = true
+		while der < fila.size():
+			if fila[der].is_alive():
+				out.append(fila[der]); der += 1; anadido = true
 				break
 			der += 1
 		if not anadido:
@@ -225,13 +228,14 @@ func _objetivos_hab(ab: AbilityData, principal: Combatant) -> Array[Combatant]:
 # cuando el objetivo cae). Primero mira a los lados; si no, el primero vivo que haya. null si no
 # queda nadie.
 func _siguiente_vivo(muerto: Combatant) -> Combatant:
-	var centro: int = _pantalla._enemies.find(muerto)
+	var fila: Array[Combatant] = _pantalla.altas._orden_visual_enemigos_todos()   # la que se ve
+	var centro: int = fila.find(muerto)
 	if centro >= 0:
 		for paso in [-1, 1]:
 			var i: int = centro + paso
-			while i >= 0 and i < _pantalla._enemies.size():
-				if _pantalla._enemies[i].is_alive():
-					return _pantalla._enemies[i]
+			while i >= 0 and i < fila.size():
+				if fila[i].is_alive():
+					return fila[i]
 				i += paso
 	var vivos: Array[Combatant] = _pantalla._vivos()
 	return vivos[0] if not vivos.is_empty() else null

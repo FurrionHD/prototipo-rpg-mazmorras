@@ -235,6 +235,10 @@ var color_visual: Color = Color(0.9, 0.35, 0.3)
 # JEFE que se queda SIEMPRE en el centro de la fila (ver EnemyData.centrado_en_fila). Como el
 # color, es dato de PRESENTACION que viaja aqui porque la pantalla de combate solo ve Combatants.
 var centrado_en_fila: bool = false
+# DE QUIEN ES este aliado (el uid de su personaje), para colocarlo en la fila segun la FORMACION comun
+# (ver net_formacion.gd y combat_altas._fila_visual_aliados). Vacio en los enemigos. Dato de
+# presentacion como el de arriba: viaja al espejo en el roster.
+var uid_formacion: String = ""
 # DE DONDE SACAR SU SPRITE: la ruta del .tres de su EnemyData, y la 't' con la que se genero (que
 # es la que decide su variante, ver SpritesEnemigo.clave_de). Vacia = sin sprite, se queda con la
 # figura de color.

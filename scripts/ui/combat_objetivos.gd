@@ -213,15 +213,19 @@ func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
 # El gemelo de la fila de ENFRENTE (_adyacentes_vivos) no necesita este arreglo: alli los cadaveres
 # se retiran de la fila (ver _retirando), asi que el vecino de al lado siempre esta vivo. Aqui no,
 # porque las tarjetas de los tuyos se quedan puestas a proposito.
+#
+# POR LA FILA QUE SE VE (la de la formacion, ver combat_altas._fila_visual_aliados) y no por el orden del
+# array: el que entro el 4o y se ve en el puesto 2 tiene por vecinos al 1 y al 3.
 func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
 	var out: Array[Combatant] = []
-	var centro: int = _pantalla._aliados.find(principal)
+	var fila: Array[Combatant] = _pantalla.altas._fila_visual_aliados()
+	var centro: int = fila.find(principal)
 	if centro < 0:
 		return out
 	for paso in [-1, 1]:
 		var i: int = centro + paso
-		if i >= 0 and i < _pantalla._aliados.size() and _pantalla._aliados[i].is_alive():
-			out.append(_pantalla._aliados[i])
+		if i >= 0 and i < fila.size() and fila[i].is_alive():
+			out.append(fila[i])
 	return out
 
 
@@ -250,14 +254,16 @@ func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
 	# EL CENTRO DE LA HUELLA, en indices de la fila. Centrada = el medio del grupo vivo; si no, el
 	# objetivo. Es lo que decide quien se lleva la peor parte, y es EL MISMO dato con el que se
 	# dibuja: lo que ves tapado es exactamente lo que cobra.
+	# Las posiciones son las de la FILA QUE SE VE, no las del array (ver _adyacentes_aliados_vivos).
+	var fila_v: Array[Combatant] = _pantalla.altas._fila_visual_aliados()
 	var centro: float = 0.0
 	if ab.area_centrada:
 		var suma: float = 0.0
 		for c in alcanzados:
-			suma += float(_pantalla._aliados.find(c))
+			suma += float(fila_v.find(c))
 		centro = suma / float(alcanzados.size())
 	else:
-		centro = float(_pantalla._aliados.find(principal))
+		centro = float(fila_v.find(principal))
 
 	# Sin tabla, el de siempre: el principal entero y los demas a area_secundario.
 	if ab.area_escalas.is_empty():
@@ -271,10 +277,10 @@ func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
 	# iguales repartan igual) y se les va dando la escala que toca.
 	var orden: Array = alcanzados.duplicate()
 	orden.sort_custom(func(x, y):
-		var ix: float = absf(float(_pantalla._aliados.find(x)) - centro)
-		var iy: float = absf(float(_pantalla._aliados.find(y)) - centro)
+		var ix: float = absf(float(fila_v.find(x)) - centro)
+		var iy: float = absf(float(fila_v.find(y)) - centro)
 		if is_equal_approx(ix, iy):
-			return _pantalla._aliados.find(x) < _pantalla._aliados.find(y)
+			return fila_v.find(x) < fila_v.find(y)
 		return ix < iy)
 	# La fila de la tabla que toca por numero de alcanzados; si se pasa, la ultima que haya.
 	var fila: Array = ab.area_escalas[mini(orden.size(), ab.area_escalas.size()) - 1]
