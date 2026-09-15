@@ -439,10 +439,10 @@ func _set_cofre(lista: Array) -> void:
 #  difunde la lista entera. Calcado del cofre y del bote.
 # ============================================================
 
-func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+func solicitar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
 		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
 	if Net._soy_cliente():
-		_pedir_encargo.rpc_id(1, piso, tipos, duracion, uids, cofre_ids, faenas, clases)
+		_pedir_encargo.rpc_id(1, piso, grupos, duracion, uids, cofre_ids, faenas, clases)
 	else:
 		# El host tambien pasa por la aduana: el que se le puede haber ido del selector es un
 		# personaje DEL COMPAÑERO, y eso Game.enviar_encargo no lo sabe mirar (su party es la de aqui).
@@ -452,12 +452,12 @@ func solicitar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofr
 				Net._toast(motivo)
 				_difundir_hogar()
 				return
-		if Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases) != 0:
+		if Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases) != 0:
 			_difundir_hogar()
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+func _pedir_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
 		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
 	if not Net.es_host:
 		return
@@ -471,7 +471,7 @@ func _pedir_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		_difundir_hogar()
 		return
 	# enviar_encargo revalida la clase contra el equipo real: lo que mande el cliente es una peticion.
-	var id: int = Game.enviar_encargo(piso, tipos, duracion, uids, cofre_ids, faenas, clases)
+	var id: int = Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases)
 	if id == 0:
 		_aviso_remoto.rpc_id(quien, "No se pudo mandar ese encargo.")
 		return
@@ -552,7 +552,8 @@ func _pedir_recoger_encargo(id: int) -> void:
 	if bool(inf.get("ocupado", false)):
 		_aviso_remoto.rpc_id(quien, "El taller está ocupado: inténtalo en un momento.")
 		return
-	_aviso_remoto.rpc_id(quien, "Han vuelto: %d material(es) al almacén." % int(inf.get("materiales", 0)))
+	_aviso_remoto.rpc_id(quien, "Han vuelto: %d material(es) al almacén y %d monedas a la hucha." % [
+		int(inf.get("materiales", 0)), int(inf.get("dinero", 0))])
 	_difundir_hogar()
 
 
@@ -701,7 +702,7 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 		# las STATS DE EFECTO van sueltas, porque el pronostico de recoleccion necesita la stat del
 		# oficio persona a persona. Son cinco numeros: sale mas barato que pedirselas al host cada
 		# vez que marcas una casilla.
-		# TIENEN que ser las MISMAS que usa Encargos.poder_recolector al resolver (consolidado + su
+		# TIENEN que ser las MISMAS que usa Encargos.resolver para la calidad (consolidado + su
 		# plato): si aqui viajara otra cosa, el invitado veria una calidad prevista y le llegaria otra.
 		"poder": int(round(Encargos.poder(pj))),
 		"stats": {

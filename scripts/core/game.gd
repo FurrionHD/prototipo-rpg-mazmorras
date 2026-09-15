@@ -2743,6 +2743,8 @@ func importar_partida(d: SaveData) -> void:
 	_encargo_next_id = maxi(1, d.encargo_next_id)
 	for e in encargos:
 		_encargo_next_id = maxi(_encargo_next_id, int((e as Dictionary).get("id", 0)) + 1)
+		# Los de antes del rework guardaban `tipos` de otro enum: se pasan a grupos aqui, una vez.
+		Encargos.migrar(e as Dictionary)
 	owned_weapons.assign(d.owned_weapons)
 	owned_armor.assign(d.owned_armor)
 	owned_mochilas.assign(d.owned_mochilas)
@@ -4332,12 +4334,12 @@ func pjs_de_encargo(e: Dictionary) -> Array:
 
 
 # --- MANDAR un encargo. Devuelve el id, o 0 si no se pudo. ---
-# 'faenas' y 'clases' son {uid: int}: a que va cada uno y con que clase pelea. Pueden venir vacios
-# (todo el mundo a todo, y clase por defecto), y en multi vienen de la maquina del INVITADO, asi que
-# la clase se recomprueba aqui contra su equipo real: un cliente puede mandar el numero que quiera.
-func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_ids: Array,
+# 'grupos' es el OBJETIVO: {Encargos.Grupo: porcentaje}. 'faenas' es {uid: [grupos]} y 'clases'
+# {uid: int}: a que va cada uno y con que clase pelea. Pueden venir vacios, y en multi vienen de la
+# maquina del INVITADO, asi que todo se recomprueba aqui: un cliente puede mandar lo que quiera.
+func enviar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
 		faenas: Dictionary = {}, clases: Dictionary = {}) -> int:
-	var tt: Array = Encargos.tipos_validos(tipos)
+	var tt: Dictionary = Encargos.grupos_validos(grupos)
 	if uids.is_empty() or uids.size() > Encargos.MIEMBROS_MAX:
 		return 0
 	# Nadie puede ir a dos sitios a la vez, ni estar bajando contigo.
@@ -4360,8 +4362,8 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 					return 0
 				reserva.append(d)
 				break
-	# A pescar no se va sin caña (la misma regla del estanque).
-	if not Encargos.motivo_no_puede(tt, reserva).is_empty():
+	# A pescar no se va sin caña, una mochila por persona y una herramienta de cada tipo.
+	if not Encargos.motivo_no_puede(tt, reserva, uids.size()).is_empty():
 		return 0
 
 	var miembros: Array = []
@@ -4377,7 +4379,7 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 			"dueno": String(pj.dueno) if pj != null else "",
 			"uid": String(uid),
 			"nombre": pj.nombre if pj != null else "?",
-			# Puede ir a VARIAS cosas (pescar y cazar, por ejemplo). Vacia = a lo que haga falta.
+			# Puede ir a VARIOS grupos (pescado y cuero, por ejemplo). Vacia = a lo que haga falta.
 			"faenas": Encargos.faenas_validas(faenas.get(String(uid), []), tt),
 			"clase": Encargos.clase_valida(pj, int(clases.get(String(uid), Encargos.Clase.GUERRERO))),
 		})
@@ -4392,7 +4394,7 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		"id": _encargo_next_id,
 		"quien_manda": Identidad.id,
 		"piso": clampi(piso, 1, tope_piso),
-		"tipos": tt,
+		"grupos": tt,
 		"t_inicio": Encargos.ahora(),
 		"duracion": maxi(60, duracion),
 		"miembros": miembros,
@@ -4401,8 +4403,9 @@ func enviar_encargo(piso: int, tipos: Array, duracion: int, uids: Array, cofre_i
 		"semilla": randi(),
 		# `partes` es el parte de trabajo por persona: lo que hizo cada uno ahi abajo, para las
 		# pasivas RNG y los contadores de desarrollo. Lo rellena Encargos.resolver, como el botin.
-		"botin": [], "excelia": [], "partes": [], "desenlace": 0,
-		"ratio": 0.0, "trabajadas": 0, "traidas": 0, "perdido": 0,
+		"botin": [], "cristales": [], "dinero": 0, "excelia": [], "partes": [], "desenlace": 0,
+		"ratio": 0.0, "trabajadas": 0, "rotos": 0, "perdido": 0, "perdido_desenlace": 0,
+		"bichos": 0, "peleas": 0, "kg": 0.0,
 	}
 	_encargo_next_id += 1
 	encargos.append(e)
@@ -4491,9 +4494,9 @@ func dev_comparar_traer(id: int) -> void:
 		var suma: float = 0.0
 		for k in total:
 			suma += float(total[k])
-		print("[encargos] #%d a %d h: %s, %d unidades, base de excelia TOTAL %.2f" % [
+		print("[encargos] #%d a %d h: %s, %d recogidas, %d bichos, base de excelia TOTAL %.2f" % [
 			id, parte / 3600, Encargos.NOMBRE_DESENLACE[int(inf.get("desenlace", 0))],
-			int(inf.get("trabajadas", 0)), suma])
+			int(inf.get("trabajadas", 0)), int(inf.get("bichos", 0)), suma])
 
 
 func dev_terminar_encargos() -> int:
@@ -4545,9 +4548,10 @@ func _resolver_encargo(e: Dictionary) -> void:
 	for clave in informe:
 		e[clave] = informe[clave]
 	e["estado"] = Encargos.ESTADO_LISTO
-	print("[encargos] #%d de vuelta: %s, %d de %d unidades (%d por peso)." % [
-		int(e["id"]), Encargos.NOMBRE_DESENLACE[int(e["desenlace"])],
-		int(e["traidas"]), int(e["trabajadas"]), int(e["perdido"])])
+	print("[encargos] #%d de vuelta: %s, %d recogidas, %d bichos, %d rotos, -%d por el desenlace, -%d por peso, %d monedas en cristales." % [
+		int(e["id"]), Encargos.NOMBRE_DESENLACE[int(e["desenlace"])], int(e["trabajadas"]),
+		int(e["bichos"]), int(e["rotos"]), int(e["perdido_desenlace"]), int(e["perdido"]),
+		int(e["dinero"])])
 
 
 # --- RECOGER: el material al almacen del hogar, la excelia a cada uno. Devuelve el informe. ---
@@ -4574,6 +4578,17 @@ func recoger_encargo(id: int) -> Dictionary:
 			almacen_materiales.append(it)
 			n_mat += 1
 		descubrir(data)
+
+	# LOS CRISTALES SE VENDEN AL RECOGER, al precio de la tienda, y el dinero va a la HUCHA del hogar:
+	# es de la casa, no de ningun jugador (asi no hay que repartir por quien mando a quien). Solo lo
+	# ingresa el host, que es quien guarda el bote.
+	var dinero: int = int(e.get("dinero", 0))
+	var n_cristales: int = 0
+	for c in (e.get("cristales", []) as Array):
+		n_cristales += int((c as Dictionary).get("n", 0))
+	if dinero > 0:
+		bote_dinero += dinero
+		Net.hogar._difundir_bote()
 
 	# La excelia, a cada uno por su uid. ganar() escribe en ability_internal y NO consolida: hay que
 	# pasar por el altar, igual que con todo lo demas.
@@ -4642,8 +4657,11 @@ func recoger_encargo(id: int) -> Dictionary:
 	var informe: Dictionary = {
 		"desenlace": int(e.get("desenlace", 0)),
 		"materiales": n_mat,
+		"cristales": n_cristales,
+		"dinero": dinero,
+		"rotos": int(e.get("rotos", 0)),
 		"perdido": int(e.get("perdido", 0)),
-		"trabajadas": int(e.get("trabajadas", 0)),
+		"perdido_desenlace": int(e.get("perdido_desenlace", 0)),
 		"miembros": (e.get("miembros", []) as Array).duplicate(true),
 	}
 	encargos.erase(e)
@@ -4661,14 +4679,22 @@ func recoger_encargo(id: int) -> Dictionary:
 func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> void:
 	if pj == null:
 		return
-	for tipo in (parte.get("unidades", {}) as Dictionary):
-		var id: String = String(PASIVA_POR_FAENA.get(int(tipo), ""))
+	for grupo in (parte.get("unidades", {}) as Dictionary):
+		var id: String = String(PASIVA_POR_FAENA.get(int(grupo), ""))
 		if id == "":
 			continue
-		for i in int((parte["unidades"] as Dictionary)[tipo]):
+		for i in int((parte["unidades"] as Dictionary)[grupo]):
 			rodar_pasiva(id, pj)
-	# Slayer: por cada bicho, se elige familia con los pesos del piso (no todas salen igual).
-	var fams: Array = familias_de_bichos_en(piso)
+	# Cada cristal que saca es una extraccion, igual que jugando.
+	for i in int(parte.get("extracciones", 0)):
+		rodar_pasiva("reco_extraccion", pj)
+	# Slayer. Desde el rework los encargos pelean contra bichos DE VERDAD y el parte trae sus familias;
+	# los partes de antes solo traen el numero y se sortea la familia con los pesos del piso.
+	var suyas: Dictionary = parte.get("familias", {})
+	for fam in suyas:
+		for i in int(suyas[fam]):
+			rodar_slayer_por_familia(int(fam), pj)
+	var fams: Array = familias_de_bichos_en(piso) if suyas.is_empty() else []
 	if not fams.is_empty():
 		var total: float = 0.0
 		for f in fams:
@@ -4692,6 +4718,17 @@ func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> v
 		for i in int(round(float(parte.get("hechizos", 0.0)))):
 			contar_hechizo(pj)
 			contar_frase_recitada(pj)
+	# EL DESGASTE: lo que gastan peleando ahi abajo, con las mismas constantes que el combate. Va de una
+	# vez y no golpe a golpe (serian cientos de avisos de durabilidad), y respeta las mismas reglas:
+	# los puños no se gastan y cada pieza de armadura puesta pierde lo suyo por golpe encajado.
+	var dados: float = float(parte.get("golpes_dados", 0.0))
+	if dados > 0.0 and pj.equipped_main != null:
+		_desgastar_slot("main", DESGASTE_ARMA * dados, pj)
+	var recibidos: float = float(parte.get("golpes_recibidos", 0.0))
+	if recibidos > 0.0:
+		for slot in ["casco", "pecho", "manos", "pantalones", "botas"]:
+			if _pieza_equipada(slot, pj) != null:
+				_desgastar_slot(slot, DESGASTE_ARMOR * recibidos, pj)
 
 
 # Repaso periodico. Se mira UNA VEZ POR MINUTO y no cada frame: comparar unos pocos enteros es
@@ -12205,15 +12242,14 @@ func rodar_slayer_por_familia(fam: int, pj: PersonajeData = null) -> void:
 			rodar_pasiva(str(p["id"]), pj)
 			return
 
-# La pasiva de recoleccion que le toca a cada tipo de encargo. Es el puente entre las faenas y el
-# catalogo de PASIVAS_RNG: sin esto habria que repetir el mapeo en cada sitio que reparta pasivas.
+# La pasiva de recoleccion que le toca a cada grupo que se RECOGE en un encargo. Lo de caza tira por
+# la de extraccion una vez por cristal sacado (ver aplicar_parte_encargo).
 const PASIVA_POR_FAENA := {
-	Encargos.Tipo.VETA: "reco_mineria",
-	Encargos.Tipo.PLANTA: "reco_herboristeria",
-	Encargos.Tipo.COMIDA: "reco_herboristeria",   # la despensa se recoge con la hoz
-	Encargos.Tipo.MADERA: "reco_talado",
-	Encargos.Tipo.PESCA: "reco_pesca",
-	Encargos.Tipo.BICHO: "reco_extraccion",
+	Encargos.Grupo.MINERAL: "reco_mineria",
+	Encargos.Grupo.PLANTA: "reco_herboristeria",
+	Encargos.Grupo.COMIDA: "reco_herboristeria",   # la despensa se recoge con la hoz
+	Encargos.Grupo.MADERA: "reco_talado",
+	Encargos.Grupo.PESCADO: "reco_pesca",
 }
 
 # Pasiva de una RECOLECCION: tira por conseguirla y, si ya la tienes, mete UNA pieza extra en la

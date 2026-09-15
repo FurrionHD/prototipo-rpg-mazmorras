@@ -24,10 +24,10 @@ const ENCARGO_SUBS := [["En marcha", "curso"], ["Mandar uno", "nuevo"]]
 var _enc_sub: int = 0
 var _enc_piso: int = 1
 var _enc_dur: int = 0                # indice en Encargos.DURACIONES
-var _enc_tipos: Array = [0]          # Encargos.Tipo marcados
+var _enc_grupos: Dictionary = {0: 100}   # el OBJETIVO: Encargos.Grupo -> porcentaje (suman 100)
 var _enc_uids: Array = []            # quienes van
 var _enc_utiles: Array = []          # ids de entradas del cofre asignadas
-var _enc_faena: Dictionary = {}      # uid -> Encargos.Tipo, o -1 = "lo que haga falta"
+var _enc_faena: Dictionary = {}      # uid -> [Encargos.Grupo]; vacia = "lo que haga falta"
 var _enc_clase: Dictionary = {}      # uid -> Encargos.Clase (con que pelea)
 
 # ============================================================
@@ -110,7 +110,7 @@ func _limpiar_ordenes_sueltas() -> void:
 		if not _enc_uids.has(uid):
 			_enc_faena.erase(uid)
 		else:
-			_enc_faena[uid] = Encargos.faenas_validas(_enc_faena[uid], _enc_tipos)
+			_enc_faena[uid] = Encargos.faenas_validas(_enc_faena[uid], _enc_grupos)
 	for uid in _enc_clase.keys():
 		if not _enc_uids.has(uid):
 			_enc_clase.erase(uid)
@@ -140,8 +140,9 @@ func _fila_encargo(e: Dictionary) -> void:
 	for m in (e.get("miembros", []) as Array):
 		nombres.append(String((m as Dictionary).get("nombre", "?")))
 	var tipos: PackedStringArray = []
-	for t in (e.get("tipos", []) as Array):
-		tipos.append(String(Encargos.NOMBRE_TIPO.get(int(t), "?")))
+	var grupos: Dictionary = e.get("grupos", {})
+	for g in grupos:
+		tipos.append("%s %d%%" % [String(Encargos.NOMBRE_GRUPO.get(int(g), "?")), int(grupos[g])])
 
 	var l := Label.new()
 	l.text = "Piso %d · %s  ·  %s" % [int(e.get("piso", 1)), ", ".join(tipos), ", ".join(nombres)]
@@ -226,46 +227,57 @@ func _texto_informe(inf: Dictionary) -> String:
 	var t: String = "%s. Traen %d material%s" % [
 		Encargos.NOMBRE_DESENLACE[int(inf.get("desenlace", 0))],
 		int(inf.get("materiales", 0)), "" if int(inf.get("materiales", 0)) == 1 else "es"]
+	if int(inf.get("dinero", 0)) > 0:
+		t += " y %d monedas en cristales para la hucha" % int(inf["dinero"])
+	if int(inf.get("rotos", 0)) > 0:
+		t += "; rompieron %d" % int(inf["rotos"])
 	if int(inf.get("perdido", 0)) > 0:
-		t += ", y se dejaron %d por peso (mándales una mochila mejor)" % int(inf["perdido"])
+		t += "; se dejaron %d por peso" % int(inf["perdido"])
 	return t + ". Está en el almacén; lo aprendido, en el altar."
 
 
 # --- El formulario de "Mandar uno" ---
 #
+# PROVISIONAL (paso 1 del rework): la logica ya es la nueva y esto solo la deja usable. La pantalla
+# de verdad (celdas con icono, deslizadores, retratos y utiles en rejilla) llega en los pasos 4 y 5.
+#
 # Trabaja sobre FICHAS del roster (dicts), no sobre PersonajeData, y es el MISMO camino en solitario
-# y en multi: en solitario el roster se construye al vuelo de tu plantilla, y de cliente llega del
-# host. Tiene que ser asi porque el invitado NO tiene los PersonajeData de los personajes de su
-# compañero -- viven en la maquina del host -- y aun asi puede mandarlos.
+# y en multi: el invitado NO tiene los PersonajeData de los personajes de su compañero.
 func _build_encargos_nuevo() -> void:
 	var libres: Array = _libres_del_hogar()
 	_purgar_seleccion(libres)
 
-	# --- Izquierda: a qué van, dónde y cuánto.
-	MenuScaffold.titulo(hogar._lista, "Tipo de encargo", 14)
+	# --- Izquierda: el objetivo, donde y cuanto.
+	MenuScaffold.titulo(hogar._lista, "Objetivo", 14)
 	var etiquetas: Array = []
-	var marcados: Array = []
-	for t in range(0, int(Encargos.Tipo.BICHO) + 1):
-		etiquetas.append("%s %s" % ["☑" if _enc_tipos.has(t) else "☐",
-			String(Encargos.NOMBRE_TIPO.get(t, "?"))])
-		marcados.append(t)
+	var valores: Array = []
+	for g in Encargos.Grupo.values():
+		etiquetas.append("%s %s" % ["☑" if _enc_grupos.has(int(g)) else "☐",
+			String(Encargos.NOMBRE_GRUPO.get(int(g), "?"))])
+		valores.append(int(g))
 	MenuScaffold.cuadricula(hogar._lista, etiquetas, -1, func(i: int):
-		var t: int = int(marcados[i])
-		if _enc_tipos.has(t):
-			if _enc_tipos.size() > 1:      # siempre tiene que quedar uno marcado
-				_enc_tipos.erase(t)
-		else:
-			_enc_tipos.append(t)
+		_enc_grupos = Encargos.alternar_grupo(_enc_grupos, int(valores[i]))
 		hogar._rebuild(), 3, Vector2(150, 34))
-	if _enc_tipos.size() > 1:
-		MenuScaffold.nota(hogar._lista, "Con %d marcados reparten el tiempo: menos de cada cosa, y lo que "
-			% _enc_tipos.size() + "aprenden se reparte entre varias habilidades.")
+	for g in _enc_grupos:
+		var fila := HBoxContainer.new()
+		hogar._lista.add_child(fila)
+		var l := Label.new()
+		l.text = "%s %d%%" % [String(Encargos.NOMBRE_GRUPO.get(int(g), "?")), int(_enc_grupos[g])]
+		l.custom_minimum_size = Vector2(180, 0)
+		fila.add_child(l)
+		var s := HSlider.new()
+		s.min_value = 0
+		s.max_value = 100
+		s.step = 5
+		s.value = int(_enc_grupos[g])
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var grupo: int = int(g)
+		s.drag_ended.connect(func(_cambio: bool):
+			_enc_grupos = Encargos.ajustar_porcentaje(_enc_grupos, grupo, int(s.value))
+			hogar._rebuild())
+		fila.add_child(s)
 
 	MenuScaffold.titulo(hogar._lista, "Piso", 14)
-	# HASTA DONDE HAS LLEGADO, que es la libreta del mapa (los pisos traidos a salvo al pueblo).
-	# Antes se preguntaba a Game.pisos_desbloqueados(), que NO es eso: es la lista de ATAJOS
-	# abiertos por jefes, y como solo hay jefes en el 6 y en el 12, devolvia [1] hasta matar al Rey
-	# Slime. Con cuatro pisos explorados el selector no se movia del 1.
 	var tope: int = 1
 	for p in Game.mapa_visible().keys():
 		tope = maxi(tope, int(p))
@@ -275,8 +287,6 @@ func _build_encargos_nuevo() -> void:
 	MenuScaffold.stepper(fila_piso, _enc_piso, 1, tope, func(v: int):
 		_enc_piso = v
 		hogar._rebuild())
-	for t in _enc_tipos:
-		_linea_materiales(int(t), _enc_piso)
 
 	MenuScaffold.titulo(hogar._lista, "Cuánto tiempo", 14)
 	var horas: Array = []
@@ -292,63 +302,6 @@ func _build_encargos_nuevo() -> void:
 	_build_encargo_pronostico(libres)
 
 
-# Lo que sale de un tipo en un piso, con CADA MATERIAL DE SU COLOR (el de su rango: gris el bruto,
-# verde el veteado, azul el profundo...). No se usa MaterialTable.resumen porque devuelve una String
-# pelada y aqui hace falta un Label por material para poder teñirlos; y asi ademas el mismo codigo
-# sirve para los enemigos, que no tienen MaterialTable.
-const MATS_A_LA_VISTA := 6
-
-func _linea_materiales(tipo: int, piso: int) -> void:
-	var pool: Array = Encargos.opciones(tipo, piso)
-	if pool.is_empty():
-		MenuScaffold.nota(hogar._lista, "%s: nada que sacar en este piso." % String(Encargos.NOMBRE_TIPO[tipo]))
-		return
-	var total: float = 0.0
-	for o in pool:
-		total += float(o["peso"])
-	pool.sort_custom(func(a, b): return float(a["peso"]) > float(b["peso"]))
-
-	var flujo := HFlowContainer.new()
-	flujo.add_theme_constant_override("h_separation", 4)
-	flujo.add_theme_constant_override("v_separation", 0)
-	hogar._lista.add_child(flujo)
-
-	var cab := Label.new()
-	cab.text = "%s:" % String(Encargos.NOMBRE_TIPO[tipo])
-	cab.add_theme_font_size_override("font_size", 12)
-	cab.add_theme_color_override("font_color", GRIS)
-	flujo.add_child(cab)
-
-	var n: int = mini(pool.size(), MATS_A_LA_VISTA)
-	for i in n:
-		var o := pool[i] as Dictionary
-		var m := o["material"] as MaterialData
-		var l := Label.new()
-		l.text = "%s %s%%%s" % [m.nombre,
-			snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1),
-			"" if i == n - 1 else ","]
-		l.add_theme_font_size_override("font_size", 12)
-		l.add_theme_color_override("font_color", m.color_rango())
-		flujo.add_child(l)
-	if pool.size() > n:
-		var mas := Label.new()
-		mas.text = "y %d más ⓘ" % (pool.size() - n)
-		mas.add_theme_font_size_override("font_size", 12)
-		mas.add_theme_color_override("font_color", AMBAR)
-		# El resto, al pasar el raton por encima. Los enemigos sueltan hasta 15 cosas distintas por
-		# piso y listarlas todas en linea llenaba media pantalla, pero esconderlas del todo tampoco
-		# vale: son las que decides al marcar la casilla.
-		# OJO: un Label nace con MOUSE_FILTER_IGNORE, o sea que sin esto el tooltip nunca saldria.
-		mas.mouse_filter = Control.MOUSE_FILTER_STOP
-		var resto: PackedStringArray = []
-		for i in range(n, pool.size()):
-			var o := pool[i] as Dictionary
-			resto.append("%s  %s%%" % [(o["material"] as MaterialData).nombre,
-				snappedf(100.0 * float(o["peso"]) / maxf(0.001, total), 0.1)])
-		mas.tooltip_text = "También pueden traer:\n" + "\n".join(resto)
-		flujo.add_child(mas)
-
-
 func _build_encargo_gente(libres: Array) -> void:
 	MenuScaffold.titulo(hogar._content, "Quién va (%d de %d)" % [_enc_uids.size(), Encargos.MIEMBROS_MAX], 14)
 	if libres.is_empty():
@@ -362,7 +315,6 @@ func _build_encargo_gente(libres: Array) -> void:
 		var fila: HBoxContainer = t["info"]
 		fila.add_child(hogar._punto_color(ficha.get("color", Color.WHITE)))
 		var l := Label.new()
-		# En mundo compartido, de quién es. Sin esto no sabes a quién le estás prestando la gente.
 		var de_quien: String = ""
 		if Net.activo and String(ficha.get("dueno", "")) != Identidad.id:
 			de_quien = "  (de %s)" % String(ficha.get("dueno_nombre", "tu compañero"))
@@ -383,53 +335,31 @@ func _build_encargo_gente(libres: Array) -> void:
 				_enc_uids.append(uid)
 			hogar._rebuild())
 		(t["botones"] as HBoxContainer).add_child(b)
-		# Las ordenes solo tienen sentido para el que va: al que dejas en casa no le mandas nada.
 		if va:
 			_build_ordenes(t["caja"] as VBoxContainer, ficha)
 
 
-# Las dos ordenes que le das a UNA persona: a que va, y con que pelea.
-#
-# La de CLASE sale siempre, aunque no los mandes a por bichos: ahi abajo hay bichos igual y de esa
-# pelea se llevan excelia. La de FAENA solo tiene sentido si hay mas de un tipo marcado (con uno
-# solo no hay nada que elegir).
+# Las dos ordenes que le das a UNA persona: a por que va, y con que pelea.
 func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	var uid: String = String(ficha.get("uid", ""))
+	var suyas: Array = _enc_faena.get(uid, [])
+	var et: Array = []
+	var vals: Array = []
+	for g in _enc_grupos:
+		et.append("%s %s" % ["☑" if suyas.has(int(g)) else "☐", String(Encargos.NOMBRE_GRUPO.get(int(g), "?"))])
+		vals.append(int(g))
+	MenuScaffold.nota(caja, "A por qué va" if not suyas.is_empty()
+		else "A por qué va  ·  sin marcar nada, a lo que haga falta")
+	MenuScaffold.cuadricula(caja, et, -1, func(i: int):
+		var lista: Array = (_enc_faena.get(uid, []) as Array).duplicate()
+		var g: int = int(vals[i])
+		if lista.has(g):
+			lista.erase(g)
+		else:
+			lista.append(g)
+		_enc_faena[uid] = lista
+		hogar._rebuild(), 3, Vector2(0, 26))
 
-	# OJO con el ancho: estas cuadrículas van DENTRO de una tarjeta de la columna derecha, que es
-	# estrecha. Con ancho mínimo la rejilla empuja la columna entera fuera de la pantalla, así que se
-	# deja en 0 y que el EXPAND_FILL reparta lo que haya.
-	# A qué va es MULTISELECCIÓN, como el "Tipo de encargo" de la izquierda: a uno le puedes mandar a
-	# pescar Y a por bichos. Sin nada marcado va a lo que haga falta, que es lo de siempre.
-	# SALE SIEMPRE, tambien con un solo tipo marcado. Antes se escondia con uno solo porque "no hay
-	# nada que elegir", y con la vieja formula era verdad. Desde que la calidad va por la MEDIA de los
-	# que trabajan ese tipo (ver Encargos.poder_recolector_de), marcar decide QUIEN lo trabaja aunque
-	# el tipo sea uno: mandar a las vetas solo al fuerte sube la calidad del mineral, y dejarlo sin
-	# marcar la baja con la media de los cuatro. Es una decision de verdad y tiene que verse.
-	if not _enc_tipos.is_empty():
-		var suyas: Array = _enc_faena.get(uid, [])
-		var et: Array = []
-		var vals: Array = []
-		var tips_f: Array = []
-		for t in _enc_tipos:
-			var n: String = String(Encargos.NOMBRE_TIPO.get(int(t), "?"))
-			et.append("%s %s" % ["☑" if suyas.has(int(t)) else "☐", n])
-			vals.append(int(t))
-			tips_f.append("Trabaja %s. La calidad sale de la media de los que van a esto." % n.to_lower())
-		MenuScaffold.nota(caja, "A qué va" if not suyas.is_empty()
-			else "A qué va  ·  sin marcar nada, a lo que haga falta")
-		MenuScaffold.cuadricula(caja, et, -1, func(i: int):
-			var lista: Array = (_enc_faena.get(uid, []) as Array).duplicate()
-			var t: int = int(vals[i])
-			if lista.has(t):
-				lista.erase(t)
-			else:
-				lista.append(t)
-			_enc_faena[uid] = lista
-			hogar._rebuild(), 3, Vector2(0, 26), [], [], tips_f)
-
-	# Las clases DISPONIBLES viajan ya calculadas en la ficha del roster: dependen de lo que lleve
-	# puesto, y de los personajes del compañero no tenemos el equipo (solo lo que publica el host).
 	var disp: Array = ficha.get("clases", [int(Encargos.Clase.GUERRERO)])
 	var et_c: Array = []
 	var vals_c: Array = []
@@ -437,18 +367,15 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 	var tips: Array = []
 	for c in Encargos.Clase.values():
 		if not disp.has(int(c)):
-			off.append(vals_c.size())   # `deshabilitados` va por INDICE, no por booleano
+			off.append(vals_c.size())
 		et_c.append(String(Encargos.ABREV_CLASE.get(c, "?")))
 		vals_c.append(int(c))
-		# El nombre entero siempre en el tooltip (la casilla va abreviada), y si no puede, el motivo.
 		tips.append(String(Encargos.NOMBRE_CLASE.get(c, "?")) if disp.has(int(c))
 			else String(Encargos.REQUISITO_CLASE.get(c, "")))
-	# Por defecto, la primera que SI puede: nunca se queda sin clase ni con una imposible.
 	var actual: int = int(_enc_clase.get(uid, int(disp[0]) if not disp.is_empty() else 0))
 	if not disp.has(actual):
 		actual = int(disp[0]) if not disp.is_empty() else int(Encargos.Clase.GUERRERO)
-	# Se deja escrito el que se está enseñando: si no, quien no toque la fila mandaría al personaje
-	# con la clase por defecto del host en vez de con la que ve marcada en pantalla.
+	# Se deja escrito el que se enseña: si no, quien no toque la fila iria con la clase por defecto.
 	_enc_clase[uid] = actual
 	MenuScaffold.nota(caja, "Con qué pelea")
 	MenuScaffold.cuadricula(caja, et_c, vals_c.find(actual), func(i: int):
@@ -459,7 +386,6 @@ func _build_ordenes(caja: VBoxContainer, ficha: Dictionary) -> void:
 func _build_encargo_utiles() -> void:
 	MenuScaffold.titulo(hogar._content, "Útiles del cofre", 14)
 	var hay: bool = false
-	# Net.hogar.cofre_visible() y no Game.cofre_equipo: de cliente el cofre del hogar es el del HOST.
 	for entrada_ in Net.hogar.cofre_visible():
 		var entrada := entrada_ as Dictionary
 		var clase: String = String(entrada.get("clase", ""))
@@ -473,28 +399,15 @@ func _build_encargo_utiles() -> void:
 		var l := Label.new()
 		l.text = String(entrada.get("desc", "?"))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# Lo que APORTA a este encargo, para que se vea por qué merece la pena mandarla.
-		var aporta: String = ""
-		if clase == "mochila":
-			aporta = "+%.0f kg" % Encargos.capacidad_util(entrada)
-		else:
-			var mejor: float = 0.0
-			for t in _enc_tipos:
-				mejor = maxf(mejor, float(Encargos.mods_util(entrada, int(t))["afinidad"]))
-			aporta = "+%.0f afinidad" % mejor if mejor > 0.0 else "no sirve para esto"
-			if mejor <= 0.0:
-				l.add_theme_color_override("font_color", GRIS)
 		fila.add_child(l)
 		var ap := Label.new()
-		ap.text = aporta
-		ap.add_theme_color_override("font_color", VERDE if aporta.begins_with("+") else GRIS)
+		ap.text = ("+%.0f kg" if clase == "mochila" else "+%.0f afinidad") % Encargos.aporte_util(entrada)
+		ap.add_theme_color_override("font_color", VERDE)
 		fila.add_child(ap)
 		var b := Button.new()
 		var puesta: bool = _enc_utiles.has(id)
 		b.text = "Quitar" if puesta else "Llevar"
 		b.disabled = ocupada != 0
-		if ocupada != 0:
-			b.tooltip_text = "En uso en otro encargo."
 		b.pressed.connect(func():
 			if _enc_utiles.has(id):
 				_enc_utiles.erase(id)
@@ -519,9 +432,10 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		MenuScaffold.nota(hogar._content, "Elige a alguien para ver cómo le iría.")
 		return
 	var poderes: Array = []
+	var fuerzas: Array = []
 	for f in fichas:
 		poderes.append(float((f as Dictionary).get("poder", 0)))
-
+		fuerzas.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get("fuerza", 0.0)))
 	var entradas: Array = []
 	for id in _enc_utiles:
 		for entrada in Net.hogar.cofre_visible():
@@ -529,60 +443,23 @@ func _build_encargo_pronostico(libres: Array) -> void:
 				entradas.append(entrada)
 				break
 
-	# --- Eje 1: ¿vuelven bien?
 	var pg: float = Encargos.poder_grupo_de(poderes)
-	var req: float = Encargos.requisito_combate(_enc_piso)
 	var probs: Array = Encargos.probs_desenlace(pg, _enc_piso)
 	MenuScaffold.fila(hogar._content, "Poder del grupo", "%d" % int(round(pg)))
-	MenuScaffold.fila(hogar._content, "El piso %d pide" % _enc_piso, "%d" % int(round(req)))
+	MenuScaffold.fila(hogar._content, "El piso %d pide" % _enc_piso,
+		"%d" % int(round(Encargos.requisito_mostrado(_enc_piso))))
 	var exito := Label.new()
 	var pct: float = 100.0 * float(probs[0])
-	exito.text = "ÉXITO %s   ·   a medias %s   ·   fracaso %s" % [
+	exito.text = "ÉXITO %s   ·   éxito parcial %s   ·   fracaso %s" % [
 		Encargos.pct(float(probs[0])), Encargos.pct(float(probs[1])), Encargos.pct(float(probs[2]))]
 	exito.add_theme_font_size_override("font_size", 16)
 	exito.add_theme_color_override("font_color",
 		VERDE if pct > 85.0 else (AMBAR if pct >= 60.0 else Color(0.90, 0.45, 0.40)))
 	hogar._content.add_child(exito)
-	if pct < 60.0:
-		MenuScaffold.nota(hogar._content, "Van muy justos: ahí abajo hay bichos. Manda a más gente, o "
-			+ "vísteles mejor antes de que salgan.")
+	MenuScaffold.fila(hogar._content, "Pueden cargar", "%.0f kg" % Encargos.tope_carga_de(fuerzas, entradas))
 
-	# --- Eje 2: qué traen.
 	var dur: int = int(Encargos.DURACIONES[_enc_dur])
-	var golpes: int = 0
-	var afin_media: float = 0.0
-	for t in _enc_tipos:
-		var mejor: float = 0.0
-		for entrada in entradas:
-			var m: Dictionary = Encargos.mods_util(entrada as Dictionary, int(t))
-			mejor = maxf(mejor, float(m["afinidad"]))
-			golpes = maxi(golpes, int(m["golpes_menos"]))
-		afin_media += mejor
-	afin_media /= maxf(1.0, float(_enc_tipos.size()))
-
-	var trabajadas: int = Encargos.unidades(dur, fichas.size(), golpes, 1.0)
-	var tope: float = Encargos.tope_carga_de(_fuerzas(fichas), entradas)
-	# Cuántas caben, con el peso medio de lo que van a traer.
-	var peso_ud: float = _peso_medio_unidad()
-	var caben: int = int(tope / maxf(0.1, peso_ud))
-	MenuScaffold.fila(hogar._content, "Trabajarán", "%d unidades" % trabajadas)
-	MenuScaffold.fila(hogar._content, "Les caben", "%d  (%.0f kg)" % [caben, tope])
-	_build_reparto_botin(trabajadas)
-	if caben < trabajadas:
-		var faltan := Label.new()
-		faltan.text = "Se dejarán ~%d por peso: mándales una mochila." % (trabajadas - caben)
-		faltan.add_theme_color_override("font_color", Color(0.90, 0.45, 0.40))
-		hogar._content.add_child(faltan)
-
-	# CALIDADES POR MATERIAL, nunca una media del tipo.
-	# Una sola fila por "Vetas" era mentira: con 0 de Fuerza el cobre en bruto (exigencia 30) sale
-	# casi siempre intacto y el veteado (150) no lo pillan ni de casualidad, y promediarlos daba un
-	# "37% normal" que no le pasa a ningun material de verdad. Lo que decide la calidad es CADA
-	# material, asi que se enseña material a material.
-	_build_tabla_calidades(fichas, entradas, pg / req)
-
-	# --- Mandar.
-	var pega: String = Encargos.motivo_no_puede(_enc_tipos, entradas)
+	var pega: String = Encargos.motivo_no_puede(_enc_grupos, entradas, fichas.size())
 	if not pega.is_empty():
 		var aviso := Label.new()
 		aviso.text = pega
@@ -594,7 +471,7 @@ func _build_encargo_pronostico(libres: Array) -> void:
 	b.disabled = not pega.is_empty()
 	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 	b.pressed.connect(func():
-		Net.hogar.solicitar_encargo(_enc_piso, _enc_tipos, dur, _enc_uids, _enc_utiles,
+		Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, _enc_uids, _enc_utiles,
 			_enc_faena.duplicate(), _enc_clase.duplicate())
 		hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
 		hogar._aviso_ok = true
@@ -605,125 +482,3 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		_enc_sub = 0
 		hogar._rebuild())
 	hogar._content.add_child(b)
-
-
-# QUÉ PARTE DEL BOTÍN es cada material, para poder ver lo que van a traer SIN tener que mandarlos
-# primero. Los tipos se reparten el rato a partes iguales, así que el % de cada material es el de su
-# tipo por el peso que tiene dentro de su tabla: con seis tipos marcados, un tipo al 16,7% con dos
-# materiales al 50/50 son dos materiales al 8,3%.
-func _build_reparto_botin(trabajadas: int) -> void:
-	var por_tipo: Dictionary = Encargos.repartir(trabajadas, _enc_tipos)
-	var filas: Array = []
-	for t in _enc_tipos:
-		var tipo: int = int(t)
-		var uds: int = int(por_tipo.get(tipo, 0))
-		var cuota: float = float(uds) / maxf(1.0, float(trabajadas))
-		var pool: Array = Encargos.opciones(tipo, _enc_piso)
-		var peso_total: float = 0.0
-		for o in pool:
-			peso_total += float(o["peso"])
-		for o in pool:
-			var m := o["material"] as MaterialData
-			filas.append({"etiqueta": m.nombre, "color": m.color_rango(), "orden": cuota
-				* float(o["peso"]) / maxf(0.001, peso_total)})
-	if filas.is_empty():
-		return
-	filas.sort_custom(func(a, b): return float(a["orden"]) > float(b["orden"]))
-	var recorte: Array = filas.slice(0, CALIDADES_A_LA_VISTA)
-	for f in recorte:
-		(f as Dictionary)["valores"] = [Encargos.pct(float((f as Dictionary)["orden"]))]
-	MenuScaffold.titulo(hogar._content, "Cuánto de cada cosa", 13)
-	MenuScaffold.rejilla_probs(hogar._content, "Material", ["Del botín"], recorte)
-	if filas.size() > recorte.size():
-		MenuScaffold.nota(hogar._content, "(y %d material%s más, con menos)" % [filas.size() - recorte.size(),
-			"" if filas.size() - recorte.size() == 1 else "es"])
-
-
-# Una fila por MATERIAL con la calidad que le sacarían. Se ordenan por exigencia (de lo fácil a lo
-# difícil), que es como se lee la progresión de un vistazo: lo de arriba te lo traes entero y lo de
-# abajo es lo que te falta stat para conseguir.
-const CALIDADES_A_LA_VISTA := 8
-
-func _build_tabla_calidades(fichas: Array, entradas: Array, r_combate: float) -> void:
-	var filas: Array = []
-	for t in _enc_tipos:
-		var tipo: int = int(t)
-		# La afinidad de la herramienta de ESE tipo (la mejor asignada), como en la resolución.
-		var afin: float = 0.0
-		for entrada in entradas:
-			afin = maxf(afin, float(Encargos.mods_util(entrada as Dictionary, tipo)["afinidad"]))
-		# SOLO los que van a ese tipo: si mandaste al fuerte a las vetas, el torpe que se fue a las
-		# hierbas no le estropea el mineral. Con nadie asignado, la regla de Encargos devuelve a todos.
-		var poder_reco: float = Encargos.poder_recolector_de(
-			_stats(_fichas_faena(fichas, tipo), tipo), tipo, afin)
-		var pool: Array = Encargos.opciones(tipo, _enc_piso)
-		pool.sort_custom(func(a, b):
-			return Game._exigencia_material(a["material"] as MaterialData, _enc_piso) \
-				< Game._exigencia_material(b["material"] as MaterialData, _enc_piso))
-		for o in pool:
-			var m := o["material"] as MaterialData
-			var margen: float = Encargos.margen_calidad(tipo, m, _enc_piso, poder_reco, r_combate)
-			var q: Dictionary = Encargos.reparto_calidades(margen)
-			filas.append({"etiqueta": m.nombre, "color": m.color_rango(), "valores": [
-				Encargos.pct(float(q["intacto"])), Encargos.pct(float(q["normal"])),
-				Encargos.pct(float(q["danado"]))]})
-	if filas.is_empty():
-		return
-	# Con varios tipos marcados esto se va a treinta filas. Se enseñan las primeras y se dice cuántas
-	# faltan: la tabla es para decidir, no para consultarla entera.
-	var recorte: Array = filas.slice(0, CALIDADES_A_LA_VISTA)
-	MenuScaffold.rejilla_probs(hogar._content, "Qué calidad", ["Intacto", "Normal", "Dañado"], recorte)
-	if filas.size() > recorte.size():
-		MenuScaffold.nota(hogar._content, "(y %d material%s más)" % [filas.size() - recorte.size(),
-			"" if filas.size() - recorte.size() == 1 else "es"])
-
-
-# Las stats que salen en las fichas del roster. Se leen del dict y no de PersonajeData porque de
-# los personajes del compañero solo tenemos lo que publica el host.
-func _fuerzas(fichas: Array) -> Array:
-	var out: Array = []
-	for f in fichas:
-		out.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get("fuerza", 0.0)))
-	return out
-
-
-# Las fichas de los que van a trabajar ESE tipo. La regla ("si no hay nadie asignado lo hacen
-# todos") vive en Encargos y se llama desde aquí en vez de copiarla: el pronóstico y la resolución
-# de verdad tienen que decir lo mismo o la tabla es mentira.
-func _fichas_faena(fichas: Array, tipo: int) -> Array:
-	var trabajan: Array = Encargos.uids_trabajando(_miembros_previstos(), tipo, _enc_uids)
-	var out: Array = []
-	for f in fichas:
-		if trabajan.has(String((f as Dictionary).get("uid", ""))):
-			out.append(f)
-	return out if not out.is_empty() else fichas
-
-
-# Los `miembros` tal y como van a quedar en el encargo, para poder preguntarle a Encargos con la
-# misma forma de datos que usará la resolución.
-func _miembros_previstos() -> Array:
-	var out: Array = []
-	for uid in _enc_uids:
-		out.append({"uid": String(uid), "faenas": _enc_faena.get(uid, []),
-			"clase": int(_enc_clase.get(uid, Encargos.Clase.GUERRERO))})
-	return out
-
-
-func _stats(fichas: Array, tipo: int) -> Array:
-	var clave: String = String(Encargos.oficio_de(tipo)["stat"])
-	var out: Array = []
-	for f in fichas:
-		out.append(float(((f as Dictionary).get("stats", {}) as Dictionary).get(clave, 0.0)))
-	return out
-
-
-# El peso de una unidad media de lo marcado, para poder decir cuántas caben ANTES de mandarlos.
-func _peso_medio_unidad() -> float:
-	var suma: float = 0.0
-	var peso: float = 0.0
-	for t in _enc_tipos:
-		for o in Encargos.opciones(int(t), _enc_piso):
-			var m: MaterialData = o["material"] as MaterialData
-			suma += m.peso_base * 0.9 * float(o["peso"])   # 0.9 = calidad NORMAL, la mas comun
-			peso += float(o["peso"])
-	return suma / maxf(0.001, peso) if peso > 0.0 else 1.0

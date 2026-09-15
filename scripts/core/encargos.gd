@@ -1,132 +1,246 @@
 # ============================================================
 #  encargos.gd
-#  ENCARGOS: mandar a la gente que tienes parada en el hogar a recolectar por RELOJ REAL.
-#  Eliges piso, tipo de nodo y duracion (1 h / 4 h / 8 h), les das herramienta y mochila del cofre
-#  y se van. Cuentan aunque cierres el juego.
+#  ENCARGOS: mandar a la gente que tienes parada en el hogar a por material por RELOJ REAL.
+#  Eliges el OBJETIVO (grupos de material con su porcentaje), el piso y la duracion (1 h / 4 h / 8 h),
+#  les das utiles del cofre y se van. Cuentan aunque cierres el juego.
 #
-#  DOS EJES INDEPENDIENTES, y es la decision que ordena todo lo demas:
+#  REWORK DEL 15/09/2026 (lo dicto el jefe, pieza a pieza). Lo que ordena todo:
 #
-#   1. PODER DE COMBATE -> decide SI VUELVEN BIEN. Aunque el encargo sea de mineria, ahi abajo hay
-#      bichos: si no tienes poder para matarlos, pierdes y vuelves con menos y peor.
-#   2. RECOLECCION -> decide QUE CALIDAD traen. Es EXACTAMENTE el sistema de siempre: la stat del
-#      oficio y la afinidad de la herramienta contra la exigencia del material (_reto_recoleccion).
-#      Aqui no se reescala nada de eso.
+#   1. RECOGER tiene TOPE POR PERSONA: 4 unidades por hora cada uno (mineral, madera, plantas,
+#      comida y pescado). Antes una cuadrilla de cuatro ocho horas te resolvia la vida entera.
+#   2. CAZAR va por ENEMIGOS DE VERDAD: 5 peleas por hora contra (personas + 1) bichos sacados de la
+#      tabla de spawn del piso, y cada uno suelta lo SUYO con SU probabilidad. Si pides cuero y te
+#      tocan slimes, no hay cuero. De cada baja sale ademas su cristal, que se vende al recoger.
+#   3. LA CALIDAD VA POR PERSONA, con la stat de quien lo recoge: el de 450 de Fuerza trae el hierro
+#      intacto y el de 100 lo trae dañado, o lo rompe.
+#   4. EL DESENLACE es una curva por anclas y CASTIGA POCO Y SIN AZAR: parcial -20% de cada grupo,
+#      fracaso -40%.
 #
-#  Asi cada palanca hace una cosa sola y se puede explicar en una frase: la gente y el equipo
-#  deciden si vuelven; la herramienta y las stats de oficio deciden que traen.
-#
-#  Es una clase ESTATICA (sin autoload) para que game.gd no crezca otras 400 lineas y para que el
-#  test headless pueda pedirle numeros sin levantar un mundo. Los datos vivos (stats, meta del
-#  equipo, capacidad) se los pide a Game, que es un autoload y se ve desde aqui.
+#  Es una clase ESTATICA (sin autoload) para que game.gd no crezca y para que el simulador headless
+#  pueda pedirle numeros sin levantar un mundo. Los datos vivos se los pide a Game.
 # ============================================================
 
 extends RefCounted
 class_name Encargos
 
-# --- A QUE los mandas. Los cinco primeros son los mismos nodos del mapa (ResourceNode.Tipo), a
-# proposito: un encargo no es contenido nuevo, es "ve al piso N y pica lo que haya alli".
-# BICHO es el sexto y no tiene nodo: es salir de caza.
-#
-# Se elige por MULTISELECCION (el encargo guarda `tipos: Array`, no un `tipo` suelto). Marcar dos
-# casillas ES el "mixto", asi que no hace falta un preset aparte. El tiempo se reparte entre lo
-# marcado y cada unidad se resuelve con el oficio de SU tipo, o sea que multiseleccionar reparte
-# tambien el aprendizaje: tiene un coste real y no es solo comodidad.
-enum Tipo { VETA, PLANTA, MADERA, COMIDA, PESCA, BICHO }
+# --- EL OBJETIVO: a por que van. Grupos de material, NO los nodos del mapa: al jugador le importa
+# traer cuero o nucleos, no "ir a por bichos".
+enum Grupo { MINERAL, MADERA, PLANTA, COMIDA, PESCADO, CUERO, NUCLEO, POCION, CRISTAL }
+
+# Los que se RECOGEN (gastan las 4 por hora de cada persona) y los que salen de lo que CAZAN (van por
+# bajas, sin tope). La COMIDA esta en los dos lados: se recoge (setas, tuberculos, sal) y ademas los
+# bichos sueltan carne.
+const RECOGIBLES := [Grupo.MINERAL, Grupo.MADERA, Grupo.PLANTA, Grupo.COMIDA, Grupo.PESCADO]
+const DE_CAZA := [Grupo.CUERO, Grupo.NUCLEO, Grupo.POCION, Grupo.CRISTAL]
+
+const NOMBRE_GRUPO := {
+	Grupo.MINERAL: "Mineral", Grupo.MADERA: "Madera", Grupo.PLANTA: "Plantas",
+	Grupo.COMIDA: "Comida", Grupo.PESCADO: "Pescado", Grupo.CUERO: "Cuero",
+	Grupo.NUCLEO: "Núcleos", Grupo.POCION: "Materiales de poción", Grupo.CRISTAL: "Cristales",
+}
 
 const ESTADO_EN_CURSO := 0
 const ESTADO_LISTO := 1
 
-# Como les fue. Escala TODO en la misma proporcion 3:2:1 (excelia y cantidad), asi que se puede
-# explicar en una frase: "lo que traen y lo que aprenden va por como les fue".
 const EXITO := 0
 const PARCIAL := 1
 const FRACASO := 2
-# Excelia. La escala es la misma 3:2:1, pero NORMALIZADA a que el exito valga 1.0: desde que una
-# unidad de encargo paga como un nodo que picas tu, un x3 encima haria que trabajar de encargo
-# enseñara el TRIPLE que hacerlo tu mismo, que es absurdo. El exito es el caso normal, asi que es el
-# que tiene que valer "lo que vale".
-# Cuanto paga cada desenlace. El EXITO es el ancla (1.0 = lo que vale el trabajo) y "a medias" paga
-# casi la mitad, porque algo trajeron.
-#
-# EL FRACASO NO ES UN NUMERO FIJO: depende de LAS PROBABILIDADES QUE TENIAN. Fallar con un 90% a
-# favor es mala suerte y se compensa; fallar con un 3% es que ya lo sabias cuando los mandaste, y ahi
-# no se paga por tirar gente a un pozo.
-#
-# Sin esto, la forma optima de jugar era justo esa. Con un fracaso a 1/3 fijo, mandarlos a un piso
-# donde fallan el 97% de las veces rendia MAS en valor esperado que mandarlos a uno que se les da
-# bien: el reto crece con la profundidad, y un tercio de una cifra enorme sigue siendo enorme.
-const MULT_EXITO := 1.0
-const MULT_PARCIAL := 0.45
-const FRACASO_SUELO := 0.02    # fallar sabiendolo: casi nada
-const FRACASO_POR_SUERTE := 0.20   # lo que se suma si las probabilidades eran buenas
+const NOMBRE_DESENLACE := ["Éxito", "Éxito parcial", "Fracaso"]
 
-static func mult_desenlace(desenlace: int, p_exito: float = 1.0) -> float:
-	match desenlace:
-		EXITO: return MULT_EXITO
-		PARCIAL: return MULT_PARCIAL
-		_: return FRACASO_SUELO + FRACASO_POR_SUERTE * clampf(p_exito, 0.0, 1.0)
-const CANTIDAD_DESENLACE := [1.0, 2.0 / 3.0, 1.0 / 3.0]   # material: el mismo 3:2:1 normalizado
-const NOMBRE_DESENLACE := ["Éxito", "A medias", "Fracaso"]
+# LO QUE CUESTA CADA DESENLACE, fijo y sin azar: la parte de cada grupo que se pierde. Y lo que
+# aprenden baja en la misma proporcion (una sola regla para todo, decidido asi).
+# Antes un fracaso bajaba la calidad a suertes y pagaba segun las probabilidades: "era el terrorismo".
+const PERDIDA := [0.0, 0.20, 0.40]
+
+static func mult_desenlace(desenlace: int) -> float:
+	return 1.0 - float(PERDIDA[clampi(desenlace, 0, PERDIDA.size() - 1)])
 
 const DURACIONES := [3600, 14400, 28800]   # 1 h / 4 h / 8 h de reloj real
 const MIEMBROS_MAX := 4
 
-# Las mismas tablas que usa el piso de verdad. Cero contenido nuevo que mantener en dos sitios.
-# Un tipo puede tirar de VARIAS: COMIDA junta la despensa (silvestres) y la sal, que es lo que de
-# verdad se sale a buscar cuando vas a por comida — y asi los seis tipos son seis decisiones
-# distintas en vez de tener una casilla para un solo material.
-# BICHO no esta aqui: sus materiales se derivan de la spawn table (Game.materiales_de_bicho_en).
+# Las mismas tablas que usa el piso de verdad. Solo los RECOGIBLES: lo de caza sale de la spawn table.
 const TABLAS := {
-	Tipo.VETA: ["res://resources/world/vetas.tres"],
-	Tipo.PLANTA: ["res://resources/world/plantas.tres"],
-	Tipo.MADERA: ["res://resources/world/maderas.tres"],
-	Tipo.COMIDA: ["res://resources/world/silvestres.tres", "res://resources/world/sal.tres"],
-	Tipo.PESCA: ["res://resources/world/peces.tres"],
+	Grupo.MINERAL: ["res://resources/world/vetas.tres"],
+	Grupo.PLANTA: ["res://resources/world/plantas.tres"],
+	Grupo.MADERA: ["res://resources/world/maderas.tres"],
+	Grupo.COMIDA: ["res://resources/world/silvestres.tres", "res://resources/world/sal.tres"],
+	Grupo.PESCADO: ["res://resources/world/peces.tres"],
 }
 
-const NOMBRE_TIPO := {
-	Tipo.VETA: "Vetas", Tipo.PLANTA: "Plantas", Tipo.MADERA: "Madera",
-	Tipo.COMIDA: "Comida", Tipo.PESCA: "Pesca", Tipo.BICHO: "Enemigos",
+static func es_recogible(g: int) -> bool:
+	return RECOGIBLES.has(g)
+
+static func es_de_caza(g: int) -> bool:
+	return DE_CAZA.has(g)
+
+
+# ============================================================
+#  EL OBJETIVO: {grupo: porcentaje}, y los porcentajes SUMAN 100
+# ============================================================
+
+# Limpia lo que pidan (de la UI o por RPC): fuera grupos que no existen y porcentajes a cero, y lo que
+# quede se reescala a enteros que suman exactamente 100. Vacio = todo a mineral, que es lo de siempre.
+static func grupos_validos(pedidos) -> Dictionary:
+	var pesos: Dictionary = {}
+	if pedidos is Dictionary:
+		for k in pedidos:
+			var g: int = int(k)
+			if g < 0 or g > int(Grupo.CRISTAL):
+				continue
+			var v: float = float(pedidos[k])
+			if v > 0.0:
+				pesos[g] = float(pesos.get(g, 0.0)) + v
+	if pesos.is_empty():
+		return {int(Grupo.MINERAL): 100}
+	return a_cien(pesos)
+
+# Reparte 100 entre unos pesos con el metodo del MAYOR RESTO: redondear cada uno por su cuenta da
+# 99 o 101 y el deslizador bailaria.
+static func a_cien(pesos: Dictionary, total: int = 100) -> Dictionary:
+	var suma: float = 0.0
+	for g in pesos:
+		suma += maxf(0.0, float(pesos[g]))
+	var out: Dictionary = {}
+	if pesos.is_empty():
+		return out
+	var restos: Array = []
+	var usado: int = 0
+	for g in pesos:
+		var exacto: float = float(total) * maxf(0.0, float(pesos[g])) / suma if suma > 0.0 \
+			else float(total) / float(pesos.size())
+		var entero: int = int(floor(exacto))
+		out[int(g)] = entero
+		usado += entero
+		restos.append([exacto - float(entero), int(g)])
+	restos.sort_custom(func(a, b): return float(a[0]) > float(b[0]))
+	var i: int = 0
+	while usado < total and not restos.is_empty():
+		var g: int = int(restos[i % restos.size()][1])
+		out[g] = int(out[g]) + 1
+		usado += 1
+		i += 1
+	return out
+
+# EL DESLIZADOR: pone el grupo `g` a `v` y los demas se reparten lo que sobra EN PROPORCION a lo que
+# tenian. Con un solo grupo marcado no hay nada que repartir: se queda a 100.
+static func ajustar_porcentaje(grupos: Dictionary, g: int, v: int) -> Dictionary:
+	if not grupos.has(g):
+		return grupos
+	if grupos.size() == 1:
+		return {g: 100}
+	var fijo: int = clampi(v, 0, 100)
+	var otros: Dictionary = {}
+	for k in grupos:
+		if int(k) != g:
+			otros[int(k)] = float(grupos[k])
+	var suma_otros: float = 0.0
+	for k in otros:
+		suma_otros += float(otros[k])
+	if suma_otros <= 0.0:
+		for k in otros:
+			otros[k] = 1.0
+	var out: Dictionary = a_cien(otros, 100 - fijo)
+	out[g] = fijo
+	return out
+
+# Marcar o desmarcar un grupo. Al marcar entra con su parte a partes iguales; al desmarcar, lo suyo se
+# reparte entre los demas. Nunca se queda vacio.
+static func alternar_grupo(grupos: Dictionary, g: int) -> Dictionary:
+	var pesos: Dictionary = {}
+	for k in grupos:
+		pesos[int(k)] = float(grupos[k])
+	if pesos.has(g):
+		if pesos.size() <= 1:
+			return grupos
+		pesos.erase(g)
+	else:
+		pesos[g] = 100.0 / float(pesos.size() + 1) if not pesos.is_empty() else 100.0
+		# Los que ya estaban ceden lo suyo en proporcion.
+		var resto: float = 100.0 - float(pesos[g])
+		var suma: float = 0.0
+		for k in pesos:
+			if int(k) != g:
+				suma += float(pesos[k])
+		for k in pesos:
+			if int(k) != g and suma > 0.0:
+				pesos[k] = float(pesos[k]) * resto / suma
+	return a_cien(pesos)
+
+
+# ============================================================
+#  MIGRACION: los encargos de antes del rework
+# ============================================================
+# Guardaban `tipos` (Array de un enum viejo: VETA, PLANTA, MADERA, COMIDA, PESCA, BICHO) y las faenas
+# en ese mismo enum. Los numeros NO coinciden con Grupo, asi que leerlos tal cual mandaria a pescar
+# al que iba a por plantas. Se convierte en su sitio, una vez.
+const _TIPO_VIEJO_A_GRUPOS := {
+	0: [Grupo.MINERAL], 1: [Grupo.PLANTA], 2: [Grupo.MADERA], 3: [Grupo.COMIDA],
+	4: [Grupo.PESCADO], 5: [Grupo.CUERO, Grupo.NUCLEO, Grupo.POCION],
 }
 
-# A PESCAR NO SE VA SIN CAÑA. Es la regla que ya tiene el juego (Game.cana() es la unica herramienta
-# sin respaldo a una basica, y el estanque te lo dice a la cara), asi que un encargo de pesca sin
-# caña asignada tampoco sale. Devuelve "" si todo bien, o el motivo.
-static func motivo_no_puede(tipos: Array, entradas_cofre: Array) -> String:
-	if not tipos.has(int(Tipo.PESCA)):
-		return ""
-	for e in entradas_cofre:
-		if float(mods_util(e as Dictionary, int(Tipo.PESCA))["afinidad"]) > 0.0:
-			return ""
-		# Una caña sin forjar no da afinidad pero SIRVE para ir: lo que no vale es no llevar ninguna.
-		var d: Dictionary = (e as Dictionary).get("dict", {})
-		if String(d.get("clase", "")) == "herramienta":
-			var pl: ToolData = load(String(d.get("ruta", ""))) as ToolData
-			if pl != null and int(pl.tipo) == int(ToolData.Tipo.CANA):
-				return ""
-	return "A pescar no se va sin caña: métele una del cofre."
+static func migrar(e: Dictionary) -> bool:
+	if e.has("grupos") or not e.has("tipos"):
+		return false
+	var pesos: Dictionary = {}
+	for t in (e.get("tipos", []) as Array):
+		for g in (_TIPO_VIEJO_A_GRUPOS.get(int(t), []) as Array):
+			pesos[int(g)] = 1.0
+	e["grupos"] = grupos_validos(pesos)
+	for m_ in (e.get("miembros", []) as Array):
+		var m := m_ as Dictionary
+		var nuevas: Array = []
+		for t in (m.get("faenas", []) as Array):
+			for g in (_TIPO_VIEJO_A_GRUPOS.get(int(t), []) as Array):
+				if not nuevas.has(int(g)):
+					nuevas.append(int(g))
+		m["faenas"] = nuevas
+	e.erase("tipos")
+	return true
 
-static func tipos_validos(tipos: Array) -> Array:
-	var out: Array = []
-	for t in tipos:
-		var i: int = int(t)
-		if i >= 0 and i <= int(Tipo.BICHO) and not out.has(i):
-			out.append(i)
-	return out if not out.is_empty() else [int(Tipo.VETA)]
+
+# ============================================================
+#  UTILES DEL COFRE: una mochila por persona, una herramienta por tipo
+# ============================================================
+# Devuelve "" si se puede mandar, o el motivo.
+static func motivo_no_puede(grupos: Dictionary, entradas_cofre: Array, n_personas: int) -> String:
+	var mochilas: int = 0
+	var por_tipo: Dictionary = {}
+	var hay_cana: bool = false
+	for e_ in entradas_cofre:
+		var e := e_ as Dictionary
+		var d: Dictionary = e.get("dict", {})
+		match String(d.get("clase", "")):
+			"mochila":
+				mochilas += 1
+			"herramienta":
+				var t: int = tipo_herramienta(e)
+				por_tipo[t] = int(por_tipo.get(t, 0)) + 1
+				if t == int(ToolData.Tipo.CANA):
+					hay_cana = true
+	if mochilas > maxi(1, n_personas):
+		return "Solo una mochila por persona."
+	for t in por_tipo:
+		if int(por_tipo[t]) > 1:
+			return "Solo una herramienta de cada tipo."
+	# A PESCAR NO SE VA SIN CAÑA, la misma regla del estanque.
+	if grupos.has(int(Grupo.PESCADO)) and not hay_cana:
+		return "A pescar no se va sin caña: métele una del cofre."
+	return ""
+
+# El ToolData.Tipo de una entrada del cofre, o -1 si no es herramienta.
+static func tipo_herramienta(entrada: Dictionary) -> int:
+	var d: Dictionary = entrada.get("dict", {})
+	if String(d.get("clase", "")) != "herramienta":
+		return -1
+	var pl: ToolData = load(String(d.get("ruta", ""))) as ToolData
+	return int(pl.tipo) if pl != null else -1
 
 
 # ============================================================
 #  CLASE DE COMBATE
 #  Aunque los mandes a picar piedra ahi abajo hay bichos, asi que TODOS pelean y todos se llevan
-#  excelia de combate. Antes esa excelia era fuerza/resistencia al 50/50 para todo el mundo, con lo
-#  que un tio con baston y magias volvia mas fuerte de brazos: absurdo.
-#
-#  La clase NO se guarda en el personaje ni se elige de por vida (para eso ya estan las habilidades,
-#  que son raras y ya diferencian a la gente). Es una ORDEN que das al mandar la expedicion, y las
-#  opciones salen de lo que lleve puesto ESE dia. Cambiale el arma y cambian sus clases.
-#
-#  Solo decide A QUE STATS va su excelia de combate. No toca el % de exito ni el desenlace: eso lo
-#  siguen decidiendo el poder y el equipo, que ya estaban calibrados.
+#  excelia de combate. La clase es una ORDEN del envio (no del personaje) y solo decide A QUE STATS
+#  va esa excelia; las opciones salen de lo que lleve puesto ese dia.
 # ============================================================
 enum Clase { GUERRERO, GUERRERO_PESADO, PICARO, TANQUE, MAGO, GUERRERO_MAGICO }
 
@@ -136,15 +250,13 @@ const NOMBRE_CLASE := {
 	Clase.MAGO: "Mago", Clase.GUERRERO_MAGICO: "Guerrero mágico",
 }
 
-# Para las casillas de la tarjeta, que son estrechas: ahi no caben "Guerrero pesado" ni "Guerrero
-# magico" enteros y se recortaban a media palabra. El nombre largo va en el tooltip.
+# Para las casillas estrechas; el nombre largo va en el tooltip.
 const ABREV_CLASE := {
 	Clase.GUERRERO: "Guerrero", Clase.GUERRERO_PESADO: "G. pesado",
 	Clase.PICARO: "Pícaro", Clase.TANQUE: "Tanque",
 	Clase.MAGO: "Mago", Clase.GUERRERO_MAGICO: "G. mágico",
 }
 
-# Por que NO puedes elegirla. Es el tooltip de la casilla deshabilitada.
 const REQUISITO_CLASE := {
 	Clase.GUERRERO: "Necesita un arma ligera (espada corta, larga o maza).",
 	Clase.GUERRERO_PESADO: "Necesita un arma a dos manos (mandoble, hacha o martillo).",
@@ -154,39 +266,27 @@ const REQUISITO_CLASE := {
 	Clase.GUERRERO_MAGICO: "Necesita magias equipadas Y un arma melee (la varita no cuenta).",
 }
 
-# Como reparte su excelia de COMBATE cada clase. Cada fila SUMA 1.0 a proposito: la clase cambia a
-# donde va el aprendizaje, no cuanto. Asi se puede tocar esta tabla sin recalibrar nada.
-#
-# Y son las cinco stats, no dos: a un mago le pegan (resistencia) y esquiva (agilidad) igual que a
-# cualquiera, y si se queda sin mana pega un bastonazo (algo de fuerza). Lo que no hace es ponerse
-# cachas peleando. El 0.0 se escribe igual para que la tabla se lea de un vistazo.
+# Como reparte su excelia de COMBATE cada clase. Cada fila SUMA 1.0: la clase cambia a donde va el
+# aprendizaje, no cuanto.
 const PESOS_CLASE := {
-	# TODO EL QUE PELEA PEGA, asi que la Fuerza no se hunde por clase: un picaro con dagas da MAS
-	# golpes que un mandoble, no menos. Lo que separa a las clases es a donde va el resto (el picaro
-	# esquiva y critica, el pesado encaja). En el playtest el picaro sacaba 15 de Fuerza contra los
-	# 46 del pesado, y eso no se sostenia.
+	# Todo el que pelea pega, asi que la Fuerza no se hunde por clase (en el playtest el picaro sacaba
+	# 15 de Fuerza contra los 46 del pesado y no se sostenia).
 	Clase.GUERRERO:        {"fuerza": 0.32, "resistencia": 0.24, "destreza": 0.22, "agilidad": 0.22, "magia": 0.00},
 	Clase.GUERRERO_PESADO: {"fuerza": 0.40, "resistencia": 0.22, "destreza": 0.18, "agilidad": 0.20, "magia": 0.00},
 	Clase.PICARO:          {"fuerza": 0.28, "resistencia": 0.12, "destreza": 0.27, "agilidad": 0.33, "magia": 0.00},
-	# El TANQUE tenia 0.50 de Resistencia y en el playtest salio con +74 cuando los demas iban por
-	# +46. Se queda en 0.38 porque encajar golpes es ya la ganancia mas generosa del juego
-	# (GAIN_RESISTENCIA_GOLPE 0.345, contra 0.15 de atacar): con medio reparto encima se disparaba.
+	# 0.38 y no 0.50: encajar golpes ya es la ganancia mas generosa del juego y el tanque salia con +74.
 	Clase.TANQUE:          {"fuerza": 0.24, "resistencia": 0.40, "destreza": 0.19, "agilidad": 0.17, "magia": 0.00},
-	# Y las dos MAGICAS suben su Magia: pelear es la UNICA forma de subirla —no hay ningun oficio de
-	# recoleccion que la entrene—, asi que con el mismo peso que las demas se quedaba corta de por vida.
+	# Pelear es la UNICA forma de subir Magia, asi que las magicas la suben de verdad.
 	Clase.MAGO:            {"fuerza": 0.07, "resistencia": 0.14, "destreza": 0.07, "agilidad": 0.17, "magia": 0.55},
 	Clase.GUERRERO_MAGICO: {"fuerza": 0.26, "resistencia": 0.14, "destreza": 0.06, "agilidad": 0.14, "magia": 0.40},
 }
 
-# Las tres familias de arma, derivadas de WeaponData.Tipo. Este es EL UNICO sitio del proyecto que
-# clasifica armas por familia; si algun dia hace falta en otro lado, se llama aqui y no se copia.
-# "Pesada" es dos_manos Y NO magica: el baston tambien es de dos manos, pero es un arma de mago.
+# El UNICO sitio del proyecto que clasifica armas por familia.
 const ARMAS_PICARO := [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESTOQUE]
 const ARMAS_LIGERAS := [WeaponData.Tipo.ESPADA_CORTA, WeaponData.Tipo.ESPADA_LARGA,
 	WeaponData.Tipo.MAZA_PEQ]
 
-# Las clases que ESE personaje puede elegir hoy, por lo que lleva puesto. Nunca devuelve vacio:
-# a puno limpio sigues siendo un guerrero.
+# Las clases que ESE personaje puede elegir hoy. Nunca devuelve vacio.
 static func clases_de(pj: PersonajeData) -> Array:
 	var out: Array = []
 	if pj == null:
@@ -194,7 +294,6 @@ static func clases_de(pj: PersonajeData) -> Array:
 	var w: WeaponData = Game.arma_main(pj)
 	var tipo_w: int = int(w.tipo) if w != null else int(WeaponData.Tipo.PUNOS)
 	var magica: bool = w != null and w.es_magica
-	# Melee "de verdad": ni baston ni punos. Es lo que separa al guerrero magico del mago pelado.
 	var melee: bool = w != null and not magica and tipo_w != int(WeaponData.Tipo.PUNOS)
 	var hechizos: bool = Game.tiene_hechizos(pj)
 
@@ -211,14 +310,11 @@ static func clases_de(pj: PersonajeData) -> Array:
 	elif ARMAS_LIGERAS.has(tipo_w):
 		out.append(int(Clase.GUERRERO))
 
-	# Respaldo: con baston y sin magias no encajas en ninguna de las de arriba, y a punos tampoco.
 	if out.is_empty():
 		out.append(int(Clase.GUERRERO))
 	return out
 
-# La que se usa de verdad: valida lo que pidieron contra lo que pueden, y si no cuadra coge la
-# primera disponible. El host llama a ESTO, porque un cliente puede mandar por RPC lo que le de la
-# gana y no vamos a fiarnos de su numerito.
+# El host llama a ESTO: lo que mande un cliente por RPC es una peticion.
 static func clase_valida(pj: PersonajeData, pedida: int) -> int:
 	var disp: Array = clases_de(pj)
 	return pedida if disp.has(int(pedida)) else int(disp[0])
@@ -226,9 +322,7 @@ static func clase_valida(pj: PersonajeData, pedida: int) -> int:
 
 # ============================================================
 #  RELOJ REAL
-#  NUNCA Game.tiempo_mazmorra: ese se para con los menus abiertos y no corre con el juego cerrado,
-#  que son justo los dos momentos en los que un encargo tiene que seguir avanzando.
-#  El desfase de pruebas es el mismo truco que usa el cerrojo de la nube (cloud_store_local._ahora).
+#  NUNCA Game.tiempo_mazmorra: ese se para con los menus y no corre con el juego cerrado.
 # ============================================================
 static var desfase_prueba: int = 0
 
@@ -241,7 +335,6 @@ static func restante(e: Dictionary) -> int:
 static func vencido(e: Dictionary) -> bool:
 	return restante(e) <= 0
 
-# "2 h 14 min" / "45 min" / "listo". Para la UI.
 static func texto_restante(e: Dictionary) -> String:
 	var s: int = restante(e)
 	if s <= 0:
@@ -254,26 +347,16 @@ static func texto_restante(e: Dictionary) -> String:
 
 
 # ============================================================
-#  EJE 1 — PODER DE COMBATE
+#  PODER DE COMBATE: decide si vuelven bien
 # ============================================================
-# La mitad ya existia: Game.poder_jugador_eff() ES la suma de las cinco habilidades, y es el baremo
-# que Game.reto() usa contra los enemigos. Lo unico que faltaba era meterle el equipo.
-
-# Lo que aporta UNA pieza. Sale de la meta (tier / rareza / mejoras), que es lo que el jugador ve y
-# toca en el herrero, y NO de loadout_mods/armor_mods: esos devuelven numeros de combate (motion
-# values, cobertura) y atarian el balance de los encargos al del combate.
+# Sale de la meta (tier / rareza / mejoras) y NO de loadout_mods: esos son numeros de combate y
+# atarian el balance de los encargos al del combate.
 const PIEZA_BASE := 4.0
-# El tier vale 1.8 AQUI, y no el TIER_GROWTH 2.2 del daño. 2.2 compuesto contra una franja de
-# enemigos que crece lineal (+280 por piso) se dispara: al T3 el requisito del piso tendria que
-# multiplicarse por cinco para seguirte el paso. 1.8 va acompasado con lo que crecen a la vez los
-# bichos y tus stats. Son dos escalas distintas a proposito.
+# 1.8 y no el TIER_GROWTH 2.2 del daño: compuesto contra una franja de enemigos lineal se dispara.
 const TIER_PODER := 1.8
 const MEJORA := 0.05          # +5% por cada +1
 
-# DESNUDO no es "tu poder entero": es una cuarta parte. El equipo MULTIPLICA, no suma un extra —
-# sin nada encima no puedes hacer nada, que es como funciona el juego de verdad.
-# Y crece LINEAL, sin saturar: con una curva saturada subir de T1 a T2 movia el numero un 3% y
-# mejorar dejaba de notarse, que es lo contrario de lo que tiene que sentir el jugador.
+# El equipo MULTIPLICA: desnudo es una cuarta parte.
 const DESNUDO := 0.25
 const EQUIPO_DIV := 55.0
 const EQUIPO_TECHO := 12.0
@@ -289,7 +372,6 @@ static func puntos_pieza(item: Resource, meta: Dictionary) -> float:
 	return PIEZA_BASE * pow(TIER_PODER, float(tier - 1)) \
 		* Upgrades.rareza_mult(rareza) * (1.0 + MEJORA * float(suma_n))
 
-# Los puntos de equipo de una persona. El ARMA cuenta doble: es la pieza que decide si matas.
 static func puntos_equipo(pj: PersonajeData) -> float:
 	if pj == null:
 		return 0.0
@@ -301,12 +383,7 @@ static func puntos_equipo(pj: PersonajeData) -> float:
 		total += puntos_pieza(item, Game._meta(slot, pj)) * _peso_slot(slot, pj)
 	return total
 
-# Cuanto pesa cada ranura. El arma principal vale por DOS, y por TRES si es de dos manos.
-#
-# El x3 no es un premio: es que un arma a dos manos OCUPA la secundaria. Sin esto, un mandoble o un
-# baston se comian los puntos de esa ranura por dejarla vacia —una ranura que no pueden llenar— y
-# salian por debajo de la misma persona con arma de una mano y escudo, como si les faltara una pieza.
-# Con el x3 un dos manos y un una-mano+secundaria cubren lo mismo, que es lo que de verdad pasa.
+# El arma vale por DOS, y por TRES a dos manos: ocupa la secundaria y no puede llenarla.
 static func _peso_slot(slot: String, pj: PersonajeData) -> float:
 	if slot != "main":
 		return 1.0
@@ -316,26 +393,13 @@ static func _peso_slot(slot: String, pj: PersonajeData) -> float:
 static func mult_equipo(pj: PersonajeData) -> float:
 	return clampf(DESNUDO + puntos_equipo(pj) / EQUIPO_DIV, DESNUDO, EQUIPO_TECHO)
 
-# EL NUMERO. El que sale en la ficha y en cada fila del hogar.
-#
-# Sobre lo CONSOLIDADO (poder_jugador_puesto) y NO sobre el total oculto: la excelia que traen de un
-# encargo esta pendiente hasta que descansan en el altar, no se ve en ninguna ficha, y sobre todo NO
-# PELEA —las stats que pelean salen de ability_consolidado—. Contandola aqui pasaban dos cosas: dos
-# personajes identicos en pantalla daban Poderes distintos sin forma de cuadrarlo, y el grupo se
-# llevaba el encargo siguiente con una fuerza que todavia no se habia puesto.
+# Sobre lo CONSOLIDADO: la excelia pendiente no pelea y no se ve en ninguna ficha.
 static func poder(pj: PersonajeData) -> float:
 	if pj == null:
 		return 0.0
 	return Game.poder_jugador_puesto(pj) * mult_equipo(pj)
 
-# El del GRUPO: el que mas, entero, y los demas a fraccion. Es el hermano de RECO_REPARTO_GRUPO y
-# con el mismo motivo: cuatro clones valen x2.2, no x4. Mandar mas gente compensa, pero no convierte
-# a cuatro novatos en un veterano.
-#
-# OJO, ESTO ES SOLO PARA PELEAR. La CALIDAD de lo que recogen va por la MEDIA (ver
-# poder_recolector_de) y es a proposito: repartirse a cuatro los bichos que salen al paso ayuda de
-# verdad, pero cuatro pares de manos no pican mejor la veta que el mejor de ellos. Unificar las dos
-# es justo lo que hacia que marcar al especialista te penalizara.
+# El del GRUPO: el que mas, entero, y los demas a fraccion. Cuatro clones valen x2.2, no x4.
 const REPARTO := 0.4
 
 static func poder_grupo(pjs: Array) -> float:
@@ -344,9 +408,7 @@ static func poder_grupo(pjs: Array) -> float:
 		poderes.append(poder(pj as PersonajeData))
 	return poder_grupo_de(poderes)
 
-# Lo mismo pero desde una lista de PODERES ya calculados. Hace falta para el multijugador: el
-# invitado NO tiene los PersonajeData de los personajes de su compañero (viven en la maquina del
-# host), asi que su poder le llega ya hecho dentro del roster.
+# Desde poderes ya calculados: el invitado no tiene los PersonajeData de su compañero.
 static func poder_grupo_de(poderes: Array) -> float:
 	var mejor: float = 0.0
 	var suma: float = 0.0
@@ -357,20 +419,9 @@ static func poder_grupo_de(poderes: Array) -> float:
 
 
 # --- Lo que pide el piso ---
-# Sale de los enemigos REALES: Game.enemy_ability_sum_band(piso) da la franja de la suma de
-# habilidades de los bichos de ese piso, en LAS MISMAS UNIDADES que poder_jugador_eff. No hay tabla
-# nueva que mantener; es la curva de dificultad que ya estaba afinada.
-#
-# Se usa el TECHO de la franja y no la media: un encargo cruza el piso entero durante horas, o sea
-# que se va a topar con lo peor que hay, no con el bicho promedio.
-#
-# El COEFICIENTE:
-#  - Pisos 1..6: rampa suave de 0.60 a 1.25. En los tres primeros todavia no puedes pagar
-#    compañeros (PRECIO_FICHAR_BASE 800 y se dobla), asi que exigir grupo ahi bloquearia el sistema
-#    justo cuando estrenarlo hace mas ilusion. Uno solo tiene que poder.
-#  - Del 6 en adelante: +6% por piso. La franja de enemigos crece LINEAL mientras tu poder crece
-#    MULTIPLICATIVO (tier x1.8, y las stats tambien suben). Sin este termino el Minotauro saldria
-#    mas facil que el Rey Slime con el equipo de su epoca.
+# Sale del TECHO de la franja de los enemigos reales del piso (un encargo cruza el piso entero durante
+# horas y se topa con lo peor), por un coeficiente que en los seis primeros pisos es suave para que
+# uno solo pueda.
 const RETO_PISO_MIN := 0.60
 const RETO_PISO_BASE := 1.25
 const RETO_PISO_PLENO := 6
@@ -383,56 +434,63 @@ static func coef_piso(piso: int) -> float:
 			clampf(float(p - 1) / float(RETO_PISO_PLENO - 1), 0.0, 1.0))
 	return RETO_PISO_BASE * pow(RETO_PISO_PASO, float(p - RETO_PISO_PLENO))
 
+# R: el numero de SIEMPRE. Es donde el grupo va "justo" (70% de exito).
 static func requisito_combate(piso: int) -> float:
 	return maxf(1.0, coef_piso(piso) * Game.enemy_ability_sum_band(piso).y)
 
 
-# --- Ratio -> % de exito ---
-# El techo es 0.99 (siempre cabe la mala suerte) pero NO HAY SUELO, a proposito: un grupo con el 1%
-# del poder que pide el piso no tiene "un 5% de conseguirlo", tiene practicamente cero, y redondear
-# eso hacia arriba es mentirle al jugador en la unica cifra en la que se va a apoyar para decidir.
-#
-# El exponente 1.8 es lo que hace que la curva se DERRUMBE abajo sin ablandarse arriba:
-#   r 0.01 -> 0.02%     r 0.44 -> 22%     r 0.89 -> 77%     r 1.15 -> 99%
-# Con el 1.1 de antes, la mitad del poder necesario daba un 44%: media pantalla del rango util se
-# iba en grupos que no tenian nada que hacer.
-const EXITO_MAX := 0.99
-const EXITO_MIN := 0.0
-const EXITO_K := 0.95
-const EXITO_POT := 1.8
+# ============================================================
+#  EL DESENLACE: una curva por ANCLAS
+# ============================================================
+# Las anclas se miden en PASOS (w) y no en porcentaje del requisito. En los primeros pisos un 20% son
+# veintitantos puntos, pero en un piso que pide 3000 serian 600 y la zona de "vas justo" se haria
+# enorme. El paso crece mas despacio que el requisito: un 20% de lo que pide el piso 1 (134) y un
+# ~12% con 6000.
+const PASO_BASE := 0.20
+const PASO_REF := 134.0
+const PASO_EXP := 0.866
 
-static func exito(poder_del_grupo: float, piso: int) -> float:
-	var r: float = poder_del_grupo / requisito_combate(piso)
-	return clampf(EXITO_K * pow(maxf(0.0, r), EXITO_POT), EXITO_MIN, EXITO_MAX)
+static func paso(req: float) -> float:
+	return PASO_BASE * PASO_REF * pow(maxf(1.0, req) / PASO_REF, PASO_EXP)
 
-# TRES desenlaces, no cara o cruz.
-#
-# "A medias" NO es la mitad de lo que sobra. Repartir el resto por igual daba disparates: con un
-# 0.02% de exito salia "a medias 50%", como si un grupo que no puede ni acercarse tuviera media
-# posibilidad de volver con algo decente. Salir a medias es "casi lo consiguen", asi que se mide con
-# LA MISMA curva contra un liston mas bajo: quien no llega ni a ese liston, fracasa.
-#
-#   p(exito)   = curva(r)
-#   p(al menos a medias) = curva(r / UMBRAL_PARCIAL)     # el liston rebajado
-#   p(a medias) = la diferencia          p(fracaso) = lo que quede
-#
-# Asi "a medias" hace joroba en la zona media (donde de verdad te la juegas) y se desvanece en los
-# dos extremos, que es como se comporta de verdad.
-const UMBRAL_PARCIAL := 0.6
+# EL NUMERO QUE SE ENSEÑA: llegar a el es el 100% de exito.
+static func requisito_mostrado(piso: int) -> float:
+	var r: float = requisito_combate(piso)
+	return r + paso(r)
+
+# [pasos respecto a R, [exito, parcial, fracaso]], de menos a mas. Entre dos anclas, linea recta.
+#   R + w         -> 100% exito
+#   R             -> 70 / 25 / 5
+#   R - 0.8 w     -> 10 / 30 / 60     (un 30% por debajo del numero enseñado, en el piso 1)
+#   R - 2 w       -> 100% fracaso     (la mitad del numero enseñado, en el piso 1)
+const ANCLAS := [
+	[-2.0, [0.0, 0.0, 1.0]],
+	[-0.8, [0.10, 0.30, 0.60]],
+	[0.0, [0.70, 0.25, 0.05]],
+	[1.0, [1.0, 0.0, 0.0]],
+]
 
 static func probs_desenlace(poder_del_grupo: float, piso: int) -> Array:
-	var e: float = exito(poder_del_grupo, piso)
-	var hasta_parcial: float = exito(poder_del_grupo / UMBRAL_PARCIAL, piso)
-	var p: float = maxf(0.0, hasta_parcial - e)
-	return [e, p, maxf(0.0, 1.0 - e - p)]
+	var r: float = requisito_combate(piso)
+	return probs_por_pasos((poder_del_grupo - r) / paso(r))
 
-# Una probabilidad (0..1) como texto, con HASTA dos decimales.
-#
-# En el tramo de en medio se lee mejor redondo ("77%"), pero en LOS DOS EXTREMOS hacen falta los
-# decimales:
-#   - cerca de 0, porque si no todo lo improbable parece igual de improbable ("0%").
-#   - cerca de 100, porque redondear un 99.95 a "100%" es decir que algo es SEGURO cuando no lo es,
-#     y ademas descuadra la linea: 0.02 + 0.03 + 99.95 suma 100, pero 0.02 + 0.03 + 100 no.
+static func probs_por_pasos(d: float) -> Array:
+	if d <= float(ANCLAS[0][0]):
+		return (ANCLAS[0][1] as Array).duplicate()
+	for i in range(1, ANCLAS.size()):
+		var d1: float = float(ANCLAS[i][0])
+		if d <= d1:
+			var d0: float = float(ANCLAS[i - 1][0])
+			var t: float = (d - d0) / (d1 - d0)
+			var a: Array = ANCLAS[i - 1][1]
+			var b: Array = ANCLAS[i][1]
+			return [lerpf(a[0], b[0], t), lerpf(a[1], b[1], t), lerpf(a[2], b[2], t)]
+	return (ANCLAS[ANCLAS.size() - 1][1] as Array).duplicate()
+
+static func exito(poder_del_grupo: float, piso: int) -> float:
+	return float(probs_desenlace(poder_del_grupo, piso)[EXITO])
+
+# Una probabilidad como texto, con decimales solo en los extremos (un 99.95 no es un 100).
 static func pct(p: float) -> String:
 	var v: float = 100.0 * p
 	if v >= 100.0:
@@ -457,62 +515,87 @@ static func tirar_desenlace(poder_del_grupo: float, piso: int, rng: RandomNumber
 
 
 # ============================================================
-#  EJE 2 — RECOLECCION (calidad). Aqui NO se toca nada del sistema de siempre.
+#  OFICIOS: que stat y que util cuenta en cada grupo
 # ============================================================
-# La stat del oficio y el suelo son los mismos que usan los minijuegos, y la afinidad de la
-# herramienta entra exactamente donde entra hoy: dentro de _reto_recoleccion.
-
-# tipo de encargo -> [stat, suelo, tipo de herramienta que sirve]
-static func oficio_de(tipo: int) -> Dictionary:
-	match tipo:
-		Tipo.VETA:
+static func oficio_de(grupo: int) -> Dictionary:
+	match grupo:
+		Grupo.MINERAL:
 			return {"stat": "fuerza", "suelo": Game.MINERIA_FUERZA_FLOOR, "tool": ToolData.Tipo.PICO,
 				"gain": Game.GAIN_FUERZA_MINERIA, "pivote": Game.MINERIA_PIVOTE,
 				"slope": Game.MINERIA_SLOPE, "tope": Game.RETO_MAX_FISICO}
-		Tipo.MADERA:
+		Grupo.MADERA:
 			return {"stat": "agilidad", "suelo": Game.TALA_AGILIDAD_FLOOR, "tool": ToolData.Tipo.HACHA,
 				"gain": Game.GAIN_AGILIDAD_TALA, "pivote": Game.TALA_PIVOTE,
 				"slope": Game.TALA_SLOPE, "tope": Game.RETO_MAX_FISICO}
-		Tipo.PESCA:
+		Grupo.PESCADO:
 			return {"stat": "resistencia", "suelo": Game.PESCA_RESISTENCIA_FLOOR,
 				"tool": ToolData.Tipo.CANA, "gain": Game.GAIN_RESISTENCIA_PESCA,
 				"pivote": Game.PESCA_PIVOTE, "slope": Game.PESCA_SLOPE,
 				"tope": Game.RETO_MAX_FISICO}
-		Tipo.BICHO:
-			# CAZA. No hay herramienta que valga (un pico no sirve para despellejar) y la stat es
-			# Destreza, que es la que entrena EXTRAER un cristal de un cadaver, que es literalmente lo
-			# que estan haciendo. `tool` = -1 significa "aqui no entra ninguna".
-			return {"stat": "destreza", "suelo": Game.EXTRACTION_DESTREZA_FLOOR, "tool": -1,
-				"gain": Game.GAIN_DESTREZA_MINIJUEGO, "pivote": Game.HERB_PIVOTE,
-				"slope": Game.HERB_SLOPE, "tope": Game.RETO_MAX}
-		_:
-			# PLANTA y COMIDA: hoz y Destreza. La sal se pica con pico, pero va dentro de COMIDA y
-			# manda el oficio de la casilla: buscar comida es buscar comida.
+		Grupo.PLANTA, Grupo.COMIDA:
+			# La sal se pica con pico, pero va dentro de COMIDA y manda el oficio del grupo.
 			return {"stat": "destreza", "suelo": Game.HERB_DESTREZA_FLOOR, "tool": ToolData.Tipo.HOZ,
 				"gain": Game.GAIN_DESTREZA_PLANTA, "pivote": Game.HERB_PIVOTE,
 				"slope": Game.HERB_SLOPE, "tope": Game.RETO_MAX}
+		_:
+			# CAZA: extraer el cristal del cadaver, con Destreza y cuchillo, igual que jugando.
+			return {"stat": "destreza", "suelo": Game.EXTRACTION_DESTREZA_FLOOR,
+				"tool": ToolData.Tipo.CUCHILLO, "gain": Game.GAIN_DESTREZA_MINIJUEGO,
+				"pivote": Game.EXTRACTION_DESTREZA_PIVOTE, "slope": Game.EXTRACTION_DESTREZA_SLOPE,
+				"tope": Game.EXTRACTION_DESTREZA_RETO_MAX}
 
-static func tablas_de(tipo: int) -> Array:
+static func tablas_de(grupo: int) -> Array:
 	var out: Array = []
-	for ruta in (TABLAS.get(tipo, []) as Array):
+	for ruta in (TABLAS.get(grupo, []) as Array):
 		var t: MaterialTable = load(String(ruta)) as MaterialTable
 		if t != null:
 			out.append(t)
 	return out
 
-# Lo que puede salir de un tipo en un piso, como [{"material", "peso"}]. Unifica las dos fuentes:
-# las MaterialTable de siempre y, para BICHO, lo que sueltan los bichos del piso.
-#
-# Cuando un tipo tiene VARIAS tablas (COMIDA), los pesos de cada una se NORMALIZAN antes de juntarse:
-# si no, la sal (peso 100 en una tabla de una sola entrada) aplastaria a las cuatro silvestres, que
-# se reparten pesos mucho menores. Normalizando, cada tabla aporta la mitad y dentro de ella manda su
-# propio reparto, que es lo que se espera al marcar una casilla que junta dos cosas.
-static func opciones(tipo: int, piso: int) -> Array:
-	if tipo == Tipo.BICHO:
-		return Game.materiales_de_bicho_en(piso)
-	var tablas: Array = tablas_de(tipo)
+# A que grupo va un material que suelta un bicho. La carne es comida; lo que no es piel ni nucleo
+# (babas, polvo de alas, esporas...) va a las pociones; y si un constructo suelta mineral o un trent
+# madera, cuenta en su grupo pero POR BAJA, sin gastar las 4 por hora de nadie.
+static func grupo_de_drop(m: MaterialData) -> int:
+	if m == null:
+		return -1
+	if int(m.familia) == int(MaterialData.Familia.NUCLEO) or int(m.tipo) == int(MaterialData.Tipo.NUCLEO):
+		return Grupo.NUCLEO
+	match int(m.tipo):
+		MaterialData.Tipo.CUERO: return Grupo.CUERO
+		MaterialData.Tipo.CARNE, MaterialData.Tipo.DESPENSA, MaterialData.Tipo.PESCADO: return Grupo.COMIDA
+		MaterialData.Tipo.MINERAL: return Grupo.MINERAL
+		MaterialData.Tipo.MADERA: return Grupo.MADERA
+	return Grupo.POCION
+
+# Lo que puede salir de un grupo en un piso, como [{"material", "peso"}]. Para la pantalla (el icono
+# del grupo es su material mas comun) y para tirar lo que se recoge. Los CRISTALES no tienen material.
+# Con varias tablas (COMIDA) los pesos se normalizan por tabla: la sal, sola en la suya, no aplasta
+# a las silvestres.
+static func opciones(grupo: int, piso: int) -> Array:
 	var out: Array = []
-	for t in tablas:
+	if es_recogible(grupo):
+		for t in tablas_de(grupo):
+			var disp: Array = (t as MaterialTable).disponibles(piso)
+			var total: float = 0.0
+			for e in disp:
+				total += e.peso_en(piso)
+			if total <= 0.0:
+				continue
+			for e in disp:
+				out.append({"material": e.material, "peso": e.peso_en(piso) / total})
+	# De los bichos: lo de caza y la carne de la comida. En MINERAL o MADERA no se lista lo que suelta
+	# algun constructo: sale poco y confundiria el icono del grupo.
+	if grupo != Grupo.CRISTAL and (es_de_caza(grupo) or grupo == Grupo.COMIDA):
+		for o in Game.materiales_de_bicho_en(piso):
+			if grupo_de_drop(o["material"] as MaterialData) == grupo:
+				out.append(o)
+	return out
+
+# Lo que se RECOGE de un grupo en un piso: [{"material", "peso", "exigencia"}]. Se calcula UNA vez por
+# encargo (ver resolver): hacerlo en cada tirada cargaba y filtraba las tablas cientos de veces.
+static func pool_recogible(grupo: int, piso: int) -> Array:
+	var pool: Array = []
+	for t in tablas_de(grupo):
 		var disp: Array = (t as MaterialTable).disponibles(piso)
 		var total: float = 0.0
 		for e in disp:
@@ -520,58 +603,55 @@ static func opciones(tipo: int, piso: int) -> Array:
 		if total <= 0.0:
 			continue
 		for e in disp:
-			out.append({"material": e.material, "peso": e.peso_en(piso) / total})
-	return out
+			pool.append({"material": e.material, "peso": e.peso_en(piso) / total,
+				"exigencia": Game._exigencia_material(e.material, piso)})
+	return pool
 
-static func elegir_material(tipo: int, piso: int, rng: RandomNumberGenerator) -> MaterialData:
-	var pool: Array = opciones(tipo, piso)
-	if pool.is_empty():
-		return null
+static func elegir_material(grupo: int, piso: int, rng: RandomNumberGenerator) -> MaterialData:
+	return _tirar_de(pool_recogible(grupo, piso), rng)
+
+static func _tirar_de(pool: Array, rng: RandomNumberGenerator) -> MaterialData:
+	var o: Dictionary = _tirar_fila(pool, rng)
+	return o.get("material") as MaterialData if not o.is_empty() else null
+
+static func _tirar_fila(pool: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var total: float = 0.0
 	for o in pool:
 		total += float(o["peso"])
 	if total <= 0.0:
-		return null
+		return {}
 	var tirada: float = rng.randf() * total
 	for o in pool:
 		tirada -= float(o["peso"])
 		if tirada <= 0.0:
-			return o["material"] as MaterialData
-	return (pool.back() as Dictionary)["material"] as MaterialData
+			return o
+	return pool.back()
 
-# El RETO MEDIO de un tipo: la media, ponderada por lo que sale, del reto de CADA material suyo.
-#
-# NO es lo mismo que curva_reto(exigencia_media), que es lo que se hacia antes, y la diferencia es
-# gorda cuando una bolsa mezcla cosas facilisimas con cosas durisimas. La Comida junta setas
-# (exigencia 30) con piedra de sal (150): la MEDIA da 90, que cae justo en el codo de la curva y
-# pagaba 2.71 de Destreza por nodo — siete veces lo que una veta de cobre. Material a material, esa
-# misma bolsa paga lo que de verdad se saca: casi nada por las setas y mucho por la sal.
-#
-# Y es ademas lo fiel a "como si lo recogieras tu": tu no recoges el material medio, recoges ESTE.
-static func reto_medio(tipo: int, piso: int, suyo: float, of: Dictionary) -> float:
-	var pool: Array = opciones(tipo, piso)
-	if pool.is_empty():
-		return 0.0
+# El RETO MEDIO de un grupo para una persona: la media, por lo que sale, del reto de CADA material.
+# La media de las exigencias mentia: la Comida junta setas (30) con sal (150) y la media cae en el codo.
+static func reto_medio(grupo: int, piso: int, suyo: float, of: Dictionary) -> float:
 	var suma: float = 0.0
 	var peso: float = 0.0
-	for o in pool:
-		var ex: float = Game._exigencia_material(o["material"] as MaterialData, piso)
-		var w: float = float(o["peso"])
-		suma += Game.curva_reto(ex / maxf(1.0, suyo), float(of["pivote"]), float(of["slope"]),
-			float(of["tope"])) * w
-		peso += w
+	for t in tablas_de(grupo):
+		var disp: Array = (t as MaterialTable).disponibles(piso)
+		var total: float = 0.0
+		for e in disp:
+			total += e.peso_en(piso)
+		if total <= 0.0:
+			continue
+		for e in disp:
+			var w: float = e.peso_en(piso) / total
+			var ex: float = Game._exigencia_material(e.material, piso)
+			suma += Game.curva_reto(ex / maxf(1.0, suyo), float(of["pivote"]), float(of["slope"]),
+				float(of["tope"])) * w
+			peso += w
 	return suma / maxf(0.001, peso)
 
+
 # ============================================================
-#  FAENA: quien trabaja cada tipo
+#  FAENA: a por que va cada uno
 # ============================================================
-# Al mandarlos le dices a cada uno a que va ("tu a las vetas, tu a pescar y a por bichos"). Se guarda
-# como `faenas` en su entrada de `miembros`: una LISTA, porque a uno le puedes mandar varias cosas.
-# Vacia = "lo que haga falta".
-#
-# LA REGLA, y es una sola: un tipo con gente asignada lo trabajan SOLO esos; un tipo al que no
-# asignaste a nadie lo trabajan TODOS. Asi las casillas son una preferencia y no una trampa: si
-# marcas tres cosas y solo dices quien va a una, las otras dos siguen saliendo.
+# `miembros[i].faenas` es una LISTA de grupos; vacia = "a lo que haga falta".
 static func faenas_de(miembros: Array, uid: String) -> Array:
 	for m in miembros:
 		if String((m as Dictionary).get("uid", "")) == uid:
@@ -590,283 +670,149 @@ static func clase_de(miembros: Array, uid: String) -> int:
 			return int((m as Dictionary).get("clase", Clase.GUERRERO))
 	return int(Clase.GUERRERO)
 
-# Sobre uids sueltos, porque lo llaman los dos lados: la resolucion (que tiene PersonajeData) y el
-# pronostico de la UI (que en multi solo tiene fichas del roster).
-static func uids_trabajando(miembros: Array, tipo: int, todos: Array) -> Array:
+# LOS GRUPOS QUE TRABAJA UNA PERSONA: los que tiene marcados, o todos los del encargo si no marco
+# ninguno. Es la regla de las casillas: una preferencia, no una trampa.
+static func grupos_de_persona(miembros: Array, uid: String, grupos: Dictionary) -> Array:
 	var out: Array = []
-	for u in todos:
-		if faenas_de(miembros, String(u)).has(int(tipo)):
-			out.append(String(u))
-	return out if not out.is_empty() else todos
+	for g in faenas_de(miembros, uid):
+		if grupos.has(int(g)) and not out.has(int(g)):
+			out.append(int(g))
+	if out.is_empty():
+		for g in grupos:
+			out.append(int(g))
+	return out
 
-# Lo mismo, ya filtrado a PersonajeData.
-static func trabajadores(pjs: Array, miembros: Array, tipo: int) -> Array:
-	var out: Array = []
-	for pj_ in pjs:
-		var pj: PersonajeData = pj_ as PersonajeData
-		if pj != null and faenas_de(miembros, pj.uid).has(int(tipo)):
-			out.append(pj)
-	return out if not out.is_empty() else pjs
-
-# Las faenas que pidieron, limpias: fuera lo que no sea un tipo del encargo y fuera los repetidos.
-# Si se queda vacia es "lo que haga falta", que es el valor por defecto y el de siempre.
-static func faenas_validas(pedidas: Array, tipos_encargo: Array) -> Array:
+static func faenas_validas(pedidas: Array, grupos: Dictionary) -> Array:
 	var out: Array = []
 	for t in pedidas:
 		var i: int = int(t)
-		if tipos_encargo.has(i) and not out.has(i):
+		if grupos.has(i) and not out.has(i):
 			out.append(i)
 	return out
 
 
-# Lo bien preparados que van para ESE material. >= 1 es ir sobrado. Es el inverso de
-# _reto_recoleccion, que devuelve "lo dificil que te resulta".
-static func poder_recolector(pjs: Array, tipo: int, afinidad: float) -> float:
-	var of: Dictionary = oficio_de(tipo)
-	var valores: Array = []
-	for pj in pjs:
-		# La CONSOLIDADA con su plato: es lo que decide la CALIDAD de lo que traen, o sea un efecto, y
-		# los efectos esperan al altar. Ver Game.stat_consolidado_eff. Ojo si se toca: Net.hogar._fila_roster
-		# publica estas mismas cinco stats para que el invitado haga su pronostico -- las dos tienen
-		# que leer lo mismo o vera una calidad y le llegara otra.
-		valores.append(Game.stat_consolidado_eff(String(of["stat"]), pj as PersonajeData))
-	return poder_recolector_de(valores, tipo, afinidad)
-
-# Desde una lista con LA STAT DEL OFICIO de cada uno, por lo mismo que poder_grupo_de: en multi el
-# invitado recibe las stats del compañero dentro del roster, no sus PersonajeData.
-static func poder_recolector_de(valores: Array, tipo: int, afinidad: float) -> float:
-	var of: Dictionary = oficio_de(tipo)
-	if valores.is_empty():
-		return float(of["suelo"]) + afinidad
-	var suma: float = 0.0
-	for v in valores:
-		suma += float(v)
-	# LA MEDIA de los que trabajan este tipo, no la suma ni "el mejor + un pico de los demas".
-	#
-	# Aqui habia un `mejor + REPARTO * (suma - mejor)` copiado del combate, y con la regla de que un
-	# tipo sin nadie marcado lo trabajan TODOS (ver uids_trabajando) hacia justo lo contrario de lo
-	# que promete la interfaz: marcar el check EXCLUIA a los demas del sumatorio, asi que mandar
-	# especificamente al bueno siempre salia PEOR que no marcar a nadie. En el playtest, el de 400 de
-	# Agilidad a por madera daba 0% intacto marcado y 70% sin marcar. El check era una penalizacion.
-	#
-	# Con la media, la calidad la decide LO BUENOS QUE SON los que van, no cuantos son: dos con 100 y
-	# 200 dan 150, y mandar solo al de 200 da 200. Y no se pierde nada por ir en grupo, porque la
-	# CANTIDAD si escala con el numero de personas (ver unidades()). Ese es el reparto: el
-	# especialista sube la calidad, la cuadrilla sube el volumen.
-	var stat: float = suma / float(valores.size())
-	return stat * STAT_PESO_CALIDAD + float(of["suelo"]) + afinidad
-
-static func ratio_material(m: MaterialData, piso: int, poder_reco: float) -> float:
-	return poder_reco / maxf(1.0, Game._exigencia_material(m, piso))
-
-# Lo que decide la CALIDAD de una unidad, segun su tipo. Devuelve el MARGEN: cuanta stat de oficio
-# les sobra por encima de la exigencia del material.
-#
-# Los materiales de monstruo tienen exigencia 0.0 en sus .tres, y no es un olvido: no se recolectan,
-# se sacan de un cadaver. Asi que para BICHO no hay eje de herramienta que valga y la calidad la
-# decide el COMBATE. Es ademas lo que hace el juego hoy: la calidad del drop sale de
-# _calidad_material_de_cristal(), o sea de lo bien que rematas. Como el combate SI viene en ratio
-# (adimensional, no hay exigencia que restar), se traduce a margen por la misma escala.
-static func margen_calidad(tipo: int, m: MaterialData, piso: int, poder_reco: float,
-		r_combate: float) -> float:
-	if tipo == Tipo.BICHO:
-		return (r_combate - 1.0) * MARGEN_PLENO
-	return poder_reco - Game._exigencia_material(m, piso)
-
-# MARGEN -> reparto de calidades.
-#
-# Antes esto iba por RATIO (poder / exigencia) y estaba mal planteado: un cociente le pide a cada
-# material un esfuerzo proporcional a lo que ya vale. Llegar a x2 en algo de exigencia 40 sale
-# gratis, y en algo de exigencia 500 pediria +500 puntos de stat, que sencillamente no existen. O
-# sea que el techo de calidad se volvia inalcanzable justo donde importa.
-#
-# Ahora va por MARGEN ABSOLUTO: te pide una cantidad PLANA de stat por encima de la exigencia, la
-# misma para el cobre en bruto que para lo del piso 13. Ir sobrado es ir sobrado.
-#
-# Calibrado contra el mismo punto de referencia de siempre (poder 100 contra exigencia 150, o sea
-# margen -50 -> unos 30 dañado / 50 normal / 20 intacto), asi que el tramo bajo no se mueve.
-# PURO no sale de un encargo (es el techo de Metalurgia) y ROTO tampoco se genera: fallar se modela
-# como cantidad perdida y calidad peor, no como piezas rotas invisibles.
-# CUANTO CUENTA LA STAT en la calidad. Es 0.8 y NO el 0.5 de Game.RECOLECCION_STAT_PESO, y la
-# diferencia no es un capricho: las dos formulas no hacen la misma operacion.
-#
-#   - Los minijuegos de la mazmorra usan un COCIENTE: exigencia / (stat*PESO + suelo). Ahi el 0.5
-#     aplana la PENDIENTE de mejora, que es justo lo que se buscaba ("picar se volvia trivial en
-#     cuanto subias un poco"). En un cociente, dividir la stat solo cambia lo rapido que mejoras.
-#   - La calidad de un encargo usa una RESTA: poder - exigencia. Ahi el mismo 0.5 no aplana nada:
-#     te quita 200 puntos de golpe. Con 400 de Fuerza medias 230 contra un hierro de 350, o sea
-#     que ibas 120 corto llevando MAS stat que la exigencia entera. Para el 100% de intacto en algo
-#     de 350 hacian falta 840 de stat, cerca del tope de 999, en un material del piso 7.
-#
-# Reutilizar el mismo numero en las dos era el error. Con 0.8, 400 de stat contra una exigencia de
-# 300 dan un margen de +50 -> ~74% de intacto, y contra el hierro de 350 se quedan a la par -> ~47%:
-# el cobre lo traes bien y el hierro se te resiste, que es lo que dice el piso.
+# ============================================================
+#  CALIDAD: por persona, con SU stat
+# ============================================================
+# MARGEN = stat*0.8 + suelo + afinidad - exigencia. Una RESTA (cuanto te sobra), no un cociente: un
+# cociente pediria +500 de stat para ir sobrado en algo de exigencia 500. El 0.8 y no el 0.5 de los
+# minijuegos: en una resta, dividir la stat quita puntos de golpe en vez de aplanar la pendiente.
 const STAT_PESO_CALIDAD := 0.8
 
 const MARGEN_PLENO := 100.0    # stat POR ENCIMA de la exigencia que da el 100% de intacto
 const MARGEN_NULO := -90.0     # por debajo de esto no sale nada intacto
 const MARGEN_MALO := 155.0     # cuanto por DEBAJO hace falta para el 75% de dañado
+# LO QUE SE ROMPE. Nuevo en el rework: antes un encargo nunca rompia nada y el flojo traia lo mismo que
+# el bueno pero peor. Empieza a romperse con 60 por debajo y llega al tope con 260 por debajo.
+const ROTO_DESDE := -60.0
+const ROTO_HASTA := -260.0
+const ROTO_MAX := 0.45
 
 static func reparto_calidades(margen: float) -> Dictionary:
 	var intacto: float = clampf((margen - MARGEN_NULO) / (MARGEN_PLENO - MARGEN_NULO), 0.0, 1.0)
-	var danado: float = 0.75 * pow(clampf(-margen / MARGEN_MALO, 0.0, 1.0), 0.8)
-	# Las dos ramas no se pisan: intacto solo empieza a subir a partir de MARGEN_NULO y dañado solo
-	# existe con margen negativo, asi que su suma nunca pasa de 1 y `normal` es lo que queda.
-	var normal: float = maxf(0.0, 1.0 - intacto - danado)
-	return {"intacto": intacto, "normal": normal, "danado": danado}
+	var roto: float = ROTO_MAX * clampf((margen - ROTO_DESDE) / (ROTO_HASTA - ROTO_DESDE), 0.0, 1.0)
+	var danado: float = minf(0.75 * pow(clampf(-margen / MARGEN_MALO, 0.0, 1.0), 0.8), 1.0 - roto)
+	var normal: float = maxf(0.0, 1.0 - intacto - danado - roto)
+	return {"intacto": intacto, "normal": normal, "danado": danado, "roto": roto}
 
 static func calidad_tirada(margen: float, rng: RandomNumberGenerator) -> int:
 	var p: Dictionary = reparto_calidades(margen)
 	var x: float = rng.randf()
 	if x < float(p["intacto"]):
 		return MaterialItem.Calidad.INTACTO
-	if x < float(p["intacto"]) + float(p["normal"]):
+	x -= float(p["intacto"])
+	if x < float(p["normal"]):
 		return MaterialItem.Calidad.NORMAL
-	return MaterialItem.Calidad.DANADO
+	x -= float(p["normal"])
+	if x < float(p["danado"]):
+		return MaterialItem.Calidad.DANADO
+	return MaterialItem.Calidad.ROTO
 
-# Un escalon MENOS de calidad. Es lo que se lleva la derrota: no solo traen menos, traen peor.
-static func bajar_calidad(cal: int) -> int:
-	match cal:
-		MaterialItem.Calidad.INTACTO: return MaterialItem.Calidad.NORMAL
-		MaterialItem.Calidad.NORMAL: return MaterialItem.Calidad.DANADO
-		_: return MaterialItem.Calidad.DANADO
+# El margen de UNA persona contra un material. `stat` es su stat de efecto (consolidada con plato).
+static func margen_de(stat: float, grupo: int, afinidad: float, exigencia: float) -> float:
+	return stat * STAT_PESO_CALIDAD + float(oficio_de(grupo)["suelo"]) + afinidad - exigencia
 
 
 # ============================================================
-#  CANTIDAD
+#  CUANTO: el tope de recoger y la caza
 # ============================================================
-# El excedente de poder NO da mas cantidad: va entero a exito y a calidad. Es lo que hace legible el
-# sistema ("ir sobrado mejora lo que traen, no cuanto").
-#
-# UNID_HORA es EL mando de balance de todo esto. Referencia contra jugar: un nodo de mineria son
-# unos 15-25 s mas el transito, o sea del orden de 60-100 unidades por hora jugando. Un encargo de
-# 8 h con cuatro personas da 64. Nunca puede compensar mas que jugar.
-# Cuanto RECOGEN por hora y persona. Es alto a proposito: lo que tiene que limitar un encargo largo
-# es LO QUE PUEDEN CARGAR, no el reloj. Con el 2.0 de antes, tres personas ocho horas juntaban 50
-# unidades y les cabian 100: la mochila no pintaba absolutamente nada y el tope de peso no llegaba a
-# morder nunca. Ahora juntan mas de lo que pueden llevar casi siempre, tiran lo peor, y una mochila
-# mejor es directamente mas botin.
-#
-# Los encargos CORTOS siguen limitados por el tiempo (1 h a solas son 6 unidades y en el zurron
-# caben ~14), asi que la curva es: de poco rato manda el reloj, de mucho manda la espalda.
-const UNID_HORA := 6.0
-const GOLPES_UNID := 0.04
-# Techo de carga: pueden volver SOBRECARGADOS (overload_threshold es 0.9), pero no mas alla de esto.
-# Es el limite duro que hace que la mochila sea una decision y no un adorno.
+# 4 por hora POR PERSONA, y cada una se va a un grupo segun los porcentajes. Un encargo de 8 h a solas
+# son 32 tiradas: da para mucho, pero no te resuelve la vida.
+const UNIDADES_HORA_PERSONA := 4.0
+
+# CUANTO HAY DE ESO EN EL PISO: la probabilidad de que una tirada encuentre algo. No es balance, es el
+# mapa: de la despensa hay pocos nodos y tardan en volver, y de pesca hay un estanque.
+const ABUNDANCIA := {
+	Grupo.COMIDA: 0.35,
+	Grupo.PESCADO: 0.7,
+}
+
+static func abundancia(grupo: int) -> float:
+	return float(ABUNDANCIA.get(int(grupo), 1.0))
+
+# Peleas por hora ahi abajo, y cuantos bichos en cada una: uno mas que la gente que va.
+const PELEAS_HORA := 5.0
+
+static func bichos_por_pelea(n_personas: int) -> int:
+	return maxi(1, n_personas) + 1
+
+# Un numero con decimales a entero, tirando la parte fraccionaria: 2.3 son 2, y un 30% de veces 3.
+static func _entero_con_resto(x: float, rng: RandomNumberGenerator) -> int:
+	var base: int = int(floor(maxf(0.0, x)))
+	return base + (1 if rng.randf() < maxf(0.0, x) - float(base) else 0)
+
+static func _elegir_grupo(candidatos: Array, grupos: Dictionary, rng: RandomNumberGenerator) -> int:
+	var total: float = 0.0
+	for g in candidatos:
+		total += float(grupos.get(int(g), 0))
+	if total <= 0.0:
+		return int(candidatos[rng.randi() % candidatos.size()])
+	var x: float = rng.randf() * total
+	for g in candidatos:
+		x -= float(grupos.get(int(g), 0))
+		if x <= 0.0:
+			return int(g)
+	return int(candidatos.back())
+
+static func _elegir_enemigo(filas: Array, rng: RandomNumberGenerator) -> EnemyData:
+	var total: float = 0.0
+	for f in filas:
+		total += float(f["prob"])
+	if total <= 0.0:
+		return null
+	var x: float = rng.randf() * total
+	for f in filas:
+		x -= float(f["prob"])
+		if x <= 0.0:
+			return f["data"] as EnemyData
+	return (filas.back() as Dictionary)["data"] as EnemyData
+
+# La categoria del cristal, como EnemyData.roll_crystal_category pero con el rng del encargo (aquella
+# usa randf() global y el resultado dejaria de ser reproducible). t = 0.5: un bicho medio.
+static func _categoria_cristal(data: EnemyData, rng: RandomNumberGenerator) -> int:
+	if not data.crystal_category_weights.is_empty():
+		var total: float = 0.0
+		for w in data.crystal_category_weights:
+			total += maxf(0.0, w)
+		if total > 0.0:
+			var r: float = rng.randf() * total
+			for i in range(data.crystal_category_weights.size()):
+				r -= maxf(0.0, data.crystal_category_weights[i])
+				if r < 0.0:
+					return data.crystal_category_min + i
+		return data.crystal_category_min + data.crystal_category_weights.size() - 1
+	var cat: int = data.crystal_category_min
+	for _i in range(data.crystal_category_max - data.crystal_category_min):
+		if rng.randf() < 0.5:
+			cat += 1
+	return cat
+
+
+# ============================================================
+#  TOPE DE PESO
+# ============================================================
 const CARGA_MAX := 1.10
 
-# Lo que TRABAJAN: lo que da el tiempo. NO es lo que se traen (eso lo recorta el peso, ver abajo).
-static func unidades(duracion: int, n_miembros: int, golpes_menos: int, factor: float) -> int:
-	var horas: float = float(duracion) / 3600.0
-	return maxi(1, int(round(UNID_HORA * horas * float(maxi(1, n_miembros)) * factor
-		* (1.0 + GOLPES_UNID * float(golpes_menos)))))
-
-# Reparte n unidades entre los tipos marcados A PARTES IGUALES, sin perder ninguna por el redondeo
-# (las que sobran van a los primeros de la lista). Seis tipos = un sexto cada uno, marques a quien
-# marques.
-#
-# Se probo pesarlo por CUANTA GENTE trabaja cada tipo, y salio mal por un sitio que no se veia venir:
-# como un tipo sin nadie asignado "lo hacen todos", ese contaba con cuatro manos y los demas con una,
-# asi que el unico tipo que NO habias pedido se llevaba el 44% de la expedicion. En el playtest eso
-# fue media carga de setas y piedra de sal, y ademas subia Destreza a los cuatro (Comida, Plantas y
-# Enemigos entrenan las tres Destreza).
-#
-# Quien trabaja cada tipo lo sigue decidiendo uids_trabajando: eso decide QUIEN, no CUANTO sale.
-static func repartir(n: int, tipos: Array) -> Dictionary:
-	var out: Dictionary = {}
-	var k: int = maxi(1, tipos.size())
-	var base: int = n / k
-	var resto: int = n % k
-	# EL REDONDEO SE ARRASTRA en vez de perderse tipo a tipo. Antes cada uno hacia su round() por su
-	# cuenta y en un encargo CORTO eso se notaba de verdad: partido entre los tipos marcados y luego
-	# multiplicado por una abundancia baja (COMIDA 0.22), la cuenta de un tipo caia por debajo de 0.5
-	# y se iba a CERO -- traias una expedicion entera sin una sola seta, y con otra hora mas traias
-	# dos. Guardando la fraccion que sobra y sumandola al siguiente, el total sale el que toca y solo
-	# cambia a QUIEN le cae la unidad suelta.
-	var arrastre: float = 0.0
-	for i in tipos.size():
-		# El reparto del RATO es a partes iguales, pero de un sitio del que solo salen cuatro setas
-		# no se vuelve con doscientas por mucho que esperes: se recorta por lo que hay en el piso.
-		var exacto: float = float(base + (1 if i < resto else 0)) * abundancia(int(tipos[i])) + arrastre
-		var entero: int = int(floor(exacto))
-		arrastre = exacto - float(entero)
-		out[int(tipos[i])] = entero
-	return out
-
-
-# ============================================================
-#  TOPE DE PESO: nunca se traen mas del 110% de lo que pueden cargar
-# ============================================================
-# Devuelve {"traidas": Array, "perdido": int, "kg": float}. Recorta SIEMPRE por la peor calidad
-# primero, asi lo que sobrevive al recorte es lo bueno.
-#
-# OJO: esto solo recorta el BOTIN. La excelia va por las unidades TRABAJADAS, porque el trabajo lo
-# hicieron igual aunque tuvieran que dejar sacos atras; si no, mandar gente sin mochila les cobraria
-# dos veces (menos material Y menos aprendizaje).
-static func recortar_por_peso(piezas: Array, tope_kg: float) -> Dictionary:
-	var total: float = 0.0
-	for p in piezas:
-		total += _peso_de(p)
-	if total <= tope_kg:
-		return {"traidas": piezas, "perdido": 0, "kg": total}
-	# De peor a mejor calidad. OJO: NO se puede ordenar por el valor del enum, porque
-	# MaterialItem.Calidad NO esta en orden de calidad (PURO es el 4, el ultimo, y es el mejor de
-	# todos). Ordenar por el int dejaria lo mejor el primero en tirarse. Va por rango explicito.
-	var orden: Array = piezas.duplicate()
-	orden.sort_custom(func(a, b): return _rango_calidad(int(a["calidad"])) < _rango_calidad(int(b["calidad"])))
-	var fuera: int = 0
-	while total > tope_kg and not orden.is_empty():
-		total -= _peso_de(orden[0])
-		orden.remove_at(0)
-		fuera += 1
-	return {"traidas": orden, "perdido": fuera, "kg": total}
-
-static func _peso_de(pieza: Dictionary) -> float:
-	var m: MaterialData = pieza["material"] as MaterialData
-	if m == null:
-		return 0.1
-	return maxf(0.1, m.peso_base * _peso_mult(int(pieza["calidad"])))
-
-# Rango REAL de calidad, de peor (0) a mejor (4). Existe porque el enum no sirve para ordenar.
-static func _rango_calidad(cal: int) -> int:
-	match cal:
-		MaterialItem.Calidad.ROTO: return 0
-		MaterialItem.Calidad.DANADO: return 1
-		MaterialItem.Calidad.NORMAL: return 2
-		MaterialItem.Calidad.INTACTO: return 3
-		_: return 4   # PURO
-
-static func _peso_mult(cal: int) -> float:
-	match cal:
-		MaterialItem.Calidad.NORMAL: return 0.9
-		MaterialItem.Calidad.DANADO: return 0.7
-		_: return 1.0
-
-# ============================================================
-#  LOS UTILES DEL COFRE
-#  Se leen del DICT SERIALIZADO de la entrada del cofre, nunca deserializandolo.
-#  Deserializar registraria una copia en el baul cada vez que se mira un encargo, que es exactamente
-#  el bug de las 6 hachas. Y no hace falta: el dict ya trae tier, rareza, banda y capacidad.
-# ============================================================
-
-# Afinidad y golpes_menos de una herramienta del cofre, por TIPO de encargo. 0 si no es del tipo que
-# toca (un pico no sirve para plantas) o si es de las basicas (esas no tienen entrada en item_meta).
-static func mods_util(entrada: Dictionary, tipo: int) -> Dictionary:
-	var nada := {"afinidad": 0.0, "golpes_menos": 0}
-	var d: Dictionary = entrada.get("dict", {})
-	if String(d.get("clase", "")) != "herramienta":
-		return nada
-	var quiere: int = int(oficio_de(tipo).get("tool", -1))
-	if quiere < 0:
-		return nada   # los BICHOS no llevan herramienta
-	var plantilla: ToolData = load(String(d.get("ruta", ""))) as ToolData
-	if plantilla == null or int(plantilla.tipo) != quiere:
-		return nada
-	return Upgrades.tool_mods(int(plantilla.tipo), int(d.get("tier", 1)),
-		int(d.get("rareza", 0)), int(d.get("banda", 0)))
-
-# Capacidad que aporta una mochila del cofre. Misma cuenta que Game.capacidad_mochila, pero desde el
-# dict: capacidad base x factor de tier x multiplicador de rareza.
 static func capacidad_util(entrada: Dictionary) -> float:
 	var d: Dictionary = entrada.get("dict", {})
 	if String(d.get("clase", "")) != "mochila":
@@ -874,14 +820,11 @@ static func capacidad_util(entrada: Dictionary) -> float:
 	return float(d.get("capacidad", 0)) * Game.mochila_tier_factor(int(d.get("tier", 1))) \
 		* Upgrades.rareza_mult_capacidad(int(d.get("rareza", 0)))
 
-# Lo que puede cargar la cuadrilla, ya con el 110% aplicado. `entradas` son las del cofre asignadas.
 static func tope_carga(pjs: Array, entradas: Array) -> float:
 	return CARGA_MAX * Game._capacidad_con(Game.base_capacity + _capacidad_utiles(entradas),
 		_saturacion_utiles(entradas), pjs)
 
-# La misma cuenta desde una lista de FUERZAS, para el pronostico del invitado (que no tiene los
-# PersonajeData del compañero). Se replica lo que hace Game._capacidad_con: media de Fuerza para el
-# multiplicador y +15% de contenedor por cada acompañante.
+# Lo mismo desde las FUERZAS, para el pronostico del invitado.
 static func tope_carga_de(fuerzas: Array, entradas: Array) -> float:
 	var n: int = maxi(1, fuerzas.size())
 	var suma: float = 0.0
@@ -899,7 +842,6 @@ static func _capacidad_utiles(entradas: Array) -> float:
 		extra += capacidad_util(e as Dictionary)
 	return extra
 
-# La saturacion de Fuerza la marca la MEJOR mochila (mismo criterio que Game).
 static func _saturacion_utiles(entradas: Array) -> float:
 	var mejor_tier: int = 0
 	for e in entradas:
@@ -911,179 +853,229 @@ static func _saturacion_utiles(entradas: Array) -> float:
 	return float(Game.MOCHILA_FUERZA_SATURACION[
 		clampi(mejor_tier, 1, Game.MOCHILA_FUERZA_SATURACION.size()) - 1])
 
+static func _peso_de(pieza: Dictionary) -> float:
+	if pieza.has("cristal"):
+		var c := Cristal.new()
+		c.categoria = int(pieza["cristal"])
+		c.calidad = int(pieza["calidad"])
+		return c.peso()
+	var m: MaterialData = pieza.get("material") as MaterialData
+	if m == null:
+		return 0.1
+	return maxf(0.1, m.peso_base * _peso_mult(int(pieza["calidad"])))
+
+# De peor (0) a mejor (4). El enum no sirve para ordenar: PURO es el ultimo y es el mejor.
+static func _rango_calidad(cal: int) -> int:
+	match cal:
+		MaterialItem.Calidad.ROTO: return 0
+		MaterialItem.Calidad.DANADO: return 1
+		MaterialItem.Calidad.NORMAL: return 2
+		MaterialItem.Calidad.INTACTO: return 3
+		_: return 4   # PURO
+
+static func _peso_mult(cal: int) -> float:
+	match cal:
+		MaterialItem.Calidad.NORMAL: return 0.9
+		MaterialItem.Calidad.DANADO: return 0.7
+		_: return 1.0
+
+static func _peor_primero(a: Dictionary, b: Dictionary) -> bool:
+	return _rango_calidad(int(a["calidad"])) < _rango_calidad(int(b["calidad"]))
+
+# LA MOCHILA LLENA SE RECORTA EN PROPORCION AL OBJETIVO. Antes se tiraba lo peor de todo junto, y si
+# el hierro pesaba mas que las hierbas volvias sin una sola piedra habiendo pedido "un poco de todo".
+# Ahora cada grupo tiene su parte del tope; lo que un grupo no llena pasa a los demas, y dentro de cada
+# grupo se deja lo peor.
+# Devuelve {"traidas": Array, "perdido": int, "kg": float}.
+static func recortar_por_peso(piezas: Array, tope_kg: float, grupos: Dictionary) -> Dictionary:
+	var total: float = 0.0
+	for p in piezas:
+		total += _peso_de(p)
+	if total <= tope_kg:
+		return {"traidas": piezas, "perdido": 0, "kg": total}
+
+	var por_grupo: Dictionary = {}
+	for p in piezas:
+		var g: int = int(p["grupo"])
+		if not por_grupo.has(g):
+			por_grupo[g] = []
+		(por_grupo[g] as Array).append(p)
+
+	var activos: Array = por_grupo.keys()
+	var restante: float = tope_kg
+	var traidas: Array = []
+	# Primero entran enteros los grupos que caben en su parte; con lo que sobra se recalcula la parte
+	# de los que quedan. Se repite hasta que ninguno cabe entero.
+	var cambio: bool = true
+	while cambio and not activos.is_empty():
+		cambio = false
+		var suma_pct: float = 0.0
+		for g in activos:
+			suma_pct += maxf(1.0, float(grupos.get(int(g), 1)))
+		for g in activos.duplicate():
+			var parte: float = restante * maxf(1.0, float(grupos.get(int(g), 1))) / suma_pct
+			var peso_g: float = 0.0
+			for p in por_grupo[g]:
+				peso_g += _peso_de(p)
+			if peso_g <= parte:
+				traidas.append_array(por_grupo[g])
+				restante -= peso_g
+				activos.erase(g)
+				cambio = true
+		if cambio:
+			continue
+	# Los que no caben: cada uno llena su parte con lo MEJOR que tiene.
+	var suma_final: float = 0.0
+	for g in activos:
+		suma_final += maxf(1.0, float(grupos.get(int(g), 1)))
+	for g in activos:
+		var parte: float = restante * maxf(1.0, float(grupos.get(int(g), 1))) / maxf(1.0, suma_final)
+		var lista: Array = (por_grupo[g] as Array).duplicate()
+		lista.sort_custom(func(a, b): return _peor_primero(b, a))
+		var llevo: float = 0.0
+		for p in lista:
+			var w: float = _peso_de(p)
+			if llevo + w > parte:
+				continue
+			llevo += w
+			traidas.append(p)
+	var kg: float = 0.0
+	for p in traidas:
+		kg += _peso_de(p)
+	return {"traidas": traidas, "perdido": piezas.size() - traidas.size(), "kg": kg}
+
+# EL CASTIGO DEL DESENLACE: la misma parte de CADA grupo, sin azar. Se va lo peor primero.
+static func aplicar_perdida(piezas: Array, desenlace: int) -> Dictionary:
+	var perdida: float = float(PERDIDA[clampi(desenlace, 0, PERDIDA.size() - 1)])
+	if perdida <= 0.0:
+		return {"quedan": piezas, "perdido": 0}
+	var por_grupo: Dictionary = {}
+	for p in piezas:
+		var g: int = int(p["grupo"])
+		if not por_grupo.has(g):
+			por_grupo[g] = []
+		(por_grupo[g] as Array).append(p)
+	var quedan: Array = []
+	var fuera: int = 0
+	for g in por_grupo:
+		var lista: Array = (por_grupo[g] as Array).duplicate()
+		lista.sort_custom(_peor_primero)
+		var quitar: int = int(round(float(lista.size()) * perdida))
+		fuera += quitar
+		quedan.append_array(lista.slice(quitar))
+	return {"quedan": quedan, "perdido": fuera}
+
 
 # ============================================================
-#  EXCELIA: lo que APRENDEN los que van
+#  LOS UTILES DEL COFRE
+#  Se leen del DICT SERIALIZADO, nunca deserializando: registraria una copia en el baul cada vez que
+#  se mira un encargo (el bug de las 6 hachas).
 # ============================================================
-# Dos ganancias, una por eje, porque han hecho dos cosas: recolectar y pelearse con lo que salia.
-#
-# UNA UNIDAD DE ENCARGO PAGA COMO UN NODO QUE PICAS TU. Ni mas ni menos, y no hay constante que la
-# escale: el descuento ya lo hace UNID_HORA (recogen 6 por hora y persona, cuando jugando se sacan
-# 60-100), asi que volver a descontarlo aqui seria cobrarles el trabajo dos veces.
-#
-# Y es justo lo que pasaba. Habia un RITMO_EXCELIA = 2.0 ("nodos equivalentes por hora") que les
-# pagaba 2 nodos/hora aunque UNID_HORA dijera que trabajaban 6, y encima se multiplicaba por
-# GAIN_FACTOR x GAIN_RECO = 0.245. Resultado medido en playtest: 8 horas de reloj real con cuatro
-# personas daban +1/+7 por stat, cuando jugando esas mismas horas se sacan +100/+200. Veinte a
-# cincuenta veces por debajo, no "algo por debajo".
+static func mods_util(entrada: Dictionary, grupo: int) -> Dictionary:
+	var nada := {"afinidad": 0.0, "golpes_menos": 0}
+	var d: Dictionary = entrada.get("dict", {})
+	if String(d.get("clase", "")) != "herramienta":
+		return nada
+	var quiere: int = int(oficio_de(grupo).get("tool", -1))
+	var plantilla: ToolData = load(String(d.get("ruta", ""))) as ToolData
+	if plantilla == null or int(plantilla.tipo) != quiere:
+		return nada
+	return Upgrades.tool_mods(int(plantilla.tipo), int(d.get("tier", 1)),
+		int(d.get("rareza", 0)), int(d.get("banda", 0)))
 
-# CUANTO PAGA UNA FAENA respecto a las demas. Es un ajuste de BALANCE del encargo, no una regla del
-# mundo: hay bolsas que mezclan material facilisimo con material durisimo (la piedra de sal, de
-# exigencia 150, es la mitad de la Comida; y el banco de peces tiene rarezas exigentisimas detras del
-# gobio). Como el sistema paga por lo que te cuesta, esas dos pagaban x5.4 y x3 lo que una veta de
-# cobre, y una sola faena decidia la expedicion entera: el tanque volvia con +74 de Resistencia por
-# haber ido a pescar, no por ser tanque.
-#
-# Con esto ninguna se va mas alla del doble de las demas. Lo que NO se toca es la recoleccion de
-# verdad: jugando, la sal y los peces raros siguen pagando lo que valen.
+# Lo que aporta un util a un encargo con esos grupos, para ORDENAR la rejilla (el mejor arriba).
+static func aporte_util(entrada: Dictionary) -> float:
+	var cap: float = capacidad_util(entrada)
+	if cap > 0.0:
+		return cap
+	var mejor: float = 0.0
+	for g in Grupo.values():
+		mejor = maxf(mejor, float(mods_util(entrada, int(g))["afinidad"]))
+	return mejor
+
+static func _afinidades(grupos: Dictionary, entradas_cofre: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for g in Grupo.values():
+		var mejor: float = 0.0
+		for entrada in entradas_cofre:
+			mejor = maxf(mejor, float(mods_util(entrada as Dictionary, int(g))["afinidad"]))
+		out[int(g)] = mejor
+	return out
+
+
+# ============================================================
+#  EXCELIA: lo que APRENDEN
+# ============================================================
+# UNA UNIDAD DE ENCARGO PAGA COMO UN NODO QUE PICAS TU; el descuento ya lo pone el tope de 4 por hora.
+# PESCA paga menos por unidad: su banco tiene rarezas exigentisimas y una sola faena decidia la
+# expedicion entera (el tanque volvia con +74 de Resistencia por haber ido a pescar).
 const RITMO_FAENA := {
-	Tipo.PESCA: 0.47,    # x3.0 -> x1, o sea lo mismo que picar una veta
+	Grupo.PESCADO: 0.47,
 }
 
-static func ritmo_faena(tipo: int) -> float:
-	return float(RITMO_FAENA.get(int(tipo), 1.0))
+static func ritmo_faena(grupo: int) -> float:
+	return float(RITMO_FAENA.get(int(grupo), 1.0))
 
-# CUANTO HAY DE ESO EN EL PISO, comparado con una veta. No es balance: es el mapa.
-#
-# La mazmorra pone 8 vetas, 8 plantas y 8 maderas, y vuelven en RESPAWN_SEGUNDOS (5 min). Pero de la
-# DESPENSA solo hay 1-2 piedras de sal y 2-3 silvestres, y esas tardan el doble en volver
-# (RESPAWN_LENTO_SEGUNDOS, 10 min). O sea que hay del orden de cuatro veces menos comida que mineral
-# y encima se recupera a la mitad de ritmo. De pesca hay UN estanque por piso.
-#
-# Sin esto, ocho horas de encargo traian tantas setas como piedras, que no existen en el piso, y
-# ademas convertian la Comida en la mejor forma de subir Destreza del juego (57 contra los 35 de las
-# Plantas) por un sitio del que se supone que sacas cuatro setas. Recortando las UNIDADES caen las
-# dos cosas a la vez: traen menos comida Y aprenden menos de ella.
-const ABUNDANCIA := {
-	Tipo.VETA: 1.0,
-	Tipo.PLANTA: 1.0,
-	Tipo.MADERA: 1.0,
-	Tipo.COMIDA: 0.22,   # ~4 nodos a mitad de ritmo contra 8 rapidos
-	Tipo.PESCA: 0.7,     # un solo estanque, aunque su banco sea generoso
-	Tipo.BICHO: 1.0,     # los bichos no se agotan: siguen brotando
-}
-
-static func abundancia(tipo: int) -> float:
-	return float(ABUNDANCIA.get(int(tipo), 1.0))
-
-# LO QUE RINDE UN ENCARGO respecto a hacerlo tu mismo. Es la unica palanca global que queda, y esta
-# aqui para poder moverla sin tocar la forma de la curva.
-#
-# El 0.65 sale del playtest: con el 1.0 (una unidad de encargo = un nodo tuyo) los numeros del piso 1
-# estaban bien, pero mandarlos a un piso donde van justos disparaba las stats — el reto crece con la
-# profundidad y ahi ya no hay un jugador decidiendo si se mete o se retira, solo un reloj. Bajar esto
-# recorta el techo sin aplanar el incentivo: ir mas hondo sigue pagando mas, que es la gracia.
+# La unica palanca global: lo que rinde un encargo respecto a hacerlo tu.
 const RENDIMIENTO := 0.65
 
-# Cuantas peleas se comen por hora ahi abajo. Ocho horas cruzando un piso poblado son muchos
-# encontronazos; una cada doce minutos es lo que sale de mirar el aforo y el ritmo de partos.
-const PELEAS_HORA := 5.0
-# Lo que saca de UNA pelea un miembro de un grupo de cuatro: unos 3 golpes dados
-# (GAIN_FUERZA_ATAQUE 0.15) y 2 encajados (GAIN_RESISTENCIA_GOLPE 0.345). No es un numero inventado
-# como el GAIN_COMBATE_HORA que habia antes: sale de las mismas constantes que usa combat.gd.
-# Subido de 1.35: aplanar los pesos por clase (para que un picaro no saliera con 15 de Fuerza)
-# repartia el mismo total entre mas stats y las principales se quedaban cortas. Lo que sube es lo que
-# se lleva CADA UNO por pelea, no el numero de peleas.
+# Lo que saca de UNA pelea un miembro: ~3 golpes dados y 2 encajados, con las constantes de combat.gd.
 const VALE_UNA_PELEA := 1.6
 
-# Devuelve la lista de ganancias a aplicar: [{"uid", "abil", "base", "reto", "max_reto"}].
-# NO las aplica: quien las aplique tiene que llamar a Game.ganar() con el PersonajeData correcto, que
-# en multi puede vivir en otra maquina (ver la nota de las dos vias en net.gd).
-# 'trabajadas' = {tipo: unidades} (las TRABAJADAS, no las traidas), 'afinidades' = {tipo: afinidad}.
-# 'desenlace' y 'p_exito' escalan todo por mult_desenlace(): el fracaso paga segun las
-# probabilidades que tenian (ver ahi).
-static func excelia_de(pjs: Array, piso: int, duracion: int, trabajadas: Dictionary,
-		afinidades: Dictionary, r_combate: float, desenlace: int, miembros: Array = [],
-		p_exito: float = 1.0) -> Array:
+# Devuelve [{"uid", "abil", "base", "reto", "max_reto"}]. NO las aplica: en multi el PersonajeData
+# puede vivir en otra maquina.
+#   trabajo      = {uid: {grupo: unidades recogidas}}
+#   extracciones = {uid: {"n": int, "reto": float suma}}
+static func excelia_de(pjs: Array, piso: int, peleas_n: int, trabajo: Dictionary,
+		extracciones: Dictionary, afinidades: Dictionary, desenlace: int, miembros: Array = []) -> Array:
 	var req: float = requisito_combate(piso)
-	var mult: float = mult_desenlace(desenlace, p_exito)
-	var todos: Array = _uids(pjs)
+	var mult: float = mult_desenlace(desenlace)
 	var salida: Array = []
 	for pj_ in pjs:
 		var pj: PersonajeData = pj_ as PersonajeData
 		if pj == null:
 			continue
-		# El reparto entre tipos se mide en CUOTA (que parte del rato dedicaron a cada cosa), no en
-		# unidades sueltas: asi el desenlace entra UNA sola vez, por `mult`. Antes entraba dos veces
-		# --tambien venia dentro del recuento de unidades, que ya llevaba CANTIDAD_DESENLACE-- y eso
-		# hacia que un fracaso enseñara nueve veces menos que un exito en vez de tres.
-		#
-		# Y la cuota es SUYA, no del encargo: solo cuentan los tipos que EL trabaja. Por eso un minero
-		# dedicado se lleva su rato entero en fuerza en vez de un tercio, aunque el grupo saliera a
-		# tres cosas. Es lo que hace que asignar faenas valga para algo.
-		# NODOS SUYOS, no cuotas: las unidades de ese tipo partidas entre los que lo trabajan. Si van
-		# dos a las vetas se reparten las vetas, igual que jugando. Un tipo que el no trabaja no le
-		# paga nada.
-		var mios: Dictionary = {}
-		for tipo in trabajadas:
-			if int(trabajadas[tipo]) <= 0:
+		# --- A) por RECOGER: cada grupo entrena SU stat, con SU reto (al flojo le enseña mas).
+		var suyo_t: Dictionary = trabajo.get(pj.uid, {})
+		for g in suyo_t:
+			var n: int = int(suyo_t[g])
+			if n <= 0:
 				continue
-			var equipo_t: Array = uids_trabajando(miembros, int(tipo), todos)
-			if not equipo_t.has(pj.uid):
-				continue
-			mios[int(tipo)] = float(trabajadas[tipo]) / float(maxi(1, equipo_t.size()))
-		# --- A) por RECOLECTAR, UNA VEZ POR TIPO QUE EL TRABAJA. Cada tipo entrena SU stat: por eso
-		# multiseleccionar reparte tambien el aprendizaje, y no es solo comodidad.
-		for tipo in mios:
-			var nodos: float = float(mios[tipo])
-			var of: Dictionary = oficio_de(int(tipo))
-			var afin: float = float(afinidades.get(tipo, 0.0))
-			# El reto es POR PERSONA: al mas flojo del grupo le enseña mas, igual que en los
-			# minijuegos. Y con SU stat, no con la del grupo.
-			var reto_r: float
-			if int(tipo) == Tipo.BICHO:
-				# Sin exigencia que medir (vale 0 en sus .tres): el reto es el del combate.
-				reto_r = clampf(r_combate_a_reto(r_combate), 0.0, float(of["tope"]))
-			else:
-				# Esto es RETO, no efecto: va con la INTERNA y SIN plato, igual que los minijuegos
-				# (ver Game._reto_recoleccion). Lo que aprendes no puede depender de lo que cenaste.
-				var suyo: float = float(Game.stat_total(String(of["stat"]), pj)) \
-					* Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + afin
-				reto_r = reto_medio(int(tipo), piso, suyo, of)
+			var of: Dictionary = oficio_de(int(g))
+			# RETO, no efecto: con la INTERNA y SIN plato, como los minijuegos.
+			var suyo: float = float(Game.stat_total(String(of["stat"]), pj)) \
+				* Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + float(afinidades.get(int(g), 0.0))
 			salida.append({
-				"uid": pj.uid, "abil": String(of["stat"]), "reto": reto_r,
-				"max_reto": float(of["tope"]),
-				# Por unidades TRABAJADAS, no traidas: currar ocho horas enseña lo mismo aunque la
-				# mochila les obligara a dejar la mitad tirada. Y cada una paga como un nodo entero.
-				"base": float(of["gain"]) * nodos * mult * ritmo_faena(int(tipo)) * RENDIMIENTO,
+				"uid": pj.uid, "abil": String(of["stat"]),
+				"reto": reto_medio(int(g), piso, suyo, of), "max_reto": float(of["tope"]),
+				"base": float(of["gain"]) * float(n) * mult * ritmo_faena(int(g)) * RENDIMIENTO,
 			})
-		# --- B) por PELEAR. Se la llevan TODOS aunque el encargo sea de picar piedra: ahi abajo hay
-		# bichos. Game.reto() es la misma funcion que usa el combate, y el requisito del piso ya esta
-		# en su escala (suma de habilidades), asi que entra tal cual.
-		#
-		# A DONDE va esa excelia lo decide la CLASE que le pusiste al mandarlo. Los pesos suman 1.0,
-		# asi que el total es el mismo de antes y solo cambia el reparto: un mago sale de ahi con
-		# magia y esquiva donde un guerrero pesado sale con brazos.
-		# EL 1 ES EL NIVEL (tier de contenido) DEL ENEMIGO, y hoy es correcto porque TODOS los bichos
-		# del juego son de nivel 1 (ver el comentario de Game.reto). Pero es un 1 escrito a mano,
-		# mientras que el combate de verdad pasa el nivel real del bicho (combat.gd: Game.reto(...,
-		# c.level, pj)). El dia que los enemigos tengan tiers por profundidad, ESTA LINEA se queda
-		# midiendo contra el denominador equivocado -el acumulado de por vida en vez del progreso de
-		# tu nivel- y los encargos dejaran de enseñar sin dar ningun error. Es el sitio a tocar.
+		# --- B) por EXTRAER cristales: Destreza, con el reto medio de lo que saco.
+		var ex: Dictionary = extracciones.get(pj.uid, {})
+		if int(ex.get("n", 0)) > 0:
+			var n_ex: int = int(ex["n"])
+			salida.append({
+				"uid": pj.uid, "abil": "destreza",
+				"reto": float(ex.get("reto", 0.0)) / float(n_ex),
+				"max_reto": Game.EXTRACTION_DESTREZA_RETO_MAX,
+				"base": Game.GAIN_DESTREZA_MINIJUEGO * float(n_ex) * mult * RENDIMIENTO,
+			})
+		# --- C) por PELEAR, todos, repartido por la CLASE que le pusiste.
+		# EL 1 ES EL NIVEL DEL ENEMIGO: hoy todos los bichos son de nivel 1. El dia que no, esta linea
+		# medira contra el denominador equivocado sin dar error.
 		var reto_c: float = Game.reto(req, 1, pj)
-		var base_c: float = peleas(duracion) * VALE_UNA_PELEA * mult * RENDIMIENTO
+		var base_c: float = float(peleas_n) * VALE_UNA_PELEA * mult * RENDIMIENTO
 		var pesos: Dictionary = pesos_clase_de(clase_de(miembros, pj.uid), pj)
 		for abil in pesos:
 			var peso: float = float(pesos[abil])
 			if peso <= 0.0:
 				continue
-			# La magia se mide con la escala de la magia (RETO_MAX), no con la de los mamporros.
 			salida.append({"uid": pj.uid, "abil": String(abil), "reto": reto_c,
 				"max_reto": Game.RETO_MAX if abil == "magia" else Game.RETO_MAX_FISICO,
 				"base": base_c * peso})
 	return salida
 
-# Cuantas peleas se comen en un encargo de esa duracion.
-static func peleas(duracion: int) -> float:
-	return PELEAS_HORA * float(duracion) / 3600.0
-
-# Los pesos de una clase PARA ESE PERSONAJE. El candado: si no lleva hechizos equipados no puede
-# ganar Magia peleando, por mucho que la tabla de su clase diga otra cosa — ese peso se reparte
-# proporcionalmente entre las otras cuatro.
-#
-# Existe porque le puse un 0.05 de Magia al Tanque "por si acaso" y en el playtest salio un tanque
-# con +1 de Magia sin llevar una sola magia encima. La tabla ya esta arreglada, pero el candado se
-# queda: es la clase de error que vuelve por otra puerta.
+# El candado: sin hechizos equipados no se gana Magia peleando; ese peso se reparte entre las demas.
 static func pesos_clase_de(clase: int, pj: PersonajeData) -> Dictionary:
 	var base: Dictionary = PESOS_CLASE.get(clase, PESOS_CLASE[Clase.GUERRERO])
 	var magia: float = float(base.get("magia", 0.0))
@@ -1097,168 +1089,244 @@ static func pesos_clase_de(clase: int, pj: PersonajeData) -> Dictionary:
 		out[abil] = 0.0 if abil == "magia" else float(base[abil]) / resto
 	return out
 
-static func _uids(pjs: Array) -> Array:
-	var out: Array = []
-	for pj_ in pjs:
-		var pj: PersonajeData = pj_ as PersonajeData
-		if pj != null:
-			out.append(pj.uid)
-	return out
-
-# El ratio de combate, leido como "reto": ir justo enseña, ir sobrado no. Es el inverso del ratio,
-# con la misma forma que curva_reto le da a los oficios.
-static func r_combate_a_reto(r: float) -> float:
-	return Game.curva_reto(1.0 / maxf(0.05, r), Game.HERB_PIVOTE, Game.HERB_SLOPE, Game.RETO_MAX)
-
 
 # ============================================================
-#  RESOLVER un encargo: la unica funcion que tira dados
+#  RESOLVER: la unica funcion que tira dados
 # ============================================================
-# Sembrada con encargo.semilla, asi que el resultado es REPRODUCIBLE: se puede volver a calcular
-# igual para depurar, y en multi el host lo resuelve una vez y difunde el resultado ya cocido.
+# Sembrada con encargo.semilla: el mismo encargo da siempre lo mismo, y en multi el host lo resuelve
+# una vez y difunde el resultado ya cocido. NO toca Game.
 #
-# Devuelve el informe: {"desenlace", "botin", "excelia", "trabajadas", "traidas", "perdido", "ratio"}.
-# NO toca nada de Game: quien lo llame decide cuando y donde aplicar el botin y la excelia.
+# Informe: {"desenlace", "botin", "cristales", "dinero", "rotos", "perdido_desenlace", "perdido",
+#           "excelia", "partes", "trabajadas", "bichos", "peleas", "ratio"}
 static func resolver(e: Dictionary, pjs: Array, entradas_cofre: Array) -> Dictionary:
+	migrar(e)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(e.get("semilla", 0))
 
 	var piso: int = int(e.get("piso", 1))
-	var duracion: int = int(e.get("duracion", 3600))
-	var tipos: Array = tipos_validos(e.get("tipos", []))
+	var horas: float = float(int(e.get("duracion", 3600))) / 3600.0
+	var grupos: Dictionary = grupos_validos(e.get("grupos", {}))
 	var miembros: Array = e.get("miembros", [])
 	var n: int = maxi(1, pjs.size())
 
-	# --- Eje 1: ¿vuelven bien?
+	# --- ¿Vuelven bien?
 	var pg: float = poder_grupo(pjs)
-	var r_c: float = pg / requisito_combate(piso)
 	var desenlace: int = tirar_desenlace(pg, piso, rng)
+	var afinidades: Dictionary = _afinidades(grupos, entradas_cofre)
 
-	# --- Lo que aportan los utiles, por tipo.
-	var afinidades: Dictionary = {}
-	var golpes: int = 0
-	for tipo in tipos:
-		var mejor: float = 0.0
-		for entrada in entradas_cofre:
-			var m: Dictionary = mods_util(entrada as Dictionary, int(tipo))
-			if float(m["afinidad"]) > mejor:
-				mejor = float(m["afinidad"])
-				golpes = maxi(golpes, int(m["golpes_menos"]))
-		afinidades[int(tipo)] = mejor
-
-	# --- Cuanto TRABAJAN (esto es lo que da la excelia; el botin lo recorta el peso despues).
-	var por_tipo: Dictionary = repartir(
-		unidades(duracion, n, golpes, float(CANTIDAD_DESENLACE[desenlace])), tipos)
-	# Lo que TRABAJAN de verdad es la suma de lo que da cada tipo: repartir() recorta los que escasean
-	# en el piso (ver ABUNDANCIA), asi que ya no coincide con lo que darian las horas a secas.
-	var trabajadas: int = 0
-	for t in por_tipo:
-		trabajadas += int(por_tipo[t])
-
-	# --- Eje 2: que sacan y con que calidad. La calidad la deciden SOLO los que trabajan ese tipo:
-	# si mandaste al fuerte a las vetas y al torpe a las hierbas, el torpe no le estropea el mineral.
 	var piezas: Array = []
-	for tipo in por_tipo:
-		var t: int = int(tipo)
-		var poder_reco: float = poder_recolector(trabajadores(pjs, miembros, t), t,
-			float(afinidades.get(t, 0.0)))
-		for i in int(por_tipo[tipo]):
-			var m: MaterialData = elegir_material(t, piso, rng)
-			if m == null:
+	var rotos: int = 0
+	var trabajo: Dictionary = {}        # uid -> {grupo: n}
+	var trabajadas: int = 0
+	var pools: Dictionary = {}
+	for g in grupos:
+		if es_recogible(int(g)):
+			pools[int(g)] = pool_recogible(int(g), piso)
+
+	# --- RECOGER: 4 por hora cada uno, repartidas por los porcentajes entre SUS grupos.
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj == null:
+			continue
+		var mios: Array = []
+		for g in grupos_de_persona(miembros, pj.uid, grupos):
+			if es_recogible(int(g)):
+				mios.append(int(g))
+		if mios.is_empty():
+			continue
+		var suyo: Dictionary = {}
+		for i in _entero_con_resto(UNIDADES_HORA_PERSONA * horas, rng):
+			var g: int = _elegir_grupo(mios, grupos, rng)
+			if rng.randf() >= abundancia(g):
+				continue   # no encontro nada: esa tirada se fue en buscar
+			var o: Dictionary = _tirar_fila(pools.get(g, []), rng)
+			if o.is_empty():
 				continue
-			var margen: float = margen_calidad(t, m, piso, poder_reco, r_c)
-			var cal: int = calidad_tirada(margen, rng)
-			# Perder no solo recorta la cantidad: lo que traen viene PEOR. A medias, la mitad.
-			if desenlace == FRACASO or (desenlace == PARCIAL and rng.randf() < 0.5):
-				cal = bajar_calidad(cal)
-			# Un PEZ sin talla no es un pez: el peso, el valor y la corona salen de sus centimetros.
-			# Misma tirada que usa el estanque (MaterialData.tirada_talla), con el rng del encargo.
+			var m: MaterialData = o["material"] as MaterialData
+			suyo[g] = int(suyo.get(g, 0)) + 1
+			trabajadas += 1
+			var stat: float = Game.stat_consolidado_eff(String(oficio_de(g)["stat"]), pj)
+			var cal: int = calidad_tirada(margen_de(stat, g, float(afinidades.get(g, 0.0)),
+				float(o["exigencia"])), rng)
+			if cal == MaterialItem.Calidad.ROTO:
+				rotos += 1
+				continue
+			# Un PEZ sin talla no es un pez: la misma tirada que usa el estanque.
 			var cm: float = m.talla_desde(MaterialData.tirada_talla(rng)) if m.cm_max > 0.0 else 0.0
-			piezas.append({"material": m, "calidad": cal, "cm": cm})
+			piezas.append({"grupo": g, "material": m, "calidad": cal, "cm": cm})
+		trabajo[pj.uid] = suyo
 
-	# --- El tope de peso. Solo recorta el BOTIN: la excelia va por `trabajadas`.
-	var corte: Dictionary = recortar_por_peso(piezas, tope_carga(pjs, entradas_cofre))
+	# --- CAZAR: enemigos reales de la tabla del piso.
+	var peleas_n: int = _entero_con_resto(PELEAS_HORA * horas, rng)
+	var tabla: SpawnTable = load(Game.TABLA_SPAWNS) as SpawnTable
+	var filas: Array = tabla.aplanar(piso) if tabla != null else []
+	# Quien extrae: los que van a por algo de caza (o a por comida, por la carne). Si nadie marco nada
+	# de eso, nadie se para a destripar: pelean y siguen.
+	var quiere_caza: bool = grupos.has(int(Grupo.COMIDA))
+	for g in DE_CAZA:
+		if grupos.has(int(g)):
+			quiere_caza = true
+	var cazadores: Array = []
+	for pj_ in pjs:
+		var pj: PersonajeData = pj_ as PersonajeData
+		if pj == null:
+			continue
+		for g in grupos_de_persona(miembros, pj.uid, grupos):
+			if es_de_caza(int(g)) or int(g) == Grupo.COMIDA:
+				cazadores.append(pj)
+				break
+	var extracciones: Dictionary = {}
+	var bichos: int = 0
+	var familias: Dictionary = {}
+	for _c in peleas_n:
+		for _k in bichos_por_pelea(n):
+			var data: EnemyData = _elegir_enemigo(filas, rng)
+			if data == null:
+				continue
+			bichos += 1
+			if int(data.familia) > 0:
+				familias[int(data.familia)] = int(familias.get(int(data.familia), 0)) + 1
+			if not quiere_caza or cazadores.is_empty():
+				continue
+			var quien: PersonajeData = cazadores[rng.randi() % cazadores.size()]
+			var cat: int = _categoria_cristal(data, rng)
+			var req: float = maxf(1.0, Game._extraction_req(cat))
+			var afin_c: float = float(afinidades.get(int(Grupo.CRISTAL), 0.0))
+			var destreza: float = Game.stat_consolidado_eff("destreza", quien)
+			var cal_c: int = calidad_tirada(margen_de(destreza, Grupo.CRISTAL, afin_c, req), rng)
+			var ex: Dictionary = extracciones.get(quien.uid, {"n": 0, "reto": 0.0})
+			ex["n"] = int(ex["n"]) + 1
+			ex["reto"] = float(ex["reto"]) + Game.curva_reto(
+				req / (float(Game.stat_total("destreza", quien)) * Game.RECOLECCION_STAT_PESO
+					+ Game.EXTRACTION_DESTREZA_FLOOR),
+				Game.EXTRACTION_DESTREZA_PIVOTE, Game.EXTRACTION_DESTREZA_SLOPE,
+				Game.EXTRACTION_DESTREZA_RETO_MAX)
+			extracciones[quien.uid] = ex
+			if grupos.has(int(Grupo.CRISTAL)):
+				if cal_c == MaterialItem.Calidad.ROTO:
+					rotos += 1
+				else:
+					piezas.append({"grupo": int(Grupo.CRISTAL), "cristal": cat, "calidad": cal_c})
+			# Lo que suelta, con SU probabilidad y la calidad del cristal (un cristal roto deja el
+			# material dañado, como jugando). El cuchillo sube material y nucleo, no la carne.
+			var cal_m: int = mini(cal_c, MaterialItem.Calidad.DANADO)
+			var cuchillo: float = Upgrades.cuchillo_drop_mult(afin_c, req) if afin_c > 0.0 else 1.0
+			var f_piso: float = data.drop_factor_piso(piso)
+			_soltar(piezas, grupos, data.drop_material, data.drop_chance * f_piso * cuchillo,
+				data.drop_cantidad_min, data.drop_cantidad_max, cal_m, rng)
+			_soltar(piezas, grupos, data.nucleo, data.nucleo_chance * f_piso * cuchillo, 1, 1, cal_m, rng)
+			_soltar(piezas, grupos, data.drop_extra, data.drop_extra_chance,
+				data.drop_extra_min, data.drop_extra_max, cal_m, rng)
 
-	# Agrupar por (ruta, calidad, talla) para que el encargo guarde poco y viaje ligero. La TALLA
-	# entra en la clave a proposito: dos peces del mismo tipo no son el mismo pez, y de sus
-	# centimetros salen el valor y la corona. Lo que no es pez lleva cm 0 y se agrupa como siempre.
+	# --- El desenlace: la misma parte de cada grupo.
+	var castigo: Dictionary = aplicar_perdida(piezas, desenlace)
+	# --- La mochila: en proporcion al objetivo.
+	var corte: Dictionary = recortar_por_peso(castigo["quedan"], tope_carga(pjs, entradas_cofre), grupos)
+
+	# Agrupar para que el encargo guarde poco y viaje ligero.
 	var cuenta: Dictionary = {}
+	var cuenta_c: Dictionary = {}
+	var dinero: int = 0
 	for p in corte["traidas"]:
-		var clave: String = "%s|%d|%.1f" % [(p["material"] as MaterialData).resource_path,
-			int(p["calidad"]), float(p.get("cm", 0.0))]
+		if p.has("cristal"):
+			var clave_c: String = "%d|%d" % [int(p["cristal"]), int(p["calidad"])]
+			cuenta_c[clave_c] = int(cuenta_c.get(clave_c, 0)) + 1
+			var c := Cristal.new()
+			c.categoria = int(p["cristal"])
+			c.calidad = int(p["calidad"])
+			dinero += c.valor_estimado()
+			continue
+		var clave: String = "%s|%d|%.1f|%d" % [(p["material"] as MaterialData).resource_path,
+			int(p["calidad"]), float(p.get("cm", 0.0)), int(p["grupo"])]
 		cuenta[clave] = int(cuenta.get(clave, 0)) + 1
 	var botin: Array = []
 	for clave in cuenta:
 		var partes: PackedStringArray = clave.split("|")
 		botin.append({"ruta": partes[0], "calidad": int(partes[1]), "cm": float(partes[2]),
-			"n": int(cuenta[clave])})
+			"grupo": int(partes[3]), "n": int(cuenta[clave])})
+	var cristales: Array = []
+	for clave in cuenta_c:
+		var pc: PackedStringArray = clave.split("|")
+		cristales.append({"categoria": int(pc[0]), "calidad": int(pc[1]), "n": int(cuenta_c[clave])})
 
 	return {
 		"desenlace": desenlace,
 		"botin": botin,
-		"excelia": excelia_de(pjs, piso, duracion, por_tipo, afinidades, r_c, desenlace, miembros,
-			float(probs_desenlace(pg, piso)[EXITO])),
-		"partes": partes_de(pjs, duracion, por_tipo, miembros),
-		"trabajadas": trabajadas,
-		"traidas": (corte["traidas"] as Array).size(),
+		"cristales": cristales,
+		"dinero": dinero,
+		"rotos": rotos,
+		"perdido_desenlace": int(castigo["perdido"]),
 		"perdido": int(corte["perdido"]),
-		"ratio": r_c,
+		"kg": float(corte["kg"]),
+		"excelia": excelia_de(pjs, piso, peleas_n, trabajo, extracciones, afinidades, desenlace, miembros),
+		"partes": partes_de(pjs, peleas_n, trabajo, extracciones, familias, miembros),
+		"trabajadas": trabajadas,
+		"bichos": bichos,
+		"peleas": peleas_n,
+		"ratio": pg / requisito_mostrado(piso),
 	}
 
+# Un bicho suelta (o no) una cosa. Solo entra si su grupo esta en el objetivo: lo demas se queda en
+# el suelo.
+static func _soltar(piezas: Array, grupos: Dictionary, m: MaterialData, chance: float, n_min: int,
+		n_max: int, cal: int, rng: RandomNumberGenerator) -> void:
+	if m == null or rng.randf() >= clampf(chance, 0.0, 1.0):
+		return
+	var g: int = grupo_de_drop(m)
+	if not grupos.has(g):
+		return
+	var cuantos: int = rng.randi_range(maxi(1, n_min), maxi(1, maxi(n_min, n_max)))
+	for _i in cuantos:
+		piezas.append({"grupo": g, "material": m, "calidad": cal, "cm": 0.0})
+
 
 # ============================================================
-#  EL PARTE DE TRABAJO: que ha hecho cada uno ahi abajo
+#  EL PARTE DE TRABAJO: lo que ha hecho cada uno ahi abajo
 # ============================================================
-# La excelia no es lo unico que sale de currar ocho horas: tambien se tiran las pasivas RNG y suben
-# los contadores ocultos de los desarrollos (Cazador, Autorregeneracion, Reflejos, Erudito...). Pero
-# eso vive en Game y en los PersonajeData, y esta clase es ESTATICA y no toca Game a proposito.
-#
-# Asi que aqui solo se cuenta lo que han hecho, en primitivos, y quien lo aplique tira los dados. Es
-# ademas lo que hace falta para multijugador: el parte viaja con el informe y lo aplica la maquina
-# del DUEÑO de cada personaje (ver las dos vias de net.gd), que es la unica que tiene su ficha.
-#
-# Bichos por pelea: los brotes del piso son de dos (ver spawn_zone), asi que dos abatidos por pelea.
-const BICHOS_POR_PELEA := 2.0
-# Cuanto reparte y cuanto encaja un miembro de un grupo de cuatro en UNA pelea del piso. Son los
-# mismos ordenes de magnitud con los que se calibro VALE_UNA_PELEA.
+# Las pasivas RNG, los contadores de desarrollo y el DESGASTE del equipo viven en Game y en los
+# PersonajeData, asi que aqui solo se cuenta lo que han hecho, en primitivos, y lo aplica la maquina
+# del DUEÑO de cada personaje (Game.aplicar_parte_encargo).
 const DANO_DADO_POR_PELEA := 60.0
 const DANO_RECIBIDO_POR_PELEA := 25.0
-# Lo que PARA levantando la guardia (contador de la Autorregeneracion, ver Game.contar_dano_bloqueado).
-# Sin esto, quien se va de encargo no progresa nunca en ese perk. El orden de magnitud: se defiende
-# ~1 de cada 6 golpes que entran, y un golpe defendido se come la mayor parte del bruto. PROVISIONAL.
+# Lo que PARA levantando la guardia (contador de la Autorregeneracion). PROVISIONAL.
 const DANO_BLOQUEADO_POR_PELEA := 10.0
-const ESQUIVAS_POR_PELEA := 0.3        # EVADE_MIN es 0.03 y encajan ~6 golpes: se esquiva poco
-const HECHIZOS_POR_PELEA := 3.0        # solo cuenta para quien lleve magias
+const ESQUIVAS_POR_PELEA := 0.3
+const HECHIZOS_POR_PELEA := 3.0
+# DESGASTE: golpes que da y que encaja cada uno por pelea. Son los mismos que calibran VALE_UNA_PELEA,
+# y cada uno gasta con el DESGASTE_ARMA / DESGASTE_ARMOR de siempre.
+const GOLPES_DADOS_POR_PELEA := 3.0
+const GOLPES_RECIBIDOS_POR_PELEA := 2.0
 
-static func partes_de(pjs: Array, duracion: int, trabajadas: Dictionary,
-		miembros: Array) -> Array:
-	var todos: Array = _uids(pjs)
-	var n_peleas: float = peleas(duracion)
+static func partes_de(pjs: Array, peleas_n: int, trabajo: Dictionary, extracciones: Dictionary,
+		familias: Dictionary, miembros: Array) -> Array:
+	var n: int = maxi(1, pjs.size())
 	var salida: Array = []
 	for pj_ in pjs:
 		var pj: PersonajeData = pj_ as PersonajeData
 		if pj == null:
 			continue
-		# Unidades que ha trabajado EL, por tipo: el mismo reparto que paga la excelia.
-		var uds: Dictionary = {}
-		for tipo in trabajadas:
-			if int(trabajadas[tipo]) <= 0:
-				continue
-			var equipo_t: Array = uids_trabajando(miembros, int(tipo), todos)
-			if not equipo_t.has(pj.uid):
-				continue
-			uds[int(tipo)] = int(round(float(trabajadas[tipo]) / float(maxi(1, equipo_t.size()))))
+		# Las bajas se reparten entre todos: el slayer se gana matando, y matan entre todos.
+		var suyas: Dictionary = {}
+		var bichos_suyos: int = 0
+		for f in familias:
+			var k: int = int(round(float(familias[f]) / float(n)))
+			if k > 0:
+				suyas[int(f)] = k
+				bichos_suyos += k
 		salida.append({
 			"uid": pj.uid,
-			# De quien es: lo necesita el reparto por red, igual que las entradas de excelia.
 			"dueno": _dueno_de(miembros, pj.uid),
-			"unidades": uds,
-			"peleas": n_peleas,
-			"bichos": int(round(n_peleas * BICHOS_POR_PELEA)),
-			"dano_dado": n_peleas * DANO_DADO_POR_PELEA,
-			"dano_recibido": n_peleas * DANO_RECIBIDO_POR_PELEA,
-			"dano_bloqueado": n_peleas * DANO_BLOQUEADO_POR_PELEA,
-			"esquivas": n_peleas * ESQUIVAS_POR_PELEA,
-			"hechizos": n_peleas * HECHIZOS_POR_PELEA,
+			"unidades": (trabajo.get(pj.uid, {}) as Dictionary).duplicate(),
+			"extracciones": int((extracciones.get(pj.uid, {}) as Dictionary).get("n", 0)),
+			"peleas": peleas_n,
+			"bichos": bichos_suyos,
+			"familias": suyas,
+			"dano_dado": peleas_n * DANO_DADO_POR_PELEA,
+			"dano_recibido": peleas_n * DANO_RECIBIDO_POR_PELEA,
+			"dano_bloqueado": peleas_n * DANO_BLOQUEADO_POR_PELEA,
+			"esquivas": peleas_n * ESQUIVAS_POR_PELEA,
+			"hechizos": peleas_n * HECHIZOS_POR_PELEA,
+			"golpes_dados": peleas_n * GOLPES_DADOS_POR_PELEA,
+			"golpes_recibidos": peleas_n * GOLPES_RECIBIDOS_POR_PELEA,
 		})
 	return salida
