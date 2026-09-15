@@ -54,8 +54,8 @@ f542 Agirato ochinan hp=198.795 mp=36.500 en=177.425
 f552 LOG 🔮 Agirato ochinan recita Shock térmico fulminante (3/3). Esperando...
 f554 998 PULSA frase Que el vidrio se parta
 f555 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
-f567 LOG … 0.40 de daño (1 de 1 golpes).  Aplica: Veneno.
-f567 Catalardio hp=198.329 mp=24.620 en=181.275
+f567 LOG … 0.20 de daño (1 de 1 golpes).  Aplica: Veneno.
+f567 Catalardio hp=198.529 mp=24.620 en=181.275
 f626 LOG Dasui esquiva el ataque de 2. Slime. 💨
 f696 LOG 1. Rey Slime usa Brote contra Catalardio.  ¡Brotan 2 slimes a su lado! 🟢
 f696 Slime hp=32.050 mp=20.363 en=0.000
@@ -1236,7 +1236,7 @@ f986 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f986 Slime hp=0.000 mp=20.363 en=0.000
 f986 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f987 LOG Turno de Catalardio. Esperando su acción...
-f987 Catalardio hp=195.329 mp=24.620 en=181.275
+f987 Catalardio hp=195.529 mp=24.620 en=181.275
 f987 Slime hp=26.762 mp=20.429 en=0.000
 f987 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f987 Slime hp=0.000 mp=20.363 en=0.000
@@ -1675,8 +1675,8 @@ f1094 Slime hp=26.762 mp=20.429 en=0.000
 f1094 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1094 Slime hp=0.000 mp=20.363 en=0.000
 f1094 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1095 LOG … 0.85 de daño (1 de 1 golpes).  Aplica: Débil.
-f1095 Daniel hp=190.138 mp=20.000 en=139.025
+f1095 LOG … 0.48 de daño (1 de 1 golpes).  Aplica: Débil.
+f1095 Daniel hp=190.511 mp=20.000 en=139.025
 f1095 Slime hp=26.762 mp=20.429 en=0.000
 f1095 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1095 Slime hp=0.000 mp=20.363 en=0.000
@@ -1917,8 +1917,8 @@ f1154 Slime hp=26.762 mp=20.429 en=0.000
 f1154 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1154 Slime hp=0.000 mp=20.363 en=0.000
 f1154 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1155 LOG 1. Rey Slime ataca a Agirato ochinan por 0.70 de daño.  Le inflige Pegajoso.
-f1155 Agirato ochinan hp=198.099 mp=32.237 en=177.425
+f1155 LOG 1. Rey Slime ataca a Agirato ochinan por 0.35 de daño.  Le inflige Pegajoso.
+f1155 Agirato ochinan hp=198.448 mp=32.237 en=177.425
 f1155 Slime hp=26.762 mp=20.429 en=0.000
 f1155 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1155 Slime hp=0.000 mp=20.363 en=0.000
@@ -2142,7 +2142,7 @@ f1209 Slime hp=0.000 mp=20.363 en=0.000
 f1209 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1209 999 PULSA Defender
 f1210 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f1210 Daniel hp=190.138 mp=20.000 en=124.025
+f1210 Daniel hp=190.511 mp=20.000 en=124.025
 f1210 Slime hp=26.762 mp=20.429 en=0.000
 f1210 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1210 Slime hp=0.000 mp=20.363 en=0.000
@@ -2156,7 +2156,7 @@ f1212 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1212 Slime hp=0.000 mp=20.363 en=0.000
 f1212 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1213 LOG Turno de Agirato ochinan. Esperando su acción...
-f1213 Agirato ochinan hp=198.099 mp=36.500 en=177.425
+f1213 Agirato ochinan hp=198.448 mp=36.500 en=177.425
 f1213 Slime hp=26.762 mp=20.429 en=0.000
 f1213 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1213 Slime hp=0.000 mp=20.363 en=0.000
@@ -2184,7 +2184,7 @@ f1218 Slime hp=0.000 mp=20.363 en=0.000
 f1218 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1218 998 PULSA _ability_box: Bastonazo  (26 EN)
 f1219 LOG … 17.52 de daño (1 de 1 golpes).  ✨Lento.
-f1219 Agirato ochinan hp=198.099 mp=36.500 en=151.425
+f1219 Agirato ochinan hp=198.448 mp=36.500 en=151.425
 f1219 Rey Slime hp=212.200 mp=21.188 en=0.000
 f1219 Slime hp=26.762 mp=20.429 en=0.000
 f1219 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -2739,7 +2739,7 @@ f1355 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1355 Slime hp=0.000 mp=20.363 en=0.000
 f1355 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1356 LOG Turno de Catalardio. Esperando su acción...
-f1356 Catalardio hp=192.329 mp=24.620 en=181.275
+f1356 Catalardio hp=192.529 mp=24.620 en=181.275
 f1356 Slime hp=26.762 mp=20.429 en=0.000
 f1356 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1356 Slime hp=0.000 mp=20.363 en=0.000
@@ -3207,10 +3207,10 @@ f1471 Slime hp=26.762 mp=20.429 en=0.000
 f1471 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1471 Slime hp=0.000 mp=20.363 en=0.000
 f1471 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1472 LOG … 0.90 de daño: Dasui (0.41), Catalardio (0.36), Daniel (0.13)  🛡️ Daniel aguanta en guardia (menos daño).
-f1472 Catalardio hp=191.966 mp=24.620 en=181.275
-f1472 Dasui hp=199.111 mp=20.000 en=181.300
-f1472 Daniel hp=190.009 mp=20.000 en=124.025
+f1472 LOG … 0.56 de daño: Dasui (0.25), Catalardio (0.18), Daniel (0.13)  🛡️ Daniel aguanta en guardia (menos daño).
+f1472 Catalardio hp=192.346 mp=24.620 en=181.275
+f1472 Dasui hp=199.272 mp=20.000 en=181.300
+f1472 Daniel hp=190.386 mp=20.000 en=124.025
 f1472 Slime hp=26.762 mp=20.429 en=0.000
 f1472 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1472 Slime hp=0.000 mp=20.363 en=0.000
@@ -3515,7 +3515,7 @@ f1545 Slime hp=0.000 mp=20.363 en=0.000
 f1545 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1545 998 PULSA Defender
 f1546 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f1546 Agirato ochinan hp=198.099 mp=36.500 en=136.425
+f1546 Agirato ochinan hp=198.448 mp=36.500 en=136.425
 f1546 Slime hp=26.762 mp=20.429 en=0.000
 f1546 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1546 Slime hp=0.000 mp=20.363 en=0.000
@@ -3584,8 +3584,8 @@ f1562 Slime hp=26.762 mp=20.429 en=0.000
 f1562 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1562 Slime hp=0.000 mp=20.363 en=0.000
 f1562 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1563 LOG … 0.28 de daño: Agirato ochinan (0.00), Catalardio (0.28)  🛡️ Agirato ochinan aguanta en guardia (menos daño).  Aplica: Pegajoso.
-f1563 Catalardio hp=191.688 mp=24.620 en=181.275
+f1563 LOG … 0.14 de daño: Agirato ochinan (0.00), Catalardio (0.14)  🛡️ Agirato ochinan aguanta en guardia (menos daño).  Aplica: Pegajoso.
+f1563 Catalardio hp=192.206 mp=24.620 en=181.275
 f1563 Slime hp=26.762 mp=20.429 en=0.000
 f1563 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1563 Slime hp=0.000 mp=20.363 en=0.000
@@ -3878,7 +3878,7 @@ f1634 Slime hp=0.000 mp=20.363 en=0.000
 f1634 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1634 999 PULSA _ability_box: Tajo devastador  (72 EN)
 f1635 LOG … 28.07 de daño (1 de 1 golpes).
-f1635 Dasui hp=199.111 mp=20.000 en=109.300
+f1635 Dasui hp=199.272 mp=20.000 en=109.300
 f1635 Rey Slime hp=170.799 mp=21.188 en=0.000
 f1635 Slime hp=26.762 mp=20.429 en=0.000
 f1635 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -4169,7 +4169,7 @@ f1706 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1706 Slime hp=0.000 mp=20.363 en=0.000
 f1706 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1707 LOG Turno de Catalardio. Esperando su acción...
-f1707 Catalardio hp=188.688 mp=24.620 en=181.275
+f1707 Catalardio hp=189.206 mp=24.620 en=181.275
 f1707 Slime hp=26.762 mp=20.429 en=0.000
 f1707 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1707 Slime hp=0.000 mp=20.363 en=0.000
@@ -4513,10 +4513,10 @@ f1791 Slime hp=26.762 mp=20.429 en=0.000
 f1791 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1791 Slime hp=0.000 mp=20.363 en=0.000
 f1791 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1792 LOG … 2.47 de daño: Daniel (1.74), Dasui (0.21), Catalardio (0.52)  Aplica: Pegajoso.
-f1792 Catalardio hp=188.172 mp=24.620 en=181.275
-f1792 Dasui hp=198.897 mp=20.000 en=109.300
-f1792 Daniel hp=188.273 mp=20.000 en=124.025
+f1792 LOG … 1.34 de daño: Daniel (0.97), Dasui (0.10), Catalardio (0.26)  Aplica: Pegajoso.
+f1792 Catalardio hp=188.947 mp=24.620 en=181.275
+f1792 Dasui hp=199.169 mp=20.000 en=109.300
+f1792 Daniel hp=189.412 mp=20.000 en=124.025
 f1792 Slime hp=26.762 mp=20.429 en=0.000
 f1792 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1792 Slime hp=0.000 mp=20.363 en=0.000
@@ -4924,7 +4924,7 @@ f1892 Slime hp=0.000 mp=20.363 en=0.000
 f1892 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1892 998 PULSA Atacar
 f1893 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 11.17 de daño. 💥
-f1893 Agirato ochinan hp=198.099 mp=36.500 en=164.425
+f1893 Agirato ochinan hp=198.448 mp=36.500 en=164.425
 f1893 Rey Slime hp=151.564 mp=21.188 en=0.000
 f1893 Slime hp=26.762 mp=20.429 en=0.000
 f1893 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -5263,8 +5263,8 @@ f1975 Slime hp=26.762 mp=20.429 en=0.000
 f1975 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1975 Slime hp=0.000 mp=20.363 en=0.000
 f1975 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f1976 LOG … 0.20 de daño: Agirato ochinan (0.20), Catalardio (0.00)
-f1976 Agirato ochinan hp=197.899 mp=36.500 en=164.425
+f1976 LOG … 0.10 de daño: Agirato ochinan (0.10), Catalardio (0.00)
+f1976 Agirato ochinan hp=198.348 mp=36.500 en=164.425
 f1976 Slime hp=26.762 mp=20.429 en=0.000
 f1976 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1976 Slime hp=0.000 mp=20.363 en=0.000
@@ -5548,7 +5548,7 @@ f2045 Slime hp=0.000 mp=20.363 en=0.000
 f2045 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2045 999 PULSA Defender
 f2046 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f2046 Dasui hp=198.897 mp=20.000 en=94.300
+f2046 Dasui hp=199.169 mp=20.000 en=94.300
 f2046 Slime hp=26.762 mp=20.429 en=0.000
 f2046 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2046 Slime hp=0.000 mp=20.363 en=0.000
@@ -5605,8 +5605,8 @@ f2059 Slime hp=26.762 mp=20.429 en=0.000
 f2059 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2059 Slime hp=0.000 mp=20.363 en=0.000
 f2059 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2060 LOG … 0.73 de daño (1 de 1 golpes).  Aplica: Veneno.
-f2060 Daniel hp=187.539 mp=20.000 en=124.025
+f2060 LOG … 0.41 de daño (1 de 1 golpes).  Aplica: Veneno.
+f2060 Daniel hp=188.999 mp=20.000 en=124.025
 f2060 Slime hp=26.762 mp=20.429 en=0.000
 f2060 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2060 Slime hp=0.000 mp=20.363 en=0.000
@@ -5912,7 +5912,7 @@ f2135 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2135 Slime hp=0.000 mp=20.363 en=0.000
 f2135 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2136 LOG Turno de Catalardio. Esperando su acción...
-f2136 Catalardio hp=185.172 mp=24.620 en=181.275
+f2136 Catalardio hp=185.947 mp=24.620 en=181.275
 f2136 Slime hp=26.762 mp=20.429 en=0.000
 f2136 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2136 Slime hp=0.000 mp=20.363 en=0.000
@@ -5940,7 +5940,7 @@ f2141 Slime hp=0.000 mp=20.363 en=0.000
 f2141 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2141 998 PULSA _ability_box: Golpe sísmico  (60 EN)
 f2142 LOG … 26.31 de daño: 1. Rey Slime (18.62), 2. Slime (7.69), 5. Slime venenoso (0.00)  ✨Aturdido.
-f2142 Catalardio hp=185.172 mp=24.620 en=121.275
+f2142 Catalardio hp=185.947 mp=24.620 en=121.275
 f2142 Rey Slime hp=136.670 mp=21.188 en=0.000
 f2142 Slime hp=19.071 mp=20.429 en=0.000
 f2142 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -6296,13 +6296,13 @@ f2228 Slime hp=0.000 mp=20.363 en=0.000
 f2228 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2228 998 PULSA frase Luz y oscuridad
 f2229 LOG ✓ Frase correcta. Continua el proximo turno...
-f2229 Agirato ochinan hp=197.899 mp=36.500 en=177.425
+f2229 Agirato ochinan hp=198.348 mp=36.500 en=177.425
 f2229 Slime hp=19.071 mp=20.429 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2229 Slime hp=0.000 mp=20.363 en=0.000
 f2229 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2230 LOG Turno de Daniel. Esperando su acción...
-f2230 Daniel hp=184.539 mp=20.000 en=124.025
+f2230 Daniel hp=185.999 mp=20.000 en=124.025
 f2230 Slime hp=19.071 mp=20.429 en=0.000
 f2230 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2230 Slime hp=0.000 mp=20.363 en=0.000
@@ -6317,7 +6317,7 @@ f2232 Slime hp=0.000 mp=20.363 en=0.000
 f2232 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2232 999 PULSA Atacar
 f2233 LOG Daniel golpea con Maza pequeña por 5.80 de daño.
-f2233 Daniel hp=184.539 mp=20.000 en=159.025
+f2233 Daniel hp=185.999 mp=20.000 en=159.025
 f2233 Rey Slime hp=132.028 mp=21.188 en=0.000
 f2233 Slime hp=19.071 mp=20.429 en=0.000
 f2233 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -6768,8 +6768,8 @@ f2343 Slime hp=19.071 mp=20.429 en=0.000
 f2343 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2343 Slime hp=0.000 mp=20.363 en=0.000
 f2343 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2344 LOG 2. Slime ataca a Daniel por 0.60 de daño.  Le inflige Pegajoso.
-f2344 Daniel hp=183.938 mp=20.000 en=159.025
+f2344 LOG 2. Slime ataca a Daniel por 0.34 de daño.  Le inflige Pegajoso.
+f2344 Daniel hp=185.662 mp=20.000 en=159.025
 f2344 Slime hp=19.071 mp=20.429 en=0.000
 f2344 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2344 Slime hp=0.000 mp=20.363 en=0.000
@@ -7207,8 +7207,8 @@ f2452 Slime hp=19.071 mp=20.429 en=0.000
 f2452 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2452 Slime hp=0.000 mp=20.363 en=0.000
 f2452 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2453 LOG … 0.75 de daño (1 de 1 golpes).
-f2453 Daniel hp=183.187 mp=20.000 en=159.025
+f2453 LOG … 0.42 de daño (1 de 1 golpes).
+f2453 Daniel hp=185.240 mp=20.000 en=159.025
 f2453 Slime hp=19.071 mp=20.429 en=0.000
 f2453 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2453 Slime hp=0.000 mp=20.363 en=0.000
@@ -7545,7 +7545,7 @@ f2534 Slime hp=0.000 mp=20.363 en=0.000
 f2534 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2534 998 PULSA Atacar
 f2535 LOG 1. Rey Slime esquiva tu ataque (Martillo grande). 💨
-f2535 Catalardio hp=185.172 mp=24.620 en=163.275
+f2535 Catalardio hp=185.947 mp=24.620 en=163.275
 f2535 Slime hp=19.071 mp=20.429 en=0.000
 f2535 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2535 Slime hp=0.000 mp=20.363 en=0.000
@@ -7775,7 +7775,7 @@ f2591 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2591 Slime hp=0.000 mp=20.363 en=0.000
 f2591 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2592 LOG Turno de Daniel. Esperando su acción...
-f2592 Daniel hp=180.187 mp=20.000 en=159.025
+f2592 Daniel hp=182.240 mp=20.000 en=159.025
 f2592 Slime hp=19.071 mp=20.429 en=0.000
 f2592 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2592 Slime hp=0.000 mp=20.363 en=0.000
@@ -7790,7 +7790,7 @@ f2594 Slime hp=0.000 mp=20.363 en=0.000
 f2594 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2594 999 PULSA Atacar
 f2595 LOG Daniel golpea con Maza pequeña por 5.57 de daño.
-f2595 Daniel hp=180.187 mp=20.000 en=181.025
+f2595 Daniel hp=182.240 mp=20.000 en=181.025
 f2595 Rey Slime hp=127.573 mp=21.188 en=0.000
 f2595 Slime hp=19.071 mp=20.429 en=0.000
 f2595 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -8183,7 +8183,7 @@ f2691 Slime hp=0.000 mp=20.363 en=0.000
 f2691 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2691 999 PULSA Atacar
 f2692 LOG ¡CRITICO! Dasui golpea con Mandobles por 15.83 de daño. 💥
-f2692 Dasui hp=198.897 mp=20.000 en=136.300
+f2692 Dasui hp=199.169 mp=20.000 en=136.300
 f2692 Rey Slime hp=114.912 mp=21.188 en=0.000
 f2692 Slime hp=19.071 mp=20.429 en=0.000
 f2692 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -8853,8 +8853,8 @@ f2857 Slime hp=19.071 mp=20.429 en=0.000
 f2857 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2857 Slime hp=0.000 mp=20.363 en=0.000
 f2857 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f2858 LOG 5. Slime venenoso ataca a Daniel por 0.61 de daño.
-f2858 Daniel hp=179.580 mp=20.000 en=181.025
+f2858 LOG 5. Slime venenoso ataca a Daniel por 0.34 de daño.
+f2858 Daniel hp=181.899 mp=20.000 en=181.025
 f2858 Slime hp=19.071 mp=20.429 en=0.000
 f2858 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2858 Slime hp=0.000 mp=20.363 en=0.000
@@ -9072,7 +9072,7 @@ f2911 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2911 Slime hp=0.000 mp=20.363 en=0.000
 f2911 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2912 LOG Turno de Daniel. Esperando su acción...
-f2912 Daniel hp=176.580 mp=20.000 en=181.025
+f2912 Daniel hp=178.899 mp=20.000 en=181.025
 f2912 Slime hp=19.071 mp=20.429 en=0.000
 f2912 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2912 Slime hp=0.000 mp=20.363 en=0.000
@@ -9087,7 +9087,7 @@ f2914 Slime hp=0.000 mp=20.363 en=0.000
 f2914 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2914 999 PULSA Defender
 f2915 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f2915 Daniel hp=176.580 mp=20.000 en=166.025
+f2915 Daniel hp=178.899 mp=20.000 en=166.025
 f2915 Slime hp=19.071 mp=20.429 en=0.000
 f2915 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2915 Slime hp=0.000 mp=20.363 en=0.000
@@ -9173,7 +9173,7 @@ f2934 Slime hp=0.000 mp=20.363 en=0.000
 f2934 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2934 998 PULSA Atacar
 f2935 LOG Catalardio golpea con Martillo grande por 11.16 de daño.
-f2935 Catalardio hp=185.172 mp=24.620 en=181.275
+f2935 Catalardio hp=185.947 mp=24.620 en=181.275
 f2935 Rey Slime hp=105.981 mp=21.188 en=0.000
 f2935 Slime hp=19.071 mp=20.429 en=0.000
 f2935 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -9643,7 +9643,7 @@ f3050 Slime hp=0.000 mp=20.363 en=0.000
 f3050 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3050 999 PULSA Atacar
 f3051 LOG Dasui golpea con Mandobles por 10.01 de daño.
-f3051 Dasui hp=198.897 mp=20.000 en=178.300
+f3051 Dasui hp=199.169 mp=20.000 en=178.300
 f3051 Rey Slime hp=97.977 mp=21.188 en=0.000
 f3051 Slime hp=19.071 mp=20.429 en=0.000
 f3051 Slime venenoso hp=0.000 mp=20.495 en=0.000
@@ -10085,7 +10085,7 @@ f3159 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3159 Slime hp=0.000 mp=20.363 en=0.000
 f3159 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3160 LOG … 0.12 de daño (1 de 1 golpes).  🛡️ Daniel aguanta en guardia (menos daño).  Aplica: Lento.
-f3160 Daniel hp=176.455 mp=20.000 en=166.025
+f3160 Daniel hp=178.779 mp=20.000 en=166.025
 f3160 Slime hp=19.071 mp=20.429 en=0.000
 f3160 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3160 Slime hp=0.000 mp=20.363 en=0.000
@@ -10335,7 +10335,7 @@ f3221 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3221 Slime hp=0.000 mp=20.363 en=0.000
 f3221 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3222 LOG Turno de Daniel. Esperando su acción...
-f3222 Daniel hp=173.455 mp=20.000 en=166.025
+f3222 Daniel hp=175.779 mp=20.000 en=166.025
 f3222 Slime hp=19.071 mp=20.429 en=0.000
 f3222 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3222 Slime hp=0.000 mp=20.363 en=0.000
@@ -10452,9 +10452,9 @@ f3249 Slime hp=19.071 mp=20.429 en=0.000
 f3249 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3249 Slime hp=0.000 mp=20.363 en=0.000
 f3249 Slime venenoso hp=38.050 mp=20.363 en=0.000
-f3250 LOG … 0.38 de daño: Catalardio (0.24), Dasui (0.14)  Aplica: Pegajoso, Pegajoso.
-f3250 Catalardio hp=184.931 mp=24.620 en=181.275
-f3250 Dasui hp=198.759 mp=20.000 en=178.300
+f3250 LOG … 0.20 de daño: Catalardio (0.12), Dasui (0.08)  Aplica: Pegajoso, Pegajoso.
+f3250 Catalardio hp=185.825 mp=24.620 en=181.275
+f3250 Dasui hp=199.094 mp=20.000 en=178.300
 f3250 Slime hp=19.071 mp=20.429 en=0.000
 f3250 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3250 Slime hp=0.000 mp=20.363 en=0.000
@@ -10710,7 +10710,7 @@ f3312 Slime hp=0.000 mp=20.363 en=0.000
 f3312 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3312 998 PULSA Defender
 f3313 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
-f3313 Catalardio hp=184.931 mp=24.620 en=166.275
+f3313 Catalardio hp=185.825 mp=24.620 en=166.275
 f3313 Slime hp=19.071 mp=20.429 en=0.000
 f3313 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3313 Slime hp=0.000 mp=20.363 en=0.000
@@ -10774,7 +10774,7 @@ f3327 Slime hp=0.000 mp=20.363 en=0.000
 f3327 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3327 998 PULSA 🔥 ¡Lanzar Eclipse!
 f3328 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.9 MP.
-f3328 Agirato ochinan hp=197.899 mp=19.110 en=177.425
+f3328 Agirato ochinan hp=198.348 mp=19.110 en=177.425
 f3328 Rey Slime hp=0.000 mp=21.188 en=0.000
 f3328 Slime hp=0.000 mp=20.429 en=0.000
 f3328 Slime venenoso hp=0.000 mp=20.495 en=0.000

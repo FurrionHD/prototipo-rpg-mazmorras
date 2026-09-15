@@ -19,7 +19,7 @@ f168 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  14/37 🔷)
 f169 Agirato ochinan hp=198.795 mp=24.279 en=177.425
 f175 PULSA Defender
 f176 Catalardio hp=198.733 mp=24.620 en=166.275
-f189 Daniel hp=190.489 mp=20.000 en=181.025
+f189 Daniel hp=190.709 mp=20.000 en=181.025
 f350 Agirato ochinan hp=198.795 mp=34.494 en=177.425
 f352 PULSA frase Y ahora, hiela
 f413 PULSA Atacar
@@ -31,8 +31,8 @@ f544 PULSA _objeto_box: Poción de maná media  x2
 f547 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  34/37 🔷)
 f548 Agirato ochinan hp=198.795 mp=36.500 en=177.425
 f560 PULSA frase Que el vidrio se parta
-f577 Catalardio hp=198.402 mp=24.620 en=166.275
-f640 Dasui hp=199.465 mp=20.000 en=181.300
+f577 Catalardio hp=198.566 mp=24.620 en=166.275
+f640 Dasui hp=199.522 mp=20.000 en=181.300
 f700 Slime hp=32.050 mp=20.363 en=0.000
 f701 Slime hp=32.650 mp=20.429 en=0.000
 f701 Slime hp=32.050 mp=20.363 en=0.000
@@ -226,7 +226,7 @@ f794 Slime hp=32.050 mp=20.363 en=0.000
 f795 Slime hp=32.650 mp=20.429 en=0.000
 f795 Slime hp=32.050 mp=20.363 en=0.000
 f795 PULSA _ability_box: Golpe demoledor  (42 EN)
-f796 Daniel hp=190.489 mp=20.000 en=139.025
+f796 Daniel hp=190.709 mp=20.000 en=139.025
 f796 Rey Slime hp=834.837 mp=21.188 en=0.000
 f796 Slime hp=26.052 mp=20.429 en=0.000
 f796 Slime hp=32.050 mp=20.363 en=0.000
@@ -1073,7 +1073,7 @@ f1097 Slime hp=32.050 mp=20.363 en=0.000
 f1098 Slime hp=26.052 mp=20.429 en=0.000
 f1098 Slime hp=0.000 mp=20.363 en=0.000
 f1098 Slime hp=32.050 mp=20.363 en=0.000
-f1099 Dasui hp=199.349 mp=20.000 en=181.300
+f1099 Dasui hp=199.447 mp=20.000 en=181.300
 f1099 Slime hp=26.052 mp=20.429 en=0.000
 f1099 Slime hp=0.000 mp=20.363 en=0.000
 f1099 Slime hp=32.050 mp=20.363 en=0.000
@@ -1264,7 +1264,7 @@ f1161 Slime hp=26.052 mp=20.429 en=0.000
 f1161 Slime hp=0.000 mp=20.363 en=0.000
 f1161 Slime hp=32.050 mp=20.363 en=0.000
 f1161 PULSA Defender
-f1162 Daniel hp=190.489 mp=20.000 en=124.025
+f1162 Daniel hp=190.709 mp=20.000 en=124.025
 f1162 Slime hp=26.052 mp=20.429 en=0.000
 f1162 Slime hp=0.000 mp=20.363 en=0.000
 f1162 Slime hp=32.050 mp=20.363 en=0.000
@@ -1679,7 +1679,7 @@ f1297 Slime hp=26.052 mp=20.429 en=0.000
 f1297 Slime hp=0.000 mp=20.363 en=0.000
 f1297 Slime hp=32.050 mp=20.363 en=0.000
 f1297 PULSA Atacar
-f1298 Catalardio hp=198.402 mp=24.620 en=181.275
+f1298 Catalardio hp=198.566 mp=24.620 en=181.275
 f1298 Rey Slime hp=345.173 mp=21.188 en=0.000
 f1298 Slime hp=26.052 mp=20.429 en=0.000
 f1298 Slime hp=0.000 mp=20.363 en=0.000
@@ -2235,7 +2235,7 @@ f1479 Slime hp=32.050 mp=20.363 en=0.000
 f1480 Slime hp=26.052 mp=20.429 en=0.000
 f1480 Slime hp=0.000 mp=20.363 en=0.000
 f1480 Slime hp=32.050 mp=20.363 en=0.000
-f1481 Daniel hp=189.942 mp=20.000 en=124.025
+f1481 Daniel hp=190.402 mp=20.000 en=124.025
 f1481 Slime hp=26.052 mp=20.429 en=0.000
 f1481 Slime hp=0.000 mp=20.363 en=0.000
 f1481 Slime hp=32.050 mp=20.363 en=0.000
@@ -2645,7 +2645,7 @@ f1615 Slime hp=26.052 mp=20.429 en=0.000
 f1615 Slime hp=0.000 mp=20.363 en=0.000
 f1615 Slime hp=32.050 mp=20.363 en=0.000
 f1615 PULSA _ability_box: Golpe sísmico  (60 EN)
-f1616 Catalardio hp=198.402 mp=24.620 en=121.275
+f1616 Catalardio hp=198.566 mp=24.620 en=121.275
 f1616 Rey Slime hp=321.867 mp=21.188 en=0.000
 f1616 Slime hp=16.818 mp=20.429 en=0.000
 f1616 Slime hp=0.000 mp=20.363 en=0.000
@@ -2884,10 +2884,10 @@ f1693 Slime hp=23.736 mp=20.363 en=0.000
 f1694 Slime hp=16.818 mp=20.429 en=0.000
 f1694 Slime hp=0.000 mp=20.363 en=0.000
 f1694 Slime hp=23.736 mp=20.363 en=0.000
-f1695 Agirato ochinan hp=198.438 mp=36.500 en=136.425
-f1695 Catalardio hp=197.083 mp=24.620 en=121.275
-f1695 Dasui hp=198.779 mp=20.000 en=181.300
-f1695 Daniel hp=188.794 mp=20.000 en=124.025
+f1695 Agirato ochinan hp=198.617 mp=36.500 en=136.425
+f1695 Catalardio hp=197.902 mp=24.620 en=121.275
+f1695 Dasui hp=199.174 mp=20.000 en=181.300
+f1695 Daniel hp=189.757 mp=20.000 en=124.025
 f1695 Slime hp=16.818 mp=20.429 en=0.000
 f1695 Slime hp=0.000 mp=20.363 en=0.000
 f1695 Slime hp=23.736 mp=20.363 en=0.000
@@ -3278,7 +3278,7 @@ f1823 Slime hp=16.818 mp=20.429 en=0.000
 f1823 Slime hp=0.000 mp=20.363 en=0.000
 f1823 Slime hp=23.736 mp=20.363 en=0.000
 f1823 PULSA Atacar
-f1824 Daniel hp=188.794 mp=20.000 en=159.025
+f1824 Daniel hp=189.757 mp=20.000 en=159.025
 f1824 Rey Slime hp=310.094 mp=21.188 en=0.000
 f1824 Slime hp=16.818 mp=20.429 en=0.000
 f1824 Slime hp=0.000 mp=20.363 en=0.000
@@ -3522,7 +3522,7 @@ f1902 Slime hp=23.736 mp=20.363 en=0.000
 f1903 Slime hp=16.818 mp=20.429 en=0.000
 f1903 Slime hp=0.000 mp=20.363 en=0.000
 f1903 Slime hp=23.736 mp=20.363 en=0.000
-f1903 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f1903 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
 f1904 Slime hp=16.818 mp=20.429 en=0.000
 f1904 Slime hp=0.000 mp=20.363 en=0.000
 f1904 Slime hp=23.736 mp=20.363 en=0.000
@@ -3583,7 +3583,7 @@ f1922 Slime hp=23.736 mp=20.363 en=0.000
 f1923 Slime hp=16.818 mp=20.429 en=0.000
 f1923 Slime hp=0.000 mp=20.363 en=0.000
 f1923 Slime hp=23.736 mp=20.363 en=0.000
-f1924 Catalardio hp=196.736 mp=24.620 en=121.275
+f1924 Catalardio hp=197.727 mp=24.620 en=121.275
 f1924 Slime hp=16.818 mp=20.429 en=0.000
 f1924 Slime hp=0.000 mp=20.363 en=0.000
 f1924 Slime hp=23.736 mp=20.363 en=0.000
@@ -3782,8 +3782,8 @@ f1988 Slime hp=23.736 mp=20.363 en=0.000
 f1989 Slime hp=16.818 mp=20.429 en=0.000
 f1989 Slime hp=0.000 mp=20.363 en=0.000
 f1989 Slime hp=23.736 mp=20.363 en=0.000
-f1990 Dasui hp=198.586 mp=20.000 en=181.300
-f1990 Daniel hp=187.360 mp=20.000 en=159.025
+f1990 Dasui hp=199.049 mp=20.000 en=181.300
+f1990 Daniel hp=188.951 mp=20.000 en=159.025
 f1990 Slime hp=16.818 mp=20.429 en=0.000
 f1990 Slime hp=0.000 mp=20.363 en=0.000
 f1990 Slime hp=23.736 mp=20.363 en=0.000
@@ -4037,7 +4037,7 @@ f2073 Slime hp=16.818 mp=20.429 en=0.000
 f2073 Slime hp=0.000 mp=20.363 en=0.000
 f2073 Slime hp=23.736 mp=20.363 en=0.000
 f2073 PULSA Defender
-f2074 Catalardio hp=196.736 mp=24.620 en=106.275
+f2074 Catalardio hp=197.727 mp=24.620 en=106.275
 f2074 Slime hp=16.818 mp=20.429 en=0.000
 f2074 Slime hp=0.000 mp=20.363 en=0.000
 f2074 Slime hp=23.736 mp=20.363 en=0.000
@@ -4121,7 +4121,7 @@ f2100 Slime hp=16.818 mp=20.429 en=0.000
 f2100 Slime hp=0.000 mp=20.363 en=0.000
 f2100 Slime hp=23.736 mp=20.363 en=0.000
 f2100 PULSA _ability_box: Tajo devastador  (72 EN)
-f2101 Dasui hp=198.586 mp=20.000 en=109.300
+f2101 Dasui hp=199.049 mp=20.000 en=109.300
 f2101 Slime hp=16.818 mp=20.429 en=0.000
 f2101 Slime hp=0.000 mp=20.363 en=0.000
 f2101 Slime hp=23.736 mp=20.363 en=0.000
@@ -4285,7 +4285,7 @@ f2154 Slime hp=16.818 mp=20.429 en=0.000
 f2154 Slime hp=0.000 mp=20.363 en=0.000
 f2154 Slime hp=23.736 mp=20.363 en=0.000
 f2154 PULSA Atacar
-f2155 Daniel hp=187.360 mp=20.000 en=181.025
+f2155 Daniel hp=188.951 mp=20.000 en=181.025
 f2155 Rey Slime hp=305.746 mp=21.188 en=0.000
 f2155 Slime hp=16.818 mp=20.429 en=0.000
 f2155 Slime hp=0.000 mp=20.363 en=0.000
@@ -4522,7 +4522,7 @@ f2232 Slime hp=16.818 mp=20.429 en=0.000
 f2232 Slime hp=0.000 mp=20.363 en=0.000
 f2232 Slime hp=23.736 mp=20.363 en=0.000
 f2232 PULSA Atacar
-f2233 Agirato ochinan hp=198.438 mp=36.500 en=164.425
+f2233 Agirato ochinan hp=198.617 mp=36.500 en=164.425
 f2233 Rey Slime hp=301.173 mp=21.188 en=0.000
 f2233 Slime hp=16.818 mp=20.429 en=0.000
 f2233 Slime hp=0.000 mp=20.363 en=0.000
@@ -4812,7 +4812,7 @@ f2327 Slime hp=23.736 mp=20.363 en=0.000
 f2328 Slime hp=16.818 mp=20.429 en=0.000
 f2328 Slime hp=0.000 mp=20.363 en=0.000
 f2328 Slime hp=23.736 mp=20.363 en=0.000
-f2329 Daniel hp=186.752 mp=20.000 en=181.025
+f2329 Daniel hp=188.610 mp=20.000 en=181.025
 f2329 Slime hp=16.818 mp=20.429 en=0.000
 f2329 Slime hp=0.000 mp=20.363 en=0.000
 f2329 Slime hp=23.736 mp=20.363 en=0.000
@@ -4969,8 +4969,8 @@ f2379 Slime hp=23.736 mp=20.363 en=0.000
 f2380 Slime hp=16.818 mp=20.429 en=0.000
 f2380 Slime hp=0.000 mp=20.363 en=0.000
 f2380 Slime hp=23.736 mp=20.363 en=0.000
-f2381 Dasui hp=198.333 mp=20.000 en=109.300
-f2381 Daniel hp=184.214 mp=20.000 en=181.025
+f2381 Dasui hp=198.928 mp=20.000 en=109.300
+f2381 Daniel hp=187.184 mp=20.000 en=181.025
 f2381 Slime hp=16.818 mp=20.429 en=0.000
 f2381 Slime hp=0.000 mp=20.363 en=0.000
 f2381 Slime hp=23.736 mp=20.363 en=0.000
@@ -5268,7 +5268,7 @@ f2478 Slime hp=23.736 mp=20.363 en=0.000
 f2479 Slime hp=16.818 mp=20.429 en=0.000
 f2479 Slime hp=0.000 mp=20.363 en=0.000
 f2479 Slime hp=23.736 mp=20.363 en=0.000
-f2480 Dasui hp=198.116 mp=20.000 en=109.300
+f2480 Dasui hp=198.778 mp=20.000 en=109.300
 f2480 Slime hp=16.818 mp=20.429 en=0.000
 f2480 Slime hp=0.000 mp=20.363 en=0.000
 f2480 Slime hp=23.736 mp=20.363 en=0.000
@@ -5523,7 +5523,7 @@ f2562 Slime hp=23.736 mp=20.363 en=0.000
 f2563 Slime hp=16.818 mp=20.429 en=0.000
 f2563 Slime hp=0.000 mp=20.363 en=0.000
 f2563 Slime hp=23.736 mp=20.363 en=0.000
-f2563 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f2563 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
 f2564 Slime hp=16.818 mp=20.429 en=0.000
 f2564 Slime hp=0.000 mp=20.363 en=0.000
 f2564 Slime hp=23.736 mp=20.363 en=0.000
@@ -5540,7 +5540,7 @@ f2568 Slime hp=16.818 mp=20.429 en=0.000
 f2568 Slime hp=0.000 mp=20.363 en=0.000
 f2568 Slime hp=23.736 mp=20.363 en=0.000
 f2568 PULSA Defender
-f2569 Dasui hp=198.116 mp=20.000 en=94.300
+f2569 Dasui hp=198.778 mp=20.000 en=94.300
 f2569 Slime hp=16.818 mp=20.429 en=0.000
 f2569 Slime hp=0.000 mp=20.363 en=0.000
 f2569 Slime hp=23.736 mp=20.363 en=0.000
@@ -5600,7 +5600,7 @@ f2587 Slime hp=16.818 mp=20.429 en=0.000
 f2587 Slime hp=0.000 mp=20.363 en=0.000
 f2587 Slime hp=23.736 mp=20.363 en=0.000
 f2587 PULSA _ability_box: Bastonazo  (26 EN)
-f2588 Agirato ochinan hp=198.438 mp=36.500 en=138.425
+f2588 Agirato ochinan hp=198.617 mp=36.500 en=138.425
 f2588 Rey Slime hp=287.554 mp=21.188 en=0.000
 f2588 Slime hp=16.818 mp=20.429 en=0.000
 f2588 Slime hp=0.000 mp=20.363 en=0.000
@@ -5786,7 +5786,7 @@ f2648 Slime hp=16.818 mp=20.429 en=0.000
 f2648 Slime hp=0.000 mp=20.363 en=0.000
 f2648 Slime hp=23.736 mp=20.363 en=0.000
 f2648 PULSA Atacar
-f2649 Catalardio hp=196.736 mp=24.620 en=148.275
+f2649 Catalardio hp=197.727 mp=24.620 en=148.275
 f2649 Rey Slime hp=278.588 mp=21.188 en=0.000
 f2649 Slime hp=16.818 mp=20.429 en=0.000
 f2649 Slime hp=0.000 mp=20.363 en=0.000
@@ -6488,7 +6488,7 @@ f2879 Slime hp=23.736 mp=20.363 en=0.000
 f2880 Slime hp=16.818 mp=20.429 en=0.000
 f2880 Slime hp=0.000 mp=20.363 en=0.000
 f2880 Slime hp=23.736 mp=20.363 en=0.000
-f2880 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f2880 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
 f2881 Slime hp=16.818 mp=20.429 en=0.000
 f2881 Slime hp=0.000 mp=20.363 en=0.000
 f2881 Slime hp=23.736 mp=20.363 en=0.000
@@ -6518,8 +6518,8 @@ f2888 Slime hp=23.736 mp=20.363 en=0.000
 f2889 Slime hp=16.818 mp=20.429 en=0.000
 f2889 Slime hp=0.000 mp=20.363 en=0.000
 f2889 Slime hp=23.736 mp=20.363 en=0.000
-f2889 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
-f2890 Daniel hp=183.575 mp=20.000 en=181.025
+f2889 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f2890 Daniel hp=186.826 mp=20.000 en=181.025
 f2890 Slime hp=16.818 mp=20.429 en=0.000
 f2890 Slime hp=0.000 mp=20.363 en=0.000
 f2890 Slime hp=23.736 mp=20.363 en=0.000
@@ -6965,7 +6965,7 @@ f3037 Slime hp=16.818 mp=20.429 en=0.000
 f3037 Slime hp=0.000 mp=20.363 en=0.000
 f3037 Slime hp=23.736 mp=20.363 en=0.000
 f3037 PULSA Defender
-f3038 Catalardio hp=196.736 mp=24.620 en=133.275
+f3038 Catalardio hp=197.727 mp=24.620 en=133.275
 f3038 Slime hp=16.818 mp=20.429 en=0.000
 f3038 Slime hp=0.000 mp=20.363 en=0.000
 f3038 Slime hp=23.736 mp=20.363 en=0.000
@@ -7092,7 +7092,7 @@ f3078 Slime hp=16.818 mp=20.429 en=0.000
 f3078 Slime hp=0.000 mp=20.363 en=0.000
 f3078 Slime hp=23.736 mp=20.363 en=0.000
 f3078 PULSA Atacar
-f3079 Agirato ochinan hp=198.438 mp=36.500 en=166.425
+f3079 Agirato ochinan hp=198.617 mp=36.500 en=166.425
 f3079 Rey Slime hp=270.053 mp=21.188 en=0.000
 f3079 Slime hp=16.818 mp=20.429 en=0.000
 f3079 Slime hp=0.000 mp=20.363 en=0.000
@@ -7451,7 +7451,7 @@ f3196 Slime hp=16.818 mp=20.429 en=0.000
 f3196 Slime hp=0.000 mp=20.363 en=0.000
 f3196 Slime hp=23.736 mp=20.363 en=0.000
 f3196 PULSA Atacar
-f3197 Dasui hp=198.116 mp=20.000 en=136.300
+f3197 Dasui hp=198.778 mp=20.000 en=136.300
 f3197 Rey Slime hp=255.595 mp=21.188 en=0.000
 f3197 Slime hp=16.818 mp=20.429 en=0.000
 f3197 Slime hp=0.000 mp=20.363 en=0.000
@@ -7624,8 +7624,8 @@ f3252 Slime hp=23.736 mp=20.363 en=0.000
 f3253 Slime hp=16.818 mp=20.429 en=0.000
 f3253 Slime hp=0.000 mp=20.363 en=0.000
 f3253 Slime hp=23.736 mp=20.363 en=0.000
-f3254 Agirato ochinan hp=198.103 mp=36.500 en=166.425
-f3254 Dasui hp=197.934 mp=20.000 en=136.300
+f3254 Agirato ochinan hp=198.450 mp=36.500 en=166.425
+f3254 Dasui hp=198.653 mp=20.000 en=136.300
 f3254 Slime hp=16.818 mp=20.429 en=0.000
 f3254 Slime hp=0.000 mp=20.363 en=0.000
 f3254 Slime hp=23.736 mp=20.363 en=0.000
@@ -7857,7 +7857,7 @@ f3329 Slime hp=23.736 mp=20.363 en=0.000
 f3330 Slime hp=16.818 mp=20.429 en=0.000
 f3330 Slime hp=0.000 mp=20.363 en=0.000
 f3330 Slime hp=23.736 mp=20.363 en=0.000
-f3331 Daniel hp=183.005 mp=20.000 en=181.025
+f3331 Daniel hp=186.505 mp=20.000 en=181.025
 f3331 Slime hp=16.818 mp=20.429 en=0.000
 f3331 Slime hp=0.000 mp=20.363 en=0.000
 f3331 Slime hp=23.736 mp=20.363 en=0.000
@@ -8222,7 +8222,7 @@ f3450 Slime hp=16.818 mp=20.429 en=0.000
 f3450 Slime hp=0.000 mp=20.363 en=0.000
 f3450 Slime hp=23.736 mp=20.363 en=0.000
 f3450 PULSA Defender
-f3451 Agirato ochinan hp=198.103 mp=36.500 en=151.425
+f3451 Agirato ochinan hp=198.450 mp=36.500 en=151.425
 f3451 Slime hp=16.818 mp=20.429 en=0.000
 f3451 Slime hp=0.000 mp=20.363 en=0.000
 f3451 Slime hp=23.736 mp=20.363 en=0.000
@@ -8303,7 +8303,7 @@ f3476 Slime hp=16.818 mp=20.429 en=0.000
 f3476 Slime hp=0.000 mp=20.363 en=0.000
 f3476 Slime hp=23.736 mp=20.363 en=0.000
 f3476 PULSA _ability_box: Golpe demoledor  (42 EN)
-f3477 Daniel hp=183.005 mp=20.000 en=139.025
+f3477 Daniel hp=186.505 mp=20.000 en=139.025
 f3477 Rey Slime hp=249.675 mp=21.188 en=0.000
 f3477 Slime hp=13.230 mp=20.429 en=0.000
 f3477 Slime hp=0.000 mp=20.363 en=0.000
@@ -8477,7 +8477,7 @@ f3533 Slime hp=13.230 mp=20.429 en=0.000
 f3533 Slime hp=0.000 mp=20.363 en=0.000
 f3533 Slime hp=23.736 mp=20.363 en=0.000
 f3533 PULSA Atacar
-f3534 Dasui hp=197.934 mp=20.000 en=178.300
+f3534 Dasui hp=198.653 mp=20.000 en=178.300
 f3534 Rey Slime hp=240.792 mp=21.188 en=0.000
 f3534 Slime hp=13.230 mp=20.429 en=0.000
 f3534 Slime hp=0.000 mp=20.363 en=0.000
@@ -8809,7 +8809,7 @@ f3642 Slime hp=23.736 mp=20.363 en=0.000
 f3643 Slime hp=13.230 mp=20.429 en=0.000
 f3643 Slime hp=0.000 mp=20.363 en=0.000
 f3643 Slime hp=23.736 mp=20.363 en=0.000
-f3644 Dasui hp=197.782 mp=20.000 en=178.300
+f3644 Dasui hp=198.553 mp=20.000 en=178.300
 f3644 Slime hp=13.230 mp=20.429 en=0.000
 f3644 Slime hp=0.000 mp=20.363 en=0.000
 f3644 Slime hp=23.736 mp=20.363 en=0.000
@@ -9195,7 +9195,7 @@ f3771 Slime hp=13.230 mp=20.429 en=0.000
 f3771 Slime hp=0.000 mp=20.363 en=0.000
 f3771 Slime hp=23.736 mp=20.363 en=0.000
 f3771 PULSA Atacar
-f3772 Agirato ochinan hp=198.103 mp=36.500 en=177.425
+f3772 Agirato ochinan hp=198.450 mp=36.500 en=177.425
 f3772 Rey Slime hp=236.175 mp=21.188 en=0.000
 f3772 Slime hp=13.230 mp=20.429 en=0.000
 f3772 Slime hp=0.000 mp=20.363 en=0.000
@@ -9471,7 +9471,7 @@ f3861 Slime hp=13.230 mp=20.429 en=0.000
 f3861 Slime hp=0.000 mp=20.363 en=0.000
 f3861 Slime hp=23.736 mp=20.363 en=0.000
 f3861 PULSA Defender
-f3862 Daniel hp=183.005 mp=20.000 en=124.025
+f3862 Daniel hp=186.505 mp=20.000 en=124.025
 f3862 Slime hp=13.230 mp=20.429 en=0.000
 f3862 Slime hp=0.000 mp=20.363 en=0.000
 f3862 Slime hp=23.736 mp=20.363 en=0.000
@@ -9519,7 +9519,7 @@ f3876 Slime hp=13.230 mp=20.429 en=0.000
 f3876 Slime hp=0.000 mp=20.363 en=0.000
 f3876 Slime hp=23.736 mp=20.363 en=0.000
 f3876 PULSA _ability_box: Tajo devastador  (72 EN)
-f3877 Dasui hp=197.782 mp=20.000 en=106.300
+f3877 Dasui hp=198.553 mp=20.000 en=106.300
 f3877 Rey Slime hp=218.175 mp=21.188 en=0.000
 f3877 Slime hp=13.230 mp=20.429 en=0.000
 f3877 Slime hp=0.000 mp=20.363 en=0.000
@@ -9824,7 +9824,7 @@ f3976 Slime hp=23.736 mp=20.363 en=0.000
 f3977 Slime hp=13.230 mp=20.429 en=0.000
 f3977 Slime hp=0.000 mp=20.363 en=0.000
 f3977 Slime hp=23.736 mp=20.363 en=0.000
-f3978 Daniel hp=182.884 mp=20.000 en=124.025
+f3978 Daniel hp=186.385 mp=20.000 en=124.025
 f3978 Slime hp=13.230 mp=20.429 en=0.000
 f3978 Slime hp=0.000 mp=20.363 en=0.000
 f3978 Slime hp=23.736 mp=20.363 en=0.000
@@ -10077,9 +10077,9 @@ f4059 Slime hp=23.736 mp=20.363 en=0.000
 f4060 Slime hp=13.230 mp=20.429 en=0.000
 f4060 Slime hp=0.000 mp=20.363 en=0.000
 f4060 Slime hp=23.736 mp=20.363 en=0.000
-f4061 Agirato ochinan hp=197.734 mp=36.500 en=177.425
-f4061 Catalardio hp=196.033 mp=24.620 en=133.275
-f4061 Dasui hp=197.576 mp=20.000 en=106.300
+f4061 Agirato ochinan hp=198.266 mp=36.500 en=177.425
+f4061 Catalardio hp=197.373 mp=24.620 en=133.275
+f4061 Dasui hp=198.428 mp=20.000 en=106.300
 f4061 Slime hp=13.230 mp=20.429 en=0.000
 f4061 Slime hp=0.000 mp=20.363 en=0.000
 f4061 Slime hp=23.736 mp=20.363 en=0.000
@@ -10306,7 +10306,7 @@ f4135 Slime hp=13.230 mp=20.429 en=0.000
 f4135 Slime hp=0.000 mp=20.363 en=0.000
 f4135 Slime hp=23.736 mp=20.363 en=0.000
 f4135 PULSA Atacar
-f4136 Catalardio hp=196.033 mp=24.620 en=175.275
+f4136 Catalardio hp=197.373 mp=24.620 en=175.275
 f4136 Rey Slime hp=208.517 mp=21.188 en=0.000
 f4136 Slime hp=13.230 mp=20.429 en=0.000
 f4136 Slime hp=0.000 mp=20.363 en=0.000
@@ -10473,10 +10473,10 @@ f4189 Slime hp=23.736 mp=20.363 en=0.000
 f4190 Slime hp=13.230 mp=20.429 en=0.000
 f4190 Slime hp=0.000 mp=20.363 en=0.000
 f4190 Slime hp=23.736 mp=20.363 en=0.000
-f4191 Agirato ochinan hp=197.156 mp=36.500 en=177.425
-f4191 Catalardio hp=194.801 mp=24.620 en=175.275
-f4191 Dasui hp=197.006 mp=20.000 en=106.300
-f4191 Daniel hp=182.651 mp=20.000 en=124.025
+f4191 Agirato ochinan hp=197.978 mp=36.500 en=177.425
+f4191 Catalardio hp=196.752 mp=24.620 en=175.275
+f4191 Dasui hp=198.155 mp=20.000 en=106.300
+f4191 Daniel hp=186.226 mp=20.000 en=124.025
 f4191 Slime hp=13.230 mp=20.429 en=0.000
 f4191 Slime hp=0.000 mp=20.363 en=0.000
 f4191 Slime hp=23.736 mp=20.363 en=0.000
@@ -10815,7 +10815,7 @@ f4301 Slime hp=23.736 mp=20.363 en=0.000
 f4302 Slime hp=13.230 mp=20.429 en=0.000
 f4302 Slime hp=0.000 mp=20.363 en=0.000
 f4302 Slime hp=23.736 mp=20.363 en=0.000
-f4302 PULSA _objeto_box: Agirato ochinan  (197/200 ♥  37/37 🔷)
+f4302 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
 f4303 Slime hp=13.230 mp=20.429 en=0.000
 f4303 Slime hp=0.000 mp=20.363 en=0.000
 f4303 Slime hp=23.736 mp=20.363 en=0.000
@@ -11042,7 +11042,7 @@ f4376 Slime hp=23.736 mp=20.363 en=0.000
 f4377 Slime hp=13.230 mp=20.429 en=0.000
 f4377 Slime hp=0.000 mp=20.363 en=0.000
 f4377 Slime hp=23.736 mp=20.363 en=0.000
-f4378 Daniel hp=182.266 mp=20.000 en=124.025
+f4378 Daniel hp=186.009 mp=20.000 en=124.025
 f4378 Slime hp=13.230 mp=20.429 en=0.000
 f4378 Slime hp=0.000 mp=20.363 en=0.000
 f4378 Slime hp=23.736 mp=20.363 en=0.000
@@ -11289,7 +11289,7 @@ f4458 Slime hp=23.736 mp=20.363 en=0.000
 f4459 Slime hp=13.230 mp=20.429 en=0.000
 f4459 Slime hp=0.000 mp=20.363 en=0.000
 f4459 Slime hp=23.736 mp=20.363 en=0.000
-f4460 Daniel hp=181.630 mp=20.000 en=124.025
+f4460 Daniel hp=185.652 mp=20.000 en=124.025
 f4460 Slime hp=13.230 mp=20.429 en=0.000
 f4460 Slime hp=0.000 mp=20.363 en=0.000
 f4460 Slime hp=23.736 mp=20.363 en=0.000
@@ -11466,7 +11466,7 @@ f4517 Slime hp=13.230 mp=20.429 en=0.000
 f4517 Slime hp=0.000 mp=20.363 en=0.000
 f4517 Slime hp=23.736 mp=20.363 en=0.000
 f4517 PULSA _ability_box: Golpe sísmico  (60 EN)
-f4518 Catalardio hp=194.801 mp=24.620 en=115.275
+f4518 Catalardio hp=196.752 mp=24.620 en=115.275
 f4518 Rey Slime hp=193.975 mp=21.188 en=0.000
 f4518 Slime hp=5.240 mp=20.429 en=0.000
 f4518 Slime hp=0.000 mp=20.363 en=0.000
@@ -11658,7 +11658,7 @@ f4580 Slime hp=5.240 mp=20.429 en=0.000
 f4580 Slime hp=0.000 mp=20.363 en=0.000
 f4580 Slime hp=23.736 mp=20.363 en=0.000
 f4580 PULSA Atacar
-f4581 Dasui hp=197.006 mp=20.000 en=148.300
+f4581 Dasui hp=198.155 mp=20.000 en=148.300
 f4581 Rey Slime hp=185.225 mp=21.188 en=0.000
 f4581 Slime hp=5.240 mp=20.429 en=0.000
 f4581 Slime hp=0.000 mp=20.363 en=0.000
@@ -11921,7 +11921,7 @@ f4665 Slime hp=23.736 mp=20.363 en=0.000
 f4666 Slime hp=5.240 mp=20.429 en=0.000
 f4666 Slime hp=0.000 mp=20.363 en=0.000
 f4666 Slime hp=23.736 mp=20.363 en=0.000
-f4666 PULSA _objeto_box: Agirato ochinan  (197/200 ♥  37/37 🔷)
+f4666 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
 f4667 Slime hp=5.240 mp=20.429 en=0.000
 f4667 Slime hp=0.000 mp=20.363 en=0.000
 f4667 Slime hp=23.736 mp=20.363 en=0.000
@@ -12042,7 +12042,7 @@ f4705 Slime hp=23.736 mp=20.363 en=0.000
 f4706 Slime hp=5.240 mp=20.429 en=0.000
 f4706 Slime hp=0.000 mp=20.363 en=0.000
 f4706 Slime hp=23.736 mp=20.363 en=0.000
-f4707 Daniel hp=179.813 mp=20.000 en=124.025
+f4707 Daniel hp=184.632 mp=20.000 en=124.025
 f4707 Slime hp=5.240 mp=20.429 en=0.000
 f4707 Slime hp=0.000 mp=20.363 en=0.000
 f4707 Slime hp=23.736 mp=20.363 en=0.000
@@ -12434,7 +12434,7 @@ f4836 Slime hp=5.240 mp=20.429 en=0.000
 f4836 Slime hp=0.000 mp=20.363 en=0.000
 f4836 Slime hp=23.736 mp=20.363 en=0.000
 f4836 PULSA Defender
-f4837 Dasui hp=197.006 mp=20.000 en=133.300
+f4837 Dasui hp=198.155 mp=20.000 en=133.300
 f4837 Slime hp=5.240 mp=20.429 en=0.000
 f4837 Slime hp=0.000 mp=20.363 en=0.000
 f4837 Slime hp=23.736 mp=20.363 en=0.000
@@ -12473,7 +12473,7 @@ f4848 Slime hp=5.240 mp=20.429 en=0.000
 f4848 Slime hp=0.000 mp=20.363 en=0.000
 f4848 Slime hp=23.736 mp=20.363 en=0.000
 f4848 PULSA Atacar
-f4849 Catalardio hp=194.801 mp=24.620 en=157.275
+f4849 Catalardio hp=196.752 mp=24.620 en=157.275
 f4849 Rey Slime hp=176.178 mp=21.188 en=0.000
 f4849 Slime hp=5.240 mp=20.429 en=0.000
 f4849 Slime hp=0.000 mp=20.363 en=0.000
@@ -12640,7 +12640,7 @@ f4902 Slime hp=23.736 mp=20.363 en=0.000
 f4903 Slime hp=5.240 mp=20.429 en=0.000
 f4903 Slime hp=0.000 mp=20.363 en=0.000
 f4903 Slime hp=23.736 mp=20.363 en=0.000
-f4904 Agirato ochinan hp=196.891 mp=36.500 en=177.425
+f4904 Agirato ochinan hp=197.846 mp=36.500 en=177.425
 f4904 Slime hp=5.240 mp=20.429 en=0.000
 f4904 Slime hp=0.000 mp=20.363 en=0.000
 f4904 Slime hp=23.736 mp=20.363 en=0.000
@@ -12921,7 +12921,7 @@ f4996 Slime hp=5.240 mp=20.429 en=0.000
 f4996 Slime hp=0.000 mp=20.363 en=0.000
 f4996 Slime hp=23.736 mp=20.363 en=0.000
 f4996 PULSA Atacar
-f4997 Daniel hp=179.813 mp=20.000 en=159.025
+f4997 Daniel hp=184.632 mp=20.000 en=159.025
 f4997 Rey Slime hp=171.540 mp=21.188 en=0.000
 f4997 Slime hp=5.240 mp=20.429 en=0.000
 f4997 Slime hp=0.000 mp=20.363 en=0.000
@@ -13212,7 +13212,7 @@ f5092 Slime hp=5.240 mp=20.429 en=0.000
 f5092 Slime hp=0.000 mp=20.363 en=0.000
 f5092 Slime hp=23.736 mp=20.363 en=0.000
 f5092 PULSA 🔥 ¡Lanzar Eclipse!
-f5093 Agirato ochinan hp=196.891 mp=19.110 en=177.425
+f5093 Agirato ochinan hp=197.846 mp=19.110 en=177.425
 f5093 Rey Slime hp=0.000 mp=21.188 en=0.000
 f5093 Slime hp=0.000 mp=20.429 en=0.000
 f5093 Slime hp=0.000 mp=20.363 en=0.000

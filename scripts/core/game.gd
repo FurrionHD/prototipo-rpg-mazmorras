@@ -2748,7 +2748,16 @@ func importar_partida(d: SaveData) -> void:
 	# congeladas en cada copia, asi que un cambio de balance en baston.tres / varita.tres (15/09/2026: recitado
 	# del baston 1.05 -> 0.85) no llegaria a las armas que ya tienes. Se re-clavan las de
 	# su plantilla; tier, rareza y mejoras siguen en item_meta y no se tocan.
+	# Y LA DEFENSA DE LAS ARMADURAS, por lo mismo (15/09/2026: defensa base 0.5 -> 1.1 y la escalera de
+	# materiales cuero 1.0 / hierro 1.4 / hierro completo 1.8 / placas 2.2).
 	for it in item_meta.keys():
+		if it is ArmorData:
+			var ruta_a: String = ruta_base_de(it)
+			var plantilla_a: Resource = load(ruta_a) if ruta_a != "" and ResourceLoader.exists(ruta_a) else null
+			if plantilla_a is ArmorData:
+				(it as ArmorData).defensa_base = (plantilla_a as ArmorData).defensa_base
+				(it as ArmorData).motion_def = (plantilla_a as ArmorData).motion_def
+			continue
 		if not ((it is WeaponData and (it as WeaponData).es_magica) or it is WandData):
 			continue
 		var ruta_b: String = ruta_base_de(it)   # repara la ruta si la meta vieja no la trae

@@ -31,6 +31,10 @@ temblando** contra la orilla del lago.
 
 **Los cristales de los pisos 7 a 12** bajan un nivel (el del Minotauro no cambia).
 
+**Las armaduras defienden más, sobre todo las ligeras.** Un set completo de T1 da ahora 5,5 de defensa el
+de cuero, 7,7 el de hierro, 9,9 el de hierro completo y 12,1 el de placas (antes 1,25 / 2,5 / 4 / 5,5), y
+cada tier sigue multiplicando igual. También las que ya tienes.
+
 ## 🪶 Y además
 
 **Un puntero propio**: una pluma.

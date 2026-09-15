@@ -24,19 +24,19 @@ f212 LOG Dasui golpea con Mandobles por 12.50 de daño.
 f212 Araña de las simas hp=21.650 mp=20.429 en=0.000
 f267 LOG ¡Turno de Catalardio! Elige una acción.
 f269 PULSA Defender
-f270 LOG 1. Araña de las simas ataca a Agirato ochinan por 0.41 de daño.
-f270 Agirato ochinan hp=198.383 mp=14.685 en=151.425
+f270 LOG 1. Araña de las simas ataca a Agirato ochinan por 0.21 de daño.
+f270 Agirato ochinan hp=198.590 mp=14.685 en=151.425
 f270 Catalardio hp=198.733 mp=24.620 en=166.275
 f322 LOG … no te ha dado con ninguno de los 1 golpe.
 f417 LOG ¡Turno de Agirato ochinan! Elige una acción.
-f417 Agirato ochinan hp=198.383 mp=15.107 en=151.425
+f417 Agirato ochinan hp=198.590 mp=15.107 en=151.425
 f419 PULSA Objeto
 f422 PULSA _objeto_box: Poción de maná media  x3
-f425 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  15/37 🔷)
+f425 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  15/37 🔷)
 f426 LOG Agirato ochinan se bebe Poción de maná media. 🔷 29 de maná (10 ya), repartido en 3 turnos.
-f426 Agirato ochinan hp=198.383 mp=24.901 en=151.425
-f436 LOG 2. Trent ataca a Agirato ochinan por 0.36 de daño.  Le inflige Pegajoso.
-f436 Agirato ochinan hp=198.019 mp=24.901 en=151.425
+f426 Agirato ochinan hp=198.590 mp=24.901 en=151.425
+f436 LOG 2. Trent ataca a Agirato ochinan por 0.18 de daño.  Le inflige Pegajoso.
+f436 Agirato ochinan hp=198.408 mp=24.901 en=151.425
 f529 LOG ¡Turno de Daniel! Elige una acción.
 f531 PULSA Huir
 f532 LOG Habéis escapado. 🏃  (Dejáis atrás 3 enemigos en pie)
