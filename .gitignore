@@ -49,6 +49,7 @@ dev_*.png
 # ver_amagos.bat y su visor entran juntos. La regla, otra vez: la linea va EN EL MISMO commit.
 !dev_amagos.*
 !dev_altar.*
+!dev_hogar.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
