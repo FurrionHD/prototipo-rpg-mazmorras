@@ -2293,8 +2293,11 @@ static func fila_retratos(header: VBoxContainer) -> HBoxContainer:
 # Pinta la fila entera. 'gente' es la lista YA ordenada (equipo primero, hogar detras), 'sel' el
 # indice elegido y 'en_equipo' cuantos de los primeros bajan hoy: ahi va la raya. Con una sola
 # persona no se pinta nada, que seria un boton solo que no elige nada.
+#
+# 'marcas' (opcional) son los indices que llevan el PUNTO AMBAR arriba a la izquierda: "aqui hay algo
+# que hacer". Lo usa el altar para quien tiene excelia sin consolidar; los demas no lo pasan.
 static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int,
-		pulsado: Callable) -> void:
+		pulsado: Callable, marcas: Array = []) -> void:
 	vaciar(fila)
 	if gente.size() <= 1:
 		return
@@ -2305,13 +2308,13 @@ static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int
 			var sep := VSeparator.new()
 			sep.add_theme_constant_override("separation", 14)
 			fila.add_child(sep)
-		_retrato(fila, gente[i], i, i == sel, i < en_equipo, pulsado)
+		_retrato(fila, gente[i], i, i == sel, i < en_equipo, pulsado, marcas.has(i))
 
 
 # UN RETRATO: la CARA de la persona en un cuadro, con su nombre debajo. Es un Button con el estilo
 # quitado y el dibujo a mano, igual que CeldaObjeto.
 static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bool,
-		en_equipo: bool, pulsado: Callable) -> void:
+		en_equipo: bool, pulsado: Callable, marcado: bool = false) -> void:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(LADO_RETRATO, ALTO_RETRATO)
 	b.clip_contents = true
@@ -2346,10 +2349,6 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 			nom += "…"
 		b.draw_string(f, Vector2((w - an) * 0.5, lado + 14.0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11,
 			AMBAR if elegido else Color(0.82, 0.85, 0.90))
-		# La CORONA del que va en cabeza, arriba a la derecha del cuadro.
-		if pj == Game.lider():
-			b.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
-			b.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
 		# Los del HOGAR, atenuados: siguen siendo tuyos y se les puede tocar el equipo, pero hoy no
 		# bajan. El velo lo dice sin quitarles el nombre ni apagar el boton.
 		if not en_equipo:
@@ -2387,3 +2386,27 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 		marco.add_child(mu)
 	else:
 		mu.queue_free()
+
+	# LAS MARCAS DE LAS ESQUINAS (la corona del que va en cabeza y el punto de "algo pendiente") en
+	# una capa ENCIMA del muñeco, con z 4096. Pintadas en el draw del boton quedaban DEBAJO: el muñeco
+	# va en z absoluto (hasta 2048, ver capas-jugador-z-fijo) y el pelo llena las dos esquinas, asi que
+	# la corona no se habia visto nunca. Quien abre un modal ya esconde la fila entera, asi que este z
+	# no se cuela por encima de nada.
+	if pj != Game.lider() and not marcado:
+		return
+	var marcas := Control.new()
+	marcas.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marcas.size = Vector2(LADO_RETRATO, LADO_RETRATO)
+	marcas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marcas.z_index = 4096
+	b.add_child(marcas)
+	var es_lider: bool = pj == Game.lider()
+	marcas.draw.connect(func() -> void:
+		var w: float = marcas.size.x
+		if es_lider:
+			var f: Font = marcas.get_theme_font(&"font")
+			marcas.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
+			marcas.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
+		if marcado:
+			marcas.draw_circle(Vector2(11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
+			marcas.draw_circle(Vector2(11.0, 11.0), 4.5, AMBAR))
