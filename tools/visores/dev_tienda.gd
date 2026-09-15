@@ -51,6 +51,11 @@ func _ready() -> void:
 	men._pick(men.stacks.size() - 1)
 	await get_tree().process_frame
 	await _captura("pack_otra_arma")
+	# Pulsar el FAROLILLO dentro de "te llevas": la ficha de abajo pasa a ser la suya.
+	men._pick_pack(1)
+	await get_tree().process_frame
+	_ok("pulsar el farolillo del pack lo enseña abajo", men._pack_obj == 1)
+	await _captura("pack_farolillo")
 
 	print("=== VENDER: sale todo lo que tienes ===")
 	await _ir(men, men.TAB_VENDER, V, V.SUB_BOTIN)
