@@ -1889,8 +1889,8 @@ func _weapon_stats(vb: VBoxContainer, w: WeaponData) -> void:
 	if float(mods["aturdir"]) > 0.0:
 		_row_en(vb, "Aturdir", _con_mejoras_pct(float(base["aturdir"]), float(mods["aturdir"])))
 	if w.es_magica:
-		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras, true)
-		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {}, true)
+		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
+		var mgb: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, {})
 		_magic_stats(vb, mg, mgb, w.mp_regen_turno, w.cast_vel_mult)
 	_pie_pieza(vb, w, mejoras, rareza)
 

@@ -633,13 +633,13 @@ static func magic_tier_ratio(tmult: float) -> float:
 static func regen_tier_ratio(tmult: float) -> float:
 	return pow(tmult, REGEN_TIER_POWER)
 
-# EL BASTON, DEL T2 EN ADELANTE, un 20% por debajo de la curva de siempre (decision del usuario del 15/09/2026:
-# "mi hermano va muy chetado"). El T1 no cambia; la curva sigue igual de forma, solo mas baja. Va aqui, en la
-# unica cuenta magica, para que combate, tienda, forja, fichas y las armas ya guardadas digan lo mismo.
-const BASTON_RECORTE_T2 := 0.8
+# LAS ARMAS MAGICAS (baston y varita), DEL T2 EN ADELANTE, un 25% por debajo de la curva de siempre (decision
+# del usuario del 15/09/2026: "mi hermano va muy chetado"). El T1 no cambia; la curva sigue igual de forma,
+# solo mas baja. Va aqui, en la unica cuenta magica, para que combate, tienda, forja, fichas y las armas ya
+# guardadas digan lo mismo.
+const MAGIA_RECORTE_T2 := 0.75
 
-static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary,
-		es_baston: bool = false) -> Dictionary:
+static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dictionary) -> Dictionary:
 	var n := mejoras_combate(mejoras)   # la Durabilidad no cuenta para el +flat de magic_amp
 	var rmult := rareza_mult(rareza)
 	# magic_amp = base×rareza + flat universal por CADA mejora + extra de Potencia (decreciente, tope).
@@ -648,8 +648,8 @@ static func magic_mods(base_amp: float, tmult: float, rareza: int, mejoras: Dict
 	# que no escalaban con la rareza, solo les subia el tope). El tope tambien sube con la rareza.
 	var potencia := minf(cap_rareza(POTENCIA_CAP, rareza), dim_sum(POTENCIA_STEP, _count(mejoras, POTENCIA)) * rmult)
 	var amp := (base_amp * rmult + MAGIC_AMP_FLAT * float(n) + potencia) * magic_tier_ratio(tmult)
-	if es_baston and tmult > 1.0001:   # tier_mult(1) = 1: del T2 en adelante
-		amp *= BASTON_RECORTE_T2
+	if tmult > 1.0001:   # tier_mult(1) = 1: del T2 en adelante
+		amp *= MAGIA_RECORTE_T2
 	return {
 		"magic_amp": amp,
 		"mana_reduccion": minf(cap_rareza(EFICIENCIA_CAP, rareza), dim_sum(EFICIENCIA_STEP, _count(mejoras, EFICIENCIA)) * rmult),

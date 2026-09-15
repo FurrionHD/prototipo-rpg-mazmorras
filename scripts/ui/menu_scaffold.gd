@@ -818,7 +818,7 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		# Lo MAGICO tambien pasa por su math (Upgrades.magic_mods): antes se pintaba el magic_amp
 		# CRUDO del .tres (1.70) y se callaban regen/coste/casteo, asi que el inventario enseñaba
 		# un baston T3 legendario como uno de madera. Ahora sale lo REAL, igual que el menu C.
-		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, Game.tier_mult(tier), rareza, mejoras, true)
+		var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, Game.tier_mult(tier), rareza, mejoras)
 		# Con dueño, el ATAQUE MAGICO que sale de juntar esta pieza con el; sin el, la amplificacion
 		# pelada, que es lo unico que se puede decir de un arma sin saber quien la lleva.
 		if pj != null:
@@ -1221,7 +1221,7 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 			_attr(filas, "Aturdir", "%.0f%%" % (float(a["aturdir"]) * 100.0),
 				_d(float(a["aturdir"]) * 100.0, float(b["aturdir"]) * 100.0, "+%.0f%%"))
 		if w.es_magica:
-			_filas_mejora_magia(filas, w.magic_amp, w.mp_regen_turno, w.cast_vel_mult, tm, rareza, mejoras, despues, true)
+			_filas_mejora_magia(filas, w.magic_amp, w.mp_regen_turno, w.cast_vel_mult, tm, rareza, mejoras, despues)
 	elif item is WandData:
 		var wd := item as WandData
 		_filas_mejora_magia(filas, wd.magic_amp, wd.mp_regen_turno, wd.cast_vel_mult, tm, rareza, mejoras, despues)
@@ -1257,9 +1257,9 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 
 # La parte magica (baston y varita comparten): amplificacion, regen, casteo y coste de maná.
 static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, cast_base: float,
-		tm: float, rareza: int, mejoras: Dictionary, despues: Dictionary, es_baston: bool = false) -> void:
-	var a := Upgrades.magic_mods(base_amp, tm, rareza, mejoras, es_baston)
-	var b := Upgrades.magic_mods(base_amp, tm, rareza, despues, es_baston)
+		tm: float, rareza: int, mejoras: Dictionary, despues: Dictionary) -> void:
+	var a := Upgrades.magic_mods(base_amp, tm, rareza, mejoras)
+	var b := Upgrades.magic_mods(base_amp, tm, rareza, despues)
 	_attr(filas, "Amplif. magia", "×%.2f" % float(a["magic_amp"]), _d(float(a["magic_amp"]), float(b["magic_amp"]), "+%.2f"))
 	_attr(filas, "Regen maná", "%.2f/turno" % (mp_regen * float(a["regen_mult"])),
 		_d(mp_regen * float(a["regen_mult"]), mp_regen * float(b["regen_mult"]), "+%.2f"))
