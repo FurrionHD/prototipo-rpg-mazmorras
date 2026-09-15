@@ -27,7 +27,7 @@ temblando** contra la orilla del lago.
 
 **Bastones y varitas**: el T1 no cambia; del T2 en adelante hacen un 25% menos de daño mágico.
 
-**El bastón recita más despacio** en todos los tiers.
+**El bastón y la varita recitan más despacio** en todos los tiers.
 
 **Los cristales de los pisos 7 a 12** bajan un nivel (el del Minotauro no cambia).
 
