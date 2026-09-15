@@ -19,8 +19,11 @@ ni mayúsculas.
 **La cesta**: apunta varias cosas, cada una con la cantidad que quieras, y véndelas (o cómpralas) de una
 vez. La compra va entera o no va: si no te llega para toda la cesta, no se cobra nada.
 
-**El mostrador T2** ya no es una pestaña aparte: dentro de Comprar eliges el mostrador T1 o el T2, y el
-equipo enseña su tier de verdad.
+**En Comprar, primero eliges el mostrador** (T1 o T2) y luego la sección. El equipo enseña su tier de
+verdad, y la comida solo está en el T1.
+
+**El pack inicial** se abre solo mientras no lo hayas reclamado, y deja claro todo lo que trae: el arma,
+el farolillo, el carbón y las pociones.
 
 ## 🔧 Arreglos
 
