@@ -36,12 +36,14 @@ var _enc_clase: Dictionary = {}      # uid -> Encargos.Clase (con que pelea)
 # ============================================================
 
 func _build_encargos() -> void:
-	MenuScaffold.titulo(hogar._header, "ENCARGOS", 18)
-	MenuScaffold.pestanas(hogar._header, [ENCARGO_SUBS[0][0], ENCARGO_SUBS[1][0]], _enc_sub,
-		func(i: int):
+	# Las dos subpestañas con icono, en la fila de subpestañas del armazon (como las del inventario); el
+	# nombre del apartado sale arriba a la izquierda, bajo "Hogar".
+	MenuScaffold.subpestanas(hogar.barra_sub, [ENCARGO_SUBS[0][0], ENCARGO_SUBS[1][0]],
+		["correr", "pergamino"], _enc_sub, func(i: int):
 			_enc_sub = i
 			hogar._aviso = ""
 			hogar._rebuild())
+	hogar._titulo_seccion.text = str(ENCARGO_SUBS[_enc_sub][0])
 	# Al abrir la pestaña se repasa: puede haber vencido alguno mientras no mirabas. De cliente esto
 	# es una PETICION al host (el unico que puede resolver), asi que la respuesta llega despues por
 	# hogar_cambiado y re-dibuja sola; aqui no se puede avisar de nada todavia.

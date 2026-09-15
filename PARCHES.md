@@ -64,6 +64,22 @@ tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vu
 
 **La corona del que va en cabeza** se ve por fin en los retratos de arriba (la tapaba el pelo).
 
+**El Hogar, con cara nueva.** Arriba, tres secciones con icono: Equipo, Encargos y Cofre.
+- **Equipo**: la formación de frente, con los personajes de tu compañero también (con su P2). "Editar
+  equipo" abre la lista de tus personajes: tocas para añadir o enviar a casa, arrastras para cambiar el
+  orden y confirmas. Ya puedes ir con un solo personaje aunque quepan más, y cambiar a uno por otro con
+  el equipo lleno (antes, en compañía, se colaba solo tu personaje original).
+- **El orden del equipo manda en el combate**: cada uno se coloca en su puesto aunque entre solo o entre
+  después, y en compañía os intercaláis como lo pongáis. Si mueves a los personajes de tu compañero, le
+  llega un aviso para aceptar o rechazar.
+- **Cofre**: todo lo que se deja en casa, con las mismas secciones que el inventario (equipo, consumibles,
+  materiales, armas, armaduras) y la hucha. Cambias entre "En casa" y "Llevas encima" y mueves lo que
+  elijas; los materiales tienen además guardar todo, recoger sin sobrecargarte y recoger todo. La
+  pestaña Almacén desaparece: sus materiales están en el Cofre.
+
+**Las áreas contra un grupo con el Rey Slime** alcanzan ya a los que tiene al lado en pantalla (antes, a
+veces, a un slime de otra punta).
+
 **Hay que tener todos la misma versión** para jugar juntos: con la 0.13.0 no se puede entrar (cambia la red).
 
 ---
