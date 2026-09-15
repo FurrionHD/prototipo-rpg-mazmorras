@@ -262,15 +262,6 @@ func _detalle_encargo(e: Dictionary) -> void:
 			hogar._aviso_ok = true
 			hogar._rebuild())
 		traer.tooltip_text = "Los hace volver YA, con lo que lleven hasta ahora: el trabajo hecho no se pierde."
-		# --- BOTON DE DEV (temporal, quitar antes de publicar) ---
-		# RETRASA EL INICIO en vez de acortar la duracion, asi que el encargo cuenta COMPLETO y da lo
-		# mismo que si hubieras esperado. Es el unico que sirve para mirar el balance sin esperar.
-		var dev: Button = MenuScaffold.pastilla(acciones, "⚡ Terminar ya [dev]", func():
-			Net.hogar.solicitar_dev_terminar_encargo(id)
-			hogar._aviso = "[dev] Encargo terminado al 100%. Ya se puede recoger."
-			hogar._aviso_ok = true
-			hogar._rebuild(), false)
-		dev.tooltip_text = "Como si hubiera pasado su tiempo ENTERO. Botón de pruebas, se quitará."
 		return
 
 	# --- HAN VUELTO: lo que traen, antes de recogerlo.
