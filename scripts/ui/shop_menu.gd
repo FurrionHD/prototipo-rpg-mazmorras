@@ -106,6 +106,9 @@ func _ready() -> void:
 	scroll_det.size_flags_horizontal = Control.SIZE_FILL
 	scroll_det.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
 	scroll.resized.connect(_on_lista_redimensionada)
+	# Y la LISTA de dentro, que se coloca DESPUES que su scroll: mirando solo el scroll, al abrir se
+	# medía la lista aún sin ancho, salían 4 columnas estiradas y ya no se corregía (visto en captura).
+	_lista.resized.connect(_on_lista_redimensionada)
 
 	# LA COLUMNA DERECHA: la ficha con su scroll y, DEBAJO Y FUERA DEL SCROLL, las acciones (cantidad,
 	# total, Vender/Comprar). La ficha de un arma son quince filas: con los botones al final de ella se
@@ -336,6 +339,7 @@ func _rebuild_real() -> void:
 		TAB_COMPRAR: comprar.build()
 		TAB_RECOMPRAR: _build_recomprar()
 		TAB_PACK: _build_pack()
+	_partir_lineas(_content)
 	_pintar_bandeja()
 	_pintar_barra_pie()
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
@@ -348,6 +352,16 @@ func _seccion():
 		TAB_VENDER: return vender
 		TAB_COMPRAR: return comprar
 	return null
+
+
+# La ficha va en un scroll SIN barra horizontal, y ahi una etiqueta que no parte linea impone su ancho
+# a la columna entera: un titulo largo ("Pack inicial · Martillo grande", "... [lo lleva Fulano]")
+# ensanchaba la ficha y la rejilla perdia columnas. Todo texto de la ficha parte linea.
+func _partir_lineas(nodo: Node) -> void:
+	for h in nodo.get_children():
+		if h is Label and (h as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
+			(h as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_partir_lineas(h)
 
 
 func contador(txt: String, alerta: bool = false) -> void:
@@ -386,7 +400,9 @@ var _cols_pintadas: int = 0
 
 func _on_lista_redimensionada() -> void:
 	if _root.visible and _columnas() != _cols_pintadas:
-		_rebuild()
+		# Diferido: llega en mitad de la colocacion de los contenedores (o de otro rebuild, que el guardia
+		# se tragaria sin repetirlo).
+		_rebuild.call_deferred()
 
 
 # Pinta la rejilla y la ficha del elegido. 'vacio' = lo que se dice cuando no hay nada.
@@ -921,33 +937,86 @@ func _decorar_pack(celda: CeldaObjeto) -> void:
 		celda.add_child(tr)
 		celda.move_child(tr, 0)
 		dibujos.append([tr, PACK_HUECOS[i]])
+	# Alrededor del CENTRO DEL DIBUJO y medido con el lado CORTO: si la fila va llena la celda se estira a
+	# lo ancho, y colocando con el ancho los extras se salian por debajo de la celda.
 	var colocar := func() -> void:
-		var w: float = celda.size.x
+		var l: float = minf(celda.size.x, celda.size.y)
+		var centro := Vector2(celda.size.x * 0.5, celda.size.y * 0.5)
 		for d in dibujos:
-			RetratoPieza.encajar(d[0], Vector2(w * d[1].x, w * d[1].y), w * 0.30)
+			RetratoPieza.encajar(d[0], centro + (d[1] - Vector2(0.5, 0.5)) * l, l * 0.30)
 	celda.resized.connect(colocar)
 	colocar.call()
 
 
+# LA FICHA DEL PACK, en el orden en que se lee (playtest del 16/09): primero QUE es, en grande ("Pack
+# inicial · Martillo grande"); luego TODO lo que trae, en filas grandes con su dibujo; y al final la ficha
+# del arma. Antes lo que traia iba en una nota de letra pequeña al pie que no leia nadie, y las celdas
+# de "incluye" (CeldaObjeto dentro de la ficha) salian vacias al cambiar de arma.
 func _preview_pack(vb: VBoxContainer) -> void:
 	var s: Dictionary = stacks[sel]
-	ficha_objeto(vb, s["modelo"])
+	var arma: String = str((s["base"] as Resource).get("nombre"))
+	# AUTOWRAP en todo lo largo: la ficha va en un scroll sin barra horizontal, y ahi un texto que no parte
+	# linea EMPUJA la columna -- la rejilla perdia la mitad de sus columnas al elegir otra arma.
+	var titulo: Label = MenuScaffold.titulo(vb, "Pack inicial · %s" % arma, 22, AMBAR)
+	titulo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sub := Label.new()
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.text = "Regalo de bienvenida, una sola vez. Te llevas:"
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", Color(0.78, 0.82, 0.90))
+	vb.add_child(sub)
+	var extras: Array = _extras_pack()
+	var lineas: Array = [[s["modelo"], arma]]
+	for e in extras:
+		var obj: Resource = e[0]
+		var n: int = int(e[1])
+		var texto: String
+		if obj is ToolData:
+			texto = "Farolillo (se pone solo)"
+		elif obj is MaterialItem:
+			texto = "%d × %s" % [n, (obj as MaterialItem).nombre()]
+		else:
+			texto = "%d × %s" % [n, str(obj.get("nombre"))]
+		lineas.append([obj, texto])
+	for l in lineas:
+		_fila_incluye(vb, l[0], l[1])
+	note(vb, "El bastón y la varita no entran: la magia te la pagas tú.")
 	vb.add_child(HSeparator.new())
-	MenuScaffold.titulo(vb, "El pack incluye", 14, AMBAR)
-	var piezas: Array = [pieza(s["modelo"], "", str((s["base"] as Resource).get("nombre")))]
-	for e in _extras_pack():
-		var nombre: String = Game.item_display_name(e[0]) if e[0] is ToolData else (
-			(e[0] as MaterialItem).nombre() if e[0] is MaterialItem else str(e[0].get("nombre")))
-		piezas.append(pieza(e[0], ("x%d" % e[1]) if int(e[1]) > 1 else "", nombre))
-	MenuScaffold.rejilla_objetos(vb, piezas, -1, func(_i: int): pass, 4, 76.0, false)
-	# Son de mirar, no de pulsar: sin esto cada toque las dejaba marcadas.
-	for c in (vb.get_child(vb.get_child_count() - 1) as Node).get_children():
-		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	note(vb, "Regalo de bienvenida, UNA sola vez: el arma que elijas, un farolillo (se pone solo), %d carbones para alumbrarlo y %d pociones menores. El bastón y la varita no entran: la magia te la pagas tú." % [Game.PACK_CARBON_N, Game.PACK_POCIONES_N])
+	ficha_objeto(vb, s["modelo"])
 	var botones := HBoxContainer.new()
 	botones.alignment = BoxContainer.ALIGNMENT_END
 	_acciones.add_child(botones)
 	MenuScaffold.pastilla(botones, "Reclamar con esta arma", _on_reclamar_pack)
+
+
+# Una fila de "te llevas": el dibujo del objeto a 48 y su nombre en grande. El dibujo va en un hueco
+# propio (retrato del muñeco o dibujo del objeto, lo mismo que la celda compuesta del pack).
+func _fila_incluye(vb: VBoxContainer, obj: Resource, texto: String) -> void:
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 12)
+	vb.add_child(fila)
+	var hueco := Control.new()
+	hueco.custom_minimum_size = Vector2(48, 48)
+	hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila.add_child(hueco)
+	var tr: TextureRect = RetratoPieza.nodo()
+	if not RetratoPieza.poner(tr, obj, RetratoPieza.ESC_CELDA):
+		var t: Dictionary = IconoItem.SpritesObjeto.textura_item(obj)
+		if not t.is_empty():
+			tr.texture = t["tex"]
+			tr.visible = true
+	hueco.add_child(tr)
+	var colocar := func() -> void:
+		RetratoPieza.encajar(tr, hueco.size * 0.5, minf(hueco.size.x, hueco.size.y))
+	hueco.resized.connect(colocar)
+	colocar.call()
+	var l := Label.new()
+	l.text = texto
+	l.add_theme_font_size_override("font_size", 18)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fila.add_child(l)
 
 
 func _on_reclamar_pack() -> void:

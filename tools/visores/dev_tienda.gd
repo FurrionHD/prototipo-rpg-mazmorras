@@ -47,6 +47,10 @@ func _ready() -> void:
 	_ok("con el pack sin reclamar, la tienda abre en el pack", men._tab == men.TAB_PACK)
 	await get_tree().process_frame
 	await _captura("pack")
+	# Elegir OTRA arma: es donde las celdas de "incluye" salian vacias (playtest del 16/09).
+	men._pick(men.stacks.size() - 1)
+	await get_tree().process_frame
+	await _captura("pack_otra_arma")
 
 	print("=== VENDER: sale todo lo que tienes ===")
 	await _ir(men, men.TAB_VENDER, V, V.SUB_BOTIN)
