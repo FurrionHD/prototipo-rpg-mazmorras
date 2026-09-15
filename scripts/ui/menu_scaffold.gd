@@ -1647,7 +1647,14 @@ static func selector_material(vb: VBoxContainer, mats: Array, nombre_gama: Strin
 # on_set NO rebuildee si el valor no cambia, o focus_exited durante el rebuild se realimenta).
 # Si maxv <= minv no hay nada que elegir: todo va disabled (gris). DEVUELVE el LineEdit, para los
 # casos (refinar) que leen la cantidad en el momento de pulsar "Crear" en vez de guardarla.
-static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Callable = Callable()) -> LineEdit:
+#
+# LO ESCRITO VALE AL MOMENTO, sin Enter. Antes solo se leia con Enter o al salir del campo, y los botones
+# de accion (Vender, Comprar...) no cogen el foco: escribias 40, pulsabas Vender y vendias el numero
+# viejo. Ahora cada tecla avisa: a `al_escribir` si se pasa, y si no a `on_set`. Quien REPINTA el panel
+# en su on_set tiene que pasar `al_escribir` (que solo guarde): repintar a cada tecla destruye el campo
+# y te echa de el a mitad de escribir.
+static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Callable = Callable(),
+		al_escribir: Callable = Callable()) -> LineEdit:
 	var vacio: bool = maxv <= minv
 	var v: int = clampi(valor, minv, maxv) if not vacio else minv
 	var caja := HBoxContainer.new()
@@ -1690,6 +1697,24 @@ static func stepper(parent: Node, valor: int, minv: int, maxv: int, on_set: Call
 	campo.max_length = 6
 	campo.text_submitted.connect(func(t: String) -> void: aplicar.call(int(t)))
 	campo.focus_exited.connect(func() -> void: aplicar.call(int(campo.text)))
+	campo.text_changed.connect(func(t: String) -> void:
+		if muriendo(campo):
+			return
+		var s: String = t.strip_edges()
+		# Vacio o a medias ("", "-"): aun estas escribiendo, no se toca nada.
+		if not s.is_valid_int():
+			return
+		var c: int = clampi(int(s), minv, maxv)
+		# Por ENCIMA del maximo se corrige en el campo (no tienes mas). Por debajo NO: borrar para escribir
+		# otra cifra pasa por numeros pequeños, y reescribirlos te pisaria lo que tecleas.
+		if int(s) > maxv:
+			campo.text = str(c)
+			campo.caret_column = campo.text.length()
+		menos.disabled = vacio or c <= minv
+		mas.disabled = vacio or c >= maxv
+		var avisar: Callable = al_escribir if al_escribir.is_valid() else on_set
+		if avisar.is_valid():
+			avisar.call(c))
 	caja.add_child(campo)
 
 	mas.text = "+"

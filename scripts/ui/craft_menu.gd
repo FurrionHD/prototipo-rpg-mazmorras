@@ -369,7 +369,8 @@ func _build_detail(r: RecipeData) -> void:
 			lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(lab)
 			# Stepper editable: −/+ o escribir la cantidad directamente (capada a lo que tienes).
-			MenuScaffold.stepper(row, cur, 0, disp, func(n: int) -> void: _set_sel(ii, ci, n))
+			MenuScaffold.stepper(row, cur, 0, disp, func(n: int) -> void: _set_sel(ii, ci, n),
+				func(n: int) -> void: _set_sel(ii, ci, n, false))
 			_detail.add_child(row)
 
 	var uds := Label.new()
@@ -530,7 +531,10 @@ func _uds(cal: int) -> int:
 # Fija (absoluto) el contador de (ingrediente i, calidad cal) a `n`, acotado a lo que tienes en el
 # baul. Lo llama el stepper editable. NO rebuildea si el valor no cambia (evita que focus_exited del
 # LineEdit, al liberarse en el rebuild, se realimente).
-func _set_sel(i: int, cal: int, n: int) -> void:
+# repintar=false: se esta ESCRIBIENDO; se guarda ya y se repinta al salir del campo (igual que la forja).
+var _escrito_sin_repintar := false
+
+func _set_sel(i: int, cal: int, n: int, repintar: bool = true) -> void:
 	if i < 0 or i >= _seleccion.size():
 		return
 	var ing = _recetas[_sel].ingredientes[i]
@@ -539,13 +543,18 @@ func _set_sel(i: int, cal: int, n: int) -> void:
 	var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))
 	var d: Dictionary = _seleccion[i]
 	var nuevo: int = clampi(n, 0, disp)
-	if nuevo == int(d.get(cal, 0)):
+	var cambia: bool = nuevo != int(d.get(cal, 0))
+	if cambia:
+		if nuevo <= 0:
+			d.erase(cal)
+		else:
+			d[cal] = nuevo
+	if not repintar:
+		_escrito_sin_repintar = _escrito_sin_repintar or cambia
 		return
-	if nuevo <= 0:
-		d.erase(cal)
-	else:
-		d[cal] = nuevo
-	_rebuild()
+	if cambia or _escrito_sin_repintar:
+		_escrito_sin_repintar = false
+		_rebuild()
 
 
 # Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` piezas;

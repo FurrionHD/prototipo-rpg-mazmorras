@@ -677,7 +677,8 @@ func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 		lab.text = "   %s  (tienes %d)" % [_cal_txt(ci), disp]
 		lab.custom_minimum_size = Vector2(190, 0)
 		r.add_child(lab)
-		MenuScaffold.stepper(r, cur, 0, disp, func(n: int) -> void: _set_sel_mat(sel, ci, disp, n))
+		MenuScaffold.stepper(r, cur, 0, disp, func(n: int) -> void: _set_sel_mat(sel, ci, disp, n),
+			func(n: int) -> void: _set_sel_mat(sel, ci, disp, n, false))
 		_content.add_child(r)
 	if not hubo:
 		_note("   No tienes %s en el Hogar." % mat.nombre.to_lower())
@@ -685,15 +686,23 @@ func _contadores(mat: MaterialData, sel: Dictionary, necesita: int) -> void:
 
 # Fija (absoluto) la cantidad elegida de `cal` en `sel`, acotada a `disp`. Lo llama el stepper
 # editable. No rebuildea si no cambia (evita el bucle de focus_exited al liberar el LineEdit).
-func _set_sel_mat(sel: Dictionary, cal: int, disp: int, n: int) -> void:
+# repintar=false: se esta ESCRIBIENDO; se guarda ya y se repinta al salir del campo (igual que la forja).
+var _escrito_sin_repintar := false
+
+func _set_sel_mat(sel: Dictionary, cal: int, disp: int, n: int, repintar: bool = true) -> void:
 	var nuevo: int = clampi(n, 0, disp)
-	if nuevo == int(sel.get(cal, 0)):
+	var cambia: bool = nuevo != int(sel.get(cal, 0))
+	if cambia:
+		if nuevo <= 0:
+			sel.erase(cal)
+		else:
+			sel[cal] = nuevo
+	if not repintar:
+		_escrito_sin_repintar = _escrito_sin_repintar or cambia
 		return
-	if nuevo <= 0:
-		sel.erase(cal)
-	else:
-		sel[cal] = nuevo
-	_rebuild()
+	if cambia or _escrito_sin_repintar:
+		_escrito_sin_repintar = false
+		_rebuild()
 
 
 # Linea de sabor del oficio, SIN numeros (misma regla que en la forja, ver Forge_menu._estado_oficio):
