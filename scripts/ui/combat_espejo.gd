@@ -924,7 +924,9 @@ func _cod_combatiente(c: Combatant) -> int:
 	return 100 + i if i >= 0 else -1
 
 
-# CADA IMPACTO SON CINCO ENTEROS: atacante, victima, daño x10, flags y SEMILLA DE SONIDO. El
+# CADA IMPACTO SON CINCO ENTEROS: atacante, victima, daño x100, flags y SEMILLA DE SONIDO. El
+# daño iba x10 y el numero flotante del espejo salia siempre con el segundo decimal a cero (5.60,
+# 4.80) mientras la barra, que va por la instantanea, marcaba lo justo (playtest del 15/09). El
 # quinto entro al darle varias versiones a cada sonido: la version y el tono se sortean con esa
 # semilla, asi que mandandola el golpe suena identico en todas las pantallas en vez de que cada
 # maquina se saque el suyo. En los flags no cabia (estan los 31 bits utiles cogidos), y cambiar el
@@ -978,7 +980,7 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		| (((Sonido.CLAVES.find(sfx) + 1) & 511) << 22)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
-	_impactos_red.append(roundi(minf(dmg, 3000.0) * 10.0))   # x10: un decimal, y cabe en el int
+	_impactos_red.append(roundi(minf(dmg, 3000.0) * 100.0))   # x100: los dos decimales que se pintan (300000 cabe de sobra)
 	_impactos_red.append(flags)
 	_impactos_red.append(semilla)
 
@@ -1005,7 +1007,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 	while j + 4 < datos.size():
 		var ca: int = datos[j]
 		var cv: int = datos[j + 1]
-		var dmg: float = float(datos[j + 2]) / 10.0
+		var dmg: float = float(datos[j + 2]) / 100.0
 		var flags: int = datos[j + 3]
 		var semilla: int = datos[j + 4]
 		j += 5
