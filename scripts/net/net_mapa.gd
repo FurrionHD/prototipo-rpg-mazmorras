@@ -112,8 +112,12 @@ func _fundir_snap(base: Dictionary, nuevo: Dictionary) -> void:
 	_unir_por_celda(base, nuevo, "vivos")
 	_unir_por_celda(base, nuevo, "escaleras")
 	_unir_celdas(base, nuevo, "salidas")
-	# El charco lleva su celda en "cell" como las escaleras (mas un "tam"), asi que una por celda.
-	_unir_por_celda(base, nuevo, "estanques")
+	# EL CHARCO SE REEMPLAZA, no se suma: hay UNO por piso, y la captura nueva sale del piso tal como es. Sumando
+	# por celda, un charco capturado de un piso mal generado (cuando el espejo generaba otro trazado) se quedaba
+	# para siempre y viajaba en el guardado: el plano del piso 6 enseñaba DOS lagos (playtest). Asi se corrige
+	# solo la proxima vez que alguien pase por ese piso.
+	if not (nuevo.get("estanques", []) as Array).is_empty():
+		base["estanques"] = (nuevo["estanques"] as Array).duplicate(true)
 	# AGOTADOS: gana el sello mas NUEVO (es una cuenta atras de respawn; el ultimo picado es la verdad).
 	var ag: Dictionary = base.get("agotados", {})
 	for celda in (nuevo.get("agotados", {}) as Dictionary):
