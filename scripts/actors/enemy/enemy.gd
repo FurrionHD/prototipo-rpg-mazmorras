@@ -183,7 +183,14 @@ var _embiste_espera: float = 0.0
 # _start_combat todavia NO se ha llamado -- se llama solo (con 'enemy_initiated' ya decidido) al
 # llegar a 0.
 var _impacto_t: float = -1.0
+const _RemotoJugador = preload("res://scripts/actors/player/remote_player.gd")   # los umbrales de oido
 var _impacto_enemy_initiated: bool = false
+# A QUIEN ha conectado el impacto que esta contando. Si desaparece mientras cuenta (su jugador sube o baja
+# de piso y su avatar se borra), el golpe se CANCELA: antes el bicho cogia al aliado mas cercano en ese
+# mismo fotograma y le mandaba la pelea a el, estuviera donde estuviera (playtest: "me entraron en combate
+# saliendo del piso y el combate se le metio a mi compañero").
+var _impacto_objetivo: Node2D = null
+var _impacto_con_objetivo := false
 var _combat_triggered: bool = false
 # ESPERANDO HUECO (hito 5.4): alcance a alguien que ya peleaba pero la pelea estaba llena. Me quedo
 # plantado al lado y lo reintento; en cuanto muera uno de los que pelean, entro en su hueco. Asi
@@ -479,6 +486,12 @@ func _physics_process(delta: float) -> void:
 
 	# Aseguramos que hay a quien mirar. Persiguiendo NO se cambia de presa (o bastaria con que el
 	# grupo se cruzara para que el bicho se quedara bailando entre dos objetivos).
+	if _impacto_t >= 0.0 and _impacto_con_objetivo and not is_instance_valid(_impacto_objetivo):
+		_impacto_t = -1.0
+		_impacto_con_objetivo = false
+		_objetivo = null
+		_rebotar()
+		return
 	if _objetivo == null or not is_instance_valid(_objetivo):
 		_objetivo = _aliado_mas_cercano()
 
@@ -494,6 +507,9 @@ func _physics_process(delta: float) -> void:
 		_impacto_t -= delta
 		if _impacto_t <= 0.0:
 			_impacto_t = -1.0
+			if _impacto_con_objetivo:
+				_objetivo = _impacto_objetivo   # la pelea es de A QUIEN se golpeo, no de quien este mas cerca ahora
+			_impacto_con_objetivo = false
 			_start_combat(_impacto_enemy_initiated)
 		return
 
@@ -1174,6 +1190,8 @@ func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 		var consumido: float = clampf(EMBESTIDA_DUR - maxf(_embiste_t, 0.0), 0.0, EMBESTIDA_DUR)
 		_impacto_t = maxf(EMBESTIDA_IMPACTO - consumido, IMPACTO_MINIMO)
 	_impacto_enemy_initiated = enemy_initiated
+	_impacto_con_objetivo = _objetivo != null and is_instance_valid(_objetivo)
+	_impacto_objetivo = _objetivo if _impacto_con_objetivo else null
 	# EL BICHO SUENA AL EMBESTIR, en el mapa y antes de que se abra la pelea. Suena con su golpe de
 	# siempre (EnemyData.fx_basico), el mismo que dentro del combate, asi que el minotauro embiste
 	# con su cornada y la rata con su mordisco.
@@ -1181,7 +1199,15 @@ func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 	# Solo cuando embiste EL: si el impacto lo abriste tu (atacado_por_jugador), el que suena es tu
 	# arma, y ya lo hace player._tick_ataque. Sonarian los dos y seria un ruido.
 	if enemy_initiated and data != null:
-		Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE)
+		# POR DISTANCIA A MI JUGADOR, con los umbrales del espadazo de otro jugador: quien simula el piso lleva
+		# a TODOS los enemigos, y sin esto oia a volumen de lleno cada embestida contra su compañero, en la
+		# otra punta del piso (playtest: "estoy lejos de mi compa y escucho los golpes de los enemigos").
+		var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+		var d: float = global_position.distance_to(yo.global_position) if yo != null else INF
+		if d < _RemotoJugador.OYE_NADA:
+			var peso: float = 1.0 if d <= _RemotoJugador.OYE_LLENO else lerpf(1.0, 0.2,
+				(d - _RemotoJugador.OYE_LLENO) / (_RemotoJugador.OYE_NADA - _RemotoJugador.OYE_LLENO))
+			Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
 
 
 # ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad

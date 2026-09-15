@@ -172,6 +172,11 @@ func empujar_pelea(nodo: Node, peer: int) -> bool:
 		return false
 	if nodo == null or not nodo.has_meta("net_id"):
 		return false
+	# YA NO ESTA EN ESTE PISO (va de camino a otro, o se ha ido): su avatar puede seguir un momento aqui, pero
+	# la pelea no es suya. Sin esto se le reservaba el grupo y la pelea acababa rebotando por ahi.
+	var lugar_suyo: String = str(Net._peers.get(peer, {}).get("lugar", Net._mi_lugar))
+	if lugar_suyo != Net._mi_lugar:
+		return false
 	var id: int = nodo.get_meta("net_id")
 	var ids: Array = _reservar_grupo(nodo, id, peer)
 	if ids.is_empty():
@@ -1186,7 +1191,7 @@ func difundir_atb(ratios: PackedFloat32Array) -> void:
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _atb(ratios: PackedFloat32Array) -> void:
-	if _pelea_sigo == 0:
+	if _pelea_sigo == 0 or not _de_mi_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_atb"):
@@ -1209,7 +1214,7 @@ func difundir_impactos(datos: PackedInt32Array) -> void:
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _impactos(datos: PackedInt32Array) -> void:
-	if _pelea_sigo == 0:
+	if _pelea_sigo == 0 or not _de_mi_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	# El has_method NO es paranoia: un compañero con una version anterior no tiene aplicar_impactos,
@@ -1220,7 +1225,7 @@ func _impactos(datos: PackedInt32Array) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _instantanea(snap: Dictionary) -> void:
-	if _pelea_sigo == 0:
+	if _pelea_sigo == 0 or not _de_mi_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_instantanea"):
@@ -1336,6 +1341,13 @@ func _tu_carga(nombre: String, seq: int = 0) -> void:
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("soltar_carga"):
 		p.soltar_carga(nombre, seq)
+
+
+# Lo mismo, EN SILENCIO, para lo que llega a chorro (barra de accion a 20 Hz, impactos, instantaneas): una
+# pelea de la que ya sali (un trabajador que aun me tenia apuntado) no puede pintarse ni sonar dentro de la
+# que espejo ahora.
+func _de_mi_anfitrion() -> bool:
+	return _pelea_anfitrion == 0 or multiplayer.get_remote_sender_id() == _pelea_anfitrion
 
 
 # ¿Esto me lo manda de verdad quien lleva mi pelea? Las RPC de turno son "any_peer" (tienen que
