@@ -53,7 +53,7 @@ const BANDA_TIER := 0.62
 
 var item: Resource = null
 var texto_pie: String = ""      # lo que va en la banda: "x12", "Casco", "Nv. 3"...
-var marca: String = ""          # etiqueta de esquina: "PUESTA", el nombre de quien lo lleva...
+var marca: String = ""          # va en la banda: "PUESTA", el nombre de quien lo lleva...
 # EL NIVEL DE MEJORA que se pinta arriba a la derecha. -1 = que lo averigue la celda (lo normal);
 # 0 = no pintar ninguno, para una pantalla que no quiera enseñarlo.
 var plus: int = -1
@@ -228,45 +228,42 @@ func _draw() -> void:
 	# esquina de la izquierda es del tier, asi que esta es la unica libre arriba -- y arriba es donde
 	# tiene que estar: es lo que distingue dos piezas iguales, y en el pie se perdia entre el resto.
 	var n_plus: int = _plus()
-	var y_plus: float = 0.0   # hasta donde baja la muesca (0 = no hay), para no pisarla con la marca
 	if n_plus > 0:
-		y_plus = _muesca_plus(w, h, n_plus)
+		_muesca_plus(w, h, n_plus)
 
-	# LA MARCA DE ESQUINA ("PUESTA", quien lo lleva). Va arriba a la DERECHA porque la izquierda se la
-	# come la muesca, y sobre su propia pastilla oscura: encima del degradado a pelo, la misma
-	# palabra se leia bien en las celdas oscuras y desaparecia en las claras.
-	#
-	# CON +N NO CABEN LAS DOS en la misma esquina, asi que la marca se va a la banda de abajo,
-	# pegada a la derecha. Lo decide la celda y no cada menu: si tuviera que saberlo quien pinta,
-	# bastaria con que una pantalla se olvidara para tener dos textos encima del mismo sitio.
-	var marca_en_banda: bool = (marca != "" and n_plus > 0)
-	if marca != "" and not marca_en_banda:
-		var f2: Font = get_theme_font(&"font")
-		var t2: int = maxi(8, int(h * 0.10))
-		var an: float = f2.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2).x
-		var alto: float = float(t2) + 6.0
-		var caja := Rect2(Vector2(w - an - 12.0, maxf(4.0, y_plus + 3.0)), Vector2(an + 8.0, alto))
-		draw_rect(caja, Color(0.03, 0.04, 0.06, 0.82))
-		draw_string(f2, Vector2(caja.position.x + 4.0, caja.position.y + float(t2) + 1.0),
-			marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t2, Color(0.96, 0.88, 0.62))
-
-	# LA BANDA: el pie centrado y, si la marca ha bajado aqui, el nombre pegado a la derecha. El pie
-	# se centra en el HUECO QUE QUEDA, no en la celda, o los dos textos se montan uno encima del otro
-	# en cuanto el nombre es largo.
+	# LA MARCA ("PUESTA", el nombre de quien lo lleva) VA SIEMPRE EN LA BANDA DE ABAJO. Antes iba
+	# arriba a la derecha en una pastilla, y solo bajaba aqui cuando el +N ocupaba esa esquina: la
+	# misma rejilla tenia nombres en dos sitios, arriba tapaban el dibujo del arma y abajo salian
+	# cortados a media celda ("Agirato oc"). Playtest del 15/09: "o uno u otro, no los dos".
 	var fuente: Font = get_theme_font(&"font")
 	var centro_banda: float = y_banda + (h - y_banda - h * ALTO_LINEA) * 0.5
 	var libre: float = w
-	if marca_en_banda:
+	var carrusel: bool = false
+	if marca != "":
+		# Con pie, el nombre se queda con poco mas de la mitad (a la derecha) y el pie con el resto;
+		# sin pie, la banda entera. Si no cabe, primero se achica la letra hasta un minimo legible, y si
+		# ni asi, CARRUSEL (el mismo de las rejillas, ver MenuScaffold.texto_deslizante): cortado no
+		# se lee, y el nombre de quien lo lleva es el dato que no se puede deducir mirando la celda.
+		var tope3: float = (w * 0.56) if texto_pie != "" else (w - 10.0)
 		var t3: int = maxi(8, int(h * 0.115))
-		# EL NOMBRE, RECORTADO a poco mas de la mitad de la celda: hay compañeros con nombres largos
-		# ("Agirato ochinan") y sin tope se comian la banda entera y empujaban al pie fuera. El ancho
-		# va en el parametro de draw_string que RECORTA de verdad (el quinto), no en el octavo, que
-		# son las banderas de justificado y deja el texto pasarse igual.
-		var tope3: float = w * 0.56
-		var an3: float = minf(fuente.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t3).x, tope3)
-		draw_string(fuente, Vector2(w - an3 - 5.0, centro_banda + float(t3) * 0.36), marca,
-			HORIZONTAL_ALIGNMENT_LEFT, an3, t3, Color(0.96, 0.88, 0.62))
-		libre = w - an3 - 8.0
+		var t_min: int = maxi(8, int(h * 0.09))
+		var an3: float = fuente.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t3).x
+		while an3 > tope3 and t3 > t_min:
+			t3 -= 1
+			an3 = fuente.get_string_size(marca, HORIZONTAL_ALIGNMENT_LEFT, -1, t3).x
+		if an3 <= tope3:
+			var x3: float = (w - an3 - 5.0) if texto_pie != "" else (w - an3) * 0.5
+			draw_string(fuente, Vector2(x3, centro_banda + float(t3) * 0.36), marca,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, t3, Color(0.96, 0.88, 0.62))
+			libre = w - an3 - 8.0
+		else:
+			carrusel = true
+			libre = 0.0   # el carrusel ocupa la banda entera: el pie no cabe con el
+		# Rodando va a su tamaño NORMAL: achicarlo solo servia para que cupiera quieto, y a letra minima
+		# el carrusel no se leia (visto en captura).
+		_poner_carrusel_marca(carrusel, y_banda, h, maxi(8, int(h * 0.115)))
+	else:
+		_poner_carrusel_marca(false, y_banda, h, 0)
 	# LA CANTIDAD (o el slot), centrada en lo que quede. La Y es la LINEA BASE del texto, no su borde
 	# de arriba: para centrarlo de verdad hay que bajar desde el centro de la banda por el ascendente
 	# de la fuente, o el numero se queda pegado al borde de abajo (que es donde estaba).
@@ -302,6 +299,61 @@ func _draw() -> void:
 		draw_polyline(_cerrar(marco), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
 	if disabled:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
+
+
+# EL CARRUSEL DEL NOMBRE, solo en la celda cuyo nombre no cabe ni con la letra achicada. Es un nodo
+# (Label con tween) y no un draw_string porque tiene que moverse y recortarse; por eso se crea SOLO
+# cuando hace falta: una rejilla llena son cientos de celdas y casi ninguna lo necesita.
+# Se decide en _draw, pero los nodos no se tocan ahi dentro: se monta y se quita en diferido.
+var _marca_caja: Control = null
+var _marca_texto: String = ""      # con que marca se monto (una celda reutilizada puede cambiarla)
+var _marca_pendiente: bool = false
+
+func _poner_carrusel_marca(quiero: bool, _y_banda: float, _h: float, tam: int) -> void:
+	if not quiero:
+		if _marca_caja != null:
+			_quitar_carrusel_marca.call_deferred()
+		return
+	if _marca_caja != null and _marca_texto == marca:
+		_marca_caja.modulate = Color(0.42, 0.43, 0.46) if disabled else Color.WHITE
+		return
+	if not _marca_pendiente:
+		_marca_pendiente = true
+		_montar_carrusel_marca.call_deferred(tam)
+
+
+func _quitar_carrusel_marca() -> void:
+	if is_instance_valid(_marca_caja):
+		_marca_caja.queue_free()
+	_marca_caja = null
+	_marca_texto = ""
+
+
+func _montar_carrusel_marca(tam: int) -> void:
+	_marca_pendiente = false
+	_quitar_carrusel_marca()
+	if marca == "":
+		return
+	var caja := Control.new()
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Encima de la banda, entre su borde de arriba y la linea de color, con un respiro a los lados. Por
+	# anclas: si la celda cambia de tamaño se recoloca sola.
+	caja.anchor_left = 0.0
+	caja.anchor_right = 1.0
+	caja.anchor_top = 1.0 - ALTO_BANDA
+	caja.anchor_bottom = 1.0 - ALTO_LINEA
+	caja.offset_left = 3.0
+	caja.offset_right = -3.0
+	# El tamaño de letra por TEMA y no por override: el Label lo crea texto_deslizante por dentro y
+	# un override en la caja no le llegaria; un tema si se hereda.
+	var tema := Theme.new()
+	tema.default_font_size = tam
+	caja.theme = tema
+	add_child(caja)
+	MenuScaffold.texto_deslizante(caja, marca, Color(0.96, 0.88, 0.62))
+	_marca_caja = caja
+	_marca_texto = marca
+	_marca_caja.modulate = Color(0.42, 0.43, 0.46) if disabled else Color.WHITE
 
 
 # LA MUESCA PINTADA: el triangulo de la esquina superior izquierda, del color del tier y con el
