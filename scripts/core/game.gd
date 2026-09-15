@@ -2767,6 +2767,8 @@ func importar_partida(d: SaveData) -> void:
 			continue
 		if not ((it is WeaponData and (it as WeaponData).es_magica) or it is WandData):
 			continue
+		if it is WeaponData:
+			_devolver_mejoras_melee_de_baston(it)
 		var ruta_b: String = ruta_base_de(it)   # repara la ruta si la meta vieja no la trae
 		var plantilla_m: Resource = load(ruta_b) if ruta_b != "" and ResourceLoader.exists(ruta_b) else null
 		if plantilla_m != null and plantilla_m.get_script() == it.get_script():
@@ -10525,6 +10527,43 @@ func tope_mejoras(item: Resource, nucleo: MaterialData) -> int:
 # nombre porque cada nivel es un .tres distinto (ver ConsumableData.plus). Se pregunta aqui y no en
 # cada pantalla para que las dos clases de "+N" se pinten igual sin que nadie tenga que saber de
 # donde sale cada una.
+# EL BASTON YA NO ADMITE MEJORAS CUERPO A CUERPO (15/09/2026: "molestan y lo hacen confuso"; ahora tiene las
+# mismas que la varita). Los que ya llevaran Agudeza o Peso las pierden y se les DEVUELVE lo que costaron
+# -nucleos y material- y quedan esos huecos libres (decision del usuario).
+#
+# De UNA EN UNA DESDE ARRIBA: el coste de una mejora depende de que numero de mejora es (y el material, de la
+# banda de ese nivel), no de su categoria, y el orden en que se pusieron no se apunta. Quitando la de mas
+# arriba, la pieza queda exactamente como estaba antes de comprarla, y la forja dice lo que costo con sus
+# mismas cuentas (nucleo_auto, materiales_mejora, Forge). Volver a subirla cuesta justo lo devuelto.
+func _devolver_mejoras_melee_de_baston(it: WeaponData) -> void:
+	var mj: Dictionary = meta_de(it)["mejoras"]
+	var quitar: int = int(mj.get(Upgrades.AGUDEZA, 0)) + int(mj.get(Upgrades.PESO, 0))
+	if quitar <= 0:
+		return
+	var nucleos_dev: int = 0
+	var partes: PackedStringArray = []
+	for _i in quitar:
+		var cat: String = Upgrades.AGUDEZA if int(mj.get(Upgrades.AGUDEZA, 0)) > 0 else Upgrades.PESO
+		mj[cat] = int(mj[cat]) - 1
+		if int(mj[cat]) <= 0:
+			mj.erase(cat)
+		var nivel: int = mejoras_actuales(it)   # el nivel en el que se compro la que acabamos de quitar
+		var nucleo: MaterialData = nucleo_auto(it)
+		var n: int = 0
+		if nucleo != null:
+			n = Forge.nucleos_para_mejora(nivel, nucleo, it)
+			for _k in n:
+				almacen_materiales.append(MaterialItem.crear(nucleo, MaterialItem.Calidad.NORMAL))
+			nucleos_dev += n
+		var mats: Dictionary = materiales_mejora(it)
+		var c: Dictionary = Forge.material_para_mejora(nivel, it, mats["metal"], mats["fibra"])
+		_devolver_unidades(mats["metal"], int(c["metal"]))
+		_devolver_unidades(mats["fibra"], int(c["fibra"]))
+		partes.append("+%d: %d nucleo(s), %d metal, %d fibra" % [nivel + 1, n, int(c["metal"]), int(c["fibra"])])
+	print("[herrero] %s pierde %d mejora(s) cuerpo a cuerpo y se devuelve lo que costaron: %d nucleo(s) (%s)" % [
+		item_display_name(it), quitar, nucleos_dev, "; ".join(partes)])
+
+
 func mejoras_actuales(item: Resource) -> int:
 	if item is ConsumableData:
 		return (item as ConsumableData).plus()

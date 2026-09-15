@@ -509,15 +509,10 @@ static func mejoras_combate(mejoras: Dictionary) -> int:
 # Las armas MAGICAS (baston) usan las categorias magicas, NO las fisicas.
 static func weapon_categories(w: WeaponData) -> Array:
 	if w != null and w.es_magica:
-		# El baston (arma magica que SI ataca): magicas + Agudeza (raw melee) +
-		# Peso si es contundente (aturde con el golpe). La varita no ataca (ver wand).
-		var mcats: Array = magic_categories()
-		mcats.append(AGUDEZA)
-		if int(w.dano_tipo) == 1:  # CONTUNDENTE
-			mcats.append(PESO)
-		mcats.append(EFICACIA)    # vale igual para un baston: los hechizos tambien meten estados
-		mcats.append(DURABILIDAD)
-		return mcats
+		# El baston lleva LAS MISMAS que la varita (decision del usuario del 15/09/2026): Agudeza y Peso,
+		# las de cuerpo a cuerpo, "molestaban y lo hacian confuso". Las que ya tuviera se devuelven al
+		# cargar la partida (Game._devolver_mejoras_melee_de_baston).
+		return wand_categories()
 	var cats: Array = [AGUDEZA, PRECISION]
 	if w != null and int(w.dano_tipo) == 1:  # CONTUNDENTE
 		cats.append(PESO)
@@ -526,8 +521,8 @@ static func weapon_categories(w: WeaponData) -> Array:
 	cats.append(DURABILIDAD)  # sube el maximo de durabilidad
 	return cats
 
-# Categorias magicas base (potencia + gestion de maná + critico). El baston añade encima
-# Agudeza/Peso; la varita se queda solo con estas (no ataca).
+# Categorias magicas base (potencia + gestion de maná + critico). Baston y varita llevan estas mas
+# Eficacia y Durabilidad (wand_categories).
 #
 # PRECISION entro aqui el 29/07, cuando los hechizos estrenaron critico: es la mejora de critico del
 # juego y no tenia sentido que un mago no pudiera tocarla. En un baston sube ADEMAS su critico

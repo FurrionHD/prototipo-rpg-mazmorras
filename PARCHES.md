@@ -29,6 +29,10 @@ temblando** contra la orilla del lago.
 
 **El bastón y la varita recitan más despacio** en todos los tiers.
 
+**El bastón tiene las mismas mejoras que la varita.** Fuera la Agudeza y el Peso, que eran de cuerpo a
+cuerpo. Si tu bastón ya las llevaba, se le quitan, recuperas los huecos y te devuelve los núcleos y el
+material que costaron.
+
 **La mejora de Celeridad ya no tiene tope.** Antes se llenaba con tres mejoras y el resto no servían; ahora
 cada una da un poco menos que la anterior pero siempre suma.
 
