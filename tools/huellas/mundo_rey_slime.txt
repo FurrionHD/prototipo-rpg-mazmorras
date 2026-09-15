@@ -16,8 +16,8 @@ f57 PULSA frase Arde hasta el hueso
 f58 LOG ✓ Frase correcta. Continua el proximo turno...
 f103 LOG ¡Turno de Daniel! Elige una acción.
 f105 PULSA Atacar
-f106 LOG Daniel golpea con Maza pequeña por 6.19 de daño.
-f106 Rey Slime hp=852.498 mp=21.188 en=0.000
+f106 LOG Daniel golpea con Maza pequeña por 6.00 de daño.
+f106 Rey Slime hp=852.647 mp=21.188 en=0.000
 f161 LOG ¡Turno de Dasui! Elige una acción.
 f163 PULSA Objeto
 f166 PULSA _objeto_box: Poción de maná media  x3
@@ -39,12 +39,12 @@ f347 PULSA frase Y ahora, hiela
 f348 LOG ✓ Frase correcta. Continua el proximo turno...
 f406 LOG ¡Turno de Daniel! Elige una acción.
 f408 PULSA Atacar
-f409 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 8.66 de daño. 💥
-f409 Rey Slime hp=845.567 mp=21.188 en=0.000
+f409 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 8.40 de daño. 💥
+f409 Rey Slime hp=845.926 mp=21.188 en=0.000
 f469 LOG ¡Turno de Dasui! Elige una acción.
 f471 PULSA Atacar
-f472 LOG Dasui golpea con Mandobles por 11.73 de daño.
-f472 Rey Slime hp=836.187 mp=21.188 en=0.000
+f472 LOG Dasui golpea con Mandobles por 11.37 de daño.
+f472 Rey Slime hp=836.829 mp=21.188 en=0.000
 f534 LOG ¡Turno de Catalardio! Elige una acción.
 f534 Catalardio hp=195.595 mp=24.620 en=166.275
 f536 PULSA Objeto
@@ -254,10 +254,10 @@ f795 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f796 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f796 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f796 PULSA _ability_box: Golpe demoledor  (42 EN)
-f797 LOG … 16.59 de daño: 1. Rey Slime (11.92), 2. Slime (4.68)
+f797 LOG … 16.09 de daño: 1. Rey Slime (11.56), 2. Slime (4.53)
 f797 Daniel hp=190.380 mp=20.000 en=139.025
-f797 Rey Slime hp=827.846 mp=21.188 en=0.000
-f797 Slime hp=27.974 mp=20.429 en=0.000
+f797 Rey Slime hp=828.739 mp=21.188 en=0.000
+f797 Slime hp=28.115 mp=20.429 en=0.000
 f797 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f797 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f798 Slime venenoso hp=39.250 mp=20.495 en=0.000
@@ -398,8 +398,8 @@ f864 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f865 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f865 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f865 PULSA Atacar
-f866 LOG Dasui golpea con Mandobles por 10.41 de daño.
-f866 Rey Slime hp=820.559 mp=21.188 en=0.000
+f866 LOG Dasui golpea con Mandobles por 10.10 de daño.
+f866 Rey Slime hp=821.672 mp=21.188 en=0.000
 f866 Slime venenoso hp=39.250 mp=20.495 en=0.000
 f866 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f867 Slime venenoso hp=39.250 mp=20.495 en=0.000
@@ -520,7 +520,7 @@ f923 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f923 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
 f924 LOG … 984.78 de daño en total.
 f924 Agirato ochinan hp=198.795 mp=22.444 en=177.425
-f924 Rey Slime hp=385.251 mp=21.188 en=0.000
+f924 Rey Slime hp=386.364 mp=21.188 en=0.000
 f924 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f924 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f924 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -1452,7 +1452,7 @@ f1226 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1226 PULSA _ability_box: Bastonazo  (26 EN)
 f1227 LOG … 17.44 de daño (1 de 1 golpes).
 f1227 Agirato ochinan hp=198.654 mp=36.500 en=151.425
-f1227 Rey Slime hp=371.302 mp=21.188 en=0.000
+f1227 Rey Slime hp=372.415 mp=21.188 en=0.000
 f1227 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1227 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1227 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -1639,8 +1639,8 @@ f1287 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1287 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1287 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1287 PULSA Atacar
-f1288 LOG Dasui golpea con Mandobles por 12.18 de daño.
-f1288 Rey Slime hp=361.557 mp=21.188 en=0.000
+f1288 LOG Dasui golpea con Mandobles por 11.81 de daño.
+f1288 Rey Slime hp=362.964 mp=21.188 en=0.000
 f1288 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1288 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1288 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -1878,9 +1878,9 @@ f1365 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1365 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1365 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1365 PULSA Atacar
-f1366 LOG Catalardio golpea con Martillo grande por 13.19 de daño.
+f1366 LOG Catalardio golpea con Martillo grande por 12.79 de daño.
 f1366 Catalardio hp=189.459 mp=24.620 en=181.275
-f1366 Rey Slime hp=351.009 mp=21.188 en=0.000
+f1366 Rey Slime hp=352.734 mp=21.188 en=0.000
 f1366 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1366 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1366 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -2598,9 +2598,9 @@ f1599 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1599 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1599 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1599 PULSA _ability_box: Tajo devastador  (72 EN)
-f1600 LOG … 27.86 de daño (1 de 1 golpes).
+f1600 LOG … 27.02 de daño (1 de 1 golpes).
 f1600 Dasui hp=193.522 mp=20.000 en=109.300
-f1600 Rey Slime hp=328.723 mp=21.188 en=0.000
+f1600 Rey Slime hp=331.120 mp=21.188 en=0.000
 f1600 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1600 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1600 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -3014,8 +3014,8 @@ f1734 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1734 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1734 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1734 PULSA Atacar
-f1735 LOG Catalardio golpea con Martillo grande por 9.35 de daño.  ¡Retrasado! 💫
-f1735 Rey Slime hp=321.241 mp=21.188 en=0.000
+f1735 LOG Catalardio golpea con Martillo grande por 9.07 de daño.  ¡Retrasado! 💫
+f1735 Rey Slime hp=323.864 mp=21.188 en=0.000
 f1735 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1735 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1735 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -3312,9 +3312,9 @@ f1832 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1832 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1832 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f1832 PULSA Atacar
-f1833 LOG Daniel golpea con Maza pequeña por 5.50 de daño.
+f1833 LOG Daniel golpea con Maza pequeña por 5.34 de daño.
 f1833 Daniel hp=188.337 mp=20.000 en=159.025
-f1833 Rey Slime hp=316.840 mp=21.188 en=0.000
+f1833 Rey Slime hp=319.596 mp=21.188 en=0.000
 f1833 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f1833 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f1833 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -4071,10 +4071,10 @@ f2078 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2078 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2078 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2078 PULSA _ability_box: Golpe sísmico  (60 EN)
-f2079 LOG … 22.44 de daño: 1. Rey Slime (14.86), 2. Slime (7.59), 5. Slime venenoso (0.00)  ✨Aturdido.
+f2079 LOG … 21.77 de daño: 1. Rey Slime (14.41), 2. Slime (7.36), 5. Slime venenoso (0.00)  ✨Aturdido.
 f2079 Catalardio hp=185.632 mp=24.620 en=121.275
-f2079 Rey Slime hp=304.954 mp=21.188 en=0.000
-f2079 Slime hp=20.389 mp=20.429 en=0.000
+f2079 Rey Slime hp=308.068 mp=21.188 en=0.000
+f2079 Slime hp=20.759 mp=20.429 en=0.000
 f2079 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2079 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2079 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -4332,9 +4332,9 @@ f2163 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2163 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2163 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2163 PULSA Atacar
-f2164 LOG Daniel golpea con Maza pequeña por 5.95 de daño.
+f2164 LOG Daniel golpea con Maza pequeña por 5.77 de daño.
 f2164 Daniel hp=188.337 mp=20.000 en=181.025
-f2164 Rey Slime hp=300.191 mp=21.188 en=0.000
+f2164 Rey Slime hp=303.448 mp=21.188 en=0.000
 f2164 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2164 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2164 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -4534,7 +4534,7 @@ f2228 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2228 PULSA Atacar
 f2229 LOG Agirato ochinan golpea con Baston por 5.17 de daño.
 f2229 Agirato ochinan hp=197.615 mp=36.500 en=164.425
-f2229 Rey Slime hp=296.056 mp=21.188 en=0.000
+f2229 Rey Slime hp=299.313 mp=21.188 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2229 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2229 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -5448,10 +5448,10 @@ f2526 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2526 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2526 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2526 PULSA _ability_box: Golpe demoledor  (42 EN)
-f2527 LOG … 13.23 de daño: 1. Rey Slime (8.65), 2. Slime (4.57)  ✨Aturdido.
+f2527 LOG … 12.83 de daño: 1. Rey Slime (8.39), 2. Slime (4.44)  ✨Aturdido.
 f2527 Daniel hp=187.591 mp=20.000 en=139.025
-f2527 Rey Slime hp=289.133 mp=21.188 en=0.000
-f2527 Slime hp=15.816 mp=20.429 en=0.000
+f2527 Rey Slime hp=292.600 mp=21.188 en=0.000
+f2527 Slime hp=16.323 mp=20.429 en=0.000
 f2527 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2527 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2527 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -5779,9 +5779,9 @@ f2632 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2632 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2632 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2632 PULSA Atacar
-f2633 LOG ¡CRITICO! Dasui golpea con Mandobles por 17.59 de daño. 💥
+f2633 LOG ¡CRITICO! Dasui golpea con Mandobles por 17.05 de daño. 💥
 f2633 Dasui hp=187.214 mp=20.000 en=136.300
-f2633 Rey Slime hp=275.065 mp=21.188 en=0.000
+f2633 Rey Slime hp=278.956 mp=21.188 en=0.000
 f2633 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2633 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2633 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -6723,9 +6723,9 @@ f2940 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2940 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2940 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f2940 PULSA Atacar
-f2941 LOG Dasui golpea con Mandobles por 12.30 de daño.
+f2941 LOG Dasui golpea con Mandobles por 11.93 de daño.
 f2941 Dasui hp=187.214 mp=20.000 en=178.300
-f2941 Rey Slime hp=265.225 mp=21.188 en=0.000
+f2941 Rey Slime hp=269.413 mp=21.188 en=0.000
 f2941 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f2941 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f2941 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -7701,9 +7701,9 @@ f3258 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3258 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3258 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3258 PULSA _ability_box: Tajo devastador  (72 EN)
-f3259 LOG … 23.81 de daño (1 de 1 golpes).
+f3259 LOG … 23.09 de daño (1 de 1 golpes).
 f3259 Dasui hp=187.214 mp=20.000 en=106.300
-f3259 Rey Slime hp=246.178 mp=21.188 en=0.000
+f3259 Rey Slime hp=250.940 mp=21.188 en=0.000
 f3259 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3259 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3259 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -8016,9 +8016,9 @@ f3360 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3360 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3360 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3360 PULSA Atacar
-f3361 LOG Daniel golpea con Maza pequeña por 5.89 de daño.
+f3361 LOG Daniel golpea con Maza pequeña por 5.71 de daño.
 f3361 Daniel hp=187.276 mp=20.000 en=159.025
-f3361 Rey Slime hp=241.469 mp=21.188 en=0.000
+f3361 Rey Slime hp=246.374 mp=21.188 en=0.000
 f3361 Slime venenoso hp=0.000 mp=20.495 en=0.000
 f3361 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3361 Slime venenoso hp=38.050 mp=20.363 en=0.000
@@ -8563,139 +8563,139 @@ f3537 Slime venenoso hp=0.000 mp=20.363 en=0.000
 f3537 Slime venenoso hp=38.050 mp=20.363 en=0.000
 f3538 LOG 1. Rey Slime usa Brote contra Agirato ochinan.  ¡Brotan 2 slimes a su lado! 🟢
 f3538 Slime hp=32.050 mp=20.363 en=0.000
-f3539 Slime hp=15.816 mp=20.429 en=0.000
+f3539 Slime hp=16.323 mp=20.429 en=0.000
 f3539 Slime hp=32.050 mp=20.363 en=0.000
-f3540 Slime hp=15.816 mp=20.429 en=0.000
+f3540 Slime hp=16.323 mp=20.429 en=0.000
 f3540 Slime hp=32.050 mp=20.363 en=0.000
-f3541 Slime hp=15.816 mp=20.429 en=0.000
+f3541 Slime hp=16.323 mp=20.429 en=0.000
 f3541 Slime hp=32.050 mp=20.363 en=0.000
-f3542 Slime hp=15.816 mp=20.429 en=0.000
+f3542 Slime hp=16.323 mp=20.429 en=0.000
 f3542 Slime hp=32.050 mp=20.363 en=0.000
-f3543 Slime hp=15.816 mp=20.429 en=0.000
+f3543 Slime hp=16.323 mp=20.429 en=0.000
 f3543 Slime hp=32.050 mp=20.363 en=0.000
-f3544 Slime hp=15.816 mp=20.429 en=0.000
+f3544 Slime hp=16.323 mp=20.429 en=0.000
 f3544 Slime hp=32.050 mp=20.363 en=0.000
-f3545 Slime hp=15.816 mp=20.429 en=0.000
+f3545 Slime hp=16.323 mp=20.429 en=0.000
 f3545 Slime hp=32.050 mp=20.363 en=0.000
-f3546 Slime hp=15.816 mp=20.429 en=0.000
+f3546 Slime hp=16.323 mp=20.429 en=0.000
 f3546 Slime hp=32.050 mp=20.363 en=0.000
-f3547 Slime hp=15.816 mp=20.429 en=0.000
+f3547 Slime hp=16.323 mp=20.429 en=0.000
 f3547 Slime hp=32.050 mp=20.363 en=0.000
-f3548 Slime hp=15.816 mp=20.429 en=0.000
+f3548 Slime hp=16.323 mp=20.429 en=0.000
 f3548 Slime hp=32.050 mp=20.363 en=0.000
-f3549 Slime hp=15.816 mp=20.429 en=0.000
+f3549 Slime hp=16.323 mp=20.429 en=0.000
 f3549 Slime hp=32.050 mp=20.363 en=0.000
-f3550 Slime hp=15.816 mp=20.429 en=0.000
+f3550 Slime hp=16.323 mp=20.429 en=0.000
 f3550 Slime hp=32.050 mp=20.363 en=0.000
-f3551 Slime hp=15.816 mp=20.429 en=0.000
+f3551 Slime hp=16.323 mp=20.429 en=0.000
 f3551 Slime hp=32.050 mp=20.363 en=0.000
-f3552 Slime hp=15.816 mp=20.429 en=0.000
+f3552 Slime hp=16.323 mp=20.429 en=0.000
 f3552 Slime hp=32.050 mp=20.363 en=0.000
-f3553 Slime hp=15.816 mp=20.429 en=0.000
+f3553 Slime hp=16.323 mp=20.429 en=0.000
 f3553 Slime hp=32.050 mp=20.363 en=0.000
-f3554 Slime hp=15.816 mp=20.429 en=0.000
+f3554 Slime hp=16.323 mp=20.429 en=0.000
 f3554 Slime hp=32.050 mp=20.363 en=0.000
-f3555 Slime hp=15.816 mp=20.429 en=0.000
+f3555 Slime hp=16.323 mp=20.429 en=0.000
 f3555 Slime hp=32.050 mp=20.363 en=0.000
-f3556 Slime hp=15.816 mp=20.429 en=0.000
+f3556 Slime hp=16.323 mp=20.429 en=0.000
 f3556 Slime hp=32.050 mp=20.363 en=0.000
-f3557 Slime hp=15.816 mp=20.429 en=0.000
+f3557 Slime hp=16.323 mp=20.429 en=0.000
 f3557 Slime hp=32.050 mp=20.363 en=0.000
-f3558 Slime hp=15.816 mp=20.429 en=0.000
+f3558 Slime hp=16.323 mp=20.429 en=0.000
 f3558 Slime hp=32.050 mp=20.363 en=0.000
-f3559 Slime hp=15.816 mp=20.429 en=0.000
+f3559 Slime hp=16.323 mp=20.429 en=0.000
 f3559 Slime hp=32.050 mp=20.363 en=0.000
-f3560 Slime hp=15.816 mp=20.429 en=0.000
+f3560 Slime hp=16.323 mp=20.429 en=0.000
 f3560 Slime hp=32.050 mp=20.363 en=0.000
-f3561 Slime hp=15.816 mp=20.429 en=0.000
+f3561 Slime hp=16.323 mp=20.429 en=0.000
 f3561 Slime hp=32.050 mp=20.363 en=0.000
-f3562 Slime hp=15.816 mp=20.429 en=0.000
+f3562 Slime hp=16.323 mp=20.429 en=0.000
 f3562 Slime hp=32.050 mp=20.363 en=0.000
-f3563 Slime hp=15.816 mp=20.429 en=0.000
+f3563 Slime hp=16.323 mp=20.429 en=0.000
 f3563 Slime hp=32.050 mp=20.363 en=0.000
-f3564 Slime hp=15.816 mp=20.429 en=0.000
+f3564 Slime hp=16.323 mp=20.429 en=0.000
 f3564 Slime hp=32.050 mp=20.363 en=0.000
-f3565 Slime hp=15.816 mp=20.429 en=0.000
+f3565 Slime hp=16.323 mp=20.429 en=0.000
 f3565 Slime hp=32.050 mp=20.363 en=0.000
-f3566 Slime hp=15.816 mp=20.429 en=0.000
+f3566 Slime hp=16.323 mp=20.429 en=0.000
 f3566 Slime hp=32.050 mp=20.363 en=0.000
-f3567 Slime hp=15.816 mp=20.429 en=0.000
+f3567 Slime hp=16.323 mp=20.429 en=0.000
 f3567 Slime hp=32.050 mp=20.363 en=0.000
-f3568 Slime hp=15.816 mp=20.429 en=0.000
+f3568 Slime hp=16.323 mp=20.429 en=0.000
 f3568 Slime hp=32.050 mp=20.363 en=0.000
-f3569 Slime hp=15.816 mp=20.429 en=0.000
+f3569 Slime hp=16.323 mp=20.429 en=0.000
 f3569 Slime hp=32.050 mp=20.363 en=0.000
-f3570 Slime hp=15.816 mp=20.429 en=0.000
+f3570 Slime hp=16.323 mp=20.429 en=0.000
 f3570 Slime hp=32.050 mp=20.363 en=0.000
-f3571 Slime hp=15.816 mp=20.429 en=0.000
+f3571 Slime hp=16.323 mp=20.429 en=0.000
 f3571 Slime hp=32.050 mp=20.363 en=0.000
-f3572 Slime hp=15.816 mp=20.429 en=0.000
+f3572 Slime hp=16.323 mp=20.429 en=0.000
 f3572 Slime hp=32.050 mp=20.363 en=0.000
-f3573 Slime hp=15.816 mp=20.429 en=0.000
+f3573 Slime hp=16.323 mp=20.429 en=0.000
 f3573 Slime hp=32.050 mp=20.363 en=0.000
-f3574 Slime hp=15.816 mp=20.429 en=0.000
+f3574 Slime hp=16.323 mp=20.429 en=0.000
 f3574 Slime hp=32.050 mp=20.363 en=0.000
-f3575 Slime hp=15.816 mp=20.429 en=0.000
+f3575 Slime hp=16.323 mp=20.429 en=0.000
 f3575 Slime hp=32.050 mp=20.363 en=0.000
-f3576 Slime hp=15.816 mp=20.429 en=0.000
+f3576 Slime hp=16.323 mp=20.429 en=0.000
 f3576 Slime hp=32.050 mp=20.363 en=0.000
-f3577 Slime hp=15.816 mp=20.429 en=0.000
+f3577 Slime hp=16.323 mp=20.429 en=0.000
 f3577 Slime hp=32.050 mp=20.363 en=0.000
-f3578 Slime hp=15.816 mp=20.429 en=0.000
+f3578 Slime hp=16.323 mp=20.429 en=0.000
 f3578 Slime hp=32.050 mp=20.363 en=0.000
-f3579 Slime hp=15.816 mp=20.429 en=0.000
+f3579 Slime hp=16.323 mp=20.429 en=0.000
 f3579 Slime hp=32.050 mp=20.363 en=0.000
-f3580 Slime hp=15.816 mp=20.429 en=0.000
+f3580 Slime hp=16.323 mp=20.429 en=0.000
 f3580 Slime hp=32.050 mp=20.363 en=0.000
-f3581 Slime hp=15.816 mp=20.429 en=0.000
+f3581 Slime hp=16.323 mp=20.429 en=0.000
 f3581 Slime hp=32.050 mp=20.363 en=0.000
-f3582 Slime hp=15.816 mp=20.429 en=0.000
+f3582 Slime hp=16.323 mp=20.429 en=0.000
 f3582 Slime hp=32.050 mp=20.363 en=0.000
-f3583 Slime hp=15.816 mp=20.429 en=0.000
+f3583 Slime hp=16.323 mp=20.429 en=0.000
 f3583 Slime hp=32.050 mp=20.363 en=0.000
-f3584 Slime hp=15.816 mp=20.429 en=0.000
+f3584 Slime hp=16.323 mp=20.429 en=0.000
 f3584 Slime hp=32.050 mp=20.363 en=0.000
-f3585 Slime hp=15.816 mp=20.429 en=0.000
+f3585 Slime hp=16.323 mp=20.429 en=0.000
 f3585 Slime hp=32.050 mp=20.363 en=0.000
-f3586 Slime hp=15.816 mp=20.429 en=0.000
+f3586 Slime hp=16.323 mp=20.429 en=0.000
 f3586 Slime hp=32.050 mp=20.363 en=0.000
-f3587 Slime hp=15.816 mp=20.429 en=0.000
+f3587 Slime hp=16.323 mp=20.429 en=0.000
 f3587 Slime hp=32.050 mp=20.363 en=0.000
-f3588 Slime hp=15.816 mp=20.429 en=0.000
+f3588 Slime hp=16.323 mp=20.429 en=0.000
 f3588 Slime hp=32.050 mp=20.363 en=0.000
-f3589 Slime hp=15.816 mp=20.429 en=0.000
+f3589 Slime hp=16.323 mp=20.429 en=0.000
 f3589 Slime hp=32.050 mp=20.363 en=0.000
-f3590 Slime hp=15.816 mp=20.429 en=0.000
+f3590 Slime hp=16.323 mp=20.429 en=0.000
 f3590 Slime hp=32.050 mp=20.363 en=0.000
-f3591 Slime hp=15.816 mp=20.429 en=0.000
+f3591 Slime hp=16.323 mp=20.429 en=0.000
 f3591 Slime hp=32.050 mp=20.363 en=0.000
-f3592 Slime hp=15.816 mp=20.429 en=0.000
+f3592 Slime hp=16.323 mp=20.429 en=0.000
 f3592 Slime hp=32.050 mp=20.363 en=0.000
-f3593 Slime hp=15.816 mp=20.429 en=0.000
+f3593 Slime hp=16.323 mp=20.429 en=0.000
 f3593 Slime hp=32.050 mp=20.363 en=0.000
-f3594 Slime hp=15.816 mp=20.429 en=0.000
+f3594 Slime hp=16.323 mp=20.429 en=0.000
 f3594 Slime hp=32.050 mp=20.363 en=0.000
-f3595 Slime hp=15.816 mp=20.429 en=0.000
+f3595 Slime hp=16.323 mp=20.429 en=0.000
 f3595 Slime hp=32.050 mp=20.363 en=0.000
-f3596 Slime hp=15.816 mp=20.429 en=0.000
+f3596 Slime hp=16.323 mp=20.429 en=0.000
 f3596 Slime hp=32.050 mp=20.363 en=0.000
-f3597 Slime hp=15.816 mp=20.429 en=0.000
+f3597 Slime hp=16.323 mp=20.429 en=0.000
 f3597 Slime hp=32.050 mp=20.363 en=0.000
-f3598 Slime hp=15.816 mp=20.429 en=0.000
+f3598 Slime hp=16.323 mp=20.429 en=0.000
 f3598 Slime hp=32.050 mp=20.363 en=0.000
-f3599 Slime hp=15.816 mp=20.429 en=0.000
+f3599 Slime hp=16.323 mp=20.429 en=0.000
 f3599 Slime hp=32.050 mp=20.363 en=0.000
-f3600 Slime hp=15.816 mp=20.429 en=0.000
+f3600 Slime hp=16.323 mp=20.429 en=0.000
 f3600 Slime hp=32.050 mp=20.363 en=0.000
-f3601 Slime hp=15.816 mp=20.429 en=0.000
+f3601 Slime hp=16.323 mp=20.429 en=0.000
 f3601 Slime hp=32.050 mp=20.363 en=0.000
 f3602 LOG El conjuro está listo. ¡Lánzalo!
 f3602 Agirato ochinan hp=191.497 mp=36.500 en=177.425
-f3602 Slime hp=15.816 mp=20.429 en=0.000
+f3602 Slime hp=16.323 mp=20.429 en=0.000
 f3602 Slime hp=32.050 mp=20.363 en=0.000
-f3603 Slime hp=15.816 mp=20.429 en=0.000
+f3603 Slime hp=16.323 mp=20.429 en=0.000
 f3603 Slime hp=32.050 mp=20.363 en=0.000
-f3604 Slime hp=15.816 mp=20.429 en=0.000
+f3604 Slime hp=16.323 mp=20.429 en=0.000
 f3604 Slime hp=32.050 mp=20.363 en=0.000
 f3604 PULSA 🔥 ¡Lanzar Eclipse!
 f3605 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.6 MP.

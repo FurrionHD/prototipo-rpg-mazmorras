@@ -549,13 +549,6 @@ static func shield_categories() -> Array:
 	return [DUREZA, REFUERZO, RESISTENCIA, DURABILIDAD]
 
 
-# EL CUERPO A CUERPO PEGA UN 5% MAS que lo que dicen sus plantillas, todas por igual. Va aqui y no
-# en los .tres porque las copias guardadas congelan los campos de la plantilla: tocando el ataque_base
-# habria que migrar cada arma del baul. Multiplica el golpe ENTERO (Combatant.atk), no solo el raw del
-# arma: el raw es una parte del ataque y un +5% del raw se quedaria en bastante menos.
-# Fuera quedan el baston (su golpe fisico no es su oficio) y los puños (no son un arma).
-const MELEE_DANO_MULT := 1.05
-
 # DEFENSA QUE IGNORA cada arma de base. Es la ventaja propia de las LIGERAS: dan muchos golpes
 # flojos, y contra un bicho acorazado cada uno pasa mas entero. Ojo con el porque: la mitigacion es
 # PROPORCIONAL (K/(K+def)), asi que hoy la defensa no castiga mas a los golpes flojos -- esto no
@@ -569,11 +562,6 @@ const PENETRACION_POR_TIPO := {
 	WeaponData.Tipo.ESPADA_LARGA: 0.12,
 	WeaponData.Tipo.MAZA_PEQ: 0.12,
 }
-
-static func dano_mult_arma(w: WeaponData) -> float:
-	if w == null or w.es_magica or w.tipo == WeaponData.Tipo.PUNOS:
-		return 1.0
-	return MELEE_DANO_MULT
 
 static func penetracion_arma(w: WeaponData) -> float:
 	if w == null or w.es_magica:

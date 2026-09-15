@@ -2750,7 +2750,14 @@ func importar_partida(d: SaveData) -> void:
 	# su plantilla; tier, rareza y mejoras siguen en item_meta y no se tocan.
 	# Y LA DEFENSA DE LAS ARMADURAS, por lo mismo (15/09/2026: defensa base 0.5 -> 1.1 y la escalera de
 	# materiales cuero 1.0 / hierro 1.4 / hierro completo 1.8 / placas 2.2).
+	# Y EL ATAQUE BASE DE LAS ARMAS cuerpo a cuerpo (15/09/2026: 3.0 -> 3.15, un +5%).
 	for it in item_meta.keys():
+		if it is WeaponData and not (it as WeaponData).es_magica:
+			var ruta_w: String = ruta_base_de(it)
+			var plantilla_w: Resource = load(ruta_w) if ruta_w != "" and ResourceLoader.exists(ruta_w) else null
+			if plantilla_w is WeaponData:
+				(it as WeaponData).ataque_base = (plantilla_w as WeaponData).ataque_base
+			continue
 		if it is ArmorData:
 			var ruta_a: String = ruta_base_de(it)
 			var plantilla_a: Resource = load(ruta_a) if ruta_a != "" and ResourceLoader.exists(ruta_a) else null
@@ -7774,8 +7781,7 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"slot": slot,   # para saber que arma desgastar al golpear (main/off)
 		"motion_value": w.motion_value,
 		"ataque_arma": float(wm["raw"]) * dur_mult,
-		# Extra de daño del cuerpo a cuerpo y defensa que ignora. Por mano: en dual cada arma trae lo suyo.
-		"dano_mult": Upgrades.dano_mult_arma(w),
+		# Defensa que ignora. Por mano: en dual cada arma trae la suya.
 		"penetracion": Upgrades.penetracion_arma(w),
 		"crit_bonus": float(wm["crit"]),
 		"crit_dmg": float(wm["crit_dmg"]),

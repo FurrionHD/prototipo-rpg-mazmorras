@@ -177,9 +177,8 @@ var crit_resist: float = 0.0     # RESIST. CRITICOS (armadura pesada): baja el c
 # aturdir_base}. Se ALTERNAN por golpe (advance_hand). Vacio = enemigos (sin arma).
 var hands: Array = []
 var _hand_idx: int = 0
-# De la mano activa: multiplicador de daño del arma (cuerpo a cuerpo) y fraccion de la defensa del
-# objetivo que ignora (ligeras). Sin arma (enemigos) se quedan neutros. Ver Upgrades.
-var dano_arma_mult: float = 1.0
+# De la mano activa: fraccion de la defensa del objetivo que ignora (ligeras). Sin arma (enemigos)
+# se queda en 0. Ver Upgrades.PENETRACION_POR_TIPO.
 var penetracion: float = 0.0
 # Mapa AbilityData -> [indices de mano que la aportan] (KAN-57). Lo rellena Game.
 # Sirve para el DUAL: una habilidad solo usa su version dual si AMBAS armas la traen.
@@ -592,8 +591,7 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 #   - motion_value: reparte el raw por golpe (rapidas < 1, grandes > 1).
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
-	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(hab("fuerza")) * motion_value \
-		* dano_arma_mult * status_atk_mult()
+	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(hab("fuerza")) * motion_value * status_atk_mult()
 # El "ataque" de un ESCUDAZO. No sale de tu arma sino de tu DEFENSA: la del cuerpo (armadura +
 # Resistencia, via def_value) MAS la del propio escudo (defend_defense), que es la chapa con la que
 # estas pegando. Por eso un escudo mas grande o de mejor tier pega mas, y por eso el escudazo es la
@@ -735,7 +733,6 @@ func _apply_hand(i: int) -> void:
 	var h: Dictionary = hands[i]
 	motion_value = h["motion_value"]
 	ataque_arma = h["ataque_arma"]
-	dano_arma_mult = h.get("dano_mult", 1.0)
 	penetracion = h.get("penetracion", 0.0)
 	crit_bonus = h["crit_bonus"]
 	crit_dmg = h.get("crit_dmg", 0.0)

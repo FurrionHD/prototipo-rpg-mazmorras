@@ -668,7 +668,7 @@ func _pagina_habilidades(c: Combatant) -> void:
 	# FUERZA -> ataque fisico. Como fuerza_factor(0) == 1, lo que aporta es todo lo que el ataque
 	# total tiene por encima del raw pelado (base + arma).
 	_fila_habilidad("Fuerza", "fuerza", ab)
-	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.dano_arma_mult * c.status_atk_mult()
+	var atk_sin: float = (c.base_attack + c.ataque_arma) * c.status_atk_mult()
 	_aporte("+%.1f ataque" % (_ataque_total(c) - atk_sin))
 
 	# RESISTENCIA -> vida y defensa.
@@ -2062,7 +2062,7 @@ func _combatiente() -> Combatant:
 # Ataque TOTAL (raw): (base + arma) × factor_fuerza × estados, SIN el motion value (ese se aplica por
 # golpe). Es la misma cuenta que combate_detalle._atk_total.
 func _ataque_total(c: Combatant) -> float:
-	return (c.base_attack + c.ataque_arma) * c.dano_arma_mult \
+	return (c.base_attack + c.ataque_arma) \
 		* StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
 

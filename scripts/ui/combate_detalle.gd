@@ -721,11 +721,11 @@ func _barras(c: Combatant) -> void:
 
 # Ataque total (raw, sin motion value: ese se aplica por golpe) igual que la ficha del menu C.
 static func _atk_total(c: Combatant) -> float:
-	return (c.base_attack + c.ataque_arma) * c.dano_arma_mult \
+	return (c.base_attack + c.ataque_arma) \
 		* StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
 func _atk_arma(c: Combatant) -> float:
-	return c.ataque_arma * c.dano_arma_mult * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
+	return c.ataque_arma * StatsMath.fuerza_factor(float(c.abilities.fuerza)) * c.status_atk_mult()
 
 
 # LO QUE APORTA EL EQUIPO A LA DEFENSA, medido POR DIFERENCIA y no leyendo `extra_defense`.
