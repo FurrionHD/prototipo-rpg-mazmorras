@@ -258,7 +258,11 @@ func _build_encargos_nuevo() -> void:
 	MenuScaffold.cuadricula(hogar._lista, etiquetas, -1, func(i: int):
 		_enc_grupos = Encargos.alternar_grupo(_enc_grupos, int(valores[i]))
 		hogar._rebuild(), 3, Vector2(150, 34))
-	for g in _enc_grupos:
+	# Siempre en el orden fijo de los grupos, nunca en el del diccionario: si no, al mover un deslizador
+	# la lista se reordena bajo el ratón.
+	for g in Encargos.Grupo.values():
+		if not _enc_grupos.has(int(g)):
+			continue
 		var fila := HBoxContainer.new()
 		hogar._lista.add_child(fila)
 		var l := Label.new()

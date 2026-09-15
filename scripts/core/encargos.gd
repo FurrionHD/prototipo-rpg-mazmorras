@@ -139,8 +139,12 @@ static func ajustar_porcentaje(grupos: Dictionary, g: int, v: int) -> Dictionary
 	if suma_otros <= 0.0:
 		for k in otros:
 			otros[k] = 1.0
-	var out: Dictionary = a_cien(otros, 100 - fijo)
-	out[g] = fijo
+	var repartido: Dictionary = a_cien(otros, 100 - fijo)
+	# EN EL MISMO ORDEN QUE LLEGARON: si el que mueves se fuera al final, la lista de deslizadores se
+	# reordenaria con cada toque y no habria forma de ajustarlos.
+	var out: Dictionary = {}
+	for k in grupos:
+		out[int(k)] = fijo if int(k) == g else int(repartido.get(int(k), 0))
 	return out
 
 # Marcar o desmarcar un grupo. Al marcar entra con su parte a partes iguales; al desmarcar, lo suyo se
