@@ -50,6 +50,9 @@ func _ready() -> void:
 	else:
 		activo = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 	_medir_borde()
+	# EL PUNTERO del juego (la pluma). Aqui porque es el primer sitio que ya sabe de raton frente a dedo; el
+	# criterio de "movil" lo decide Puntero, no 'activo' (ver su cabecera).
+	Puntero.aplicar()
 	# La zona segura cambia al girar el aparato, asi que hay que volver a medirla.
 	get_tree().get_root().size_changed.connect(_medir_borde)
 
