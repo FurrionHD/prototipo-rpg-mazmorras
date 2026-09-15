@@ -49,6 +49,10 @@ var _deltas: Dictionary = {}
 # Lo que SALIO A LA LUZ en ese mismo "Actualizar", tambien por persona, para marcarlo en la lista:
 var _subidas: Dictionary = {}   # {PersonajeData: {id_desarrollo: rango_antes}}
 var _nuevas: Dictionary = {}    # {PersonajeData: [id_pasiva, ...]}
+# La exclamacion de "hay cosas nuevas abajo" (ver _crear_aviso):
+var _aviso_nuevo: Control = null
+var _por_ver: Array = []        # [[clave, nodo], ...] de la ficha pintada ahora mismo, aun sin ver
+var _vistas: Dictionary = {}    # {PersonajeData: [clave, ...]} lo nuevo que ya ha entrado en la vista
 var _aviso: String = ""
 
 
@@ -95,6 +99,7 @@ func _ready() -> void:
 
 	_fila_retratos = MenuScaffold.fila_retratos(m["header"])
 	_scroll_retratos = _fila_retratos.get_parent() as ScrollContainer
+	_crear_aviso()
 
 
 func abrir() -> void:
@@ -102,6 +107,7 @@ func abrir() -> void:
 		return
 	_pj_sel = 0
 	_deltas = {}
+	_vistas = {}
 	_subidas = {}
 	_nuevas = {}
 	# CURAR al interactuar: todo el grupo, sin pulsar nada. -1 = "a tope" (se concreta al crear el
@@ -116,6 +122,7 @@ func abrir() -> void:
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
+	_ficha_arriba()
 
 
 func _cerrar() -> void:
@@ -160,6 +167,13 @@ func _pick_persona(i: int) -> void:
 		return
 	_pj_sel = i
 	_rebuild()
+	_ficha_arriba()
+
+
+# La ficha vuelve ARRIBA al cambiar de persona y al actualizar: el scroll es del contenedor y no de la
+# ficha, asi que sin esto se quedaba donde lo dejo el anterior y las basicas del nuevo no se veian.
+func _ficha_arriba() -> void:
+	(_content.get_parent() as ScrollContainer).scroll_vertical = 0
 
 
 # La llama el selector de desarrollo tras subir de nivel: refresca y enseña el reset. El nivel es
@@ -177,6 +191,7 @@ func mostrar_subida(aprendido: String = "") -> void:
 	_deltas[Game.lider()] = d
 	_nuevas[Game.lider()] = []
 	_subidas[Game.lider()] = {aprendido: 0} if aprendido != "" else {}
+	_vistas[Game.lider()] = []
 	_aviso = "¡%s sube a nivel %d! Su poder queda grabado en su base y sus básicas vuelven a rango I." % [
 		Game.lider().nombre, Game.player_level]
 	_rebuild()
@@ -198,6 +213,7 @@ func _rebuild() -> void:
 
 func _rebuild_real() -> void:
 	_caja_muneco = null
+	_por_ver = []   # los nodos de la ficha anterior se van con el vaciado; _pintar_perks apunta los nuevos
 	MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
 	MenuScaffold.vaciar(_side)
@@ -366,10 +382,6 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 		var b_lvl: Button = MenuScaffold.pastilla(acc, "★ Subir de nivel  (%d → %d)" % [
 			pj.level, pj.level + 1], _subir, false)
 		b_lvl.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	# Si al actualizar ha salido algo, se AVISA aqui, donde esta la vista, en vez de bajar la ficha:
-	# lo nuevo queda mas abajo, marcado en verde.
-	if not (_subidas.get(pj, {}) as Dictionary).is_empty() or not (_nuevas.get(pj, []) as Array).is_empty():
-		MenuScaffold.titulo(_content, "★ Ha salido algo nuevo. Míralo más abajo.", 12, VERDE)
 
 
 # Una basica: nombre a la izquierda, numero y letra a la derecha, y la barra fina debajo.
@@ -467,6 +479,8 @@ func _pintar_perks(pj: PersonajeData) -> void:
 		if r <= 0:
 			continue
 		_fila_desarrollo(str(d["nombre"]), int(subidas.get(id, r)), r)
+		if subidas.has(id):
+			_por_ver_si_nuevo(pj, "des:" + id)
 
 	var hueco2 := Control.new()
 	hueco2.custom_minimum_size = Vector2(0, 12)
@@ -490,6 +504,90 @@ func _pintar_perks(pj: PersonajeData) -> void:
 		# tirada cayo en silencio y este es el unico sitio donde aparece por primera vez).
 		MenuScaffold.titulo_item(_content, str(p.get("nombre", "")), Upgrades.rareza_color(4), 1.0, 15)
 		MenuScaffold.nota(_content, Game.pasiva_desc(p))
+		if nuevas.has(str(p["id"])):
+			_por_ver_si_nuevo(pj, "pas:" + str(p["id"]))
+
+
+# ============================================================
+#  LA EXCLAMACION de "hay cosas nuevas mas abajo"
+#  Una burbuja ambar con "!" flotando abajo en la ficha, como en los juegos. Cada cosa nueva cuenta
+#  como VISTA en cuanto entra entera en la vista del scroll; cuando no queda ninguna por ver, la
+#  burbuja se va. Lo visto se apunta POR PERSONA y por clave, asi que cambiar de persona y volver no
+#  lo resucita. Pulsarla baja hasta la siguiente por ver.
+# ============================================================
+
+const LADO_AVISO := 30.0
+
+# El ULTIMO nodo añadido a la ficha es el que tiene que verse para dar la cosa por vista (la fila del
+# desarrollo, o la descripcion de la pasiva: hasta leer eso no la has visto).
+func _por_ver_si_nuevo(pj: PersonajeData, clave: String) -> void:
+	var vistas: Array = _vistas.get(pj, [])
+	if vistas.has(clave):
+		return
+	_por_ver.append([clave, _content.get_child(_content.get_child_count() - 1)])
+
+
+func _crear_aviso() -> void:
+	_aviso_nuevo = Control.new()
+	_aviso_nuevo.size = Vector2(LADO_AVISO, LADO_AVISO)
+	_aviso_nuevo.visible = false
+	_aviso_nuevo.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_aviso_nuevo.tooltip_text = "Hay cosas nuevas más abajo"
+	_root.add_child(_aviso_nuevo)
+	_aviso_nuevo.draw.connect(func() -> void:
+		var c := Vector2(LADO_AVISO, LADO_AVISO) * 0.5
+		# Late: crece y mengua un poco, lo justo para que llame la vista sin marear.
+		var r: float = LADO_AVISO * 0.5 * (0.92 + 0.08 * sin(Time.get_ticks_msec() * 0.006))
+		_aviso_nuevo.draw_circle(c + Vector2(0, 2), r, Color(0, 0, 0, 0.45))   # sombra
+		_aviso_nuevo.draw_circle(c, r, AMBAR)
+		_aviso_nuevo.draw_arc(c, r, 0.0, TAU, 32, Color(1, 0.93, 0.75), 1.5, true)
+		# La "!" a mano (palo y punto): con la fuente sale fina y descentrada.
+		var col := Color(0.10, 0.07, 0.03)
+		_aviso_nuevo.draw_line(c + Vector2(0, -r * 0.52), c + Vector2(0, r * 0.14), col, 3.2, true)
+		_aviso_nuevo.draw_circle(c + Vector2(0, r * 0.46), 2.0, col))
+	_aviso_nuevo.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_ir_al_siguiente_por_ver())
+
+
+func _process(_delta: float) -> void:
+	if _aviso_nuevo == null:
+		return
+	if not _root.visible or _por_ver.is_empty():
+		_aviso_nuevo.visible = false
+		return
+	var scroll := _content.get_parent() as ScrollContainer
+	var vista: Rect2 = scroll.get_global_rect()
+	var pj: PersonajeData = _pj()
+	var vistas: Array = _vistas.get(pj, [])
+	var quedan: Array = []
+	for e in _por_ver:
+		var n: Control = e[1]
+		if not is_instance_valid(n):
+			continue
+		var r: Rect2 = n.get_global_rect()
+		# Cuenta cuando ha entrado ENTERA (y el layout ya la ha colocado: tamaño > 0).
+		if r.size.y > 0.0 and r.position.y >= vista.position.y - 1.0 and r.end.y <= vista.end.y + 1.0:
+			if not vistas.has(e[0]):
+				vistas.append(e[0])
+		else:
+			quedan.append(e)
+	_vistas[pj] = vistas
+	_por_ver = quedan
+	_aviso_nuevo.visible = not _por_ver.is_empty()
+	if _aviso_nuevo.visible:
+		# Abajo en el centro de la ficha, flotando sobre el contenido.
+		_aviso_nuevo.global_position = Vector2(vista.get_center().x - LADO_AVISO * 0.5,
+			vista.end.y - LADO_AVISO - 14.0)
+		_aviso_nuevo.queue_redraw()
+
+
+func _ir_al_siguiente_por_ver() -> void:
+	if _por_ver.is_empty():
+		return
+	var n: Control = _por_ver[0][1]
+	if is_instance_valid(n):
+		(_content.get_parent() as ScrollContainer).ensure_control_visible(n)
 
 
 # Un desarrollo: el nombre, los diez rombos de rango y la letra. Si acaba de subir, los rombos
@@ -549,6 +647,7 @@ func _actualizar(pj: PersonajeData) -> void:
 	for s in STATS:
 		d[s] = [antes[s], int(pj.get(s))]
 	_deltas[pj] = d
+	_vistas[pj] = []   # lo de este Actualizar es nuevo aunque la misma clave ya se viera otra vez
 	# Se apunta POR ID con el rango de antes: la lista de desarrollos que devuelve Game va por nombre.
 	var sub: Dictionary = {}
 	for dd in Game.DESARROLLOS:
@@ -565,6 +664,7 @@ func _actualizar(pj: PersonajeData) -> void:
 	# La ficha NO baja sola hasta lo nuevo: se dejaria de ver como han quedado las basicas, que es lo
 	# primero que se mira al actualizar. Lo nuevo esta marcado en verde; se baja a verlo con la rueda.
 	_rebuild()
+	_ficha_arriba()
 
 
 func _subir() -> void:

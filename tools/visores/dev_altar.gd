@@ -225,6 +225,11 @@ func _pasada() -> void:
 	await _captura("3_sedaki_pendiente")
 	_altar._actualizar(Game.party[1])
 	await _captura("4_sedaki_actualizado")
+	# LA EXCLAMACION: a media bajada tiene que seguir (quedan pasivas por ver) y al fondo, irse.
+	var ficha := _altar._content.get_parent() as ScrollContainer
+	ficha.scroll_vertical = 500
+	await _captura("4_sedaki_a_medias")
+	print("[altar] por ver a medias: ", _altar._por_ver.size())
 	await _bajar_scroll(_altar._root)
 	await _captura("4_sedaki_abajo")
 	# Otra vez a Sedaki, sin nada nuevo: la lista sigue ahi, sin marcas.
