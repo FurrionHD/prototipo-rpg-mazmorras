@@ -2,7 +2,7 @@
 
 ---
 
-# v0.13.1 — «Todos a una» (arreglos)
+# Próxima versión (sin número todavía)
 
 Lo que salió jugando la 0.13.0 en compañía.
 
@@ -35,7 +35,7 @@ temblando** contra la orilla del lago.
 
 **Un puntero propio**: una pluma.
 
-**Hay que tener todos la misma versión** para jugar juntos: con la 0.13.0 no se puede entrar.
+**Hay que tener todos la misma versión** para jugar juntos: con la 0.13.0 no se puede entrar (cambia la red).
 
 ---
 
