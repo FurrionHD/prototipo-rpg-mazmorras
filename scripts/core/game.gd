@@ -2744,6 +2744,19 @@ func importar_partida(d: SaveData) -> void:
 		if mochila_equipo != null:
 			mochila_equipo.capacidad = mo_base.capacidad
 
+	# MISMA MIGRACION PARA LO MAGICO de bastones y varitas: su amplificacion y su velocidad de recitado van
+	# congeladas en cada copia, asi que un cambio de balance en baston.tres / varita.tres (15/09/2026: recitado
+	# del baston 1.05 -> 0.85, varita -20% de magia) no llegaria a las armas que ya tienes. Se re-clavan las de
+	# su plantilla; tier, rareza y mejoras siguen en item_meta y no se tocan.
+	for it in item_meta.keys():
+		if not ((it is WeaponData and (it as WeaponData).es_magica) or it is WandData):
+			continue
+		var ruta_b: String = ruta_base_de(it)   # repara la ruta si la meta vieja no la trae
+		var plantilla_m: Resource = load(ruta_b) if ruta_b != "" and ResourceLoader.exists(ruta_b) else null
+		if plantilla_m != null and plantilla_m.get_script() == it.get_script():
+			it.set("magic_amp", plantilla_m.get("magic_amp"))
+			it.set("cast_vel_mult", plantilla_m.get("cast_vel_mult"))
+
 	consumables.clear()
 	for ruta in d.consumibles:
 		var c: Resource = load(ruta)
@@ -7688,7 +7701,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 	var cast_base := 1.0
 	if main.es_magica:
 		cast_base = main.cast_vel_mult
-		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main", p)), equip_rareza("main", p), equip_mejoras("main", p))
+		var mm := Upgrades.magic_mods(main.magic_amp, tier_mult(equip_tier("main", p)), equip_rareza("main", p), equip_mejoras("main", p), true)
 		magic_amp *= float(mm["magic_amp"])
 		mp_regen_turno += main.mp_regen_turno * float(mm["regen_mult"])
 		mana_reduccion += float(mm["mana_reduccion"])
