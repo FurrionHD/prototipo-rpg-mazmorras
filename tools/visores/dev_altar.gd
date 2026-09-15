@@ -198,9 +198,11 @@ func _rehacer() -> void:
 	_altar.abrir()
 
 
+# Por el ALTAR, como en el juego: asi al elegir o al aplazar se vuelve a el y no a la nada.
 func _subir_directo() -> void:
 	_cerrar_todo()
-	_subida.abrir()
+	_altar.abrir()
+	_altar._subir()
 
 
 # ============================================================
@@ -240,6 +242,11 @@ func _pasada() -> void:
 	await _captura("7_subir_abajo")
 	_subida._pick(7)
 	await _captura("8_subir_elegida")
+	# APLAZAR: tiene que volver al altar, no dejar la pantalla vacia. Y luego se vuelve a entrar.
+	_subida._cerrar()
+	await _captura("8b_aplazar_vuelve_al_altar")
+	_altar._subir()
+	_subida._pick(7)
 	# Al elegir, el selector vuelve SOLO al altar (abierto desde el): la captura tiene que salir con
 	# el altar delante y el "reinicio" en las cinco basicas.
 	_subida._elegir(str(Game.desarrollos_disponibles()[_subida._sel]["id"]))

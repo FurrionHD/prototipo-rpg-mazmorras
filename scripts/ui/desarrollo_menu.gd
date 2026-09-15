@@ -120,7 +120,8 @@ func _rebuild_real() -> void:
 	_titulo_nivel.text = "NIVEL %d → %d" % [Game.player_level, Game.player_level + 1]
 	MenuScaffold.nota(_side, "Tu poder se graba en tu base (+%d%%) y las básicas vuelven a rango I."
 		% roundi(Game.NIVEL_SPIKE * 100.0))
-	MenuScaffold.nota(_side, "Esc: aplazar la subida.")
+	MenuScaffold.nota(_side, "Esc: volver al altar sin subir." if _desde_altar
+		else "Esc: aplazar la subida.")
 
 	var disp: Array = Game.desarrollos_disponibles()
 	if disp.is_empty():
@@ -175,6 +176,19 @@ func _botones(id: String) -> void:
 	var b2: Button = MenuScaffold.pastilla(acc, "Subir sin habilidad nueva", _elegir.bind(""),
 		id == "")
 	b2.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+	# APLAZAR a la vista, y no solo con Esc o la ✕: sin un boton, lo unico que se ve para salir es la
+	# ✕ de la esquina, y esa parece "cerrar todo" aunque te devuelva al altar.
+	var hueco2 := Control.new()
+	hueco2.custom_minimum_size = Vector2(0, 6)
+	acc.add_child(hueco2)
+	var b3 := Button.new()
+	b3.text = "← Volver al altar sin subir" if _desde_altar else "← Aplazar la subida"
+	b3.flat = true
+	b3.add_theme_color_override("font_color", GRIS)
+	b3.add_theme_color_override("font_hover_color", Color(0.94, 0.95, 0.98))
+	b3.add_theme_font_size_override("font_size", 13)
+	b3.pressed.connect(_cerrar)
+	acc.add_child(b3)
 
 
 # UNA TARJETA: icono del tipo, nombre, tipo y la descripcion recortada a una linea. Alto FIJO (ver la
