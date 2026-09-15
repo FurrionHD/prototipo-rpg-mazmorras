@@ -4333,25 +4333,42 @@ func pjs_de_encargo(e: Dictionary) -> Array:
 	return out
 
 
-# --- MANDAR un encargo. Devuelve el id, o 0 si no se pudo. ---
+# POR QUE no salio el ultimo encargo, o "" si salio. Antes enviar_encargo devolvia 0 a secas y la
+# pantalla ya habia dicho "En marcha": el jugador veia la lista vacia sin saber que habia pasado.
+var motivo_encargo: String = ""
+
+func _no_encargo(motivo: String) -> int:
+	motivo_encargo = motivo
+	print("[encargos] no sale: ", motivo)
+	return 0
+
+func _nombre_de_uid(uid: String) -> String:
+	var pj: PersonajeData = pj_por_uid(uid)
+	if pj == null:
+		pj = _pj_en_mundo(uid)
+	return pj.nombre if pj != null else "Alguien"
+
+
+# --- MANDAR un encargo. Devuelve el id, o 0 si no se pudo (y el motivo en motivo_encargo). ---
 # 'grupos' es el OBJETIVO: {Encargos.Grupo: porcentaje}. 'faenas' es {uid: [grupos]} y 'clases'
 # {uid: int}: a que va cada uno y con que clase pelea. Pueden venir vacios, y en multi vienen de la
 # maquina del INVITADO, asi que todo se recomprueba aqui: un cliente puede mandar lo que quiera.
 func enviar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
 		faenas: Dictionary = {}, clases: Dictionary = {}) -> int:
 	var tt: Dictionary = Encargos.grupos_validos(grupos)
+	motivo_encargo = ""
 	if uids.is_empty() or uids.size() > Encargos.MIEMBROS_MAX:
-		return 0
+		return _no_encargo("Elige entre una y %d personas." % Encargos.MIEMBROS_MAX)
 	# Nadie puede ir a dos sitios a la vez, ni estar bajando contigo.
 	for uid in uids:
 		if uid_de_encargo(String(uid)) != 0:
-			return 0
+			return _no_encargo("%s ya está de encargo." % _nombre_de_uid(String(uid)))
 		# 'party' es la del HOST, asi que esto solo caza a los suyos. La disponibilidad de verdad —la
 		# del equipo de CADA dueño, en vivo— la comprueba Net.hogar._motivo_no_disponible antes de llegar
 		# aqui; esto queda como la valla de casa.
 		var pj: PersonajeData = pj_por_uid(String(uid))
 		if pj != null and party.has(pj):
-			return 0
+			return _no_encargo("%s va en el equipo: mándalo a casa antes." % pj.nombre)
 	# Y los utiles tienen que estar libres en el cofre.
 	var reserva: Array = []
 	for id in cofre_ids:
@@ -4359,12 +4376,13 @@ func enviar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, c
 			var d := entrada as Dictionary
 			if int(d.get("id", -1)) == int(id):
 				if int(d.get("encargo", 0)) != 0:
-					return 0
+					return _no_encargo("Uno de los útiles ya está en otro encargo.")
 				reserva.append(d)
 				break
 	# A pescar no se va sin caña, una mochila por persona y una herramienta de cada tipo.
-	if not Encargos.motivo_no_puede(tt, reserva, uids.size()).is_empty():
-		return 0
+	var pega: String = Encargos.motivo_no_puede(tt, reserva, uids.size())
+	if not pega.is_empty():
+		return _no_encargo(pega)
 
 	var miembros: Array = []
 	for uid in uids:

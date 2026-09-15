@@ -994,10 +994,21 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		_enc_utiles.clear()
 		_enc_faena.clear()
 		_enc_clase.clear()
-		_enc_sub = 0
-		hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
-		hogar._aviso_ok = true
-		Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, uids, utiles, faenas, clases)
+		var motivo: String = Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, uids,
+			utiles, faenas, clases)
+		if motivo.is_empty():
+			_enc_sub = 0
+			hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600) if not Net._soy_cliente() \
+				else "Pedido al anfitrión…"
+			hogar._aviso_ok = true
+		else:
+			# NO HA SALIDO: se dice por que y se devuelve la seleccion, para no tener que rehacerla.
+			_enc_uids = uids
+			_enc_utiles = utiles
+			_enc_faena = faenas
+			_enc_clase = clases
+			hogar._aviso = motivo
+			hogar._aviso_ok = false
 		hogar._rebuild(), true, pega.is_empty())
 
 

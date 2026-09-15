@@ -439,21 +439,25 @@ func _set_cofre(lista: Array) -> void:
 #  difunde la lista entera. Calcado del cofre y del bote.
 # ============================================================
 
+# Devuelve "" si ha salido (o, de cliente, si la peticion va de camino: la respuesta llega luego por
+# _aviso_remoto) y si no, EL MOTIVO, para que la pantalla lo diga en su linea de aviso. Antes el host
+# lo cantaba en un toast que el propio menu tapaba, y la pantalla ya habia dicho "En marcha".
 func solicitar_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, cofre_ids: Array,
-		faenas: Dictionary = {}, clases: Dictionary = {}) -> void:
+		faenas: Dictionary = {}, clases: Dictionary = {}) -> String:
 	if Net._soy_cliente():
 		_pedir_encargo.rpc_id(1, piso, grupos, duracion, uids, cofre_ids, faenas, clases)
-	else:
-		# El host tambien pasa por la aduana: el que se le puede haber ido del selector es un
-		# personaje DEL COMPAÑERO, y eso Game.enviar_encargo no lo sabe mirar (su party es la de aqui).
-		if Net.activo:
-			var motivo: String = _motivo_no_disponible(uids)
-			if not motivo.is_empty():
-				Net._toast(motivo)
-				_difundir_hogar()
-				return
-		if Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases) != 0:
+		return ""
+	# El host tambien pasa por la aduana: el que se le puede haber ido del selector es un
+	# personaje DEL COMPAÑERO, y eso Game.enviar_encargo no lo sabe mirar (su party es la de aqui).
+	if Net.activo:
+		var motivo: String = _motivo_no_disponible(uids)
+		if not motivo.is_empty():
 			_difundir_hogar()
+			return motivo
+	if Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases) == 0:
+		return Game.motivo_encargo if not Game.motivo_encargo.is_empty() else "No se pudo mandar ese encargo."
+	_difundir_hogar()
+	return ""
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -473,7 +477,8 @@ func _pedir_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, c
 	# enviar_encargo revalida la clase contra el equipo real: lo que mande el cliente es una peticion.
 	var id: int = Game.enviar_encargo(piso, grupos, duracion, uids, cofre_ids, faenas, clases)
 	if id == 0:
-		_aviso_remoto.rpc_id(quien, "No se pudo mandar ese encargo.")
+		_aviso_remoto.rpc_id(quien, Game.motivo_encargo if not Game.motivo_encargo.is_empty()
+			else "No se pudo mandar ese encargo.")
 		return
 	# Quien lo manda es el que lo pidio, no el host: es quien puede traerlos de vuelta.
 	var e: Dictionary = Game.encargo_por_id(id)
@@ -490,7 +495,7 @@ func _pedir_encargo(piso: int, grupos: Dictionary, duracion: int, uids: Array, c
 func _motivo_no_disponible(uids: Array) -> String:
 	var por_uid: Dictionary = {}
 	for f in _construir_roster():
-		por_uid[String((f as Dictionary).get("uid", ""))] = f
+		por_uid[String((f as Dictionary).get("uid", ""))] = f   # el roster ya no repite uids
 	for u in uids:
 		var fila = por_uid.get(String(u))
 		if fila == null:
@@ -611,31 +616,48 @@ func _set_roster_hogar(lista: Array) -> void:
 # esta vacio en su maquina a proposito), asi que sin esto no podria mandar a nadie que no sea suyo.
 func _construir_roster() -> Array:
 	var out: Array = []
+	# CADA PERSONAJE UNA VEZ. En mundos donde tu identidad cambio (ver identity.gd, 15/09/2026) tu
+	# JugadorData viejo sigue guardado con COPIAS RANCIAS de tus personajes, con el mismo uid. Salian
+	# repetidos en "Quien va", y peor: la comprobacion de si siguen libres se quedaba con la copia rancia
+	# -- que podia decir "en su equipo" -- y el encargo no salia. Los tuyos van primero y los conectados
+	# en vivo antes que las fotos, asi que quedarse con la PRIMERA aparicion es quedarse con la buena.
+	var vistos: Dictionary = {}
 	# Los mios, calculados aqui: mi party es la de verdad.
 	for pj in Game.plantilla:
 		if String(pj.uid).is_empty():
 			push_warning("[hogar] %s no tiene uid: fuera del selector de encargos" % pj.nombre)
 			continue   # sin uid no se le puede mandar ni cobrar: es el personaje fantasma
+		if vistos.has(String(pj.uid)):
+			continue
+		vistos[String(pj.uid)] = true
 		out.append(_fila_roster(pj, Identidad.id, Identidad.nombre))
 	# Y los de los demas. Si su dueño esta conectado, sus filas llegan EN VIVO (_roster_ajeno); si no
 	# —desconectado—, se sacan de la foto de jugadores_mundo, que para alguien que no esta jugando es
 	# perfectamente buena.
+	# DOS PASADAS: primero los conectados (en vivo) y despues las fotos, para que una copia rancia nunca
+	# llegue antes que la fila buena del mismo personaje.
 	for id in Game.jugadores_mundo:
 		var jd: JugadorData = Game.jugadores_mundo[id]
-		if jd == null:
+		if jd == null or not _roster_ajeno.has(id):
 			continue
-		if _roster_ajeno.has(id):
-			for f in (_roster_ajeno[id] as Array):
-				var fila: Dictionary = (f as Dictionary).duplicate()
-				# 'de_encargo' lo sella el HOST y solo el: Game.encargos vive aqui, y el dueño no puede
-				# saber si a uno suyo lo ha mandado ya el compañero.
-				fila["de_encargo"] = Game.uid_de_encargo(String(fila.get("uid", ""))) != 0
-				if String(fila.get("dueno_nombre", "")).is_empty():
-					fila["dueno_nombre"] = jd.nombre_visible
-				out.append(fila)
+		for f in (_roster_ajeno[id] as Array):
+			var fila: Dictionary = (f as Dictionary).duplicate()
+			# 'de_encargo' lo sella el HOST y solo el: Game.encargos vive aqui, y el dueño no puede
+			# saber si a uno suyo lo ha mandado ya el compañero.
+			fila["de_encargo"] = Game.uid_de_encargo(String(fila.get("uid", ""))) != 0
+			if String(fila.get("dueno_nombre", "")).is_empty():
+				fila["dueno_nombre"] = jd.nombre_visible
+			if vistos.has(String(fila.get("uid", ""))):
+				continue
+			vistos[String(fila.get("uid", ""))] = true
+			out.append(fila)
+	for id in Game.jugadores_mundo:
+		var jd: JugadorData = Game.jugadores_mundo[id]
+		if jd == null or _roster_ajeno.has(id):
 			continue
 		for pj in jd.personajes:
-			if pj is PersonajeData and not String((pj as PersonajeData).uid).is_empty():
+			if pj is PersonajeData and not String((pj as PersonajeData).uid).is_empty() and not vistos.has(String((pj as PersonajeData).uid)):
+				vistos[String((pj as PersonajeData).uid)] = true
 				out.append(_fila_roster(pj as PersonajeData, String(jd.id), jd.nombre_visible))
 	return out
 

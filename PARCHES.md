@@ -26,7 +26,7 @@ temblando** contra la orilla del lago.
 **Personajes duplicados en los mundos compartidos.** Al abrir un mundo, a veces el juego te daba una
 identidad nueva sin avisar y tus personajes aparecían repetidos como si fueran "de otro jugador". Ya no
 pasa. Y abrir el mismo mundo en dos ventanas del juego a la vez ya no deja que la segunda se lo quite a
-la primera: te avisa de que ya lo tienes abierto. Las copias que ya tengas no se borran solas.
+la primera: te avisa de que ya lo tienes abierto. Las copias que ya tengas no se borran solas. Y esas copias ya no salen repetidas en el hogar ni impiden mandar un encargo.
 
 **Subir de nivel pide el rango C de verdad**: tiene que verse en la ficha, o sea, hay que actualizar el
 estado antes. Hasta ahora contaba lo que llevabas por dentro sin consolidar, y del nivel 2 en adelante
@@ -98,6 +98,7 @@ tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vu
 - La pantalla, nueva: los materiales como en el inventario, la cara de quien va, los útiles por tipo, y al
   volver ves lo que traen antes de recogerlo.
 - Los encargos que tuvieras en marcha se adaptan solos.
+- Si un encargo no puede salir, te dice por qué en vez de quedarse la lista vacía.
 
 **Las áreas contra un grupo con el Rey Slime** alcanzan ya a los que tiene al lado en pantalla (antes, a
 veces, a un slime de otra punta).
