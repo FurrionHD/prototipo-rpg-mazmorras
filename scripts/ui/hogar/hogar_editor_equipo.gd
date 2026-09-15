@@ -89,7 +89,7 @@ func _pintar_lista() -> void:
 		var b: Button = fila.get_child(fila.get_child_count() - 1)
 		if de_encargo:
 			b.disabled = true
-			b.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN
+
 			b.tooltip_text = "%s está de encargo: vuelve cuando lo recojas." % pj.nombre
 		else:
 			b.tooltip_text = ("%s  ·  puesto %d. Tócalo para enviarlo a casa." % [pj.nombre, pos + 1]) if pos >= 0 \
@@ -175,7 +175,7 @@ func _pintar_hueco(h: Control, i: int) -> void:
 	var vacio: bool = p.is_empty()
 	var mio: bool = not vacio and bool(p["mio"])
 	h.arrastrable = mio
-	h.mouse_default_cursor_shape = Control.CURSOR_DRAG if mio else Control.CURSOR_ARROW
+
 	if not vacio:
 		h.tooltip_text = String(p["nombre"]) if mio else "%s  ·  del jugador %d" % [p["nombre"], int(p["jugador"])]
 	var centro := Vector2((LADO_CIRCULO + 24.0) * 0.5, 12.0 + LADO_CIRCULO * 0.5)

@@ -103,3 +103,54 @@ static func aplicar() -> void:
 	# La misma pluma tambien sobre botones y enlaces (donde Godot pasaria a la mano del sistema).
 	for forma in [Input.CURSOR_ARROW, Input.CURSOR_POINTING_HAND]:
 		Input.set_custom_mouse_cursor(tex, forma, punto_caliente())
+	# ARRASTRANDO (el editor de equipo, los objetos del cofre): una MANO AGARRANDO. Son las tres formas que
+	# pone Godot durante un arrastre -- arrastrar, "se puede soltar aqui" y "aqui no" --, y sin esto salian
+	# las de Windows. Las tres la MISMA mano a proposito: el usuario no quiere el "prohibido" al pasar por
+	# un sitio donde no se suelta, solo que el puntero no cambie.
+	var mano := ImageTexture.create_from_image(imagen_mano())
+	for forma in [Input.CURSOR_DRAG, Input.CURSOR_CAN_DROP, Input.CURSOR_FORBIDDEN]:
+		Input.set_custom_mouse_cursor(mano, forma, punto_caliente_mano())
+
+
+# LA MANO AGARRANDO, en el mismo pixel-art que la pluma: puño cerrado visto de frente, con los nudillos
+# arriba y el pulgar por delante. '#' contorno, 'o' piel (el mismo claro del calamo), 's' sombra.
+const MANO := [
+	"................",
+	"....##.##.##....",
+	"...#oo#oo#oo#...",
+	"..##oo#oo#oo##..",
+	".#oo#oooooo#oo#.",
+	".#ooooooooooso#.",
+	".#oosooooooooo#.",
+	".#oooossoooooo#.",
+	"..#ooooosssooo#.",
+	"..#ooooooooos#..",
+	"...#ooooooooo#..",
+	"...#oooooooo#...",
+	"....#ooooooo#...",
+	"....#osssoos#...",
+	"....#########...",
+	"................",
+]
+const PIEL_SOMBRA := Color(0.70, 0.66, 0.58)
+
+static func imagen_mano(escala: int = ESCALA) -> Image:
+	var alto: int = MANO.size()
+	var ancho: int = String(MANO[0]).length()
+	var img := Image.create(ancho, alto, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in alto:
+		var fila: String = MANO[y]
+		for x in ancho:
+			match fila[x]:
+				"#": img.set_pixel(x, y, CONTORNO)
+				"o": img.set_pixel(x, y, CALAMO)
+				"s": img.set_pixel(x, y, PIEL_SOMBRA)
+	if escala > 1:
+		img.resize(ancho * escala, alto * escala, Image.INTERPOLATE_NEAREST)
+	return img
+
+
+# La mano agarra por el CENTRO: lo que arrastras va cogido ahi.
+static func punto_caliente_mano(escala: int = ESCALA) -> Vector2:
+	return Vector2(8.0, 8.0) * float(escala)
