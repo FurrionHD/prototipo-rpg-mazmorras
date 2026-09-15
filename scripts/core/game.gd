@@ -220,6 +220,45 @@ func meter_en_equipo(pj: PersonajeData) -> bool:
 	Net.hogar.marcar_hogar_sucio()
 	return true
 
+# CAMBIA EL EQUIPO ENTERO DE GOLPE: quienes van y en que orden, de una vez. Es lo que usa el editor de
+# equipo del Hogar al Confirmar, y existe por un bug de multi: alli el arbol NO se pausa, asi que
+# "enviar a casa" al ultimo dejaba el equipo vacio un frame, lider() metia solo al ORIGINAL y ese
+# hueco ya contaba para el cupo -- no habia forma de quedarte solo con otro personaje. Aqui el equipo
+# pasa del estado viejo al nuevo sin pisar nunca el vacio.
+#
+# 'uids' = los uids de la plantilla, en el orden de la formacion. Devuelve "" si se aplico, o el motivo
+# por el que no (para enseñarlo tal cual).
+func aplicar_equipo(uids: Array) -> String:
+	if uids.is_empty():
+		return "Tiene que ir al menos uno."
+	var cupo: int = mini(PARTY_MAX, Net.cupo_party())
+	if uids.size() > cupo:
+		return "Solo caben %d en el equipo." % cupo
+	var nuevo: Array[PersonajeData] = []
+	for u in uids:
+		var pj: PersonajeData = pj_por_uid(String(u))
+		if pj == null:
+			return "Ese personaje ya no está."
+		if nuevo.has(pj):
+			continue
+		if esta_de_encargo(pj):
+			return "%s está de encargo." % pj.nombre
+		nuevo.append(pj)
+	var lider_antes: PersonajeData = lider() if not party.is_empty() else null
+	party.assign(nuevo)   # assign y no '=': ver arrays-tipados-por-clase
+	var i: int = party.find(lider_antes) if lider_antes != null else -1
+	lider_idx = i if i >= 0 else 0
+	Net.hogar.marcar_hogar_sucio()
+	return ""
+
+
+# EN QUE PUESTO DE LA FORMACION va este personaje (0 = el primero por la izquierda), o -1 si no va. En
+# solitario es su sitio en el equipo; en compañia, en la formacion comun que lleva el host (ver
+# net_formacion.gd). Es lo que coloca a cada uno en la fila del combate.
+func pos_formacion(uid: String) -> int:
+	return Net.formacion.pos_de(uid)
+
+
 # EL personaje creado al empezar la partida (es_original). Fallback al lider por si un save
 # rarisimo no trajera marca: nunca devolver null.
 #

@@ -48,6 +48,7 @@ const SCRIPTS := [
 	# cualquiera de ellos no lo ve nadie hasta que arrancas una partida y llegas a esa pantalla
 	# --y el de red, hasta que ademas hay DOS maquinas delante--. Son los que mas se tocan.
 	"res://scripts/net/net.gd",
+	"res://scripts/net/net_formacion.gd",
 	"res://scripts/ui/combat.gd",
 	"res://scripts/core/encargos.gd",
 	"res://scripts/ui/home_menu.gd",
@@ -55,6 +56,8 @@ const SCRIPTS := [
 	"res://scripts/ui/hogar/hogar_encargos.gd",
 	"res://scripts/ui/hogar/hogar_almacen.gd",
 	"res://scripts/ui/hogar/hogar_hucha.gd",
+	"res://scripts/ui/hogar/hogar_editor_equipo.gd",
+	"res://scripts/ui/peticion_formacion.gd",
 	"res://scripts/actors/enemy/enemy.gd",
 	"res://scripts/world/spawn_zone.gd",
 	"res://scripts/ui/casteo_mapa.gd",

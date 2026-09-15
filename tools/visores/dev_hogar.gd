@@ -28,14 +28,18 @@ func _ready() -> void:
 		_prefijo = args[1]
 
 	PartidaDePrueba.llenar()
+	Game.asegurar_uids()
 	_falso_jugador()
 	_llenar_hogar()
+	if args.has("multi"):
+		_simular_multi()
 	# El pueblo de mentira: hay cosas del hogar que solo se hacen en el pueblo.
 	if get_tree().current_scene != null:
 		get_tree().current_scene.scene_file_path = "res://scenes/town.tscn"
 
 	_menu = preload("res://scripts/ui/home_menu.gd").new()
 	add_child(_menu)
+	add_child(preload("res://scripts/ui/peticion_formacion.gd").new())
 	_menu.abrir()
 	_barra()
 
@@ -105,6 +109,30 @@ func _seccion(nombre: String) -> Object:
 func _pasada() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	var tabs: Array = _menu.TABS
+	# EL EQUIPO Y SU EDITOR (en la pasada "multi" se ven las insignias P2 y el cupo de dos).
+	var eq = _seccion("equipo")
+	await _captura("equipo_vista")
+	eq.abrir_editor()
+	await _captura("equipo_editor")
+	# EL BUG DEL CUPO: con el cupo lleno, enviar a casa a uno y añadir a otro de casa en el mismo
+	# borrador. Al confirmar tiene que quedar ESE, no el original colado.
+	var fuera: PersonajeData = Game.party[0]
+	eq.editor._alternar(fuera)
+	var entra: PersonajeData = null
+	for pj in Game.plantilla:
+		if not Game.party.has(pj) and Game.pj_por_uid(String(pj.uid)) != null:
+			entra = pj
+			break
+	if entra != null:
+		eq.editor._alternar(entra)
+	await _captura("equipo_editor_cambio")
+	eq.editor.soltar(0, 3)
+	await _captura("equipo_editor_arrastrado")
+	eq.editor.confirmar()
+	print("[hogar] equipo tras confirmar: ", Game.party.map(func(x): return x.nombre), "  formacion: ", Net.formacion.formacion())
+	await _captura("equipo_confirmado")
+	Net.formacion.peticion_recibida.emit(99, "Hermano", "Hermano quiere cambiar el orden del equipo: Ilyan al puesto 2.")
+	await _captura("equipo_peticion")
 	for i in tabs.size():
 		_menu._on_tab(i)
 		match str(tabs[i]):
@@ -144,6 +172,43 @@ func _pasada() -> void:
 				alm.cerrar_modal()
 			_:
 				await _captura("%d_%s" % [i, str(tabs[i]).to_lower()])
+
+
+# ============================================================
+#  MULTI DE MENTIRA ("multi" en los argumentos)
+#  Sin red de verdad: el peer por defecto de Godot es OfflineMultiplayerPeer, asi que los .rpc() no
+#  salen a ningun sitio. Se hace de host con un jugador 2 ("Hermano") de dos personajes, cupo 2 y la
+#  formacion INTERCALADA [tuyo, suyo, tuyo, suyo], que es lo que hay que ver.
+# ============================================================
+func _simular_multi() -> void:
+	Net.activo = true
+	Net.es_host = true
+	Net._num_humanos = 2
+	Net._identidades[2] = "hermano"
+	# Tu equipo, al cupo de dos.
+	var mios: Array[PersonajeData] = [Game.party[0], Game.party[1]]
+	Game.party.assign(mios)
+	Game.lider_idx = 0
+	# El hermano: dos personajes suyos que van en su equipo.
+	var jd := JugadorData.new()
+	jd.id = "hermano"
+	jd.nombre_visible = "Hermano"
+	for k in 2:
+		var pj: PersonajeData = Game.plantilla[2 + k].duplicate(true) as PersonajeData
+		pj.nombre = ["Kael", "Mira"][k]
+		pj.uid = "hermano_%d" % k
+		pj.color = Color.from_hsv(0.55 + 0.2 * float(k), 0.6, 0.9)
+		jd.personajes.append(pj)
+		jd.equipo.append(pj)
+	Game.jugadores_mundo["hermano"] = jd
+	var filas: Array = []
+	for pj in jd.personajes:
+		filas.append(Net.hogar._fila_roster(pj, "hermano", "Hermano"))
+	Net.hogar._roster_ajeno["hermano"] = filas
+	Net.formacion.reconciliar()
+	var f: Array = Net.formacion._formacion
+	if f.size() == 4:
+		Net.formacion._formacion = [f[0], f[2], f[1], f[3]]
 
 
 # La barrita de pruebas, abajo a la izquierda: reabrir el hogar si se cierra con Esc.

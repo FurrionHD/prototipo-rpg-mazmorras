@@ -216,8 +216,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			# De dentro a fuera: primero el modal que haya encima, luego el hogar.
-			if not almacen.cerrar_modal():
+			# De dentro a fuera: primero el modal que haya encima, luego el editor de equipo, luego el hogar.
+			if almacen.cerrar_modal():
+				pass
+			elif equipo.editor.abierto:
+				equipo.editor.cancelar()
+			else:
 				_cerrar()
 			get_viewport().set_input_as_handled()
 
@@ -225,6 +229,7 @@ func _input(event: InputEvent) -> void:
 func _on_tab(i: int) -> void:
 	if i == _tab:
 		return
+	equipo.editor.abierto = false   # cambiar de seccion descarta el borrador del editor
 	if _tab == TABS.find("Cofre") and almacen.has_method("al_cerrar"):
 		almacen.al_cerrar()   # suelta lo que coja al entrar (el candado del taller)
 	_tab = i

@@ -257,6 +257,7 @@ func _ready() -> void:
 	add_child(preload("res://scripts/ui/fishing_book_menu.gd").new())  # pescador: libro + cebos (F sobre el NPC)
 	add_child(preload("res://scripts/ui/fishing_menu.gd").new())    # estanque: cebo y tirar (F sobre el agua)
 	add_child(preload("res://scripts/ui/home_menu.gd").new())       # hogar: equipo + almacen (F sobre el NPC)
+	add_child(preload("res://scripts/ui/peticion_formacion.gd").new())   # aviso: un compañero pide cambiar el orden del equipo
 	add_child(preload("res://scripts/ui/floor_select_menu.gd").new())  # elegir piso (puerta de la mazmorra)
 	add_child(preload("res://scripts/ui/character_menu.gd").new())  # menu de personaje (C)
 	add_child(preload("res://scripts/ui/map_menu.gd").new())        # mapa del piso (M)

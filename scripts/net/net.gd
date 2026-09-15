@@ -62,7 +62,9 @@ const MAX_JUGADORES := 4
 #     del 10 montaria la pelea en su PC mientras el otro la espera en un trabajador.
 # 12: el corcho de pesca viaja como modo (int: nada / visible / pescando) en vez de bool; los aliados de la
 #     instantanea del combate llevan los numeros de su ficha de detalle.
-const PROTOCOLO := 12
+# 13: la FORMACION comun (Net.formacion: _set_formacion, peticiones de mover) y las filas del roster del
+#     hogar llevan pos_equipo y el aspecto de los que van en equipo.
+const PROTOCOLO := 13
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -269,6 +271,9 @@ func _ready() -> void:
 	hogar = NetHogar.new()
 	hogar.name = "Hogar"
 	add_child(hogar)
+	formacion = NetFormacion.new()
+	formacion.name = "Formacion"
+	add_child(formacion)
 	peleas = NetPeleas.new()
 	peleas.name = "Peleas"
 	add_child(peleas)
@@ -295,6 +300,7 @@ const NetMapa = preload("res://scripts/net/net_mapa.gd")
 const NetJefes = preload("res://scripts/net/net_jefes.gd")
 const NetRecoleccion = preload("res://scripts/net/net_recoleccion.gd")
 const NetHogar = preload("res://scripts/net/net_hogar.gd")
+const NetFormacion = preload("res://scripts/net/net_formacion.gd")
 const NetPeleas = preload("res://scripts/net/net_peleas.gd")
 const NetExtraccion = preload("res://scripts/net/net_extraccion.gd")
 const NetEnemigos = preload("res://scripts/net/net_enemigos.gd")
@@ -307,6 +313,7 @@ var mapa: NetMapa = null
 var jefes: NetJefes = null
 var recoleccion: NetRecoleccion = null
 var hogar: NetHogar = null
+var formacion: NetFormacion = null
 var peleas: NetPeleas = null
 var extraccion: NetExtraccion = null
 var enemigos: NetEnemigos = null
@@ -661,6 +668,7 @@ func _sync_humanos() -> void:
 			_num_humanos += 1
 	_set_num_humanos.rpc(_num_humanos)
 	_aplicar_cupo()
+	hogar._difundir_hogar()   # alguien entra o se va: la formacion se reconcilia y viaja ya
 
 
 # Corre en los CLIENTES: el host dice cuantos humanos hay. Reajustan su equipo al cupo nuevo.

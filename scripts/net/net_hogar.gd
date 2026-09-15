@@ -581,6 +581,9 @@ func _difundir_hogar() -> void:
 		_set_cofre.rpc(Game.cofre_equipo)
 		_set_roster_hogar.rpc(roster)
 		_roster_mirror = roster
+		# LA FORMACION va con el roster del que sale (ver net_formacion.gd), y DESPUES de el.
+		Net.formacion.reconciliar()
+		Net.formacion.difundir()
 	Net.hogar_cambiado.emit()
 
 
@@ -713,6 +716,12 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 		# el desplegable de clase le sale vacio o mentiroso para los personajes del compañero.
 		"clases": Encargos.clases_de(pj),
 		"color": pj.color,
+		# Su sitio en el equipo de SU dueño (-1 = no va): es lo que ordena a los nuevos al entrar en la
+		# formacion comun. Para los de otro no se sabe desde aqui, y lo pisa la fila que manda su dueño.
+		"pos_equipo": Game.party.find(pj) if dueno == Identidad.id else -1,
+		# El ASPECTO, solo de los que van en equipo: la formacion los dibuja de cuerpo entero y el
+		# invitado no tiene los PersonajeData del compañero. Los de casa no se ven ahi y no viajan.
+		"aspecto": Game.pj_a_dict(pj) if en_equipo else {},
 	}
 
 
