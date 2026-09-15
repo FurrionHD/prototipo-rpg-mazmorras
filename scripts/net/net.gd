@@ -71,7 +71,11 @@ const MAX_CONEXIONES := 32
 #     hogar llevan pos_equipo y el aspecto de los que van en equipo.
 # 14: el encargo se pide con el OBJETIVO por grupos ({grupo: %}) en vez de la lista de tipos, y su
 #     informe trae cristales, dinero y rotos. Un build del 13 mandaria tipos que el host leeria mal.
-const PROTOCOLO := 14
+# 15: el daño del paquete de impactos va x100 (antes x10: un build del 14 veria diez veces el daño); el
+#     tick de enemigos trae un sexto campo (contador de embestidas); la instantanea del combate lleva el
+#     registro como Array de frases nuevas + "logn" (antes un String con la cola) y hay RPC nuevos para
+#     pedir el registro entero.
+const PROTOCOLO := 15
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

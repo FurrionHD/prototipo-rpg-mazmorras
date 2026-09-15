@@ -2,6 +2,35 @@
 
 ---
 
+# Próxima versión
+
+## 🔧 Arreglos
+
+**Las peleas en compañía vuelven a ir fluidas.** Con dos jugadores dentro del piso, a partir de la tercera
+pelea el juego no conseguía preparar las siguientes y se quedaba reintentándolo sin parar.
+
+**Las embestidas de los enemigos se oyen** también en la mazmorra en compañía (solo sonaban en la zona de
+pruebas).
+
+**Los números de daño** salen con sus dos decimales en compañía (antes acababan siempre en 0).
+
+**El registro del combate ya no se borra** a mitad de pelea en compañía. Además ya no tiene tope: se puede
+leer la pelea entera, dure lo que dure.
+
+**Al recitar un hechizo**, el registro dice la frase que has elegido, y si fallas, cuál era la buena.
+
+**El Muro** saca el escudo sobre el compañero al que defiendes, no sobre ti.
+
+**En el inventario**, el nombre de quien lleva cada pieza sale siempre abajo y entero (antes unas veces
+arriba tapando el dibujo y otras abajo cortado).
+
+## ⚖️ Balance
+
+**Las armaduras pesadas aguantan más**: hierro ×1,4, hierro completo ×1,8 y placas ×2,2 de durabilidad
+respecto al cuero. Las que ya tienes conservan su porcentaje y duran más a partir de ahí.
+
+---
+
 # v0.13.1 — «Todos a una» (arreglos, hogar y encargos)
 
 Lo que salió jugando la 0.13.0 en compañía, el hogar con cara nueva y los encargos rehechos.
