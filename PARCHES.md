@@ -73,7 +73,7 @@ tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vu
   después, y en compañía os intercaláis como lo pongáis. Si mueves a los personajes de tu compañero, le
   llega un aviso para aceptar o rechazar.
 - **Cofre**: todo lo que se deja en casa, con las mismas secciones que el inventario (equipo, consumibles,
-  materiales, armas, armaduras) y la hucha. Cambias entre "En casa" y "Llevas encima" y mueves lo que
+  materiales, armas, armaduras) y la hucha. Cambias entre "En casa" e "Inventario" y mueves lo que
   elijas; los materiales tienen además guardar todo, recoger sin sobrecargarte y recoger todo. La
   pestaña Almacén desaparece: sus materiales están en el Cofre.
 

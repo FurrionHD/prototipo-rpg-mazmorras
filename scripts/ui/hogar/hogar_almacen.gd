@@ -5,7 +5,7 @@
 #  que se lea igual que la mochila:
 #    fila 2 (categoria):    Equipo · Consumibles · Materiales · Armas · Armaduras · Hucha
 #    fila 3 (subcategoria): Mochila/Herramientas/Farolillo · tipo de arma · pieza de armadura
-#  Debajo, un interruptor "En casa / Llevas encima": la rejilla enseña un lado u otro, y la ficha de la
+#  Debajo, un interruptor "En casa / Inventario": la rejilla enseña un lado u otro, y la ficha de la
 #  derecha lleva los botones para pasar lo elegido al otro.
 #
 #  DE DONDE SALE CADA COSA (en multi, lo de casa es del host):
@@ -365,7 +365,7 @@ func _pintar_lados() -> void:
 	hogar._header.add_child(fila)
 	var n_casa: int = _contar(_recoger(LADO_CASA)) if _lado != LADO_CASA else _contar(_stacks)
 	var n_encima: int = _contar(_recoger(LADO_ENCIMA)) if _lado != LADO_ENCIMA else _contar(_stacks)
-	for par in [[LADO_CASA, "En casa   %d" % n_casa], [LADO_ENCIMA, "Llevas encima   %d" % n_encima]]:
+	for par in [[LADO_CASA, "En casa   %d" % n_casa], [LADO_ENCIMA, "Inventario   %d" % n_encima]]:
 		var b := Button.new()
 		b.text = str(par[1])
 		MenuScaffold.estilo_chip(b, _lado == int(par[0]))
@@ -405,11 +405,11 @@ func _confirmar_bloque(que: String) -> void:
 	match que:
 		"guardar":
 			titulo = "Guardar todos los materiales"
-			texto = "Dejas en casa los %d materiales que llevas encima. Los cristales no: esos se venden en la tienda." % en_bolsa
+			texto = "Dejas en casa los %d materiales de tu inventario. Los cristales no: esos se venden en la tienda." % en_bolsa
 			accion = func():
 				var n: int = Game.guardar_materiales_en_hogar()
 				_decir("Guardas %d material%s en casa." % [n, "" if n == 1 else "es"] if n > 0
-					else "No llevas materiales encima.", n > 0)
+					else "No tienes materiales en el inventario.", n > 0)
 		"recoger":
 			titulo = "Recoger sin sobrecargarte"
 			texto = "Te llevas de casa todo lo que puedas cargar sin empezar a ir lento. Lo que no quepa se queda guardado."
@@ -462,7 +462,7 @@ func _contar(stacks: Array) -> int:
 func _pintar_rejilla() -> void:
 	if _stacks.is_empty():
 		MenuScaffold.nota(hogar._lista, "No hay nada guardado en casa." if _lado == LADO_CASA
-			else "No llevas nada de esto encima.")
+			else "No tienes nada de esto en el inventario.")
 		return
 	_sel = clampi(_sel, 0, _stacks.size() - 1)
 	var piezas: Array = []
@@ -519,7 +519,7 @@ func _ficha() -> void:
 		MenuScaffold.titulo_item(vb, Game.item_display_name(m), Game.color_rareza_de(m),
 			Game.intensidad_rareza_de(m))
 	MenuScaffold.banner_item(vb, m, ("× %d" % n) if n > 1 else "",
-		"En casa" if _lado == LADO_CASA else "Llevas encima")
+		"En casa" if _lado == LADO_CASA else "Inventario")
 	for fila in _filas(m):
 		MenuScaffold.fila(vb, str(fila[0]), str(fila[1]), 150)
 	# Lo que HACE un consumible es un parrafo, no un "etiqueta: valor": va a todo lo ancho.
@@ -576,12 +576,12 @@ func _acciones(vb: VBoxContainer, s: Dictionary) -> void:
 	var acc := VBoxContainer.new()
 	acc.add_theme_constant_override("separation", 8)
 	vb.add_child(acc)
-	var verbo: String = "Guardar" if a_casa else "Llevar"
+	var verbo: String = "Guardar" if a_casa else "Sacar"
 	if n > 1:
 		_boton(acc, "%s todo (%d)" % [verbo, n], _mover.bind(s, n), true)
 		_boton(acc, "%s uno" % verbo, _mover.bind(s, 1), false)
 	else:
-		_boton(acc, "Guardar en casa" if a_casa else "Llevar encima", _mover.bind(s, 1), true)
+		_boton(acc, "Guardar en casa" if a_casa else "Sacar al inventario", _mover.bind(s, 1), true)
 
 
 func _boton(padre: Control, txt: String, al_pulsar: Callable, principal: bool) -> void:
@@ -600,13 +600,13 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 			if movidos <= 0:
 				_decir("No se ha podido mover.", false)
 				return
-			_decir("%s %d × %s." % ["Guardas" if a_casa else "Te llevas", movidos, nombre], true)
+			_decir("%s %d × %s." % ["Guardas" if a_casa else "Sacas", movidos, nombre], true)
 		CAT_CONSUMIBLES:
 			if a_casa:
 				Net.hogar.meter_consumible_cofre(str(s["ruta"]), cuantos)
 			else:
 				Net.hogar.sacar_consumible_cofre(str(s["ruta"]), cuantos)
-			_decir("%s %d × %s." % ["Guardas" if a_casa else "Te llevas", cuantos, nombre], true)
+			_decir("%s %d × %s." % ["Guardas" if a_casa else "Sacas", cuantos, nombre], true)
 		_:
 			if a_casa:
 				if Game.item_equipado(m):
@@ -619,7 +619,7 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 			else:
 				Net.hogar.sacar_de_cofre(int(s["id"]))
 				_cache_cofre.erase(int(s["id"]))
-				_decir("Te llevas %s." % nombre, true)
+				_decir("Sacas %s al inventario." % nombre, true)
 
 
 func _decir(txt: String, ok: bool) -> void:
