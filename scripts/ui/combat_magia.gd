@@ -252,6 +252,9 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		_pantalla.espejo._responder_al_anfitrion({"tipo": "frase", "texto": elegida})
 		return
 	if elegida == correcta:
+		# LA FRASE QUE SE HA DICHO, al registro: en el de todos, porque esto corre en quien lleva la pelea
+		# (tambien cuando la eligio otro desde su espejo) y le llega a los demas con la instantanea.
+		_pantalla._set_log("🗣️ %s recita: «%s» ✓" % [_pantalla._player.nombre, elegida])
 		# La Magia NO se entrena por frase (solo al LANZAR, en _disparar_hechizo), para
 		# que la ganancia sea predecible y no se cuente doble.
 		_pantalla._cast_index += 1
@@ -269,7 +272,7 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		_pantalla._fin_de_eleccion()
 		_pantalla._state = _pantalla.State.ADVANCING
 	else:
-		_backfire()
+		_backfire(elegida, correcta)
 
 
 # ECHARSE ATRAS con el conjuro recien elegido, ANTES de recitar la primera frase. No cuesta maná (se
@@ -1110,8 +1113,12 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 # conjuro se interrumpe y AQUI se cobra el mana: el hechizo ya no se paga por adelantado (ver
 # _elegir_hechizo), pero equivocarse de frase sigue costandolo. Es lo unico que se pierde por tu
 # mano; que te lo tiren o que se acabe la pelea recitando ya no cobra nada.
-func _backfire() -> void:
+# 'elegida' y 'correcta': la frase que se dijo y la que tocaba. Van al registro ANTES del descontrol para
+# que se sepa por que ha fallado (lo pidio el usuario: sin eso solo veias el golpe).
+func _backfire(elegida: String = "", correcta: String = "") -> void:
 	var spell := _pantalla._cast_spell
+	if elegida != "":
+		_pantalla._set_log("🗣️ %s recita «%s»… pero era «%s»." % [_pantalla._player.nombre, elegida, correcta])
 	_pantalla._player.spend_mana(_coste_efectivo(spell))
 	# Por TU VIDA MAXIMA, no por el daño del hechizo: asi fallar duele lo mismo el primer dia que
 	# con 500 de vida (ver StatsMath.backfire_damage). Y puede tumbarte: el KO se resuelve abajo.

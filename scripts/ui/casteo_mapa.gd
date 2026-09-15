@@ -404,7 +404,7 @@ func _responder(elegida: String, correcta: String) -> void:
 	if _cerrado or _motivo_bloqueo() != "":
 		return
 	if elegida != correcta:
-		_backfire()
+		_backfire(correcta)
 		return
 	_frase += 1
 	Game.contar_frase_recitada(_pj)   # el mismo contador oculto que en combate (Encantamiento rapido)
@@ -439,7 +439,8 @@ func _completar() -> void:
 
 # Fallar una frase EN EL MAPA. Mismo precio que en combate (mana + daño), pero aqui puede matarte y
 # ademas el estallido se oye: los bichos de alrededor vienen a ver que ha pasado. NO se abre pelea.
-func _backfire() -> void:
+# 'correcta': la frase que tocaba, para que el aviso diga POR QUE ha fallado (igual que el registro del combate).
+func _backfire(correcta: String = "") -> void:
 	var sp := _spell
 	Game.gastar_mana(_pj, _coste(sp))
 	var vida_max: float = Game.player_max_hp(_pj)
@@ -452,7 +453,8 @@ func _backfire() -> void:
 		"  MUERTO" if muerto else ""])
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("💥 El conjuro se te descontrola: %.0f de daño." % dano)
+		var era: String = " Era «%s»." % correcta if correcta != "" else ""
+		hud.mostrar_toast("💥 El conjuro se te descontrola: %.0f de daño.%s" % [dano, era])
 	# El estallido: ruido a saco (aunque el panel ya se cierre) y alboroto de golpe.
 	if is_instance_valid(_jugador) and _jugador.has_method("hacer_ruido"):
 		_jugador.hacer_ruido(RUIDO_ESTALLIDO, RUIDO_ESTALLIDO_DUR)
