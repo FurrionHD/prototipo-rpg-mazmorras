@@ -116,6 +116,8 @@ func _build_seccion() -> void:
 		return
 
 	hogar.modo_rejilla(true)
+	_vigilar_ancho()
+	_cols_pintadas = _columnas()
 	hogar.contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
 		Game.esta_sobrecargado())
 	_pintar_subcategorias()
@@ -621,11 +623,33 @@ func _pick(i: int, lado: int) -> void:
 		hogar._rebuild()
 
 
-func _columnas(vb: Control) -> int:
-	var ancho: float = vb.size.x
+# CUANTAS CELDAS CABEN EN UNA COLUMNA. Se mide sobre la LISTA ENTERA del armazon (que ya esta colocada) y
+# no sobre la columna: la columna se crea en este mismo repintado y aun mide 0, asi que la cuenta caia al
+# valor de reserva y salian 3 celdas donde caben 4. La lista se parte en dos (menos la separacion entre
+# columnas) y a cada una se le quita lo que ocupa su barra de scroll.
+const SEPARACION_COLUMNAS := 18.0
+const ANCHO_BARRA_SCROLL := 14.0
+
+func _columnas(_vb: Control = null) -> int:
+	var ancho: float = hogar._lista_scroll.size.x
 	if ancho <= 1.0:
-		ancho = 300.0
-	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+		ancho = 820.0
+	var col: float = (ancho - SEPARACION_COLUMNAS) * 0.5 - ANCHO_BARRA_SCROLL
+	return maxi(2, int(floorf((col + 6.0) / (LADO_CELDA + 6.0))))
+
+
+# Si la ventana cambia de ancho y con ello caben mas o menos celdas, se repinta (solo entonces: 'resized'
+# salta en cada pixel de un arrastre de ventana).
+var _cols_pintadas: int = 0
+var _escuchando_ancho := false
+
+func _vigilar_ancho() -> void:
+	if _escuchando_ancho:
+		return
+	_escuchando_ancho = true
+	hogar._lista_scroll.resized.connect(func():
+		if hogar._root.visible and hogar._tab == hogar.TABS.find("Cofre") and _cat != CAT_HUCHA 				and _columnas() != _cols_pintadas:
+			hogar._rebuild())
 
 
 func _nombre(it: Resource) -> String:
