@@ -238,72 +238,280 @@ func _texto_informe(inf: Dictionary) -> String:
 
 # --- El formulario de "Mandar uno" ---
 #
-# PROVISIONAL (paso 1 del rework): la logica ya es la nueva y esto solo la deja usable. La pantalla
-# de verdad (celdas con icono, deslizadores, retratos y utiles en rejilla) llega en los pasos 4 y 5.
-#
 # Trabaja sobre FICHAS del roster (dicts), no sobre PersonajeData, y es el MISMO camino en solitario
 # y en multi: el invitado NO tiene los PersonajeData de los personajes de su compañero.
 func _build_encargos_nuevo() -> void:
 	var libres: Array = _libres_del_hogar()
 	_purgar_seleccion(libres)
 
-	# --- Izquierda: el objetivo, donde y cuanto.
-	MenuScaffold.titulo(hogar._lista, "Objetivo", 14)
-	var etiquetas: Array = []
-	var valores: Array = []
-	for g in Encargos.Grupo.values():
-		etiquetas.append("%s %s" % ["☑" if _enc_grupos.has(int(g)) else "☐",
-			String(Encargos.NOMBRE_GRUPO.get(int(g), "?"))])
-		valores.append(int(g))
-	MenuScaffold.cuadricula(hogar._lista, etiquetas, -1, func(i: int):
-		_enc_grupos = Encargos.alternar_grupo(_enc_grupos, int(valores[i]))
-		hogar._rebuild(), 3, Vector2(150, 34))
-	# Siempre en el orden fijo de los grupos, nunca en el del diccionario: si no, al mover un deslizador
-	# la lista se reordena bajo el ratón.
-	for g in Encargos.Grupo.values():
-		if not _enc_grupos.has(int(g)):
-			continue
-		var fila := HBoxContainer.new()
-		hogar._lista.add_child(fila)
-		var l := Label.new()
-		l.text = "%s %d%%" % [String(Encargos.NOMBRE_GRUPO.get(int(g), "?")), int(_enc_grupos[g])]
-		l.custom_minimum_size = Vector2(180, 0)
-		fila.add_child(l)
-		var s := HSlider.new()
-		s.min_value = 0
-		s.max_value = 100
-		s.step = 5
-		s.value = int(_enc_grupos[g])
-		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var grupo: int = int(g)
-		s.drag_ended.connect(func(_cambio: bool):
-			_enc_grupos = Encargos.ajustar_porcentaje(_enc_grupos, grupo, int(s.value))
-			hogar._rebuild())
-		fila.add_child(s)
-
-	MenuScaffold.titulo(hogar._lista, "Piso", 14)
-	var tope: int = 1
-	for p in Game.mapa_visible().keys():
-		tope = maxi(tope, int(p))
-	var fila_piso := HBoxContainer.new()
-	hogar._lista.add_child(fila_piso)
-	_enc_piso = clampi(_enc_piso, 1, tope)
-	MenuScaffold.stepper(fila_piso, _enc_piso, 1, tope, func(v: int):
-		_enc_piso = v
-		hogar._rebuild())
-
-	MenuScaffold.titulo(hogar._lista, "Cuánto tiempo", 14)
-	var horas: Array = []
-	for d in Encargos.DURACIONES:
-		horas.append("%d hora%s" % [int(d) / 3600, "" if int(d) == 3600 else "s"])
-	MenuScaffold.cuadricula(hogar._lista, horas, _enc_dur, func(i: int):
-		_enc_dur = i
-		hogar._rebuild(), 3, Vector2(130, 36))
+	# --- Izquierda: a por qué van, cuánto de cada cosa, dónde y cuánto rato.
+	_enc_piso = clampi(_enc_piso, 1, _piso_tope())
+	_build_objetivo()
+	_build_reparto()
+	_build_piso()
+	_build_duracion()
 
 	# --- Derecha: quién va, con qué, y el pronóstico.
 	_build_encargo_gente(libres)
 	_build_encargo_utiles()
 	_build_encargo_pronostico(libres)
+
+
+# ============================================================
+#  IZQUIERDA
+# ============================================================
+
+# Nombres CORTOS para el pie de la celda: el pie o cabe entero o no se pinta (ver CeldaObjeto), y
+# "Materiales de poción" no cabe en 80 px. El nombre largo va en el tooltip.
+const CORTO_GRUPO := {
+	Encargos.Grupo.MINERAL: "Mineral", Encargos.Grupo.MADERA: "Madera",
+	Encargos.Grupo.PLANTA: "Plantas", Encargos.Grupo.COMIDA: "Comida",
+	Encargos.Grupo.PESCADO: "Pescado", Encargos.Grupo.CUERO: "Cuero",
+	Encargos.Grupo.NUCLEO: "Núcleos", Encargos.Grupo.POCION: "Pociones",
+	Encargos.Grupo.CRISTAL: "Cristales",
+}
+const LADO_CELDA_GRUPO := 82.0
+const COLUMNAS_GRUPO := 5
+
+# HASTA DONDE HAS LLEGADO: la libreta del mapa (los pisos traidos a salvo al pueblo). No
+# Game.pisos_desbloqueados(), que son los ATAJOS de los jefes y devolvia [1] hasta matar al Rey Slime.
+func _piso_tope() -> int:
+	var tope: int = 1
+	for p in Game.mapa_visible().keys():
+		tope = maxi(tope, int(p))
+	return tope
+
+
+# EL OBJETIVO: una celda de inventario por grupo, con la cara del material mas comun de ese grupo en
+# el piso elegido. Pulsar la marca (marco ambar) y volver a pulsar la quita. Nunca se queda vacio.
+func _build_objetivo() -> void:
+	MenuScaffold.titulo(hogar._lista, "Objetivo", 14)
+	var grid := GridContainer.new()
+	grid.columns = COLUMNAS_GRUPO
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	hogar._lista.add_child(grid)
+	for g_ in Encargos.Grupo.values():
+		var g: int = int(g_)
+		var c := CeldaObjeto.new()
+		c.custom_minimum_size = Vector2(LADO_CELDA_GRUPO, LADO_CELDA_GRUPO)
+		c.button_pressed = _enc_grupos.has(g)
+		var pool: Array = Encargos.opciones(g, _enc_piso)
+		var hay: bool = g == Encargos.Grupo.CRISTAL or not pool.is_empty()
+		c.tooltip_text = _tooltip_grupo(g, pool)
+		# Un grupo que no sale en este piso se apaga, salvo que ya estuviera marcado: asi se puede quitar.
+		if hay or _enc_grupos.has(g):
+			c.pressed.connect(func():
+				_enc_grupos = Encargos.alternar_grupo(_enc_grupos, g)
+				hogar._rebuild())
+		else:
+			c.disabled = true
+		grid.add_child(c)
+		# DESPUES de meterla en el arbol: configurar() repinta y un nodo suelto aun no tiene tamaño.
+		c.configurar(_icono_grupo(g, pool), String(CORTO_GRUPO.get(g, "?")), "", 0)
+
+
+# La cara del grupo: su material MAS COMUN en el piso, como objeto de inventario para que la celda lo
+# pinte igual que en la bolsa. Los cristales no tienen material: un cristal de la categoria que mas
+# sale ahi abajo.
+func _icono_grupo(g: int, pool: Array) -> Resource:
+	if g == Encargos.Grupo.CRISTAL:
+		var c := Cristal.new()
+		c.categoria = _categoria_tipica(_enc_piso)
+		c.calidad = Cristal.Calidad.NORMAL
+		return c
+	var mejor: Dictionary = {}
+	for o in pool:
+		if mejor.is_empty() or float(o["peso"]) > float(mejor["peso"]):
+			mejor = o
+	if mejor.is_empty():
+		return null
+	return MaterialItem.crear(mejor["material"] as MaterialData, MaterialItem.Calidad.NORMAL)
+
+
+# La categoria de cristal del bicho que MAS sale en el piso. Solo es para la cara de la celda.
+func _categoria_tipica(piso: int) -> int:
+	var tabla: SpawnTable = load(Game.TABLA_SPAWNS) as SpawnTable
+	if tabla == null:
+		return 1
+	var mejor: Dictionary = {}
+	for f in tabla.aplanar(piso):
+		if mejor.is_empty() or float(f["prob"]) > float(mejor["prob"]):
+			mejor = f
+	return (mejor["data"] as EnemyData).crystal_category_min if not mejor.is_empty() else 1
+
+
+# Lo que puede salir de ese grupo en el piso, de lo mas comun a lo menos. Es el dato que decide si
+# merece la pena marcarlo, y no cabe en la celda.
+func _tooltip_grupo(g: int, pool: Array) -> String:
+	var nombre: String = String(Encargos.NOMBRE_GRUPO.get(g, "?"))
+	if g == Encargos.Grupo.CRISTAL:
+		return "%s\nUno por cada enemigo que maten. Se venden al recoger el encargo y el dinero va a la hucha." % nombre
+	if pool.is_empty():
+		return "%s\nEn este piso no hay nada de esto." % nombre
+	var total: float = 0.0
+	for o in pool:
+		total += float(o["peso"])
+	var orden: Array = pool.duplicate()
+	orden.sort_custom(func(a, b): return float(a["peso"]) > float(b["peso"]))
+	var lineas: PackedStringArray = [nombre]
+	for i in mini(orden.size(), 6):
+		lineas.append("  %s  %s%%" % [(orden[i]["material"] as MaterialData).nombre,
+			snappedf(100.0 * float(orden[i]["peso"]) / maxf(0.001, total), 0.1)])
+	if orden.size() > 6:
+		lineas.append("  y %d más" % (orden.size() - 6))
+	if Encargos.es_de_caza(g):
+		lineas.append("Sale de los enemigos que maten, con la suerte de cada uno.")
+	return "\n".join(lineas)
+
+
+# CUANTO DE CADA COSA: un deslizador por grupo marcado, siempre en el orden fijo de los grupos.
+#
+# SE ACTUALIZA EN VIVO Y SIN REPINTAR EL PANEL. Al mover uno, los demas se recolocan en el acto para
+# que siempre sumen 100; si en vez de eso se rehiciera el menu, el deslizador que tienes cogido
+# desapareceria bajo el raton a mitad de arrastre.
+var _desliz: Dictionary = {}   # grupo -> {"s": HSlider, "l": Label}
+
+func _build_reparto() -> void:
+	_desliz.clear()
+	_aire(hogar._lista)
+	MenuScaffold.titulo(hogar._lista, "Reparto", 14)
+	if _enc_grupos.size() == 1:
+		MenuScaffold.nota(hogar._lista, "Todo a %s. Marca más cosas arriba para repartir." %
+			String(Encargos.NOMBRE_GRUPO.get(int(_enc_grupos.keys()[0]), "?")).to_lower())
+		return
+	for g_ in Encargos.Grupo.values():
+		var g: int = int(g_)
+		if not _enc_grupos.has(g):
+			continue
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 10)
+		hogar._lista.add_child(fila)
+		var nombre := Label.new()
+		nombre.text = String(CORTO_GRUPO.get(g, "?"))
+		nombre.custom_minimum_size = Vector2(84, 0)
+		nombre.add_theme_font_size_override("font_size", 14)
+		fila.add_child(nombre)
+		var s := HSlider.new()
+		s.min_value = 0
+		s.max_value = 100
+		s.step = 1
+		s.value = int(_enc_grupos[g])
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		s.focus_mode = Control.FOCUS_NONE
+		_estilo_deslizador(s)
+		fila.add_child(s)
+		var pct := Label.new()
+		pct.custom_minimum_size = Vector2(46, 0)
+		pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		pct.add_theme_font_size_override("font_size", 14)
+		pct.add_theme_color_override("font_color", AMBAR)
+		pct.text = "%d%%" % int(_enc_grupos[g])
+		fila.add_child(pct)
+		_desliz[g] = {"s": s, "l": pct}
+		s.value_changed.connect(func(v: float): _mover_reparto(g, int(round(v))))
+	MenuScaffold.nota(hogar._lista, "Si la mochila se llena, cada cosa ocupa su parte, y como mucho un 10% más si sobra sitio.")
+
+
+func _mover_reparto(g: int, v: int) -> void:
+	_enc_grupos = Encargos.ajustar_porcentaje(_enc_grupos, g, v)
+	for k in _desliz:
+		var d: Dictionary = _desliz[k]
+		var nuevo: int = int(_enc_grupos.get(int(k), 0))
+		# set_value_no_signal: mover los otros no puede volver a llamar aqui (serian ecos infinitos).
+		if int(k) != g:
+			(d["s"] as HSlider).set_value_no_signal(nuevo)
+		(d["l"] as Label).text = "%d%%" % nuevo
+
+
+# El deslizador del hogar: carril oscuro redondeado y el tramo lleno en AMBAR, el color de "lo que
+# has elegido" en todo el menu (el marco de la celda marcada, los chips).
+func _estilo_deslizador(s: HSlider) -> void:
+	var carril := StyleBoxFlat.new()
+	carril.bg_color = Color(1, 1, 1, 0.08)
+	carril.set_corner_radius_all(4)
+	carril.content_margin_top = 4
+	carril.content_margin_bottom = 4
+	var lleno := StyleBoxFlat.new()
+	lleno.bg_color = AMBAR
+	lleno.set_corner_radius_all(4)
+	lleno.content_margin_top = 4
+	lleno.content_margin_bottom = 4
+	var lleno_hover := lleno.duplicate() as StyleBoxFlat
+	lleno_hover.bg_color = AMBAR.lightened(0.15)
+	s.add_theme_stylebox_override("slider", carril)
+	s.add_theme_stylebox_override("grabber_area", lleno)
+	s.add_theme_stylebox_override("grabber_area_highlight", lleno_hover)
+	s.custom_minimum_size = Vector2(0, 28)
+
+
+# EL PISO: − Piso N +, en chips. Hasta el ultimo piso que has traido a salvo al pueblo.
+func _build_piso() -> void:
+	_aire(hogar._lista)
+	MenuScaffold.titulo(hogar._lista, "Piso", 14)
+	var tope: int = _piso_tope()
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	hogar._lista.add_child(fila)
+	var menos := Button.new()
+	menos.text = "−"
+	menos.focus_mode = Control.FOCUS_NONE
+	MenuScaffold.estilo_chip(menos, false)
+	menos.custom_minimum_size = Vector2(ALTO_CHIP_GRANDE, ALTO_CHIP_GRANDE)
+	menos.add_theme_font_size_override("font_size", 20)
+	menos.disabled = _enc_piso <= 1
+	menos.pressed.connect(func():
+		_enc_piso = maxi(1, _enc_piso - 1)
+		hogar._rebuild())
+	fila.add_child(menos)
+	var lbl := Label.new()
+	lbl.text = "Piso %d" % _enc_piso
+	lbl.custom_minimum_size = Vector2(110, 0)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 20)
+	fila.add_child(lbl)
+	var mas := Button.new()
+	mas.text = "+"
+	mas.focus_mode = Control.FOCUS_NONE
+	MenuScaffold.estilo_chip(mas, false)
+	mas.custom_minimum_size = Vector2(ALTO_CHIP_GRANDE, ALTO_CHIP_GRANDE)
+	mas.add_theme_font_size_override("font_size", 20)
+	mas.disabled = _enc_piso >= tope
+	mas.pressed.connect(func():
+		_enc_piso = mini(tope, _enc_piso + 1)
+		hogar._rebuild())
+	fila.add_child(mas)
+	var hasta := Label.new()
+	hasta.text = "hasta el %d" % tope
+	hasta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hasta.add_theme_font_size_override("font_size", 12)
+	hasta.add_theme_color_override("font_color", GRIS)
+	fila.add_child(hasta)
+
+const ALTO_CHIP_GRANDE := 40.0
+
+
+# CUANTO RATO: tres chips, el marcado en ambar.
+func _build_duracion() -> void:
+	_aire(hogar._lista)
+	MenuScaffold.titulo(hogar._lista, "Cuánto tiempo", 14)
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	hogar._lista.add_child(fila)
+	for i in Encargos.DURACIONES.size():
+		var b := Button.new()
+		b.text = "%d h" % (int(Encargos.DURACIONES[i]) / 3600)
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		MenuScaffold.estilo_chip(b, i == _enc_dur)
+		b.custom_minimum_size = Vector2(0, ALTO_CHIP_GRANDE)
+		b.add_theme_font_size_override("font_size", 16)
+		var idx: int = i
+		b.pressed.connect(func():
+			_enc_dur = idx
+			hogar._rebuild())
+		fila.add_child(b)
 
 
 func _build_encargo_gente(libres: Array) -> void:
@@ -486,3 +694,11 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		_enc_sub = 0
 		hogar._rebuild())
 	hogar._content.add_child(b)
+
+
+# Un respiro entre apartados: sin el, cada titulo iba pegado a lo de encima y la columna se leia
+# como un solo bloque.
+func _aire(vb: VBoxContainer, alto: float = 10.0) -> void:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(0, alto)
+	vb.add_child(c)
