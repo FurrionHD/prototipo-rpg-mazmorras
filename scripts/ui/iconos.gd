@@ -183,6 +183,72 @@ static func pocion(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 #  El nombre de la seccion sale ademas escrito arriba a la izquierda, que es el otro medio camino.
 # ============================================================
 
+# --- COFRE (el almacen del hogar): caja con TAPA ABOMBADA, franja y cerradura ---
+# La tapa en arco es lo que lo separa de la MOCHILA (caja cuadrada con tirantes): con las dos cuadradas
+# se confundian en la misma barra.
+static func cofre(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var izq: float = pos.x + lado * 0.18
+	var der: float = pos.x + lado * 0.82
+	var bisagra: float = pos.y + lado * 0.44
+	var suelo: float = pos.y + lado * 0.80
+	var cx: float = pos.x + lado * 0.5
+	# La TAPA: medio arco de ARRIBA (PI -> TAU en Godot 2D, ver la nota de `bolsa`), aplastado.
+	var r: float = (der - izq) * 0.5
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a: float = PI + PI * float(i) / 16.0
+		pts.append(Vector2(cx + cos(a) * r, bisagra + sin(a) * lado * 0.22))
+	c.draw_polyline(pts, col, g, true)
+	# El CUERPO: los dos costados, el suelo y la linea de la bisagra.
+	c.draw_line(Vector2(izq, bisagra), Vector2(izq, suelo), col, g, true)
+	c.draw_line(Vector2(der, bisagra), Vector2(der, suelo), col, g, true)
+	c.draw_line(Vector2(izq, suelo), Vector2(der, suelo), col, g, true)
+	c.draw_line(Vector2(izq, bisagra), Vector2(der, bisagra), col, g, true)
+	# La CERRADURA, a caballo de la bisagra.
+	c.draw_rect(Rect2(cx - lado * 0.07, bisagra - lado * 0.04, lado * 0.14, lado * 0.16), col, true)
+
+
+# --- FLECHAS del almacen: GUARDAR (abajo, a casa), RECOGER (arriba) y RECOGER TODO (doble) ---
+static func flecha_abajo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_flecha(c, pos, lado, col, 1.0, 1)
+
+
+static func flecha_arriba(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_flecha(c, pos, lado, col, -1.0, 1)
+
+
+static func flecha_doble_arriba(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_flecha(c, pos, lado, col, -1.0, 2)
+
+
+# 'sentido' 1 = hacia abajo, -1 = hacia arriba. 'puntas' = cuantas cabezas (la doble es "todo").
+static func _flecha(c: CanvasItem, pos: Vector2, lado: float, col: Color, sentido: float, puntas: int) -> void:
+	var g: float = lado * 0.10
+	var cx: float = pos.x + lado * 0.5
+	var ini: float = pos.y + lado * (0.5 - 0.32 * sentido)
+	var fin: float = pos.y + lado * (0.5 + 0.32 * sentido)
+	c.draw_line(Vector2(cx, ini), Vector2(cx, fin), col, g, true)
+	var ala: float = lado * 0.22
+	for k in puntas:
+		var y: float = fin - sentido * lado * 0.20 * float(k)
+		c.draw_line(Vector2(cx, y), Vector2(cx - ala, y - sentido * ala), col, g, true)
+		c.draw_line(Vector2(cx, y), Vector2(cx + ala, y - sentido * ala), col, g, true)
+
+
+# --- MONEDA (la hucha del hogar): dos monedas, una de canto detras ---
+# Dos y no una: una sola circunferencia se lee como un anillo o un boton de radio.
+static func moneda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	# La de DETRAS, asomando arriba a la derecha.
+	c.draw_arc(pos + Vector2(lado * 0.60, lado * 0.40), lado * 0.22, -PI * 0.95, PI * 0.35, 20, col, g, true)
+	# La de DELANTE, entera, con su canto interior y la marca del valor.
+	var cd: Vector2 = pos + Vector2(lado * 0.42, lado * 0.60)
+	c.draw_arc(cd, lado * 0.24, 0.0, TAU, 28, col, g, true)
+	c.draw_arc(cd, lado * 0.14, 0.0, TAU, 20, col, g * 0.6, true)
+	c.draw_line(cd + Vector2(0, -lado * 0.07), cd + Vector2(0, lado * 0.07), col, g * 0.8, true)
+
+
 # --- BOLSA (lo que llevas de expedicion): zurron con su cordon ---
 # Se distingue de la MOCHILA en que no tiene tirantes: la mochila es la pieza de equipo que sube la
 # carga y la bolsa es el contenido, y con el mismo dibujo las dos pestañas se confundian.

@@ -54,6 +54,7 @@ const SCRIPTS := [
 	"res://scripts/ui/hogar/hogar_equipo.gd",
 	"res://scripts/ui/hogar/hogar_encargos.gd",
 	"res://scripts/ui/hogar/hogar_almacen.gd",
+	"res://scripts/ui/hogar/hogar_hucha.gd",
 	"res://scripts/actors/enemy/enemy.gd",
 	"res://scripts/world/spawn_zone.gd",
 	"res://scripts/ui/casteo_mapa.gd",

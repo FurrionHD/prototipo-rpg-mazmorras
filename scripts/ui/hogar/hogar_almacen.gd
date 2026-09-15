@@ -1,378 +1,628 @@
 # ============================================================
-#  hogar_almacen.gd  --  seccion ALMACEN y COFRE del menu del HOGAR (ver home_menu.gd, que es el armazon).
-#  Es un RefCounted y no un nodo: lo que pinta va en las zonas del armazon (hogar._lista, hogar._content...)
-#  y el estado de la pantalla (el aviso, el guardia de _rebuild) vive alli, igual que las piezas de
-#  combat.gd (combat_altas, combat_figuras...).
+#  hogar_almacen.gd  --  seccion ALMACEN del menu del HOGAR (ver home_menu.gd, que es el armazon).
+#
+#  Todo lo que se deja en casa, en UNA pantalla con la cara del inventario y sus MISMAS secciones, para
+#  que se lea igual que la mochila:
+#    fila 2 (categoria):    Equipo · Consumibles · Materiales · Armas · Armaduras · Hucha
+#    fila 3 (subcategoria): Mochila/Herramientas/Farolillo · tipo de arma · pieza de armadura
+#  Debajo, un interruptor "En casa / Llevas encima": la rejilla enseña un lado u otro, y la ficha de la
+#  derecha lleva los botones para pasar lo elegido al otro.
+#
+#  DE DONDE SALE CADA COSA (en multi, lo de casa es del host):
+#    - Materiales:  Game.almacen_materiales, con el CANDADO DEL TALLER cogido mientras estas en la
+#                   categoria (sin el, el cliente no ve el baul de verdad; ver net_hogar.abrir_taller).
+#    - Equipo, armas y armaduras: el COFRE (Net.hogar.cofre_visible()). Sus entradas son diccionarios;
+#                   la celda necesita un Resource, asi que se reconstruyen con deserializar_equipo
+#                   (registrar = FALSE, o se meterian en tu baul) y se guardan en _cache_cofre.
+#    - Consumibles: Net.hogar.cofre_consumibles_visible() {ruta: cantidad}.
+#    - Hucha:       hogar_hucha.gd.
 # ============================================================
 extends RefCounted
+
+const HogarHucha = preload("res://scripts/ui/hogar/hogar_hucha.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
 const GRIS := Color(0.6, 0.63, 0.7)
+const LADO_CELDA := 96.0
+
+# Las categorias, en el MISMO orden e iconos que las pestañas del inventario (sin la Bolsa, que no se
+# guarda: es lo que llevas), y la hucha al final.
+const CATEGORIAS := [
+	{"nombre": "Equipo", "icono": "mochila"},
+	{"nombre": "Consumibles", "icono": "pocion"},
+	{"nombre": "Materiales", "icono": "mineral"},
+	{"nombre": "Armas", "icono": "espada"},
+	{"nombre": "Armaduras", "icono": "coraza"},
+	{"nombre": "Hucha", "icono": "moneda"},
+]
+const CAT_EQUIPO := 0
+const CAT_CONSUMIBLES := 1
+const CAT_MATERIALES := 2
+const CAT_ARMAS := 3
+const CAT_ARMADURAS := 4
+const CAT_HUCHA := 5
+
+# Las subcategorias: las mismas tablas que inventory_menu (SUBS_EQUIPO, FILTROS_ARMAS,
+# FILTROS_ARMADURA). Si alli se añade un tipo de arma, hay que añadirlo aqui.
+const SUBS_EQUIPO := [
+	{"nombre": "Mochila", "icono": "mochila"},
+	{"nombre": "Herramientas", "icono": "pico"},
+	{"nombre": "Farolillo", "icono": "farol"},
+]
+const FILTROS_ARMAS := [
+	{"nombre": "Todas", "icono": "todo", "tipo": -1, "clase": ""},
+	{"nombre": "Daga", "icono": "daga", "tipo": 1, "clase": ""},
+	{"nombre": "Estoque", "icono": "estoque", "tipo": 5, "clase": ""},
+	{"nombre": "Espada corta", "icono": "espada_corta", "tipo": 2, "clase": ""},
+	{"nombre": "Maza pequeña", "icono": "maza", "tipo": 7, "clase": ""},
+	{"nombre": "Espada larga", "icono": "espada_larga", "tipo": 3, "clase": ""},
+	{"nombre": "Mandoble", "icono": "mandoble", "tipo": 4, "clase": ""},
+	{"nombre": "Hacha grande", "icono": "hacha", "tipo": 6, "clase": ""},
+	{"nombre": "Martillo grande", "icono": "martillo", "tipo": 8, "clase": ""},
+	{"nombre": "Bastón", "icono": "baston", "tipo": 9, "clase": ""},
+	{"nombre": "Varita", "icono": "varita", "tipo": -1, "clase": "varita"},
+	{"nombre": "Escudo pequeño", "icono": "escudo_peq", "tipo": 0, "clase": "escudo"},
+	{"nombre": "Escudo normal", "icono": "escudo_med", "tipo": 1, "clase": "escudo"},
+	{"nombre": "Escudo grande", "icono": "escudo_gra", "tipo": 2, "clase": "escudo"},
+]
+const FILTROS_ARMADURA := [
+	{"nombre": "Todo", "icono": "todo", "slot": -1},
+	{"nombre": "Casco", "icono": "casco", "slot": 0},
+	{"nombre": "Pecho", "icono": "coraza", "slot": 1},
+	{"nombre": "Manos", "icono": "mano", "slot": 2},
+	{"nombre": "Pantalones", "icono": "pantalon", "slot": 3},
+	{"nombre": "Botas", "icono": "botas", "slot": 4},
+]
+const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
+
+const LADO_CASA := 0
+const LADO_ENCIMA := 1
 
 var hogar = null   # el armazon (home_menu.gd). Sin tipo: con CanvasLayer no se ven sus variables
+var hucha = null
+
+var _cat: int = CAT_EQUIPO
+var _sub: Dictionary = {}       # categoria -> subcategoria elegida (se recuerda al volver)
+var _lado: int = LADO_CASA
+var _sel: int = 0
+# Lo que enseña la rejilla ahora mismo, en su orden: [{modelo, cantidad, id, ruta, dueno, encargo}].
+var _stacks: Array = []
+var _cache_cofre: Dictionary = {}   # id de entrada del cofre -> Resource reconstruido
+# El candado del taller (solo Materiales en multi): 0 sin pedir, 2 pidiendolo, 1 lo tengo, -1 ocupado.
+var _taller: int = 0
 
 
-func _init(pantalla: CanvasLayer) -> void:
+func _init(pantalla) -> void:
 	hogar = pantalla
-
-# Los apartados del cofre, [etiqueta, id]. Van por ID y no por indice porque el numero cambia en
-# cuanto se mete uno nuevo en medio, y un `_cofre_sub == 2` suelto pasa a significar otra cosa sin
-# avisar. Mismo criterio que las pestañas de forge_menu.
-# La HUCHA es un apartado mas del cofre y no una pestaña suya arriba: es lo mismo que el resto
-# (algo que dejas en casa y que en multi es comun), y sola en su pantalla se quedaba una fila de
-# tres numeros perdida en medio de un vacio enorme.
-const COFRE_SUBS := [["Armas", "armas"], ["Armaduras", "armaduras"],
-	["Mochilas y herram.", "utiles"], ["Consumibles", "consumibles"], ["Monedas", "monedas"]]
-# Que 'clase' de las que guarda el cofre se enseña en cada apartado (ver Game.serializar_equipo).
-const COFRE_CLASES := {
-	"armas": ["arma"],
-	"armaduras": ["armadura"],
-	"utiles": ["mochila", "herramienta"],
-}
-
-var _cofre_sub: int = 0   # indice dentro de COFRE_SUBS (el que MANDA es su id, no el numero)
-var _bote_input: String = ""   # cantidad escrita en el bote (se conserva entre re-dibujos)
+	hucha = HogarHucha.new(pantalla)
 
 
 # ============================================================
-#  ALMACEN: guardar en casa lo que traes en la bolsa
+#  LA SECCION
 # ============================================================
 
-func _build_almacen() -> void:
-	MenuScaffold.titulo(hogar._header, "EL BAÚL DE CASA", 18)
-	MenuScaffold.fila(hogar._content, "En la bolsa", "%d materiales" % Game.materiales.size())
-	MenuScaffold.fila(hogar._content, "Guardado en casa", "%d materiales" % Game.almacen_materiales.size())
-	MenuScaffold.nota(hogar._content, "Los cristales NO se guardan: esos hay que venderlos en la tienda.")
+func _build_seccion() -> void:
+	MenuScaffold.subpestanas(hogar.barra_sub, _campos(CATEGORIAS, "nombre"),
+		_campos(CATEGORIAS, "icono"), _cat, _on_cat)
+	hogar._titulo_seccion.text = str(CATEGORIAS[_cat]["nombre"])
+	if _cat == CAT_HUCHA:
+		hucha.pintar()
+		return
 
-	# LOS TRES EN UNA FILA. Son las tres cosas que se pueden hacer aqui y se comparan entre ellas
-	# (guardar / recoger todo / recoger lo que quepa): en columna ocupaban tres renglones de pantalla
-	# y parecian tres pasos de algo. Se reparten el ancho a partes iguales (EXPAND_FILL).
+	hogar.modo_rejilla(true)
+	hogar.contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
+		Game.esta_sobrecargado())
+	_pintar_subcategorias()
+	if _cat == CAT_MATERIALES and not _taller_listo():
+		return
+	_stacks = _recoger(_lado)
+	_pintar_lados()
+	_pintar_rejilla()
+
+
+func _on_cat(i: int) -> void:
+	if i == _cat:
+		return
+	if _cat == CAT_MATERIALES:
+		al_cerrar()   # suelta el candado del taller al salir de materiales
+	_cat = i
+	_sel = 0
+	hogar._aviso = ""
+	hogar._rebuild()
+
+
+func _on_sub(i: int) -> void:
+	_sub[_cat] = i
+	_sel = 0
+	hogar._rebuild()
+
+
+func _on_lado(lado: int) -> void:
+	if lado == _lado:
+		return
+	_lado = lado
+	_sel = 0
+	hogar._rebuild()
+
+
+# La llaman el armazon al cerrar el hogar o cambiar de seccion, y _on_cat al salir de Materiales.
+func al_cerrar() -> void:
+	if _taller == 1 and Net.activo:
+		Net.hogar.cerrar_taller()
+	_taller = 0
+
+
+func _sub_de(cat: int) -> int:
+	return int(_sub.get(cat, 0))
+
+
+func _campos(tabla: Array, clave: String) -> Array:
+	var out: Array = []
+	for f in tabla:
+		out.append(f[clave])
+	return out
+
+
+# La TERCERA fila: la subcategoria, en las categorias que la tienen.
+func _pintar_subcategorias() -> void:
+	var tabla: Array = []
+	match _cat:
+		CAT_EQUIPO: tabla = SUBS_EQUIPO
+		CAT_ARMAS: tabla = FILTROS_ARMAS
+		CAT_ARMADURAS: tabla = FILTROS_ARMADURA
+	if tabla.is_empty():
+		return
+	var s: int = clampi(_sub_de(_cat), 0, tabla.size() - 1)
+	_sub[_cat] = s
+	MenuScaffold.subpestanas(hogar.barra_sub2, _campos(tabla, "nombre"), _campos(tabla, "icono"),
+		s, _on_sub)
+	# El nombre de la subcategoria manda arriba (como en el inventario): "Farolillo" dice mas que
+	# "Equipo". En los filtros "Todas/Todo" se queda el de la categoria.
+	if _cat == CAT_EQUIPO or s > 0:
+		hogar._titulo_seccion.text = str(tabla[s]["nombre"])
+
+
+# ============================================================
+#  EL CANDADO DEL TALLER (materiales en multi)
+# ============================================================
+
+func _taller_listo() -> bool:
+	if not Net.activo:
+		return true
+	match _taller:
+		1:
+			return true
+		0:
+			_taller = 2
+			_pedir_taller()
+			MenuScaffold.nota(hogar._lista, "Abriendo el baúl…")
+		2:
+			MenuScaffold.nota(hogar._lista, "Abriendo el baúl…")
+		-1:
+			MenuScaffold.nota(hogar._lista, "Tu compañero está usando el baúl de materiales en el taller.")
+			MenuScaffold.pastilla(hogar._lista, "Volver a intentarlo", func():
+				_taller = 0
+				hogar._rebuild(), false)
+	return false
+
+
+func _pedir_taller() -> void:
+	var ok: bool = await Net.hogar.abrir_taller()
+	# Si mientras tanto se ha ido de materiales (o ha cerrado el hogar), el candado no le sirve: fuera.
+	if _cat != CAT_MATERIALES or not hogar._root.visible:
+		if ok:
+			Net.hogar.cerrar_taller()
+		_taller = 0
+		return
+	_taller = 1 if ok else -1
+	hogar._rebuild()
+
+
+# ============================================================
+#  QUE HAY EN CADA LADO
+# ============================================================
+
+# Los montones de un lado, ya filtrados por la subcategoria.
+func _recoger(lado: int) -> Array:
+	var out: Array = []
+	match _cat:
+		CAT_MATERIALES:
+			var lista: Array = Game.almacen_materiales if lado == LADO_CASA else Game.materiales
+			for s in _agrupar(lista):
+				out.append(_entrada(s["modelo"], int(s["cantidad"])))
+		CAT_CONSUMIBLES:
+			if lado == LADO_CASA:
+				var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
+				for ruta in consum:
+					var c: Resource = load(str(ruta)) if ResourceLoader.exists(str(ruta)) else null
+					if c != null and int(consum[ruta]) > 0:
+						var e: Dictionary = _entrada(c, int(consum[ruta]))
+						e["ruta"] = str(ruta)
+						out.append(e)
+			else:
+				for c in Game.consumables:
+					if int(Game.consumables[c]) > 0:
+						var e2: Dictionary = _entrada(c, int(Game.consumables[c]))
+						e2["ruta"] = (c as Resource).resource_path
+						out.append(e2)
+		_:
+			if lado == LADO_CASA:
+				out = _del_cofre()
+			else:
+				for it in _encima():
+					if _pasa_filtro(it):
+						var e3: Dictionary = _entrada(it, 1)
+						var dueno: PersonajeData = Game.quien_lleva(it)
+						e3["dueno"] = "" if dueno == null else dueno.nombre
+						out.append(e3)
+	return out
+
+
+func _entrada(modelo: Resource, cantidad: int) -> Dictionary:
+	return {"modelo": modelo, "cantidad": cantidad, "id": -1, "ruta": "", "dueno": "", "encargo": false}
+
+
+# Lo que LLEVAS de la categoria de equipo actual (sin filtrar todavia). SIN TIPAR: se juntan arrays de
+# clases distintas, y un .has() con la clase equivocada revienta (ver arrays-tipados-por-clase).
+func _encima() -> Array:
+	var out: Array = []
+	match _cat:
+		CAT_ARMAS:
+			out.append_array(Game.owned_weapons)
+		CAT_ARMADURAS:
+			out.append_array(Game.owned_armor)
+		CAT_EQUIPO:
+			if _sub_de(CAT_EQUIPO) == 0:
+				out.append_array(Game.owned_mochilas)
+			else:
+				out.append_array(Game.owned_tools)
+	return out
+
+
+# Lo que hay en el COFRE de la categoria de equipo actual, reconstruido y filtrado.
+func _del_cofre() -> Array:
+	var out: Array = []
+	var vivos: Dictionary = {}
+	for entrada in Net.hogar.cofre_visible():
+		var id: int = int(entrada.get("id", -1))
+		vivos[id] = true
+		var clase: String = str(entrada.get("clase", ""))
+		if not _clase_encaja(clase):
+			continue
+		if not _cache_cofre.has(id):
+			_cache_cofre[id] = Game.deserializar_equipo(entrada.get("dict", {}), false)
+		var item: Resource = _cache_cofre[id]
+		if item == null or not _pasa_filtro(item):
+			continue
+		var e: Dictionary = _entrada(item, 1)
+		e["id"] = id
+		e["encargo"] = int(entrada.get("encargo", 0)) != 0
+		out.append(e)
+	# Lo que ya no esta en el cofre (lo saco alguien) se olvida.
+	for id in _cache_cofre.keys():
+		if not vivos.has(id):
+			_cache_cofre.erase(id)
+	return out
+
+
+func _clase_encaja(clase: String) -> bool:
+	match _cat:
+		CAT_ARMAS: return clase == "arma"
+		CAT_ARMADURAS: return clase == "armadura"
+		CAT_EQUIPO: return clase == ("mochila" if _sub_de(CAT_EQUIPO) == 0 else "herramienta")
+	return false
+
+
+func _pasa_filtro(item: Resource) -> bool:
+	match _cat:
+		CAT_ARMAS:
+			var f: Dictionary = FILTROS_ARMAS[clampi(_sub_de(CAT_ARMAS), 0, FILTROS_ARMAS.size() - 1)]
+			var clase: String = str(f["clase"])
+			if clase == "escudo":
+				return item is ShieldData and int((item as ShieldData).tamano) == int(f["tipo"])
+			if clase == "varita":
+				return item is WandData
+			if int(f["tipo"]) < 0:
+				return true
+			return item is WeaponData and int((item as WeaponData).tipo) == int(f["tipo"])
+		CAT_ARMADURAS:
+			var slot: int = int(FILTROS_ARMADURA[clampi(_sub_de(CAT_ARMADURAS), 0, FILTROS_ARMADURA.size() - 1)]["slot"])
+			return item is ArmorData and (slot < 0 or int((item as ArmorData).slot) == slot)
+		CAT_EQUIPO:
+			match _sub_de(CAT_EQUIPO):
+				0: return item is BackpackData
+				1: return item is ToolData and not (item as ToolData).es_lampara()
+				2: return item is ToolData and (item as ToolData).es_lampara()
+	return true
+
+
+# Agrupa materiales iguales en montones {modelo, cantidad}, con la clave de Game.clave_monton.
+func _agrupar(items: Array) -> Array:
+	var claves: Array = []
+	var mapa: Dictionary = {}
+	for it in items:
+		if not (it is MaterialItem):
+			continue
+		var k: String = Game.clave_monton(it)
+		if not mapa.has(k):
+			mapa[k] = {"modelo": it, "cantidad": 0}
+			claves.append(k)
+		mapa[k]["cantidad"] += 1
+	var res: Array = []
+	for k in claves:
+		res.append(mapa[k])
+	return res
+
+
+# ============================================================
+#  EL INTERRUPTOR DE LADO Y LAS ACCIONES EN BLOQUE
+# ============================================================
+
+func _pintar_lados() -> void:
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 8)
-	fila.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hogar._content.add_child(fila)
-
-	# Etiquetas CORTAS y el matiz en el tooltip: tres botones en una fila no dan para una frase, y
-	# el aviso de la sobrecarga ya esta escrito en la nota de abajo.
-	var b := MenuScaffold.boton(fila, "Guardar todo", _on_guardar, not Game.materiales.is_empty())
-	b.tooltip_text = "Deja en el baúl todo lo que traes en la bolsa."
-	b.clip_text = true
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	# EL CAMINO DE VUELTA. Hasta ahora del baul solo se salia vendiendo o crafteando, y hace falta
-	# poder vaciarlo: al entrar en un mundo compartido solo viaja la BOLSA, asi que para llevarte tus
-	# materiales al mundo de un companero primero tienes que recogerlos aqui.
-	var vacio: bool = Game.almacen_materiales.is_empty()
-	var todo := MenuScaffold.boton(fila, "Recoger TODO", _on_recoger.bind(true), not vacio)
-	todo.tooltip_text = "Saca del baúl todo lo que hay, aunque te deje sobrecargado."
-	todo.clip_text = true
-	todo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var cabe := MenuScaffold.boton(fila, "Recoger lo que quepa", _on_recoger.bind(false), not vacio)
-	cabe.tooltip_text = "Saca solo lo que puedas cargar sin quedarte lento."
-	cabe.clip_text = true
-	cabe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	MenuScaffold.fila(hogar._content, "Tu carga", "%.1f / %.1f%s" % [
-		Game.peso_actual(), Game.capacidad_carga(),
-		"    ¡SOBRECARGADO!" if Game.esta_sobrecargado() else ""])
-	MenuScaffold.nota(hogar._content, "Ir sobrecargado no te bloquea: te mueves más lento, y cuanto "
-		+ "más te pases, más. Para mudarte a un mundo compartido llévatelo todo y ya lo repartes allí.")
-
-
-func _on_guardar() -> void:
-	# MULTIJUGADOR: depositar toca el baul compartido -> coger el candado un momento, guardar y
-	# soltarlo. Si tu companero esta en el taller, "ocupado".
-	if Net.activo:
-		if not await Net.hogar.abrir_taller():
-			hogar._aviso = "El hogar está ocupado (tu compañero está en el taller)."
-			hogar._aviso_ok = false
-			hogar._rebuild()
-			return
-		var n: int = Game.guardar_materiales_en_hogar()
-		Net.hogar.cerrar_taller()
-		hogar._aviso = "Guardas %d materiales en casa." % n
-		hogar._aviso_ok = true
-		hogar._rebuild()
-		return
-	var n: int = Game.guardar_materiales_en_hogar()
-	hogar._aviso = "Guardas %d materiales en casa." % n
-	hogar._aviso_ok = true
-	hogar._rebuild()
-
-
-# Sacar del baul a la bolsa. Mismo baile del candado que al depositar: en multi el baul es del host.
-func _on_recoger(todo: bool) -> void:
-	if Net.activo:
-		if not await Net.hogar.abrir_taller():
-			hogar._aviso = "El hogar está ocupado (tu compañero está en el taller)."
-			hogar._aviso_ok = false
-			hogar._rebuild()
-			return
-		var n_multi: int = Game.recoger_materiales_del_hogar(todo)
-		Net.hogar.cerrar_taller()
-		_decir_recogida(n_multi, todo)
-		return
-	var n: int = Game.recoger_materiales_del_hogar(todo)
-	_decir_recogida(n, todo)
-
-
-# El aviso de la recogida dice lo que ha pasado de verdad: cuantos, si se quedaron fuera por peso, y
-# si te has quedado sobrecargado (que no es un error, pero conviene saberlo antes de bajar).
-func _decir_recogida(n: int, todo: bool) -> void:
-	if n == 0:
-		hogar._aviso = "No hay nada guardado en casa." if todo \
-			else "Ya vas cargado: recoger más te dejaría lento."
-		hogar._aviso_ok = false
-	else:
-		hogar._aviso = "Recoges %d material%s." % [n, "" if n == 1 else "es"]
-		if not Game.almacen_materiales.is_empty():
-			hogar._aviso += " Quedan %d en casa." % Game.almacen_materiales.size()
-		if Game.esta_sobrecargado():
-			hogar._aviso += "  ¡Vas SOBRECARGADO: te moverás lento!"
-		hogar._aviso_ok = true
-	hogar._rebuild()
-
-
-# ============================================================
-#  BOTE del hogar (multi): dinero comun. Tu dinero de bolsillo sigue siendo tuyo.
-# ============================================================
-
-# La HUCHA, que es un apartado del cofre (el titulo grande lo pone _build_cofre).
-func _build_bote() -> void:
-	# Los otros apartados del cofre usan las dos columnas (lo tuyo / lo que hay dentro); este no, asi
-	# que se esconde la de la lista o la fila de la cantidad se queda sin sitio y se sale por la
-	# derecha.
-	if hogar._lista_scroll != null:
-		hogar._lista_scroll.visible = false
-	MenuScaffold.titulo(hogar._content, "La hucha de casa", 14)
-	MenuScaffold.fila(hogar._content, "En la hucha", "%d monedas" % Net.hogar.bote_visible())
-	MenuScaffold.fila(hogar._content, "En tu bolsillo", "%d monedas" % Game.money)
-	var nota: String = "Guarda dinero en casa. " + ("En multijugador es común: deposita para que "
-		+ "tu compañero pueda cogerlo." if Net.activo else "Se guarda con tu partida.")
-	MenuScaffold.nota(hogar._content, nota)
-
-	# Cantidad escrita a mano; los dos botones siempre disponibles.
-	var caja := HBoxContainer.new()
-	caja.add_theme_constant_override("separation", 6)
-	hogar._content.add_child(caja)
-
-	var etq := Label.new()
-	etq.text = "Cantidad:"
-	etq.custom_minimum_size = Vector2(150, 0)
-	etq.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	caja.add_child(etq)
-
-	var le := LineEdit.new()
-	le.text = _bote_input
-	le.placeholder_text = "0"
-	# Alto de dedo como todo lo demas, y ancho ACOTADO: estirado a toda la pantalla parecia el campo
-	# de un formulario web, y aqui se escriben cuatro cifras.
-	le.custom_minimum_size = Vector2(220, MenuScaffold.ALTO_BOTON)
-	le.add_theme_font_size_override("font_size", 18)
-	le.text_changed.connect(func(t: String): _bote_input = t)   # se conserva al re-dibujar
-	caja.add_child(le)
-
-	var dep := Button.new()
-	dep.text = "Depositar"
-	dep.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
-	dep.pressed.connect(func():
-		var n: int = _cantidad_bote()
-		if n <= 0:
-			hogar._aviso = "Escribe una cantidad."; hogar._aviso_ok = false
-		elif Net.hogar.depositar_bote(n):
-			hogar._aviso = "Depositas %d en el bote." % n; hogar._aviso_ok = true
-		else:
-			hogar._aviso = "No tienes tanto en el bolsillo."; hogar._aviso_ok = false
-		hogar._rebuild())
-	caja.add_child(dep)
-
-	var ret := Button.new()
-	ret.text = "Retirar"
-	ret.custom_minimum_size = Vector2(150, MenuScaffold.ALTO_BOTON)
-	ret.pressed.connect(func():
-		var n: int = _cantidad_bote()
-		if n <= 0:
-			hogar._aviso = "Escribe una cantidad."; hogar._aviso_ok = false
-		else:
-			Net.hogar.retirar_bote(n)   # el host valida que hay tanto (si no, avisa por toast)
-			hogar._aviso = "Pides retirar %d del bote." % n; hogar._aviso_ok = true
-		hogar._rebuild())
-	caja.add_child(ret)
-
-
-# Lee la cantidad escrita como entero (0 si no es un numero valido).
-func _cantidad_bote() -> int:
-	var t: String = _bote_input.strip_edges()
-	return int(t) if t.is_valid_int() else 0
-
-
-# ============================================================
-#  COFRE del hogar (multi): equipo para traspasar, por apartados (ver COFRE_SUBS). Ver paso 3.
-# ============================================================
-
-func _build_cofre() -> void:
-	MenuScaffold.titulo(hogar._header, "COFRE COMPARTIDO", 18)
-	var sub := HBoxContainer.new()
-	sub.add_theme_constant_override("separation", 8)
-	hogar._header.add_child(sub)
-	for i in COFRE_SUBS.size():
+	hogar._header.add_child(fila)
+	var n_casa: int = _contar(_recoger(LADO_CASA)) if _lado != LADO_CASA else _contar(_stacks)
+	var n_encima: int = _contar(_recoger(LADO_ENCIMA)) if _lado != LADO_ENCIMA else _contar(_stacks)
+	for par in [[LADO_CASA, "En casa   %d" % n_casa], [LADO_ENCIMA, "Llevas encima   %d" % n_encima]]:
 		var b := Button.new()
-		b.text = str(COFRE_SUBS[i][0])
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)   # alto de dedo, como el resto
-		b.button_pressed = (_cofre_sub == i)
-		b.pressed.connect(func():
-			_cofre_sub = i
-			hogar._rebuild())
-		sub.add_child(b)
+		b.text = str(par[1])
+		MenuScaffold.estilo_chip(b, _lado == int(par[0]))
+		b.custom_minimum_size = Vector2(170, 32)
+		b.pressed.connect(_on_lado.bind(int(par[0])))
+		fila.add_child(b)
 
-	_cofre_sub = clampi(_cofre_sub, 0, COFRE_SUBS.size() - 1)
-	# 'sub_id' y no 'id': mas abajo cada entrada del cofre tiene su propio id (un numero).
-	var sub_id: String = str(COFRE_SUBS[_cofre_sub][1])
-	if sub_id == "consumibles":
-		_build_cofre_consumibles()
+	if _cat != CAT_MATERIALES:
 		return
-	if sub_id == "monedas":
-		_build_bote()
+	# MATERIALES EN BLOQUE: son cientos de piezas sueltas y de uno en uno no se acaba nunca. Tres
+	# botoncitos con icono (lo pidio asi el usuario): abajo = guardar, arriba = recoger sin
+	# sobrecargarte, doble = recoger todo. Cada uno pregunta antes en un modal que dice que va a pasar.
+	var hueco := Control.new()
+	hueco.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(hueco)
+	_boton_bloque(fila, "flecha_abajo", "Guardar todos los materiales", _confirmar_bloque.bind("guardar"))
+	_boton_bloque(fila, "flecha_arriba", "Recoger sin sobrecargarte", _confirmar_bloque.bind("recoger"))
+	_boton_bloque(fila, "flecha_doble_arriba", "Recoger todo", _confirmar_bloque.bind("todo"))
+
+
+func _boton_bloque(fila: Control, icono: String, pista: String, al_pulsar: Callable) -> void:
+	var b: Control = BotonIcono.crear(Callable(Iconos, icono), al_pulsar, 36.0, true)
+	b.tooltip_text = pista
+	fila.add_child(b)
+
+
+var _modal: Control = null
+
+# El modal de las acciones en bloque: que va a pasar, con cuantos, y Cancelar / Confirmar.
+func _confirmar_bloque(que: String) -> void:
+	cerrar_modal()
+	var en_bolsa: int = Game.materiales.size()
+	var en_casa: int = Game.almacen_materiales.size()
+	var titulo: String = ""
+	var texto: String = ""
+	var accion: Callable
+	match que:
+		"guardar":
+			titulo = "Guardar todos los materiales"
+			texto = "Dejas en casa los %d materiales que llevas encima. Los cristales no: esos se venden en la tienda." % en_bolsa
+			accion = func():
+				var n: int = Game.guardar_materiales_en_hogar()
+				_decir("Guardas %d material%s en casa." % [n, "" if n == 1 else "es"] if n > 0
+					else "No llevas materiales encima.", n > 0)
+		"recoger":
+			titulo = "Recoger sin sobrecargarte"
+			texto = "Te llevas de casa todo lo que puedas cargar sin empezar a ir lento. Lo que no quepa se queda guardado."
+			accion = func():
+				var n: int = Game.recoger_materiales_del_hogar(false)
+				_decir("Te llevas %d material%s." % [n, "" if n == 1 else "es"] if n > 0
+					else "Ya vas cargado: llevar más te dejaría lento.", n > 0)
+		_:
+			titulo = "Recoger todo"
+			texto = "Te llevas los %d materiales que hay en casa, aunque vayas sobrecargado y te muevas lento." % en_casa
+			accion = func():
+				var n: int = Game.recoger_materiales_del_hogar(true)
+				var txt: String = "Te llevas %d material%s." % [n, "" if n == 1 else "es"] if n > 0 \
+					else "No hay materiales en casa."
+				if n > 0 and Game.esta_sobrecargado():
+					txt += "  Vas sobrecargado: te moverás lento."
+				_decir(txt, n > 0)
+	var m: Dictionary = MenuScaffold.modal(hogar._root, titulo, 460.0)
+	_modal = m["capa"]
+	_modal.z_index = 4096   # por encima de cualquier muñeco (ver retratos-pisan-los-modales)
+	MenuScaffold.nota(m["cuerpo"], texto)
+	MenuScaffold.pastilla(m["acciones"], "Cancelar", cerrar_modal, false)
+	MenuScaffold.pastilla(m["acciones"], "Confirmar", func():
+		cerrar_modal()
+		accion.call())
+
+
+# true si habia un modal abierto (el armazon lo pregunta antes de cerrar el hogar con Esc).
+func cerrar_modal() -> bool:
+	if _modal == null or not is_instance_valid(_modal):
+		_modal = null
+		return false
+	_modal.get_parent().remove_child(_modal)
+	_modal.queue_free()
+	_modal = null
+	return true
+
+
+func _contar(stacks: Array) -> int:
+	var n: int = 0
+	for s in stacks:
+		n += int(s["cantidad"])
+	return n
+
+
+# ============================================================
+#  LA REJILLA Y LA FICHA
+# ============================================================
+
+func _pintar_rejilla() -> void:
+	if _stacks.is_empty():
+		MenuScaffold.nota(hogar._lista, "No hay nada guardado en casa." if _lado == LADO_CASA
+			else "No llevas nada de esto encima.")
+		return
+	_sel = clampi(_sel, 0, _stacks.size() - 1)
+	var piezas: Array = []
+	for s in _stacks:
+		var marca: String = str(s["dueno"])
+		if bool(s["encargo"]):
+			marca = "ENCARGO"
+		var n: int = int(s["cantidad"])
+		piezas.append({"item": s["modelo"], "pie": ("x%d" % n) if n > 1 else "",
+			"tooltip": _nombre(s["modelo"]), "marca": marca, "activo": true})
+	MenuScaffold.rejilla_objetos(hogar._lista, piezas, _sel, _pick, _columnas(), LADO_CELDA)
+	_ficha()
+
+
+# Elegir otra celda repinta SOLO la ficha y la marca de la rejilla: rehacer la rejilla entera la
+# devolveria arriba del todo (el scroll salta), justo lo que se arreglo en el inventario.
+func _pick(i: int) -> void:
+	_sel = i
+	if MenuScaffold.marcar_en_rejilla(hogar._lista, i):
+		MenuScaffold.vaciar(hogar._content)
+		_ficha()
+	else:
+		hogar._rebuild()
+
+
+func _columnas() -> int:
+	var ancho: float = hogar._lista.size.x
+	if ancho <= 1.0:
+		ancho = 420.0
+	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+
+
+func _nombre(it: Resource) -> String:
+	if it is MaterialItem:
+		return (it as MaterialItem).nombre_mostrado()
+	if it is ConsumableData:
+		return (it as ConsumableData).nombre
+	return Game.item_display_name(it)
+
+
+func _ficha() -> void:
+	var s: Dictionary = _stacks[_sel]
+	var m: Resource = s["modelo"]
+	var vb: VBoxContainer = hogar._content
+	var n: int = int(s["cantidad"])
+
+	# EL TITULO con su color: rango en los materiales, rareza en el equipo.
+	if m is MaterialItem:
+		var mi := m as MaterialItem
+		MenuScaffold.titulo_item(vb, mi.nombre_mostrado(), mi.data.color_rango(), mi.data.rango_intensidad())
+	elif m is ConsumableData:
+		MenuScaffold.titulo(vb, (m as ConsumableData).nombre, 16, Color(0.94, 0.95, 0.98))
+	else:
+		MenuScaffold.titulo_item(vb, Game.item_display_name(m), Game.color_rareza_de(m),
+			Game.intensidad_rareza_de(m))
+	MenuScaffold.banner_item(vb, m, ("× %d" % n) if n > 1 else "",
+		"En casa" if _lado == LADO_CASA else "Llevas encima")
+	for fila in _filas(m):
+		MenuScaffold.fila(vb, str(fila[0]), str(fila[1]), 150)
+	# Lo que HACE un consumible es un parrafo, no un "etiqueta: valor": va a todo lo ancho.
+	if m is ConsumableData and m.get("descripcion") != null and str(m.get("descripcion")) != "":
+		MenuScaffold.nota(vb, str(m.get("descripcion")))
+
+	vb.add_child(HSeparator.new())
+	_acciones(vb, s)
+
+
+# Las filas de datos de cada clase de cosa. Las de equipo salen de las fichas COMPARTIDAS de
+# MenuScaffold, con el tier, la rareza y las mejoras reales de ESTA pieza.
+func _filas(m: Resource) -> Array:
+	var out: Array = []
+	if m is MaterialItem:
+		var mi := m as MaterialItem
+		out.append(["Calidad", mi.calidad_texto()])
+		out.append(["Peso", "%.1f cada uno" % mi.peso()])
+		return out
+	if m is ConsumableData:
+		return out   # su descripcion va aparte, a todo lo ancho (ver _ficha)
+	var meta: Dictionary = Game.meta_de(m)
+	if m is WeaponData:
+		out.append_array(MenuScaffold.filas_arma(m, int(meta["tier"]), int(meta["rareza"]),
+			meta["mejoras"], null, Game.durabilidad_item(m)))
+	elif m is ShieldData:
+		out.append_array(MenuScaffold.filas_escudo(m, int(meta["tier"]), int(meta["rareza"]), meta["mejoras"]))
+	elif m is ArmorData:
+		out.append(["Pieza", ARMOR_SLOT_LABELS[clampi(int((m as ArmorData).slot), 0, 4)]])
+		out.append_array(MenuScaffold.filas_armadura(m, int(meta["tier"]), int(meta["rareza"]),
+			meta["mejoras"], Game.durabilidad_item(m)))
+	elif m is ToolData:
+		out.append_array(MenuScaffold.filas_herramienta(m))
+	elif m is BackpackData:
+		out.append(["Capacidad", "+%.0f de carga" % Game.capacidad_mochila(m)])
+	if not (m is BackpackData):
+		out.append(["Durabilidad", Game.durabilidad_txt_item(m)])
+	return out
+
+
+# LOS BOTONES de la ficha: pasar lo elegido al otro lado. Lo que no se puede mover lo dice en vez de
+# esconder el boton (una pieza puesta, una herramienta prestada a un encargo).
+func _acciones(vb: VBoxContainer, s: Dictionary) -> void:
+	var m: Resource = s["modelo"]
+	var n: int = int(s["cantidad"])
+	var a_casa: bool = _lado == LADO_ENCIMA
+	if bool(s["encargo"]):
+		MenuScaffold.nota(vb, "Está prestado a un encargo: vuelve a casa cuando lo recojas.")
+		return
+	if a_casa and str(s["dueno"]) != "":
+		MenuScaffold.nota(vb, "Lo lleva %s. Quítaselo en su ficha antes de guardarlo." % s["dueno"])
 		return
 
-	# TUYAS (baul propio, sin equipar): se pueden depositar.
-	MenuScaffold.titulo(hogar._lista, "Tuyas (para depositar)", 14)
-	# SIN TIPAR a proposito: en "utiles" se juntan dos arrays de clases distintas
-	# (Array[BackpackData] + Array[ToolData]), y un .has() con la clase equivocada sobre un array
-	# tipado no devuelve false: escupe un error del motor.
-	var mias: Array = []
-	match sub_id:
-		"armas": mias = Game.owned_weapons.duplicate()
-		"armaduras": mias = Game.owned_armor.duplicate()
-		# La mochila y las tres herramientas son del GRUPO, no de un personaje, y ninguna se mejora:
-		# van juntas en su propio apartado, igual que en el inventario ([I] -> Equipo).
-		"utiles": mias = Game.owned_mochilas + Game.owned_tools
-	var alguna := false
-	for item in mias:
-		# item_equipado y NO quien_lleva: la MOCHILA no vive en un equipped_* (es del GRUPO), asi que
-		# quien_lleva no la ve y la que llevabas puesta salia aqui como suelta.
-		if Game.item_equipado(item):
-			continue   # equipada: no se deposita
-		alguna = true
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		hogar._lista.add_child(fila)
-		var l := Label.new()
-		l.text = Game.item_display_name(item)
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		l.add_theme_color_override("font_color", Game.color_rareza_de(item))
-		fila.add_child(l)
-		var meter := Button.new()
-		meter.text = "Al cofre"
-		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
-		meter.pressed.connect(func():
-			if Net.hogar.meter_en_cofre(item):
-				hogar._aviso = "Guardas %s en el cofre." % Game.item_display_name(item)
-				hogar._aviso_ok = true
+	var acc := VBoxContainer.new()
+	acc.add_theme_constant_override("separation", 8)
+	vb.add_child(acc)
+	var verbo: String = "Guardar" if a_casa else "Llevar"
+	if n > 1:
+		_boton(acc, "%s todo (%d)" % [verbo, n], _mover.bind(s, n), true)
+		_boton(acc, "%s uno" % verbo, _mover.bind(s, 1), false)
+	else:
+		_boton(acc, "Guardar en casa" if a_casa else "Llevar encima", _mover.bind(s, 1), true)
+
+
+func _boton(padre: Control, txt: String, al_pulsar: Callable, principal: bool) -> void:
+	var b: Button = MenuScaffold.pastilla(padre, txt, al_pulsar, principal)
+	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+
+
+# Pasa 'cuantos' de lo elegido al otro lado, por la via de red de cada cosa.
+func _mover(s: Dictionary, cuantos: int) -> void:
+	var m: Resource = s["modelo"]
+	var a_casa: bool = _lado == LADO_ENCIMA
+	var nombre: String = _nombre(m)
+	match _cat:
+		CAT_MATERIALES:
+			var movidos: int = Game.mover_monton_material(m, a_casa, cuantos)
+			if movidos <= 0:
+				_decir("No se ha podido mover.", false)
+				return
+			_decir("%s %d × %s." % ["Guardas" if a_casa else "Te llevas", movidos, nombre], true)
+		CAT_CONSUMIBLES:
+			if a_casa:
+				Net.hogar.meter_consumible_cofre(str(s["ruta"]), cuantos)
 			else:
-				hogar._aviso = "Esa pieza no se puede compartir (o la llevas puesta)."
-				hogar._aviso_ok = false
-			hogar._rebuild())
-		fila.add_child(meter)
-	if not alguna:
-		MenuScaffold.nota(hogar._lista, "No tienes piezas sueltas de este tipo para depositar.")
-
-	# EN EL COFRE: se pueden sacar. La 'clase' la pone Game.serializar_equipo al depositar.
-	MenuScaffold.titulo(hogar._content, "En el cofre", 14)
-	var clases: Array = COFRE_CLASES[sub_id]
-	var hay := false
-	for entrada in Net.hogar.cofre_visible():
-		if not clases.has(str(entrada.get("clase", ""))):
-			continue
-		hay = true
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		hogar._content.add_child(fila)
-		var l := Label.new()
-		l.text = str(entrada.get("desc", "?"))
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# La rareza viaja YA dentro de la entrada serializada (ver Game._item_a_dict del cofre), asi que
-		# aqui no hay que reconstruir la pieza para saber de que color va su nombre.
-		l.add_theme_color_override("font_color", Upgrades.rareza_color(int(entrada.get("rareza", 0))))
-		# EN USO en un encargo: se ve en gris y no se puede sacar. El host lo rechaza igualmente
-		# (ver Net.hogar._resolver_saca_cofre); esto es solo para no ofrecer un boton que no va a funcionar.
-		var en_encargo: bool = int(entrada.get("encargo", 0)) != 0
-		if en_encargo:
-			l.text += "   · en un encargo"
-			l.add_theme_color_override("font_color", GRIS)
-		fila.add_child(l)
-		var sacar := Button.new()
-		sacar.text = "Sacar"
-		sacar.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
-		sacar.disabled = en_encargo
-		if en_encargo:
-			sacar.tooltip_text = "Se la han llevado a un encargo. Vuelve cuando lo recojas."
-		var id: int = int(entrada.get("id", 0))
-		sacar.pressed.connect(func():
-			Net.hogar.sacar_de_cofre(id)
-			hogar._aviso = "Sacas la pieza del cofre."
-			hogar._aviso_ok = true
-			hogar._rebuild())
-		fila.add_child(sacar)
-	if not hay:
-		MenuScaffold.nota(hogar._content, "El cofre está vacío para este tipo.")
+				Net.hogar.sacar_consumible_cofre(str(s["ruta"]), cuantos)
+			_decir("%s %d × %s." % ["Guardas" if a_casa else "Te llevas", cuantos, nombre], true)
+		_:
+			if a_casa:
+				if Game.item_equipado(m):
+					_decir("Está puesto: quítaselo antes de guardarlo.", false)
+					return
+				if not Net.hogar.meter_en_cofre(m):
+					_decir("No se ha podido guardar.", false)
+					return
+				_decir("Guardas %s en casa." % nombre, true)
+			else:
+				Net.hogar.sacar_de_cofre(int(s["id"]))
+				_cache_cofre.erase(int(s["id"]))
+				_decir("Te llevas %s." % nombre, true)
 
 
-# Submenu de Consumibles del cofre: pociones y grimorios (stackean). Depositar/sacar de 1 en 1.
-func _build_cofre_consumibles() -> void:
-	MenuScaffold.titulo(hogar._lista, "Tuyos (para depositar)", 14)
-	var alguno := false
-	for c in Game.consumables:
-		var cant: int = int(Game.consumables[c])
-		if cant <= 0:
-			continue
-		alguno = true
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		hogar._lista.add_child(fila)
-		var l := Label.new()
-		l.text = "%s  x%d" % [str(c.get("nombre")), cant]
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fila.add_child(l)
-		var ruta: String = c.resource_path
-		var meter := Button.new()
-		meter.text = "Al cofre"
-		meter.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
-		meter.pressed.connect(func():
-			Net.hogar.meter_consumible_cofre(ruta, 1)
-			hogar._aviso = "Guardas 1 en el cofre."
-			hogar._aviso_ok = true
-			hogar._rebuild())
-		fila.add_child(meter)
-	if not alguno:
-		MenuScaffold.nota(hogar._lista, "No llevas pociones ni grimorios.")
-
-	MenuScaffold.titulo(hogar._content, "En el cofre", 14)
-	var hay := false
-	var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
-	for ruta in consum:
-		var cant: int = int(consum[ruta])
-		if cant <= 0:
-			continue
-		hay = true
-		var c: Resource = load(ruta)
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 6)
-		hogar._content.add_child(fila)
-		var l := Label.new()
-		l.text = "%s  x%d" % [str(c.get("nombre")) if c != null else ruta, cant]
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		fila.add_child(l)
-		var sacar := Button.new()
-		sacar.text = "Sacar"
-		sacar.custom_minimum_size = Vector2(120, MenuScaffold.ALTO_BOTON)
-		sacar.pressed.connect(func():
-			Net.hogar.sacar_consumible_cofre(ruta, 1)
-			hogar._aviso = "Sacas 1 del cofre."
-			hogar._aviso_ok = true
-			hogar._rebuild())
-		fila.add_child(sacar)
-	if not hay:
-		MenuScaffold.nota(hogar._content, "No hay consumibles en el cofre.")
+func _decir(txt: String, ok: bool) -> void:
+	hogar._aviso = txt
+	hogar._aviso_ok = ok
+	hogar._rebuild()

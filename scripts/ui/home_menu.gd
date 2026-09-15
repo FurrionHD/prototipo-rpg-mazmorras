@@ -1,23 +1,20 @@
 # ============================================================
 #  home_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu del HOGAR. Dos cosas, que son las dos que se hacen en casa:
-#    1) EQUIPO   - quien de tu plantilla baja hoy a la mazmorra (como mucho Game.PARTY_MAX) y en
-#                  que orden. La plantilla no tiene tope: aqui se montan equipos distintos sin
-#                  perder a nadie (nadie se despide nunca).
-#    2) ALMACEN  - guardar en casa los materiales que traigas en la bolsa (lo que antes hacia la
-#                  tecla F a secas). Se consulta en la pestaña "Materiales" del inventario (I).
+#  Menu del HOGAR. Es el ARMAZON: la barra de arriba con las secciones, el aviso, abrir/cerrar y el
+#  ciclo de repintado. Cada seccion vive en su archivo, en scripts/ui/hogar/:
+#    - EQUIPO    (hogar_equipo.gd)    quien va contigo y en que orden.
+#    - ENCARGOS  (hogar_encargos.gd)  mandar a los de casa a recolectar por reloj real.
+#    - COFRE     (hogar_almacen.gd)   todo lo que se deja en casa: materiales, equipo, armas, armaduras, consumibles y hucha.
 #
-#  El ORDEN del equipo importa: el de arriba es el que va EN CABEZA (el cuerpo que mueves por el
-#  mapa, el que mina y el que gasta aguante). Se puede cambiar tambien sobre la marcha con las
-#  teclas 1/2/3, pero aqui es donde se decide con quien sales de casa.
+#  EL REPARTO es el del inventario: "Hogar" pequeño sobre el nombre de la seccion a la izquierda, las
+#  secciones como ICONOS centrados en la pantalla, las monedas y la ✕ a la derecha. Debajo, una fila
+#  de SUBPESTAÑAS que cada seccion llena si la necesita (vacia no se ve).
 # ============================================================
 
 extends CanvasLayer
 
-# Almacen del hogar. Bote y Cofre son tu almacen personal (persiste en la partida); en multi
-# pasan a ser los del host (compartidos). Siempre visibles.
-const TABS := ["Equipo", "Encargos", "Almacén", "Cofre"]
-
+const TABS := ["Equipo", "Encargos", "Cofre"]
+const TAB_ICONOS := ["persona", "pergamino", "cofre"]
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
@@ -27,12 +24,23 @@ var _root: Control = null
 var _header: VBoxContainer = null
 var _content: VBoxContainer = null
 var _lista: VBoxContainer = null
-# La COLUMNA de la lista, para poder esconderla en las pestañas que no la usan: si se queda ahi
+# La COLUMNA de la lista, para poder esconderla en las secciones que no la usan: si se queda ahi
 # vacia, se lleva 330 px de ancho y el contenido de al lado se apretuja contra el borde.
 var _lista_scroll: ScrollContainer = null
 var _aviso_lbl: Label = null
 var _tab_buttons: Array = []
-var _side: VBoxContainer = null
+var _titulo_seccion: Label = null
+var _dinero_lbl: Label = null
+# La fila de SUBPESTAÑAS, fuera de las zonas que se vacian: la llena la seccion con
+# MenuScaffold.subpestanas (que ya se vacia sola) y sin nada no ocupa sitio.
+var barra_sub: HBoxContainer = null
+# La TERCERA fila (la subcategoria del almacen: mochila/herramientas/farolillo, tipo de arma...).
+var barra_sub2: HBoxContainer = null
+# El CONTADOR de la barra de arriba (el peso de la bolsa, como en el inventario). Lo pone la seccion.
+var _contador_lbl: Label = null
+# El reparto de la columna de la lista y la ficha tal como lo deja construir(), para devolverlo al
+# salir del almacen (que lo invierte: rejilla ancha y ficha fija, como el inventario).
+var _split_normal: Dictionary = {}
 var _aviso: String = ""
 var _aviso_ok: bool = true
 var _tab: int = 0
@@ -46,7 +54,6 @@ var encargos = null
 var almacen = null
 
 
-
 func _ready() -> void:
 	equipo = HogarEquipo.new(self)
 	encargos = HogarEncargos.new(self)
@@ -55,45 +62,123 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("home_menu")
 
-	var m: Dictionary = MenuScaffold.construir(self, "HOGAR",
-		"Tu casa: aquí se decide con quién bajas y aquí se guarda lo que traes.",
-		_cerrar)
+	# con_dinero = true y con_lateral = false: la barra de arriba, como el inventario.
+	var m: Dictionary = MenuScaffold.construir(self, "HOGAR", "", _cerrar, true, false)
 	_root = m["root"]
 	_header = m["header"]
 	_content = m["content"]
 	_lista = m["lista"]
 	_lista_scroll = m["lista_scroll"]
 	_aviso_lbl = m["aviso"]
-	_side = m["side"]
-	# Las pestañas se rehacen en cada _rebuild: en sesion multi aparecen Bote y Cofre.
+	_dinero_lbl = m["dinero"]
+	_montar_barra(m["side"])
 	if Net.has_signal("hogar_cambiado"):
 		Net.hogar_cambiado.connect(_on_hogar_cambiado)
+
+
+# La barra de arriba, con la misma receta que inventory_menu._ready (ver sus notas): el titulo en dos
+# lineas, las secciones sacadas a un CenterContainer a todo lo ancho (centradas en la PANTALLA y no en
+# el hueco que dejan sus vecinos) y las monedas metidas en la barra junto a la ✕.
+func _montar_barra(barra_tabs: HBoxContainer) -> void:
+	barra_tabs.add_theme_constant_override("separation", 14)
+	for i in TABS.size():
+		var b: Button = MenuScaffold.pestana_icono(TAB_ICONOS[i], TABS[i])
+		b.pressed.connect(_on_tab.bind(i))
+		barra_tabs.add_child(b)
+		_tab_buttons.append(b)
+
+	var barra: BoxContainer = barra_tabs.get_parent()
+	(barra.get_child(0) as Control).visible = false
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	var chico := Label.new()
+	chico.text = "Hogar"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", GRIS)
+	titulo.add_child(chico)
+	_titulo_seccion = Label.new()
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
+
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
+
+	_contador_lbl = Label.new()
+	_contador_lbl.add_theme_font_size_override("font_size", 15)
+	_contador_lbl.add_theme_color_override("font_color", Color(0.78, 0.82, 0.90))
+	_dinero_lbl.get_parent().remove_child(_dinero_lbl)
+	_dinero_lbl.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_dinero_lbl.custom_minimum_size = Vector2.ZERO
+	_dinero_lbl.add_theme_font_size_override("font_size", 15)
+	for l in [_contador_lbl, _dinero_lbl]:
+		barra.add_child(l)
+		barra.move_child(l, barra.get_child_count() - 2)
+
+	# LAS SUBPESTAÑAS, centradas a todo lo ancho justo encima del aviso y la cabecera.
+	var cab: Control = _header.get_parent()
+	barra_sub = HBoxContainer.new()
+	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub.add_theme_constant_override("separation", 14)
+	cab.add_child(barra_sub)
+	cab.move_child(barra_sub, 0)
+	barra_sub2 = HBoxContainer.new()
+	barra_sub2.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub2.add_theme_constant_override("separation", 14)
+	cab.add_child(barra_sub2)
+	cab.move_child(barra_sub2, 1)
+
+	var det: ScrollContainer = _content.get_parent() as ScrollContainer
+	_split_normal = {
+		"lista_flags": _lista_scroll.size_flags_horizontal,
+		"lista_min": _lista_scroll.custom_minimum_size,
+		"det_flags": det.size_flags_horizontal,
+		"det_min": det.custom_minimum_size,
+		"content_flags": _content.size_flags_horizontal,
+		"content_min": _content.custom_minimum_size,
+	}
+
+
+# El reparto del ALMACEN (rejilla ancha a la izquierda, ficha de ancho fijo a la derecha, igual que el
+# inventario) o el de siempre (lista y detalle). Lo pide cada seccion al pintarse.
+const ANCHO_FICHA := 360.0
+func modo_rejilla(on: bool) -> void:
+	var det: ScrollContainer = _content.get_parent() as ScrollContainer
+	if on:
+		_lista_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_lista_scroll.custom_minimum_size = Vector2(420, 0)
+		det.size_flags_horizontal = Control.SIZE_FILL
+		det.custom_minimum_size = Vector2(ANCHO_FICHA + 16.0, 0)
+		_content.size_flags_horizontal = Control.SIZE_FILL
+		_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	else:
+		_lista_scroll.size_flags_horizontal = _split_normal["lista_flags"]
+		_lista_scroll.custom_minimum_size = _split_normal["lista_min"]
+		det.size_flags_horizontal = _split_normal["det_flags"]
+		det.custom_minimum_size = _split_normal["det_min"]
+		_content.size_flags_horizontal = _split_normal["content_flags"]
+		_content.custom_minimum_size = _split_normal["content_min"]
+
+
+# El contador de arriba, rojo si 'alerta'.
+func contador(txt: String, alerta: bool = false) -> void:
+	_contador_lbl.text = txt
+	_contador_lbl.add_theme_color_override("font_color",
+		Color(0.95, 0.45, 0.4) if alerta else Color(0.78, 0.82, 0.90))
 
 
 # El OTRO jugador cambio el estado compartido: si tengo el hogar abierto, me re-dibujo.
 func _on_hogar_cambiado() -> void:
 	if _root != null and _root.visible:
 		_rebuild()
-
-
-func _tabs() -> Array:
-	return TABS
-
-
-func _rehacer_tabs() -> void:
-	for b in _tab_buttons:
-		(b as Button).queue_free()
-	_tab_buttons.clear()
-	var etiquetas: Array = _tabs()
-	_tab = clampi(_tab, 0, etiquetas.size() - 1)
-	for i in etiquetas.size():
-		var b := Button.new()
-		b.text = etiquetas[i]
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-		b.pressed.connect(_on_tab.bind(i))
-		_side.add_child(b)
-		_tab_buttons.append(b)
 
 
 func abrir() -> void:
@@ -120,6 +205,8 @@ func _cerrar() -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud != null and hud.has_method("mostrar_toast"):
 			hud.mostrar_toast("No dejaste a nadie en el equipo: %s baja contigo." % solo.nombre)
+	if almacen.has_method("al_cerrar"):
+		almacen.al_cerrar()
 	_root.visible = false
 	Game.cerrar_menu(self)
 
@@ -129,11 +216,17 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			_cerrar()
+			# De dentro a fuera: primero el modal que haya encima, luego el hogar.
+			if not almacen.cerrar_modal():
+				_cerrar()
 			get_viewport().set_input_as_handled()
 
 
 func _on_tab(i: int) -> void:
+	if i == _tab:
+		return
+	if _tab == TABS.find("Cofre") and almacen.has_method("al_cerrar"):
+		almacen.al_cerrar()   # suelta lo que coja al entrar (el candado del taller)
 	_tab = i
 	_aviso = ""
 	_rebuild()
@@ -162,26 +255,25 @@ func _rebuild() -> void:
 
 
 func _rebuild_real() -> void:
-	_rehacer_tabs()
+	_tab = clampi(_tab, 0, TABS.size() - 1)
 	for zona in [_header, _content, _lista]:
 		MenuScaffold.vaciar(zona)
+	MenuScaffold.subpestanas(barra_sub, [], [], 0, Callable())
+	MenuScaffold.subpestanas(barra_sub2, [], [], 0, Callable())
+	contador("")
+	modo_rejilla(false)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
+	_titulo_seccion.text = str(TABS[_tab])
+	_dinero_lbl.text = "%d monedas" % Game.money
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
-
-	# La columna de la lista solo la usan el Cofre (sus dos columnas: lo tuyo / lo que hay dentro) y
-	# los Encargos. En las demas se esconde: vacia se quedaba con 330 px y el contenido de al lado se
-	# apretujaba en lo que sobraba (los tres botones del baul no cabian en una fila por esto).
-	var con_lista: bool = _tabs()[_tab] in ["Cofre", "Encargos", "Equipo"]
 	if _lista_scroll != null:
-		_lista_scroll.visible = con_lista
+		_lista_scroll.visible = true   # cada seccion la esconde si no la usa
 
-	match _tabs()[_tab]:
+	match str(TABS[_tab]):
 		"Equipo": equipo._build_equipo()
 		"Encargos": encargos._build_encargos()
-		"Almacén": almacen._build_almacen()
-		# La HUCHA ya no tiene pestaña propia: es un apartado dentro del cofre (ver COFRE_SUBS).
-		"Cofre": almacen._build_cofre()
+		"Cofre": almacen._build_seccion()
 
 
 

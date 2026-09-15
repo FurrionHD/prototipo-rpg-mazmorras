@@ -8673,6 +8673,35 @@ func recoger_materiales_del_hogar(todo: bool = true) -> int:
 	return cogidos
 
 
+# HOGAR, DE MONTON EN MONTON: mueve los materiales IGUALES a 'modelo' (mismo material, calidad y talla,
+# que es lo que apila la rejilla) de la bolsa a casa (a_casa = true) o al reves. 'cuantos' < 0 = todo
+# el monton. Como llevarse el monton lo decides tu mirando la rejilla, al sacar NO se corta por peso
+# (igual que recoger 'todo'): la sobrecarga solo frena. Mismo candado del taller que las de arriba.
+# Devuelve cuantos se movieron.
+func mover_monton_material(modelo: MaterialItem, a_casa: bool, cuantos: int = -1) -> int:
+	if modelo == null or not Net.hogar.tengo_taller():
+		return 0
+	var origen: Array = materiales if a_casa else almacen_materiales
+	var destino: Array = almacen_materiales if a_casa else materiales
+	var clave: String = clave_monton(modelo)
+	var movidos: int = 0
+	for m in origen.duplicate():
+		if cuantos >= 0 and movidos >= cuantos:
+			break
+		if m is MaterialItem and clave_monton(m) == clave:
+			origen.erase(m)
+			destino.append(m)
+			movidos += 1
+	return movidos
+
+
+# La clave con la que se APILAN los materiales en una rejilla. El TAMAÑO entra: dos peces de la misma
+# especie con tallas distintas no son el mismo objeto (ver inventory_menu._clave_item, que es la misma
+# cuenta y tiene que seguir siendolo).
+func clave_monton(m: MaterialItem) -> String:
+	return "m|%s|%d|%d" % [m.nombre(), int(m.calidad), roundi(m.cm)]
+
+
 # ============================================================
 #  TIENDA: dinero, venta (bolsa/hogar/equipo), recompra, compra y PACK INICIAL
 #  Toda la math vive aqui; shop_menu.gd solo pinta.
