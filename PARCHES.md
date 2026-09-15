@@ -2,9 +2,9 @@
 
 ---
 
-# Próxima versión (sin número todavía)
+# v0.13.1 — «Todos a una» (arreglos, hogar y encargos)
 
-Lo que salió jugando la 0.13.0 en compañía.
+Lo que salió jugando la 0.13.0 en compañía, el hogar con cara nueva y los encargos rehechos.
 
 ---
 

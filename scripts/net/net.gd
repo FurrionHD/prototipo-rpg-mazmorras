@@ -64,7 +64,9 @@ const MAX_JUGADORES := 4
 #     instantanea del combate llevan los numeros de su ficha de detalle.
 # 13: la FORMACION comun (Net.formacion: _set_formacion, peticiones de mover) y las filas del roster del
 #     hogar llevan pos_equipo y el aspecto de los que van en equipo.
-const PROTOCOLO := 13
+# 14: el encargo se pide con el OBJETIVO por grupos ({grupo: %}) en vez de la lista de tipos, y su
+#     informe trae cristales, dinero y rotos. Un build del 13 mandaria tipos que el host leeria mal.
+const PROTOCOLO := 14
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
