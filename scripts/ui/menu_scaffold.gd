@@ -1906,8 +1906,11 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 #
 # Van en un diccionario y no en cuatro arrays paralelos por lo mismo que colores_de(): cuatro listas
 # que hay que mantener alineadas a mano se descuelgan en cuanto alguien filtra una de ellas.
+#
+# 'estirar' = false: las celdas NUNCA se estiran (se quedan de 'lado' x 'lado'), aunque la fila vaya llena.
+# Lo usan las rejillas estrechas (el cofre, con dos columnas), donde el hueco sobrante es casi una celda.
 static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado: Callable,
-		columnas: int = 8, lado: float = 96.0) -> void:
+		columnas: int = 8, lado: float = 96.0, estirar: bool = true) -> void:
 	var grid := GridContainer.new()
 	grid.columns = maxi(1, columnas)
 	grid.add_theme_constant_override("h_separation", 6)
@@ -1923,7 +1926,7 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 	# CON MENOS OBJETOS QUE COLUMNAS, las celdas NO se estiran. Con la fila llena, el hueco que sobra se
 	# reparte entre todas y no se nota; con una sola mochila, esa celda se quedaba con todo el hueco y
 	# salia el doble de ancha que de alta, en vez de cuadrada como las demas.
-	grid.set_meta(META_ESTIRAR_REJILLA, piezas.size() >= maxi(1, columnas))
+	grid.set_meta(META_ESTIRAR_REJILLA, estirar and piezas.size() >= maxi(1, columnas))
 	for i in de_golpe:
 		_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
 	if de_golpe < piezas.size():

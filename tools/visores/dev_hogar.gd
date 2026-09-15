@@ -181,14 +181,14 @@ func _arrastre_real(alm) -> void:
 	var antes_inv: int = (alm._stacks[alm.LADO_ENCIMA] as Array).size()
 	var antes_casa: int = (alm._stacks[alm.LADO_CASA] as Array).size()
 	var celda: Control = null
-	for h in _menu._lista.get_children():
+	for h in alm._columna[alm.LADO_ENCIMA].get_children():
 		if h is GridContainer and h.get_child_count() > 4:
 			celda = h.get_child(4)
 	if celda == null:
 		print("[hogar] ARRASTRE: no hay celda que arrastrar")
 		return
 	var desde: Vector2 = celda.get_global_rect().get_center()
-	var hasta: Vector2 = (_menu._content.get_parent() as Control).get_global_rect().get_center()
+	var hasta: Vector2 = (alm._columna[alm.LADO_CASA].get_parent() as Control).get_global_rect().get_center()
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.pressed = true

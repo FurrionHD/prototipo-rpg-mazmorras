@@ -1,6 +1,8 @@
 # ============================================================
 #  puntero.gd  (Puntero)
-#  EL PUNTERO DEL RATON del juego: una PLUMA pixel-art (eleccion del usuario, 15/09/2026) con el vano en tonos
+#  EL PUNTERO DEL RATON del juego: una MANO SEÑALANDO con el indice (cambio del usuario, 15/09/2026: pega con
+#  la mano AGARRANDO que sale al arrastrar). Mas abajo sigue la PLUMA, que fue el primero y ya no se pone:
+#  una pluma pixel-art con el vano en tonos
 #  pizarra, el calamo claro y contorno negro. Apunta con la punta del calamo, abajo a la izquierda, como quien
 #  escribe. Se dibuja por codigo a partir de su forma (un eje en diagonal, un vano que se ensancha y se afila,
 #  dientes en el borde) y se escala a pixel entero. Se pone al arrancar (Tactil._ready) salvo en movil.
@@ -99,10 +101,10 @@ static func punto_caliente(escala: int = ESCALA) -> Vector2:
 static func aplicar() -> void:
 	if OS.has_feature("mobile") or DisplayServer.get_name() == "headless":
 		return
-	var tex := ImageTexture.create_from_image(imagen())
-	# La misma pluma tambien sobre botones y enlaces (donde Godot pasaria a la mano del sistema).
+	var tex := ImageTexture.create_from_image(imagen_indice())
+	# La misma mano tambien sobre botones y enlaces (donde Godot pasaria a la mano del sistema).
 	for forma in [Input.CURSOR_ARROW, Input.CURSOR_POINTING_HAND]:
-		Input.set_custom_mouse_cursor(tex, forma, punto_caliente())
+		Input.set_custom_mouse_cursor(tex, forma, punto_caliente_indice())
 	# ARRASTRANDO (el editor de equipo, los objetos del cofre): una MANO AGARRANDO. Son las tres formas que
 	# pone Godot durante un arrastre -- arrastrar, "se puede soltar aqui" y "aqui no" --, y sin esto salian
 	# las de Windows. Las tres la MISMA mano a proposito: el usuario no quiere el "prohibido" al pasar por
@@ -134,13 +136,49 @@ const MANO := [
 ]
 const PIEL_SOMBRA := Color(0.70, 0.66, 0.58)
 
+# LA MANO SEÑALANDO, TORCIDA (como la referencia del usuario, no recta hacia arriba): el indice sale en
+# diagonal hacia arriba a la izquierda y apunta con la yema; el puño queda abajo a la derecha, con el
+# pulgar asomando. Mismo contorno, piel y sombra que la de agarrar.
+const MANO_INDICE := [
+	".##...............",
+	"#oo#..............",
+	"#ooo#.............",
+	".#ooo#............",
+	"..#ooo#...........",
+	"...#ooo#.##.##....",
+	"....#ooo#oo#oo##..",
+	"....#oooooooooos#.",
+	"...##ooooooooooo#.",
+	"..#oo#oooooooooo#.",
+	"..#ooooooooooooo#.",
+	"..#oooooooooooos#.",
+	"...#ooooooooooos#.",
+	"....#oooooooooss#.",
+	".....#ooooooosss#.",
+	"......##########..",
+]
+
+static func imagen_indice(escala: int = ESCALA) -> Image:
+	return _imagen_de_mapa(MANO_INDICE, escala)
+
+
+# Apunta con la YEMA del indice.
+static func punto_caliente_indice(escala: int = ESCALA) -> Vector2:
+	return Vector2(1.5, 1.5) * float(escala)
+
+
 static func imagen_mano(escala: int = ESCALA) -> Image:
-	var alto: int = MANO.size()
-	var ancho: int = String(MANO[0]).length()
+	return _imagen_de_mapa(MANO, escala)
+
+
+# Pinta un dibujo hecho de letras ('#' contorno, 'o' piel, 's' sombra) y lo escala a pixel entero.
+static func _imagen_de_mapa(mapa: Array, escala: int) -> Image:
+	var alto: int = mapa.size()
+	var ancho: int = String(mapa[0]).length()
 	var img := Image.create(ancho, alto, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	for y in alto:
-		var fila: String = MANO[y]
+		var fila: String = mapa[y]
 		for x in ancho:
 			match fila[x]:
 				"#": img.set_pixel(x, y, CONTORNO)

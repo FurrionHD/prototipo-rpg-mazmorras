@@ -152,6 +152,10 @@ func _montar_barra(barra_tabs: HBoxContainer) -> void:
 const ANCHO_FICHA := 360.0
 func modo_rejilla(on: bool) -> void:
 	var det: ScrollContainer = _content.get_parent() as ScrollContainer
+	# El cofre apaga el scroll de la lista para meter dentro sus dos columnas (cada una con el suyo): se
+	# devuelve aqui, que es por donde pasan todas las secciones al repintarse.
+	_lista_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_lista.size_flags_vertical = Control.SIZE_FILL
 	if on:
 		_lista_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_lista_scroll.custom_minimum_size = Vector2(420, 0)
@@ -166,20 +170,6 @@ func modo_rejilla(on: bool) -> void:
 		det.custom_minimum_size = _split_normal["det_min"]
 		_content.size_flags_horizontal = _split_normal["content_flags"]
 		_content.custom_minimum_size = _split_normal["content_min"]
-
-
-# El reparto del COFRE: las dos columnas a partes iguales, tu inventario a la izquierda y lo de casa a
-# la derecha, cada una con su scroll.
-func modo_dos_columnas() -> void:
-	var det: ScrollContainer = _content.get_parent() as ScrollContainer
-	_lista_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lista_scroll.size_flags_stretch_ratio = 1.0
-	_lista_scroll.custom_minimum_size = Vector2(300, 0)
-	det.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	det.size_flags_stretch_ratio = 1.0
-	det.custom_minimum_size = Vector2(300, 0)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.custom_minimum_size = Vector2.ZERO
 
 
 # El contador de arriba, rojo si 'alerta'.

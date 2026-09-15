@@ -52,7 +52,7 @@ cuanto más acorazado es lo que tienes delante. Las armas grandes se quedan con 
 
 ## 🪶 Y además
 
-**Un puntero propio**: una pluma.
+**Un puntero propio**: una mano señalando con el índice, que al arrastrar se cierra y agarra.
 
 **El altar, con cara nueva.** Arriba eliges a quién le actualizas el estado, y un punto naranja marca a
 quien tiene experiencia sin consolidar. Al actualizar, las básicas enseñan en verde lo que han subido.
@@ -61,8 +61,6 @@ de salir a la luz va marcado en verde. A la izquierda se ve qué te falta para s
 
 **Subir de nivel**: las habilidades de desarrollo ya no se salen de la pantalla cuando hay muchas. Van en
 tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vuelves al altar.
-
-**Al arrastrar** (el equipo, los objetos del cofre, las habilidades) el puntero es una mano agarrando.
 
 **La corona del que va en cabeza** se ve por fin en los retratos de arriba (la tapaba el pelo).
 
