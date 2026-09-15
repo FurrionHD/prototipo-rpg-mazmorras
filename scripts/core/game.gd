@@ -2790,7 +2790,8 @@ func importar_partida(d: SaveData) -> void:
 	# del baston 1.05 -> 0.85) no llegaria a las armas que ya tienes. Se re-clavan las de
 	# su plantilla; tier, rareza y mejoras siguen en item_meta y no se tocan.
 	# Y LA DEFENSA DE LAS ARMADURAS, por lo mismo (15/09/2026: defensa base 0.5 -> 1.1 y la escalera de
-	# materiales cuero 1.0 / hierro 1.4 / hierro completo 1.8 / placas 2.2).
+	# materiales cuero 1.0 / hierro 1.4 / hierro completo 1.8 / placas 2.2), y su durabilidad_mult (misma
+	# escalera, 15/09/2026).
 	# Y EL ATAQUE BASE DE LAS ARMAS cuerpo a cuerpo (15/09/2026: 3.0 -> 3.15, un +5%).
 	for it in item_meta.keys():
 		if it is WeaponData and not (it as WeaponData).es_magica:
@@ -2805,6 +2806,7 @@ func importar_partida(d: SaveData) -> void:
 			if plantilla_a is ArmorData:
 				(it as ArmorData).defensa_base = (plantilla_a as ArmorData).defensa_base
 				(it as ArmorData).motion_def = (plantilla_a as ArmorData).motion_def
+				(it as ArmorData).durabilidad_mult = (plantilla_a as ArmorData).durabilidad_mult
 			continue
 		if not ((it is WeaponData and (it as WeaponData).es_magica) or it is WandData):
 			continue
@@ -5488,10 +5490,12 @@ const REPARA_K_MEJ := 0.12
 func max_durabilidad(slot: String, pj: PersonajeData = null) -> float:
 	var tier: int = maxi(equip_tier(slot, pj), 1)
 	var n: int = int((equip_mejoras(slot, pj) as Dictionary).get(Upgrades.DURABILIDAD, 0))
+	var pieza: ArmorData = _pieza_equipada(slot, pj)
 	return DURABILIDAD_BASE \
 		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
 		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
-		* Upgrades.rareza_mult(equip_rareza(slot, pj))
+		* Upgrades.rareza_mult(equip_rareza(slot, pj)) \
+		* (pieza.durabilidad_mult if pieza != null else 1.0)
 
 # Maximo de durabilidad (en puntos) de un OBJETO del baul, de su propia meta. Espejo de
 # max_durabilidad(slot, pj) pero por objeto: sirve para el menu de Mejora, donde la pieza puede no
@@ -5505,7 +5509,8 @@ func max_durabilidad_item(item: Resource) -> float:
 	return DURABILIDAD_BASE \
 		* (1.0 + float(tier - 1) * DURABILIDAD_TIER_PCT) \
 		* (1.0 + float(n) * DURABILIDAD_MEJORA_PCT) \
-		* Upgrades.rareza_mult(int(m.get("rareza", 0)))
+		* Upgrades.rareza_mult(int(m.get("rareza", 0))) \
+		* ((item as ArmorData).durabilidad_mult if item is ArmorData else 1.0)
 
 # Fraccion de durabilidad de un slot (1.0 llena, 0.0 rota). Retrocompat: sin la clave = llena.
 func durabilidad_slot(slot: String, pj: PersonajeData = null) -> float:

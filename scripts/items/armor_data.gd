@@ -44,6 +44,13 @@ enum Slot { CASCO, PECHO, MANOS, PANTALONES, BOTAS }
 # cuero 0.5, hierro 1.0, hierro completo 1.6, placas 2.2. DEF = defensa_base x motion_def.
 @export var motion_def: float = 1.0
 
+# --- Durabilidad por CATEGORIA ---
+# Cuanto mas pesada, mas aguanta: multiplica el maximo de durabilidad (ver Game.max_durabilidad).
+# Sigue la misma escalera que motion_def (15/09/2026): cuero 1.0, hierro 1.4, hierro completo 1.8,
+# placas 2.2. Solo cambia el maximo; lo guardado es la fraccion, asi que las piezas viejas conservan
+# su % y a partir de ahi duran mas.
+@export var durabilidad_mult: float = 1.0
+
 # --- Reduccion porcentual (se PROMEDIA por cobertura, NO se suma) ---
 # % de dano que quita ESTA pieza. cuero 0.05, hierro 0.075, hierro completo 0.09,
 # placas 0.11. El techo global esta en StatsMath (ARMOR_REDUCTION_MAX).

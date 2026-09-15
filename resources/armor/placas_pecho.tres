@@ -10,6 +10,7 @@ slot = 1
 tier = 1
 defensa_base = 1.1
 motion_def = 2.2
+durabilidad_mult = 2.2
 reduccion = 0.11
 velocidad_mult = 0.88
 valor_base = 600
