@@ -254,12 +254,14 @@ func _difundir_posiciones_enemigos() -> void:
 	var lote: Array = []
 	for id in _enemigos:
 		var nd = _enemigos[id]["nodo"]
-		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false]
+		var est: Array = nd.estado_visual_red() if nd.has_method("estado_visual_red") else [0.0, false, 0]
 		# El QUINTO, de quien es la pelea en la que esta metido (0 = suelto). Va en el tick y no en un
 		# aviso suelto a proposito: una pelea se abre y se cierra por media docena de caminos (reservar,
 		# empujar, devolver, morir, traspasar...), y un estado que se repite 20 veces por segundo no se
 		# desincroniza aunque alguno de esos caminos se olvide de avisar.
-		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd)])
+		# El SEXTO, el contador de embestidas: con el suena la embestida en los PCs que solo la espejan.
+		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd),
+			est[2] if est.size() >= 3 else 0])
 	if Net.es_host:
 		for peer_id in Net._peers:
 			if Net._peers[peer_id].get("lugar", "") == Net._mi_lugar:
@@ -279,6 +281,8 @@ func _tick_enemigos(lote: Array) -> void:
 			n.aplicar_estado_visual(float(par[2]), bool(par[3]))
 		if par.size() >= 5:
 			n.pelea_de = int(par[4])
+		if par.size() >= 6:
+			n.aplicar_embestida(int(par[5]))
 
 
 # Alguien que acaba de llegar a un piso pide sus enemigos (late-join / cambio de piso). Siempre se

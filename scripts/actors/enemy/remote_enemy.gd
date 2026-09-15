@@ -220,6 +220,27 @@ func _tinte_reposo() -> Color:
 	return EnemyData.tinte_mutante()
 
 
+# SU EMBESTIDA, OIDA DESDE AQUI. El sonido de embestir lo pone enemy._iniciar_impacto, que solo corre
+# donde se simula el piso: con un trabajador de dueño (sin audio) nadie la oia. Llega como un contador
+# en el tick, igual que el golpe del jugador espejo (remote_player.aplicar_pose): un contador aguanta
+# paquetes perdidos y el primero que llega solo se apunta, para no sonar al aparecer.
+var _embiste_seq: int = -1
+
+func aplicar_embestida(seq: int) -> void:
+	if seq == _embiste_seq:
+		return
+	var nueva: bool = _embiste_seq >= 0
+	_embiste_seq = seq
+	if not nueva or muerto or data == null:
+		return
+	var peso: float = _RemotoJugador.peso_de_oido(self)
+	if peso > 0.0:
+		Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
+
+
+const _RemotoJugador = preload("res://scripts/actors/player/remote_player.gd")
+
+
 # Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.
 func aplicar_estado_visual(ang: float, avisando: bool) -> void:
 	_mira = ang

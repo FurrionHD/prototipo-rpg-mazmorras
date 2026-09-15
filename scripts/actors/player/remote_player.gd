@@ -259,16 +259,24 @@ const OYE_LLENO := 200.0   # px: hasta aqui suena como si fuera tuyo
 const OYE_NADA := 420.0    # px: a partir de aqui, silencio (ya no cabe en la pantalla)
 
 func _sonar_golpe(variante: int) -> void:
-	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	if yo == null:
+	var peso: float = peso_de_oido(self)
+	if peso <= 0.0:
 		return
-	var d: float = global_position.distance_to(yo.global_position)
-	if d >= OYE_NADA:
-		return
-	var peso: float = 1.0
-	if d > OYE_LLENO:
-		peso = lerpf(1.0, 0.2, (d - OYE_LLENO) / (OYE_NADA - OYE_LLENO))
 	Sonido.golpe("", _fx_off if variante == 1 else _fx_main, peso)
+
+
+# Cuanto se oye algo que pasa en 'donde', segun lo lejos que este de MI jugador: 0 = no suena. La usan
+# tambien las embestidas de los bichos (enemy.gd y su espejo remote_enemy.gd), con los mismos umbrales.
+static func peso_de_oido(donde: Node2D) -> float:
+	var yo: Node2D = donde.get_tree().get_first_node_in_group("player") as Node2D
+	if yo == null:
+		return 0.0
+	var d: float = donde.global_position.distance_to(yo.global_position)
+	if d >= OYE_NADA:
+		return 0.0
+	if d <= OYE_LLENO:
+		return 1.0
+	return lerpf(1.0, 0.2, (d - OYE_LLENO) / (OYE_NADA - OYE_LLENO))
 
 
 # El gesto que hace un arma suya, con el MISMO respaldo que player._estilo_del_golpe (ver _fx_main).

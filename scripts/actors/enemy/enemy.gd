@@ -174,6 +174,7 @@ var _bordeo_t: float = 0.0                # lo que le queda de rodeo
 var _bordeos: int = 0                     # rodeos seguidos sin llegar a despegarse
 var _windup_timer: float = -1.0  # -1 = no esta preparando ataque
 var _winding: bool = false       # true mientras hace el aviso de ataque
+var _embiste_seq: int = 0         # sube en cada embestida que conecta (viaja al espejo, que suena con el)
 # EMBESTIDA: direccion COMPROMETIDA al acabar el aviso (no se recalcula: por eso se puede esquivar),
 # lo que le queda de carga, y el descanso tras fallar una.
 var _embiste_dir: Vector2 = Vector2.ZERO
@@ -1199,14 +1200,16 @@ func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 	# Solo cuando embiste EL: si el impacto lo abriste tu (atacado_por_jugador), el que suena es tu
 	# arma, y ya lo hace player._tick_ataque. Sonarian los dos y seria un ruido.
 	if enemy_initiated and data != null:
+		# EL CONTADOR, antes y fuera del filtro de oido: lo que se cuenta es que HA EMBESTIDO, se oiga
+		# aqui o no. Viaja en el tick (estado_visual_red) y es lo que hace sonar al espejo en los demas
+		# PCs. Sin el, con el piso en un trabajador (que no tiene audio) las embestidas eran mudas para
+		# todos los humanos (playtest del 15/09).
+		_embiste_seq = (_embiste_seq + 1) & 0xFFFF
 		# POR DISTANCIA A MI JUGADOR, con los umbrales del espadazo de otro jugador: quien simula el piso lleva
 		# a TODOS los enemigos, y sin esto oia a volumen de lleno cada embestida contra su compañero, en la
 		# otra punta del piso (playtest: "estoy lejos de mi compa y escucho los golpes de los enemigos").
-		var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-		var d: float = global_position.distance_to(yo.global_position) if yo != null else INF
-		if d < _RemotoJugador.OYE_NADA:
-			var peso: float = 1.0 if d <= _RemotoJugador.OYE_LLENO else lerpf(1.0, 0.2,
-				(d - _RemotoJugador.OYE_LLENO) / (_RemotoJugador.OYE_NADA - _RemotoJugador.OYE_LLENO))
+		var peso: float = _RemotoJugador.peso_de_oido(self)
+		if peso > 0.0:
 			Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
 
 
@@ -1486,8 +1489,10 @@ func aspecto_red() -> Dictionary:
 # MULTIJUGADOR: hacia donde MIRO y si estoy avisando el golpe. Va en el tick de posiciones para que
 # el que solo me ve espejado pueda pintar mi cono de vision y mi linea de direccion: sin eso NO
 # PUEDE JUGAR AL SIGILO, que es medio juego (no sabe por donde miro ni cuando voy a atacar).
+#
+# El TERCERO, el contador de embestidas: el espejo suena cuando cambia (ver remote_enemy.aplicar_embestida).
 func estado_visual_red() -> Array:
-	return [_facing.angle(), _winding]
+	return [_facing.angle(), _winding, _embiste_seq]
 
 
 # MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el
