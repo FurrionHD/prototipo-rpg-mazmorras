@@ -114,6 +114,13 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 				"direcciones": cerrojo.get("direcciones", []),
 				"desde": int(cerrojo.get("desde", 0)),
 			}
+		# ...SALVO QUE SIGA ABIERTO EN OTRA VENTANA DE ESTE MISMO PC. "Solo una maquina tiene mi
+		# identidad" no basta: dos ventanas del juego en el mismo ordenador la comparten, y la segunda le
+		# quitaba el mundo a la primera, que seguia jugando y guardando (15/09/2026). Si el cerrojo es de
+		# este equipo, tiene latido y el proceso que lo cogio sigue vivo, no es una sesion muerta: se dice.
+		# Tras un cuelgue de verdad ese proceso ya no existe y se recoge como siempre.
+		if es_mio and _vivo(cerrojo) and _abierto_en_otra_ventana(cerrojo):
+			return _fallo("ya_abierto", "Ya tienes este mundo abierto en otra ventana del juego.")
 		if es_mio:
 			print("[nube] el cerrojo de %s ya era mio: lo recojo en vez de unirme a mi mismo" % id)
 		# Cerrojo MIO, o arrendamiento CADUCADO (el que lo tenia se cayo). Se le quita y se sigue. Su
@@ -154,6 +161,9 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 		# distintas pueden llamarse igual, y la misma persona cambia de maquina.
 		"quien": OS.get_environment("USERNAME") if OS.has_environment("USERNAME") else "alguien",
 		"identidad": quien_soy,
+		# Que proceso y que equipo lo cogieron: para no quitarselo a otra ventana viva (ver arriba).
+		"pid": OS.get_process_id(),
+		"equipo": _este_equipo(),
 		"desde": ahora,
 		"latido": ahora,
 		"direcciones": direcciones,
@@ -289,6 +299,23 @@ func _ahora() -> int:
 
 func _vivo(cerrojo: Dictionary) -> bool:
 	return _ahora() - int(cerrojo.get("latido", 0)) < SEGUNDOS_ARRENDAMIENTO
+
+
+# ¿Lo tiene OTRO proceso de este mismo equipo que sigue abierto? Un cerrojo viejo (sin pid) no se
+# puede comprobar y se da por muerto, que es lo que se hacia antes. OJO para la Fase 2: el Worker no
+# puede mirar procesos ajenos; esta comprobacion tiene que seguir haciendola el cliente con lo que
+# devuelva el servidor.
+func _abierto_en_otra_ventana(cerrojo: Dictionary) -> bool:
+	var pid: int = int(cerrojo.get("pid", 0))
+	if pid <= 0 or pid == OS.get_process_id():
+		return false
+	if String(cerrojo.get("equipo", "")) != _este_equipo():
+		return false
+	return OS.is_process_running(pid)
+
+
+func _este_equipo() -> String:
+	return String(OS.get_environment("COMPUTERNAME")) if OS.has_environment("COMPUTERNAME") else ""
 
 
 # El mundo, pero solo si la contraseña casa. Vacio = no existe O contraseña mala, y quien llama NO

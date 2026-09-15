@@ -23,6 +23,11 @@ temblando** contra la orilla del lago.
 
 **El mapa** ya no enseña dos lagos donde hay uno (se corrige solo al volver a pasar por el piso).
 
+**Personajes duplicados en los mundos compartidos.** Al abrir un mundo, a veces el juego te daba una
+identidad nueva sin avisar y tus personajes aparecían repetidos como si fueran "de otro jugador". Ya no
+pasa. Y abrir el mismo mundo en dos ventanas del juego a la vez ya no deja que la segunda se lo quite a
+la primera: te avisa de que ya lo tienes abierto. Las copias que ya tengas no se borran solas.
+
 **Subir de nivel pide el rango C de verdad**: tiene que verse en la ficha, o sea, hay que actualizar el
 estado antes. Hasta ahora contaba lo que llevabas por dentro sin consolidar, y del nivel 2 en adelante
 bastaba con vencer al guardián.
