@@ -2320,6 +2320,10 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	b.clip_contents = true
 	b.tooltip_text = "%s%s  ·  %s" % ["👑 " if pj == Game.lider() else "", pj.nombre,
 		"en el equipo" if en_equipo else "en el hogar"]
+	if pj == Game.lider():
+		b.tooltip_text += "\n★ Va en cabeza"
+	if marcado:
+		b.tooltip_text += "\n● Tiene experiencia sin consolidar"
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(pulsado.bind(i))

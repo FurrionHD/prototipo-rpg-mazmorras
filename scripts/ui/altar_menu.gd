@@ -13,9 +13,9 @@
 #     siendo del que llevas en cabeza; a un companero se le sube poniendolo delante (teclas 1/2/3).
 #
 #  EL REPARTO es el de la ficha de personaje (ver character_menu.gd): la gente ARRIBA, el nombre en
-#  la columna izquierda, el muñeco en el centro y los numeros en la ficha de la derecha. Lo que sale a
-#  la luz al actualizar (pasivas, desarrollos que suben) va en un MODAL: es el momento de la visita, y
-#  como lista debajo de los botones se salia de la pantalla en cuanto habia mas de cuatro cosas.
+#  la columna izquierda, el muñeco en el centro y los numeros en la ficha de la derecha. Debajo de los
+#  botones, los desarrollos y las pasivas que TIENE, con lo recien salido marcado en su sitio (lo
+#  pidio el usuario: en un modal, al cerrarlo no quedaba escrito en ningun sitio lo que tenias).
 # ============================================================
 
 extends CanvasLayer
@@ -31,7 +31,6 @@ const ANCHO_FICHA := 360.0
 const ALTO_MUNECO := 430.0
 const ESCALA_MUNECO := 6.0
 const MARGEN_MUNECO := 20.0
-const ALTO_MODAL_MAX := 440.0   # el scroll del modal de lo revelado no crece de aqui
 
 var _root: Control = null
 var _lista: VBoxContainer = null      # la columna del centro (el muñeco)
@@ -42,12 +41,15 @@ var _fila_retratos: HBoxContainer = null
 var _scroll_retratos: ScrollContainer = null
 var _caja_muneco: Control = null
 var _pies_y: float = 0.0
-var _modal: Control = null
 var _pj_sel: int = 0                  # a quien se esta mirando (indice en _pjs())
 # Antes→despues del ultimo "Actualizar" POR PERSONAJE: {PersonajeData: {stat: [antes, desp]}}.
 # Por persona y no global para que cada uno enseñe SUS cambios y no los del ultimo que tocaste.
 # Un antes = -1 es el reinicio por subir de nivel.
 var _deltas: Dictionary = {}
+# Lo que SALIO A LA LUZ en ese mismo "Actualizar", tambien por persona, para marcarlo en la lista:
+var _subidas: Dictionary = {}   # {PersonajeData: {id_desarrollo: rango_antes}}
+var _nuevas: Dictionary = {}    # {PersonajeData: [id_pasiva, ...]}
+var _ancla_perks: Control = null   # donde empieza la lista, para bajar la ficha hasta ahi
 var _aviso: String = ""
 
 
@@ -69,7 +71,9 @@ func _ready() -> void:
 	_content.size_flags_horizontal = Control.SIZE_FILL
 	_content.custom_minimum_size = Vector2(ANCHO_FICHA, 0)
 	(_content.get_parent() as ScrollContainer).size_flags_horizontal = Control.SIZE_FILL
-	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA, 0)
+	# +16 para la BARRA del scroll: con la lista de desarrollos y pasivas la ficha desplaza, y la barra
+	# se pone encima del canto derecho y se come la letra de rango.
+	(_content.get_parent() as ScrollContainer).custom_minimum_size = Vector2(ANCHO_FICHA + 16.0, 0)
 
 	# EL TITULO DE LA COLUMNA: "Altar" pequeño y gris sobre el NOMBRE de quien tienes delante. La
 	# etiqueta del esqueleto se esconde (un Control oculto no ocupa sitio en un contenedor).
@@ -99,6 +103,8 @@ func abrir() -> void:
 		return
 	_pj_sel = 0
 	_deltas = {}
+	_subidas = {}
+	_nuevas = {}
 	# CURAR al interactuar: todo el grupo, sin pulsar nada. -1 = "a tope" (se concreta al crear el
 	# combatiente / al refrescar las barras). Los cooldowns tambien: descansar es descansar.
 	for pj in Game.party:
@@ -114,21 +120,16 @@ func abrir() -> void:
 
 
 func _cerrar() -> void:
-	_cerrar_modal()
 	_root.visible = false
 	Game.cerrar_menu(self)
 
 
-# Esc cierra de dentro a fuera: primero el modal y solo despues el altar.
 func _input(event: InputEvent) -> void:
 	if not _root.visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			if _modal != null:
-				_cerrar_modal()
-			else:
-				_cerrar()
+			_cerrar()
 			get_viewport().set_input_as_handled()
 
 
@@ -212,7 +213,7 @@ func _rebuild_real() -> void:
 	_pintar_lateral(pj)
 	_muneco_grande(pj)
 	_pintar_ficha(pj)
-	_ver_muneco(_modal == null)
+	_pintar_perks(pj)
 
 
 # ============================================================
@@ -317,14 +318,6 @@ func _muneco_grande(pj: PersonajeData) -> void:
 	colocar.call()
 
 
-# El muñeco (y los retratos) llevan z ABSOLUTO y se dibujan encima de cualquier modal: la unica
-# forma de que no tapen es esconderlos mientras haya uno abierto.
-func _ver_muneco(visible_: bool) -> void:
-	if _caja_muneco != null and is_instance_valid(_caja_muneco):
-		_caja_muneco.visible = visible_
-	if _scroll_retratos != null and is_instance_valid(_scroll_retratos):
-		_scroll_retratos.visible = visible_
-
 
 # ============================================================
 #  LA FICHA DE LA DERECHA: el nivel, las cinco basicas y los botones
@@ -425,103 +418,95 @@ func _fila_basica(nombre: String, valor: int, d: Array) -> void:
 	caja.resized.connect(caja.queue_redraw)
 
 
+
+
 # ============================================================
-#  ACTUALIZAR, y EL MODAL de lo que ha salido a la luz
+#  DESARROLLO Y PASIVAS: lo que TIENE esta persona, debajo de los botones
+#  Siempre a la vista, no solo al actualizar: es donde se viene a mirar como va cada uno. Lo que acaba
+#  de salir a la luz en el ultimo "Actualizar" va MARCADO en su sitio (rombos verdes, "Nueva"), y la
+#  ficha baja sola hasta aqui. Antes iba en un modal, que tapaba la pantalla y al cerrarlo no quedaba
+#  escrito en ningun sitio lo que tenias.
 # ============================================================
 
-# Consolida SOLO a este personaje: pasa su excelia pendiente a visible. Ya NO cura (eso pasa al
-# abrir el altar, y a todo el grupo).
-func _actualizar(pj: PersonajeData) -> void:
-	var antes: Dictionary = {}
-	for s in STATS:
-		antes[s] = int(pj.get(s))
-	# Lo que devuelve es lo que ha salido a la luz al leer el estado: pasivas que te habian tocado
-	# sin saberlo y desarrollos que han subido de rango.
-	var revelado: Dictionary = Game.actualizar_estado(pj)
-	var d: Dictionary = {}
-	for s in STATS:
-		d[s] = [antes[s], int(pj.get(s))]
-	_deltas[pj] = d
-	_rebuild()
-	var pasivas: Array = revelado.get("pasivas", [])
-	var subidas: Array = revelado.get("desarrollos", [])
-	if not pasivas.is_empty() or not subidas.is_empty():
-		_abrir_revelado(pj, pasivas, subidas)
+func _pintar_perks(pj: PersonajeData) -> void:
+	var subidas: Dictionary = _subidas.get(pj, {})     # {id: rango_antes}
+	var nuevas: Array = _nuevas.get(pj, [])             # ids de pasivas recien despertadas
+
+	var hay_des: bool = false
+	for d in Game.DESARROLLOS:
+		if Game.desarrollo_rango(str(d["id"]), pj) > 0:
+			hay_des = true
+	var hay_pas: bool = false
+	for p in Game.PASIVAS_RNG:
+		if Game.tiene_pasiva(str(p["id"]), pj):
+			hay_pas = true
+
+	var hueco := Control.new()
+	hueco.custom_minimum_size = Vector2(0, 18)
+	_content.add_child(hueco)
+	_ancla_perks = hueco
+
+	MenuScaffold.titulo(_content, "Habilidades de desarrollo", 13, GRIS)
+	_content.add_child(HSeparator.new())
+	if not hay_des:
+		MenuScaffold.nota(_content, "Ninguna todavía. Se elige una al subir de nivel.")
+	for d in Game.DESARROLLOS:
+		var id: String = str(d["id"])
+		var r: int = Game.desarrollo_rango(id, pj)
+		if r <= 0:
+			continue
+		_fila_desarrollo(str(d["nombre"]), int(subidas.get(id, r)), r)
+
+	var hueco2 := Control.new()
+	hueco2.custom_minimum_size = Vector2(0, 12)
+	_content.add_child(hueco2)
+	MenuScaffold.titulo(_content, "Pasivas", 13, GRIS)
+	_content.add_child(HSeparator.new())
+	if not hay_pas:
+		MenuScaffold.nota(_content, "Ninguna. Aparecen solas, muy de vez en cuando, al actualizar el estado.")
+	# Las NUEVAS primero: son lo que se viene a ver.
+	var orden: Array = []
+	for p in Game.PASIVAS_RNG:
+		if nuevas.has(str(p["id"])):
+			orden.append(p)
+	for p in Game.PASIVAS_RNG:
+		if Game.tiene_pasiva(str(p["id"]), pj) and not nuevas.has(str(p["id"])):
+			orden.append(p)
+	for p in orden:
+		if nuevas.has(str(p["id"])):
+			MenuScaffold.titulo(_content, "★ ¡Nueva!", 11, VERDE)
+		# Amarillo legendario y centelleando: es lo mas raro que te puede pasar en una partida (la
+		# tirada cayo en silencio y este es el unico sitio donde aparece por primera vez).
+		MenuScaffold.titulo_item(_content, str(p.get("nombre", "")), Upgrades.rareza_color(4), 1.0, 15)
+		MenuScaffold.nota(_content, Game.pasiva_desc(p))
 
 
-# Aqui es donde te enteras de que tienes una pasiva: la tirada cayo hace tres dias picando una veta
-# y no hubo aviso ninguno (ver Game.rodar_pasiva), asi que este es literalmente el unico sitio del
-# juego donde aparece por primera vez. Por eso va con el nombre en amarillo y centelleando, como un
-# objeto legendario: es lo mas raro que te puede pasar en una partida.
-func _abrir_revelado(pj: PersonajeData, pasivas: Array, subidas: Array) -> void:
-	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "El estado de %s" % pj.nombre, 560.0)
-	_modal = m["capa"]
-	_ver_muneco(false)
-
-	# CON SCROLL y alto acotado: con todas las pasivas y todos los desarrollos no cabe en pantalla.
-	# El alto se ajusta a lo que mida el contenido, para que con una sola cosa el modal no sea un
-	# cajon vacio.
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	(m["cuerpo"] as VBoxContainer).add_child(scroll)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 6)
-	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(vb)
-	var ajustar := func() -> void:
-		if not is_instance_valid(scroll):
-			return
-		var alto_max: float = minf(ALTO_MODAL_MAX, _root.size.y - 200.0)
-		scroll.custom_minimum_size = Vector2(0, minf(vb.get_combined_minimum_size().y,
-			maxf(alto_max, 160.0)))
-	vb.minimum_size_changed.connect(ajustar)
-
-	if not pasivas.is_empty():
-		MenuScaffold.titulo(vb, "★ Pasiva despertada" if pasivas.size() == 1
-			else "★ Pasivas despertadas (%d)" % pasivas.size(), 13, GRIS)
-		for p in pasivas:
-			# Amarillo legendario, el tope de la paleta comun (ver Upgrades.RAREZA_COLOR).
-			MenuScaffold.titulo_item(vb, str(p.get("nombre", "")), Upgrades.rareza_color(4), 1.0, 16)
-			MenuScaffold.nota(vb, Game.pasiva_desc(p))
-		if not subidas.is_empty():
-			vb.add_child(HSeparator.new())
-
-	if not subidas.is_empty():
-		MenuScaffold.titulo(vb, "Desarrollo", 13, GRIS)
-		for s in subidas:
-			_fila_subida(vb, str(s[0]), int(s[1]), int(s[2]))
-
-	ajustar.call()
-	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal)
-
-
-# Un desarrollo que sube: el nombre y los diez rombos de rango, los que ya tenia en ambar y los
-# ganados ahora en verde, con la letra al final ("— → III").
-func _fila_subida(vb: VBoxContainer, nombre: String, r_antes: int, r_hoy: int) -> void:
+# Un desarrollo: el nombre, los diez rombos de rango y la letra. Si acaba de subir, los rombos
+# ganados van en verde y la letra dice de donde viene ("I → III").
+func _fila_desarrollo(nombre: String, r_antes: int, r_hoy: int) -> void:
 	var caja := Control.new()
-	caja.custom_minimum_size = Vector2(0, 26)
+	caja.custom_minimum_size = Vector2(0, 24)
 	caja.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(caja)
+	_content.add_child(caja)
+	var sube: bool = r_hoy > r_antes
 	caja.draw.connect(func() -> void:
 		var w: float = caja.size.x
 		var f: Font = caja.get_theme_font(&"font")
 		var y: float = caja.size.y * 0.5
-		caja.draw_string(f, Vector2(0, y + 5), nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
-			Color(0.82, 0.85, 0.90))
+		caja.draw_string(f, Vector2(0, y + 5), nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
+			VERDE if sube else Color(0.82, 0.85, 0.90))
 		# La columna de la letra tiene ANCHO FIJO (el de la mas ancha posible), para que los rombos
-		# caigan en el mismo sitio en todas las filas. Y se aparta de la derecha lo que ocupa la barra
-		# del scroll, que si no se come la ultima letra.
-		var txt: String = "%s → %s" % [Game.letra_rango(r_antes) if r_antes > 0 else "—",
-			Game.letra_rango(r_hoy)]
-		var der: float = w - 16.0
-		var col_letra: float = f.get_string_size("— → W", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-		var an: float = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-		caja.draw_string(f, Vector2(der - an, y + 5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, AMBAR)
-		var lado: float = 5.0
-		var paso: float = 13.0
-		var x0: float = der - col_letra - 16.0 - paso * float(Game.RANGO_MAX)
+		# caigan en el mismo sitio en todas las filas.
+		var txt: String = Game.letra_rango(r_hoy)
+		if sube:
+			txt = "%s → %s" % [Game.letra_rango(r_antes) if r_antes > 0 else "—", txt]
+		var col_letra: float = f.get_string_size("— → W", HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		var an: float = f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+		caja.draw_string(f, Vector2(w - an, y + 5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, AMBAR)
+		var lado: float = 4.0
+		var paso: float = 10.0
+		var x0: float = w - col_letra - 10.0 - paso * float(Game.RANGO_MAX)
 		for i in Game.RANGO_MAX:
 			var c := Vector2(x0 + paso * float(i) + lado, y)
 			var pts := PackedVector2Array([c + Vector2(0, -lado), c + Vector2(lado, 0),
@@ -535,11 +520,46 @@ func _fila_subida(vb: VBoxContainer, nombre: String, r_antes: int, r_hoy: int) -
 	caja.resized.connect(caja.queue_redraw)
 
 
-func _cerrar_modal() -> void:
-	if _modal != null and is_instance_valid(_modal):
-		_modal.queue_free()
-	_modal = null
-	_ver_muneco(true)
+# ============================================================
+#  ACTUALIZAR
+# ============================================================
+
+# Consolida SOLO a este personaje: pasa su excelia pendiente a visible. Ya NO cura (eso pasa al
+# abrir el altar, y a todo el grupo).
+func _actualizar(pj: PersonajeData) -> void:
+	var antes: Dictionary = {}
+	for s in STATS:
+		antes[s] = int(pj.get(s))
+	var rangos_antes: Dictionary = pj.desarrollos_rango.duplicate()
+	# Lo que devuelve es lo que ha salido a la luz al leer el estado: pasivas que te habian tocado
+	# sin saberlo y desarrollos que han subido de rango.
+	var revelado: Dictionary = Game.actualizar_estado(pj)
+	var d: Dictionary = {}
+	for s in STATS:
+		d[s] = [antes[s], int(pj.get(s))]
+	_deltas[pj] = d
+	# Se apunta POR ID con el rango de antes: la lista de desarrollos que devuelve Game va por nombre.
+	var sub: Dictionary = {}
+	for dd in Game.DESARROLLOS:
+		var id: String = str(dd["id"])
+		var r_hoy: int = Game.desarrollo_rango(id, pj)
+		var r_ant: int = int(rangos_antes.get(id, 0))
+		if r_hoy > r_ant:
+			sub[id] = r_ant
+	_subidas[pj] = sub
+	var nuevas: Array = []
+	for p in revelado.get("pasivas", []):
+		nuevas.append(str(p.get("id", "")))
+	_nuevas[pj] = nuevas
+	_rebuild()
+	# Si ha salido algo, la ficha BAJA sola hasta ahi: con cinco basicas y dos botones encima, lo
+	# nuevo quedaria fuera de la vista y parecería que no ha pasado nada.
+	if not sub.is_empty() or not nuevas.is_empty():
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if _ancla_perks != null and is_instance_valid(_ancla_perks):
+			var scroll := _content.get_parent() as ScrollContainer
+			scroll.scroll_vertical = int(_ancla_perks.position.y)
 
 
 func _subir() -> void:

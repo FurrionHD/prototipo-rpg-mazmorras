@@ -51,9 +51,9 @@ cuanto más acorazado es lo que tienes delante. Las armas grandes se quedan con 
 **Un puntero propio**: una pluma.
 
 **El altar, con cara nueva.** Arriba eliges a quién le actualizas el estado, y un punto naranja marca a
-quien tiene experiencia sin consolidar. Al actualizar, las básicas enseñan en verde lo que han subido, y
-lo que sale a la luz (pasivas nuevas, desarrollos que suben de rango) aparece en una ventana aparte con su
-propio desplazamiento. A la izquierda se ve qué te falta para subir de nivel.
+quien tiene experiencia sin consolidar. Al actualizar, las básicas enseñan en verde lo que han subido.
+Debajo salen siempre las habilidades de desarrollo (con su rango) y las pasivas de cada uno; lo que acaba
+de salir a la luz va marcado en verde. A la izquierda se ve qué te falta para subir de nivel.
 
 **Subir de nivel**: las habilidades de desarrollo ya no se salen de la pantalla cuando hay muchas. Van en
 tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vuelves al altar.
