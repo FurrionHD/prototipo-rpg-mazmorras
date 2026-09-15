@@ -116,6 +116,11 @@ func _limpiar_ordenes_sueltas() -> void:
 			_enc_clase.erase(uid)
 
 
+# --- EN MARCHA ---
+# Izquierda: una tarjeta por encargo (a por que fueron, piso, lo que falta y su barra). Derecha: el
+# detalle del elegido, con quien fue y, si ya han vuelto, lo que traen antes de recogerlo.
+var _enc_sel_id: int = 0
+
 func _build_encargos_curso() -> void:
 	var lista: Array = Net.hogar.encargos_visibles()
 	MenuScaffold.titulo(hogar._lista, "En marcha (%d)" % lista.size(), 14)
@@ -123,99 +128,215 @@ func _build_encargos_curso() -> void:
 		MenuScaffold.nota(hogar._lista, "No hay nadie fuera. En «Mandar uno» eliges a quién mandas, a qué "
 			+ "piso y cuánto tiempo. Cuentan por reloj real, así que siguen aunque cierres el juego.")
 		return
+	# El elegido: el que estaba, si sigue; si no, el primero (los que ya han vuelto van antes).
+	var elegido: Dictionary = {}
 	for e_ in lista:
-		_fila_encargo(e_ as Dictionary)
+		if int((e_ as Dictionary).get("id", 0)) == _enc_sel_id:
+			elegido = e_
+	if elegido.is_empty():
+		elegido = lista[0]
+		for e_ in lista:
+			if int((e_ as Dictionary).get("estado", 0)) == Encargos.ESTADO_LISTO:
+				elegido = e_
+				break
+		_enc_sel_id = int(elegido.get("id", 0))
+	for e_ in lista:
+		_tarjeta_encargo(e_ as Dictionary, int((e_ as Dictionary).get("id", 0)) == _enc_sel_id)
+	_detalle_encargo(elegido)
 
 
-func _fila_encargo(e: Dictionary) -> void:
+func _tarjeta_encargo(e: Dictionary, elegida: bool) -> void:
 	var listo: bool = int(e.get("estado", 0)) == Encargos.ESTADO_LISTO
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _fondo_persona(elegida))
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	hogar._lista.add_child(panel)
+	var id: int = int(e.get("id", 0))
+	panel.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
+				and not (ev as InputEventMouseButton).pressed:
+			_enc_sel_id = id
+			hogar._rebuild())
 	var caja := VBoxContainer.new()
-	caja.add_theme_constant_override("separation", 2)
-	hogar._lista.add_child(caja)
+	caja.add_theme_constant_override("separation", 6)
+	caja.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(caja)
 
 	var cab := HBoxContainer.new()
-	cab.add_theme_constant_override("separation", 6)
+	cab.mouse_filter = Control.MOUSE_FILTER_PASS
 	caja.add_child(cab)
-	var nombres: PackedStringArray = []
-	for m in (e.get("miembros", []) as Array):
-		nombres.append(String((m as Dictionary).get("nombre", "?")))
-	var tipos: PackedStringArray = []
-	var grupos: Dictionary = e.get("grupos", {})
-	for g in grupos:
-		tipos.append("%s %d%%" % [String(Encargos.NOMBRE_GRUPO.get(int(g), "?")), int(grupos[g])])
-
-	var l := Label.new()
-	l.text = "Piso %d · %s  ·  %s" % [int(e.get("piso", 1)), ", ".join(tipos), ", ".join(nombres)]
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cab.add_child(l)
-
+	var titulo := Label.new()
+	titulo.text = "Piso %d  ·  %d h  ·  %d persona%s" % [int(e.get("piso", 1)), int(e.get("duracion", 0)) / 3600,
+		(e.get("miembros", []) as Array).size(), "" if (e.get("miembros", []) as Array).size() == 1 else "s"]
+	titulo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titulo.add_theme_font_size_override("font_size", 15)
+	cab.add_child(titulo)
 	var est := Label.new()
-	if listo:
-		est.text = "¡De vuelta!"
-		est.add_theme_color_override("font_color", AMBAR)
-	else:
-		est.text = "faltan %s" % Encargos.texto_restante(e)
-		est.add_theme_color_override("font_color", GRIS)
+	est.text = "¡De vuelta!" if listo else "faltan %s" % Encargos.texto_restante(e)
+	est.add_theme_color_override("font_color", AMBAR if listo else GRIS)
 	cab.add_child(est)
 
+	_celdas_objetivo(caja, e, 44.0)
 	if not listo:
-		var barra := ProgressBar.new()
-		barra.custom_minimum_size = Vector2(0, 6)
-		barra.show_percentage = false
 		var dur: float = maxf(1.0, float(e.get("duracion", 1)))
-		barra.value = 100.0 * clampf(1.0 - float(Encargos.restante(e)) / dur, 0.0, 1.0)
-		caja.add_child(barra)
+		_barra_progreso(caja, clampf(1.0 - float(Encargos.restante(e)) / dur, 0.0, 1.0))
 
-	var acciones := HBoxContainer.new()
-	acciones.add_theme_constant_override("separation", 6)
-	caja.add_child(acciones)
 
-	if listo:
-		var recoger := Button.new()
-		recoger.text = "Recoger"
-		recoger.pressed.connect(func():
-			# De cliente el informe llega por _aviso_remoto: el botin lo reparte el host.
-			if Net._soy_cliente():
-				Net.hogar.solicitar_recoger_encargo(int(e["id"]))
-				hogar._aviso = "Recogiendo…"
-				hogar._aviso_ok = true
-			else:
-				var inf: Dictionary = Game.recoger_encargo(int(e["id"]))
-				hogar._aviso = _texto_informe(inf)
-				hogar._aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
-				Net.hogar._difundir_hogar()
-			hogar._rebuild())
-		acciones.add_child(recoger)
-	else:
-		var traer := Button.new()
-		traer.text = "Traer de vuelta"
-		traer.tooltip_text = "Los hace volver YA, con lo que lleven recogido hasta ahora. A media " \
-			+ "faena traen la mitad: el trabajo hecho no se pierde."
-		traer.pressed.connect(func():
-			Net.hogar.solicitar_traer_encargo(int(e["id"]))
+# Los grupos del objetivo en celdas pequeñas, con su porcentaje en el pie.
+func _celdas_objetivo(padre: Control, e: Dictionary, lado: float) -> void:
+	var grupos: Dictionary = Encargos.grupos_validos(e.get("grupos", {}))
+	var flujo := HFlowContainer.new()
+	flujo.add_theme_constant_override("h_separation", 5)
+	flujo.add_theme_constant_override("v_separation", 5)
+	flujo.mouse_filter = Control.MOUSE_FILTER_PASS
+	padre.add_child(flujo)
+	for g_ in Encargos.Grupo.values():
+		var g: int = int(g_)
+		if not grupos.has(g):
+			continue
+		var c := CeldaObjeto.new()
+		c.custom_minimum_size = Vector2(lado, lado)
+		c.toggle_mode = false
+		c.mouse_filter = Control.MOUSE_FILTER_PASS
+		c.tooltip_text = "%s  %d%%" % [String(Encargos.NOMBRE_GRUPO.get(g, "?")), int(grupos[g])]
+		flujo.add_child(c)
+		c.configurar(_icono_grupo(g, Encargos.opciones(g, int(e.get("piso", 1)))),
+			"%d%%" % int(grupos[g]) if lado >= 56.0 else "", "", 0)
+
+
+# La barra del hogar: carril oscuro y relleno ambar, como los deslizadores.
+func _barra_progreso(padre: Control, t: float) -> void:
+	var barra := ProgressBar.new()
+	barra.custom_minimum_size = Vector2(0, 8)
+	barra.show_percentage = false
+	barra.value = 100.0 * t
+	barra.mouse_filter = Control.MOUSE_FILTER_PASS
+	var fondo := StyleBoxFlat.new()
+	fondo.bg_color = Color(1, 1, 1, 0.08)
+	fondo.set_corner_radius_all(4)
+	var lleno := StyleBoxFlat.new()
+	lleno.bg_color = AMBAR
+	lleno.set_corner_radius_all(4)
+	barra.add_theme_stylebox_override("background", fondo)
+	barra.add_theme_stylebox_override("fill", lleno)
+	padre.add_child(barra)
+
+
+func _detalle_encargo(e: Dictionary) -> void:
+	var listo: bool = int(e.get("estado", 0)) == Encargos.ESTADO_LISTO
+	var id: int = int(e.get("id", 0))
+	MenuScaffold.titulo(hogar._content, "Piso %d  ·  %d h" % [int(e.get("piso", 1)), int(e.get("duracion", 0)) / 3600], 16)
+
+	# QUIEN FUE, con su cara cuando esta maquina la tiene (ver _tarjeta_persona).
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 10)
+	hogar._content.add_child(fila)
+	for m_ in (e.get("miembros", []) as Array):
+		var m := m_ as Dictionary
+		var pj: PersonajeData = Game.pj_por_uid(String(m.get("uid", "")))
+		if pj == null and not Net._soy_cliente():
+			pj = Game._pj_en_mundo(String(m.get("uid", "")))
+		if pj != null:
+			MenuScaffold._retrato(fila, pj, 0, false, true, func(_i: int): pass)
+		else:
+			var l := Label.new()
+			l.text = String(m.get("nombre", "?"))
+			fila.add_child(l)
+
+	_aire(hogar._content, 6)
+	MenuScaffold.titulo(hogar._content, "Objetivo", 13)
+	_celdas_objetivo(hogar._content, e, 62.0)
+
+	_aire(hogar._content)
+	if not listo:
+		MenuScaffold.fila(hogar._content, "Vuelven en", Encargos.texto_restante(e))
+		var dur: float = maxf(1.0, float(e.get("duracion", 1)))
+		_barra_progreso(hogar._content, clampf(1.0 - float(Encargos.restante(e)) / dur, 0.0, 1.0))
+		_aire(hogar._content, 6)
+		var acciones := HBoxContainer.new()
+		acciones.add_theme_constant_override("separation", 8)
+		hogar._content.add_child(acciones)
+		var traer: Button = MenuScaffold.pastilla(acciones, "Traer de vuelta", func():
+			Net.hogar.solicitar_traer_encargo(id)
 			hogar._aviso = "Vuelven a casa con lo que llevaban. Recógelo aquí mismo."
 			hogar._aviso_ok = true
 			hogar._rebuild())
-		acciones.add_child(traer)
-
+		traer.tooltip_text = "Los hace volver YA, con lo que lleven hasta ahora: el trabajo hecho no se pierde."
 		# --- BOTON DE DEV (temporal, quitar antes de publicar) ---
-		# No es lo mismo que "Traer de vuelta": aquel acorta la duracion y por eso vuelven con lo
-		# proporcional; este RETRASA EL INICIO, asi que el encargo cuenta COMPLETO y da exactamente
-		# lo mismo que si hubieras esperado las ocho horas. Es el unico que sirve para mirar el
-		# balance sin esperar de verdad. Va aqui y no solo en el panel de dev porque asi se puede
-		# terminar UNO concreto, y porque se ve en el .exe exportado (el panel de dev tambien, pero
-		# esto es un clic en vez de abrirlo y buscar la seccion).
-		var dev := Button.new()
-		dev.text = "⚡ Terminar ya [dev]"
-		dev.tooltip_text = "Como si hubiera pasado su tiempo ENTERO: el resultado es idéntico al de "
-		dev.tooltip_text += "esperarlo de verdad. Botón de pruebas, se quitará."
-		dev.modulate = Color(0.75, 0.85, 1.0)
-		dev.pressed.connect(func():
-			Net.hogar.solicitar_dev_terminar_encargo(int(e["id"]))
+		# RETRASA EL INICIO en vez de acortar la duracion, asi que el encargo cuenta COMPLETO y da lo
+		# mismo que si hubieras esperado. Es el unico que sirve para mirar el balance sin esperar.
+		var dev: Button = MenuScaffold.pastilla(acciones, "⚡ Terminar ya [dev]", func():
+			Net.hogar.solicitar_dev_terminar_encargo(id)
 			hogar._aviso = "[dev] Encargo terminado al 100%. Ya se puede recoger."
 			hogar._aviso_ok = true
-			hogar._rebuild())
-		acciones.add_child(dev)
+			hogar._rebuild(), false)
+		dev.tooltip_text = "Como si hubiera pasado su tiempo ENTERO. Botón de pruebas, se quitará."
+		return
+
+	# --- HAN VUELTO: lo que traen, antes de recogerlo.
+	var des: int = int(e.get("desenlace", 0))
+	var res := Label.new()
+	res.text = String(Encargos.NOMBRE_DESENLACE[des])
+	res.add_theme_font_size_override("font_size", 20)
+	res.add_theme_color_override("font_color", [VERDE, AMBAR, Color(0.90, 0.45, 0.40)][clampi(des, 0, 2)])
+	hogar._content.add_child(res)
+	if des != Encargos.EXITO:
+		MenuScaffold.nota(hogar._content, "Pierden un %d%% de lo que traían de cada cosa, y aprenden eso menos." %
+			int(round(100.0 * float(Encargos.PERDIDA[des]))))
+
+	var piezas: Array = []
+	for b in (e.get("botin", []) as Array):
+		var data: MaterialData = load(String((b as Dictionary)["ruta"])) as MaterialData
+		if data == null:
+			continue
+		var it: MaterialItem = MaterialItem.crear(data, int((b as Dictionary)["calidad"]))
+		it.cm = float((b as Dictionary).get("cm", 0.0))
+		piezas.append({"item": it, "n": int((b as Dictionary)["n"])})
+	for c_ in (e.get("cristales", []) as Array):
+		var cr := Cristal.new()
+		cr.categoria = int((c_ as Dictionary)["categoria"])
+		cr.calidad = int((c_ as Dictionary)["calidad"])
+		piezas.append({"item": cr, "n": int((c_ as Dictionary)["n"])})
+	if piezas.is_empty():
+		MenuScaffold.nota(hogar._content, "Vuelven con las manos vacías.")
+	else:
+		var grid := GridContainer.new()
+		grid.columns = 9
+		grid.add_theme_constant_override("h_separation", 5)
+		grid.add_theme_constant_override("v_separation", 5)
+		hogar._content.add_child(grid)
+		for p in piezas:
+			var c := CeldaObjeto.new()
+			c.custom_minimum_size = Vector2(76, 76)
+			c.toggle_mode = false
+			grid.add_child(c)
+			c.configurar(p["item"] as Resource, "x%d" % int(p["n"]))
+
+	_aire(hogar._content, 6)
+	var dinero: int = int(e.get("dinero", 0))
+	if dinero > 0:
+		MenuScaffold.fila(hogar._content, "Cristales vendidos", "%d monedas a la hucha" % dinero)
+	if int(e.get("rotos", 0)) > 0:
+		MenuScaffold.fila(hogar._content, "Se rompieron", "%d" % int(e["rotos"]))
+	if int(e.get("perdido", 0)) > 0:
+		MenuScaffold.fila(hogar._content, "Se dejaron por peso", "%d  (mándales mejores mochilas)" % int(e["perdido"]))
+	if int(e.get("peleas", 0)) > 0:
+		MenuScaffold.fila(hogar._content, "Pelearon", "%d veces  ·  el equipo vuelve gastado" % int(e["peleas"]))
+
+	_aire(hogar._content, 6)
+	MenuScaffold.pastilla(hogar._content, "Recoger", func():
+		# De cliente el informe llega por _aviso_remoto: el botin lo reparte el host.
+		if Net._soy_cliente():
+			Net.hogar.solicitar_recoger_encargo(id)
+			hogar._aviso = "Recogiendo…"
+			hogar._aviso_ok = true
+		else:
+			var inf: Dictionary = Game.recoger_encargo(id)
+			hogar._aviso = _texto_informe(inf)
+			hogar._aviso_ok = int(inf.get("desenlace", 0)) != Encargos.FRACASO
+			Net.hogar._difundir_hogar()
+		_enc_sel_id = 0
+		hogar._rebuild())
 
 
 func _texto_informe(inf: Dictionary) -> String:
@@ -871,15 +992,21 @@ func _build_encargo_pronostico(libres: Array) -> void:
 		hogar._content.add_child(aviso)
 	_aire(hogar._content, 4)
 	MenuScaffold.pastilla(hogar._content, "Mandarlos", func():
-		Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, _enc_uids, _enc_utiles,
-			_enc_faena.duplicate(), _enc_clase.duplicate())
-		hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
-		hogar._aviso_ok = true
+		# LA SELECCION SE VACIA ANTES DE MANDAR. Mandar difunde el hogar y eso repinta el menu EN EL ACTO;
+		# con la seleccion todavia puesta, la purga veia a los que acaban de irse "ya no disponibles" y
+		# lo cantaba en rojo justo al darle a Mandar.
+		var uids: Array = _enc_uids.duplicate()
+		var utiles: Array = _enc_utiles.duplicate()
+		var faenas: Dictionary = _enc_faena.duplicate()
+		var clases: Dictionary = _enc_clase.duplicate()
 		_enc_uids.clear()
 		_enc_utiles.clear()
 		_enc_faena.clear()
 		_enc_clase.clear()
 		_enc_sub = 0
+		hogar._aviso = "En marcha. Vuelven en %d h." % (dur / 3600)
+		hogar._aviso_ok = true
+		Net.hogar.solicitar_encargo(_enc_piso, _enc_grupos.duplicate(), dur, uids, utiles, faenas, clases)
 		hogar._rebuild(), true, pega.is_empty())
 
 
