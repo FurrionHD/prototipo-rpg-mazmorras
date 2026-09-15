@@ -1920,6 +1920,10 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 	# esas salen en el acto y las de abajo se van creando de tanda en tanda, fuera de la vista. Para
 	# cuando bajas con el scroll ya estan.
 	var de_golpe: int = mini(piezas.size(), maxi(1, columnas) * CELDAS_FILAS_AL_ABRIR)
+	# CON MENOS OBJETOS QUE COLUMNAS, las celdas NO se estiran. Con la fila llena, el hueco que sobra se
+	# reparte entre todas y no se nota; con una sola mochila, esa celda se quedaba con todo el hueco y
+	# salia el doble de ancha que de alta, en vez de cuadrada como las demas.
+	grid.set_meta(META_ESTIRAR_REJILLA, piezas.size() >= maxi(1, columnas))
 	for i in de_golpe:
 		_celda_de_rejilla(grid, piezas[i], i, sel, pulsado, lado)
 	if de_golpe < piezas.size():
@@ -1928,6 +1932,7 @@ static func rejilla_objetos(vb: VBoxContainer, piezas: Array, sel: int, pulsado:
 
 const CELDAS_FILAS_AL_ABRIR := 8    # filas que se crean en el acto (una pantalla y algo)
 const META_SEL_REJILLA := "rejilla_sel"
+const META_ESTIRAR_REJILLA := "rejilla_estirar"
 
 
 # CAMBIAR LA SELECCION SIN REHACER LA REJILLA. Devuelve false si en 'vb' no hay rejilla que marcar (y
@@ -1971,7 +1976,7 @@ static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: i
 		pulsado: Callable, lado: float) -> void:
 	var c := CeldaObjeto.new()
 	c.custom_minimum_size = Vector2(lado, lado)
-	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL if bool(grid.get_meta(META_ESTIRAR_REJILLA, true)) 		else Control.SIZE_FILL
 	# La seleccion se lee de la rejilla y no de 'sel': una celda creada a tandas despues de cambiar la
 	# seleccion (ver marcar_en_rejilla) tiene que salir con la de ahora.
 	c.button_pressed = (i == int(grid.get_meta(META_SEL_REJILLA, sel)))
