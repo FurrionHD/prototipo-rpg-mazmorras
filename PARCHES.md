@@ -4,7 +4,34 @@
 
 # Próxima versión
 
+## 🛒 La tienda, rehecha
+
+**La tienda tiene la cara del inventario**: cada cosa con su dibujo en una rejilla, la ficha al lado y
+los botones siempre a la vista.
+
+**Se vende todo lo que tienes.** Ahora salen también las herramientas forjadas, el carbón y lo que
+guardas en el cofre del hogar (equipo y consumibles). Lo que lleva puesto alguien del grupo y lo prestado
+a un encargo siguen sin salir.
+
+**Buscador, orden y filtros** en cada sección, para vender y para comprar. El buscador no pide tildes
+ni mayúsculas.
+
+**La cesta**: apunta varias cosas, cada una con la cantidad que quieras, y véndelas (o cómpralas) de una
+vez. La compra va entera o no va: si no te llega para toda la cesta, no se cobra nada.
+
+**El mostrador T2** ya no es una pestaña aparte: dentro de Comprar eliges el mostrador T1 o el T2, y el
+equipo enseña su tier de verdad.
+
 ## 🔧 Arreglos
+
+**Vender un pez cobra el de la talla que pone**: antes podía irse otro de la misma especie (y con él tu
+pez trofeo).
+
+**Si vendes o guardas el último cebo** que llevas puesto, se quita del anzuelo. Antes seguía atrayendo
+peces sin tenerlo.
+
+**El número que escribes en una cantidad vale al momento**, sin pulsar Enter, en la tienda, la forja, el
+peletero, la boticaria, la cocina y el libro del pescador. Antes, si escribías 40 y pulsabas el botón, se usaba el número de antes.
 
 **Las peleas en compañía vuelven a ir fluidas.** Con dos jugadores dentro del piso, a partir de la tercera
 pelea el juego no conseguía preparar las siguientes y se quedaba reintentándolo sin parar.
