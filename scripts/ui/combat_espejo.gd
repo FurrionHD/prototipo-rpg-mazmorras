@@ -287,24 +287,57 @@ func aplicar_roster(roster: Dictionary) -> void:
 
 # LA INSTANTANEA: lo que cambia turno a turno. Va del que ejecuta la pelea a los espejos. Solo
 # lleva numeros y de quien es el turno; el resto (barras, colores, orden) ya lo tienen montado.
-# Solo las ultimas lineas del log viajan al espejo. El log ENTERO crecia sin tope y una pelea larga
-# hacia que la instantanea pasara de la MTU (1392): ENet la descartaba y el espejo se quedaba
-# congelado sin ver el combate. El espejo solo enseña las lineas recientes de todas formas.
-const _LOG_COLA_ESPEJO := 12
+#
+# EL REGISTRO VIAJA POR TROZOS NUEVOS, NO ENTERO. Cada instantanea lleva las frases escritas desde la
+# anterior ("log") y cuantas lleva la pelea en total ("logn"); el espejo AÑADE las que le faltan.
+# Antes mandaba las 12 ultimas lineas y el espejo SUSTITUIA su registro por ellas: nunca se veia mas
+# de eso, y una Descarga en area (18 frases) se comia todo lo anterior -"de repente se pierde todo
+# lo de arriba" (playtest del 15/09)-. Entero no puede ir: sin tope, una pelea larga seria un
+# paquete enorme en cada repintado.
+#
+# Si al espejo le falta un trozo (se unio a mitad, o entre dos instantaneas se escribieron mas de
+# _LOG_TROZO_MAX frases) lo ve por la numeracion y pide el registro entero UNA vez (aplicar_instantanea).
+const _LOG_TROZO_MAX := 60
+var _log_enviadas: int = 0       # ANFITRION: frases que ya salieron en alguna instantanea
+var _log_recibidas: int = 0      # ESPEJO: frases de la pelea que ya tengo (las mias propias no cuentan)
+var _log_pedido: bool = false    # ESPEJO: ya he pedido el registro entero y aun no ha llegado
 
 func instantanea() -> Dictionary:
 	# 'vel' va en CADA instantanea (no solo en el roster) para que si el dueño la cambia a mitad de
 	# pelea, al que la espeja le cambie sola. Es un float: sale mas barato que un aviso aparte.
 	return {"a": _valores(_pantalla._aliados, true), "e": _valores(_pantalla._enemies),
-		"turno": _pantalla._aliados.find(_pantalla._player), "log": _cola_log(), "fin": _pantalla._state == _pantalla.State.FINISHED,
+		"turno": _pantalla._aliados.find(_pantalla._player), "log": _trozo_log(),
+		"logn": _pantalla._log_lines.size(), "fin": _pantalla._state == _pantalla.State.FINISHED,
 		"rev": _rev, "vel": _pantalla._vel_pelea}
 
 
-func _cola_log() -> String:
-	var lineas: PackedStringArray = _pantalla._log.text.split("\n")
-	if lineas.size() <= _LOG_COLA_ESPEJO:
-		return _pantalla._log.text
-	return "\n".join(lineas.slice(lineas.size() - _LOG_COLA_ESPEJO))
+# Las frases escritas desde la ultima instantanea (como mucho _LOG_TROZO_MAX, las ultimas).
+func _trozo_log() -> Array:
+	var n: int = _pantalla._log_lines.size()
+	var desde: int = maxi(_log_enviadas, n - _LOG_TROZO_MAX)
+	_log_enviadas = n
+	return _pantalla._log_lines.slice(desde, n)
+
+
+# ESPEJO: añade lo que falte de un trozo que acaba en la frase 'total'. Si hay hueco, pide el entero.
+func _aplicar_trozo_log(trozo: Array, total: int) -> void:
+	var primera: int = total - trozo.size()   # numero de la primera frase del trozo
+	if primera > _log_recibidas:
+		if not _log_pedido:
+			_log_pedido = true
+			Net.peleas.pedir_log_pelea()
+		return
+	for i in range(_log_recibidas - primera, trozo.size()):
+		_pantalla._pintar_linea_log(String(trozo[i]))
+	_log_recibidas = maxi(_log_recibidas, total)
+
+
+# ESPEJO: me llega el registro entero (lo pedi por un hueco). Sustituye al mio: las frases propias
+# del espejo (el aviso de "elige frase", por ejemplo) se pierden, y da igual, ya no son de ahora.
+func aplicar_log_entero(lineas: Array) -> void:
+	_log_pedido = false
+	_pantalla._rehacer_log(lineas)
+	_log_recibidas = lineas.size()
 
 
 # Lo que cambia de un combatiente entre instantaneas: sus tres barras y sus ESTADOS. Los estados van
@@ -376,7 +409,7 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	if t >= 0 and t < _pantalla._aliados.size():
 		_pantalla._player = _pantalla._aliados[t]
 	if snap.has("log"):
-		_pantalla._log.text = String(snap["log"])
+		_aplicar_trozo_log(snap["log"], int(snap.get("logn", 0)))
 	if bool(snap.get("fin", false)):
 		_pantalla._state = _pantalla.State.FINISHED
 		# Igual que en _end(): visible Y habilitado Y con su texto. Solo poner 'visible' no bastaba
@@ -523,7 +556,7 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 		ens.append({"net_id": int(nodo.get_meta("net_id")), "vivo": e.is_alive(),
 			"invocado": _pantalla._slots_invocados.has(i), "vol": _volatil(e),
 			"gauge": float(_pantalla._gauge.get(e, 0.0))})
-	return {"aliados": als, "enemigos": ens, "log": _pantalla._log.text}
+	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}
 
 
 # Corre en EL QUE RECOGE la pelea, con la pantalla ya montada por el camino de siempre: le vuelca
@@ -563,7 +596,14 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
 		if bool(filas_e[i].get("invocado", false)):
 			_pantalla._slots_invocados[i] = true   # los invocados no dan kill ni maná: la marca viaja
 	_rev += 1
-	_pantalla._set_log("Tomas el relevo de la pelea. " + String(estado.get("log", "")).split("\n")[-1])
+	# EL REGISTRO ENTERO se viene con la pelea: antes solo la ultima frase, y el que recogia el relevo
+	# (y todos sus espejos detras) seguia con un registro casi vacio. Los espejos que ya tenian hasta
+	# aqui siguen por su numeracion; al que le falte algo lo pedira por el hueco.
+	var log_viejo = estado.get("log", [])
+	if log_viejo is Array:
+		_pantalla._rehacer_log(log_viejo)
+		_log_enviadas = (log_viejo as Array).size()
+	_pantalla._set_log("Tomas el relevo de la pelea.")
 	_pantalla._update_hp()
 	_pantalla._update_timeline()
 

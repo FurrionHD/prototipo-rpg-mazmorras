@@ -45,6 +45,20 @@ func _ready() -> void:
 	await pelear_con(enemigo_libre(Vector2.INF, id_enemigo))
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == su_anfitrion,
 		"me uno a la pelea del host (anfitrion=%d, el suyo=%d)" % [Net.peleas._pelea_anfitrion, su_anfitrion])
+	# EL REGISTRO ENTERO al unirme a mitad: la primera frase de la pelea (la de la iniciativa) se escribio
+	# antes de que yo llegara, asi que solo la tengo si el espejo ha pedido el registro por el hueco.
+	var reg: Array = []
+	t = 0.0
+	while t < 5.0:
+		var pr: Node = pantalla()
+		reg = pr.get("_log_lines") if pr != null else []
+		if not reg.is_empty() and String(reg[0]).contains("iniciativa"):
+			break
+		await _esperar(0.25)
+		t += 0.25
+	_ok(not reg.is_empty() and String(reg[0]).contains("iniciativa"),
+		"al unirme veo el registro desde el principio (%d frases; la primera: '%s')" % [reg.size(),
+			String(reg[0]) if not reg.is_empty() else ""])
 	var agilidad_antes := agilidad_grupo()
 	t = 0.0
 	while Net.peleas.espejando() and t < 40.0:

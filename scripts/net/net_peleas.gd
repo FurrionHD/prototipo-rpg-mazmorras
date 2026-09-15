@@ -1255,6 +1255,32 @@ func _roster_pelea(roster: Dictionary) -> void:
 		p.aplicar_roster(roster)
 
 
+# ESPEJO: me falta un trozo del registro (me uni a mitad, o se escribio mucho de golpe). Lo pido
+# entero UNA vez; va fiable, que ENet lo trocea aunque pase de la MTU.
+func pedir_log_pelea() -> void:
+	if not Net.activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_pedir_log_pelea.rpc_id(_pelea_anfitrion)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_log_pelea() -> void:
+	if _pelea_id == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("log_entero"):
+		_log_pelea.rpc_id(multiplayer.get_remote_sender_id(), p.log_entero())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _log_pelea(lineas: Array) -> void:
+	if _pelea_sigo == 0 or not _de_mi_anfitrion():
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_log_entero"):
+		p.aplicar_log_entero(lineas)
+
+
 # ESPEJO: la revision no me cuadra (me he perdido un alta). Que me manden el roster otra vez.
 func pedir_roster_pelea() -> void:
 	if not Net.activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:

@@ -19,8 +19,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Log" type="Label" parent="VBox" unique_id=855215507]
+[node name="Log" type="RichTextLabel" parent="VBox" unique_id=855215507]
 layout_mode = 2
+fit_content = true
+scroll_active = false
 
 [node name="AttackButton" type="Button" parent="VBox" unique_id=1387380876]
 layout_mode = 2

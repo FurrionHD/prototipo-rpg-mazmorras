@@ -374,13 +374,16 @@ func _montar_log() -> void:
 
 	_pantalla._log.get_parent().remove_child(_pantalla._log)
 	_log_scroll.add_child(_pantalla._log)
-	# El Label ocupa el ancho del scroll y crece hacia abajo lo que haga falta: de medirlo se
-	# encarga el ScrollContainer, que para eso esta.
+	# El texto ocupa el ancho del scroll y crece hacia abajo lo que haga falta: de medirlo se
+	# encarga el ScrollContainer, que para eso esta. Es un RichTextLabel (ver combat._set_log) con
+	# fit_content para que mida su alto y SIN su propio scroll: el scroll es el del contenedor.
 	_pantalla._log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pantalla._log.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_pantalla._log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_pantalla._log.clip_text = false
-	_pantalla._log.add_theme_font_size_override("font_size", 18)
+	_pantalla._log.fit_content = true
+	_pantalla._log.scroll_active = false
+	_pantalla._log.bbcode_enabled = false
+	_pantalla._log.add_theme_font_size_override("normal_font_size", 18)
 	_pantalla._log.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 

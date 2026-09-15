@@ -103,7 +103,7 @@ const DEFEND_ENERGY_COST := 15.0
 const ATTACK_ENERGY_REGEN := 28.0
 
 
-@onready var _log: Label = $VBox/Log
+@onready var _log: RichTextLabel = $VBox/Log
 # La escena trae un unico boton (AttackButton). Ahora las 4 acciones se crean por
 # codigo (barra de acciones, KAN-55) y ESE boton se reutiliza como "Continuar" al
 # terminar el combate.
@@ -1994,24 +1994,44 @@ func _end(player_won: bool, fled: bool = false) -> void:
 # sobrescribia y no daba tiempo a leer los DoT / lo que aplicabas). Evita duplicar la misma
 # consecutiva.
 #
-# LOG_MAX son FRASES guardadas, no lineas pintadas: cada frase ocupa las lineas que necesite.
+# SIN TOPE: la pelea ENTERA se puede leer, dure lo que dure (decision del usuario del 15/09: hay
+# peleas mucho mas largas que 200 frases). Vive lo que la pantalla: al cerrar la pelea se va con ella.
 #
-# Antes eran 20, porque lo que se salia por arriba se PERDIA y guardar mas no servia de nada. Desde
-# que el registro tiene scroll (ver _montar_log), lo viejo no se pierde: se sube a buscarlo. Y con
-# 20 frases no habria practicamente nada que buscar -una Descarga sobre cuatro enemigos son 18
-# impactos, o sea que un solo turno se comia el historial entero-.
-const LOG_MAX := 200
+# Y POR ESO SE AÑADE, NO SE RECOMPONE. Antes era un Label al que se le hacia "\n".join de todo en
+# cada frase; medido con 3000 frases, cada una nueva costaba 70 ms (un tiron por golpe). Con un
+# RichTextLabel y add_text cuesta 1,3 ms a esa altura.
+#
+# En el ESPEJO las frases de la pelea llegan con la instantanea (ver espejo.aplicar_instantanea) y
+# entran por _pintar_linea_log, sin pasar por el filtro de repetidas: ese filtro ya lo paso el
+# anfitrion, y aqui se comeria dos golpes iguales seguidos.
 var _log_lines: Array[String] = []
 
 func _set_log(texto: String) -> void:
 	if _log_lines.size() > 0 and _log_lines[_log_lines.size() - 1] == texto:
 		return
+	_pintar_linea_log(texto)
+
+
+func _pintar_linea_log(texto: String) -> void:
+	if not _log_lines.is_empty():
+		_log.newline()
 	_log_lines.append(texto)
-	while _log_lines.size() > LOG_MAX:
-		_log_lines.pop_front()
-	_log.text = "\n".join(_log_lines)
+	_log.add_text(texto)
 	# A lo ultimo que ha pasado, que es lo que hay que estar viendo. Quien quiera mirar atras sube
 	# con la rueda; el siguiente golpe le devolvera al final, que es donde esta la pelea.
+	_log_al_final()
+
+
+# El registro entero de golpe: al recoger una pelea en un relevo, o cuando el espejo pide el log
+# completo porque le falta un trozo (ver espejo.aplicar_log_entero).
+func _rehacer_log(lineas: Array) -> void:
+	_log.clear()
+	_log_lines.clear()
+	for l in lineas:
+		if not _log_lines.is_empty():
+			_log.newline()
+		_log_lines.append(String(l))
+		_log.add_text(String(l))
 	_log_al_final()
 
 
@@ -2234,6 +2254,12 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 
 func aplicar_instantanea(snap: Dictionary) -> void:
 	espejo.aplicar_instantanea(snap)
+
+func log_entero() -> Array:
+	return _log_lines.duplicate()
+
+func aplicar_log_entero(lineas: Array) -> void:
+	espejo.aplicar_log_entero(lineas)
 
 func aplicar_roster(roster: Dictionary) -> void:
 	espejo.aplicar_roster(roster)

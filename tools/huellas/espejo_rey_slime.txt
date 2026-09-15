@@ -11,28 +11,45 @@ f48 Agirato ochinan hp=198.795 mp=14.485 en=177.425
 f50 PULSA Magia
 f53 PULSA _spell_box: Shock térmico fulminante  (14.06 MP)
 f56 PULSA frase Arde hasta el hueso
+f57 LOG ✓ Frase correcta. Continua el proximo turno...
 f104 PULSA Atacar
+f105 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 8.56 de daño. 💥
 f105 Rey Slime hp=850.604 mp=21.188 en=0.000
 f162 PULSA Objeto
 f165 PULSA _objeto_box: Poción de maná media  x3
 f168 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  14/37 🔷)
+f169 LOG Dasui le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f169 Agirato ochinan hp=198.795 mp=24.279 en=177.425
 f175 PULSA Defender
+f176 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f176 Catalardio hp=198.733 mp=24.620 en=166.275
+f189 LOG … 0.28 de daño: Dasui (0.00), Daniel (0.28)
 f189 Daniel hp=190.709 mp=20.000 en=181.025
+f254 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
+f287 LOG Daniel esquiva el ataque de 2. Slime. 💨
+f350 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f350 Agirato ochinan hp=198.795 mp=34.494 en=177.425
 f352 PULSA frase Y ahora, hiela
+f353 LOG ✓ Frase correcta. Continua el proximo turno...
 f413 PULSA Atacar
+f414 LOG Daniel golpea con Maza pequeña por 4.84 de daño.
 f414 Rey Slime hp=846.731 mp=21.188 en=0.000
 f476 PULSA Atacar
+f477 LOG Dasui golpea con Mandobles por 9.92 de daño.
 f477 Rey Slime hp=838.795 mp=21.188 en=0.000
 f541 PULSA Objeto
 f544 PULSA _objeto_box: Poción de maná media  x2
 f547 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  34/37 🔷)
+f548 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f548 Agirato ochinan hp=198.795 mp=36.500 en=177.425
+f559 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f561 PULSA frase Que el vidrio se parta
+f562 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
+f577 LOG 3. Slime venenoso ataca a Catalardio por 0.17 de daño.
 f577 Catalardio hp=198.566 mp=24.620 en=166.275
+f640 LOG … 0.12 de daño (1 de 1 golpes).  Aplica: Lento.
 f640 Dasui hp=199.522 mp=20.000 en=181.300
+f700 LOG 1. Rey Slime usa Brote contra Catalardio.  ¡Brotan 2 slimes a su lado! 🟢
 f700 Slime hp=32.050 mp=20.363 en=0.000
 f701 Slime hp=32.650 mp=20.429 en=0.000
 f701 Slime hp=32.050 mp=20.363 en=0.000
@@ -226,6 +243,7 @@ f794 Slime hp=32.050 mp=20.363 en=0.000
 f795 Slime hp=32.650 mp=20.429 en=0.000
 f795 Slime hp=32.050 mp=20.363 en=0.000
 f795 PULSA _ability_box: Golpe demoledor  (42 EN)
+f796 LOG … 13.60 de daño: 1. Rey Slime (6.81), 3. Slime venenoso (6.79)  ✨Aturdido, Aturdido.
 f796 Daniel hp=190.709 mp=20.000 en=139.025
 f796 Rey Slime hp=834.031 mp=21.188 en=0.000
 f796 Slime hp=32.650 mp=20.429 en=0.000
@@ -373,6 +391,7 @@ f866 Slime hp=32.650 mp=20.429 en=0.000
 f866 Slime hp=32.050 mp=20.363 en=0.000
 f867 Slime hp=32.650 mp=20.429 en=0.000
 f867 Slime hp=32.050 mp=20.363 en=0.000
+f868 LOG A Agirato ochinan se le disipa: Regen. maná.
 f868 Slime hp=32.650 mp=20.429 en=0.000
 f868 Slime hp=32.050 mp=20.363 en=0.000
 f869 Slime hp=32.650 mp=20.429 en=0.000
@@ -380,6 +399,7 @@ f869 Slime hp=32.050 mp=20.363 en=0.000
 f870 Slime hp=32.650 mp=20.429 en=0.000
 f870 Slime hp=32.050 mp=20.363 en=0.000
 f870 PULSA 🔥 ¡Lanzar Shock térmico fulminante!
+f871 LOG … 879.82 de daño en total.
 f871 Agirato ochinan hp=198.795 mp=22.444 en=177.425
 f871 Rey Slime hp=375.104 mp=21.188 en=0.000
 f871 Slime hp=32.650 mp=20.429 en=0.000
@@ -588,6 +608,7 @@ f938 Slime hp=32.650 mp=20.429 en=0.000
 f938 Slime hp=0.000 mp=20.363 en=0.000
 f938 Slime hp=32.050 mp=20.363 en=0.000
 f938 PULSA Atacar
+f939 LOG Dasui golpea con Mandobles por 11.57 de daño.
 f939 Rey Slime hp=365.850 mp=21.188 en=0.000
 f939 Slime hp=32.650 mp=20.429 en=0.000
 f939 Slime hp=0.000 mp=20.363 en=0.000
@@ -781,6 +802,7 @@ f1001 Slime hp=32.650 mp=20.429 en=0.000
 f1001 Slime hp=0.000 mp=20.363 en=0.000
 f1001 Slime hp=32.050 mp=20.363 en=0.000
 f1001 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  22/37 🔷)
+f1002 LOG Catalardio le da Poción de maná media a Agirato ochinan. 🔷 29 de maná (10 ya), repartido en 3 turnos.
 f1002 Agirato ochinan hp=198.795 mp=32.237 en=177.425
 f1002 Slime hp=32.650 mp=20.429 en=0.000
 f1002 Slime hp=0.000 mp=20.363 en=0.000
@@ -947,6 +969,7 @@ f1055 Slime hp=32.050 mp=20.363 en=0.000
 f1056 Slime hp=32.650 mp=20.429 en=0.000
 f1056 Slime hp=0.000 mp=20.363 en=0.000
 f1056 Slime hp=32.050 mp=20.363 en=0.000
+f1057 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f1057 Slime hp=32.650 mp=20.429 en=0.000
 f1057 Slime hp=0.000 mp=20.363 en=0.000
 f1057 Slime hp=32.050 mp=20.363 en=0.000
@@ -1073,6 +1096,7 @@ f1097 Slime hp=32.050 mp=20.363 en=0.000
 f1098 Slime hp=32.650 mp=20.429 en=0.000
 f1098 Slime hp=0.000 mp=20.363 en=0.000
 f1098 Slime hp=32.050 mp=20.363 en=0.000
+f1099 LOG ⚡ 5. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f1099 Slime hp=32.650 mp=20.429 en=0.000
 f1099 Slime hp=0.000 mp=20.363 en=0.000
 f1099 Slime hp=32.050 mp=20.363 en=0.000
@@ -1185,6 +1209,7 @@ f1135 Slime hp=32.650 mp=20.429 en=0.000
 f1135 Slime hp=0.000 mp=20.363 en=0.000
 f1135 Slime hp=32.050 mp=20.363 en=0.000
 f1135 PULSA Defender
+f1136 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f1136 Daniel hp=190.709 mp=20.000 en=124.025
 f1136 Slime hp=32.650 mp=20.429 en=0.000
 f1136 Slime hp=0.000 mp=20.363 en=0.000
@@ -1198,6 +1223,7 @@ f1138 Slime hp=32.050 mp=20.363 en=0.000
 f1139 Slime hp=32.650 mp=20.429 en=0.000
 f1139 Slime hp=0.000 mp=20.363 en=0.000
 f1139 Slime hp=32.050 mp=20.363 en=0.000
+f1140 LOG 1. Rey Slime está aturdido y pierde el turno. 💫
 f1140 Slime hp=32.650 mp=20.429 en=0.000
 f1140 Slime hp=0.000 mp=20.363 en=0.000
 f1140 Slime hp=32.050 mp=20.363 en=0.000
@@ -1318,6 +1344,7 @@ f1178 Slime hp=32.050 mp=20.363 en=0.000
 f1179 Slime hp=32.650 mp=20.429 en=0.000
 f1179 Slime hp=0.000 mp=20.363 en=0.000
 f1179 Slime hp=32.050 mp=20.363 en=0.000
+f1180 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f1180 Agirato ochinan hp=198.795 mp=36.500 en=177.425
 f1180 Slime hp=32.650 mp=20.429 en=0.000
 f1180 Slime hp=0.000 mp=20.363 en=0.000
@@ -1339,6 +1366,7 @@ f1185 Slime hp=32.650 mp=20.429 en=0.000
 f1185 Slime hp=0.000 mp=20.363 en=0.000
 f1185 Slime hp=32.050 mp=20.363 en=0.000
 f1185 PULSA _ability_box: Bastonazo  (26 EN)
+f1186 LOG … 9.20 de daño (1 de 1 golpes).  ✨Lento.
 f1186 Agirato ochinan hp=198.795 mp=36.500 en=151.425
 f1186 Rey Slime hp=358.490 mp=21.188 en=0.000
 f1186 Slime hp=32.650 mp=20.429 en=0.000
@@ -1600,6 +1628,7 @@ f1271 Slime hp=32.650 mp=20.429 en=0.000
 f1271 Slime hp=0.000 mp=20.363 en=0.000
 f1271 Slime hp=32.050 mp=20.363 en=0.000
 f1271 PULSA Atacar
+f1272 LOG Catalardio golpea con Martillo grande por 11.65 de daño.
 f1272 Catalardio hp=198.566 mp=24.620 en=181.275
 f1272 Rey Slime hp=349.170 mp=21.188 en=0.000
 f1272 Slime hp=32.650 mp=20.429 en=0.000
@@ -1813,6 +1842,7 @@ f1341 Slime hp=32.650 mp=20.429 en=0.000
 f1341 Slime hp=0.000 mp=20.363 en=0.000
 f1341 Slime hp=32.050 mp=20.363 en=0.000
 f1341 PULSA Atacar
+f1342 LOG Dasui golpea con Mandobles por 9.84 de daño.
 f1342 Rey Slime hp=341.298 mp=21.188 en=0.000
 f1342 Slime hp=32.650 mp=20.429 en=0.000
 f1342 Slime hp=0.000 mp=20.363 en=0.000
@@ -2114,6 +2144,7 @@ f1440 Slime hp=32.650 mp=20.429 en=0.000
 f1440 Slime hp=0.000 mp=20.363 en=0.000
 f1440 Slime hp=32.050 mp=20.363 en=0.000
 f1440 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f1441 LOG Daniel le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1441 Slime hp=32.650 mp=20.429 en=0.000
 f1441 Slime hp=0.000 mp=20.363 en=0.000
 f1441 Slime hp=32.050 mp=20.363 en=0.000
@@ -2135,6 +2166,7 @@ f1446 Slime hp=32.050 mp=20.363 en=0.000
 f1447 Slime hp=32.650 mp=20.429 en=0.000
 f1447 Slime hp=0.000 mp=20.363 en=0.000
 f1447 Slime hp=32.050 mp=20.363 en=0.000
+f1448 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f1448 Slime hp=32.650 mp=20.429 en=0.000
 f1448 Slime hp=0.000 mp=20.363 en=0.000
 f1448 Slime hp=32.050 mp=20.363 en=0.000
@@ -2145,6 +2177,7 @@ f1450 Slime hp=32.650 mp=20.429 en=0.000
 f1450 Slime hp=0.000 mp=20.363 en=0.000
 f1450 Slime hp=32.050 mp=20.363 en=0.000
 f1450 PULSA Defender
+f1451 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f1451 Agirato ochinan hp=198.795 mp=36.500 en=136.425
 f1451 Slime hp=32.650 mp=20.429 en=0.000
 f1451 Slime hp=0.000 mp=20.363 en=0.000
@@ -2164,6 +2197,7 @@ f1455 Slime hp=32.050 mp=20.363 en=0.000
 f1456 Slime hp=32.650 mp=20.429 en=0.000
 f1456 Slime hp=0.000 mp=20.363 en=0.000
 f1456 Slime hp=32.050 mp=20.363 en=0.000
+f1457 LOG … 0.46 de daño: Catalardio (0.34), Agirato ochinan (0.13), Dasui (0.00)  🛡️ Agirato ochinan aguanta en guardia (menos daño).
 f1457 Agirato ochinan hp=198.670 mp=36.500 en=136.425
 f1457 Catalardio hp=198.231 mp=24.620 en=181.275
 f1457 Slime hp=32.650 mp=20.429 en=0.000
@@ -2376,6 +2410,7 @@ f1525 Slime hp=32.050 mp=20.363 en=0.000
 f1526 Slime hp=32.650 mp=20.429 en=0.000
 f1526 Slime hp=0.000 mp=20.363 en=0.000
 f1526 Slime hp=32.050 mp=20.363 en=0.000
+f1527 LOG … 0.87 de daño: Daniel (0.74), Dasui (0.13)
 f1527 Dasui hp=199.397 mp=20.000 en=181.300
 f1527 Daniel hp=189.968 mp=20.000 en=124.025
 f1527 Slime hp=32.650 mp=20.429 en=0.000
@@ -2665,6 +2700,7 @@ f1621 Slime hp=32.650 mp=20.429 en=0.000
 f1621 Slime hp=0.000 mp=20.363 en=0.000
 f1621 Slime hp=32.050 mp=20.363 en=0.000
 f1621 PULSA _ability_box: Golpe sísmico  (60 EN)
+f1622 LOG … 34.18 de daño: 1. Rey Slime (16.61), 2. Slime (9.36), 5. Slime (8.21)
 f1622 Catalardio hp=198.231 mp=24.620 en=121.275
 f1622 Rey Slime hp=328.007 mp=21.188 en=0.000
 f1622 Slime hp=23.292 mp=20.429 en=0.000
@@ -2907,6 +2943,7 @@ f1700 Slime hp=23.838 mp=20.363 en=0.000
 f1701 Slime hp=23.292 mp=20.429 en=0.000
 f1701 Slime hp=0.000 mp=20.363 en=0.000
 f1701 Slime hp=23.838 mp=20.363 en=0.000
+f1702 LOG ⚡ 1. Rey Slime se prepara para Marea corrosiva. ¡Prepárate! (aturdirlo lo interrumpe)
 f1702 Slime hp=23.292 mp=20.429 en=0.000
 f1702 Slime hp=0.000 mp=20.363 en=0.000
 f1702 Slime hp=23.838 mp=20.363 en=0.000
@@ -3024,6 +3061,7 @@ f1739 Slime hp=23.838 mp=20.363 en=0.000
 f1740 Slime hp=23.292 mp=20.429 en=0.000
 f1740 Slime hp=0.000 mp=20.363 en=0.000
 f1740 Slime hp=23.838 mp=20.363 en=0.000
+f1741 LOG A Dasui se le disipa: Lento.
 f1741 Slime hp=23.292 mp=20.429 en=0.000
 f1741 Slime hp=0.000 mp=20.363 en=0.000
 f1741 Slime hp=23.838 mp=20.363 en=0.000
@@ -3034,6 +3072,7 @@ f1743 Slime hp=23.292 mp=20.429 en=0.000
 f1743 Slime hp=0.000 mp=20.363 en=0.000
 f1743 Slime hp=23.838 mp=20.363 en=0.000
 f1743 PULSA Atacar
+f1744 LOG Dasui golpea con Mandobles por 10.07 de daño.
 f1744 Rey Slime hp=319.952 mp=21.188 en=0.000
 f1744 Slime hp=23.292 mp=20.429 en=0.000
 f1744 Slime hp=0.000 mp=20.363 en=0.000
@@ -3216,6 +3255,7 @@ f1803 Slime hp=23.292 mp=20.429 en=0.000
 f1803 Slime hp=0.000 mp=20.363 en=0.000
 f1803 Slime hp=23.838 mp=20.363 en=0.000
 f1803 PULSA Atacar
+f1804 LOG Daniel golpea con Maza pequeña por 5.61 de daño.  ¡Retrasado! 💫
 f1804 Daniel hp=189.968 mp=20.000 en=159.025
 f1804 Rey Slime hp=315.464 mp=21.188 en=0.000
 f1804 Slime hp=23.292 mp=20.429 en=0.000
@@ -3371,6 +3411,7 @@ f1853 Slime hp=23.838 mp=20.363 en=0.000
 f1854 Slime hp=23.292 mp=20.429 en=0.000
 f1854 Slime hp=0.000 mp=20.363 en=0.000
 f1854 Slime hp=23.838 mp=20.363 en=0.000
+f1855 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f1855 Slime hp=23.292 mp=20.429 en=0.000
 f1855 Slime hp=0.000 mp=20.363 en=0.000
 f1855 Slime hp=23.838 mp=20.363 en=0.000
@@ -3401,6 +3442,7 @@ f1863 Slime hp=23.292 mp=20.429 en=0.000
 f1863 Slime hp=0.000 mp=20.363 en=0.000
 f1863 Slime hp=23.838 mp=20.363 en=0.000
 f1863 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f1864 LOG Agirato ochinan se bebe Poción de maná media +1. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f1864 Slime hp=23.292 mp=20.429 en=0.000
 f1864 Slime hp=0.000 mp=20.363 en=0.000
 f1864 Slime hp=23.838 mp=20.363 en=0.000
@@ -3521,6 +3563,7 @@ f1902 Slime hp=23.838 mp=20.363 en=0.000
 f1903 Slime hp=23.292 mp=20.429 en=0.000
 f1903 Slime hp=0.000 mp=20.363 en=0.000
 f1903 Slime hp=23.838 mp=20.363 en=0.000
+f1904 LOG 2. Slime ataca a Daniel por 0.34 de daño.  Le inflige Pegajoso.
 f1904 Daniel hp=189.624 mp=20.000 en=159.025
 f1904 Slime hp=23.292 mp=20.429 en=0.000
 f1904 Slime hp=0.000 mp=20.363 en=0.000
@@ -3720,6 +3763,7 @@ f1968 Slime hp=23.838 mp=20.363 en=0.000
 f1969 Slime hp=23.292 mp=20.429 en=0.000
 f1969 Slime hp=0.000 mp=20.363 en=0.000
 f1969 Slime hp=23.838 mp=20.363 en=0.000
+f1970 LOG 5. Slime ataca a Catalardio por 0.14 de daño.
 f1970 Catalardio hp=198.088 mp=24.620 en=121.275
 f1970 Slime hp=23.292 mp=20.429 en=0.000
 f1970 Slime hp=0.000 mp=20.363 en=0.000
@@ -3929,6 +3973,7 @@ f2038 Slime hp=23.292 mp=20.429 en=0.000
 f2038 Slime hp=0.000 mp=20.363 en=0.000
 f2038 Slime hp=23.838 mp=20.363 en=0.000
 f2038 PULSA Defender
+f2039 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f2039 Catalardio hp=198.088 mp=24.620 en=106.275
 f2039 Slime hp=23.292 mp=20.429 en=0.000
 f2039 Slime hp=0.000 mp=20.363 en=0.000
@@ -4002,6 +4047,7 @@ f2061 Slime hp=23.838 mp=20.363 en=0.000
 f2062 Slime hp=23.292 mp=20.429 en=0.000
 f2062 Slime hp=0.000 mp=20.363 en=0.000
 f2062 Slime hp=23.838 mp=20.363 en=0.000
+f2063 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f2063 Slime hp=23.292 mp=20.429 en=0.000
 f2063 Slime hp=0.000 mp=20.363 en=0.000
 f2063 Slime hp=23.838 mp=20.363 en=0.000
@@ -4022,6 +4068,7 @@ f2068 Slime hp=23.292 mp=20.429 en=0.000
 f2068 Slime hp=0.000 mp=20.363 en=0.000
 f2068 Slime hp=23.838 mp=20.363 en=0.000
 f2068 PULSA _ability_box: Bastonazo  (26 EN)
+f2069 LOG … 17.45 de daño (1 de 1 golpes).  ✨Lento.
 f2069 Agirato ochinan hp=198.670 mp=36.500 en=110.425
 f2069 Rey Slime hp=301.501 mp=21.188 en=0.000
 f2069 Slime hp=23.292 mp=20.429 en=0.000
@@ -4202,6 +4249,7 @@ f2127 Slime hp=23.292 mp=20.429 en=0.000
 f2127 Slime hp=0.000 mp=20.363 en=0.000
 f2127 Slime hp=23.838 mp=20.363 en=0.000
 f2127 PULSA Atacar
+f2128 LOG Dasui golpea con Mandobles por 11.41 de daño.
 f2128 Rey Slime hp=292.370 mp=21.188 en=0.000
 f2128 Slime hp=23.292 mp=20.429 en=0.000
 f2128 Slime hp=0.000 mp=20.363 en=0.000
@@ -4375,6 +4423,7 @@ f2184 Slime hp=23.292 mp=20.429 en=0.000
 f2184 Slime hp=0.000 mp=20.363 en=0.000
 f2184 Slime hp=23.838 mp=20.363 en=0.000
 f2184 PULSA Atacar
+f2185 LOG Daniel golpea con Maza pequeña por 6.11 de daño.
 f2185 Daniel hp=189.624 mp=20.000 en=181.025
 f2185 Rey Slime hp=287.485 mp=21.188 en=0.000
 f2185 Slime hp=23.292 mp=20.429 en=0.000
@@ -4731,6 +4780,7 @@ f2301 Slime hp=23.838 mp=20.363 en=0.000
 f2302 Slime hp=23.292 mp=20.429 en=0.000
 f2302 Slime hp=0.000 mp=20.363 en=0.000
 f2302 Slime hp=23.838 mp=20.363 en=0.000
+f2303 LOG Agirato ochinan esquiva el ataque de 2. Slime. 💨
 f2303 Slime hp=23.292 mp=20.429 en=0.000
 f2303 Slime hp=0.000 mp=20.363 en=0.000
 f2303 Slime hp=23.838 mp=20.363 en=0.000
@@ -4956,12 +5006,14 @@ f2376 Slime hp=23.292 mp=20.429 en=0.000
 f2376 Slime hp=0.000 mp=20.363 en=0.000
 f2376 Slime hp=23.838 mp=20.363 en=0.000
 f2376 PULSA _objeto_box: Agirato ochinan  (199/200 ♥  37/37 🔷)
+f2377 LOG Catalardio le da Poción de maná media +1 a Agirato ochinan. 🔷 38 de maná (10 ya), repartido en 4 turnos.
 f2377 Slime hp=23.292 mp=20.429 en=0.000
 f2377 Slime hp=0.000 mp=20.363 en=0.000
 f2377 Slime hp=23.838 mp=20.363 en=0.000
 f2378 Slime hp=23.292 mp=20.429 en=0.000
 f2378 Slime hp=0.000 mp=20.363 en=0.000
 f2378 Slime hp=23.838 mp=20.363 en=0.000
+f2379 LOG 5. Slime ataca a Agirato ochinan por 0.13 de daño.  Le inflige Pegajoso.
 f2379 Agirato ochinan hp=198.540 mp=36.500 en=110.425
 f2379 Slime hp=23.292 mp=20.429 en=0.000
 f2379 Slime hp=0.000 mp=20.363 en=0.000
@@ -5125,6 +5177,7 @@ f2431 Slime hp=23.838 mp=20.363 en=0.000
 f2432 Slime hp=23.292 mp=20.429 en=0.000
 f2432 Slime hp=0.000 mp=20.363 en=0.000
 f2432 Slime hp=23.838 mp=20.363 en=0.000
+f2433 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f2433 Slime hp=23.292 mp=20.429 en=0.000
 f2433 Slime hp=0.000 mp=20.363 en=0.000
 f2433 Slime hp=23.838 mp=20.363 en=0.000
@@ -5135,6 +5188,7 @@ f2435 Slime hp=23.292 mp=20.429 en=0.000
 f2435 Slime hp=0.000 mp=20.363 en=0.000
 f2435 Slime hp=23.838 mp=20.363 en=0.000
 f2435 PULSA Defender
+f2436 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f2436 Agirato ochinan hp=198.540 mp=36.500 en=95.425
 f2436 Slime hp=23.292 mp=20.429 en=0.000
 f2436 Slime hp=0.000 mp=20.363 en=0.000
@@ -5207,6 +5261,7 @@ f2458 Slime hp=23.292 mp=20.429 en=0.000
 f2458 Slime hp=0.000 mp=20.363 en=0.000
 f2458 Slime hp=23.838 mp=20.363 en=0.000
 f2458 PULSA _ability_box: Tajo devastador  (72 EN)
+f2459 LOG … 26.57 de daño (1 de 1 golpes).
 f2459 Dasui hp=199.397 mp=20.000 en=109.300
 f2459 Rey Slime hp=266.227 mp=21.188 en=0.000
 f2459 Slime hp=23.292 mp=20.429 en=0.000
@@ -5381,6 +5436,7 @@ f2515 Slime hp=23.292 mp=20.429 en=0.000
 f2515 Slime hp=0.000 mp=20.363 en=0.000
 f2515 Slime hp=23.838 mp=20.363 en=0.000
 f2515 PULSA Atacar
+f2516 LOG Daniel golpea con Maza pequeña por 4.92 de daño.
 f2516 Rey Slime hp=262.287 mp=21.188 en=0.000
 f2516 Slime hp=23.292 mp=20.429 en=0.000
 f2516 Slime hp=0.000 mp=20.363 en=0.000
@@ -5646,6 +5702,7 @@ f2602 Slime hp=23.838 mp=20.363 en=0.000
 f2603 Slime hp=23.292 mp=20.429 en=0.000
 f2603 Slime hp=0.000 mp=20.363 en=0.000
 f2603 Slime hp=23.838 mp=20.363 en=0.000
+f2604 LOG … 1.51 de daño: Daniel (0.00), Agirato ochinan (0.41), Catalardio (0.73), Dasui (0.37)  🛡️ Agirato ochinan aguanta en guardia (menos daño).  Aplica: Vulnerable, Vulnerable.
 f2604 Agirato ochinan hp=198.128 mp=36.500 en=95.425
 f2604 Catalardio hp=197.355 mp=24.620 en=106.275
 f2604 Dasui hp=199.029 mp=20.000 en=109.300
@@ -5931,16 +5988,19 @@ f2696 Slime hp=23.838 mp=20.363 en=0.000
 f2697 Slime hp=23.292 mp=20.429 en=0.000
 f2697 Slime hp=0.000 mp=20.363 en=0.000
 f2697 Slime hp=23.838 mp=20.363 en=0.000
+f2698 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f2698 Slime hp=23.292 mp=20.429 en=0.000
 f2698 Slime hp=0.000 mp=20.363 en=0.000
 f2698 Slime hp=23.838 mp=20.363 en=0.000
 f2699 Slime hp=23.292 mp=20.429 en=0.000
 f2699 Slime hp=0.000 mp=20.363 en=0.000
 f2699 Slime hp=23.838 mp=20.363 en=0.000
+f2700 LOG ¡Turno de Agirato ochinan! Elige una acción.
 f2700 Slime hp=23.292 mp=20.429 en=0.000
 f2700 Slime hp=0.000 mp=20.363 en=0.000
 f2700 Slime hp=23.838 mp=20.363 en=0.000
 f2700 PULSA Atacar
+f2701 LOG Agirato ochinan golpea con Baston por 6.81 de daño.
 f2701 Agirato ochinan hp=198.128 mp=36.500 en=123.425
 f2701 Rey Slime hp=256.840 mp=21.188 en=0.000
 f2701 Slime hp=23.292 mp=20.429 en=0.000
@@ -6144,12 +6204,14 @@ f2766 Slime hp=23.292 mp=20.429 en=0.000
 f2766 Slime hp=0.000 mp=20.363 en=0.000
 f2766 Slime hp=23.838 mp=20.363 en=0.000
 f2766 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f2767 LOG Catalardio le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
 f2767 Slime hp=23.292 mp=20.429 en=0.000
 f2767 Slime hp=0.000 mp=20.363 en=0.000
 f2767 Slime hp=23.838 mp=20.363 en=0.000
 f2768 Slime hp=23.292 mp=20.429 en=0.000
 f2768 Slime hp=0.000 mp=20.363 en=0.000
 f2768 Slime hp=23.838 mp=20.363 en=0.000
+f2769 LOG … 0.25 de daño (1 de 1 golpes).  Aplica: Pegajoso, Lento.
 f2769 Agirato ochinan hp=197.879 mp=36.500 en=123.425
 f2769 Slime hp=23.292 mp=20.429 en=0.000
 f2769 Slime hp=0.000 mp=20.363 en=0.000
@@ -6362,10 +6424,12 @@ f2838 Slime hp=23.292 mp=20.429 en=0.000
 f2838 Slime hp=0.000 mp=20.363 en=0.000
 f2838 Slime hp=23.838 mp=20.363 en=0.000
 f2838 PULSA Defender
+f2839 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f2839 Dasui hp=199.029 mp=20.000 en=94.300
 f2839 Slime hp=23.292 mp=20.429 en=0.000
 f2839 Slime hp=0.000 mp=20.363 en=0.000
 f2839 Slime hp=23.838 mp=20.363 en=0.000
+f2840 LOG … 0.08 de daño: Dasui (0.08), Agirato ochinan (0.00)  🛡️ Dasui aguanta en guardia (menos daño).
 f2840 Dasui hp=198.954 mp=20.000 en=94.300
 f2840 Slime hp=23.292 mp=20.429 en=0.000
 f2840 Slime hp=0.000 mp=20.363 en=0.000
@@ -6561,6 +6625,7 @@ f2903 Slime hp=23.292 mp=20.429 en=0.000
 f2903 Slime hp=0.000 mp=20.363 en=0.000
 f2903 Slime hp=23.838 mp=20.363 en=0.000
 f2903 PULSA _ability_box: Golpe demoledor  (42 EN)
+f2904 LOG … 11.55 de daño: 1. Rey Slime (7.26), 2. Slime (4.28)
 f2904 Daniel hp=189.624 mp=20.000 en=139.025
 f2904 Rey Slime hp=251.029 mp=21.188 en=0.000
 f2904 Slime hp=19.009 mp=20.429 en=0.000
@@ -7008,6 +7073,7 @@ f3051 Slime hp=19.009 mp=20.429 en=0.000
 f3051 Slime hp=0.000 mp=20.363 en=0.000
 f3051 Slime hp=23.838 mp=20.363 en=0.000
 f3051 PULSA Atacar
+f3052 LOG Catalardio golpea con Martillo grande por 10.96 de daño.
 f3052 Catalardio hp=197.355 mp=24.620 en=148.275
 f3052 Rey Slime hp=242.263 mp=21.188 en=0.000
 f3052 Slime hp=19.009 mp=20.429 en=0.000
@@ -7181,6 +7247,7 @@ f3107 Slime hp=23.838 mp=20.363 en=0.000
 f3108 Slime hp=19.009 mp=20.429 en=0.000
 f3108 Slime hp=0.000 mp=20.363 en=0.000
 f3108 Slime hp=23.838 mp=20.363 en=0.000
+f3109 LOG Agirato ochinan recupera 9.79 de maná. 🔷
 f3109 Slime hp=19.009 mp=20.429 en=0.000
 f3109 Slime hp=0.000 mp=20.363 en=0.000
 f3109 Slime hp=23.838 mp=20.363 en=0.000
@@ -7191,6 +7258,7 @@ f3111 Slime hp=19.009 mp=20.429 en=0.000
 f3111 Slime hp=0.000 mp=20.363 en=0.000
 f3111 Slime hp=23.838 mp=20.363 en=0.000
 f3111 PULSA Atacar
+f3112 LOG Agirato ochinan golpea con Baston por 6.42 de daño.
 f3112 Agirato ochinan hp=197.879 mp=36.500 en=151.425
 f3112 Rey Slime hp=237.125 mp=21.188 en=0.000
 f3112 Slime hp=19.009 mp=20.429 en=0.000
@@ -7388,12 +7456,14 @@ f3175 Slime hp=19.009 mp=20.429 en=0.000
 f3175 Slime hp=0.000 mp=20.363 en=0.000
 f3175 Slime hp=23.838 mp=20.363 en=0.000
 f3175 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f3176 LOG Dasui le da Poción de maná media +2 a Agirato ochinan. 🔷 46 de maná (9 ya), repartido en 5 turnos.
 f3176 Slime hp=19.009 mp=20.429 en=0.000
 f3176 Slime hp=0.000 mp=20.363 en=0.000
 f3176 Slime hp=23.838 mp=20.363 en=0.000
 f3177 Slime hp=19.009 mp=20.429 en=0.000
 f3177 Slime hp=0.000 mp=20.363 en=0.000
 f3177 Slime hp=23.838 mp=20.363 en=0.000
+f3178 LOG A Daniel se le disipa: Pegajoso.
 f3178 Slime hp=19.009 mp=20.429 en=0.000
 f3178 Slime hp=0.000 mp=20.363 en=0.000
 f3178 Slime hp=23.838 mp=20.363 en=0.000
@@ -7404,6 +7474,7 @@ f3180 Slime hp=19.009 mp=20.429 en=0.000
 f3180 Slime hp=0.000 mp=20.363 en=0.000
 f3180 Slime hp=23.838 mp=20.363 en=0.000
 f3180 PULSA Defender
+f3181 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f3181 Daniel hp=189.624 mp=20.000 en=124.025
 f3181 Slime hp=19.009 mp=20.429 en=0.000
 f3181 Slime hp=0.000 mp=20.363 en=0.000
@@ -7414,6 +7485,7 @@ f3182 Slime hp=23.838 mp=20.363 en=0.000
 f3183 Slime hp=19.009 mp=20.429 en=0.000
 f3183 Slime hp=0.000 mp=20.363 en=0.000
 f3183 Slime hp=23.838 mp=20.363 en=0.000
+f3184 LOG … no te ha dado con ninguno de los 2 golpes.  🛡️ Daniel aguanta en guardia (menos daño).
 f3184 Slime hp=19.009 mp=20.429 en=0.000
 f3184 Slime hp=0.000 mp=20.363 en=0.000
 f3184 Slime hp=23.838 mp=20.363 en=0.000
@@ -7600,6 +7672,7 @@ f3244 Slime hp=23.838 mp=20.363 en=0.000
 f3245 Slime hp=19.009 mp=20.429 en=0.000
 f3245 Slime hp=0.000 mp=20.363 en=0.000
 f3245 Slime hp=23.838 mp=20.363 en=0.000
+f3246 LOG ⚡ 1. Rey Slime se prepara para Brote. ¡Prepárate! (aturdirlo lo interrumpe)
 f3246 Slime hp=19.009 mp=20.429 en=0.000
 f3246 Slime hp=0.000 mp=20.363 en=0.000
 f3246 Slime hp=23.838 mp=20.363 en=0.000
@@ -7738,6 +7811,7 @@ f3290 Slime hp=23.838 mp=20.363 en=0.000
 f3291 Slime hp=19.009 mp=20.429 en=0.000
 f3291 Slime hp=0.000 mp=20.363 en=0.000
 f3291 Slime hp=23.838 mp=20.363 en=0.000
+f3292 LOG ⚡ 5. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f3292 Slime hp=19.009 mp=20.429 en=0.000
 f3292 Slime hp=0.000 mp=20.363 en=0.000
 f3292 Slime hp=23.838 mp=20.363 en=0.000
@@ -8085,6 +8159,7 @@ f3406 Slime hp=19.009 mp=20.429 en=0.000
 f3406 Slime hp=0.000 mp=20.363 en=0.000
 f3406 Slime hp=23.838 mp=20.363 en=0.000
 f3406 PULSA _ability_box: Golpe sísmico  (60 EN)
+f3407 LOG … 36.77 de daño: 1. Rey Slime (19.21), 2. Slime (7.87), 5. Slime (9.68)
 f3407 Catalardio hp=197.355 mp=24.620 en=88.275
 f3407 Rey Slime hp=221.760 mp=21.188 en=0.000
 f3407 Slime hp=11.135 mp=20.429 en=0.000
@@ -8256,6 +8331,7 @@ f3462 Slime hp=11.135 mp=20.429 en=0.000
 f3462 Slime hp=0.000 mp=20.363 en=0.000
 f3462 Slime hp=14.155 mp=20.363 en=0.000
 f3462 PULSA Atacar
+f3463 LOG Daniel golpea con Maza pequeña por 5.89 de daño.
 f3463 Daniel hp=189.624 mp=20.000 en=159.025
 f3463 Rey Slime hp=217.050 mp=21.188 en=0.000
 f3463 Slime hp=11.135 mp=20.429 en=0.000
@@ -8424,6 +8500,7 @@ f3517 Slime hp=11.135 mp=20.429 en=0.000
 f3517 Slime hp=0.000 mp=20.363 en=0.000
 f3517 Slime hp=14.155 mp=20.363 en=0.000
 f3517 PULSA Atacar
+f3518 LOG Dasui golpea con Mandobles por 10.20 de daño.
 f3518 Dasui hp=198.954 mp=20.000 en=136.300
 f3518 Rey Slime hp=208.888 mp=21.188 en=0.000
 f3518 Slime hp=11.135 mp=20.429 en=0.000
@@ -8636,6 +8713,7 @@ f3586 Slime hp=14.155 mp=20.363 en=0.000
 f3587 Slime hp=11.135 mp=20.429 en=0.000
 f3587 Slime hp=0.000 mp=20.363 en=0.000
 f3587 Slime hp=14.155 mp=20.363 en=0.000
+f3588 LOG A Agirato ochinan se le disipa: Pegajoso.
 f3588 Slime hp=11.135 mp=20.429 en=0.000
 f3588 Slime hp=0.000 mp=20.363 en=0.000
 f3588 Slime hp=14.155 mp=20.363 en=0.000
@@ -8666,6 +8744,7 @@ f3596 Slime hp=11.135 mp=20.429 en=0.000
 f3596 Slime hp=0.000 mp=20.363 en=0.000
 f3596 Slime hp=14.155 mp=20.363 en=0.000
 f3596 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f3597 LOG Agirato ochinan se bebe Poción de maná media +3. 🔷 54 de maná (11 ya), repartido en 5 turnos.
 f3597 Slime hp=11.135 mp=20.429 en=0.000
 f3597 Slime hp=0.000 mp=20.363 en=0.000
 f3597 Slime hp=14.155 mp=20.363 en=0.000
@@ -8690,6 +8769,7 @@ f3603 Slime hp=14.155 mp=20.363 en=0.000
 f3604 Slime hp=11.135 mp=20.429 en=0.000
 f3604 Slime hp=0.000 mp=20.363 en=0.000
 f3604 Slime hp=14.155 mp=20.363 en=0.000
+f3605 LOG Catalardio esquiva el ataque de 2. Slime. 💨
 f3605 Slime hp=11.135 mp=20.429 en=0.000
 f3605 Slime hp=0.000 mp=20.363 en=0.000
 f3605 Slime hp=14.155 mp=20.363 en=0.000
@@ -8909,6 +8989,7 @@ f3676 Slime hp=14.155 mp=20.363 en=0.000
 f3677 Slime hp=11.135 mp=20.429 en=0.000
 f3677 Slime hp=0.000 mp=20.363 en=0.000
 f3677 Slime hp=14.155 mp=20.363 en=0.000
+f3678 LOG … 0.99 de daño: Daniel (0.86), Dasui (0.13)
 f3678 Dasui hp=198.829 mp=20.000 en=136.300
 f3678 Daniel hp=188.760 mp=20.000 en=159.025
 f3678 Slime hp=11.135 mp=20.429 en=0.000
@@ -9211,6 +9292,7 @@ f3776 Slime hp=14.155 mp=20.363 en=0.000
 f3777 Slime hp=11.135 mp=20.429 en=0.000
 f3777 Slime hp=0.000 mp=20.363 en=0.000
 f3777 Slime hp=14.155 mp=20.363 en=0.000
+f3778 LOG 1. Rey Slime usa Brote contra Agirato ochinan.  ¡Brotan 2 slimes a su lado! 🟢
 f3778 Slime hp=11.135 mp=20.429 en=0.000
 f3778 Slime de fuego hp=50.050 mp=20.363 en=0.000
 f3778 Slime hp=32.050 mp=20.363 en=0.000
@@ -9417,6 +9499,7 @@ f3845 Slime hp=11.135 mp=20.429 en=0.000
 f3845 Slime hp=32.050 mp=20.363 en=0.000
 f3845 Slime hp=14.155 mp=20.363 en=0.000
 f3845 PULSA Defender
+f3846 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f3846 Daniel hp=188.760 mp=20.000 en=144.025
 f3846 Slime hp=11.135 mp=20.429 en=0.000
 f3846 Slime hp=32.050 mp=20.363 en=0.000
@@ -9462,6 +9545,7 @@ f3859 Slime hp=11.135 mp=20.429 en=0.000
 f3859 Slime hp=32.050 mp=20.363 en=0.000
 f3859 Slime hp=14.155 mp=20.363 en=0.000
 f3859 PULSA _ability_box: Tajo devastador  (72 EN)
+f3860 LOG … 26.70 de daño (1 de 1 golpes).
 f3860 Dasui hp=198.829 mp=20.000 en=64.300
 f3860 Rey Slime hp=190.199 mp=21.188 en=0.000
 f3860 Slime hp=11.135 mp=20.429 en=0.000
@@ -9617,6 +9701,7 @@ f3909 Slime hp=14.155 mp=20.363 en=0.000
 f3910 Slime hp=11.135 mp=20.429 en=0.000
 f3910 Slime hp=32.050 mp=20.363 en=0.000
 f3910 Slime hp=14.155 mp=20.363 en=0.000
+f3911 LOG A Catalardio se le disipa: Vulnerable.
 f3911 Slime hp=11.135 mp=20.429 en=0.000
 f3911 Slime hp=32.050 mp=20.363 en=0.000
 f3911 Slime hp=14.155 mp=20.363 en=0.000
@@ -9627,6 +9712,7 @@ f3913 Slime hp=11.135 mp=20.429 en=0.000
 f3913 Slime hp=32.050 mp=20.363 en=0.000
 f3913 Slime hp=14.155 mp=20.363 en=0.000
 f3913 PULSA Atacar
+f3914 LOG Catalardio golpea con Martillo grande por 12.57 de daño.
 f3914 Catalardio hp=197.355 mp=24.620 en=130.275
 f3914 Rey Slime hp=181.397 mp=21.188 en=0.000
 f3914 Slime hp=11.135 mp=20.429 en=0.000
@@ -9887,6 +9973,7 @@ f3998 Slime hp=14.155 mp=20.363 en=0.000
 f3999 Slime hp=11.135 mp=20.429 en=0.000
 f3999 Slime hp=32.050 mp=20.363 en=0.000
 f3999 Slime hp=14.155 mp=20.363 en=0.000
+f4000 LOG A Agirato ochinan se le disipa: Vulnerable, Lento.
 f4000 Slime hp=11.135 mp=20.429 en=0.000
 f4000 Slime hp=32.050 mp=20.363 en=0.000
 f4000 Slime hp=14.155 mp=20.363 en=0.000
@@ -9897,6 +9984,7 @@ f4002 Slime hp=11.135 mp=20.429 en=0.000
 f4002 Slime hp=32.050 mp=20.363 en=0.000
 f4002 Slime hp=14.155 mp=20.363 en=0.000
 f4002 PULSA Atacar
+f4003 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 8.91 de daño. 💥
 f4003 Agirato ochinan hp=197.879 mp=36.500 en=177.425
 f4003 Rey Slime hp=175.157 mp=21.188 en=0.000
 f4003 Slime hp=11.135 mp=20.429 en=0.000
@@ -10091,6 +10179,7 @@ f4065 Slime hp=14.155 mp=20.363 en=0.000
 f4066 Slime hp=11.135 mp=20.429 en=0.000
 f4066 Slime hp=32.050 mp=20.363 en=0.000
 f4066 Slime hp=14.155 mp=20.363 en=0.000
+f4067 LOG … 0.12 de daño (1 de 1 golpes).  🛡️ Daniel aguanta en guardia (menos daño).  Aplica: Pegajoso, Lento.
 f4067 Daniel hp=188.640 mp=20.000 en=144.025
 f4067 Slime hp=11.135 mp=20.429 en=0.000
 f4067 Slime hp=32.050 mp=20.363 en=0.000
@@ -10317,6 +10406,7 @@ f4140 Slime hp=14.155 mp=20.363 en=0.000
 f4141 Slime hp=11.135 mp=20.429 en=0.000
 f4141 Slime hp=32.050 mp=20.363 en=0.000
 f4141 Slime hp=14.155 mp=20.363 en=0.000
+f4142 LOG … 0.12 de daño (1 de 1 golpes).
 f4142 Dasui hp=198.709 mp=20.000 en=64.300
 f4142 Slime hp=11.135 mp=20.429 en=0.000
 f4142 Slime hp=32.050 mp=20.363 en=0.000
@@ -10606,6 +10696,7 @@ f4236 Slime hp=11.135 mp=20.429 en=0.000
 f4236 Slime hp=32.050 mp=20.363 en=0.000
 f4236 Slime hp=14.155 mp=20.363 en=0.000
 f4236 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4237 LOG Daniel le da Poción de maná menor +1 a Agirato ochinan. 🔷 17 de maná (4 ya), repartido en 4 turnos.
 f4237 Slime hp=11.135 mp=20.429 en=0.000
 f4237 Slime hp=32.050 mp=20.363 en=0.000
 f4237 Slime hp=14.155 mp=20.363 en=0.000
@@ -10636,6 +10727,7 @@ f4245 Slime hp=11.135 mp=20.429 en=0.000
 f4245 Slime hp=32.050 mp=20.363 en=0.000
 f4245 Slime hp=14.155 mp=20.363 en=0.000
 f4245 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4246 LOG Dasui le da Poción de maná menor +2 a Agirato ochinan. 🔷 24 de maná (5 ya), repartido en 5 turnos.
 f4246 Slime hp=11.135 mp=20.429 en=0.000
 f4246 Slime hp=32.050 mp=20.363 en=0.000
 f4246 Slime hp=14.155 mp=20.363 en=0.000
@@ -10664,6 +10756,7 @@ f4254 Slime hp=11.135 mp=20.429 en=0.000
 f4254 Slime hp=32.050 mp=20.363 en=0.000
 f4254 Slime hp=14.155 mp=20.363 en=0.000
 f4254 PULSA Defender
+f4255 LOG 3. Slime de fuego usa Ignición contra Catalardio.  Aplica: Fortaleza (a sí mismo).
 f4255 Catalardio hp=197.355 mp=24.620 en=115.275
 f4255 Slime hp=11.135 mp=20.429 en=0.000
 f4255 Slime hp=32.050 mp=20.363 en=0.000
@@ -10821,6 +10914,7 @@ f4305 Slime hp=14.155 mp=20.363 en=0.000
 f4306 Slime hp=11.135 mp=20.429 en=0.000
 f4306 Slime hp=32.050 mp=20.363 en=0.000
 f4306 Slime hp=14.155 mp=20.363 en=0.000
+f4307 LOG 4. Slime ataca a Catalardio por 0.10 de daño. (defendido 🛡️)
 f4307 Catalardio hp=197.255 mp=24.620 en=115.275
 f4307 Slime hp=11.135 mp=20.429 en=0.000
 f4307 Slime hp=32.050 mp=20.363 en=0.000
@@ -11035,6 +11129,7 @@ f4376 Slime hp=14.155 mp=20.363 en=0.000
 f4377 Slime hp=11.135 mp=20.429 en=0.000
 f4377 Slime hp=32.050 mp=20.363 en=0.000
 f4377 Slime hp=14.155 mp=20.363 en=0.000
+f4378 LOG A Agirato ochinan se le disipa: Pegajoso.
 f4378 Slime hp=11.135 mp=20.429 en=0.000
 f4378 Slime hp=32.050 mp=20.363 en=0.000
 f4378 Slime hp=14.155 mp=20.363 en=0.000
@@ -11055,6 +11150,7 @@ f4383 Slime hp=11.135 mp=20.429 en=0.000
 f4383 Slime hp=32.050 mp=20.363 en=0.000
 f4383 Slime hp=14.155 mp=20.363 en=0.000
 f4383 PULSA _ability_box: Bastonazo  (26 EN)
+f4384 LOG … 10.05 de daño (1 de 1 golpes).  ✨Lento.
 f4384 Agirato ochinan hp=197.879 mp=36.500 en=151.425
 f4384 Rey Slime hp=168.125 mp=21.188 en=0.000
 f4384 Slime hp=11.135 mp=20.429 en=0.000
@@ -11309,6 +11405,7 @@ f4466 Slime hp=14.155 mp=20.363 en=0.000
 f4467 Slime hp=11.135 mp=20.429 en=0.000
 f4467 Slime hp=32.050 mp=20.363 en=0.000
 f4467 Slime hp=14.155 mp=20.363 en=0.000
+f4468 LOG … 1.61 de daño: Dasui (0.30), Catalardio (0.41), Agirato ochinan (0.25), Daniel (0.64)  🛡️ Catalardio aguanta en guardia (menos daño).  Aplica: Pegajoso.
 f4468 Agirato ochinan hp=197.630 mp=36.500 en=151.425
 f4468 Catalardio hp=196.843 mp=24.620 en=115.275
 f4468 Dasui hp=198.404 mp=20.000 en=64.300
@@ -11514,6 +11611,7 @@ f4533 Slime hp=14.155 mp=20.363 en=0.000
 f4534 Slime hp=11.135 mp=20.429 en=0.000
 f4534 Slime hp=32.050 mp=20.363 en=0.000
 f4534 Slime hp=14.155 mp=20.363 en=0.000
+f4535 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f4535 Slime hp=11.135 mp=20.429 en=0.000
 f4535 Slime hp=32.050 mp=20.363 en=0.000
 f4535 Slime hp=14.155 mp=20.363 en=0.000
@@ -11682,6 +11780,7 @@ f4589 Slime hp=14.155 mp=20.363 en=0.000
 f4590 Slime hp=11.135 mp=20.429 en=0.000
 f4590 Slime hp=32.050 mp=20.363 en=0.000
 f4590 Slime hp=14.155 mp=20.363 en=0.000
+f4591 LOG 5. Slime ataca a Daniel por 0.33 de daño.
 f4591 Daniel hp=187.669 mp=20.000 en=144.025
 f4591 Slime hp=11.135 mp=20.429 en=0.000
 f4591 Slime hp=32.050 mp=20.363 en=0.000
@@ -11888,6 +11987,7 @@ f4658 Slime hp=11.135 mp=20.429 en=0.000
 f4658 Slime hp=32.050 mp=20.363 en=0.000
 f4658 Slime hp=14.155 mp=20.363 en=0.000
 f4658 PULSA Atacar
+f4659 LOG Dasui golpea con Mandobles por 11.21 de daño.
 f4659 Dasui hp=198.404 mp=20.000 en=106.300
 f4659 Rey Slime hp=160.276 mp=21.188 en=0.000
 f4659 Slime hp=11.135 mp=20.429 en=0.000
@@ -12086,6 +12186,7 @@ f4723 Slime hp=11.135 mp=20.429 en=0.000
 f4723 Slime hp=32.050 mp=20.363 en=0.000
 f4723 Slime hp=14.155 mp=20.363 en=0.000
 f4723 PULSA Atacar
+f4724 LOG Catalardio golpea con Martillo grande por 11.65 de daño.
 f4724 Catalardio hp=196.843 mp=24.620 en=157.275
 f4724 Rey Slime hp=152.121 mp=21.188 en=0.000
 f4724 Slime hp=11.135 mp=20.429 en=0.000
@@ -12244,6 +12345,7 @@ f4774 Slime hp=14.155 mp=20.363 en=0.000
 f4775 Slime hp=11.135 mp=20.429 en=0.000
 f4775 Slime hp=32.050 mp=20.363 en=0.000
 f4775 Slime hp=14.155 mp=20.363 en=0.000
+f4776 LOG Agirato ochinan recupera 10.88 de maná. 🔷
 f4776 Slime hp=11.135 mp=20.429 en=0.000
 f4776 Slime hp=32.050 mp=20.363 en=0.000
 f4776 Slime hp=14.155 mp=20.363 en=0.000
@@ -12274,6 +12376,7 @@ f4784 Slime hp=11.135 mp=20.429 en=0.000
 f4784 Slime hp=32.050 mp=20.363 en=0.000
 f4784 Slime hp=14.155 mp=20.363 en=0.000
 f4784 PULSA _objeto_box: Agirato ochinan  (198/200 ♥  37/37 🔷)
+f4785 LOG Agirato ochinan se bebe Poción de maná menor +3. 🔷 31 de maná (6 ya), repartido en 5 turnos.
 f4785 Slime hp=11.135 mp=20.429 en=0.000
 f4785 Slime hp=32.050 mp=20.363 en=0.000
 f4785 Slime hp=14.155 mp=20.363 en=0.000
@@ -12311,6 +12414,7 @@ f4796 Slime hp=11.135 mp=20.429 en=0.000
 f4796 Slime hp=32.050 mp=20.363 en=0.000
 f4796 Slime hp=14.155 mp=20.363 en=0.000
 f4796 PULSA Defender
+f4797 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f4797 Daniel hp=187.669 mp=20.000 en=129.025
 f4797 Slime hp=11.135 mp=20.429 en=0.000
 f4797 Slime hp=32.050 mp=20.363 en=0.000
@@ -12327,6 +12431,7 @@ f4800 Slime hp=14.155 mp=20.363 en=0.000
 f4801 Slime hp=11.135 mp=20.429 en=0.000
 f4801 Slime hp=32.050 mp=20.363 en=0.000
 f4801 Slime hp=14.155 mp=20.363 en=0.000
+f4802 LOG ⚡ 3. Slime de fuego se prepara para Combustión. ¡Prepárate! (aturdirlo lo interrumpe)
 f4802 Slime hp=11.135 mp=20.429 en=0.000
 f4802 Slime hp=32.050 mp=20.363 en=0.000
 f4802 Slime hp=14.155 mp=20.363 en=0.000
@@ -12423,6 +12528,7 @@ f4832 Slime hp=14.155 mp=20.363 en=0.000
 f4833 Slime hp=11.135 mp=20.429 en=0.000
 f4833 Slime hp=32.050 mp=20.363 en=0.000
 f4833 Slime hp=14.155 mp=20.363 en=0.000
+f4834 LOG 4. Slime ataca a Catalardio por 0.15 de daño.
 f4834 Catalardio hp=196.691 mp=24.620 en=157.275
 f4834 Slime hp=11.135 mp=20.429 en=0.000
 f4834 Slime hp=32.050 mp=20.363 en=0.000
@@ -12766,6 +12872,7 @@ f4946 Slime hp=14.155 mp=20.363 en=0.000
 f4947 Slime hp=11.135 mp=20.429 en=0.000
 f4947 Slime hp=32.050 mp=20.363 en=0.000
 f4947 Slime hp=14.155 mp=20.363 en=0.000
+f4948 LOG … 0.55 de daño: Dasui (0.25), Catalardio (0.17), Daniel (0.13)  🛡️ Daniel aguanta en guardia (menos daño).
 f4948 Catalardio hp=196.521 mp=24.620 en=157.275
 f4948 Dasui hp=198.154 mp=20.000 en=106.300
 f4948 Daniel hp=187.544 mp=20.000 en=129.025
@@ -12994,6 +13101,7 @@ f5021 Slime hp=14.155 mp=20.363 en=0.000
 f5022 Slime hp=11.135 mp=20.429 en=0.000
 f5022 Slime hp=32.050 mp=20.363 en=0.000
 f5022 Slime hp=14.155 mp=20.363 en=0.000
+f5023 LOG Agirato ochinan recupera 10.88 de maná. 🔷
 f5023 Slime hp=11.135 mp=20.429 en=0.000
 f5023 Slime hp=32.050 mp=20.363 en=0.000
 f5023 Slime hp=14.155 mp=20.363 en=0.000
@@ -13024,6 +13132,7 @@ f5031 Slime hp=11.135 mp=20.429 en=0.000
 f5031 Slime hp=32.050 mp=20.363 en=0.000
 f5031 Slime hp=14.155 mp=20.363 en=0.000
 f5031 PULSA Atacar
+f5032 LOG Agirato ochinan golpea con Baston por 6.98 de daño.
 f5032 Agirato ochinan hp=197.630 mp=36.500 en=177.425
 f5032 Rey Slime hp=147.239 mp=21.188 en=0.000
 f5032 Slime hp=11.135 mp=20.429 en=0.000
@@ -13198,6 +13307,7 @@ f5088 Slime hp=11.135 mp=20.429 en=0.000
 f5088 Slime hp=32.050 mp=20.363 en=0.000
 f5088 Slime hp=14.155 mp=20.363 en=0.000
 f5088 PULSA Atacar
+f5089 LOG Dasui golpea con Mandobles por 11.27 de daño.
 f5089 Dasui hp=198.154 mp=20.000 en=148.300
 f5089 Rey Slime hp=139.350 mp=21.188 en=0.000
 f5089 Slime hp=11.135 mp=20.429 en=0.000
@@ -13365,6 +13475,7 @@ f5142 Slime hp=14.155 mp=20.363 en=0.000
 f5143 Slime hp=11.135 mp=20.429 en=0.000
 f5143 Slime hp=32.050 mp=20.363 en=0.000
 f5143 Slime hp=14.155 mp=20.363 en=0.000
+f5144 LOG 5. Slime ataca a Catalardio por 0.16 de daño.
 f5144 Catalardio hp=196.363 mp=24.620 en=157.275
 f5144 Slime hp=11.135 mp=20.429 en=0.000
 f5144 Slime hp=32.050 mp=20.363 en=0.000
@@ -13553,6 +13664,7 @@ f5205 Slime hp=11.135 mp=20.429 en=0.000
 f5205 Slime hp=32.050 mp=20.363 en=0.000
 f5205 Slime hp=14.155 mp=20.363 en=0.000
 f5205 PULSA Atacar
+f5206 LOG Catalardio golpea con Martillo grande por 11.34 de daño.
 f5206 Catalardio hp=196.363 mp=24.620 en=181.275
 f5206 Rey Slime hp=131.410 mp=21.188 en=0.000
 f5206 Slime hp=11.135 mp=20.429 en=0.000
@@ -13744,6 +13856,7 @@ f5267 Slime hp=14.155 mp=20.363 en=0.000
 f5268 Slime hp=11.135 mp=20.429 en=0.000
 f5268 Slime hp=32.050 mp=20.363 en=0.000
 f5268 Slime hp=14.155 mp=20.363 en=0.000
+f5269 LOG … 0.43 de daño: Agirato ochinan (0.19), Catalardio (0.00), Daniel (0.12), Dasui (0.12)  🛡️ Daniel aguanta en guardia (menos daño).
 f5269 Agirato ochinan hp=197.442 mp=36.500 en=177.425
 f5269 Dasui hp=198.039 mp=20.000 en=148.300
 f5269 Daniel hp=187.421 mp=20.000 en=129.025
@@ -14038,6 +14151,7 @@ f5364 Slime hp=14.155 mp=20.363 en=0.000
 f5365 Slime hp=11.135 mp=20.429 en=0.000
 f5365 Slime hp=32.050 mp=20.363 en=0.000
 f5365 Slime hp=14.155 mp=20.363 en=0.000
+f5366 LOG A Daniel se le disipa: Lento.
 f5366 Slime hp=11.135 mp=20.429 en=0.000
 f5366 Slime hp=32.050 mp=20.363 en=0.000
 f5366 Slime hp=14.155 mp=20.363 en=0.000
@@ -14068,10 +14182,12 @@ f5374 Slime hp=11.135 mp=20.429 en=0.000
 f5374 Slime hp=32.050 mp=20.363 en=0.000
 f5374 Slime hp=14.155 mp=20.363 en=0.000
 f5374 PULSA _objeto_box: Agirato ochinan  (197/200 ♥)
+f5375 LOG Daniel le da Poción media a Agirato ochinan. ✚ 114 de vida (38 ya), repartido en 3 turnos.
 f5375 Agirato ochinan hp=199.851 mp=36.500 en=177.425
 f5375 Slime hp=11.135 mp=20.429 en=0.000
 f5375 Slime hp=32.050 mp=20.363 en=0.000
 f5375 Slime hp=14.155 mp=20.363 en=0.000
+f5376 LOG ⚡ 4. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f5376 Slime hp=11.135 mp=20.429 en=0.000
 f5376 Slime hp=32.050 mp=20.363 en=0.000
 f5376 Slime hp=14.155 mp=20.363 en=0.000
@@ -14168,6 +14284,7 @@ f5406 Slime hp=14.155 mp=20.363 en=0.000
 f5407 Slime hp=11.135 mp=20.429 en=0.000
 f5407 Slime hp=32.050 mp=20.363 en=0.000
 f5407 Slime hp=14.155 mp=20.363 en=0.000
+f5408 LOG … 1.81 de daño: Daniel (1.61), Dasui (0.20)  Aplica: Quemadura.
 f5408 Dasui hp=197.842 mp=20.000 en=148.300
 f5408 Daniel hp=185.808 mp=20.000 en=129.025
 f5408 Slime hp=11.135 mp=20.429 en=0.000
@@ -14455,6 +14572,7 @@ f5501 Slime hp=14.155 mp=20.363 en=0.000
 f5502 Slime hp=11.135 mp=20.429 en=0.000
 f5502 Slime hp=32.050 mp=20.363 en=0.000
 f5502 Slime hp=14.155 mp=20.363 en=0.000
+f5503 LOG Agirato ochinan recupera 10.88 de maná. 🔷
 f5503 Slime hp=11.135 mp=20.429 en=0.000
 f5503 Slime hp=32.050 mp=20.363 en=0.000
 f5503 Slime hp=14.155 mp=20.363 en=0.000
@@ -14465,6 +14583,7 @@ f5505 Slime hp=11.135 mp=20.429 en=0.000
 f5505 Slime hp=32.050 mp=20.363 en=0.000
 f5505 Slime hp=14.155 mp=20.363 en=0.000
 f5505 PULSA Defender
+f5506 LOG Agirato ochinan se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f5506 Agirato ochinan hp=199.851 mp=36.500 en=162.425
 f5506 Slime hp=11.135 mp=20.429 en=0.000
 f5506 Slime hp=32.050 mp=20.363 en=0.000
@@ -14514,6 +14633,7 @@ f5520 Slime hp=14.155 mp=20.363 en=0.000
 f5521 Slime hp=11.135 mp=20.429 en=0.000
 f5521 Slime hp=32.050 mp=20.363 en=0.000
 f5521 Slime hp=14.155 mp=20.363 en=0.000
+f5522 LOG Dasui esquiva el ataque de 2. Slime. 💨
 f5522 Slime hp=11.135 mp=20.429 en=0.000
 f5522 Slime hp=32.050 mp=20.363 en=0.000
 f5522 Slime hp=14.155 mp=20.363 en=0.000
@@ -14685,6 +14805,7 @@ f5577 Slime hp=14.155 mp=20.363 en=0.000
 f5578 Slime hp=11.135 mp=20.429 en=0.000
 f5578 Slime hp=32.050 mp=20.363 en=0.000
 f5578 Slime hp=14.155 mp=20.363 en=0.000
+f5579 LOG Dasui sufre 🔥 3.0 (3.00).
 f5579 Dasui hp=194.842 mp=20.000 en=148.300
 f5579 Slime hp=11.135 mp=20.429 en=0.000
 f5579 Slime hp=32.050 mp=20.363 en=0.000
@@ -14706,6 +14827,7 @@ f5584 Slime hp=11.135 mp=20.429 en=0.000
 f5584 Slime hp=32.050 mp=20.363 en=0.000
 f5584 Slime hp=14.155 mp=20.363 en=0.000
 f5584 PULSA _ability_box: Tajo devastador  (72 EN)
+f5585 LOG … 27.84 de daño (1 de 1 golpes).  ✨Vulnerable.
 f5585 Dasui hp=194.842 mp=20.000 en=76.300
 f5585 Rey Slime hp=111.920 mp=21.188 en=0.000
 f5585 Slime hp=11.135 mp=20.429 en=0.000
@@ -14907,6 +15029,7 @@ f5650 Slime hp=11.135 mp=20.429 en=0.000
 f5650 Slime hp=32.050 mp=20.363 en=0.000
 f5650 Slime hp=14.155 mp=20.363 en=0.000
 f5650 PULSA Atacar
+f5651 LOG Catalardio golpea con Martillo grande por 13.45 de daño.  ¡Retrasado! 💫
 f5651 Rey Slime hp=102.503 mp=21.188 en=0.000
 f5651 Slime hp=11.135 mp=20.429 en=0.000
 f5651 Slime hp=32.050 mp=20.363 en=0.000
@@ -15088,6 +15211,7 @@ f5709 Slime hp=14.155 mp=20.363 en=0.000
 f5710 Slime hp=11.135 mp=20.429 en=0.000
 f5710 Slime hp=32.050 mp=20.363 en=0.000
 f5710 Slime hp=14.155 mp=20.363 en=0.000
+f5711 LOG ⚡ 5. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f5711 Slime hp=11.135 mp=20.429 en=0.000
 f5711 Slime hp=32.050 mp=20.363 en=0.000
 f5711 Slime hp=14.155 mp=20.363 en=0.000
@@ -15232,6 +15356,7 @@ f5757 Slime hp=14.155 mp=20.363 en=0.000
 f5758 Slime hp=11.135 mp=20.429 en=0.000
 f5758 Slime hp=32.050 mp=20.363 en=0.000
 f5758 Slime hp=14.155 mp=20.363 en=0.000
+f5759 LOG A Daniel se le disipa: Pegajoso.
 f5759 Slime hp=11.135 mp=20.429 en=0.000
 f5759 Slime hp=32.050 mp=20.363 en=0.000
 f5759 Slime hp=14.155 mp=20.363 en=0.000
@@ -15242,6 +15367,7 @@ f5761 Slime hp=11.135 mp=20.429 en=0.000
 f5761 Slime hp=32.050 mp=20.363 en=0.000
 f5761 Slime hp=14.155 mp=20.363 en=0.000
 f5761 PULSA Atacar
+f5762 LOG Daniel golpea con Maza pequeña por 5.43 de daño.  ¡Retrasado! 💫
 f5762 Daniel hp=185.808 mp=20.000 en=164.025
 f5762 Rey Slime hp=98.700 mp=21.188 en=0.000
 f5762 Slime hp=11.135 mp=20.429 en=0.000
@@ -15475,6 +15601,7 @@ f5837 Slime hp=14.155 mp=20.363 en=0.000
 f5838 Slime hp=11.135 mp=20.429 en=0.000
 f5838 Slime hp=32.050 mp=20.363 en=0.000
 f5838 Slime hp=14.155 mp=20.363 en=0.000
+f5839 LOG … 0.48 de daño: Agirato ochinan (0.11), Daniel (0.37)  🛡️ Agirato ochinan aguanta en guardia (menos daño).
 f5839 Agirato ochinan hp=199.741 mp=36.500 en=162.425
 f5839 Daniel hp=185.441 mp=20.000 en=164.025
 f5839 Slime hp=11.135 mp=20.429 en=0.000
@@ -15651,6 +15778,7 @@ f5895 Slime hp=14.155 mp=20.363 en=0.000
 f5896 Slime hp=11.135 mp=20.429 en=0.000
 f5896 Slime hp=32.050 mp=20.363 en=0.000
 f5896 Slime hp=14.155 mp=20.363 en=0.000
+f5897 LOG … 0.83 de daño: Daniel (0.83), Dasui (0.00)
 f5897 Daniel hp=184.612 mp=20.000 en=164.025
 f5897 Slime hp=11.135 mp=20.429 en=0.000
 f5897 Slime hp=32.050 mp=20.363 en=0.000
@@ -15841,6 +15969,7 @@ f5958 Slime hp=14.155 mp=20.363 en=0.000
 f5959 Slime hp=11.135 mp=20.429 en=0.000
 f5959 Slime hp=32.050 mp=20.363 en=0.000
 f5959 Slime hp=14.155 mp=20.363 en=0.000
+f5960 LOG A Agirato ochinan se le disipa: Regeneración.
 f5960 Agirato ochinan hp=199.851 mp=36.500 en=162.425
 f5960 Slime hp=11.135 mp=20.429 en=0.000
 f5960 Slime hp=32.050 mp=20.363 en=0.000
@@ -15872,6 +16001,7 @@ f5968 Slime hp=11.135 mp=20.429 en=0.000
 f5968 Slime hp=32.050 mp=20.363 en=0.000
 f5968 Slime hp=14.155 mp=20.363 en=0.000
 f5968 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f5969 LOG Agirato ochinan se bebe Poción media. ✚ 114 de vida (38 ya), repartido en 3 turnos.
 f5969 Slime hp=11.135 mp=20.429 en=0.000
 f5969 Slime hp=32.050 mp=20.363 en=0.000
 f5969 Slime hp=14.155 mp=20.363 en=0.000
@@ -15995,6 +16125,7 @@ f6008 Slime hp=14.155 mp=20.363 en=0.000
 f6009 Slime hp=11.135 mp=20.429 en=0.000
 f6009 Slime hp=32.050 mp=20.363 en=0.000
 f6009 Slime hp=14.155 mp=20.363 en=0.000
+f6010 LOG A Dasui se le disipa: Pegajoso, Quemadura.
 f6010 Dasui hp=191.842 mp=20.000 en=76.300
 f6010 Slime hp=11.135 mp=20.429 en=0.000
 f6010 Slime hp=32.050 mp=20.363 en=0.000
@@ -16006,6 +16137,7 @@ f6012 Slime hp=11.135 mp=20.429 en=0.000
 f6012 Slime hp=32.050 mp=20.363 en=0.000
 f6012 Slime hp=14.155 mp=20.363 en=0.000
 f6012 PULSA Defender
+f6013 LOG Dasui se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f6013 Dasui hp=191.842 mp=20.000 en=61.300
 f6013 Slime hp=11.135 mp=20.429 en=0.000
 f6013 Slime hp=32.050 mp=20.363 en=0.000
@@ -16037,6 +16169,7 @@ f6021 Slime hp=14.155 mp=20.363 en=0.000
 f6022 Slime hp=11.135 mp=20.429 en=0.000
 f6022 Slime hp=32.050 mp=20.363 en=0.000
 f6022 Slime hp=14.155 mp=20.363 en=0.000
+f6023 LOG 2. Slime ataca a Daniel por 0.33 de daño.  Le inflige Pegajoso.
 f6023 Daniel hp=184.286 mp=20.000 en=164.025
 f6023 Slime hp=11.135 mp=20.429 en=0.000
 f6023 Slime hp=32.050 mp=20.363 en=0.000
@@ -16220,6 +16353,7 @@ f6082 Slime hp=11.135 mp=20.429 en=0.000
 f6082 Slime hp=32.050 mp=20.363 en=0.000
 f6082 Slime hp=14.155 mp=20.363 en=0.000
 f6082 PULSA _ability_box: Golpe sísmico  (60 EN)
+f6083 LOG … 13.99 de daño: 1. Rey Slime (0.00), 3. Slime de fuego (6.94), 4. Slime (0.00), 2. Slime (7.05), 5. Slime (0.00)
 f6083 Catalardio hp=196.363 mp=24.620 en=121.275
 f6083 Slime hp=4.083 mp=20.429 en=0.000
 f6083 Slime de fuego hp=43.110 mp=20.363 en=0.000
@@ -16427,6 +16561,7 @@ f6150 Slime hp=4.083 mp=20.429 en=0.000
 f6150 Slime hp=32.050 mp=20.363 en=0.000
 f6150 Slime hp=14.155 mp=20.363 en=0.000
 f6150 PULSA Atacar
+f6151 LOG ¡CRITICO! Daniel golpea con Maza pequeña por 9.45 de daño. 💥
 f6151 Daniel hp=184.286 mp=20.000 en=181.025
 f6151 Rey Slime hp=92.085 mp=21.188 en=0.000
 f6151 Slime hp=4.083 mp=20.429 en=0.000
@@ -16618,6 +16753,7 @@ f6212 Slime hp=14.155 mp=20.363 en=0.000
 f6213 Slime hp=4.083 mp=20.429 en=0.000
 f6213 Slime hp=32.050 mp=20.363 en=0.000
 f6213 Slime hp=14.155 mp=20.363 en=0.000
+f6214 LOG … 1.02 de daño: Daniel (0.89), Dasui (0.13)  🛡️ Dasui aguanta en guardia (menos daño).
 f6214 Dasui hp=191.717 mp=20.000 en=61.300
 f6214 Daniel hp=183.392 mp=20.000 en=181.025
 f6214 Slime hp=4.083 mp=20.429 en=0.000
@@ -16833,6 +16969,7 @@ f6283 Slime hp=14.155 mp=20.363 en=0.000
 f6284 Slime hp=4.083 mp=20.429 en=0.000
 f6284 Slime hp=32.050 mp=20.363 en=0.000
 f6284 Slime hp=14.155 mp=20.363 en=0.000
+f6285 LOG A Agirato ochinan se le disipa: Regen. maná.
 f6285 Slime hp=4.083 mp=20.429 en=0.000
 f6285 Slime hp=32.050 mp=20.363 en=0.000
 f6285 Slime hp=14.155 mp=20.363 en=0.000
@@ -16843,6 +16980,7 @@ f6287 Slime hp=4.083 mp=20.429 en=0.000
 f6287 Slime hp=32.050 mp=20.363 en=0.000
 f6287 Slime hp=14.155 mp=20.363 en=0.000
 f6287 PULSA Atacar
+f6288 LOG ¡CRITICO! Agirato ochinan golpea con Baston por 11.75 de daño. 💥
 f6288 Agirato ochinan hp=199.851 mp=36.500 en=177.425
 f6288 Rey Slime hp=83.863 mp=21.188 en=0.000
 f6288 Slime hp=4.083 mp=20.429 en=0.000
@@ -17082,6 +17220,7 @@ f6365 Slime hp=14.155 mp=20.363 en=0.000
 f6366 Slime hp=4.083 mp=20.429 en=0.000
 f6366 Slime hp=32.050 mp=20.363 en=0.000
 f6366 Slime hp=14.155 mp=20.363 en=0.000
+f6367 LOG 4. Slime ataca a Agirato ochinan por 0.13 de daño.
 f6367 Agirato ochinan hp=199.719 mp=36.500 en=177.425
 f6367 Slime hp=4.083 mp=20.429 en=0.000
 f6367 Slime hp=32.050 mp=20.363 en=0.000
@@ -17239,6 +17378,7 @@ f6417 Slime hp=14.155 mp=20.363 en=0.000
 f6418 Slime hp=4.083 mp=20.429 en=0.000
 f6418 Slime hp=32.050 mp=20.363 en=0.000
 f6418 Slime hp=14.155 mp=20.363 en=0.000
+f6419 LOG 3. Slime de fuego CLAVA un critico a Daniel: 0.47 de daño! 💥  Le inflige Pegajoso.
 f6419 Daniel hp=182.919 mp=20.000 en=181.025
 f6419 Slime hp=4.083 mp=20.429 en=0.000
 f6419 Slime hp=32.050 mp=20.363 en=0.000
@@ -17498,6 +17638,7 @@ f6503 Slime hp=4.083 mp=20.429 en=0.000
 f6503 Slime hp=32.050 mp=20.363 en=0.000
 f6503 Slime hp=14.155 mp=20.363 en=0.000
 f6503 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f6504 LOG Dasui le da Poción media +1 a Agirato ochinan. ✚ 144 de vida (36 ya), repartido en 4 turnos.
 f6504 Agirato ochinan hp=199.851 mp=36.500 en=177.425
 f6504 Slime hp=4.083 mp=20.429 en=0.000
 f6504 Slime hp=32.050 mp=20.363 en=0.000
@@ -17566,6 +17707,7 @@ f6525 Slime hp=4.083 mp=20.429 en=0.000
 f6525 Slime hp=32.050 mp=20.363 en=0.000
 f6525 Slime hp=14.155 mp=20.363 en=0.000
 f6525 PULSA Defender
+f6526 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f6526 Catalardio hp=196.363 mp=24.620 en=106.275
 f6526 Slime hp=4.083 mp=20.429 en=0.000
 f6526 Slime hp=32.050 mp=20.363 en=0.000
@@ -17617,6 +17759,7 @@ f6541 Slime hp=4.083 mp=20.429 en=0.000
 f6541 Slime hp=32.050 mp=20.363 en=0.000
 f6541 Slime hp=14.155 mp=20.363 en=0.000
 f6541 PULSA _ability_box: Golpe demoledor  (42 EN)
+f6542 LOG … 17.56 de daño: 1. Rey Slime (11.14), 3. Slime de fuego (6.42)  ✨Aturdido.
 f6542 Daniel hp=182.919 mp=20.000 en=139.025
 f6542 Rey Slime hp=76.068 mp=21.188 en=0.000
 f6542 Slime hp=4.083 mp=20.429 en=0.000
@@ -17776,6 +17919,7 @@ f6592 Slime hp=14.155 mp=20.363 en=0.000
 f6593 Slime hp=4.083 mp=20.429 en=0.000
 f6593 Slime hp=32.050 mp=20.363 en=0.000
 f6593 Slime hp=14.155 mp=20.363 en=0.000
+f6594 LOG … 0.43 de daño (1 de 1 golpes).
 f6594 Daniel hp=182.493 mp=20.000 en=139.025
 f6594 Slime hp=4.083 mp=20.429 en=0.000
 f6594 Slime hp=32.050 mp=20.363 en=0.000
@@ -17942,6 +18086,7 @@ f6647 Slime hp=14.155 mp=20.363 en=0.000
 f6648 Slime hp=4.083 mp=20.429 en=0.000
 f6648 Slime hp=32.050 mp=20.363 en=0.000
 f6648 Slime hp=14.155 mp=20.363 en=0.000
+f6649 LOG 1. Rey Slime ataca a Daniel por 0.92 de daño.  Le inflige Pegajoso.
 f6649 Daniel hp=181.577 mp=20.000 en=139.025
 f6649 Slime hp=4.083 mp=20.429 en=0.000
 f6649 Slime hp=32.050 mp=20.363 en=0.000
@@ -18111,6 +18256,7 @@ f6703 Slime hp=14.155 mp=20.363 en=0.000
 f6704 Slime hp=4.083 mp=20.429 en=0.000
 f6704 Slime hp=32.050 mp=20.363 en=0.000
 f6704 Slime hp=14.155 mp=20.363 en=0.000
+f6705 LOG Agirato ochinan se cura ✚ 38.0 (37.99). ✚
 f6705 Slime hp=4.083 mp=20.429 en=0.000
 f6705 Slime hp=32.050 mp=20.363 en=0.000
 f6705 Slime hp=14.155 mp=20.363 en=0.000
@@ -18141,6 +18287,7 @@ f6713 Slime hp=4.083 mp=20.429 en=0.000
 f6713 Slime hp=32.050 mp=20.363 en=0.000
 f6713 Slime hp=14.155 mp=20.363 en=0.000
 f6713 PULSA frase Luz y oscuridad
+f6714 LOG ✓ Frase correcta. Continua el proximo turno...
 f6714 Slime hp=4.083 mp=20.429 en=0.000
 f6714 Slime hp=32.050 mp=20.363 en=0.000
 f6714 Slime hp=14.155 mp=20.363 en=0.000
@@ -18207,6 +18354,7 @@ f6734 Slime hp=14.155 mp=20.363 en=0.000
 f6735 Slime hp=4.083 mp=20.429 en=0.000
 f6735 Slime hp=32.050 mp=20.363 en=0.000
 f6735 Slime hp=14.155 mp=20.363 en=0.000
+f6736 LOG 5. Slime ataca a Agirato ochinan por 0.13 de daño.
 f6736 Agirato ochinan hp=199.720 mp=36.500 en=177.425
 f6736 Slime hp=4.083 mp=20.429 en=0.000
 f6736 Slime hp=32.050 mp=20.363 en=0.000
@@ -18493,6 +18641,7 @@ f6829 Slime hp=14.155 mp=20.363 en=0.000
 f6830 Slime hp=4.083 mp=20.429 en=0.000
 f6830 Slime hp=32.050 mp=20.363 en=0.000
 f6830 Slime hp=14.155 mp=20.363 en=0.000
+f6831 LOG 3. Slime de fuego está aturdido y pierde el turno. 💫
 f6831 Slime hp=4.083 mp=20.429 en=0.000
 f6831 Slime hp=32.050 mp=20.363 en=0.000
 f6831 Slime hp=14.155 mp=20.363 en=0.000
@@ -18589,6 +18738,7 @@ f6861 Slime hp=14.155 mp=20.363 en=0.000
 f6862 Slime hp=4.083 mp=20.429 en=0.000
 f6862 Slime hp=32.050 mp=20.363 en=0.000
 f6862 Slime hp=14.155 mp=20.363 en=0.000
+f6863 LOG 4. Slime ataca a Catalardio por 0.10 de daño. (defendido 🛡️)
 f6863 Catalardio hp=196.263 mp=24.620 en=106.275
 f6863 Slime hp=4.083 mp=20.429 en=0.000
 f6863 Slime hp=32.050 mp=20.363 en=0.000
@@ -18756,6 +18906,7 @@ f6917 Slime hp=4.083 mp=20.429 en=0.000
 f6917 Slime hp=32.050 mp=20.363 en=0.000
 f6917 Slime hp=14.155 mp=20.363 en=0.000
 f6917 PULSA Atacar
+f6918 LOG Dasui golpea con Mandobles por 12.60 de daño.
 f6918 Dasui hp=191.717 mp=20.000 en=103.300
 f6918 Rey Slime hp=67.251 mp=21.188 en=0.000
 f6918 Slime hp=4.083 mp=20.429 en=0.000
@@ -18977,6 +19128,7 @@ f6989 Slime hp=14.155 mp=20.363 en=0.000
 f6990 Slime hp=4.083 mp=20.429 en=0.000
 f6990 Slime hp=32.050 mp=20.363 en=0.000
 f6990 Slime hp=14.155 mp=20.363 en=0.000
+f6991 LOG Agirato ochinan se cura ✚ 38.0 (37.99). ✚
 f6991 Agirato ochinan hp=199.851 mp=36.500 en=177.425
 f6991 Slime hp=4.083 mp=20.429 en=0.000
 f6991 Slime hp=32.050 mp=20.363 en=0.000
@@ -18988,6 +19140,7 @@ f6993 Slime hp=4.083 mp=20.429 en=0.000
 f6993 Slime hp=32.050 mp=20.363 en=0.000
 f6993 Slime hp=14.155 mp=20.363 en=0.000
 f6993 PULSA frase Oscuridad y luz
+f6994 LOG ✓ Frase correcta. Continua el proximo turno...
 f6994 Slime hp=4.083 mp=20.429 en=0.000
 f6994 Slime hp=32.050 mp=20.363 en=0.000
 f6994 Slime hp=14.155 mp=20.363 en=0.000
@@ -19004,6 +19157,7 @@ f6998 Slime hp=4.083 mp=20.429 en=0.000
 f6998 Slime hp=32.050 mp=20.363 en=0.000
 f6998 Slime hp=14.155 mp=20.363 en=0.000
 f6998 PULSA Defender
+f6999 LOG Catalardio se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f6999 Catalardio hp=196.263 mp=24.620 en=91.275
 f6999 Slime hp=4.083 mp=20.429 en=0.000
 f6999 Slime hp=32.050 mp=20.363 en=0.000
@@ -19067,6 +19221,7 @@ f7018 Slime hp=4.083 mp=20.429 en=0.000
 f7018 Slime hp=32.050 mp=20.363 en=0.000
 f7018 Slime hp=14.155 mp=20.363 en=0.000
 f7018 PULSA _ability_box: Guardia de carne  (52 EN)
+f7019 LOG Daniel usa Guardia de carne.  ✨Guardia de carne (Daniel).
 f7019 Daniel hp=363.155 mp=20.000 en=87.025
 f7019 Slime hp=4.083 mp=20.429 en=0.000
 f7019 Slime hp=32.050 mp=20.363 en=0.000
@@ -19260,6 +19415,7 @@ f7081 Slime hp=14.155 mp=20.363 en=0.000
 f7082 Slime hp=4.083 mp=20.429 en=0.000
 f7082 Slime hp=32.050 mp=20.363 en=0.000
 f7082 Slime hp=14.155 mp=20.363 en=0.000
+f7083 LOG … 0.45 de daño: Daniel (0.45), Catalardio (0.00)  🛡️ Catalardio aguanta en guardia (menos daño).  Aplica: Pegajoso.
 f7083 Daniel hp=362.705 mp=20.000 en=87.025
 f7083 Slime hp=4.083 mp=20.429 en=0.000
 f7083 Slime hp=32.050 mp=20.363 en=0.000
@@ -19534,6 +19690,7 @@ f7172 Slime hp=14.155 mp=20.363 en=0.000
 f7173 Slime hp=4.083 mp=20.429 en=0.000
 f7173 Slime hp=32.050 mp=20.363 en=0.000
 f7173 Slime hp=14.155 mp=20.363 en=0.000
+f7174 LOG … 0.12 de daño (1 de 1 golpes).
 f7174 Dasui hp=191.597 mp=20.000 en=103.300
 f7174 Slime hp=4.083 mp=20.429 en=0.000
 f7174 Slime hp=32.050 mp=20.363 en=0.000
@@ -19758,6 +19915,7 @@ f7247 Slime hp=4.083 mp=20.429 en=0.000
 f7247 Slime hp=32.050 mp=20.363 en=0.000
 f7247 Slime hp=14.155 mp=20.363 en=0.000
 f7247 PULSA Atacar
+f7248 LOG Dasui golpea con Mandobles por 10.54 de daño.
 f7248 Dasui hp=191.597 mp=20.000 en=145.300
 f7248 Rey Slime hp=59.871 mp=21.188 en=0.000
 f7248 Slime hp=4.083 mp=20.429 en=0.000
@@ -19931,6 +20089,7 @@ f7303 Slime hp=14.155 mp=20.363 en=0.000
 f7304 Slime hp=4.083 mp=20.429 en=0.000
 f7304 Slime hp=32.050 mp=20.363 en=0.000
 f7304 Slime hp=14.155 mp=20.363 en=0.000
+f7305 LOG A Agirato ochinan se le disipa: Regeneración.
 f7305 Slime hp=4.083 mp=20.429 en=0.000
 f7305 Slime hp=32.050 mp=20.363 en=0.000
 f7305 Slime hp=14.155 mp=20.363 en=0.000
@@ -19941,9 +20100,11 @@ f7307 Slime hp=4.083 mp=20.429 en=0.000
 f7307 Slime hp=32.050 mp=20.363 en=0.000
 f7307 Slime hp=14.155 mp=20.363 en=0.000
 f7307 PULSA frase Feliz aniversario 20
+f7308 LOG ✓ Frase correcta. Continua el proximo turno...
 f7308 Slime hp=4.083 mp=20.429 en=0.000
 f7308 Slime hp=32.050 mp=20.363 en=0.000
 f7308 Slime hp=14.155 mp=20.363 en=0.000
+f7309 LOG 1. Rey Slime ataca a Catalardio por 0.25 de daño. (defendido 🛡️)
 f7309 Catalardio hp=196.009 mp=24.620 en=91.275
 f7309 Slime hp=4.083 mp=20.429 en=0.000
 f7309 Slime hp=32.050 mp=20.363 en=0.000
@@ -20140,6 +20301,7 @@ f7372 Slime hp=14.155 mp=20.363 en=0.000
 f7373 Slime hp=4.083 mp=20.429 en=0.000
 f7373 Slime hp=32.050 mp=20.363 en=0.000
 f7373 Slime hp=14.155 mp=20.363 en=0.000
+f7374 LOG … no te ha dado con ninguno de los 1 golpe.
 f7374 Slime hp=4.083 mp=20.429 en=0.000
 f7374 Slime hp=32.050 mp=20.363 en=0.000
 f7374 Slime hp=14.155 mp=20.363 en=0.000
@@ -20296,6 +20458,7 @@ f7424 Slime hp=14.155 mp=20.363 en=0.000
 f7425 Slime hp=4.083 mp=20.429 en=0.000
 f7425 Slime hp=32.050 mp=20.363 en=0.000
 f7425 Slime hp=14.155 mp=20.363 en=0.000
+f7426 LOG 3. Slime de fuego ataca a Catalardio por 0.14 de daño. (defendido 🛡️)  Le inflige Quemadura.
 f7426 Catalardio hp=195.873 mp=24.620 en=91.275
 f7426 Slime hp=4.083 mp=20.429 en=0.000
 f7426 Slime hp=32.050 mp=20.363 en=0.000
@@ -20480,6 +20643,7 @@ f7485 Slime hp=14.155 mp=20.363 en=0.000
 f7486 Slime hp=4.083 mp=20.429 en=0.000
 f7486 Slime hp=32.050 mp=20.363 en=0.000
 f7486 Slime hp=14.155 mp=20.363 en=0.000
+f7487 LOG Catalardio sufre 🔥 6.0 (6.00).
 f7487 Catalardio hp=189.873 mp=24.620 en=91.275
 f7487 Slime hp=4.083 mp=20.429 en=0.000
 f7487 Slime hp=32.050 mp=20.363 en=0.000
@@ -20511,6 +20675,7 @@ f7495 Slime hp=4.083 mp=20.429 en=0.000
 f7495 Slime hp=32.050 mp=20.363 en=0.000
 f7495 Slime hp=14.155 mp=20.363 en=0.000
 f7495 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f7496 LOG Catalardio le da Poción media +1 a Agirato ochinan. ✚ 144 de vida (36 ya), repartido en 4 turnos.
 f7496 Slime hp=4.083 mp=20.429 en=0.000
 f7496 Slime hp=32.050 mp=20.363 en=0.000
 f7496 Slime hp=14.155 mp=20.363 en=0.000
@@ -20596,6 +20761,7 @@ f7523 Slime hp=4.083 mp=20.429 en=0.000
 f7523 Slime hp=32.050 mp=20.363 en=0.000
 f7523 Slime hp=14.155 mp=20.363 en=0.000
 f7523 PULSA Defender
+f7524 LOG Daniel se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)
 f7524 Daniel hp=362.705 mp=20.000 en=72.025
 f7524 Slime hp=4.083 mp=20.429 en=0.000
 f7524 Slime hp=32.050 mp=20.363 en=0.000
@@ -20648,6 +20814,7 @@ f7539 Slime hp=14.155 mp=20.363 en=0.000
 f7540 Slime hp=4.083 mp=20.429 en=0.000
 f7540 Slime hp=32.050 mp=20.363 en=0.000
 f7540 Slime hp=14.155 mp=20.363 en=0.000
+f7541 LOG ⚡ 2. Slime se prepara para Reventón. ¡Prepárate! (aturdirlo lo interrumpe)
 f7541 Slime hp=4.083 mp=20.429 en=0.000
 f7541 Slime hp=32.050 mp=20.363 en=0.000
 f7541 Slime hp=14.155 mp=20.363 en=0.000
@@ -20804,6 +20971,7 @@ f7591 Slime hp=14.155 mp=20.363 en=0.000
 f7592 Slime hp=4.083 mp=20.429 en=0.000
 f7592 Slime hp=32.050 mp=20.363 en=0.000
 f7592 Slime hp=14.155 mp=20.363 en=0.000
+f7593 LOG Agirato ochinan se cura ✚ 36.0 (36.00). ✚
 f7593 Slime hp=4.083 mp=20.429 en=0.000
 f7593 Slime hp=32.050 mp=20.363 en=0.000
 f7593 Slime hp=14.155 mp=20.363 en=0.000
@@ -20814,6 +20982,7 @@ f7595 Slime hp=4.083 mp=20.429 en=0.000
 f7595 Slime hp=32.050 mp=20.363 en=0.000
 f7595 Slime hp=14.155 mp=20.363 en=0.000
 f7595 PULSA frase Kingdom Hearts
+f7596 LOG ✓ ¡Encantamiento completo! El proximo turno lo lanzas.
 f7596 Slime hp=4.083 mp=20.429 en=0.000
 f7596 Slime hp=32.050 mp=20.363 en=0.000
 f7596 Slime hp=14.155 mp=20.363 en=0.000
@@ -20857,6 +21026,7 @@ f7609 Slime hp=4.083 mp=20.429 en=0.000
 f7609 Slime hp=32.050 mp=20.363 en=0.000
 f7609 Slime hp=14.155 mp=20.363 en=0.000
 f7609 PULSA Atacar
+f7610 LOG Dasui golpea con Mandobles por 11.34 de daño.
 f7610 Dasui hp=191.597 mp=20.000 en=181.300
 f7610 Rey Slime hp=51.934 mp=21.188 en=0.000
 f7610 Slime hp=4.083 mp=20.429 en=0.000
@@ -21018,6 +21188,7 @@ f7661 Slime hp=14.155 mp=20.363 en=0.000
 f7662 Slime hp=4.083 mp=20.429 en=0.000
 f7662 Slime hp=32.050 mp=20.363 en=0.000
 f7662 Slime hp=14.155 mp=20.363 en=0.000
+f7663 LOG Daniel esquiva el ataque de 5. Slime. 💨
 f7663 Slime hp=4.083 mp=20.429 en=0.000
 f7663 Slime hp=32.050 mp=20.363 en=0.000
 f7663 Slime hp=14.155 mp=20.363 en=0.000
@@ -21282,6 +21453,7 @@ f7749 Slime hp=14.155 mp=20.363 en=0.000
 f7750 Slime hp=4.083 mp=20.429 en=0.000
 f7750 Slime hp=32.050 mp=20.363 en=0.000
 f7750 Slime hp=14.155 mp=20.363 en=0.000
+f7751 LOG A Catalardio se le disipa: Quemadura.
 f7751 Catalardio hp=183.873 mp=24.620 en=91.275
 f7751 Slime hp=4.083 mp=20.429 en=0.000
 f7751 Slime hp=32.050 mp=20.363 en=0.000
@@ -21293,6 +21465,7 @@ f7753 Slime hp=4.083 mp=20.429 en=0.000
 f7753 Slime hp=32.050 mp=20.363 en=0.000
 f7753 Slime hp=14.155 mp=20.363 en=0.000
 f7753 PULSA Atacar
+f7754 LOG Catalardio golpea con Martillo grande por 13.94 de daño.
 f7754 Catalardio hp=183.873 mp=24.620 en=133.275
 f7754 Rey Slime hp=42.177 mp=21.188 en=0.000
 f7754 Slime hp=4.083 mp=20.429 en=0.000
@@ -21448,6 +21621,7 @@ f7803 Slime hp=14.155 mp=20.363 en=0.000
 f7804 Slime hp=4.083 mp=20.429 en=0.000
 f7804 Slime hp=32.050 mp=20.363 en=0.000
 f7804 Slime hp=14.155 mp=20.363 en=0.000
+f7805 LOG 1. Rey Slime ataca a Catalardio por 0.37 de daño.
 f7805 Catalardio hp=183.500 mp=24.620 en=133.275
 f7805 Slime hp=4.083 mp=20.429 en=0.000
 f7805 Slime hp=32.050 mp=20.363 en=0.000
@@ -21620,6 +21794,7 @@ f7860 Slime hp=14.155 mp=20.363 en=0.000
 f7861 Slime hp=4.083 mp=20.429 en=0.000
 f7861 Slime hp=32.050 mp=20.363 en=0.000
 f7861 Slime hp=14.155 mp=20.363 en=0.000
+f7862 LOG Daniel esquiva el ataque de 3. Slime de fuego. 💨
 f7862 Slime hp=4.083 mp=20.429 en=0.000
 f7862 Slime hp=32.050 mp=20.363 en=0.000
 f7862 Slime hp=14.155 mp=20.363 en=0.000
@@ -21776,6 +21951,7 @@ f7912 Slime hp=14.155 mp=20.363 en=0.000
 f7913 Slime hp=4.083 mp=20.429 en=0.000
 f7913 Slime hp=32.050 mp=20.363 en=0.000
 f7913 Slime hp=14.155 mp=20.363 en=0.000
+f7914 LOG 4. Slime ataca a Daniel por 0.14 de daño. (defendido 🛡️)  Le inflige Pegajoso.
 f7914 Daniel hp=362.566 mp=20.000 en=72.025
 f7914 Slime hp=4.083 mp=20.429 en=0.000
 f7914 Slime hp=32.050 mp=20.363 en=0.000
@@ -22047,12 +22223,14 @@ f8002 Slime hp=4.083 mp=20.429 en=0.000
 f8002 Slime hp=32.050 mp=20.363 en=0.000
 f8002 Slime hp=14.155 mp=20.363 en=0.000
 f8002 PULSA _objeto_box: Agirato ochinan  (200/200 ♥)
+f8003 LOG Daniel le da Poción media +2 a Agirato ochinan. ✚ 184 de vida (37 ya), repartido en 5 turnos.
 f8003 Slime hp=4.083 mp=20.429 en=0.000
 f8003 Slime hp=32.050 mp=20.363 en=0.000
 f8003 Slime hp=14.155 mp=20.363 en=0.000
 f8004 Slime hp=4.083 mp=20.429 en=0.000
 f8004 Slime hp=32.050 mp=20.363 en=0.000
 f8004 Slime hp=14.155 mp=20.363 en=0.000
+f8005 LOG Agirato ochinan se cura ✚ 36.8 (36.80). ✚
 f8005 Slime hp=4.083 mp=20.429 en=0.000
 f8005 Slime hp=32.050 mp=20.363 en=0.000
 f8005 Slime hp=14.155 mp=20.363 en=0.000
@@ -22063,6 +22241,7 @@ f8007 Slime hp=4.083 mp=20.429 en=0.000
 f8007 Slime hp=32.050 mp=20.363 en=0.000
 f8007 Slime hp=14.155 mp=20.363 en=0.000
 f8007 PULSA 🔥 ¡Lanzar Eclipse!
+f8008 LOG ¡GANASTE el combate contra 5 enemigos! 🎉  🔷 +1.6 MP.
 f8008 Agirato ochinan hp=199.851 mp=18.748 en=177.425
 f8008 Rey Slime hp=0.000 mp=21.188 en=0.000
 f8008 Slime hp=0.000 mp=20.429 en=0.000
