@@ -5,8 +5,9 @@
 #  que se lea igual que la mochila:
 #    fila 2 (categoria):    Equipo · Consumibles · Materiales · Armas · Armaduras · Hucha
 #    fila 3 (subcategoria): Mochila/Herramientas/Farolillo · tipo de arma · pieza de armadura
-#  Debajo, un interruptor "En casa / Inventario": la rejilla enseña un lado u otro, y la ficha de la
-#  derecha lleva los botones para pasar lo elegido al otro.
+#  Debajo, LOS DOS LADOS A LA VEZ (lo pidio el usuario): tu Inventario a la izquierda y lo que hay En
+#  casa a la derecha. Se pasan cosas de uno a otro ARRASTRANDO la celda, o eligiendola y usando los
+#  botones de la barra de arriba (que es lo que vale en el movil, donde arrastrar se lo lleva el scroll).
 #
 #  DE DONDE SALE CADA COSA (en multi, lo de casa es del host):
 #    - Materiales:  Game.almacen_materiales, con el CANDADO DEL TALLER cogido mientras estas en la
@@ -84,10 +85,11 @@ var hucha = null
 
 var _cat: int = CAT_EQUIPO
 var _sub: Dictionary = {}       # categoria -> subcategoria elegida (se recuerda al volver)
-var _lado: int = LADO_CASA
-var _sel: int = 0
-# Lo que enseña la rejilla ahora mismo, en su orden: [{modelo, cantidad, id, ruta, dueno, encargo}].
-var _stacks: Array = []
+# LO ELEGIDO: de que lado y que celda (-1 = nada). Se conserva entre repintados.
+var _sel_lado: int = LADO_ENCIMA
+var _sel: int = -1
+# Lo que enseña cada rejilla ahora mismo, en su orden: [{modelo, cantidad, id, ruta, dueno, encargo, lado}].
+var _stacks: Dictionary = {LADO_CASA: [], LADO_ENCIMA: []}
 var _cache_cofre: Dictionary = {}   # id de entrada del cofre -> Resource reconstruido
 # El candado del taller (solo Materiales en multi): 0 sin pedir, 2 pidiendolo, 1 lo tengo, -1 ocupado.
 var _taller: int = 0
@@ -110,15 +112,19 @@ func _build_seccion() -> void:
 		hucha.pintar()
 		return
 
-	hogar.modo_rejilla(true)
+	hogar.modo_dos_columnas()
 	hogar.contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
 		Game.esta_sobrecargado())
 	_pintar_subcategorias()
 	if _cat == CAT_MATERIALES and not _taller_listo():
 		return
-	_stacks = _recoger(_lado)
-	_pintar_lados()
-	_pintar_rejilla()
+	for lado in [LADO_CASA, LADO_ENCIMA]:
+		_stacks[lado] = _recoger(lado)
+	if _sel >= (_stacks[_sel_lado] as Array).size():
+		_sel = -1
+	_pintar_barra()
+	_pintar_lado(LADO_ENCIMA, hogar._lista)
+	_pintar_lado(LADO_CASA, hogar._content)
 
 
 func _on_cat(i: int) -> void:
@@ -127,22 +133,14 @@ func _on_cat(i: int) -> void:
 	if _cat == CAT_MATERIALES:
 		al_cerrar()   # suelta el candado del taller al salir de materiales
 	_cat = i
-	_sel = 0
+	_sel = -1
 	hogar._aviso = ""
 	hogar._rebuild()
 
 
 func _on_sub(i: int) -> void:
 	_sub[_cat] = i
-	_sel = 0
-	hogar._rebuild()
-
-
-func _on_lado(lado: int) -> void:
-	if lado == _lado:
-		return
-	_lado = lado
-	_sel = 0
+	_sel = -1
 	hogar._rebuild()
 
 
@@ -230,20 +228,20 @@ func _recoger(lado: int) -> Array:
 		CAT_MATERIALES:
 			var lista: Array = Game.almacen_materiales if lado == LADO_CASA else Game.materiales
 			for s in _agrupar(lista):
-				out.append(_entrada(s["modelo"], int(s["cantidad"])))
+				out.append(_entrada(s["modelo"], int(s["cantidad"]), lado))
 		CAT_CONSUMIBLES:
 			if lado == LADO_CASA:
 				var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
 				for ruta in consum:
 					var c: Resource = load(str(ruta)) if ResourceLoader.exists(str(ruta)) else null
 					if c != null and int(consum[ruta]) > 0:
-						var e: Dictionary = _entrada(c, int(consum[ruta]))
+						var e: Dictionary = _entrada(c, int(consum[ruta]), lado)
 						e["ruta"] = str(ruta)
 						out.append(e)
 			else:
 				for c in Game.consumables:
 					if int(Game.consumables[c]) > 0:
-						var e2: Dictionary = _entrada(c, int(Game.consumables[c]))
+						var e2: Dictionary = _entrada(c, int(Game.consumables[c]), lado)
 						e2["ruta"] = (c as Resource).resource_path
 						out.append(e2)
 		_:
@@ -252,15 +250,16 @@ func _recoger(lado: int) -> Array:
 			else:
 				for it in _encima():
 					if _pasa_filtro(it):
-						var e3: Dictionary = _entrada(it, 1)
+						var e3: Dictionary = _entrada(it, 1, lado)
 						var dueno: PersonajeData = Game.quien_lleva(it)
 						e3["dueno"] = "" if dueno == null else dueno.nombre
 						out.append(e3)
 	return out
 
 
-func _entrada(modelo: Resource, cantidad: int) -> Dictionary:
-	return {"modelo": modelo, "cantidad": cantidad, "id": -1, "ruta": "", "dueno": "", "encargo": false}
+func _entrada(modelo: Resource, cantidad: int, lado: int) -> Dictionary:
+	return {"modelo": modelo, "cantidad": cantidad, "id": -1, "ruta": "", "dueno": "", "encargo": false,
+		"lado": lado}
 
 
 # Lo que LLEVAS de la categoria de equipo actual (sin filtrar todavia). SIN TIPAR: se juntan arrays de
@@ -295,7 +294,7 @@ func _del_cofre() -> Array:
 		var item: Resource = _cache_cofre[id]
 		if item == null or not _pasa_filtro(item):
 			continue
-		var e: Dictionary = _entrada(item, 1)
+		var e: Dictionary = _entrada(item, 1, LADO_CASA)
 		e["id"] = id
 		e["encargo"] = int(entrada.get("encargo", 0)) != 0
 		out.append(e)
@@ -356,22 +355,23 @@ func _agrupar(items: Array) -> Array:
 
 
 # ============================================================
-#  EL INTERRUPTOR DE LADO Y LAS ACCIONES EN BLOQUE
+#  LA BARRA DE ARRIBA: lo elegido con sus botones, y las acciones en bloque de materiales
 # ============================================================
 
-func _pintar_lados() -> void:
+func _pintar_barra() -> void:
 	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
+	fila.add_theme_constant_override("separation", 10)
+	fila.custom_minimum_size = Vector2(0, 38)
 	hogar._header.add_child(fila)
-	var n_casa: int = _contar(_recoger(LADO_CASA)) if _lado != LADO_CASA else _contar(_stacks)
-	var n_encima: int = _contar(_recoger(LADO_ENCIMA)) if _lado != LADO_ENCIMA else _contar(_stacks)
-	for par in [[LADO_CASA, "En casa   %d" % n_casa], [LADO_ENCIMA, "Inventario   %d" % n_encima]]:
-		var b := Button.new()
-		b.text = str(par[1])
-		MenuScaffold.estilo_chip(b, _lado == int(par[0]))
-		b.custom_minimum_size = Vector2(170, 32)
-		b.pressed.connect(_on_lado.bind(int(par[0])))
-		fila.add_child(b)
+
+	if _sel < 0:
+		var l := Label.new()
+		l.text = "Arrastra un objeto de un lado al otro, o tócalo para ver sus botones."
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", GRIS)
+		fila.add_child(l)
+	else:
+		_pintar_elegido(fila, (_stacks[_sel_lado] as Array)[_sel])
 
 	if _cat != CAT_MATERIALES:
 		return
@@ -384,6 +384,55 @@ func _pintar_lados() -> void:
 	_boton_bloque(fila, "flecha_abajo", "Guardar todos los materiales", _confirmar_bloque.bind("guardar"))
 	_boton_bloque(fila, "flecha_arriba", "Recoger sin sobrecargarte", _confirmar_bloque.bind("recoger"))
 	_boton_bloque(fila, "flecha_doble_arriba", "Recoger todo", _confirmar_bloque.bind("todo"))
+
+
+# Lo ELEGIDO: su nombre con su color, un dato corto y los botones para pasarlo al otro lado. Lo que no
+# se puede mover lo dice en vez de esconder el boton (una pieza puesta, una herramienta de encargo).
+func _pintar_elegido(fila: HBoxContainer, s: Dictionary) -> void:
+	var m: Resource = s["modelo"]
+	var n: int = int(s["cantidad"])
+	var nom := Label.new()
+	nom.text = _nombre(m) + (("  × %d" % n) if n > 1 else "")
+	nom.add_theme_font_size_override("font_size", 15)
+	nom.add_theme_color_override("font_color", _color_de(m))
+	fila.add_child(nom)
+	var filas: Array = _filas(m)
+	if not filas.is_empty():
+		var dato := Label.new()
+		dato.text = "  ·  ".join(filas.slice(0, 2).map(func(f): return "%s %s" % [f[0], f[1]]))
+		dato.add_theme_font_size_override("font_size", 12)
+		dato.add_theme_color_override("font_color", GRIS)
+		fila.add_child(dato)
+
+	var a_casa: bool = int(s["lado"]) == LADO_ENCIMA
+	if bool(s["encargo"]):
+		_nota_fila(fila, "Prestado a un encargo: vuelve cuando lo recojas.")
+		return
+	if a_casa and str(s["dueno"]) != "":
+		_nota_fila(fila, "Lo lleva %s: quítaselo antes de guardarlo." % s["dueno"])
+		return
+	var verbo: String = "Guardar" if a_casa else "Sacar"
+	if n > 1:
+		_boton(fila, "%s uno" % verbo, _mover.bind(s, 1), false)
+		_boton(fila, "%s todo (%d)" % [verbo, n], _mover.bind(s, n), true)
+	else:
+		_boton(fila, "Guardar en casa" if a_casa else "Sacar al inventario", _mover.bind(s, 1), true)
+
+
+func _nota_fila(fila: HBoxContainer, txt: String) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", Color(0.9, 0.6, 0.5))
+	fila.add_child(l)
+
+
+func _color_de(m: Resource) -> Color:
+	if m is MaterialItem:
+		return (m as MaterialItem).data.color_rango()
+	if m is ConsumableData:
+		return Color(0.94, 0.95, 0.98)
+	return Game.color_rareza_de(m)
 
 
 func _boton_bloque(fila: Control, icono: String, pista: String, al_pulsar: Callable) -> void:
@@ -456,42 +505,135 @@ func _contar(stacks: Array) -> int:
 
 
 # ============================================================
-#  LA REJILLA Y LA FICHA
+#  LOS DOS LADOS: una rejilla cada uno, y se arrastra de uno al otro
 # ============================================================
 
-func _pintar_rejilla() -> void:
-	if _stacks.is_empty():
-		MenuScaffold.nota(hogar._lista, "No hay nada guardado en casa." if _lado == LADO_CASA
+# El meta con el que una celda dice de que lado y que montón es, para el arrastre.
+const META_ARRASTRE := "cofre_arrastre"
+
+func _pintar_lado(lado: int, vb: VBoxContainer) -> void:
+	var stacks: Array = _stacks[lado]
+	var cab := HBoxContainer.new()
+	cab.add_theme_constant_override("separation", 8)
+	vb.add_child(cab)
+	var t := Label.new()
+	t.text = "En casa" if lado == LADO_CASA else "Inventario"
+	t.add_theme_font_size_override("font_size", 16)
+	t.add_theme_color_override("font_color", AMBAR)
+	cab.add_child(t)
+	var n := Label.new()
+	n.text = "%d" % _contar(stacks)
+	n.add_theme_font_size_override("font_size", 16)
+	n.add_theme_color_override("font_color", GRIS)
+	cab.add_child(n)
+
+	# SOLTAR AQUI: la columna entera (su scroll y lo de dentro) acepta lo que venga del OTRO lado.
+	_aceptar_soltar(vb, lado)
+	_aceptar_soltar(vb.get_parent() as Control, lado)
+
+	if stacks.is_empty():
+		MenuScaffold.nota(vb, "No hay nada de esto guardado en casa." if lado == LADO_CASA
 			else "No tienes nada de esto en el inventario.")
 		return
-	_sel = clampi(_sel, 0, _stacks.size() - 1)
 	var piezas: Array = []
-	for s in _stacks:
+	for s in stacks:
 		var marca: String = str(s["dueno"])
 		if bool(s["encargo"]):
 			marca = "ENCARGO"
-		var n: int = int(s["cantidad"])
-		piezas.append({"item": s["modelo"], "pie": ("x%d" % n) if n > 1 else "",
+		var k: int = int(s["cantidad"])
+		piezas.append({"item": s["modelo"], "pie": ("x%d" % k) if k > 1 else "",
 			"tooltip": _nombre(s["modelo"]), "marca": marca, "activo": true})
-	MenuScaffold.rejilla_objetos(hogar._lista, piezas, _sel, _pick, _columnas(), LADO_CELDA)
-	_ficha()
+	var sel: int = _sel if _sel_lado == lado else -1
+	MenuScaffold.rejilla_objetos(vb, piezas, sel, _pick.bind(lado), _columnas(vb), LADO_CELDA)
+	# Las celdas se crean a tandas (ver rejilla_objetos): el arrastre se engancha a las que ya estan y,
+	# para las que vienen, al añadirse a la rejilla.
+	for h in vb.get_children():
+		if h is GridContainer:
+			_aceptar_soltar(h, lado)
+			for i in h.get_child_count():
+				_hacer_arrastrable(h.get_child(i), lado, i)
+			h.child_entered_tree.connect(func(c: Node):
+				_hacer_arrastrable(c, lado, c.get_index()))
 
 
-# Elegir otra celda repinta SOLO la ficha y la marca de la rejilla: rehacer la rejilla entera la
-# devolveria arriba del todo (el scroll salta), justo lo que se arreglo en el inventario.
-func _pick(i: int) -> void:
+func _hacer_arrastrable(c: Node, lado: int, i: int) -> void:
+	if not (c is Control) or (c as Control).has_meta(META_ARRASTRE):
+		return
+	var celda := c as Control
+	celda.set_meta(META_ARRASTRE, [lado, i])
+	# En el movil el deslizamiento de la lista se lleva el gesto salvo que la celda lo pida para si.
+	if Tactil.activo:
+		celda.set_meta(ArrastreScroll.META_ARRASTRE_PROPIO, true)
+	celda.set_drag_forwarding(
+		func(_pos: Vector2) -> Variant:
+			var st: Array = _stacks[lado]
+			if i >= st.size():
+				return null
+			var vista := CeldaObjeto.new()
+			vista.custom_minimum_size = Vector2(LADO_CELDA, LADO_CELDA) * 0.8
+			vista.size = vista.custom_minimum_size
+			vista.modulate = Color(1, 1, 1, 0.85)
+			celda.set_drag_preview(vista)
+			vista.configurar(st[i]["modelo"] as Resource, "", "", -1)
+			return {"cofre_lado": lado, "cofre_idx": i},
+		func(_pos: Vector2, data: Variant) -> bool:
+			return _puede_soltar(data, lado),
+		func(_pos: Vector2, data: Variant) -> void:
+			_soltar(data, lado))
+
+
+func _aceptar_soltar(zona: Control, lado: int) -> void:
+	if zona == null:
+		return
+	zona.set_drag_forwarding(
+		func(_pos: Vector2) -> Variant: return null,
+		func(_pos: Vector2, data: Variant) -> bool: return _puede_soltar(data, lado),
+		func(_pos: Vector2, data: Variant) -> void: _soltar(data, lado))
+
+
+func _puede_soltar(data: Variant, destino: int) -> bool:
+	return data is Dictionary and (data as Dictionary).has("cofre_lado") \
+		and int(data["cofre_lado"]) != destino
+
+
+# SOLTAR en el otro lado = mover el montón ENTERO (una pieza de equipo es un montón de uno).
+func _soltar(data: Variant, destino: int) -> void:
+	if not _puede_soltar(data, destino):
+		return
+	var st: Array = _stacks[int(data["cofre_lado"])]
+	var i: int = int(data["cofre_idx"])
+	if i < 0 or i >= st.size():
+		return
+	var s: Dictionary = st[i]
+	if bool(s["encargo"]):
+		_decir("Está prestado a un encargo: vuelve cuando lo recojas.", false)
+		return
+	if int(s["lado"]) == LADO_ENCIMA and str(s["dueno"]) != "":
+		_decir("Lo lleva %s: quítaselo antes de guardarlo." % s["dueno"], false)
+		return
+	_sel = -1
+	_mover(s, int(s["cantidad"]))
+
+
+# Elegir una celda: se marca en SU rejilla, se desmarca la del otro lado y se repinta solo la barra de
+# arriba (rehacer las rejillas las devolveria arriba del todo, ver marcar_en_rejilla).
+func _pick(i: int, lado: int) -> void:
 	_sel = i
-	if MenuScaffold.marcar_en_rejilla(hogar._lista, i):
-		MenuScaffold.vaciar(hogar._content)
-		_ficha()
+	_sel_lado = lado
+	var vb_elegido: VBoxContainer = hogar._lista if lado == LADO_ENCIMA else hogar._content
+	var vb_otro: VBoxContainer = hogar._content if lado == LADO_ENCIMA else hogar._lista
+	if MenuScaffold.marcar_en_rejilla(vb_elegido, i):
+		MenuScaffold.marcar_en_rejilla(vb_otro, -1)
+		MenuScaffold.vaciar(hogar._header)
+		_pintar_barra()
 	else:
 		hogar._rebuild()
 
 
-func _columnas() -> int:
-	var ancho: float = hogar._lista.size.x
+func _columnas(vb: Control) -> int:
+	var ancho: float = vb.size.x
 	if ancho <= 1.0:
-		ancho = 420.0
+		ancho = 520.0
 	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
 
 
@@ -501,33 +643,6 @@ func _nombre(it: Resource) -> String:
 	if it is ConsumableData:
 		return (it as ConsumableData).nombre
 	return Game.item_display_name(it)
-
-
-func _ficha() -> void:
-	var s: Dictionary = _stacks[_sel]
-	var m: Resource = s["modelo"]
-	var vb: VBoxContainer = hogar._content
-	var n: int = int(s["cantidad"])
-
-	# EL TITULO con su color: rango en los materiales, rareza en el equipo.
-	if m is MaterialItem:
-		var mi := m as MaterialItem
-		MenuScaffold.titulo_item(vb, mi.nombre_mostrado(), mi.data.color_rango(), mi.data.rango_intensidad())
-	elif m is ConsumableData:
-		MenuScaffold.titulo(vb, (m as ConsumableData).nombre, 16, Color(0.94, 0.95, 0.98))
-	else:
-		MenuScaffold.titulo_item(vb, Game.item_display_name(m), Game.color_rareza_de(m),
-			Game.intensidad_rareza_de(m))
-	MenuScaffold.banner_item(vb, m, ("× %d" % n) if n > 1 else "",
-		"En casa" if _lado == LADO_CASA else "Inventario")
-	for fila in _filas(m):
-		MenuScaffold.fila(vb, str(fila[0]), str(fila[1]), 150)
-	# Lo que HACE un consumible es un parrafo, no un "etiqueta: valor": va a todo lo ancho.
-	if m is ConsumableData and m.get("descripcion") != null and str(m.get("descripcion")) != "":
-		MenuScaffold.nota(vb, str(m.get("descripcion")))
-
-	vb.add_child(HSeparator.new())
-	_acciones(vb, s)
 
 
 # Las filas de datos de cada clase de cosa. Las de equipo salen de las fichas COMPARTIDAS de
@@ -560,39 +675,15 @@ func _filas(m: Resource) -> Array:
 	return out
 
 
-# LOS BOTONES de la ficha: pasar lo elegido al otro lado. Lo que no se puede mover lo dice en vez de
-# esconder el boton (una pieza puesta, una herramienta prestada a un encargo).
-func _acciones(vb: VBoxContainer, s: Dictionary) -> void:
-	var m: Resource = s["modelo"]
-	var n: int = int(s["cantidad"])
-	var a_casa: bool = _lado == LADO_ENCIMA
-	if bool(s["encargo"]):
-		MenuScaffold.nota(vb, "Está prestado a un encargo: vuelve a casa cuando lo recojas.")
-		return
-	if a_casa and str(s["dueno"]) != "":
-		MenuScaffold.nota(vb, "Lo lleva %s. Quítaselo en su ficha antes de guardarlo." % s["dueno"])
-		return
-
-	var acc := VBoxContainer.new()
-	acc.add_theme_constant_override("separation", 8)
-	vb.add_child(acc)
-	var verbo: String = "Guardar" if a_casa else "Sacar"
-	if n > 1:
-		_boton(acc, "%s todo (%d)" % [verbo, n], _mover.bind(s, n), true)
-		_boton(acc, "%s uno" % verbo, _mover.bind(s, 1), false)
-	else:
-		_boton(acc, "Guardar en casa" if a_casa else "Sacar al inventario", _mover.bind(s, 1), true)
-
-
 func _boton(padre: Control, txt: String, al_pulsar: Callable, principal: bool) -> void:
 	var b: Button = MenuScaffold.pastilla(padre, txt, al_pulsar, principal)
-	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
+	b.custom_minimum_size = Vector2(0, 34)
 
 
 # Pasa 'cuantos' de lo elegido al otro lado, por la via de red de cada cosa.
 func _mover(s: Dictionary, cuantos: int) -> void:
 	var m: Resource = s["modelo"]
-	var a_casa: bool = _lado == LADO_ENCIMA
+	var a_casa: bool = int(s["lado"]) == LADO_ENCIMA
 	var nombre: String = _nombre(m)
 	match _cat:
 		CAT_MATERIALES:

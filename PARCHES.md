@@ -62,6 +62,8 @@ de salir a la luz va marcado en verde. A la izquierda se ve qué te falta para s
 **Subir de nivel**: las habilidades de desarrollo ya no se salen de la pantalla cuando hay muchas. Van en
 tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vuelves al altar.
 
+**Al arrastrar** (el equipo, los objetos del cofre, las habilidades) el puntero es una mano agarrando.
+
 **La corona del que va en cabeza** se ve por fin en los retratos de arriba (la tapaba el pelo).
 
 **El Hogar, con cara nueva.** Arriba, tres secciones con icono: Equipo, Encargos y Cofre.
@@ -73,8 +75,9 @@ tarjetas, la elegida se lee entera a la derecha, y al terminar (o al aplazar) vu
   después, y en compañía os intercaláis como lo pongáis. Si mueves a los personajes de tu compañero, le
   llega un aviso para aceptar o rechazar.
 - **Cofre**: todo lo que se deja en casa, con las mismas secciones que el inventario (equipo, consumibles,
-  materiales, armas, armaduras) y la hucha. Cambias entre "En casa" e "Inventario" y mueves lo que
-  elijas; los materiales tienen además guardar todo, recoger sin sobrecargarte y recoger todo. La
+  materiales, armas, armaduras) y la hucha. Tu inventario a la izquierda y lo de casa a la derecha, a la vez:
+  se pasan las cosas ARRASTRÁNDOLAS de un lado al otro (o tocándolas y con sus botones). Los materiales
+  tienen además guardar todo, recoger sin sobrecargarte y recoger todo. La
   pestaña Almacén desaparece: sus materiales están en el Cofre.
 
 **Las áreas contra un grupo con el Rey Slime** alcanzan ya a los que tiene al lado en pantalla (antes, a

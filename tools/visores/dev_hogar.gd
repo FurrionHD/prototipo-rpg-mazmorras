@@ -133,6 +133,9 @@ func _pasada() -> void:
 	await _captura("equipo_confirmado")
 	Net.formacion.peticion_recibida.emit(99, "Hermano", "Hermano quiere cambiar el orden del equipo: Ilyan al puesto 2.")
 	await _captura("equipo_peticion")
+	for n in get_children():
+		if n.has_method("_contestar"):
+			n._contestar(false)   # que no tape el resto de capturas
 	for i in tabs.size():
 		_menu._on_tab(i)
 		match str(tabs[i]):
@@ -145,12 +148,7 @@ func _pasada() -> void:
 				var alm = _seccion("almacen")
 				for c in alm.CATEGORIAS.size():
 					alm._on_cat(c)
-					await _captura("%d_almacen_%d_casa" % [i, c])
-					if c == alm.CAT_HUCHA:
-						continue
-					alm._on_lado(alm.LADO_ENCIMA)
-					await _captura("%d_almacen_%d_encima" % [i, c])
-					alm._on_lado(alm.LADO_CASA)
+					await _captura("%d_almacen_%d" % [i, c])
 				# Las subcategorias de equipo y un filtro de armas.
 				alm._on_cat(alm.CAT_EQUIPO)
 				for s in 3:
@@ -161,10 +159,15 @@ func _pasada() -> void:
 				await _captura("%d_almacen_armas_filtro" % i)
 				alm._on_sub(0)
 				# Elegir otra celda y mover una pieza.
-				alm._pick(1)
+				alm._pick(1, alm.LADO_CASA)
 				await _captura("%d_almacen_armas_pick" % i)
-				alm._mover(alm._stacks[alm._sel], 1)
-				await _captura("%d_almacen_armas_sacada" % i)
+				# ARRASTRAR: lo que haria soltar una celda del inventario en la columna de casa.
+				alm._soltar({"cofre_lado": alm.LADO_ENCIMA, "cofre_idx": 2}, alm.LADO_CASA)
+				await _captura("%d_almacen_armas_soltada" % i)
+				# EL GESTO DE VERDAD: pulsar una celda del inventario, mover el raton a la columna de casa y
+				# soltar, con eventos de raton. Es lo unico que prueba el arrastre y no solo la funcion.
+				await _arrastre_real(alm)
+				await _captura("%d_almacen_armas_arrastrada" % i)
 				# El modal de materiales.
 				alm._on_cat(alm.CAT_MATERIALES)
 				alm._confirmar_bloque("recoger")
@@ -172,6 +175,48 @@ func _pasada() -> void:
 				alm.cerrar_modal()
 			_:
 				await _captura("%d_%s" % [i, str(tabs[i]).to_lower()])
+
+
+func _arrastre_real(alm) -> void:
+	var antes_inv: int = (alm._stacks[alm.LADO_ENCIMA] as Array).size()
+	var antes_casa: int = (alm._stacks[alm.LADO_CASA] as Array).size()
+	var celda: Control = null
+	for h in _menu._lista.get_children():
+		if h is GridContainer and h.get_child_count() > 4:
+			celda = h.get_child(4)
+	if celda == null:
+		print("[hogar] ARRASTRE: no hay celda que arrastrar")
+		return
+	var desde: Vector2 = celda.get_global_rect().get_center()
+	var hasta: Vector2 = (_menu._content.get_parent() as Control).get_global_rect().get_center()
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = desde
+	ev.global_position = desde
+	Input.parse_input_event(ev)
+	await get_tree().process_frame
+	for k in 12:
+		var mv := InputEventMouseMotion.new()
+		var pos: Vector2 = desde.lerp(hasta, float(k + 1) / 12.0)
+		mv.position = pos
+		mv.global_position = pos
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.relative = (hasta - desde) / 12.0
+		Input.parse_input_event(mv)
+		await get_tree().process_frame
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = hasta
+	up.global_position = hasta
+	Input.parse_input_event(up)
+	for k in 3:
+		await get_tree().process_frame
+	var despues_inv: int = (alm._stacks[alm.LADO_ENCIMA] as Array).size()
+	var despues_casa: int = (alm._stacks[alm.LADO_CASA] as Array).size()
+	print("[hogar] ARRASTRE REAL: inventario %d -> %d, casa %d -> %d  %s" % [antes_inv, despues_inv,
+		antes_casa, despues_casa, "OK" if despues_inv == antes_inv - 1 and despues_casa == antes_casa + 1 else "FALLA"])
 
 
 # ============================================================
