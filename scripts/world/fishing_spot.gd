@@ -287,7 +287,7 @@ var _espero_mordida: bool = false
 # _publicar_mi_corcho). El latido lo reenvia igual de vez en cuando por si se perdio el paquete.
 const CORCHO_LATIDO := 0.5
 var _corcho_ultimo_pos: Vector2 = Vector2.INF
-var _corcho_ultimo_activo: bool = false
+var _corcho_ultimo_modo: int = 0   # lo ultimo publicado (ver _publicar_mi_corcho)
 var _t_corcho: float = 0.0
 
 
@@ -728,6 +728,13 @@ func _nacer_pez(rng: RandomNumberGenerator = null) -> void:
 		if _cabe(tanteo, Vector2.from_angle(ang), largo):
 			pos = tanteo
 			break
+	# Si ninguna tirada cabia, nace en el centro: con un rumbo que QUEPA ahi (sin tiradas nuevas, ver el OJO
+	# de arriba), no con el sorteado, que podia dejarlo atascado desde el primer fotograma.
+	if not _cabe(pos, Vector2.from_angle(ang), largo):
+		for k in 12:
+			if _cabe(pos, Vector2.from_angle(ang + TAU * float(k) / 12.0), largo):
+				ang += TAU * float(k) / 12.0
+				break
 	var vel: float = VEL_PEZ + r.randf_range(-VEL_PEZ_VAR, VEL_PEZ_VAR)
 	_peces.append({
 		"spr": spr, "data": d, "cm": cm, "largo": largo, "alto": alto,
@@ -822,6 +829,23 @@ func _colocar(p: Dictionary) -> void:
 	(p["spr"] as Sprite2D).position = p["pos"]
 
 
+# Por donde prueba a salir un pez que choca: 30 grados a un lado, al otro, 60, ... hasta la media vuelta.
+const RUMBOS_DE_ESCAPE := [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6]
+# Cuanto tiempo deja de hacerle caso al cebo un pez que acaba de chocar con la orilla (s).
+const BLOQUEO_CEBO := 0.6
+
+# El centro de la celda de agua HONDA (la que no toca tierra) mas cercana a 'desde'.
+func _honda_mas_cercana(desde: Vector2) -> Vector2:
+	var mejor: Vector2 = _centro_agua
+	var mejor_d: float = INF
+	for c in _hondas_px:
+		var d: float = desde.distance_squared_to(c)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
 func _nadar(delta: float) -> void:
 	for p in _peces:
 		# El pez ENGANCHADO no deambula: se queda forcejeando junto al corcho. Vale tanto para el mio
@@ -831,7 +855,7 @@ func _nadar(delta: float) -> void:
 			continue
 		if int(p.get("de", 0)) != 0:
 			continue
-		if _atrae_el_cebo(p):
+		if _atrae_el_cebo(p) and float(p.get("t_bloqueo", 0.0)) <= 0.0:
 			# EL CEBO manda mientras el pez este dentro de su radio: en vez de tirar su dado de rumbo,
 			# vira hacia el corcho. Conservando el modulo de la velocidad, o sea que cada uno va a lo
 			# suyo y llega cuando llega.
@@ -860,24 +884,33 @@ func _nadar(delta: float) -> void:
 		# Ahora se prueban las DOS PUNTAS del pez contra el agua, que es la pregunta que aquel margen
 		# aproximaba. Sale mejor y no solo compatible: la anguila puede acercarse de verdad a la
 		# orilla en vez de nadar dentro de un rectangulo encogido medio metro por su propio largo.
+		p["t_bloqueo"] = maxf(0.0, float(p.get("t_bloqueo", 0.0)) - delta)
 		if not _cabe(pos, p["vel"], float(p["largo"])):
-			# El paso se CANCELA en vez de recortarse: recortando, un pez podia quedarse con el morro
-			# metido en tierra hasta que el rumbo nuevo lo sacara.
+			# EL PASO NO CABE: se busca un RUMBO QUE QUEPA, girando cada vez mas hacia los dos lados, y se nada
+			# por el. Antes se invertia la velocidad por ejes, y desde que el lago no es un rectangulo eso
+			# temblaba: en un brazo estrecho o en una orilla en diagonal la media vuelta tampoco cabia, al
+			# frame siguiente volvia a invertirse y el pez se quedaba girando 180 grados cada fotograma contra
+			# la pared (playtest: "los peces se quedan atrapados en las paredes, como temblando").
 			var v: Vector2 = p["vel"]
-			var paso: float = float(p["largo"]) * 0.5 + 2.0
-			var seco_x: bool = not hay_agua((p["pos"] as Vector2) + Vector2(signf(v.x) * paso, 0.0))
-			var seco_y: bool = not hay_agua((p["pos"] as Vector2) + Vector2(0.0, signf(v.y) * paso))
-			# Si no da seco por ninguno de los dos (una cala en diagonal), se invierten los dos: dar
-			# media vuelta siempre saca de donde se ha entrado.
-			if not seco_x and not seco_y:
-				seco_x = true
-				seco_y = true
-			p["vel"] = Vector2(-v.x if seco_x else v.x, -v.y if seco_y else v.y)
-			pos = p["pos"]
-			# Ultimo recurso: si ya estaba en seco (una celda que se ha quedado aislada), se le
-			# empuja al corazon del lago en vez de dejarlo temblando contra la pared.
-			if not hay_agua(pos):
-				pos = pos.move_toward(_centro_agua, maxf(1.0, (p["vel"] as Vector2).length() * delta))
+			var desde: Vector2 = p["pos"]
+			pos = desde
+			var salida := false
+			for k in RUMBOS_DE_ESCAPE:
+				var prueba: Vector2 = v.rotated(deg_to_rad(30.0 * float(k)))
+				if _cabe(desde + prueba * delta, prueba, float(p["largo"])):
+					p["vel"] = prueba
+					pos = desde + prueba * delta
+					salida = true
+					break
+			if not salida:
+				# NO CABE POR NINGUN LADO (un rincon donde el pez es mas largo que el hueco, o una celda que se
+				# ha quedado aislada): se le empuja hacia el agua honda mas cercana en vez de dejarlo vibrando.
+				var honda: Vector2 = _honda_mas_cercana(desde)
+				p["vel"] = (honda - desde).normalized() * v.length() if honda != desde else v
+				pos = desde.move_toward(honda, maxf(1.0, v.length() * delta))
+			# Un rato sin que el cebo lo re-apunte: con tierra entre el pez y el corcho, lo metia otra vez contra
+			# la orilla en cada fotograma.
+			p["t_bloqueo"] = BLOQUEO_CEBO
 		p["pos"] = pos
 		# El cuerpo se orienta con el rumbo: asi la anguila se lee como anguila al cruzar el charco.
 		var spr: Sprite2D = p["spr"]
@@ -1677,21 +1710,34 @@ func _mordidas_remotas() -> void:
 # no se mueve mientras esperas —solo cabecea, y eso es pintura, no _corcho_base—. Mandarlo 60 veces
 # por segundo era un RPC por frame para repetir el mismo Vector2. El latido esta porque el transporte
 # es unreliable: si se pierde el unico paquete del cambio, el dueño no sabria que estoy pescando.
+#
+# TRES MODOS y no un si/no (playtest: "al picar el pez, el que no pesca deja de ver el hilo"). Un solo flag
+# queria decir a la vez "puede picarme" y "pintadme el hilo": en cuanto picaba ya no podia picar, se mandaba
+# false y el otro borraba el sedal justo cuando empezaba lo bonito (tirar, luchar, cobrar).
+#   CORCHO_NADA      no hay sedal en el agua
+#   CORCHO_VISIBLE   hay sedal pero ya tengo pieza: se pinta, NO se decide mordida con el
+#   CORCHO_PESCANDO  esperando mordida: se pinta y el dueño decide con el
+const CORCHO_NADA := 0
+const CORCHO_VISIBLE := 1
+const CORCHO_PESCANDO := 2
+
 func _publicar_mi_corcho(delta: float) -> void:
 	var pescando: bool = _estado == ESPERA and _pez.is_empty() and not _espero_mordida
+	var modo: int = CORCHO_PESCANDO if pescando else \
+		(CORCHO_VISIBLE if _estado in [ESPERA, PICANDO, TIRON, LUCHA, COBRO] else CORCHO_NADA)
 	# NI PESCO NI PESCABA: no hay nada que contar. Sin esto, ahora que esto corre tambien para el dueño
 	# y con la pesca cerrada, cada charco del piso mandaria un "no estoy pescando" cada CORCHO_LATIDO
 	# para siempre.
-	if not pescando and not _corcho_ultimo_activo:
+	if modo == CORCHO_NADA and _corcho_ultimo_modo == CORCHO_NADA:
 		return
 	_t_corcho -= delta
-	if pescando == _corcho_ultimo_activo and _corcho_base.distance_to(_corcho_ultimo_pos) < 1.0 \
+	if modo == _corcho_ultimo_modo and _corcho_base.distance_to(_corcho_ultimo_pos) < 1.0 \
 			and _t_corcho > 0.0:
 		return
 	_t_corcho = CORCHO_LATIDO
-	_corcho_ultimo_activo = pescando
+	_corcho_ultimo_modo = modo
 	_corcho_ultimo_pos = _corcho_base
-	Net.pesca.publicar_corcho(_corcho_base, pescando)
+	Net.pesca.publicar_corcho(_corcho_base, modo)
 
 
 # LA PUERTA UNICA del corcho de otro. Dos cosas distintas y no hay que confundirlas:
@@ -1699,11 +1745,11 @@ func _publicar_mi_corcho(delta: float) -> void:
 #   - DECIDIR con el (mordidas) solo el dueño del piso, ahi abajo en corcho_remoto.
 # Y el mio no cuenta por ninguna de las dos: ese lo pinta el sedal de siempre y sus mordidas las
 # resuelve _paso_espera.
-func corcho_de(peer: int, pos: Vector2, activo: bool) -> void:
+func corcho_de(peer: int, pos: Vector2, modo: int) -> void:
 	if peer == Net.mi_peer():
 		return
-	_corcho_visual(peer, pos, activo)
-	corcho_remoto(peer, pos, activo)
+	_corcho_visual(peer, pos, modo != CORCHO_NADA)
+	corcho_remoto(peer, pos, modo == CORCHO_PESCANDO)
 
 
 # EL SEDAL DE OTRO: su hilo y su corcho en el agua. Se guarda la posicion y se repinta cada frame en

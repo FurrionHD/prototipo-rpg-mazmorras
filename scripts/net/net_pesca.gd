@@ -83,18 +83,18 @@ func _rel_charco(lugar: String, snap: Dictionary) -> void:
 # servia para pedir mordidas, que el dueño se resuelve solo --, pero ahora tambien es lo que se PINTA:
 # callandolo, el dueño del piso era el unico al que nadie veia pescar. Su propio charco se ignora a si
 # mismo por peer id (ver fishing_spot.corcho_de).
-func publicar_corcho(pos: Vector2, esta_activo: bool) -> void:
+func publicar_corcho(pos: Vector2, modo: int) -> void:
 	if not Net.activo or multiplayer.multiplayer_peer == null:
 		return
 	if Net.es_host:
-		_encaminar_corcho(1, Net._mi_lugar, pos, esta_activo)
+		_encaminar_corcho(1, Net._mi_lugar, pos, modo)
 	else:
-		_corcho_pesca.rpc_id(1, Net._mi_lugar, pos, esta_activo)
+		_corcho_pesca.rpc_id(1, Net._mi_lugar, pos, modo)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
-	_encaminar_corcho(multiplayer.get_remote_sender_id(), lugar, pos, esta_activo)
+func _corcho_pesca(lugar: String, pos: Vector2, modo: int) -> void:
+	_encaminar_corcho(multiplayer.get_remote_sender_id(), lugar, pos, modo)
 
 
 # El corcho va a TODOS los que esten en ese piso, no solo a quien lo simula.
@@ -103,20 +103,20 @@ func _corcho_pesca(lugar: String, pos: Vector2, esta_activo: bool) -> void:
 # dejaba la pesca en multi MUDA: no se veia a nadie pescar -- ni la caña, ni el hilo, ni el corcho en
 # el agua --, cada uno miraba su propio sedal y el charco parecia vacio. El dueño sigue siendo el
 # unico que DECIDE (ver fishing_spot.corcho_de); los demas solo lo PINTAN.
-func _encaminar_corcho(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
+func _encaminar_corcho(de: int, lugar: String, pos: Vector2, modo: int) -> void:
 	if Net._mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_de(de, pos, esta_activo)
+		_charco.corcho_de(de, pos, modo)
 	if not Net.es_host:
 		return
 	for peer_id in Net._peers:
 		if peer_id != de and Net._peers[peer_id].get("lugar", "") == lugar:
-			_corcho_pesca_a.rpc_id(peer_id, de, lugar, pos, esta_activo)
+			_corcho_pesca_a.rpc_id(peer_id, de, lugar, pos, modo)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, esta_activo: bool) -> void:
+func _corcho_pesca_a(de: int, lugar: String, pos: Vector2, modo: int) -> void:
 	if Net._mi_lugar == lugar and _charco != null and is_instance_valid(_charco):
-		_charco.corcho_de(de, pos, esta_activo)
+		_charco.corcho_de(de, pos, modo)
 
 
 # El CUERPO de otro jugador en mi mundo, o null. Lo pide el charco para colgarle el sedal del sitio
