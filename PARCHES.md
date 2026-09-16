@@ -49,6 +49,38 @@ calidad, al lado de lo que estás haciendo.
 **Coser una mochila cabe en una pantalla**: los tres materiales van uno al lado del otro, con sus
 cantidades por calidad, y la tabla de rarezas ya no queda fuera de la vista.
 
+**Y cose las armaduras de cuero**, que antes se forjaban en la herrería: no se golpea metal, se cose
+piel. Ahora llevan **hebillas** en vez de chapa (las mismas unidades) y las empuja la **Peletería**, no
+la Herrería. Se siguen mejorando, deshaciendo y reparando en la herrería, como todo el equipo. Las que ya
+tienes no cambian.
+
+## ⚒️ La herrería, la carpintería, la boticaria y la cocina, rehechas
+
+**Todos los oficios tienen ya la cara del inventario.** En cada celda sale lo que vas a crear (el lingote,
+la espada con su tier, la poción, el plato), no lo que metes; encima, filtros con icono (tier, tipo de
+pieza, vida/maná/antídotos...); y los materiales de cada receta van en columnas, con una fila por calidad.
+
+**Mejorar, Deshacer y Reparar** enseñan tu equipo en celdas, como el baúl, con quién lleva cada pieza.
+En Reparar eliges a la persona con su retrato y ves lo gastado de cada pieza de un vistazo.
+
+**La cantidad empieza en 1**, nunca en el máximo.
+
+## 🧑‍🔧 Quién trabaja
+
+**En cada taller eliges quién hace el trabajo**, de entre todos tus personajes (también los que se
+quedan en el Hogar). A ese personaje le va la experiencia del oficio, y de su rango sale el bonus: mandar
+a uno que no lo tiene sale peor, pero así es como lo aprende. Cada taller recuerda al suyo. Quien ya tiene
+el oficio lleva su icono en la esquina del retrato.
+
+La Cocina lo lleva también a la mesa: lo que se come alimenta más según el rango del cocinero que hayas
+puesto en la cocina.
+
+## ⚒️ Metalurgia ya no existe: es Herrería
+
+**La Herrería hace ahora las dos cosas**: al fundir y batir metal sube su calidad, y al forjar empuja la
+rareza (como ya hacía la Carpintería con la madera). Quien tuviera Metalurgia se queda con el mejor de
+los dos rangos y con la experiencia de las dos sumada.
+
 ## 🔨 Los oficios se llaman por su sitio
 
 **Herrería, Peletería y Carpintería**, no Herrero, Peletero y Carpintero: ahí no hay nadie trabajando
@@ -56,6 +88,9 @@ por ti, lo haces tú con tus personajes. Cambia el cartel del pueblo, el título
 los textos que mandaban "al herrero" o "al peletero".
 
 ## 🔧 Arreglos
+
+**Los menús de oficio ya no tardan en cambiar de pestaña** con el baúl lleno: la cocina tardaba más de un
+segundo con 19.000 materiales guardados, y ahora es instantáneo.
 
 **Vender un pez cobra el de la talla que pone**: antes podía irse otro de la misma especie (y con él tu
 pez trofeo).

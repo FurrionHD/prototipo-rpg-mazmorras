@@ -101,7 +101,9 @@ func _ready() -> void:
 		# La Peleteria puede subirlo un escalon, asi que el curtido puede caer en la calidad de
 		# ARRIBA: lo que se comprueba es que se ha gastado lo justo y que ha salido UNO.
 		var gasto: int = antes_piel - Game.items_calidad_en_hogar(origen, int(s["cal"]))
-		_ok("curtir 1 gasta %d pieles" % por_uno, gasto == por_uno)
+		# El oficio puede DEVOLVER una de las que gasta: una menos tambien vale.
+		_ok("curtir 1 gasta %d pieles (o una menos si el oficio devuelve una): %d" % [por_uno, gasto],
+			gasto == por_uno or gasto == por_uno - 1)
 		_ok("y deja un curtido (o uno mejor, si la Peletería tira)", gano == 1 or gano == 0)
 
 	print("\n=== CORREAS: solo cuero curtido, y cada tier el suyo ===")
@@ -145,6 +147,32 @@ func _ready() -> void:
 		await M._coser(heb)
 		_ok("coser deja %d mochila(s) en el baúl" % piezas, Game.owned_mochilas.size() == antes + piezas)
 		_ok("y suelta la selección", M._sel_heb.is_empty() and M._sel_cor.is_empty())
+
+	print("\n=== ARMADURAS DE CUERO (se mudaron de la herrería) ===")
+	await _ir(men, men.TAB_ARMADURAS)
+	var A = men.armaduras
+	_ok("son las cinco piezas de cuero", men.stacks.size() == 5
+		and men.stacks.all(func(b): return Game.es_armadura_cuero(b)))
+	var casco: Resource = men.stacks[0]
+	var heb_c: MaterialData = A._metal(casco)
+	_ok("el metal son hebillas, no chapa", heb_c != null and String(heb_c.id).begins_with("hebillas"))
+	var cosedor: PersonajeData = Game.party[1]
+	men._on_artesano(men._gente().find(cosedor))
+	await get_tree().process_frame
+	A._on_auto(casco, heb_c, true)
+	await get_tree().process_frame
+	var n_arm: int = Game.piezas_de_seleccion_forja(casco, heb_c, A._sel)
+	_ok("el Auto llena para un casco", n_arm >= 1)
+	await _captura(men, "armaduras")
+	if n_arm >= 1:
+		var antes_arm: int = Game.owned_armor.size()
+		var pel_antes: float = cosedor.peleteria_exp
+		var herr_antes: float = cosedor.herreria_exp
+		await A._forjar(casco, heb_c)
+		_ok("coser deja el casco en el baúl", Game.owned_armor.size() == antes_arm + n_arm)
+		_ok("y suma Peletería a quien cose", cosedor.peleteria_exp > pel_antes)
+		_ok("y no Herrería", is_equal_approx(cosedor.herreria_exp, herr_antes))
+	men._on_artesano(men._gente().find(Game.lider()))
 
 	print("\n=== LA CANTIDAD ARRANCA EN 1 ===")
 	await _ir(men, men.TAB_CURTIR)
