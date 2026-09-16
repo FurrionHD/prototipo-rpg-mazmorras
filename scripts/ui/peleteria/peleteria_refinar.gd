@@ -206,7 +206,6 @@ func _ficha(vb: VBoxContainer, correas: bool) -> void:
 		t.note(vb, "Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero. Cada tier de mochila pide la correa de SU tier.")
 	else:
 		t.note(vb, "Las calidades no se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón.")
-	t.estado_peleteria(vb)
 
 	_pie(correas, s, salen)
 
@@ -237,11 +236,13 @@ func _en_el_almacen(vb: VBoxContainer, destino: MaterialData) -> void:
 func _pie(correas: bool, s: Dictionary, salen: int) -> void:
 	var vb: VBoxContainer = t.acciones()
 	vb.add_child(HSeparator.new())
-	# Monton nuevo: se arranca al MAXIMO. Es lo que se quiere casi siempre (curtir todo lo que
-	# llevas), y bajar es un toque.
+	# Monton nuevo: se arranca en UNO, no en el maximo. Arrancaba al maximo ("es lo que se quiere casi
+	# siempre") y el usuario lo corto: entras, das al boton y te has fundido las cuarenta pieles sin
+	# haber elegido nada. Lo que se selecciona solo se selecciona hacia arriba (misma regla que
+	# fila_refino, que arranca en 0).
 	var clave: String = "%s|%d" % [String((s["mat"] as MaterialData).id), int(s["cal"])]
 	if clave != _cant_de or _cant < 1 or _cant > maxi(1, salen):
-		_cant = maxi(1, salen)
+		_cant = 1
 		_cant_de = clave
 	var total := Label.new()
 	total.add_theme_font_size_override("font_size", 15)

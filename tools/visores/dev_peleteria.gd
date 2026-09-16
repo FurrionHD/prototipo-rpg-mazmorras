@@ -146,10 +146,22 @@ func _ready() -> void:
 		_ok("coser deja %d mochila(s) en el baúl" % piezas, Game.owned_mochilas.size() == antes + piezas)
 		_ok("y suelta la selección", M._sel_heb.is_empty() and M._sel_cor.is_empty())
 
+	print("\n=== LA CANTIDAD ARRANCA EN 1 ===")
+	await _ir(men, men.TAB_CURTIR)
+	# Arrancaba en el maximo y el usuario lo corto: entras, das al boton y te has fundido las
+	# cuarenta pieles sin haber elegido nada.
+	_ok("al elegir un montón, la cantidad arranca en 1", R._cant == 1)
+
 	print("\n=== QUIÉN TRABAJA ===")
 	await _ir(men, men.TAB_CURTIR)
 	var gente: Array = men._gente()
 	_ok("la fila lleva a toda la plantilla, no solo al equipo", gente.size() == Game.plantilla.size())
+	# El oficio se marca EN EL RETRATO, no escrito en la ficha.
+	var con: int = 0
+	for p in gente:
+		if Game.desarrollo_rango("peleteria", p as PersonajeData) > 0:
+			con += 1
+	_ok("alguien de la plantilla tiene Peletería (si no, la marca no prueba nada)", con > 0)
 	_ok("y empieza por el líder", Game.artesano() == Game.lider())
 	if gente.size() > 1:
 		var otro: PersonajeData = null

@@ -531,8 +531,18 @@ static func brillo_en(lbl: Label, color: Color, intensidad: float = 1.0) -> CPUP
 	# emision se ajusta con el layout en vez de clavarse a un numero. Se recorta al ANCHO DEL TEXTO
 	# (no al del Label, que se estira a toda la columna): los destellos tienen que estar sobre el
 	# nombre, no flotando en el hueco vacio que queda a su derecha.
+	#
+	# El ancho se MIDE con la fuente y no se pide con get_minimum_size(): con autowrap puesto (y lo
+	# ponen las fichas, para que un nombre largo parta linea en vez de ensanchar la columna) el
+	# minimo de un Label es el de su palabra mas larga, no el del texto. Los destellos salian todos
+	# amontonados en la esquina izquierda del nombre (visto en captura).
 	var ajustar := func() -> void:
-		var ancho: float = minf(lbl.size.x, lbl.get_minimum_size().x)
+		var fuente: Font = lbl.get_theme_font("font")
+		var tam_letra: int = lbl.get_theme_font_size("font_size")
+		var ancho_txt: float = lbl.size.x
+		if fuente != null and tam_letra > 0:
+			ancho_txt = fuente.get_string_size(lbl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, tam_letra).x
+		var ancho: float = minf(lbl.size.x, ancho_txt)
 		fx.position = Vector2(ancho * 0.5, lbl.size.y * 0.5)
 		fx.emission_rect_extents = Vector2(ancho * 0.5, lbl.size.y * 0.5)
 	lbl.resized.connect(ajustar)
@@ -2437,8 +2447,14 @@ static func fila_retratos(header: VBoxContainer) -> HBoxContainer:
 #
 # 'marcas' (opcional) son los indices que llevan el PUNTO AMBAR arriba a la izquierda: "aqui hay algo
 # que hacer". Lo usa el altar para quien tiene excelia sin consolidar; los demas no lo pasan.
+#
+# 'icono_marca' (opcional) cambia ese punto por un ICONO de Iconos, y 'pista_marca' por lo que diga
+# su tooltip: asi la misma esquina sirve para decir cosas distintas segun la pantalla. Lo usa la
+# peleteria para marcar a quien TIENE el oficio, que en un retrato se lee de un vistazo y no hay que
+# escribirlo en la ficha.
 static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int,
-		pulsado: Callable, marcas: Array = []) -> void:
+		pulsado: Callable, marcas: Array = [], icono_marca: String = "",
+		pista_marca: String = "") -> void:
 	vaciar(fila)
 	if gente.size() <= 1:
 		return
@@ -2449,13 +2465,15 @@ static func retratos(fila: HBoxContainer, gente: Array, sel: int, en_equipo: int
 			var sep := VSeparator.new()
 			sep.add_theme_constant_override("separation", 14)
 			fila.add_child(sep)
-		_retrato(fila, gente[i], i, i == sel, i < en_equipo, pulsado, marcas.has(i))
+		_retrato(fila, gente[i], i, i == sel, i < en_equipo, pulsado, marcas.has(i),
+			icono_marca, pista_marca)
 
 
 # UN RETRATO: la CARA de la persona en un cuadro, con su nombre debajo. Es un Button con el estilo
 # quitado y el dibujo a mano, igual que CeldaObjeto.
 static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bool,
-		en_equipo: bool, pulsado: Callable, marcado: bool = false) -> void:
+		en_equipo: bool, pulsado: Callable, marcado: bool = false,
+		icono_marca: String = "", pista_marca: String = "") -> void:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(LADO_RETRATO, ALTO_RETRATO)
 	b.clip_contents = true
@@ -2464,7 +2482,7 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	if pj == Game.lider():
 		b.tooltip_text += "\n★ Va en cabeza"
 	if marcado:
-		b.tooltip_text += "\n● Tiene experiencia sin consolidar"
+		b.tooltip_text += "\n● " + (pista_marca if pista_marca != "" else "Tiene experiencia sin consolidar")
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(pulsado.bind(i))
@@ -2553,5 +2571,9 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 			marcas.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
 			marcas.draw_string(f, Vector2(w - 14.0, 15.0), "★", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, AMBAR)
 		if marcado:
-			marcas.draw_circle(Vector2(11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))
-			marcas.draw_circle(Vector2(11.0, 11.0), 4.5, AMBAR))
+			marcas.draw_circle(Vector2(11.0, 11.0), 8.5, Color(0.03, 0.04, 0.06, 0.9))
+			# Con icono, el icono; sin el, el punto de siempre.
+			if icono_marca != "":
+				Callable(Iconos, icono_marca).call(marcas, Vector2(3.0, 3.0), 16.0, AMBAR)
+			else:
+				marcas.draw_circle(Vector2(11.0, 11.0), 4.5, AMBAR))

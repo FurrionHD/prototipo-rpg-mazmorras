@@ -352,7 +352,15 @@ func _pintar_artesanos() -> void:
 	# o se queda un titulo suelto encima de la nada.
 	_fila_artesano_rotulo.visible = gente.size() > 1
 	var actual: PersonajeData = Game.artesano()
-	MenuScaffold.retratos(_fila_artesano, gente, gente.find(actual), Game.party.size(), _on_artesano)
+	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el pellejo en la esquina. Estaba escrito en la
+	# ficha ("Fulano no la tiene") y el usuario lo corto: eso hay que leerlo, y encima solo hablaba
+	# del que estuviera elegido. En el retrato se ve de un vistazo a quien conviene mandar.
+	var con_oficio: Array = []
+	for i in gente.size():
+		if Game.desarrollo_rango("peleteria", gente[i] as PersonajeData) > 0:
+			con_oficio.append(i)
+	MenuScaffold.retratos(_fila_artesano, gente, gente.find(actual), Game.party.size(),
+		_on_artesano, con_oficio, "cuero", "Tiene Peletería")
 
 
 func _on_artesano(i: int) -> void:
@@ -486,15 +494,6 @@ static func cal_txt(cal: int) -> String:
 # Linea de sabor del oficio, SIN numeros (misma regla que en la forja, ver forge_menu._estado_oficio):
 # el contador es OCULTO porque es lo que decide si la habilidad te sale al subir de nivel. Bloqueada
 # -> no se pinta nada, ni el separador. Los numeros, en el panel de debug.
-# Se pregunta por EL ARTESANO y no por el lider: el bonus lo pone quien trabaja, asi que decir
-# "activa" porque la tiene el que va en cabeza seria mentir sobre lo que va a salir.
-func estado_peleteria(vb: VBoxContainer) -> void:
-	var pj: PersonajeData = Game.artesano()
-	vb.add_child(HSeparator.new())
-	if Game.desarrollo_rango("peleteria", pj) <= 0:
-		row(vb, "Peletería", "%s no la tiene" % pj.nombre, GRIS)
-		note(vb, "Sale lo que metas, sin escalón de regalo. Pero trabajando aquí es como se aprende: "
-			+ "el oficio se le desbloquea al subir de nivel.")
-		return
-	row(vb, "Peletería", "activa  ·  %s" % pj.nombre, VERDE)
-	note(vb, "Tira por sacar el cuero un escalón por encima de la piel que metas.")
+# El OFICIO ya no se escribe en la ficha: quien lo tiene lleva el pellejo en la esquina de su
+# retrato (ver _pintar_artesanos). Lo pidio asi el usuario -- una fila que dice "Fulano no la tiene"
+# hay que leerla, y encima solo hablaba del que estuviera elegido.
