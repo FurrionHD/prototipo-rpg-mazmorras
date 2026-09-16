@@ -101,6 +101,19 @@ func limpiar(clave: String) -> void:
 	_filtros[clave] = {}
 
 
+# Tira lo marcado en grupos que esta pantalla YA NO tiene (una seccion partida en dos, un grupo que se
+# muda a la fila de iconos de arriba...). Sin esto se queda un filtro invisible escondiendo cosas y
+# no hay ningun chip que desmarcar para recuperarlas. La llama cada seccion al pintarse.
+func podar(clave: String, grupos: Array) -> void:
+	var vivos: Dictionary = {}
+	for g in grupos:
+		vivos[String(g["clave"])] = true
+	var f: Dictionary = filtros_de(clave)
+	for k in f.keys():
+		if not vivos.has(String(k)):
+			f.erase(k)
+
+
 func cuantos_con(grupo: String, valor: int) -> int:
 	var n: int = 0
 	for s in sin_filtrar:

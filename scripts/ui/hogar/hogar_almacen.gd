@@ -45,37 +45,12 @@ const CAT_ARMAS := 3
 const CAT_ARMADURAS := 4
 const CAT_HUCHA := 5
 
-# Las subcategorias: las mismas tablas que inventory_menu (SUBS_EQUIPO, FILTROS_ARMAS,
-# FILTROS_ARMADURA). Si alli se añade un tipo de arma, hay que añadirlo aqui.
-const SUBS_EQUIPO := [
-	{"nombre": "Mochila", "icono": "mochila"},
-	{"nombre": "Herramientas", "icono": "pico"},
-	{"nombre": "Farolillo", "icono": "farol"},
-]
-const FILTROS_ARMAS := [
-	{"nombre": "Todas", "icono": "todo", "tipo": -1, "clase": ""},
-	{"nombre": "Daga", "icono": "daga", "tipo": 1, "clase": ""},
-	{"nombre": "Estoque", "icono": "estoque", "tipo": 5, "clase": ""},
-	{"nombre": "Espada corta", "icono": "espada_corta", "tipo": 2, "clase": ""},
-	{"nombre": "Maza pequeña", "icono": "maza", "tipo": 7, "clase": ""},
-	{"nombre": "Espada larga", "icono": "espada_larga", "tipo": 3, "clase": ""},
-	{"nombre": "Mandoble", "icono": "mandoble", "tipo": 4, "clase": ""},
-	{"nombre": "Hacha grande", "icono": "hacha", "tipo": 6, "clase": ""},
-	{"nombre": "Martillo grande", "icono": "martillo", "tipo": 8, "clase": ""},
-	{"nombre": "Bastón", "icono": "baston", "tipo": 9, "clase": ""},
-	{"nombre": "Varita", "icono": "varita", "tipo": -1, "clase": "varita"},
-	{"nombre": "Escudo pequeño", "icono": "escudo_peq", "tipo": 0, "clase": "escudo"},
-	{"nombre": "Escudo normal", "icono": "escudo_med", "tipo": 1, "clase": "escudo"},
-	{"nombre": "Escudo grande", "icono": "escudo_gra", "tipo": 2, "clase": "escudo"},
-]
-const FILTROS_ARMADURA := [
-	{"nombre": "Todo", "icono": "todo", "slot": -1},
-	{"nombre": "Casco", "icono": "casco", "slot": 0},
-	{"nombre": "Pecho", "icono": "coraza", "slot": 1},
-	{"nombre": "Manos", "icono": "mano", "slot": 2},
-	{"nombre": "Pantalones", "icono": "pantalon", "slot": 3},
-	{"nombre": "Botas", "icono": "botas", "slot": 4},
-]
+# Las subcategorias: las MISMAS tablas que el inventario y la tienda, que viven en MenuScaffold
+# (SUBS_EQUIPO, FILTROS_ARMAS, FILTROS_ARMADURA). Estaban copiadas aqui y alli con un aviso de
+# "acuerdate de tocar las dos": ahora hay una sola copia y añadir un tipo de arma se hace una vez.
+const SUBS_EQUIPO := MenuScaffold.SUBS_EQUIPO
+const FILTROS_ARMAS := MenuScaffold.FILTROS_ARMAS
+const FILTROS_ARMADURA := MenuScaffold.FILTROS_ARMADURA
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 const LADO_CASA := 0
@@ -327,18 +302,11 @@ func _clase_encaja(clase: String) -> bool:
 func _pasa_filtro(item: Resource) -> bool:
 	match _cat:
 		CAT_ARMAS:
-			var f: Dictionary = FILTROS_ARMAS[clampi(_sub_de(CAT_ARMAS), 0, FILTROS_ARMAS.size() - 1)]
-			var clase: String = str(f["clase"])
-			if clase == "escudo":
-				return item is ShieldData and int((item as ShieldData).tamano) == int(f["tipo"])
-			if clase == "varita":
-				return item is WandData
-			if int(f["tipo"]) < 0:
-				return true
-			return item is WeaponData and int((item as WeaponData).tipo) == int(f["tipo"])
+			return MenuScaffold.pasa_filtro_arma(item,
+				FILTROS_ARMAS[clampi(_sub_de(CAT_ARMAS), 0, FILTROS_ARMAS.size() - 1)])
 		CAT_ARMADURAS:
-			var slot: int = int(FILTROS_ARMADURA[clampi(_sub_de(CAT_ARMADURAS), 0, FILTROS_ARMADURA.size() - 1)]["slot"])
-			return item is ArmorData and (slot < 0 or int((item as ArmorData).slot) == slot)
+			return MenuScaffold.pasa_filtro_armadura(item,
+				FILTROS_ARMADURA[clampi(_sub_de(CAT_ARMADURAS), 0, FILTROS_ARMADURA.size() - 1)])
 		CAT_EQUIPO:
 			match _sub_de(CAT_EQUIPO):
 				0: return item is BackpackData

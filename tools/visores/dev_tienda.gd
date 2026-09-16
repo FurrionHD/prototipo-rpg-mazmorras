@@ -64,21 +64,48 @@ func _ready() -> void:
 	_ok("Botín: sale el pez", _hay(men.stacks, func(s): return s["modelo"] is MaterialItem and s["modelo"].cm > 0.0))
 	await _captura("vender_botin")
 
-	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO)
-	_ok("Equipo: sale la herramienta forjada", _hay(men.stacks, func(s): return s["modelo"] == extra["herramienta"]))
+	# EQUIPO es ahora lo del grupo que NO es de combate, en tres filtros: las armas y las armaduras
+	# tienen seccion propia (antes iba todo revuelto en un solo montón).
+	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO, 1)
+	_ok("Equipo · Herramientas: sale la herramienta forjada", _hay(men.stacks, func(s): return s["modelo"] == extra["herramienta"]))
+	_ok("Equipo · Herramientas: solo herramientas", not men.stacks.is_empty()
+		and not _hay(men.stacks, func(s): return not (s["modelo"] is ToolData) or s["modelo"].es_lampara()))
 	_ok("Equipo: no sale nada equipado", not _hay(men.stacks, func(s): return Game.item_equipado(s["modelo"])))
-	_ok("Equipo: no está vacío", not men.stacks.is_empty())
 	await _captura("vender_equipo")
+	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO, 0)
+	_ok("Equipo · Mochila: solo mochilas", not _hay(men.stacks, func(s): return not (s["modelo"] is BackpackData)))
+	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO, 2)
+	_ok("Equipo · Farolillo: solo lámparas", not _hay(men.stacks, func(s): return not (s["modelo"] is ToolData) or not s["modelo"].es_lampara()))
 
 	await _ir(men, men.TAB_VENDER, V, V.SUB_CONSUMIBLES)
 	_ok("Consumibles: salen los grimorios que ya tienes", _hay(men.stacks, func(s): return s["modelo"] is ConsumableData and s["modelo"].es_grimorio()))
 
-	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR)
-	_ok("Hogar: sale el baúl de materiales", _hay(men.stacks, func(s): return s["origen"] == "hogar"))
-	_ok("Hogar: sale la pieza del cofre", _hay(men.stacks, func(s): return s["origen"] == "cofre" and int(s["id"]) == 901))
-	_ok("Hogar: NO sale la prestada a un encargo", not _hay(men.stacks, func(s): return s["origen"] == "cofre" and int(s["id"]) == 902))
-	_ok("Hogar: salen los consumibles del cofre", _hay(men.stacks, func(s): return s["origen"] == "cofre_c"))
+	# ARMAS y ARMADURAS: las secciones nuevas, con los mismos filtros que el inventario y el cofre.
+	await _ir(men, men.TAB_VENDER, V, V.SUB_ARMAS, 0)
+	_ok("Armas: no está vacía", not men.stacks.is_empty())
+	_ok("Armas: no se cuelan herramientas ni armaduras",
+		not _hay(men.stacks, func(s): return s["modelo"] is ToolData or s["modelo"] is ArmorData or s["modelo"] is BackpackData))
+	await _captura("vender_armas")
+	var i_esp: int = _indice(MenuScaffold.FILTROS_ARMAS, func(f): return String(f["nombre"]) == "Espada corta")
+	await _ir(men, men.TAB_VENDER, V, V.SUB_ARMAS, i_esp)
+	_ok("Armas · Espada corta: solo espadas cortas",
+		not _hay(men.stacks, func(s): return not (s["modelo"] is WeaponData) or int(s["modelo"].tipo) != 2))
+	await _ir(men, men.TAB_VENDER, V, V.SUB_ARMADURAS, 0)
+	_ok("Armaduras: solo armaduras", not _hay(men.stacks, func(s): return not (s["modelo"] is ArmorData)))
+	await _captura("vender_armaduras")
+	await _ir(men, men.TAB_VENDER, V, V.SUB_ARMADURAS, 1)
+	_ok("Armaduras · Casco: solo cascos", not _hay(men.stacks, func(s): return int(s["modelo"].slot) != 0))
+
+	# HOGAR, partido por de dónde sale: el baúl, el equipo del cofre y sus consumibles.
+	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_MATERIALES)
+	_ok("Hogar · Materiales: sale el baúl de materiales", _hay(men.stacks, func(s): return s["origen"] == "hogar"))
+	_ok("Hogar · Materiales: no se cuela el cofre", not _hay(men.stacks, func(s): return s["origen"] != "hogar"))
 	await _captura("vender_hogar")
+	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_EQUIPO)
+	_ok("Hogar · Equipo: sale la pieza del cofre", _hay(men.stacks, func(s): return s["origen"] == "cofre" and int(s["id"]) == 901))
+	_ok("Hogar · Equipo: NO sale la prestada a un encargo", not _hay(men.stacks, func(s): return s["origen"] == "cofre" and int(s["id"]) == 902))
+	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_CONSUMIBLES)
+	_ok("Hogar · Consumibles: salen los del cofre", _hay(men.stacks, func(s): return s["origen"] == "cofre_c"))
 
 	print("\n=== VENDER: se cobra lo anunciado ===")
 	# El pez GRANDE, que va detras del pequeño en la bolsa: antes se vendia el primero que hubiera.
@@ -94,7 +121,7 @@ func _ready() -> void:
 		_ok("y el pequeño sigue en la bolsa", Game.materiales.has(extra["pez_chico"]))
 
 	# El cofre, en solitario: sale y se cobra en el acto.
-	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR)
+	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_EQUIPO)
 	var i_cofre: int = _indice(men.stacks, func(s): return s["origen"] == "cofre" and int(s["id"]) == 901)
 	if i_cofre >= 0:
 		var s_c: Dictionary = men.stacks[i_cofre]
@@ -127,11 +154,15 @@ func _ready() -> void:
 		_ok("y se vacía", V.cesta.vacia())
 
 	print("\n=== VENDER: filtros ===")
-	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO)
-	men.orden.alternar(V.clave(), "clase_equipo", 5)   # Herramientas
+	# El filtro por CLASE se quedó donde sigue haciendo falta: el cofre del hogar, que es el único
+	# sitio que mezcla las seis clases de equipo. En las demás secciones lo hace la fila de iconos.
+	await _ir(men, men.TAB_VENDER, V, V.SUB_HOGAR, V.HOGAR_EQUIPO)
+	men.orden.alternar(V.clave(), "clase_equipo", 0)   # Armas
 	men.rebuild()
-	_ok("filtro Herramientas deja solo herramientas", not men.stacks.is_empty()
-		and not _hay(men.stacks, func(s): return not (s["modelo"] is ToolData)))
+	_ok("filtro Armas del cofre deja solo armas", not men.stacks.is_empty()
+		and not _hay(men.stacks, func(s): return not (s["modelo"] is WeaponData)))
+	men.orden.limpiar(V.clave())
+	await _ir(men, men.TAB_VENDER, V, V.SUB_EQUIPO, 1)
 	men._abrir_modal_filtros()
 	await _captura("modal_filtros")
 	men.cerrar_modal()
@@ -151,6 +182,19 @@ func _ready() -> void:
 				_ok("T%d %s: las celdas dicen T%d" % [tier, nombre, tier], not _hay(men.stacks, func(s): return IconoItem.tier_de(s["modelo"]) != tier))
 			if sub == C.SUB_ARMAS or (tier == 2 and sub == C.SUB_ARMADURAS):
 				await _captura("comprar_t%d_%s" % [tier, nombre.to_lower()])
+
+	# El mostrador también se filtra por la fila de iconos: veinte armaduras de golpe no se leen.
+	C._tier = 1
+	var i_bot: int = _indice(MenuScaffold.FILTROS_ARMADURA, func(f): return String(f["nombre"]) == "Botas")
+	await _ir(men, men.TAB_COMPRAR, C, C.SUB_ARMADURAS, i_bot)
+	_ok("Comprar · Armaduras · Botas: solo botas", not men.stacks.is_empty()
+		and not _hay(men.stacks, func(s): return int(s["base"].slot) != 4))
+	await _captura("comprar_armaduras_botas")
+	var i_mand: int = _indice(MenuScaffold.FILTROS_ARMAS, func(f): return String(f["nombre"]) == "Mandoble")
+	await _ir(men, men.TAB_COMPRAR, C, C.SUB_ARMAS, i_mand)
+	_ok("Comprar · Armas · Mandoble: solo mandobles", not men.stacks.is_empty()
+		and not _hay(men.stacks, func(s): return not (s["base"] is WeaponData) or int(s["base"].tipo) != 4))
+	await _ir(men, men.TAB_COMPRAR, C, C.SUB_ARMAS, 0)
 
 	# Comprar un arma a T2: llega a tu baul a T2.
 	C._tier = 2
@@ -224,8 +268,13 @@ func _llenar_tienda() -> Dictionary:
 	Game.carbon.clear()
 	for i in 3:
 		Game.carbon.append(MaterialItem.crear(out["carbon"]))
-	# Una herramienta FORJADA, sin equipar.
+	# Una herramienta FORJADA, sin equipar, y un farolillo: las dos mitades de Equipo.
 	out["herramienta"] = Game.crear_item(load("res://resources/tools/pico_basico.tres"), 1, Upgrades.Rareza.RARO, {})
+	Game.crear_item(load("res://resources/tools/farolillo_basico.tres"), 1, Upgrades.Rareza.COMUN, {})
+	# Una espada corta y un casco SUELTOS en el baúl, para las secciones Armas y Armaduras: la partida
+	# de prueba no garantiza que quede nada sin equipar, y una sección vacía no comprueba nada.
+	Game.crear_item(load("res://resources/weapons/espada_corta.tres"), 1, Upgrades.Rareza.COMUN, {})
+	Game.crear_item(load("res://resources/armor/cuero_casco.tres"), 1, Upgrades.Rareza.COMUN, {})
 	# Grimorios en la bolsa (se venden aunque el tendero no los venda).
 	var d := DirAccess.open("res://resources/consumables/")
 	if d != null:
@@ -243,14 +292,21 @@ func _llenar_tienda() -> Dictionary:
 	Game.cofre_equipo.clear()
 	Game.cofre_equipo.append({"id": 901, "dict": d_esp, "clase": str(d_esp.get("clase", "arma")), "desc": "?", "encargo": 0})
 	Game.cofre_equipo.append({"id": 902, "dict": d_esp.duplicate(true), "clase": str(d_esp.get("clase", "arma")), "desc": "?", "encargo": 7})
+	# Una TERCERA, libre, que sobrevive a la venta de la 901: el filtro por clase del cofre se prueba
+	# despues de vender, y con el cofre vacio no comprobaria nada.
+	Game.cofre_equipo.append({"id": 903, "dict": d_esp.duplicate(true), "clase": str(d_esp.get("clase", "arma")), "desc": "?", "encargo": 0})
 	Game.cofre_consumibles.clear()
 	Game.cofre_consumibles["res://resources/consumables/pocion_menor.tres"] = 4
 	return out
 
 
-func _ir(men: Node, tab: int, seccion, sub: int) -> void:
+# 'sub2' es el filtro de la SEGUNDA fila (tipo de arma, slot de armadura, que parte del hogar...).
+# -1 = dejar el que hubiera, que es lo que hace el jugador al volver a una seccion.
+func _ir(men: Node, tab: int, seccion, sub: int, sub2: int = -1) -> void:
 	men._tab = tab
 	seccion._sub = sub
+	if sub2 >= 0:
+		seccion._sub2[sub] = sub2
 	men.sel = 0
 	men.cant = -1
 	men.rebuild()

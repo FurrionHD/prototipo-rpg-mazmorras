@@ -13,6 +13,15 @@ los botones siempre a la vista.
 guardas en el cofre del hogar (equipo y consumibles). Lo que lleva puesto alguien del grupo y lo prestado
 a un encargo siguen sin salir.
 
+**Las mismas secciones que el inventario y que el cofre**: Botín, Equipo, Consumibles, Armas, Armaduras
+y Hogar, en ese orden y con los mismos iconos. Las armas ya no van revueltas con los picos y las cañas,
+y las armaduras tienen sección propia.
+
+**Y su fila de filtros debajo**: las armas por tipo (daga, estoque, espada corta… más varita y los tres
+escudos), las armaduras por pieza, el equipo entre mochila, herramientas y farolillo, y el hogar entre el
+baúl de materiales y las dos mitades del cofre. En Comprar también: el mostrador saca veinte armaduras de
+golpe y ahora se pide la pieza que buscas.
+
 **Buscador, orden y filtros** en cada sección, para vender y para comprar. El buscador no pide tildes
 ni mayúsculas.
 

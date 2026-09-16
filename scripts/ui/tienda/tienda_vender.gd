@@ -1,15 +1,20 @@
 # ============================================================
 #  tienda_vender.gd  --  pestaña VENDER de la tienda (ver shop_menu.gd, que es el armazon).
 #
-#  Cuatro subpestañas, y en ellas TODO lo que tienes y se puede vender. Antes se quedaban fuera las
-#  herramientas y el carbon (olvido: la logica de venta ya los admitia) y el cofre del hogar:
+#  Las MISMAS secciones que el inventario y que el cofre del hogar, y en el mismo orden: quien sabe
+#  buscar una daga en su baul sabe buscarla aqui. Antes las seis clases de equipo iban en UN solo
+#  monton ("Equipo"): las armas revueltas con los picos y las cañas, sin seccion de armaduras y sin la
+#  fila de filtros de abajo. Eso se arreglo el 16/09 (playtest).
 #    - BOTIN:        cristales, materiales de la bolsa y el carbon.
-#    - EQUIPO:       armas, escudos, varitas, armaduras, mochilas y herramientas. Lo que lleva puesto
-#                    alguien del grupo NO sale (enseñar lo que no puedes tocar es peor que no enseñarlo).
+#    - EQUIPO:       lo del grupo que no es de combate, en tres filtros: MOCHILA, HERRAMIENTAS y FAROLILLO.
 #    - CONSUMIBLES:  pociones, grimorios, tochos, platos, cebos...
-#    - HOGAR:        el baul de materiales Y el cofre (equipo y consumibles). Lo prestado a un encargo
-#                    no sale. En multi el baul pide el candado del taller y el cofre lo concede el host
-#                    (y lo vendido se cobra cuando llega, ver Net.venta_cofre).
+#    - ARMAS:        armas de mano, varitas y escudos, con los MISMOS catorce filtros del inventario.
+#    - ARMADURAS:    por slot (casco, pecho, manos, pantalones, botas), como en el inventario.
+#    - HOGAR:        lo guardado en casa, en tres filtros: MATERIALES (el baul), EQUIPO y CONSUMIBLES
+#                    (el cofre). Lo prestado a un encargo no sale. En multi el baul pide el candado del
+#                    taller y el cofre lo concede el host (se cobra al llegar, ver Net.venta_cofre).
+#  En ninguna sale lo que lleva puesto alguien del grupo: enseñar lo que no puedes tocar es peor que
+#  no enseñarlo.
 #
 #  Cada MONTON: {modelo, cantidad, origen, clave, id, ruta}. 'origen' dice de donde sale (bolsa, hogar,
 #  equipo, consumible, cofre, cofre_c) y por tanto como se vende; 'clave' lo identifica en la cesta.
@@ -18,17 +23,33 @@ extends RefCounted
 
 const TiendaCesta = preload("res://scripts/ui/tienda/tienda_cesta.gd")
 
-const SUBS := ["Botín", "Equipo", "Consumibles", "Hogar"]
-const SUBS_ICONOS := ["mineral", "espada", "pocion", "cofre"]
+# El orden y los iconos del INVENTARIO (Bolsa->Botin, y el Hogar al final en vez de Materiales).
+const SUBS := ["Botín", "Equipo", "Consumibles", "Armas", "Armaduras", "Hogar"]
+const SUBS_ICONOS := ["mineral", "mochila", "pocion", "espada", "coraza", "cofre"]
 const SUB_BOTIN := 0
 const SUB_EQUIPO := 1
 const SUB_CONSUMIBLES := 2
-const SUB_HOGAR := 3
+const SUB_ARMAS := 3
+const SUB_ARMADURAS := 4
+const SUB_HOGAR := 5
+# Lo que hay en casa, partido por de donde sale: el baul de materiales y las dos mitades del cofre.
+# No es un capricho de orden -- cada uno se vende por un camino distinto (ver precio_unidad y vender).
+const SUBS_HOGAR := [
+	{"nombre": "Materiales", "icono": "mineral"},
+	{"nombre": "Equipo", "icono": "espada"},
+	{"nombre": "Consumibles", "icono": "pocion"},
+]
+const HOGAR_MATERIALES := 0
+const HOGAR_EQUIPO := 1
+const HOGAR_CONSUMIBLES := 2
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 var t = null   # el armazon (shop_menu.gd)
 var cesta = TiendaCesta.new()
 var _sub: int = SUB_BOTIN
+# El filtro de la SEGUNDA fila, uno por seccion (se recuerda al volver, como en el inventario: el que
+# dejaste puesto en Armas sigue ahi despues de pasar por Armaduras).
+var _sub2: Dictionary = {}
 var _cache_cofre: Dictionary = {}   # id de entrada del cofre -> pieza reconstruida (sin registrar)
 # El candado del taller (baul de materiales en multi): 0 sin pedir, 2 pidiendolo, 1 lo tengo, -1 ocupado.
 var _taller: int = 0
@@ -39,6 +60,11 @@ func _init(armazon) -> void:
 
 
 func clave() -> String:
+	# El HOGAR va con su filtro dentro de la clave: sus tres pantallas enseñan cosas distintas (materiales,
+	# equipo, consumibles) y cada una ordena por lo suyo, asi que no pueden compartir el orden ni lo
+	# buscado. Las demas secciones no cambian de contenido con el filtro: una sola clave.
+	if _sub == SUB_HOGAR:
+		return "vender_%d_%d" % [_sub, _sub2_de(SUB_HOGAR)]
 	return "vender_%d" % _sub
 
 
@@ -63,16 +89,20 @@ func al_cerrar() -> void:
 func build() -> void:
 	MenuScaffold.subpestanas(t.barra_sub, SUBS, SUBS_ICONOS, _sub, _on_sub)
 	t.titulo_seccion(SUBS[_sub])
-	if _sub == SUB_HOGAR and Net.activo:
+	_pintar_filtros()
+	if _pide_taller() and Net.activo:
 		_taller_listo()
 	var todos: Array = _recoger()
+	t.orden.podar(clave(), grupos())
 	t.stacks = t.orden.aplicar(clave(), todos, self, por_defecto())
 	match _sub:
 		SUB_BOTIN:
 			t.contador("Peso  %d / %d" % [roundi(Game.peso_actual()), roundi(Game.capacidad_carga())],
 				Game.esta_sobrecargado())
 		_:
-			t.contador("%d de %d" % [t.stacks.size(), todos.size()])
+			# El "de N" cuenta la seccion ENTERA, no lo que deja la fila de filtros: con el filtro de
+			# dagas puesto, un "2 de 2" hace pensar que solo tienes dos armas en el baul.
+			t.contador("%d de %d" % [t.stacks.size(), maxi(_total_sin_filtro, todos.size())])
 	var piezas: Array = []
 	for s in t.stacks:
 		piezas.append(_pieza(s))
@@ -82,20 +112,77 @@ func build() -> void:
 
 
 func _vacio() -> String:
+	var suelto := " Lo que lleva puesto alguien del grupo no sale aquí: quítaselo antes en el menú de personaje [C]."
 	match _sub:
 		SUB_BOTIN: return "No llevas botín en la bolsa. Baja a la mazmorra a por cristales y materiales."
-		SUB_EQUIPO: return "No tienes equipo suelto. Lo que lleva puesto alguien del grupo no sale aquí: quítaselo antes en el menú de personaje [C]."
+		SUB_EQUIPO:
+			match _sub2_de(SUB_EQUIPO):
+				0: return "No tienes mochilas sueltas." + suelto
+				2: return "No tienes farolillos sueltos." + suelto
+			return "No tienes herramientas sueltas." + suelto
 		SUB_CONSUMIBLES: return "No llevas consumibles."
-	return "No hay nada guardado en el hogar."
+		SUB_ARMAS: return "No tienes armas sueltas de este tipo." + suelto
+		SUB_ARMADURAS: return "No tienes armaduras sueltas de este tipo." + suelto
+	match _sub2_de(SUB_HOGAR):
+		HOGAR_EQUIPO: return "No hay equipo guardado en el cofre."
+		HOGAR_CONSUMIBLES: return "No hay consumibles guardados en el cofre."
+	return "No hay nada guardado en el baúl de materiales."
 
 
 func _on_sub(i: int) -> void:
 	if i == _sub:
 		return
-	if _sub == SUB_HOGAR:
+	if _pide_taller():
 		_soltar_taller()
 	_sub = i
 	t.cambiar_pantalla()
+
+
+# La SEGUNDA fila: el filtro dentro de la seccion, con las mismas tablas que el inventario y el cofre
+# del hogar (MenuScaffold). Las secciones que no tienen filtro no la llaman y la fila desaparece.
+func _pintar_filtros() -> void:
+	var tabla: Array = _tabla_filtros()
+	if tabla.is_empty():
+		return
+	var s: int = clampi(_sub2_de(_sub), 0, tabla.size() - 1)
+	_sub2[_sub] = s
+	MenuScaffold.subpestanas(t.barra_sub2, MenuScaffold.campos(tabla, "nombre"),
+		MenuScaffold.campos(tabla, "icono"), s, _on_sub2)
+	# El nombre del filtro manda arriba, igual que en el hogar: "Farolillo" dice mas que "Equipo". En
+	# los "Todas/Todo" se queda el de la seccion, que ahi el filtro no aporta nada.
+	if _sub != SUB_ARMAS and _sub != SUB_ARMADURAS:
+		t.titulo_seccion("%s  ·  %s" % [SUBS[_sub], str(tabla[s]["nombre"])])
+	elif s > 0:
+		t.titulo_seccion(str(tabla[s]["nombre"]))
+
+
+func _tabla_filtros() -> Array:
+	match _sub:
+		SUB_EQUIPO: return MenuScaffold.SUBS_EQUIPO
+		SUB_ARMAS: return MenuScaffold.FILTROS_ARMAS
+		SUB_ARMADURAS: return MenuScaffold.FILTROS_ARMADURA
+		SUB_HOGAR: return SUBS_HOGAR
+	return []
+
+
+func _sub2_de(sub: int) -> int:
+	return int(_sub2.get(sub, 0))
+
+
+func _on_sub2(i: int) -> void:
+	if i == _sub2_de(_sub):
+		return
+	# Cambiar de filtro dentro del Hogar puede soltar el baul (el candado del taller es SOLO suyo).
+	var antes: bool = _pide_taller()
+	_sub2[_sub] = i
+	if antes and not _pide_taller():
+		_soltar_taller()
+	t.cambiar_pantalla()
+
+
+# ¿Estoy mirando el baul de materiales del hogar? Es lo unico que pide el candado del taller en multi.
+func _pide_taller() -> bool:
+	return _sub == SUB_HOGAR and _sub2_de(SUB_HOGAR) == HOGAR_MATERIALES
 
 
 func _pieza(s: Dictionary) -> Dictionary:
@@ -154,6 +241,9 @@ func _ficha(vb: VBoxContainer) -> void:
 #  QUE HAY PARA VENDER
 # ============================================================
 
+# Lo que tiene la seccion ANTES de pasarle la fila de filtros, para el contador de arriba.
+var _total_sin_filtro: int = 0
+
 func _recoger() -> Array:
 	var out: Array = []
 	match _sub:
@@ -166,34 +256,80 @@ func _recoger() -> Array:
 			for g in _agrupar(items):
 				out.append(_monton(g["modelo"], int(g["cantidad"]), "bolsa", "b|" + _clave_item(g["modelo"])))
 		SUB_EQUIPO:
-			# SIN TIPAR: se juntan arrays de clases distintas (ver arrays-tipados-por-clase).
-			var todo: Array = []
-			todo.append_array(Game.owned_weapons)
-			todo.append_array(Game.owned_armor)
-			todo.append_array(Game.owned_mochilas)
-			# Las herramientas FORJADAS (las basicas de serie no estan en owned_tools: no son del jugador).
-			todo.append_array(Game.owned_tools)
-			for it in todo:
-				if it != null and not Game.item_equipado(it):
-					out.append(_monton(it, 1, "equipo", "e|%d" % it.get_instance_id()))
+			# Lo del GRUPO que no es de combate: mochilas y herramientas FORJADAS (las basicas de serie
+			# no estan en owned_tools -- no son del jugador, son el respaldo del proyecto).
+			var suelto: Array = []
+			match _sub2_de(SUB_EQUIPO):
+				0:
+					suelto.append_array(Game.owned_mochilas)
+				1:
+					for h in Game.owned_tools:
+						if not (h as ToolData).es_lampara():
+							suelto.append(h)
+				_:
+					for h2 in Game.owned_tools:
+						if (h2 as ToolData).es_lampara():
+							suelto.append(h2)
+			out.append_array(_montones_equipo(suelto))
 		SUB_CONSUMIBLES:
 			for c in Game.consumables.keys():
 				var n: int = int(Game.consumables[c])
 				if n > 0:
 					out.append(_monton(c, n, "consumible", "k|" + (c as Resource).resource_path))
+		SUB_ARMAS:
+			# owned_weapons mezcla armas de mano, escudos y varitas: los parte la fila de filtros, la
+			# misma tabla que en el inventario y el cofre.
+			var f: Array = MenuScaffold.FILTROS_ARMAS
+			var arm: Array = []
+			for w in Game.owned_weapons:
+				if MenuScaffold.pasa_filtro_arma(w, f[clampi(_sub2_de(SUB_ARMAS), 0, f.size() - 1)]):
+					arm.append(w)
+			out.append_array(_montones_equipo(arm, Game.owned_weapons))
+		SUB_ARMADURAS:
+			var fa: Array = MenuScaffold.FILTROS_ARMADURA
+			var piezas: Array = []
+			for p in Game.owned_armor:
+				if MenuScaffold.pasa_filtro_armadura(p, fa[clampi(_sub2_de(SUB_ARMADURAS), 0, fa.size() - 1)]):
+					piezas.append(p)
+			out.append_array(_montones_equipo(piezas, Game.owned_armor))
 		SUB_HOGAR:
-			if not Net.activo or _taller == 1:
-				for g in _agrupar(Game.almacen_materiales):
-					out.append(_monton(g["modelo"], int(g["cantidad"]), "hogar", "h|" + _clave_item(g["modelo"])))
-			out.append_array(_del_cofre())
-			var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
-			for ruta in consum:
-				if int(consum[ruta]) > 0 and ResourceLoader.exists(str(ruta)):
-					var c2: Resource = load(str(ruta))
-					if c2 is ConsumableData:
-						var e: Dictionary = _monton(c2, int(consum[ruta]), "cofre_c", "fc|" + str(ruta))
-						e["ruta"] = str(ruta)
-						out.append(e)
+			match _sub2_de(SUB_HOGAR):
+				HOGAR_MATERIALES:
+					if not Net.activo or _taller == 1:
+						for g in _agrupar(Game.almacen_materiales):
+							out.append(_monton(g["modelo"], int(g["cantidad"]), "hogar", "h|" + _clave_item(g["modelo"])))
+				HOGAR_EQUIPO:
+					out.append_array(_del_cofre())
+				_:
+					var consum: Dictionary = Net.hogar.cofre_consumibles_visible()
+					for ruta in consum:
+						if int(consum[ruta]) > 0 and ResourceLoader.exists(str(ruta)):
+							var c2: Resource = load(str(ruta))
+							if c2 is ConsumableData:
+								var e: Dictionary = _monton(c2, int(consum[ruta]), "cofre_c", "fc|" + str(ruta))
+								e["ruta"] = str(ruta)
+								out.append(e)
+	if _tabla_filtros().is_empty() or _sub == SUB_HOGAR:
+		_total_sin_filtro = out.size()
+	return out
+
+
+# Piezas sueltas del baul -> montones vendibles. Lo que lleva puesto alguien del grupo se cae aqui:
+# enseñar lo que no puedes tocar es peor que no enseñarlo. 'todos' es la lista COMPLETA de la seccion
+# (la de antes de la fila de filtros) y solo sirve para el contador de arriba; sin ella, el total es
+# esta misma lista. Lo equipado tampoco cuenta en el total: si no, un "3 de 5" con cinco armas de las
+# que dos llevas puestas hace buscar dos que no estan.
+func _montones_equipo(items: Array, todos: Array = []) -> Array:
+	var out: Array = []
+	for it in items:
+		if it != null and not Game.item_equipado(it):
+			out.append(_monton(it, 1, "equipo", "e|%d" % it.get_instance_id()))
+	_total_sin_filtro = out.size()
+	if not todos.is_empty():
+		_total_sin_filtro = 0
+		for it2 in todos:
+			if it2 != null and not Game.item_equipado(it2):
+				_total_sin_filtro += 1
 	return out
 
 
@@ -335,18 +471,32 @@ func _cuenta_iguales(modelo: Resource, lista: Array) -> int:
 	return n
 
 
+# De QUE va la pantalla que se esta mirando, para el orden y los filtros del modal. No es la seccion
+# a secas: el Hogar cambia de contenido con su fila de filtros (materiales, equipo o consumibles) y
+# ahi lo que se puede ordenar es lo del cofre, no "lo del hogar".
+func _modo() -> String:
+	match _sub:
+		SUB_BOTIN: return "botin"
+		SUB_EQUIPO, SUB_ARMAS, SUB_ARMADURAS: return "equipo"
+		SUB_CONSUMIBLES: return "consumibles"
+	match _sub2_de(SUB_HOGAR):
+		HOGAR_EQUIPO: return "equipo"
+		HOGAR_CONSUMIBLES: return "consumibles"
+	return "materiales"
+
+
 func criterios() -> Array:
 	var pred := {"nombre": "Predeterminado", "campo": ""}
-	match _sub:
-		SUB_BOTIN:
+	match _modo():
+		"botin":
 			return [{"nombre": "Valor", "campo": "valor"}, {"nombre": "Valor por peso", "campo": "valor_peso"},
 				{"nombre": "Peso", "campo": "peso"}, {"nombre": "Cantidad", "campo": "cantidad"},
 				{"nombre": "Rango", "campo": "rango"}, {"nombre": "Nombre", "campo": "nombre"}, pred]
-		SUB_EQUIPO:
+		"equipo":
 			return [{"nombre": "Valor", "campo": "valor"}, {"nombre": "Rareza", "campo": "rareza"},
 				{"nombre": "Tier", "campo": "tier"}, {"nombre": "Mejoras", "campo": "mejoras"},
 				{"nombre": "Durabilidad", "campo": "durabilidad"}, {"nombre": "Nombre", "campo": "nombre"}, pred]
-		SUB_CONSUMIBLES:
+		"consumibles":
 			return [{"nombre": "Valor", "campo": "valor"}, {"nombre": "Cantidad", "campo": "cantidad"},
 				{"nombre": "Tier", "campo": "tier"}, {"nombre": "Nombre", "campo": "nombre"}, pred]
 	return [{"nombre": "Valor", "campo": "valor"}, {"nombre": "Cantidad", "campo": "cantidad"},
@@ -355,34 +505,38 @@ func criterios() -> Array:
 
 func grupos() -> Array:
 	var O = t.orden
-	match _sub:
-		SUB_BOTIN:
+	match _modo():
+		"botin":
 			return [
 				{"titulo": "Clase", "clave": "clase_botin", "opciones": [{"nombre": "Cristales", "valor": 0},
 					{"nombre": "Materiales", "valor": 1}, {"nombre": "Combustible", "valor": 2}]},
 				{"titulo": "Rango", "clave": "rango", "opciones": O.ops_rango()},
 				{"titulo": "Calidad", "clave": "calidad", "opciones": O.ops_calidad()},
 			]
-		SUB_EQUIPO:
-			return [
-				{"titulo": "Clase", "clave": "clase_equipo", "opciones": [{"nombre": "Armas", "valor": 0},
-					{"nombre": "Escudos", "valor": 1}, {"nombre": "Varitas", "valor": 2},
-					{"nombre": "Armaduras", "valor": 3}, {"nombre": "Mochilas", "valor": 4},
-					{"nombre": "Herramientas", "valor": 5}]},
+		"equipo":
+			var gs: Array = [
 				{"titulo": "Rareza", "clave": "rareza", "opciones": O.ops_rareza()},
 				{"titulo": "Tier", "clave": "tier", "opciones": O.ops_tier()},
 				{"titulo": "Estado", "clave": "estado", "opciones": [{"nombre": "Rota o casi", "valor": 0},
 					{"nombre": "En buen estado", "valor": 1}]},
 			]
-		SUB_CONSUMIBLES:
+			# El filtro por CLASE solo en el cofre, que es el unico sitio donde siguen revueltas las seis:
+			# en las demas secciones lo hace ya la fila de iconos, y repetirlo en el modal confunde.
+			if _sub == SUB_HOGAR:
+				gs.push_front({"titulo": "Clase", "clave": "clase_equipo", "opciones": [{"nombre": "Armas", "valor": 0},
+					{"nombre": "Escudos", "valor": 1}, {"nombre": "Varitas", "valor": 2},
+					{"nombre": "Armaduras", "valor": 3}, {"nombre": "Mochilas", "valor": 4},
+					{"nombre": "Herramientas", "valor": 5}]})
+			return gs
+		"consumibles":
 			return [{"titulo": "Clase", "clave": "clase_consumible", "opciones": [
 				{"nombre": "Poción de vida", "valor": 0}, {"nombre": "Poción de maná", "valor": 1},
 				{"nombre": "Grimorio", "valor": 2}, {"nombre": "Plato de cocina", "valor": 3},
 				{"nombre": "Cebo de pesca", "valor": 4}, {"nombre": "Tocho", "valor": 5},
 				{"nombre": "Otros", "valor": 6}]}]
+	# El baul de materiales del hogar. El grupo "De dónde" que habia aqui ya no hace falta: el origen
+	# lo elige la fila de iconos de arriba, y dentro de esta pantalla todo sale del mismo sitio.
 	return [
-		{"titulo": "De dónde", "clave": "origen", "opciones": [{"nombre": "Baúl de materiales", "valor": 0},
-			{"nombre": "Cofre: equipo", "valor": 1}, {"nombre": "Cofre: consumibles", "valor": 2}]},
 		{"titulo": "Rango", "clave": "rango", "opciones": O.ops_rango()},
 		{"titulo": "Calidad", "clave": "calidad", "opciones": O.ops_calidad()},
 	]
@@ -517,8 +671,8 @@ func _cobrar_cesta() -> void:
 
 # ============================================================
 #  EL CANDADO DEL TALLER (baul de materiales en multi)
-#  Mientras estas en la subpestaña Hogar se tiene cogido, como en el almacen del hogar: sin el, el
-#  invitado no ve el baul de verdad.
+#  Mientras estas en Hogar · Materiales se tiene cogido, como en el almacen del hogar: sin el, el
+#  invitado no ve el baul de verdad. El cofre NO lo pide (lo concede el host pieza a pieza).
 # ============================================================
 
 func _taller_listo() -> void:
@@ -530,12 +684,12 @@ func _taller_listo() -> void:
 		2:
 			t.decir("Abriendo el baúl de materiales…")
 		-1:
-			t.decir("Tu compañero está usando el baúl de materiales en el taller: por ahora solo sale lo del cofre.", false)
+			t.decir("Tu compañero está usando el baúl de materiales en el taller. Prueba en un rato, o vende lo del cofre.", false)
 
 
 func _pedir_taller() -> void:
 	var ok: bool = await Net.hogar.abrir_taller()
-	if _sub != SUB_HOGAR or not t._root.visible:
+	if not _pide_taller() or not t._root.visible:
 		if ok:
 			Net.hogar.cerrar_taller()
 		_taller = 0

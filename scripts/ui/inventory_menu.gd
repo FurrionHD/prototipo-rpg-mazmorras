@@ -1030,36 +1030,11 @@ func _preview_material(vb: VBoxContainer) -> void:
 #  unico que los diferencia de verdad.
 # ============================================================
 
-# 'tipo' = WeaponData.Tipo, 'clase' = otra cosa que no es un arma de mano. -1 / "" = no filtra.
-const FILTROS_ARMAS := [
-	{"nombre": "Todas", "icono": "todo", "tipo": -1, "clase": ""},
-	{"nombre": "Daga", "icono": "daga", "tipo": 1, "clase": ""},
-	{"nombre": "Estoque", "icono": "estoque", "tipo": 5, "clase": ""},
-	{"nombre": "Espada corta", "icono": "espada_corta", "tipo": 2, "clase": ""},
-	{"nombre": "Maza pequeña", "icono": "maza", "tipo": 7, "clase": ""},
-	{"nombre": "Espada larga", "icono": "espada_larga", "tipo": 3, "clase": ""},
-	{"nombre": "Mandoble", "icono": "mandoble", "tipo": 4, "clase": ""},
-	{"nombre": "Hacha grande", "icono": "hacha", "tipo": 6, "clase": ""},
-	{"nombre": "Martillo grande", "icono": "martillo", "tipo": 8, "clase": ""},
-	{"nombre": "Bastón", "icono": "baston", "tipo": 9, "clase": ""},
-	{"nombre": "Varita", "icono": "varita", "tipo": -1, "clase": "varita"},
-	{"nombre": "Escudo pequeño", "icono": "escudo_peq", "tipo": 0, "clase": "escudo"},
-	{"nombre": "Escudo normal", "icono": "escudo_med", "tipo": 1, "clase": "escudo"},
-	{"nombre": "Escudo grande", "icono": "escudo_gra", "tipo": 2, "clase": "escudo"},
-]
-
-# 'slot' = ArmorData.Slot, en el mismo orden que ARMOR_SLOT_LABELS. -1 = no filtra.
-const FILTROS_ARMADURA := [
-	{"nombre": "Todo", "icono": "todo", "slot": -1},
-	{"nombre": "Casco", "icono": "casco", "slot": 0},
-	{"nombre": "Pecho", "icono": "coraza", "slot": 1},
-	# MANOS reusa el icono de mano que ya existia (el del boton de interactuar). El guantelete
-	# dibujado a proposito salia como una cupula con una raya, o sea IGUAL que el casco, que esta
-	# dos posiciones antes en la misma fila. Una mano con dedos no se confunde con nada.
-	{"nombre": "Manos", "icono": "mano", "slot": 2},
-	{"nombre": "Pantalones", "icono": "pantalon", "slot": 3},
-	{"nombre": "Botas", "icono": "botas", "slot": 4},
-]
+# Las tablas viven en MenuScaffold: el cofre del hogar y la tienda enseñan las MISMAS secciones con
+# los MISMOS filtros, y tenerlas copiadas en cada pantalla era pedir que se separaran (y se
+# separaron: la tienda mezclaba armas y herramientas en un solo monton y no tenia armaduras).
+const FILTROS_ARMAS := MenuScaffold.FILTROS_ARMAS
+const FILTROS_ARMADURA := MenuScaffold.FILTROS_ARMADURA
 
 # Uno por pestaña y NO uno solo compartido: el filtro que dejaste puesto en armas tiene que seguir
 # ahi al volver de armaduras, igual que la subpestaña de Equipo.
@@ -1069,23 +1044,12 @@ var _filtro_armadura: int = 0
 
 # Los nombres e iconos de una tabla de filtros, para pasarselos a _subpestanas.
 func _campos(tabla: Array, clave: String) -> Array:
-	var out: Array = []
-	for f in tabla:
-		out.append(f[clave])
-	return out
+	return MenuScaffold.campos(tabla, clave)
 
 
-# ¿Encaja esta pieza del baul de armas en el filtro elegido? La pestaña mezcla tres clases
-# distintas (armas de mano, varitas y escudos), asi que la prueba mira primero DE QUE clase es.
+# ¿Encaja esta pieza del baul de armas en el filtro elegido?
 func _pasa_filtro_arma(item: Resource, f: Dictionary) -> bool:
-	var clase: String = String(f["clase"])
-	if clase == "escudo":
-		return item is ShieldData and int((item as ShieldData).tamano) == int(f["tipo"])
-	if clase == "varita":
-		return item is WandData
-	if int(f["tipo"]) < 0:
-		return true   # "Todas"
-	return item is WeaponData and int((item as WeaponData).tipo) == int(f["tipo"])
+	return MenuScaffold.pasa_filtro_arma(item, f)
 
 
 func _on_filtro_armas(i: int) -> void:

@@ -64,6 +64,10 @@ var t = null   # el armazon (shop_menu.gd)
 var cesta = TiendaCesta.new()
 var _sub: int = SUB_ARMAS
 var _tier: int = 1
+# El filtro de la SEGUNDA fila (tipo de arma, slot de armadura), uno por seccion y con las MISMAS
+# tablas del inventario y del cofre: el mostrador saca veinte armaduras de golpe y encontrar las
+# botas de cuero entre ellas era un ejercicio de paciencia (playtest del 16/09).
+var _sub2: Dictionary = {}
 
 
 func _init(armazon) -> void:
@@ -110,8 +114,19 @@ func build() -> void:
 		iconos.append(SUBS_ICONOS[i])
 	MenuScaffold.subpestanas(t.barra_sub, nombres, iconos, subs.find(_sub),
 		func(i: int): _on_sub(int(subs[i])))
-	t.titulo_seccion(SUBS[_sub] + ("  ·  T2" if _tier >= 2 else ""))
+	var titulo: String = SUBS[_sub]
+	var tabla: Array = _tabla_filtros()
+	if not tabla.is_empty():
+		var s2: int = clampi(_sub2_de(_sub), 0, tabla.size() - 1)
+		_sub2[_sub] = s2
+		MenuScaffold.subpestanas(t.barra_sub2, MenuScaffold.campos(tabla, "nombre"),
+			MenuScaffold.campos(tabla, "icono"), s2, _on_sub2)
+		# En "Todas/Todo" se queda el nombre de la seccion: ahi el filtro no dice nada.
+		if s2 > 0:
+			titulo = str(tabla[s2]["nombre"])
+	t.titulo_seccion(titulo + ("  ·  T2" if _tier >= 2 else ""))
 	var todos: Array = _recoger()
+	t.orden.podar(clave(), grupos())
 	t.stacks = t.orden.aplicar(clave(), todos, self, por_defecto())
 	var piezas: Array = []
 	for s in t.stacks:
@@ -125,6 +140,26 @@ func _on_sub(i: int) -> void:
 	if i == _sub:
 		return
 	_sub = i
+	t.cambiar_pantalla()
+
+
+# La fila de filtros de la seccion, o vacia si no tiene (mochilas, consumibles, comida: son pocas
+# cosas y ya se ven todas de un vistazo).
+func _tabla_filtros() -> Array:
+	match _sub:
+		SUB_ARMAS: return MenuScaffold.FILTROS_ARMAS
+		SUB_ARMADURAS: return MenuScaffold.FILTROS_ARMADURA
+	return []
+
+
+func _sub2_de(sub: int) -> int:
+	return int(_sub2.get(sub, 0))
+
+
+func _on_sub2(i: int) -> void:
+	if i == _sub2_de(_sub):
+		return
+	_sub2[_sub] = i
 	t.cambiar_pantalla()
 
 
@@ -155,11 +190,21 @@ func _recoger() -> Array:
 		SUB_MOCHILAS: rutas = CAT_MOCHILAS
 		SUB_CONSUMIBLES: rutas = CAT_POCIONES_T2 if _tier >= 2 else CAT_POCIONES
 		SUB_COMIDA: rutas = CAT_COMIDA
+	var tabla: Array = _tabla_filtros()
+	var filtro: Dictionary = {} if tabla.is_empty() \
+		else tabla[clampi(_sub2_de(_sub), 0, tabla.size() - 1)]
 	var out: Array = []
 	for ruta in rutas:
 		var base: Resource = load(ruta)
 		if base == null:
 			continue
+		# La fila de filtros se aplica sobre el .tres del catalogo, no sobre la copia de escaparate:
+		# el tier no cambia ni de que tipo es un arma ni en que slot va una armadura.
+		if not filtro.is_empty():
+			var pasa: bool = MenuScaffold.pasa_filtro_arma(base, filtro) if _sub == SUB_ARMAS \
+				else MenuScaffold.pasa_filtro_armadura(base, filtro)
+			if not pasa:
+				continue
 		# La comida y las pociones no tienen tier en la compra: su "T2" son recursos aparte.
 		var tier: int = _tier if not (base is ConsumableData or base is MaterialData) else 1
 		var modelo: Resource = base if (base is ConsumableData or base is MaterialData) else t.vitrina(base, tier)
@@ -227,17 +272,15 @@ func criterios() -> Array:
 func grupos() -> Array:
 	match _sub:
 		SUB_ARMAS:
-			return [{"titulo": "Clase", "clave": "clase_equipo", "opciones": [{"nombre": "Armas", "valor": 0},
-				{"nombre": "Escudos", "valor": 1}, {"nombre": "Varitas", "valor": 2}]}]
+			# La CLASE (arma / escudo / varita) ya la elige la fila de iconos de arriba: aqui solo
+			# estorbaba, porque marcar "Escudos" con el filtro de dagas puesto no deja nada.
+			return []
 		SUB_ARMADURAS:
+			# La PIEZA la parte la fila de arriba, asi que aqui queda lo otro: de que esta hecha.
 			var mats: Array = []
 			for i in ARMOR_TIPO_LABELS.size():
 				mats.append({"nombre": ARMOR_TIPO_LABELS[i], "valor": i})
-			var slots: Array = []
-			for i in ARMOR_SLOT_LABELS.size():
-				slots.append({"nombre": ARMOR_SLOT_LABELS[i], "valor": i})
-			return [{"titulo": "Material", "clave": "material_armadura", "opciones": mats},
-				{"titulo": "Pieza", "clave": "slot", "opciones": slots}]
+			return [{"titulo": "Material", "clave": "material_armadura", "opciones": mats}]
 	return []
 
 

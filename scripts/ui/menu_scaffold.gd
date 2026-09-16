@@ -743,6 +743,89 @@ static func subpestanas(fila: BoxContainer, nombres: Array, iconos: Array, activ
 		fila.add_child(b)
 
 
+# ============================================================
+#  LAS SECCIONES DE EQUIPO, EN UN SOLO SITIO
+#  Las mismas subpestañas y los mismos filtros para el INVENTARIO, el COFRE del hogar y la TIENDA:
+#  si en un sitio las armas se parten por tipo y en otro salen todas revueltas con las herramientas,
+#  el jugador tiene que aprenderse dos menus para buscar lo mismo (playtest del 16/09).
+#
+#  Estaban copiadas en inventory_menu.gd y en hogar_almacen.gd, con un comentario pidiendo que se
+#  tocaran las dos a la vez -- que es justo lo que no pasa. Ahora hay UNA copia y las tres pantallas
+#  la leen de aqui.
+#
+#  El orden de las armas es el del inventario y NO es alfabetico: va de la mas rapida a la mas lenta
+#  (daga, estoque, corta, maza, larga, mandoble, hacha, martillo), que es la pregunta que uno se hace
+#  mirando un arma. El BASTON y la VARITA van detras de todo lo fisico aunque el baston sea rapido:
+#  lo que los separa no es el peso, es que son de mago. Los PUÑOS no estan: pelear a puño limpio es
+#  NO llevar arma, asi que nunca hay una en el baul. Los ESCUDOS se parten por TAMAÑO porque es lo
+#  unico que los diferencia de verdad.
+# ============================================================
+
+# El equipo del GRUPO que no es de combate. El FAROLILLO va aparte de las otras herramientas: no
+# tiene minijuego, no ahorra golpes y ademas quema un consumible.
+const SUBS_EQUIPO := [
+	{"nombre": "Mochila", "icono": "mochila"},
+	{"nombre": "Herramientas", "icono": "pico"},
+	{"nombre": "Farolillo", "icono": "farol"},
+]
+# 'tipo' = WeaponData.Tipo, 'clase' = otra cosa que no es un arma de mano. -1 / "" = no filtra.
+const FILTROS_ARMAS := [
+	{"nombre": "Todas", "icono": "todo", "tipo": -1, "clase": ""},
+	{"nombre": "Daga", "icono": "daga", "tipo": 1, "clase": ""},
+	{"nombre": "Estoque", "icono": "estoque", "tipo": 5, "clase": ""},
+	{"nombre": "Espada corta", "icono": "espada_corta", "tipo": 2, "clase": ""},
+	{"nombre": "Maza pequeña", "icono": "maza", "tipo": 7, "clase": ""},
+	{"nombre": "Espada larga", "icono": "espada_larga", "tipo": 3, "clase": ""},
+	{"nombre": "Mandoble", "icono": "mandoble", "tipo": 4, "clase": ""},
+	{"nombre": "Hacha grande", "icono": "hacha", "tipo": 6, "clase": ""},
+	{"nombre": "Martillo grande", "icono": "martillo", "tipo": 8, "clase": ""},
+	{"nombre": "Bastón", "icono": "baston", "tipo": 9, "clase": ""},
+	{"nombre": "Varita", "icono": "varita", "tipo": -1, "clase": "varita"},
+	{"nombre": "Escudo pequeño", "icono": "escudo_peq", "tipo": 0, "clase": "escudo"},
+	{"nombre": "Escudo normal", "icono": "escudo_med", "tipo": 1, "clase": "escudo"},
+	{"nombre": "Escudo grande", "icono": "escudo_gra", "tipo": 2, "clase": "escudo"},
+]
+# 'slot' = ArmorData.Slot. -1 = no filtra. MANOS reusa el icono de mano que ya existia: el guantelete
+# dibujado a proposito salia igual que el casco, que esta dos posiciones antes en la misma fila.
+const FILTROS_ARMADURA := [
+	{"nombre": "Todo", "icono": "todo", "slot": -1},
+	{"nombre": "Casco", "icono": "casco", "slot": 0},
+	{"nombre": "Pecho", "icono": "coraza", "slot": 1},
+	{"nombre": "Manos", "icono": "mano", "slot": 2},
+	{"nombre": "Pantalones", "icono": "pantalon", "slot": 3},
+	{"nombre": "Botas", "icono": "botas", "slot": 4},
+]
+
+
+# Los nombres (o los iconos) de una de esas tablas, para pasarselos a subpestanas().
+static func campos(tabla: Array, clave: String) -> Array:
+	var out: Array = []
+	for f in tabla:
+		out.append(f[clave])
+	return out
+
+
+# ¿Encaja esta pieza en el filtro de armas elegido? La seccion mezcla tres clases distintas (armas de
+# mano, varitas y escudos), asi que la prueba mira primero DE QUE clase es.
+static func pasa_filtro_arma(item: Resource, f: Dictionary) -> bool:
+	var clase: String = String(f["clase"])
+	if clase == "escudo":
+		return item is ShieldData and int((item as ShieldData).tamano) == int(f["tipo"])
+	if clase == "varita":
+		return item is WandData
+	if int(f["tipo"]) < 0:
+		return true   # "Todas"
+	return item is WeaponData and int((item as WeaponData).tipo) == int(f["tipo"])
+
+
+# Lo mismo para una pieza de armadura: el slot, o "Todo".
+static func pasa_filtro_armadura(item: Resource, f: Dictionary) -> bool:
+	if not (item is ArmorData):
+		return false
+	var slot: int = int(f["slot"])
+	return slot < 0 or int((item as ArmorData).slot) == slot
+
+
 # EL ICONO que le toca a un arma, un escudo o una varita: el mismo dibujo con el que se filtran en
 # el inventario. Se pregunta por el ITEM y no por su nombre para que una plantilla nueva no tenga
 # que darse de alta en dos sitios. Los puños (o cualquier cosa rara) caen en el generico.

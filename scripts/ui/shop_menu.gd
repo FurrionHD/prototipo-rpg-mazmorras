@@ -63,6 +63,9 @@ var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
 var barra_tier: HBoxContainer = null  # mostrador T1/T2 (solo Comprar, con el Rey Slime muerto)
 var barra_sub: HBoxContainer = null   # subpestañas (las rellena cada seccion)
+# La SEGUNDA fila: el filtro dentro de la sección (tipo de arma, slot de armadura...), igual que en
+# el inventario y en el cofre del hogar. Vacia = no se ve (su fila se queda a cero de alto).
+var barra_sub2: HBoxContainer = null
 var _buscador: LineEdit = null
 var _fila_buscador: HBoxContainer = null
 var _bandeja: PanelContainer = null
@@ -156,6 +159,10 @@ func _ready() -> void:
 	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	barra_sub.add_theme_constant_override("separation", 14)
 	col_izq.add_child(barra_sub)
+	barra_sub2 = HBoxContainer.new()
+	barra_sub2.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub2.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_sub2)
 
 	# EL BUSCADOR, encima de la rejilla que filtra. Filtra al escribir (no hace falta Enter) y NO rehace
 	# la ficha ni se pierde el foco: vive fuera de la zona que se vacia en cada pasada.
@@ -326,6 +333,7 @@ func _rebuild_real() -> void:
 	contador("")
 	MenuScaffold.subpestanas(barra_tier, [], [], -1, Callable())
 	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
+	MenuScaffold.subpestanas(barra_sub2, [], [], -1, Callable())
 	for zona in ([_header, _content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
 	# Pestañas que solo existen cuando tienen algo dentro: recompra y pack inicial.
