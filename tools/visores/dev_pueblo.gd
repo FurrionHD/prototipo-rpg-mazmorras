@@ -94,6 +94,23 @@ func _plano() -> void:
 		for c in PuebloPlano.canas(sem):
 			if PuebloPlano.suelo(c[0]) != PuebloPlano.Suelo.MADERA or PuebloPlano.solida(c[0]) 					or (c[0] as Vector2i).y == PuebloPlano.PLATAFORMA.position.y:
 				_ok("caña fuera del borde de la plataforma: %s" % [c], false)
+	# LAS LUCES: los postes en la hierba (en la calle quitarian paso), los braseros en hierba o en la
+	# plaza; ninguna encima de una puerta, de un adorno, de una casa, de otra luz o de una verja.
+	var puertas := {}
+	for casa in PuebloPlano.CASAS:
+		puertas[PuebloPlano.puerta_de(casa)] = true
+	var vistas := {}
+	for l in PuebloPlano.luces():
+		var c: Vector2i = l[1]
+		var s: int = PuebloPlano.suelo(c)
+		var suelo_ok: bool = s == PuebloPlano.Suelo.HIERBA or (l[0] == "brasero" and PuebloPlano.PLAZA.has_point(c))
+		var libre: bool = not puertas.has(c) and not vistas.has(c) and not PuebloPlano.solida_entera(c) \
+			and not PuebloPlano.es_verja(c) and c != PuebloPlano.ALTAR
+		for a in PuebloPlano.adornos():
+			if a[1] == c:
+				libre = false
+		_ok("%s en %s: sitio libre y suelo bueno" % [l[0], c], suelo_ok and libre)
+		vistas[c] = true
 	_ok("la escalera cae en la plaza", PuebloPlano.PLAZA.encloses(PuebloPlano.ESCALERA))
 	_ok("apareces en un sitio libre", not PuebloPlano.solida(_celda(PuebloPlano.aparicion_px())))
 
