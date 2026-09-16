@@ -294,7 +294,11 @@ func _rebuild() -> void:
 	if _reconstruyendo:
 		return
 	_reconstruyendo = true
+	# El baul se cuenta UNA vez por repintado (ver Game.abrir_recuento_hogar): con el mundo lleno,
+	# contarlo en cada pregunta eran mas de un segundo por cambio de pestaña.
+	Game.abrir_recuento_hogar()
 	_rebuild_real()
+	Game.cerrar_recuento_hogar()
 	_reconstruyendo = false
 
 

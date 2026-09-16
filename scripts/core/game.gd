@@ -11178,10 +11178,53 @@ func unidades_material_en_hogar(mat: MaterialData) -> int:
 	return total
 
 
+# EL RECUENTO DEL BAUL, mientras un menu repinta. Contar recorre el baul ENTERO, y un menu de oficio
+# pregunta cientos de veces por repintado (cada receta, cada ingrediente, cada calidad): con el mundo
+# compartido del usuario (19.000 materiales) la cocina tardaba 1,25 s en cambiar de tier y 1 s en
+# elegir una receta. Con esto se cuenta UNA vez y se responde del diccionario.
+#
+# Solo vale mientras nada toca el baul, por eso va ACOTADO: el menu lo abre al empezar a repintar y lo
+# cierra al acabar (pintar solo lee). Fabricar, curtir... pasan fuera, con el recuento cerrado. Se
+# anida (un repintado dentro de otro) con el contador. Y por si algo llegara a tocar el baul con el
+# recuento abierto, se rehace solo si el baul ha cambiado de tamaño (ver items_calidad_en_hogar).
+var _recuento_hogar: Dictionary = {}   # mat_id -> {calidad: n}
+var _recuento_abierto: int = 0
+var _recuento_tam: int = -1            # cuantos habia en el baul al contar
+
+func abrir_recuento_hogar() -> void:
+	_recuento_abierto += 1
+	# PEREZOSO: no se cuenta hasta la primera pregunta (el -1 no coincide nunca con el tamaño). Muchas
+	# pestañas no preguntan nada, y contar diecinueve mil para nada eran 11 ms por repintado.
+	if _recuento_abierto == 1:
+		_recuento_tam = -1
+
+
+func _contar_hogar() -> void:
+	_recuento_hogar.clear()
+	_recuento_tam = almacen_materiales.size()
+	for it in almacen_materiales:
+		if it == null or it.data == null:
+			continue
+		var por_cal: Dictionary = _recuento_hogar.get(it.data.id, {})
+		if por_cal.is_empty():
+			_recuento_hogar[it.data.id] = por_cal
+		por_cal[int(it.calidad)] = int(por_cal.get(int(it.calidad), 0)) + 1
+
+
+func cerrar_recuento_hogar() -> void:
+	_recuento_abierto = maxi(0, _recuento_abierto - 1)
+	if _recuento_abierto == 0:
+		_recuento_hogar.clear()
+
+
 # Cuantos ITEMS de un material Y calidad concreta hay en el baul (tope del contador de la UI).
 func items_calidad_en_hogar(mat: MaterialData, cal: int) -> int:
 	if mat == null:
 		return 0
+	if _recuento_abierto > 0:
+		if almacen_materiales.size() != _recuento_tam:
+			_contar_hogar()
+		return int((_recuento_hogar.get(mat.id, {}) as Dictionary).get(int(cal), 0))
 	var n: int = 0
 	for it in almacen_materiales:
 		if it != null and it.data != null and it.data.id == mat.id and int(it.calidad) == int(cal):
