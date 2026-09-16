@@ -57,15 +57,18 @@ const RAMPAS := {
 #  chimeneas = x (px) de cada chimenea; "fragua" enciende la boca
 #  cartel    = simbolo del oficio (ver ICONOS); "" = sin cartel
 #  luz       = ventanas encendidas
-#  extras    = los detalles propios (ver _extra)
+#  extras    = los detalles COLGADOS de la pared (ver _extra). Lo que se apoya en el SUELO (yunque,
+#              troncos, barriles, cajas, sacos) NO va aqui: es una pieza aparte con su casilla, su
+#              volumen y su sombra (PuebloPlano.ADORNOS). Pintado en la pared se leia como una pegatina
+#              ("parece un png encima de la pared", dijo el usuario).
 # ------------------------------------------------------------
 const CASAS := {
 	"herreria": {"huella": Vector2i(4, 3), "pared": "piedra_osc", "tejado": "pizarra", "alto": 44,
 		"chimeneas": [20], "fragua": true, "cartel": "martillo", "luz": "fragua",
-		"extras": ["yunque"]},
+		"extras": []},
 	"carpinteria": {"huella": Vector2i(4, 3), "pared": "madera_clara", "tejado": "tablilla", "alto": 44,
 		"chimeneas": [], "cartel": "serrucho", "luz": "",
-		"extras": ["troncos"]},
+		"extras": []},
 	"peleteria": {"huella": Vector2i(4, 3), "pared": "madera_osc", "tejado": "paja", "alto": 42,
 		"chimeneas": [], "cartel": "piel", "luz": "",
 		"extras": ["pieles"]},
@@ -74,13 +77,13 @@ const CASAS := {
 		"extras": ["macetas", "hierbas"]},
 	"cocina": {"huella": Vector2i(4, 3), "pared": "enlucido_ocre", "tejado": "teja", "alto": 44,
 		"chimeneas": [22], "humo": true, "cartel": "olla", "luz": "calida",
-		"extras": ["ristras", "barril_izq"]},
+		"extras": ["ristras"]},
 	"tienda": {"huella": Vector2i(5, 4), "pared": "entramado", "tejado": "teja", "alto": 48,
 		"chimeneas": [], "cartel": "bolsa", "luz": "calida",
-		"extras": ["toldo", "sacos"]},
+		"extras": ["toldo"]},
 	"taberna": {"huella": Vector2i(5, 4), "pared": "taberna", "tejado": "teja_osc", "alto": 66,
 		"chimeneas": [26, 136], "humo": true, "cartel": "jarra", "luz": "calida",
-		"extras": ["barriles"]},
+		"extras": []},
 	"maestro": {"huella": Vector2i(3, 3), "pared": "piedra_clara", "tejado": "pizarra_azul", "alto": 46,
 		"chimeneas": [], "cartel": "espadas", "luz": "",
 		"extras": ["estandarte"]},
@@ -130,6 +133,12 @@ static func _rect(d: PackedByteArray, w: int, h: int, x0: int, y0: int, rw: int,
 	for y in range(y0, y0 + rh):
 		for x in range(x0, x0 + rw):
 			_px(d, w, h, x, y, c)
+
+
+# LA SOMBRA DE LO COLGADO: lo mismo desplazado abajo a la derecha, oscureciendo la pared. Es lo que
+# despega el cartel o la piel de la pared; sin ella parecen pintados encima.
+static func _sombra(d: PackedByteArray, w: int, h: int, x0: int, y0: int, rw: int, rh: int) -> void:
+	_rect(d, w, h, x0 + 2, y0 + 2, rw, rh, Color(0, 0, 0, 0.32))
 
 
 static func _marco(d: PackedByteArray, w: int, h: int, x0: int, y0: int, rw: int, rh: int, c: Color) -> void:
@@ -488,6 +497,7 @@ static func _cartel(d: PackedByteArray, w: int, h: int, icono: String, puerta_x:
 	_px(d, w, h, x0 + 2, y0 - 3, hierro)
 	_px(d, w, h, x0 + 13, y0 - 3, hierro)
 	# Tabla.
+	_sombra(d, w, h, x0, y0 - 1, 16, 12)
 	var mad: Array = RAMPAS["madera_clara"]
 	for y in 12:
 		for x in 16:
@@ -508,53 +518,12 @@ static func _cartel(d: PackedByteArray, w: int, h: int, icono: String, puerta_x:
 # ------------------------------------------------------------
 static func _extra(d: PackedByteArray, w: int, h: int, que: String, e: Dictionary, alero: int, puerta_x: int, hu: Vector2i) -> void:
 	match que:
-		"yunque":
-			# El yunque delante de la pared, a la izquierda de la puerta, sobre su tajo, con un brillo
-			# de pieza al rojo encima.
-			# Medido en la hoja: a 18 px no se distinguia de una mancha en la pared. Ahora 26 de ancho.
-			var x0: int = puerta_x - 50
-			var y0: int = h - 22
-			var hierro: Array = [Color(0.10, 0.10, 0.12), Color(0.24, 0.24, 0.27), Color(0.40, 0.40, 0.44), Color(0.58, 0.58, 0.62)]
-			_rect(d, w, h, x0 + 6, y0 + 11, 14, 10, RAMPAS["madera_osc"][2])      # tajo
-			_rect(d, w, h, x0 + 6, y0 + 11, 14, 2, RAMPAS["madera_osc"][4])
-			_marco(d, w, h, x0 + 6, y0 + 11, 14, 10, NEGRO)
-			_rect(d, w, h, x0 + 9, y0 + 6, 8, 5, hierro[1])                       # cintura
-			_rect(d, w, h, x0 + 1, y0, 24, 6, hierro[2])                          # tabla del yunque
-			_rect(d, w, h, x0 + 1, y0, 24, 2, hierro[3])
-			_rect(d, w, h, x0 - 5, y0 + 1, 6, 3, hierro[2])                       # pico
-			_px(d, w, h, x0 - 6, y0 + 2, hierro[2])
-			_marco(d, w, h, x0 + 1, y0, 24, 6, NEGRO)
-			_marco(d, w, h, x0 + 9, y0 + 6, 8, 5, NEGRO)
-			_rect(d, w, h, x0 + 8, y0 - 2, 9, 2, Color(1.0, 0.50, 0.12))           # hierro al rojo
-			_rect(d, w, h, x0 + 10, y0 - 2, 5, 1, Color(1.0, 0.88, 0.50))
-			# Y el martillo apoyado en el tajo.
-			_rect(d, w, h, x0 + 21, y0 + 6, 2, 12, RAMPAS["madera"][3])
-			_rect(d, w, h, x0 + 18, y0 + 4, 8, 4, hierro[1])
-		"troncos":
-			# Una pila de troncos contra la pared, a la derecha: se ven las testas con sus anillos.
-			var x0: int = w - 40
-			var filas := [[0, 3], [5, 2], [2, 1]]
-			for fi in filas.size():
-				var n: int = int(filas[fi][1])
-				for k in n:
-					var cx: int = x0 + int(filas[fi][0]) + k * 11 + 5
-					var cy: int = h - 6 - fi * 9
-					for yy in range(-5, 6):
-						for xx in range(-5, 6):
-							var rr: float = sqrt(float(xx * xx + yy * yy))
-							if rr > 5.2:
-								continue
-							var col: Color = RAMPAS["madera_clara"][3]
-							if rr > 4.2:
-								col = RAMPAS["madera"][0]
-							elif int(rr) % 2 == 1:
-								col = RAMPAS["madera_clara"][2]
-							_px(d, w, h, cx + xx, cy + yy, col)
 		"pieles":
 			# Dos pieles tendidas en la pared, estiradas con cuerdas.
 			for k in 2:
 				var cx: int = 22 + k * 22 if puerta_x > 64 else w - 44 + k * 22
 				var cy: int = alero + 22
+				_sombra(d, w, h, cx - 7, cy - 9, 14, 19)
 				var r: Array = [Color(0.36, 0.24, 0.14), Color(0.55, 0.39, 0.24), Color(0.68, 0.51, 0.33)] if k == 0 \
 					else [Color(0.30, 0.28, 0.26), Color(0.52, 0.50, 0.47), Color(0.66, 0.64, 0.60)]
 				for yy in range(-10, 11):
@@ -600,12 +569,6 @@ static func _extra(d: PackedByteArray, w: int, h: int, que: String, e: Dictionar
 					_px(d, w, h, rx, alero + 6 + j * 3, col)
 					_px(d, w, h, rx + 1, alero + 6 + j * 3, col.darkened(0.2))
 					_px(d, w, h, rx, alero + 7 + j * 3, col.darkened(0.3))
-		"barril_izq":
-			_barril(d, w, h, puerta_x - 34, h - 2)
-		"barriles":
-			_barril(d, w, h, puerta_x - 30, h - 2)
-			_barril(d, w, h, puerta_x + 18, h - 2)
-			_barril(d, w, h, puerta_x + 30, h - 2)
 		"toldo":
 			# Toldo a rayas sobre la planta baja, con el borde festoneado.
 			var y0: int = alero + 6
@@ -620,25 +583,11 @@ static func _extra(d: PackedByteArray, w: int, h: int, que: String, e: Dictionar
 					if y == 10 or (y == 9 and (x % 8) in [1, 6]):
 						col = NEGRO
 					_px(d, w, h, x, y0 + y, col)
-		"sacos":
-			for k in 2:
-				var sx: int = w - 30 + k * 11
-				var sy: int = h - 3
-				for yy in range(-10, 1):
-					var semi: float = 5.0 - absf(float(yy + 5)) * 0.3
-					for xx in range(-6, 7):
-						if absf(float(xx)) > semi:
-							continue
-						var col: Color = Color(0.78, 0.68, 0.48) if absf(float(xx)) < semi - 1.0 else Color(0.40, 0.32, 0.20)
-						_px(d, w, h, sx + xx, sy + yy, col)
-			# Cajas a la izquierda.
-			_rect(d, w, h, 10, h - 13, 14, 12, RAMPAS["madera_clara"][2])
-			_marco(d, w, h, 10, h - 13, 14, 12, NEGRO)
-			_rect(d, w, h, 11, h - 8, 12, 1, RAMPAS["madera"][1])
 		"estandarte":
 			# Un estandarte rojo con dos espadas bordadas, colgado a la izquierda de la puerta.
 			var x0: int = puerta_x - 28
 			var y0: int = alero + 5
+			_sombra(d, w, h, x0, y0 + 2, 10, 22)
 			_rect(d, w, h, x0 - 2, y0, 14, 2, Color(0.15, 0.14, 0.15))
 			for y in 24:
 				for x in 10:
@@ -675,19 +624,3 @@ static func _extra(d: PackedByteArray, w: int, h: int, que: String, e: Dictionar
 					var rr: float = sqrt(float(xx * xx + yy * yy))
 					if rr < 7.0 and rr > 3.0:
 						_px(d, w, h, fx + 2 + xx, fy + 2 + yy, Color(1.0, 0.85, 0.45, 0.12))
-
-
-static func _barril(d: PackedByteArray, w: int, h: int, x0: int, suelo: int) -> void:
-	var mad: Array = RAMPAS["madera"]
-	for y in 14:
-		var semi: float = 5.0 + (1.0 - pow((float(y) - 6.5) / 7.0, 2.0)) * 1.5
-		for x in range(-7, 8):
-			if absf(float(x)) > semi:
-				continue
-			var col: Color = mad[3] if x < -1 else (mad[2] if x < 3 else mad[1])
-			if y == 2 or y == 11:
-				col = Color(0.20, 0.19, 0.21)       # aros
-			if absf(float(x)) > semi - 1.0 or y == 0 or y == 13:
-				col = NEGRO
-			_px(d, w, h, x0 + x, suelo - 14 + y, col)
-	_rect(d, w, h, x0 - 4, suelo - 14, 9, 2, mad[4])

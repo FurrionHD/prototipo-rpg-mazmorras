@@ -78,6 +78,21 @@ func _plano() -> void:
 		_ok("  la puerta %s es de piedra y da a una calle" % pu,
 			PuebloPlano.suelo(pu) != PuebloPlano.Suelo.HIERBA
 			and PuebloPlano.suelo(pu + Vector2i(0, 1)) != PuebloPlano.Suelo.HIERBA)
+	for a in PuebloPlano.adornos():
+		_ok("el adorno %s en %s va en hierba, fuera del camino" % [a[0], a[1]],
+			PuebloPlano.suelo(a[1]) == PuebloPlano.Suelo.HIERBA)
+	# Las CAÑAS: deterministas por semilla (asi salen iguales en multi) y distintas con otra semilla.
+	var canas_a: Array = PuebloPlano.canas(12345)
+	_ok("tres cañas, iguales con la misma semilla", canas_a.size() == 3 and canas_a == PuebloPlano.canas(12345))
+	var cambian: bool = false
+	for sem in range(1, 20):
+		if PuebloPlano.canas(sem) != canas_a:
+			cambian = true
+	_ok("y en otro sitio con otra semilla", cambian)
+	for sem in range(1, 40):
+		for c in PuebloPlano.canas(sem):
+			if PuebloPlano.suelo(c[0]) != PuebloPlano.Suelo.MADERA or PuebloPlano.solida(c[0]) 					or (c[0] as Vector2i).y == PuebloPlano.PLATAFORMA.position.y:
+				_ok("caña fuera del borde de la plataforma: %s" % [c], false)
 	_ok("la escalera cae en la plaza", PuebloPlano.PLAZA.encloses(PuebloPlano.ESCALERA))
 	_ok("apareces en un sitio libre", not PuebloPlano.solida(_celda(PuebloPlano.aparicion_px())))
 
@@ -196,6 +211,10 @@ func _hoja_de_piezas() -> void:
 
 func _captura(nombre: String) -> void:
 	await get_tree().process_frame
+	# Los compañeros siguen al jugador y se plantan delante de lo que se quiere mirar: fuera de camara.
+	for n in get_tree().get_nodes_in_group("aliado"):
+		if n != _jugador and n is Node2D:
+			(n as Node2D).global_position = Vector2(-5000, -5000)
 	(_jugador.get_node("Camera2D") as Camera2D).reset_smoothing()
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw

@@ -126,6 +126,60 @@ const CASAS := [
 ]
 
 
+# ------------------------------------------------------------
+#  ADORNOS DE SUELO: lo que se apoya delante de cada casa, en la fila de la puerta. Cada uno ocupa una
+#  casilla y CHOCA (lo pidio el usuario: "que sean fisicas y no te dejen andar por ahi"). El numero es
+#  la columna respecto a la de la puerta (la de la puerta nunca: es el camino). Colocados donde los
+#  marco el usuario sobre las capturas.
+# ------------------------------------------------------------
+const ADORNOS := {
+	"herreria": [["yunque", -2]],
+	"carpinteria": [["troncos", 1]],
+	"cocina": [["barril", -1]],
+	"tienda": [["cajas", -2], ["sacos", 2]],
+	"taberna": [["barril", -1], ["barriles", 1], ["barriles", 2]],
+}
+
+
+# LAS CAÑAS DE PESCAR: tres, al azar, en el borde de la plataforma del pescador (nunca en la fila
+# del muelle, por donde se llega). Salen de la semilla del pueblo (Game.semilla_pueblo_actual), asi que
+# en multijugador caen en el mismo sitio para todos. Devuelve [casilla, lado] con lado "s", "e" u "o".
+const CANAS := 3
+
+static func canas(semilla: int) -> Array:
+	var cand: Array = []
+	var p: Rect2i = PLATAFORMA
+	for x in range(p.position.x, p.end.x):
+		cand.append([Vector2i(x, p.end.y - 1), "s"])
+	for y in range(p.position.y + 1, p.end.y - 1):
+		cand.append([Vector2i(p.position.x, y), "o"])
+		cand.append([Vector2i(p.end.x - 1, y), "e"])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = semilla
+	var out: Array = []
+	var intentos: int = 0
+	while out.size() < CANAS and intentos < 200:
+		intentos += 1
+		var c: Array = cand[rng.randi_range(0, cand.size() - 1)]
+		var lejos: bool = true
+		for o in out:
+			var dd: Vector2i = (o[0] as Vector2i) - (c[0] as Vector2i)
+			if maxi(absi(dd.x), absi(dd.y)) < 2:
+				lejos = false
+		if lejos:
+			out.append(c)
+	return out
+
+
+# Todos los adornos del pueblo, como [pieza, casilla].
+static func adornos() -> Array:
+	var out: Array = []
+	for casa in CASAS:
+		for a in ADORNOS.get(String(casa["clave"]), []):
+			out.append([String(a[0]), puerta_de(casa) + Vector2i(int(a[1]), 0)])
+	return out
+
+
 # La casilla de delante de la puerta: centrada bajo la fachada (en las de ancho par, la de la
 # derecha del centro).
 static func puerta_de(casa: Dictionary) -> Vector2i:
@@ -221,6 +275,9 @@ static func solida(c: Vector2i) -> bool:
 		return true
 	if es_verja(c) or c == ALTAR or ESCALERA.has_point(c):
 		return true
+	for a in adornos():
+		if a[1] == c:
+			return true
 	for casa in CASAS:
 		if (casa["rect"] as Rect2i).has_point(c):
 			return true

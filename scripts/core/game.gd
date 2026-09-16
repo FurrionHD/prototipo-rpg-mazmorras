@@ -1740,6 +1740,21 @@ func renovar_epoca() -> void:
 		epoca_mazmorra = 1
 
 
+# LA SEMILLA DEL PUEBLO: decide lo que se coloca al azar en el pueblo (hoy, las cañas de pescar del
+# muelle). Lo pidio el usuario asi: que cambie al cerrar el juego o al bajar a la mazmorra y volver, pero
+# que en multijugador lo veais TODOS igual.
+#   - En solitario es esta: nace al azar al arrancar (no se guarda) y la renueva el pueblo al irte de el
+#     (town.gd _exit_tree), que es bajar a la mazmorra.
+#   - En sesion manda la del HOST (Net.semilla_pueblo), que la renueva cada vez que alguien baja.
+var semilla_pueblo: int = randi() | 1
+
+
+func semilla_pueblo_actual() -> int:
+	if Net.activo and Net.semilla_pueblo != 0:
+		return Net.semilla_pueblo
+	return semilla_pueblo
+
+
 # ¿Hay una partida en marcha? La semilla es el testigo: nueva_partida() se asegura de que NUNCA
 # valga 0, asi que un 0 solo puede significar que nadie ha creado ni cargado nada. Lo pregunta la
 # mazmorra para no montarse sin personaje si alguien lanza su escena a pelo desde el editor.

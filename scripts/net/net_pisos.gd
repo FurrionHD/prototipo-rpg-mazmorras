@@ -204,6 +204,8 @@ func _pedir_entrar(piso: int = 1) -> void:
 func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	if piso <= 1 or not Game.BOSSES.has(piso):
 		piso = 1
+	# Alguien baja: el pueblo se recoloca (las cañas del muelle), igual para todos.
+	Net.renovar_semilla_pueblo()
 	# La EPOCA de la sesion se fija UNA vez y no la mueve entrar ni salir: la mazmorra persiste, asi
 	# que subir al pueblo y volver a bajar tiene que encontrar los mismos tiers. Solo la renueva
 	# _olvidar_expedicion (habeis caido todos). Se coge del save del host, que es de quien es el mundo.

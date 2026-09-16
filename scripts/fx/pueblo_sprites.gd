@@ -25,6 +25,13 @@ const SEN45 := 0.7071
 const PIEZAS := {
 	"escalera_caracol": {"tam": Vector2i(96, 96), "pie": 96},
 	"altar_columna": {"tam": Vector2i(32, 76), "pie": 32},
+	# ADORNOS DE SUELO delante de las casas: una casilla, solidos (ver PuebloPlano.ADORNOS).
+	"yunque": {"tam": Vector2i(32, 56), "pie": 32},
+	"troncos": {"tam": Vector2i(32, 56), "pie": 32},
+	"barril": {"tam": Vector2i(32, 56), "pie": 32},
+	"barriles": {"tam": Vector2i(32, 56), "pie": 32},
+	"cajas": {"tam": Vector2i(32, 56), "pie": 32},
+	"sacos": {"tam": Vector2i(32, 56), "pie": 32},
 }
 
 # Las verjas son una pieza por MASCARA (hacia que lados sigue la verja: 1 N, 2 E, 4 S, 8 O).
@@ -38,6 +45,8 @@ static func claves() -> PackedStringArray:
 	var out := PackedStringArray(PIEZAS.keys())
 	for m in 16:
 		out.append("verja_%d" % m)
+	for l in CANA_LADOS:
+		out.append("cana_" + String(l))
 	# Las casas las dibuja CasaSprites; aqui solo se registran con el prefijo "casa_".
 	for c in CasaSprites.CASAS:
 		out.append("casa_" + String(c))
@@ -47,6 +56,8 @@ static func claves() -> PackedStringArray:
 static func tam(clave: String) -> Vector2i:
 	if clave.begins_with("verja_"):
 		return VERJA_TAM
+	if clave.begins_with("cana_"):
+		return CANA_TAM
 	if clave.begins_with("casa_"):
 		return CasaSprites.tam(clave.trim_prefix("casa_"))
 	return (PIEZAS[clave] as Dictionary)["tam"]
@@ -55,6 +66,8 @@ static func tam(clave: String) -> Vector2i:
 static func pie(clave: String) -> int:
 	if clave.begins_with("verja_"):
 		return VERJA_PIE
+	if clave.begins_with("cana_"):
+		return CANA_TAM.y
 	if clave.begins_with("casa_"):
 		return CasaSprites.pie(clave.trim_prefix("casa_"))
 	return int((PIEZAS[clave] as Dictionary)["pie"])
@@ -331,18 +344,23 @@ static func _verja(mask: int) -> PackedByteArray:
 			if absi(x - 16) > 2:
 				barrote.call(x, suelo)
 			x += 4
-	# Tramos norte-sur: barrotes escalonados en profundidad (cada uno un poco mas arriba = mas lejos).
+	# Tramos norte-sur: se ven DE CANTO. Cada barrote va un poco mas arriba que el de delante (esta mas
+	# lejos), asi que juntos forman una banda de hierro con las puntas asomando por la izquierda y dos
+	# travesaños claros que la recorren entera. La primera version era una raya de 2 px y en el juego
+	# se leia como una linea discontinua, no como una verja.
 	var y0: int = 0 if (mask & 1) != 0 else 16
 	var y1: int = 32 if (mask & 4) != 0 else 16
 	if y1 > y0:
-		var yy: int = y0 + 3
-		while yy < y1:
-			if absi(yy - 16) > 2:
-				barrote.call(15, suelo - 16 + yy)
-			yy += 5
-		for y in range(suelo - 16 + y0 - VERJA_ALTO + 3, suelo - 16 + y1 - 3):
-			_px(d, w, h, 15, y, HIERRO)
-			_px(d, w, h, 16, y, HIERRO_LUZ)
+		for yy in range(y0, y1 + 1):
+			var base: int = suelo - 16 + yy
+			for y in range(base - VERJA_ALTO, base + 1):
+				_px(d, w, h, 15, y, HIERRO)
+				_px(d, w, h, 16, y, HIERRO)
+			if yy % 4 == 0:
+				_px(d, w, h, 14, base - VERJA_ALTO - 1, HIERRO)
+				_px(d, w, h, 15, base - VERJA_ALTO - 2, HIERRO_LUZ)
+			_px(d, w, h, 17, base - 4, HIERRO_LUZ)
+			_px(d, w, h, 17, base - VERJA_ALTO + 3, HIERRO_LUZ)
 	# El pilar de la casilla: mas gordo y con remate.
 	for y in range(suelo - VERJA_ALTO - 3, suelo + 1):
 		for x in range(16 - PILAR / 2, 16 + PILAR / 2 + 1):
@@ -353,6 +371,265 @@ static func _verja(mask: int) -> PackedByteArray:
 	for x in range(16 - 2, 16 + 3):
 		_px(d, w, h, x, suelo - VERJA_ALTO - 5, HIERRO_LUZ)
 	_px(d, w, h, 16, suelo - VERJA_ALTO - 6, HIERRO_LUZ)
+	return d
+
+
+# ============================================================
+#  ADORNOS DE SUELO
+# ============================================================
+# Lo que se apoya delante de una casa. La primera version los pintaba EN la pared y el usuario lo
+# canto enseguida: "parece un png encima de la pared". Lo que les faltaba es lo que tiene cualquier
+# cosa que esta en el suelo con esta camara: SOMBRA en el suelo, una TAPA (lo de arriba, clara) y una
+# CARA (lo vertical, mas oscura), con su contorno. Y una casilla propia que choca.
+#
+# El lienzo es la casilla (32x32, abajo) mas 24 px por encima para lo que sube.
+const ADORNO_SUELO := 44       # y del lienzo donde se apoyan (un poco por debajo del centro de la casilla)
+const ADORNOS_CLAVES := ["yunque", "troncos", "barril", "barriles", "cajas", "sacos"]
+
+static func _adorno(clave: String) -> PackedByteArray:
+	var t: Vector2i = PIEZAS[clave]["tam"]
+	var w: int = t.x
+	var h: int = t.y
+	var d := _lienzo(t)
+	var s: int = ADORNO_SUELO
+	match clave:
+		"yunque":
+			_sombra_suelo(d, w, h, 16, s, 14, 5)
+			var tajo: Array = [Color(0.18, 0.11, 0.07), Color(0.32, 0.21, 0.13), Color(0.45, 0.31, 0.19), Color(0.62, 0.47, 0.30), Color(0.74, 0.60, 0.40)]
+			_cilindro(d, w, h, 16, s, 9, 10, tajo, true)
+			# El yunque encima del tajo: tapa (clara) + cara (oscura), con el pico hacia la izquierda.
+			var hierro: Array = [Color(0.09, 0.09, 0.11), Color(0.22, 0.22, 0.25), Color(0.36, 0.36, 0.40), Color(0.52, 0.52, 0.57), Color(0.70, 0.70, 0.75)]
+			var top: int = s - 10 - 14
+			_rect(d, w, h, 12, top + 8, 8, 5, hierro[1])            # cintura
+			for y in 5:
+				for x in range(7, 27):
+					_px(d, w, h, x, top + y, hierro[4] if y < 2 else hierro[3])   # tapa
+			for x in range(1, 7):
+				for y in range(2 - (x - 1) / 2, 3 + (x - 1) / 3):
+					_px(d, w, h, x, top + y + 1, hierro[3])            # pico
+			for y in 4:
+				for x in range(7, 27):
+					_px(d, w, h, x, top + 5 + y, hierro[2] if x < 12 or x > 20 else hierro[1])  # cara
+			_contorno(d, w, h)
+			_rect(d, w, h, 13, top, 9, 2, Color(1.0, 0.50, 0.12))    # la pieza al rojo
+			_rect(d, w, h, 15, top, 5, 1, Color(1.0, 0.90, 0.55))
+		"barril":
+			_sombra_suelo(d, w, h, 16, s, 11, 4)
+			_barril(d, w, h, 16, s, 8, 20)
+			_contorno(d, w, h)
+		"barriles":
+			_sombra_suelo(d, w, h, 16, s + 1, 15, 5)
+			_barril(d, w, h, 9, s - 3, 6, 16)
+			_barril(d, w, h, 22, s + 1, 7, 18)
+			_contorno(d, w, h)
+		"troncos":
+			# Pila de troncos tumbados de norte a sur: se les ven las TESTAS (con sus anillos) y, por
+			# encima de cada una, la corteza que se aleja hacia el fondo.
+			_sombra_suelo(d, w, h, 16, s, 16, 6)
+			var corteza: Array = [Color(0.16, 0.10, 0.06), Color(0.28, 0.18, 0.10), Color(0.38, 0.26, 0.15)]
+			var testa: Array = [Color(0.55, 0.40, 0.24), Color(0.72, 0.56, 0.36), Color(0.82, 0.68, 0.46)]
+			var filas := [[5, s - 5, 3], [10, s - 14, 2], [15, s - 23, 1]]
+			for f in filas:
+				for k in int(f[2]):
+					var cx: int = int(f[0]) + k * 11
+					var cy: int = int(f[1])
+					for y in range(cy - 12, cy):
+						for x in range(cx - 5, cx + 6):
+							var col: Color = corteza[2] if x < cx - 1 else (corteza[1] if x < cx + 3 else corteza[0])
+							if (y + x * 3) % 7 == 0:
+								col = corteza[0]
+							_px(d, w, h, x, y, col)
+					for yy in range(-5, 6):
+						for xx in range(-5, 6):
+							var rr: float = sqrt(float(xx * xx) + float(yy * yy) * 1.3)
+							if rr > 5.3:
+								continue
+							var col2: Color = testa[1]
+							if rr > 4.3:
+								col2 = corteza[1]
+							elif int(rr * 1.2) % 2 == 1:
+								col2 = testa[0]
+							elif rr < 1.2:
+								col2 = testa[2]
+							_px(d, w, h, cx + xx, cy + yy, col2)
+			_contorno(d, w, h)
+		"cajas":
+			_sombra_suelo(d, w, h, 16, s, 15, 5)
+			var mad: Array = [Color(0.30, 0.20, 0.11), Color(0.48, 0.34, 0.20), Color(0.62, 0.47, 0.29), Color(0.74, 0.60, 0.40), Color(0.84, 0.72, 0.52)]
+			_caja_madera(d, w, h, 3, s, 22, 8, 13, mad)
+			_caja_madera(d, w, h, 12, s - 13 - 4, 14, 6, 10, mad)
+			_contorno(d, w, h)
+		"sacos":
+			_sombra_suelo(d, w, h, 16, s, 15, 5)
+			_saco(d, w, h, 16, s - 8, 7, 11)
+			_saco(d, w, h, 9, s, 8, 14)
+			_saco(d, w, h, 23, s + 1, 7, 12)
+			_contorno(d, w, h)
+	return d
+
+
+static func _sombra_suelo(d: PackedByteArray, w: int, h: int, cx: int, cy: int, rx: int, ry: int) -> void:
+	for y in range(cy - ry, cy + ry + 1):
+		for x in range(cx - rx, cx + rx + 1):
+			var e: float = pow(float(x - cx) / float(rx), 2.0) + pow(float(y - cy) / float(ry), 2.0)
+			if e <= 1.0:
+				_px(d, w, h, x, y, Color(0, 0, 0, 0.30))
+
+
+# Un cilindro de pie: cuerpo con luz por la izquierda y la TAPA en elipse arriba.
+static func _cilindro(d: PackedByteArray, w: int, h: int, cx: int, suelo: int, r: int, alto: int, rampa: Array, anillos: bool) -> void:
+	var ry: float = float(r) * 0.5
+	var arriba_cuerpo: float = float(suelo - alto)
+	for y in range(suelo - alto - int(ry) - 1, suelo + int(ry) + 1):
+		for x in range(cx - r, cx + r + 1):
+			var dx: float = float(x - cx) + 0.5
+			var q: float = 1.0 - pow(dx / float(r), 2.0)
+			if q < 0.0:
+				continue
+			var abajo: float = float(suelo) + ry * sqrt(q)
+			var en_tapa: bool = pow(dx / float(r), 2.0) + pow((float(y) + 0.5 - arriba_cuerpo) / ry, 2.0) <= 1.0
+			var col: Color
+			if en_tapa:
+				col = rampa[3]
+				if anillos and int(sqrt(dx * dx + pow((float(y) + 0.5 - arriba_cuerpo) * 2.0, 2.0))) % 3 == 0:
+					col = rampa[2]
+			elif float(y) >= arriba_cuerpo and float(y) <= abajo:
+				var u: float = (dx + float(r)) / float(2 * r)
+				col = rampa[2] if u < 0.35 else (rampa[1] if u < 0.75 else rampa[0])
+			else:
+				continue
+			_px(d, w, h, x, y, col)
+
+
+static func _barril(d: PackedByteArray, w: int, h: int, cx: int, suelo: int, r: int, alto: int) -> void:
+	var mad: Array = [Color(0.22, 0.13, 0.07), Color(0.38, 0.25, 0.14), Color(0.52, 0.36, 0.21), Color(0.66, 0.49, 0.30), Color(0.78, 0.62, 0.40)]
+	_cilindro(d, w, h, cx, suelo, r, alto, mad, false)
+	var ry: float = float(r) * 0.5
+	for x in range(cx - r + 1, cx + r):
+		var dx: float = float(x - cx) + 0.5
+		var curva: int = int(ry * sqrt(maxf(0.0, 1.0 - pow(dx / float(r), 2.0))))
+		if (x - cx + r) % 4 == 0:
+			for y in range(suelo - alto + curva + 1, suelo + curva):
+				_px(d, w, h, x, y, mad[0])            # junta entre duelas
+		for aro in [3, alto - 4]:
+			_px(d, w, h, x, suelo - aro + curva, Color(0.18, 0.18, 0.20))
+			_px(d, w, h, x, suelo - aro + curva - 1, Color(0.46, 0.46, 0.50))
+	for x in range(cx - r + 2, cx + r - 1):
+		_px(d, w, h, x, suelo - alto, mad[2])          # la tabla del medio de la tapa
+
+
+static func _caja_madera(d: PackedByteArray, w: int, h: int, x0: int, suelo: int, ancho: int, fondo: int, alto: int, mad: Array) -> void:
+	for y in range(suelo - alto - fondo, suelo - alto):
+		for x in range(x0, x0 + ancho):
+			_px(d, w, h, x, y, mad[4] if (y - (suelo - alto - fondo)) % 4 != 3 else mad[3])    # tapa
+	for y in range(suelo - alto, suelo):
+		for x in range(x0, x0 + ancho):
+			var col: Color = mad[2] if (y - (suelo - alto)) % 4 != 3 else mad[1]
+			if x < x0 + 2 or x >= x0 + ancho - 2:
+				col = mad[1]                          # listones de las esquinas
+			_px(d, w, h, x, y, col)
+	for x in range(x0, x0 + ancho):
+		_px(d, w, h, x, suelo - alto, mad[0])         # la arista entre tapa y cara
+
+
+static func _saco(d: PackedByteArray, w: int, h: int, cx: int, suelo: int, rx: int, alto: int) -> void:
+	var tela: Array = [Color(0.36, 0.28, 0.17), Color(0.56, 0.46, 0.30), Color(0.72, 0.62, 0.44), Color(0.84, 0.76, 0.58)]
+	for y in range(suelo - alto, suelo + 1):
+		var t: float = float(suelo - y) / float(alto)
+		var semi: float = float(rx) * (1.0 - pow(maxf(0.0, t - 0.25) / 0.75, 2.0) * 0.75)
+		for x in range(cx - rx, cx + rx + 1):
+			var dx: float = float(x - cx) + 0.5
+			if absf(dx) > semi:
+				continue
+			var u: float = (dx + semi) / maxf(1.0, 2.0 * semi)
+			var col: Color = tela[3] if u < 0.3 and t > 0.3 else (tela[2] if u < 0.65 else tela[1])
+			if t < 0.15:
+				col = tela[1]
+			_px(d, w, h, x, y, col)
+	_rect(d, w, h, cx - 2, suelo - alto - 2, 4, 3, tela[1])     # el nudo
+	_px(d, w, h, cx, suelo - alto - 3, tela[0])
+
+
+static func _rect(d: PackedByteArray, w: int, h: int, x0: int, y0: int, rw: int, rh: int, c: Color) -> void:
+	for y in range(y0, y0 + rh):
+		for x in range(x0, x0 + rw):
+			_px(d, w, h, x, y, c)
+
+
+# Contorno negro de un pixel alrededor de lo opaco (la sombra del suelo, translucida, no cuenta).
+static func _contorno(d: PackedByteArray, w: int, h: int) -> void:
+	var borde := PackedInt32Array()
+	for y in h:
+		for x in w:
+			if d[(y * w + x) * 4 + 3] > 200:
+				continue
+			for v in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nx: int = x + v.x
+				var ny: int = y + v.y
+				if nx >= 0 and ny >= 0 and nx < w and ny < h and d[(ny * w + nx) * 4 + 3] > 200:
+					borde.append(y * w + x)
+					break
+	for i in borde:
+		_px(d, w, h, i % w, i / w, NEGRO)
+
+
+# ============================================================
+#  LAS CAÑAS DE PESCAR del muelle
+# ============================================================
+# Clavadas en el borde de la plataforma, asomando al agua, con el sedal cayendo hasta un corcho. Tres
+# dibujos, uno por lado ("s", "e", "o"): la caña se inclina hacia fuera y SUBE (con esta camara, subir
+# es ir hacia arriba en pantalla), y el sedal baja hasta el agua.
+#
+# Lienzo de 96x96 con el centro de su casilla en (48, 48): la caña sale de la casilla sobre el agua.
+const CANA_TAM := Vector2i(96, 96)
+const CANA_LADOS := ["s", "e", "o"]
+
+static func _cana(lado: String) -> PackedByteArray:
+	var w: int = CANA_TAM.x
+	var h: int = CANA_TAM.y
+	var d := _lienzo(CANA_TAM)
+	var dir := Vector2(0, 1) if lado == "s" else (Vector2(1, 0) if lado == "e" else Vector2(-1, 0))
+	var base := Vector2(48, 48) + dir * 11.0 + Vector2(0, 6)
+	var punta := base + dir * 30.0 + Vector2(0, -22)
+	var corcho := punta + dir * 3.0 + Vector2(0, 18)
+	if lado == "s":
+		# Hacia el sur la caña apenas avanza en pantalla (sale hacia la camara y sube a la vez) y el
+		# corcho cae justo debajo. Con los numeros de los lados se salia del lienzo y no se veia.
+		punta = base + Vector2(10, 12)
+		corcho = punta + Vector2(2, 12)
+	# La onda del agua alrededor del corcho.
+	for yy in range(-3, 4):
+		for xx in range(-7, 8):
+			var e: float = pow(float(xx) / 6.5, 2.0) + pow(float(yy) / 2.6, 2.0)
+			if e <= 1.0 and e >= 0.55:
+				_px(d, w, h, int(corcho.x) + xx, int(corcho.y) + 1 + yy, Color(0.80, 0.90, 0.95, 0.45))
+	# El sedal: de la punta al corcho, con una comba.
+	var n: int = 40
+	for i in n + 1:
+		var t: float = float(i) / float(n)
+		var p: Vector2 = punta.lerp(corcho, t) + Vector2(-dir.y, dir.x) * sin(t * PI) * 2.0
+		_px(d, w, h, int(p.x), int(p.y), Color(0.88, 0.88, 0.85, 0.65))
+	# El soporte: una estaca con una abrazadera, clavada en el tablero.
+	for y in range(int(base.y) - 3, int(base.y) + 5):
+		_px(d, w, h, int(base.x) - 1, y, Color(0.28, 0.18, 0.10))
+		_px(d, w, h, int(base.x), y, Color(0.42, 0.28, 0.16))
+		_px(d, w, h, int(base.x) + 1, y, Color(0.20, 0.12, 0.07))
+	# La caña: gruesa y oscura en el mango, fina y clara hacia la punta.
+	var m: int = 60
+	for i in m + 1:
+		var t: float = float(i) / float(m)
+		var p: Vector2 = base.lerp(punta, t) + Vector2(0, -1) * sin(t * PI) * 3.0
+		var col: Color = Color(0.20, 0.13, 0.08) if t < 0.25 else Color(0.66, 0.54, 0.32)
+		_px(d, w, h, int(p.x), int(p.y), col)
+		if t < 0.55:
+			_px(d, w, h, int(p.x) + 1, int(p.y), col.darkened(0.3))
+	# El carrete, pegado al mango.
+	var c: Vector2 = base.lerp(punta, 0.12)
+	_rect(d, w, h, int(c.x) - 1, int(c.y) - 1, 3, 3, Color(0.55, 0.55, 0.58))
+	_px(d, w, h, int(c.x), int(c.y), Color(0.20, 0.20, 0.22))
+	# El corcho: rojo arriba, blanco abajo.
+	_rect(d, w, h, int(corcho.x) - 1, int(corcho.y) - 2, 3, 2, Color(0.85, 0.15, 0.12))
+	_rect(d, w, h, int(corcho.x) - 1, int(corcho.y), 3, 1, Color(0.95, 0.95, 0.92))
 	return d
 
 
@@ -370,6 +647,10 @@ static func generar(clave: String) -> Image:
 		d = _columna()
 	elif clave.begins_with("verja_"):
 		d = _verja(int(clave.trim_prefix("verja_")))
+	elif clave in ADORNOS_CLAVES:
+		d = _adorno(clave)
+	elif clave.begins_with("cana_"):
+		d = _cana(clave.trim_prefix("cana_"))
 	else:
 		d = _lienzo(t)
 	return Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, d)

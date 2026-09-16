@@ -77,7 +77,9 @@ const MAX_CONEXIONES := 32
 #     pedir el registro entero.
 # 16: sacar del cofre del hogar (equipo y consumibles) lleva "vender" en sus RPC, para vender desde la
 #     tienda. Un build del 15 no casaria los argumentos y la peticion se perderia.
-const PROTOCOLO := 16
+# 17: RPC nuevo _set_semilla_pueblo (las cañas del muelle salen igual para todos). Un build del 16 no
+#     lo conoce y el pueblo se le colocaria con su propia semilla.
+const PROTOCOLO := 17
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -127,6 +129,11 @@ var semilla_host: int = 0
 # solo cuando caeis todos (_olvidar_expedicion), que es el equivalente en sesion de olvidar_mazmorra.
 # Un 0 significa "aun no me la han dicho": Game.epoca_actual cae entonces a la local.
 var epoca_sesion: int = 0
+
+# LA SEMILLA DEL PUEBLO de la sesion (ver Game.semilla_pueblo). La tiene el HOST: la estrena con la suya
+# al primer invitado, la renueva cada vez que alguien baja a la mazmorra (Net.pisos._conceder_entrada) y
+# la manda a todos. 0 = aun no ha llegado (el pueblo usa la local mientras tanto).
+var semilla_pueblo: int = 0
 
 
 # El surtido de la tienda manda el MUNDO DEL HOST: si el tiene la T2 abierta (Rey Slime muerto),
@@ -185,6 +192,8 @@ var _muertos: Dictionary = {}
 
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
+# La semilla del pueblo ha cambiado (ver Game.semilla_pueblo): el pueblo vuelve a colocar sus cañas.
+signal semilla_pueblo_cambiada()
 # El host ha contestado a un pedir_guardar_todos (corre en el invitado). Lo espera el "Guardar y salir"
 # del invitado para no cortar antes de que su estado haya llegado y se haya escrito.
 signal guardado_respondido(ok: bool)
@@ -464,6 +473,7 @@ func desconectar() -> void:
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
 	epoca_sesion = 0
+	semilla_pueblo = 0
 	jefes._bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
@@ -954,6 +964,27 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# Y LO DESCUBIERTO: las recetas que ya se enseñan en este mundo (ver _set_vistos_mundo).
 	hogar._set_vistos_mundo.rpc_id(quien, hogar._vistos_de_todos())
 	hogar._set_tiradas_novato.rpc_id(quien, Game.tiradas_novato)
+	# Y la SEMILLA DEL PUEBLO, para que sus cañas caigan donde las mias.
+	if semilla_pueblo == 0:
+		semilla_pueblo = Game.semilla_pueblo
+	_set_semilla_pueblo.rpc_id(quien, semilla_pueblo)
+
+
+# HOST: estrena semilla del pueblo y se la manda a todos (ver Game.semilla_pueblo).
+func renovar_semilla_pueblo() -> void:
+	if not activo or not es_host:
+		return
+	semilla_pueblo = randi() | 1
+	_set_semilla_pueblo.rpc(semilla_pueblo)
+	semilla_pueblo_cambiada.emit()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_semilla_pueblo(v: int) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	semilla_pueblo = v
+	semilla_pueblo_cambiada.emit()
 
 
 # Corre en el CLIENTE, llamado por el host tras aceptarlo: registra al host y guarda su semilla.

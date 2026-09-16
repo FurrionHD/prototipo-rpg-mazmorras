@@ -38,7 +38,9 @@ const CAPAS := {
 	"agua": {"clase": Clase.MASCARA, "bloque": 2, "frames": 4},
 	# LAS PATAS del muelle. Van en la casilla de agua que hay DEBAJO de la madera, y su mascara es la
 	# de la madera de encima: asi saben si esa casilla es una esquina (pata en el canto) o el medio.
-	"pilote": {"clase": Clase.MASCARA, "bloque": 1, "frames": 1},
+	# Bloque 2 y cuatro frames: cada casilla con su ondulacion (a bloque 1 todas las patas culebreaban
+	# igual y quietas, y el usuario lo vio: "la distorsion siempre es la misma") y moviendose con el agua.
+	"pilote": {"clase": Clase.MASCARA, "bloque": 2, "frames": 4},
 	"madera": {"clase": Clase.MASCARA, "bloque": 2, "frames": 1},
 	"muralla": {"clase": Clase.MASCARA, "bloque": 4, "frames": 1},
 }
@@ -322,7 +324,8 @@ static func _pintar_madera(d: PackedByteArray, W: int, o: Vector2i, rampa: Array
 const PATA_ANCHO := 6
 const PATA_HONDO := 30.0
 
-static func _pintar_pilote(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int) -> void:
+static func _pintar_pilote(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, mask: int,
+		fase: float, ox: float, oy: float) -> void:
 	var xs: Array = [LADO / 2 - PATA_ANCHO / 2]
 	if (mask & 8) != 0:
 		xs.append(1)
@@ -343,11 +346,17 @@ static func _pintar_pilote(d: PackedByteArray, W: int, o: Vector2i, rampa: Array
 		# hunde: se desvanece despacio al principio y deprisa al final.
 		var hundido: float = clampf((t - 0.12) / 0.88, 0.0, 1.0)
 		var alfa: float = 1.0 - hundido * hundido * (3.0 - 2.0 * hundido)
-		# La deformacion crece con la profundidad: arriba la pata es recta, abajo culebrea.
-		var onda: float = (sin(float(y) * 0.8) * 1.8 + sin(float(y) * 0.33 + 1.3) * 1.3) * hundido
 		# Y se deshilacha: bajo el agua pierde un pixel de ancho por cada tercio.
 		var ancho: int = PATA_ANCHO - int(hundido * 3.0)
 		for x0 in xs:
+			# CADA PATA SU ONDA: fase, amplitud y frecuencia salen de su sitio en el tapiz (determinista,
+			# vale para el multijugador), y 'fase' la hace avanzar con los frames. La vuelta entera de TAU
+			# en el ciclo es lo que hace que el ultimo frame case con el primero.
+			var sem_pata: float = TerrenoSprites._tabla(64, 991)[int(ox / float(LADO)) * 8 + int(oy / float(LADO)) * 3 + int(x0)]
+			var desfase: float = sem_pata * TAU
+			var amp: float = 0.75 + sem_pata * 0.6
+			var t_anim: float = fase * TAU
+			var onda: float = (sin(float(y) * (0.7 + sem_pata * 0.3) + desfase + t_anim) * 1.8 				+ sin(float(y) * 0.33 + 1.3 - t_anim) * 1.2) * hundido * amp
 			for k in ancho:
 				var x: int = int(x0) + k + int(round(onda * (1.0 + float(k) * 0.08)))
 				if x < 0 or x >= LADO:
@@ -369,7 +378,7 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 		"agua":
 			TerrenoSprites._pintar_agua(d, W, o, rampa, mask, sem, fase, ox, oy, bl, true)
 		"pilote":
-			_pintar_pilote(d, W, o, rampa, mask)
+			_pintar_pilote(d, W, o, rampa, mask, fase, ox, oy)
 		"madera":
 			_pintar_madera(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"muralla":

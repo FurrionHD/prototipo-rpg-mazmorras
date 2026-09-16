@@ -27,7 +27,39 @@ func _ready() -> void:
 	_crear_casas()
 	_crear_escalera()
 	_crear_jardin()
+	_crear_canas()
+	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
+
+
+# En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en
+# otro sitio. En sesion no se toca: la renueva el host para todos (ver Game.semilla_pueblo).
+func _exit_tree() -> void:
+	if not Net.activo:
+		Game.semilla_pueblo = randi() | 1
+
+
+# ------------------------------------------------------------
+#  LAS CAÑAS DE PESCAR del muelle: tres al azar, las mismas para todos (ver PuebloPlano.canas).
+#  Decorado puro: ni chocan ni se tocan. Se rehacen si llega otra semilla estando en el pueblo.
+# ------------------------------------------------------------
+var _canas: Node2D = null
+
+func _crear_canas() -> void:
+	if _canas != null and is_instance_valid(_canas):
+		_canas.queue_free()
+	_canas = Node2D.new()
+	_canas.name = "Canas"
+	add_child(_canas)
+	for c in PuebloPlano.canas(Game.semilla_pueblo_actual()):
+		var s := Sprite2D.new()
+		s.texture = PuebloSprites.textura("cana_" + String(c[1]))
+		s.centered = false
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		s.z_as_relative = false
+		s.z_index = -1
+		s.position = PuebloPlano.centro_px(c[0]) - Vector2(PuebloSprites.CANA_TAM) * 0.5
+		_canas.add_child(s)
 
 
 # ------------------------------------------------------------
@@ -110,6 +142,9 @@ func _crear_casas() -> void:
 			dibujo = "vacia_%d" % (n_vacia % CasaSprites.VARIANTES_VACIA)
 			n_vacia += 1
 		nodo.add_child(PiezaPueblo.crear("casa_" + dibujo, r))
+		for a in PuebloPlano.ADORNOS.get(clave, []):
+			var celda_a: Vector2i = PuebloPlano.puerta_de(casa) + Vector2i(int(a[1]), 0)
+			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE), true))
 		var guion: String = String(casa.get("script", ""))
 		if guion == "":
 			continue
@@ -165,7 +200,10 @@ func _crear_jardin() -> void:
 			var c := Vector2i(x, y)
 			if not PuebloPlano.es_verja(c):
 				continue
-			var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.es_verja(v))
+			# INVERTIDA: TerrenoSprites.mascara pone el bit donde el vecino NO es verja (es una mascara de
+			# BORDES, la del autotile), y el dibujo de la verja quiere los lados hacia donde SIGUE. Sin el
+			# 15 - m salian las verjas del reves: tramos de frente en los laterales y postes sueltos abajo.
+			var m: int = 15 - TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.es_verja(v))
 			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE), true))
 	var a: Vector2i = PuebloPlano.ALTAR
 	add_child(PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true))
