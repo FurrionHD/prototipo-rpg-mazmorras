@@ -65,7 +65,7 @@ class_name JugadorData
 # PersonajeData.desarrollos_rango): si fueran comunes, uno le regalaria habilidades al otro sin que
 # el otro hubiera forjado nada.
 @export var mezcla_exp: float = 0.0
-@export var metalurgia_exp: float = 0.0
+@export var metalurgia_exp: float = 0.0   # solo se LEE: fusionada en Herreria (Game._migrar_metalurgia)
 @export var peleteria_exp: float = 0.0
 @export var herreria_exp: float = 0.0
 @export var carpinteria_exp: float = 0.0

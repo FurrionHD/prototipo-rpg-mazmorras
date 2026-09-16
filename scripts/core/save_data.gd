@@ -196,7 +196,7 @@ const VERSION_MUNDO := 1
 # El interruptor de cada oficio NO se guarda aparte: se re-enciende al importar iterando
 # desarrollos_elegidos.
 @export var mezcla_exp: float = 0.0
-@export var metalurgia_exp: float = 0.0
+@export var metalurgia_exp: float = 0.0   # solo se LEE: fusionada en Herreria (Game._migrar_metalurgia)
 @export var peleteria_exp: float = 0.0
 @export var herreria_exp: float = 0.0
 # CARPINTERIA no estaba, y por eso su desarrollo era imposible de conseguir: el contador se

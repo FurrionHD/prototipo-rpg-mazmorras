@@ -286,6 +286,8 @@ func imbue_elemento() -> int:
 #
 # Quien se los lleva es quien va EN CABEZA al hacer el trabajo (es el que esta delante del yunque),
 # igual que los de combate.
+# METALURGIA ya no existe: se fusiono en Herreria el 16/09/2026. El campo se queda SOLO para leer las
+# partidas viejas (Game._migrar_metalurgia lo suma a herreria_exp y lo deja a cero).
 @export var metalurgia_exp: float = 0.0
 @export var peleteria_exp: float = 0.0
 @export var herreria_exp: float = 0.0

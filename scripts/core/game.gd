@@ -1945,7 +1945,6 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	desarrollos_rango.clear()
 	pasivas_rng.clear()
 	guardianes_vencidos = {}
-	habilidad_metalurgia = false
 	habilidad_peleteria = false
 	habilidad_herreria = false
 	habilidad_mezcla = false
@@ -1957,7 +1956,6 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	# los de la partida anterior (ver artesano()).
 	artesanos.clear()
 	mezcla_exp = 0.0
-	metalurgia_exp = 0.0
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
 	carpinteria_exp = 0.0
@@ -2119,10 +2117,10 @@ func exportar_partida() -> SaveData:
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
 	d.money = money
 	d.mezcla_exp = lider().mezcla_exp
-	d.metalurgia_exp = metalurgia_exp
+	d.metalurgia_exp = 0.0   # fusionada en Herreria (ver _migrar_metalurgia): el campo solo se LEE
 	d.peleteria_exp = lider().peleteria_exp
-	d.herreria_exp = herreria_exp
-	d.carpinteria_exp = carpinteria_exp
+	d.herreria_exp = lider().herreria_exp
+	d.carpinteria_exp = lider().carpinteria_exp
 	d.cocina_exp = lider().cocina_exp
 	d.esquivas_exp = esquivas_exp
 	d.hechizos_exp = hechizos_exp
@@ -2310,10 +2308,10 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_cuchillo = equipped_cuchillo
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = lider().mezcla_exp
-	jd.metalurgia_exp = metalurgia_exp
+	jd.metalurgia_exp = 0.0   # fusionada en Herreria (ver _migrar_metalurgia): el campo solo se LEE
 	jd.peleteria_exp = lider().peleteria_exp
-	jd.herreria_exp = herreria_exp
-	jd.carpinteria_exp = carpinteria_exp
+	jd.herreria_exp = lider().herreria_exp
+	jd.carpinteria_exp = lider().carpinteria_exp
 	jd.cocina_exp = lider().cocina_exp
 	jd.materiales_vistos = materiales_vistos.duplicate()
 	jd.pack_inicial = pack_inicial_reclamado
@@ -2560,11 +2558,12 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	# no del mundo en el que los sacaste.
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
 	lider().mezcla_exp = jd.mezcla_exp
-	metalurgia_exp = jd.metalurgia_exp
+	lider().metalurgia_exp = maxf(lider().metalurgia_exp, jd.metalurgia_exp)
 	lider().peleteria_exp = jd.peleteria_exp
-	herreria_exp = jd.herreria_exp
-	carpinteria_exp = jd.carpinteria_exp
+	lider().herreria_exp = jd.herreria_exp
+	lider().carpinteria_exp = jd.carpinteria_exp
 	lider().cocina_exp = jd.cocina_exp
+	_migrar_metalurgia()
 	materiales_vistos = jd.materiales_vistos.duplicate()
 	pack_inicial_reclamado = jd.pack_inicial
 	_devolver_farolillo_perdido()
@@ -2740,11 +2739,12 @@ func importar_partida(d: SaveData) -> void:
 	player_current_mp = d.player_current_mp
 	money = d.money
 	lider().mezcla_exp = d.mezcla_exp
-	metalurgia_exp = d.metalurgia_exp
+	lider().metalurgia_exp = maxf(lider().metalurgia_exp, d.metalurgia_exp)
 	lider().peleteria_exp = d.peleteria_exp
-	herreria_exp = d.herreria_exp
-	carpinteria_exp = d.carpinteria_exp
+	lider().herreria_exp = d.herreria_exp
+	lider().carpinteria_exp = d.carpinteria_exp
 	lider().cocina_exp = d.cocina_exp
+	_migrar_metalurgia()
 	esquivas_exp = d.esquivas_exp
 	hechizos_exp = d.hechizos_exp
 	recitado_exp = d.recitado_exp
@@ -4131,6 +4131,27 @@ var carbon: Array[MaterialItem] = []
 # ahi se colaba en el almacen al guardar materiales en casa), asi que al cargar hay que recogerlo
 # de los dos sitios y traerlo aqui. Sin esto te encuentras el carbon en la bolsa, el farolillo
 # diciendo "0 trozos" y ninguna forma de relacionar una cosa con la otra.
+# METALURGIA FUSIONADA EN HERRERIA (16/09/2026, decision del usuario): cada taller tiene un solo
+# oficio, como la Carpinteria, que ya hacia las dos cosas en la madera. Quien la tuviera se queda con
+# el MEJOR de los dos rangos y con la SUMA de la experiencia. Idempotente: tras migrar, la metalurgia
+# queda a cero y no vuelve a sumar nada.
+func _migrar_metalurgia() -> void:
+	for pj in plantilla:
+		var p: PersonajeData = pj as PersonajeData
+		if p == null:
+			continue
+		var rango_m: int = int(p.desarrollos_rango.get("metalurgia", 0))
+		if rango_m <= 0 and p.metalurgia_exp <= 0.0:
+			continue
+		if rango_m > 0:
+			p.desarrollos_rango["herreria"] = maxi(rango_m, int(p.desarrollos_rango.get("herreria", 0)))
+		p.desarrollos_rango.erase("metalurgia")
+		p.herreria_exp += p.metalurgia_exp
+		print("[oficio] %s: la Metalurgia pasa a Herreria (rango %d, %.1f de experiencia)." % [
+			p.nombre, int(p.desarrollos_rango.get("herreria", 0)), p.herreria_exp])
+		p.metalurgia_exp = 0.0
+
+
 func _migrar_carbon() -> void:
 	var movidos: int = 0
 	for lista in [materiales, almacen_materiales]:
@@ -4952,7 +4973,7 @@ var money: int = 0
 # MEZCLA (調合): parametro OCULTO que sube cada vez que CRAFTEAS pociones (no al comprarlas).
 # Semilla de una futura habilidad de desarrollo estilo DanMachi: "Mezcla" mejora la calidad
 # al crear objetos. De momento solo se acumula y se guarda; el efecto se ajustara despues.
-# DEL PERSONAJE que la prepara, no del grupo (ver metalurgia_exp para el porque): el ARTESANO que
+# DEL PERSONAJE que la prepara, no del grupo (ver herreria_exp para el porque): el ARTESANO que
 # elijas en la boticaria (ver artesano()).
 var mezcla_exp: float:
 	get: return artesano("mezcla").mezcla_exp
@@ -9261,33 +9282,30 @@ func _devolver_farolillo_perdido() -> void:
 # que desbloquee la habilidad al subir de nivel. Hasta entonces los efectos estan ESCRITOS
 # pero APAGADOS (ver habilidad_*): asi el dia que se desbloqueen, el que lleve mil lingotes
 # fundidos ya se los ha ganado.
-#   - Metalurgia: al refinar metal, tira por subir UN escalon la calidad (y con oficio de
-#     sobra, un intacto puede salir PURO, que es una calidad que no se recolecta).
+#   - Herreria: al refinar metal, tira por subir UN escalon la calidad (y con oficio de sobra, un
+#     intacto puede salir PURO, que es una calidad que no se recolecta); y al forjar, empuja la
+#     tirada de rareza a tu favor. Hasta el 16/09/2026 lo primero era otro oficio, la METALURGIA
+#     (ver _migrar_metalurgia).
 #   - Peleteria: lo mismo, con la piel.
-#   - Herreria: al forjar, empuja la tirada de rareza a tu favor.
 #
 # SON DEL PERSONAJE, no del grupo. Estaban aqui como variables sueltas, o sea compartidas por todos:
 # el rango del desarrollo ya era individual (PersonajeData.desarrollos_rango) pero el contador que lo
 # desbloquea era comun, asi que un personaje se ganaba la Metalurgia con lo que habia fundido otro.
 # Ahora delegan en el lider, igual que los de combate: se lo lleva quien esta delante del yunque.
-var metalurgia_exp: float:
-	get: return lider().metalurgia_exp
-	set(v): lider().metalurgia_exp = v
-# PELETERIA no va por el lider sino por EL ARTESANO que elijas en la pantalla (ver artesano()): lo
-# que curtes lo curte alguien, y es ese alguien quien aprende el oficio. Metalurgia, herreria y
-# carpinteria siguen en el lider hasta que sus pantallas tengan tambien su selector.
+# Van por EL ARTESANO que elijas en la pantalla de cada taller (ver artesano()), no por el lider: lo
+# que se curte o se forja lo hace alguien, y es ese alguien quien aprende el oficio.
 var peleteria_exp: float:
 	get: return artesano("peleteria").peleteria_exp
 	set(v): artesano("peleteria").peleteria_exp = v
+# HERRERIA sube al fundir/batir/hacer hebillas Y al forjar (ver _migrar_metalurgia).
 var herreria_exp: float:
-	get: return lider().herreria_exp
-	set(v): lider().herreria_exp = v
-# CARPINTERIA es una SOLA habilidad que hace lo de Metalurgia (empuja la calidad al ASERRAR
-# tablones) Y lo de Herreria (empuja la rareza al FORJAR armas magicas). Por eso un unico contador,
-# que sube con ambas acciones. Ver refinar() y el forjado magico.
+	get: return artesano("herreria").herreria_exp
+	set(v): artesano("herreria").herreria_exp = v
+# CARPINTERIA es la hermana de la Herreria en la madera: empuja la calidad al ASERRAR tablones y la
+# rareza al FORJAR armas magicas. Un unico contador, que sube con ambas acciones.
 var carpinteria_exp: float:
-	get: return lider().carpinteria_exp
-	set(v): lider().carpinteria_exp = v
+	get: return artesano("carpinteria").carpinteria_exp
+	set(v): artesano("carpinteria").carpinteria_exp = v
 
 # Los contadores ocultos de los perks de COMBATE. Misma idea que los de oficio: suben SOLOS
 # haciendo lo suyo, y son lo que decide si el perk te sale al subir de nivel (ver DESARROLLOS y
@@ -9391,27 +9409,23 @@ func contar_dano_bloqueado(bruto: float, aplicado: float, pj: PersonajeData = nu
 	p.dano_bloqueado_exp += maxf(0.0, bruto - aplicado)
 # Interruptores (los pondra a true el sistema de habilidades de desarrollo cuando exista).
 # Con esto en false, el oficio solo ACUMULA.
-var habilidad_metalurgia: bool = false
 var habilidad_peleteria: bool = false
 var habilidad_herreria: bool = false
 var habilidad_mezcla: bool = false   # Mezcla (boticaria): sube la prob. de doble poción. Ver mezcla_activa().
 
 # FACTOR de rango del oficio (0..1): 0 si no lo tienes, 0.2 en rango I, 1.0 en rango S. Es lo que
 # escala el bonus (ver Forge.bonus_herreria y cía, que ahora hacen MAX × factor).
-func metalurgia_activa() -> float:
-	return factor_desarrollo("metalurgia")
-
 # PELETERIA la pone EL ARTESANO que esté al mando en la peletería, no el líder: ver artesano().
 func peleteria_activa() -> float:
 	return factor_desarrollo("peleteria", artesano("peleteria"))
 
+# HERRERIA y CARPINTERIA: UN factor que vale para refinar (subir la calidad) y para forjar (empujar la
+# rareza). Los pone el artesano de su taller. Ver refinar() y forjar_tanda.
 func herreria_activa() -> float:
-	return factor_desarrollo("herreria")
+	return factor_desarrollo("herreria", artesano("herreria"))
 
-# Carpinteria: UN factor que vale tanto para el aserrado (rol Metalurgia) como para forjar armas
-# magicas (rol Herreria). Ver refinar() y el forjado (bonus_herreria / prob_devolver_forja).
 func carpinteria_activa() -> float:
-	return factor_desarrollo("carpinteria")
+	return factor_desarrollo("carpinteria", artesano("carpinteria"))
 
 # Cocina: el oficio del COCINERO. Hermano de Mezcla, y por los mismos dos efectos (racion doble y
 # platos mas potentes). Va aparte a proposito: hasta el 05/08 cocinar sumaba a mezcla_exp, o sea que
@@ -9781,6 +9795,21 @@ func lingotes_conocidos() -> Array:
 func chapas_conocidas() -> Array:
 	return _formas_base("chapa")
 
+# Los metales CONOCIDOS con los que se hace `base`, por la forma que pide (ver Forge.coste): lingotes
+# para armas, chapas para armaduras y hebillas para la armadura de cuero.
+func metales_conocidos_de(base: Resource) -> Array:
+	match String(Forge.coste(base)["forma"]):
+		"chapa": return chapas_conocidas()
+		"hebillas": return hebillas_conocidas()
+		_: return lingotes_conocidos()
+
+# Todos los de esa forma (no solo los conocidos), con sus bandas: lo que mira mejorar y deshacer.
+func metales_forja_de(item: Resource) -> Array:
+	match String(Forge.coste(item)["forma"]):
+		"chapa": return chapas_forja()
+		"hebillas": return hebillas_forja()
+		_: return lingotes_forja()
+
 func hebillas_conocidas() -> Array:
 	return _formas_base("hebillas")
 
@@ -9940,7 +9969,7 @@ func refinados_posibles(origen: MaterialData, cal: int, por_uno: int) -> int:
 # devuelve `destino` de esa MISMA calidad... salvo que la habilidad del oficio tire a tu favor
 # y la suba un escalon (y con oficio de sobra, un intacto puede salir PURO). El oficio ademas
 # tira por RECUPERAR una de las piezas gastadas (desperdicias menos cuanto mejor sabes).
-# `oficio` dice cual de los contadores sube ("metalurgia" o "peleteria"). Devuelve cuantas refino.
+# `oficio` dice cual de los contadores sube ("herreria", "peleteria" o "carpinteria"). Devuelve cuantas refino.
 func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, por_uno: int, oficio: String) -> int:
 	if origen == null or destino == null or veces <= 0:
 		return 0
@@ -9951,7 +9980,7 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 	match oficio:
 		"peleteria": exp_oficio = peleteria_activa()
 		"carpinteria": exp_oficio = carpinteria_activa()   # el carpintero refina Y forja con la misma habilidad
-		_: exp_oficio = metalurgia_activa()
+		_: exp_oficio = herreria_activa()
 	var prob: float = Forge.prob_subir_calidad(exp_oficio)
 	# El oficio tambien DESPERDICIA menos: tira por devolverte una de las piezas que se comio el
 	# refinado, en su misma calidad (ver Forge.prob_devolver_material).
@@ -9980,17 +10009,17 @@ func refinar(origen: MaterialData, destino: MaterialData, cal: int, veces: int, 
 		match oficio:
 			"peleteria": peleteria_exp += _puntos_oficio("peleteria", origen.tier)
 			"carpinteria": carpinteria_exp += _puntos_oficio("carpinteria", origen.tier)
-			_: metalurgia_exp += _puntos_oficio("metalurgia", origen.tier)
+			_: herreria_exp += _puntos_oficio("herreria", origen.tier)
 	print("[oficio] %d x %s -> %d x %s  (%d salieron mejor de lo que entraron; %d x %s recuperados)" % [
 		n * por_uno, origen.nombre, n, destino.nombre, subidos, devueltos, origen.nombre])
 	return n
 
 # Atajos para los tres refinados (cada uno sabe su coste y su oficio).
 func fundir(mineral: MaterialData, cal: int, veces: int) -> int:
-	return refinar(mineral, lingote_de(mineral), cal, veces, Forge.MINERAL_POR_LINGOTE, "metalurgia")
+	return refinar(mineral, lingote_de(mineral), cal, veces, Forge.MINERAL_POR_LINGOTE, "herreria")
 
 func batir_chapa(lingote: MaterialData, cal: int, veces: int) -> int:
-	return refinar(lingote, chapa_de(lingote), cal, veces, Forge.LINGOTE_POR_CHAPA, "metalurgia")
+	return refinar(lingote, chapa_de(lingote), cal, veces, Forge.LINGOTE_POR_CHAPA, "herreria")
 
 # `crudo` = que piel se curte. null = la base (T1), que es como se llamaba antes de que hubiera
 # sub-tiers de cuero.
@@ -10043,7 +10072,7 @@ func carbonizar(madera: MaterialData, cal: int, veces: int) -> int:
 
 # Las dos piezas de la MOCHILA: el metal las hace el herrero, la piel el peletero.
 func hacer_hebillas(lingote: MaterialData, cal: int, veces: int) -> int:
-	return refinar(lingote, hebillas_de(lingote), cal, veces, Forge.LINGOTE_POR_HEBILLAS, "metalurgia")
+	return refinar(lingote, hebillas_de(lingote), cal, veces, Forge.LINGOTE_POR_HEBILLAS, "herreria")
 
 # Cose correas del TIER pedido, gastando el curtido BASE de ese mismo tier. Sin correa (o sin curtido)
 # a esa altura no sale nada: es lo que hace que el T2 haya que ganarselo con cuero de T2.
@@ -10174,7 +10203,7 @@ func escalera_metal(item: Resource) -> Array:
 		return []
 	var tier: int = int(meta_de(item)["tier"])
 	var out: Array = []
-	for m in (chapas_forja() if item is ArmorData else lingotes_forja()):
+	for m in metales_forja_de(item):
 		var md: MaterialData = m as MaterialData
 		if md != null and int(md.tier) == tier:
 			out.append(md)
@@ -10212,7 +10241,14 @@ func _es_arma_magica(base: Resource) -> bool:
 # El FACTOR de oficio que empuja la rareza/devolucion al forjar ESTA pieza: Carpinteria si es arma
 # magica, Herreria en el resto. Asi el mismo forjar() sirve para el herrero y el carpintero.
 func _oficio_forja_activo(base: Resource) -> float:
-	return carpinteria_activa() if _es_arma_magica(base) else herreria_activa()
+	if _es_arma_magica(base):
+		return carpinteria_activa()
+	return peleteria_activa() if es_armadura_cuero(base) else herreria_activa()
+
+# LA ARMADURA DE CUERO se cose en la PELETERIA y la empuja la Peleteria, no la Herreria (decision del
+# usuario, 16/09/2026): no se golpea metal, se cose piel. Lleva hebillas en vez de chapa (Forge.coste).
+func es_armadura_cuero(base: Resource) -> bool:
+	return base is ArmorData and int((base as ArmorData).tipo) == ArmorData.Tipo.CUERO
 
 func score_forja(base: Resource, metal: MaterialData, selecciones: Array) -> float:
 	return Forge.score_final(score_material_forja(base, metal, selecciones),
@@ -10330,7 +10366,7 @@ func score_uds(lote) -> float:
 # a Game el material concreto en vez de decidirlo ella.
 func metal_de_forja(base: Resource, idx: int) -> MaterialData:
 	# CONOCIDOS: el indice viene de los botones del menu, y el menu solo pinta los que conoces.
-	var lista: Array = chapas_conocidas() if bool(Forge.coste(base)["usa_chapa"]) else lingotes_conocidos()
+	var lista: Array = metales_conocidos_de(base)
 	if lista.is_empty():
 		return null
 	return lista[clampi(idx, 0, lista.size() - 1)]
@@ -10441,7 +10477,12 @@ func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: in
 					devueltos += 1
 	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio). Los
 	# puntos van POR PIEZA: forjar tres de golpe entrena como forjarlas de una en una.
-	if _es_arma_magica(base):
+	if es_armadura_cuero(base):
+		peleteria_exp += _puntos_oficio("peleteria", tier) * float(piezas)
+		print("[peletero] Coses %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Peleteria %s" % [
+			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
+			", ".join(rarezas), devueltos, snappedf(peleteria_exp, 0.1)])
+	elif _es_arma_magica(base):
 		carpinteria_exp += _puntos_oficio("carpinteria", tier) * float(piezas)
 		print("[carpintero] Forjas %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Carpinteria %s" % [
 			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
@@ -10827,7 +10868,7 @@ func materiales_mejora(item: Resource) -> Dictionary:
 	# cubre el nivel actual, no el mismo del principio. Forjar la pieza NO lo pide (ver
 	# ingredientes_forja): el sub-tier es un peaje para SUBIRLA, no para fabricarla.
 	var nivel: int = mejoras_actuales(item)
-	var metales: Array = chapas_forja() if item is ArmorData else lingotes_forja()
+	var metales: Array = metales_forja_de(item)
 	var metal: MaterialData = _material_de(metales, tier, nivel)
 	# EL FAROLILLO NO LLEVA FIBRA. Un arma pide madera y una armadura cuero porque tienen mango o
 	# forro; un farolillo es hojalata y cristal. Pedirle madera seria inventarle una pieza que no
@@ -12490,14 +12531,11 @@ const LETRAS_RANGO := ["I", "H", "G", "F", "E", "D", "C", "B", "A", "S"]
 # ×1.6. Los que van por DAÑO se quedan en ×2.5 porque ya llevan un escalado implicito encima: un
 # golpe del piso 13 vale muchisimo mas que uno del 1, asi que su contador se acelera solo.
 const DESARROLLOS: Array = [
-	{"id": "metalurgia", "nombre": "Metalurgia", "tipo": "oficio",
-		"desc": "Al refinar metal, tira por subir un escalón la calidad.",
-		"req": "exp", "contador": "metalurgia_exp", "umbral": 150.0},
 	{"id": "peleteria", "nombre": "Peletería", "tipo": "oficio",
 		"desc": "Al curtir piel, tira por subir un escalón la calidad.",
 		"req": "exp", "contador": "peleteria_exp", "umbral": 100.0},
 	{"id": "herreria", "nombre": "Herrería", "tipo": "oficio",
-		"desc": "Al forjar, empuja la tirada de rareza a tu favor.",
+		"desc": "Al fundir y batir metal sube su calidad, y al forjar empuja la rareza.",
 		"req": "exp", "contador": "herreria_exp", "umbral": 60.0},
 	{"id": "carpinteria", "nombre": "Carpintería", "tipo": "oficio",
 		"desc": "Al aserrar tablones sube su calidad, y al forjar armas mágicas empuja su rareza.",
@@ -12632,7 +12670,7 @@ func _subir_rangos_desarrollo(pj: PersonajeData = null) -> void:
 			continue
 		var umbral: float = float(d.get("umbral", 0.0))
 		# TODOS los contadores son de la persona y viven en su PersonajeData, los de oficio incluidos
-		# (antes esos eran del grupo: ver metalurgia_exp). El respaldo por Game se queda para un
+		# (antes esos eran del grupo: ver herreria_exp). El respaldo por Game se queda para un
 		# contador que algun dia no este en la ficha, pero hoy no lo usa ninguno.
 		var nombre_cont: String = str(d.get("contador", ""))
 		var cont: float = float(p.get(nombre_cont)) if nombre_cont in p else float(get(nombre_cont))

@@ -933,9 +933,8 @@ func _rutas_armaduras(tipo: String) -> Array:
 func _preview_forjar(vb: VBoxContainer) -> void:
 	var base: Resource = _stacks[_sel]["modelo"]
 	var coste: Dictionary = Forge.coste(base)
-	var usa_chapa: bool = bool(coste["usa_chapa"])
-	# El metal de una ARMADURA son CHAPAS; el de un ARMA, lingotes.
-	var metales: Array = Game.chapas_conocidas() if usa_chapa else Game.lingotes_conocidos()
+	# El metal de una ARMADURA son CHAPAS; el de un ARMA, lingotes (ver Game.metales_conocidos_de).
+	var metales: Array = Game.metales_conocidos_de(base)
 	if metales.is_empty():
 		_title(vb, str(base.get("nombre")))
 		_note(vb, "No conoces ningún metal todavía. Pica una veta en la mazmorra y vuelve.")

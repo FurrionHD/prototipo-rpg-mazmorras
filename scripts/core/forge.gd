@@ -207,19 +207,20 @@ const MIX_ARMADURA := {
 	ArmorData.Tipo.PLACAS: [1.5, 0.25],            # casi todo chapa
 }
 
-# Coste de forjar `base`, en UNIDADES: {"metal": n, "madera": n, "cuero": n, "usa_chapa": bool}.
-# 'usa_chapa' dice de que rama tira el metal (chapa = armadura, lingote = arma/escudo/varita).
+# Coste de forjar `base`, en UNIDADES: {"metal": n, "madera": n, "cuero": n, "forma": String}.
+# 'forma' dice de que rama tira el metal: "chapa" (armadura), "hebillas" (armadura de CUERO, que se
+# cose en la peleteria: hebillas y poco mas) o "lingote" (arma, escudo, varita).
 # QUE material concreto es cada fibra (y su tier) lo decide Game.ingredientes_forja.
 static func coste(base: Resource) -> Dictionary:
 	if base == null:
-		return {"metal": 0, "madera": 0, "cuero": 0, "usa_chapa": false}
+		return {"metal": 0, "madera": 0, "cuero": 0, "forma": "lingote"}
 	var uds: float = float(base.get("valor_base")) / MONEDAS_POR_UNIDAD
 	var m_metal: float = 1.0
 	var m_madera: float = 0.0
 	var m_cuero: float = 0.0
-	var usa_chapa: bool = false
+	var forma: String = "lingote"
 	if base is ArmorData:
-		usa_chapa = true
+		forma = "hebillas" if int((base as ArmorData).tipo) == ArmorData.Tipo.CUERO else "chapa"
 		var mix: Array = MIX_ARMADURA.get(int((base as ArmorData).tipo), [1.0, 1.0])
 		m_metal = mix[0]; m_cuero = mix[1]
 	elif base is ShieldData:
@@ -232,7 +233,7 @@ static func coste(base: Resource) -> Dictionary:
 		"metal": maxi(METAL_MIN, int(round(uds * m_metal))),
 		"madera": (maxi(1, int(round(uds * m_madera))) if m_madera > 0.0 else 0),
 		"cuero": (maxi(1, int(round(uds * m_cuero))) if m_cuero > 0.0 else 0),
-		"usa_chapa": usa_chapa,
+		"forma": forma,
 	}
 
 
