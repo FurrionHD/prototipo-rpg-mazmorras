@@ -34,6 +34,21 @@ verdad, y la comida solo está en el T1.
 **El pack inicial** se abre solo mientras no lo hayas reclamado, y deja claro todo lo que trae: el arma,
 el farolillo, el carbón y las pociones.
 
+## 🧵 La peletería, rehecha
+
+**Tiene la cara del inventario**: cada cosa con su dibujo en una rejilla, la ficha al lado y los botones
+siempre a la vista.
+
+**Eliges el montón, no el nombre.** En Curtir y en Correas sale un montón por material y calidad, igual
+que se ven en el baúl: el color dice la calidad y debajo pone cuántos tienes y para cuántos dan. Antes
+había que elegir la piel en una lista de texto y mirar los contadores después.
+
+**Y ves lo que ya tienes**: los cueros (o las correas) que llevas hechos salen en su celda, con su
+calidad, al lado de lo que estás haciendo.
+
+**Coser una mochila cabe en una pantalla**: los tres materiales van uno al lado del otro, con sus
+cantidades por calidad, y la tabla de rarezas ya no queda fuera de la vista.
+
 ## 🔨 Los oficios se llaman por su sitio
 
 **Herrería, Peletería y Carpintería**, no Herrero, Peletero y Carpintero: ahí no hay nadie trabajando
