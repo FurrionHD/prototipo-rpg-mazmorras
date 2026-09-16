@@ -4,7 +4,7 @@
 #  FuegoSprites; aqui va lo vivo:
 #    - la llama animada, con su perfil y su arranque propios (dos vecinas no van a la par);
 #    - dos o tres chispas lentas siempre, y CHISPORROTEO: cada pocos segundos (al azar) una rafaga
-#      corta de chispas y un respingo de la llama (lo pidio el usuario);
+#      corta de chispas (lo pidio el usuario). Sin estiron de la llama: se veia raro;
 #    - ENCENDER/APAGAR con la hora (CicloDia.luces): la llama crece desde la base y al apagarse
 #      suelta una bocanada de humo.
 #
@@ -25,7 +25,6 @@ var _rafaga: CPUParticles2D = null
 var _humo: CPUParticles2D = null
 var _encendida: float = -1.0     # 0..1 lo que se ve ahora (sigue a la hora con suavidad)
 var _hasta_rafaga: float = 0.0
-var _respingo: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _sonido: AudioStreamPlayer2D = null
 var _volumen: float = -17.0
@@ -110,13 +109,11 @@ func _process(delta: float) -> void:
 	if _encendida <= 0.0:
 		return
 	_hasta_rafaga -= delta
+	# Solo chispas: la llama NO pega un estiron con la rafaga ("que no se haga mas grande de repente,
+	# es un poco raro", dijo el usuario).
 	if _hasta_rafaga <= 0.0:
 		_hasta_rafaga = _rng.randf_range(3.0, 9.0)
 		_rafaga.restart()
-		_respingo = 1.0
-	if _respingo > 0.0:
-		_respingo = maxf(0.0, _respingo - delta / 0.25)
-		_llama.scale = Vector2(1.0 + 0.10 * _respingo, _encendida * (1.0 + 0.18 * _respingo))
 
 
 func _aplicar(k: float, inicio: bool) -> void:
