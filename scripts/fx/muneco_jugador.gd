@@ -306,6 +306,18 @@ func _recolocar_cara(i: int) -> void:
 
 # El esqueleto de un fotograma, cacheado. La clave lleva la direccion porque los puntos salen sin
 # girar pero el dict trae el angulo dentro.
+# Donde cae la MANO (su punto de agarre) en este fotograma, en pixeles relativos al muñeco. La caña de
+# pescar cuelga de aqui (ver CanaPesca). Misma cuenta que la cara: proyectar + offset + escala.
+# 'izquierda' = la otra mano. Vector2.INF si todavia no hay animacion.
+func punto_mano(izquierda: bool = false) -> Vector2:
+	if _anim == "":
+		return Vector2.INF
+	var esq: Dictionary = _esqueleto_de(_base_de(_anim), _marco_actual(), _dir_de(_anim))
+	var p: Vector3 = esq["puntos"][PoseJugador.P_EMPUNADURA_IZQ if izquierda else PoseJugador.P_EMPUNADURA_DER]
+	var pos: Vector2 = PoseJugador.proyectar(esq, p, Vector3.ZERO, {"z_torsion": p.z})["pos"]
+	return (pos + PoseJugador.offset_sprite(1.0)) * PoseJugador.escala_sprite() * scale
+
+
 func _esqueleto_de(base: String, i: int, d: int) -> Dictionary:
 	var k: String = "%s_%d_%d" % [base, i, d]
 	if not _esq_cache.has(k):

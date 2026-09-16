@@ -980,6 +980,25 @@ func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 		_golpe_t > 0.0, _desenvainado, _golpe_variante))
 
 
+# PESCANDO: se gira hacia donde apunta la caña. Con el modal puesto el animado de arriba no corre (y en
+# solitario el arbol esta en pausa), asi que se le pone la pose aqui mismo. El _facing nuevo viaja solo
+# en enviar_estado, que si se manda con el modal.
+func mirar_hacia(dir: Vector2) -> void:
+	if dir == Vector2.ZERO:
+		return
+	_facing = dir.normalized()
+	if _muneco != null and _muneco.hay_dibujo() and not _en_faena:
+		_muneco.animar(PoseJugador.animacion(_facing, movement_mode, false, false, _desenvainado, 0))
+
+
+# Donde tiene la mano, en coordenadas globales (la caña de pescar cuelga de ahi, ver CanaPesca).
+func mano_global(izquierda: bool) -> Vector2:
+	if _muneco == null or not _muneco.hay_dibujo():
+		return global_position + Vector2(0.0, -10.0)
+	var m: Vector2 = _muneco.punto_mano(izquierda)
+	return global_position + Vector2(0.0, -10.0) if m == Vector2.INF else _muneco.global_position + m
+
+
 # ¿Lleva un arma que pintar / desenvainar? Puños no cuenta; un escudo en la otra mano tampoco lo
 # desenvaina (eso es futuro).
 func _arma_equipada() -> bool:

@@ -123,8 +123,8 @@ var _espacio_libre: bool = false
 # --- Aspecto ---
 var _agua: ColorRect = null
 var _lbl: Label = null
-var _hilo: Line2D = null
-var _corcho: ColorRect = null
+var _cana: CanaPesca = null
+var _hilo: CanaPesca = null    # el sedal y el corcho
 var _corcho_base: Vector2 = Vector2.ZERO   # donde flota (sin el temblor encima)
 
 # --- La MIRA del lanzamiento (solo existe mientras APUNTANDO) ---
@@ -488,19 +488,16 @@ func _crear_aspecto() -> void:
 	Game.elevar_letrero(_lbl)
 	add_child(_lbl)
 
-	# El hilo y el corcho nacen escondidos: solo existen mientras pescas.
-	_hilo = Line2D.new()
-	_hilo.width = 1.5
-	_hilo.default_color = Color(0.92, 0.90, 0.82, 0.9)
+	# LA CAÑA (en la mano) y el SEDAL con el corcho, con el dibujo de las cañas del muelle (ver
+	# CanaPesca). Nacen escondidos: solo existen mientras pescas.
+	_cana = CanaPesca.new()
+	_cana.visible = false
+	add_child(_cana)
+	_hilo = CanaPesca.new()
+	_hilo.parte = CanaPesca.Parte.SEDAL
+	_hilo.arco_alto = ARCO_ALTO
 	_hilo.visible = false
 	add_child(_hilo)
-
-	_corcho = ColorRect.new()
-	_corcho.size = Vector2(7, 5)
-	_corcho.color = Color(0.90, 0.32, 0.22)
-	_corcho.rotation = 0.35   # ligeramente inclinado, como en el boceto
-	_corcho.visible = false
-	add_child(_corcho)
 
 	_crear_mira()
 
@@ -1102,8 +1099,7 @@ func _lanzar() -> void:
 	_press_was = true   # la F de lanzar no debe contar como el ESPACIO del tiron
 	_f_was = true       # ni como la F de recoger (ver _process)
 	_hilo.visible = true
-	_corcho.visible = true
-	_pintar_corcho(Vector2.ZERO)
+	_pintar_hilo(_corcho_base, 0.0)
 
 
 func _process(delta: float) -> void:
@@ -1132,7 +1128,9 @@ func _process(delta: float) -> void:
 	# escapa una, y la que se escape deja el dedo apuntando cuando tendria que estar peleando.
 	_refrescar_tactil()
 	if _estado == LIBRE:
+		_cana.visible = false
 		return
+	_pintar_cana()
 	# RECOGER EL SEDAL con la misma F con la que lo echaste. Mientras esperas estas dentro de un
 	# modal, asi que la F no le llega al jugador y sin esto te quedabas plantado en la orilla para
 	# siempre si el pez no picaba (o si te habias equivocado de sitio).
@@ -1381,7 +1379,6 @@ func _cobrar_del_banco() -> void:
 # (F o ESC), o cuando el charco se queda seco y ya no hay nada que pescar.
 func _volver_a_apuntar() -> void:
 	_hilo.visible = false
-	_corcho.visible = false
 	# LA UNICA SALIDA AUTOMATICA. Si te has llevado la ultima pieza no tiene sentido dejarte apuntando
 	# a un agua vacia diez minutos: eso no es un bucle, es una sala de espera. Mientras quede banco si
 	# te quedas, que repone uno cada REPONER segundos y se ve llegar.
@@ -1486,7 +1483,7 @@ func _soltar() -> void:
 	_t = 0.0
 	_quitar_tactil()
 	_hilo.visible = false
-	_corcho.visible = false
+	_cana.visible = false
 	_mira.visible = false
 	_fuerza = 0.0
 	Game.salir_modal(self)
@@ -1626,21 +1623,19 @@ func _pintar_mira() -> void:
 # ------------------------------------------------------------
 # El hilo NO es una recta: sale del personaje, sube a un pico por encima de el y cae al agua, tal y
 # como se lanza de verdad. 'vuelo' < 1 lo dibuja a medio camino (el lanzamiento).
+#
+# Sale de la PUNTA DE LA CAÑA (CanaPesca), que a su vez sale de la mano: _pintar_cana ya ha dejado en
+# _cana la mano y la direccion de este frame.
 func _pintar_hilo(punta: Vector2, vuelo: float = 1.0) -> void:
 	var jugador = get_tree().get_first_node_in_group("player")
 	if jugador == null:
 		_hilo.visible = false
 		return
-	var ini: Vector2 = _origen_hilo()
-	var fin: Vector2 = ini.lerp(punta, clampf(vuelo, 0.0, 1.0))
-	# El pico del arco: el punto medio, subido. Se dibuja con una parabola de tres puntos por
-	# Bezier cuadratica, muestreada en unos pocos tramos (un Line2D no curva solo).
-	var alto: Vector2 = (ini + fin) * 0.5 + Vector2(0.0, -ARCO_ALTO * clampf(vuelo, 0.2, 1.0))
-	var pts := PackedVector2Array()
-	for i in range(9):
-		var u: float = float(i) / 8.0
-		pts.append(ini.lerp(alto, u).lerp(alto.lerp(fin, u), u))
-	_hilo.points = pts
+	_hilo.base = _cana.base
+	_hilo.dir = _cana.dir
+	_hilo.corcho = punta
+	_hilo.vuelo = vuelo
+	_hilo.actualizar()
 
 
 func _pintar_corcho(desvio: Vector2) -> void:
@@ -1648,8 +1643,30 @@ func _pintar_corcho(desvio: Vector2) -> void:
 
 
 func _pintar_corcho_en(pos: Vector2) -> void:
-	_corcho.position = pos - _corcho.size * 0.5
 	_pintar_hilo(pos)
+
+
+# LA CAÑA EN LA MANO, desde que apuntas hasta que la guardas. Apunta a la mira mientras apuntas y al
+# corcho con el sedal echado, y el personaje se gira hacia alli.
+func _pintar_cana() -> void:
+	var jugador = get_tree().get_first_node_in_group("player")
+	if jugador == null:
+		_cana.visible = false
+		return
+	var dir: Vector2 = Vector2.from_angle(_ang)
+	if _estado != APUNTANDO:
+		var hacia: Vector2 = _corcho_base - _origen_hilo()
+		if hacia.length() > 1.0:
+			dir = hacia.normalized()
+	if jugador.has_method("mirar_hacia"):
+		jugador.mirar_hacia(dir)
+	var mano: Vector2 = jugador.global_position + Vector2(0.0, -10.0)
+	if jugador.has_method("mano_global"):
+		mano = jugador.mano_global(CanaPesca.mano_izquierda(dir))
+	_cana.base = to_local(mano)
+	_cana.dir = dir
+	_cana.visible = true
+	_cana.actualizar()
 
 
 # ============================================================
@@ -1765,14 +1782,13 @@ func _corcho_visual(peer: int, pos: Vector2, activo: bool) -> void:
 			_sedales.erase(peer)
 		return
 	if not _sedales.has(peer):
-		var hilo := Line2D.new()
-		hilo.width = 1.0
-		hilo.default_color = COLOR_HILO_AJENO
+		# Su caña y su sedal, con el mismo dibujo que el tuyo (ver CanaPesca). 'corcho' es la caña: se
+		# queda la clave para no tocar a quien los libera.
+		var hilo := CanaPesca.new()
+		hilo.parte = CanaPesca.Parte.SEDAL
+		hilo.color_hilo = COLOR_HILO_AJENO
 		add_child(hilo)
-		var corcho := ColorRect.new()
-		corcho.size = Vector2(5.0, 5.0)
-		corcho.color = COLOR_HILO_AJENO
-		corcho.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var corcho := CanaPesca.new()
 		add_child(corcho)
 		_sedales[peer] = {"hilo": hilo, "corcho": corcho, "pos": pos}
 	_sedales[peer]["pos"] = pos
@@ -1791,25 +1807,30 @@ func _pintar_sedales(delta: float) -> void:
 	for peer in _sedales:
 		var s: Dictionary = _sedales[peer]
 		var cuerpo = Net.pesca.cuerpo_de(peer)
-		var hilo: Line2D = s["hilo"]
-		var corcho: ColorRect = s["corcho"]
+		var hilo: CanaPesca = s["hilo"]
+		var cana: CanaPesca = s["corcho"]
 		if cuerpo == null:
 			hilo.visible = false
-			corcho.visible = false
+			cana.visible = false
 			continue
 		hilo.visible = true
-		corcho.visible = true
+		cana.visible = true
 		var fin: Vector2 = s["pos"]
 		if _tiene_pieza(peer):
 			fin += Vector2(0.0, sin(_t_cabeceo * CABECEO_VEL) * CABECEO_ALTO)
-		var ini: Vector2 = to_local(cuerpo.global_position) + Vector2(0.0, -10.0)
-		var alto: Vector2 = (ini + fin) * 0.5 + Vector2(0.0, -ARCO_ALTO)
-		var pts := PackedVector2Array()
-		for i in range(9):
-			var u: float = float(i) / 8.0
-			pts.append(ini.lerp(alto, u).lerp(alto.lerp(fin, u), u))
-		hilo.points = pts
-		corcho.position = fin - corcho.size * 0.5
+		var dir: Vector2 = (fin - (to_local(cuerpo.global_position) + Vector2(0.0, -10.0))).normalized()
+		if cuerpo.has_method("mirar_hacia"):
+			cuerpo.mirar_hacia(dir)
+		var mano: Vector2 = cuerpo.global_position + Vector2(0.0, -10.0)
+		if cuerpo.has_method("mano_global"):
+			mano = cuerpo.mano_global(CanaPesca.mano_izquierda(dir))
+		cana.base = to_local(mano)
+		cana.dir = dir
+		cana.actualizar()
+		hilo.base = cana.base
+		hilo.dir = dir
+		hilo.corcho = fin
+		hilo.actualizar()
 
 
 # ¿Ese pescador tiene un pez enganchado? El 'de' de cada pez es su peer id y viaja en la foto, asi

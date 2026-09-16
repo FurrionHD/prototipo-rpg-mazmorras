@@ -348,6 +348,20 @@ func _physics_process(delta: float) -> void:
 			_golpe_t > 0.0, _desenvainado, _golpe_variante))
 
 
+# PESCANDO (lo pide el charco en cada frame): mira hacia su corcho. Parado no hay movimiento del que
+# sacar la mirada, asi que la de _physics_process no la pisa.
+func mirar_hacia(dir: Vector2) -> void:
+	if dir != Vector2.ZERO and velocity.length() <= 6.0:
+		_facing = dir.normalized()
+
+
+func mano_global(izquierda: bool) -> Vector2:
+	if _muneco == null or not _muneco.hay_dibujo():
+		return global_position + Vector2(0.0, -10.0)
+	var m: Vector2 = _muneco.punto_mano(izquierda)
+	return global_position + Vector2(0.0, -10.0) if m == Vector2.INF else _muneco.global_position + m
+
+
 # SU FAENA, VISTA DESDE AQUI (ver Net.jugadores.empaquetar_pose). Solo se ve el golpe caer, no la carga: la
 # carga no viaja y no merece la pena mandarla a 10 Hz para un pico que sube un momento.
 var _faena: int = 0
