@@ -2412,6 +2412,19 @@ static func estilo_chip(b: Button, marcada: bool) -> void:
 #  distinta sin que nadie se entere.
 # ============================================================
 
+# EL HUECO DE LA BARRA DE SCROLL de una columna de ficha. Se reserva SIEMPRE, salga la barra o no: si la
+# columna mide justo lo que la ficha, al aparecer la barra (una ficha larga) la columna se ensancha lo
+# que mide ella y le come ese ancho a la rejilla de al lado, y todo el contenido pega un salto (lo vio el
+# usuario en la tienda, pasando de un arma a otra). Lo usan la tienda y los talleres.
+const HUECO_BARRA := 14.0
+
+# Pone el ancho de una columna de ficha: la columna y su scroll con el hueco de la barra, la ficha sin el.
+static func ancho_columna_ficha(col: Control, scroll: Control, contenido: Control, ficha: float) -> void:
+	col.custom_minimum_size.x = ficha + HUECO_BARRA
+	scroll.custom_minimum_size.x = ficha + HUECO_BARRA
+	contenido.custom_minimum_size.x = ficha
+
+
 const LADO_RETRATO := 74.0
 const ALTO_RETRATO := LADO_RETRATO + 20.0   # el cuadro, mas el renglon del nombre
 

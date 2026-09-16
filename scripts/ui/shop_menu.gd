@@ -346,8 +346,7 @@ func _rebuild_real() -> void:
 		b.button_pressed = (i == _tab)
 	_titulo_seccion.text = TABS[_tab]
 	var ancho: float = ANCHO_FICHA_PACK if _tab == TAB_PACK else ANCHO_FICHA
-	for c in [_col_der, _scroll_det, _content]:
-		(c as Control).custom_minimum_size.x = ancho
+	MenuScaffold.ancho_columna_ficha(_col_der, _scroll_det, _content, ancho)
 	var seccion = _seccion()
 	_fila_buscador.visible = seccion != null
 	if seccion != null and _buscador.text != orden.texto(seccion.clave()):

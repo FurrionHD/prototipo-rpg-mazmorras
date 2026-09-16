@@ -191,8 +191,7 @@ func montar(sitio: String, nombres: Array, iconos: Array, ancho_rejilla: float =
 
 # EL REPARTO DEL ANCHO entre la rejilla (que se estira) y la ficha. Puede cambiar con la pestaña.
 func anchos(rejilla: float, ficha: float) -> void:
-	for c in [_col_der, _scroll_det, _content]:
-		(c as Control).custom_minimum_size.x = ficha
+	MenuScaffold.ancho_columna_ficha(_col_der, _scroll_det, _content, ficha)
 	_scroll_lista.custom_minimum_size.x = rejilla
 
 
