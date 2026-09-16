@@ -1,10 +1,10 @@
 # ============================================================
 #  craft_menu.gd  (CanvasLayer creada por codigo desde el jugador)
-#  Menu de RECETAS con los materiales del baul del Hogar. Sirve a DOS oficios, y el que sea lo
+#  Menu de RECETAS con los materiales del baul del Hogar. Sirve a DOS talleres, y el que sea lo
 #  decide `modo` (ver MODOS abajo), que se le pone al instanciarlo desde player.gd:
-#    POCIONES -> la BOTICARIA (boticaria.gd). Tiers Menores/Medianas x tipo Vida/Maná, con mejoras
-#                que consumen la poción del escalon anterior.
-#    COCINA   -> el COCINERO (cocinero.gd). Tiers T1/T2, sin sub-tipo y sin mejoras.
+#    POCIONES -> la BOTICARIA (boticaria.gd). Tiers Menores/Medianas x tipo Vida/Maná/Antídotos, con
+#                mejoras que consumen la poción del escalon anterior. Oficio: MEZCLA.
+#    COCINA   -> el COCINERO (cocinero.gd). Tiers T1/T2, sin sub-tipo y sin mejoras. Oficio: COCINA.
 #  Van en el mismo archivo porque comparten TODO lo que cuesta: los contadores de calidad por
 #  ingrediente, las reservas de multijugador y el calculo de cuantas piezas salen. Lo unico
 #  distinto entre los dos son las pestañas, los textos y de donde salen las recetas.
@@ -12,56 +12,97 @@
 #  Lo abre su NPC del pueblo (-> abrir()). No hay tecla propia: se entra por el NPC. Congela al
 #  jugador via Game.inventory_open mientras esta abierto.
 #
-#  Toda la MATH vive en Game (recetas_* / seleccion_valida / craftear_con); aqui solo
-#  se pinta el estado y se derivan los numeros de los campos (nunca escritos a mano).
+#  REHECHO el 16/09/2026 con la cara del inventario, igual que la peleteria (la plantilla): rejilla de
+#  celdas a la izquierda (cada celda es LO QUE SALE: la poción o el plato), ficha ancha a la derecha y
+#  los botones en un pie fijo debajo de ella. Arriba, las pestañas son los TIERS; encima de la rejilla,
+#  en las pociones, el filtro Todo / Vida / Maná / Antídotos.
+#
+#  Este archivo es el ARMAZON: montaje, pestañas, rejilla, quien trabaja y piezas comunes de la ficha.
+#  La pantalla de recetas vive en scripts/ui/taller/taller_recetas.gd. Toda la MATH sigue en Game.
+#
+#  ⚠️ El montaje es el MISMO que el de la peleteria y la tienda (ver tannery_menu._ready), copiado a
+#  proposito: la regla del rework es un menu cada vez. Cuando le toque a forge_menu, ese montaje sube a
+#  MenuScaffold y todas lo llaman.
 # ============================================================
 
 extends CanvasLayer
+
+const TallerRecetas = preload("res://scripts/ui/taller/taller_recetas.gd")
 
 # Que oficio es este menu. Se le pone ANTES de meterlo al arbol (player.gd), porque _ready() ya lo
 # usa para elegir su grupo y su titulo.
 enum Modo { POCIONES, COCINA }
 var modo: int = Modo.POCIONES
 
-func _es_cocina() -> bool: return modo == Modo.COCINA
+func es_cocina() -> bool: return modo == Modo.COCINA
+
+# El OFICIO de este taller: el id de su desarrollo, que es tambien la clave de su artesano.
+func oficio() -> String: return "cocina" if es_cocina() else "mezcla"
+
 # La PIEZA que sale de una receta, en singular y plural, para no escribir "poción" en un menu que
 # esta haciendo un kebab.
-func _pieza(n: int = 1) -> String:
-	if _es_cocina():
+func pieza_txt(n: int = 1) -> String:
+	if es_cocina():
 		return "plato" if n == 1 else "platos"
 	return "poción" if n == 1 else "pociones"
 
-var _root: Control = null
-var _header: VBoxContainer = null    # cabecera FIJA
-var _list: VBoxContainer = null      # botones de receta (izquierda), con su scroll
-var _detail: VBoxContainer = null    # detalle de la receta seleccionada (derecha), con el suyo
-var _aviso_lbl: Label = null         # linea de aviso (lo fabricado), como forja/peletero
-var _aviso: String = ""
-var _aviso_ok: bool = true
-var _recetas: Array = []
-var _sel: int = 0
-# Submenu en dos niveles: TIER (1 menores, 2 medianas) y TIPO (0 vida, 1 maná). Las medianas solo
-# aparecen cuando has conseguido algún material para hacerlas (Game.medianas_desbloqueadas).
-var _tier: int = 1
-var _tipo: int = 0
-# SELECCION de materiales de la receta actual: Array paralelo a receta.ingredientes; cada
-# entrada un {calidad: cantidad}. Es lo que el jugador elige a mano con los contadores. Se
-# resetea al cambiar de receta, NO en cada _rebuild (si no, borraria lo que va poniendo).
-var _seleccion: Array = []
-# CUANTAS piezas quieres que rellene el Auto. Es solo del boton Auto: lo que se fabrica de verdad
-# sale de la seleccion (pociones_de_seleccion), asi que si pides 5 y solo da para 4, se rellenan 4.
-# Persiste entre rebuilds y entre recetas: pedir "5" una vez y que vuelva a 1 sola era un incordio.
-var _cantidad: int = 1
+# Las pestañas de arriba son los TIERS, con icono y sin texto (el nombre se lee arriba a la izquierda).
+func tabs() -> Array:
+	return ["De la cueva", "De lo hondo"] if es_cocina() else ["Menores", "Medianas"]
+const TAB_ICONOS := ["tier_1", "tier_2"]
 
+const AMBAR := Color(0.95, 0.72, 0.36)
 const VERDE := Color(0.55, 0.85, 0.55)
 const ROJO := Color(0.9, 0.5, 0.5)
-const AMBAR := Color(0.95, 0.72, 0.36)
+const GRIS := Color(0.6, 0.63, 0.7)
+
+# De mejor a peor (el enum de calidad NO esta ordenado: PURO se añadio al final).
+const CALIDADES := [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
+	MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
+
+const LADO_CELDA := 96.0
+# EL REPARTO DEL ANCHO, que cambia con el taller. Una columna de ingrediente con sus contadores mide
+# unos 280 px, y eso manda:
+#   - POCIONES: la rejilla son diez recetas y con cuatro columnas cada fila es una cadena (base, +1,
+#     +2, +3). La ficha lleva los ingredientes en DOS columnas (ver taller_recetas.COLUMNAS_ING): las
+#     pociones llevan dos, y el antidoto que lleva tres pone el tercero debajo.
+#   - COCINA: un plato lleva hasta SEIS ingredientes y van en TRES columnas. Con la rejilla a 420 la
+#     tercera se salia por el canto de la pantalla, y con la rejilla a 300 el cuarto retrato de QUIEN
+#     TRABAJA quedaba cortado (vistos los dos en captura): 330 es lo que piden cuatro retratos.
+const ANCHO_FICHA := 780.0
+const ANCHO_REJILLA_MIN := 420.0
+const ANCHO_FICHA_COCINA := 875.0
+const ANCHO_REJILLA_COCINA := 330.0
+
+var _root: Control = null
+var _header: VBoxContainer = null
+var _lista: VBoxContainer = null      # la rejilla de celdas (columna izquierda)
+var _content: VBoxContainer = null    # la ficha (columna derecha)
+var _acciones: VBoxContainer = null   # bajo la ficha y FUERA de su scroll: siempre a la vista
+var _contador_lbl: Label = null
+var _aviso_lbl: Label = null
+var _titulo_seccion: Label = null
+var _tab_buttons: Array = []
+# La fila de FILTROS de la columna izquierda (el tipo de poción). Vacia, desaparece.
+var barra_sub: HBoxContainer = null
+# La fila de retratos: quien esta trabajando en este taller (ver Game.artesano).
+var _fila_artesano: HBoxContainer = null
+var _fila_artesano_rotulo: Label = null
+
+var recetas = null   # TallerRecetas
+
+var tier: int = 1            # la pestaña: 1 menores / de la cueva, 2 medianas / de lo hondo
+var sel: int = 0             # celda elegida en la rejilla
+var stacks: Array = []       # lo pintado en la rejilla (las RecipeData), en el mismo orden
+var _aviso: String = ""
+var _aviso_ok: bool = true
 
 
 func _ready() -> void:
 	layer = 91
 	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
-	add_to_group("cocina_menu" if _es_cocina() else "craft_menu")
+	add_to_group("cocina_menu" if es_cocina() else "craft_menu")
+	recetas = TallerRecetas.new(self)
 
 	# MULTI: refresco en vivo cuando el compañero toca el baul o su reserva (ver forge_menu).
 	if Net.has_signal("hogar_cambiado"):
@@ -69,89 +110,125 @@ func _ready() -> void:
 	if Net.has_signal("reservas_cambiadas"):
 		Net.reservas_cambiadas.connect(_on_cambio_externo)
 
-	# Misma forma que el resto de menus: cabecera fija, lista con su scroll (las recetas) y
-	# detalle con el suyo (los contadores de material, que se hacen largos).
-	var m: Dictionary = MenuScaffold.construir(self,
-		"COCINERO" if _es_cocina() else "BOTICARIA",
-		"Cocina platos con lo que tengas guardado en el Hogar. Un plato dura un buen rato, y solo se puede llevar uno puesto." if _es_cocina()
-			else "Fabrica pociones con lo que tengas guardado en el Hogar. Las mejoras (+1, +2) consumen la poción del escalón anterior.",
-		_cerrar)
+	# El SITIO, no la persona (como la peleteria): lo haces tu con tus personajes.
+	var m: Dictionary = MenuScaffold.construir(self, "COCINA" if es_cocina() else "BOTICARIA", "",
+		_cerrar, false, false)
 	_root = m["root"]
 	_header = m["header"]
-	_list = m["lista"]
-	_detail = m["content"]
-	_aviso_lbl = m["aviso"]   # el scaffold ya la crea; la forja y el peletero tambien la usan
+	_lista = m["lista"]
+	_content = m["content"]
+	# FUERA la cabecera entera (ver tannery_menu): vacia reservaba un palmo muerto.
+	((m["aviso"] as Control).get_parent().get_parent() as Control).visible = false
+
+	var ficha: float = ANCHO_FICHA_COCINA if es_cocina() else ANCHO_FICHA
+	var scroll: ScrollContainer = m["lista_scroll"]
+	scroll.custom_minimum_size = Vector2(_ancho_rejilla(), 0)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.size_flags_horizontal = Control.SIZE_FILL
+	_content.custom_minimum_size = Vector2(ficha, 0)
+	var scroll_det: ScrollContainer = _content.get_parent() as ScrollContainer
+	scroll_det.size_flags_horizontal = Control.SIZE_FILL
+	scroll_det.custom_minimum_size = Vector2(ficha, 0)
+	scroll.resized.connect(_on_lista_redimensionada)
+	_lista.resized.connect(_on_lista_redimensionada)
+
+	# LA COLUMNA DERECHA: la ficha con su scroll y, DEBAJO Y FUERA DEL SCROLL, las acciones.
+	var split_der: BoxContainer = scroll_det.get_parent()
+	split_der.remove_child(scroll_det)
+	var col_der := VBoxContainer.new()
+	col_der.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_der.custom_minimum_size = Vector2(ficha, 0)
+	col_der.add_theme_constant_override("separation", 6)
+	split_der.add_child(col_der)
+	col_der.add_child(scroll_det)
+	scroll_det.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_aviso_lbl = Label.new()
+	_aviso_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_aviso_lbl.add_theme_font_size_override("font_size", 13)
+	col_der.add_child(_aviso_lbl)
+	_acciones = VBoxContainer.new()
+	_acciones.add_theme_constant_override("separation", 4)
+	col_der.add_child(_acciones)
+
+	# LA COLUMNA IZQUIERDA: quien trabaja, la fila de filtros y la rejilla.
+	var split: BoxContainer = scroll.get_parent()
+	split.remove_child(scroll)
+	var col_izq := VBoxContainer.new()
+	col_izq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col_izq.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col_izq.add_theme_constant_override("separation", 6)
+	split.add_child(col_izq)
+	split.move_child(col_izq, 0)
+	var rotulo := Label.new()
+	rotulo.text = "QUIÉN TRABAJA"
+	rotulo.add_theme_font_size_override("font_size", 11)
+	rotulo.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	_fila_artesano_rotulo = rotulo
+	col_izq.add_child(rotulo)
+	_fila_artesano = MenuScaffold.fila_retratos(col_izq)
+
+	barra_sub = HBoxContainer.new()
+	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_sub)
+	col_izq.add_child(scroll)
+
+	# LAS PESTAÑAS (los tiers), con icono y centradas en la pantalla.
+	var barra_tabs: HBoxContainer = m["side"]
+	barra_tabs.add_theme_constant_override("separation", 14)
+	var nombres: Array = tabs()
+	for i in nombres.size():
+		var b: Button = MenuScaffold.pestana_icono(TAB_ICONOS[i], nombres[i])
+		b.pressed.connect(_on_tab.bind(i + 1))
+		barra_tabs.add_child(b)
+		_tab_buttons.append(b)
+
+	var barra: BoxContainer = barra_tabs.get_parent()
+	(barra.get_child(0) as Control).visible = false
+	# EL TITULO EN DOS LINEAS: el taller pequeño y gris encima del tier, grande.
+	var titulo := VBoxContainer.new()
+	titulo.add_theme_constant_override("separation", 0)
+	var chico := Label.new()
+	chico.text = "Cocina" if es_cocina() else "Boticaria"
+	chico.add_theme_font_size_override("font_size", 11)
+	chico.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	titulo.add_child(chico)
+	_titulo_seccion = Label.new()
+	_titulo_seccion.add_theme_font_size_override("font_size", 20)
+	_titulo_seccion.add_theme_color_override("font_color", AMBAR)
+	titulo.add_child(_titulo_seccion)
+	barra.add_child(titulo)
+	barra.move_child(titulo, 1)
+
+	barra.remove_child(barra_tabs)
+	var centrador := CenterContainer.new()
+	centrador.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centrador.offset_top = 16.0
+	centrador.offset_bottom = 16.0 + MenuScaffold.LADO_ICONO
+	centrador.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(centrador)
+	centrador.add_child(barra_tabs)
+
+	_contador_lbl = Label.new()
+	_contador_lbl.add_theme_font_size_override("font_size", 15)
+	_contador_lbl.add_theme_color_override("font_color", Color(0.78, 0.82, 0.90))
+	barra.add_child(_contador_lbl)
+	barra.move_child(_contador_lbl, barra.get_child_count() - 2)
 
 
 func abrir() -> void:
 	# No abrir sobre un combate/extraccion ni con el panel DEBUG abierto.
 	if Game._active_layer != null or Game.debug_panel_open:
 		return
-	# MULTI: ya no se coge el candado al abrir (los dos a la vez); se coge solo al fabricar, y lo
+	# MULTI: no se coge el candado al abrir (los dos a la vez); se coge solo al fabricar, y lo
 	# seleccionado se RESERVA para el otro. Ver forge_menu.
-	_tier = 1
-	_tipo = 0
-	_sel = 0
+	tier = 1
+	sel = 0
 	_aviso = ""
-	_recompute_recetas()
-	_reset_seleccion()
+	recetas.abrir()
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()
-
-
-# Rellena _recetas con las del TIER y TIPO elegidos. Vida = las que curan HP; Maná = las que dan
-# maná. Si las medianas no están desbloqueadas, cae a menores (por si acaso).
-func _recompute_recetas() -> void:
-	# COCINA: los dos tiers se ven SIEMPRE (el T2 se gatea solo, porque pide carne y plantas de los
-	# pisos hondos) y no hay sub-tipo: cada plato es de un eje distinto y ya lo dice su ficha.
-	if _es_cocina():
-		_recetas = Game.recetas_cocina_tier(_tier)
-		_sel = clampi(_sel, 0, maxi(0, _recetas.size() - 1))
-		return
-	if _tier >= 2 and not Game.medianas_desbloqueadas():
-		_tier = 1
-	# Sin antidotos en este tier, su pestaña no sale: se vuelve a Vida en vez de enseñar una vacia.
-	if _tipo == TIPO_ANTIDOTO and not _hay_antidotos(_tier):
-		_tipo = 0
-	_recetas = []
-	for r in Game.recetas_boticaria_tier(_tier):
-		var res: ConsumableData = (r as RecipeData).resultado
-		if res == null:
-			continue
-		if _tipo_de(res) == _tipo:
-			_recetas.append(r)
-	_sel = clampi(_sel, 0, maxi(0, _recetas.size() - 1))
-
-
-# A que pestaña va cada pocion. LOS ANTIDOTOS VAN APARTE: "curan" algo de vida, asi que antes caian en
-# Vida mezclados con las pociones de verdad, y no se hacen para lo mismo -- se hacen para quitarte un
-# veneno. Por eso se miran antes que la cura.
-const TIPO_ANTIDOTO := 2
-
-static func _tipo_de(res: ConsumableData) -> int:
-	if res.es_brebaje_de_estado():
-		return TIPO_ANTIDOTO
-	return 0 if res.cura_hp() else (1 if res.da_mana() else -1)
-
-
-func _hay_antidotos(tier: int) -> bool:
-	for r in Game.recetas_boticaria_tier(tier):
-		var res: ConsumableData = (r as RecipeData).resultado
-		if res != null and res.es_brebaje_de_estado():
-			return true
-	return false
-
-
-# Vacia la seleccion y la dimensiona a los ingredientes de la receta actual (una entrada
-# {} por ingrediente). Se llama al abrir y al cambiar de receta, nunca en _rebuild.
-func _reset_seleccion() -> void:
-	_seleccion = []
-	if _recetas.is_empty():
-		return
-	var r: RecipeData = _recetas[clampi(_sel, 0, _recetas.size() - 1)]
-	for _ing in r.ingredientes:
-		_seleccion.append({})
 
 
 func _cerrar() -> void:
@@ -166,7 +243,7 @@ func _on_cambio_externo() -> void:
 		_rebuild()
 
 
-func _ocupado() -> void:
+func ocupado() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("mostrar_toast"):
 		hud.mostrar_toast("Un momento: tu compañero está creando algo justo ahora.")
@@ -181,11 +258,29 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
-# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
-# pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
-# lleva el herrero desde que se cazo alli.
+func _on_tab(t: int) -> void:
+	if t == tier:
+		return
+	tier = t
+	cambiar_pantalla()
+
+
+# Lo que se enseña ha cambiado (tier, filtro, artesano): la celda elegida ya no vale.
+func cambiar_pantalla() -> void:
+	sel = 0
+	_aviso = ""
+	recetas.cambio_de_receta()
+	_rebuild()
+
+
+# ============================================================
+#  RECONSTRUIR
+# ============================================================
+
+# Guardia de REENTRADA (ver tannery_menu): sin ella el menu salia DUPLICADO.
 var _reconstruyendo := false
+# Solo ha cambiado la celda elegida: la rejilla se marca en sitio y no se rehace (ver grid_detail).
+var _solo_seleccion := false
 
 func _rebuild() -> void:
 	if _reconstruyendo:
@@ -195,417 +290,165 @@ func _rebuild() -> void:
 	_reconstruyendo = false
 
 
+# Para la pantalla de recetas (un nombre sin guion bajo que se pueda llamar desde fuera).
+func rebuild() -> void:
+	_rebuild()
+
+
 func _rebuild_real() -> void:
-	for zona in [_header, _list, _detail]:
+	contador("")
+	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
+	for zona in ([_content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
-	_recompute_recetas()
+	# Las MEDIANAS solo salen cuando has conseguido algun material para hacerlas; la cocina enseña sus
+	# dos tiers desde el primer dia (verlo es la mitad de la gracia: te dice a que sabe seguir bajando).
+	var hay_t2: bool = es_cocina() or Game.medianas_desbloqueadas()
+	if tier >= 2 and not hay_t2:
+		tier = 1
+	for i in _tab_buttons.size():
+		var b: Button = _tab_buttons[i]
+		b.button_pressed = (i + 1 == tier)
+		# Con UNA sola pestaña no hay nada que elegir: fuera la barra entera.
+		b.visible = hay_t2
+	_titulo_seccion.text = tabs()[tier - 1]
 
-	# Submenu de dos filas: TIER (Menores / Medianas) y TIPO (Vida / Maná). Las medianas solo
-	# salen si ya has conseguido algún material para hacerlas.
-	if _es_cocina():
-		# Los dos tiers desde el primer dia: el T2 no se puede cocinar hasta que bajas, pero verlo es
-		# la mitad de la gracia (te dice a que sabe seguir bajando).
-		MenuScaffold.pestanas(_header, ["De la cueva", "De lo hondo"], _tier - 1, _on_tier)
-	else:
-		var tier_labels: Array = ["Menores"]
-		if Game.medianas_desbloqueadas():
-			tier_labels.append("Medianas")
-		MenuScaffold.pestanas(_header, tier_labels, _tier - 1, _on_tier)
-		var tipos: Array = ["Vida", "Maná"]
-		if _hay_antidotos(_tier):
-			tipos.append("Antídotos")
-		MenuScaffold.pestanas(_header, tipos, _tipo, _on_tipo)
-	_header.add_child(HSeparator.new())
-
+	_pintar_artesanos()
+	recetas.build()
+	_partir_lineas(_content)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
-	if _recetas.is_empty():
-		if Net.activo:
-			Net.hogar.reservar({})   # sin receta no reservo nada
-		var l := Label.new()
-		l.text = "(no hay recetas aquí todavía)"
-		_detail.add_child(l)
+	_aviso_lbl.visible = _aviso != ""
+
+
+# ============================================================
+#  QUIEN TRABAJA
+#  Toda tu plantilla: primero los que bajan hoy y detras los que se quedan en el Hogar. No se filtra
+#  por "tiene el oficio": mandar a uno que no lo tiene es justo como lo aprende (ver Game.artesano).
+# ============================================================
+
+func _gente() -> Array:
+	var out: Array = []
+	out.append_array(Game.party)
+	out.append_array(Game.en_el_banquillo())
+	return out
+
+
+func _pintar_artesanos() -> void:
+	var gente: Array = _gente()
+	_fila_artesano_rotulo.visible = gente.size() > 1
+	var actual: PersonajeData = Game.artesano(oficio())
+	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el icono en la esquina (como la peleteria):
+	# escrito en la ficha habia que leerlo, y encima solo hablaba del que estuviera elegido.
+	var con_oficio: Array = []
+	for i in gente.size():
+		if Game.desarrollo_rango(oficio(), gente[i] as PersonajeData) > 0:
+			con_oficio.append(i)
+	MenuScaffold.retratos(_fila_artesano, gente, gente.find(actual), Game.party.size(),
+		_on_artesano, con_oficio, "cuenco" if es_cocina() else "pocion",
+		"Tiene Cocina" if es_cocina() else "Tiene Mezcla")
+
+
+func _on_artesano(i: int) -> void:
+	var gente: Array = _gente()
+	if i < 0 or i >= gente.size():
 		return
-	_sel = clampi(_sel, 0, _recetas.size() - 1)
+	Game.poner_artesano(oficio(), gente[i] as PersonajeData)
+	# Repintar entero: con el artesano cambia el bonus del oficio, y con el la racion doble. La
+	# receta elegida se queda (no ha cambiado lo que quieres hacer, solo quien lo hace).
+	_aviso = ""
+	_rebuild()
 
-	for i in _recetas.size():
-		var r: RecipeData = _recetas[i]
-		var b := Button.new()
-		var puede: bool = _hay_material_para(r)
-		b.text = "%s %s" % ["✓" if puede else "·", r.nombre()]
-		b.toggle_mode = true
-		b.button_pressed = (i == _sel)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-		b.add_theme_color_override("font_color", VERDE if puede else Color(0.75, 0.77, 0.82))
-		b.pressed.connect(_pick.bind(i))
-		_list.add_child(b)
 
-	_build_detail(_recetas[_sel])
+# La ficha va en un scroll SIN barra horizontal, y ahi una etiqueta que no parte linea impone su
+# ancho a la columna entera (ver tannery_menu).
+func _partir_lineas(nodo: Node) -> void:
+	for h in nodo.get_children():
+		if h is Label and (h as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
+			(h as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_partir_lineas(h)
+
+
+# ============================================================
+#  LA REJILLA
+# ============================================================
+
+func _ancho_rejilla() -> float:
+	return ANCHO_REJILLA_COCINA if es_cocina() else ANCHO_REJILLA_MIN
+
+
+func _columnas() -> int:
+	var ancho: float = _lista.size.x
+	if ancho <= 1.0:
+		ancho = _ancho_rejilla()
+	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
+
+
+var _cols_pintadas: int = 0
+
+func _on_lista_redimensionada() -> void:
+	if _root.visible and _columnas() != _cols_pintadas:
+		_rebuild.call_deferred()
+
+
+# Pinta la rejilla y la ficha de lo elegido. 'vacio' = lo que se dice cuando no hay nada.
+func grid_detail(piezas: Array, ficha: Callable, vacio: String = "(nada por aquí)") -> void:
+	if piezas.is_empty():
+		# Apuntar las columnas TAMBIEN sin rejilla, o el resized pide rebuilds sin parar y el juego se
+		# cuelga (ver tannery_menu.grid_detail).
+		_cols_pintadas = _columnas()
+		MenuScaffold.nota(_lista, vacio)
+		return
+	sel = clampi(sel, 0, piezas.size() - 1)
+	if not (_solo_seleccion and MenuScaffold.marcar_en_rejilla(_lista, sel)):
+		MenuScaffold.vaciar(_lista)
+		_cols_pintadas = _columnas()
+		MenuScaffold.rejilla_objetos(_lista, piezas, sel, _pick, _cols_pintadas, LADO_CELDA)
+	ficha.call(_content)
 
 
 func _pick(i: int) -> void:
-	_sel = i
-	_aviso = ""            # cambiar de receta borra el aviso de la anterior (como la forja)
-	_reset_seleccion()   # otra receta = empezar de cero la eleccion de materiales
+	if i != sel:
+		_aviso = ""   # cambiar de receta borra el aviso de la anterior
+		recetas.cambio_de_receta()
+	sel = i
+	_solo_seleccion = true
 	_rebuild()
+	_solo_seleccion = false
 
 
-func _on_tier(i: int) -> void:
-	_tier = i + 1
-	_sel = 0
-	_aviso = ""
-	_recompute_recetas()
-	_reset_seleccion()
-	_rebuild()
+# ============================================================
+#  PIEZAS DE LA FICHA
+# ============================================================
+
+func contador(txt: String, alerta: bool = false) -> void:
+	_contador_lbl.text = txt
+	_contador_lbl.visible = txt != ""
+	_contador_lbl.add_theme_color_override("font_color",
+		Color(1.0, 0.52, 0.52) if alerta else Color(0.78, 0.82, 0.90))
 
 
-func _on_tipo(i: int) -> void:
-	_tipo = i
-	_sel = 0
-	_aviso = ""
-	_recompute_recetas()
-	_reset_seleccion()
-	_rebuild()
+func titulo_seccion(txt: String) -> void:
+	_titulo_seccion.text = txt
 
 
-func _decir(txt: String, ok: bool = true) -> void:
+func decir(txt: String, ok: bool = true) -> void:
 	_aviso = txt
 	_aviso_ok = ok
 
 
-# ¿Hay material EN PRINCIPIO para esta receta? (para el ✓ de la lista, sin mirar la
-# seleccion actual): poción base si es mejora + unidades totales suficientes por ingrediente.
-func _hay_material_para(r: RecipeData) -> bool:
-	if r == null or r.resultado == null:
-		return false
-	if r.es_mejora() and int(Game.consumables.get(r.pocion_base, 0)) <= 0:
-		return false
-	for ing in r.ingredientes:
-		if ing == null or ing.material == null:
-			continue
-		if Game.disponible_unidades_material_en_hogar(ing.material) < ing.unidades:
-			return false
-	return true
+func note(vb: VBoxContainer, txt: String) -> void:
+	MenuScaffold.nota(vb, txt)
 
 
-func _build_detail(r: RecipeData) -> void:
-	var maxhp: float = Game.player_max_hp()
-	var maxmp: float = Game.player_max_mp()
-
-	var t := Label.new()
-	t.text = r.nombre()
-	t.add_theme_color_override("font_color", AMBAR)
-	t.add_theme_font_size_override("font_size", 16)
-	_detail.add_child(t)
-
-	if r.resultado != null:
-		# QUE HACE, antes de gastar los ingredientes. En un plato son varias lineas (lo que sube y
-		# cuanto dura), todo derivado de sus efectos: aqui no hay ni una cifra escrita a mano.
-		_fila(r.resultado.resumen(maxhp, maxmp), Color(0.85, 0.88, 0.92))
-		if r.resultado.descripcion != "":
-			var d := Label.new()
-			d.text = r.resultado.descripcion
-			d.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-			d.add_theme_font_size_override("font_size", 11)
-			d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_detail.add_child(d)
-
-	if _seleccion.size() != r.ingredientes.size():
-		_reset_seleccion()
-	# MULTI: capar mi seleccion a lo disponible y publicarla como reserva (el otro la ve apartada).
-	_capar_y_publicar(r)
-
-	_detail.add_child(HSeparator.new())
-	var cab := Label.new()
-	cab.text = "Elige los materiales:"
-	cab.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-	_detail.add_child(cab)
-
-	# Poción base (si es una mejora): coste FIJO, no se elige.
-	if r.es_mejora():
-		var tengo_p: int = int(Game.consumables.get(r.pocion_base, 0))
-		_fila_coste("1× %s" % r.pocion_base.nombre, tengo_p, 1)
-
-	# Ingredientes: por cada uno, un contador -/+ por cada calidad que tengas en el baul.
-	# PURO no lo suelta la mazmorra (solo sale de refinar con oficio), pero si algun dia una
-	# receta pide un refinado, aqui esta: mejor tenerlo que descubrir que no se puede elegir.
-	var cals: Array = [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO,
-		MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.DANADO]
-	var cal_nom: Dictionary = {
-		MaterialItem.Calidad.PURO: "Puro",
-		MaterialItem.Calidad.INTACTO: "Intacto",
-		MaterialItem.Calidad.NORMAL: "Normal",
-		MaterialItem.Calidad.DANADO: "Dañado",
-	}
-	for i in r.ingredientes.size():
-		var ing = r.ingredientes[i]
-		if ing == null or ing.material == null:
-			continue
-		var elegidas: int = _uds_sel(i)
-		var cubre: int = elegidas / ing.unidades   # cuantas pociones cubre este ingrediente
-		var head := HBoxContainer.new()
-		head.add_theme_constant_override("separation", 8)
-		var nm := Label.new()
-		nm.text = "%s · %d uds/%s" % [ing.material.nombre, ing.unidades, _pieza()]
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(nm)
-		var tot := Label.new()
-		tot.text = "%d uds (cubre %d)" % [elegidas, cubre]
-		tot.add_theme_color_override("font_color", VERDE if cubre >= 1 else ROJO)
-		head.add_child(tot)
-		_detail.add_child(head)
-
-		for cal in cals:
-			var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))   # resta lo reservado por el otro
-			if disp <= 0:
-				continue   # no tienes de esta calidad: no la muestres
-			var cur: int = int((_seleccion[i] as Dictionary).get(cal, 0))
-			var ii: int = i
-			var ci: int = int(cal)
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 6)
-			var lab := Label.new()
-			lab.text = "   %s (x%d)" % [cal_nom.get(cal, "?"), disp]
-			lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(lab)
-			# Stepper editable: −/+ o escribir la cantidad directamente (capada a lo que tienes).
-			MenuScaffold.stepper(row, cur, 0, disp, func(n: int) -> void: _set_sel(ii, ci, n),
-				func(n: int) -> void: _set_sel(ii, ci, n, false))
-			_detail.add_child(row)
-
-	var uds := Label.new()
-	uds.text = "(puro = 4 uds · intacto = 3 · normal = 2 · dañado = 1.  Mejor material = más probabilidad de fabricar 2)"
-	uds.add_theme_color_override("font_color", Color(0.55, 0.58, 0.65))
-	uds.add_theme_font_size_override("font_size", 10)
-	uds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail.add_child(uds)
-
-	# Lo que se GASTA de verdad: si te pasas, el sobrante se queda en el Hogar, y lo que sobre
-	# del ultimo trozo puede volver. Mismo trato que en la forja.
-	var gasto: Array = Game.gasto_crafteo(r, _seleccion)
-	_aviso_recorte(r, gasto)
-
-	# Bonus de DOBLE segun lo que se va a GASTAR (en vivo). Es POR pieza fabricada, y cada una tira
-	# con SU material (ver Game.lotes_de_seleccion): con material bueno para dos platos y del malo
-	# para otros dos, los dos primeros van al tope y los otros dos abajo. Antes salia una sola media
-	# para toda la tanda y los buenos pagaban por los malos.
-	var n_piezas: int = Game.pociones_de_seleccion(r, _seleccion)
-	var probs: Array = Game.probs_doble_por_pieza(r, gasto, n_piezas)
-	var verbo: String = "Cocinar" if _es_cocina() else "Fabricar"
-	if probs.size() <= 1:
-		var prob: float = float(probs[0]) if probs.size() == 1 else Game.prob_doble_desde_seleccion(r, gasto)
-		var bono := Label.new()
-		bono.text = "%s 2 de golpe: %d%%  (por %s)" % [verbo, roundi(prob * 100.0), _pieza()]
-		bono.add_theme_color_override("font_color", VERDE if prob > 0.0 else Color(0.55, 0.58, 0.65))
-		bono.add_theme_font_size_override("font_size", 12)
-		_detail.add_child(bono)
-	else:
-		var cab2 := Label.new()
-		cab2.text = "%s 2 de golpe (cada %s con su material):" % [verbo, _pieza()]
-		cab2.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
-		cab2.add_theme_font_size_override("font_size", 12)
-		_detail.add_child(cab2)
-		var claves: Array = []
-		for p in probs:
-			claves.append(roundi(float(p) * 100.0))
-		for tramo in MenuScaffold.tramos_iguales(claves):
-			var p2: float = float(probs[int(tramo["i"])])
-			var l2 := Label.new()
-			l2.text = "   %s · %d%%" % [
-				MenuScaffold.etiqueta_tramo(tramo, _pieza().capitalize(), _pieza(2).capitalize()),
-				roundi(p2 * 100.0)]
-			l2.add_theme_color_override("font_color", VERDE if p2 > 0.0 else Color(0.55, 0.58, 0.65))
-			l2.add_theme_font_size_override("font_size", 12)
-			_detail.add_child(l2)
-
-	_detail.add_child(HSeparator.new())
-	# Botones de conveniencia. La CANTIDAD es del Auto: dice para cuantas piezas rellenar.
-	var acc := HBoxContainer.new()
-	acc.add_theme_constant_override("separation", 8)
-	var cant_lbl := Label.new()
-	cant_lbl.text = "Cantidad"
-	acc.add_child(cant_lbl)
-	MenuScaffold.stepper(acc, _cantidad, 1, 99, func(v: int) -> void: _cantidad = v)
-	var auto_mej := Button.new()
-	auto_mej.text = "Auto ▲"
-	auto_mej.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	auto_mej.tooltip_text = "Rellena empezando por el MEJOR material que tengas (puro, intacto...). Más probabilidad de que salgan dobles."
-	auto_mej.pressed.connect(_on_auto.bind(true))
-	acc.add_child(auto_mej)
-	var auto_peor := Button.new()
-	auto_peor.text = "Auto ▼"
-	auto_peor.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	auto_peor.tooltip_text = "Rellena empezando por el PEOR material que tengas (dañado, normal...). Para gastar lo que sobra sin tocar lo bueno."
-	auto_peor.pressed.connect(_on_auto.bind(false))
-	acc.add_child(auto_peor)
-	var limpiar := Button.new()
-	limpiar.text = "Limpiar"
-	limpiar.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	limpiar.pressed.connect(_on_limpiar)
-	acc.add_child(limpiar)
-	_detail.add_child(acc)
-
-	# Cuantas pociones saldran = lo que cubra la selección (mete 6 uds en una de 3 -> 2).
-	var n: int = n_piezas
-	var fab := Button.new()
-	# CUANTAS salen de verdad: pociones_de_seleccion dice cuantas HORNADAS cubre lo elegido, y cada
-	# hornada rinde unidades_resultado piezas (2 en cocina). Sin multiplicar, el boton prometia la
-	# mitad de los platos que salian.
-	var piezas: int = n * maxi(1, r.unidades_resultado)
-	fab.text = "%s  (%d %s)" % [
-		"Cocinar" if _es_cocina() else "Fabricar", piezas, _pieza(piezas)] if n >= 1 else "Elige materiales suficientes"
-	fab.disabled = n < 1
-	fab.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	fab.pressed.connect(_on_fabricar)
-	_detail.add_child(fab)
+# El pie fijo de la ficha, donde van los botones.
+func acciones() -> VBoxContainer:
+	return _acciones
 
 
-# Avisa de lo que se va a gastar DE VERDAD (el recorte) por cada ingrediente: lo que sobra se
-# queda en el Hogar, y las unidades que sobren del ultimo trozo pueden volver. Solo se pinta si
-# hay algo que decir (te has pasado, o el material no cuadra justo con la receta).
-func _aviso_recorte(r: RecipeData, gasto: Array) -> void:
-	var n: int = Game.pociones_de_seleccion(r, _seleccion)
-	if n < 1:
-		return
-	for i in mini(gasto.size(), r.ingredientes.size()):
-		var ing = r.ingredientes[i]
-		if ing == null or ing.material == null:
-			continue
-		var elegidas: int = Game.uds_seleccion(_seleccion[i])
-		var gastadas: int = Game.uds_seleccion(gasto[i])
-		var necesita: int = n * ing.unidades
-		var partes: PackedStringArray = []
-		if gastadas < elegidas:
-			partes.append("de %s se gastan %d uds y el resto se queda en el Hogar" % [
-				ing.material.nombre.to_lower(), gastadas])
-		var sobra: int = gastadas - necesita
-		if sobra > 0:
-			partes.append("sobran %d uds del recorte: vuelven como %d dañado(s)" % [sobra, sobra])
-		if not partes.is_empty():
-			var l := Label.new()
-			l.text = "  " + "; ".join(partes) + "."
-			l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-			l.add_theme_font_size_override("font_size", 11)
-			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_detail.add_child(l)
-
-
-# Fila simple de texto en el detalle.
-func _fila(txt: String, col: Color) -> void:
-	var l := Label.new()
-	l.text = txt
-	l.add_theme_color_override("font_color", col)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail.add_child(l)
-
-
-# Fila de coste "texto ..... tengo/necesito", en verde si llega, rojo si no.
-func _fila_coste(txt: String, tengo: int, necesito: int) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var k := Label.new()
-	k.text = txt
-	k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(k)
-	var v := Label.new()
-	v.text = "%d / %d" % [tengo, necesito]
-	v.add_theme_color_override("font_color", VERDE if tengo >= necesito else ROJO)
-	row.add_child(v)
-	_detail.add_child(row)
-
-
-# Unidades sumadas ya elegidas para el ingrediente i (intacto 3 / normal 2 / dañado 1).
-func _uds_sel(i: int) -> int:
-	var d: Dictionary = _seleccion[i]
-	var u: int = 0
-	for cal in d:
-		u += int(d[cal]) * _uds(int(cal))
-	return u
-
-func _uds(cal: int) -> int:
-	return MaterialItem.crear(null, cal).unidades_crafteo()
-
-
-# Fija (absoluto) el contador de (ingrediente i, calidad cal) a `n`, acotado a lo que tienes en el
-# baul. Lo llama el stepper editable. NO rebuildea si el valor no cambia (evita que focus_exited del
-# LineEdit, al liberarse en el rebuild, se realimente).
-# repintar=false: se esta ESCRIBIENDO; se guarda ya y se repinta al salir del campo (igual que la forja).
-var _escrito_sin_repintar := false
-
-func _set_sel(i: int, cal: int, n: int, repintar: bool = true) -> void:
-	if i < 0 or i >= _seleccion.size():
-		return
-	var ing = _recetas[_sel].ingredientes[i]
-	if ing == null or ing.material == null:
-		return
-	var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))
-	var d: Dictionary = _seleccion[i]
-	var nuevo: int = clampi(n, 0, disp)
-	var cambia: bool = nuevo != int(d.get(cal, 0))
-	if cambia:
-		if nuevo <= 0:
-			d.erase(cal)
-		else:
-			d[cal] = nuevo
-	if not repintar:
-		_escrito_sin_repintar = _escrito_sin_repintar or cambia
-		return
-	if cambia or _escrito_sin_repintar:
-		_escrito_sin_repintar = false
-		_rebuild()
-
-
-# Los dos Autos: ▲ empieza por el mejor material, ▼ por el peor. Rellenan para `_cantidad` piezas;
-# si no llega, rellenan lo que salga (el boton de fabricar ya dice cuantas cubre eso).
-func _on_auto(mejor_primero: bool) -> void:
-	_seleccion = Game.seleccion_auto(_recetas[_sel], _cantidad, mejor_primero)
-	_rebuild()
-
-
-func _on_limpiar() -> void:
-	_reset_seleccion()
-	_rebuild()
-
-
-func _on_fabricar() -> void:
-	var receta: RecipeData = _recetas[_sel]
-	# El nombre ANTES de fabricar/resetear (la seleccion se limpia despues).
-	var nombre: String = receta.resultado.nombre if receta.resultado != null else _pieza()
-	if Net.activo and not await Net.hogar.abrir_taller():
-		_ocupado()
-		_rebuild()
-		return
-	var total: int = Game.craftear_con(receta, _seleccion)
-	if Net.activo:
-		Net.hogar.cerrar_taller()
-		Net.hogar.liberar_mis_reservas()   # consumido: suelto la reserva
-	if total > 0:
-		_decir("Fabricas %d × %s. Está en tu bolsa." % [total, nombre])
-		_reset_seleccion()   # los materiales cambiaron: empezar limpio
-	else:
-		_decir("No te llega el material.", false)
-	_rebuild()
-
-
-# MULTI: capa mi seleccion a lo disponible (por si el compañero reservó de lo mismo) y la publica
-# como reserva, aplanando _seleccion a {"mat_id|cal": count}.
-func _capar_y_publicar(r: RecipeData) -> void:
-	var claim: Dictionary = {}
-	for i in mini(r.ingredientes.size(), _seleccion.size()):
-		var ing = r.ingredientes[i]
-		if ing == null or ing.material == null:
-			continue
-		var sel: Dictionary = _seleccion[i]
-		for cal in sel.keys():
-			var disp: int = Game.disponible_calidad_en_hogar(ing.material, int(cal))
-			var n: int = clampi(int(sel[cal]), 0, disp)
-			if n <= 0:
-				sel.erase(cal)
-			else:
-				sel[cal] = n
-				var clave: String = "%s|%d" % [ing.material.id, int(cal)]
-				claim[clave] = int(claim.get(clave, 0)) + n
-	if Net.activo:
-		Net.hogar.reservar(claim)
+# El nombre de una calidad, como se lee en el baul.
+static func cal_txt(cal: int) -> String:
+	match cal:
+		MaterialItem.Calidad.PURO: return "Puro"
+		MaterialItem.Calidad.INTACTO: return "Intacto"
+		MaterialItem.Calidad.NORMAL: return "Normal"
+		MaterialItem.Calidad.DANADO: return "Dañado"
+		_: return "Roto"

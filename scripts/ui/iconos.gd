@@ -780,3 +780,80 @@ static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 	# Los agujeros de la tira, que es lo que la separa de un simple rectangulo.
 	for i in 3:
 		c.draw_circle(Vector2(pos.x + lado * (0.20 + 0.11 * float(i)), cy), g * 0.55, col)
+
+
+# ============================================================
+#  LA BOTICARIA Y LA COCINA
+# ============================================================
+
+# --- VIDA (filtro de pociones): un corazon RELLENO ---
+# Macizo y no en contorno por lo mismo que el cuero: a tamaño de pestaña el hueco de dentro pesa mas
+# que la silueta.
+static func vida(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var r: float = lado * 0.15
+	var izq: Vector2 = pos + Vector2(lado * 0.36, lado * 0.38)
+	var der: Vector2 = pos + Vector2(lado * 0.64, lado * 0.38)
+	c.draw_circle(izq, r, col)
+	c.draw_circle(der, r, col)
+	# La punta: un triangulo que nace en los cantos de fuera de los dos lobulos.
+	c.draw_colored_polygon(PackedVector2Array([
+		pos + Vector2(lado * 0.215, lado * 0.44), pos + Vector2(lado * 0.785, lado * 0.44),
+		pos + Vector2(lado * 0.5, lado * 0.80)]), col)
+	c.draw_rect(Rect2(izq.x, izq.y - r * 0.2, der.x - izq.x, r * 1.1), col, true)
+
+
+# --- MANA (filtro de pociones): una GOTA ---
+# La punta arriba y el vientre redondo abajo: es lo que la separa del rombo del tier.
+static func mana(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var ctr: Vector2 = pos + Vector2(lado * 0.5, lado * 0.60)
+	var r: float = lado * 0.22
+	var punta: Vector2 = pos + Vector2(lado * 0.5, lado * 0.14)
+	# El vientre (de un costado al otro por abajo) y los dos flancos que suben a la punta.
+	c.draw_arc(ctr, r, -PI * 0.15, PI * 1.15, 24, col, g, true)
+	var a_der: Vector2 = ctr + Vector2(cos(-PI * 0.15), sin(-PI * 0.15)) * r
+	var a_izq: Vector2 = ctr + Vector2(cos(PI * 1.15), sin(PI * 1.15)) * r
+	c.draw_line(a_der, punta, col, g, true)
+	c.draw_line(a_izq, punta, col, g, true)
+	# Un brillo dentro, que es lo que la hace liquida y no un globo.
+	c.draw_arc(ctr, r * 0.5, PI * 0.55, PI * 1.05, 10, col, g * 0.7, true)
+
+
+# --- ANTIDOTO (filtro de pociones): el frasco de la pocion con una CRUZ dentro ---
+# El mismo frasco que 'pocion' para que se lea de la misma familia; la cruz dice "cura lo que no es
+# vida".
+static func antidoto(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	c.draw_rect(Rect2(pos.x + lado * 0.40, pos.y + lado * 0.12, lado * 0.20, lado * 0.10), col, true)
+	c.draw_line(pos + Vector2(lado * 0.43, lado * 0.22), pos + Vector2(lado * 0.43, lado * 0.36),
+		col, g * 0.8, true)
+	c.draw_line(pos + Vector2(lado * 0.57, lado * 0.22), pos + Vector2(lado * 0.57, lado * 0.36),
+		col, g * 0.8, true)
+	var ctr: Vector2 = pos + Vector2(lado * 0.5, lado * 0.60)
+	c.draw_arc(ctr, lado * 0.25, 0.0, TAU, 28, col, g, true)
+	var brazo: float = lado * 0.12
+	c.draw_line(ctr + Vector2(-brazo, 0), ctr + Vector2(brazo, 0), col, g * 1.2, true)
+	c.draw_line(ctr + Vector2(0, -brazo), ctr + Vector2(0, brazo), col, g * 1.2, true)
+
+
+# --- CUENCO (la cocina): el cuenco con el vapor saliendo ---
+# El vapor es lo que lo hace COMIDA: sin el, un semicirculo se lee como una luna.
+static func cuenco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var borde_y: float = pos.y + lado * 0.52
+	# El cuenco, relleno: medio disco bajo la linea del borde, y el pie.
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a: float = PI * float(i) / 16.0
+		pts.append(Vector2(pos.x + lado * 0.5 + cos(a) * lado * 0.34, borde_y + sin(a) * lado * 0.26))
+	c.draw_colored_polygon(pts, col)
+	c.draw_line(Vector2(pos.x + lado * 0.12, borde_y), Vector2(pos.x + lado * 0.88, borde_y), col, g, true)
+	c.draw_rect(Rect2(pos.x + lado * 0.40, borde_y + lado * 0.25, lado * 0.20, lado * 0.07), col, true)
+	# Tres hilos de vapor, ondulados.
+	for k in 3:
+		var x: float = pos.x + lado * (0.34 + 0.16 * float(k))
+		var p := PackedVector2Array()
+		for j in 7:
+			var f: float = float(j) / 6.0
+			p.append(Vector2(x + sin(f * TAU) * lado * 0.035, borde_y - lado * 0.08 - f * lado * 0.30))
+		c.draw_polyline(p, col, g * 0.7, true)
