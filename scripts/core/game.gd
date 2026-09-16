@@ -344,15 +344,25 @@ func sacar_del_equipo(pj: PersonajeData) -> bool:
 # porque el grupo YA se paga solo por otro lado: reparar tres armaduras cuesta el triple que una,
 # y hay que armar a tres desde cero. Meter encima una cuota por bajada seria cobrar dos veces.
 #
-# El precio DOBLA con cada persona que ya tengas en la plantilla. El primero es un gasto que un
-# novato puede plantearse; el tercero es una decision seria. Y como llegan A CERO y desnudos, lo
+# El precio DOBLA con cada persona que ya tengas en la plantilla (menos el primero, que es gratis).
+# El segundo es un gasto que un novato puede plantearse; el cuarto es una decision seria. Y como llegan A CERO y desnudos, lo
 # que pagas no es potencia: es la PLAZA (un cuerpo mas al que entrenar y equipar).
 const PRECIO_FICHAR_BASE := 800
 const PRECIO_FICHAR_MULT := 2.0
 
-# Lo que cuesta el siguiente. La plantilla te incluye a ti, asi que el primer companero ya sale
-# al doble de la base: es el que convierte la partida en un grupo.
+# EL PRIMER COMPAÑERO ES GRATIS (decision del usuario, 16/09/2026): el inicio se hacia cuesta arriba
+# solo, y el primero es el que convierte la partida en un grupo. Y llega con un ARMA de regalo, para que
+# no baje a puños (ver fichar_en_taberna). Los demas siguen la escalera de siempre: el segundo cuesta el
+# doble de la base (1.600), el tercero el doble de eso... (decidido por el usuario: la escalera NO se corre).
+#
+# "Primero" = la plantilla solo te tiene a ti. No hace falta guardar nada: de la taberna no se despide
+# a nadie, asi que una plantilla de uno es alguien que aun no ha fichado nunca.
+func fichaje_gratis() -> bool:
+	return plantilla.size() <= 1
+
 func precio_fichar() -> int:
+	if fichaje_gratis():
+		return 0
 	return int(round(PRECIO_FICHAR_BASE * pow(PRECIO_FICHAR_MULT, maxi(0, plantilla.size() - 1))))
 
 # Contrata a alguien recien creado en la taberna. Llega A CERO: nivel 1, las cinco habilidades a
@@ -360,9 +370,13 @@ func precio_fichar() -> int:
 # (En el futuro podra haber fichajes especiales que lleguen ya con nivel, stats o desarrollos
 # propios; por eso esto solo construye el personaje y no asume que siempre sea un novato.)
 # Devuelve el PersonajeData fichado, o null si no llega el dinero.
-func fichar_en_taberna(nombre_: String, asp: Dictionary) -> PersonajeData:
+#
+# 'arma_regalo' = la base del arma que trae el PRIMER compañero (una de PACK_ARMAS, las del pack de la
+# tienda: la magia te la pagas tu). Llega T1 Comun y ya equipada. En los de pago se ignora.
+func fichar_en_taberna(nombre_: String, asp: Dictionary, arma_regalo: Resource = null) -> PersonajeData:
+	var gratis: bool = fichaje_gratis()
 	var precio: int = precio_fichar()
-	if not gastar(precio):
+	if precio > 0 and not gastar(precio):
 		return null
 	var pj := PersonajeData.new()
 	pj.nombre = nombre_.strip_edges() if nombre_.strip_edges() != "" else NOMBRE_POR_DEFECTO
@@ -371,7 +385,12 @@ func fichar_en_taberna(nombre_: String, asp: Dictionary) -> PersonajeData:
 	pj.aspecto = PersonajeData.aspecto_nuevo(asp.get("color", pj.color))
 	pj.aplicar_aspecto(asp)
 	fichar(pj)
-	print("[taberna] %s se une al grupo por %d monedas." % [pj.nombre, precio])
+	if gratis and arma_regalo is WeaponData and PACK_ARMAS.has(arma_regalo.resource_path):
+		var arma: Resource = crear_item(arma_regalo, 1, Upgrades.Rareza.COMUN, {})
+		equipar_arma(arma as WeaponData, pj)
+		print("[taberna] %s se une GRATIS y trae %s." % [pj.nombre, item_display_name(arma)])
+	else:
+		print("[taberna] %s se une al grupo por %d monedas." % [pj.nombre, precio])
 	return pj
 
 

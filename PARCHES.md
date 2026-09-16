@@ -65,6 +65,15 @@ En Reparar eliges a la persona con su retrato y ves lo gastado de cada pieza de 
 
 **La cantidad empieza en 1**, nunca en el máximo.
 
+## 🍺 La taberna, y tu primer compañero gratis
+
+**El primer compañero que contratas es gratis**, y trae un **arma de regalo** que eliges tú entre las del
+pack de la tienda: llega con ella puesta, así que no baja a puños. Los siguientes se pagan como siempre:
+el segundo 1.600 monedas y cada uno el doble que el anterior.
+
+**La taberna tiene la cara del inventario**: arriba tu gente (quién baja contigo y quién se queda en el
+Hogar), las armas de regalo en celdas y el trato en la ficha, con el botón siempre a la vista.
+
 ## 🧑‍🔧 Quién trabaja
 
 **En cada taller eliges quién hace el trabajo**, de entre todos tus personajes (también los que se

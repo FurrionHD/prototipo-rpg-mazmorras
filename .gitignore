@@ -28,6 +28,7 @@ dev_*.png
 !dev_peleteria.*
 !dev_taller.*
 !dev_herreria.*
+!dev_taberna.*
 !dev_tochos.*
 !dev_grimorios.*
 !dev_panel_hechizos.*

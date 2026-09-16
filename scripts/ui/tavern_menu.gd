@@ -6,171 +6,151 @@
 #  (CreadorPersonaje: nombre, color, brillo e imagen propia). No hay lista de candidatos que
 #  rotan ni tiradas: eliges tu quien se une y que cara tiene.
 #
-#  El que llega viene A CERO y DESNUDO: nivel 1, las cinco habilidades a 0 y sin equipo. Lo que
-#  valga sale de bajarlo a la mazmorra y de lo que le pongas encima, igual que contigo.
+#  EL PRIMERO ES GRATIS y trae un ARMA DE REGALO a elegir (las del pack de la tienda), ya equipada:
+#  el inicio se hacia cuesta arriba y el compañero bajaba a puños (decision del usuario, 16/09/2026).
+#  Los siguientes llegan A CERO y DESNUDOS: nivel 1, las cinco habilidades a 0 y sin equipo.
+#
+#  REHECHA el 16/09/2026 con la cara del inventario, sobre la base de los talleres (taller_menu.gd):
+#  arriba los retratos de TU GENTE (quien baja y quien se queda en el Hogar), en la rejilla las armas
+#  a elegir cuando toca regalo, y en la ficha el trato con el boton en el pie.
 #
 #  Aqui NO se despide a nadie: quien ficha se queda para siempre en la PLANTILLA. Quien BAJA
 #  contigo (como mucho Game.PARTY_MAX) se decide en el Hogar, en el gestor de equipo.
 # ============================================================
 
-extends CanvasLayer
+extends "res://scripts/ui/taller_menu.gd"
 
-const AMBAR := Color(0.95, 0.72, 0.36)
-const VERDE := Color(0.55, 0.85, 0.55)
-const ROJO := Color(0.9, 0.5, 0.5)
-const GRIS := Color(0.6, 0.63, 0.7)
-
-var _root: Control = null
-var _header: VBoxContainer = null
-var _content: VBoxContainer = null
-var _lista: VBoxContainer = null
-var _aviso_lbl: Label = null
-var _dinero_lbl: Label = null
-var _aviso: String = ""
-var _aviso_ok: bool = true
+const ANCHO_FICHA_TABERNA := 780.0
 
 
 func _ready() -> void:
-	layer = 91
-	process_mode = Node.PROCESS_MODE_ALWAYS   # el arbol se para: hay que seguir respondiendo
 	add_to_group("tavern_menu")
-
-	var m: Dictionary = MenuScaffold.construir(self, "TABERNA",
-		"Aquí se junta gente buscando con quién bajar. Contrata a quien quieras: llega sin nada y sin experiencia, lo demás lo pondrás tú.",
-		_cerrar, true)
-	_root = m["root"]
-	_header = m["header"]
-	_content = m["content"]
-	_lista = m["lista"]
-	_aviso_lbl = m["aviso"]
-	_dinero_lbl = m["dinero"]
+	montar("Taberna", ["Contratar"], ["persona"], ANCHO_REJILLA_MIN, ANCHO_FICHA_TABERNA)
 
 
 func abrir() -> void:
-	if Game._active_layer != null or Game.debug_panel_open:
-		return
-	_aviso = ""
-	_root.visible = true
-	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
-	_rebuild()
+	_tab = 0
+	abrir_taller()
 
 
-func _cerrar() -> void:
-	_root.visible = false
-	Game.cerrar_menu(self)
+func _al_cerrar() -> void:
+	_vaciar_vitrina()
 
 
-func _input(event: InputEvent) -> void:
-	if not _root.visible:
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if (event as InputEventKey).keycode == KEY_ESCAPE:
-			_cerrar()
-			get_viewport().set_input_as_handled()
+func _pintar() -> void:
+	_titulo_seccion.text = "Contratar"
+	# Con una sola pestaña no hay nada que elegir arriba.
+	for b in _tab_buttons:
+		(b as Button).visible = false
+	contador("%d monedas" % Game.money)
+	var gente: Array = []
+	gente.append_array(Game.party)
+	gente.append_array(Game.en_el_banquillo())
+	pintar_personas("TU GENTE", gente, -1, Game.party.size(), func(_i: int) -> void: pass)
+	# Con uno solo (tu) retratos() no pinta nada; el rotulo si, para que se lea que aun vas solo.
+	_fila_artesano_rotulo.visible = true
+	if gente.size() <= 1:
+		_fila_artesano_rotulo.text = "TU GENTE  ·  de momento vas solo"
 
-
-# Guardia de REENTRADA. Un _rebuild puede entrar mientras otro esta a medias (el focus_exited de un
-# stepper al liberarlo, las señales de red, un _on_* que espera en un await), y entonces el de dentro
-# pinta su panel y el de fuera apila el suyo debajo: el menu salia DUPLICADO. Es el mismo guardia que
-# lleva el herrero desde que se cazo alli.
-var _reconstruyendo := false
-
-func _rebuild() -> void:
-	if _reconstruyendo:
-		return
-	_reconstruyendo = true
-	_rebuild_real()
-	_reconstruyendo = false
-
-
-func _rebuild_real() -> void:
-	for zona in [_header, _content, _lista]:
-		MenuScaffold.vaciar(zona)
-	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
-	_dinero_lbl.text = "%d monedas" % Game.money
-
-	var precio: int = Game.precio_fichar()
-	MenuScaffold.titulo(_header, "CONTRATAR", 18)
-
-	# --- Izquierda: quien tienes ya ---
-	MenuScaffold.titulo(_lista, "Tu gente (%d)" % Game.plantilla.size(), 14)
-	for pj in Game.plantilla:
-		_ficha_lista(pj)
-
-	# --- Derecha: el trato ---
-	MenuScaffold.fila(_content, "Cuesta", "%d monedas" % precio)
-	MenuScaffold.fila(_content, "Tienes", "%d monedas" % Game.money)
-	MenuScaffold.fila(_content, "En plantilla", "%d" % Game.plantilla.size())
-	MenuScaffold.fila(_content, "Bajan contigo", "%d de %d" % [Game.party.size(), Game.PARTY_MAX])
-	MenuScaffold.nota(_content, "Cada contrato cuesta el doble que el anterior. Se paga UNA vez: "
-		+ "no hay sueldos ni cuotas, pero armar y reparar a tres cuesta lo que cuesta.")
-	MenuScaffold.nota(_content, "Llega a nivel 1, con las cinco habilidades a 0 y sin nada equipado. "
-		+ "Se le pone equipo desde el menú de personaje (C) y sube sus habilidades peleando, como tú.")
-	if Game.party.size() >= Game.PARTY_MAX:
-		MenuScaffold.nota(_content, "Tu equipo ya va lleno: quien contrates ahora se queda en el "
-			+ "Hogar hasta que lo metas en el equipo desde allí.")
-
-	_content.add_child(HSeparator.new())
-
-	var b := Button.new()
-	b.text = "Contratar por %d" % precio
-	b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
-	b.disabled = not Game.puede_pagar(precio)
-	b.pressed.connect(_abrir_creador)
-	_content.add_child(b)
-	if b.disabled:
-		var falta := Label.new()
-		falta.text = "Te faltan %d monedas." % (precio - Game.money)
-		falta.add_theme_color_override("font_color", ROJO)
-		falta.add_theme_font_size_override("font_size", 12)
-		_content.add_child(falta)
-
-
-# Una linea por persona de la plantilla, con su color de cuerpo delante para reconocerla de un
-# vistazo (es lo mismo que se ve andando por el mapa).
-func _ficha_lista(pj: PersonajeData) -> void:
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	_lista.add_child(fila)
-
-	var punto := ColorRect.new()
-	punto.custom_minimum_size = Vector2(18, 18)
-	punto.color = pj.color
-	punto.material = Game.material_de(pj)
-	fila.add_child(punto)
-
-	var l := Label.new()
-	l.text = "%s  ·  Nv.%d" % [pj.nombre, pj.level]
-	fila.add_child(l)
-
-	var estado := Label.new()
-	if pj == Game.lider():
-		estado.text = "  (en cabeza)"
-		estado.add_theme_color_override("font_color", AMBAR)
-	elif Game.party.has(pj):
-		estado.text = "  (en el equipo)"
-		estado.add_theme_color_override("font_color", VERDE)
+	if Game.fichaje_gratis():
+		stacks = []
+		var piezas: Array = []
+		for ruta in Game.PACK_ARMAS:
+			var base: Resource = load(ruta)
+			if base == null:
+				continue
+			stacks.append(base)
+			piezas.append(pieza(_vitrina(base), "Regalo", "%s  ·  de regalo para tu primer compañero" %
+				str(base.get("nombre"))))
+		grid_detail(piezas, _ficha_gratis)
 	else:
-		estado.text = "  (en el Hogar)"
-		estado.add_theme_color_override("font_color", GRIS)
-	estado.add_theme_font_size_override("font_size", 12)
-	fila.add_child(estado)
+		stacks = []
+		MenuScaffold.nota(_lista, "El arma de regalo era para el primero. Los que vengan ahora llegan sin nada: equípalos desde el menú de personaje (C).")
+		_cols_pintadas = _columnas()
+		_ficha_pago(_content)
 
 
-func _abrir_creador() -> void:
+# ============================================================
+#  LA FICHA
+# ============================================================
+
+func _ficha_gratis(vb: VBoxContainer) -> void:
+	var base: Resource = stacks[sel]
+	MenuScaffold.titulo_item(vb, "Tu primer compañero  ·  GRATIS", AMBAR)
+	MenuScaffold.banner_item(vb, _vitrina(base), "", "Trae de regalo")
+	vb.add_child(HSeparator.new())
+	row(vb, "Cuesta", "Nada: el primero es gratis", VERDE)
+	row(vb, "Trae", "%s  ·  T1 %s, ya equipada" % [str(base.get("nombre")),
+		Upgrades.rareza_nombre(Upgrades.Rareza.COMUN)])
+	_filas_comunes(vb)
+	note(vb, "Elige su arma aquí al lado: así no baja a puños. Después eliges su nombre y su aspecto.")
+	note(vb, "Los siguientes ya se pagan: el segundo cuesta %d monedas, y cada uno cuesta el doble que el anterior. Se paga UNA vez: no hay sueldos ni cuotas." % roundi(Game.PRECIO_FICHAR_BASE * Game.PRECIO_FICHAR_MULT))
+	var pie: VBoxContainer = acciones()
+	pie.add_child(HSeparator.new())
+	MenuScaffold.pastilla(pie, "Contratar gratis con %s" % str(base.get("nombre")).to_lower(),
+		func() -> void: _abrir_creador(base), true, true)
+
+
+func _ficha_pago(vb: VBoxContainer) -> void:
 	var precio: int = Game.precio_fichar()
-	CreadorPersonaje.abrir(self, "CONTRATAR  ·  %d monedas" % precio,
-		"Llega a nivel 1, sin habilidades y sin equipo. Lo demás lo pones tú.",
+	MenuScaffold.titulo_item(vb, "Contratar a alguien más", AMBAR)
+	vb.add_child(HSeparator.new())
+	row(vb, "Cuesta", "%d monedas" % precio, VERDE if Game.puede_pagar(precio) else ROJO)
+	row(vb, "Tienes", "%d monedas" % Game.money)
+	_filas_comunes(vb)
+	note(vb, "Cada contrato cuesta el doble que el anterior. Se paga UNA vez: no hay sueldos ni cuotas, pero armar y reparar a tres cuesta lo que cuesta.")
+	note(vb, "Llega a nivel 1, con las cinco habilidades a 0 y sin nada equipado. Se le pone equipo desde el menú de personaje (C) y sube sus habilidades peleando, como tú.")
+	var pie: VBoxContainer = acciones()
+	pie.add_child(HSeparator.new())
+	var txt: String = "Contratar por %d monedas" % precio
+	if not Game.puede_pagar(precio):
+		txt = "Te faltan %d monedas" % (precio - Game.money)
+	MenuScaffold.pastilla(pie, txt, func() -> void: _abrir_creador(null), true, Game.puede_pagar(precio))
+
+
+func _filas_comunes(vb: VBoxContainer) -> void:
+	row(vb, "Llega", "Nivel 1, con las cinco habilidades a 0")
+	row(vb, "En plantilla", "%d" % Game.plantilla.size())
+	row(vb, "Bajan contigo", "%d de %d" % [Game.party.size(), Game.PARTY_MAX])
+	if Game.party.size() >= Game.PARTY_MAX:
+		note(vb, "Tu equipo ya va lleno: quien contrates ahora se queda en el Hogar hasta que lo metas en el equipo desde allí.")
+
+
+func _abrir_creador(arma: Resource) -> void:
+	var gratis: bool = Game.fichaje_gratis()
+	var precio: int = Game.precio_fichar()
+	CreadorPersonaje.abrir(self,
+		"CONTRATAR  ·  GRATIS" if gratis else "CONTRATAR  ·  %d monedas" % precio,
+		"Llega a nivel 1 y trae %s de regalo." % str(arma.get("nombre")).to_lower() if gratis and arma != null
+			else "Llega a nivel 1, sin habilidades y sin equipo. Lo demás lo pones tú.",
 		"Contratar", {"color": CreadorPersonaje.COLOR_INICIAL},
 		func(nombre: String, asp: Dictionary):
-			var pj: PersonajeData = Game.fichar_en_taberna(nombre, asp)
+			var pj: PersonajeData = Game.fichar_en_taberna(nombre, asp, arma)
 			if pj == null:
-				_aviso = "No te llega el dinero."
-				_aviso_ok = false
+				decir("No te llega el dinero.", false)
 			elif Game.party.has(pj):
-				_aviso = "%s se une al grupo. Baja contigo desde ya." % pj.nombre
-				_aviso_ok = true
+				decir("%s se une al grupo%s. Baja contigo desde ya." % [pj.nombre,
+					" con su arma puesta" if pj.equipped_main != null else ""])
 			else:
-				_aviso = "%s se une, pero tu equipo va lleno: te espera en el Hogar." % pj.nombre
-				_aviso_ok = true
+				decir("%s se une, pero tu equipo va lleno: te espera en el Hogar." % pj.nombre)
+			sel = 0
 			_rebuild())
+
+
+# ============================================================
+#  LAS COPIAS DE ESCAPARATE: el arma con su T1 en la celda, sin registrar (irian a tu baul) y con
+#  su meta borrada al cerrar.
+# ============================================================
+
+var _vitrinas: Dictionary = {}
+
+func _vitrina(base: Resource) -> Resource:
+	if not _vitrinas.has(base):
+		_vitrinas[base] = Game.crear_item(base, 1, Upgrades.Rareza.COMUN, {}, false)
+	return _vitrinas[base]
+
+
+func _vaciar_vitrina() -> void:
+	for copia in _vitrinas.values():
+		Game.item_meta.erase(copia)
+	_vitrinas.clear()
