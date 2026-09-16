@@ -458,6 +458,7 @@ func _actualizar_rastro(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	z_index = Game.z_frente_a_personajes(self)   # detras o delante de quien tenga pegado
 	if _combat_triggered or data == null:
 		return
 
@@ -1404,6 +1405,9 @@ func morir() -> void:
 		_facing_line.visible = false   # un cadaver ya no mira a ningun sitio
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
+	# Tirado en el suelo: SIEMPRE por debajo de quien le pase por encima. Sin _physics_process ya no se
+	# reordena, y si murio "delante" de alguien se quedaria tapando a todo el que lo pise.
+	z_index = Game.Z_PERSONAJES + Game.Z_DETRAS_DE_PERSONAJES
 	# Arranca su cuenta atras. Solo si no la traia ya puesta: _restaurar_estado revive los cadaveres
 	# llamando a morir(), y sin esto volver al piso les reiniciaria el reloj una y otra vez.
 	if sello_pudre < 0.0:

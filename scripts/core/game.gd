@@ -56,6 +56,30 @@ const PARTY_MAX := 4
 # Godot (4096).
 const Z_PERSONAJES := 1024
 
+# UN ENEMIGO PEGADO A UN PERSONAJE. Con los dos a la misma base, el bicho empataba con la PIEL de la cabeza
+# (z ~0 del muñeco) y un slime que estaba DETRAS se pintaba dentro de la cara (captura del usuario, 16/09).
+# Asi que cuando esta cerca de alguien se aparta del abanico entero de capas del muñeco (-600..2560): por
+# debajo si esta detras (mas arriba en pantalla) y por encima si esta delante. Lejos de todos, la base.
+const Z_DETRAS_DE_PERSONAJES := -700
+const Z_DELANTE_DE_PERSONAJES := 2600
+const CERCA_DE_PERSONAJE := Vector2(56.0, 80.0)
+
+func z_frente_a_personajes(nodo: Node2D) -> int:
+	var p: Vector2 = nodo.global_position
+	var mejor: Node2D = null
+	var mejor_d: float = INF
+	for n in nodo.get_tree().get_nodes_in_group("aliado"):
+		var a := n as Node2D
+		if a == null or not a.visible:
+			continue
+		var d: Vector2 = (a.global_position - p).abs()
+		if d.x < CERCA_DE_PERSONAJE.x and d.y < CERCA_DE_PERSONAJE.y and d.length() < mejor_d:
+			mejor_d = d.length()
+			mejor = a
+	if mejor == null:
+		return Z_PERSONAJES
+	return Z_PERSONAJES + (Z_DETRAS_DE_PERSONAJES if p.y < mejor.global_position.y else Z_DELANTE_DE_PERSONAJES)
+
 # Los LETREROS del mundo van justo encima del suelo y de los objetos, y DEBAJO de los personajes (lo
 # pidio el usuario: que no se pinten por encima de ti).
 const Z_LETRERO := 1

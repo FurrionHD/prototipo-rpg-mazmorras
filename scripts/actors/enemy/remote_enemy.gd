@@ -427,6 +427,7 @@ func marcar_cadaver() -> void:
 		_linea.visible = false
 	remove_from_group("enemy")
 	add_to_group("corpse")   # ahora se le puede pulsar F para extraerle el cristal
+	_cadaver_z = true
 
 
 func _redimensionar(lado: float) -> void:
@@ -446,7 +447,11 @@ func ir_a(pos: Vector2) -> void:
 	_objetivo = pos
 
 
+var _cadaver_z: bool = false
+
 func _physics_process(delta: float) -> void:
+	# Detras o delante de quien tenga pegado (ver Game); de cadaver, siempre en el suelo, debajo.
+	z_index = Game.Z_PERSONAJES + Game.Z_DETRAS_DE_PERSONAJES if _cadaver_z else Game.z_frente_a_personajes(self)
 	_tick_peticion(delta)
 	if _objetivo == Vector2.INF:
 		return
