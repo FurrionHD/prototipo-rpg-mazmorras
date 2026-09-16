@@ -16,6 +16,8 @@ class_name Antorcha
 
 var perfil: int = 0
 var retraso: float = 0.0
+# Encendida a todas horas (la muestra de fuegos de la plaza, para elegirlos de dia).
+var siempre: bool = false
 
 var _llama: AnimatedSprite2D = null
 var _chispas: CPUParticles2D = null
@@ -25,6 +27,8 @@ var _encendida: float = -1.0     # 0..1 lo que se ve ahora (sigue a la hora con 
 var _hasta_rafaga: float = 0.0
 var _respingo: float = 0.0
 var _rng := RandomNumberGenerator.new()
+var _sonido: AudioStreamPlayer2D = null
+var _volumen: float = -17.0
 
 static var _tex_chispa: ImageTexture = null
 
@@ -89,12 +93,17 @@ func _ready() -> void:
 	_humo.position = Vector2(0, -alto * 0.4)
 	add_child(_humo)
 
+	# EL SONIDO: el mismo chisporroteo que el farolillo (lo pidio el usuario), pegado al fuego. Se oye
+	# al acercarte; el brasero, algo mas fuerte y de mas lejos. Apagada, en silencio.
+	_volumen = -12.0 if brasero else -17.0
+	_sonido = Ambiente.pegar(self, "antorcha", _volumen, 260.0 if brasero else 180.0)
+
 	_hasta_rafaga = _rng.randf_range(1.0, 8.0)
-	_aplicar(CicloDia.luces(retraso), true)
+	_aplicar(1.0 if siempre else CicloDia.luces(retraso), true)
 
 
 func _process(delta: float) -> void:
-	var objetivo: float = CicloDia.luces(retraso)
+	var objetivo: float = 1.0 if siempre else CicloDia.luces(retraso)
 	# Encender o apagar lleva ~0.6 s aunque la hora salte de golpe (el panel de debug).
 	var k: float = move_toward(_encendida, objetivo, delta / 0.6)
 	_aplicar(k, false)
@@ -116,6 +125,8 @@ func _aplicar(k: float, inicio: bool) -> void:
 	_llama.visible = k > 0.0
 	_llama.scale = Vector2(1.0, k)
 	_chispas.emitting = k > 0.6
+	if _sonido != null and is_instance_valid(_sonido):
+		_sonido.volume_db = _volumen + linear_to_db(maxf(k, 0.001))
 	if not inicio and antes > 0.0 and k <= 0.0:
 		_humo.restart()
 

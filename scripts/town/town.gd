@@ -31,6 +31,7 @@ func _ready() -> void:
 	_crear_escalera()
 	_crear_jardin()
 	_crear_canas()
+	_muestra_de_fuegos()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
 
@@ -44,6 +45,32 @@ func _crear_luz() -> void:
 	luz = LuzPueblo.new()
 	luz.name = "Luz"
 	add_child(luz)
+
+
+# ⚠️ PROVISIONAL (16/09/2026): los 8 fuegos de FuegoSprites en fila en la plaza, numerados y
+# encendidos siempre, para que el usuario los elija viendolos moverse. QUITAR al colocar las antorchas
+# de verdad (paso 4 del plan del dia y la noche).
+func _muestra_de_fuegos() -> void:
+	var celda: float = float(PuebloPlano.CELDA)
+	# Justo al SUR de la escalera, donde apareces: por encima quedaba debajo del HUD.
+	var y: float = (float(PuebloPlano.ESCALERA.end.y) + 1.6) * celda
+	var x0: float = float(PuebloPlano.PLAZA.position.x) * celda + 12.0
+	for i in FuegoSprites.cuantos():
+		var pos := Vector2(x0 + float(i) * 38.0, y)
+		var a: Antorcha = Antorcha.crear(i, 0.0, 1000 + i)
+		a.siempre = true
+		a.position = pos
+		add_child(a)
+		luz.poner_foco(pos + Vector2(0, -8), 60.0, Color(1.0, 0.82, 0.55), 1.0, 0.0, true, 0.16, 0.5)
+		var l := Label.new()
+		l.text = str(i + 1)
+		l.add_theme_font_size_override("font_size", 10)
+		l.add_theme_color_override("font_outline_color", Color.BLACK)
+		l.add_theme_constant_override("outline_size", 4)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.size = Vector2(20, 14)
+		l.position = pos + Vector2(-10, 2)
+		add_child(l)
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en
