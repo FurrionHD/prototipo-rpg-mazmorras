@@ -46,6 +46,9 @@ func _ready() -> void:
 	if args.has("encargos"):
 		await _pasada_encargos()
 		get_tree().quit()
+	elif args.has("guardar"):
+		await _pasada_guardar()
+		get_tree().quit()
 	elif args.has("capturas"):
 		await _pasada()
 		get_tree().quit()
@@ -190,6 +193,23 @@ func _seccion(nombre: String) -> Object:
 	if nombre in _menu and _menu.get(nombre) != null:
 		return _menu.get(nombre)
 	return _menu
+
+
+# EL BOTON "Guardar materiales" de la pantalla de Equipo: antes, pulsado y despues.
+func _pasada_guardar() -> void:
+	DirAccess.make_dir_recursive_absolute(SALIDA)
+	if Game.materiales.is_empty():
+		for m in Game.almacen_materiales.slice(0, 12):
+			Game.materiales.append(m)
+	var en_bolsa: int = Game.materiales.size()
+	var en_casa: int = Game.almacen_materiales.size()
+	_seccion("equipo")
+	_menu._rebuild()
+	await _captura("guardar_antes")
+	await _seccion("equipo")._guardar_materiales()
+	await _captura("guardar_despues")
+	print("[guardar] bolsa %d -> %d   casa %d -> %d" % [en_bolsa, Game.materiales.size(), en_casa,
+		Game.almacen_materiales.size()])
 
 
 func _pasada() -> void:

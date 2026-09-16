@@ -245,8 +245,34 @@ func _acciones() -> void:
 	ed.custom_minimum_size = Vector2(200, MenuScaffold.ALTO_BOTON)
 
 	var pj: PersonajeData = Game.pj_por_uid(_sel_uid)
-	if pj == null:
+	if pj != null:
+		_acciones_del_elegido(fila, pj)
+	# GUARDAR LOS MATERIALES DESDE AQUI, nada mas entrar en casa (lo pidio el usuario: ir hasta el Cofre
+	# y a su seccion de Materiales cada vuelta era un rodeo). Sin modal: es lo mismo que el boton de
+	# bloque del Cofre y se deshace recogiendo.
+	var guardar: Button = MenuScaffold.pastilla(fila, "Guardar materiales", _guardar_materiales, false,
+		not Game.materiales.is_empty())
+	guardar.custom_minimum_size = Vector2(200, MenuScaffold.ALTO_BOTON)
+	guardar.tooltip_text = "Deja en el cofre de casa todos los materiales que llevas. Los cristales no: esos se venden en la tienda."
+
+
+func _guardar_materiales() -> void:
+	# En multi el baul es compartido: se coge su candado como hace el Cofre, y se suelta al acabar.
+	if not await Net.hogar.abrir_taller():
+		hogar._aviso = "Tu compañero está usando el baúl de materiales."
+		hogar._aviso_ok = false
+		hogar._rebuild()
 		return
+	var n: int = Game.guardar_materiales_en_hogar()
+	if Net.activo:
+		Net.hogar.cerrar_taller()
+	hogar._aviso = "Guardas %d material%s en casa." % [n, "" if n == 1 else "es"] if n > 0 \
+		else "No llevas materiales."
+	hogar._aviso_ok = n > 0
+	hogar._rebuild()
+
+
+func _acciones_del_elegido(fila: HBoxContainer, pj: PersonajeData) -> void:
 	var es_lider: bool = pj == Game.lider()
 	var cab: Button = MenuScaffold.pastilla(fila, "Va en cabeza" if es_lider else "Llevar en cabeza",
 		func():
