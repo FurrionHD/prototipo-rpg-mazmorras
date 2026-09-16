@@ -32,6 +32,9 @@ var clave: String = ""
 var dinamica: bool = false
 
 var _arriba: Sprite2D = null
+# Lo que va pegado a la parte ALTA y tiene que ordenarse igual que ella (la llama del altar): si la parte
+# alta baja por debajo de quien esta delante, esto baja con ella.
+var acompanantes: Array[CanvasItem] = []
 var _abajo: Sprite2D = null
 var _tam: Vector2i = Vector2i.ZERO
 var _pie: int = 0
@@ -60,6 +63,16 @@ static func crear(p_clave: String, huella: Rect2i, p_dinamica: bool = false) -> 
 # que apagarlo antes de add_child no sirve de nada (y las piezas sin parte alta petaban cada frame).
 func _ready() -> void:
 	set_process(dinamica and _arriba != null)
+
+
+# Pega algo a la parte alta (ver acompanantes). 'pos' en px del lienzo de la pieza.
+func acompanar(nodo: CanvasItem, pos: Vector2) -> void:
+	nodo.z_as_relative = false
+	nodo.z_index = Z_ENCIMA + 1
+	if nodo is Node2D:
+		(nodo as Node2D).position = pos
+	add_child(nodo)
+	acompanantes.append(nodo)
 
 
 func _trozo(tex: Texture2D, region: Rect2, z: int) -> Sprite2D:
@@ -97,3 +110,6 @@ func _process(_delta: float) -> void:
 			delante = true
 			break
 	_arriba.z_index = Z_DEBAJO if delante else Z_ENCIMA
+	for a in acompanantes:
+		if is_instance_valid(a):
+			a.z_index = _arriba.z_index + 1

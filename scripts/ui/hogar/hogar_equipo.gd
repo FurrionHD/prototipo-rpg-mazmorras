@@ -59,7 +59,8 @@ func _build_equipo() -> void:
 	_acciones()
 
 
-# Lo que va en cada puesto: [{uid, pj, mio, jugador, nombre, level}], en el orden de la formacion.
+# Lo que va en cada PUESTO: [{uid, pj, mio, jugador, nombre, level}], uno por puesto de la formacion y
+# {} en los puestos vacios (la formacion tiene huecos: ver net_formacion.encajar).
 func _puestos() -> Array:
 	var filas: Dictionary = {}
 	for f in Net.hogar.roster_hogar():
@@ -67,27 +68,40 @@ func _puestos() -> Array:
 	var out: Array = []
 	for u in Net.formacion.formacion():
 		var uid: String = String(u)
-		var mio: PersonajeData = Game.pj_por_uid(uid)
+		var mio: PersonajeData = Game.pj_por_uid(uid) if not uid.is_empty() else null
 		if mio != null:
 			out.append({"uid": uid, "pj": mio, "mio": true, "jugador": 1 if not Net.activo
 				else Net.formacion.num_jugador(Identidad.id), "nombre": mio.nombre, "level": mio.level})
 			continue
 		var f: Dictionary = filas.get(uid, {})
 		if f.is_empty():
+			out.append({})
 			continue
 		var pj: PersonajeData = Game.pj_de_dict(f.get("aspecto", {}))
 		out.append({"uid": uid, "pj": pj, "mio": false,
 			"jugador": Net.formacion.num_jugador(String(f.get("dueno", ""))),
 			"nombre": String(f.get("nombre", "?")), "level": int(f.get("level", 1))})
+	while out.size() < Game.PARTY_MAX:
+		out.append({})
 	# RESPALDO: en compañia la formacion la difunde el host, y entre que cambias tu equipo y llega la
-	# nueva hay un momento en que no te incluye. Los tuyos salen igual, al final, en vez de desaparecer.
+	# nueva hay un momento en que no te incluye. Los tuyos salen igual, en el primer hueco, en vez de
+	# desaparecer.
 	var ya: Array = []
 	for p in out:
-		ya.append(String(p["uid"]))
+		if not p.is_empty():
+			ya.append(String(p["uid"]))
 	for pj in Game.party:
-		if not ya.has(String(pj.uid)) and out.size() < Game.PARTY_MAX:
-			out.append({"uid": String(pj.uid), "pj": pj, "mio": true,
-				"jugador": Net.formacion.num_jugador(Identidad.id), "nombre": pj.nombre, "level": pj.level})
+		if ya.has(String(pj.uid)):
+			continue
+		var libre: int = -1
+		for i in out.size():
+			if (out[i] as Dictionary).is_empty():
+				libre = i
+				break
+		if libre < 0:
+			break
+		out[libre] = {"uid": String(pj.uid), "pj": pj, "mio": true,
+			"jugador": Net.formacion.num_jugador(Identidad.id), "nombre": pj.nombre, "level": pj.level}
 	return out
 
 
@@ -262,11 +276,8 @@ func _mirar_orden_pendiente() -> void:
 		_orden_pendiente = []
 		return
 	var actual: Array = Net.formacion.formacion()
-	if actual.size() != _orden_pendiente.size():
+	if not Net.formacion._mismo_conjunto(actual, _orden_pendiente):
 		return
-	for u in _orden_pendiente:
-		if not actual.has(u):
-			return
 	var orden: Array = _orden_pendiente
 	_orden_pendiente = []
 	if orden != actual:

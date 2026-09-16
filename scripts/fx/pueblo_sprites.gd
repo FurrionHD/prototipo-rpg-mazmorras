@@ -171,14 +171,19 @@ static func _escalera() -> PackedByteArray:
 			var ang: float = atan2(dy, dx)
 			# La PARED DE ENFRENTE: desde el sur se ve la cara interior del lado norte del pozo, por
 			# debajo de su borde. Es lo que le da hondura: sin ella parece un disco pintado.
+			#
+			# Va OSCURA y con las hiladas CURVAS, siguiendo el borde del pozo. La primera version era
+			# piedra clara con juntas rectas y el usuario la leyo como el adoquin de la calle "viendose a
+			# traves" del pozo.
 			var ry: float = dy + 14.0
 			if dy < 0.0 and sqrt(dx * dx + ry * ry) > POZO_R:
-				var hilada: int = int(floor((dy + 60.0) / 5.0))
-				var jv: bool = int(floor(float(x) + float(hilada) * 5.0)) % 9 == 0 or int(dy + 60.0) % 5 == 0
-				var sombra: float = clampf((POZO_R + dy) / 14.0, 0.0, 1.0)
-				var col: Color = PIEDRA[2].lerp(PIEDRA[0], sombra)
-				if jv:
-					col = col.darkened(0.35)
+				var borde_y: float = -sqrt(maxf(0.0, POZO_R * POZO_R - dx * dx))   # el labio del pozo en esta x
+				var bajo: float = clampf(dy - borde_y, 0.0, 14.0)                  # cuanto por debajo del labio
+				var hil: int = int(floor(bajo / 3.5))
+				var junta: bool = fposmod(bajo, 3.5) < 0.9 or posmod(x + hil * 4, 8) == 0
+				var col: Color = PIEDRA[1].lerp(NEGRO, clampf(bajo / 14.0, 0.0, 1.0) * 0.85)
+				if junta:
+					col = col.darkened(0.45)
 				_px(d, w, h, x, y, col)
 				continue
 			# EL EJE, en el centro: su cabeza coge algo de luz.
@@ -273,19 +278,17 @@ static func _columna() -> PackedByteArray:
 				if dx > semi - 1.0 or y == fuste_top - 11:
 					col = NEGRO if y != fuste_top - 11 else Color(0.95, 0.80, 0.35)
 				_px(d, w, h, x, y, col)
-	# La llama: dorada con el corazon casi blanco.
-	for y in range(0, fuste_top - 10):
-		for x in w:
-			var dx: float = float(x) + 0.5 - 16.0
-			var alto: float = float(fuste_top - 10 - y)
-			var semi: float = 5.5 * (1.0 - pow(alto / 10.0, 1.4)) + sin(alto * 0.9) * 0.6
-			if alto > 10.0 or absf(dx) > semi:
-				continue
-			var nucleo: float = absf(dx) / maxf(semi, 0.5)
-			var col: Color = Color(1.0, 0.97, 0.80) if nucleo < 0.35 and alto < 6.0 else \
-				(Color(1.0, 0.80, 0.30) if nucleo < 0.75 else Color(0.90, 0.50, 0.12))
-			_px(d, w, h, x, y, col)
+	# Las BRASAS en el cuenco. La LLAMA ya no se pinta: es fuego de verdad, grande y blanco, con
+	# particulas (ver LlamaAltar), que el usuario queria "que parezca fuego de verdad".
+	for x in range(10, 23):
+		var c: Color = Color(1.0, 0.95, 0.85) if posmod(x, 3) == 0 else Color(0.85, 0.88, 0.95)
+		_px(d, w, h, x, fuste_top - 11, c)
 	return d
+
+
+# Donde nace la llama del altar, en px del lienzo de la columna.
+static func boca_altar() -> Vector2:
+	return Vector2(16, 20 - 12)
 
 
 # Un bloque de piedra visto desde el sur: TAPA (planta, clara) de 'fondo' px y CARA (vertical, mas

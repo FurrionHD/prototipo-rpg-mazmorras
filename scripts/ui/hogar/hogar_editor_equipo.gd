@@ -23,8 +23,9 @@ const RETRATOS_POR_FILA := 5
 var hogar = null
 var vista = null   # hogar_equipo.gd
 var abierto: bool = false
-var _borrador: Array = []    # uids de la formacion que se esta montando, de izquierda a derecha
+var _borrador: Array = []    # un uid por PUESTO ("" = vacio) de la formacion que se esta montando
 var _puestos: Dictionary = {}   # uid -> el puesto tal como lo da la vista (nombre, nivel, jugador...)
+var _base: Array = []       # la formacion del host cuando se abrio (o se refresco) el editor
 
 
 func _init(pantalla, la_vista) -> void:
@@ -36,9 +37,44 @@ func abrir() -> void:
 	abierto = true
 	_borrador = []
 	_puestos = {}
+	_base = Net.formacion.formacion().duplicate()
 	for p in vista._puestos():
+		if (p as Dictionary).is_empty():
+			_borrador.append("")
+			continue
 		_borrador.append(String(p["uid"]))
 		_puestos[String(p["uid"])] = p
+
+
+# EN TIEMPO REAL: si mientras editas el otro jugador cambia lo suyo (llega otra formacion del host), sus
+# personajes se ponen donde estan AHORA y los tuyos se quedan donde los tenias en el borrador. Si uno de
+# los suyos cae justo en un puesto tuyo, el tuyo se corre al primer hueco libre.
+func _refrescar_ajenos() -> void:
+	var actual: Array = Net.formacion.formacion()
+	if actual == _base:
+		return
+	_base = actual.duplicate()
+	var nuevos: Array = vista._puestos()
+	for i in _borrador.size():
+		var u: String = String(_borrador[i])
+		if not u.is_empty() and Game.pj_por_uid(u) == null:
+			_borrador[i] = ""                      # ajeno: se recoloca abajo con lo que diga el host
+	var desplazados: Array = []
+	for i in nuevos.size():
+		var p: Dictionary = nuevos[i]
+		if p.is_empty() or bool(p["mio"]):
+			continue
+		var uid: String = String(p["uid"])
+		_puestos[uid] = p
+		while _borrador.size() <= i:
+			_borrador.append("")
+		if not String(_borrador[i]).is_empty():
+			desplazados.append(_borrador[i])
+		_borrador[i] = uid
+	for u in desplazados:
+		var libre: int = _borrador.find("")
+		if libre >= 0:
+			_borrador[libre] = u
 
 
 func cancelar() -> void:
@@ -52,6 +88,8 @@ func cancelar() -> void:
 # ============================================================
 
 func pintar() -> void:
+	if Net.activo:
+		_refrescar_ajenos()
 	hogar._lista_scroll.visible = true
 	hogar._lista_scroll.custom_minimum_size = Vector2(RETRATOS_POR_FILA * (MenuScaffold.LADO_RETRATO + 10.0) + 20.0, 0)
 	hogar._titulo_seccion.text = "Editar equipo"
@@ -63,9 +101,13 @@ func pintar() -> void:
 func _mios() -> Array:
 	var out: Array = []
 	for u in _borrador:
-		if Game.pj_por_uid(String(u)) != null:
+		if not String(u).is_empty() and Game.pj_por_uid(String(u)) != null:
 			out.append(u)
 	return out
+
+
+func _ocupados() -> int:
+	return _borrador.filter(func(u): return not String(u).is_empty()).size()
 
 
 # --- IZQUIERDA: MIS PERSONAJES ---
@@ -273,7 +315,8 @@ func _alternar(pj: PersonajeData) -> void:
 		if _mios().size() <= 1:
 			_decir("Tiene que ir al menos uno de los tuyos.", false)
 			return
-		_borrador.erase(uid)
+		# Deja su puesto VACIO: nadie se corre, y al volver a añadirlo puedes ponerlo donde estaba.
+		_borrador[_borrador.find(uid)] = ""
 		_decir("%s se queda en casa." % pj.nombre, true)
 		return
 	if Game.esta_de_encargo(pj):
@@ -282,20 +325,28 @@ func _alternar(pj: PersonajeData) -> void:
 	if _mios().size() >= vista._cupo():
 		_decir("Solo caben %d de los tuyos: envía a casa a otro primero." % vista._cupo(), false)
 		return
-	if _borrador.size() >= Game.PARTY_MAX:
+	var libre: int = _borrador.find("")
+	if libre < 0 and _borrador.size() >= Game.PARTY_MAX:
 		_decir("El equipo está lleno.", false)
 		return
-	_borrador.append(uid)
+	if libre >= 0:
+		_borrador[libre] = uid
+	else:
+		_borrador.append(uid)
 	_decir("%s se une al equipo." % pj.nombre, true)
 
 
-# Arrastrar de un puesto a otro: el de 'desde' pasa a 'hasta' y los de en medio se corren.
+# Arrastrar de un puesto a otro: se INTERCAMBIAN (y si el de destino esta vacio, simplemente se mueve).
+# Antes se insertaba corriendo a los de en medio, y a un puesto vacio no se podia llevar a nadie: se
+# recolocaba solo en el primero.
 func soltar(desde: int, hasta: int) -> void:
-	if desde < 0 or desde >= _borrador.size() or desde == hasta:
+	if desde < 0 or desde >= _borrador.size() or desde == hasta or hasta < 0:
 		return
-	var uid: String = String(_borrador[desde])
-	_borrador.remove_at(desde)
-	_borrador.insert(clampi(hasta, 0, _borrador.size()), uid)
+	while _borrador.size() <= hasta:
+		_borrador.append("")
+	var a = _borrador[desde]
+	_borrador[desde] = _borrador[hasta]
+	_borrador[hasta] = a
 	hogar._rebuild()
 
 
@@ -307,6 +358,8 @@ func confirmar() -> void:
 		return
 	abierto = false
 	vista._avisar_cambio_lider()
+	if not Net.activo:
+		Net.formacion.fijar_solo(_borrador)
 	if Net.activo:
 		# El ORDEN entre jugadores lo decide el host: se le pide cuando la formacion ya incluya a los
 		# que acabas de añadir (llega por red, ver hogar_equipo._orden_pendiente).
@@ -339,6 +392,7 @@ class Hueco extends Control:
 		set_drag_preview(l)
 		return {"hueco_formacion": idx}
 
+	# Se puede soltar encima de CUALQUIER puesto, tambien de uno vacio.
 	func _can_drop_data(_pos: Vector2, data: Variant) -> bool:
 		return data is Dictionary and (data as Dictionary).has("hueco_formacion")
 

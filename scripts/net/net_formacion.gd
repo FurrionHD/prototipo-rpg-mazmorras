@@ -13,6 +13,11 @@
 #  jugador, el host se lo PREGUNTA a su dueño. Si rechaza (o no contesta en PLAZO_PETICION segundos),
 #  se le avisa al que lo pidio de que no quiere el cambio y no se toca nada.
 #
+#  PUESTOS FIJOS CON HUECOS (16/09, lo pidio el usuario): la formacion son Game.PARTY_MAX puestos y un
+#  puesto puede estar VACIO (""). Antes era una lista compacta: quitar a uno corria a los de detras y
+#  no se podia dejar a nadie en el puesto 2 con el 1 libre, asi que en compañia, quitar a tu personaje y
+#  volver a ponerlo obligaba a mover otra vez al de tu amigo. Ver encajar().
+#
 #  EL NUMERO DE JUGADOR (P1, P2...): el host es el P1 y el resto va por ORDEN DE LLEGADA. Lo asigna y
 #  difunde el host, igual que el recuento de humanos: en estrella un cliente no ve a los otros clientes.
 # ============================================================
@@ -30,6 +35,9 @@ var _llegada: Array = []       # identidades, por orden de llegada (la del host 
 var _peticiones: Dictionary = {}   # id -> {nueva, pide, pide_peer, faltan, t}
 var _siguiente_id: int = 1
 
+# --- SOLITARIO: los puestos (con huecos) de tu equipo ---
+var _formacion_solo: Array = []
+
 # --- CLIENTE: lo que difundio el host ---
 var _formacion_mirror: Array = []
 var _llegada_mirror: Array = []
@@ -40,13 +48,42 @@ var _llegada_mirror: Array = []
 # ============================================================
 
 # La formacion vigente (uids).
+# PUESTOS: un uid por puesto, "" = vacio.
 func formacion() -> Array:
 	if not Net.activo:
-		var out: Array = []
+		var van: Array = []
 		for pj in Game.party:
-			out.append(String(pj.uid))
-		return out
+			van.append(String(pj.uid))
+		_formacion_solo = encajar(_formacion_solo, van)
+		return _formacion_solo
 	return _formacion_mirror if Net._soy_cliente() else _formacion
+
+
+# ENCAJAR a quienes van en unos puestos: el que ya tenia puesto se queda EN EL SUYO, el que ya no va deja
+# su puesto VACIO (sin correr a nadie) y el nuevo ocupa el primer hueco libre.
+static func encajar(puestos: Array, van: Array) -> Array:
+	var out: Array = puestos.duplicate()
+	while out.size() < Game.PARTY_MAX:
+		out.append("")
+	for i in out.size():
+		if not String(out[i]).is_empty() and not van.has(String(out[i])):
+			out[i] = ""
+	for u in van:
+		if String(u).is_empty() or out.has(u):
+			continue
+		var libre: int = out.find("")
+		if libre >= 0:
+			out[libre] = u
+		else:
+			out.append(u)
+	while out.size() > Game.PARTY_MAX and String(out[-1]).is_empty():
+		out.pop_back()
+	return out
+
+
+# SOLITARIO: los puestos que se confirmaron en el editor del hogar.
+func fijar_solo(puestos: Array) -> void:
+	_formacion_solo = puestos.duplicate()
 
 
 func pos_de(uid: String) -> int:
@@ -98,13 +135,8 @@ func reconciliar() -> void:
 		for f in filas:
 			if bool(f.get("en_equipo", false)):
 				van.append(String(f.get("uid", "")))
-	# Fuera los que ya no van; los nuevos, AL FINAL (sin mover a nadie de su sitio).
-	for u in _formacion.duplicate():
-		if not van.has(u):
-			_formacion.erase(u)
-	for u in van:
-		if not _formacion.has(u):
-			_formacion.append(u)
+	# Los que ya no van dejan su puesto VACIO; los nuevos, al primer hueco (sin mover a nadie de su sitio).
+	_formacion = encajar(_formacion, van)
 
 
 # El host manda la formacion a todos. Va DESPUES de _set_roster_hogar (ver Net.hogar._difundir_hogar).
@@ -127,7 +159,7 @@ func _set_formacion(lista: Array, llegada: Array) -> void:
 # 'nueva' = los MISMOS uids que la formacion actual, en otro orden. En solitario se aplica al momento.
 func pedir_orden(nueva: Array) -> void:
 	if not Net.activo:
-		Game.aplicar_equipo(nueva)
+		fijar_solo(nueva)
 		return
 	if Net._soy_cliente():
 		_pedir_orden.rpc_id(1, nueva)
@@ -156,6 +188,8 @@ func _resolver_orden(nueva: Array, pide: String, pide_nombre: String, pide_peer:
 	var faltan: Array = []
 	for i in nueva.size():
 		var u: String = String(nueva[i])
+		if u.is_empty():
+			continue
 		var dueno: String = String(duenos.get(u, ""))
 		if dueno != pide and _formacion.find(u) != i and not faltan.has(dueno) and not dueno.is_empty():
 			faltan.append(dueno)
@@ -237,11 +271,14 @@ func _aplicar(nueva: Array) -> void:
 #  AYUDAS
 # ============================================================
 
+# ¿Los mismos personajes, esten en el puesto que esten? Los huecos no cuentan.
 func _mismo_conjunto(a: Array, b: Array) -> bool:
-	if a.size() != b.size():
+	var sa: Array = a.filter(func(u): return not String(u).is_empty())
+	var sb: Array = b.filter(func(u): return not String(u).is_empty())
+	if sa.size() != sb.size():
 		return false
-	for u in a:
-		if not b.has(u):
+	for u in sa:
+		if not sb.has(u):
 			return false
 	return true
 
@@ -281,6 +318,8 @@ func _texto_peticion(nueva: Array, duenos: Dictionary, pide_nombre: String) -> S
 	var cambios: Array = []
 	for i in nueva.size():
 		var u: String = String(nueva[i])
+		if u.is_empty():
+			continue
 		if _formacion.find(u) != i:
 			cambios.append("%s al puesto %d" % [nombres.get(u, "?"), i + 1])
 	return "%s quiere cambiar el orden del equipo: %s." % [pide_nombre, ", ".join(cambios)]

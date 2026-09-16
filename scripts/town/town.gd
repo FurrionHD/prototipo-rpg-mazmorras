@@ -242,7 +242,10 @@ func _crear_jardin() -> void:
 			var m: int = 15 - TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.se_une_la_verja(v))
 			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE), true))
 	var a: Vector2i = PuebloPlano.ALTAR
-	add_child(PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true))
+	var columna: PiezaPueblo = PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true)
+	add_child(columna)
+	# El fuego blanco del altar, de verdad (LlamaAltar), en la boca del cuenco.
+	columna.acompanar(LlamaAltar.crear(), PuebloSprites.boca_altar())
 	add_child(_puerta("res://scripts/town/altar.gd", a + Vector2i(0, 1), "ALTAR"))
 
 
