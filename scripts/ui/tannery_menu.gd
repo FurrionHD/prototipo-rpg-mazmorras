@@ -74,6 +74,9 @@ var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
 # La fila de FILTROS de la columna izquierda (el tier). La rellena cada pestaña; vacia, desaparece.
 var barra_sub: HBoxContainer = null
+# La fila de retratos: quien esta trabajando en la peleteria (ver Game.artesano).
+var _fila_artesano: HBoxContainer = null
+var _fila_artesano_rotulo: Label = null
 
 var refinar = null    # PeleteriaRefinar (vale para Curtir y para Correas)
 var mochilas = null   # PeleteriaMochilas
@@ -153,6 +156,18 @@ func _ready() -> void:
 	col_izq.add_theme_constant_override("separation", 6)
 	split.add_child(col_izq)
 	split.move_child(col_izq, 0)
+	# QUIÉN TRABAJA: la fila de retratos, arriba de la columna izquierda. Es la misma pieza que el
+	# menú de personaje y el altar (MenuScaffold.fila_retratos), con su raya entre los que bajan hoy
+	# y los que se quedan en casa. Va aquí y no en la cabecera porque la cabecera está oculta (deja
+	# un palmo muerto), y aquí queda al lado de lo que se elige.
+	var rotulo := Label.new()
+	rotulo.text = "QUIÉN TRABAJA"
+	rotulo.add_theme_font_size_override("font_size", 11)
+	rotulo.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	_fila_artesano_rotulo = rotulo
+	col_izq.add_child(rotulo)
+	_fila_artesano = MenuScaffold.fila_retratos(col_izq)
+
 	# EL FILTRO POR TIER, encima de la rejilla y dentro de su columna (igual que en el inventario y
 	# el hogar). Con la partida llena son dieciseis montones de piel de tres tiers distintos, y sin
 	# esto hay que barrer la rejilla entera para encontrar la del tier que vas a curtir.
@@ -308,12 +323,46 @@ func _rebuild_real() -> void:
 	if Net.activo and _tab != TAB_MOCHILAS:
 		Net.hogar.reservar({})
 
+	_pintar_artesanos()
 	match _tab:
 		TAB_MOCHILAS: mochilas.build()
 		_: refinar.build(_tab == TAB_CORREAS)
 	_partir_lineas(_content)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_aviso_lbl.visible = _aviso != ""
+
+
+# ============================================================
+#  QUIEN TRABAJA
+#  Toda tu plantilla: primero los que bajan hoy y detras los que se quedan en el Hogar, con la raya
+#  entre medias que pinta MenuScaffold.retratos. No se filtra por "tiene Peleteria": mandar a uno que
+#  no la tiene es justo como la aprende (ver Game.artesano).
+# ============================================================
+
+func _gente() -> Array:
+	var out: Array = []
+	out.append_array(Game.party)
+	out.append_array(Game.en_el_banquillo())
+	return out
+
+
+func _pintar_artesanos() -> void:
+	var gente: Array = _gente()
+	# Con una sola persona no hay nada que elegir y retratos() no pinta nada: fuera tambien el rotulo,
+	# o se queda un titulo suelto encima de la nada.
+	_fila_artesano_rotulo.visible = gente.size() > 1
+	var actual: PersonajeData = Game.artesano()
+	MenuScaffold.retratos(_fila_artesano, gente, gente.find(actual), Game.party.size(), _on_artesano)
+
+
+func _on_artesano(i: int) -> void:
+	var gente: Array = _gente()
+	if i < 0 or i >= gente.size():
+		return
+	Game.poner_artesano(gente[i] as PersonajeData)
+	# Repintar entero y no solo la fila: con el artesano cambia el bonus del oficio, y con el la
+	# linea de "Peleteria activa" y lo que puede salir.
+	cambiar_pantalla()
 
 
 # La ficha va en un scroll SIN barra horizontal, y ahi una etiqueta que no parte linea impone su
@@ -437,9 +486,15 @@ static func cal_txt(cal: int) -> String:
 # Linea de sabor del oficio, SIN numeros (misma regla que en la forja, ver forge_menu._estado_oficio):
 # el contador es OCULTO porque es lo que decide si la habilidad te sale al subir de nivel. Bloqueada
 # -> no se pinta nada, ni el separador. Los numeros, en el panel de debug.
+# Se pregunta por EL ARTESANO y no por el lider: el bonus lo pone quien trabaja, asi que decir
+# "activa" porque la tiene el que va en cabeza seria mentir sobre lo que va a salir.
 func estado_peleteria(vb: VBoxContainer) -> void:
-	if not Game.tiene_desarrollo("peleteria"):
-		return
+	var pj: PersonajeData = Game.artesano()
 	vb.add_child(HSeparator.new())
-	row(vb, "Peletería", "activa", VERDE)
+	if Game.desarrollo_rango("peleteria", pj) <= 0:
+		row(vb, "Peletería", "%s no la tiene" % pj.nombre, GRIS)
+		note(vb, "Sale lo que metas, sin escalón de regalo. Pero trabajando aquí es como se aprende: "
+			+ "el oficio se le desbloquea al subir de nivel.")
+		return
+	row(vb, "Peletería", "activa  ·  %s" % pj.nombre, VERDE)
 	note(vb, "Tira por sacar el cuero un escalón por encima de la piel que metas.")

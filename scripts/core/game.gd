@@ -200,6 +200,45 @@ func _pj_en_mundo(uid: String) -> PersonajeData:
 	return null
 
 
+# ============================================================
+#  EL ARTESANO: quien está trabajando en el oficio
+#
+#  Lo eliges tú en la pantalla del oficio, y NO tiene por qué ser el líder: puedes mandar a curtir a
+#  cualquiera de tu plantilla, incluidos los que hoy se quedan en el Hogar (que es donde tiene
+#  sentido: mientras tú bajas, alguien se queda trabajando).
+#
+#  Lo que cambia según quién sea:
+#    - la EXPERIENCIA del oficio se le apunta A ÉL (peleteria_exp), que es lo que desbloquea su
+#      desarrollo al subir de nivel;
+#    - y el BONUS del oficio lo pone ÉL (peleteria_activa): mandar a uno que no lo tiene curte peor,
+#      pero es así como ese personaje aprende. Elegir tiene peso a propósito.
+#
+#  Se guarda por UID y no por referencia: el objeto puede reconstruirse al cargar o al llegar del
+#  mundo compartido. Si ese uid ya no está en la plantilla (lo mudaste, cargaste otra partida), cae
+#  solo en el líder, que es lo que hacía siempre antes de que esto existiera.
+#
+#  De momento solo lo usa la PELETERÍA. La herrería, la carpintería, la boticaria y la cocina siguen
+#  con el líder hasta que sus pantallas tengan su propio selector.
+# ============================================================
+var artesano_uid: String = ""
+
+func artesano() -> PersonajeData:
+	var pj: PersonajeData = pj_por_uid(artesano_uid)
+	return pj if pj != null else lider()
+
+
+# 'pj' = null o el líder -> se vuelve al comportamiento de siempre (manda quien vaya en cabeza).
+func poner_artesano(pj: PersonajeData) -> void:
+	if pj == null or pj == lider():
+		artesano_uid = ""
+		return
+	# El uid puede estar vacío: solo se pone al fichar, y los de un save viejo (o los que monta una
+	# herramienta a mano) no han pasado por ahí. Sin esto, elegir a ese personaje guardaba "" y se
+	# quedaba mandando el líder, en silencio.
+	asegurar_uid(pj)
+	artesano_uid = String(pj.uid)
+
+
 # El de la plantilla con ese uid, o null. Es como los encargos vuelven a encontrar a quien mandaron.
 func pj_por_uid(uid: String) -> PersonajeData:
 	if uid.is_empty():
@@ -1913,6 +1952,9 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	money = 0
 	mezcla_exp = 0.0
 	metalurgia_exp = 0.0
+	# Partida nueva: el artesano se olvida ANTES de poner el contador a cero, o se lo pondria al de
+	# la partida anterior (ver artesano()).
+	artesano_uid = ""
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
 	carpinteria_exp = 0.0
@@ -2075,7 +2117,7 @@ func exportar_partida() -> SaveData:
 	d.money = money
 	d.mezcla_exp = mezcla_exp
 	d.metalurgia_exp = metalurgia_exp
-	d.peleteria_exp = peleteria_exp
+	d.peleteria_exp = lider().peleteria_exp
 	d.herreria_exp = herreria_exp
 	d.carpinteria_exp = carpinteria_exp
 	d.cocina_exp = cocina_exp
@@ -2266,7 +2308,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
-	jd.peleteria_exp = peleteria_exp
+	jd.peleteria_exp = lider().peleteria_exp
 	jd.herreria_exp = herreria_exp
 	jd.carpinteria_exp = carpinteria_exp
 	jd.cocina_exp = cocina_exp
@@ -2516,7 +2558,7 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
 	mezcla_exp = jd.mezcla_exp
 	metalurgia_exp = jd.metalurgia_exp
-	peleteria_exp = jd.peleteria_exp
+	lider().peleteria_exp = jd.peleteria_exp
 	herreria_exp = jd.herreria_exp
 	carpinteria_exp = jd.carpinteria_exp
 	cocina_exp = jd.cocina_exp
@@ -2696,7 +2738,7 @@ func importar_partida(d: SaveData) -> void:
 	money = d.money
 	mezcla_exp = d.mezcla_exp
 	metalurgia_exp = d.metalurgia_exp
-	peleteria_exp = d.peleteria_exp
+	lider().peleteria_exp = d.peleteria_exp
 	herreria_exp = d.herreria_exp
 	carpinteria_exp = d.carpinteria_exp
 	cocina_exp = d.cocina_exp
@@ -9226,9 +9268,12 @@ func _devolver_farolillo_perdido() -> void:
 var metalurgia_exp: float:
 	get: return lider().metalurgia_exp
 	set(v): lider().metalurgia_exp = v
+# PELETERIA no va por el lider sino por EL ARTESANO que elijas en la pantalla (ver artesano()): lo
+# que curtes lo curte alguien, y es ese alguien quien aprende el oficio. Los otros tres siguen en el
+# lider hasta que sus pantallas tengan tambien su selector.
 var peleteria_exp: float:
-	get: return lider().peleteria_exp
-	set(v): lider().peleteria_exp = v
+	get: return artesano().peleteria_exp
+	set(v): artesano().peleteria_exp = v
 var herreria_exp: float:
 	get: return lider().herreria_exp
 	set(v): lider().herreria_exp = v
@@ -9351,8 +9396,9 @@ var habilidad_mezcla: bool = false   # Mezcla (boticaria): sube la prob. de dobl
 func metalurgia_activa() -> float:
 	return factor_desarrollo("metalurgia")
 
+# PELETERIA la pone EL ARTESANO que esté al mando en la peletería, no el líder: ver artesano().
 func peleteria_activa() -> float:
-	return factor_desarrollo("peleteria")
+	return factor_desarrollo("peleteria", artesano())
 
 func herreria_activa() -> float:
 	return factor_desarrollo("herreria")
@@ -12512,10 +12558,17 @@ func desarrollos_disponibles() -> Array:
 
 # ¿Te has ganado el DESBLOQUEO (rango I) de este desarrollo? El contador llega a la base y, si es
 # solo_nivel_1, estas en el nivel 1. El progreso vive en un contador OCULTO (ver DESARROLLOS).
-func _req_cumplido(d: Dictionary) -> bool:
+func _req_cumplido(d: Dictionary, pj: PersonajeData = null) -> bool:
 	if bool(d.get("solo_nivel_1", false)) and player_level != 1:
 		return false
-	return float(get(str(d.get("contador", "")))) >= float(d.get("umbral", 0.0))
+	# El contador se lee DE LA PERSONA a la que se le va a ofrecer, igual que en el rank-up (ver
+	# _subir_rangos_desarrollo). Leerlo por Game no vale desde que existe el ARTESANO: peleteria_exp
+	# devuelve el del que esté curtiendo, así que al líder se le habría ofrecido la Peletería por el
+	# trabajo de otro. El respaldo por Game se queda para un contador que no viva en la ficha.
+	var p: PersonajeData = pj if pj != null else lider()
+	var nombre_cont: String = str(d.get("contador", ""))
+	var cont: float = float(p.get(nombre_cont)) if nombre_cont in p else float(get(nombre_cont))
+	return cont >= float(d.get("umbral", 0.0))
 
 # RANK-UP automatico: sube el rango de cada desarrollo YA elegido mientras su contador cruce el
 # umbral del rango siguiente (base × 2.5^(rango-1)). Lo llama actualizar_estado: no hay que subir de

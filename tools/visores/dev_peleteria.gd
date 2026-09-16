@@ -146,6 +146,38 @@ func _ready() -> void:
 		_ok("coser deja %d mochila(s) en el baúl" % piezas, Game.owned_mochilas.size() == antes + piezas)
 		_ok("y suelta la selección", M._sel_heb.is_empty() and M._sel_cor.is_empty())
 
+	print("\n=== QUIÉN TRABAJA ===")
+	await _ir(men, men.TAB_CURTIR)
+	var gente: Array = men._gente()
+	_ok("la fila lleva a toda la plantilla, no solo al equipo", gente.size() == Game.plantilla.size())
+	_ok("y empieza por el líder", Game.artesano() == Game.lider())
+	if gente.size() > 1:
+		var otro: PersonajeData = null
+		for p in gente:
+			if p != Game.lider():
+				otro = p
+				break
+		men._on_artesano(gente.find(otro))
+		await get_tree().process_frame
+		_ok("elegir a otro lo pone al mando", Game.artesano() == otro)
+		# LA EXCELIA DEL OFICIO VA AL ELEGIDO, que es el motivo de todo esto.
+		var antes_otro: float = otro.peleteria_exp
+		var antes_lider: float = Game.lider().peleteria_exp
+		var i_algo: int = -1
+		for i in men.stacks.size():
+			if int(men.stacks[i]["tengo"]) / maxi(1, int(men.stacks[i]["por_uno"])) > 0:
+				i_algo = i
+				break
+		if i_algo >= 0:
+			men.sel = i_algo
+			R._cant = 1
+			await R._refinar(false, men.stacks[i_algo])
+			_ok("curtir le suma la experiencia A ÉL", otro.peleteria_exp > antes_otro)
+			_ok("y no al líder", is_equal_approx(Game.lider().peleteria_exp, antes_lider))
+		men._on_artesano(gente.find(Game.lider()))
+		await get_tree().process_frame
+		_ok("volver al líder lo deja como estaba", Game.artesano() == Game.lider())
+
 	print("\n=== SIN NADA QUE CURTIR ===")
 	Game.almacen_materiales.clear()
 	await _ir(men, men.TAB_CURTIR)
