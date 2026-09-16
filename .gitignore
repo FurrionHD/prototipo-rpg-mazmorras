@@ -56,6 +56,12 @@ dev_*.png
 !dev_altar.*
 !dev_hogar.*
 !dev_pueblo.*
+# QUINTA (16/09/2026): ver_noche.bat se subio en su commit y dev_noche.* se quedo fuera, igual que las otras.
+# 'git status' tampoco lo enseña (un ignorado no sale ni como "??"). Se vio mirando que habia sin subir.
+!dev_noche.*
+# Y al revisar TODOS los .bat contra git salieron dos mas de antes, igual de rotos en otra maquina:
+!dev_escudos.*
+!dev_materiales.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.
