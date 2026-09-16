@@ -1957,6 +1957,7 @@ func _refrescar_cartel_boss() -> void:
 		if mundo == null:
 			mundo = self
 		mundo.add_child(_boss_cartel)
+		Game.elevar_letrero(_boss_cartel)
 	_boss_cartel.position = _boss_pos
 	_boss_cartel.visible = true
 	var m: int = int(falta) / 60

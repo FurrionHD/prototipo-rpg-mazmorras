@@ -20,6 +20,11 @@ func _ready() -> void:
 	# capturar. En los pisos 2+ se aparta a la quinta puñeta (ver DungeonFloor._colocar_actores):
 	# su celda cae fuera del mapa, la libreta la descarta sola y no hace falta comprobarlo aqui.
 	add_to_group("salida_pueblo")
+	# Su letrero ("← PUEBLO" en la mazmorra) viene de la escena: se sube por encima de los personajes
+	# como el resto de letreros del mundo (Game.elevar_letrero).
+	var letrero: Label = get_node_or_null("Sprite/Label") as Label
+	if letrero != null:
+		Game.elevar_letrero(letrero)
 	_detectar_destino()
 	_vestir()
 

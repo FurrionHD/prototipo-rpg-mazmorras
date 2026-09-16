@@ -107,6 +107,7 @@ func _ready() -> void:
 	# los 32 px de antes (ver PoseJugador.ALTO_MUNDO) y la etiqueta le quedaba tapada por el pecho.
 	_nombre.position = Vector2(-60, -PoseJugador.ALTO_MUNDO + PoseJugador.PIES_BAJO_NODO - 18)
 	_nombre.size = Vector2(120, 16)
+	Game.elevar_letrero(_nombre)   # por encima de TODOS los muñecos, no solo del suyo
 	add_child(_nombre)
 
 

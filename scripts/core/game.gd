@@ -49,10 +49,16 @@ const PARTY_MAX := 4
 const Z_LETRERO := 3500
 
 
-# Pone un letrero del mundo por encima de los personajes (ver Z_LETRERO).
+# Pone un letrero del mundo por encima de los personajes (ver Z_LETRERO) y, si es un Label, con
+# CONTORNO NEGRO: letras blancas sin borde desaparecian sobre la piel y el pelo del personaje.
 static func elevar_letrero(c: CanvasItem) -> void:
 	c.z_as_relative = false
 	c.z_index = Z_LETRERO
+	if c is Label:
+		var l := c as Label
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		if not l.has_theme_constant_override("outline_size"):
+			l.add_theme_constant_override("outline_size", 4)
 # Arrancan con una persona para que nadie tenga que comprobar si el array esta vacio: una partida
 # siempre eres al menos tu. nueva_partida()/importar_partida() las reemplazan.
 var plantilla: Array[PersonajeData] = []
