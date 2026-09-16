@@ -257,8 +257,13 @@ func _build_hitboxes(vb: VBoxContainer) -> void:
 
 # LA HORA DEL PUEBLO (CicloDia). Un dia entero son 40 minutos reales: sin esto, ver la noche o el
 # atardecer era esperar. Nada de esto se guarda: al cerrar el juego vuelve la hora de verdad.
+#
+# ELEGIR UN MOMENTO NO CONGELA LA HORA: salta ahi y sigue corriendo. La primera version la congelaba y
+# el usuario se quedo esperando la noche en un atardecer eterno. Congelar es una casilla aparte.
 var _hora_slider: HSlider = null
 var _hora_label: Label = null
+var _hora_congelar: CheckButton = null
+var _hora_rapido: CheckButton = null
 
 func _build_hora(vb: VBoxContainer) -> void:
 	_header(vb, "HORA DEL PUEBLO (día y noche)")
@@ -269,36 +274,55 @@ func _build_hora(vb: VBoxContainer) -> void:
 	_hora_slider.min_value = 0.0
 	_hora_slider.max_value = CicloDia.CICLO - 1.0
 	_hora_slider.step = 5.0
-	_hora_slider.tooltip_text = "Arrastra para fijar el momento del ciclo."
+	_hora_slider.tooltip_text = "Arrastra para saltar a otro momento del ciclo."
 	_hora_slider.value_changed.connect(func(v: float):
-		CicloDia.acelerado = false
-		CicloDia.hora_forzada = v
+		CicloDia.saltar_a(v)
 		_refrescar_hora())
 	vb.add_child(_hora_slider)
 
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 6)
 	vb.add_child(fila)
-	# Cada boton a MITAD de su tramo, que es donde mejor se ve.
-	var momentos := [["Amanecer", CicloDia.AMANECER * 0.5],
-		["Día", CicloDia.T_DIA + CicloDia.DIA * 0.5],
-		["Atardecer", CicloDia.T_ATARDECER + CicloDia.ATARDECER * 0.5],
-		["Noche", (CicloDia.T_NOCHE + CicloDia.CICLO) * 0.5]]
+	# Al PRINCIPIO de cada tramo (un poco antes del atardecer y del amanecer, para verlos enteros).
+	var momentos := [["Amanecer", CicloDia.CICLO - 20.0],
+		["Día", CicloDia.T_DIA + 10.0],
+		["Atardecer", CicloDia.T_ATARDECER - 20.0],
+		["Noche", CicloDia.T_NOCHE + 10.0]]
 	for m in momentos:
 		var s: float = m[1]
-		_atajo(fila, m[0], "Fija la hora en mitad del %s." % String(m[0]).to_lower(),
-			func(): _hora_slider.value = s)
+		_atajo(fila, m[0], "Salta al %s; la hora sigue corriendo desde ahí." % String(m[0]).to_lower(),
+			func():
+				CicloDia.saltar_a(s)
+				_refrescar_hora())
 
 	var fila2 := HBoxContainer.new()
 	fila2.add_theme_constant_override("separation", 6)
 	vb.add_child(fila2)
-	_atajo(fila2, "Ciclo rápido (40 s)", "Pasa el día entero en 40 segundos, en bucle.", func():
-		CicloDia.hora_forzada = -1.0
-		CicloDia.acelerado = true
+	_hora_congelar = CheckButton.new()
+	_hora_congelar.text = "Congelar"
+	_hora_congelar.tooltip_text = "Para la hora donde está."
+	_hora_congelar.toggled.connect(func(on: bool):
+		var s: float = CicloDia.segundo()
+		CicloDia.hora_forzada = s if on else -1.0
+		if not on:
+			CicloDia.saltar_a(s)
 		_refrescar_hora())
-	_atajo(fila2, "Hora real", "Quita lo fijado y vuelve al reloj de verdad.", func():
+	fila2.add_child(_hora_congelar)
+	_hora_rapido = CheckButton.new()
+	_hora_rapido.text = "Rápido (40 s)"
+	_hora_rapido.tooltip_text = "El día entero en 40 segundos, en bucle."
+	_hora_rapido.toggled.connect(func(on: bool):
+		var s: float = CicloDia.segundo()
+		CicloDia.acelerado = on
+		CicloDia.saltar_a(s)
+		_refrescar_hora())
+	fila2.add_child(_hora_rapido)
+	_atajo(fila2, "Hora real", "Quita saltos, congelado y rápido: vuelve al reloj de verdad.", func():
 		CicloDia.hora_forzada = -1.0
 		CicloDia.acelerado = false
+		CicloDia.salto_debug = 0.0
+		_hora_congelar.set_pressed_no_signal(false)
+		_hora_rapido.set_pressed_no_signal(false)
 		_refrescar_hora())
 	_refrescar_hora()
 
@@ -307,15 +331,14 @@ func _refrescar_hora() -> void:
 	if _hora_label == null:
 		return
 	var s: float = CicloDia.segundo()
-	var modo: String = "fijada" if CicloDia.hora_forzada >= 0.0 \
-		else ("ciclo rápido" if CicloDia.acelerado else "hora real")
-	_hora_label.text = "%s  (min %d de 40, %s)" % [CicloDia.momento(s), int(s / 60.0), modo]
-	if CicloDia.hora_forzada < 0.0:
-		_hora_slider.set_value_no_signal(s)
+	var modo: String = "congelada" if CicloDia.hora_forzada >= 0.0 \
+		else ("rápido" if CicloDia.acelerado else "corriendo")
+	_hora_label.text = "%s  (min %d:%02d de 40, %s)" % [CicloDia.momento(s), int(s / 60.0), int(s) % 60, modo]
+	_hora_slider.set_value_no_signal(s)
 
 
 func _process(_delta: float) -> void:
-	if _panel != null and _panel.visible and CicloDia.hora_forzada < 0.0:
+	if _panel != null and _panel.visible:
 		_refrescar_hora()
 
 

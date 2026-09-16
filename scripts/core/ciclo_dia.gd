@@ -45,6 +45,9 @@ static var hora_forzada: float = -1.0
 # Para el panel de debug: el ciclo entero en CICLO / ACELERACION segundos (40 s), sin tocar el reloj.
 const ACELERACION := 60.0
 static var acelerado: bool = false
+# Para el panel de debug: SALTAR a otra hora y que siga corriendo desde ahi (no congela). Solo en
+# este PC y hasta cerrar el juego.
+static var salto_debug: float = 0.0
 
 
 # Segundo dentro del ciclo, 0..CICLO.
@@ -52,11 +55,20 @@ static func segundo() -> float:
 	if hora_forzada >= 0.0:
 		return fposmod(hora_forzada, CICLO)
 	if acelerado:
-		return fposmod(float(Time.get_ticks_msec()) / 1000.0 * ACELERACION, CICLO)
+		return fposmod(float(Time.get_ticks_msec()) / 1000.0 * ACELERACION + salto_debug, CICLO)
 	# Con decimales (y no Encargos.ahora(), que es entero): si no, el color del atardecer iria a saltos
 	# de un segundo, y eso con un fundido de dos minutos se ve.
-	var t: float = Time.get_unix_time_from_system() + float(Encargos.desfase_prueba) + desfase
+	var t: float = Time.get_unix_time_from_system() + float(Encargos.desfase_prueba) + desfase + salto_debug
 	return fposmod(t, CICLO)
+
+
+# Debug: pon el reloj en el segundo 's' del ciclo y deja que siga corriendo.
+static func saltar_a(s: float) -> void:
+	var congelada: bool = hora_forzada >= 0.0
+	hora_forzada = -1.0
+	salto_debug = fposmod(salto_debug + s - segundo(), CICLO)
+	if congelada:
+		hora_forzada = s
 
 
 # 0 = pleno dia, 1 = noche cerrada, con las rampas del amanecer y el atardecer.
