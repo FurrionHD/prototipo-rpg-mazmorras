@@ -720,3 +720,51 @@ static func flor(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 			c.draw_circle(p, rp, col)
 		else:
 			c.draw_arc(p, rp, 0.0, TAU, 18, col, g, true)
+
+
+# --- CUERO (curtir, en la peleteria): la PIEL estirada ---
+# Un CUERPO OVALADO con cuatro patas cortas saliendo en diagonal, que es como se ve una piel
+# clavada en el bastidor. El primer intento fue un poligono con las puntas hacia fuera y el cuerpo
+# hundido entre ellas: a tamaño de pestaña eso no se lee como una piel, se lee como una ESTRELLA de
+# cuatro puntas (visto en captura). Con el ovalo cerrado, las patas se leen como lo que cuelga de
+# el y no como la figura entera.
+static func cuero(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var centro: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
+	var rx: float = lado * 0.26
+	var ry: float = lado * 0.30
+	# El cuerpo: un ovalo dibujado a mano (draw_arc solo hace circulos) y RELLENO. En contorno, a
+	# tamaño de pestaña (44 px) el hueco de dentro pesa mas que la silueta y el conjunto se leia como
+	# un cuadrado con las esquinas mordidas; en macizo se lee de un vistazo como un pellejo.
+	var ovalo := PackedVector2Array()
+	for i in 24:
+		var a: float = TAU * float(i) / 24.0
+		ovalo.append(centro + Vector2(cos(a) * rx, sin(a) * ry))
+	c.draw_colored_polygon(ovalo, col)
+	# Las cuatro patas, cortas y en diagonal. Nacen EN EL BORDE del ovalo (en su punto a 45°), no a
+	# un 0.92 del radio: empezando dentro, la linea cruzaba la panza y el conjunto volvia a leerse
+	# como una estrella de puntas en vez de como una piel con patas.
+	for i in 4:
+		var a: float = PI * 0.25 + PI * 0.5 * float(i)
+		var borde: Vector2 = centro + Vector2(cos(a) * rx, sin(a) * ry)
+		var fuera: Vector2 = Vector2(cos(a), sin(a)) * (lado * 0.15)
+		c.draw_line(borde, borde + fuera, col, g, true)
+
+
+# --- CORREA (los tirantes de la mochila): la tira con su hebilla ---
+# La hebilla va a un lado y no en el centro a proposito: centrada, el icono se lee como un cinturon
+# abrochado (una cosa que llevas puesta) en vez de como una tira suelta (un material).
+static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var cy: float = pos.y + lado * 0.5
+	var alto: float = lado * 0.22
+	# La tira, de lado a lado.
+	c.draw_rect(Rect2(pos.x + lado * 0.10, cy - alto * 0.5, lado * 0.62, alto), col, false, g)
+	# La hebilla: el marco y su pincho.
+	var heb := Rect2(pos.x + lado * 0.62, cy - alto * 0.72, lado * 0.26, alto * 1.44)
+	c.draw_rect(heb, col, false, g)
+	c.draw_line(Vector2(heb.position.x + heb.size.x * 0.5, heb.position.y),
+		Vector2(heb.position.x + heb.size.x * 0.5, heb.end.y), col, g * 0.8, true)
+	# Los agujeros de la tira, que es lo que la separa de un simple rectangulo.
+	for i in 3:
+		c.draw_circle(Vector2(pos.x + lado * (0.20 + 0.11 * float(i)), cy), g * 0.55, col)

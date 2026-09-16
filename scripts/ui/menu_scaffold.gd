@@ -2103,6 +2103,31 @@ static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: i
 		int(p.get("plus", -1)))
 
 
+# UNA CELDA SUELTA, fuera de rejilla y sin pulsar: el mismo dibujo (color de calidad, muesca de
+# tier, banda) para acompañar a un material dentro de una ficha. La usan los INGREDIENTES de la
+# peleteria, donde antes solo iba el nombre escrito: "cuero curtido" y "cuero reforzado" son dos
+# lineas de texto casi iguales, y dos celdas no se confunden.
+#
+# No va 'disabled' sino sin raton ni foco: disabled la pintaria apagada, y esto no esta apagado --
+# simplemente no se pulsa.
+static func celda_suelta(parent: Node, item: Resource, lado: float, pie: String = "",
+		marca: String = "") -> Control:
+	var c := CeldaObjeto.new()
+	c.custom_minimum_size = Vector2(lado, lado)
+	c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.focus_mode = Control.FOCUS_NONE
+	# Sin el ahorro de "solo pinto si estoy a la vista": son cuatro celdas, y ese ahorro deja en
+	# blanco a la que nace con tamaño fijo (ver CeldaObjeto.siempre_visible).
+	c.siempre_visible = true
+	parent.add_child(c)
+	# DESPUES de meterla en el arbol: configurar() repinta, y repintar un nodo suelto no sirve de
+	# nada porque aun no tiene tamaño (ver el guardia de _draw).
+	c.configurar(item, pie, marca, 0)
+	return c
+
+
 # EL BANNER DE LA FICHA: la tira ancha con el objeto en grande y su "x N", que es lo primero del
 # panel de detalle. Es el equivalente de la celda pero para UN objeto, y hace de puente: lo que
 # acabas de pulsar en la rejilla reaparece aqui mas grande, asi que no hay que comprobar si has

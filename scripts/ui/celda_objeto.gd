@@ -154,8 +154,20 @@ func _ready() -> void:
 				queue_redraw())
 
 
+# Saltarse el ahorro de abajo. Lo ponen las celdas SUELTAS (las de dentro de una ficha, ver
+# MenuScaffold.celda_suelta), que son cuatro y no cuatrocientas.
+#
+# Hace falta porque el ahorro se apoya en que a la celda le vuelva a llegar un aviso: si el primer
+# _draw la pilla antes de que su contenedor la haya colocado, se marca _pendiente y espera a que el
+# scroll se mueva o cambie de tamaño. Una celda de rejilla siempre acaba cambiando de tamaño y se
+# repinta; una suelta nace con su tamaño fijo, no cambia nunca mas y se quedaba EN BLANCO para
+# siempre (visto en la peleteria: el hueco reservado y nada dentro).
+var siempre_visible: bool = false
+
 # ¿Se ve ahora mismo dentro de su scroll? Sin scroll, siempre.
 func _a_la_vista() -> bool:
+	if siempre_visible:
+		return true
 	if _scroll == null or not is_instance_valid(_scroll):
 		return true
 	return _scroll.get_global_rect().grow(size.y).intersects(get_global_rect())
