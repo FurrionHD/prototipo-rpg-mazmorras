@@ -279,11 +279,17 @@ static func _entramado(x: int, y: int, w: int, alto: int, relleno: String, sem: 
 #  VENTANAS Y PUERTA
 # ------------------------------------------------------------
 static func _ventanas(d: PackedByteArray, w: int, h: int, e: Dictionary, alero: int, puerta_x: int, hu: Vector2i) -> void:
+	for esq in _esquinas_ventanas(e, h, alero, puerta_x, hu):
+		_ventana(d, w, h, (esq as Vector2i).x, (esq as Vector2i).y, String(e["luz"]), "postigos" in e["extras"])
+
+
+# La esquina de arriba a la izquierda de cada ventana (14 x 14 px) en el lienzo de la casa. Sale en su
+# funcion porque la usan dos: el dibujo y las ventanas que se encienden de noche (ver ventanas()).
+static func _esquinas_ventanas(e: Dictionary, h: int, alero: int, puerta_x: int, hu: Vector2i) -> Array:
 	var alto: int = h - alero
 	var filas: Array = [alero + 10]
 	if String(e["pared"]) == "taberna":
 		filas = [alero + 8, alero + alto / 2 + 8]
-	var luz: String = e["luz"]
 	var cols: Array = []
 	for c in hu.x:
 		var cx: int = c * CELDA + CELDA / 2
@@ -293,6 +299,7 @@ static func _ventanas(d: PackedByteArray, w: int, h: int, e: Dictionary, alero: 
 		if hu.x >= 5 and c != 0 and c != hu.x - 1 and String(e["pared"]) != "taberna":
 			continue
 		cols.append(cx)
+	var out: Array = []
 	for fi in filas.size():
 		var y0: int = int(filas[fi])
 		var xs: Array = cols
@@ -301,7 +308,74 @@ static func _ventanas(d: PackedByteArray, w: int, h: int, e: Dictionary, alero: 
 			for c in hu.x:
 				xs.append(c * CELDA + CELDA / 2)
 		for cx in xs:
-			_ventana(d, w, h, int(cx) - 7, y0, luz, "postigos" in e["extras"])
+			out.append(Vector2i(int(cx) - 7, y0))
+	return out
+
+
+# ------------------------------------------------------------
+#  LAS VENTANAS DE NOCHE (ver LuzPueblo). Encima de cada ventana se pone su VIDRIO ENCENDIDO, que aparece
+#  al anochecer. Los oficios sin luz de dia (carpinteria, peleteria...) de noche SI la encienden, calida:
+#  hay alguien dentro. Las casas vacias no: estan vacias.
+# ------------------------------------------------------------
+const TAM_VENTANA := 14
+
+# [[esquina Vector2i en el lienzo, luz de noche String], ...]
+static func ventanas(clave: String) -> Array:
+	var e: Dictionary = CASAS[clave]
+	if clave.begins_with("vacia"):
+		return []
+	var h: int = tam(clave).y
+	var hu: Vector2i = e["huella"]
+	var alero: int = h - int(e["alto"])
+	var puerta_x: int = (hu.x / 2) * CELDA + CELDA / 2
+	var luz: String = String(e["luz"])
+	if luz == "":
+		luz = "calida"
+	var out: Array = []
+	for esq in _esquinas_ventanas(e, h, alero, puerta_x, hu):
+		out.append([esq, luz])
+	return out
+
+
+# El color de la luz que sale por cada tipo de ventana (lo que usa el shader para su corro).
+static func color_luz(luz: String) -> Color:
+	match luz:
+		"fragua":
+			return Color(1.0, 0.72, 0.45)
+		"verde":
+			return Color(0.80, 1.0, 0.78)
+	return Color(1.0, 0.88, 0.62)
+
+
+static var _vidrios: Dictionary = {}
+
+# El vidrio encendido: el hueco de la ventana SIN el marco (transparente), con el parteluz y el
+# vidrio mas claro que de dia, casi blanco en la esquina de arriba.
+static func textura_vidrio(luz: String) -> ImageTexture:
+	if _vidrios.has(luz):
+		return _vidrios[luz]
+	var a := Color(1.0, 0.78, 0.36)
+	var b := Color(1.0, 0.95, 0.70)
+	match luz:
+		"fragua":
+			a = Color(1.0, 0.45, 0.12)
+			b = Color(1.0, 0.80, 0.40)
+		"verde":
+			a = Color(0.50, 0.85, 0.50)
+			b = Color(0.85, 1.0, 0.78)
+	var img := Image.create(TAM_VENTANA, TAM_VENTANA, false, Image.FORMAT_RGBA8)
+	var mad: Array = RAMPAS["madera_osc"]
+	for y in TAM_VENTANA:
+		for x in TAM_VENTANA:
+			if x == 0 or y == 0 or x == TAM_VENTANA - 1 or y == TAM_VENTANA - 1:
+				continue
+			var col: Color = a if (x + y) > 13 else b
+			if x == 7 or y == 7:
+				col = mad[2]
+			img.set_pixel(x, y, col)
+	var tex := ImageTexture.create_from_image(img)
+	_vidrios[luz] = tex
+	return tex
 
 
 static func _ventana(d: PackedByteArray, w: int, h: int, x0: int, y0: int, luz: String, postigos: bool) -> void:

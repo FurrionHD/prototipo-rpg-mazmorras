@@ -22,6 +22,8 @@ func _ready() -> void:
 	_suelo.z_index = -1
 	add_child(_suelo)
 	move_child(_suelo, 0)
+	# La luz ANTES que nada: las casas y el altar se apuntan en ella al montarse.
+	_crear_luz()
 	_pintar_suelo()
 	_crear_murallas()
 	_crear_choques()
@@ -30,7 +32,6 @@ func _ready() -> void:
 	_crear_jardin()
 	_crear_canas()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
-	_crear_luz()
 	_colocar_jugador()
 
 
@@ -194,6 +195,7 @@ func _crear_casas() -> void:
 			var humo: HumoChimenea = HumoChimenea.crear(bool(b[1]))
 			humo.position = pieza.position + (b[0] as Vector2)
 			nodo.add_child(humo)
+		_encender_ventanas(pieza, dibujo)
 		for a in PuebloPlano.ADORNOS.get(clave, []):
 			var celda_a: Vector2i = PuebloPlano.puerta_de(casa) + Vector2i(int(a[1]), 0)
 			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE), true))
@@ -201,6 +203,29 @@ func _crear_casas() -> void:
 		if guion == "":
 			continue
 		nodo.add_child(_puerta(guion, PuebloPlano.puerta_de(casa), String(casa.get("nombre", clave))))
+
+
+# LAS VENTANAS DE NOCHE: el vidrio encendido encima de cada una (con la fachada, z de la parte de abajo)
+# y un corro de luz pequeño delante. Cada casa se enciende con su retraso, y sus ventanas casi a la vez.
+func _encender_ventanas(pieza: PiezaPueblo, dibujo: String) -> void:
+	var retraso_casa: float = PuebloSprites._rnd(int(pieza.position.x), int(pieza.position.y), 311)
+	var i: int = 0
+	for v in CasaSprites.ventanas(dibujo):
+		var esq: Vector2i = v[0]
+		var luz_v: String = v[1]
+		var vidrio := Sprite2D.new()
+		vidrio.texture = CasaSprites.textura_vidrio(luz_v)
+		vidrio.centered = false
+		vidrio.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		vidrio.z_as_relative = false
+		vidrio.z_index = PiezaPueblo.Z_DEBAJO
+		vidrio.position = Vector2(esq)
+		pieza.add_child(vidrio)
+		var retraso: float = clampf(retraso_casa + 0.05 * float(i), 0.0, 1.0)
+		luz.poner_encendible(vidrio, retraso)
+		var centro: Vector2 = pieza.position + Vector2(esq) + Vector2.ONE * float(CasaSprites.TAM_VENTANA) * 0.5
+		luz.poner_foco(centro + Vector2(0, 6), 34.0, CasaSprites.color_luz(luz_v), 0.9, retraso, false, 0.10, 0.7)
+		i += 1
 
 
 # El nodo de la puerta: el script del oficio de siempre, pegado a la fachada. Desde la casilla de
@@ -262,6 +287,9 @@ func _crear_jardin() -> void:
 	add_child(columna)
 	# El fuego blanco del altar, de verdad (LlamaAltar), en la boca del cuenco.
 	columna.acompanar(LlamaAltar.crear(), PuebloSprites.boca_altar())
+	# Y de noche alumbra el claro, en BLANCO (lo pidio el usuario): siempre encendido, se nota al oscurecer.
+	var boca: Vector2 = columna.position + PuebloSprites.boca_altar() + Vector2(0, -12)
+	luz.poner_foco(boca + Vector2(0, 20), 130.0, Color(0.93, 0.96, 1.0), 1.0, 0.0, true, 0.22, 0.45)
 	add_child(_puerta("res://scripts/town/altar.gd", a + Vector2i(0, 1), "ALTAR"))
 
 
