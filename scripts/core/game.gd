@@ -217,26 +217,29 @@ func _pj_en_mundo(uid: String) -> PersonajeData:
 #  mundo compartido. Si ese uid ya no está en la plantilla (lo mudaste, cargaste otra partida), cae
 #  solo en el líder, que es lo que hacía siempre antes de que esto existiera.
 #
-#  De momento solo lo usa la PELETERÍA. La herrería, la carpintería, la boticaria y la cocina siguen
-#  con el líder hasta que sus pantallas tengan su propio selector.
+#  UNO POR TALLER (decisión del usuario, 16/09): quien curte no tiene por qué ser quien cocina, así que
+#  cada oficio recuerda el suyo, por el id de su desarrollo ("peleteria", "mezcla", "cocina").
+#
+#  Lo usan la PELETERÍA, la BOTICARIA (Mezcla) y la COCINA. La herrería y la carpintería siguen con el
+#  líder hasta que sus pantallas tengan su propio selector.
 # ============================================================
-var artesano_uid: String = ""
+var artesanos: Dictionary = {}   # oficio -> uid
 
-func artesano() -> PersonajeData:
-	var pj: PersonajeData = pj_por_uid(artesano_uid)
+func artesano(oficio: String) -> PersonajeData:
+	var pj: PersonajeData = pj_por_uid(String(artesanos.get(oficio, "")))
 	return pj if pj != null else lider()
 
 
 # 'pj' = null o el líder -> se vuelve al comportamiento de siempre (manda quien vaya en cabeza).
-func poner_artesano(pj: PersonajeData) -> void:
+func poner_artesano(oficio: String, pj: PersonajeData) -> void:
 	if pj == null or pj == lider():
-		artesano_uid = ""
+		artesanos.erase(oficio)
 		return
 	# El uid puede estar vacío: solo se pone al fichar, y los de un save viejo (o los que monta una
 	# herramienta a mano) no han pasado por ahí. Sin esto, elegir a ese personaje guardaba "" y se
 	# quedaba mandando el líder, en silencio.
 	asegurar_uid(pj)
-	artesano_uid = String(pj.uid)
+	artesanos[oficio] = String(pj.uid)
 
 
 # El de la plantilla con ese uid, o null. Es como los encargos vuelven a encontrar a quien mandaron.
@@ -1950,11 +1953,11 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	player_current_hp = -1.0
 	player_current_mp = -1.0
 	money = 0
+	# Partida nueva: los artesanos se olvidan ANTES de poner los contadores a cero, o se los pondria a
+	# los de la partida anterior (ver artesano()).
+	artesanos.clear()
 	mezcla_exp = 0.0
 	metalurgia_exp = 0.0
-	# Partida nueva: el artesano se olvida ANTES de poner el contador a cero, o se lo pondria al de
-	# la partida anterior (ver artesano()).
-	artesano_uid = ""
 	peleteria_exp = 0.0
 	herreria_exp = 0.0
 	carpinteria_exp = 0.0
@@ -2115,12 +2118,12 @@ func exportar_partida() -> SaveData:
 	d.player_current_mp = player_current_mp
 	d.stamina = float(player.current_stamina) if player != null and "current_stamina" in player else -1.0
 	d.money = money
-	d.mezcla_exp = mezcla_exp
+	d.mezcla_exp = lider().mezcla_exp
 	d.metalurgia_exp = metalurgia_exp
 	d.peleteria_exp = lider().peleteria_exp
 	d.herreria_exp = herreria_exp
 	d.carpinteria_exp = carpinteria_exp
-	d.cocina_exp = cocina_exp
+	d.cocina_exp = lider().cocina_exp
 	d.esquivas_exp = esquivas_exp
 	d.hechizos_exp = hechizos_exp
 	d.recitado_exp = recitado_exp
@@ -2306,12 +2309,12 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_lampara = equipped_lampara
 	jd.equipped_cuchillo = equipped_cuchillo
 	jd.registro_pesca = registro_pesca.duplicate(true)
-	jd.mezcla_exp = mezcla_exp
+	jd.mezcla_exp = lider().mezcla_exp
 	jd.metalurgia_exp = metalurgia_exp
 	jd.peleteria_exp = lider().peleteria_exp
 	jd.herreria_exp = herreria_exp
 	jd.carpinteria_exp = carpinteria_exp
-	jd.cocina_exp = cocina_exp
+	jd.cocina_exp = lider().cocina_exp
 	jd.materiales_vistos = materiales_vistos.duplicate()
 	jd.pack_inicial = pack_inicial_reclamado
 	jd.en_mazmorra = en_mazmorra
@@ -2556,12 +2559,12 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	# El libro del Pescador viaja CON LA PERSONA (como las herramientas): tus records son tuyos,
 	# no del mundo en el que los sacaste.
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
-	mezcla_exp = jd.mezcla_exp
+	lider().mezcla_exp = jd.mezcla_exp
 	metalurgia_exp = jd.metalurgia_exp
 	lider().peleteria_exp = jd.peleteria_exp
 	herreria_exp = jd.herreria_exp
 	carpinteria_exp = jd.carpinteria_exp
-	cocina_exp = jd.cocina_exp
+	lider().cocina_exp = jd.cocina_exp
 	materiales_vistos = jd.materiales_vistos.duplicate()
 	pack_inicial_reclamado = jd.pack_inicial
 	_devolver_farolillo_perdido()
@@ -2736,12 +2739,12 @@ func importar_partida(d: SaveData) -> void:
 	player_current_hp = d.player_current_hp
 	player_current_mp = d.player_current_mp
 	money = d.money
-	mezcla_exp = d.mezcla_exp
+	lider().mezcla_exp = d.mezcla_exp
 	metalurgia_exp = d.metalurgia_exp
 	lider().peleteria_exp = d.peleteria_exp
 	herreria_exp = d.herreria_exp
 	carpinteria_exp = d.carpinteria_exp
-	cocina_exp = d.cocina_exp
+	lider().cocina_exp = d.cocina_exp
 	esquivas_exp = d.esquivas_exp
 	hechizos_exp = d.hechizos_exp
 	recitado_exp = d.recitado_exp
@@ -4949,16 +4952,18 @@ var money: int = 0
 # MEZCLA (調合): parametro OCULTO que sube cada vez que CRAFTEAS pociones (no al comprarlas).
 # Semilla de una futura habilidad de desarrollo estilo DanMachi: "Mezcla" mejora la calidad
 # al crear objetos. De momento solo se acumula y se guarda; el efecto se ajustara despues.
-# DEL PERSONAJE que la prepara, no del grupo (ver metalurgia_exp para el porque).
+# DEL PERSONAJE que la prepara, no del grupo (ver metalurgia_exp para el porque): el ARTESANO que
+# elijas en la boticaria (ver artesano()).
 var mezcla_exp: float:
-	get: return lider().mezcla_exp
-	set(v): lider().mezcla_exp = v
+	get: return artesano("mezcla").mezcla_exp
+	set(v): artesano("mezcla").mezcla_exp = v
 const MEZCLA_EXP_POR_POCION := 1.0
 # Lo mismo para el COCINERO. Contador propio y no compartido con Mezcla: son dos oficios, dos NPCs y
-# dos desarrollos, y hasta el 05/08 los platos alimentaban el de la boticaria.
+# dos desarrollos, y hasta el 05/08 los platos alimentaban el de la boticaria. Va por el artesano que
+# elijas en la cocina.
 var cocina_exp: float:
-	get: return lider().cocina_exp
-	set(v): lider().cocina_exp = v
+	get: return artesano("cocina").cocina_exp
+	set(v): artesano("cocina").cocina_exp = v
 const COCINA_EXP_POR_PLATO := 1.0
 # Lo que suma el rango de Cocina a la POTENCIA del plato (a rango S). Es el segundo efecto del
 # desarrollo, el hermano de la subida de escalon de la Mezcla: no se puede copiar esa porque los
@@ -9269,11 +9274,11 @@ var metalurgia_exp: float:
 	get: return lider().metalurgia_exp
 	set(v): lider().metalurgia_exp = v
 # PELETERIA no va por el lider sino por EL ARTESANO que elijas en la pantalla (ver artesano()): lo
-# que curtes lo curte alguien, y es ese alguien quien aprende el oficio. Los otros tres siguen en el
-# lider hasta que sus pantallas tengan tambien su selector.
+# que curtes lo curte alguien, y es ese alguien quien aprende el oficio. Metalurgia, herreria y
+# carpinteria siguen en el lider hasta que sus pantallas tengan tambien su selector.
 var peleteria_exp: float:
-	get: return artesano().peleteria_exp
-	set(v): artesano().peleteria_exp = v
+	get: return artesano("peleteria").peleteria_exp
+	set(v): artesano("peleteria").peleteria_exp = v
 var herreria_exp: float:
 	get: return lider().herreria_exp
 	set(v): lider().herreria_exp = v
@@ -9398,7 +9403,7 @@ func metalurgia_activa() -> float:
 
 # PELETERIA la pone EL ARTESANO que esté al mando en la peletería, no el líder: ver artesano().
 func peleteria_activa() -> float:
-	return factor_desarrollo("peleteria", artesano())
+	return factor_desarrollo("peleteria", artesano("peleteria"))
 
 func herreria_activa() -> float:
 	return factor_desarrollo("herreria")
@@ -9411,8 +9416,10 @@ func carpinteria_activa() -> float:
 # Cocina: el oficio del COCINERO. Hermano de Mezcla, y por los mismos dos efectos (racion doble y
 # platos mas potentes). Va aparte a proposito: hasta el 05/08 cocinar sumaba a mezcla_exp, o sea que
 # hacer platos te desbloqueaba el desarrollo de la Boticaria.
+# La pone EL ARTESANO de la cocina, tambien al COMER (comer_plato): "el cocinero de la casa" es quien
+# hace que lo que se come alimente mas, no el que se lo come (decision del usuario, 16/09).
 func cocina_activa() -> float:
-	return factor_desarrollo("cocina")
+	return factor_desarrollo("cocina", artesano("cocina"))
 
 # El oficio de taller que empuja ESTA receta: Cocina si es un plato, Mezcla si es una poción. Es el
 # hermano de _oficio_forja_activo (Carpinteria en armas magicas, Herreria en el resto), y existe por
@@ -9423,8 +9430,9 @@ func _oficio_taller_activo(receta: RecipeData) -> float:
 func _es_receta_cocina(receta: RecipeData) -> bool:
 	return receta != null and recetas_cocina().has(receta)
 
+# La pone EL ARTESANO de la boticaria (ver artesano()).
 func mezcla_activa() -> float:
-	return factor_desarrollo("mezcla")
+	return factor_desarrollo("mezcla", artesano("mezcla"))
 
 # Cada metal, su cadena: el TIER se conserva de la veta a la hebilla.
 #   mineral -> lingote -> chapa (armaduras) / hebillas (mochilas)

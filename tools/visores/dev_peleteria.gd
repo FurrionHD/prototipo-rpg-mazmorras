@@ -162,7 +162,7 @@ func _ready() -> void:
 		if Game.desarrollo_rango("peleteria", p as PersonajeData) > 0:
 			con += 1
 	_ok("alguien de la plantilla tiene Peletería (si no, la marca no prueba nada)", con > 0)
-	_ok("y empieza por el líder", Game.artesano() == Game.lider())
+	_ok("y empieza por el líder", Game.artesano("peleteria") == Game.lider())
 	if gente.size() > 1:
 		var otro: PersonajeData = null
 		for p in gente:
@@ -171,7 +171,7 @@ func _ready() -> void:
 				break
 		men._on_artesano(gente.find(otro))
 		await get_tree().process_frame
-		_ok("elegir a otro lo pone al mando", Game.artesano() == otro)
+		_ok("elegir a otro lo pone al mando", Game.artesano("peleteria") == otro)
 		# LA EXCELIA DEL OFICIO VA AL ELEGIDO, que es el motivo de todo esto.
 		var antes_otro: float = otro.peleteria_exp
 		var antes_lider: float = Game.lider().peleteria_exp
@@ -188,7 +188,7 @@ func _ready() -> void:
 			_ok("y no al líder", is_equal_approx(Game.lider().peleteria_exp, antes_lider))
 		men._on_artesano(gente.find(Game.lider()))
 		await get_tree().process_frame
-		_ok("volver al líder lo deja como estaba", Game.artesano() == Game.lider())
+		_ok("volver al líder lo deja como estaba", Game.artesano("peleteria") == Game.lider())
 
 	print("\n=== SIN NADA QUE CURTIR ===")
 	Game.almacen_materiales.clear()

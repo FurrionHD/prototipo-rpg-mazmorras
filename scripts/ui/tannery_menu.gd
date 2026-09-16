@@ -351,7 +351,7 @@ func _pintar_artesanos() -> void:
 	# Con una sola persona no hay nada que elegir y retratos() no pinta nada: fuera tambien el rotulo,
 	# o se queda un titulo suelto encima de la nada.
 	_fila_artesano_rotulo.visible = gente.size() > 1
-	var actual: PersonajeData = Game.artesano()
+	var actual: PersonajeData = Game.artesano("peleteria")
 	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el pellejo en la esquina. Estaba escrito en la
 	# ficha ("Fulano no la tiene") y el usuario lo corto: eso hay que leerlo, y encima solo hablaba
 	# del que estuviera elegido. En el retrato se ve de un vistazo a quien conviene mandar.
@@ -367,7 +367,7 @@ func _on_artesano(i: int) -> void:
 	var gente: Array = _gente()
 	if i < 0 or i >= gente.size():
 		return
-	Game.poner_artesano(gente[i] as PersonajeData)
+	Game.poner_artesano("peleteria", gente[i] as PersonajeData)
 	# Repintar entero y no solo la fila: con el artesano cambia el bonus del oficio, y con el la
 	# linea de "Peleteria activa" y lo que puede salir.
 	cambiar_pantalla()
