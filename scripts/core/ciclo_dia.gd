@@ -42,10 +42,17 @@ static var desfase: float = 0.0
 static var hora_forzada: float = -1.0
 
 
+# Para el panel de debug: el ciclo entero en CICLO / ACELERACION segundos (40 s), sin tocar el reloj.
+const ACELERACION := 60.0
+static var acelerado: bool = false
+
+
 # Segundo dentro del ciclo, 0..CICLO.
 static func segundo() -> float:
 	if hora_forzada >= 0.0:
 		return fposmod(hora_forzada, CICLO)
+	if acelerado:
+		return fposmod(float(Time.get_ticks_msec()) / 1000.0 * ACELERACION, CICLO)
 	# Con decimales (y no Encargos.ahora(), que es entero): si no, el color del atardecer iria a saltos
 	# de un segundo, y eso con un fundido de dos minutos se ve.
 	var t: float = Time.get_unix_time_from_system() + float(Encargos.desfase_prueba) + desfase
@@ -94,6 +101,19 @@ static func luces(retraso: float = 0.0, s: float = -1.0) -> float:
 		var u: float = (s - T_ATARDECER) / ATARDECER
 		return clampf((u - 0.5 - margen) / 0.15, 0.0, 1.0)
 	return 1.0
+
+
+# Como se llama el momento, para el panel de debug.
+static func momento(s: float = -1.0) -> String:
+	if s < 0.0:
+		s = segundo()
+	if s < T_DIA:
+		return "amanecer"
+	if s < T_ATARDECER:
+		return "día"
+	if s < T_NOCHE:
+		return "atardecer"
+	return "noche"
 
 
 # ¿Hay que pintar algo? De pleno dia la capa entera se esconde y no cuesta nada.

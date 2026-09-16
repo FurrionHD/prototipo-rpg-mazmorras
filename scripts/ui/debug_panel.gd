@@ -126,6 +126,8 @@ func _ready() -> void:
 
 	_build_atajos(vb)
 	_sep(vb)
+	_build_hora(vb)
+	_sep(vb)
 	_build_stats(vb)
 	_sep(vb)
 	_build_desarrollo(vb)
@@ -251,6 +253,70 @@ func _build_hitboxes(vb: VBoxContainer) -> void:
 		+ "Amarillo: el cono del espadazo.  Verde: alcance de la F.  Gris: la roca."
 	leyenda.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
 	vb.add_child(leyenda)
+
+
+# LA HORA DEL PUEBLO (CicloDia). Un dia entero son 40 minutos reales: sin esto, ver la noche o el
+# atardecer era esperar. Nada de esto se guarda: al cerrar el juego vuelve la hora de verdad.
+var _hora_slider: HSlider = null
+var _hora_label: Label = null
+
+func _build_hora(vb: VBoxContainer) -> void:
+	_header(vb, "HORA DEL PUEBLO (día y noche)")
+	_hora_label = Label.new()
+	vb.add_child(_hora_label)
+
+	_hora_slider = HSlider.new()
+	_hora_slider.min_value = 0.0
+	_hora_slider.max_value = CicloDia.CICLO - 1.0
+	_hora_slider.step = 5.0
+	_hora_slider.tooltip_text = "Arrastra para fijar el momento del ciclo."
+	_hora_slider.value_changed.connect(func(v: float):
+		CicloDia.acelerado = false
+		CicloDia.hora_forzada = v
+		_refrescar_hora())
+	vb.add_child(_hora_slider)
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 6)
+	vb.add_child(fila)
+	# Cada boton a MITAD de su tramo, que es donde mejor se ve.
+	var momentos := [["Amanecer", CicloDia.AMANECER * 0.5],
+		["Día", CicloDia.T_DIA + CicloDia.DIA * 0.5],
+		["Atardecer", CicloDia.T_ATARDECER + CicloDia.ATARDECER * 0.5],
+		["Noche", (CicloDia.T_NOCHE + CicloDia.CICLO) * 0.5]]
+	for m in momentos:
+		var s: float = m[1]
+		_atajo(fila, m[0], "Fija la hora en mitad del %s." % String(m[0]).to_lower(),
+			func(): _hora_slider.value = s)
+
+	var fila2 := HBoxContainer.new()
+	fila2.add_theme_constant_override("separation", 6)
+	vb.add_child(fila2)
+	_atajo(fila2, "Ciclo rápido (40 s)", "Pasa el día entero en 40 segundos, en bucle.", func():
+		CicloDia.hora_forzada = -1.0
+		CicloDia.acelerado = true
+		_refrescar_hora())
+	_atajo(fila2, "Hora real", "Quita lo fijado y vuelve al reloj de verdad.", func():
+		CicloDia.hora_forzada = -1.0
+		CicloDia.acelerado = false
+		_refrescar_hora())
+	_refrescar_hora()
+
+
+func _refrescar_hora() -> void:
+	if _hora_label == null:
+		return
+	var s: float = CicloDia.segundo()
+	var modo: String = "fijada" if CicloDia.hora_forzada >= 0.0 \
+		else ("ciclo rápido" if CicloDia.acelerado else "hora real")
+	_hora_label.text = "%s  (min %d de 40, %s)" % [CicloDia.momento(s), int(s / 60.0), modo]
+	if CicloDia.hora_forzada < 0.0:
+		_hora_slider.set_value_no_signal(s)
+
+
+func _process(_delta: float) -> void:
+	if _panel != null and _panel.visible and CicloDia.hora_forzada < 0.0:
+		_refrescar_hora()
 
 
 func _atajo(fila: HBoxContainer, txt: String, ayuda: String, accion: Callable) -> void:
