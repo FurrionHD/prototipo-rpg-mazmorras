@@ -56,6 +56,22 @@ func _ready() -> void:
 	if brotando:
 		modulate.a = 0.0
 		create_tween().tween_property(self, "modulate:a", 1.0, 0.45)
+	# EL ARBOL TAPA a quien pasa por detras (ver _process). Lo demas (vetas, matas, sal) no llega a la
+	# altura de la cabeza y se queda siempre debajo.
+	if tipo == Tipo.MADERA:
+		z_as_relative = false
+	set_process(tipo == Tipo.MADERA)
+
+
+# UN ARBOL MIDE 68x104 y no choca: quien pasa por detras (mas al norte que su tronco) mete el cuerpo en la
+# copa y el arbol tiene que taparle; quien pasa por delante, al reves. Misma regla que un enemigo pegado a
+# un personaje (Game.z_frente_a_personajes), con el alcance de la copa y un margen para la faena de talar,
+# donde el personaje se planta al lado del tronco a su misma altura.
+const ARBOL_CERCA := Vector2(46.0, 104.0)
+const ARBOL_MARGEN := 8.0
+
+func _process(_delta: float) -> void:
+	z_index = Game.z_frente_a_personajes(self, ARBOL_CERCA, ARBOL_MARGEN)
 
 
 # Se pica con el PICO: la veta de mineral y la piedra de sal (que tambien es roca).

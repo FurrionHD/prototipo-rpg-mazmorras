@@ -64,7 +64,11 @@ const Z_DETRAS_DE_PERSONAJES := -700
 const Z_DELANTE_DE_PERSONAJES := 2600
 const CERCA_DE_PERSONAJE := Vector2(56.0, 80.0)
 
-func z_frente_a_personajes(nodo: Node2D) -> int:
+# 'cerca': hasta donde cuenta como pegado. Un ARBOL (resource_node) pasa uno mas grande: mide 68x104 y
+# quien esta detras mete el cuerpo entero en la copa aunque su origen quede lejos del tronco.
+# 'margen': cuantos px mas al sur que el personaje tiene que estar para ir DELANTE. El arbol pasa uno: en
+# la faena de talar el personaje se planta a su lado a la MISMA altura, y ahi tiene que verse el.
+func z_frente_a_personajes(nodo: Node2D, cerca: Vector2 = CERCA_DE_PERSONAJE, margen: float = 0.0) -> int:
 	var p: Vector2 = nodo.global_position
 	var mejor: Node2D = null
 	var mejor_d: float = INF
@@ -73,12 +77,12 @@ func z_frente_a_personajes(nodo: Node2D) -> int:
 		if a == null or not a.visible:
 			continue
 		var d: Vector2 = (a.global_position - p).abs()
-		if d.x < CERCA_DE_PERSONAJE.x and d.y < CERCA_DE_PERSONAJE.y and d.length() < mejor_d:
+		if d.x < cerca.x and d.y < cerca.y and d.length() < mejor_d:
 			mejor_d = d.length()
 			mejor = a
 	if mejor == null:
 		return Z_PERSONAJES
-	return Z_PERSONAJES + (Z_DETRAS_DE_PERSONAJES if p.y < mejor.global_position.y else Z_DELANTE_DE_PERSONAJES)
+	return Z_PERSONAJES + (Z_DETRAS_DE_PERSONAJES if p.y <= mejor.global_position.y + margen else Z_DELANTE_DE_PERSONAJES)
 
 # Los LETREROS del mundo van justo encima del suelo y de los objetos, y DEBAJO de los personajes (lo
 # pidio el usuario: que no se pinten por encima de ti).
