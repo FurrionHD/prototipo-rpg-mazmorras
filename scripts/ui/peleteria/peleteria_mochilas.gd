@@ -40,6 +40,28 @@ func limpiar() -> void:
 
 
 # ============================================================
+#  LAS COPIAS DE ESCAPARATE
+#  La mochila que se enseña en la celda y en el banner es una COPIA con el tier puesto, no el .tres
+#  del catalogo: Game.meta_de le crearia meta T1 al .tres COMPARTIDO y la mochila T2 saldria diciendo
+#  T1 (pasa igual en la tienda, ver shop_menu.vitrina). Se crean sin registrar -- si no, irian a
+#  parar a tu baul -- y sus metas se borran al cerrar, o quedarian colgando para siempre.
+# ============================================================
+
+var _vitrina_tier: Dictionary = {}
+
+func _vitrina(tier: int) -> Resource:
+	if not _vitrina_tier.has(tier):
+		_vitrina_tier[tier] = Game.crear_item(Game.mochila_base(), tier, Upgrades.Rareza.COMUN, {}, false)
+	return _vitrina_tier[tier]
+
+
+func vaciar_vitrina() -> void:
+	for copia in _vitrina_tier.values():
+		Game.item_meta.erase(copia)
+	_vitrina_tier.clear()
+
+
+# ============================================================
 #  PINTAR
 # ============================================================
 
@@ -52,8 +74,13 @@ func build() -> void:
 	for h in hebillas:
 		var heb: MaterialData = h as MaterialData
 		var uds: int = Game.disponible_unidades_material_en_hogar(heb)
-		piezas.append({"item": heb, "pie": "T%d" % int(heb.tier), "marca": "",
-			"tooltip": "%s  ·  tienes %d unidades" % [heb.nombre, uds], "activo": true})
+		var tier: int = Forge.tier_de_metal(heb)
+		# EL DIBUJO ES LA MOCHILA QUE SALE, no las hebillas que metes (lo pidio el usuario). Va con
+		# una COPIA DE ESCAPARATE para que la muesca diga su tier de verdad: el .tres del catalogo no
+		# tiene tier y las dos celdas dirian T1 (la misma trampa que la vitrina de la tienda).
+		piezas.append({"item": _vitrina(tier), "pie": "T%d" % tier, "marca": "",
+			"tooltip": "Mochila T%d  ·  hebillas de %s  ·  tienes %d unidades" % [
+				tier, heb.nombre.to_lower(), uds], "activo": true})
 	t.grid_detail(piezas, _ficha,
 		"No conoces ningún metal, y sin hebillas no hay mochila que valga. Pica una veta y pásate por la herrería.")
 
@@ -66,12 +93,11 @@ func _ficha(vb: VBoxContainer) -> void:
 	# contadores vacios.
 	var cor: MaterialData = Game.correa_de_mochila(heb)
 	var cue: MaterialData = Game.cuero_de_mochila(heb)
-	var base: BackpackData = Game.mochila_base()
 
 	MenuScaffold.titulo_item(vb, "Mochila  ·  T%d" % tier, IconoItem.color_tier(tier))
 	# El nombre del material YA dice "Hebillas de cobre": ponerle delante otro "Hebillas de" dejaba
 	# un "Hebillas de hebillas de cobre" (el mismo error que se cazo en la forja).
-	MenuScaffold.banner_item(vb, base, "", heb.nombre)
+	MenuScaffold.banner_item(vb, _vitrina(tier), "", heb.nombre)
 	if cor == null or cue == null:
 		t.note(vb, "Todavía no hay correas ni cuero a la altura del T%d: esa mochila no se puede coser aún." % tier)
 		return

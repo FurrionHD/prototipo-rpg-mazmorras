@@ -61,7 +61,25 @@ func _ready() -> void:
 		_cuantos(men.stacks, func(s): return String((s["mat"] as MaterialData).id) == "cuero_simple") == 3)
 	_ok("el destino de cada montón es su curtido, no el de T1",
 		not _hay(men.stacks, func(s): return s["destino"] != Game.curtido_de(s["mat"])))
+	# LA CELDA ENSEÑA LO QUE SALE, no lo que metes (lo pidio el usuario). Se comprueba en el dato que
+	# le llega a la celda, no en el pixel: 'sale' tiene que ser del destino y de la misma calidad.
+	_ok("la celda enseña el cuero que va a salir, no la piel",
+		not _hay(men.stacks, func(s): return (s["sale"] as MaterialItem).data != s["destino"]))
+	_ok("y con la calidad del montón (el refinado no mezcla)",
+		not _hay(men.stacks, func(s): return int((s["sale"] as MaterialItem).calidad) != int(s["cal"])))
 	await _captura(men, "curtir")
+
+	print("\n=== CURTIR: el filtro por tier ===")
+	var todos_n: int = men.stacks.size()
+	R._on_tier(2)
+	await get_tree().process_frame
+	_ok("filtrar por T2 deja solo montones T2", not men.stacks.is_empty()
+		and not _hay(men.stacks, func(s): return int(s["tier"]) != 2))
+	_ok("y son menos que sin filtrar", men.stacks.size() < todos_n)
+	await _captura(men, "curtir_t2")
+	R._on_tier(0)
+	await get_tree().process_frame
+	_ok("quitar el filtro los devuelve todos", men.stacks.size() == todos_n)
 
 	print("\n=== CURTIR: se cobra lo que dice ===")
 	# La lambda va en UNA linea: partida, el parser corta en el salto y la escena entera falla al
@@ -105,6 +123,10 @@ func _ready() -> void:
 	_ok("la rejilla son los metales", men.stacks.size() == Game.hebillas_conocidas().size()
 		and not men.stacks.is_empty())
 	_ok("cada celda es un metal", not _hay(men.stacks, func(s): return not (s is MaterialData)))
+	# La celda enseña la MOCHILA que sale, con su tier de verdad (copia de escaparate).
+	var t1: Resource = M._vitrina(1)
+	_ok("la celda enseña una mochila, no las hebillas", t1 is BackpackData)
+	_ok("y con el tier del metal, no T1 para todas", int(Game.meta_de(M._vitrina(2))["tier"]) == 2)
 	var heb: MaterialData = men.stacks[men.sel]
 	M._cantidad = 2
 	M._on_auto(true)
@@ -130,7 +152,11 @@ func _ready() -> void:
 	_ok("con el baúl vacío, la rejilla se queda vacía y no revienta", men.stacks.is_empty())
 	await _captura(men, "curtir_vacio")
 
+	var copias: Array = M._vitrina_tier.values()
 	men._cerrar()
+	_ok("las copias del escaparate no dejan metas colgando",
+		not copias.any(func(c): return Game.item_meta.has(c)))
+
 	if _fallos == 0:
 		print("\nOK: las %d comprobaciones pasan." % _hechas)
 	else:

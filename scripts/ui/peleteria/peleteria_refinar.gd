@@ -22,6 +22,9 @@ extends RefCounted
 const LADO_CELDA_ALMACEN := 64.0
 
 var t = null   # el armazon (tannery_menu.gd)
+# El tier que se esta mirando. 0 = todos. Se recuerda entre pestañas a proposito: quien esta
+# trabajando el T2 lo esta trabajando en las dos.
+var _tier: int = 0
 # Cuantas tandas se van a hacer del monton elegido. -1 = que la ficha elija (el maximo que salga).
 var _cant: int = -1
 # De QUE monton es esa cantidad. Sin esto se arrastraba: elegias 2 en un monton, pulsabas otro que
@@ -38,7 +41,28 @@ func _init(armazon) -> void:
 # ============================================================
 
 func build(correas: bool) -> void:
-	var montones: Array = _recoger(correas)
+	var todos: Array = _recoger(correas)
+	# EL FILTRO POR TIER, en su fila encima de la rejilla. Solo sale si hay mas de un tier que
+	# elegir: con una sola piel conocida, una fila de un boton no filtra nada y estorba.
+	var tiers: Array = _tiers_de(todos)
+	var montones: Array = todos
+	if tiers.size() > 1:
+		var nombres: Array = ["Todo"]
+		var iconos: Array = ["todo"]
+		for tier in tiers:
+			nombres.append("Tier %d" % int(tier))
+			iconos.append("tier_%d" % int(tier))
+		var activa: int = 0 if _tier <= 0 else maxi(0, tiers.find(_tier) + 1)
+		MenuScaffold.subpestanas(t.barra_sub, nombres, iconos, activa,
+			func(i: int) -> void: _on_tier(0 if i == 0 else int(tiers[i - 1])))
+		if _tier > 0:
+			montones = []
+			for m in todos:
+				if int(m["tier"]) == _tier:
+					montones.append(m)
+			t.titulo_seccion("%s  ·  Tier %d" % [t.TABS[t._tab], _tier])
+	else:
+		_tier = 0
 	t.stacks = montones
 	# Arrancar en el primer monton QUE DE PARA ALGO, no en el primero a secas: los montones van por
 	# calidad (puro delante, como en el baul) y con un solo puro la pantalla abria en un "dan para 0"
@@ -50,14 +74,17 @@ func build(correas: bool) -> void:
 	t.contador(_contador(correas, montones))
 	var piezas: Array = []
 	for m in montones:
-		# El nombre sale de 'mat' (el MaterialData) y NO de 'modelo', que es el MaterialItem que se
-		# pinta en la celda: castear un MaterialItem a MaterialData da null, no el data de dentro.
-		# La CALIDAD va escrita en la esquina y no solo en el color: aqui la rejilla tiene tres
-		# montones de la misma piel, uno por calidad, y son tres operaciones distintas -- pulsar el
-		# que no era gasta material del bueno.
-		piezas.append(t.pieza(m["modelo"], "x%d" % int(m["tengo"]),
-			"%s (%s)  ·  tienes %d" % [(m["mat"] as MaterialData).nombre,
-				t.cal_txt(int(m["cal"])), int(m["tengo"])],
+		# EL DIBUJO ES LO QUE VA A SALIR, no la piel que metes (lo pidio el usuario): esta pantalla
+		# es para fabricar, y lo que buscas con el ojo es el cuero (o la correa) que quieres tener.
+		# De que sale y cuanto llevas lo dicen el pie, el tooltip y la ficha.
+		# Los nombres salen del MaterialData ('mat' / 'destino') y NO de los MaterialItem que se
+		# pintan: castear un MaterialItem a MaterialData da null, no el data de dentro.
+		# La CALIDAD va escrita en la esquina y no solo en el color: la rejilla tiene hasta cuatro
+		# montones del mismo material, uno por calidad, y son operaciones distintas -- pulsar el que
+		# no era gasta del bueno.
+		piezas.append(t.pieza(m["sale"], "x%d" % int(m["tengo"]),
+			"%s (%s)  ·  de %s  ·  tienes %d" % [(m["destino"] as MaterialData).nombre,
+				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])],
 			t.cal_txt(int(m["cal"]))))
 	t.grid_detail(piezas, func(vb: VBoxContainer) -> void: _ficha(vb, correas), _vacio(correas))
 
@@ -124,11 +151,32 @@ func _recoger(correas: bool) -> Array:
 			if tengo <= 0:
 				continue
 			out.append({
+				# 'sale' es lo que se pinta en la celda (lo que vas a crear) y 'modelo' lo que
+				# gastas: los dos se necesitan, y los dos con la MISMA calidad -- el refinado no
+				# mezcla, asi que de un monton intacto sale un curtido intacto.
+				"sale": MaterialItem.crear(destino, int(cal)),
 				"modelo": MaterialItem.crear(origen, int(cal)),
 				"mat": origen, "cal": int(cal), "tengo": tengo,
 				"destino": destino, "por_uno": por_uno, "tier": int(origen.tier),
 			})
 	return out
+
+
+# Los tiers que hay entre los montones, de menor a mayor.
+func _tiers_de(montones: Array) -> Array:
+	var vistos: Dictionary = {}
+	for m in montones:
+		vistos[int(m["tier"])] = true
+	var out: Array = vistos.keys()
+	out.sort()
+	return out
+
+
+func _on_tier(tier: int) -> void:
+	if tier == _tier:
+		return
+	_tier = tier
+	t.cambiar_pantalla()
 
 
 # ============================================================

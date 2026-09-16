@@ -72,6 +72,8 @@ var _contador_lbl: Label = null
 var _aviso_lbl: Label = null
 var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
+# La fila de FILTROS de la columna izquierda (el tier). La rellena cada pestaña; vacia, desaparece.
+var barra_sub: HBoxContainer = null
 
 var refinar = null    # PeleteriaRefinar (vale para Curtir y para Correas)
 var mochilas = null   # PeleteriaMochilas
@@ -141,8 +143,8 @@ func _ready() -> void:
 	_acciones.add_theme_constant_override("separation", 4)
 	_col_der.add_child(_acciones)
 
-	# LA COLUMNA IZQUIERDA: solo la rejilla, que aqui no hay buscador ni filtros (son ocho montones,
-	# no cuatrocientos como el baul).
+	# LA COLUMNA IZQUIERDA: la fila de filtros y la rejilla. No hay buscador: aqui se busca con el
+	# ojo entre unos pocos montones, no entre cuatrocientos como en el baul.
 	var split: BoxContainer = scroll.get_parent()
 	split.remove_child(scroll)
 	var col_izq := VBoxContainer.new()
@@ -151,6 +153,13 @@ func _ready() -> void:
 	col_izq.add_theme_constant_override("separation", 6)
 	split.add_child(col_izq)
 	split.move_child(col_izq, 0)
+	# EL FILTRO POR TIER, encima de la rejilla y dentro de su columna (igual que en el inventario y
+	# el hogar). Con la partida llena son dieciseis montones de piel de tres tiers distintos, y sin
+	# esto hay que barrer la rejilla entera para encontrar la del tier que vas a curtir.
+	barra_sub = HBoxContainer.new()
+	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_sub)
 	col_izq.add_child(scroll)
 
 	# LAS PESTAÑAS, con icono y centradas en la pantalla.
@@ -212,6 +221,9 @@ func abrir() -> void:
 
 func _cerrar() -> void:
 	_root.visible = false
+	# Las copias de escaparate dejan meta en Game.item_meta: sin esto se quedan colgando para siempre
+	# (la misma limpieza que hace la tienda al cerrar).
+	mochilas.vaciar_vitrina()
 	Game.cerrar_menu(self)
 	if Net.activo:
 		Net.hogar.liberar_mis_reservas()
@@ -278,6 +290,7 @@ func rebuild() -> void:
 
 func _rebuild_real() -> void:
 	contador("")
+	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
 	for zona in ([_content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():

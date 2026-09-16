@@ -475,6 +475,18 @@ static func tier_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 	_tier_n(c, pos, lado, col, "2")
 
 
+static func tier_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_tier_n(c, pos, lado, col, "3")
+
+
+static func tier_4(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_tier_n(c, pos, lado, col, "4")
+
+
+static func tier_5(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_tier_n(c, pos, lado, col, "5")
+
+
 static func _tier_n(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: String) -> void:
 	var g: float = lado * 0.08
 	var ctr: Vector2 = pos + Vector2(lado * 0.5, lado * 0.5)
