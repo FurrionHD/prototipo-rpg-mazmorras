@@ -347,11 +347,45 @@ static func color_luz(luz: String) -> Color:
 	return Color(1.0, 0.88, 0.62)
 
 
+# El vidrio encendido de UNA ventana de UNA casa: solo los pixeles que en el dibujo de la casa siguen
+# siendo vidrio. Lo que tapa la ventana (el cartel colgado encima, el toldo) se queda transparente y se
+# ve por encima: con el vidrio entero, la luz cortaba los carteles por la mitad (lo vio el usuario).
+# 'casa' = la imagen de la casa tal cual se pinta (la horneada si la hay).
+static func textura_vidrio(clave: String, esq: Vector2i, luz_noche: String, casa: Image) -> ImageTexture:
+	var base: Image = _vidrio_entero(luz_noche)
+	var dia: Array = _vidrio_de_dia(String(CASAS[clave]["luz"]))
+	var img := Image.create(TAM_VENTANA, TAM_VENTANA, false, Image.FORMAT_RGBA8)
+	for y in TAM_VENTANA:
+		for x in TAM_VENTANA:
+			var c: Color = base.get_pixel(x, y)
+			if c.a <= 0.0:
+				continue
+			var cx: int = esq.x + x
+			var cy: int = esq.y + y
+			if cx < 0 or cy < 0 or cx >= casa.get_width() or cy >= casa.get_height():
+				continue
+			var en_casa: Color = casa.get_pixel(cx, cy)
+			var es_vidrio: bool = false
+			for t in dia:
+				if _parecido(en_casa, t):
+					es_vidrio = true
+			# El parteluz se queda si en la casa tambien esta (si no, es que lo tapa algo).
+			if not es_vidrio and _parecido(en_casa, c):
+				es_vidrio = true
+			if es_vidrio:
+				img.set_pixel(x, y, c)
+	return ImageTexture.create_from_image(img)
+
+
+static func _parecido(a: Color, b: Color) -> bool:
+	return a.a > 0.9 and absf(a.r - b.r) < 0.02 and absf(a.g - b.g) < 0.02 and absf(a.b - b.b) < 0.02
+
+
 static var _vidrios: Dictionary = {}
 
-# El vidrio encendido: el hueco de la ventana SIN el marco (transparente), con el parteluz y el
-# vidrio mas claro que de dia, casi blanco en la esquina de arriba.
-static func textura_vidrio(luz: String) -> ImageTexture:
+# El vidrio encendido de una ventana sin tapar: el hueco SIN el marco (transparente), con el parteluz y
+# el vidrio mas claro que de dia, casi blanco en la esquina de arriba.
+static func _vidrio_entero(luz: String) -> Image:
 	if _vidrios.has(luz):
 		return _vidrios[luz]
 	var a := Color(1.0, 0.78, 0.36)
@@ -373,24 +407,27 @@ static func textura_vidrio(luz: String) -> ImageTexture:
 			if x == 7 or y == 7:
 				col = mad[2]
 			img.set_pixel(x, y, col)
-	var tex := ImageTexture.create_from_image(img)
-	_vidrios[luz] = tex
-	return tex
+	_vidrios[luz] = img
+	return img
+
+
+# Los dos tonos del vidrio DE DIA segun la luz de la casa. En su funcion porque el vidrio de noche
+# los busca en el dibujo para saber que pixeles de la ventana siguen a la vista.
+static func _vidrio_de_dia(luz: String) -> Array:
+	match luz:
+		"calida":
+			return [Color(0.85, 0.60, 0.25), Color(1.00, 0.86, 0.50)]
+		"fragua":
+			return [Color(0.80, 0.30, 0.08), Color(1.00, 0.65, 0.20)]
+		"verde":
+			return [Color(0.35, 0.60, 0.40), Color(0.65, 0.88, 0.60)]
+	return [Color(0.16, 0.22, 0.30), Color(0.30, 0.42, 0.52)]
 
 
 static func _ventana(d: PackedByteArray, w: int, h: int, x0: int, y0: int, luz: String, postigos: bool) -> void:
-	var vidrio_a := Color(0.16, 0.22, 0.30)
-	var vidrio_b := Color(0.30, 0.42, 0.52)
-	match luz:
-		"calida":
-			vidrio_a = Color(0.85, 0.60, 0.25)
-			vidrio_b = Color(1.00, 0.86, 0.50)
-		"fragua":
-			vidrio_a = Color(0.80, 0.30, 0.08)
-			vidrio_b = Color(1.00, 0.65, 0.20)
-		"verde":
-			vidrio_a = Color(0.35, 0.60, 0.40)
-			vidrio_b = Color(0.65, 0.88, 0.60)
+	var tonos: Array = _vidrio_de_dia(luz)
+	var vidrio_a: Color = tonos[0]
+	var vidrio_b: Color = tonos[1]
 	var mad: Array = RAMPAS["madera_osc"]
 	for y in 14:
 		for x in 14:

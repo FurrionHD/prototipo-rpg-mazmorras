@@ -210,11 +210,18 @@ func _crear_casas() -> void:
 func _encender_ventanas(pieza: PiezaPueblo, dibujo: String) -> void:
 	var retraso_casa: float = PuebloSprites._rnd(int(pieza.position.x), int(pieza.position.y), 311)
 	var i: int = 0
-	for v in CasaSprites.ventanas(dibujo):
+	var ventanas: Array = CasaSprites.ventanas(dibujo)
+	if ventanas.is_empty():
+		return
+	# La imagen de la casa TAL CUAL se pinta (la horneada si la hay): el vidrio se recorta contra ella.
+	var casa_img: Image = PuebloSprites.textura("casa_" + dibujo).get_image()
+	if casa_img.is_compressed():
+		casa_img.decompress()
+	for v in ventanas:
 		var esq: Vector2i = v[0]
 		var luz_v: String = v[1]
 		var vidrio := Sprite2D.new()
-		vidrio.texture = CasaSprites.textura_vidrio(luz_v)
+		vidrio.texture = CasaSprites.textura_vidrio(dibujo, esq, luz_v, casa_img)
 		vidrio.centered = false
 		vidrio.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		vidrio.z_as_relative = false
