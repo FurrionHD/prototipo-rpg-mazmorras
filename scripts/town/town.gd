@@ -90,6 +90,10 @@ func _pintar_suelo() -> void:
 			# Hierba debajo de TODO: la orilla del agua y el canto de la calle se desvanecen a alfa y
 			# por ahi tiene que verse algo.
 			_poner("hierba", c, 0)
+			if s == S.HIERBA:
+				var f: int = PuebloTerreno.flor_de(c)
+				if f >= 0:
+					(_tm["flores"] as TileMapLayer).set_cell(c, 0, PuebloTerreno.celda_de("flores", f))
 			match s:
 				S.CALLE:
 					_poner("calle", c, TerrenoSprites.mascara(c, soy_calle))

@@ -28,10 +28,13 @@ enum Clase { BASE, MASCARA }
 
 # El ORDEN es tambien el orden de pintado (un TileMapLayer por capa, en este orden): el agua va sobre
 # la hierba de la orilla, las patas sobre el agua y la madera encima de todo lo de abajo.
-const CAPAS_ORDEN := ["hierba", "calle", "agua", "pilote", "madera", "muralla"]
+const CAPAS_ORDEN := ["hierba", "flores", "calle", "agua", "pilote", "madera", "muralla"]
 
 const CAPAS := {
 	"hierba": {"clase": Clase.BASE, "bloque": 4, "frames": 1},
+	# Bloque 3 = VARIANTES_FLOR matitas. La que toca NO sale de la posicion en el tapiz sino de un
+	# hash de la casilla (flor_de), asi que no forman cuadricula.
+	"flores": {"clase": Clase.BASE, "bloque": 3, "frames": 1},
 	# La calle se pinta ENCIMA de la hierba y su borde es un bordillo: por eso lleva mascara.
 	"calle": {"clase": Clase.MASCARA, "bloque": 4, "frames": 1},
 	# El agua a bloque 2 y cuatro frames, como el lago de la mazmorra (ver TerrenoSprites.CAPAS).
@@ -141,16 +144,14 @@ static func _px(d: PackedByteArray, W: int, x: int, y: int, c: Color) -> void:
 	TerrenoSprites._poner(d, W, x, y, c)
 
 
-# HIERBA: el tapiz de fondo. Manchas suaves de tono (sin ellas es un tapete) y briznas: trazos
-# verticales de dos o tres pixeles, mas claros por arriba, que son lo que la lee como hierba y no
-# como musgo. Y alguna flor suelta, muy pocas: el pueblo no es un prado.
+# HIERBA: el tapiz de fondo. Manchas suaves de tono (sin ellas es un tapete), briznas (trazos
+# verticales de dos o tres pixeles, mas claros por arriba, que la leen como hierba y no como musgo) y
+# MATITAS DE FLORES aqui y alla.
 static func _pintar_hierba(d: PackedByteArray, W: int, o: Vector2i, rampa: Array, sem: int,
 		ox: float, oy: float, bl: int) -> void:
 	var mancha: PackedFloat32Array = TerrenoSprites._campo(3, sem, ox, oy, 1.0, bl)
 	var grano: PackedFloat32Array = TerrenoSprites._campo(16, sem + 31, ox, oy, 1.0, bl)
 	var brizna: PackedFloat32Array = TerrenoSprites._campo(16, sem + 97, ox, oy, 1.0, bl)
-	var flor: PackedFloat32Array = TerrenoSprites._campo(16, sem + 211, ox, oy, 1.0, bl)
-	var flores := [Color(0.93, 0.88, 0.55), Color(0.90, 0.92, 0.95), Color(0.80, 0.55, 0.75)]
 	for y in LADO:
 		for x in LADO:
 			var i: int = y * LADO + x
@@ -164,10 +165,61 @@ static func _pintar_hierba(d: PackedByteArray, W: int, o: Vector2i, rampa: Array
 				v += 0.14
 			elif y > 0 and brizna[(y - 1) * LADO + x] > 0.80:
 				v -= 0.16
-			var col: Color = TerrenoSprites._escalon(clampf(v, 0.0, 0.999), rampa)
-			if flor[i] > 0.965:
-				col = flores[int(flor[i] * 1000.0) % flores.size()]
-			_px(d, W, o.x + x, o.y + y, col)
+			_px(d, W, o.x + x, o.y + y, TerrenoSprites._escalon(clampf(v, 0.0, 0.999), rampa))
+
+
+# ------------------------------------------------------------
+#  LAS FLORES
+# ------------------------------------------------------------
+# Antes eran pixeles sueltos de color por todo el cesped y el usuario los veia como "cosas blancas":
+# motas, no flores. Luego se hicieron matitas pintadas DENTRO del tapiz de la hierba, y el tapiz se
+# repite cada cuatro casillas: se veia la misma matita en cuadricula.
+#
+# Ahora son una CAPA APARTE ("flores"): VARIANTES_FLOR baldosas distintas, cada una con una matita de
+# 2 a 4 flores (cruz de cuatro petalos con su centro y dos hojitas), de un color por matita y metida
+# en el centro de la baldosa para que no se corte en el canto. El pueblo las siembra en casillas de
+# hierba SUELTAS elegidas por hash de la casilla (determinista: todos ven las mismas).
+const VARIANTES_FLOR := 9
+const PETALOS := [
+	Color(0.96, 0.96, 0.98),      # margarita blanca
+	Color(0.98, 0.86, 0.35),      # amarilla
+	Color(0.90, 0.55, 0.78),      # rosa
+	Color(0.62, 0.70, 0.98),      # azul
+	Color(0.82, 0.62, 0.95),      # lila
+]
+const CENTRO_FLOR := Color(0.98, 0.78, 0.22)
+const HOJA := Color(0.16, 0.34, 0.13)
+
+static func _pintar_flores(d: PackedByteArray, W: int, o: Vector2i, variante: int) -> void:
+	for y in LADO:
+		for x in LADO:
+			_px(d, W, o.x + x, o.y + y, Color(0, 0, 0, 0))
+	var sem: int = 4400 + variante * 31
+	var tipo: int = variante % PETALOS.size()
+	var petalo: Color = PETALOS[tipo]
+	var cuantas: int = 2 + int(PuebloSprites._rnd(variante, 1, sem) * 3.0)
+	for k in cuantas:
+		var p := Vector2i(16 + int((PuebloSprites._rnd(k, 2, sem) - 0.5) * 16.0),
+			16 + int((PuebloSprites._rnd(k, 3, sem) - 0.5) * 12.0))
+		var piezas := [
+			[Vector2i(-1, 2), HOJA], [Vector2i(1, 2), HOJA], [Vector2i(0, 2), HOJA.darkened(0.2)],
+			[Vector2i(0, -1), petalo], [Vector2i(-1, 0), petalo], [Vector2i(1, 0), petalo],
+			[Vector2i(0, 1), petalo.darkened(0.18)],
+			[Vector2i(0, 0), CENTRO_FLOR],
+		]
+		for pz in piezas:
+			var q: Vector2i = p + (pz[0] as Vector2i)
+			_px(d, W, o.x + q.x, o.y + q.y, pz[1])
+
+
+# ¿Lleva flores esta casilla de hierba, y cual? -1 = no. Por hash de la casilla: sale igual en todas las
+# maquinas y no hace cuadricula.
+const FLOR_PROB := 0.07
+
+static func flor_de(c: Vector2i) -> int:
+	if PuebloSprites._rnd(c.x, c.y, 9091) > FLOR_PROB:
+		return -1
+	return int(PuebloSprites._rnd(c.x, c.y, 9092) * float(VARIANTES_FLOR)) % VARIANTES_FLOR
 
 
 # CALLE: adoquines. Es un Voronoi PERIODICO sobre el tapiz entero (bl x bl baldosas): cada pixel
@@ -373,6 +425,8 @@ static func _pintar(d: PackedByteArray, W: int, capa: String, o: Vector2i, rampa
 	match capa:
 		"hierba":
 			_pintar_hierba(d, W, o, rampa, sem, ox, oy, bl)
+		"flores":
+			_pintar_flores(d, W, o, int(ox / float(LADO)) + int(oy / float(LADO)) * bl)
 		"calle":
 			_pintar_calle(d, W, o, rampa, mask, sem, ox, oy, bl)
 		"agua":
