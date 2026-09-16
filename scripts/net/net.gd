@@ -79,7 +79,9 @@ const MAX_CONEXIONES := 32
 #     tienda. Un build del 15 no casaria los argumentos y la peticion se perderia.
 # 17: RPC nuevo _set_semilla_pueblo (las cañas del muelle salen igual para todos). Un build del 16 no
 #     lo conoce y el pueblo se le colocaria con su propia semilla.
-const PROTOCOLO := 17
+# 18: RPC nuevo _set_hora_pueblo (el dia y la noche del pueblo, con la hora del host). Un build del 17 no
+#     lo conoce y veria su propio cielo.
+const PROTOCOLO := 18
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -474,6 +476,7 @@ func desconectar() -> void:
 	hogar._hogar_sucio = false
 	epoca_sesion = 0
 	semilla_pueblo = 0
+	CicloDia.desfase = 0.0      # sin sesion, la hora vuelve a ser la de este PC
 	jefes._bosses_sello.clear()
 	expedicion_abierta = false
 	_dueno_piso.clear()
@@ -968,6 +971,19 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	if semilla_pueblo == 0:
 		semilla_pueblo = Game.semilla_pueblo
 	_set_semilla_pueblo.rpc_id(quien, semilla_pueblo)
+	# Y SU HORA, para que el dia y la noche del pueblo (CicloDia) vayan a la par aunque el reloj de algun
+	# PC vaya adelantado o atrasado. Lo que tarde en llegar (milisegundos) no se ve en un ciclo de 40 min.
+	_set_hora_pueblo.rpc_id(quien, Time.get_unix_time_from_system() + float(Encargos.desfase_prueba))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_hora_pueblo(t_host: float) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	# La hora llega TARDE: va al final del alta, detras del baul y el cofre, y medido tarda ~5 s. Aplicarla
+	# siempre le meteria ese retraso a un reloj que ya iba bien. Solo se corrige un reloj MAL PUESTO de verdad.
+	var d: float = t_host - (Time.get_unix_time_from_system() + float(Encargos.desfase_prueba))
+	CicloDia.desfase = d if absf(d) > 30.0 else 0.0
 
 
 # HOST: estrena semilla del pueblo y se la manda a todos (ver Game.semilla_pueblo).

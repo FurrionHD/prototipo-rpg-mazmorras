@@ -12,6 +12,9 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	cargar_grupo([2, 3])
+	# Un reloj "mal puesto": el host tiene que corregirlo al entrar (CicloDia, Net._set_hora_pueblo). Los
+	# dos procesos van en el mismo PC, asi que tras la correccion la diferencia es casi cero.
+	CicloDia.desfase = 777.0
 	await _esperar(0.5)
 	var err := Net.unirse(args[i + 1], args[i + 3], int(args[i + 2]))
 	_ok(err == OK, "me conecto a la sala")
@@ -20,6 +23,13 @@ func _ready() -> void:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(Net._num_humanos == 2, "el host me admite (%.1f s)" % t)
+	# La hora va al final del alta, detras de los paquetes gordos (baul, cofre...): puede tardar segundos.
+	var th := 0.0
+	while absf(CicloDia.desfase - 777.0) < 0.01 and th < 20.0:
+		await _esperar(0.5)
+		th += 0.5
+	_ok(absf(CicloDia.desfase) < 2.0, "el host me pone su hora del pueblo (desfase %.2f s, tras %.1f s)"
+		% [CicloDia.desfase, th])
 
 	# FASE 1: bajo al piso 1.
 	await esperar_fase(1, 60.0)
