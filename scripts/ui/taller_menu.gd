@@ -457,12 +457,13 @@ func decir(txt: String, ok: bool = true) -> void:
 	_aviso_ok = ok
 
 
-func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null) -> void:
+func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Variant = null,
+		ancho_etiqueta: float = 150.0) -> void:
 	var r := HBoxContainer.new()
 	r.add_theme_constant_override("separation", 8)
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(150, 0)
+	k.custom_minimum_size = Vector2(ancho_etiqueta, 0)
 	k.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	r.add_child(k)

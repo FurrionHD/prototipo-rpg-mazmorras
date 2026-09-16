@@ -74,6 +74,13 @@ el segundo 1.600 monedas y cada uno el doble que el anterior.
 **La taberna tiene la cara del inventario**: arriba tu gente (quién baja contigo y quién se queda en el
 Hogar), las armas de regalo en celdas y el trato en la ficha, con el botón siempre a la vista.
 
+## 🎣 El pescador, rehecho
+
+**El libro de peces y los cebos con la cara del inventario.** Los peces van en celdas, y los que aún no
+has pescado salen **en negro**: se ve la silueta, no el nombre. La ficha trae la foto del pez en grande,
+sus tallas, sus capturas y sus coronas. Los cebos van con su precio en la celda y el botón de comprar
+siempre a la vista, con la cantidad empezando en 1.
+
 ## 🧑‍🔧 Quién trabaja
 
 **En cada taller eliges quién hace el trabajo**, de entre todos tus personajes (también los que se
