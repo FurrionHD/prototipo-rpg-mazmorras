@@ -123,6 +123,14 @@ func _crear_choques() -> void:
 		col.shape = forma
 		col.position = (Vector2(r.position) + Vector2(r.size) * 0.5) * celda
 		cuerpo.add_child(col)
+	# Y lo pequeño, con la caja de lo que se VE (barriles, yunque, columna, verjas).
+	for rp in PuebloPlano.cajas_pequenas():
+		var forma2 := RectangleShape2D.new()
+		forma2.size = rp.size
+		var col2 := CollisionShape2D.new()
+		col2.shape = forma2
+		col2.position = rp.get_center()
+		cuerpo.add_child(col2)
 
 
 # ------------------------------------------------------------
@@ -203,7 +211,7 @@ func _crear_jardin() -> void:
 			# INVERTIDA: TerrenoSprites.mascara pone el bit donde el vecino NO es verja (es una mascara de
 			# BORDES, la del autotile), y el dibujo de la verja quiere los lados hacia donde SIGUE. Sin el
 			# 15 - m salian las verjas del reves: tramos de frente en los laterales y postes sueltos abajo.
-			var m: int = 15 - TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.es_verja(v))
+			var m: int = 15 - TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.se_une_la_verja(v))
 			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE), true))
 	var a: Vector2i = PuebloPlano.ALTAR
 	add_child(PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true))

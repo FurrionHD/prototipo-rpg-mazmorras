@@ -32,6 +32,7 @@ const PIEZAS := {
 	"barriles": {"tam": Vector2i(32, 56), "pie": 32},
 	"cajas": {"tam": Vector2i(32, 56), "pie": 32},
 	"sacos": {"tam": Vector2i(32, 56), "pie": 32},
+	"bastidor": {"tam": Vector2i(32, 56), "pie": 32},
 }
 
 # Las verjas son una pieza por MASCARA (hacia que lados sigue la verja: 1 N, 2 E, 4 S, 8 O).
@@ -384,7 +385,7 @@ static func _verja(mask: int) -> PackedByteArray:
 #
 # El lienzo es la casilla (32x32, abajo) mas 24 px por encima para lo que sube.
 const ADORNO_SUELO := 44       # y del lienzo donde se apoyan (un poco por debajo del centro de la casilla)
-const ADORNOS_CLAVES := ["yunque", "troncos", "barril", "barriles", "cajas", "sacos"]
+const ADORNOS_CLAVES := ["yunque", "troncos", "barril", "barriles", "cajas", "sacos", "bastidor"]
 
 static func _adorno(clave: String) -> PackedByteArray:
 	var t: Vector2i = PIEZAS[clave]["tam"]
@@ -458,6 +459,47 @@ static func _adorno(clave: String) -> PackedByteArray:
 			var mad: Array = [Color(0.30, 0.20, 0.11), Color(0.48, 0.34, 0.20), Color(0.62, 0.47, 0.29), Color(0.74, 0.60, 0.40), Color(0.84, 0.72, 0.52)]
 			_caja_madera(d, w, h, 3, s, 22, 8, 13, mad)
 			_caja_madera(d, w, h, 12, s - 13 - 4, 14, 6, 10, mad)
+			_contorno(d, w, h)
+		"bastidor":
+			# EL BASTIDOR DE LA PELETERIA: dos postes con travesaño y una piel estirada con cuerdas,
+			# mirando a la calle. Antes las pieles iban colgadas en la pared y tapaban las ventanas.
+			_sombra_suelo(d, w, h, 16, s, 15, 4)
+			var palo: Array = [Color(0.20, 0.13, 0.08), Color(0.36, 0.24, 0.14), Color(0.52, 0.37, 0.22)]
+			var alto_b: int = 30
+			for px_ in [3, 27]:
+				for y in range(s - alto_b, s + 1):
+					_px(d, w, h, px_, y, palo[2])
+					_px(d, w, h, px_ + 1, y, palo[1])
+			for x in range(2, 30):
+				_px(d, w, h, x, s - alto_b, palo[2])
+				_px(d, w, h, x, s - alto_b + 1, palo[1])
+			for x in range(3, 29):
+				_px(d, w, h, x, s - 4, palo[1])
+			# La piel: silueta de cuero curtido, con las patas estiradas hacia las esquinas.
+			var cuero: Array = [Color(0.38, 0.25, 0.14), Color(0.56, 0.40, 0.25), Color(0.68, 0.52, 0.34)]
+			var cy: int = s - alto_b / 2 - 2
+			for yy in range(-10, 11):
+				var semi: float = 7.5 - absf(float(yy)) * 0.22
+				for xx in range(-11, 12):
+					var lim: float = semi
+					if absi(yy) >= 8:
+						lim = 3.0 + (absf(float(xx)) > 6.0 as int) * 0.0
+						if absf(float(xx)) >= 6.0 and absf(float(xx)) <= 10.0 and absi(yy) <= 10:
+							lim = 10.0
+					if absf(float(xx)) > lim:
+						continue
+					var col: Color = cuero[2] if absf(float(xx)) < lim - 3.0 and absi(yy) < 8 else cuero[1]
+					if absf(float(xx)) >= lim - 0.8:
+						col = cuero[0]
+					_px(d, w, h, 16 + xx, cy + yy, col)
+			# Las cuerdas de las esquinas de la piel a los postes.
+			for k in 4:
+				var ex: int = 16 + (-10 if k % 2 == 0 else 10)
+				var ey: int = cy + (-10 if k < 2 else 10)
+				var px2: int = 5 if k % 2 == 0 else 26
+				var paso: int = 1 if px2 > ex else -1
+				for x in range(ex, px2, paso):
+					_px(d, w, h, x, ey, Color(0.80, 0.74, 0.58))
 			_contorno(d, w, h)
 		"sacos":
 			_sombra_suelo(d, w, h, 16, s, 15, 5)

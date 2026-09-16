@@ -41,6 +41,7 @@ func _ready() -> void:
 
 	_hoja_de_piezas()
 	_plano()
+	await _choques()
 	_puertas()
 	await _menus()
 	if _con_ventana:
@@ -95,6 +96,27 @@ func _plano() -> void:
 				_ok("caña fuera del borde de la plataforma: %s" % [c], false)
 	_ok("la escalera cae en la plaza", PuebloPlano.PLAZA.encloses(PuebloPlano.ESCALERA))
 	_ok("apareces en un sitio libre", not PuebloPlano.solida(_celda(PuebloPlano.aparicion_px())))
+
+
+# EL CHOQUE ES LO QUE SE VE: en cada adorno, el pie del dibujo choca y la esquina de su casilla (hierba
+# vacia alrededor del barril) no. Con la fisica de verdad, no con el plano.
+func _choques() -> void:
+	print("\n=== LOS CHOQUES ===")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var espacio: PhysicsDirectSpaceState2D = _pueblo.get_world_2d().direct_space_state
+	var choca := func(p: Vector2) -> bool:
+		var q := PhysicsPointQueryParameters2D.new()
+		q.position = p
+		return not espacio.intersect_point(q, 1).is_empty()
+	var cel: float = float(PuebloPlano.CELDA)
+	for a in PuebloPlano.adornos():
+		var c: Vector2i = a[1]
+		var esquina := Vector2(float(c.x) * cel + 2.0, float(c.y) * cel + cel - 2.0)
+		var pie := Vector2(float(c.x) * cel + cel * 0.5, float(c.y) * cel + PuebloPlano.ADORNO_APOYO)
+		_ok("%s: choca su pie y no la esquina de su casilla" % a[0], choca.call(pie) and not choca.call(esquina))
+	var al: Vector2i = PuebloPlano.ALTAR
+	_ok("la columna no choca por arriba de su casilla", not choca.call(Vector2(float(al.x) * cel + 3.0, float(al.y) * cel + 3.0)))
 
 
 func _puertas() -> void:
@@ -178,6 +200,9 @@ func _capturas() -> void:
 	await _captura("altar_delante")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ESCALERA.position + Vector2i(1, -1))
 	await _captura("escalera_norte")
+	# La esquina de arriba del jardin: la verja tiene que llegar a la muralla.
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.JARDIN.position + Vector2i(2, 3))
+	await _captura("verja_muralla")
 	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.MUELLE.position.x + 1, PuebloPlano.MUELLE.position.y + 1))
 	await _captura("muelle")
 

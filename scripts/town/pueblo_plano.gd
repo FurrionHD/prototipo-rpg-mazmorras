@@ -138,6 +138,7 @@ const ADORNOS := {
 	"cocina": [["barril", -1]],
 	"tienda": [["cajas", -2], ["sacos", 2]],
 	"taberna": [["barril", -1], ["barriles", 1], ["barriles", 2]],
+	"peleteria": [["bastidor", -2]],
 }
 
 
@@ -263,25 +264,83 @@ static func es_camino(c: Vector2i) -> bool:
 static func es_verja(c: Vector2i) -> bool:
 	if not JARDIN.has_point(c) or JARDIN_HUECO.has_point(c):
 		return false
-	if c.y == JARDIN.position.y:
-		return false
+	# La fila de arriba no lleva tramo de frente (ahi ya esta la muralla), pero los LATERALES si llegan
+	# hasta ella: empezando una fila mas abajo quedaba un hueco entre la verja y la muralla.
 	return c.x == JARDIN.position.x or c.x == JARDIN.end.x - 1 or c.y == JARDIN.end.y - 1
+
+
+# ¿Con que se junta una verja? Con otra verja o con la MURALLA (asi cierra contra ella).
+static func se_une_la_verja(c: Vector2i) -> bool:
+	return es_verja(c) or suelo(c) == Suelo.MURALLA
 
 
 # ¿Choca esta casilla? Muralla, agua (menos la madera), verjas, casas, escalera y el pie del altar.
 static func solida(c: Vector2i) -> bool:
-	var s: int = suelo(c)
-	if s == Suelo.MURALLA or s == Suelo.AGUA:
+	if solida_entera(c):
 		return true
-	if es_verja(c) or c == ALTAR or ESCALERA.has_point(c):
+	if es_verja(c) or c == ALTAR:
 		return true
 	for a in adornos():
 		if a[1] == c:
 			return true
+	return false
+
+
+# Lo que choca con la CASILLA ENTERA: muralla, agua, casas y escalera, cuyo dibujo llena su huella.
+# Las piezas pequeñas (adornos, altar, verjas) NO: su caja es lo que se ve (ver cajas_pequenas). Con
+# la casilla entera el usuario chocaba "con el aire" media casilla antes de llegar al barril.
+static func solida_entera(c: Vector2i) -> bool:
+	var s: int = suelo(c)
+	if s == Suelo.MURALLA or s == Suelo.AGUA:
+		return true
+	if ESCALERA.has_point(c):
+		return true
 	for casa in CASAS:
 		if (casa["rect"] as Rect2i).has_point(c):
 			return true
 	return false
+
+
+# LAS CAJAS DE LO PEQUEÑO, en px: la BASE de lo que se ve apoyado en el suelo (el choque es con los
+# pies del jugador, asi que lo que cuenta es la planta del objeto, no lo alto que sea).
+# Los adornos se apoyan en y = arriba de su casilla + 20 (PuebloSprites.ADORNO_SUELO en su lienzo).
+const CAJA_ADORNO := {
+	"yunque": Vector2(22, 10), "barril": Vector2(16, 8), "barriles": Vector2(28, 10),
+	"troncos": Vector2(30, 12), "cajas": Vector2(22, 10), "sacos": Vector2(28, 10),
+	"bastidor": Vector2(28, 6),
+}
+const ADORNO_APOYO := 20.0
+const VERJA_GROSOR := 6.0
+
+static func cajas_pequenas() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var cel: float = float(CELDA)
+	for a in adornos():
+		var c: Vector2i = a[1]
+		var t: Vector2 = CAJA_ADORNO.get(String(a[0]), Vector2(20, 10))
+		var centro := Vector2(float(c.x) * cel + cel * 0.5, float(c.y) * cel + ADORNO_APOYO)
+		out.append(Rect2(centro - t * 0.5, t))
+	# La columna del altar: su zocalo, pegado al fondo de su casilla.
+	var ab := Vector2(float(ALTAR.x) * cel + cel * 0.5, float(ALTAR.y + 1) * cel - 9.0)
+	out.append(Rect2(ab - Vector2(11, 5), Vector2(22, 10)))
+	# Las verjas: una raya por el centro de la casilla hacia cada lado por el que sigue la verja.
+	for y in range(JARDIN.position.y, JARDIN.end.y):
+		for x in range(JARDIN.position.x, JARDIN.end.x):
+			var v := Vector2i(x, y)
+			if not es_verja(v):
+				continue
+			var cen := Vector2(float(x) * cel + cel * 0.5, float(y) * cel + cel * 0.5)
+			var g: float = VERJA_GROSOR
+			out.append(Rect2(cen - Vector2(g, g) * 0.5, Vector2(g, g)))
+			if es_verja(v + Vector2i(1, 0)):
+				out.append(Rect2(cen - Vector2(0, g * 0.5), Vector2(cel * 0.5, g)))
+			if es_verja(v + Vector2i(-1, 0)):
+				out.append(Rect2(cen - Vector2(cel * 0.5, g * 0.5), Vector2(cel * 0.5, g)))
+			if es_verja(v + Vector2i(0, 1)):
+				out.append(Rect2(cen - Vector2(g * 0.5, 0), Vector2(g, cel * 0.5)))
+			if se_une_la_verja(v + Vector2i(0, -1)):
+				out.append(Rect2(cen - Vector2(g * 0.5, cel * 0.5), Vector2(g, cel * 0.5)))
+	return out
 
 
 # Rectangulos de choque FUNDIDOS (tiras horizontales unidas hacia abajo), como hace la mazmorra con
@@ -293,18 +352,18 @@ static func solidos_fusionados() -> Array[Rect2i]:
 		var x: int = 0
 		while x < ANCHO:
 			var c := Vector2i(x, y)
-			if not solida(c) or usado.has(c):
+			if not solida_entera(c) or usado.has(c):
 				x += 1
 				continue
 			var w: int = 0
-			while x + w < ANCHO and solida(Vector2i(x + w, y)) and not usado.has(Vector2i(x + w, y)):
+			while x + w < ANCHO and solida_entera(Vector2i(x + w, y)) and not usado.has(Vector2i(x + w, y)):
 				w += 1
 			var h: int = 1
 			var sigue: bool = true
 			while sigue and y + h < ALTO:
 				for i in w:
 					var d := Vector2i(x + i, y + h)
-					if not solida(d) or usado.has(d):
+					if not solida_entera(d) or usado.has(d):
 						sigue = false
 						break
 				if sigue:

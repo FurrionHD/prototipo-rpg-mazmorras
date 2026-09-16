@@ -71,7 +71,7 @@ const CASAS := {
 		"extras": []},
 	"peleteria": {"huella": Vector2i(4, 3), "pared": "madera_osc", "tejado": "paja", "alto": 42,
 		"chimeneas": [], "cartel": "piel", "luz": "",
-		"extras": ["pieles"]},
+		"extras": []},
 	"boticaria": {"huella": Vector2i(4, 3), "pared": "entramado", "tejado": "teja_verde", "alto": 44,
 		"chimeneas": [104], "cartel": "frasco", "luz": "verde",
 		"extras": ["macetas", "hierbas"]},
