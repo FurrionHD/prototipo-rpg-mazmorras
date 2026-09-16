@@ -40,8 +40,10 @@ const CALLES := [
 	Rect2i(2, 33, 46, 2),     # la calle baja
 	Rect2i(23, 17, 3, 7),     # de la calle alta a la plaza
 	Rect2i(23, 27, 3, 13),    # de la plaza a la orilla (y al muelle)
+	Rect2i(2, 39, 46, 1),     # el paseo de la orilla, donde dan las casas de abajo
 	Rect2i(20, 21, 9, 9),     # LA PLAZA
-	Rect2i(24, 7, 1, 8),      # el camino de piedra del hogar (casa -> claro -> calle)
+	Rect2i(24, 7, 1, 1),      # el camino de piedra del hogar (casa -> claro), estrecho
+	Rect2i(23, 13, 3, 2),     # la ENTRADA al hogar (claro -> calle), de 3 como la calle de la plaza
 	Rect2i(22, 8, 5, 5),      # el claro del altar
 ]
 
@@ -56,7 +58,8 @@ const ESCALERA := Rect2i(23, 24, 3, 3)
 #  abajo por donde sale el camino.
 # ------------------------------------------------------------
 const JARDIN := Rect2i(19, 2, 11, 13)
-const JARDIN_HUECO := Vector2i(24, 14)
+# La entrada de la verja: 3 de ancho, alineada con la calle que sube de la plaza (lo pidio el usuario).
+const JARDIN_HUECO := Rect2i(23, 14, 3, 1)
 const ALTAR := Vector2i(24, 10)
 
 # ------------------------------------------------------------
@@ -90,27 +93,29 @@ const PORTONES := [
 #
 #  Tamaños por importancia (decision del usuario): hogar, taberna y tienda 5x4; los talleres 4x3;
 #  maestro y pescador 3x3; relleno 3x3.
+#
+#  TODAS PEGADAS A SU CALLE (lo pidio el usuario mirando el juego): entre la fachada y la calle queda
+#  UNA casilla, la de la puerta, y esa casilla va enlosada (ver es_camino) para que la puerta conecte
+#  con la calle.
 # ------------------------------------------------------------
 const CASAS := [
 	{"clave": "hogar", "nombre": "HOGAR", "rect": Rect2i(22, 3, 5, 4), "script": "res://scripts/town/hogar.gd"},
-	{"clave": "boticaria", "nombre": "BOTICARIA", "rect": Rect2i(5, 19, 4, 3), "script": "res://scripts/town/boticaria.gd"},
-	{"clave": "maestro", "nombre": "MAESTRO", "rect": Rect2i(13, 19, 3, 3), "script": "res://scripts/town/maestro.gd"},
-	{"clave": "tienda", "nombre": "TIENDA", "rect": Rect2i(31, 18, 5, 4), "script": "res://scripts/town/shop.gd"},
-	{"clave": "herreria", "nombre": "HERRERÍA", "rect": Rect2i(40, 19, 4, 3), "script": "res://scripts/town/herrero.gd"},
+	{"clave": "boticaria", "nombre": "BOTICARIA", "rect": Rect2i(5, 20, 4, 3), "script": "res://scripts/town/boticaria.gd"},
+	{"clave": "maestro", "nombre": "MAESTRO", "rect": Rect2i(13, 20, 3, 3), "script": "res://scripts/town/maestro.gd"},
+	{"clave": "tienda", "nombre": "TIENDA", "rect": Rect2i(31, 19, 5, 4), "script": "res://scripts/town/shop.gd"},
+	{"clave": "herreria", "nombre": "HERRERÍA", "rect": Rect2i(40, 20, 4, 3), "script": "res://scripts/town/herrero.gd"},
 	{"clave": "cocina", "nombre": "COCINA", "rect": Rect2i(5, 29, 4, 3), "script": "res://scripts/town/cocinero.gd"},
 	{"clave": "taberna", "nombre": "TABERNA", "rect": Rect2i(31, 28, 5, 4), "script": "res://scripts/town/taberna.gd"},
 	{"clave": "carpinteria", "nombre": "CARPINTERÍA", "rect": Rect2i(40, 29, 4, 3), "script": "res://scripts/town/carpintero.gd"},
 	{"clave": "peleteria", "nombre": "PELETERÍA", "rect": Rect2i(40, 35, 4, 3), "script": "res://scripts/town/peletero.gd"},
 	{"clave": "pescador", "nombre": "PESCADOR", "rect": Rect2i(23, 46, 3, 3), "script": "res://scripts/town/pescador.gd"},
-	# Relleno: a los lados del hogar, dos filas por lado.
-	{"clave": "vacia", "rect": Rect2i(5, 4, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(12, 4, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(5, 10, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(12, 10, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(34, 4, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(41, 4, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(34, 10, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(41, 10, 3, 3)},
+	# Relleno: a los lados del hogar, una fila por lado pegada a la calle alta.
+	{"clave": "vacia", "rect": Rect2i(3, 11, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(8, 11, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(13, 11, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(33, 11, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(38, 11, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(43, 11, 3, 3)},
 	# Relleno: los barrios del sur.
 	{"clave": "vacia", "rect": Rect2i(13, 29, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(5, 35, 3, 3)},
@@ -166,16 +171,41 @@ static func _calcular_suelo(c: Vector2i) -> int:
 	for r in MURALLAS:
 		if (r as Rect2i).has_point(c):
 			return Suelo.MURALLA
+	if _en_calle(c) or es_camino(c):
+		return Suelo.CALLE
+	return Suelo.HIERBA
+
+
+static func _en_calle(c: Vector2i) -> bool:
 	for r in CALLES:
 		if (r as Rect2i).has_point(c):
-			return Suelo.CALLE
-	return Suelo.HIERBA
+			return true
+	return false
+
+
+# EL CAMINO DE CADA PUERTA: las casillas de piedra desde la puerta hacia abajo hasta dar con una calle.
+# Hoy es una sola (todas las casas estan pegadas a su calle), pero si alguna se separa, el camino se
+# alarga solo y la puerta no se queda en mitad de la hierba.
+const CAMINO_MAX := 4
+
+static func es_camino(c: Vector2i) -> bool:
+	for casa in CASAS:
+		var p: Vector2i = puerta_de(casa)
+		if c.x != p.x or c.y < p.y or c.y >= p.y + CAMINO_MAX:
+			continue
+		var hay_calle: bool = false
+		for k in range(p.y, c.y + 1):
+			if k > p.y and _en_calle(Vector2i(c.x, k)):
+				hay_calle = true
+		if not hay_calle and not _en_calle(c):
+			return true
+	return false
 
 
 # Las casillas de VERJA: el borde del jardin menos el hueco del camino. La fila de arriba no lleva,
 # que ahi ya esta la muralla.
 static func es_verja(c: Vector2i) -> bool:
-	if not JARDIN.has_point(c) or c == JARDIN_HUECO:
+	if not JARDIN.has_point(c) or JARDIN_HUECO.has_point(c):
 		return false
 	if c.y == JARDIN.position.y:
 		return false

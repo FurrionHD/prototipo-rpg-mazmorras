@@ -214,6 +214,7 @@ func _hornear_terreno() -> void:
 		push_error("[horno] no pude escribir el terreno del pueblo")
 	else:
 		print("  terreno_pueblo          %.1f KB" % [np / 1024.0])
+	print("  piezas del pueblo       %d" % PuebloSprites.hornear_todo())
 
 
 func _hornear_recolectables() -> void:

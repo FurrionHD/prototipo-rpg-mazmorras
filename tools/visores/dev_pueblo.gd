@@ -39,6 +39,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
+	_hoja_de_piezas()
 	_plano()
 	_puertas()
 	await _menus()
@@ -70,6 +71,11 @@ func _plano() -> void:
 		if not String(casa.get("script", "")).is_empty():
 			var p: Vector2i = PuebloPlano.puerta_de(casa)
 			_ok("  su puerta %s se puede pisar" % p, not PuebloPlano.solida(p))
+		# Todas pegadas a su calle, con la casilla de la puerta enlosada (o la madera del pescador).
+		var pu: Vector2i = PuebloPlano.puerta_de(casa)
+		_ok("  la puerta %s es de piedra y da a una calle" % pu,
+			PuebloPlano.suelo(pu) != PuebloPlano.Suelo.HIERBA
+			and PuebloPlano.suelo(pu + Vector2i(0, 1)) != PuebloPlano.Suelo.HIERBA)
 	_ok("la escalera cae en la plaza", PuebloPlano.PLAZA.encloses(PuebloPlano.ESCALERA))
 	_ok("apareces en un sitio libre", not PuebloPlano.solida(_celda(PuebloPlano.aparicion_px())))
 
@@ -87,6 +93,17 @@ func _puertas() -> void:
 		_ok("%s: una puerta interactuable (%d)" % [casa["clave"], cerca], cerca == 1)
 		_ok("  y se llega andando", alcanzables.has(p))
 	_ok("la escalera es la salida a la mazmorra", get_tree().get_nodes_in_group("salida_pueblo").size() == 1)
+	# La F de la escalera desde sus CUATRO lados, con el jugador de verdad pegado a cada uno.
+	var esc: Rect2i = PuebloPlano.ESCALERA
+	var cen: Vector2 = (Vector2(esc.position) + Vector2(esc.size) * 0.5) * float(PuebloPlano.CELDA)
+	var medio: float = float(esc.size.x) * float(PuebloPlano.CELDA) * 0.5
+	var lados := {"sur": Vector2(0, medio - 4.0), "norte": Vector2(0, -medio - 18.0),
+		"este": Vector2(medio + 13.0, 0), "oeste": Vector2(-medio - 13.0, 0)}
+	for lado in lados:
+		_jugador.global_position = cen + lados[lado]
+		var cual: Node = _jugador._mas_cercano_en_grupo("interactable", false)
+		_ok("la escalera se usa desde el %s" % lado, cual != null and cual.is_in_group("salida_pueblo"))
+	_jugador.global_position = PuebloPlano.aparicion_px()
 	_ok("se llega al altar", alcanzables.has(PuebloPlano.ALTAR + Vector2i(0, 1)))
 	_ok("hay 12 interactuables (10 oficios + altar + escalera)", nodos.size() == 12)
 
@@ -137,8 +154,39 @@ func _capturas() -> void:
 	await _captura("plaza")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ALTAR + Vector2i(0, 2))
 	await _captura("altar")
+	# El TAPADO: detras de la columna, la parte alta tiene que taparle; delante, no.
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ALTAR) + Vector2(0, -34)
+	await _captura("altar_detras")
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ALTAR) + Vector2(0, 20)
+	await _captura("altar_delante")
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ESCALERA.position + Vector2i(1, -1))
+	await _captura("escalera_norte")
 	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.MUELLE.position.x + 1, PuebloPlano.MUELLE.position.y + 1))
 	await _captura("muelle")
+
+
+# LA HOJA DE PIEZAS: cada dibujo suelto, ampliado x4 sobre un fondo de hierba y con una raya roja
+# en su linea de corte (lo de encima tapa a quien pasa por detras). No necesita ventana: es imagen pura.
+const ZOOM := 4
+
+func _hoja_de_piezas() -> void:
+	DirAccess.make_dir_recursive_absolute(SALIDA)
+	var claves: PackedStringArray = PuebloSprites.claves()
+	var ancho: int = 8
+	var celda := Vector2i(100, 100) * ZOOM
+	var filas: int = int(ceil(float(claves.size()) / float(ancho)))
+	var hoja := Image.create(celda.x * ancho, celda.y * filas, false, Image.FORMAT_RGBA8)
+	hoja.fill(Color(0.31, 0.47, 0.21))
+	for i in claves.size():
+		var img: Image = PuebloSprites.generar(claves[i])
+		img.resize(img.get_width() * ZOOM, img.get_height() * ZOOM, Image.INTERPOLATE_NEAREST)
+		var o := Vector2i((i % ancho) * celda.x + 8, (i / ancho) * celda.y + 8)
+		hoja.blend_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), o)
+		var corte: int = (PuebloSprites.tam(claves[i]).y - PuebloSprites.pie(claves[i])) * ZOOM
+		if corte > 0:
+			for x in img.get_width():
+				hoja.set_pixel(o.x + x, o.y + corte, Color.RED)
+	hoja.save_png("%spueblo_piezas.png" % SALIDA)
 
 
 func _captura(nombre: String) -> void:

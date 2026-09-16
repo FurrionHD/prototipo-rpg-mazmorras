@@ -8,6 +8,11 @@ extends Node2D
 
 var _destination: String = ""
 
+# Cuanto se descuenta de la distancia al jugador (ver player._mas_cercano_en_grupo). En la mazmorra es
+# 0; la ESCALERA DE CARACOL del pueblo mide 3x3 y pone aqui su medio lado, para que la F valga desde
+# cualquiera de sus cuatro lados (lo pidio el usuario) y no solo desde la boca.
+var radio_extra: float = 0.0
+
 func _ready() -> void:
 	add_to_group("interactable")
 	# En la mazmorra esta puerta ES la vuelta al pueblo del piso 1, asi que va a la libreta como

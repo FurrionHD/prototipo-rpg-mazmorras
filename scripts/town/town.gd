@@ -140,6 +140,7 @@ func _puerta(guion: String, c: Vector2i, nombre: String) -> Node2D:
 	p.set_script(load(guion))
 	p.position = Vector2(c) * float(PuebloPlano.CELDA) + Vector2(PuebloPlano.CELDA * 0.5, 6.0)
 	var l := Label.new()
+	l.name = "Label"
 	l.text = nombre
 	l.add_theme_font_size_override("font_size", 11)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -153,45 +154,37 @@ func _puerta(guion: String, c: Vector2i, nombre: String) -> Node2D:
 
 
 # ------------------------------------------------------------
-#  LA ESCALERA DE CARACOL (la entrada a la mazmorra). door.gd de siempre, en su boca.
+#  LA ESCALERA DE CARACOL (la entrada a la mazmorra): la pieza dibujada y door.gd de siempre en su boca.
 # ------------------------------------------------------------
 func _crear_escalera() -> void:
-	var celda: float = float(PuebloPlano.CELDA)
 	var r: Rect2i = PuebloPlano.ESCALERA
-	var hueco := ColorRect.new()
-	hueco.color = Color(0.06, 0.05, 0.07)
-	hueco.position = Vector2(r.position) * celda
-	hueco.size = Vector2(r.size) * celda
-	hueco.z_index = -1
-	add_child(hueco)
-	var boca := Vector2i(r.position.x + r.size.x / 2, r.end.y)
-	add_child(_puerta("res://scripts/town/door.gd", boca, "→ MAZMORRA"))
+	add_child(PiezaPueblo.crear("escalera_caracol", r))
+	# La puerta va en el CENTRO del pozo con radio_extra: asi se entra desde cualquier lado. 48 es el
+	# medio lado de la escalera; desde el norte el origen del jugador queda a ~66 px del centro (sus pies
+	# van por debajo de su origen), y 66 - 48 = 18 cae dentro de su interact_range (40).
+	var celda: float = float(PuebloPlano.CELDA)
+	var p: Node2D = _puerta("res://scripts/town/door.gd", r.position, "→ MAZMORRA")
+	p.position = (Vector2(r.position) + Vector2(r.size) * 0.5) * celda
+	p.radio_extra = float(r.size.x) * celda * 0.5
+	(p.get_node("Label") as Label).position.y = float(r.size.y) * celda * 0.5 + 4.0
+	add_child(p)
 
 
 # ------------------------------------------------------------
-#  EL JARDIN DEL HOGAR: verjas y la columna del altar.
+#  EL JARDIN DEL HOGAR: verjas y la columna del altar. Las dos son piezas ESTRECHAS, asi que van
+#  'dinamicas' (ver PiezaPueblo): su parte alta solo tapa a quien pasa por detras.
 # ------------------------------------------------------------
 func _crear_jardin() -> void:
-	var celda: float = float(PuebloPlano.CELDA)
 	var j: Rect2i = PuebloPlano.JARDIN
 	for y in range(j.position.y, j.end.y):
 		for x in range(j.position.x, j.end.x):
 			var c := Vector2i(x, y)
 			if not PuebloPlano.es_verja(c):
 				continue
-			var v := ColorRect.new()
-			v.color = Color(0.20, 0.18, 0.17)
-			v.position = Vector2(c) * celda + Vector2(12, 12)
-			v.size = Vector2(8, 8)
-			v.z_index = -1
-			add_child(v)
+			var m: int = TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.es_verja(v))
+			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE), true))
 	var a: Vector2i = PuebloPlano.ALTAR
-	var col := ColorRect.new()
-	col.color = Color(0.784314, 0.627451, 0.00392157)
-	col.position = Vector2(a) * celda + Vector2(6, -26)
-	col.size = Vector2(20, 58)
-	col.z_index = -1
-	add_child(col)
+	add_child(PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true))
 	add_child(_puerta("res://scripts/town/altar.gd", a + Vector2i(0, 1), "ALTAR"))
 
 
