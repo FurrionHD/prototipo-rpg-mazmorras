@@ -220,8 +220,34 @@ func _punto_a_distancia(dist: float) -> Vector2:
 
 # Al cambiar de piso (o al teletransportarte) el rastro viejo no vale: sin esto, los companeros
 # cruzarian el mapa nuevo en linea recta desde donde estaban en el anterior.
+#
+# EN DOS TIEMPOS. Casi siempre se llama justo despues de CREAR el mapa (el piso nuevo, el pueblo), y los
+# choques creados en ese mismo fotograma no los ve el rayo de _despejado hasta el siguiente paso de
+# fisica. Sembrando a ciegas, los cuatro lados parecian libres y la fila salia hacia ARRIBA: en el pueblo
+# nacian dentro de la escalera de caracol y salian andando a traves de la piedra. Asi que primero se
+# amontonan sobre ti (tu punto es pisable siempre) y, con la fisica ya al dia, se tiende la fila.
+var _despliegue: int = 0
+
 func teletransportar() -> void:
+	_amontonar()
+	_despliegue += 1
+	_desplegar.call_deferred(_despliegue)
+
+
+func _desplegar(cual: int) -> void:
+	await get_tree().physics_frame
+	# Si entretanto ha habido OTRO teletransporte, manda el ultimo.
+	if cual != _despliegue or not is_inside_tree():
+		return
 	_sembrar_rastro()
+	_plantar_en_rastro()
+
+
+func _amontonar() -> void:
+	_rastro = PackedVector2Array()
+	var p: Vector2 = _pos_lider()
+	for i in RASTRO_MAX:
+		_rastro.append(p)
 	_plantar_en_rastro()
 
 

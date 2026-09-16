@@ -260,7 +260,13 @@ func _colocar_jugador() -> void:
 	var jugador: Node2D = get_node_or_null("Player") as Node2D
 	if jugador == null:
 		return
-	jugador.global_position = PuebloPlano.aparicion_px()
+	# RECOLOCAR y no mover a pelo: el sequito se sembro en el _ready del jugador, en el sitio donde lo
+	# deja la escena y antes de que existiera el pueblo. Moviendolo a pelo, la fila se quedaba alli (ver
+	# party_trail.teletransportar).
+	if jugador.has_method("recolocar"):
+		jugador.recolocar(PuebloPlano.aparicion_px())
+	else:
+		jugador.global_position = PuebloPlano.aparicion_px()
 	var cam: Camera2D = jugador.get_node_or_null("Camera2D") as Camera2D
 	if cam == null:
 		return
