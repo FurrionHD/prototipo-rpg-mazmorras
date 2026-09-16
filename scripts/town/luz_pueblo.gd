@@ -23,10 +23,10 @@ class_name LuzPueblo
 # los mas cercanos al centro (ver _mandar_focos).
 const MAX_FOCOS := 96
 
-# CUANTO MAS LEJOS ALUMBRA TODO respecto al radio con que se apunta cada foco. Lo pidio el usuario:
-# "que las luces iluminen minimo 3 veces mas lejos". Solo el CORRO: el halo aditivo se queda del tamaño
-# de antes, que triplicado era una mancha.
-const ALCANCE := 3.0
+# CUANTO MAS LEJOS ALUMBRA TODO respecto al radio con que se apunta cada foco. Lo pidio el usuario: primero
+# x3 ("me pase") y lo dejo en x1.8. Solo el CORRO: el halo aditivo se queda del tamaño de antes, que
+# agrandado era una mancha.
+const ALCANCE := 1.8
 
 var _capa: CanvasLayer = null
 var _lienzo: ColorRect = null
