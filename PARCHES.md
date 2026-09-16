@@ -4,6 +4,18 @@
 
 # Próxima versión
 
+## 🌙 Día y noche en el pueblo
+
+**El pueblo tiene su día y su noche.** Un día entero dura 40 minutos reales: atardece en naranja,
+anochece en azul (se sigue viendo todo) y amanece en rosa. La mazmorra no cambia: allí abajo siempre es
+de noche.
+
+**De noche se encienden las luces**: antorchas por las calles, braseros en la plaza y en los portones y
+las ventanas de las casas con alguien dentro. El altar alumbra su claro en blanco. Las antorchas
+chisporrotean y se oyen al acercarte.
+
+**En multijugador todos veis el mismo cielo**, aunque el reloj de algún ordenador vaya mal puesto.
+
 ## 🛒 La tienda, rehecha
 
 **La tienda tiene la cara del inventario**: cada cosa con su dibujo en una rejilla, la ficha al lado y
