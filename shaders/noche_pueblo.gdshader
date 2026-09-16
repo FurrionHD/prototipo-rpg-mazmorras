@@ -21,9 +21,9 @@ uniform vec2 pantalla = vec2(1280.0, 720.0);
 
 // Los focos que caen en pantalla. xy = posicion en el MUNDO (px), z = radio (px), w = intensidad 0..1.
 uniform int n_focos = 0;
-uniform vec4 focos[48];
+uniform vec4 focos[96];
 // rgb = color de la luz (la multiplicacion: 1,1,1 = a plena luz de dia).
-uniform vec4 colores[48];
+uniform vec4 colores[96];
 
 // 0 = caida suave; N = la luz en N escalones (pixel-art).
 uniform float escalones = 0.0;

@@ -19,8 +19,14 @@
 extends Node2D
 class_name LuzPueblo
 
-# Lo que admite el shader (focos[48]).
-const MAX_FOCOS := 48
+# Lo que admite el shader (focos[96]). Con el alcance x3 caben muchos mas en pantalla: si sobran, van
+# los mas cercanos al centro (ver _mandar_focos).
+const MAX_FOCOS := 96
+
+# CUANTO MAS LEJOS ALUMBRA TODO respecto al radio con que se apunta cada foco. Lo pidio el usuario:
+# "que las luces iluminen minimo 3 veces mas lejos". Solo el CORRO: el halo aditivo se queda del tamaño
+# de antes, que triplicado era una mancha.
+const ALCANCE := 3.0
 
 var _capa: CanvasLayer = null
 var _lienzo: ColorRect = null
@@ -69,7 +75,7 @@ func _ready() -> void:
 # 'halo_radio'.
 func poner_foco(pos: Vector2, radio: float, color: Color, fuerza: float = 1.0,
 		retraso: float = 0.0, siempre: bool = false, halo: float = 0.0, halo_radio: float = 0.6) -> void:
-	var f := {"pos": pos, "radio": radio, "color": color, "fuerza": fuerza,
+	var f := {"pos": pos, "radio": radio * ALCANCE, "color": color, "fuerza": fuerza,
 		"retraso": retraso, "siempre": siempre, "halo": null, "halo_a": halo,
 		"fase": fposmod(pos.x * 0.137 + pos.y * 0.071, TAU)}
 	if halo > 0.0:
@@ -128,7 +134,14 @@ func _process(delta: float) -> void:
 func _mandar_focos(s: float, vista: Rect2) -> void:
 	var noche: float = CicloDia.noche(s)
 	var n: int = 0
-	for f in _focos:
+	var lista: Array = _focos
+	if _focos.size() > MAX_FOCOS and vista.size.x > 0.0:
+		# Mas focos que huecos: primero los del centro de la pantalla, que son los que se ven.
+		var centro: Vector2 = vista.get_center()
+		lista = _focos.duplicate()
+		lista.sort_custom(func(a, b): return (a["pos"] as Vector2).distance_squared_to(centro) \
+			< (b["pos"] as Vector2).distance_squared_to(centro))
+	for f in lista:
 		var p: Vector2 = f["pos"]
 		var r: float = float(f["radio"])
 		# El altar alumbra siempre, pero de dia no se nota: su fuerza sigue a lo oscuro que este.
