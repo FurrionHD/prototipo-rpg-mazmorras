@@ -208,6 +208,12 @@ func _hornear_terreno() -> void:
 		bytes += n
 		print("  terreno_%-16s %.1f KB" % [clave, n / 1024.0])
 	print("%.2f MB en %s" % [bytes / 1048576.0, TerrenoSprites.CARPETA])
+	# El suelo del PUEBLO va en su propio atlas (ver PuebloTerreno: no engorda los de la mazmorra).
+	var np: int = PuebloTerreno.hornear()
+	if np <= 0:
+		push_error("[horno] no pude escribir el terreno del pueblo")
+	else:
+		print("  terreno_pueblo          %.1f KB" % [np / 1024.0])
 
 
 func _hornear_recolectables() -> void:
