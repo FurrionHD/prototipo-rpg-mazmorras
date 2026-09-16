@@ -2,7 +2,7 @@
 
 ---
 
-# Próxima versión
+# v0.13.2
 
 ## 🌙 Día y noche en el pueblo
 
