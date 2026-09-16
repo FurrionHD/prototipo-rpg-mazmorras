@@ -42,19 +42,18 @@ func interact_with_player() -> void:
 
 
 func _crear_aspecto() -> void:
-	var s := Sprite2D.new()
-	s.texture = PropSprites.textura("escalera_sube" if sube else "escalera_baja")
-	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
-	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	add_child(s)
+	# Integradas en el suelo (EscaleraSprites): la bajada es un hueco en el piso y la subida un tramo de
+	# peldaños que sale de el hasta un arco con luz. Antes eran la misma caja con marco, con la luz al reves.
+	EscaleraSprites.montar(self, "sube" if sube else "baja")
 
 	var lbl := Label.new()
 	lbl.text = "↑ SUBIR\n[F]" if sube else "↓ BAJAR\n[F]"
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.offset_left = -34.0
-	lbl.offset_top = -40.0
+	# La subida levanta un arco por encima de su huella: el letrero va por encima de el.
+	lbl.offset_top = -86.0 if sube else -40.0
 	lbl.offset_right = 34.0
-	lbl.offset_bottom = -14.0
+	lbl.offset_bottom = -60.0 if sube else -14.0
 	Game.elevar_letrero(lbl)
 	add_child(lbl)

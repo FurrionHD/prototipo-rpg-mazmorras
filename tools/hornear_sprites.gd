@@ -190,6 +190,13 @@ func _hornear_props() -> void:
 			push_error("[horno] no pude escribir el prop %s" % clave)
 			continue
 		print("  %-20s %.1f KB" % [clave, n / 1024.0])
+	# Las ESCALERAS integradas en el suelo (bajar, subir y la caracol de salida al pueblo).
+	for clave2 in EscaleraSprites.TAM:
+		var n2: int = EscaleraSprites.hornear(String(clave2))
+		if n2 <= 0:
+			push_error("[horno] no pude escribir la escalera %s" % clave2)
+			continue
+		print("  escalera_suelo_%-6s %.1f KB" % [clave2, n2 / 1024.0])
 
 
 # El TERRENO va en el mismo horno y no en uno aparte: se toca por lo mismo (mirar como queda y

@@ -44,25 +44,23 @@ func interact_with_player() -> void:
 	get_tree().change_scene_to_file(TOWN)
 
 
+# La F desde cualquier lado de la caracol (ver player._mas_cercano_en_grupo), como la de la plaza.
+var radio_extra: float = EscaleraSprites.C_PRETIL_R
+
+
 func _crear_aspecto() -> void:
-	# La misma puerta que la salida del piso 1: las dos llevan al pueblo, asi que las dos se
-	# tienen que leer igual de un vistazo.
-	var t: Vector2i = PropSprites.tam("puerta_pueblo")
-	var s := Sprite2D.new()
-	s.texture = PropSprites.textura("puerta_pueblo")
-	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
-	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	s.centered = false
-	s.position = Vector2(-float(t.x) * 0.5, 18.0 - float(t.y))
-	add_child(s)
+	# La misma que la salida del piso 1 (door.gd): las dos llevan al pueblo, asi que se leen igual. Una
+	# ESCALERA DE CARACOL QUE SUBE, gemela de la que baja desde la plaza (lo pidio el usuario).
+	EscaleraSprites.montar(self, "caracol")
 
 	var lbl := Label.new()
 	lbl.text = "↩ PUEBLO\n[F]"
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# Por encima de la columna, que asoma ~60 px sobre el centro del pozo.
 	lbl.offset_left = -40.0
-	lbl.offset_top = -40.0
+	lbl.offset_top = -92.0
 	lbl.offset_right = 40.0
-	lbl.offset_bottom = -14.0
+	lbl.offset_bottom = -66.0
 	Game.elevar_letrero(lbl)
 	add_child(lbl)

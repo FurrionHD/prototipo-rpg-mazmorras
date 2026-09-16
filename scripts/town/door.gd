@@ -38,18 +38,15 @@ func _vestir() -> void:
 	var viejo: ColorRect = get_node_or_null("Sprite") as ColorRect
 	if viejo == null:
 		return
-	var t: Vector2i = PropSprites.tam("puerta_pueblo")
-	var s := Sprite2D.new()
-	s.texture = PropSprites.textura("puerta_pueblo")
-	# POR NODO, que el proyecto no lo pone globalmente (misma nota que en enemy.gd).
-	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	s.centered = false
-	# Se apoya donde se apoyaba el rectangulo viejo: mismo pie, mismo centro. Asi no se mueve
-	# respecto a la celda ni respecto al Label, que sigue colgando del padre.
-	s.position = Vector2(-float(t.x) * 0.5, viejo.offset_bottom - float(t.y))
-	add_child(s)
-	# El Label cuelga del ColorRect, asi que este se queda (invisible) para no dejarlo huerfano.
+	# UNA ESCALERA DE CARACOL QUE SUBE, gemela de la que baja desde la plaza (lo pidio el usuario), con
+	# el centro del pozo en este nodo. Es la misma que la salida de los pisos de jefe (dungeon_exit.gd).
+	EscaleraSprites.montar(self, "caracol")
+	# Choca como un pozo de 40 de radio: la F tiene que llegar desde cualquier lado (ver radio_extra).
+	radio_extra = EscaleraSprites.C_PRETIL_R
+	# El Label cuelga del ColorRect, asi que este se queda (invisible) para no dejarlo huerfano, y se sube
+	# por encima de la columna.
 	viejo.color = Color(0, 0, 0, 0)
+	viejo.position.y = -80.0
 
 
 func _detectar_destino() -> void:

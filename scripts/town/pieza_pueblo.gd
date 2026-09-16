@@ -46,17 +46,37 @@ static func crear(p_clave: String, huella: Rect2i, p_dinamica: bool = false) -> 
 	p.clave = p_clave
 	p.dinamica = p_dinamica
 	p.name = "Pieza_" + p_clave
-	var tex: Texture2D = PuebloSprites.textura(p_clave)
-	p._tam = PuebloSprites.tam(p_clave)
-	p._pie = mini(PuebloSprites.pie(p_clave), p._tam.y)
 	var celda: float = float(PuebloPlano.CELDA)
+	p._montar(PuebloSprites.textura(p_clave), PuebloSprites.tam(p_clave), PuebloSprites.pie(p_clave))
 	p.position = Vector2(float(huella.position.x) * celda + (float(huella.size.x) * celda - float(p._tam.x)) * 0.5,
 		float(huella.end.y) * celda - float(p._tam.y))
-	var corte: int = p._tam.y - p._pie
-	p._abajo = p._trozo(tex, Rect2(0, corte, p._tam.x, p._pie), Z_DEBAJO)
-	if corte > 0:
-		p._arriba = p._trozo(tex, Rect2(0, 0, p._tam.x, corte), Z_ENCIMA)
 	return p
+
+
+# La misma pieza partida, con una textura cualquiera y SIN colocar: la usan las escaleras de la
+# mazmorra (EscaleraSprites), que no viven en la rejilla del pueblo. Quien la crea pone 'position'
+# (la esquina de arriba a la izquierda del dibujo). 'margen_delante': cuanto por encima de la base
+# cuenta aun como "delante" en una pieza dinamica (ver _process).
+static func crear_textura(p_nombre: String, tex: Texture2D, p_tam: Vector2i, p_pie: int,
+		p_dinamica: bool = false, margen_delante: float = 20.0) -> PiezaPueblo:
+	var p := PiezaPueblo.new()
+	p.clave = p_nombre
+	p.dinamica = p_dinamica
+	p.name = "Pieza_" + p_nombre
+	p._margen_delante = margen_delante
+	p._montar(tex, p_tam, p_pie)
+	return p
+
+
+var _margen_delante: float = 20.0
+
+func _montar(tex: Texture2D, p_tam: Vector2i, p_pie: int) -> void:
+	_tam = p_tam
+	_pie = mini(p_pie, _tam.y)
+	var corte: int = _tam.y - _pie
+	_abajo = _trozo(tex, Rect2(0, corte, _tam.x, _pie), Z_DEBAJO)
+	if corte > 0:
+		_arriba = _trozo(tex, Rect2(0, 0, _tam.x, corte), Z_ENCIMA)
 
 
 # Aqui y no en crear(): Godot ENCIENDE el _process al entrar en el arbol si el script lo define, asi
@@ -106,7 +126,7 @@ func _process(_delta: float) -> void:
 		var p: Vector2 = nd.global_position
 		# Delante = su origen por debajo de la base (menos lo que su caja de pies sube) y lo bastante
 		# cerca para que su cabeza llegue a la parte que sobresale.
-		if absf(p.x - cx) < float(_tam.x) * 0.5 + 16.0 and p.y > fondo - 20.0 and p.y < fondo + 80.0:
+		if absf(p.x - cx) < float(_tam.x) * 0.5 + 16.0 and p.y > fondo - _margen_delante and p.y < fondo + 80.0:
 			delante = true
 			break
 	_arriba.z_index = Z_DEBAJO if delante else Z_ENCIMA
