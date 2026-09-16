@@ -115,6 +115,8 @@ func _choques() -> void:
 		var esquina := Vector2(float(c.x) * cel + 2.0, float(c.y) * cel + cel - 2.0)
 		var pie := Vector2(float(c.x) * cel + cel * 0.5, float(c.y) * cel + PuebloPlano.ADORNO_APOYO)
 		_ok("%s: choca su pie y no la esquina de su casilla" % a[0], choca.call(pie) and not choca.call(esquina))
+		var detras := Vector2(float(c.x) * cel + cel * 0.5, float(c.y) * cel + 2.0)
+		_ok("  y no deja hueco por detras, contra la casa", choca.call(detras))
 	var al: Vector2i = PuebloPlano.ALTAR
 	_ok("la columna no choca por arriba de su casilla", not choca.call(Vector2(float(al.x) * cel + 3.0, float(al.y) * cel + 3.0)))
 
@@ -203,6 +205,11 @@ func _capturas() -> void:
 	# La esquina de arriba del jardin: la verja tiene que llegar a la muralla.
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.JARDIN.position + Vector2i(2, 3))
 	await _captura("verja_muralla")
+	# Los portones: el del norte de frente y el del oeste de canto.
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(24, 3))
+	await _captura("porton_norte")
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(4, 25))
+	await _captura("porton_oeste")
 	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.MUELLE.position.x + 1, PuebloPlano.MUELLE.position.y + 1))
 	await _captura("muelle")
 
@@ -214,6 +221,15 @@ const ZOOM := 4
 func _hoja_de_piezas() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	var claves: PackedStringArray = PuebloSprites.claves()
+	# Las murallas van en su propia hoja: miden lo que el pueblo y no caben en una celda.
+	for m in MurallaSprites.claves():
+		var im: Image = MurallaSprites.generar(m)
+		if im.get_width() > im.get_height():
+			im = im.get_region(Rect2i(0, 0, 1000, im.get_height()))
+		else:
+			im = im.get_region(Rect2i(0, 600, im.get_width(), 400))
+		im.resize(im.get_width() * 2, im.get_height() * 2, Image.INTERPOLATE_NEAREST)
+		im.save_png("%spueblo_%s.png" % [SALIDA, m])
 	var ancho: int = 6
 	var mayor := Vector2i.ZERO
 	for c in claves:

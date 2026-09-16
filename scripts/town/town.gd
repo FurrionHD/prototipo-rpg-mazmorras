@@ -23,6 +23,7 @@ func _ready() -> void:
 	add_child(_suelo)
 	move_child(_suelo, 0)
 	_pintar_suelo()
+	_crear_murallas()
 	_crear_choques()
 	_crear_casas()
 	_crear_escalera()
@@ -82,7 +83,6 @@ func _pintar_suelo() -> void:
 	# El agua no hace orilla contra la madera: el muelle esta DENTRO del agua, no en su borde.
 	var soy_agua: Callable = es.call([S.AGUA, S.MADERA])
 	var soy_madera: Callable = es.call([S.MADERA])
-	var soy_muralla: Callable = es.call([S.MURALLA])
 	for y in PuebloPlano.ALTO:
 		for x in PuebloPlano.ANCHO:
 			var c := Vector2i(x, y)
@@ -100,12 +100,34 @@ func _pintar_suelo() -> void:
 						_poner("pilote", c, TerrenoSprites.mascara(arriba, soy_madera))
 				S.MADERA:
 					_poner("madera", c, TerrenoSprites.mascara(c, soy_madera))
-				S.MURALLA:
-					_poner("muralla", c, TerrenoSprites.mascara(c, soy_muralla))
+				# La MURALLA ya no es la baldosa de la mazmorra: es una imagen por tramo (_crear_murallas).
 
 
 func _poner(capa: String, c: Vector2i, mask: int) -> void:
 	(_tm[capa] as TileMapLayer).set_cell(c, 0, PuebloTerreno.celda_para(capa, c, mask))
+
+
+# ------------------------------------------------------------
+#  LA MURALLA: tres tramos dibujados (MurallaSprites), con sus portones. Por debajo de los personajes:
+#  cabe en su huella, asi que quien se arrima esta siempre delante.
+# ------------------------------------------------------------
+func _crear_murallas() -> void:
+	var celda: float = float(PuebloPlano.CELDA)
+	var tramos := [
+		["muralla_oeste", Vector2(0, 0)],
+		["muralla_este", Vector2(float(PuebloPlano.ANCHO - 2) * celda, 0)],
+		["muralla_norte", Vector2(0, 0)],
+	]
+	for t in tramos:
+		var s := Sprite2D.new()
+		s.name = String(t[0])
+		s.texture = MurallaSprites.textura(String(t[0]))
+		s.centered = false
+		s.position = t[1]
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		s.z_as_relative = false
+		s.z_index = -1
+		add_child(s)
 
 
 # ------------------------------------------------------------
@@ -149,7 +171,13 @@ func _crear_casas() -> void:
 		if clave == "vacia":
 			dibujo = "vacia_%d" % (n_vacia % CasaSprites.VARIANTES_VACIA)
 			n_vacia += 1
-		nodo.add_child(PiezaPueblo.crear("casa_" + dibujo, r))
+		var pieza: PiezaPueblo = PiezaPueblo.crear("casa_" + dibujo, r)
+		nodo.add_child(pieza)
+		# El humo de sus chimeneas, que sube de verdad (HumoChimenea).
+		for b in CasaSprites.bocas_humo(dibujo):
+			var humo: HumoChimenea = HumoChimenea.crear(bool(b[1]))
+			humo.position = pieza.position + (b[0] as Vector2)
+			nodo.add_child(humo)
 		for a in PuebloPlano.ADORNOS.get(clave, []):
 			var celda_a: Vector2i = PuebloPlano.puerta_de(casa) + Vector2i(int(a[1]), 0)
 			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE), true))

@@ -215,6 +215,7 @@ func _hornear_terreno() -> void:
 	else:
 		print("  terreno_pueblo          %.1f KB" % [np / 1024.0])
 	print("  piezas del pueblo       %d" % PuebloSprites.hornear_todo())
+	print("  murallas del pueblo     %d" % MurallaSprites.hornear_todo())
 
 
 func _hornear_recolectables() -> void:

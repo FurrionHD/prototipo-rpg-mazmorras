@@ -444,6 +444,22 @@ static func _material_tejado(mat: String, x: int, y: int, r: Array, sem: int) ->
 			return _esc(0.45 + _rnd((x + (fila % 2) * 4 + fila * 3) / 7, fila, sem) * 0.35, r)
 
 
+# Las BOCAS DE LAS CHIMENEAS que echan humo, en px del lienzo de la casa, con si es de fragua (humo
+# mas oscuro). Salen de las mismas cuentas que _chimenea: si se mueve una, se mueve la otra.
+static func bocas_humo(clave: String) -> Array:
+	var e: Dictionary = CASAS[clave]
+	var fragua: bool = bool(e.get("fragua", false))
+	if not fragua and not bool(e.get("humo", false)):
+		return []
+	var t: Vector2i = tam(clave)
+	var fondo: int = (e["huella"] as Vector2i).y * CELDA
+	var alero: int = t.y - int(e["alto"])
+	var out: Array = []
+	for cx in e["chimeneas"]:
+		out.append([Vector2(float(cx), float(alero - fondo - 8 - 3)), fragua])
+	return out
+
+
 static func _chimenea(d: PackedByteArray, w: int, h: int, cx: int, alero: int, fondo: int, fragua: bool, humo: bool) -> void:
 	var r: Array = RAMPAS["piedra_osc"] if fragua else RAMPAS["piedra"]
 	var ancho: int = 14 if fragua else 11
@@ -461,14 +477,8 @@ static func _chimenea(d: PackedByteArray, w: int, h: int, cx: int, alero: int, f
 	if fragua:
 		_rect(d, w, h, cx - ancho / 2 + 2, tope - 3, ancho - 4, 2, Color(1.0, 0.55, 0.15))
 		_rect(d, w, h, cx - ancho / 2 + 4, tope - 3, ancho - 8, 1, Color(1.0, 0.90, 0.55))
-	if humo or fragua:
-		var bocanadas := [Vector3(0, -8, 4.5), Vector3(4, -15, 5.5), Vector3(1, -22, 4.0)]
-		for b in bocanadas:
-			var gris := Color(0.80, 0.80, 0.82, 0.55) if not fragua else Color(0.40, 0.38, 0.40, 0.55)
-			for yy in range(-6, 7):
-				for xx in range(-6, 7):
-					if float(xx * xx + yy * yy) <= b.z * b.z:
-						_px(d, w, h, cx + int(b.x) + xx, tope - 3 + int(b.y) + yy, gris)
+	# El HUMO ya no se pinta aqui: eran tres bocanadas quietas. Ahora sube de verdad, con particulas
+	# que pone el pueblo en la boca de cada chimenea (ver bocas_humo y HumoChimenea).
 
 
 # ------------------------------------------------------------

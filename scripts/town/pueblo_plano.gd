@@ -318,8 +318,13 @@ static func cajas_pequenas() -> Array[Rect2]:
 	for a in adornos():
 		var c: Vector2i = a[1]
 		var t: Vector2 = CAJA_ADORNO.get(String(a[0]), Vector2(20, 10))
-		var centro := Vector2(float(c.x) * cel + cel * 0.5, float(c.y) * cel + ADORNO_APOYO)
-		out.append(Rect2(centro - t * 0.5, t))
+		# PEGADA A LA CASA: de ancho, lo que se ve; de fondo, desde la fachada (arriba de su casilla)
+		# hasta el pie del dibujo. Con solo la base quedaba un hueco entre el barril y la pared, el
+		# jugador se colaba por detras y se quedaba "bugeado" entre los dos.
+		var cx: float = float(c.x) * cel + cel * 0.5
+		var arriba: float = float(c.y) * cel
+		var abajo: float = float(c.y) * cel + ADORNO_APOYO + t.y * 0.5
+		out.append(Rect2(Vector2(cx - t.x * 0.5, arriba), Vector2(t.x, abajo - arriba)))
 	# La columna del altar: su zocalo, pegado al fondo de su casilla.
 	var ab := Vector2(float(ALTAR.x) * cel + cel * 0.5, float(ALTAR.y + 1) * cel - 9.0)
 	out.append(Rect2(ab - Vector2(11, 5), Vector2(22, 10)))

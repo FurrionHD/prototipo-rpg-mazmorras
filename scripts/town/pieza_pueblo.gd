@@ -22,7 +22,10 @@
 extends Node2D
 class_name PiezaPueblo
 
-const Z_ENCIMA := 2100      # por encima de todas las capas del muñeco (hasta ~2050)
+# Por encima de TODAS las capas del muñeco. No basta con pasar el 2051 de la cara: el arma se empuja
+# a prof 40 cuando va delante (muneco_jugador.gd), o sea z ~2560, y con 2100 asomaba por encima del
+# tejado. Por debajo del 4000 de los numeros de combate y del tope de Godot (4096).
+const Z_ENCIMA := 3000
 const Z_DEBAJO := -1        # con el suelo, pero pintada despues de el
 
 var clave: String = ""
