@@ -24,6 +24,9 @@ func _ready() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	if args.size() >= 1:
 		_prefijo = args[0]
+	# Segundo argumento: la HORA del pueblo en segundos del ciclo (la luz que entra por la caracol la sigue).
+	if args.size() >= 2:
+		CicloDia.hora_forzada = float(args[1])
 	Perfil.ranura_actual = 0
 	Mundos.abierto = ""
 	PartidaDePrueba.llenar()

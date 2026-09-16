@@ -345,9 +345,31 @@ static func _caracol() -> PackedByteArray:
 						h3 += 0.5
 			a3 += 0.5 / r3
 		r3 += 0.5
-	# LA LUZ DE DIA que baja por arriba: sobre lo alto del eje y los ultimos peldaños.
-	_halo(l, Vector2(cx, cy - z_top * SEN45 + 6.0), Vector2(34.0, 30.0), 0.55)
+	# LA LUZ que baja por arriba NO va en el dibujo: sale al PUEBLO, y si alli es de noche no tiene sentido
+	# que entre sol (lo vio el usuario). Es una capa aparte que sigue la hora: ver luz_caracol / LuzDeArriba.
 	return l["d"]
+
+
+# La luz que cae por la caracol, sola en un lienzo del tamaño de la pieza (blanca: el color lo pone la
+# hora en LuzDeArriba).
+static var _tex_luz_caracol: ImageTexture = null
+
+static func textura_luz_caracol() -> ImageTexture:
+	if _tex_luz_caracol != null:
+		return _tex_luz_caracol
+	var l: Dictionary = _nuevo("caracol")
+	var t: Vector2i = l["t"]
+	var z_top: float = C_ALTO * float(C_PELDANOS) + 14.0
+	var c := Vector2(48.0, float(t.y) - 46.0 - z_top * SEN45 + 6.0)
+	var r := Vector2(34.0, 30.0)
+	for y in t.y:
+		for x in t.x:
+			var e: float = Vector2((float(x) + 0.5 - c.x) / r.x, (float(y) + 0.5 - c.y) / r.y).length()
+			var a: float = clampf(1.0 - e, 0.0, 1.0)
+			if a > 0.0:
+				PuebloSprites._px(l["d"], t.x, t.y, x, y, Color(1, 1, 1, a * a))
+	_tex_luz_caracol = ImageTexture.create_from_image(Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, l["d"]))
+	return _tex_luz_caracol
 
 
 # ============================================================
@@ -364,6 +386,8 @@ static func montar(padre: Node2D, clave: String) -> PiezaPueblo:
 		clave == "sube", SUBE_MARGEN)
 	p.position = -CENTRO[clave]
 	padre.add_child(p)
+	if clave == "caracol":
+		p.acompanar(LuzDeArriba.crear(textura_luz_caracol()), Vector2.ZERO)
 	# LA CARACOL CHOCA, como la de la plaza: no se anda por encima de un pretil. La F llega desde
 	# cualquier lado con radio_extra en quien la lleve (ver door.gd).
 	if clave == "caracol":
