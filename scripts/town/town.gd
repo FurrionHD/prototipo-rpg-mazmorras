@@ -207,7 +207,7 @@ func _puerta(guion: String, c: Vector2i, nombre: String) -> Node2D:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.size = Vector2(140, 16)
 	l.position = Vector2(-70, 8)
-	l.z_index = 1
+	Game.elevar_letrero(l)
 	p.add_child(l)
 	return p
 

@@ -198,6 +198,13 @@ func _capturas() -> void:
 	# El TAPADO: detras de la columna, la parte alta tiene que taparle; delante, no.
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ALTAR) + Vector2(0, -34)
 	await _captura("altar_detras")
+	# Pegado por detras a la columna y a la verja de abajo del jardin: las piernas NO se pintan encima.
+	var al: Vector2i = PuebloPlano.ALTAR
+	_jugador.global_position = Vector2(float(al.x) * 32.0 + 16.0, float(al.y + 1) * 32.0 - 34.0)
+	await _captura("altar_pegado_detras")
+	var vj := Vector2i(PuebloPlano.JARDIN.position.x + 2, PuebloPlano.JARDIN.end.y - 1)
+	_jugador.global_position = Vector2(float(vj.x) * 32.0 + 16.0, float(vj.y) * 32.0 + 16.0 - 24.0)
+	await _captura("verja_pegado_detras")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ALTAR) + Vector2(0, 20)
 	await _captura("altar_delante")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ESCALERA.position + Vector2i(1, -1))

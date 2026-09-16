@@ -117,8 +117,26 @@ func abrir() -> void:
 		pj.current_mp = -1.0
 		pj.stamina = -1.0
 	Game.ability_cooldowns_persist.clear()
+	# Y LIMPIA LOS ESTADOS NEGATIVOS (lo pidio el usuario): veneno, Pegajoso, Mojado... Solo los
+	# estorbos (debuff o baja_fuera, la misma regla que StatusEffects.corre_fuera usa para gastarlos
+	# por el mapa); los buffs se quedan, que un plato de cocina cuesta ingredientes.
+	var quitados: int = 0
+	for pj in Game.party:
+		var quedan: Array = []
+		for e in pj.estados:
+			var def_: Dictionary = StatusEffects.def(int((e as Dictionary).get("id", -1)))
+			if bool(def_.get("debuff", false)) or bool(def_.get("baja_fuera", false)):
+				quitados += 1
+			else:
+				quedan.append(e)
+		if quedan.size() != pj.estados.size():
+			pj.estados = quedan
+			Game.refrescar_cache_estados(pj)
 	_aviso = ("Descansas: vida, maná y aguante a tope." if Game.party.size() == 1
 		else "Descansa el grupo (%d): vida, maná y aguante a tope." % Game.party.size())
+	if quitados > 0:
+		_aviso += "  El altar te limpia %d estado%s negativo%s." % [quitados, "" if quitados == 1 else "s",
+			"" if quitados == 1 else "s"]
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
 	_rebuild()

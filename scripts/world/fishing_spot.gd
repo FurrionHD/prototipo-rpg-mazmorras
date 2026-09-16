@@ -485,6 +485,7 @@ func _crear_aspecto() -> void:
 	_lbl.offset_top = -tam.y * 0.5 - 20.0
 	_lbl.offset_right = 20.0
 	_lbl.offset_bottom = -tam.y * 0.5 - 4.0
+	Game.elevar_letrero(_lbl)
 	add_child(_lbl)
 
 	# El hilo y el corcho nacen escondidos: solo existen mientras pescas.

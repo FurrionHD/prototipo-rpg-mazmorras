@@ -286,4 +286,5 @@ func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
 	_lbl.offset_top = -32.0
 	_lbl.offset_right = 20.0
 	_lbl.offset_bottom = -16.0
+	Game.elevar_letrero(_lbl)
 	add_child(_lbl)

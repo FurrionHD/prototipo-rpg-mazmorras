@@ -24,7 +24,10 @@ const SEN45 := 0.7071
 # 'tam' = lienzo; 'pie' = px desde abajo que son la huella (el resto sobresale hacia arriba).
 const PIEZAS := {
 	"escalera_caracol": {"tam": Vector2i(96, 96), "pie": 96},
-	"altar_columna": {"tam": Vector2i(32, 76), "pie": 32},
+	# 'pie' 16 y no la casilla entera: la columna CHOCA solo con su zocalo, al fondo de la casilla, asi que
+	# quien se arrima por detras mete las piernas en la casilla. Con el corte en lo alto de la casilla
+	# esas piernas se pintaban por encima del fuste (lo vio el usuario). El corte va en el zocalo.
+	"altar_columna": {"tam": Vector2i(32, 76), "pie": 16},
 	# ADORNOS DE SUELO delante de las casas: una casilla, solidos (ver PuebloPlano.ADORNOS).
 	"yunque": {"tam": Vector2i(32, 56), "pie": 32},
 	"troncos": {"tam": Vector2i(32, 56), "pie": 32},
@@ -37,7 +40,9 @@ const PIEZAS := {
 
 # Las verjas son una pieza por MASCARA (hacia que lados sigue la verja: 1 N, 2 E, 4 S, 8 O).
 const VERJA_TAM := Vector2i(32, 52)
-const VERJA_PIE := 32
+# Lo mismo que la columna: la verja choca con una raya por el CENTRO de la casilla, asi que el corte va
+# ahi (16 desde abajo, menos lo que abulta la raya) y no en lo alto de la casilla.
+const VERJA_PIE := 13
 
 const NEGRO := Color(0.06, 0.05, 0.05)
 
@@ -214,6 +219,17 @@ static func _escalera() -> PackedByteArray:
 			var ty: float = dy + PRETIL_ALTO
 			var rt: float = sqrt(dx * dx + ty * ty)
 			var at: float = atan2(ty, dx)
+			var r0: float = sqrt(dx * dx + dy * dy)
+			# LA CARA INTERIOR DEL PRETIL. La coronacion va subida, asi que en el lado norte queda una media
+			# luna entre ella y la boca del pozo: ahi se veia la tarima "a traves" del pretil (lo vio el
+			# usuario). Es la pared del pretil bajando hacia el pozo: se pinta como la pared del pozo.
+			if dy < 0.0 and rt < POZO_R and r0 >= POZO_R - 0.5 and not boca.call(at):
+				var baja: float = clampf((POZO_R - rt) / PRETIL_ALTO, 0.0, 1.0)
+				var col_i: Color = PIEDRA[2].lerp(PIEDRA[1], baja)
+				if fposmod(dy, 3.5) < 0.9 or posmod(x, 7) == 0:
+					col_i = col_i.darkened(0.35)
+				_px(d, w, h, x, y, col_i)
+				continue
 			if rt >= POZO_R and rt <= PRETIL_R and not boca.call(at):
 				var col: Color = PIEDRA[4] if rt < PRETIL_R - 1.5 else PIEDRA[3]
 				if rt < POZO_R + 1.0 or rt > PRETIL_R - 0.8:
@@ -223,7 +239,6 @@ static func _escalera() -> PackedByteArray:
 				_px(d, w, h, x, y, col)
 				continue
 			# CARA EXTERIOR del pretil: entre la base (dy) y la coronacion, solo en la mitad sur.
-			var r0: float = sqrt(dx * dx + dy * dy)
 			if dy > -2.0 and r0 <= PRETIL_R and rt > PRETIL_R and not boca.call(atan2(dy, dx)):
 				var hil: float = fposmod(dy - float(int(sqrt(PRETIL_R * PRETIL_R - dx * dx))), 4.5)
 				var col3: Color = PIEDRA[3] if hil > 1.0 else PIEDRA[1]
@@ -321,7 +336,7 @@ static func _verja(mask: int) -> PackedByteArray:
 	var w: int = VERJA_TAM.x
 	var h: int = VERJA_TAM.y
 	var d := _lienzo(VERJA_TAM)
-	var suelo: int = h - VERJA_PIE + 16        # el centro de la casilla, en el lienzo
+	var suelo: int = h - 32 + 16               # el centro de la casilla, en el lienzo (la casilla, NO el corte)
 	var barrote := func(x: int, base: int) -> void:
 		for y in range(base - VERJA_ALTO, base + 1):
 			_px(d, w, h, x, y, HIERRO)

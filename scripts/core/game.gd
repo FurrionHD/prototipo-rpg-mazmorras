@@ -41,6 +41,18 @@ var VERSION: String = ProjectSettings.get_setting("application/config/version", 
 #  Los dos arrays guardan los MISMOS objetos: meter a alguien en el party no lo copia.
 # ============================================================
 const PARTY_MAX := 4
+
+# LA Z DE LOS LETREROS DEL MUNDO ("[F]" de vetas y arboles, "↓ BAJAR", nombres de las puertas del
+# pueblo). Absoluta y alta: el muñeco ordena sus capas con z de hasta ~2560 (el arma), asi que un letrero
+# a z 0 se quedaba DEBAJO de la cabeza del jugador y se leia a medias (lo vio el usuario). Por encima de
+# los tejados del pueblo (PiezaPueblo.Z_ENCIMA = 3000) y por debajo de los numeros de combate (4000).
+const Z_LETRERO := 3500
+
+
+# Pone un letrero del mundo por encima de los personajes (ver Z_LETRERO).
+static func elevar_letrero(c: CanvasItem) -> void:
+	c.z_as_relative = false
+	c.z_index = Z_LETRERO
 # Arrancan con una persona para que nadie tenga que comprobar si el array esta vacio: una partida
 # siempre eres al menos tu. nueva_partida()/importar_partida() las reemplazan.
 var plantilla: Array[PersonajeData] = []

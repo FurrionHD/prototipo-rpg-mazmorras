@@ -56,4 +56,5 @@ func _crear_aspecto() -> void:
 	lbl.offset_top = -40.0
 	lbl.offset_right = 34.0
 	lbl.offset_bottom = -14.0
+	Game.elevar_letrero(lbl)
 	add_child(lbl)
