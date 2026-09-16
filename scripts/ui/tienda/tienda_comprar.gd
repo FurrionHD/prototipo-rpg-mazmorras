@@ -226,7 +226,7 @@ func _ficha(vb: VBoxContainer) -> void:
 			t.note(vb, "Sale a calidad común: el tendero no forja, revende. Lo bueno tendrás que fabricártelo tú." if _tier < 2
 				else "Género de los pisos hondos, a tier 2 y calidad común. Se paga como lo que es.")
 		SUB_MOCHILAS:
-			t.note(vb, "La única que se compra hecha: las buenas (más carga) las cose el Peletero.")
+			t.note(vb, "La única que se compra hecha: las buenas (más carga) se cosen en la peletería.")
 		SUB_CONSUMIBLES:
 			t.note(vb, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
 		SUB_COMIDA:

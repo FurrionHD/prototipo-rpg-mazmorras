@@ -156,7 +156,10 @@ func _ready() -> void:
 	if Net.has_signal("reservas_cambiadas"):
 		Net.reservas_cambiadas.connect(_on_cambio_externo)
 
-	var titulo: String = "CARPINTERO" if _es_carpintero() else "HERRERO"
+	# El SITIO, no la persona: aquí no hay nadie forjando por ti, lo haces tú con tus personajes
+	# (decisión del usuario, 16/09). El 'modo' sigue llamándose "herrero"/"carpintero": es
+	# fontanería, y renombrarlo sólo rompería referencias sin que se vea nada.
+	var titulo: String = "CARPINTERÍA" if _es_carpintero() else "HERRERÍA"
 	var subtitulo: String = "Se asierra la madera en tablones y se forjan los bastones. Todo sale de lo que tengas guardado en el Hogar." if _es_carpintero() \
 		else "Primero se funde el metal, después se golpea. Todo sale de lo que tengas guardado en el Hogar."
 	var m: Dictionary = MenuScaffold.construir(self, titulo, subtitulo, _cerrar)
@@ -482,7 +485,7 @@ func _build_refinar(que: int) -> void:
 	var metales: Array = Game.metales_forja_conocidos()
 	if metales.is_empty():
 		_title(_header, _titulo_refinado(que))
-		_note(_header, "No traes ningún metal. Baja a la mazmorra y pica una veta: el herrero no puede fundir lo que no tiene.")
+		_note(_header, "No traes ningún metal. Baja a la mazmorra y pica una veta: aquí no se funde lo que no hay.")
 		return
 	var de_lingote: bool = que != Refinado.LINGOTE   # chapas y hebillas parten del lingote
 	var clave: String = "lingote" if de_lingote else "mineral"
@@ -574,7 +577,7 @@ func _nota_refinado(que: int, por_uno: int) -> String:
 		Refinado.CHAPA:
 			return "%d lingote(s) = 1 chapa de la MISMA calidad. Las chapas son lo que pide la ARMADURA; el arma se golpea del lingote directamente." % por_uno
 		Refinado.HEBILLAS:
-			return "%d lingotes = 1 juego de hebillas de la MISMA calidad. Salen caras en metal (son muchos herrajes pequeños, y hay que hacerlos de uno en uno), y es lo que sujeta una MOCHILA: la cose el peletero." % por_uno
+			return "%d lingotes = 1 juego de hebillas de la MISMA calidad. Salen caras en metal (son muchos herrajes pequeños, y hay que hacerlos de uno en uno), y es lo que sujeta una MOCHILA: se cose en la peletería." % por_uno
 		_:
 			return "%d minerales de la MISMA calidad = 1 lingote de esa calidad. No se mezclan: juntando dañados no sale un normal. Solo la Metalurgia puede regalarte un escalón." % por_uno
 

@@ -68,7 +68,9 @@ func _ready() -> void:
 	if Net.has_signal("reservas_cambiadas"):
 		Net.reservas_cambiadas.connect(_on_cambio_externo)
 
-	var m: Dictionary = MenuScaffold.construir(self, "PELETERO",
+	# El SITIO, no la persona: aquí no hay nadie curtiendo por ti, lo haces tú con tus personajes
+	# (decisión del usuario, 16/09). Igual en la herrería y la carpintería.
+	var m: Dictionary = MenuScaffold.construir(self, "PELETERÍA",
 		"Curte las pieles que traigas de la mazmorra. Sin cuero curtido no hay armadura que valga... ni mochila que te deje cargar con el botín.",
 		_cerrar)
 	_root = m["root"]
@@ -327,7 +329,7 @@ func _build_mochilas() -> void:
 	# Solo los metales que conoces (mismo criterio que el herrero: ver Game.materiales_vistos).
 	var hebillas: Array = Game.hebillas_conocidas()
 	if hebillas.is_empty():
-		MenuScaffold.nota(_header, "No conoces ningún metal, y sin hebillas no hay mochila que valga. Pica una veta y pásate por el herrero.")
+		MenuScaffold.nota(_header, "No conoces ningún metal, y sin hebillas no hay mochila que valga. Pica una veta y pásate por la herrería.")
 		return
 	_heb_idx = clampi(_heb_idx, 0, hebillas.size() - 1)
 	var heb: MaterialData = hebillas[_heb_idx]

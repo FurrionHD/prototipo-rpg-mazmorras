@@ -737,7 +737,7 @@ func _build_herramientas() -> void:
 			continue
 		_stacks.append({"modelo": t, "cantidad": 1})
 	if _stacks.is_empty():
-		_note(_content, "Todavía no has forjado ninguna. El herrero las hace con metal y un tablón; "
+		_note(_content, "Todavía no has forjado ninguna. Se hacen en la herrería, con metal y un tablón; "
 			+ "el metal veteado o profundo da mejores herramientas que el cobre en bruto.")
 		return
 	var piezas: Array = []
@@ -774,7 +774,7 @@ func _build_farolillo() -> void:
 	var carbones: Array = _agrupar(Game.carbon)   # por material Y calidad (ver _clave_item)
 	_stacks.append_array(carbones)
 	if _stacks.is_empty():
-		_note(_content, "No tienes ningún farolillo. Los forja el herrero, en Herramientas, "
+		_note(_content, "No tienes ningún farolillo. Se forjan en la herrería, en Herramientas, "
 			+ "con metal y unas hebillas.")
 		return
 	var piezas: Array = []

@@ -34,6 +34,12 @@ verdad, y la comida solo está en el T1.
 **El pack inicial** se abre solo mientras no lo hayas reclamado, y deja claro todo lo que trae: el arma,
 el farolillo, el carbón y las pociones.
 
+## 🔨 Los oficios se llaman por su sitio
+
+**Herrería, Peletería y Carpintería**, no Herrero, Peletero y Carpintero: ahí no hay nadie trabajando
+por ti, lo haces tú con tus personajes. Cambia el cartel del pueblo, el título de las tres pantallas y
+los textos que mandaban "al herrero" o "al peletero".
+
 ## 🔧 Arreglos
 
 **Vender un pez cobra el de la talla que pone**: antes podía irse otro de la misma especie (y con él tu
@@ -43,7 +49,7 @@ pez trofeo).
 peces sin tenerlo.
 
 **El número que escribes en una cantidad vale al momento**, sin pulsar Enter, en la tienda, la forja, el
-peletero, la boticaria, la cocina y el libro del pescador. Antes, si escribías 40 y pulsabas el botón, se usaba el número de antes.
+peletería, la boticaria, la cocina y el libro del pescador. Antes, si escribías 40 y pulsabas el botón, se usaba el número de antes.
 
 **Las peleas en compañía vuelven a ir fluidas.** Con dos jugadores dentro del piso, a partir de la tercera
 pelea el juego no conseguía preparar las siguientes y se quedaba reintentándolo sin parar.

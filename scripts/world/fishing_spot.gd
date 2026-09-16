@@ -959,7 +959,7 @@ func interactuar() -> void:
 	# Sin CAÑA no se pesca, y punto. Es la unica herramienta sin version "de serie" (ver Game.cana):
 	# picar a mano se puede, pescar sin sedal no.
 	if Game.cana() == null:
-		_decir("Necesitas una caña de pescar. Te la forja el herrero.")
+		_decir("Necesitas una caña de pescar. Se forja en la herrería.")
 		return
 	if _peces.is_empty():
 		# Puede ser por dos motivos y conviene distinguirlos: o lo has vaciado (y toca esperar a que
