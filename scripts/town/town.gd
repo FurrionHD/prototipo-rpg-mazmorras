@@ -30,7 +30,19 @@ func _ready() -> void:
 	_crear_jardin()
 	_crear_canas()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
+	_crear_luz()
 	_colocar_jugador()
+
+
+# ------------------------------------------------------------
+#  EL DIA Y LA NOCHE (LuzPueblo + CicloDia).
+# ------------------------------------------------------------
+var luz: LuzPueblo = null
+
+func _crear_luz() -> void:
+	luz = LuzPueblo.new()
+	luz.name = "Luz"
+	add_child(luz)
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en
