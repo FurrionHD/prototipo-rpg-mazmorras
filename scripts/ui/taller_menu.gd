@@ -42,8 +42,10 @@ var _contador_lbl: Label = null
 var _aviso_lbl: Label = null
 var _titulo_seccion: Label = null
 var _tab_buttons: Array = []
-# La fila de FILTROS encima de la rejilla. La rellena cada pantalla; vacia, desaparece.
+# Las filas de FILTROS encima de la rejilla. Las rellena cada pantalla; vacias, desaparecen. Hay dos
+# porque la forja filtra por dos cosas a la vez (que pieza y de que tier) y en una sola fila no caben.
 var barra_sub: HBoxContainer = null
+var barra_sub2: HBoxContainer = null
 # QUIÉN TRABAJA: la fila de retratos (ver Game.artesano).
 var _fila_artesano: HBoxContainer = null
 var _fila_artesano_rotulo: Label = null
@@ -136,6 +138,10 @@ func montar(sitio: String, nombres: Array, iconos: Array, ancho_rejilla: float =
 	barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	barra_sub.add_theme_constant_override("separation", 14)
 	col_izq.add_child(barra_sub)
+	barra_sub2 = HBoxContainer.new()
+	barra_sub2.alignment = BoxContainer.ALIGNMENT_CENTER
+	barra_sub2.add_theme_constant_override("separation", 14)
+	col_izq.add_child(barra_sub2)
 	col_izq.add_child(scroll)
 
 	# LAS PESTAÑAS, con icono y centradas en la pantalla.
@@ -286,11 +292,15 @@ func rebuild() -> void:
 func _rebuild_real() -> void:
 	contador("")
 	MenuScaffold.subpestanas(barra_sub, [], [], -1, Callable())
+	MenuScaffold.subpestanas(barra_sub2, [], [], -1, Callable())
 	for zona in ([_content, _acciones] if _solo_seleccion else [_header, _lista, _content, _acciones]):
 		MenuScaffold.vaciar(zona)
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _tab)
 	_pintar()
+	# Una fila de filtros vacia no se ve, pero SI se lleva su separacion en la columna: fuera.
+	for fila in [barra_sub, barra_sub2]:
+		(fila as Control).visible = (fila as Node).get_child_count() > 0
 	_partir_lineas(_content)
 	MenuScaffold.decir(_aviso_lbl, _aviso, _aviso_ok)
 	_aviso_lbl.visible = _aviso != ""
@@ -341,6 +351,17 @@ func pintar_artesanos(oficio: String, icono: String, pista: String) -> void:
 		_on_artesano, con_oficio, icono, pista)
 
 
+# LA MISMA FILA PARA ELEGIR PERSONA, no artesano (Reparar: de quien es el equipo). 'gente' ya en su
+# orden y 'elegido' su indice; 'al_pulsar' recibe el indice.
+func pintar_personas(rotulo: String, gente: Array, elegido: int, en_equipo: int,
+		al_pulsar: Callable) -> void:
+	_oficio_artesano = ""
+	_fila_artesano_rotulo.text = rotulo
+	_fila_artesano_rotulo.visible = gente.size() > 1
+	(_fila_artesano.get_parent().get_parent() as Control).visible = gente.size() > 1
+	MenuScaffold.retratos(_fila_artesano, gente, elegido, en_equipo, al_pulsar)
+
+
 func _on_artesano(i: int) -> void:
 	var gente: Array = _gente()
 	if _oficio_artesano == "" or i < 0 or i >= gente.size():
@@ -360,6 +381,14 @@ func _columnas() -> int:
 	var ancho: float = _lista.size.x
 	if ancho <= 1.0:
 		ancho = _scroll_lista.custom_minimum_size.x
+	# TOPE: lo que deja la ficha en la pantalla. Al cambiar a una pestaña de ficha ANCHA desde una de
+	# ficha estrecha, la lista aun mide lo de antes (la colocacion llega el fotograma siguiente): salian
+	# seis columnas, la rejilla se quedaba con ese ancho minimo y empujaba la ficha fuera de la pantalla
+	# (visto en captura al pasar de Fundir a Mejorar). Los 72 son los margenes y la separacion.
+	var pantalla: float = _root.size.x if _root.size.x > 1.0 else get_viewport().get_visible_rect().size.x
+	var hueco: float = pantalla - _col_der.custom_minimum_size.x - 72.0
+	if hueco > 0.0:
+		ancho = minf(ancho, hueco)
 	return maxi(2, int(floorf((ancho + 6.0) / (LADO_CELDA + 6.0))))
 
 
@@ -449,6 +478,25 @@ func row(vb: VBoxContainer, etiqueta: String, valor: String, color_valor: Varian
 
 func note(vb: VBoxContainer, txt: String) -> void:
 	MenuScaffold.nota(vb, txt)
+
+
+# MULTI: lo que MI seleccion tiene apartado, {"mat_id|calidad": uds}. Por defecto se publica en el acto;
+# la herreria lo junta y lo publica UNA vez al final del repintado (ver forge_menu).
+func reservar(claim: Dictionary) -> void:
+	if Net.activo:
+		Net.hogar.reservar(claim)
+
+
+# Filtros en DOS FILAS con una sola seleccion: los 'corte' primeros van en la de arriba y el resto en la
+# de abajo. Para las ranuras del equipo, que son ocho y en una fila no caben.
+func filtros_dos_filas(nombres: Array, iconos: Array, activa: int, pulsado: Callable, corte: int) -> void:
+	for fila in [barra_sub, barra_sub2]:
+		MenuScaffold.subpestanas(fila, [], [], -1, Callable())
+	for i in nombres.size():
+		var b: Button = MenuScaffold.pestana_icono(String(iconos[i]), String(nombres[i]))
+		b.button_pressed = i == activa
+		b.pressed.connect(pulsado.bind(i))
+		(barra_sub if i < corte else barra_sub2).add_child(b)
 
 
 # El pie fijo de la ficha, donde cada pantalla pone sus botones.

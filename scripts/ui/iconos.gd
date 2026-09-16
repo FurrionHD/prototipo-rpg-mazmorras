@@ -857,3 +857,127 @@ static func cuenco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 			var f: float = float(j) / 6.0
 			p.append(Vector2(x + sin(f * TAU) * lado * 0.035, borde_y - lado * 0.08 - f * lado * 0.30))
 		c.draw_polyline(p, col, g * 0.7, true)
+
+
+# ============================================================
+#  LA HERRERIA Y LA CARPINTERIA
+# ============================================================
+
+# --- CHAPA: una lamina en perspectiva, con el canto grueso ---
+static func chapa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var arriba := PackedVector2Array([
+		pos + Vector2(lado * 0.14, lado * 0.46), pos + Vector2(lado * 0.52, lado * 0.26),
+		pos + Vector2(lado * 0.86, lado * 0.42), pos + Vector2(lado * 0.48, lado * 0.62),
+		pos + Vector2(lado * 0.14, lado * 0.46)])
+	c.draw_polyline(arriba, col, g, true)
+	# El canto: lo que la separa de un rombo plano.
+	c.draw_line(arriba[0], arriba[0] + Vector2(0, lado * 0.14), col, g, true)
+	c.draw_line(arriba[3], arriba[3] + Vector2(0, lado * 0.14), col, g, true)
+	c.draw_line(arriba[2], arriba[2] + Vector2(0, lado * 0.14), col, g, true)
+	c.draw_line(arriba[0] + Vector2(0, lado * 0.14), arriba[3] + Vector2(0, lado * 0.14), col, g, true)
+	c.draw_line(arriba[3] + Vector2(0, lado * 0.14), arriba[2] + Vector2(0, lado * 0.14), col, g, true)
+
+
+# --- HEBILLA: el marco con su pincho, sola (la correa lleva la tira) ---
+static func hebilla(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var marco := Rect2(pos.x + lado * 0.22, pos.y + lado * 0.24, lado * 0.56, lado * 0.52)
+	c.draw_rect(marco, col, false, g)
+	var cy: float = marco.position.y + marco.size.y * 0.5
+	# La barra del centro y el pincho que cruza hasta el canto.
+	c.draw_line(Vector2(marco.position.x + marco.size.x * 0.5, marco.position.y),
+		Vector2(marco.position.x + marco.size.x * 0.5, marco.end.y), col, g * 0.8, true)
+	c.draw_line(Vector2(marco.position.x + marco.size.x * 0.5, cy), Vector2(marco.end.x + lado * 0.06, cy),
+		col, g, true)
+
+
+# --- DESHACER: una flecha que vuelve sobre si misma ---
+static func deshacer(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var ctr: Vector2 = pos + Vector2(lado * 0.52, lado * 0.54)
+	var r: float = lado * 0.26
+	c.draw_arc(ctr, r, PI * 1.05, PI * 2.6, 24, col, g, true)
+	# La punta, al principio del arco (a la izquierda, apuntando hacia arriba-izquierda).
+	var punta: Vector2 = ctr + Vector2(cos(PI * 1.05), sin(PI * 1.05)) * r
+	c.draw_line(punta, punta + Vector2(lado * 0.16, -lado * 0.02), col, g, true)
+	c.draw_line(punta, punta + Vector2(lado * 0.02, -lado * 0.17), col, g, true)
+
+
+# --- TABLON: la tabla con sus vetas ---
+static func tablon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var tabla := Rect2(pos.x + lado * 0.12, pos.y + lado * 0.34, lado * 0.76, lado * 0.32)
+	c.draw_rect(tabla, col, false, g)
+	# Dos vetas onduladas: sin ellas es un rectangulo cualquiera.
+	for k in 2:
+		var y: float = tabla.position.y + tabla.size.y * (0.36 + 0.3 * float(k))
+		var p := PackedVector2Array()
+		for j in 7:
+			var f: float = float(j) / 6.0
+			p.append(Vector2(tabla.position.x + lado * 0.08 + f * (tabla.size.x - lado * 0.16),
+				y + sin(f * TAU + float(k)) * lado * 0.025))
+		c.draw_polyline(p, col, g * 0.6, true)
+
+
+# --- CARBON: el trozo con la llama encima ---
+static func carbon(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var trozo := PackedVector2Array([
+		pos + Vector2(lado * 0.18, lado * 0.80), pos + Vector2(lado * 0.26, lado * 0.60),
+		pos + Vector2(lado * 0.52, lado * 0.54), pos + Vector2(lado * 0.80, lado * 0.64),
+		pos + Vector2(lado * 0.78, lado * 0.82)])
+	c.draw_colored_polygon(trozo, col)
+	var llama := PackedVector2Array([
+		pos + Vector2(lado * 0.50, lado * 0.14), pos + Vector2(lado * 0.64, lado * 0.36),
+		pos + Vector2(lado * 0.58, lado * 0.50), pos + Vector2(lado * 0.42, lado * 0.50),
+		pos + Vector2(lado * 0.36, lado * 0.36), pos + Vector2(lado * 0.50, lado * 0.14)])
+	c.draw_polyline(llama, col, lado * 0.08, true)
+
+
+# --- LOS TRES JUEGOS DE ARMADURA DE METAL: el peto con 1, 2 o 3 lamas ---
+# Mas lamas = mas metal: hierro (ligera), hierro completo (pesada) y placas (casi todo chapa).
+static func coraza_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_coraza_lamas(c, pos, lado, col, 1)
+
+
+static func coraza_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_coraza_lamas(c, pos, lado, col, 2)
+
+
+static func coraza_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_coraza_lamas(c, pos, lado, col, 3)
+
+
+static func _coraza_lamas(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: int) -> void:
+	coraza(c, pos, lado, col)
+	var g: float = lado * 0.07
+	for i in n:
+		var y: float = pos.y + lado * (0.46 + 0.1 * float(i))
+		var ancho: float = lado * (0.22 - 0.04 * float(i))
+		c.draw_line(Vector2(pos.x + lado * 0.5 - ancho, y), Vector2(pos.x + lado * 0.5 + ancho, y), col, g, true)
+
+
+# --- LA VETA de un metal (en bruto, veteado, profundo): 1, 2 o 3 vetas en la piedra ---
+static func veta_1(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_vetas(c, pos, lado, col, 1)
+
+
+static func veta_2(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_vetas(c, pos, lado, col, 2)
+
+
+static func veta_3(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	_vetas(c, pos, lado, col, 3)
+
+
+static func _vetas(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: int) -> void:
+	var g: float = lado * 0.08
+	var piedra := PackedVector2Array([
+		pos + Vector2(lado * 0.16, lado * 0.40), pos + Vector2(lado * 0.44, lado * 0.18),
+		pos + Vector2(lado * 0.82, lado * 0.32), pos + Vector2(lado * 0.80, lado * 0.74),
+		pos + Vector2(lado * 0.34, lado * 0.84), pos + Vector2(lado * 0.16, lado * 0.40)])
+	c.draw_polyline(piedra, col, g, true)
+	for i in n:
+		var y: float = pos.y + lado * (0.40 + 0.14 * float(i))
+		c.draw_line(Vector2(pos.x + lado * 0.28, y + lado * 0.04), Vector2(pos.x + lado * 0.70, y - lado * 0.04),
+			col, g * 0.9, true)

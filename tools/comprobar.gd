@@ -113,30 +113,36 @@ func _initialize() -> void:
 	quit(mal)
 
 
-# TODA ranura que pueda salir en las subpestañas del herrero tiene que tener nombre. Si falta una,
-# forge_menu revienta al pedirla y desaparece la fila ENTERA de subpestañas: el menu se queda
-# clavado en la primera y parece que "solo se pueden mejorar las armas". Paso de verdad al meter
-# el farolillo, y desde el codigo no se ve -- solo jugando, y ni eso: no da error a la vista.
+# TODA ranura del equipo tiene que tener nombre en Reparar y filtro en Mejorar/Deshacer. Si falta una,
+# la pantalla revienta al pedirla (Reparar lee SLOT_NOMBRES[slot] directo) o esa pieza no sale en
+# ningun filtro. Paso de verdad al meter el farolillo: parecia que "solo se podian mejorar las armas".
+# Desde el 16/09/2026 las pantallas de la herreria viven en scripts/ui/herreria/.
 func _comprobar_slots() -> int:
-	var fm = load("res://scripts/ui/forge_menu.gd")
+	var rep = load("res://scripts/ui/herreria/herreria_reparar.gd")
+	var mej = load("res://scripts/ui/herreria/herreria_mejorar.gd")
 	var g = load("res://scripts/core/game.gd")
-	if fm == null or g == null:
+	if rep == null or mej == null or g == null:
 		return 0
-	var nombres: Dictionary = fm.get_script_constant_map().get("SLOT_NOMBRES", {})
+	var nombres: Dictionary = rep.get_script_constant_map().get("SLOT_NOMBRES", {})
+	var filtros: Array = []
+	for r in mej.get_script_constant_map().get("RANURAS", []) + mej.get_script_constant_map().get("RANURAS_DESHACER", []):
+		filtros.append(String(r["slot"]))
 	var equipo: Array = g.get_script_constant_map().get("EQUIP_SLOTS", [])
 	var faltan: Array = []
 	for s2 in equipo:
 		if not nombres.has(s2):
-			faltan.append(s2)
-	# Las tres que añade _slots_sub por su cuenta y no salen de EQUIP_SLOTS.
+			faltan.append("Reparar: %s" % s2)
+		if not filtros.has(s2):
+			faltan.append("filtro: %s" % s2)
+	# Las tres que no salen de EQUIP_SLOTS.
 	for s2 in ["farolillo", "mochila", "herramienta"]:
-		if not nombres.has(s2):
-			faltan.append(s2)
+		if not filtros.has(s2):
+			faltan.append("filtro: %s" % s2)
 	if faltan.is_empty():
-		print("  ok  SLOT_NOMBRES cubre las %d ranuras" % (equipo.size() + 3))
+		print("  ok  las ranuras de la herreria cubren las %d del equipo" % (equipo.size() + 3))
 		return 0
-	push_error("SLOT_NOMBRES no tiene: %s" % str(faltan))
-	print("  FALLO  a SLOT_NOMBRES le faltan: %s" % str(faltan))
+	push_error("A la herreria le faltan ranuras: %s" % str(faltan))
+	print("  FALLO  a la herreria le faltan ranuras: %s" % str(faltan))
 	return 1
 
 

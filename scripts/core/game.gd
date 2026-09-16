@@ -10851,6 +10851,13 @@ func mejoras_actuales(item: Resource) -> int:
 
 # Nucleos (items, no unidades) que hay en el hogar de ese tipo.
 func nucleos_en_hogar(nucleo: MaterialData) -> int:
+	# Con un menu repintando, del recuento (ver abrir_recuento_hogar): Mejorar lo pregunta por pieza.
+	if _recuento_abierto > 0 and nucleo != null:
+		var suma: int = 0
+		for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL,
+				MaterialItem.Calidad.DANADO, MaterialItem.Calidad.ROTO]:
+			suma += items_calidad_en_hogar(nucleo, int(cal))
+		return suma
 	var n: int = 0
 	for it in almacen_materiales:
 		if it != null and it.data != null and nucleo != null and it.data.id == nucleo.id:
