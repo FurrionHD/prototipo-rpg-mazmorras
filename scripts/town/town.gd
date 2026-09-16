@@ -11,21 +11,6 @@
 # ============================================================
 extends Node2D
 
-# Colores de relleno de las casas mientras no tengan su dibujo (los de los cuadrados de antes).
-const COLOR_CASA := {
-	"hogar": Color(0.35, 0.25, 0.55),
-	"boticaria": Color(0.3, 0.55, 0.35),
-	"maestro": Color(0.68, 0.24, 0.28),
-	"tienda": Color(0, 0.6, 0.8),
-	"herreria": Color(0.45, 0.42, 0.5),
-	"cocina": Color(0.9, 0.62, 0.3),
-	"taberna": Color(0.72, 0.35, 0.18),
-	"carpinteria": Color(0.6, 0.45, 0.28),
-	"peleteria": Color(0.55, 0.38, 0.25),
-	"pescador": Color(0.22, 0.48, 0.62),
-	"vacia": Color(0.42, 0.38, 0.34),
-}
-
 # El suelo y lo que va pegado a el, por DEBAJO del jugador (que esta a z 0).
 var _suelo: Node2D = null
 var _tm: Dictionary = {}
@@ -112,20 +97,19 @@ func _crear_choques() -> void:
 #  CASAS
 # ------------------------------------------------------------
 func _crear_casas() -> void:
-	var celda: float = float(PuebloPlano.CELDA)
+	var n_vacia: int = 0
 	for casa in PuebloPlano.CASAS:
 		var clave: String = casa["clave"]
 		var r: Rect2i = casa["rect"]
 		var nodo := Node2D.new()
 		nodo.name = "Casa_" + clave
 		add_child(nodo)
-		# De momento, la huella en su color (el dibujo de cada casa llega despues, una a una).
-		var caja := ColorRect.new()
-		caja.color = COLOR_CASA.get(clave, COLOR_CASA["vacia"])
-		caja.position = Vector2(r.position) * celda
-		caja.size = Vector2(r.size) * celda
-		caja.z_index = -1
-		nodo.add_child(caja)
+		# Cada oficio con SU casa (CasaSprites). Las de relleno van turnandose entre sus variantes.
+		var dibujo: String = clave
+		if clave == "vacia":
+			dibujo = "vacia_%d" % (n_vacia % CasaSprites.VARIANTES_VACIA)
+			n_vacia += 1
+		nodo.add_child(PiezaPueblo.crear("casa_" + dibujo, r))
 		var guion: String = String(casa.get("script", ""))
 		if guion == "":
 			continue

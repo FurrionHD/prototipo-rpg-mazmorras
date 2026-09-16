@@ -68,6 +68,8 @@ func _plano() -> void:
 					mal.append(c)
 				ocupadas[c] = clave
 		_ok("%s en %s no pisa nada" % [clave, r], mal.is_empty())
+		var dib: String = "vacia_0" if clave == "vacia" else clave
+		_ok("  su dibujo mide lo que su huella", CasaSprites.CASAS[dib]["huella"] == r.size)
 		if not String(casa.get("script", "")).is_empty():
 			var p: Vector2i = PuebloPlano.puerta_de(casa)
 			_ok("  su puerta %s se puede pisar" % p, not PuebloPlano.solida(p))
@@ -172,8 +174,11 @@ const ZOOM := 4
 func _hoja_de_piezas() -> void:
 	DirAccess.make_dir_recursive_absolute(SALIDA)
 	var claves: PackedStringArray = PuebloSprites.claves()
-	var ancho: int = 8
-	var celda := Vector2i(100, 100) * ZOOM
+	var ancho: int = 6
+	var mayor := Vector2i.ZERO
+	for c in claves:
+		mayor = mayor.max(PuebloSprites.tam(c))
+	var celda := (mayor + Vector2i(8, 8)) * ZOOM
 	var filas: int = int(ceil(float(claves.size()) / float(ancho)))
 	var hoja := Image.create(celda.x * ancho, celda.y * filas, false, Image.FORMAT_RGBA8)
 	hoja.fill(Color(0.31, 0.47, 0.21))

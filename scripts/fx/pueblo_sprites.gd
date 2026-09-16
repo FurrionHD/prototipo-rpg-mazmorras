@@ -38,18 +38,25 @@ static func claves() -> PackedStringArray:
 	var out := PackedStringArray(PIEZAS.keys())
 	for m in 16:
 		out.append("verja_%d" % m)
+	# Las casas las dibuja CasaSprites; aqui solo se registran con el prefijo "casa_".
+	for c in CasaSprites.CASAS:
+		out.append("casa_" + String(c))
 	return out
 
 
 static func tam(clave: String) -> Vector2i:
 	if clave.begins_with("verja_"):
 		return VERJA_TAM
+	if clave.begins_with("casa_"):
+		return CasaSprites.tam(clave.trim_prefix("casa_"))
 	return (PIEZAS[clave] as Dictionary)["tam"]
 
 
 static func pie(clave: String) -> int:
 	if clave.begins_with("verja_"):
 		return VERJA_PIE
+	if clave.begins_with("casa_"):
+		return CasaSprites.pie(clave.trim_prefix("casa_"))
 	return int((PIEZAS[clave] as Dictionary)["pie"])
 
 
@@ -353,6 +360,8 @@ static func _verja(mask: int) -> PackedByteArray:
 #  GENERAR, HORNEAR, CARGAR
 # ============================================================
 static func generar(clave: String) -> Image:
+	if clave.begins_with("casa_"):
+		return CasaSprites.generar(clave.trim_prefix("casa_"))
 	var t: Vector2i = tam(clave)
 	var d: PackedByteArray
 	if clave == "escalera_caracol":

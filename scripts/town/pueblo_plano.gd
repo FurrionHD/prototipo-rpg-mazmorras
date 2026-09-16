@@ -42,9 +42,9 @@ const CALLES := [
 	Rect2i(23, 27, 3, 13),    # de la plaza a la orilla (y al muelle)
 	Rect2i(2, 39, 46, 1),     # el paseo de la orilla, donde dan las casas de abajo
 	Rect2i(20, 21, 9, 9),     # LA PLAZA
-	Rect2i(24, 7, 1, 1),      # el camino de piedra del hogar (casa -> claro), estrecho
-	Rect2i(23, 13, 3, 2),     # la ENTRADA al hogar (claro -> calle), de 3 como la calle de la plaza
-	Rect2i(22, 8, 5, 5),      # el claro del altar
+	Rect2i(24, 8, 1, 1),      # el camino de piedra del hogar (casa -> claro), estrecho
+	Rect2i(23, 14, 3, 1),     # la ENTRADA al hogar (claro -> calle), de 3 como la calle de la plaza
+	Rect2i(22, 9, 5, 5),      # el claro del altar
 ]
 
 const PLAZA := Rect2i(20, 21, 9, 9)
@@ -57,10 +57,12 @@ const ESCALERA := Rect2i(23, 24, 3, 3)
 #  EL RECINTO DEL HOGAR: jardin con verjas. La verja va por el borde del rectangulo, con UN hueco
 #  abajo por donde sale el camino.
 # ------------------------------------------------------------
+# La casa del hogar va UNA fila por debajo de la muralla: pegada a ella, su tejado (que sube el alto de
+# la pared por encima de la huella) se comia la muralla del norte.
 const JARDIN := Rect2i(19, 2, 11, 13)
 # La entrada de la verja: 3 de ancho, alineada con la calle que sube de la plaza (lo pidio el usuario).
 const JARDIN_HUECO := Rect2i(23, 14, 3, 1)
-const ALTAR := Vector2i(24, 10)
+const ALTAR := Vector2i(24, 11)
 
 # ------------------------------------------------------------
 #  EL MUELLE Y LA PLATAFORMA DEL PESCADOR (madera sobre el agua).
@@ -99,7 +101,7 @@ const PORTONES := [
 #  con la calle.
 # ------------------------------------------------------------
 const CASAS := [
-	{"clave": "hogar", "nombre": "HOGAR", "rect": Rect2i(22, 3, 5, 4), "script": "res://scripts/town/hogar.gd"},
+	{"clave": "hogar", "nombre": "HOGAR", "rect": Rect2i(22, 4, 5, 4), "script": "res://scripts/town/hogar.gd"},
 	{"clave": "boticaria", "nombre": "BOTICARIA", "rect": Rect2i(5, 20, 4, 3), "script": "res://scripts/town/boticaria.gd"},
 	{"clave": "maestro", "nombre": "MAESTRO", "rect": Rect2i(13, 20, 3, 3), "script": "res://scripts/town/maestro.gd"},
 	{"clave": "tienda", "nombre": "TIENDA", "rect": Rect2i(31, 19, 5, 4), "script": "res://scripts/town/shop.gd"},
