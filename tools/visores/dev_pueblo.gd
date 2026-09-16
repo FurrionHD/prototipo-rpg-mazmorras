@@ -248,6 +248,15 @@ func _hoja_de_piezas() -> void:
 			for x in img.get_width():
 				hoja.set_pixel(o.x + x, o.y + corte, Color.RED)
 	hoja.save_png("%spueblo_piezas.png" % SALIDA)
+	# La LLAMA del altar: sus fotogramas seguidos, ampliados x6, sobre la piedra del claro.
+	var z: int = 6
+	var tira := Image.create(LlamaAltar.ANCHO * z * LlamaAltar.FOTOGRAMAS, LlamaAltar.ALTO * z, false, Image.FORMAT_RGBA8)
+	tira.fill(Color(0.45, 0.43, 0.41))
+	for k in LlamaAltar.FOTOGRAMAS:
+		var f: Image = LlamaAltar._fotograma(k)
+		f.resize(f.get_width() * z, f.get_height() * z, Image.INTERPOLATE_NEAREST)
+		tira.blend_rect(f, Rect2i(Vector2i.ZERO, f.get_size()), Vector2i(k * LlamaAltar.ANCHO * z, 0))
+	tira.save_png("%spueblo_llama.png" % SALIDA)
 
 
 func _captura(nombre: String) -> void:
