@@ -90,7 +90,7 @@ var _fx_elem: CPUParticles2D = null
 
 func _ready() -> void:
 	z_as_relative = false
-	z_index = 0   # a la altura del jugador y los bichos reales (ver companion.gd)
+	z_index = Game.Z_PERSONAJES   # a la altura del jugador y los bichos reales (ver Game.Z_PERSONAJES)
 	# Marca para que el piso NO me meta en su foto y para que la IA de los bichos DE VERDAD me
 	# ignore (no soy compañero suyo, soy el dibujo de otra maquina). Estoy en los grupos
 	# enemy/corpse solo para que se me pueda atacar y extraer.

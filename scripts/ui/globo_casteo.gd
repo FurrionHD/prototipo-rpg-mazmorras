@@ -44,7 +44,7 @@ var _t: float = 0.0
 
 func _ready() -> void:
 	z_as_relative = false
-	z_index = 6   # por encima de los cuerpos y del rastro elemental
+	z_index = Game.Z_PERSONAJES + 6   # por encima de los cuerpos y del rastro elemental
 	_fondo = Panel.new()
 	_fondo.add_theme_stylebox_override("panel", _estilo(Color(0.8, 0.8, 1.0)))
 	_fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE

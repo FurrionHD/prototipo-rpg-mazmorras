@@ -926,6 +926,7 @@ func _pintar_cuerpo() -> void:
 	if _muneco == null:
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
+		_muneco.z_index = Game.Z_PERSONAJES   # por encima de lo del mundo (ver Game.Z_PERSONAJES)
 	_muneco.montar(Game.lider())
 	if _muneco.hay_dibujo():
 		# El tinte y el metal son los MISMOS que ya elegiste: no hay ajuste nuevo que tocar, solo

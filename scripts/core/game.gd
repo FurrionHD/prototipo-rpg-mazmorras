@@ -42,15 +42,27 @@ var VERSION: String = ProjectSettings.get_setting("application/config/version", 
 # ============================================================
 const PARTY_MAX := 4
 
-# LA Z DE LOS LETREROS DEL MUNDO ("[F]" de vetas y arboles, "↓ BAJAR", nombres de las puertas del
-# pueblo). Absoluta y alta: el muñeco ordena sus capas con z de hasta ~2560 (el arma), asi que un letrero
-# a z 0 se quedaba DEBAJO de la cabeza del jugador y se leia a medias (lo vio el usuario). Por encima de
-# los tejados del pueblo (PiezaPueblo.Z_ENCIMA = 3000) y por debajo de los numeros de combate (4000).
-const Z_LETRERO := 3500
+# LA ALTURA DE LOS PERSONAJES en el mundo (jugador, compañeros, otros jugadores, enemigos).
+#
+# El muñeco ordena sus capas con z que van de unos -600 (lo que cuelga por detras) a ~2560 (el arma
+# por delante), y la PIEL de la cabeza cae cerca de 0. Los objetos del mundo (letreros, plantas,
+# arboles, vetas) estan a z 0, asi que se pintaban ENTRE la piel y los ojos: el usuario veia "las letras
+# dentro de la cara" y "las plantas y los arboles dentro de la cara". Subiendo al personaje entero por
+# encima (la base se suma a todas sus capas, que son relativas al muñeco) lo del mundo queda detras.
+#
+# Los enemigos, los proyectiles, los globos de conjuro, las esquirlas de la faena y la mira de pesca
+# llevan la MISMA base, para que entre ellos y el jugador todo quede como estaba.
+# Techo: 1024 + 2560 = 3584, por debajo de los tejados del pueblo (PiezaPueblo.Z_ENCIMA) y del tope de
+# Godot (4096).
+const Z_PERSONAJES := 1024
+
+# Los LETREROS del mundo van justo encima del suelo y de los objetos, y DEBAJO de los personajes (lo
+# pidio el usuario: que no se pinten por encima de ti).
+const Z_LETRERO := 1
 
 
-# Pone un letrero del mundo por encima de los personajes (ver Z_LETRERO) y, si es un Label, con
-# CONTORNO NEGRO: letras blancas sin borde desaparecian sobre la piel y el pelo del personaje.
+# Pone un letrero del mundo a su altura (ver Z_LETRERO) y, si es un Label, con CONTORNO NEGRO: letras
+# blancas sin borde se perdian sobre la hierba clara y la piedra.
 static func elevar_letrero(c: CanvasItem) -> void:
 	c.z_as_relative = false
 	c.z_index = Z_LETRERO

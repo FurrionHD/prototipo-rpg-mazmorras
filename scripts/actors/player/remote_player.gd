@@ -107,7 +107,10 @@ func _ready() -> void:
 	# los 32 px de antes (ver PoseJugador.ALTO_MUNDO) y la etiqueta le quedaba tapada por el pecho.
 	_nombre.position = Vector2(-60, -PoseJugador.ALTO_MUNDO + PoseJugador.PIES_BAJO_NODO - 18)
 	_nombre.size = Vector2(120, 16)
-	Game.elevar_letrero(_nombre)   # por encima de TODOS los muñecos, no solo del suyo
+	# Por encima de TODOS los muñecos (base + su capa mas alta, ~2560), no solo del suyo, y por debajo de
+	# los tejados del pueblo. No es un letrero del suelo: va sobre la cabeza.
+	_nombre.z_as_relative = false
+	_nombre.z_index = Game.Z_PERSONAJES + 2600
 	add_child(_nombre)
 
 
@@ -120,6 +123,7 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 	if _muneco == null:
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
+		_muneco.z_index = Game.Z_PERSONAJES   # por encima de lo del mundo (ver Game.Z_PERSONAJES)
 	# UN PersonajeData DE USAR Y TIRAR, montado con lo que ha llegado por la red. De el no tenemos su
 	# ficha (ni falta: mandarla entera reenviaria su PNG de 128x128 cada vez que cambia de arma),
 	# pero el muñeco necesita una para saber que pelo y que ropa lleva. Sin esto se montaba con null

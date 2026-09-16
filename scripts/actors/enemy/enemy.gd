@@ -230,6 +230,9 @@ var _colision_gira: bool = false
 
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	# A la altura de los personajes (ver Game.Z_PERSONAJES): con el jugador ya subido, un bicho a z 0 se
+	# quedaria siempre debajo de el.
+	z_index = Game.Z_PERSONAJES
 
 	# COLISION: el bicho choca con la roca (capa 1) y con los COMPANEROS (capa 4). NO con otros
 	# bichos: cuando chocaban entre si, dos que se solapaban (al nacer juntos, o al converger sobre

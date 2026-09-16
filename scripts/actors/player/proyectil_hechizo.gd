@@ -70,7 +70,7 @@ func setup(objetivo: Node, color: Color, spell: SpellData = null) -> void:
 
 func _ready() -> void:
 	z_as_relative = false
-	z_index = 5   # por encima de los cuerpos: el conjuro pasa POR DELANTE
+	z_index = Game.Z_PERSONAJES + 5   # por encima de los cuerpos: el conjuro pasa POR DELANTE
 	_semilla = randf() * 10.0
 	# La estela: las mismas particulas que llevan los bichos elementales, con el color del hechizo.
 	# local_coords = false, asi que se quedan por donde ha pasado y dibujan el rastro solas.
@@ -109,7 +109,7 @@ func _reventar(donde: Vector2) -> void:
 	var chispa := Node2D.new()
 	chispa.global_position = donde
 	chispa.z_as_relative = false
-	chispa.z_index = 6
+	chispa.z_index = Game.Z_PERSONAJES + 6
 	mundo.add_child(chispa)
 	Particulas.destellos(chispa, _color, Vector2(_radio * 3.0, _radio * 3.0), 1.0, 2.0)
 	# Se va solo: un temporizador de usar y tirar, que es mas barato que un Tween para esto.

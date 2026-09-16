@@ -101,6 +101,7 @@ func pintar(nuevo: PersonajeData) -> void:
 	if _muneco == null:
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
+		_muneco.z_index = Game.Z_PERSONAJES   # por encima de lo del mundo (ver Game.Z_PERSONAJES)
 	_muneco.montar(pj)
 	if _muneco.hay_dibujo():
 		# SU color y SU metal, no los del lider: distinguirlos de un vistazo es justo para lo que

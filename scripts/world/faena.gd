@@ -355,13 +355,13 @@ static func reaccionar(n: Node2D, f: String, tipo: int, lado: float) -> void:
 	var p: CPUParticles2D = Particulas.esquirlas(padre, col, Vector2(-lado, 0.0),
 		int(r["trozos"][i]), 0.8 + 0.25 * fuerza, float(r.get("gravedad", 260.0)))
 	p.global_position = donde
-	p.z_index = 50
+	p.z_index = Game.Z_PERSONAJES + 50
 	# Las HOJAS caen despacio y en abanico ancho: un arbol sacudido suelta hojas, no piedras.
 	if r.has("hojas") and int(r["hojas"][i]) > 0:
 		var h: CPUParticles2D = Particulas.esquirlas(padre, COLOR_HOJA, Vector2(-lado, 0.0),
 			int(r["hojas"][i]), 0.35, 45.0)
 		h.global_position = donde + Vector2(0.0, -10.0)
-		h.z_index = 50
+		h.z_index = Game.Z_PERSONAJES + 50
 
 
 # El temblor de lo que no sabe temblar solo (el cadaver): un vaiven corto de lado a lado que vuelve
