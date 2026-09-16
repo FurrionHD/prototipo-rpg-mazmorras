@@ -142,6 +142,45 @@ const ADORNOS := {
 }
 
 
+# ------------------------------------------------------------
+#  LAS LUCES DE NOCHE (ver Antorcha, LuzPueblo). Decidido con el usuario el 16/09/2026: postes con
+#  antorcha a lo largo de las calles y braseros en la plaza y en los portones.
+#
+#  Los POSTES van en la HIERBA del borde de cada calle horizontal, cada 6-7 casillas y alternando de
+#  lado: en la calle quitarian paso. Nunca en la casilla de una puerta ni de un adorno, y nunca pegados
+#  a la fachada SUR de una casa de abajo: su tejado sube dos casillas y el poste quedaria dentro del
+#  dibujo.
+# ------------------------------------------------------------
+const POSTES := [
+	# La calle mayor (filas 23 al norte y 27 al sur).
+	Vector2i(5, 23), Vector2i(11, 27), Vector2i(18, 23), Vector2i(30, 27), Vector2i(38, 23), Vector2i(44, 27),
+	# La calle alta (14 al norte, 17 al sur).
+	Vector2i(6, 14), Vector2i(11, 17), Vector2i(17, 14), Vector2i(27, 17), Vector2i(31, 14), Vector2i(37, 17), Vector2i(46, 14),
+	# La calle baja (32 al norte, 35 al sur).
+	Vector2i(3, 32), Vector2i(10, 35), Vector2i(18, 32), Vector2i(28, 35), Vector2i(38, 32), Vector2i(46, 35),
+	# El paseo de la orilla: a los lados del muelle.
+	Vector2i(21, 38), Vector2i(27, 38),
+]
+
+# BRASEROS: cuatro alrededor de la escalera de la plaza, dos a cada lado de los portones del este y el
+# oeste, y dos junto al porton norte (dentro del jardin del hogar, fuera del tejado de la casa).
+const BRASEROS := [
+	Vector2i(21, 22), Vector2i(27, 22), Vector2i(21, 28), Vector2i(27, 28),
+	Vector2i(2, 23), Vector2i(2, 27), Vector2i(ANCHO - 3, 23), Vector2i(ANCHO - 3, 27),
+	Vector2i(21, 2), Vector2i(27, 2),
+]
+
+
+# Todas las luces como [pieza, casilla].
+static func luces() -> Array:
+	var out: Array = []
+	for c in POSTES:
+		out.append(["poste_antorcha", c])
+	for c in BRASEROS:
+		out.append(["brasero", c])
+	return out
+
+
 # LAS CAÑAS DE PESCAR: tres, al azar, en el borde de la plataforma del pescador (nunca en la fila
 # del muelle, por donde se llega). Salen de la semilla del pueblo (Game.semilla_pueblo_actual), asi que
 # en multijugador caen en el mismo sitio para todos. Devuelve [casilla, lado] con lado "s", "e" u "o".
@@ -283,6 +322,8 @@ static func solida(c: Vector2i) -> bool:
 	for a in adornos():
 		if a[1] == c:
 			return true
+	if c in POSTES or c in BRASEROS:
+		return true
 	return false
 
 
@@ -325,6 +366,13 @@ static func cajas_pequenas() -> Array[Rect2]:
 		var arriba: float = float(c.y) * cel
 		var abajo: float = float(c.y) * cel + ADORNO_APOYO + t.y * 0.5
 		out.append(Rect2(Vector2(cx - t.x * 0.5, arriba), Vector2(t.x, abajo - arriba)))
+	# Las luces: el zocalo del poste y las patas del brasero, al fondo de su casilla (donde se apoyan).
+	for c in POSTES:
+		var bp := Vector2(float(c.x) * cel + cel * 0.5, float(c.y + 1) * cel - 8.0)
+		out.append(Rect2(bp - Vector2(5, 4), Vector2(10, 7)))
+	for c in BRASEROS:
+		var bb := Vector2(float(c.x) * cel + cel * 0.5, float(c.y + 1) * cel - 8.0)
+		out.append(Rect2(bb - Vector2(12, 4), Vector2(24, 8)))
 	# La columna del altar: su zocalo, pegado al fondo de su casilla.
 	var ab := Vector2(float(ALTAR.x) * cel + cel * 0.5, float(ALTAR.y + 1) * cel - 9.0)
 	out.append(Rect2(ab - Vector2(11, 5), Vector2(22, 10)))

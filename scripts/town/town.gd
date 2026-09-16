@@ -31,7 +31,7 @@ func _ready() -> void:
 	_crear_escalera()
 	_crear_jardin()
 	_crear_canas()
-	_muestra_de_fuegos()
+	_crear_luces()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
 
@@ -47,30 +47,30 @@ func _crear_luz() -> void:
 	add_child(luz)
 
 
-# ⚠️ PROVISIONAL (16/09/2026): los 8 fuegos de FuegoSprites en fila en la plaza, numerados y
-# encendidos siempre, para que el usuario los elija viendolos moverse. QUITAR al colocar las antorchas
-# de verdad (paso 4 del plan del dia y la noche).
-func _muestra_de_fuegos() -> void:
-	var celda: float = float(PuebloPlano.CELDA)
-	# Justo al SUR de la escalera, donde apareces: por encima quedaba debajo del HUD.
-	var y: float = (float(PuebloPlano.ESCALERA.end.y) + 1.6) * celda
-	var x0: float = float(PuebloPlano.PLAZA.position.x) * celda + 12.0
-	for i in FuegoSprites.cuantos():
-		var pos := Vector2(x0 + float(i) * 38.0, y)
-		var a: Antorcha = Antorcha.crear(i, 0.0, 1000 + i)
-		a.siempre = true
-		a.position = pos
-		add_child(a)
-		luz.poner_foco(pos + Vector2(0, -8), 60.0, Color(1.0, 0.82, 0.55), 1.0, 0.0, true, 0.16, 0.5)
-		var l := Label.new()
-		l.text = str(i + 1)
-		l.add_theme_font_size_override("font_size", 10)
-		l.add_theme_color_override("font_outline_color", Color.BLACK)
-		l.add_theme_constant_override("outline_size", 4)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.size = Vector2(20, 14)
-		l.position = pos + Vector2(-10, 2)
-		add_child(l)
+# ------------------------------------------------------------
+#  LAS LUCES DE NOCHE: postes con antorcha y braseros (PuebloPlano.POSTES / BRASEROS). El soporte es una
+#  pieza con altura (se pasa por detras); el fuego, una Antorcha en su boca que se enciende sola al
+#  anochecer y suena de cerca; la luz, un foco en LuzPueblo.
+#  Cada una con su fuego y su retraso sacados de su CASILLA: iguales para todos en multi.
+# ------------------------------------------------------------
+func _crear_luces() -> void:
+	for l in PuebloPlano.luces():
+		var clave: String = l[0]
+		var c: Vector2i = l[1]
+		var brasero: bool = clave == "brasero"
+		var pieza: PiezaPueblo = PiezaPueblo.crear(clave, Rect2i(c, Vector2i.ONE), true)
+		add_child(pieza)
+		var lista: Array = FuegoSprites.BRASEROS if brasero else FuegoSprites.ANTORCHAS
+		var perfil: int = lista[int(PuebloSprites._rnd(c.x, c.y, 401) * float(lista.size())) % lista.size()]
+		var retraso: float = PuebloSprites._rnd(c.x, c.y, 402)
+		var boca: Vector2 = PuebloSprites.boca_brasero() if brasero else PuebloSprites.boca_poste()
+		var fuego: Antorcha = Antorcha.crear(perfil, retraso, c.x * 1000 + c.y)
+		pieza.acompanar(fuego, boca)
+		var centro: Vector2 = pieza.position + boca + Vector2(0, -6)
+		if brasero:
+			luz.poner_foco(centro + Vector2(0, 14), 120.0, Color(1.0, 0.80, 0.52), 1.0, retraso, false, 0.20, 0.5)
+		else:
+			luz.poner_foco(centro + Vector2(0, 22), 95.0, Color(1.0, 0.84, 0.58), 1.0, retraso, false, 0.16, 0.45)
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en

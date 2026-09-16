@@ -36,6 +36,10 @@ const PIEZAS := {
 	"cajas": {"tam": Vector2i(32, 56), "pie": 32},
 	"sacos": {"tam": Vector2i(32, 56), "pie": 32},
 	"bastidor": {"tam": Vector2i(32, 56), "pie": 32},
+	# LUCES DE NOCHE (ver Antorcha y LuzPueblo). Estrechas como la columna: chocan con su pie y el corte
+	# va ahi, para que quien se arrima por detras no se pinte encima del palo.
+	"poste_antorcha": {"tam": Vector2i(32, 72), "pie": 12},
+	"brasero": {"tam": Vector2i(32, 50), "pie": 13},
 }
 
 # Las verjas son una pieza por MASCARA (hacia que lados sigue la verja: 1 N, 2 E, 4 S, 8 O).
@@ -304,6 +308,125 @@ static func _columna() -> PackedByteArray:
 # Donde nace la llama del altar, en px del lienzo de la columna.
 static func boca_altar() -> Vector2:
 	return Vector2(16, 20 - 12)
+
+
+# ============================================================
+#  LAS LUCES DEL PUEBLO: el poste de antorcha y el brasero. Solo el soporte: el fuego es Antorcha,
+#  que se engancha en su boca (boca_poste / boca_brasero) y se enciende al anochecer. De dia se ven
+#  las brasas apagadas, negras.
+# ============================================================
+const MADERA_POSTE := [Color(0.20, 0.13, 0.08), Color(0.33, 0.22, 0.13), Color(0.45, 0.31, 0.19), Color(0.56, 0.40, 0.25)]
+const HIERRO_RAMPA := [Color(0.11, 0.11, 0.13), Color(0.21, 0.21, 0.24), Color(0.33, 0.33, 0.37), Color(0.48, 0.48, 0.52)]
+const CARBON := [Color(0.08, 0.07, 0.07), Color(0.16, 0.14, 0.13), Color(0.28, 0.14, 0.09)]
+
+static func _poste_antorcha() -> PackedByteArray:
+	var t: Vector2i = PIEZAS["poste_antorcha"]["tam"]
+	var w: int = t.x
+	var h: int = t.y
+	var d := _lienzo(t)
+	var suelo_y: int = h - 6
+	_sombra_suelo(d, w, h, 16, suelo_y + 1, 8, 3)
+	# Un zocalo de piedra pequeño donde se clava el palo.
+	_caja(d, w, h, 11, suelo_y - 5, 10, 3, 3, [PIEDRA[1], PIEDRA[2], PIEDRA[3], PIEDRA[4]])
+	# El palo: 4 px de madera, con luz a la izquierda y vetas.
+	var cazo_y: int = 12
+	for y in range(cazo_y + 7, suelo_y - 4):
+		for x in range(14, 18):
+			var col: Color = MADERA_POSTE[2] if x == 15 else MADERA_POSTE[1]
+			if x == 14 or x == 17:
+				col = NEGRO
+			elif posmod(y * 3 + x, 11) == 0:
+				col = MADERA_POSTE[0]
+			_px(d, w, h, x, y, col)
+	# Las abrazaderas de hierro que sujetan el cazo.
+	for y in [cazo_y + 9, cazo_y + 14]:
+		for x in range(13, 19):
+			_px(d, w, h, x, y, HIERRO_RAMPA[2] if x > 13 and x < 18 else NEGRO)
+	# El CAZO: un cesto de hierro abierto arriba, mas ancho en la boca.
+	for y in range(cazo_y, cazo_y + 8):
+		var semi: float = 6.0 - float(y - cazo_y) * 0.45
+		for x in w:
+			var dx: float = float(x) + 0.5 - 16.0
+			if absf(dx) > semi:
+				continue
+			var col: Color = HIERRO_RAMPA[1]
+			if absf(dx) > semi - 1.0:
+				col = NEGRO
+			elif posmod(x, 3) == 0:
+				col = HIERRO_RAMPA[2]                 # las varillas del cesto
+			if y == cazo_y + 3:
+				col = HIERRO_RAMPA[3] if absf(dx) <= semi - 1.0 else NEGRO     # el aro
+			_px(d, w, h, x, y, col)
+	# Boca: el carbon de dentro (visto desde arriba) y el borde.
+	for x in range(10, 23):
+		var c: Color = CARBON[int(_rnd(x, 1, 51) * 2.99)]
+		_px(d, w, h, x, cazo_y, c)
+		_px(d, w, h, x, cazo_y - 1, NEGRO if x == 10 or x == 22 else HIERRO_RAMPA[3])
+	return d
+
+
+# Donde nace la llama del poste, en px de su lienzo.
+static func boca_poste() -> Vector2:
+	return Vector2(16, 13)
+
+
+static func _brasero() -> PackedByteArray:
+	var t: Vector2i = PIEZAS["brasero"]["tam"]
+	var w: int = t.x
+	var h: int = t.y
+	var d := _lienzo(t)
+	var suelo_y: int = h - 6
+	_sombra_suelo(d, w, h, 16, suelo_y + 1, 13, 4)
+	var cuenco_y: int = suelo_y - 22       # la boca del cuenco
+	var fondo_cuenco: int = cuenco_y + 11
+	# Tres patas de hierro, abiertas hacia abajo (la del centro, detras, mas corta).
+	for pata in [[9.0, 5.0], [23.0, 27.0]]:
+		for y in range(fondo_cuenco - 2, suelo_y + 1):
+			var u: float = float(y - fondo_cuenco + 2) / float(suelo_y - fondo_cuenco + 2)
+			var x: int = int(lerpf(pata[0], pata[1], u))
+			_px(d, w, h, x, y, NEGRO)
+			_px(d, w, h, x + 1, y, HIERRO_RAMPA[2])
+			_px(d, w, h, x + 2, y, NEGRO)
+		_px(d, w, h, int(pata[1]), suelo_y + 1, NEGRO)
+		_px(d, w, h, int(pata[1]) + 2, suelo_y + 1, NEGRO)
+	for y in range(fondo_cuenco, suelo_y - 3):
+		_px(d, w, h, 15, y, NEGRO)
+		_px(d, w, h, 16, y, HIERRO_RAMPA[1])
+		_px(d, w, h, 17, y, NEGRO)
+	# El cuenco: media esfera de hierro vista desde el sur, con un aro claro en la boca.
+	for y in range(cuenco_y, fondo_cuenco + 1):
+		var u: float = float(y - cuenco_y) / float(fondo_cuenco - cuenco_y)
+		var semi: float = 13.0 * sqrt(maxf(0.0, 1.0 - u * u * 0.8))
+		for x in w:
+			var dx: float = float(x) + 0.5 - 16.0
+			if absf(dx) > semi:
+				continue
+			var v: float = 0.55 - dx / 26.0 * 0.5 - u * 0.25
+			var col: Color = HIERRO_RAMPA[clampi(int(v * 4.0), 0, 3)]
+			if absf(dx) > semi - 1.0 or y == fondo_cuenco:
+				col = NEGRO
+			elif y == cuenco_y + 4:
+				col = HIERRO_RAMPA[0]               # una banda remachada
+			elif y == cuenco_y + 3 and posmod(x, 4) == 0:
+				col = HIERRO_RAMPA[3]
+			_px(d, w, h, x, y, col)
+	# La boca vista desde arriba: una elipse de carbon con el aro alrededor.
+	for y in range(cuenco_y - 4, cuenco_y + 2):
+		for x in w:
+			var e: float = pow((float(x) + 0.5 - 16.0) / 13.0, 2.0) + pow((float(y) + 0.5 - float(cuenco_y) + 1.0) / 3.5, 2.0)
+			if e > 1.0:
+				continue
+			var col: Color = CARBON[int(_rnd(x, y, 53) * 2.99)]
+			if e > 0.70:
+				col = HIERRO_RAMPA[3] if y < cuenco_y - 1 else HIERRO_RAMPA[2]
+			if e > 0.90:
+				col = NEGRO
+			_px(d, w, h, x, y, col)
+	return d
+
+
+static func boca_brasero() -> Vector2:
+	return Vector2(16, 50 - 6 - 22)
 
 
 # Un bloque de piedra visto desde el sur: TAPA (planta, clara) de 'fondo' px y CARA (vertical, mas
@@ -711,6 +834,10 @@ static func generar(clave: String) -> Image:
 		d = _adorno(clave)
 	elif clave.begins_with("cana_"):
 		d = _cana(clave.trim_prefix("cana_"))
+	elif clave == "poste_antorcha":
+		d = _poste_antorcha()
+	elif clave == "brasero":
+		d = _brasero()
 	else:
 		d = _lienzo(t)
 	return Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, d)

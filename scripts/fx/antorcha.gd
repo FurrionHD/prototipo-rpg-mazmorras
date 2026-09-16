@@ -53,8 +53,11 @@ func _ready() -> void:
 	_llama.sprite_frames = FuegoSprites.fotogramas(perfil)
 	_llama.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_llama.centered = false
-	# La base (ultima fila) en el origen: al escalar en vertical crece desde abajo.
-	_llama.position = Vector2(-ancho / 2, -alto + 1)
+	# La base (ultima fila) en el origen: al escalar en vertical crece desde abajo. Va en 'offset' y no en
+	# 'position': la escala se aplica alrededor de la POSICION del nodo, y con el dibujo desplazado por
+	# position la llama crecia desde su esquina de arriba y se quedaba flotando sobre el poste.
+	_llama.position = Vector2.ZERO
+	_llama.offset = Vector2(-ancho / 2, -alto + 1)
 	_llama.play("arde")
 	_llama.frame = _rng.randi_range(0, int(p["frames"]) - 1)
 	_llama.speed_scale = _rng.randf_range(0.9, 1.1)
