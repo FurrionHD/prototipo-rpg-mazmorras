@@ -164,10 +164,10 @@ func _montar(titulo: String, subtitulo: String, texto_boton: String, previo: Dic
 		fases = [
 			{"n": "Quién es", "c": _fase_quien(previo)},
 			{"n": "Cara", "c": _fase_cara()},
-			# PELO Y BARBA JUNTOS: son lo mismo (pelo) y comparten pestaña, pero cada uno con su
-			# COLOR PROPIO -- un viejo con el pelo blanco y la barba castaña no existe, pero al reves
-			# (barba mas blanca que el pelo) es justo el maestro de la Meditación.
-			{"n": "Pelo", "c": _fase_piezas(["pelo", "barba"], ["el pelo", "la barba"])},
+			# SIN BARBA desde el 17/09/2026: lo decidio el usuario tras dos rondas intentando que se
+			# vieran bien girando (ver JugadorSprites.capas_de). Vuelve cuando se puedan hacer
+			# personajes a mano; mientras, la variedad va por ojos y bocas.
+			{"n": "Pelo", "c": _fase_piezas(["pelo"], ["el pelo"])},
 			{"n": "Ropa", "c": _fase_ropa()},
 		]
 	else:
@@ -308,6 +308,8 @@ func _fase_piezas(piezas: Array, etiquetas: Array) -> Control:
 
 	var cual := HBoxContainer.new()
 	cual.add_theme_constant_override("separation", 4)
+	# Con UNA sola pieza no hay nada que elegir: "Color de: [el pelo]" sobra.
+	cual.visible = piezas.size() > 1
 	var lbl := Label.new()
 	lbl.text = "Color de:"
 	cual.add_child(lbl)

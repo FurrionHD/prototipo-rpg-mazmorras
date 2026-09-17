@@ -292,6 +292,8 @@ const Z_ARMADURA_MANOS_DETRAS := 2
 #
 # 'pj' puede ser null (el jugador remoto antes de que llegue su ficha): sale el cuerpo desnudo, que
 # es mejor que no dibujar a nadie.
+const BARBA_NPC := "barba_npc"
+
 static func capas_de(pj: PersonajeData) -> Array:
 	var out: Array = []
 	for c in CAPAS:
@@ -313,6 +315,12 @@ static func capas_de(pj: PersonajeData) -> Array:
 		# LOS RASGOS SOLO SI NO HAY FOTO: con imagen propia, tu imagen ES tu cara, y unos ojos
 		# dibujados asomarian por debajo de ella.
 		if nombre == "cara" and not pj.imagen.is_empty():
+			continue
+		# LAS BARBAS NO SE PINTAN en los personajes del jugador (decision del usuario, 17/09/2026: no
+		# habia forma de que quedaran bien al girar). El modelo guardado NO se borra -- si vuelven, cada
+		# uno recupera la suya --; solo se deja de pedir la capa. La excepcion son los personajes del
+		# juego que la necesitan, marcados con BARBA_NPC (el maestro de la Meditacion).
+		if nombre == "barba" and not pj.has_meta(BARBA_NPC):
 			continue
 		# LA QUE CUELGA VA PRIMERO EN LA LISTA: el orden de 'out' desempata entre capas a la misma
 		# profundidad, y ademas asi el atlas de detras se monta antes que el de delante.

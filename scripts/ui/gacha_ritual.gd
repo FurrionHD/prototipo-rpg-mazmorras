@@ -117,6 +117,8 @@ static func maestro() -> PersonajeData:
 	pj.poner_pieza("gorro", "mago", AZUL)
 	pj.poner_pieza("pelo", "largo", CANAS)
 	pj.poner_pieza("barba", "larga", CANAS)
+	# Los personajes del jugador ya no pintan barba; el maestro si (ver JugadorSprites.BARBA_NPC).
+	pj.set_meta(JugadorSprites.BARBA_NPC, true)
 	pj.poner_pieza("cara", "linea", CANAS)
 	return pj
 
