@@ -191,7 +191,7 @@ static var CATALOGO := {
 		"ranura": Ranura.BARBA, "gen": BarbaGen, "ancla": PoseJugador.P_CABEZA,
 		"z": Z_BARBA, "titulo": "Barba", "sin_nada": "Afeitado",
 		"modelos": {
-			"bigote": {"piezas": 1, "nombre": "Bigote"},
+			"bigote": {"piezas": 2, "nombre": "Bigote"},
 			"perilla": {"piezas": 2, "nombre": "Perilla"},
 			"candado": {"piezas": 3, "nombre": "Candado"},
 			"poblada": {"piezas": 3, "nombre": "Poblada"},

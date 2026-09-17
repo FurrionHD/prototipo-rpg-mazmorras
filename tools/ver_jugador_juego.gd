@@ -126,8 +126,19 @@ func _hoja_modelos(pieza: String) -> void:
 	# LA HOJA DE LA CARA VA SIN FOTO, obligatoriamente: los rasgos dibujados solo se montan cuando NO
 	# hay imagen (con foto, tu foto ES tu cara), asi que con la cara de prueba puesta las cuatro filas
 	# salian identicas y parecia que los estilos no hacian nada.
-	if pieza == "cara":
+	# "sinfoto" de segundo argumento: la hoja con los OJOS DIBUJADOS en vez de la foto de prueba, que es
+	# como se ven los compañeros sin imagen (las capturas de la barba del 17/09 eran asi).
+	var sin_foto: bool = OS.get_cmdline_user_args().has("sinfoto")
+	if pieza == "cara" or sin_foto:
 		Game.set_imagen_cuerpo(PackedByteArray())
+		if sin_foto:
+			var pc: Dictionary = Game.lider().pieza("cara")
+			Game.lider().poner_pieza("cara", "chibi", pc["color"], pc["metal"])
+			# El pelo en NARANJA y la barba en marron oscuro, como en las capturas: del mismo color no se
+			# distingue donde acaba uno y empieza la otra.
+			var pp: Dictionary = Game.lider().pieza("pelo")
+			Game.lider().poner_pieza("pelo", pp["modelo"], Color(0.95, 0.55, 0.30), pp["metal"])
+			Game.lider().poner_pieza("barba", "", Color(0.22, 0.14, 0.10), 0.0)
 	elif not Game.tiene_imagen_cuerpo():
 		Game.set_imagen_cuerpo(_cara_de_prueba())
 	p.set_physics_process(false)

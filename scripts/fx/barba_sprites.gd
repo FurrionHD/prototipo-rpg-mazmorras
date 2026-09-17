@@ -31,62 +31,47 @@ enum Tono {
 
 const R := PoseJugador.CABEZA_R
 
-# HACIA DONDE MIRA LA BARBA. En esta proyeccion +Y es "hacia la cara" y +Z es "arriba" (ver
-# PeloSprites: el flequillo va a +Y y la nuca a -Y). Asi que la barba vive en +Y y -Z, y con un solo
-# par de numeros queda bien en las ocho direcciones: de frente se ve entera y de espaldas la tapa la
-# propia cabeza, que es exactamente lo que pasa de verdad.
-#
 # ============================================================
-#  DONDE VA LA BARBA: se mide EN PANTALLA, no en Z
+#  COMO VA LA BARBA
 # ============================================================
-# Los rasgos viven en CaraSprites con numeros exactos, asi que la barba se coloca RESPECTO A ELLOS.
-# Pero comparar la Z de la barba con la Z de los ojos NO SIRVE, y ese fue el error que costo dos
-# tandas: la camara va a 45 grados y proyecta
+# REHECHA el 17/09/2026 con las capturas del usuario. La version anterior era un BULTO delante de la
+# cara (una masa de mandibula adelantada) colocado para que DE FRENTE cayera en su sitio, y fallaba en
+# todo lo demas: de frente colgaba hacia abajo, de medio lado era un manchon sobre la mejilla y de
+# perfil, al girar, el bulto adelantado subia en pantalla y TAPABA EL OJO. (Adelantarse solo baja en
+# pantalla mirando al sur; de perfil ese adelanto va de lado.)
 #
-#     pantalla_y = (y * cos45 - z * sin45)     ->   proporcional a  (y - z)
+# AHORA SON TROZOS PEGADOS A LA PIEL, en puntos de la superficie de la cabeza (la forma que dibuja
+# CuerpoSprites: semiejes 1 / 0,90 / 0,96) dados por LONGITUD (grados alrededor, 0 = de frente) y
+# LATITUD (grados bajo el ecuador). Como la capa va con z fijo por encima de la cabeza y nada la tapa,
+# cada trozo se pinta SOLO SI MIRA A CAMARA (su fondo girado, ver _anadir): de frente se ve entera, de
+# medio lado el lado que da a la camara y de perfil un poco, abajo y delante.
 #
-# o sea que ADELANTARSE TAMBIEN BAJA. Una pieza puede estar por debajo en Z y aun asi salir a la
-# altura de la mirada si esta menos adelantada. Por eso aqui todo se piensa en BAJADA = y - z, que es
-# lo unico que se corresponde con lo que se ve.
+# LA CARA QUE SE VE ES DIMINUTA: bajo el pelo quedan unos 8 px de ancho y 3 de alto, con los ojos en
+# una fila y la boca en la de debajo. No hay sitio para una barba "debajo de la boca", asi que se hace
+# pegada a la forma de la cara por abajo: una fila en la BARBILLA de lado a lado, los LADOS de la
+# mandibula por fuera de los ojos y un bigote pequeño. Patillas y carrillos a la altura de la boca se
+# probaron y quedaban pegados a los ojos (gafas de sol).
 #
-#   ojos -> y = 0,58 · z = -0,18  ->  BAJADA 0,76
-#   boca -> y = 0,58 · z = -0,42  ->  BAJADA 1,00
-#
-# LAS DOS REGLAS QUE SALEN DE AHI:
-#   1. El BORDE DE ARRIBA de cualquier pieza que caiga en la vertical de los ojos tiene que quedar
-#      por debajo de 0,76. Ese borde es BAJADA - ry - rz, no BAJADA a secas.
-#   2. Lo que no cumpla eso tiene que apartarse en X. Los ojos ocupan de 0,19 a 0,49 de ancho
-#      (separacion 0,34 ± radio 0,15), asi que a partir de 0,52 ya no estorban -- que es como se
-#      salvan las patillas, que por definicion suben por el lado de la cara.
-#
-# La primera version fallaba las dos: el bigote a BAJADA 0,82 (seis centesimas por debajo de los
-# ojos, o sea un pixel) y las patillas a 0,71, o sea POR ENCIMA. Eso es lo que se veia como "la barba
-# se mezcla con los ojos": no era un solape raro, es que estaba mas arriba que ellos.
-const OJOS_BAJADA := 0.76
+# Medidas de la cara (CaraSprites): ojos a z -0,18 y de 0,19 a 0,49 de ancho; boca a z -0,42.
 
-# Y LA TERCERA REGLA, que es la que costo la ultima tanda: PARA BAJAR EN PANTALLA HAY QUE
-# ADELANTARSE, NO HUNDIRSE.
-#
-# Como la bajada es (y - z), una pieza puede ganar altura de dos maneras -- subiendo la Y o bajando
-# la Z --, pero NO son equivalentes: la cabeza es una bola de radio 1, asi que hundir la Z se sale
-# por abajo. Poniendo la mandibula a fondo 0,36 y bajada 1,26 salia z = -0,90, y con su propio radio
-# llegaba a -1,14: FUERA DE LA CABEZA, colgando sobre el cuello. De frente colaba, y de perfil se
-# veia una mancha descolgada al lado de la cara -- que es justo lo que se reporto.
-#
-# La cara lo hace bien: consigue su bajada con y = 0,58 y z = -0,18, o sea ADELANTANDOSE. La barba
-# vive en la misma franja de fondo que ella, un poco mas abajo. El fondo de la cabeza es 0,90, asi
-# que 0,55 + un radio de 0,22 = 0,77 sigue dentro.
-const DELANTE := 0.55
+# Cuanto se mete hacia dentro en fondo. La cara no esta en la superficie de la bola sino mas adentro
+# (los ojos a 0,58, ver CaraSprites.OJO_FONDO): en la superficie de verdad asomaria por la silueta.
+const FONDO_SUPERFICIE := 0.80
+# Un trozo cuenta como "de cara a la camara" si su fondo girado pasa de esto (en radios).
+const UMBRAL_VISIBLE := 0.20
+# El tamaño de un trozo, en radios. Tiene que pasar de una celda o sale a pixeles sueltos.
+const TROZO := Vector3(0.14, 0.10, 0.12)
 
-# BAJADA de la masa de la mandibula: 1,15 deja su borde de arriba (1,15 - 0,22 - 0,18 = 0,75) justo
-# al filo de los ojos, y su z en -0,60, bien dentro de la cabeza.
-const BAJADA_MASA := 1.15
-# Y la del bigote: justo la de la boca, que es donde va un bigote.
-const BAJADA_BIGOTE := 1.00
-
-# Lo que sobresale de la cara. Como el pelo, tiene que pasar de una celda (1,15) o la barba sale a
-# trozos entre los pixeles de la cabeza, como suciedad en vez de pelo.
-const GROSOR := 1.3
+# Donde va cada parte: [longitud, latitud, cuanto CUELGA]. MEDIDO en pantalla, no a ojo: de frente
+# los ojos caen en la fila 44,5, la boca en la 46,4 y el borde de la barbilla en la 48,8 (celdas del
+# lienzo). Lo que quede por encima de ~47 se pega a los ojos y se lee como GAFAS DE SOL (paso dos
+# veces). Y la superficie metida hacia dentro no baja nunca de la 47,9, asi que lo de la barbilla
+# CUELGA un poco en altura real ('cuelga', en radios): bajar en Z baja igual en pantalla mire hacia
+# donde mire, al reves que adelantarse, y por eso de perfil no vuelve a subirse al ojo.
+# La barbilla, de lado a lado por debajo de la boca.
+const BARBILLA := [[0.0, 56.0, 0.12], [15.0, 56.0, 0.12], [30.0, 56.0, 0.11]]
+# Los lados de la mandibula, por FUERA de los ojos (acaban en 0,49 de ancho) y bajos.
+const LADOS := [[45.0, 56.0, 0.07], [60.0, 58.0, 0.03]]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -112,118 +97,110 @@ static func colores() -> Array:
 #  EL PINTOR
 # ============================================================
 static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
-	# DE ESPALDAS NO HAY BARBA, exactamente igual que no hay ojos (ver CaraSprites.pintar): 3, 4 y 5
-	# son NE, N y NW, o sea la nuca.
-	#
-	# HAY QUE DECIDIRLO AQUI, POR DIRECCION, Y NO CONFIAR EN QUE LA TAPE LA CABEZA. Esta capa va con
-	# z FIJO y por encima de todo (JugadorSprites.Z_BARBA), asi que nada la oculta nunca: en la
-	# primera hoja de contacto la barba se veia flotando sobre la NUCA en las tres direcciones de
-	# espaldas. El pelo no tiene este problema porque el casquete cubre la cabeza entera y es
-	# simetrico; una barba solo existe por delante.
+	# DE ESPALDAS NO HAY BARBA: 3, 4 y 5 son NE, N y NW.
 	var d: int = int(esq.get("dir", 0))
 	if d == 3 or d == 4 or d == 5:
 		return
-	var p: Dictionary = esq["puntos"]
-	var cab: Vector3 = p[PoseJugador.P_CABEZA]
+	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
+	var cand: Array = []   # [fondo girado, local, radio, tono]: se ordenan antes de pintar
 
 	match modelo:
 		"bigote":
-			_bigote(piezas, esq, cab, 1.0)
+			_bigote(cand, esq, cab)
 		"perilla":
-			_bigote(piezas, esq, cab, 0.85)
-			_perilla(piezas, esq, cab)
+			_bigote(cand, esq, cab)
+			_perilla(cand, esq, cab)
 		"candado":
-			_bigote(piezas, esq, cab, 0.95)
-			_mandibula(piezas, esq, cab, 0.55)
-			_perilla(piezas, esq, cab)
+			# Bigote y la barbilla estrecha: sin los lados de la mandibula.
+			_bigote(cand, esq, cab)
+			_parte(cand, esq, cab, BARBILLA.slice(0, 2), Tono.PELO)
 		"poblada":
-			_bigote(piezas, esq, cab, 1.05)
-			_mandibula(piezas, esq, cab, 1.0)
+			_poblada(cand, esq, cab)
 		"larga":
-			_bigote(piezas, esq, cab, 1.05)
-			_mandibula(piezas, esq, cab, 1.0)
-			# LA PUNTA se mece con el paso, igual que la coleta: una barba larga que va tiesa mientras
-			# el personaje anda se lee como una tabla colgada del menton.
-			_punta(piezas, esq, cab, float((esq["pose"] as Dictionary).get("paso", 0.0)),
+			_poblada(cand, esq, cab)
+			_punta(cand, esq, cab, float((esq["pose"] as Dictionary).get("paso", 0.0)),
 				float(esq.get("caida", 0.0)))
 		_:
-			_mandibula(piezas, esq, cab, 0.8)
+			_poblada(cand, esq, cab)
+
+	# LO DE DETRAS PRIMERO: no hay z-buffer dentro de una capa, el orden de la lista es la profundidad.
+	cand.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	for c in cand:
+		PoseJugador.poner(piezas, esq, c[1], c[2], int(c[3]))
 
 
-# LA MASA DE LA MANDIBULA: lo que va de patilla a patilla por debajo de la cara. 'grueso' es cuanto
-# baja y cuanto sobresale.
-#
-# VA ACHATADA EN Y Y ANCHA EN X. Redonda se lee como una bufanda o como una papada: lo que la hace
-# barba es que sea ANCHA (de oreja a oreja) y POCO PROFUNDA, pegada a la cara.
-static func _mandibula(piezas: Array, esq: Dictionary, cab: Vector3, grueso: float) -> void:
-	var g: float = GROSOR * grueso
-	var y: float = R * DELANTE
-	# EL FONDO PRIMERO. No hay z-buffer dentro de una capa -- el orden de la lista es la profundidad
-	# --, asi que lo que va detras se pinta antes. Es la misma regla que la nuca del pelo, y saltarsela
-	# deja un manchon de sombra cruzando por encima de la barba.
-	# La de sombra va solo UN PELIN mas atras (0,08), no al 68% del fondo: retrasarla de verdad la
-	# obligaba a hundir la Z para mantener la bajada, y volvia a salirse de la cabeza por abajo.
-	var fondo_s: float = DELANTE - 0.08
-	PoseJugador.poner(piezas, esq,
-		Vector3(cab.x, cab.y + R * fondo_s, cab.z + _z_de(BAJADA_MASA + 0.05, fondo_s)),
-		Vector3(R * (0.34 + 0.10 * grueso), R * 0.20, R * (0.13 + 0.08 * grueso)), Tono.PELO_S)
-	PoseJugador.poner(piezas, esq,
-		Vector3(cab.x, cab.y + y, cab.z + _z_de(BAJADA_MASA, DELANTE)),
-		Vector3(R * (0.32 + 0.12 * grueso) + g * 0.25, R * 0.22 + g * 0.18,
-			R * (0.14 + 0.10 * grueso) + g * 0.18), Tono.PELO)
-	# SIN PATILLAS. Se probaron dos veces y las dos se leyeron como CUERNOS: una patilla sube por el
-	# lado de la cara, o sea que por fuerza llega a la altura de la mirada, y a este tamaño dos
-	# manchas a los lados de los ojos no dicen "barba" -- dicen "orejeras". La mandibula sola ya sube
-	# lo justo por los lados para no parecer una careta colgada del menton.
-	#
-	# Si algun dia hacen falta: tendrian que ir por FUERA de 0,52 de ancho (los ojos acaban en 0,49) y
-	# muy pegadas a la masa, sin hueco entre medias.
+static func _poblada(cand: Array, esq: Dictionary, cab: Vector3) -> void:
+	_parte(cand, esq, cab, LADOS, Tono.PELO_S)
+	_parte(cand, esq, cab, BARBILLA, Tono.PELO)
+	_bigote(cand, esq, cab)
 
 
-# EL BIGOTE: la raya bajo la nariz. Es la pieza que mas dice a este tamaño -- una barba sin bigote se
-# lee como una bufanda subida --, asi que la llevan los cuatro modelos.
-#
-# A LA BAJADA DE LA BOCA (1,00), que es donde va un bigote. Y FINO EN PROFUNDIDAD (ry 0,10): el borde
-# de arriba es BAJADA - ry - rz, asi que engordarlo en Y lo sube en pantalla igual que subirlo en Z.
-static func _bigote(piezas: Array, esq: Dictionary, cab: Vector3, ancho: float) -> void:
-	var fondo: float = DELANTE + 0.14
-	PoseJugador.poner(piezas, esq,
-		Vector3(cab.x, cab.y + R * fondo, cab.z + _z_de(BAJADA_BIGOTE, fondo)),
-		Vector3(R * 0.30 * ancho, R * 0.10, R * 0.06), Tono.PELO)
+# Un punto de la superficie de la cabeza (metido hacia dentro, ver FONDO_SUPERFICIE).
+static func _superficie(cab: Vector3, lon: float, lat: float) -> Vector3:
+	var lo: float = deg_to_rad(lon)
+	var la: float = deg_to_rad(-lat)
+	return cab + Vector3(R * sin(lo) * cos(la) * 0.95,
+		R * 0.90 * FONDO_SUPERFICIE * cos(lo) * cos(la),
+		R * 0.96 * sin(la))
 
 
-# LA PERILLA: el mechon del menton, estrecho y centrado. Lo que separa una perilla de una barba
-# poblada es que NO llega a las patillas.
-static func _perilla(piezas: Array, esq: Dictionary, cab: Vector3) -> void:
-	# +0,18 de bajada y no +0,26: con 0,26 la z se iba a -0,82 y con su radio llegaba a -1,04, o sea
-	# por debajo del borde de la cabeza. Una perilla asoma del menton, no cuelga del cuello.
-	var fondo: float = DELANTE + 0.04
-	PoseJugador.poner(piezas, esq,
-		Vector3(cab.x, cab.y + R * fondo, cab.z + _z_de(BAJADA_MASA + 0.18, fondo)),
-		Vector3(R * 0.16, R * 0.18, R * 0.20), Tono.PELO)
+# Cuanto mira hacia la camara ese punto, en radios de cabeza: su fondo tras girar con el cuerpo.
+static func _fondo(esq: Dictionary, cab: Vector3, local: Vector3) -> float:
+	var rel := Vector2(local.x - cab.x, local.y - cab.y)
+	return rel.rotated(PoseJugador.ang_en(esq, local.z)).y / R
 
 
-# LA Z QUE HACE FALTA para que una pieza caiga a la BAJADA pedida estando a ese fondo. Despeja
-# z = y - bajada, que es la cuenta de la cabecera. Todo en radios de cabeza; devuelve unidades.
-#
-# Existe para no volver a colocar nada "por su Z": la altura a la que se ve una pieza depende de las
-# DOS coordenadas, y a mano eso se falla (se fallo dos veces seguidas).
-static func _z_de(bajada: float, fondo: float) -> float:
-	return R * (fondo - bajada)
+# Mete el trozo SOLO si da a la camara: nada tapa esta capa, asi que lo de detras hay que no pintarlo.
+static func _anadir(cand: Array, esq: Dictionary, cab: Vector3, local: Vector3, r: Vector3,
+		tono: int, umbral: float = UMBRAL_VISIBLE) -> void:
+	var f: float = _fondo(esq, cab, local)
+	if f < umbral:
+		return
+	cand.append([f, local, r, tono])
 
 
-# LA PUNTA DE LA BARBA LARGA: cae desde el menton hacia el pecho, meciendose con el paso.
-static func _punta(piezas: Array, esq: Dictionary, cab: Vector3, vaiven: float,
-		caida: float) -> void:
-	# Arranca donde acaba la mandibula, un poco mas abajo, y usando la misma cuenta de bajada.
-	var arriba: Vector3 = Vector3(cab.x, cab.y + R * DELANTE,
-		cab.z + _z_de(BAJADA_MASA + 0.18, DELANTE))
-	# SE RECOGE AL CAERSE, igual que la coleta y por el mismo motivo: tiesa, con el cuerpo tumbado la
-	# barba se sale del lienzo y el horno la corta en seco con una raya recta. Y ademas es lo que hace
-	# el pelo de verdad: tumbado se apelmaza, no se queda apuntando al frente.
+# Una parte de la barba: cada [lon, lat, cuelga] de la lista, a los DOS lados (el 0 solo una vez).
+static func _parte(cand: Array, esq: Dictionary, cab: Vector3, puntos: Array, tono: int,
+		umbral: float = UMBRAL_VISIBLE) -> void:
+	var r := Vector3(R * TROZO.x, R * TROZO.y, R * TROZO.z)
+	for pt in puntos:
+		var lon: float = float(pt[0])
+		for lado in ([1.0] if is_zero_approx(lon) else [1.0, -1.0]):
+			var cuelga: float = float(pt[2]) if pt.size() > 2 else 0.0
+			_anadir(cand, esq, cab, _superficie(cab, lon * float(lado), float(pt[1]))
+				+ Vector3(0.0, 0.0, -R * cuelga), r, tono, umbral)
+
+
+# EL BIGOTE: a la altura de la boca, en dos trozos pequeños (uno a cada lado) para que de perfil solo
+# asome el de delante. Y con un umbral MAS ALTO: en diagonal la boca cae en la misma fila que el ojo
+# de delante, y el trozo del bigote del lado de atras quedaba pegado a el.
+static func _bigote(cand: Array, esq: Dictionary, cab: Vector3) -> void:
+	_parte(cand, esq, cab, [[11.0, 34.0, 0.0]], Tono.PELO, 0.45)
+
+
+# LA PERILLA: el mechon de la barbilla, estrecho y centrado.
+static func _perilla(cand: Array, esq: Dictionary, cab: Vector3) -> void:
+	_parte(cand, esq, cab, [[0.0, 56.0, 0.12], [0.0, 60.0, 0.24]], Tono.PELO)
+
+
+# LA PUNTA DE LA BARBA LARGA: cae desde la barbilla hacia el pecho, meciendose con el paso.
+static func _punta(cand: Array, esq: Dictionary, cab: Vector3, vaiven: float, caida: float) -> void:
+	var arriba: Vector3 = _superficie(cab, 0.0, 56.0) + Vector3(0.0, 0.0, -R * 0.18)
+	# Colgando bajo la cabeza el fondo propio de cada trozo es casi cero: manda el de la barbilla.
+	if _fondo(esq, cab, arriba) < UMBRAL_VISIBLE:
+		return
+	# SE RECOGE AL CAERSE, igual que la coleta: tiesa, con el cuerpo tumbado se sale del lienzo.
 	var tumbado: float = clampf(absf(caida) / (PI * 0.5), 0.0, 1.0)
 	var largo: float = lerpf(1.0, 0.45, sqrt(tumbado))
-	var medio: Vector3 = arriba + Vector3(vaiven * R * 0.14, R * 0.05, -R * 0.42 * largo)
-	var punta: Vector3 = arriba + Vector3(vaiven * R * 0.24, -R * 0.02, -R * 0.86 * largo)
-	PoseJugador.cadena(piezas, esq, arriba, medio, R * 0.30, R * 0.22, Tono.PELO)
-	PoseJugador.cadena(piezas, esq, medio, punta, R * 0.22, R * 0.10, Tono.PELO_S)
+	var medio: Vector3 = arriba + Vector3(vaiven * R * 0.10, R * 0.02, -R * 0.26 * largo)
+	var punta: Vector3 = arriba + Vector3(vaiven * R * 0.18, -R * 0.02, -R * 0.50 * largo)
+	for tramo in [[arriba, medio, 0.15, 0.11, Tono.PELO], [medio, punta, 0.11, 0.06, Tono.PELO_S]]:
+		var a: Vector3 = tramo[0]
+		var b: Vector3 = tramo[1]
+		var pasos: int = maxi(2, int(ceil(a.distance_to(b) / (R * 0.14))))
+		for k in pasos + 1:
+			var f: float = float(k) / float(pasos)
+			var rr: float = R * lerpf(float(tramo[2]), float(tramo[3]), f)
+			# +1: por delante del resto de la barba, de la que cuelga.
+			cand.append([_fondo(esq, cab, a.lerp(b, f)) + 1.0, a.lerp(b, f), Vector3(rr, rr, rr),
+				int(tramo[4])])
