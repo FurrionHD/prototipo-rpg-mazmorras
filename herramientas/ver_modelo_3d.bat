@@ -12,4 +12,4 @@ if not exist "%GODOT%" (
     exit /b 1
 )
 "%GODOT%" --path "%~dp0.." res://tools/visores/dev_modelo_3d.tscn
-start "" "%~dp0..	ools\salida\modelo3d"
+start "" "%~dp0..\tools\salida\modelo3d"
