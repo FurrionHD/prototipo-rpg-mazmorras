@@ -475,18 +475,6 @@ func _crear_aspecto() -> void:
 		cuerpo.add_child(col)
 	add_child(cuerpo)
 
-	_lbl = Label.new()
-	_lbl.text = "[F]"
-	_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_lbl.add_theme_font_size_override("font_size", 10)
-	_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_lbl.add_theme_constant_override("outline_size", 3)
-	_lbl.offset_left = -20.0
-	_lbl.offset_top = -tam.y * 0.5 - 20.0
-	_lbl.offset_right = 20.0
-	_lbl.offset_bottom = -tam.y * 0.5 - 4.0
-	Game.elevar_letrero(_lbl)
-	add_child(_lbl)
 
 	# LA CAÑA (en la mano) y el SEDAL con el corcho, con el dibujo de las cañas del muelle (ver
 	# CanaPesca). Nacen escondidos: solo existen mientras pescas.
@@ -952,6 +940,11 @@ func _pez_es(p: Dictionary) -> bool:
 # ------------------------------------------------------------
 #  ENTRADA: la F del jugador
 # ------------------------------------------------------------
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	return "Pescar"
+
+
 func interactuar() -> void:
 	if _estado != LIBRE:
 		return

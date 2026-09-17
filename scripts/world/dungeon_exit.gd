@@ -22,6 +22,11 @@ func _ready() -> void:
 	_crear_aspecto()
 
 
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	return "Volver al pueblo"
+
+
 func interact_with_player() -> void:
 	# Salir por aqui es lo MISMO que salir por la boca de la mazmorra (ver door.gd): la mazmorra NO se
 	# olvida, los pisos siguen como los dejaste y lo que se te cayo por el suelo sigue ahi. Antes esto
@@ -54,7 +59,7 @@ func _crear_aspecto() -> void:
 	EscaleraSprites.montar(self, "caracol")
 
 	var lbl := Label.new()
-	lbl.text = "↩ PUEBLO\n[F]"
+	lbl.text = "↩ PUEBLO"
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	# Por encima de la columna, que asoma ~60 px sobre el centro del pozo.

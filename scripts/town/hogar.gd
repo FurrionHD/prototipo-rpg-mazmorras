@@ -10,6 +10,11 @@ func _ready() -> void:
 	add_to_group("interactable")
 
 
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	return "Entrar en casa"
+
+
 func interact_with_player() -> void:
 	var menu: Node = get_tree().get_first_node_in_group("home_menu")
 	if menu != null and menu.has_method("abrir"):

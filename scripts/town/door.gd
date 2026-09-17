@@ -57,6 +57,11 @@ func _detectar_destino() -> void:
 		_destination = town_path
 
 
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	return "Bajar a la mazmorra" if _destination == dungeon_path else "Salir al pueblo"
+
+
 func interact_with_player() -> void:
 	# MULTIJUGADOR (hito 3b): la expedicion es COMPARTIDA y la coordina Net. El primero que
 	# entra la abre; el que llega despues se une sin resetear nada al que ya esta dentro; el ultimo

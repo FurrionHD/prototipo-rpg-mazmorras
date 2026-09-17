@@ -86,6 +86,17 @@ func es_despensa() -> bool:
 	return tipo == Tipo.SAL or tipo == Tipo.HUERTO
 
 
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	match tipo:
+		Tipo.VETA: return "Minar"
+		Tipo.CARBON: return "Minar carbón"
+		Tipo.SAL: return "Picar sal"
+		Tipo.MADERA: return "Talar"
+		Tipo.HUERTO: return "Cosechar"
+	return "Recoger plantas"
+
+
 # Lo llama el jugador al pulsar F (ver player._try_interact).
 func interactuar() -> void:
 	if agotado or material_data == null:
@@ -132,7 +143,8 @@ func agotar() -> void:
 var _base_pos := Vector2.INF
 var _temblor: Tween = null
 
-# Mientras lo trabajas, el cartel de [F] sobra: tapa el golpe y ya sabes que se interactua.
+# Mientras lo trabajas, el cartel de encima sobra (ya no hay ninguno: la F la dice el boton flotante del
+# HUD, ver hud.gd). Se queda por si vuelve.
 func en_faena(si: bool) -> void:
 	if _lbl != null:
 		_lbl.visible = not si
@@ -291,16 +303,3 @@ func _crear_destellos(tam: Vector2, esquina: Vector2) -> void:
 	_fx = Particulas.destellos(self, material_data.color_rango(), tam,
 		material_data.rango_intensidad())
 	_fx.position = esquina + tam * 0.5
-
-	_lbl = Label.new()
-	_lbl.text = "[F]"
-	_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_lbl.add_theme_font_size_override("font_size", 10)
-	_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_lbl.add_theme_constant_override("outline_size", 3)
-	_lbl.offset_left = -20.0
-	_lbl.offset_top = -32.0
-	_lbl.offset_right = 20.0
-	_lbl.offset_bottom = -16.0
-	Game.elevar_letrero(_lbl)
-	add_child(_lbl)

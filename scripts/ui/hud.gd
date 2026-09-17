@@ -166,8 +166,117 @@ func _ready() -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_toasts)
 
+	_montar_boton_interaccion()
+
 	recolocar()
 	_avisar_muerte()
+
+
+# ============================================================
+#  EL BOTON FLOTANTE DE INTERACTUAR: al lado del personaje, dice QUE hace la F con lo que tienes a
+#  mano ("[F] Entrar en la tienda", "[F] Talar", "[F] Recoger Jabalí"), y se puede pulsar con el raton
+#  o el dedo. Lo pidio el usuario (con una captura de otro juego de referencia). Sustituye a los "[F]"
+#  sueltos que flotaban encima de cada veta, escalera y estanque.
+#
+#  Lo que se enseña lo decide el JUGADOR (player.objetivo_interaccion + texto_interaccion), que es
+#  tambien quien resuelve la F: asi el boton no puede decir una cosa y la tecla hacer otra.
+#
+#  Se refresca desde process_frame y no desde _process: los menus y los minijuegos PAUSAN el arbol (ver
+#  Game.abrir_menu), el _process del HUD se para con ellos y el boton se quedaba clavado encima del menu.
+# ============================================================
+const INTERACCION_DESPLAZ := Vector2(34.0, -46.0)   # desde el origen del personaje en pantalla
+var _boton_inter: Button = null
+var _inter_tecla: PanelContainer = null
+var _inter_texto: Label = null
+
+
+func _montar_boton_interaccion() -> void:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.visible = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.07, 0.10, 0.82)
+	sb.border_color = Color(0.95, 0.72, 0.36, 0.55)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 5
+	sb.content_margin_right = 14
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	var sb_hover := sb.duplicate() as StyleBoxFlat
+	sb_hover.bg_color = Color(0.14, 0.15, 0.20, 0.92)
+	sb_hover.border_color = Color(0.95, 0.72, 0.36, 0.95)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb_hover)
+	b.add_theme_stylebox_override("pressed", sb_hover)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.pressed.connect(_on_boton_interaccion)
+	add_child(b)
+	_boton_inter = b
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 8)
+	fila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(fila)
+
+	# La TECLA, en su cuadradito claro. Con los dedos no hay tecla que enseñar: el boton ya es el boton.
+	_inter_tecla = PanelContainer.new()
+	var sb_t := StyleBoxFlat.new()
+	sb_t.bg_color = Color(0.92, 0.90, 0.84)
+	sb_t.set_corner_radius_all(12)
+	sb_t.content_margin_left = 7
+	sb_t.content_margin_right = 7
+	_inter_tecla.add_theme_stylebox_override("panel", sb_t)
+	_inter_tecla.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_tecla.visible = not Tactil.activo
+	var tecla := Label.new()
+	tecla.text = "F"
+	tecla.add_theme_font_size_override("font_size", 14)
+	tecla.add_theme_color_override("font_color", Color(0.10, 0.10, 0.12))
+	tecla.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tecla.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tecla.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_tecla.add_child(tecla)
+	fila.add_child(_inter_tecla)
+
+	_inter_texto = Label.new()
+	_inter_texto.add_theme_font_size_override("font_size", 15)
+	_inter_texto.add_theme_color_override("font_color", Color(0.96, 0.95, 0.92))
+	_inter_texto.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_inter_texto.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila.add_child(_inter_texto)
+	# El tamaño del boton sigue al de su contenido (un Button no mide a sus hijos por su cuenta).
+	fila.minimum_size_changed.connect(func() -> void:
+		b.custom_minimum_size = fila.get_combined_minimum_size() + Vector2(19, 8)
+		b.size = b.custom_minimum_size
+		fila.position = Vector2(5, 4))
+
+	get_tree().process_frame.connect(_refrescar_interaccion)
+
+
+func _refrescar_interaccion() -> void:
+	if _boton_inter == null:
+		return
+	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	var objetivo: Node = null
+	# Nada que enseñar con un menu, un minijuego o una pelea delante (todos pausan el arbol o abren capa).
+	if jugador != null and jugador.has_method("objetivo_interaccion") and not get_tree().paused \
+			and Game._active_layer == null and not Game.combate_activo():
+		objetivo = jugador.objetivo_interaccion()
+	if objetivo == null:
+		_boton_inter.visible = false
+		return
+	var texto: String = jugador.texto_interaccion(objetivo)
+	if _inter_texto.text != texto:
+		_inter_texto.text = texto
+	_boton_inter.position = (jugador.get_global_transform_with_canvas().origin + INTERACCION_DESPLAZ).round()
+	_boton_inter.visible = true
+
+
+func _on_boton_interaccion() -> void:
+	var jugador: Node = get_tree().get_first_node_in_group("player")
+	if jugador != null and jugador.has_method("_try_interact"):
+		jugador._try_interact()
 
 
 # Aparta el cuadrado del PESO para dejar sitio a las columnas de barras del grupo: la tuya y una

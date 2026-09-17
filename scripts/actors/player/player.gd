@@ -1847,11 +1847,45 @@ func _hueco_hasta(otro: Node) -> float:
 # atacaba nunca y entrar en combate se volvia un baile. Ahora son dos botones y dos preguntas, y cada
 # uno se apaga cuando no tiene nada que hacer, que se ve de un vistazo y no hay que adivinarlo.
 func hay_algo_que_tocar() -> bool:
-	return _mas_cercano_en_grupo("interactable", false) != null \
-		or _mas_cercano_en_grupo("corpse", true) != null \
-		or _mas_cercano_en_grupo("pickup", false) != null \
-		or _mas_cercano_en_grupo("recolectable", false, "estanque") != null \
-		or _mas_cercano_en_grupo("estanque", false) != null
+	return objetivo_interaccion() != null
+
+
+# LO QUE HARIA LA F AHORA MISMO, en el mismo orden de prioridad que _try_interact: puertas y oficios,
+# cadaver, objeto del suelo, veta o planta y, lo ultimo, el estanque. Un solo sitio para las tres
+# preguntas (la F, el boton tactil y el boton flotante del HUD): si cada una buscara por su cuenta, el
+# boton podria decir "Talar" y la F abrir la tienda.
+func objetivo_interaccion() -> Node:
+	var n: Node = _mas_cercano_en_grupo("interactable", false)
+	if n != null and n.has_method("interact_with_player"):
+		return n
+	n = _mas_cercano_en_grupo("corpse", true)
+	if n != null:
+		return n
+	n = _mas_cercano_en_grupo("pickup", false)
+	if n != null and n.has_method("recoger"):
+		return n
+	n = _mas_cercano_en_grupo("recolectable", false, "estanque")
+	if n == null:
+		n = _mas_cercano_en_grupo("estanque", false)
+	if n != null and n.has_method("interactuar"):
+		return n
+	return null
+
+
+# EL TEXTO DEL BOTON FLOTANTE para ese objetivo ("Entrar en la tienda", "Talar", "Recoger Jabalí").
+# Quien sabe decirlo mejor lo dice el (texto_interaccion); lo generico sale de su grupo.
+static func texto_interaccion(n: Node) -> String:
+	if n == null:
+		return ""
+	if n.has_method("texto_interaccion"):
+		return String(n.texto_interaccion())
+	if n.is_in_group("corpse"):
+		var d = n.get("data")
+		return "Recoger %s" % d.enemy_name if d is EnemyData else "Recoger"
+	if n.is_in_group("pickup"):
+		var it = n.get("item")
+		return "Recoger %s" % Game.item_display_name(it) if it is Resource else "Recoger"
+	return "Interactuar"
 
 
 func hay_enemigo_a_tiro() -> bool:
@@ -1890,40 +1924,31 @@ func sin_fuelle() -> bool:
 	return _exhausted or _pj_agotado() != null
 
 
+# Hace lo que diga objetivo_interaccion (que es quien lleva el orden de prioridad).
 func _try_interact() -> void:
+	var n: Node = objetivo_interaccion()
+	if n == null:
+		return
 	# 1) NPCs interactuables (altar, tienda, puerta, etc).
-	var interactable: Node = _mas_cercano_en_grupo("interactable", false)
-	if interactable != null and interactable.has_method("interact_with_player"):
-		interactable.interact_with_player()
-		return
-
+	if n.is_in_group("interactable"):
+		n.interact_with_player()
 	# 2) Cadaver para extraer.
-	var corpse: Node = _mas_cercano_en_grupo("corpse", true)
-	if corpse != null:
-		Game.start_extraction(corpse)
-		return
-
+	elif n.is_in_group("corpse"):
+		Game.start_extraction(n)
 	# 3) Item del suelo para recoger (lo que solto el monstruo, o algo que tiraste tu).
-	var pickup: Node = _mas_cercano_en_grupo("pickup", false)
-	if pickup != null and pickup.has_method("recoger"):
+	elif n.is_in_group("pickup"):
 		# MULTIJUGADOR: un drop replicado (con net_id) no se coge a pelo: se le PIDE al host,
 		# que arbitra la carrera (el primero se lo lleva; a los demas, silencio). El item
 		# llegara por Net.suelo._recoger_concedido -> Game.embolsar si me lo dan.
-		if Net.activo and pickup.has_meta("net_id"):
-			Net.suelo.solicitar_recoger(pickup.get_meta("net_id"))
+		if Net.activo and n.has_meta("net_id"):
+			Net.suelo.solicitar_recoger(n.get_meta("net_id"))
 			return
-		Game.embolsar(pickup.recoger())
-		return
-
-	# 4) Veta o planta: abre su minijuego (pico -> Fuerza, hoz -> Destreza).
-	# El ESTANQUE va el ultimo de los ultimos: ocupa 5x4 celdas y mide la distancia desde su BORDE
-	# (radio_extra), asi que a igualdad de cercania le gana a cualquier veta de la sala. Se busca
-	# primero entre todo lo demas y solo se cae al agua si de verdad no hay otra cosa a mano.
-	var reco: Node = _mas_cercano_en_grupo("recolectable", false, "estanque")
-	if reco == null:
-		reco = _mas_cercano_en_grupo("estanque", false)
-	if reco != null and reco.has_method("interactuar"):
-		reco.interactuar()
+		Game.embolsar(n.recoger())
+	# 4) Veta, planta o, lo ultimo de todo, el estanque: abre su minijuego. El ESTANQUE va el ultimo
+	# (ver objetivo_interaccion): ocupa 5x4 celdas y mide la distancia desde su BORDE (radio_extra), asi
+	# que a igualdad de cercania le ganaria a cualquier veta de la sala.
+	else:
+		n.interactuar()
 
 
 # Recoloca al jugador (lo usa el generador del piso para plantarte en la sala de

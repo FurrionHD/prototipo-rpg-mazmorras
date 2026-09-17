@@ -20,6 +20,11 @@ func _ready() -> void:
 	_crear_aspecto()
 
 
+# Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+func texto_interaccion() -> String:
+	return ("Subir al piso %d" % (Game.current_floor - 1)) if sube else ("Bajar al piso %d" % (Game.current_floor + 1))
+
+
 func interact_with_player() -> void:
 	# MULTIJUGADOR (hito 5.2): cada uno baja y sube POR SU CUENTA; el compañero se queda donde
 	# este. El viaje pasa por el host porque hay que repartir quien SIMULA cada piso: sueltas el
@@ -47,7 +52,7 @@ func _crear_aspecto() -> void:
 	EscaleraSprites.montar(self, "sube" if sube else "baja")
 
 	var lbl := Label.new()
-	lbl.text = "↑ SUBIR\n[F]" if sube else "↓ BAJAR\n[F]"
+	lbl.text = "↑ SUBIR" if sube else "↓ BAJAR"
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.offset_left = -34.0

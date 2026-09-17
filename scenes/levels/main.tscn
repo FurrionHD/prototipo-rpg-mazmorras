@@ -39,7 +39,6 @@ offset_right = 20.0
 offset_bottom = 16.0
 grow_horizontal = 2
 grow_vertical = 2
-text = "← PUEBLO
-[F]"
+text = "← PUEBLO"
 horizontal_alignment = 1
 vertical_alignment = 1
