@@ -599,10 +599,10 @@ static func _chimenea(d: PackedByteArray, w: int, h: int, cx: int, alero: int, f
 #  dentro de la pared y no se leia.
 #
 #  Es una imagen APARTE y no parte del lienzo de la casa: lo que sale de la huella no cabe ahi. La pone
-#  el pueblo (town.gd) con posicion_cartel(), por ENCIMA de los personajes -- cuelga a la altura del
-#  alero, asi que quien pasa por debajo queda debajo.
+#  el pueblo (town.gd) con posicion_cartel(), y se ordena como la PARED de la que cuelga (ver
+#  PiezaPueblo.colgar): la farola o quien pase por delante lo tapan.
 #
-#  Los simbolos van en 12x10 y se pintan a TRIPLE tamaño: a la escala de antes (8x6 a 1x) no se
+#  Los simbolos van en 12x10 y se pintan a DOBLE tamaño (a triple quedaba demasiado grande al lado de la casa): a la escala de antes (8x6 a 1x) no se
 #  distinguia un martillo de una jarra.
 # ------------------------------------------------------------
 const ICONOS := {
@@ -626,11 +626,11 @@ const ICONOS := {
 		"..########.#", "...#######.#", ".....####...", "............", "............"],
 }
 
-const CARTEL_TAM := Vector2i(56, 44)   # el lienzo entero: brazo + tabla
-const TABLA_TAM := Vector2i(44, 36)
+const CARTEL_TAM := Vector2i(46, 36)   # el lienzo entero: brazo + tabla
+const TABLA_TAM := Vector2i(34, 28)
 const TABLA_X := 10                    # donde empieza la tabla, contado desde la pared
 const TABLA_Y := 7
-const ESCALA_ICONO := 3
+const ESCALA_ICONO := 2
 # Negativo: el brazo sale justo bajo el tejado, y asi la tabla no llega al suelo en las casas bajas
 # (las de 40 px de pared).
 const CARTEL_BAJO_ALERO := -4          # px por debajo de lo alto de la pared donde va el brazo

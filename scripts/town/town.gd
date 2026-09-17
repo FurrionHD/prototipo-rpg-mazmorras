@@ -235,8 +235,7 @@ func _crear_casas() -> void:
 
 
 # EL CARTEL DEL OFICIO, colgado de un lado de la fachada y asomando fuera de ella (CasaSprites.cartel).
-# Va por ENCIMA de los personajes: cuelga a la altura del alero, asi que quien pasa por al lado pasa
-# por debajo.
+# Se ordena como la PARED de la que cuelga (ver PiezaPueblo.colgar): lo de delante lo tapa.
 func _colgar_cartel(pieza: PiezaPueblo, dibujo: String) -> void:
 	var icono: String = String(CasaSprites.CASAS[dibujo].get("cartel", ""))
 	if icono == "":
@@ -246,7 +245,7 @@ func _colgar_cartel(pieza: PiezaPueblo, dibujo: String) -> void:
 	s.texture = ImageTexture.create_from_image(CasaSprites.cartel(icono, CasaSprites.cartel_a_la_izq(dibujo)))
 	s.centered = false
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	pieza.acompanar(s, Vector2(CasaSprites.posicion_cartel(dibujo)))
+	pieza.colgar(s, Vector2(CasaSprites.posicion_cartel(dibujo)))
 
 
 # LAS VENTANAS DE NOCHE: el vidrio encendido encima de cada una (con la fachada, z de la parte de abajo)

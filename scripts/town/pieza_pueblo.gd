@@ -82,7 +82,24 @@ func _montar(tex: Texture2D, p_tam: Vector2i, p_pie: int) -> void:
 # Aqui y no en crear(): Godot ENCIENDE el _process al entrar en el arbol si el script lo define, asi
 # que apagarlo antes de add_child no sirve de nada (y las piezas sin parte alta petaban cada frame).
 func _ready() -> void:
-	set_process(dinamica and _arriba != null)
+	set_process((dinamica and _arriba != null) or not colgados.is_empty())
+
+
+# LO COLGADO DE LA FACHADA (el cartel del oficio, ver town._colgar_cartel). Esta en el plano de la PARED,
+# asi que se ordena como ella y no como el tejado: va por DEBAJO de lo que queda delante -- la farola de
+# la calle, quien pasa por delante de la casa -- y solo sube por ENCIMA de quien pasa por DETRAS, a su
+# altura. Antes iba siempre encima de todo y tapaba la farola que tiene delante (lo vio el usuario).
+# 'pos' en px del lienzo de la pieza.
+var colgados: Array[Node2D] = []
+
+func colgar(nodo: Node2D, pos: Vector2) -> void:
+	nodo.z_as_relative = false
+	nodo.z_index = Z_DEBAJO
+	nodo.position = pos
+	add_child(nodo)
+	colgados.append(nodo)
+	if is_inside_tree():
+		set_process(true)
 
 
 # Pega algo a la parte alta (ver acompanantes). 'pos' en px del lienzo de la pieza.
@@ -116,6 +133,10 @@ func base_y() -> float:
 
 
 func _process(_delta: float) -> void:
+	if not colgados.is_empty():
+		_ordenar_colgados()
+	if not dinamica or _arriba == null:
+		return
 	var fondo: float = base_y()
 	var cx: float = global_position.x + float(_tam.x) * 0.5
 	var delante: bool = false
@@ -133,3 +154,28 @@ func _process(_delta: float) -> void:
 	for a in acompanantes:
 		if is_instance_valid(a):
 			a.z_index = _arriba.z_index + 1
+
+
+# Un personaje por DETRAS de la fachada (su origen por encima de la base) y dentro del ancho de lo
+# colgado: ahi el cartel le queda delante. Cualquier otro caso, detras de todo lo que tenga delante.
+func _ordenar_colgados() -> void:
+	var fondo: float = base_y()
+	var aliados: Array = get_tree().get_nodes_in_group("aliado")
+	for c in colgados:
+		if not is_instance_valid(c):
+			continue
+		var ancho: float = 0.0
+		if c is Sprite2D and (c as Sprite2D).texture != null:
+			ancho = float((c as Sprite2D).texture.get_width())
+		var x0: float = c.global_position.x - 16.0
+		var x1: float = c.global_position.x + ancho + 16.0
+		var detras: bool = false
+		for n in aliados:
+			var nd := n as Node2D
+			if nd == null:
+				continue
+			var p: Vector2 = nd.global_position
+			if p.x > x0 and p.x < x1 and p.y < fondo and p.y > fondo - float(_pie) - 40.0:
+				detras = true
+				break
+		c.z_index = Z_ENCIMA + 1 if detras else Z_DEBAJO
