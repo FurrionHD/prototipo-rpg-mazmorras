@@ -91,7 +91,7 @@ const CASAS := {
 		"chimeneas": [], "cartel": "pez", "luz": "",
 		"extras": ["redes"]},
 	"hogar": {"huella": Vector2i(5, 4), "pared": "entramado", "tejado": "teja", "alto": 50,
-		"chimeneas": [30, 130], "humo": true, "cartel": "casa", "luz": "calida",
+		"chimeneas": [30, 130], "humo": true, "cartel": "", "luz": "calida",
 		"extras": ["macetas", "farol"]},
 	"vacia_0": {"huella": Vector2i(3, 3), "pared": "enlucido", "tejado": "teja", "alto": 40,
 		"chimeneas": [74], "cartel": "", "luz": "", "extras": ["postigos"]},
@@ -624,8 +624,6 @@ const ICONOS := {
 		".....##.....", "....#..#....", "..##....##..", ".##......##.", "#..........#"],
 	"pez": ["............", ".....####...", "...#######.#", "..########.#", ".##########.",
 		"..########.#", "...#######.#", ".....####...", "............", "............"],
-	"casa": [".....##.....", "....####....", "...######...", "..########..", ".##########.",
-		"..########..", "..##.##.##..", "..##.##.##..", "..##....##..", "..########.."],
 }
 
 const CARTEL_TAM := Vector2i(56, 44)   # el lienzo entero: brazo + tabla
