@@ -49,7 +49,7 @@ class_name PersonajeData
 
 # Las piezas que hay hoy, EN ORDEN DE APILADO (de abajo arriba). El arma y la armadura equipada
 # entraran por su propio camino: no se eligen, se llevan puestas.
-const PIEZAS := ["piernas", "torso", "pelo", "cara", "barba", "gorro"]
+const PIEZAS := ["piernas", "torso", "pelo", "cara", "boca", "barba", "gorro"]
 
 # Con que nace un personaje a estrenar. El color de la ropa es EL SUYO -- es lo que hace que el
 # color que eliges al crear la partida por fin se vea, ahora que la piel no se tiñe.
@@ -58,9 +58,11 @@ static func aspecto_nuevo(col: Color = Color(0.45, 0.72, 1.0)) -> Dictionary:
 		"piernas": {"modelo": "pantalon", "color": col.darkened(0.35), "metal": 0.0},
 		"torso": {"modelo": "camisa", "color": col, "metal": 0.0},
 		"pelo": {"modelo": "corto", "color": Color(0.24, 0.15, 0.10), "metal": 0.0},
-		# La cara no se tiñe (los ojos van en su color), pero lleva la misma forma que las demas para
-		# que nadie tenga que saber cual es la excepcion.
-		"cara": {"modelo": "chibi", "color": Color(1, 1, 1), "metal": 0.0},
+		# LOS OJOS (la clave "cara" se queda por las partidas guardadas). Su color es el del IRIS, que
+		# solo se ve en los modelos que lo llevan (ver CaraSprites).
+		"cara": {"modelo": "chibi", "color": Color(0.36, 0.24, 0.14), "metal": 0.0},
+		# La boca, aparte de los ojos desde el 17/09/2026. No se tiñe; el color no se usa.
+		"boca": {"modelo": "recta", "color": Color(1, 1, 1), "metal": 0.0},
 		# BARBA Y GORRO NACEN VACIOS ("modelo" en blanco = no se lleva). Son las dos unicas piezas que
 		# de serie no se ponen: todo el mundo tiene piernas, torso, pelo y cara, pero la barba y el
 		# sombrero son una eleccion. Naciendo puestas, cada personaje viejo de cada partida guardada

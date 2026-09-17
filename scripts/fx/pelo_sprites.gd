@@ -50,7 +50,9 @@ const R := PoseJugador.CABEZA_R
 # pelo y la cara son dos cosas distintas separandose. Asi que el trabajo de destapar la cara lo hace
 # sobre todo ARRIBA, y ATRAS se queda en lo justo para que la coronilla no salga plana.
 const ATRAS := 1.6
-const ARRIBA := 5.6
+# 6,3 y no 5,6 desde el 17/09/2026: con los ojos de pixel el borde del pelo caia justo en la raya de
+# arriba del ojo y se comia la pestaña (lo vio el usuario). Con 7 se despega del craneo (ver abajo).
+const ARRIBA := 6.3
 # Cuanto mas gordo que la cabeza. Tiene que pasar de una celda (1,15) o el pelo aparece a trozos
 # entre los pixeles de la cabeza, como una caspa.
 const GROSOR := 1.6
@@ -69,7 +71,7 @@ const CASQUETE_ALTO := 0.60
 # dentro de ese circulo no se va a ver cuando el personaje lleve imagen. El flequillo es para los
 # que NO llevan foto y para el borde: pasarse de aqui no tapa los ojos -- simplemente se pinta
 # debajo y no se ve.
-const FLEQUILLO_BAJA := 0.22
+const FLEQUILLO_BAJA := 0.14   # 0,22 hasta el 17/09/2026: tocaba la raya de arriba de los ojos
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

@@ -268,6 +268,8 @@ func _fase_cara() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	v.add_child(_selector_modelo("cara"))
+	v.add_child(_colores_ojos())
+	v.add_child(_selector_modelo("boca"))
 	# LOS RASGOS SOLO SE VEN SIN FOTO, y hay que decirlo aqui: si no, eliges unos ojos, pones tu
 	# imagen encima y parece que el selector no hace nada.
 	var nota := Label.new()
@@ -279,6 +281,41 @@ func _fase_cara() -> Control:
 	v.add_child(nota)
 	v.add_child(_bloque_imagen(true))
 	return v
+
+
+# EL COLOR DE OJOS, en muestras y no en un ColorPicker: esta pestaña ya lleva la imagen y dos
+# selectores, y el picker no cabe en vertical (ver la nota de la pantalla simple). Solo se nota en los
+# ojos con iris (Grandes, Anime).
+const COLORES_OJOS := [
+	Color(0.36, 0.24, 0.14), Color(0.62, 0.40, 0.16), Color(0.20, 0.45, 0.85), Color(0.25, 0.65, 0.45),
+	Color(0.55, 0.60, 0.65), Color(0.80, 0.25, 0.25), Color(0.62, 0.32, 0.78), Color(0.90, 0.78, 0.25),
+]
+
+func _colores_ojos() -> Control:
+	var fila := HFlowContainer.new()
+	var lbl := Label.new()
+	lbl.text = "Color de ojos:"
+	fila.add_child(lbl)
+	for c in COLORES_OJOS:
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(26, 26)
+		b.focus_mode = Control.FOCUS_NONE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = c
+		sb.set_corner_radius_all(13)
+		b.add_theme_stylebox_override("normal", sb)
+		var sb_h := sb.duplicate() as StyleBoxFlat
+		sb_h.border_color = Color.WHITE
+		sb_h.set_border_width_all(2)
+		b.add_theme_stylebox_override("hover", sb_h)
+		b.add_theme_stylebox_override("pressed", sb_h)
+		var col: Color = c
+		b.pressed.connect(func():
+			var p: Dictionary = _pj.pieza("cara")
+			_pj.poner_pieza("cara", p["modelo"], col, 0.0)
+			_refrescar())
+		fila.add_child(b)
+	return fila
 
 
 # UNA PIEZA que se elige: los modelos que hay y su color. Vale para el pelo y para cada prenda,

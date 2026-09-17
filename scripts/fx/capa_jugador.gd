@@ -130,6 +130,11 @@ static func plantilla(pintor: Callable, anim: String, marco: int, dir: int,
 	# CONTORNO AL FINAL, sobre la silueta ya fusionada, nunca pieza a pieza: si no, cada elipse
 	# traeria su propio circulito marcado por dentro y el brazo dejaria de leerse como parte del
 	# cuerpo. La sombra del suelo cuenta como hueco -- es una mancha translucida, no eres tu.
+	# Los SELLOS DE PIXELES (ojos y boca, ver CaraSprites.sello) van sin contorno: ya son el dibujo
+	# exacto, y en una figura de uno o dos pixeles de grueso TODOS los pixeles tocan el vacio, asi que el
+	# contorno se la comia entera (salian caras sin ojos).
+	if bool(piezas[0].get("sin_contorno", false)):
+		return plant
 	SpriteLienzo.contornear(plant, SpriteLienzo.caja_de_piezas(piezas, lz.x, lz.y), lz.x, lz.y,
 		T_BORDE, T_VACIO, T_SOMBRA_SUELO)
 	return plant

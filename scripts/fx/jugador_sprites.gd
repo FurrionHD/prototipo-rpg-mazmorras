@@ -30,6 +30,7 @@ class_name JugadorSprites
 # Con OTRO nombre (no "BarbaSprites") a proposito: asi la const local no compite con el class_name
 # global el dia que si este en la cache.
 const BarbaGen = preload("res://scripts/fx/barba_sprites.gd")
+const BocaGen = preload("res://scripts/fx/boca_sprites.gd")
 const GorroGen = preload("res://scripts/fx/gorro_sprites.gd")
 
 # LAS CAPAS, DE ABAJO ARRIBA. El orden de esta lista es el orden de apilado por defecto; la
@@ -45,7 +46,7 @@ const GorroGen = preload("res://scripts/fx/gorro_sprites.gd")
 # hay debajo es que un casco NO sustituye al pelo entero (la melena sigue saliendo), asi que las dos
 # capas coexisten y necesitan cada una la suya.
 enum Ranura { CUERPO, PANTALONES, BOTAS, PECHO, MANOS, CARA, PELO, CASCO, MANO_DER, MANO_IZQ,
-	ARMA_CADERA, ARMA_ESPALDA, BARBA, GORRO }
+	ARMA_CADERA, ARMA_ESPALDA, BARBA, GORRO, BOCA }
 
 # 'tinte' = si esta capa se pinta con un color de fuera (ver MunecoJugador.tenir). Casi todas lo
 # haran: una armadura de hierro y una epica son el mismo dibujo con otro tinte, y de ahi sale que
@@ -172,13 +173,33 @@ static var CATALOGO := {
 	# NO SE TIÑE: unos ojos no son del color de tu ropa.
 	"cara": {
 		"ranura": Ranura.CARA, "gen": CaraSprites, "ancla": PoseJugador.P_CABEZA,
-		"z": Z_CARA, "tinte": false, "titulo": "Cara", "sin_nada": "Sin rasgos",
+		"z": Z_CARA, "tinte": false, "titulo": "Ojos", "sin_nada": "Sin ojos",
+		# LOS OJOS (la boca va en su propia pieza desde el 17/09/2026). La clave sigue siendo "cara" para
+		# no romper las partidas guardadas. 'piezas': dos ojos, y algunos dibujos (felices, enfadados) son
+		# dos trozos cada uno. 'iris': lleva segunda capa teñida con el color de ojos (ver CaraSprites).
 		"modelos": {
-			# LOS TRES LLEVAN BOCA, asi que los tres son 3 trozos: dos ojos y una raya. "puntos" estaba
-			# declarado con 2 porque era el unico sin boca, y eso ya no es un estilo (ver CaraSprites).
-			"puntos": {"piezas": 3, "nombre": "Ojos simples"},
-			"chibi": {"piezas": 3, "nombre": "Con brillo"},
-			"linea": {"piezas": 3, "nombre": "Tranquilos"},
+			"puntos": {"piezas": 2, "nombre": "Puntos"},
+			"chibi": {"piezas": 2, "nombre": "Con brillo"},
+			"linea": {"piezas": 2, "nombre": "Tranquilos"},
+			"serios": {"piezas": 4, "nombre": "Serios"},
+			"cansados": {"piezas": 2, "nombre": "Cansados"},
+			"felices": {"piezas": 6, "nombre": "Felices"},
+			"enfadados": {"piezas": 4, "nombre": "Enfadados"},
+			"grandes": {"piezas": 4, "nombre": "Grandes", "iris": true},
+			"anime": {"piezas": 4, "nombre": "Anime", "iris": true},
+		},
+	},
+	"boca": {
+		"ranura": Ranura.BOCA, "gen": BocaGen, "ancla": PoseJugador.P_CABEZA,
+		"z": Z_CARA, "tinte": false, "titulo": "Boca", "sin_nada": "Sin boca",
+		"modelos": {
+			"recta": {"piezas": 1, "nombre": "Recta"},
+			"sonrisa": {"piezas": 3, "nombre": "Sonrisa"},
+			"abierta": {"piezas": 1, "nombre": "Abierta"},
+			"o": {"piezas": 2, "nombre": "Sorpresa"},
+			"lengua": {"piezas": 2, "nombre": "Lengua"},
+			"media": {"piezas": 2, "nombre": "Media sonrisa"},
+			"triste": {"piezas": 3, "nombre": "Triste"},
 		},
 	},
 	# LA BARBA. Como el pelo: no se ordena por profundidad (el ancla esta en x=0 y el signo lo
@@ -314,8 +335,14 @@ static func capas_de(pj: PersonajeData) -> Array:
 			continue
 		# LOS RASGOS SOLO SI NO HAY FOTO: con imagen propia, tu imagen ES tu cara, y unos ojos
 		# dibujados asomarian por debajo de ella.
-		if nombre == "cara" and not pj.imagen.is_empty():
+		if (nombre == "cara" or nombre == "boca") and not pj.imagen.is_empty():
 			continue
+		# EL IRIS, su propia capa TEÑIDA con el color de la pieza (el color de ojos). Ver CaraSprites.
+		if bool((cat["modelos"][modelo] as Dictionary).get("iris", false)):
+			out.append({"clave": "%s_%s%s" % [nombre, modelo, CaraSprites.SUFIJO_IRIS],
+				"ranura": cat["ranura"], "ancla": cat["ancla"], "tinte": true,
+				"z": int(cat["z"]), "color": p["color"], "metal": 0.0,
+				"frames": cat["gen"].frames(modelo + CaraSprites.SUFIJO_IRIS, 1.0)})
 		# LAS BARBAS NO SE PINTAN en los personajes del jugador (decision del usuario, 17/09/2026: no
 		# habia forma de que quedaran bien al girar). El modelo guardado NO se borra -- si vuelven, cada
 		# uno recupera la suya --; solo se deja de pedir la capa. La excepcion son los personajes del
@@ -624,6 +651,10 @@ static func todas_las_capas() -> Array:
 			out.append({"clave": "%s_%s" % [nombre, modelo],
 				"piezas": int((cat["modelos"][modelo] as Dictionary)["piezas"]),
 				"gen": cat["gen"], "modelo": String(modelo)})
+			# Y su capa de iris, si la tiene (los ojos de color, ver CaraSprites).
+			if bool((cat["modelos"][modelo] as Dictionary).get("iris", false)):
+				out.append({"clave": "%s_%s%s" % [nombre, modelo, CaraSprites.SUFIJO_IRIS],
+					"piezas": 2, "gen": cat["gen"], "modelo": String(modelo) + CaraSprites.SUFIJO_IRIS})
 			# Y su capa de detras, si la tiene: es un atlas mas, con su propia cuenta de trozos.
 			if bool((cat["modelos"][modelo] as Dictionary).get("cuelga", false)):
 				out.append({"clave": "%s_%s_atras" % [nombre, modelo], "piezas": 1,

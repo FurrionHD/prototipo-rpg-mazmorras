@@ -1,72 +1,90 @@
 # ============================================================
 #  cara_sprites.gd  (class_name CaraSprites)
-#  LOS RASGOS: los ojos y la boca, dibujados como todo lo demas.
+#  LOS OJOS. La boca va aparte (BocaSprites): se eligen por separado (lo pidio el usuario).
 #
-#  Antes esto era un CIRCULO LISO de color carne pegado encima de la cabeza (ver la nota vieja de
-#  MunecoJugador.poner_cara). Cumplia lo minimo -- que la cabeza no fuera una bola de pelo -- pero no
-#  se leia como una cara: se leia como una pegatina, porque un disco con un reborde difuminado no es
-#  pixel art. Un personaje de este estilo tiene DOS OJOS, y eso hay que dibujarlo.
+#  Es una capa normal, con su atlas y su sitio en el catalogo (JugadorSprites.CATALOGO["cara"]): hereda
+#  las animaciones, el giro por direccion y el horneado. SOLO SE MONTA SI NO LLEVAS FOTO (con imagen
+#  propia, tu imagen ES tu cara, ver JugadorSprites.capas_de).
 #
-#  ES UNA CAPA NORMAL, con su atlas y su sitio en el catalogo, asi que hereda todo lo que ya funciona:
-#  las 41 animaciones, el giro por direccion, el horneado y la hoja de contactos comparativa
-#  (herramientas/ver_jugador_juego.bat cara). No hay ningun camino especial para la cara.
+#  SE DIBUJAN COMO SELLOS DE PIXELES, NO COMO ELIPSES (17/09/2026). Un ojo de frente mide unos 4x3
+#  pixeles, y una elipse a ese tamaño sale como una mancha: el motor decide que pixeles caen dentro y
+#  la forma no se controla. Con las referencias de pixel art que paso el usuario (ojos pequeños con
+#  pestaña, iris y brillo) la unica forma de llegar ahi es poner cada pixel: se calcula DONDE cae el
+#  ojo en este fotograma (la proyeccion de siempre, asi gira con la cabeza) y alli se estampa un dibujo
+#  fijo. Ver sello().
 #
-#  SOLO SE MONTA SI NO LLEVAS FOTO. Con imagen propia, tu imagen ES tu cara y estos rasgos
-#  asomarian por debajo (ver JugadorSprites.capas_de).
+#  EL IRIS VA EN SU PROPIA CAPA. La capa se tiñe multiplicando por un solo color (capa_jugador.gdshader),
+#  asi que teñirla entera pondria de color tambien la pestaña y el brillo. Los modelos con iris llevan
+#  "iris": true en el catalogo y se hornean DOS veces: la normal (pestaña, blanco, brillo: sin teñir) y
+#  la "_iris" (solo el iris, en gris, teñida con el color de ojos que elijas).
 #
-#  TRES COSAS QUE NO SON OBVIAS:
-#
-#  1. EL CONTORNO SE FUNDE CON EL OJO A PROPOSITO. 'CapaJugador.plantilla' rodea de T_BORDE toda
-#     silueta, y aqui la silueta son dos ojos de tres pixeles: con un borde oscuro alrededor de cada
-#     uno, los ojos se convierten en dos manchones. Por eso en 'colores' el tono del borde es EL
-#     MISMO que el del ojo -- el contorno sigue estando, pero no se ve como un anillo.
-#
-#  2. DE PERFIL SE DIBUJA UN SOLO OJO. Dibujando los dos y dejando que gire, el ojo de la otra mitad
-#     de la cara acaba proyectado sobre la mejilla de esta y quedan dos ojos en un perfil.
-#
-#  3. DE ESPALDAS NO SE DIBUJA NADA. Es una nuca. Ademas cae solo: 'pintar' no mete ninguna pieza y
-#     CapaJugador ya admite fotogramas vacios.
+#  Y TRES COSAS QUE SIGUEN VALIENDO DE ANTES:
+#   1. SIN CONTORNO: CapaJugador.plantilla convierte en T_BORDE todo pixel que toque el vacio, y en un
+#      ojo de uno o dos pixeles de grueso eso es el ojo entero. Los sellos lo saltan ("sin_contorno").
+#   2. DE PERFIL SE DIBUJA UN SOLO OJO: los dos girando, el de la otra mitad cae sobre la mejilla.
+#   3. DE ESPALDAS NO SE DIBUJA NADA (direcciones 3, 4 y 5: la nuca).
 # ============================================================
 
 extends RefCounted
 class_name CaraSprites
 
 const PIEZA := "cara"
+const SUFIJO_IRIS := "_iris"
 
 enum Tono {
 	VACIO = 0, SOMBRA_SUELO = 1, BORDE = 2,
-	OJO,        # el iris y el contorno, que son el mismo tono (ver la cabecera)
-	BOCA,
-	BRILLO,     # el punto de luz del ojo: lo que separa un ojo de un agujero
+	LINEA,      # la pestaña, el parpado, la pupila de los ojos sin color: casi negro
+	BLANCO,     # el blanco del ojo
+	BRILLO,     # el punto de luz
+	IRIS,       # gris medio: con el tinte sale EXACTAMENTE el color elegido (base 0,62 del shader)
+	PUPILA,     # gris oscuro: el mismo color, mas oscuro
+	BOCA,       # la raya de la boca (la usa BocaSprites, que comparte paleta)
+	BOCA_DENTRO,
+	LENGUA,
 }
 
 const R := PoseJugador.CABEZA_R
 
-# DONDE CAEN LOS RASGOS en la cabeza, en fracciones de su radio.
-#
-# LOS OJOS VAN BAJOS. En una cara real están a media altura; en este estilo van claramente por debajo
-# del centro, y es lo que hace que la cabeza se lea como cabezona y no como un adulto en miniatura.
-# Es la misma decision que ya se tomo con la proporcion del cuerpo, y esta medida en las mismas
-# referencias.
-# MEDIDO, no a ojo: el pelo tapa la cabeza hasta unas tres celdas por debajo de su centro, y la
-# barbilla acaba diez mas abajo. Los ojos van en medio de esa franja -- que es la unica cara que se
-# ve -- y no en el centro de la cabeza, que queda debajo del pelo.
+# DONDE CAEN LOS RASGOS en la cabeza, en fracciones de su radio. MEDIDO, no a ojo: bajo el pelo quedan
+# unas pocas filas de cara, y los ojos van en medio de esa franja.
 const OJO_ALTO := -0.18          # respecto al centro de la cabeza
 const OJO_SEPARACION := 0.34
-# CUANTO SE ADELANTAN sobre el eje del cuerpo. Tiene que quedar DENTRO del fondo de la cabeza (0,90
-# del radio) o los ojos asoman por delante de la silueta y se ven flotando junto a la cara.
+# Cuanto se adelantan sobre el eje del cuerpo. Dentro del fondo de la cabeza (0,90) o flotan.
 const OJO_FONDO := 0.58
 const BOCA_ALTO := -0.42
-# CUANTO SE VA LA BOCA HACIA EL MORRO DE PERFIL. Antes de perfil no se dibujaba boca ninguna, y el
-# resultado era un personaje con ojos y sin cara en cuatro de las ocho direcciones. Puesta en el eje
-# cae sobre la mejilla, asi que se corre hacia el lado al que mira.
+# Cuanto se va la boca hacia el morro de perfil.
 const BOCA_PERFIL := 0.30
 
-# NARIZ Y CEJAS: PROBADAS Y DESCARTADAS, y queda escrito para que no se vuelvan a intentar a ciegas.
-# La cara util son unas seis celdas de alto entre el pelo y la barbilla, y ahi un cuarto rasgo no
-# cabe: la ceja se pega al ojo y los dos se leen como un manchon -- en "Tranquilos", donde el ojo ya
-# es una raya, lo que salia era un ANTIFAZ. Si algun dia se reintenta, hace falta primero mas cara,
-# no rasgos mas finos.
+
+# ============================================================
+#  LOS DIBUJOS
+# ============================================================
+# Cada ojo es una lista de filas de arriba abajo, dibujado para el ojo que cae a la DERECHA de la cara
+# en pantalla (mirando al sur); el otro es su espejo. Letras:
+#   L linea (oscuro) · W blanco · H brillo · I iris · P pupila · . nada
+# El centro del dibujo cae en el sitio del ojo.
+#
+# NO TODOS FEMENINOS (lo pidio el usuario): solo "anime" lleva pestañas; el resto son neutros.
+const OJOS := {
+	# Los tres de siempre, redibujados (sus claves se quedan para no romper partidas guardadas).
+	"puntos": ["LL", "LL"],
+	"chibi": ["HL", "LL", "LL"],
+	"linea": ["LLL"],
+	# Los nuevos.
+	"serios": ["LLL", ".L."],
+	"cansados": ["LLL", "LPL"],
+	"felices": [".L.", "L.L"],
+	"enfadados": ["L..", ".LL", ".LL"],
+	"grandes": [".LL.", "LHIL", ".PP."],
+	"anime": ["LLLL", "WHIW", ".IP."],
+}
+
+const LETRAS := {
+	"L": Tono.LINEA, "W": Tono.BLANCO, "H": Tono.BRILLO, "I": Tono.IRIS, "P": Tono.PUPILA,
+	"B": Tono.BOCA, "D": Tono.BOCA_DENTRO, "T": Tono.LENGUA,
+}
+# Los tonos que van en la capa teñida (la "_iris"). Todo lo demas va en la capa sin teñir.
+const TONOS_IRIS := [Tono.IRIS, Tono.PUPILA]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -82,19 +100,29 @@ static func clave(modelo: String) -> String:
 	return "%s_%s" % [PIEZA, modelo]
 
 
-# ESTA CAPA NO SE TIÑE (lleva "tinte": false en el catalogo): unos ojos no son del color de tu ropa.
-# Lo que se hornea aqui es lo que se ve.
-#
-# El BORDE va del mismo color que el ojo: ver el punto 1 de la cabecera.
+# ¿Este modelo tiene iris de color (y por tanto su segunda capa)?
+static func tiene_iris(modelo: String) -> bool:
+	for fila in OJOS.get(modelo, []):
+		if String(fila).contains("I") or String(fila).contains("P"):
+			return true
+	return false
+
+
+# LA PALETA, compartida con BocaSprites. El iris va en gris: lo colorea el tinte (ver la cabecera). En
+# la capa sin teñir no se pinta ningun pixel de iris, asi que su gris no se ve nunca sin color.
 static func colores() -> Array:
-	var ojo := Color(0.13, 0.09, 0.11)
 	return [
-		Color(0, 0, 0, 0),      # VACIO
-		Color(0, 0, 0, 0.20),   # SOMBRA_SUELO (esta capa no la usa)
-		ojo,                    # BORDE = el propio ojo
-		ojo,                    # OJO
-		Color(0.62, 0.28, 0.28),# BOCA
-		Color(0.99, 0.99, 1.0), # BRILLO
+		Color(0, 0, 0, 0),           # VACIO
+		Color(0, 0, 0, 0.20),        # SOMBRA_SUELO (no se usa)
+		Color(0, 0, 0, 0),           # BORDE: transparente (ver el punto 1 de la cabecera)
+		Color(0.13, 0.09, 0.11),     # LINEA
+		Color(0.96, 0.96, 0.98),     # BLANCO
+		Color(1.0, 1.0, 1.0),        # BRILLO
+		Color(0.62, 0.62, 0.62),     # IRIS
+		Color(0.30, 0.30, 0.30),     # PUPILA
+		Color(0.40, 0.18, 0.18),     # BOCA
+		Color(0.45, 0.10, 0.14),     # BOCA_DENTRO
+		Color(0.90, 0.48, 0.52),     # LENGUA
 	]
 
 
@@ -103,74 +131,72 @@ static func colores() -> Array:
 # ============================================================
 static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 	var d: int = int(esq.get("dir", 0))
-	# 3, 4 y 5 son NE, N y NW: la nuca. Ahi no hay cara que dibujar.
 	if d == 3 or d == 4 or d == 5:
+		return
+	var iris: bool = modelo.ends_with(SUFIJO_IRIS)
+	var base: String = modelo.trim_suffix(SUFIJO_IRIS) if iris else modelo
+	var dibujo: Array = OJOS.get(base, [])
+	if dibujo.is_empty():
 		return
 	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
 	var de_perfil: bool = d == 2 or d == 6
-	# De perfil, el unico ojo que se ve es el del lado hacia el que mira la camara (ver el punto 2).
+	# De perfil, el unico ojo que se ve es el del lado hacia el que mira la camara.
 	var lados: Array = [1.0, -1.0]
 	if de_perfil:
 		lados = [1.0] if d == 6 else [-1.0]
-
-	match modelo:
-		"puntos": _puntos(piezas, esq, cab, lados, de_perfil)
-		"chibi": _chibi(piezas, esq, cab, lados, de_perfil)
-		"linea": _linea(piezas, esq, cab, lados, de_perfil)
-
-
-# EL MAS SIMPLE: dos ovalos pequeños. Lo que lo separa de los otros dos es el TAMAÑO del ojo, no que
-# le falten rasgos: una cara con ojos y sin boca no es un estilo, es una cara a medio dibujar (y a
-# este tamaño se lee como una linea y ya).
-static func _puntos(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
-		de_perfil: bool) -> void:
+	var centro: Vector2 = PoseJugador.proyectar(esq, cab, Vector3(R, R, R))["pos"]
+	var ancho: int = String(dibujo[0]).length()
 	for s in lados:
-		PoseJugador.poner(piezas, esq, _ojo(cab, float(s)),
-			Vector3(R * 0.15, R * 0.12, R * 0.20), Tono.OJO)
-	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil))
+		var pos: Vector2 = PoseJugador.proyectar(esq, _ojo(cab, float(s)), Vector3(R * 0.1, R * 0.1, R * 0.1))["pos"]
+		pos = hacia_dentro(pos, centro, ancho, d)
+		sello(piezas, pos, dibujo, float(s) < 0.0, iris)
 
 
-# CON BRILLO Y BOCA: el ojo mas grande, con un punto de luz arriba. El brillo es lo que separa un ojo
-# de un agujero -- sin el, a este tamaño, los dos ovalos se leen como dos huecos en la cara.
-static func _chibi(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
-		de_perfil: bool) -> void:
-	for s in lados:
-		var c: Vector3 = _ojo(cab, float(s))
-		PoseJugador.poner(piezas, esq, c, Vector3(R * 0.17, R * 0.13, R * 0.26), Tono.OJO)
-		# El brillo, arriba y hacia el centro de la cara: la luz de este mundo viene de arriba (es la
-		# misma direccion que el realce del pecho y el del pelo).
-		PoseJugador.poner(piezas, esq,
-			c + Vector3(-float(s) * R * 0.045, 0.0, R * 0.075),
-			Vector3(R * 0.055, R * 0.05, R * 0.07), Tono.BRILLO, {"solo_sobre": [Tono.OJO]})
-	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil))
+# METE EL SELLO DENTRO DE LA CARA. El sitio del ojo (o de la boca) de perfil cae en el mismo FILO de la
+# cabeza, y centrando el dibujo ahi medio ojo se salia por fuera (visto en la hoja). De perfil se corre
+# hacia el centro lo que mide medio dibujo mas un pixel; en diagonal, solo el que queda mas afuera y
+# un pixel.
+static func hacia_dentro(pos: Vector2, centro: Vector2, ancho: int, d: int) -> Vector2:
+	var fuera: float = pos.x - centro.x
+	var signo: float = 1.0 if fuera >= 0.0 else -1.0
+	if d == 2 or d == 6:
+		pos.x -= signo * float(ancho / 2 + 1)
+	elif (d == 1 or d == 7) and absf(fuera) > 4.0:
+		pos.x -= signo
+	return pos
 
 
-# LOS OJOS COMO RAYAS: la cara tranquila. Se separa de las otras dos por la FORMA y no por el tamaño
-# -- a este tamaño, "un poco mas grande" no se distingue; "tumbado en vez de de pie", si.
-static func _linea(piezas: Array, esq: Dictionary, cab: Vector3, lados: Array,
-		de_perfil: bool) -> void:
-	for s in lados:
-		PoseJugador.poner(piezas, esq, _ojo(cab, float(s)),
-			Vector3(R * 0.20, R * 0.14, R * 0.075), Tono.OJO)
-	_boca(piezas, esq, cab, _boca_dx(lados, de_perfil))
-
-
-# Donde cae un ojo. 's' es +1 el izquierdo y -1 el derecho, como en todo el cuerpo.
+# Donde cae un ojo. 's' es +1 el de la derecha de la pantalla (mirando al sur) y -1 el otro.
 static func _ojo(cab: Vector3, s: float) -> Vector3:
 	return cab + Vector3(s * R * OJO_SEPARACION, R * OJO_FONDO, R * OJO_ALTO)
 
 
-# La boca: una raya corta. VA SIEMPRE, tambien de perfil (ver BOCA_PERFIL): de los tres modelos, dos
-# se quedaban sin ella en las cuatro direcciones de perfil y el otro no la tenia nunca.
-static func _boca(piezas: Array, esq: Dictionary, cab: Vector3, dx: float) -> void:
-	PoseJugador.poner(piezas, esq,
-		cab + Vector3(dx, R * OJO_FONDO, R * BOCA_ALTO),
-		Vector3(R * 0.11, R * 0.10, R * 0.04), Tono.BOCA)
-
-
-# CUANTO SE CORRE LA BOCA. De frente va en el eje; de perfil, hacia el lado al que mira la cara --
-# que es el mismo lado del unico ojo que se dibuja (ver el punto 2 de la cabecera).
-static func _boca_dx(lados: Array, de_perfil: bool) -> float:
-	if not de_perfil:
-		return 0.0
-	return -float(lados[0]) * R * BOCA_PERFIL
+# ESTAMPA UN DIBUJO de pixeles centrado en 'pos' (celdas del lienzo). 'espejo' lo da la vuelta en
+# horizontal. 'solo_iris': true pinta SOLO el iris y la pupila (la capa teñida); false, todo lo demas.
+# 'columnas' recorta el dibujo a esas columnas (Array de indices; vacio = todas): lo usa la boca de
+# perfil, que solo enseña la mitad de delante.
+#
+# Cada pixel es una elipse de medio pixel de radio centrada en el centro de su celda: la ruta por filas
+# de SpriteLienzo.elipse la rellena exactamente a UNA celda (ni se come la vecina ni se queda en nada).
+static func sello(piezas: Array, pos: Vector2, dibujo: Array, espejo: bool, solo_iris: bool,
+		columnas: Array = []) -> void:
+	var alto: int = dibujo.size()
+	var ancho: int = String(dibujo[0]).length()
+	var x0: int = int(floor(pos.x)) - ancho / 2
+	var y0: int = int(floor(pos.y)) - alto / 2
+	for j in alto:
+		var fila: String = dibujo[j]
+		for i in ancho:
+			var letra: String = fila[ancho - 1 - i] if espejo else fila[i]
+			if not LETRAS.has(letra):
+				continue
+			if not columnas.is_empty() and not columnas.has(i):
+				continue
+			var tono: int = int(LETRAS[letra])
+			if (tono in TONOS_IRIS) != solo_iris:
+				continue
+			piezas.append({
+				"pos": Vector2(float(x0 + i) + 0.5, float(y0 + j) + 0.5), "radio": Vector2(0.5, 0.5),
+				"persp": 1.0, "tono": tono, "ang": 0.0, "gira_forma": false, "solo_sobre": [],
+				"sin_contorno": true,
+			})
