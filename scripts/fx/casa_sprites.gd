@@ -91,7 +91,7 @@ const CASAS := {
 		"chimeneas": [], "cartel": "pez", "luz": "",
 		"extras": ["redes"]},
 	"hogar": {"huella": Vector2i(5, 4), "pared": "entramado", "tejado": "teja", "alto": 50,
-		"chimeneas": [30, 130], "humo": true, "cartel": "", "luz": "calida",
+		"chimeneas": [30, 130], "humo": true, "cartel": "casa", "luz": "calida",
 		"extras": ["macetas", "farol"]},
 	"vacia_0": {"huella": Vector2i(3, 3), "pared": "enlucido", "tejado": "teja", "alto": 40,
 		"chimeneas": [74], "cartel": "", "luz": "", "extras": ["postigos"]},
@@ -175,8 +175,8 @@ static func generar(clave: String) -> Image:
 	_tejado(d, w, h, e, alero, fondo, sem)
 	for cx in e["chimeneas"]:
 		_chimenea(d, w, h, int(cx), alero, fondo, bool(e.get("fragua", false)), bool(e.get("humo", false)))
-	if String(e["cartel"]) != "":
-		_cartel(d, w, h, String(e["cartel"]), puerta_x, alero, clave == "tienda")
+	# El CARTEL ya no va aqui: es una pieza aparte que SOBRESALE por el lado de la fachada (ver cartel()),
+	# y dentro de este lienzo no cabe nada que salga de la huella.
 	return Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, d)
 
 
@@ -593,45 +593,140 @@ static func _chimenea(d: PackedByteArray, w: int, h: int, cx: int, alero: int, f
 
 
 # ------------------------------------------------------------
-#  EL CARTEL: una tabla colgada de un brazo de hierro, a la derecha de la puerta, con el simbolo.
+#  EL CARTEL: una tabla GRANDE colgada de un brazo de hierro que SOBRESALE por un lado de la fachada,
+#  como los de las calles de verdad. Sustituye al rotulo de texto de debajo de la puerta (lo pidio el
+#  usuario: "que sobresalgan por los lados y se vea en grande"). Antes era una tablilla de 16x12 pintada
+#  dentro de la pared y no se leia.
+#
+#  Es una imagen APARTE y no parte del lienzo de la casa: lo que sale de la huella no cabe ahi. La pone
+#  el pueblo (town.gd) con posicion_cartel(), por ENCIMA de los personajes -- cuelga a la altura del
+#  alero, asi que quien pasa por debajo queda debajo.
+#
+#  Los simbolos van en 12x10 y se pintan a TRIPLE tamaño: a la escala de antes (8x6 a 1x) no se
+#  distinguia un martillo de una jarra.
 # ------------------------------------------------------------
 const ICONOS := {
-	"martillo": ["########", "########", "...##...", "...##...", "...##...", "...##..."],
-	"serrucho": ["##......", "#######.", "########", "#.#.#.#.", "........", "........"],
-	"piel": ["#......#", "########", ".######.", ".######.", "########", "#......#"],
-	"frasco": ["...##...", "...##...", "..####..", ".######.", ".######.", "..####.."],
-	"olla": ["..####..", "########", ".######.", ".######.", "..####..", "........"],
-	"bolsa": ["..#..#..", "...##...", ".######.", "########", "########", ".######."],
-	"jarra": ["######..", "######.#", "######.#", "######.#", "#######.", "######.."],
-	"espadas": ["#......#", ".#....#.", "..#..#..", "...##...", "..#..#..", "##....##"],
-	"pez": ["........", ".####..#", "######.#", "######.#", ".####..#", "........"],
+	"martillo": [".#########..", ".##########.", ".#########..", ".....##.....", ".....##.....",
+		".....##.....", ".....##.....", ".....##.....", "....####....", "....####...."],
+	"serrucho": ["............", "##..........", "###.........", "###########.", "############",
+		"############", ".#.#.#.#.#.#", "............", "............", "............"],
+	"piel": ["#..........#", ".##########.", ".##########.", "..########..", "..########..",
+		"..########..", "..########..", ".##########.", ".##########.", "#..........#"],
+	"frasco": ["....####....", ".....##.....", ".....##.....", "....####....", "...######...",
+		"..########..", ".##########.", ".##########.", ".##########.", "..########.."],
+	"olla": [".....##.....", "..########..", "############", ".##########.", ".##########.",
+		".##########.", ".##########.", "..########..", "...######...", "............"],
+	"bolsa": ["...##..##...", "....####....", ".....##.....", "...######...", "..########..",
+		".##########.", ".##########.", ".##########.", ".##########.", "..########.."],
+	"jarra": [".########...", ".########...", ".########.##", ".########..#", ".########..#",
+		".########..#", ".########.##", ".########...", ".########...", "..######...."],
+	"espadas": ["#..........#", ".#........#.", "..#......#..", "...#....#...", "....#..#....",
+		".....##.....", "....#..#....", "..##....##..", ".##......##.", "#..........#"],
+	"pez": ["............", ".....####...", "...#######.#", "..########.#", ".##########.",
+		"..########.#", "...#######.#", ".....####...", "............", "............"],
+	"casa": [".....##.....", "....####....", "...######...", "..########..", ".##########.",
+		"..########..", "..##.##.##..", "..##.##.##..", "..##....##..", "..########.."],
 }
 
-static func _cartel(d: PackedByteArray, w: int, h: int, icono: String, puerta_x: int, alero: int, a_la_izq: bool) -> void:
-	var x0: int = puerta_x + 14 if not a_la_izq else puerta_x - 32
-	var y0: int = alero + 12
-	var hierro := Color(0.15, 0.14, 0.15)
-	# Brazo y cadenas.
-	_rect(d, w, h, x0 - 1, y0 - 4, 18, 1, hierro)
-	_px(d, w, h, x0 + 2, y0 - 2, hierro)
-	_px(d, w, h, x0 + 13, y0 - 2, hierro)
-	_px(d, w, h, x0 + 2, y0 - 3, hierro)
-	_px(d, w, h, x0 + 13, y0 - 3, hierro)
-	# Tabla.
-	_sombra(d, w, h, x0, y0 - 1, 16, 12)
+const CARTEL_TAM := Vector2i(56, 44)   # el lienzo entero: brazo + tabla
+const TABLA_TAM := Vector2i(44, 36)
+const TABLA_X := 10                    # donde empieza la tabla, contado desde la pared
+const TABLA_Y := 7
+const ESCALA_ICONO := 3
+# Negativo: el brazo sale justo bajo el tejado, y asi la tabla no llega al suelo en las casas bajas
+# (las de 40 px de pared).
+const CARTEL_BAJO_ALERO := -4          # px por debajo de lo alto de la pared donde va el brazo
+
+# El dibujo con la pared a la IZQUIERDA (x = 0) si 'a_la_izq' es false, o a la derecha si es true: el
+# brazo sale siempre de la pared hacia fuera. El simbolo NO se refleja (una jarra con el asa al reves
+# se lee rara); solo se recoloca la tabla.
+static func cartel(icono: String, a_la_izq: bool) -> Image:
+	var w: int = CARTEL_TAM.x
+	var h: int = CARTEL_TAM.y
+	var d := PackedByteArray()
+	d.resize(w * h * 4)
+	var hierro := Color(0.13, 0.12, 0.13)
+	var hierro_luz := Color(0.32, 0.30, 0.31)
+	var px := func(x: int, y: int, c: Color) -> void:
+		_px(d, w, h, (w - 1 - x) if a_la_izq else x, y, c)
+	# La placa clavada a la pared.
+	for y in range(0, 12):
+		for x in range(0, 3):
+			px.call(x, y, hierro if x != 1 or y % 5 != 2 else hierro_luz)
+	# El brazo, con su brillo arriba y un remate enroscado en la punta.
+	for x in range(0, w - 1):
+		px.call(x, 2, hierro_luz)
+		px.call(x, 3, hierro)
+	px.call(w - 2, 1, hierro)
+	px.call(w - 1, 1, hierro)
+	px.call(w - 1, 2, hierro)
+	# La escuadra de refuerzo, en diagonal de la placa al brazo.
+	for i in 8:
+		px.call(2 + i, 11 - i, hierro)
+		px.call(3 + i, 11 - i, hierro)
+	# Las dos cadenas (eslabones alternos).
+	for cx in [TABLA_X + 3, TABLA_X + TABLA_TAM.x - 4]:
+		for y in range(4, TABLA_Y):
+			px.call(int(cx) + (y % 2), y, hierro)
+	# La tabla: tablones horizontales con bisel, marco negro y un clavo en cada esquina.
 	var mad: Array = RAMPAS["madera_clara"]
-	for y in 12:
-		for x in 16:
-			var col: Color = mad[3] if y % 4 != 3 else mad[2]
-			if x == 0 or y == 0 or x == 15 or y == 11:
+	var x0: int = TABLA_X
+	for y in TABLA_TAM.y:
+		for x in TABLA_TAM.x:
+			var col: Color = mad[3]
+			if y % 7 == 6:
+				col = mad[1]                       # la junta entre tablones
+			elif y % 7 == 0:
+				col = mad[4]                       # el canto de arriba de cada tablon, con luz
+			if (x * 7 + y * 3) % 11 == 0 and col == mad[3]:
+				col = mad[2]                       # la veta
+			if x == 1 or y == 1:
+				col = mad[4]
+			if x == TABLA_TAM.x - 2 or y == TABLA_TAM.y - 2:
+				col = mad[1]
+			if x == 0 or y == 0 or x == TABLA_TAM.x - 1 or y == TABLA_TAM.y - 1:
 				col = NEGRO
-			_px(d, w, h, x0 + x, y0 - 1 + y, col)
+			px.call(x0 + x, TABLA_Y + y, col)
+	for esq in [Vector2i(3, 3), Vector2i(TABLA_TAM.x - 4, 3), Vector2i(3, TABLA_TAM.y - 4),
+			Vector2i(TABLA_TAM.x - 4, TABLA_TAM.y - 4)]:
+		px.call(x0 + esq.x, TABLA_Y + esq.y, hierro)
+	# El simbolo, grabado a fuego: oscuro, con una linea de luz debajo para que parezca hundido.
 	var ic: Array = ICONOS.get(icono, [])
+	var alto_ic: int = ic.size() * ESCALA_ICONO
+	var ancho_ic: int = (String(ic[0]).length() if not ic.is_empty() else 0) * ESCALA_ICONO
+	var ix0: int = (w - x0 - TABLA_TAM.x) if a_la_izq else x0   # la tabla ya reflejada
+	ix0 += (TABLA_TAM.x - ancho_ic) / 2
+	var iy0: int = TABLA_Y + (TABLA_TAM.y - alto_ic) / 2
+	var tinta := Color(0.20, 0.12, 0.08)
 	for j in ic.size():
 		var fila: String = ic[j]
 		for i in fila.length():
-			if fila[i] == "#":
-				_px(d, w, h, x0 + 4 + i, y0 + 2 + j, Color(0.18, 0.12, 0.09))
+			if fila[i] != "#":
+				continue
+			for sy in ESCALA_ICONO:
+				for sx in ESCALA_ICONO:
+					_px(d, w, h, ix0 + i * ESCALA_ICONO + sx, iy0 + j * ESCALA_ICONO + sy, tinta)
+			var abajo: bool = j + 1 >= ic.size() or String(ic[j + 1])[i] != "#"
+			if abajo:
+				for sx in ESCALA_ICONO:
+					_px(d, w, h, ix0 + i * ESCALA_ICONO + sx, iy0 + (j + 1) * ESCALA_ICONO, mad[4])
+	return Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, d)
+
+
+# Que lado lleva el cartel: el de la IZQUIERDA salvo que la casa diga otra cosa ("cartel_der").
+static func cartel_a_la_izq(clave: String) -> bool:
+	return not bool(CASAS[clave].get("cartel_der", false))
+
+
+# Donde va el lienzo del cartel, en px del lienzo de la CASA (su esquina de arriba a la izquierda). La
+# placa se solapa 2 px con la pared para que no quede flotando en el aire.
+static func posicion_cartel(clave: String) -> Vector2i:
+	var t: Vector2i = tam(clave)
+	var alero: int = t.y - int(CASAS[clave]["alto"])
+	var y: int = alero + CARTEL_BAJO_ALERO
+	if cartel_a_la_izq(clave):
+		return Vector2i(MARGEN + 2 - CARTEL_TAM.x, y)
+	return Vector2i(t.x - MARGEN - 2, y)
 
 
 # ------------------------------------------------------------

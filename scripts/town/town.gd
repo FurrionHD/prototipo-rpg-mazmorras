@@ -223,13 +223,30 @@ func _crear_casas() -> void:
 			humo.position = pieza.position + (b[0] as Vector2)
 			nodo.add_child(humo)
 		_encender_ventanas(pieza, dibujo)
+		_colgar_cartel(pieza, dibujo)
 		for a in PuebloPlano.ADORNOS.get(clave, []):
 			var celda_a: Vector2i = PuebloPlano.puerta_de(casa) + Vector2i(int(a[1]), 0)
 			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE), true))
 		var guion: String = String(casa.get("script", ""))
 		if guion == "":
 			continue
-		nodo.add_child(_puerta(guion, PuebloPlano.puerta_de(casa), String(casa.get("nombre", clave))))
+		# SIN ROTULO: lo que es cada casa lo dice su cartel (lo pidio el usuario).
+		nodo.add_child(_puerta(guion, PuebloPlano.puerta_de(casa), ""))
+
+
+# EL CARTEL DEL OFICIO, colgado de un lado de la fachada y asomando fuera de ella (CasaSprites.cartel).
+# Va por ENCIMA de los personajes: cuelga a la altura del alero, asi que quien pasa por al lado pasa
+# por debajo.
+func _colgar_cartel(pieza: PiezaPueblo, dibujo: String) -> void:
+	var icono: String = String(CasaSprites.CASAS[dibujo].get("cartel", ""))
+	if icono == "":
+		return
+	var s := Sprite2D.new()
+	s.name = "Cartel"
+	s.texture = ImageTexture.create_from_image(CasaSprites.cartel(icono, CasaSprites.cartel_a_la_izq(dibujo)))
+	s.centered = false
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	pieza.acompanar(s, Vector2(CasaSprites.posicion_cartel(dibujo)))
 
 
 # LAS VENTANAS DE NOCHE: el vidrio encendido encima de cada una (con la fachada, z de la parte de abajo)
@@ -269,6 +286,8 @@ func _puerta(guion: String, c: Vector2i, nombre: String) -> Node2D:
 	p.name = "Puerta"
 	p.set_script(load(guion))
 	p.position = Vector2(c) * float(PuebloPlano.CELDA) + Vector2(PuebloPlano.CELDA * 0.5, 6.0)
+	if nombre == "":
+		return p
 	var l := Label.new()
 	l.name = "Label"
 	l.text = nombre
