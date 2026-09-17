@@ -176,15 +176,14 @@ func _crear_timeline() -> void:
 # avance rapido de toda la vida) para x2. Se dibuja a mano en vez de poner texto porque es un icono
 # que todo el mundo reconoce sin leerlo.
 #
-# En la pelea de OTRO sale apagado: la velocidad la manda su dueño (ver _vel_pelea).
+# En el ESPEJO tambien se pulsa: se le pide a quien ejecuta la pelea (ver Net.peleas.pedir_velocidad) y
+# vuelve a todos en la instantanea. Iba apagado, y en multi todas las peleas son espejo.
 func _crear_boton_velocidad() -> void:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(48, 28)
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.disabled = _pantalla._espejo
-	b.tooltip_text = ("La velocidad la marca quien lleva esta pelea" if _pantalla._espejo
-		else "Velocidad del combate: toda la pelea, barra de acción incluida")
+	b.tooltip_text = "Velocidad del combate: toda la pelea, barra de acción incluida"
 	# El dibujo va en un hijo que solo pinta: asi el Button conserva su hover y su pulsacion.
 	var icono := Control.new()
 	icono.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -192,12 +191,16 @@ func _crear_boton_velocidad() -> void:
 	icono.draw.connect(func() -> void: _pintar_icono_velocidad(icono))
 	b.add_child(icono)
 	b.pressed.connect(func() -> void:
-		# Solo el dueño: x1 <-> x2 y se recuerda para las proximas peleas.
-		Game.velocidad_combate = 2.0 if Game.velocidad_combate < 1.5 else 1.0
+		# x1 <-> x2 desde la que VA la pelea (en el espejo puede no ser la tuya), y se recuerda para las
+		# proximas peleas.
+		Game.velocidad_combate = 2.0 if _pantalla._vel_pelea < 1.5 else 1.0
 		_pantalla._aplicar_velocidad(Game.velocidad_combate)
 		icono.queue_redraw()
-		# Que le llegue YA al compañero, sin esperar al proximo cambio de vida.
-		_pantalla.espejo._difundir())
+		if _pantalla._espejo:
+			Net.peleas.pedir_velocidad(Game.velocidad_combate)
+		else:
+			# Que le llegue YA al compañero, sin esperar al proximo cambio de vida.
+			_pantalla.espejo._difundir())
 	# Al lado del boton del registro, arriba de la columna derecha. Suelto en la esquina se
 	# quedaba ENCIMA del registro, que ahora vive justo ahi.
 	if _log_fila != null and is_instance_valid(_log_fila):
@@ -208,7 +211,7 @@ func _crear_boton_velocidad() -> void:
 
 
 func _pintar_icono_velocidad(c: Control) -> void:
-	var col := Color(0.85, 0.87, 0.95, 0.45 if _pantalla._espejo else 1.0)
+	var col := Color(0.85, 0.87, 0.95, 1.0)
 	var alto: float = 16.0
 	var ancho: float = 13.0
 	var cy: float = c.size.y * 0.5

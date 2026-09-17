@@ -277,7 +277,7 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 # esos bichos y se le abre el espejo. Si ya no se puede (entre medias ha empezado otra), se le devuelven
 # los bichos para que la monte el, como siempre: nunca queda peor que antes.
 @rpc("any_peer", "call_remote", "reliable")
-func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array) -> void:
+func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var nodos: Array = []
 	for i in ids:
@@ -305,6 +305,8 @@ func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array) -> void:
 		mis_ids.append(int(n.get_meta("net_id")))
 	reasignar_reservas(mis_ids)
 	Net._trab.avisar_pelea_empezada()
+	# LA VELOCIDAD ES LA SUYA: yo no tengo preferencia (soy un Godot invisible) y arrancaba siempre a x1.
+	p._aplicar_velocidad(vel)
 	_union_ok.rpc_id(quien, _pelea_id, p.roster_para_espejo(), huecos[quien])
 
 
@@ -355,7 +357,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 			_devolver_bichos(ids)
 			return
 		_fichas_mandadas_a = ejecutor
-		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo())
+		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate)
 		return
 	# MANDE MIS FICHAS A UN TRABAJADOR Y NO HA PODIDO: me devuelve los bichos y la pelea va aqui. Con las
 	# fichas se fue tambien el conjuro que traia (Game.casteo_para_viajar lo aparta): vuelve a su nota para
@@ -1296,6 +1298,30 @@ func _pedir_roster_pelea() -> void:
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("roster_para_espejo"):
 		_roster_pelea.rpc_id(quien, p.roster_para_espejo())
+
+
+# --- VELOCIDAD x1 / x2 (espejo -> anfitrion) --------------------------------------------------
+
+# ESPEJO: he pulsado el boton de velocidad. La pelea no corre aqui, asi que se le pide a quien la
+# ejecuta, y la nueva velocidad vuelve a todos en la instantanea (ver combat_espejo.aplicar_instantanea).
+# Antes el boton iba apagado en el espejo, y desde que TODAS las peleas en multi las lleva un
+# trabajador, eso era no poder cambiarla nunca (aunque jugaras solo en la partida).
+func pedir_velocidad(v: float) -> void:
+	if not Net.activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_pedir_velocidad.rpc_id(_pelea_anfitrion, v)
+
+
+# Cualquiera que este DENTRO la cambia, y vale la ultima pulsacion.
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_velocidad(v: float) -> void:
+	if _pelea_id == 0 or not _pelea_participantes.has(multiplayer.get_remote_sender_id()):
+		return
+	var p: Node = _pantalla_combate()
+	if p == null or p._espejo:
+		return
+	p._aplicar_velocidad(v)
+	p.espejo._difundir()
 
 
 # --- TURNOS (anfitrion <-> dueño del personaje) ----------------------------------------------

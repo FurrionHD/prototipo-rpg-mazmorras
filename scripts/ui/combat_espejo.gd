@@ -399,9 +399,9 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 	# instantanea solo trae numeros, asi que sin esto las filas de mas se descartaban EN SILENCIO
 	# -era el bug de "no veo los enemigos que se añaden"-. La revision lo delata y pido el roster
 	# entero UNA vez; mientras llega, los numeros que si cuadran se siguen pintando.
-	# LA VELOCIDAD LA MANDA EL DUEÑO. Aqui no se elige: se obedece, y por eso el boton va apagado en
-	# el espejo. Asi las dos pantallas van al mismo ritmo y nadie ve un turno resuelto mientras el
-	# otro lo sigue animando.
+	# LA VELOCIDAD LA MANDA QUIEN EJECUTA. El boton del espejo no la cambia aqui: se la PIDE (ver
+	# Net.peleas.pedir_velocidad) y llega de vuelta por aqui. Asi las pantallas van al mismo ritmo y
+	# nadie ve un turno resuelto mientras el otro lo sigue animando.
 	var vel: float = float(snap.get("vel", _pantalla._vel_pelea))
 	if not is_equal_approx(vel, _pantalla._vel_pelea):
 		_pantalla._aplicar_velocidad(vel)
