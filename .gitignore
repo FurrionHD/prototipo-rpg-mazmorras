@@ -62,6 +62,7 @@ dev_*.png
 # Y al revisar TODOS los .bat contra git salieron dos mas de antes, igual de rotos en otra maquina:
 !dev_escudos.*
 !dev_materiales.*
+!dev_modelo_3d.*
 
 # Salida de las herramientas de vista previa (tools/ver_terreno.gd): son PNG para MIRAR el
 # arte mientras se dibuja, no parte del juego. Se regeneran con la herramienta cuando hagan falta.

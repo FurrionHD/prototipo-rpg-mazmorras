@@ -1,0 +1,11 @@
+Modelos 3D de REFERENCIA para dibujar el personaje (tools/visores/dev_modelo_3d). Todos CC-BY-4.0:
+si alguno acaba en el arte final, va en los creditos del juego.
+
+chibi_base_mesh.glb   "CHIBI Base mesh"  por gensyuuu
+                      https://sketchfab.com/3d-models/chibi-base-mesh-39ba45ab58244102a024ea51e3854b90
+low_poly_sword.glb    "Low poly sword"   por ariskay
+                      https://sketchfab.com/3d-models/low-poly-sword-4fe2230f28e74b349fd8b79b52b38282
+minecraft_shield.glb  "Minecraft Shield" por William Zarek (bugbilly)
+                      https://sketchfab.com/3d-models/minecraft-shield-81b8af03223a4e72a39dbb0194d2d971
+
+Licencia: http://creativecommons.org/licenses/by/4.0/
