@@ -31,21 +31,24 @@ extends Node
 
 const SALIDA := "res://tools/salida/modelo3d/"
 const DIR_NOMBRES := ["S", "SE", "E", "NE", "N", "NW", "W", "SW"]
-const FONDO := Color(0.11, 0.12, 0.15)
+# Fondo CLARO: el contorno es casi negro (0,09, el de nuestros sprites) y sobre el oscuro no se veia.
+const FONDO := Color(0.47, 0.52, 0.58)
 # El render grande: HI veces el de juego.
 const HI := 8
 # Hacia donde mira el modelo en crudo, en radianes sobre la vertical. 0 = hacia +Z (la camara).
 const YAW_MODELO := 0.0
-# Proporciones de la cara en radios de cabeza, las de CaraSprites / altura-en-pantalla-no-es-la-z.
-const OJO_BAJA := 0.18
-const OJO_LADO := 0.34
+# Proporciones de la cara en radios de cabeza (del centro de la cabeza). Los ojos van donde los dibujo
+# el usuario sobre el render (17/09/2026): un ojo de alto por ENCIMA de los de CaraSprites (0,18) y
+# algo mas separados. Negativo = por encima del centro.
+const OJO_BAJA := -0.08
+const OJO_LADO := 0.38
 const BOCA_BAJA := 0.42
 # Recorte de la cabeza en la hoja de la cara, en pixeles de sprite.
 const CABEZA_LADO := 36
 # Armas: [nombre, largo en u de mundo, factor de ancho]. La pequeña es la misma espada corta y ancha.
 const ARMAS := [["pequena", 17.0, 1.4], ["espada", 30.0, 1.0], ["mandoble", 45.0, 1.15]]
 const ESCUDO_ALTO := 28.0
-const TOPE_S := 60.0
+const TOPE_S := 120.0
 
 var _lado: int
 var _origen: Vector2
@@ -64,6 +67,42 @@ var _mat_marca: StandardMaterial3D
 var _svp2d: SubViewport
 var _muneco: MunecoJugador
 
+# --- LAS POSES: el chibi no trae esqueleto, asi que se le hace uno por codigo ---
+# Cada vertice va a una PARTE y se gira con los mismos angulos que PoseJugador.montar (brazo sobre el
+# hombro, pierna sobre la cadera, tronco inclinado sobre la cadera, bote). Las medidas son del chibi
+# ya normalizado a 60 u, sacadas de un perfil de sus vertices por alturas (17/09/2026):
+#   piernas separadas por debajo de y 12,5 · brazos (A-pose) por fuera de |x| 6 entre y 18 y 27 ·
+#   cuello a y 29,5 · manos en |x| 13-14,7 a y 19-20.
+enum Parte { CABEZA, TRONCO, BRAZO_IZQ, BRAZO_DER, PIERNA_IZQ, PIERNA_DER }
+const PARTES := 6
+const CUELLO_Y := 29.5
+const INGLE_Y := 12.5
+const BRAZO_DESDE_X := 6.0
+const BRAZO_HASTA_Y := 27.5
+const HOMBRO_3D := Vector3(6.5, 26.0, 0.5)
+const CADERA_3D := Vector3(3.3, 12.5, 0.0)
+# La A-pose abre los brazos ~49° de la vertical; nuestro muñeco los lleva casi pegados. Se cierran esto.
+const CIERRE_BRAZOS := 38.0
+# Los giros no son de golpe en la junta: entran en este tramo (u) para que la malla no se rompa.
+const TRAMO_JUNTA := 2.5
+const CONTORNO := Color(0.09, 0.08, 0.09)
+# Pase de IDs: rojo = parte, verde = profundidad desde la camara (esta a 500 u del objetivo).
+const SHADER_ID := """
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+uniform float id;
+varying float prof;
+void vertex() { prof = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z; }
+void fragment() { ALBEDO = vec3(id / 8.0, clamp((prof - 440.0) / 120.0, 0.0, 1.0), 0.0); }
+"""
+var _base_vs: PackedVector3Array
+var _base_ns: PackedVector3Array
+var _base_idx: PackedInt32Array
+var _parte: PackedInt32Array
+var _peso: PackedFloat32Array
+var _cabeza: Node3D
+var _mat_ids: Array = []
+
 
 func _ready() -> void:
 	var tope := get_tree().create_timer(TOPE_S)
@@ -74,9 +113,19 @@ func _ready() -> void:
 	_montar_modelo()
 	_montar_muneco()
 	DirAccess.make_dir_recursive_absolute(SALIDA)
-	await _hoja_8dirs()
-	await _hoja_cara()
-	await _hoja_armas()
+	# Sin argumento: el CUERPO (idle y andar con nuestras poses). "cara" / "armas" / "todo": las hojas
+	# del modelo en crudo (A-pose), que son las de la primera tanda.
+	var modo: String = OS.get_cmdline_user_args()[0] if OS.get_cmdline_user_args().size() > 0 else "cuerpo"
+	if modo == "cuerpo" or modo == "todo":
+		await _hoja_idle()
+		await _hoja_andar()
+	if modo != "cuerpo":
+		_posar({}, false)
+		if modo == "todo" or modo == "armas":
+			await _hoja_8dirs()
+			await _hoja_armas()
+		if modo == "todo" or modo == "cara":
+			await _hoja_cara()
 	get_tree().quit()
 
 
@@ -176,16 +225,31 @@ func _montar_modelo() -> void:
 	var t := Transform3D(crudo.scaled(Vector3.ONE * esc), Vector3(-pies.x, -y0, -pies.z) * esc)
 	for i in vs.size():
 		vs[i] = Vector3(vs[i].x - pies.x, vs[i].y - y0, vs[i].z - pies.z) * esc
+	_base_vs = vs
+	_base_ns = PackedVector3Array()
+	for n in (arr[Mesh.ARRAY_NORMAL] as PackedVector3Array):
+		_base_ns.append((crudo * n).normalized())
+	_base_idx = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+	_repartir_partes()
 
 	_mat_cuerpo = StandardMaterial3D.new()
 	_mat_cuerpo.albedo_color = Color(0.86, 0.78, 0.72)
 	_mat_cuerpo.roughness = 1.0
 	_mat_cuerpo.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_cuerpo = MeshInstance3D.new()
-	_cuerpo.mesh = malla
-	_cuerpo.transform = t
 	_cuerpo.material_override = _mat_cuerpo
 	_personaje.add_child(_cuerpo)
+	_cabeza = Node3D.new()
+	_personaje.add_child(_cabeza)
+	_mat_ids = []
+	var shader := Shader.new()
+	shader.code = SHADER_ID
+	for i in PARTES:
+		var sm := ShaderMaterial.new()
+		sm.shader = shader
+		sm.set_shader_parameter("id", float(i + 1))
+		_mat_ids.append(sm)
+	_posar({}, false)
 
 	var cab: Dictionary = _medir_cabeza(vs)
 	_centro_cabeza = cab["centro"]
@@ -312,7 +376,7 @@ func _marca(nombre: String, tris: PackedVector3Array, xy: Vector2, radios: Vecto
 	m.transform = Transform3D(Basis(eje_x * radios.x, eje_y * radios.y, normal * radios.z),
 		punto + normal * radios.z * 0.3)
 	m.material_override = _mat_marca
-	_personaje.add_child(m)
+	_cabeza.add_child(m)
 	_marcas[nombre] = m
 	print("[modelo 3d] %s en %s normal %s" % [nombre, str(punto), str(normal)])
 
@@ -575,4 +639,214 @@ func _hoja_armas() -> void:
 			hoja.blit_rect(bajo, Rect2i(0, 0, celda, celda), Vector2i(d * celda, i * celda))
 	var ruta := SALIDA + "modelo3d_armas.png"
 	hoja.save_png(ruta)
+	print("[modelo 3d] ", ProjectSettings.globalize_path(ruta))
+
+
+# ------------------------------------------------------------
+#  EL ESQUELETO POR CODIGO
+# ------------------------------------------------------------
+var _idx_partes: Array = []   # por parte, sus indices de triangulo
+
+func _repartir_partes() -> void:
+	var n: int = _base_vs.size()
+	_parte = PackedInt32Array()
+	_parte.resize(n)
+	_peso = PackedFloat32Array()
+	_peso.resize(n)
+	for i in n:
+		var v: Vector3 = _base_vs[i]
+		var p: int = Parte.TRONCO
+		var w := 1.0
+		if v.y > CUELLO_Y:
+			p = Parte.CABEZA
+		elif v.y < INGLE_Y:
+			p = Parte.PIERNA_IZQ if v.x >= 0.0 else Parte.PIERNA_DER
+			w = clampf((INGLE_Y - v.y) / TRAMO_JUNTA, 0.0, 1.0)
+		elif v.y < BRAZO_HASTA_Y and absf(v.x) > BRAZO_DESDE_X:
+			p = Parte.BRAZO_IZQ if v.x >= 0.0 else Parte.BRAZO_DER
+			w = clampf((absf(v.x) - BRAZO_DESDE_X) / TRAMO_JUNTA, 0.0, 1.0)
+		_parte[i] = p
+		_peso[i] = w
+	var idx: PackedInt32Array = _base_idx
+	if idx.is_empty():
+		for i in n:
+			idx.append(i)
+	_idx_partes = []
+	for p in PARTES:
+		_idx_partes.append(PackedInt32Array())
+	for t in range(0, idx.size() - 2, 3):
+		var p2: int = _parte[idx[t]]
+		var lista: PackedInt32Array = _idx_partes[p2]
+		lista.append_array(PackedInt32Array([idx[t], idx[t + 1], idx[t + 2]]))
+		_idx_partes[p2] = lista
+	var cuentas: Array = []
+	for p in PARTES:
+		cuentas.append((_idx_partes[p] as PackedInt32Array).size() / 3)
+	print("[modelo 3d] triangulos por parte (cabeza, tronco, brazo izq/der, pierna izq/der): ", cuentas)
+
+
+var _superficie_parte: Array = []
+
+# Coloca el chibi en una pose de PoseJugador (paso, brazo, bote, inclina...). 'cerrar' baja los brazos
+# de la A-pose a como los lleva nuestro muñeco. Con {} y false queda en crudo.
+func _posar(pose: Dictionary, cerrar: bool) -> void:
+	var paso: float = float(pose.get("paso", 0.0))
+	var brazo: float = float(pose.get("brazo", 0.0))
+	var brazo_der: float = float(pose.get("brazo_der", brazo))
+	var brazo_izq: float = float(pose.get("brazo_izq", -brazo))
+	var bote: float = float(pose.get("bote", 0.0))
+	var inclina: float = float(pose.get("inclina", 0.0))
+	var cierre: float = deg_to_rad(CIERRE_BRAZOS) if cerrar else 0.0
+	var cadera_c := Vector3(0.0, INGLE_Y, 0.0)
+	var b_tronco := Basis(Vector3.RIGHT, inclina)
+	var vs := PackedVector3Array()
+	var ns := PackedVector3Array()
+	vs.resize(_base_vs.size())
+	ns.resize(_base_vs.size())
+	for i in _base_vs.size():
+		var v: Vector3 = _base_vs[i]
+		var nn: Vector3 = _base_ns[i] if i < _base_ns.size() else Vector3.UP
+		var w: float = _peso[i]
+		var p: int = _parte[i]
+		if p == Parte.BRAZO_IZQ or p == Parte.BRAZO_DER:
+			var s: float = 1.0 if p == Parte.BRAZO_IZQ else -1.0
+			var a: float = brazo_izq if p == Parte.BRAZO_IZQ else brazo_der
+			var piv := Vector3(s * HOMBRO_3D.x, HOMBRO_3D.y, HOMBRO_3D.z)
+			# Positivo = hacia DELANTE (+Z), como en PoseJugador; el cierre gira en el plano de frente.
+			var b := Basis(Vector3.RIGHT, -a * w) * Basis(Vector3.BACK, -s * cierre * w)
+			v = piv + b * (v - piv)
+			nn = b * nn
+		elif p == Parte.PIERNA_IZQ or p == Parte.PIERNA_DER:
+			var s2: float = 1.0 if p == Parte.PIERNA_IZQ else -1.0
+			var a2: float = paso if p == Parte.PIERNA_IZQ else -paso
+			var piv2 := Vector3(s2 * CADERA_3D.x, CADERA_3D.y, CADERA_3D.z)
+			var b2 := Basis(Vector3.RIGHT, -a2 * w)
+			v = piv2 + b2 * (v - piv2)
+			nn = b2 * nn
+		if p != Parte.PIERNA_IZQ and p != Parte.PIERNA_DER:
+			v = cadera_c + b_tronco * (v - cadera_c)
+			nn = b_tronco * nn
+		v.y += bote
+		vs[i] = v
+		ns[i] = nn
+	var am := ArrayMesh.new()
+	_superficie_parte = []
+	for p3 in PARTES:
+		var idx: PackedInt32Array = _idx_partes[p3]
+		if idx.is_empty():
+			continue
+		var arrays: Array = []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = vs
+		arrays[Mesh.ARRAY_NORMAL] = ns
+		arrays[Mesh.ARRAY_INDEX] = idx
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		_superficie_parte.append(p3)
+	_cuerpo.mesh = am
+	# La cabeza (y lo que lleva pegado: ojos y boca) sigue al tronco.
+	_cabeza.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, bote, 0.0)) \
+		* Transform3D(b_tronco, cadera_c - b_tronco * cadera_c)
+
+
+# Pase de IDs: cada parte de un color plano con su profundidad. Sirve para el CONTORNO.
+func _pase_ids(activo: bool) -> void:
+	_cuerpo.material_override = null if activo else _mat_cuerpo
+	for s in _superficie_parte.size():
+		_cuerpo.set_surface_override_material(s, _mat_ids[_superficie_parte[s]] if activo else null)
+	for k in _marcas:
+		_marcas[k].material_override = _mat_ids[Parte.CABEZA] if activo else _mat_marca
+
+
+# EL BORDE NEGRO, como el de nuestros sprites: la silueta (por FUERA, para no comerse unos miembros
+# de 2-3 px) y una linea interior donde una parte pasa por delante de otra (en la de atras).
+func _contornear(color: Image, ids: Image) -> Image:
+	var out: Image = color.duplicate()
+	var an: int = ids.get_width()
+	var al: int = ids.get_height()
+	var vecinos := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for y in al:
+		for x in an:
+			var c: Color = ids.get_pixel(x, y)
+			var borde := false
+			for dv in vecinos:
+				var q: Vector2i = Vector2i(x, y) + dv
+				if q.x < 0 or q.y < 0 or q.x >= an or q.y >= al:
+					continue
+				var cq: Color = ids.get_pixel(q.x, q.y)
+				if c.a < 0.5:
+					if cq.a >= 0.5:
+						borde = true
+				elif cq.a >= 0.5 and absf(cq.r - c.r) > 0.02 and cq.g < c.g - 0.004:
+					borde = true
+			if borde:
+				out.set_pixel(x, y, CONTORNO)
+	return out
+
+
+# Una captura del modelo en la pose actual: [grande sin borde, a 84 px con borde].
+func _captura() -> Array:
+	await _esperar()
+	var hi: Image = _svp_hi.get_texture().get_image()
+	var bajo: Image = _svp.get_texture().get_image()
+	_pase_ids(true)
+	await _esperar()
+	var ids: Image = _svp.get_texture().get_image()
+	_pase_ids(false)
+	bajo.convert(Image.FORMAT_RGBA8)
+	ids.convert(Image.FORMAT_RGBA8)
+	return [hi, _contornear(bajo, ids)]
+
+
+func _pose_de(anim: String, marco: int) -> Dictionary:
+	return PoseJugador.esqueleto(anim, marco, 0)["pose"]
+
+
+# IDLE en las 8 direcciones: grande / a 84 px con borde / nuestro muñeco.
+func _hoja_idle() -> void:
+	const Z := 4
+	var celda: int = _lado * Z
+	var hoja := Image.create(celda * 8, celda * 3, false, Image.FORMAT_RGBA8)
+	hoja.fill(FONDO)
+	_mostrar_armas("", false)
+	_equipar("", false)
+	_posar(_pose_de("idle", 0), true)
+	for d in 8:
+		_girar(d)
+		_muneco.fijar("idle_%d" % d, 0)
+		var cap: Array = await _captura()
+		var hi: Image = _sobre_fondo(cap[0])
+		hi.resize(celda, celda, Image.INTERPOLATE_BILINEAR)
+		hoja.blit_rect(hi, Rect2i(0, 0, celda, celda), Vector2i(d * celda, 0))
+		hoja.blit_rect(_ampliar(_sobre_fondo(cap[1]), Z), Rect2i(0, 0, celda, celda), Vector2i(d * celda, celda))
+		var mu: Image = _ampliar(_sobre_fondo(_svp2d.get_texture().get_image()), Z)
+		hoja.blit_rect(mu, Rect2i(0, 0, celda, celda), Vector2i(d * celda, celda * 2))
+	var ruta := SALIDA + "cuerpo_idle.png"
+	hoja.save_png(ruta)
+	print("[modelo 3d] ", ProjectSettings.globalize_path(ruta))
+
+
+# ANDAR: una fila por direccion y una columna por fotograma, el modelo con borde. Y la misma rejilla de
+# nuestro muñeco en otra hoja, para ponerlas lado a lado.
+func _hoja_andar() -> void:
+	const Z := 4
+	var celda: int = _lado * Z
+	var marcos: int = 8
+	var hoja := Image.create(celda * marcos, celda * 8, false, Image.FORMAT_RGBA8)
+	hoja.fill(FONDO)
+	var hoja_mu := Image.create(celda * marcos, celda * 8, false, Image.FORMAT_RGBA8)
+	hoja_mu.fill(FONDO)
+	_mostrar_armas("", false)
+	_equipar("", false)
+	for f in marcos:
+		_posar(_pose_de("walk", f), true)
+		for d in 8:
+			_girar(d)
+			_muneco.fijar("walk_%d" % d, f)
+			var cap: Array = await _captura()
+			hoja.blit_rect(_ampliar(_sobre_fondo(cap[1]), Z), Rect2i(0, 0, celda, celda), Vector2i(f * celda, d * celda))
+			var mu: Image = _ampliar(_sobre_fondo(_svp2d.get_texture().get_image()), Z)
+			hoja_mu.blit_rect(mu, Rect2i(0, 0, celda, celda), Vector2i(f * celda, d * celda))
+	var ruta := SALIDA + "cuerpo_andar.png"
+	hoja.save_png(ruta)
+	hoja_mu.save_png(SALIDA + "cuerpo_andar_muneco.png")
 	print("[modelo 3d] ", ProjectSettings.globalize_path(ruta))
