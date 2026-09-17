@@ -1888,6 +1888,26 @@ static func texto_interaccion(n: Node) -> String:
 	return "Interactuar"
 
 
+# EL ICONO del boton flotante: el nombre de una funcion de Iconos. La herramienta con la que se hace (el
+# pico, el hacha, la hoz, la caña, el cuchillo de desollar) y la mano para lo demas (puertas, oficios).
+static func icono_interaccion(n: Node) -> String:
+	if n == null:
+		return ""
+	if n.is_in_group("estanque"):
+		return "cana"
+	if n.has_method("es_veta"):
+		if n.es_veta():
+			return "pico"
+		return "hacha" if n.es_madera() else "hoz"
+	if n.is_in_group("corpse"):
+		return "cuchillo"
+	if n.is_in_group("pickup"):
+		return "bolsa"
+	if n.is_in_group("escalera"):
+		return "flecha_arriba" if bool(n.get("sube")) else "flecha_abajo"
+	return "mano"
+
+
 func hay_enemigo_a_tiro() -> bool:
 	return not _enemigos_a_tiro().is_empty()
 

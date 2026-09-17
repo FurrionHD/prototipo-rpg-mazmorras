@@ -185,59 +185,87 @@ func _ready() -> void:
 #  Game.abrir_menu), el _process del HUD se para con ellos y el boton se quedaba clavado encima del menu.
 # ============================================================
 const INTERACCION_DESPLAZ := Vector2(34.0, -46.0)   # desde el origen del personaje en pantalla
-var _boton_inter: Button = null
+const INTER_ALTO := 30.0                              # alto de la tecla y de la pastilla
+var _inter: HBoxContainer = null        # la fila entera: [F] + pastilla
 var _inter_tecla: PanelContainer = null
+var _inter_pastilla: PanelContainer = null
+var _inter_icono: Control = null
 var _inter_texto: Label = null
+var _inter_icono_nombre: String = ""
+var _inter_sb: StyleBoxFlat = null
+var _inter_sb_hover: StyleBoxFlat = null
 
 
+# Como el de la captura de referencia: la TECLA en su cuadrito aparte a la izquierda y, al lado, la
+# PASTILLA con el icono de lo que vas a hacer (el pico, el hacha, la mano...) y el texto. La pastilla
+# lleva el MISMO margen a los dos lados: la primera version tenia 5 px a la izquierda y 14 a la
+# derecha, y con la tecla escondida quedaba un hueco vacio delante del texto (lo vio el usuario).
 func _montar_boton_interaccion() -> void:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.visible = false
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.10, 0.82)
-	sb.border_color = Color(0.95, 0.72, 0.36, 0.55)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(16)
-	sb.content_margin_left = 5
-	sb.content_margin_right = 14
-	sb.content_margin_top = 4
-	sb.content_margin_bottom = 4
-	var sb_hover := sb.duplicate() as StyleBoxFlat
-	sb_hover.bg_color = Color(0.14, 0.15, 0.20, 0.92)
-	sb_hover.border_color = Color(0.95, 0.72, 0.36, 0.95)
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb_hover)
-	b.add_theme_stylebox_override("pressed", sb_hover)
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.pressed.connect(_on_boton_interaccion)
-	add_child(b)
-	_boton_inter = b
+	_inter = HBoxContainer.new()
+	_inter.add_theme_constant_override("separation", 6)
+	_inter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter.visible = false
+	add_child(_inter)
 
-	var fila := HBoxContainer.new()
-	fila.add_theme_constant_override("separation", 8)
-	fila.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(fila)
-
-	# La TECLA, en su cuadradito claro. Con los dedos no hay tecla que enseñar: el boton ya es el boton.
+	# LA TECLA. Con los dedos no hay tecla que enseñar: la pastilla ya es el boton.
 	_inter_tecla = PanelContainer.new()
 	var sb_t := StyleBoxFlat.new()
-	sb_t.bg_color = Color(0.92, 0.90, 0.84)
-	sb_t.set_corner_radius_all(12)
-	sb_t.content_margin_left = 7
-	sb_t.content_margin_right = 7
+	sb_t.bg_color = Color(0.06, 0.07, 0.10, 0.88)
+	sb_t.border_color = Color(0.92, 0.90, 0.84, 0.9)
+	sb_t.set_border_width_all(1)
+	sb_t.set_corner_radius_all(6)
 	_inter_tecla.add_theme_stylebox_override("panel", sb_t)
-	_inter_tecla.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_tecla.custom_minimum_size = Vector2(INTER_ALTO, INTER_ALTO)
+	_inter_tecla.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_inter_tecla.visible = not Tactil.activo
 	var tecla := Label.new()
 	tecla.text = "F"
 	tecla.add_theme_font_size_override("font_size", 14)
-	tecla.add_theme_color_override("font_color", Color(0.10, 0.10, 0.12))
+	tecla.add_theme_color_override("font_color", Color(0.96, 0.95, 0.92))
 	tecla.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tecla.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tecla.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inter_tecla.add_child(tecla)
-	fila.add_child(_inter_tecla)
+	_inter.add_child(_inter_tecla)
+
+	# LA PASTILLA.
+	_inter_pastilla = PanelContainer.new()
+	_inter_sb = StyleBoxFlat.new()
+	_inter_sb.bg_color = Color(0.06, 0.07, 0.10, 0.82)
+	_inter_sb.border_color = Color(0.95, 0.72, 0.36, 0.45)
+	_inter_sb.set_border_width_all(1)
+	_inter_sb.set_corner_radius_all(int(INTER_ALTO * 0.5))
+	for lado in ["left", "right"]:
+		_inter_sb.set("content_margin_" + lado, 12.0)
+	for lado in ["top", "bottom"]:
+		_inter_sb.set("content_margin_" + lado, 3.0)
+	_inter_sb_hover = _inter_sb.duplicate() as StyleBoxFlat
+	_inter_sb_hover.bg_color = Color(0.14, 0.15, 0.20, 0.92)
+	_inter_sb_hover.border_color = Color(0.95, 0.72, 0.36, 0.95)
+	_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb)
+	_inter_pastilla.custom_minimum_size = Vector2(0, INTER_ALTO)
+	_inter_pastilla.mouse_filter = Control.MOUSE_FILTER_STOP
+	_inter_pastilla.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_inter_pastilla.gui_input.connect(_on_inter_input)
+	_inter_pastilla.mouse_entered.connect(func() -> void:
+		_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb_hover))
+	_inter_pastilla.mouse_exited.connect(func() -> void:
+		_inter_pastilla.add_theme_stylebox_override("panel", _inter_sb))
+	_inter.add_child(_inter_pastilla)
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 7)
+	fila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_pastilla.add_child(fila)
+
+	_inter_icono = Control.new()
+	_inter_icono.custom_minimum_size = Vector2(18, 18)
+	_inter_icono.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_inter_icono.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_icono.draw.connect(func() -> void:
+		if _inter_icono_nombre != "":
+			Callable(Iconos, _inter_icono_nombre).call(_inter_icono, Vector2.ZERO, 18.0, Color(0.96, 0.95, 0.92)))
+	fila.add_child(_inter_icono)
 
 	_inter_texto = Label.new()
 	_inter_texto.add_theme_font_size_override("font_size", 15)
@@ -245,35 +273,37 @@ func _montar_boton_interaccion() -> void:
 	_inter_texto.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_inter_texto.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fila.add_child(_inter_texto)
-	# El tamaño del boton sigue al de su contenido (un Button no mide a sus hijos por su cuenta).
-	fila.minimum_size_changed.connect(func() -> void:
-		b.custom_minimum_size = fila.get_combined_minimum_size() + Vector2(19, 8)
-		b.size = b.custom_minimum_size
-		fila.position = Vector2(5, 4))
 
 	get_tree().process_frame.connect(_refrescar_interaccion)
 
 
 func _refrescar_interaccion() -> void:
-	if _boton_inter == null:
+	if _inter == null:
 		return
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var objetivo: Node = null
 	# Nada que enseñar con un menu, un minijuego o una pelea delante (todos pausan el arbol o abren capa).
-	if jugador != null and jugador.has_method("objetivo_interaccion") and not get_tree().paused \
-			and Game._active_layer == null and not Game.combate_activo():
+	if jugador != null and jugador.has_method("objetivo_interaccion") and not get_tree().paused 			and Game._active_layer == null and not Game.combate_activo():
 		objetivo = jugador.objetivo_interaccion()
 	if objetivo == null:
-		_boton_inter.visible = false
+		_inter.visible = false
 		return
 	var texto: String = jugador.texto_interaccion(objetivo)
-	if _inter_texto.text != texto:
+	var icono: String = jugador.icono_interaccion(objetivo)
+	if _inter_texto.text != texto or _inter_icono_nombre != icono:
 		_inter_texto.text = texto
-	_boton_inter.position = (jugador.get_global_transform_with_canvas().origin + INTERACCION_DESPLAZ).round()
-	_boton_inter.visible = true
+		_inter_icono_nombre = icono
+		_inter_icono.queue_redraw()
+		_inter.reset_size()   # que encoja con un texto mas corto: el contenedor solo crece solo
+	_inter.position = (jugador.get_global_transform_with_canvas().origin + INTERACCION_DESPLAZ).round()
+	_inter.visible = true
 
 
-func _on_boton_interaccion() -> void:
+func _on_inter_input(ev: InputEvent) -> void:
+	var pulsado: bool = (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT 		and not ev.pressed) or (ev is InputEventScreenTouch and not ev.pressed)
+	if not pulsado:
+		return
+	_inter_pastilla.accept_event()
 	var jugador: Node = get_tree().get_first_node_in_group("player")
 	if jugador != null and jugador.has_method("_try_interact"):
 		jugador._try_interact()

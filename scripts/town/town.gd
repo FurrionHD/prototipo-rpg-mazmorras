@@ -311,10 +311,10 @@ func _crear_escalera() -> void:
 	# medio lado de la escalera; desde el norte el origen del jugador queda a ~66 px del centro (sus pies
 	# van por debajo de su origen), y 66 - 48 = 18 cae dentro de su interact_range (40).
 	var celda: float = float(PuebloPlano.CELDA)
-	var p: Node2D = _puerta("res://scripts/town/door.gd", r.position, "→ MAZMORRA")
+	# Sin rotulo, como las casas: lo que hace la F lo dice el boton flotante del HUD (ver hud.gd).
+	var p: Node2D = _puerta("res://scripts/town/door.gd", r.position, "")
 	p.position = (Vector2(r.position) + Vector2(r.size) * 0.5) * celda
 	p.radio_extra = float(r.size.x) * celda * 0.5
-	(p.get_node("Label") as Label).position.y = float(r.size.y) * celda * 0.5 + 4.0
 	add_child(p)
 
 
@@ -342,7 +342,7 @@ func _crear_jardin() -> void:
 	# Y de noche alumbra el claro, en BLANCO (lo pidio el usuario): siempre encendido, se nota al oscurecer.
 	var boca: Vector2 = columna.position + PuebloSprites.boca_altar() + Vector2(0, -12)
 	luz.poner_foco(boca + Vector2(0, 20), 130.0, Color(0.93, 0.96, 1.0), 1.0, 0.0, true, 0.22, 0.45)
-	add_child(_puerta("res://scripts/town/altar.gd", a + Vector2i(0, 1), "ALTAR"))
+	add_child(_puerta("res://scripts/town/altar.gd", a + Vector2i(0, 1), ""))
 
 
 # ------------------------------------------------------------
