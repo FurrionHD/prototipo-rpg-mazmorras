@@ -52,6 +52,10 @@ var _fila_artesano_rotulo: Label = null
 
 var _tab: int = 0
 var sel: int = 0             # celda elegida en la rejilla
+# ¿La ha elegido el jugador? 'sel == 0' NO vale para decir "aun sin elegir": la primera celda tambien
+# es la 0, y pincharla cuando no llegaba para crear nada hacia que la pantalla saltase a la primera
+# util (no dejaba seleccionar la de la izquierda del todo).
+var sel_elegida := false
 var stacks: Array = []       # lo pintado en la rejilla, en el mismo orden que las celdas
 var _aviso: String = ""
 var _aviso_ok: bool = true
@@ -204,6 +208,7 @@ func abrir_taller() -> bool:
 	if Game._active_layer != null or Game.debug_panel_open:
 		return false
 	sel = 0
+	sel_elegida = false
 	_aviso = ""
 	_root.visible = true
 	Game.abrir_menu(self)   # para el mundo entero mientras el menu esta abierto
@@ -253,6 +258,7 @@ func _on_tab(i: int) -> void:
 # Lo que se enseña ha cambiado (pestaña, filtro): la celda elegida ya no vale.
 func cambiar_pantalla() -> void:
 	sel = 0
+	sel_elegida = false
 	_aviso = ""
 	_al_cambiar_pantalla()
 	_rebuild()
@@ -422,6 +428,7 @@ func _pick(i: int) -> void:
 		_aviso = ""   # cambiar de celda borra el aviso de la anterior
 		_al_elegir_otra()
 	sel = i
+	sel_elegida = true
 	_solo_seleccion = true
 	_rebuild()
 	_solo_seleccion = false

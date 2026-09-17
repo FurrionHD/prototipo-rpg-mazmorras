@@ -60,7 +60,9 @@ func build(que: int) -> void:
 	t.stacks = montones
 	# Arrancar en el primer monton QUE DE PARA ALGO: abrir en un "dan para 0" con el boton apagado
 	# parece que el taller esta roto.
-	if t.sel == 0:
+	# Solo mientras no hayas elegido tu (ver taller_menu.sel_elegida).
+	if not t.sel_elegida:
+		t.sel = 0
 		for i in montones.size():
 			if int(montones[i]["tengo"]) / maxi(1, int(montones[i]["por_uno"])) > 0:
 				t.sel = i

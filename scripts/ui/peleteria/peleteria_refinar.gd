@@ -67,10 +67,10 @@ func build(correas: bool) -> void:
 	# Arrancar en el primer monton QUE DE PARA ALGO, no en el primero a secas: los montones van por
 	# calidad (puro delante, como en el baul) y con un solo puro la pantalla abria en un "dan para 0"
 	# con el boton apagado, que parece que la peleteria esta rota.
-	if t.sel == 0:
-		var i: int = _primero_util(montones)
-		if i > 0:
-			t.sel = i
+	# Solo mientras NO hayas elegido tu (ver taller_menu.sel_elegida): si pinchas uno que no da para
+	# nada, se queda ese.
+	if not t.sel_elegida:
+		t.sel = _primero_util(montones)
 	t.contador(_contador(correas, montones))
 	var piezas: Array = []
 	for m in montones:

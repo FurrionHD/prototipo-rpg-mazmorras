@@ -72,7 +72,9 @@ func build() -> void:
 	t.stacks = lista
 	# Arrancar en la primera receta QUE SE PUEDA HACER, no en la primera a secas: abrir en una con el
 	# boton apagado parece que el taller esta roto.
-	if t.sel == 0:
+	# Solo mientras no hayas elegido tu (ver taller_menu.sel_elegida).
+	if not t.sel_elegida:
+		t.sel = 0
 		for i in lista.size():
 			if _hay_material_para(lista[i]):
 				t.sel = i
