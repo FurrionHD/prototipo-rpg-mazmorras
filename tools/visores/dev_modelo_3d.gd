@@ -86,6 +86,11 @@ const CIERRE_BRAZOS := 38.0
 # Los giros no son de golpe en la junta: entran en este tramo (u) para que la malla no se rompa.
 const TRAMO_JUNTA := 2.5
 const CONTORNO := Color(0.09, 0.08, 0.09)
+# La linea interior solo va donde una parte TAPA a otra con un salto de fondo (brazo delante del pecho,
+# barbilla sobre el cuello). Sin este umbral salia una raya en cada union entre partes -- la ingle, el
+# hombro -- que no es ningun borde: el cuerpo sigue entero ahi. En el canal verde, 1/120 u por nivel:
+# 0,03 = unas 3,6 u de salto.
+const SALTO_PROFUNDIDAD := 0.03
 # Pase de IDs: rojo = parte, verde = profundidad desde la camara (esta a 500 u del objetivo).
 const SHADER_ID := """
 shader_type spatial;
@@ -776,7 +781,7 @@ func _contornear(color: Image, ids: Image) -> Image:
 				if c.a < 0.5:
 					if cq.a >= 0.5:
 						borde = true
-				elif cq.a >= 0.5 and absf(cq.r - c.r) > 0.02 and cq.g < c.g - 0.004:
+				elif cq.a >= 0.5 and absf(cq.r - c.r) > 0.02 and cq.g < c.g - SALTO_PROFUNDIDAD:
 					borde = true
 			if borde:
 				out.set_pixel(x, y, CONTORNO)
