@@ -87,14 +87,16 @@ func es_despensa() -> bool:
 
 
 # Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
+# Con el NOMBRE del material de este nodo ("Minar Cobre", "Recoger Hierba lunar"): lo pidio el usuario,
+# para saber que es antes de ponerse a picar.
 func texto_interaccion() -> String:
+	var nombre: String = material_data.nombre if material_data != null else ""
+	var verbo: String = "Recoger"
 	match tipo:
-		Tipo.VETA: return "Minar"
-		Tipo.CARBON: return "Minar carbón"
-		Tipo.SAL: return "Picar sal"
-		Tipo.MADERA: return "Talar"
-		Tipo.HUERTO: return "Cosechar"
-	return "Recoger plantas"
+		Tipo.VETA, Tipo.CARBON, Tipo.SAL: verbo = "Minar"
+		Tipo.MADERA: verbo = "Talar"
+		Tipo.HUERTO: verbo = "Cosechar"
+	return ("%s %s" % [verbo, nombre]).strip_edges()
 
 
 # Lo llama el jugador al pulsar F (ver player._try_interact).
