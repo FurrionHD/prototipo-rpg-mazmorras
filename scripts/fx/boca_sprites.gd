@@ -37,6 +37,8 @@ static func clave(modelo: String) -> String:
 	return "%s_%s" % [PIEZA, modelo]
 
 
+# Donde va: CaraSprites.SITIOS, medido sobre la piel que se ve (la proyeccion la ponia en el moflete en
+# diagonal y encima del pelo de perfil, ver alli).
 static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 	var d: int = int(esq.get("dir", 0))
 	if d == 3 or d == 4 or d == 5:
@@ -44,29 +46,25 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 	var dibujo: Array = BOCAS.get(modelo, [])
 	if dibujo.is_empty():
 		return
-	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
-	var de_perfil: bool = d == 2 or d == 6
-	# De perfil la boca se corre hacia el lado al que mira (el mismo que el unico ojo que se dibuja).
-	var dx: float = 0.0
-	if de_perfil:
-		# El signo es el de CaraSprites de antes (-lados[0]); al reves la boca subia por encima del ojo.
-		dx = (1.0 if d == 6 else -1.0) * R * CaraSprites.BOCA_PERFIL
-	var pos: Vector2 = PoseJugador.proyectar(esq,
-		cab + Vector3(dx, R * CaraSprites.OJO_FONDO, R * CaraSprites.BOCA_ALTO),
-		Vector3(R * 0.1, R * 0.1, R * 0.1))["pos"]
-	# En DIAGONAL y DE PERFIL la boca caia en la fila de abajo del ojo: un pixel mas abajo.
-	if d == 1 or d == 7 or de_perfil:
-		pos.y += 1.0
-	var centro0: Vector2 = PoseJugador.proyectar(esq, cab, Vector3(R, R, R))["pos"]
-	pos = CaraSprites.hacia_dentro(pos, centro0, String(dibujo[0]).length(), d)
-	# DE PERFIL, SOLO LA MITAD DE DELANTE: una sonrisa entera de lado se lee como un bigote cruzando la
-	# mejilla. Se quedan las columnas del lado hacia el que queda la cara.
+	var c: Vector2i = CaraSprites.centro_cabeza(esq)
+	var espejar: bool = d == 6 or d == 7
+	var dm: int = {0: 0, 1: 1, 7: 1, 2: 2, 6: 2}[d]
+	var sitio: Dictionary = CaraSprites.SITIOS[dm]
+	var ancho: int = String(dibujo[0]).length()
+	var alto: int = dibujo.size()
+	var y0: int
+	var x0: int
 	var columnas: Array = []
-	if de_perfil:
-		var centro: Vector2 = PoseJugador.proyectar(esq, cab, Vector3(R, R, R))["pos"]
-		var ancho: int = String(dibujo[0]).length()
-		var delante_derecha: bool = pos.x >= centro.x
+	if dm == 2:
+		# DE PERFIL, SOLO LA MITAD DE DELANTE (una sonrisa entera de lado se lee como un bigote), con su
+		# columna de delante en el borde medido.
+		x0 = c.x + int(sitio["boca_borde"]) - ancho + 1
+		y0 = int(floor(float(c.y) + float(sitio["boca_y"]) - float(alto - 1) * 0.5))
 		for i in ancho:
-			if (i >= ancho / 2) == delante_derecha:
+			if i >= ancho / 2:
 				columnas.append(i)
-	CaraSprites.sello(piezas, pos, dibujo, false, false, columnas)
+	else:
+		var cen: Vector2 = sitio["boca"]
+		x0 = int(floor(float(c.x) + cen.x - float(ancho - 1) * 0.5))
+		y0 = int(floor(float(c.y) + cen.y - float(alto - 1) * 0.5))
+	CaraSprites.sello_en(piezas, x0, y0, dibujo, false, false, columnas, c.x, espejar)

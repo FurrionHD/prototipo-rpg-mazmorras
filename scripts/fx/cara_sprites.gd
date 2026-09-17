@@ -127,6 +127,30 @@ static func colores() -> Array:
 
 
 # ============================================================
+#  DONDE VA CADA RASGO: MEDIDO SOBRE LA PIEL QUE SE VE
+# ============================================================
+# Primero se colocaban proyectando un punto de la cabeza, como el resto del muñeco, y fallaba fuera
+# del sur (lo vio el usuario): el pelo (z 2047, debajo de la cara) TAPA casi toda la cabeza y la piel
+# que queda a la vista no es la que diria la geometria. Medido con un mapa de pixeles de cuerpo + pelo:
+#   - de frente, la cara es la franja de abajo, centrada;
+#   - en diagonal, solo la ESQUINA de abajo del lado al que mira (el ojo de atras caia sobre el pelo);
+#   - de perfil, una TIRA de 2-3 px en el borde de delante (el ojo y la boca metidos hacia dentro
+#     acababan encima del pelo).
+# Asi que van en pixeles medidos, RELATIVOS al centro de la cabeza en ESTE fotograma (redondeado): siguen
+# el bote al andar y el golpe igual que antes. Corto y largo tapan igual esta zona.
+#
+# Se miden para S (0), SE (1) y E (2); W (6) y SW (7) son su espejo. Numeros en pixeles del lienzo:
+#   'ojo' = centro del ojo de la DERECHA de la pantalla (el otro es su espejo de frente, y en diagonal
+#          lleva su propio sitio: 'ojo_atras'); en perfil, 'borde' = la columna de delante del ojo.
+#   'boca' = centro de la boca; en perfil, 'boca_borde' = su columna de delante.
+const SITIOS := {
+	0: {"ojo": Vector2(2.5, 6.0), "boca": Vector2(0.0, 8.0)},
+	1: {"ojo": Vector2(5.5, 7.0), "ojo_atras": Vector2(0.5, 7.0), "boca": Vector2(3.5, 9.5)},
+	2: {"borde": 9, "ojo_y": 4.5, "boca_borde": 7, "boca_y": 7.5},
+}
+
+
+# ============================================================
 #  EL PINTOR
 # ============================================================
 static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
@@ -138,56 +162,56 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 	var dibujo: Array = OJOS.get(base, [])
 	if dibujo.is_empty():
 		return
-	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
-	var de_perfil: bool = d == 2 or d == 6
-	# De perfil, el unico ojo que se ve es el del lado hacia el que mira la camara.
-	var lados: Array = [1.0, -1.0]
-	if de_perfil:
-		lados = [1.0] if d == 6 else [-1.0]
-	var centro: Vector2 = PoseJugador.proyectar(esq, cab, Vector3(R, R, R))["pos"]
+	var c: Vector2i = centro_cabeza(esq)
+	var espejar: bool = d == 6 or d == 7
+	var dm: int = {0: 0, 1: 1, 7: 1, 2: 2, 6: 2}[d]
+	var sitio: Dictionary = SITIOS[dm]
 	var ancho: int = String(dibujo[0]).length()
-	for s in lados:
-		var pos: Vector2 = PoseJugador.proyectar(esq, _ojo(cab, float(s)), Vector3(R * 0.1, R * 0.1, R * 0.1))["pos"]
-		pos = hacia_dentro(pos, centro, ancho, d)
-		sello(piezas, pos, dibujo, float(s) < 0.0, iris)
+	var alto: int = dibujo.size()
+	if dm == 2:
+		# De perfil, UN ojo, con su columna de delante en el borde medido.
+		var x0: int = c.x + int(sitio["borde"]) - ancho + 1
+		var y0: int = int(floor(float(c.y) + float(sitio["ojo_y"]) - float(alto - 1) * 0.5))
+		# La tira de piel de perfil mide 3 px: de un ojo ancho solo caben sus 3 columnas de delante.
+		var cols: Array = []
+		for i in ancho:
+			if i >= ancho - 3:
+				cols.append(i)
+		sello_en(piezas, x0, y0, dibujo, false, iris, cols, c.x, espejar)
+		return
+	var derecha: Vector2 = sitio["ojo"]
+	var izquierda: Vector2 = sitio.get("ojo_atras", Vector2(-derecha.x - 1.0, derecha.y))
+	if dm == 0:
+		izquierda = Vector2(-derecha.x - 1.0, derecha.y)
+	for lado in [[derecha, false], [izquierda, true]]:
+		var cen: Vector2 = lado[0]
+		var x0b: int = int(floor(float(c.x) + cen.x - float(ancho - 1) * 0.5))
+		var y0b: int = int(floor(float(c.y) + cen.y - float(alto - 1) * 0.5))
+		sello_en(piezas, x0b, y0b, dibujo, bool(lado[1]), iris, [], c.x, espejar)
 
 
-# METE EL SELLO DENTRO DE LA CARA. El sitio del ojo (o de la boca) de perfil cae en el mismo FILO de la
-# cabeza, y centrando el dibujo ahi medio ojo se salia por fuera (visto en la hoja). De perfil se corre
-# hacia el centro lo que mide medio dibujo mas un pixel; en diagonal, solo el que queda mas afuera y
-# un pixel.
-static func hacia_dentro(pos: Vector2, centro: Vector2, ancho: int, d: int) -> Vector2:
-	var fuera: float = pos.x - centro.x
-	var signo: float = 1.0 if fuera >= 0.0 else -1.0
-	if d == 2 or d == 6:
-		pos.x -= signo * float(ancho / 2 + 1)
-	elif (d == 1 or d == 7) and absf(fuera) > 4.0:
-		pos.x -= signo
-	return pos
+# El centro de la cabeza en este fotograma, en pixeles enteros del lienzo.
+static func centro_cabeza(esq: Dictionary) -> Vector2i:
+	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
+	var pos: Vector2 = PoseJugador.proyectar(esq, cab, Vector3(R, R, R))["pos"]
+	return Vector2i(int(floor(pos.x)), int(floor(pos.y)))
 
 
-# Donde cae un ojo. 's' es +1 el de la derecha de la pantalla (mirando al sur) y -1 el otro.
-static func _ojo(cab: Vector3, s: float) -> Vector3:
-	return cab + Vector3(s * R * OJO_SEPARACION, R * OJO_FONDO, R * OJO_ALTO)
-
-
-# ESTAMPA UN DIBUJO de pixeles centrado en 'pos' (celdas del lienzo). 'espejo' lo da la vuelta en
-# horizontal. 'solo_iris': true pinta SOLO el iris y la pupila (la capa teñida); false, todo lo demas.
-# 'columnas' recorta el dibujo a esas columnas (Array de indices; vacio = todas): lo usa la boca de
-# perfil, que solo enseña la mitad de delante.
+# ESTAMPA UN DIBUJO de pixeles con su esquina de arriba a la izquierda en (x0, y0). 'espejo' da la vuelta
+# al dibujo; 'espejar_sitio' refleja la POSICION respecto al centro de la cabeza (cx), que es como las
+# direcciones W y SW salen de E y SE. 'solo_iris': true pinta SOLO iris y pupila (la capa teñida).
+# 'columnas' recorta a esas columnas del dibujo (vacio = todas).
 #
-# Cada pixel es una elipse de medio pixel de radio centrada en el centro de su celda: la ruta por filas
-# de SpriteLienzo.elipse la rellena exactamente a UNA celda (ni se come la vecina ni se queda en nada).
-static func sello(piezas: Array, pos: Vector2, dibujo: Array, espejo: bool, solo_iris: bool,
-		columnas: Array = []) -> void:
+# Cada pixel es una elipse de medio pixel de radio en el centro de su celda: SpriteLienzo.elipse la
+# rellena exactamente a UNA celda. Y van con "sin_contorno" (ver la cabecera).
+static func sello_en(piezas: Array, x0: int, y0: int, dibujo: Array, espejo: bool, solo_iris: bool,
+		columnas: Array, cx: int, espejar_sitio: bool) -> void:
 	var alto: int = dibujo.size()
 	var ancho: int = String(dibujo[0]).length()
-	var x0: int = int(floor(pos.x)) - ancho / 2
-	var y0: int = int(floor(pos.y)) - alto / 2
 	for j in alto:
 		var fila: String = dibujo[j]
 		for i in ancho:
-			var letra: String = fila[ancho - 1 - i] if espejo else fila[i]
+			var letra: String = fila[ancho - 1 - i] if espejo != espejar_sitio else fila[i]
 			if not LETRAS.has(letra):
 				continue
 			if not columnas.is_empty() and not columnas.has(i):
@@ -195,8 +219,11 @@ static func sello(piezas: Array, pos: Vector2, dibujo: Array, espejo: bool, solo
 			var tono: int = int(LETRAS[letra])
 			if (tono in TONOS_IRIS) != solo_iris:
 				continue
+			var x: int = x0 + i
+			if espejar_sitio:
+				x = 2 * cx - 1 - x   # el eje es el borde entre la columna cx-1 y la cx
 			piezas.append({
-				"pos": Vector2(float(x0 + i) + 0.5, float(y0 + j) + 0.5), "radio": Vector2(0.5, 0.5),
+				"pos": Vector2(float(x) + 0.5, float(y0 + j) + 0.5), "radio": Vector2(0.5, 0.5),
 				"persp": 1.0, "tono": tono, "ang": 0.0, "gira_forma": false, "solo_sobre": [],
 				"sin_contorno": true,
 			})
