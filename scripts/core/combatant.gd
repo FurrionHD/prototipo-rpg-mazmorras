@@ -632,6 +632,13 @@ func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
 	return _spd_base() * velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult
+# La velocidad con la que se decide QUIEN ES EL MAS RAPIDO de la pelea (ver combat._escala_barra):
+# la de verdad sin lo pasajero (estados, guardia, imbuicion), para que un Ralentizado frene al que lo
+# lleva en vez de acelerar al resto.
+func spd_referencia() -> float:
+	if dummy_speed_override >= 0.0:
+		return dummy_speed_override
+	return _spd_base() * velocidad_mult
 # Velocidad al CASTEAR (KAN-95): igual que spd() pero con la velocidad de casteo.
 # El imbue entra en las DOS igual que los estados: el manto te ligerea entero, no solo al pegar.
 func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_mult() * _guardia_spd() * imbue_spd_mult

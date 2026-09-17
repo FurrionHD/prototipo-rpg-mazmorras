@@ -71,7 +71,10 @@ const CombatEspejo = preload("res://scripts/ui/combat_espejo.gd")
 var espejo = CombatEspejo.new(self)
 
 const UMBRAL := 100.0          # cuanto llenar la barra para actuar
-const SPEED_SCALE := 10.0      # ritmo de llenado (mas alto = combate mas rapido)
+# EL MAS RAPIDO DE LA PELEA llena la barra en este tiempo (a x1), y los demas en proporcion a su
+# velocidad. Antes el ritmo era fijo (velocidad x 10) y en los primeros pisos, con todos lentos, una
+# barra tardaba casi 4 s: lo pidio el usuario.
+const SEGUNDOS_BARRA_MAS_RAPIDO := 1.0
 const INICIATIVA_VENTAJA := 50.0  # media barra de ventaja para quien inicia
 
 # Si entras AGOTADO, tus primeras acciones van mas lentas.
@@ -467,6 +470,20 @@ func _aliados_vivos() -> Array[Combatant]:
 		if c.is_alive() and not _huidos.has(c):
 			out.append(c)
 	return out
+# Lo que se multiplica por la velocidad de cada uno para llenar su barra: el mas rapido de los que
+# siguen en pie la llena en SEGUNDOS_BARRA_MAS_RAPIDO. Se mira cada fotograma, asi que si cae el mas
+# rapido (o entra uno nuevo) el ritmo se reajusta solo.
+#
+# El mas rapido se mide con la velocidad de REFERENCIA (sin estados, guardia ni imbuicion; ver
+# Combatant.spd_referencia): si contara el Ralentizado, frenar al mas rapido no lo frenaria a el,
+# aceleraria a todos los demas.
+func _escala_barra() -> float:
+	var vmax: float = 0.0
+	for c in _aliados_vivos():
+		vmax = maxf(vmax, c.spd_referencia())
+	for e in _vivos():
+		vmax = maxf(vmax, e.spd_referencia())
+	return UMBRAL / (SEGUNDOS_BARRA_MAS_RAPIDO * maxf(vmax, 0.01))
 func _ready() -> void:
 	# El reloj de la traza (ver _traza_add) arranca AQUI y no en setup(): hay dos caminos de entrada
 	# al combate (setup y setup_espejo) y lo que solo se escribe en uno se pierde para el otro.
@@ -963,6 +980,7 @@ func _process(delta: float) -> void:
 	# pelea mas lenta de JUGAR, que es lo contrario de lo que se busca. La pausa de lectura tampoco
 	# se escala aqui: ya sale acortada de arrancar_cola, que devuelve segundos de verdad.
 	var datb: float = delta * _vel_pelea
+	var escala: float = _escala_barra()
 
 	# CADA aliado llena SU barra con SU velocidad: el grupo no actua a la vez, se van alternando
 	# segun quien sea mas rapido (por eso meter a alguien agil cambia el ritmo de la pelea).
@@ -971,7 +989,7 @@ func _process(delta: float) -> void:
 	# ritmo sus primeras acciones.
 	for c in _aliados_vivos():
 		var casteando: bool = _casteos.has(c)
-		var rate: float = SPEED_SCALE
+		var rate: float = escala
 		# El SOBREPESO es de cada uno (ver Combatant.overload_factor): en multi, el que va cargado va
 		# lento EL, no todo el grupo.
 		#
@@ -989,7 +1007,7 @@ func _process(delta: float) -> void:
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * datb * rate
 	for e in _vivos():
-		_gauge[e] += e.spd() * datb * SPEED_SCALE
+		_gauge[e] += e.spd() * datb * escala
 
 	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
 	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el
