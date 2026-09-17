@@ -732,11 +732,35 @@ func _apagar_la_luz() -> void:
 			_niebla.poner_brotes(_celdas_brote, jefe.sala_luz_radio, jefe.sala_luz_intensidad)
 
 
+# Las celdas que ocupan (con holgura) las escaleras y puertas del piso, para que el riachuelo no pase
+# por debajo. Salen de las MISMAS celdas que _colocar_actores y abrir_salidas: la boca (2 celdas por
+# encima del centro de la entrada), la bajada (igual en la sala lejana) y la salida al pueblo de los
+# pisos de jefe (3 celdas a su derecha). Se vetan aunque la bajada aun no este abierta: el agua no se
+# vuelve a trazar al caer el jefe. El radio cubre la escalera de caracol entera (~5 celdas de ancho).
+const RADIO_VETO_SALIDA := 3
+
+func _celdas_de_salidas() -> Dictionary:
+	var out: Dictionary = {}
+	if gen.salas.is_empty():
+		return out
+	var entrada: Rect2i = gen.salas[0]
+	var sitios: Array[Vector2i] = [entrada.get_center() + Vector2i(0, -2)]
+	var lejana: Rect2i = _sala_mas_lejana(entrada)
+	if lejana.size != Vector2i.ZERO:
+		sitios.append(lejana.get_center() + Vector2i(0, -2))
+		sitios.append(lejana.get_center() + Vector2i(3, -2))
+	for s in sitios:
+		for dy in range(-RADIO_VETO_SALIDA, RADIO_VETO_SALIDA + 1):
+			for dx in range(-RADIO_VETO_SALIDA, RADIO_VETO_SALIDA + 1):
+				out[s + Vector2i(dx, dy)] = true
+	return out
+
+
 func _decorar() -> void:
 	var sem: int = _semilla_del_piso()
 	var d := Decorado.new()
 	# Las FLORES que alumbran son cosa de la cueva: en la mazmorra picada de arriba no hay.
-	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem, _estilo_cueva)
+	d.generar(gen, _celda_estanque, ESTANQUE_CELDAS, sem, _estilo_cueva, _celdas_de_salidas())
 	_celdas_musgo = d.musgo
 	# El riachuelo y el lago van en capas SEPARADAS (uno corre, el otro esta en calma) pero son una
 	# sola lamina: `_lamina` es la union, y es contra ella contra la que se calculan las dos
@@ -1636,21 +1660,49 @@ func _colocar_en_pasillos(rng: RandomNumberGenerator, tabla: MaterialTable,
 	if tabla == null:
 		return 0
 	var tope: int = escalar_con_el_piso(tope_base) if escalar else tope_base
-	var sitios: int = 0
-	var puestas: int = 0
+	var zonas: Array = []
+	var cupos: Array = []
 	for i in range(gen.zonas.size()):
-		if sitios >= tope:
-			break
 		var z: Dictionary = gen.zonas[i]
 		if z["tipo"] != "pasillo":
 			continue
-		var celdas: Array = z["celdas"]
-		var n: int = clampi(celdas.size() / maxi(1, celdas_por_planta), 0, max_plantas_pasillo)
-		n = mini(n, tope - sitios)
-		for _k in range(n):
-			var c: Vector2i = _celda_junto_a_pared(celdas, rng)
+		zonas.append(i)
+		cupos.append(clampi((z["celdas"] as Array).size() / maxi(1, celdas_por_planta), 0, max_plantas_pasillo))
+	return _repartir_por_rondas(rng, zonas, cupos, tope, tipo)
+
+
+# EL REPARTO POR RONDAS, para que el tope del piso llegue a TODO el mapa. Antes se llenaba cada zona
+# hasta su cupo, en orden, y se cortaba al agotar el tope: los pasillos se crean de izquierda a derecha
+# (ver DungeonGenerator._trazar_pasillos), asi que los de la izquierda se lo comian todo y el centro y
+# la derecha se quedaban sin nada (lo vio el usuario en el mapa del piso 7).
+#
+# Ahora las zonas se BARAJAN y en cada ronda recibe UNO cada zona a la que aun le quede cupo: primero
+# uno en cada sitio, luego el segundo... hasta el tope. 'zonas' = indices de gen.zonas, 'cupos' = cuantos
+# caben como mucho en cada una (en paralelo).
+func _repartir_por_rondas(rng: RandomNumberGenerator, zonas: Array, cupos: Array, tope: int,
+		tipo: int) -> int:
+	var orden: Array = range(zonas.size())
+	for i in range(orden.size() - 1, 0, -1):   # Fisher-Yates con el rng del piso: determinista
+		var j: int = rng.randi_range(0, i)
+		var tmp = orden[i]
+		orden[i] = orden[j]
+		orden[j] = tmp
+	var cupo_max: int = 0
+	for n in cupos:
+		cupo_max = maxi(cupo_max, int(n))
+	var llenas: Dictionary = {}   # zonas sin celda libre junto a pared: no se vuelven a mirar
+	var sitios: int = 0
+	var puestas: int = 0
+	for ronda in range(cupo_max):
+		for k in orden:
+			if sitios >= tope:
+				return puestas
+			if int(cupos[k]) <= ronda or llenas.has(k):
+				continue
+			var c: Vector2i = _celda_junto_a_pared(gen.zonas[int(zonas[k])]["celdas"], rng)
 			if c == Vector2i.MAX:
-				break
+				llenas[k] = true
+				continue
 			sitios += 1
 			if _crear_recolectable(tipo, c):
 				puestas += 1
@@ -1677,42 +1729,26 @@ func _colocar_en_salas(rng: RandomNumberGenerator, tabla: MaterialTable, tipo: i
 		return 0
 	var entrada: Rect2i = gen.salas[0]
 	var escalera: Rect2i = _sala_mas_lejana(entrada)
-	var origen: Vector2 = Vector2(entrada.get_center())
 
-	var candidatas: Array[Rect2i] = []
+	# TODAS las salas menos las dos seguras (la boca y la de la bajada). Antes solo la MITAD MAS LEJANA
+	# de la entrada, y con eso la roca caia siempre en el mismo lado del mapa -- y encima el lado de las
+	# plantas, que tambien se amontonaban ahi (ver _repartir_por_rondas). Picar sigue costando meterse:
+	# en la sala de entrada no hay nada.
+	var zonas: Array = []
+	var cupos: Array = []
 	for s in gen.salas:
 		if s == entrada or s == escalera:
 			continue
-		candidatas.append(s)
-	if candidatas.is_empty():
-		return 0
-	# De las que quedan, solo la MITAD MAS LEJANA lleva veta. Y se empieza por la MAS lejana:
-	# si el tope del piso se agota antes de recorrerlas todas, las que se quedan sin veta son
-	# las de mas cerca de la entrada, que es justo como tiene que ser.
-	candidatas.sort_custom(func(a: Rect2i, b: Rect2i):
-		return origen.distance_to(Vector2(a.get_center())) > origen.distance_to(Vector2(b.get_center())))
-	var cuantas: int = maxi(1, candidatas.size() / 2)
-
-	# Igual que con las plantas: lo que se cuenta contra el tope son los SITIOS, no las vetas
-	# que nacen. Si no, una veta ya picada dejaria su hueco libre para otra mas alla.
-	var sitios: int = 0
-	var puestas: int = 0
-	for i in range(cuantas):
-		if sitios >= tope:
-			break
-		var idx: int = gen.zona_en(candidatas[i].get_center())
+		var idx: int = gen.zona_en(s.get_center())
 		if idx < 0:
 			continue
-		var celdas: Array = gen.zonas[idx]["celdas"]
-		var n: int = mini(rng.randi_range(min_sala, max_sala), tope - sitios)
-		for _k in range(n):
-			var c: Vector2i = _celda_junto_a_pared(celdas, rng)
-			if c == Vector2i.MAX:
-				break
-			sitios += 1
-			if _crear_recolectable(tipo, c):
-				puestas += 1
-	return puestas
+		zonas.append(idx)
+		cupos.append(rng.randi_range(min_sala, max_sala))
+	if zonas.is_empty():
+		return 0
+	# Igual que con las plantas: lo que se cuenta contra el tope son los SITIOS, no las vetas
+	# que nacen. Si no, una veta ya picada dejaria su hueco libre para otra mas alla.
+	return _repartir_por_rondas(rng, zonas, cupos, tope, tipo)
 
 
 # Instancia un recolectable (ver ResourceNode.Tipo: 0 veta, 1 planta, 2 madera, 3 sal, 4 huerto).

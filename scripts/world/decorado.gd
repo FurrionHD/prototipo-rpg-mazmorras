@@ -49,11 +49,16 @@ var _estanque: Vector2i = Vector2i.MAX
 var _estanque_tam: Vector2i = Vector2i.ZERO
 # El lago engordado 3 celdas, para el barrido de manantiales de _trazar_agua (ver _en_estanque).
 var _lago_d3: Dictionary = {}
+var _vetadas: Dictionary = {}   # celdas prohibidas para el riachuelo (ver generar)
 
 
+# 'vetadas' = celdas por las que el riachuelo NO puede pasar ni nacer ni acabar: donde van las
+# escaleras y las puertas del piso (ver DungeonFloor._celdas_de_salidas). Se trazaba por cualquier
+# suelo y pasaba por debajo de la escalera al pueblo.
 func generar(gen: DungeonGenerator, celda_estanque: Vector2i, tam_estanque: Vector2i,
-		sem: int, con_flores: bool = false) -> void:
+		sem: int, con_flores: bool = false, vetadas: Dictionary = {}) -> void:
 	_gen = gen
+	_vetadas = vetadas
 	_estanque = celda_estanque
 	_estanque_tam = tam_estanque
 	musgo.clear()
@@ -410,7 +415,7 @@ func _trazar_agua(sem: int) -> void:
 	for y in _gen.alto:
 		for x in _gen.ancho:
 			var c := Vector2i(x, y)
-			if not _gen.es_suelo(c) or not _pega_a_roca(c):
+			if not _gen.es_suelo(c) or not _pega_a_roca(c) or _vetadas.has(c):
 				continue
 			if hay_lago and _en_estanque(c, 3):
 				continue      # que no nazca dentro del propio charco
@@ -437,7 +442,7 @@ func _trazar_agua(sem: int) -> void:
 			break
 		for l in _LADOS:
 			var v: Vector2i = c + l
-			if padre.has(v) or not _gen.es_suelo(v):
+			if padre.has(v) or not _gen.es_suelo(v) or _vetadas.has(v):
 				continue
 			padre[v] = c
 			dist[v] = d + 1
