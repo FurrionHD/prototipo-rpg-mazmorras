@@ -439,6 +439,31 @@ func _al_elegir_otra() -> void:
 
 
 # Una celda de la rejilla (ver MenuScaffold.rejilla_objetos).
+# LOS MONTONES DE UN MATERIAL para las rejillas de refinado: [calidad, cuantos] de cada calidad que
+# tengas. Sin nada de el, UNO Normal a 0: lo desbloqueado sale siempre (lo pidio el usuario), y una
+# celda por calidad vacia llenaria la rejilla de ceros. disponible_ (y no items_): en multi resta lo
+# que el compañero tenga reservado.
+static func montones_o_vacio(mat: MaterialData) -> Array:
+	var out: Array = []
+	for cal in CALIDADES:
+		var tengo: int = Game.disponible_calidad_en_hogar(mat, int(cal))
+		if tengo > 0:
+			out.append([int(cal), tengo])
+	if out.is_empty():
+		out.append([int(MaterialItem.Calidad.NORMAL), 0])
+	return out
+
+
+# Una celda de refinado: pinta lo que SALE y el numero es CUANTOS PUEDES HACER, no cuantos tienes
+# (con 1 y hacen falta 2 ponia x1 y parecia que se podia). A 0 sale apagada, pero se puede elegir
+# para ver que falta.
+static func pieza_refino(sale: Resource, cal: int, tengo: int, por_uno: int, tooltip: String) -> Dictionary:
+	var salen: int = tengo / maxi(1, por_uno)
+	var p: Dictionary = pieza(sale, "x%d" % salen, tooltip, cal_txt(cal))
+	p["tenue"] = salen <= 0
+	return p
+
+
 static func pieza(modelo: Resource, pie: String, tooltip: String, marca: String = "") -> Dictionary:
 	return {"item": modelo, "pie": pie, "tooltip": tooltip, "marca": marca, "activo": true}
 

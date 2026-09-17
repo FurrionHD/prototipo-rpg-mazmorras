@@ -82,10 +82,9 @@ func build(correas: bool) -> void:
 		# La CALIDAD va escrita en la esquina y no solo en el color: la rejilla tiene hasta cuatro
 		# montones del mismo material, uno por calidad, y son operaciones distintas -- pulsar el que
 		# no era gasta del bueno.
-		piezas.append(t.pieza(m["sale"], "x%d" % int(m["tengo"]),
+		piezas.append(t.pieza_refino(m["sale"], int(m["cal"]), int(m["tengo"]), int(m["por_uno"]),
 			"%s (%s)  ·  de %s  ·  tienes %d" % [(m["destino"] as MaterialData).nombre,
-				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])],
-			t.cal_txt(int(m["cal"]))))
+				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])]))
 	t.grid_detail(piezas, func(vb: VBoxContainer) -> void: _ficha(vb, correas), _vacio(correas))
 
 
@@ -145,11 +144,11 @@ func _recoger(correas: bool) -> Array:
 			else Game.curtido_de(origen)
 		if destino == null:
 			continue
-		for cal in t.CALIDADES:
-			# disponible_ (y no items_): en multi resta lo que el compañero tenga reservado.
-			var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))
-			if tengo <= 0:
-				continue
+		# LO DESBLOQUEADO SALE SIEMPRE (lo pidio el usuario): sin nada de esa piel queda una celda
+		# Normal a x0, para que se vea que existe y que falta material.
+		for par in t.montones_o_vacio(origen):
+			var cal: int = int(par[0])
+			var tengo: int = int(par[1])
 			out.append({
 				# 'sale' es lo que se pinta en la celda (lo que vas a crear) y 'modelo' lo que
 				# gastas: los dos se necesitan, y los dos con la MISMA calidad -- el refinado no

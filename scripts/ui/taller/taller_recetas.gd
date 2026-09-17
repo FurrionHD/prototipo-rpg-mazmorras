@@ -84,10 +84,13 @@ func build() -> void:
 	for r in lista:
 		var rec: RecipeData = r as RecipeData
 		var llevas: int = int(Game.consumables.get(rec.resultado, 0))
-		piezas.append({"item": rec.resultado, "pie": "x%d" % llevas if llevas > 0 else "",
-			"marca": "", "activo": true,
+		# EL NUMERO ES CUANTAS PUEDES HACER con lo que hay en el Hogar, no cuantas llevas (lo pidio el
+		# usuario, igual en todos los talleres). A 0, apagada pero se puede elegir.
+		var salen: int = _cuantas_salen(rec)
+		piezas.append({"item": rec.resultado, "pie": "x%d" % salen,
+			"marca": "", "activo": true, "tenue": salen <= 0,
 			"tooltip": "%s  ·  %s%s" % [rec.nombre(),
-				"tienes material" if _hay_material_para(rec) else "te falta material",
+				"puedes hacer %d" % salen if salen > 0 else "te falta material",
 				"  ·  llevas %d" % llevas if llevas > 0 else ""]})
 	if Net.activo and lista.is_empty():
 		Net.hogar.reservar({})   # sin receta no reservo nada
@@ -161,6 +164,23 @@ func _hay_material_para(r: RecipeData) -> bool:
 		if Game.disponible_unidades_material_en_hogar(ing.material) < ing.unidades:
 			return false
 	return true
+
+
+# Cuantas PIEZAS salen como mucho con todo lo del Hogar (y las pociones base que lleves, si es una
+# mejora): el ingrediente que menos da manda, y cada hornada rinde unidades_resultado.
+func _cuantas_salen(r: RecipeData) -> int:
+	if r == null or r.resultado == null:
+		return 0
+	var hornadas: int = 1 << 30
+	if r.es_mejora():
+		hornadas = int(Game.consumables.get(r.pocion_base, 0))
+	for ing in r.ingredientes:
+		if ing == null or ing.material == null or int(ing.unidades) <= 0:
+			continue
+		hornadas = mini(hornadas, Game.disponible_unidades_material_en_hogar(ing.material) / int(ing.unidades))
+	if hornadas >= 1 << 30:
+		return 0
+	return hornadas * maxi(1, r.unidades_resultado)
 
 
 # ============================================================

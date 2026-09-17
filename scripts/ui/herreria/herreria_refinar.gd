@@ -72,10 +72,9 @@ func build(que: int) -> void:
 	for m in montones:
 		# EL DIBUJO ES LO QUE VA A SALIR, no lo que metes. La CALIDAD va escrita en la esquina y no solo
 		# en el color: hay hasta cuatro montones del mismo material y pulsar el que no era gasta del bueno.
-		piezas.append(t.pieza(m["sale"], "x%d" % int(m["tengo"]),
+		piezas.append(t.pieza_refino(m["sale"], int(m["cal"]), int(m["tengo"]), int(m["por_uno"]),
 			"%s (%s)  ·  de %s  ·  tienes %d" % [(m["destino"] as MaterialData).nombre,
-				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])],
-			t.cal_txt(int(m["cal"]))))
+				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])]))
 	t.grid_detail(piezas, func(vb: VBoxContainer) -> void: _ficha(vb, que), _vacio(que))
 
 
@@ -132,12 +131,11 @@ func _recoger(que: int) -> Array:
 		if origen == null or destino == null or vistos.has(origen):
 			continue
 		vistos[origen] = true
-		for cal in t.CALIDADES:
-			# disponible_ (y no items_): en multi resta lo que el compañero tenga reservado.
-			var tengo: int = Game.disponible_calidad_en_hogar(origen, int(cal))
-			if tengo <= 0:
-				continue
-			out.append({"sale": MaterialItem.crear(destino, int(cal)), "mat": origen, "cal": int(cal),
+		# Lo desbloqueado sale SIEMPRE, aunque no tengas (ver taller_menu.montones_o_vacio).
+		for mc in t.montones_o_vacio(origen):
+			var cal: int = int(mc[0])
+			var tengo: int = int(mc[1])
+			out.append({"sale": MaterialItem.crear(destino, cal), "mat": origen, "cal": cal,
 				"tengo": tengo, "destino": destino, "por_uno": por_uno, "tier": int(origen.tier)})
 	return out
 

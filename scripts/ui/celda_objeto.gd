@@ -57,6 +57,9 @@ var marca: String = ""          # va en la banda: "PUESTA", el nombre de quien l
 # EL NIVEL DE MEJORA que se pinta arriba a la derecha. -1 = que lo averigue la celda (lo normal);
 # 0 = no pintar ninguno, para una pantalla que no quiera enseñarlo.
 var plus: int = -1
+# APAGADA PERO PULSABLE: se pinta con el velo de 'disabled' y sigue respondiendo. Para lo que se puede
+# mirar pero no hacer (una receta de los talleres sin material: x0).
+var tenue := false
 var _hover := false
 # EL RETRATO DE LA PIEZA (el dibujo del muñeco, ver retrato_pieza.gd), para el equipo que lo tiene.
 # Es un nodo hijo y no un draw_texture de aqui: lleva el shader de la paleta, y en la celda ese
@@ -228,7 +231,7 @@ func _draw() -> void:
 		RetratoPieza.encajar(_retrato, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * _caja_icono)
 		# EL RETRATO VA ENCIMA DE TODO lo que pinta este _draw (es un hijo, y los hijos se pintan
 		# despues del padre), asi que el velo de apagada no lo tapa: se le oscurece a el directamente.
-		_retrato.modulate = Color(0.42, 0.43, 0.46) if disabled else Color.WHITE
+		_retrato.modulate = Color(0.42, 0.43, 0.46) if disabled or tenue else Color.WHITE
 	else:
 		IconoItem.pintar(self, Vector2(w * 0.5, y_banda * 0.5), minf(w, h) * LADO_ICONO, item, true)
 
@@ -309,7 +312,7 @@ func _draw() -> void:
 		draw_polyline(_cerrar(_encoger(marco, w, h, g * 0.55)), Color(0.95, 0.72, 0.36, 1.0), g)
 	elif _hover or has_focus():
 		draw_polyline(_cerrar(marco), Color(1, 1, 1, 0.45), maxf(1.5, w * 0.016))
-	if disabled:
+	if disabled or tenue:
 		draw_polygon(borde, PackedColorArray([Color(0.04, 0.05, 0.07, 0.55)]))
 
 

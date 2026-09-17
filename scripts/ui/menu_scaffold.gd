@@ -2019,6 +2019,7 @@ static func fila_refino(parent: Node, etiqueta: String, salen: int, crear: Calla
 #     marca    la etiqueta de esquina: quien lo lleva, "PUESTA"
 #     tooltip  el texto largo (el nombre entero, la ficha corta)
 #     activo   false = apagada y no responde
+#     tenue    true = se VE apagada pero responde (lo que se mira pero no se puede hacer)
 #     plus     OPCIONAL: el +N de la esquina. Sin ponerlo, la celda lo saca del propio objeto (que
 #              es lo que se quiere casi siempre); un 0 lo apaga en esa pantalla.
 #
@@ -2102,6 +2103,7 @@ static func _celda_de_rejilla(grid: GridContainer, p: Dictionary, i: int, sel: i
 	# seleccion (ver marcar_en_rejilla) tiene que salir con la de ahora.
 	c.button_pressed = (i == int(grid.get_meta(META_SEL_REJILLA, sel)))
 	c.tooltip_text = String(p.get("tooltip", ""))
+	c.tenue = bool(p.get("tenue", false))
 	if bool(p.get("activo", true)):
 		c.pressed.connect(pulsado.bind(i))
 	else:
