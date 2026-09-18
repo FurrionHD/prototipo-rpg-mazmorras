@@ -41,7 +41,15 @@ const SHADER_PALETA: Shader = preload("res://shaders/paleta_equipo.gdshader")
 # el anillo de piel que queda alrededor es lo que hace que la cara se lea DENTRO de la cabeza y no
 # encima de ella. A 1.0 la cara tapa la cabeza entera y desde arriba el personaje pierde la
 # coronilla, que es lo unico que se le ve al andar por el mapa.
-const CARA_DE_LA_CABEZA := 0.80
+# CUANTO DE LA CABEZA OCUPA TU FOTO, en fraccion de su radio menor. Sube a casi la cabeza entera
+# desde que la foto va DEBAJO del pelo: lo que se ve es el hueco de piel que deja el peinado, asi que
+# la foto tiene que llegar hasta el borde de la cabeza. Un pelin por debajo de 1 para que el contorno
+# oscuro de la cabeza no se lo coma la foto.
+const CARA_DE_LA_CABEZA := 0.98
+# Y CUANTO BAJA, en fraccion del radio de la cabeza. La piel que deja libre el pelo es la franja de
+# ABAJO, asi que una foto centrada en la cabeza deja sus ojos justo donde empieza el flequillo. Es el
+# mismo criterio con el que se colocan los ojos dibujados (CaraSprites.SITIOS).
+const CARA_BAJA := 0.22
 
 # EN QUE DIRECCIONES SE TE VE LA CARA. El indice es el de SpriteLienzo.dir8 (0=S 1=SE 2=E 3=NE 4=N
 # 5=NW 6=W 7=SW) y el valor es CUANTO SE ADELANTA la imagen sobre la cabeza, en fraccion de su radio.
@@ -294,7 +302,7 @@ func _recolocar_cara(i: int) -> void:
 	# mismo sitio.
 	var esc: float = PoseJugador.escala_sprite()
 	var off: Vector2 = PoseJugador.offset_sprite(1.0)
-	_cara.position = (pos + off) * esc
+	_cara.position = (pos + off + Vector2(0.0, radio.y * CARA_BAJA)) * esc
 	# El sprite se escala IGUAL EN LOS DOS EJES (tu imagen no se achata: una cara aplastada se lee
 	# como una cara mal dibujada, no como una cabeza vista desde arriba) y se toma el MENOR de los
 	# dos radios, que es el que garantiza que el circulo cabe dentro del ovalo de la cabeza. Con el
@@ -630,7 +638,12 @@ func _ordenar() -> void:
 	if _cara != null:
 		# Por encima de los rasgos dibujados (JugadorSprites.Z_CARA): si llevas foto, los rasgos ni
 		# se montan, pero el orden tiene que ser correcto igualmente.
-		_cara.z_index = JugadorSprites.Z_CARA + 1
+		# POR DEBAJO DEL PELO (18/09/2026, pedido por el usuario). Antes iba por ENCIMA de todo
+		# (Z_CARA + 1) y por eso se leia como una pegatina: un disco con tu foto pegado sobre la
+		# cabeza, tapando el flequillo. Ahora va por debajo del casquete (2047) y del pelo que cuelga
+		# por delante (2046), asi que lo que queda a la vista es EXACTAMENTE la piel de la cara --
+		# la misma franja donde se dibujan los ojos y la boca cuando no llevas foto.
+		_cara.z_index = JugadorSprites.Z_CUELGA_DELANTE - 1
 
 
 func _base_de(nombre: String) -> String:

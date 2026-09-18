@@ -14,10 +14,14 @@
 //    * capa_jugador.gdshader TIÑE un dibujo horneado en gris. Tu imagen ya viene con sus colores;
 //      multiplicarla por nada seria, en el mejor caso, no hacer nada.
 //
-//  EL RECORTE EN CIRCULO ES LO QUE HACE QUE SE LEA COMO UNA CARA Y NO COMO UNA PEGATINA. Un PNG
-//  cuadrado sobre una cabeza redonda deja cuatro esquinas que sobresalen por donde la cabeza ya se
-//  ha acabado, y a este tamaño esas esquinas son la mitad de la silueta: el personaje pasa de tener
-//  cabeza a tener una caja.
+//  EL RECORTE EN CIRCULO es para que la foto no se salga de la cabeza: un PNG cuadrado sobre una
+//  cabeza redonda deja cuatro esquinas por donde la cabeza ya se ha acabado, y a este tamaño esas
+//  esquinas son la mitad de la silueta -- el personaje pasa de tener cabeza a tener una caja.
+//
+//  LO QUE LE DA FORMA DE CARA NO ES ESTE CIRCULO, ES EL PELO (18/09/2026). La foto se dibuja POR
+//  DEBAJO del peinado (ver MunecoJugador.poner_cara), asi que lo que queda a la vista es la franja
+//  de PIEL que el pelo deja libre -- la misma donde van los ojos dibujados cuando no hay foto. Antes
+//  iba por encima de todo y se leia como una pegatina: un disco con tu foto tapando el flequillo.
 // ============================================================
 shader_type canvas_item;
 
