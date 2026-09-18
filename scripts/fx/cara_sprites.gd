@@ -143,10 +143,22 @@ static func colores() -> Array:
 #   'ojo' = centro del ojo de la DERECHA de la pantalla (el otro es su espejo de frente, y en diagonal
 #          lleva su propio sitio: 'ojo_atras'); en perfil, 'borde' = la columna de delante del ojo.
 #   'boca' = centro de la boca; en perfil, 'boca_borde' = su columna de delante.
+#
+# Los numeros salen del MODELO 3D (herramientas/ver_modelo_3d.bat → modelo3d_cara.json, 18/09/2026),
+# llevados a nuestra cabeza y CORREGIDOS contra la piel que se ve:
+#   - se pasa la medida del modelo a fraccion de SU radio de cabeza (12,21 px) y se multiplica por el
+#     nuestro (11,13 px): el factor es 0,91;
+#   - lo que cae fuera de nuestra silueta se arrima al borde de la piel. Copiarlo en crudo fue el fallo
+#     del 17/09: la cabeza del modelo es mas grande y con la cara mas adelantada, asi que en diagonal
+#     y de perfil el ojo de atras se quedaba FUERA de la cara.
+#   - y el modelo va CALVO: en diagonal y de perfil pone los ojos donde nuestro pelo tapa. Los rasgos se
+#     bajan a la franja de piel que queda libre CON CUALQUIER PEINADO (medido con un mapa de la piel
+#     contra los seis peinados horneados), que es lo unico que se ve de verdad.
+# Respecto a lo que habia: los ojos van mas separados y una fila mas abajo, y la boca baja dos filas.
 const SITIOS := {
-	0: {"ojo": Vector2(2.5, 6.0), "boca": Vector2(0.0, 8.0)},
-	1: {"ojo": Vector2(5.5, 7.0), "ojo_atras": Vector2(0.5, 7.0), "boca": Vector2(3.5, 9.5)},
-	2: {"borde": 9, "ojo_y": 4.5, "boca_borde": 7, "boca_y": 7.5},
+	0: {"ojo": Vector2(3.5, 7.0), "boca": Vector2(0.0, 10.0)},
+	1: {"ojo": Vector2(7.5, 7.0), "ojo_atras": Vector2(2.5, 8.5), "boca": Vector2(5.0, 10.5)},
+	2: {"borde": 9, "ojo_y": 4.0, "boca_borde": 8, "boca_y": 6.5},
 }
 
 
