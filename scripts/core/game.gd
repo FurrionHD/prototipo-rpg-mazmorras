@@ -1875,6 +1875,11 @@ const IMAGEN_CUERPO_MAX := 128
 # recorta un trozo pequeño del original, y si la fuente fuera ya de 128 ese trozo se veria a
 # bloques. Esta imagen no se guarda: solo vive mientras la pantalla del editor esta abierta.
 const IMAGEN_FUENTE_MAX := 512
+# Cuanto se puede alejar y acercar el encuadre de la cara. El minimo baja de 1 para que quepa una
+# foto entera (con transparencia alrededor) y el maximo sube para poder quedarse con una cara suelta
+# de una foto de grupo.
+const ZOOM_CARA_MIN := 0.35
+const ZOOM_CARA_MAX := 6.0
 
 const SHADER_METAL: Shader = preload("res://shaders/metal.gdshader")
 
@@ -1914,27 +1919,51 @@ static func imagen_de_archivo(ruta: String) -> Image:
 	return img
 
 # Recorta un CUADRADO de src y devuelve el PNG final de IMAGEN_CUERPO_MAX x IMAGEN_CUERPO_MAX.
-# Vacio si src no vale. zoom >= 1 (1 = el cuadrado mas grande que quepa; 2 = la mitad de lado, o
-# sea el doble de cerca). centro va normalizado (0..1) sobre la imagen: (0.5, 0.5) = centrada.
+# Vacio si src no vale.
+#   zoom   1 = el cuadrado mas grande que quepa; 2 = la mitad de lado (el doble de cerca).
+#          POR DEBAJO DE 1 se aleja: el recorte es mas grande que la foto y lo que sobra queda
+#          TRANSPARENTE. Es lo que deja meter una foto vertical entera sin cortarle la cabeza ni
+#          los hombros -- antes el suelo era 1 y de una foto alargada siempre se perdia la mitad.
+#   centro normalizado (0..1) sobre la imagen. (0,5, 0,5) = centrada.
+#   giro   cuartos de vuelta en sentido horario (0..3).
+#   espejo voltea de izquierda a derecha.
 #
-# El rect se CLAMPEA para que no se salga: asi arrastrar hasta el borde para la imagen en seco en
-# vez de meter una franja transparente (o de petar get_region con un rect invalido).
+# Ya NO se clampea el rect al interior de la foto: se recorta la parte que existe y el resto se
+# queda transparente, que es lo que hace falta para poder alejar y para poder sacar la cara de la
+# esquina de una foto. Lo transparente no molesta: la imagen se pinta DEBAJO del pelo, sobre la piel
+# de la cabeza (ver MunecoJugador.poner_cara).
 #
 # Es la MISMA funcion que alimenta la muestra del editor y el guardado, y eso es a proposito: si
 # el preview se pintara por otra via, cualquier dia dejarian de coincidir.
 #
 # Se reencoda a PNG SIEMPRE aunque entre un JPG: asi lo guardado es un unico formato y
 # load_png_from_buffer no tiene sorpresas.
-static func png_cuadrado(src: Image, zoom: float = 1.0, centro: Vector2 = Vector2(0.5, 0.5)) -> PackedByteArray:
+static func png_cuadrado(src: Image, zoom: float = 1.0, centro: Vector2 = Vector2(0.5, 0.5),
+		giro: int = 0, espejo: bool = false) -> PackedByteArray:
 	if src == null or src.is_empty():
 		return PackedByteArray()
 	var w: int = src.get_width()
 	var h: int = src.get_height()
-	var lado: int = maxi(1, int(float(mini(w, h)) / maxf(1.0, zoom)))
-	# El centro se mueve solo por el margen que deja el recorte (de ahi el clamp del origen).
-	var x: int = clampi(int(centro.x * float(w)) - lado / 2, 0, maxi(0, w - lado))
-	var y: int = clampi(int(centro.y * float(h)) - lado / 2, 0, maxi(0, h - lado))
-	var img: Image = src.get_region(Rect2i(x, y, lado, lado))
+	var lado: int = maxi(1, int(float(mini(w, h)) / clampf(zoom, ZOOM_CARA_MIN, ZOOM_CARA_MAX)))
+	var x: int = int(centro.x * float(w)) - lado / 2
+	var y: int = int(centro.y * float(h)) - lado / 2
+	var img := Image.create(lado, lado, false, Image.FORMAT_RGBA8)
+	# El trozo de foto que de verdad cae dentro del recorte. Si no toca nada (te has ido del todo)
+	# sale un cuadrado transparente, que es lo honesto: no hay nada ahi.
+	var dentro: Rect2i = Rect2i(x, y, lado, lado).intersection(Rect2i(0, 0, w, h))
+	if dentro.size.x > 0 and dentro.size.y > 0:
+		var trozo: Image = src.get_region(dentro)
+		trozo.convert(Image.FORMAT_RGBA8)   # un JPG entra sin canal alfa y blit_rect exige el mismo formato
+		img.blit_rect(trozo, Rect2i(Vector2i.ZERO, dentro.size), dentro.position - Vector2i(x, y))
+	if espejo:
+		img.flip_x()
+	var vueltas: int = posmod(giro, 4)
+	if vueltas == 2:
+		img.rotate_180()
+	elif vueltas == 1:
+		img.rotate_90(CLOCKWISE)
+	elif vueltas == 3:
+		img.rotate_90(COUNTERCLOCKWISE)
 	img.resize(IMAGEN_CUERPO_MAX, IMAGEN_CUERPO_MAX, Image.INTERPOLATE_LANCZOS)
 	return img.save_png_to_buffer()
 

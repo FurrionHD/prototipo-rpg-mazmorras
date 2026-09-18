@@ -102,6 +102,10 @@ var _tex: Texture2D = null
 var _src: Image = null
 var _zoom: float = 1.0
 var _centro: Vector2 = Vector2(0.5, 0.5)
+# Cuartos de vuelta (0..3) y volteo de la foto. Van aqui, con el resto del encuadre, porque los tocan
+# los botones y los lee el recorte.
+var _giro: int = 0
+var _espejo: bool = false
 
 # --- El aspecto que se esta montando ---
 var _metal: float = 0.0
@@ -640,13 +644,24 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 	var poner: Button = MenuScaffold.pastilla(fila_img, "Poner una imagen…", Callable(), false)
 	var quitar: Button = MenuScaffold.pastilla(fila_img, "Quitar", Callable(), false, _tex != null)
 
+	# LOS MANDOS DEL ENCUADRE. Arrastrar y acercar no bastaban: una foto que entra tumbada no habia
+	# forma de enderezarla, y "Centrar" evita tener que pelearse con el arrastre cuando te has ido.
+	var fila_enc := HBoxContainer.new()
+	fila_enc.alignment = BoxContainer.ALIGNMENT_CENTER
+	fila_enc.add_theme_constant_override("separation", 8)
+	v.add_child(fila_enc)
+
 	# ENCUADRE: cuanto se acerca el recorte. Mover se hace ARRASTRANDO sobre la muestra (el aviso de
 	# abajo lo dice): dos sliders mas de X/Y serian peor, y arrastrar la propia imagen es lo que
 	# espera cualquiera.
-	var lbl_zoom: Label = MenuScaffold.titulo(v, "Acercar la imagen", 12, GRIS)
+	# DE ALEJAR A ACERCAR. El minimo baja por debajo de 1 (Game.ZOOM_CARA_MIN): ahi el recorte es mas
+	# grande que la foto y alrededor queda transparente, que es lo que deja meter una foto vertical
+	# ENTERA. Antes el suelo era 1 = "el cuadrado mas grande que quepa", y de una foto alargada
+	# siempre se perdia algo.
+	var lbl_zoom: Label = MenuScaffold.titulo(v, "Alejar o acercar", 12, GRIS)
 	var zoom := HSlider.new()
-	zoom.min_value = 1.0    # 1 = el cuadrado mas grande que quepa en la foto
-	zoom.max_value = 3.0
+	zoom.min_value = Game.ZOOM_CARA_MIN
+	zoom.max_value = Game.ZOOM_CARA_MAX
 	zoom.step = 0.05
 	zoom.value = 1.0
 	zoom.editable = _src != null   # sin imagen no hay nada que encuadrar
@@ -677,7 +692,8 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 	aviso_img.add_theme_font_size_override("font_size", 11)
 	aviso_img.add_theme_color_override("font_color", GRIS)
 	aviso_img.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	aviso_img.text = ("Ya tiene imagen. Ajústala con «Acercar» y arrastrando la muestra."
+	aviso_img.text = ("Ya tiene imagen. Muévela arrastrando la muestra y ajústala con la barra, "
+		+ "«Girar» y «Espejo»."
 		if _tex != null
 		else "Opcional. Se guarda dentro de la partida (encogida), así que puedes mover o borrar el "
 			+ "archivo original.")
@@ -690,7 +706,7 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 	# de que el preview y lo guardado se separen.
 	var refrescar := func() -> void:
 		if _src != null:
-			_png = Game.png_cuadrado(_src, _zoom, _centro)
+			_png = Game.png_cuadrado(_src, _zoom, _centro, _giro, _espejo)
 			_tex = Game.textura_de_png(_png)
 		_metal = float(metal.value)
 		_tinte = float(tinte.value)
@@ -704,6 +720,20 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 		zoom.editable = _src != null
 		lbl_zoom.modulate = Color(1, 1, 1) if _src != null else Color(1, 1, 1, 0.4)
 		_refrescar()
+
+	MenuScaffold.pastilla(fila_enc, "Girar", func() -> void:
+		_giro = (_giro + 1) % 4
+		refrescar.call(), false)
+	MenuScaffold.pastilla(fila_enc, "Espejo", func() -> void:
+		_espejo = not _espejo
+		refrescar.call(), false)
+	MenuScaffold.pastilla(fila_enc, "Centrar", func() -> void:
+		_zoom = 1.0
+		_centro = Vector2(0.5, 0.5)
+		_giro = 0
+		_espejo = false
+		zoom.set_value_no_signal(1.0)
+		refrescar.call(), false)
 
 	metal.value_changed.connect(func(_x: float) -> void: refrescar.call())
 	tinte.value_changed.connect(func(_x: float) -> void: refrescar.call())
@@ -738,6 +768,8 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 		zoom.value = 1.0        # deja el encuadre listo para la siguiente imagen
 		_zoom = 1.0
 		_centro = Vector2(0.5, 0.5)
+		_giro = 0
+		_espejo = false
 		aviso_img.text = "Sin imagen: se le ve la cara del color de su piel."
 		refrescar.call())
 
@@ -762,9 +794,12 @@ func _bloque_imagen(v: VBoxContainer) -> void:
 			_src = src
 			_zoom = 1.0
 			_centro = Vector2(0.5, 0.5)
+			_giro = 0
+			_espejo = false
 			zoom.set_value_no_signal(1.0)   # sin señal: ya refrescamos abajo, no hace falta dos veces
 			quitar.disabled = false
-			aviso_img.text = "Imagen puesta. Ajusta el encuadre con «Acercar» y arrastrando la muestra."
+			aviso_img.text = ("Imagen puesta. Muévela arrastrando la muestra y ajústala con la barra, "
+				+ "«Girar» y «Espejo».")
 			refrescar.call())
 		fd.popup_centered_ratio(0.7))
 
