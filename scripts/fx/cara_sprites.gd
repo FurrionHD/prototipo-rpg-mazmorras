@@ -54,6 +54,9 @@ const OJO_FONDO := 0.58
 const BOCA_ALTO := -0.42
 # Cuanto se va la boca hacia el morro de perfil.
 const BOCA_PERFIL := 0.30
+# Cuanto SUBE el ojo por cada columna hacia la derecha en DIAGONAL: los ojos van torcidos, o "se ven
+# raros" (usuario, 18/09/2026). Con 0,5 un ojo de 2 px sube 1 y uno de 4 px sube 2.
+const PENDIENTE_DIAGONAL := 0.5
 
 
 # ============================================================
@@ -202,7 +205,8 @@ static func pintar(esq: Dictionary, piezas: Array, modelo: String) -> void:
 		var cen: Vector2 = lado[0]
 		var x0b: int = int(floor(float(c.x) + cen.x - float(ancho - 1) * 0.5))
 		var y0b: int = int(floor(float(c.y) + cen.y - float(alto - 1) * 0.5))
-		sello_en(piezas, x0b, y0b, dibujo, bool(lado[1]), iris, [], c.x, espejar)
+		sello_en(piezas, x0b, y0b, dibujo, bool(lado[1]), iris, [], c.x, espejar,
+			PENDIENTE_DIAGONAL if dm == 1 else 0.0)
 
 
 # El centro de la cabeza en este fotograma, en pixeles enteros del lienzo.
@@ -219,8 +223,13 @@ static func centro_cabeza(esq: Dictionary) -> Vector2i:
 #
 # Cada pixel es una elipse de medio pixel de radio en el centro de su celda: SpriteLienzo.elipse la
 # rellena exactamente a UNA celda. Y van con "sin_contorno" (ver la cabecera).
+#
+# 'pendiente': cuantos pixeles sube el sello por cada columna hacia la derecha. En DIAGONAL los ojos van
+# torcidos (lo pidio el usuario el 18/09: rectos "se ven raros"), y la inclinacion se lleva en el propio
+# sello para que valga para los nueve modelos sin dibujar cada uno dos veces. Se calcula sobre la columna
+# del DIBUJO, asi que en W y SW (que son el espejo) la inclinacion se da la vuelta sola.
 static func sello_en(piezas: Array, x0: int, y0: int, dibujo: Array, espejo: bool, solo_iris: bool,
-		columnas: Array, cx: int, espejar_sitio: bool) -> void:
+		columnas: Array, cx: int, espejar_sitio: bool, pendiente: float = 0.0) -> void:
 	var alto: int = dibujo.size()
 	var ancho: int = String(dibujo[0]).length()
 	for j in alto:
@@ -238,7 +247,8 @@ static func sello_en(piezas: Array, x0: int, y0: int, dibujo: Array, espejo: boo
 			if espejar_sitio:
 				x = 2 * cx - 1 - x   # el eje es el borde entre la columna cx-1 y la cx
 			piezas.append({
-				"pos": Vector2(float(x) + 0.5, float(y0 + j) + 0.5), "radio": Vector2(0.5, 0.5),
+				"pos": Vector2(float(x) + 0.5, float(y0 + j - int(round(float(i) * pendiente))) + 0.5),
+					"radio": Vector2(0.5, 0.5),
 				"persp": 1.0, "tono": tono, "ang": 0.0, "gira_forma": false, "solo_sobre": [],
 				"sin_contorno": true,
 			})
