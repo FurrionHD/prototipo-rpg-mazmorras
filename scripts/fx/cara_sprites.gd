@@ -68,18 +68,25 @@ const PENDIENTE_DIAGONAL := 0.5
 # El centro del dibujo cae en el sitio del ojo.
 #
 # NO TODOS FEMENINOS (lo pidio el usuario): solo "anime" lleva pestañas; el resto son neutros.
+# EL COLOR DE OJOS TIENE QUE VERSE EN LOS NUEVE (usuario, 18/09/2026: "no se nota nada, que sea muy
+# intenso"). Antes solo lo llevaban 'grandes' y 'anime', y con UN pixel: a este tamaño eso no es un
+# color, es una mota. Ahora cada modelo reserva su zona de iris (I / P), que es la que se tiñe, y lo
+# oscuro (L) queda como pestaña y contorno para que siga leyendose como un ojo.
+#
+# En los cerrados ('felices') no hay iris que enseñar, asi que lo que se tiñe es el propio parpado: es
+# la unica forma de que el color se note tambien ahi.
 const OJOS := {
 	# Los tres de siempre, redibujados (sus claves se quedan para no romper partidas guardadas).
-	"puntos": ["LL", "LL"],
-	"chibi": ["HL", "LL", "LL"],
-	"linea": ["LLL"],
+	"puntos": ["LL", "II"],
+	"chibi": ["HL", "II", "LL"],
+	"linea": ["LIL"],
 	# Los nuevos.
-	"serios": ["LLL", ".L."],
-	"cansados": ["LLL", "LPL"],
-	"felices": [".L.", "L.L"],
-	"enfadados": ["L..", ".LL", ".LL"],
-	"grandes": [".LL.", "LHIL", ".PP."],
-	"anime": ["LLLL", "WHIW", ".IP."],
+	"serios": ["LLL", "III"],
+	"cansados": ["LLL", "IPI"],
+	"felices": [".I.", "I.I"],
+	"enfadados": ["L..", ".LI", ".II"],
+	"grandes": [".LL.", "LHII", ".IP."],
+	"anime": ["LLLL", "WHII", ".II."],
 }
 
 const LETRAS := {

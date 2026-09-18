@@ -178,13 +178,13 @@ static var CATALOGO := {
 		# no romper las partidas guardadas. 'piezas': dos ojos, y algunos dibujos (felices, enfadados) son
 		# dos trozos cada uno. 'iris': lleva segunda capa teñida con el color de ojos (ver CaraSprites).
 		"modelos": {
-			"puntos": {"piezas": 2, "nombre": "Puntos"},
-			"chibi": {"piezas": 2, "nombre": "Con brillo"},
-			"linea": {"piezas": 2, "nombre": "Tranquilos"},
-			"serios": {"piezas": 4, "nombre": "Serios"},
-			"cansados": {"piezas": 2, "nombre": "Cansados"},
-			"felices": {"piezas": 6, "nombre": "Felices"},
-			"enfadados": {"piezas": 4, "nombre": "Enfadados"},
+			"puntos": {"piezas": 2, "nombre": "Puntos", "iris": true},
+			"chibi": {"piezas": 2, "nombre": "Con brillo", "iris": true},
+			"linea": {"piezas": 2, "nombre": "Tranquilos", "iris": true},
+			"serios": {"piezas": 4, "nombre": "Serios", "iris": true},
+			"cansados": {"piezas": 2, "nombre": "Cansados", "iris": true},
+			"felices": {"piezas": 6, "nombre": "Felices", "iris": true},
+			"enfadados": {"piezas": 4, "nombre": "Enfadados", "iris": true},
 			"grandes": {"piezas": 4, "nombre": "Grandes", "iris": true},
 			"anime": {"piezas": 4, "nombre": "Anime", "iris": true},
 		},
