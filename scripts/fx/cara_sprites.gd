@@ -157,7 +157,10 @@ static func colores() -> Array:
 # Respecto a lo que habia: los ojos van mas separados y una fila mas abajo, y la boca baja dos filas.
 const SITIOS := {
 	0: {"ojo": Vector2(3.5, 7.0), "boca": Vector2(0.0, 10.0)},
-	1: {"ojo": Vector2(7.5, 7.0), "ojo_atras": Vector2(2.5, 8.5), "boca": Vector2(5.0, 10.5)},
+	# En diagonal los dos ojos NO van a la misma altura (lo pidio el usuario el 18/09): el de atras (el
+	# que queda a la derecha en SE) sube 2 px y el de delante 1, que es lo que pide la perspectiva. SW
+	# sale solo, porque es el espejo de SE.
+	1: {"ojo": Vector2(7.5, 5.0), "ojo_atras": Vector2(2.5, 7.5), "boca": Vector2(5.0, 10.5)},
 	2: {"borde": 9, "ojo_y": 4.0, "boca_borde": 8, "boca_y": 6.5},
 }
 
