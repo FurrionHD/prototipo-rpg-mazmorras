@@ -2,6 +2,64 @@
 
 ---
 
+# v0.13.3
+
+## 🙂 Caras nuevas
+
+**Ojos y boca por separado**, dibujados pixel a pixel: nueve ojos (puntos, con brillo, tranquilos,
+serios, cansados, felices, enfadados, grandes y anime) y siete bocas. Los ojos se pueden teñir del color
+que quieras, en los nueve modelos.
+
+**La cara se pone en su sitio al girar**: de frente, en diagonal y de perfil, los ojos y la boca caen
+sobre la piel y no encima del pelo. En diagonal cada ojo va un poco inclinado.
+
+**Fuera las barbas**: no se podían hacer bien al girar. El maestro de la Meditación conserva la suya.
+
+## 🧍 El creador de personajes, rehecho
+
+**La cara de los demás menús**: las secciones a la izquierda (Quién es, Cara, Pelo, Ropa), el muñeco
+grande en el centro y las opciones a la derecha. Antes no había scroll y en la sección de la cara los
+botones se salían de la pantalla; ahora el botón de Crear está siempre a la vista.
+
+**Los colores van en muestras**, con «Más colores» para elegir cualquier otro. Cada prenda lleva el suyo.
+
+**Tu imagen de cara va debajo del pelo** y llena la cabeza, en vez de un círculo pegado encima. Al
+encuadrarla puedes alejarla (cabe una foto vertical entera), acercarla más, girarla, darle la vuelta y
+centrarla.
+
+## ⚔️ La barra de turnos, con caras
+
+**Cada casilla lleva la cara de quien va a actuar**: tu imagen si le has puesto una, o la cara de tu
+personaje sin casco; los enemigos, con su dibujo. Las casillas son más grandes y los enemigos llevan su
+número en la esquina.
+
+**La barra se llena en 1 segundo para el más rápido** de la pelea (a velocidad normal) y en proporción
+para los demás. Ralentizar frena de verdad.
+
+## 🏘️ El pueblo
+
+**Botón de interactuar junto a tu personaje**: dice qué hace la F con lo que tienes delante (Entrar en la
+tienda, Talar, Minar Cobre, Recoger Hierba, Pescar, Bajar al piso…) y también se puede pulsar.
+
+**Cada oficio tiene su cartel colgado** de la fachada en vez de un rótulo de texto. El hogar se reconoce
+solo.
+
+## 🔧 Arreglos
+
+**Los talleres enseñan todo lo que tienes desbloqueado**, aunque no te dé para hacerlo: el número de
+cada celda es cuántas puedes hacer. Antes la primera no se podía elegir si no daba para nada.
+
+**El riachuelo ya no pasa por debajo** de escaleras ni puertas.
+
+**Los recolectables se reparten por todo el piso**: antes se amontonaban en los pasillos de la izquierda
+y la derecha se quedaba vacía.
+
+**El botón x2 funciona en compañía** (salía siempre apagado).
+
+**Ir a la zona de pruebas** desde el menú de debug ya no da error.
+
+---
+
 # v0.13.2
 
 ## 🌙 Día y noche en el pueblo
