@@ -510,34 +510,10 @@ func _recolocar_figura() -> void:
 		cr.position = (zona - cr.size) * 0.5
 
 
-# El primer fotograma del enemigo, para la tira de retratos. Devuelve null si no tiene sprite
-# (los ~15 bichos que siguen siendo un cuadrado de color), y entonces se pinta su color.
+# El primer fotograma del enemigo, para la tira de retratos. Vive en retrato_combate.gd desde que
+# la barra de turnos pinta tambien la cara de cada uno: dos copias de este recorte se separarian.
 func _miniatura_enemigo(c: Combatant) -> Texture2D:
-	if c.sprite_res == "" or not ResourceLoader.exists(c.sprite_res):
-		return null
-	var ed: EnemyData = load(c.sprite_res) as EnemyData
-	if ed == null:
-		return null
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t)
-	if frames == null or not frames.has_animation(&"idle_0"):
-		return null
-	var tex: Texture2D = frames.get_frame_texture(&"idle_0", 0)
-	# RECORTADO A LO QUE SE VE. Los fotogramas del horno traen mucho aire transparente (el sitio
-	# que necesitan las animaciones que se mueven), asi que a 72 px el bicho salia como una mota:
-	# el jabali y el trent eran ilegibles. Se busca la caja util de la imagen y se pinta solo esa.
-	var at := tex as AtlasTexture
-	if at == null or at.atlas == null:
-		return tex
-	var img: Image = tex.get_image()
-	if img == null:
-		return tex
-	var usado: Rect2i = img.get_used_rect()
-	if usado.size.x <= 0 or usado.size.y <= 0:
-		return tex
-	var recorte := AtlasTexture.new()
-	recorte.atlas = at.atlas
-	recorte.region = Rect2(at.region.position + Vector2(usado.position), Vector2(usado.size))
-	return recorte
+	return preload("res://scripts/ui/retrato_combate.gd").miniatura_enemigo(c)
 
 
 func _sprite_enemigo(c: Combatant) -> AnimatedSprite2D:

@@ -10,6 +10,9 @@
 #  fichero -dar de alta, quitar, colocar, la profundidad por avance- no sabe en
 #  que orientacion esta.
 #
+#  Cada marcador lleva el RETRATO de su combatiente (ver retrato_combate.gd): tu foto, tu cara o el
+#  sprite del enemigo.
+#
 #  Los marcadores son NODOS HIJO (ColorRect), no dibujos del _draw(). Tiene que ser asi:
 #  el marcador del jugador lleva SU aspecto (color, imagen y shader de metal del cuerpo), y
 #  un material es propiedad del CanvasItem entero -> puesto en este Control teñiria tambien
@@ -21,8 +24,12 @@
 
 extends Control
 
+const RetratoCombate = preload("res://scripts/ui/retrato_combate.gd")
+
 const MARGEN := 40.0    # margen a los lados de la linea
-const RADIO := 16.0     # medio lado del marcador (cuadrado de 32x32)
+# Medio lado del marcador. Subio de 16 a 20 (18/09/2026) cuando las casillas pasaron a llevar la CARA
+# de cada uno: a 32 px una cabeza de pixel-art se quedaba en una mancha con dos puntos.
+const RADIO := 20.0
 const MARCO_HOLGURA := 3.0   # cuanto asoma el marco de objetivo alrededor del marcador
 const FLECHA_LARGO := 14.0   # cuanto sobresale por el costado el triangulo que señala al objetivo
 const MARCO_ENCENDIDO := Color(1, 1, 1, 0.95)   # el mismo blanco que el borde de las tarjetas
@@ -62,26 +69,39 @@ func anadir(c: Combatant, color: Color, material: ShaderMaterial, texto: String)
 	add_child(marco)
 
 	var r := ColorRect.new()
-	# CUADRADO obligatorio: el shader del cuerpo mapea la imagen por UV del rect, y uno no
-	# cuadrado deformaria la foto del personaje.
 	r.size = Vector2(RADIO * 2.0, RADIO * 2.0)
 	r.position = Vector2(MARCO_HOLGURA, MARCO_HOLGURA)
 	r.color = color
-	r.material = material
+	r.clip_contents = true
 	# IGNORE en el marcador y en su texto: el mouse_filter del Control padre NO se hereda, asi
 	# que sin esto los marcadores robarian clics a lo que quede debajo.
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	marco.add_child(r)
+	# LA CARA DE CADA UNO (ver retrato_combate.gd): tu foto, o tu cara sacada del muñeco sin armadura,
+	# o el sprite del enemigo. Con retrato, el color queda de FONDO -- y oscurecido, que un fondo
+	# chillon se come una cara de 40 px. Sin retrato (un enemigo sin sprite) sigue el cuadrado de
+	# color con el shader de siempre, que es lo unico que hay para distinguirlo.
+	if RetratoCombate.poner(r, c):
+		r.color = color.darkened(0.55)
+	else:
+		# CUADRADO obligatorio: el shader del cuerpo mapea la imagen por UV del rect, y uno no
+		# cuadrado deformaria la foto del personaje.
+		r.material = material
 	if texto != "":
+		# EL NUMERO DEL ENEMIGO, en la esquina y no en medio: encima de su retrato le taparia la cara.
 		var l := Label.new()
 		l.text = texto
-		l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.add_theme_font_size_override("font_size", 16)
-		l.add_theme_color_override("font_color", Color.BLACK)
-		l.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.7))
-		l.add_theme_constant_override("outline_size", 3)
+		l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		l.offset_left = -16.0
+		l.offset_top = -18.0
+		l.offset_right = -1.0
+		l.offset_bottom = 1.0
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		l.add_theme_font_size_override("font_size", 13)
+		l.add_theme_color_override("font_color", Color.WHITE)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		l.add_theme_constant_override("outline_size", 4)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		r.add_child(l)
 
