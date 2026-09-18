@@ -37,6 +37,7 @@ func _ready() -> void:
 	# Las pestañas de fase son los Button con toggle_mode del primer HBox de la columna derecha. Se
 	# buscan por el arbol y no por una ruta a mano: la pantalla se monta por codigo y una ruta fija se
 	# quedaria desfasada al mover un contenedor.
+	var fuera: int = 0
 	var pest: Array = _pestanas(c)
 	print("[creador] %d fases: %s" % [pest.size(),
 		str(pest.map(func(b: Button) -> String: return b.text))])
@@ -48,6 +49,8 @@ func _ready() -> void:
 		var unica: String = SALIDA + "creador_simple.png"
 		get_viewport().get_texture().get_image().save_png(unica)
 		print("[creador] ", ProjectSettings.globalize_path(unica))
+		if _comprobar_encaje(c, "pantalla simple") == 0:
+			print("[creador] OK: todo cabe en la pantalla.")
 		get_tree().quit()
 		return
 	for i in pest.size():
@@ -59,6 +62,7 @@ func _ready() -> void:
 			String(pest[i].text).to_lower().replace(" ", "_")]
 		img.save_png(ruta)
 		print("[creador] ", ProjectSettings.globalize_path(ruta))
+		fuera += _comprobar_encaje(c, String(pest[i].text))
 
 	# EL MAGO: sombrero picudo y barba larga blanca sobre pelo blanco. Es la unica foto donde se ven
 	# las dos piezas nuevas PUESTAS Y EN COLOR -- en la hoja de contacto salen todas en gris (los
@@ -92,6 +96,8 @@ func _ready() -> void:
 	get_viewport().get_texture().get_image().save_png(ruta_c)
 	print("[creador] ", ProjectSettings.globalize_path(ruta_c))
 
+	if fuera == 0:
+		print("[creador] OK: en las %d secciones todo cabe en la pantalla." % pest.size())
 	_probar_guardado()
 	get_tree().quit()
 
@@ -150,20 +156,60 @@ func _todos(n: Node) -> Array:
 
 
 func _pestanas(raiz: Node) -> Array:
-	var fila: HBoxContainer = null
-	var pila: Array[Node] = [raiz]
-	while not pila.is_empty():
-		var n: Node = pila.pop_front()
-		if n is HBoxContainer:
-			var todos_botones: bool = n.get_child_count() > 1
-			for h in n.get_children():
-				if not (h is Button) or not (h as Button).toggle_mode:
-					todos_botones = false
-			if todos_botones:
-				fila = n
-				break
-		for h in n.get_children():
-			pila.append(h)
-	if fila == null:
-		return []
-	return Array(fila.get_children())
+	# LAS SECCIONES SON LOS BOTONES DE LA COLUMNA IZQUIERDA, y se buscan POR SU TEXTO
+	# (CreadorPersonaje.SECCIONES). Antes se buscaba "la primera fila de botones con toggle", y desde
+	# el rework eso acierta tambien con los chips de modelos: la hoja salia repitiendo la seccion de
+	# la cara cuatro veces.
+	var out: Array = []
+	for n in _todos(raiz):
+		if n is Button and (n as Button).toggle_mode 				and CreadorPersonaje.SECCIONES.has((n as Button).text):
+			out.append(n)
+	return out
+
+
+# LO QUE NO PUEDE VOLVER A PASAR: que los botones se salgan de la pantalla.
+#
+# La version anterior de esta pantalla no tenia scroll y se montaba en un CenterContainer: con la
+# seccion de la cara abierta, el bloque de la imagen y los botones de Crear y Cancelar quedaban FUERA
+# de los 1280x720 logicos y no habia forma de crear el personaje (lo vio el usuario, 18/09/2026).
+# Aqui se comprueba en CADA seccion, que es lo unico que lo caza: con la primera abierta cabia.
+func _comprobar_encaje(raiz: Node, donde: String) -> int:
+	var pantalla: Rect2 = Rect2(Vector2.ZERO, raiz.get_viewport().get_visible_rect().size)
+	var malos: int = 0
+	for n in _todos(raiz):
+		if not (n is Button) or not (n as Button).is_visible_in_tree():
+			continue
+		var b := n as Button
+		if b.text == "" or b.size == Vector2.ZERO:
+			continue
+		# Lo que vive DENTRO del scroll puede quedar por debajo del borde: para eso esta el scroll.
+		# Lo que se comprueba es el resto -- las secciones y el pie de Crear/Cancelar --, que es lo
+		# que tiene que estar siempre a la vista.
+		if _dentro_de_scroll(b):
+			continue
+		var r := Rect2(b.global_position, b.size)
+		if pantalla.encloses(r):
+			continue
+		malos += 1
+		printerr("[creador] MAL · %s: el botón «%s» se sale de la pantalla (%s fuera de %s)"
+			% [donde, b.text, str(r), str(pantalla)])
+	# Y que la columna de opciones sea de verdad desplazable: con un scroll, por larga que sea la
+	# seccion, el pie de botones se queda donde esta.
+	var hay_scroll: bool = false
+	for n in _todos(raiz):
+		if n is ScrollContainer:
+			hay_scroll = true
+			break
+	if not hay_scroll:
+		malos += 1
+		printerr("[creador] MAL · %s: no hay ningún ScrollContainer en la pantalla." % donde)
+	return malos
+
+
+func _dentro_de_scroll(n: Node) -> bool:
+	var p: Node = n.get_parent()
+	while p != null:
+		if p is ScrollContainer:
+			return true
+		p = p.get_parent()
+	return false

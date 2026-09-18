@@ -981,3 +981,35 @@ static func _vetas(c: CanvasItem, pos: Vector2, lado: float, col: Color, n: int)
 		var y: float = pos.y + lado * (0.40 + 0.14 * float(i))
 		c.draw_line(Vector2(pos.x + lado * 0.28, y + lado * 0.04), Vector2(pos.x + lado * 0.70, y - lado * 0.04),
 			col, g * 0.9, true)
+
+
+# --- PELO (seccion del creador): la cabeza con su melena, que es lo que se esta eligiendo ---
+# El casquete se dibuja como un arco GRUESO por encima de la cabeza y dos mechones cayendo a los
+# lados: un peinado a 22 px no se lee por su forma, se lee porque TAPA la parte de arriba.
+static func pelo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cx: float = pos.x + lado * 0.5
+	var cy: float = pos.y + lado * 0.52
+	c.draw_arc(Vector2(cx, cy), lado * 0.26, 0.0, TAU, 24, col, g, true)
+	# El casquete: medio arco por arriba, mas gordo que el contorno de la cara.
+	c.draw_arc(Vector2(cx, cy), lado * 0.34, PI, TAU, 20, col, g * 1.6, true)
+	# Los dos mechones, hasta la altura de la barbilla.
+	for s in [-1.0, 1.0]:
+		c.draw_line(Vector2(cx + s * lado * 0.34, cy), Vector2(cx + s * lado * 0.30, cy + lado * 0.30),
+			col, g, true)
+
+
+# --- ROPA (seccion del creador): una camisa con sus mangas ---
+static func ropa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var contorno := PackedVector2Array([
+		pos + Vector2(lado * 0.34, lado * 0.20), pos + Vector2(lado * 0.16, lado * 0.34),
+		pos + Vector2(lado * 0.26, lado * 0.50), pos + Vector2(lado * 0.30, lado * 0.44),
+		pos + Vector2(lado * 0.30, lado * 0.84), pos + Vector2(lado * 0.70, lado * 0.84),
+		pos + Vector2(lado * 0.70, lado * 0.44), pos + Vector2(lado * 0.74, lado * 0.50),
+		pos + Vector2(lado * 0.84, lado * 0.34), pos + Vector2(lado * 0.66, lado * 0.20)])
+	c.draw_polyline(contorno, col, g, true)
+	# El escote, entre los dos hombros: es lo que separa una camisa de una caja.
+	c.draw_polyline(PackedVector2Array([
+		pos + Vector2(lado * 0.34, lado * 0.20), pos + Vector2(lado * 0.50, lado * 0.34),
+		pos + Vector2(lado * 0.66, lado * 0.20)]), col, g, true)
