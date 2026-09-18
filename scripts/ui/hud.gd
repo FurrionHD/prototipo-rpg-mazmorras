@@ -278,7 +278,8 @@ func _montar_boton_interaccion() -> void:
 
 
 func _refrescar_interaccion() -> void:
-	if _inter == null:
+	# La señal es del arbol, no del HUD: al cambiar de escena sigue llamando con el HUD ya fuera.
+	if _inter == null or not is_inside_tree():
 		return
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var objetivo: Node = null
