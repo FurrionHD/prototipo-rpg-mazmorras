@@ -11,7 +11,7 @@ prob = 0.25
 [resource]
 script = ExtResource("1")
 nombre = "Carnicería"
-precio = 1200
+precio = 4000
 coste_energia = 63
 cooldown = 4
 golpes_min = 3

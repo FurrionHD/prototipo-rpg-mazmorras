@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Fintas"
-precio = 1200
+precio = 2000
 coste_energia = 44
 coste_energia_dual = 64
 cooldown = 4

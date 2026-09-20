@@ -18,7 +18,7 @@ turns = 3
 [resource]
 script = ExtResource("1")
 nombre = "Punzada al nervio"
-precio = 1200
+precio = 2500
 coste_energia = 42
 coste_energia_dual = 58
 cooldown = 4

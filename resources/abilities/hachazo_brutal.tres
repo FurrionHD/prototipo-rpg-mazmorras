@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 nombre = "Hachazo brutal"
-precio = 1200
+precio = 2000
 coste_energia = 73
 cooldown = 4
 golpes_min = 1

@@ -13,7 +13,7 @@ turns = 2
 [resource]
 script = ExtResource("1")
 nombre = "Danza de acero"
-precio = 1200
+precio = 4000
 coste_energia = 46
 coste_energia_dual = 64
 cooldown = 5

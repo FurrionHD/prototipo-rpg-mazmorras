@@ -13,7 +13,7 @@ turns = 3
 [resource]
 script = ExtResource("1")
 nombre = "Estocada marcial"
-precio = 1200
+precio = 2000
 coste_energia = 52
 cooldown = 4
 golpes_min = 1
