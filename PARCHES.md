@@ -2,6 +2,47 @@
 
 ---
 
+# v0.14.0
+
+## 🖥️ La ventana es tuya
+
+**Ajustes desde el menú del título**, sin tener que entrar en una partida para cambiar el volumen.
+
+**Ajustes repartidos en dos apartados**: Sonido (los tres volúmenes de siempre) y Gráficos.
+
+**Modo de pantalla**: ventana, ventana sin bordes (tapa la pantalla entera, barra de tareas incluida) o
+pantalla completa. Se recuerda para la próxima vez. **F11** cambia a pantalla completa y vuelve.
+
+**Sincronización vertical**, por si prefieres que la imagen no se desgarre o que el juego no vaya a
+tirones.
+
+## 💾 Cerrar el juego ya no cuesta la partida
+
+**Alt+F4 y la ✕ guardan antes de cerrar**: sale un cartel, se guarda lo tuyo (y lo de tus compañeros, si
+jugáis juntos) y entonces se cierra. Antes el juego moría en el sitio y se perdía todo lo hecho desde el
+último guardado.
+
+**Fuera el botón de «Salir SIN guardar»**: estaba pegado al de salir guardando y un despiste costaba la
+sesión entera. Al salir siempre se guarda.
+
+## 🔧 Arreglos
+
+**Cada uno aprende SU oficio**: los puntos de Herrería, Carpintería, Peletería, Mezcla y Cocina van a
+quien pusiste a trabajar, y ahora cuentan bien su propio rango. Subir de nivel ya no le borra al
+artesano lo que llevaba hecho.
+
+**El mapa ya no marca materiales donde no hay nada**: las marcas de la colocación vieja se limpian solas,
+y las que se quedaron congeladas de una bajada anterior se refrescan al volver a pasar. Lo explorado no
+se pierde.
+
+**Ordenar por Valor ordena por lo que vale UNA unidad**, no por lo que vale el montón: lo caro deja de
+quedarse al final detrás de doscientas piedras.
+
+**Precios de las habilidades repartidos**: las del hacha estaban todas al mismo precio, y el estoque y la
+espada larga casi todas. Ahora cada arma tiene su barata, sus medias y su cara.
+
+---
+
 # v0.13.3
 
 ## 🙂 Caras nuevas
