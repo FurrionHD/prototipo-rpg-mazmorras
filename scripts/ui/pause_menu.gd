@@ -1,6 +1,6 @@
 # ============================================================
 #  pause_menu.gd  (CanvasLayer creada por codigo desde el jugador, como el HUD)
-#  Menu de PAUSA (ESC): Reanudar / Guardar / Guardar y salir / Salir sin guardar.
+#  Menu de PAUSA (ESC): Reanudar / Ajustes / Multijugador / Guardar / Guardar y salir.
 #  Se puede guardar en CUALQUIER sitio, tambien en mitad de la mazmorra: la partida recuerda
 #  el piso, tu posicion exacta y los bichos que hubiera (ver Game.exportar_partida).
 #
@@ -95,21 +95,19 @@ func _ready() -> void:
 		_boton(vb, "Multijugador (LAN)", _abrir_multi)
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
-	# SALIR SIN GUARDAR no existe en un MUNDO COMPARTIDO, y no es por gusto: el mundo es de varios y
-	# lo que juegas no es solo tuyo. Salir sin guardar tiraria tu rato Y dejaria el mundo bloqueado a
-	# tu nombre hasta que caducara el arrendamiento del cerrojo, o sea que tu compañero no podria
-	# abrirlo en un buen rato. En las 3 ranuras de un jugador sigue donde estaba.
-	if not en_mundo_compartido:
-		_boton(vb, "Salir SIN guardar", _salir_sin_guardar)
-	else:
-		var n := Label.new()
-		n.text = "En un mundo compartido siempre se guarda al salir."
-		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
-		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		n.add_theme_font_size_override("font_size", 11)
-		n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
-		vb.add_child(n)
+	# SALIR SIN GUARDAR YA NO ESTA, en ningun modo. En un mundo compartido nunca estuvo (el mundo es
+	# de varios: salir sin guardar tiraria tu rato Y dejaria el mundo bloqueado a tu nombre hasta que
+	# caducara el cerrojo), y en un jugador se ha quitado porque era el boton de al lado del de salir
+	# guardando: un despiste ahi cuesta la sesion entera, y no gana nada que no gane recargar la
+	# ranura desde el menu principal.
+	var n := Label.new()
+	n.text = "Al salir siempre se guarda."
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
+	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	n.add_theme_font_size_override("font_size", 11)
+	n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	vb.add_child(n)
 
 	# Los ajustes se montan ya, no la primera vez que se abren: asi el panel existe desde el
 	# principio y no hay que preguntarse si esta creado cada vez que se pulsa el boton.
@@ -120,9 +118,9 @@ func _ready() -> void:
 
 
 # 420x56 y no 260 de ancho por lo alto que salga: con el pulgar, un boton de 31 px de alto es una
-# loteria. Con los SEIS de un jugador (reanudar, ajustes, LAN, guardar, guardar y salir, salir sin
-# guardar) son ~480 px de alto contando titulo y nota, que entran en los 720 de referencia; en un
-# mundo compartido son cuatro y sobra aire.
+# loteria. Con los CINCO de un jugador (reanudar, ajustes, LAN, guardar, guardar y salir) son ~420 px
+# de alto contando titulo y nota, que entran de sobra en los 720 de referencia; en un mundo
+# compartido son cuatro y sobra aire.
 const ANCHO_BOTON := 420.0
 const ALTO_BOTON := 56.0
 
@@ -279,10 +277,6 @@ func _guardar_y_salir() -> void:
 	# _salir() desconecta, y cortar en el mismo frame tiraria el paquete sin enviarlo.
 	if Net.activo:
 		await Net.partida.guardar_todos(true)
-	_salir()
-
-
-func _salir_sin_guardar() -> void:
 	_salir()
 
 
