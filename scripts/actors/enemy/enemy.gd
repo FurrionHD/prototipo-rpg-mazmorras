@@ -126,12 +126,12 @@ const EMBESTIDA_VEL_MULT := 2.2    # x lo que corre persiguiendo: la carga es un
 # 0,67-1,0 s nativos, o sea 1,3-2,0 s aqui. Es el telegrafiado de verdad -- lo que ves venir es lo
 # que tienes para apartarte.
 const VEL_ANIM_ATAQUE := 0.5
-# De ese gesto, cuanto dura el ACELERON del final. Antes de eso el bicho esta PLANTADO preparandolo:
-# si cargara desde el primer fotograma recorreria media sala. Es el tramo con el que recupera
-# terreno sobre el que huye, asi que es la palanca para reapretar el ataque si se queda flojo.
-const CARGA_FINAL := 0.35
 # En que punto del gesto CONTACTA el arma: donde suena el porrazo, acierte o falle. Mismo criterio
 # (y mismo numero) que player.CONTACTO_GOLPE, que es lo que hace que los dos se lean igual.
+#
+# Y PARTE EL GESTO EN DOS: de 0 a aqui el bicho AVANZA (el desplazamiento es lo que lleva el golpe),
+# de aqui al final se queda plantado recuperandose. O sea que tambien es la palanca de cuanto terreno
+# recupera embistiendo: subirlo alarga la carga, bajarlo la acorta.
 const CONTACTO_EMBESTIDA := 0.55
 # Por si el bicho todavia no tiene SpriteFrames (el ColorRect de placeholder, o un horneado que no
 # cargo): la embestida necesita durar algo o se resolveria en el mismo fotograma en que arranca.
@@ -187,6 +187,11 @@ var _embiste_t: float = 0.0
 var _embiste_dur: float = 0.0
 var _embiste_sfx_t: float = -1.0
 var _embiste_espera: float = 0.0
+# A QUIEN va dirigido ESTE golpe. La embestida se lanza contra UNO, y al resolverla solo cuenta EL:
+# antes se miraba a todo el grupo y te metia en combate por rozar a un compañero al que ni apuntaba
+# ("me entra en combate si pegan a cualquiera de los personajes, no solo al que esta fijando"). Si se
+# cruza otro por delante, lo que pasa es que le TAPA -- el golpe falla, no cambia de victima.
+var _embiste_presa: Node2D = null
 # EL IMPACTO (ver _iniciar_impacto): -1 = nada pendiente. Mientras cuenta, el bicho esta parado y
 # _start_combat todavia NO se ha llamado -- se llama solo (con 'enemy_initiated' ya decidido) al
 # llegar a 0.
@@ -1173,6 +1178,9 @@ func _lanzar_embestida(hacia: Node2D) -> void:
 		if d.length() > 0.01:
 			dir = d.normalized()
 	_embiste_dir = dir
+	# CONTRA QUIEN va. Si el aviso termino sin presa (te saliste del rango a mitad), se queda con el
+	# que venia persiguiendo: el golpe sale igual, es un golpe comprometido.
+	_embiste_presa = hacia if (hacia != null and is_instance_valid(hacia)) else _objetivo
 	# EL GESTO DURA LO QUE DURA SU DIBUJO. Se mide aqui y no al vuelo porque la direccion queda
 	# comprometida en este mismo instante: la animacion que se va a ver ya esta decidida.
 	_embiste_dur = _dur_anim(SpritesEnemigo.animacion(_embiste_dir, true, false))
@@ -1198,20 +1206,29 @@ func zona_embestida() -> Rect2:
 
 func _embestida(delta: float) -> void:
 	_embiste_t -= delta
-	# PRIMERO PREPARA, LUEGO CARGA. El aceleron es solo el ultimo tramo del gesto (CARGA_FINAL);
-	# hasta entonces esta PLANTADO, enseñandote el golpe que viene. Si cargara desde el primer
-	# fotograma, con el gesto a mitad de velocidad se cruzaria media sala de una embestida.
-	if _embiste_t <= CARGA_FINAL:
-		velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
-	else:
-		velocity = Vector2.ZERO
 	# EL PORRAZO, EN EL FOTOGRAMA EN QUE EL ARMA CONTACTA -- acierte o falle, igual que tu espadazo.
 	# Antes sonaba al conectar, que con el sprite ya congelado en su ultimo fotograma se oia como si
 	# el ruido llegara DESPUES del ataque (playtest: "el sonido no suena al atacar sino al acabar").
+	var contacta: bool = false
 	if _embiste_sfx_t >= 0.0:
 		_embiste_sfx_t -= delta
-		if _embiste_sfx_t < 0.0:
+		contacta = _embiste_sfx_t < 0.0
+		if contacta:
 			_sonar_embestida()
+	# EL DESPLAZAMIENTO VA DENTRO DEL GESTO, Y ANTES DEL GOLPE. Es el tramo que va del primer fotograma
+	# al de contacto: el avance es lo que LLEVA el golpe hasta ti. Estuvo un rato al final del gesto y
+	# se veia justo al reves -- el bicho atacaba al aire en el sitio y DESPUES se deslizaba hasta ti
+	# ("se supone que el desplazamiento es durante la animacion del ataque, no despues"). De ahi hasta
+	# el ultimo fotograma se queda plantado: eso es la recuperacion.
+	#
+	# Y FRENA EN SECO AL ALCANZARTE, aunque le quede tramo: si no, con el gesto lento (el avance dura
+	# ahora el 55 % de 1,3-2,0 s, no 0,35 s) se te pasaria de largo y el golpe caeria a tu espalda.
+	var alcanzada: bool = _embiste_presa != null and is_instance_valid(_embiste_presa) \
+		and hueco_hasta(_embiste_presa) <= CONTACTO
+	if _embiste_sfx_t > 0.0 and not alcanzada:
+		velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
+	else:
+		velocity = Vector2.ZERO
 	if _embiste_t <= 0.0:
 		_resolver_embestida()
 
@@ -1254,19 +1271,22 @@ func _resolver_embestida() -> void:
 	# atrapa arriba del _physics_process, y _rebotar pone su propio descanso, mas largo).
 	_state = State.CHASE
 	_embiste_espera = EMBESTIDA_ESPERA
-	# Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los cuerpos que colisionan nunca
-	# llegan a solaparse), o dentro de la zona de DELANTE: un golpe tiene que llegar un palmo antes
-	# que el cuerpo, o se lee como un empujon (peticion del usuario).
-	var zona: Rect2 = zona_embestida()
-	for n in _aliados():
-		if hueco_hasta(n) <= CONTACTO or Cuerpos.hueco_entre(zona, Cuerpos.caja_de(n)) <= 0.0:
-			_objetivo = n
-			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
-			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
-			_start_combat(not _es_contra(n))
-			return
-	# Ha fallado: te apartaste a tiempo, o se estampo contra la roca y no llego. Ya se ha quedado en
-	# CHASE con su descanso puesto ahi arriba, asi que no hay nada mas que hacer.
+	var presa: Node2D = _embiste_presa
+	_embiste_presa = null
+	if presa == null or not is_instance_valid(presa):
+		return
+	# SOLO CUENTA LA PRESA A LA QUE IBA EL GOLPE, no quien pase por ahi. Contacto = cuerpos TOCANDOSE
+	# (con la holgura de CONTACTO, que los cuerpos que colisionan nunca llegan a solaparse), o dentro
+	# de la zona de DELANTE: un golpe tiene que llegar un palmo antes que el cuerpo, o se lee como un
+	# empujon (peticion del usuario).
+	if hueco_hasta(presa) <= CONTACTO \
+			or Cuerpos.hueco_entre(zona_embestida(), Cuerpos.caja_de(presa)) <= 0.0:
+		_objetivo = presa
+		# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
+		# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
+		_start_combat(not _es_contra(presa))
+	# Si no, ha fallado: te apartaste a tiempo, se cruzo un compañero por delante, o se estampo contra
+	# la roca. Ya se ha quedado en CHASE con su descanso puesto ahi arriba.
 
 
 # EL IMPACTO: el bicho se queda PARADO encajando el golpe 'dur' segundos antes de que la pantalla de
@@ -1362,6 +1382,7 @@ func _cancelar_aviso() -> void:
 	_embiste_t = 0.0
 	_embiste_dur = 0.0
 	_embiste_sfx_t = -1.0
+	_embiste_presa = null
 	_embiste_espera = 0.0
 
 
