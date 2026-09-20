@@ -57,6 +57,10 @@ const ESPERA_SALA := 1.0
 
 var _acum := 0.0
 
+# El SaveData del ultimo guardado de ESTE mundo, para no tener que releer el fichero solo por su
+# cabecera (ver _meta). Se suelta al cerrar o al abandonar: si no es del mundo abierto, no vale.
+var _cab_en_mano: SaveData = null
+
 # Para que la UI cuente lo que pasa sin tener que sondear.
 signal aviso(texto: String)
 signal catalogo_cambiado
@@ -383,6 +387,7 @@ func dejar_de_unirse() -> void:
 # abierto y escrito en disco, listo para irse al pueblo.
 func estrenar(clave: String) -> bool:
 	abierto = clave
+	_cab_en_mano = null
 	Perfil.ranura_actual = 0
 	_acum = 0.0
 	# A partir de aqui esta partida es un MUNDO: al guardar, mis personajes y lo mio se empaquetan a
@@ -404,6 +409,7 @@ func cargar(clave: String) -> bool:
 	var datos: SaveData = info["datos"] as SaveData
 	Game.importar_partida(datos)
 	abierto = clave
+	_cab_en_mano = null   # la de este mundo aun no se ha escrito: hasta el primer guardado, a releerla
 	# Un mundo NO es una ranura: dejar aqui la ranura vieja haria que un Perfil.guardar_actual()
 	# despistado escribiera el mundo encima de una partida de un jugador.
 	Perfil.ranura_actual = 0
@@ -442,6 +448,9 @@ func guardar_actual() -> bool:
 	if err != OK:
 		push_warning("[mundos] no se pudo guardar el mundo %s (error %d)" % [abierto, err])
 		return false
+	# Lo que se acaba de escribir, para que la cabecera de la nube salga de aqui y no de releer el
+	# fichero (ver _meta). Es el MISMO objeto que ha ido al disco, asi que dice exactamente lo mismo.
+	_cab_en_mano = datos
 	_escribir_entrada(abierto, {
 		"fecha": Time.get_datetime_string_from_system(),
 		"cab": datos.resumen(),
@@ -450,7 +459,38 @@ func guardar_actual() -> bool:
 
 
 # Lo que dispara el temporizador: guarda en disco y SUBE sin soltar el cerrojo.
+#
+# DE UNO EN UNO, Y LOS QUE SE PISEN SE JUNTAN EN UNO. Aqui llegan el temporizador, el boton de
+# guardar, cada tanda del gacha y CADA PETICION DE CADA INVITADO (ver net_partida._pedir_guardar),
+# y no habia ningun freno: en el playtest del 19/09 salieron 91 subidas de un fichero de 5 MB en una
+# sesion, con cinco seguidas nada mas empezar. Si ya hay uno corriendo, el que llega no arranca otro:
+# se apunta, espera a que acabe y con eso se hace UNA sola pasada mas al final —que hace falta,
+# porque lo que haya pasado despues de empezar la anterior todavia no esta escrito—.
+var _guardando := false
+var _repetir := false
+var _ultimo_ok := true
+
 func autoguardar() -> bool:
+	if _guardando:
+		_repetir = true
+		while _guardando:
+			await get_tree().create_timer(0.1).timeout
+		return _ultimo_ok
+	_guardando = true
+	var ok: bool = await _autoguardar_ya()
+	while _repetir:
+		_repetir = false
+		ok = await _autoguardar_ya()
+	_ultimo_ok = ok
+	_guardando = false
+	return ok
+
+
+func _autoguardar_ya() -> bool:
+	# Y EL RELOJ DEL AUTOGUARDADO SE PONE A CERO. Sin esto, guardar por tu cuenta (una tirada del
+	# gacha, el boton de guardar) no contaba como guardado: el periodico saltaba igual a los pocos
+	# segundos y salian dos vueltas enteras seguidas.
+	_acum = 0.0
 	# El HOST tampoco veia nada al autoguardar (el aviso solo iba al invitado). Ahora los dos ven la
 	# misma pildora discreta abajo a la derecha, y el "Guardando..." va ANTES del await: recoger los
 	# estados tiene un plazo de segundo y medio y durante ese rato el juego parece parado.
@@ -485,6 +525,10 @@ func cerrar_y_subir() -> Dictionary:
 	if abierto == "":
 		return {"ok": true}
 	var clave := abierto
+	# Si hay un autoguardado a medias, se le deja terminar: son dos escrituras sobre el mismo fichero
+	# y la de cerrar tiene que ser la ULTIMA.
+	while _guardando:
+		await get_tree().create_timer(0.1).timeout
 	_avisar_hud("Guardando…")
 	# Lo mismo que en el autoguardado: primero lo de los demas, y AVISANDOLES de que se cierra (se van
 	# al menu con su personaje ya dentro del save), y despues se escribe.
@@ -496,6 +540,7 @@ func cerrar_y_subir() -> Dictionary:
 	# Se suelta lo local en cualquier caso: si la subida fallo, la Nube se queda en PENDIENTE_SUBIR
 	# y el .tres sigue en disco para reintentarlo.
 	abierto = ""
+	_cab_en_mano = null
 	_contrasena = ""
 	_hostear_al_llegar = false
 	if not r.get("ok", false):
@@ -533,6 +578,7 @@ func abandonar() -> String:
 	if Nube.estado == Nube.HOST:
 		Nube._olvidar()
 	abierto = ""
+	_cab_en_mano = null
 	_contrasena = ""
 	_hostear_al_llegar = false
 	_acum = 0.0
@@ -553,7 +599,16 @@ func reintentar(clave: String) -> Dictionary:
 
 
 # La cabecera LIGERA que se le deja a la nube para pintar la lista sin bajarse el save entero.
+#
+# SALE DE LO QUE ACABAMOS DE ESCRIBIR, no de releer el fichero. Antes esto llamaba a datos_cabecera(),
+# que hace ResourceLoader.load(..., CACHE_MODE_IGNORE): o sea que cada guardado escribia el save
+# entero, lo leia otra vez a bytes para subirlo y ADEMAS lo volvia a interpretar de cabo a rabo —con
+# sus miles de materiales, cada uno un bloque del fichero, y los PNG de las caras en base64— solo para
+# sacar estos seis campos, que ya los teniamos en la mano. Tres pasadas sobre medio mega, en el mismo
+# fotograma, y la culpa del tiron al guardar. Ver guardar_actual.
 func _meta() -> Dictionary:
+	if _cab_en_mano != null:
+		return _cab_de(_cab_en_mano)
 	return _meta_de(abierto)
 
 
@@ -561,6 +616,10 @@ func _meta_de(clave: String) -> Dictionary:
 	var datos: SaveData = datos_cabecera(clave)
 	if datos == null:
 		return {}
+	return _cab_de(datos)
+
+
+func _cab_de(datos: SaveData) -> Dictionary:
 	return {
 		"nombre": datos.nombre,
 		"cab_nivel": datos.cab_nivel,
