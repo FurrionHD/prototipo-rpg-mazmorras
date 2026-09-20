@@ -4931,6 +4931,14 @@ func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> v
 	var dados: float = float(parte.get("golpes_dados", 0.0))
 	if dados > 0.0 and pj.equipped_main != null:
 		_desgastar_slot("main", DESGASTE_ARMA * dados, pj)
+	# Y LA SECUNDARIA, que no estaba en ninguna de las dos listas y volvia INTACTA del encargo.
+	#
+	# Aqui se gasta tambien SI ES UN ESCUDO (decision del usuario, 20/09), y eso es distinto de lo que
+	# pasa peleando tu: en combate un escudo no se desgasta nunca (ver desgastar_arma, que filtra el
+	# ShieldData, y desgastar_armadura, que no lleva "off" en su lista). Se deja dicho para que no
+	# parezca un despiste de este lado.
+	if dados > 0.0 and pj.equipped_off != null:
+		_desgastar_slot("off", DESGASTE_ARMA * dados, pj)
 	var recibidos: float = float(parte.get("golpes_recibidos", 0.0))
 	if recibidos > 0.0:
 		for slot in ["casco", "pecho", "manos", "pantalones", "botas"]:
