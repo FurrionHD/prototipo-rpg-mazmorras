@@ -446,12 +446,35 @@ func _aplicar_colision(s: float) -> void:
 # QUE animacion toca lo decide SpritesEnemigo, no esto: la misma regla la necesita el espejo de la
 # otra maquina (remote_enemy.gd), y dos copias acaban divergiendo -- con lo que cada jugador veria
 # al mismo bicho haciendo cosas distintas.
-func _actualizar_animacion() -> void:
+# ANDAR O ESTAR QUIETO, CON BANDA MUERTA. Era un unico corte en 2.0 px/s, y la velocidad de un bicho
+# que bordea una pared o recibe el empujon de separacion baila justo por ahi: cruzaba el umbral
+# varias veces por segundo, el nombre alternaba walk_N / idle_N y cada cambio REINICIA la animacion.
+# Eso es el "se queda ejecutando el inicio de la animacion de andar en bucle" del playtest. Con dos
+# umbrales hay que pasarse de verdad para cambiar de idea.
+const ANDAR_ENTRA := 2.0
+const ANDAR_SALE := 0.8
+var _mov_anim: bool = false
+
+func _actualizar_animacion(vel_real: Vector2 = Vector2.ZERO) -> void:
 	if not _sprite.visible:
 		return
+	var vel: float = vel_real.length()
+	if _mov_anim:
+		_mov_anim = vel > ANDAR_SALE
+	else:
+		_mov_anim = vel > ANDAR_ENTRA
 	var nombre: String = SpritesEnemigo.animacion(
-		_facing, _state == State.EMBESTIDA, velocity.length() > 2.0)
+		_facing, _state == State.EMBESTIDA, _mov_anim)
 	if nombre != _anim_actual:
+		# GIRAR NO REINICIA EL PASO. La otra mitad del mismo problema: las animaciones son una por
+		# sector de mirada (walk_0..walk_7) y dir8 no tiene banda muerta, asi que un bicho que va en
+		# diagonal justo en el borde de dos sectores alterna de nombre cada fotograma -- y aunque
+		# ande perfectamente, se ve clavado en el primer marco. Si solo cambia la DIRECCION, se
+		# arranca la nueva por donde iba la anterior y el ciclo de pasos continua.
+		var mismo_gesto: bool = not _anim_actual.is_empty() \
+			and _anim_actual.rsplit("_", true, 1)[0] == nombre.rsplit("_", true, 1)[0]
+		var marco: int = _sprite.get_frame()
+		var avance: float = _sprite.get_frame_progress()
 		_anim_actual = nombre
 		# EL GESTO DE ATAQUE, A MITAD DE VELOCIDAD. Va aqui y no en el horneado a proposito: bajar los
 		# fps en los 19 generadores obligaria a pasar por el horno y dejaria el dibujo atado a la
@@ -459,6 +482,8 @@ func _actualizar_animacion() -> void:
 		# en remote_enemy._actualizar_animacion, o cada maquina veria al mismo bicho a otro ritmo.
 		_sprite.speed_scale = VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
+		if mismo_gesto and marco < _sprite.sprite_frames.get_frame_count(nombre):
+			_sprite.set_frame_and_progress(marco, avance)
 
 
 # CUANTO DURA DE VERDAD una animacion de este bicho, ya contando la velocidad a la que se reproduce.
@@ -612,21 +637,29 @@ func _physics_process(delta: float) -> void:
 	# lleguen apilados en el mismo pixel encima de ti.
 	velocity += _separacion() * current_move_speed * SEPARACION_FUERZA * separando
 
+	# LO QUE PIDE MOVERSE, guardado ANTES de move_and_slide, que REESCRIBE velocity con lo que quedo
+	# DESPUES de chocar. Un bicho empujando una pared de frente sale de ahi con velocity casi a cero,
+	# y el anti-atasco lo estaba leyendo: lo tomaba por "no pide moverse" y rearmaba el contador a
+	# cero, o sea que NUNCA saltaba en el unico caso para el que existe -- quedarse empotrado contra
+	# la roca. Es el "se quedan andando contra las paredes" del playtest. La mirada tambien: con el
+	# residuo del deslizamiento se iba a lo largo de la pared en vez de a donde quiere ir.
+	var pedida: Vector2 = velocity
 	var antes: Vector2 = global_position
 	move_and_slide()
 
-	# La direccion de mirada = hacia donde nos movemos (si nos movemos). EMBISTIENDO NO: la direccion
-	# quedo comprometida al lanzar el gesto (_embiste_dir) y es justo lo que lo hace esquivable. Antes
-	# daba igual porque el aceleron dominaba la velocidad, pero ahora el bicho pasa la primera parte
-	# del gesto PLANTADO, y el empujon de separacion (que se suma ahi abajo) bastaba para irle girando
-	# la mirada -- y con ella el dibujo y la zona del golpe.
-	if velocity.length() > 1.0 and _state != State.EMBESTIDA:
-		_facing = velocity.normalized()
+	# La direccion de mirada = hacia donde QUIERE ir. EMBISTIENDO NO: la direccion quedo comprometida
+	# al lanzar el gesto (_embiste_dir) y es justo lo que lo hace esquivable.
+	if pedida.length() > 1.0 and _state != State.EMBESTIDA:
+		_facing = pedida.normalized()
 	_actualizar_indicadores()
-	_actualizar_animacion()
+	# La animacion SI va con lo que de verdad ha pasado, no con lo que pedia: un bicho empotrado
+	# contra la roca tiene que verse quieto, no dando pasos en el sitio. Misma regla que el jugador
+	# (ver player._physics_process, "se mueve el que EMPUJA, no el que avanza") y por eso se le pasa
+	# 'velocity' -- que a estas alturas ya es la de despues de deslizar.
+	_actualizar_animacion(velocity)
 	_actualizar_rastro(delta)
 
-	_vigilar_atasco(delta, antes)
+	_vigilar_atasco(delta, antes, pedida)
 
 
 # ANTI-ATASCO, en TODOS los estados que se mueven. Antes solo existia en WANDER, asi que un bicho
@@ -646,7 +679,7 @@ const ATASCO_AVANCE := 0.35    # fraccion del avance esperado por debajo de la c
 const ATASCO_T := 0.18         # cuanto aguanta asi antes de intentar salir
 const BORDEO_T := 0.3          # lo que dura un rodeo
 const BORDEOS_MAX := 3         # rodeos seguidos antes de rendirse y volverse a su sitio
-func _vigilar_atasco(delta: float, antes: Vector2) -> void:
+func _vigilar_atasco(delta: float, antes: Vector2, vel_pedida: Vector2) -> void:
 	# EMBISTIENDO NO. La carga es un gesto COMPROMETIDO (direccion fijada, animacion corriendo) y
 	# desviarla con un rodeo la convertiria en otra cosa; si acaba contra la roca, _resolver_embestida
 	# la da por fallada sola al terminar el dibujo. Antes daba igual porque la carga duraba 0,35 s y se
@@ -655,7 +688,10 @@ func _vigilar_atasco(delta: float, antes: Vector2) -> void:
 		_stuck_time = 0.0
 		return
 	# Si no pide moverse (esta plantado haciendo el aviso, o esperando) no hay atasco que valer.
-	var pedido: float = velocity.length() * delta
+	# 'vel_pedida' es la de ANTES de move_and_slide: leyendo la de despues, un bicho de morros contra
+	# la roca salia con velocity ~0 y entraba justo por aqui, rearmando el contador a cero para
+	# siempre. Ver la nota en _physics_process.
+	var pedido: float = vel_pedida.length() * delta
 	if pedido < 0.5 or _bordeo != Vector2.ZERO:
 		if _bordeo == Vector2.ZERO:
 			_stuck_time = 0.0
@@ -1271,22 +1307,27 @@ func _resolver_embestida() -> void:
 	# atrapa arriba del _physics_process, y _rebotar pone su propio descanso, mas largo).
 	_state = State.CHASE
 	_embiste_espera = EMBESTIDA_ESPERA
-	var presa: Node2D = _embiste_presa
 	_embiste_presa = null
-	if presa == null or not is_instance_valid(presa):
-		return
-	# SOLO CUENTA LA PRESA A LA QUE IBA EL GOLPE, no quien pase por ahi. Contacto = cuerpos TOCANDOSE
-	# (con la holgura de CONTACTO, que los cuerpos que colisionan nunca llegan a solaparse), o dentro
-	# de la zona de DELANTE: un golpe tiene que llegar un palmo antes que el cuerpo, o se lee como un
-	# empujon (peticion del usuario).
-	if hueco_hasta(presa) <= CONTACTO \
-			or Cuerpos.hueco_entre(zona_embestida(), Cuerpos.caja_de(presa)) <= 0.0:
-		_objetivo = presa
-		# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
-		# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
-		_start_combat(not _es_contra(presa))
-	# Si no, ha fallado: te apartaste a tiempo, se cruzo un compañero por delante, o se estampo contra
-	# la roca. Ya se ha quedado en CHASE con su descanso puesto ahi arriba.
+	# GOLPEA A QUIEN TENGA DELANTE AL ACABAR, sea o no el que venia fijando. Estuvo un rato mirando
+	# solo a la presa apuntada y fallaba practicamente siempre ("si no le da al que eligio al
+	# principio no entra en combate, asi que mal"): el bicho fija a uno al empezar a perseguir y para
+	# cuando el golpe cae ya tiene a otro delante. Lo que hacia falta arreglar NO era a quien alcanza,
+	# era CUANDO se mira -- y eso ya esta: se mira aqui, al terminar el gesto, y no cada fotograma
+	# durante la carga, que era lo que te metia en combate por un roce mientras huias.
+	#
+	# Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los cuerpos que colisionan nunca
+	# llegan a solaparse), o dentro de la zona de DELANTE: un golpe tiene que llegar un palmo antes
+	# que el cuerpo, o se lee como un empujon (peticion del usuario).
+	var zona: Rect2 = zona_embestida()
+	for n in _aliados():
+		if hueco_hasta(n) <= CONTACTO or Cuerpos.hueco_entre(zona, Cuerpos.caja_de(n)) <= 0.0:
+			_objetivo = n
+			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
+			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
+			_start_combat(not _es_contra(n))
+			return
+	# Ha fallado: te apartaste a tiempo, o se estampo contra la roca y no llego. Ya se ha quedado en
+	# CHASE con su descanso puesto ahi arriba.
 
 
 # EL IMPACTO: el bicho se queda PARADO encajando el golpe 'dur' segundos antes de que la pantalla de

@@ -278,12 +278,21 @@ func _actualizar_animacion() -> void:
 		return
 	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _embistiendo, _mov)
 	if nombre != _anim_actual:
+		# GIRAR NO REINICIA EL PASO, igual que en enemy._actualizar_animacion y por el mismo motivo:
+		# cada sector de mirada es una animacion distinta y aqui el angulo llega por la red, o sea
+		# todavia mas tembloroso. Sin esto el invitado ve a los bichos clavados en el primer marco.
+		var mismo_gesto: bool = not _anim_actual.is_empty() \
+			and _anim_actual.rsplit("_", true, 1)[0] == nombre.rsplit("_", true, 1)[0]
+		var marco: int = _sprite.get_frame()
+		var avance: float = _sprite.get_frame_progress()
 		_anim_actual = nombre
 		# A MITAD DE VELOCIDAD, igual que en enemy._actualizar_animacion y por la misma constante: si
 		# aqui fuera al ritmo nativo, el bicho atacaria mas rapido en la pantalla del invitado que en
 		# la del que simula el piso -- y la ventana para apartarse dejaria de ser la misma para los dos.
 		_sprite.speed_scale = _ENEMY_GD.VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
+		if mismo_gesto and marco < _sprite.sprite_frames.get_frame_count(nombre):
+			_sprite.set_frame_and_progress(marco, avance)
 
 
 # Lo mismo que enemy.poder_normalizado(): donde cae dentro de su franja. Lo pide la extraccion
