@@ -24,13 +24,28 @@ extends Node
 # OJO: esta lista es FIJA. Un campo permanente de PersonajeData que no este aqui funciona perfecto en
 # solitario y desaparece SOLO en multi, que es de las averias mas caras de encontrar. `uid` esta aqui
 # porque los ENCARGOS apuntan a la gente por uid y se cobran horas despues, quiza en otra maquina.
-const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid"]
+#
+# EL PITY DE LOS BANNERS es de esta clase y faltaba (playtest del 19/09: "no se guarda el pity, o al
+# menos no el de los otros jugadores"). No se perdia solo al guardar: recoger_estados() es PERIODICO
+# y rehace el JugadorData del invitado desde este diccionario, asi que se lo borraba CADA MINUTO. Al
+# host no le pasaba porque el suyo no cruza el cable.
+const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid",
+	"gacha_pity", "gacha_n50", "gacha_n200", "gacha_total"]
+# Los campos de arriba que son diccionarios o arrays: se copian a fondo al entrar y al salir, o las
+# dos puntas acabarian escribiendo sobre el mismo objeto cuando el viaje no pasa por la red.
+const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango"]
 
 
 func pj_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := ficha_a_dict(pj)
 	for campo in _PERMANENTES:
 		d[campo] = pj.get(campo)
+	for campo in _PERMANENTES_HONDOS:
+		var v = d.get(campo)
+		if v is Dictionary:
+			d[campo] = (v as Dictionary).duplicate(true)
+		elif v is Array:
+			d[campo] = (v as Array).duplicate(true)
 	return d
 
 
@@ -277,7 +292,12 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	for campo in d:
 		if campo == "spells" or campo == "habs_sabidas" or campo == "habs_sets" or Net.peleas._RANURAS.has(campo):
 			continue
-		pj.set(campo, d[campo])
+		var v = d[campo]
+		if _PERMANENTES_HONDOS.has(campo) and v is Dictionary:
+			v = (v as Dictionary).duplicate(true)
+		elif _PERMANENTES_HONDOS.has(campo) and v is Array:
+			v = (v as Array).duplicate(true)
+		pj.set(campo, v)
 	for r in Net.peleas._RANURAS:
 		var item: Resource = Game.deserializar_equipo(d.get(r, {}), registrar)
 		if item != null:

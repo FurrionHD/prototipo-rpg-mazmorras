@@ -22,7 +22,11 @@ var _next_id: int = 1              # contador de ids del host
 func _item_a_dict(item: Resource) -> Dictionary:
 	if item is MaterialItem:
 		var m := item as MaterialItem
-		return {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad)}
+		# La TALLA va con el: en un pez es media identidad del ejemplar (su corona sale de ella, ver
+		# MaterialItem.corona). Sin esto, todo pescado que cruzaba el cable volvia a 0 cm -- y por ahi
+		# pasa la bolsa entera de quien no es el host cada vez que se sincroniza, asi que un pez trofeo
+		# se convertia en un pez del monton sin que nadie tocara nada.
+		return {"t": "mat", "ruta": m.data.resource_path, "calidad": int(m.calidad), "cm": m.cm}
 	if item is Cristal:
 		var c := item as Cristal
 		return {"t": "cri", "categoria": c.categoria, "calidad": int(c.calidad)}
@@ -40,7 +44,9 @@ func _item_de_dict(d: Dictionary) -> Resource:
 		var data: MaterialData = load(str(d["ruta"]))   # load() cachea: misma instancia que la bolsa
 		if data == null:
 			return null
-		return MaterialItem.crear(data, int(d["calidad"]))
+		var m := MaterialItem.crear(data, int(d["calidad"]))
+		m.cm = float(d.get("cm", 0.0))   # 0 si viene de una version que aun no la mandaba
+		return m
 	if d.get("t") == "cri":
 		var c := Cristal.new()
 		c.categoria = int(d["categoria"])
