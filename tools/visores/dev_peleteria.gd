@@ -219,9 +219,15 @@ func _ready() -> void:
 		_ok("volver al líder lo deja como estaba", Game.artesano("peleteria") == Game.lider())
 
 	print("\n=== SIN NADA QUE CURTIR ===")
+	# LO DESBLOQUEADO SALE SIEMPRE, aunque no haya material (decisión del usuario, tanda del 17/09):
+	# con el baúl vacío la rejilla NO se queda vacía, se queda llena de celdas a x0. Antes esto
+	# comprobaba lo contrario y por eso fallaba: la comprobación se había quedado vieja, no el juego.
+	# Lo que sigue importando es que la pantalla aguante y no se repinte sin parar (ver
+	# taller_menu.grid_detail); si eso se rompiera, el visor no llegaría a la línea siguiente.
 	Game.almacen_materiales.clear()
 	await _ir(men, men.TAB_CURTIR)
-	_ok("con el baúl vacío, la rejilla se queda vacía y no revienta", men.stacks.is_empty())
+	_ok("con el baúl vacío salen las pieles conocidas a x0, y la pantalla aguanta",
+		not men.stacks.is_empty() and not men.stacks.any(func(s): return int(s["tengo"]) > 0))
 	await _captura(men, "curtir_vacio")
 
 	var copias: Array = M._vitrina_tier.values()
