@@ -1,7 +1,9 @@
 # ============================================================
 #  settings_menu.gd  (Control creado por codigo)
-#  Los AJUSTES. Hoy son los tres volumenes -- general, efectos y musica -- y esta pensado para que
-#  quepa lo que venga despues (idioma, pantalla, controles) sin mover nada de sitio.
+#  Los AJUSTES, en APARTADOS: SONIDO (los tres volumenes) y GRAFICOS (modo de pantalla y vsync).
+#  Se abren desde el menu del titulo, desde la pausa y desde el combate. Los apartados existen
+#  desde que hay mas de una clase de ajuste: una lista seguida de volumenes y pantallas mezclados
+#  no se lee, y ahi tiene que caber lo que venga despues (idioma, controles) sin mover nada.
 #
 #  Va SUELTO y no metido dentro del menu de pausa a proposito: el mismo panel tiene que poder
 #  colgarse del menu principal el dia que se le meta ahi, y duplicarlo seria tener dos sitios donde
@@ -34,8 +36,21 @@ const MANDOS := [
 # falta: ya esta sonando: mover el mando se oye solo.
 const MUESTRA := {"general": true, "efectos": true, "musica": false}
 
+# LOS APARTADOS, en el orden de la fila de pestañas.
+const APARTADOS := [
+	{"clave": "sonido", "titulo": "Sonido"},
+	{"clave": "graficos", "titulo": "Gráficos"},
+]
+# Alto fijo del cuerpo: lo que ocupa el apartado mas alto (los tres volumenes). Sin esto, el panel
+# encoge al cambiar a Graficos y el boton de Volver salta de sitio bajo el dedo.
+const ALTO_CUERPO := 236.0
+
 var _cifras: Dictionary = {}   # clave -> Label del porcentaje
 var _pantalla: OptionButton = null   # el selector de modo de ventana
+var _vsync: CheckButton = null
+var _cuerpos: Dictionary = {}   # clave de apartado -> VBoxContainer
+var _pestanas: Dictionary = {}  # clave de apartado -> Button
+var _apartado: String = "sonido"
 
 
 func _ready() -> void:
@@ -71,10 +86,40 @@ func _ready() -> void:
 	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
 	vb.add_child(tit)
 
-	for m in MANDOS:
-		_fila(vb, String(m["clave"]), String(m["titulo"]))
+	# LA FILA DE PESTAÑAS. Dos botones del mismo ancho: el del apartado abierto va en ambar y el otro
+	# apagado, que es como se distinguen en el resto de menus del juego.
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 6)
+	vb.add_child(fila)
+	for a in APARTADOS:
+		var clave: String = String(a["clave"])
+		var b := Button.new()
+		b.text = String(a["titulo"])
+		b.custom_minimum_size = Vector2((ANCHO - 6.0) / float(APARTADOS.size()), 44.0)
+		b.add_theme_font_size_override("font_size", 16)
+		b.pressed.connect(_ir_a.bind(clave))
+		fila.add_child(b)
+		_pestanas[clave] = b
 
-	_fila_pantalla(vb)
+	# EL CUERPO: los dos apartados montados a la vez, y se enseña uno. Montarlos al vuelo obligaria a
+	# rehacer los mandos cada vez que se cambia de pestaña, y con ellos el estado que ya tienen.
+	var cuerpo := Control.new()
+	cuerpo.custom_minimum_size = Vector2(ANCHO, ALTO_CUERPO)
+	vb.add_child(cuerpo)
+	for a in APARTADOS:
+		var caja := VBoxContainer.new()
+		caja.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		caja.add_theme_constant_override("separation", 10)
+		cuerpo.add_child(caja)
+		_cuerpos[String(a["clave"])] = caja
+
+	for m in MANDOS:
+		_fila(_cuerpos["sonido"], String(m["clave"]), String(m["titulo"]))
+
+	_fila_pantalla(_cuerpos["graficos"])
+	_fila_vsync(_cuerpos["graficos"])
+
+	_ir_a(_apartado)
 
 	var sep := Control.new()
 	sep.custom_minimum_size = Vector2(0, 8)
@@ -156,6 +201,36 @@ func _fila_pantalla(vb: VBoxContainer) -> void:
 	caja.add_child(pista)
 
 
+# SINCRONIZACION VERTICAL. Interruptor y no lista: son dos estados y no hay termino medio.
+func _fila_vsync(vb: VBoxContainer) -> void:
+	_vsync = CheckButton.new()
+	_vsync.text = "Sincronización vertical"
+	_vsync.custom_minimum_size = Vector2(ANCHO, ALTO_MANDO + 8)
+	_vsync.add_theme_font_size_override("font_size", 15)
+	_vsync.button_pressed = Ventana.vsync
+	_vsync.toggled.connect(func(on: bool) -> void: Ventana.aplicar_vsync(on))
+	vb.add_child(_vsync)
+
+	var pista := Label.new()
+	pista.text = "Quita el desgarro de la imagen. Apágala si el juego va a tirones."
+	pista.custom_minimum_size = Vector2(ANCHO, 0)
+	pista.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pista.add_theme_font_size_override("font_size", 11)
+	pista.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	vb.add_child(pista)
+
+
+# Cambia de apartado: se enseña su caja y su pestaña se enciende.
+func _ir_a(clave: String) -> void:
+	_apartado = clave
+	for k in _cuerpos:
+		(_cuerpos[k] as Control).visible = (k == clave)
+	for k in _pestanas:
+		var b: Button = _pestanas[k]
+		b.add_theme_color_override("font_color",
+			Color(0.95, 0.72, 0.36) if k == clave else Color(0.62, 0.64, 0.70))
+
+
 func _mover(v: float, clave: String) -> void:
 	Sonido.fijar_volumen(clave, v / 100.0)
 	_pintar_cifra(clave)
@@ -182,9 +257,11 @@ func abrir() -> void:
 	# ejemplo) mientras este panel estaba escondido.
 	for m in MANDOS:
 		_pintar_cifra(String(m["clave"]))
-	# Y el modo de pantalla, que se puede haber cambiado con F11 con este panel escondido.
+	# Y lo de Gráficos, que se puede haber cambiado por fuera (F11) con este panel escondido.
 	if _pantalla != null:
 		_pantalla.select(_pantalla.get_item_index(Ventana.modo))
+	if _vsync != null:
+		_vsync.set_pressed_no_signal(Ventana.vsync)
 
 
 func cerrar() -> void:

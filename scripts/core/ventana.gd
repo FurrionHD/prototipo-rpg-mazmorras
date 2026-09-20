@@ -36,6 +36,10 @@ const MODOS := [
 const TOPE_CIERRE := 8.0
 
 var modo: int = Modo.VENTANA
+# SINCRONIZACION VERTICAL. Encendida corta el desgarro de la imagen al moverse; apagada deja correr
+# los fotogramas (portatil con la grafica justa, o para ver de verdad si algo va lento). Es lo otro
+# que se ajusta de la imagen, asi que vive aqui con el modo.
+var vsync: bool = true
 
 var _cerrando: bool = false
 var _cartel: CanvasLayer = null
@@ -45,6 +49,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_cargar_ajustes()
 	aplicar(modo)
+	aplicar_vsync(vsync)
 
 
 # ============================================================
@@ -75,6 +80,13 @@ func aplicar(m: int) -> void:
 	_guardar_ajustes()
 
 
+func aplicar_vsync(activo: bool) -> void:
+	vsync = activo
+	DisplayServer.window_set_vsync_mode(
+		DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
+	_guardar_ajustes()
+
+
 func nombre_modo(m: int) -> String:
 	return String((MODOS[clampi(m, 0, MODOS.size() - 1)] as Dictionary)["nombre"])
 
@@ -95,6 +107,7 @@ func _cargar_ajustes() -> void:
 	if err != OK and err != ERR_FILE_NOT_FOUND:
 		push_warning("[ventana] no se pudo leer %s (error %d): modo por defecto" % [RUTA_AJUSTES, err])
 	modo = clampi(int(cfg.get_value(SECCION, "modo", Modo.VENTANA)), 0, MODOS.size() - 1)
+	vsync = bool(cfg.get_value(SECCION, "vsync", true))
 
 
 func _guardar_ajustes() -> void:
@@ -103,6 +116,7 @@ func _guardar_ajustes() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(RUTA_AJUSTES)
 	cfg.set_value(SECCION, "modo", modo)
+	cfg.set_value(SECCION, "vsync", vsync)
 	var err: int = cfg.save(RUTA_AJUSTES)
 	if err != OK:
 		push_warning("[ventana] no se pudo guardar %s (error %d)" % [RUTA_AJUSTES, err])

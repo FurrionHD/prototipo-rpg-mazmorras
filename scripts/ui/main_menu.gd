@@ -13,6 +13,10 @@ extends Control
 const PUEBLO := "res://scenes/levels/town.tscn"
 const MAZMORRA := "res://scenes/levels/main.tscn"
 const MULTIJUGADOR := "res://scenes/ui/multi_menu.tscn"
+# EL MISMO panel de ajustes que el menu de pausa, no una copia: el volumen y el modo de pantalla se
+# tienen que poder tocar ANTES de entrar a jugar (que es donde se tocan en cualquier juego), y dos
+# pantallas distintas para lo mismo acaban contestando distinto.
+const AJUSTES := preload("res://scripts/ui/settings_menu.gd")
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const ROJO := Color(0.9, 0.5, 0.5)
@@ -31,6 +35,10 @@ const ANCHO_TOTAL := ANCHO_RANURA + SEP_FILA + ANCHO_BORRAR
 
 var _lista: VBoxContainer = null
 var _aviso: Label = null
+# Los AJUSTES, montados de entrada y escondidos (como en el menu de pausa): la capa es el telon que
+# tapa la lista de ranuras, y dentro va el panel de verdad.
+var _ajustes_capa: Control = null
+var _ajustes: Control = null
 
 # Ranura pendiente de confirmar sobrescritura (0 = nada pendiente).
 var _confirmar_nueva: int = 0
@@ -97,11 +105,22 @@ func _ready() -> void:
 	multi.pressed.connect(func(): get_tree().change_scene_to_file(MULTIJUGADOR))
 	vb.add_child(multi)
 
+	# AJUSTES desde el TITULO, no solo con ESC dentro de la partida: el volumen y el modo de pantalla
+	# (ventana / sin bordes / completa) son lo primero que se toca al abrir un juego, y hasta ahora
+	# para llegar a ellos habia que cargar una partida.
+	var ajustes := Button.new()
+	ajustes.custom_minimum_size = Vector2(ANCHO_TOTAL, 52.0)
+	ajustes.text = "Ajustes"
+	ajustes.pressed.connect(_abrir_ajustes)
+	vb.add_child(ajustes)
+
 	var salir := Button.new()
 	salir.custom_minimum_size = Vector2(ANCHO_TOTAL, 52.0)
 	salir.text = "Salir del juego"
 	salir.pressed.connect(get_tree().quit)
 	vb.add_child(salir)
+
+	_montar_ajustes()
 
 	# En el menu principal NO puede quedar ningun mundo compartido abierto. Si llegamos aqui con uno
 	# (algun camino anomalo que no paso por "guardar y salir"), hay que soltarlo: si no, el siguiente
@@ -112,6 +131,47 @@ func _ready() -> void:
 		_aviso.text = "El mundo compartido se cerró sin guardar. Sigue reservado a tu nombre unos minutos."
 
 	_pintar()
+
+
+# ============================================================
+#  AJUSTES
+# ============================================================
+
+# Se monta UNA vez y se esconde, igual que en el menu de pausa: asi no hay que preguntarse si existe
+# cada vez que se pulsa el boton. El telon lleva su propio fondo oscuro y se come el raton: sin el,
+# los botones de las ranuras seguian pulsandose por debajo del panel.
+func _montar_ajustes() -> void:
+	_ajustes_capa = Control.new()
+	_ajustes_capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ajustes_capa.visible = false
+	add_child(_ajustes_capa)
+
+	var telon := ColorRect.new()
+	telon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	telon.color = Color(0.0, 0.0, 0.0, 0.75)
+	telon.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ajustes_capa.add_child(telon)
+
+	_ajustes = AJUSTES.new()
+	_ajustes.cerrado.connect(_cerrar_ajustes)
+	_ajustes_capa.add_child(_ajustes)
+
+
+func _abrir_ajustes() -> void:
+	_ajustes_capa.visible = true
+	_ajustes.abrir()
+
+
+func _cerrar_ajustes() -> void:
+	_ajustes_capa.visible = false
+
+
+# ESC cierra los ajustes (no hay nada mas de lo que salir en el titulo). Va por _unhandled_input,
+# asi que si algun dia el panel se come la tecla, aqui ya no llega y no se cierran dos veces.
+func _unhandled_input(event: InputEvent) -> void:
+	if _ajustes_capa != null and _ajustes_capa.visible and event.is_action_pressed(&"cancelar"):
+		_ajustes.cerrar()
+		get_viewport().set_input_as_handled()
 
 
 # Una fila por ranura: [la partida] [Borrar]. Ya NO hay "Editar" (el nombre y el aspecto se cambian
