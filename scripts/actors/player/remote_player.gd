@@ -137,8 +137,12 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 	var pj: PersonajeData = Game.pj_de_dict({"equipo": equipo})
 	pj.color = Color(color.r, color.g, color.b, 1.0)
 	pj.aspecto = PersonajeData.aspecto_nuevo(pj.color)
-	if not piezas.is_empty():
-		pj.aplicar_aspecto({"piezas": piezas})
+	# Y SU FOTO VA EN LA FICHA, ANTES de montar. No es adorno: quien decide si se dibujan los ojos y la
+	# boca es JugadorSprites mirando pj.imagen (con foto no se montan, porque asomarian por debajo de
+	# ella). Poniendosela solo al muñeco despues, aqui llegaba con la ficha vacia, se horneaban los
+	# rasgos a z 2048 y la foto se pegaba a 2045: al otro jugador se le veia con los ojos dibujados
+	# ENCIMA de su cara. Ese era el fallo del playtest del 19/09.
+	pj.aplicar_aspecto({"piezas": piezas, "imagen": imagen})
 	# Su arma, para el sonido de sus golpes. Sale del mismo PersonajeData que acaba de montarse el
 	# muñeco, o sea del equipo que ya viajaba: no hace falta mensaje nuevo.
 	_fx_main = _fx_de_arma(pj.equipped_main)
