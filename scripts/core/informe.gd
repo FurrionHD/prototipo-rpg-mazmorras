@@ -165,21 +165,22 @@ static func _cabecera(L: Array[String]) -> void:
 	_oficios(L)
 
 
-# CUANTO SE HA CRAFTEADO, en bruto. Estos contadores son DEL GRUPO (viven en Game, no en cada
-# PersonajeData), asi que van una sola vez y aqui arriba: si salieran solo dentro de cada ficha, ver
-# el mismo "metalurgia 340" repetido en las cuatro parece un bug de datos y no lo es.
-#
-# El desarrollo de oficio si es de cada uno (su rango vive en su desarrollos_rango), asi que un
-# personaje puede tener Herreria B y otro no tenerla, los dos con este mismo contador detras.
+# QUIEN TRABAJA CADA OFICIO y cuanto lleva hecho. El contador NO es del grupo: vive en la ficha de
+# cada uno igual que los de combate (ver Game.herreria_exp), y lo cobra el ARTESANO que hayas puesto
+# en la pantalla de ese taller. Esta tabla es el mapa de a quien va: sin ella hay que mirar las
+# cuatro fichas una por una para saber quien se esta llevando la Herreria.
 static func _oficios(L: Array[String]) -> void:
 	L.append("")
-	L.append("[OFICIOS DEL GRUPO]  (contadores compartidos: cuanto se ha crafteado en esta partida)")
+	L.append("[OFICIOS]  (quien lo trabaja hoy y su contador; el de cada uno sale en su ficha)")
 	for d in Game.DESARROLLOS:
 		if str(d.get("tipo", "")) != "oficio":
 			continue
-		var cont: String = str(d["contador"])
-		L.append("    %-14s %10s   (umbral de %s: %s)" % [d["nombre"],
-			String.num(float(Game.get(cont)), 1), Game.letra_rango(1),
+		var id: String = str(d["id"])
+		var pj: PersonajeData = Game.artesano(id)
+		var rango: int = Game.desarrollo_rango(id, pj)
+		L.append("    %-14s %-16s %10s   (rango: %s   umbral de %s: %s)" % [d["nombre"], pj.nombre,
+			String.num(Game.contador_de(pj, str(d["contador"])), 1),
+			(Game.letra_rango(rango) if rango > 0 else "-"), Game.letra_rango(1),
 			String.num(float(d.get("umbral", 0.0)), 0)])
 
 
@@ -326,14 +327,12 @@ static func _vivo(v: float) -> String:
 	return "lleno" if v < 0.0 else "%.1f" % v
 
 
-# El contador que gatea un desarrollo, LEIDO DE QUIEN TOCA. Los de combate son de la persona (viven
-# en su PersonajeData) y los de oficio son del grupo (viven en Game), exactamente el mismo criterio
-# que usa Game._subir_rangos_desarrollo. Sin esto, los contadores de combate de todo el mundo salian
-# con el numero del LIDER (es lo que hace Game.desarrollo_progreso, que va por la propiedad de Game).
+# El contador que gatea un desarrollo, LEIDO DE QUIEN TOCA. Todos son de la persona (viven en su
+# PersonajeData), los de oficio incluidos. Sin esto, los contadores de todo el mundo salian con el
+# numero del LIDER (o, en los de oficio, con el del artesano de turno): eso es lo que pasa si se
+# leen por las propiedades puente de Game, que no apuntan todas a la misma persona.
 static func _contador_de(pj: PersonajeData, nombre: String) -> float:
-	if nombre == "":
-		return 0.0
-	return float(pj.get(nombre)) if nombre in pj else float(Game.get(nombre))
+	return Game.contador_de(pj, nombre)
 
 
 # Los contadores OCULTOS (los que gatean los desarrollos) y los perks. En el juego no se enseñan a
@@ -344,7 +343,7 @@ static func _contador_de(pj: PersonajeData, nombre: String) -> float:
 # ({"herreria": 3}), que no dice ni como se llama, ni que letra es, ni cuanto queda.
 static func _ocultos(L: Array[String], pj: PersonajeData) -> void:
 	L.append("")
-	L.append("  DESARROLLOS   (los de oficio llevan el contador DEL GRUPO, ver [OFICIOS DEL GRUPO])")
+	L.append("  DESARROLLOS   (contadores SUYOS, tambien los de oficio; quien trabaja cada uno, en [OFICIOS])")
 	L.append("    %-22s %-10s %9s / %-9s  %s  %s" % [
 		"", "tipo", "contador", "umbral I", "esc.", "estado"])
 	for d in Game.DESARROLLOS:

@@ -12435,7 +12435,9 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	aplicar_desarrollo(desarrollo_id)
 	# RESET selectivo: los contadores de los desarrollos que NO tienes vuelven a 0 (hay que ganarse
 	# cada desbloqueo dentro de un nivel). Los YA elegidos NO se resetean (acumulan para subir de rango).
-	_reset_contadores_no_elegidos()
+	# Solo los TUYOS: el que asciende es el líder (subir_nivel va por sus stats), y borrarle el
+	# contador a otro por haber subido tú no tiene sentido ninguno.
+	_reset_contadores_no_elegidos(lider())
 	player_current_hp = -1.0; player_current_mp = -1.0   # despiertas a tope tras el ascenso
 	print("[nivel] ¡Subes a nivel ", player_level, "! Base -> atk %.1f def %.1f hp %.1f spd %.1f mag %.1f" % [
 		player_base_attack, player_base_defense, player_base_hp, player_base_speed, player_base_magic])
@@ -12721,8 +12723,13 @@ func tier_puntos(tier: int) -> float:
 
 # Puntos que suma UNA acción de oficio a su contador: 1 para DESBLOQUEAR (si aún no tienes el
 # desarrollo, cualquier tier da 1), o tier_puntos(tier) una vez lo tienes (para subir de rango).
+#
+# El "tienes" es DEL ARTESANO, no del líder: el id del desarrollo es también la clave del artesano
+# (ver artesano()), que es justo a quien se le va a sumar el contador. Con tiene_desarrollo() a pelo
+# se miraba el desarrollo del que va en cabeza, así que un artesano con Herrería B cobraba puntos de
+# tier como si no la tuviera —y, al revés, el trabajo de uno sin oficio cobraba por el rango ajeno.
 func _puntos_oficio(id: String, tier: int) -> float:
-	return tier_puntos(tier) if tiene_desarrollo(id) else 1.0
+	return tier_puntos(tier) if desarrollo_rango(id, artesano(id)) > 0 else 1.0
 
 # Requisito (valor del contador) para alcanzar `rango` de un desarrollo de base `umbral`. `mult` es
 # lo que pide cada escalon sobre el anterior: por defecto RANGO_MULT, o el `rango_mult` propio del
@@ -12819,19 +12826,44 @@ func _subir_rangos_desarrollo(pj: PersonajeData = null) -> void:
 			p.desarrollos_rango[id] = nuevo
 			print("[desarrollo] %s sube a rango %s" % [d.get("nombre", id), letra_rango(nuevo)])
 
-# Progreso hacia el SIGUIENTE rango (o el desbloqueo si no lo tienes). Solo lo usa el panel de DEBUG.
-func desarrollo_progreso(d: Dictionary) -> Dictionary:
+# EL CONTADOR DE UN DESARROLLO, LEÍDO DE UNA PERSONA. Todos viven hoy en su PersonajeData (los de
+# oficio también, ver herreria_exp), así que se lee de la ficha; el respaldo por Game se queda para
+# un contador que algún día no esté ahí.
+#
+# Hay que pedirlo así y no por Game: las propiedades puente de Game NO apuntan todas al mismo sitio.
+# Las de combate van al LÍDER y las de oficio al ARTESANO elegido, o sea que leyendo por Game salen
+# los números de dos personas distintas mezclados en la misma lista.
+func contador_de(pj: PersonajeData, nombre: String) -> float:
+	if nombre == "" or pj == null:
+		return 0.0
+	return float(pj.get(nombre)) if nombre in pj else float(get(nombre))
+
+
+func poner_contador(pj: PersonajeData, nombre: String, v: float) -> void:
+	if nombre == "" or pj == null:
+		return
+	if nombre in pj:
+		pj.set(nombre, v)
+	else:
+		set(nombre, v)
+
+
+# Progreso hacia el SIGUIENTE rango (o el desbloqueo si no lo tienes), DE UNA PERSONA (por defecto,
+# el líder). Lo usa el panel de DEBUG.
+func desarrollo_progreso(d: Dictionary, pj: PersonajeData = null) -> Dictionary:
+	var p: PersonajeData = pj if pj != null else lider()
 	var cont: String = str(d.get("contador", ""))
 	var umbral: float = float(d.get("umbral", 0.0))
-	var rango: int = desarrollo_rango(str(d.get("id", "")))
+	var rango: int = desarrollo_rango(str(d.get("id", "")), p)
 	var objetivo: float = umbral if rango < 1 else req_de_rango(umbral, rango + 1, _mult_de_rango(d))
+	var valor: float = contador_de(p, cont)
 	return {
 		"contador": cont,
 		"umbral": objetivo,
-		"valor": float(get(cont)),
+		"valor": valor,
 		"rango": rango,
 		"letra": letra_rango(rango),
-		"cumplido": rango < RANGO_MAX and float(get(cont)) >= objetivo,
+		"cumplido": rango < RANGO_MAX and valor >= objetivo,
 	}
 
 # Desbloquea un desarrollo al subir de nivel: lo pone a rango I. El rank-up posterior es automatico
@@ -12847,15 +12879,20 @@ func aplicar_desarrollo(id: String) -> void:
 func desarrollo_gain_mult(_abil: String, pj: PersonajeData = null) -> float:
 	return 1.0 + CAZADOR_GAIN_BONUS * factor_desarrollo("cazador", pj)
 
-# Pone a 0 el contador de cada desarrollo que NO tienes (lo llama subir_nivel). Los ya elegidos
-# conservan su contador (acumulativo → siguen subiendo de rango).
-func _reset_contadores_no_elegidos() -> void:
+# Pone a 0 el contador de cada desarrollo que NO tiene ESA PERSONA (lo llama subir_nivel, con el que
+# asciende). Los ya elegidos conservan su contador (acumulativo → siguen subiendo de rango).
+#
+# TODO de una misma ficha, lectura y escritura. Antes decidía con los desarrollos del líder y
+# escribía con set(), o sea por las propiedades puente de Game: las de oficio caen en el ARTESANO,
+# así que subir de nivel el líder le borraba al herrero de la cuadrilla lo que llevaba fundido.
+func _reset_contadores_no_elegidos(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
 	for d in DESARROLLOS:
-		if tiene_desarrollo(str(d["id"])):
+		if desarrollo_rango(str(d["id"]), p) > 0:
 			continue
 		var cont: String = str(d.get("contador", ""))
 		if cont != "":
-			set(cont, 0.0)
+			poner_contador(p, cont, 0.0)
 
 
 # DEBUG: fija a mano las 5 habilidades VISIBLES (las de este nivel) y cura al 100% para el

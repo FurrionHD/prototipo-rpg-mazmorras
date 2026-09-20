@@ -93,6 +93,24 @@ func _herreria() -> void:
 		_ok("y la Herrería va al artesano", herrero.herreria_exp > antes_exp)
 		_ok("y no al líder", is_equal_approx(Game.lider().herreria_exp, antes_lider))
 
+		# LOS PUNTOS SON DEL ARTESANO, no del líder. Quien tiene el desarrollo cobra por el TIER de lo
+		# que trabaja; quien no lo tiene, 1 por acción sea lo que sea. Se miraba el desarrollo del que
+		# iba en cabeza, así que el herrero con Herrería cobraba como un aprendiz (y al revés).
+		Game.lider().desarrollos_rango.erase("herreria")
+		herrero.desarrollos_rango.erase("herreria")
+		_ok("sin el oficio, una acción de T3 da 1 punto", is_equal_approx(Game._puntos_oficio("herreria", 3), 1.0))
+		herrero.desarrollos_rango["herreria"] = 1
+		_ok("con el oficio DEL ARTESANO, esa misma acción da el punto del tier",
+			is_equal_approx(Game._puntos_oficio("herreria", 3), Game.tier_puntos(3)))
+
+		# Y SUBIR DE NIVEL EL LÍDER NO LE BORRA EL CONTADOR AL ARTESANO. El reset de los desarrollos
+		# no elegidos escribía por las propiedades de Game, que en los oficios caen en el artesano:
+		# ascender el líder le vaciaba al herrero todo lo que llevaba fundido.
+		var guardado: float = herrero.herreria_exp
+		Game._reset_contadores_no_elegidos(Game.lider())
+		_ok("el líder asciende y el herrero conserva lo suyo",
+			is_equal_approx(herrero.herreria_exp, guardado))
+
 	print("\n=== FORJAR ===")
 	var i_forjar: int = _tab(men, "forjar")
 	await _ir(men, i_forjar)

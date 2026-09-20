@@ -441,19 +441,25 @@ func _build_desarrollo(vb: VBoxContainer) -> void:
 	# --- Contadores OCULTOS de los desarrollos ---
 	# Este es el UNICO sitio del juego donde se ven. En la forja/peleteria/boticaria no se pintan
 	# a proposito: el jugador se gana la habilidad sin saber que la esta ganando.
+	# SON DEL QUE VA EN CABEZA. Todos (los de oficio tambien) viven en su ficha, asi que cambiando de
+	# lider y reabriendo el panel se ven los de otro. Ojo: NO se pide por Game, que para los de
+	# combate apunta al lider y para los de oficio al ARTESANO elegido; pidiendolo asi salia la
+	# Herreria del artesano clavada al lado de los numeros del lider, y parecia que el oficio fuese
+	# del grupo entero. Ver Game.contador_de.
 	_sep(vb)
-	_header(vb, "Contadores ocultos (no se ven en el juego)")
+	_header(vb, "Contadores ocultos del LÍDER (no se ven en el juego)")
 	_desarrollo_list = VBoxContainer.new()
 	vb.add_child(_desarrollo_list)
 
 	var b_fill := Button.new()
-	b_fill.text = "Rellenar contadores (desbloquear todo)"
+	b_fill.text = "Rellenar contadores del líder (desbloquear todo)"
 	b_fill.pressed.connect(func():
+		var pj: PersonajeData = Game.lider()
 		for d in Game.DESARROLLOS:
 			if str(d.get("req", "")) != "exp":
 				continue
-			Game.set(str(d["contador"]), float(d["umbral"]))
-		print("[debug] Contadores de desarrollo al umbral: todo desbloqueado.")
+			Game.poner_contador(pj, str(d["contador"]), float(d["umbral"]))
+		print("[debug] Contadores de desarrollo de %s al umbral: todo desbloqueado." % pj.nombre)
 		_sync_desarrollo())
 	vb.add_child(b_fill)
 
@@ -463,8 +469,9 @@ func _sync_desarrollo() -> void:
 	if _desarrollo_list == null:
 		return
 	MenuScaffold.vaciar(_desarrollo_list)
+	var quien: PersonajeData = Game.lider()
 	for d in Game.DESARROLLOS:
-		var p: Dictionary = Game.desarrollo_progreso(d)
+		var p: Dictionary = Game.desarrollo_progreso(d, quien)
 		var rango: int = int(p["rango"])
 		var estado: String
 		var col: Color
