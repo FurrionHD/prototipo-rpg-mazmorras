@@ -180,7 +180,9 @@ func valor_orden(s: Dictionary, campo: String, seccion) -> float:
 		"precio":
 			return float(seccion.precio_unidad(s))
 		"valor":
-			return float(seccion.precio_unidad(s)) * float(n)
+			# POR UNIDAD, igual que "precio" (el mismo criterio con otro nombre en Comprar): lo que se
+			# busca al ordenar por valor es lo caro, no el monton mas gordo.
+			return float(seccion.precio_unidad(s))
 		"peso":
 			return _peso(m) * float(n)
 		"valor_peso":

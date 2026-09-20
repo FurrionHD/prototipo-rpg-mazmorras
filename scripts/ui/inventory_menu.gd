@@ -1379,7 +1379,10 @@ func _valor_orden(s: Dictionary, campo: String) -> float:
 				return (m as MaterialItem).peso() * float(n)
 			return 0.0
 		"valor":
-			return float(_valor_unidad(m)) * float(n)
+			# EL PRECIO DE UNA UNIDAD, no el del monton. Al reves que el peso, aqui la pregunta es
+			# "que es lo caro", y multiplicar por la cantidad contesta otra: 200 piedras de 3 se
+			# ponian por delante de la escama de 400 y lo valioso quedaba enterrado al final.
+			return float(_valor_unidad(m))
 		"valor_peso":
 			# LO QUE RENTA CADA KILO. Es la pregunta de verdad cuando vas sobrecargado: no "que vale
 			# mas" ni "que pesa mas", sino "que estoy cargando para nada". Ninguno de los otros dos
