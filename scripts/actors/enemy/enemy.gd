@@ -113,9 +113,29 @@ var _reloj_estados: float = 0.0
 #  Ahora, en cuanto te pilla a tiro, se COMPROMETE: se planta, avisa, y se lanza en una EMBESTIDA
 #  en la direccion que tenias EN ESE MOMENTO. Si te alcanza, empieza el combate; si la esquivas,
 #  falla y tiene que volver a montarla. Asi huir es una habilidad y no un bug.
+#
+#  ⚠️ MANDA LA ANIMACION, NO UN RELOJ APARTE (playtest 20/09). El gesto duraba una constante de
+#  0,35 s que no tenia nada que ver con el dibujo, y encima CONECTABA A MITAD: en cuanto la caja de
+#  la carga te rozaba un fotograma, la pelea estaba decidida y ya no habia forma de zafarse -- "me
+#  entran en combate sin estar en contacto, huyendo". Ahora la embestida dura EXACTAMENTE lo que su
+#  animacion (medida del recurso, ver _dur_anim) y el hitbox se mira UNA VEZ, AL TERMINARLA: quien
+#  no este dentro en ese instante no entra en combate. Lo mismo hace tu espadazo (player._try_attack).
 # ============================================================
 const EMBESTIDA_VEL_MULT := 2.2    # x lo que corre persiguiendo: la carga es un aceleron
-const EMBESTIDA_DUR := 0.35        # segundos que dura la carga (lo que la hace esquivable)
+# EL GESTO DE ATAQUE VA A MITAD DE VELOCIDAD (peticion del usuario): ocho fotogramas a 8-12 fps son
+# 0,67-1,0 s nativos, o sea 1,3-2,0 s aqui. Es el telegrafiado de verdad -- lo que ves venir es lo
+# que tienes para apartarte.
+const VEL_ANIM_ATAQUE := 0.5
+# De ese gesto, cuanto dura el ACELERON del final. Antes de eso el bicho esta PLANTADO preparandolo:
+# si cargara desde el primer fotograma recorreria media sala. Es el tramo con el que recupera
+# terreno sobre el que huye, asi que es la palanca para reapretar el ataque si se queda flojo.
+const CARGA_FINAL := 0.35
+# En que punto del gesto CONTACTA el arma: donde suena el porrazo, acierte o falle. Mismo criterio
+# (y mismo numero) que player.CONTACTO_GOLPE, que es lo que hace que los dos se lean igual.
+const CONTACTO_EMBESTIDA := 0.55
+# Por si el bicho todavia no tiene SpriteFrames (el ColorRect de placeholder, o un horneado que no
+# cargo): la embestida necesita durar algo o se resolveria en el mismo fotograma en que arranca.
+const EMBESTIDA_DUR_FALLBACK := 0.8
 const EMBESTIDA_ESPERA := 0.6      # descanso tras fallar, antes de poder volver a cargar
 # Holgura para dar dos cuerpos por TOCANDOSE. NO puede ser 0: ahora el bicho COLISIONA con los
 # companeros, y al colisionar Godot deja un margen de seguridad, asi que los cuerpos jamas llegan a
@@ -123,27 +143,11 @@ const EMBESTIDA_ESPERA := 0.6      # descanso tras fallar, antes de poder volver
 # el companero y no "conectaba" nunca: el bicho se quedaba empotrado repitiendo aviso -> embestida
 # -> fallo, sin entrar en combate.
 const CONTACTO := 2.0
-# EL INSTANTE DEL IMPACTO. Antes, en cuanto la embestida (o un espadazo tuyo) conectaba, se llamaba
-# a _start_combat EN EL MISMO FOTOGRAMA -- la pantalla de combate se llevaba la escena a mitad del
-# lunge y no daba tiempo a ver nada, la misma trampa que ya tenia el golpe del jugador (ver
-# player._tick_ataque). Ahora conectar arma _impacto_t (ver _iniciar_impacto) y el bicho se queda
-# PARALIZADO en el sitio ese rato antes de cortar -- lo que dura verse el golpe.
-#
-# MISMA DURACION que el espadazo del jugador (player.DUR_GOLPE = 8 fotogramas a 12 fps), a
-# proposito: que el bicho parezca mas brusco o mas lento que tu al entrar en combate se nota en
-# seguida, aunque las dos animaciones no compartan nada de codigo (no hay class_name en player.gd
-# para referenciar la constante de verdad, asi que el numero va duplicado -- si se toca uno, tocar
-# el otro).
-const EMBESTIDA_IMPACTO := 8.0 / 12.0
 # DESCANSO TRAS UN REBOTE: la embestida conecto pero la pelea NO se abrio (el piso no es mio, el
 # empuje al otro humano no colo). Es mucho mas largo que EMBESTIDA_ESPERA a proposito -- ese es el
 # descanso de FALLAR el golpe, y aqui el golpe acerto: reintentarlo cada 0.6 s es lo que llenaba la
 # mazmorra de porrazos mientras el dueño estaba metido en su pantalla de combate.
 const REBOTE_ESPERA := 3.0
-# Y un suelo para la ventana del impacto: aunque la carga se haya comido el reloj entero, el porrazo
-# tiene que oirse y verse antes de que la pantalla se lleve la escena. Cortar a cero seria volver al
-# bug de "entro directo, sin animacion".
-const IMPACTO_MINIMO := 0.22
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
@@ -176,9 +180,12 @@ var _windup_timer: float = -1.0  # -1 = no esta preparando ataque
 var _winding: bool = false       # true mientras hace el aviso de ataque
 var _embiste_seq: int = 0         # sube en cada embestida que conecta (viaja al espejo, que suena con el)
 # EMBESTIDA: direccion COMPROMETIDA al acabar el aviso (no se recalcula: por eso se puede esquivar),
-# lo que le queda de carga, y el descanso tras fallar una.
+# lo que le queda de gesto, lo que DURA el gesto entero (medido de la animacion en _lanzar_embestida),
+# lo que falta para el fotograma de contacto (el porrazo), y el descanso tras fallar una.
 var _embiste_dir: Vector2 = Vector2.ZERO
 var _embiste_t: float = 0.0
+var _embiste_dur: float = 0.0
+var _embiste_sfx_t: float = -1.0
 var _embiste_espera: float = 0.0
 # EL IMPACTO (ver _iniciar_impacto): -1 = nada pendiente. Mientras cuenta, el bicho esta parado y
 # _start_combat todavia NO se ha llamado -- se llama solo (con 'enemy_initiated' ya decidido) al
@@ -441,7 +448,27 @@ func _actualizar_animacion() -> void:
 		_facing, _state == State.EMBESTIDA, velocity.length() > 2.0)
 	if nombre != _anim_actual:
 		_anim_actual = nombre
+		# EL GESTO DE ATAQUE, A MITAD DE VELOCIDAD. Va aqui y no en el horneado a proposito: bajar los
+		# fps en los 19 generadores obligaria a pasar por el horno y dejaria el dibujo atado a la
+		# regla de juego. Hay que ponerlo ANTES del play (speed_scale se lee al arrancar) y repetirlo
+		# en remote_enemy._actualizar_animacion, o cada maquina veria al mismo bicho a otro ritmo.
+		_sprite.speed_scale = VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
+
+
+# CUANTO DURA DE VERDAD una animacion de este bicho, ya contando la velocidad a la que se reproduce.
+# Los fps van HORNEADOS en el recurso (cada generador pone los suyos: 8 en el miconido, 12 en la
+# gargola), asi que esto lee lo que se esta viendo y no una constante que se desacompasa sola. Misma
+# cuenta que combat_figuras._pose_ajustar, que es donde nacio.
+func _dur_anim(nombre: String) -> float:
+	var sf: SpriteFrames = _sprite.sprite_frames if _sprite != null else null
+	if sf == null or not sf.has_animation(nombre):
+		return EMBESTIDA_DUR_FALLBACK
+	var fps: float = maxf(sf.get_animation_speed(nombre), 0.1)
+	var marcos: int = sf.get_frame_count(nombre)
+	if marcos <= 0:
+		return EMBESTIDA_DUR_FALLBACK
+	return (float(marcos) / fps) / maxf(VEL_ANIM_ATAQUE, 0.01)
 
 
 # Deja una gota de baba cada RASTRO_INTERVALO mientras el slime esta EN MARCHA. Va en el arbol
@@ -510,6 +537,9 @@ func _physics_process(delta: float) -> void:
 			return
 		velocity = Vector2.ZERO
 		_impacto_t -= delta
+		# El dibujo tiene que seguir corriendo mientras encaja: este 'return' se saltaba
+		# _actualizar_animacion y el bicho se quedaba con el fotograma pillado del gesto anterior.
+		_actualizar_animacion()
 		if _impacto_t <= 0.0:
 			_impacto_t = -1.0
 			if _impacto_con_objetivo:
@@ -580,8 +610,12 @@ func _physics_process(delta: float) -> void:
 	var antes: Vector2 = global_position
 	move_and_slide()
 
-	# La direccion de mirada = hacia donde nos movemos (si nos movemos).
-	if velocity.length() > 1.0:
+	# La direccion de mirada = hacia donde nos movemos (si nos movemos). EMBISTIENDO NO: la direccion
+	# quedo comprometida al lanzar el gesto (_embiste_dir) y es justo lo que lo hace esquivable. Antes
+	# daba igual porque el aceleron dominaba la velocidad, pero ahora el bicho pasa la primera parte
+	# del gesto PLANTADO, y el empujon de separacion (que se suma ahi abajo) bastaba para irle girando
+	# la mirada -- y con ella el dibujo y la zona del golpe.
+	if velocity.length() > 1.0 and _state != State.EMBESTIDA:
 		_facing = velocity.normalized()
 	_actualizar_indicadores()
 	_actualizar_animacion()
@@ -608,6 +642,13 @@ const ATASCO_T := 0.18         # cuanto aguanta asi antes de intentar salir
 const BORDEO_T := 0.3          # lo que dura un rodeo
 const BORDEOS_MAX := 3         # rodeos seguidos antes de rendirse y volverse a su sitio
 func _vigilar_atasco(delta: float, antes: Vector2) -> void:
+	# EMBISTIENDO NO. La carga es un gesto COMPROMETIDO (direccion fijada, animacion corriendo) y
+	# desviarla con un rodeo la convertiria en otra cosa; si acaba contra la roca, _resolver_embestida
+	# la da por fallada sola al terminar el dibujo. Antes daba igual porque la carga duraba 0,35 s y se
+	# abortaba al primer choque; ahora el gesto llega a 2 s y si no, el rodeo se lo comeria.
+	if _state == State.EMBESTIDA:
+		_stuck_time = 0.0
+		return
 	# Si no pide moverse (esta plantado haciendo el aviso, o esperando) no hay atasco que valer.
 	var pedido: float = velocity.length() * delta
 	if pedido < 0.5 or _bordeo != Vector2.ZERO:
@@ -1132,7 +1173,14 @@ func _lanzar_embestida(hacia: Node2D) -> void:
 		if d.length() > 0.01:
 			dir = d.normalized()
 	_embiste_dir = dir
-	_embiste_t = EMBESTIDA_DUR
+	# EL GESTO DURA LO QUE DURA SU DIBUJO. Se mide aqui y no al vuelo porque la direccion queda
+	# comprometida en este mismo instante: la animacion que se va a ver ya esta decidida.
+	_embiste_dur = _dur_anim(SpritesEnemigo.animacion(_embiste_dir, true, false))
+	_embiste_t = _embiste_dur
+	_embiste_sfx_t = _embiste_dur * CONTACTO_EMBESTIDA
+	# Un rodeo a medias pisa la velocidad en _physics_process y torceria la carga recien lanzada.
+	_bordeo = Vector2.ZERO
+	_bordeo_t = 0.0
 	_state = State.EMBESTIDA
 
 
@@ -1149,72 +1197,99 @@ func zona_embestida() -> Rect2:
 
 
 func _embestida(delta: float) -> void:
-	velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
 	_embiste_t -= delta
-	# ¿Ha alcanzado a alguien? Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los
-	# cuerpos que colisionan nunca llegan a solaparse), no el margen de ataque: la carga tiene que
-	# CONECTAR, no basta con pasar cerca.
+	# PRIMERO PREPARA, LUEGO CARGA. El aceleron es solo el ultimo tramo del gesto (CARGA_FINAL);
+	# hasta entonces esta PLANTADO, enseñandote el golpe que viene. Si cargara desde el primer
+	# fotograma, con el gesto a mitad de velocidad se cruzaria media sala de una embestida.
+	if _embiste_t <= CARGA_FINAL:
+		velocity = _embiste_dir * _chase_speed() * EMBESTIDA_VEL_MULT
+	else:
+		velocity = Vector2.ZERO
+	# EL PORRAZO, EN EL FOTOGRAMA EN QUE EL ARMA CONTACTA -- acierte o falle, igual que tu espadazo.
+	# Antes sonaba al conectar, que con el sprite ya congelado en su ultimo fotograma se oia como si
+	# el ruido llegara DESPUES del ataque (playtest: "el sonido no suena al atacar sino al acabar").
+	if _embiste_sfx_t >= 0.0:
+		_embiste_sfx_t -= delta
+		if _embiste_sfx_t < 0.0:
+			_sonar_embestida()
+	if _embiste_t <= 0.0:
+		_resolver_embestida()
+
+
+# EL SONIDO de embestir, con su golpe de siempre (EnemyData.fx_basico): el minotauro embiste con su
+# cornada y la rata con su mordisco.
+func _sonar_embestida() -> void:
+	if data == null:
+		return
+	# EL CONTADOR, antes y fuera del filtro de oido: lo que se cuenta es que HA ATACADO, se oiga aqui
+	# o no. Viaja en el tick (estado_visual_red) y es lo que hace sonar al espejo en los demas PCs.
+	# Sin el, con el piso en un trabajador (que no tiene audio) las embestidas eran mudas para todos
+	# los humanos (playtest del 15/09).
+	_embiste_seq = (_embiste_seq + 1) & 0xFFFF
+	# POR DISTANCIA A MI JUGADOR, con los umbrales del espadazo de otro jugador: quien simula el piso
+	# lleva a TODOS los enemigos, y sin esto oia a volumen de lleno cada embestida contra su compañero,
+	# en la otra punta del piso ("estoy lejos de mi compa y escucho los golpes de los enemigos").
+	var peso: float = _RemotoJugador.peso_de_oido(self)
+	if peso > 0.0:
+		Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
+
+
+# SE ACABO EL GESTO: AHORA se mira el hitbox, UNA sola vez. Esta es la correccion del playtest del
+# 20/09: antes se miraba cada fotograma durante la carga y bastaba un roce para que la pelea
+# estuviera decidida -- te alejabas y te metia en combate igual. Ahora cuenta donde estas CUANDO EL
+# GOLPE TERMINA, asi que apartarse a tiempo sirve de verdad.
+#
+# Y NO hay ventana de impacto detras: el gesto ya se ha visto entero, la pantalla puede llevarse la
+# escena en este mismo fotograma sin cortar nada (era el "termina la embestida y tarda un rato mas
+# en entrarte").
+func _resolver_embestida() -> void:
+	velocity = Vector2.ZERO
+	_embiste_sfx_t = -1.0
+	_embiste_t = 0.0
+	# EL GESTO SE CIERRA PASE LO QUE PASE, y se cierra ANTES de intentar la pelea. _start_combat tiene
+	# media docena de salidas que no abren nada (la pelea esta llena, el piso es de otro, hay un
+	# minijuego delante, el trabajador la ejecuta fuera): si el bicho se quedara en EMBESTIDA con el
+	# reloj a cero, el frame siguiente volveria a caer aqui y estaria reintentando la pelea 60 veces
+	# por segundo. Las salidas que SI tienen que insistir ya se encargan solas (_esperando_hueco se
+	# atrapa arriba del _physics_process, y _rebotar pone su propio descanso, mas largo).
+	_state = State.CHASE
+	_embiste_espera = EMBESTIDA_ESPERA
+	# Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los cuerpos que colisionan nunca
+	# llegan a solaparse), o dentro de la zona de DELANTE: un golpe tiene que llegar un palmo antes
+	# que el cuerpo, o se lee como un empujon (peticion del usuario).
 	var zona: Rect2 = zona_embestida()
 	for n in _aliados():
-		# Conecta si le TOCA o si el otro esta en la zona de DELANTE de la carga: un golpe tiene que
-		# llegar un palmo antes que el cuerpo, o se lee como un empujon (peticion del usuario).
 		if hueco_hasta(n) <= CONTACTO or Cuerpos.hueco_entre(zona, Cuerpos.caja_de(n)) <= 0.0:
 			_objetivo = n
 			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
 			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
-			_iniciar_impacto(not _es_contra(n))
+			_start_combat(not _es_contra(n))
 			return
-	# Se estampo contra una pared: la carga muere ahi.
-	var choco: bool = get_slide_collision_count() > 0
-	if _embiste_t <= 0.0 or choco:
-		_embiste_espera = EMBESTIDA_ESPERA
-		_state = State.CHASE
-		velocity = Vector2.ZERO
+	# Ha fallado: te apartaste a tiempo, o se estampo contra la roca y no llego. Ya se ha quedado en
+	# CHASE con su descanso puesto ahi arriba, asi que no hay nada mas que hacer.
 
 
-# EL IMPACTO: arma el reloj de EMBESTIDA_IMPACTO (o la duracion que se le pase -- el jugador manda
-# la de SU espadazo) y deja al bicho parado donde ha conectado. NO llama a _start_combat: eso lo
-# hace el bloque de _physics_process cuando el reloj llega a 0, para que la pantalla de combate no
-# se lleve la escena a mitad del golpe/la carga.
+# EL IMPACTO: el bicho se queda PARADO encajando el golpe 'dur' segundos antes de que la pantalla de
+# combate se lleve la escena. NO llama a _start_combat: eso lo hace el bloque de _physics_process
+# cuando el reloj llega a 0.
 #
-# ⚠️ LA VENTANA SE MIDE DESDE QUE ARRANCA LA CARGA, no desde que conecta. Es lo que la descuadraba de
-# la animacion: la embestida ya se ha visto entera (EMBESTIDA_DUR) y encima el bicho se quedaba
-# QUIETO, en idle y sin pasar nada, los 0,667 s enteros de EMBESTIDA_IMPACTO -- el "termina la
-# embestida y tarda un segundo mas en entrarte" del playtest. Ahora se descuenta lo que la carga ya
-# ha durado, asi que lo que se ve es: carga -> porrazo -> pantalla, seguido.
+# UN SOLO CLIENTE: tu espadazo (atacado_por_jugador), y 'dur' es lo que le queda de animacion. La
+# embestida del bicho ya NO pasa por aqui -- se resuelve al terminar su propio gesto
+# (_resolver_embestida), asi que la constante duplicada a mano de player.DUR_GOLPE que vivia aqui
+# ha desaparecido con ella.
 #
-# Lo que manda el JUGADOR (su espadazo) NO se descuenta: ese golpe empieza en el momento en que se
-# llama aqui, no antes.
+# Con 'dur' a 0 (el espadazo ya ha terminado, que es el caso normal desde el 20/09) se corta en el
+# acto: no hay nada que esperar, la animacion ya se ha visto entera.
 func _iniciar_impacto(enemy_initiated: bool, dur: float = -1.0) -> void:
 	velocity = Vector2.ZERO
-	if dur > 0.0:
-		_impacto_t = dur
-	else:
-		# Lo que lleva corriendo la carga = lo que le falta a _embiste_t para EMBESTIDA_DUR. Si esto no
-		# viene de una embestida (_embiste_t a 0), consumido = EMBESTIDA_DUR y queda el resto.
-		var consumido: float = clampf(EMBESTIDA_DUR - maxf(_embiste_t, 0.0), 0.0, EMBESTIDA_DUR)
-		_impacto_t = maxf(EMBESTIDA_IMPACTO - consumido, IMPACTO_MINIMO)
+	if dur <= 0.0:
+		_objetivo = _objetivo if (_objetivo != null and is_instance_valid(_objetivo)) else null
+		_start_combat(enemy_initiated)
+		return
+	_impacto_t = dur
 	_impacto_enemy_initiated = enemy_initiated
 	_impacto_con_objetivo = _objetivo != null and is_instance_valid(_objetivo)
 	_impacto_objetivo = _objetivo if _impacto_con_objetivo else null
-	# EL BICHO SUENA AL EMBESTIR, en el mapa y antes de que se abra la pelea. Suena con su golpe de
-	# siempre (EnemyData.fx_basico), el mismo que dentro del combate, asi que el minotauro embiste
-	# con su cornada y la rata con su mordisco.
-	#
-	# Solo cuando embiste EL: si el impacto lo abriste tu (atacado_por_jugador), el que suena es tu
-	# arma, y ya lo hace player._tick_ataque. Sonarian los dos y seria un ruido.
-	if enemy_initiated and data != null:
-		# EL CONTADOR, antes y fuera del filtro de oido: lo que se cuenta es que HA EMBESTIDO, se oiga
-		# aqui o no. Viaja en el tick (estado_visual_red) y es lo que hace sonar al espejo en los demas
-		# PCs. Sin el, con el piso en un trabajador (que no tiene audio) las embestidas eran mudas para
-		# todos los humanos (playtest del 15/09).
-		_embiste_seq = (_embiste_seq + 1) & 0xFFFF
-		# POR DISTANCIA A MI JUGADOR, con los umbrales del espadazo de otro jugador: quien simula el piso lleva
-		# a TODOS los enemigos, y sin esto oia a volumen de lleno cada embestida contra su compañero, en la
-		# otra punta del piso (playtest: "estoy lejos de mi compa y escucho los golpes de los enemigos").
-		var peso: float = _RemotoJugador.peso_de_oido(self)
-		if peso > 0.0:
-			Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
 
 
 # ¿Estoy persiguiendo a ESTE de ahi? Lo pregunta el jugador para saber si esta HUYENDO de verdad
@@ -1279,7 +1354,14 @@ func margen_ataque() -> float:
 func _cancelar_aviso() -> void:
 	_windup_timer = -1.0
 	_winding = false
+	# Y si le pilla EN MITAD del gesto, se sale de EMBESTIDA A MANO. Poner _embiste_t a 0 dejandolo en
+	# ese estado haria que el frame siguiente cayera en _resolver_embestida y abriera una pelea -- que
+	# es justo lo contrario de cancelar.
+	if _state == State.EMBESTIDA:
+		_state = State.CHASE
 	_embiste_t = 0.0
+	_embiste_dur = 0.0
+	_embiste_sfx_t = -1.0
 	_embiste_espera = 0.0
 
 
@@ -1498,8 +1580,13 @@ func aspecto_red() -> Dictionary:
 # PUEDE JUGAR AL SIGILO, que es medio juego (no sabe por donde miro ni cuando voy a atacar).
 #
 # El TERCERO, el contador de embestidas: el espejo suena cuando cambia (ver remote_enemy.aplicar_embestida).
+#
+# Y el CUARTO, si esta EMBISTIENDO. Antes el espejo sacaba la animacion de ataque del aviso
+# (_winding), que dura 0,15 s y se apaga justo cuando el gesto empieza: el invitado veia al bicho
+# atacar en un parpadeo y luego andar. Con el gesto a mitad de velocidad (1,3-2,0 s) eso pasa de
+# detalle a mentira, y quien mira el espejo no puede leer cuando apartarse.
 func estado_visual_red() -> Array:
-	return [_facing.angle(), _winding, _embiste_seq]
+	return [_facing.angle(), _winding, _embiste_seq, _state == State.EMBESTIDA]
 
 
 # MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el

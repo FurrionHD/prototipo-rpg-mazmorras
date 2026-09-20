@@ -260,8 +260,10 @@ func _difundir_posiciones_enemigos() -> void:
 		# empujar, devolver, morir, traspasar...), y un estado que se repite 20 veces por segundo no se
 		# desincroniza aunque alguno de esos caminos se olvide de avisar.
 		# El SEXTO, el contador de embestidas: con el suena la embestida en los PCs que solo la espejan.
+		# El SEPTIMO, si esta EMBISTIENDO ahora mismo: es lo que hace que el espejo enseñe el gesto de
+		# ataque ENTERO y no solo el parpadeo del aviso (ver enemy.estado_visual_red).
 		lote.append([id, (nd as Node2D).global_position, est[0], est[1], Net.peleas._anfitrion_de_enemigo(id, nd),
-			est[2] if est.size() >= 3 else 0])
+			est[2] if est.size() >= 3 else 0, est[3] if est.size() >= 4 else false])
 	if Net.es_host:
 		for peer_id in Net._peers:
 			if Net._peers[peer_id].get("lugar", "") == Net._mi_lugar:
@@ -278,7 +280,9 @@ func _tick_enemigos(lote: Array) -> void:
 			continue
 		n.ir_a(par[1])
 		if par.size() >= 4:
-			n.aplicar_estado_visual(float(par[2]), bool(par[3]))
+			# El septimo (embistiendo) va JUNTO con el aviso y no en una llamada aparte: los dos deciden
+			# la misma animacion, y aplicarlos por separado dejaria un fotograma con uno viejo y otro nuevo.
+			n.aplicar_estado_visual(float(par[2]), bool(par[3]), bool(par[6]) if par.size() >= 7 else false)
 		if par.size() >= 5:
 			n.pelea_de = int(par[4])
 		if par.size() >= 6:

@@ -955,18 +955,26 @@ func _pintar_cuerpo() -> void:
 func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 	if _golpe_t > 0.0:
 		_golpe_t -= delta
+		# SE ACABO EL GESTO: AHORA se resuelve el golpe, no antes (playtest 20/09). Estaba pegado al
+		# sonido, o sea al 55 % del arco, y eso traia las dos quejas de siempre: la pelea se decidia
+		# con medio espadazo por dar -- un bicho que se apartaba en la segunda mitad entraba en
+		# combate igual -- y encima habia que esperar el resto de la animacion (via el reloj de
+		# enemy._iniciar_impacto) hasta que saltaba la pantalla, o sea que se sentia con retraso.
+		#
+		# Ahora _try_attack mira _enemigos_a_tiro() en el ULTIMO fotograma y corta en el acto: lo que
+		# cuenta es donde esta el bicho cuando el golpe termina. Misma regla que la embestida del
+		# enemigo (ver enemy._resolver_embestida), que es la otra mitad de este arreglo.
+		if _golpe_t <= 0.0 and _golpe_pendiente:
+			_golpe_pendiente = false
+			_try_attack(0.0)
 	# EL SONIDO DEL ESPADAZO, en el instante en que el arma contacta y no al pulsar (ver
 	# _tick_ataque). Va aqui, pegado al reloj de la animacion, porque es lo que lo hace caer en el
-	# fotograma correcto: el gesto y el golpe van al mismo compas.
+	# fotograma correcto: el gesto y el golpe van al mismo compas. SUENA AUNQUE FALLE: golpear al aire
+	# tiene que sonar a golpe al aire, no a nada.
 	if _golpe_sfx_t >= 0.0:
 		_golpe_sfx_t -= delta
 		if _golpe_sfx_t < 0.0:
 			Sonido.golpe("", _estilo_del_golpe())
-			# Y AHORA SI se pega: el filo acaba de llegar. Lo que queda de animacion es lo que se le pasa
-			# al bicho para que se quede paralizado encajando el golpe antes de que salte la pelea.
-			if _golpe_pendiente:
-				_golpe_pendiente = false
-				_try_attack(maxf(_golpe_t, 0.0))
 	if _desenv_t > 0.0:
 		_desenv_t -= delta
 	if _muneco == null or not _muneco.hay_dibujo() or _en_faena:
@@ -1491,7 +1499,11 @@ func _tick_ataque(delta: float) -> void:
 			# Alguien ha entrado a tiro con el espacio recordado. Si el espadazo aun no ha llegado, este
 			# mismo lo alcanza; si ya paso (o nunca salio, por diferido), sale uno nuevo. En los dos
 			# casos pega al contactar.
-			if _golpe_sfx_t < 0.0 or _golpe_pendiente or _golpe_diferido:
+			# Solo sale un espadazo NUEVO si no hay ninguno en el aire. Antes la condicion era
+			# "_golpe_sfx_t < 0.0", o sea "ya ha pasado el momento de pegar"; ahora ese momento es el
+			# FINAL del gesto, asi que un golpe al que solo le falta la segunda mitad todavia sirve y
+			# rearrancarlo solo conseguia cortar la animacion por la mitad.
+			if _golpe_t <= 0.0 or _golpe_diferido:
 				_arrancar_golpe()
 			_golpe_diferido = false
 			_golpe_pendiente = true
@@ -1505,7 +1517,10 @@ func _tick_ataque(delta: float) -> void:
 # EL ESPADAZO SE VE Y SE OYE AUNQUE NO ACIERTE, y ese es justo el caso que importa: golpear al aire es
 # lo que el jugador necesita distinguir de "el boton no ha respondido". Pero NO suena al pulsar: ahi
 # el brazo apenas se echa hacia atras. Se apunta CUANDO tiene que sonar y lo suelta el reloj de
-# _actualizar_animacion; en ese mismo instante se resuelve el golpe (ver _golpe_pendiente).
+# _actualizar_animacion.
+#
+# DOS RELOJES, NO UNO: _golpe_sfx_t es el fotograma en que el arma contacta (suena) y _golpe_t es el
+# final del gesto (se resuelve el golpe y se entra en combate). Iban juntos y eran cosas distintas.
 func _arrancar_golpe() -> void:
 	_golpe_variante = _elegir_golpe()
 	_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
@@ -1519,7 +1534,11 @@ func zona_golpe() -> Rect2:
 
 
 # Busca un enemigo VIVO en la zona del espadazo; si lo hay, inicia el combate con NUESTRA iniciativa.
-# 'golpe_restante' = lo que le queda a la animacion: el bicho se queda ese rato encajando el golpe.
+#
+# SE LLAMA AL TERMINAR EL GESTO (ver _actualizar_animacion), asi que esta busqueda es la del ULTIMO
+# fotograma: el bicho que se aparto durante tu arco NO entra en combate. 'golpe_restante' es lo que
+# le queda a la animacion (0 en el caso normal: ya no queda nada que esperar y la pelea abre en el
+# acto); se conserva por si algun dia vuelve a hacer falta pegar a media animacion.
 func _try_attack(golpe_restante: float = -1.0) -> bool:
 	if golpe_restante < 0.0:
 		golpe_restante = _golpe_t

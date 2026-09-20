@@ -25,8 +25,9 @@ const SUAVIZADO := 14.0   # rapidez del lerp hacia el objetivo (mas alto = mas p
 const SALTO := 200.0
 
 # Lo que dura un espadazo. Los MISMOS numeros que player.DUR_GOLPE/DUR_GOLPE_2M -- van duplicados
-# porque player.gd no tiene class_name y no se puede referenciar la constante de verdad (misma
-# situacion que enemy.EMBESTIDA_IMPACTO). Si se toca uno, tocar los tres.
+# porque player.gd no tiene class_name y no se puede referenciar la constante de verdad. Si se toca
+# uno, tocar los dos. (Aqui solo gobiernan el DIBUJO y el sonido del espejo: la pelea la decide
+# siempre la maquina del que pega.)
 const DUR_GOLPE := 8.0 / 12.0
 const DUR_GOLPE_2M := 8.0 / 10.0
 # Y en que punto del gesto contacta el arma, que es cuando suena. Duplicados de player.gd por el

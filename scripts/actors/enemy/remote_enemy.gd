@@ -220,7 +220,7 @@ func _tinte_reposo() -> Color:
 	return EnemyData.tinte_mutante()
 
 
-# SU EMBESTIDA, OIDA DESDE AQUI. El sonido de embestir lo pone enemy._iniciar_impacto, que solo corre
+# SU EMBESTIDA, OIDA DESDE AQUI. El sonido de embestir lo pone enemy._sonar_embestida, que solo corre
 # donde se simula el piso: con un trabajador de dueño (sin audio) nadie la oia. Llega como un contador
 # en el tick, igual que el golpe del jugador espejo (remote_player.aplicar_pose): un contador aguanta
 # paquetes perdidos y el primero que llega solo se apunta, para no sonar al aparecer.
@@ -241,10 +241,16 @@ func aplicar_embestida(seq: int) -> void:
 const _RemotoJugador = preload("res://scripts/actors/player/remote_player.gd")
 
 
-# Hacia donde mira y si esta avisando el golpe. Llega en cada tick de posiciones.
-func aplicar_estado_visual(ang: float, avisando: bool) -> void:
+# Hacia donde mira, si esta avisando el golpe y si esta EMBISTIENDO. Llega en cada tick de posiciones.
+#
+# 'embistiendo' viaja aparte del aviso desde el 20/09: son dos cosas distintas (el aviso dura 0,15 s
+# y se apaga cuando el gesto EMPIEZA) y sacar la animacion de ataque del aviso hacia que el invitado
+# viera el golpe en un parpadeo. El valor por defecto deja funcionando a un PC con la version vieja
+# (mandaria seis campos): se ve como antes, no revienta.
+func aplicar_estado_visual(ang: float, avisando: bool, embistiendo: bool = false) -> void:
 	_mira = ang
 	_avisando = avisando
+	_embistiendo = embistiendo
 	if muerto:
 		return
 	if _sprite != null and _sprite.visible:
@@ -263,14 +269,20 @@ func aplicar_estado_visual(ang: float, avisando: bool) -> void:
 # La animacion que toca. La REGLA la decide SpritesEnemigo, la misma que usa el bicho de verdad:
 # dos copias divergen y entonces cada jugador ve al mismo bicho haciendo cosas distintas.
 #
-# 'embistiendo' se toma del aviso: el espejo no conoce los estados de la IA del host, pero el aviso
-# del golpe SI viaja, y es justo el momento en que el bicho se lanza.
+# 'embistiendo' viaja en el tick (ver aplicar_estado_visual): el espejo no conoce los estados de la
+# IA del host, asi que el host le dice literalmente si esta en mitad del gesto de ataque.
+var _embistiendo: bool = false
+
 func _actualizar_animacion() -> void:
 	if _sprite == null or not _sprite.visible:
 		return
-	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _avisando, _mov)
+	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _embistiendo, _mov)
 	if nombre != _anim_actual:
 		_anim_actual = nombre
+		# A MITAD DE VELOCIDAD, igual que en enemy._actualizar_animacion y por la misma constante: si
+		# aqui fuera al ritmo nativo, el bicho atacaria mas rapido en la pantalla del invitado que en
+		# la del que simula el piso -- y la ventana para apartarse dejaria de ser la misma para los dos.
+		_sprite.speed_scale = _ENEMY_GD.VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
 
 
