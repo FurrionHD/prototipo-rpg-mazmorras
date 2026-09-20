@@ -68,13 +68,16 @@ func aplicar(m: int) -> void:
 			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		Modo.SIN_BORDES:
-			# No es pantalla completa de verdad: es una ventana sin marco del tamaño de la pantalla
-			# donde esta. Asi alt+tab no parpadea y se puede dejar algo encima.
+			# No es pantalla completa de verdad: es una ventana sin marco que TAPA LA PANTALLA ENTERA.
+			# Asi alt+tab no parpadea y se puede dejar algo encima, pero se ve como una completa.
+			#
+			# Por screen_get_position/size y NO por screen_get_usable_rect: "usable" es el escritorio
+			# MENOS la barra de tareas, asi que la ventana se quedaba corta por abajo y la barra de
+			# Windows seguia ahi encima del juego. Sin bordes tiene que taparla.
 			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
 			var pantalla: int = DisplayServer.window_get_current_screen()
-			var util: Rect2i = DisplayServer.screen_get_usable_rect(pantalla)
-			DisplayServer.window_set_position(util.position)
-			DisplayServer.window_set_size(util.size)
+			DisplayServer.window_set_position(DisplayServer.screen_get_position(pantalla))
+			DisplayServer.window_set_size(DisplayServer.screen_get_size(pantalla))
 		_:
 			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 	_guardar_ajustes()

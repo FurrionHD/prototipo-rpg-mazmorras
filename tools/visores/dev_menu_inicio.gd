@@ -39,7 +39,40 @@ func _ready() -> void:
 	_menu._cerrar_ajustes()
 	await get_tree().process_frame
 	print("[titulo] cerrado: la capa de ajustes queda oculta -> %s" % str(not _menu._ajustes_capa.visible))
+
+	await _medir_sin_bordes()
 	get_tree().quit()
+
+
+# SIN BORDES tiene que tapar la PANTALLA ENTERA, barra de tareas incluida: si sale un alto menor que
+# el de la pantalla, se esta usando el rectangulo "usable" (el escritorio sin la barra) y la barra de
+# Windows se queda encima del juego. Deja el modo como estaba (aplicar() lo guarda en ajustes.cfg).
+#
+# Y se devuelve el FICHERO de ajustes tal cual estaba, no solo el modo en memoria: aplicar() escribe
+# en user://ajustes.cfg, que es el de la maquina de quien ejecute esto. Una herramienta no puede
+# dejarle el juego arrancando en pantalla completa por haber medido.
+func _medir_sin_bordes() -> void:
+	var habia: bool = FileAccess.file_exists(Ventana.RUTA_AJUSTES)
+	var copia: PackedByteArray = FileAccess.get_file_as_bytes(Ventana.RUTA_AJUSTES) if habia \
+		else PackedByteArray()
+	var antes: int = Ventana.modo
+	Ventana.aplicar(Ventana.Modo.SIN_BORDES)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var p: int = DisplayServer.window_get_current_screen()
+	var pantalla: Vector2i = DisplayServer.screen_get_size(p)
+	var util: Vector2i = DisplayServer.screen_get_usable_rect(p).size
+	var ventana: Vector2i = DisplayServer.window_get_size()
+	print("[titulo] sin bordes: ventana %s  ·  pantalla %s  ·  usable (sin barra) %s" % [
+		str(ventana), str(pantalla), str(util)])
+	print("[titulo] ¿tapa la barra de tareas? -> %s" % str(ventana == pantalla and pantalla != util))
+	Ventana.aplicar(antes)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	if habia:
+		var f := FileAccess.open(Ventana.RUTA_AJUSTES, FileAccess.WRITE)
+		if f != null:
+			f.store_buffer(copia)
+			f.close()
 
 
 func _captura(nombre: String) -> void:

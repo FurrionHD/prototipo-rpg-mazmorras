@@ -15,14 +15,10 @@ config/version="0.13.3"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="DungeonOratoria"
-config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
-; LA ✕ Y EL ALT+F4 NO CIERRAN SOLOS: el aviso llega a Ventana._notification, que guarda la partida
-; con un cartel delante y cierra despues. Con el valor de fabrica (true) el proceso moria sin pasar
-; por el codigo y se perdia todo lo hecho desde el ultimo guardado. quit_on_go_back, lo mismo para
-; el boton de atras de Android.
 config/auto_accept_quit=false
 config/quit_on_go_back=false
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
 
 [autoload]
 
@@ -47,10 +43,6 @@ file_logging/max_log_files=20
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-; La ventana se puede estirar, y el MODO (ventana / sin bordes / completa) lo pone Ventana al
-; arrancar con lo que hubiera elegido el jugador (user://ajustes.cfg). Aqui solo esta el de la
-; primera vez, que es en ventana: arrancar en completa sin haberlo pedido asusta.
-window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
