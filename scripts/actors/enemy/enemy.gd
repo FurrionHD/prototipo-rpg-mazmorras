@@ -122,10 +122,12 @@ var _reloj_estados: float = 0.0
 #  no este dentro en ese instante no entra en combate. Lo mismo hace tu espadazo (player._try_attack).
 # ============================================================
 const EMBESTIDA_VEL_MULT := 2.2    # x lo que corre persiguiendo: la carga es un aceleron
-# EL GESTO DE ATAQUE VA A MITAD DE VELOCIDAD (peticion del usuario): ocho fotogramas a 8-12 fps son
-# 0,67-1,0 s nativos, o sea 1,3-2,0 s aqui. Es el telegrafiado de verdad -- lo que ves venir es lo
-# que tienes para apartarte.
-const VEL_ANIM_ATAQUE := 0.5
+# A QUE VELOCIDAD se reproduce el gesto de ataque. A 1.0 va a su ritmo nativo: ocho fotogramas a
+# 8-12 fps segun el bicho, o sea 0,67-1,0 s. Estuvo a 0.5 un rato (el doble de largo) y se probo
+# jugando: demasiado lento. Sigue siendo la palanca del telegrafiado -- lo que dura el gesto es lo
+# que tienes para apartarte --, y toda la logica de la embestida se mide de aqui, asi que cambiar
+# este numero mueve el ataque entero sin tocar nada mas.
+const VEL_ANIM_ATAQUE := 1.0
 # En que punto del gesto CONTACTA el arma: donde suena el porrazo, acierte o falle. Mismo criterio
 # (y mismo numero) que player.CONTACTO_GOLPE, que es lo que hace que los dos se lean igual.
 #
@@ -476,10 +478,10 @@ func _actualizar_animacion(vel_real: Vector2 = Vector2.ZERO) -> void:
 		var marco: int = _sprite.get_frame()
 		var avance: float = _sprite.get_frame_progress()
 		_anim_actual = nombre
-		# EL GESTO DE ATAQUE, A MITAD DE VELOCIDAD. Va aqui y no en el horneado a proposito: bajar los
-		# fps en los 19 generadores obligaria a pasar por el horno y dejaria el dibujo atado a la
-		# regla de juego. Hay que ponerlo ANTES del play (speed_scale se lee al arrancar) y repetirlo
-		# en remote_enemy._actualizar_animacion, o cada maquina veria al mismo bicho a otro ritmo.
+		# LA VELOCIDAD DEL GESTO DE ATAQUE. Va aqui y no en el horneado a proposito: tocar los fps en
+		# los 19 generadores obligaria a pasar por el horno y dejaria el dibujo atado a la regla de
+		# juego. Hay que ponerlo ANTES del play (speed_scale se lee al arrancar) y repetirlo en
+		# remote_enemy._actualizar_animacion, o cada maquina veria al mismo bicho a otro ritmo.
 		_sprite.speed_scale = VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
 		if mismo_gesto and marco < _sprite.sprite_frames.get_frame_count(nombre):
@@ -1258,7 +1260,7 @@ func _embestida(delta: float) -> void:
 	# el ultimo fotograma se queda plantado: eso es la recuperacion.
 	#
 	# Y FRENA EN SECO AL ALCANZARTE, aunque le quede tramo: si no, con el gesto lento (el avance dura
-	# ahora el 55 % de 1,3-2,0 s, no 0,35 s) se te pasaria de largo y el golpe caeria a tu espalda.
+	# el 55 % del gesto, no 0,35 s) se te pasaria de largo y el golpe caeria a tu espalda.
 	var alcanzada: bool = _embiste_presa != null and is_instance_valid(_embiste_presa) \
 		and hueco_hasta(_embiste_presa) <= CONTACTO
 	if _embiste_sfx_t > 0.0 and not alcanzada:
@@ -1645,8 +1647,8 @@ func aspecto_red() -> Dictionary:
 #
 # Y el CUARTO, si esta EMBISTIENDO. Antes el espejo sacaba la animacion de ataque del aviso
 # (_winding), que dura 0,15 s y se apaga justo cuando el gesto empieza: el invitado veia al bicho
-# atacar en un parpadeo y luego andar. Con el gesto a mitad de velocidad (1,3-2,0 s) eso pasa de
-# detalle a mentira, y quien mira el espejo no puede leer cuando apartarse.
+# atacar en un parpadeo y luego andar, en vez del gesto entero: quien mira el espejo no podia leer
+# cuando apartarse, que es lo unico que se juega ahi.
 func estado_visual_red() -> Array:
 	return [_facing.angle(), _winding, _embiste_seq, _state == State.EMBESTIDA]
 

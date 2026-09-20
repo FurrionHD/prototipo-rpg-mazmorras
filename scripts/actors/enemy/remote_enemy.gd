@@ -286,9 +286,9 @@ func _actualizar_animacion() -> void:
 		var marco: int = _sprite.get_frame()
 		var avance: float = _sprite.get_frame_progress()
 		_anim_actual = nombre
-		# A MITAD DE VELOCIDAD, igual que en enemy._actualizar_animacion y por la misma constante: si
-		# aqui fuera al ritmo nativo, el bicho atacaria mas rapido en la pantalla del invitado que en
-		# la del que simula el piso -- y la ventana para apartarse dejaria de ser la misma para los dos.
+		# LA VELOCIDAD DEL GESTO, por la misma constante que enemy._actualizar_animacion: si aqui se
+		# reprodujera a otro ritmo, el bicho atacaria mas rapido en la pantalla del invitado que en la
+		# del que simula el piso -- y la ventana para apartarse dejaria de ser la misma para los dos.
 		_sprite.speed_scale = _ENEMY_GD.VEL_ANIM_ATAQUE if nombre.begins_with("embestida") else 1.0
 		_sprite.play(nombre)
 		if mismo_gesto and marco < _sprite.sprite_frames.get_frame_count(nombre):
