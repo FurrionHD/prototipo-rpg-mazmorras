@@ -1490,9 +1490,24 @@ func reducir_cooldowns(turnos: int, excepto = null) -> int:
 	return listas
 
 
+# LAS PUERTAS QUE MANDA QUIEN EJECUTA LA PELEA (espejo). -1 = no soy un maniqui: mando yo con mis
+# statuses, que es el caso de siempre.
+#
+# El maniqui del espejo NO tiene estados (la instantanea manda los chips ya PINTADOS, no los estados:
+# ver combat_espejo._valores), asi que silenciado() y enraizado() decian que no y los botones de
+# Magia y Habilidad salian encendidos aunque te acabaran de silenciar. Es el mismo agujero que se
+# llevo el dual, el foco y los cooldowns: un campo que el maniqui no tiene devuelve su valor por
+# defecto y MIENTE en silencio. Por eso viajan como dos banderas en la instantanea, y no se recalculan.
+const PUERTA_SILENCIO := 1
+const PUERTA_ENRAIZADO := 2
+var puertas_remotas: int = -1
+
+
 # ¿No puede lanzar hechizos ni habilidades? (Silencio). Le quedan el golpe basico, Defender,
 # los objetos y huir: te corta las jugadas, no el turno.
 func silenciado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_SILENCIO) != 0
 	for e in statuses:
 		if bool(e.d.get("silencia", false)):
 			return true
@@ -1503,10 +1518,22 @@ func silenciado() -> bool:
 # este te corta el golpe basico y las habilidades de arma y te deja LOS HECHIZOS -- para conjurar
 # no hacen falta los pies. Le quedan tambien Defender, los objetos y huir.
 func enraizado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_ENRAIZADO) != 0
 	for e in statuses:
 		if bool(e.d.get("enraiza", false)):
 			return true
 	return false
+
+
+# Las dos puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
+func puertas() -> int:
+	var v: int = 0
+	if silenciado():
+		v |= PUERTA_SILENCIO
+	if enraizado():
+		v |= PUERTA_ENRAIZADO
+	return v
 
 
 # ¿Puede llegar a dar un golpe AHORA MISMO? Junta las dos cosas que se lo impiden:

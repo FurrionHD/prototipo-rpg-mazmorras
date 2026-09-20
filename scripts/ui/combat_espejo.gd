@@ -367,9 +367,13 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 		# que no engorda el paquete en el caso normal.
 		# El campo 9, solo de ALIADOS: los numeros de su ficha de detalle (ver CombateDetalle.numeros_aliado).
 		# El maniqui del espejo no tiene de donde sacarlos y pintaba "Defensa 0" aunque peleara con la suya.
+		# El campo 10 son LAS PUERTAS (Silencio y Enraizado). Es la tercera cosa que mira la barra de
+		# acciones, y era la que faltaba: los chips que van arriba son TEXTO ya pintado, asi que el
+		# maniqui no tenia de donde saber que estaba silenciado y encendia Magia y Habilidad.
 		out.append([c.current_hp, c.current_mp, c.current_energy, _pantalla.efectos._chips_de(c),
 			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas, _cds_activos(c),
-			CombateDetalle.numeros_aliado(c) if aliados and not _pantalla._espejo else []])
+			CombateDetalle.numeros_aliado(c) if aliados and not _pantalla._espejo else [],
+			c.puertas()])
 	return out
 
 
@@ -807,6 +811,24 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			tipo, emisor, pendiente])
 		return
 
+	# Y LAS PUERTAS SE MIRAN AQUI TAMBIEN. Una accion que llega por red no puede validarse solo en el
+	# boton del otro lado: su pantalla es un espejo y puede ir un paso por detras (o llevar una version
+	# donde esa puerta no existia). El Silencio se saltaba entero por aqui -- el invitado tiraba
+	# habilidades silenciado y esta maquina se las resolvia sin rechistar.
+	#
+	# Las dos puertas son EXACTAMENTE las de _accion_disponible, ni una mas: bloquean EMPEZAR una
+	# jugada, no terminar la que ya estaba en marcha. Un conjuro a medias se sigue recitando aunque te
+	# silencien (aqui y en local: es la misma regla), o el invitado perderia el mana por un camino que
+	# al de al lado no le pasa.
+	var bloqueada: bool = (tipo == "habilidad" and (_pantalla._player.silenciado() or _pantalla._player.enraizado())) \
+		or (tipo == "magia" and _pantalla._player.silenciado())
+	if bloqueada:
+		print("[combate] '%s' de %s rechazada: esta silenciado o enraizado" % [tipo, _pantalla._player.nombre])
+		_pantalla._traza_add("RECHAZO '%s' del peer %d: %s no puede (silencio/enraizado)" % [
+			tipo, emisor, _pantalla._player.nombre])
+		_fin_de_espera()
+		_pantalla._accion_atacar()   # no se pierde el turno: el basico siempre esta (y enraizado, pasa)
+		return
 	_pantalla._traza_add("RECIBO #%d '%s' del peer %d -> la aplico a %s" % [
 		seq_res, tipo, emisor, _pantalla._player.nombre if _pantalla._player != null else "?"])
 	_fin_de_espera()
@@ -1140,6 +1162,11 @@ func _volcar(lista: Array, valores: Array) -> void:
 		# el anfitrion ya considera listo.
 		if v.size() > 9 and not (v[9] as Array).is_empty():
 			_numeros_espejo[lista[i]] = v[9]
+		# Y LAS PUERTAS: el Silencio y el Enraizado que mande quien ejecuta la pelea. Si el paquete no
+		# las trae (una version anterior al otro lado), el maniqui se queda sin ellas y manda lo de
+		# siempre: sus estados, que estan vacios. Es lo mismo que hacia antes, no peor.
+		if v.size() > 10:
+			lista[i].puertas_remotas = int(v[10])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for ruta in (v[8] as Dictionary):
