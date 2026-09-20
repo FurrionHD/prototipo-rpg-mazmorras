@@ -407,6 +407,25 @@ const VERSION_MUNDO := 1
 const TRAZADO_ACTUAL := 1
 @export var trazado: int = 0
 
+# ============================================================
+#  SELLO DE LOS RECOLECTABLES
+#  Hermano del anterior, pero para DONDE se ponen los sitios de recoleccion (vetas, plantas,
+#  maderas, sal, silvestres, carbon: ver DungeonFloor._repartir_por_rondas y los topes de al lado).
+#  Esa colocacion tampoco se guarda, sale del codigo, y el trazado no la cubre: cambiando solo el
+#  reparto, el piso sigue teniendo la misma forma pero los nodos se mueven, y lo que la partida
+#  guardaba POR CELDA de ellos se queda apuntando a sitios vacios. Se ve en el MAPA, que pinta la
+#  libreta congelada: marcas de material en celdas donde ya no hay nada.
+#
+#  Si el del save no es el de este build, Game borra las marcas de nodos de la libreta y los sellos
+#  de agotado, y deja intacto lo demas (el suelo explorado, las escaleras, las salidas, los
+#  charcos): la exploracion no se pierde, solo hay que volver a pasar para que se marquen los
+#  sitios nuevos. Se sube A MANO al tocar la colocacion.
+#    1 = reparto por rondas de los sitios de recoleccion.
+#  Con default 0 las partidas viejas se limpian solas la primera vez, asi que NO sube VERSION_ACTUAL.
+# ============================================================
+const RECOLECTABLES_ACTUAL := 1
+@export var recolectables: int = 0
+
 
 # Resumen de una linea para la lista de ranuras.
 func resumen() -> String:

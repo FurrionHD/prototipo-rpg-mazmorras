@@ -140,15 +140,23 @@ func _unir_celdas(base: Dictionary, nuevo: Dictionary, clave: String) -> void:
 
 
 # Union de una lista de DICTS que llevan su celda en "cell" (vivos, escaleras): una entrada por celda.
+#
+# Cuando la celda esta en las dos listas MANDA LA NUEVA, que es la lectura mas reciente de ese piso.
+# Antes ganaba la de la base (se recorria primero y la otra se descartaba), asi que una celda que
+# habia cambiado de material conservaba para siempre el color y el tipo de la primera vez que
+# alguien paso por alli: el plano se quedaba anclado a la epoca -o al build- mas viejo de la sesion.
 func _unir_por_celda(base: Dictionary, nuevo: Dictionary, clave: String) -> void:
 	var por_celda: Dictionary = {}
-	var out: Array = []
+	var orden: Array = []
 	for lista in [base.get(clave, []), nuevo.get(clave, [])]:
 		for d in (lista as Array):
 			var c = (d as Dictionary).get("cell")
 			if not por_celda.has(c):
-				por_celda[c] = true
-				out.append(d)
+				orden.append(c)
+			por_celda[c] = d
+	var out: Array = []
+	for c in orden:
+		out.append(por_celda[c])
 	base[clave] = out
 
 

@@ -1516,6 +1516,14 @@ func olvidar_mazmorra() -> void:
 		(mazmorra_persistente[p] as Dictionary)["nonces"] = {}
 	# mazmorra_persistente NO se toca por lo demas: los nodos agotados y las zonas vistas duran mas
 	# que una expedicion (esa es justo la gracia). El reloj tampoco se reinicia.
+	#
+	# LAS MARCAS DEL MAPA SI se borran, que son otra cosa: la libreta guarda el color y el tipo
+	# CONGELADOS de lo que habia en cada celda, y con la epoca nueva lo que sale ahi ya es otro
+	# material. Dejarlas era pintar un plano que miente (y el agotado al que le vence el respawn se
+	# repinta como vivo con el material viejo). El suelo explorado, las escaleras, las salidas y los
+	# charcos se quedan: eso no lo rebaraja la epoca.
+	_borrar_marcas_de_nodos(mapa_snapshot)
+	_borrar_marcas_de_nodos(mapa_trabajo)
 
 
 # CIERRA LA BAJADA (no la mazmorra). Lo llaman las tres vueltas al pueblo CON VIDA: la puerta, la
@@ -2330,6 +2338,9 @@ func exportar_partida() -> SaveData:
 	# Con que version del TRAZADO se recorrieron estos pisos (ver SaveData.TRAZADO_ACTUAL): es lo
 	# que deja saber, al volver a cargar, si lo guardado de un piso sigue casando con su forma.
 	d.trazado = SaveData.TRAZADO_ACTUAL
+	# Y con que version de la COLOCACION de los recolectables (ver SaveData.RECOLECTABLES_ACTUAL):
+	# el trazado no la cubre, y es la que decide si las marcas del mapa siguen valiendo.
+	d.recolectables = SaveData.RECOLECTABLES_ACTUAL
 	if player is Node2D:
 		d.pos_jugador = (player as Node2D).global_position
 	d.memoria_pisos = memoria_pisos.duplicate(true)
@@ -3060,6 +3071,7 @@ func importar_partida(d: SaveData) -> void:
 	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
 	_rehacer_pisos_de_otro_trazado(d)
+	_olvidar_marcas_de_otra_colocacion(d)
 
 	# La PLANTILLA (todos los contratados) y, de entre ellos, el EQUIPO que baja hoy. El equipo se
 	# reconstruye con los companeros en su orden guardado y el LIDER (yo, ya en party[0]) insertado
@@ -3159,6 +3171,43 @@ func _rehacer_pisos_de_otro_trazado(d: SaveData) -> void:
 		pos_cargada = Vector2.INF
 	print("[mazmorra] trazado v%d -> v%d: rehechos los pisos %s" % [
 		d.trazado, SaveData.TRAZADO_ACTUAL, str(afectados)])
+
+
+# LA COLOCACION DE LOS RECOLECTABLES ES DE OTRO BUILD (ver SaveData.RECOLECTABLES_ACTUAL). El
+# trazado no ha cambiado —los pisos siguen teniendo la misma forma— pero los sitios de recoleccion
+# estan en otras celdas, asi que las marcas congeladas de la libreta señalan sitios vacios y los
+# sellos de agotado corren el reloj de celdas que ya no son sitio.
+#
+# No se rehace ningun piso: se borran SOLO las marcas de nodos, y la exploracion (el suelo, las
+# escaleras, las salidas, los charcos) se queda. Vuelven a marcarse al volver a pasar por alli.
+func _olvidar_marcas_de_otra_colocacion(d: SaveData) -> void:
+	if d.recolectables == SaveData.RECOLECTABLES_ACTUAL:
+		return
+	var pisos: int = _borrar_marcas_de_nodos(mapa_snapshot) + _borrar_marcas_de_nodos(mapa_trabajo)
+	for p in mazmorra_persistente:
+		var per: Dictionary = mazmorra_persistente[p]
+		per["agotados"] = {}
+		per["nonces"] = {}
+	print("[mazmorra] recolectables v%d -> v%d: borradas las marcas de %d piso(s) del mapa" % [
+		d.recolectables, SaveData.RECOLECTABLES_ACTUAL, pisos])
+
+
+# Quita de una libreta las marcas de NODOS (los vivos y los agotados con su reloj) dejando intacto
+# todo lo demas. Devuelve cuantos pisos tenian alguna. Lo usan las dos cosas que invalidan una marca
+# sin invalidar el piso: cambiar la COLOCACION (build nuevo) y cerrar la mazmorra (epoca nueva).
+func _borrar_marcas_de_nodos(libreta: Dictionary) -> int:
+	var n: int = 0
+	for p in libreta:
+		var s = libreta[p]
+		if not (s is Dictionary):
+			continue
+		var tenia: bool = not (s.get("vivos", []) as Array).is_empty() \
+			or not (s.get("agotados", {}) as Dictionary).is_empty()
+		if tenia:
+			n += 1
+		(s as Dictionary)["vivos"] = []
+		(s as Dictionary)["agotados"] = {}
+	return n
 
 
 # Aguante con el que hay que arrancar al jugador tras cargar (-1 = al maximo). Lo lee el
