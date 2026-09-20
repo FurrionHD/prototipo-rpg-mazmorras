@@ -159,6 +159,12 @@ func _mostrar_test(idx: int) -> void:
 	# sortean aqui (soy quien lleva la pelea) y el responde con el TEXTO que eligio; quien decide
 	# si acerto sigo siendo yo, asi que la validacion no se va de esta maquina.
 	var dueno: int = int(_pantalla._dueno_aliado.get(_pantalla._player, 0))
+	# ¿SIGUE EN LA PELEA? Mismo guardia que en _pedir_accion_del_turno: pedirle la frase a quien ya
+	# se fue es esperar para siempre. Aqui faltaba, y el que se iba A MEDIO RECITAR no entraba por
+	# aquel camino (el conjuro en curso se atiende antes), asi que colgaba la pelea igual.
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+		_pantalla.sacar_a(dueno)
+		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("🔮 %s recita %s (%d/%d). Esperando..." % [
@@ -304,6 +310,9 @@ func _mostrar_disparo() -> void:
 	# MULTI: el conjuro es de otro -> el boton va en SU pantalla (y alli puede reapuntar antes de
 	# soltarlo, que para eso tiene los mismos bloques clicables).
 	var dueno: int = int(_pantalla._dueno_aliado.get(_pantalla._player, 0))
+	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
+		_pantalla.sacar_a(dueno)   # ver _mostrar_test: se fue con el conjuro ya recitado
+		return
 	if dueno != 0:
 		_pantalla._ocultar_cajas()
 		_pantalla._set_log("%s tiene el conjuro listo. Esperando..." % _pantalla._player.nombre)

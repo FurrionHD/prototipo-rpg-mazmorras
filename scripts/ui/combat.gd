@@ -1598,7 +1598,7 @@ func _huir_solo(peer: int) -> bool:
 
 # SE HA CAIDO un jugador que estaba en mi pelea. Sus personajes salen de ella igual que si hubieran
 # huido: si no, la pelea se quedaria esperando eternamente un turno suyo que no va a llegar.
-func sacar_a(peer: int) -> void:
+func sacar_a(peer: int, motivo: String = "Tu compañero se ha desconectado y sus personajes dejan la pelea.") -> void:
 	if _espejo or peer == 0 or _state == State.FINISHED:
 		return
 	_traza_add("SACO al peer %d de la pelea (ya no esta)" % peer)
@@ -1608,15 +1608,32 @@ func sacar_a(peer: int) -> void:
 	if _aliados_vivos().is_empty():
 		_end(false, true)   # no queda nadie: la pelea se cierra
 		return
+	# EL TURNO NO PUEDE QUEDARSE CON EL QUE SE VA. Antes esto miraba solo si _player era de los
+	# retirados, pero la espera es lo que cuelga la pelea: si le estaba pidiendo algo a EL (su accion,
+	# la frase de un conjuro), hay que soltarla igual, o el ATB se queda congelado esperando una
+	# respuesta de alguien que ya no tiene pantalla.
+	if _esperando_a == peer:
+		espejo._fin_de_espera()
+		_state = State.ADVANCING
 	if _huidos.has(_player):
 		# El turno lo tenia el que ya no esta: pasa a alguien en pie y que siga corriendo el ATB, o
 		# la pelea se queda esperando eternamente una accion que no va a llegar.
 		_player = _aliados_vivos()[0]
-		if _esperando_a == peer:
-			espejo._fin_de_espera()
 		_state = State.ADVANCING
-	_set_log("Tu compañero se ha desconectado y sus personajes dejan la pelea.")
+	_set_log(motivo)
 	_update_hp()
+
+
+# ¿QUEDA ALGUIEN DE ESE PEER peleando en mi pantalla? (sus personajes, sin contar a los que ya se
+# retiraron). Lo pregunta la red antes de sacarle: la huida individual los retira ella misma, y sin
+# esto se repetiria el aviso y se pisaria su mensaje ("escapa de la pelea") con otro.
+func tiene_en_pie_a(peer: int) -> bool:
+	if _espejo or peer == 0:
+		return false
+	for c in _aliados:
+		if int(_dueno_aliado.get(c, 0)) == peer and not _huidos.has(c):
+			return true
+	return false
 
 
 # Aparta a un aliado de la pelea SIN matarlo: se va de los turnos y del marcador y su bloque queda

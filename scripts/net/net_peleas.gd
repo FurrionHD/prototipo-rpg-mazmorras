@@ -35,6 +35,13 @@ var _desgaste_pendiente: bool = false
 # sigue jugando. Perder un desgaste es un mal rato; no volver a pelear es la partida.
 const DESGASTE_ESPERA_MAX_MS := 5000
 var _desgaste_limite_ms: int = 0
+# DE QUE PELEA espero todavia el cierre (_fin_espejo) y el lote de desgaste, cuando ya no la espejo.
+# Sin esto, un cierre rezagado de una pelea VIEJA cerraba la pelea que tengo delante AHORA: _fin_espejo
+# no miraba quien lo mandaba y apagaba el espejo que hubiera puesto. Ese era el bug del 19/09 ("me
+# echaba de la pelea y mis personajes se quedaban dentro"): al rechazar una union tardia se le decia
+# "sacame" al anfitrion viejo, su _fin_espejo llegaba mientras yo espejaba OTRA pelea y me la cerraba,
+# dejando a mis personajes dentro de ella pidiendome turnos que ya no podia contestar.
+var _cierre_esperado_de: int = 0
 # Bichos RESERVADOS: quien los esta peleando. Lo lleva el DUEÑO del piso, que es quien arbitra.
 # Sin esto dos jugadores podrian coger el mismo bicho a la vez. Mismo espiritu que _vetas_ocupadas.
 var _enem_ocupados: Dictionary = {}   # net_id -> peer_id que lo pelea (SOLO el dueño del piso)
@@ -765,6 +772,12 @@ func sacar_de_la_pelea(peer: int) -> void:
 		_fin_espejo.rpc_id(peer)
 		_pelea_participantes.erase(peer)
 		return
+	# SUS PERSONAJES SALEN DE MI PANTALLA. Es la otra mitad de sacarle, y faltaba: cerrandole solo el
+	# espejo, sus combatientes se quedaban en la pelea con la barra corriendo y, al tocarles el turno,
+	# se le pedia la accion a un peer que ya no tiene pantalla -> la pelea se quedaba pidiendosela cada
+	# 4 s para siempre, y quien entrara despues se sentaba a esperar un turno que no iba a llegar.
+	# Retirar no toca vida ni mana, asi que el lote de desgaste de aqui abajo sigue saliendo bien.
+	_retirar_sus_combatientes(peer)
 	# SE VA DE UNA PELEA YA ACABADA CON TODO SU GRUPO CAIDO: eso es morir, no irse. Cerrando el espejo
 	# antes que quien la ejecuta, se le devolvia el desgaste (a 0 de vida) y se libraba del castigo; y
 	# en la pelea de un trabajador SIEMPRE se sale asi (el trabajador no pulsa Continuar).
@@ -793,6 +806,19 @@ func sacar_de_la_pelea(peer: int) -> void:
 	_pelea_participantes.erase(peer)
 
 
+# Sus combatientes fuera de MI pantalla (los de un peer al que estoy sacando de la pelea). Va por el
+# mismo camino que usa la huida de un jugador, asi que la pelea se reordena igual: si el turno lo tenia
+# uno de los suyos pasa a otro, y si no queda nadie de pie la pelea se cierra.
+func _retirar_sus_combatientes(peer: int) -> void:
+	var p: Node = _pantalla_combate()
+	if p == null or not p.has_method("sacar_a") or not p.has_method("tiene_en_pie_a"):
+		return
+	if not p.tiene_en_pie_a(peer):
+		return   # ya estaban fuera (la huida individual los retira ella misma antes de llamar aqui)
+	var quien: String = String((Net._peers.get(peer, {}) as Dictionary).get("nombre", "Tu compañero"))
+	p.sacar_a(peer, "%s deja la pelea y sus personajes salen con él." % quien)
+
+
 # ME SALGO YO del espejo, por mi cuenta: he pulsado "Continuar" con la pelea ya terminada y no
 # quiero quedarme mirando hasta que el anfitrion pulse el suyo.
 #
@@ -814,6 +840,9 @@ func salir_del_espejo() -> void:
 		_salgo_de_la_pelea.rpc_id(_pelea_anfitrion)
 		_desgaste_pendiente = true
 		_desgaste_limite_ms = Time.get_ticks_msec() + DESGASTE_ESPERA_MAX_MS
+		# De EL, y de nadie mas, espero el lote y el cierre: si para entonces ya estoy en otra pelea,
+		# es lo unico que distingue su respuesta de la de la pelea nueva.
+		_cierre_esperado_de = _pelea_anfitrion
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 	_mis_huecos.clear()
@@ -863,6 +892,15 @@ func cerrar_pelea(derrotados: Array = []) -> void:
 # escena al pueblo. Sus personajes viven en SU maquina, asi que la muerte se resuelve aqui.
 @rpc("any_peer", "call_remote", "reliable")
 func _moriste() -> void:
+	# Y DE LA PELEA QUE ESPEJO, no de una vieja: mismo motivo que _fin_espejo, pero peor, porque esto
+	# manda al jugador al pueblo con la penalizacion. Un "has muerto" rezagado de otra pelea te mataba
+	# en la que estabas ganando.
+	var quien := multiplayer.get_remote_sender_id()
+	if _pelea_sigo != 0 and quien != _pelea_anfitrion:
+		print("[espejo] muerte rezagada del peer %d: sigo en la pelea de %d, la ignoro" % [
+			quien, _pelea_anfitrion])
+		return
+	_cierre_esperado_de = 0
 	_pelea_sigo = 0
 	_pelea_anfitrion = 0
 	_mis_en_pelea.clear()
@@ -887,6 +925,16 @@ func _moriste() -> void:
 # excelia, su nivel, sus cinco stats y sus contadores. El uid lo hace imposible.
 @rpc("any_peer", "call_remote", "reliable")
 func _devolver_desgaste(lote: Array) -> void:
+	# Y SOLO DE UNA PELEA MIA: la que espejo ahora, o la que acabo de dejar y cuyo lote espero. Un lote
+	# de una pelea vieja (una union rechazada, un anfitrion que contesta tarde) trae la vida y el mana
+	# de ENTONCES, y aplicar_desgaste ASIGNA: le borraria a la ficha lo que esta viviendo ahora mismo
+	# en la pelea de verdad. El uid ya no basta para distinguirlos, porque son los mismos personajes.
+	var quien := multiplayer.get_remote_sender_id()
+	if quien != _pelea_anfitrion and quien != _cierre_esperado_de:
+		print("[espejo] desgaste rezagado del peer %d: no es de mi pelea, lo descarto" % quien)
+		return
+	if quien == _cierre_esperado_de:
+		_cierre_esperado_de = 0
 	for d_ in lote:
 		var d := d_ as Dictionary
 		var pj: PersonajeData = _mio_por_uid(String(d.get("uid", "")))
@@ -1147,10 +1195,15 @@ func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
 	# estan dentro de la suya: hay que decirle que me saque, o la pelea se quedaria esperando turnos mios
 	# que nunca van a llegar. Lo que le devuelva no tiene dueño aqui (se descarta): no pelearon.
 	if Game.combate_activo() or ocupado_en_pelea() or Game.abrir_combate_espejo(roster) == null:
-		print("[Net.unirse] no puedo abrir el espejo de la pelea de ", multiplayer.get_remote_sender_id(), ": que me saque")
-		_mis_en_pelea.clear()
+		var otro := multiplayer.get_remote_sender_id()
+		print("[Net.unirse] no puedo abrir el espejo de la pelea de ", otro, ": que me saque")
+		# _mis_en_pelea SOLO SE VACIA SI NO TENGO OTRA PELEA. Si ya estoy espejando una, esa lista es
+		# de ELLA (la formacion es la misma en las dos, asi que vaciarla aqui dejaba a la pelea buena
+		# sin manera de devolverme nada: su lote llegaba sin dueño y se tiraba). Ver _devolver_desgaste.
+		if _pelea_sigo == 0:
+			_mis_en_pelea.clear()
 		Game.devolver_casteo_en_vuelo()
-		_salgo_de_la_pelea.rpc_id(multiplayer.get_remote_sender_id())
+		_salgo_de_la_pelea.rpc_id(otro)
 		return
 	# El conjuro que mande con la ficha ya esta sembrado en mi doble, alli: aqui no vuelve.
 	Game.soltar_casteo_en_vuelo()
@@ -1436,6 +1489,19 @@ func _accion_elegida(accion: Dictionary) -> void:
 # El anfitrion cierra: los espejos se cierran con el.
 @rpc("any_peer", "call_remote", "reliable")
 func _fin_espejo() -> void:
+	var quien := multiplayer.get_remote_sender_id()
+	# ¿ES DE LA PELEA QUE ESTOY VIENDO? Un cierre de OTRA pelea (una union rechazada, un anfitrion
+	# viejo que contesta tarde) no puede llevarse por delante la de ahora: cerraria mi pantalla y
+	# dejaria a mis personajes dentro de la otra, pidiendo turnos que ya no puedo contestar. De la
+	# vieja solo se suelta lo suyo: la espera del desgaste.
+	if _pelea_sigo != 0 and quien != _pelea_anfitrion:
+		print("[espejo] cierre rezagado del peer %d: sigo en la pelea de %d, no la cierro" % [
+			quien, _pelea_anfitrion])
+		if quien == _cierre_esperado_de:
+			_cierre_esperado_de = 0
+			_desgaste_pendiente = false
+		return
+	_cierre_esperado_de = 0
 	# LA LIMPIEZA VA SIEMPRE, aunque ya no espeje. Antes esto lo remataba cerrar_pelea() al recoger
 	# la pantalla, pero desde salir_del_espejo hay un caso en el que la pantalla ya no esta y
 	# _mis_en_pelea sigue en pie a proposito, esperando el desgaste: este aviso es justo el "ya no
