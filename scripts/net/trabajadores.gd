@@ -33,6 +33,15 @@ const ARG := "trabajador"
 # Cuantos se tienen esperando. Uno basta: entrar a un piso es poco frecuente y arrancar otro son unos
 # segundos, pero sin ninguno esperando el primero que baja se quedaria de dueño humano.
 const RESERVA := 1
+# CUANTOS SE GUARDAN ANTES DE CERRAR NINGUNO. No es lo mismo que RESERVA: aquel es cuantos se LANZAN
+# para tener a mano, y este cuantos se CONSERVAN cuando uno queda libre.
+#
+# Con los dos a 1 salia un proceso nuevo POR PELEA: el que esperaba entraba a pelear, se lanzaba otro
+# para la siguiente y, al acabar, el que acababa de quedar libre sobraba y se cerraba. Medido en los
+# logs del 19/09: 121 trabajadores lanzados y 110 cerrados para 97 peleas, y cada arranque es un Godot
+# entero que ademas GENERA EL PISO al nacer, en la misma maquina que esta jugando. Conservando dos, el
+# que se libera se reaprovecha para la pelea siguiente y no se lanza nada.
+const RESERVA_MAX := 2
 # Si un trabajador lanzado no se ha presentado en este tiempo, se da por perdido (no arranco, se colgo).
 const PLAZO_ARRANQUE := 30.0
 # Tantos seguidos sin presentarse y se deja de lanzar: algo impide conectar y relanzar cada 30 s solo
@@ -380,7 +389,7 @@ func _foto(piso: int, foto: Dictionary) -> void:
 	if int(Net._dueno_piso.get(piso, 0)) == w:
 		Net._dueno_piso.erase(piso)
 	_estado[w] = 0
-	if _libres() > RESERVA:
+	if _libres() > RESERVA_MAX:   # el que queda libre se guarda caliente: ver RESERVA_MAX
 		_estado.erase(w)
 		Net._peers.erase(w)
 		_cierrate.rpc_id(w)
@@ -482,7 +491,7 @@ func _soltar_de_pelea(w: int) -> void:
 	_peleando.erase(w)
 	_estado[w] = 0
 	Net._viajando.erase(w)
-	if _libres() > RESERVA:
+	if _libres() > RESERVA_MAX:   # el que queda libre se guarda caliente: ver RESERVA_MAX
 		_estado.erase(w)
 		Net._peers.erase(w)
 		_cierrate.rpc_id(w)
