@@ -97,13 +97,15 @@ func _process(delta: float) -> void:
 		return
 	# Y tampoco desde el menu: exportar_partida() lee el ARBOL VIVO (el nodo del jugador, la
 	# mazmorra), y sin ellos guardaria una partida mutilada.
-	if not _en_partida():
+	if not en_partida():
 		return
 	_acum = 0.0
 	await autoguardar()
 
 
-func _en_partida() -> bool:
+# ¿Hay una PARTIDA VIVA delante (pueblo o mazmorra) y no un menu? Publica porque la pregunta no es
+# solo del autoguardado: Pantalla la usa para saber si al cerrar la ventana hay algo que guardar.
+func en_partida() -> bool:
 	var esc: Node = get_tree().current_scene
 	return esc != null and esc.scene_file_path.contains("/levels/")
 

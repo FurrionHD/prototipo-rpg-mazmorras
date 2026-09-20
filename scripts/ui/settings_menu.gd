@@ -35,6 +35,7 @@ const MANDOS := [
 const MUESTRA := {"general": true, "efectos": true, "musica": false}
 
 var _cifras: Dictionary = {}   # clave -> Label del porcentaje
+var _pantalla: OptionButton = null   # el selector de modo de ventana
 
 
 func _ready() -> void:
@@ -72,6 +73,8 @@ func _ready() -> void:
 
 	for m in MANDOS:
 		_fila(vb, String(m["clave"]), String(m["titulo"]))
+
+	_fila_pantalla(vb)
 
 	var sep := Control.new()
 	sep.custom_minimum_size = Vector2(0, 8)
@@ -122,6 +125,37 @@ func _fila(vb: VBoxContainer, clave: String, titulo: String) -> void:
 	_pintar_cifra(clave)
 
 
+# EL MODO DE PANTALLA. No es un mando de 0 a 100 como los volumenes, asi que no cabe en _fila: es
+# una lista de tres. Lo que elijas se aplica al momento y se recuerda en user://ajustes.cfg, el
+# mismo sitio donde viven los volumenes (ver Ventana).
+func _fila_pantalla(vb: VBoxContainer) -> void:
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 2)
+	vb.add_child(caja)
+
+	var lbl := Label.new()
+	lbl.text = "Pantalla"
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_color_override("font_color", Color(0.82, 0.85, 0.9))
+	caja.add_child(lbl)
+
+	_pantalla = OptionButton.new()
+	_pantalla.custom_minimum_size = Vector2(ANCHO, ALTO_MANDO + 8)
+	_pantalla.add_theme_font_size_override("font_size", 15)
+	for m in Ventana.MODOS:
+		_pantalla.add_item(String(m["nombre"]), int(m["id"]))
+	_pantalla.select(_pantalla.get_item_index(Ventana.modo))
+	_pantalla.item_selected.connect(func(i: int) -> void:
+		Ventana.aplicar(_pantalla.get_item_id(i)))
+	caja.add_child(_pantalla)
+
+	var pista := Label.new()
+	pista.text = "F11 alterna pantalla completa en cualquier momento."
+	pista.add_theme_font_size_override("font_size", 11)
+	pista.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	caja.add_child(pista)
+
+
 func _mover(v: float, clave: String) -> void:
 	Sonido.fijar_volumen(clave, v / 100.0)
 	_pintar_cifra(clave)
@@ -148,6 +182,9 @@ func abrir() -> void:
 	# ejemplo) mientras este panel estaba escondido.
 	for m in MANDOS:
 		_pintar_cifra(String(m["clave"]))
+	# Y el modo de pantalla, que se puede haber cambiado con F11 con este panel escondido.
+	if _pantalla != null:
+		_pantalla.select(_pantalla.get_item_index(Ventana.modo))
 
 
 func cerrar() -> void:

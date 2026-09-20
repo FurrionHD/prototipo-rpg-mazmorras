@@ -304,7 +304,11 @@ func fijar_volumen(clave: String, v: float) -> void:
 
 
 func guardar_ajustes() -> void:
+	# LEER ANTES DE ESCRIBIR: en ajustes.cfg ya no estan solo los volumenes (Ventana guarda ahi su
+	# modo de ventana). Guardando un ConfigFile recien hecho se le borraria su seccion en cuanto
+	# alguien moviera un volumen.
 	var cfg := ConfigFile.new()
+	cfg.load(RUTA_AJUSTES)
 	for clave in BUSES:
 		cfg.set_value(SECCION_VOL, clave, volumen(clave))
 	var err: int = cfg.save(RUTA_AJUSTES)
