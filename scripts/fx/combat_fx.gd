@@ -1123,6 +1123,18 @@ func _crear_emisor(capa: Control, tipo: String, color: Color, stacks: int = 1) -
 			_:
 				p.emission_rect_extents = capa.size * 0.5
 	capa.resized.connect(ajustar)
+	# Y SE SUELTA CUANDO EL EMISOR MUERE. La conexion vive en la TARJETA, que dura toda la pelea,
+	# pero 'ajustar' se guarda el emisor, y los emisores se borran cada vez que cambian los estados
+	# del bloque (ver _pintar_estados: los que sobran van a queue_free). A partir de ahi, cada vez que
+	# la tarjeta cambiaba de tamaño, Godot llamaba a una lambda con un emisor ya borrado: "Lambda
+	# capture at index 0 was freed", 42 veces en la sesion del 19/09 y siempre detras de un "[estado]
+	# X recibe ...". El is_instance_valid de dentro evita el destrozo, pero el error salta ANTES de
+	# entrar, al preparar la llamada.
+	#
+	# El emisor es HIJO de la tarjeta, asi que no puede sobrevivirla: aqui la tarjeta esta siempre.
+	p.tree_exiting.connect(func() -> void:
+		if is_instance_valid(capa) and capa.resized.is_connected(ajustar):
+			capa.resized.disconnect(ajustar))
 	ajustar.call()
 	return p
 
