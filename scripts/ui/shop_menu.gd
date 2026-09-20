@@ -425,6 +425,15 @@ func _on_lista_redimensionada() -> void:
 # Pinta la rejilla y la ficha del elegido. 'vacio' = lo que se dice cuando no hay nada.
 func grid_detail(piezas: Array, preview: Callable, vacio: String = "(nada por aquí)") -> void:
 	if piezas.is_empty():
+		# Apuntar las columnas TAMBIEN cuando no se pinta rejilla (mismo motivo que en taller_menu).
+		# Sin esto, el contador se queda con el numero que se calculo antes de que la lista tuviera
+		# ancho; el 'resized' de despues ve que no coincide, pide otro rebuild, que vuelve a no pintar
+		# rejilla... y la tienda se repinta sin parar dentro del mismo fotograma: el juego se congela
+		# sin decir nada y acaba cerrandose.
+		#
+		# Pasa de verdad en MULTI al caer en Hogar · Materiales: hasta que el anfitrion presta el baul
+		# no hay nada que pintar, asi que la PRIMERA pintura de la pantalla ya sale vacia.
+		_cols_pintadas = _columnas()
 		MenuScaffold.nota(_lista, vacio)
 		return
 	sel = clampi(sel, 0, piezas.size() - 1)

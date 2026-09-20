@@ -502,6 +502,11 @@ func _on_lista_redimensionada() -> void:
 # el mismo orden: es lo que garantiza que la celda que pulsas y la ficha que sale sean la misma cosa.
 func _grid_detail(piezas: Array, preview: Callable) -> void:
 	if piezas.is_empty():
+		# Las columnas se apuntan TAMBIEN sin rejilla que pintar (ver taller_menu.grid_detail): si no,
+		# el 'resized' siguiente pide otro rebuild, que vuelve a no pintar rejilla, y el menu se
+		# repinta sin parar dentro del mismo fotograma. Aqui ademas _on_lista_redimensionada llama a
+		# _rebuild() sin diferir, o sea que la recursion es inmediata.
+		_cols_pintadas = _columnas()
 		_note(_content, "(vacío)")
 		return
 	_sel = clampi(_sel, 0, piezas.size() - 1)

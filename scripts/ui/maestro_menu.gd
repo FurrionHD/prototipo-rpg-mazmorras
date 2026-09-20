@@ -2354,6 +2354,10 @@ func _pintar_tecnicas(pj: PersonajeData, arma: Resource) -> void:
 		+ "pero sí para usarlas."))
 	var tecnicas: Array = _tecnicas()
 	if tecnicas.is_empty():
+		# Las columnas se apuntan TAMBIEN sin rejilla (ver taller_menu.grid_detail): si no, el
+		# 'resized' siguiente pide otro rebuild, que vuelve a no pintar, y la pantalla se repinta sin
+		# parar dentro del mismo fotograma. Un arma sin tecnicas propias colgaria el juego.
+		_cols_pintadas = _columnas()
 		MenuScaffold.nota(_lista, "Esta arma no tiene técnicas propias.")
 		return
 	_sel = clampi(_sel, 0, tecnicas.size() - 1)

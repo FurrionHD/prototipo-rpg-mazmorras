@@ -231,6 +231,28 @@ func _ready() -> void:
 	_ok("buscar sin tilde ni mayúsculas encuentra la Poción", _hay(men.stacks, func(s): return C.nombre_de(s).contains("Poción")))
 	await _captura("buscador")
 
+	# UNA TIENDA QUE NACE VACÍA. En multi, al caer en Hogar · Materiales no hay nada que pintar hasta
+	# que el anfitrión presta el baúl, así que la PRIMERA pintura de la pantalla sale vacía. Si la
+	# rama vacía no apunta las columnas, el 'resized' siguiente pide otro rebuild, que vuelve a no
+	# pintar... y el menú se repinta sin parar DENTRO del mismo fotograma: el juego se congela en
+	# silencio y acaba cerrándose. Pasaba de verdad (playtest del 20/09).
+	#
+	# Si esto se rompe otra vez, el visor NO llega a la línea siguiente: se queda colgado aquí, que
+	# es exactamente el síntoma que hay que cazar.
+	print("\n=== UNA TIENDA QUE NACE VACÍA ===")
+	var vacia: CanvasLayer = preload("res://scripts/ui/shop_menu.gd").new()
+	add_child(vacia)
+	# Sin el pack por reclamar, que si no abre en esa pestaña y ahí siempre hay algo que pintar.
+	Game.pack_inicial_reclamado = true
+	vacia.orden.poner_texto(vacia.vender.clave(), "zzzzzzzz")   # que no case con nada
+	vacia.abrir()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_ok("abrir con la rejilla vacía no cuelga el menú", vacia.stacks.is_empty())
+	vacia._cerrar()
+	vacia.queue_free()
+	await get_tree().process_frame
+
 	print("\n=== AL CERRAR ===")
 	var copias: Array = men._vitrina.values()
 	men._cerrar()
