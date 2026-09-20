@@ -836,6 +836,12 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 	if obj >= 0 and obj < _pantalla._enemies.size():
 		_pantalla._target_idx = obj
 	match String(accion.get("tipo", "atacar")):
+		"atacar":
+			# EL BASICO TIENE SU CASO. Antes caia por el `_:` del final y se resolvia igual (es lo que
+			# hace ese saco roto), pero soltando el aviso de "tipo desconocido" — 134 en una sesion del
+			# playtest del 19/09. Y ese aviso esta puesto para delatar que las dos maquinas llevan
+			# versiones distintas: con 134 falsos no delata nada.
+			_pantalla._accion_atacar()
 		"defender":
 			_pantalla._accion_defender()
 		"huir":

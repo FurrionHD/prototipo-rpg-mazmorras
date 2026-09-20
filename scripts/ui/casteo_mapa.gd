@@ -557,7 +557,10 @@ func _motivo_bloqueo() -> String:
 	# el bicho de turno no puede impedir que te tiñas la espada.
 	if _destino_pj != null:
 		return ""
-	if _objetivo is Node2D and _jugador.has_method("ve_a") \
+	# is_instance_valid ANTES del `is`: al bicho al que apuntas se lo puede llevar por delante otro
+	# (o tu propio conjuro) mientras cantas, y `_objetivo is Node2D` sobre un nodo ya borrado es un
+	# error por fotograma -- 894 en una sesion del playtest del 19/09.
+	if is_instance_valid(_objetivo) and _objetivo is Node2D and _jugador.has_method("ve_a") \
 			and not _jugador.ve_a((_objetivo as Node2D).global_position):
 		return "sin línea de visión"
 	return ""
