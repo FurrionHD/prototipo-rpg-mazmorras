@@ -441,6 +441,14 @@ func entrar(clave: String, contrasena: String, forzar_build := false) -> Diction
 		return await _conectar_a_mi_sala(clave, contrasena, int(viva.get("pid", 0)))
 	var est: Dictionary = await Nube.consultar(id, contrasena)
 	if not est.get("ok", false):
+		# UN MUNDO MIO QUE LA NUBE AUN NO CONOCE (de antes de la nube de verdad): "no existe" aqui
+		# significa "todavia no esta subido". Se lanza la sala, que lo da de alta con su mismo codigo
+		# y sube la copia de este disco (ver abrir). Si la contraseña no es la que este PC recuerda,
+		# la sala lo rechazara con el mismo mensaje.
+		if String(est.get("error", "")) == "no_autorizado" and bool(e.get("mio", false)) \
+				and int(e.get("estado", SaveIO.VACIA)) == SaveIO.OK:
+			print("[mundos] %s no esta en la nube todavia: lo sube la sala" % clave)
+			return await _lanzar_sala(clave, contrasena, forzar_build)
 		return {"ok": false, "error": String(est.get("error", "")),
 			"mensaje": String(est.get("mensaje", "No se pudo consultar el mundo."))}
 	if bool(est.get("abierto", false)) and not bool(est.get("caducado", false)) \
