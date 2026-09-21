@@ -13124,6 +13124,13 @@ func dev_forzar_jefe() -> String:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or not piso.has_method("dev_forzar_jefe"):
 		return "no estás en la mazmorra"
+	# EL PISO LO LLEVA OTRO (un trabajador, o el compañero): el jefe tiene que salir en SU maquina, que
+	# es la que simula los bichos. Se le pide por la red y ya (playtest del 20/09/2026: con el trabajador
+	# llevando el piso, el boton decia que no y no habia forma de traerlo).
+	if not Net.pisos.simulo_mi_piso():
+		Net.pisos.pedir_forzar_jefe()
+		print("[dev] jefe del piso %d pedido a quien lleva el piso" % current_floor)
+		return ""
 	bosses_sello.erase(current_floor)
 	var motivo: String = piso.dev_forzar_jefe()
 	if motivo.is_empty():

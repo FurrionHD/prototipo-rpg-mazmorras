@@ -507,6 +507,43 @@ func _cerrar_expedicion() -> void:
 # propiedad (y dejas la foto de como queda), y al llegar al nuevo el host te dice si lo simulas tu
 # o solo lo espejas. Se resuelve ANTES de reconstruir el piso, que es lo que necesita saberlo.
 
+# TRAER AL JEFE (boton de debug) cuando el piso lo simula OTRO. El jefe tiene que salir en la maquina
+# que lleva los bichos, asi que la peticion va al host y el host se la pasa al dueño del piso (un
+# trabajador, casi siempre). Mismo camino que la extraccion (net_extraccion._encaminar_extraccion).
+func pedir_forzar_jefe() -> void:
+	if not Net.activo:
+		return
+	if Net.es_host:
+		_encaminar_forzar_jefe(Net._mi_lugar)
+	else:
+		_pedir_forzar_jefe.rpc_id(1, Net._mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_forzar_jefe(lugar: String) -> void:
+	if Net.es_host:
+		_encaminar_forzar_jefe(lugar)
+
+
+func _encaminar_forzar_jefe(lugar: String) -> void:
+	if Net._mi_lugar == lugar and Net._soy_dueno:
+		print("[dev] traer al jefe: ", Game.dev_forzar_jefe())
+		return
+	var dueno: int = Net._dueno_de(lugar)
+	if dueno != 0 and dueno != Net._mi_id():
+		_forzar_jefe_dueno.rpc_id(dueno, lugar)
+	else:
+		print("[dev] traer al jefe: nadie lleva %s" % lugar)
+
+
+# Corre en el DUEÑO del piso: lo planta por el camino normal, igual que si hubiera pulsado el boton el.
+@rpc("any_peer", "call_remote", "reliable")
+func _forzar_jefe_dueno(lugar: String) -> void:
+	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		return
+	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe())
+
+
 # ¿En que piso estoy? -1 si estoy en el pueblo.
 func mi_piso() -> int:
 	if not Net._mi_lugar.begins_with("piso:"):
