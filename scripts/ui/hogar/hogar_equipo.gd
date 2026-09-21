@@ -77,7 +77,9 @@ func _puestos() -> Array:
 		if f.is_empty():
 			out.append({})
 			continue
-		var pj: PersonajeData = Game.pj_de_dict(f.get("aspecto", {}))
+		var pj: PersonajeData = Net.hogar.pj_de_fila(f)
+		if pj == null:
+			pj = PersonajeData.new()
 		out.append({"uid": uid, "pj": pj, "mio": false,
 			"jugador": Net.formacion.num_jugador(String(f.get("dueno", ""))),
 			"nombre": String(f.get("nombre", "?")), "level": int(f.get("level", 1))})

@@ -12,6 +12,8 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	cargar_grupo([2, 3])
+	# Uno de MIS personajes de casa con foto: el host la tiene que recibir (_subir_fotos).
+	(Game.plantilla[5] as PersonajeData).set_imagen(foto_de_prueba(Color(0.2, 0.4, 0.9)))
 	# Un reloj "mal puesto": el host tiene que corregirlo al entrar (CicloDia, Net._set_hora_pueblo). Los
 	# dos procesos van en el mismo PC, asi que tras la correccion la diferencia es casi cero.
 	CicloDia.desfase = 777.0
@@ -30,6 +32,28 @@ func _ready() -> void:
 		th += 0.5
 	_ok(absf(CicloDia.desfase) < 2.0, "el host me pone su hora del pueblo (desfase %.2f s, tras %.1f s)"
 		% [CicloDia.desfase, th])
+
+	# FASE 0: LA CARA Y LA FOTO de un personaje de casa del host, como las pinta Encargos.
+	# Los dos procesos corren en el MISMO PC (misma identidad) y cargan la MISMA partida de referencia
+	# (mismos uid): el de casa del host se reconoce por su uid, el de la plantilla[1].
+	# Mi hogar se publica al cambiar el equipo; aqui no ha cambiado nada, asi que se fuerza.
+	Net.hogar.marcar_hogar_sucio()
+	var uid_host: String = String((Game.plantilla[1] as PersonajeData).uid)
+	var visto := 0
+	var tf := 0.0
+	while visto == 0 and tf < 15.0:
+		for f in Net.hogar.roster_hogar():
+			var fila := f as Dictionary
+			if String(fila.get("uid", "")) != uid_host or int(fila.get("imagen_huella", 0)) == 0:
+				continue
+			var pj: PersonajeData = Net.hogar.pj_de_fila(fila)
+			if pj != null and not pj.aspecto.is_empty() and not pj.imagen.is_empty():
+				visto = 1
+		if visto == 0:
+			await _esperar(0.5)
+			tf += 0.5
+	_ok(visto == 1, "veo la cara y la foto de un personaje de casa del host")
+	print("[B] dato foto_del_host=%d" % visto)
 
 	# FASE 1: bajo al piso 1.
 	await esperar_fase(1, 60.0)

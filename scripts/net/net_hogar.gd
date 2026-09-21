@@ -599,6 +599,9 @@ func _difundir_hogar() -> void:
 		var roster: Array = _construir_roster()
 		_set_encargos.rpc(Game.encargos)
 		_set_cofre.rpc(Game.cofre_equipo)
+		for peer in Net._peers:
+			if not Net.es_trabajador(peer):
+				_repartir_fotos(peer, roster)
 		_set_roster_hogar.rpc(roster)
 		_roster_mirror = roster
 		# LA FORMACION va con el roster del que sale (ver net_formacion.gd), y DESPUES de el.
@@ -756,10 +759,122 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 		# Su sitio en el equipo de SU dueño (-1 = no va): es lo que ordena a los nuevos al entrar en la
 		# formacion comun. Para los de otro no se sabe desde aqui, y lo pisa la fila que manda su dueño.
 		"pos_equipo": Game.party.find(pj) if dueno == Identidad.id else -1,
-		# El ASPECTO, solo de los que van en equipo: la formacion los dibuja de cuerpo entero y el
-		# invitado no tiene los PersonajeData del compañero. Los de casa no se ven ahi y no viajan.
-		"aspecto": Game.pj_a_dict(pj) if en_equipo else {},
+		# El ASPECTO de TODOS, porque el invitado no tiene los PersonajeData del compañero: los de equipo
+		# con lo que llevan puesto (la formacion los dibuja de cuerpo entero) y los de casa solo la cara
+		# (Encargos los pinta en su tarjeta; antes no viajaba y salian como un punto de color).
+		# La FOTO no va aqui: pesa decenas de KB y el roster se difunde con cada cambio del hogar. Va su
+		# huella, y la foto viaja UNA vez por su canal (ver _repartir_fotos).
+		"aspecto": _aspecto_sin_foto(pj, en_equipo),
+		"imagen_huella": huella_de(pj.imagen),
 	}
+
+
+static func _aspecto_sin_foto(pj: PersonajeData, con_equipo: bool) -> Dictionary:
+	var d: Dictionary = Game.pj_a_dict(pj) if con_equipo else pj.aspecto_completo()
+	d.erase("imagen")
+	d["nombre"] = pj.nombre
+	return d
+
+
+# ============================================================
+#  LAS FOTOS DEL ROSTER: cada una viaja UNA vez por maquina
+# ============================================================
+# El roster lleva la huella de la foto; la foto va aparte y solo cuando esa maquina no la tiene o ha
+# cambiado. El host las junta todas (las suyas, las de jugadores_mundo y las que SUBEN los invitados,
+# que son los unicos que tienen la de sus personajes) y reparte a cada uno lo que le falta.
+var _fotos: Dictionary = {}            # HOST: uid -> png
+var _fotos_mandadas: Dictionary = {}   # HOST: peer -> {uid: huella que ya tiene}
+var _fotos_subidas: Dictionary = {}    # CLIENTE: uid -> huella que ya tiene el host
+var _fotos_mirror: Dictionary = {}     # CLIENTE: uid -> png
+
+
+static func huella_de(png: PackedByteArray) -> int:
+	return 0 if png.is_empty() else hash(png)
+
+
+# CLIENTE: sube al host las fotos de mis personajes que aun no tiene (va justo antes de _mi_hogar).
+func _subir_mis_fotos() -> void:
+	var nuevas: Dictionary = {}
+	for pj in Game.plantilla:
+		var uid: String = String(pj.uid)
+		var h: int = huella_de(pj.imagen)
+		if uid.is_empty() or h == 0 or int(_fotos_subidas.get(uid, 0)) == h:
+			continue
+		nuevas[uid] = pj.imagen
+		_fotos_subidas[uid] = h
+	if not nuevas.is_empty():
+		_subir_fotos.rpc_id(1, nuevas)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _subir_fotos(fotos: Dictionary) -> void:
+	if not Net.es_host:
+		return
+	for uid in fotos:
+		var png = fotos[uid]
+		if png is PackedByteArray and not (png as PackedByteArray).is_empty():
+			_fotos[String(uid)] = png
+
+
+# HOST: la foto de un personaje, la tenga yo en mi partida o me la haya subido su dueño.
+func _foto_de(uid: String) -> PackedByteArray:
+	# Primero la de mi partida, luego la que subio su dueño (en vivo) y por ultimo la foto de
+	# jugadores_mundo, que puede ir hasta 60 s atrasada.
+	var pj: PersonajeData = Game.pj_por_uid(uid)
+	if pj != null and not pj.imagen.is_empty():
+		return pj.imagen
+	if _fotos.has(uid):
+		return _fotos[uid]
+	pj = Game._pj_en_mundo(uid)
+	return pj.imagen if pj != null else PackedByteArray()
+
+
+# HOST: a 'peer', las fotos del roster que no tenga. Va ANTES del roster (mismo canal fiable, llegan en
+# orden), para que cuando su UI se repinte con el roster la foto ya este ahi.
+func _repartir_fotos(peer: int, roster: Array) -> void:
+	var ya: Dictionary = _fotos_mandadas.get(peer, {})
+	var envio: Dictionary = {}
+	for f in roster:
+		var uid: String = String((f as Dictionary).get("uid", ""))
+		var h: int = int((f as Dictionary).get("imagen_huella", 0))
+		if uid.is_empty() or h == 0 or int(ya.get(uid, 0)) == h:
+			continue
+		var png: PackedByteArray = _foto_de(uid)
+		if png.is_empty():
+			continue   # aun no ha subido: sale en la proxima difusion
+		envio[uid] = png
+		ya[uid] = h
+	_fotos_mandadas[peer] = ya
+	if not envio.is_empty():
+		_set_fotos_roster.rpc_id(peer, envio)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _set_fotos_roster(fotos: Dictionary) -> void:
+	for uid in fotos:
+		_fotos_mirror[String(uid)] = fotos[uid]
+
+
+# El PersonajeData de mentira de una fila del roster, con su foto si esta maquina la tiene. Es lo que
+# pintan la formacion y Encargos para los personajes que no son de esta maquina. null si no trae aspecto.
+func pj_de_fila(ficha: Dictionary) -> PersonajeData:
+	var asp: Dictionary = ficha.get("aspecto", {})
+	if asp.is_empty():
+		return null
+	var pj: PersonajeData = Game.pj_de_dict(asp)
+	var uid: String = String(ficha.get("uid", ""))
+	var png: PackedByteArray = _fotos_mirror.get(uid, PackedByteArray()) if Net._soy_cliente() \
+		else _foto_de(uid)
+	if int(ficha.get("imagen_huella", 0)) != 0 and not png.is_empty():
+		pj.set_imagen(png)
+	return pj
+
+
+func _olvidar_fotos() -> void:
+	_fotos.clear()
+	_fotos_mandadas.clear()
+	_fotos_subidas.clear()
+	_fotos_mirror.clear()
 
 
 # Lo que la UI del hogar tiene que listar como "gente disponible". En solitario se construye al
@@ -1168,6 +1283,7 @@ func _process(_delta: float) -> void:
 		return
 	_hogar_sucio = false
 	if Net._soy_cliente():
+		_subir_mis_fotos()
 		_mi_hogar.rpc_id(1, _mis_filas_hogar())
 	elif Net.es_host:
 		_difundir_hogar()

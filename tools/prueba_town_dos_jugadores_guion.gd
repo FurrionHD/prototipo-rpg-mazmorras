@@ -16,6 +16,9 @@ func _ready() -> void:
 	if FileAccess.file_exists(REGISTRO_B):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(REGISTRO_B))
 	cargar_grupo([4, 0])
+	# Uno de CASA (no va en el equipo) con foto: B tiene que verle la cara y la foto en Encargos.
+	var de_casa: PersonajeData = Game.plantilla[1]
+	de_casa.set_imagen(foto_de_prueba(Color(0.9, 0.2, 0.2)))
 	Game.semilla_mundo = 424242
 	await _esperar(0.5)
 	_ok(Net.hostear("abc", PUERTO) == OK, "sala abierta")
@@ -29,6 +32,18 @@ func _ready() -> void:
 	if Net._num_humanos < 2:
 		await _fin()
 		return
+
+	# 0) LAS FOTOS DEL ROSTER. B sube la de uno de SUS personajes de casa; a B le llega la del mio.
+	t = 0.0
+	while Net.hogar._fotos.is_empty() and t < 20.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(not Net.hogar._fotos.is_empty(), "B me sube la foto de su personaje de casa (%.1f s)" % t)
+	_ok(await _dato_de_b("foto_del_host", 20.0) == 1, "B ve la cara Y la foto de mi personaje de casa")
+	var ya: Dictionary = (Net.hogar._fotos_mandadas.get(_b(), {}) as Dictionary).duplicate()
+	Net.hogar._difundir_hogar()
+	_ok(Net.hogar._fotos_mandadas.get(_b(), {}) == ya and ya.has(String(de_casa.uid)),
+		"una segunda difusion no le reenvia la foto")
 
 	# 1) Los dos al piso 1.
 	Net.pisos.solicitar_entrar(1)

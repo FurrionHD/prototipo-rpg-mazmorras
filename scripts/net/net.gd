@@ -81,7 +81,9 @@ const MAX_CONEXIONES := 32
 #     lo conoce y el pueblo se le colocaria con su propia semilla.
 # 18: RPC nuevo _set_hora_pueblo (el dia y la noche del pueblo, con la hora del host). Un build del 17 no
 #     lo conoce y veria su propio cielo.
-const PROTOCOLO := 18
+# 19: las filas del roster llevan el aspecto de TODOS sin la foto (imagen_huella) y las fotos van por
+#     _subir_fotos / _set_fotos_roster. Un build del 18 no las conoce y veria a todos sin foto.
+const PROTOCOLO := 19
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -474,6 +476,7 @@ func desconectar() -> void:
 	recoleccion._nonces_sesion.clear()
 	hogar._roster_ajeno.clear()
 	hogar._hogar_sucio = false
+	hogar._olvidar_fotos()
 	epoca_sesion = 0
 	semilla_pueblo = 0
 	CicloDia.desfase = 0.0      # sin sesion, la hora vuelve a ser la de este PC
@@ -956,7 +959,9 @@ func _admitir(quien: int, color: Color, metal: float, nombre: String, lugar: Str
 	# Los encargos en marcha y quien hay en el hogar de todos: sin esto entraria viendo el hogar
 	# vacio y solo se le poblaria al primer cambio.
 	hogar._set_encargos.rpc_id(quien, Game.encargos)
-	hogar._set_roster_hogar.rpc_id(quien, hogar._construir_roster())
+	var roster_ya: Array = hogar._construir_roster()
+	hogar._repartir_fotos(quien, roster_ya)
+	hogar._set_roster_hogar.rpc_id(quien, roster_ya)
 	# Y la LIBRETA del mundo (mapa + niebla): al entrar en mi mundo recoge lo que yo tenga descubierto.
 	mapa._set_mapa_sesion.rpc_id(quien, mapa._mapa_sesion, mapa._vistas_sesion)
 	# LA BIBLIOTECA DEL MUNDO. Mientras jugais juntos es COMUN: lo que lea uno cuenta para todos, que
@@ -1173,6 +1178,7 @@ func _on_peer_disconnected(id: int) -> void:
 		var ident_ida: String = _identidad_de_peer(id)
 		if not ident_ida.is_empty() and hogar._roster_ajeno.erase(ident_ida):
 			hogar.marcar_hogar_sucio()
+		hogar._fotos_mandadas.erase(id)   # si vuelve es otra conexion, sin fotos: se le mandan de nuevo
 		# Si simulaba un piso, lo suelta SIN foto (se fue de golpe, no dio tiempo a sacarla): quien
 		# se quede lo hereda vacio y las paredes lo van repoblando. Es el precio de un corte brusco.
 		pisos._soltar_piso(id, {})

@@ -142,6 +142,13 @@ func excelia_grupo() -> float:
 	return s
 
 
+# Una foto de cara de mentira (un cuadrado liso del tamaño de las de verdad), para probar que viaja.
+func foto_de_prueba(col: Color) -> PackedByteArray:
+	var img := Image.create(Game.IMAGEN_CUERPO_MAX, Game.IMAGEN_CUERPO_MAX, false, Image.FORMAT_RGBA8)
+	img.fill(col)
+	return img.save_png_to_buffer()
+
+
 # 'cuales' = posiciones en la plantilla de la partida de referencia. Dos personajes cada uno (el cupo de dos
 # humanos) y DISTINTOS entre jugadores (otros uid). Ojo con la 1: es un personaje enorme que acaba las
 # peleas del piso 1 antes de que al otro le llegue un turno.

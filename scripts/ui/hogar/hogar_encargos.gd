@@ -236,6 +236,11 @@ func _detalle_encargo(e: Dictionary) -> void:
 		var pj: PersonajeData = Game.pj_por_uid(String(m.get("uid", "")))
 		if pj == null and not Net._soy_cliente():
 			pj = Game._pj_en_mundo(String(m.get("uid", "")))
+		if pj == null:
+			for f in Net.hogar.roster_hogar():
+				if String((f as Dictionary).get("uid", "")) == String(m.get("uid", "")):
+					pj = Net.hogar.pj_de_fila(f as Dictionary)
+					break
 		if pj != null:
 			MenuScaffold._retrato(fila, pj, 0, false, true, func(_i: int): pass)
 		else:
@@ -676,11 +681,14 @@ func _tarjeta_persona(ficha: Dictionary) -> void:
 	fila.mouse_filter = Control.MOUSE_FILTER_PASS
 	caja.add_child(fila)
 
-	# LA CARA. Solo se puede pintar si esta maquina tiene su PersonajeData: los tuyos siempre, y los del
-	# compañero en el host. Si no, el cuadrado de su color, que es lo que habia.
+	# LA CARA. Si esta maquina tiene su PersonajeData, ese (los tuyos siempre, y los del compañero en el
+	# host); si no, el que se monta con el aspecto y la foto que trae el roster. El punto de color queda
+	# solo para una fila sin aspecto.
 	var pj: PersonajeData = Game.pj_por_uid(uid)
 	if pj == null and not Net._soy_cliente():
 		pj = Game._pj_en_mundo(uid)
+	if pj == null:
+		pj = Net.hogar.pj_de_fila(ficha)
 	if pj != null:
 		MenuScaffold._retrato(fila, pj, 0, va, true, func(_i: int):
 			if not lleno:
