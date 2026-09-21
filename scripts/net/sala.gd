@@ -38,6 +38,7 @@ var _hubo_alguien := false
 var _t_vacia := 0.0
 var _cerrando := false
 var _humanos := -1
+var _direcciones: Array = []   # las publicadas al abrir: van en CADA escritura del estado, no solo en la primera
 
 
 # ¿Me han lanzado como sala? Lo que va detras de "--": sala <clave> <puerto> <identidad>.
@@ -128,7 +129,8 @@ func arrancar(args: PackedStringArray) -> void:
 		_acabar({"estado": "error", "mensaje": "No se pudo abrir el puerto %d (¿otro juego abierto?)." % puerto})
 		return
 	_lista = true
-	_escribir({"estado": "lista", "direcciones": r.get("direcciones", [])})
+	_direcciones = r.get("direcciones", [])
+	_escribir({"estado": "lista"})
 	print("[sala] lista: esperando jugadores")
 
 
@@ -194,7 +196,8 @@ func _leer_pedido() -> String:
 
 
 func _escribir(campos: Dictionary) -> void:
-	var d := {"puerto": puerto, "pid": OS.get_process_id(), "humanos": maxi(0, _humanos)}
+	var d := {"puerto": puerto, "pid": OS.get_process_id(), "humanos": maxi(0, _humanos),
+		"direcciones": _direcciones}
 	d.merge(campos, true)
 	var f := FileAccess.open(ruta_estado(clave), FileAccess.WRITE)
 	if f == null:

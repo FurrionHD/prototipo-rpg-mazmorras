@@ -100,8 +100,8 @@ func cerrar(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 	return r
 
 
-func estado(id: String, contrasena: String) -> Dictionary:
-	return await _peticion("estado", id, contrasena)
+func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
+	return await _peticion("estado", id, contrasena, {}, _json({"quien_soy": quien_soy}))
 
 
 # ============================================================
@@ -131,7 +131,7 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	h.use_threads = true   # subir 4 MB no puede congelar el juego
 	_padre.add_child(h)
 	var hs := PackedStringArray(["x-pass: " + contrasena.uri_encode()])
-	if op == "abrir" or op == "crear":
+	if op == "abrir" or op == "crear" or op == "estado":
 		hs.append("content-type: application/json")
 	for k in cabeceras:
 		hs.append("%s: %s" % [k, str(cabeceras[k]).uri_encode()])

@@ -278,7 +278,9 @@ func cerrar(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 #  Devuelve tambien "caducado": si el cerrojo esta ahi pero sin latido, la direccion que lleva
 #  dentro esta MUERTA y el cliente no debe intentar conectarse a ella.
 # ------------------------------------------------------------
-func estado(id: String, contrasena: String) -> Dictionary:
+# quien_soy (opcional): si viene, se dice si el cerrojo es SUYO (es_mio). Es lo que deja distinguir "lo
+# tiene otro, me uno" de "lo tiene mi propia sala, que se cayo: lanzo otra".
+func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 	var mundo: Dictionary = _leer_mundo(id, contrasena)
 	if mundo.is_empty():
 		return _no_autorizado()
@@ -300,6 +302,7 @@ func estado(id: String, contrasena: String) -> Dictionary:
 		r["caducado"] = not _vivo(cerrojo)
 		r["quien"] = String(cerrojo.get("quien", ""))
 		r["desde"] = int(cerrojo.get("desde", 0))
+		r["es_mio"] = quien_soy != "" and String(cerrojo.get("identidad", "")) == quien_soy
 		# La direccion SOLO si el arrendamiento esta vivo: con el host caido, mientras caduca, no se
 		# reparte una direccion rancia.
 		if not r["caducado"]:

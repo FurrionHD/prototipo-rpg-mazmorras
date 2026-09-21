@@ -807,6 +807,42 @@ intención de ataque, y no merece un canal nuevo por media barra de ATB — pero
 
 ---
 
+## La nube y la SALA (21/09/2026)
+
+**La nube de verdad** (`servidor/nube`, ver su LEEME): un Worker de Cloudflare con un Durable Object por
+mundo guarda la contraseña, el cerrojo y el save. El juego habla con él por `NubeAlmacenHttp`
+(`scripts/net/cloud_store_http.gd`); el almacén local de pruebas (`NubeAlmacenLocal`) sigue para las
+pruebas (`-- nube_local`) y aplica las MISMAS reglas. La nube recuerda los **miembros** (los que tienen
+personaje en el save, que el juego manda al subir): solo ellos pueden abrir el mundo cuando no hay
+nadie dentro. Uno nuevo solo puede unirse, y alguien de dentro le tiene que aceptar
+(`Net._pedir_permiso`, "Aceptar / Rechazar" en el HUD).
+
+**La sala (fase 3)**: el mundo compartido ya no lo abre el juego del jugador. Lo abre un Godot SIN
+VENTANA (`scripts/net/sala.gd`, `-- sala <clave> <puerto> <identidad>`) y TODOS entran como clientes,
+también quien la lanza. Así la partida sigue para los demás aunque el que abrió cierre su juego.
+
+- **Un solo botón, "Entrar"** (`Mundos.entrar`): si mi sala de ese mundo sigue viva en este PC, me
+  reconecto; si lo tiene abierto otro, me uno; si no, lanzo la sala y entro por `127.0.0.1`.
+- **La sala no es nadie**: `Game.sin_jugador` (todos los JugadorData aparcados, `lider()` de usar y
+  tirar, el save sin "yo"), `Identidad.id = "sala:<clave>"` (no escribe `identidad.cfg`), el cerrojo a
+  nombre de quien la lanzó (`Identidad.id_cerrojo`), y su lugar es `"sala"`: ningún "¿estoy yo en ese
+  piso?" del anfitrión la cuenta y a los clientes no les sale su cuerpo. No cuenta como humano, no tiene
+  cupo ni ocupa el P1 de la formación.
+- **Lo que cuenta hacia fuera** va en `user://salas/<clave>.json` (estado, puerto, pid, humanos,
+  direcciones). La contraseña le llega por `user://salas/<clave>.pedido`, que lee y borra.
+- **Se cierra sola**: sin humanos 10 s (o si nadie llega a entrar en 60 s) guarda, sube, suelta el
+  cerrojo, cierra a sus trabajadores y termina. Si se cae, los clientes vuelven al menú y el cerrojo
+  (a nombre de quien la lanzó) se recoge al volver a entrar.
+- **El jugador que la lanzó es un invitado más**: guardar, "Guardar y salir" y la ✕ van por el camino
+  del invitado (pedir el guardado a la sala). Nunca "cierra el mundo" para los demás.
+- El servidor externo (futuro) es la MISMA sala arrancada por argumentos en otra máquina.
+
+Pruebas: `prueba_sala` (arranca sin jugador y se cierra sola), `prueba_sala_dos_jugadores` (sala + dueña
++ uno nuevo al que acepta; la dueña se va y la sala sigue), `prueba_sala_entrar` (el botón de verdad:
+lanza, reconecta a la misma, se cierra y guarda). Ver `tools/LEEME_red.md`.
+
+---
+
 ## Roadmap por fases (futuro, no ahora)
 
 1. **(HECHO)** Costura de pausa + este documento.

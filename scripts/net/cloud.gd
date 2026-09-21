@@ -280,7 +280,8 @@ func reintentar_subida(save: PackedByteArray, meta: Dictionary = {}) -> Dictiona
 #  jugador es abrirlo el.
 # ------------------------------------------------------------
 func consultar(id: String, contrasena: String) -> Dictionary:
-	return await almacen.estado(id, contrasena)
+	# Con mi identidad: la respuesta dice si el cerrojo es MIO (es_mio), p.ej. de mi sala que se cayo.
+	return await almacen.estado(id, contrasena, Identidad.para_cerrojo())
 
 
 # ============================================================

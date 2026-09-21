@@ -23,7 +23,6 @@ extends Control
 
 const MENU_PRINCIPAL := "res://scenes/ui/main_menu.tscn"
 const PUEBLO := "res://scenes/levels/town.tscn"
-const MAZMORRA := "res://scenes/levels/main.tscn"
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const AZUL := Color(0.55, 0.75, 0.98)
@@ -354,6 +353,13 @@ func _pintar_detalle() -> void:
 	var motivo: String = String(e.get("motivo", ""))
 	if motivo != "":
 		MenuScaffold.fila(vb, "Ojo", motivo, 110, ROJO)
+	# LA SALA DE ESTE MUNDO SIGUE ABIERTA EN ESTE PC (la dejaste con alguien dentro al cerrar el juego):
+	# "Entrar" te vuelve a meter en ella en vez de abrir otra.
+	var sala: Dictionary = Mundos.sala_en_este_pc(_sel)
+	if not sala.is_empty():
+		var n: int = int(sala.get("humanos", 0))
+		MenuScaffold.fila(vb, "Ahora", "abierto en segundo plano en este ordenador (%d %s dentro)" % [
+			n, "jugador" if n == 1 else "jugadores"], 110, VERDE)
 
 	# La contraseña: SIEMPRE se pide, tanto para abrir como para unirse. Si la marcaste como
 	# recordada sale ya puesta.
@@ -379,9 +385,7 @@ func _pintar_detalle() -> void:
 	# tu (con el mundo en la nube, da igual de quien sea). Solo los mundos de otra persona apuntados
 	# SIN su codigo no se pueden abrir: de esos solo se sabe la direccion.
 	var id_nube: String = String(e.get("id_nube", ""))
-	_boton(botones, "Entrar", func(): _abrir(_sel, campo.text) if id_nube != "" else _unirse(_sel, campo.text))
-	if bool(e.get("mio", false)) and bool(e.get("pendiente", false)):
-		_boton(botones, "Reintentar subida", func(): _reintentar(_sel))
+	_boton(botones, "Entrar", func(): _entrar(_sel, campo.text))
 	if not bool(e.get("mio", false)):
 		if id_nube != "":
 			MenuScaffold.nota(vb, "Si su dueño lo tiene abierto, entras con él. Si no hay nadie, lo abres "
@@ -452,74 +456,18 @@ func _pedir_contrasena(nombre: String, color: Color, png: PackedByteArray) -> vo
 			await _crear_de_verdad(nombre, color, png, valores[0]))
 
 
+# El mundo se da de alta y se ENTRA como en cualquier otro: la sala (fase 3) lo estrena vacio y a mi me
+# pide el personaje por el camino del que entra por primera vez, con el boton de IMPORTAR incluido (ver
+# _crear_mi_personaje_en_mundo_ajeno). Lo traido de una ranura se registra en el baul del mundo al
+# llegar a la sala (Net.partida._alta_jugador), igual que el de cualquiera que se muda.
 func _crear_de_verdad(nombre: String, color: Color, png: PackedByteArray, pass_: String) -> void:
 	var r: Dictionary = await Mundos.alta_propio(nombre, pass_, png, color)
 	if not r.get("ok", false):
 		_decir(String(r.get("mensaje", "No se pudo crear el mundo.")), false)
 		return
-	var clave: String = String(r["clave"])
-	# Se abre YA (coger el cerrojo antes de crear personaje: si no se puede, mejor saberlo ahora).
-	var a: Dictionary = await Mundos.abrir(clave, pass_)
-	if not a.get("ok", false):
-		_decir(String(a.get("mensaje", "No se pudo abrir el mundo recién creado.")), false)
-		_pintar()
-		return
-	_sel = clave
+	_sel = String(r["clave"])
 	_pintar()
-	_avisar_direccion(a)
-	# Aqui tambien se puede IMPORTAR: estrenar tu mundo con el personaje que ya tienes es igual de
-	# valido que estrenarlo con uno nuevo, y era la primera pantalla en la que se echaba de menos.
-	var previo: Dictionary = {"color": Color(0.45, 0.72, 1.0)}
-	if not _ranuras_importables().is_empty():
-		previo["extras"] = [{
-			"texto": "Importar personaje…",
-			"fn": func(creador): _elegir_ranura_a_importar(creador,
-				func(slot: int, capa: Control, cr: Node): _estrenar_con_importado(slot, capa, cr, clave)),
-		}]
-	CreadorPersonaje.abrir(_encima, "TU PERSONAJE EN «%s»" % nombre,
-		"Este personaje vive DENTRO del mundo, a tu nombre: te lo encontrarás igual quien lo abra.\n"
-		+ "O puedes IMPORTAR uno de tus partidas, con sus acompañantes y lo que lleve en la bolsa.",
-		"Empezar la aventura", previo,
-		func(n: String, asp: Dictionary):
-			Game.nueva_partida(n, asp)
-			if not Mundos.estrenar(clave):
-				_decir("No se pudo guardar el mundo.", false)
-				return
-			get_tree().change_scene_to_file(PUEBLO))
-
-
-# ESTRENAR MI PROPIO MUNDO con un personaje traido de una de mis ranuras.
-#
-# Aqui NO hay red: el mundo es mio y lo acabo de crear, asi que no hay anfitrion al que mandarle
-# nada (ese es el otro camino, _mudar_personaje). Pero SI se hace el mismo viaje de ida y vuelta por
-# jd_a_dict/jd_de_dict, y no por capricho: es lo que vuelve a REGISTRAR el equipo de los personajes
-# en el baul de este mundo, que nace vacio. Sin ese rodeo, sus armas quedarian puestas pero sin
-# existir en el baul ni en item_meta, y el juego las trataria como piezas T1 comunes.
-#
-# El orden es el que es: empaquetar ANTES de nueva_partida() (que borra item_meta, de donde sale la
-# identidad de cada pieza) y reconstruir DESPUES (sobre el mundo ya limpio y con su semilla nueva).
-func _estrenar_con_importado(slot: int, capa: Control, creador: Node, clave: String) -> void:
-	var jd: JugadorData = Game.jugador_data_desde_ranura(slot)
-	if jd == null:
-		_decir("Esa partida no se puede leer: no se ha traído nada.", false)
-		return
-	var congelado: Dictionary = Net.partida.jd_a_dict(jd)
-
-	capa.queue_free()
-	if is_instance_valid(creador):
-		creador.queue_free()
-
-	# Mundo NUEVO: semilla nueva, baul vacio, almacen vacio, herramientas de serie. Lo de la persona
-	# entra despues y por encima.
-	Game.nueva_partida()
-	var llegado: JugadorData = Net.partida.jd_de_dict(congelado)
-	Game.aplicar_jugador_mundo(llegado, 0)   # 0 = no toques la semilla que acaba de salir
-
-	if not Mundos.estrenar(clave):
-		_decir("No se pudo guardar el mundo.", false)
-		return
-	print("[mudanza] mundo estrenado con %s" % llegado.resumen())
-	get_tree().change_scene_to_file(PUEBLO)
+	await _entrar(_sel, pass_)
 
 
 # ============================================================
@@ -552,12 +500,16 @@ func _anadir_ajeno() -> void:
 # ============================================================
 #  ABRIR / CERRAR / BORRAR
 # ------------------------------------------------------------
-func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
+# ENTRAR: el unico boton. Mundos.entrar decide si me reconecto a mi sala, me uno a quien lo tenga o
+# lanzo la sala; aqui solo se pinta. Lo que viene despues (mi personaje, o crearlo) llega por las
+# señales de Net.partida, como al unirse a cualquier mundo.
+func _entrar(clave: String, pass_: String, forzar_build := false) -> void:
 	if _trabajando:
 		return
 	_trabajando = true
-	_decir("Abriendo el mundo...")
-	var r: Dictionary = await Mundos.abrir(clave, pass_, forzar_build)
+	_decir("Entrando en el mundo...")
+	_pintar()
+	var r: Dictionary = await Mundos.entrar(clave, pass_, forzar_build)
 	_trabajando = false
 	if not r.get("ok", false):
 		_decir(String(r.get("mensaje", "No se pudo abrir.")), false)
@@ -571,77 +523,32 @@ func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 			var b := Button.new()
 			b.text = "Abrir de todos modos"
 			b.add_theme_color_override("font_color", ROJO)
-			b.pressed.connect(func(): _abrir(clave, pass_, true))
+			b.pressed.connect(func(): _entrar(clave, pass_, true))
 			vb.add_child(b)
 			MenuScaffold.nota(vb, "Si al entrar falta algo (un arma, un material), cierra sin guardar "
 				+ "y vuelve al build con el que se guardó.")
 			return
 		_pintar()
 		return
-
-	match String(r.get("resultado", "")):
-		"unirse":
-			# Lo tiene otro AHORA MISMO: se entra con el, a la direccion que ha publicado.
-			_decir("Lo tiene abierto %s: entrando con él..." % String(r.get("quien", "alguien")))
-			_unirse(clave, pass_)
-		"nuevo":
-			# Un mundo dado de alta al que todavia no se le ha creado personaje.
-			_avisar_direccion(r)
-			CreadorPersonaje.abrir(_encima, "TU PERSONAJE",
-				"Este personaje vive dentro del mundo, a tu nombre.", "Empezar la aventura",
-				{"color": Color(0.45, 0.72, 1.0)},
-				func(n: String, asp: Dictionary):
-					Game.nueva_partida(n, asp)
-					if Mundos.estrenar(clave):
-						get_tree().change_scene_to_file(PUEBLO))
-		_:
-			if not Mundos.cargar(clave):
-				_decir("No se pudo cargar ese mundo.", false)
-				return
-			_avisar_direccion(r)
-			if bool(r.get("solo_local", false)):
-				_decir("Ojo: en el almacén no había partida de este mundo, se juega con la copia de "
-					+ "este ordenador. Al cerrar se sube.", false)
-			# Se vuelve EXACTAMENTE donde se guardo, como en las ranuras de un jugador, y la sala se abre
-			# tambien desde dentro (ver Net.puede_abrir_sala). DONDE lo dice MI JugadorData (Mundos.cargar
-			# ya lo ha adoptado: pos_cargada solo vale algo si estaba en la mazmorra), no la cabecera,
-			# que es de quien guardo el mundo la ultima vez. Y se respeta el "al pueblo" de un piso que
-			# este build rehace, igual que main_menu.
-			var al_pueblo: bool = Game.forzar_pueblo_al_cargar or Game.pos_cargada == Vector2.INF
-			Game.forzar_pueblo_al_cargar = false   # de un solo uso
-			get_tree().change_scene_to_file(PUEBLO if al_pueblo else MAZMORRA)
-
-
-# Al abrir, DECIR que direccion se ha publicado. Era la pregunta que no tenia respuesta en ninguna
-# pantalla: "¿como se que ha pillado mi IP?". Y si no hay ninguna utilizable, se avisa en rojo en vez
-# de dejarte creyendo que tus compañeros pueden entrar.
-func _avisar_direccion(r: Dictionary) -> void:
-	var dirs: Array = r.get("direcciones", [])
-	if dirs.is_empty():
-		_decir("Mundo abierto, pero SIN dirección publicada: nadie podrá entrar. Enciende Hamachi y "
-			+ "elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
-		return
-	_decir("Mundo abierto. Tus compañeros tienen que poner %s y la contraseña." % String(dirs[0]))
+	# Conectando. Si la sala es MIA (127.0.0.1), se dice que direccion ha publicado: es la pregunta
+	# que no tenia respuesta en ninguna pantalla ("¿como se que ha pillado mi IP?").
+	if String(r.get("direccion", "")) == "127.0.0.1":
+		var dirs: Array = r.get("direcciones", [])
+		if dirs.is_empty():
+			_decir("Mundo abierto, pero SIN dirección publicada: nadie podrá entrar desde otra casa. "
+				+ "Enciende Hamachi y elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
+		else:
+			_decir("Mundo abierto en %s. Entrando..." % String(dirs[0]))
+	else:
+		_decir("Conectando a %s..." % String(r.get("direccion", "")))
 
 
 # ============================================================
-#  UNIRSE al mundo de otra persona
-#  El baile es: conectar -> el anfitrion mira si ya tengo personaje ahi -> me lo manda, o me pide que
-#  lo cree -> lo aplico -> al pueblo. Todo lo decide Mundos/Net; aqui solo se pinta y se abre el
-#  creador cuando lo piden.
+#  DESPUES DE CONECTAR (sea mi sala o la de otro)
+#  El baile es: conectar -> la sala mira si ya tengo personaje ahi -> me lo manda, o me pide que lo
+#  cree -> lo aplico -> al pueblo. Todo lo decide Mundos/Net; aqui solo se pinta y se abre el creador
+#  cuando lo piden.
 # ------------------------------------------------------------
-func _unirse(clave: String, pass_: String) -> void:
-	if _trabajando:
-		return
-	_trabajando = true
-	_decir("Conectando...")
-	var r: Dictionary = await Mundos.unirse(clave, pass_)
-	_trabajando = false
-	if not r.get("ok", false):
-		_decir(String(r.get("mensaje", "No se pudo unir.")), false)
-		return
-	_decir("Conectando a %s..." % String(r.get("direccion", "")))
-
 
 # El mundo no me conoce: me hago un personaje AHI. Vivira dentro de ese mundo, no en mi disco.
 #
@@ -759,15 +666,6 @@ func _entrar_al_mundo_ajeno() -> void:
 	arbol.change_scene_to_file(PUEBLO)
 	await arbol.process_frame
 	Net.anunciar_lugar("pueblo")
-
-
-func _reintentar(clave: String) -> void:
-	_trabajando = true
-	var r: Dictionary = await Mundos.reintentar(clave)
-	_trabajando = false
-	_decir("Subida completada." if r.get("ok", false) \
-		else String(r.get("mensaje", "Sigue sin subir.")), r.get("ok", false))
-	_pintar()
 
 
 # Borrar SOLO de tu lista, y a dos clics. Lo que hay en el almacen no se toca: si el mundo es de los

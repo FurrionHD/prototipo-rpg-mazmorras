@@ -24,7 +24,7 @@
 //    subir   X-Token, X-Sello-Version, X-Sello-Build, X-Meta; cuerpo = bytes del save -> {ok}
 //            (X-Meta puede llevar "miembros": la lista de identidades con personaje en el save)
 //    cerrar  igual que subir, y ademas suelta el cerrojo -> {ok}
-//    estado                        -> {ok, abierto, caducado, quien, direcciones?, meta, ...}
+//    estado  JSON {quien_soy}?     -> {ok, abierto, caducado, quien, es_mio, direcciones?, meta, ...}
 //  Las respuestas son siempre {"ok": bool} y, si falla, "error" (codigo estable) y "mensaje".
 // ============================================================
 
@@ -72,7 +72,7 @@ export class Mundo extends DurableObject {
 		let cuerpo = null;
 		if (op === "subir" || op === "cerrar") {
 			cuerpo = new Uint8Array(await req.arrayBuffer());
-		} else if (op === "abrir" || op === "crear") {
+		} else if (op === "abrir" || op === "crear" || op === "estado") {
 			try {
 				cuerpo = await req.json();
 			} catch {
@@ -96,7 +96,7 @@ export class Mundo extends DurableObject {
 					meta: meta(req),
 				}, op === "cerrar"));
 			case "estado":
-				return json(await this.estado(id, pass));
+				return json(await this.estado(id, pass, cuerpo || {}));
 		}
 		return json(fallo("peticion_mala", "Esa petición no existe."), 404);
 	}
@@ -310,7 +310,9 @@ export class Mundo extends DurableObject {
 	}
 
 	// ---- ESTADO: para pintar la lista sin bajarse el save ----
-	async estado(id, pass) {
+	// quien_soy (opcional): si viene, se dice si el cerrojo es SUYO (es_mio). Es lo que deja al juego
+	// distinguir "lo tiene otro, me uno" de "lo tiene mi propia sala, que se cayo: lanzo otra".
+	async estado(id, pass, p) {
 		const mundo = await this.leerMundo(id, pass);
 		if (!mundo) {
 			return noAutorizado();
@@ -333,6 +335,7 @@ export class Mundo extends DurableObject {
 			r.caducado = !vivo(cerrojo);
 			r.quien = cerrojo.quien || "";
 			r.desde = cerrojo.desde || 0;
+			r.es_mio = !!p.quien_soy && cerrojo.identidad === String(p.quien_soy);
 			if (!r.caducado) {
 				r.direcciones = cerrojo.direcciones || [];
 			}

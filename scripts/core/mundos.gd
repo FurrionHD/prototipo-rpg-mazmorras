@@ -314,6 +314,17 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 	_escribir_entrada(clave, {"publicada": dirs[0] if not dirs.is_empty() else ""})
 
 	var bytes: PackedByteArray = r.get("save", PackedByteArray())
+	# UNA SUBIDA QUE QUEDO PENDIENTE: la copia de este disco es MAS NUEVA que la de la nube (se guardo y no
+	# llego a subir). Bajar la de la nube encima tiraria ese rato. Solo si de verdad es mas nueva: si
+	# mientras tanto otro abrio el mundo y jugo, la de la nube manda.
+	if bool(e.get("pendiente", false)) and not bytes.is_empty():
+		var local_p: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+		var fecha_nube: String = String((r.get("meta", {}) as Dictionary).get("fecha", ""))
+		if int(local_p["estado"]) == SaveIO.OK and local_p["datos"] != null \
+				and String((local_p["datos"] as SaveData).fecha) > fecha_nube:
+			push_warning("[mundos] %s tenia la subida pendiente: manda la copia de este disco" % clave)
+			_contrasena = contrasena
+			return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs, "solo_local": true}
 	if bytes.is_empty():
 		_contrasena = contrasena
 		# La nube no tiene partida... pero puede haberla AQUI: una subida que nunca llego, o un
@@ -393,6 +404,137 @@ func unirse(clave: String, contrasena: String) -> Dictionary:
 	# Se recuerda a quien nos estamos uniendo: al llegar el personaje hay que saber de que mundo es.
 	uniendome = clave
 	return {"ok": true, "direccion": ip}
+
+
+# ============================================================
+#  ENTRAR (fase 3): EL UNICO BOTON
+#  El mundo compartido ya no lo abre el juego del jugador: lo abre LA SALA (scripts/net/sala.gd), un
+#  Godot sin ventana, y todos los jugadores entran como clientes, tambien quien la lanza. Asi la
+#  partida sigue para los demas aunque el que abrio cierre su juego.
+#  Tres casos, en este orden:
+#    1. Mi sala de este mundo sigue viva en ESTE PC -> me reconecto a ella.
+#    2. Lo tiene abierto OTRO (la nube lo dice) -> me uno a el.
+#    3. No hay nadie (o el cerrojo es de mi propia sala, que se cayo) -> lanzo la sala y entro.
+#  Lo que pase despues (me dan mi personaje, o me piden que lo cree) es el camino de siempre del que
+#  se une: Net.partida._tu_jugador / _crea_tu_personaje.
+# ------------------------------------------------------------
+const _SALA = preload("res://scripts/net/sala.gd")
+# Lo que se espera a que la sala arranque: carga el mundo, habla con la nube y abre el puerto.
+const PLAZO_SALA := 60.0
+
+func entrar(clave: String, contrasena: String, forzar_build := false) -> Dictionary:
+	if abierto != "":
+		return {"ok": false, "mensaje": "Tienes un mundo abierto: ciérralo antes."}
+	if Net.activo:
+		return {"ok": false, "mensaje": "Ya estás en una sesión."}
+	var e: Dictionary = entrada(clave)
+	if e.is_empty():
+		return {"ok": false, "mensaje": "Ese mundo no está en tu lista."}
+	if contrasena == "":
+		return {"ok": false, "mensaje": "Hace falta la contraseña del mundo."}
+	var id: String = String(e.get("id_nube", ""))
+	if id == "":
+		return await unirse(clave, contrasena)   # solo tengo su direccion: no hay nada que abrir
+	var viva: Dictionary = await _sala_viva(clave)
+	if not viva.is_empty():
+		print("[mundos] %s: mi sala sigue abierta en este PC, me reconecto" % clave)
+		return await _conectar_a_mi_sala(clave, contrasena, int(viva.get("pid", 0)))
+	var est: Dictionary = await Nube.consultar(id, contrasena)
+	if not est.get("ok", false):
+		return {"ok": false, "error": String(est.get("error", "")),
+			"mensaje": String(est.get("mensaje", "No se pudo consultar el mundo."))}
+	if bool(est.get("abierto", false)) and not bool(est.get("caducado", false)) \
+			and not bool(est.get("es_mio", false)):
+		return await unirse(clave, contrasena)
+	return await _lanzar_sala(clave, contrasena, forzar_build)
+
+
+# La sala de ESTE mundo que sigue viva en este PC (su estado), o vacio. Si esta cerrandose, se espera a
+# que acabe: su cierre es la ultima escritura del mundo y la nueva sala tiene que partir de ella.
+func _sala_viva(clave: String) -> Dictionary:
+	var est: Dictionary = _SALA.leer_estado(clave)
+	var pid: int = int(est.get("pid", 0))
+	if est.is_empty() or pid <= 0 or not OS.is_process_running(pid):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(_SALA.ruta_estado(clave)))
+		return {}
+	if String(est.get("estado", "")) == "cerrando":
+		var t := 0.0
+		while OS.is_process_running(pid) and t < 30.0:
+			await get_tree().create_timer(0.25).timeout
+			t += 0.25
+		return {}
+	if String(est.get("estado", "")) in ["lista", "arrancando"]:
+		return est
+	return {}
+
+
+func _lanzar_sala(clave: String, contrasena: String, forzar_build: bool) -> Dictionary:
+	DirAccess.make_dir_recursive_absolute(_SALA.CARPETA)
+	# La contraseña, por un fichero que la sala lee y borra (en la linea de ordenes la veria cualquiera).
+	var f := FileAccess.open(_SALA.ruta_pedido(clave), FileAccess.WRITE)
+	if f == null:
+		return {"ok": false, "mensaje": "No se pudo preparar la sala del mundo."}
+	f.store_string(contrasena)
+	f.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(_SALA.ruta_estado(clave)))
+	var registro := OS.get_user_data_dir().path_join("logs")
+	DirAccess.make_dir_recursive_absolute(registro)
+	var args: PackedStringArray = ["--headless"]
+	if OS.has_feature("editor"):
+		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
+	args.append_array(["--log-file", registro.path_join("sala.log"),
+		"--", _SALA.ARG, clave, str(Net.PUERTO), Identidad.id])
+	# La sala habla con la MISMA nube que yo (las pruebas van contra la local o contra wrangler dev).
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("nube_url=") or a == "nube_local" or a.begins_with("sala_vacia=") \
+				or a.begins_with("sala_espera="):
+			args.append(a)
+	if forzar_build:
+		args.append("forzar_build")
+	var pid := OS.create_process(OS.get_executable_path(), args)
+	if pid <= 0:
+		return {"ok": false, "mensaje": "No se pudo arrancar la sala del mundo."}
+	print("[mundos] sala de %s lanzada (pid %d)" % [clave, pid])
+	aviso.emit("Abriendo el mundo...")
+	return await _conectar_a_mi_sala(clave, contrasena, pid)
+
+
+# Esperar a que la sala este lista y entrar como un cliente mas, por 127.0.0.1.
+func _conectar_a_mi_sala(clave: String, contrasena: String, pid: int) -> Dictionary:
+	var est: Dictionary = {}
+	var t := 0.0
+	while t < PLAZO_SALA:
+		est = _SALA.leer_estado(clave)
+		var estado: String = String(est.get("estado", ""))
+		if estado == "lista":
+			break
+		if estado == "error":
+			return {"ok": false, "error": String(est.get("error", "")),
+				"mensaje": String(est.get("mensaje", "No se pudo abrir el mundo."))}
+		if estado == "unirse":
+			# Otro lo abrio justo a la vez: se entra con el.
+			return await unirse(clave, contrasena)
+		if pid > 0 and not OS.is_process_running(pid):
+			return {"ok": false, "mensaje": "La sala del mundo se ha cerrado al arrancar (mira logs/sala.log)."}
+		await get_tree().create_timer(0.2).timeout
+		t += 0.2
+	if String(est.get("estado", "")) != "lista":
+		return {"ok": false, "mensaje": "La sala del mundo no ha arrancado a tiempo."}
+	var err: int = Net.unirse("127.0.0.1", contrasena, int(est.get("puerto", Net.PUERTO)), true)
+	if err != OK:
+		return {"ok": false, "mensaje": "No se pudo conectar con la sala del mundo."}
+	uniendome = clave
+	return {"ok": true, "resultado": "conectando", "direccion": "127.0.0.1",
+		"direcciones": est.get("direcciones", [])}
+
+
+# La sala de este mundo, si esta abierta en ESTE PC: {"humanos": n} o vacio. Lo pinta la lista de mundos.
+func sala_en_este_pc(clave: String) -> Dictionary:
+	var est: Dictionary = _SALA.leer_estado(clave)
+	var pid: int = int(est.get("pid", 0))
+	if est.is_empty() or pid <= 0 or not OS.is_process_running(pid):
+		return {}
+	return {"humanos": int(est.get("humanos", 0)), "estado": String(est.get("estado", ""))}
 
 
 # La clave del mundo AJENO al que me estoy uniendo (vacio = a ninguno). No es `abierto`: ese mundo no

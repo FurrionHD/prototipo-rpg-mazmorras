@@ -31,6 +31,20 @@ Se coordinan por un fichero de fase (`user://logs/prueba_dos_fase.txt`) y B apun
 `logs/prueba_jugador_b.log`, que el host lee al final. Ojo al elegir grupos de la partida de referencia: el
 personaje 1 es enorme y acaba las peleas del piso 1 antes de que al otro le llegue un turno.
 
+### La sala de los mundos compartidos (fase 3)
+
+```sh
+"$G" --headless --path . res://tools/prueba_sala.tscn -- nube_local                 # ~15 s
+"$G" --headless --path . res://tools/prueba_sala_entrar.tscn -- nube_local sala_vacia=4   # ~30 s
+"$G" --headless --path . res://tools/prueba_sala_dos_jugadores.tscn -- nube_local    # ~1 min, 3 procesos
+```
+
+**Siempre con `-- nube_local`** (o `nube_url=http://127.0.0.1:8787` con el `wrangler dev` de
+`servidor/nube`): sin eso, las pruebas que abren mundos escribirían en la nube de verdad, y se niegan a
+arrancar. `sala_vacia=N` / `sala_espera=N` acortan lo que la sala espera antes de cerrarse sola (se le
+pasan a la sala que lance el juego). Los registros: `logs/sala.log` (la que lanza el juego),
+`logs/sala_prueba.log` y `logs/prueba_sala2_{sala,A,B}.log`.
+
 ## Trocear
 
 ```sh
