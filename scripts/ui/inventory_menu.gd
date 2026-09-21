@@ -962,7 +962,8 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# Un cebo NO se usa desde la bolsa: se pone en el anzuelo, y eso solo significa algo con el
 		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
-	elif a_alguien and Game.party.size() > 1:
+	# El GRIMORIO siempre por el modal, aunque solo haya uno: es donde se pregunta si estas seguro.
+	elif a_alguien and (_candidatos_uso(cons).size() > 1 or cons.es_grimorio()):
 		MenuScaffold.pastilla(vb, _verbo_usar(cons), _abrir_modal_usar.bind(cons))
 	else:
 		var solo: PersonajeData = Game.lider()
@@ -1862,7 +1863,22 @@ func _cerrar_modal_barra() -> void:
 # ============================================================
 
 var _usar_cons: ConsumableData = null   # el consumible del modal abierto
-var _usar_sel: int = 0                  # a quien apunta (indice en Game.party)
+var _usar_sel: int = 0                  # a quien apunta (indice en _usar_lista)
+var _usar_lista: Array[PersonajeData] = []   # a quienes se les puede dar, en el orden de las tarjetas
+
+
+# A QUIEN se le puede dar. El grupo siempre; con un GRIMORIO, ademas los que se han quedado en el hogar
+# (decision del usuario, 21/09/2026): un libro se estudia en casa, y obligar a meter en el grupo al que
+# lo tiene que aprender acababa con el libro gastado en el que iba equipado por error.
+func _candidatos_uso(c: ConsumableData) -> Array[PersonajeData]:
+	var out: Array[PersonajeData] = []
+	for pj in Game.party:
+		out.append(pj)
+	if c != null and c.es_grimorio():
+		for pj in Game.plantilla:
+			if not out.has(pj):
+				out.append(pj)
+	return out
 
 
 # POR QUE no se le puede dar esto a esta persona. "" = si se puede.
@@ -1937,6 +1953,7 @@ func _verbo_usar(c: ConsumableData) -> String:
 func _abrir_modal_usar(c: ConsumableData) -> void:
 	_cerrar_modal_barra()
 	_usar_cons = c
+	_usar_lista = _candidatos_uso(c)
 	# Arranca apuntando a quien MAS LO NECESITA, no al lider: con cuatro en el grupo, la respuesta
 	# correcta casi siempre es "el que esta peor", y dejarla ya elegida ahorra el paso mas comun.
 	_usar_sel = _mejor_objetivo(c)
@@ -1948,8 +1965,8 @@ func _abrir_modal_usar(c: ConsumableData) -> void:
 func _mejor_objetivo(c: ConsumableData) -> int:
 	var mejor: int = 0
 	var peor_frac: float = 2.0
-	for i in Game.party.size():
-		var pj: PersonajeData = Game.party[i]
+	for i in _usar_lista.size():
+		var pj: PersonajeData = _usar_lista[i]
 		if _motivo_bloqueo(c, pj) != "":
 			continue
 		var frac: float = 1.0
@@ -1983,11 +2000,13 @@ func _pintar_modal_usar() -> void:
 	restantes.add_theme_color_override("font_color", AMBAR)
 	vb.add_child(restantes)
 
-	var fila := HBoxContainer.new()
-	fila.alignment = BoxContainer.ALIGNMENT_CENTER
-	fila.add_theme_constant_override("separation", 10)
+	# EN FLUJO y no en una fila: con los del hogar pueden ser mas de los que caben a lo ancho.
+	var fila := HFlowContainer.new()
+	fila.alignment = FlowContainer.ALIGNMENT_CENTER
+	fila.add_theme_constant_override("h_separation", 10)
+	fila.add_theme_constant_override("v_separation", 10)
 	vb.add_child(fila)
-	for i in Game.party.size():
+	for i in _usar_lista.size():
 		_tarjeta_persona(fila, c, i)
 
 	# QUE HACE, una vez y en el centro, en vez de repetido en cada boton como antes.
@@ -1998,7 +2017,7 @@ func _pintar_modal_usar() -> void:
 	efecto.add_theme_color_override("font_color", Color(0.85, 0.88, 0.92))
 	vb.add_child(efecto)
 
-	var pj: PersonajeData = Game.party[clampi(_usar_sel, 0, Game.party.size() - 1)]
+	var pj: PersonajeData = _usar_lista[clampi(_usar_sel, 0, _usar_lista.size() - 1)]
 	var motivo: String = _motivo_bloqueo(c, pj)
 	var aviso: String = _aviso_uso(c, pj)
 	if motivo != "" or aviso != "":
@@ -2012,12 +2031,34 @@ func _pintar_modal_usar() -> void:
 	#
 	# 'quedan' se vuelve a leer dentro y no se usa el de fuera: es de ANTES de gastar (ver
 	# lambdas-capturan-por-valor -- la lambda se lleva el valor viejo y el contador se quedaba clavado).
-	MenuScaffold.pastilla(m["acciones"], _verbo_usar(c), func():
+	var usar := func():
 		_on_usar(c, pj)
 		if int(Game.consumables.get(c, 0)) > 0:
 			_pintar_modal_usar()      # repinta con el nuevo "Restantes" y las barras ya cambiadas
 		else:
-			_cerrar_modal_barra(), true, motivo == "" and quedan > 0)
+			_cerrar_modal_barra()
+	# UN GRIMORIO SE PREGUNTA ANTES (decision del usuario, 21/09/2026): se gasta y no hay vuelta atras, y
+	# ya se perdio uno por pulsar con el personaje equivocado elegido.
+	MenuScaffold.pastilla(m["acciones"], _verbo_usar(c),
+		(func(): _confirmar_grimorio(c, pj, usar)) if c.es_grimorio() else usar,
+		true, motivo == "" and quedan > 0)
+
+
+# ¿Seguro? Solo para los grimorios: dice QUIEN va a aprender QUE, que es justo lo que fallo.
+func _confirmar_grimorio(c: ConsumableData, pj: PersonajeData, al_aceptar: Callable) -> void:
+	_cerrar_modal_barra()
+	var m: Dictionary = MenuScaffold.modal(_root, "¿Estudiar %s?" % c.spell.nombre, 520.0)
+	_modal_capa = m["capa"]
+	var vb: VBoxContainer = m["cuerpo"]
+	var l := Label.new()
+	l.text = "¿Seguro que quieres que %s aprenda %s?
+El grimorio se gasta." % [pj.nombre, c.spell.nombre]
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_color_override("font_color", Color(0.9, 0.92, 0.96))
+	vb.add_child(l)
+	MenuScaffold.pastilla(m["acciones"], "No, volver", _pintar_modal_usar, false)
+	MenuScaffold.pastilla(m["acciones"], "Sí, que lo aprenda", al_aceptar)
 
 
 # LA FRANJA DE MOTIVO, sobre los botones. Roja si impide usarlo, ambar si solo avisa. Va pegada al
@@ -2054,8 +2095,9 @@ const ALTO_TARJETA := 182.0
 
 # UNA TARJETA: el muñeco del personaje, su nombre y sus barras. Es un Button para no reescribir el
 # foco ni el hover, con el estilo quitado y el dibujo a mano, igual que CeldaObjeto.
-func _tarjeta_persona(fila: HBoxContainer, c: ConsumableData, i: int) -> void:
-	var pj: PersonajeData = Game.party[i]
+func _tarjeta_persona(fila: Container, c: ConsumableData, i: int) -> void:
+	var pj: PersonajeData = _usar_lista[i]
+	var en_casa: bool = not Game.party.has(pj)
 	var motivo: String = _motivo_bloqueo(c, pj)
 	var elegida: bool = (i == _usar_sel)
 
@@ -2087,6 +2129,12 @@ func _tarjeta_persona(fila: HBoxContainer, c: ConsumableData, i: int) -> void:
 		var an: float = f.get_string_size(nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		b.draw_string(f, Vector2((w - an) * 0.5, 18.0), nombre, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
 			AMBAR if elegida else Color(0.86, 0.89, 0.94))
+		# Los que NO van en el grupo lo dicen: se quedaron en el hogar.
+		if en_casa:
+			var casa: String = "en el hogar"
+			var ac: float = f.get_string_size(casa, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			b.draw_string(f, Vector2((w - ac) * 0.5, 31.0), casa, HORIZONTAL_ALIGNMENT_LEFT, -1, 10,
+				Color(0.62, 0.66, 0.74))
 		# Las barras del pie.
 		var dos: bool = c.da_mana() or c.es_grimorio()
 		var y: float = h - (46.0 if dos else 26.0)
