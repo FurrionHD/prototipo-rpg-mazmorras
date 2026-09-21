@@ -202,7 +202,8 @@ func _pedir_entrar(piso: int = 1) -> void:
 # (los del host viajan en el handshake, los tuyos estan en tu save), y el host no puede comprobar
 # los del invitado; lo que si puede es no dejar que un cliente pida el piso 500.
 func _conceder_entrada(quien: int, piso: int = 1) -> void:
-	if piso <= 1 or not Game.BOSSES.has(piso):
+	# La ARENA de pruebas tambien pasa: es un piso mas para la red (ver Game.PISO_ARENA).
+	if piso != Game.PISO_ARENA and (piso <= 1 or not Game.BOSSES.has(piso)):
 		piso = 1
 	# Alguien baja: el pueblo se recoloca (las cañas del muelle), igual para todos.
 	Net.renovar_semilla_pueblo()
@@ -333,7 +334,7 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 		for p in sellos_boss:
 			var espera: float = float(Game.BOSS_RESPAWN.get(p, 0.0))
 			Net.jefes._bosses_sello[p] = float(Encargos.ahora()) - (espera - float(sellos_boss[p]))
-	Game.current_floor = piso
+	Game.fijar_piso(piso)
 	# La EPOCA y los NONCES del mundo del host: sin ellos el invitado tiraria por su cuenta que
 	# material y que pez sale en cada sitio, y veria cosas distintas de las del host en la MISMA veta.
 	# Se cogen ANTES de olvidar_mazmorra a proposito: esa renueva la epoca LOCAL (la de mi propio
@@ -351,7 +352,7 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 		Game.memoria_pisos[piso] = _mem_de_red(mem)
 	# Por un ATAJO se aparece en la salida al pueblo de ESE piso (en el fondo), no en su boca:
 	# mismo recado que pone floor_select_menu en solitario (lo consume DungeonFloor al construirse).
-	Game.entrada_por_atajo = piso > 1
+	Game.entrada_por_atajo = piso > 1 and piso != Game.PISO_ARENA
 	Game.iniciar_expedicion_mapa()
 	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
 	Net.anunciar_lugar("piso:%d" % piso)
@@ -544,6 +545,77 @@ func _forzar_jefe_dueno(lugar: String) -> void:
 	print("[dev] traer al jefe (me lo piden): ", Game.dev_forzar_jefe())
 
 
+# ============================================================
+#  EL SPAWNER DE LA ARENA, en compañia
+#  La arena la lleva un trabajador (o quien herede la sala), NUNCA quien pulsa: cada boton se encamina
+#  por el host al dueño, igual que "Traer al jefe". Un 'if not _soy_dueno: return' aqui seria un boton
+#  muerto en silencio (ver la memoria regla-del-dueno-servidor).
+# ============================================================
+func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
+	if not Net.activo:
+		_spawn_arena_aqui(ruta, pos, muneco)
+	elif Net.es_host:
+		_encaminar_arena(Net._mi_lugar, "spawn", [ruta, pos, muneco])
+	else:
+		_pedir_arena.rpc_id(1, Net._mi_lugar, "spawn", [ruta, pos, muneco])
+
+
+func pedir_limpiar_arena() -> void:
+	if not Net.activo:
+		_limpiar_arena_aqui()
+	elif Net.es_host:
+		_encaminar_arena(Net._mi_lugar, "limpiar", [])
+	else:
+		_pedir_arena.rpc_id(1, Net._mi_lugar, "limpiar", [])
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_arena(lugar: String, que: String, args: Array) -> void:
+	if Net.es_host:
+		_encaminar_arena(lugar, que, args)
+
+
+func _encaminar_arena(lugar: String, que: String, args: Array) -> void:
+	if lugar != "piso:%d" % Game.PISO_ARENA:
+		return
+	if Net._mi_lugar == lugar and Net._soy_dueno:
+		_hacer_en_arena(lugar, que, args)
+		return
+	var dueno: int = Net._dueno_de(lugar)
+	if dueno != 0 and dueno != Net._mi_id():
+		_arena_dueno.rpc_id(dueno, lugar, que, args)
+	else:
+		print("[arena] nadie lleva la arena: se pierde '%s'" % que)
+
+
+# Corre en EL DUEÑO de la arena.
+@rpc("any_peer", "call_remote", "reliable")
+func _arena_dueno(lugar: String, que: String, args: Array) -> void:
+	_hacer_en_arena(lugar, que, args)
+
+
+func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
+	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		return
+	if que == "spawn" and args.size() >= 3:
+		_spawn_arena_aqui(String(args[0]), args[1] as Vector2, args[2] as Dictionary)
+	elif que == "limpiar":
+		_limpiar_arena_aqui()
+
+
+func _spawn_arena_aqui(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var data: EnemyData = load(ruta) as EnemyData if ResourceLoader.exists(ruta) else null
+	if piso != null and piso.has_method("colocar_en_arena") and data != null:
+		piso.colocar_en_arena(data, pos, muneco)
+
+
+func _limpiar_arena_aqui() -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("limpiar_arena"):
+		piso.limpiar_arena()
+
+
 # ¿En que piso estoy? -1 si estoy en el pueblo.
 func mi_piso() -> int:
 	if not Net._mi_lugar.begins_with("piso:"):
@@ -554,13 +626,8 @@ func mi_piso() -> int:
 # ¿Simulo yo los bichos del piso donde estoy? En solitario SIEMPRE (no hay red que repartir).
 # Lo consultan los gates de dungeon_floor (hay_sitio, boss, poblacion).
 func simulo_mi_piso() -> bool:
-	# LA ARENA DE PRUEBAS ES SIEMPRE MIA. Es una sala local de dev: sus bichos los pone tu spawner,
-	# no viajan por la red y nadie mas los ve. La propiedad solo se reclama en pisos de mazmorra
-	# (ver _reclamar_piso), asi que en la arena _soy_dueno era false y con una sesion abierta
-	# _start_combat se salia en seco SIN marcar nada ni reintentar: los bichos se te pegaban y te
-	# atacaban y no se abria una sola pelea.
-	if Net._mi_lugar == "sandbox":
-		return true
+	# La arena de pruebas ya NO es una sala local aparte ("sandbox"): es el piso Game.PISO_ARENA y tiene
+	# dueño como cualquier otro (un trabajador, en compañia).
 	return (not Net.activo) or Net._soy_dueno
 
 
@@ -649,7 +716,10 @@ func _soltar_piso(quien: int, foto: Dictionary) -> void:
 	if heredero == 0:
 		# Nadie mas: el piso queda congelado tal cual. Una foto VACIA no significa "piso vacio" (esa
 		# trae la clave "enemigos" aunque sea sin nadie), significa "no tengo foto": nunca pisa una buena.
-		if not foto.is_empty() or not Net._fotos_piso.has(piso):
+		# La ARENA no se congela (ver trabajadores._foto).
+		if piso == Game.PISO_ARENA:
+			Net._fotos_piso.erase(piso)
+		elif not foto.is_empty() or not Net._fotos_piso.has(piso):
 			Net._fotos_piso[piso] = foto
 		return
 	Net._dueno_piso[piso] = heredero

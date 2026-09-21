@@ -119,6 +119,31 @@ func _ready() -> void:
 	_ok(se_fue_b and Net.peleas.espejando(), "B huye y la pelea SIGUE para mi")
 	_ok(await pelear_hasta_el_final(60.0), "termino la pelea yo solo")
 
+	# 4) LA ARENA DE PRUEBAS, compartida: la lleva un trabajador y B (que no es el dueño) pone, pelea,
+	# limpia y sale sin llevarse nada. Yo entro para ver lo que coloca.
+	await _esperar(2.0)
+	Game.entrar_arena_de_pruebas()
+	escribir_fase(4)
+	t = 0.0
+	while (Net._mi_lugar != "piso:%d" % Game.PISO_ARENA or Net.pisos._piso_de(_b()) != Game.PISO_ARENA) and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and Net.pisos._piso_de(_b()) == Game.PISO_ARENA,
+		"los dos estamos en la arena (%.1f s)" % t)
+	var dueno_arena: int = int(Net._dueno_piso.get(Game.PISO_ARENA, 0))
+	_ok(Net.es_trabajador(dueno_arena), "la arena la lleva un trabajador (%d)" % dueno_arena)
+	var visto := false
+	t = 0.0
+	while not visto and t < 30.0:
+		for nid in Net.enemigos._enem_nodos:
+			var n = Net.enemigos._enem_nodos[nid]
+			if is_instance_valid(n) and int(Game.muneco_de(n).get("modo", 0)) == 1:
+				visto = true
+		await _esperar(0.25)
+		t += 0.25
+	_ok(visto, "veo el enemigo que ha puesto B, con su muñeco")
+	_ok(await _dato_de_b("arena_fin", 120.0) == 1, "B termina la arena")
+
 	await _fin()
 
 

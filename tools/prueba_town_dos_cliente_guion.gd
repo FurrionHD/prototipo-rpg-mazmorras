@@ -112,6 +112,54 @@ func _ready() -> void:
 	_ok(agilidad_grupo() > agilidad_antes, "huir me entrena la Agilidad (%.3f -> %.3f)" % [agilidad_antes, agilidad_grupo()])
 	print("[B] dato fase3_fin")
 
+	# FASE 4: LA ARENA. No soy su dueño (la lleva un trabajador), y aun asi todo lo que pulso funciona.
+	await esperar_fase(4, 180.0)
+	var excelia_arena := excelia_grupo()
+	Game.entrar_arena_de_pruebas()
+	var ta := 0.0
+	while Net._mi_lugar != "piso:%d" % Game.PISO_ARENA and ta < 20.0:
+		await _esperar(0.5)
+		ta += 0.5
+	_ok(Net._mi_lugar == "piso:%d" % Game.PISO_ARENA and not Net._soy_dueno,
+		"entro en la arena y NO soy su dueño")
+	await _esperar(3.0)
+	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	var slime := "res://scenes/actors/enemy/slime.tres"
+	Net.pisos.pedir_spawn_arena(slime, yo.global_position + Vector2(0, 110), {"modo": 1, "hp": 5.0})
+	var mio: Node2D = null
+	ta = 0.0
+	while mio == null and ta < 10.0:
+		mio = enemigo_libre()
+		await _esperar(0.25)
+		ta += 0.25
+	_ok(mio != null and int(Game.muneco_de(mio).get("modo", 0)) == 1,
+		"pongo un enemigo con el spawner sin ser el dueño, y me llega con su muñeco")
+	await pelear_con(mio)
+	_ok(Net.peleas.espejando(), "la pelea de la arena la ejecuta otro (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
+	_ok(await pelear_hasta_el_final(60.0), "la pelea contra el muñeco termina")
+	var excelia_dentro := excelia_grupo()
+	print("[B] [dev] excelia en la arena: %.3f -> %.3f" % [excelia_arena, excelia_dentro])
+	Net.pisos.pedir_spawn_arena(slime, yo.global_position + Vector2(90, 110), {"modo": 0, "hp": 5.0})
+	await _esperar(2.0)
+	Net.pisos.pedir_limpiar_arena()
+	ta = 0.0
+	while enemigo_libre() != null and ta < 10.0:
+		await _esperar(0.25)
+		ta += 0.25
+	_ok(enemigo_libre() == null, "Limpiar desde mi maquina vacia la arena")
+	var salida: Node = get_tree().get_first_node_in_group("salida_pueblo")
+	if salida != null:
+		salida.interact_with_player()
+	ta = 0.0
+	while Net._mi_lugar != "pueblo" and ta < 15.0:
+		await _esperar(0.5)
+		ta += 0.5
+	await _esperar(1.0)
+	_ok(Net._mi_lugar == "pueblo" and not Game.es_arena(), "salgo de la arena al pueblo")
+	_ok(absf(excelia_grupo() - excelia_arena) < 0.0001,
+		"lo de la arena no sale de ella (excelia %.3f, al entrar %.3f)" % [excelia_grupo(), excelia_arena])
+	print("[B] dato arena_fin")
+
 	await esperar_fase(9, 120.0)
 	print("[B] RESULTADO: ", "TODO PASA" if fallos.is_empty() else "FALLAN %d" % fallos.size())
 	Net.desconectar()

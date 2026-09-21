@@ -433,7 +433,9 @@ func _limpiar() -> void:
 
 
 func _construir(por_la_bajada: bool = false) -> void:
-	_piso_construido = Game.current_floor
+	# El numero de piso PARA LA RED (1000 en la arena): con el se registran los enemigos y se guarda la
+	# foto. La fuerza de los enemigos sigue saliendo de Game.current_floor. Ver Game.PISO_ARENA.
+	_piso_construido = Game.piso_de_red()
 	# Estado del boss: se recalcula en cada piso (las salidas se colocan mas abajo, y la sala
 	# del boss se decide al colocarlo).
 	_salida_pos = Vector2.INF
@@ -456,6 +458,9 @@ func _construir(por_la_bajada: bool = false) -> void:
 	_zonas_seguras.clear()
 	_zona_estanque = -1
 	_celda_estanque = Vector2i.MAX
+	if Game.es_arena():
+		_construir_arena()
+		return
 	gen = DungeonGenerator.new()
 	# El tamaño del @export es el del piso 1; abajo el mapa crece (ver AREA_GROWTH).
 	var fl: float = _factor_lineal_piso()
@@ -521,6 +526,88 @@ func _construir(por_la_bajada: bool = false) -> void:
 		print("[mazmorra] paren las paredes: ", spawn_table.resumen(Game.current_floor))
 	else:
 		push_warning("[mazmorra] el piso no tiene tabla de spawns: no va a parir nada")
+
+
+# ------------------------------------------------------------
+#  LA ARENA DE PRUEBAS: una sala grande, luz encendida y nada mas
+#  Sin zonas (no pare nada: los enemigos los pone el spawner), sin recolectables, sin charco, sin
+#  decorado ni oscuridad, sin escaleras. La puerta al pueblo, abajo en el centro.
+# ------------------------------------------------------------
+const ARENA_SALA := Vector2i(44, 30)
+
+func _construir_arena() -> void:
+	gen = DungeonGenerator.new()
+	gen.generar_arena(ARENA_SALA)
+	_agotados = {}
+	_nonces = {}
+	_celdas_formacion.clear()   # las del piso de antes no son de aqui
+	_es_formacion.clear()
+	_celdas_flor.clear()
+	_construir_geometria()
+	var celda: float = float(DungeonGenerator.CELDA)
+	var sala: Rect2i = gen.salas[0]
+	# EL PORTON, en la pared de ARRIBA y en el centro: el mismo de la muralla del pueblo (lo pidio el
+	# usuario: "salimos tambien hacia la puerta, cambia las escaleras"). Un tramo de muralla de 7 casillas
+	# tapando las dos filas de roca de encima de la sala, con el porton en medio; la F, en la primera fila
+	# de suelo, justo delante.
+	var cx: int = sala.get_center().x
+	var tramo := Sprite2D.new()
+	tramo.name = "PortonArena"
+	tramo.texture = ImageTexture.create_from_image(MurallaSprites.norte(7, [int(3.5 * celda)]))
+	tramo.centered = false
+	tramo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tramo.position = Vector2(float(cx - 3), float(sala.position.y - 2)) * celda
+	_geo.add_child(tramo)
+	var puerta_pos: Vector2 = gen.centro_px(Vector2i(cx, sala.position.y))
+	var destino: Vector2 = gen.centro_px(Vector2i(cx, sala.position.y + 3))
+	# Los recados de un solo uso se consumen igual, aunque aqui no signifiquen nada.
+	Game.entrada_por_atajo = false
+	Game.pos_cargada = Vector2.INF
+	_zona_aterrizaje = gen.zona_en(Vector2i((destino / celda).floor()))
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null and player.has_method("recolocar"):
+		player.recolocar(destino)
+	var puerta := get_node_or_null(puerta_pueblo)
+	if puerta is Node2D:
+		(puerta as Node2D).visible = true
+		(puerta as Node2D).global_position = puerta_pos
+	# Relevo en multi (el trabajador se cayo y lo hereda quien este dentro): vuelven los mismos enemigos.
+	if Game.memoria_pisos.has(_piso_construido) and Net.pisos.simulo_mi_piso():
+		call_deferred("_restaurar_estado")
+	print("[mazmorra] ARENA de pruebas: sala %dx%d celdas (piso de juego %d)" % [
+		ARENA_SALA.x, ARENA_SALA.y, Game.current_floor])
+
+
+# De que piso se PINTA: la arena, con la piedra del piso de juego (el 1), no con la del 1000.
+func _piso_estilo() -> int:
+	return Game.current_floor if Game.es_arena() else _piso_construido
+
+
+# El spawner de la arena coloca aqui. Lo llama quien lleva la sala (en multi, el trabajador dueño, al
+# que se lo encamina el host: ver Net.pisos.pedir_spawn_arena). 'muneco' = {modo, hp} o {} si va normal.
+func colocar_en_arena(data: EnemyData, pos: Vector2, muneco: Dictionary = {}):
+	if not Game.es_arena() or data == null:
+		return null
+	# Dentro de la sala, aunque el clic caiga en la pared (o fuera, desde otra maquina con otra camara).
+	var celda: float = float(DungeonGenerator.CELDA)
+	var sala: Rect2i = gen.salas[0]
+	pos = pos.clamp(Vector2(sala.position) * celda + Vector2(celda, celda),
+		Vector2(sala.end) * celda - Vector2(celda, celda))
+	return crear_enemigo(data, pos, 90.0, -1.0, 0, false, muneco)
+
+
+# Borra lo que hay en la arena (enemigos vivos y cadaveres). Mismo cuidado que el spawner de siempre:
+# que el combate se entere, o creeria que sigue habiendo pelea con nodos ya liberados.
+func limpiar_arena() -> void:
+	if not Game.es_arena():
+		return
+	for grupo in ["enemy", "corpse"]:
+		for e in get_tree().get_nodes_in_group(grupo):
+			if not is_instance_valid(e) or e.has_meta("es_espejo") or bool(e.get("_combat_triggered")):
+				continue   # los de una pelea en marcha se quedan: la pelea los necesita
+			e.remove_from_group(grupo)
+			e.queue_free()
+	Game.combate_activo()
 
 
 # Cada piso, su mapa. La base es la SEMILLA DEL MUNDO de ESTA PARTIDA: cada jugador (y cada
@@ -617,15 +704,15 @@ func _construir_geometria() -> void:
 	# En un piso DE CORTE conviven dos estilos, asi que el TileSet lleva una fuente por tramo y cada
 	# celda se pinta con la suya (ver Transicion). En un piso normal solo hay una y esto es lo de
 	# siempre.
-	_trans.preparar(_piso_construido, gen, _semilla_del_piso())
+	_trans.preparar(_piso_estilo(), gen, _semilla_del_piso())
 	# En un piso de corte hay dos estilos; basta con saber si ALGUNO es de cueva para pintar suelo
 	# bajo los muros (a los de piedra picada les sobra, pero no les estorba).
 	_estilo_cueva = false
-	for t in TerrenoSprites.tramos_de(_piso_construido):
+	for t in TerrenoSprites.tramos_de(_piso_estilo()):
 		if TerrenoSprites.estilo_de(t) == "cueva":
 			_estilo_cueva = true
 	var ts: TileSet = TerrenoSprites.tileset_de_tramos(
-		TerrenoSprites.tramos_de(_piso_construido))
+		TerrenoSprites.tramos_de(_piso_estilo()))
 	for capa in TerrenoSprites.CAPAS_ORDEN:
 		var tml := TileMapLayer.new()
 		tml.name = "TM_" + capa
@@ -2718,11 +2805,15 @@ func _crear_capa_vinculos() -> void:
 # 'data' se asigna ANTES de add_child (su _ready lo usa) y se le recoloca DESPUES para
 # re-fijar su "hogar" (si no, deambula hacia el (0,0) y cruza las paredes).
 func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0, mut: int = -1,
-		boss: bool = false):
+		boss: bool = false, muneco: Dictionary = {}):
 	if data == null:
 		return null
 	var e = _enemy_scene.instantiate()
 	e.data = data
+	# MUÑECO DE PRUEBAS (solo la arena): el modo va EN EL ENEMIGO y viaja con su alta, asi vale tambien
+	# en el trabajador de pelea que ejecute la pelea (ver Game.volver_muneco).
+	if not muneco.is_empty():
+		e.set_meta("muneco", muneco)
 	e.wander_radius = radio
 	# LA BANDERA DE JEFE VA AQUI, antes de add_child, y no despues como estaba: su _ready la
 	# necesita para saber cuanto agrandarlo si le ha tocado mutar (un jefe mutante se agranda menos,
@@ -2786,7 +2877,7 @@ func _process(delta: float) -> void:
 	if gen != null:
 		var celda: Vector2i = Vector2i((pj / DungeonGenerator.CELDA).floor())
 		var z: int = gen.zona_en(celda)
-		if z >= 0:
+		if z >= 0 and not Game.es_arena():   # la arena no va a la libreta
 			Game.vistas_de_piso(_piso_construido)[z] = true
 
 	# MULTIJUGADOR (hito 5.4): el congelado se mide contra el aliado MAS CERCANO, no solo contra mi.

@@ -10,10 +10,10 @@ extends CanvasLayer
 const DEBUG_KEYS := [
 	["Ñ", "Informe de la partida al log y a un fichero (solo lee)"],
 	["DEBUG", "Icono de consola (arriba-der): panel de dev. ATAJOS (consolidar,"],
-	["", "curar, respawn, sandbox, brote, tabla de spawns, +10 min),"],
+	["", "curar, respawn, brote, tabla de spawns, +10 min),"],
 	["", "stats, enemigo, armas, armadura, piso, MUÑECO DPS, mejoras"],
 	["", "Las viejas U/H/R/T/P/B/N ya NO son teclas: están ahí dentro."],
-	["Spawner", "En la sandbox: clic izq coloca enemigo / der quita"],
+	["Arena", "Portón del pueblo. Spawner: clic izq coloca enemigo / der quita"],
 ]
 const CONTROLS := [
 	["WASD / flechas", "Mover"],
@@ -23,7 +23,7 @@ const CONTROLS := [
 	["F", "Interactuar (puertas, escaleras, altar, tienda, cadáveres, vetas, plantas, loot)"],
 	["F3", "Contador de FPS y frame time (dev)"],
 	["ESC", "Pausa: guardar / guardar y salir"],
-	["I", "Inventario"],
+	["I / B", "Inventario"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
 	["M", "Mapa del piso (zonas exploradas + nodos de recolección)"],
 	["P", "EN COMBATE: desatascar. Escribe en el log qué está pasando e intenta"],

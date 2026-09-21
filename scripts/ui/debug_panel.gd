@@ -191,8 +191,8 @@ func _build_atajos(vb: VBoxContainer) -> void:
 	var fila2 := HBoxContainer.new()
 	fila2.add_theme_constant_override("separation", 6)
 	vb.add_child(fila2)
-	_atajo(fila2, "Sandbox (T)", "Arena de pruebas: escenario vacío + spawner.", Game.dev_sandbox)
-	_atajo(fila2, "Brote (B)", "Fuerza un brote en la zona más cercana.", Game.dev_brote)
+	# La arena de pruebas ya no esta aqui: se entra por su porton del pueblo.
+	_atajo(fila2, "Brote", "Fuerza un brote en la zona más cercana.", Game.dev_brote)
 
 	var fila3 := HBoxContainer.new()
 	fila3.add_theme_constant_override("separation", 6)

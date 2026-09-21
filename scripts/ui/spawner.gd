@@ -6,7 +6,7 @@
 #     spawnea un enemigo del tipo elegido en esa posicion (clic derecho = desarma).
 #   - Selector de TIPO de enemigo (de momento solo Slime; preparado para mas).
 #   - Boton "Limpiar" -> borra todos los enemigos/cadaveres spawneados.
-#  Todo por codigo (UI placeholder). Pensado para la arena vacia (sandbox.tscn).
+#  Todo por codigo (UI placeholder). Solo existe en la ARENA de pruebas (Game.es_arena).
 # ============================================================
 
 extends CanvasLayer
@@ -18,11 +18,8 @@ extends CanvasLayer
 # nuevo basta con apuntarlo en el manifiesto y aparece aqui; en el editor ademas se avisa si falta.
 var _enemy_types: Array = []
 
-var _enemy_scene: PackedScene = preload("res://scenes/actors/enemy/enemy.tscn")
-
 var _armed: bool = false
 var _type_idx: int = 0
-var _spawned: Array[Node] = []   # enemigos colocados por esta herramienta
 
 var _toggle_btn: Button = null
 var _type_opt: OptionButton = null
@@ -39,8 +36,7 @@ var _dummy_hp_edit: LineEdit = null
 func _ready() -> void:
 	# Herramienta de dev solo para la ARENA de pruebas: en el resto de salas
 	# (pueblo/mazmorra) se autodestruye para no ensuciar la interfaz.
-	var escena: Node = get_tree().current_scene
-	if escena == null or not escena.scene_file_path.contains("sandbox"):
+	if not Game.es_arena():
 		_apagar_muneco()   # por si vienes de la arena con el saco puesto
 		queue_free()
 		return
@@ -196,8 +192,13 @@ func _on_toggle() -> void:
 
 func _refrescar() -> void:
 	_toggle_btn.text = "Colocar: ON" if _armed else "Colocar: OFF"
-	_purgar()  # descarta referencias invalidas antes de contar
-	_count_lbl.text = "  Enemigos: %d" % _spawned.size()
+	# Los de la sala, de quien sean: en compañia los pone el dueño de la arena y aqui son espejos.
+	_count_lbl.text = "  Enemigos: %d" % get_tree().get_nodes_in_group("enemy").size()
+
+
+func _process(_delta: float) -> void:
+	if _count_lbl != null and Engine.get_process_frames() % 15 == 0:
+		_refrescar()
 
 
 # Clic en el MUNDO (no sobre la UI: los botones consumen su propio clic antes de
@@ -219,24 +220,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-# Spawnea un enemigo en la posicion del raton (en coordenadas de MUNDO, teniendo
-# en cuenta la camara del jugador).
+# Pide un enemigo en la posicion del raton (en coordenadas de MUNDO, teniendo en cuenta la camara del
+# jugador). Lo crea QUIEN LLEVA LA ARENA (en compañia un trabajador, via el host), no esta maquina.
+# El modo de muñeco va EN EL ENEMIGO, siempre (tambien "Off"), para que cambiar el modo despues no
+# convierta en muñecos a los que ya estaban puestos.
 func _colocar_en_raton() -> void:
 	var mundo: Node = _mundo()
 	if mundo == null:
 		push_warning("[spawner] No hay escena de mundo donde colocar el enemigo.")
 		return
-	var pos: Vector2 = _pos_raton_mundo(mundo)
-
-	var enemy: Node2D = _enemy_scene.instantiate()
 	if _type_idx < 0 or _type_idx >= _enemy_types.size():
 		return
-	enemy.data = load(_enemy_types[_type_idx][1])
-	mundo.add_child(enemy)
-	# recolocar tras add_child: _ready ya fijo el "hogar" del bicho, hay que
-	# moverlo Y re-hogarlo aqui (si no, deambula/regresa hacia (0,0)).
-	enemy.recolocar(pos)
-	_spawned.append(enemy)
+	var pos: Vector2 = _pos_raton_mundo(mundo)
+	Net.pisos.pedir_spawn_arena(String(_enemy_types[_type_idx][1]), pos,
+		{"modo": Game.debug_dummy_mode, "hp": Game.debug_dummy_hp})
 	_refrescar()
 
 
@@ -259,24 +256,8 @@ func _pos_raton_mundo(mundo: Node) -> Vector2:
 	return get_viewport().get_mouse_position()
 
 
-# Borra todos los enemigos/cadaveres colocados por esta herramienta.
+# Borra lo que hay en la arena. Tambien lo hace quien la lleva (ver DungeonFloor.limpiar_arena, que
+# ademas avisa al combate para que no se quede con nodos liberados).
 func _limpiar() -> void:
-	for e in _spawned:
-		if is_instance_valid(e):
-			e.queue_free()
-	_spawned.clear()
-	# Y QUE EL COMBATE SE ENTERE. Barrer bichos que estaban apuntados en una pelea dejaba la lista
-	# de Game llena de nodos liberados, y con eso el juego cree que sigue habiendo pelea PARA
-	# SIEMPRE: a partir de ahi ningun bicho vuelve a abrir combate en ninguna sala, se te pegan y
-	# te atacan sin que pase nada. Ver Game._destrabar_combate.
-	Game.combate_activo()
+	Net.pisos.pedir_limpiar_arena()
 	_refrescar()
-
-
-# Quita del registro las referencias ya liberadas (enemigos muertos y limpiados).
-func _purgar() -> void:
-	var vivos: Array[Node] = []
-	for e in _spawned:
-		if is_instance_valid(e):
-			vivos.append(e)
-	_spawned = vivos

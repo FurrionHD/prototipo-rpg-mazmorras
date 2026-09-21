@@ -537,7 +537,7 @@ func _invocar_slime(data: EnemyData) -> Combatant:
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
 func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [],
-		es_jefe: bool = false, mutante: bool = false, hueco: int = -1) -> int:
+		es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {}) -> int:
 	if data == null or _pantalla._state == _pantalla.State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
 	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
@@ -556,7 +556,7 @@ func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array 
 	# MODO PRUEBA: el refuerzo tambien es muñeco. Este es el SEGUNDO camino de entrada al combate y
 	# es el que siempre se queda sin lo que se escribe en el otro: sin esto, el que llegaba tarde
 	# entraba con sus stats de verdad y ensuciaba la medida en silencio.
-	Game.volver_muneco(c, _pantalla._player)
+	Game.volver_muneco(c, _pantalla._player, muneco)
 	return _meter_enemigo(c, false, hueco)
 
 

@@ -59,6 +59,25 @@ func generar(ancho_celdas: int, alto_celdas: int, semilla_: int,
 	_calcular_rects_de_zona()
 
 
+# LA ARENA DE PRUEBAS: una sola sala grande (tipo sala de jefe) y nada mas, con su borde de roca.
+# Sale siempre igual (no hay dados), asi que todas las maquinas la ven identica sin semilla.
+func generar_arena(sala: Vector2i) -> void:
+	ancho = sala.x + 6
+	alto = sala.y + 6
+	semilla = 0
+	solido = PackedByteArray()
+	solido.resize(ancho * alto)
+	solido.fill(1)
+	zona_de = PackedInt32Array()
+	zona_de.resize(ancho * alto)
+	zona_de.fill(-1)
+	zonas.clear()
+	salas.clear()
+	sala_jefe = -1
+	_anadir_sala(Rect2i(Vector2i(3, 3), sala))
+	_calcular_rects_de_zona()
+
+
 # --- SALAS: se tiran al azar y se descartan las que se solapan (con margen) ---
 #
 # La del JEFE es la excepcion: va la PRIMERA, en el centro y sin dados. Primera porque asi el sitio

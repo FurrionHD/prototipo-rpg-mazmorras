@@ -38,6 +38,15 @@ func _vestir() -> void:
 	var viejo: ColorRect = get_node_or_null("Sprite") as ColorRect
 	if viejo == null:
 		return
+	# EN LA ARENA la salida es un PORTON (el mismo del pueblo, lo dibuja DungeonFloor._construir_arena en
+	# la pared), no una escalera: se vuelve por donde se entro.
+	if Game.es_arena():
+		viejo.color = Color(0, 0, 0, 0)
+		var lb: Label = viejo.get_node_or_null("Label") as Label
+		if lb != null:
+			lb.visible = false
+		radio_extra = 24.0
+		return
 	# UNA ESCALERA DE CARACOL QUE SUBE, gemela de la que baja desde la plaza (lo pidio el usuario), con
 	# el centro del pozo en este nodo. Es la misma que la salida de los pisos de jefe (dungeon_exit.gd).
 	EscaleraSprites.montar(self, "caracol")
@@ -59,10 +68,22 @@ func _detectar_destino() -> void:
 
 # Lo que dice el boton flotante del HUD al tenerlo a mano (ver player.texto_interaccion).
 func texto_interaccion() -> String:
+	if Game.es_arena() and _destination == town_path:
+		return "Volver al pueblo"
 	return "Bajar a la mazmorra" if _destination == dungeon_path else "Salir al pueblo"
 
 
 func interact_with_player() -> void:
+	# LA ARENA: se sale sin mapa que guardar ni piso que congelar, y todo lo tuyo vuelve a como estaba
+	# al entrar (ver Game.salir_de_arena).
+	if Game.es_arena() and _destination == town_path:
+		Game.salir_de_arena()
+		if Net.activo:
+			Net.pisos.viajar_al_pueblo()
+			return
+		Game.current_floor = 1
+		get_tree().change_scene_to_file(town_path)
+		return
 	# MULTIJUGADOR (hito 3b): la expedicion es COMPARTIDA y la coordina Net. El primero que
 	# entra la abre; el que llega despues se une sin resetear nada al que ya esta dentro; el ultimo
 	# que sale la cierra. Los ATAJOS tambien valen aqui: el menu es el mismo que en solitario y la

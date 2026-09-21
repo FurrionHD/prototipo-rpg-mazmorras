@@ -2255,8 +2255,8 @@ func acabada() -> bool:
 func anadir_aliado(c: Combatant, agotado: bool = false) -> bool:
 	return altas.anadir_aliado(c, agotado)
 
-func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [], es_jefe: bool = false, mutante: bool = false, hueco: int = -1) -> int:
-	return altas.anadir_enemigo(data, t, hp, estados, es_jefe, mutante, hueco)
+func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [], es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {}) -> int:
+	return altas.anadir_enemigo(data, t, hp, estados, es_jefe, mutante, hueco, muneco)
 
 func esperar_refuerzo(si: bool) -> void:
 	altas.esperar_refuerzo(si)

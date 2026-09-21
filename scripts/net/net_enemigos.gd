@@ -74,6 +74,10 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 	# bicho mutante corriente (ver EnemyData.mult_mutante), asi que sin esto el espejo lo pintaria
 	# con la escala equivocada.
 	d["boss"] = bool(nodo.get("es_boss"))
+	# El MUÑECO de la arena: la pelea la ejecuta un trabajador de pelea, que solo tiene el ESPEJO de
+	# este bicho, asi que el modo tiene que venir con el (ver Game.muneco_de).
+	if nodo.has_meta("muneco"):
+		d["muneco"] = nodo.get_meta("muneco")
 	if nodo.has_method("esta_muerto"):
 		d["muerto"] = bool(nodo.esta_muerto())
 	return d
@@ -213,6 +217,8 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	mundo.add_child(cuerpo)
 	cuerpo.global_position = pos
 	cuerpo.set_meta("net_id", id)   # para pedir pelea/extraccion por el
+	if d.has("muneco"):
+		cuerpo.set_meta("muneco", d["muneco"])
 	cuerpo.configurar(d.get("color", Color.WHITE), float(d.get("lado", 32.0)),
 		int(d.get("elem", Elementos.Elemento.NINGUNO)), float(d.get("einten", 1.0)))
 	cuerpo.es_boss = bool(d.get("boss", false))   # antes de aplicar_datos: decide su escala si muto

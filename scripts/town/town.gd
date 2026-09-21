@@ -17,6 +17,11 @@ var _tm: Dictionary = {}
 
 
 func _ready() -> void:
+	# RED DE SEGURIDAD de la arena: se llegue al pueblo por donde se llegue (puerta, caer, piedra de
+	# retorno, una caida de la sala...), lo de la arena no sale de ella.
+	_de_la_arena = Game.es_arena() or Game.en_foto_de_arena() or Game.vuelta_de_arena
+	Game.salir_de_arena()
+	Game.vuelta_de_arena = false
 	_suelo = Node2D.new()
 	_suelo.name = "Suelo"
 	_suelo.z_index = -1
@@ -30,6 +35,7 @@ func _ready() -> void:
 	_crear_casas()
 	_crear_escalera()
 	_crear_jardin()
+	add_child(_puerta("res://scripts/town/porton_arena.gd", PuebloPlano.PORTON_ARENA, ""))
 	_crear_canas()
 	_crear_luces()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
@@ -348,17 +354,21 @@ func _crear_jardin() -> void:
 # ------------------------------------------------------------
 #  EL JUGADOR: aparece en la plaza, y la camara no enseña lo que hay fuera del plano.
 # ------------------------------------------------------------
+var _de_la_arena := false
+
 func _colocar_jugador() -> void:
 	var jugador: Node2D = get_node_or_null("Player") as Node2D
 	if jugador == null:
 		return
+	# Vuelves de la ARENA: por su porton, no por la escalera de la plaza.
+	var donde: Vector2 = PuebloPlano.vuelta_de_arena_px() if _de_la_arena else PuebloPlano.aparicion_px()
 	# RECOLOCAR y no mover a pelo: el sequito se sembro en el _ready del jugador, en el sitio donde lo
 	# deja la escena y antes de que existiera el pueblo. Moviendolo a pelo, la fila se quedaba alli (ver
 	# party_trail.teletransportar).
 	if jugador.has_method("recolocar"):
-		jugador.recolocar(PuebloPlano.aparicion_px())
+		jugador.recolocar(donde)
 	else:
-		jugador.global_position = PuebloPlano.aparicion_px()
+		jugador.global_position = donde
 	var cam: Camera2D = jugador.get_node_or_null("Camera2D") as Camera2D
 	if cam == null:
 		return

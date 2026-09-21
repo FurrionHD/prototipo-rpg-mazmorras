@@ -5,7 +5,8 @@
 #  pisos a buscarlas.
 #
 #  Es el hermano de spawner.gd (que pone enemigos) y sigue su mismo patron: se autodestruye
-#  fuera del sandbox, se arma con un boton y cada clic izquierdo coloca.
+#  fuera de la arena de pruebas, se arma con un boton y cada clic izquierdo coloca. Lo que planta es
+#  de quien lo planta (no pasa por el candado de vetas del host: ver resource_node.interactuar).
 #
 #  LO IMPORTANTE para que sirva de algo: la dificultad del minijuego depende del material Y de
 #  Game.current_floor (los minijuegos suman ritmo por piso). Por eso la herramienta lleva su
@@ -50,8 +51,7 @@ var _info_lbl: Label = null
 
 
 func _ready() -> void:
-	var escena: Node = get_tree().current_scene
-	if escena == null or not escena.scene_file_path.contains("sandbox"):
+	if not Game.es_arena():
 		queue_free()
 		return
 

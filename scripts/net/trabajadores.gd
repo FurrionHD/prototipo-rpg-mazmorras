@@ -384,7 +384,10 @@ func _foto(piso: int, foto: Dictionary) -> void:
 	if Net.pisos._alguien_en(piso, 0) != 0:
 		return
 	# Una foto vacia es "no la tengo", no "piso vacio" (esa trae la clave aunque sea sin bichos).
-	if not foto.is_empty() or not Net._fotos_piso.has(piso):
+	# La ARENA no se congela: vacia, vuelve a estar vacia la proxima vez que entre alguien.
+	if piso == Game.PISO_ARENA:
+		Net._fotos_piso.erase(piso)
+	elif not foto.is_empty() or not Net._fotos_piso.has(piso):
 		Net._fotos_piso[piso] = foto
 	if int(Net._dueno_piso.get(piso, 0)) == w:
 		Net._dueno_piso.erase(piso)

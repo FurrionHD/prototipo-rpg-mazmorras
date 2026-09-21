@@ -1070,6 +1070,28 @@ func _refrescar_pausa() -> void:
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
 
+# LA ARENA DE PRUEBAS es, PARA LA RED, un piso mas con este numero ("piso:1000"): asi en multi la lleva
+# un trabajador como cualquier piso (dueño, enemigos por la red, peleas en trabajador de pelea) sin un
+# camino aparte. PARA EL JUEGO es el piso ARENA_PISO_JUEGO: current_floor lo leen 140 sitios (fuerza de
+# los enemigos, botin, luz...) y con 1000 los enemigos saldrian con 1,10^999 de vida. Se construye como
+# una sola sala grande (DungeonGenerator.generar_arena) y nada de lo tuyo sobrevive a salir de ella
+# (ver entrar_en_arena / salir_de_arena).
+const PISO_ARENA := 1000
+const ARENA_PISO_JUEGO := 1
+var arena_activa := false
+
+func es_arena() -> bool:
+	return arena_activa
+
+# El UNICO sitio que traduce "voy al piso N" a current_floor (y enciende o apaga la arena).
+func fijar_piso(p: int) -> void:
+	arena_activa = p == PISO_ARENA
+	current_floor = ARENA_PISO_JUEGO if arena_activa else maxi(1, p)
+
+# El numero de piso PARA LA RED y la memoria del piso: 1000 en la arena, current_floor fuera.
+func piso_de_red() -> int:
+	return PISO_ARENA if arena_activa else current_floor
+
 # MEMORIA DE LA MAZMORRA: piso -> {"enemigos": [...], "suelo": [...]}. Guarda lo que dejaste
 # en cada piso (bichos vivos, cadaveres sin extraer y cosas por el suelo) para que al volver
 # este todo donde estaba: una mazmorra es un SITIO, no un decorado que se rehace a tu espalda.
@@ -2188,6 +2210,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 
 
 func exportar_partida() -> SaveData:
+	if en_foto_de_arena() and not _sin_arena_en_curso:
+		return _sin_arena(exportar_partida)
 	var d := SaveData.new()
 
 	# El piso en el que estas AHORA aun no esta en memoria_pisos (un piso solo se vuelca al
@@ -2198,7 +2222,8 @@ func exportar_partida() -> SaveData:
 	# salvedad, la partida se guardaria como "dentro de la mazmorra" y ademas volveria a
 	# volcar el piso a la memoria que la muerte acaba de borrar -> cargarias muerto, abajo.
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	var en_mazmorra: bool = piso != null and not _muriendo
+	# En la arena se guarda como si estuvieras en el pueblo (ver _sin_arena).
+	var en_mazmorra: bool = piso != null and not _muriendo and not _sin_arena_en_curso
 	if en_mazmorra and piso.has_method("volcar_a_memoria"):
 		piso.volcar_a_memoria()
 
@@ -2821,8 +2846,10 @@ func guardar_mi_partida() -> bool:
 # LO MIO, empaquetado para mandarselo al anfitrion de un mundo compartido (ver Net.partida._dame_tu_estado).
 # Calcula igual que exportar_partida donde estoy: el piso solo cuenta si de verdad estoy en el.
 func mi_jugador_data() -> JugadorData:
+	if en_foto_de_arena() and not _sin_arena_en_curso:
+		return _sin_arena(mi_jugador_data)
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
-	var en_mazmorra: bool = piso != null and not _muriendo
+	var en_mazmorra: bool = piso != null and not _muriendo and not _sin_arena_en_curso
 	return _mi_jugador_data(en_mazmorra, get_tree().get_first_node_in_group("player"))
 
 
@@ -2837,6 +2864,8 @@ func importar_partida(d: SaveData) -> void:
 	# GRUPO a estrenar: un lider vacio en el que van cayendo los campos planos de la partida (que
 	# es lo que hace todo el cuerpo de esta funcion, via las propiedades que delegan en el). Si no
 	# se reemplaza aqui, se cargaria encima del personaje de la partida ANTERIOR de esta sesion.
+	_foto_arena = {}   # la foto de la arena era de la partida anterior
+	arena_activa = false
 	var yo := PersonajeData.new()
 	# ¿Era EL original? Se lee del save, NO se da por hecho. Clavarlo a true era lo que duplicaba la
 	# marca cuando guardabas llevando en cabeza a un contratado (ver SaveData.player_es_original).
@@ -3257,6 +3286,9 @@ var _muriendo: bool = false
 # curado y la expedicion se acaba (la mazmorra se repuebla). El DINERO, el EQUIPO y lo que ya
 # tuvieras guardado en el Hogar no se tocan: el castigo es el botin de ESTA bajada.
 func morir_jugador() -> void:
+	if es_arena():
+		_caer_en_arena()
+		return
 	_muriendo = true
 	var perdidos_c: int = _perder_de(crystals)
 	var perdidos_d: int = _perder_de(materiales)
@@ -4211,7 +4243,7 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 	# son los viejos aqui. Sin esto, la libreta solo se actualizaba al volver al pueblo (piso 1) y
 	# el mapa salia "sin cartografiar" del piso 2 en adelante.
 	capturar_mapa()
-	current_floor = maxi(1, nuevo)
+	fijar_piso(nuevo)
 	# EL REMATE DE PISO NUEVO. Suena encima de la musica de mazmorra, que sigue como estaba: bajar
 	# no cambia de sitio, solo lo hace mas hondo.
 	Musica.remate("piso")
@@ -13039,13 +13071,98 @@ func dev_curar() -> void:
 
 # R: recarga la sala (los bichos y los nodos vuelven a nacer).
 func dev_respawn() -> void:
+	# En la ARENA no se recarga la escena (en compañia la sala no es tuya: te sacaria de ella a ti solo).
+	# Lo que se quiere ahi es empezar de cero, y eso es vaciarla, por quien la lleva.
+	if es_arena():
+		Net.pisos.pedir_limpiar_arena()
+		return
 	print("[dev] Respawn: recargando la mazmorra")
 	_dev_cambiar_escena("")
 
-# T: la arena de pruebas.
-func dev_sandbox() -> void:
-	print("[dev] Arena de pruebas (sandbox): escenario vacio + spawner")
-	_dev_cambiar_escena("res://scenes/levels/sandbox.tscn")
+# LA ARENA DE PRUEBAS, por su porton del pueblo (scripts/town/porton_arena.gd). Es el piso PISO_ARENA:
+# en multi se entra como a cualquier piso (la lleva un trabajador y es COMPARTIDA) y en solitario se
+# construye igual, en main.tscn.
+func entrar_arena_de_pruebas() -> void:
+	if es_arena():
+		return
+	print("[dev] Arena de pruebas: una sala grande + spawner")
+	limpiar_modales()
+	entrar_en_arena()
+	if Net.activo:
+		if Net.pisos.mi_piso() > 0:
+			Net.pisos.solicitar_piso(PISO_ARENA, false)
+		else:
+			Net.pisos.solicitar_entrar(PISO_ARENA)
+		return
+	# Solitario. Si vienes de un piso, sales de el como por la puerta (el mapa se queda y el piso se
+	# congela tal cual) y la mazmorra no se cierra.
+	if get_tree().get_first_node_in_group("dungeon_floor") != null:
+		capturar_mapa()
+		comprometer_mapa()
+		cerrar_bajada()
+	fijar_piso(PISO_ARENA)
+	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
+
+
+# ============================================================
+#  LA ARENA NO DEJA HUELLA (ver arena_foto.gd)
+# ============================================================
+const _ArenaFoto := preload("res://scripts/core/arena_foto.gd")
+var _foto_arena: Dictionary = {}
+var _sin_arena_en_curso := false
+var vuelta_de_arena := false   # recado para el pueblo (town._colocar_jugador): se consume al llegar
+
+# Al entrar: la foto de lo tuyo. Solo la primera vez (si ya hay una, entrar otra vez no la pisa con el
+# estado de dentro).
+func entrar_en_arena() -> void:
+	if _foto_arena.is_empty():
+		_foto_arena = _ArenaFoto.sacar(self)
+
+
+# Al salir (por la puerta o al caer): todo como estaba al entrar.
+func salir_de_arena() -> void:
+	if arena_activa:
+		vuelta_de_arena = true   # el pueblo te pone en el porton, no en la plaza
+	if _foto_arena.is_empty():
+		arena_activa = false
+		return
+	_ArenaFoto.aplicar(self, _foto_arena)
+	_foto_arena = {}
+	arena_activa = false
+	limpiar_curas_pendientes()
+	print("[arena] fuera de la arena: todo como al entrar")
+
+
+func en_foto_de_arena() -> bool:
+	return not _foto_arena.is_empty()
+
+
+# Lo que se GUARDA estando en la arena es lo de ANTES de entrar, y en el pueblo: se pone la foto, se
+# hace 'f' y se vuelve a lo de dentro. Si el juego se cierra en la arena, al cargar no te has comido
+# nada ni ganado nada.
+func _sin_arena(f: Callable):
+	if _foto_arena.is_empty() or _sin_arena_en_curso:
+		return f.call()
+	_sin_arena_en_curso = true
+	var dentro: Dictionary = _ArenaFoto.sacar(self)
+	_ArenaFoto.aplicar(self, _foto_arena)
+	arena_activa = false
+	var r = f.call()
+	arena_activa = true
+	_ArenaFoto.aplicar(self, dentro)
+	_sin_arena_en_curso = false
+	return r
+
+
+# Caer en la arena no cuesta nada: fuera, al pueblo, con todo como al entrar.
+func _caer_en_arena() -> void:
+	salir_de_arena()
+	mensaje_muerte = "Has caído en la arena de pruebas. Aquí no se pierde nada."
+	if Net.activo:
+		Net.pisos.viajar_al_pueblo()
+		return
+	current_floor = 1
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 
 # N: salta el reloj 10 min de juego, para probar el respawn de recursos sin esperar.
 func dev_saltar_reloj() -> void:
@@ -13054,16 +13171,14 @@ func dev_saltar_reloj() -> void:
 		% tiempo_mazmorra)
 
 
-# Cambio de escena de las teclas de DEV (R recarga, T sandbox). Ruta vacia = recargar.
+# Cambio de escena del boton de DEV Respawn. Ruta vacia = recargar.
 #
 # Va por aqui y no a pelo por un motivo concreto: la PILA MODAL sobrevive al cambio de escena
-# (Game es autoload) pero los menus NO. Si pulsas T con un menu delante -- y la ayuda de teclas
-# (F1), que es justo donde pone que la T lleva al sandbox, es un modal como cualquier otro -- su
-# nodo muere con la escena vieja sin llamar nunca a su salir_modal, y su entrada se queda en la
-# pila PARA SIEMPRE. A partir de ahi:
+# (Game es autoload) pero los menus NO. Si se recarga con un menu delante su nodo muere con la escena
+# vieja sin llamar nunca a su salir_modal, y su entrada se queda en la pila PARA SIEMPRE. A partir de ahi:
 #   - en un jugador, el arbol se queda pausado;
 #   - en MULTI el arbol no se pausa, pero Player._physics_process consulta hay_modal() y te deja
-#     plantado: apareces en la arena y no puedes andar, sin ningun menu a la vista que cerrar.
+#     plantado sin ningun menu a la vista que cerrar.
 # Es exactamente el mismo saneamiento que ya se hacia al salir al menu principal.
 func _dev_cambiar_escena(ruta: String) -> void:
 	limpiar_modales()
@@ -13071,10 +13186,6 @@ func _dev_cambiar_escena(ruta: String) -> void:
 		get_tree().reload_current_scene()
 		return
 	get_tree().change_scene_to_file(ruta)
-	# MULTI: la arena es un sitio APARTE (no la comparte nadie). Sin anunciarlo, para los demas
-	# sigues en el pueblo y tu vista se queda con los avatares de la escena que acabas de tirar.
-	if Net.activo:
-		Net.anunciar_lugar("sandbox")
 
 
 # Ñ: el INFORME de la partida entera al log y a un fichero (ver Informe). Es la herramienta de
@@ -13274,21 +13385,32 @@ func _destrabar_combate() -> void:
 # igual de metido en una pelea. Preguntar por combate_activo() para "¿le abro una pelea?" dejaba
 # que a alguien que estaba espejando le montaran OTRA pelea local encima: se le robaba la pantalla y
 # el anfitrion se quedaba esperando para siempre un turno suyo que ya no iba a llegar.
+# El modo de muñeco que lleva un enemigo del mapa ({} si ninguno). Lo pone el spawner de la arena.
+func muneco_de(nodo) -> Dictionary:
+	if is_instance_valid(nodo) and nodo is Node and (nodo as Node).has_meta("muneco"):
+		return (nodo as Node).get_meta("muneco")
+	return {}
+
+
 # Convierte UN combatiente en muñeco de pruebas. Sacado a funcion porque hay DOS caminos de
 # entrada al combate y el segundo se olvida siempre: el del setup (start_combat) y el del refuerzo
 # que se une a mitad (unir_enemigo_al_combate). Sin esto, un bicho que llegaba tarde entraba con
 # sus stats de verdad y ensuciaba la medida sin que nada lo dijera.
 #   modo 1 (Saco):    DPS limpio -- ni defensa, ni esquiva, y no pega.
 #   modo 2 (Pegador): conserva sus stats y te pega, para medir la mitigacion de tu armadura.
-func volver_muneco(enemy_c: Combatant, player_c: Combatant) -> void:
-	if enemy_c == null or debug_dummy_mode <= 0:
+#   'muneco' = el modo que lleva el ENEMIGO ({modo, hp}, lo pone el spawner de la arena y viaja con su
+#   alta, asi que vale en el trabajador de pelea). Vacio = el modo global de esta maquina, como antes.
+func volver_muneco(enemy_c: Combatant, player_c: Combatant, muneco: Dictionary = {}) -> void:
+	var modo: int = int(muneco.get("modo", debug_dummy_mode))
+	var hp: float = float(muneco.get("hp", debug_dummy_hp))
+	if enemy_c == null or modo <= 0:
 		return
 	enemy_c.es_dummy = true
-	enemy_c.max_hp = debug_dummy_hp
-	enemy_c.current_hp = debug_dummy_hp
+	enemy_c.max_hp = hp
+	enemy_c.current_hp = hp
 	if player_c != null:
 		enemy_c.dummy_speed_override = player_c.spd()   # velocidad estandar (cadencia ~1:1)
-	if debug_dummy_mode == 1:
+	if modo == 1:
 		enemy_c.dummy_dmg_out_mult = 0.0
 		enemy_c.abilities.resistencia = 0
 		enemy_c.abilities.agilidad = 0
@@ -13486,7 +13608,7 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
 	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
 	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")),
-		bool(nodo.get("mutante")), hueco)
+		bool(nodo.get("mutante")), hueco, muneco_de(nodo))
 	if slot < 0:
 		# Pelea llena: A LA COLA, dentro de la pelea.
 		_cola_combate.append(nodo)
@@ -13716,9 +13838,13 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# forzaba 1v1 (enemy.gd no reclutaba vecinos) para que el DPS por turno se midiera contra UNA
 	# cadencia; ahora en la arena se entra en grupo como en cualquier pelea normal, asi que para
 	# medir DPS limpio basta con poner un solo bicho.
-	if debug_dummy_mode > 0:
-		for enemy_c in enemy_cs:
-			volver_muneco(enemy_c, player_c)
+	var algun_muneco := false
+	for i in enemy_cs.size():
+		var mun: Dictionary = muneco_de(_active_enemies[i])
+		if int(mun.get("modo", debug_dummy_mode)) > 0:
+			volver_muneco(enemy_cs[i], player_c, mun)
+			algun_muneco = true
+	if algun_muneco:
 		player_c.invulnerable = true                    # no mueres durante la prueba
 
 	# ENERGIA de combate (KAN-57) = la stamina de exploracion con la que ENTRA CADA UNO (correr por
@@ -14666,7 +14792,11 @@ func _cerrar_recoleccion(nodo) -> void:
 		var retraso: float = RESPAWN_RETRASO_DESPENSA if nodo.es_despensa() else 0.0
 		# MULTIJUGADOR: el agotado pasa por el host, que suelta el lock de la veta y lo difunde
 		# a TODOS (Net.recoleccion._agotar_celda hace aqui mismo el marcar_agotado + agotar del nodo).
-		if Net.activo:
+		if es_arena():
+			# La arena no recuerda nada: el nodo se gasta y ya (ver resource_node.interactuar).
+			if nodo.has_method("agotar"):
+				nodo.agotar()
+		elif Net.activo:
 			Net.recoleccion.notificar_agotado(nodo.celda, current_floor, retraso)
 		else:
 			var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")

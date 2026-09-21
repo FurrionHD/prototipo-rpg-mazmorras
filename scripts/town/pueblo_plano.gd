@@ -244,6 +244,15 @@ static func aparicion_px() -> Vector2:
 	return centro_px(Vector2i(ESCALERA.position.x + 1, ESCALERA.end.y + 1))
 
 
+# EL PORTON NORTE lleva a la ARENA DE PRUEBAS (lo pidio el usuario: la puerta dibujada en la muralla,
+# encima del hogar). La F se pulsa desde la casilla de delante, dentro del jardin (se llega rodeando la
+# casa), y al volver de la arena se aparece justo debajo.
+const PORTON_ARENA := Vector2i(24, 2)
+
+static func vuelta_de_arena_px() -> Vector2:
+	return centro_px(PORTON_ARENA + Vector2i(0, 1))
+
+
 # El SUELO de cada casilla, calculado una vez. Lo que va despues pisa a lo de antes: el agua se come
 # la hierba, el muelle se come el agua, la muralla va por encima de todo.
 static var _suelos: PackedByteArray = PackedByteArray()
