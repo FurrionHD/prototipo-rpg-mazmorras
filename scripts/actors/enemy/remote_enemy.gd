@@ -465,7 +465,21 @@ func _redimensionar(lado: float) -> void:
 func ir_a(pos: Vector2) -> void:
 	if _objetivo == Vector2.INF or global_position.distance_to(pos) > SALTO:
 		global_position = pos   # primer paquete o salto grande: aparecer alli, sin deslizarse
+	elif pos.distance_to(_objetivo) > AVANCE_MIN:
+		_t_sin_avanzar = 0.0   # el dueño lo ha movido: sigue andando (ver QUIETO_TRAS)
 	_objetivo = pos
+
+
+# ANDA MIENTRAS LE SIGAN LLEGANDO POSICIONES NUEVAS. Antes se decidia por la distancia que le quedaba
+# hasta la ultima recibida (> 1.5 px = anda), y un bicho LENTO la cruzaba arriba y abajo con cada
+# paquete: llegan a 20 Hz, el deslizamiento recorre la mitad de lo que falta cada 1/20 s, y a unos 30
+# px/s (un slime) eso deja la distancia rondando justo 1.5. Cada cruce cambiaba walk <-> idle y cada
+# cambio REINICIA la animacion: el "anda ejecutando solo el principio del paso" (visto en el video del
+# 21/09 con un slime rojo). Ahora solo se para si lleva QUIETO_TRAS sin que su dueño lo mueva: las
+# pausas de verdad del bicho duran mucho mas que eso.
+const QUIETO_TRAS := 0.25
+const AVANCE_MIN := 0.3
+var _t_sin_avanzar: float = INF
 
 
 var _cadaver_z: bool = false
@@ -478,12 +492,11 @@ func _physics_process(delta: float) -> void:
 		return
 	var antes: Vector2 = global_position
 	global_position = global_position.lerp(_objetivo, 1.0 - exp(-SUAVIZADO * delta))
-	# ANDA O NO ANDA. El espejo no conoce la IA del host, asi que se deduce de lo que se mueve entre
-	# frames: mientras siga persiguiendo su objetivo interpolado, esta andando. El umbral va en
-	# distancia AL OBJETIVO y no en lo recorrido este frame, porque el lerp se frena al llegar y si
-	# no el bicho se quedaba tieso un instante antes de pararse de verdad.
+	# ANDA O NO ANDA. El espejo no conoce la IA del host, asi que se deduce de lo que le llega: anda si
+	# su dueño lo ha movido hace poco (ver QUIETO_TRAS) o si aun le queda trecho hasta donde lo dejo.
+	_t_sin_avanzar += delta
 	if not muerto:
-		var mov: bool = global_position.distance_to(_objetivo) > 1.5
+		var mov: bool = _t_sin_avanzar < QUIETO_TRAS or global_position.distance_to(_objetivo) > 1.5
 		if mov != _mov:
 			_mov = mov
 			_actualizar_animacion()
