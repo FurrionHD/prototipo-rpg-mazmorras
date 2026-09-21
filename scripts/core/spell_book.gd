@@ -64,10 +64,10 @@ const REPOSITORIO: Array[String] = [
 	"Piedra viva, escudame",
 	# Luz / sanacion
 	"Lumen, cierra esta herida",
-	"Luz sagrada, restaurame",
+	"Luz sagrada, restáurame",
 	# Potenciacion propia (buff: Fortaleza)
 	"Vigor, colma mis musculos",
-	"Furia ancestral, empuname",
+	"Furia ancestral, empúñame",
 	# Debilitamiento (debuff: Debil)
 	"Languidez, quiebra su fuerza",
 	"Flaqueza, muerde sus huesos",
@@ -89,14 +89,21 @@ const REPOSITORIO: Array[String] = [
 # extra_pool = frases de otros hechizos equipados (por si no estuvieran ya en el
 # repositorio). Si no hay suficientes distractores, devuelve las que haya.
 static func opciones_test(correcta: String, extra_pool: Array = [], n_opciones: int = 4) -> Array:
-	# Conjunto de candidatos unicos, sin la correcta.
+	# Conjunto de candidatos unicos, sin la correcta. Se comparan NORMALIZADAS (sin tildes ni
+	# mayusculas): con "restaurame" en el repositorio y "restáurame" en el hechizo, el examen sacaba la
+	# misma frase dos veces y una de las dos era la mala.
+	var clave_ok: String = normalizar(correcta)
 	var candidatos: Array[String] = []
-	for f in REPOSITORIO:
-		if f != correcta and not candidatos.has(f):
-			candidatos.append(f)
-	for f in extra_pool:
-		if f != correcta and not candidatos.has(f):
-			candidatos.append(f)
+	var vistas: Dictionary = {clave_ok: true}
+	var todas: Array = []
+	todas.append_array(REPOSITORIO)
+	todas.append_array(extra_pool)
+	for f in todas:
+		var clave: String = normalizar(String(f))
+		if vistas.has(clave):
+			continue
+		vistas[clave] = true
+		candidatos.append(String(f))
 
 	candidatos.shuffle()
 	var distractores := candidatos.slice(0, maxi(0, n_opciones - 1))
@@ -105,6 +112,19 @@ static func opciones_test(correcta: String, extra_pool: Array = [], n_opciones: 
 	opciones.append(correcta)
 	opciones.shuffle()
 	return opciones
+
+
+# Una frase SIN tildes, sin mayusculas y sin signos: lo que queda es lo que la hace distinta de otra.
+# Dos frases con la misma clave son la misma frase para quien lee el examen.
+static func normalizar(frase: String) -> String:
+	var s: String = frase.to_lower()
+	for par in [["á", "a"], ["é", "e"], ["í", "i"], ["ó", "o"], ["ú", "u"], ["ü", "u"], ["ñ", "n"]]:
+		s = s.replace(par[0], par[1])
+	var out: String = ""
+	for ch in s:
+		if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9"):
+			out += ch
+	return out
 
 
 # ¿A cuantas columnas se pueden pintar estas opciones en 'ancho' px? Las frases van en rejilla (como
