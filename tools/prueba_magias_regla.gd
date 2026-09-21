@@ -1,7 +1,12 @@
 # PRUEBA: la REGLA DE DAÑO de las magias (decision del usuario, 21/09/2026) y las frases del examen.
-#   Daño al objetivo en 1 contra 1 = frases × unidad de su forma × (1 + 0,05 × rareza)
-# La unidad sale de la comun de 1 frase con la misma forma (se lee de su .tres, no va escrita aqui):
-# a los lados = Brasa, a todos = Rocio, rebotes = Descarga, a uno = Pulso menor.
+#   DAÑO TOTAL contra 3 enemigos en fila = UNIDAD × (1 + 0,75 × (frases − 1)) × (1 + 0,05 × rareza)
+# Cada frase de mas suma un 75 % de la primera, no un 100 % (1 frase ×1, 2 ×1,75, 3 ×2,5, 4 ×3,25).
+# El total cuenta TODO lo que hace el hechizo: el principal, los de al lado, los rebotes y las bolas
+# que salpican. Apuntando al del medio, que es lo que haria cualquiera con un hechizo de area.
+# La UNIDAD sale de las tres de 2 frases que estan bien (Andanada, Rayo, Torrente: se leen de su .tres,
+# no van escritas aqui). Una primera version comparaba solo el golpe al principal y dejaba el Estallido
+# haciendo dos veces y media lo que las demas en cuanto habia enemigos a los lados.
+# Las comunes de 1 frase no se miden: estan bien y por TURNO ya empatan con las de 2.
 # Frases: ninguna puede ser "la misma" que otra distinta quitando tildes y mayusculas (asi se colaba
 # "restaurame" junto a "restáurame" en el examen).
 #   godot --headless --path . res://tools/prueba_magias_regla.tscn
@@ -9,21 +14,22 @@ extends Node
 
 const CARPETA := "res://resources/spells/"
 # Las de referencia (de ahi sale la regla, el usuario dice que estan bien) y las de forma unica.
-const NO_SE_MIDEN := ["brasa", "descarga", "rocio", "pulso_menor", "bola_fuego", "rayo", "chorro_agua",
-	"tormenta"]
+const REFERENCIAS := ["bola_fuego", "rayo", "chorro_agua"]
+const NO_SE_MIDEN := ["brasa", "descarga", "rocio", "pulso_menor", "bola_fuego", "rayo", "chorro_agua"]
 const TOLERANCIA := 0.02
+const ENEMIGOS := 3
 
 
 func _ready() -> void:
 	await get_tree().process_frame
 	var fallos: int = 0
-	var unidades := {
-		"lados": _valor(load(CARPETA + "brasa.tres")),
-		"todos": _valor(load(CARPETA + "rocio.tres")),
-		"rebotes": _valor(load(CARPETA + "descarga.tres")),
-		"uno": _valor(load(CARPETA + "pulso_menor.tres")),
-	}
-	print("[regla] unidades: ", unidades)
+	# La unidad: el total medio de las de referencia, por frase y sin su rareza.
+	var suma: float = 0.0
+	for id in REFERENCIAS:
+		var r := load(CARPETA + id + ".tres") as SpellData
+		suma += _total(r) / (_por_frases(r) * (1.0 + 0.05 * float(r.rareza)))
+	var unidad: float = suma / float(REFERENCIAS.size())
+	print("[regla] unidad por frase: %.2f (total contra %d enemigos)" % [unidad, ENEMIGOS])
 	var frases: Dictionary = {}   # clave normalizada -> texto
 	for f in SpellBook.REPOSITORIO:
 		frases[SpellBook.normalizar(f)] = f
@@ -42,25 +48,40 @@ func _ready() -> void:
 			frases[k] = f
 		var id: String = archivo.get_basename()
 		if s.tipo != SpellData.TipoEfecto.ATAQUE or s.dano_base <= 0.0 or s.es_imbuicion() \
-				or NO_SE_MIDEN.has(id) or s.dispersa:
+				or NO_SE_MIDEN.has(id):
 			continue
-		var forma: String = _forma(s)
-		var esperado: float = float(s.longitud()) * float(unidades[forma]) * (1.0 + 0.05 * float(s.rareza))
-		var real: float = _valor(s)
+		var esperado: float = _por_frases(s) * unidad * (1.0 + 0.05 * float(s.rareza))
+		var real: float = _total(s)
 		var ok: bool = absf(real - esperado) <= esperado * TOLERANCIA
 		if not ok:
 			fallos += 1
-		print("[regla] %-26s %s  %d frases, rareza %d, forma %-7s  %.1f (regla %.1f)" % [
-			s.nombre, "ok " if ok else "MAL", s.longitud(), s.rareza, forma, real, esperado])
+		print("[regla] %-26s %s  %d frases, rareza %d  total %.1f (regla %.1f)" % [
+			s.nombre, "ok " if ok else "MAL", s.longitud(), s.rareza, real, esperado])
 	fallos += _curas()
 	print("[regla] RESULTADO: ", "TODO CUADRA" if fallos == 0 else "FALLAN %d" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
 
 
-# Lo que le cae al objetivo en un 1 contra 1: el golpe principal y, si rebota, todos los rebotes
-# (con un solo enemigo caen todos sobre el).
-func _valor(s: SpellData) -> float:
-	return s.dano_base * (s.dano_objetivo + float(s.rebotes_n()) * s.dano_rebote)
+# Lo que multiplican las frases: la primera cuenta 1 y cada una de mas, 0,75.
+func _por_frases(s: SpellData) -> float:
+	return 1.0 + 0.75 * float(s.longitud() - 1)
+
+
+# TODO LO QUE HACE el hechizo contra ENEMIGOS en fila, apuntando al del medio (sin poder magico).
+#  - A LOS LADOS: el principal y sus dos vecinos. A TODOS: cada uno.
+#  - REBOTES: cada uno cae en alguien, asi que suman enteros.
+#  - DISPERSOS: cada bola cae en uno al azar; si salpica, en una fila de 3 tiene de media 4/3 vecinos, y
+#    solo salpican las del elemento de identidad (la lluvia de la Tormenta cae suelta).
+func _total(s: SpellData) -> float:
+	var vecinos: float = 0.0
+	if s.salpica():
+		vecinos = float(ENEMIGOS - 1) if (s.alcance == SpellData.Alcance.TODOS or not s.dispersa) else 4.0 / 3.0
+		if s.alcance == SpellData.Alcance.ADYACENTES and not s.dispersa:
+			vecinos = 2.0
+	var salp: float = s.dano_salpicon * vecinos
+	if s.dispersa:
+		salp *= s.peso_elemento(s.elemento)
+	return s.dano_base * (s.dano_objetivo + salp + float(s.rebotes_n()) * s.dano_rebote)
 
 
 # LAS CURAS contra la tabla que aprobo el usuario el 21/09/2026 (Magia y baston al 50 %; nivel 1, 199 de
@@ -90,11 +111,3 @@ func _curas() -> int:
 	return fallos
 
 
-func _forma(s: SpellData) -> String:
-	if s.rebotes_n() > 0:
-		return "rebotes"
-	if s.alcance == SpellData.Alcance.TODOS and s.salpica():
-		return "todos"
-	if s.alcance == SpellData.Alcance.ADYACENTES and s.salpica():
-		return "lados"
-	return "uno"

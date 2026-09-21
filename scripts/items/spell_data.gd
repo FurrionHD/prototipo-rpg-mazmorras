@@ -68,11 +68,13 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # magic_amp del arma (bastones/varitas, futuro KAN-95). PROVISIONAL -> Excel.
 # OJO: este NO es el numero que hay que enseñar en pantalla; para eso esta dano_mostrado().
 #
-# LA REGLA DE DAÑO (21/09/2026, decision del usuario): lo que pega al objetivo en un 1 contra 1 es
-#     frases × UNIDAD DE SU FORMA × (1 + 0,05 × rareza)
-# y la unidad es la comun de 1 frase con la misma forma: a los lados = Brasa, a todos = Rocio,
-# rebotes = Descarga, a uno = Pulso menor. Los dispersos (Andanada, Tormenta) son excepcion. La
-# comprueba tools/prueba_magias_regla: si metes una magia nueva, que salga de ahi y no a ojo.
+# LA REGLA DE DAÑO (21/09/2026, decision del usuario): el daño TOTAL contra 3 enemigos en fila
+# (principal + los de al lado + rebotes + bolas que salpican) es
+#     UNIDAD × (1 + 0,75 × (frases − 1)) × (1 + 0,05 × rareza)
+# La unidad (~19,9) sale de las tres de 2 frases que estan bien: Andanada, Rayo y Torrente. Se mide el
+# TOTAL y no el golpe al principal: comparando solo el principal, el Estallido (que pega a los lados)
+# hacia dos veces y media lo que las demas. Las comunes de 1 frase se quedan como estan.
+# La comprueba tools/prueba_magias_regla: si metes una magia nueva, que salga de ahi y no a ojo.
 # En las CURACIONES es lo que cura (ver StatsMath.resolve_heal), con la misma regla sobre el Vendaje.
 @export var dano_base: float = 10.0
 
