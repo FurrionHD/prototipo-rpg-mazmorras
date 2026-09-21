@@ -97,6 +97,14 @@ func refrescar() -> void:
 		_cuerpos[i].pintar(comps[i])
 
 
+# El cuerpo que lleva a este compañero, o null si no va en la fila.
+func cuerpo_de(pj: PersonajeData) -> Node2D:
+	var i: int = _pintados.find(pj)
+	if i < 0 or i >= _cuerpos.size() or not is_instance_valid(_cuerpos[i]):
+		return null
+	return _cuerpos[i]
+
+
 # Solo los rastros de imbuicion de la fila. Hace falta APARTE de refrescar() porque aquella se salta
 # a quien no ha cambiado de dueño, y una imbuicion cambia con la misma gente en los mismos huecos.
 func refrescar_imbue() -> void:

@@ -1556,8 +1556,13 @@ func _ficha_hechizo(s: SpellData) -> void:
 	var ref: float = s.dano_mostrado() * Game.poder_magico(_pj())
 	if s.tipo == SpellData.TipoEfecto.ATAQUE and s.dano_base > 0.0:
 		_row("Daño (100%)", "%.0f" % ref)
+	# CURA: lo que pone ESTE personaje (su Magia y su baston), aparte del % de vida. La cura no escala
+	# como el daño (ver StatsMath.resolve_heal), por eso no sale de 'ref'.
+	var cura_magica: float = Game.cura_magica_de(s, _pj())
+	if s.tipo == SpellData.TipoEfecto.CURACION:
+		_row("Cura", "%s de la vida + %.0f" % [s._pct(s.cura_pct), cura_magica])
 
-	var mecanica: String = s.descripcion_mecanica(ref)
+	var mecanica: String = s.descripcion_mecanica(ref, cura_magica)
 	if mecanica != "":
 		_content.add_child(HSeparator.new())
 		var l := Label.new()

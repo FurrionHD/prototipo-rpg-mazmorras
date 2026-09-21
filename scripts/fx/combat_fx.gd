@@ -1260,7 +1260,9 @@ func _recalcular_meta(bloque: Dictionary, clave: String) -> void:
 		return
 	var pend: float = float(bloque.get(clave + "_pend", 0.0))
 	var meta: float = clampf(float(bloque[clave + "_fin"]) + pend, 0.0, bar.max_value)
-	if pend > 0.0:
+	# Con un golpe O UNA CURA por aterrizar, la barra se queda donde esta: la cura ya esta sumada en la
+	# vida final, pero no se puede ver subir antes de que llegue la espiral.
+	if pend > 0.0 or float(bloque.get(clave + "_cura_pend", 0.0)) > 0.0:
 		meta = minf(meta, bar.value)
 	bloque[clave + "_meta"] = meta
 
@@ -1275,6 +1277,8 @@ func olvidar_barras(bloque: Dictionary) -> void:
 	for clave in ["hp", "en", "mp"]:
 		bloque.erase(clave + "_meta")
 		bloque.erase(clave + "_pend")
+		bloque.erase(clave + "_cura_pend")
+		bloque.erase(clave + "_vel_subida")
 		bloque.erase(clave + "_fin")
 
 
@@ -1288,6 +1292,24 @@ func _descontar(bloque: Dictionary, dmg: float) -> void:
 	_recalcular_meta(bloque, "hp")
 	if pend <= 0.0:
 		_soltar_apagado(bloque)
+
+
+# LA CURA HA LLEGADO: se suelta la barra, que sube hasta la vida nueva en T_SUBIDA_CURA. La velocidad
+# se fija AQUI, con lo que le queda por subir de verdad (la cura que pasa del maximo no cuenta), para
+# que tarde lo mismo una cura pequeña que una grande: lo que dura la espiral.
+const T_SUBIDA_CURA := 1.1
+const COLOR_CURA := Color(0.45, 1.0, 0.55)
+
+func _aterrizar_cura(bloque: Dictionary, cura: float) -> void:
+	if bloque.is_empty():
+		return
+	bloque["hp_cura_pend"] = maxf(0.0, float(bloque.get("hp_cura_pend", 0.0)) - cura)
+	_recalcular_meta(bloque, "hp")
+	var bar = bloque.get("hp")
+	if bar is ProgressBar and is_instance_valid(bar):
+		var falta: float = float(bloque.get("hp_meta", bar.value)) - (bar as ProgressBar).value
+		if falta > 0.0:
+			bloque["hp_vel_subida"] = falta / T_SUBIDA_CURA
 
 
 # Si esta tarjeta estaba esperando a morirse en pantalla, ya puede: le ha caido todo lo que le
@@ -1309,8 +1331,9 @@ func golpes_pendientes(bloque: Dictionary) -> bool:
 # al cancelarla (tecla P), para que un golpe que no se llego a ver no deje la barra mintiendo.
 func _saldar_barras() -> void:
 	for b in _tarjetas:
-		if float(b.get("hp_pend", 0.0)) != 0.0:
+		if float(b.get("hp_pend", 0.0)) != 0.0 or float(b.get("hp_cura_pend", 0.0)) != 0.0:
 			b["hp_pend"] = 0.0
+			b["hp_cura_pend"] = 0.0
 			_recalcular_meta(b, "hp")
 		# Y si alguien se quedo esperando a morirse en pantalla, que se muera ya: la racha se ha
 		# acabado (o la han cortado con la P) y no va a caerle nada mas.
@@ -1328,7 +1351,12 @@ func _mover_barras(delta: float) -> void:
 			var meta: float = b[clave + "_meta"]
 			if not is_equal_approx(bar.value, meta):
 				var paso: float = maxf(bar.max_value, 1.0) * VEL_BARRA * delta
+				# SUBIENDO POR UNA CURA: a su paso, lo que dura la espiral (ver _aterrizar_cura).
+				if bar.value < meta and b.has(clave + "_vel_subida"):
+					paso = float(b[clave + "_vel_subida"]) * delta
 				bar.value = move_toward(bar.value, meta, paso)
+			else:
+				b.erase(clave + "_vel_subida")
 			# El numero se repinta SIEMPRE, tambien con la barra quieta. Es lo que cubre la RETENCION:
 			# entre que el golpe se resuelve y el impacto aterriza, la barra se queda a proposito
 			# donde estaba... pero _update_hp ya ha escrito el numero de despues. Sin repintar aqui,
@@ -1449,6 +1477,12 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 	# Cada impacto le descuenta lo suyo al aterrizar (ver _descontar).
 	if not evadido and dmg > 0.0:
 		b_victima["hp_pend"] = float(b_victima.get("hp_pend", 0.0)) + dmg
+		_recalcular_meta(b_victima, "hp")
+	# UNA CURA viaja como un golpe con daño NEGATIVO (asi pasa por la red sin tocar el paquete). Mismo
+	# principio al reves: la barra no sube hasta que la cura aterriza, y entonces sube DESPACIO, lo que
+	# dura la espiral (ver _mover_barras y 'hp_vel_subida').
+	elif dmg < 0.0:
+		b_victima["hp_cura_pend"] = float(b_victima.get("hp_cura_pend", 0.0)) - dmg
 		_recalcular_meta(b_victima, "hp")
 
 
@@ -2228,6 +2262,11 @@ func _process(delta: float) -> void:
 			# EL ENCAJE VA ANTES DE _descontar, y el orden importa: es este mismo golpe el que puede
 			# matarlo. Con la muerte disparandose despues, la prioridad la resuelve sola (la muerte
 			# pisa al encaje); al reves, el bicho moriria y DESPUES sacudiria la cabeza.
+			if float(ev["dmg"]) < 0.0:
+				# LA CURA ATERRIZA: sale su «+N», se suelta la barra y sube lo que dura la espiral.
+				_soltar_numero_de(ev)
+				_aterrizar_cura(ev["bv"], -float(ev["dmg"]))
+				continue
 			_encajar(ev)
 			_soltar_numero_de(ev)
 			# Y ESTE golpe le quita SU parte a la barra, justo ahora: lo que baja la vida es
@@ -2290,7 +2329,8 @@ func _process(delta: float) -> void:
 		var cae: bool = estilo == Estilo.CAIDA_RAYO or estilo == Estilo.CAIDA_GOTA \
 			or estilo == Estilo.SPLAT
 		var t_sac: float = T_SACUDIDA * (1.2 if cae else 1.0)
-		if _t >= t_imp and _t < t_imp + t_sac and not bool(ev["evadido"]):
+		# (Una cura no sacude a nadie: no es un golpe.)
+		if _t >= t_imp and _t < t_imp + t_sac and not bool(ev["evadido"]) and float(ev["dmg"]) >= 0.0:
 			var u3: float = (_t - t_imp) / t_sac
 			# El PESO es lo que hace que el adyacente que come la mitad tiemble la mitad.
 			var amp: float = AMP_SACUDIDA * peso * (1.15 if cae else 1.0) \
@@ -2414,6 +2454,12 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 		lbl.text = "FALLA"
 		lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.85))
 		lbl.add_theme_font_size_override("font_size", 18)
+	elif float(ev["dmg"]) < 0.0:
+		# UNA CURA: lo que cura el hechizo ENTERO, aunque pase del maximo (decision del usuario: que se
+		# vea lo que hace el conjuro, no lo que le cabia a la barra). En verde y sin decimales.
+		lbl.text = "+%d" % roundi(-float(ev["dmg"]))
+		lbl.add_theme_color_override("font_color", COLOR_CURA)
+		lbl.add_theme_font_size_override("font_size", 22)
 	else:
 		# Con DOS DECIMALES, igual que el log y que los numeros de dentro de las barras: si el
 		# numero que vuela dice 134 y la barra dice 134.42, parecen dos cuentas distintas.

@@ -85,6 +85,10 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # haria nada; solo con la parte magica, la cura se quedaria en un rasguño a los pocos tiers.
 @export var cura_pct: float = 0.0
 
+# EL AREA de una curacion de grupo lanzada en el MAPA: cura a todos los que esten a esta distancia del
+# que la lanza (decision del usuario, 21/09/2026). En combate no hay distancias y va a todo el grupo.
+const RADIO_CURA_AREA := 350.0
+
 # ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
 # NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.
 # Con 'elemento_mix' (abajo) sigue siendo el elemento de IDENTIDAD del hechizo: el que usa
@@ -375,6 +379,13 @@ func dispersa_texto() -> String:
 	return "%d golpes dispersos al azar" % golpes()
 
 
+# LO QUE CURA a alguien de 'vida_max'. 'parte_magica' es la del que lanza (StatsMath.resolve_heal) y
+# 'entre' a cuantos se reparte: la de grupo divide TODO (el % y la parte fija) entre los que alcanza.
+# Un solo sitio para el combate, el mapa y la ficha, que si no acaban contando curas distintas.
+func cura_de(vida_max: float, parte_magica: float, entre: int = 1) -> float:
+	return (cura_pct * vida_max + parte_magica) / float(maxi(entre, 1))
+
+
 func es_imbuicion() -> bool:
 	return imbue_tipo > 0
 
@@ -383,6 +394,11 @@ func es_imbuicion() -> bool:
 # compañero si se las echas a alguien que esta peleando.
 func es_apoyo() -> bool:
 	return imbue_tipo > 0 or tipo == TipoEfecto.CURACION or tipo == TipoEfecto.BUFF
+
+# ¿Es una CURA DE AREA? En el mapa cura a todos los que esten a RADIO_CURA_AREA (ver player._curar_en_area)
+# y lo reparte entre ellos; en combate, a todo el grupo.
+func es_cura_de_area() -> bool:
+	return tipo == TipoEfecto.CURACION and alcance == Alcance.TODOS
 
 # ¿Va a TODO EL GRUPO, sin elegir a nadie? Las curaciones de alcance TODOS y los buffs cuyos estados
 # son todos a_todo_el_grupo. Mismo criterio que combat._va_a_aliado, pero al reves.
@@ -437,9 +453,20 @@ func dano_mostrado() -> float:
 #  porcentaje lleva al lado el numero real entre parentesis: "un 150% (44)". Un % solo dice la
 #  proporcion; el numero dice si el hechizo mata algo. A 0 (sin personaje delante) se enseñan
 #  solo los porcentajes.
-func descripcion_mecanica(ref: float = 0.0) -> String:
+#
+#  'cura_magica' = la parte de la cura que pone quien la lee (Game.cura_magica_de). Solo la miran las
+#  CURACIONES, y va aparte de 'ref' porque la cura NO escala como el daño (ver StatsMath.resolve_heal).
+#  < 0 = no hay nadie delante y se dice sin numero.
+func descripcion_mecanica(ref: float = 0.0, cura_magica: float = -1.0) -> String:
 	if es_imbuicion():
 		return _texto_imbuicion()
+	if tipo == TipoEfecto.CURACION:
+		var lineas_cura: Array = [_texto_curacion(cura_magica)]
+		var est_cura: String = _texto_estados("a quien alcanza")
+		if est_cura != "":
+			lineas_cura.append(est_cura)
+		return "
+".join(lineas_cura)
 	if tipo != TipoEfecto.ATAQUE or dano_base <= 0.0:
 		# BUFF/DEBUFF sin daño: solo tienen sus estados que contar, y van a UN objetivo (no hay
 		# area que "alcance" a nadie).
@@ -525,6 +552,18 @@ func _texto_ataque(ref: float) -> String:
 	if salpica():
 		base += " y un %s a los %s" % [_pct(dano_salpicon, ref), _vecinos_texto()]
 	return base + reparto + "."
+
+
+# LO QUE CURA, en ficha: el % de la vida maxima de quien la recibe mas la parte del que la lanza. La de
+# grupo dice ademas que REPARTE, que es lo que cambia la cuenta: sola te lo llevas entero.
+func _texto_curacion(cura_magica: float) -> String:
+	var fija: String = " + %.0f (tu poder mágico)" % cura_magica if cura_magica >= 0.0 		else " + una parte de tu poder mágico"
+	if alcance == Alcance.TODOS:
+		return ("Cura un %s de la vida máxima%s a los aliados en %d px a tu alrededor (en combate, a todo "
+			+ "el grupo), repartido entre todos los que alcance.
+Con 4 aliados, a cada uno le toca un cuarto.") % [
+			_pct(cura_pct), fija, roundi(RADIO_CURA_AREA)]
+	return "Cura a un aliado un %s de su vida máxima%s." % [_pct(cura_pct), fija]
 
 
 # A quien llega el salpicon, en palabras.
@@ -665,6 +704,9 @@ func resumen() -> String:
 			p.append(rebotes_texto())
 		if dispersa:
 			p.append(dispersa_texto())
+	if tipo == TipoEfecto.CURACION:
+		p.append("cura un %s de la vida + tu poder mágico%s" % [_pct(cura_pct),
+			" · repartido entre los aliados cercanos" if alcance == Alcance.TODOS else " · a un aliado"])
 	if es_imbuicion():
 		p.append("imbuye el %s de %s" % [imbue_texto(), Elementos.nombre(elemento)])
 		p.append("+%d%% de daño" % roundi(imbue_pct * 100.0))

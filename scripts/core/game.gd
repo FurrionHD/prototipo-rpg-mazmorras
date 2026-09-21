@@ -1333,7 +1333,11 @@ func imbuir_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String) ->
 # La cura y el buff pasan por un Combatant montado con la fabrica de siempre y vuelven a la ficha: asi
 # la Herida profunda sigue recortando la cura (Combatant.heal) y el buff queda en pj.estados, que es
 # donde lo recoge la siguiente pelea. Sin una segunda implementacion.
-func apoyo_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String, cura_magica: float) -> String:
+#
+# 'entre' = a cuantos se reparte la cura (la de grupo divide entre todos los que alcanza el area). La vida
+# NO entra de golpe: sube lo que dura la espiral (CuraEnCurso), sobre el cuerpo de ese personaje.
+func apoyo_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String, cura_magica: float,
+		entre: int = 1) -> String:
 	if spell == null or pj == null:
 		return ""
 	if spell.es_imbuicion():
@@ -1347,9 +1351,13 @@ func apoyo_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String, cur
 	var partes: PackedStringArray = []
 	if spell.tipo == SpellData.TipoEfecto.CURACION:
 		var antes: float = c.current_hp
-		c.heal(spell.cura_pct * c.max_hp + cura_magica)
-		pj.current_hp = c.current_hp
-		partes.append("+%.0f de vida" % (c.current_hp - antes))
+		var pedida: float = spell.cura_de(c.max_hp, cura_magica, entre) * c.status_heal_recv_mult()
+		c.heal(spell.cura_de(c.max_hp, cura_magica, entre))
+		var real: float = c.current_hp - antes
+		# Sin cuerpo en el mundo (en un menu, sin escena de mapa) entra de golpe, como antes.
+		if CuraEnCurso.lanzar(cuerpo_de(pj), pj, real, pedida) == null:
+			pj.current_hp = c.current_hp
+		partes.append("+%.0f de vida" % pedida)
 	var con_estado := false
 	for a in spell.efectos:
 		if a == null or a.estado < 0 or a.en_objetivo:
@@ -1363,6 +1371,15 @@ func apoyo_desde_mapa(spell: SpellData, pj: PersonajeData, lanzador: String, cur
 		guardar_estados_en_ficha(c, pj)
 	print("[apoyo] %s echa %s a %s desde el mapa: %s" % [lanzador, spell.nombre, pj.nombre, ", ".join(partes)])
 	return ", ".join(partes)
+
+
+# EL CUERPO DEL MUNDO de uno de mis personajes: el jugador si va en cabeza, o su hueco en el sequito.
+# null si no hay mapa (menus, pantalla de carga) o no va en el grupo.
+func cuerpo_de(pj: PersonajeData) -> Node2D:
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo == null or not yo.has_method("cuerpo_de"):
+		return null
+	return yo.cuerpo_de(pj)
 
 
 # La parte de la cura que pone EL QUE LANZA (su Magia y su baston). 0 si el hechizo no cura.

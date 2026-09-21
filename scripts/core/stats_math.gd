@@ -525,9 +525,19 @@ const BACKFIRE_PCT := 0.08
 #
 # El multiplicador de "cuanta cura RECIBES" no se aplica aqui: eso es del que la recibe y vive en
 # Combatant.heal (status_heal_recv_mult), que es el paso unico de toda la cura del juego.
+#
+# PERO LA MAGIA Y EL BASTON PESAN LA MITAD (decision del usuario, 21/09/2026). Con el escalado entero
+# de la magia de pegar, un Vendaje con bastón común y Magia 800 curaba 103 con 199 de vida maxima: el
+# daño lo frena la defensa magica del bicho, y la cura no tiene nada que la frene. Por eso aqui la
+# Magia se mira al 50 % (como si tuvieras la mitad) y del bastón cuenta la mitad de lo que SUMA.
+const CURA_MAGIA_PESO := 0.5
+const CURA_BASTON_PESO := 0.5
+
 static func resolve_heal(attacker: Combatant, spell: SpellData, frac: float = 1.0) -> float:
 	var raw: float = spell.dano_base * frac
-	return raw * magia_factor(attacker.hab("magia")) * attacker.magic_amp 		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
+	var baston: float = 1.0 + (attacker.magic_amp - 1.0) * CURA_BASTON_PESO
+	return raw * magia_factor(attacker.hab("magia") * CURA_MAGIA_PESO) * baston \
+		* attacker.magia_base_factor * SPELL_DAMAGE_MULT * attacker.status_spell_dmg_mult()
 
 
 static func resolve_spell(attacker: Combatant, defender: Combatant, spell: SpellData,

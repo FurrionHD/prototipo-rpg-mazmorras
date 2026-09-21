@@ -1744,6 +1744,9 @@ func _soltar_conjuro(spell: SpellData, objetivo: Node, destino: Variant = null) 
 #     anfitrion me saca el disparo en mi primer turno (ver Game.apuntar_hechizo_de_entrada).
 #   - de otro y libre    -> se le aplica en su maquina (Net.jugadores.apoyo_a_otro).
 func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
+	if bool(d.get("area", false)):
+		_curar_en_area(spell)
+		return
 	var peer: int = int(d.get("peer", 0))
 	var grupo: bool = bool(d.get("grupo", false))
 	var nombre: String = String(d.get("nombre", "?"))
@@ -1761,6 +1764,77 @@ func _soltar_apoyo(spell: SpellData, d: Dictionary) -> void:
 		return
 	Net.jugadores.apoyo_a_otro(spell, peer, int(d.get("idx", 0)), nombre, grupo)
 	_toast("✨ Le echas %s a %s." % [spell.nombre, nombre])
+
+
+# LA CURA DE GRUPO EN EL MAPA (decision del usuario, 21/09/2026). Antes te hacia elegir "tu grupo" o
+# "el grupo de fulano"; ahora cura a TODOS los que esten a SpellData.RADIO_CURA_AREA de ti al soltarla:
+# los tuyos, los otros jugadores y los suyos. Lo que cura se REPARTE entre todos ellos.
+#
+# Sale una onda de ti hacia fuera (AreaCuracion) y a cada uno le cura cuando le llega, asi que se
+# retrasa por su distancia. Los que estan peleando se quedan fuera: su vida la lleva la pelea.
+func _curar_en_area(spell: SpellData) -> void:
+	var radio: float = SpellData.RADIO_CURA_AREA
+	var centro: Vector2 = global_position
+	var mios: Array = []      # [PersonajeData, distancia]
+	for pj in Game.party:
+		var p := pj as PersonajeData
+		var cuerpo: Node2D = cuerpo_de(p)
+		if p == null or Game.player_hp(p) <= 0.0 or cuerpo == null:
+			continue
+		var dist: float = cuerpo.global_position.distance_to(centro)
+		if dist <= radio:
+			mios.append([p, dist])
+	var otros: Array = []     # [peer, idx, nombre, cuerpo, distancia]
+	if Net.activo:
+		for pid in Net._peers:
+			var peer: Dictionary = Net._peers[pid]
+			if String(peer.get("lugar", "")) != Net._mi_lugar or bool(peer.get("peleando", false)):
+				continue
+			var cuerpos: Array = [Net._avatares.get(pid)]
+			cuerpos.append_array(Net._avatares_comp.get(pid, []) as Array)
+			var fichas: Array = [{"nombre": String(peer.get("nombre", "?"))}]
+			fichas.append_array(peer.get("comps", []) as Array)
+			for i in cuerpos.size():
+				var cu = cuerpos[i]   # SIN tipar: puede estar liberado
+				if cu == null or not is_instance_valid(cu):
+					continue
+				var dist2: float = (cu as Node2D).global_position.distance_to(centro)
+				if dist2 <= radio:
+					var nom: String = String((fichas[i] as Dictionary).get("nombre", "?")) if i < fichas.size() else "?"
+					otros.append([int(pid), i, nom, cu, dist2])
+	var entre: int = maxi(1, mios.size() + otros.size())
+	var cura: float = Game.cura_magica_de(spell, Game.lider())
+	AreaCuracion.onda(self)
+	Net.jugadores.anunciar_fx_cura(Net.jugadores.FX_CURA_ONDA)
+	for m in mios:
+		var pj_m: PersonajeData = m[0]
+		_tras(float(m[1]) / radio * AreaCuracion.T_ONDA, func() -> void:
+			Game.apoyo_desde_mapa(spell, pj_m, Game.lider().nombre, cura, entre))
+	for o in otros:
+		var datos: Array = o
+		_tras(float(datos[4]) / radio * AreaCuracion.T_ONDA, func() -> void:
+			Net.jugadores.apoyo_a_otro(spell, int(datos[0]), int(datos[1]), String(datos[2]), false, entre)
+			# Aqui solo el DIBUJO: su vida se cura en la maquina de su dueño, que es quien sabe cuanta tiene.
+			if is_instance_valid(datos[3]):
+				CuraEnCurso.lanzar(datos[3], null, 0.0, 0.0))
+	_toast("✨ %s: %d aliado%s en el área." % [spell.nombre, entre, "" if entre == 1 else "s"])
+
+
+# Algo que pasa dentro de 's' segundos, sin atarse a un nodo que pueda morir antes (el temporizador es
+# del arbol). Con 0 pasa en el siguiente frame, que para la onda es "ya".
+func _tras(s: float, que: Callable) -> void:
+	get_tree().create_timer(maxf(s, 0.0)).timeout.connect(que)
+
+
+# EL CUERPO DEL MUNDO de uno de mis personajes: yo si va en cabeza, su hueco del sequito si no.
+func cuerpo_de(pj: PersonajeData) -> Node2D:
+	if pj == null:
+		return null
+	if pj == Game.lider():
+		return self
+	if _sequito != null and is_instance_valid(_sequito) and _sequito.has_method("cuerpo_de"):
+		return _sequito.cuerpo_de(pj)
+	return null
 
 
 # APOYO A LOS DE MI GRUPO desde el mapa (imbuir, curar o buff). Se aplica en la ficha y ya: nada vuela

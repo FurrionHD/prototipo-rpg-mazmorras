@@ -315,31 +315,33 @@ func _imbue_en(elems: PackedInt32Array, i: int) -> int:
 # hechizo y a quien: 'idx' en el orden [lider] + companeros() (el de _mis_imbues) y el nombre como
 # comprobacion, por si su grupo ha cambiado entre medias; 'grupo' = a todos los suyos. La cura que pone
 # el que lanza ya va calculada (Game.cura_magica_de). El mana ya lo cobro quien lo recito.
-func apoyo_a_otro(spell: SpellData, peer: int, idx: int, nombre: String, grupo: bool) -> void:
+# 'entre' = a cuantos se reparte la cura (la de area divide entre todos los que alcanza).
+func apoyo_a_otro(spell: SpellData, peer: int, idx: int, nombre: String, grupo: bool, entre: int = 1) -> void:
 	if not Net.activo or spell == null or peer == 0:
 		return
 	var lanzador: String = Game.lider().nombre
 	var cura: float = Game.cura_magica_de(spell, Game.lider())
 	if Net.es_host:
-		_apoyarte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador, cura, grupo)
+		_apoyarte.rpc_id(peer, spell.resource_path, idx, nombre, lanzador, cura, grupo, entre)
 	else:
-		_rel_apoyo.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador, cura, grupo)
+		_rel_apoyo.rpc_id(1, peer, spell.resource_path, idx, nombre, lanzador, cura, grupo, entre)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _rel_apoyo(peer: int, ruta: String, idx: int, nombre: String, lanzador: String, cura: float,
-		grupo: bool) -> void:
+		grupo: bool, entre: int) -> void:
 	if not Net.es_host:
 		return
 	if peer == Net._mi_id():
-		_apoyarte(ruta, idx, nombre, lanzador, cura, grupo)
+		_apoyarte(ruta, idx, nombre, lanzador, cura, grupo, entre)
 	elif Net._peers.has(peer):
-		_apoyarte.rpc_id(peer, ruta, idx, nombre, lanzador, cura, grupo)
+		_apoyarte.rpc_id(peer, ruta, idx, nombre, lanzador, cura, grupo, entre)
 
 
 # Corre en el DUEÑO del personaje.
 @rpc("authority", "call_remote", "reliable")
-func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool) -> void:
+func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: float, grupo: bool,
+		entre: int) -> void:
 	var spell = load(ruta) if ruta.begins_with("res://") else null
 	if not (spell is SpellData) or not (spell as SpellData).es_apoyo():
 		return
@@ -363,11 +365,59 @@ func _apoyarte(ruta: String, idx: int, nombre: String, lanzador: String, cura: f
 				break
 	var partes: PackedStringArray = []
 	for pj in destinos:
-		var hecho: String = Game.apoyo_desde_mapa(sp, pj, lanzador, cura)
+		var hecho: String = Game.apoyo_desde_mapa(sp, pj, lanzador, cura, entre)
 		if hecho != "":
 			partes.append("%s: %s" % ["tú" if pj == Game.lider() else (pj as PersonajeData).nombre, hecho])
 	if not partes.is_empty():
 		Net._toast("✨ %s te echa %s.  %s" % [lanzador, sp.nombre, "  ·  ".join(partes)])
+
+
+# --- LOS EFECTOS DE UNA CURA DE AREA, para que los vean los demas -----------------------------
+# El circulo verde mientras recitas y la onda al soltarla (AreaCuracion) cuelgan del cuerpo del que la
+# lanza. Aqui viaja solo QUE hay que pintar: el dibujo lo hace cada pantalla sobre el avatar del emisor.
+# Mismo camino que el bocadillo del canto (anunciar_canto): por el host, a los del mismo lugar.
+const FX_CURA_APAGAR := 0
+const FX_CURA_CIRCULO := 1
+const FX_CURA_ONDA := 2
+var _circulos_cura: Dictionary = {}   # emisor -> AreaCuracion que se esta pintando sobre su avatar
+
+
+func anunciar_fx_cura(que: int) -> void:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
+		return
+	if Net.es_host:
+		for pid in Net._peers:
+			if Net._peers[pid].get("lugar", "") == Net._mi_lugar:
+				_set_fx_cura.rpc_id(pid, Net._mi_id(), que)
+	else:
+		_rel_fx_cura.rpc_id(1, que, Net._mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_fx_cura(emisor: int, que: int) -> void:
+	var viejo = _circulos_cura.get(emisor)   # SIN tipar: puede estar liberado
+	if viejo != null and is_instance_valid(viejo):
+		viejo.apagar()
+	_circulos_cura.erase(emisor)
+	var a = Net._avatares.get(emisor)
+	if a == null or not is_instance_valid(a) or que == FX_CURA_APAGAR:
+		return
+	if que == FX_CURA_CIRCULO:
+		_circulos_cura[emisor] = AreaCuracion.circulo(a)
+	elif que == FX_CURA_ONDA:
+		AreaCuracion.onda(a)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_fx_cura(que: int, lugar: String) -> void:
+	if not Net.es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if Net._mi_lugar == lugar:
+		_set_fx_cura(de, que)
+	for pid in Net._peers:
+		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
+			_set_fx_cura.rpc_id(pid, de, que)
 
 
 # --- ENTRAR EN LA PELEA DE UN JUGADOR (el que la ejecuta puede no ser el) ---------------------

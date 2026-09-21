@@ -49,7 +49,8 @@ func _accion_magia() -> void:
 		# en SpellData.resumen() y no lo enseñaba nadie.
 		# Con el daño REAL entre parentesis: en combate es justo lo que decide si este hechizo
 		# remata al bicho que tienes delante o no.
-		b.tooltip_text = spell.descripcion_mecanica(spell.dano_mostrado() * Game.poder_magico())
+		b.tooltip_text = spell.descripcion_mecanica(spell.dano_mostrado() * Game.poder_magico(),
+			StatsMath.resolve_heal(_pantalla._player, spell))
 		if spell.descripcion != "":
 			b.tooltip_text += "\n\n" + spell.descripcion
 		# El motivo del bloqueo va DELANTE del resumen, no en su lugar: si no te llega el
@@ -636,19 +637,28 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 	else:
 		destinos = [_pantalla._player] as Array[Combatant]
 
-	var partes: PackedStringArray = []
+	var vivos: Array[Combatant] = []
 	for c in destinos:
-		if c == null or not c.is_alive():
-			continue
+		if c != null and c.is_alive():
+			vivos.append(c)
+	# LA DE GRUPO REPARTE (decision del usuario, 21/09/2026): lo que cura se divide entre todos los que
+	# alcanza. Solo contigo cura entero; con cuatro, a cada uno le toca un cuarto.
+	var entre: int = vivos.size() if spell.alcance == SpellData.Alcance.TODOS else 1
+	var parte_magica: float = StatsMath.resolve_heal(_pantalla._player, spell)
+	var partes: PackedStringArray = []
+	for c in vivos:
 		var antes: float = c.current_hp
-		var cura: float = spell.cura_pct * c.max_hp + StatsMath.resolve_heal(_pantalla._player, spell)
+		var cura: float = spell.cura_de(c.max_hp, parte_magica, entre)
 		c.heal(cura)
-		# LO QUE HA SUBIDO DE VERDAD, no lo que se pidio: con la vida casi llena la mitad se pierde,
-		# y cantar el numero pedido seria mentir en la unica linea que el jugador lee.
 		var real: float = c.current_hp - antes
-		_pantalla.efectos._fx_golpe(_pantalla._player, c, 0.0, false, false, int(spell.elemento),
-			spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, true)
-		partes.append("%s +%.0f" % [c.nombre, real])
+		# EL NUMERO QUE VUELA ES LO QUE CURA EL HECHIZO, aunque pase del maximo: se pidio asi, para ver
+		# lo que hace el conjuro. Va como daño NEGATIVO (ver CombatFX.encolar), que es lo que le da su
+		# «+N» verde, la barra subiendo despacio y el viaje por red al espejo sin tocar el paquete.
+		var pedida: float = cura * c.status_heal_recv_mult()
+		_pantalla.efectos._fx_golpe(_pantalla._player, c, -pedida, false, false, int(spell.elemento),
+			spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, false)
+		partes.append("%s +%.0f%s" % [c.nombre, pedida,
+			"" if absf(real - pedida) < 0.5 else " (le suben %.0f)" % real])
 	_pantalla._set_log("✨ %s lanza %s.  %s" % [_pantalla._player.nombre, spell.nombre, "  ·  ".join(partes)])
 
 

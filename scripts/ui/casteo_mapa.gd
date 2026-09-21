@@ -73,6 +73,8 @@ var _spell: SpellData = null
 # en combate (ver combat._elegir_objetivo_aliado).
 var _destino_pj = null   # PersonajeData, o Dictionary si es de otro jugador (ver lanzado)
 var _frase: int = 0                 # por que frase vamos (0 = ninguna recitada aun)
+# El circulo verde de una CURA DE AREA mientras la recitas (ver AreaCuracion). null si no toca.
+var _circulo: AreaCuracion = null
 var _cerrado: bool = false
 
 var _panel: VBoxContainer = null
@@ -155,6 +157,7 @@ func _exit_tree() -> void:
 # ------------------------------------------------------------
 func _menu_hechizos() -> void:
 	_vaciar()
+	_apagar_circulo()   # volviendo atras desde las frases de una cura de area
 	# SIN huecos: el set de magias los guarda (ver Game._set_hechizos) y el sort_custom de abajo
 	# pide el coste de cada uno -- un null aqui reventaba el panel de recitado.
 	var spells: Array = Game.hechizos_equipados(_pj)
@@ -166,7 +169,7 @@ func _menu_hechizos() -> void:
 		var b := Button.new()
 		var coste: float = _coste(sp)
 		b.text = "%s  (%.2f MP)" % [sp.nombre, coste]
-		b.tooltip_text = sp.descripcion_mecanica(sp.dano_mostrado() * Game.poder_magico(_pj))
+		b.tooltip_text = sp.descripcion_mecanica(sp.dano_mostrado() * Game.poder_magico(_pj), Game.cura_magica_de(sp, _pj))
 		if Game.player_mp(_pj) < coste:
 			b.disabled = true
 			b.tooltip_text = "⛔ Maná insuficiente\n\n%s" % b.tooltip_text
@@ -207,6 +210,17 @@ func _elegir(sp: SpellData) -> void:
 	_spell = sp
 	_frase = 0
 	_destino_pj = null
+	# LA CURA DE GRUPO NO PREGUNTA A QUIEN: cura a todos los que esten en su area al soltarla (ver
+	# player._curar_en_area). Mientras la recitas se ve el circulo de hasta donde llega, tambien en las
+	# pantallas de los demas: asi saben si tienen que acercarse.
+	if sp.es_cura_de_area():
+		_destino_pj = {"area": true}
+		_apagar_circulo(false)
+		if is_instance_valid(_jugador):
+			_circulo = AreaCuracion.circulo(_jugador)
+		Net.jugadores.anunciar_fx_cura(Net.jugadores.FX_CURA_CIRCULO)
+		_mostrar_frase()
+		return
 	# Las de apoyo preguntan A QUIEN antes de recitar. Con un solo candidato NO se pregunta y se va
 	# directo, igual que en combate (_elegir_objetivo_aliado): un menu de una sola opcion es un clic
 	# de peaje.
@@ -493,6 +507,7 @@ func interrumpir() -> Dictionary:
 
 func _cerrar() -> void:
 	_cerrado = true
+	_apagar_circulo()
 	_soltar_ruido()
 	_globo_estado("", Color.WHITE)   # se apaga el bocadillo, aqui y en las otras pantallas
 	queue_free()
@@ -634,6 +649,17 @@ func _globo_estado(texto: String, color: Color) -> void:
 		else:
 			_globo.mostrar(texto, color)
 	Net.jugadores.anunciar_canto(texto, color)
+
+
+# Quita el circulo de la cura de area (aqui y, con 'avisar', en las otras pantallas).
+func _apagar_circulo(avisar: bool = true) -> void:
+	if _circulo == null:
+		return
+	if is_instance_valid(_circulo):
+		_circulo.apagar()
+	_circulo = null
+	if avisar:
+		Net.jugadores.anunciar_fx_cura(Net.jugadores.FX_CURA_APAGAR)
 
 
 func _color_spell() -> Color:
