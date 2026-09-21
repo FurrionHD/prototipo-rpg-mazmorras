@@ -3,9 +3,8 @@
 # Cada frase de mas suma un 75 % de la primera, no un 100 % (1 frase ×1, 2 ×1,75, 3 ×2,5, 4 ×3,25).
 # El total cuenta TODO lo que hace el hechizo: el principal, los de al lado, los rebotes y las bolas
 # que salpican. Apuntando al del medio, que es lo que haria cualquiera con un hechizo de area.
-# La UNIDAD sale de las tres de 2 frases que estan bien (Andanada, Rayo, Torrente: se leen de su .tres,
-# no van escritas aqui). Una primera version comparaba solo el golpe al principal y dejaba el Estallido
-# haciendo dos veces y media lo que las demas en cuanto habia enemigos a los lados.
+# Una primera version comparaba solo el golpe al principal y dejaba el Estallido haciendo dos veces y
+# media lo que las demas en cuanto habia enemigos a los lados.
 # Las comunes de 1 frase no se miden: estan bien y por TURNO ya empatan con las de 2.
 # Frases: ninguna puede ser "la misma" que otra distinta quitando tildes y mayusculas (asi se colaba
 # "restaurame" junto a "restáurame" en el examen).
@@ -13,9 +12,11 @@
 extends Node
 
 const CARPETA := "res://resources/spells/"
-# Las de referencia (de ahi sale la regla, el usuario dice que estan bien) y las de forma unica.
-const REFERENCIAS := ["bola_fuego", "rayo", "chorro_agua"]
-const NO_SE_MIDEN := ["brasa", "descarga", "rocio", "pulso_menor", "bola_fuego", "rayo", "chorro_agua"]
+# LA UNIDAD, fija: es la media que daban Andanada, Rayo y Torrente (35 / 35,6 / 39 de total) antes de
+# pasarles tambien a ellas la regla (decision del usuario). Desde entonces las tres la cumplen, asi que
+# ya no se puede sacar de ellas: se escribe.
+const UNIDAD := 19.89
+const NO_SE_MIDEN := ["brasa", "descarga", "rocio", "pulso_menor"]
 const TOLERANCIA := 0.02
 const ENEMIGOS := 3
 
@@ -23,12 +24,7 @@ const ENEMIGOS := 3
 func _ready() -> void:
 	await get_tree().process_frame
 	var fallos: int = 0
-	# La unidad: el total medio de las de referencia, por frase y sin su rareza.
-	var suma: float = 0.0
-	for id in REFERENCIAS:
-		var r := load(CARPETA + id + ".tres") as SpellData
-		suma += _total(r) / (_por_frases(r) * (1.0 + 0.05 * float(r.rareza)))
-	var unidad: float = suma / float(REFERENCIAS.size())
+	var unidad: float = UNIDAD
 	print("[regla] unidad por frase: %.2f (total contra %d enemigos)" % [unidad, ENEMIGOS])
 	var frases: Dictionary = {}   # clave normalizada -> texto
 	for f in SpellBook.REPOSITORIO:

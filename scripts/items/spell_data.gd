@@ -71,7 +71,7 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # LA REGLA DE DAÑO (21/09/2026, decision del usuario): el daño TOTAL contra 3 enemigos en fila
 # (principal + los de al lado + rebotes + bolas que salpican) es
 #     UNIDAD × (1 + 0,75 × (frases − 1)) × (1 + 0,05 × rareza)
-# La unidad (~19,9) sale de las tres de 2 frases que estan bien: Andanada, Rayo y Torrente. Se mide el
+# La unidad (19,89) es la media que daban Andanada, Rayo y Torrente, que ahora tambien la cumplen. Se mide el
 # TOTAL y no el golpe al principal: comparando solo el principal, el Estallido (que pega a los lados)
 # hacia dos veces y media lo que las demas. Las comunes de 1 frase se quedan como estan.
 # La comprueba tools/prueba_magias_regla: si metes una magia nueva, que salga de ahi y no a ojo.
