@@ -1669,8 +1669,9 @@ func _abrir_casteo() -> void:
 	if Game.hechizos_equipados(pj).is_empty():
 		_toast("No llevas hechizos equipados.")
 		return
-	# El objetivo se fija AHORA (el mas cercano dentro del cono, sin pared) y ya no cambia: si
-	# pudiera cambiar a media cancion, acabarias lanzandole a otro por haberte girado.
+	# El objetivo de SALIDA es el mas cercano dentro del cono, sin pared. Al soltar el conjuro se vuelve a
+	# mirar (casteo_mapa._reapuntar): si te has girado hacia otro mientras cantabas, va a ese. Antes se
+	# fijaba aqui y ya no cambiaba, y el conjuro podia salir por tu espalda hacia uno que ya no mirabas.
 	var candidatos: Array = _enemigos_a_tiro(RANGO_CASTEO)
 	# SIN BICHO A TIRO EL PANEL SE ABRE IGUAL si llevas alguna IMBUICION. Esas no se disparan contra
 	# nadie: le tiñen el arma a uno de los tuyos, asi que exigir un enemigo delante era lo que hacia

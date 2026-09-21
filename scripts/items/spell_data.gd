@@ -465,8 +465,7 @@ func descripcion_mecanica(ref: float = 0.0, cura_magica: float = -1.0) -> String
 		var est_cura: String = _texto_estados("a quien alcanza")
 		if est_cura != "":
 			lineas_cura.append(est_cura)
-		return "
-".join(lineas_cura)
+		return "\n".join(lineas_cura)
 	if tipo != TipoEfecto.ATAQUE or dano_base <= 0.0:
 		# BUFF/DEBUFF sin daño: solo tienen sus estados que contar, y van a UN objetivo (no hay
 		# area que "alcance" a nadie).
@@ -557,11 +556,11 @@ func _texto_ataque(ref: float) -> String:
 # LO QUE CURA, en ficha: el % de la vida maxima de quien la recibe mas la parte del que la lanza. La de
 # grupo dice ademas que REPARTE, que es lo que cambia la cuenta: sola te lo llevas entero.
 func _texto_curacion(cura_magica: float) -> String:
-	var fija: String = " + %.0f (tu poder mágico)" % cura_magica if cura_magica >= 0.0 		else " + una parte de tu poder mágico"
+	var fija: String = " + %.0f (tu poder mágico)" % cura_magica if cura_magica >= 0.0 \
+		else " + una parte de tu poder mágico"
 	if alcance == Alcance.TODOS:
 		return ("Cura un %s de la vida máxima%s a los aliados en %d px a tu alrededor (en combate, a todo "
-			+ "el grupo), repartido entre todos los que alcance.
-Con 4 aliados, a cada uno le toca un cuarto.") % [
+			+ "el grupo), repartido entre todos los que alcance.\nCon 4 aliados, a cada uno le toca un cuarto.") % [
 			_pct(cura_pct), fija, roundi(RADIO_CURA_AREA)]
 	return "Cura a un aliado un %s de su vida máxima%s." % [_pct(cura_pct), fija]
 

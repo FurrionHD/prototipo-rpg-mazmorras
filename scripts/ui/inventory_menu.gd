@@ -2051,8 +2051,7 @@ func _confirmar_grimorio(c: ConsumableData, pj: PersonajeData, al_aceptar: Calla
 	_modal_capa = m["capa"]
 	var vb: VBoxContainer = m["cuerpo"]
 	var l := Label.new()
-	l.text = "¿Seguro que quieres que %s aprenda %s?
-El grimorio se gasta." % [pj.nombre, c.spell.nombre]
+	l.text = "¿Seguro que quieres que %s aprenda %s?\nEl grimorio se gasta." % [pj.nombre, c.spell.nombre]
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_color_override("font_color", Color(0.9, 0.92, 0.96))

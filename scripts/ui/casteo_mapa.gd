@@ -93,8 +93,8 @@ var _bloqueo: String = ""
 const VEL_QUIETO := 6.0
 
 
-# 'objetivo' es el bicho al que ira el conjuro: se fija AQUI y no al terminar de cantar, para que no
-# se cuele otro por delante mientras recitas.
+# 'objetivo' es el bicho al que apuntas al EMPEZAR. Al soltarlo se vuelve a mirar (ver _reapuntar): va
+# al que tengas delante en ese momento, que es lo que se espera si te has girado mientras cantabas.
 func setup(pj: PersonajeData, jugador: Node2D, objetivo: Node) -> void:
 	_pj = pj
 	_jugador = jugador
@@ -445,6 +445,11 @@ func _completar() -> void:
 	Game.gastar_mana(_pj, coste)
 	print("[casteo] %s lanza %s desde el mapa | -%.2f MP" % [_pj.nombre, _spell.nombre, coste])
 	var sp := _spell
+	# AL SOLTARLO, AL QUE TIENES DELANTE (playtest del 20/09/2026): el objetivo se elegia al empezar y
+	# ya no cambiaba, asi que si mientras cantabas ese bicho se iba a pelear con tu compañero y tu te
+	# girabas hacia otro grupo mas cerca, el conjuro salia por tu espalda hacia el de antes.
+	if _destino_pj == null:
+		_objetivo = _reapuntar()
 	var obj := _objetivo
 	var destino = _destino_pj
 	_cerrar()
@@ -525,9 +530,12 @@ func _process(delta: float) -> void:
 	# Salvo si es una IMBUICION: esa va a alguien de tu grupo y le da igual lo que le pase al bicho
 	# que hubiera a tiro cuando abriste el panel. Si el bicho se muere a media frase, tu sigues
 	# cantando, que es exactamente lo que esperarias.
+	# (Antes de cortar se busca otro: al soltarlo va igualmente al que tengas delante, ver _reapuntar.)
 	if _destino_pj == null and _objetivo != null and not is_instance_valid(_objetivo):
-		interrumpir()
-		return
+		_objetivo = _reapuntar()
+		if _objetivo == null:
+			interrumpir()
+			return
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * delta)
 	_refrescar_bloqueo()
 	_seguir_al_jugador()
@@ -577,8 +585,28 @@ func _motivo_bloqueo() -> String:
 	# error por fotograma -- 894 en una sesion del playtest del 19/09.
 	if is_instance_valid(_objetivo) and _objetivo is Node2D and _jugador.has_method("ve_a") \
 			and not _jugador.ve_a((_objetivo as Node2D).global_position):
-		return "sin línea de visión"
+		# Si el de antes se ha tapado pero tienes OTRO delante y a la vista, no hay bloqueo: el conjuro
+		# ira a ese al soltarlo. Solo se pregunta aqui, que es el caso raro, porque cuesta rayos.
+		if _candidato_delante() == null:
+			return "sin línea de visión"
 	return ""
+
+
+# EL QUE TIENES DELANTE AHORA: el mas cercano dentro del cono de lo que miras y sin pared en medio (el
+# mismo criterio que el que elige al abrir el panel, player._abrir_casteo). null si no hay ninguno.
+func _candidato_delante() -> Node:
+	if not is_instance_valid(_jugador) or not _jugador.has_method("_enemigos_a_tiro"):
+		return null
+	var cands: Array = _jugador._enemigos_a_tiro(_jugador.RANGO_CASTEO)
+	return cands[0][1] if not cands.is_empty() else null
+
+
+# A QUIEN VA el conjuro: al que tengas delante; si no hay ninguno, al del principio si sigue vivo.
+func _reapuntar() -> Node:
+	var delante: Node = _candidato_delante()
+	if delante != null:
+		return delante
+	return _objetivo if is_instance_valid(_objetivo) else null
 
 
 func _refrescar_bloqueo() -> void:
