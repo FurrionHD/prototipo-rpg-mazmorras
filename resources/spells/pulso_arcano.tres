@@ -8,6 +8,6 @@ nombre = "Pulso arcano"
 frases = Array[String](["Sello roto, poder liberado", "El vacio escucha mi llamada"])
 rareza = 1
 coste_mana = 8
-dano_base = 36.5
+dano_base = 22.34
 hits = 2
 descripcion = "El pulso de siempre, recitado dos veces y soltado de golpe: dos impactos secos en el mismo sitio. No reparte, no salta y no deja nada ardiendo; toda la magia va a una sola cabeza, que es justo lo que hace falta cuando delante solo hay una y es enorme."

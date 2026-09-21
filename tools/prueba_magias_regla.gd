@@ -1,6 +1,7 @@
 # PRUEBA: la REGLA DE DAÑO de las magias (decision del usuario, 21/09/2026) y las frases del examen.
-#   DAÑO TOTAL contra 3 enemigos en fila = UNIDAD × (1 + 0,75 × (frases − 1)) × (1 + 0,05 × rareza)
-# Cada frase de mas suma un 75 % de la primera, no un 100 % (1 frase ×1, 2 ×1,75, 3 ×2,5, 4 ×3,25).
+#   DAÑO TOTAL contra 3 enemigos en fila = BASE × (1 + 0,85 × (frases − 1)) × (1 + 0,05 × rareza)
+# Cada frase de mas suma un 85 % de la primera (1 frase ×1, 2 ×1,85, 3 ×2,7, 4 ×3,55). La BASE es el
+# total de su hermana comun de 1 frase si la tiene, o la media de las tres comunes con elemento.
 # El total cuenta TODO lo que hace el hechizo: el principal, los de al lado, los rebotes y las bolas
 # que salpican. Apuntando al del medio, que es lo que haria cualquiera con un hechizo de area.
 # Una primera version comparaba solo el golpe al principal y dejaba el Estallido haciendo dos veces y
@@ -12,10 +13,13 @@
 extends Node
 
 const CARPETA := "res://resources/spells/"
-# LA UNIDAD, fija: es la media que daban Andanada, Rayo y Torrente (35 / 35,6 / 39 de total) antes de
-# pasarles tambien a ellas la regla (decision del usuario). Desde entonces las tres la cumplen, asi que
-# ya no se puede sacar de ellas: se escribe.
-const UNIDAD := 19.89
+# CADA UNA SALE DE SU HERMANA de 1 frase cuando la tiene: es "su version baja pero mejor", asi que no
+# pueden pegar todas igual (la Brasa ya pegaba mas que el Rocio). Las que no tienen hermana salen de la
+# UNIDAD, que es la media de las tres comunes con elemento (el Pulso menor lo presta el baston y va aparte).
+const HERMANAS := {"bola_fuego": "brasa", "rayo": "descarga", "chorro_agua": "rocio",
+	"pulso_arcano": "pulso_menor"}
+const DE_LA_UNIDAD := ["brasa", "descarga", "rocio"]
+const PASO_FRASE := 0.85
 const NO_SE_MIDEN := ["brasa", "descarga", "rocio", "pulso_menor"]
 const TOLERANCIA := 0.02
 const ENEMIGOS := 3
@@ -24,7 +28,9 @@ const ENEMIGOS := 3
 func _ready() -> void:
 	await get_tree().process_frame
 	var fallos: int = 0
-	var unidad: float = UNIDAD
+	var unidad: float = 0.0
+	for id in DE_LA_UNIDAD:
+		unidad += _total(load(CARPETA + id + ".tres") as SpellData) / float(DE_LA_UNIDAD.size())
 	print("[regla] unidad por frase: %.2f (total contra %d enemigos)" % [unidad, ENEMIGOS])
 	var frases: Dictionary = {}   # clave normalizada -> texto
 	for f in SpellBook.REPOSITORIO:
@@ -46,7 +52,10 @@ func _ready() -> void:
 		if s.tipo != SpellData.TipoEfecto.ATAQUE or s.dano_base <= 0.0 or s.es_imbuicion() \
 				or NO_SE_MIDEN.has(id):
 			continue
-		var esperado: float = _por_frases(s) * unidad * (1.0 + 0.05 * float(s.rareza))
+		var base: float = unidad
+		if HERMANAS.has(id):
+			base = _total(load(CARPETA + String(HERMANAS[id]) + ".tres") as SpellData)
+		var esperado: float = _por_frases(s) * base * (1.0 + 0.05 * float(s.rareza))
 		var real: float = _total(s)
 		var ok: bool = absf(real - esperado) <= esperado * TOLERANCIA
 		if not ok:
@@ -58,9 +67,9 @@ func _ready() -> void:
 	get_tree().quit(0 if fallos == 0 else 1)
 
 
-# Lo que multiplican las frases: la primera cuenta 1 y cada una de mas, 0,75.
+# Lo que multiplican las frases: la primera cuenta 1 y cada una de mas, PASO_FRASE.
 func _por_frases(s: SpellData) -> float:
-	return 1.0 + 0.75 * float(s.longitud() - 1)
+	return 1.0 + PASO_FRASE * float(s.longitud() - 1)
 
 
 # TODO LO QUE HACE el hechizo contra ENEMIGOS en fila, apuntando al del medio (sin poder magico).

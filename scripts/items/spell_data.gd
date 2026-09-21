@@ -70,12 +70,14 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 #
 # LA REGLA DE DAÑO (21/09/2026, decision del usuario): el daño TOTAL contra 3 enemigos en fila
 # (principal + los de al lado + rebotes + bolas que salpican) es
-#     UNIDAD × (1 + 0,75 × (frases − 1)) × (1 + 0,05 × rareza)
-# La unidad (19,89) es la media que daban Andanada, Rayo y Torrente, que ahora tambien la cumplen. Se mide el
-# TOTAL y no el golpe al principal: comparando solo el principal, el Estallido (que pega a los lados)
-# hacia dos veces y media lo que las demas. Las comunes de 1 frase se quedan como estan.
+#     BASE × (1 + 0,85 × (frases − 1)) × (1 + 0,05 × rareza)
+# La BASE es el total de su HERMANA comun de 1 frase (Andanada = Brasa, Rayo = Descarga, Torrente =
+# Rocio, Pulso arcano = Pulso menor), porque cada una es "su version baja pero mejor" y no pueden pegar
+# todas igual; las que no tienen hermana salen de la media de Brasa, Descarga y Rocio (22,4).
+# Se mide el TOTAL y no el golpe al principal: comparando solo el principal, el Estallido (que pega a los
+# lados) hacia dos veces y media lo que las demas. Las comunes de 1 frase se quedan como estan.
 # La comprueba tools/prueba_magias_regla: si metes una magia nueva, que salga de ahi y no a ojo.
-# En las CURACIONES es lo que cura (ver StatsMath.resolve_heal), con la misma regla sobre el Vendaje.
+# En las CURACIONES es lo que cura (ver StatsMath.resolve_heal); esas van aparte y NO siguen esta regla.
 @export var dano_base: float = 10.0
 
 # CURACION: fraccion de la VIDA MAXIMA del que la recibe que se cura, ademas de la parte que sale
