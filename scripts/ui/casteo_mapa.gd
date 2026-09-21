@@ -408,7 +408,10 @@ func _mostrar_frase() -> void:
 		_boton_ancho("◄ Volver (aún no has recitado nada)", ALTO_BOTON_VOLVER, _menu_hechizos)
 		alto += 12.0 + ALTO_BOTON_VOLVER
 	_panel.offset_top = _panel.offset_bottom - alto - 20.0
-	_bloqueo = ""   # se recalcula en el proximo _process, que es quien pinta el estado del globo
+	# Un valor que no puede salir de _motivo_bloqueo: OBLIGA a repintar. Con "" (lo de antes) no bastaba:
+	# _refrescar_bloqueo se salta el trabajo si el motivo no ha cambiado, y "" -> "" no es un cambio, asi
+	# que el globo se quedaba diciendo "¿Que vas a recitar?" con el hechizo ya elegido (playtest 21/09).
+	_bloqueo = "<repintar>"
 	_refrescar_bloqueo()
 
 
