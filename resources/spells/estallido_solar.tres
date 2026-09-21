@@ -12,7 +12,7 @@ magnitud = 0.2
 [resource]
 script = ExtResource("1")
 nombre = "Estallido solar"
-frases = Array[String](["Que no quede sombra donde mirar", "Abre los ojos y no los cierres", "Y que el mediodía caiga de golpe"])
+frases = Array[String](["Que el día entero quepa en un instante", "Abre los ojos y no los cierres", "Deja que el sol brille en tus manos"])
 rareza = 3
 coste_mana = 13
 dano_base = 23.18
