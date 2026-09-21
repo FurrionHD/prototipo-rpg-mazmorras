@@ -320,6 +320,13 @@ func _ready() -> void:
 	var args: PackedStringArray = _trab.argumentos()
 	if not args.is_empty():
 		_trab.arrancar.call_deferred(args)
+	# LA SALA (fase 3): el nodo solo existe en ese proceso.
+	var args_sala: PackedStringArray = _SALA.argumentos()
+	if not args_sala.is_empty():
+		sala = _SALA.new()
+		sala.name = "Sala"
+		add_child(sala)
+		sala.arrancar.call_deferred(args_sala)
 
 
 # --- LOS TEMAS, cada uno en su archivo ---
@@ -349,6 +356,12 @@ var peleas: NetPeleas = null
 var extraccion: NetExtraccion = null
 var enemigos: NetEnemigos = null
 var suelo: NetSuelo = null
+
+# --- LA SALA (ver sala.gd) ---
+const _SALA = preload("res://scripts/net/sala.gd")
+var sala: Node = null
+# ¿Soy YO la sala (el Godot sin ventana que tiene el mundo abierto y no es ningun jugador)?
+var soy_sala := false
 
 # --- TRABAJADORES DE PISO (ver trabajadores.gd) ---
 var _trab: Node = null
@@ -393,10 +406,11 @@ func _piso_listo_para_sesion():
 
 
 func hostear(codigo: String, puerto: int = PUERTO) -> int:
-	if not puede_abrir_sala():
+	# La SALA no tiene pueblo ni piso delante: abre desde su escena vacia.
+	if not soy_sala and not puede_abrir_sala():
 		estado_cambiado.emit("Ahora no se puede abrir la sala: sal de la pelea o de la faena.")
 		return ERR_UNAVAILABLE
-	var piso_dentro = null if _en_el_pueblo() else _piso_listo_para_sesion()
+	var piso_dentro = null if (soy_sala or _en_el_pueblo()) else _piso_listo_para_sesion()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(puerto, MAX_CONEXIONES)
 	if err != OK:

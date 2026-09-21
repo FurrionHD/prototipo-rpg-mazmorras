@@ -69,8 +69,23 @@ func _ready() -> void:
 const REINTENTOS_LECTURA := 20
 const ESPERA_REINTENTO_MS := 25
 
+# ¿Soy un proceso sin persona delante (un trabajador de piso o la SALA)? Esos no escriben nunca.
+static func _solo_leer() -> bool:
+	var args := OS.get_cmdline_user_args()
+	return args.has("trabajador") or args.has("sala")
+
+
+# LA SALA no es nadie (ver scripts/net/sala.gd): su `id` es "sala:<mundo>", para que no se confunda
+# con quien la lanzo al entrar este como cliente. Pero el CERROJO de la nube va a nombre de esa persona
+# (es su sesion, y la nube solo deja abrir a los miembros). Vacio = el id de siempre.
+var id_cerrojo: String = ""
+
+func para_cerrojo() -> String:
+	return id_cerrojo if id_cerrojo != "" else id
+
+
 func _cargar() -> void:
-	var solo_leer: bool = OS.get_cmdline_user_args().has("trabajador")
+	var solo_leer: bool = _solo_leer()
 	var cfg := ConfigFile.new()
 	var err: int = cfg.load(RUTA)
 	var intentos: int = 0
@@ -111,7 +126,7 @@ func _cargar() -> void:
 
 
 func _guardar() -> void:
-	if OS.get_cmdline_user_args().has("trabajador"):
+	if _solo_leer():
 		return
 	var cfg := ConfigFile.new()
 	cfg.set_value(SECCION, "id", id)

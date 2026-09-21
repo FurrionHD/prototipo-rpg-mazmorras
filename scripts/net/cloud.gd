@@ -133,7 +133,7 @@ func nuevo_id() -> String:
 func crear_mundo(id: String, contrasena: String) -> Dictionary:
 	# Quien lo crea es su primer MIEMBRO: el unico que puede abrirlo estando cerrado hasta que suba un
 	# save con mas gente dentro.
-	return await almacen.crear(id, contrasena, Identidad.id)
+	return await almacen.crear(id, contrasena, Identidad.para_cerrojo())
 
 
 # ============================================================
@@ -157,7 +157,7 @@ func abrir(id: String, contrasena: String, direcciones: Array = [],
 	# (cerre con la X, o me colgué) y me lo devuelva en vez de ofrecerme unirme a un host que ya no
 	# existe. Ver NubeAlmacenLocal.abrir.
 	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION,
-		forzar_build, Identidad.id)
+		forzar_build, Identidad.para_cerrojo())
 	if not r.get("ok", false):
 		_cambiar(CERRADA)
 		return r

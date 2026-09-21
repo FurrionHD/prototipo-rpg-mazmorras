@@ -120,6 +120,13 @@ var lider_idx: int = 0
 # Resultado: da igual quien lea al lider con el equipo vacio, siempre sale lo correcto. Lo que hace
 # home_menu._cerrar es solo adelantarlo para que sea determinista y poder avisar.
 func lider() -> PersonajeData:
+	# LA SALA no es nadie: no tiene grupo y no se le puede inventar uno, o ese fantasma acabaria dentro
+	# del save del mundo. Quien lea "al lider" alli (player_*, el aspecto al presentarse) recibe uno de
+	# usar y tirar que no entra nunca en la plantilla.
+	if sin_jugador and party.is_empty():
+		if _lider_vacio == null:
+			_lider_vacio = PersonajeData.new()
+		return _lider_vacio
 	if party.is_empty():
 		var pj: PersonajeData = _original_crudo()
 		if pj == null:
@@ -2425,8 +2432,41 @@ func exportar_partida() -> SaveData:
 		d.version_mundo = SaveData.VERSION_MUNDO
 		# Los OTROS van tal cual, sin tocarles un pelo: son suyos y yo no los he jugado.
 		d.jugadores = jugadores_mundo.duplicate()
-		d.jugadores[Identidad.id] = _mi_jugador_data(en_mazmorra, player)
+		if sin_jugador:
+			_cabecera_de_sala(d)   # la sala no es nadie: ni "yo" dentro, ni cabecera propia
+		else:
+			d.jugadores[Identidad.id] = _mi_jugador_data(en_mazmorra, player)
 	return d
+
+
+# La CABECERA del save de la sala (lo que pinta la lista de mundos) sale del jugador de quien la lanzo:
+# el de la sala es un personaje de usar y tirar. Si ese no tiene personaje todavia, del primero que haya.
+func _cabecera_de_sala(d: SaveData) -> void:
+	var jd = jugadores_mundo.get(sala_dueno)
+	if not (jd is JugadorData):
+		for k in jugadores_mundo:
+			if jugadores_mundo[k] is JugadorData:
+				jd = jugadores_mundo[k]
+				break
+	if not (jd is JugadorData):
+		d.nombre = "sin personajes"
+		d.cab_nivel = 0
+		d.cab_piso = 1
+		d.cab_dinero = 0
+		d.cab_lugar = "Pueblo"
+		return
+	var j := jd as JugadorData
+	var l: PersonajeData = null
+	if not j.equipo.is_empty():
+		l = j.equipo[clampi(j.lider_pos, 0, j.equipo.size() - 1)] as PersonajeData
+	if l == null and not j.personajes.is_empty():
+		l = j.personajes[0] as PersonajeData
+	d.nombre = l.nombre if l != null else j.nombre_visible
+	d.cab_nivel = l.level if l != null else 0
+	d.cab_piso = maxi(1, j.current_floor)
+	d.cab_dinero = j.dinero
+	d.cab_lugar = ("Mazmorra · piso %d" % d.cab_piso) if j.en_mazmorra else "Pueblo"
+	d.en_mazmorra = false   # el mundo en si no esta en ninguna mazmorra: cada uno lleva su sitio
 
 
 # ============================================================
@@ -2445,6 +2485,15 @@ var mundo_compartido := false
 # Los JugadorData de los OTROS humanos, tal y como estaban en el save. El mio NO esta aqui: el mio
 # soy yo (mi grupo, mi dinero, mi bolsa). Se vuelcan verbatim al exportar.
 var jugadores_mundo: Dictionary = {}
+
+# SOY LA SALA (fase 3): el Godot sin ventana que tiene el mundo abierto. No es ningun jugador: TODOS
+# los JugadorData se quedan aparcados en jugadores_mundo (tambien el de quien la lanzo, que entra como
+# un cliente mas) y al guardar se vuelcan tal cual, sin un "yo" encima. Ver scripts/net/sala.gd.
+var sin_jugador := false
+var _lider_vacio: PersonajeData = null
+# De quien sale la CABECERA del save (nombre, nivel, piso y dinero de la lista de mundos): de quien
+# lanzo la sala, que es a quien se le enseña el mundo en "Mis mundos".
+var sala_dueno: String = ""
 
 
 # Lo MIO, empaquetado. Ojo: aqui las listas de personajes SI llevan al lider (un JugadorData es
@@ -2504,6 +2553,18 @@ func _adoptar_mundo_compartido(d: SaveData) -> void:
 	mundo_compartido = d.mundo_compartido
 	jugadores_mundo.clear()
 	if not d.mundo_compartido:
+		return
+	if sin_jugador:
+		# LA SALA: todos aparcados, nadie adoptado. El "yo" que importar_partida monto con los campos
+		# planos (los del ultimo que guardo) se tira: no es nadie aqui.
+		for k in d.jugadores:
+			if d.jugadores[k] is JugadorData:
+				jugadores_mundo[String(k)] = d.jugadores[k]
+		plantilla.clear()
+		party.clear()
+		lider_idx = 0
+		asegurar_uids()
+		print("[sala] mundo cargado sin jugador: %d jugadores aparcados" % jugadores_mundo.size())
 		return
 	var yo_id: String = Identidad.id
 	for k in d.jugadores:
@@ -3173,8 +3234,9 @@ func importar_partida(d: SaveData) -> void:
 	# grupo y los jugadores del mundo ya montados, para que nadie se quede sin identificador estable.
 	asegurar_uids()
 	# Que haya EXACTAMENTE un original por dueño (los saves anteriores a player_es_original traen
-	# cero o dos, ver la nota de ese campo).
-	_sanear_originales()
+	# cero o dos, ver la nota de ese campo). La sala no tiene plantilla que sanear: no se toca a nadie.
+	if not sin_jugador:
+		_sanear_originales()
 	# Un ENCARGO que apunte a una pieza del cofre que ya no existe la dejaria bloqueada PARA SIEMPRE
 	# (un cierre sucio basta). El barrido es barato y se hace en cada carga.
 	_barrer_encargos_huerfanos()

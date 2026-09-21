@@ -74,6 +74,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# LA SALA abre la sesion ella misma al arrancar (ver sala.gd) y no tiene escena de juego delante.
+	if Net.soy_sala:
+		_hostear_al_llegar = false
 	if _hostear_al_llegar and not Net.activo and Net.puede_abrir_sala():
 		_t_listo += delta
 		if _t_listo >= ESPERA_SALA:
@@ -91,14 +94,17 @@ func _process(delta: float) -> void:
 	_acum += delta
 	if _acum < SEG_AUTOGUARDADO:
 		return
-	# Con una pelea en pantalla NO se guarda: el combate no vive en el save, asi que la foto saldria
-	# a medias. Se espera al siguiente tick, que llegara en cuanto se cierre la pantalla.
-	if Game.hay_pelea_en_pantalla():
-		return
-	# Y tampoco desde el menu: exportar_partida() lee el ARBOL VIVO (el nodo del jugador, la
-	# mazmorra), y sin ellos guardaria una partida mutilada.
-	if not en_partida():
-		return
+	# LA SALA no tiene jugador, ni pelea en pantalla, ni pueblo delante: guarda siempre (lo de cada uno
+	# se lo pide a cada uno, ver Net.partida.recoger_estados).
+	if not Net.soy_sala:
+		# Con una pelea en pantalla NO se guarda: el combate no vive en el save, asi que la foto saldria
+		# a medias. Se espera al siguiente tick, que llegara en cuanto se cierre la pantalla.
+		if Game.hay_pelea_en_pantalla():
+			return
+		# Y tampoco desde el menu: exportar_partida() lee el ARBOL VIVO (el nodo del jugador, la
+		# mazmorra), y sin ellos guardaria una partida mutilada.
+		if not en_partida():
+			return
 	_acum = 0.0
 	await autoguardar()
 
