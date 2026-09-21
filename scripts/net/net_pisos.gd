@@ -372,6 +372,12 @@ func viajar_al_pueblo() -> void:
 		_registrar_salida(1, foto)
 	else:
 		_pedir_salir.rpc_id(1, foto)
+	# EN EL PUEBLO ESTAS EN EL PISO 1, como en solitario (door.gd / dungeon_exit.gd lo ponen en su rama de
+	# un jugador). Faltaba aqui: en sesion te quedabas "en el piso 6" paseando por el pueblo, y todo lo que
+	# lee el piso actual sin mirar la escena -- el liston de Agilidad que frena el paso, sobre todo -- te
+	# trataba como si siguieras abajo (playtest del 21/09). Va al final: la foto y cerrar_bajada de arriba
+	# todavia necesitan saber de que piso vienes.
+	Game.current_floor = 1
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	Net.anunciar_lugar("pueblo")
 

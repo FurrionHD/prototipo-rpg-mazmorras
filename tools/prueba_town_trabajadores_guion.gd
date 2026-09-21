@@ -102,7 +102,10 @@ func _ready() -> void:
 	_ok(Net._fotos_piso.has(1) and n_foto > 0, "piso 1 congelado con %d enemigos" % n_foto)
 	# Habia otro esperando: este sobra y se cierra (si no, volveria a la reserva).
 	_ok(int(Net._trab._estado.get(w, 0)) == 0, "el trabajador suelta el piso (reserva o cerrado)")
-	_ok(Net._trab._libres() == Net._trab.RESERVA, "queda exactamente la reserva (%d)" % Net._trab._libres())
+	# Entre RESERVA y RESERVA_MAX: desde el 19/09 el que queda libre se CONSERVA hasta RESERVA_MAX para
+	# reaprovecharlo en la pelea siguiente (ver trabajadores.gd). Antes esto pedia exactamente RESERVA.
+	_ok(Net._trab._libres() >= Net._trab.RESERVA and Net._trab._libres() <= Net._trab.RESERVA_MAX,
+		"quedan libres entre la reserva y su tope (%d)" % Net._trab._libres())
 	_ok(not Net._dueno_piso.has(1), "el piso 1 ya no tiene dueño")
 
 	# 4) Vuelvo a bajar: lo recoge un trabajador con la foto y veo los mismos enemigos.
