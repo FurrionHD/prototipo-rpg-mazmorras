@@ -94,6 +94,9 @@ var _header: VBoxContainer = null
 var _lista: VBoxContainer = null      # la columna del centro (rejilla / muñeco)
 var _content: VBoxContainer = null    # la ficha de la derecha
 var _barra_sub: HBoxContainer = null  # la fila de subpestañas (vacia = no se ve)
+# LOS HUECOS DEL KIT, FIJOS encima del scroll (decision del usuario, 21/09/2026): al bajar por la lista
+# de lo que puedes equipar, las ranuras se quedan a la vista, que es adonde las vas a arrastrar.
+var _kit_fijo: VBoxContainer = null
 var _titulo_seccion: Label = null     # el NOMBRE de quien estas mirando, arriba de la columna
 var _fila_retratos: HBoxContainer = null
 var _scroll_retratos: ScrollContainer = null   # con toda la plantilla no cabe en una fila
@@ -195,6 +198,10 @@ func _ready() -> void:
 	_barra_sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	_barra_sub.add_theme_constant_override("separation", 14)
 	col_centro.add_child(_barra_sub)
+	_kit_fijo = VBoxContainer.new()
+	_kit_fijo.add_theme_constant_override("separation", 4)
+	_kit_fijo.visible = false
+	col_centro.add_child(_kit_fijo)
 	col_centro.add_child(scroll)
 
 	# LA VITRINA: la pieza en grande entre la rejilla y la ficha, solo dentro de Cambiar. Es lo que
@@ -499,6 +506,8 @@ func _rebuild_real() -> void:
 	if not _solo_seleccion:
 		MenuScaffold.vaciar(_lista)
 	MenuScaffold.vaciar(_content)
+	MenuScaffold.vaciar(_kit_fijo)
+	_kit_fijo.visible = false   # solo lo enciende el kit (_pintar_kit)
 	MenuScaffold.subpestanas(_barra_sub, [], [], 0, Callable())
 	for i in _tab_buttons.size():
 		(_tab_buttons[i] as Button).button_pressed = (i == _sec)
@@ -1290,7 +1299,7 @@ func _kit_habilidades(pj: PersonajeData) -> void:
 		WEAPON_TIPO_LABELS.size() - 1)]
 	# El rotulo dice con QUE arma es este kit porque el set se guarda por TIPO de arma (ver
 	# Game.clave_loadout): cambiar de espada a hacha cambia lo que sale aqui, y es a proposito.
-	MenuScaffold.titulo(_lista, "Kit de %s" % tipo.to_lower(), 15)
+	MenuScaffold.titulo(_kit_fijo, "Kit de %s" % tipo.to_lower(), 15)
 	_pista_arrastre()
 
 	# Lo que su equipo le PERMITE y ademas se sabe. El pool sale del arma y del escudo; el filtro de
@@ -1312,8 +1321,8 @@ func _kit_habilidades(pj: PersonajeData) -> void:
 
 
 func _kit_magias(pj: PersonajeData) -> void:
-	MenuScaffold.titulo(_lista, "Magias", 15)
-	MenuScaffold.nota(_lista, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
+	MenuScaffold.titulo(_kit_fijo, "Magias", 15)
+	MenuScaffold.nota(_kit_fijo, "Se lanzan RECITANDO su encantamiento: una frase por turno. Si fallas "
 		+ "una, el hechizo se te vuelve en contra.")
 	_pista_arrastre()
 	# CON LOS HUECOS, por lo mismo que las habilidades: la ranura donde sueltas es la ranura donde
@@ -1342,14 +1351,16 @@ func _kit_magias(pj: PersonajeData) -> void:
 func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String,
 		titulo_pool: String, vacio_pool: String) -> void:
 	_kit = []
-	var grid := _rejilla_kit()
+	# LAS RANURAS, en la zona fija (no se van con el scroll); lo que puedes meter, abajo en la lista.
+	_kit_fijo.visible = true
+	var grid := _rejilla_kit(_kit_fijo)
 	for i in topes:
 		var it: Resource = puestas[i] if i < puestas.size() else null
 		_kit.append({"item": it, "puesto": true})
 		_celda_kit(grid, it, i, true,
 			_nombre_kit(it) if it != null else "— %s %d —" % [palabra, i + 1])
 
-	_lista.add_child(HSeparator.new())
+	_kit_fijo.add_child(HSeparator.new())
 	MenuScaffold.titulo(_lista, titulo_pool.to_upper(), 14)
 	if disponibles.is_empty():
 		MenuScaffold.nota(_lista, vacio_pool)
@@ -1367,17 +1378,17 @@ func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String
 # pueblo, que es donde se puede tocar algo.
 func _pista_arrastre() -> void:
 	if Game.en_pueblo():
-		MenuScaffold.nota(_lista, "Arrastra para colocarlas donde quieras: una encima de otra las "
+		MenuScaffold.nota(_kit_fijo, "Arrastra para colocarlas donde quieras: una encima de otra las "
 			+ "cambia de sitio, y sacar una de su ranura y soltarla fuera la quita.")
 
 
-func _rejilla_kit() -> GridContainer:
+func _rejilla_kit(donde: Container = null) -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = 2
 	g.add_theme_constant_override("h_separation", 6)
 	g.add_theme_constant_override("v_separation", 6)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_lista.add_child(g)
+	(donde if donde != null else _lista).add_child(g)
 	return g
 
 
