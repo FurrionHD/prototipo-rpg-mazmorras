@@ -10,10 +10,10 @@
 #  (Net.hostear / Net.unirse). Lo que desaparece es ESCRIBIR la IP, no la necesidad de que esa IP
 #  sea alcanzable.
 #
-#  FASE 1 (esto): toda la maquina de estados contra un almacen FALSO LOCAL (user://nube_test/), sin
-#  cuenta, sin Cloudflare y sin red. FASE 2: el mismo objeto pero hablando HTTP con un Worker +
-#  R2; se cambia `_almacen` y nada mas, porque las cuatro operaciones y sus respuestas ya son las
-#  del Worker (ver cloud_store_local.gd).
+#  FASE 1: toda la maquina de estados contra un almacen FALSO LOCAL (user://nube_test/), sin cuenta,
+#  sin Cloudflare y sin red. FASE 2 (21/09/2026): el mismo objeto hablando HTTP con el Worker de
+#  Cloudflare (servidor/nube, un Durable Object por mundo con el save dentro en trozos); solo cambia
+#  `almacen` (ver URL_NUBE), porque las operaciones y sus respuestas son las mismas.
 #
 #  Por eso las funciones publicas son COROUTINES (`await Nube.abrir(...)`) aunque el almacen falso
 #  responda al instante: el dia que detras haya un HTTPRequest, quien llama no cambia.
@@ -29,6 +29,7 @@
 extends Node
 
 const _ALMACEN_LOCAL := preload("res://scripts/net/cloud_store_local.gd")
+const _ALMACEN_HTTP := preload("res://scripts/net/cloud_store_http.gd")
 
 # Cada cuanto se manda el latido. Cuatro latidos caben en el arrendamiento
 # (NubeAlmacenLocal.SEGUNDOS_ARRENDAMIENTO): un pico de lag no te quita el mundo.
@@ -58,9 +59,16 @@ var _contrasena: String = ""
 # El TOKEN DE VALLADO de esta apertura. Es lo unico que autoriza a latir y a subir.
 var _token: int = 0
 
-# El almacen. En Fase 2 esto pasa a ser el cliente HTTP del Worker y ya esta.
-# Publico a proposito: las pruebas necesitan compartirlo y moverle el reloj.
-var almacen: NubeAlmacenLocal = null
+# El almacen: NubeAlmacenHttp (el Worker de Cloudflare, servidor/nube) si hay URL_NUBE, y si no el
+# local de pruebas. SIN TIPO a proposito: son dos clases con las mismas operaciones y ninguna hereda
+# de la otra. Publico: las pruebas lo cambian por uno suyo y le mueven el reloj.
+var almacen = null
+
+# Donde vive la nube: el Worker de servidor/nube, publicado en la cuenta de Cloudflare del proyecto.
+# Vacio = el almacen local (user://nube_test), que es con lo que se jugo hasta la Fase 2. Se cambia al
+# lanzar el juego con `-- nube_url=http://127.0.0.1:8787` (el `wrangler dev` de servidor/nube) o con
+# `-- nube_local`, que es lo que deben usar las pruebas que abran mundos: si no, escriben en la nube.
+const URL_NUBE := "https://dungeon-oratoria-nube.dungeon-oratoria.workers.dev"
 
 # Se puede apagar para que las pruebas manden el latido a mano.
 var latido_automatico := true
@@ -76,8 +84,23 @@ func _ready() -> void:
 	# pausa PERDERIA EL CERROJO de su propio mundo. Es lo mismo que hace Net (net.gd:224) y por la
 	# misma razon.
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	almacen = _ALMACEN_LOCAL.new()
+	var url: String = URL_NUBE
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("nube_url="):
+			url = a.substr(9)
+		elif a == "nube_local":
+			url = ""
+	if url != "":
+		almacen = _ALMACEN_HTTP.new(self, url)
+		print("[nube] almacen: ", url)
+	else:
+		almacen = _ALMACEN_LOCAL.new()
 	set_process(true)
+
+
+# ¿Hablo con la nube de verdad (o con su `wrangler dev`) y no con la carpeta de pruebas?
+func es_remota() -> bool:
+	return almacen is NubeAlmacenHttp
 
 
 func _process(delta: float) -> void:
@@ -204,8 +227,13 @@ func _subir(save: PackedByteArray, meta: Dictionary, soltando: bool) -> Dictiona
 	var id := mundo_id
 	var token := _token
 	_cambiar(TRABAJANDO)
-	var r: Dictionary = await (almacen.cerrar(id, token, save, meta, _sello(), Game.VERSION) if soltando \
-		else almacen.subir(id, token, save, meta, _sello(), Game.VERSION))
+	# if/else y NO un ternario dentro del await: con el almacen de la nube estas llamadas son coroutines,
+	# y Godot no espera una coroutine metida en un ternario (la lanza "sin await" y sigue con null).
+	var r: Dictionary
+	if soltando:
+		r = await almacen.cerrar(id, token, save, meta, _sello(), Game.VERSION)
+	else:
+		r = await almacen.subir(id, token, save, meta, _sello(), Game.VERSION)
 	if r.get("ok", false):
 		if soltando:
 			print("[nube] mundo ", id, " CERRADO y subido (", save.size(), " bytes)")

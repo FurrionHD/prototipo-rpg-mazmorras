@@ -1,0 +1,12 @@
+{
+	// La nube de los mundos compartidos. Se prueba en local con `npx wrangler dev` y se publica con
+	// `npx wrangler deploy` (ver LEEME.md).
+	"name": "dungeon-oratoria-nube",
+	"main": "src/index.js",
+	"compatibility_date": "2025-09-01",
+	"durable_objects": {
+		"bindings": [{ "name": "MUNDO", "class_name": "Mundo" }]
+	},
+	// SQLite: es el tipo de Durable Object que entra en el plan gratuito.
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mundo"] }]
+}

@@ -74,3 +74,7 @@ __pycache__/
 # Partida congelada para la huella del combate (tools/prueba_huella_combate): lleva datos de jugadores
 # reales y pesa varios MB. Se queda solo en el PC que la usa.
 tools/huellas/mundo_ref.tres
+
+# La nube (servidor/nube): lo que genera wrangler al probar en local (con los mundos de prueba dentro)
+servidor/nube/.wrangler/
+servidor/nube/node_modules/

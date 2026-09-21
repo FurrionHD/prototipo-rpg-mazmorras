@@ -33,7 +33,10 @@ const MODOS := [
 # Lo que se espera como mucho a que termine el guardado al cerrar. Un alt+F4 que no cierra es peor
 # que un alt+F4 que pierde algo: si esto se agota, se cierra igual. Da de sobra para lo que tarda
 # (el mundo compartido recoge estados ~1,5 s y sube el fichero; la ranura de un jugador, menos).
-const TOPE_CIERRE := 8.0
+# 20 y no 8 desde que la nube es de verdad (21/09/2026): subir un mundo de 4 MB a Cloudflare son unos
+# segundos con buena conexion y bastantes mas con una subida lenta, y si se corta la nube se queda
+# con el autoguardado anterior (y al reabrir, la copia de la nube manda sobre la del disco).
+const TOPE_CIERRE := 20.0
 
 var modo: int = Modo.VENTANA
 # SINCRONIZACION VERTICAL. Encendida corta el desgarro de la imagen al moverse; apagada deja correr

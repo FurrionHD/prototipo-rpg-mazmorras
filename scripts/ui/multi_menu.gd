@@ -7,9 +7,12 @@
 #  pero uno a la vez, porque abrirlo coge el CERROJO (ver cloud.gd). Las 3 ranuras del menu de
 #  inicio siguen siendo de un jugador y no se tocan.
 #
-#  Dos listas, y son distintas a proposito:
-#    MIS MUNDOS          los que yo he creado. Los abro yo (me llevo el cerrojo y soy el anfitrion).
-#    DE OTRAS PERSONAS   los de mis compañeros. A esos me UNO, no los abro.
+#  Dos listas:
+#    MIS MUNDOS          los que yo he creado.
+#    DE OTRAS PERSONAS   los de mis compañeros.
+#  Y en las dos UN SOLO BOTON, "Entrar": si alguien tiene el mundo abierto me uno a el, y si no lo
+#  abro yo (me llevo el cerrojo y soy el anfitrion). Con la nube de verdad (Fase 2) el save esta alli,
+#  asi que un mundo de otra persona tambien se puede abrir si esta cerrado.
 #
 #  REGLA DE ESTE FICHERO: aqui NO hay logica de negocio. Todo lo que decide algo vive en el
 #  autoload Mundos (que se puede probar en headless sin abrir una ventana); esto solo pinta y llama.
@@ -337,14 +340,14 @@ func _pintar_detalle() -> void:
 		var pub: String = String(e.get("publicada", ""))
 		var dirs: Array = Nube.direcciones_locales()
 		var va_a_publicar: String = pref if pref != "" else (String(dirs[0]) if not dirs.is_empty() else "")
-		MenuScaffold.fila(vb, "Tus compañeros ponen", "%s + la contraseña" % \
-			(va_a_publicar if va_a_publicar != "" else "(no tienes dirección utilizable)"), 110,
-			VERDE if va_a_publicar != "" else ROJO)
+		MenuScaffold.fila(vb, "Tus compañeros ponen", "el código del mundo + la contraseña", 110, VERDE)
+		MenuScaffold.fila(vb, "Tu dirección", va_a_publicar if va_a_publicar != "" \
+			else "(no tienes dirección utilizable)", 110, null if va_a_publicar != "" else ROJO)
 		if pub != "" and pub != va_a_publicar:
 			MenuScaffold.fila(vb, "La última vez", pub, 110)
-		MenuScaffold.nota(vb, "La dirección se elige en la pestaña «TÚ Y TU CONEXIÓN» y se publica "
-			+ "sola cada vez que abres. El código de mundo y la contraseña son lo que tienen que "
-			+ "meter una vez para añadirlo a su lista.")
+		MenuScaffold.nota(vb, "Con el código, el juego les lleva solo a quien tenga el mundo abierto, y "
+			+ "si no hay nadie lo pueden abrir ellos. Tu dirección se publica sola cada vez que abres "
+			+ "(se elige en «TÚ Y TU CONEXIÓN»); para jugar de casa a casa sigue haciendo falta Hamachi.")
 	else:
 		MenuScaffold.fila(vb, "Su dirección", String(e.get("direccion", "—")), 110)
 
@@ -372,15 +375,21 @@ func _pintar_detalle() -> void:
 	botones.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(botones)
 
-	if bool(e.get("mio", false)):
-		_boton(botones, "Abrir y jugar", func(): _abrir(_sel, campo.text))
-		if bool(e.get("pendiente", false)):
-			_boton(botones, "Reintentar subida", func(): _reintentar(_sel))
-	else:
-		_boton(botones, "Unirse", func(): _unirse(_sel, campo.text))
-		MenuScaffold.nota(vb, "Tu personaje de ese mundo lo guarda quien lo tiene abierto: la primera "
-			+ "vez lo creas, y a partir de ahí entras con él. Esa persona tiene que tener el mundo "
-			+ "abierto en ese momento.")
+	# UN SOLO BOTON, y el juego decide: si alguien tiene el mundo abierto te une a el, y si no lo abres
+	# tu (con el mundo en la nube, da igual de quien sea). Solo los mundos de otra persona apuntados
+	# SIN su codigo no se pueden abrir: de esos solo se sabe la direccion.
+	var id_nube: String = String(e.get("id_nube", ""))
+	_boton(botones, "Entrar", func(): _abrir(_sel, campo.text) if id_nube != "" else _unirse(_sel, campo.text))
+	if bool(e.get("mio", false)) and bool(e.get("pendiente", false)):
+		_boton(botones, "Reintentar subida", func(): _reintentar(_sel))
+	if not bool(e.get("mio", false)):
+		if id_nube != "":
+			MenuScaffold.nota(vb, "Si su dueño lo tiene abierto, entras con él. Si no hay nadie, lo abres "
+				+ "tú con lo último que se guardó y los demás se unen a ti.")
+		else:
+			MenuScaffold.nota(vb, "Lo tienes apuntado solo con su dirección, así que su dueño tiene que "
+				+ "tenerlo abierto. Para poder abrirlo tú cuando no esté, bórralo de tu lista y vuelve a "
+				+ "añadirlo con su código de mundo.", )
 
 	_boton(botones, "Borrar de mi lista", func(): _borrar(_sel))
 
@@ -520,14 +529,15 @@ func _estrenar_con_importado(slot: int, capa: Control, creador: Node, clave: Str
 # ------------------------------------------------------------
 func _anadir_ajeno() -> void:
 	_dialogo("AÑADIR EL MUNDO DE OTRA PERSONA",
-		"Los tres datos los tiene esa persona: los ve en su pantalla del mundo. La dirección es la "
-		+ "suya (la de Hamachi si es lo que usáis), no la tuya. El código de mundo es opcional: "
-		+ "servirá para encontrarle sin saber su dirección cuando esté el almacén de verdad.",
+		"Los datos los tiene esa persona: los ve en su pantalla del mundo. Con el CÓDIGO DEL MUNDO "
+		+ "el juego encuentra su dirección solo, y además puedes abrir el mundo tú cuando no esté. "
+		+ "La dirección es la suya (la de Hamachi si es lo que usáis), no la tuya: con el código "
+		+ "puedes dejarla en blanco.",
 		[
 			{"etiqueta": "Cómo quieres verlo en TU lista (p.ej. «la casa de Nacho»)", "valor": ""},
-			{"etiqueta": "SU dirección (IP)", "valor": ""},
+			{"etiqueta": "SU dirección (IP) — opcional si pones el código", "valor": ""},
 			{"etiqueta": "Contraseña del mundo", "secreto": true},
-			{"etiqueta": "Código del mundo (opcional)", "valor": ""},
+			{"etiqueta": "Código del mundo", "valor": ""},
 		],
 		func(v: Array):
 			var r: Dictionary = await Mundos.alta_ajeno(v[0], v[3], v[2], v[1])
@@ -571,11 +581,9 @@ func _abrir(clave: String, pass_: String, forzar_build := false) -> void:
 
 	match String(r.get("resultado", "")):
 		"unirse":
-			# Lo tiene otro AHORA MISMO. Cuando exista el handshake con identidad, aqui se entra
-			# directo con la direccion que ha publicado quien lo tiene.
-			var quien: String = String(r.get("quien", "alguien"))
-			_decir("Ese mundo lo tiene abierto %s ahora mismo: hay que unirse, y eso llega en el "
-				% quien + "siguiente paso.", false)
+			# Lo tiene otro AHORA MISMO: se entra con el, a la direccion que ha publicado.
+			_decir("Lo tiene abierto %s: entrando con él..." % String(r.get("quien", "alguien")))
+			_unirse(clave, pass_)
 		"nuevo":
 			# Un mundo dado de alta al que todavia no se le ha creado personaje.
 			_avisar_direccion(r)

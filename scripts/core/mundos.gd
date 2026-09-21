@@ -280,6 +280,19 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 			dirs.append(d)
 
 	var r: Dictionary = await Nube.abrir(id, contrasena, dirs, forzar_build)
+	# UN MUNDO MIO QUE LA NUBE NO CONOCE: es uno creado antes de que existiera la nube de verdad (vivia
+	# en el almacen de pruebas de este PC). Se da de alta alli con SU MISMO codigo --asi los que ya lo
+	# tienen apuntado no tienen que cambiar nada-- y se vuelve a abrir: como la nube no tiene partida,
+	# manda la copia de este disco (ver mas abajo) y se sube en el primer guardado.
+	# Solo con la contraseña que este PC recuerda, si recuerda alguna: una tecleada mal daria de alta
+	# el mundo con una contraseña que no es la suya.
+	if not r.get("ok", false) and String(r.get("error", "")) == "no_autorizado" \
+			and bool(e.get("mio", false)) and int(e.get("estado", SaveIO.VACIA)) == SaveIO.OK \
+			and (String(e.get("contrasena", "")) == "" or String(e.get("contrasena", "")) == contrasena):
+		var alta: Dictionary = await Nube.crear_mundo(id, contrasena)
+		if alta.get("ok", false):
+			print("[mundos] %s no estaba en la nube: dado de alta con su codigo de siempre" % id)
+			r = await Nube.abrir(id, contrasena, dirs, forzar_build)
 	if not r.get("ok", false):
 		return {"ok": false, "error": String(r.get("error", "")),
 			"mensaje": String(r.get("mensaje", "No se pudo abrir el mundo."))}
