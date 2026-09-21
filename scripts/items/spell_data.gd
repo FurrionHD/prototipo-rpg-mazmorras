@@ -91,7 +91,8 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 
 # EL AREA de una curacion de grupo lanzada en el MAPA: cura a todos los que esten a esta distancia del
 # que la lanza (decision del usuario, 21/09/2026). En combate no hay distancias y va a todo el grupo.
-const RADIO_CURA_AREA := 350.0
+# Empezo en 350 y se bajo a 200 al verlo: con 350 cubria media sala.
+const RADIO_CURA_AREA := 200.0
 
 # ELEMENTO del hechizo (Elementos.Elemento): decide la resistencia/debilidad del objetivo.
 # NINGUNO = daño mágico neutro (no lo modula ningún elemento). Ver elements.gd.
