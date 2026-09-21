@@ -15,13 +15,14 @@
 //
 //  PROTOCOLO (todo POST, a /v1/<op>?id=<24 hex>; la contraseña va en la cabecera X-Pass,
 //  codificada con encodeURIComponent, para que no salga en las URLs de los registros):
-//    crear                         -> {ok}
+//    crear   JSON {quien_soy}      -> {ok}  (quien_soy = el primer MIEMBRO)
 //    abrir   JSON {direcciones, sello_version, sello_build, forzar_build, quien_soy, quien, pid,
 //                  equipo, reclamar}
 //                                  -> {ok, resultado: host|unirse|comprobar, ...}
 //    bajar   X-Token               -> los bytes del save (200) o JSON de error (409)
 //    latido  X-Token               -> {ok}
 //    subir   X-Token, X-Sello-Version, X-Sello-Build, X-Meta; cuerpo = bytes del save -> {ok}
+//            (X-Meta puede llevar "miembros": la lista de identidades con personaje en el save)
 //    cerrar  igual que subir, y ademas suelta el cerrojo -> {ok}
 //    estado                        -> {ok, abierto, caducado, quien, direcciones?, meta, ...}
 //  Las respuestas son siempre {"ok": bool} y, si falla, "error" (codigo estable) y "mensaje".
@@ -71,7 +72,7 @@ export class Mundo extends DurableObject {
 		let cuerpo = null;
 		if (op === "subir" || op === "cerrar") {
 			cuerpo = new Uint8Array(await req.arrayBuffer());
-		} else if (op === "abrir") {
+		} else if (op === "abrir" || op === "crear") {
 			try {
 				cuerpo = await req.json();
 			} catch {
@@ -80,7 +81,7 @@ export class Mundo extends DurableObject {
 		}
 		switch (op) {
 			case "crear":
-				return json(await this.crear(id, pass));
+				return json(await this.crear(id, pass, cuerpo || {}));
 			case "abrir":
 				return json(await this.abrir(id, pass, cuerpo || {}));
 			case "bajar":
@@ -101,14 +102,20 @@ export class Mundo extends DurableObject {
 	}
 
 	// ---- ALTA ----
-	async crear(id, pass) {
+	async crear(id, pass, p) {
 		if (!pass) {
 			return fallo("peticion_mala", "Hace falta un id de mundo y una contraseña.");
 		}
 		if (await this.ctx.storage.get("mundo")) {
 			return fallo("ya_existe", "Ese mundo ya existe.");
 		}
+		const quienSoy = String(p.quien_soy || "");
 		await this.ctx.storage.put("mundo", {
+			// LOS MIEMBROS: quien puede ABRIR el mundo estando cerrado. Empieza con quien lo crea y lo
+			// mantiene al dia el propio juego al subir (son los jugadores que tienen personaje dentro, ver
+			// subir). Uno de fuera, aunque tenga codigo y contraseña, solo puede UNIRSE a alguien de dentro,
+			// y ese le tiene que aceptar en el juego. Vacio = mundo de antes de esto: lo abre cualquiera.
+			miembros: quienSoy ? [quienSoy] : [],
 			id,
 			pass: await huella(id, pass),   // nunca la contraseña en claro
 			token: 0,                       // contador de vallado: sube en CADA apertura
@@ -148,6 +155,14 @@ export class Mundo extends DurableObject {
 					&& cerrojo.pid && cerrojo.pid !== p.pid) {
 				return { ok: true, resultado: "comprobar", pid: cerrojo.pid };
 			}
+		}
+		// Nadie dentro (o el cerrojo es mio o ha caducado): lo va a abrir ESTE. Solo si es de la casa.
+		const miembros = Array.isArray(mundo.miembros) ? mundo.miembros : [];
+		if (miembros.length > 0 && !miembros.includes(quienSoy)) {
+			return fallo("no_miembro", "Este mundo solo lo puede abrir quien ya juega en él. Entra cuando "
+				+ "alguien de dentro lo tenga abierto: te tendrá que aceptar.");
+		}
+		if (cerrojo) {
 			// Mio (sesion anterior que no lo solto) o caducado: se recoge.
 			await this.ctx.storage.delete("cerrojo");
 		}
@@ -263,6 +278,13 @@ export class Mundo extends DurableObject {
 		}
 		mundo.trozos = nuevos;
 		mundo.bytes = save.byteLength;
+		// Los miembros vienen en la cabecera: son los jugadores con personaje en el save que se sube. Solo
+		// los manda quien tiene el cerrojo (y ese ya es de la casa), asi que se fian.
+		const m = cab.meta.miembros;
+		if (Array.isArray(m) && m.length > 0) {
+			mundo.miembros = m.map(String);
+		}
+		delete cab.meta.miembros;
 		mundo.meta = cab.meta;
 		mundo.sello_version = cab.sello_version;
 		mundo.sello_build = cab.sello_build;

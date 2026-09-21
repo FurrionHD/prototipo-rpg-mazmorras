@@ -634,8 +634,15 @@ func _meta_de(clave: String) -> Dictionary:
 	return _cab_de(datos)
 
 
+# Lleva tambien los MIEMBROS: las identidades con personaje en este save. La nube solo deja ABRIR el
+# mundo a ellos (y se la quita de la cabecera al guardarla); uno nuevo entra uniendose a alguien de
+# dentro, que le acepta en el juego (ver Net._pedir_permiso).
 func _cab_de(datos: SaveData) -> Dictionary:
+	var miembros: Array = []
+	for k in datos.jugadores:
+		miembros.append(String(k))
 	return {
+		"miembros": miembros,
 		"nombre": datos.nombre,
 		"cab_nivel": datos.cab_nivel,
 		"cab_piso": datos.cab_piso,

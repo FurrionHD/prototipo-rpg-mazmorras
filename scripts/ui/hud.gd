@@ -423,6 +423,52 @@ func mostrar_toast(texto: String) -> void:
 	_temporizar_toast(aviso)
 
 
+# UNA PREGUNTA DE SI O NO que no para el juego: "«Nacho» quiere entrar en el mundo: Aceptar / Rechazar".
+# Va en su propia capa por ENCIMA del combate (100) y de los menus: quien espera en la puerta no puede
+# quedarse colgado porque el que decide este en una pelea. Si nadie contesta en `plazo` segundos, cuenta
+# como NO. al_responder(si: bool) se llama una sola vez.
+func pedir_permiso(texto: String, al_responder: Callable, plazo: float = 60.0) -> void:
+	var capa := CanvasLayer.new()
+	capa.layer = 120
+	capa.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(capa)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	panel.offset_top = 70
+	panel.offset_left = -260
+	panel.offset_right = 260
+	capa.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	panel.add_child(vb)
+	var l := Label.new()
+	l.text = texto
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", 16)
+	vb.add_child(l)
+	var fila := HBoxContainer.new()
+	fila.alignment = BoxContainer.ALIGNMENT_CENTER
+	fila.add_theme_constant_override("separation", 12)
+	vb.add_child(fila)
+	var hecho: Array = [false]   # Array y no bool: la lambda captura por valor
+	var responder := func(si: bool):
+		if hecho[0]:
+			return
+		hecho[0] = true
+		capa.queue_free()
+		al_responder.call(si)
+	for op in [["Aceptar", true], ["Rechazar", false]]:
+		var b := Button.new()
+		b.text = op[0]
+		b.custom_minimum_size = Vector2(150, 44)
+		var si: bool = op[1]
+		b.pressed.connect(func(): responder.call(si))
+		fila.add_child(b)
+	await get_tree().create_timer(plazo, true).timeout
+	responder.call(false)
+
+
 # Un tween por cartel (igual que _temporizar_esquina): al reiniciar la cuenta de un toast repetido
 # hay que MATAR el anterior, o los dos tirarian del modulate a la vez.
 func _temporizar_toast(aviso: Control) -> void:

@@ -35,10 +35,12 @@ func _init(padre: Node, url_base: String) -> void:
 	url = url_base.strip_edges().trim_suffix("/")
 
 
-func crear(id: String, contrasena: String) -> Dictionary:
+# quien_soy = el primer MIEMBRO del mundo (el unico que puede abrirlo hasta que se suba un save con mas
+# jugadores dentro; ver "miembros" en servidor/nube).
+func crear(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 	if id.strip_edges() == "" or contrasena == "":
 		return _fallo("peticion_mala", "Hace falta un id de mundo y una contraseña.")
-	var r: Dictionary = await _peticion("crear", id, contrasena)
+	var r: Dictionary = await _peticion("crear", id, contrasena, {}, _json({"quien_soy": quien_soy}))
 	if r.get("ok", false):
 		_pass[id] = contrasena
 	return r
@@ -129,7 +131,7 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	h.use_threads = true   # subir 4 MB no puede congelar el juego
 	_padre.add_child(h)
 	var hs := PackedStringArray(["x-pass: " + contrasena.uri_encode()])
-	if op == "abrir":
+	if op == "abrir" or op == "crear":
 		hs.append("content-type: application/json")
 	for k in cabeceras:
 		hs.append("%s: %s" % [k, str(cabeceras[k]).uri_encode()])

@@ -83,7 +83,9 @@ const MAX_CONEXIONES := 32
 #     lo conoce y veria su propio cielo.
 # 19: las filas del roster llevan el aspecto de TODOS sin la foto (imagen_huella) y las fotos van por
 #     _subir_fotos / _set_fotos_roster. Un build del 18 no las conoce y veria a todos sin foto.
-const PROTOCOLO := 19
+# 20: RPC nuevo _esperando_permiso (alguien nuevo en un mundo compartido espera a que le acepten). Un
+#     build del 19 lo metia directo a crear personaje; añadir un @rpc ademas corre los ids de los demas.
+const PROTOCOLO := 20
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -896,12 +898,65 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 			estado_cambiado.emit("%s vuelve al mundo." % nombre_visible)
 			partida._tu_jugador.rpc_id(quien, partida.jd_a_dict(jd as JugadorData), Game.semilla_mundo)
 		else:
-			estado_cambiado.emit("%s entra por primera vez: está creando su personaje." % nombre_visible)
-			partida._crea_tu_personaje.rpc_id(quien, Game.player_nombre)
+			# ALGUIEN NUEVO: tener el codigo y la contraseña no basta, alguien de dentro le tiene que
+			# dejar pasar. Si no, cualquiera a quien le llegaran los dos datos se haria un sitio en el
+			# mundo sin que nadie se enterase.
+			estado_cambiado.emit("%s quiere entrar por primera vez." % nombre_visible)
+			_esperando_permiso.rpc_id(quien)
+			_pedir_permiso(quien, nombre_visible)
 		return
 
 	# LAN de siempre (cada uno con su ranura): dentro directo, como ha sido siempre.
 	_admitir(quien, color, metal, nombre, lugar, imagen, alpha, piezas)
+
+
+# ============================================================
+#  EL PERMISO PARA ENTRAR (mundo compartido, alguien que no tiene personaje aqui)
+#  Lo decide quien tiene el mundo abierto, con un "Aceptar / Rechazar" que no para su partida. Sin
+#  respuesta en PLAZO_PERMISO, es un no. La nube hace la otra mitad: un no miembro no puede ABRIR el
+#  mundo cuando no hay nadie dentro (ver servidor/nube, "miembros").
+#  FASE 3 (la sala sin jugador): aqui no habra HUD; la pregunta tendra que ir a los de dentro.
+# ------------------------------------------------------------
+const PLAZO_PERMISO := 60.0
+var _esperan_permiso: Dictionary = {}   # peer -> true: en la puerta esperando a que le contesten (host)
+
+func _pedir_permiso(quien: int, nombre: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud == null or not hud.has_method("pedir_permiso"):
+		await _echar(quien, "Ahora mismo no hay nadie que pueda dejarte entrar. Prueba en un rato.")
+		return
+	_esperan_permiso[quien] = true
+	hud.pedir_permiso("«%s» quiere entrar en el mundo por primera vez." % nombre,
+		func(si: bool): _permiso_respondido(quien, nombre, si), PLAZO_PERMISO)
+	# El plazo tambien va AQUI: si el HUD desaparece (cambio de escena) su pregunta muere sin contestar,
+	# y el de la puerta se quedaria esperando para siempre.
+	await get_tree().create_timer(PLAZO_PERMISO + 2.0).timeout
+	if _esperan_permiso.has(quien):
+		_permiso_respondido(quien, nombre, false)
+
+
+func _permiso_respondido(quien: int, nombre: String, si: bool) -> void:
+	if not _esperan_permiso.has(quien):
+		return   # ya contestado (o por el plazo)
+	_esperan_permiso.erase(quien)
+	if not _en_la_puerta.has(quien):
+		return   # se fue mientras tanto
+	if si:
+		estado_cambiado.emit("%s entra por primera vez: está creando su personaje." % nombre)
+		partida._crea_tu_personaje.rpc_id(quien, Game.player_nombre)
+	else:
+		estado_cambiado.emit("No se ha dejado entrar a %s." % nombre)
+		await _echar(quien, "No te han dejado entrar en este mundo.")
+
+
+# Corre en el CLIENTE: el host me ha oido y le esta preguntando a los de dentro. Cuenta como respuesta
+# para el plazo del saludo (si no, a los 5 s creeria que el anfitrion es de otro build).
+@rpc("any_peer", "call_remote", "reliable")
+func _esperando_permiso() -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	_respondio = true
+	estado_cambiado.emit("Es tu primera vez en este mundo: esperando a que alguien de dentro te deje entrar...")
 
 
 # Echar a alguien DICIENDO por que. El respiro es obligatorio: los RPC salen en el siguiente poll, y

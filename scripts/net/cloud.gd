@@ -131,7 +131,9 @@ func nuevo_id() -> String:
 
 
 func crear_mundo(id: String, contrasena: String) -> Dictionary:
-	return await almacen.crear(id, contrasena)
+	# Quien lo crea es su primer MIEMBRO: el unico que puede abrirlo estando cerrado hasta que suba un
+	# save con mas gente dentro.
+	return await almacen.crear(id, contrasena, Identidad.id)
 
 
 # ============================================================

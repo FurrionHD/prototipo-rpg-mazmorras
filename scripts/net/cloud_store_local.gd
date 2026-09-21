@@ -52,13 +52,16 @@ func _init() -> void:
 #  El id lo elige quien crea el mundo y tiene que ser LARGO Y ALEATORIO (ver Nube.nuevo_id): el
 #  Worker es publico, y un id adivinable es un mundo que cualquiera puede aporrear.
 # ------------------------------------------------------------
-func crear(id: String, contrasena: String) -> Dictionary:
+func crear(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 	if id.strip_edges() == "" or contrasena == "":
 		return _fallo("peticion_mala", "Hace falta un id de mundo y una contraseña.")
 	if FileAccess.file_exists(_ruta_mundo(id)):
 		return _fallo("ya_existe", "Ese mundo ya existe.")
 	var mundo := {
 		"id": id,
+		# Quien puede ABRIRLO estando cerrado: empieza con quien lo crea y se pone al dia al subir (los
+		# jugadores con personaje en el save). Vacio = mundo de antes de esto: lo abre cualquiera.
+		"miembros": [quien_soy] if quien_soy != "" else [],
 		"pass": _huella(id, contrasena),   # nunca la contraseña en claro, ni en el almacen falso
 		"token": 0,                        # contador de vallado: sube en CADA apertura
 		"creado": _ahora(),
@@ -121,6 +124,14 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 		# Tras un cuelgue de verdad ese proceso ya no existe y se recoge como siempre.
 		if es_mio and _vivo(cerrojo) and _abierto_en_otra_ventana(cerrojo):
 			return _fallo("ya_abierto", "Ya tienes este mundo abierto en otra ventana del juego.")
+	# Nadie dentro (o el cerrojo es mio o ha caducado): lo va a abrir ESTE. Solo si es de la casa; uno de
+	# fuera, aunque tenga codigo y contraseña, solo puede unirse a alguien de dentro que le acepte.
+	var miembros: Array = mundo.get("miembros", [])
+	if not miembros.is_empty() and not miembros.has(quien_soy):
+		return _fallo("no_miembro", "Este mundo solo lo puede abrir quien ya juega en él. Entra cuando "
+			+ "alguien de dentro lo tenga abierto: te tendrá que aceptar.")
+	if not cerrojo.is_empty():
+		var es_mio: bool = quien_soy != "" and String(cerrojo.get("identidad", "")) == quien_soy
 		if es_mio:
 			print("[nube] el cerrojo de %s ya era mio: lo recojo en vez de unirme a mi mismo" % id)
 		# Cerrojo MIO, o arrendamiento CADUCADO (el que lo tenia se cayo). Se le quita y se sigue. Su
@@ -231,7 +242,13 @@ func subir(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 	f.store_buffer(save)
 	f.close()
 
-	mundo["meta"] = meta
+	# Los miembros viajan en la cabecera (los jugadores con personaje en este save).
+	var cab: Dictionary = meta.duplicate()
+	var m = cab.get("miembros", [])
+	if m is Array and not (m as Array).is_empty():
+		mundo["miembros"] = m
+	cab.erase("miembros")
+	mundo["meta"] = cab
 	mundo["sello_version"] = sello_version
 	mundo["sello_build"] = sello_build
 	mundo["subido"] = _ahora()
