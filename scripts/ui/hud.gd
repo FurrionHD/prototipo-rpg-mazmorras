@@ -709,7 +709,7 @@ func _process(_delta: float) -> void:
 	# El [F] va AQUI y no repetido en el cartel de cada edificio: la tecla es siempre la misma, asi
 	# que ponerla nueve veces por el pueblo era ruido. Va la primera por ser la que mas se usa.
 	if not Tactil.activo:
-		_counts.text = "[F] Interactuar   [I] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
+		_counts.text = "[F] Interactuar   [I/B] Inventario   [C] Personaje   [Q] Curación óptima\n[F1] Ayuda   [F3] FPS   [Esc] Pausa"
 
 	# LA MOCHILA: el numero encima, y el nivel + el color del agua los pinta ella sola con el ratio
 	# de carga (ver cuadro_carga.gd y Game.color_carga).
