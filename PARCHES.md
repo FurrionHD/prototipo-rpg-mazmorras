@@ -2,6 +2,69 @@
 
 ---
 
+# v0.14.1
+
+## 🌍 Los mundos compartidos, en la nube
+
+**Tu hermano puede entrar aunque tú tengas el ordenador apagado**: el mundo se guarda en internet y
+cualquiera de los que juegan en él lo puede abrir. Solo uno a la vez: si ya lo tiene alguien, entras con
+él.
+
+**Un solo botón, «Entrar»**, en tus mundos y en los de otras personas. El juego decide solo: si alguien
+lo tiene abierto te une a él, y si no hay nadie lo abres tú. Para los mundos de otra persona hace falta
+haberlos añadido con su **código de mundo** (con la dirección sola, su dueño tiene que estar dentro).
+
+**Tu mundo de antes se sube solo** la primera vez que le das a «Entrar», con su mismo código.
+
+**Nadie se cuela**: tener el código y la contraseña ya no basta. Si llega alguien nuevo, a los que estáis
+dentro os sale «Aceptar / Rechazar», y un desconocido no puede abrir el mundo cuando no hay nadie.
+
+**La partida sigue aunque el que abrió se vaya**: el mundo lo lleva un proceso aparte, sin ventana, y
+mientras quede alguien dentro sigue abierto y guardándose. Se cierra solo cuando os vais todos. Si
+vuelves con él aún abierto, entras en el mismo.
+
+## ✨ Magia
+
+**Las magias pegan según una regla**: más frases, más daño, y cada forma (a uno, a varios, en área) y
+cada rareza en su sitio. Se ha reajustado el daño de todas.
+
+**Curas nuevas**: mientras recitas una cura de grupo se ve el círculo verde de hasta dónde llega (también
+en la pantalla de tus compañeros), y al soltarla sube una espiral verde y la vida se llena poco a poco.
+
+**El conjuro del mapa va al enemigo que tienes delante** al soltarlo, aunque te hayas girado mientras
+cantabas.
+
+**Estallido solar tiene frases nuevas**: ya no se confunde con Filo radiante.
+
+## 🏟️ La arena de pruebas
+
+**Se entra por el portón norte del pueblo**, encima del hogar, y es compartida: podéis entrar juntos.
+Todo lo que pase dentro se queda dentro: ni ganas ni pierdes nada.
+
+## 🔧 Arreglos
+
+**El inventario se abre también con la B** (la I sigue valiendo).
+
+**Grimorios**: se le pueden dar también a los del hogar, y se pregunta antes de gastarlo.
+
+**Menú de personaje**: las ranuras del equipo se quedan fijas arriba al bajar por la lista.
+
+**En los Encargos de tu compañero se ven las caras** de sus personajes.
+
+**Al recitar fuera de combate, el bocadillo dice el hechizo y la frase** por la que vas, en vez de
+quedarse en «¿Qué vas a recitar?».
+
+**Los enemigos lentos andan con el paso entero** en la pantalla de tu compañero, en vez de repetir el
+principio del paso.
+
+**Volver al pueblo jugando acompañado te devuelve al piso 1**: ya no te frenaba el paso como si siguieras
+en el piso del que venías.
+
+**Las frases del examen ya no salen repetidas** por una tilde, y la tienda y la peletería ya no se
+atascan con la rejilla vacía.
+
+---
+
 # v0.14.0
 
 ## 🖥️ La ventana es tuya
