@@ -126,6 +126,7 @@ func lider() -> PersonajeData:
 	if sin_jugador and party.is_empty():
 		if _lider_vacio == null:
 			_lider_vacio = PersonajeData.new()
+			_lider_vacio.nombre = "la sala"   # lo que leen los clientes al presentarse ("Conectado con...")
 		return _lider_vacio
 	if party.is_empty():
 		var pj: PersonajeData = _original_crudo()

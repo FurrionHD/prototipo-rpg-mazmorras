@@ -96,7 +96,7 @@ func arrancar(args: PackedStringArray) -> void:
 	Game.sala_dueno = lanza
 
 	var contrasena := _leer_pedido()
-	var r: Dictionary = await Mundos.abrir(clave, contrasena)
+	var r: Dictionary = await Mundos.abrir(clave, contrasena, OS.get_cmdline_user_args().has("forzar_build"))
 	if not r.get("ok", false):
 		_acabar({"estado": "error", "error": String(r.get("error", "")),
 			"mensaje": String(r.get("mensaje", "No se pudo abrir el mundo."))})
@@ -120,6 +120,9 @@ func arrancar(args: PackedStringArray) -> void:
 			if not Mundos.cargar(clave):
 				_acabar({"estado": "error", "mensaje": "No se pudo cargar el mundo."})
 				return
+	# Mi LUGAR no es ninguno de los del juego: asi ningun "¿estoy yo en ese piso?" del anfitrion me cuenta,
+	# y a los clientes no les sale mi cuerpo (me presento con este lugar y nadie esta nunca en el).
+	Net._mi_lugar = ARG
 	if Net.hostear(contrasena, puerto) != OK:
 		await Mundos.cerrar_y_subir()
 		_acabar({"estado": "error", "mensaje": "No se pudo abrir el puerto %d (¿otro juego abierto?)." % puerto})

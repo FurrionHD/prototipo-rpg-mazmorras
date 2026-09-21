@@ -85,6 +85,7 @@ const MAX_CONEXIONES := 32
 #     _subir_fotos / _set_fotos_roster. Un build del 18 no las conoce y veria a todos sin foto.
 # 20: RPC nuevo _esperando_permiso (alguien nuevo en un mundo compartido espera a que le acepten). Un
 #     build del 19 lo metia directo a crear personaje; añadir un @rpc ademas corre los ids de los demas.
+#     (Fase 3, mismo dia y sin repartir aun: _te_piden_permiso / _respuesta_permiso para la sala.)
 const PROTOCOLO := 20
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
@@ -704,18 +705,22 @@ func cupo_party() -> int:
 	if n == 2:
 		return 2
 	if n == 3:
+		# El acompañante extra es del host... si juega. Con la SALA (fase 3) el host no es nadie y con
+		# tres humanos va uno cada uno: los clientes nunca son es_host, asi que les sale 1 solos.
 		return 2 if es_host else 1
 	return 1
 
 
-# Solo HOST: recuenta los humanos, lo difunde a los clientes y reajusta su propio equipo.
+# Solo HOST: recuenta los humanos, lo difunde a los clientes y reajusta su propio equipo. LA SALA no se
+# cuenta a si misma (no es ningun humano) ni tiene equipo que ajustar.
 func _sync_humanos() -> void:
-	_num_humanos = 1
+	_num_humanos = 0 if soy_sala else 1
 	for pid in _peers:
 		if not es_trabajador(pid):
 			_num_humanos += 1
 	_set_num_humanos.rpc(_num_humanos)
-	_aplicar_cupo()
+	if not soy_sala:
+		_aplicar_cupo()
 	hogar._difundir_hogar()   # alguien entra o se va: la formacion se reconcilia y viaja ya
 
 
@@ -878,7 +883,7 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 	# EL TOPE DE HUMANOS. Antes lo ponia ENet de rebote (create_server con MAX_JUGADORES); ahora ENet
 	# deja sitio a los trabajadores y la cuenta se hace aqui: yo, los que ya estan y los que estan en
 	# la puerta creando personaje.
-	var humanos := 1 + _en_la_puerta.size()
+	var humanos := (0 if soy_sala else 1) + _en_la_puerta.size()   # la sala no cuenta: no es nadie
 	for pid in _peers:
 		if not es_trabajador(pid) and not _en_la_puerta.has(pid):
 			humanos += 1
@@ -915,6 +920,12 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 			# ALGUIEN NUEVO: tener el codigo y la contraseña no basta, alguien de dentro le tiene que
 			# dejar pasar. Si no, cualquiera a quien le llegaran los dos datos se haria un sitio en el
 			# mundo sin que nadie se enterase.
+			# Salvo QUIEN LANZO LA SALA, que es su mundo: en uno recien creado todavia no tiene personaje
+			# (la sala lo estrena vacio) y no hay nadie dentro a quien preguntarle.
+			if soy_sala and identidad == Game.sala_dueno:
+				estado_cambiado.emit("%s estrena el mundo: está creando su personaje." % nombre_visible)
+				partida._crea_tu_personaje.rpc_id(quien, nombre_para_invitados())
+				return
 			estado_cambiado.emit("%s quiere entrar por primera vez." % nombre_visible)
 			_esperando_permiso.rpc_id(quien)
 			_pedir_permiso(quien, nombre_visible)
@@ -935,13 +946,23 @@ const PLAZO_PERMISO := 60.0
 var _esperan_permiso: Dictionary = {}   # peer -> true: en la puerta esperando a que le contesten (host)
 
 func _pedir_permiso(quien: int, nombre: String) -> void:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud == null or not hud.has_method("pedir_permiso"):
-		await _echar(quien, "Ahora mismo no hay nadie que pueda dejarte entrar. Prueba en un rato.")
-		return
-	_esperan_permiso[quien] = true
-	hud.pedir_permiso("«%s» quiere entrar en el mundo por primera vez." % nombre,
-		func(si: bool): _permiso_respondido(quien, nombre, si), PLAZO_PERMISO)
+	var texto: String = "«%s» quiere entrar en el mundo por primera vez." % nombre
+	if soy_sala:
+		# LA SALA no tiene pantalla: se lo pregunta a los que estan DENTRO, y el primero que conteste decide.
+		var dentro: Array = humanos_dentro()
+		if dentro.is_empty():
+			await _echar(quien, "Ahora mismo no hay nadie dentro que pueda dejarte entrar. Prueba cuando haya alguien.")
+			return
+		_esperan_permiso[quien] = true
+		for p in dentro:
+			_te_piden_permiso.rpc_id(p, quien, texto)
+	else:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud == null or not hud.has_method("pedir_permiso"):
+			await _echar(quien, "Ahora mismo no hay nadie que pueda dejarte entrar. Prueba en un rato.")
+			return
+		_esperan_permiso[quien] = true
+		hud.pedir_permiso(texto, func(si: bool): _permiso_respondido(quien, nombre, si), PLAZO_PERMISO)
 	# El plazo tambien va AQUI: si el HUD desaparece (cambio de escena) su pregunta muere sin contestar,
 	# y el de la puerta se quedaria esperando para siempre.
 	await get_tree().create_timer(PLAZO_PERMISO + 2.0).timeout
@@ -957,10 +978,51 @@ func _permiso_respondido(quien: int, nombre: String, si: bool) -> void:
 		return   # se fue mientras tanto
 	if si:
 		estado_cambiado.emit("%s entra por primera vez: está creando su personaje." % nombre)
-		partida._crea_tu_personaje.rpc_id(quien, Game.player_nombre)
+		partida._crea_tu_personaje.rpc_id(quien, nombre_para_invitados())
 	else:
 		estado_cambiado.emit("No se ha dejado entrar a %s." % nombre)
 		await _echar(quien, "No te han dejado entrar en este mundo.")
+
+
+# Los HUMANOS que estan dentro de verdad (admitidos: ni trabajadores ni los que esperan en la puerta).
+func humanos_dentro() -> Array:
+	var out: Array = []
+	for pid in _peers:
+		if not es_trabajador(pid) and not _en_la_puerta.has(pid) and pid != 1:
+			out.append(pid)
+	return out
+
+
+# Como se llama el mundo para el que llega ("TU PERSONAJE EN EL MUNDO DE ..."). Con un host que juega,
+# el nombre de su personaje, como siempre; la SALA no es nadie y dice el de quien la lanzo.
+func nombre_para_invitados() -> String:
+	if not soy_sala:
+		return Game.player_nombre
+	var jd = Game.jugadores_mundo.get(Game.sala_dueno)
+	if jd is JugadorData and not (jd as JugadorData).nombre_visible.is_empty():
+		return (jd as JugadorData).nombre_visible
+	return String(Mundos.entrada(Mundos.abierto).get("nombre", "este mundo"))
+
+
+# Corre en un CLIENTE que esta dentro: la sala le pregunta si deja entrar a alguien nuevo.
+@rpc("authority", "call_remote", "reliable")
+func _te_piden_permiso(nuevo: int, texto: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud == null or not hud.has_method("pedir_permiso"):
+		return   # en un menu sin HUD: que conteste otro, o vence el plazo
+	hud.pedir_permiso(texto, func(si: bool): _respuesta_permiso.rpc_id(1, nuevo, si), PLAZO_PERMISO)
+
+
+# Corre en LA SALA: la contestacion de uno de dentro. Vale la primera.
+@rpc("any_peer", "call_remote", "reliable")
+func _respuesta_permiso(nuevo: int, si: bool) -> void:
+	if not es_host:
+		return
+	var de: int = multiplayer.get_remote_sender_id()
+	if not humanos_dentro().has(de):
+		return   # solo decide alguien que ya esta dentro
+	var nombre: String = String(_en_la_puerta.get(nuevo, {}).get("nombre", "alguien"))
+	_permiso_respondido(nuevo, nombre, si)
 
 
 # Corre en el CLIENTE: el host me ha oido y le esta preguntando a los de dentro. Cuenta como respuesta
@@ -1139,8 +1201,9 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 		_crear_avatar_nodo(peer_id)
 	if avisar:
 		# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
-		# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo.
-		jugadores.anunciar_grupo()
+		# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo. La SALA no tiene.
+		if not soy_sala:
+			jugadores.anunciar_grupo()
 		# El HOST recuenta y difunde el numero de humanos (los clientes reajustan al recibirlo).
 		if es_host:
 			_sync_humanos()

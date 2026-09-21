@@ -109,8 +109,9 @@ func num_jugador(identidad: String) -> int:
 func reconciliar() -> void:
 	if not (Net.activo and Net.es_host):
 		return
-	# Quienes estan conectados, el host el primero.
-	var conectados: Array = [Identidad.id]
+	# Quienes estan conectados, el host el primero... si juega: la SALA no es nadie y no ocupa numero, asi
+	# que el P1 es el primero que llega.
+	var conectados: Array = [] if Net.soy_sala else [Identidad.id]
 	for peer in Net._identidades:
 		var ident: String = String(Net._identidades[peer])
 		if not ident.is_empty() and not conectados.has(ident):
