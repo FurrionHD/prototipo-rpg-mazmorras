@@ -12,10 +12,10 @@ magnitud = 0.2
 [resource]
 script = ExtResource("1")
 nombre = "Vorágine de sombra"
-frases = Array[String](["Que se lo trague todo", "Y que no devuelva nada"])
+frases = Array[String](["Que se lo trague todo", "Y que no devuelva nada", "Ni el nombre de lo que fue"])
 rareza = 3
 coste_mana = 13
-dano_base = 32.0
+dano_base = 39.7
 elemento = 5
 hits = 3
 alcance = 0

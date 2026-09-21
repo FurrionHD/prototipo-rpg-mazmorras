@@ -67,6 +67,13 @@ enum Alcance { OBJETIVO, ADYACENTES, TODOS }
 # RAW del hechizo: se escala con la Magia del lanzador (magia_factor) y con el
 # magic_amp del arma (bastones/varitas, futuro KAN-95). PROVISIONAL -> Excel.
 # OJO: este NO es el numero que hay que enseñar en pantalla; para eso esta dano_mostrado().
+#
+# LA REGLA DE DAÑO (21/09/2026, decision del usuario): lo que pega al objetivo en un 1 contra 1 es
+#     frases × UNIDAD DE SU FORMA × (1 + 0,05 × rareza)
+# y la unidad es la comun de 1 frase con la misma forma: a los lados = Brasa, a todos = Rocio,
+# rebotes = Descarga, a uno = Pulso menor. Los dispersos (Andanada, Tormenta) son excepcion. La
+# comprueba tools/prueba_magias_regla: si metes una magia nueva, que salga de ahi y no a ojo.
+# En las CURACIONES es lo que cura (ver StatsMath.resolve_heal), con la misma regla sobre el Vendaje.
 @export var dano_base: float = 10.0
 
 # CURACION: fraccion de la VIDA MAXIMA del que la recibe que se cura, ademas de la parte que sale
@@ -225,6 +232,15 @@ func golpes() -> int:
 
 func es_multigolpe() -> bool:
 	return golpes() > 1
+
+
+# ¿Los golpes que SOBRAN saltan a otro enemigo? En los de un solo objetivo con varios golpes
+# (Vorágine, Venablo, Pulso arcano): si el objetivo cae al primero, los demas no se tiran a la basura,
+# van a otro vivo (ver combat_magia._saltar_sobrantes). Es REGLA y no un campo: un hechizo de varios
+# golpes a uno solo que los pierde al matar era justo el que pegaba menos de su categoria.
+# Los de area ya reparten por su cuenta y los dispersos eligen victima en cada bola.
+func sobrantes_saltan() -> bool:
+	return tipo == TipoEfecto.ATAQUE and es_multigolpe() and not dispersa and alcance == Alcance.OBJETIVO
 
 
 # Nº de REBOTES real (nunca negativo).
@@ -437,6 +453,8 @@ func descripcion_mecanica(ref: float = 0.0) -> String:
 	var reb: String = _texto_rebotes(ref)
 	if reb != "":
 		lineas.append(reb)
+	if sobrantes_saltan():
+		lineas.append("Si el objetivo cae antes, los golpes que quedan saltan a otros enemigos.")
 	var est: String = _texto_estados("a cada enemigo alcanzado" if es_multiobjetivo() else "al objetivo")
 	if est != "":
 		lineas.append(est)

@@ -456,6 +456,12 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# CADA rebote, asi que la cadena nunca cae sobre un cadaver (ni sobre el que acaba de
 		# tumbar el rebote anterior).
 		var res_reb: Array = []
+		# LOS GOLPES QUE SOBRAN (Vorágine, Venablo, Pulso arcano): si el objetivo cae antes de
+		# llevarse todos los suyos, el resto salta a otros enemigos en vez de perderse.
+		if spell.sobrantes_saltan() and not res_area.is_empty():
+			for r in _saltar_sobrantes(spell, res_area[0], foco):
+				res_reb.append(r)
+				tocados.append(r.c)
 		# De donde SALE cada arco. El primero de tu mano, y a partir de ahi cada salto desde la
 		# victima anterior: es puro dibujo (la mecanica sigue eligiendo al azar, y puede repetir
 		# objetivo), pero es lo que hace que cinco rebotes se lean como UNA cadena y no como cinco
@@ -727,7 +733,7 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 # Devuelve {c, dano, mult, golpes, trail, estados}.
 func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float,
 		escala: float = 1.0, tira_estados: bool = true, desde: Combatant = null,
-		rebote: bool = false, tanda_base: int = 0) -> Dictionary:
+		rebote: bool = false, tanda_base: int = 0, desde_golpe: int = 0) -> Dictionary:
 	var n: int = spell.golpes()
 	var frac: float = escala / float(n)
 	var peso: float = _pantalla.efectos._peso_hechizo(spell, escala)
@@ -741,9 +747,11 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 	var aplicados: Array = []   # estados que ENTRAN, para que el log los pliegue en una linea
 	var ultimo_mult: float = 1.0
 	var hubo_crit: bool = false
-	for i in n:
+	# 'desde_golpe' > 0 = esta llamada recoge los golpes que SOBRARON de otra (ver _saltar_sobrantes):
+	# siguen numerandose donde se quedaron, asi que su elemento y su frac son los que les tocaban.
+	for i in range(desde_golpe, n):
 		if not objetivo.is_alive():
-			break   # ya ha caido: los golpes que quedaban se pierden
+			break   # ya ha caido: los que quedan los recoge _saltar_sobrantes (o se pierden)
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var elem: int = spell.elemento_de_golpe(i, n)
 		var res: Dictionary = StatsMath.resolve_spell(_pantalla._player, objetivo, spell, elem, frac)
@@ -783,6 +791,33 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
 	}
+
+
+# LOS GOLPES QUE SOBRAN de un hechizo de un solo objetivo. 'primero' es lo que devolvio el golpe al
+# objetivo principal; si se llevo menos golpes de los que tiene el hechizo es que cayo antes, y los que
+# faltan saltan a un vivo al azar -- y si ese tambien cae, al siguiente. Cada uno sigue siendo el golpe
+# que era (su elemento, su frac, sus estados): solo cambia a quien le cae.
+#
+# Se pintan como un ARCO que sale del que acaba de caer: es lo que hace que se lea como "lo que le
+# sobraba se ha ido a otro" y no como un segundo lanzamiento.
+func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float) -> Array:
+	var out: Array = []
+	var n: int = spell.golpes()
+	var hechos: int = int(primero.get("golpes", n))
+	var anterior: Combatant = primero.get("c") as Combatant
+	while hechos < n:
+		var vivos: Array[Combatant] = _pantalla._vivos()
+		if vivos.is_empty():
+			break   # no queda nadie: se pierden, como siempre
+		var victima: Combatant = vivos.pick_random()
+		var r: Dictionary = _resolver_golpes_hechizo(spell, victima, foco, spell.dano_objetivo,
+			true, anterior, true, 0, hechos)
+		if int(r.golpes) <= 0:
+			break   # salvaguarda: un vivo recien elegido siempre se lleva al menos uno
+		hechos += int(r.golpes)
+		out.append(r)
+		anterior = victima
+	return out
 
 
 # DISPERSION (Tormenta, Andanada ignea): cada uno de los 'hits' es una BOLA que cae en un vivo
@@ -882,6 +917,11 @@ func _log_hechizo(spell: SpellData, res_area: Array, res_reb: Array, foco: float
 		if spell.es_multigolpe():
 			_pantalla._set_log("🌩 %s descarga %d golpes sobre %s: %s" % [
 				spell.nombre, int(r0.golpes), _pantalla._etq(r0.c), " · ".join(r0.trail)])
+			if not res_reb.is_empty():
+				var saltos: Array = []
+				for r in res_reb:
+					saltos.append("%s (%.1f%s)" % [_pantalla._etq(r.c), float(r.dano), _mult_sufijo(float(r.mult))])
+				_pantalla._set_log("↪ Los golpes que sobraban saltan a %s" % ", ".join(saltos))
 			_pantalla._set_log("… %.2f de daño en total.%s" % [total, foco_txt])
 		else:
 			# El 💥 del critico: en los multigolpe ya iba dentro del rastro, pero un hechizo de UN
