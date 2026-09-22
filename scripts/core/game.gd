@@ -10818,7 +10818,9 @@ func _tirar_devolucion(mat: MaterialData, gasto: Dictionary, necesita: int) -> v
 # mochila de otra, asi que aqui la tirada importa mas que en ningun sitio.
 const MOCHILA_BASE := "res://resources/backpacks/mochila_basica.tres"
 # Coste, en unidades (mismas que el resto del crafteo: puro 4 / intacto 3 / normal 2 / dañado 1).
-const MOCHILA_COSTE := {"hebillas": 3, "correa": 3, "cuero": 6}
+# Las hebillas eran 3 y cada juego costaba 3 lingotes; al bajar la hebilla a 1 lingote se suben a
+# 6 para que la mochila siga pidiendo metal de verdad (6 lingotes, algo menos que los 9 de antes).
+const MOCHILA_COSTE := {"hebillas": 6, "correa": 3, "cuero": 6}
 
 func mochila_base() -> BackpackData:
 	return load(MOCHILA_BASE) as BackpackData
@@ -10930,12 +10932,12 @@ const HERRAMIENTA_BASE := {
 	ToolData.Tipo.CUCHILLO: "res://resources/tools/cuchillo_basico.tres",
 }
 # En unidades (puro 4 / intacto 3 / normal 2 / dañado 1), como el resto del crafteo. 6 en total
-# frente a las 12 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
+# frente a las 15 de la mochila: es lo primero que se craftea y no puede pedir una expedicion entera.
 #
-# El FAROLILLO cuesta un pelin menos de metal (3) porque su segunda pieza son HEBILLAS, que ya
-# salen de fundir metal: pedirle 4 seria cobrarle el metal dos veces.
+# El FAROLILLO lleva HEBILLAS en vez de tablon. Cuando cada hebilla costaba 3 lingotes se le bajaba
+# el metal a 3 para no cobrarselo dos veces; con la hebilla a 1 lingote vuelve al 4 + 2 de las demas.
 const HERRAMIENTA_COSTE := {"metal": 4, "tablon": 2}
-const LAMPARA_COSTE := {"metal": 3, "tablon": 2}
+const LAMPARA_COSTE := {"metal": 4, "tablon": 2}
 
 # El coste de ESTE tipo de herramienta. La clave sigue llamandose "tablon" para no tocar a los
 # ocho sitios que la leen; lo que cambia es QUE material es (ver complemento_de_herramienta).

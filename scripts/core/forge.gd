@@ -34,9 +34,11 @@ const MADERA_POR_TABLON := 3     # tres maderas aserradas dan un tablon (mismo t
 # carbon es el destino BARATO de la madera; lo caro es el tablon.
 const MADERA_POR_CARBON := 2
 const CUERO_POR_CURTIDO := 2
-# Piezas de la MOCHILA. Las hebillas salen caras en metal (3 lingotes por juego): son un puñado
-# de herrajes pequeños, pero hay que hacerlos de uno en uno.
-const LINGOTE_POR_HEBILLAS := 3
+# Piezas de la MOCHILA (y de la armadura de cuero y el farolillo). Un lingote da un juego de
+# hebillas, como la chapa: a 3 lingotes la armadura de cuero y sus mejoras se disparaban de metal
+# (pedian las mismas unidades que chapa pedia la de metal). Lo caro de la mochila va en CUANTAS
+# hebillas pide (MOCHILA_COSTE), no en lo que cuesta cada una.
+const LINGOTE_POR_HEBILLAS := 1
 const CUERO_POR_CORREA := 2
 
 # El ACOMPAÑANTE del metal tiene que ser de SU altura: no tiene ningun sentido coser una
