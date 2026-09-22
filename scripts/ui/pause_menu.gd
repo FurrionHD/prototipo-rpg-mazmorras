@@ -21,6 +21,8 @@ var _aviso: Label = null
 # dos. Asi los ajustes no heredan el ancho ni el alto de la lista de botones.
 var _menu: Control = null
 var _ajustes: Control = null
+var _fila_codigo: HBoxContainer = null
+var _txt_codigo: Label = null
 
 
 func _ready() -> void:
@@ -109,6 +111,23 @@ func _ready() -> void:
 	n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
 	vb.add_child(n)
 
+	# EL CODIGO DEL MUNDO, en pequeño y con un boton de copiar: para pasarselo a un compañero sin
+	# tener que salir al menu de mundos. Solo sale si hay codigo (ver _codigo_mundo).
+	_fila_codigo = HBoxContainer.new()
+	_fila_codigo.alignment = BoxContainer.ALIGNMENT_CENTER
+	_fila_codigo.add_theme_constant_override("separation", 8)
+	vb.add_child(_fila_codigo)
+	_txt_codigo = Label.new()
+	_txt_codigo.add_theme_font_size_override("font_size", 11)
+	_txt_codigo.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	_fila_codigo.add_child(_txt_codigo)
+	var copiar := Button.new()
+	copiar.text = "Copiar"
+	copiar.add_theme_font_size_override("font_size", 11)
+	copiar.pressed.connect(_copiar_codigo)
+	_fila_codigo.add_child(copiar)
+	_pintar_codigo()
+
 	# Los ajustes se montan ya, no la primera vez que se abren: asi el panel existe desde el
 	# principio y no hay que preguntarse si esta creado cada vez que se pulsa el boton.
 	_ajustes = AJUSTES.new()
@@ -172,6 +191,7 @@ func _set_open(abierto: bool) -> void:
 	Game.fijar_modal(Game.Modal.SISTEMA, self, abierto)
 	if abierto:
 		_aviso.text = ""
+		_pintar_codigo()
 	# Cerrando con los ajustes delante (el engranaje del HUD, por ejemplo): se cierran ellos primero
 	# -- que es lo que guarda lo tocado -- y la pausa vuelve a empezar por su lista de botones.
 	elif _ajustes != null and _ajustes.visible:
@@ -180,6 +200,34 @@ func _set_open(abierto: bool) -> void:
 
 func _cerrar() -> void:
 	_set_open(false)
+
+
+# El codigo (id_nube) del mundo en el que estoy. Mundos.abierto lo tiene quien abre el mundo en su
+# disco; con la SALA todos entran como clientes y lo que queda puesto es Mundos.uniendome. Un mundo
+# añadido solo por IP no tiene codigo, y a solas tampoco: "" y la fila no sale.
+# Se guarda la primera vez que sale: Mundos.entrada tambien inspecciona el fichero del mundo, y no
+# hace falta repetirlo cada vez que se abre la pausa (el codigo no cambia en toda la sesion).
+var _codigo: String = ""
+
+func _codigo_mundo() -> String:
+	if _codigo != "":
+		return _codigo
+	var clave: String = Mundos.abierto if Mundos.abierto != "" else Mundos.uniendome
+	if clave == "":
+		return ""
+	_codigo = String(Mundos.entrada(clave).get("id_nube", ""))
+	return _codigo
+
+
+func _pintar_codigo() -> void:
+	var cod: String = _codigo_mundo()
+	_fila_codigo.visible = cod != ""
+	_txt_codigo.text = "Código del mundo: %s" % cod
+
+
+func _copiar_codigo() -> void:
+	DisplayServer.clipboard_set(_codigo_mundo())
+	_aviso.text = "Código copiado."
 
 
 func _abrir_ajustes() -> void:
