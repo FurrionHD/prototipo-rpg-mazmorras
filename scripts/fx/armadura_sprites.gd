@@ -328,7 +328,16 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 	# en Y baja a dos, que es lo que mide una ranura.
 	var ojos: Vector3 = centro + Vector3(0.0, R * 0.62, -R * 0.16)
 	var solo := {"solo_sobre": [Tono.MAT, Tono.MAT_L, Tono.MAT_S]}
-	PoseJugador.poner(piezas, esq, ojos, Vector3(R * 0.58, 1.3, 1.0), Tono.OSCURO, solo)
+	# EN FILA DE BOLITAS, por lo mismo que la cresta: una elipse ancha girada 45 grados sale como la
+	# caja que la envuelve y la ranura era una MANCHA negra en mitad de la cara. Y la fila se curva
+	# hacia atras por los lados, siguiendo la cara: en diagonal asi se lee como una tira que la rodea.
+	var medio: float = R * 0.58 - 1.0   # menos el radio de la bolita: el ancho que tenia la elipse
+	var pasos_r: int = int(ceil(2.0 * medio / 0.8))
+	for i in pasos_r + 1:
+		var x: float = lerpf(-medio, medio, float(i) / float(pasos_r))
+		var y: float = R * 0.62 * sqrt(maxf(0.0, 1.0 - (x / r.x) * (x / r.x)))
+		PoseJugador.poner(piezas, esq, centro + Vector3(x, y, -R * 0.16),
+			Vector3(1.0, 1.0, 1.0), Tono.OSCURO, solo)
 	# Las placas la llevan EN CRUZ: la barra vertical baja por la nariz. Es el detalle que separa de un
 	# vistazo el yelmo caro del barato, y cuesta una elipse.
 	if tipo == "placas":
