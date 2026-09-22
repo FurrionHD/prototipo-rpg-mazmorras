@@ -310,13 +310,53 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 	# El alto de cada bolita baja hacia las puntas como bajaba el de la elipse, para que no acabe en
 	# muñon cuadrado.
 	if tipo == "placas":
-		var largo: float = r.y * 0.80 - 1.5   # menos el radio de la bolita: mismo largo que la elipse
-		var pasos: int = int(ceil(2.0 * largo / 1.0))
+		# Y SOBRESALE POR ENCIMA DEL CASCO. Antes las bolitas iban a una altura FIJA (r.z * 0,62), o sea
+		# clavadas DENTRO de la cupula: de perfil no se veia una quilla, se veia una raya dorada pintada
+		# cruzando la bola, como una cinta del pelo. Ahora cada bolita se apoya en la cupula -- su altura
+		# sale de la propia elipse en ese punto -- y ASOMA por arriba, que es lo que rompe la silueta
+		# redonda y la lee como cresta. De frente sigue siendo una raya fina: lo que sobresale es 1 pixel
+		# de ancho, y el bulto se ve de lado, que es donde tiene que verse.
+		# Y VA POR EL CONTORNO, de la frente a la nuca, SOBRESALIENDO de el.
+		#
+		# Esto se midio en vez de mirarlo a ojo, porque a ojo no se acertaba: la quilla iba apoyada en la
+		# cupula por ARRIBA (la z mas alta), y en esta camara el punto mas alto de la SILUETA no es la
+		# coronilla sino la nuca -- la pantalla sube con (z·sin - y·cos), no con la z --, asi que esa
+		# quilla nacia 3 unidades POR DENTRO del borde y asomaba 0,3 pixeles: se leia como una cinta
+		# dorada, o como una mata de pelo rubio.
+		#
+		# Ahora se recorre el ARCO de la cabeza en el plano Y-Z (de la frente, arriba, a la nuca) y cada
+		# bolita sale hacia AFUERA por la normal de esa elipse, en columna desde la chapa hasta la punta.
+		# Asi rompe la silueta redonda en todas las direcciones, que es lo unico que la lee como cresta.
+		# De frente sigue siendo una raya fina, porque lo que sobresale mide un pixel de ancho.
+		# 7,6 y no 4: la escala del muñeco es 0,42 pixeles por unidad (la cabeza entera mide 12 px de
+		# ancho), asi que una quilla de 4 asomaba pixel y medio y no se leia. Con 9 la cresta se salia
+		# del lienzo del horno (aviso "TOCAN EL BORDE"): 7,6 son 3 px de cresta sobre un casco de 12 y
+		# caben, que subir PoseJugador.LIENZO_FACTOR por esto engordaria el PNG de TODAS las capas.
+		const CRESTA_ALTO := 7.6     # lo que asoma por encima del casco, en el pico
+		# CUANTO SE HUNDE EN LA CHAPA. No es un detalle: la primera bolita iba 1 unidad por dentro, que
+		# a esta escala son 0,4 pixeles -- o sea NADA --, y la quilla salia como una isla suelta encima
+		# del casco (aviso del horno "MAS TROZOS de los declarados"). Con 3 se solapa un pixel entero.
+		const CRESTA_DENTRO := 3.0
+		# Y NO BAJA HASTA LAS OREJAS: arranca sobre la frente y muere en la coronilla de atras. Bajandola
+		# mas, de perfil el oro tapaba la mitad del casco y lo que se leia era una MATA DE PELO rubio;
+		# dejando ver la chapa por debajo, lo que se lee es una quilla apoyada encima.
+		const CRESTA_DE := 0.34      # donde arranca en el arco (0 = la frente a media altura)
+		const CRESTA_A := 0.80       # y donde acaba (1 = la nuca a media altura)
+		var pasos: int = int(ceil((CRESTA_A - CRESTA_DE) * PI * r.y / 0.8))
 		for i in pasos + 1:
-			var t: float = lerpf(-1.0, 1.0, float(i) / float(pasos))
-			var alto: float = 2.2 * sqrt(maxf(0.0, 1.0 - t * t * 0.75))
-			PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -1.0 + t * largo, r.z * 0.62),
-				Vector3(1.5, 1.5, alto), Tono.ACENTO)
+			var t: float = float(i) / float(pasos)
+			var fi: float = lerpf(CRESTA_DE, CRESTA_A, t) * PI
+			var cy: float = cos(fi)
+			var sz: float = sin(fi)
+			var base := Vector2(r.y * cy, r.z * sz)                  # el borde del casco ahi
+			var fuera := Vector2(cy / r.y, sz / r.z).normalized()    # y hacia donde crece la quilla
+			# Mas alta por el centro y bajando a las puntas: una cresta acaba en pico, no en muñon.
+			var alto: float = CRESTA_ALTO * sqrt(maxf(0.0, 1.0 - pow(2.0 * t - 1.0, 2.0) * 0.85))
+			var subes: int = int(ceil((alto + CRESTA_DENTRO) / 0.7))
+			for j in subes + 1:
+				var p: Vector2 = base + fuera * lerpf(-CRESTA_DENTRO, alto, float(j) / float(subes))
+				PoseJugador.poner(piezas, esq, centro + Vector3(0.0, p.x, p.y),
+					Vector3(1.2, 1.2, 1.0), Tono.ACENTO)
 
 	# LA RANURA. Solo donde se ve la cara: en la nuca (dirs 3/4/5) una ranura no es una ranura, es una
 	# raya cruzando el cogote. Mismo corte que hace CaraSprites, y tiene que ser el mismo.
