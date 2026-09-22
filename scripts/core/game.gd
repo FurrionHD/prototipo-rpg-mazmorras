@@ -7001,7 +7001,8 @@ func tick_heal(delta: float) -> void:
 		# El chip de "poción en el cuerpo" lleva la cifra que queda, y esa baja sola: hay que rehacer
 		# la cache mientras gotea. Se refresca solo cuando cambia el ENTERO que se ve, no en cada
 		# frame — el chip pone "✚27" y no hay nada que repintar hasta que sea "✚26".
-		if roundi(p.heal_left) != roundi(antes):
+		# Y SIEMPRE al vaciarse: con 0.4 pendientes la cifra no cambia (0 -> 0) y el "✚0" se quedaba.
+		if roundi(p.heal_left) != roundi(antes) or p.heal_left <= 0.0:
 			refrescar_cache_estados(p)
 
 # ============================================================
@@ -7252,14 +7253,16 @@ func tick_mana_pocion(delta: float) -> void:
 		var antes: float = p.mana_heal_left
 		p.mana_heal_left -= maxf(0.0, sube)
 		p.mana_heal_turnos *= (p.mana_heal_left / antes) if antes > 0.0 else 0.0
-		# Mismo motivo que en tick_heal: el chip lleva la cifra que queda y se rehace solo cuando
-		# cambia el entero que se ve.
-		if roundi(p.mana_heal_left) != roundi(antes):
-			refrescar_cache_estados(p)
 		if p.current_mp >= maxmp - 0.01 or p.mana_heal_left <= 0.01:
 			p.mana_heal_left = 0.0
 			p.mana_heal_rate = 0.0
 			p.mana_heal_turnos = 0.0
+		# Mismo motivo que en tick_heal: el chip lleva la cifra que queda y se rehace solo cuando
+		# cambia el entero que se ve. Y SIEMPRE al vaciarse: va DESPUES de poner a cero, porque antes
+		# iba delante y con el maná ya lleno (no sube nada, la cifra no cambia) la cola se vaciaba sin
+		# repintar, y el chip "🔷0" se quedaba colgado para siempre.
+		if roundi(p.mana_heal_left) != roundi(antes) or p.mana_heal_left <= 0.0:
+			refrescar_cache_estados(p)
 
 # Cuantos hechizos caben en la cabeza a la vez. Aprender no es gratis: al llegar al tope hay
 # que OLVIDAR uno para meter otro (el objeto que devuelve un hechizo a su libro vendra luego,
