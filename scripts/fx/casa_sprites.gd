@@ -93,6 +93,11 @@ const CASAS := {
 	"hogar": {"huella": Vector2i(5, 4), "pared": "entramado", "tejado": "teja", "alto": 50,
 		"chimeneas": [30, 130], "humo": true, "cartel": "", "luz": "calida",
 		"extras": ["macetas", "farol"]},
+	# EL CUARTEL de los guardias: 7 de ancho (lo pidio el usuario, "que no tenemos ninguno asi"). Version
+	# PROVISIONAL con lo que ya hay (piedra, pizarra, estandarte) hasta que el decida su estilo.
+	"cuartel": {"huella": Vector2i(7, 5), "pared": "piedra", "tejado": "pizarra", "alto": 56,
+		"chimeneas": [40, 184], "humo": true, "cartel": "", "luz": "calida",
+		"extras": ["estandarte"]},
 	"vacia_0": {"huella": Vector2i(3, 3), "pared": "enlucido", "tejado": "teja", "alto": 40,
 		"chimeneas": [74], "cartel": "", "luz": "", "extras": ["postigos"]},
 	"vacia_1": {"huella": Vector2i(3, 3), "pared": "madera", "tejado": "paja", "alto": 38,

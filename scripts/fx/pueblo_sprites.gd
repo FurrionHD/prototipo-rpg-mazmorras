@@ -40,6 +40,9 @@ const PIEZAS := {
 	# va ahi, para que quien se arrima por detras no se pinte encima del palo.
 	"poste_antorcha": {"tam": Vector2i(32, 72), "pie": 12},
 	"brasero": {"tam": Vector2i(32, 50), "pie": 13},
+	# El CARTEL INDICADOR de los cruces (PuebloPlano.CARTELES): el palo del poste de antorcha con tablillas
+	# en flecha. Choca y se corta igual que el poste.
+	"cartel_indicador": {"tam": Vector2i(32, 64), "pie": 12},
 }
 
 # Las verjas son una pieza por MASCARA (hacia que lados sigue la verja: 1 N, 2 E, 4 S, 8 O).
@@ -368,6 +371,67 @@ static func _poste_antorcha() -> PackedByteArray:
 # Donde nace la llama del poste, en px de su lienzo.
 static func boca_poste() -> Vector2:
 	return Vector2(16, 13)
+
+
+# EL CARTEL INDICADOR: el mismo palo y el mismo zocalo que el poste de antorcha, con un remate arriba y
+# tres tablillas en flecha que apuntan a lados alternos. Lo que dicen no se lee en el dibujo: sale al
+# pulsar F (ver cartel_indicador.gd).
+const TABLILLA := [Color(0.36, 0.24, 0.13), Color(0.55, 0.39, 0.22), Color(0.68, 0.50, 0.30), Color(0.78, 0.61, 0.38)]
+
+static func _cartel_indicador() -> PackedByteArray:
+	var t: Vector2i = PIEZAS["cartel_indicador"]["tam"]
+	var w: int = t.x
+	var h: int = t.y
+	var d := _lienzo(t)
+	var suelo_y: int = h - 6
+	_sombra_suelo(d, w, h, 16, suelo_y + 1, 8, 3)
+	_caja(d, w, h, 11, suelo_y - 5, 10, 3, 3, [PIEDRA[1], PIEDRA[2], PIEDRA[3], PIEDRA[4]])
+	var tope: int = 6
+	for y in range(tope, suelo_y - 4):
+		for x in range(14, 18):
+			var col: Color = MADERA_POSTE[2] if x == 15 else MADERA_POSTE[1]
+			if x == 14 or x == 17:
+				col = NEGRO
+			elif posmod(y * 3 + x, 11) == 0:
+				col = MADERA_POSTE[0]
+			_px(d, w, h, x, y, col)
+	# El remate: un taco mas ancho que el palo, para que no acabe en punta.
+	for x in range(13, 19):
+		_px(d, w, h, x, tope - 1, NEGRO)
+		_px(d, w, h, x, tope, MADERA_POSTE[3] if x > 13 and x < 18 else NEGRO)
+	# Las tablillas: [y de arriba, apunta a la derecha?, desde, hasta].
+	for tb in [[10, true, 7, 28], [19, false, 4, 25], [28, true, 9, 27]]:
+		_tablilla(d, w, h, int(tb[0]), bool(tb[1]), int(tb[2]), int(tb[3]))
+	return d
+
+
+# Una tablilla de 7 px de alto con la punta en flecha. La cara de arriba mas clara (le da la luz) y un
+# clavo donde cruza el palo.
+static func _tablilla(d: PackedByteArray, w: int, h: int, y0: int, derecha: bool, x0: int, x1: int) -> void:
+	var alto: int = 7
+	var medio: float = float(alto - 1) * 0.5
+	for y in range(y0, y0 + alto):
+		var fy: float = absf(float(y - y0) - medio)
+		for x in range(x0, x1 + 1):
+			# La punta: los ultimos 'medio' px se estrechan hacia el centro.
+			var hasta_punta: float = float(x1 - x) if derecha else float(x - x0)
+			if hasta_punta < fy:
+				continue
+			var col: Color = TABLILLA[1]
+			if y == y0:
+				col = TABLILLA[3]
+			elif y == y0 + 1:
+				col = TABLILLA[2]
+			elif posmod(x * 5 + y, 9) == 0:
+				col = TABLILLA[0]
+			var cola: bool = x == (x0 if derecha else x1)
+			if y == y0 + alto - 1 or cola or hasta_punta < fy + 1.0:
+				col = NEGRO
+			_px(d, w, h, x, y, col)
+	# La sombra que la tablilla echa sobre el palo, justo debajo.
+	for x in range(14, 18):
+		_px(d, w, h, x, y0 + alto, Color(0, 0, 0, 0.35))
+	_px(d, w, h, 16, y0 + 3, HIERRO_RAMPA[3])
 
 
 static func _brasero() -> PackedByteArray:
@@ -838,6 +902,8 @@ static func generar(clave: String) -> Image:
 		d = _poste_antorcha()
 	elif clave == "brasero":
 		d = _brasero()
+	elif clave == "cartel_indicador":
+		d = _cartel_indicador()
 	else:
 		d = _lienzo(t)
 	return Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, d)
