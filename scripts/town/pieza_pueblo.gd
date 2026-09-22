@@ -143,19 +143,30 @@ func _process(_delta: float) -> void:
 		return
 	var fondo: float = base_y()
 	var cx: float = global_position.x + float(_tam.x) * 0.5
+	var ancho: float = float(_tam.x) if ancho_delante < 0.0 else ancho_delante
 	var delante: bool = false
+	# Y TAMBIEN SI HAY ALGUIEN DETRAS, porque la parte alta tiene UNA z para todos. Bajarla por quien
+	# esta delante deja al de detras pintado ENCIMA DEL TEJADO -- se le ve el cuerpo entero atravesando
+	# el techo del puesto --, y eso es peor que lo que la bajada venia a evitar: al de delante solo le
+	# pisa la coronilla, y ademas el de delante casi siempre eres tu, que sabes lo que hay ahi. Hace
+	# falta que coincidan dos (tu comprando y el vendedor volviendo a casa por detras, un guardia, un
+	# acompañante, un compañero en multi), por eso se ve poco y cuesta reproducirlo.
+	var detras: bool = false
 	for n in _personajes():
 		var nd := n as Node2D
 		if nd == null:
 			continue
 		var p: Vector2 = nd.global_position
+		if absf(p.x - cx) >= ancho * 0.5 + 16.0:
+			continue
 		# Delante = su origen por debajo de la base (menos lo que su caja de pies sube) y lo bastante
 		# cerca para que su cabeza llegue a la parte que sobresale.
-		var ancho: float = float(_tam.x) if ancho_delante < 0.0 else ancho_delante
-		if absf(p.x - cx) < ancho * 0.5 + 16.0 and p.y > fondo - _margen_delante and p.y < fondo + 80.0:
+		if p.y > fondo - _margen_delante and p.y < fondo + 80.0:
 			delante = true
-			break
-	_arriba.z_index = Z_DEBAJO if delante else Z_ENCIMA
+		# Detras = su origen por encima de la base, a la altura que el tejado taparia.
+		elif p.y < fondo - _margen_delante and p.y > fondo - float(_tam.y) - 60.0:
+			detras = true
+	_arriba.z_index = Z_DEBAJO if (delante and not detras) else Z_ENCIMA
 	for a in acompanantes:
 		if is_instance_valid(a):
 			a.z_index = _arriba.z_index + 1
