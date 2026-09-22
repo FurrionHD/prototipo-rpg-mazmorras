@@ -54,6 +54,8 @@ const FIJOS := {
 	"Q": Color(0.82, 0.96, 1.0), "C": Color(0.44, 0.78, 1.0), "q": Color(0.20, 0.42, 0.82),
 	# el BARRO de ollas y cazuelas: luz, medio y sombra
 	"B": Color(0.80, 0.54, 0.34), "M": Color(0.64, 0.38, 0.24), "Z": Color(0.42, 0.24, 0.15),
+	# el MORADO DE UVA y su sombra, para la uva que va encima de un plato de otro color (la tarta)
+	"V": Color(0.58, 0.32, 0.68), "X": Color(0.34, 0.16, 0.42),
 }
 # 'A' y 'N' son la CARNE CLARA de la madera cortada y sus ANILLOS. No son fijos: salen del color de
 # cada madera (ver _paleta), porque el corte de un tronco negro no es del mismo tono que el de un pino.
@@ -498,12 +500,16 @@ const PLATO_COLOR := {
 	"plato_sopa_setas": Color(0.56, 0.40, 0.26), "plato_crema_hongo": Color(0.92, 0.80, 0.46),
 	"plato_revuelto_setas": Color(0.98, 0.84, 0.36), "plato_pure_tuberculo": Color(0.92, 0.88, 0.72),
 	"plato_encurtidos_hongo": Color(0.74, 0.62, 0.30), "plato_encurtidos_sal": Color(0.80, 0.82, 0.62),
+	# Los de fruta: la macedonia, del morado de la uva (lo que mas se ve en el cuenco); la compota, de
+	# naranja; la tarta, del crema del queso.
+	"plato_macedonia": Color(0.56, 0.30, 0.66), "plato_compota": Color(0.96, 0.58, 0.16),
+	"plato_tarta_manzana": Color(0.97, 0.88, 0.64),
 }
 
 # LA DESPENSA que tiene dibujo propio (el resto de la tanda de comida va aparte, uno a uno).
 const DESPENSA := ["tomate", "pimiento", "zanahoria", "patata", "cebolla", "ajo", "lechuga",
 	"puerro_gruta", "tuberculo_palido", "seta_simas", "hongo_azufre", "pan", "queso", "aceite",
-	"piedra_sal"]
+	"piedra_sal", "manzana", "naranja", "limon", "uvas"]
 
 const PLANTAS_DEL_SUELO := ["hierba_palida", "raiz_amarga", "sanguinaria", "moho_simas",
 	"raiz_umbria", "liquen_abisal", "musgo_ciego", "zarza_retorcida", "flor_de_sima"]
@@ -1423,6 +1429,10 @@ static func _plato(p: String) -> Array:
 			return _revuelto()
 		"encurtidos_hongo", "encurtidos_sal":
 			return _tarro(p == "encurtidos_hongo")
+		"macedonia":
+			return _cuenco_fruta()
+		"tarta_manzana":
+			return _porcion_tarta()
 	# el resto son OLLAS de barro, cada una con lo suyo dentro
 	var cosas: Array = []
 	match p:
@@ -1439,7 +1449,59 @@ static func _plato(p: String) -> Array:
 			cosas = [["h", 0.48, 0.46, 0.08], ["F", 0.56, 0.46, 0.02], ["F", 0.44, 0.48, 0.02]]
 		"pure_tuberculo":  # el monte de pure con su mantequilla
 			cosas = [["l", 0.50, 0.40, 0.14], ["E", 0.52, 0.34, 0.04], ["F", 0.40, 0.46, 0.02]]
+		"compota":         # la fruta cocida: trozos de naranja, de limon y de manzana
+			cosas = [["L", 0.40, 0.46, 0.05], ["E", 0.58, 0.48, 0.045], ["I", 0.50, 0.42, 0.04],
+				["L", 0.66, 0.44, 0.035], ["F", 0.34, 0.44, 0.02]]
 	return _olla(cosas)
+
+
+# LA MACEDONIA: un cuenco blanco lleno de fruta a trozos -- uvas (el color del plato), manzana, naranja
+# y limon -- con una hojita de menta.
+static func _cuenco_fruta() -> Array:
+	var out: Array = [
+		_pol("w", [0.10, 0.48, 0.90, 0.48, 0.82, 0.74, 0.64, 0.86, 0.36, 0.86, 0.18, 0.74]),
+		_sobre(_pol("x", [0.58, 0.48, 0.90, 0.48, 0.82, 0.74, 0.64, 0.86, 0.56, 0.86])),
+		_elipse("x", 0.50, 0.48, 0.40, 0.14, 26),
+		_elipse("w", 0.50, 0.47, 0.37, 0.11, 24),
+	]
+	# Los trozos, de atras hacia delante; asoman por encima del borde.
+	var trozos: Array = [["b", 0.34, 0.40, 0.06], ["L", 0.48, 0.36, 0.07], ["E", 0.64, 0.38, 0.06],
+		["R", 0.40, 0.46, 0.06], ["b", 0.56, 0.46, 0.06], ["L", 0.72, 0.46, 0.05], ["I", 0.28, 0.48, 0.05],
+		["b", 0.66, 0.30, 0.05]]
+	for t in trozos:
+		out.append(_elipse(t[0], t[1], t[2], t[3], t[3] * 0.8, 10))
+		if t[0] == "b":
+			out.append(_elipse("h", t[1] - 0.015, t[2] - 0.015, 0.015, 0.012, 4))
+	out.append(_pol("F", [0.50, 0.28, 0.58, 0.20, 0.62, 0.24, 0.54, 0.30]))
+	out.append(_pol("f", [0.50, 0.28, 0.44, 0.20, 0.40, 0.24, 0.46, 0.30]))
+	return out
+
+
+# LA TARTA DE QUESO Y MANZANA: una porcion en cuña, crema por dentro (el color del plato), la base de
+# galleta abajo y, por encima, las laminas de manzana con su piel roja y un par de uvas.
+#
+# La cuña: la PUNTA hacia delante a la izquierda, el borde redondo de la tarta al fondo, y de cara a la
+# camara el CORTE, con la crema y la galleta debajo. (La primera version era un paralelogramo y se leia
+# como un bloque de queso.)
+static func _porcion_tarta() -> Array:
+	return [
+		# el corte: la crema en sombra y la base de galleta
+		_pol("s", [0.10, 0.58, 0.90, 0.36, 0.90, 0.60, 0.10, 0.80]),
+		_pol("j", [0.10, 0.74, 0.90, 0.54, 0.90, 0.64, 0.10, 0.86]),
+		_lin("k", [0.10, 0.74, 0.90, 0.54]),
+		# la cara de arriba, en triangulo, con el canto redondo del fondo
+		_pol("l", [0.10, 0.58, 0.46, 0.20, 0.62, 0.16, 0.78, 0.20, 0.90, 0.36]),
+		_lin("b", [0.46, 0.20, 0.62, 0.16, 0.78, 0.20, 0.90, 0.36]),
+		_lin("h", [0.18, 0.54, 0.44, 0.28]),
+		# las laminas de manzana, en fila hacia la punta
+		_elipse("I", 0.62, 0.28, 0.08, 0.035, 12), _lin("R", [0.54, 0.30, 0.70, 0.26]),
+		_elipse("I", 0.48, 0.36, 0.08, 0.035, 12), _lin("R", [0.40, 0.38, 0.56, 0.34]),
+		_elipse("I", 0.34, 0.45, 0.07, 0.03, 12), _lin("R", [0.27, 0.47, 0.41, 0.43]),
+		# y las uvas, que nadie sabe que hacen ahi
+		_elipse("X", 0.76, 0.27, 0.045, 0.04, 8), _elipse("V", 0.75, 0.26, 0.035, 0.03, 8),
+		_elipse("X", 0.66, 0.36, 0.04, 0.035, 8), _elipse("V", 0.65, 0.35, 0.03, 0.026, 8),
+		_elipse("W", 0.74, 0.25, 0.01, 0.01, 4), _elipse("W", 0.64, 0.34, 0.01, 0.01, 4),
+	]
 
 
 # UNA OLLA DE BARRO con sus asas y el caldo del color del plato, con los tropezones dentro.
@@ -1489,7 +1551,12 @@ static func _tabla_parrilla(insecto: bool) -> Array:
 	]
 	for g in [[0.34, 0.34, 0.44, 0.46], [0.46, 0.32, 0.56, 0.46], [0.58, 0.32, 0.68, 0.44]]:
 		out.append(_lin("o", g))
-	out.append(_elipse("F", 0.18, 0.56, 0.05, 0.03, 8))
+	# La de jabali lleva su MANZANA ASADA al lado (desde el 22/09/2026 la receta pide manzana).
+	if not insecto:
+		out.append(_elipse("R", 0.20, 0.56, 0.08, 0.07, 12))
+		out.append(_elipse("I", 0.19, 0.55, 0.055, 0.045, 10))
+		out.append(_elipse("i", 0.19, 0.55, 0.015, 0.012, 4))
+	out.append(_elipse("F", 0.18, 0.56 if insecto else 0.46, 0.05, 0.03, 8))
 	out.append(_elipse("f", 0.78, 0.70, 0.05, 0.03, 8))
 	out.append(_elipse("F", 0.56, 0.78, 0.04, 0.025, 8))
 	return out
@@ -1795,6 +1862,63 @@ static func _despensa(id: String) -> Array:
 				_lin("W", [0.36, 0.42, 0.50, 0.36]),
 				_elipse("W", 0.24, 0.28, 0.015, 0.015, 4),
 			]
+		# LA FRUTA (22/09/2026), con el mismo corte que el tomate: la bola, su sombra abajo a la derecha,
+		# la luz arriba a la izquierda, y lo que la hace ella (el rabito, la hoja, los poros, las puntas).
+		"manzana":
+			return [
+				_elipse("b", 0.38, 0.44, 0.20, 0.18, 18), _elipse("b", 0.62, 0.44, 0.20, 0.18, 18),
+				_elipse("b", 0.50, 0.60, 0.32, 0.26, 24),
+				_sobre(_elipse("s", 0.58, 0.66, 0.26, 0.20, 22)),
+				_sobre(_elipse("b", 0.46, 0.54, 0.22, 0.18, 20)),
+				_sobre(_elipse("l", 0.36, 0.44, 0.08, 0.07, 10)),
+				_sobre(_elipse("h", 0.34, 0.42, 0.035, 0.03, 6)),
+				_sobre(_elipse("d", 0.50, 0.30, 0.06, 0.025, 8)),
+				_tira("u", [0.50, 0.32, 0.53, 0.12], 0.035, 0.025),
+				_pol("F", [0.53, 0.22, 0.66, 0.12, 0.78, 0.14, 0.64, 0.24]),
+				_lin("f", [0.55, 0.21, 0.72, 0.15]),
+			]
+		"naranja":
+			var n_out: Array = [
+				_elipse("b", 0.50, 0.56, 0.32, 0.30, 24),
+				_sobre(_elipse("s", 0.57, 0.63, 0.27, 0.24, 22)),
+				_sobre(_elipse("b", 0.47, 0.52, 0.23, 0.21, 20)),
+				_sobre(_elipse("l", 0.39, 0.44, 0.10, 0.08, 12)),
+				_sobre(_elipse("h", 0.36, 0.41, 0.035, 0.03, 6)),
+			]
+			for poro in [[0.56, 0.46], [0.64, 0.56], [0.48, 0.66], [0.62, 0.72], [0.34, 0.60], [0.72, 0.44]]:
+				n_out.append(_sobre(_elipse("s", poro[0], poro[1], 0.012, 0.012, 4)))
+			n_out.append(_sobre(_elipse("d", 0.50, 0.28, 0.035, 0.025, 6)))
+			n_out.append(_pol("F", [0.50, 0.28, 0.62, 0.16, 0.74, 0.18, 0.60, 0.30]))
+			n_out.append(_lin("f", [0.52, 0.27, 0.68, 0.18]))
+			return n_out
+		"limon":
+			return [
+				_pol("b", [0.08, 0.54, 0.18, 0.40, 0.36, 0.30, 0.64, 0.30, 0.82, 0.40, 0.92, 0.54, 0.82, 0.68,
+					0.64, 0.78, 0.36, 0.78, 0.18, 0.68]),
+				_sobre(_pol("s", [0.10, 0.58, 0.92, 0.58, 0.82, 0.70, 0.64, 0.80, 0.36, 0.80, 0.18, 0.70])),
+				_sobre(_elipse("l", 0.40, 0.42, 0.16, 0.06, 14)),
+				_sobre(_elipse("h", 0.32, 0.40, 0.04, 0.02, 6)),
+				_elipse("s", 0.05, 0.54, 0.03, 0.03, 6),
+				_elipse("d", 0.95, 0.54, 0.025, 0.025, 4),
+				_sobre(_elipse("s", 0.58, 0.50, 0.012, 0.012, 4)),
+				_sobre(_elipse("s", 0.70, 0.60, 0.012, 0.012, 4)),
+				_sobre(_elipse("s", 0.46, 0.64, 0.012, 0.012, 4)),
+			]
+		"uvas":
+			# De atras (arriba) hacia delante (abajo): cada uva tapa a las de la fila de antes.
+			var u_out: Array = [
+				_tira("u", [0.50, 0.28, 0.54, 0.08], 0.035, 0.025),
+				_pol("F", [0.54, 0.16, 0.70, 0.08, 0.84, 0.14, 0.70, 0.24]),
+				_lin("f", [0.56, 0.16, 0.78, 0.13]),
+			]
+			for fila in [[0.28, [0.30, 0.50, 0.70]], [0.44, [0.38, 0.58]], [0.46, [0.24, 0.76]],
+					[0.60, [0.30, 0.50, 0.68]], [0.76, [0.40, 0.60]], [0.90, [0.50]]]:
+				var y: float = fila[0]
+				for x in fila[1]:
+					u_out.append(_elipse("s", x + 0.01, y + 0.01, 0.105, 0.095, 14))
+					u_out.append(_elipse("b", x - 0.005, y - 0.005, 0.085, 0.078, 12))
+					u_out.append(_elipse("h", x - 0.035, y - 0.035, 0.022, 0.018, 4))
+			return u_out
 	return []
 
 

@@ -8793,6 +8793,9 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/tomate.tres", "res://resources/materials/tuberculo_palido.tres",
 	"res://resources/materials/veneno_insecto.tres", "res://resources/materials/zanahoria.tres",
 	"res://resources/materials/zarza_retorcida.tres",
+	# LA FRUTA (22/09/2026): la vende el puesto de fruta del mercadillo (VendedoresPlan).
+	"res://resources/materials/manzana.tres", "res://resources/materials/naranja.tres",
+	"res://resources/materials/limon.tres", "res://resources/materials/uvas.tres",
 ]
 const _CARPETA_ENEMIGOS := "res://scenes/actors/enemy"
 const _MANIFIESTO_ENEMIGOS := [
@@ -11953,6 +11956,13 @@ const _RECIPE_PATHS_PLATOS_T1: Array[String] = [
 	# EL DE LA SUERTE (🍀). No toca ninguna stat: toca lo que sueltan los bichos. Es el unico plato
 	# que se nota FUERA de tu ficha, y por eso pide las dos setas (el que las junta ya ha rebuscado).
 	"res://resources/recipes/plato_revuelto_setas.tres",
+	# LOS DE FRUTA (22/09/2026): todo lo que piden se COMPRA en el mercadillo, y por eso duran la MITAD
+	# (10 min; su 'turns' en el .tres): lo decidio el usuario, "no me puedes dar lo mismo por algo que he
+	# tenido que recoger con mi esfuerzo que por algo que compro". El efecto es el de siempre; lo que se
+	# paga es el rato.
+	"res://resources/recipes/plato_macedonia.tres",
+	"res://resources/recipes/plato_compota.tres",
+	"res://resources/recipes/plato_tarta_manzana.tres",
 ]
 const _RECIPE_PATHS_PLATOS_T2: Array[String] = [
 	"res://resources/recipes/plato_kebab_bestia.tres",

@@ -11,11 +11,11 @@ prob = 1.0
 
 [resource]
 script = ExtResource("1")
-nombre = "Parrillada de jabalí y rata"
+nombre = "Parrillada de jabalí y rata con manzana"
 cura_total = 0.0
 turnos = 0
 segundos = 0.0
 efectos = [SubResource("SA_plato")]
 escala_efecto = 1.0
-descripcion = "Todo al fuego y mucho ajo. Te levantas de la mesa con ganas de partir algo por la mitad."
+descripcion = "Todo al fuego, con la manzana asada al lado como en las casas buenas. Te levantas de la mesa con ganas de partir algo por la mitad."
 valor_base = 280

@@ -247,6 +247,7 @@ func _ready() -> void:
 	_cocina_menu.modo = _cocina_menu.Modo.COCINA                   # fijar ANTES de add_child: _ready ya lo lee
 	add_child(_cocina_menu)                                        # cocinero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/shop_menu.gd").new())       # tienda (F sobre el tendero)
+	add_child(preload("res://scripts/ui/mercadillo_menu.gd").new()) # puestos del mercadillo (F sobre el vendedor)
 	add_child(preload("res://scripts/ui/forge_menu.gd").new())      # herrero (F sobre el NPC)
 	var _carpinteria_menu := preload("res://scripts/ui/forge_menu.gd").new()  # carpintero: mismo menu, modo distinto
 	_carpinteria_menu.modo = "carpintero"                          # fijar ANTES de add_child: _ready ya lo lee

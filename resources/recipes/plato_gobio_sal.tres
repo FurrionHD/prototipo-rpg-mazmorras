@@ -8,7 +8,7 @@
 [ext_resource type="Resource" path="res://resources/materials/piedra_sal.tres" id="m1"]
 [ext_resource type="Resource" path="res://resources/materials/aceite.tres" id="m2"]
 [ext_resource type="Resource" path="res://resources/materials/ajo.tres" id="m3"]
-[ext_resource type="Resource" path="res://resources/materials/pimiento.tres" id="m4"]
+[ext_resource type="Resource" path="res://resources/materials/limon.tres" id="m4"]
 
 [sub_resource type="Resource" id="I_gobio_palido"]
 script = ExtResource("2")
@@ -30,7 +30,7 @@ script = ExtResource("2")
 material = ExtResource("m3")
 unidades = 2
 
-[sub_resource type="Resource" id="I_pimiento"]
+[sub_resource type="Resource" id="I_limon"]
 script = ExtResource("2")
 material = ExtResource("m4")
 unidades = 1
@@ -38,5 +38,5 @@ unidades = 1
 [resource]
 script = ExtResource("1")
 resultado = ExtResource("3")
-ingredientes = [SubResource("I_gobio_palido"), SubResource("I_piedra_sal"), SubResource("I_aceite"), SubResource("I_ajo"), SubResource("I_pimiento")]
+ingredientes = [SubResource("I_gobio_palido"), SubResource("I_piedra_sal"), SubResource("I_aceite"), SubResource("I_ajo"), SubResource("I_limon")]
 unidades_resultado = 2

@@ -6,7 +6,7 @@
 [ext_resource type="Resource" path="res://resources/consumables/plato_lubina_horno.tres" id="3"]
 [ext_resource type="Resource" path="res://resources/materials/lubina_mazmorra.tres" id="m0"]
 [ext_resource type="Resource" path="res://resources/materials/patata.tres" id="m1"]
-[ext_resource type="Resource" path="res://resources/materials/zanahoria.tres" id="m2"]
+[ext_resource type="Resource" path="res://resources/materials/limon.tres" id="m2"]
 [ext_resource type="Resource" path="res://resources/materials/cebolla.tres" id="m3"]
 [ext_resource type="Resource" path="res://resources/materials/aceite.tres" id="m4"]
 [ext_resource type="Resource" path="res://resources/materials/piedra_sal.tres" id="m5"]
@@ -21,7 +21,7 @@ script = ExtResource("2")
 material = ExtResource("m1")
 unidades = 3
 
-[sub_resource type="Resource" id="I_zanahoria"]
+[sub_resource type="Resource" id="I_limon"]
 script = ExtResource("2")
 material = ExtResource("m2")
 unidades = 2
@@ -44,5 +44,5 @@ unidades = 1
 [resource]
 script = ExtResource("1")
 resultado = ExtResource("3")
-ingredientes = [SubResource("I_lubina_mazmorra"), SubResource("I_patata"), SubResource("I_zanahoria"), SubResource("I_cebolla"), SubResource("I_aceite"), SubResource("I_piedra_sal")]
+ingredientes = [SubResource("I_lubina_mazmorra"), SubResource("I_patata"), SubResource("I_limon"), SubResource("I_cebolla"), SubResource("I_aceite"), SubResource("I_piedra_sal")]
 unidades_resultado = 2

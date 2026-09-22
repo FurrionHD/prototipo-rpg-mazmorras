@@ -11,7 +11,7 @@ prob = 1.0
 
 [resource]
 script = ExtResource("1")
-nombre = "Lubina al horno con patatas"
+nombre = "Lubina al horno con limón"
 cura_total = 0.0
 turnos = 0
 segundos = 0.0

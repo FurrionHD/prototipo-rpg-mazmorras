@@ -112,6 +112,14 @@ func _crear_plaza_y_mercado() -> void:
 	for m in PuebloPlano.MUEBLES:
 		var clave: String = m[0]
 		add_child(PiezaPueblo.crear(clave, m[1], clave != "parterre"))
+		# Cada puesto con su vendedor (VendedorMercadillo, que va y viene segun VendedoresPlan): el puesto
+		# entero, el vendedor y encima el frente del puesto, que le tapa las piernas. En ESTE orden: a la
+		# misma z manda el del arbol.
+		if clave.begins_with("puesto_"):
+			for v in VendedoresPlan.VENDEDORES.size():
+				if String(VendedoresPlan.VENDEDORES[v]["puesto"]) == clave:
+					add_child(VendedorMercadillo.crear(v))
+			add_child(PiezaPueblo.crear(clave + PlazaSprites.SUFIJO_FRENTE, m[1], true))
 
 
 # ------------------------------------------------------------
