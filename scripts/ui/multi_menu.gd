@@ -82,6 +82,64 @@ func _ready() -> void:
 	Net.partida.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
 	Net.partida.entrada_lista.connect(_entrar_al_mundo_ajeno)
 	_pintar()
+	_mirar_steam()
+
+
+# ============================================================
+#  TU CUENTA DE STEAM Y TU IDENTIDAD (ver Identidad, "EL VINCULO CON STEAM")
+#  Se mira UNA vez por arranque, al entrar aqui, que es donde la identidad importa. Lo que haya que
+#  decidir se pregunta; lo que no, se cuenta en el aviso.
+# ------------------------------------------------------------
+static var _steam_mirado := false
+
+func _mirar_steam() -> void:
+	if _steam_mirado or Net.activo or Mundos.abierto != "":
+		return
+	_steam_mirado = true
+	var r: Dictionary = await Identidad.comprobar_steam(not Mundos.catalogo().is_empty())
+	if not is_inside_tree():
+		return
+	var caso: String = String(r.get("caso", ""))
+	print("[multi] Steam e identidad: %s %s" % [caso, String(r.get("mensaje", ""))])
+	var cuenta: String = "«%s»" % Identidad.steam_nombre
+	match caso:
+		"adoptado":
+			_decir("Tu Steam %s te ha reconocido: eres tú, con tus personajes. (La identidad que tenía "
+				% cuenta + "este PC queda guardada en «TÚ Y TU CONEXIÓN» por si quieres volver.)")
+		"sin_vinculo":
+			_elegir("TU CUENTA DE STEAM", "Tu Steam %s todavía no sabe qué jugador eres.\n\n" % cuenta
+				+ "Si lo vinculas con la identidad de este PC (con sus personajes), cualquier PC donde "
+				+ "abras tu Steam te reconocerá.\n\nSi este no es el PC donde juegas normalmente, mejor "
+				+ "hazlo desde ese. Se puede cambiar después en «TÚ Y TU CONEXIÓN».", [
+					["Sí, vincular mi Steam con este PC", _vincular_este_pc],
+					["Todavía no: este no es mi PC principal", func():
+						Identidad.steam_ahora_no()
+						_pintar()],
+				])
+		"distinto":
+			_elegir("TU CUENTA DE STEAM", ("Tu Steam %s es el jugador %s.\nEste PC era el jugador %s.\n\n"
+				% [cuenta, Identidad.vinculo, Identidad.id])
+				+ "Cada uno tiene sus propios personajes en los mundos. ¿Quién eres aquí? (Se puede "
+				+ "cambiar después en «TÚ Y TU CONEXIÓN».)", [
+					["Usar el de mi Steam", func():
+						Identidad.usar_la_de_steam()
+						_decir("Ahora eres el jugador de tu Steam.")
+						_pintar()],
+					["Seguir con el de este PC, solo aquí", func():
+						Identidad.steam_ahora_no()
+						_pintar()],
+					["Seguir con el de este PC, y que mi Steam use ESTE", _vincular_este_pc],
+				])
+	_pintar()
+
+
+func _vincular_este_pc() -> void:
+	var r: Dictionary = await Identidad.vincular_este_pc()
+	if r.get("ok", false):
+		_decir("Tu Steam «%s» ya es este jugador en cualquier PC." % Identidad.steam_nombre)
+	else:
+		_decir(String(r.get("mensaje", "No se pudo vincular tu Steam.")), false)
+	_pintar()
 
 
 func _volver() -> void:
@@ -109,7 +167,7 @@ func _pintar() -> void:
 
 	# Quien soy: hace falta que se vea, porque es la llave de tus personajes en todos los mundos.
 	var quien := Label.new()
-	quien.text = "Eres «%s»  ·  id %s" % [Identidad.nombre, Identidad.id]
+	quien.text = "Eres «%s»  ·  id %s%s" % [Identidad.nombre, Identidad.id, _linea_steam()]
 	quien.add_theme_font_size_override("font_size", 11)
 	quien.add_theme_color_override("font_color", MenuScaffold.GRIS)
 	header.add_child(quien)
@@ -302,6 +360,39 @@ func _pintar_yo() -> void:
 				_pintar()))
 	vb.add_child(otro)
 
+	MenuScaffold.titulo(vb, "TU CUENTA DE STEAM", 18, AMBAR)
+	if Identidad.steam_id == 0:
+		MenuScaffold.nota(vb, "Steam no está abierto (o aún no se ha mirado). Sin Steam se juega como "
+			+ "siempre: con el id de este PC y por Hamachi.")
+	else:
+		var bien: bool = Identidad.vinculo == Identidad.id
+		MenuScaffold.fila(vb, "Cuenta", "«%s»" % Identidad.steam_nombre, 90)
+		MenuScaffold.fila(vb, "Es el jugador", Identidad.vinculo if Identidad.vinculo != "" else "ninguno todavía",
+			90, VERDE if bien else null)
+		if not bien:
+			var usar := Button.new()
+			usar.text = "Usar la identidad de este PC para mi Steam"
+			usar.pressed.connect(func():
+				_elegir("¿CAMBIAR TU STEAM?", ("Tu Steam «%s» pasará a ser el jugador de este PC (%s). "
+					% [Identidad.steam_nombre, Identidad.id])
+					+ "En cualquier otro PC donde abras tu Steam serás este jugador, con sus personajes."
+					+ ("\n\nAhora es el jugador %s: queda apuntado aquí para poder volver." % Identidad.vinculo
+						if Identidad.vinculo != "" else ""), [
+						["Sí, cambiarlo", _vincular_este_pc],
+						["No, dejarlo como está", func(): pass],
+					]))
+			vb.add_child(usar)
+	if Identidad.id_anterior != "" and Identidad.id_anterior != Identidad.id:
+		var volver := Button.new()
+		volver.text = "Volver a ser el jugador %s en este PC" % Identidad.id_anterior
+		volver.pressed.connect(func():
+			Identidad.volver_al_anterior()
+			_decir("Vuelves a ser el jugador %s." % Identidad.id)
+			_pintar())
+		vb.add_child(volver)
+		MenuScaffold.nota(vb, "Es la identidad que tenía este PC antes del último cambio. Tus personajes "
+			+ "van con la identidad: con la otra no los verás.")
+
 	MenuScaffold.titulo(vb, "TU DIRECCIÓN", 18, AMBAR)
 	var pref: String = Identidad.direccion_preferida
 	MenuScaffold.fila(vb, "Publicas", pref if pref != "" else "todas (el que entre prueba en orden)", 90,
@@ -311,6 +402,15 @@ func _pintar_yo() -> void:
 		+ "⚠️ El juego reparte la dirección, pero no puede hacer que se pueda llegar a ella: para "
 		+ "jugar de casa a casa sigue haciendo falta Hamachi (o abrir el puerto 24567 UDP). Si usas "
 		+ "Hamachi, la buena es la que empieza por 25.")
+
+
+# Lo que se dice de Steam en la cabecera, al lado de tu id.
+func _linea_steam() -> String:
+	if Identidad.steam_id == 0:
+		return ""
+	if Identidad.vinculo == Identidad.id:
+		return "  ·  Steam «%s» (vinculado)" % Identidad.steam_nombre
+	return "  ·  Steam «%s» (sin vincular a este jugador)" % Identidad.steam_nombre
 
 
 func _pintar_detalle() -> void:
@@ -688,6 +788,56 @@ func _borrar(clave: String) -> void:
 	_sel = ""
 	_decir("Quitado de tu lista.")
 	_pintar()
+
+
+# ============================================================
+#  Una PREGUNTA con varias respuestas (un boton por opcion, uno debajo de otro), por codigo. Sin
+#  "Cancelar": las preguntas de aqui siempre tienen una opcion que es "dejarlo como esta".
+#  opciones = [[texto, Callable], ...]
+# ------------------------------------------------------------
+func _elegir(titulo: String, explica: String, opciones: Array) -> void:
+	var capa := PanelContainer.new()
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_encima.add_child(capa)
+
+	var fondo := ColorRect.new()
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fondo.color = Color(0.04, 0.04, 0.06, 0.96)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
+	capa.add_child(fondo)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(center)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	center.add_child(vb)
+
+	var tit := Label.new()
+	tit.text = titulo
+	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tit.add_theme_font_size_override("font_size", 20)
+	tit.add_theme_color_override("font_color", AZUL)
+	vb.add_child(tit)
+
+	var ex := Label.new()
+	ex.text = explica
+	ex.custom_minimum_size = Vector2(460, 0)
+	ex.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ex.add_theme_font_size_override("font_size", 12)
+	ex.add_theme_color_override("font_color", MenuScaffold.GRIS)
+	vb.add_child(ex)
+
+	for o in opciones:
+		var b := Button.new()
+		b.text = String(o[0])
+		b.custom_minimum_size = Vector2(460, 44)
+		var fn: Callable = o[1]
+		b.pressed.connect(func():
+			capa.queue_free()
+			fn.call())
+		vb.add_child(b)
 
 
 # ============================================================

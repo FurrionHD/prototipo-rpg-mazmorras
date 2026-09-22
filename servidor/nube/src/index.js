@@ -26,6 +26,18 @@
 //    cerrar  igual que subir, y ademas suelta el cerrojo -> {ok}
 //    estado  JSON {quien_soy}?     -> {ok, abierto, caducado, quien, es_mio, direcciones?, meta, ...}
 //  Las respuestas son siempre {"ok": bool} y, si falla, "error" (codigo estable) y "mensaje".
+//
+//  EL VINCULO DE STEAM (22/09/2026): que tu cuenta de Steam recuerde tu identidad de jugador (el id
+//  de 24 hex de identidad.cfg), para no ser otro jugador al cambiar de PC. Va a /v1/<op>?steam=<SteamID>
+//  y lo guarda OTRO objeto del mismo tipo, uno por cuenta (nombre "steam:<SteamID>"): nada de los
+//  mundos cambia.
+//    vinculo_leer   JSON {ticket?}            -> {ok, id ("" = sin vinculo), anterior, desde}
+//    vinculo_poner  JSON {id, ticket?}        -> {ok, id, anterior}   (anterior = el que habia)
+//  ⚠ SEGURIDAD: con Spacewar (appID 480) no se puede comprobar que quien pregunta es de verdad esa
+//  cuenta (validar el ticket pide la clave Web API del editor, que solo existe con appID propio). El
+//  SteamID es publico, asi que quien lo sepa podria leer o cambiar tu vinculo. Riesgo bajo: para entrar
+//  a un mundo sigue haciendo falta su codigo y su contraseña. CON APPID PROPIO: validar `ticket` con
+//  ISteamUserAuth/AuthenticateUserTicket antes de dar o cambiar un vinculo.
 // ============================================================
 
 import { DurableObject } from "cloudflare:workers";
@@ -36,6 +48,8 @@ const TROZO = 1024 * 1024;
 const MAX_SAVE = 48 * 1024 * 1024;
 const ID_VALIDO = /^[0-9a-f]{24}$/;
 const OPS = new Set(["crear", "abrir", "bajar", "latido", "subir", "cerrar", "estado"]);
+const OPS_CUENTA = new Set(["vinculo_leer", "vinculo_poner"]);
+const STEAM_VALIDO = /^[0-9]{15,20}$/;
 
 export default {
 	async fetch(req, env) {
@@ -44,6 +58,15 @@ export default {
 			return new Response("Dungeon Oratoria: nube de mundos compartidos\n");
 		}
 		const partes = url.pathname.split("/").filter((p) => p !== "");
+		// EL VINCULO DE STEAM: su propio objeto por cuenta; no pasa por nada de los mundos.
+		if (req.method === "POST" && partes.length === 2 && partes[0] === "v1" && OPS_CUENTA.has(partes[1])) {
+			const steam = url.searchParams.get("steam") || "";
+			if (!STEAM_VALIDO.test(steam)) {
+				return json(fallo("peticion_mala", "La cuenta de Steam no es válida."), 400);
+			}
+			const cuenta = env.MUNDO.get(env.MUNDO.idFromName("steam:" + steam));
+			return cuenta.fetch(req);
+		}
 		if (req.method !== "POST" || partes.length !== 2 || partes[0] !== "v1" || !OPS.has(partes[1])) {
 			return json(fallo("peticion_mala", "Esa petición no existe."), 404);
 		}
@@ -72,7 +95,7 @@ export class Mundo extends DurableObject {
 		let cuerpo = null;
 		if (op === "subir" || op === "cerrar") {
 			cuerpo = new Uint8Array(await req.arrayBuffer());
-		} else if (op === "abrir" || op === "crear" || op === "estado") {
+		} else if (op === "abrir" || op === "crear" || op === "estado" || OPS_CUENTA.has(op)) {
 			try {
 				cuerpo = await req.json();
 			} catch {
@@ -97,8 +120,30 @@ export class Mundo extends DurableObject {
 				}, op === "cerrar"));
 			case "estado":
 				return json(await this.estado(id, pass, cuerpo || {}));
+			case "vinculo_leer":
+				return json(await this.vinculoLeer());
+			case "vinculo_poner":
+				return json(await this.vinculoPoner(cuerpo || {}));
 		}
 		return json(fallo("peticion_mala", "Esa petición no existe."), 404);
+	}
+
+	// ---- EL VINCULO DE STEAM (este objeto es el de una CUENTA, "steam:<SteamID>", no un mundo) ----
+	// El ticket de Steam llega en p.ticket y todavia NO se valida: ver SEGURIDAD en la cabecera.
+	async vinculoLeer() {
+		const v = await this.ctx.storage.get("vinculo");
+		return { ok: true, id: v ? v.id : "", anterior: v ? v.anterior || "" : "", desde: v ? v.desde : 0 };
+	}
+
+	async vinculoPoner(p) {
+		const nuevo = String(p.id || "");
+		if (!ID_VALIDO.test(nuevo)) {
+			return fallo("peticion_mala", "Esa identidad no es válida.");
+		}
+		const v = await this.ctx.storage.get("vinculo");
+		const anterior = v ? v.id : "";
+		await this.ctx.storage.put("vinculo", { id: nuevo, anterior, desde: ahora() });
+		return { ok: true, id: nuevo, anterior };
 	}
 
 	// ---- ALTA ----

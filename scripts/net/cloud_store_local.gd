@@ -311,6 +311,28 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 
 
 # ============================================================
+#  EL VINCULO DE STEAM: tu cuenta de Steam -> tu identidad de jugador (ver servidor/nube, cabecera).
+#  Uno por cuenta, aparte de los mundos. 'ticket' viaja para cuando haya appID propio; hoy no se mira.
+# ------------------------------------------------------------
+func vinculo_leer(steam_id: int, _ticket := "") -> Dictionary:
+	var v: Dictionary = _leer_json(_ruta_vinculo(steam_id))
+	return {"ok": true, "id": String(v.get("id", "")), "anterior": String(v.get("anterior", "")),
+		"desde": int(v.get("desde", 0))}
+
+
+func vinculo_poner(steam_id: int, id: String, _ticket := "") -> Dictionary:
+	if id.length() != 24 or not id.is_valid_hex_number():
+		return _fallo("peticion_mala", "Esa identidad no es válida.")
+	var anterior: String = String(_leer_json(_ruta_vinculo(steam_id)).get("id", ""))
+	_escribir_json(_ruta_vinculo(steam_id), {"id": id, "anterior": anterior, "desde": _ahora()})
+	return {"ok": true, "id": id, "anterior": anterior}
+
+
+func _ruta_vinculo(steam_id: int) -> String:
+	return "%s/steam_%d.vinculo.json" % [CARPETA, steam_id]
+
+
+# ============================================================
 #  Cosas de dentro
 # ------------------------------------------------------------
 func _ahora() -> int:
