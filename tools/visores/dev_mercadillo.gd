@@ -25,6 +25,7 @@ var _jugador: Node2D = null
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_hueco()
+	_dia()
 	if _con_ventana:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		DirAccess.make_dir_recursive_absolute(SALIDA)
@@ -75,6 +76,61 @@ func _hueco() -> void:
 		_ok("%s: el vendedor pisa dentro de su huella (%s)" % [m[0], c], r.has_point(c))
 
 
+func _dia() -> void:
+	print("\n=== EL DIA DE LOS VENDEDORES ===")
+	var n: int = VendedoresPlan.VENDEDORES.size()
+	_ok("un vendedor por puesto", n == _puestos().size())
+	for v in n:
+		var hay_casa: bool = false
+		for c in PuebloPlano.CASAS:
+			if c["rect"] == VendedoresPlan.VENDEDORES[v]["casa"]:
+				hay_casa = true
+		for g in GuardiasPlan.GUARDIAS:
+			if g["casa"] == VendedoresPlan.VENDEDORES[v]["casa"]:
+				hay_casa = false
+		_ok("vendedor %d: su casa existe y no es de un guardia" % v, hay_casa)
+		var casa: Vector2i = VendedoresPlan.puerta_casa(v)
+		var costado: Vector2i = VendedoresPlan.costado_de(v)
+		_ok("  su costado %s se pisa y es calle" % costado,
+			not PuebloPlano.solida(costado) and PuebloPlano.suelo(costado) == PuebloPlano.Suelo.CALLE)
+		for par in [[casa, costado], [costado, casa]]:
+			var r: PackedVector2Array = GuardiasPlan.ruta(par[0], par[1])
+			var pisa: int = 0
+			for i in range(1, r.size()):
+				var k_n: int = int(r[i - 1].distance_to(r[i]) / 4.0) + 1
+				for k in k_n + 1:
+					var pt: Vector2 = r[i - 1].lerp(r[i], float(k) / float(k_n)) + Vector2(0.0, PoseJugador.HUELLA_Y)
+					if PuebloPlano.solida(Vector2i((pt / float(PuebloPlano.CELDA)).floor())):
+						pisa += 1
+			_ok("  ruta %s -> %s (%d px)" % [par[0], par[1], int(GuardiasPlan._largo(r))],
+				r.size() >= 2 and r[-1].is_equal_approx(GuardiasPlan.pos_de(par[1])) and pisa == 0)
+		# Los tramos, seguidos y sin saltos de sitio.
+		var tr: Array = VendedoresPlan.linea(v)
+		var bien: bool = is_zero_approx(float(tr[0]["t0"]))
+		var antes: Dictionary = {}
+		for i in tr.size():
+			if i > 0 and absf(float(tr[i]["t0"]) - float(tr[i - 1]["t1"])) > 0.001:
+				bien = false
+			var e0: Dictionary = VendedoresPlan._evaluar(tr[i], float(tr[i]["t0"]))
+			if not antes.is_empty() and bool(antes["visible"]) and bool(e0["visible"]) \
+					and (antes["pos"] as Vector2).distance_to(e0["pos"]) > 1.0:
+				bien = false
+			antes = VendedoresPlan._evaluar(tr[i], minf(float(tr[i]["t1"]), float(tr[i]["t0"]) + 1.0e6))
+		_ok("  %d tramos seguidos y sin saltos" % tr.size(), bien)
+		# Cuando abre: antes de que acabe el amanecer. Y a mediodia abierto; de noche en casa.
+		var abre: float = -1.0
+		var t: float = 0.0
+		while t < CicloDia.CICLO and abre < 0.0:
+			if VendedoresPlan.abierto(v, t):
+				abre = t
+			t += 0.5
+		_ok("  abre a los %d s (antes de que acabe el amanecer, %d)" % [int(abre), int(CicloDia.T_DIA)],
+			abre >= 0.0 and abre <= CicloDia.T_DIA)
+		_ok("  a mediodia esta abierto", VendedoresPlan.abierto(v, CicloDia.T_DIA + CicloDia.DIA * 0.5))
+		var noche: Dictionary = VendedoresPlan.estado(v, CicloDia.T_NOCHE + 300.0)
+		_ok("  de noche esta en casa (escondido y cerrado)", not bool(noche["visible"]) and not bool(noche["abierto"]))
+
+
 # ------------------------------------------------------------
 #  CAPTURAS: el pueblo de verdad a mediodia.
 # ------------------------------------------------------------
@@ -109,6 +165,24 @@ func _capturas() -> void:
 	# Los otros tres, sin nadie.
 	for m in _puestos().slice(1):
 		await _foto(String(m[0]).trim_prefix("puesto_"), mediodia, fuera, Vector2((m[1] as Rect2i).get_center()) * celda)
+	# EL VENDEDOR DEL PAN ENTRANDO: andando hacia el costado, en el borde (el cambio de muñeco) y dentro.
+	var tr: Array = VendedoresPlan.linea(0)
+	var t_dentro: float = -1.0
+	for x in tr:
+		if bool(x.get("dentro", false)):
+			t_dentro = float(x["t0"])
+			break
+	await _foto("entra_1_calle", t_dentro - 0.05, fuera, centro)
+	await _foto("entra_2_costado", t_dentro + 0.05, fuera, centro)
+	await _foto("entra_3_poste", t_dentro + 0.3, fuera, centro)
+	await _foto("entra_4_dentro", t_dentro + 0.7, fuera, centro)
+	# Por la calle, a medio camino de casa al puesto.
+	var a_medio: float = VendedoresPlan.SALIDA + (t_dentro - VendedoresPlan.SALIDA) * 0.5
+	cam.zoom = Vector2(3.0, 3.0)
+	await _foto("por_la_calle", a_medio, fuera, VendedoresPlan.estado(0, a_medio)["pos"])
+	# De noche, el mercadillo vacio.
+	cam.zoom = Vector2(2.0, 2.0)
+	await _foto("de_noche", CicloDia.T_NOCHE + 300.0, fuera, Vector2(mercado.get_center()) * celda)
 
 
 func _foto(nombre: String, t: float, jugador: Vector2, donde: Vector2) -> void:

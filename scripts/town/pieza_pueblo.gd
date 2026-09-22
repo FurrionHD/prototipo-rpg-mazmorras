@@ -69,6 +69,10 @@ static func crear_textura(p_nombre: String, tex: Texture2D, p_tam: Vector2i, p_p
 
 
 var _margen_delante: float = 20.0
+# El ancho que cuenta para decidir si alguien esta delante; -1 = el del dibujo. Lo usa el vendedor del
+# mercadillo, cuya imagen es mas ancha que su puesto (para poder entrar de lado) y tiene que subir y
+# bajar A LA VEZ que el puesto: con su propio ancho se bajaba el solo y se metia debajo del estante.
+var ancho_delante: float = -1.0
 
 func _montar(tex: Texture2D, p_tam: Vector2i, p_pie: int) -> void:
 	_tam = p_tam
@@ -147,7 +151,8 @@ func _process(_delta: float) -> void:
 		var p: Vector2 = nd.global_position
 		# Delante = su origen por debajo de la base (menos lo que su caja de pies sube) y lo bastante
 		# cerca para que su cabeza llegue a la parte que sobresale.
-		if absf(p.x - cx) < float(_tam.x) * 0.5 + 16.0 and p.y > fondo - _margen_delante and p.y < fondo + 80.0:
+		var ancho: float = float(_tam.x) if ancho_delante < 0.0 else ancho_delante
+		if absf(p.x - cx) < ancho * 0.5 + 16.0 and p.y > fondo - _margen_delante and p.y < fondo + 80.0:
 			delante = true
 			break
 	_arriba.z_index = Z_DEBAJO if delante else Z_ENCIMA
