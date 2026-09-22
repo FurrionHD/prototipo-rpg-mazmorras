@@ -36,7 +36,7 @@ func _ready() -> void:
 	# EL DETECTOR DETECTA: un compañero plantado en mitad de la taberna tiene que dar PISA.
 	var c0 := _companeros()[0] as CharacterBody2D
 	var guarda: Vector2 = c0.global_position
-	c0.global_position = PuebloPlano.centro_px(Vector2i(45, 46))
+	c0.global_position = PuebloPlano.centro_px(Vector2i(45, 43))
 	_medir()
 	print("detector (tiene que ser 1): %d" % _pisa)
 	_pisa = 0
@@ -46,12 +46,12 @@ func _ready() -> void:
 	# RUTAS: casillas por las que pasar, en orden. Rodean casas y adornos pegandose a ellos.
 	var rutas := {
 		# Vuelta a la taberna cortando las cuatro esquinas en diagonal.
-		"taberna (vuelta en diagonal)": [Vector2i(42, 49), Vector2i(49, 49), Vector2i(48, 43), Vector2i(42, 44), Vector2i(43, 49), Vector2i(49, 49)],
+		"taberna (vuelta en diagonal)": [Vector2i(42, 46), Vector2i(49, 46), Vector2i(48, 40), Vector2i(42, 41), Vector2i(43, 46), Vector2i(49, 46)],
 		# Rozando los barriles por delante, de un lado a otro, y de vuelta.
-		"taberna (barriles)": [Vector2i(41, 49), Vector2i(49, 49), Vector2i(45, 48), Vector2i(41, 49)],
-		"tienda (vuelta en diagonal)": [Vector2i(42, 40), Vector2i(49, 40), Vector2i(48, 34), Vector2i(42, 35), Vector2i(43, 40)],
-		"cocina (barril, zigzag)": [Vector2i(22, 49), Vector2i(15, 49), Vector2i(16, 44), Vector2i(22, 45), Vector2i(21, 49)],
-		"herreria (yunque, diagonal)": [Vector2i(50, 40), Vector2i(57, 40), Vector2i(56, 35), Vector2i(51, 36), Vector2i(52, 40)],
+		"taberna (barriles)": [Vector2i(41, 46), Vector2i(49, 46), Vector2i(45, 45), Vector2i(41, 46)],
+		"tienda (vuelta en diagonal)": [Vector2i(42, 37), Vector2i(49, 37), Vector2i(48, 31), Vector2i(42, 32), Vector2i(43, 37)],
+		"cocina (barril, zigzag)": [Vector2i(22, 46), Vector2i(15, 46), Vector2i(16, 41), Vector2i(22, 42), Vector2i(21, 46)],
+		"herreria (yunque, diagonal)": [Vector2i(50, 37), Vector2i(57, 37), Vector2i(56, 32), Vector2i(51, 33), Vector2i(52, 37)],
 	}
 	# Headless el reloj de fisica va a lo que puede: sin tope, cada frame es un frame.
 	Engine.max_fps = 0

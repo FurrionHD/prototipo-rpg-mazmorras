@@ -280,9 +280,9 @@ func _capturas() -> void:
 	# Los portones: el del norte de frente y los de los lados de canto.
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.PORTON_ARENA + Vector2i(0, 1))
 	await _captura("porton_norte")
-	_jugador.global_position = PuebloPlano.centro_px(Vector2i(4, 41))
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(4, 38))
 	await _captura("porton_oeste")
-	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.ANCHO - 5, 41))
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.ANCHO - 5, 38))
 	await _captura("porton_este")
 	# Lo nuevo del barrio norte: el cuartel y un cartel.
 	for casa in PuebloPlano.CASAS:

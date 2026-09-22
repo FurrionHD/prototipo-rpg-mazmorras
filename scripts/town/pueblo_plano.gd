@@ -15,7 +15,8 @@
 #    - al norte, este y oeste, murallas con portones cerrados.
 #
 #  EL PUEBLO CRECIO el 22/09/2026 (lo pidio el usuario, para meter mas casas y luego aldeanos): todo lo
-#  de antes se corrio 12 casillas al este y 16 al sur, y quedo en el centro. Alrededor, un BARRIO NORTE
+#  de antes se corrio 12 casillas al este y 13 al sur, y quedo en el centro. Las casas del norte van
+#  pegadas a la muralla, con el hueco justo para su tejado (con mas, quedaba un prado vacio). Alrededor, un BARRIO NORTE
 #  (calle norte, cuartel de los guardias, casas y el porton de la arena, al que se llega por dos caminos
 #  a los lados del hogar) y dos barrios nuevos al este y al oeste. El jardin del hogar se cerro por
 #  arriba con verja: antes daba a la muralla y a la arena se entraba por encima de la casa.
@@ -29,39 +30,39 @@ class_name PuebloPlano
 const CELDA := 32
 
 const ANCHO := 74
-const ALTO := 70
+const ALTO := 67
 
 # Lo que puede haber en una casilla. El SUELO que se pinta y si se puede pisar salen de aqui.
 enum Suelo { HIERBA, CALLE, MURALLA, AGUA, MADERA }
 
 # Donde empieza el agua (fila). Por encima, tierra firme; por debajo, lago hasta el borde del mapa.
-const ORILLA := 56
+const ORILLA := 53
 
 # ------------------------------------------------------------
 #  CALLES (baldosa de piedra). Rectangulos que se pisan.
 # ------------------------------------------------------------
 const CALLES := [
-	Rect2i(2, 40, 70, 3),     # la calle mayor, de porton a porton (oeste-este)
-	Rect2i(2, 31, 70, 2),     # la calle alta, delante del hogar y de las casas de relleno
-	Rect2i(2, 49, 70, 2),     # la calle baja
-	Rect2i(2, 13, 70, 2),     # la calle norte, la del cuartel
-	Rect2i(35, 33, 3, 7),     # de la calle alta a la plaza
-	Rect2i(35, 43, 3, 13),    # de la plaza a la orilla (y al muelle)
-	Rect2i(2, 55, 70, 1),     # el paseo de la orilla, donde dan las casas de abajo
-	Rect2i(32, 37, 9, 9),     # LA PLAZA
-	Rect2i(36, 24, 1, 1),     # el camino de piedra del hogar (casa -> claro), estrecho
-	Rect2i(35, 30, 3, 1),     # la ENTRADA al hogar (claro -> calle), de 3 como la calle de la plaza
-	Rect2i(34, 25, 5, 5),     # el claro del altar
-	Rect2i(35, 2, 3, 11),     # del porton de la arena a la calle norte
-	Rect2i(29, 15, 2, 16),    # los dos caminos a los LADOS DEL HOGAR, de la calle alta a la norte
-	Rect2i(42, 15, 2, 16),
+	Rect2i(2, 37, 70, 3),     # la calle mayor, de porton a porton (oeste-este)
+	Rect2i(2, 28, 70, 2),     # la calle alta, delante del hogar y de las casas de relleno
+	Rect2i(2, 46, 70, 2),     # la calle baja
+	Rect2i(2, 10, 70, 2),     # la calle norte, la del cuartel
+	Rect2i(35, 30, 3, 7),     # de la calle alta a la plaza
+	Rect2i(35, 40, 3, 13),    # de la plaza a la orilla (y al muelle)
+	Rect2i(2, 52, 70, 1),     # el paseo de la orilla, donde dan las casas de abajo
+	Rect2i(32, 34, 9, 9),     # LA PLAZA
+	Rect2i(36, 21, 1, 1),     # el camino de piedra del hogar (casa -> claro), estrecho
+	Rect2i(35, 27, 3, 1),     # la ENTRADA al hogar (claro -> calle), de 3 como la calle de la plaza
+	Rect2i(34, 22, 5, 5),     # el claro del altar
+	Rect2i(35, 2, 3, 8),      # del porton de la arena a la calle norte
+	Rect2i(29, 12, 2, 16),    # los dos caminos a los LADOS DEL HOGAR, de la calle alta a la norte
+	Rect2i(42, 12, 2, 16),
 ]
 
-const PLAZA := Rect2i(32, 37, 9, 9)
+const PLAZA := Rect2i(32, 34, 9, 9)
 
 # La ESCALERA DE CARACOL que baja a la mazmorra, en el centro de la plaza. Solida: la F se pulsa
 # desde su boca, en el lado sur.
-const ESCALERA := Rect2i(35, 40, 3, 3)
+const ESCALERA := Rect2i(35, 37, 3, 3)
 
 # ------------------------------------------------------------
 #  EL RECINTO DEL HOGAR: jardin con verjas. La verja va por el borde del rectangulo, con UN hueco
@@ -70,16 +71,16 @@ const ESCALERA := Rect2i(35, 40, 3, 3)
 # Cerrado por los CUATRO lados desde que el pueblo crecio (antes la fila de arriba era la muralla). La
 # verja de arriba va dos filas por encima de la casa: el tejado sube dos casillas sobre su huella y, mas
 # pegada, quedaria debajo del dibujo.
-const JARDIN := Rect2i(31, 16, 11, 15)
+const JARDIN := Rect2i(31, 13, 11, 15)
 # La entrada de la verja: 3 de ancho, alineada con la calle que sube de la plaza (lo pidio el usuario).
-const JARDIN_HUECO := Rect2i(35, 30, 3, 1)
-const ALTAR := Vector2i(36, 27)
+const JARDIN_HUECO := Rect2i(35, 27, 3, 1)
+const ALTAR := Vector2i(36, 24)
 
 # ------------------------------------------------------------
 #  EL MUELLE Y LA PLATAFORMA DEL PESCADOR (madera sobre el agua).
 # ------------------------------------------------------------
 const MUELLE := Rect2i(35, ORILLA, 3, 4)
-const PLATAFORMA := Rect2i(33, 60, 7, 7)
+const PLATAFORMA := Rect2i(33, 57, 7, 7)
 
 # ------------------------------------------------------------
 #  MURALLAS Y PORTONES. La muralla es la casilla entera; el porton es un trozo de ella que se
@@ -93,8 +94,8 @@ const MURALLAS := [
 
 const PORTONES := [
 	{"lado": "norte", "rect": Rect2i(35, 0, 3, 2)},
-	{"lado": "oeste", "rect": Rect2i(0, 40, 2, 3)},
-	{"lado": "este", "rect": Rect2i(ANCHO - 2, 40, 2, 3)},
+	{"lado": "oeste", "rect": Rect2i(0, 37, 2, 3)},
+	{"lado": "este", "rect": Rect2i(ANCHO - 2, 37, 2, 3)},
 ]
 
 # ------------------------------------------------------------
@@ -112,59 +113,59 @@ const PORTONES := [
 #  con la calle.
 # ------------------------------------------------------------
 const CASAS := [
-	{"clave": "hogar", "nombre": "HOGAR", "rect": Rect2i(34, 20, 5, 4), "script": "res://scripts/town/hogar.gd"},
-	{"clave": "boticaria", "nombre": "BOTICARIA", "rect": Rect2i(17, 36, 4, 3), "script": "res://scripts/town/boticaria.gd"},
-	{"clave": "maestro", "nombre": "MAESTRO", "rect": Rect2i(25, 36, 3, 3), "script": "res://scripts/town/maestro.gd"},
-	{"clave": "tienda", "nombre": "TIENDA", "rect": Rect2i(43, 35, 5, 4), "script": "res://scripts/town/shop.gd"},
-	{"clave": "herreria", "nombre": "HERRERÍA", "rect": Rect2i(52, 36, 4, 3), "script": "res://scripts/town/herrero.gd"},
-	{"clave": "cocina", "nombre": "COCINA", "rect": Rect2i(17, 45, 4, 3), "script": "res://scripts/town/cocinero.gd"},
-	{"clave": "taberna", "nombre": "TABERNA", "rect": Rect2i(43, 44, 5, 4), "script": "res://scripts/town/taberna.gd"},
-	{"clave": "carpinteria", "nombre": "CARPINTERÍA", "rect": Rect2i(52, 45, 4, 3), "script": "res://scripts/town/carpintero.gd"},
-	{"clave": "peleteria", "nombre": "PELETERÍA", "rect": Rect2i(52, 51, 4, 3), "script": "res://scripts/town/peletero.gd"},
-	{"clave": "pescador", "nombre": "PESCADOR", "rect": Rect2i(35, 62, 3, 3), "script": "res://scripts/town/pescador.gd"},
+	{"clave": "hogar", "nombre": "HOGAR", "rect": Rect2i(34, 17, 5, 4), "script": "res://scripts/town/hogar.gd"},
+	{"clave": "boticaria", "nombre": "BOTICARIA", "rect": Rect2i(17, 33, 4, 3), "script": "res://scripts/town/boticaria.gd"},
+	{"clave": "maestro", "nombre": "MAESTRO", "rect": Rect2i(25, 33, 3, 3), "script": "res://scripts/town/maestro.gd"},
+	{"clave": "tienda", "nombre": "TIENDA", "rect": Rect2i(43, 32, 5, 4), "script": "res://scripts/town/shop.gd"},
+	{"clave": "herreria", "nombre": "HERRERÍA", "rect": Rect2i(52, 33, 4, 3), "script": "res://scripts/town/herrero.gd"},
+	{"clave": "cocina", "nombre": "COCINA", "rect": Rect2i(17, 42, 4, 3), "script": "res://scripts/town/cocinero.gd"},
+	{"clave": "taberna", "nombre": "TABERNA", "rect": Rect2i(43, 41, 5, 4), "script": "res://scripts/town/taberna.gd"},
+	{"clave": "carpinteria", "nombre": "CARPINTERÍA", "rect": Rect2i(52, 42, 4, 3), "script": "res://scripts/town/carpintero.gd"},
+	{"clave": "peleteria", "nombre": "PELETERÍA", "rect": Rect2i(52, 48, 4, 3), "script": "res://scripts/town/peletero.gd"},
+	{"clave": "pescador", "nombre": "PESCADOR", "rect": Rect2i(35, 59, 3, 3), "script": "res://scripts/town/pescador.gd"},
 	# EL CUARTEL de los guardias: el edificio mas grande del pueblo (7 de ancho, lo pidio el usuario). No
 	# se entra: los guardias desaparecen en su puerta y salen con el equipo puesto (o sin el).
-	{"clave": "cuartel", "rect": Rect2i(20, 7, 7, 5)},
+	{"clave": "cuartel", "rect": Rect2i(20, 4, 7, 5)},
 	# Relleno: a los lados del hogar, una fila por lado pegada a la calle alta.
-	{"clave": "vacia", "rect": Rect2i(15, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(20, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(25, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(45, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(50, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(55, 27, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(15, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(20, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(25, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(45, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(50, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(55, 24, 3, 3)},
 	# Relleno: los barrios del sur.
-	{"clave": "vacia", "rect": Rect2i(25, 45, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(17, 51, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(25, 51, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(43, 51, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(25, 42, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(17, 48, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(25, 48, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(43, 48, 3, 3)},
 	# EL BARRIO NORTE: una fila pegada a la calle norte, a los dos lados del cuartel y del camino de la arena.
-	{"clave": "vacia", "rect": Rect2i(4, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(9, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(14, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(29, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(40, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(45, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(50, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(55, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(60, 9, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(65, 9, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(4, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(9, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(14, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(29, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(40, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(45, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(50, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(55, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(60, 6, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(65, 6, 3, 3)},
 	# LOS BARRIOS DEL OESTE Y DEL ESTE: dos casas por calle y lado, pegadas a su calle como las demas.
-	{"clave": "vacia", "rect": Rect2i(3, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(8, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(3, 36, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(8, 36, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(3, 45, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(8, 45, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(3, 51, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(8, 51, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(63, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(68, 27, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(63, 36, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(68, 36, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(63, 45, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(68, 45, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(63, 51, 3, 3)},
-	{"clave": "vacia", "rect": Rect2i(68, 51, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(3, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(8, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(3, 33, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(8, 33, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(3, 42, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(8, 42, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(3, 48, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(8, 48, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(63, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(68, 24, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(63, 33, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(68, 33, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(63, 42, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(68, 42, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(63, 48, 3, 3)},
+	{"clave": "vacia", "rect": Rect2i(68, 48, 3, 3)},
 ]
 
 
@@ -195,26 +196,26 @@ const ADORNOS := {
 # ------------------------------------------------------------
 const POSTES := [
 	# La calle mayor (filas 39 al norte y 43 al sur).
-	Vector2i(7, 39), Vector2i(10, 43), Vector2i(17, 39), Vector2i(23, 43), Vector2i(30, 39), Vector2i(42, 43),
-	Vector2i(50, 39), Vector2i(56, 43), Vector2i(63, 43), Vector2i(66, 39),
+	Vector2i(7, 36), Vector2i(10, 40), Vector2i(17, 36), Vector2i(23, 40), Vector2i(30, 36), Vector2i(42, 40),
+	Vector2i(50, 36), Vector2i(56, 40), Vector2i(63, 40), Vector2i(66, 36),
 	# La calle alta (30 al norte, 33 al sur). En las bocas de los caminos del hogar van los carteles.
-	Vector2i(7, 30), Vector2i(11, 33), Vector2i(18, 30), Vector2i(23, 33), Vector2i(39, 33), Vector2i(49, 33),
-	Vector2i(58, 30), Vector2i(62, 33), Vector2i(66, 30),
+	Vector2i(7, 27), Vector2i(11, 30), Vector2i(18, 27), Vector2i(23, 30), Vector2i(39, 30), Vector2i(49, 30),
+	Vector2i(58, 27), Vector2i(62, 30), Vector2i(66, 27),
 	# La calle baja (48 al norte, 51 al sur).
-	Vector2i(7, 48), Vector2i(15, 48), Vector2i(22, 51), Vector2i(30, 48), Vector2i(40, 51), Vector2i(50, 48),
-	Vector2i(58, 51), Vector2i(66, 48),
+	Vector2i(7, 45), Vector2i(15, 45), Vector2i(22, 48), Vector2i(30, 45), Vector2i(40, 48), Vector2i(50, 45),
+	Vector2i(58, 48), Vector2i(66, 45),
 	# La calle norte (12 al norte, 15 al sur).
-	Vector2i(7, 12), Vector2i(12, 15), Vector2i(18, 12), Vector2i(26, 15), Vector2i(33, 12), Vector2i(46, 15),
-	Vector2i(48, 12), Vector2i(58, 15), Vector2i(63, 12), Vector2i(70, 15),
+	Vector2i(7, 9), Vector2i(12, 12), Vector2i(18, 9), Vector2i(26, 12), Vector2i(33, 9), Vector2i(46, 12),
+	Vector2i(48, 9), Vector2i(58, 12), Vector2i(63, 9), Vector2i(70, 12),
 	# El paseo de la orilla: a los lados del muelle.
-	Vector2i(33, 54), Vector2i(39, 54),
+	Vector2i(33, 51), Vector2i(39, 51),
 ]
 
 # BRASEROS: cuatro alrededor de la escalera de la plaza, dos a cada lado de los portones del este y el
 # oeste, y dos a los lados del porton norte, el de la arena.
 const BRASEROS := [
-	Vector2i(33, 38), Vector2i(39, 38), Vector2i(33, 44), Vector2i(39, 44),
-	Vector2i(2, 39), Vector2i(2, 43), Vector2i(ANCHO - 3, 39), Vector2i(ANCHO - 3, 43),
+	Vector2i(33, 35), Vector2i(39, 35), Vector2i(33, 41), Vector2i(39, 41),
+	Vector2i(2, 36), Vector2i(2, 40), Vector2i(ANCHO - 3, 36), Vector2i(ANCHO - 3, 40),
 	Vector2i(33, 2), Vector2i(39, 2),
 ]
 
@@ -226,12 +227,12 @@ const BRASEROS := [
 # ------------------------------------------------------------
 const CARTELES := [
 	# En las bocas de los dos caminos de los lados del hogar, sobre la calle alta.
-	{"casilla": Vector2i(28, 30), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "n"], ["Plaza y mazmorra", "s"]]},
-	{"casilla": Vector2i(44, 30), "destinos": [["Zona de pruebas", "n"], ["Plaza y mazmorra", "s"]]},
+	{"casilla": Vector2i(28, 27), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "n"], ["Plaza y mazmorra", "s"]]},
+	{"casilla": Vector2i(44, 27), "destinos": [["Zona de pruebas", "n"], ["Plaza y mazmorra", "s"]]},
 	# En la calle norte, junto al camino de la arena.
-	{"casilla": Vector2i(38, 12), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "o"], ["Hogar y plaza", "s"]]},
+	{"casilla": Vector2i(38, 9), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "o"], ["Hogar y plaza", "s"]]},
 	# En la plaza, junto a la calle que sube al hogar.
-	{"casilla": Vector2i(38, 36), "destinos": [["Hogar", "n"], ["Zona de pruebas", "n"], ["Puerta oeste", "o"],
+	{"casilla": Vector2i(38, 33), "destinos": [["Hogar", "n"], ["Zona de pruebas", "n"], ["Puerta oeste", "o"],
 		["Puerta este", "e"], ["Muelle del pescador", "s"]]},
 ]
 
