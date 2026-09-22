@@ -40,6 +40,7 @@ func _ready() -> void:
 	_crear_luces()
 	_crear_carteles()
 	_crear_plaza_y_mercado()
+	_crear_guardias()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
 
@@ -111,6 +112,15 @@ func _crear_plaza_y_mercado() -> void:
 	for m in PuebloPlano.MUEBLES:
 		var clave: String = m[0]
 		add_child(PiezaPueblo.crear(clave, m[1], clave != "parterre"))
+
+
+# ------------------------------------------------------------
+#  LOS GUARDIAS de los portones con su cambio de turno (GuardiasPlan / GuardiaPueblo). Cada uno se
+#  coloca solo segun la hora: aqui solo se crean.
+# ------------------------------------------------------------
+func _crear_guardias() -> void:
+	for i in GuardiasPlan.GUARDIAS.size():
+		add_child(GuardiaPueblo.crear(i))
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en

@@ -294,6 +294,14 @@ func _build_hora(vb: VBoxContainer) -> void:
 			func():
 				CicloDia.saltar_a(s)
 				_refrescar_hora())
+	# LOS GUARDIAS cambian de turno cada 20 minutos (GuardiasPlan.TURNO): salta a 3 s antes del siguiente
+	# cambio para ver el relevo entero (sale de casa, cuartel, relevo en el porton, vuelta a casa).
+	_atajo(fila, "Cambio de turno", "Salta a 3 s antes del siguiente cambio de guardia; la hora sigue corriendo.",
+		func():
+			var ahora: float = CicloDia.segundo()
+			var cambio: float = GuardiasPlan.TURNO if ahora < GuardiasPlan.TURNO else CicloDia.CICLO
+			CicloDia.saltar_a(fposmod(cambio - 3.0, CicloDia.CICLO))
+			_refrescar_hora())
 
 	var fila2 := HBoxContainer.new()
 	fila2.add_theme_constant_override("separation", 6)
