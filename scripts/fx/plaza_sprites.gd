@@ -36,6 +36,11 @@ const PIEZAS := {
 	"puesto_verdura": {"tam": Vector2i(96, 140), "pie": 64},
 	"puesto_fruta": {"tam": Vector2i(96, 140), "pie": 64},
 	"puesto_especias": {"tam": Vector2i(96, 140), "pie": 64},
+	# Solo lo de delante del vendedor, que va encima de el (ver _puesto_frente).
+	"puesto_pan_frente": {"tam": Vector2i(96, 140), "pie": 64},
+	"puesto_verdura_frente": {"tam": Vector2i(96, 140), "pie": 64},
+	"puesto_fruta_frente": {"tam": Vector2i(96, 140), "pie": 64},
+	"puesto_especias_frente": {"tam": Vector2i(96, 140), "pie": 64},
 }
 
 const NEGRO := Color(0.06, 0.05, 0.05)
@@ -65,6 +70,8 @@ static func generar(clave: String) -> PackedByteArray:
 		"parterre":
 			return _parterre()
 		_:
+			if clave.ends_with(SUFIJO_FRENTE):
+				return _puesto_frente(clave.trim_prefix("puesto_").trim_suffix(SUFIJO_FRENTE))
 			return _puesto(clave.trim_prefix("puesto_"))
 
 
@@ -497,7 +504,7 @@ const GENERO := {
 # Fondos (p) y alturas (z) del puesto.
 const P_MOSTRADOR := [10.0, 24.0]     # de delante a atras
 const Z_MOSTRADOR := 24.0
-const P_VENDEDOR := 34.0               # donde se pondra el vendedor
+const P_VENDEDOR := 40.0               # donde esta el vendedor (pegado al estante: asoma mas por el mostrador)
 const P_ESTANTE := [48.0, 58.0]
 const Z_ESTANTE := 44.0
 const P_POSTE_DELANTE := 11.0
@@ -505,11 +512,70 @@ const P_POSTE_DETRAS := 57.0
 const TOLDO_DELANTE := [6.0, 80.0]     # [p, z] del borde de delante
 const TOLDO_DETRAS := [62.0, 92.0]     # [p, z] del borde de atras
 
+
+# La y de los pies del vendedor, en px del lienzo del puesto (ver VendedorMercadillo).
+static func pies_vendedor() -> float:
+	return _sy(PIEZAS["puesto_pan"]["tam"].y, P_VENDEDOR, 0.0)
+
+
+# ------------------------------------------------------------
+#  EL PUESTO EN DOS CAPAS, para meter al vendedor en medio (VendedorMercadillo). El puesto entero
+#  ("puesto_pan") se pinta como siempre; encima va el vendedor y encima de el, SOLO EL FRENTE
+#  ("puesto_pan_frente"): toldo, mostrador, cajas, postes de delante y festón. Asi el vendedor tapa el
+#  estante y el mostrador le tapa las piernas. Las tres capas tienen el mismo lienzo y la misma huella,
+#  asi que PiezaPueblo las ordena igual contra quien pase por delante o por detras.
+#
+#  El frente sale del puesto entero (mismos pixeles, mismo contorno): se queda con lo que pinta el frente
+#  y con el contorno negro que lo rodea. Si se dibujara aparte con su propio contorno saldria una raya
+#  negra donde el mostrador se junta con el estante.
+# ------------------------------------------------------------
+const SUFIJO_FRENTE := "_frente"
+
 static func _puesto(tipo: String) -> PackedByteArray:
+	var d: PackedByteArray = _puesto_capas(tipo, true)
+	PuebloSprites._contorno(d, PIEZAS["puesto_pan"]["tam"].x, PIEZAS["puesto_pan"]["tam"].y)
+	return d
+
+
+static func _puesto_frente(tipo: String) -> PackedByteArray:
+	var t: Vector2i = PIEZAS["puesto_pan"]["tam"]
+	var crudo: PackedByteArray = _puesto_capas(tipo, true)
+	var entero: PackedByteArray = crudo.duplicate()
+	PuebloSprites._contorno(entero, t.x, t.y)
+	var frente: PackedByteArray = _puesto_capas(tipo, false)
+	var out := PuebloSprites._lienzo(t)
+	for y in t.y:
+		for x in t.x:
+			var i: int = (y * t.x + x) * 4
+			var quedar: bool = frente[i + 3] > 0
+			# Un pixel de contorno (en el entero pero no en el crudo) pegado al frente.
+			if not quedar and entero[i + 3] > 0 and crudo[i + 3] == 0:
+				for v in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var nx: int = x + v.x
+					var ny: int = y + v.y
+					if nx >= 0 and ny >= 0 and nx < t.x and ny < t.y and frente[(ny * t.x + nx) * 4 + 3] > 0:
+						quedar = true
+						break
+			if quedar:
+				for k in 4:
+					out[i + k] = entero[i + k]
+	return out
+
+
+# El dibujo del puesto SIN contorno: entero, o solo el frente (con_fondo = false).
+static func _puesto_capas(tipo: String, con_fondo: bool) -> PackedByteArray:
 	var t: Vector2i = PIEZAS["puesto_pan"]["tam"]
 	var w: int = t.x
 	var h: int = t.y
 	var d := PuebloSprites._lienzo(t)
+	if con_fondo:
+		_puesto_fondo(d, w, h, tipo)
+	_puesto_delante(d, w, h, tipo)
+	return d
+
+
+# Lo de detras del vendedor: la sombra, los postes de atras y el estante.
+static func _puesto_fondo(d: PackedByteArray, w: int, h: int, tipo: String) -> void:
 	var genero: Array = GENERO.get(tipo, GENERO["verdura"])
 	# La sombra del toldo en el suelo, de todo el puesto.
 	var ys0: int = int(round(_sy(h, 60.0, 0.0)))
@@ -541,6 +607,12 @@ static func _puesto(tipo: String) -> PackedByteArray:
 				_botellas(d, w, h, 11 + i * 26, yb - 2, 24, rampa, int(balda[1]) == 0)
 			else:
 				_monton(d, w, h, 11 + i * 26, yb - 2, 23, 1, rampa, i + 10 + int(balda[1]) * 5)
+
+
+# Lo de delante del vendedor: el toldo, el mostrador con sus cajas y cestos, los postes de delante y el
+# festón.
+static func _puesto_delante(d: PackedByteArray, w: int, h: int, tipo: String) -> void:
+	var genero: Array = GENERO.get(tipo, GENERO["verdura"])
 	# EL TOLDO, por encima del hueco del vendedor y del estante.
 	_toldo(d, w, h)
 	# EL MOSTRADOR: frente de tablas con tres huecos y cestos, y la tapa vista desde arriba.
@@ -562,9 +634,11 @@ static func _puesto(tipo: String) -> PackedByteArray:
 			_px(d, w, h, px0 + 2 + k * 2, y_frente_arriba + 2, Color(0.86, 0.84, 0.78))
 	_tapa(d, w, h, 5, 90, m0, m1, Z_MOSTRADOR, func(_x: int, f: int) -> Color:
 		return MADERA[4] if f % 4 != 3 else MADERA[3])
-	# LAS CAJAS DE GENERO sobre el mostrador: su frente y el monton de encima.
+	# LAS CAJAS DE GENERO sobre el mostrador: su frente y el monton de encima. Dos, a los lados: el MEDIO
+	# se queda libre, que es donde atiende el vendedor. Con tres, la del medio le tapaba la cara ("tienen
+	# la mitad de los productos encima de la cara", el usuario el 22/09/2026).
 	var cajas: Array = genero[1]
-	for i in 3:
+	for i in [0, 2]:
 		var cx0: int = 9 + i * 27
 		var rampa2: Array = cajas[i % cajas.size()]
 		var zc: float = Z_MOSTRADOR + 6.0
@@ -580,8 +654,6 @@ static func _puesto(tipo: String) -> PackedByteArray:
 		_frente(d, w, h, px_, px_ + 2, P_POSTE_DELANTE, 0.0, z_toldo_delante, func(x: int, _f: int) -> Color:
 			return MADERA[3] if x == px_ else MADERA[2])
 	_feston(d, w, h)
-	PuebloSprites._contorno(d, w, h)
-	return d
 
 
 # La altura del toldo sobre el fondo p (sube de delante a atras).
