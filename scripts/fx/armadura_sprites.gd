@@ -368,6 +368,18 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 	# en Y baja a dos, que es lo que mide una ranura.
 	var ojos: Vector3 = centro + Vector3(0.0, R * 0.62, -R * 0.16)
 	var solo := {"solo_sobre": [Tono.MAT, Tono.MAT_L, Tono.MAT_S]}
+	# DE PERFIL (dirs 2 y 6) SOLO SE VE LA PUNTA DE LA RANURA, no la tira entera. La tira cruza la cara
+	# de carrillo a carrillo, o sea a lo ANCHO de la cabeza; girada 90 grados eso queda a lo largo de la
+	# PROFUNDIDAD, y en esta camara la profundidad sube por la pantalla: salia una raja vertical negra
+	# en mitad del carrillo (la que señalo el usuario), que no es nada que exista en un yelmo. De lado,
+	# de una ranura se ve el canto: una muesca corta ahi delante. Y la cruz de la nariz, tampoco: esa
+	# baja por el frente y de perfil se ve de canto.
+	if dir == 2 or dir == 6:
+		for k in 3:
+			PoseJugador.poner(piezas, esq,
+				centro + Vector3(0.0, r.y * 0.72, -R * 0.16 + (float(k) - 1.0) * 0.9),
+				Vector3(1.0, 1.0, 1.0), Tono.OSCURO, solo)
+		return
 	# EN FILA DE BOLITAS, por lo mismo que la cresta: una elipse ancha girada 45 grados sale como la
 	# caja que la envuelve y la ranura era una MANCHA negra en mitad de la cara. Y la fila se curva
 	# hacia atras por los lados, siguiendo la cara: en diagonal asi se lee como una tira que la rodea.
@@ -380,7 +392,11 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 			Vector3(1.0, 1.0, 1.0), Tono.OSCURO, solo)
 	# Las placas la llevan EN CRUZ: la barra vertical baja por la nariz. Es el detalle que separa de un
 	# vistazo el yelmo caro del barato, y cuesta una elipse.
-	if tipo == "placas":
+	#
+	# PERO NO DE PERFIL (dirs 2 y 6). Una barra que baja por la NARIZ, de lado, se ve de canto: o sea
+	# nada, o como mucho una muesca en el borde. Pintandola igual que de frente quedaba una raja
+	# vertical oscura en mitad del carrillo, que es justo lo que el usuario señalo.
+	if tipo == "placas" and dir != 2 and dir != 6:
 		PoseJugador.poner(piezas, esq, ojos - Vector3(0.0, 0.0, R * 0.22),
 			Vector3(1.3, 1.3, R * 0.30), Tono.OSCURO, solo)
 
