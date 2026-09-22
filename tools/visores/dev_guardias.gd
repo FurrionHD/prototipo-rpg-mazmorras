@@ -165,6 +165,28 @@ func _capturas() -> void:
 	var al_cuartel: float = GuardiasPlan._largo(GuardiasPlan.ruta(GuardiasPlan.puerta_casa(0), GuardiasPlan.puerta_cuartel())) / GuardiasPlan.VELOCIDAD
 	await _foto("llega_al_cuartel", al_cuartel - 1.5, GuardiasPlan.pos_de(GuardiasPlan.puerta_cuartel()))
 	await _foto("sale_armado", al_cuartel + GuardiasPlan.EN_CUARTEL + 2.0, GuardiasPlan.pos_de(GuardiasPlan.puerta_cuartel()))
+	# JUNTO A LA VERJA DEL HOGAR: el primer momento en que cada guardia pasa pegado a ella (a una casilla
+	# o menos de una casilla de verja), de paisano o armado. Ahi las verjas se les pintaban encima.
+	cam.zoom = Vector2(3.0, 3.0)
+	var vistos := {}
+	for g in GuardiasPlan.GUARDIAS.size():
+		var t := 0.0
+		while t < 400.0:
+			var e: Dictionary = GuardiasPlan.estado(g, t)
+			if bool(e["visible"]):
+				var pie: Vector2 = (e["pos"] as Vector2) + Vector2(0.0, PoseJugador.HUELLA_Y)
+				var c := Vector2i((pie / float(PuebloPlano.CELDA)).floor())
+				var cerca: bool = false
+				for dy in range(-1, 2):
+					for dx in range(-1, 2):
+						if PuebloPlano.es_verja(c + Vector2i(dx, dy)):
+							cerca = true
+				var lado: String = "oeste" if c.x < PuebloPlano.ALTAR.x else "este"
+				var clave: String = "%s_%s" % [lado, "armado" if bool(e["armado"]) else "paisano"]
+				if cerca and not vistos.has(clave):
+					vistos[clave] = true
+					await _foto("verja_" + clave, t, e["pos"])
+			t += 0.25
 	# PRIMEROS PLANOS, para ver la armadura, la espada y el escudo (y la ropa de paisano).
 	cam.zoom = Vector2(5.0, 5.0)
 	await _foto("cerca_de_guardia", 600.0, GuardiasPlan.pos_de(Vector2i(2, 38)))
