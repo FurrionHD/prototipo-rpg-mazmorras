@@ -32,8 +32,8 @@ const ENTRAR := 2.0
 # la calle alta, al sur: asi no llegan todos por el mismo camino.
 #
 # Y LO QUE VENDE CADA UNO ('genero', rutas de MaterialData): la comida que antes vendia la tienda,
-# repartida por el usuario el 22/09/2026. El de FRUTA no vende nada todavia: en el juego no hay frutas
-# (hay que decidir cuales y en que comidas entran); esta en su puesto pero no se le puede comprar.
+# repartida por el usuario el 22/09/2026. La FRUTA llego ese mismo dia, con sus platos (la macedonia, la
+# compota, la tarta, y la lubina, el gobio y la parrillada retocados para llevarla).
 const MAT := "res://resources/materials/%s.tres"
 const VENDEDORES := [
 	{"casa": Rect2i(45, 6, 3, 3), "puesto": "puesto_pan", "nombre": "Pan y queso",
@@ -41,7 +41,7 @@ const VENDEDORES := [
 	{"casa": Rect2i(50, 24, 3, 3), "puesto": "puesto_verdura", "nombre": "Verduras",
 		"genero": ["tomate", "lechuga", "patata", "zanahoria", "pimiento"]},
 	{"casa": Rect2i(55, 24, 3, 3), "puesto": "puesto_fruta", "nombre": "Fruta",
-		"genero": []},
+		"genero": ["manzana", "naranja", "limon", "uvas"]},
 	{"casa": Rect2i(60, 6, 3, 3), "puesto": "puesto_especias", "nombre": "Especias y aceite",
 		"genero": ["ajo", "cebolla", "aceite"]},
 ]

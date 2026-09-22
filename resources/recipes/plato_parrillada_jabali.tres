@@ -7,7 +7,7 @@
 [ext_resource type="Resource" path="res://resources/materials/carne_jabali.tres" id="m0"]
 [ext_resource type="Resource" path="res://resources/materials/carne_rata.tres" id="m1"]
 [ext_resource type="Resource" path="res://resources/materials/pimiento.tres" id="m2"]
-[ext_resource type="Resource" path="res://resources/materials/ajo.tres" id="m3"]
+[ext_resource type="Resource" path="res://resources/materials/manzana.tres" id="m3"]
 [ext_resource type="Resource" path="res://resources/materials/aceite.tres" id="m4"]
 [ext_resource type="Resource" path="res://resources/materials/piedra_sal.tres" id="m5"]
 
@@ -26,7 +26,7 @@ script = ExtResource("2")
 material = ExtResource("m2")
 unidades = 3
 
-[sub_resource type="Resource" id="I_ajo"]
+[sub_resource type="Resource" id="I_manzana"]
 script = ExtResource("2")
 material = ExtResource("m3")
 unidades = 2
@@ -44,5 +44,5 @@ unidades = 1
 [resource]
 script = ExtResource("1")
 resultado = ExtResource("3")
-ingredientes = [SubResource("I_carne_jabali"), SubResource("I_carne_rata"), SubResource("I_pimiento"), SubResource("I_ajo"), SubResource("I_aceite"), SubResource("I_piedra_sal")]
+ingredientes = [SubResource("I_carne_jabali"), SubResource("I_carne_rata"), SubResource("I_pimiento"), SubResource("I_manzana"), SubResource("I_aceite"), SubResource("I_piedra_sal")]
 unidades_resultado = 2

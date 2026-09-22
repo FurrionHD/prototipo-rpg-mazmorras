@@ -6,16 +6,17 @@
 
 [sub_resource type="Resource" id="SA_plato"]
 script = ExtResource("2")
-estado = 25
+estado = 30
+turns = 120
 prob = 1.0
 
 [resource]
 script = ExtResource("1")
-nombre = "Parrillada de jabalí y rata con manzana"
+nombre = "Tarta de queso y manzana"
 cura_total = 0.0
 turnos = 0
 segundos = 0.0
 efectos = [SubResource("SA_plato")]
 escala_efecto = 1.0
-descripcion = "Todo al fuego, con la manzana asada al lado como en las casas buenas. Te levantas de la mesa con ganas de partir algo por la mitad."
-valor_base = 280
+descripcion = "Queso, manzana y un puñado de uvas por encima. Nadie sabe a quién se le ocurrió juntar esto, ni por qué nadie le paró a tiempo. Y aun así, nunca sobra."
+valor_base = 160

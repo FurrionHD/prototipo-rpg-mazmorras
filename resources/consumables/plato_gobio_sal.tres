@@ -17,5 +17,5 @@ turnos = 0
 segundos = 0.0
 efectos = [SubResource("SA_plato")]
 escala_efecto = 1.0
-descripcion = "Pescado pequeño, sal gorda y un chorro de aceite. Se come de pie y en dos minutos."
+descripcion = "Pescado pequeño, sal gorda, un chorro de aceite y unas gotas de limón. Se come de pie y en dos minutos."
 valor_base = 270

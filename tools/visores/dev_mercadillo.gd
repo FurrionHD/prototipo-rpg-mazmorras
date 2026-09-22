@@ -146,7 +146,27 @@ func _genero() -> void:
 		_ok("%s: %d productos que existen y tienen precio" % [VendedoresPlan.VENDEDORES[v]["nombre"], g.size()], bien)
 		_ok("  vende a mediodia solo si tiene genero", VendedoresPlan.vende(v, mediodia) == not nombres.is_empty())
 		_ok("  de noche no vende", not VendedoresPlan.vende(v, CicloDia.T_NOCHE + 300.0))
-	_ok("los 10 de la comida de antes, cada uno en un puesto", vendido.size() == 10 and vendido.size() == _sin_repetir(vendido))
+	_ok("los 10 de la comida de antes y las 4 frutas, cada uno en un puesto",
+		vendido.size() == 14 and vendido.size() == _sin_repetir(vendido))
+	# LOS PLATOS: los que solo piden cosas del mercadillo duran 10 min; los que piden algo de abajo, 20.
+	var se_compra: Dictionary = {}
+	for r in vendido:
+		se_compra[r] = true
+	var recetas: Array = Game.recetas_cocina()
+	_ok("hay %d recetas de cocina (16 + 3 de fruta)" % recetas.size(), recetas.size() == 19)
+	for rec in recetas:
+		var todo_comprado: bool = true
+		var bien_cargada: bool = rec.resultado != null
+		for ing in rec.ingredientes:
+			if ing == null or ing.material == null:
+				bien_cargada = false
+				continue
+			if not se_compra.has(ing.material.resource_path):
+				todo_comprado = false
+		var dura: String = (rec.resultado as ConsumableData).resumen_plato() if bien_cargada else ""
+		var quiere: String = "Dura 10 minutos." if todo_comprado else "Dura 20 minutos."
+		_ok("%s: %s" % [rec.resultado.nombre if bien_cargada else "?", quiere.trim_suffix(".").to_lower()],
+			bien_cargada and dura.ends_with(quiere))
 	# Y la tienda ya no vende ningun ingrediente.
 	var TiendaComprar = load("res://scripts/ui/tienda/tienda_comprar.gd")
 	_ok("la tienda ya no tiene la seccion Comida", not (TiendaComprar.SUBS as Array).has("Comida"))
