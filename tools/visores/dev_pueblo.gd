@@ -126,6 +126,30 @@ func _plano() -> void:
 		_ok("cartel en %s: sitio libre, en hierba y junto a una calle" % c,
 			libre and junto_calle and PuebloPlano.suelo(c) == PuebloPlano.Suelo.HIERBA)
 		vistas[c] = true
+	# LA PLAZA DE LA FUENTE Y EL MERCADILLO: cada mueble dentro de su plaza o en la hierba de al lado, sin
+	# pisar puertas, luces, carteles ni a otro mueble; la fuente dentro de la plaza; y cada puesto con la
+	# casilla de delante libre (ahi se compra).
+	_ok("la fuente cae en la plaza", PuebloPlano.PARQUE.encloses(PuebloPlano.FUENTE))
+	var de_muebles := {}
+	for m in PuebloPlano.MUEBLES:
+		var r: Rect2i = m[1]
+		var bien: bool = true
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var c := Vector2i(x, y)
+				var s: int = PuebloPlano.suelo(c)
+				if (s != PuebloPlano.Suelo.CALLE and s != PuebloPlano.Suelo.HIERBA) or puertas.has(c) \
+						or vistas.has(c) or de_muebles.has(c) or PuebloPlano.solida_entera(c) \
+						or PuebloPlano.es_camino(c):
+					bien = false
+				de_muebles[c] = true
+		_ok("%s en %s: sitio libre" % [m[0], r], bien)
+		if String(m[0]).begins_with("puesto_"):
+			var libre_delante: bool = true
+			for x in range(r.position.x, r.end.x):
+				if PuebloPlano.solida(Vector2i(x, r.end.y)):
+					libre_delante = false
+			_ok("  y se le puede comprar por delante", libre_delante)
 	# EL JARDIN DEL HOGAR, CERRADO: verja por los cuatro lados, sin mas hueco que la entrada de abajo.
 	var j: Rect2i = PuebloPlano.JARDIN
 	var huecos: int = 0
@@ -291,6 +315,13 @@ func _capturas() -> void:
 			await _captura("cuartel")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.CARTELES[0]["casilla"] + Vector2i(0, 1))
 	await _captura("cartel")
+	# La plaza de la fuente y el mercadillo, desde el sur de cada uno.
+	var pq: Rect2i = PuebloPlano.PARQUE
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(pq.get_center().x, pq.end.y - 1))
+	await _captura("plaza_fuente")
+	var mc: Rect2i = PuebloPlano.MERCADO
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(mc.get_center().x, mc.end.y - 1))
+	await _captura("mercadillo")
 	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.MUELLE.position.x + 1, PuebloPlano.MUELLE.position.y + 1))
 	await _captura("muelle")
 

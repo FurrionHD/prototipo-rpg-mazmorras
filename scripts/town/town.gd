@@ -39,6 +39,7 @@ func _ready() -> void:
 	_crear_canas()
 	_crear_luces()
 	_crear_carteles()
+	_crear_plaza_y_mercado()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
 
@@ -92,6 +93,24 @@ func _crear_carteles() -> void:
 		p.name = "Cartel"
 		p.destinos = c["destinos"]
 		add_child(p)
+
+
+# ------------------------------------------------------------
+#  LA PLAZA DE LA FUENTE Y EL MERCADILLO (PuebloPlano.PARQUE / MERCADO): la fuente con su agua animada
+#  encima, y los muebles. Todos 'dinamicos' salvo la fuente: son de una casilla de fondo, y quien se
+#  arrima por delante mete la cabeza en lo que sobresale (el toldo, la copa del arbol).
+# ------------------------------------------------------------
+func _crear_plaza_y_mercado() -> void:
+	var fuente: PiezaPueblo = PiezaPueblo.crear("fuente", PuebloPlano.FUENTE)
+	add_child(fuente)
+	# El agua va con el pilon (por debajo de quien este delante), pintada despues de el.
+	var agua: AguaFuente = AguaFuente.crear()
+	agua.z_as_relative = false
+	agua.z_index = PiezaPueblo.Z_DEBAJO
+	fuente.add_child(agua)
+	for m in PuebloPlano.MUEBLES:
+		var clave: String = m[0]
+		add_child(PiezaPueblo.crear(clave, m[1], clave != "parterre"))
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en

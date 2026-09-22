@@ -63,10 +63,15 @@ static func claves() -> PackedStringArray:
 	# Las casas las dibuja CasaSprites; aqui solo se registran con el prefijo "casa_".
 	for c in CasaSprites.CASAS:
 		out.append("casa_" + String(c))
+	# La plaza de la fuente y el mercadillo tienen su propio pintor (PlazaSprites).
+	for c in PlazaSprites.PIEZAS:
+		out.append(String(c))
 	return out
 
 
 static func tam(clave: String) -> Vector2i:
+	if PlazaSprites.PIEZAS.has(clave):
+		return PlazaSprites.PIEZAS[clave]["tam"]
 	if clave.begins_with("verja_"):
 		return VERJA_TAM
 	if clave.begins_with("cana_"):
@@ -77,6 +82,8 @@ static func tam(clave: String) -> Vector2i:
 
 
 static func pie(clave: String) -> int:
+	if PlazaSprites.PIEZAS.has(clave):
+		return int(PlazaSprites.PIEZAS[clave]["pie"])
 	if clave.begins_with("verja_"):
 		return VERJA_PIE
 	if clave.begins_with("cana_"):
@@ -904,6 +911,8 @@ static func generar(clave: String) -> Image:
 		d = _brasero()
 	elif clave == "cartel_indicador":
 		d = _cartel_indicador()
+	elif PlazaSprites.PIEZAS.has(clave):
+		d = PlazaSprites.generar(clave)
 	else:
 		d = _lienzo(t)
 	return Image.create_from_data(t.x, t.y, false, Image.FORMAT_RGBA8, d)

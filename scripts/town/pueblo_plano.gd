@@ -39,9 +39,23 @@ enum Suelo { HIERBA, CALLE, MURALLA, AGUA, MADERA }
 const ORILLA := 53
 
 # ------------------------------------------------------------
+#  LOS DOS PRADOS DEL NORTE, a los lados del jardin del hogar (pedido del usuario el 22/09/2026): al
+#  oeste la PLAZA DE LA FUENTE (bancos, arbolitos, parterres) y al este el MERCADILLO. Los dos van
+#  enlosados y dan a la calle norte.
+# ------------------------------------------------------------
+const PARQUE := Rect2i(8, 12, 17, 9)
+# 3x2: a 45 grados el pilon redondo se ve como una elipse de 88 x 62 (ver PlazaSprites).
+const FUENTE := Rect2i(15, 15, 3, 2)
+# Su caja de choque (px desde la esquina de su huella): la planta del pilon.
+const CAJA_FUENTE := Rect2(6, 4, 84, 58)
+const MERCADO := Rect2i(47, 12, 21, 9)
+
+# ------------------------------------------------------------
 #  CALLES (baldosa de piedra). Rectangulos que se pisan.
 # ------------------------------------------------------------
 const CALLES := [
+	PARQUE,
+	MERCADO,
 	Rect2i(2, 37, 70, 3),     # la calle mayor, de porton a porton (oeste-este)
 	Rect2i(2, 28, 70, 2),     # la calle alta, delante del hogar y de las casas de relleno
 	Rect2i(2, 46, 70, 2),     # la calle baja
@@ -195,18 +209,18 @@ const ADORNOS := {
 #  dibujo.
 # ------------------------------------------------------------
 const POSTES := [
-	# La calle mayor (filas 39 al norte y 43 al sur).
+	# La calle mayor (filas 36 al norte y 40 al sur).
 	Vector2i(7, 36), Vector2i(10, 40), Vector2i(17, 36), Vector2i(23, 40), Vector2i(30, 36), Vector2i(42, 40),
 	Vector2i(50, 36), Vector2i(56, 40), Vector2i(63, 40), Vector2i(66, 36),
-	# La calle alta (30 al norte, 33 al sur). En las bocas de los caminos del hogar van los carteles.
+	# La calle alta (27 al norte, 30 al sur). En las bocas de los caminos del hogar van los carteles.
 	Vector2i(7, 27), Vector2i(11, 30), Vector2i(18, 27), Vector2i(23, 30), Vector2i(39, 30), Vector2i(49, 30),
 	Vector2i(58, 27), Vector2i(62, 30), Vector2i(66, 27),
-	# La calle baja (48 al norte, 51 al sur).
+	# La calle baja (45 al norte, 48 al sur).
 	Vector2i(7, 45), Vector2i(15, 45), Vector2i(22, 48), Vector2i(30, 45), Vector2i(40, 48), Vector2i(50, 45),
 	Vector2i(58, 48), Vector2i(66, 45),
-	# La calle norte (12 al norte, 15 al sur).
-	Vector2i(7, 9), Vector2i(12, 12), Vector2i(18, 9), Vector2i(26, 12), Vector2i(33, 9), Vector2i(46, 12),
-	Vector2i(48, 9), Vector2i(58, 12), Vector2i(63, 9), Vector2i(70, 12),
+	# La calle norte (9 al norte, 12 al sur; al sur, fuera de la plaza de la fuente y del mercadillo).
+	Vector2i(7, 9), Vector2i(5, 12), Vector2i(18, 9), Vector2i(26, 12), Vector2i(33, 9), Vector2i(45, 12),
+	Vector2i(48, 9), Vector2i(63, 9), Vector2i(70, 12),
 	# El paseo de la orilla: a los lados del muelle.
 	Vector2i(33, 51), Vector2i(39, 51),
 ]
@@ -227,14 +241,63 @@ const BRASEROS := [
 # ------------------------------------------------------------
 const CARTELES := [
 	# En las bocas de los dos caminos de los lados del hogar, sobre la calle alta.
-	{"casilla": Vector2i(28, 27), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "n"], ["Plaza y mazmorra", "s"]]},
-	{"casilla": Vector2i(44, 27), "destinos": [["Zona de pruebas", "n"], ["Plaza y mazmorra", "s"]]},
+	{"casilla": Vector2i(28, 27), "destinos": [["Zona de pruebas", "n"], ["Plaza de la fuente", "n"],
+		["Cuartel", "n"], ["Plaza y mazmorra", "s"]]},
+	{"casilla": Vector2i(44, 27), "destinos": [["Zona de pruebas", "n"], ["Mercadillo", "n"], ["Plaza y mazmorra", "s"]]},
 	# En la calle norte, junto al camino de la arena.
-	{"casilla": Vector2i(38, 9), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "o"], ["Hogar y plaza", "s"]]},
+	{"casilla": Vector2i(38, 9), "destinos": [["Zona de pruebas", "n"], ["Cuartel", "o"], ["Plaza de la fuente", "o"],
+		["Mercadillo", "e"], ["Hogar y plaza", "s"]]},
 	# En la plaza, junto a la calle que sube al hogar.
 	{"casilla": Vector2i(38, 33), "destinos": [["Hogar", "n"], ["Zona de pruebas", "n"], ["Puerta oeste", "o"],
 		["Puerta este", "e"], ["Muelle del pescador", "s"]]},
 ]
+
+
+# ------------------------------------------------------------
+#  LO QUE HAY EN LA PLAZA DE LA FUENTE Y EN EL MERCADILLO: [pieza, huella]. Todo choca con la caja de lo
+#  que se ve (CAJA_MUEBLE); la fuente, que llena su huella, va aparte (FUENTE, choca entera).
+#  Los puestos van en dos filas de cara al sur, con pasillo delante de cada una; detras de cada puesto
+#  queda sitio para quien lo atienda (los vendedores vendran con los NPC, solo de dia).
+# ------------------------------------------------------------
+const MUEBLES := [
+	# Bancos alrededor de la fuente, mirando hacia ella.
+	["banco_s", Rect2i(13, 13, 1, 1)], ["banco_s", Rect2i(19, 13, 1, 1)],
+	["banco_n", Rect2i(13, 17, 1, 1)], ["banco_n", Rect2i(19, 17, 1, 1)],
+	["banco_e", Rect2i(12, 15, 1, 1)], ["banco_o", Rect2i(20, 15, 1, 1)],
+	# Parterres en las esquinas de la plaza y arbolitos en la hierba de los lados.
+	["parterre", Rect2i(9, 13, 1, 1)], ["parterre", Rect2i(23, 13, 1, 1)],
+	["parterre", Rect2i(9, 19, 1, 1)], ["parterre", Rect2i(23, 19, 1, 1)],
+	["arbolito", Rect2i(6, 14, 1, 1)], ["arbolito", Rect2i(6, 18, 1, 1)],
+	["arbolito", Rect2i(26, 14, 1, 1)], ["arbolito", Rect2i(26, 18, 1, 1)],
+	# El mercadillo: dos filas de cuatro puestos, y algo de genero apilado entre ellos.
+	["puesto_pan", Rect2i(49, 13, 3, 2)], ["puesto_verdura", Rect2i(54, 13, 3, 2)],
+	["puesto_fruta", Rect2i(59, 13, 3, 2)], ["puesto_verdura", Rect2i(64, 13, 3, 2)],
+	["puesto_fruta", Rect2i(49, 17, 3, 2)], ["puesto_pan", Rect2i(54, 17, 3, 2)],
+	["puesto_verdura", Rect2i(59, 17, 3, 2)], ["puesto_fruta", Rect2i(64, 17, 3, 2)],
+	["cajas", Rect2i(52, 14, 1, 1)], ["sacos", Rect2i(62, 14, 1, 1)], ["barriles", Rect2i(57, 18, 1, 1)],
+]
+
+# La caja de choque de cada mueble, en px desde la esquina de arriba a la izquierda de su huella: la
+# planta de lo que se ve, como las de los adornos.
+# Con la camara a 45 la planta de lo que se ve ocupa K = 0,71 de su fondo, pegada al borde sur de la
+# huella (ver PlazaSprites).
+const CAJA_MUEBLE := {
+	"banco_s": Rect2(4, 18, 24, 8), "banco_n": Rect2(4, 18, 24, 8),
+	# De lado el respaldo va al lado de la espalda: al oeste si mira al este, y al reves.
+	"banco_e": Rect2(9, 12, 12, 18), "banco_o": Rect2(12, 12, 12, 18),
+	"arbolito": Rect2(11, 20, 10, 8),
+	"parterre": Rect2(3, 12, 26, 19),
+	# El puesto entero, mostrador y hueco de detras: el jugador no se mete dentro (el vendedor si).
+	"puesto_pan": Rect2(2, 22, 92, 40), "puesto_verdura": Rect2(2, 22, 92, 40), "puesto_fruta": Rect2(2, 22, 92, 40),
+	"cajas": Rect2(5, 15, 22, 10), "sacos": Rect2(2, 15, 28, 10), "barriles": Rect2(2, 15, 28, 10),
+}
+
+
+static func es_mueble(c: Vector2i) -> bool:
+	for m in MUEBLES:
+		if (m[1] as Rect2i).has_point(c):
+			return true
+	return false
 
 
 static func casillas_carteles() -> Array[Vector2i]:
@@ -402,7 +465,7 @@ static func solida(c: Vector2i) -> bool:
 	for a in adornos():
 		if a[1] == c:
 			return true
-	if c in POSTES or c in BRASEROS or c in casillas_carteles():
+	if c in POSTES or c in BRASEROS or c in casillas_carteles() or es_mueble(c) or FUENTE.has_point(c):
 		return true
 	return false
 
@@ -454,6 +517,11 @@ static func cajas_pequenas() -> Array[Rect2]:
 	for c in BRASEROS:
 		var bb := Vector2(float(c.x) * cel + cel * 0.5, float(c.y + 1) * cel - 8.0)
 		out.append(Rect2(bb - Vector2(12, 4), Vector2(24, 8)))
+	for m in MUEBLES:
+		var r: Rect2i = m[1]
+		var caja: Rect2 = CAJA_MUEBLE.get(String(m[0]), Rect2(4, 4, 24, 24))
+		out.append(Rect2(Vector2(r.position) * cel + caja.position, caja.size))
+	out.append(Rect2(Vector2(FUENTE.position) * cel + CAJA_FUENTE.position, CAJA_FUENTE.size))
 	# La columna del altar: su zocalo, pegado al fondo de su casilla.
 	var ab := Vector2(float(ALTAR.x) * cel + cel * 0.5, float(ALTAR.y + 1) * cel - 9.0)
 	out.append(Rect2(ab - Vector2(11, 5), Vector2(22, 10)))
