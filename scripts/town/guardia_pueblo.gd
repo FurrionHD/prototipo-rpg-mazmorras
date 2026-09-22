@@ -5,7 +5,8 @@
 #
 #  DOS FICHAS DE MENTIRA, como el maestro de la Meditacion (GachaRitual.maestro): de PAISANO (ropa de
 #  calle, su pelo) y ARMADO (hierro completo, espada larga y escudo normal, lo que pidio el usuario). No
-#  estan en la plantilla, no tienen stats ni se guardan: son bolsas de aspecto. El aspecto de cada uno
+#  estan en la plantilla, no tienen stats ni se guardan: son bolsas de aspecto (el equipo, T3 prístino
+#  al +15: ver TIER_EQUIPO). El aspecto de cada uno
 #  sale de su numero, asi que es el mismo en todos los PC.
 #
 #  SOLO CHOCA EL QUE ESTA DE GUARDIA (decision del usuario): un cuerpo estatico con la huella de los pies
@@ -17,8 +18,13 @@ class_name GuardiaPueblo
 const ARMADURA := "res://resources/armor/hierro_completo_%s.tres"
 const ESPADA := "res://resources/weapons/espada_larga.tres"
 const ESCUDO := "res://resources/shields/escudo_normal.tres"
-# El tier del hierro (resources/materials/hierro.tres): de ahi sale el color de la armadura y del arma.
-const TIER_HIERRO := 2
+# EL COLOR DEL EQUIPO: tier 3 prístino al +15 (lo pidio el usuario, "lo mas claro posible"). En la
+# paleta eso es ACERO ESPEJO, casi blanco, con el destello metalico a tope (ver PaletaEquipo: el T3
+# aclara al mejorar y el brillo sube con las mejoras). La rareza no cambia el dibujo; va apuntada por si
+# algun dia lo hace. Con el hierro T2 +0 de antes se veian casi negros.
+const TIER_EQUIPO := 3
+const MEJORAS_EQUIPO := 15
+const RAREZA_EQUIPO := "pristino"
 
 var indice: int = 0
 
@@ -125,9 +131,15 @@ static func armado(i: int) -> PersonajeData:
 		var pieza: Resource = load(ARMADURA % slot)
 		if pieza != null:
 			pj.set("equipped_" + slot, pieza)
-			pj.equip_meta[slot] = {"tier": TIER_HIERRO, "mejoras": {}}
+			pj.equip_meta[slot] = _meta_equipo()
 	pj.equipped_main = load(ESPADA)
-	pj.equip_meta["main"] = {"tier": TIER_HIERRO, "mejoras": {}}
+	pj.equip_meta["main"] = _meta_equipo()
 	pj.equipped_off = load(ESCUDO)
-	pj.equip_meta["off"] = {"tier": TIER_HIERRO, "mejoras": {}}
+	pj.equip_meta["off"] = _meta_equipo()
 	return pj
+
+
+# La meta de cada pieza. JugadorSprites suma los valores de 'mejoras' para sacar el +N, asi que da igual
+# en que stat vayan: aqui van todas en una.
+static func _meta_equipo() -> Dictionary:
+	return {"tier": TIER_EQUIPO, "rareza": RAREZA_EQUIPO, "mejoras": {"guardia": MEJORAS_EQUIPO}}
