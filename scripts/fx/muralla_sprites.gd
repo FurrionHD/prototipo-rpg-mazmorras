@@ -345,6 +345,131 @@ static func _porton_lateral(d: PackedByteArray, w: int, h: int, y0: int, y1: int
 
 
 # ============================================================
+#  TRAMO SUR (visto desde DENTRO, por arriba)
+# ============================================================
+# El pueblo no tiene muralla sur, pero la arena si: se entra por el porton NORTE del pueblo, asi que
+# se llega por el SUR de la sala y por ahi se sale. Con la camara mirando desde el sur, desde dentro
+# no se ve la cara de dentro de este muro: se ve el ADARVE desde arriba (como en los de canto, con las
+# almenas a los dos lados) y, debajo, la cara de FUERA, que mira a la camara. El porton son las hojas
+# cerradas vistas desde arriba y su arco de frente en la cara.
+# Alto 96: las dos casillas del adarve y una de cara.
+const S_ADARVE := 64
+
+static func sur(ancho_celdas: int, porton_x: Array) -> Image:
+	var w: int = ancho_celdas * CELDA
+	var h: int = S_ADARVE + CELDA
+	var d := PackedByteArray()
+	d.resize(w * h * 4)
+	for y in h:
+		for x in w:
+			var col: Color
+			if y < S_ADARVE:
+				# Adarve: losas de lado a lado del paso.
+				col = _sillar(x, y, 23, 10, 101, 0.46)
+				# Almenas a los dos lados del paso: bloques de 12 con hueco de 8, con su tapa y su cara sur.
+				var banda: int = y if y < 9 else (y - (S_ADARVE - 9) if y >= S_ADARVE - 9 else -1)
+				if banda >= 0 and posmod(x, 20) < 12:
+					col = PIEDRA[5] if banda < 4 else _sillar(x, y, 9, 4, 131, 0.48).darkened(0.1)
+					if banda == 8 or posmod(x, 20) == 0 or posmod(x, 20) == 11:
+						col = NEGRO
+				elif y == 9 or y == S_ADARVE - 10:
+					col = PIEDRA[1]                                         # el pie del parapeto
+				if y == 0:
+					col = NEGRO
+			else:
+				# La cara de fuera, la que mira a la camara.
+				col = _sillar(x, y, 20, 8, 37, 0.50)
+				if y < S_ADARVE + 4:
+					col = col.darkened(0.30 * (1.0 - float(y - S_ADARVE) / 4.0))
+				if y == S_ADARVE or y == h - 1:
+					col = NEGRO
+			_px(d, w, h, x, y, col)
+	for p in porton_x:
+		_porton_sur(d, w, h, int(p))
+	for p in porton_x:
+		_torre_sur(d, w, h, int(p) - 48 - 40)
+		_torre_sur(d, w, h, int(p) + 48)
+	return Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, d)
+
+
+# Las hojas cerradas desde arriba (tablones a lo largo del paso, la junta en medio y bandas de hierro
+# atravesadas) dentro de un marco de dovelas, y el arco de frente en la cara de fuera.
+static func _porton_sur(d: PackedByteArray, w: int, h: int, cx: int) -> void:
+	var x0: int = cx - 48
+	var x1: int = cx + 48
+	var marco: int = 6
+	for y in S_ADARVE:
+		for x in range(maxi(x0, 0), mini(x1, w)):
+			var lx: int = x - x0
+			var ancho: int = x1 - x0
+			var col: Color
+			if lx < marco or lx >= ancho - marco or y < 4 or y >= S_ADARVE - 4:
+				var tramo: int = (y / 7) if (lx < marco or lx >= ancho - marco) else (x / 7)
+				col = PIEDRA[4] if posmod(tramo, 2) == 0 else PIEDRA[3]
+				if lx == 0 or lx == ancho - 1 or lx == marco - 1 or lx == ancho - marco:
+					col = NEGRO
+			else:
+				col = MADERA[1 + int(_rnd(lx / 6, 0, 83) * 2.0)] if posmod(lx, 6) != 0 else MADERA[0]
+				if absi(lx - ancho / 2) < 1:
+					col = HIERRO[0]
+				for banda in [16, 32, 48]:
+					if y == banda or y == banda + 1:
+						col = HIERRO[1] if y == banda else HIERRO[0]
+						if posmod(lx, 8) == 4 and y == banda:
+							col = HIERRO[2]
+			_px(d, w, h, x, y, col)
+	# En la cara: las hojas de frente entre dos jambas, sin arco (el arco entero no cabe en una casilla
+	# de cara y encima de las hojas vistas desde arriba parecia otra puerta).
+	var r: int = PORTON_ANCHO / 2
+	for y in range(S_ADARVE, h):
+		for x in range(maxi(cx - r - 7, 0), mini(cx + r + 7, w)):
+			var dx: int = absi(x - cx)
+			var col: Color
+			if dx < r:
+				var lx: int = x - (cx - r)
+				col = MADERA[1 + int(_rnd(lx / 6, 0, 81) * 2.0)] if posmod(lx, 6) != 0 else MADERA[0]
+				if dx < 1:
+					col = HIERRO[0]
+				var ry: int = y - S_ADARVE
+				if ry == 12 or ry == 24:
+					col = HIERRO[1]
+					if posmod(lx, 8) == 4:
+						col = HIERRO[2]
+				if dx == r - 1:
+					col = NEGRO
+			else:
+				col = PIEDRA[4] if posmod(y / 7, 2) == 0 else PIEDRA[3]
+				if dx == r + 6:
+					col = NEGRO
+			if y == S_ADARVE or y == h - 1:
+				col = NEGRO
+			_px(d, w, h, x, y, col)
+
+
+# Torre vista desde arriba, con su anillo de almenas, y su cara sur en la franja de la cara.
+static func _torre_sur(d: PackedByteArray, w: int, h: int, x0: int) -> void:
+	var ancho: int = 40
+	for y in h:
+		for x in range(maxi(x0, 0), mini(x0 + ancho, w)):
+			var lx: int = x - x0
+			var col: Color
+			if y < S_ADARVE:
+				col = _sillar(x, y, 11, 11, 171, 0.60)
+				if lx < 7 or lx >= ancho - 7 or y < 7 or y >= S_ADARVE - 7:
+					var a: int = posmod(x, 14) if (y < 7 or y >= S_ADARVE - 7) else posmod(y, 14)
+					col = PIEDRA[5] if a < 9 else PIEDRA[2]
+					if a == 8:
+						col = PIEDRA[1]
+			else:
+				col = _sillar(x, y, 13, 7, 191, 0.52).darkened(0.12)
+				if y == S_ADARVE:
+					col = NEGRO
+			if lx == 0 or lx == ancho - 1 or y == 0 or y == h - 1:
+				col = NEGRO
+			_px(d, w, h, x, y, col)
+
+
+# ============================================================
 #  HORNO
 # ============================================================
 static func claves() -> PackedStringArray:

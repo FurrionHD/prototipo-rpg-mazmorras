@@ -546,20 +546,21 @@ func _construir_arena() -> void:
 	_construir_geometria()
 	var celda: float = float(DungeonGenerator.CELDA)
 	var sala: Rect2i = gen.salas[0]
-	# EL PORTON, en la pared de ARRIBA y en el centro: el mismo de la muralla del pueblo (lo pidio el
-	# usuario: "salimos tambien hacia la puerta, cambia las escaleras"). Un tramo de muralla de 7 casillas
-	# tapando las dos filas de roca de encima de la sala, con el porton en medio; la F, en la primera fila
-	# de suelo, justo delante.
+	# EL PORTON, en la pared de ABAJO y en el centro: se entra por el porton NORTE del pueblo, asi que se
+	# llega por el sur de la sala y por ahi se vuelve (lo pidio el usuario; antes estaba arriba y se salia
+	# "hacia delante"). Un tramo de muralla de 7 casillas tapando las tres filas de roca de debajo de la
+	# sala (MurallaSprites.sur), con el porton en medio; la F, en la ultima fila de suelo, justo delante.
 	var cx: int = sala.get_center().x
+	var fondo: int = sala.end.y   # la primera fila de roca de debajo
 	var tramo := Sprite2D.new()
 	tramo.name = "PortonArena"
-	tramo.texture = ImageTexture.create_from_image(MurallaSprites.norte(7, [int(3.5 * celda)]))
+	tramo.texture = ImageTexture.create_from_image(MurallaSprites.sur(7, [int(3.5 * celda)]))
 	tramo.centered = false
 	tramo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	tramo.position = Vector2(float(cx - 3), float(sala.position.y - 2)) * celda
+	tramo.position = Vector2(float(cx - 3), float(fondo)) * celda
 	_geo.add_child(tramo)
-	var puerta_pos: Vector2 = gen.centro_px(Vector2i(cx, sala.position.y))
-	var destino: Vector2 = gen.centro_px(Vector2i(cx, sala.position.y + 3))
+	var puerta_pos: Vector2 = gen.centro_px(Vector2i(cx, fondo - 1))
+	var destino: Vector2 = gen.centro_px(Vector2i(cx, fondo - 4))
 	# Los recados de un solo uso se consumen igual, aunque aqui no signifiquen nada.
 	Game.entrada_por_atajo = false
 	Game.pos_cargada = Vector2.INF
