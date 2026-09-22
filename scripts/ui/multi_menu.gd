@@ -156,8 +156,10 @@ func _volver() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_ESCAPE:
-		_volver()
+		# PRIMERO se consume y LUEGO se cambia de escena: el cambio saca este nodo del arbol en el acto,
+		# y despues get_viewport() ya es null ("Cannot call method 'set_input_as_handled' on a null").
 		get_viewport().set_input_as_handled()
+		_volver()
 
 
 # ============================================================

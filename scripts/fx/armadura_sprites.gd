@@ -300,12 +300,23 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 
 	_chapa(piezas, esq, centro, r, float(CANTO.get(tipo, 2.4)))
 
-	# LA CRESTA, solo en las placas: una quilla estrecha y LARGA DE DELANTE A ATRAS. Al ser rx != ry
-	# gira con la direccion sola (ver PoseJugador.proyectar), asi que de frente se ve de canto -- una
-	# raya fina -- y de perfil entera. Que es lo que hace una cresta de verdad.
+	# LA CRESTA, solo en las placas: una quilla estrecha y LARGA DE DELANTE A ATRAS. De frente se ve de
+	# canto -- una raya fina -- y de perfil entera, que es lo que hace una cresta de verdad.
+	#
+	# VA EN FILA DE BOLITAS y no como UNA elipse larga. 'poner' solo pinta elipses RECTAS (ang 0): de
+	# frente y de perfil cuadra, pero en DIAGONAL la quilla tendria que salir inclinada y el motor le
+	# ponia la caja que la envuelve -- casi igual de ancha que de alta --, asi que se veia un DISCO
+	# dorado encima del casco. En fila, lo que gira son los PUNTOS, y la raya sale inclinada de verdad.
+	# El alto de cada bolita baja hacia las puntas como bajaba el de la elipse, para que no acabe en
+	# muñon cuadrado.
 	if tipo == "placas":
-		PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -1.0, r.z * 0.62),
-			Vector3(1.5, r.y * 0.80, 2.2), Tono.ACENTO)
+		var largo: float = r.y * 0.80 - 1.5   # menos el radio de la bolita: mismo largo que la elipse
+		var pasos: int = int(ceil(2.0 * largo / 1.0))
+		for i in pasos + 1:
+			var t: float = lerpf(-1.0, 1.0, float(i) / float(pasos))
+			var alto: float = 2.2 * sqrt(maxf(0.0, 1.0 - t * t * 0.75))
+			PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -1.0 + t * largo, r.z * 0.62),
+				Vector3(1.5, 1.5, alto), Tono.ACENTO)
 
 	# LA RANURA. Solo donde se ve la cara: en la nuca (dirs 3/4/5) una ranura no es una ranura, es una
 	# raya cruzando el cogote. Mismo corte que hace CaraSprites, y tiene que ser el mismo.
@@ -317,7 +328,16 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 	# en Y baja a dos, que es lo que mide una ranura.
 	var ojos: Vector3 = centro + Vector3(0.0, R * 0.62, -R * 0.16)
 	var solo := {"solo_sobre": [Tono.MAT, Tono.MAT_L, Tono.MAT_S]}
-	PoseJugador.poner(piezas, esq, ojos, Vector3(R * 0.58, 1.3, 1.0), Tono.OSCURO, solo)
+	# EN FILA DE BOLITAS, por lo mismo que la cresta: una elipse ancha girada 45 grados sale como la
+	# caja que la envuelve y la ranura era una MANCHA negra en mitad de la cara. Y la fila se curva
+	# hacia atras por los lados, siguiendo la cara: en diagonal asi se lee como una tira que la rodea.
+	var medio: float = R * 0.58 - 1.0   # menos el radio de la bolita: el ancho que tenia la elipse
+	var pasos_r: int = int(ceil(2.0 * medio / 0.8))
+	for i in pasos_r + 1:
+		var x: float = lerpf(-medio, medio, float(i) / float(pasos_r))
+		var y: float = R * 0.62 * sqrt(maxf(0.0, 1.0 - (x / r.x) * (x / r.x)))
+		PoseJugador.poner(piezas, esq, centro + Vector3(x, y, -R * 0.16),
+			Vector3(1.0, 1.0, 1.0), Tono.OSCURO, solo)
 	# Las placas la llevan EN CRUZ: la barra vertical baja por la nariz. Es el detalle que separa de un
 	# vistazo el yelmo caro del barato, y cuesta una elipse.
 	if tipo == "placas":
