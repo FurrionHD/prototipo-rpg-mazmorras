@@ -111,6 +111,58 @@ func _plano() -> void:
 				libre = false
 		_ok("%s en %s: sitio libre y suelo bueno" % [l[0], c], suelo_ok and libre)
 		vistas[c] = true
+	# LOS CARTELES INDICADORES: en hierba, libres (nada de puertas, luces, adornos ni casas) y pegados a
+	# una calle, que es donde se leen.
+	for c in PuebloPlano.casillas_carteles():
+		var libre: bool = not puertas.has(c) and not vistas.has(c) and not PuebloPlano.solida_entera(c) \
+			and not PuebloPlano.es_verja(c)
+		for a in PuebloPlano.adornos():
+			if a[1] == c:
+				libre = false
+		var junto_calle: bool = false
+		for dd in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if PuebloPlano.suelo(c + dd) == PuebloPlano.Suelo.CALLE:
+				junto_calle = true
+		_ok("cartel en %s: sitio libre, en hierba y junto a una calle" % c,
+			libre and junto_calle and PuebloPlano.suelo(c) == PuebloPlano.Suelo.HIERBA)
+		vistas[c] = true
+	# LA PLAZA DE LA FUENTE Y EL MERCADILLO: cada mueble dentro de su plaza o en la hierba de al lado, sin
+	# pisar puertas, luces, carteles ni a otro mueble; la fuente dentro de la plaza; y cada puesto con la
+	# casilla de delante libre (ahi se compra).
+	_ok("la fuente cae en la plaza", PuebloPlano.PARQUE.encloses(PuebloPlano.FUENTE))
+	var de_muebles := {}
+	for m in PuebloPlano.MUEBLES:
+		var r: Rect2i = m[1]
+		var bien: bool = true
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var c := Vector2i(x, y)
+				var s: int = PuebloPlano.suelo(c)
+				if (s != PuebloPlano.Suelo.CALLE and s != PuebloPlano.Suelo.HIERBA) or puertas.has(c) \
+						or vistas.has(c) or de_muebles.has(c) or PuebloPlano.solida_entera(c) \
+						or PuebloPlano.es_camino(c):
+					bien = false
+				de_muebles[c] = true
+		_ok("%s en %s: sitio libre" % [m[0], r], bien)
+		if String(m[0]).begins_with("puesto_"):
+			var libre_delante: bool = true
+			for x in range(r.position.x, r.end.x):
+				if PuebloPlano.solida(Vector2i(x, r.end.y)):
+					libre_delante = false
+			_ok("  y se le puede comprar por delante", libre_delante)
+	# EL JARDIN DEL HOGAR, CERRADO: verja por los cuatro lados, sin mas hueco que la entrada de abajo.
+	var j: Rect2i = PuebloPlano.JARDIN
+	var huecos: int = 0
+	for x in range(j.position.x, j.end.x):
+		for y in [j.position.y, j.end.y - 1]:
+			if not PuebloPlano.es_verja(Vector2i(x, y)):
+				huecos += 1
+	for y in range(j.position.y, j.end.y):
+		for x in [j.position.x, j.end.x - 1]:
+			if not PuebloPlano.es_verja(Vector2i(x, y)):
+				huecos += 1
+	_ok("el jardin del hogar solo se abre por la entrada (%d huecos)" % huecos,
+		huecos == PuebloPlano.JARDIN_HUECO.size.x)
 	_ok("la escalera cae en la plaza", PuebloPlano.PLAZA.encloses(PuebloPlano.ESCALERA))
 	_ok("apareces en un sitio libre", not PuebloPlano.solida(_celda(PuebloPlano.aparicion_px())))
 
@@ -163,7 +215,27 @@ func _puertas() -> void:
 		_ok("la escalera se usa desde el %s" % lado, cual != null and cual.is_in_group("salida_pueblo"))
 	_jugador.global_position = PuebloPlano.aparicion_px()
 	_ok("se llega al altar", alcanzables.has(PuebloPlano.ALTAR + Vector2i(0, 1)))
-	_ok("hay 12 interactuables (10 oficios + altar + escalera)", nodos.size() == 12)
+	# El barrio norte y los portones: se llega andando a la arena, al cuartel y delante de las dos
+	# puertas de los guardias.
+	_ok("se llega al porton de la arena", alcanzables.has(PuebloPlano.PORTON_ARENA))
+	for casa in PuebloPlano.CASAS:
+		if String(casa["clave"]) == "cuartel":
+			_ok("se llega a la puerta del cuartel", alcanzables.has(PuebloPlano.puerta_de(casa)))
+	for p in PuebloPlano.PORTONES:
+		var r: Rect2i = p["rect"]
+		if String(p["lado"]) == "oeste":
+			_ok("se llega al porton oeste", alcanzables.has(Vector2i(r.end.x, r.position.y + 1)))
+		elif String(p["lado"]) == "este":
+			_ok("se llega al porton este", alcanzables.has(Vector2i(r.position.x - 1, r.position.y + 1)))
+	# Y a TODAS las casas, tambien las vacias: ahi viviran los guardias y los aldeanos.
+	var sin_salida: Array = []
+	for casa in PuebloPlano.CASAS:
+		if not alcanzables.has(PuebloPlano.puerta_de(casa)):
+			sin_salida.append(casa["rect"])
+	_ok("todas las casas tienen salida andando %s" % [sin_salida], sin_salida.is_empty())
+	var n_carteles: int = PuebloPlano.CARTELES.size()
+	_ok("hay %d interactuables (10 oficios + altar + escalera + porton + %d carteles)" % [nodos.size(), n_carteles],
+		nodos.size() == 13 + n_carteles)
 
 
 # F sobre cada puerta de oficio: tiene que aparecer algo que antes no se veia.
@@ -226,14 +298,30 @@ func _capturas() -> void:
 	await _captura("altar_delante")
 	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.ESCALERA.position + Vector2i(1, -1))
 	await _captura("escalera_norte")
-	# La esquina de arriba del jardin: la verja tiene que llegar a la muralla.
-	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.JARDIN.position + Vector2i(2, 3))
-	await _captura("verja_muralla")
-	# Los portones: el del norte de frente y el del oeste de canto.
-	_jugador.global_position = PuebloPlano.centro_px(Vector2i(24, 3))
+	# La verja de arriba del jardin, que lo cierra desde que el pueblo crecio.
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.JARDIN.position + Vector2i(3, -1))
+	await _captura("verja_arriba")
+	# Los portones: el del norte de frente y los de los lados de canto.
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.PORTON_ARENA + Vector2i(0, 1))
 	await _captura("porton_norte")
-	_jugador.global_position = PuebloPlano.centro_px(Vector2i(4, 25))
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(4, 38))
 	await _captura("porton_oeste")
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.ANCHO - 5, 38))
+	await _captura("porton_este")
+	# Lo nuevo del barrio norte: el cuartel y un cartel.
+	for casa in PuebloPlano.CASAS:
+		if String(casa["clave"]) == "cuartel":
+			_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.puerta_de(casa) + Vector2i(0, 1))
+			await _captura("cuartel")
+	_jugador.global_position = PuebloPlano.centro_px(PuebloPlano.CARTELES[0]["casilla"] + Vector2i(0, 1))
+	await _captura("cartel")
+	# La plaza de la fuente y el mercadillo, desde el sur de cada uno.
+	var pq: Rect2i = PuebloPlano.PARQUE
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(pq.get_center().x, pq.end.y - 1))
+	await _captura("plaza_fuente")
+	var mc: Rect2i = PuebloPlano.MERCADO
+	_jugador.global_position = PuebloPlano.centro_px(Vector2i(mc.get_center().x, mc.end.y - 1))
+	await _captura("mercadillo")
 	_jugador.global_position = PuebloPlano.centro_px(Vector2i(PuebloPlano.MUELLE.position.x + 1, PuebloPlano.MUELLE.position.y + 1))
 	await _captura("muelle")
 

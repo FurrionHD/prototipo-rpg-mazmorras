@@ -38,6 +38,9 @@ func _ready() -> void:
 	add_child(_puerta("res://scripts/town/porton_arena.gd", PuebloPlano.PORTON_ARENA, ""))
 	_crear_canas()
 	_crear_luces()
+	_crear_carteles()
+	_crear_plaza_y_mercado()
+	_crear_guardias()
 	Net.semilla_pueblo_cambiada.connect(_crear_canas)
 	_colocar_jugador()
 
@@ -77,6 +80,47 @@ func _crear_luces() -> void:
 			luz.poner_foco(centro + Vector2(0, 14), 120.0, Color(1.0, 0.80, 0.52), 1.0, retraso, false, 0.20, 0.5)
 		else:
 			luz.poner_foco(centro + Vector2(0, 22), 95.0, Color(1.0, 0.84, 0.58), 1.0, retraso, false, 0.16, 0.45)
+
+
+# ------------------------------------------------------------
+#  LOS CARTELES INDICADORES de los cruces (PuebloPlano.CARTELES): la pieza, estrecha como el poste de
+#  antorcha, y encima el nodo que se lee con F (cartel_indicador.gd).
+# ------------------------------------------------------------
+func _crear_carteles() -> void:
+	for c in PuebloPlano.CARTELES:
+		var casilla: Vector2i = c["casilla"]
+		add_child(PiezaPueblo.crear("cartel_indicador", Rect2i(casilla, Vector2i.ONE), true))
+		var p: Node2D = _puerta("res://scripts/town/cartel_indicador.gd", casilla, "")
+		p.name = "Cartel"
+		p.destinos = c["destinos"]
+		add_child(p)
+
+
+# ------------------------------------------------------------
+#  LA PLAZA DE LA FUENTE Y EL MERCADILLO (PuebloPlano.PARQUE / MERCADO): la fuente con su agua animada
+#  encima, y los muebles. Todos 'dinamicos' salvo la fuente: son de una casilla de fondo, y quien se
+#  arrima por delante mete la cabeza en lo que sobresale (el toldo, la copa del arbol).
+# ------------------------------------------------------------
+func _crear_plaza_y_mercado() -> void:
+	var fuente: PiezaPueblo = PiezaPueblo.crear("fuente", PuebloPlano.FUENTE)
+	add_child(fuente)
+	# El agua va con el pilon (por debajo de quien este delante), pintada despues de el.
+	var agua: AguaFuente = AguaFuente.crear()
+	agua.z_as_relative = false
+	agua.z_index = PiezaPueblo.Z_DEBAJO
+	fuente.add_child(agua)
+	for m in PuebloPlano.MUEBLES:
+		var clave: String = m[0]
+		add_child(PiezaPueblo.crear(clave, m[1], clave != "parterre"))
+
+
+# ------------------------------------------------------------
+#  LOS GUARDIAS de los portones con su cambio de turno (GuardiasPlan / GuardiaPueblo). Cada uno se
+#  coloca solo segun la hora: aqui solo se crean.
+# ------------------------------------------------------------
+func _crear_guardias() -> void:
+	for i in GuardiasPlan.GUARDIAS.size():
+		add_child(GuardiaPueblo.crear(i))
 
 
 # En solitario, irse del pueblo (bajar a la mazmorra) estrena semilla: al volver, las cañas estan en

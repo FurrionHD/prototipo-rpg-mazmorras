@@ -145,6 +145,7 @@ func montar(pj: PersonajeData) -> void:
 			# por tanto el color, pero no cambia ni una clave de capa -- la firma es identica y se
 			# entra por aqui. Es exactamente la trampa que ya escondio la armadura de los companeros.
 			_capas[i]["paleta"] = quiere[i].get("paleta", null)
+			_capas[i]["luz_ref"] = quiere[i].get("luz_ref", null)
 		_pintar_capas()
 		_reindexar_arma_mano()
 		return
@@ -166,7 +167,12 @@ func montar(pj: PersonajeData) -> void:
 		var cap := {"clave": c["clave"], "ranura": c["ranura"], "ancla": c["ancla"],
 			"tinte": bool(c.get("tinte", true)),
 			"color": c.get("color", null), "metal": c.get("metal", null),
-			"paleta": c.get("paleta", null), "nodo": s}
+			"paleta": c.get("paleta", null), "nodo": s,
+			# EL UMBRAL DEL BRILLO del material (ver PaletaEquipo.luz_ref). No se copiaba, y _pintar_capas
+			# le pasaba 0 al shader: el metal estiraba el contraste desde casi el negro y cualquier pieza
+			# mejorada salia blanca, fuera del material que fuera. Lo tapaba otro fallo que ponia todo
+			# el equipo casi negro (ver paleta_equipo.gdshader).
+			"luz_ref": c.get("luz_ref", null)}
 		# 'z' solo si la capa lo trae: tenerlo o no es lo que distingue "va siempre aqui" de "se
 		# ordena por profundidad" (ver _ordenar). Un 0 por defecto haria pasar a las segundas por
 		# primeras.

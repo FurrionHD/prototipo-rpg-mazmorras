@@ -126,9 +126,15 @@ const TABLA := {
 		# EL PRIMER PELDAÑO VA AZUL DE VERDAD y no gris claro, porque a ojo se confundia con el hierro
 		# en bruto del T2: los dos salian grises y el salto de tier -- que es el que de verdad importa
 		# -- no se leia. Y el ultimo se va a blanco puro por lo mismo, para separarse del de en medio.
+		#
+		# EL ESPEJO NO VA A BLANCO PURO (lo pidio el usuario al verlo por fin de su color: "demasiado
+		# blanco"). Es PLATA: gris medio casi sin azul, que es lo que lo separa del plegado (azul acero).
+		# Van los dos mas bajos de lo que parece hace falta porque a partir de +9 el METAL estira el
+		# contraste (ver paleta_equipo.gdshader) y sube la luz a blanco: con el espejo en 0,95 o en 0,88
+		# salia la pieza entera blanca como el papel. Asi el blanco queda solo donde da el sol.
 		[Color(0.52, 0.64, 0.82),   # acero en bruto
-		 Color(0.70, 0.84, 0.92),   # acero plegado
-		 Color(0.95, 0.97, 1.00)],  # acero espejo
+		 Color(0.60, 0.72, 0.86),   # acero plegado
+		 Color(0.68, 0.72, 0.78)],  # acero espejo
 	],
 	FIBRA: [
 		# T1 - CUERO CLARO, que se curte y se oscurece.

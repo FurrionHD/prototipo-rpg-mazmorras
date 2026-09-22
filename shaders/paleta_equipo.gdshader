@@ -190,6 +190,13 @@ void fragment() {
 		c += vec3(destello * 0.75);
 		// El modulate sigue multiplicando, para que un aliado desvaido o un parpadeo de daño sigan
 		// funcionando sobre el equipo igual que sobre el resto del muñeco.
-		COLOR = vec4(clamp(c, 0.0, 1.0) * COLOR.rgb, tex.a * pal.a * COLOR.a);
+		//
+		// PERO EL MODULATE NO ES 'COLOR' A PELO: en Godot 4, COLOR llega al fragment YA MULTIPLICADO por
+		// la textura. Multiplicando por el, el color de la paleta se volvia a multiplicar por el GRIS
+		// HORNEADO -- que es oscuro a proposito, es solo el numero de tono (el tono 4 es 0,27) -- y todo
+		// el equipo del juego salia casi negro: un acero espejo (0,95) acababa en 0,26. Lo vio el usuario
+		// con los guardias en T3 +15. Dividiendo por la textura queda solo el modulate.
+		vec4 modulado = COLOR / max(tex, vec4(0.001));
+		COLOR = vec4(clamp(c, 0.0, 1.0) * modulado.rgb, pal.a * modulado.a * tex.a);
 	}
 }
