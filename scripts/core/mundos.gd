@@ -61,6 +61,11 @@ var _acum := 0.0
 # cabecera (ver _meta). Se suelta al cerrar o al abandonar: si no es del mundo abierto, no vale.
 var _cab_en_mano: SaveData = null
 
+# SOLO LA SALA: su entrada por Steam ("steam:<id>"), que abrir() publica al final de las direcciones.
+# Vacia = sin Steam: la sala va solo por Hamachi, como antes. Ver tunel_steam.gd.
+const _TUNEL = preload("res://scripts/net/tunel_steam.gd")
+var direccion_steam: String = ""
+
 # Para que la UI cuente lo que pasa sin tener que sondear.
 signal aviso(texto: String)
 signal catalogo_cambiado
@@ -284,6 +289,9 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 	for d in Nube.direcciones_locales():
 		if not dirs.has(d):
 			dirs.append(d)
+	# La SALA por Steam ("steam:<id>"), SIEMPRE LA ULTIMA: el juego de antes de Steam solo mira la primera.
+	if direccion_steam != "":
+		dirs.append(direccion_steam)
 
 	var r: Dictionary = await Nube.abrir(id, contrasena, dirs, forzar_build)
 	# UN MUNDO MIO QUE LA NUBE NO CONOCE: es uno creado antes de que existiera la nube de verdad (vivia
@@ -390,14 +398,33 @@ func unirse(clave: String, contrasena: String) -> Dictionary:
 	var manual: String = String(e.get("direccion", ""))
 	if manual != "" and not direcciones.has(manual):
 		direcciones.append(manual)
-	if direcciones.is_empty():
+
+	# POR STEAM, si la sala lo ha publicado: sin Hamachi ni IPs (ver tunel_steam.gd). Si Steam no esta,
+	# se cae a las direcciones de siempre; solo se falla si no queda ninguna.
+	var id_steam: int = _TUNEL.id_en(direcciones)
+	var ips: Array = direcciones.filter(func(d): return not String(d).begins_with(_TUNEL.PREFIJO))
+	if id_steam != 0:
+		var motivo: String = _TUNEL.iniciar_cuenta()
+		if motivo == "":
+			var st: Object = Engine.get_singleton("Steam")
+			var puerto: int = Net.tunel.abrir_cliente(_TUNEL.TransporteSteam.new(st, id_steam), id_steam)
+			if puerto > 0 and Net.unirse("127.0.0.1", contrasena, puerto, true) == OK:
+				uniendome = clave
+				return {"ok": true, "direccion": "Steam"}
+			Net.tunel.cerrar()
+			motivo = "No se pudo preparar la conexión por Steam."
+		print("[mundos] por Steam no: %s" % motivo)
+		if ips.is_empty():
+			return {"ok": false, "mensaje": motivo + " Quien tiene el mundo lo ha abierto por Steam."}
+
+	if ips.is_empty():
 		return {"ok": false, "mensaje": "No sé a qué dirección conectarme: añade la suya en la ficha "
 			+ "de este mundo."}
 
 	# Se prueba la primera; si no contesta, Net avisa y el jugador puede reintentar (probar la lista
 	# entera en cadena necesita saber que un intento ha FALLADO, y eso solo lo dice el timeout de
 	# ENet: se deja para cuando haya varias de verdad, que es con el Worker).
-	var ip: String = String(direcciones[0])
+	var ip: String = String(ips[0])
 	var err: int = Net.unirse(ip, contrasena, Net.PUERTO, true)
 	if err != OK:
 		return {"ok": false, "mensaje": "No se pudo conectar a %s." % ip}

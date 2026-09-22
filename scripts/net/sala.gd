@@ -24,6 +24,7 @@
 extends Node
 
 const ARG := "sala"
+const _TUNEL = preload("res://scripts/net/tunel_steam.gd")
 const CARPETA := "user://salas"
 const FPS := 20                # no hay nada que pintar: lo que corre es la red y el reloj
 const SEG_VACIA := 10.0        # sin nadie dentro este rato -> se cierra
@@ -97,6 +98,13 @@ func arrancar(args: PackedStringArray) -> void:
 	Game.sala_dueno = lanza
 
 	var contrasena := _leer_pedido()
+	# POR STEAM (sin Hamachi): la sala entra como servidor de juego anonimo ANTES de abrir el mundo,
+	# porque su SteamID va en las direcciones que se publican al abrir. Sin Steam, sigue por Hamachi.
+	var id_steam := 0
+	if not OS.get_cmdline_user_args().has("sin_steam"):
+		id_steam = await _TUNEL.iniciar_servidor(get_tree(), puerto)
+	if id_steam != 0:
+		Mundos.direccion_steam = _TUNEL.PREFIJO + str(id_steam)
 	var r: Dictionary = await Mundos.abrir(clave, contrasena, OS.get_cmdline_user_args().has("forzar_build"))
 	if not r.get("ok", false):
 		_acabar({"estado": "error", "error": String(r.get("error", "")),
@@ -128,6 +136,8 @@ func arrancar(args: PackedStringArray) -> void:
 		await Mundos.cerrar_y_subir()
 		_acabar({"estado": "error", "mensaje": "No se pudo abrir el puerto %d (¿otro juego abierto?)." % puerto})
 		return
+	if id_steam != 0:
+		Net.tunel.abrir_sala(_TUNEL.TransporteSteam.new(Engine.get_singleton("SteamServer")), puerto)
 	_lista = true
 	_direcciones = r.get("direcciones", [])
 	_escribir({"estado": "lista"})

@@ -160,6 +160,7 @@ static func _cabecera(L: Array[String]) -> void:
 		L.append("  identidad ........ %s (%s)" % [Identidad.id, Identidad.nombre])
 		L.append("  mi lugar ......... %s" % str(Net.get("_mi_lugar")))
 		L.append("  ¿simulo mi piso?.. %s" % str(Net.pisos.simulo_mi_piso()))
+		L.append("  %s" % Net.tunel.resumen())
 		L.append("  epoca_sesion ..... %d" % Net.epoca_sesion)
 		L.append("  semilla_host ..... %d" % Net.semilla_host)
 	_oficios(L)

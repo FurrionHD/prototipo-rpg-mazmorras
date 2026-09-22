@@ -318,6 +318,9 @@ func _ready() -> void:
 	suelo = NetSuelo.new()
 	suelo.name = "Suelo"
 	add_child(suelo)
+	tunel = Tunel.new()
+	tunel.name = "Tunel"
+	add_child(tunel)
 	var args: PackedStringArray = _trab.argumentos()
 	if not args.is_empty():
 		_trab.arrancar.call_deferred(args)
@@ -363,6 +366,12 @@ const _SALA = preload("res://scripts/net/sala.gd")
 var sala: Node = null
 # ¿Soy YO la sala (el Godot sin ventana que tiene el mundo abierto y no es ningun jugador)?
 var soy_sala := false
+
+# --- EL TUNEL POR STEAM (ver tunel_steam.gd) ---
+# Siempre colgado y quieto ("" de modo) hasta que alguien se une por Steam o la sala lo abre. Por
+# debajo de ENet: el resto de la red no sabe si hay tunel.
+const Tunel = preload("res://scripts/net/tunel_steam.gd")
+var tunel: Tunel = null
 
 # --- TRABAJADORES DE PISO (ver trabajadores.gd) ---
 var _trab: Node = null
@@ -552,6 +561,9 @@ func desconectar() -> void:
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
+	# El "me voy" de ENet acaba de salir hacia el tunel: se le deja pasar antes de cerrarlo, o la sala
+	# no se entera hasta que ENet me da por muerto (~30 s).
+	tunel.cerrar_pronto()
 	activo = false
 	es_host = false
 	# De vuelta al regimen de un jugador: si hay un menu abierto, el arbol vuelve a pausarse.
@@ -1382,8 +1394,11 @@ func _on_connection_failed() -> void:
 	if soy_trabajador:
 		_trab.me_han_soltado("no he podido conectar con la sala")
 		return
-	# IP mal escrita, host sin abrir, o no hay red: para el jugador es lo mismo.
-	estado_cambiado.emit("No se encontro ninguna partida en esa IP.")
+	if tunel.modo == "cliente":
+		estado_cambiado.emit("No se ha podido llegar por Steam a quien tiene el mundo abierto.")
+	else:
+		# IP mal escrita, host sin abrir, o no hay red: para el jugador es lo mismo.
+		estado_cambiado.emit("No se encontro ninguna partida en esa IP.")
 	desconectar()
 
 

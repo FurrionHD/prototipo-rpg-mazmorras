@@ -19,6 +19,11 @@
 # ============================================================
 extends Node
 
+# Spacewar, el appID de pruebas de Valve, hasta tener uno propio. Va tambien en steam_appid.txt.
+const APP_ID := 480
+# Como viaja la sala por Steam dentro de la lista de direcciones que publica en la nube. Va AL FINAL de
+# la lista: el juego de antes de Steam solo usa la primera (la de Hamachi) y asi ni se entera.
+const PREFIJO := "steam:"
 const CANAL := 0
 const TOPE_POR_FOTOGRAMA := 256     # datagramas por sentido y fotograma: que un atasco no congele el juego
 const MAX_REMOTOS := 32             # como Net.MAX_CONEXIONES: la sala no abre sockets sin fin
@@ -26,6 +31,7 @@ const SEG_INACTIVO := 45.0          # un amigo sin trafico este rato se olvida (
 
 var modo := ""                      # "" / "cliente" / "sala"
 var transporte = null
+var _cerrar_en := 0.0               # > 0: cerrar() dentro de este rato (ver cerrar_pronto)
 
 # --- cliente ---
 var _id_sala := 0
@@ -40,6 +46,7 @@ var _remotos: Dictionary = {}       # id remoto -> {"udp": PacketPeerUDP, "t": u
 var _cuenta := {"sube_p": 0, "sube_b": 0, "baja_p": 0, "baja_b": 0, "fallos_envio": 0}
 var _ritmo := {}                    # la cuenta del segundo pasado
 var _t_ritmo := 0.0
+var _t_log := 0.0
 var _reloj := 0.0
 
 
@@ -66,6 +73,7 @@ func abrir_sala(transporte_, puerto_sala: int) -> void:
 
 
 func cerrar() -> void:
+	_cerrar_en = 0.0
 	_local.close()
 	_puerto_enet = 0
 	for id in _remotos:
@@ -81,10 +89,22 @@ func _exit_tree() -> void:
 	cerrar()
 
 
+# Cerrar dentro de un momento, siguiendo con el reparto mientras tanto: lo que ENet acaba de soltar
+# (su "me voy" al desconectar) tiene que salir antes.
+func cerrar_pronto() -> void:
+	if modo != "":
+		_cerrar_en = 0.5
+
+
 func _process(delta: float) -> void:
 	if modo == "":
 		return
 	_reloj += delta
+	if _cerrar_en > 0.0:
+		_cerrar_en -= delta
+		if _cerrar_en <= 0.0:
+			cerrar()
+			return
 	transporte.bombear()
 	if modo == "cliente":
 		_bombear_cliente()
@@ -96,6 +116,11 @@ func _process(delta: float) -> void:
 		for k in _cuenta:
 			_cuenta[k] = 0
 		_t_ritmo = 0.0
+		# La sala no tiene teclado para la ñ: lo cuenta ella sola en su log, cada minuto que haya alguien.
+		_t_log += 1.0
+		if modo == "sala" and _t_log >= 60.0 and not _remotos.is_empty():
+			_t_log = 0.0
+			print("[tunel] " + resumen())
 
 
 func _bombear_cliente() -> void:
@@ -171,6 +196,70 @@ func resumen() -> String:
 	return "tunel %s (%s): sube %d p/s %.1f KB/s, baja %d p/s %.1f KB/s, fallos %d%s" % [modo, quien,
 		r["sube_p"], r["sube_b"] / 1024.0, r["baja_p"], r["baja_b"] / 1024.0, r["fallos_envio"],
 		(", " + transporte.estado(_id_sala)) if modo == "cliente" else ""]
+
+
+# ------------------------------------------------------------
+#  ARRANCAR STEAM
+#  Sin Steam (cerrado, o un sistema sin la libreria) el juego sigue como siempre, por Hamachi.
+# ------------------------------------------------------------
+static var _cuenta_lista := false
+
+# La cuenta de Steam del jugador. "" = lista; si no, el motivo, para decirselo tal cual.
+static func iniciar_cuenta() -> String:
+	if _cuenta_lista:
+		return ""
+	if not Engine.has_singleton("Steam"):
+		return "Este juego no se puede conectar por Steam en este sistema."
+	var st: Object = Engine.get_singleton("Steam")
+	if not st.isSteamRunning():
+		return "Steam no está abierto."
+	var r: Dictionary = st.steamInitEx(APP_ID, false)
+	if int(r.get("status", -1)) != 0:
+		push_warning("[steam] steamInitEx: %s" % str(r))
+		return "Steam no ha dejado conectar (%s)." % String(r.get("verbal", "?"))
+	_cuenta_lista = true
+	print("[steam] cuenta: %s (%d)" % [st.getPersonaName(), st.getSteamID()])
+	return ""
+
+
+# LA SALA como servidor de juego ANONIMO de Steam: su propia identidad, sin la cuenta de nadie, asi
+# sigue viva aunque quien la lanzo cierre el juego. Devuelve su SteamID, o 0 si no se pudo (y entonces
+# la sala va solo por Hamachi, como antes).
+static func iniciar_servidor(arbol: SceneTree, puerto_sala: int) -> int:
+	if not Engine.has_singleton("SteamServer"):
+		return 0
+	# La sala la lanza el juego y su carpeta de trabajo puede no ser la del steam_appid.txt.
+	OS.set_environment("SteamAppId", str(APP_ID))
+	OS.set_environment("SteamGameId", str(APP_ID))
+	var srv: Object = Engine.get_singleton("SteamServer")
+	# Puertos propios por sala (dos mundos abiertos en el mismo PC no chocan). Solo los usa Steam para
+	# anunciarse: el trafico va por los mensajes de Steam, no por aqui.
+	var r: Dictionary = srv.serverInitEx("0.0.0.0", puerto_sala + 3000, puerto_sala + 3001, 2, "1")
+	if int(r.get("status", -1)) != 0:
+		push_warning("[steam] la sala no pudo iniciar Steam: %s" % str(r))
+		return 0
+	srv.setProduct("dungeon_oratoria")
+	srv.setModDir("dungeon_oratoria")
+	srv.setDedicatedServer(true)
+	srv.logOnAnonymous()
+	var t := 0.0
+	while not srv.loggedOn() and t < 15.0:
+		srv.run_callbacks()
+		await arbol.create_timer(0.1).timeout
+		t += 0.1
+	if not srv.loggedOn():
+		push_warning("[steam] la sala no ha entrado en Steam en %d s (¿Steam caido o sin red?)" % int(t))
+		return 0
+	print("[steam] sala en Steam como servidor anonimo: %d" % srv.getSteamID())
+	return int(srv.getSteamID())
+
+
+# El SteamID de la sala dentro de una lista de direcciones, o 0.
+static func id_en(direcciones: Array) -> int:
+	for d in direcciones:
+		if String(d).begins_with(PREFIJO):
+			return int(String(d).substr(PREFIJO.length()))
+	return 0
 
 
 # ------------------------------------------------------------

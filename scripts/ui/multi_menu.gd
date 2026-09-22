@@ -538,7 +538,13 @@ func _entrar(clave: String, pass_: String, forzar_build := false) -> void:
 			_decir("Mundo abierto, pero SIN dirección publicada: nadie podrá entrar desde otra casa. "
 				+ "Enciende Hamachi y elige tu dirección en «TÚ Y TU CONEXIÓN».", false)
 		else:
-			_decir("Mundo abierto en %s. Entrando..." % String(dirs[0]))
+			# Sin Hamachi, la unica publicada puede ser la de Steam ("steam:<numero>"): eso no se enseña.
+			var ips: Array = dirs.filter(func(d): return not String(d).begins_with(Net.Tunel.PREFIJO))
+			var por_steam: bool = ips.size() < dirs.size()
+			if ips.is_empty():
+				_decir("Mundo abierto por Steam. Entrando...")
+			else:
+				_decir("Mundo abierto en %s%s. Entrando..." % [String(ips[0]), " y por Steam" if por_steam else ""])
 	else:
 		_decir("Conectando a %s..." % String(r.get("direccion", "")))
 
