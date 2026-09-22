@@ -371,6 +371,11 @@ func _on_artesano(i: int) -> void:
 	var gente: Array = _gente()
 	if _oficio_artesano == "" or i < 0 or i >= gente.size():
 		return
+	if Game.esta_de_encargo(gente[i] as PersonajeData):
+		_aviso = "%s está de encargo: vuelve cuando lo recojas." % (gente[i] as PersonajeData).nombre
+		_aviso_ok = false
+		_rebuild()
+		return
 	Game.poner_artesano(_oficio_artesano, gente[i] as PersonajeData)
 	# Repintar entero: con el artesano cambia el bonus del oficio y lo que puede salir. Lo elegido se
 	# queda (no ha cambiado lo que quieres hacer, solo quien lo hace).

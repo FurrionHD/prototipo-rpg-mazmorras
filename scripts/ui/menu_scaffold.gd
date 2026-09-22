@@ -2498,6 +2498,12 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 		b.tooltip_text += "\n★ Va en cabeza"
 	if marcado:
 		b.tooltip_text += "\n● " + (pista_marca if pista_marca != "" else "Tiene experiencia sin consolidar")
+	# DE ENCARGO: se le sigue pudiendo elegir (para mirar su ficha), pero sale velado y con la ✕ gris
+	# en la esquina de abajo, la misma en todas las filas de retratos. Quien lo necesite (el menu de
+	# personaje, los talleres, el maestro) ya le cierra lo que no se puede hacer con alguien fuera.
+	var fuera: bool = Game.esta_de_encargo(pj)
+	if fuera:
+		b.tooltip_text += "\n✕ Está de encargo: vuelve cuando lo recojas"
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(estado, StyleBoxEmpty.new())
 	b.pressed.connect(pulsado.bind(i))
@@ -2570,7 +2576,7 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	# va en z absoluto (hasta 2048, ver capas-jugador-z-fijo) y el pelo llena las dos esquinas, asi que
 	# la corona no se habia visto nunca. Quien abre un modal ya esconde la fila entera, asi que este z
 	# no se cuela por encima de nada.
-	if pj != Game.lider() and not marcado:
+	if pj != Game.lider() and not marcado and not fuera:
 		return
 	var marcas := Control.new()
 	marcas.custom_minimum_size = Vector2(LADO_RETRATO, LADO_RETRATO)
@@ -2581,6 +2587,14 @@ static func _retrato(fila: HBoxContainer, pj: PersonajeData, i: int, elegido: bo
 	var es_lider: bool = pj == Game.lider()
 	marcas.draw.connect(func() -> void:
 		var w: float = marcas.size.x
+		if fuera:
+			var gris := Color(0.6, 0.63, 0.7)
+			var c := Vector2(w - 13.0, marcas.size.y - 13.0)
+			marcas.draw_rect(Rect2(Vector2.ZERO, marcas.size), Color(0.03, 0.04, 0.06, 0.55))
+			marcas.draw_circle(c, 11.0, Color(0.03, 0.04, 0.06, 0.92))
+			marcas.draw_arc(c, 10.0, 0.0, TAU, 20, gris, 1.5, true)
+			marcas.draw_line(c + Vector2(-5, -5), c + Vector2(5, 5), gris, 2.0, true)
+			marcas.draw_line(c + Vector2(-5, 5), c + Vector2(5, -5), gris, 2.0, true)
 		if es_lider:
 			var f: Font = marcas.get_theme_font(&"font")
 			marcas.draw_circle(Vector2(w - 11.0, 11.0), 7.0, Color(0.03, 0.04, 0.06, 0.9))

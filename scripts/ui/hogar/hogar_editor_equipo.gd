@@ -136,12 +136,13 @@ func _pintar_lista() -> void:
 		else:
 			b.tooltip_text = ("%s  ·  puesto %d. Tócalo para enviarlo a casa." % [pj.nombre, pos + 1]) if pos >= 0 \
 				else "%s  ·  en casa. Tócalo para añadirlo al equipo." % pj.nombre
-		_marca_retrato(b, pos, de_encargo)
+		_marca_retrato(b, pos)
 
 	# RECOGER EL EQUIPO de los que se quedan en casa: libera sus piezas para otros.
 	var con_piezas: Array = []
 	for pj in Game.en_el_banquillo():
-		if not _borrador.has(String(pj.uid)) and _piezas_puestas(pj) > 0:
+		# Quien esta de encargo se ha llevado lo suyo: no esta en casa para dejarlo en el baul.
+		if not _borrador.has(String(pj.uid)) and _piezas_puestas(pj) > 0 and not Game.esta_de_encargo(pj):
 			con_piezas.append(pj)
 	if not con_piezas.is_empty():
 		var hueco := Control.new()
@@ -156,10 +157,10 @@ func _pintar_lista() -> void:
 			hogar._rebuild(), false)
 
 
-# El NUMERO DE PUESTO en la esquina del retrato de los que van (o la marca de encargo), en una capa con
-# z 4096 para que la cara del muñeco (z absoluto) no lo tape.
-func _marca_retrato(b: Button, pos: int, de_encargo: bool) -> void:
-	if pos < 0 and not de_encargo:
+# El NUMERO DE PUESTO en la esquina del retrato de los que van, en una capa con z 4096 para que la
+# cara del muñeco (z absoluto) no lo tape. La marca de encargo ya la pone MenuScaffold._retrato.
+func _marca_retrato(b: Button, pos: int) -> void:
+	if pos < 0:
 		return
 	var capa := Control.new()
 	capa.size = Vector2(MenuScaffold.LADO_RETRATO, MenuScaffold.LADO_RETRATO)
@@ -170,10 +171,6 @@ func _marca_retrato(b: Button, pos: int, de_encargo: bool) -> void:
 		var f: Font = capa.get_theme_font(&"font")
 		var c := Vector2(13.0, 13.0)
 		capa.draw_circle(c, 11.0, Color(0.03, 0.04, 0.06, 0.92))
-		if de_encargo:
-			capa.draw_arc(c, 10.0, 0.0, TAU, 20, GRIS, 1.5, true)
-			capa.draw_line(c + Vector2(-5, -5), c + Vector2(5, 5), GRIS, 2.0, true)
-			return
 		capa.draw_arc(c, 10.0, 0.0, TAU, 20, AMBAR, 1.5, true)
 		var t: String = "%d" % (pos + 1)
 		capa.draw_string(f, c + Vector2(-f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x * 0.5, 5),

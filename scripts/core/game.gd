@@ -293,7 +293,9 @@ var artesanos: Dictionary = {}   # oficio -> uid
 
 func artesano(oficio: String) -> PersonajeData:
 	var pj: PersonajeData = pj_por_uid(String(artesanos.get(oficio, "")))
-	return pj if pj != null else lider()
+	# El que esta de encargo no esta en el taller: mientras vuelve, trabaja el lider (su eleccion se
+	# guarda y vuelve a mandar en cuanto lo recojas).
+	return pj if pj != null and not esta_de_encargo(pj) else lider()
 
 
 # 'pj' = null o el líder -> se vuelve al comportamiento de siempre (manda quien vaya en cabeza).
@@ -4641,10 +4643,13 @@ func encargo_por_id(id: int) -> Dictionary:
 
 # ¿Esta persona esta ahora mismo fuera, en un encargo? Se pregunta por uid porque el PersonajeData
 # de un compañero de otro jugador ni siquiera vive en esta maquina.
+# Se mira la lista VISIBLE, no Game.encargos: en un cliente esa es la suya apartada y la de verdad es
+# el espejo que difunde el host. Con la SALA todos son clientes, y mirando Game.encargos esto daba
+# siempre "no" (se podia equipar, craftear y entrenar con alguien que estaba fuera).
 func uid_de_encargo(uid: String) -> int:
 	if uid.is_empty():
 		return 0
-	for e in encargos:
+	for e in Net.hogar.encargos_visibles():
 		for m in ((e as Dictionary).get("miembros", []) as Array):
 			if String((m as Dictionary).get("uid", "")) == uid:
 				return int((e as Dictionary).get("id", 0))
@@ -8301,6 +8306,8 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 # vacias con un arma en la off), la quita.
 func equipar_arma(w: WeaponData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
+	if equipo_bloqueado_por_encargo(w, p):
+		return
 	var prestado_antes: SpellData = hechizo_del_arma(p)   # hay que leerlo ANTES de cambiar de manos
 	_quitar_a_los_demas(w, p)
 	p.equipped_main = w
@@ -8316,7 +8323,7 @@ func equipar_arma(w: WeaponData, pj: PersonajeData = null) -> void:
 # Equipa la mano secundaria (arma dual o escudo); null = vacia.
 func equipar_secundaria(item: Resource, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
-	if not _secundaria_valida(p.equipped_main as WeaponData, item):
+	if not _secundaria_valida(p.equipped_main as WeaponData, item) or equipo_bloqueado_por_encargo(item, p):
 		return false
 	var prestado_antes: SpellData = hechizo_del_arma(p)
 	_quitar_a_los_demas(item, p)
@@ -8328,9 +8335,21 @@ func equipar_secundaria(item: Resource, pj: PersonajeData = null) -> bool:
 # Equipa una pieza de armadura en su slot ("casco", "pecho", ...); null = vacio.
 func equipar_armadura(slot: String, pieza: ArmorData, pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
+	if equipo_bloqueado_por_encargo(pieza, p):
+		return
 	_quitar_a_los_demas(pieza, p)
 	p.set("equipped_" + slot, pieza)
 	p.equip_meta[slot] = meta_de(pieza)
+
+
+# EL QUE ESTA DE ENCARGO SE LLEVA SU EQUIPO: ni se le cambia, ni se le quita una pieza para ponersela
+# a otro (el _quitar_a_los_demas de arriba lo haria en silencio). Lo miran las funciones de equipar
+# como red de seguridad; la UI ya desactiva los botones antes.
+func equipo_bloqueado_por_encargo(item: Resource, p: PersonajeData) -> bool:
+	if esta_de_encargo(p):
+		return true
+	var quien: PersonajeData = quien_lleva(item)
+	return quien != null and quien != p and esta_de_encargo(quien)
 
 
 # UN objeto, UNA persona. El baul es comun a todo el grupo, asi que al ponerle a alguien una
@@ -11299,8 +11318,8 @@ func item_equipado(item: Resource) -> bool:
 # para el resto -no se vende, no se funde, no se le pone a otro sin robarselo- y no habia forma de
 # recuperarlo sin volver a meterlo en el equipo.
 func desequipar_todo(pj: PersonajeData) -> int:
-	if pj == null:
-		return 0
+	if pj == null or esta_de_encargo(pj):
+		return 0   # quien esta fuera se lleva su equipo puesto
 	var n: int = 0
 	for slot in EQUIP_SLOTS:
 		if pj.get("equipped_" + slot) != null:

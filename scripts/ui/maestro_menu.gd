@@ -266,6 +266,17 @@ func _pj() -> PersonajeData:
 	return todos[_pj_sel]
 
 
+# Quien esta de encargo no esta en casa: ni aprende tecnicas ni medita hasta que lo recojas. Se le
+# puede elegir en la fila (para mirar), pero la accion se corta aqui con su aviso.
+func _de_encargo_avisa(pj: PersonajeData) -> bool:
+	if not Game.esta_de_encargo(pj):
+		return false
+	_aviso = "%s está de encargo: vuelve cuando lo recojas." % pj.nombre
+	_aviso_ok = false
+	_rebuild()
+	return true
+
+
 # Las plantillas base de todo lo que aporta habilidades: las armas y las secundarias (escudos y
 # varita tambien traen las suyas, y compiten por los mismos cuatro huecos).
 func _plantillas() -> Array:
@@ -927,6 +938,8 @@ func _meditar_x10() -> void:
 # tira: Game.tirar_meditacion no cobra ni entrega nada a proposito, para que se pueda tirar diez mil
 # veces en el visor sin tocar la partida.
 func _meditar(cuantas: int) -> void:
+	if _de_encargo_avisa(_pj()):
+		return
 	# EL CUPO SE PIDE ANTES DE COBRAR, y esto no es manía: en un mundo compartido las 30 tiradas del
 	# novato las lleva el HOST, asi que cobrar primero y preguntar despues es pagar 4500 y que te
 	# digan que no quedan. Ademas la respuesta puede ser PARCIAL (pides 10, quedan 3), y entonces
@@ -2464,7 +2477,10 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 	_content.add_child(HSeparator.new())
 
 	var sabida: bool = ab.inicial or Game.habilidad_desbloqueada(ab, pj)
-	if sabida:
+	var fuera: bool = Game.esta_de_encargo(pj)
+	if fuera:
+		MenuScaffold.nota(_content, "%s está de encargo: vuelve cuando lo recojas." % pj.nombre)
+	elif sabida:
 		MenuScaffold.nota(_content, ("%s ya se la sabe. Los cuatro huecos se ordenan en su ficha "
 			+ "[C], arrastrando.") % pj.nombre)
 	elif not Game.puede_pagar(ab.precio):
@@ -2474,7 +2490,7 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 	_content.add_child(fila)
 	var texto: String = "Ya la sabe" if sabida else "Aprender por %d" % ab.precio
 	var b: Button = MenuScaffold.pastilla(fila, texto, _aprender.bind(ab), true,
-		not sabida and Game.puede_pagar(ab.precio))
+		not sabida and not fuera and Game.puede_pagar(ab.precio))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Con los dedos no hay "pasar el raton por encima", asi que la ficha completa necesita su boton.
 	MenuScaffold.info(fila, b, String(ab.nombre))
@@ -2482,6 +2498,8 @@ func _pintar_ficha(pj: PersonajeData) -> void:
 
 func _aprender(ab: AbilityData) -> void:
 	var pj: PersonajeData = _pj()
+	if _de_encargo_avisa(pj):
+		return
 	if not Game.aprender_habilidad(ab, pj):
 		_aviso = "No te llega el dinero."
 		_aviso_ok = false

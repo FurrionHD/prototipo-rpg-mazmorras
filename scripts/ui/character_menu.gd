@@ -958,13 +958,12 @@ func _sec_arma() -> void:
 	# El boton de cambiar. Con el arma principal a dos manos NO hay secundaria que cambiar: se dice y
 	# se apaga, en vez de dejar entrar a una rejilla donde nada se puede equipar.
 	var dos_manos: bool = Game.arma_main(pj).dos_manos and pj.equipped_main != null
-	var pueblo: bool = Game.en_pueblo()
+	var pueblo: bool = _se_puede_tocar()
 	_content.add_child(HSeparator.new())
 	if not es_main and dos_manos:
 		_note("El arma principal es a dos manos: no admite secundaria.")
 		return
-	if not pueblo:
-		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(fila)
@@ -1089,6 +1088,9 @@ func _cambiar_arma() -> void:
 		# Las secundarias incompatibles con la principal se dejan VER pero no elegir.
 		if not es_armadura and _sel == 1 and not Game._secundaria_valida(pj.equipped_main, it):
 			activo = false
+		# Lo que se ha llevado alguien de encargo tampoco: no esta en casa para quitarselo.
+		if otro != null and otro != pj and Game.esta_de_encargo(otro):
+			activo = false
 		# Sin "pie": el +N que iba ahi lo pinta la celda en su esquina, con el color de su nivel.
 		piezas.append({
 			"item": it, "pie": "",
@@ -1141,15 +1143,14 @@ func _cambiar_arma() -> void:
 		elif not Game._secundaria_valida(pj.equipped_main, item):
 			_note("No compatible con el arma principal actual.")
 
-	var pueblo: bool = Game.en_pueblo()
-	if not pueblo:
-		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	var pueblo: bool = _se_puede_tocar()
+	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	_content.add_child(HSeparator.new())
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 8)
 	_content.add_child(fila)
-	var puede: bool = pueblo and (es_armadura or _sel == 0
-		or Game._secundaria_valida(pj.equipped_main, item) or item == _equipado())
+	var puede: bool = pueblo and not Game.equipo_bloqueado_por_encargo(item, pj) and (es_armadura
+		or _sel == 0 or Game._secundaria_valida(pj.equipped_main, item) or item == _equipado())
 	var eq: Button = MenuScaffold.pastilla(fila,
 		"Desequipar" if _cand_equipado() else "Equipar", _equipar, true, puede)
 	eq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1232,6 +1233,8 @@ func _equipar() -> void:
 	if _cand < 0 or _cand >= cat.size():
 		return
 	var elegido: Resource = null if _cand_equipado() else cat[_cand]
+	if not _se_puede_tocar() or Game.equipo_bloqueado_por_encargo(elegido, _pj()):
+		return
 	var es_armadura: bool = (_sec == SEC_ARMADURA)
 	var slot: String = ARMOR_SLOTS[clampi(_sel, 0, 4)]
 	var es_main: bool = (_sel == 0)
@@ -1377,7 +1380,7 @@ func _pintar_kit(puestas: Array, disponibles: Array, topes: int, palabra: String
 # ficha —que funciona, pero mete siempre en el primer hueco libre y no deja ordenar—. Solo en el
 # pueblo, que es donde se puede tocar algo.
 func _pista_arrastre() -> void:
-	if Game.en_pueblo():
+	if _se_puede_tocar():
 		MenuScaffold.nota(_kit_fijo, "Arrastra para colocarlas donde quieras: una encima de otra las "
 			+ "cambia de sitio, y sacar una de su ranura y soltarla fuera la quita.")
 
@@ -1432,7 +1435,7 @@ func _es_magia() -> bool:
 #   pool  -> pool   : nada. El monton de abajo no tiene orden que defender.
 func _soltar_kit(it: Resource, _origen_pos: int, origen_ranura: bool,
 		destino_pos: int, destino_ranura: bool) -> void:
-	if it == null or not Game.en_pueblo():
+	if it == null or not _se_puede_tocar():
 		return
 	var pj: PersonajeData = _pj()
 	if destino_ranura:
@@ -1513,11 +1516,11 @@ func _ficha_kit(pj: PersonajeData, es_magia: bool) -> void:
 		_content.add_child(l)
 
 	# EL BOTON. Solo en el pueblo, como el resto del equipo.
-	var pueblo: bool = Game.en_pueblo()
+	var pueblo: bool = _se_puede_tocar()
 	var lleno: bool = Game.hechizos_llenos(pj) if es_magia else Game.habilidades_llenas(pj)
 	_content.add_child(HSeparator.new())
 	if not pueblo:
-		_note("Solo se cambia en el pueblo. Aquí es solo consulta.")
+		_nota_no_se_toca("Solo se cambia en el pueblo. Aquí es solo consulta.")
 	elif not puesto and lleno:
 		# El motivo, no un boton apagado a secas: con las ranuras llenas hay que decir QUE hacer.
 		_note("No le quedan ranuras libres: quítale una de arriba para poder poner ésta.")
@@ -1533,7 +1536,7 @@ func _ficha_kit(pj: PersonajeData, es_magia: bool) -> void:
 # Mete o saca lo elegido. Al hacerlo la lista cambia de tamaño, asi que la seleccion se lleva a la
 # ranura donde ha acabado (o a la primera): dejarla en el indice viejo apuntaba a otra cosa.
 func _alternar_kit(it: Resource, puesto: bool, es_magia: bool) -> void:
-	if it == null or not Game.en_pueblo():
+	if it == null or not _se_puede_tocar():
 		return
 	var pj: PersonajeData = _pj()
 	if es_magia:
@@ -1678,10 +1681,9 @@ func _sec_armadura() -> void:
 			ARMOR_SLOT_LABELS[slot_sel])
 		_armor_stats(_content, actual as ArmorData)
 
-	var pueblo: bool = Game.en_pueblo()
+	var pueblo: bool = _se_puede_tocar()
 	_content.add_child(HSeparator.new())
-	if not pueblo:
-		_note("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
+	_nota_no_se_toca("Cambios de equipo solo en el pueblo. Aquí es solo consulta.")
 	var fila := HBoxContainer.new()
 	fila.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.add_child(fila)
@@ -1813,6 +1815,21 @@ func _quien_lleva(item: Resource) -> PersonajeData:
 	return null if otro == _pj() else otro
 
 
+# ¿Se le puede cambiar algo (equipo, habilidades, magias) al que estoy mirando? Solo en el pueblo, y
+# solo si no esta DE ENCARGO: quien esta fuera se ha llevado lo que tiene puesto. Se le sigue pudiendo
+# mirar la ficha, que es solo consulta.
+func _se_puede_tocar() -> bool:
+	return Game.en_pueblo() and not Game.esta_de_encargo(_pj())
+
+
+# La nota que explica por que no se puede tocar. 'fuera_del_pueblo' es la de cada seccion.
+func _nota_no_se_toca(fuera_del_pueblo: String) -> void:
+	if Game.esta_de_encargo(_pj()):
+		_note("Está de encargo: no se le puede cambiar nada hasta que lo recojas.")
+	elif not Game.en_pueblo():
+		_note(fuera_del_pueblo)
+
+
 func _etiqueta_con_dueno(item: Resource, base: String) -> String:
 	var otro: PersonajeData = _quien_lleva(item)
 	return base if otro == null else "%s\n🔒 %s" % [base, otro.nombre]
@@ -1827,6 +1844,8 @@ func _aviso_dueno(item: Resource) -> void:
 		return
 	var l := Label.new()
 	l.text = "🔒 Lo lleva puesto %s. Si lo equipas, se lo quitas." % otro.nombre
+	if Game.esta_de_encargo(otro):
+		l.text = "🔒 Lo lleva %s, que está de encargo: no se le puede quitar." % otro.nombre
 	l.add_theme_color_override("font_color", Color(0.9, 0.5, 0.5))
 	l.add_theme_font_size_override("font_size", 12)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
