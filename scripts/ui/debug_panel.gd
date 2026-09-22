@@ -1054,6 +1054,15 @@ func _on_add_materiales() -> void:
 		2: cals = [MaterialItem.Calidad.NORMAL]
 		3: cals = [MaterialItem.Calidad.DANADO]
 		4: cals = [MaterialItem.Calidad.PURO]
+	# En multi el baul de verdad es el del host (o la sala): meterlo solo en mi copia no valia, el
+	# siguiente abrir_taller me la pisaba con la suya y "desaparecia" al craftear. Se pide el taller
+	# como cualquier oficio, se añade y se devuelve. En solitario abrir/cerrar no hacen nada.
+	# Si YA lo tengo (debug abierto encima de un taller) no se vuelve a pedir: me recargaria el baul
+	# del host sin lo que llevo crafteado y lo soltaria con el menu aun abierto.
+	var pedido: bool = not Net.hogar.tengo_taller()
+	if pedido and not await Net.hogar.abrir_taller():
+		print("[dev] Baúl: el taller lo tiene otro jugador, prueba cuando lo suelte.")
+		return
 	var total: int = 0
 	for ruta in rutas:
 		var d: MaterialData = load(ruta) as MaterialData
@@ -1068,6 +1077,8 @@ func _on_add_materiales() -> void:
 				Game.almacen_materiales.append(MaterialItem.crear(d, cal))
 				total += 1
 	print("[dev] Baúl: +", total, " materiales (y descubiertos). Total en casa: ", Game.almacen_materiales.size())
+	if pedido:
+		Net.hogar.cerrar_taller()
 
 
 # --- Escaneo + categorizacion de TODOS los materiales (para el desplegable) ---
