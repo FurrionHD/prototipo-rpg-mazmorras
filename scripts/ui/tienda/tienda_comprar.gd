@@ -8,20 +8,20 @@
 #  Lo que se enseña del equipo es una COPIA DE ESCAPARATE con su tier (t.vitrina): los .tres del
 #  catalogo no tienen tier y la celda diria "T1" en el mostrador T2.
 #
-#  NO hay grimorios: la magia se gana (maestro y cofres), no se compra por ventanilla. La comida son
-#  MATERIALES para cocinar, y la sal y los silvestres no estan: eso se baja a buscar.
+#  NO hay grimorios: la magia se gana (maestro y cofres), no se compra por ventanilla.
+#  NI COMIDA: desde el 22/09/2026 la venden los puestos del MERCADILLO (VendedoresPlan.GENERO,
+#  mercadillo_menu.gd), cada uno lo suyo y solo de dia. La sal y los silvestres siguen sin venderse.
 # ============================================================
 extends RefCounted
 
 const TiendaCesta = preload("res://scripts/ui/tienda/tienda_cesta.gd")
 
-const SUBS := ["Armas", "Armaduras", "Mochilas", "Consumibles", "Comida"]
-const SUBS_ICONOS := ["espada", "coraza", "mochila", "pocion", "flor"]
+const SUBS := ["Armas", "Armaduras", "Mochilas", "Consumibles"]
+const SUBS_ICONOS := ["espada", "coraza", "mochila", "pocion"]
 const SUB_ARMAS := 0
 const SUB_ARMADURAS := 1
 const SUB_MOCHILAS := 2
 const SUB_CONSUMIBLES := 3
-const SUB_COMIDA := 4
 
 # Armas y secundarias: la lista vive en CatalogoEquipo, porque el maestro de habilidades recorre esas
 # MISMAS plantillas para saber que habilidades trae cada arma.
@@ -39,18 +39,6 @@ const CAT_POCIONES_T2: Array[String] = [
 	"res://resources/consumables/pocion_media.tres",
 	"res://resources/consumables/pocion_mana_media.tres",
 	"res://resources/consumables/piedra_retorno_t2.tres",
-]
-const CAT_COMIDA: Array[String] = [
-	"res://resources/materials/cebolla.tres",
-	"res://resources/materials/ajo.tres",
-	"res://resources/materials/tomate.tres",
-	"res://resources/materials/lechuga.tres",
-	"res://resources/materials/patata.tres",
-	"res://resources/materials/zanahoria.tres",
-	"res://resources/materials/pimiento.tres",
-	"res://resources/materials/pan.tres",
-	"res://resources/materials/queso.tres",
-	"res://resources/materials/aceite.tres",
 ]
 # Armaduras: los 4 tipos x los 5 slots, de la mas ligera a la mas pesada.
 const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
@@ -103,7 +91,6 @@ func build() -> void:
 	if Game.tienda_t2_abierta():
 		MenuScaffold.subpestanas(t.barra_tier, ["Mostrador T1", "Mostrador T2"], ["tier_1", "tier_2"],
 			_tier - 1, _on_tier)
-	# La COMIDA solo en el T1: no hay comida T2 que vender (una cebolla es una cebolla).
 	var subs: Array = _subs_visibles()
 	if not subs.has(_sub):
 		_sub = SUB_ARMAS
@@ -173,8 +160,6 @@ func _on_tier(i: int) -> void:
 func _subs_visibles() -> Array:
 	var out: Array = []
 	for i in SUBS.size():
-		if i == SUB_COMIDA and _tier >= 2:
-			continue
 		out.append(i)
 	return out
 
@@ -189,7 +174,6 @@ func _recoger() -> Array:
 					rutas.append("res://resources/armor/%s_%s.tres" % [tipo, slot])
 		SUB_MOCHILAS: rutas = CAT_MOCHILAS
 		SUB_CONSUMIBLES: rutas = CAT_POCIONES_T2 if _tier >= 2 else CAT_POCIONES
-		SUB_COMIDA: rutas = CAT_COMIDA
 	var tabla: Array = _tabla_filtros()
 	var filtro: Dictionary = {} if tabla.is_empty() \
 		else tabla[clampi(_sub2_de(_sub), 0, tabla.size() - 1)]
@@ -229,8 +213,6 @@ func _ficha(vb: VBoxContainer) -> void:
 			t.note(vb, "La única que se compra hecha: las buenas (más carga) se cosen en la peletería.")
 		SUB_CONSUMIBLES:
 			t.note(vb, "Comprarlas sale caro: si puedes, fabrícalas en la Boticaria con lo que traigas de la mazmorra.")
-		SUB_COMIDA:
-			t.note(vb, "Género de la superficie, para cocinar: crudo no hace nada. La sal y lo que crece abajo no se venden aquí.")
 	var tope: int = TOPE_PUNADO if (base is ConsumableData or base is MaterialData) else TOPE_EQUIPO
 	t.fila_accion(tope, precio, "Comprar",
 		func(n: int): _comprar([{"base": base, "tier": int(s["tier"]), "n": n}], n, nombre_de(s)),

@@ -30,12 +30,36 @@ const ENTRAR := 2.0
 # LOS CUATRO: su casa (la huella de una casa de PuebloPlano.CASAS) y su puesto (la clave del mueble en
 # PuebloPlano.MUEBLES). Dos viven en el barrio norte, encima del mercadillo, y dos en la fila de casas de
 # la calle alta, al sur: asi no llegan todos por el mismo camino.
+#
+# Y LO QUE VENDE CADA UNO ('genero', rutas de MaterialData): la comida que antes vendia la tienda,
+# repartida por el usuario el 22/09/2026. El de FRUTA no vende nada todavia: en el juego no hay frutas
+# (hay que decidir cuales y en que comidas entran); esta en su puesto pero no se le puede comprar.
+const MAT := "res://resources/materials/%s.tres"
 const VENDEDORES := [
-	{"casa": Rect2i(45, 6, 3, 3), "puesto": "puesto_pan"},
-	{"casa": Rect2i(50, 24, 3, 3), "puesto": "puesto_verdura"},
-	{"casa": Rect2i(55, 24, 3, 3), "puesto": "puesto_fruta"},
-	{"casa": Rect2i(60, 6, 3, 3), "puesto": "puesto_especias"},
+	{"casa": Rect2i(45, 6, 3, 3), "puesto": "puesto_pan", "nombre": "Pan y queso",
+		"genero": ["pan", "queso"]},
+	{"casa": Rect2i(50, 24, 3, 3), "puesto": "puesto_verdura", "nombre": "Verduras",
+		"genero": ["tomate", "lechuga", "patata", "zanahoria", "pimiento"]},
+	{"casa": Rect2i(55, 24, 3, 3), "puesto": "puesto_fruta", "nombre": "Fruta",
+		"genero": []},
+	{"casa": Rect2i(60, 6, 3, 3), "puesto": "puesto_especias", "nombre": "Especias y aceite",
+		"genero": ["ajo", "cebolla", "aceite"]},
 ]
+
+
+# El genero del vendedor 'v', cargado.
+static func genero(v: int) -> Array:
+	var out: Array = []
+	for n in VENDEDORES[v]["genero"]:
+		var m: Resource = load(MAT % n)
+		if m != null:
+			out.append(m)
+	return out
+
+
+# ¿Se le puede comprar? Tiene que estar abierto y tener algo que vender.
+static func vende(v: int, t: float) -> bool:
+	return not (VENDEDORES[v]["genero"] as Array).is_empty() and abierto(v, t)
 
 
 # El estado del vendedor 'v' en el segundo 't' del ciclo:

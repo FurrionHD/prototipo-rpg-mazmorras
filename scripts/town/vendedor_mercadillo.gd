@@ -48,6 +48,10 @@ static func crear(i: int) -> VendedorMercadillo:
 func _ready() -> void:
 	z_as_relative = false
 	z_index = 0
+	# EL NODO ESTA EN EL FRENTE DEL MOSTRADOR: es a lo que se acerca el jugador para comprar (la F, ver
+	# interact_with_player). Lo demas (la imagen, el de la calle) se coloca en global.
+	position = esquina_puesto(huella) + Vector2(float(PlazaSprites.PIEZAS[puesto]["tam"].x) * 0.5,
+		float(PlazaSprites.PIEZAS[puesto]["tam"].y))
 	_pj = aspecto(indice)
 	var tam_puesto: Vector2i = PlazaSprites.PIEZAS[puesto]["tam"]
 	var tam: Vector2i = tam_puesto + Vector2i(MARGEN * 2, 0)
@@ -108,6 +112,29 @@ func _actualizar() -> void:
 		if anim != _anim_calle:
 			_anim_calle = anim
 			_muneco_calle.animar(anim)
+	# Se le puede comprar solo mientras vende: de noche, recogiendo o sin genero (la fruta) la F no sale.
+	var vende: bool = VendedoresPlan.vende(indice, CicloDia.segundo())
+	if vende != is_in_group("interactable"):
+		if vende:
+			add_to_group("interactable")
+		else:
+			remove_from_group("interactable")
+
+
+# ============================================================
+#  COMPRAR (F delante del mostrador)
+# ============================================================
+# Todo el frente del puesto cuenta como cerca (el nodo esta en su centro): ver player._mas_cercano_en_grupo.
+var radio_extra: float = 40.0
+
+func texto_interaccion() -> String:
+	return "Comprar: %s" % String(VendedoresPlan.VENDEDORES[indice]["nombre"])
+
+
+func interact_with_player() -> void:
+	var menu: Node = get_tree().get_first_node_in_group("mercadillo_menu")
+	if menu != null and menu.has_method("abrir"):
+		menu.abrir(indice)
 
 
 # LA IMAGEN DEL VENDEDOR ES MAS ANCHA QUE EL PUESTO, MARGEN px por cada lado: entra de lado desde la

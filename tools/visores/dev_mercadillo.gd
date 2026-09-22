@@ -26,6 +26,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_hueco()
 	_dia()
+	_genero()
 	if _con_ventana:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		DirAccess.make_dir_recursive_absolute(SALIDA)
@@ -131,6 +132,33 @@ func _dia() -> void:
 		_ok("  de noche esta en casa (escondido y cerrado)", not bool(noche["visible"]) and not bool(noche["abierto"]))
 
 
+func _genero() -> void:
+	print("\n=== LO QUE VENDE CADA PUESTO ===")
+	var mediodia: float = CicloDia.T_DIA + CicloDia.DIA * 0.5
+	var vendido: Array = []
+	for v in VendedoresPlan.VENDEDORES.size():
+		var nombres: Array = VendedoresPlan.VENDEDORES[v]["genero"]
+		var g: Array = VendedoresPlan.genero(v)
+		var bien: bool = g.size() == nombres.size()
+		for m in g:
+			bien = bien and m is MaterialData and Game.precio_mostrador(m, 1) > 0
+			vendido.append(m.resource_path)
+		_ok("%s: %d productos que existen y tienen precio" % [VendedoresPlan.VENDEDORES[v]["nombre"], g.size()], bien)
+		_ok("  vende a mediodia solo si tiene genero", VendedoresPlan.vende(v, mediodia) == not nombres.is_empty())
+		_ok("  de noche no vende", not VendedoresPlan.vende(v, CicloDia.T_NOCHE + 300.0))
+	_ok("los 10 de la comida de antes, cada uno en un puesto", vendido.size() == 10 and vendido.size() == _sin_repetir(vendido))
+	# Y la tienda ya no vende ningun ingrediente.
+	var TiendaComprar = load("res://scripts/ui/tienda/tienda_comprar.gd")
+	_ok("la tienda ya no tiene la seccion Comida", not (TiendaComprar.SUBS as Array).has("Comida"))
+
+
+func _sin_repetir(a: Array) -> int:
+	var d := {}
+	for x in a:
+		d[x] = true
+	return d.size()
+
+
 # ------------------------------------------------------------
 #  CAPTURAS: el pueblo de verdad a mediodia.
 # ------------------------------------------------------------
@@ -183,6 +211,53 @@ func _capturas() -> void:
 	# De noche, el mercadillo vacio.
 	cam.zoom = Vector2(2.0, 2.0)
 	await _foto("de_noche", CicloDia.T_NOCHE + 300.0, fuera, Vector2(mercado.get_center()) * celda)
+	# COMPRAR: el jugador delante del puesto del pan, la F y el menu. La camara, la del juego (pegada al
+	# jugador), con el zoom de jugar.
+	cam.zoom = Vector2(2.0, 2.0)
+	CicloDia.hora_forzada = mediodia
+	_jugador.global_position = delante
+	cam.position = Vector2.ZERO
+	cam.reset_smoothing()
+	# DOS fotogramas: process_frame salta ANTES de los _process de ese fotograma, asi que tras uno solo el
+	# vendedor aun no se ha enterado de que es de dia (y no esta en "interactable").
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var vend: Node = null
+	for n in get_tree().get_nodes_in_group("interactable"):
+		if n is VendedorMercadillo and (n as VendedorMercadillo).indice == 0:
+			vend = n
+	_ok("el vendedor del pan se puede usar a mediodia", vend != null)
+	_ok("  y es lo que la F coge delante de su puesto", _jugador.objetivo_interaccion() == vend)
+	await _captura("menu_0_antes")
+	if vend != null:
+		vend.interact_with_player()
+	await _espera(DESLIZ_MEDIO)
+	await _captura("menu_1_deslizando")
+	await _espera(0.6)
+	await _captura("menu_2_pan")
+	var menu: Node = get_tree().get_first_node_in_group("mercadillo_menu")
+	menu.cerrar()
+	menu.abrir(1)
+	await _espera(0.6)
+	await _captura("menu_3_verdura")
+	menu.cerrar()
+	await _espera(DESLIZ_MEDIO)
+	await _captura("menu_4_volviendo")
+	await _espera(0.6)
+	await _captura("menu_5_cerrado")
+	_ok("al cerrar la camara vuelve al centro", (cam.offset as Vector2).is_zero_approx())
+
+
+const DESLIZ_MEDIO := 0.2
+
+func _espera(s: float) -> void:
+	await get_tree().create_timer(s, true).timeout
+
+
+func _captura(nombre: String) -> void:
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("%smercadillo_%s.png" % [SALIDA, nombre])
 
 
 func _foto(nombre: String, t: float, jugador: Vector2, donde: Vector2) -> void:

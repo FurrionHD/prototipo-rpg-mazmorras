@@ -193,7 +193,9 @@ func _choques() -> void:
 func _puertas() -> void:
 	print("\n=== LAS PUERTAS ===")
 	var alcanzables: Dictionary = _alcanzables(_celda(PuebloPlano.aparicion_px()))
-	var nodos: Array = get_tree().get_nodes_in_group("interactable")
+	# Sin los vendedores del mercadillo: se pueden usar o no segun la hora (VendedoresPlan.vende), y los
+	# comprueba su propio visor (ver_mercadillo.bat).
+	var nodos: Array = get_tree().get_nodes_in_group("interactable").filter(func(n): return not n is VendedorMercadillo)
 	for casa in PuebloPlano.CASAS:
 		if String(casa.get("script", "")).is_empty():
 			continue
