@@ -23,6 +23,11 @@ var _menu: Control = null
 var _ajustes: Control = null
 var _fila_codigo: HBoxContainer = null
 var _txt_codigo: Label = null
+# Invitar por Steam (ver invitaciones_steam.gd). _amigos es la lista propia para cuando no hay overlay:
+# hermana de _menu y de _ajustes, se turna con ellos.
+var _btn_invitar: Button = null
+var _amigos: Control = null
+var _lista_amigos: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -95,6 +100,10 @@ func _ready() -> void:
 	# (El panel y el modo LAN de siempre siguen existiendo: lo que desaparece es la puerta.)
 	if not en_mundo_compartido:
 		_boton(vb, "Multijugador (LAN)", _abrir_multi)
+	# INVITAR POR STEAM: solo dentro de un mundo compartido y con Steam (ver invitaciones_steam.gd). Se
+	# decide al abrir la pausa y no aqui: al invitado la pausa le nace antes de terminar de entrar.
+	_btn_invitar = _boton(vb, "Invitar amigos (Steam)", _invitar)
+	_btn_invitar.visible = false
 	_boton(vb, "Guardar", _guardar)
 	_boton(vb, "Guardar y salir al menú", _guardar_y_salir)
 	# SALIR SIN GUARDAR YA NO ESTA, en ningun modo. En un mundo compartido nunca estuvo (el mundo es
@@ -135,6 +144,9 @@ func _ready() -> void:
 	_ajustes.cerrado.connect(_cerrar_ajustes)
 	_root.add_child(_ajustes)
 
+	_montar_amigos()
+	Net.invitaciones.sin_overlay.connect(_abrir_amigos)
+
 
 # 420x56 y no 260 de ancho por lo alto que salga: con el pulgar, un boton de 31 px de alto es una
 # loteria. Con los CINCO de un jugador (reanudar, ajustes, LAN, guardar, guardar y salir) son ~420 px
@@ -144,13 +156,14 @@ const ANCHO_BOTON := 420.0
 const ALTO_BOTON := 56.0
 
 
-func _boton(vb: VBoxContainer, txt: String, fn: Callable) -> void:
+func _boton(vb: VBoxContainer, txt: String, fn: Callable) -> Button:
 	var b := Button.new()
 	b.text = txt
 	b.custom_minimum_size = Vector2(ANCHO_BOTON, ALTO_BOTON)
 	b.add_theme_font_size_override("font_size", 17)
 	b.pressed.connect(fn)
 	vb.add_child(b)
+	return b
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -162,6 +175,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# los ajustes habria que reabrir el menu.
 	if _root.visible and _ajustes != null and _ajustes.visible:
 		_ajustes.cerrar()
+		get_viewport().set_input_as_handled()
+		return
+	if _root.visible and _amigos != null and _amigos.visible:
+		_cerrar_amigos()
 		get_viewport().set_input_as_handled()
 		return
 	if not alternar():
@@ -192,9 +209,12 @@ func _set_open(abierto: bool) -> void:
 	if abierto:
 		_aviso.text = ""
 		_pintar_codigo()
+		_btn_invitar.visible = Net.invitaciones.puedo_invitar()
+	else:
+		_cerrar_amigos()
 	# Cerrando con los ajustes delante (el engranaje del HUD, por ejemplo): se cierran ellos primero
 	# -- que es lo que guarda lo tocado -- y la pausa vuelve a empezar por su lista de botones.
-	elif _ajustes != null and _ajustes.visible:
+	if not abierto and _ajustes != null and _ajustes.visible:
 		_ajustes.cerrar()
 
 
@@ -236,6 +256,108 @@ func _abrir_ajustes() -> void:
 
 
 func _cerrar_ajustes() -> void:
+	_menu.visible = true
+
+
+# ============================================================
+#  INVITAR AMIGOS POR STEAM
+#  Lo normal es el dialogo del overlay de Steam. Si el overlay no esta, Net.invitaciones emite
+#  sin_overlay y se enseña esta lista propia: se invita igual (inviteUserToGame no necesita overlay).
+# ------------------------------------------------------------
+func _invitar() -> void:
+	var motivo: String = Net.invitaciones.invitar()
+	_aviso.text = motivo if motivo != "" else "Elige a quién invitar. Tiene que tener el juego abierto."
+
+
+func _montar_amigos() -> void:
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.visible = false
+	_root.add_child(center)
+	_amigos = center
+
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.08, 0.10, 0.97)
+	sb.border_color = Color(0.87, 0.57, 0.26, 0.7)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(28)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	panel.add_child(vb)
+
+	var tit := Label.new()
+	tit.text = "INVITAR AMIGOS"
+	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tit.add_theme_font_size_override("font_size", 24)
+	tit.add_theme_color_override("font_color", Color(0.95, 0.72, 0.36))
+	vb.add_child(tit)
+
+	var n := Label.new()
+	n.text = "Les llega la invitación por Steam. Para entrar tienen que tener el juego ABIERTO."
+	n.custom_minimum_size = Vector2(ANCHO_BOTON, 0)
+	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	n.add_theme_font_size_override("font_size", 11)
+	n.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+	vb.add_child(n)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(ANCHO_BOTON, 320)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(scroll)
+	_lista_amigos = VBoxContainer.new()
+	_lista_amigos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista_amigos.add_theme_constant_override("separation", 6)
+	scroll.add_child(_lista_amigos)
+
+	_boton(vb, "Volver", _cerrar_amigos)
+
+
+func _abrir_amigos(cadena: String) -> void:
+	if not _root.visible:
+		return
+	for h in _lista_amigos.get_children():
+		h.queue_free()
+	var lista: Array = Net.invitaciones.amigos()
+	if lista.is_empty():
+		var l := Label.new()
+		l.text = "No tienes amigos conectados en Steam ahora mismo."
+		l.add_theme_color_override("font_color", Color(0.6, 0.63, 0.7))
+		_lista_amigos.add_child(l)
+	for a in lista:
+		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 8)
+		_lista_amigos.add_child(fila)
+		var l := Label.new()
+		l.text = String(a["nombre"]) + ("  · jugando" if bool(a["jugando"]) else "")
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.clip_text = true
+		l.add_theme_color_override("font_color",
+			Color(0.6, 0.9, 0.6) if bool(a["jugando"]) else Color(0.85, 0.87, 0.9))
+		fila.add_child(l)
+		var b := Button.new()
+		b.text = "Invitar"
+		b.custom_minimum_size = Vector2(110, 44)
+		var id: int = int(a["id"])
+		b.pressed.connect(func():
+			if Net.invitaciones.invitar_a(id, cadena):
+				b.text = "Invitado ✓"
+				b.disabled = true
+			else:
+				b.text = "No se pudo")
+		fila.add_child(b)
+	_menu.visible = false
+	_amigos.visible = true
+
+
+func _cerrar_amigos() -> void:
+	if _amigos == null or not _amigos.visible:
+		return
+	_amigos.visible = false
 	_menu.visible = true
 
 

@@ -86,7 +86,9 @@ const MAX_CONEXIONES := 32
 # 20: RPC nuevo _esperando_permiso (alguien nuevo en un mundo compartido espera a que le acepten). Un
 #     build del 19 lo metia directo a crear personaje; añadir un @rpc ademas corre los ids de los demas.
 #     (Fase 3, mismo dia y sin repartir aun: _te_piden_permiso / _respuesta_permiso para la sala.)
-const PROTOCOLO := 20
+# 21: _saludar lleva el TOKEN de invitacion de Steam al final y hay un RPC nuevo, _registrar_invitacion.
+#     Un build del 20 no los conoce: el invitado se quedaria esperando el "Aceptar" que ya no toca.
+const PROTOCOLO := 21
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -321,6 +323,9 @@ func _ready() -> void:
 	tunel = Tunel.new()
 	tunel.name = "Tunel"
 	add_child(tunel)
+	invitaciones = Invitaciones.new()
+	invitaciones.name = "Invitaciones"
+	add_child(invitaciones)
 	var args: PackedStringArray = _trab.argumentos()
 	if not args.is_empty():
 		_trab.arrancar.call_deferred(args)
@@ -372,6 +377,9 @@ var soy_sala := false
 # debajo de ENet: el resto de la red no sabe si hay tunel.
 const Tunel = preload("res://scripts/net/tunel_steam.gd")
 var tunel: Tunel = null
+# Invitar amigos por Steam y atender cuando te invitan (ver invitaciones_steam.gd).
+const Invitaciones = preload("res://scripts/net/invitaciones_steam.gd")
+var invitaciones: Invitaciones = null
 
 # --- TRABAJADORES DE PISO (ver trabajadores.gd) ---
 var _trab: Node = null
@@ -465,8 +473,10 @@ func unirse(ip: String, codigo: String, puerto: int = PUERTO, compartido := fals
 
 
 func desconectar() -> void:
+	invitacion_saludo = ""
 	if es_host:
 		_trab.al_cerrar_sala()
+		_invitaciones.clear()
 	for id in _avatares.keys():
 		var a = _avatares[id]
 		if is_instance_valid(a):
@@ -853,7 +863,8 @@ func _on_connected_to_server() -> void:
 	var pzs: Dictionary = {} if mundo_compartido else Game.lider().aspecto_completo()["piezas"]
 	_esperar_respuesta()
 	_saludar.rpc_id(1, _codigo, PROTOCOLO, Identidad.id, Identidad.nombre,
-		col, met, nom, _mi_lugar, png, alp, pzs)
+		col, met, nom, _mi_lugar, png, alp, pzs, invitacion_saludo)
+	invitacion_saludo = ""   # vale para ESTA entrada; la siguiente vez ya tendre personaje
 
 
 # EL PLAZO. Si el host es de otro build, su _saludar tiene otra firma y Godot tira el paquete SIN
@@ -881,7 +892,7 @@ func _esperar_respuesta() -> void:
 func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible: String,
 		color: Color, metal: float, nombre: String, lugar: String,
 		imagen: PackedByteArray = PackedByteArray(), alpha: float = 1.0,
-		piezas: Dictionary = {}) -> void:
+		piezas: Dictionary = {}, invitacion: String = "") -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	if codigo != _codigo:
 		estado_cambiado.emit("Rechazado un intento con codigo incorrecto.")
@@ -936,6 +947,11 @@ func _saludar(codigo: String, protocolo: int, identidad: String, nombre_visible:
 			# (la sala lo estrena vacio) y no hay nadie dentro a quien preguntarle.
 			if soy_sala and identidad == Game.sala_dueno:
 				estado_cambiado.emit("%s estrena el mundo: está creando su personaje." % nombre_visible)
+				partida._crea_tu_personaje.rpc_id(quien, nombre_para_invitados())
+				return
+			# INVITADO POR STEAM por alguien de dentro: la invitacion ya es el permiso.
+			if _invitacion_valida(invitacion):
+				estado_cambiado.emit("%s llega invitado: está creando su personaje." % nombre_visible)
 				partida._crea_tu_personaje.rpc_id(quien, nombre_para_invitados())
 				return
 			estado_cambiado.emit("%s quiere entrar por primera vez." % nombre_visible)
@@ -994,6 +1010,50 @@ func _permiso_respondido(quien: int, nombre: String, si: bool) -> void:
 	else:
 		estado_cambiado.emit("No se ha dejado entrar a %s." % nombre)
 		await _echar(quien, "No te han dejado entrar en este mundo.")
+
+
+# ============================================================
+#  LAS INVITACIONES DE STEAM (ver invitaciones_steam.gd)
+#  Quien invita le da a la sala un TOKEN; el invitado lo trae en su saludo y entra sin preguntar. El
+#  token vive solo en la memoria de la sala: se cierra la sala y las invitaciones viejas dejan de valer.
+# ------------------------------------------------------------
+var _invitaciones: Dictionary = {}    # token -> hasta cuando vale (unix, s). Solo en la sala/host.
+var invitacion_saludo := ""           # cliente: el token con el que me presento (lo pone Mundos.unirse)
+
+
+# Cliente (o el host, si juega): apuntar un token en la sala.
+func registrar_invitacion(token: String, segundos: int) -> void:
+	if not activo:
+		return
+	if es_host:
+		_apuntar_invitacion(token, segundos, "yo")
+	else:
+		_registrar_invitacion.rpc_id(1, token, segundos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _registrar_invitacion(token: String, segundos: int) -> void:
+	var quien := multiplayer.get_remote_sender_id()
+	# Solo invita quien esta DENTRO: ni un trabajador ni alguien que aun espera en la puerta.
+	if not _peers.has(quien) or es_trabajador(quien) or _en_la_puerta.has(quien):
+		return
+	_apuntar_invitacion(token, segundos, String(_peers[quien].get("nombre", "?")))
+
+
+func _apuntar_invitacion(token: String, segundos: int, de: String) -> void:
+	if token.length() < 16:
+		return
+	var ahora: int = int(Time.get_unix_time_from_system())
+	for t in _invitaciones.keys():
+		if int(_invitaciones[t]) < ahora:
+			_invitaciones.erase(t)
+	_invitaciones[token] = ahora + clampi(segundos, 60, 3600)
+	print("[net] %s invita por Steam (%d invitaciones vivas)" % [de, _invitaciones.size()])
+
+
+func _invitacion_valida(token: String) -> bool:
+	return token != "" and _invitaciones.has(token) \
+		and int(_invitaciones[token]) >= int(Time.get_unix_time_from_system())
 
 
 # Los HUMANOS que estan dentro de verdad (admitidos: ni trabajadores ni los que esperan en la puerta).

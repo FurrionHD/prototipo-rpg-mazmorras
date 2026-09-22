@@ -163,7 +163,8 @@ func catalogo() -> Array:
 	var salida: Array = []
 	for clave in _cfg().get_sections():
 		var e: Dictionary = entrada(clave)
-		if not e.is_empty():
+		# Los TEMPORALES (apuntados solo para entrar invitado, ver apuntar_invitacion) no son tuyos.
+		if not e.is_empty() and not bool(e.get("temporal", false)):
 			salida.append(e)
 	salida.sort_custom(func(a, b):
 		var ma: bool = bool(a.get("mio", false))
@@ -370,7 +371,9 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 #  Lo que NO cambia nunca: la partida es ENet directo entre las dos maquinas. El almacen reparte la
 #  direccion; que se pueda LLEGAR a ella sigue siendo cosa de Hamachi o del puerto abierto.
 # ------------------------------------------------------------
-func unirse(clave: String, contrasena: String) -> Dictionary:
+# invitacion = el token de una invitacion de Steam (ver invitaciones_steam.gd): con el, la sala me deja
+# pasar sin preguntar a los de dentro.
+func unirse(clave: String, contrasena: String, invitacion := "") -> Dictionary:
 	if abierto != "":
 		return {"ok": false, "mensaje": "Tienes un mundo abierto: ciérralo antes de unirte a otro."}
 	if Net.activo:
@@ -395,6 +398,7 @@ func unirse(clave: String, contrasena: String) -> Dictionary:
 					"mensaje": "Quien lo tenía abierto ha perdido la conexión. Espera un par de minutos."}
 			for d in est.get("direcciones", []):
 				direcciones.append(String(d))
+	Net.invitacion_saludo = invitacion
 	var manual: String = String(e.get("direccion", ""))
 	if manual != "" and not direcciones.has(manual):
 		direcciones.append(manual)
@@ -581,6 +585,41 @@ func dejar_de_unirse() -> void:
 	uniendome = ""
 
 
+# ============================================================
+#  LAS INVITACIONES DE STEAM (ver invitaciones_steam.gd)
+#  La que ha llegado y aun no se ha atendido: {id_nube, contrasena, token, nombre, de}. La atiende el
+#  menu de Multijugador (multi_menu.atender_invitacion) en cuanto esta delante.
+# ------------------------------------------------------------
+var invitacion: Dictionary = {}
+
+
+# Apunta el mundo de la invitacion en el catalogo, si no estaba, y devuelve su clave. Para entrar hace
+# falta una entrada (unirse lee de ella), asi que si el jugador NO quiere quedarse el mundo se apunta
+# igual, marcado TEMPORAL: no sale en la lista y se borra en cuanto se vuelve al menu (quitar_temporales).
+func apuntar_invitacion(inv: Dictionary, quedarselo: bool) -> String:
+	var clave: String = String(inv.get("id_nube", ""))
+	if not entrada(clave).is_empty():
+		if quedarselo:
+			_escribir_entrada(clave, {"temporal": false, "contrasena": String(inv.get("contrasena", ""))})
+		return clave
+	var r: Dictionary = alta_ajeno(String(inv.get("nombre", "Mundo")), clave,
+		String(inv.get("contrasena", "")), "")
+	if not r.get("ok", false):
+		return ""
+	if not quedarselo:
+		_escribir_entrada(clave, {"temporal": true})
+	return clave
+
+
+# Borra los mundos apuntados solo para entrar invitado. El que estoy usando ahora mismo se queda.
+func quitar_temporales() -> void:
+	var cfg := _cfg()
+	for clave in cfg.get_sections():
+		if bool(cfg.get_value(clave, "temporal", false)) and not (Net.activo and clave == uniendome):
+			print("[mundos] fuera de la lista: %s (solo era para entrar invitado)" % clave)
+			borrar(clave)
+
+
 # ESTRENAR un mundo recien creado: se llama DESPUES de Game.nueva_partida(). Deja el mundo por
 # abierto y escrito en disco, listo para irse al pueblo.
 func estrenar(clave: String) -> bool:
@@ -764,6 +803,7 @@ func abandonar() -> String:
 	# puesto al salir por los caminos normales (el de unirse no lo limpiaba nadie), y el siguiente
 	# intento de entrar arrancaba con banderas de la sesion anterior.
 	uniendome = ""
+	quitar_temporales()
 	if abierto == "":
 		Game.mundo_compartido = false
 		return ""

@@ -81,8 +81,15 @@ func _ready() -> void:
 	Net.estado_cambiado.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
 	Net.partida.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
 	Net.partida.entrada_lista.connect(_entrar_al_mundo_ajeno)
+	# Los mundos apuntados solo para entrar invitado se van al volver aqui (ver Mundos.apuntar_invitacion).
+	Mundos.quitar_temporales()
 	_pintar()
-	_mirar_steam()
+	# Con una INVITACION de Steam delante se atiende ella; lo de tu cuenta de Steam se mira la proxima vez
+	# (son dos preguntas y la del vinculo taparia a la otra).
+	if not Mundos.invitacion.is_empty():
+		atender_invitacion()
+	else:
+		_mirar_steam()
 
 
 # ============================================================
@@ -603,13 +610,19 @@ func _anadir_ajeno() -> void:
 # ENTRAR: el unico boton. Mundos.entrar decide si me reconecto a mi sala, me uno a quien lo tenga o
 # lanzo la sala; aqui solo se pinta. Lo que viene despues (mi personaje, o crearlo) llega por las
 # señales de Net.partida, como al unirse a cualquier mundo.
-func _entrar(clave: String, pass_: String, forzar_build := false) -> void:
+# token = el de una invitacion de Steam: se entra UNIENDOSE (el que invita esta dentro, asi que el mundo
+# esta abierto) y la sala deja pasar sin preguntar.
+func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -> void:
 	if _trabajando:
 		return
 	_trabajando = true
 	_decir("Entrando en el mundo...")
 	_pintar()
-	var r: Dictionary = await Mundos.entrar(clave, pass_, forzar_build)
+	var r: Dictionary
+	if token != "":
+		r = await Mundos.unirse(clave, pass_, token)
+	else:
+		r = await Mundos.entrar(clave, pass_, forzar_build)
 	_trabajando = false
 	if not r.get("ok", false):
 		_decir(String(r.get("mensaje", "No se pudo abrir.")), false)
@@ -647,6 +660,45 @@ func _entrar(clave: String, pass_: String, forzar_build := false) -> void:
 				_decir("Mundo abierto en %s%s. Entrando..." % [String(ips[0]), " y por Steam" if por_steam else ""])
 	else:
 		_decir("Conectando a %s..." % String(r.get("direccion", "")))
+
+
+# ============================================================
+#  TE INVITAN POR STEAM (ver invitaciones_steam.gd)
+#  Llega aqui con la invitacion ya leida en Mundos.invitacion. Si el mundo ya esta en tu lista se entra
+#  sin mas; si no, se pregunta si te lo quedas. Lo de despues (tu personaje, o crearlo) es lo de siempre.
+# ------------------------------------------------------------
+func atender_invitacion() -> void:
+	var inv: Dictionary = Mundos.invitacion
+	if inv.is_empty() or _trabajando or Net.activo:
+		return
+	Mundos.invitacion = {}
+	var nombre: String = String(inv.get("nombre", "Mundo"))
+	var de: String = String(inv.get("de", "Alguien"))
+	var ya: Dictionary = Mundos.entrada(String(inv["id_nube"]))
+	if not ya.is_empty() and not bool(ya.get("temporal", false)):
+		_decir("%s te invita a «%s»." % [de, String(ya.get("nombre", nombre))])
+		_entrar_invitado(String(inv["id_nube"]), inv)
+		return
+	_elegir("TE INVITAN A «%s»" % nombre, ("%s te ha invitado por Steam a su mundo.\n\n" % de)
+		+ "¿Lo añades a tus mundos DE OTRAS PERSONAS? Así podrás volver a entrar cuando quieras, con la "
+		+ "contraseña ya puesta.", [
+			["Sí, añadirlo a mi lista y entrar", func():
+				_entrar_invitado(Mundos.apuntar_invitacion(inv, true), inv)],
+			["Entrar solo esta vez", func():
+				_entrar_invitado(Mundos.apuntar_invitacion(inv, false), inv)],
+			["Ahora no", func(): pass],
+		])
+
+
+func _entrar_invitado(clave: String, inv: Dictionary) -> void:
+	if clave == "":
+		_decir("No se pudo apuntar ese mundo.", false)
+		return
+	var e: Dictionary = Mundos.entrada(clave)
+	if not bool(e.get("temporal", false)):
+		_pestana = MIOS if bool(e.get("mio", false)) else AJENOS
+		_sel = clave
+	await _entrar(clave, String(inv.get("contrasena", "")), false, String(inv.get("token", "")))
 
 
 # ============================================================
