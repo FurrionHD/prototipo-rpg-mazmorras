@@ -41,6 +41,8 @@ static func crear(i: int) -> GuardiaPueblo:
 
 
 func _ready() -> void:
+	# Para que las piezas estrechas del pueblo (braseros, farolas, verjas) se ordenen tambien contra el.
+	add_to_group(PiezaPueblo.GRUPO_NPC)
 	z_as_relative = false
 	z_index = 0
 	_pj_paisano = paisano(indice)

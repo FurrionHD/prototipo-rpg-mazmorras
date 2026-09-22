@@ -140,7 +140,7 @@ func _process(_delta: float) -> void:
 	var fondo: float = base_y()
 	var cx: float = global_position.x + float(_tam.x) * 0.5
 	var delante: bool = false
-	for n in get_tree().get_nodes_in_group("aliado"):
+	for n in _personajes():
 		var nd := n as Node2D
 		if nd == null:
 			continue
@@ -156,11 +156,23 @@ func _process(_delta: float) -> void:
 			a.z_index = _arriba.z_index + 1
 
 
+# QUIEN PUEDE ESTAR DELANTE O DETRAS: tu grupo y los NPC del pueblo (los guardias, y los vendedores y
+# aldeanos que vengan). Con solo el grupo, el brasero del porton se le pintaba en la cabeza al guardia
+# que tenia delante: la parte de arriba nunca bajaba por el (lo vio el usuario).
+const GRUPO_NPC := "npc_pueblo"
+
+func _personajes() -> Array:
+	var tree: SceneTree = get_tree()
+	var out: Array = tree.get_nodes_in_group("aliado")
+	out.append_array(tree.get_nodes_in_group(GRUPO_NPC))
+	return out
+
+
 # Un personaje por DETRAS de la fachada (su origen por encima de la base) y dentro del ancho de lo
 # colgado: ahi el cartel le queda delante. Cualquier otro caso, detras de todo lo que tenga delante.
 func _ordenar_colgados() -> void:
 	var fondo: float = base_y()
-	var aliados: Array = get_tree().get_nodes_in_group("aliado")
+	var aliados: Array = _personajes()
 	for c in colgados:
 		if not is_instance_valid(c):
 			continue

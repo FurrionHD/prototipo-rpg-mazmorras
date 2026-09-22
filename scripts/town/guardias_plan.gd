@@ -32,7 +32,7 @@ enum Tipo { OCULTO, QUIETO, ANDA }
 
 # LOS PUESTOS: los dos lados de cada porton, en la calle mayor pegados a la muralla, dejando libre la
 # fila del medio. 'mira' es hacia dentro del pueblo. 'aparte' es donde se hace a un lado el relevado:
-# la fila del medio (a los otros lados estan los braseros).
+# la fila del medio, que es calle (las de fuera son hierba, y un poco mas alla estan los braseros).
 const PUESTOS := [
 	{"casilla": Vector2i(2, 37), "mira": Vector2i(1, 0), "aparte": Vector2i(2, 38)},
 	{"casilla": Vector2i(2, 39), "mira": Vector2i(1, 0), "aparte": Vector2i(2, 38)},

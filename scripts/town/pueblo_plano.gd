@@ -227,10 +227,12 @@ const POSTES := [
 ]
 
 # BRASEROS: cuatro alrededor de la escalera de la plaza, dos a cada lado de los portones del este y el
-# oeste, y dos a los lados del porton norte, el de la arena.
+# oeste, y dos a los lados del porton norte, el de la arena. Los de los portones van UNA casilla mas
+# afuera de la calle: pegados a ella quedaban justo encima de los guardias (GuardiasPlan.PUESTOS) y se
+# les pintaban en la cabeza (lo vio el usuario).
 const BRASEROS := [
 	Vector2i(33, 35), Vector2i(39, 35), Vector2i(33, 41), Vector2i(39, 41),
-	Vector2i(2, 36), Vector2i(2, 40), Vector2i(ANCHO - 3, 36), Vector2i(ANCHO - 3, 40),
+	Vector2i(2, 35), Vector2i(2, 41), Vector2i(ANCHO - 3, 35), Vector2i(ANCHO - 3, 41),
 	Vector2i(33, 2), Vector2i(39, 2),
 ]
 
