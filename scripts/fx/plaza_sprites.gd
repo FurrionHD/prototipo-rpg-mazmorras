@@ -35,6 +35,7 @@ const PIEZAS := {
 	"puesto_pan": {"tam": Vector2i(96, 140), "pie": 64},
 	"puesto_verdura": {"tam": Vector2i(96, 140), "pie": 64},
 	"puesto_fruta": {"tam": Vector2i(96, 140), "pie": 64},
+	"puesto_especias": {"tam": Vector2i(96, 140), "pie": 64},
 }
 
 const NEGRO := Color(0.06, 0.05, 0.05)
@@ -478,6 +479,19 @@ const GENERO := {
 		[[Color(0.62, 0.30, 0.04), Color(0.94, 0.56, 0.10), Color(0.99, 0.78, 0.36)],
 			[Color(0.44, 0.46, 0.10), Color(0.72, 0.76, 0.22), Color(0.90, 0.92, 0.46)]],
 	],
+	# Especias y aceite: en el estante, frascos de aceite (dorado), botes de especias (rojo) y de hierbas
+	# (verde), que se pintan como BOTELLAS (ver _botellas); en las cajas ajos, cebollas y sal; en los
+	# cestos guindillas y hierbas secas.
+	"especias": [
+		[[Color(0.50, 0.36, 0.06), Color(0.82, 0.66, 0.16), Color(0.98, 0.90, 0.50)],
+			[Color(0.50, 0.12, 0.06), Color(0.78, 0.26, 0.10), Color(0.96, 0.52, 0.28)],
+			[Color(0.18, 0.32, 0.12), Color(0.36, 0.54, 0.22), Color(0.60, 0.76, 0.40)]],
+		[[Color(0.66, 0.62, 0.56), Color(0.90, 0.87, 0.80), Color(0.99, 0.98, 0.95)],
+			[Color(0.42, 0.20, 0.30), Color(0.66, 0.36, 0.44), Color(0.86, 0.60, 0.62)],
+			[Color(0.70, 0.70, 0.72), Color(0.88, 0.88, 0.90), Color(0.99, 0.99, 1.00)]],
+		[[Color(0.52, 0.06, 0.06), Color(0.82, 0.14, 0.10), Color(0.98, 0.42, 0.30)],
+			[Color(0.30, 0.34, 0.14), Color(0.50, 0.56, 0.26), Color(0.70, 0.76, 0.44)]],
+	],
 }
 
 # Fondos (p) y alturas (z) del puesto.
@@ -523,6 +537,8 @@ static func _puesto(tipo: String) -> PackedByteArray:
 			var rampa: Array = estante[(i + int(balda[1])) % estante.size()]
 			if tipo == "pan":
 				_hogazas(d, w, h, 11 + i * 26, yb - 2, 24, rampa)
+			elif tipo == "especias":
+				_botellas(d, w, h, 11 + i * 26, yb - 2, 24, rampa, int(balda[1]) == 0)
 			else:
 				_monton(d, w, h, 11 + i * 26, yb - 2, 23, 1, rampa, i + 10 + int(balda[1]) * 5)
 	# EL TOLDO, por encima del hueco del vendedor y del estante.
@@ -651,6 +667,30 @@ static func _hogazas(d: PackedByteArray, w: int, h: int, x0: int, y0: int, ancho
 		for k in 3:
 			_px(d, w, h, x + 2 + k * 3, y0 - 3, rampa[0])
 		x += 12
+
+
+# Frascos en fila sobre una balda: vidrio con el contenido de color, tapon de corcho y un brillo. Los
+# 'altos' son botellas de aceite con cuello; los bajos, botes de especias.
+static func _botellas(d: PackedByteArray, w: int, h: int, x0: int, y0: int, ancho: int, rampa: Array, altos: bool) -> void:
+	var x: int = x0 + 1
+	var paso: int = 5 if altos else 6
+	while x + 4 <= x0 + ancho:
+		var cuerpo: int = 7 if altos else 5
+		for dy in range(1, cuerpo + 1):
+			for dx in 4:
+				var col: Color = rampa[1] if dx < 2 else rampa[0]
+				if dy == cuerpo:
+					col = rampa[0]
+				_px(d, w, h, x + dx, y0 - dy, col)
+		_px(d, w, h, x, y0 - cuerpo + 1, rampa[2])                     # el brillo del vidrio
+		var boca: int = y0 - cuerpo
+		if altos:
+			_px(d, w, h, x + 1, boca - 1, rampa[1])                     # el cuello
+			_px(d, w, h, x + 2, boca - 1, rampa[0])
+			boca -= 1
+		_px(d, w, h, x + 1, boca - 1, Color(0.62, 0.44, 0.26))           # el tapon
+		_px(d, w, h, x + 2, boca - 1, Color(0.48, 0.32, 0.18))
+		x += paso
 
 
 # Un cesto de mimbre con genero asomando.

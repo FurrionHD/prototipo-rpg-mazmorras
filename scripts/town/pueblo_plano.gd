@@ -48,7 +48,8 @@ const PARQUE := Rect2i(8, 12, 17, 9)
 const FUENTE := Rect2i(15, 15, 3, 2)
 # Su caja de choque (px desde la esquina de su huella): la planta del pilon.
 const CAJA_FUENTE := Rect2(6, 4, 84, 58)
-const MERCADO := Rect2i(47, 12, 21, 9)
+# Una sola fila de puestos (filas 14-15) con su pasillo delante: lo enlosado acaba ahi.
+const MERCADO := Rect2i(47, 12, 21, 6)
 
 # ------------------------------------------------------------
 #  CALLES (baldosa de piedra). Rectangulos que se pisan.
@@ -269,12 +270,11 @@ const MUEBLES := [
 	["parterre", Rect2i(9, 19, 1, 1)], ["parterre", Rect2i(23, 19, 1, 1)],
 	["arbolito", Rect2i(6, 14, 1, 1)], ["arbolito", Rect2i(6, 18, 1, 1)],
 	["arbolito", Rect2i(26, 14, 1, 1)], ["arbolito", Rect2i(26, 18, 1, 1)],
-	# El mercadillo: dos filas de cuatro puestos, y algo de genero apilado entre ellos.
-	["puesto_pan", Rect2i(49, 13, 3, 2)], ["puesto_verdura", Rect2i(54, 13, 3, 2)],
-	["puesto_fruta", Rect2i(59, 13, 3, 2)], ["puesto_verdura", Rect2i(64, 13, 3, 2)],
-	["puesto_fruta", Rect2i(49, 17, 3, 2)], ["puesto_pan", Rect2i(54, 17, 3, 2)],
-	["puesto_verdura", Rect2i(59, 17, 3, 2)], ["puesto_fruta", Rect2i(64, 17, 3, 2)],
-	["cajas", Rect2i(52, 14, 1, 1)], ["sacos", Rect2i(62, 14, 1, 1)], ["barriles", Rect2i(57, 18, 1, 1)],
+	# El mercadillo: UNA fila de cuatro puestos, cada uno con su genero (lo pidio el usuario), y algo de
+	# genero apilado entre ellos.
+	["puesto_pan", Rect2i(49, 14, 3, 2)], ["puesto_verdura", Rect2i(54, 14, 3, 2)],
+	["puesto_fruta", Rect2i(59, 14, 3, 2)], ["puesto_especias", Rect2i(64, 14, 3, 2)],
+	["cajas", Rect2i(52, 15, 1, 1)], ["sacos", Rect2i(57, 15, 1, 1)], ["barriles", Rect2i(62, 15, 1, 1)],
 ]
 
 # La caja de choque de cada mueble, en px desde la esquina de arriba a la izquierda de su huella: la
@@ -289,6 +289,7 @@ const CAJA_MUEBLE := {
 	"parterre": Rect2(3, 12, 26, 19),
 	# El puesto entero, mostrador y hueco de detras: el jugador no se mete dentro (el vendedor si).
 	"puesto_pan": Rect2(2, 22, 92, 40), "puesto_verdura": Rect2(2, 22, 92, 40), "puesto_fruta": Rect2(2, 22, 92, 40),
+	"puesto_especias": Rect2(2, 22, 92, 40),
 	"cajas": Rect2(5, 15, 22, 10), "sacos": Rect2(2, 15, 28, 10), "barriles": Rect2(2, 15, 28, 10),
 }
 
