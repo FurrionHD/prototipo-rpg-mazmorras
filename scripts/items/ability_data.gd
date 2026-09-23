@@ -228,6 +228,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # con el daño, como en todas las areas. Cada uno cobra el tramo MAS CERCANO que le toque.
 @export var forma_tramos: int = 0
 @export var forma_tramo_baja: float = 0.25
+# EL SUELO SE ROMPE (solo en el mapa): -1 = no; 0 = GRIETAS (Temblor), 1 = LOSAS (Golpe sismico, Onda
+# expansiva). Ver SueloRoto.Tipo. Con esto el golpe NO cae a la vez sobre todos: a cada uno le llega
+# cuando la rotura alcanza su cuerpo, saliendo del centro de la huella (del que golpea, en el cono).
+@export var suelo_roto: int = -1
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer

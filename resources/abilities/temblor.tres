@@ -16,6 +16,7 @@ forma = 1
 forma_apunte = 2
 forma_radio = 90.0
 forma_escala = 0.7
+suelo_roto = 0
 precio = 1200
 coste_energia = 58
 cooldown = 4

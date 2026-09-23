@@ -50,8 +50,9 @@ var _losas: Array = []        # {poly, d, alza, piedras: [{v, t0}]}
 
 
 # Lo pone en el suelo. 'padre' = algo en coordenadas de mundo (la arena).
+# 'espera' = segundos hasta que el martillo toca el suelo (hasta entonces no se pinta nada).
 static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
-		n_nucleo: float = 0.0) -> SueloRoto:
+		n_nucleo: float = 0.0, espera: float = 0.0) -> SueloRoto:
 	if padre == null or f == null:
 		return null
 	var s := SueloRoto.new()
@@ -59,6 +60,7 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 	s.forma = f
 	s.nucleo = n_nucleo
 	s._rng.seed = semilla
+	s._t = -maxf(espera, 0.0)
 	s.z_as_relative = false
 	s.z_index = Z_SUELO
 	s.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
@@ -71,10 +73,23 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 static func retraso(f: CombatFormas.Forma, p: Vector2) -> float:
 	if f == null or f.radio <= 0.0:
 		return 0.0
-	var o: Vector2 = f.origen if f.tipo == CombatFormas.Tipo.CONO else f.centro
-	var u: float = clampf(p.distance_to(o) / f.radio, 0.0, 1.0)
+	var u: float = clampf(p.distance_to(origen_de(f)) / f.radio, 0.0, 1.0)
 	# frente = 1 - (1 - s)^2  ->  s = 1 - sqrt(1 - u)
 	return T_SALIR * (1.0 - sqrt(1.0 - u))
+
+
+# De donde sale la rotura: el centro del circulo, o los pies del que golpea en el cono.
+static func origen_de(f: CombatFormas.Forma) -> Vector2:
+	return f.origen if f.tipo == CombatFormas.Tipo.CONO else f.centro
+
+
+# CUANDO LE LLEGA a un CUERPO (su caja en mundo): por su punto mas cercano al origen, que es por donde
+# le alcanza la rotura (la misma regla que el golpe: le da a quien le toca el cuerpo).
+static func retraso_caja(f: CombatFormas.Forma, r: Rect2) -> float:
+	if f == null:
+		return 0.0
+	var o: Vector2 = origen_de(f)
+	return retraso(f, Vector2(clampf(o.x, r.position.x, r.end.x), clampf(o.y, r.position.y, r.end.y)))
 
 
 # Lo que se ha abierto a los 't' segundos, en fraccion del radio. Arranca rapido y frena al llegar.
@@ -368,6 +383,8 @@ func retraso_px(d: float) -> float:
 #  DIBUJO
 # ------------------------------------------------------------
 func _draw() -> void:
+	if _t < 0.0:
+		return
 	var front: float = _frente(_t)
 	var a: float = _alfa()
 	if a <= 0.0:

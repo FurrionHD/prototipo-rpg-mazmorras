@@ -342,6 +342,25 @@ func bulto_de(c: Combatant) -> Rect2:
 	return r
 
 
+# EL CUERPO DE UN BLOQUE EN PANTALLA: lo que CombatFX usa para colocar los numeros y los dibujos de los
+# golpes en el mapa (CombatFX.rect_en_mapa). El bulto de su combatiente, pasado por la camara. Rect2()
+# = ese bloque no tiene cuerpo ahora mismo, y entonces manda la tarjeta de siempre.
+func rect_pantalla_de_bloque(bloque: Dictionary) -> Rect2:
+	var c: Combatant = null
+	for lista in [_pantalla._enemies, _pantalla._aliados]:
+		for x in lista:
+			if is_same(_pantalla._bloque_de(x), bloque):
+				c = x
+				break
+		if c != null:
+			break
+	if c == null or cuerpo_de(c) == null:
+		return Rect2()
+	var r: Rect2 = bulto_de(c)
+	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
+	return Rect2(xf * r.position, r.size * xf.get_scale().abs())
+
+
 # El hueco para GOLPEAR: de los pies de quien golpea (menos lo que pisa) al cuerpo de quien recibe.
 # No es simetrico, y es a proposito: "a llega a b" y "b llega a a" miden desde pies distintos.
 func hueco_entre(a: Combatant, b: Combatant) -> float:

@@ -420,6 +420,19 @@ func _probar_huella() -> void:
 		and por_tr.size() == 3, "los tramos de la onda no pegan 100/75/50: %s" % str(por_tr.values()))
 	t.cuerpos[en_nucleo].global_position = Vector2(40, 0)
 	t.cuerpos[fuera].global_position = Vector2(-40, 0)
+	# EL SUELO QUE SE ROMPE, por red: lo que empaqueta quien lleva la pelea se lee igual en el espejo.
+	var f_onda = t.forma_de(onda, yo, t.pies_de(yo) + Vector2(100, 30))
+	var ida: PackedInt32Array = pelea.espejo._bloques_suelo(onda.suelo_roto, f_onda, 12345, 0.0)
+	var vuelta: Array = pelea.espejo._leer_suelo(ida, 0)
+	var f_vuelta: CombatFormas.Forma = vuelta[1]
+	_afirmar(ida.size() == 15 and int(vuelta[0]) == onda.suelo_roto and int(vuelta[2]) == 12345
+		and f_vuelta.tipo == CombatFormas.Tipo.CONO and f_vuelta.origen.distance_to(f_onda.origen) < 0.1
+		and absf(f_vuelta.radio - f_onda.radio) < 0.1 and f_vuelta.dir.distance_to(f_onda.dir) < 0.001,
+		"el suelo roto no vuelve igual por red: %s" % str(ida))
+	# Y el retraso: al de cerca le llega antes que al de lejos, y nunca pasa de lo que tarda en salir.
+	var r_cerca: float = SueloRoto.retraso(f_onda, f_onda.origen + f_onda.dir * 20.0)
+	var r_lejos: float = SueloRoto.retraso(f_onda, f_onda.origen + f_onda.dir * 110.0)
+	_afirmar(r_cerca < r_lejos and r_lejos <= SueloRoto.T_SALIR, "el golpe no llega con la rotura: %.2f / %.2f" % [r_cerca, r_lejos])
 	t.cuerpos[en_anillo].global_position = punta + Vector2(0, 60) - sube
 	for i in range(3, pelea._enemies.size()):
 		t.cuerpos[pelea._enemies[i]].global_position = punta + Vector2(i * 6, -20) - sube

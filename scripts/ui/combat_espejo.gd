@@ -1101,6 +1101,39 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 	_impactos_red.append(semilla)
 
 
+# EL SUELO QUE SE ROMPE (martillo en el mapa) viaja en el MISMO paquete, DELANTE de sus golpes: el
+# espejo tiene que tener la forma antes de leerlos, porque de ella sale cuando le llega el golpe a cada
+# uno, y en paquetes separados podria llegar uno y el otro no, o al reves. Son TRES bloques de cinco
+# enteros, todos con MARCA_SUELO de atacante (ningun combatiente tiene codigo negativo):
+#   [M, tipo de rotura, semilla, tipo de forma, nucleo x16]
+#   [M, x x16, y x16, radio x16, apertura x16]      (x, y = el centro; en el cono, los pies)
+#   [M, dir.x x10000, dir.y x10000, 0, 0]
+const MARCA_SUELO := -7
+
+func _apuntar_suelo_red(tipo: int, f: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
+	if _pantalla._espejo or not Net.activo or f == null:
+		return
+	_impactos_red.append_array(_bloques_suelo(tipo, f, semilla, nucleo))
+
+
+static func _bloques_suelo(tipo: int, f: CombatFormas.Forma, semilla: int, nucleo: float) -> PackedInt32Array:
+	var o: Vector2 = SueloRoto.origen_de(f)
+	return PackedInt32Array([
+		MARCA_SUELO, tipo, semilla, f.tipo, roundi(nucleo * 16.0),
+		MARCA_SUELO, roundi(o.x * 16.0), roundi(o.y * 16.0), roundi(f.radio * 16.0), roundi(f.apertura * 16.0),
+		MARCA_SUELO, roundi(f.dir.x * 10000.0), roundi(f.dir.y * 10000.0), 0, 0])
+
+
+static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
+	var tipo_f: int = d[j + 3]
+	var o := Vector2(float(d[j + 6]) / 16.0, float(d[j + 7]) / 16.0)
+	var r: float = float(d[j + 8]) / 16.0
+	var dir := Vector2(float(d[j + 11]) / 10000.0, float(d[j + 12]) / 10000.0)
+	var f: CombatFormas.Forma = CombatFormas.cono(o, dir, r, float(d[j + 9]) / 16.0) \
+		if tipo_f == CombatFormas.Tipo.CONO else CombatFormas.circulo(o, r)
+	return [d[j + 1], f, d[j + 2], float(d[j + 4]) / 16.0]
+
+
 # Suelta lo apuntado. Se llama al cerrar CADA accion (la del enemigo en _pausa_lectura, la tuya en
 # _tras_accion_jugador_varios, y la que remata la pelea en _end). Nunca desde _process: es como
 # mucho un paquete por turno.
@@ -1122,6 +1155,12 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 	var tanda: int = -1
 	while j + 4 < datos.size():
 		var ca: int = datos[j]
+		if ca == MARCA_SUELO:
+			if j + 14 < datos.size():
+				var s: Array = _leer_suelo(datos, j)
+				_pantalla.efectos.fijar_suelo(int(s[0]), s[1], int(s[2]), float(s[3]))
+			j += 15
+			continue
 		var cv: int = datos[j + 1]
 		var dmg: float = float(datos[j + 2]) / 100.0
 		var flags: int = datos[j + 3]
@@ -1144,6 +1183,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 			# atacante ya los trae). La SEMILLA si viaja, y se pasa TAL CUAL: es lo que hace que
 			# el golpe suene con la misma version y el mismo tono que en la pantalla del que pega.
 			AbilityData.Gesto.AUTO, &"", semilla)
+	_pantalla.efectos.soltar_suelo()
 	_pantalla._fx.arrancar_cola()
 
 

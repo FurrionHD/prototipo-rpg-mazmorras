@@ -15,6 +15,7 @@ forma = 1
 forma_apunte = 1
 forma_radio = 65.0
 forma_nucleo = 17.0
+suelo_roto = 1
 inicial = true
 coste_energia = 60
 cooldown = 4

@@ -110,6 +110,33 @@ func _fx_tanda(i: int) -> void:
 		_pantalla._fx.tanda(i)
 
 
+# EL SUELO QUE SE ROMPE de la accion en curso (martillo en el mapa, AbilityData.suelo_roto). Mientras
+# esta puesto, cada golpe que se encola llega cuando la rotura alcanza el cuerpo de su victima. Lo pone
+# quien resuelve (antes de los golpes) y el espejo (al leer el paquete de impactos), y se quita al
+# acabar los golpes: un contraataque de despues no tiene que esperar a ninguna grieta.
+var _suelo_forma: CombatFormas.Forma = null
+
+func fijar_suelo(tipo: int, forma: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
+	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
+		return
+	_suelo_forma = forma
+	var arena: Node = _pantalla.turno_mapa._arena()
+	if arena != null:
+		_pantalla._fx.pedir_suelo(arena, forma, tipo, semilla, nucleo)
+	# Y a los espejos, delante de los golpes en el mismo paquete (solo en quien resuelve).
+	_pantalla.espejo._apuntar_suelo_red(tipo, forma, semilla, nucleo)
+
+
+func soltar_suelo() -> void:
+	_suelo_forma = null
+
+
+func _retraso_suelo(victima: Combatant) -> float:
+	if _suelo_forma == null or victima == null or not _pantalla._enemies.has(victima):
+		return -1.0
+	return SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima))
+
+
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		evadido: bool, elem: int = Elementos.Elemento.NINGUNO,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
@@ -138,7 +165,8 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# estoque haciendo el salto del Rey Slime.
 	_pantalla._fx.encolar(_pantalla._bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
-		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem)
+		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem,
+		_retraso_suelo(victima))
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	_pantalla.espejo._apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,

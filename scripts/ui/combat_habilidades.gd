@@ -446,6 +446,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		reparto_mapa = _pantalla.turno_mapa.reparto_habilidad(ab, _pantalla._player)
 		if not reparto_mapa.is_empty():
 			obj = reparto_mapa[0]["c"]
+		# EL SUELO QUE SE ROMPE: desde aqui cada golpe que se encole llega cuando la rotura alcanza a
+		# su victima (ver efectos.fijar_suelo). Se quita al acabar los golpes, mas abajo.
+		if ab.suelo_roto >= 0:
+			_pantalla.efectos.fijar_suelo(ab.suelo_roto,
+				_pantalla.turno_mapa.forma_de(ab, _pantalla._player, _pantalla.turno_mapa.apunte),
+				(randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
@@ -637,6 +643,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			if t != null and t.is_alive():
 				estados_log += _tirar_efectos_habilidad(ab, t, false, "objetivo")
 
+	_pantalla.efectos.soltar_suelo()
 	# BUFFS PROPIOS (en_objetivo = false): UNA vez por uso, pegue la habilidad o no.
 	#
 	# ESTO ESTABA DENTRO DEL `if ab.dano_mult > 0.0` y era un agujero de los gordos: las OCHO

@@ -105,7 +105,8 @@ func _ready() -> void:
 			var cb: Node2D = tm._cuerpo
 			var desde: Vector2 = cb.global_position
 			print("[dev] se acerca %s: radio %.1f, presa a %.1f px, cuerpo %s" % [tm._quien.nombre, tm._radio,
-				cb.global_position.distance_to(tm._presa.global_position) if is_instance_valid(tm._presa) else -1.0,
+				cb.global_position.distance_to(tm.cuerpo_de(tm._presa).global_position) \
+					if tm._presa != null and tm.cuerpo_de(tm._presa) != null else -1.0,
 				cb.get_script().resource_path.get_file() if cb.get_script() else "?"])
 			while tm._fase == tm.Fase.ACERCANDO:
 				await _esperar(0.05)

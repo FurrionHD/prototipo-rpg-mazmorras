@@ -22,6 +22,7 @@ forma_radio = 120.0
 forma_apertura = 60.0
 forma_tramos = 3
 forma_tramo_baja = 0.25
+suelo_roto = 1
 precio = 1200
 coste_energia = 52
 cooldown = 3

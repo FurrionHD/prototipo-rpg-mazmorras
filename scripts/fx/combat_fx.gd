@@ -1404,6 +1404,23 @@ func tanda(n: int) -> void:
 	_tanda_pedida = maxi(0, n)
 
 
+# EL SUELO QUE SE ROMPE (martillo en el mapa). Se pide ANTES de encolar los golpes de la accion y sale
+# al arrancar la cola, en el instante del martillazo (ver arrancar_cola). 'padre' = la arena, que esta
+# en coordenadas de mundo.
+var _suelo: Dictionary = {}
+
+func pedir_suelo(padre: Node, forma: RefCounted, tipo: int, semilla: int, nucleo: float) -> void:
+	_suelo = {"padre": padre, "forma": forma, "tipo": tipo, "semilla": semilla, "nucleo": nucleo}
+
+
+func _lanzar_suelo(espera: float) -> void:
+	var s: Dictionary = _suelo
+	_suelo = {}
+	if s.is_empty() or not is_instance_valid(s["padre"]):
+		return
+	SueloRoto.lanzar(s["padre"], s["forma"], int(s["tipo"]), int(s["semilla"]), float(s["nucleo"]), espera)
+
+
 # Apunta UN golpe. No lo reproduce todavia: la accion puede tener 8 y hasta que no estan todos
 # no se sabe cuanto tiene que durar la racha (ver arrancar_cola).
 #
@@ -1420,11 +1437,13 @@ func tanda(n: int) -> void:
 #
 # 'sfx' = la clave del sonido PROPIO de la habilidad ("" = ninguna, y entonces suena el generico de
 # su estilo). Ver Sonido.golpe y el disparo en _process.
+# 'retraso_suelo' = el golpe viene con el SUELO QUE SE ROMPE (ver pedir_suelo): segundos desde que el
+# martillo toca el suelo hasta que la rotura alcanza a esta victima. -1 = golpe normal.
 func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bool,
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
 		gesto: int = -1, anim: StringName = &"", semilla: int = 0,
-		mult_elem: float = 1.0) -> void:
+		mult_elem: float = 1.0, retraso_suelo: float = -1.0) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1466,6 +1485,9 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		"gesto": gesto,
 		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim.
 		"anim": anim,
+		# EL SUELO QUE SE ROMPE: el golpe llega cuando la rotura alcanza a esta victima (ver
+		# arrancar_cola), y su dibujo de siempre no sale -- el dibujo ES el suelo.
+		"retraso_suelo": retraso_suelo,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1491,6 +1513,11 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 # entonces manda quien llama (un turno aturdido se queda su pausa corta de lectura).
 func arrancar_cola() -> float:
 	if _cola.is_empty():
+		# El martillo al suelo sin pillar a nadie: la rotura sale igual (es lo que se ve del golpe), y el
+		# turno dura lo que tarda en abrirse.
+		if not _suelo.is_empty():
+			_lanzar_suelo(0.0)
+			return SueloRoto.T_SALIR
 		return 0.0
 	var n: int = _cola.size()
 	# ¿Es una racha de MAGIA? Se deduce de la propia cola en vez de recibirlo por parametro, y eso
@@ -1559,6 +1586,22 @@ func arrancar_cola() -> float:
 	# ATB reanudaria con el bicho todavia en el aire.
 	_dur += desfase
 	_dur = maxf(_dur, _cola_de_gestos() + T_PUM)
+	# EL SUELO QUE SE ROMPE: el martillo toca el suelo en el instante de su golpe (el de la tanda, sin
+	# retraso), la rotura sale de ahi, y a cada victima le llega su golpe cuando la alcanza. El SONIDO
+	# se queda en el instante del martillazo. Lo que cuenta aqui es tiempo de ANIMACION (escala_tiempo);
+	# SueloRoto va en segundos de verdad, asi que se convierte en las dos direcciones.
+	var t_golpe: float = -1.0
+	for ev in _cola:
+		var rs: float = float(ev.get("retraso_suelo", -1.0))
+		if rs < 0.0:
+			continue
+		if t_golpe < 0.0:
+			t_golpe = float(ev["t"])
+		ev["t_sfx"] = float(ev["t"])
+		ev["t"] = float(ev["t"]) + rs * escala_tiempo
+		_dur = maxf(_dur, float(ev["t"]) + T_PUM + T_VUELTA)
+	if not _suelo.is_empty():
+		_lanzar_suelo(maxf(t_golpe, 0.0) / maxf(escala_tiempo, 0.01))
 	# La accion se ha cerrado: la numeracion de tandas empieza de cero en la siguiente.
 	_tanda_auto = -1
 	_tanda_pedida = -1
@@ -2110,6 +2153,7 @@ func ocupado() -> bool:
 # animacion y punto.
 func cancelar() -> void:
 	_cola.clear()
+	_suelo = {}
 	_cerrar_gestos()   # lo mismo que al terminar de forma normal: nadie se queda a medio ataque
 	_activa = false
 	_t = 0.0
@@ -2203,7 +2247,9 @@ func _process(delta: float) -> void:
 			# 'sin_dibujo' lo pone _marcar_efectos_de_grupo: de una tanda de ola o de splat solo se
 			# dibuja UNO (son una cosa grande, no un proyectil por cabeza). Los demas siguen con su
 			# numero y su temblor.
-			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)):
+			# Y los del SUELO QUE SE ROMPE no pintan su efecto de siempre: su dibujo es la rotura.
+			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
+					and float(ev.get("retraso_suelo", -1.0)) < 0.0:
 				# El portador cubre TODO lo alcanzado: va al centro del grupo y con el ancho de
 				# todos. Lo demas apunta a su tarjeta y lleva el ancho de una.
 				var destino: Vector2 = _punto(ev["bv"])
@@ -2243,7 +2289,8 @@ func _process(delta: float) -> void:
 		#     una sola (ver _marcar_efectos_de_grupo).
 		#   - Va ANTES del 'continue' de aqui abajo, porque los adornos -el Bramido, el Alarido, la
 		#     Ignicion, los caparazones- son precisamente los que mas piden sonido.
-		if not ev["sfx_lanzado"] and _t >= t_imp - vuelo:
+		# (Con el suelo que se rompe, suena en el MARTILLAZO -- t_sfx -- y no cuando la rotura llega.)
+		if not ev["sfx_lanzado"] and _t >= float(ev.get("t_sfx", t_imp)) - vuelo:
 			ev["sfx_lanzado"] = true
 			if not bool(ev.get("sin_dibujo", false)):
 				# El ELEMENTO va tambien: Sonido le monta encima su capa (el chisporroteo del
@@ -2292,12 +2339,14 @@ func _process(delta: float) -> void:
 				and int(ev.get("pos_tanda", i)) < MAX_IMPACTOS_ANIMADOS:
 			var dir: Vector2 = _direccion(pa, pv)
 			var d: float = 0.0
-			if _t < t_imp and _t >= t_imp - T_IDA:
+			# Con el suelo que se rompe, el que pega embiste en el MARTILLAZO, no cuando la rotura llega.
+			var t_emb: float = float(ev.get("t_sfx", t_imp))
+			if _t < t_emb and _t >= t_emb - T_IDA:
 				# Acelerando (u*u): un lanzamiento arranca despacio y llega lanzado.
-				var u: float = (_t - (t_imp - T_IDA)) / T_IDA
+				var u: float = (_t - (t_emb - T_IDA)) / T_IDA
 				d = DIST_EMBESTIDA * u * u
-			elif _t >= t_imp and _t < t_imp + T_VUELTA:
-				var u2: float = (_t - t_imp) / T_VUELTA
+			elif _t >= t_emb and _t < t_emb + T_VUELTA:
+				var u2: float = (_t - t_emb) / T_VUELTA
 				d = DIST_EMBESTIDA * (1.0 - u2 * u2)
 			if d > 0.0:
 				var v: Vector2 = dir * d
@@ -2407,10 +2456,25 @@ func _aplicar(mov: Dictionary, flash: Dictionary, punch: Dictionary, aura: Dicti
 func _punto(bloque: Dictionary) -> Vector2:
 	if bloque.is_empty() or capa_numeros == null or not is_instance_valid(capa_numeros):
 		return Vector2.ZERO
+	var rm: Rect2 = _rect_mapa(bloque)
+	if rm.has_area():
+		return rm.get_center() - capa_numeros.global_position
 	var v: Control = _visual(bloque)
 	if v == null:
 		return Vector2.ZERO
 	return v.get_global_rect().get_center() - capa_numeros.global_position
+
+
+# EN EL MAPA (combate tactico) la figura de cada uno no es su tarjeta: la tarjeta se ha mudado o esta
+# escondida en una fila que no se ve, y su 'actor' se queda donde lo dejo el montaje. Lo que manda es
+# el CUERPO TAL COMO SE VE (el mismo que decide a quien le pega un golpe: turno_mapa.bulto_de), en
+# coordenadas de pantalla. Lo da la pantalla de combate; sin el (en la fila), Rect2() y manda la tarjeta.
+var rect_en_mapa: Callable = Callable()
+
+func _rect_mapa(bloque: Dictionary) -> Rect2:
+	if not rect_en_mapa.is_valid():
+		return Rect2()
+	return rect_en_mapa.call(bloque)
 
 
 # Lo ANCHO que es un objetivo, que es de donde sale el tamaño de los efectos de area (la ola, el
@@ -2481,7 +2545,9 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 
 	# El sitio: SOBRE LA FIGURA que lo come, en su tercio alto, no pegado a su borde de arriba
 	# (naciendo en el borde y subiendo 26 px, los de la fila de arriba se salian de la pantalla).
-	var r: Rect2 = pv.get_global_rect()
+	var r: Rect2 = _rect_mapa(ev["bv"])
+	if not r.has_area():
+		r = pv.get_global_rect()
 	var base: Vector2 = r.get_center() - capa_numeros.global_position
 	base.y = (r.position.y + r.size.y * 0.34) - capa_numeros.global_position.y
 

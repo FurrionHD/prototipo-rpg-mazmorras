@@ -50,6 +50,8 @@ func _montar_columna() -> void:
 	_pantalla.add_child(_capa_numeros)
 	if _pantalla._fx != null:
 		_pantalla._fx.capa_numeros = _capa_numeros
+		# Y los numeros y los golpes, sobre el CUERPO que se ve, no sobre la tarjeta (ver CombatFX._rect_mapa).
+		_pantalla._fx.rect_en_mapa = _pantalla.turno_mapa.rect_pantalla_de_bloque
 
 
 # Los bloques se crean por el camino de siempre y luego se mudan al mapa.
