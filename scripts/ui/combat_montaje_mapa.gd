@@ -56,6 +56,9 @@ func _montar_columna() -> void:
 func _setup_ui() -> void:
 	super._setup_ui()
 	_pantalla.figuras_mapa.montar()
+	# La pestaña del apuntado va DESPUES del registro: se coloca midiendolo (ver
+	# combat_ficha_objetivo.refrescar), asi que el registro tiene que existir ya.
+	_pantalla.ficha_objetivo.montar()
 
 
 # EL ANCHO DE LAS FICHAS NO SE REPARTE AQUI. En la fila, las tarjetas se encogen a partes iguales

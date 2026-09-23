@@ -164,26 +164,16 @@ func _mudar(bloque: Dictionary, cuerpo: Node2D) -> void:
 
 # --- MINI O ENTERA -----------------------------------------------------------------------------
 
-# Pone cada ficha en su tamaño: entera la del apuntado, mini todas las demas.
+# Pone cada ficha en su tamaño. SIEMPRE MINI, tambien la del apuntado: sobre el tablero solo hay
+# barras a la medida de cada cuerpo, y el detalle del que apuntas sale en sitio fijo, en la columna
+# derecha (ver combat_ficha_objetivo). Asi la fila de barras no cambia de forma segun a quien mires.
 #
-# SE LLAMA CADA FOTOGRAMA, desde seguir(), y no desde _seleccionar. No es por vago: al apuntado se
-# deja de apuntar de mas maneras que pulsandole encima -- se muere y _objetivo() cae al siguiente
-# vivo SIN mover _target_idx (ver combat._objetivo), entran refuerzos, llega una instantanea de la
-# red... Enganchandolo al clic, la ficha entera se quedaba abierta sobre el cadaver.
-#
-# Mirar cada fotograma es gratis porque _poner_mini no toca nada si la ficha ya esta como toca: lo
-# que cuesta es el re-layout que dispara escribir un custom_minimum_size, y eso solo pasa cuando de
-# verdad cambia algo.
+# SE LLAMA CADA FOTOGRAMA, desde seguir(). Es gratis porque _poner_mini no escribe nada si la ficha
+# ya esta como toca: lo que cuesta es el re-layout que dispara un custom_minimum_size, y eso solo
+# pasa cuando el bicho cambia de tamaño en pantalla.
 func refrescar_mini() -> void:
-	var objetivo: int = _pantalla._target_idx
 	for f in _fichas:
-		var bloque: Dictionary = f["bloque"]
-		var idx: int = int(bloque.get("idx", -1))
-		# VIVO, ademas de apuntado: mismo criterio que usa el recuadro de seleccion (ver
-		# _on_tinte_cambiado). A un cadaver no se le apunta, asi que tampoco luce ficha entera.
-		var entera: bool = idx >= 0 and idx == objetivo \
-			and idx < _pantalla._enemies.size() and _pantalla._enemies[idx].is_alive()
-		_poner_mini(f, not entera)
+		_poner_mini(f, true)
 
 
 # Lo que mide el cuerpo de un bicho EN PANTALLA. De su forma de colision, que enemy._aplicar_colision

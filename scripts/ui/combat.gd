@@ -76,6 +76,8 @@ var montaje = CombatMontaje.new(self)
 const CombatMontajeMapa = preload("res://scripts/ui/combat_montaje_mapa.gd")
 const CombatFigurasMapa = preload("res://scripts/ui/combat_figuras_mapa.gd")
 var figuras_mapa = CombatFigurasMapa.new(self)
+const CombatFichaObjetivo = preload("res://scripts/ui/combat_ficha_objetivo.gd")
+var ficha_objetivo = CombatFichaObjetivo.new(self)
 
 # ¿Esta pelea se juega EN EL MAPA? Lo pone Game antes de setup(). Es lo unico que distingue los dos
 # combates, y solo puede mirarlo la GEOMETRIA y la PUESTA EN ESCENA: si acaba dentro de una funcion
@@ -975,6 +977,7 @@ func _process(delta: float) -> void:
 	# arriba, antes del return del espejo, porque en el espejo los cuerpos tambien se mueven.
 	if tactico:
 		figuras_mapa.seguir()
+		ficha_objetivo.refrescar()   # la pestaña del apuntado, en la columna derecha
 	figuras._tick_hold_detalle(delta)   # el "mantener pulsado" que abre la ficha de detalle
 	# Los cadaveres de enfrente que se estan yendo. VA AQUI ARRIBA, antes del return del espejo y de
 	# los de PAUSED/ADVANCING: en el espejo tambien se muere gente, y una tarjeta a medio desvanecer
