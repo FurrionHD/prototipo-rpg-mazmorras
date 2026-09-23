@@ -13983,6 +13983,12 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 		_active_enemies[slot] = nodo
 	else:
 		_active_enemies.append(nodo)
+	# EN EL MAPA, el roster OTRA VEZ. La pantalla ya lo mando al darle de alta (_alta_de_combatiente),
+	# pero eso fue DENTRO de anadir_enemigo, antes de que el nodo estuviera aqui arriba: su direccion de
+	# red (el net_id con el que el espejo encuentra su cuerpo) salio a 0 y el compañero veia al refuerzo
+	# en la pelea sin cuerpo en el mapa. Ahora ya esta.
+	if bool(combat.get("tactico")):
+		combat.altas._alta_de_combatiente()
 	# UN JEFE QUE ENTRA A MITAD cambia la musica. Pasa de verdad: los refuerzos y el traspaso meten
 	# bichos en una pelea ya abierta, y el jefe podia aparecer con la pista de combate normal puesta.
 	if bool(nodo.get("es_boss")):

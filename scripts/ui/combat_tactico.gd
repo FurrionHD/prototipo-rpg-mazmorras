@@ -134,14 +134,92 @@ func montar() -> void:
 	# da PROCESS_MODE_ALWAYS solo a lo que PINTA (el sprite, el muñeco), no al cuerpo: el cuerpo
 	# llevaria dentro su IA y su lectura del teclado, y eso tiene que seguir parado.
 	for c in _pantalla._aliados + _pantalla._enemies:
-		var cuerpo: Node2D = cuerpo_de(c)
-		if cuerpo == null:
-			continue
-		_pos[c] = cuerpo.global_position
-		for hijo in cuerpo.get_children():
-			if hijo is AnimatedSprite2D or hijo is MunecoJugador:
+		_preparar(c)
+
+
+# Deja listo el cuerpo de UN combatiente (su sitio y sus dibujos animandose en pausa). Vale tambien
+# para los que entran A MEDIA PELEA (refuerzos, aliados que se unen): los busca _preparar_altas en
+# cada tick, porque montar() solo ve a los que estaban al empezar. false = aun no tiene cuerpo aqui.
+var _preparados: Dictionary = {}
+
+func _preparar(c: Combatant) -> bool:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return false
+	_pos[c] = cuerpo.global_position
+	for hijo in cuerpo.get_children():
+		if hijo is AnimatedSprite2D or hijo is MunecoJugador:
+			if (hijo as Node).process_mode != Node.PROCESS_MODE_ALWAYS:
 				_modos_guardados.append([hijo, (hijo as Node).process_mode])
 				(hijo as Node).process_mode = Node.PROCESS_MODE_ALWAYS
+	_preparados[c] = true
+	return true
+
+
+func _preparar_altas() -> void:
+	for c in _pantalla._aliados + _pantalla._enemies:
+		if not _preparados.has(c):
+			_preparar(c)
+
+
+# ------------------------------------------------------------
+#  LO QUE ESTA DENTRO DE LA ARENA, PELEA
+# ------------------------------------------------------------
+# Un enemigo DENTRO del rectangulo que no esta en ninguna pelea entra en esta como refuerzo (lo vio el
+# usuario el 23/09: uno se quedaba congelado dentro, sin barra, porque el grupo del arranque lo elige
+# el que dispara la pelea -- el y sus vecinos cercanos -- y la arena, que se calcula despues, es mas
+# grande). Cubre tambien al que aparece dentro y al que entra andando: es la regla del borde "un
+# enemigo de fuera se mete en la pelea", que estaba escrita en la arena y nunca se enchufo.
+#
+# Lo mira SOLO quien lleva la pelea, cada RECOGER_CADA segundos, y entra por los caminos de siempre:
+#   - un cuerpo DE VERDAD (solitario, o soy el dueño del piso): Game.unir_enemigo_al_combate, igual
+#     que cuando un enemigo te alcanza andando (enemy._start_combat);
+#   - un ESPEJO (el dueño es otro): se le pide a su dueño con Net.peleas.solicitar_pelea, la misma
+#     peticion que al atacarle; como ya estoy peleando, al llegar se une a esta (_llega_pelea). No se
+#     repite la peticion mientras se espera la respuesta (PEDIDO_OTRA_VEZ).
+const RECOGER_CADA := 0.5
+const PEDIDO_OTRA_VEZ := 3000   # ms
+var _t_recoger: float = 0.0
+var _pedidos: Dictionary = {}   # net_id -> ms en que se pidio
+
+func _recoger_de_la_arena(delta: float) -> void:
+	if _pantalla._espejo:
+		return
+	_t_recoger += delta
+	if _t_recoger < RECOGER_CADA:
+		return
+	_t_recoger = 0.0
+	var arena: ArenaCombate = _arena()
+	if arena == null or _pantalla._state == _pantalla.State.FINISHED:
+		return
+	var ahora: int = Time.get_ticks_msec()
+	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(n) or not (n is Node2D) or not arena.contiene((n as Node2D).global_position):
+			continue
+		if Game.esta_en_combate(n) or (n.has_method("esta_muerto") and n.esta_muerto()):
+			continue
+		if n.has_meta("es_espejo"):
+			if not Net.activo or not n.has_meta("net_id") or Net.peleas.pelea_de_enemigo(n) != 0:
+				continue
+			var id: int = int(n.get_meta("net_id"))
+			if ahora - int(_pedidos.get(id, -PEDIDO_OTRA_VEZ)) < PEDIDO_OTRA_VEZ:
+				continue
+			_pedidos[id] = ahora
+			print("[arena] %s esta dentro de la arena: lo pido a su dueño" % n.name)
+			Net.peleas.solicitar_pelea(id)
+			continue
+		if bool(n.get("_combat_triggered")):
+			continue
+		# Como en enemy._start_combat: quieto y sin su aviso de embestida, y si la pelea no le admite (se
+		# esta cerrando), suelto para que no se quede de estatua.
+		n.set("_combat_triggered", true)
+		n.set("velocity", Vector2.ZERO)
+		if n.has_method("_cancelar_aviso"):
+			n.call("_cancelar_aviso")
+		if Game.unir_enemigo_al_combate(n):
+			print("[arena] %s estaba dentro de la arena: entra a la pelea" % n.name)
+		else:
+			n.set("_combat_triggered", false)
 
 
 func desmontar() -> void:
@@ -460,6 +538,8 @@ func radio_del_turno() -> float:
 # (un enemigo acercandose) y la pantalla no debe hacer nada mas este fotograma.
 func tick(delta: float) -> bool:
 	_tick_huellas(delta)
+	_preparar_altas()
+	_recoger_de_la_arena(delta)
 	match _fase:
 		Fase.MOVIENDO:
 			_tick_moviendo(delta)

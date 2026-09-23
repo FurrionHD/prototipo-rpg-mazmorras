@@ -58,6 +58,7 @@ const ESCALA_CHIPS_MINI := 0.7
 
 var _capa: Control = null
 var _fichas: Array = []   # [{bloque: Dictionary, cuerpo: Node2D}]
+var _mudados: int = 0     # cuantos bloques de _bloques se han mudado ya (ver seguir: los que entran)
 
 
 # Muda todas las fichas al mapa. Se llama DESPUES del _setup_ui de siempre: para entonces los
@@ -74,6 +75,7 @@ func montar() -> void:
 
 	for i in _pantalla._bloques.size():
 		_mudar(_pantalla._bloques[i], _cuerpo_enemigo(i))
+	_mudados = _pantalla._bloques.size()
 	# LOS ALIADOS NO SE MUDAN: sus barras salen arriba, no debajo suyo. Sus columnas se quedan donde
 	# las dejo el montaje, dentro de una banda con visible=false, asi que siguen existiendo enteras:
 	# _update_hp, _refrescar_chips y las altas a media pelea se las encuentran igual que siempre y no
@@ -84,6 +86,12 @@ func montar() -> void:
 # Recoloca cada ficha sobre su cuerpo. Se llama cada fotograma desde la pantalla: los cuerpos se
 # mueven (en su turno, o porque el mundo sigue vivo en multi) y la camara tambien puede.
 func seguir() -> void:
+	# LOS QUE ENTRAN A MEDIA PELEA con ficha NUEVA (un refuerzo que no reutiliza el hueco de un cadaver
+	# se añade al final de _bloques): montar() solo mudo a los que habia, y este se quedaria escondido
+	# en la banda invisible, sin barra y sin poder pulsarlo.
+	while _mudados < _pantalla._bloques.size():
+		_mudar(_pantalla._bloques[_mudados], _cuerpo_enemigo(_mudados))
+		_mudados += 1
 	# El TAMAÑO antes que el SITIO: la ficha se coloca centrada sobre el cuerpo usando su ancho y su
 	# alto, asi que si va a cambiar de tamaño tiene que hacerlo antes de que se le calcule el sitio.
 	refrescar_mini()

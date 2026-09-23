@@ -76,6 +76,18 @@ func _ready() -> void:
 	_ok(p._aliados.size() > aliados_antes, "B se une a mi pelea (%.1f s)" % t)
 	_ok(await _dato_de_b("espejo_tactico", 20.0) == 1, "B ve la pelea EN EL MAPA (su espejo es tactico)")
 
+	# 2b) LO QUE ESTA DENTRO DE LA ARENA, PELEA: aparece un slime en una esquina de la arena, lejos de
+	#     todos. Es un espejo (su dueño es el trabajador): se le pide a el y entra a mi pelea.
+	var rect_a: Rect2 = p.turno_mapa._arena().rect
+	var enemigos_antes: int = p._enemies.size()
+	Net.pisos.pedir_spawn_arena(slime, rect_a.position + rect_a.size * 0.12, {})
+	t = 0.0
+	while p._enemies.size() <= enemigos_antes and t < 15.0:
+		pulsar(3)
+		await _esperar(0.25)
+		t += 0.25
+	_ok(p._enemies.size() > enemigos_antes, "un enemigo que aparece DENTRO de la arena entra a la pelea (%.1f s)" % t)
+
 	# 3) LOS TURNOS.
 	var yo_anduve := 0.0
 	var bicho_anduvo := 0.0
@@ -84,7 +96,9 @@ func _ready() -> void:
 	var t0: int = Time.get_ticks_msec()
 	var sentido := ["move_left", "move_up", "move_right"]
 	var vuelta := 0
-	while (Time.get_ticks_msec() - t0) < 90000 and not (yo_anduve > 0.0 and bicho_anduvo > 0.0 and b_sellada):
+	# Los mismos umbrales que las comprobaciones de abajo: un turno que choca con un compañero (los tuyos
+	# chocan entre si) anda poco, y con "> 0" el bucle se daba por servido y luego la comprobacion fallaba.
+	while (Time.get_ticks_msec() - t0) < 90000 and not (yo_anduve > 10.0 and bicho_anduvo > 5.0 and b_sellada):
 		if not is_instance_valid(p) or p.acabada():
 			break
 		if int(p._state) == 1 and tm._fase == tm.Fase.MOVIENDO and not caja_abierta(p):

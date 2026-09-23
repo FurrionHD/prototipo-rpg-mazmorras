@@ -65,6 +65,12 @@ func _ready() -> void:
 	while int(leer_fase()[0]) < 3 and (Time.get_ticks_msec() - t0) < 150000:
 		if is_instance_valid(host):
 			host_max = maxf(host_max, host.global_position.distance_to(host_desde))
+		# Y los que entren DESPUES (el host mete uno que aparece dentro de la arena): desde donde entran.
+		if is_instance_valid(p):
+			for e in p._enemies:
+				var cn: Node2D = p.turno_mapa.cuerpo_de(e)
+				if cn != null and not bichos_desde.has(cn):
+					bichos_desde[cn] = cn.global_position
 		for cb in bichos_desde:
 			if is_instance_valid(cb):
 				bicho_max = maxf(bicho_max, (cb as Node2D).global_position.distance_to(bichos_desde[cb]))
@@ -85,6 +91,11 @@ func _ready() -> void:
 			pulsar(3)
 		await _esperar(0.05)
 	print("[B] [dev] el host se movio %.1f px y el bicho %.1f px en mi pantalla" % [host_max, bicho_max])
+	if is_instance_valid(p):
+		for e in p._enemies:
+			var ce: Node2D = p.turno_mapa.cuerpo_de(e)
+			print("[B] [dev] enemigo %s: cuerpo %s, se movio %.1f" % [e.nombre, str(ce),
+				ce.global_position.distance_to(bichos_desde.get(ce, ce.global_position)) if ce != null else -1.0])
 	print("[B] dato host_se_movio=%d" % int(host_max))
 	print("[B] dato bicho_se_movio=%d" % int(bicho_max))
 	print("[B] dato b_radio=%d" % int(radio_visto))
