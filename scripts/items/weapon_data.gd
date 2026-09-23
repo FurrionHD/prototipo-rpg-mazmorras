@@ -68,17 +68,18 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # grandes ("minimo hasta aqui el martillo, el hacha y el mandoble"). Lo de en medio, repartido; los
 # puños, como la daga. OJO al medir sobre una captura suya: va a ~x2,3 (su personaje, que mide ~55 px
 # de mundo, ocupa ~125). La primera vez lo medi a x1,6 y todo salio un 45% largo.
+# Y luego, jugandolo, lo quiso A LA MITAD en todas las armas (23/09): "me sigue pareciendo mucho".
 const ALCANCE_POR_TIPO := {
-	Tipo.PUNOS: 20.0,
-	Tipo.DAGA: 20.0,
-	Tipo.ESPADA_CORTA: 25.0,
-	Tipo.MAZA_PEQ: 25.0,
-	Tipo.BASTON: 28.0,
-	Tipo.ESPADA_LARGA: 31.0,
-	Tipo.ESTOQUE: 34.0,
-	Tipo.HACHA_GRANDE: 43.0,
-	Tipo.MARTILLO_GRANDE: 43.0,
-	Tipo.MANDOBLE: 46.0,
+	Tipo.PUNOS: 10.0,
+	Tipo.DAGA: 10.0,
+	Tipo.ESPADA_CORTA: 12.5,
+	Tipo.MAZA_PEQ: 12.5,
+	Tipo.BASTON: 14.0,
+	Tipo.ESPADA_LARGA: 15.5,
+	Tipo.ESTOQUE: 17.0,
+	Tipo.HACHA_GRANDE: 21.5,
+	Tipo.MARTILLO_GRANDE: 21.5,
+	Tipo.MANDOBLE: 23.0,
 }
 
 

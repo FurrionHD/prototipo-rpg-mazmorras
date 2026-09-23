@@ -313,6 +313,7 @@ func _probar_alcance() -> void:
 
 	# EL DE AL LADO SI PEGA (o esquivan): su sorteo sale con alguien.
 	t.cuerpos[yo].global_position = Vector2(0, 0)
+	cerca.alcance = 20.0   # a 18 de hueco: con su alcance de serie (10) no llegaria
 	t.atacante = cerca
 	_afirmar(pelea.objetivos._elegir_objetivo_enemigo() == yo, "el sorteo del enemigo de al lado no se queda con el unico a tiro")
 	t.atacante = null

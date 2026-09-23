@@ -64,7 +64,7 @@ const ATASCO_T := 0.25
 # EL ALCANCE, en px de HUECO entre cuerpos (Cuerpos.hueco, la cuenta del golpe por el mapa). Lo de
 # cada uno viene en Combatant.alcance (su arma, o su ficha de enemigo); esto es el suelo para quien
 # no lo diga.
-const ALCANCE_MINIMO := 14.0
+const ALCANCE_MINIMO := 6.0
 # El enemigo se arrima hasta esta fraccion de su alcance, no hasta el limite justo: parado en el
 # borde exacto, el redondeo de la red podia dejarle a medio pixel de no llegar.
 const ARRIMARSE := 0.75
