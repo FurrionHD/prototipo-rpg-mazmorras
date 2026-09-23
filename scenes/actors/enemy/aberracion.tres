@@ -16,6 +16,7 @@ prob = 0.45
 [resource]
 script = ExtResource("1_g8nro")
 enemy_name = "Aberración de la sima"
+centro_suelo = 0.39
 color = Color(0.45, 0.2, 0.5, 1)
 escala_visual = 1.8
 sprite_gen = &"aberracion"

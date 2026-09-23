@@ -37,6 +37,19 @@ const ALCANCE_BASE := 15.0   # como la daga, el arma mas corta. DEFINITIVO (23/0
 func alcance_real() -> float:
 	return alcance if alcance > 0.0 else ALCANCE_BASE
 
+
+# DONDE ESTA SU CENTRO EN EL SUELO, como fraccion del alto de su dibujo (0 = arriba del todo, 1 = abajo
+# del todo). Es desde donde mide cuando ataca en la pelea del mapa (combat_tactico.pies_de). NO es el
+# mismo en todos, y por eso va en la ficha: un bipedo tiene el centro en los pies, abajo del dibujo;
+# uno a cuatro patas, un bicho o un volador visto desde arriba lo tiene en medio del cuerpo. Lo marco el
+# usuario sobre una captura de los 25 (23/09). 0 = CENTRO_SUELO_BASE.
+@export var centro_suelo: float = 0.0
+const CENTRO_SUELO_BASE := 0.9
+
+
+func centro_suelo_real() -> float:
+	return centro_suelo if centro_suelo > 0.0 else CENTRO_SUELO_BASE
+
 # SPRITE ANIMADO real (arte de verdad, aun por hacer para casi todos los bichos). Si esta vacio,
 # enemy.gd cae al ColorRect de siempre -- salvo los slimes, que mientras tanto usan un sprite
 # GENERADO por codigo (ver SlimeSprites.generar()). En cuanto este campo se rellene con arte de

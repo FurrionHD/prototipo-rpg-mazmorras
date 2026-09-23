@@ -16,6 +16,7 @@ prob = 0.45
 script = ExtResource("1_g8nro")
 familia = 4
 enemy_name = "Gárgola"
+centro_suelo = 0.73
 color = Color(0.4, 0.42, 0.45, 1)
 escala_visual = 2.4
 sprite_gen = &"gargola"

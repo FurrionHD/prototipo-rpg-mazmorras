@@ -17,6 +17,7 @@ prob = 0.5
 script = ExtResource("1")
 familia = 3
 enemy_name = "Segadora"
+centro_suelo = 0.4
 historia = "Espera con los dos brazos plegados contra el pecho y no se mueve ni un dedo. Lo que la delata es que no parpadea: cuando por fin se mueve, ya te ha cortado."
 color = Color(0.5, 0.44, 0.28, 1)
 escala_visual = 2.2

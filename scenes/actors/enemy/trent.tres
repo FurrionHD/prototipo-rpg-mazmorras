@@ -21,6 +21,7 @@ prob = 0.4
 
 [resource]
 script = ExtResource("1_g8nro")
+centro_suelo = 0.83
 enemy_name = "Trent"
 sprite_gen = &"trent"
 color = Color(0.35, 0.5, 0.25, 1)

@@ -18,6 +18,7 @@ prob = 0.7
 script = ExtResource("1_g8nro")
 familia = 1
 enemy_name = "Rey Slime"
+centro_suelo = 0.65
 es_slime = true
 corona_slime = true
 centrado_en_fila = true

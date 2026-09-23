@@ -18,6 +18,7 @@ cap = 2
 script = ExtResource("1_g8nro")
 familia = 3
 enemy_name = "Ciempiés carmesí"
+centro_suelo = 0.48
 color = Color(0.6, 0.15, 0.12, 1)
 escala_visual = 2.05
 sprite_gen = &"ciempies"

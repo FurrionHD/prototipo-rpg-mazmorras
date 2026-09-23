@@ -21,6 +21,7 @@ prob = 0.35
 
 [resource]
 script = ExtResource("1_g8nro")
+centro_suelo = 0.54
 familia = 1
 enemy_name = "Slime de fuego"
 color = Color(1, 0.5, 0.12, 1)

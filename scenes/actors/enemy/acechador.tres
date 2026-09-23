@@ -18,6 +18,7 @@ prob = 0.6
 script = ExtResource("1_g8nro")
 familia = 5
 enemy_name = "Acechador de las simas"
+centro_suelo = 0.44
 color = Color(0.3, 0.27, 0.24, 1)
 escala_visual = 1.8
 sprite_gen = &"acechador"

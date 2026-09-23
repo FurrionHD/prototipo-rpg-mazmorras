@@ -21,6 +21,7 @@ cap = 1
 
 [resource]
 script = ExtResource("1_g8nro")
+centro_suelo = 0.59
 familia = 1
 enemy_name = "Slime venenoso"
 color = Color(0.29, 0.78, 0.33, 1)

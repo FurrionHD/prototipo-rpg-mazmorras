@@ -11,6 +11,7 @@
 script = ExtResource("1_g8nro")
 familia = 6
 enemy_name = "Minotauro"
+centro_suelo = 0.83
 color = Color(0.55, 0.34, 0.2, 1)
 escala_visual = 3.1
 sprite_gen = &"minotauro"

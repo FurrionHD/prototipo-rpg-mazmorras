@@ -29,7 +29,7 @@ class Capa extends Node2D:
 			if not r.has_area():
 				r = Cuerpos.caja_de(e)
 			draw_rect(r, Color(0.2, 0.55, 1.0), false, 1.5)
-			var pies: Vector2 = Vector2(r.get_center().x, r.end.y - r.size.y * Tactico.PIES_SOBRE_EL_BORDE)
+			var pies: Vector2 = Vector2(r.get_center().x, r.position.y + r.size.y * Tactico.centro_suelo_de(e))
 			draw_circle(pies, 2.5, Color(1, 0.9, 0.2))
 			draw_arc(pies, r.size.x * Tactico.PISA, 0, TAU, 24, Color(1, 0.9, 0.2, 0.7), 1.0)
 

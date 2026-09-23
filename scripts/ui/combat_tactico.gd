@@ -289,8 +289,8 @@ const PISA := 0.33
 
 
 # Donde tiene los pies, con el cuerpo donde la PELEA dice que esta (pos_de: la posicion sellada si es
-# de otro humano). Los tuyos: bajo el nodo (PoseJugador.PIES_BAJO_NODO). Los enemigos: abajo de lo que
-# tienen PINTADO, un pelo por encima del borde (el borde es la punta de una pata o la sombra del gel).
+# de otro humano). Los tuyos: bajo el nodo (PoseJugador.PIES_BAJO_NODO). Los enemigos: a la altura de su
+# dibujo que diga su ficha (centro_suelo_de); sin ficha, un pelo por encima del borde de abajo.
 const PIES_SOBRE_EL_BORDE := 0.1
 
 func pies_de(c: Combatant) -> Vector2:
@@ -298,7 +298,17 @@ func pies_de(c: Combatant) -> Vector2:
 	if not _pantalla._enemies.has(c):
 		return p + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 	var r: Rect2 = bulto_de(c)
-	return Vector2(r.get_center().x, r.end.y - r.size.y * PIES_SOBRE_EL_BORDE)
+	return Vector2(r.get_center().x, r.position.y + r.size.y * centro_suelo_de(cuerpo_de(c)))
+
+
+# A que altura de su dibujo tiene cada enemigo su centro en el suelo: lo dice SU FICHA
+# (EnemyData.centro_suelo), porque un bipedo lo tiene en los pies y uno a cuatro patas en medio del
+# cuerpo. Vale el bicho de esta maquina y la copia de red: los dos llevan su 'data'.
+static func centro_suelo_de(cuerpo: Node2D) -> float:
+	var d = cuerpo.get("data") if cuerpo != null else null
+	if d is EnemyData:
+		return (d as EnemyData).centro_suelo_real()
+	return 1.0 - PIES_SOBRE_EL_BORDE
 
 
 # El radio de lo que PISA quien golpea: la punta de su arma se cuenta desde el borde de esto.

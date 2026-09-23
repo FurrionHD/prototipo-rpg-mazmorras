@@ -23,6 +23,7 @@ cap = 2
 script = ExtResource("1_g8nro")
 familia = 3
 enemy_name = "Araña de las simas"
+centro_suelo = 0.49
 color = Color(0.3, 0.25, 0.4, 1)
 escala_visual = 1.5
 sprite_gen = &"arana"
