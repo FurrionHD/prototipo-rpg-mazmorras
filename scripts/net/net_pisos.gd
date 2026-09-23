@@ -558,6 +558,8 @@ func _forzar_jefe_dueno(lugar: String) -> void:
 #  muerto en silencio (ver la memoria regla-del-dueno-servidor).
 # ============================================================
 func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
+	print("[arena] TRAZA yo: pido spawn (activo=%s, host=%s, mi lugar '%s')"
+		% [Net.activo, Net.es_host, Net._mi_lugar])
 	if not Net.activo:
 		_spawn_arena_aqui(ruta, pos, muneco)
 	elif Net.es_host:
@@ -583,11 +585,15 @@ func _pedir_arena(lugar: String, que: String, args: Array) -> void:
 
 func _encaminar_arena(lugar: String, que: String, args: Array) -> void:
 	if lugar != "piso:%d" % Game.PISO_ARENA:
+		print("[arena] TRAZA host: me piden '%s' para el lugar '%s', que no es la arena: se pierde"
+			% [que, lugar])
 		return
 	if Net._mi_lugar == lugar and Net._soy_dueno:
 		_hacer_en_arena(lugar, que, args)
 		return
 	var dueno: int = Net._dueno_de(lugar)
+	print("[arena] TRAZA host: '%s' -> dueño %d (yo soy %d, mi lugar '%s')"
+		% [que, dueno, Net._mi_id(), Net._mi_lugar])
 	if dueno != 0 and dueno != Net._mi_id():
 		_arena_dueno.rpc_id(dueno, lugar, que, args)
 	else:
@@ -601,7 +607,10 @@ func _arena_dueno(lugar: String, que: String, args: Array) -> void:
 
 
 func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
+	print("[arena] TRAZA dueño: me llega '%s' para '%s' (mi lugar '%s', soy dueño %s)"
+		% [que, lugar, Net._mi_lugar, Net._soy_dueno])
 	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		print("[arena] TRAZA dueño: lo rechazo")
 		return
 	if que == "spawn" and args.size() >= 3:
 		_spawn_arena_aqui(String(args[0]), args[1] as Vector2, args[2] as Dictionary)
@@ -612,6 +621,8 @@ func _hacer_en_arena(lugar: String, que: String, args: Array) -> void:
 func _spawn_arena_aqui(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	var data: EnemyData = load(ruta) as EnemyData if ResourceLoader.exists(ruta) else null
+	print("[arena] TRAZA planto: piso=%s data=%s en %s"
+		% [piso != null, data != null, pos])
 	if piso != null and piso.has_method("colocar_en_arena") and data != null:
 		piso.colocar_en_arena(data, pos, muneco)
 

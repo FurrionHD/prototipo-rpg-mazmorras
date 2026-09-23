@@ -47,10 +47,6 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
 
-[editor]
-
-run/main_run_args="--tactil"
-
 [gui]
 
 common/default_scroll_deadzone=24
