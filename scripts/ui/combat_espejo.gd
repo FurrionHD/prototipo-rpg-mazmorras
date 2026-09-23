@@ -80,6 +80,8 @@ func setup_espejo(roster: Dictionary) -> void:
 		e.battle_enemies = _pantalla._enemies
 	_pantalla._player = _pantalla._aliados[0] if not _pantalla._aliados.is_empty() else null
 	_rev = int(roster.get("rev", 0))
+	# De aqui saca el mapa la direccion de cada cuerpo (ver turno_mapa.cuerpo_de).
+	_pantalla.turno_mapa.roster_red = roster
 	_pantalla._dps_on = false
 
 
@@ -162,8 +164,14 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 # entra alguien nuevo en la pelea). Va con la REVISION: es lo que permite al espejo saber si se ha
 # perdido un alta (ver aplicar_instantanea).
 func roster_para_espejo() -> Dictionary:
-	return {"aliados": _fila_de_roster(_pantalla._aliados), "enemigos": _fila_de_roster(_pantalla._enemies),
-		"rev": _rev}
+	var r: Dictionary = {"aliados": _fila_de_roster(_pantalla._aliados),
+		"enemigos": _fila_de_roster(_pantalla._enemies), "rev": _rev}
+	# EN EL MAPA: la arena viaja con el roster, y el espejo se monta en el mapa si la trae (ver
+	# Game.abrir_combate_espejo). Sin ella, el espejo abre la pantalla de siempre.
+	var a: Rect2i = _pantalla.arena_celdas
+	if _pantalla.tactico and a.has_area():
+		r["arena"] = [a.position.x, a.position.y, a.size.x, a.size.y]
+	return r
 
 
 func _fila_de_roster(lista: Array) -> Array:
@@ -206,6 +214,10 @@ func _fila_de_roster(lista: Array) -> Array:
 			# enemigos viajan con su sprite (spr/spr_t) y por eso SI se veian; los aliados no llevaban
 			# nada y salian de cuadrado de color con la cara pegada. Ver Game.pj_de_dict.
 			"pj": Game.pj_a_dict(pj) if pj != null else {}})
+		# QUE CUERPO DEL MAPA ES, para el combate en el mapa: un aliado es "el personaje k del jugador
+		# peer" y un bicho es su id de red. Con eso cada maquina encuentra el cuerpo en SU mundo
+		# (ver combat_tactico.cuerpo_de). Van siempre: son tres enteros y la pantalla de fila los ignora.
+		out[-1].merge(_pantalla.turno_mapa.direccion_red(c))
 	return out
 
 
@@ -221,6 +233,8 @@ func aplicar_roster(roster: Dictionary) -> void:
 		return
 	_rev_pedida = false
 	_rev = int(roster.get("rev", _rev))
+	# Lo PRIMERO: las altas de abajo montan fichas que buscan su cuerpo por el roster nuevo.
+	_pantalla.turno_mapa.roster_red = roster
 	# Los aliados solo crecen por el final (nunca se reordenan ni se reutilizan huecos: el cruce por
 	# indice con las fichas de Game depende de ello), asi que basta con dar de alta los que faltan.
 	var mios: Array = roster.get("aliados", [])
@@ -634,7 +648,7 @@ func marcar_dueno(c: Combatant, peer: int) -> void:
 
 
 # Corre en EL ESPEJO: me toca mover a mi personaje. Se enseña la barra de acciones de siempre.
-func turno_mio(idx: int, seq: int = 0) -> void:
+func turno_mio(idx: int, seq: int = 0, radio: float = 0.0) -> void:
 	if not _pantalla._espejo or idx < 0 or idx >= _pantalla._aliados.size():
 		return
 	# YA CONTESTE A ESTA MISMA PETICION. Es el reenvio del heartbeat cruzandose con mi respuesta:
@@ -663,6 +677,10 @@ func turno_mio(idx: int, seq: int = 0) -> void:
 		_vestir_maniqui(_pantalla._player, real)
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
 	_pantalla._mostrar_acciones()
+	# EN EL MAPA: a andar, con el radio que me manda quien lleva la pelea. El cuerpo es el MIO, el de
+	# verdad; su posicion la ven los demas por el canal del jugador.
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.empezar_turno(_pantalla._player, radio)
 
 
 # ESPEJO: le pone al maniqui todo lo que la barra de acciones necesita para ELEGIR, copiado del
@@ -723,7 +741,8 @@ func _enviar_peticion() -> void:
 	var seq: int = int(pet.get("seq", 0))
 	match String(pet.get("tipo", "")):
 		"accion":
-			Net.peleas.pedir_accion(_pantalla._esperando_a, int(pet.get("idx", 0)), seq)
+			Net.peleas.pedir_accion(_pantalla._esperando_a, int(pet.get("idx", 0)), seq,
+				float(pet.get("radio", 0.0)))
 		"frase":
 			Net.peleas.pedir_frase(_pantalla._esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
 				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
@@ -810,6 +829,12 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 		_pantalla._traza_add("DESCARTO '%s' del peer %d: lo pendiente era '%s' (no encaja)" % [
 			tipo, emisor, pendiente])
 		return
+
+	# EN EL MAPA: donde dejo su personaje al elegir, sellado con esta misma respuesta. Se apunta YA,
+	# antes de resolver nada, porque el golpe se resuelve desde ahi. Nunca tumba la accion: una
+	# posicion rara se recorta, no se rechaza (ver turno_mapa.anotar_pos_remota).
+	if _pantalla.tactico and accion.has("pos"):
+		_pantalla.turno_mapa.anotar_pos_remota(_pantalla._player, accion.get("pos", []))
 
 	# Y LAS PUERTAS SE MIRAN AQUI TAMBIEN. Una accion que llega por red no puede validarse solo en el
 	# boton del otro lado: su pantalla es un espejo y puede ir un paso por detras (o llevar una version
@@ -966,6 +991,10 @@ func _difundir_atb(delta: float) -> void:
 		r.append(float(_pantalla._gauge.get(c, 0.0)) / _pantalla.UMBRAL)
 	for e in _pantalla._enemies:
 		r.append(float(_pantalla._gauge.get(e, 0.0)) / _pantalla.UMBRAL)
+	# EN EL MAPA, detras de las barras: el circulo de quien tiene el turno (4 floats, ver
+	# turno_mapa.estado_red). Van SIEMPRE los ultimos: el espejo los lee contando desde el final.
+	if _pantalla.tactico:
+		r.append_array(_pantalla.turno_mapa.estado_red())
 	Net.peleas.difundir_atb(r)
 
 
@@ -1123,8 +1152,14 @@ func aplicar_atb(ratios: PackedFloat32Array) -> void:
 	var n: int = _pantalla._aliados.size()
 	for i in mini(n, ratios.size()):
 		_fijar_objetivo_atb(_pantalla._aliados[i], float(ratios[i]) * _pantalla.UMBRAL)
-	for i in mini(_pantalla._enemies.size(), ratios.size() - n):
+	# EN EL MAPA, los 4 ULTIMOS son el circulo de quien anda (ver _difundir_atb). Se cuentan desde el
+	# FINAL y no detras de mis enemigos: si mi roster va un alta por detras del de quien lleva la
+	# pelea, contando desde delante leeria una barra como circulo, o el circulo como barra.
+	var cola: int = 4 if _pantalla.tactico else 0
+	for i in mini(_pantalla._enemies.size(), ratios.size() - n - cola):
 		_fijar_objetivo_atb(_pantalla._enemies[i], float(ratios[n + i]) * _pantalla.UMBRAL)
+	if cola > 0 and ratios.size() >= n + cola:
+		_pantalla.turno_mapa.aplicar_red(ratios.slice(ratios.size() - cola))
 
 
 # Guarda el destino de la barra de un combatiente. El primer valor se pone TAL CUAL (que la barra
@@ -1215,6 +1250,12 @@ func _enviar_si_espejo(tipo: String) -> bool:
 # los botones de un turno que ya jugue (ver turno_mio y _pet_seq).
 func _responder_al_anfitrion(accion: Dictionary) -> void:
 	accion["seq"] = _seq_espejo
+	# EN EL MAPA, donde he dejado a mi personaje: sellado con la accion (ver turno_mapa.pos_para_red).
+	# Se lee ANTES de _ocultar_cajas y del cambio de estado, que dan el turno por acabado.
+	if _pantalla.tactico:
+		var pos: Array = _pantalla.turno_mapa.pos_para_red()
+		if not pos.is_empty():
+			accion["pos"] = pos
 	_seq_contestada = _seq_espejo
 	_pantalla._ocultar_cajas()
 	_pantalla._state = _pantalla.State.ADVANCING

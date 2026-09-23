@@ -40,6 +40,7 @@ func _ready() -> void:
 	_probar_paso()
 	await _probar_turnos()
 	await _probar_copia_de_red()
+	await _probar_red()
 	print("[turno] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)
 
@@ -159,7 +160,10 @@ func _probar_copia_de_red() -> void:
 	var copia: Node2D = load("res://scripts/actors/enemy/remote_enemy.gd").new()
 	add_child(copia)
 	await get_tree().process_frame
-	copia.ir_a(Vector2(100, 100))   # primer paquete: aparece ahi
+	const ID := 777
+	Net.enemigos._enem_nodos[ID] = copia
+	# El paquete de su dueño, por el MISMO canal que en el juego (el tick de enemigos).
+	Net.enemigos._tick_enemigos([[ID, Vector2(100, 100)]])   # primer paquete: aparece ahi
 	var arena := Node2D.new()
 	add_child(arena)
 	var antes_arena: Node = Game._arena_nodo
@@ -168,20 +172,60 @@ func _probar_copia_de_red() -> void:
 	Game._active_enemies = [copia]
 	# El turno lo mueve, por el MISMO camino que en el juego.
 	Tactico.new(null)._colocar(null, copia, Vector2(200, 100))
-	copia.ir_a(Vector2(100, 100))               # y su dueño insiste en el sitio viejo
+	Net.enemigos._tick_enemigos([[ID, Vector2(100, 100)]])   # y su dueño insiste en el sitio viejo
 	for i in 30:
 		await get_tree().physics_frame
 	_afirmar(copia.global_position.distance_to(Vector2(200, 100)) < 1.0,
 		"en la pelea, la copia vuelve al sitio que manda la red: %s" % str(copia.global_position))
 	Game._arena_nodo = antes_arena
 	Game._active_enemies = antes_enem
-	copia.ir_a(Vector2(120, 100))
+	Net.enemigos._tick_enemigos([[ID, Vector2(120, 100)]])
 	for i in 60:
 		await get_tree().physics_frame
 	_afirmar(copia.global_position.distance_to(Vector2(120, 100)) < 5.0,
 		"fuera de la pelea, la copia no sigue a la red: %s" % str(copia.global_position))
+	Net.enemigos._enem_nodos.erase(ID)
 	copia.queue_free()
 	arena.queue_free()
+
+
+# 7) LO QUE VIAJA: el circulo va y vuelve igual, y la posicion sellada de otro humano se recorta a su
+#    circulo si se pasa (nunca se rechaza).
+func _probar_red() -> void:
+	var escena: PackedScene = load(ESCENA)
+	var pelea: Node = escena.instantiate()
+	pelea.process_mode = Node.PROCESS_MODE_ALWAYS
+	pelea.tactico = true
+	add_child(pelea)
+	await get_tree().process_frame
+	pelea._state = pelea.State.PAUSED
+	pelea._pause_left = INF
+	var t: TacticoDePrueba = TacticoDePrueba.new(pelea)
+	pelea.turno_mapa = t
+	var otro: Combatant = pelea._aliados[1]
+	t.cuerpos[otro] = _cuerpo(Vector2(0, 0))
+	pelea._dueno_aliado[otro] = 42   # lo mueve OTRO humano
+	pelea._player = otro
+	pelea._state = pelea.State.WAITING_PLAYER
+	t.empezar_turno(otro, 100.0)
+	_afirmar(t._fase == t.Fase.AJENO, "el personaje de otro humano tendria que ir en fase AJENO (va en %d)" % t._fase)
+	_afirmar(is_equal_approx(t.radio_del_turno(), 100.0), "el radio del turno no es el que se pidio")
+	var red: PackedFloat32Array = t.estado_red()
+	_afirmar(red.size() == 4 and int(red[0]) == 1 and is_equal_approx(red[3], 100.0),
+		"el circulo que viaja no es el suyo: %s" % str(red))
+	# Se ha pasado 200 px de su circulo de 100: se recorta, no se tira.
+	t.anotar_pos_remota(otro, [300.0, 0.0])
+	_afirmar(t.pos_de(otro).distance_to(Vector2(100, 0)) < 0.5,
+		"la posicion sellada no se recorta a su circulo: %s" % str(t.pos_de(otro)))
+	# Y dentro del circulo, se respeta tal cual.
+	t.anotar_pos_remota(otro, [30.0, 40.0])
+	_afirmar(t.pos_de(otro).is_equal_approx(Vector2(30, 40)), "la posicion sellada valida se ha tocado")
+	# El turno se va: la fase se apaga sola.
+	pelea._state = pelea.State.PAUSED
+	await get_tree().process_frame
+	_afirmar(t._fase == t.Fase.NADA, "el turno ajeno no se apaga al irse el turno")
+	pelea.queue_free()
+	await get_tree().process_frame
 
 
 func _cuerpo(p: Vector2) -> Node2D:

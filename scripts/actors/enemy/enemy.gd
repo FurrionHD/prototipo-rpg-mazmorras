@@ -1653,6 +1653,17 @@ func estado_visual_red() -> Array:
 	return [_facing.angle(), _winding, _embiste_seq, _state == State.EMBESTIDA]
 
 
+# COMBATE EN EL MAPA: quien lleva la pelea (puede ser OTRA maquina) me dice donde me ha dejado en mi
+# turno, y yo, que soy el bicho de verdad, me pongo ahi. Mi tick de red (Net.enemigos) ya reparte la
+# posicion y la mirada a todos los demas. Solo me lo pide Net.peleas, que comprueba antes que me lo
+# manda quien lleva MI pelea. Con _combat_triggered puesto mi _physics_process no hace nada, asi que
+# la pose de andar hay que ponerla aqui.
+func mover_en_pelea(pos: Vector2, ang: float, andando: bool) -> void:
+	global_position = pos
+	_facing = Vector2.RIGHT.rotated(ang)
+	_actualizar_animacion(_facing * ANDAR_ENTRA * 10.0 if andando else Vector2.ZERO)
+
+
 # MULTIJUGADOR (hito 5.1): al salir del arbol (reciclado por aforo, piso desmontado al viajar) el
 # host da de baja el bicho para que su cuerpo remoto desaparezca en los clientes. En solitario /
 # de cliente no hace nada (Net.enemigos.baja_enemigo corta).

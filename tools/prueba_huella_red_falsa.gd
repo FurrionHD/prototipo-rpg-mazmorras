@@ -55,9 +55,9 @@ func salir_del_espejo() -> void:
 
 # --- TURNOS: anfitrion -> el espejo de ese humano ---
 
-func pedir_accion(peer: int, idx: int, seq: int = 0) -> void:
+func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0) -> void:
 	if is_instance_valid(espejos.get(peer)):
-		espejos[peer].turno_mio(idx, seq)
+		espejos[peer].turno_mio(idx, seq, radio)
 
 
 func pedir_frase(peer: int, idx: int, opciones: Array, nombre: String, largo: int, seq: int = 0) -> void:

@@ -1157,6 +1157,39 @@ var _camara_guardada := {}
 # rastro del grupo seguia arrastrando a los compañeros detras del lider cada vez que este andaba.
 func pelea_tactica_en_curso() -> bool:
 	return is_instance_valid(_arena_nodo)
+
+
+# QUE CUERPO DEL MAPA LLEVA A ESTE PERSONAJE MIO: 0 = el lider (el jugador), k = el compañero k-1 en
+# el orden de companeros(), que es el orden en que viajan las posiciones del sequito por la red.
+# -1 = no va en el grupo. Es la "direccion" con la que los demas encuentran su cuerpo (ver
+# cuerpo_de_red): los PersonajeData no viajan, y el doble de otra maquina es otro objeto.
+func indice_de_cuerpo(pj: PersonajeData) -> int:
+	if pj == null:
+		return -1
+	if pj == lider():
+		return 0
+	var i: int = companeros().find(pj)
+	return i + 1 if i >= 0 else -1
+
+
+# EL CUERPO del personaje 'k' del jugador 'peer', en ESTA maquina. Si el peer soy yo (o 0), es mi
+# cuerpo de verdad; si es otro, su avatar o el cuerpo de su compañero que me pinta la red. null si
+# aqui no existe (esta en otro piso, o todavia no ha llegado su primer paquete).
+func cuerpo_de_red(peer: int, k: int) -> Node2D:
+	if k < 0:
+		return null
+	var yo_id: int = Net.multiplayer.get_unique_id() \
+		if Net.activo and Net.multiplayer.multiplayer_peer != null else 0
+	if peer == 0 or peer == yo_id:
+		if k == 0:
+			return get_tree().get_first_node_in_group("player") as Node2D
+		var comps: Array[PersonajeData] = companeros()
+		return cuerpo_de(comps[k - 1]) if k - 1 < comps.size() else null
+	var n = Net._avatares.get(peer) if k == 0 else null   # SIN tipar: puede estar liberado
+	if k > 0:
+		var lista: Array = Net._avatares_comp.get(peer, [])
+		n = lista[k - 1] if k - 1 < lista.size() else null
+	return n as Node2D if n != null and is_instance_valid(n) else null
 # EL AIRE alrededor de la arena al encuadrarla, en pixeles de MUNDO. UNA CELDA, y no mas.
 #
 # ERA 160 -- cinco celdas por lado -- y ES LO QUE DEJABA EL TABLERO PEQUEÑO EN MEDIO DE LA PANTALLA.
@@ -14196,6 +14229,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	var rect_arena: Rect2i = _rect_de_arena(_active_enemies)
 	var es_tactico: bool = TACTICO_EN_ARENA and es_arena() and rect_arena.has_area()
 	combat.tactico = es_tactico
+	combat.arena_celdas = rect_arena if es_tactico else Rect2i()   # viaja al espejo en el roster
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
@@ -14339,11 +14373,21 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 	cerrar_menus_abiertos()   # tampoco se espeja una pelea con un menu delante
 	var combat := _combat_scene.instantiate()
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
+	# ¿LA PELEA ES EN EL MAPA? Lo dice quien la lleva: su roster trae la ARENA (el rectangulo, en
+	# celdas) si es tactica. No se recalcula aqui: con el trazado de esta maquina podria salir otra
+	# arena, y el que se atasca contra una pared que el otro no ve es un desincronizado de los caros.
+	var arena: Array = roster.get("arena", [])
+	var rect_arena := Rect2i()
+	if arena.size() == 4:
+		rect_arena = Rect2i(int(arena[0]), int(arena[1]), int(arena[2]), int(arena[3]))
+	combat.tactico = rect_arena.has_area()
 	combat.setup_espejo(roster)
 	combat.combat_finished.connect(_on_combate_espejo_cerrado)
 	# LA MUSICA SALE DEL ROSTER, no de _active_enemies: aqui no simulo ningun bicho, asi que la
 	# deduccion de siempre daba "no hay jefe" y unirse a la pelea del Rey Slime sonaba a pelea de rata.
 	_montar_pantalla_combate(combat, 1 if _hay_jefe_en_roster(roster) else 0)
+	if combat.tactico:
+		_montar_arena_tactica(rect_arena)
 	return combat
 
 

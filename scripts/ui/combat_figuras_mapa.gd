@@ -91,8 +91,8 @@ func seguir() -> void:
 		var col: Control = f["bloque"].get("columna")
 		if not is_instance_valid(col):
 			continue
-		var cuerpo: Node2D = f["cuerpo"]
-		if not is_instance_valid(cuerpo):
+		var cuerpo: Node2D = _cuerpo_de_ficha(f)
+		if cuerpo == null:
 			# Un cuerpo que ya no esta (murio y se lo llevaron): la ficha se queda donde estaba en vez
 			# de saltar a la esquina. Ya se apagara sola por el camino de siempre.
 			continue
@@ -170,7 +170,21 @@ func _mudar(bloque: Dictionary, cuerpo: Node2D) -> void:
 # pasa cuando el bicho cambia de tamaño en pantalla.
 func refrescar_mini() -> void:
 	for f in _fichas:
-		_poner_mini(f, true)
+		if _cuerpo_de_ficha(f) != null:
+			_poner_mini(f, true)
+
+
+# EL CUERPO DE UNA FICHA, BUSCADO CADA VEZ y no guardado. En multi el cuerpo de un bicho es su copia
+# de red (remote_enemy), y esa copia se BORRA cuando su dueño la retira, al desconectarse o al
+# cambiar de lugar -- y a veces se vuelve a crear otra. Con el nodo guardado desde el montaje, la
+# ficha se quedaba apuntando a uno ya liberado y cada fotograma reventaba ("previously freed").
+# Buscandolo por el mismo sitio que todo lo demas (turno_mapa.cuerpo_de), si no esta sale null y si
+# lo han vuelto a crear se encuentra el nuevo.
+func _cuerpo_de_ficha(f: Dictionary) -> Node2D:
+	var idx: int = int((f["bloque"] as Dictionary).get("idx", -1))
+	var cuerpo: Node2D = _cuerpo_enemigo(idx)
+	f["cuerpo"] = cuerpo
+	return cuerpo
 
 
 # DONDE ESTA EL CUERPO DEL BICHO EN LA PANTALLA, y cuanto ocupa. Su forma de colision, que
@@ -359,17 +373,15 @@ func _poner_mini(ficha: Dictionary, mini: bool) -> void:
 
 
 # --- DE COMBATIENTE A CUERPO DEL MAPA ----------------------------------------------------------
-# El orden es el mismo por construccion: Game._abrir_pelea crea un Combatant por nodo y en el mismo
-# orden (_active_enemies), y un aliado por ficha (_active_player_pjs). Aqui se aprovecha ese pacto en
-# vez de inventar un mapa nuevo que habria que mantener sincronizado.
+# Lo resuelve UN solo sitio, el turno en el mapa (combat_tactico.cuerpo_de), que sabe hacerlo en la
+# maquina que lleva la pelea y en el ESPEJO, donde los bichos se buscan por su id de red y los
+# aliados por "el personaje k del jugador tal".
 
 func _cuerpo_enemigo(i: int) -> Node2D:
-	var nodos: Array = Game._active_enemies
-	return nodos[i] as Node2D if i >= 0 and i < nodos.size() else null
+	var lista: Array = _pantalla._enemies
+	return _pantalla.turno_mapa.cuerpo_de(lista[i]) if i >= 0 and i < lista.size() else null
 
 
 func _cuerpo_aliado(i: int) -> Node2D:
-	var pjs: Array = Game._active_player_pjs
-	if i < 0 or i >= pjs.size():
-		return null
-	return Game.cuerpo_de(pjs[i] as PersonajeData)
+	var lista: Array = _pantalla._aliados
+	return _pantalla.turno_mapa.cuerpo_de(lista[i]) if i >= 0 and i < lista.size() else null

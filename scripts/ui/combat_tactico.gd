@@ -21,9 +21,22 @@
 #  LA REGLA DE SIEMPRE: aqui no se resuelve daño. Si alguna vez hace falta un if de "tactico" dentro
 #  de una funcion que pega, la costura esta mal puesta.
 #
-#  PENDIENTE (fases siguientes, no de esta): a quien alcanzas segun donde estas (fase 5, la
-#  geometria de mapa), las cargas que clavan y la reposicion entre frases (fase 6), y la RED (fase 7:
-#  hoy solo se mueven los personajes de ESTA maquina).
+#  EN MULTI, DESDE EL PRINCIPIO. Quien mueve cada cuerpo:
+#    TUS PERSONAJES   los mueve TU maquina, siempre -- tambien si la pelea la lleva otro y tu la ves
+#                     en espejo. Es la que tiene sus cuerpos de verdad, y su posicion ya viaja por el
+#                     canal del jugador (Net.jugadores.enviar_estado, con el sequito). El radio te lo
+#                     manda quien lleva la pelea con la peticion de turno, y tu posicion le vuelve
+#                     sellada con tu accion (pos_para_red / anotar_pos_remota).
+#    LOS BICHOS       los mueve quien lleva la pelea, y se lo cuenta a su DUEÑO (el del piso) para
+#                     que los ponga en su sitio y los reparta por su tick de siempre
+#                     (Net.peleas.mover_bichos_en_pelea).
+#    EL CIRCULO       de quien tiene el turno viaja con la barra de turnos (estado_red), para que todos
+#                     vean quien anda y hasta donde.
+#  Y CADA MAQUINA ENCUENTRA LOS CUERPOS EN SU MUNDO por una direccion que viaja en el roster: un
+#  aliado es "el personaje k del jugador tal" y un bicho es su id de red (direccion_red / cuerpo_de).
+#
+#  PENDIENTE (fases siguientes): a quien alcanzas segun donde estas (fase 5, la geometria de mapa) y
+#  las cargas que clavan y la reposicion entre frases (fase 6).
 # ============================================================
 extends RefCounted
 
@@ -58,8 +71,20 @@ const DENTRO_DEL_BORDE := 4.0
 # La huella de pies de quien no declara ninguna forma de colision.
 const HUELLA_POR_DEFECTO := Vector2(16.0, 12.0)
 
-enum Fase { NADA, MOVIENDO, ACERCANDO }
+# MOVIENDO  anda uno de los mios, en esta maquina.
+# ACERCANDO se acerca un bicho (solo en la maquina que lleva la pelea).
+# AJENO     tiene el turno uno que se mueve en OTRA maquina: aqui solo se pinta su circulo; su cuerpo
+#           lo trae la red.
+enum Fase { NADA, MOVIENDO, ACERCANDO, AJENO }
 var _fase: int = Fase.NADA
+
+# EN EL ESPEJO: el roster que mando quien lleva la pelea. De ahi sale la direccion de cada cuerpo.
+var roster_red: Dictionary = {}
+
+# LOS BICHOS MOVIDOS que aun no se le han contado a su dueño: id -> [pos, angulo, andando].
+var _bichos_movidos: Dictionary = {}
+var _t_envio: float = 0.0
+const ENVIO_BICHOS := 1.0 / 20.0   # el mismo ritmo que el tick de enemigos de su dueño
 
 # EL QUE TIENE EL TURNO y su cuerpo del mapa.
 var _quien: Combatant = null
@@ -122,18 +147,94 @@ func desmontar() -> void:
 #  DE COMBATIENTE A CUERPO
 # ------------------------------------------------------------
 
+# EL UNICO SITIO que responde "donde esta el cuerpo de este combatiente", en cualquier maquina. Lo
+# usan tambien las fichas del mapa (combat_figuras_mapa): si cada uno lo buscara por su cuenta, el
+# dia que se arregla uno el otro sigue buscando en el sitio viejo.
 func cuerpo_de(c: Combatant) -> Node2D:
+	if c == null:
+		return null
+	if _pantalla._espejo:
+		return _cuerpo_en_espejo(c)
 	var i: int = _pantalla._enemies.find(c)
 	if i >= 0:
-		return _pantalla.figuras_mapa._cuerpo_enemigo(i)
+		# El orden es el mismo por construccion: Game._abrir_pelea crea un Combatant por nodo, en el
+		# orden de _active_enemies. Los invocados no tienen nodo y se quedan en null.
+		var nodos: Array = Game._active_enemies
+		var n = nodos[i] if i < nodos.size() else null
+		return n as Node2D if n != null and is_instance_valid(n) else null
+	if not _pantalla._aliados.has(c):
+		return null
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	if pj == null:
+		return null
+	var dueno: int = int(_pantalla._dueno_aliado.get(c, 0))
+	if dueno == 0:
+		return Game.cuerpo_de(pj)
+	# El DOBLE de otro humano: su cuerpo es el que me pinta la red, el personaje k de ese jugador.
+	return Game.cuerpo_de_red(dueno, int(pj.get_meta("cuerpo_red", -1)))
+
+
+func _cuerpo_en_espejo(c: Combatant) -> Node2D:
+	var i: int = _pantalla._enemies.find(c)
+	if i >= 0:
+		var filas: Array = roster_red.get("enemigos", [])
+		return _nodo_de_bicho(int((filas[i] as Dictionary).get("nid", 0))) if i < filas.size() else null
 	i = _pantalla._aliados.find(c)
 	if i >= 0:
-		return _pantalla.figuras_mapa._cuerpo_aliado(i)
+		var filas: Array = roster_red.get("aliados", [])
+		if i >= filas.size():
+			return null
+		var d: Dictionary = filas[i]
+		return Game.cuerpo_de_red(int(d.get("peer", 0)), int(d.get("cuerpo", -1)))
 	return null
 
 
+# El cuerpo de un bicho por su id de red: el de verdad si es mio, o el espejo que me pinta su dueño.
+func _nodo_de_bicho(id: int) -> Node2D:
+	if id == 0:
+		return null
+	var n = Net.enemigos._enem_nodos.get(id)   # SIN tipar: puede estar liberado
+	if n == null or not is_instance_valid(n):
+		n = Net.enemigos._enemigos.get(id, {}).get("nodo")
+	return n as Node2D if n != null and is_instance_valid(n) else null
+
+
+# LA DIRECCION DE RED de un combatiente, para el roster: con ella el espejo encuentra su cuerpo en
+# SU mundo. Aliado = {peer, cuerpo}; bicho = {nid}. Solo la pide quien lleva la pelea.
+func direccion_red(c: Combatant) -> Dictionary:
+	var i: int = _pantalla._enemies.find(c)
+	if i >= 0:
+		var cuerpo: Node2D = cuerpo_de(c)
+		return {"nid": int(cuerpo.get_meta("net_id", 0)) if cuerpo != null else 0}
+	var pj: PersonajeData = Game.pj_de_combatant(c)
+	var dueno: int = int(_pantalla._dueno_aliado.get(c, 0))
+	if dueno == 0:
+		return {"peer": _mi_id(), "cuerpo": Game.indice_de_cuerpo(pj)}
+	return {"peer": dueno, "cuerpo": int(pj.get_meta("cuerpo_red", -1)) if pj != null else -1}
+
+
+static func _mi_id() -> int:
+	if Net.activo and Net.multiplayer.multiplayer_peer != null:
+		return Net.multiplayer.get_unique_id()
+	return 0
+
+
+# ¿Este personaje lo muevo YO, en esta maquina? En la que lleva la pelea, los que no son de otro
+# humano; en el espejo, los que el roster dice que son mios.
+func _es_mio(c: Combatant) -> bool:
+	if not _pantalla._espejo:
+		return int(_pantalla._dueno_aliado.get(c, 0)) == 0
+	var i: int = _pantalla._aliados.find(c)
+	var filas: Array = roster_red.get("aliados", [])
+	return i >= 0 and i < filas.size() and int((filas[i] as Dictionary).get("peer", -1)) == _mi_id()
+
+
 # Donde esta. Lo que diga su cuerpo, y si no tiene (un invocado), lo ultimo apuntado.
+# El personaje de OTRO humano, en quien lleva la pelea, esta donde dijo al elegir su accion (la
+# posicion sellada, ver anotar_pos_remota), no donde lo tenga ahora mismo su cuerpo interpolado.
 func pos_de(c: Combatant) -> Vector2:
+	if not _pantalla._espejo and _pos.has(c) and _pantalla._aliados.has(c) and not _es_mio(c):
+		return _pos[c]
 	var cuerpo: Node2D = cuerpo_de(c)
 	if is_instance_valid(cuerpo):
 		return cuerpo.global_position
@@ -156,36 +257,49 @@ func radio_de(c: Combatant) -> float:
 #  TU TURNO
 # ------------------------------------------------------------
 
-# Empieza el turno de uno de los tuyos. Lo llama _begin_player_turn cuando ya se sabe que el turno
-# se juega (ni aturdido ni cargando).
-func empezar_turno(c: Combatant) -> void:
+# Empieza el turno de uno de los tuyos. Dos sitios lo llaman:
+#   - quien lleva la pelea, desde _begin_player_turn (ya se sabe que el turno se juega: ni aturdido ni
+#     cargando). Calcula el radio el, que tiene la Agilidad de verdad.
+#   - el ESPEJO, desde turno_mio, cuando le piden la accion de uno de los suyos. El radio le llega con
+#     la peticion ('radio'): su maniqui no tiene stats de las que sacarlo.
+# Si el personaje lo mueve OTRA maquina, aqui solo se pinta su circulo (fase AJENO).
+func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_terminar()
-	# Solo los personajes de ESTA maquina andan por ahora: el de otro humano manda su accion por red y
-	# la red todavia no lleva posiciones (fase 7).
-	if int(_pantalla._dueno_aliado.get(c, 0)) != 0:
-		return
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return
 	_quien = c
 	_cuerpo = cuerpo
 	_inicio = cuerpo.global_position
-	# Recitando (entre frases) no se anda todavia: la reposicion entre frases es la fase 6.
-	_radio = 0.0 if _pantalla._cast_spell != null else radio_de(c)
-	_fase = Fase.MOVIENDO
+	if radio >= 0.0:
+		_radio = radio
+	else:
+		# Recitando (entre frases) no se anda todavia: la reposicion entre frases es la fase 6.
+		_radio = 0.0 if _pantalla._cast_spell != null else radio_de(c)
+	_fase = Fase.MOVIENDO if _es_mio(c) else Fase.AJENO
 	_andando = false
-	_animar(cuerpo, _mirada_de(cuerpo), false)
+	if _fase == Fase.MOVIENDO:
+		_animar(cuerpo, _mirada_de(cuerpo), false)
 	var arena: ArenaCombate = _arena()
 	if arena != null and _radio > 0.0:
 		arena.poner_circulo(_inicio, _radio)
 
 
-# Cada fotograma, desde _process. Devuelve true si el turno lo tiene ESTE tema (un enemigo
-# acercandose) y la pantalla no debe hacer nada mas este fotograma.
+# El radio del turno que se esta jugando, para mandarselo al dueño con la peticion de accion.
+func radio_del_turno() -> float:
+	return _radio if _fase != Fase.NADA else 0.0
+
+
+# Cada fotograma, desde _process (tambien en el espejo). Devuelve true si el turno lo tiene ESTE tema
+# (un enemigo acercandose) y la pantalla no debe hacer nada mas este fotograma.
 func tick(delta: float) -> bool:
 	match _fase:
 		Fase.MOVIENDO:
 			_tick_moviendo(delta)
+			return false
+		Fase.AJENO:
+			if _turno_acabado():
+				_terminar()
 			return false
 		Fase.ACERCANDO:
 			_tick_acercando(delta)
@@ -193,10 +307,14 @@ func tick(delta: float) -> bool:
 	return false
 
 
+# EL TURNO SE HA IDO: se eligio accion, o se lo ha llevado otra cosa (huyo, cayo).
+func _turno_acabado() -> bool:
+	return _pantalla._state != _pantalla.State.WAITING_PLAYER or _pantalla._player != _quien \
+		or not is_instance_valid(_cuerpo)
+
+
 func _tick_moviendo(delta: float) -> void:
-	# EL TURNO SE HA IDO: has elegido accion, o se lo ha llevado otra cosa (huiste, caiste).
-	if _pantalla._state != _pantalla.State.WAITING_PLAYER or _pantalla._player != _quien \
-			or not is_instance_valid(_cuerpo):
+	if _turno_acabado():
 		_terminar()
 		return
 	var arena: ArenaCombate = _arena()
@@ -306,6 +424,11 @@ func _tick_acercando(delta: float) -> void:
 		_dentro(_arena()), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_animar(_cuerpo, hacia, true, (nueva - antes) / maxf(delta, 0.0001))
+	_apuntar_bicho(_cuerpo, true)
+	_t_envio += delta
+	if _t_envio >= ENVIO_BICHOS:
+		_t_envio = 0.0
+		_enviar_bichos()
 	# ATASCADO (contra roca, o en el borde de su circulo): no se agota el tope empujando.
 	if nueva.distance_to(antes) < ATASCO_PX:
 		_t_atasco += dt
@@ -321,12 +444,38 @@ func _actuar() -> void:
 		var mira: Vector2 = _presa.global_position - _cuerpo.global_position \
 			if is_instance_valid(_presa) else _mirada_de(_cuerpo)
 		_animar(_cuerpo, mira, false)
+		# EL ULTIMO AVISO AL DUEÑO: "se ha parado aqui, mirando alli". Sin el, en las demas pantallas
+		# el bicho se quedaba con la pose de andar o unos pixeles antes de donde se paro de verdad.
+		_apuntar_bicho(_cuerpo, false)
+		_enviar_bichos()
 	_terminar()
 	# La cuenta a cero: si su turno no la vuelve a poner (casi todos acaban en _pausa_lectura, que
 	# si), el siguiente fotograma la pelea sigue sola en vez de quedarse en pausa para siempre.
 	_pantalla._pause_left = 0.0
 	if e != null and e.is_alive() and _pantalla._state != _pantalla.State.FINISHED:
 		_pantalla.enemigos._enemy_turn(e)
+
+
+# Apunta donde esta un bicho para contarselo a su dueño. Solo si su dueño es OTRA maquina (lo que
+# tengo es su espejo, remote_enemy): si el bicho de verdad es mio, mi propio tick de red ya lo lee
+# de su nodo y no hay nada que contar.
+func _apuntar_bicho(cuerpo: Node2D, andando: bool) -> void:
+	if not Net.activo or not is_instance_valid(cuerpo) or not cuerpo.has_meta("net_id") \
+			or not cuerpo.get("_objetivo") is Vector2:
+		return
+	_bichos_movidos[int(cuerpo.get_meta("net_id"))] = [cuerpo.global_position,
+		_mirada_de(cuerpo).angle(), andando]
+
+
+func _enviar_bichos() -> void:
+	if _bichos_movidos.is_empty():
+		return
+	var lote: Array = []
+	for id in _bichos_movidos:
+		var d: Array = _bichos_movidos[id]
+		lote.append([id, d[0], d[1], d[2]])
+	_bichos_movidos.clear()
+	Net.peleas.mover_bichos_en_pelea(lote)
 
 
 # A QUIEN SE ACERCA: al de los tuyos que tenga mas cerca. Todavia no es a quien va a pegar (eso lo
@@ -442,6 +591,65 @@ func _terminar() -> void:
 	_quitar_circulo()
 
 
+# ------------------------------------------------------------
+#  LA RED
+# ------------------------------------------------------------
+
+# EL CIRCULO QUE SE ESTA VIENDO, para que los espejos pinten el mismo: [quien, x, y, radio]. 'quien'
+# es el codigo de siempre del combatiente (aliados tal cual, enemigos desde 100; ver
+# espejo._cod_combatiente), -1 si no anda nadie. Viaja al final del paquete de la barra de turnos.
+func estado_red() -> PackedFloat32Array:
+	if _fase == Fase.NADA or _quien == null or _radio <= 0.0:
+		return PackedFloat32Array([-1.0, 0.0, 0.0, 0.0])
+	return PackedFloat32Array([float(_pantalla.espejo._cod_combatiente(_quien)),
+		_inicio.x, _inicio.y, _radio])
+
+
+# EN EL ESPEJO: llega el circulo de quien lleva la pelea. Si el turno es mio y ya estoy andando, el
+# que manda es el mio (lo pinte yo al empezar), no el que viene con retraso por la red.
+func aplicar_red(d: PackedFloat32Array) -> void:
+	if not _pantalla._espejo or d.size() < 4 or _fase == Fase.MOVIENDO:
+		return
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	var cod: int = int(d[0])
+	if cod < 0 or d[3] <= 0.0:
+		arena.quitar_circulo()
+	else:
+		arena.poner_circulo(Vector2(d[1], d[2]), d[3], cod >= 100)
+
+
+# EN EL ESPEJO, al contestar mi accion: donde he dejado a mi personaje. Viaja SELLADA con la accion
+# (el mismo seq), asi quien lleva la pelea resuelve el golpe con la posicion con la que lo elegi y no
+# con la que le haya llegado a medias por el canal del jugador.
+func pos_para_red() -> Array:
+	if _fase != Fase.MOVIENDO or not is_instance_valid(_cuerpo):
+		return []
+	return [_cuerpo.global_position.x, _cuerpo.global_position.y]
+
+
+# EN QUIEN LLEVA LA PELEA: llega la posicion sellada con la accion de otro humano. NO SE RECHAZA
+# NUNCA -- un rechazo seco congela la pelea entera --: si se sale de su circulo o de la arena se
+# recorta al punto valido mas cercano y se apunta en la traza. Con un poco de holgura, porque su
+# cuerpo aqui llega interpolado y el centro del circulo puede ir unos pixeles por detras.
+const HOLGURA_RED := 8.0
+
+func anotar_pos_remota(c: Combatant, pos: Array) -> void:
+	if c == null or pos.size() < 2:
+		return
+	var p := Vector2(float(pos[0]), float(pos[1]))
+	var valida: Vector2 = p
+	if _quien == c and _radio > 0.0 and p.distance_to(_inicio) > _radio + HOLGURA_RED:
+		valida = _inicio + (p - _inicio).limit_length(_radio)
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		valida = arena.recortar_dentro(valida, 0.0)
+	if not valida.is_equal_approx(p):
+		_pantalla._traza_add("POS de %s recortada: %s -> %s" % [c.nombre, str(p.round()), str(valida.round())])
+	_pos[c] = valida
+
+
 func _quitar_circulo() -> void:
 	var arena: ArenaCombate = _arena()
 	if arena != null:
@@ -465,9 +673,9 @@ func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 	cuerpo.global_position = p
 	_pos[c] = p
 	# LA COPIA DE RED de un bicho (remote_enemy) se arrastra cada fotograma hacia el ultimo sitio que
-	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. Y mientras
-	# dure la pelea no acepta posiciones nuevas de su dueño (ver remote_enemy.ir_a). Apaño hasta la
-	# fase 7: el dueño todavia no se entera de que se ha movido.
+	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. (Lo que le
+	# siga llegando de su dueño durante la pelea ya no se le aplica, ver net_enemigos._tick_enemigos, y
+	# el dueño se entera de donde lo dejo por _enviar_bichos.)
 	if cuerpo.get("_objetivo") is Vector2:
 		cuerpo.set("_objetivo", p)
 		# Y el reloj con el que deduce si anda (remote_enemy._physics_process): sin ponerlo a cero, se

@@ -280,9 +280,19 @@ func _difundir_posiciones_enemigos() -> void:
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _tick_enemigos(lote: Array) -> void:
+	# Los bichos de MI pelea en el mapa: de su sitio mando YO, que llevo la pelea (se lo cuento a su
+	# dueño, ver Net.peleas.mover_bichos_en_pelea). Lo que me llega de el va con retraso -- la ida y
+	# vuelta de lo que yo mismo le dije --, y aplicandolo el bicho daba tirones hacia atras mientras
+	# andaba (y antes de avisar al dueño, volvia a su sitio de antes de la pelea). Solo me quedo con
+	# de quien es la pelea.
+	var mios_tactico: bool = Game.pelea_tactica_en_curso()
 	for par in lote:
 		var n = _enem_nodos.get(par[0])
 		if n == null or not is_instance_valid(n):
+			continue
+		if mios_tactico and Game._active_enemies.has(n):
+			if par.size() >= 5:
+				n.pelea_de = int(par[4])
 			continue
 		n.ir_a(par[1])
 		if par.size() >= 4:

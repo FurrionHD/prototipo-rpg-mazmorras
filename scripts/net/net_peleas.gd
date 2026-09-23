@@ -1388,21 +1388,80 @@ func _pedir_velocidad(v: float) -> void:
 
 # El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no
 # corre (State.WAITING_PLAYER), asi que nadie pierde turnos por pensar.
-func pedir_accion(peer: int, idx: int, seq: int = 0) -> void:
+func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0) -> void:
 	if not Net.activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_turno.rpc_id(peer, idx, seq)
+	_tu_turno.rpc_id(peer, idx, seq, radio)
 
 
 # 'seq' es el numero de peticion: viaja de ida y vuelta para que el anfitrion sepa distinguir la
 # respuesta a ESTA peticion de una rezagada (ver combat.gd, _pet_seq).
+# 'radio' es cuanto puede ANDAR en este turno, en la pelea en el mapa (0 = nada, o pelea de fila). Lo
+# calcula el anfitrion: el maniqui del espejo no tiene la Agilidad con la que se saca.
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_turno(idx: int, seq: int = 0) -> void:
+func _tu_turno(idx: int, seq: int = 0, radio: float = 0.0) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("turno_mio"):
-		p.turno_mio(idx, seq)
+		p.turno_mio(idx, seq, radio)
+
+
+# --- EL COMBATE EN EL MAPA: los bichos se mueven -----------------------------------------------
+# En la pelea en el mapa los bichos ANDAN en su turno, y lo decide quien lleva la pelea. Pero el
+# bicho de verdad es de su DUEÑO (el del piso), que es quien difunde su posicion a todos a 20 Hz: si
+# no se entera, sigue mandando la de antes y en las demas pantallas el bicho no se mueve (y en la
+# mia volvia a su sitio). Asi que quien lleva la pelea le manda al dueño donde ha dejado cada bicho,
+# por el mismo camino que el resultado de la pelea (yo -> host -> dueño), y el dueño lo pone en su
+# sitio; de ahi lo reparte su tick de siempre.
+#
+# lote = [[id, pos, angulo_de_mirada, andando], ...]. FIABLE: son pocos paquetes (solo mientras un
+# bicho anda, ~20 por segundo durante segundo y medio) y el ultimo, el de "se ha parado aqui", no
+# se puede perder o el bicho se queda en el sitio equivocado para siempre.
+func mover_bichos_en_pelea(lote: Array) -> void:
+	if not Net.activo or multiplayer.multiplayer_peer == null or lote.is_empty():
+		return
+	if Net.es_host:
+		_encaminar_mover(lote, Net._mi_lugar, multiplayer.get_unique_id())
+	else:
+		_pedir_mover.rpc_id(1, lote, Net._mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_mover(lote: Array, lugar: String) -> void:
+	if not Net.es_host:
+		return
+	_encaminar_mover(lote, lugar, multiplayer.get_remote_sender_id())
+
+
+func _encaminar_mover(lote: Array, lugar: String, desde: int) -> void:
+	if Net._mi_lugar == lugar and Net._soy_dueno:
+		_aplicar_mover(lote, desde)
+		return
+	var dueno: int = Net._dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_rel_mover.rpc_id(dueno, lote, lugar, desde)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_mover(lote: Array, lugar: String, desde: int) -> void:
+	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		return
+	_aplicar_mover(lote, desde)
+
+
+# SOLO el dueño, y solo si se lo pide QUIEN LLEVA LA PELEA de ese bicho: nadie mas puede andar
+# moviendole los bichos a otro.
+func _aplicar_mover(lote: Array, desde: int) -> void:
+	for par in lote:
+		var id: int = int(par[0])
+		var nodo = Net.enemigos._enemigos.get(id, {}).get("nodo")
+		if nodo == null or not is_instance_valid(nodo):
+			continue
+		if _anfitrion_de_enemigo(id, nodo) != desde:
+			continue
+		if nodo.has_method("mover_en_pelea"):
+			nodo.mover_en_pelea(par[1], float(par[2]), bool(par[3]))
 
 
 # MAGIA (hito 5.4-C): recitar son varios turnos con su examen de frases, asi que no basta con

@@ -87,6 +87,9 @@ var turno_mapa = CombatTactico.new(self)
 # combates, y solo puede mirarlo la GEOMETRIA y la PUESTA EN ESCENA: si acaba dentro de una funcion
 # que resuelve daño, la costura esta en el sitio equivocado.
 var tactico: bool = false
+# La arena de la pelea tactica, en CELDAS. La pone quien la calcula (Game._abrir_pelea) y viaja a los
+# espejos en el roster: la calcula UNA maquina, nunca cada una la suya.
+var arena_celdas: Rect2i = Rect2i()
 const CombatEspejo = preload("res://scripts/ui/combat_espejo.gd")
 var espejo = CombatEspejo.new(self)
 
@@ -999,6 +1002,10 @@ func _process(delta: float) -> void:
 	# ESPEJO (hito 5.4-C): esta pantalla no SIMULA nada, solo pinta la pelea que lleva otra
 	# maquina. Ni ATB, ni turnos, ni resolucion: todo eso llega por instantaneas.
 	if _espejo:
+		# ...salvo ANDAR: en el mapa, mis personajes los muevo yo aunque la pelea la lleve otro (su
+		# posicion le llega por el canal del jugador y sellada con mi accion).
+		if tactico:
+			turno_mapa.tick(delta)
 		return
 	_tick_platos(delta)   # los buffs de comida se gastan por RELOJ, no por turnos (ver mas abajo)
 	espejo._difundir_atb(delta)
@@ -1202,7 +1209,10 @@ func _pedir_accion_del_turno() -> void:
 	if dueno != 0:
 		_ocultar_cajas()
 		_set_log("Turno de %s. Esperando su acción..." % _player.nombre)
-		espejo._pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player)})
+		# Con el RADIO que puede andar en el mapa: lo calculo yo, que tengo su Agilidad (ver
+		# turno_mapa.empezar_turno, que ya lo ha dejado puesto). En la pelea de fila va a 0.
+		espejo._pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player),
+			"radio": turno_mapa.radio_del_turno() if tactico else 0.0})
 	else:
 		_mostrar_acciones()
 
@@ -2366,5 +2376,5 @@ func roster_para_espejo() -> Dictionary:
 func setup_espejo(roster: Dictionary) -> void:
 	espejo.setup_espejo(roster)
 
-func turno_mio(idx: int, seq: int = 0) -> void:
-	espejo.turno_mio(idx, seq)
+func turno_mio(idx: int, seq: int = 0, radio: float = 0.0) -> void:
+	espejo.turno_mio(idx, seq, radio)

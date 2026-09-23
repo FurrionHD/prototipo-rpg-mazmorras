@@ -463,12 +463,8 @@ func _redimensionar(lado: float) -> void:
 
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).
 func ir_a(pos: Vector2) -> void:
-	# EN MI PELEA TACTICA LO MUEVE EL TURNO, NO SU DUEÑO. El dueño sigue mandando su posicion a 20 Hz
-	# aunque este peleando conmigo, y es la de ANTES de la pelea (alli no se ha movido): haciendole
-	# caso, el bicho andaba su turno y volvia andando a su sitio antes de atacar (playtest 23/09).
-	# Es un puente hasta la fase 7, cuando la posicion del combate viaje por la red de verdad.
-	if Game.pelea_tactica_en_curso() and Game._active_enemies.has(self):
-		return
+	# (Si estoy en la pelea en el mapa que lleva ESTA maquina, ni se me llama: ver
+	# net_enemigos._tick_enemigos. Ahi de mi sitio manda el turno, no mi dueño.)
 	if _objetivo == Vector2.INF or global_position.distance_to(pos) > SALTO:
 		global_position = pos   # primer paquete o salto grande: aparecer alli, sin deslizarse
 	elif pos.distance_to(_objetivo) > AVANCE_MIN:

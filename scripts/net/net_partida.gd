@@ -278,6 +278,11 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	if pnode != null and pnode.has_method("aguante_de_grupo"):
 		var ag: Vector2 = pnode.aguante_de_grupo(pj)
 		d["aguante"] = [ag.x, ag.y]
+	# QUE CUERPO DEL MAPA ES: 0 = yo (el lider), k = mi compañero k-1, en el orden de Game.companeros(),
+	# que es el mismo en el que viajan sus posiciones (party_trail.posiciones_red). Lo necesita el
+	# combate en el mapa: quien lleva la pelea tiene que saber a que cuerpo de los mios -- el avatar, o
+	# el cuerpo de compañero numero tal -- corresponde este doble para ver donde esta. -1 = sin cuerpo.
+	d["cuerpo"] = Game.indice_de_cuerpo(pj)
 	return d
 
 
@@ -346,6 +351,7 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	pj.set_meta("cds", d.get("cds", {}))
 	if d.has("aguante"):
 		pj.set_meta("aguante", d["aguante"])   # lo lee Game.aguante_para_combate
+	pj.set_meta("cuerpo_red", int(d.get("cuerpo", -1)))   # que cuerpo de su dueño es (ver ficha_a_dict)
 	return pj
 
 
