@@ -691,6 +691,13 @@ func _construir_geometria() -> void:
 	var fondo := ColorRect.new()
 	fondo.color = color_roca
 	fondo.size = gen.tam_px()
+	# ...Y NO SE COME LOS CLICS. Un ColorRect nace en MOUSE_FILTER_STOP, y este es del tamaño del
+	# piso ENTERO: se quedaba todos los clics sobre el mundo antes de que llegaran a nadie. No se
+	# notaba porque en la mazmorra no se hace clic en el suelo, pero en la ARENA dejaba muerto el
+	# boton "Colocar" del spawner: el panel respondia (sus botones son Controls y reciben el clic
+	# directamente) y el clic en el suelo no llegaba nunca a _unhandled_input. Esto es decorado:
+	# no atrapa nada.
+	fondo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_geo.add_child(fondo)
 
 	_tm.clear()

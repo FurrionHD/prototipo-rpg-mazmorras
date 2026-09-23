@@ -17,6 +17,16 @@ func _ok(texto: String, cond: bool) -> void:
 		_malos += 1
 
 
+# Recorre el piso entero y apunta los Control que NO dejan pasar el raton. IGNORE es el unico
+# filtro valido para decorado: PASS tambien deja pasar, pero un decorado no tiene por que recibir
+# nada, asi que aqui se exige IGNORE y se evita la duda.
+func _controles_que_atrapan(n: Node, fuera: Array[String]) -> void:
+	if n is Control and (n as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		fuera.append("%s [%s]" % [n.name, n.get_class()])
+	for h in n.get_children():
+		_controles_que_atrapan(h, fuera)
+
+
 func _esperar(n: int) -> void:
 	for _i in n:
 		await get_tree().process_frame
@@ -63,6 +73,19 @@ func _correr() -> void:
 	_ok("con su porton dibujado", piso != null and piso.get_node_or_null("Geo/PortonArena") != null)
 	_ok("sin zonas que paran enemigos", piso != null and piso._zonas == null)
 	_ok("y vacia", get_tree().get_nodes_in_group("enemy").is_empty())
+	# NINGUN Control DEL MUNDO PUEDE ATRAPAR EL RATON. El fondo de roca del piso es un ColorRect del
+	# tamaño del mapa entero, y un ColorRect NACE en MOUSE_FILTER_STOP: se quedaba todos los clics
+	# sobre el suelo antes de que llegaran a nadie. En la mazmorra no se notaba (ahi no se hace clic
+	# en el suelo), pero dejaba MUERTO el boton "Colocar" del spawner -- el panel respondia y el clic
+	# en el mapa no llegaba nunca a _unhandled_input.
+	# Se comprueba la familia entera y no solo ese nodo: cualquier Control nuevo que se cuelgue del
+	# piso volveria a taparlo, y el sintoma (un boton que no hace nada, sin un solo error) no se
+	# parece en nada a la causa.
+	var atrapan: Array[String] = []
+	if piso != null:
+		_controles_que_atrapan(piso, atrapan)
+	_ok("ningun Control del piso se come los clics%s"
+		% ("" if atrapan.is_empty() else ": " + ", ".join(atrapan)), atrapan.is_empty())
 
 	# 2) EL SPAWNER: coloca con el muñeco puesto en el enemigo, y limpia.
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
