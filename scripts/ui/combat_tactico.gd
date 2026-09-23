@@ -38,7 +38,7 @@
 #  EL ALCANCE Y LA HUELLA (fase 5): para pegar hay que llegar (llega / alcanzables), y las habilidades
 #  ya hechas para el mapa se APUNTAN con el raton (apuntar / reparto_habilidad): pegan a todo lo que la
 #  huella roce, sin tope. Mientras se recita NO se anda (decision del usuario: no hay reposicion entre
-#  frases). PENDIENTE: que los espejos vean la huella de los demas, y la magia con su rango.
+#  frases). Las huellas las ven TODOS (estado_huellas / aplicar_huellas). PENDIENTE: la magia con su rango.
 # ============================================================
 extends RefCounted
 
@@ -368,6 +368,7 @@ func radio_del_turno() -> float:
 # Cada fotograma, desde _process (tambien en el espejo). Devuelve true si el turno lo tiene ESTE tema
 # (un enemigo acercandose) y la pantalla no debe hacer nada mas este fotograma.
 func tick(delta: float) -> bool:
+	_tick_huellas(delta)
 	match _fase:
 		Fase.MOVIENDO:
 			_tick_moviendo(delta)
@@ -475,6 +476,9 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.poner_huella(CLAVE_APUNTE, f, _apuntando.forma_nucleo)
+	# Y a los demas: si llevo la pelea la apunto en la lista que reparto; si soy espejo, se la mando.
+	_anotar_huella_red(_quien, CLASE_APUNTANDO, f, _apuntando.forma_nucleo)
+	_enviar_mi_huella(f, _apuntando.forma_nucleo)
 	# MIRA HACIA DONDE APUNTA (lo pidio el usuario). Su cuerpo es el de esta maquina, y su cara viaja
 	# con el, por el canal del jugador.
 	_animar(_cuerpo, raton - _cuerpo.global_position, false)
@@ -503,6 +507,9 @@ func _cancelar_apunte() -> void:
 
 
 func _dejar_de_apuntar() -> void:
+	if _apuntando != null and _quien != null:
+		_anotar_huella_red(_quien, CLASE_APUNTANDO, null, 0.0)
+		_enviar_mi_huella(null, 0.0)
 	_apuntando = null
 	var arena: ArenaCombate = _arena()
 	if arena != null:
@@ -595,9 +602,11 @@ func guardar_carga(c: Combatant, ab: AbilityData) -> void:
 	if c == null or not _hay_apunte:
 		return
 	_cargas[c] = [ab, apunte]
+	var f = forma_de(ab, c, apunte)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
-		arena.poner_huella(c, forma_de(ab, c, apunte), ab.forma_nucleo, Color(1.0, 0.45, 0.25))
+		arena.poner_huella(c, f, ab.forma_nucleo, COLOR_CARGA)
+	_anotar_huella_red(c, CLASE_CARGA, f, ab.forma_nucleo)
 
 
 func tiene_carga(c: Combatant) -> bool:
@@ -608,6 +617,7 @@ func tiene_carga(c: Combatant) -> bool:
 func recuperar_carga(c: Combatant) -> void:
 	var d: Array = _cargas.get(c, [])
 	_cargas.erase(c)
+	_anotar_huella_red(c, CLASE_CARGA, null, 0.0)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(c)
@@ -621,9 +631,151 @@ func olvidar_carga(c: Combatant) -> void:
 	if not _cargas.has(c):
 		return
 	_cargas.erase(c)
+	_anotar_huella_red(c, CLASE_CARGA, null, 0.0)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(c)
+
+
+# ------------------------------------------------------------
+#  QUE LOS DEMAS VEAN LAS HUELLAS
+# ------------------------------------------------------------
+# Quien lleva la pelea guarda TODAS las huellas vivas (la que se apunta, sea de aqui o de un espejo, y
+# las de las cargas) y las reparte juntas unas veces por segundo. Cada maquina pinta las de los demas;
+# la suya, mientras apunta, la pinta ella misma sin esperar a la red.
+#
+# UNA HUELLA = 12 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo].
+# cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 = apuntando, 1 = carga.
+const FLOATS_HUELLA := 12
+const CLASE_APUNTANDO := 0
+const CLASE_CARGA := 1
+const ENVIO_HUELLAS := 1.0 / 12.0
+const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
+var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
+var _huellas_cambiadas: bool = false
+var _t_huellas: float = 0.0
+var _t_repetir: float = 0.0
+var _mi_huella_enviada: PackedFloat32Array = PackedFloat32Array()
+var _claves_red: Array = []                # las que pinte llegadas por red, para quitarlas luego
+
+
+static func _empaquetar(cod: int, clase: int, f, nucleo: float) -> PackedFloat32Array:
+	return PackedFloat32Array([float(cod), float(clase), float(f.tipo), f.centro.x, f.centro.y,
+		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo])
+
+
+static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
+	var f := CombatFormas.Forma.new()
+	f.tipo = int(d[i + 2])
+	f.centro = Vector2(d[i + 3], d[i + 4])
+	f.origen = Vector2(d[i + 5], d[i + 6])
+	f.dir = Vector2(d[i + 7], d[i + 8])
+	f.radio = d[i + 9]
+	f.apertura = d[i + 10]
+	return [int(d[i]), int(d[i + 1]), f, d[i + 11]]
+
+
+func _cod(c: Combatant) -> int:
+	return _pantalla.espejo._cod_combatiente(c)
+
+
+# Apunta (o borra, con f = null) una huella en la lista que se reparte. Solo en quien lleva la pelea.
+func _anotar_huella_red(c: Combatant, clase: int, f, nucleo: float) -> void:
+	if _pantalla._espejo:
+		return
+	var cod: int = _cod(c) * 2 + clase   # la de apuntar y la de cargar del mismo no se pisan
+	if f == null:
+		if _huellas_red.erase(cod):
+			_huellas_cambiadas = true
+		return
+	_huellas_red[cod] = _empaquetar(_cod(c), clase, f, nucleo)
+	_huellas_cambiadas = true
+
+
+# EN EL ESPEJO que apunta: su huella, a quien lleva la pelea (solo si ha cambiado). Vacia = ya no apunto.
+func _enviar_mi_huella(f, nucleo: float) -> void:
+	if not _pantalla._espejo:
+		return
+	var d: PackedFloat32Array = PackedFloat32Array() if f == null \
+		else _empaquetar(_cod(_quien), CLASE_APUNTANDO, f, nucleo)
+	if d == _mi_huella_enviada:
+		return
+	_mi_huella_enviada = d
+	if d.is_empty():
+		d = PackedFloat32Array([float(_cod(_quien)), -1.0])   # "la mia, fuera"
+	Net.peleas.enviar_mi_huella(d)
+
+
+# EN QUIEN LLEVA LA PELEA: llega la huella del espejo que apunta. Solo se acepta la de un personaje
+# de ESE humano, y solo mientras le toca: una rezagada de un turno ya jugado no se pinta.
+func huella_de_espejo(d: PackedFloat32Array, emisor: int) -> void:
+	if _pantalla._espejo or d.size() < 2:
+		return
+	var c: Combatant = _pantalla.espejo._de_codigo(int(d[0]))
+	if c == null or c != _pantalla._player or int(_pantalla._dueno_aliado.get(c, 0)) != emisor:
+		return
+	if int(d[1]) < 0 or d.size() < FLOATS_HUELLA:
+		_anotar_huella_red(c, CLASE_APUNTANDO, null, 0.0)
+		return
+	var x: Array = _desempaquetar(d, 0)
+	_anotar_huella_red(c, CLASE_APUNTANDO, x[2], x[3])
+
+
+# Cada fotograma en quien lleva la pelea: reparte si algo cambio (o cada medio segundo, por si se
+# perdio un paquete). La de un turno que ya se fue, fuera.
+func _tick_huellas(delta: float) -> void:
+	if _pantalla._espejo or not Net.activo:
+		return
+	# La de apuntar solo vive mientras es el turno de ese: si se fue sin avisar, se borra aqui.
+	for cod in _huellas_red.keys():
+		var d: PackedFloat32Array = _huellas_red[cod]
+		if int(d[1]) == CLASE_APUNTANDO and (_pantalla._state != _pantalla.State.WAITING_PLAYER
+				or _pantalla.espejo._de_codigo(int(d[0])) != _pantalla._player):
+			_huellas_red.erase(cod)
+			_huellas_cambiadas = true
+	_t_huellas += delta
+	_t_repetir += delta
+	if _t_huellas < ENVIO_HUELLAS or (not _huellas_cambiadas and _t_repetir < REPETIR_HUELLAS):
+		return
+	_t_huellas = 0.0
+	_t_repetir = 0.0
+	_huellas_cambiadas = false
+	Net.peleas.difundir_huellas(estado_huellas())
+
+
+func estado_huellas() -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for cod in _huellas_red:
+		out.append_array(_huellas_red[cod])
+	return out
+
+
+# EN EL ESPEJO: llegan todas las huellas vivas. Se quitan las que pinte antes y se ponen estas, menos
+# la MIA mientras apunto (esa la pinto yo, al momento).
+func aplicar_huellas(d: PackedFloat32Array) -> void:
+	if not _pantalla._espejo:
+		return
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	for k in _claves_red:
+		arena.quitar_huella(k)
+	_claves_red.clear()
+	var i: int = 0
+	while i + FLOATS_HUELLA <= d.size():
+		var x: Array = _desempaquetar(d, i)
+		i += FLOATS_HUELLA
+		var c: Combatant = _pantalla.espejo._de_codigo(int(x[0]))
+		if int(x[1]) == CLASE_APUNTANDO and _apuntando != null and c == _quien:
+			continue
+		var clave: String = "red_%d_%d" % [int(x[0]), int(x[1])]
+		arena.poner_huella(clave, x[2], x[3],
+			COLOR_CARGA if int(x[1]) == CLASE_CARGA else COLOR_APUNTE)
+		_claves_red.append(clave)
+
+
+const COLOR_APUNTE := Color(1.0, 0.75, 0.3)
+const COLOR_CARGA := Color(1.0, 0.45, 0.25)
 
 
 # EL TURNO SE HA IDO: se eligio accion, o se lo ha llevado otra cosa (huyo, cayo).

@@ -400,6 +400,44 @@ func _probar_huella() -> void:
 		if "Golpe sísmico" in l:
 			dijo = true
 	_afirmar(dijo, "el golpe sismico no sale en el registro")
+
+	# QUE LOS DEMAS LA VEAN: quien lleva la pelea la apunta en su lista, la empaqueta, y un espejo la
+	# pinta en SU arena con el mismo centro y el mismo nucleo.
+	var f_red = t.forma_de(sismico, yo, Vector2(1000, 0))
+	t._anotar_huella_red(yo, t.CLASE_APUNTANDO, f_red, sismico.forma_nucleo)
+	var datos: PackedFloat32Array = t.estado_huellas()
+	_afirmar(datos.size() == t.FLOATS_HUELLA, "el paquete de huellas no mide lo que tiene que medir: %d" % datos.size())
+	var espejo: Node = escena.instantiate()
+	espejo.process_mode = Node.PROCESS_MODE_ALWAYS
+	espejo.tactico = true
+	add_child(espejo)
+	await get_tree().process_frame
+	espejo._espejo = true
+	espejo._state = espejo.State.PAUSED
+	var t2: TacticoDePrueba = TacticoDePrueba.new(espejo)
+	espejo.turno_mapa = t2
+	var arena := ArenaCombate.new()
+	add_child(arena)
+	var antes_arena = Game._arena_nodo
+	Game._arena_nodo = arena
+	t2.aplicar_huellas(datos)
+	_afirmar(arena.huellas.size() == 1, "el espejo no pinta la huella que le llega (%d)" % arena.huellas.size())
+	for k in arena.huellas:
+		var h: Dictionary = arena.huellas[k]
+		_afirmar((h["forma"].centro as Vector2).distance_to(f_red.centro) < 0.01 and is_equal_approx(float(h["nucleo"]), sismico.forma_nucleo),
+			"la huella del espejo no es la de quien apunta")
+	# Llega un paquete sin ella: se quita.
+	t2.aplicar_huellas(PackedFloat32Array())
+	_afirmar(arena.huellas.is_empty(), "la huella se queda pintada cuando ya no llega")
+	# La de un espejo que NO tiene el turno (o que no es su dueño) no se acepta.
+	pelea._state = pelea.State.WAITING_PLAYER
+	pelea._player = yo
+	t._huellas_red.clear()
+	t.huella_de_espejo(t._empaquetar(0, t.CLASE_APUNTANDO, f_red, 0.0), 42)
+	_afirmar(t._huellas_red.is_empty(), "acepta la huella de un humano que no es el dueño del que tiene el turno")
+	Game._arena_nodo = antes_arena
+	arena.queue_free()
+	espejo.queue_free()
 	pelea.queue_free()
 	await get_tree().process_frame
 

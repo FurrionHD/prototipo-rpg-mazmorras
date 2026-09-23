@@ -2394,6 +2394,13 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 func aplicar_atb(ratios: PackedFloat32Array) -> void:
 	espejo.aplicar_atb(ratios)
 
+# Las huellas del mapa (lo que se apunta y lo que se carga): ver turno_mapa.estado_huellas.
+func aplicar_huellas(datos: PackedFloat32Array) -> void:
+	turno_mapa.aplicar_huellas(datos)
+
+func huella_de_espejo(datos: PackedFloat32Array, emisor: int = 0) -> void:
+	turno_mapa.huella_de_espejo(datos, emisor)
+
 func aplicar_impactos(datos: PackedInt32Array) -> void:
 	espejo.aplicar_impactos(datos)
 

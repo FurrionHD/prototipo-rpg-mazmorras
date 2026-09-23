@@ -1260,6 +1260,41 @@ func _atb(ratios: PackedFloat32Array) -> void:
 		p.aplicar_atb(ratios)
 
 
+# LAS HUELLAS DEL MAPA (combate tactico): lo que alguien esta apuntando y lo que se esta cargando, para
+# que todos lo vean en el suelo. Cosmetico y continuo como el ATB: unreliable_ordered. Lo reparte
+# quien lleva la pelea, con TODAS las vivas en un paquete (ver turno_mapa.estado_huellas).
+func difundir_huellas(datos: PackedFloat32Array) -> void:
+	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
+		return
+	for p in _pelea_participantes:
+		_huellas.rpc_id(p, datos)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _huellas(datos: PackedFloat32Array) -> void:
+	if _pelea_sigo == 0 or not _de_mi_anfitrion():
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("aplicar_huellas"):
+		p.aplicar_huellas(datos)
+
+
+# EL ESPEJO que esta apuntando le manda su huella a quien lleva la pelea, que la reparte a los demas.
+func enviar_mi_huella(datos: PackedFloat32Array) -> void:
+	if not Net.activo or _pelea_anfitrion == 0 or multiplayer.multiplayer_peer == null:
+		return
+	_mi_huella.rpc_id(_pelea_anfitrion, datos)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _mi_huella(datos: PackedFloat32Array) -> void:
+	if _pelea_id == 0:
+		return
+	var p: Node = _pantalla_combate()
+	if p != null and p.has_method("huella_de_espejo"):
+		p.huella_de_espejo(datos, multiplayer.get_remote_sender_id())
+
+
 # LOS GOLPES, para que el espejo pueda REPRODUCIRLOS (la embestida de la tarjeta y los numeros de
 # daño). Sin esto el compañero veria las vidas bajar de golpe: los combatientes de su pantalla son
 # maniquis y no resuelven nada. Sale UN paquete por accion, con 4 enteros por golpe.
