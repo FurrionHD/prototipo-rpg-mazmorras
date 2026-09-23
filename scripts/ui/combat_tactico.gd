@@ -485,7 +485,8 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 
 # A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella toque:
 # el cuerpo de cada uno tal como se ve, ver bulto_de). Con NUCLEO, los que el nucleo toca van al daño entero y
-# el resto a area_secundario; sin nucleo, todos a forma_escala (1.0 = entero). Ordenados por cercania
+# el resto a area_secundario; un cono con TRAMOS baja forma_tramo_baja por tramo; si no, todos a
+# forma_escala (1.0 = entero). Ordenados por cercania
 # al centro y, a igualdad, por indice en _enemies: el mismo orden en todas las maquinas. Vacio =
 # golpea el suelo.
 func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
@@ -502,6 +503,9 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 		var esc: float = ab.forma_escala
 		if nucleo != null:
 			esc = 1.0 if nucleo.toca(r) else ab.area_secundario
+		elif f.tramos > 1:
+			# El cono a TROZOS (la Onda): cada tramo mas lejos, forma_tramo_baja menos.
+			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(f.centro_util()),
 			"i": _pantalla._enemies.find(e)})
 	lista.sort_custom(func(x, y):
@@ -768,9 +772,9 @@ func olvidar_carga(c: Combatant) -> void:
 # las de las cargas) y las reparte juntas unas veces por segundo. Cada maquina pinta las de los demas;
 # la suya, mientras apunta, la pinta ella misma sin esperar a la red.
 #
-# UNA HUELLA = 12 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo].
+# UNA HUELLA = 13 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo, tramos].
 # cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 = apuntando, 1 = carga.
-const FLOATS_HUELLA := 12
+const FLOATS_HUELLA := 13
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const ENVIO_HUELLAS := 1.0 / 12.0
@@ -785,7 +789,7 @@ var _claves_red: Array = []                # las que pinte llegadas por red, par
 
 static func _empaquetar(cod: int, clase: int, f, nucleo: float) -> PackedFloat32Array:
 	return PackedFloat32Array([float(cod), float(clase), float(f.tipo), f.centro.x, f.centro.y,
-		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo])
+		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo, float(f.tramos)])
 
 
 static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
@@ -796,6 +800,7 @@ static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
 	f.dir = Vector2(d[i + 7], d[i + 8])
 	f.radio = d[i + 9]
 	f.apertura = d[i + 10]
+	f.tramos = int(d[i + 12])
 	return [int(d[i]), int(d[i + 1]), f, d[i + 11]]
 
 

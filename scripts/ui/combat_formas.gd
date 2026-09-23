@@ -62,6 +62,7 @@ class Forma extends RefCounted:
 	var largo: float = 0.0
 	var ancho: float = 0.0
 	var tam: Vector2 = Vector2.ZERO    # RECTANGULO
+	var tramos: int = 0                # CONO partido a lo largo (0/1 = entero). Ver tramo_de
 
 	# ¿Este punto esta tapado por la forma? Es la unica pregunta que le hace la pelea.
 	func contiene(p: Vector2) -> bool:
@@ -107,6 +108,21 @@ class Forma extends RefCounted:
 						return true
 				return false
 		return contiene(r.get_center())
+
+	# EN QUE TRAMO del cono cae esta caja: 0 el pegado al que lo lanza. Manda el trozo mas cercano que
+	# este DENTRO del abanico (los mismos puntos que mira toca), asi que un cuerpo a caballo entre dos
+	# cobra el mejor. Sin tramos, o si no lo toca, 0.
+	func tramo_de(r: Rect2) -> int:
+		if tipo != CombatFormas.Tipo.CONO or tramos <= 1:
+			return 0
+		var d: float = INF
+		for p in [_mas_cerca(r, origen), r.get_center(), r.position, r.end,
+				Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:
+			if contiene(p):
+				d = minf(d, (p as Vector2).distance_to(origen))
+		if d == INF:
+			return 0
+		return clampi(int(d / (radio / float(tramos))), 0, tramos - 1)
 
 	# ¿La forma TOCA el circulo que pisa alguien (centro en sus pies, radio lo que pisa)? Es la pregunta
 	# del mapa: le da a quien la huella le toque lo que pisa.
@@ -295,7 +311,9 @@ static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcan
 	var ap: float = ab.forma_apertura if ab.forma_apertura > 0.0 else APERTURA_BARRIDO
 	match int(ab.forma):
 		Tipo.CONO:
-			return cono(pies, dir, r, ap)
+			var c := cono(pies, dir, r, ap)
+			c.tramos = ab.forma_tramos
+			return c
 		Tipo.LINEA:
 			return linea(pies, dir, r, ANCHO_LINEA)
 		Tipo.PUNTO:
@@ -376,11 +394,25 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 		Tipo.CONO:
 			var a0: float = f.dir.angle() - deg_to_rad(f.apertura * 0.5)
 			var a1: float = f.dir.angle() + deg_to_rad(f.apertura * 0.5)
-			var pts := PackedVector2Array([f.origen])
-			for i in 33:
-				var a: float = a0 + (a1 - a0) * float(i) / 32.0
-				pts.append(f.origen + Vector2(cos(a), sin(a)) * f.radio)
-			ci.draw_colored_polygon(pts, relleno)
+			# Con TRAMOS, cada trozo mas tenue que el anterior (pega menos) y una raya entre ellos.
+			var n_tr: int = maxi(1, f.tramos)
+			for k in n_tr:
+				var r0: float = f.radio * float(k) / float(n_tr)
+				var r1: float = f.radio * float(k + 1) / float(n_tr)
+				var pts := PackedVector2Array()
+				for i in 33:
+					var a: float = a0 + (a1 - a0) * float(i) / 32.0
+					pts.append(f.origen + Vector2(cos(a), sin(a)) * r1)
+				if r0 <= 0.0:
+					pts.append(f.origen)
+				else:
+					for i in range(32, -1, -1):
+						var a2: float = a0 + (a1 - a0) * float(i) / 32.0
+						pts.append(f.origen + Vector2(cos(a2), sin(a2)) * r0)
+				var alfa: float = 1.0 - 0.6 * float(k) / float(maxi(1, n_tr - 1)) if n_tr > 1 else 1.0
+				ci.draw_colored_polygon(pts, Color(relleno, relleno.a * alfa * (1.5 if n_tr > 1 else 1.0)))
+				if k > 0:
+					ci.draw_arc(f.origen, r0, a0, a1, 32, Color(col, col.a * 0.7), 1.5)
 			ci.draw_arc(f.origen, f.radio, a0, a1, 48, col, 2.5)
 			ci.draw_line(f.origen, f.origen + Vector2(cos(a0), sin(a0)) * f.radio, col, 2.5)
 			ci.draw_line(f.origen, f.origen + Vector2(cos(a1), sin(a1)) * f.radio, col, 2.5)

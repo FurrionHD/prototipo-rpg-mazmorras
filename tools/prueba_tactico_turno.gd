@@ -402,6 +402,27 @@ func _probar_huella() -> void:
 	t.anotar_apunte([1000.0, PoseJugador.PIES_BAJO_NODO])
 	var por_onda: Array = t.reparto_habilidad(onda, yo).map(func(o): return o["c"])
 	_afirmar(por_onda.has(en_nucleo) and not por_onda.has(fuera), "el cono no pilla al de delante o pilla al de detras")
+	# A TROZOS: uno en cada tramo (cerca, medio, lejos) cobra 100 / 75 / 50; pasado el cono, nada.
+	_afirmar(onda.forma_tramos == 3, "la onda no viene partida en 3")
+	var paso_tr: float = onda.forma_radio / 3.0
+	var pies_yo: Vector2 = t.pies_de(yo)
+	t.cuerpos[en_nucleo].global_position = pies_yo + Vector2(paso_tr * 0.5 + 16.0, 0)
+	t.cuerpos[en_anillo].global_position = pies_yo + Vector2(paso_tr * 1.5 + 16.0, 0)
+	t.cuerpos[fuera].global_position = pies_yo + Vector2(paso_tr * 2.5 + 16.0, 0)
+	for i in range(3, pelea._enemies.size()):
+		t.cuerpos[pelea._enemies[i]].global_position = pies_yo + Vector2(onda.forma_radio + 60.0, i * 40)
+	var por_tr: Dictionary = {}
+	for o in t.reparto_habilidad(onda, yo):
+		por_tr[o["c"]] = float(o["escala"])
+	_afirmar(is_equal_approx(float(por_tr.get(en_nucleo, -1.0)), 1.0)
+		and is_equal_approx(float(por_tr.get(en_anillo, -1.0)), 0.75)
+		and is_equal_approx(float(por_tr.get(fuera, -1.0)), 0.5)
+		and por_tr.size() == 3, "los tramos de la onda no pegan 100/75/50: %s" % str(por_tr.values()))
+	t.cuerpos[en_nucleo].global_position = Vector2(40, 0)
+	t.cuerpos[fuera].global_position = Vector2(-40, 0)
+	t.cuerpos[en_anillo].global_position = punta + Vector2(0, 60) - sube
+	for i in range(3, pelea._enemies.size()):
+		t.cuerpos[pelea._enemies[i]].global_position = punta + Vector2(i * 6, -20) - sube
 	# EL TEMBLOR, alrededor tuyo y al 70% para todos: los dos de antes (delante y detras) entran.
 	var rep_t: Array = t.reparto_habilidad(temblor, yo)
 	var por_t: Dictionary = {}

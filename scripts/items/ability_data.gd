@@ -222,6 +222,12 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # un circulo grande que les da a todos al 70%. Con nucleo no se mira: fuera del nucleo manda
 # area_secundario.
 @export var forma_escala: float = 1.0
+# LOS TROZOS DE UN CONO (0 o 1 = uno solo). El cono se parte en tantos tramos iguales a lo largo y cada
+# uno pega forma_tramo_baja menos que el anterior: con 3 y 0.25, 100% / 75% / 50%. Es la Onda
+# expansiva, que se va apagando al alejarse (lo pidio el usuario). La probabilidad de los estados baja
+# con el daño, como en todas las areas. Cada uno cobra el tramo MAS CERCANO que le toque.
+@export var forma_tramos: int = 0
+@export var forma_tramo_baja: float = 0.25
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer
