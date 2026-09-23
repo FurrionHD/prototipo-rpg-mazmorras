@@ -43,9 +43,14 @@ const SOBRE_LA_CABEZA := 12.0
 const ALTO_CUERPO := 52.0
 
 # --- EL MODO MINI -------------------------------------------------------------------------------
-# Lo que mide la ficha de un enemigo al que no estas apuntando. Son numeros de la referencia: una
-# barra que se lee de un vistazo y no tapa al bicho que tiene debajo.
-const ANCHO_MINI := 48.0
+# LA BARRA MIDE LO QUE MIDE EL BICHO. No un ancho fijo: una rata y el Rey Slime no pueden llevar la
+# misma barra, porque lo que dice de un vistazo cual es la de cada uno es estar a su medida. El
+# ancho sale de su forma de colision, que enemy._aplicar_colision ya deja a la medida del cuerpo, y
+# se pasa a pixeles de PANTALLA con la escala de la transformada de canvas (que es el zoom de la
+# camara: un bicho lejano tiene la barra mas corta, como debe ser).
+const ANCHO_CUERPO_POR_DEFECTO := 32.0   # los que no declaran forma (todavia son un ColorRect)
+# Y un suelo, porque una barra de 12 px no se lee ni se puede pulsar.
+const ANCHO_MINI_MIN := 28.0
 const ALTO_BARRA_MINI := 5.0
 # El hueco de los chips, y a que escala se dibujan dentro. Se escala el ENVOLTORIO en vez de tocar
 # StatusChip.crear porque los chips se borran y se rehacen en CADA _update_hp (ver
@@ -96,10 +101,25 @@ func seguir() -> void:
 		# De MUNDO a PANTALLA. La pelea vive en un CanvasLayer, al que la camara de la mazmorra no le
 		# afecta; el cuerpo si esta bajo la camara. Esta transformada es la que cruza los dos mundos.
 		var p: Vector2 = cuerpo.get_global_transform_with_canvas().origin
-		var tam: Vector2 = col.size
-		if tam.x <= 0.0:
-			tam = col.get_combined_minimum_size()
+		# EL TAMAÑO SE LE IMPONE, no se le pregunta. Un Control suelto se queda con el 'size' que
+		# tenia en su fila -- y ahi la columna reservaba 208 px para el sprite del bicho. Aunque ese
+		# hueco se oculte al mudarla, el size viejo no se encoge solo: la ficha se coloca restando su
+		# alto, asi que salia flotando doscientos pixeles por encima de la cabeza del bicho, sin nada
+		# debajo que la explicara.
+		var tam: Vector2 = col.get_combined_minimum_size()
+		if not col.size.is_equal_approx(tam):
+			col.size = tam
 		col.position = Vector2(p.x - tam.x * 0.5, p.y - ALTO_CUERPO - SOBRE_LA_CABEZA - tam.y)
+
+		# El cristal del clic, sobre el cuerpo. Mismo origen en los PIES que la ficha (ver
+		# ALTO_CUERPO), asi que se sube su alto entero para quedar tapandolo.
+		var zona: Control = f.get("zona")
+		if is_instance_valid(zona):
+			var ancho: float = _ancho_cuerpo_px(cuerpo)
+			var alto: float = maxf(ALTO_CUERPO * cuerpo.get_global_transform_with_canvas() \
+				.get_scale().y, ancho)
+			zona.size = Vector2(ancho, alto)
+			zona.position = Vector2(p.x - ancho * 0.5, p.y - alto)
 
 
 # Saca una ficha de su banda y la cuelga de la capa suelta, sin su hueco de sprite.
@@ -123,7 +143,23 @@ func _mudar(bloque: Dictionary, cuerpo: Node2D) -> void:
 		hueco.visible = false
 		hueco.custom_minimum_size = Vector2.ZERO
 
-	_fichas.append({"bloque": bloque, "cuerpo": cuerpo})
+	var ficha: Dictionary = {"bloque": bloque, "cuerpo": cuerpo}
+	# AL BICHO SE LE PULSA ENCIMA. En la fila eso lo hacia el hueco del sprite, que aqui no existe:
+	# el bicho lo pinta el mapa, y el mapa no es un Control, asi que no recibe clics de interfaz. Se
+	# le pone delante un cristal del tamaño de su cuerpo, invisible y sin nada dentro, que se coloca
+	# sobre el en seguir(). El clic lo atiende el MISMO sitio que el de la tarjeta, asi que pulsar el
+	# bicho y pulsar su barra son literalmente lo mismo.
+	if int(bloque.get("idx", -1)) >= 0:
+		var zona := Control.new()
+		zona.mouse_filter = Control.MOUSE_FILTER_STOP
+		zona.gui_input.connect(_pantalla.figuras._on_bloque_gui_input.bind(int(bloque["idx"])))
+		_capa.add_child(zona)
+		# POR DEBAJO de las fichas: donde se solapen el cristal de un bicho y la barra de otro, manda
+		# la barra, que es la que estas viendo.
+		_capa.move_child(zona, 0)
+		ficha["zona"] = zona
+
+	_fichas.append(ficha)
 
 
 # --- MINI O ENTERA -----------------------------------------------------------------------------
@@ -150,6 +186,18 @@ func refrescar_mini() -> void:
 		_poner_mini(f, not entera)
 
 
+# Lo que mide el cuerpo de un bicho EN PANTALLA. De su forma de colision, que enemy._aplicar_colision
+# deja a la medida de cada uno, por la escala de la transformada de canvas (el zoom de la camara).
+func _ancho_cuerpo_px(cuerpo: Node2D) -> float:
+	if not is_instance_valid(cuerpo):
+		return ANCHO_MINI_MIN
+	var ancho: float = ANCHO_CUERPO_POR_DEFECTO
+	var col := cuerpo.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col != null and col.shape is RectangleShape2D:
+		ancho = (col.shape as RectangleShape2D).size.x
+	return maxf(ancho * cuerpo.get_global_transform_with_canvas().get_scale().x, ANCHO_MINI_MIN)
+
+
 # Encoge una ficha a barrita, o la devuelve a su tamaño de siempre. Si ya esta como se le pide, no
 # toca nada: escribir un custom_minimum_size dispara un re-layout de la ficha entera, y esto se
 # llama en cada fotograma.
@@ -158,13 +206,23 @@ func refrescar_mini() -> void:
 # todo (fondo y borde a alpha 0), asi que en mini no se ve solo. Y dejandolo en paz, el borde blanco
 # del apuntado y el tinte de los estados siguen mandando ellos, sin pelearse con esto.
 func _poner_mini(ficha: Dictionary, mini: bool) -> void:
-	if ficha.get("mini") == mini:
+	# EL ANCHO se mira aunque no cambie el modo: el bicho puede crecer (un mutante que se hincha) y
+	# la camara puede moverse. Se compara con lo aplicado y solo se escribe si de verdad cambia,
+	# porque escribir un custom_minimum_size dispara el re-layout de la ficha entera.
+	var ancho: float = _ancho_cuerpo_px(ficha["cuerpo"]) if mini \
+		else _pantalla.montaje._ancho_bloque(_pantalla._enemies.size())
+	var mismo_modo: bool = ficha.get("mini") == mini
+	if mismo_modo and absf(float(ficha.get("ancho", -1.0)) - ancho) < 1.0:
 		return
 	ficha["mini"] = mini
+	ficha["ancho"] = ancho
 	var bloque: Dictionary = ficha["bloque"]
 	var wrap: Control = bloque.get("wrap")
 	if not is_instance_valid(wrap):
 		return
+	wrap.custom_minimum_size.x = ancho
+	if mismo_modo:
+		return   # solo cambiaba el ancho: lo demas ya esta como toca
 
 	var margen: MarginContainer = bloque.get("margen")
 	if is_instance_valid(margen):
@@ -191,10 +249,6 @@ func _poner_mini(ficha: Dictionary, mini: bool) -> void:
 		chips_wrap.custom_minimum_size.y = ALTO_CHIPS_MINI if mini else _pantalla.figuras.ALTO_CHIPS
 		var e: float = ESCALA_CHIPS_MINI if mini else 1.0
 		chips_wrap.scale = Vector2(e, e)
-
-	# El ancho, el ultimo: es el que dispara el re-layout que recoloca todo lo de arriba.
-	wrap.custom_minimum_size.x = ANCHO_MINI if mini else _pantalla.montaje._ancho_bloque(
-		_pantalla._enemies.size())
 
 
 # --- DE COMBATIENTE A CUERPO DEL MAPA ----------------------------------------------------------
