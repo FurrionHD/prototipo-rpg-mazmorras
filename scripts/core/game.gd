@@ -1150,12 +1150,20 @@ func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
 # La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
 var _arena_nodo: Node = null
 var _camara_guardada := {}
-# Lo que se deja de aire alrededor de la arena al encuadrarla, en pixeles de mundo.
-const AIRE_ARENA := 160.0
-# Hasta donde se puede acercar y alejar ese encuadre. El MINIMO es para que los sprites no acaben
-# siendo hormigas en una arena grande. El MAXIMO estaba en 1.8 y era EL que dejaba el tablero
-# pequeño en medio de la pantalla: en una arena normal el calculo pedia mas y el tope lo frenaba,
-# asi que sobraba sitio por los cuatro lados. Se sube para que de verdad llene el hueco.
+# EL AIRE alrededor de la arena al encuadrarla, en pixeles de MUNDO. UNA CELDA, y no mas.
+#
+# ERA 160 -- cinco celdas por lado -- y ES LO QUE DEJABA EL TABLERO PEQUEÑO EN MEDIO DE LA PANTALLA.
+# Medido en la pelea tipica, de ocho combatientes: la arena pide 17x15 celdas = 544x480 px, y con
+# 160 de aire el zoom sale 0.967, o sea que ocupa el 77% x 75% del hueco libre. Con 32 sube a 1.19 y
+# ocupa el 94% x 92%, que es llenarlo.
+#
+# El aire va en pixeles de mundo y la arena tambien, asi que cuanto MAS PEQUEÑA es la pelea mas le
+# pesa: en una arena minima, 160 de aire era mas ancho que media arena.
+const AIRE_ARENA := 32.0
+# Hasta donde se puede acercar y alejar el encuadre. El MINIMO es para que los sprites no acaben
+# siendo hormigas en una pelea multitudinaria. El MAXIMO solo lo tocan las arenas pequeñas: estaba
+# en 1.8 y ahi frenaba de verdad (una arena minima pide 2.67), pero en una pelea normal el zoom no
+# llega ni a 1.2 -- subirlo NO era lo que hacia falta para llenar el hueco. Eso era el aire.
 const ZOOM_ARENA_MIN := 0.75
 const ZOOM_ARENA_MAX := 3.0
 
