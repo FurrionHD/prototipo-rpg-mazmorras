@@ -59,6 +59,8 @@ func _setup_ui() -> void:
 	# La pestaña del apuntado va DESPUES del registro: se coloca midiendolo (ver
 	# combat_ficha_objetivo.refrescar), asi que el registro tiene que existir ya.
 	_pantalla.ficha_objetivo.montar()
+	# Y el turno en el mapa: cuerpos listos para andar y el boton de Huir fuera (se huye por el borde).
+	_pantalla.turno_mapa.montar()
 
 
 # EL ANCHO DE LAS FICHAS NO SE REPARTE AQUI. En la fila, las tarjetas se encogen a partes iguales

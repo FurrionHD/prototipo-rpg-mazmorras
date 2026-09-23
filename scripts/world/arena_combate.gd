@@ -67,6 +67,15 @@ var rect: Rect2 = Rect2()          # el mismo, en pixeles y en coordenadas de mu
 var en_pelea: Array[Node2D] = []
 
 var _t: float = 0.0
+
+# EL CIRCULO DE MOVIMIENTO del que tiene el turno: hasta donde puede andar. Radio 0 = no se pinta.
+# Va aqui y no en un nodo propio porque tiene que salir en la MISMA capa y el mismo z que la arena:
+# es suelo, y los cuerpos se ven por encima.
+var circulo_centro: Vector2 = Vector2.ZERO
+var circulo_radio: float = 0.0
+# Un bicho acercandose se pinta de otro color que tu: se lee de un vistazo de quien es el turno.
+var circulo_enemigo: bool = false
+
 # Cuerpos ya avisados, para no repetir la señal cada frame. Se sueltan al despegarse del borde.
 var _avisados: Dictionary = {}
 # Los que dijeron que NO: atraviesan libremente y no se les vuelve a preguntar. Se suelta cuando se
@@ -257,6 +266,23 @@ func _draw() -> void:
 	_trazos(Vector2(x1, y0), Vector2(x1, y1), col)
 	_trazos(Vector2(x1, y1), Vector2(x0, y1), col)
 	_trazos(Vector2(x0, y1), Vector2(x0, y0), col)
+
+	# 3) EL CIRCULO DE MOVIMIENTO, sin achatar (es suelo, como el rectangulo).
+	if circulo_radio > 0.0:
+		var base: Color = Color(1.0, 0.45, 0.35) if circulo_enemigo else Color(0.45, 0.85, 1.0)
+		draw_circle(circulo_centro, circulo_radio, Color(base, 0.10))
+		draw_arc(circulo_centro, circulo_radio, 0.0, TAU, 72, Color(base, 0.55 + 0.2 * late), 2.0)
+		draw_circle(circulo_centro, 3.0, Color(base, 0.8))   # de donde salio: su sitio al empezar
+
+
+func poner_circulo(centro: Vector2, radio: float, de_enemigo: bool = false) -> void:
+	circulo_centro = centro
+	circulo_radio = radio
+	circulo_enemigo = de_enemigo
+
+
+func quitar_circulo() -> void:
+	circulo_radio = 0.0
 
 
 func _trazos(a: Vector2, b: Vector2, col: Color) -> void:

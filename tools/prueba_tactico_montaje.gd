@@ -55,18 +55,22 @@ func _probar(tactico: bool) -> void:
 			"%s: la banda de enemigos tendria que estar oculta" % quien)
 		var capa: Control = pelea.figuras_mapa._capa
 		_afirmar(is_instance_valid(capa), "%s: no se creo la capa de fichas del mapa" % quien)
-		# 4) y 5) TODAS mudadas, y sin hueco de sprite.
+		# 4) y 5) Las de los ENEMIGOS, todas mudadas y sin hueco de sprite. Las de los tuyos NO se
+		#    mudan: sus barras se leen arriba, en la fila del grupo (ver combat_figuras_mapa.montar).
 		var mudadas: int = 0
-		for b in (pelea._bloques + pelea._bloques_aliados):
+		for b in pelea._bloques:
 			var col: Control = b.get("columna")
 			if is_instance_valid(col) and col.get_parent() == capa:
 				mudadas += 1
 			var hueco: Control = b.get("actor_wrap")
 			if is_instance_valid(hueco) and hueco.visible:
 				_fallo("%s: una ficha conserva el hueco del sprite" % quien)
-		var total: int = pelea._bloques.size() + pelea._bloques_aliados.size()
-		_afirmar(mudadas == total,
-			"%s: se mudaron %d fichas de %d" % [quien, mudadas, total])
+		_afirmar(mudadas == pelea._bloques.size(),
+			"%s: se mudaron %d fichas de %d" % [quien, mudadas, pelea._bloques.size()])
+		for b in pelea._bloques_aliados:
+			var col: Control = b.get("columna")
+			if is_instance_valid(col) and col.get_parent() == capa:
+				_fallo("%s: una ficha de aliado se ha mudado al tablero" % quien)
 	else:
 		_afirmar(not _sin_fondo(pelea), "%s: falta el fondo opaco de siempre" % quien)
 		_afirmar(pelea._bloques_box.visible, "%s: la banda de enemigos tendria que verse" % quien)

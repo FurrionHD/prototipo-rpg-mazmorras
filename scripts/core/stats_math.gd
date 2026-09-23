@@ -341,6 +341,27 @@ static func flee_chance(own_agilidad: float, rival_agilidad: float) -> float:
 		FLEE_PARITY, FLEE_SPREAD, FLEE_MIN, FLEE_MAX)
 
 
+# ------------------------------------------------------------
+# RADIO DE MOVIMIENTO EN EL COMBATE TACTICO: cuanto puede andar alguien en SU turno, en px de mundo.
+# Sale de la AGILIDAD contra el liston del piso (Game.agilidad_esperada_piso), el mismo que manda en
+# la velocidad por el mapa: quien cumple el liston anda RADIO_MOV_BASE, y el suelo y el techo lo
+# acotan para que ni el torpe se quede clavado ni el agil cruce la arena de una zancada.
+#
+# LA MISMA REGLA PARA LOS DOS BANDOS (decision del usuario): el bicho tambien anda lo que le da su
+# Agilidad. Asi puedes contar distancias y quedarte fuera de su alcance, que es lo que hace que
+# colocarse signifique algo.
+#
+# El SOBREPESO va encima, fuera del clamp: el que va cargado anda menos aunque sea agil, y se
+# explica solo. Una celda del suelo son 32 px.
+const RADIO_MOV_BASE := 96.0   # 3 celdas: lo que anda quien va justo en el liston
+const RADIO_MOV_MIN := 48.0    # 1,5 celdas: nadie se queda sin paso
+const RADIO_MOV_MAX := 160.0   # 5 celdas: el techo, para que la arena siga siendo un tablero
+
+static func radio_movimiento(agilidad: float, agilidad_ref: float, sobrepeso: float = 1.0) -> float:
+	var r: float = RADIO_MOV_BASE * (maxf(agilidad, 0.0) / maxf(agilidad_ref, 1.0))
+	return clampf(r, RADIO_MOV_MIN, RADIO_MOV_MAX) * clampf(sobrepeso, 0.0, 1.0)
+
+
 # IMBUICION (KAN-58): prob. de que tus golpes imbuidos PRENDAN su estado (quemadura, rayo,
 # mojado). Es la 'base' del hechizo escalada por un CONTEST de tu Magia contra la Resistencia
 # del rival: 1.0 en igualdad (te quedas en la base), sube contra debiles y baja contra bestias.

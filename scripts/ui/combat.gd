@@ -78,6 +78,10 @@ const CombatFigurasMapa = preload("res://scripts/ui/combat_figuras_mapa.gd")
 var figuras_mapa = CombatFigurasMapa.new(self)
 const CombatFichaObjetivo = preload("res://scripts/ui/combat_ficha_objetivo.gd")
 var ficha_objetivo = CombatFichaObjetivo.new(self)
+# EL TURNO EN EL MAPA: quien anda y cuanto (tu circulo de movimiento, el acercamiento del enemigo y
+# el borde que propone huir). Solo lo miran _process y el reparto de turno; no resuelve daño.
+const CombatTactico = preload("res://scripts/ui/combat_tactico.gd")
+var turno_mapa = CombatTactico.new(self)
 
 # ¿Esta pelea se juega EN EL MAPA? Lo pone Game antes de setup(). Es lo unico que distingue los dos
 # combates, y solo puede mirarlo la GEOMETRIA y la PUESTA EN ESCENA: si acaba dentro de una funcion
@@ -500,6 +504,15 @@ func _escala_barra() -> float:
 	for e in _vivos():
 		vmax = maxf(vmax, e.spd_referencia())
 	return UMBRAL / (SEGUNDOS_BARRA_MAS_RAPIDO * maxf(vmax, 0.01))
+
+
+# Al cerrarse la pantalla, los cuerpos del mapa vuelven a animarse como antes de la pelea (ver
+# combat_tactico.montar, que les dio permiso para animarse con el arbol en pausa).
+func _exit_tree() -> void:
+	if tactico:
+		turno_mapa.desmontar()
+
+
 func _ready() -> void:
 	# El reloj de la traza (ver _traza_add) arranca AQUI y no en setup(): hay dos caminos de entrada
 	# al combate (setup y setup_espejo) y lo que solo se escribe en uno se pierde para el otro.
@@ -990,6 +1003,10 @@ func _process(delta: float) -> void:
 	_tick_platos(delta)   # los buffs de comida se gastan por RELOJ, no por turnos (ver mas abajo)
 	espejo._difundir_atb(delta)
 	espejo._heartbeat_remoto(delta)   # que un turno de otro no pueda quedarse colgado para siempre
+	# EN EL MAPA: el que tiene el turno anda. Si es un enemigo acercandose, el fotograma es suyo (el
+	# ATB esta parado y la pausa de lectura no cuenta hasta que actue).
+	if tactico and turno_mapa.tick(delta):
+		return
 	# Pausa de lectura tras la accion del enemigo: cuenta atras y reanuda el ATB.
 	if _state == State.PAUSED:
 		_pause_left -= delta
@@ -1053,6 +1070,8 @@ func _process(delta: float) -> void:
 		if _aliados.has(mejor):
 			_player = mejor   # a partir de aqui, "el jugador" es este
 			_begin_player_turn()
+		elif tactico:
+			turno_mapa.turno_enemigo(mejor)   # se acerca a su presa y DESPUES hace su turno de siempre
 		else:
 			enemigos._enemy_turn(mejor)
 
@@ -1153,6 +1172,9 @@ func _begin_player_turn() -> void:
 		_player.regen_mana(_player.mp_regen_turno * StatsMath.MP_REGEN_TURNO_MULT
 			* _player.status_mp_regen_mult())
 	_update_hp()
+	# EN EL MAPA, aqui empieza a poder andar: el turno ya se juega (ni aturdido ni cargando).
+	if tactico:
+		turno_mapa.empezar_turno(_player)
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
 	if _cast_spell != null:

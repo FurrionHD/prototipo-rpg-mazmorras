@@ -1189,11 +1189,12 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	if cam == null:
 		return
 	# NO se reparenta la camara: con el suavizado a 8.0 puesto, cambiarla de padre a media pelea da
-	# un latigazo. Se le mueve el OFFSET respecto al jugador, que con el mundo quieto es lo mismo
-	# que plantarla en un sitio fijo, y se deshace al acabar.
+	# un latigazo. Se la hace TOP LEVEL, que la suelta de la transformada del jugador sin sacarla de
+	# su sitio en el arbol: asi se queda clavada sobre la arena aunque el jugador ANDE en su turno
+	# (con el offset de antes, la camara se iba detras de el). Se deshace al acabar.
 	_camara_guardada = {
 		"cam": cam, "pos": cam.position, "zoom": cam.zoom,
-		"suave": cam.position_smoothing_enabled,
+		"suave": cam.position_smoothing_enabled, "top": cam.top_level,
 	}
 	var r: Rect2 = ArenaCalculo.rect_px(rect_celdas)
 	# EL HUECO LIBRE, no la pantalla entera. La pantalla mide 1280, pero de esos el HUD se queda casi
@@ -1211,7 +1212,8 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	# pantalla son 200 de mundo.
 	var v: Vector2 = get_viewport().get_visible_rect().size
 	var desvio: Vector2 = (v * 0.5 - util.get_center()) / z
-	cam.position = r.get_center() - (yo as Node2D).global_position + desvio
+	cam.top_level = true
+	cam.global_position = r.get_center() + desvio
 	cam.position_smoothing_enabled = false
 	cam.reset_smoothing()
 
@@ -1282,6 +1284,9 @@ func _desmontar_arena_tactica() -> void:
 	_despejar_para_tactico(false)
 	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
 	if is_instance_valid(cam):
+		# Primero vuelve a colgar del jugador, y DESPUES se le devuelve su sitio: la posicion guardada
+		# es relativa a el, y con top_level puesto se leeria como coordenada de mundo.
+		cam.top_level = bool(_camara_guardada.get("top", false))
 		cam.position = _camara_guardada.get("pos", Vector2.ZERO)
 		cam.zoom = _camara_guardada.get("zoom", Vector2.ONE)
 		cam.position_smoothing_enabled = bool(_camara_guardada.get("suave", true))
