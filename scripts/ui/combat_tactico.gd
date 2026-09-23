@@ -1320,9 +1320,6 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 				Vector2(h.position.x, h.end.y), h.end]:
 			if not piso._pisable_px(p + esquina):
 				return false
-	# SOLO CONTRA EL OTRO BANDO. Los tuyos se atraviesan entre si, igual que por el mapa (ver
-	# companion.gd): el grupo entra a la pelea en fila, y con la regla contra todos, el que va el
-	# ultimo no podia ni salir de detras de los suyos.
 	var antes: Vector2 = cuerpo.global_position
 	var soy_enemigo: bool = _quien != null and _pantalla._enemies.has(_quien)
 	var rivales: Array = _pantalla._aliados if soy_enemigo else _pantalla._enemies
@@ -1335,6 +1332,20 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 		var o: Vector2 = otro.global_position
 		if p.distance_to(o) < SEPARACION and p.distance_to(o) < antes.distance_to(o):
 			return false
+	# LOS TUYOS TAMBIEN CHOCAN ENTRE SI (lo pidio el usuario: se le montaban uno encima de otro), pero
+	# con una excepcion: el que ya ESTA encima de un compañero lo atraviesa hasta despegarse. El grupo
+	# entra a la pelea en fila, y sin esto el que va el ultimo no podia ni salir de detras de los suyos.
+	# Los enemigos entre ellos siguen sin chocar: su acercamiento no sabe rodear a los suyos.
+	if not soy_enemigo:
+		for c in _pantalla._aliados:
+			if not c.is_alive():
+				continue
+			var comp: Node2D = cuerpo_de(c)
+			if not is_instance_valid(comp) or comp == cuerpo:
+				continue
+			var oc: Vector2 = comp.global_position
+			if antes.distance_to(oc) >= SEPARACION and p.distance_to(oc) < SEPARACION:
+				return false
 	return true
 
 
