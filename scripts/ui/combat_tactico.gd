@@ -503,17 +503,19 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	return out
 
 
-# LO QUE TIENE PINTADO un enemigo, en MUNDO: la caja que abraza su dibujo en la pose que tiene ahora
-# (todos los fotogramas de la animacion que corre: si no, la caja temblaria al ritmo del paso).
+# LO QUE TIENE PINTADO un enemigo, en MUNDO: la caja que abraza su dibujo EN EL FOTOGRAMA QUE SE VE.
 # Rect2() = no tiene dibujo que medir.
 #
-# DOS COSAS que hay que sumar y que la primera version no sumaba (el usuario vio la caja caida hacia
-# abajo en el Rey Slime, el Coloso y el Miconido, 23/09):
+# EL FOTOGRAMA DE AHORA, no la pose entera: uniendo todos los de la animacion, un slime que bota o un
+# golem que sube y baja al andar se quedaban con una caja bastante mas grande que lo que se ve (lo vio
+# el usuario el 23/09). Para golpear manda lo que ves en el momento del golpe.
+#
+# DOS COSAS que hay que sumar y que la primera version no sumaba (la caja salia caida hacia abajo en
+# el Rey Slime, el Coloso y el Miconido):
 #   - el SPRITE no esta en el punto del enemigo: va subido (su propia position), asi que se mide desde
 #     el sprite, no desde el nodo;
 #   - cada fotograma es un AtlasTexture RECORTADO: lo pintado (su region) va dentro de un lienzo mas
-#     grande, y su sitio dentro de el lo dice su MARGIN. Centrar el recorte en el origen lo dejaba
-#     donde no se pinta.
+#     grande, y su sitio dentro de el lo dice su MARGIN.
 static var _cache_dibujo := {}
 
 static func rect_dibujo(cuerpo: Node2D) -> Rect2:
@@ -536,20 +538,19 @@ static func rect_dibujo(cuerpo: Node2D) -> Rect2:
 	return Rect2()
 
 
-# Lo pintado de la animacion que corre, en px de la textura y relativo al ORIGEN del sprite (su punto
-# de dibujo, con 'centered' y 'offset' ya dentro). Cacheado: las texturas de una especie se generan una
-# vez y son las mismas para todos los suyos.
+# Lo pintado del fotograma que se ve, en px de la textura y relativo al ORIGEN del sprite (su punto de
+# dibujo, con 'centered' y 'offset' ya dentro). Cacheado por textura: las de una especie se generan una
+# vez y son las mismas para todos los suyos, asi que get_image solo se paga la primera vez.
 static func _pintado_local(spr: AnimatedSprite2D) -> Rect2:
-	var sf: SpriteFrames = spr.sprite_frames
-	var clave: String = "%d/%s/%s/%s" % [sf.get_instance_id(), spr.animation, str(spr.centered), str(spr.offset)]
+	var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+	if tex == null:
+		return Rect2()
+	var clave: int = tex.get_instance_id()
+	var r: Rect2
 	if _cache_dibujo.has(clave):
-		return _cache_dibujo[clave]
-	var total := Rect2()
-	for i in sf.get_frame_count(spr.animation):
-		var tex: Texture2D = sf.get_frame_texture(spr.animation, i)
-		if tex == null:
-			continue
-		var r := Rect2(Vector2.ZERO, tex.get_size())   # sin recorte: el lienzo entero
+		r = _cache_dibujo[clave]
+	else:
+		r = Rect2(Vector2.ZERO, tex.get_size())   # sin recorte: el lienzo entero
 		if tex is AtlasTexture:
 			var at: AtlasTexture = tex
 			r = Rect2(at.margin.position, at.region.size)
@@ -558,12 +559,12 @@ static func _pintado_local(spr: AnimatedSprite2D) -> Rect2:
 			var usado: Rect2i = img.get_used_rect()
 			if usado.size.x > 0 and usado.size.y > 0:
 				r = Rect2(r.position + Vector2(usado.position), Vector2(usado.size))
-		if spr.centered:
-			r.position -= tex.get_size() * 0.5
-		r.position += spr.offset
-		total = r if not total.has_area() else total.merge(r)
-	_cache_dibujo[clave] = total
-	return total
+		r.position -= tex.get_size() * 0.5   # relativo al centro del lienzo
+		_cache_dibujo[clave] = r
+	if not spr.centered:
+		r.position += tex.get_size() * 0.5
+	r.position += spr.offset
+	return r
 
 
 # Pulsaste una habilidad con huella: a apuntar.
