@@ -39,6 +39,7 @@ func _ready() -> void:
 	_probar_radio()
 	_probar_paso()
 	await _probar_turnos()
+	await _probar_copia_de_red()
 	print("[turno] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)
 
@@ -149,6 +150,38 @@ func _probar_turnos() -> void:
 
 	pelea.queue_free()
 	await get_tree().process_frame
+
+
+# 6) LA COPIA DE RED de un bicho que esta en MI pelea tactica no hace caso de la posicion que le manda
+#    su dueño (la de antes de la pelea): si no, andaba su turno y volvia andando a su sitio. Fuera de
+#    la pelea, si le hace caso.
+func _probar_copia_de_red() -> void:
+	var copia: Node2D = load("res://scripts/actors/enemy/remote_enemy.gd").new()
+	add_child(copia)
+	await get_tree().process_frame
+	copia.ir_a(Vector2(100, 100))   # primer paquete: aparece ahi
+	var arena := Node2D.new()
+	add_child(arena)
+	var antes_arena: Node = Game._arena_nodo
+	var antes_enem: Array = Game._active_enemies
+	Game._arena_nodo = arena
+	Game._active_enemies = [copia]
+	# El turno lo mueve, por el MISMO camino que en el juego.
+	Tactico.new(null)._colocar(null, copia, Vector2(200, 100))
+	copia.ir_a(Vector2(100, 100))               # y su dueño insiste en el sitio viejo
+	for i in 30:
+		await get_tree().physics_frame
+	_afirmar(copia.global_position.distance_to(Vector2(200, 100)) < 1.0,
+		"en la pelea, la copia vuelve al sitio que manda la red: %s" % str(copia.global_position))
+	Game._arena_nodo = antes_arena
+	Game._active_enemies = antes_enem
+	copia.ir_a(Vector2(120, 100))
+	for i in 60:
+		await get_tree().physics_frame
+	_afirmar(copia.global_position.distance_to(Vector2(120, 100)) < 5.0,
+		"fuera de la pelea, la copia no sigue a la red: %s" % str(copia.global_position))
+	copia.queue_free()
+	arena.queue_free()
 
 
 func _cuerpo(p: Vector2) -> Node2D:

@@ -465,9 +465,9 @@ func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 	cuerpo.global_position = p
 	_pos[c] = p
 	# LA COPIA DE RED de un bicho (remote_enemy) se arrastra cada fotograma hacia el ultimo sitio que
-	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. Esto es un
-	# apaño hasta la fase 7: el dueño todavia no se entera de que se ha movido, y si le manda otra
-	# posicion, manda la suya.
+	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. Y mientras
+	# dure la pelea no acepta posiciones nuevas de su dueño (ver remote_enemy.ir_a). Apaño hasta la
+	# fase 7: el dueño todavia no se entera de que se ha movido.
 	if cuerpo.get("_objetivo") is Vector2:
 		cuerpo.set("_objetivo", p)
 		# Y el reloj con el que deduce si anda (remote_enemy._physics_process): sin ponerlo a cero, se
