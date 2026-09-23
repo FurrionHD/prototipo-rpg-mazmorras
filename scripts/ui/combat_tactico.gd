@@ -286,22 +286,19 @@ func radio_de(c: Combatant) -> float:
 # El radio es una fraccion del ancho que se VE (el dibujo en los enemigos, la caja de siempre en los
 # tuyos): lo que pisa un cuerpo es bastante menos que lo que abulta.
 const PISA := 0.33
-# Los enemigos llevan el origen en el CENTRO de su dibujo, no en los pies: los pies caen hacia abajo
-# de lo que tienen pintado. Esta fraccion de su alto por debajo del origen.
-const PIES_ENEMIGO := 0.4
 
 
 # Donde tiene los pies, con el cuerpo donde la PELEA dice que esta (pos_de: la posicion sellada si es
-# de otro humano).
+# de otro humano). Los tuyos: bajo el nodo (PoseJugador.PIES_BAJO_NODO). Los enemigos: abajo de lo que
+# tienen PINTADO, un pelo por encima del borde (el borde es la punta de una pata o la sombra del gel).
+const PIES_SOBRE_EL_BORDE := 0.1
+
 func pies_de(c: Combatant) -> Vector2:
 	var p: Vector2 = pos_de(c)
 	if not _pantalla._enemies.has(c):
 		return p + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
-	var cuerpo: Node2D = cuerpo_de(c)
-	var tam: Vector2 = _tam_dibujo(cuerpo) if cuerpo != null else Vector2.ZERO
-	if tam == Vector2.ZERO and cuerpo != null:
-		tam = Cuerpos.caja_de(cuerpo).size
-	return p + Vector2(0.0, tam.y * PIES_ENEMIGO)
+	var r: Rect2 = bulto_de(c)
+	return Vector2(r.get_center().x, r.end.y - r.size.y * PIES_SOBRE_EL_BORDE)
 
 
 # El radio de lo que PISA quien golpea: la punta de su arma se cuenta desde el borde de esto.
@@ -311,7 +308,7 @@ func radio_pisa(c: Combatant) -> float:
 		return 32.0 * PISA
 	var ancho: float = 0.0
 	if _pantalla._enemies.has(c):
-		ancho = _tam_dibujo(cuerpo).x
+		ancho = rect_dibujo(cuerpo).size.x
 	if ancho <= 0.0:
 		ancho = Cuerpos.caja_de(cuerpo).size.x
 	return ancho * PISA
@@ -319,22 +316,18 @@ func radio_pisa(c: Combatant) -> float:
 
 # LA HITBOX de quien RECIBE: su cuerpo tal como se ve (lo marco el usuario sobre una captura, una caja
 # alrededor del dibujo de la Aberracion: "eso es lo que hay que tener en cuenta para golpearlo").
-#   Los enemigos: la caja de su DIBUJO (su pose entera, ver _tam_dibujo), centrada donde se pinta.
+#   Los enemigos: la caja de lo que tienen PINTADO, donde se pinta (ver rect_dibujo).
 #   Los tuyos: la caja de su cuerpo (PoseJugador.CAJA_CUERPO), la misma contra la que te pegan por el mapa.
 # Con el cuerpo donde la PELEA dice que esta (pos_de).
 func bulto_de(c: Combatant) -> Rect2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	var r: Rect2 = Rect2()
 	if _pantalla._enemies.has(c):
-		for hijo in cuerpo.get_children():
-			if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible:
-				var tam: Vector2 = _tam_dibujo(cuerpo)
-				if tam != Vector2.ZERO:
-					var spr: AnimatedSprite2D = hijo
-					var centro: Vector2 = pos_de(c) + spr.offset * spr.get_global_transform().get_scale().abs()
-					return Rect2(centro - tam * 0.5, tam)
-	var r: Rect2 = Cuerpos.caja_de(cuerpo)
+		r = rect_dibujo(cuerpo)
+	if not r.has_area():
+		r = Cuerpos.caja_de(cuerpo)
 	r.position += pos_de(c) - cuerpo.global_position
 	return r
 
@@ -510,20 +503,67 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	return out
 
 
-# Lo que mide lo que tiene pintado un enemigo (su pose entera, la misma medida que su barra: ver
-# figuras_mapa._tam_pose), en px de MUNDO (su escala global, sin el zoom de la camara). ZERO = no
-# tiene dibujo que medir.
-func _tam_dibujo(cuerpo: Node2D) -> Vector2:
+# LO QUE TIENE PINTADO un enemigo, en MUNDO: la caja que abraza su dibujo en la pose que tiene ahora
+# (todos los fotogramas de la animacion que corre: si no, la caja temblaria al ritmo del paso).
+# Rect2() = no tiene dibujo que medir.
+#
+# DOS COSAS que hay que sumar y que la primera version no sumaba (el usuario vio la caja caida hacia
+# abajo en el Rey Slime, el Coloso y el Miconido, 23/09):
+#   - el SPRITE no esta en el punto del enemigo: va subido (su propia position), asi que se mide desde
+#     el sprite, no desde el nodo;
+#   - cada fotograma es un AtlasTexture RECORTADO: lo pintado (su region) va dentro de un lienzo mas
+#     grande, y su sitio dentro de el lo dice su MARGIN. Centrar el recorte en el origen lo dejaba
+#     donde no se pinta.
+static var _cache_dibujo := {}
+
+static func rect_dibujo(cuerpo: Node2D) -> Rect2:
+	if cuerpo == null:
+		return Rect2()
 	for hijo in cuerpo.get_children():
-		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and _pantalla.figuras_mapa != null \
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible \
 				and (hijo as AnimatedSprite2D).sprite_frames != null:
 			var spr: AnimatedSprite2D = hijo
-			var esc: Vector2 = spr.get_global_transform().get_scale().abs()
-			return _pantalla.figuras_mapa._tam_pose(spr) * esc
+			var local: Rect2 = _pintado_local(spr)
+			if not local.has_area():
+				return Rect2()
+			var t: Transform2D = spr.get_global_transform()
+			var esc: Vector2 = t.get_scale().abs()
+			return Rect2(t.origin + local.position * esc, local.size * esc)
 		if hijo is ColorRect and (hijo as CanvasItem).visible:
 			var cr: ColorRect = hijo
-			return cr.size * cr.get_global_transform().get_scale().abs()
-	return Vector2.ZERO
+			var tc: Transform2D = cr.get_global_transform()
+			return Rect2(tc.origin, cr.size * tc.get_scale().abs())
+	return Rect2()
+
+
+# Lo pintado de la animacion que corre, en px de la textura y relativo al ORIGEN del sprite (su punto
+# de dibujo, con 'centered' y 'offset' ya dentro). Cacheado: las texturas de una especie se generan una
+# vez y son las mismas para todos los suyos.
+static func _pintado_local(spr: AnimatedSprite2D) -> Rect2:
+	var sf: SpriteFrames = spr.sprite_frames
+	var clave: String = "%d/%s/%s/%s" % [sf.get_instance_id(), spr.animation, str(spr.centered), str(spr.offset)]
+	if _cache_dibujo.has(clave):
+		return _cache_dibujo[clave]
+	var total := Rect2()
+	for i in sf.get_frame_count(spr.animation):
+		var tex: Texture2D = sf.get_frame_texture(spr.animation, i)
+		if tex == null:
+			continue
+		var r := Rect2(Vector2.ZERO, tex.get_size())   # sin recorte: el lienzo entero
+		if tex is AtlasTexture:
+			var at: AtlasTexture = tex
+			r = Rect2(at.margin.position, at.region.size)
+		var img: Image = tex.get_image()
+		if img != null:
+			var usado: Rect2i = img.get_used_rect()
+			if usado.size.x > 0 and usado.size.y > 0:
+				r = Rect2(r.position + Vector2(usado.position), Vector2(usado.size))
+		if spr.centered:
+			r.position -= tex.get_size() * 0.5
+		r.position += spr.offset
+		total = r if not total.has_area() else total.merge(r)
+	_cache_dibujo[clave] = total
+	return total
 
 
 # Pulsaste una habilidad con huella: a apuntar.

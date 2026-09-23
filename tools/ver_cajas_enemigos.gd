@@ -25,20 +25,11 @@ class Capa extends Node2D:
 		for e in enemigos:
 			if not is_instance_valid(e):
 				continue
-			var spr: AnimatedSprite2D = null
-			for h in (e as Node).get_children():
-				if h is AnimatedSprite2D and (h as CanvasItem).visible:
-					spr = h
-			var r: Rect2
-			if spr != null and spr.sprite_frames != null:
-				var esc: Vector2 = spr.get_global_transform().get_scale().abs()
-				var tam: Vector2 = figuras._tam_pose(spr) * esc
-				var c: Vector2 = (e as Node2D).global_position + spr.offset * esc
-				r = Rect2(c - tam * 0.5, tam)
-			else:
+			var r: Rect2 = Tactico.rect_dibujo(e)
+			if not r.has_area():
 				r = Cuerpos.caja_de(e)
 			draw_rect(r, Color(0.2, 0.55, 1.0), false, 1.5)
-			var pies: Vector2 = (e as Node2D).global_position + Vector2(0, r.size.y * Tactico.PIES_ENEMIGO)
+			var pies: Vector2 = Vector2(r.get_center().x, r.end.y - r.size.y * Tactico.PIES_SOBRE_EL_BORDE)
 			draw_circle(pies, 2.5, Color(1, 0.9, 0.2))
 			draw_arc(pies, r.size.x * Tactico.PISA, 0, TAU, 24, Color(1, 0.9, 0.2, 0.7), 1.0)
 
@@ -113,6 +104,11 @@ func _correr() -> void:
 	for n in get_tree().root.get_children():
 		if n is CanvasLayer:
 			(n as CanvasLayer).visible = false
+	for n in get_tree().get_nodes_in_group("hud"):
+		if n is CanvasItem:
+			(n as CanvasItem).visible = false
+	for n in get_tree().current_scene.find_children("*", "CanvasLayer", true, false):
+		(n as CanvasLayer).visible = false
 	await _esperar(3)
 	for i in enemigos.size():
 		print("%d. %s" % [i + 1, enemigos[i].data.enemy_name])
@@ -120,9 +116,4 @@ func _correr() -> void:
 	var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 	img.save_png(_salida + ".png")
 	print("[foto] ", _salida + ".png")
-	for e in enemigos:
-		for h in e.get_children():
-			if h is AnimatedSprite2D:
-				var s: AnimatedSprite2D = h
-				print("%s: anim %s | offset %s | escala %s | pose %s" % [e.data.enemy_name, s.animation, str(s.offset), str(s.get_global_transform().get_scale()), str(capa.figuras._tam_pose(s))])
 	get_tree().quit(0)
