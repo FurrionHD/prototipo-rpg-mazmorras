@@ -203,11 +203,26 @@ func _process(_delta: float) -> void:
 
 # Clic en el MUNDO (no sobre la UI: los botones consumen su propio clic antes de
 # llegar aqui). Izquierdo = colocar; derecho = desarmar.
+# TRAZA temporal: el clic de colocar no llegaba a _unhandled_input en un mundo compartido. Esto
+# corre ANTES que cualquier Control, asi que dice si el clic existe y QUIEN se lo queda.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	if (event as InputEventMouseButton).button_index != MOUSE_BUTTON_LEFT:
+		return
+	var vp := get_viewport()
+	var encima: Control = vp.gui_get_hovered_control()
+	print("[arena] TRAZA clic: armado=%s | se lo queda: %s | tactil=%s | pausa=%s"
+		% [_armed, ("(nadie)" if encima == null else "%s [%s]"
+			% [encima.get_path(), encima.get_class()]), Tactil.activo, get_tree().paused])
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not _armed:
 		return
 	if not (event is InputEventMouseButton and event.pressed):
 		return
+	print("[arena] TRAZA clic: LLEGA a _unhandled_input")
 	var mb := event as InputEventMouseButton
 	if mb.button_index == MOUSE_BUTTON_RIGHT:
 		_toggle_btn.button_pressed = false
