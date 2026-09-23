@@ -34,6 +34,8 @@ class_name CombatFormas
 # no como un enum importado a proposito: ability_data.gd es de scripts/items y no tiene por que
 # saber nada de la pantalla de combate. -1 en la ficha = derivala tu.
 enum Tipo { PUNTO, CIRCULO, CONO, LINEA, RECTANGULO }
+# Como se APUNTA en el mapa (AbilityData.forma_apunte). Ver la ficha para lo que es cada uno.
+enum Apunte { OBJETIVO, DELANTE, ALREDEDOR, LIBRE }
 
 # Radio de un circulo que alcanza a UNO. Una celda y pico: lo justo para tapar a quien apuntas.
 const R_BASE := 40.0
@@ -88,6 +90,27 @@ class Forma extends RefCounted:
 				var v3: Vector2 = (p - centro).rotated(-dir.angle())
 				return absf(v3.x) <= tam.x * 0.5 and absf(v3.y) <= tam.y * 0.5
 		return false
+
+	# ¿La forma ROZA esta caja (el cuerpo de alguien, en mundo)? Es la pregunta del mapa: le da a quien
+	# le toque el cuerpo, no solo el centro, asi un jefe grande cuenta por su borde (igual que el
+	# alcance, que tambien se mide borde a borde).
+	func toca(r: Rect2) -> bool:
+		match tipo:
+			CombatFormas.Tipo.PUNTO, CombatFormas.Tipo.CIRCULO:
+				return _mas_cerca(r, centro).distance_to(centro) <= maxf(radio, 1.0)
+			CombatFormas.Tipo.CONO:
+				# El punto de la caja mas cercano al origen y, si ese cae fuera del abanico, el centro y las
+				# esquinas: basta con que UNO este dentro.
+				for p in [_mas_cerca(r, origen), r.get_center(), r.position, r.end,
+						Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:
+					if contiene(p):
+						return true
+				return false
+		return contiene(r.get_center())
+
+	# El punto de la caja mas cercano a 'p' (p mismo si esta dentro).
+	static func _mas_cerca(r: Rect2, p: Vector2) -> Vector2:
+		return Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
 
 	# El punto con el que se ordena por "cercania al centro de la huella". Para las formas que
 	# salen del que ataca, el centro util es el medio del alcance, no sus pies.
@@ -227,6 +250,40 @@ static func de_hechizo(spell: SpellData, pos_lanzador: Vector2, pos_objetivo: Ve
 		SpellData.Alcance.TODOS:
 			return circulo(base, radio_arena)
 	return punto(pos_objetivo)
+
+
+# LA FORMA DE UNA HABILIDAD EN EL MAPA, la que ya esta hecha a mano (forma_apunte >= 0).
+#   caja     el cuerpo del que la lanza, en mundo (Cuerpos.caja_de, en su posicion de la pelea)
+#   alcance  el de su arma: lo MAS LEJOS que puede caer el centro, contado desde el borde de su
+#            cuerpo (lo marco el usuario sobre una captura: la misma raya que el alcance del basico)
+#   hacia    a donde apunta: el raton, o la posicion del enemigo pulsado
+# DELANTE y LIBRE ponen el centro donde apuntas pero sin pasar de ese tope; ALREDEDOR, en ti.
+static func de_habilidad_mapa(ab: AbilityData, caja: Rect2, alcance: float, hacia: Vector2) -> Forma:
+	var origen: Vector2 = caja.get_center()
+	var dir: Vector2 = hacia - origen
+	var centro: Vector2 = origen
+	match int(ab.forma_apunte):
+		Apunte.DELANTE, Apunte.LIBRE:
+			centro = origen + dir.limit_length(borde_de(caja, dir) + alcance)
+		Apunte.OBJETIVO:
+			centro = hacia
+	var r: float = ab.forma_radio if ab.forma_radio > 0.0 else R_BASE
+	var ap: float = ab.forma_apertura if ab.forma_apertura > 0.0 else APERTURA_BARRIDO
+	match int(ab.forma):
+		Tipo.CONO:
+			return cono(origen, dir, r, ap)
+		Tipo.LINEA:
+			return linea(origen, dir, r, ANCHO_LINEA)
+		Tipo.PUNTO:
+			return punto(centro, r)
+	return circulo(centro, r)
+
+
+# Cuanto hay del centro de una caja a su borde en la direccion 'dir' (medio y medio en diagonal, la
+# misma cuenta que Cuerpos.zona_delante).
+static func borde_de(caja: Rect2, dir: Vector2) -> float:
+	var d: Vector2 = _dir_segura(dir)
+	return absf(d.x) * caja.size.x * 0.5 + absf(d.y) * caja.size.y * 0.5
 
 
 # Monta la forma que pide la ficha con los radios que pida (0 = el de por defecto de esa forma).

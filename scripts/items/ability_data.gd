@@ -204,6 +204,20 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # centro) y el golpe sismico (cae donde pegas). Solo lo miran CIRCULO y RECTANGULO: el cono y la
 # linea salen siempre del que ataca.
 @export var forma_desde_quien_ataca: bool = false
+# COMO SE APUNTA EN EL MAPA (combate tactico). -1 = todavia no se ha hecho esta habilidad para el
+# mapa: se resuelve como en la fila. Se rellena UNA A UNA, arma por arma (decision del usuario):
+#    0 = OBJETIVO     pulsas a un enemigo
+#    1 = DELANTE      la forma cae en la PUNTA DE TU ARMA (su alcance), hacia donde apuntas con el
+#                     raton: el golpe sismico, el martillo de guerra
+#    2 = ALREDEDOR    centrada en ti: el temblor
+#    3 = LIBRE        un punto del suelo dentro de un rango (la magia)
+# Los nombres viven en CombatFormas.Apunte. En el mapa NO hay tope de enemigos: le da a todo lo que
+# la huella roce (area_max es cosa de la fila).
+@export var forma_apunte: int = -1
+# EL NUCLEO de un circulo: la zona de impacto, con el daño entero. Lo de fuera (el anillo) cobra
+# area_secundario. 0 = sin nucleo, todo el circulo al daño entero. Es el golpe sismico que dibujo el
+# usuario: un punto de impacto y los alrededores con menos.
+@export var forma_nucleo: float = 0.0
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer

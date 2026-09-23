@@ -11,6 +11,10 @@ prob = 0.15
 [resource]
 script = ExtResource("1")
 nombre = "Golpe sísmico"
+forma = 1
+forma_apunte = 1
+forma_radio = 95.0
+forma_nucleo = 25.0
 inicial = true
 coste_energia = 60
 cooldown = 4

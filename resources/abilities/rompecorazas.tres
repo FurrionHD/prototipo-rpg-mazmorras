@@ -12,6 +12,9 @@ turns = 3
 [resource]
 script = ExtResource("1")
 nombre = "Rompecorazas"
+forma = 1
+forma_apunte = 1
+forma_radio = 22.0
 precio = 2500
 coste_energia = 56
 cooldown = 4

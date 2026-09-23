@@ -876,6 +876,10 @@ func _bloque_de(c: Combatant) -> Dictionary:
 func _input(event: InputEvent) -> void:
 	if _state == State.FINISHED:
 		return
+	# EN EL MAPA, apuntando una habilidad: el clic es del suelo (confirmar) y el derecho vuelve.
+	if tactico and turno_mapa.input_apuntando(event):
+		get_viewport().set_input_as_handled()
+		return
 	# MANTENER PULSADO sobre un combatiente -> ficha de detalle (solo en tu turno). El contador
 	# lo lleva _process; aqui solo se arma, se cancela si el puntero se va, y se suelta al levantar.
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -1141,6 +1145,8 @@ func _begin_player_turn() -> void:
 			var interrumpida: String = _player.charging.nombre
 			_player.charging = null
 			_player.charge_left = 0
+			if tactico:
+				turno_mapa.olvidar_carga(_player)
 			print("[habilidad] %s ATURDIDO: se le INTERRUMPE %s" % [_player.nombre, interrumpida])
 			_set_log("%s está aturdido: se le interrumpe %s. 💫" % [_player.nombre, interrumpida])
 		else:
@@ -1169,6 +1175,13 @@ func _begin_player_turn() -> void:
 			return
 		# LISTA. 'charging' se queda puesto hasta que de verdad se suelte: es lo que hace que el estado
 		# sobreviva a un traspaso, a un reenvio del heartbeat y a que su dueño se vaya de la pelea.
+		# EN EL MAPA no se pregunta nada: el sitio se eligio al empezar a cargar y cae ahi, este quien
+		# este (lo que se haya ido, se ha librado). Lo suelta esta maquina aunque el personaje sea de
+		# otro humano: el sitio ya viajo sellado con la accion que empezo la carga.
+		if tactico and turno_mapa.tiene_carga(_player):
+			turno_mapa.recuperar_carga(_player)
+			habilidades._soltar_la_carga()
+			return
 		habilidades._pedir_soltar_carga(_player.charging)
 		return
 

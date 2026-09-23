@@ -35,8 +35,10 @@
 #  Y CADA MAQUINA ENCUENTRA LOS CUERPOS EN SU MUNDO por una direccion que viaja en el roster: un
 #  aliado es "el personaje k del jugador tal" y un bicho es su id de red (direccion_red / cuerpo_de).
 #
-#  PENDIENTE (fases siguientes): a quien alcanzas segun donde estas (fase 5, la geometria de mapa) y
-#  las cargas que clavan y la reposicion entre frases (fase 6).
+#  EL ALCANCE Y LA HUELLA (fase 5): para pegar hay que llegar (llega / alcanzables), y las habilidades
+#  ya hechas para el mapa se APUNTAN con el raton (apuntar / reparto_habilidad): pegan a todo lo que la
+#  huella roce, sin tope. Mientras se recita NO se anda (decision del usuario: no hay reposicion entre
+#  frases). PENDIENTE: que los espejos vean la huella de los demas, y la magia con su rango.
 # ============================================================
 extends RefCounted
 
@@ -380,6 +382,250 @@ func tick(delta: float) -> bool:
 	return false
 
 
+# ------------------------------------------------------------
+#  APUNTAR una habilidad en el mapa
+# ------------------------------------------------------------
+# Las habilidades YA HECHAS para el mapa (forma_apunte >= 0 en su ficha) no salen al pulsarlas: se
+# apuntan. La huella sigue al raton, el personaje mira hacia ella, y el clic izquierdo confirma (el
+# derecho, o Esc, vuelve al menu). Lo que se elige es un PUNTO, y ese punto es lo que viaja por red
+# sellado con la accion: quien lleva la pelea rehace la huella desde la posicion sellada del que la
+# lanza y su alcance, y pega a quien le toque. Las que aun no se han hecho siguen como en la fila.
+
+var _apuntando: AbilityData = null
+# El punto elegido (mundo) de la accion que se va a resolver. Lo pone el clic en esta maquina, o
+# llega sellado por red (anotar_apunte). Lo lee reparto_habilidad.
+var apunte: Vector2 = Vector2.ZERO
+var _hay_apunte: bool = false
+var _pillados_vistos: int = -1
+const CLAVE_APUNTE := &"apuntando"
+
+
+# ¿Esta habilidad se resuelve con su huella del mapa?
+func usa_huella(ab: AbilityData) -> bool:
+	return _pantalla.tactico and ab != null and int(ab.forma_apunte) >= 0 and int(ab.forma) >= 0
+
+
+# La forma de 'ab' lanzada por 'c' hacia 'hacia', con 'c' donde la PELEA dice que esta.
+func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
+	var cuerpo: Node2D = cuerpo_de(c)
+	var caja: Rect2 = Cuerpos.caja_de(cuerpo) if cuerpo != null else Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	if cuerpo != null:
+		caja.position += pos_de(c) - cuerpo.global_position
+	return CombatFormas.de_habilidad_mapa(ab, caja, alcance_de(c), hacia)
+
+
+# A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella roce).
+# Con NUCLEO, los que el nucleo roza van al daño entero y el resto del circulo a area_secundario; sin
+# nucleo, todos enteros. Ordenados por cercania al centro y, a igualdad, por indice en _enemies: el
+# mismo orden en todas las maquinas. Vacio = golpea el suelo.
+func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
+	var out: Array = []
+	if not _hay_apunte:
+		return out
+	var f = forma_de(ab, c, apunte)
+	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
+	var lista: Array = []
+	for e in _pantalla._vivos():
+		var r: Rect2 = _caja_en_pelea(e)
+		if not f.toca(r):
+			continue
+		var esc: float = 1.0
+		if nucleo != null and not nucleo.toca(r):
+			esc = ab.area_secundario
+		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(f.centro_util()),
+			"i": _pantalla._enemies.find(e)})
+	lista.sort_custom(func(x, y):
+		if is_equal_approx(float(x["d"]), float(y["d"])):
+			return int(x["i"]) < int(y["i"])
+		return float(x["d"]) < float(y["d"]))
+	for d in lista:
+		out.append({"c": d["c"], "escala": d["escala"]})
+	return out
+
+
+func _caja_en_pelea(c: Combatant) -> Rect2:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	var r: Rect2 = Cuerpos.caja_de(cuerpo)
+	r.position += pos_de(c) - cuerpo.global_position
+	return r
+
+
+# Pulsaste una habilidad con huella: a apuntar.
+func apuntar(ab: AbilityData) -> void:
+	if _pantalla._state != _pantalla.State.WAITING_PLAYER or not is_instance_valid(_cuerpo):
+		return
+	_apuntando = ab
+	_pillados_vistos = -1
+	_andando = false
+	_pantalla._ocultar_cajas()
+	_mostrar_volver()
+	_refrescar_apunte(_raton_en_mundo())
+
+
+func esta_apuntando() -> bool:
+	return _apuntando != null
+
+
+func _refrescar_apunte(raton: Vector2) -> void:
+	if _apuntando == null or not is_instance_valid(_cuerpo):
+		return
+	var f = forma_de(_apuntando, _quien, raton)
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.poner_huella(CLAVE_APUNTE, f, _apuntando.forma_nucleo)
+	# MIRA HACIA DONDE APUNTA (lo pidio el usuario). Su cuerpo es el de esta maquina, y su cara viaja
+	# con el, por el canal del jugador.
+	_animar(_cuerpo, raton - _cuerpo.global_position, false)
+	# Cuantos pilla, en un letrero junto al boton de volver y NO en el registro: el registro viaja a
+	# los demas jugadores, y cada movimiento del raton seria una linea en su pantalla.
+	apunte = raton
+	_hay_apunte = true
+	var n: int = reparto_habilidad(_apuntando, _quien).size()
+	if n != _pillados_vistos and is_instance_valid(_letrero):
+		_pillados_vistos = n
+		_letrero.text = "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre,
+			"no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)]
+
+
+func _confirmar_apunte() -> void:
+	var ab: AbilityData = _apuntando
+	_dejar_de_apuntar()
+	apunte = _raton_en_mundo()
+	_hay_apunte = true
+	_pantalla.habilidades._usar_habilidad(ab)
+
+
+func _cancelar_apunte() -> void:
+	_dejar_de_apuntar()
+	_pantalla.habilidades._accion_habilidad()   # de vuelta al menu de habilidades
+
+
+func _dejar_de_apuntar() -> void:
+	_apuntando = null
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.quitar_huella(CLAVE_APUNTE)
+	if is_instance_valid(_boton_volver):
+		_boton_volver.queue_free()
+	_boton_volver = null
+	if is_instance_valid(_letrero):
+		_letrero.queue_free()
+	_letrero = null
+
+
+# Lo llama la pantalla desde su _input, ANTES que nada. true = el evento era del apuntado.
+func input_apuntando(event: InputEvent) -> bool:
+	if _apuntando == null:
+		return false
+	if event is InputEventMouseMotion:
+		_refrescar_apunte(_raton_en_mundo())
+		return false   # el movimiento no se come: la ficha del que tienes debajo sigue funcionando
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var mb := event as InputEventMouseButton
+		# Un clic sobre un BOTON (el de volver) es del boton, no del suelo.
+		var bajo: Control = _pantalla.get_viewport().gui_get_hovered_control()
+		if bajo is BaseButton:
+			return false
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_confirmar_apunte()
+			return true
+		if mb.button_index == MOUSE_BUTTON_RIGHT:
+			_cancelar_apunte()
+			return true
+	if event.is_action_pressed(&"cancelar"):
+		_cancelar_apunte()
+		return true
+	return false
+
+
+# El boton de volver: en tactil no hay clic derecho. UI provisional, como la pregunta de huir.
+var _boton_volver: Button = null
+var _letrero: Label = null
+
+func _mostrar_volver() -> void:
+	if is_instance_valid(_boton_volver):
+		return
+	_boton_volver = Button.new()
+	_boton_volver.text = "↩ Volver"
+	_boton_volver.focus_mode = Control.FOCUS_NONE
+	_boton_volver.pressed.connect(_cancelar_apunte)
+	_pantalla.add_child(_boton_volver)
+	var util: Rect2 = Game._rect_util_tactico()
+	_boton_volver.position = Vector2(util.get_center().x - 60.0, util.end.y - 56.0)
+	_boton_volver.custom_minimum_size = Vector2(120, 44)
+	_letrero = Label.new()
+	_letrero.add_theme_font_size_override("font_size", 18)
+	_letrero.add_theme_color_override("font_outline_color", Color.BLACK)
+	_letrero.add_theme_constant_override("outline_size", 6)
+	_letrero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_letrero.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_letrero.size = Vector2(util.size.x, 28)
+	_letrero.position = Vector2(util.position.x, util.end.y - 88.0)
+	_pantalla.add_child(_letrero)
+
+
+# Donde esta el raton EN EL MUNDO: la pantalla va en una capa aparte, pero el suelo lo pinta la
+# camara, asi que se deshace su transformacion.
+func _raton_en_mundo() -> Vector2:
+	var vp: Viewport = _pantalla.get_viewport()
+	return vp.get_canvas_transform().affine_inverse() * vp.get_mouse_position()
+
+
+# EN EL ESPEJO, al contestar una habilidad: el punto al que apunte. [] si no hay.
+func apunte_para_red() -> Array:
+	return [apunte.x, apunte.y] if _hay_apunte else []
+
+
+# EN QUIEN LLEVA LA PELEA: el punto sellado con la habilidad de otro humano. No se valida contra
+# nada: la huella se rehace aqui con SU posicion sellada y SU alcance, asi que un punto lejisimos
+# solo pone el centro en la punta de su arma, que es lo mas lejos que puede caer.
+func anotar_apunte(p: Array) -> void:
+	_hay_apunte = p.size() >= 2
+	apunte = Vector2(float(p[0]), float(p[1])) if _hay_apunte else Vector2.ZERO
+
+
+# LAS CARGAS: el sitio se elige al EMPEZAR a cargar y se queda (combatiente -> [ab, punto]). Mientras
+# carga, su huella se queda pintada en el suelo: es el aviso, y lo que deja salir de ella andando.
+# Vive en quien lleva la pelea, que es quien suelta la carga (ver _begin_player_turn).
+var _cargas: Dictionary = {}
+
+func guardar_carga(c: Combatant, ab: AbilityData) -> void:
+	if c == null or not _hay_apunte:
+		return
+	_cargas[c] = [ab, apunte]
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.poner_huella(c, forma_de(ab, c, apunte), ab.forma_nucleo, Color(1.0, 0.45, 0.25))
+
+
+func tiene_carga(c: Combatant) -> bool:
+	return _cargas.has(c)
+
+
+# Pone el sitio guardado como el apunte de la accion y borra la huella: lo que queda es soltarla.
+func recuperar_carga(c: Combatant) -> void:
+	var d: Array = _cargas.get(c, [])
+	_cargas.erase(c)
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.quitar_huella(c)
+	if d.size() >= 2:
+		apunte = d[1]
+		_hay_apunte = true
+
+
+# Si le interrumpen la carga (aturdido) o cae, la huella se va con ella.
+func olvidar_carga(c: Combatant) -> void:
+	if not _cargas.has(c):
+		return
+	_cargas.erase(c)
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.quitar_huella(c)
+
+
 # EL TURNO SE HA IDO: se eligio accion, o se lo ha llevado otra cosa (huyo, cayo).
 func _turno_acabado() -> bool:
 	return _pantalla._state != _pantalla.State.WAITING_PLAYER or _pantalla._player != _quien \
@@ -670,6 +916,8 @@ func _terminar() -> void:
 	_cuerpo = null
 	_presa = null
 	_alcance_visto = []
+	_dejar_de_apuntar()
+	_hay_apunte = false
 	_andando = false
 	if is_instance_valid(_pregunta):
 		_pregunta.visible = false

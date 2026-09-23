@@ -11,6 +11,9 @@ prob = 0.4
 [resource]
 script = ExtResource("1")
 nombre = "Martillo de guerra"
+forma = 1
+forma_apunte = 1
+forma_radio = 26.0
 precio = 2500
 coste_energia = 76
 cooldown = 5

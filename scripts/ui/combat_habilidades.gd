@@ -178,6 +178,9 @@ func _accion_habilidad() -> void:
 		# Las que caen sobre un aliado preguntan A QUIEN antes de resolverse, igual que un Filo.
 		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
 			b.pressed.connect(_elegir_aliado_habilidad.bind(ab))
+		elif _pantalla.turno_mapa.usa_huella(ab):
+			# EN EL MAPA, las que ya estan hechas se APUNTAN antes de salir (ver turno_mapa.apuntar).
+			b.pressed.connect(_pantalla.turno_mapa.apuntar.bind(ab))
 		else:
 			b.pressed.connect(_usar_habilidad.bind(ab))
 		_pantalla._celda_submenu(b)
@@ -358,14 +361,23 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var ia_h: int = -1
 		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO and _pantalla._hab_aliado != null:
 			ia_h = _pantalla._aliados.find(_pantalla._hab_aliado)
-		_pantalla.espejo._responder_al_anfitrion({"tipo": "habilidad", "ruta": ab.resource_path, "obj": _pantalla._target_idx,
-			"aliado": ia_h})
+		var resp: Dictionary = {"tipo": "habilidad", "ruta": ab.resource_path, "obj": _pantalla._target_idx,
+			"aliado": ia_h}
+		# EN EL MAPA, a donde la apunte: sellado con la accion (ver turno_mapa.anotar_apunte).
+		if _pantalla.turno_mapa.usa_huella(ab):
+			resp["apunte"] = _pantalla.turno_mapa.apunte_para_red()
+		_pantalla.espejo._responder_al_anfitrion(resp)
 		return
 	# OBJETIVO capturado UNA vez, al principio de la accion. No se vuelve a preguntar por el
 	# dentro del bucle de golpes a proposito: si el objetivo cae al tercer tajo de una habilidad
 	# de cinco, los dos que quedan tienen que caer en el vacio, no saltar solos al siguiente
 	# enemigo. Una accion = un objetivo, el que elegiste al lanzarla.
 	var obj: Combatant = _pantalla._objetivo()
+	# EN EL MAPA, las ya hechas pegan a quien toque su HUELLA, no a los vecinos de la fila: el conjunto
+	# y la escala de cada uno salen de la geometria del mapa, y todo lo de abajo (golpes, criticos,
+	# efectos, log) es el de siempre. El "principal" es el mas cercano al centro. Vacio = al suelo.
+	var en_mapa: bool = _pantalla.turno_mapa.usa_huella(ab)
+	var reparto_mapa: Array = []
 	# Manos que aportan ESTA habilidad (dual solo si son 2: daga+daga, no daga+estoque).
 	var idxs: Array = _pantalla._player.ability_hand_indices(ab)
 	var manos: int = maxi(1, idxs.size())
@@ -419,6 +431,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if ab.carga_turnos > 0:
 			_pantalla._player.spend_energy(coste)
 			_pantalla._player.start_cooldown(ab)
+			# En el mapa el sitio se elige AL EMPEZAR y se queda: al soltarla cae ahi.
+			if en_mapa:
+				_pantalla.turno_mapa.guardar_carga(_pantalla._player, ab)
 			_empezar_carga_jugador(ab)
 			return
 		_pantalla._player.spend_energy(coste)
@@ -427,6 +442,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Al SOLTAR una carga la conversion NO paga otra vez: la energia se fundio al empezarla, y aqui
 	# 'coste' vale lo que tengas AHORA. Sin este guardia, una habilidad de conversion con carga te
 	# daria maná gratis por energia que ya no gastas.
+	if en_mapa:
+		reparto_mapa = _pantalla.turno_mapa.reparto_habilidad(ab, _pantalla._player)
+		if not reparto_mapa.is_empty():
+			obj = reparto_mapa[0]["c"]
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
@@ -480,7 +499,18 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			var m_golpe: float = float(plan[i]["mult"])
 			_pantalla._player.set_active_hand(idxs[mini(int(plan[i]["hand"]), idxs.size() - 1)])
 			var golpe_res: Array = []   # resultados de ESTE golpe (varios si es área)
-			match ab.area_modo:
+			# -1 = la huella del mapa: cada uno con la escala de la zona en la que cae.
+			match -1 if en_mapa else ab.area_modo:
+				-1:
+					for o in reparto_mapa:
+						var tm: Combatant = o["c"]
+						if not tm.is_alive():
+							continue
+						var esc_m: float = float(o["escala"])
+						golpe_res.append(_resolver_golpe_hab(ab, tm, i, manos, esc_m,
+							"" if tm == obj else " (%s)" % tm.nombre, m_golpe))
+						escala_por_obj[tm] = maxf(float(escala_por_obj.get(tm, 0.0)), esc_m)
+						if tm not in tocados: tocados.append(tm)
 				AbilityData.AreaModo.SPLASH:
 					# Principal al 100%, cada secundario x el % que toca (baja con la multitud si la
 					# habilidad tiene decay). El total CRECE con cada enemigo tocado.
@@ -542,7 +572,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				print("        " + r.linea)
 			# Fin de la habilidad si, sin área ni redirección, el objetivo ya cayó (los que
 			# sobran no saltan solos). En área/barrido seguimos: aún puede quedar gente viva.
-			if ab.area_modo == AbilityData.AreaModo.NINGUNO and not ab.redirige_al_morir \
+			if not en_mapa and ab.area_modo == AbilityData.AreaModo.NINGUNO and not ab.redirige_al_morir \
 					and not obj.is_alive():
 				break
 			# Si no queda NADIE vivo entre los objetivos, no hay a quién seguir pegando.
@@ -600,7 +630,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# UTILIDAD PURA (dano_mult 0): no hay golpes, pero SI puede llevar efectos que le lanzas al
 		# rival (un debuff sin daño). Sin esta rama se perdian: no hay acierto que comprobar, asi que
 		# entran directos, y su propia `prob` decide.
-		for t in _objetivos_hab(ab, obj):
+		var sin_dano: Array = _objetivos_hab(ab, obj)
+		if en_mapa:
+			sin_dano = reparto_mapa.map(func(o): return o["c"])
+		for t in sin_dano:
 			if t != null and t.is_alive():
 				estados_log += _tirar_efectos_habilidad(ab, t, false, "objetivo")
 
@@ -681,7 +714,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# un muerto. Mismo criterio que los hechizos (ver _log_hechizo): nunca una linea por golpe,
 	# que el log solo tiene LOG_MAX.
 	var msg: String
-	if ab.dano_mult > 0.0:
+	if en_mapa and reparto_mapa.is_empty():
+		# La huella no rozo a nadie: el golpe da en el suelo (la regla que dio el usuario para la magia,
+		# y que vale igual aqui: si se han ido, mala suerte).
+		msg = "%s usa %s, pero golpea el suelo: no alcanza a nadie." % [_pantalla._player.nombre, ab.nombre]
+	elif ab.dano_mult > 0.0:
 		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _pantalla._etq(obj)]
 		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
 			rastro.size(), "" if rastro.size() == 1 else "s"]

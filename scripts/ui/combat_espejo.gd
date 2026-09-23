@@ -890,6 +890,9 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 					elegida = ab
 					break
 			if elegida != null:
+				# EN EL MAPA, a donde la apunto (sellado): la huella se rehace aqui desde su posicion.
+				if _pantalla.tactico and accion.has("apunte"):
+					_pantalla.turno_mapa.anotar_apunte(accion.get("apunte", []))
 				var ia_h: int = int(accion.get("aliado", -1))
 				_pantalla._hab_aliado = _pantalla._aliados[ia_h] if ia_h >= 0 and ia_h < _pantalla._aliados.size() else null
 				_pantalla.habilidades._usar_habilidad(elegida)

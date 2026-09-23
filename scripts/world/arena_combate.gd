@@ -274,6 +274,30 @@ func _draw() -> void:
 		draw_arc(circulo_centro, circulo_radio, 0.0, TAU, 72, Color(base, 0.55 + 0.2 * late), 2.0)
 		draw_circle(circulo_centro, 3.0, Color(base, 0.8))   # de donde salio: su sitio al empezar
 
+	# 4) LAS HUELLAS: lo que tapa una habilidad mientras se apunta (y, las cargadas, mientras cargan).
+	# Tambien sin achatar. El NUCLEO (la zona de impacto, con el daño entero) va mas marcado.
+	for clave in huellas:
+		var h: Dictionary = huellas[clave]
+		var f = h["forma"]
+		var c: Color = h["color"]
+		CombatFormas.dibujar(f, self, Color(c, 0.6 + 0.3 * late))
+		var n: float = float(h["nucleo"])
+		if n > 0.0:
+			draw_circle(f.centro, n, Color(c, 0.30))
+			draw_arc(f.centro, n, 0.0, TAU, 48, Color(c, 0.9), 2.0)
+
+
+# LAS HUELLAS PINTADAS, por clave (quien la lanza): {forma, nucleo, color}.
+var huellas: Dictionary = {}
+
+func poner_huella(clave: Variant, forma: RefCounted, nucleo: float = 0.0,
+		color: Color = Color(1.0, 0.75, 0.3)) -> void:
+	huellas[clave] = {"forma": forma, "nucleo": nucleo, "color": color}
+
+
+func quitar_huella(clave: Variant) -> void:
+	huellas.erase(clave)
+
 
 func poner_circulo(centro: Vector2, radio: float, de_enemigo: bool = false) -> void:
 	circulo_centro = centro

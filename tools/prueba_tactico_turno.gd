@@ -42,6 +42,7 @@ func _ready() -> void:
 	await _probar_copia_de_red()
 	await _probar_red()
 	await _probar_alcance()
+	await _probar_huella()
 	print("[turno] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)
 
@@ -327,6 +328,78 @@ func _probar_alcance() -> void:
 	t.cuerpos[pelea._enemies[2]].global_position = Vector2(0, 110)
 	_afirmar(is_equal_approx(t.hueco_entre(otro, pelea._enemies[2]), 23.0), "el hueco no sale de la posicion SELLADA: %.1f" % t.hueco_entre(otro, pelea._enemies[2]))
 	_afirmar(t.llega(otro, pelea._enemies[2]), "a otro humano no se le da holgura")
+	pelea.queue_free()
+	await get_tree().process_frame
+
+
+# 9) LA HUELLA (fase 5, el martillo): el GOLPE SISMICO cae en la punta del arma hacia donde apuntas,
+#    nunca mas lejos; el nucleo cobra entero, el anillo area_secundario, lo de fuera nada; sin tope de
+#    enemigos; y apuntar al vacio no pilla a nadie (golpea el suelo).
+func _probar_huella() -> void:
+	var sismico: AbilityData = load("res://resources/abilities/golpe_sismico.tres")
+	_afirmar(sismico.forma_apunte == CombatFormas.Apunte.DELANTE and sismico.forma_nucleo > 0.0,
+		"la ficha del golpe sismico no trae su huella del mapa")
+	var escena: PackedScene = load(ESCENA)
+	var pelea: Node = escena.instantiate()
+	pelea.process_mode = Node.PROCESS_MODE_ALWAYS
+	pelea.tactico = true
+	add_child(pelea)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	pelea._state = pelea.State.PAUSED
+	pelea._pause_left = INF
+	var t: TacticoDePrueba = TacticoDePrueba.new(pelea)
+	pelea.turno_mapa = t
+	_afirmar(t.usa_huella(sismico), "en el mapa el golpe sismico no usa su huella")
+	var yo: Combatant = pelea._aliados[0]
+	yo.alcance = 58.0
+	t.cuerpos[yo] = _cuerpo(Vector2(0, 0))
+	for i in range(1, pelea._aliados.size()):
+		t.cuerpos[pelea._aliados[i]] = _cuerpo(Vector2(-600, i * 40))
+	# Apuntando MUY lejos a la derecha: el centro se queda en la punta del arma (16 de medio cuerpo
+	# + 58 de alcance = x 74).
+	var f = t.forma_de(sismico, yo, Vector2(1000, 0))
+	_afirmar(absf(f.centro.x - 74.0) < 0.5 and absf(f.centro.y) < 0.5, "el centro pasa de la punta del arma: %s" % str(f.centro))
+	# Uno en el NUCLEO (en el centro), otro en el ANILLO, otro FUERA, y el resto lejos.
+	var en_nucleo: Combatant = pelea._enemies[0]
+	var en_anillo: Combatant = pelea._enemies[1]
+	var fuera: Combatant = pelea._enemies[2]
+	t.cuerpos[en_nucleo] = _cuerpo(Vector2(74, 0))
+	t.cuerpos[en_anillo] = _cuerpo(Vector2(74, 90))   # su caja empieza a 74 del centro: dentro de 95
+	t.cuerpos[fuera] = _cuerpo(Vector2(74, 200))
+	for i in range(3, pelea._enemies.size()):
+		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
+	t.anotar_apunte([1000.0, 0.0])
+	var rep: Array = t.reparto_habilidad(sismico, yo)
+	var por: Dictionary = {}
+	for o in rep:
+		por[o["c"]] = float(o["escala"])
+	_afirmar(is_equal_approx(float(por.get(en_nucleo, -1.0)), 1.0), "el del nucleo no cobra entero: %s" % str(por.get(en_nucleo)))
+	_afirmar(is_equal_approx(float(por.get(en_anillo, -1.0)), sismico.area_secundario), "el del anillo no cobra el secundario: %s" % str(por.get(en_anillo)))
+	_afirmar(not por.has(fuera), "le da al que esta fuera de la huella")
+	_afirmar(not rep.is_empty() and rep[0]["c"] == en_nucleo, "el principal no es el del centro")
+	# SIN TOPE: cuatro dentro, cuatro pillados.
+	for i in range(3, pelea._enemies.size()):
+		t.cuerpos[pelea._enemies[i]].global_position = Vector2(74 + i * 6, -30)
+	_afirmar(t.reparto_habilidad(sismico, yo).size() == 2 + pelea._enemies.size() - 3,
+		"con todos dentro no los pilla a todos: hay tope")
+	# AL VACIO: hacia la izquierda no hay nadie.
+	t.anotar_apunte([-1000.0, 0.0])
+	_afirmar(t.reparto_habilidad(sismico, yo).is_empty(), "apuntando al vacio pilla a alguien")
+	# Y RESUELTA DE VERDAD (por _usar_habilidad de siempre): al del nucleo le baja la vida o esquiva;
+	# al de fuera, nada.
+	t.anotar_apunte([1000.0, 0.0])
+	pelea._player = yo
+	pelea._state = pelea.State.WAITING_PLAYER
+	yo.current_energy = yo.max_energy
+	var vida_fuera: float = fuera.current_hp
+	pelea.habilidades._usar_habilidad(sismico)
+	_afirmar(is_equal_approx(fuera.current_hp, vida_fuera), "el golpe sismico le ha pegado al de fuera")
+	var dijo: bool = false
+	for l in pelea._log_lines:
+		if "Golpe sísmico" in l:
+			dijo = true
+	_afirmar(dijo, "el golpe sismico no sale en el registro")
 	pelea.queue_free()
 	await get_tree().process_frame
 
