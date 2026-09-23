@@ -163,6 +163,11 @@ func _pos_lider() -> Vector2:
 func _physics_process(delta: float) -> void:
 	if _cuerpos.is_empty():
 		return
+	# EN UNA PELEA TACTICA CADA UNO ANDA EN SU TURNO, no detras del lider. En solitario esto ya no
+	# corria (el arbol se pausa con la pelea), pero en multi si, y los compañeros seguian al lider
+	# cada vez que este andaba su turno.
+	if Game.pelea_tactica_en_curso():
+		return
 	var p: Vector2 = _pos_lider()
 	# Un punto nuevo solo cuando te has movido lo suficiente. Si se apuntara cada frame, el rastro
 	# se llenaria de puntos pegados estando quieto y los companeros se te echarian encima.

@@ -1150,6 +1150,13 @@ func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
 # La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
 var _arena_nodo: Node = null
 var _camara_guardada := {}
+
+
+# ¿Hay una pelea TACTICA en curso en esta maquina? Mientras la hay, los cuerpos de la pelea los mueve
+# el turno (combat_tactico) y nadie mas: en MULTI el arbol no se pausa, y sin preguntar esto el
+# rastro del grupo seguia arrastrando a los compañeros detras del lider cada vez que este andaba.
+func pelea_tactica_en_curso() -> bool:
+	return is_instance_valid(_arena_nodo)
 # EL AIRE alrededor de la arena al encuadrarla, en pixeles de MUNDO. UNA CELDA, y no mas.
 #
 # ERA 160 -- cinco celdas por lado -- y ES LO QUE DEJABA EL TABLERO PEQUEÑO EN MEDIO DE LA PANTALLA.

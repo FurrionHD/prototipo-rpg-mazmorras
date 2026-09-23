@@ -464,6 +464,16 @@ func _dentro(arena: ArenaCombate) -> Rect2:
 func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 	cuerpo.global_position = p
 	_pos[c] = p
+	# LA COPIA DE RED de un bicho (remote_enemy) se arrastra cada fotograma hacia el ultimo sitio que
+	# le mando su dueño: sin moverle tambien el destino, volvia andando a donde estaba. Esto es un
+	# apaño hasta la fase 7: el dueño todavia no se entera de que se ha movido, y si le manda otra
+	# posicion, manda la suya.
+	if cuerpo.get("_objetivo") is Vector2:
+		cuerpo.set("_objetivo", p)
+		# Y el reloj con el que deduce si anda (remote_enemy._physics_process): sin ponerlo a cero, se
+		# daba por quieto y le quitaba la pose de andar en cada fotograma.
+		if cuerpo.get("_t_sin_avanzar") != null:
+			cuerpo.set("_t_sin_avanzar", 0.0)
 	# El orden de dibujo de los bichos lo recalcula su _physics_process, que con el arbol en pausa no
 	# corre: sin esto, uno que pasa por delante de otro se quedaria pintado detras.
 	# (Solo los bichos: son los que llevan _sprite y se lo recalculan asi, ver enemy._physics_process.)
@@ -526,6 +536,13 @@ func _animar(cuerpo: Node2D, dir: Vector2, moviendose: bool, vel: Vector2 = Vect
 	var muneco = cuerpo.get("_muneco")
 	if muneco is MunecoJugador and (muneco as MunecoJugador).hay_dibujo():
 		(muneco as MunecoJugador).animar(PoseJugador.animacion(dir, 1, moviendose, false, true, 0))
+		return
+	# LA COPIA DE RED de un bicho no lleva _facing ni velocidad: su pose sale de un ANGULO y de un "se
+	# mueve", que normalmente le llegan por la red, y su _actualizar_animacion no tiene argumentos.
+	if cuerpo.get("_mira") != null and cuerpo.get("_mov") != null:
+		cuerpo.set("_mira", dir.angle())
+		cuerpo.set("_mov", moviendose)
+		cuerpo.call("_actualizar_animacion")
 		return
 	if cuerpo.has_method("_actualizar_animacion") and cuerpo.get("_sprite") != null:
 		cuerpo.call("_actualizar_animacion", vel if moviendose else Vector2.ZERO)
