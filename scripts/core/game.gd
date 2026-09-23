@@ -2710,6 +2710,16 @@ func limpiar_mundo_heredado() -> void:
 	carbon.clear()
 	lampara_llama = 0.0
 	lampara_llama_total = 0.0
+	# LA FOTO DE LA ARENA es de MI partida anterior, y es lo mas peligroso de todo lo que se hereda: el
+	# pueblo la APLICA al llegar (town._ready -> salir_de_arena, la red de seguridad de la arena), asi
+	# que si sigue puesta, pisa al personaje que me acaba de dar el mundo con el de mi partida suelta.
+	# Paso el 23/09/2026: entro en la arena con un Aventurero nuevo de un jugador, abrio su mundo, el
+	# pueblo le devolvio "todo como al entrar" = el Aventurero, y ESE fue el estado que se guardo en el
+	# mundo y se subio a la nube: seis personajes y 109.000 monedas cambiados por un nivel 1 sin nada.
+	# Mismo motivo que importar_partida, que ya la limpiaba.
+	_foto_arena = {}
+	arena_activa = false
+	vuelta_de_arena = false
 	# Y que ningun guardado despistado escriba en la ranura que tuviera abierta: aqui se juega en el
 	# mundo del host y mi ranura no pinta nada (es la misma razon que en Mundos.abrir()).
 	Perfil.ranura_actual = 0
@@ -2734,6 +2744,9 @@ func aplicar_jugador_mundo(jd: JugadorData, semilla: int) -> void:
 
 
 func _adoptar_jugador(jd: JugadorData) -> void:
+	# Lo que se adopta ES lo tuyo desde ahora: una foto de la arena sacada antes (de otra partida) lo
+	# pisaria al llegar al pueblo. Ver limpiar_mundo_heredado, que es donde paso.
+	_foto_arena = {}
 	var eq: Array = []
 	for pj in jd.equipo:
 		if pj is PersonajeData and eq.size() < PARTY_MAX:
