@@ -36,11 +36,9 @@ func _init(pantalla: Pantalla) -> void:
 	_pantalla = pantalla
 
 
-# Lo que se deja de aire entre la cabeza del cuerpo y la ficha que lo rotula.
-const SOBRE_LA_CABEZA := 12.0
-# Cuanto se levanta la ficha respecto al origen del cuerpo. Los cuerpos tienen el origen en los PIES
-# (la huella de colision va abajo, ver player.tscn), asi que sin esto la ficha saldria por la cintura.
-const ALTO_CUERPO := 52.0
+# Lo que se deja de aire entre la coronilla del bicho y su barra, en pixeles de MUNDO (se escala con
+# el zoom igual que el bicho, para que la barra le siga pegada de lejos y de cerca).
+const SOBRE_LA_CABEZA := 4.0
 
 # --- EL MODO MINI -------------------------------------------------------------------------------
 # LA BARRA MIDE LO QUE MIDE EL BICHO. No un ancho fijo: una rata y el Rey Slime no pueden llevar la
@@ -100,7 +98,7 @@ func seguir() -> void:
 			continue
 		# De MUNDO a PANTALLA. La pelea vive en un CanvasLayer, al que la camara de la mazmorra no le
 		# afecta; el cuerpo si esta bajo la camara. Esta transformada es la que cruza los dos mundos.
-		var p: Vector2 = cuerpo.get_global_transform_with_canvas().origin
+		var cuerpo_px: Rect2 = _rect_cuerpo_px(cuerpo)
 		# EL TAMAÑO SE LE IMPONE, no se le pregunta. Un Control suelto se queda con el 'size' que
 		# tenia en su fila -- y ahi la columna reservaba 208 px para el sprite del bicho. Aunque ese
 		# hueco se oculte al mudarla, el size viejo no se encoge solo: la ficha se coloca restando su
@@ -109,17 +107,16 @@ func seguir() -> void:
 		var tam: Vector2 = col.get_combined_minimum_size()
 		if not col.size.is_equal_approx(tam):
 			col.size = tam
-		col.position = Vector2(p.x - tam.x * 0.5, p.y - ALTO_CUERPO - SOBRE_LA_CABEZA - tam.y)
+		# Centrada sobre el bicho y apoyada en su coronilla, que es el borde de ARRIBA de su cuerpo.
+		var aire: float = SOBRE_LA_CABEZA * cuerpo.get_global_transform_with_canvas().get_scale().y
+		col.position = Vector2(cuerpo_px.get_center().x - tam.x * 0.5,
+			cuerpo_px.position.y - aire - tam.y)
 
-		# El cristal del clic, sobre el cuerpo. Mismo origen en los PIES que la ficha (ver
-		# ALTO_CUERPO), asi que se sube su alto entero para quedar tapandolo.
+		# Y el cristal del clic, justo encima del cuerpo: el mismo rectangulo que ocupa el bicho.
 		var zona: Control = f.get("zona")
 		if is_instance_valid(zona):
-			var ancho: float = _ancho_cuerpo_px(cuerpo)
-			var alto: float = maxf(ALTO_CUERPO * cuerpo.get_global_transform_with_canvas() \
-				.get_scale().y, ancho)
-			zona.size = Vector2(ancho, alto)
-			zona.position = Vector2(p.x - ancho * 0.5, p.y - alto)
+			zona.position = cuerpo_px.position
+			zona.size = cuerpo_px.size
 
 
 # Saca una ficha de su banda y la cuelga de la capa suelta, sin su hueco de sprite.
@@ -176,16 +173,39 @@ func refrescar_mini() -> void:
 		_poner_mini(f, true)
 
 
-# Lo que mide el cuerpo de un bicho EN PANTALLA. De su forma de colision, que enemy._aplicar_colision
-# deja a la medida de cada uno, por la escala de la transformada de canvas (el zoom de la camara).
-func _ancho_cuerpo_px(cuerpo: Node2D) -> float:
+# DONDE ESTA EL CUERPO DEL BICHO EN LA PANTALLA, y cuanto ocupa. Su forma de colision, que
+# enemy._aplicar_colision ya deja a la medida de cada uno, pasada a pixeles de pantalla.
+#
+# SE MIDE, NO SE SUPONE. Antes esto era una constante de 52 px "porque los cuerpos tienen el origen
+# en los pies"... que es verdad DEL JUGADOR (ver player.tscn) y no de los bichos, que lo tienen en
+# el centro. Con la constante, la barra y la zona de clic se plantaban sesenta pixeles por encima
+# del centro del bicho: la barra flotaba en el aire y el clic caia donde no habia nada. Y tampoco
+# escalaba con el zoom, asi que el desajuste cambiaba con el tamaño de la arena.
+#
+# El CollisionShape2D se pregunta por SU transformada y no por la del cuerpo: puede ir desplazado
+# respecto al origen, y es el que sabe donde esta de verdad la carne.
+func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 	if not is_instance_valid(cuerpo):
-		return ANCHO_MINI_MIN
-	var ancho: float = ANCHO_CUERPO_POR_DEFECTO
+		return Rect2()
+	var escala: Vector2 = cuerpo.get_global_transform_with_canvas().get_scale()
+	var centro: Vector2 = cuerpo.get_global_transform_with_canvas().origin
+	var tam := Vector2(ANCHO_CUERPO_POR_DEFECTO, ANCHO_CUERPO_POR_DEFECTO)
 	var col := cuerpo.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if col != null and col.shape is RectangleShape2D:
-		ancho = (col.shape as RectangleShape2D).size.x
-	return maxf(ancho * cuerpo.get_global_transform_with_canvas().get_scale().x, ANCHO_MINI_MIN)
+		tam = (col.shape as RectangleShape2D).size
+		centro = col.get_global_transform_with_canvas().origin
+		# LOS ALARGADOS GIRAN. Un cuerpo largo (la rata) rota con el bicho, asi que de lado ocupa el
+		# triple que de frente (ver enemy._colision_gira). Lo que tapa en pantalla es la caja que
+		# envuelve a la forma girada, no sus lados: sin esto, una rata de perfil llevaria la barrita
+		# corta que le toca de frente y la zona de clic le dejaria medio cuerpo fuera.
+		var r: float = col.global_rotation
+		if not is_zero_approx(r):
+			var cs: float = absf(cos(r))
+			var sn: float = absf(sin(r))
+			tam = Vector2(tam.x * cs + tam.y * sn, tam.x * sn + tam.y * cs)
+	var tam_px: Vector2 = tam * escala
+	tam_px.x = maxf(tam_px.x, ANCHO_MINI_MIN)
+	return Rect2(centro - tam_px * 0.5, tam_px)
 
 
 # Encoge una ficha a barrita, o la devuelve a su tamaño de siempre. Si ya esta como se le pide, no
@@ -199,7 +219,7 @@ func _poner_mini(ficha: Dictionary, mini: bool) -> void:
 	# EL ANCHO se mira aunque no cambie el modo: el bicho puede crecer (un mutante que se hincha) y
 	# la camara puede moverse. Se compara con lo aplicado y solo se escribe si de verdad cambia,
 	# porque escribir un custom_minimum_size dispara el re-layout de la ficha entera.
-	var ancho: float = _ancho_cuerpo_px(ficha["cuerpo"]) if mini \
+	var ancho: float = _rect_cuerpo_px(ficha["cuerpo"]).size.x if mini \
 		else _pantalla.montaje._ancho_bloque(_pantalla._enemies.size())
 	var mismo_modo: bool = ficha.get("mini") == mini
 	if mismo_modo and absf(float(ficha.get("ancho", -1.0)) - ancho) < 1.0:
