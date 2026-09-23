@@ -626,21 +626,30 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	# Y a los demas: si llevo la pelea la apunto en la lista que reparto; si soy espejo, se la mando.
 	_anotar_huella_red(_quien, CLASE_APUNTANDO, f, _apuntando.forma_nucleo)
 	_enviar_mi_huella(f, _apuntando.forma_nucleo)
-	# MIRA HACIA DONDE APUNTA (lo pidio el usuario). Su cuerpo es el de esta maquina, y su cara viaja
-	# con el, por el canal del jugador.
-	_animar(_cuerpo, raton - _cuerpo.global_position, false)
+	# MIRA HACIA DONDE APUNTA (lo pidio el usuario), pero solo QUIETO: andando manda la pose de andar
+	# (ver _tick_moviendo). Su cuerpo es el de esta maquina, y su cara viaja con el, por el canal del
+	# jugador.
+	if not _andando:
+		_animar(_cuerpo, raton - _cuerpo.global_position, false)
 	# Cuantos pilla, en un letrero junto al boton de volver y NO en el registro: el registro viaja a
 	# los demas jugadores, y cada movimiento del raton seria una linea en su pantalla.
 	apunte = raton
 	_hay_apunte = true
 	var n: int = reparto_habilidad(_apuntando, _quien).size()
-	if n != _pillados_vistos and is_instance_valid(_letrero):
-		_pillados_vistos = n
-		_letrero.text = "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre,
-			"no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)]
+	# Andando no se puede soltar (ver _confirmar_apunte): el letrero lo dice. -2 = "estoy andando".
+	var visto: int = -2 if _andando else n
+	if visto != _pillados_vistos and is_instance_valid(_letrero):
+		_pillados_vistos = visto
+		var pilla: String = "no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)
+		_letrero.text = ("%s: párate para lanzarla" % _apuntando.nombre) if _andando \
+			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
 
 
 func _confirmar_apunte() -> void:
+	# HAY QUE ESTAR QUIETO para lanzarla (lo pidio el usuario): asi el personaje ya se ha girado hacia
+	# donde golpea. Andando, el clic no hace nada (el letrero lo avisa).
+	if _andando:
+		return
 	var ab: AbilityData = _apuntando
 	_dejar_de_apuntar()
 	apunte = _raton_en_mundo()
@@ -956,18 +965,24 @@ func _tick_moviendo(delta: float) -> void:
 	if dir == Vector2.ZERO:
 		if _andando:
 			_andando = false
-			_animar(_cuerpo, _mirada_de(_cuerpo), false)
+			# Apuntando, al pararte te GIRAS hacia el raton (lo pidio el usuario): es lo que vas a golpear.
+			if _apuntando != null:
+				_animar(_cuerpo, _raton_en_mundo() - _cuerpo.global_position, false)
+				_pillados_vistos = -1   # que el letrero vuelva a decir a cuantos pilla
+				_refrescar_apunte(_raton_en_mundo())
+			else:
+				_animar(_cuerpo, _mirada_de(_cuerpo), false)
 		return
 	var antes: Vector2 = _cuerpo.global_position
 	var nueva: Vector2 = paso(antes, dir.limit_length(1.0) * VEL_PASEO * delta, _inicio, _radio,
 		_dentro(arena), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_andando = true
-	# Apuntando, la huella viene contigo y el personaje sigue mirando hacia donde apuntas.
+	# Apuntando, la huella viene contigo, pero el personaje ANDA de verdad, mirando hacia donde va (lo pidio
+	# el usuario: antes miraba al raton y se le pedian dos poses por fotograma, quieto y andando, y la de
+	# andar volvia a empezar cada vez: se quedaba tieso). Al pararse se gira hacia el raton.
 	if _apuntando != null:
 		_refrescar_apunte(_raton_en_mundo())
-		_animar(_cuerpo, _raton_en_mundo() - _cuerpo.global_position, true)
-		return
 	_animar(_cuerpo, dir, true)
 
 
