@@ -896,11 +896,6 @@ func _seleccionar(idx: int) -> void:
 	# "si el apuntado no vale, el siguiente vivo".
 	if _pantalla._timeline != null:
 		_pantalla._timeline.marcar_objetivo(_pantalla._objetivo())
-	# EN EL MAPA, ademas, la ficha del apuntado crece y las demas se quedan en barrita. Va DESPUES
-	# del recuadro y el cursor: el tamaño es lo ultimo que se decide, y asi el re-layout que dispara
-	# ocurre una sola vez, con todo lo demas ya puesto.
-	if _pantalla.tactico and _pantalla.figuras_mapa != null:
-		_pantalla.figuras_mapa.refrescar_mini()
 
 
 # ¿Se puede abrir la ficha de detalle AHORA MISMO? Solo en TU turno: cuando la barra de acciones

@@ -76,12 +76,14 @@ func montar() -> void:
 	# _update_hp, _refrescar_chips y las altas a media pelea se las encuentran igual que siempre y no
 	# se enteran de que nadie las mira.
 	seguir()
-	refrescar_mini()
 
 
 # Recoloca cada ficha sobre su cuerpo. Se llama cada fotograma desde la pantalla: los cuerpos se
 # mueven (en su turno, o porque el mundo sigue vivo en multi) y la camara tambien puede.
 func seguir() -> void:
+	# El TAMAÑO antes que el SITIO: la ficha se coloca centrada sobre el cuerpo usando su ancho y su
+	# alto, asi que si va a cambiar de tamaño tiene que hacerlo antes de que se le calcule el sitio.
+	refrescar_mini()
 	for f in _fichas:
 		var col: Control = f["bloque"].get("columna")
 		if not is_instance_valid(col):
@@ -126,21 +128,40 @@ func _mudar(bloque: Dictionary, cuerpo: Node2D) -> void:
 
 # --- MINI O ENTERA -----------------------------------------------------------------------------
 
-# Pone cada ficha en su tamaño: entera la del apuntado, mini todas las demas. Se llama al montar y
-# cada vez que cambias de objetivo (ver combat_figuras._seleccionar).
+# Pone cada ficha en su tamaño: entera la del apuntado, mini todas las demas.
+#
+# SE LLAMA CADA FOTOGRAMA, desde seguir(), y no desde _seleccionar. No es por vago: al apuntado se
+# deja de apuntar de mas maneras que pulsandole encima -- se muere y _objetivo() cae al siguiente
+# vivo SIN mover _target_idx (ver combat._objetivo), entran refuerzos, llega una instantanea de la
+# red... Enganchandolo al clic, la ficha entera se quedaba abierta sobre el cadaver.
+#
+# Mirar cada fotograma es gratis porque _poner_mini no toca nada si la ficha ya esta como toca: lo
+# que cuesta es el re-layout que dispara escribir un custom_minimum_size, y eso solo pasa cuando de
+# verdad cambia algo.
 func refrescar_mini() -> void:
 	var objetivo: int = _pantalla._target_idx
 	for f in _fichas:
 		var bloque: Dictionary = f["bloque"]
-		_poner_mini(bloque, int(bloque.get("idx", -1)) != objetivo)
+		var idx: int = int(bloque.get("idx", -1))
+		# VIVO, ademas de apuntado: mismo criterio que usa el recuadro de seleccion (ver
+		# _on_tinte_cambiado). A un cadaver no se le apunta, asi que tampoco luce ficha entera.
+		var entera: bool = idx >= 0 and idx == objetivo \
+			and idx < _pantalla._enemies.size() and _pantalla._enemies[idx].is_alive()
+		_poner_mini(f, not entera)
 
 
-# Encoge una ficha a barrita, o la devuelve a su tamaño de siempre.
+# Encoge una ficha a barrita, o la devuelve a su tamaño de siempre. Si ya esta como se le pide, no
+# toca nada: escribir un custom_minimum_size dispara un re-layout de la ficha entera, y esto se
+# llama en cada fotograma.
 #
 # NO se toca el recuadro del panel: sin tinte y sin seleccion, _sb_bloque ya lo deja transparente del
 # todo (fondo y borde a alpha 0), asi que en mini no se ve solo. Y dejandolo en paz, el borde blanco
 # del apuntado y el tinte de los estados siguen mandando ellos, sin pelearse con esto.
-func _poner_mini(bloque: Dictionary, mini: bool) -> void:
+func _poner_mini(ficha: Dictionary, mini: bool) -> void:
+	if ficha.get("mini") == mini:
+		return
+	ficha["mini"] = mini
+	var bloque: Dictionary = ficha["bloque"]
 	var wrap: Control = bloque.get("wrap")
 	if not is_instance_valid(wrap):
 		return

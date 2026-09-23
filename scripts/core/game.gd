@@ -961,6 +961,11 @@ var _extraccion_drop_mult: float = 1.0
 # de EnemyData (28/3/3/4). El factor de piso (enemy_floor_stat_factor) las escala encima.
 
 var _combat_scene: PackedScene = preload("res://scenes/ui/combat.tscn")
+# Los DOS de arriba se cargan solo por sus medidas: son las que dicen cuanto sitio de la pantalla se
+# queda el HUD de la pelea, y con eso se encuadra la camara del combate en el mapa (ver
+# _rect_util_tactico). La escena de combate ya los arrastraba de todas formas.
+var _combat_script: GDScript = preload("res://scripts/ui/combat.gd")
+var _combat_montaje_script: GDScript = preload("res://scripts/ui/combat_montaje.gd")
 var _extraction_script: GDScript = preload("res://scripts/ui/extraction.gd")
 var _mining_script: GDScript = preload("res://scripts/ui/mining.gd")
 var _harvest_script: GDScript = preload("res://scripts/ui/harvest.gd")
@@ -1145,6 +1150,8 @@ func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
 # La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
 var _arena_nodo: Node = null
 var _camara_guardada := {}
+# Lo que se deja de aire alrededor de la arena al encuadrarla, en pixeles de mundo.
+const AIRE_ARENA := 160.0
 
 
 # Cuelga la arena del piso y planta la camara encima. La camara es FIJA y encuadra la zona entera:
@@ -1172,14 +1179,48 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 		"suave": cam.position_smoothing_enabled,
 	}
 	var r: Rect2 = ArenaCalculo.rect_px(rect_celdas)
-	cam.position = r.get_center() - (yo as Node2D).global_position
-	# El zoom que hace que quepa la arena entera, con un poco de aire y sin pasarse de lejos: los
-	# sprites no pueden acabar siendo hormigas.
+	# EL HUECO LIBRE, no la pantalla entera. La pantalla mide 1280, pero de esos el HUD se queda casi
+	# 600 fijos: la barra de acciones y el registro por la derecha, la linea de turnos por la
+	# izquierda, la fila del grupo por arriba. Encuadrando contra la pantalla, la arena salia centrada
+	# DEBAJO de los paneles -- medio tablero tapado y una banda muerta abajo.
+	var util: Rect2 = _rect_util_tactico()
+	# El zoom que hace que quepa la arena entera EN ESE HUECO, con un poco de aire y sin pasarse de
+	# lejos: los sprites no pueden acabar siendo hormigas.
+	var z: float = minf(util.size.x / (r.size.x + AIRE_ARENA), util.size.y / (r.size.y + AIRE_ARENA))
+	z = clampf(z, 0.75, 1.8)
+	cam.zoom = Vector2.ONE * z
+	# Y el centro, al centro DEL HUECO. El desvio se mide en pixeles de pantalla y se divide por el
+	# zoom porque la camara se coloca en pixeles de MUNDO: con el zoom a 1.5, moverla 300 px de
+	# pantalla son 200 de mundo.
 	var v: Vector2 = get_viewport().get_visible_rect().size
-	var z: float = minf(v.x / (r.size.x + 160.0), v.y / (r.size.y + 160.0))
-	cam.zoom = Vector2.ONE * clampf(z, 0.75, 1.8)
+	var desvio: Vector2 = (v * 0.5 - util.get_center()) / z
+	cam.position = r.get_center() - (yo as Node2D).global_position + desvio
 	cam.position_smoothing_enabled = false
 	cam.reset_smoothing()
+
+
+# EL HUECO QUE LE QUEDA A LA PELEA: la pantalla menos lo que tapa el HUD. En pixeles de PANTALLA.
+#
+# Los numeros no se escriben aqui: se leen de quien los pone, que es el montaje del combate
+# (combat_montaje) y la fila del grupo (player). Copiarlos seria firmar que el dia que alguien
+# ensanche la barra de acciones, la camara siga encuadrando contra el ancho viejo.
+func _rect_util_tactico() -> Rect2:
+	var v: Vector2 = get_viewport().get_visible_rect().size
+	# Derecha: el registro y la barra de acciones comparten columna (ver combat_montaje._montar_log y
+	# _crear_acciones). Izquierda: la linea de turnos.
+	var der: float = _combat_montaje_script.ANCHO_COL_DER \
+		+ _combat_script.MARGEN_UI * 2.0 + Tactil.borde.x
+	var izq: float = _combat_montaje_script.ANCHO_TIMELINE \
+		+ _combat_script.MARGEN_UI + Tactil.borde.x
+	# Arriba: la fila del grupo, que se ENCOGE sola cuando no cabe, asi que su alto hay que
+	# preguntarlo, no suponerlo (ver player.escala_fila).
+	var arriba: float = Tactil.borde.y
+	# Se lee igual que lo lee hud.recolocar() para bajar la caja de teclas: alto por escala.
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo != null and yo.has_method("escala_fila"):
+		arriba += float(yo.ALTO_BLOQUE) * float(yo.escala_fila()) + _combat_script.MARGEN_UI
+	# Abajo no se descuenta nada: ahi ya no hay HUD.
+	return Rect2(izq, arriba, maxf(v.x - izq - der, 100.0), maxf(v.y - arriba - Tactil.borde.y, 100.0))
 
 
 # Deshace lo anterior. Se llama SIEMPRE que se cierra una pelea, sea como sea que acabe: si la
