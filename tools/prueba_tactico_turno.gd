@@ -352,21 +352,21 @@ func _probar_huella() -> void:
 	pelea.turno_mapa = t
 	_afirmar(t.usa_huella(sismico), "en el mapa el golpe sismico no usa su huella")
 	var yo: Combatant = pelea._aliados[0]
-	yo.alcance = 58.0
+	yo.alcance = 43.0
 	t.cuerpos[yo] = _cuerpo(Vector2(0, 0))
 	for i in range(1, pelea._aliados.size()):
 		t.cuerpos[pelea._aliados[i]] = _cuerpo(Vector2(-600, i * 40))
 	# Apuntando MUY lejos a la derecha: el centro se queda en la punta del arma (16 de medio cuerpo
-	# + 58 de alcance = x 74).
+	# + 43 de alcance = x 59).
 	var f = t.forma_de(sismico, yo, Vector2(1000, 0))
-	_afirmar(absf(f.centro.x - 74.0) < 0.5 and absf(f.centro.y) < 0.5, "el centro pasa de la punta del arma: %s" % str(f.centro))
+	_afirmar(absf(f.centro.x - 59.0) < 0.5 and absf(f.centro.y) < 0.5, "el centro pasa de la punta del arma: %s" % str(f.centro))
 	# Uno en el NUCLEO (en el centro), otro en el ANILLO, otro FUERA, y el resto lejos.
 	var en_nucleo: Combatant = pelea._enemies[0]
 	var en_anillo: Combatant = pelea._enemies[1]
 	var fuera: Combatant = pelea._enemies[2]
-	t.cuerpos[en_nucleo] = _cuerpo(Vector2(74, 0))
-	t.cuerpos[en_anillo] = _cuerpo(Vector2(74, 90))   # su caja empieza a 74 del centro: dentro de 95
-	t.cuerpos[fuera] = _cuerpo(Vector2(74, 200))
+	t.cuerpos[en_nucleo] = _cuerpo(Vector2(59, 0))
+	t.cuerpos[en_anillo] = _cuerpo(Vector2(59, 60))   # su caja empieza a 44 del centro: dentro de 65
+	t.cuerpos[fuera] = _cuerpo(Vector2(59, 200))
 	for i in range(3, pelea._enemies.size()):
 		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
 	t.anotar_apunte([1000.0, 0.0])
@@ -380,7 +380,7 @@ func _probar_huella() -> void:
 	_afirmar(not rep.is_empty() and rep[0]["c"] == en_nucleo, "el principal no es el del centro")
 	# SIN TOPE: cuatro dentro, cuatro pillados.
 	for i in range(3, pelea._enemies.size()):
-		t.cuerpos[pelea._enemies[i]].global_position = Vector2(74 + i * 6, -30)
+		t.cuerpos[pelea._enemies[i]].global_position = Vector2(59 + i * 6, -30)
 	_afirmar(t.reparto_habilidad(sismico, yo).size() == 2 + pelea._enemies.size() - 3,
 		"con todos dentro no los pilla a todos: hay tope")
 	# AL VACIO: hacia la izquierda no hay nadie.

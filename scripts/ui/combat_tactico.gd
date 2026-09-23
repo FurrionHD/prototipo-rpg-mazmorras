@@ -270,15 +270,9 @@ func radio_de(c: Combatant) -> float:
 # la posicion sellada si es de otro humano) y no donde lo tenga su nodo en este instante. La caja es
 # la de su cuerpo (Cuerpos.caja_de), asi un Rey Slime se alcanza por su borde y no por su centro.
 func hueco_entre(a: Combatant, b: Combatant) -> float:
-	var ca: Node2D = cuerpo_de(a)
-	var cb: Node2D = cuerpo_de(b)
-	if ca == null or cb == null:
+	if cuerpo_de(a) == null or cuerpo_de(b) == null:
 		return INF
-	var ra: Rect2 = Cuerpos.caja_de(ca)
-	var rb: Rect2 = Cuerpos.caja_de(cb)
-	ra.position += pos_de(a) - ca.global_position
-	rb.position += pos_de(b) - cb.global_position
-	return Cuerpos.hueco_entre(ra, rb)
+	return Cuerpos.hueco_entre(_caja_en_pelea(a), _caja_en_pelea(b))
 
 
 func alcance_de(c: Combatant) -> float:
@@ -408,11 +402,7 @@ func usa_huella(ab: AbilityData) -> bool:
 
 # La forma de 'ab' lanzada por 'c' hacia 'hacia', con 'c' donde la PELEA dice que esta.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	var cuerpo: Node2D = cuerpo_de(c)
-	var caja: Rect2 = Cuerpos.caja_de(cuerpo) if cuerpo != null else Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
-	if cuerpo != null:
-		caja.position += pos_de(c) - cuerpo.global_position
-	return CombatFormas.de_habilidad_mapa(ab, caja, alcance_de(c), hacia)
+	return CombatFormas.de_habilidad_mapa(ab, _caja_en_pelea(c), alcance_de(c), hacia)
 
 
 # A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella roce).
@@ -444,13 +434,37 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	return out
 
 
+# LA CAJA DE UN COMBATIENTE EN EL SUELO, donde la pelea dice que esta. La miden el alcance y las
+# huellas, las dos, para que "llego" y "le pilla" sean la misma cuenta.
+#
+# LOS ENEMIGOS, POR SU DIBUJO: un cuadrado del ANCHO de lo que tienen pintado (su pose entera, la
+# misma medida que su barra, ver figuras_mapa._tam_pose), centrado en su origen. Con su caja de
+# colision se llegaba de lejisimos a los grandes: la Aberracion va a x1,8 y su caja mide mas del
+# doble que su dibujo, asi que el martillo la alcanzaba sin verse tocarla (lo vio el usuario el
+# 23/09: "llega demasiado"). Los tuyos, con su caja de siempre (PoseJugador.CAJA_CUERPO).
 func _caja_en_pelea(c: Combatant) -> Rect2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	if _pantalla._enemies.has(c):
+		var ancho: float = _ancho_dibujo(cuerpo)
+		if ancho > 0.0:
+			return Rect2(pos_de(c) - Vector2(ancho, ancho) * 0.5, Vector2(ancho, ancho))
 	var r: Rect2 = Cuerpos.caja_de(cuerpo)
 	r.position += pos_de(c) - cuerpo.global_position
 	return r
+
+
+# Lo que mide de ancho lo que tiene pintado un enemigo, en px de MUNDO (sin el zoom de la camara:
+# su escala global, no la de pantalla). 0 = no tiene dibujo que medir.
+func _ancho_dibujo(cuerpo: Node2D) -> float:
+	for hijo in cuerpo.get_children():
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible 				and (hijo as AnimatedSprite2D).sprite_frames != null and _pantalla.figuras_mapa != null:
+			var spr: AnimatedSprite2D = hijo
+			return _pantalla.figuras_mapa._tam_pose(spr).x * absf(spr.get_global_transform().get_scale().x)
+		if hijo is ColorRect and (hijo as CanvasItem).visible:
+			return (hijo as ColorRect).size.x * absf((hijo as ColorRect).get_global_transform().get_scale().x)
+	return 0.0
 
 
 # Pulsaste una habilidad con huella: a apuntar.

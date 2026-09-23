@@ -64,20 +64,21 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 
 # Lo de cada familia, de corto a largo. PROVISIONAL: se calibra mirandolo en la arena. De referencia,
 # el espadazo por el mapa llega 24 (Player.ZONA_GOLPE_FONDO).
-# LOS DOS EXTREMOS los marco el usuario el 23/09 sobre capturas: la DAGA, la mas corta, a ~28 px de
-# hueco, y las tres grandes con un minimo de ~58 ("minimo hasta aqui el martillo, el hacha y el
-# mandoble"). Lo de en medio esta repartido entre los dos; los puños, como la daga.
+# LOS DOS EXTREMOS los marco el usuario el 23/09 sobre capturas: la DAGA, la mas corta, y las tres
+# grandes ("minimo hasta aqui el martillo, el hacha y el mandoble"). Lo de en medio, repartido; los
+# puños, como la daga. OJO al medir sobre una captura suya: va a ~x2,3 (su personaje, que mide ~55 px
+# de mundo, ocupa ~125). La primera vez lo medi a x1,6 y todo salio un 45% largo.
 const ALCANCE_POR_TIPO := {
-	Tipo.PUNOS: 28.0,
-	Tipo.DAGA: 28.0,
-	Tipo.ESPADA_CORTA: 34.0,
-	Tipo.MAZA_PEQ: 34.0,
-	Tipo.BASTON: 38.0,
-	Tipo.ESPADA_LARGA: 42.0,
-	Tipo.ESTOQUE: 46.0,
-	Tipo.HACHA_GRANDE: 58.0,
-	Tipo.MARTILLO_GRANDE: 58.0,
-	Tipo.MANDOBLE: 62.0,
+	Tipo.PUNOS: 20.0,
+	Tipo.DAGA: 20.0,
+	Tipo.ESPADA_CORTA: 25.0,
+	Tipo.MAZA_PEQ: 25.0,
+	Tipo.BASTON: 28.0,
+	Tipo.ESPADA_LARGA: 31.0,
+	Tipo.ESTOQUE: 34.0,
+	Tipo.HACHA_GRANDE: 43.0,
+	Tipo.MARTILLO_GRANDE: 43.0,
+	Tipo.MANDOBLE: 46.0,
 }
 
 
