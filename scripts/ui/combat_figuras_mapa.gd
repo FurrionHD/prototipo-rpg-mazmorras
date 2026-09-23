@@ -182,30 +182,64 @@ func refrescar_mini() -> void:
 # del centro del bicho: la barra flotaba en el aire y el clic caia donde no habia nada. Y tampoco
 # escalaba con el zoom, asi que el desajuste cambiaba con el tamaño de la arena.
 #
-# El CollisionShape2D se pregunta por SU transformada y no por la del cuerpo: puede ir desplazado
-# respecto al origen, y es el que sabe donde esta de verdad la carne.
+# SE MIDE EL DIBUJO, NO LA COLISION. Esto empezo midiendo la forma de colision y estaba mal: la
+# colision de un Trent es su TRONCO, no el arbol, asi que la barra le salia metida dentro del cuerpo
+# a media altura en vez de encima. Lo que hay que medir es lo que SE VE, que es su sprite: es lo que
+# el jugador reconoce como "el bicho" y es lo que tiene que ser pulsable entero.
+#
+# Cada enemigo trae el suyo y son de tamaños muy distintos (los bichos grandes se dibujan con MAS
+# celdas, ver SpriteLienzo.UNIDADES_POR_CELDA), asi que esto sale especifico para cada uno sin una
+# sola linea de casos particulares: se le pregunta a SU sprite por SU fotograma de ahora mismo.
+#
+# La transformada de canvas del sprite ya lleva dentro las dos escalas -- la suya (que es la que
+# hace grande al Rey Slime) y el zoom de la camara -- asi que el rectangulo sale ya en pixeles de
+# pantalla y sigue al bicho cuando se acerca o se aleja.
 func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 	if not is_instance_valid(cuerpo):
 		return Rect2()
-	var escala: Vector2 = cuerpo.get_global_transform_with_canvas().get_scale()
-	var centro: Vector2 = cuerpo.get_global_transform_with_canvas().origin
-	var tam := Vector2(ANCHO_CUERPO_POR_DEFECTO, ANCHO_CUERPO_POR_DEFECTO)
-	var col := cuerpo.get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if col != null and col.shape is RectangleShape2D:
-		tam = (col.shape as RectangleShape2D).size
-		centro = col.get_global_transform_with_canvas().origin
-		# LOS ALARGADOS GIRAN. Un cuerpo largo (la rata) rota con el bicho, asi que de lado ocupa el
-		# triple que de frente (ver enemy._colision_gira). Lo que tapa en pantalla es la caja que
-		# envuelve a la forma girada, no sus lados: sin esto, una rata de perfil llevaria la barrita
-		# corta que le toca de frente y la zona de clic le dejaria medio cuerpo fuera.
-		var r: float = col.global_rotation
-		if not is_zero_approx(r):
-			var cs: float = absf(cos(r))
-			var sn: float = absf(sin(r))
-			tam = Vector2(tam.x * cs + tam.y * sn, tam.x * sn + tam.y * cs)
-	var tam_px: Vector2 = tam * escala
-	tam_px.x = maxf(tam_px.x, ANCHO_MINI_MIN)
-	return Rect2(centro - tam_px * 0.5, tam_px)
+
+	# POR TIPO Y NO POR NOMBRE. El bicho de tu maquina lo trae la escena y su sprite se llama
+	# "AnimatedSprite"; el del ESPEJO se construye por codigo (ver remote_enemy) y se queda con el
+	# nombre que le pone Godot. Buscando por nombre, en multi no se encontraba ninguno y todas las
+	# barras caian al tamaño por defecto.
+	var spr: AnimatedSprite2D = null
+	var cr: ColorRect = null
+	for hijo in cuerpo.get_children():
+		if spr == null and hijo is AnimatedSprite2D and (hijo as CanvasItem).visible:
+			spr = hijo
+		elif cr == null and hijo is ColorRect and (hijo as CanvasItem).visible:
+			cr = hijo
+
+	if spr != null and spr.sprite_frames != null:
+		var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.get_frame())
+		if tex != null:
+			return _rect_de(spr, Vector2(tex.get_size()), spr.centered, spr.offset)
+
+	# Los que todavia no tienen arte son un ColorRect, y enemy._aplicar_escala ya lo deja a su
+	# tamaño. Se mide igual: el nodo que pinta, preguntado por lo que ocupa.
+	# Sin desfase: la transformada de un Control YA lleva dentro su position (el ColorRect del bicho
+	# esta puesto en -16,-16 para salir centrado), asi que su origen ya es la esquina de arriba.
+	if cr != null:
+		return _rect_de(cr, cr.size, false, Vector2.ZERO)
+
+	var lado: float = ANCHO_CUERPO_POR_DEFECTO
+	return _rect_de(cuerpo, Vector2(lado, lado), true, Vector2.ZERO)
+
+
+# El rectangulo que ocupa en PANTALLA un nodo que dibuja algo de 'tam_local'. 'centrado' dice si lo
+# pinta alrededor de su origen (los sprites) o hacia abajo y a la derecha (un ColorRect).
+func _rect_de(nodo: CanvasItem, tam_local: Vector2, centrado: bool, desfase: Vector2) -> Rect2:
+	var t: Transform2D = nodo.get_global_transform_with_canvas()
+	var tam: Vector2 = tam_local * t.get_scale()
+	var esquina: Vector2 = t.origin + desfase * t.get_scale()
+	if centrado:
+		esquina -= tam * 0.5
+	# El suelo es solo para la BARRA: un bicho diminuto no puede llevar una barra de doce pixeles,
+	# que ni se lee ni se puede pulsar. Se ensancha desde el centro para no descentrarla.
+	if tam.x < ANCHO_MINI_MIN:
+		esquina.x -= (ANCHO_MINI_MIN - tam.x) * 0.5
+		tam.x = ANCHO_MINI_MIN
+	return Rect2(esquina, tam)
 
 
 # Encoge una ficha a barrita, o la devuelve a su tamaño de siempre. Si ya esta como se le pide, no
