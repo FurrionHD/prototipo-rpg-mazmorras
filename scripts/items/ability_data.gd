@@ -218,6 +218,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # area_secundario. 0 = sin nucleo, todo el circulo al daño entero. Es el golpe sismico que dibujo el
 # usuario: un punto de impacto y los alrededores con menos.
 @export var forma_nucleo: float = 0.0
+# SIN NUCLEO, con cuanto le entra a TODOS los que pilla la huella (1.0 = el daño entero). Es el Temblor:
+# un circulo grande que les da a todos al 70%. Con nucleo no se mira: fuera del nucleo manda
+# area_secundario.
+@export var forma_escala: float = 1.0
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer

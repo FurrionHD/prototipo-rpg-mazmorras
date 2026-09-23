@@ -104,7 +104,7 @@ func _correr() -> void:
 	for e in enemigos:
 		media += (e as Node2D).global_position
 	media /= float(enemigos.size())
-	for nom in ["golpe_sismico", "martillo_de_guerra", "rompecorazas"]:
+	for nom in ["golpe_sismico", "martillo_de_guerra", "rompecorazas", "onda_expansiva", "temblor"]:
 		var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
 		t.apuntar(ab)
 		t._refrescar_apunte(media)

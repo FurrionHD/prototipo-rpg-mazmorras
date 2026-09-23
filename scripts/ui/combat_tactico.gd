@@ -407,7 +407,7 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 
 # A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella roce).
 # Con NUCLEO, los que el nucleo roza van al daño entero y el resto del circulo a area_secundario; sin
-# nucleo, todos enteros. Ordenados por cercania al centro y, a igualdad, por indice en _enemies: el
+# nucleo, todos a forma_escala (1.0 = entero). Ordenados por cercania al centro y, a igualdad, por indice en _enemies: el
 # mismo orden en todas las maquinas. Vacio = golpea el suelo.
 func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	var out: Array = []
@@ -420,9 +420,9 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 		var r: Rect2 = _caja_en_pelea(e)
 		if not f.toca(r):
 			continue
-		var esc: float = 1.0
-		if nucleo != null and not nucleo.toca(r):
-			esc = ab.area_secundario
+		var esc: float = ab.forma_escala
+		if nucleo != null:
+			esc = 1.0 if nucleo.toca(r) else ab.area_secundario
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(f.centro_util()),
 			"i": _pantalla._enemies.find(e)})
 	lista.sort_custom(func(x, y):

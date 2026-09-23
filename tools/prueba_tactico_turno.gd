@@ -384,6 +384,26 @@ func _probar_huella() -> void:
 		t.cuerpos[pelea._enemies[i]].global_position = Vector2(59 + i * 6, -30)
 	_afirmar(t.reparto_habilidad(sismico, yo).size() == 2 + pelea._enemies.size() - 3,
 		"con todos dentro no los pilla a todos: hay tope")
+	# LA ONDA EXPANSIVA, un cono hacia donde apuntas: el de delante entra, el de detras no.
+	var onda: AbilityData = load("res://resources/abilities/onda_expansiva.tres")
+	var temblor: AbilityData = load("res://resources/abilities/temblor.tres")
+	t.cuerpos[en_nucleo].global_position = Vector2(40, 0)
+	t.cuerpos[fuera].global_position = Vector2(-40, 0)
+	t.anotar_apunte([1000.0, 0.0])
+	var por_onda: Array = t.reparto_habilidad(onda, yo).map(func(o): return o["c"])
+	_afirmar(por_onda.has(en_nucleo) and not por_onda.has(fuera), "el cono no pilla al de delante o pilla al de detras")
+	# EL TEMBLOR, alrededor tuyo y al 70% para todos: los dos de antes (delante y detras) entran.
+	var rep_t: Array = t.reparto_habilidad(temblor, yo)
+	var por_t: Dictionary = {}
+	for o in rep_t:
+		por_t[o["c"]] = float(o["escala"])
+	_afirmar(por_t.has(en_nucleo) and por_t.has(fuera), "el temblor no pilla a los que tienes alrededor")
+	_afirmar(is_equal_approx(float(por_t.get(fuera, 0.0)), temblor.forma_escala), "el temblor no pega su 70%")
+	t.cuerpos[fuera].global_position = Vector2(-300, 0)
+	_afirmar(not t.reparto_habilidad(temblor, yo).map(func(o): return o["c"]).has(fuera), "el temblor pilla al que esta lejos")
+	t.cuerpos[en_nucleo].global_position = Vector2(59, 0)
+	t.cuerpos[fuera].global_position = Vector2(59, 200)
+
 	# AL VACIO: hacia la izquierda no hay nadie.
 	t.anotar_apunte([-1000.0, 0.0])
 	_afirmar(t.reparto_habilidad(sismico, yo).is_empty(), "apuntando al vacio pilla a alguien")

@@ -16,6 +16,10 @@ prob = 0.45
 [resource]
 script = ExtResource("1")
 nombre = "Onda expansiva"
+forma = 2
+forma_apunte = 1
+forma_radio = 65.0
+forma_apertura = 60.0
 precio = 1200
 coste_energia = 52
 cooldown = 3
