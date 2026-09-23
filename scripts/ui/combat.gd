@@ -70,6 +70,17 @@ const CombatDiagnostico = preload("res://scripts/ui/combat_diagnostico.gd")
 var diagnostico = CombatDiagnostico.new(self)
 const CombatMontaje = preload("res://scripts/ui/combat_montaje.gd")
 var montaje = CombatMontaje.new(self)
+# EL MONTAJE ALTERNATIVO: la misma pelea, puesta en escena sobre el mapa en vez de en dos filas de
+# tarjetas. Hereda del de arriba y solo cambia tres funciones (ver su cabecera). Se enchufa en
+# _ready cuando la pelea es TACTICA.
+const CombatMontajeMapa = preload("res://scripts/ui/combat_montaje_mapa.gd")
+const CombatFigurasMapa = preload("res://scripts/ui/combat_figuras_mapa.gd")
+var figuras_mapa = CombatFigurasMapa.new(self)
+
+# ¿Esta pelea se juega EN EL MAPA? Lo pone Game antes de setup(). Es lo unico que distingue los dos
+# combates, y solo puede mirarlo la GEOMETRIA y la PUESTA EN ESCENA: si acaba dentro de una funcion
+# que resuelve daño, la costura esta en el sitio equivocado.
+var tactico: bool = false
 const CombatEspejo = preload("res://scripts/ui/combat_espejo.gd")
 var espejo = CombatEspejo.new(self)
 
@@ -516,7 +527,13 @@ func _ready() -> void:
 	# otro, la suya llegara en la primera instantanea (ver aplicar_instantanea).
 	_aplicar_velocidad(1.0 if _espejo else Game.velocidad_combate)
 
-	montaje._anadir_fondo()  # fondo opaco para tapar la mazmorra detras
+	# EN EL MAPA se monta otra puesta en escena. Se cambia AQUI, antes de construir nada y despues de
+	# que setup() haya dejado la pelea preparada: de aqui en adelante todo el montaje pasa por el
+	# tema que toque sin que el resto de la pantalla sepa cual es.
+	if tactico:
+		montaje = CombatMontajeMapa.new(self)
+
+	montaje._anadir_fondo()  # fondo opaco para tapar la mazmorra detras (en el mapa, no pinta nada)
 	montaje._montar_columna()  # el combate pasa a una columna de ancho fijo, centrada
 
 	if not _injected:
@@ -954,6 +971,10 @@ func _process(delta: float) -> void:
 	if _espejo:
 		espejo._interpolar_atb_espejo(delta)
 	_update_timeline()  # refleja el orden de turnos siempre
+	# EN EL MAPA las fichas van pegadas a su cuerpo: hay que recolocarlas cada fotograma. Va aqui
+	# arriba, antes del return del espejo, porque en el espejo los cuerpos tambien se mueven.
+	if tactico:
+		figuras_mapa.seguir()
 	figuras._tick_hold_detalle(delta)   # el "mantener pulsado" que abre la ficha de detalle
 	# Los cadaveres de enfrente que se estan yendo. VA AQUI ARRIBA, antes del return del espejo y de
 	# los de PAUSED/ADVANCING: en el espejo tambien se muere gente, y una tarjeta a medio desvanecer

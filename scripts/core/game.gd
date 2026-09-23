@@ -1093,6 +1093,109 @@ var arena_activa := false
 func es_arena() -> bool:
 	return arena_activa
 
+
+# ============================================================
+#  COMBATE TACTICO EN EL MAPA (en obras)
+#  La misma pelea de siempre -- mismo motor, mismo daño, misma red -- puesta en escena SOBRE el
+#  mapa en vez de en dos filas de tarjetas, con una arena delimitada alrededor del encuentro.
+#
+#  DE MOMENTO SOLO EN LA ARENA DE PRUEBAS. En la mazmorra se sigue abriendo la pantalla de siempre:
+#  esto se saca de aqui cuando este terminado y jugado, no antes. La bandera esta para poder
+#  apagarlo en un commit si algo se tuerce a mitad.
+# ============================================================
+const TACTICO_EN_ARENA := true
+
+# ¿ESTA pelea se juega en el mapa? Tres condiciones, y la tercera es la que puede decir que no en
+# cualquier momento: si el trozo de suelo que hay alrededor no da ni para la arena mas pequeña, se
+# abre la pantalla de siempre. En un pasillo de tres celdas no se pelea en tactico.
+func combate_tactico(enemy_nodes: Array) -> bool:
+	if not TACTICO_EN_ARENA or not es_arena():
+		return false
+	return _rect_de_arena(enemy_nodes).has_area()
+
+
+# El rectangulo donde se pelearia, en CELDAS. Rect2i() vacio = aqui no cabe una arena.
+# Lo calcula SIEMPRE esta maquina y, en multi, viaja al espejo: que cada uno lo recalcule por su
+# cuenta es un desincronizado que solo se nota cuando alguien se atasca contra una pared invisible.
+func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or piso.get("gen") == null:
+		return Rect2i()
+	# LA SEMILLA: el centro de gravedad de los que empiezan la pelea, los suyos y los mios.
+	var puntos: Array = []
+	var hay_jefe: bool = false
+	for n in enemy_nodes:
+		if is_instance_valid(n) and n is Node2D:
+			puntos.append((n as Node2D).global_position)
+			if bool(n.get("es_boss")):
+				hay_jefe = true
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo != null and yo is Node2D:
+		puntos.append((yo as Node2D).global_position)
+	if puntos.is_empty():
+		return Rect2i()
+	var cuantos: int = puntos.size() + companeros().size()
+	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
+	var r: Rect2i = ArenaCalculo.rect_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado)
+	if r.size.x < ArenaCalculo.ARENA_MIN.x or r.size.y < ArenaCalculo.ARENA_MIN.y:
+		return Rect2i()
+	return r
+
+
+# La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
+var _arena_nodo: Node = null
+var _camara_guardada := {}
+
+
+# Cuelga la arena del piso y planta la camara encima. La camara es FIJA y encuadra la zona entera:
+# un combate tactico se juega mirando el tablero, no siguiendo a uno.
+func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null:
+		return
+	_arena_nodo = ArenaCombate.montar(piso, rect_celdas)
+	if _arena_nodo != null:
+		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
+		_arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo == null:
+		return
+	var cam: Camera2D = yo.get_node_or_null("Camera2D") as Camera2D
+	if cam == null:
+		return
+	# NO se reparenta la camara: con el suavizado a 8.0 puesto, cambiarla de padre a media pelea da
+	# un latigazo. Se le mueve el OFFSET respecto al jugador, que con el mundo quieto es lo mismo
+	# que plantarla en un sitio fijo, y se deshace al acabar.
+	_camara_guardada = {
+		"cam": cam, "pos": cam.position, "zoom": cam.zoom,
+		"suave": cam.position_smoothing_enabled,
+	}
+	var r: Rect2 = ArenaCalculo.rect_px(rect_celdas)
+	cam.position = r.get_center() - (yo as Node2D).global_position
+	# El zoom que hace que quepa la arena entera, con un poco de aire y sin pasarse de lejos: los
+	# sprites no pueden acabar siendo hormigas.
+	var v: Vector2 = get_viewport().get_visible_rect().size
+	var z: float = minf(v.x / (r.size.x + 160.0), v.y / (r.size.y + 160.0))
+	cam.zoom = Vector2.ONE * clampf(z, 0.75, 1.8)
+	cam.position_smoothing_enabled = false
+	cam.reset_smoothing()
+
+
+# Deshace lo anterior. Se llama SIEMPRE que se cierra una pelea, sea como sea que acabe: si la
+# camara se quedara con el encuadre de la arena, seguirias jugando la mazmorra desde lejos.
+func _desmontar_arena_tactica() -> void:
+	if is_instance_valid(_arena_nodo):
+		_arena_nodo.queue_free()
+	_arena_nodo = null
+	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	if is_instance_valid(cam):
+		cam.position = _camara_guardada.get("pos", Vector2.ZERO)
+		cam.zoom = _camara_guardada.get("zoom", Vector2.ONE)
+		cam.position_smoothing_enabled = bool(_camara_guardada.get("suave", true))
+		cam.reset_smoothing()
+	_camara_guardada = {}
+
 # El UNICO sitio que traduce "voy al piso N" a current_floor (y enciende o apaga la arena).
 func fijar_piso(p: int) -> void:
 	arena_activa = p == PISO_ARENA
@@ -13982,12 +14085,22 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	var combat := _combat_scene.instantiate()
 	# PROCESS_MODE_ALWAYS = el combate sigue funcionando aunque el arbol este en pausa.
 	combat.process_mode = Node.PROCESS_MODE_ALWAYS
+	# ¿ESTA pelea se juega en el mapa? Se decide ANTES de setup: la pantalla monta una puesta en
+	# escena u otra segun esto, y a partir de _ready ya es tarde para cambiarlo. El rectangulo se
+	# calcula una sola vez y se guarda: preguntarlo dos veces podria dar dos arenas distintas si
+	# alguien se ha movido entre medias.
+	var rect_arena: Rect2i = _rect_de_arena(_active_enemies)
+	var es_tactico: bool = TACTICO_EN_ARENA and es_arena() and rect_arena.has_area()
+	combat.tactico = es_tactico
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
 	Net.peleas.registrar_pelea()
 
 	_montar_pantalla_combate(combat)
+	# LA ARENA, despues de colgar la pantalla: se dibuja en el suelo del piso, no en la pantalla.
+	if es_tactico:
+		_montar_arena_tactica(rect_arena)
 	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
@@ -14033,7 +14146,13 @@ func _montar_pantalla_combate(combat: Node, jefe: int = -1) -> void:
 	_active_layer = layer
 
 	entrar_modal(Modal.COMBATE, layer)  # congela la mazmorra mientras luchas
-	esconder_mundo(true)                # ...y deja de PINTARLA: la pantalla de combate la tapa entera
+	# ...y deja de PINTARLA: la pantalla de combate la tapa entera.
+	# EN EL TACTICO NO: ahi la pelea ES el mapa. La capa es transparente y debajo tiene que verse la
+	# mazmorra, con los cuerpos en su sitio y la arena dibujada en el suelo. La pausa se queda
+	# puesta igual -- lo que se congela es el resto del piso, no el combate, que va con
+	# PROCESS_MODE_ALWAYS como siempre.
+	if not bool(combat.get("tactico")):
+		esconder_mundo(true)
 	# MULTI: que los demas sepan que estoy peleando. En multi el mundo NO se para, asi que las
 	# paredes seguirian pariendo: saberlo les sirve para no plantarme un bicho en las narices
 	# mientras estoy en una pantalla donde no puedo ni verlo (ver spawn_zone).
@@ -14145,6 +14264,7 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
 	salir_modal(_active_layer)
 	esconder_mundo(false)
+	_desmontar_arena_tactica()   # la arena y el encuadre de la camara, a su sitio
 	# ⚠️ LO QUE APILO _montar_pantalla_combate HAY QUE DESAPILARLO AQUI TAMBIEN. El espejo monta la
 	# pantalla por el mismo sitio que una pelea de verdad, pero se cierra por OTRA funcion: como esto
 	# faltaba, al pulsar Continuar en el espejo la musica de combate (o la de jefe) se quedaba en lo
@@ -15007,6 +15127,9 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	Ambiente.pausar(false)
 	salir_modal(_active_layer)
 	esconder_mundo(false)
+	# La arena se va y la camara vuelve a su sitio. VA EN LOS DOS CIERRES (este y el del espejo):
+	# si se quedara puesta, seguirias jugando la mazmorra desde lejos y con un rectangulo pintado.
+	_desmontar_arena_tactica()
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.jugadores.avisar_combate(false)
 	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su

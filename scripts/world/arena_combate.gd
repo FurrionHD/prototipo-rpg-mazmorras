@@ -85,6 +85,10 @@ static func montar(padre: Node, rect_celdas_: Rect2i) -> ArenaCombate:
 	a.rect = ArenaCalculo.rect_px(rect_celdas_)
 	a.z_as_relative = false
 	a.z_index = Z_SUELO
+	# TOP LEVEL: esto dibuja en coordenadas de MUNDO (el rectangulo viene en px del piso), asi que no
+	# puede heredar la transformada de quien lo cuelgue. Sin esto, el dia que el nodo del piso no
+	# este en el origen, la arena saldria pintada desplazada respecto al suelo que delimita.
+	a.top_level = true
 	padre.add_child(a)
 	return a
 
