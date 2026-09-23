@@ -23,6 +23,10 @@ const T_QUIETO := 0.15    # lo que se queda entera antes de empezar a irse
 const T_APAGAR := 1.0     # y lo que tarda en desvanecerse
 const Z_SUELO := 2        # como AreaCuracion: sobre el suelo, bajo los cuerpos
 
+# LA PERSPECTIVA (cerrado con el usuario, 23/09): el SUELO se pinta tal cual -- los circulos son
+# circulos, igual que las huellas --, pero lo que se LEVANTA de el (las losas, las piedras que saltan)
+# es altura, y la altura con la camara a 45 grados se ve a sin(45) = 0,707 (PlazaSprites.K).
+const K_ALTO := 0.7071
 const OSCURO := Color(0.03, 0.03, 0.05)
 const LABIO := Color(0.78, 0.76, 0.72)
 
@@ -309,7 +313,7 @@ func _dibujar_fragmentos(front: float, a: float) -> void:
 		# Salta al llegarle el frente (con un pelin de rebote) y luego se queda.
 		var t_l: float = _t - retraso_px(d)
 		var salto: float = clampf(t_l / 0.12, 0.0, 1.0)
-		var h: float = float(l["alza"]) * (salto + 0.35 * sin(clampf(t_l / 0.25, 0.0, 1.0) * PI))
+		var h: float = float(l["alza"]) * (salto + 0.35 * sin(clampf(t_l / 0.25, 0.0, 1.0) * PI)) * K_ALTO
 		var c: Vector2 = l["c"]
 		var poly: PackedVector2Array = l["poly"]
 		var cara := PackedVector2Array()
@@ -347,7 +351,8 @@ func _dibujar_fragmentos(front: float, a: float) -> void:
 		for pd in l["piedras"]:
 			var o: Vector2 = pd["o"]
 			var vel: Vector2 = pd["v"]
-			var p: Vector2 = o + vel * tp + Vector2(0, 160.0 * tp * tp)
+			# Lo que salta es ALTURA: en x anda por el suelo tal cual, en y se ve a K_ALTO.
+			var p: Vector2 = o + Vector2(vel.x * tp, (vel.y * tp + 160.0 * tp * tp) * K_ALTO)
 			var tam: float = float(pd["tam"])
 			draw_rect(Rect2(p - Vector2(tam, tam) * 0.5, Vector2(tam, tam)),
 				Color(LABIO, 0.9 * (1.0 - tp / 0.45)))
