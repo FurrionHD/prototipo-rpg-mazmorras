@@ -257,18 +257,24 @@ func _probar_alcance() -> void:
 	pelea.turno_mapa = t
 	var yo: Combatant = pelea._aliados[0]
 	yo.alcance = 20.0
-	# Cuerpos base de 32x32: a 50 px de centro a centro hay 18 de hueco.
+	# Cuerpos de prueba (cajas base de 32 centradas en el nodo). El hueco para golpear va de los PIES del
+	# que golpea (menos lo que pisa) al CUERPO del que recibe: a 40 px de nodo a nodo, ~13.
 	t.cuerpos[yo] = _cuerpo(Vector2(0, 0))
 	for i in pelea._aliados.size():
 		if i > 0:
 			t.cuerpos[pelea._aliados[i]] = _cuerpo(Vector2(-400, i * 40))
 	var cerca: Combatant = pelea._enemies[0]
 	var lejos: Combatant = pelea._enemies[1]
-	t.cuerpos[cerca] = _cuerpo(Vector2(50, 0))
+	t.cuerpos[cerca] = _cuerpo(Vector2(40, 0))
 	t.cuerpos[lejos] = _cuerpo(Vector2(0, 300))
 	for i in range(2, pelea._enemies.size()):
 		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
-	_afirmar(is_equal_approx(t.hueco_entre(yo, cerca), 18.0), "el hueco no se mide borde a borde: %.1f" % t.hueco_entre(yo, cerca))
+	var bc: Rect2 = t.bulto_de(cerca)
+	var pp: Vector2 = t.pies_de(yo)
+	var esperado: float = pp.distance_to(Vector2(clampf(pp.x, bc.position.x, bc.end.x), clampf(pp.y, bc.position.y, bc.end.y))) - t.radio_pisa(yo)
+	_afirmar(is_equal_approx(t.hueco_entre(yo, cerca), esperado) and esperado < 20.0 and esperado > 10.0,
+		"el hueco no va de los pies al cuerpo: %.1f (esperado %.1f)" % [t.hueco_entre(yo, cerca), esperado])
+	_afirmar(is_equal_approx(t.pies_de(yo).y, PoseJugador.PIES_BAJO_NODO), "los pies de los tuyos no estan bajo el nodo")
 	_afirmar(t.llega(yo, cerca) and not t.llega(yo, lejos), "el alcance no separa al de cerca del de lejos")
 
 	pelea._player = yo
@@ -313,7 +319,7 @@ func _probar_alcance() -> void:
 
 	# EL DE AL LADO SI PEGA (o esquivan): su sorteo sale con alguien.
 	t.cuerpos[yo].global_position = Vector2(0, 0)
-	cerca.alcance = 20.0   # a 18 de hueco: con su alcance de serie (10) no llegaria
+	cerca.alcance = 20.0   # a ~19 de hueco: con su alcance de serie no llegaria
 	t.atacante = cerca
 	_afirmar(pelea.objetivos._elegir_objetivo_enemigo() == yo, "el sorteo del enemigo de al lado no se queda con el unico a tiro")
 	t.atacante = null
@@ -326,8 +332,10 @@ func _probar_alcance() -> void:
 	t.cuerpos[otro].global_position = Vector2(-400, 0)
 	t._pos[otro] = Vector2(0, 55)
 	# Un enemigo en (0, 110): de 55 a 110 son 55 px de centro a centro, 23 de hueco. Alcance 20 + holgura.
-	t.cuerpos[pelea._enemies[2]].global_position = Vector2(0, 110)
-	_afirmar(is_equal_approx(t.hueco_entre(otro, pelea._enemies[2]), 23.0), "el hueco no sale de la posicion SELLADA: %.1f" % t.hueco_entre(otro, pelea._enemies[2]))
+	# Pies del tuyo en y 55+14; el cuerpo del enemigo empieza 16 por encima de su nodo: 23 de hueco.
+	var y_ene: float = 55.0 + PoseJugador.PIES_BAJO_NODO + t.radio_pisa(otro) + 23.0 + 16.0
+	t.cuerpos[pelea._enemies[2]].global_position = Vector2(0, y_ene)
+	_afirmar(absf(t.hueco_entre(otro, pelea._enemies[2]) - 23.0) < 0.01, "el hueco no sale de la posicion SELLADA: %.1f" % t.hueco_entre(otro, pelea._enemies[2]))
 	_afirmar(t.llega(otro, pelea._enemies[2]), "a otro humano no se le da holgura")
 	pelea.queue_free()
 	await get_tree().process_frame
@@ -359,18 +367,20 @@ func _probar_huella() -> void:
 		t.cuerpos[pelea._aliados[i]] = _cuerpo(Vector2(-600, i * 40))
 	# Apuntando MUY lejos a la derecha: el centro se queda en la punta del arma (16 de medio cuerpo
 	# + 43 de alcance = x 59).
-	var f = t.forma_de(sismico, yo, Vector2(1000, 0))
-	_afirmar(absf(f.centro.x - 59.0) < 0.5 and absf(f.centro.y) < 0.5, "el centro pasa de la punta del arma: %s" % str(f.centro))
+	var f = t.forma_de(sismico, yo, t.pies_de(yo) + Vector2(1000, 0))
+	var punta: Vector2 = t.pies_de(yo) + Vector2(t.radio_pisa(yo) + 43.0, 0.0)
+	_afirmar(f.centro.distance_to(punta) < 0.5, "el centro no cae en la punta del arma desde los pies: %s (punta %s)" % [str(f.centro), str(punta)])
 	# Uno en el NUCLEO (en el centro), otro en el ANILLO, otro FUERA, y el resto lejos.
 	var en_nucleo: Combatant = pelea._enemies[0]
 	var en_anillo: Combatant = pelea._enemies[1]
 	var fuera: Combatant = pelea._enemies[2]
-	t.cuerpos[en_nucleo] = _cuerpo(Vector2(59, 0))
-	t.cuerpos[en_anillo] = _cuerpo(Vector2(59, 60))   # su caja empieza a 44 del centro: dentro de 65
-	t.cuerpos[fuera] = _cuerpo(Vector2(59, 200))
+	var sube: Vector2 = Vector2.ZERO   # el cuerpo del enemigo de prueba va centrado en su nodo
+	t.cuerpos[en_nucleo] = _cuerpo(punta - sube)
+	t.cuerpos[en_anillo] = _cuerpo(punta + Vector2(0, 60) - sube)   # pies a 60 del centro: fuera del nucleo, dentro de 65
+	t.cuerpos[fuera] = _cuerpo(punta + Vector2(0, 200) - sube)
 	for i in range(3, pelea._enemies.size()):
 		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
-	t.anotar_apunte([1000.0, 0.0])
+	t.anotar_apunte([1000.0, PoseJugador.PIES_BAJO_NODO])
 	var rep: Array = t.reparto_habilidad(sismico, yo)
 	var por: Dictionary = {}
 	for o in rep:
@@ -381,7 +391,7 @@ func _probar_huella() -> void:
 	_afirmar(not rep.is_empty() and rep[0]["c"] == en_nucleo, "el principal no es el del centro")
 	# SIN TOPE: cuatro dentro, cuatro pillados.
 	for i in range(3, pelea._enemies.size()):
-		t.cuerpos[pelea._enemies[i]].global_position = Vector2(59 + i * 6, -30)
+		t.cuerpos[pelea._enemies[i]].global_position = punta + Vector2(i * 6, -20) - sube
 	_afirmar(t.reparto_habilidad(sismico, yo).size() == 2 + pelea._enemies.size() - 3,
 		"con todos dentro no los pilla a todos: hay tope")
 	# LA ONDA EXPANSIVA, un cono hacia donde apuntas: el de delante entra, el de detras no.
@@ -389,7 +399,7 @@ func _probar_huella() -> void:
 	var temblor: AbilityData = load("res://resources/abilities/temblor.tres")
 	t.cuerpos[en_nucleo].global_position = Vector2(40, 0)
 	t.cuerpos[fuera].global_position = Vector2(-40, 0)
-	t.anotar_apunte([1000.0, 0.0])
+	t.anotar_apunte([1000.0, PoseJugador.PIES_BAJO_NODO])
 	var por_onda: Array = t.reparto_habilidad(onda, yo).map(func(o): return o["c"])
 	_afirmar(por_onda.has(en_nucleo) and not por_onda.has(fuera), "el cono no pilla al de delante o pilla al de detras")
 	# EL TEMBLOR, alrededor tuyo y al 70% para todos: los dos de antes (delante y detras) entran.
@@ -401,15 +411,15 @@ func _probar_huella() -> void:
 	_afirmar(is_equal_approx(float(por_t.get(fuera, 0.0)), temblor.forma_escala), "el temblor no pega su 70%")
 	t.cuerpos[fuera].global_position = Vector2(-300, 0)
 	_afirmar(not t.reparto_habilidad(temblor, yo).map(func(o): return o["c"]).has(fuera), "el temblor pilla al que esta lejos")
-	t.cuerpos[en_nucleo].global_position = Vector2(59, 0)
-	t.cuerpos[fuera].global_position = Vector2(59, 200)
+	t.cuerpos[en_nucleo].global_position = punta - sube
+	t.cuerpos[fuera].global_position = punta + Vector2(0, 200) - sube
 
 	# AL VACIO: hacia la izquierda no hay nadie.
 	t.anotar_apunte([-1000.0, 0.0])
 	_afirmar(t.reparto_habilidad(sismico, yo).is_empty(), "apuntando al vacio pilla a alguien")
 	# Y RESUELTA DE VERDAD (por _usar_habilidad de siempre): al del nucleo le baja la vida o esquiva;
 	# al de fuera, nada.
-	t.anotar_apunte([1000.0, 0.0])
+	t.anotar_apunte([1000.0, PoseJugador.PIES_BAJO_NODO])
 	pelea._player = yo
 	pelea._state = pelea.State.WAITING_PLAYER
 	yo.current_energy = yo.max_energy
@@ -424,7 +434,7 @@ func _probar_huella() -> void:
 
 	# QUE LOS DEMAS LA VEAN: quien lleva la pelea la apunta en su lista, la empaqueta, y un espejo la
 	# pinta en SU arena con el mismo centro y el mismo nucleo.
-	var f_red = t.forma_de(sismico, yo, Vector2(1000, 0))
+	var f_red = t.forma_de(sismico, yo, t.pies_de(yo) + Vector2(1000, 0))
 	t._anotar_huella_red(yo, t.CLASE_APUNTANDO, f_red, sismico.forma_nucleo)
 	var datos: PackedFloat32Array = t.estado_huellas()
 	_afirmar(datos.size() == t.FLOATS_HUELLA, "el paquete de huellas no mide lo que tiene que medir: %d" % datos.size())

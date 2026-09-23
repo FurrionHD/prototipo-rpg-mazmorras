@@ -266,13 +266,88 @@ func radio_de(c: Combatant) -> float:
 #  EL ALCANCE: ¿llega el golpe de 'a' a 'b'?
 # ------------------------------------------------------------
 
-# El hueco entre los dos cuerpos, borde a borde, con cada uno donde la PELEA dice que esta (pos_de:
-# la posicion sellada si es de otro humano) y no donde lo tenga su nodo en este instante. La caja es
-# la de su cuerpo (Cuerpos.caja_de), asi un Rey Slime se alcanza por su borde y no por su centro.
+# ------------------------------------------------------------
+#  LOS PIES: cada cuerpo es un CIRCULO en el suelo
+# ------------------------------------------------------------
+# QUIEN GOLPEA mide desde SUS PIES (el centro de su cuerpo en el suelo), igual en todas las
+# direcciones; QUIEN RECIBE, por su cuerpo tal como se ve (bulto_de). Lo usan a la vez el basico
+# (hueco_entre), la punta del arma de las habilidades (forma_de) y a quien pilla cada huella
+# (reparto_habilidad): una sola cuenta.
+#
+# POR QUE ASI Y NO CON CAJAS (23/09, mirando la pelea con el usuario): con cajas salian dos cosas
+# que no cuadraban con lo que se ve.
+#   - Hacia ARRIBA llegaba mas: el cuerpo del personaje era una caja alta (22x42), y la punta del arma
+#     se contaba desde su borde, que por arriba queda 10 px mas lejos. Parecia que pegaba "desde la
+#     cabeza". Un circulo mide lo mismo en todas las direcciones.
+#   - A la Aberracion le daba cualquier cosa: se media con un cuadrado del ANCHO de su dibujo (53 px,
+#     tentaculos incluidos) puesto en el suelo, y el dibujo es el bicho DE PIE visto a 45 grados, no
+#     lo que pisa. Tres pegadas se solapaban entre ellas y contigo, y un cono que tapaba a una
+#     "pillaba a 3".
+# El radio es una fraccion del ancho que se VE (el dibujo en los enemigos, la caja de siempre en los
+# tuyos): lo que pisa un cuerpo es bastante menos que lo que abulta.
+const PISA := 0.33
+# Los enemigos llevan el origen en el CENTRO de su dibujo, no en los pies: los pies caen hacia abajo
+# de lo que tienen pintado. Esta fraccion de su alto por debajo del origen.
+const PIES_ENEMIGO := 0.4
+
+
+# Donde tiene los pies, con el cuerpo donde la PELEA dice que esta (pos_de: la posicion sellada si es
+# de otro humano).
+func pies_de(c: Combatant) -> Vector2:
+	var p: Vector2 = pos_de(c)
+	if not _pantalla._enemies.has(c):
+		return p + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var cuerpo: Node2D = cuerpo_de(c)
+	var tam: Vector2 = _tam_dibujo(cuerpo) if cuerpo != null else Vector2.ZERO
+	if tam == Vector2.ZERO and cuerpo != null:
+		tam = Cuerpos.caja_de(cuerpo).size
+	return p + Vector2(0.0, tam.y * PIES_ENEMIGO)
+
+
+# El radio de lo que PISA quien golpea: la punta de su arma se cuenta desde el borde de esto.
+func radio_pisa(c: Combatant) -> float:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return 32.0 * PISA
+	var ancho: float = 0.0
+	if _pantalla._enemies.has(c):
+		ancho = _tam_dibujo(cuerpo).x
+	if ancho <= 0.0:
+		ancho = Cuerpos.caja_de(cuerpo).size.x
+	return ancho * PISA
+
+
+# LA HITBOX de quien RECIBE: su cuerpo tal como se ve (lo marco el usuario sobre una captura, una caja
+# alrededor del dibujo de la Aberracion: "eso es lo que hay que tener en cuenta para golpearlo").
+#   Los enemigos: la caja de su DIBUJO (su pose entera, ver _tam_dibujo), centrada donde se pinta.
+#   Los tuyos: la caja de su cuerpo (PoseJugador.CAJA_CUERPO), la misma contra la que te pegan por el mapa.
+# Con el cuerpo donde la PELEA dice que esta (pos_de).
+func bulto_de(c: Combatant) -> Rect2:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	if _pantalla._enemies.has(c):
+		for hijo in cuerpo.get_children():
+			if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible:
+				var tam: Vector2 = _tam_dibujo(cuerpo)
+				if tam != Vector2.ZERO:
+					var spr: AnimatedSprite2D = hijo
+					var centro: Vector2 = pos_de(c) + spr.offset * spr.get_global_transform().get_scale().abs()
+					return Rect2(centro - tam * 0.5, tam)
+	var r: Rect2 = Cuerpos.caja_de(cuerpo)
+	r.position += pos_de(c) - cuerpo.global_position
+	return r
+
+
+# El hueco para GOLPEAR: de los pies de quien golpea (menos lo que pisa) al cuerpo de quien recibe.
+# No es simetrico, y es a proposito: "a llega a b" y "b llega a a" miden desde pies distintos.
 func hueco_entre(a: Combatant, b: Combatant) -> float:
 	if cuerpo_de(a) == null or cuerpo_de(b) == null:
 		return INF
-	return Cuerpos.hueco_entre(_caja_en_pelea(a), _caja_en_pelea(b))
+	var p: Vector2 = pies_de(a)
+	var r: Rect2 = bulto_de(b)
+	var cerca := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+	return p.distance_to(cerca) - radio_pisa(a)
 
 
 func alcance_de(c: Combatant) -> float:
@@ -400,15 +475,16 @@ func usa_huella(ab: AbilityData) -> bool:
 	return _pantalla.tactico and ab != null and int(ab.forma_apunte) >= 0 and int(ab.forma) >= 0
 
 
-# La forma de 'ab' lanzada por 'c' hacia 'hacia', con 'c' donde la PELEA dice que esta.
+# La forma de 'ab' lanzada por 'c' hacia 'hacia', desde SUS PIES y con 'c' donde la PELEA dice.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	return CombatFormas.de_habilidad_mapa(ab, _caja_en_pelea(c), alcance_de(c), hacia)
+	return CombatFormas.de_habilidad_mapa(ab, pies_de(c), radio_pisa(c), alcance_de(c), hacia)
 
 
-# A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella roce).
-# Con NUCLEO, los que el nucleo roza van al daño entero y el resto del circulo a area_secundario; sin
-# nucleo, todos a forma_escala (1.0 = entero). Ordenados por cercania al centro y, a igualdad, por indice en _enemies: el
-# mismo orden en todas las maquinas. Vacio = golpea el suelo.
+# A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella toque:
+# el cuerpo de cada uno tal como se ve, ver bulto_de). Con NUCLEO, los que el nucleo toca van al daño entero y
+# el resto a area_secundario; sin nucleo, todos a forma_escala (1.0 = entero). Ordenados por cercania
+# al centro y, a igualdad, por indice en _enemies: el mismo orden en todas las maquinas. Vacio =
+# golpea el suelo.
 func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	var out: Array = []
 	if not _hay_apunte:
@@ -417,7 +493,7 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
 	var lista: Array = []
 	for e in _pantalla._vivos():
-		var r: Rect2 = _caja_en_pelea(e)
+		var r: Rect2 = bulto_de(e)
 		if not f.toca(r):
 			continue
 		var esc: float = ab.forma_escala
@@ -434,37 +510,20 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	return out
 
 
-# LA CAJA DE UN COMBATIENTE EN EL SUELO, donde la pelea dice que esta. La miden el alcance y las
-# huellas, las dos, para que "llego" y "le pilla" sean la misma cuenta.
-#
-# LOS ENEMIGOS, POR SU DIBUJO: un cuadrado del ANCHO de lo que tienen pintado (su pose entera, la
-# misma medida que su barra, ver figuras_mapa._tam_pose), centrado en su origen. Con su caja de
-# colision se llegaba de lejisimos a los grandes: la Aberracion va a x1,8 y su caja mide mas del
-# doble que su dibujo, asi que el martillo la alcanzaba sin verse tocarla (lo vio el usuario el
-# 23/09: "llega demasiado"). Los tuyos, con su caja de siempre (PoseJugador.CAJA_CUERPO).
-func _caja_en_pelea(c: Combatant) -> Rect2:
-	var cuerpo: Node2D = cuerpo_de(c)
-	if cuerpo == null:
-		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
-	if _pantalla._enemies.has(c):
-		var ancho: float = _ancho_dibujo(cuerpo)
-		if ancho > 0.0:
-			return Rect2(pos_de(c) - Vector2(ancho, ancho) * 0.5, Vector2(ancho, ancho))
-	var r: Rect2 = Cuerpos.caja_de(cuerpo)
-	r.position += pos_de(c) - cuerpo.global_position
-	return r
-
-
-# Lo que mide de ancho lo que tiene pintado un enemigo, en px de MUNDO (sin el zoom de la camara:
-# su escala global, no la de pantalla). 0 = no tiene dibujo que medir.
-func _ancho_dibujo(cuerpo: Node2D) -> float:
+# Lo que mide lo que tiene pintado un enemigo (su pose entera, la misma medida que su barra: ver
+# figuras_mapa._tam_pose), en px de MUNDO (su escala global, sin el zoom de la camara). ZERO = no
+# tiene dibujo que medir.
+func _tam_dibujo(cuerpo: Node2D) -> Vector2:
 	for hijo in cuerpo.get_children():
-		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible 				and (hijo as AnimatedSprite2D).sprite_frames != null and _pantalla.figuras_mapa != null:
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and _pantalla.figuras_mapa != null \
+				and (hijo as AnimatedSprite2D).sprite_frames != null:
 			var spr: AnimatedSprite2D = hijo
-			return _pantalla.figuras_mapa._tam_pose(spr).x * absf(spr.get_global_transform().get_scale().x)
+			var esc: Vector2 = spr.get_global_transform().get_scale().abs()
+			return _pantalla.figuras_mapa._tam_pose(spr) * esc
 		if hijo is ColorRect and (hijo as CanvasItem).visible:
-			return (hijo as ColorRect).size.x * absf((hijo as ColorRect).get_global_transform().get_scale().x)
-	return 0.0
+			var cr: ColorRect = hijo
+			return cr.size * cr.get_global_transform().get_scale().abs()
+	return Vector2.ZERO
 
 
 # Pulsaste una habilidad con huella: a apuntar.
@@ -806,10 +865,13 @@ func _tick_moviendo(delta: float) -> void:
 	if arena != null:
 		_vigilar_borde(arena)
 	_vigilar_alcance()
-	# Solo se anda con la barra de acciones delante: dentro de un submenu estas eligiendo QUE hacer,
-	# y con la pregunta de huir a la vista estas eligiendo si te vas.
-	var puede: bool = _radio > 0.0 and _pantalla._actions_box != null \
-		and _pantalla._actions_box.visible and not _preguntando()
+	# SE ANDA con la barra de acciones delante, en el menu de habilidades y APUNTANDO una: recolocarse
+	# mientras eliges como golpear es justo lo que hace falta (lo pidio el usuario: tener que volver
+	# atras del todo para dar dos pasos y volver a elegir la habilidad era un engorro). No en los
+	# demas submenus (hechizos, objetos) ni con la pregunta de huir delante.
+	var en_menu: bool = (_pantalla._actions_box != null and _pantalla._actions_box.visible) \
+		or (_pantalla._ability_box != null and _pantalla._ability_box.visible) or _apuntando != null
+	var puede: bool = _radio > 0.0 and en_menu and not _preguntando()
 	var dir: Vector2 = Vector2.ZERO
 	if puede:
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -826,6 +888,11 @@ func _tick_moviendo(delta: float) -> void:
 		_dentro(arena), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
 	_andando = true
+	# Apuntando, la huella viene contigo y el personaje sigue mirando hacia donde apuntas.
+	if _apuntando != null:
+		_refrescar_apunte(_raton_en_mundo())
+		_animar(_cuerpo, _raton_en_mundo() - _cuerpo.global_position, true)
+		return
 	_animar(_cuerpo, dir, true)
 
 
