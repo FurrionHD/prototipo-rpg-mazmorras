@@ -31,7 +31,7 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # necesita mas alcance para llegar: ya sobresale el. Esto es para los que pegan de lejos (un latigazo,
 # un aguijon largo).
 @export var alcance: float = 0.0
-const ALCANCE_BASE := 10.0   # como la daga, el arma mas corta (provisional)
+const ALCANCE_BASE := 15.0   # como la daga, el arma mas corta. DEFINITIVO (23/09)
 
 
 func alcance_real() -> float:

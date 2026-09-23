@@ -62,24 +62,25 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # se rellena en la ficha el arma que se salga de lo de su familia. Solo lo mira la pelea en el mapa.
 @export var alcance: float = 0.0
 
-# Lo de cada familia, de corto a largo. PROVISIONAL: se calibra mirandolo en la arena. De referencia,
+# Lo de cada familia, de corto a largo. DEFINITIVO (cerrado jugandolo, ver abajo). De referencia,
 # el espadazo por el mapa llega 24 (Player.ZONA_GOLPE_FONDO).
 # LOS DOS EXTREMOS los marco el usuario el 23/09 sobre capturas: la DAGA, la mas corta, y las tres
 # grandes ("minimo hasta aqui el martillo, el hacha y el mandoble"). Lo de en medio, repartido; los
 # puños, como la daga. OJO al medir sobre una captura suya: va a ~x2,3 (su personaje, que mide ~55 px
 # de mundo, ocupa ~125). La primera vez lo medi a x1,6 y todo salio un 45% largo.
 # Y luego, jugandolo, lo quiso A LA MITAD en todas las armas (23/09): "me sigue pareciendo mucho".
+# Y despues un 50% mas sobre eso, y ESTE ES EL PUNTO DEFINITIVO (23/09): no tocar sin que lo pida.
 const ALCANCE_POR_TIPO := {
-	Tipo.PUNOS: 10.0,
-	Tipo.DAGA: 10.0,
-	Tipo.ESPADA_CORTA: 12.5,
-	Tipo.MAZA_PEQ: 12.5,
-	Tipo.BASTON: 14.0,
-	Tipo.ESPADA_LARGA: 15.5,
-	Tipo.ESTOQUE: 17.0,
-	Tipo.HACHA_GRANDE: 21.5,
-	Tipo.MARTILLO_GRANDE: 21.5,
-	Tipo.MANDOBLE: 23.0,
+	Tipo.PUNOS: 15.0,
+	Tipo.DAGA: 15.0,
+	Tipo.ESPADA_CORTA: 18.75,
+	Tipo.MAZA_PEQ: 18.75,
+	Tipo.BASTON: 21.0,
+	Tipo.ESPADA_LARGA: 23.25,
+	Tipo.ESTOQUE: 25.5,
+	Tipo.HACHA_GRANDE: 32.25,
+	Tipo.MARTILLO_GRANDE: 32.25,
+	Tipo.MANDOBLE: 34.5,
 }
 
 
