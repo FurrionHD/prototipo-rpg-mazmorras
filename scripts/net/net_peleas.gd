@@ -237,7 +237,14 @@ func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int
 # libre (Parte 3), la ejecutara el: se le dice al jugador a quien mandarle sus fichas. Si no, la monta el
 # jugador en su PC, como siempre.
 func _entregar_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int) -> void:
-	if not ids.is_empty() and anfitrion == 0:
+	# EN OBRAS (combate tactico): las peleas de la ARENA no se le pasan a un trabajador mientras esto
+	# se construye. Si las ejecuta el, quien pelea las ve en ESPEJO, y el espejo todavia no sabe
+	# ponerse sobre el mapa -- asi que la misma pelea salia unas veces en el mapa y otras en la
+	# pantalla vieja, segun quien la cogiera. Mejor que la lleve siempre su maquina hasta que el
+	# espejo sepa pintarse en el mapa (ver Game.TACTICO_EN_ARENA); entonces se quita esta guarda.
+	var arena_en_obras: bool = Game.TACTICO_EN_ARENA \
+		and Net.pisos._piso_de(para) == Game.PISO_ARENA
+	if not ids.is_empty() and anfitrion == 0 and not arena_en_obras:
 		var ejecutor: int = Net._trab.pelea_libre_en(Net.pisos._piso_de(para))
 		if ejecutor != 0 and ejecutor != para:
 			if para == 1:

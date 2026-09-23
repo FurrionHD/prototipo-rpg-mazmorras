@@ -135,7 +135,17 @@ func _ready() -> void:
 	_ok(mio != null and int(Game.muneco_de(mio).get("modo", 0)) == 1,
 		"pongo un enemigo con el spawner sin ser el dueño, y me llega con su muñeco")
 	await pelear_con(mio)
-	_ok(Net.peleas.espejando(), "la pelea de la arena la ejecuta otro (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
+	# QUIEN EJECUTA la pelea de la arena. Normalmente un trabajador de pelea, y yo la veo en espejo.
+	# PERO mientras el combate tactico esta en obras (Game.TACTICO_EN_ARENA) las peleas de la arena
+	# NO se le pasan a nadie: el espejo todavia no sabe pintarse sobre el mapa, asi que la misma
+	# pelea salia unas veces en el mapa y otras en la pantalla vieja segun quien la cogiera.
+	# La comprobacion sigue AL DIA sola: al apagar el interruptor vuelve a exigir el trabajador.
+	if Game.TACTICO_EN_ARENA:
+		_ok(not Net.peleas.espejando(),
+			"la pelea de la arena la llevo YO (tactico en obras, no se pasa a un trabajador)")
+	else:
+		_ok(Net.peleas.espejando(),
+			"la pelea de la arena la ejecuta otro (anfitrion=%d)" % Net.peleas._pelea_anfitrion)
 	_ok(await pelear_hasta_el_final(60.0), "la pelea contra el muñeco termina")
 	var excelia_dentro := excelia_grupo()
 	print("[B] [dev] excelia en la arena: %.3f -> %.3f" % [excelia_arena, excelia_dentro])
