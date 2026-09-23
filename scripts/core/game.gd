@@ -4994,6 +4994,13 @@ func recoger_encargo(id: int) -> Dictionary:
 			if otro != null:
 				ganar(String(d["abil"]), float(d["reto"]), float(d["base"]), float(d["max_reto"]), otro)
 				d["aplicada"] = true
+			else:
+				# NI EN MI PLANTILLA, NI CONECTADO, NI APARCADO EN EL MUNDO: esa excelia se pierde. Antes
+				# esto era un `else` vacio y ahi se fue el premio de ocho horas sin una sola linea de log
+				# (playtest del 23/09). Si esto salta, el encargo pago a alguien que no existe.
+				push_warning("[encargos] excelia perdida: %s de %s no tiene dueño (%s)" % [
+					String(d.get("abil", "?")), String(d.get("uid", "?")),
+					"sin dueño apuntado" if dueno == "" else "dueño %s no encontrado" % dueno])
 	for dueno in para_otros:
 		Net.hogar.mandar_excelia(String(dueno), para_otros[dueno])
 

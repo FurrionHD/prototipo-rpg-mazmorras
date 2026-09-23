@@ -14,7 +14,16 @@ const FLECHAS := {"n": "↑", "s": "↓", "e": "→", "o": "←"}
 # [texto, lado] (ver PuebloPlano.CARTELES). Lo rellena town.gd antes de meterlo en el arbol.
 var destinos: Array = []
 
-var _globo: Label = null
+# POR ENCIMA DE LAS CASAS. El globo sale a la altura de los tejados, y un tejado va a
+# PiezaPueblo.Z_ENCIMA (3700): con la z de los letreros del mundo (Game.Z_LETRERO = 1) el tejado le
+# comia el principio de cada linea y se leia "de pruebas" en vez de "Arena de pruebas" (playtest del
+# 23/09). No se usa Game.elevar_letrero a proposito: esa es para los NOMBRES del mundo, que el usuario
+# quiere por debajo de los personajes. Esto es un cartel que estas leyendo, y se lee entero.
+# Por debajo de los numeros de combate (4000) y de los retratos (4096).
+const Z_GLOBO := PiezaPueblo.Z_ENCIMA + 5
+
+var _globo: PanelContainer = null
+var _texto: Label = null
 var _queda: float = 0.0
 
 
@@ -29,17 +38,33 @@ func texto_interaccion() -> String:
 
 func interact_with_player() -> void:
 	if _globo == null:
-		_globo = Label.new()
-		_globo.add_theme_font_size_override("font_size", 11)
-		_globo.add_theme_color_override("font_outline_color", Color.BLACK)
-		_globo.add_theme_constant_override("outline_size", 4)
-		_globo.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		Game.elevar_letrero(_globo)
+		# CON FONDO, no solo contorno: sobre la piedra clara de la plaza el texto pelado se perdia.
+		_globo = PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.07, 0.08, 0.10, 0.92)
+		sb.border_color = Color(0.87, 0.57, 0.26, 0.7)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(4)
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		_globo.add_theme_stylebox_override("panel", sb)
+		_globo.z_as_relative = false
+		_globo.z_index = Z_GLOBO
+		_globo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_texto = Label.new()
+		_texto.add_theme_font_size_override("font_size", 11)
+		_texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_texto.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_globo.add_child(_texto)
 		add_child(_globo)
 	var lineas: PackedStringArray = []
 	for d in destinos:
 		lineas.append("%s  %s" % [FLECHAS.get(String(d[1]), ""), String(d[0])])
-	_globo.text = "\n".join(lineas)
+	_texto.text = "\n".join(lineas)
+	# Del PanelContainer, que es quien manda el tamaño: el Label de dentro aun mide lo de la vez
+	# anterior y el globo saldria descentrado.
 	_globo.reset_size()
 	# Centrado encima del poste, que mide unos 60 px de alto.
 	_globo.position = Vector2(-_globo.size.x * 0.5, -64.0 - _globo.size.y)
