@@ -162,137 +162,25 @@ func _mult_resistencia_aggro(obj: Combatant) -> float:
 	return 1.0 + Game.RESIS_TANQUE_K * pow(exceso, Game.RESIS_APORTE_EXP)
 
 
-# Los VECINOS de 'principal' a los que salpica un hechizo de area: el de su izquierda y el de su
-# derecha EN PANTALLA (maximo 2).
+# --- EL ALCANCE, que ahora vive en combat_geometria.gd -----------------------------------------
+# Lo de "a quien MAS alcanza" se mudo a su propio tema (`geo`) porque es la unica pieza del combate
+# que depende de COMO estan colocados los combatientes: cambiando esa pieza se puede pelear en el
+# mapa con posiciones de mundo sin tocar una sola linea de daño. Aqui se quedo lo que decide a quien
+# se pega por AMENAZA (aggro, provocacion, cobertura), que no mira el sitio de nadie.
 #
-# VA POR EL ORDEN DE PANTALLA (_fila_visual_enemigos), no por el del array, y esa es la clave: los
-# cadaveres ya no estan en la fila (se retiran, ver _retirando) y el jefe se recoloca al centro
-# (_ordenar_fila_enemigos), asi que el array y lo que ves pueden decir cosas distintas. Lo que
-# salpica tiene que ser lo que el jugador ve al lado; si no, el hechizo alcanza a alguien que en la
-# pantalla esta a dos huecos y parece un bug aunque el numero sea correcto.
-#
-# Los muertos no cuentan y no absorben nada: nada se lanza al vacio (misma regla que _objetivo()).
+# Estos cuatro nombres NO se mueven: son la puerta por la que entran combat_magia, combat_enemigos y
+# tools/prueba_formacion_combate.gd. Delegan y ya.
 func _adyacentes_vivos(principal: Combatant) -> Array[Combatant]:
-	var out: Array[Combatant] = []
-	var fila: Array[Combatant] = _pantalla.altas._fila_visual_enemigos()
-	var centro: int = fila.find(principal)
-	if centro < 0:
-		return out
-	for paso in [-1, 1]:
-		var i: int = centro + paso
-		if i >= 0 and i < fila.size():
-			out.append(fila[i])
-	return out
+	return _pantalla.geo._adyacentes_vivos(principal)
 
 
-# A quien alcanza la fase de AREA, con el multiplicador de daño de cada uno ya puesto:
-# [{c: Combatant, escala: float}]. El principal va SIEMPRE el primero (el log lo cuenta asi).
 func _objetivos_area(spell: SpellData, principal: Combatant) -> Array:
-	var out: Array = [{"c": principal, "escala": spell.dano_objetivo}]
-	if not spell.salpica():
-		return out
-	var vecinos: Array[Combatant] = []
-	match spell.alcance:
-		SpellData.Alcance.ADYACENTES:
-			vecinos = _adyacentes_vivos(principal)
-		SpellData.Alcance.TODOS:
-			vecinos = _pantalla._vivos()
-	for c in vecinos:
-		if c != principal:
-			out.append({"c": c, "escala": spell.dano_salpicon})
-	return out
+	return _pantalla.geo._objetivos_area(spell, principal)
 
 
-# Los aliados PEGADOS a 'principal': el de su izquierda y el de su derecha, y ya. Lo usa el AREA de
-# las habilidades ENEMIGAS (un slime que aplasta salpica a los de al lado).
-#
-# SOLO centro-1 y centro+1, y si estan KO no entran. Antes esto era un `while` que se SALTABA a los
-# muertos y seguia buscando al siguiente vivo, asi que con un compañero caido el salpicon aterrizaba
-# en alguien que estaba a dos o tres huecos, con un cuerpo en medio -- y eso ya no es "de al lado".
-#
-# El gemelo de la fila de ENFRENTE (_adyacentes_vivos) no necesita este arreglo: alli los cadaveres
-# se retiran de la fila (ver _retirando), asi que el vecino de al lado siempre esta vivo. Aqui no,
-# porque las tarjetas de los tuyos se quedan puestas a proposito.
-#
-# POR LA FILA QUE SE VE (la de la formacion, ver combat_altas._fila_visual_aliados) y no por el orden del
-# array: el que entro el 4o y se ve en el puesto 2 tiene por vecinos al 1 y al 3.
 func _adyacentes_aliados_vivos(principal: Combatant) -> Array[Combatant]:
-	var out: Array[Combatant] = []
-	var fila: Array[Combatant] = _pantalla.altas._fila_visual_aliados()
-	var centro: int = fila.find(principal)
-	if centro < 0:
-		return out
-	for paso in [-1, 1]:
-		var i: int = centro + paso
-		if i >= 0 and i < fila.size() and fila[i].is_alive():
-			out.append(fila[i])
-	return out
+	return _pantalla.geo._adyacentes_aliados_vivos(principal)
 
 
-# A quien alcanza el AREA de una habilidad ENEMIGA sobre tu grupo, con su escala de daño ya puesta:
-# [{c, escala}]. El principal SIEMPRE el primero.
-#
-# EL ALCANCE lo decide area_max: >= 99 = TODA la fila (Pisotón, Chillido, Bramido, Marea); si no,
-# solo los ADYACENTES (Combustión, Carga, Reventón). Por eso esas fijan area_max = 3.
-# Y area_centrada se salta todo eso: la huella cae en MEDIO del grupo y los tapa a todos (ver
-# AbilityData.area_centrada; es el Aplastamiento del Rey).
-#
-# EL REPARTO sale de area_escalas si la habilidad la trae (por cercania al centro de la huella), y
-# si no, de area_secundario como siempre.
 func _objetivos_area_aliados(ab: AbilityData, principal: Combatant) -> Array:
-	var alcanzados: Array[Combatant] = []
-	if ab.area_centrada or ab.area_max >= 99:
-		alcanzados = _pantalla._aliados_vivos()
-	else:
-		alcanzados.append(principal)
-		for c in _adyacentes_aliados_vivos(principal):
-			if c != principal:
-				alcanzados.append(c)
-	if alcanzados.is_empty():
-		alcanzados.append(principal)
-
-	# EL CENTRO DE LA HUELLA, en indices de la fila. Centrada = el medio del grupo vivo; si no, el
-	# objetivo. Es lo que decide quien se lleva la peor parte, y es EL MISMO dato con el que se
-	# dibuja: lo que ves tapado es exactamente lo que cobra.
-	# Las posiciones son las de la FILA QUE SE VE, no las del array (ver _adyacentes_aliados_vivos).
-	var fila_v: Array[Combatant] = _pantalla.altas._fila_visual_aliados()
-	var centro: float = 0.0
-	if ab.area_centrada:
-		var suma: float = 0.0
-		for c in alcanzados:
-			suma += float(fila_v.find(c))
-		centro = suma / float(alcanzados.size())
-	else:
-		centro = float(fila_v.find(principal))
-
-	# Sin tabla, el de siempre: el principal entero y los demas a area_secundario.
-	if ab.area_escalas.is_empty():
-		var out: Array = [{"c": principal, "escala": 1.0}]
-		for c in alcanzados:
-			if c != principal:
-					out.append({"c": c, "escala": ab.area_secundario})
-		return out
-
-	# CON tabla: se ordenan por cercania al centro (desempatando por indice, para que dos peleas
-	# iguales repartan igual) y se les va dando la escala que toca.
-	var orden: Array = alcanzados.duplicate()
-	orden.sort_custom(func(x, y):
-		var ix: float = absf(float(fila_v.find(x)) - centro)
-		var iy: float = absf(float(fila_v.find(y)) - centro)
-		if is_equal_approx(ix, iy):
-			return fila_v.find(x) < fila_v.find(y)
-		return ix < iy)
-	# La fila de la tabla que toca por numero de alcanzados; si se pasa, la ultima que haya.
-	var fila: Array = ab.area_escalas[mini(orden.size(), ab.area_escalas.size()) - 1]
-	var out2: Array = []
-	for i in orden.size():
-		var esc: float = float(fila[i]) if i < fila.size() else ab.area_secundario
-		out2.append({"c": orden[i], "escala": esc})
-	# El PRINCIPAL tiene que ir el primero: el log y los efectos lo dan por hecho (el de la posicion
-	# 0 es "el objetivo"). Con la tabla el orden es por cercania, asi que puede no coincidir.
-	for i in out2.size():
-		if out2[i]["c"] == principal:
-			if i > 0:
-				out2.insert(0, out2.pop_at(i))
-			break
-	return out2
+	return _pantalla.geo._objetivos_area_aliados(ab, principal)

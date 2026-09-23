@@ -186,59 +186,16 @@ func _accion_habilidad() -> void:
 	_pantalla._ocultar_log()   # el submenu ocupa el sitio del historial
 
 
-# Los OBJETIVOS de una habilidad de ÁREA: el principal SIEMPRE el primero, y detrás sus
-# vecinos VIVOS más cercanos (alternando izquierda/derecha) hasta llenar area_max. Reusa la
-# misma geometría que el salpicón de los hechizos: los cadáveres no cuentan ni desplazan la
-# numeración (ver _adyacentes_vivos). area_max >= nº de vivos -> toca a todos.
+# --- EL ALCANCE, que ahora vive en combat_geometria.gd -----------------------------------------
+# A quien alcanza un area y a quien se redirige un golpe que se queda sin objetivo dependen de COMO
+# estan colocados los combatientes, asi que se mudaron al tema `geo` (ver su cabecera). Estos dos
+# nombres se quedan como puerta: los llama la resolucion golpe a golpe de aqui abajo.
 func _objetivos_hab(ab: AbilityData, principal: Combatant) -> Array[Combatant]:
-	var out: Array[Combatant] = [principal]
-	if not ab.es_area() or ab.area_max <= 1:
-		return out
-	# POR LA FILA QUE SE VE y no por el array: con el Rey Slime recolocado al centro, el array y la
-	# pantalla no coinciden, y "el de al lado" tiene que ser el que el jugador ve al lado.
-	var fila: Array[Combatant] = _pantalla.altas._orden_visual_enemigos_todos()
-	var centro: int = fila.find(principal)
-	if centro < 0:
-		return out
-	# Punteros que se alejan del centro a cada lado; cogemos el primer vivo de cada tanda.
-	var izq: int = centro - 1
-	var der: int = centro + 1
-	while out.size() < ab.area_max:
-		var anadido := false
-		# Izquierda: primer vivo hacia el borde.
-		while izq >= 0:
-			if fila[izq].is_alive():
-				out.append(fila[izq]); izq -= 1; anadido = true
-				break
-			izq -= 1
-		if out.size() >= ab.area_max:
-			break
-		# Derecha: primer vivo hacia el borde.
-		while der < fila.size():
-			if fila[der].is_alive():
-				out.append(fila[der]); der += 1; anadido = true
-				break
-			der += 1
-		if not anadido:
-			break   # no quedan vivos a ningún lado
-	return out
+	return _pantalla.geo._objetivos_hab(ab, principal)
 
 
-# El enemigo VIVO más cercano a 'muerto' (para redirigir los golpes que sobran de una flurry
-# cuando el objetivo cae). Primero mira a los lados; si no, el primero vivo que haya. null si no
-# queda nadie.
 func _siguiente_vivo(muerto: Combatant) -> Combatant:
-	var fila: Array[Combatant] = _pantalla.altas._orden_visual_enemigos_todos()   # la que se ve
-	var centro: int = fila.find(muerto)
-	if centro >= 0:
-		for paso in [-1, 1]:
-			var i: int = centro + paso
-			while i >= 0 and i < fila.size():
-				if fila[i].is_alive():
-					return fila[i]
-				i += paso
-	var vivos: Array[Combatant] = _pantalla._vivos()
-	return vivos[0] if not vivos.is_empty() else null
+	return _pantalla.geo._siguiente_vivo(muerto)
 
 
 # Resuelve UN golpe de habilidad sobre 'objetivo' con 'escala' extra (área: salpicón o falloff

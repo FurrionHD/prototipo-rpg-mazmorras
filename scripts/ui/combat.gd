@@ -41,7 +41,8 @@ extends Control
 # con esta pantalla en _pantalla, y se llama como <tema>.<funcion>:
 #   objetos      pociones y a quien se las das          habilidades  submenu, cargas y resolucion
 #   magia        hechizos, recitado y disparo            enemigos     su turno, habilidades y contraataques
-#   objetivos    a quien se pega (amenaza, areas)        figuras      tarjetas, sprites y poses
+#   objetivos    a quien se pega (amenaza, cobertura)    figuras      tarjetas, sprites y poses
+#   geo          a quien MAS alcanza (la geometria)
 #   altas        quien entra y sale a media pelea        efectos      barras, golpes y chips de estado
 #   diagnostico  tecla P y herramientas de dev           montaje      construir la pantalla una vez
 #   espejo       la pelea compartida en multi
@@ -57,6 +58,8 @@ const CombatEnemigos = preload("res://scripts/ui/combat_enemigos.gd")
 var enemigos = CombatEnemigos.new(self)
 const CombatObjetivos = preload("res://scripts/ui/combat_objetivos.gd")
 var objetivos = CombatObjetivos.new(self)
+const CombatGeometria = preload("res://scripts/ui/combat_geometria.gd")
+var geo = CombatGeometria.new(self)
 const CombatFiguras = preload("res://scripts/ui/combat_figuras.gd")
 var figuras = CombatFiguras.new(self)
 const CombatAltas = preload("res://scripts/ui/combat_altas.gd")
