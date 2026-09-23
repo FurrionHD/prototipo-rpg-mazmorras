@@ -26,6 +26,17 @@ const ESQUIVA_HAB_MAX := 2.0
 # Empieza una accion enemiga: se abre el cupo de gasto DEFENSIVO de las imbuiciones. Cada accion
 # puede costarle a los tuyos UNA carga como mucho, aunque les salve de un estado Y les recorte el
 # daño elemental a la vez, y aunque traiga cinco golpes. Ver Combatant.gastar_imbue_defensiva.
+# EN EL MAPA, el sorteo de a quien pega ha salido vacio con los tuyos en pie: es que no llega. Se
+# dice, y por el registro, que es lo que le llega al espejo: asi el otro jugador ve lo mismo.
+func _no_llega(e: Combatant, ab: AbilityData = null) -> void:
+	if not _pantalla.tactico or _pantalla._aliados_vivos().is_empty():
+		return
+	if ab != null:
+		_pantalla._set_log("%s suelta %s, pero no llega a nadie. 💨" % [_pantalla._etq(e), ab.nombre])
+	else:
+		_pantalla._set_log("%s no llega a nadie y se queda a la espera." % _pantalla._etq(e))
+
+
 func _abrir_turno_enemigo() -> void:
 	for c in _pantalla._aliados:
 		c.imbue_def_gastada = false
@@ -98,9 +109,11 @@ func _enemy_turn(e: Combatant) -> void:
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
 	var obj: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo()
 	if obj == null:
-		# No queda nadie de los tuyos a quien pegar. Sale con _pausa_lectura (no con un return
-		# pelado): el enemigo YA perdio su barra en _process, asi que sin devolver el estado a
-		# ADVANCING la pelea se quedaba parada sin que nadie pasara turno.
+		# No queda nadie de los tuyos a quien pegar -- o, en el mapa, nadie A SU ALCANCE: se ha
+		# acercado todo lo que le deja su radio y no llega, asi que pierde el ataque (la misma regla
+		# que tu). Sale con _pausa_lectura (no con un return pelado): el enemigo YA perdio su barra en
+		# _process, asi que sin devolver el estado a ADVANCING la pelea se quedaba parada.
+		_no_llega(e)
 		_pantalla._pausa_lectura()
 		return
 	# ENRAIZADO: la otra mitad de lo que le pasa al jugador (ver _accion_disponible). A el le quitamos
@@ -375,6 +388,7 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
 	var obj: Combatant = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
 	if obj == null:
+		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)

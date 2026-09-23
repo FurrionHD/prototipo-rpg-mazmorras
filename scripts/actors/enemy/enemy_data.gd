@@ -26,6 +26,17 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 # TAMAÑO en el mapa (fuera de combate): multiplica el cuerpo y su colision. 1.0 = normal
 # (32x32). Los ELITES (slimes elementales) van mas grandes para que se les vea venir.
 @export var escala_visual: float = 1.0
+# ALCANCE de su golpe en la pelea del mapa, en px de hueco entre cuerpos (la misma cuenta que el arma
+# del jugador, ver WeaponData.alcance). 0 = ALCANCE_BASE. Como se mide borde a borde, uno grande NO
+# necesita mas alcance para llegar: ya sobresale el. Esto es para los que pegan de lejos (un latigazo,
+# un aguijon largo).
+@export var alcance: float = 0.0
+const ALCANCE_BASE := 20.0
+
+
+func alcance_real() -> float:
+	return alcance if alcance > 0.0 else ALCANCE_BASE
+
 # SPRITE ANIMADO real (arte de verdad, aun por hacer para casi todos los bichos). Si esta vacio,
 # enemy.gd cae al ColorRect de siempre -- salvo los slimes, que mientras tanto usan un sprite
 # GENERADO por codigo (ver SlimeSprites.generar()). En cuanto este campo se rellene con arte de
@@ -558,6 +569,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.sprite_res = resource_path
 	c.sprite_t = t
 	c.fx_basico = fx_basico
+	c.alcance = alcance_real()
 	c.mutante = mutante
 	return c
 

@@ -1246,6 +1246,8 @@ func _ayuda_accion(id: int) -> String:
 		Action.ATTACK:
 			if _pasa_el_turno():
 				return "Estás enraizado y no llegas a golpear: cedes el turno. Los hechizos, Defender, los objetos y huir sí te quedan."
+			if _espera_en_vez_de_atacar():
+				return "No tienes a ningún enemigo a tu alcance: te quedas donde estás y cedes el turno. Acércate andando si quieres golpear."
 			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
 		Action.HABILIDAD:
 			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
@@ -1275,7 +1277,8 @@ func _refresh_actions() -> void:
 	# solo con Huir. Y es peor de lo que parece, porque la energia se recupera ATACANDO: enraizado te
 	# corta justo lo que necesitas para poder Defender, asi que no puedes ni salir del apuro solo.
 	if _action_buttons.has(Action.ATTACK):
-		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() else "Atacar"
+		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() \
+			else ("Esperar" if _espera_en_vez_de_atacar() else "Atacar")
 	if _boton_detalle != null and is_instance_valid(_boton_detalle):
 		_boton_detalle.disabled = not figuras._puedo_inspeccionar()
 
@@ -1289,6 +1292,8 @@ func _motivo_bloqueo(id: int) -> String:
 	# tengas una jugada.
 	if _player != null and _player.enraizado() and id == Action.HABILIDAD:
 		return "Estás enraizado (puedes lanzar hechizos)"
+	if id == Action.ATTACK and _objetivo_fuera_de_alcance():
+		return "Fuera de alcance: acércate o elige a otro"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
 		Action.DEFEND: return "Sin energía (ataca para regenerar)"
@@ -1305,11 +1310,28 @@ func _pasa_el_turno() -> bool:
 	return _player != null and _player.enraizado()
 
 
+# EN EL MAPA, ¿el boton de Atacar es ahora un "Esperar"? Lo es cuando no tienes a NADIE a tu alcance:
+# es el mismo suelo del menu que el "Pasar" del enraizado (sin el, un personaje sin energia ni
+# hechizos lejos de todos se quedaria sin ninguna jugada). Si alguno si esta a tiro pero no el que
+# tienes elegido, el boton no cambia: se apaga con "Fuera de alcance" y eliges al que llegas. Lo miran
+# los mismos tres que _pasa_el_turno: el rotulo, su tooltip y lo que hace al pulsarlo.
+func _espera_en_vez_de_atacar() -> bool:
+	return tactico and _player != null and not _pasa_el_turno() \
+		and not turno_mapa.llega_a_alguno(_player)
+
+
+# EN EL MAPA, ¿tu objetivo elegido esta fuera de tu alcance (y hay otro que no)?
+func _objetivo_fuera_de_alcance() -> bool:
+	return tactico and _player != null and not _pasa_el_turno() and not _espera_en_vez_de_atacar() \
+		and not turno_mapa.llega(_player, _objetivo())
+
+
 func _accion_disponible(id: int) -> bool:
 	match id:
 		# SIEMPRE disponible, pase lo que pase: es el suelo del menu. Enraizado no lo desactiva, lo
-		# convierte en "Pasar" (ver _refresh_actions y _accion_atacar).
-		Action.ATTACK: return true
+		# convierte en "Pasar" (ver _refresh_actions y _accion_atacar). En el mapa, lejos de todos, en
+		# "Esperar"; lo unico que lo apaga es tener elegido a uno al que no llegas habiendo otros a tiro.
+		Action.ATTACK: return not _objetivo_fuera_de_alcance()
 		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
 		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
@@ -1354,7 +1376,11 @@ func _on_action(id: int) -> void:
 	if _state != State.WAITING_PLAYER:
 		return
 	match id:
-		Action.ATTACK: _accion_atacar()
+		Action.ATTACK:
+			if _espera_en_vez_de_atacar():
+				_accion_esperar()
+			elif not _objetivo_fuera_de_alcance():
+				_accion_atacar()
 		Action.DEFEND: _accion_defender()
 		Action.FLEE: _accion_huir()
 		Action.MAGIC: magia._accion_magia()
@@ -1526,6 +1552,18 @@ func _accion_atacar() -> void:
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
 	_tras_accion_jugador(obj)
+
+
+# EN EL MAPA, sin nadie a tu alcance: te quedas donde has andado y cedes el turno. Es un tipo de
+# accion PROPIO en la red ("esperar") y no un "atacar" que el anfitrion convierta: si lo decidiera el
+# con sus posiciones, dos pixeles de diferencia harian que tu pantalla dijera Esperar y la suya
+# golpeara. Lo que eliges es lo que viaja.
+func _accion_esperar() -> void:
+	if espejo._enviar_si_espejo("esperar"):
+		return
+	_set_log("%s no tiene a nadie a su alcance y espera. ⏳" % _player.nombre)
+	_fin_de_eleccion()
+	_state = State.ADVANCING
 
 
 # Accion Defender (KAN-54): mitiga el proximo daño, suma la defensa del escudo y deja los criticos

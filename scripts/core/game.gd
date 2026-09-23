@@ -8520,6 +8520,8 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		# lleva su arma: con una daga y una espada corta, cada golpe tiene que verse el suyo. Lo
 		# reparte _apply_hand cuando toca esa mano (ver Combatant.advance_hand).
 		"fx": int(CombatFX.FX_ARMA.get(int(w.tipo), CombatFX.Estilo.MELEE)),
+		# Hasta donde llega en la pelea del mapa. Por mano: en dual cada golpe llega lo que su arma.
+		"alcance": w.alcance_real(),
 	}
 
 

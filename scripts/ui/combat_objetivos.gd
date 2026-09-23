@@ -30,6 +30,11 @@ const PROVOCA_PESO := 4.0
 # Un tanque con escudo pasa de ~40% de los golpes (en un grupo de 4) a ~73% mientras provoca.
 func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var vivos: Array[Combatant] = _pantalla._aliados_vivos()
+	# EN EL MAPA, solo los que alcanza desde donde esta. Si no llega a nadie sale null, y quien llama
+	# ya sabe que hacer con eso (el enemigo pierde el ataque, ver _enemy_turn).
+	var quien: Combatant = _pantalla.turno_mapa.atacante if _pantalla.tactico else null
+	if quien != null:
+		vivos = _pantalla.turno_mapa.alcanzables(quien, vivos)
 	if vivos.is_empty():
 		return null
 	var pesos: Array[float] = []

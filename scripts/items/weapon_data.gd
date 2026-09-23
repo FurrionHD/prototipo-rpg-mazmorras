@@ -55,6 +55,33 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # arma. El 2 manos es ofensivo, casi no bloquea. Ver Game.loadout_mods y ShieldData.bloqueo.
 @export var bloqueo: float = 0.0
 
+# --- ALCANCE en el combate del mapa ---
+# Hasta donde llega el golpe, en px de HUECO entre los dos cuerpos (borde a borde, la misma cuenta que
+# el golpe por el mapa: Cuerpos.hueco). Medido por el hueco y no de centro a centro para que un jefe
+# enorme y una rata se alcancen igual sin casos escritos. 0 = el de su TIPO (ALCANCE_POR_TIPO): solo
+# se rellena en la ficha el arma que se salga de lo de su familia. Solo lo mira la pelea en el mapa.
+@export var alcance: float = 0.0
+
+# Lo de cada familia, de corto a largo. PROVISIONAL: se calibra mirandolo en la arena. De referencia,
+# el espadazo por el mapa llega 24 (Player.ZONA_GOLPE_FONDO).
+const ALCANCE_POR_TIPO := {
+	Tipo.PUNOS: 14.0,
+	Tipo.DAGA: 16.0,
+	Tipo.ESPADA_CORTA: 22.0,
+	Tipo.MAZA_PEQ: 22.0,
+	Tipo.BASTON: 26.0,
+	Tipo.ESPADA_LARGA: 28.0,
+	Tipo.ESTOQUE: 30.0,
+	Tipo.HACHA_GRANDE: 30.0,
+	Tipo.MARTILLO_GRANDE: 32.0,
+	Tipo.MANDOBLE: 34.0,
+}
+
+
+# El alcance que vale de verdad: el de la ficha, o el de su familia.
+func alcance_real() -> float:
+	return alcance if alcance > 0.0 else float(ALCANCE_POR_TIPO.get(tipo, 22.0))
+
 # --- Tipo de daño / aturdir (contundentes) ---
 @export var dano_tipo: DanoTipo = DanoTipo.CONTUNDENTE
 @export var aturdir_base: float = 0.05    # 0 si CORTE; >0 = prob. base de aturdir/retrasar

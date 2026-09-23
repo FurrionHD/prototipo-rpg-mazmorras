@@ -866,7 +866,16 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			# hace ese saco roto), pero soltando el aviso de "tipo desconocido" — 134 en una sesion del
 			# playtest del 19/09. Y ese aviso esta puesto para delatar que las dos maquinas llevan
 			# versiones distintas: con 134 falsos no delata nada.
+			# EN EL MAPA, su pantalla le dejo pegar con lo que veia. Si con la posicion sellada no llega,
+			# se apunta y se resuelve igual: nunca se rechaza un turno (congelaria la pelea).
+			if _pantalla.tactico and not _pantalla.turno_mapa.llega(_pantalla._player, _pantalla._objetivo()):
+				_pantalla._traza_add("ATACAR de %s FUERA DE ALCANCE aqui (hueco %.0f, alcance %.0f): lo resuelvo igual" % [
+					_pantalla._player.nombre,
+					_pantalla.turno_mapa.hueco_entre(_pantalla._player, _pantalla._objetivo()),
+					_pantalla.turno_mapa.alcance_de(_pantalla._player)])
 			_pantalla._accion_atacar()
+		"esperar":
+			_pantalla._accion_esperar()
 		"defender":
 			_pantalla._accion_defender()
 		"huir":
@@ -954,7 +963,7 @@ func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 		"disparo": return tipo == "disparar"
 		# Soltar una carga no admite nada mas: ese turno no tiene otra accion posible.
 		"soltar":  return tipo == "soltar"
-		"accion":  return tipo in ["atacar", "defender", "huir", "habilidad", "magia", "objeto"]
+		"accion":  return tipo in ["atacar", "esperar", "defender", "huir", "habilidad", "magia", "objeto"]
 		_:         return true   # peticion sin tipo conocido: no se bloquea nada
 
 

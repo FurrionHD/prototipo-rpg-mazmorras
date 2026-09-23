@@ -59,9 +59,16 @@ const TOPE_ACERCARSE := 1.6
 # empujando una pared.
 const ATASCO_PX := 0.5
 const ATASCO_T := 0.25
-# Hasta donde se arrima a su presa, de centro a centro. Todavia no es el alcance DE VERDAD (eso es la
-# fase 5, con la forma de cada golpe): de momento, pegado a ella sin montarse encima.
-const ALCANCE_MELE := 34.0
+# EL ALCANCE, en px de HUECO entre cuerpos (Cuerpos.hueco, la cuenta del golpe por el mapa). Lo de
+# cada uno viene en Combatant.alcance (su arma, o su ficha de enemigo); esto es el suelo para quien
+# no lo diga.
+const ALCANCE_MINIMO := 14.0
+# El enemigo se arrima hasta esta fraccion de su alcance, no hasta el limite justo: parado en el
+# borde exacto, el redondeo de la red podia dejarle a medio pixel de no llegar.
+const ARRIMARSE := 0.75
+# Lo que se le perdona a la posicion de OTRO humano al mirar si llega: su cuerpo llega interpolado y
+# su posicion sellada puede no cuadrar al pixel con la de su pantalla. Nunca se rechaza por eso.
+const HOLGURA_ALCANCE := 6.0
 # Un cuerpo no se monta encima de uno del OTRO bando: no puede meterse a menos de esto. Solo frena al
 # que se ACERCA, asi que dos que empiezan solapados se pueden separar.
 const SEPARACION := 22.0
@@ -94,7 +101,7 @@ var _radio: float = 0.0
 var _andando: bool = false
 
 # EL ACERCAMIENTO del enemigo.
-var _presa: Node2D = null
+var _presa: Combatant = null
 var _t_acercar: float = 0.0
 var _t_atasco: float = 0.0
 
@@ -254,6 +261,72 @@ func radio_de(c: Combatant) -> float:
 
 
 # ------------------------------------------------------------
+#  EL ALCANCE: ¿llega el golpe de 'a' a 'b'?
+# ------------------------------------------------------------
+
+# El hueco entre los dos cuerpos, borde a borde, con cada uno donde la PELEA dice que esta (pos_de:
+# la posicion sellada si es de otro humano) y no donde lo tenga su nodo en este instante. La caja es
+# la de su cuerpo (Cuerpos.caja_de), asi un Rey Slime se alcanza por su borde y no por su centro.
+func hueco_entre(a: Combatant, b: Combatant) -> float:
+	var ca: Node2D = cuerpo_de(a)
+	var cb: Node2D = cuerpo_de(b)
+	if ca == null or cb == null:
+		return INF
+	var ra: Rect2 = Cuerpos.caja_de(ca)
+	var rb: Rect2 = Cuerpos.caja_de(cb)
+	ra.position += pos_de(a) - ca.global_position
+	rb.position += pos_de(b) - cb.global_position
+	return Cuerpos.hueco_entre(ra, rb)
+
+
+func alcance_de(c: Combatant) -> float:
+	return maxf(c.alcance, ALCANCE_MINIMO) if c != null else ALCANCE_MINIMO
+
+
+# ¿Llega? En quien lleva la pelea, al personaje de OTRO humano se le perdona HOLGURA_ALCANCE: su
+# pantalla le dijo que llegaba con las posiciones que el veia, y un rechazo por dos pixeles de red
+# le dejaria sin el turno que eligio.
+func llega(a: Combatant, b: Combatant) -> bool:
+	if a == null or b == null:
+		return false
+	var tope: float = alcance_de(a)
+	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
+		tope += HOLGURA_ALCANCE
+	return hueco_entre(a, b) <= tope
+
+
+# De 'candidatos', los que 'a' alcanza desde donde esta.
+func alcanzables(a: Combatant, candidatos: Array) -> Array[Combatant]:
+	var out: Array[Combatant] = []
+	for c in candidatos:
+		if llega(a, c):
+			out.append(c)
+	return out
+
+
+# ¿Tiene a alguien a tiro? Es lo que decide si el boton de Atacar pega o te deja ESPERAR.
+func llega_a_alguno(a: Combatant) -> bool:
+	for e in _pantalla._vivos():
+		if llega(a, e):
+			return true
+	return false
+
+
+# EL ENEMIGO QUE ESTA ACTUANDO, mientras resuelve su turno. Lo mira el sorteo de a quien pega
+# (objetivos._elegir_objetivo_enemigo), que se llama desde ocho sitios y no sabe de quien es el
+# turno. Solo vive durante la llamada a _enemy_turn (ver _turno_enemigo_de_siempre).
+var atacante: Combatant = null
+
+
+# El turno de siempre del enemigo, pero sabiendo quien pega para que su sorteo se quede con los que
+# alcanza. Si no alcanza a nadie, el sorteo sale vacio y _enemy_turn lo cuenta como que no llega.
+func _turno_enemigo_de_siempre(e: Combatant) -> void:
+	atacante = e
+	_pantalla.enemigos._enemy_turn(e)
+	atacante = null
+
+
+# ------------------------------------------------------------
 #  TU TURNO
 # ------------------------------------------------------------
 
@@ -320,6 +393,7 @@ func _tick_moviendo(delta: float) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		_vigilar_borde(arena)
+	_vigilar_alcance()
 	# Solo se anda con la barra de acciones delante: dentro de un submenu estas eligiendo QUE hacer,
 	# y con la pregunta de huir a la vista estas eligiendo si te vas.
 	var puede: bool = _radio > 0.0 and _pantalla._actions_box != null \
@@ -341,6 +415,19 @@ func _tick_moviendo(delta: float) -> void:
 	_colocar(_quien, _cuerpo, nueva)
 	_andando = true
 	_animar(_cuerpo, dir, true)
+
+
+# LOS BOTONES CAMBIAN SEGUN ANDAS: al entrar en el alcance de alguien, Atacar se enciende; al salir
+# de todos, pasa a Esperar. Solo se repintan cuando algo cambia (tambien si pulsas a otro enemigo),
+# no cada fotograma: _refresh_actions reescribe los tooltips de toda la barra.
+var _alcance_visto: Array = []
+
+func _vigilar_alcance() -> void:
+	var ahora: Array = [_pantalla._target_idx, llega(_quien, _pantalla._objetivo()), llega_a_alguno(_quien)]
+	if ahora != _alcance_visto:
+		_alcance_visto = ahora
+		if _pantalla._actions_box != null and _pantalla._actions_box.visible:
+			_pantalla._refresh_actions()
 
 
 # EL PASO, puro y sin nodos, para poder probarlo solo (tools/prueba_tactico_turno).
@@ -385,11 +472,12 @@ func turno_enemigo(e: Combatant) -> void:
 	_terminar()
 	var cuerpo: Node2D = cuerpo_de(e)
 	var radio: float = radio_de(e)
-	var presa: Node2D = _presa_de(cuerpo)
-	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal.
+	var presa: Combatant = _presa_de(e)
+	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal. Y el
+	# que ya tiene a alguien a tiro no se mueve: pega desde donde esta.
 	if cuerpo == null or presa == null or radio <= 0.0 or e.aturdido() \
-			or cuerpo.global_position.distance_to(presa.global_position) <= ALCANCE_MELE:
-		_pantalla.enemigos._enemy_turn(e)
+			or hueco_entre(e, presa) <= alcance_de(e) * ARRIMARSE:
+		_turno_enemigo_de_siempre(e)
 		return
 	_quien = e
 	_cuerpo = cuerpo
@@ -411,15 +499,16 @@ func turno_enemigo(e: Combatant) -> void:
 func _tick_acercando(delta: float) -> void:
 	var dt: float = delta * _pantalla._vel_pelea
 	_t_acercar += dt
-	if not is_instance_valid(_cuerpo) or not is_instance_valid(_presa):
+	if not is_instance_valid(_cuerpo) or _presa == null or not _presa.is_alive():
 		_actuar()
 		return
-	var hacia: Vector2 = _presa.global_position - _cuerpo.global_position
-	if hacia.length() <= ALCANCE_MELE or _t_acercar >= TOPE_ACERCARSE:
+	var falta: float = hueco_entre(_quien, _presa) - alcance_de(_quien) * ARRIMARSE
+	if falta <= 0.0 or _t_acercar >= TOPE_ACERCARSE:
 		_actuar()
 		return
+	var hacia: Vector2 = pos_de(_presa) - _cuerpo.global_position
 	var antes: Vector2 = _cuerpo.global_position
-	var quiere: float = minf(VEL_ACERCARSE * dt, hacia.length() - ALCANCE_MELE)
+	var quiere: float = minf(VEL_ACERCARSE * dt, falta)
 	var nueva: Vector2 = paso(antes, hacia.normalized() * quiere, _inicio, _radio,
 		_dentro(_arena()), _puede_estar.bind(_cuerpo))
 	_colocar(_quien, _cuerpo, nueva)
@@ -441,8 +530,8 @@ func _tick_acercando(delta: float) -> void:
 func _actuar() -> void:
 	var e: Combatant = _quien
 	if is_instance_valid(_cuerpo):
-		var mira: Vector2 = _presa.global_position - _cuerpo.global_position \
-			if is_instance_valid(_presa) else _mirada_de(_cuerpo)
+		var mira: Vector2 = pos_de(_presa) - _cuerpo.global_position \
+			if _presa != null else _mirada_de(_cuerpo)
 		_animar(_cuerpo, mira, false)
 		# EL ULTIMO AVISO AL DUEÑO: "se ha parado aqui, mirando alli". Sin el, en las demas pantallas
 		# el bicho se quedaba con la pose de andar o unos pixeles antes de donde se paro de verdad.
@@ -453,7 +542,7 @@ func _actuar() -> void:
 	# si), el siguiente fotograma la pelea sigue sola en vez de quedarse en pausa para siempre.
 	_pantalla._pause_left = 0.0
 	if e != null and e.is_alive() and _pantalla._state != _pantalla.State.FINISHED:
-		_pantalla.enemigos._enemy_turn(e)
+		_turno_enemigo_de_siempre(e)
 
 
 # Apunta donde esta un bicho para contarselo a su dueño. Solo si su dueño es OTRA maquina (lo que
@@ -478,22 +567,17 @@ func _enviar_bichos() -> void:
 	Net.peleas.mover_bichos_en_pelea(lote)
 
 
-# A QUIEN SE ACERCA: al de los tuyos que tenga mas cerca. Todavia no es a quien va a pegar (eso lo
-# sortea _enemy_turn por amenaza, y en la fase 5 lo acotara el alcance), pero es lo que haria
-# cualquier bicho: ir a por lo que tiene delante.
-func _presa_de(cuerpo: Node2D) -> Node2D:
-	if cuerpo == null:
-		return null
-	var mejor: Node2D = null
+# A QUIEN SE ACERCA: al de los tuyos que tenga mas cerca (por el hueco, como se mide el alcance). No
+# es necesariamente a quien pega: eso lo sortea _enemy_turn por amenaza ENTRE LOS QUE ALCANZA al
+# acabar de andar (ver objetivos._elegir_objetivo_enemigo). Si no alcanza a nadie, pierde el ataque.
+func _presa_de(e: Combatant) -> Combatant:
+	var mejor: Combatant = null
 	var d_mejor: float = INF
 	for c in _pantalla._aliados_vivos():
-		var otro: Node2D = cuerpo_de(c)
-		if not is_instance_valid(otro):
-			continue
-		var d: float = otro.global_position.distance_to(cuerpo.global_position)
+		var d: float = hueco_entre(e, c)
 		if d < d_mejor:
 			d_mejor = d
-			mejor = otro
+			mejor = c
 	return mejor
 
 
@@ -585,6 +669,7 @@ func _terminar() -> void:
 	_quien = null
 	_cuerpo = null
 	_presa = null
+	_alcance_visto = []
 	_andando = false
 	if is_instance_valid(_pregunta):
 		_pregunta.visible = false

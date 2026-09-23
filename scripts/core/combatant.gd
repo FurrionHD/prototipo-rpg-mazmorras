@@ -183,6 +183,10 @@ var penetracion: float = 0.0
 # Mapa AbilityData -> [indices de mano que la aportan] (KAN-57). Lo rellena Game.
 # Sirve para el DUAL: una habilidad solo usa su version dual si AMBAS armas la traen.
 var ability_hands: Dictionary = {}
+# HASTA DONDE LLEGA SU GOLPE en la pelea del mapa, en px de hueco entre cuerpos (ver
+# WeaponData.alcance). El jugador lo coge de la MANO ACTIVA (_apply_hand), el enemigo de su ficha
+# (EnemyData.crear_combatant). 0 = nadie lo ha dicho: la pelea usa su minimo.
+var alcance: float = 0.0
 
 # --- MODO PRUEBA (dev): muñeco de DPS / pegador de armadura ---
 # es_dummy = este combatiente es un muñeco de pruebas (el combate loguea el DPS).
@@ -755,6 +759,7 @@ func _apply_hand(i: int) -> void:
 	# pegan, asi que el basico del jugador sale dibujado por el mismo camino que el de la rata
 	# (ver combat.gd._estilo_de_habilidad). Sin arma (-1) se queda como estaba: MELEE.
 	fx_basico = int(h.get("fx", -1))
+	alcance = float(h.get("alcance", alcance))
 
 # Pasa a la siguiente mano (dual-wield: alterna principal <-> secundaria por golpe).
 # Con 1 mano no hace nada.

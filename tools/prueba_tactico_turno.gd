@@ -41,6 +41,7 @@ func _ready() -> void:
 	await _probar_turnos()
 	await _probar_copia_de_red()
 	await _probar_red()
+	await _probar_alcance()
 	print("[turno] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)
 
@@ -224,6 +225,108 @@ func _probar_red() -> void:
 	pelea._state = pelea.State.PAUSED
 	await get_tree().process_frame
 	_afirmar(t._fase == t.Fase.NADA, "el turno ajeno no se apaga al irse el turno")
+	pelea.queue_free()
+	await get_tree().process_frame
+
+
+# 8) EL ALCANCE (fase 5): se mide por el HUECO entre cuerpos; el boton de Atacar se apaga si tu
+#    objetivo no esta a tiro y pasa a Esperar si no llegas a nadie; el enemigo que no llega lo dice y
+#    la pelea sigue; y la posicion de otro humano tiene su holgura.
+func _probar_alcance() -> void:
+	# Las fichas: vacio = lo de su familia, y la ficha manda si lo rellena.
+	var daga := WeaponData.new()
+	daga.tipo = WeaponData.Tipo.DAGA
+	var mandoble := WeaponData.new()
+	mandoble.tipo = WeaponData.Tipo.MANDOBLE
+	_afirmar(daga.alcance_real() < mandoble.alcance_real(), "la daga tendria que llegar menos que el mandoble")
+	daga.alcance = 50.0
+	_afirmar(is_equal_approx(daga.alcance_real(), 50.0), "el alcance de la ficha no manda")
+	_afirmar(is_equal_approx(EnemyData.new().alcance_real(), EnemyData.ALCANCE_BASE), "el enemigo sin alcance no usa el base")
+
+	var escena: PackedScene = load(ESCENA)
+	var pelea: Node = escena.instantiate()
+	pelea.process_mode = Node.PROCESS_MODE_ALWAYS
+	pelea.tactico = true
+	add_child(pelea)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	pelea._state = pelea.State.PAUSED
+	pelea._pause_left = INF
+	var t: TacticoDePrueba = TacticoDePrueba.new(pelea)
+	pelea.turno_mapa = t
+	var yo: Combatant = pelea._aliados[0]
+	yo.alcance = 20.0
+	# Cuerpos base de 32x32: a 50 px de centro a centro hay 18 de hueco.
+	t.cuerpos[yo] = _cuerpo(Vector2(0, 0))
+	for i in pelea._aliados.size():
+		if i > 0:
+			t.cuerpos[pelea._aliados[i]] = _cuerpo(Vector2(-400, i * 40))
+	var cerca: Combatant = pelea._enemies[0]
+	var lejos: Combatant = pelea._enemies[1]
+	t.cuerpos[cerca] = _cuerpo(Vector2(50, 0))
+	t.cuerpos[lejos] = _cuerpo(Vector2(0, 300))
+	for i in range(2, pelea._enemies.size()):
+		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
+	_afirmar(is_equal_approx(t.hueco_entre(yo, cerca), 18.0), "el hueco no se mide borde a borde: %.1f" % t.hueco_entre(yo, cerca))
+	_afirmar(t.llega(yo, cerca) and not t.llega(yo, lejos), "el alcance no separa al de cerca del de lejos")
+
+	pelea._player = yo
+	pelea._state = pelea.State.WAITING_PLAYER
+	pelea._target_idx = pelea._enemies.find(lejos)
+	pelea._mostrar_acciones()
+	var b: Button = pelea._action_buttons[pelea.Action.ATTACK]
+	_afirmar(b.disabled and b.text == "Atacar", "con el objetivo lejos y otro a tiro, Atacar tendria que apagarse (disabled=%s, '%s')" % [b.disabled, b.text])
+	pelea._target_idx = pelea._enemies.find(cerca)
+	pelea._refresh_actions()
+	_afirmar(not b.disabled, "con el objetivo a tiro, Atacar sigue apagado")
+	# Lejos de todos: Esperar, encendido, y pulsarlo cede el turno sin pegar.
+	t.cuerpos[yo].global_position = Vector2(-200, 0)
+	pelea._refresh_actions()
+	_afirmar(not b.disabled and b.text == "Esperar", "lejos de todos tendria que ser Esperar (disabled=%s, '%s')" % [b.disabled, b.text])
+	var vida_antes: float = cerca.current_hp
+	pelea._on_action(pelea.Action.ATTACK)
+	_afirmar(pelea._state == pelea.State.ADVANCING, "Esperar no cede el turno (estado %d)" % pelea._state)
+	_afirmar(is_equal_approx(cerca.current_hp, vida_antes), "Esperar ha pegado")
+
+	# EL ENEMIGO QUE NO LLEGA: clavado (radio 0 por enraizado no: atascado) y lejos de todos.
+	pelea._state = pelea.State.PAUSED
+	pelea._pause_left = INF
+	t.bloqueado = true
+	var vidas: Array = []
+	for c in pelea._aliados:
+		vidas.append(c.current_hp)
+	t.turno_enemigo(lejos)
+	await _esperar_a(func() -> bool: return t._fase == t.Fase.NADA, 4.0)
+	var dijo: bool = false
+	for l in pelea._log_lines:
+		if "no llega" in l:
+			dijo = true
+	_afirmar(dijo, "el enemigo que no llega no lo dice en el registro")
+	_afirmar(pelea._pause_left != INF, "el enemigo que no llega cuelga la pelea")
+	var pego: bool = false
+	for i in pelea._aliados.size():
+		if pelea._aliados[i].current_hp < float(vidas[i]):
+			pego = true
+	_afirmar(not pego, "el enemigo que no llega ha pegado igual")
+	_afirmar(t.atacante == null, "el atacante se queda puesto despues de su turno")
+
+	# EL DE AL LADO SI PEGA (o esquivan): su sorteo sale con alguien.
+	t.cuerpos[yo].global_position = Vector2(0, 0)
+	t.atacante = cerca
+	_afirmar(pelea.objetivos._elegir_objetivo_enemigo() == yo, "el sorteo del enemigo de al lado no se queda con el unico a tiro")
+	t.atacante = null
+
+	# LA HOLGURA de otro humano: a 3 px de mas de su alcance, en quien lleva la pelea, llega.
+	var otro: Combatant = pelea._aliados[1]
+	otro.alcance = 20.0
+	pelea._dueno_aliado[otro] = 42
+	# Su nodo esta en otra parte: lo que manda es la posicion SELLADA con su accion.
+	t.cuerpos[otro].global_position = Vector2(-400, 0)
+	t._pos[otro] = Vector2(0, 55)
+	# Un enemigo en (0, 110): de 55 a 110 son 55 px de centro a centro, 23 de hueco. Alcance 20 + holgura.
+	t.cuerpos[pelea._enemies[2]].global_position = Vector2(0, 110)
+	_afirmar(is_equal_approx(t.hueco_entre(otro, pelea._enemies[2]), 23.0), "el hueco no sale de la posicion SELLADA: %.1f" % t.hueco_entre(otro, pelea._enemies[2]))
+	_afirmar(t.llega(otro, pelea._enemies[2]), "a otro humano no se le da holgura")
 	pelea.queue_free()
 	await get_tree().process_frame
 
