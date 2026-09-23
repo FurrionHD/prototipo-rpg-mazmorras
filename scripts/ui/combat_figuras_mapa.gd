@@ -213,7 +213,21 @@ func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 	if spr != null and spr.sprite_frames != null:
 		var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.get_frame())
 		if tex != null:
-			return _rect_de(spr, Vector2(tex.get_size()), spr.centered, spr.offset)
+			# LA LONA NO ES EL BICHO, y el bicho va CENTRADO en su origen.
+			#
+			# Dos cosas, las dos comprobadas pintando la caja encima del bicho y mirandola:
+			#
+			# 1) get_size() de un fotograma devuelve la HOJA entera (la del Trent mide 306x216), que
+			#    es muchisimo mas de lo que hay dibujado (50x82). Midiendo la hoja, la barra salia
+			#    cinco veces mas ancha que el bicho y muy por encima de su cabeza.
+			# 2) Pero get_image() SI devuelve ya el recorte -- por eso get_used_rect empieza siempre
+			#    en (0,0) --, asi que su posicion no dice donde cae el dibujo dentro de la hoja.
+			#    Restarle media hoja mandaba la caja del Trent doscientos pixeles a la izquierda,
+			#    fuera de la arena.
+			#
+			# Lo que vale es el TAMAÑO de lo pintado, puesto alrededor del origen del sprite, que es
+			# donde se ve el bicho.
+			return _rect_de(spr, _tam_pose(spr), spr.centered, spr.offset)
 
 	# Los que todavia no tienen arte son un ColorRect, y enemy._aplicar_escala ya lo deja a su
 	# tamaño. Se mide igual: el nodo que pinta, preguntado por lo que ocupa.
@@ -224,6 +238,55 @@ func _rect_cuerpo_px(cuerpo: Node2D) -> Rect2:
 
 	var lado: float = ANCHO_CUERPO_POR_DEFECTO
 	return _rect_de(cuerpo, Vector2(lado, lado), true, Vector2.ZERO)
+
+
+# QUE TROZO DE LA TEXTURA ESTA PINTADO, en pixeles de la textura. Image.get_used_rect da justo eso:
+# la caja que envuelve a todo lo que no es transparente.
+#
+# CACHEADO POR TEXTURA porque get_image baja la imagen de la tarjeta grafica, y esto se pregunta en
+# cada fotograma y por cada bicho. Las texturas de un bicho son las mismas para todos los de su
+# especie (SpritesEnemigo las genera una vez), asi que el cache se llena con unas pocas entradas y
+# se queda quieto.
+static var _cache_pintado := {}
+static var _cache_pose := {}
+
+
+# LO QUE OCUPA LA POSE ENTERA, no el fotograma suelto: el mayor de todos los fotogramas de la
+# animacion que esta corriendo.
+#
+# Un bicho andando cambia de fotograma varias veces por segundo, y en unos ocupa mas que en otros
+# (levanta una pata, se estira). Midiendo el fotograma de ahora mismo, la barra cambiaba de ancho al
+# ritmo de la animacion: temblaba. Con la pose entera se queda quieta mientras hace lo mismo, y solo
+# cambia cuando cambia de pose o de direccion -- que ahi SI tiene que cambiar, porque una rata de
+# lado ocupa el triple que de frente.
+func _tam_pose(spr: AnimatedSprite2D) -> Vector2:
+	var sf: SpriteFrames = spr.sprite_frames
+	var clave: String = "%d/%s" % [sf.get_instance_id(), spr.animation]
+	if _cache_pose.has(clave):
+		return _cache_pose[clave]
+	var tam := Vector2.ZERO
+	for i in sf.get_frame_count(spr.animation):
+		var t: Texture2D = sf.get_frame_texture(spr.animation, i)
+		if t != null:
+			var s: Vector2i = _pintado_de(t).size
+			tam = Vector2(maxf(tam.x, float(s.x)), maxf(tam.y, float(s.y)))
+	_cache_pose[clave] = tam
+	return tam
+
+func _pintado_de(tex: Texture2D) -> Rect2i:
+	var clave: int = tex.get_rid().get_id()
+	if _cache_pintado.has(clave):
+		return _cache_pintado[clave]
+	var r := Rect2i(Vector2i.ZERO, tex.get_size())
+	var img: Image = tex.get_image()
+	if img != null:
+		var usado: Rect2i = img.get_used_rect()
+		# Una textura entera transparente (un fotograma en blanco) devolveria un rect vacio: en ese
+		# caso vale mas la lona entera que un cero, que dejaria la barra sin ancho.
+		if usado.size.x > 0 and usado.size.y > 0:
+			r = usado
+	_cache_pintado[clave] = r
+	return r
 
 
 # El rectangulo que ocupa en PANTALLA un nodo que dibuja algo de 'tam_local'. 'centrado' dice si lo
