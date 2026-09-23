@@ -177,6 +177,34 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # < 1.0 = menos probable a los lados (Pisotón sísmico: el lento pilla menos a los de al lado).
 @export var area_prob_secundario: float = 1.0
 
+# --- LA FORMA EN EL MAPA (combate tactico) -----------------------------------------------------
+# QUE TROZO DE SUELO tapa esta habilidad cuando se pelea en el mapa. En la pantalla de fila esto no
+# se usa para nada: alli "al lado" es la columna de al lado y basta con area_max.
+#
+#   -1 = DEDUCELA (lo que hace hoy cada habilidad sin tocar su ficha)
+#    0 = PUNTO        un objetivo y ya
+#    1 = CIRCULO      cae redondo. Sobre el objetivo (golpe sismico) o sobre TI (molinete):
+#                     lo decide forma_desde_quien_ataca
+#    2 = CONO         abanico hacia donde apuntas (hachazo brutal, alientos)
+#    3 = LINEA        la franja recta entre tu y el fondo (lanza, estocada, rayo)
+#    4 = RECTANGULO   una caja (huellas de cuerpo que cae)
+# Van como ENTEROS y no como un enum importado a proposito: esto es scripts/items y no tiene por
+# que saber nada de la pantalla de combate. Los nombres viven en CombatFormas.Tipo.
+#
+# LA FICHA MANDA. La deduccion es solo el valor por defecto para no tener que tocar las 120
+# habilidades de golpe: la idea es ir rellenando esto UNA A UNA, que es donde se decide de verdad
+# como se siente cada habilidad.
+@export var forma: int = -1
+# El tamaño de la forma en px (0 = el de por defecto). Radio en CIRCULO y CONO, largo en LINEA,
+# lado en RECTANGULO.
+@export var forma_radio: float = 0.0
+# El abanico ENTERO del cono, en grados (0 = el de por defecto).
+@export var forma_apertura: float = 0.0
+# ¿La forma nace en QUIEN ATACA o donde apunta? Es la diferencia entre el molinete (sales tu en el
+# centro) y el golpe sismico (cae donde pegas). Solo lo miran CIRCULO y RECTANGULO: el cono y la
+# linea salen siempre del que ataca.
+@export var forma_desde_quien_ataca: bool = false
+
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer
 # los dos al mismo aliado o uno a cada uno; con más, se reparten. Es distinto del área: no salpica

@@ -169,6 +169,17 @@ const RADIO_CURA_AREA := 200.0
 @export var dano_objetivo: float = 1.0
 @export var dano_salpicon: float = 0.0
 
+# --- LA FORMA EN EL MAPA (combate tactico) -----------------------------------------------------
+# Que trozo de SUELO tapa el hechizo cuando se pelea en el mapa. Mismo criterio y mismos numeros
+# que AbilityData.forma (ver su comentario): -1 = deducela del alcance, 0 PUNTO, 1 CIRCULO,
+# 2 CONO, 3 LINEA, 4 RECTANGULO. La ficha manda; la deduccion solo evita tener que tocar los 30
+# hechizos de golpe. Un aliento sale CONO, una lluvia CIRCULO y un rayo LINEA, y eso se decide
+# hechizo a hechizo.
+@export var forma: int = -1
+@export var forma_radio: float = 0.0
+@export var forma_apertura: float = 0.0
+@export var forma_desde_quien_ataca: bool = false
+
 # REBOTES: impactos EXTRA, despues del area, cada uno a un enemigo VIVO al AZAR. Pueden
 # repetir objetivo y pueden caer en el principal: en 1v1 rebotan todos sobre el unico
 # enemigo. No se pueden dirigir, y esa es su gracia y su limite.
