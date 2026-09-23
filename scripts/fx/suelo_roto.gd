@@ -16,9 +16,14 @@
 extends Node2D
 class_name SueloRoto
 
-enum Tipo { GRIETAS, FRAGMENTOS }
+#    ESTALLIDO    el Martillo de guerra (23/09): un golpe tan bestia que revienta el suelo como un GEISER
+#                 DE POLVO, con piedras que saltan, y deja un crater con grietas que se escapan hacia fuera.
+#    ESTELA       el Rompecorazas: no rompe el suelo, es la estela dentada del arma al balancearla. Vive
+#                 en EstelaGolpe; va por aqui para compartir el camino (ficha, red, instante del golpe).
+enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA }
 
 const T_SALIR := 1.0      # lo que tarda el frente en llegar al borde
+const T_SALIR_ESTALLIDO := 0.4   # el estallido es un golpe seco: sus grietas corren mucho mas
 const T_QUIETO := 0.15    # lo que se queda entera antes de empezar a irse
 const T_APAGAR := 1.0     # y lo que tarda en desvanecerse
 const Z_SUELO := 2        # como AreaCuracion: sobre el suelo, bajo los cuerpos
@@ -40,6 +45,7 @@ var _a0: float = 0.0
 var _a1: float = TAU
 var _cono: bool = false
 var _rng := RandomNumberGenerator.new()
+var _ts: float = T_SALIR   # lo que tarda ESTE en abrirse (t_salir_de su tipo)
 
 # Lo generado una vez. Grietas: [{pts, w}]. Fragmentos: radios, rayos y losas.
 var _grietas: Array = []
@@ -52,9 +58,11 @@ var _losas: Array = []        # {poly, d, alza, piedras: [{v, t0}]}
 # Lo pone en el suelo. 'padre' = algo en coordenadas de mundo (la arena).
 # 'espera' = segundos hasta que el martillo toca el suelo (hasta entonces no se pinta nada).
 static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
-		n_nucleo: float = 0.0, espera: float = 0.0) -> SueloRoto:
+		n_nucleo: float = 0.0, espera: float = 0.0) -> Node2D:
 	if padre == null or f == null:
 		return null
+	if t == Tipo.ESTELA:
+		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	var s := SueloRoto.new()
 	s.tipo = t
 	s.forma = f
@@ -70,12 +78,17 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 
 # CUANDO LE LLEGA a 'p' (en mundo) la rotura de 'f', en segundos desde que golpeas. Es la inversa del
 # frente que se dibuja (ver _frente): el mismo numero manda el dibujo y el daño.
-static func retraso(f: CombatFormas.Forma, p: Vector2) -> float:
-	if f == null or f.radio <= 0.0:
-		return 0.0
+static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) -> float:
+	if f == null or f.radio <= 0.0 or t == Tipo.ESTELA:
+		return 0.0   # la estela no se propaga: pega en el instante del golpe
 	var u: float = clampf(p.distance_to(origen_de(f)) / f.radio, 0.0, 1.0)
 	# frente = 1 - (1 - s)^2  ->  s = 1 - sqrt(1 - u)
-	return T_SALIR * (1.0 - sqrt(1.0 - u))
+	return t_salir_de(t) * (1.0 - sqrt(1.0 - u))
+
+
+# Lo que tarda el frente de cada tipo en llegar a su borde.
+static func t_salir_de(t: int) -> float:
+	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
 
 
 # De donde sale la rotura: el centro del circulo, o los pies del que golpea en el cono.
@@ -85,21 +98,21 @@ static func origen_de(f: CombatFormas.Forma) -> Vector2:
 
 # CUANDO LE LLEGA a un CUERPO (su caja en mundo): por su punto mas cercano al origen, que es por donde
 # le alcanza la rotura (la misma regla que el golpe: le da a quien le toca el cuerpo).
-static func retraso_caja(f: CombatFormas.Forma, r: Rect2) -> float:
+static func retraso_caja(f: CombatFormas.Forma, r: Rect2, t: int = Tipo.GRIETAS) -> float:
 	if f == null:
 		return 0.0
 	var o: Vector2 = origen_de(f)
-	return retraso(f, Vector2(clampf(o.x, r.position.x, r.end.x), clampf(o.y, r.position.y, r.end.y)))
+	return retraso(f, Vector2(clampf(o.x, r.position.x, r.end.x), clampf(o.y, r.position.y, r.end.y)), t)
 
 
 # Lo que se ha abierto a los 't' segundos, en fraccion del radio. Arranca rapido y frena al llegar.
-static func _frente(t: float) -> float:
-	var s: float = clampf(t / T_SALIR, 0.0, 1.0)
+func _frente(t: float) -> float:
+	var s: float = clampf(t / _ts, 0.0, 1.0)
 	return 1.0 - pow(1.0 - s, 2.0)
 
 
 func duracion() -> float:
-	return T_SALIR + T_QUIETO + T_APAGAR
+	return _ts + T_QUIETO + T_APAGAR
 
 
 func _ready() -> void:
@@ -110,10 +123,11 @@ func _ready() -> void:
 		var mitad: float = deg_to_rad(forma.apertura * 0.5)
 		_a0 = forma.dir.angle() - mitad
 		_a1 = forma.dir.angle() + mitad
-	if tipo == Tipo.GRIETAS:
-		_generar_grietas()
-	else:
-		_generar_fragmentos()
+	_ts = t_salir_de(tipo)
+	match tipo:
+		Tipo.GRIETAS: _generar_grietas()
+		Tipo.ESTALLIDO: _generar_estallido()
+		_: _generar_fragmentos()
 
 
 func _process(delta: float) -> void:
@@ -125,7 +139,7 @@ func _process(delta: float) -> void:
 
 
 func _alfa() -> float:
-	return 1.0 - clampf((_t - T_SALIR - T_QUIETO) / T_APAGAR, 0.0, 1.0)
+	return 1.0 - clampf((_t - _ts - T_QUIETO) / T_APAGAR, 0.0, 1.0)
 
 
 # ------------------------------------------------------------
@@ -373,10 +387,170 @@ func _dibujar_fragmentos(front: float, a: float) -> void:
 				Color(LABIO, 0.9 * (1.0 - tp / 0.45)))
 
 
+# ------------------------------------------------------------
+#  ESTALLIDO (el Martillo de guerra)
+# ------------------------------------------------------------
+# DOS PIEZAS. En el SUELO, un crater de borde dentado y grietas finas que se escapan hacia fuera (las
+# del Temblor, sin hundimiento). Y ENCIMA, el GEISER DE POLVO (lo pidio asi el usuario: "como si
+# explotase un geiser", pero de POLVO de la explosion, no de agua, y lo que cae son PIEDRAS del suelo
+# reventado, no gotas): chorros de polvo que salen disparados hacia arriba y se abren en nubes que se
+# disipan, una nube baja que se extiende por el suelo, y piedras que salen despedidas girando y caen.
+# Todo eso es ALTURA (va a K_ALTO) y se pinta en su propio nodo por ENCIMA de los cuerpos: lo que sale
+# disparado desde debajo de un enemigo no puede quedar tapado por el.
+const T_GEISER_SUBE := 0.14    # lo que tarda en salir disparado
+const T_GEISER := 1.3          # lo que dura entero
+const ALTO_GEISER := 78.0      # en unidades de mundo (en pantalla, x K_ALTO)
+const GRAVEDAD_PIEDRAS := 300.0
+const POLVO := Color(0.66, 0.62, 0.56)
+const PIEDRA := Color(0.36, 0.34, 0.33)
+const PIEDRA_LUZ := Color(0.58, 0.55, 0.52)
+
+var _geiser: Node2D = null
+var _hebras: Array = []    # chorros de polvo: {x0, ang, largo, w, curva}  (ang: desviacion de la vertical)
+var _nubes: Array = []     # bocanadas: {hebra, s (0..1 a lo largo), r, t0}
+var _pie: Array = []       # la nube baja del suelo: {ang, dist, r}
+var _piedras: Array = []   # {p0: Vector2 (x, z), v: Vector2 (vx, vz), poly local, rot, vrot, t0}
+
+
+func _generar_estallido() -> void:
+	var r_cr: float = maxf(nucleo * 0.8, 7.0)
+	_crater = _mancha(_origen, r_cr, 12)
+	# Las grietas que se escapan del crater hacia fuera, finas y afilandose; alguna se parte.
+	for i in 16:
+		var ang: float = TAU * (float(i) + _rng.randf_range(-0.4, 0.4)) / 16.0
+		var largo: float = r_cr + (_radio - r_cr) * _rng.randf_range(0.5, 1.0)
+		var pts: PackedVector2Array = _quebrada(ang, r_cr * 0.9, largo, 3.0, 0.6)
+		_grietas.append({"pts": pts, "w0": 2.6, "w1": 0.4})
+		if _rng.randf() < 0.45 and pts.size() > 4:
+			var base: Vector2 = pts[pts.size() / 2]
+			var ang_r: float = (base - _origen).angle() + _rng.randf_range(0.4, 0.8) * (1.0 if _rng.randf() < 0.5 else -1.0)
+			var fin: Vector2 = base + Vector2(cos(ang_r), sin(ang_r)) * _rng.randf_range(6.0, 13.0)
+			_grietas.append({"pts": _zigzag(base, fin, 2.5, 1.2), "w0": 1.1, "w1": 0.3})
+	# LOS CHORROS DE POLVO: casi verticales, los del medio los mas altos.
+	for i in 11:
+		var u: float = (float(i) + 0.5) / 11.0 * 2.0 - 1.0      # -1..1, de un lado al otro
+		_hebras.append({"x0": u * r_cr * 0.7 + _rng.randf_range(-1.5, 1.5),
+			"ang": u * deg_to_rad(22.0) + _rng.randf_range(-0.08, 0.08),
+			"largo": ALTO_GEISER * lerpf(1.0, 0.45, absf(u)) * _rng.randf_range(0.8, 1.05),
+			"w": _rng.randf_range(3.0, 5.5), "curva": _rng.randf_range(-6.0, 6.0)})
+	# Las BOCANADAS: nubecitas a lo largo de cada chorro, mas gordas arriba (donde se abre).
+	for j in _hebras.size():
+		for _k in 4:
+			var s: float = _rng.randf_range(0.35, 1.0)
+			_nubes.append({"hebra": j, "s": s, "r": lerpf(3.0, 8.0, s) * _rng.randf_range(0.8, 1.2),
+				"t0": T_GEISER_SUBE * s})
+	# LA NUBE BAJA: bocanadas a ras de suelo que se abren hacia fuera desde el crater.
+	for j in 12:
+		_pie.append({"ang": TAU * (float(j) + _rng.randf_range(-0.3, 0.3)) / 12.0,
+			"dist": _rng.randf_range(0.6, 1.0) * _radio * 0.55, "r": _rng.randf_range(4.0, 8.0)})
+	# LAS PIEDRAS: salen del crater hacia arriba y hacia fuera, girando, y caen.
+	for j in 14:
+		var ang_p: float = _rng.randf_range(0.0, TAU)
+		var poly := PackedVector2Array()
+		var n_lados: int = _rng.randi_range(4, 6)
+		var tam: float = _rng.randf_range(1.4, 3.2)
+		for q in n_lados:
+			var aq: float = TAU * float(q) / float(n_lados) + _rng.randf_range(-0.3, 0.3)
+			poly.append(Vector2(cos(aq), sin(aq)) * tam * _rng.randf_range(0.7, 1.2))
+		var sale: float = _rng.randf_range(20.0, 70.0)
+		_piedras.append({"p0": Vector2(cos(ang_p) * r_cr * 0.5, 2.0),
+			"v": Vector2(cos(ang_p) * sale, _rng.randf_range(90.0, 170.0)),
+			"poly": poly, "rot": _rng.randf_range(0.0, TAU), "vrot": _rng.randf_range(-12.0, 12.0),
+			"t0": _rng.randf_range(0.0, 0.06)})
+	_geiser = Node2D.new()
+	_geiser.z_as_relative = false
+	_geiser.z_index = Game.Z_PERSONAJES + 80
+	add_child(_geiser)
+	_geiser.draw.connect(_dibujar_geiser)
+
+
+func _dibujar_estallido(front: float, a: float) -> void:
+	if _crater.size() >= 3:
+		draw_colored_polygon(_crater, Color(OSCURO, 0.9 * a))
+		var borde := _crater.duplicate()
+		borde.append(_crater[0])
+		draw_polyline(_desplazar(borde, Vector2(0.6, 1.2)), Color(LABIO, 0.4 * a), 1.2)
+		draw_polyline(borde, Color(OSCURO, a), 2.6)
+	for g in _grietas:
+		var pts: PackedVector2Array = _recortar(g["pts"], front)
+		if pts.size() >= 2:
+			_trazo(pts, float(g["w0"]), float(g["w1"]), a, g["pts"].size())
+	if _geiser != null:
+		_geiser.queue_redraw()
+
+
+# Un punto del geiser (x a lo ancho, z de altura) en el mundo: la altura sube en pantalla a K_ALTO.
+func _alz(x: float, z: float) -> Vector2:
+	return _origen + Vector2(x, -z * K_ALTO)
+
+
+# Donde cae el punto 's' (0 pie, 1 punta) de un chorro de 'largo'.
+func _en_hebra(h: Dictionary, largo: float, s: float) -> Vector2:
+	var z: float = largo * s
+	return _alz(float(h["x0"]) + sin(float(h["ang"])) * z + float(h["curva"]) * sin(s * PI) * s, z)
+
+
+func _dibujar_geiser() -> void:
+	if _t < 0.0 or _t > T_GEISER:
+		return
+	var sube: float = clampf(_t / T_GEISER_SUBE, 0.0, 1.0)
+	sube = 1.0 - pow(1.0 - sube, 3.0)
+	# El polvo NO cae: se abre y se disipa (crece y se apaga), y sigue subiendo un poco despacio.
+	var disipa: float = clampf((_t - 0.2) / (T_GEISER - 0.2), 0.0, 1.0)
+	var a: float = pow(1.0 - disipa, 1.5)
+	var crece: float = 1.0 + 1.3 * disipa
+	var sigue: float = 1.0 + 0.25 * disipa
+	# 1) La nube baja, a ras de suelo, abriendose desde el crater.
+	for pd in _pie:
+		var ab: float = clampf(_t / 0.25, 0.0, 1.0)
+		var d: float = float(pd["dist"]) * (1.0 - pow(1.0 - ab, 2.0)) * (1.0 + 0.4 * disipa)
+		var ang: float = float(pd["ang"])
+		var c: Vector2 = _origen + Vector2(cos(ang) * d, sin(ang) * d - 3.0)
+		_geiser.draw_circle(c, float(pd["r"]) * crece, Color(POLVO, 0.35 * a))
+	# 2) Los chorros: un trazo ancho y tenue y un nucleo mas denso, que se ensanchan al disiparse.
+	for h in _hebras:
+		var largo: float = float(h["largo"]) * sube * sigue
+		var prev: Vector2 = Vector2.ZERO
+		for k in 11:
+			var s: float = float(k) / 10.0
+			var p: Vector2 = _en_hebra(h, largo, s)
+			if k > 0:
+				var w: float = lerpf(float(h["w"]), float(h["w"]) * 0.45, s) * crece
+				_geiser.draw_line(prev, p, Color(POLVO, 0.35 * a), w * 1.8)
+				_geiser.draw_line(prev, p, Color(POLVO.lightened(0.15), 0.6 * a), w * 0.8)
+			prev = p
+	# 3) Las bocanadas: donde el chorro se abre en nube.
+	for nb in _nubes:
+		if _t < float(nb["t0"]):
+			continue
+		var h2: Dictionary = _hebras[int(nb["hebra"])]
+		var c2: Vector2 = _en_hebra(h2, float(h2["largo"]) * sube * sigue, float(nb["s"]))
+		var r: float = float(nb["r"]) * crece
+		_geiser.draw_circle(c2, r, Color(POLVO, 0.4 * a))
+		_geiser.draw_circle(c2 + Vector2(-r * 0.25, -r * 0.3), r * 0.55, Color(POLVO.lightened(0.2), 0.35 * a))
+	# 4) Las piedras: vuelan girando y caen; al tocar el suelo, fuera.
+	for pz in _piedras:
+		var tp: float = _t - float(pz["t0"])
+		if tp < 0.0:
+			continue
+		var p0: Vector2 = pz["p0"]
+		var v: Vector2 = pz["v"]
+		var z: float = p0.y + v.y * tp - GRAVEDAD_PIEDRAS * tp * tp
+		if z < 0.0:
+			continue
+		var c3: Vector2 = _alz(p0.x + v.x * tp, z)
+		var rot: float = float(pz["rot"]) + float(pz["vrot"]) * tp
+		var cara := PackedVector2Array()
+		for q in pz["poly"]:
+			cara.append(c3 + (q as Vector2).rotated(rot))
+		_geiser.draw_colored_polygon(cara, PIEDRA)
+		_geiser.draw_line(cara[0], cara[1], PIEDRA_LUZ, 1.0)
+
+
 # Lo mismo que retraso() pero con la distancia ya medida (px desde el origen).
 func retraso_px(d: float) -> float:
 	var u: float = clampf(d / _radio, 0.0, 1.0)
-	return T_SALIR * (1.0 - sqrt(1.0 - u))
+	return _ts * (1.0 - sqrt(1.0 - u))
 
 
 # ------------------------------------------------------------
@@ -390,14 +564,14 @@ func _draw() -> void:
 	if a <= 0.0:
 		return
 	# EL FRENTE: un anillo claro y fino donde esta rompiendo ahora; se lee "va llegando".
-	if _t < T_SALIR:
+	if _t < _ts:
 		var rf: float = front * _radio
-		var af: float = 0.45 * (1.0 - clampf(_t / T_SALIR, 0.0, 1.0) * 0.6)
+		var af: float = 0.45 * (1.0 - clampf(_t / _ts, 0.0, 1.0) * 0.6)
 		draw_arc(_origen, rf, _a0, _a1, 64, Color(LABIO, af), 2.0)
-	if tipo == Tipo.GRIETAS:
-		_dibujar_grietas(front, a)
-	else:
-		_dibujar_fragmentos(front, a)
+	match tipo:
+		Tipo.GRIETAS: _dibujar_grietas(front, a)
+		Tipo.ESTALLIDO: _dibujar_estallido(front, a)
+		_: _dibujar_fragmentos(front, a)
 
 
 # La parte de la linea que ya ha alcanzado el frente (fraccion del radio), cortando el ultimo tramo.

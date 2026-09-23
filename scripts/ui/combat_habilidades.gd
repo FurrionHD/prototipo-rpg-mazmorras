@@ -449,9 +449,12 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# EL SUELO QUE SE ROMPE: desde aqui cada golpe que se encole llega cuando la rotura alcanza a
 		# su victima (ver efectos.fijar_suelo). Se quita al acabar los golpes, mas abajo.
 		if ab.suelo_roto >= 0:
-			_pantalla.efectos.fijar_suelo(ab.suelo_roto,
-				_pantalla.turno_mapa.forma_de(ab, _pantalla._player, _pantalla.turno_mapa.apunte),
-				(randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
+			var f_suelo = _pantalla.turno_mapa.forma_de(ab, _pantalla._player, _pantalla.turno_mapa.apunte)
+			# La ESTELA no cae en la huella: sale del que golpea hacia donde golpea (un cono sin abrir).
+			if ab.suelo_roto == SueloRoto.Tipo.ESTELA:
+				var pies: Vector2 = _pantalla.turno_mapa.pies_de(_pantalla._player)
+				f_suelo = CombatFormas.cono(pies, f_suelo.centro - pies, EstelaGolpe.RADIO, 0.0)
+			_pantalla.efectos.fijar_suelo(ab.suelo_roto, f_suelo, (randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana
@@ -759,7 +762,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	_pantalla.enemigos._fx_adorno(_pantalla._player, ab, _pantalla._objetivo())
 	# Y LO QUE TE ECHAS TU ENCIMA (el Voto de guardia: pegas Y te cubres). Va aparte del adorno
 	# porque estas SI hacen daño, asi que su dibujo de golpe ya se ha pintado sobre el enemigo.
-	_pantalla.enemigos._fx_sobre_mi(ab)
+	# (En el mapa, las que ya tienen su efecto nuevo -- suelo_roto -- no sacan su dibujo viejo encima: el
+	# martillo gigante en alto del Martillo de guerra salia al soltarlo y tapaba al personaje.)
+	if not (en_mapa and ab.suelo_roto >= 0):
+		_pantalla.enemigos._fx_sobre_mi(ab)
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
 	# A TODOS los alcanzados, no solo al objetivo principal (misma regla que la magia de area).

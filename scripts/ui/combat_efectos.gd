@@ -115,11 +115,13 @@ func _fx_tanda(i: int) -> void:
 # quien resuelve (antes de los golpes) y el espejo (al leer el paquete de impactos), y se quita al
 # acabar los golpes: un contraataque de despues no tiene que esperar a ninguna grieta.
 var _suelo_forma: CombatFormas.Forma = null
+var _suelo_tipo: int = 0
 
 func fijar_suelo(tipo: int, forma: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
 	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
 		return
 	_suelo_forma = forma
+	_suelo_tipo = tipo
 	var arena: Node = _pantalla.turno_mapa._arena()
 	if arena != null:
 		_pantalla._fx.pedir_suelo(arena, forma, tipo, semilla, nucleo)
@@ -134,7 +136,7 @@ func soltar_suelo() -> void:
 func _retraso_suelo(victima: Combatant) -> float:
 	if _suelo_forma == null or victima == null or not _pantalla._enemies.has(victima):
 		return -1.0
-	return SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima))
+	return SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima), _suelo_tipo)
 
 
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,

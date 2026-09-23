@@ -47,19 +47,28 @@ func _correr() -> void:
 	_figura(yo, Color(0.35, 0.6, 1.0))
 	for p in [Vector2(20, -20), Vector2(55, 30), Vector2(-90, -40), Vector2(10, 70)]:
 		_figura(p, Color(0.8, 0.35, 0.35))
-	var casos: Array = [
-		["temblor", SueloRoto.Tipo.GRIETAS, CombatFormas.circulo(yo, 90.0), 0.0, yo],
-		["sismico", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.circulo(yo + Vector2(40, 0), 65.0), 17.0, yo + Vector2(40, 0)],
-		["onda", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.cono(yo, Vector2(1, -0.15), 120.0, 60.0), 0.0, yo + Vector2(55, -8)],
+	# [nombre, tipo, forma, nucleo, a donde mira la camara, momentos]
+	var todos: Array = [
+		["temblor", SueloRoto.Tipo.GRIETAS, CombatFormas.circulo(yo, 90.0), 0.0, yo, TIEMPOS],
+		["sismico", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.circulo(yo + Vector2(40, 0), 65.0), 17.0, yo + Vector2(40, 0), TIEMPOS],
+		["onda", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.cono(yo, Vector2(1, -0.15), 120.0, 60.0), 0.0, yo + Vector2(55, -8), TIEMPOS],
+		["guerra", SueloRoto.Tipo.ESTALLIDO, CombatFormas.circulo(Vector2(20, -20), 45.0), 18.0, Vector2(20, -40), [0.04, 0.1, 0.25, 0.55, 0.95]],
+		["estela_e", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(1, -0.4), 30.0, 0.0), 0.0, yo + Vector2(10, -15), [0.07, 0.14, 0.2, 0.25, 0.4]],
+		["estela_s", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(0.2, 1), 30.0, 0.0), 0.0, yo + Vector2(0, -5), [0.07, 0.14, 0.2, 0.25, 0.4]],
 	]
+	# SUELO_CASOS=guerra,estela_e  -> solo esas filas.
+	var pedidos: String = OS.get_environment("SUELO_CASOS")
+	var casos: Array = todos.filter(func(c): return pedidos == "" or String(c[0]) in pedidos.split(","))
 	var hoja := Image.create(LADO * TIEMPOS.size(), LADO * casos.size(), false, Image.FORMAT_RGBA8)
 	for fila in casos.size():
 		var c: Array = casos[fila]
-		var s: SueloRoto = SueloRoto.lanzar(self, c[2], c[1], 1234 + fila, c[3])
+		var s: Node2D = SueloRoto.lanzar(self, c[2], c[1], 1234 + fila, c[3])
 		s.set_process(false)
 		_cam.global_position = c[4]
-		for col in TIEMPOS.size():
-			s._t = TIEMPOS[col]
+		for col in (c[5] as Array).size():
+			s._t = c[5][col]
+			if s.get("_geiser") != null:
+				s._geiser.queue_redraw()
 			s.queue_redraw()
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw

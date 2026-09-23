@@ -104,7 +104,8 @@ func _correr() -> void:
 	t.apunte = media
 	t._hay_apunte = true
 	print("%s: pilla a %d" % [nom, t.reparto_habilidad(ab, t._quien).size()])
-	combat.habilidades._usar_habilidad(ab)
+	# Las de carga (Martillo de guerra), soltadas ya: lo que se mira es el golpe, no el turno de cargar.
+	combat.habilidades._usar_habilidad(ab, ab.carga_turnos > 0)
 	var t0: int = Time.get_ticks_msec()
 	await _esperar(1)
 	for ev in combat._fx._cola:
