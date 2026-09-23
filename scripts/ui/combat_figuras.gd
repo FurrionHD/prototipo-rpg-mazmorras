@@ -247,7 +247,12 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 		columna.add_child(actor_wrap)
 		columna.add_child(wrap)
 
+	# 'margen', 'fila_nombre' y 'chips_wrap' no los usa la fila de siempre: los pide el MODO MINI del
+	# combate en el mapa, que encoge la tarjeta a una barrita sobre la cabeza del bicho (ver
+	# combat_figuras_mapa._poner_mini). Van en el dict y no se buscan por get_node para que el dia que
+	# aqui cambie el arbol, el que se rompa sea ESTE archivo y no el otro.
 	var bloque: Dictionary = {"columna": columna, "wrap": wrap, "panel": panel, "vbox": vb,
+		"margen": margen, "fila_nombre": fila, "chips_wrap": chips_wrap,
 		"actor_wrap": actor_wrap, "actor": actor, "figura": figura, "cursor": cursor,
 		"nombre": nombre, "chips": chips, "hp": hp, "hp_lbl": hp_lbl, "idx": idx}
 	# Le cuelga su capa de efectos (particulas de estado) y lo da de alta para las animaciones.
@@ -891,6 +896,11 @@ func _seleccionar(idx: int) -> void:
 	# "si el apuntado no vale, el siguiente vivo".
 	if _pantalla._timeline != null:
 		_pantalla._timeline.marcar_objetivo(_pantalla._objetivo())
+	# EN EL MAPA, ademas, la ficha del apuntado crece y las demas se quedan en barrita. Va DESPUES
+	# del recuadro y el cursor: el tamaño es lo ultimo que se decide, y asi el re-layout que dispara
+	# ocurre una sola vez, con todo lo demas ya puesto.
+	if _pantalla.tactico and _pantalla.figuras_mapa != null:
+		_pantalla.figuras_mapa.refrescar_mini()
 
 
 # ¿Se puede abrir la ficha de detalle AHORA MISMO? Solo en TU turno: cuando la barra de acciones

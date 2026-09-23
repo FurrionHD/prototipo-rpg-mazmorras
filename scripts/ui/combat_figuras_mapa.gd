@@ -15,6 +15,16 @@
 #
 #  Y SE LES QUITA EL HUECO DEL SPRITE, que en la fila reservaba 208 px para dibujar al bicho. Aqui el
 #  bicho ya esta dibujado: es el que anda por el mapa. Lo que flota es solo la ficha.
+#
+#  QUE FLOTA Y QUE NO (decidido mirando como lo hacen los Trails):
+#    TUS PERSONAJES     nada. Sus barras se leen ARRIBA, en la fila del grupo del HUD del mapa (ver
+#                       player._rehacer_barras), que ya las pinta. Tenerlas en los dos sitios era
+#                       pintar lo mismo dos veces, y una de las dos copias tapaba la pelea.
+#    LOS ENEMIGOS       una barrita de vida y ya: sin panel, sin nombre, sin cifras. Con siete
+#                       combatientes en un corro de dos celdas, una tarjeta entera por cabeza no cabe
+#                       ni encogida.
+#    EL APUNTADO        ese SI, entero: nombre, numero, HP con cifras y chips a tamaño normal. Es al
+#                       unico al que estas mirando cuando eliges, y es donde hace falta el detalle.
 # ============================================================
 extends RefCounted
 
@@ -31,6 +41,17 @@ const SOBRE_LA_CABEZA := 12.0
 # Cuanto se levanta la ficha respecto al origen del cuerpo. Los cuerpos tienen el origen en los PIES
 # (la huella de colision va abajo, ver player.tscn), asi que sin esto la ficha saldria por la cintura.
 const ALTO_CUERPO := 52.0
+
+# --- EL MODO MINI -------------------------------------------------------------------------------
+# Lo que mide la ficha de un enemigo al que no estas apuntando. Son numeros de la referencia: una
+# barra que se lee de un vistazo y no tapa al bicho que tiene debajo.
+const ANCHO_MINI := 48.0
+const ALTO_BARRA_MINI := 5.0
+# El hueco de los chips, y a que escala se dibujan dentro. Se escala el ENVOLTORIO en vez de tocar
+# StatusChip.crear porque los chips se borran y se rehacen en CADA _update_hp (ver
+# combat_efectos._refrescar_chips): lo que se le haga a un chip suelto no dura ni un golpe.
+const ALTO_CHIPS_MINI := 14.0
+const ESCALA_CHIPS_MINI := 0.7
 
 var _capa: Control = null
 var _fichas: Array = []   # [{bloque: Dictionary, cuerpo: Node2D}]
@@ -50,9 +71,12 @@ func montar() -> void:
 
 	for i in _pantalla._bloques.size():
 		_mudar(_pantalla._bloques[i], _cuerpo_enemigo(i))
-	for i in _pantalla._bloques_aliados.size():
-		_mudar(_pantalla._bloques_aliados[i], _cuerpo_aliado(i))
+	# LOS ALIADOS NO SE MUDAN: sus barras salen arriba, no debajo suyo. Sus columnas se quedan donde
+	# las dejo el montaje, dentro de una banda con visible=false, asi que siguen existiendo enteras:
+	# _update_hp, _refrescar_chips y las altas a media pelea se las encuentran igual que siempre y no
+	# se enteran de que nadie las mira.
 	seguir()
+	refrescar_mini()
 
 
 # Recoloca cada ficha sobre su cuerpo. Se llama cada fotograma desde la pantalla: los cuerpos se
@@ -98,6 +122,58 @@ func _mudar(bloque: Dictionary, cuerpo: Node2D) -> void:
 		hueco.custom_minimum_size = Vector2.ZERO
 
 	_fichas.append({"bloque": bloque, "cuerpo": cuerpo})
+
+
+# --- MINI O ENTERA -----------------------------------------------------------------------------
+
+# Pone cada ficha en su tamaño: entera la del apuntado, mini todas las demas. Se llama al montar y
+# cada vez que cambias de objetivo (ver combat_figuras._seleccionar).
+func refrescar_mini() -> void:
+	var objetivo: int = _pantalla._target_idx
+	for f in _fichas:
+		var bloque: Dictionary = f["bloque"]
+		_poner_mini(bloque, int(bloque.get("idx", -1)) != objetivo)
+
+
+# Encoge una ficha a barrita, o la devuelve a su tamaño de siempre.
+#
+# NO se toca el recuadro del panel: sin tinte y sin seleccion, _sb_bloque ya lo deja transparente del
+# todo (fondo y borde a alpha 0), asi que en mini no se ve solo. Y dejandolo en paz, el borde blanco
+# del apuntado y el tinte de los estados siguen mandando ellos, sin pelearse con esto.
+func _poner_mini(bloque: Dictionary, mini: bool) -> void:
+	var wrap: Control = bloque.get("wrap")
+	if not is_instance_valid(wrap):
+		return
+
+	var margen: MarginContainer = bloque.get("margen")
+	if is_instance_valid(margen):
+		var m: int = 0 if mini else 6
+		for lado in ["left", "right", "top", "bottom"]:
+			margen.add_theme_constant_override("margin_" + lado, m)
+
+	# El nombre y el numero, fuera: es lo que mas ancho pide y lo que mas tapa.
+	var fila: Control = bloque.get("fila_nombre")
+	if is_instance_valid(fila):
+		fila.visible = not mini
+
+	var hp: Control = bloque.get("hp")
+	if is_instance_valid(hp):
+		hp.custom_minimum_size.y = ALTO_BARRA_MINI if mini else _pantalla.figuras.ALTO_BARRA_HP
+	# Las cifras dentro de la barra no caben en 5 px de alto, y ademas son ruido: lo que dice la
+	# barrita es "cuanto le queda", no "cuanto exactamente".
+	var hp_lbl: Control = bloque.get("hp_lbl")
+	if is_instance_valid(hp_lbl):
+		hp_lbl.visible = not mini
+
+	var chips_wrap: Control = bloque.get("chips_wrap")
+	if is_instance_valid(chips_wrap):
+		chips_wrap.custom_minimum_size.y = ALTO_CHIPS_MINI if mini else _pantalla.figuras.ALTO_CHIPS
+		var e: float = ESCALA_CHIPS_MINI if mini else 1.0
+		chips_wrap.scale = Vector2(e, e)
+
+	# El ancho, el ultimo: es el que dispara el re-layout que recoloca todo lo de arriba.
+	wrap.custom_minimum_size.x = ANCHO_MINI if mini else _pantalla.montaje._ancho_bloque(
+		_pantalla._enemies.size())
 
 
 # --- DE COMBATIENTE A CUERPO DEL MAPA ----------------------------------------------------------

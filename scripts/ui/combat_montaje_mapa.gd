@@ -56,3 +56,11 @@ func _montar_columna() -> void:
 func _setup_ui() -> void:
 	super._setup_ui()
 	_pantalla.figuras_mapa.montar()
+
+
+# EL ANCHO DE LAS FICHAS NO SE REPARTE AQUI. En la fila, las tarjetas se encogen a partes iguales
+# cuando entran refuerzos y dejan de caber; flotando sobre el mapa no compiten por un hueco comun, y
+# el ancho lo decide el modo mini (ver combat_figuras_mapa._poner_mini). Sin esto, el primer bicho
+# que entrara a media pelea le devolveria sus 216 px a todas las barritas.
+func _reajustar_anchos(_bloques: Array, _n: int) -> void:
+	pass
