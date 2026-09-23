@@ -112,32 +112,65 @@ func _alfa() -> float:
 # ------------------------------------------------------------
 #  GRIETAS (el Temblor)
 # ------------------------------------------------------------
+# Como la referencia que paso el usuario (23/09): un HUNDIMIENTO redondo con el BORDE grueso y
+# dentado, por dentro una RED de grietas que parte el suelo en trozos, y por fuera grietas finas que
+# se escapan del borde y se afilan hasta la nada.
+const BORDE_TEMBLOR := 0.7   # el borde del hundimiento, en fraccion del radio
+var _borde: PackedVector2Array = PackedVector2Array()
+var _borde_w: PackedFloat32Array = PackedFloat32Array()
+var _r_borde: float = 0.0
+
 func _generar_grietas() -> void:
-	var n: int = 11 if not _cono else 5
+	_r_borde = _radio * BORDE_TEMBLOR
+	# 1) EL BORDE: un anillo quebrado, de grosor irregular.
+	var n_b: int = 72
+	for i in n_b + 1:
+		var a: float = TAU * float(i % n_b) / float(n_b)
+		var rr: float = _r_borde * (1.0 + 0.045 * sin(a * 5.0 + 1.3) + _rng.randf_range(-0.03, 0.03))
+		_borde.append(_origen + Vector2(cos(a), sin(a)) * rr)
+		_borde_w.append(_rng.randf_range(2.2, 4.2))
+	_borde[n_b] = _borde[0]
+	# 2) LAS DE DENTRO: grietas que van del centro al borde, muy torcidas...
+	var n: int = 13
+	var radiales: Array = []
 	for i in n:
-		var ang: float = lerpf(_a0, _a1, (float(i) + 0.5 + _rng.randf_range(-0.3, 0.3)) / float(n))
-		var largo: float = _radio * _rng.randf_range(0.78, 1.0)
-		var pts: PackedVector2Array = _quebrada(ang, 5.0, largo, 7.0, 0.35)
-		_grietas.append({"pts": pts, "w": _rng.randf_range(2.4, 3.4)})
-		# Una o dos ramas que salen de la grieta y se abren hacia un lado.
-		for _k in _rng.randi_range(1, 2):
-			var j: int = _rng.randi_range(pts.size() / 3, maxi(pts.size() / 3, pts.size() - 3))
-			if j <= 0 or j >= pts.size():
-				continue
-			var base: Vector2 = pts[j]
-			var d0: float = base.distance_to(_origen)
-			var ang_r: float = (base - _origen).angle() + _rng.randf_range(0.45, 0.8) * (1.0 if _rng.randf() < 0.5 else -1.0)
-			var rama: PackedVector2Array = PackedVector2Array([base])
-			var p: Vector2 = base
-			var resto: float = (largo - d0) * _rng.randf_range(0.4, 0.7)
-			var hecho: float = 0.0
-			while hecho < resto:
-				ang_r += _rng.randf_range(-0.3, 0.3)
-				p += Vector2(cos(ang_r), sin(ang_r)) * 6.0
-				hecho += 6.0
-				rama.append(p)
-			_grietas.append({"pts": rama, "w": _rng.randf_range(1.2, 1.8)})
-	_crater = _mancha(_origen, 7.0, 9)
+		var ang: float = TAU * (float(i) + _rng.randf_range(-0.35, 0.35)) / float(n)
+		var r0: float = _rng.randf_range(2.0, _r_borde * 0.18)
+		var pts: PackedVector2Array = _quebrada(ang, r0, _r_borde, 3.5, 0.55)
+		radiales.append(pts)
+		_grietas.append({"pts": pts, "w0": 1.9, "w1": 1.3})
+	# ...y PUENTES entre cada una y la de al lado, a alturas sueltas: son los que cierran los trozos.
+	for i in n:
+		var p1: PackedVector2Array = radiales[i]
+		var p2: PackedVector2Array = radiales[(i + 1) % n]
+		for _k in _rng.randi_range(2, 3):
+			var u: float = _rng.randf_range(0.2, 0.9)
+			var a_pt: Vector2 = p1[clampi(int(u * p1.size()), 0, p1.size() - 1)]
+			var b_pt: Vector2 = p2[clampi(int(_rng.randf_range(u - 0.15, u + 0.15) * p2.size()), 0, p2.size() - 1)]
+			_grietas.append({"pts": _zigzag(a_pt, b_pt, 3.0, 1.6), "w0": 1.2, "w1": 1.0})
+	# 3) LAS DE FUERA: salen del borde, finas y cada vez mas finas; alguna se parte en dos.
+	for i in 26:
+		var ang2: float = TAU * (float(i) + _rng.randf_range(-0.4, 0.4)) / 26.0
+		var largo: float = _r_borde + (_radio - _r_borde) * _rng.randf_range(0.45, 1.0)
+		var pts2: PackedVector2Array = _quebrada(ang2, _r_borde * 0.98, largo, 3.0, 0.6)
+		_grietas.append({"pts": pts2, "w0": 2.2, "w1": 0.4})
+		if _rng.randf() < 0.4 and pts2.size() > 4:
+			var base: Vector2 = pts2[pts2.size() / 2]
+			var ang_r: float = (base - _origen).angle() + _rng.randf_range(0.4, 0.7) * (1.0 if _rng.randf() < 0.5 else -1.0)
+			var fin: Vector2 = base + Vector2(cos(ang_r), sin(ang_r)) * _rng.randf_range(6.0, 12.0)
+			_grietas.append({"pts": _zigzag(base, fin, 2.5, 1.2), "w0": 1.0, "w1": 0.3})
+	_crater = _mancha(_origen, 3.5, 7)
+
+
+# Una grieta de 'a' a 'b' que no va recta: se sale a los lados a trozos de 'paso'.
+func _zigzag(a: Vector2, b: Vector2, paso: float, temblor: float) -> PackedVector2Array:
+	var out := PackedVector2Array([a])
+	var n: int = maxi(2, int(a.distance_to(b) / paso))
+	var normal: Vector2 = (b - a).orthogonal().normalized()
+	for i in range(1, n):
+		out.append(a.lerp(b, float(i) / float(n)) + normal * _rng.randf_range(-temblor, temblor))
+	out.append(b)
+	return out
 
 
 # Una linea quebrada que sale de _origen en 'ang', de r0 a r0+largo, a pasos de 'paso' con temblor.
@@ -165,17 +198,37 @@ func _mancha(c: Vector2, r: float, n: int) -> PackedVector2Array:
 
 
 func _dibujar_grietas(front: float, a: float) -> void:
-	# El agujero donde clavas el martillo.
+	var llega: float = front * _radio
+	# El HUNDIMIENTO: el suelo de dentro del borde algo mas oscuro, en cuanto el frente pasa el borde.
+	if llega >= _r_borde:
+		draw_colored_polygon(_borde, Color(OSCURO, 0.22 * a))
 	if _crater.size() >= 3:
 		draw_colored_polygon(_crater, Color(OSCURO, 0.85 * a))
 	for g in _grietas:
 		var pts: PackedVector2Array = _recortar(g["pts"], front)
 		if pts.size() < 2:
 			continue
-		var w: float = float(g["w"])
-		# El labio claro por debajo y el negro encima: una raja en la piedra, no una raya pintada.
-		draw_polyline(_desplazar(pts, Vector2(0.8, 1.2)), Color(LABIO, 0.45 * a), maxf(1.0, w * 0.6))
-		draw_polyline(pts, Color(OSCURO, 0.95 * a), w)
+		_trazo(pts, float(g["w0"]), float(g["w1"]), a, g["pts"].size())
+	# EL BORDE, grueso y dentado: sale entero cuando le llega el frente.
+	if llega >= _r_borde:
+		for i in _borde.size() - 1:
+			var w: float = _borde_w[i]
+			draw_line(_borde[i] + Vector2(0.6, 1.2), _borde[i + 1] + Vector2(0.6, 1.2), Color(LABIO, 0.4 * a), w * 0.5)
+		for i in _borde.size() - 1:
+			draw_line(_borde[i], _borde[i + 1], Color(OSCURO, 0.95 * a), _borde_w[i])
+			draw_circle(_borde[i], _borde_w[i] * 0.5, Color(OSCURO, 0.95 * a))
+
+
+# Una grieta que se AFILA: de w0 en su arranque a w1 en su punta (contando sobre la linea ENTERA,
+# 'n_total' puntos, para que al ir saliendo no cambie de grosor). El labio claro debajo y el negro
+# encima: una raja en la piedra, no una raya pintada.
+func _trazo(pts: PackedVector2Array, w0: float, w1: float, a: float, n_total: int) -> void:
+	for i in pts.size() - 1:
+		var w: float = lerpf(w0, w1, float(i) / float(maxi(1, n_total - 1)))
+		draw_line(pts[i] + Vector2(0.6, 1.0), pts[i + 1] + Vector2(0.6, 1.0), Color(LABIO, 0.35 * a), maxf(0.6, w * 0.5))
+	for i in pts.size() - 1:
+		var w2: float = lerpf(w0, w1, float(i) / float(maxi(1, n_total - 1)))
+		draw_line(pts[i], pts[i + 1], Color(OSCURO, 0.95 * a), w2)
 
 
 # ------------------------------------------------------------
