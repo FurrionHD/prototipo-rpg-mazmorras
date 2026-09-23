@@ -1152,6 +1152,12 @@ var _arena_nodo: Node = null
 var _camara_guardada := {}
 # Lo que se deja de aire alrededor de la arena al encuadrarla, en pixeles de mundo.
 const AIRE_ARENA := 160.0
+# Hasta donde se puede acercar y alejar ese encuadre. El MINIMO es para que los sprites no acaben
+# siendo hormigas en una arena grande. El MAXIMO estaba en 1.8 y era EL que dejaba el tablero
+# pequeño en medio de la pantalla: en una arena normal el calculo pedia mas y el tope lo frenaba,
+# asi que sobraba sitio por los cuatro lados. Se sube para que de verdad llene el hueco.
+const ZOOM_ARENA_MIN := 0.75
+const ZOOM_ARENA_MAX := 3.0
 
 
 # Cuelga la arena del piso y planta la camara encima. La camara es FIJA y encuadra la zona entera:
@@ -1164,6 +1170,9 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	if _arena_nodo != null:
 		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
 		_arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	# Y SE DESPEJA LA MESA: mientras peleas en el mapa, lo unico que se mira es el tablero.
+	_despejar_para_tactico(true)
 
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	if yo == null:
@@ -1187,7 +1196,7 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	# El zoom que hace que quepa la arena entera EN ESE HUECO, con un poco de aire y sin pasarse de
 	# lejos: los sprites no pueden acabar siendo hormigas.
 	var z: float = minf(util.size.x / (r.size.x + AIRE_ARENA), util.size.y / (r.size.y + AIRE_ARENA))
-	z = clampf(z, 0.75, 1.8)
+	z = clampf(z, ZOOM_ARENA_MIN, ZOOM_ARENA_MAX)
 	cam.zoom = Vector2.ONE * z
 	# Y el centro, al centro DEL HUECO. El desvio se mide en pixeles de pantalla y se divide por el
 	# zoom porque la camara se coloca en pixeles de MUNDO: con el zoom a 1.5, moverla 300 px de
@@ -1197,6 +1206,39 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	cam.position = r.get_center() - (yo as Node2D).global_position + desvio
 	cam.position_smoothing_enabled = false
 	cam.reset_smoothing()
+
+
+# QUITA DE EN MEDIO LO QUE NO PINTA NADA EN UNA PELEA, y lo devuelve al acabar.
+#
+# En el combate de siempre esto no hacia falta: la pantalla es opaca y los tapa todos. En el mapa no
+# hay pantalla que tape, asi que la botonera del HUD, las ayudas de tecla y los tres paneles de dev
+# se quedaban encima del tablero -- y ninguno de ellos se puede ni tocar mientras peleas, porque el
+# combate esta en la capa 100 y se come los clics.
+#
+# LAS BARRAS DEL GRUPO NO SE VAN: cuelgan del JUGADOR y no del HUD (ver player._barras_layer), que
+# es justo lo que permite apagar el HUD entero de un golpe sin llevarselas por delante. Ahi es donde
+# se leen las vidas de los tuyos mientras peleas.
+#
+# Se apunta QUE estaba visible, y no se enciende todo al volver: un panel de dev que tenias cerrado
+# tiene que seguir cerrado al acabar la pelea.
+var _despejado: Array = []
+
+func _despejar_para_tactico(despejar: bool) -> void:
+	if despejar:
+		# Por si una pelea anterior no llego a devolverlos (cambio de escena a media pelea): primero
+		# se devuelve lo que quedara apuntado, y asi la lista nunca guarda dos peleas a la vez.
+		_despejar_para_tactico(false)
+		var nodos: Array = get_tree().get_nodes_in_group("hud") \
+			+ get_tree().get_nodes_in_group("panel_dev")
+		for n in nodos:
+			if n is CanvasLayer and (n as CanvasLayer).visible:
+				_despejado.append(n)
+				(n as CanvasLayer).visible = false
+		return
+	for n in _despejado:
+		if is_instance_valid(n) and n is CanvasLayer:
+			(n as CanvasLayer).visible = true
+	_despejado.clear()
 
 
 # EL HUECO QUE LE QUEDA A LA PELEA: la pantalla menos lo que tapa el HUD. En pixeles de PANTALLA.
@@ -1229,6 +1271,7 @@ func _desmontar_arena_tactica() -> void:
 	if is_instance_valid(_arena_nodo):
 		_arena_nodo.queue_free()
 	_arena_nodo = null
+	_despejar_para_tactico(false)
 	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
 	if is_instance_valid(cam):
 		cam.position = _camara_guardada.get("pos", Vector2.ZERO)
