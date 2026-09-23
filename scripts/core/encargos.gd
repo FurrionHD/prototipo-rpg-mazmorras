@@ -1071,6 +1071,13 @@ static func excelia_de(pjs: Array, piso: int, peleas_n: int, trabajo: Dictionary
 		var pj: PersonajeData = pj_ as PersonajeData
 		if pj == null:
 			continue
+		# DE QUIEN ES ESTE PERSONAJE, en cada entrada, igual que en partes_de. NO es un adorno: quien
+		# resuelve el encargo es el host —y en la fase 3 el host es LA SALA, que no tiene a nadie en su
+		# plantilla—, asi que sin dueño Game.recoger_encargo no sabe a que maquina mandarsela
+		# (Net.peer_de_identidad("") = 0) y acababa escribiendola sobre la copia aparcada del jugador en
+		# jugadores_mundo... que el siguiente autoguardado del dueño pisa entera. Resultado del playtest
+		# del 23/09: ocho horas de encargo y CERO en todas las stats, sin un solo aviso.
+		var dueno: String = _dueno_de(miembros, pj.uid)
 		# --- A) por RECOGER: cada grupo entrena SU stat, con SU reto (al flojo le enseña mas).
 		var suyo_t: Dictionary = trabajo.get(pj.uid, {})
 		for g in suyo_t:
@@ -1082,7 +1089,7 @@ static func excelia_de(pjs: Array, piso: int, peleas_n: int, trabajo: Dictionary
 			var suyo: float = float(Game.stat_total(String(of["stat"]), pj)) \
 				* Game.RECOLECCION_STAT_PESO + float(of["suelo"]) + float(afinidades.get(int(g), 0.0))
 			salida.append({
-				"uid": pj.uid, "abil": String(of["stat"]),
+				"uid": pj.uid, "dueno": dueno, "abil": String(of["stat"]),
 				"reto": reto_medio(int(g), piso, suyo, of), "max_reto": float(of["tope"]),
 				"base": float(of["gain"]) * float(n) * mult * ritmo_faena(int(g)) * RENDIMIENTO,
 			})
@@ -1091,7 +1098,7 @@ static func excelia_de(pjs: Array, piso: int, peleas_n: int, trabajo: Dictionary
 		if int(ex.get("n", 0)) > 0:
 			var n_ex: int = int(ex["n"])
 			salida.append({
-				"uid": pj.uid, "abil": "destreza",
+				"uid": pj.uid, "dueno": dueno, "abil": "destreza",
 				"reto": float(ex.get("reto", 0.0)) / float(n_ex),
 				"max_reto": Game.EXTRACTION_DESTREZA_RETO_MAX,
 				"base": Game.GAIN_DESTREZA_MINIJUEGO * float(n_ex) * mult * RENDIMIENTO,
@@ -1106,7 +1113,7 @@ static func excelia_de(pjs: Array, piso: int, peleas_n: int, trabajo: Dictionary
 			var peso: float = float(pesos[abil])
 			if peso <= 0.0:
 				continue
-			salida.append({"uid": pj.uid, "abil": String(abil), "reto": reto_c,
+			salida.append({"uid": pj.uid, "dueno": dueno, "abil": String(abil), "reto": reto_c,
 				"max_reto": Game.RETO_MAX if abil == "magia" else Game.RETO_MAX_FISICO,
 				"base": base_c * peso})
 	return salida
