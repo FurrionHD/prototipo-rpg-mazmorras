@@ -23,6 +23,7 @@ forma_apunte = 1
 forma_radio = 150.0
 forma_ancho = 60.0
 forma_ancho_fin = 4.0
+suelo_roto = 4
 carga_turnos = 1
 descripcion = "Levantas el acero por encima de la cabeza y esperas. Todo el mundo ve lo que viene, y aun así hay que estar en otro sitio cuando baje."
 efectos = [SubResource("SA_0")]

@@ -39,6 +39,12 @@ func _figura(p: Vector2, col: Color) -> void:
 	add_child(fig)
 
 
+func _verdugo(yo: Vector2) -> CombatFormas.Forma:
+	var f := CombatFormas.linea(yo, Vector2(1, -0.15), 150.0, 60.0)
+	f.ancho_fin = 4.0
+	return f
+
+
 func _correr() -> void:
 	var salida: String = OS.get_environment("SUELO_SALIDA")
 	if salida == "":
@@ -53,6 +59,7 @@ func _correr() -> void:
 		["sismico", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.circulo(yo + Vector2(40, 0), 65.0), 17.0, yo + Vector2(40, 0), TIEMPOS],
 		["onda", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.cono(yo, Vector2(1, -0.15), 120.0, 60.0), 0.0, yo + Vector2(55, -8), TIEMPOS],
 		["devastador", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.linea(yo, Vector2(1, -0.15), 120.0, 28.0), 0.0, yo + Vector2(58, -9), TIEMPOS],
+		["verdugo", SueloRoto.Tipo.CORTE, _verdugo(yo), 0.0, yo + Vector2(70, -10), [0.08, 0.17, 0.27, 0.36, 0.8]],
 		["guerra", SueloRoto.Tipo.ESTALLIDO, CombatFormas.circulo(Vector2(20, -20), 45.0), 18.0, Vector2(20, -40), [0.04, 0.1, 0.25, 0.55, 0.95]],
 		["estela_e", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(1, -0.4), 30.0, 0.0), 0.0, yo + Vector2(10, -15), [0.07, 0.14, 0.2, 0.25, 0.4]],
 		["estela_s", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(0.2, 1), 30.0, 0.0), 0.0, yo + Vector2(0, -5), [0.07, 0.14, 0.2, 0.25, 0.4]],
@@ -70,6 +77,8 @@ func _correr() -> void:
 			s._t = c[5][col]
 			if s.get("_geiser") != null:
 				s._geiser.queue_redraw()
+			if s.get("_aire") != null:
+				s._aire.queue_redraw()
 			s.queue_redraw()
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw
