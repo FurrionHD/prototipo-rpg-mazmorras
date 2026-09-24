@@ -25,6 +25,7 @@ forma_radio = 120.0
 forma_ancho = 28.0
 forma_tramos = 3
 forma_tramo_baja = 0.25
+suelo_roto = 1
 efectos = [SubResource("SA_vuln")]
 efectos_por_golpe = false
 descripcion = "Un mandoble descendente con toda la masa del espadón, el golpe más brutal del arsenal. Todo o nada: lento y comprometido, si te esquivan lo pagas caro. Lo que abre no se vuelve a cerrar: el que lo encaja queda descosido para lo que venga detrás."

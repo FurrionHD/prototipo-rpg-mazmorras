@@ -44,6 +44,7 @@ var _radio: float = 1.0
 var _a0: float = 0.0
 var _a1: float = TAU
 var _cono: bool = false
+var _linea: bool = false
 var _rng := RandomNumberGenerator.new()
 var _ts: float = T_SALIR   # lo que tarda ESTE en abrirse (t_salir_de su tipo)
 
@@ -91,9 +92,9 @@ static func t_salir_de(t: int) -> float:
 	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
 
 
-# De donde sale la rotura: el centro del circulo, o los pies del que golpea en el cono.
+# De donde sale la rotura: el centro del circulo, o los pies del que golpea en el cono y la linea.
 static func origen_de(f: CombatFormas.Forma) -> Vector2:
-	return f.origen if f.tipo == CombatFormas.Tipo.CONO else f.centro
+	return f.origen if f.tipo in [CombatFormas.Tipo.CONO, CombatFormas.Tipo.LINEA] else f.centro
 
 
 # CUANDO LE LLEGA a un CUERPO (su caja en mundo): por su punto mas cercano al origen, que es por donde
@@ -117,7 +118,8 @@ func duracion() -> float:
 
 func _ready() -> void:
 	_cono = forma.tipo == CombatFormas.Tipo.CONO
-	_origen = forma.origen if _cono else forma.centro
+	_linea = forma.tipo == CombatFormas.Tipo.LINEA
+	_origen = origen_de(forma)
 	_radio = maxf(forma.radio, 8.0)
 	if _cono:
 		var mitad: float = deg_to_rad(forma.apertura * 0.5)
@@ -127,7 +129,11 @@ func _ready() -> void:
 	match tipo:
 		Tipo.GRIETAS: _generar_grietas()
 		Tipo.ESTALLIDO: _generar_estallido()
-		_: _generar_fragmentos()
+		_:
+			if _linea:
+				_generar_fragmentos_linea()
+			else:
+				_generar_fragmentos()
 
 
 func _process(delta: float) -> void:
@@ -330,6 +336,64 @@ func _generar_fragmentos() -> void:
 			_losas.append({"poly": poly, "c": c, "d": c.distance_to(_origen), "alza": alza,
 				"piedras": piedras, "encoge": _rng.randf_range(0.8, 0.9)})
 	_crater = _mancha(_origen, maxf(r_ini * 0.9, 5.0), 11)
+
+
+# LOSAS EN LINEA (el Tajo devastador, 24/09: "como la onda expansiva pero en linea"). La misma rotura que
+# la Onda, pero en una franja: una raja por el medio que va de tus pies al fondo, cortes de lado a lado a
+# trechos, y entre ellos las losas, que se levantan como en la viñeta. Todo se guarda en las mismas listas
+# que los fragmentos (rayos = rajas a lo largo, anillos = cortes de lado a lado con su distancia), asi
+# que se pinta con _dibujar_fragmentos tal cual y el frente avanza a lo largo igual que en el cono.
+func _generar_fragmentos_linea() -> void:
+	var dir: Vector2 = forma.dir
+	var nor: Vector2 = Vector2(-dir.y, dir.x)
+	var n: int = maxi(4, int(_radio / 15.0))
+	var ts: Array = []
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var jit: float = 0.0 if (k == 0 or k == n) else _rng.randf_range(-0.3, 0.3) / float(n)
+		ts.append(lerpf(3.0, _radio, u + jit))
+	# Por estacion: borde izquierdo, la raja del medio (que se tuerce) y el borde derecho.
+	var filas: Array = []
+	for k in ts.size():
+		var t: float = ts[k]
+		var h: float = maxf(forma.ancho_en(t), 2.0) * 0.5
+		var c: Vector2 = _origen + dir * t + nor * _rng.randf_range(-0.18, 0.18) * h
+		filas.append([_origen + dir * t - nor * h * _rng.randf_range(0.92, 1.08), c,
+			_origen + dir * t + nor * h * _rng.randf_range(0.92, 1.08)])
+	# Las rajas a lo largo: la del medio, gruesa y quebrada; los bordes, mas finos.
+	for lado in 3:
+		var linea := PackedVector2Array()
+		for k in filas.size():
+			var p: Vector2 = filas[k][lado]
+			linea.append(p)
+			if lado == 1 and k < filas.size() - 1:
+				var sig: Vector2 = filas[k + 1][1]
+				linea.append((p + sig) * 0.5 + nor * _rng.randf_range(-2.5, 2.5))
+		_rayos.append(linea)
+	# Los cortes de lado a lado, quebrados, a su distancia de tus pies.
+	for k in range(1, filas.size() - 1):
+		var f: Array = filas[k]
+		var pts := PackedVector2Array([f[0], (f[0] + f[1]) * 0.5 + dir * _rng.randf_range(-2.0, 2.0), f[1],
+			(f[1] + f[2]) * 0.5 + dir * _rng.randf_range(-2.0, 2.0), f[2]])
+		_anillos.append({"r": float(ts[k]), "pts": pts})
+	# Las losas: a cada lado de la raja, entre corte y corte. Cerca de ti se levantan mas.
+	for k in filas.size() - 1:
+		for lado in 2:
+			var poly := PackedVector2Array([filas[k][lado], filas[k][lado + 1], filas[k + 1][lado + 1],
+				filas[k + 1][lado]])
+			var cc: Vector2 = (poly[0] + poly[1] + poly[2] + poly[3]) * 0.25
+			var alza: float = 0.0
+			if _rng.randf() < lerpf(0.6, 0.3, float(k) / float(filas.size() - 1)):
+				alza = _rng.randf_range(2.0, 4.5)
+			var piedras: Array = []
+			for _p in _rng.randi_range(0, 2):
+				piedras.append({"v": Vector2(_rng.randf_range(-18, 18), _rng.randf_range(-40, -22)),
+					"o": cc + Vector2(_rng.randf_range(-3, 3), _rng.randf_range(-3, 3)),
+					"tam": _rng.randf_range(1.5, 2.8)})
+			_losas.append({"poly": poly, "c": cc, "d": cc.distance_to(_origen), "alza": alza,
+				"piedras": piedras, "encoge": _rng.randf_range(0.8, 0.9)})
+	# Donde entra el filo: una muesca a tus pies, no un crater.
+	_crater = _mancha(_origen + dir * 5.0, maxf(forma.ancho * 0.15, 3.0), 9)
 
 
 func _dibujar_fragmentos(front: float, a: float) -> void:
@@ -567,7 +631,13 @@ func _draw() -> void:
 	if _t < _ts:
 		var rf: float = front * _radio
 		var af: float = 0.45 * (1.0 - clampf(_t / _ts, 0.0, 1.0) * 0.6)
-		draw_arc(_origen, rf, _a0, _a1, 64, Color(LABIO, af), 2.0)
+		if _linea:
+			# En la linea el frente es un corte de lado a lado que avanza.
+			var q: Vector2 = _origen + forma.dir * rf
+			var hh: Vector2 = Vector2(-forma.dir.y, forma.dir.x) * forma.ancho_en(rf) * 0.5
+			draw_line(q - hh, q + hh, Color(LABIO, af), 2.0)
+		else:
+			draw_arc(_origen, rf, _a0, _a1, 64, Color(LABIO, af), 2.0)
 	match tipo:
 		Tipo.GRIETAS: _dibujar_grietas(front, a)
 		Tipo.ESTALLIDO: _dibujar_estallido(front, a)
