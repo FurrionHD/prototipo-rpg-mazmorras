@@ -89,7 +89,8 @@ func _ready() -> void:
 	# Una fila por direccion pedida, una columna por fotograma. Con las ocho direcciones se enseña
 	# solo un fotograma de cada (la hoja seria de 64 casillas y no cabe nada).
 	var una_sola: bool = dirs.size() >= 8
-	var cols: int = 1 if una_sola else 8
+	# Tantas columnas como fotogramas tenga la animacion (las hay de 12).
+	var cols: int = 1 if una_sola else maxi(1, int(PoseJugador._anim(anim).get("marcos", 8)))
 	var filas: int = dirs.size() if not una_sola else 1
 	var ancho: int = (dirs.size() if una_sola else cols) * LADO
 	var out := Image.create(ancho, maxi(1, filas) * LADO, false, Image.FORMAT_RGBA8)

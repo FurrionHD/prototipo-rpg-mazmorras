@@ -223,17 +223,18 @@ func terminada() -> bool:
 # 'montar' (la lista de capas puede haber cambiado: equipar/desequipar un arma).
 # ¿Lleva martillo o mandoble? Entonces su guardia es la del arma al hombro (ver animar). De momento
 # solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
-const _ARMAS_AL_HOMBRO := ["arma_mandoble_", "arma_martillo_grande_"]
-var _guardia_hombro: bool = false
+# Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
+const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m"}
+var _guardia_propia: String = ""
 
 func _reindexar_arma_mano() -> void:
 	_idx_arma_mano.clear()
-	_guardia_hombro = false
+	_guardia_propia = ""
 	for i in _capas.size():
 		var clave: String = String(_capas[i]["clave"])
-		for pre in _ARMAS_AL_HOMBRO:
+		for pre in _GUARDIA_DE:
 			if clave.begins_with(pre):
-				_guardia_hombro = true
+				_guardia_propia = String(_GUARDIA_DE[pre])
 		if clave.begins_with("arma_") and not _capas[i].has("z") \
 				and (clave.ends_with("_mano_der") or clave.ends_with("_mano_izq")):
 			_idx_arma_mano.append(i)
@@ -485,8 +486,9 @@ func fijar(nombre: String, marco: int) -> void:
 # CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
 # _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
 func _con_su_guardia(nombre: String) -> String:
-	if _guardia_hombro and nombre.begins_with("guardia_") and not nombre.begins_with("guardia_2m"):
-		return "guardia_2m_" + nombre.substr(8)
+	if _guardia_propia != "" and nombre.begins_with("guardia_") \
+			and not nombre.begins_with("guardia_2m"):
+		return _guardia_propia + "_" + nombre.substr(8)
 	return nombre
 
 

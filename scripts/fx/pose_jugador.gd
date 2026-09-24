@@ -274,7 +274,7 @@ const ANIMS := [
 	{"n": "guardia_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "desenvainar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 5, "ultimo": true},
 	{"n": "golpe_izq", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
-	{"n": "golpe_2m", "loop": false, "fps": 10.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "golpe_2m", "loop": false, "fps": 15.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	# LAS HABILIDADES A DOS MANOS en el combate del mapa (24/09, pedidas por el jefe). Ocho direcciones:
 	# en el mapa se golpea hacia donde se apunta. 'en_alto' es la CARGA (Martillo de guerra, Tajo del
 	# verdugo: el arma arriba hasta soltarla) y 'tajo_2m' lo que la suelta (y el Tajo devastador);
@@ -284,8 +284,8 @@ const ANIMS := [
 	{"n": "guardia_2m_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_2m_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "en_alto", "loop": true, "fps": 3.0, "dirs": 8, "marcos": 4, "ultimo": false},
-	{"n": "tajo_2m", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 10, "ultimo": true},
-	{"n": "clavar", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_2m", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "clavar", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "molinete", "loop": true, "fps": 2.0, "dirs": 8, "marcos": 1, "ultimo": false},
 	{"n": "barrido_2m", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "grito", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
@@ -1096,7 +1096,11 @@ static func _pose_golpe_izq(t: float) -> Dictionary:
 # escorza a nada (misma trampa que _pose_muerte). Un cuarto de radian largo lo saca de ahi. Rampado
 # (0 en las puntas) para no dar un tiron al entrar/salir desde guardia.
 static func _pose_golpe_2m(t: float) -> Dictionary:
-	var brazo_keys := [[0.0, -0.35], [0.32, -1.90], [0.50, -1.75], [0.68, 1.45], [0.85, 0.75], [1.0, -0.35]]
+	# EL ARCO VA POR ENCIMA DE LA CABEZA (su abanico del 24/09): atras-arriba, arriba, delante, abajo. Se
+	# escribia de -1.90 a +1.45, y eso pasa por el 0 -- el brazo COLGANDO --: el arma cruzaba por abajo,
+	# entre las piernas. Pasado de pi (4.0 = -2.28) el mismo giro sube por detras y baja por delante.
+	var brazo_keys := [[0.0, 0.40], [0.25, 3.9], [0.38, 4.0], [0.5, 3.3], [0.6, 2.6], [0.7, 1.9],
+		[0.8, 1.4], [0.9, 1.1], [1.0, 0.40]]
 	var avance_keys := [[0.0, 0.0], [0.32, -0.8], [0.50, -0.5], [0.68, 2.0], [0.85, 1.2], [1.0, 0.0]]
 	var inclina_keys := [[0.0, 0.06], [0.32, -0.12], [0.50, -0.08], [0.68, 0.30], [0.85, 0.20], [1.0, 0.06]]
 	# El golpe cae a TU DERECHA (rumbo mas grande en la descarga): mirando al norte, delante de los pies es
@@ -1194,7 +1198,7 @@ static func _pose_segar(t: float) -> Dictionary:
 # plantados; respira despacio para que se vea vivo mientras espera su turno. Un pelo de 'rumbo' para
 # que el arma no quede de canto mirando al sur.
 static func _pose_en_alto(t: float) -> Dictionary:
-	return {"brazo_der": -2.25 + 0.04 * sin(TAU * t), "brazo_izq": -2.25 + 0.04 * sin(TAU * t),
+	return {"brazo_der": 4.03 + 0.04 * sin(TAU * t), "brazo_izq": 4.03 + 0.04 * sin(TAU * t),
 		"inclina": -0.06, "agacha": 0.14, "bote": 0.25 * sin(TAU * t), "paso": 0.18, "rumbo": 0.35,
 		"junta": 1.0}
 
@@ -1205,8 +1209,9 @@ static func _pose_en_alto(t: float) -> Dictionary:
 static func _pose_tajo_2m(t: float) -> Dictionary:
 	# La bajada repartida en VARIOS fotogramas (de lado se veia arriba-detras y al siguiente ya en el
 	# suelo), y cayendo a TU DERECHA (rumbo) para que al norte no se esconda detras del cuerpo.
-	var brazo_keys := [[0.0, -2.25], [0.15, -2.45], [0.35, -1.6], [0.5, -0.3], [0.62, 0.9],
-		[0.72, 1.5], [1.0, 1.5]]
+	# Por ENCIMA de la cabeza (ver _pose_golpe_2m): de 4.03 (= en_alto) baja pasando por pi.
+	var brazo_keys := [[0.0, 4.03], [0.15, 4.25], [0.32, 3.6], [0.45, 3.0], [0.57, 2.4],
+		[0.68, 1.8], [0.78, 1.5], [1.0, 1.45]]
 	var incl_keys := [[0.0, -0.06], [0.15, -0.14], [0.62, 0.36], [1.0, 0.32]]
 	var agacha_keys := [[0.0, 0.14], [0.15, 0.10], [0.62, 0.34], [1.0, 0.30]]
 	var avance_keys := [[0.0, 0.0], [0.15, -0.6], [0.62, 2.6], [1.0, 2.2]]
@@ -1223,8 +1228,9 @@ static func _pose_tajo_2m(t: float) -> Dictionary:
 # suelo). Lo sube y lo hunde de canto delante de los pies, agachandose con el: los brazos acaban casi
 # colgando, asi que el eje del arma (hombro -> mano) apunta al suelo.
 static func _pose_clavar(t: float) -> Dictionary:
-	var brazo_keys := [[0.0, -0.55], [0.25, -2.2], [0.4, -2.1], [0.52, -1.2], [0.62, -0.3],
-		[0.72, 0.2], [1.0, 0.15]]
+	# Lo SUBE POR DELANTE hasta arriba y lo hunde otra vez por delante (nunca por abajo-atras).
+	var brazo_keys := [[0.0, 0.40], [0.25, 2.6], [0.4, 2.9], [0.52, 2.2], [0.62, 1.4],
+		[0.72, 0.5], [0.8, 0.22], [1.0, 0.2]]
 	var agacha_keys := [[0.0, 0.10], [0.4, 0.05], [0.72, 0.40], [1.0, 0.38]]
 	var incl_keys := [[0.0, 0.06], [0.25, -0.12], [0.72, 0.30], [1.0, 0.28]]
 	var b: float = SpriteLienzo.tramos(t, brazo_keys)
@@ -1254,7 +1260,7 @@ static func _pose_barrido_2m(t: float) -> Dictionary:
 # EL GRITO DE GUERRA: levanta el arma a dos manos, echa el pecho atras y aguanta TEMBLANDO mientras
 # grita.
 static func _pose_grito(t: float) -> Dictionary:
-	var brazo_keys := [[0.0, -0.55], [0.35, -2.3], [1.0, -2.3]]
+	var brazo_keys := [[0.0, 0.40], [0.35, 2.9], [1.0, 2.9]]
 	var incl_keys := [[0.0, 0.08], [0.35, -0.22], [1.0, -0.20]]
 	var tiembla: float = 0.0 if t < 0.35 else 0.35 * sin(t * 40.0)
 	var b: float = SpriteLienzo.tramos(t, brazo_keys)
@@ -1283,13 +1289,9 @@ static func _pose_extraer(t: float) -> Dictionary:
 # recogidos en alto -- el derecho lleva el arma o es la mano principal del dual, el izquierdo
 # equilibra o empuña la segunda. Un pelo agachado: peso repartido, listo para soltar el golpe.
 #
-# PREPARADO PARA PELEAR (su boceto, 24/09), no con los brazos colgando: la mano del arma adelantada a la
-# altura de la cintura y la hoja en diagonal hacia arriba y hacia delante (muneca); las de dos manos,
-# APOYADAS EN EL HOMBRO derecho (eje_2m: hacia arriba, hacia atras y hacia tu derecha, que es -X).
-const GUARDIA_MUNECA := 1.45
-# Mas hacia ATRAS que hacia el lado: el costado derecho mira a la camara al ir al este, y "hacia la
-# camara" baja en pantalla lo que "hacia arriba" sube -- con mucho lado el arma se anulaba en un muñon.
-const GUARDIA_EJE_2M := Vector3(-0.3, -0.6, 1.0)
+# (Las de una mano siguen asi, sin tocar. La de las armas a dos manos hechas es _pose_guardia_2m. OJO al
+# retocar un eje de arma: "hacia tu derecha" al ir al este es hacia la camara, que baja en pantalla lo
+# que "hacia arriba" sube -- se anulan y el arma se queda en un muñon.)
 
 static func _pose_guardia(t: float) -> Dictionary:
 	return {"bote": 0.30 * sin(TAU * t),
@@ -1298,31 +1300,28 @@ static func _pose_guardia(t: float) -> Dictionary:
 		"inclina": 0.08, "agacha": 0.10}
 
 
-# LA GUARDIA DEL MARTILLO Y EL MANDOBLE (24/09, su boceto; de momento SOLO esas dos, que son las armas
-# hechas): el arma APOYADA EN EL HOMBRO derecho, agarrada con la derecha delante del pecho y la izquierda
-# mas abajo en el mango. MunecoJugador cambia 'guardia*' por 'guardia_2m*' cuando las lleva.
+# LA GUARDIA DEL MANDOBLE (24/09, su referencia: un espadachin en guardia baja): PIERNAS ABIERTAS, las
+# DOS MANOS JUNTAS en el mango delante de la cadera y la hoja en DIAGONAL hacia delante y hacia arriba,
+# apuntando al rival. La MISMA para el martillo ("lo mismo exactamente pero con un martillo").
+# MunecoJugador cambia 'guardia*' por 'guardia_2m*' cuando se lleva uno de los dos.
+const GUARDIA_EJE_FRENTE := Vector3(0.35, 0.55, 0.85)
+
 static func _pose_guardia_2m(t: float) -> Dictionary:
-	return {"bote": 0.30 * sin(TAU * t),
-		"brazo_der": 0.25 + 0.04 * sin(TAU * t),
-		"brazo_izq": 0.15 + 0.04 * sin(TAU * t),
-		"inclina": 0.08, "agacha": 0.14, "paso": 0.14,
-		"junta": 0.0, "muneca": GUARDIA_MUNECA, "eje_2m": GUARDIA_EJE_2M}
+	return {"bote": 0.25 * sin(TAU * t), "brazo_der": 0.40 + 0.03 * sin(TAU * t),
+		"brazo_izq": 0.40 + 0.03 * sin(TAU * t), "inclina": 0.10, "agacha": 0.22, "paso": 0.30,
+		"junta": 1.0, "eje_2m": GUARDIA_EJE_FRENTE}
 
 
 static func _pose_guardia_2m_and(t: float) -> Dictionary:
-	return {"paso": 0.40 * sin(TAU * t), "bote": 0.55 * absf(sin(TAU * t)),
-		"brazo_der": 0.25 + 0.06 * sin(TAU * t),
-		"brazo_izq": 0.15 + 0.06 * sin(TAU * t),
-		"inclina": 0.10, "agacha": 0.08,
-		"junta": 0.0, "muneca": GUARDIA_MUNECA, "eje_2m": GUARDIA_EJE_2M}
+	return {"paso": 0.30 + 0.12 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
+		"brazo_der": 0.40 + 0.04 * sin(TAU * t), "brazo_izq": 0.40 + 0.04 * sin(TAU * t),
+		"inclina": 0.12, "agacha": 0.18, "junta": 1.0, "eje_2m": GUARDIA_EJE_FRENTE}
 
 
 static func _pose_guardia_2m_cor(t: float) -> Dictionary:
-	return {"paso": 0.60 * sin(TAU * t), "bote": 1.05 * absf(sin(TAU * t)),
-		"brazo_der": 0.25 + 0.08 * sin(TAU * t),
-		"brazo_izq": 0.15 + 0.08 * sin(TAU * t),
-		"inclina": 0.24, "agacha": 0.10,
-		"junta": 0.0, "muneca": GUARDIA_MUNECA, "eje_2m": GUARDIA_EJE_2M}
+	return {"paso": 0.55 * sin(TAU * t), "bote": 0.95 * absf(sin(TAU * t)),
+		"brazo_der": 0.40 + 0.06 * sin(TAU * t), "brazo_izq": 0.40 + 0.06 * sin(TAU * t),
+		"inclina": 0.24, "agacha": 0.12, "junta": 1.0, "eje_2m": GUARDIA_EJE_FRENTE}
 
 
 # ANDAR CON EL ARMA FUERA. El ciclo de piernas de andar, pero los brazos NO bracean sueltos: se
