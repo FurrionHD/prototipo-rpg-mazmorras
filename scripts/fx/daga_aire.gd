@@ -403,8 +403,19 @@ func _dibujar_suelo(capa: Node2D) -> void:
 # ------------------------------------------------------------
 #  EL HUMO
 # ------------------------------------------------------------
+const T_BOMBA := 0.12   # lo que vuela la bomba de la mano al suelo (acaba en el fogonazo)
+
 func _dibujar_humo() -> void:
+	# LA BOMBA, de la mano izquierda a tus pies (lanzar_humo la suelta justo antes de tocar el suelo).
 	if _t < 0.0:
+		if _t >= -T_BOMBA:
+			var u: float = 1.0 + _t / T_BOMBA
+			var de: Vector2 = _centro + Vector2(-7.0, -17.0)
+			var a: Vector2 = _centro + Vector2(3.0, -1.0)
+			var p: Vector2 = de.lerp(a, u) + Vector2(0.0, -6.0 * sin(PI * u))
+			BarridoAire.brillo(self, p, 3.4, Color(0.12, 0.12, 0.15, 0.95))
+			BarridoAire.brillo(self, p + Vector2(-0.8, -0.9), 1.3, Color(0.6, 0.6, 0.65, 0.8))
+			BarridoAire.brillo(self, p + Vector2(1.6, -2.2), 1.2, Color(FOGONAZO, 0.9))   # la mecha
 		return
 	# El FOGONAZO del frasco al reventar.
 	if _t < 0.16:

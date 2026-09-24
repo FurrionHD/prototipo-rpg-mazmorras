@@ -82,7 +82,9 @@ var _idx_arma_mano: PackedInt32Array = []
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
 # Las FAENAS (PoseJugador.FAENAS) tambien entran, ver _reordenar_arma_mano.
 const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clavar", "barrido_2m",
-	"grito", "en_alto", "hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada"]
+	"grito", "en_alto", "hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada",
+	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
+	"afilar_veneno"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -244,6 +246,16 @@ func animar_desde(nombre: String, marco: int) -> void:
 	_aplicar_anim(nombre, true)
 	_reloj = float(clampi(marco, 0, maxi(0, _marcos - 1))) / maxf(0.001, _fps)
 	_escribir(_marco_actual())
+
+
+# ¿Lleva algo en la mano IZQUIERDA? (dos dagas: los tajos alternan de mano). Sale de sus capas, asi que
+# vale igual en el espejo, que no tiene la ficha de verdad.
+func lleva_arma_izq() -> bool:
+	for c in _capas:
+		var clave: String = String(c["clave"])
+		if clave.begins_with("arma_") and clave.ends_with("_mano_izq"):
+			return true
+	return false
 
 
 func anim_actual() -> String:

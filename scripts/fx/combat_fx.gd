@@ -1500,7 +1500,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim. Las del
 		# JUGADOR en el mapa salen de su estilo (ANIM_CUERPO_MAPA): asi el espejo, que recibe el estilo en
 		# el paquete de impactos, pone al cuerpo la misma sin que viaje nada mas.
-		"anim": anim if anim != &"" else StringName(ANIM_CUERPO_MAPA.get(estilo, "")),
+		"anim": anim if anim != &"" else _anim_mapa(estilo),
 		# EL SUELO QUE SE ROMPE: el golpe llega cuando la rotura alcanza a esta victima (ver
 		# arrancar_cola), y su dibujo de siempre no sale -- el dibujo ES el suelo.
 		"retraso_suelo": retraso_suelo,
@@ -1522,6 +1522,15 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 	elif dmg < 0.0:
 		b_victima["hp_cura_pend"] = float(b_victima.get("hp_cura_pend", 0.0)) - dmg
 		_recalcular_meta(b_victima, "hp")
+
+
+# LA ANIMACION DEL CUERPO de un estilo en el mapa. Las puñaladas de DESAPARECER son un DAGA_CORTE como el
+# basico, pero llegan con la bomba de humo (el suelo pedido es HUMO): su gesto empieza tirandola.
+func _anim_mapa(estilo: int) -> StringName:
+	if estilo == Estilo.DAGA_CORTE and not _suelo.is_empty() \
+			and int(_suelo.get("tipo", -1)) == SueloRoto.Tipo.HUMO:
+		return &"lanzar_humo"
+	return StringName(ANIM_CUERPO_MAPA.get(estilo, ""))
 
 
 # Cierra la racha y la echa a andar. Devuelve LO QUE VA A DURAR: ese numero es el que se convierte
@@ -1622,6 +1631,23 @@ func arrancar_cola() -> float:
 		ev["t_sfx"] = float(ev["t"])
 		ev["t"] = float(ev["t"]) + rs * escala_tiempo
 		_dur = maxf(_dur, float(ev["t"]) + T_PUM + T_VUELTA)
+	# LA BOMBA DE DESAPARECER: su gesto se planto en el instante del humo, pero las puñaladas llegan
+	# despues (el retraso de arriba). Sus avisos siguen a las de verdad, TODAS (la primera tambien: la
+	# del arranque fue la bomba), y el gesto no se cierra hasta la ultima.
+	for p in _gestos:
+		if String(p.get("anim", "")) != "lanzar_humo":
+			continue
+		var nuevos: Array[float] = []
+		for ev in _cola:
+			if ev["ba"] == p["bloque"] and not bool(ev.get("solo_dibujo", false)):
+				nuevos.append(float(ev["t"]))
+		nuevos.sort()
+		if not nuevos.is_empty():
+			p["golpes"] = nuevos
+			p["sig"] = 0
+			p["tras_suelo"] = true
+			p["t_fin"] = maxf(float(p["t_fin"]), nuevos[nuevos.size() - 1] + T_ANIM_COLA)
+			_dur = maxf(_dur, float(p["t_fin"]) + T_PUM)
 	if not _suelo.is_empty():
 		_lanzar_suelo(maxf(t_golpe, 0.0) / maxf(escala_tiempo, 0.01))
 	# La accion se ha cerrado: la numeracion de tandas empieza de cero en la siguiente.
@@ -1687,6 +1713,10 @@ const ANIM_CUERPO_MAPA := {
 	# iba con sus tres barridos. La Sed de sangre no pega: su gesto sale del adorno sobre ti (fx_sobre_mi).
 	Estilo.HACHA_TAJO: "golpe_2m", Estilo.HENDEDURA: "hendedura_2m", Estilo.HACHAZO_BRUTAL: "hachazo_2m",
 	Estilo.CARNICERIA: "carniceria_2m", Estilo.DESGARRO: "gancho_2m", Estilo.SED_SANGRE: "mirada",
+	# LA DAGA (24/09). El tajo se REPITE en cada golpe (CombatTactico.gesto_en_mapa): la Rafaga da uno por
+	# puñalada. Las puñaladas de Desaparecer empiezan tirando la bomba (ver encolar: 'lanzar_humo').
+	Estilo.DAGA_CORTE: "tajo_daga", Estilo.DAGA_RAFAGA: "tajo_daga", Estilo.PUNALADA: "punalada_daga",
+	Estilo.IMBUIR_FILO: "afilar_veneno",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1699,7 +1729,13 @@ const IMPACTO_ANIM_MAPA := {
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
 	# carniceria 0,3x16/20 = acaba el primero; gancho 0,5x12/18 = engancha; mirada 0,3x12/12 = encorvado).
 	"hendedura_2m": 0.44, "hachazo_2m": 0.30, "carniceria_2m": 0.24, "gancho_2m": 0.33, "mirada": 0.30,
+	# La daga: tajo 0,45x6/24; estocada 0,5x8/22; bomba en el suelo 0,62x11/16; veneno 0,3x9/12.
+	"tajo_daga": 0.11, "tajo_daga_izq": 0.11, "tajo_daga_solo": 0.11, "punalada_daga": 0.18,
+	"punalada_daga_izq": 0.18, "lanzar_humo": 0.43, "afilar_veneno": 0.22,
 }
+# Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
+# que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
+const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo"}
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
 
@@ -1963,10 +1999,17 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 		# seis veces; sin esto atacaba una y se quedaba quieta mientras caian los otros cinco.
 		var golpes: Array = p.get("golpes", [])
 		var sig: int = int(p.get("sig", 0))
-		if sig < golpes.size() and _t >= float(golpes[sig]):
+		# EN EL MAPA el aviso de cada golpe sale lo que tarda el arma en tocar ANTES del golpe (la daga
+		# repite su tajo en cada puñalada: avisado en el golpe, el tajo llegaba tarde).
+		var adel: float = 0.0
+		if rect_en_mapa.is_valid() and sig > 0 or bool(p.get("tras_suelo", false)):
+			var a_sig: String = String(ANIM_SIGUIENTE_MAPA.get(String(p.get("anim", "")), p.get("anim", "")))
+			adel = float(IMPACTO_ANIM_MAPA.get(a_sig, 0.0))
+		if sig < golpes.size() and _t >= float(golpes[sig]) - adel:
 			p["sig"] = sig + 1
-			if sig > 0:   # el primero ya lo lanzo el arranque de arriba
-				var hueco: float = float(golpes[sig]) - float(golpes[sig - 1])
+			# El primero ya lo lanzo el arranque de arriba (salvo la bomba: su arranque fue tirarla).
+			if sig > 0 or bool(p.get("tras_suelo", false)):
+				var hueco: float = float(golpes[sig]) - float(golpes[sig - 1]) if sig > 0 else 0.3
 				_avisar_gesto(p, hueco)
 		if not bool(p["fin_lanzado"]) and _t >= t_fin:
 			p["fin_lanzado"] = true

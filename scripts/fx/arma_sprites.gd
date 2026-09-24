@@ -91,7 +91,12 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
 	"desenvainar_2m", "desenvainar_daga"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
-	"guardia_daga", "guardia_daga_and", "guardia_daga_cor"]
+	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
+	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
+	"afilar_veneno"]
+# En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
+# primero guarda una"). La de la derecha sigue en la mano.
+const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]
 const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor",
@@ -205,9 +210,11 @@ static func _parse(clave: String) -> Dictionary:
 	return {"tipo": s, "estado": estado, "mano": mano}
 
 
-static func _dibuja_en(anim: String, tipo: String, estado: String) -> bool:
+static func _dibuja_en(anim: String, tipo: String, estado: String, mano: int = 0) -> bool:
 	if HERRAMIENTA_ANIM.has(tipo):
 		return anim == String(HERRAMIENTA_ANIM[tipo])
+	if _ANIM_SOLO_DER.has(anim) and mano == 1:
+		return estado == "cadera"
 	if estado != "mano":
 		return _ANIM_ENVAINADA.has(anim) or PoseJugador.FAENAS.has(anim)
 	return (_ANIM_MANO_2H if tipo in DOS_MANOS else _ANIM_MANO_1H).has(anim)
@@ -236,7 +243,7 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	if g.is_empty():
 		return
 	var anim: String = String(esq.get("anim", ""))
-	if not _dibuja_en(anim, tipo, estado):
+	if not _dibuja_en(anim, tipo, estado, int(info["mano"])):
 		return
 
 	# 'sacando' (0..1): durante el gesto de desenvainar la capa envainada viaja de la vaina a la

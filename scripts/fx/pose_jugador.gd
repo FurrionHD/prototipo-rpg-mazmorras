@@ -308,6 +308,17 @@ const ANIMS := [
 	{"n": "guardia_daga_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_daga_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "desenvainar_daga", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# Sus golpes (24/09). 'tajo_daga' se REPITE en cada puñalada (Rafaga, basico), alternando manos con
+	# dos dagas; 'tajo_daga_solo' es el de Desaparecer, con la otra daga envainada; 'lanzar_humo' tira la
+	# bomba; 'punalada_daga' la estocada (Puñalada, Oportunista); 'afilar_veneno' el Filo emponzoñado.
+	# Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar una = retocar su impacto.
+	{"n": "tajo_daga", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "tajo_daga_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "tajo_daga_solo", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "punalada_daga", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 9, "ultimo": true},
+	{"n": "punalada_daga_izq", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 9, "ultimo": true},
+	{"n": "lanzar_humo", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "afilar_veneno", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -1017,6 +1028,13 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"guardia_daga_and": return _pose_guardia_daga_and(t)
 		"guardia_daga_cor": return _pose_guardia_daga_cor(t)
 		"desenvainar_daga": return _pose_desenvainar_daga(t)
+		"tajo_daga": return _pose_tajo_daga(t, false)
+		"tajo_daga_izq": return _pose_tajo_daga(t, true)
+		"tajo_daga_solo": return _pose_tajo_daga_solo(t)
+		"punalada_daga": return _pose_punalada_daga(t, false)
+		"punalada_daga_izq": return _pose_punalada_daga(t, true)
+		"lanzar_humo": return _pose_lanzar_humo(t)
+		"afilar_veneno": return _pose_afilar_veneno(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1572,6 +1590,114 @@ static func _pose_desenvainar_daga(t: float) -> Dictionary:
 		# En la cadera hasta que la mano llega (0,35); de ahi viaja al puño, ya al reves.
 		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ,
 		"sacando": -1.0 if t < 0.35 else clampf((t - 0.35) / 0.65, 0.0, 1.0)}
+
+
+# EL TAJO DE LA DAGA: corto, de revés, desde la guardia. Se arma cruzando el brazo hacia dentro (el
+# tronco se tuerce) y lo suelta de lado a lado con el cuerpo detras. Golpe en 0,45. Con la IZQUIERDA es
+# el espejo: el brazo recogido se estira al soltar (junta_izq baja) y el tronco va al otro lado.
+static func _pose_tajo_daga(t: float, izq: bool) -> Dictionary:
+	var g: Dictionary = _pose_guardia_daga(0.0)
+	var s: float = -1.0 if izq else 1.0
+	var tor_keys := [[0.0, 0.20], [0.3, 0.20 - 0.9 * s], [0.45, 0.20 + 0.25 * s], [0.62, 0.20 + 0.8 * s],
+		[1.0, 0.20]]
+	var brazo_keys := [[0.0, 1.30], [0.3, 1.05], [0.45, 1.55], [0.62, 1.45], [1.0, 1.30]]
+	var izq_keys := [[0.0, 0.85], [0.3, 0.70], [0.45, 1.50], [0.62, 1.40], [1.0, 0.85]]
+	var jun_keys := [[0.0, 0.75], [0.3, 0.85], [0.45, 0.25], [0.62, 0.30], [1.0, 0.75]]
+	var av_keys := [[0.0, 0.0], [0.3, -0.6], [0.45, 2.0], [0.62, 1.4], [1.0, 0.0]]
+	var incl_keys := [[0.0, 0.12], [0.3, 0.06], [0.45, 0.26], [1.0, 0.12]]
+	var p: Dictionary = g.duplicate()
+	p["torsion"] = SpriteLienzo.tramos(t, tor_keys)
+	p["avance"] = SpriteLienzo.tramos(t, av_keys)
+	p["inclina"] = SpriteLienzo.tramos(t, incl_keys)
+	p["bote"] = 0.0
+	if izq:
+		p["brazo_izq"] = SpriteLienzo.tramos(t, izq_keys)
+		p["junta_izq"] = SpriteLienzo.tramos(t, jun_keys)
+	else:
+		p["brazo_der"] = SpriteLienzo.tramos(t, brazo_keys)
+	return p
+
+
+# EL TAJO DE DESAPARECER: el mismo, pero la otra mano esta LIBRE (su daga, envainada: ver
+# ArmaSprites._ANIM_SOLO_DER) y cuelga suelta, agachado dentro del humo.
+static func _pose_tajo_daga_solo(t: float) -> Dictionary:
+	var p: Dictionary = _pose_tajo_daga(t, false)
+	p["brazo_izq"] = 0.25
+	p["junta_izq"] = 0.0
+	p["agacha"] = 0.34
+	return p
+
+
+# LA ESTOCADA: echa el brazo atras recogiendo la daga y la LANZA al frente con todo el cuerpo detras. La
+# hoja gira del agarre al reves a apuntar al frente justo al estirarse (una puñalada no se da de revés).
+# Golpe en 0,5, con el brazo estirado del todo.
+const DAGA_EJE_FRENTE_DER := Vector3(0.12, 1.0, 0.05)
+const DAGA_EJE_FRENTE_IZQ := Vector3(-0.12, 1.0, 0.05)
+
+static func _pose_punalada_daga(t: float, izq: bool) -> Dictionary:
+	var g: Dictionary = _pose_guardia_daga(0.0)
+	var s: float = -1.0 if izq else 1.0
+	var brazo_keys := [[0.0, 1.30], [0.35, 0.80], [0.5, 1.62], [0.7, 1.55], [1.0, 1.30]]
+	var izq_keys := [[0.0, 0.85], [0.35, 0.55], [0.5, 1.62], [0.7, 1.55], [1.0, 0.85]]
+	var jun_keys := [[0.0, 0.75], [0.35, 0.60], [0.5, 0.35], [0.7, 0.35], [1.0, 0.75]]
+	var av_keys := [[0.0, 0.0], [0.35, -1.6], [0.5, 4.2], [0.7, 3.6], [1.0, 0.0]]
+	var incl_keys := [[0.0, 0.12], [0.35, -0.02], [0.5, 0.38], [0.7, 0.32], [1.0, 0.12]]
+	var tor_keys := [[0.0, 0.20], [0.35, 0.20 - 0.5 * s], [0.5, 0.20 + 0.35 * s], [1.0, 0.20]]
+	# Cuanto apunta al frente la hoja: nada en la guardia, entera en la estocada.
+	var giro: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.35, 0.3], [0.45, 1.0], [0.72, 1.0], [1.0, 0.0]])
+	var p: Dictionary = g.duplicate()
+	p["avance"] = SpriteLienzo.tramos(t, av_keys)
+	p["inclina"] = SpriteLienzo.tramos(t, incl_keys)
+	p["torsion"] = SpriteLienzo.tramos(t, tor_keys)
+	p["bote"] = 0.0
+	if izq:
+		p["brazo_izq"] = SpriteLienzo.tramos(t, izq_keys)
+		p["junta_izq"] = SpriteLienzo.tramos(t, jun_keys)
+		p["eje_izq"] = DAGA_EJE_IZQ.lerp(DAGA_EJE_FRENTE_IZQ, giro)
+	else:
+		p["brazo_der"] = SpriteLienzo.tramos(t, brazo_keys)
+		p["eje_der"] = DAGA_EJE_DER.lerp(DAGA_EJE_FRENTE_DER, giro)
+	return p
+
+
+# LA BOMBA DE HUMO (Desaparecer): la izquierda va al cinto (con dos dagas, la suya se queda envainada:
+# ArmaSprites._ANIM_SOLO_DER), coge la bomba, la echa atras y la estrella contra el suelo a tus pies,
+# agachandose. El golpe (la bomba toca el suelo y revienta) en 0,62; de ahi se queda agachado, que es
+# cuando empiezan las puñaladas.
+static func _pose_lanzar_humo(t: float) -> Dictionary:
+	var g: Dictionary = _pose_guardia_daga(0.0)
+	var izq_keys := [[0.0, 0.85], [0.2, -0.05], [0.42, -0.75], [0.55, 0.55], [0.62, 0.95], [0.8, 0.5],
+		[1.0, 0.25]]
+	var jun_keys := [[0.0, 0.75], [0.2, 0.0], [1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.20], [0.42, 0.18], [0.62, 0.38], [1.0, 0.34]]
+	var incl_keys := [[0.0, 0.12], [0.42, 0.02], [0.62, 0.34], [1.0, 0.26]]
+	var tor_keys := [[0.0, 0.20], [0.42, 0.45], [0.62, -0.15], [1.0, 0.0]]
+	var p: Dictionary = g.duplicate()
+	p["brazo_izq"] = SpriteLienzo.tramos(t, izq_keys)
+	p["junta_izq"] = SpriteLienzo.tramos(t, jun_keys)
+	p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+	p["inclina"] = SpriteLienzo.tramos(t, incl_keys)
+	p["torsion"] = SpriteLienzo.tramos(t, tor_keys)
+	p["bote"] = 0.0
+	return p
+
+
+# EL FILO EMPONZOÑADO: sube la daga delante del pecho con la hoja cruzada y la otra mano pasa DOS veces
+# por el filo (el frasco). Sin golpe: el veneno sale en 0,3 (ver IMPACTO_ANIM_MAPA).
+static func _pose_afilar_veneno(t: float) -> Dictionary:
+	var g: Dictionary = _pose_guardia_daga(0.0)
+	var der_keys := [[0.0, 1.30], [0.2, 1.05], [0.85, 1.05], [1.0, 1.30]]
+	var pasa: float = sin(clampf((t - 0.2) / 0.65, 0.0, 1.0) * TAU * 2.0)
+	var p: Dictionary = g.duplicate()
+	p["brazo_der"] = SpriteLienzo.tramos(t, der_keys)
+	p["eje_der"] = DAGA_EJE_DER.lerp(Vector3(0.9, 0.35, 0.1), SpriteLienzo.tramos(t,
+		[[0.0, 0.0], [0.2, 1.0], [0.85, 1.0], [1.0, 0.0]]))
+	var dentro: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.2, 1.0], [0.85, 1.0], [1.0, 0.0]])
+	p["brazo_izq"] = lerpf(0.85, 1.0 + 0.18 * pasa, dentro)
+	p["junta_izq"] = lerpf(0.75, 0.95 - 0.25 * absf(pasa), dentro)
+	p["inclina"] = 0.16
+	p["bote"] = 0.0
+	return p
 
 
 # ENCAJAR UN GOLPE. Cuatro marcos, una direccion, y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto,

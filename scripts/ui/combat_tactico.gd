@@ -233,6 +233,24 @@ func desmontar() -> void:
 	_modos_guardados.clear()
 	_tirones.clear()
 	_quitar_circulo()
+	_sigilo_visible(true)
+
+
+# EL SIGILO SE VE (24/09, Desaparecer: "te quedas mas transparente para que se note"): los tuyos que lo
+# llevan, medio transparentes. 'quitar' los deja a todos enteros (al acabar la pelea).
+const ALFA_SIGILO := 0.45
+
+func _sigilo_visible(quitar: bool) -> void:
+	for al in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(al)
+		if cu == null:
+			continue
+		var m = cu.get("_muneco")
+		if not (m is CanvasItem):
+			continue
+		var a: float = 1.0 if quitar or not al.has_status(StatusEffects.Id.SIGILO) else ALFA_SIGILO
+		if not is_equal_approx((m as CanvasItem).modulate.a, a):
+			(m as CanvasItem).modulate.a = a
 
 
 # ------------------------------------------------------------
@@ -545,6 +563,7 @@ func radio_del_turno() -> float:
 func tick(delta: float) -> bool:
 	if is_instance_valid(_foco):
 		Game.camara_tactica_sigue(_foco.global_position)
+	_sigilo_visible(false)
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_tirones(delta)
@@ -1788,6 +1807,9 @@ func _tick_saltos(delta: float) -> void:
 # El MOLINETE no es una animacion sino un GIRO: la pose de espada extendida pasando por las ocho
 # direcciones, dos vueltas en el sentido de las agujas como su estela (BarridoAire.GIRO).
 const T_VUELTA_MOLINETE := 0.2    # = BarridoAire.T_ENTRE: una vuelta por golpe
+# Los gestos que se REPITEN en cada golpe, y su version con la mano izquierda (dos dagas).
+const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq"}
+var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 
 func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
@@ -1799,9 +1821,21 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 		return false
 	if anim == "":
 		anim = _pantalla.figuras._anim_golpe_de(c)
-	# UN GESTO POR ACCION: la pelea vuelve a avisar en cada impacto (uno por golpe y victima), y con su
-	# animacion entera ya cubriendo todos los golpes, reiniciarla la cortaba a medias.
-	if _gestos_mapa.has(cuerpo) and String(_gestos_mapa[cuerpo]["anim"]) == anim:
+	var en_curso: String = String(_gestos_mapa[cuerpo]["anim"]) if _gestos_mapa.has(cuerpo) else ""
+	# LA DAGA REPITE SU GESTO EN CADA GOLPE (24/09, lo pidio el jefe: "no ataca una vez por puñalada").
+	# Con dos dagas, alternando de mano. Y la bomba de Desaparecer: tras tirarla, cada aviso es una
+	# puñalada a una mano (su otra daga sigue envainada).
+	if anim == "lanzar_humo" and en_curso in ["lanzar_humo", "tajo_daga_solo"]:
+		anim = "tajo_daga_solo"
+	elif _REPITE_POR_GOLPE.has(anim):
+		if (m as MunecoJugador).lleva_arma_izq():
+			var izq: bool = bool(_mano_izq_toca.get(cuerpo, false))
+			_mano_izq_toca[cuerpo] = not izq
+			if izq:
+				anim = String(_REPITE_POR_GOLPE[anim])
+	# UN GESTO POR ACCION para el resto: la pelea vuelve a avisar en cada impacto (uno por golpe y
+	# victima), y con su animacion entera ya cubriendo todos los golpes, reiniciarla la cortaba a medias.
+	elif en_curso == anim:
 		return true
 	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
 	var escala: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
