@@ -86,7 +86,14 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 		var cb: Dictionary = Net.suelo._item_a_dict(it)
 		if not cb.is_empty():
 			carbonera.append(cb)
+	# SU INVENTARIO (lo no equipado, ver JugadorData.baul): cada pieza con su identidad entera.
+	var baul: Array = []
+	for it in jd.baul:
+		var e: Dictionary = Game.serializar_equipo(it as Resource)
+		if not e.is_empty():
+			baul.append(e)
 	return {
+		"baul": baul,
 		"id": jd.id, "nombre_visible": jd.nombre_visible,
 		"personajes": fichas, "equipo": huecos, "lider_pos": jd.lider_pos,
 		"dinero": jd.dinero, "materiales": bolsa, "crystals": cris,
@@ -173,6 +180,19 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 		if t is ToolData:
 			jd.set(String(par[1]), t)
 			jd.owned_tools.append(t)
+	# SU INVENTARIO, por el mismo 'registrar' que el resto: en el alta (mi _tu_jugador) pasa a mi baul;
+	# en la sala cada minuto (_mi_estado) solo se apunta a su nombre. Las mochilas y herramientas de
+	# repuesto van tambien a sus listas del JugadorData: _adoptar_jugador las ASIGNA y se perderian.
+	jd.baul = []
+	for e in d.get("baul", []):
+		var it4: Resource = Game.deserializar_equipo(e as Dictionary, registrar)
+		if it4 == null:
+			continue
+		jd.baul.append(it4)
+		if it4 is BackpackData:
+			jd.owned_mochilas.append(it4)
+		elif it4 is ToolData:
+			jd.owned_tools.append(it4)
 	jd.registro_pesca = (d.get("registro_pesca", {}) as Dictionary).duplicate(true)
 	jd.mezcla_exp = float(d.get("mezcla", 0.0))
 	jd.metalurgia_exp = float(d.get("metalurgia", 0.0))
@@ -596,6 +616,8 @@ func _olvidar_meta_de(jd) -> void:
 			for r in Net.peleas._RANURAS:
 				_olvidar_meta_item((pj as PersonajeData).get(r))
 	_olvidar_meta_item((jd as JugadorData).equipped_mochila)
+	for it in (jd as JugadorData).baul:
+		_olvidar_meta_item(it)
 	for t in [(jd as JugadorData).equipped_pico, (jd as JugadorData).equipped_hoz,
 			(jd as JugadorData).equipped_hacha, (jd as JugadorData).equipped_cana,
 			(jd as JugadorData).equipped_cuchillo, (jd as JugadorData).equipped_lampara]:

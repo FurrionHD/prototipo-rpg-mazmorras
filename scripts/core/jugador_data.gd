@@ -57,6 +57,12 @@ class_name JugadorData
 @export var equipped_cana: Resource = null
 @export var equipped_lampara: Resource = null
 @export var equipped_cuchillo: Resource = null
+# SU INVENTARIO: lo que tiene SIN EQUIPAR (armas, escudos, varitas, armaduras, y las mochilas y
+# herramientas de repuesto). Es SUYO, no del mundo (decision del usuario, 24/09/2026). Faltaba: con la
+# sala todos son clientes, y lo no equipado solo vivia en el PC de cada uno -- cada entrada al mundo
+# lo borraba (limpiar_mundo_heredado) y se perdia lo comprado, lo forjado y lo del debug.
+# Lo equipado NO va aqui: viaja en la ficha de cada personaje.
+@export var baul: Array = []
 # El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Es del jugador por el mismo
 # motivo que las herramientas: el record de la lubina de 61 cm lo sacaste TU, no el mundo.
 @export var registro_pesca: Dictionary = {}

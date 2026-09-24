@@ -2772,6 +2772,7 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_cana = equipped_cana
 	jd.equipped_lampara = equipped_lampara
 	jd.equipped_cuchillo = equipped_cuchillo
+	jd.baul = _baul_sin_equipar()
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = lider().mezcla_exp
 	jd.metalurgia_exp = 0.0   # fusionada en Herreria (ver _migrar_metalurgia): el campo solo se LEE
@@ -2787,6 +2788,23 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 		jd.pos = (player as Node2D).global_position
 	jd.fecha_visto = Time.get_datetime_string_from_system(false, true)
 	return jd
+
+
+# MI INVENTARIO: todo lo que tengo y NO lleva puesto nadie de mi grupo (ver JugadorData.baul). Lo
+# equipado viaja con cada personaje; si fuera tambien aqui, al volver llegaria dos veces.
+func _baul_sin_equipar() -> Array:
+	var puesto: Array = [mochila_equipo, equipped_pico, equipped_hoz, equipped_hacha, equipped_cana,
+		equipped_lampara, equipped_cuchillo]
+	for pj in plantilla:
+		if pj is PersonajeData:
+			for r in RANURAS_A_LA_VISTA:
+				puesto.append((pj as PersonajeData).get(r))
+	var out: Array = []
+	for lista in [owned_weapons, owned_armor, owned_mochilas, owned_tools]:
+		for it in lista:
+			if it != null and not puesto.has(it) and not out.has(it):
+				out.append(it)
+	return out
 
 
 # Al cargar: aparcar a los demas y quedarme con lo mio. Si en este mundo todavia no tengo personaje
@@ -2871,6 +2889,8 @@ func jugador_data_desde_ranura(slot: int) -> JugadorData:
 	jd.en_mazmorra = false
 	jd.current_floor = 1
 	jd.pos = Vector2.ZERO
+	# El baul de armas sueltas NO se muda (ver la cabecera): solo lo que llevan puesto.
+	jd.baul = []
 	print("[mudanza] empaquetado de la ranura %d: %s · %d personajes · %d materiales en la bolsa" % [
 		slot, jd.resumen(), jd.personajes.size(), jd.materiales.size()])
 	return jd
@@ -3045,6 +3065,19 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	equipped_cana = jd.equipped_cana as ToolData
 	equipped_lampara = jd.equipped_lampara as ToolData
 	equipped_cuchillo = jd.equipped_cuchillo as ToolData
+	# MI INVENTARIO (lo no equipado). Por red ya llega registrado (jd_de_dict con registrar=true); esto es
+	# para el que viene del disco. has() por referencia: lo ya registrado no se duplica.
+	for it in jd.baul:
+		if it is ArmorData:
+			add_owned_armor(it as ArmorData)
+		elif it is BackpackData:
+			if not owned_mochilas.has(it):
+				owned_mochilas.append(it as BackpackData)
+		elif it is ToolData:
+			if not owned_tools.has(it):
+				owned_tools.append(it as ToolData)
+		elif it is Resource:
+			add_owned_weapon(it)
 	# El libro del Pescador viaja CON LA PERSONA (como las herramientas): tus records son tuyos,
 	# no del mundo en el que los sacaste.
 	registro_pesca = (jd.registro_pesca as Dictionary).duplicate(true)
