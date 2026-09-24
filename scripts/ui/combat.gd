@@ -1511,12 +1511,17 @@ func _accion_atacar() -> void:
 	var estilo_bas: int = efectos._estilo_de_habilidad(null, _player)
 	# EN EL MAPA, el basico del MANDOBLE es un corte SOBRE el enemigo (BarridoAire.TAJO): va por el camino
 	# del suelo que se rompe (red, instante del golpe), y ese camino apaga su dibujo viejo.
-	var corte_mapa: bool = tactico and estilo_bas == CombatFX.Estilo.MANDOBLE_TAJO and not result.evaded
+	# Tambien si lo ESQUIVA: el corte sale al lado, al aire y tenue (con el dibujo viejo salia la raya de antes).
+	var corte_mapa: bool = tactico and estilo_bas == CombatFX.Estilo.MANDOBLE_TAJO
 	if corte_mapa:
-		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, turno_mapa.forma_corte(_player, obj), (randi() & 0x3FFFFFFF) | 1, 0.0)
+		var fc: CombatFormas.Forma = turno_mapa.forma_corte(_player, obj, bool(result.evaded))
+		print("[corte] basico de %s sobre %s en %s" % [_player.nombre, obj.nombre, str(fc.origen)])
+		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, fc, (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
+		if corte_mapa:
+			efectos.soltar_suelo()
 	else:
 		obj.take_damage(result.damage)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,

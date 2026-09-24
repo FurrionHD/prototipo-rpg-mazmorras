@@ -65,6 +65,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esp
 		else (T_TAJO if m == Modo.TAJO else 0.0))
 	b._ritmo = maxf(ritmo, 0.05)
 	b._t = antes - espera * b._ritmo
+	if m == Modo.TAJO:
+		print("[corte] lanzado: espera %.2f s, ritmo %.2f, padre %s" % [espera, b._ritmo, padre.name])
 	b.z_as_relative = false
 	b.z_index = SueloRoto.Z_SUELO
 	b.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -137,9 +139,13 @@ func _capa(z: int) -> Node2D:
 	return n
 
 
+var _dibujado: int = 0
+
 func _process(delta: float) -> void:
 	_t += delta * _ritmo
 	if _t >= duracion():
+		if modo == Modo.TAJO:
+			print("[corte] acabado: dibujado %d veces" % _dibujado)
 		queue_free()
 		return
 	queue_redraw()
@@ -468,11 +474,15 @@ func _punto_tajo(s: float, lado: float) -> Vector2:
 func _tajo_basico(capa: Node2D) -> void:
 	if capa != _delante:
 		return
+	_dibujado += 1
 	if _borde_a.is_empty():
 		_preparar_tajo()
 	var sale: float = clampf(_t / TAJO_SALE, 0.0, 1.0)
 	var apaga: float = clampf((_t - TAJO_SALE - 0.08) / T_APAGAR, 0.0, 1.0)
 	var alfa: float = 1.0 - apaga
+	# ESQUIVADO (apertura 1): el mismo corte, al aire y tenue.
+	if forma.apertura > 0.5:
+		alfa *= 0.45
 	if alfa <= 0.0:
 		return
 	var n: int = _borde_a.size() - 1

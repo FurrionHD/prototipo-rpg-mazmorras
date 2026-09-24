@@ -1086,6 +1086,17 @@ func _vigilar_alcance() -> void:
 	var ahora: Array = [_pantalla._target_idx, llega(_quien, _pantalla._objetivo()), llega_a_alguno(_quien)]
 	if ahora != _alcance_visto:
 		_alcance_visto = ahora
+		# TRAZA (24/09, "no me sale Esperar lejos de todos"): con quien cree que llega y a cuanto.
+		var cerca: float = INF
+		var quien_n: String = "-"
+		for e in _pantalla._vivos():
+			var h: float = hueco_entre(_quien, e)
+			if h < cerca:
+				cerca = h
+				quien_n = e.nombre
+		print("[alcance] %s: objetivo %d llega=%s a_alguno=%s | mas cerca %s a %.0f px (alcance %.0f) | boton visible=%s" % [
+			_quien.nombre if _quien != null else "?", int(ahora[0]), str(ahora[1]), str(ahora[2]), quien_n, cerca,
+			alcance_de(_quien), str(_pantalla._actions_box != null and _pantalla._actions_box.visible)])
 		if _pantalla._actions_box != null and _pantalla._actions_box.visible:
 			_pantalla._refresh_actions()
 
@@ -1542,13 +1553,16 @@ func _tick_gestos(delta: float) -> void:
 
 # EL CORTE DEL BASICO DEL MANDOBLE sobre 'obj' (BarridoAire.TAJO): centrado en su cuerpo tal como se ve,
 # de su tamaño (sin pasarse: "no tan grande") y en diagonal hacia abajo, hacia el lado al que golpeas.
-func forma_corte(a: Combatant, obj: Combatant) -> CombatFormas.Forma:
+# 'fallo' (esquivado): el corte pasa AL LADO, tenue. Viaja en la apertura (1 = fallo), que la red ya lleva.
+func forma_corte(a: Combatant, obj: Combatant, fallo: bool = false) -> CombatFormas.Forma:
 	var r: Rect2 = bulto_de(obj)
 	var centro: Vector2 = r.get_center() if r.has_area() else pos_de(obj)
 	var largo: float = clampf(r.size.y * 0.95, 18.0, 32.0) if r.has_area() else 26.0
 	var cu: Node2D = cuerpo_de(a)
 	var lado: float = -1.0 if cu != null and _mirada_de(cu).x < 0.0 else 1.0
-	return CombatFormas.cono(centro, Vector2(0.45 * lado, 1.0), largo, 0.0)
+	if fallo:
+		centro += Vector2(-lado * r.size.x * 0.75, 0.0) if r.has_area() else Vector2(-lado * 14.0, 0.0)
+	return CombatFormas.cono(centro, Vector2(0.45 * lado, 1.0), largo, 1.0 if fallo else 0.0)
 
 
 # El combatiente de uno de los cuerpos de los tuyos (null si no es de ninguno).
