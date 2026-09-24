@@ -22,11 +22,17 @@ func _ready() -> void:
 			continue
 		var s: SaveData = d
 		print("=== %s  (guardado %s) ===" % [ruta, s.fecha])
+		print("  RESUMEN mundo: %d jugadores, %d metas, %d armas, %d armaduras, %d en cofre, %d encargos, almacen %d, bote %d, dinero %d" % [
+			s.jugadores.size(), s.meta_items.size(), s.owned_weapons.size(), s.owned_armor.size(),
+			s.cofre_equipo.size(), s.encargos.size(), s.almacen_materiales.size(), s.bote_dinero, s.money])
 		# Un mundo compartido: un JugadorData por persona.
 		for k in s.jugadores:
 			var jd = s.jugadores[k]
 			if jd is JugadorData:
-				print("  JUGADOR %s  (id %s)" % [(jd as JugadorData).nombre_visible, String(k)])
+				var j: JugadorData = jd
+				print("  JUGADOR %s  (id %s)  %d personajes, dinero %d, %d materiales, %d cristales, lider %s" % [
+					j.nombre_visible, String(k), j.personajes.size(), j.dinero, j.materiales.size(),
+					j.crystals.size(), j.resumen()])
 				for pj in (jd as JugadorData).personajes:
 					_pj(pj)
 		# Una ranura suelta (o el lider de los campos planos de un mundo viejo).
