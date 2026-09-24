@@ -60,8 +60,8 @@ var _nombre: Label = null
 # Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira, deducido de su movimiento.
 var _muneco: MunecoJugador = null
 var _facing: Vector2 = Vector2.DOWN
-# Rastro de SU imbuicion (null = no lleva ninguna). Ver aplicar_imbue.
-var _fx_imbue: CPUParticles2D = null
+# SU imbuicion (ImbueVisual.codigo, 0 = ninguna). Se guarda por si llega antes que su muñeco.
+var _imbue_cod: int = 0
 # Su bocadillo mientras canta un hechizo en el mapa (null = no esta cantando). Ver cantar().
 const _GLOBO := preload("res://scripts/ui/globo_casteo.gd")
 var _globo: Node2D = null
@@ -125,6 +125,7 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 		_muneco = MunecoJugador.new()
 		add_child(_muneco)
 		_muneco.z_index = Game.Z_PERSONAJES   # por encima de lo del mundo (ver Game.Z_PERSONAJES)
+		_muneco.poner_imbue(_imbue_cod)   # la que llego por red antes que el muñeco
 	# UN PersonajeData DE USAR Y TIRAR, montado con lo que ha llegado por la red. De el no tenemos su
 	# ficha (ni falta: mandarla entera reenviaria su PNG de 128x128 cada vez que cambia de arma),
 	# pero el muñeco necesita una para saber que pelo y que ropa lleva. Sin esto se montaba con null
@@ -175,21 +176,12 @@ func aplicar_aspecto(color: Color, metal: float, nombre: String,
 # te tocas la cara, mientras que la imbuicion se gasta en cada combate. Meterla ahi habria reenviado
 # la imagen entera cada vez que a alguien se le acaban las cargas.
 #
-# Solo viaja el ID del elemento: el color lo saca cada maquina de Elementos.COLOR, asi que la paleta
-# no se puede desincronizar.
-func aplicar_imbue(elem: int) -> void:
-	if not Elementos.tiene_color(elem):
-		if _fx_imbue != null:
-			_fx_imbue.queue_free()
-			_fx_imbue = null
-		return
-	if _fx_imbue == null:
-		# Con el ALTO del cuerpo dibujado, no con el del ColorRect: el rastro tiene que subir por el
-		# personaje entero, y con 32 le llegaba por la cintura.
-		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0,
-			PoseJugador.ALTO_MUNDO)
-	else:
-		Particulas.repintar(_fx_imbue, Elementos.color(elem))
+# Solo viaja el CODIGO (ImbueVisual.codigo: elemento, Filo/Manto y estado): el color lo saca cada
+# maquina de sus tablas, asi que la paleta no se puede desincronizar.
+func aplicar_imbue(cod: int) -> void:
+	_imbue_cod = cod
+	if _muneco != null:
+		_muneco.poner_imbue(cod)
 
 
 # LO QUE ALUMBRA SU FAROLILLO, en celdas. Se guarda a pelo (no dibuja nada por si mismo): quien lo

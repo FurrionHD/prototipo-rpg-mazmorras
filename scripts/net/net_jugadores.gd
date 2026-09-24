@@ -275,10 +275,12 @@ func anunciar_imbue() -> void:
 
 
 func _mis_imbues() -> PackedInt32Array:
+	# El CODIGO de ImbueVisual, no solo el elemento: dice tambien si es Filo o Manto y lleva el Filo
+	# emponzoñado, que no tiene elemento. Sus bits bajos siguen siendo el elemento (ver ImbueVisual).
 	var out := PackedInt32Array()
-	out.append(Game.lider().imbue_elemento())
+	out.append(ImbueVisual.de_ficha(Game.lider()))
 	for pj in Game.companeros():
-		out.append(pj.imbue_elemento())
+		out.append(ImbueVisual.de_ficha(pj))
 	return out
 
 

@@ -153,6 +153,21 @@ func refrescar_barras_grupo() -> void:
 	var pl: Node = _jugador_local()
 	if pl != null:
 		pl.refrescar_barras()
+	pintar_imbuiciones()
+
+
+# LA IMBUICION DE CADA UNO DE LOS TUYOS, EN SU CUERPO (aura del Manto, efecto del Filo en el arma). En
+# pelea sale del COMBATIENTE: el Filo emponzoñado se pone a media pelea y las cargas se gastan golpe a
+# golpe, y la ficha no se entera hasta el cierre. Vale en el espejo (el maniqui trae sus campos).
+# 'soltar' devuelve cada muñeco a lo que diga su ficha (al acabar la pelea).
+func pintar_imbuiciones(soltar: bool = false) -> void:
+	for c in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(c)
+		if cu == null:
+			continue
+		var m = cu.get("_muneco")
+		if m is MunecoJugador:
+			(m as MunecoJugador).poner_imbue_pelea(-1 if soltar else ImbueVisual.de_combatiente(c))
 
 
 # El combatiente de uno de MIS personajes, para sus barras de arriba. En quien lleva la pelea sale de
@@ -262,6 +277,7 @@ func desmontar() -> void:
 	_tirones.clear()
 	_quitar_circulo()
 	_sigilo_visible(true)
+	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
 	if pl != null:
 		pl.usar_barras_de_pelea(Callable())

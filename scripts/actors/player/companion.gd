@@ -43,8 +43,6 @@ const RESCATE := 96.0
 var pj: PersonajeData = null
 
 var _cuerpo: ColorRect = null
-# Rastro de SU imbuicion (null = no lleva ninguna). Ver _pintar_imbue.
-var _fx_imbue: CPUParticles2D = null
 # Su cuerpo dibujado (ver muneco_jugador.gd) y hacia donde mira. El rastro no le dice a donde
 # mirar, solo a donde ir, asi que la mirada se deduce de por donde se esta moviendo.
 var _muneco: MunecoJugador = null
@@ -117,28 +115,17 @@ func pintar(nuevo: PersonajeData) -> void:
 	refrescar_imbue()
 
 
-# Cada companero lleva SU rastro, leido de SU ficha: los buffs se le echan a quien tu quieras, asi
+# Cada companero lleva SU imbuicion, leida de SU ficha: los buffs se le echan a quien tu quieras, asi
 # que el de atras puede ir imbuido en fuego y tu en nada. Mismo criterio que el lider, porque los
-# dos preguntan a la ficha (PersonajeData.imbue_elemento).
+# dos preguntan a la ficha (ImbueVisual.de_ficha).
 #
 # PUBLICA a proposito: pintar() solo se llama cuando el cuerpo cambia de dueño (ver
 # party_trail.refrescar), y la imbuicion cambia con la MISMA gente en la fila.
 func refrescar_imbue() -> void:
-	if pj == null:
+	if pj == null or _muneco == null:
 		return
-	var elem: int = pj.imbue_elemento()
-	if not Elementos.tiene_color(elem):
-		if _fx_imbue != null:
-			_fx_imbue.queue_free()
-			_fx_imbue = null
-		return
-	if _fx_imbue == null:
-		# El ALTO del cuerpo dibujado y no el del ColorRect (ver la misma nota en remote_player.gd):
-		# el rastro sube por el personaje entero, y con 32 se quedaba a media altura.
-		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0,
-			PoseJugador.ALTO_MUNDO)
-	else:
-		Particulas.repintar(_fx_imbue, Elementos.color(elem))
+	# Aura si es Manto, efecto en el arma si es Filo (ver ImbueVisual).
+	_muneco.poner_imbue(ImbueVisual.de_ficha(pj))
 
 
 # Avanza hacia el punto del rastro que le toca. La velocidad es "lo que falta / delta": asi

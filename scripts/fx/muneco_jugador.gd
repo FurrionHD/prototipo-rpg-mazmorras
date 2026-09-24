@@ -191,6 +191,7 @@ func montar(pj: PersonajeData) -> void:
 			_capas[i]["luz_ref"] = quiere[i].get("luz_ref", null)
 		_pintar_capas()
 		_reindexar_arma_mano()
+		# Las auras se quedan: las capas son las mismas nodos (ver poner_imbue).
 		return
 	for c in _capas:
 		c["nodo"].queue_free()
@@ -226,8 +227,129 @@ func montar(pj: PersonajeData) -> void:
 		_capas.append(cap)
 	_pintar_capas()
 	_reindexar_arma_mano()
+	_montar_auras()
 	if _anim != "":
 		_aplicar_anim(_anim, true)
+
+
+# ============================================================
+#  LA IMBUICION PUESTA (ver ImbueVisual y aura_imbue.gdshader)
+# ============================================================
+# 'cod' es ImbueVisual.codigo (0 = nada). Lo pide quien lleva el cuerpo: el jugador, cada compañero y
+# el avatar del otro humano (el suyo le llega por red), y en la pelea tactica el turno del mapa, que
+# lo lee del combatiente. Se puede llamar cada fotograma: si no cambia, no hace nada.
+#   MANTO  una copia de CADA capa por DETRAS de todo el cuerpo: asoma el aura de la silueta entera.
+#   FILO   una copia de las capas del ARMA ('arma_*', en mano o envainada) por ENCIMA del arma.
+const SHADER_AURA: Shader = preload("res://shaders/aura_imbue.gdshader")
+const AURA_CAPA := preload("res://scripts/fx/aura_capa.gd")
+var _imbue_cod: int = 0          # el que se pinta
+var _imbue_ficha: int = 0        # el que dice su ficha (lo pone su cuerpo)
+var _imbue_pelea: int = -1       # el de su combatiente, en la pelea tactica; -1 = no hay pelea
+var _mat_aura: ShaderMaterial = null
+var _mat_aura_plana: ShaderMaterial = null
+
+func poner_imbue(cod: int) -> void:
+	_imbue_ficha = cod
+	_aplicar_imbue()
+
+
+# EN PELEA MANDA EL COMBATIENTE: ahi es donde se pone (el Filo emponzoñado a media pelea) y se gasta la
+# imbuicion; la ficha no se entera hasta el cierre. -1 lo suelta y vuelve la de la ficha.
+func poner_imbue_pelea(cod: int) -> void:
+	_imbue_pelea = cod
+	_aplicar_imbue()
+
+
+func _aplicar_imbue() -> void:
+	var cod: int = _imbue_pelea if _imbue_pelea >= 0 else _imbue_ficha
+	if cod == _imbue_cod:
+		return
+	_imbue_cod = cod
+	_montar_auras()
+
+
+func _montar_auras() -> void:
+	for c in _capas:
+		var viejo = c.get("aura")
+		if viejo != null and is_instance_valid(viejo):
+			(viejo as Node).queue_free()
+		c.erase("aura")
+	if _imbue_cod == 0:
+		return
+	var cuerpo: bool = ImbueVisual.es_cuerpo(_imbue_cod)
+	# DOS materiales: el de las capas de EQUIPO (rampa de indices: el shader sabe que tono es la hoja y
+	# cual la sombra de suelo) y el de las que se tiñen (cuerpo, ropa, pelo). Compartidos por todas.
+	if _mat_aura == null:
+		_mat_aura = ShaderMaterial.new()
+		_mat_aura.shader = SHADER_AURA
+		_mat_aura.set_shader_parameter("indexada", true)
+		_mat_aura.set_shader_parameter("tonos", float(CapaJugador.RAMPA_TONOS))
+		_mat_aura_plana = ShaderMaterial.new()
+		_mat_aura_plana.shader = SHADER_AURA
+		_mat_aura_plana.set_shader_parameter("indexada", false)
+	var rampa: Array = ImbueVisual.rampa(_imbue_cod)
+	for m in [_mat_aura, _mat_aura_plana]:
+		(m as ShaderMaterial).set_shader_parameter("c_oscuro", rampa[0])
+		(m as ShaderMaterial).set_shader_parameter("c_base", rampa[1])
+		(m as ShaderMaterial).set_shader_parameter("c_claro", rampa[2])
+		(m as ShaderMaterial).set_shader_parameter("c_nucleo", rampa[3])
+		(m as ShaderMaterial).set_shader_parameter("modo", ImbueVisual.modo(_imbue_cod))
+		(m as ShaderMaterial).set_shader_parameter("filo", not cuerpo)
+	for c in _capas:
+		if not cuerpo and not String(c["clave"]).begins_with("arma_"):
+			continue
+		var s: AnimatedSprite2D = c["nodo"]
+		var a: Node2D = AURA_CAPA.new()
+		a.desfase = s.offset
+		a.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		# SU PROPIO material (copia del comun): cada copia le dice al shader donde acaba SU fotograma.
+		a.material = (_mat_aura if c.get("paleta") != null else _mat_aura_plana).duplicate()
+		a.z_as_relative = true
+		if cuerpo:
+			# Colgando del MUÑECO y no de la capa: su z se pone a mano por debajo de todas (ver _z_auras).
+			a.scale = s.scale
+			add_child(a)
+		else:
+			# Colgando del ARMA: hereda su escala y su sitio. Con z 0 (el MISMO que el arma) y no +1: como
+			# hija se pinta justo despues de ella, pero por debajo de lo que ya iba encima. Las capas se
+			# escalonan de 1 en 1 (ver _ordenar), y con +1 empataba con la MANO que agarra el arma y la
+			# tapaba (lo vio el usuario con el mandoble, 24/09).
+			a.z_index = 0
+			s.add_child(a)
+		c["aura"] = a
+	_sincronizar_auras()
+
+
+# La animacion, el fotograma y la visibilidad de cada aura, las de su capa.
+func _sincronizar_auras() -> void:
+	for c in _capas:
+		var a = c.get("aura")
+		if a == null or not is_instance_valid(a):
+			continue
+		var s: AnimatedSprite2D = c["nodo"]
+		var au: Node2D = a
+		au.visible = s.visible
+		if s.visible and s.sprite_frames != null and s.frame < s.sprite_frames.get_frame_count(s.animation):
+			au.poner(s.sprite_frames.get_frame_texture(s.animation, s.frame))
+	_z_auras()
+
+
+# EL AURA DEL MANTO, POR DETRAS DE TODO EL CUERPO: un pelo por debajo de la capa mas baja que se vea.
+# Las costuras entre capas (el borde de un brazo sobre el torso) quedan asi tapadas por el cuerpo y solo
+# asoma lo de fuera de la silueta. El orden de las capas cambia al girar y en los golpes, por eso se
+# repasa en cada fotograma escrito.
+func _z_auras() -> void:
+	if _imbue_cod == 0 or not ImbueVisual.es_cuerpo(_imbue_cod):
+		return
+	var zmin: int = 4096
+	for c in _capas:
+		var s: AnimatedSprite2D = c["nodo"]
+		if s.visible:
+			zmin = mini(zmin, s.z_index)
+	for c in _capas:
+		var a = c.get("aura")
+		if a != null and is_instance_valid(a):
+			(a as CanvasItem).z_index = maxi(-4096, zmin - 1)
 
 
 # LA HERRAMIENTA DE UNA FAENA (el pico al picar). {} la quita. Remonta con el mismo personaje: la
@@ -631,6 +753,9 @@ func _escribir(i: int) -> void:
 	# El arma en mano se reordena por fotograma DURANTE LOS GOLPES: el tajo la lleva de detras del
 	# cuerpo a delante y _ordenar (frame 0) la dejaba plantada detras todo el rato.
 	_reordenar_arma_mano(i)
+	# Las auras de la imbuicion, en el mismo fotograma (y detras de todo, con el orden de ahora).
+	if _imbue_cod != 0:
+		_sincronizar_auras()
 	# La cara va enganchada al MISMO contador que las capas, y no a un reloj suyo. Es el punto 1 de
 	# la cabecera de este archivo: dos relojes se separan, y aqui separarse significa que tu cara va
 	# un fotograma por detras de tu cabeza y flota al andar.

@@ -165,17 +165,13 @@ var _barras: Array = []
 # menus son muchos y cualquiera que se olvidara de llamar dejaria el sequito o las barras a medias.
 var _grupo_visto: Array = []
 
-# Alto del cuerpo DIBUJADO en px (ver PoseJugador.ALTO_MUNDO). Lo usa el rastro de la imbuicion para
-# saber hasta donde suben los cuadraditos: iba en 32 cuando el personaje era un ColorRect de 32x32, y
-# con el dibujo al doble el rastro le llegaba por la cintura.
+# Alto del cuerpo DIBUJADO en px (ver PoseJugador.ALTO_MUNDO).
 const LADO_CUERPO := 60.0
-# Emisor del rastro de imbuicion del LIDER (null = no lleva ninguna).
-var _fx_imbue: CPUParticles2D = null
-# Los elementos imbuidos de TODO el grupo, en orden, tal y como estaban en el ultimo repintado. Es
-# la firma que _comprobar_grupo compara cada frame.
+# Las imbuiciones de TODO el grupo (ImbueVisual.de_ficha), en orden, tal y como estaban en el ultimo
+# repintado. Es la firma que _comprobar_grupo compara cada frame.
 #
 # Va el grupo entero y no solo el lider a proposito: puedes echarle el manto a UN COMPANERO sin
-# tocarte a ti, y mirando solo tu elemento ese rastro no aparecia hasta que cambiaba otra cosa.
+# tocarte a ti, y mirando solo lo tuyo su aura no aparecia hasta que cambiaba otra cosa.
 var _imbue_visto: Array = []
 
 var _drink_was: bool = false   # antirebote de la tecla Q (beber pocion)
@@ -721,12 +717,12 @@ func refrescar_imbue() -> void:
 	Net.jugadores.anunciar_imbue()
 
 
-# Los elementos imbuidos del grupo, en orden. El criterio de "que cuenta como imbuido" vive en la
-# ficha (PersonajeData.imbue_elemento), que es quien tiene el dict.
+# Las imbuiciones del grupo, en orden. Por el CODIGO entero (ImbueVisual) y no solo el elemento: el
+# Filo emponzoñado no tiene elemento, y pasar de Filo a Manto del mismo elemento tambien se ve.
 func _firma_imbue() -> Array:
 	var out: Array = []
 	for pj in Game.party:
-		out.append(Elementos.Elemento.NINGUNO if pj == null else (pj as PersonajeData).imbue_elemento())
+		out.append(ImbueVisual.de_ficha(pj as PersonajeData))
 	return out
 
 
@@ -1045,27 +1041,15 @@ func _tick_arma(enemigo: Node, dist: float) -> void:
 		_desenvainado = false
 
 
-# RASTRO de la imbuicion: cuadraditos del color del elemento que suben y se quedan atras al andar.
-# Es informacion de juego, no adorno -- la imbuicion dura entre combates y se gasta por cargas, asi
-# que saber de un vistazo si la llevas puesta y de que elemento importa.
-#
-# El emisor se crea la primera vez y luego solo se repinta; si te quedas sin elemento se borra del
-# todo (dejarlo parado gastaria un nodo por cada personaje que alguna vez se imbuyo).
+# LA IMBUICION PUESTA, en el cuerpo: aura si es un Manto, el efecto en el arma si es un Filo (ver
+# ImbueVisual y MunecoJugador.poner_imbue). Es informacion de juego, no adorno -- la imbuicion dura
+# entre combates y se gasta por cargas, asi que saber de un vistazo si la llevas puesta importa.
 func _pintar_imbue() -> void:
 	# La firma se apunta AQUI (no en refrescar_grupo) porque este es el punto por el que pasan todos
 	# los repintados del cuerpo, vengan de donde vengan.
 	_imbue_visto = _firma_imbue()
-	var pj: PersonajeData = Game.lider()
-	var elem: int = Elementos.Elemento.NINGUNO if pj == null else pj.imbue_elemento()
-	if not Elementos.tiene_color(elem):
-		if _fx_imbue != null:
-			_fx_imbue.queue_free()
-			_fx_imbue = null
-		return
-	if _fx_imbue == null:
-		_fx_imbue = Particulas.ascendentes(self, Elementos.color(elem), 1.0, LADO_CUERPO)
-	else:
-		Particulas.repintar(_fx_imbue, Elementos.color(elem))
+	if _muneco != null:
+		_muneco.poner_imbue(ImbueVisual.de_ficha(Game.lider()))
 
 
 # True si estamos agotados (lo consulta el enemigo para atacar al instante).
