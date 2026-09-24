@@ -23,7 +23,8 @@ class_name SueloRoto
 #    CORTE        el Tajo del verdugo (24/09): una cuchilla de aire que corre por la linea. Vive en CorteAire.
 #    GIRO, SIEGA, GRITO   el Molinete, el Segar y el Grito de guerra (24/09): estelas y onda de aire.
 #                 Viven en BarridoAire (su Modo = tipo - GIRO).
-enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO }
+#    TAJO         el basico del mandoble (24/09): tambien en BarridoAire.
+enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO }
 
 const T_SALIR := 1.0      # lo que tarda el frente en llegar al borde
 const T_SALIR_ESTALLIDO := 0.4   # el estallido es un golpe seco: sus grietas corren mucho mas

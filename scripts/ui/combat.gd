@@ -1509,6 +1509,11 @@ func _accion_atacar() -> void:
 	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
 	# en dual cada golpe se ve con su arma sin tener que preguntarlo aqui.
 	var estilo_bas: int = efectos._estilo_de_habilidad(null, _player)
+	# EN EL MAPA, el basico del MANDOBLE es un corte SOBRE el enemigo (BarridoAire.TAJO): va por el camino
+	# del suelo que se rompe (red, instante del golpe), y ese camino apaga su dibujo viejo.
+	var corte_mapa: bool = tactico and estilo_bas == CombatFX.Estilo.MANDOBLE_TAJO and not result.evaded
+	if corte_mapa:
+		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, turno_mapa.forma_corte(_player, obj), (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
@@ -1521,6 +1526,8 @@ func _accion_atacar() -> void:
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			magia._gastar_amplificadores(obj, _player.imbue_elemento)
+		if corte_mapa:
+			efectos.soltar_suelo()
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:

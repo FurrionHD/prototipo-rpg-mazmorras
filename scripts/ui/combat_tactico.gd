@@ -1540,6 +1540,17 @@ func _tick_gestos(delta: float) -> void:
 			_animar(cuerpo, _mirada_de(cuerpo), false)
 
 
+# EL CORTE DEL BASICO DEL MANDOBLE sobre 'obj' (BarridoAire.TAJO): centrado en su cuerpo tal como se ve,
+# de su tamaño (sin pasarse: "no tan grande") y en diagonal hacia abajo, hacia el lado al que golpeas.
+func forma_corte(a: Combatant, obj: Combatant) -> CombatFormas.Forma:
+	var r: Rect2 = bulto_de(obj)
+	var centro: Vector2 = r.get_center() if r.has_area() else pos_de(obj)
+	var largo: float = clampf(r.size.y * 0.95, 18.0, 32.0) if r.has_area() else 26.0
+	var cu: Node2D = cuerpo_de(a)
+	var lado: float = -1.0 if cu != null and _mirada_de(cu).x < 0.0 else 1.0
+	return CombatFormas.cono(centro, Vector2(0.45 * lado, 1.0), largo, 0.0)
+
+
 # El combatiente de uno de los cuerpos de los tuyos (null si no es de ninguno).
 func _aliado_de_cuerpo(cuerpo: Node2D) -> Combatant:
 	for c in _pantalla._aliados:

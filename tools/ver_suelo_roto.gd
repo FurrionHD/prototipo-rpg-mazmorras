@@ -4,6 +4,7 @@
 extends Node2D
 
 const ZOOM := 2.3
+# SUELO_ZOOM=5 para mirar de cerca.
 const LADO := 470          # px de pantalla de cada viñeta
 const TIEMPOS := [0.18, 0.45, 0.95, 1.55, 2.0]
 
@@ -13,7 +14,8 @@ var _fondo_centro: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	_cam = Camera2D.new()
-	_cam.zoom = Vector2(ZOOM, ZOOM)
+	var z: float = float(OS.get_environment("SUELO_ZOOM")) if OS.get_environment("SUELO_ZOOM") != "" else ZOOM
+	_cam.zoom = Vector2(z, z)
 	add_child(_cam)
 	_cam.make_current()
 	call_deferred("_correr")
@@ -60,6 +62,7 @@ func _correr() -> void:
 		["onda", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.cono(yo, Vector2(1, -0.15), 120.0, 60.0), 0.0, yo + Vector2(55, -8), TIEMPOS],
 		["devastador", SueloRoto.Tipo.FRAGMENTOS, CombatFormas.linea(yo, Vector2(1, -0.15), 120.0, 28.0), 0.0, yo + Vector2(58, -9), TIEMPOS],
 		["verdugo", SueloRoto.Tipo.CORTE, _verdugo(yo), 0.0, yo + Vector2(70, -10), [0.08, 0.17, 0.27, 0.36, 0.8]],
+		["tajo", SueloRoto.Tipo.TAJO, CombatFormas.cono(Vector2(20, -33), Vector2(0.45, 1), 26.0, 0.0), 0.0, Vector2(20, -33), [0.02, 0.05, 0.12, 0.3, 0.5]],
 		["guerra", SueloRoto.Tipo.ESTALLIDO, CombatFormas.circulo(Vector2(20, -20), 45.0), 18.0, Vector2(20, -40), [0.04, 0.1, 0.25, 0.55, 0.95]],
 		["estela_e", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(1, -0.4), 30.0, 0.0), 0.0, yo + Vector2(10, -15), [0.07, 0.14, 0.2, 0.25, 0.4]],
 		["estela_s", SueloRoto.Tipo.ESTELA, CombatFormas.cono(yo, Vector2(0.2, 1), 30.0, 0.0), 0.0, yo + Vector2(0, -5), [0.07, 0.14, 0.2, 0.25, 0.4]],
@@ -79,6 +82,9 @@ func _correr() -> void:
 				s._geiser.queue_redraw()
 			if s.get("_aire") != null:
 				s._aire.queue_redraw()
+			for capa_n in ["_delante", "_atras"]:
+				if s.get(capa_n) != null:
+					(s.get(capa_n) as Node2D).queue_redraw()
 			s.queue_redraw()
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw

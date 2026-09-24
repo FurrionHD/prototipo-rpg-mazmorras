@@ -16,7 +16,10 @@
 extends Node2D
 class_name BarridoAire
 
-enum Modo { GIRO, SIEGA, GRITO }
+#    TAJO    el BASICO del mandoble (24/09): un corte en diagonal SOBRE el enemigo, como una pincelada.
+enum Modo { GIRO, SIEGA, GRITO, TAJO }
+
+const T_TAJO := 0.0           # el corte sale EN el golpe
 
 const T_ENTRE := 0.2         # entre golpe y golpe de la misma accion (CombatFX.T_ENCADENADO)
 const T_APAGAR := 0.25
@@ -58,7 +61,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esp
 	b.forma = f
 	b._rng.seed = semilla
 	# El Molinete da la vuelta ANTES de su golpe y el Segar barre antes del suyo: arrancan antes.
-	var antes: float = T_ENTRE if m == Modo.GIRO else (T_BARRIDO if m == Modo.SIEGA else 0.0)
+	var antes: float = T_ENTRE if m == Modo.GIRO else (T_BARRIDO if m == Modo.SIEGA
+		else (T_TAJO if m == Modo.TAJO else 0.0))
 	b._ritmo = maxf(ritmo, 0.05)
 	b._t = antes - espera * b._ritmo
 	b.z_as_relative = false
@@ -80,6 +84,7 @@ func duracion() -> float:
 	match modo:
 		Modo.GIRO: return 2.0 * T_ENTRE + T_APAGAR + 0.3
 		Modo.SIEGA: return T_BARRIDO + T_ENTRE + T_APAGAR + 0.3
+		Modo.TAJO: return T_TAJO + T_APAGAR + 0.35
 	return T_ONDA + 0.16 + 0.5
 
 
@@ -88,7 +93,9 @@ func _ready() -> void:
 	_dir = forma.dir.normalized() if forma.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	_atras = _capa(Game.Z_PERSONAJES - 1)
 	_delante = _capa(Game.Z_PERSONAJES + 80)
-	if modo != Modo.GRITO:
+	if modo == Modo.TAJO:
+		_centro = forma.origen
+	elif modo != Modo.GRITO:
 		var hasta: float = 2.0 * T_ENTRE if modo == Modo.GIRO else T_ENTRE + T_BARRIDO
 		for i in 22:
 			var t0: float = _rng.randf_range(0.0, hasta)
@@ -177,6 +184,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.GIRO: _giro(capa)
 		Modo.SIEGA: _siega(capa)
 		Modo.GRITO: _grito(capa)
+		Modo.TAJO: _tajo_basico(capa)
 
 
 func _es_mia(capa: Node2D, p: Vector2, alto: float) -> bool:
@@ -421,3 +429,81 @@ static func destello(ci: CanvasItem, c: Vector2, r: float, col: Color, giro: flo
 		ci.draw_primitive(PackedVector2Array([c + n, c + d * largo, c - n]),
 			PackedColorArray([col, transp, col]), PackedVector2Array())
 	brillo(ci, c, r * 0.28, Color(1, 1, 1, col.a))
+
+
+# ------------------------------------------------------------
+#  EL TAJO BASICO DEL MANDOBLE
+# ------------------------------------------------------------
+# UN CORTE SOBRE EL ENEMIGO (su referencia del 24/09: una pincelada de tinta): un solo trazo en diagonal,
+# afilado en las dos puntas y mas grueso en medio, un pelo curvado, con los bordes ROTOS (cada lado con su
+# ruido) y alguna mota suelta. Sin raya de contorno, y del tamaño del cuerpo, no mas ("no tan grande").
+# La forma: 'origen' = el centro del cuerpo golpeado, 'dir' = hacia donde baja el tajo, 'radio' = su largo.
+const TAJO_ANCHO := 1.35      # medio grosor en el centro: FINO, como su pincelada
+const TAJO_SALE := 0.05       # lo que tarda en abrirse de punta a punta
+
+var _borde_a: PackedFloat32Array = PackedFloat32Array()
+var _borde_b: PackedFloat32Array = PackedFloat32Array()
+var _motas_tajo: Array = []
+
+func _preparar_tajo() -> void:
+	for i in 25:
+		_borde_a.append(_rng.randf_range(0.75, 1.2))
+		_borde_b.append(_rng.randf_range(0.75, 1.2))
+	# Dos o tres "mordiscos" en un borde: la pincelada no es lisa.
+	for _k in 2:
+		var j: int = _rng.randi_range(4, 20)
+		_borde_a[j] *= 0.45
+	for _k in 4:
+		_motas_tajo.append({"s": _rng.randf_range(0.05, 0.95), "off": _rng.randf_range(-7.0, 7.0),
+			"tam": _rng.randf_range(0.8, 1.8)})
+
+
+func _punto_tajo(s: float, lado: float) -> Vector2:
+	var d: Vector2 = _dir
+	var nor: Vector2 = Vector2(-d.y, d.x)
+	var largo: float = forma.radio
+	return _centro + d * (s - 0.5) * largo + nor * (sin(PI * s) * largo * 0.07 + lado)
+
+
+func _tajo_basico(capa: Node2D) -> void:
+	if capa != _delante:
+		return
+	if _borde_a.is_empty():
+		_preparar_tajo()
+	var sale: float = clampf(_t / TAJO_SALE, 0.0, 1.0)
+	var apaga: float = clampf((_t - TAJO_SALE - 0.08) / T_APAGAR, 0.0, 1.0)
+	var alfa: float = 1.0 - apaga
+	if alfa <= 0.0:
+		return
+	var n: int = _borde_a.size() - 1
+	# Se abre de una punta a la otra, y al apagarse adelgaza.
+	var fino: float = 1.0 - 0.5 * apaga
+	for capa_i in 2:
+		# Primero un halo tenue algo mas ancho, luego el trazo blanco encima.
+		var ancho_k: float = 1.7 if capa_i == 0 else 1.0
+		var col: Color = Color(AIRE, 0.25 * alfa) if capa_i == 0 else Color(BLANCO, 0.95 * alfa)
+		for i in n:
+			var s0: float = float(i) / float(n)
+			var s1: float = float(i + 1) / float(n)
+			if s1 > sale:
+				break
+			var w0: float = TAJO_ANCHO * pow(sin(PI * s0), 1.3) * ancho_k * fino
+			var w1: float = TAJO_ANCHO * pow(sin(PI * s1), 1.3) * ancho_k * fino
+			var a0: Vector2 = _punto_tajo(s0, w0 * _borde_a[i])
+			var a1: Vector2 = _punto_tajo(s1, w1 * _borde_a[i + 1])
+			var b0: Vector2 = _punto_tajo(s0, -w0 * _borde_b[i])
+			var b1: Vector2 = _punto_tajo(s1, -w1 * _borde_b[i + 1])
+			var cols := PackedColorArray([col, col, col])
+			capa.draw_primitive(PackedVector2Array([a0, a1, b1]), cols, PackedVector2Array())
+			capa.draw_primitive(PackedVector2Array([a0, b1, b0]), cols, PackedVector2Array())
+	# Las motas que salta el corte.
+	for m in _motas_tajo:
+		if float(m["s"]) > sale:
+			continue
+		var p: Vector2 = _punto_tajo(float(m["s"]), float(m["off"]) * (1.0 + apaga))
+		var tam: float = float(m["tam"])
+		capa.draw_rect(Rect2(p - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(BLANCO, 0.8 * alfa))
+	# Un destello en el centro, en el instante del golpe.
+	var pulso: float = exp(-_t / 0.05)
+	if pulso > 0.05:
+		destello(capa, _centro, 4.0 + 7.0 * pulso, Color(BLANCO, 0.85 * pulso), 0.4)
