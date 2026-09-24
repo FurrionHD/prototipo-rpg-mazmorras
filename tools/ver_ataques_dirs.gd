@@ -16,8 +16,18 @@ const HABILIDADES := [
 	["hacha", "sed_de_sangre"],
 	["daga", "rafaga"], ["daga", "punalada"], ["daga", "filo_emponzonado"], ["daga", "desaparecer"],
 	["daga", "oportunista"],
+	["estoque", "estocada_penetrante"], ["estoque", "fintas"], ["estoque", "punzada_al_nervio"],
+	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"],
 ]
-const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0}
+const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25}
+# EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
+const MOMENTOS_ESTOQUE := {
+	"estocada_penetrante": [-0.03, 0.0, 0.03, 0.08, 0.2],
+	"fintas": [-0.1, -0.05, 0.0, 0.07, 0.14],
+	"punzada_al_nervio": [-0.03, 0.0, 0.05, 0.1, 0.2],
+	"paso_ligero": [0.05, 0.12, 0.2, 0.24, 0.38],
+	"danza_de_acero": [0.06, 0.16, 0.26, 0.36, 0.55],
+}
 # LA DAGA (DagaAire) pinta golpe a golpe sobre cada cuerpo: sus momentos van por habilidad.
 const MOMENTOS_DAGA := {
 	"rafaga": [-0.02, 0.03, 0.09, 0.16, 0.3],
@@ -122,7 +132,8 @@ func _correr() -> void:
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
 		var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
-		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" else MOMENTOS.get(ab.suelo_roto, [])
+		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
+			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" else MOMENTOS.get(ab.suelo_roto, []))
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -160,6 +171,9 @@ func _correr() -> void:
 				continue
 			if arma == "daga":
 				await _efecto_daga(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
+				continue
+			if arma == "estoque":
+				await _efecto_estoque(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			# 2) El efecto, en sus cinco momentos.
 			var f_suelo = f
@@ -271,6 +285,99 @@ func _efecto_daga(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiemp
 		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
 	for pz in piezas:
 		(pz["n"] as Node).queue_free()
+	_yo_fig.position = yo - Vector2(7, 26)
+	await get_tree().process_frame
+
+
+# EL ESTOQUE: como la daga, y el Paso ligero y la Danza MUEVEN la figura azul (con su rastro).
+func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiempos: Array, dir_n: String,
+		yo: Vector2) -> void:
+	var semilla: int = 700 + fila * 13
+	var alto := Vector2(0.0, -EstoqueAire.ALTO_TORSO)
+	var cajas: Array = []
+	for p in _enemigos:
+		var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+		if f.toca(r):
+			cajas.append(r)
+	cajas.sort_custom(func(a, b): return a.get_center().distance_squared_to(yo) < b.get_center().distance_squared_to(yo))
+	var piezas: Array = []   # {n, t0}
+	var camino: Array = []   # [de, a, dur] si la figura se mueve
+	match nom:
+		"estocada_penetrante":
+			for i in cajas.size():
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PENETRANTE, yo + alto, cajas[i], false,
+					i == 0, 0, semilla + i, 0.0, 1.0), "t0": 0.0})
+		"fintas":
+			var g: int = 2 + int(floor(0.7 * float(maxi(cajas.size(), 1) - 1)))
+			for i in g:
+				if cajas.is_empty():
+					break
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.FINTA, yo + alto, cajas[i % cajas.size()],
+					false, i == 1, i, semilla + i, 0.0, 1.0), "t0": 0.075 * float(i)})
+		"punzada_al_nervio":
+			if not cajas.is_empty():
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.NERVIO, yo + alto, cajas[0], false, false, 0,
+					semilla, 0.0, 1.0), "t0": 0.0})
+		"paso_ligero":
+			# Nadie a tiro al empezar (el anillo esta lejos): das el paso y le pegas al que quede a tiro.
+			var dest: Vector2 = f.centro
+			for p in _enemigos:
+				if dest.distance_to(p) < 22.0:
+					dest = p + (dest - p).normalized() * 22.0
+			camino = [yo, dest, 0.16]
+			piezas.append({"n": EstoqueAire.rastro(self, yo, dest, 0.16, semilla), "t0": 0.0})
+			var mejor: Rect2 = Rect2()
+			var d_mejor: float = INF
+			for p in _enemigos:
+				var r2 := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+				var cerca := Vector2(clampf(dest.x, r2.position.x, r2.end.x), clampf(dest.y, r2.position.y, r2.end.y))
+				var hueco: float = dest.distance_to(cerca) - PISA
+				if hueco <= ALCANCE["estoque"] and hueco < d_mejor:
+					d_mejor = hueco
+					mejor = r2
+			if mejor.has_area():
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PUNZADA, dest + alto, mejor, false, false, 0,
+					semilla, 0.0, 1.0), "t0": 0.2})
+		"danza_de_acero":
+			# Cruzas la linea entera (sin acabar encima de nadie) y cada estocada cae al pasar a su lado.
+			var fin: Vector2 = f.origen + f.dir * f.largo
+			for p in _enemigos:
+				if fin.distance_to(p) < 22.0:
+					fin = p - f.dir * 22.0
+			var dur: float = yo.distance_to(fin) / EstoqueAire.V_DANZA
+			camino = [yo, fin, dur]
+			piezas.append({"n": EstoqueAire.rastro(self, yo, fin, dur, semilla), "t0": 0.0})
+			var g2: int = 3 + int(floor(0.7 * float(maxi(cajas.size(), 1) - 1)))
+			for i in g2:
+				if cajas.is_empty():
+					break
+				var r3: Rect2 = cajas[mini(i * cajas.size() / g2, cajas.size() - 1)]
+				var cerca3 := Vector2(clampf(yo.x, r3.position.x, r3.end.x), clampf(yo.y, r3.position.y, r3.end.y))
+				var t0: float = yo.distance_to(cerca3) / EstoqueAire.V_DANZA + 0.05 * float(i % 2)
+				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.DANZA, ahi + alto - f.dir * 12.0, r3, false,
+					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).set_process(false)
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		for pz in piezas:
+			var n: Node2D = pz["n"]
+			if n == null:
+				continue
+			n.set("_t", t - float(pz["t0"]))
+			n.queue_redraw()
+			var su = n.get("_suelo")
+			if su is Node2D:
+				(su as Node2D).queue_redraw()
+		if not camino.is_empty():
+			var u: float = clampf(t / float(camino[2]), 0.0, 1.0)
+			_yo_fig.position = (camino[0] as Vector2).lerp(camino[1], u) - Vector2(7, 26)
+		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).queue_free()
 	_yo_fig.position = yo - Vector2(7, 26)
 	await get_tree().process_frame
 

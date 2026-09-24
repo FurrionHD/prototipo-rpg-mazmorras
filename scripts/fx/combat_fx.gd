@@ -68,6 +68,9 @@ signal impacto_visto(ev: Dictionary)
 # instante en que saldria su dibujo ('vuelo' antes del golpe, en tiempo de la pelea), y el combate del
 # mapa lo pinta sobre el cuerpo de verdad (CombatTactico._on_dibujo_mapa -> DagaAire). Tambien los esquivados.
 signal dibujo_en_mapa(ev: Dictionary, vuelo: float)
+# El suelo pedido de la accion acaba de salir; su frente arranca dentro de 'espera' segundos de verdad.
+# Lo oye el avance de la Danza de acero (SueloRoto.Tipo.DANZA) para ir al compas de sus golpes.
+signal suelo_lanzado(tipo: int, espera: float)
 
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
@@ -372,7 +375,10 @@ const FX_ARMA := {
 
 
 # Los que en el MAPA pintan su dibujo propio sobre el cuerpo (ver la señal dibujo_en_mapa): la daga.
-const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO]
+const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
+	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
+	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
+	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1433,6 +1439,7 @@ func _lanzar_suelo(espera: float) -> void:
 	# Los del aire (estelas del mandoble) van al ritmo de la pelea, como sus golpes y el muñeco.
 	BarridoAire.ritmo = escala_tiempo
 	SueloRoto.lanzar(s["padre"], s["forma"], int(s["tipo"]), int(s["semilla"]), float(s["nucleo"]), espera)
+	suelo_lanzado.emit(int(s["tipo"]), espera)
 
 
 # Apunta UN golpe. No lo reproduce todavia: la accion puede tener 8 y hasta que no estan todos

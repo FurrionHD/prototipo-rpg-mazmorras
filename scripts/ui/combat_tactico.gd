@@ -687,6 +687,8 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 		var fin: Vector2 = _sitio_libre_hacia(c, f.origen + f.dir * f.largo) \
 			+ Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 		f.largo = maxf(0.0, (fin - f.origen).dot(f.dir))
+		f.radio = f.largo   # lo que leen la red y el compas (SueloRoto)
+		f.centro = f.origen + f.dir * f.largo * 0.5
 	return f
 
 
@@ -1624,7 +1626,16 @@ func _on_impacto(ev: Dictionary) -> void:
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 
-# EL DIBUJO DE UN GOLPE DE DAGA, sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
+const _MODO_ESTOQUE := {
+	CombatFX.Estilo.ESTOQUE_PUNZADA: EstoqueAire.Modo.PUNZADA,
+	CombatFX.Estilo.PASO_LIGERO: EstoqueAire.Modo.PUNZADA,
+	CombatFX.Estilo.ESTOCADA_PENETRANTE: EstoqueAire.Modo.PENETRANTE,
+	CombatFX.Estilo.FINTAS: EstoqueAire.Modo.FINTA,
+	CombatFX.Estilo.PUNZADA_NERVIO: EstoqueAire.Modo.NERVIO,
+	CombatFX.Estilo.DANZA_ACERO: EstoqueAire.Modo.DANZA,
+}
+
+# EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -1639,6 +1650,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
+		return
+	# EL ESTOQUE: todo de punta (EstoqueAire), desde la altura del pecho del que pega.
+	if estilo in _MODO_ESTOQUE:
+		var caja_e: Rect2 = bulto_de(v)
+		var desde_e: Vector2 = pies_de(a) + Vector2(0.0, -EstoqueAire.ALTO_TORSO) \
+			if a != null and cuerpo_de(a) != null else caja_e.get_center() - Vector2(20.0, 0.0)
+		EstoqueAire.golpe(arena, int(_MODO_ESTOQUE[estilo]), desde_e, caja_e, bool(ev.get("evadido", false)),
+			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 		return
 	var modo: int = DagaAire.Modo.TAJO
 	if estilo == CombatFX.Estilo.DAGA_RAFAGA:
@@ -1836,7 +1855,7 @@ func _tick_saltos(delta: float) -> void:
 #   AVANCE  al empezar su gesto, y dura lo que sus golpes: cruzas la linea (Danza de acero)
 enum Desliz { ANTES, TRAS, YA, AVANCE }
 const T_PASO := 0.16           # lo que tarda el paso de lado, en tiempo de la pelea
-const T_AVANCE_GOLPE := 0.14   # lo que dura el avance por cada golpe que lleva
+# (el avance va a EstoqueAire.V_DANZA, el compas de sus golpes)
 var _deslices: Array = []   # {c, hasta (el nodo), modo, golpes, espera, tope, armado, t (-1 sin arrancar), desde}
 
 # EL PLAN DEL PASO LIGERO con las posiciones de ahora: {v: a quien pega (o null), hasta: el nodo, modo}.
@@ -1940,11 +1959,33 @@ func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName) -
 		return
 	var c: Combatant = _de_bloque(b)
 	for d in _deslices:
-		if d["c"] == c and not bool(d["armado"]):
+		# El avance no va con el gesto: va al compas de sus golpes (_on_suelo_lanzado).
+		if d["c"] == c and not bool(d["armado"]) and int(d["modo"]) != Desliz.AVANCE:
 			d["armado"] = true
 			d["espera"] = 0.0
 			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
 			return
+
+
+# EL COMPAS DE LA DANZA ha salido (SueloRoto.Tipo.DANZA): el avance arranca con su frente, a su velocidad.
+func _on_suelo_lanzado(tipo: int, espera: float) -> void:
+	if tipo != SueloRoto.Tipo.DANZA:
+		return
+	for d in _deslices:
+		if int(d["modo"]) == Desliz.AVANCE and not bool(d["armado"]):
+			d["armado"] = true
+			d["espera"] = 0.0
+			d["tope"] = espera
+			return
+
+
+# Lo que dura un desliz, en segundos de verdad. El avance, lo que tarda el compas de la Danza en
+# recorrerlo; el paso, al ritmo de los efectos (que ya lleva dentro la velocidad de la pelea).
+func _dur_desliz(d: Dictionary) -> float:
+	if int(d["modo"]) == Desliz.AVANCE:
+		return maxf(Vector2(d["desde"]).distance_to(Vector2(d["hasta"])) / EstoqueAire.V_DANZA, 0.05)
+	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	return T_PASO / maxf(ritmo, 0.05)
 
 
 func _tick_deslices(delta: float) -> void:
@@ -1960,10 +2001,13 @@ func _tick_deslices(delta: float) -> void:
 				continue
 			d["t"] = 0.0
 			d["desde"] = cuerpo.global_position
-		# Al ritmo de los efectos (que ya lleva dentro la velocidad de la pelea), como el muñeco.
-		var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
-		var dur: float = (T_AVANCE_GOLPE * float(d["golpes"]) if int(d["modo"]) == Desliz.AVANCE \
-			else T_PASO) / maxf(ritmo, 0.05)
+			# EL RASTRO (polvo y aire) se ve en todas las pantallas, lo mueva quien lo mueva.
+			var arena: ArenaCombate = _arena()
+			if arena != null:
+				var bajo := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+				EstoqueAire.rastro(arena, Vector2(d["desde"]) + bajo, Vector2(d["hasta"]) + bajo, _dur_desliz(d),
+					int(Vector2(d["hasta"]).x * 31.0) | 1)
+		var dur: float = _dur_desliz(d)
 		d["t"] = float(d["t"]) + delta
 		var u: float = clampf(float(d["t"]) / dur, 0.0, 1.0)
 		# El paso arranca rapido y frena; el avance va parejo, que es donde caen los golpes.

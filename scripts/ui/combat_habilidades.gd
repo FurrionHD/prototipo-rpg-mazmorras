@@ -532,7 +532,15 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 					# orden de reparto_mapa es el mismo en todas las maquinas.
 					if ab.forma_reparte:
 						var vivos_h: Array = reparto_mapa.filter(func(o): return (o["c"] as Combatant).is_alive())
-						de_este_golpe = [] if vivos_h.is_empty() else [vivos_h[i % vivos_h.size()]]
+						# EN EL AVANCE (Danza de acero) van EN ORDEN, los de cada uno seguidos: se los das
+						# al pasar a su lado, no volviendo atras. Del reparto ENTERO (no de los vivos), para
+						# que un muerto a mitad no cambie a quien le toca cada golpe de los que quedan.
+						if ab.avance:
+							var suyo: Dictionary = reparto_mapa[mini(i * reparto_mapa.size() / maxi(golpes, 1),
+								reparto_mapa.size() - 1)]
+							de_este_golpe = [suyo] if (suyo["c"] as Combatant).is_alive() else []
+						else:
+							de_este_golpe = [] if vivos_h.is_empty() else [vivos_h[i % vivos_h.size()]]
 					for o in de_este_golpe:
 						var tm: Combatant = o["c"]
 						if not tm.is_alive():
