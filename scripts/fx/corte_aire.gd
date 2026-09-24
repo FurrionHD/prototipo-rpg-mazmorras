@@ -22,8 +22,9 @@ const T_VIAJE := 0.38        # lo que tarda la cuchilla en llegar a la punta
 const T_QUIETO := 0.2        # la raja entera antes de irse
 const T_APAGAR := 0.7
 const K_ALTO := SueloRoto.K_ALTO
-const ALTO := 1.5            # alto de la cuchilla, en veces su medio ancho
-const COMBA := 0.45          # lo que se comba hacia delante, en veces su medio ancho
+const ALZADA := 5.0          # lo que va levantada del suelo (px de pantalla)
+const COMBA := 0.7           # lo que se comba hacia delante el filo, en veces su medio ancho
+const GROSOR := 0.5          # lo gruesa que es en el medio, en veces su medio ancho (en las puntas, nada)
 const BLANCO := Color(0.97, 0.98, 1.0)
 const AIRE := Color(0.72, 0.80, 0.92)
 const POLVO := SueloRoto.POLVO
@@ -131,16 +132,15 @@ func _alfa_suelo() -> float:
 	return 1.0 - clampf((_t - T_VIAJE - T_QUIETO) / T_APAGAR, 0.0, 1.0)
 
 
-# Un punto de la cuchilla puesta a 's' px: 'u' de lado a lado (-1..1), 'z' de su altura (0 suelo, 1
-# arriba). De pie y combada hacia delante: el medio va por delante y es lo mas alto.
+# Un punto de la cuchilla puesta a 's' px: 'u' de lado a lado (-1..1), 'z' de su grosor (0 el borde de
+# atras, 1 el FILO). Es una MEDIA LUNA TUMBADA con la curva hacia donde va, un poco levantada del suelo.
+# Antes iba DE PIE: desde la camara de arriba eso es un arco con la curva hacia ARRIBA, y lanzada al sur
+# la curva miraba hacia quien la lanza (el usuario, 24/09: "la zona curvada hacia donde va").
 func _en_cuchilla(s: float, u: float, z: float) -> Vector2:
 	var h: float = maxf(forma.ancho_en(s), 3.0) * 0.5 * 1.1
 	var hueco: float = 1.0 - u * u
-	# La comba hacia delante va sobre todo en el PIE y se pierde en parte al subir: entera tambien en el
-	# filo, lanzada al sur (la comba baja en pantalla y la altura sube) se comian una a otra y la lamina
-	# salia plana; sin nada arriba, de lado (al este) se quedaba en una raya.
-	var suelo: Vector2 = forma.origen + _dir * (s + h * COMBA * hueco * (1.0 - 0.6 * z)) + _nor * u * h
-	return suelo + Vector2(0.0, -z * h * ALTO * sqrt(hueco) * K_ALTO)
+	var adelante: float = h * COMBA * hueco - h * GROSOR * hueco * (1.0 - z)
+	return forma.origen + _dir * (s + adelante) + _nor * u * h + Vector2(0.0, -ALZADA)
 
 
 # ------------------------------------------------------------
@@ -231,30 +231,17 @@ func draw_line_aire(a: Vector2, b: Vector2, col: Color, w: float) -> void:
 # el nucleo blanco pegado al filo. 'esc' la encoge (la estela).
 func _cuchilla(s: float, col: Color, esc: float) -> void:
 	var n: int = 16
-	# LA LAMINA: aire de pie desde el suelo hasta el filo, casi transparente abajo y cada vez mas
-	# blanca hacia arriba. Es lo que se ve de frente o DE ESPALDAS (lanzada al sur la miras por
-	# detras): sin ella solo quedaban el borde de arriba y la raya del suelo, y parecia una jaula.
+	# Del borde de atras (casi transparente) al filo (blanco), en cuatro franjas.
 	var filas: Array = []
-	for z in [0.0, 0.35, 0.7, 1.0]:
+	for z in [0.0, 0.45, 0.8, 1.0]:
 		var fila := PackedVector2Array()
 		for i in n + 1:
 			fila.append(_en_cuchilla(s, lerpf(-1.0, 1.0, float(i) / float(n)) * esc, z))
 		filas.append(fila)
-	var alfas: Array = [0.06, 0.22, 0.42, 0.62]
+	var colores: Array = [Color(AIRE, col.a * 0.08), Color(AIRE, col.a * 0.4), Color(AIRE.lerp(BLANCO, 0.5), col.a * 0.7), col]
 	for k in filas.size() - 1:
-		_banda(filas[k + 1], filas[k], Color(AIRE, col.a * float(alfas[k + 1])), Color(AIRE, col.a * float(alfas[k])))
-	var filo: PackedVector2Array = filas[filas.size() - 1]
-	# EL GROSOR: el lomo va por detras y mas bajo. De lado (al este) es lo que dibuja la media luna.
-	var lomo := PackedVector2Array()
-	var nucleo := PackedVector2Array()
-	for i in n + 1:
-		var u: float = lerpf(-1.0, 1.0, float(i) / float(n)) * esc
-		lomo.append(_en_cuchilla(s - 13.0 * (1.0 - u * u), u, 0.4))
-		nucleo.append(_en_cuchilla(s, u, 0.8))
-	_banda(filo, lomo, Color(AIRE, col.a * 0.7), Color(AIRE, col.a * 0.25))
-	# El NUCLEO blanco pegado al filo, y el filo.
-	_banda(filo, nucleo, col, Color(col, col.a * 0.35))
-	_aire.draw_polyline(filo, Color(BLANCO, col.a), 2.4)
+		_banda(filas[k + 1], filas[k], colores[k + 1], colores[k])
+	_aire.draw_polyline(filas[filas.size() - 1], Color(BLANCO, col.a), 2.4)
 
 
 # Rellena la banda entre dos lineas del mismo largo, a triangulos (nunca falla aunque se cruce), con el
