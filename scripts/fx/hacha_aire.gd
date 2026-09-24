@@ -38,7 +38,9 @@ const T_SUELO := 0.55        # lo que se quedan las marcas del suelo antes de ir
 const T_SUELO_APAGAR := 0.5
 const COLA := deg_to_rad(95.0)   # la cola de la media luna: corta, es un hacha
 const ALTO_BRUTAL := 7.0
-const ALTO_OJOS := 38.0      # a que altura van los ojos del que mira (px de pantalla sobre los pies)
+# Los OJOS de la mirada van sobre los de verdad (MunecoJugador.ojos_en_mundo), en una capa por encima de
+# la cara (que va a Z_PERSONAJES + ~2045).
+const Z_OJOS := Game.Z_PERSONAJES + 2100
 
 const BLANCO := BarridoAire.BLANCO
 const ACERO := Color(0.80, 0.84, 0.90)
@@ -62,6 +64,8 @@ var _polvo: Array = []
 var _barridos: Array = []   # Carniceria: {alto, r, giro, abre, tajo_a, tajo_b}
 var _raja: PackedVector2Array = PackedVector2Array()
 var _piedras: Array = []
+var _capa_ojos: Node2D = null
+var _muneco: Node2D = null   # el de quien mira (MunecoJugador), para sus ojos
 
 
 # 'espera' = segundos hasta el PRIMER golpe.
@@ -134,6 +138,15 @@ func _ready() -> void:
 	_atras = _capa(Game.Z_PERSONAJES - 1)
 	_delante = _capa(Game.Z_PERSONAJES + 80)
 	var mitad: float = deg_to_rad(forma.apertura * 0.5)
+	if modo == Modo.MIRADA:
+		_capa_ojos = _capa(Z_OJOS)
+		# El muñeco de quien mira: el que tiene los pies donde sale la mirada.
+		var mejor: float = 40.0
+		for m in get_tree().get_nodes_in_group(&"munecos_jugador"):
+			var dist: float = (m as Node2D).global_position.distance_to(_centro)
+			if dist < mejor and m.has_method("ojos_en_mundo"):
+				mejor = dist
+				_muneco = m
 	match modo:
 		Modo.HACHAZO:
 			# Polvo que se levanta a lo largo del arco, cuando pasa el filo.
@@ -184,6 +197,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 	_atras.queue_redraw()
 	_delante.queue_redraw()
+	if _capa_ojos != null:
+		_capa_ojos.queue_redraw()
 
 
 # Lo que se va apagando del suelo pasados 't' segundos desde que se marco.
@@ -555,15 +570,24 @@ func _mirada(capa: Node2D) -> void:
 				continue
 			BarridoAire.brillo(capa, cuerpo, 18.0 + 16.0 * k, Color(SANGRE_VIVA, 0.75 * (1.0 - k)))
 		return
-	# Los OJOS: dos puntos rojos que se encienden y se van.
-	var ojos: Vector2 = _centro + Vector2(0.0, -ALTO_OJOS)
-	var ko: float = clampf(_t / 0.06, 0.0, 1.0) * (1.0 - clampf((_t - 0.35) / 0.2, 0.0, 1.0))
-	if ko > 0.0:
-		for lado in [-2.2, 2.2]:
-			BarridoAire.brillo(capa, ojos + Vector2(lado, 0.0), 3.5, Color(SANGRE_VIVA, 0.9 * ko))
-			BarridoAire.brillo(capa, ojos + Vector2(lado, 0.0), 1.2, Color(1.0, 0.75, 0.7, ko))
+	# Los OJOS: se encienden en rojo sobre los de verdad, en su propia capa por encima de la cara, mientras
+	# aguanta encorvado (la mirada sale en el golpe de su animacion, que es cuando ya esta encorvado). Los
+	# que no se le ven (de espaldas; de perfil solo uno) no brillan. Sin muñeco (una hoja de prueba), nada.
+	if capa == _capa_ojos:
+		if not is_instance_valid(_muneco):
+			return
+		var ko: float = clampf(_t / 0.06, 0.0, 1.0) * (1.0 - clampf((_t - 0.45) / 0.15, 0.0, 1.0))
+		if ko <= 0.0:
+			return
+		var ojos: Array = _muneco.call("ojos_en_mundo")
 		var destello_k: float = exp(-absf(_t - 0.06) / 0.05)
-		BarridoAire.destello(capa, ojos + Vector2(2.2, 0.0), 7.0 * destello_k, Color(1.0, 0.5, 0.45, destello_k * ko), 0.4)
+		for i in ojos.size():
+			var o: Vector2 = ojos[i]
+			BarridoAire.brillo(capa, o, 3.2, Color(SANGRE_VIVA, 0.85 * ko))
+			BarridoAire.brillo(capa, o, 1.1, Color(1.0, 0.75, 0.7, ko))
+			if i == 0:
+				BarridoAire.destello(capa, o, 7.0 * destello_k, Color(1.0, 0.5, 0.45, destello_k * ko), 0.4)
+		return
 	# LA PRESION: dos frentes rojos y tenues que se abren en el cono, difuminados (sin borde).
 	var mitad: float = deg_to_rad(forma.apertura * 0.5)
 	var a0: float = _dir.angle() - mitad

@@ -66,7 +66,10 @@ func _ready() -> void:
 	# Vestido se juzga con sus colores de verdad: el tinte de prueba lo dejaba todo de un color.
 	if args.size() <= 3:
 		Game.player_color = TINTE
-	if not Game.tiene_imagen_cuerpo():
+	# "sinfoto": con los ojos DIBUJADOS (CaraSprites) en vez de una foto, que los tapa.
+	if OS.get_cmdline_user_args().has("sinfoto"):
+		Game.set_imagen_cuerpo(PackedByteArray())
+	elif not Game.tiene_imagen_cuerpo():
 		Game.set_imagen_cuerpo(_cara_de_prueba())
 	if args.size() > 2:
 		_equipar_para_ver(String(args[2]))
@@ -97,11 +100,24 @@ func _ready() -> void:
 	var ancho: int = (dirs.size() if una_sola else cols) * LADO
 	var out := Image.create(ancho, maxi(1, filas) * LADO, false, Image.FORMAT_RGBA8)
 	out.fill(FONDO)
+	# "ojos" en los argumentos: un punto verde donde el muñeco dice que tiene los ojos (ojos_en_mundo, lo
+	# que usa la mirada de la Sed de sangre), para ver que caen sobre los de verdad.
+	var marcas: Node2D = null
+	if OS.get_cmdline_user_args().has("ojos"):
+		marcas = Node2D.new()
+		marcas.z_as_relative = false
+		marcas.z_index = 4000
+		add_child(marcas)
+		marcas.draw.connect(func():
+			for o in m.ojos_en_mundo():
+				marcas.draw_circle(marcas.to_local(o), 0.9, Color(0.2, 1.0, 0.3, 0.8)))
 	for i in dirs.size():
 		for f in cols:
 			var nom: String = "%s_%d" % [anim, int(dirs[i])]
 			m.animar(nom)
 			m.fijar(nom, f if not una_sola else 2)
+			if marcas != null:
+				marcas.queue_redraw()
 			# DOS frames de espera y no uno: el primero aplica el cambio de fotograma y el segundo es
 			# el que de verdad lo dibuja. Con uno solo, cada captura salia con la pose ANTERIOR.
 			await RenderingServer.frame_post_draw

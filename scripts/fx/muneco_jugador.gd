@@ -121,6 +121,41 @@ func _ready() -> void:
 	# se sumaria al del padre y dos personajes a distinta altura se apilarian mal entre ellos.
 	z_as_relative = false
 	set_process(true)
+	# Para quien tenga que encontrar el muñeco de un cuerpo desde fuera (la mirada de la Sed de sangre).
+	add_to_group(&"munecos_jugador")
+
+
+# DONDE TIENE LOS OJOS EN ESTE FOTOGRAMA, en coordenadas de MUNDO: los que se le ven (dos de frente y en
+# diagonal, uno de perfil, ninguno de espaldas). Salen de los MISMOS sitios con los que CaraSprites los
+# estampa (SITIOS, respecto al centro de la cabeza y reflejados al oeste), asi que siguen a la cabeza en
+# cualquier animacion. Con foto propia es el sitio de los ojos de la cara dibujada: la foto va encima.
+# Lo usa la mirada de la Sed de sangre (HachaAire) para encenderle los ojos.
+func ojos_en_mundo() -> Array:
+	var out: Array = []
+	if _anim == "":
+		return out
+	var d: int = _dir_de(_anim)
+	if d == 3 or d == 4 or d == 5:
+		return out
+	var esq: Dictionary = _esqueleto_de(_base_de(_anim), _marco_actual(), d)
+	var c: Vector2i = CaraSprites.centro_cabeza(esq)
+	var dm: int = {0: 0, 1: 1, 7: 1, 2: 2, 6: 2}.get(d, 0)
+	var signo: float = -1.0 if d == 6 or d == 7 else 1.0
+	var sitio: Dictionary = CaraSprites.SITIOS[dm]
+	var ojos: Array = []
+	if dm == 2:
+		# De perfil, uno: sus tres columnas de delante acaban en el borde medido.
+		ojos.append(Vector2(float(sitio["borde"]) - 1.0, float(sitio["ojo_y"])))
+	else:
+		var der: Vector2 = sitio["ojo"]
+		ojos.append(der)
+		ojos.append(sitio["ojo_atras"] if dm == 1 else Vector2(-der.x - 1.0, der.y))
+	var esc: float = PoseJugador.escala_sprite()
+	var off: Vector2 = PoseJugador.offset_sprite(1.0)
+	for o in ojos:
+		var en_lienzo := Vector2(float(c.x) + 0.5 + (o as Vector2).x * signo, float(c.y) + 0.5 + (o as Vector2).y)
+		out.append(to_global((en_lienzo + off) * esc))
+	return out
 
 
 # ============================================================
