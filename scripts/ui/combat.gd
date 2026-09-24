@@ -1515,7 +1515,6 @@ func _accion_atacar() -> void:
 	var corte_mapa: bool = tactico and estilo_bas == CombatFX.Estilo.MANDOBLE_TAJO
 	if corte_mapa:
 		var fc: CombatFormas.Forma = turno_mapa.forma_corte(_player, obj, bool(result.evaded))
-		print("[corte] basico de %s sobre %s en %s" % [_player.nombre, obj.nombre, str(fc.origen)])
 		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, fc, (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
