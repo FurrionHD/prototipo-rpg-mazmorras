@@ -10,19 +10,22 @@ prob = 1.0
 en_objetivo = false
 turns = 3
 
+[sub_resource type="Resource" id="SA_miedo"]
+script = ExtResource("2")
+estado = 19
+prob = 0.5
+
 [resource]
 script = ExtResource("1")
 nombre = "Sed de sangre"
 precio = 1200
 coste_energia = 50
 cooldown = 4
-golpes_min = 1
-golpes_max = 1
-dano_mult = 1.0
-fx_estilo = 75
+dano_mult = 0.0
 fx_sobre_mi = 80
-forma = 1
+forma = 2
 forma_apunte = 1
-forma_radio = 16.0
-descripcion = "Un hachazo normal, pero al notar que entra algo se te suelta por dentro y el siguiente sale más fuerte."
-efectos = [SubResource("SA_0")]
+forma_radio = 90.0
+forma_apertura = 70.0
+descripcion = "No levantas el hacha: miras. Se te suelta algo por dentro y el siguiente golpe sale más fuerte, y a quien pilles de frente le entran unas ganas enormes de estar en otra parte."
+efectos = [SubResource("SA_0"), SubResource("SA_miedo")]
