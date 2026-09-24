@@ -30,7 +30,10 @@ extends Node
 # y rehace el JugadorData del invitado desde este diccionario, asi que se lo borraba CADA MINUTO. Al
 # host no le pasaba porque el suyo no cruza el cable.
 const _PERMANENTES := ["es_original", "rol", "dueno", "pasivas_pendientes", "uid",
-	"gacha_pity", "gacha_n50", "gacha_n200", "gacha_total"]
+	"gacha_pity", "gacha_n50", "gacha_n200", "gacha_total",
+	# LOS OFICIOS DE CADA UNO (24/09/2026, lo cazo tools/prueba_viaja_todo): el JugadorData solo lleva
+	# los del LIDER, asi que los compañeros volvian a 0 de alquimia, herreria... en cada entrada al mundo.
+	"mezcla_exp", "metalurgia_exp", "peleteria_exp", "herreria_exp", "carpinteria_exp", "cocina_exp"]
 # Los campos de arriba que son diccionarios o arrays: se copian a fondo al entrar y al salir, o las
 # dos puntas acabarian escribiendo sobre el mismo objeto cuando el viaje no pasa por la red.
 const _PERMANENTES_HONDOS := ["gacha_pity", "pasivas_rng", "desarrollos_rango"]
@@ -94,6 +97,8 @@ func jd_a_dict(jd: JugadorData) -> Dictionary:
 			baul.append(e)
 	return {
 		"baul": baul,
+		"velocidad_combate": jd.velocidad_combate,
+		"gacha_historial": jd.gacha_historial.duplicate(true),
 		"id": jd.id, "nombre_visible": jd.nombre_visible,
 		"personajes": fichas, "equipo": huecos, "lider_pos": jd.lider_pos,
 		"dinero": jd.dinero, "materiales": bolsa, "crystals": cris,
@@ -193,6 +198,8 @@ func jd_de_dict(d: Dictionary, registrar := true) -> JugadorData:
 			jd.owned_mochilas.append(it4)
 		elif it4 is ToolData:
 			jd.owned_tools.append(it4)
+	jd.velocidad_combate = float(d.get("velocidad_combate", 1.0))
+	jd.gacha_historial = (d.get("gacha_historial", []) as Array).duplicate(true)
 	jd.registro_pesca = (d.get("registro_pesca", {}) as Dictionary).duplicate(true)
 	jd.mezcla_exp = float(d.get("mezcla", 0.0))
 	jd.metalurgia_exp = float(d.get("metalurgia", 0.0))

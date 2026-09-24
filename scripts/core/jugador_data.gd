@@ -63,6 +63,11 @@ class_name JugadorData
 # lo borraba (limpiar_mundo_heredado) y se perdia lo comprado, lo forjado y lo del debug.
 # Lo equipado NO va aqui: viaja en la ficha de cada personaje.
 @export var baul: Array = []
+# LO SUYO QUE NO ES DE NINGUN PERSONAJE (24/09, lo cazo la auditoria tools/prueba_viaja_todo): el x2 del
+# combate que eligio y su historial del gacha. Solo vivian en su PC y en un mundo compartido volvian a
+# cero en cada sesion.
+@export var velocidad_combate: float = 1.0
+@export var gacha_historial: Array = []
 # El LIBRO DEL PESCADOR: id del pez -> {capturas, cm_min, cm_max}. Es del jugador por el mismo
 # motivo que las herramientas: el record de la lubina de 61 cm lo sacaste TU, no el mundo.
 @export var registro_pesca: Dictionary = {}

@@ -2790,6 +2790,8 @@ func _mi_jugador_data(en_mazmorra: bool, player: Node) -> JugadorData:
 	jd.equipped_lampara = equipped_lampara
 	jd.equipped_cuchillo = equipped_cuchillo
 	jd.baul = _baul_sin_equipar()
+	jd.velocidad_combate = velocidad_combate
+	jd.gacha_historial = gacha_historial.duplicate(true)
 	jd.registro_pesca = registro_pesca.duplicate(true)
 	jd.mezcla_exp = lider().mezcla_exp
 	jd.metalurgia_exp = 0.0   # fusionada en Herreria (ver _migrar_metalurgia): el campo solo se LEE
@@ -3082,6 +3084,8 @@ func _adoptar_jugador(jd: JugadorData) -> void:
 	equipped_cana = jd.equipped_cana as ToolData
 	equipped_lampara = jd.equipped_lampara as ToolData
 	equipped_cuchillo = jd.equipped_cuchillo as ToolData
+	velocidad_combate = jd.velocidad_combate if jd.velocidad_combate > 0.0 else 1.0
+	gacha_historial = jd.gacha_historial.duplicate(true)
 	# MI INVENTARIO (lo no equipado). Por red ya llega registrado (jd_de_dict con registrar=true); esto es
 	# para el que viene del disco. has() por referencia: lo ya registrado no se duplica.
 	for it in jd.baul:
