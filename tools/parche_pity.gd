@@ -1,15 +1,18 @@
-# PARCHE DE PITY (24/09/2026, pedido por el jefe): a su hermano se le perdieron las tiradas del banner de
-# La hora del eclipse (id "ataque") de AGIRATO OCHINAN. Se le dejan los contadores como estaban en su PC:
-# mitico 120/200, legendario 20/100, epico 20/50, sin garantizados pendientes, y +110 al total.
+# PARCHE DE PITY (24/09/2026, pedido por el jefe): a Agirato ochinan se le perdieron tiradas del banner de
+# La hora del eclipse (id "ataque"). Se le dejan los contadores como estaban en su PC: mitico 120/200,
+# legendario 20/100, epico 20/50, sin garantizados pendientes, y +110 al total.
 #
-#   EN SECO (por defecto): lee la copia de este PC, enseña antes y despues y NO guarda ni sube nada.
-#   PARCHE_DE_VERDAD=1: abre el mundo por su camino normal (baja la nube y coge el cerrojo; si otro lo
-#   tiene abierto NO hace nada), guarda una copia de seguridad, cambia SOLO eso, guarda, sube y suelta.
-#     PARCHE_DE_VERDAD=1 godot --headless --path . res://tools/parche_pity.tscn
+# El mundo se abre DIRECTAMENTE contra la nube (Nube.abrir: baja el save y coge el cerrojo; si otro lo tiene
+# abierto, NO hace nada), sin apuntarlo en la lista de mundos de este PC. Antes de cambiar nada comprueba que
+# dentro estan los personajes que tienen que estar (PARCHE_DEBEN_ESTAR) y guarda una copia de seguridad.
+#   EN SECO (por defecto): abre, enseña antes y despues, y suelta el mundo SUBIENDO LOS MISMOS BYTES que bajo.
+#   PARCHE_DE_VERDAD=1: cambia SOLO eso, sube y suelta.
+#     PARCHE_MUNDO=<codigo> PARCHE_CONTRASENA=<contraseña> [PARCHE_DE_VERDAD=1]
+#       godot --headless --path . res://tools/parche_pity.tscn
 extends Node
 
-const CLAVE := "1db522c2d6f5a2af06928ebb"
-const UID := "8d3fc1465119c53128c69d18-118192909-6"   # Agirato ochinan
+const NOMBRE := "Agirato ochinan"
+const DEBEN_ESTAR := ["Daniel", "Agirato ochinan", "Eufrasio S. Loza"]
 const BANNER := &"ataque"                             # La hora del eclipse
 const CONTADORES := {3: 20, 4: 20, 5: 120}            # EPICO, LEGENDARIO, MITICO
 const SUMA_TOTAL := 110
@@ -19,77 +22,105 @@ func _ready() -> void:
 	call_deferred("_correr")
 
 
+func _salir(codigo: int) -> void:
+	get_tree().quit(codigo)
+
+
 func _correr() -> void:
 	var de_verdad: bool = OS.get_environment("PARCHE_DE_VERDAD") == "1"
-	var ruta: String = Mundos.ruta(CLAVE)
-	if de_verdad:
-		var e: Dictionary = Mundos.entrada(CLAVE)
-		var r: Dictionary = await Mundos.abrir(CLAVE, String(e.get("contrasena", "")))
-		if not bool(r.get("ok", false)) or String(r.get("resultado", "")) != "host":
-			print("[parche] NO se toca nada: el mundo no se ha podido abrir para mi (%s %s)" % [
-				String(r.get("resultado", "")), String(r.get("mensaje", ""))])
-			get_tree().quit(1)
-			return
-		print("[parche] mundo abierto con el cerrojo; copia de la nube en %s" % ruta)
-		DirAccess.make_dir_recursive_absolute("user://respaldos")
-		var respaldo: String = "user://respaldos/%s_antes_del_pity_%s.tres" % [CLAVE,
-			Time.get_datetime_string_from_system().replace(":", "-")]
-		var err_c: int = DirAccess.copy_absolute(ProjectSettings.globalize_path(ruta),
-			ProjectSettings.globalize_path(respaldo))
-		print("[parche] copia de seguridad: %s (%s)" % [ProjectSettings.globalize_path(respaldo),
-			"ok" if err_c == OK else "ERROR %d" % err_c])
-		if err_c != OK:
-			await Nube.cerrar(SaveIO.bytes_de_ruta(ruta), Mundos._meta_de(CLAVE))
-			print("[parche] sin copia de seguridad no se toca: cerrojo soltado sin cambios")
-			get_tree().quit(1)
-			return
+	var id: String = OS.get_environment("PARCHE_MUNDO")
+	var pw: String = OS.get_environment("PARCHE_CONTRASENA")
+	if id == "":
+		print("[parche] falta PARCHE_MUNDO")
+		_salir(1)
+		return
+	# PARCHE_COMO: presentarse ante la nube con OTRA identidad tuya (la del PC que juega ese mundo), solo en
+	# memoria (Identidad.id_cerrojo, lo que usa la sala): el fichero de identidad de este PC no se toca.
+	var como: String = OS.get_environment("PARCHE_COMO")
+	if como != "":
+		Identidad.id_cerrojo = como
+		print("[parche] me presento ante la nube como %s (solo en memoria)" % como)
+	var r: Dictionary = await Nube.abrir(id, pw, [])
+	if not bool(r.get("ok", false)) or String(r.get("resultado", "")) != "host":
+		print("[parche] NO se toca nada: la nube no me da el mundo (%s %s %s)" % [String(r.get("resultado", "")),
+			String(r.get("error", "")), String(r.get("mensaje", ""))])
+		_salir(1)
+		return
+	var bytes: PackedByteArray = r.get("save", PackedByteArray())
+	print("[parche] mundo %s abierto con el cerrojo (%d bytes)" % [id, bytes.size()])
+	DirAccess.make_dir_recursive_absolute("user://respaldos")
+	var sello: String = Time.get_datetime_string_from_system().replace(":", "-")
+	var respaldo: String = "user://respaldos/%s_antes_del_pity_%s.tres" % [id, sello]
+	var trabajo: String = "user://respaldos/%s_trabajo.tres" % id
+	if bytes.is_empty() or not SaveIO.escribir_bytes(respaldo, bytes) or not SaveIO.escribir_bytes(trabajo, bytes):
+		print("[parche] no se pudo guardar la copia de seguridad: se suelta SIN cambios")
+		await Nube.cerrar(bytes, {})
+		_salir(1)
+		return
+	print("[parche] copia de seguridad: %s" % ProjectSettings.globalize_path(respaldo))
 
-	var d = ResourceLoader.load(ruta, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var d = ResourceLoader.load(trabajo, "", ResourceLoader.CACHE_MODE_IGNORE)
 	if not (d is SaveData):
-		print("[parche] el mundo no se puede leer")
-		get_tree().quit(1)
+		print("[parche] el mundo no se puede leer: se suelta SIN cambios")
+		await Nube.cerrar(bytes, {})
+		_salir(1)
 		return
 	var s: SaveData = d
-	var hechos: Array = []   # los PersonajeData ya parcheados (dos jugadores pueden apuntar al MISMO)
+	# La cabecera de verdad (nombre, nivel, miembros...): soltar con {} borraria el resumen de "Mis mundos".
 	var todos: Array = []
 	for k in s.jugadores:
 		if s.jugadores[k] is JugadorData:
-			todos.append_array((s.jugadores[k] as JugadorData).personajes)
+			var j: JugadorData = s.jugadores[k]
+			var noms: Array = []
+			for pj in j.personajes:
+				if pj is PersonajeData:
+					noms.append((pj as PersonajeData).nombre)
+			print("  JUGADOR %s (id %s): %s" % [j.nombre_visible, String(k), ", ".join(noms)])
+			todos.append_array(j.personajes)
 	todos.append_array(s.plantilla)
+	var nombres: Array = []
 	for pj in todos:
-		if not (pj is PersonajeData) or String((pj as PersonajeData).uid) != UID or hechos.has(pj):
+		if pj is PersonajeData and not nombres.has((pj as PersonajeData).nombre):
+			nombres.append((pj as PersonajeData).nombre)
+	for n in DEBEN_ESTAR:
+		if not nombres.has(n):
+			print("[parche] NO esta '%s' en este mundo: no es el que buscamos. Se suelta SIN cambios" % n)
+			await Nube.cerrar(bytes, Mundos._cab_de(s))
+			_salir(1)
+			return
+
+	var hechos: Array = []
+	for pj in todos:
+		if not (pj is PersonajeData) or (pj as PersonajeData).nombre != NOMBRE or hechos.has(pj):
 			continue
 		var p: PersonajeData = pj
 		hechos.append(p)
-		print("  ANTES   %s  eclipse %s  total %d" % [p.nombre, str(p.gacha_pity.get(BANNER, {})), p.gacha_total])
+		print("  ANTES   %s (uid %s)  eclipse %s  total %d" % [p.nombre, String(p.uid),
+			str(p.gacha_pity.get(BANNER, {})), p.gacha_total])
 		var est: Dictionary = p.gacha_pity.get(BANNER, {})
 		est["n"] = CONTADORES.duplicate()
 		est["cola"] = []
 		p.gacha_pity[BANNER] = est
 		p.gacha_total += SUMA_TOTAL
-		print("  DESPUES %s  eclipse %s  total %d" % [p.nombre, str(p.gacha_pity.get(BANNER, {})), p.gacha_total])
-	if hechos.is_empty():
-		print("[parche] no esta Agirato (uid %s) en el mundo: no se toca nada" % UID)
-		if de_verdad:
-			await Nube.cerrar(SaveIO.bytes_de_ruta(ruta), Mundos._meta_de(CLAVE))
-		get_tree().quit(1)
-		return
-	if not de_verdad:
-		print("[parche] EN SECO: no se ha guardado ni subido nada (%d personaje(s) a cambiar)" % hechos.size())
-		get_tree().quit(0)
-		return
+		print("  DESPUES %s (uid %s)  eclipse %s  total %d" % [p.nombre, String(p.uid),
+			str(p.gacha_pity.get(BANNER, {})), p.gacha_total])
 
-	var err: int = ResourceSaver.save(s, ruta)
-	if err != OK:
-		print("[parche] no se pudo guardar (error %d): se suelta el cerrojo SIN cambios" % err)
-		get_tree().quit(1)
+	if not de_verdad:
+		await Nube.cerrar(bytes, Mundos._cab_de(s))
+		print("[parche] EN SECO: soltado con los MISMOS bytes que baje (%d personaje(s) a cambiar)" % hechos.size())
+		_salir(0)
 		return
-	var sube: Dictionary = await Nube.cerrar(SaveIO.bytes_de_ruta(ruta), Mundos._meta_de(CLAVE))
+	var err: int = ResourceSaver.save(s, trabajo)
+	if err != OK:
+		await Nube.cerrar(bytes, Mundos._cab_de(s))
+		print("[parche] no se pudo guardar (error %d): soltado SIN cambios" % err)
+		_salir(1)
+		return
+	var nuevos: PackedByteArray = SaveIO.bytes_de_ruta(trabajo)
+	var sube: Dictionary = await Nube.cerrar(nuevos, Mundos._cab_de(s))
 	if bool(sube.get("ok", false)):
-		Mundos._escribir_entrada(CLAVE, {"pendiente": false})
-		print("[parche] HECHO: guardado, subido a la nube y cerrojo soltado")
-		get_tree().quit(0)
+		print("[parche] HECHO: subido a la nube y cerrojo soltado (%d bytes)" % nuevos.size())
+		_salir(0)
 	else:
-		Mundos._escribir_entrada(CLAVE, {"pendiente": true})
-		print("[parche] guardado en este PC pero NO subido (%s): queda pendiente de subir" % String(sube.get("mensaje", "")))
-		get_tree().quit(1)
+		print("[parche] NO se subio (%s): el mundo queda como estaba en la nube" % String(sube.get("mensaje", "")))
+		_salir(1)
