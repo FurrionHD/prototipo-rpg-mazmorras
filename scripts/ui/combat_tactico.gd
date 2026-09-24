@@ -102,6 +102,10 @@ var _inicio: Vector2 = Vector2.ZERO   # donde estaba al empezar el turno: el cen
 var _radio: float = 0.0
 var _andando: bool = false
 
+# A QUIEN SIGUE LA CAMARA: el cuerpo del ultimo que ha tenido el turno (tuyo, de un compañero o de un
+# enemigo). Se queda en el mientras se resuelve la accion. Ver Game.camara_tactica_sigue.
+var _foco: Node2D = null
+
 # EL ACERCAMIENTO del enemigo.
 var _presa: Combatant = null
 var _t_acercar: float = 0.0
@@ -515,6 +519,7 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 		return
 	_quien = c
 	_cuerpo = cuerpo
+	_foco = cuerpo
 	_inicio = cuerpo.global_position
 	if radio >= 0.0:
 		_radio = radio
@@ -538,6 +543,8 @@ func radio_del_turno() -> float:
 # Cada fotograma, desde _process (tambien en el espejo). Devuelve true si el turno lo tiene ESTE tema
 # (un enemigo acercandose) y la pantalla no debe hacer nada mas este fotograma.
 func tick(delta: float) -> bool:
+	if is_instance_valid(_foco):
+		Game.camara_tactica_sigue(_foco.global_position)
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_tirones(delta)
@@ -1144,6 +1151,7 @@ func turno_enemigo(e: Combatant) -> void:
 		return
 	_quien = e
 	_cuerpo = cuerpo
+	_foco = cuerpo
 	_presa = presa
 	_inicio = cuerpo.global_position
 	_radio = radio
@@ -1368,6 +1376,10 @@ func aplicar_red(d: PackedFloat32Array) -> void:
 		arena.quitar_circulo()
 	else:
 		arena.poner_circulo(Vector2(d[1], d[2]), d[3], cod >= 100)
+		# La camara, con quien anda aunque lo mueva otra maquina.
+		var c_red: Combatant = _pantalla.espejo._de_codigo(cod)
+		if c_red != null and cuerpo_de(c_red) != null:
+			_foco = cuerpo_de(c_red)
 
 
 # EN EL ESPEJO, al contestar mi accion: donde he dejado a mi personaje. Viaja SELLADA con la accion

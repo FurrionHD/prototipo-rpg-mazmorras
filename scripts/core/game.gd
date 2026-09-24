@@ -1248,6 +1248,11 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 		var util_s: Rect2 = _rect_util_tactico()
 		var v_s: Vector2 = get_viewport().get_visible_rect().size
 		cam.offset = (v_s * 0.5 - util_s.get_center()) / maxf(cam.zoom.x, 0.01)
+		# SUELTA del jugador (top_level): no sigue a tu personaje sino AL QUE TIENE EL TURNO, que puede ser
+		# un compañero o un enemigo (ver camara_tactica_sigue). Empieza donde estaba.
+		var donde: Vector2 = cam.global_position
+		cam.top_level = true
+		cam.global_position = donde
 		# La pelea PAUSA el arbol, y una camara pausada no sigue a nadie (su suavizado corre en su proceso).
 		cam.process_mode = Node.PROCESS_MODE_ALWAYS
 		return
@@ -1271,6 +1276,17 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	cam.global_position = r.get_center() + desvio
 	cam.position_smoothing_enabled = false
 	cam.reset_smoothing()
+
+
+# LA CAMARA VA CON EL QUE TIENE EL TURNO (24/09, lo pidio el jefe: "tenia que estar sobre este y seguirle
+# a el"). Lo llama CombatTactico cada fotograma con el cuerpo que anda; el suavizado de la camara hace el
+# viaje de uno a otro al cambiar de turno.
+func camara_tactica_sigue(p: Vector2) -> void:
+	if CAMARA_FIJA_EN_PELEA:
+		return
+	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	if is_instance_valid(cam) and cam.top_level:
+		cam.global_position = p
 
 
 # QUITA DE EN MEDIO LO QUE NO PINTA NADA EN UNA PELEA, y lo devuelve al acabar.
