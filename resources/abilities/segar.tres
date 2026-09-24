@@ -19,6 +19,7 @@ golpes_max = 2
 dano_mult = 0.8
 fx_estilo = 66
 forma = 2
+suelo_roto = 6
 forma_apunte = 1
 forma_radio = 55.0
 forma_apertura = 140.0

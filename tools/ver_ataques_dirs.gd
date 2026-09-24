@@ -24,6 +24,9 @@ const MOMENTOS := {
 	2: [0.04, 0.1, 0.25, 0.55, 0.95],
 	3: [0.07, 0.14, 0.2, 0.25, 0.4],
 	4: [0.08, 0.17, 0.27, 0.36, 0.8],
+	5: [0.06, 0.13, 0.2, 0.3, 0.45],
+	6: [0.07, 0.14, 0.27, 0.34, 0.5],
+	7: [0.08, 0.18, 0.3, 0.45, 0.7],
 }
 const COLOR_HUELLA := Color(1.0, 0.72, 0.25)
 
@@ -127,7 +130,7 @@ func _correr() -> void:
 			s.set_process(false)
 			for col in tiempos.size():
 				s.set("_t", float(tiempos[col]))
-				for hijo in ["_geiser", "_aire"]:
+				for hijo in ["_geiser", "_aire", "_atras", "_delante"]:
 					if s.get(hijo) != null:
 						(s.get(hijo) as Node2D).queue_redraw()
 				s.queue_redraw()

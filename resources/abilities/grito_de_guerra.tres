@@ -17,6 +17,7 @@ cooldown = 5
 dano_mult = 0.3
 fx_estilo = 64
 forma = 2
+suelo_roto = 7
 forma_apunte = 1
 forma_radio = 140.0
 forma_apertura = 100.0

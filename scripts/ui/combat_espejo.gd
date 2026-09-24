@@ -1139,6 +1139,7 @@ static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 			f.ancho_fin = float(d[j + 14]) / 16.0
 		_:
 			f = CombatFormas.circulo(o, r)
+			f.dir = dir if dir.length_squared() > 0.0001 else Vector2.RIGHT
 	return [d[j + 1], f, d[j + 2], float(d[j + 4]) / 16.0]
 
 

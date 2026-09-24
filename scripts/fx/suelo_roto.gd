@@ -21,7 +21,9 @@ class_name SueloRoto
 #    ESTELA       el Rompecorazas: no rompe el suelo, es la estela dentada del arma al balancearla. Vive
 #                 en EstelaGolpe; va por aqui para compartir el camino (ficha, red, instante del golpe).
 #    CORTE        el Tajo del verdugo (24/09): una cuchilla de aire que corre por la linea. Vive en CorteAire.
-enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE }
+#    GIRO, SIEGA, GRITO   el Molinete, el Segar y el Grito de guerra (24/09): estelas y onda de aire.
+#                 Viven en BarridoAire (su Modo = tipo - GIRO).
+enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO }
 
 const T_SALIR := 1.0      # lo que tarda el frente en llegar al borde
 const T_SALIR_ESTALLIDO := 0.4   # el estallido es un golpe seco: sus grietas corren mucho mas
@@ -67,6 +69,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	if t == Tipo.CORTE:
 		return CorteAire.lanzar(padre, f, semilla, espera)
+	if t >= Tipo.GIRO:
+		return BarridoAire.lanzar(padre, f, t - Tipo.GIRO, semilla, espera)
 	var s := SueloRoto.new()
 	s.tipo = t
 	s.forma = f
@@ -87,6 +91,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
 	if t == Tipo.CORTE:
 		return CorteAire.retraso_px(p.distance_to(origen_de(f)), f.radio)
+	if t >= Tipo.GIRO:
+		return BarridoAire.retraso_px(t - Tipo.GIRO, p.distance_to(origen_de(f)), f.radio)
 	var u: float = clampf(p.distance_to(origen_de(f)) / f.radio, 0.0, 1.0)
 	# frente = 1 - (1 - s)^2  ->  s = 1 - sqrt(1 - u)
 	return t_salir_de(t) * (1.0 - sqrt(1.0 - u))
@@ -96,6 +102,10 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 static func t_salir_de(t: int) -> float:
 	if t == Tipo.CORTE:
 		return CorteAire.T_VIAJE
+	if t == Tipo.GRITO:
+		return BarridoAire.T_ONDA
+	if t >= Tipo.GIRO:
+		return BarridoAire.T_ENTRE * 2.0
 	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
 
 

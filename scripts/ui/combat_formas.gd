@@ -347,6 +347,14 @@ static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcan
 			centro = hacia
 	var r: float = ab.forma_radio if ab.forma_radio > 0.0 else R_BASE
 	var ap: float = ab.forma_apertura if ab.forma_apertura > 0.0 else APERTURA_BARRIDO
+	var f: Forma = _forma_mapa(ab, pies, dir, centro, r, ap)
+	# Hacia donde apuntas va SIEMPRE en la forma, tambien en el circulo: el Molinete empieza a girar desde ahi.
+	f.dir = _dir_segura(dir)
+	return f
+
+
+static func _forma_mapa(ab: AbilityData, pies: Vector2, dir: Vector2, centro: Vector2, r: float,
+		ap: float) -> Forma:
 	match int(ab.forma):
 		Tipo.CONO:
 			var c := cono(pies, dir, r, ap)
