@@ -834,7 +834,9 @@ func _rehacer_barras() -> void:
 			var toque: bool = (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
 				or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
 					and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
-			if toque and Game.cambiar_lider(i):
+			# EN PELEA NO: ahi mantenerla pulsada abre la ficha de detalle (combat_tactico.combatiente_en_pantalla),
+			# y en multi el arbol no se pausa, asi que el toque cambiaba de lider a media pelea.
+			if toque and not Game.hay_modal_de(Game.Modal.COMBATE) and Game.cambiar_lider(i):
 				refrescar_lider()
 		)
 		_barras_layer.add_child(raiz)
@@ -2203,6 +2205,32 @@ func _crear_label_barra(bar: ProgressBar, tam: int = 11) -> Label:
 	return l
 
 
+# EN LA PELEA TACTICA las barras de arriba leen del combatiente de cada uno (ver _refrescar_barras).
+# La pelea lo engancha al montarse y lo suelta (Callable vacio) al desmontarse, y las repinta ella
+# tras cada cambio: en solitario el arbol esta en pausa y este _process no corre.
+var _combatiente_de: Callable = Callable()
+
+func usar_barras_de_pelea(f: Callable) -> void:
+	_combatiente_de = f
+	_refrescar_barras()
+
+
+func refrescar_barras() -> void:
+	_refrescar_barras()
+
+
+# De quien es la columna de arriba bajo ese punto de la PANTALLA (null = de nadie). Por la transformada
+# con canvas: la capa de las barras va escalada (escala_fila) y su rect global no es el de pantalla.
+func pj_en_pantalla(pos: Vector2) -> PersonajeData:
+	for fila in _barras:
+		var raiz: Control = fila["raiz"]
+		if not is_instance_valid(raiz) or not raiz.is_visible_in_tree():
+			continue
+		if (raiz.get_global_transform_with_canvas() * Rect2(Vector2.ZERO, raiz.size)).has_point(pos):
+			return fila["pj"]
+	return null
+
+
 # Refresca TODAS las columnas (vida, aguante y mana de cada miembro del grupo). Se llama cada
 # frame. Sirve tanto explorando como con el inventario abierto (la vida sube con la cura de
 # pociones, el aguante se recupera con el tiempo...).
@@ -2215,23 +2243,30 @@ func _refrescar_barras() -> void:
 		_pj_actual.set_meta("sin_fuelle", _exhausted)
 	for fila in _barras:
 		var pj: PersonajeData = fila["pj"]
-		var maxhp_c: float = Game.player_max_hp(pj)
-		var hp_c: float = Game.player_hp(pj)
+		# EN PELEA, LO VIVO ESTA EN SU COMBATIENTE: la ficha solo se pone al dia al cerrar la pelea
+		# (Game.volcar_desgaste_en_ficha / _on_combat_finished). En el combate tactico estas son LAS
+		# barras de tu grupo (no hay tarjetas de aliados abajo), y leyendo la ficha se quedaban
+		# congeladas toda la pelea (lo vio el usuario el 24/09). La del medio es entonces la ENERGIA
+		# de combate, que nace del aguante y es la que gastan las habilidades. Quien es su combatiente
+		# lo dice la pelea (combat_tactico.combatiente_de_mi_pj): en el espejo no pasa por Game.
+		var c: Combatant = _combatiente_de.call(pj) if _combatiente_de.is_valid() else null
+		var maxhp_c: float = c.max_hp if c != null else Game.player_max_hp(pj)
+		var hp_c: float = c.current_hp if c != null else Game.player_hp(pj)
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
 		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c]
 		var en_bar: ProgressBar = fila["en"]
-		var maxen_c: float = _calc_max_aguante(pj)
-		var en_c: float = _aguante_de(pj)
+		var maxen_c: float = c.max_energy if c != null else _calc_max_aguante(pj)
+		var en_c: float = c.current_energy if c != null else _aguante_de(pj)
 		en_bar.max_value = maxf(1.0, maxen_c)
 		en_bar.value = en_c
 		# Rojiza cuando ese se ha quedado sin fuelle (el lider por _exhausted, via el meta de arriba).
-		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if bool(pj.get_meta("sin_fuelle", false)) \
+		en_bar.self_modulate = Color(1.0, 0.4, 0.4) if c == null and bool(pj.get_meta("sin_fuelle", false)) \
 			else Color(0.4, 1.0, 0.5)
 		(fila["en_lbl"] as Label).text = "%.0f/%.0f" % [en_c, maxen_c]
 		var mp_bar: ProgressBar = fila["mp"]
-		var maxmp_c: float = Game.player_max_mp(pj)
-		var mp_c: float = Game.player_mp(pj)
+		var maxmp_c: float = c.max_mp if c != null else Game.player_max_mp(pj)
+		var mp_c: float = c.current_mp if c != null else Game.player_mp(pj)
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
 		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]

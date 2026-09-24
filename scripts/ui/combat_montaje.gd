@@ -157,6 +157,11 @@ func _crear_timeline() -> void:
 	_pantalla._timeline.offset_left = Tactil.borde.x
 	_pantalla._timeline.offset_right = Tactil.borde.x + ANCHO_TIMELINE
 	_pantalla._timeline.offset_top = Tactil.borde.y
+	# EN EL MAPA arriba sigue la fila del grupo del HUD (sus barras son las tuyas), y la linea empezaba
+	# encima de la primera columna: el "ACCION" y el primer retrato tapaban su vida (captura del
+	# 24/09). Arranca debajo de la fila, en el mismo alto que el hueco del tablero.
+	if _pantalla.tactico:
+		_pantalla._timeline.offset_top = Game._rect_util_tactico().position.y
 	_pantalla._timeline.offset_bottom = -Tactil.borde.y
 	# Solo dibuja -> IGNORE (que no robe clics a lo que quede por encima).
 	_pantalla._timeline.mouse_filter = Control.MOUSE_FILTER_IGNORE

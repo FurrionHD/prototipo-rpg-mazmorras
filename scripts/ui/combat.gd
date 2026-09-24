@@ -127,6 +127,9 @@ const DEFEND_ENERGY_COST := 15.0
 # energia de verdad -> el ritmo es habilidad -> un par de basicos para recargar -> habilidad,
 # en vez de spamear habilidades. PROVISIONAL -> Excel.
 const ATTACK_ENERGY_REGEN := 28.0
+# PASAR el turno en el mapa tambien repone energia (lo pidio el usuario el 24/09), pero MENOS que
+# pegar: si repusiera lo mismo, quedarse quieto saldria gratis. Fraccion de lo que da tu basico.
+const PASAR_ENERGIA_FRAC := 0.5
 
 
 @onready var _log: RichTextLabel = $VBox/Log
@@ -863,6 +866,9 @@ func _update_hp() -> void:
 		b["nombre"].text = "%s%s" % [("▶ " if c == _player else ""), c.nombre]
 		if c.is_alive():
 			efectos._refrescar_chips(c, b, -1)
+	# EN EL MAPA estas tarjetas no se ven: las de tu grupo son las barras de ARRIBA, del jugador.
+	if tactico:
+		turno_mapa.refrescar_barras_grupo()
 # La tarjeta de un combatiente, sea de los tuyos o de enfrente. Vacia si no tiene (un invitado a
 # medio entrar, o alguien que ya no esta en la pelea).
 func _bloque_de(c: Combatant) -> Dictionary:
@@ -1266,10 +1272,8 @@ func _mostrar_acciones() -> void:
 func _ayuda_accion(id: int) -> String:
 	match id:
 		Action.ATTACK:
-			if _pasa_el_turno():
+			if _pasa_el_turno() and not tactico:
 				return "Estás enraizado y no llegas a golpear: cedes el turno. Los hechizos, Defender, los objetos y huir sí te quedan."
-			if _espera_en_vez_de_atacar():
-				return "No tienes a ningún enemigo a tu alcance: te quedas donde estás y cedes el turno. Acércate andando si quieres golpear."
 			return "Golpe básico con lo que lleves en las manos. No cuesta energía: la RECUPERA, así que es lo que te permite volver a lanzar habilidades."
 		Action.HABILIDAD:
 			return "Técnicas que te dan tus armas. Cuestan energía y tienen enfriamiento."
@@ -1280,6 +1284,8 @@ func _ayuda_accion(id: int) -> String:
 		Action.OBJETO:
 			return "Una poción, para ti o para quien elijas del grupo. Empieza a curar en este mismo turno, pero el resto llega poco a poco: te toca aguantar mientras hace efecto."
 		Action.FLEE:
+			if _huir_es_pasar():
+				return "Te quedas donde has andado y cedes el turno. Recuperas algo de energía, menos que atacando. Pegado al borde de la arena, este botón se convierte en Huir."
 			return "Abandonas el combate. Te llevas lo que ya tengas, pero el enemigo sigue vivo."
 	return ""
 
@@ -1298,9 +1304,12 @@ func _refresh_actions() -> void:
 	# de suelo; en cuanto se lo quitas, un personaje sin hechizos, sin objetos y sin energia se queda
 	# solo con Huir. Y es peor de lo que parece, porque la energia se recupera ATACANDO: enraizado te
 	# corta justo lo que necesitas para poder Defender, asi que no puedes ni salir del apuro solo.
+	# EN EL MAPA NO: ahi el sexto boton ya es "Pasar" siempre (ver _huir_es_pasar), asi que Atacar solo
+	# pega o se apaga. Que Atacar se convirtiera en ceder el turno hacia que lo perdieras sin querer.
 	if _action_buttons.has(Action.ATTACK):
-		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() \
-			else ("Esperar" if _espera_en_vez_de_atacar() else "Atacar")
+		_action_buttons[Action.ATTACK].text = "Pasar" if _pasa_el_turno() and not tactico else "Atacar"
+	if _action_buttons.has(Action.FLEE):
+		_action_buttons[Action.FLEE].text = "Pasar" if _huir_es_pasar() else "Huir"
 	if _boton_detalle != null and is_instance_valid(_boton_detalle):
 		_boton_detalle.disabled = not figuras._puedo_inspeccionar()
 
@@ -1314,7 +1323,11 @@ func _motivo_bloqueo(id: int) -> String:
 	# tengas una jugada.
 	if _player != null and _player.enraizado() and id == Action.HABILIDAD:
 		return "Estás enraizado (puedes lanzar hechizos)"
+	if id == Action.ATTACK and tactico and _pasa_el_turno():
+		return "Estás enraizado y no llegas a golpear"
 	if id == Action.ATTACK and _objetivo_fuera_de_alcance():
+		if not turno_mapa.llega_a_alguno(_player):
+			return "No tienes a ningún enemigo a tu alcance: acércate andando"
 		return "Fuera de alcance: acércate o elige a otro"
 	match id:
 		Action.MAGIC: return "No tienes hechizos equipados"
@@ -1332,28 +1345,27 @@ func _pasa_el_turno() -> bool:
 	return _player != null and _player.enraizado()
 
 
-# EN EL MAPA, ¿el boton de Atacar es ahora un "Esperar"? Lo es cuando no tienes a NADIE a tu alcance:
-# es el mismo suelo del menu que el "Pasar" del enraizado (sin el, un personaje sin energia ni
-# hechizos lejos de todos se quedaria sin ninguna jugada). Si alguno si esta a tiro pero no el que
-# tienes elegido, el boton no cambia: se apaga con "Fuera de alcance" y eliges al que llegas. Lo miran
-# los mismos tres que _pasa_el_turno: el rotulo, su tooltip y lo que hace al pulsarlo.
-func _espera_en_vez_de_atacar() -> bool:
-	return tactico and _player != null and not _pasa_el_turno() \
-		and not turno_mapa.llega_a_alguno(_player)
+# EN EL MAPA, ¿el sexto boton (el de Huir) es ahora un "Pasar"? Lo es salvo pegado al muro de la
+# arena, que es donde se huye. Es el SUELO del menu en el mapa: sin el, un personaje sin energia ni
+# hechizos lejos de todos se quedaria sin ninguna jugada. Antes hacia de suelo Atacar convertido en
+# "Esperar", y se perdian turnos sin querer (lo pidio cambiar el usuario el 24/09). Lo miran los
+# mismos tres que _pasa_el_turno: el rotulo, su tooltip y lo que hace al pulsarlo.
+func _huir_es_pasar() -> bool:
+	return tactico and _player != null and not turno_mapa.en_el_borde()
 
 
-# EN EL MAPA, ¿tu objetivo elegido esta fuera de tu alcance (y hay otro que no)?
+# EN EL MAPA, ¿tu objetivo elegido esta fuera de tu alcance? (con nadie a tiro, tambien)
 func _objetivo_fuera_de_alcance() -> bool:
-	return tactico and _player != null and not _pasa_el_turno() and not _espera_en_vez_de_atacar() \
+	return tactico and _player != null and not _pasa_el_turno() \
 		and not turno_mapa.llega(_player, _objetivo())
 
 
 func _accion_disponible(id: int) -> bool:
 	match id:
-		# SIEMPRE disponible, pase lo que pase: es el suelo del menu. Enraizado no lo desactiva, lo
-		# convierte en "Pasar" (ver _refresh_actions y _accion_atacar). En el mapa, lejos de todos, en
-		# "Esperar"; lo unico que lo apaga es tener elegido a uno al que no llegas habiendo otros a tiro.
-		Action.ATTACK: return not _objetivo_fuera_de_alcance()
+		# En la fila, SIEMPRE disponible: es el suelo del menu. Enraizado no lo desactiva, lo convierte
+		# en "Pasar" (ver _refresh_actions y _accion_atacar). En el mapa el suelo es el sexto boton
+		# (_huir_es_pasar), asi que Atacar se apaga enraizado o sin llegar a tu objetivo.
+		Action.ATTACK: return not _objetivo_fuera_de_alcance() and not (tactico and _pasa_el_turno())
 		Action.DEFEND: return _player.has_energy(DEFEND_ENERGY_COST)   # Defender cuesta energia
 		Action.FLEE: return true
 		# El SILENCIO corta las dos jugadas, no el turno: te quedan atacar, Defender, objeto y huir.
@@ -1399,12 +1411,14 @@ func _on_action(id: int) -> void:
 		return
 	match id:
 		Action.ATTACK:
-			if _espera_en_vez_de_atacar():
-				_accion_esperar()
-			elif not _objetivo_fuera_de_alcance():
+			if _accion_disponible(Action.ATTACK):
 				_accion_atacar()
 		Action.DEFEND: _accion_defender()
-		Action.FLEE: _accion_huir()
+		Action.FLEE:
+			if _huir_es_pasar():
+				_accion_esperar()
+			else:
+				_accion_huir()
 		Action.MAGIC: magia._accion_magia()
 		Action.HABILIDAD: habilidades._accion_habilidad()
 		Action.OBJETO: objetos._accion_objeto()
@@ -1587,14 +1601,17 @@ func _accion_atacar() -> void:
 	_tras_accion_jugador(obj)
 
 
-# EN EL MAPA, sin nadie a tu alcance: te quedas donde has andado y cedes el turno. Es un tipo de
-# accion PROPIO en la red ("esperar") y no un "atacar" que el anfitrion convierta: si lo decidiera el
-# con sus posiciones, dos pixeles de diferencia harian que tu pantalla dijera Esperar y la suya
-# golpeara. Lo que eliges es lo que viaja.
+# EN EL MAPA, PASAR: te quedas donde has andado y cedes el turno, recuperando algo de energia. Es un
+# tipo de accion PROPIO en la red ("esperar") y no un "atacar" o un "huir" que el anfitrion convierta:
+# si lo decidiera el con sus posiciones, dos pixeles de diferencia harian que tu pantalla dijera
+# Pasar y la suya huyera. Lo que eliges es lo que viaja.
 func _accion_esperar() -> void:
 	if espejo._enviar_si_espejo("esperar"):
 		return
-	_set_log("%s no tiene a nadie a su alcance y espera. ⏳" % _player.nombre)
+	var basico: float = _player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN
+	_player.regen_energy(basico * PASAR_ENERGIA_FRAC)
+	_set_log("%s pasa el turno y recupera el aliento. ⏳" % _player.nombre)
+	_update_hp()
 	_fin_de_eleccion()
 	_state = State.ADVANCING
 

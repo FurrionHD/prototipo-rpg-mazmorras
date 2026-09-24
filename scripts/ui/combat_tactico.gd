@@ -14,9 +14,10 @@
 #                    IA es de rayos, asi que un bicho atascado contra una pared colgaria la pelea -- y
 #                    en multi, a todos. Llegue o no, al acabar el tope actua desde donde este.
 #
-#  EL BORDE PROPONE HUIR. Acercarte al muro de la arena te pregunta si quieres irte; si dices que si,
-#  pasa por _accion_huir de siempre, con su tirada de Agilidad y su excelia. El boton "Huir" se
-#  esconde: esta ES la forma de huir en el mapa.
+#  EL BORDE CAMBIA "PASAR" POR "HUIR". El sexto boton de la barra (abajo a la derecha) cede el turno;
+#  pegado al muro de la arena se convierte en Huir, que va por _accion_huir de siempre, con su tirada
+#  de Agilidad y su excelia. Antes el muro sacaba una pregunta arriba del tablero: lejos de los botones
+#  y poco intuitiva (lo pidio cambiar el usuario el 24/09).
 #
 #  LA REGLA DE SIEMPRE: aqui no se resuelve daño. Si alguna vez hace falta un if de "tactico" dentro
 #  de una funcion que pega, la costura esta mal puesta.
@@ -119,8 +120,6 @@ var _pos: Dictionary = {}
 # Lo que se le cambio a cada nodo visual para que se animara con el arbol en pausa, para devolverlo.
 var _modos_guardados: Array = []
 
-var _pregunta: PanelContainer = null
-var _conectado_al_borde: bool = false
 
 
 # ------------------------------------------------------------
@@ -129,16 +128,45 @@ var _conectado_al_borde: bool = false
 
 # Se llama al acabar de montar la pantalla. Deja los cuerpos listos para andar.
 func montar() -> void:
-	# EL BOTON DE HUIR SE VA: en el mapa se huye acercandose al borde (decision del usuario).
-	var b: Button = _pantalla._action_buttons.get(_pantalla.Action.FLEE)
-	if is_instance_valid(b):
-		b.visible = false
+	# EL BOTON DE HUIR ES "PASAR" y se vuelve "Huir" pegado al borde (ver en_el_borde y
+	# combat._huir_es_pasar). Lo decide _refresh_actions, que ya se repinta al andar.
 	# LOS DIBUJOS SE ANIMAN AUNQUE EL ARBOL ESTE EN PAUSA. En solitario, abrir la pelea pausa el
 	# piso entero, y con el los sprites: un bicho que se acerca se deslizaria como una estatua. Se le
 	# da PROCESS_MODE_ALWAYS solo a lo que PINTA (el sprite, el muñeco), no al cuerpo: el cuerpo
 	# llevaria dentro su IA y su lectura del teclado, y eso tiene que seguir parado.
 	for c in _pantalla._aliados + _pantalla._enemies:
 		_preparar(c)
+	# LAS BARRAS DE ARRIBA pasan a leer la pelea (vida, energia de combate y mana en vivo).
+	var pl: Node = _jugador_local()
+	if pl != null:
+		pl.usar_barras_de_pelea(combatiente_de_mi_pj)
+
+
+func _jugador_local() -> Node:
+	var pl: Node = _pantalla.get_tree().get_first_node_in_group("player") if _pantalla.is_inside_tree() else null
+	return pl if pl != null and pl.has_method("usar_barras_de_pelea") else null
+
+
+# Lo llama combat._update_hp tras cada cambio de verdad: en solitario el arbol esta en pausa y el
+# jugador no repinta solo.
+func refrescar_barras_grupo() -> void:
+	var pl: Node = _jugador_local()
+	if pl != null:
+		pl.refrescar_barras()
+
+
+# El combatiente de uno de MIS personajes, para sus barras de arriba. En quien lleva la pelea sale de
+# Game; en el ESPEJO, del roster: la fila que es mia y lleva su mismo cuerpo (Game.indice_de_cuerpo).
+func combatiente_de_mi_pj(pj: PersonajeData) -> Combatant:
+	if not _pantalla._espejo:
+		return Game.combatant_de_pj(pj)
+	var k: int = Game.indice_de_cuerpo(pj)
+	var filas: Array = roster_red.get("aliados", [])
+	for i in mini(filas.size(), _pantalla._aliados.size()):
+		var d: Dictionary = filas[i]
+		if int(d.get("peer", -1)) == _mi_id() and int(d.get("cuerpo", -2)) == k:
+			return _pantalla._aliados[i]
+	return null
 
 
 # Deja listo el cuerpo de UN combatiente (su sitio y sus dibujos animandose en pausa). Vale tambien
@@ -234,6 +262,9 @@ func desmontar() -> void:
 	_tirones.clear()
 	_quitar_circulo()
 	_sigilo_visible(true)
+	var pl: Node = _jugador_local()
+	if pl != null:
+		pl.usar_barras_de_pelea(Callable())
 
 
 # EL SIGILO SE VE (24/09, Desaparecer: "te quedas mas transparente para que se note"): los tuyos que lo
@@ -460,6 +491,27 @@ func rect_pantalla_de_bloque(bloque: Dictionary) -> Rect2:
 	var r: Rect2 = bulto_de(c)
 	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
 	return Rect2(xf * r.position, r.size * xf.get_scale().abs())
+
+
+# QUIEN ESTA BAJO UN PUNTO DE LA PANTALLA, para el mantener pulsado que abre la ficha de detalle: su
+# cuerpo en el mapa (el bulto, el mismo que recibe los golpes) o, de los tuyos, su columna de ARRIBA
+# (las barras del grupo del HUD, que en el mapa son sus tarjetas). Solo los vivos, como en la fila.
+func combatiente_en_pantalla(pos: Vector2) -> Combatant:
+	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
+	for lista in [_pantalla._enemies, _pantalla._aliados]:
+		for c in lista:
+			if not (c as Combatant).is_alive() or cuerpo_de(c) == null:
+				continue
+			var r: Rect2 = bulto_de(c)
+			if Rect2(xf * r.position, r.size * xf.get_scale().abs()).has_point(pos):
+				return c
+	var pl: Node = _jugador_local()
+	if pl != null:
+		var pj: PersonajeData = pl.pj_en_pantalla(pos)
+		var c2: Combatant = combatiente_de_mi_pj(pj) if pj != null else null
+		if c2 != null and c2.is_alive():
+			return c2
+	return null
 
 
 # El hueco para GOLPEAR: de los pies de quien golpea (menos lo que pisa) al cuerpo de quien recibe.
@@ -1066,16 +1118,14 @@ func _tick_moviendo(delta: float) -> void:
 		_terminar()
 		return
 	var arena: ArenaCombate = _arena()
-	if arena != null:
-		_vigilar_borde(arena)
 	_vigilar_alcance()
 	# SE ANDA con la barra de acciones delante, en el menu de habilidades y APUNTANDO una: recolocarse
 	# mientras eliges como golpear es justo lo que hace falta (lo pidio el usuario: tener que volver
 	# atras del todo para dar dos pasos y volver a elegir la habilidad era un engorro). No en los
-	# demas submenus (hechizos, objetos) ni con la pregunta de huir delante.
+	# demas submenus (hechizos, objetos).
 	var en_menu: bool = (_pantalla._actions_box != null and _pantalla._actions_box.visible) \
 		or (_pantalla._ability_box != null and _pantalla._ability_box.visible) or _apuntando != null
-	var puede: bool = _radio > 0.0 and en_menu and not _preguntando()
+	var puede: bool = _radio > 0.0 and en_menu
 	var dir: Vector2 = Vector2.ZERO
 	if puede:
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -1107,12 +1157,14 @@ func _tick_moviendo(delta: float) -> void:
 
 
 # LOS BOTONES CAMBIAN SEGUN ANDAS: al entrar en el alcance de alguien, Atacar se enciende; al salir
-# de todos, pasa a Esperar. Solo se repintan cuando algo cambia (tambien si pulsas a otro enemigo),
-# no cada fotograma: _refresh_actions reescribe los tooltips de toda la barra.
+# de todos, se apaga. Pegado al muro, Pasar se vuelve Huir. Solo se repintan cuando algo cambia
+# (tambien si pulsas a otro enemigo), no cada fotograma: _refresh_actions reescribe los tooltips de
+# toda la barra.
 var _alcance_visto: Array = []
 
 func _vigilar_alcance() -> void:
-	var ahora: Array = [_pantalla._target_idx, llega(_quien, _pantalla._objetivo()), llega_a_alguno(_quien)]
+	var ahora: Array = [_pantalla._target_idx, llega(_quien, _pantalla._objetivo()), llega_a_alguno(_quien),
+		en_el_borde()]
 	if ahora != _alcance_visto:
 		_alcance_visto = ahora
 		if _pantalla._actions_box != null and _pantalla._actions_box.visible:
@@ -1272,80 +1324,16 @@ func _presa_de(e: Combatant) -> Combatant:
 
 
 # ------------------------------------------------------------
-#  EL BORDE: acercarse propone huir
+#  EL BORDE: Pasar se vuelve Huir
 # ------------------------------------------------------------
 
-func _vigilar_borde(arena: ArenaCombate) -> void:
-	if not _conectado_al_borde:
-		arena.borde_desde_dentro.connect(_on_borde)
-		_conectado_al_borde = true
-	# Solo vigila al que se mueve: a los demas no se les pregunta nada, estan quietos.
-	arena.en_pelea.assign([_cuerpo])
-	arena.vigilar([])
-
-
-func _on_borde(cuerpo: Node2D) -> void:
-	if _fase != Fase.MOVIENDO or cuerpo != _cuerpo or _preguntando():
-		return
-	# Solo si ha llegado ANDANDO: si su turno empieza ya pegado al borde, no se le pregunta nada
-	# hasta que se mueva. Si no, al que acaba de decir que no se le volveria a preguntar en su turno
-	# siguiente sin haber hecho nada.
-	if not _andando:
-		return
-	_preguntar_huir()
-
-
-func _preguntando() -> bool:
-	return is_instance_valid(_pregunta) and _pregunta.visible
-
-
-# LA PREGUNTA. UI provisional por codigo: el pase visual va al final, con todo lo demas.
-func _preguntar_huir() -> void:
-	if not is_instance_valid(_pregunta):
-		_pregunta = PanelContainer.new()
-		_pregunta.mouse_filter = Control.MOUSE_FILTER_STOP
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", 8)
-		_pregunta.add_child(vb)
-		var lbl := Label.new()
-		lbl.name = "Texto"
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vb.add_child(lbl)
-		var fila := HBoxContainer.new()
-		fila.alignment = BoxContainer.ALIGNMENT_CENTER
-		fila.add_theme_constant_override("separation", 12)
-		vb.add_child(fila)
-		var si := Button.new()
-		si.text = "Huir"
-		si.focus_mode = Control.FOCUS_NONE
-		si.pressed.connect(_responder_huir.bind(true))
-		fila.add_child(si)
-		var no := Button.new()
-		no.text = "Seguir peleando"
-		no.focus_mode = Control.FOCUS_NONE
-		no.pressed.connect(_responder_huir.bind(false))
-		fila.add_child(no)
-		_pantalla.add_child(_pregunta)
-	var texto: Label = _pregunta.find_child("Texto", true, false) as Label
-	if texto != null:
-		texto.text = "¿%s intenta huir de la pelea?" % _quien.nombre
-	_pregunta.visible = true
-	_pregunta.reset_size()
-	# Arriba y al centro del hueco del tablero: no tapa ni la barra de acciones ni al que pregunta.
-	var util: Rect2 = Game._rect_util_tactico()
-	_pregunta.position = Vector2(util.get_center().x - _pregunta.size.x * 0.5, util.position.y + 12.0)
-	if _andando:
-		_andando = false
-		_animar(_cuerpo, _mirada_de(_cuerpo), false)
-
-
-func _responder_huir(huir: bool) -> void:
-	if is_instance_valid(_pregunta):
-		_pregunta.visible = false
-	if not huir or _fase != Fase.MOVIENDO:
-		return
-	# Por la accion de siempre: su tirada de Agilidad, su excelia y, si falla, pierde el turno.
-	_pantalla._on_action(_pantalla.Action.FLEE)
+# ¿El que tiene el turno esta pegado al muro de la arena? Con el mismo margen con el que la arena da
+# por tocado su borde (ArenaCombate.MARGEN): el paso te deja a DENTRO_DEL_BORDE, por debajo.
+func en_el_borde() -> bool:
+	var arena: ArenaCombate = _arena()
+	if arena == null or not is_instance_valid(_cuerpo):
+		return false
+	return arena.distancia_al_borde(_cuerpo.global_position) <= ArenaCombate.MARGEN
 
 
 # ------------------------------------------------------------
@@ -1363,8 +1351,6 @@ func _terminar() -> void:
 	_dejar_de_apuntar()
 	_hay_apunte = false
 	_andando = false
-	if is_instance_valid(_pregunta):
-		_pregunta.visible = false
 	_quitar_circulo()
 
 

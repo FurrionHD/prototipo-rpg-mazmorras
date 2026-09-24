@@ -932,6 +932,10 @@ func _combatiente_bajo(pos_global: Vector2) -> Combatant:
 		if col != null and is_instance_valid(col) and col.visible \
 				and col.get_global_rect().has_point(pos_global):
 			return _pantalla._enemies[i]
+	# EN EL MAPA las columnas de los tuyos viven en una banda escondida (sus barras son las de arriba) y
+	# los cuerpos no son Controls: lo busca el turno del mapa, por cuerpo y por columna de arriba.
+	if _pantalla.tactico:
+		return _pantalla.turno_mapa.combatiente_en_pantalla(pos_global)
 	for i in _pantalla._bloques_aliados.size():
 		if i >= _pantalla._aliados.size() or not _pantalla._aliados[i].is_alive():
 			continue

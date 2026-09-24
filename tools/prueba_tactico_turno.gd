@@ -101,7 +101,7 @@ func _probar_turnos() -> void:
 	for i in pelea._enemies.size():
 		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(300, i * 40))
 	t.montar()
-	_afirmar(not pelea._action_buttons[pelea.Action.FLEE].visible, "el boton de Huir tendria que irse en el mapa")
+	_afirmar(pelea._action_buttons[pelea.Action.FLEE].visible, "el boton de Pasar/Huir tendria que verse en el mapa")
 
 	# --- TU TURNO ---
 	var yo: Combatant = pelea._aliados[0]
@@ -286,14 +286,22 @@ func _probar_alcance() -> void:
 	pelea._target_idx = pelea._enemies.find(cerca)
 	pelea._refresh_actions()
 	_afirmar(not b.disabled, "con el objetivo a tiro, Atacar sigue apagado")
-	# Lejos de todos: Esperar, encendido, y pulsarlo cede el turno sin pegar.
+	# Lejos de todos: Atacar se APAGA (ya no se vuelve "Esperar": se perdian turnos sin querer) y el
+	# sexto boton es Pasar, que cede el turno sin pegar y repone algo de energia.
 	t.cuerpos[yo].global_position = Vector2(-200, 0)
 	pelea._refresh_actions()
-	_afirmar(not b.disabled and b.text == "Esperar", "lejos de todos tendria que ser Esperar (disabled=%s, '%s')" % [b.disabled, b.text])
+	_afirmar(b.disabled and b.text == "Atacar", "lejos de todos, Atacar tendria que apagarse (disabled=%s, '%s')" % [b.disabled, b.text])
+	var bp: Button = pelea._action_buttons[pelea.Action.FLEE]
+	_afirmar(not bp.disabled and bp.text == "Pasar", "sin muro cerca, el sexto boton tendria que ser Pasar (disabled=%s, '%s')" % [bp.disabled, bp.text])
 	var vida_antes: float = cerca.current_hp
 	pelea._on_action(pelea.Action.ATTACK)
-	_afirmar(pelea._state == pelea.State.ADVANCING, "Esperar no cede el turno (estado %d)" % pelea._state)
-	_afirmar(is_equal_approx(cerca.current_hp, vida_antes), "Esperar ha pegado")
+	_afirmar(pelea._state == pelea.State.WAITING_PLAYER and is_equal_approx(cerca.current_hp, vida_antes),
+		"Atacar apagado ha hecho algo")
+	yo.current_energy = 0.0
+	pelea._on_action(pelea.Action.FLEE)
+	_afirmar(pelea._state == pelea.State.ADVANCING, "Pasar no cede el turno (estado %d)" % pelea._state)
+	_afirmar(is_equal_approx(cerca.current_hp, vida_antes), "Pasar ha pegado")
+	_afirmar(yo.current_energy > 0.0, "Pasar no ha repuesto energia")
 
 	# EL ENEMIGO QUE NO LLEGA: clavado (radio 0 por enraizado no: atascado) y lejos de todos.
 	pelea._state = pelea.State.PAUSED
