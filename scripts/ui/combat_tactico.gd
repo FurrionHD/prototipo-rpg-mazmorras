@@ -607,7 +607,8 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_cuerpo = cuerpo
 	_foco = cuerpo
 	_inicio = cuerpo.global_position
-	# Su turno: se le acaba En guardia (vuelve a su guardia de ataque).
+	# Su turno: se le acaba En guardia (vuelve a su guardia de ataque) y el frente de su Defender.
+	_frente_defensa.erase(c)
 	if cuerpo.get("_muneco") is MunecoJugador:
 		(cuerpo.get("_muneco") as MunecoJugador).guardia_defensiva = false
 		(cuerpo.get("_muneco") as MunecoJugador).postura_defensa = false
@@ -1648,6 +1649,31 @@ func _on_esquiva(ev: Dictionary) -> void:
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	EstoqueAire.postura(arena, EstoqueAire.Modo.ESQUIVA, dibujo, pies_de(v), hacia,
 		int(ev.get("semilla", 1)) | 1, 0.0, ritmo, Vector2.INF, bool(ev.get("guardia", false)), bulto_de(v))
+
+
+# LA DEFENSA SOLO CUBRE POR DELANTE (24/09, decision suya: media vuelta, 180º). Vale para el Defender (y
+# con el el bloqueo del escudo y la parada de la rodela) y para lo que reduce En guardia; la esquiva extra
+# de En guardia sigue valiendo por todos lados. El Defender se FIJA hacia donde miras al pulsarlo; lo
+# demas mira hacia donde mira el cuerpo en el golpe. Lo pregunta quien resuelve (combat_enemigos).
+var _frente_defensa: Dictionary = {}   # Combatant -> hacia donde miraba al Defender
+
+func fijar_frente_defensa(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo != null:
+		_frente_defensa[c] = _mirada_de(cuerpo)
+
+
+func cubre_de_frente(c: Combatant, atacante: Combatant) -> bool:
+	if not _pantalla.tactico or c == null or atacante == null:
+		return true
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo_de(atacante) == null:
+		return true
+	var mira: Vector2 = _frente_defensa.get(c, _mirada_de(cuerpo))
+	var hacia: Vector2 = pies_de(atacante) - pies_de(c)
+	if hacia.length_squared() < 0.01 or mira.length_squared() < 0.01:
+		return true
+	return mira.normalized().dot(hacia.normalized()) >= 0.0
 
 
 const _MODO_ESTOQUE := {

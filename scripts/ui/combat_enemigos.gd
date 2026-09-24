@@ -134,8 +134,10 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 
 	var pj_obj: PersonajeData = Game.pj_de_combatant(obj)   # a quien se le apunta la excelia
-	# La postura de guardia del estoque reduce el daño como el Defender (rama defending).
-	var defendiendo: bool = bool(_pantalla._defendiendo.get(obj, false)) or obj.en_guardia
+	# La postura de guardia del estoque reduce el daño como el Defender (rama defending). En el mapa, las
+	# dos SOLO si el golpe viene de delante (CombatTactico.cubre_de_frente).
+	var defendiendo: bool = (bool(_pantalla._defendiendo.get(obj, false)) or obj.en_guardia) \
+		and _pantalla.turno_mapa.cubre_de_frente(obj, e)
 	# COMO PEGA ESTE BICHO a secas. Este es EL OTRO CAMINO del golpe enemigo: sin habilidad de por
 	# medio, asi que el estilo sale entero del Combatant (EnemyData.fx_basico). Hay que ponerlo en
 	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
@@ -581,7 +583,8 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
 		tanda_base: int = 0) -> Dictionary:
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
-	var defendiendo: bool = bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia
+	var defendiendo: bool = (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
+		and _pantalla.turno_mapa.cubre_de_frente(t, e)
 	var total: float = 0.0
 	var total_bruto: float = 0.0   # el mismo daño SIN mitigar, para la excelia de Resistencia
 	var conecto: int = 0

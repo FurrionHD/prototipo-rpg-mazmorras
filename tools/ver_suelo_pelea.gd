@@ -161,6 +161,16 @@ func _correr() -> void:
 		combat._accion_defender()
 		await get_tree().create_timer(1.5, true, false, true).timeout
 		print("  defensa: postura=%s anim=%s" % [str(mun_d.postura_defensa), mun_d.anim_actual()])
+		# SOLO POR DELANTE: mirando a cada enemigo, y de espaldas a el.
+		var yo_d: Combatant = combat._player
+		var cu_d: Node2D = t.cuerpo_de(yo_d)
+		for e in combat._enemies:
+			var hacia_e: Vector2 = (t.pies_de(e) - t.pies_de(yo_d)).normalized()
+			t._frente_defensa[yo_d] = hacia_e
+			var de_frente: bool = t.cubre_de_frente(yo_d, e)
+			t._frente_defensa[yo_d] = -hacia_e
+			print("  %s: mirandole cubre=%s, de espaldas cubre=%s" % [e.nombre, str(de_frente),
+				str(t.cubre_de_frente(yo_d, e))])
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return

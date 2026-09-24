@@ -1631,6 +1631,7 @@ func _accion_defender() -> void:
 	# EN EL MAPA SE VE: el gesto de defenderse sobre uno mismo (CombatFX.Estilo.DEFENSA), por el camino de
 	# los golpes para que lo vean todas las maquinas; el muñeco se queda en su postura hasta su turno.
 	if tactico:
+		turno_mapa.fijar_frente_defensa(_player)   # solo cubre por delante: hacia donde mira AHORA
 		efectos._fx_golpe(_player, _player, 0.0, false, false, Elementos.Elemento.NINGUNO,
 			CombatFX.Estilo.DEFENSA, 1.0, true)
 		if _fx != null:
