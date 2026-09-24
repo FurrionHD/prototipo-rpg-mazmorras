@@ -22,9 +22,9 @@ const T_VIAJE := 0.38        # lo que tarda la cuchilla en llegar a la punta
 const T_QUIETO := 0.2        # la raja entera antes de irse
 const T_APAGAR := 0.7
 const K_ALTO := SueloRoto.K_ALTO
-const ALZADA := 5.0          # lo que va levantada del suelo (px de pantalla)
-const COMBA := 0.7           # lo que se comba hacia delante el filo, en veces su medio ancho
-const GROSOR := 0.5          # lo gruesa que es en el medio, en veces su medio ancho (en las puntas, nada)
+const ALTO := 1.5           # alto del tajo, en veces el ancho de la huella en ese punto
+const COMBA := 0.32          # lo que se comba hacia delante el filo, en veces su alto
+const GROSOR := 0.16         # lo grueso que es en el medio, en veces su alto (en las puntas, nada)
 const BLANCO := Color(0.97, 0.98, 1.0)
 const AIRE := Color(0.72, 0.80, 0.92)
 const POLVO := SueloRoto.POLVO
@@ -132,15 +132,17 @@ func _alfa_suelo() -> float:
 	return 1.0 - clampf((_t - T_VIAJE - T_QUIETO) / T_APAGAR, 0.0, 1.0)
 
 
-# Un punto de la cuchilla puesta a 's' px: 'u' de lado a lado (-1..1), 'z' de su grosor (0 el borde de
-# atras, 1 el FILO). Es una MEDIA LUNA TUMBADA con la curva hacia donde va, un poco levantada del suelo.
-# Antes iba DE PIE: desde la camara de arriba eso es un arco con la curva hacia ARRIBA, y lanzada al sur
-# la curva miraba hacia quien la lanza (el usuario, 24/09: "la zona curvada hacia donde va").
+# Un punto de la cuchilla puesta a 's' px: 'u' a lo largo de la media luna (-1 abajo, en el suelo; 1
+# arriba, en su punta alta) y 'z' de su grosor (0 el borde de atras, 1 el FILO). Es un TAJO VERTICAL, como
+# en sus referencias (24/09): la media luna esta de pie en el plano DEL CORTE (el que contiene hacia
+# donde va), con la curva hacia delante. Por eso de lado se ve como un ")" alto, y lanzada al norte o al
+# sur se ve de canto: casi una linea (lo que pidio: "por perspectiva, casi una linea").
 func _en_cuchilla(s: float, u: float, z: float) -> Vector2:
-	var h: float = maxf(forma.ancho_en(s), 3.0) * 0.5 * 1.1
+	var alto: float = maxf(forma.ancho_en(s), 6.0) * ALTO
 	var hueco: float = 1.0 - u * u
-	var adelante: float = h * COMBA * hueco - h * GROSOR * hueco * (1.0 - z)
-	return forma.origen + _dir * (s + adelante) + _nor * u * h + Vector2(0.0, -ALZADA)
+	var adelante: float = alto * (COMBA - GROSOR * (1.0 - z)) * hueco
+	var subida: float = alto * (u + 1.0) * 0.5
+	return forma.origen + _dir * (s + adelante) + Vector2(0.0, -subida * K_ALTO)
 
 
 # ------------------------------------------------------------
@@ -241,7 +243,10 @@ func _cuchilla(s: float, col: Color, esc: float) -> void:
 	var colores: Array = [Color(AIRE, col.a * 0.08), Color(AIRE, col.a * 0.4), Color(AIRE.lerp(BLANCO, 0.5), col.a * 0.7), col]
 	for k in filas.size() - 1:
 		_banda(filas[k + 1], filas[k], colores[k + 1], colores[k])
-	_aire.draw_polyline(filas[filas.size() - 1], Color(BLANCO, col.a), 2.4)
+	var filo: PackedVector2Array = filas[filas.size() - 1]
+	# El resplandor del filo: de canto (al norte o al sur) casi todo es esta linea, y tiene que leerse.
+	_aire.draw_polyline(filo, Color(AIRE, col.a * 0.35), 7.0)
+	_aire.draw_polyline(filo, Color(BLANCO, col.a), 2.4)
 
 
 # Rellena la banda entre dos lineas del mismo largo, a triangulos (nunca falla aunque se cruce), con el
