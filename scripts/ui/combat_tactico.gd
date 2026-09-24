@@ -880,9 +880,10 @@ func olvidar_carga(c: Combatant) -> void:
 # las de las cargas) y las reparte juntas unas veces por segundo. Cada maquina pinta las de los demas;
 # la suya, mientras apunta, la pinta ella misma sin esperar a la red.
 #
-# UNA HUELLA = 13 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo, tramos].
-# cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 = apuntando, 1 = carga.
-const FLOATS_HUELLA := 13
+# UNA HUELLA = 15 floats: [cod, clase, tipo, cx, cy, ox, oy, dx, dy, radio, apertura, nucleo, tramos,
+# ancho, ancho_fin]. cod = el codigo de siempre del combatiente (espejo._cod_combatiente). clase 0 =
+# apuntando, 1 = carga. En la LINEA el radio es su largo; ancho y ancho_fin solo los mira ella.
+const FLOATS_HUELLA := 15
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const ENVIO_HUELLAS := 1.0 / 12.0
@@ -897,7 +898,8 @@ var _claves_red: Array = []                # las que pinte llegadas por red, par
 
 static func _empaquetar(cod: int, clase: int, f, nucleo: float) -> PackedFloat32Array:
 	return PackedFloat32Array([float(cod), float(clase), float(f.tipo), f.centro.x, f.centro.y,
-		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo, float(f.tramos)])
+		f.origen.x, f.origen.y, f.dir.x, f.dir.y, f.radio, f.apertura, nucleo, float(f.tramos),
+		f.ancho, f.ancho_fin])
 
 
 static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
@@ -909,6 +911,10 @@ static func _desempaquetar(d: PackedFloat32Array, i: int) -> Array:
 	f.radio = d[i + 9]
 	f.apertura = d[i + 10]
 	f.tramos = int(d[i + 12])
+	f.ancho = d[i + 13]
+	f.ancho_fin = d[i + 14]
+	if f.tipo == CombatFormas.Tipo.LINEA:
+		f.largo = f.radio
 	return [int(d[i]), int(d[i + 1]), f, d[i + 11]]
 
 

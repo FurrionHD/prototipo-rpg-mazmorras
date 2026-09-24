@@ -61,6 +61,28 @@ func _probar_geometria() -> void:
 	_afirmar(not l.contiene(Vector2(250, 0)), "linea: NO deberia pillar mas alla del largo")
 	_afirmar(not l.contiene(Vector2(-20, 0)), "linea: NO deberia pillar lo de DETRAS")
 
+	# La del VERDUGO: ancha al salir (60) y afilada al fondo (0). A 25 px de lado entra cerca, no lejos.
+	var v := CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 150.0, 60.0)
+	v.ancho_fin = 0.0
+	_afirmar(v.contiene(Vector2(10, 25)), "verdugo: cerca de ti deberia ser ancha")
+	_afirmar(not v.contiene(Vector2(120, 25)), "verdugo: al fondo NO deberia ser ancha")
+	_afirmar(v.contiene(Vector2(140, 0)), "verdugo: la punta deberia estar en el eje")
+	# Un cuerpo grande que la ROZA de lado cuenta aunque ni su centro ni sus esquinas esten dentro.
+	_afirmar(l.toca(Rect2(Vector2(80, 15), Vector2(40, 40))), "linea: una caja que la roza de lado deberia tocar")
+	_afirmar(not l.toca(Rect2(Vector2(80, 25), Vector2(40, 40))), "linea: una caja fuera NO deberia tocar")
+	# A TRAMOS (el Tajo devastador): 0 pegado a ti, 2 al fondo.
+	var lt := CombatFormas.linea(Vector2.ZERO, Vector2.RIGHT, 120.0, 30.0)
+	lt.tramos = 3
+	_afirmar(lt.tramo_de(Rect2(Vector2(10, -5), Vector2(10, 10))) == 0, "linea a tramos: cerca deberia ser el 0")
+	_afirmar(lt.tramo_de(Rect2(Vector2(50, -5), Vector2(10, 10))) == 1, "linea a tramos: en medio deberia ser el 1")
+	_afirmar(lt.tramo_de(Rect2(Vector2(100, -5), Vector2(10, 10))) == 2, "linea a tramos: al fondo deberia ser el 2")
+	# Y viaja por red entera: largo, ancho y el del fondo.
+	var tac: GDScript = load("res://scripts/ui/combat_tactico.gd")
+	var d: PackedFloat32Array = tac._empaquetar(3, 1, v, 0.0)
+	var vuelta: CombatFormas.Forma = tac._desempaquetar(d, 0)[2]
+	_afirmar(is_equal_approx(vuelta.largo, 150.0) and is_equal_approx(vuelta.ancho, 60.0)
+		and is_equal_approx(vuelta.ancho_fin, 0.0), "linea: no vuelve igual por red")
+
 	var r := CombatFormas.rectangulo(Vector2(0, 0), Vector2(100, 60))
 	_afirmar(r.contiene(Vector2(40, 20)), "rectangulo: deberia pillar lo de dentro")
 	_afirmar(not r.contiene(Vector2(60, 0)), "rectangulo: NO deberia pillar lo de fuera")

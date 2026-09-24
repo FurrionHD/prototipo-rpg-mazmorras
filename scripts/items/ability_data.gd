@@ -228,6 +228,11 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # con el daño, como en todas las areas. Cada uno cobra el tramo MAS CERCANO que le toque.
 @export var forma_tramos: int = 0
 @export var forma_tramo_baja: float = 0.25
+# EL ANCHO DE UNA LINEA, al salir de ti y al llegar al fondo (0 = el de por defecto; el del fondo < 0 =
+# igual que al salir). Con el del fondo a casi 0 es el Tajo del verdugo: un cono al reves, ancho pegado
+# a ti y afilado hasta una punta (su dibujo, 24/09). Los TRAMOS de arriba valen tambien para la linea.
+@export var forma_ancho: float = 0.0
+@export var forma_ancho_fin: float = -1.0
 # EL SUELO SE ROMPE (solo en el mapa): -1 = no; 0 = GRIETAS (Temblor), 1 = LOSAS (Golpe sismico, Onda
 # expansiva), 2 = ESTALLIDO (Martillo de guerra: geiser de polvo y grietas), 3 = ESTELA (Rompecorazas:
 # no rompe nada, es la estela del arma; pega en el instante del golpe). Ver SueloRoto.Tipo. Con esto el golpe NO cae a la vez sobre todos: a cada uno le llega

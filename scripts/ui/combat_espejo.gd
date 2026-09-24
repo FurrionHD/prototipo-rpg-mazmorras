@@ -1107,7 +1107,7 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 # enteros, todos con MARCA_SUELO de atacante (ningun combatiente tiene codigo negativo):
 #   [M, tipo de rotura, semilla, tipo de forma, nucleo x16]
 #   [M, x x16, y x16, radio x16, apertura x16]      (x, y = el centro; en el cono, los pies)
-#   [M, dir.x x10000, dir.y x10000, 0, 0]
+#   [M, dir.x x10000, dir.y x10000, ancho x16, ancho_fin x16]   (los dos ultimos, solo la LINEA)
 const MARCA_SUELO := -7
 
 func _apuntar_suelo_red(tipo: int, f: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
@@ -1121,7 +1121,8 @@ static func _bloques_suelo(tipo: int, f: CombatFormas.Forma, semilla: int, nucle
 	return PackedInt32Array([
 		MARCA_SUELO, tipo, semilla, f.tipo, roundi(nucleo * 16.0),
 		MARCA_SUELO, roundi(o.x * 16.0), roundi(o.y * 16.0), roundi(f.radio * 16.0), roundi(f.apertura * 16.0),
-		MARCA_SUELO, roundi(f.dir.x * 10000.0), roundi(f.dir.y * 10000.0), 0, 0])
+		MARCA_SUELO, roundi(f.dir.x * 10000.0), roundi(f.dir.y * 10000.0),
+			roundi(f.ancho * 16.0), roundi(f.ancho_fin * 16.0)])
 
 
 static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
@@ -1129,8 +1130,15 @@ static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 	var o := Vector2(float(d[j + 6]) / 16.0, float(d[j + 7]) / 16.0)
 	var r: float = float(d[j + 8]) / 16.0
 	var dir := Vector2(float(d[j + 11]) / 10000.0, float(d[j + 12]) / 10000.0)
-	var f: CombatFormas.Forma = CombatFormas.cono(o, dir, r, float(d[j + 9]) / 16.0) \
-		if tipo_f == CombatFormas.Tipo.CONO else CombatFormas.circulo(o, r)
+	var f: CombatFormas.Forma
+	match tipo_f:
+		CombatFormas.Tipo.CONO:
+			f = CombatFormas.cono(o, dir, r, float(d[j + 9]) / 16.0)
+		CombatFormas.Tipo.LINEA:
+			f = CombatFormas.linea(o, dir, r, float(d[j + 13]) / 16.0)
+			f.ancho_fin = float(d[j + 14]) / 16.0
+		_:
+			f = CombatFormas.circulo(o, r)
 	return [d[j + 1], f, d[j + 2], float(d[j + 4]) / 16.0]
 
 
