@@ -91,7 +91,7 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor", "molinete",
-	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada"]
+	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -677,7 +677,26 @@ func fijar(nombre: String, marco: int) -> void:
 
 # CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
 # _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
+# LA POSTURA DE DEFENSA (el Defender): la enciende su gesto ('defensa', CombatTactico.gesto_en_mapa) y la
+# apaga su turno (empezar_turno). Mientras, su guardia quieta es la de defensa de SU combinacion.
+var postura_defensa: bool = false
+
+func _variante_defensa() -> String:
+	if _con_escudo:
+		return "defensa_escudo"
+	match _guardia_propia:
+		"guardia_2m": return "defensa_2m"
+		"guardia_daga": return "defensa_daga"
+		"guardia_estoque": return "defensa_estoque"
+	return "defensa_1m"
+
+
 func _con_su_guardia(nombre: String) -> String:
+	# 'defensa_N' (el gesto) y, con la postura puesta, la guardia quieta: la defensa de su combinacion.
+	var trozos: PackedStringArray = nombre.rsplit("_", true, 1)
+	if trozos.size() == 2 and trozos[1].is_valid_int() and (trozos[0] == "defensa"
+			or (postura_defensa and trozos[0] in ["guardia", _guardia_propia])):
+		return "%s_%s" % [_variante_defensa(), trozos[1]]
 	var n: String = _con_su_guardia_base(nombre)
 	if not _con_escudo:
 		return n

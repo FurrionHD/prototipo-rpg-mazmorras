@@ -67,7 +67,7 @@ const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe",
 	"lanzar_humo", "afilar_veneno",
 	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
 	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
-	"ponerse_en_guardia_esc"]
+	"ponerse_en_guardia_esc", "defensa_escudo"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

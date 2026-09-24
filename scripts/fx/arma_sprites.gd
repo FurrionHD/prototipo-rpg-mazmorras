@@ -98,14 +98,15 @@ const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe
 	"estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque", "ponerse_en_guardia",
 	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
 	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
-	"ponerse_en_guardia_esc"]
+	"ponerse_en_guardia_esc",
+	"defensa_1m", "defensa_escudo", "defensa_daga", "defensa_estoque"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]
 const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor",
-	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada"]
+	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

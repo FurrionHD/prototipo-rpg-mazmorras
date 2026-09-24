@@ -353,7 +353,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# La ola del AGUA, pero de fuego: un frente de ascuas que barre la fila entera. Es un estilo
 		# aparte y no el BARRIDO con otro color porque la cresta de una ola es una linea limpia y la
 		# de un incendio son lenguas: pintado con el mismo trazo se leia como agua naranja.
-		OLA_IGNEA = 119 }
+		OLA_IGNEA = 119,
+		# EL DEFENDER en el mapa (24/09): no pinta nada, solo trae el gesto de ponerse en defensa (su
+		# postura la elige el muñeco segun lo que lleve). Sale sobre uno mismo, como un adorno.
+		DEFENSA = 120 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -381,7 +384,7 @@ const FX_ARMA := {
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
-	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA]
+	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1734,6 +1737,8 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.PUNZADA_NERVIO: "estocada_estoque", Estilo.ESTOCADA_PENETRANTE: "estocada_honda",
 	Estilo.FINTAS: "finta_estoque", Estilo.DANZA_ACERO: "pinchazo_estoque",
 	Estilo.EN_GUARDIA: "ponerse_en_guardia",
+	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
+	Estilo.DEFENSA: "defensa",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1751,7 +1756,7 @@ const IMPACTO_ANIM_MAPA := {
 	"punalada_daga_izq": 0.18, "lanzar_humo": 0.43, "afilar_veneno": 0.22,
 	# El estoque: fondo 0,5x10/22; honda 0,55x12/20; finta 0,62x12/22; pinchazo 0,45x7/24; saludo 0,4x8/12.
 	"estocada_estoque": 0.23, "estocada_honda": 0.33, "finta_estoque": 0.34, "pinchazo_estoque": 0.13,
-	"ponerse_en_guardia": 0.27,
+	"ponerse_en_guardia": 0.27, "defensa": 0.1,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.

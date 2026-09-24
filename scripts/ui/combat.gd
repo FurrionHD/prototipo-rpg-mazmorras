@@ -1628,6 +1628,14 @@ func _accion_defender() -> void:
 		return
 	_player.spend_energy(DEFEND_ENERGY_COST)   # Defender consume energia (KAN-57)
 	_player_defending = true
+	# EN EL MAPA SE VE: el gesto de defenderse sobre uno mismo (CombatFX.Estilo.DEFENSA), por el camino de
+	# los golpes para que lo vean todas las maquinas; el muñeco se queda en su postura hasta su turno.
+	if tactico:
+		efectos._fx_golpe(_player, _player, 0.0, false, false, Elementos.Elemento.NINGUNO,
+			CombatFX.Estilo.DEFENSA, 1.0, true)
+		if _fx != null:
+			_fx.arrancar_cola()
+		espejo._soltar_impactos_red()
 	_set_log("%s se pone en guardia. 🛡️ (menos daño hasta tu proximo turno)" % _player.nombre)
 	_update_hp()
 	_fin_de_eleccion()

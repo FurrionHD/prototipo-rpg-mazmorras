@@ -155,6 +155,15 @@ func _correr() -> void:
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return
+	# SUELO_DEFENSA=1: pulsa Defender y mira que el muñeco se queda en su postura de defensa.
+	if OS.get_environment("SUELO_DEFENSA") != "":
+		var mun_d: MunecoJugador = t.cuerpo_de(combat._player).get("_muneco")
+		combat._accion_defender()
+		await get_tree().create_timer(1.5, true, false, true).timeout
+		print("  defensa: postura=%s anim=%s" % [str(mun_d.postura_defensa), mun_d.anim_actual()])
+		print("=== FIN ===")
+		get_tree().quit(0)
+		return
 	# SUELO_ESQUIVA=1: el primer enemigo le pega al jugador (en guardia) y lo esquiva. Se mide lo que se aparta
 	# el muñeco y que vuelve a su sitio.
 	if OS.get_environment("SUELO_ESQUIVA") != "":

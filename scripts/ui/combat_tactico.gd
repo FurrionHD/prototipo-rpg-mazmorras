@@ -610,6 +610,7 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	# Su turno: se le acaba En guardia (vuelve a su guardia de ataque).
 	if cuerpo.get("_muneco") is MunecoJugador:
 		(cuerpo.get("_muneco") as MunecoJugador).guardia_defensiva = false
+		(cuerpo.get("_muneco") as MunecoJugador).postura_defensa = false
 	if radio >= 0.0:
 		_radio = radio
 	else:
@@ -1674,6 +1675,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
 		return
+	# EL DEFENDER no pinta nada: lo que se ve es su postura (el gesto, ver gesto_en_mapa).
+	if estilo == CombatFX.Estilo.DEFENSA:
+		return
 	# EN GUARDIA (sobre ti): el destello por la hoja y la postura en el suelo, mirando al enemigo mas cercano.
 	if estilo == CombatFX.Estilo.EN_GUARDIA:
 		var mas_cerca: Combatant = null
@@ -2107,6 +2111,9 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 	# siguiente turno (la apaga empezar_turno; sus contraataques no). Sale del gesto, que ven todas las maquinas.
 	if anim == "ponerse_en_guardia":
 		(m as MunecoJugador).guardia_defensiva = true
+	# Y el DEFENDER, igual: se queda en su postura de defensa hasta su turno.
+	if anim == "defensa":
+		(m as MunecoJugador).postura_defensa = true
 	(m as MunecoJugador).animar("%s_%d" % [anim, d])
 	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,
 		"escala": escala}

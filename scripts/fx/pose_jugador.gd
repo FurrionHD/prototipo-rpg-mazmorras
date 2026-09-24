@@ -335,6 +335,13 @@ const ANIMS := [
 	{"n": "finta_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "pinchazo_estoque", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
 	{"n": "ponerse_en_guardia", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# LA POSTURA DE DEFENSA (el Defender, 24/09: "se nos olvido en todas las armas"). Una por combinacion;
+	# MunecoJugador elige cual ('defensa_N' -> la suya) y se queda en ella hasta su turno.
+	{"n": "defensa_1m", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "defensa_escudo", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "defensa_2m", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "defensa_daga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "defensa_estoque", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	# Y las mismas CON ESCUDO (el escudo delante, ver _pose): MunecoJugador las pone si lleva escudo.
 	{"n": "guardia_estoque_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_estoque_and_esc", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
@@ -1079,6 +1086,11 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"finta_estoque": return _pose_finta_estoque(t)
 		"pinchazo_estoque": return _pose_pinchazo_estoque(t)
 		"ponerse_en_guardia": return _pose_ponerse_en_guardia(t)
+		"defensa_1m": return _pose_defensa_1m(t)
+		"defensa_escudo": return _pose_defensa_escudo(t)
+		"defensa_2m": return _pose_defensa_2m(t)
+		"defensa_daga": return _pose_defensa_daga(t)
+		"defensa_estoque": return _pose_defensa_estoque(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1888,6 +1900,49 @@ static func _pose_ponerse_en_guardia(t: float) -> Dictionary:
 	p["eje_der"] = ESTOQUE_EJE.lerp(ESTOQUE_EJE_ALTO, alto) if t < 0.6 else ESTOQUE_EJE_ALTO.lerp(ESTOQUE_EJE_DEF, fin)
 	p["bote"] = 0.0
 	return p
+
+
+# ------------------------------------------------------------
+#  LA POSTURA DE DEFENSA (el Defender, 24/09). Todas BAJAS y cerradas, respirando despacio: esperan el
+#  golpe. Una por combinacion de manos (la elige MunecoJugador._variante_defensa).
+# ------------------------------------------------------------
+# UNA MANO (espada, maza, puños...): el arma atravesada delante del pecho y la otra mano apoyando.
+static func _pose_defensa_1m(t: float) -> Dictionary:
+	return {"bote": 0.12 * sin(TAU * t), "agacha": 0.32, "paso": 0.42, "inclina": -0.04, "torsion": 0.3,
+		"brazo_der": 1.45 + 0.02 * sin(TAU * t), "brazo_izq": 1.25, "junta_izq": 0.55,
+		"eje_der": Vector3(-1.0, 0.25, 0.35)}
+
+
+# CON ESCUDO: el escudo ARRIBA delante (a la altura de la cara), el hombro del escudo adelantado, agachado
+# detras de el, y el arma recogida atras, lista.
+static func _pose_defensa_escudo(t: float) -> Dictionary:
+	return {"bote": 0.12 * sin(TAU * t), "agacha": 0.38, "paso": 0.5, "inclina": 0.08, "torsion": -0.25,
+		"brazo_izq": 1.35 + 0.02 * sin(TAU * t), "junta_izq": 0.3,
+		"brazo_der": 0.35, "eje_der": Vector3(0.0, 0.5, 0.85)}
+
+
+# A DOS MANOS: el arma ATRAVESADA en horizontal delante del pecho, con las dos manos (parar con el astil
+# o la hoja plana).
+static func _pose_defensa_2m(t: float) -> Dictionary:
+	return {"bote": 0.12 * sin(TAU * t), "agacha": 0.3, "paso": 0.45, "inclina": -0.03,
+		"brazo_der": 1.5 + 0.02 * sin(TAU * t), "brazo_izq": 1.5 + 0.02 * sin(TAU * t), "junta": 1.0,
+		"eje_2m": Vector3(-1.0, 0.15, 0.3)}
+
+
+# LA DAGA (sola o dos): los brazos CRUZADOS delante del pecho con las hojas hacia fuera y arriba, en X.
+static func _pose_defensa_daga(t: float) -> Dictionary:
+	return {"bote": 0.12 * sin(TAU * t), "agacha": 0.36, "paso": 0.4, "inclina": 0.02, "torsion": 0.1,
+		"brazo_der": 1.35 + 0.02 * sin(TAU * t), "brazo_izq": 1.35 + 0.02 * sin(TAU * t),
+		"junta_der": 0.9, "junta_izq": 0.9,
+		"eje_der": Vector3(-0.6, 0.3, 0.75), "eje_izq": Vector3(0.6, 0.3, 0.75)}
+
+
+# EL ESTOQUE solo: parando con la hoja en VERTICAL delante (la mano a la altura del pecho, la punta
+# arriba), de perfil y la mano de atras alzada, como en su guardia.
+static func _pose_defensa_estoque(t: float) -> Dictionary:
+	return {"bote": 0.12 * sin(TAU * t), "agacha": 0.34, "paso": 0.5, "inclina": -0.02, "torsion": 0.55,
+		"brazo_der": 1.1 + 0.02 * sin(TAU * t), "junta_der": 0.4, "brazo_izq": 3.6,
+		"eje_der": Vector3(0.15, 0.3, 1.0)}
 
 
 # ENCAJAR UN GOLPE. Cuatro marcos, una direccion, y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto,
