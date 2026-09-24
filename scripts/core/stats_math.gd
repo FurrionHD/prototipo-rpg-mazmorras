@@ -393,7 +393,8 @@ static func imbue_proc_chance(base: float, stat: float, rival_resistencia: float
 # cambia la MAGNITUD: esquiva, critico y aturdir se siguen resolviendo igual, porque quien pega
 # sigue siendo el mismo con su misma Destreza.
 static func resolve_attack(attacker: Combatant, defender: Combatant,
-		defending: bool = false, atk_override: float = -1.0, crit_extra: float = 0.0) -> Dictionary:
+		defending: bool = false, atk_override: float = -1.0, crit_extra: float = 0.0,
+		penetra_extra: float = 0.0) -> Dictionary:
 	# Por hab() y no por abilities.*: los platos suben la HABILIDAD BASE, asi que la Destreza/
 	# Agilidad que se usan aqui son las EFECTIVAS (ver Combatant.hab).
 	var atk_dex := attacker.hab("destreza")
@@ -443,7 +444,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# de lo que paras con el, asi que no puede ir en def_value() como la armadura.
 	# La PENETRACION del arma (ligeras) come una parte de la defensa del CUERPO, no la del escudo con
 	# el que te paran. Un escudazo (atk_override) no pega con el arma, asi que no la lleva.
-	var penetra := clampf(attacker.penetracion, 0.0, 1.0) if atk_override < 0.0 else 0.0
+	# 'penetra_extra' = la que pone la habilidad encima (AbilityData.penetracion_extra).
+	var penetra := clampf(attacker.penetracion + penetra_extra, 0.0, 1.0) if atk_override < 0.0 else 0.0
 	var def_val := defender.def_value() * (1.0 - penetra) + (defender.defend_defense if defending else 0.0)
 	var dmg := damage(atk_override if atk_override >= 0.0 else attacker.atk(), def_val)
 	# CUANTO SE HA COMIDO LA MITIGACION, como un solo factor. Se va acumulando en los TRES sitios

@@ -77,7 +77,8 @@ const ALCANCE_POR_TIPO := {
 	Tipo.MAZA_PEQ: 18.75,
 	Tipo.BASTON: 21.0,
 	Tipo.ESPADA_LARGA: 23.25,
-	Tipo.ESTOQUE: 25.5,
+	# El estoque, casi como el mandoble (24/09, lo pidio el): "estiras el brazo para las estocadas".
+	Tipo.ESTOQUE: 32.25,
 	Tipo.HACHA_GRANDE: 32.25,
 	Tipo.MARTILLO_GRANDE: 32.25,
 	Tipo.MANDOBLE: 34.5,

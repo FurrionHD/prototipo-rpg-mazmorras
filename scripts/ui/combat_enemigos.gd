@@ -153,7 +153,7 @@ func _enemy_turn(e: Combatant) -> void:
 		Game.contar_esquiva(pj_obj)   # contador oculto de Reflejos
 		# CONTRAATAQUE (estoque, KAN-57): en guardia, cada golpe esquivado lo devuelves.
 		# Se lo devuelves A QUIEN TE HA ATACADO, no a tu objetivo seleccionado.
-		if obj.en_guardia:
+		if obj.en_guardia and _devuelve_en_guardia(obj, e):
 			var msg_ev := _contraatacar(e, obj)
 			_pantalla._update_hp()
 			if not e.is_alive():
@@ -614,7 +614,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			esquivados += 1
 			rastro.append({"t": "falla", "c": t})
 			_pantalla.efectos._fx_golpe(e, t, 0.0, false, true, e.elemento_ataque, estilo_ab, 1.0, false, sfx_ab, gesto_ab, anim_ab)
-			if t.en_guardia and permitir_contra and contra == "":
+			if t.en_guardia and permitir_contra and contra == "" and _devuelve_en_guardia(t, e):
 				contra = _contraatacar(e, t)
 				if not e.is_alive():
 					break
@@ -816,6 +816,14 @@ func _riposte_bloqueo(atacante: Combatant, victima: Combatant, defendiendo: bool
 	if p <= 0.0 or randf() >= p:
 		return ""
 	return _contraatacar(atacante, victima, victima.escudo_contra_mult, true)
+
+
+# EN GUARDIA SOLO DEVUELVE LO QUE LLEGA: en el mapa, el que esquiva tiene que tener al atacante a su
+# alcance. Lo que te tiran desde lejos lo esquivas y ya (24/09, lo pidio el). En la fila, siempre.
+func _devuelve_en_guardia(quien: Combatant, atacante: Combatant) -> bool:
+	if not _pantalla.tactico:
+		return true
+	return _pantalla.turno_mapa.llega(quien, atacante)
 
 
 # CONTRAATAQUE: devuelves el golpe con el arma principal. Aplica el daño al enemigo y devuelve el

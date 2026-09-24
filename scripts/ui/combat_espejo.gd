@@ -1136,6 +1136,17 @@ func _apuntar_salto_red(c: Combatant, p: Vector2, victima: Combatant) -> void:
 		roundi(p.x * 16.0), roundi(p.y * 16.0), _cod_combatiente(victima)]))
 
 
+# EL PASO Y EL AVANCE (estoque) viajan igual que el salto: [M, quien, x x16, y x16, modo + golpes x 8]
+# (x, y = donde acaba su nodo). Ver turno_mapa.pedir_desliz.
+const MARCA_DESLIZ := -9
+
+func _apuntar_desliz_red(c: Combatant, p: Vector2, modo: int, golpes: int) -> void:
+	if _pantalla._espejo or not Net.activo:
+		return
+	_impactos_red.append_array(PackedInt32Array([MARCA_DESLIZ, _cod_combatiente(c),
+		roundi(p.x * 16.0), roundi(p.y * 16.0), modo + golpes * 8]))
+
+
 static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 	var tipo_f: int = d[j + 3]
 	var o := Vector2(float(d[j + 6]) / 16.0, float(d[j + 7]) / 16.0)
@@ -1188,6 +1199,14 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 				_pantalla.turno_mapa.anotar_salto(quien,
 					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
 					_pantalla.turno_mapa.pies_de(vic))
+			j += 5
+			continue
+		if ca == MARCA_DESLIZ:
+			var quien_d: Combatant = _de_codigo(datos[j + 1])
+			if quien_d != null:
+				_pantalla.turno_mapa.anotar_desliz(quien_d,
+					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
+					datos[j + 4] & 7, datos[j + 4] >> 3)
 			j += 5
 			continue
 		var cv: int = datos[j + 1]

@@ -237,7 +237,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
-	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov, ab.crit_extra)
+	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov, ab.crit_extra,
+		ab.penetracion_extra)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
@@ -452,6 +453,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			obj = reparto_mapa[0]["c"]
 			if ab.salto_espalda:
 				_pantalla.turno_mapa.pedir_salto(_pantalla._player, obj, _pantalla._player)
+		# EL PASO (Paso ligero) y EL AVANCE (Danza de acero): te mueves, antes o despues de pegar. Se pide
+		# ANTES de los golpes, que es el orden en que viaja al espejo (como el salto).
+		if ab.paso or ab.avance:
+			_pantalla.turno_mapa.pedir_movimiento(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
 		# EL SUELO QUE SE ROMPE: desde aqui cada golpe que se encole llega cuando la rotura alcanza a
 		# su victima (ver efectos.fijar_suelo). Se quita al acabar los golpes, mas abajo.
 		if ab.suelo_roto >= 0:

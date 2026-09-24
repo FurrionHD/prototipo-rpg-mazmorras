@@ -539,6 +539,7 @@ func _ready() -> void:
 	# esta pantalla, asi que el cambio de animacion se hace aqui.
 	# El salto del Oportunista va ANTES que el gesto: aparece a la espalda y el gesto sale ya mirandole.
 	_fx.gesto_iniciado.connect(turno_mapa._on_gesto_salto)
+	_fx.gesto_iniciado.connect(turno_mapa._on_gesto_desliz)   # el paso y el avance del estoque
 	_fx.gesto_iniciado.connect(figuras._on_gesto_iniciado)
 	_fx.gesto_terminado.connect(figuras._on_gesto_terminado)
 	_fx.golpe_encajado.connect(figuras._on_golpe_encajado)

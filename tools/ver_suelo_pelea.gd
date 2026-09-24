@@ -117,6 +117,12 @@ func _correr() -> void:
 				izq = e
 		t._colocar(combat._player, t.cuerpo_de(combat._player), t.pos_de(izq) + Vector2(-26, 0))
 		t.apunte = t.pos_de(izq) + Vector2(20, 0)
+	# SUELO_ALCANCE=32.25: el alcance del arma que se prueba (el personaje de referencia lleva la suya).
+	if OS.get_environment("SUELO_ALCANCE") != "":
+		combat._player.alcance = float(OS.get_environment("SUELO_ALCANCE"))
+	# SUELO_APUNTE=lejos: hacia atras, lejos del grupo (el Paso ligero para irse).
+	if OS.get_environment("SUELO_APUNTE") == "lejos":
+		t.apunte = t.pies_de(combat._player) + Vector2(-80, 0)
 	# SUELO_SEGUIMIENTO=1: el jugador lleva Oportunista y "un compañero" (el primer enemigo, prestado como
 	# _player) acaba de pegar al segundo. Se mira si entra, salta a su espalda y gasta carga.
 	if OS.get_environment("SUELO_SEGUIMIENTO") != "":

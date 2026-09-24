@@ -257,8 +257,24 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # lanza aparece detras de el antes de golpear. Detras = del otro lado del que viene. Sin nadie dentro no
 # hay salto ni golpe. El Oportunista de la daga (24/09).
 @export var salto_espalda: bool = false
+# SOLO AL PRIMERO (solo en el mapa): de todo lo que pilla la huella, le pega solo al MAS CERCANO a quien
+# ataca. La Punzada al nervio (24/09): una linea larga, "que llega", pero la punta se clava en uno.
+@export var forma_solo_primero: bool = false
+# EL PASO (solo en el mapa): la huella LIBRE marca a donde das el paso (se recorta si hay pared o un
+# enemigo en medio) y la estocada va a UNO, segun su regla (24/09, el Paso ligero):
+#   - si al empezar tienes a alguien al alcance -> le pegas y DESPUES das el paso (para irte);
+#   - si no, das el paso y, si al llegar tienes a alguien al alcance, le pegas a ese;
+#   - si no hay nadie ni antes ni despues, solo el paso (y lo que te ponga a ti, la Presteza).
+@export var paso: bool = false
+# EL AVANCE (solo en el mapa, con LINEA): cruzas la linea entera ATRAVESANDO a los enemigos y los golpes
+# caen por el camino, del primero al ultimo. La linea se corta donde haya pared o el borde, y nunca
+# acabas encima de nadie. La Danza de acero (24/09).
+@export var avance: bool = false
 # CRITICO DE MAS de esta habilidad, sumado a la probabilidad de siempre (0.3 = +30 puntos).
 @export var crit_extra: float = 0.0
+# DEFENSA QUE IGNORA DE MAS esta habilidad, sumada a la penetracion del arma (0.2 = un 20% mas de la
+# defensa del cuerpo). La Estocada penetrante (24/09, idea suya: "por algo es penetrante").
+@export var penetracion_extra: float = 0.0
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer
@@ -617,6 +633,8 @@ func resumen(manos: int = 1) -> String:
 				_num(por), "" if por == 1.0 else "s", golpes_extra_max])
 		if crit_extra > 0.0:
 			l.append("+%d%% de probabilidad de crítico." % roundi(crit_extra * 100.0))
+		if penetracion_extra > 0.0:
+			l.append("Ignora un %d%% más de la defensa." % roundi(penetracion_extra * 100.0))
 	elif not es_imbuicion() and limpia_debuffs <= 0:
 		l.append("No hace daño.")
 

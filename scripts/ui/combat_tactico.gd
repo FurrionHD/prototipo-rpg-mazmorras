@@ -636,6 +636,7 @@ func tick(delta: float) -> bool:
 	_tick_gestos(delta)
 	_tick_tirones(delta)
 	_tick_saltos(delta)
+	_tick_deslices(delta)
 	_preparar_altas()
 	_recoger_de_la_arena(delta)
 	match _fase:
@@ -677,7 +678,16 @@ func usa_huella(ab: AbilityData) -> bool:
 
 # La forma de 'ab' lanzada por 'c' hacia 'hacia', desde SUS PIES y con 'c' donde la PELEA dice.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	return CombatFormas.de_habilidad_mapa(ab, pies_de(c), radio_pisa(c), alcance_de(c), hacia)
+	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), radio_pisa(c), alcance_de(c), hacia)
+	# EL PASO y EL AVANCE enseñan lo que va a pasar de verdad: el circulo donde acabas y la linea hasta
+	# donde llegas (recortados por pared, borde o un cuerpo en el sitio).
+	if ab.paso:
+		f.centro = _sitio_libre_hacia(c, f.centro) + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	elif ab.avance and f.tipo == CombatFormas.Tipo.LINEA:
+		var fin: Vector2 = _sitio_libre_hacia(c, f.origen + f.dir * f.largo) \
+			+ Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+		f.largo = maxf(0.0, (fin - f.origen).dot(f.dir))
+	return f
 
 
 # A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella toque:
@@ -689,6 +699,11 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	var out: Array = []
 	if not _hay_apunte:
+		return out
+	if ab.paso:
+		var plan: Dictionary = plan_paso(ab, c)
+		if plan["v"] != null:
+			out.append({"c": plan["v"], "escala": 1.0})
 		return out
 	var f = forma_de(ab, c, apunte)
 	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
@@ -703,12 +718,17 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 		elif f.tramos > 1:
 			# El cono a TROZOS (la Onda): cada tramo mas lejos, forma_tramo_baja menos.
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
-		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(f.centro_util()),
+		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
+		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
+		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance else f.centro_util()
+		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(ref),
 			"i": _pantalla._enemies.find(e)})
 	lista.sort_custom(func(x, y):
 		if is_equal_approx(float(x["d"]), float(y["d"])):
 			return int(x["i"]) < int(y["i"])
 		return float(x["d"]) < float(y["d"]))
+	if ab.forma_solo_primero and lista.size() > 1:
+		lista = lista.slice(0, 1)
 	for d in lista:
 		out.append({"c": d["c"], "escala": d["escala"]})
 	return out
@@ -814,11 +834,17 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	apunte = raton
 	_hay_apunte = true
 	var n: int = reparto_habilidad(_apuntando, _quien).size()
+	# EL PASO dice en que orden: no es lo mismo pegar e irte que llegar y pegar.
+	var modo_paso: int = int(plan_paso(_apuntando, _quien)["modo"]) if _apuntando.paso else -1
 	# Andando no se puede soltar (ver _confirmar_apunte): el letrero lo dice. -2 = "estoy andando".
-	var visto: int = -2 if _andando else n
+	var visto: int = -2 if _andando else n + (modo_paso + 1) * 1000
 	if visto != _pillados_vistos and is_instance_valid(_letrero):
 		_pillados_vistos = visto
 		var pilla: String = "no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)
+		match modo_paso:
+			Desliz.TRAS: pilla = "estocada y te apartas"
+			Desliz.ANTES: pilla = "te acercas y estocada"
+			Desliz.YA: pilla = "solo el paso"
 		_letrero.text = ("%s: párate para lanzarla" % _apuntando.nombre) if _andando \
 			else "%s: %s.  Clic para lanzarla · clic derecho para volver" % [_apuntando.nombre, pilla]
 
@@ -1797,6 +1823,159 @@ func _tick_saltos(delta: float) -> void:
 		s["espera"] = float(s["espera"]) + delta
 		if float(s["espera"]) >= T_SALTO_ESPERA:
 			_hacer_salto(s)
+
+
+# ------------------------------------------------------------
+#  EL PASO Y EL AVANCE (estoque, 24/09)
+# ------------------------------------------------------------
+# Los dos MUEVEN al que la lanza deslizandose (no aparece de golpe como el salto). Lo decide quien lleva
+# la pelea y viaja al espejo como el salto (espejo._apuntar_desliz_red). Cuando arranca:
+#   ANTES   al empezar su gesto: das el paso y luego la estocada (Paso ligero sin nadie al alcance)
+#   TRAS    al acabar sus golpes: la estocada y luego el paso (Paso ligero con alguien pegado)
+#   YA      en el acto: no hay golpe que esperar (Paso ligero sin nadie)
+#   AVANCE  al empezar su gesto, y dura lo que sus golpes: cruzas la linea (Danza de acero)
+enum Desliz { ANTES, TRAS, YA, AVANCE }
+const T_PASO := 0.16           # lo que tarda el paso de lado, en tiempo de la pelea
+const T_AVANCE_GOLPE := 0.14   # lo que dura el avance por cada golpe que lleva
+var _deslices: Array = []   # {c, hasta (el nodo), modo, golpes, espera, tope, armado, t (-1 sin arrancar), desde}
+
+# EL PLAN DEL PASO LIGERO con las posiciones de ahora: {v: a quien pega (o null), hasta: el nodo, modo}.
+func plan_paso(ab: AbilityData, c: Combatant) -> Dictionary:
+	var f = forma_de(ab, c, apunte)
+	var hasta: Vector2 = Vector2(f.centro) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var v: Combatant = _mas_cercano_al_alcance(c, pies_de(c))
+	if v != null:
+		return {"v": v, "hasta": hasta, "modo": Desliz.TRAS}
+	v = _mas_cercano_al_alcance(c, f.centro)
+	return {"v": v, "hasta": hasta, "modo": Desliz.ANTES if v != null else Desliz.YA}
+
+
+# El enemigo vivo mas cercano al que 'c' llegaria con su arma estando con los pies en 'pies'.
+func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
+	var mejor: Combatant = null
+	var d_mejor: float = INF
+	for e in _pantalla._vivos():
+		var r: Rect2 = bulto_de(e)
+		var cerca := Vector2(clampf(pies.x, r.position.x, r.end.x), clampf(pies.y, r.position.y, r.end.y))
+		var hueco: float = pies.distance_to(cerca) - radio_pisa(c)
+		if hueco <= alcance_de(c) and hueco < d_mejor:
+			d_mejor = hueco
+			mejor = e
+	return mejor
+
+
+# HASTA DONDE LLEGA 'c' yendo en recto hacia 'pies_fin' (los pies): el ultimo sitio del camino que pisa
+# suelo y no se sale de la arena, y de ahi hacia atras hasta uno donde no quede encima de nadie. Devuelve
+# el NODO. Sin sitio, donde esta.
+func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
+	var cuerpo: Node2D = cuerpo_de(c)
+	var bajo := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var ini: Vector2 = pos_de(c)
+	if cuerpo == null:
+		return ini
+	var fin: Vector2 = pies_fin - bajo
+	var dentro: Rect2 = _dentro(_arena())
+	var largo: float = ini.distance_to(fin)
+	var pasos: int = maxi(1, ceili(largo / 4.0))
+	# Por el camino: donde se acabe el suelo, se para.
+	var tope: int = 0
+	for k in range(1, pasos + 1):
+		var p: Vector2 = ini.lerp(fin, float(k) / float(pasos))
+		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+			break
+		tope = k
+	# Y de ahi hacia atras, hasta no pisar a nadie (se ATRAVIESA, pero no se acaba encima).
+	for k in range(tope, 0, -1):
+		var p2: Vector2 = ini.lerp(fin, float(k) / float(pasos))
+		if not _hay_otro_en(c, p2):
+			return p2
+	return ini
+
+
+# ¿Queda el nodo 'p' encima de alguien vivo que no sea 'c' (enemigo o de los tuyos)?
+func _hay_otro_en(c: Combatant, p: Vector2) -> bool:
+	for grupo in [_pantalla._enemies, _pantalla._aliados]:
+		for o in grupo:
+			if o == c or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
+				continue
+			if p.distance_to(pos_de(o)) < SEPARACION:
+				return true
+	return false
+
+
+# Lo que mueve una habilidad con PASO o AVANCE, con el apunte de la accion. 'golpes' = los que va a dar
+# (0 = no pega a nadie).
+func pedir_movimiento(ab: AbilityData, c: Combatant, golpes: int) -> void:
+	if ab.paso:
+		var plan: Dictionary = plan_paso(ab, c)
+		pedir_desliz(c, plan["hasta"], int(plan["modo"]), golpes)
+	elif ab.avance:
+		var f = forma_de(ab, c, apunte)
+		pedir_desliz(c, f.origen + f.dir * f.largo - Vector2(0.0, PoseJugador.PIES_BAJO_NODO),
+			Desliz.AVANCE, golpes)
+
+
+func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null:
+		return
+	if not _es_mio(c):
+		_pos[c] = hasta
+	_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes)
+	anotar_desliz(c, hasta, modo, golpes)
+
+
+# Tambien en el espejo, al leer el paquete de impactos.
+func anotar_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void:
+	if c == null:
+		return
+	# Sin golpes no hay gesto que esperar: sale ya.
+	var ya: bool = modo == Desliz.YA or golpes <= 0
+	_deslices.append({"c": c, "hasta": hasta, "modo": modo, "golpes": maxi(1, golpes), "espera": 0.0,
+		"tope": 0.0 if ya else T_SALTO_ESPERA, "armado": ya, "t": -1.0, "desde": Vector2.ZERO})
+
+
+# Su gesto ha arrancado: el paso de ANTES y el avance salen ya; el de TRAS espera a que acaben los golpes.
+func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName) -> void:
+	if _deslices.is_empty():
+		return
+	var c: Combatant = _de_bloque(b)
+	for d in _deslices:
+		if d["c"] == c and not bool(d["armado"]):
+			d["armado"] = true
+			d["espera"] = 0.0
+			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
+			return
+
+
+func _tick_deslices(delta: float) -> void:
+	for d in _deslices.duplicate():
+		var c: Combatant = d["c"]
+		var cuerpo: Node2D = cuerpo_de(c)
+		if cuerpo == null or not c.is_alive():
+			_deslices.erase(d)
+			continue
+		if float(d["t"]) < 0.0:
+			d["espera"] = float(d["espera"]) + delta
+			if float(d["espera"]) < float(d["tope"]):
+				continue
+			d["t"] = 0.0
+			d["desde"] = cuerpo.global_position
+		# Al ritmo de los efectos (que ya lleva dentro la velocidad de la pelea), como el muñeco.
+		var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+		var dur: float = (T_AVANCE_GOLPE * float(d["golpes"]) if int(d["modo"]) == Desliz.AVANCE \
+			else T_PASO) / maxf(ritmo, 0.05)
+		d["t"] = float(d["t"]) + delta
+		var u: float = clampf(float(d["t"]) / dur, 0.0, 1.0)
+		# El paso arranca rapido y frena; el avance va parejo, que es donde caen los golpes.
+		var k: float = u if int(d["modo"]) == Desliz.AVANCE else 1.0 - (1.0 - u) * (1.0 - u)
+		# El cuerpo solo lo mueve quien lo mueve siempre (como el salto); quien lleva la pelea ya lo
+		# apunto en _pos al pedirlo.
+		if _es_mio(c):
+			_colocar(c, cuerpo, Vector2(d["desde"]).lerp(Vector2(d["hasta"]), k))
+		if u >= 1.0:
+			_deslices.erase(d)
+			if _es_mio(c) and _quien == c and _fase == Fase.MOVIENDO:
+				_inicio = cuerpo.global_position
 
 
 # ------------------------------------------------------------
