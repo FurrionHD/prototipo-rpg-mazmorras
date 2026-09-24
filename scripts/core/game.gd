@@ -1208,8 +1208,12 @@ const ZOOM_ARENA_MIN := 0.75
 const ZOOM_ARENA_MAX := 3.0
 
 
-# Cuelga la arena del piso y planta la camara encima. La camara es FIJA y encuadra la zona entera:
-# un combate tactico se juega mirando el tablero, no siguiendo a uno.
+# LA CAMARA EN LA PELEA (24/09/2026, lo pidio el jefe): SIGUE A TU PERSONAJE con el zoom de siempre, como
+# explorando. La fija que encuadraba la arena entera se veia "muy lejos". Se queda detras de este
+# interruptor por si se quiere volver a ella.
+const CAMARA_FIJA_EN_PELEA := false
+
+# Cuelga la arena del piso y coloca la camara (ver CAMARA_FIJA_EN_PELEA).
 func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null:
@@ -1234,8 +1238,19 @@ func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
 	# (con el offset de antes, la camara se iba detras de el). Se deshace al acabar.
 	_camara_guardada = {
 		"cam": cam, "pos": cam.position, "zoom": cam.zoom,
-		"suave": cam.position_smoothing_enabled, "top": cam.top_level,
+		"suave": cam.position_smoothing_enabled, "top": cam.top_level, "offset": cam.offset,
+		"proc": cam.process_mode,
 	}
+	if not CAMARA_FIJA_EN_PELEA:
+		# Te sigue, pero con TU PERSONAJE en el centro del hueco libre y no de la pantalla: sin esto
+		# quedabas debajo de la barra de acciones y del registro. El desvio va en pixeles de pantalla
+		# y se divide por el zoom porque el offset de la camara es de mundo.
+		var util_s: Rect2 = _rect_util_tactico()
+		var v_s: Vector2 = get_viewport().get_visible_rect().size
+		cam.offset = (v_s * 0.5 - util_s.get_center()) / maxf(cam.zoom.x, 0.01)
+		# La pelea PAUSA el arbol, y una camara pausada no sigue a nadie (su suavizado corre en su proceso).
+		cam.process_mode = Node.PROCESS_MODE_ALWAYS
+		return
 	var r: Rect2 = ArenaCalculo.rect_px(rect_celdas)
 	# EL HUECO LIBRE, no la pantalla entera. La pantalla mide 1280, pero de esos el HUD se queda casi
 	# 600 fijos: la barra de acciones y el registro por la derecha, la linea de turnos por la
@@ -1329,6 +1344,8 @@ func _desmontar_arena_tactica() -> void:
 		cam.top_level = bool(_camara_guardada.get("top", false))
 		cam.position = _camara_guardada.get("pos", Vector2.ZERO)
 		cam.zoom = _camara_guardada.get("zoom", Vector2.ONE)
+		cam.offset = _camara_guardada.get("offset", Vector2.ZERO)
+		cam.process_mode = int(_camara_guardada.get("proc", Node.PROCESS_MODE_INHERIT))
 		cam.position_smoothing_enabled = bool(_camara_guardada.get("suave", true))
 		cam.reset_smoothing()
 	_camara_guardada = {}
