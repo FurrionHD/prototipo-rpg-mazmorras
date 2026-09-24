@@ -240,6 +240,14 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # Ver SueloRoto.Tipo. Con esto el golpe NO cae a la vez sobre todos: a cada uno le llega
 # cuando la rotura alcanza su cuerpo, saliendo del centro de la huella (del que golpea, en el cono).
 @export var suelo_roto: int = -1
+# LOS GOLPES SE REPARTEN por la huella (solo en el mapa): en vez de caerle cada golpe a TODOS los que
+# pilla, cada uno va a UNO, por turnos y del mas cercano al centro al mas lejano (golpe 1 al primero,
+# golpe 2 al segundo... y vuelta a empezar). Con uno solo dentro, se los come todos. Es la Carniceria:
+# tres hachazos repartidos por el cono, cada uno por su lado (24/09).
+@export var forma_reparte: bool = false
+# EL TIRON (solo en el mapa): px que se ARRASTRA hacia quien golpea a cada enemigo que encaja el golpe,
+# en el instante en que se ve llegar. Nunca hasta meterselo encima. 0 = no tira. El Desgarro (24/09).
+@export var tiron: float = 0.0
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer

@@ -537,6 +537,8 @@ func _ready() -> void:
 	_fx.gesto_iniciado.connect(figuras._on_gesto_iniciado)
 	_fx.gesto_terminado.connect(figuras._on_gesto_terminado)
 	_fx.golpe_encajado.connect(figuras._on_golpe_encajado)
+	# El tiron del Desgarro arrastra al enemigo justo cuando se ve el golpe (ver turno_mapa.pedir_tiron).
+	_fx.golpe_encajado.connect(turno_mapa._on_golpe_encajado)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		altas._apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))

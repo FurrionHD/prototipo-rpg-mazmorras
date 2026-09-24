@@ -227,6 +227,7 @@ func desmontar() -> void:
 		if is_instance_valid(par[0]):
 			(par[0] as Node).process_mode = par[1]
 	_modos_guardados.clear()
+	_tirones.clear()
 	_quitar_circulo()
 
 
@@ -539,6 +540,7 @@ func radio_del_turno() -> float:
 func tick(delta: float) -> bool:
 	_tick_huellas(delta)
 	_tick_gestos(delta)
+	_tick_tirones(delta)
 	_preparar_altas()
 	_recoger_de_la_arena(delta)
 	match _fase:
@@ -1438,13 +1440,8 @@ func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 
 # ¿Puede estar ESTE cuerpo en 'p'? Toda su huella sobre suelo, y sin meterse encima de otro.
 func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
-	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
-	if piso != null and piso.has_method("_pisable_px"):
-		var h: Rect2 = _huella(cuerpo)
-		for esquina in [h.position, Vector2(h.end.x, h.position.y),
-				Vector2(h.position.x, h.end.y), h.end]:
-			if not piso._pisable_px(p + esquina):
-				return false
+	if not _sobre_suelo(p, cuerpo):
+		return false
 	var antes: Vector2 = cuerpo.global_position
 	var soy_enemigo: bool = _quien != null and _pantalla._enemies.has(_quien)
 	var rivales: Array = _pantalla._aliados if soy_enemigo else _pantalla._enemies
@@ -1474,6 +1471,18 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 	return true
 
 
+# ¿Toda la huella de ESTE cuerpo en 'p' cae sobre suelo que se pisa?
+func _sobre_suelo(p: Vector2, cuerpo: Node2D) -> bool:
+	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("_pisable_px"):
+		var h: Rect2 = _huella(cuerpo)
+		for esquina in [h.position, Vector2(h.end.x, h.position.y),
+				Vector2(h.position.x, h.end.y), h.end]:
+			if not piso._pisable_px(p + esquina):
+				return false
+	return true
+
+
 # La huella del cuerpo en el suelo, relativa a su origen: su forma de colision, que es con lo que
 # choca por el mapa. Asi un cuerpo pasa por la arena por los mismos sitios que por la mazmorra.
 func _huella(cuerpo: Node2D) -> Rect2:
@@ -1483,6 +1492,75 @@ func _huella(cuerpo: Node2D) -> Rect2:
 			var r: Rect2 = cs.shape.get_rect()
 			return Rect2(cs.position + r.position * cs.scale, r.size * cs.scale)
 	return Rect2(-HUELLA_POR_DEFECTO * 0.5, HUELLA_POR_DEFECTO)
+
+
+# ------------------------------------------------------------
+#  EL TIRON (Desgarro, 24/09)
+# ------------------------------------------------------------
+# Lo pide quien RESUELVE la habilidad (AbilityData.tiron) y se hace cuando la cola ENSEÑA el golpe
+# (CombatFX.golpe_encajado): el hacha entra y se lo trae. Solo en quien lleva la pelea; las demas
+# pantallas lo ven por el mismo canal que el paso de un bicho (_apuntar_bicho / _enviar_bichos). Si el
+# golpe no llega a verse (sin capa de efectos), se hace igual al cabo de T_TIRON_ESPERA.
+# Nunca hasta meterselo encima: se para a ALCANCE_MINIMO de quien tira, en una pared o en el borde.
+const T_TIRON := 0.18
+const T_TIRON_ESPERA := 3.0
+var _tirones: Array = []   # {c, de, px, espera, t, desde, hasta}
+
+func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
+	if _pantalla._espejo or c == null or de == null or px <= 0.0:
+		return
+	_tirones.append({"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0})
+
+
+func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
+	for tr in _tirones:
+		if float(tr["t"]) < 0.0 and is_same(_pantalla._bloque_de(tr["c"]), b):
+			_arrancar_tiron(tr)
+
+
+func _arrancar_tiron(tr: Dictionary) -> void:
+	var c: Combatant = tr["c"]
+	var cuerpo: Node2D = cuerpo_de(c)
+	tr["t"] = 0.0
+	tr["desde"] = Vector2.ZERO
+	tr["hasta"] = Vector2.ZERO
+	if cuerpo == null or not c.is_alive() or cuerpo_de(tr["de"]) == null:
+		return
+	var desde: Vector2 = cuerpo.global_position
+	var largo: float = minf(float(tr["px"]), maxf(0.0, hueco_entre(tr["de"], c) - ALCANCE_MINIMO))
+	tr["desde"] = desde
+	tr["hasta"] = desde + (pos_de(tr["de"]) - desde).normalized() * largo
+
+
+func _tick_tirones(delta: float) -> void:
+	if _tirones.is_empty():
+		return
+	var dentro: Rect2 = _dentro(_arena())
+	for tr in _tirones.duplicate():
+		if float(tr["t"]) < 0.0:
+			tr["espera"] = float(tr["espera"]) + delta
+			if float(tr["espera"]) >= T_TIRON_ESPERA:
+				_arrancar_tiron(tr)
+			continue
+		var c: Combatant = tr["c"]
+		var cuerpo: Node2D = cuerpo_de(c)
+		var desde: Vector2 = tr["desde"]
+		var hasta: Vector2 = tr["hasta"]
+		if cuerpo == null or not c.is_alive() or desde.is_equal_approx(hasta):
+			_tirones.erase(tr)
+			continue
+		tr["t"] = float(tr["t"]) + delta * _pantalla._vel_pelea
+		var u: float = clampf(float(tr["t"]) / T_TIRON, 0.0, 1.0)
+		# Arranca de golpe y frena al llegar: es un tiron, no un paseo.
+		var p: Vector2 = desde.lerp(hasta, 1.0 - (1.0 - u) * (1.0 - u))
+		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+			_tirones.erase(tr)
+			continue
+		_colocar(c, cuerpo, p)
+		_apuntar_bicho(cuerpo, false)
+		if u >= 1.0:
+			_tirones.erase(tr)
+	_enviar_bichos()
 
 
 # ------------------------------------------------------------

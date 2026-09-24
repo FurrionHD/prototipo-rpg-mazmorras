@@ -102,8 +102,18 @@ func _correr() -> void:
 	var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
 	combat._player.current_energy = combat._player.max_energy
 	t.apunte = media
+	# Las de un solo enemigo, al MAS CERCANO: el centro del grupo les queda fuera de alcance.
+	if OS.get_environment("SUELO_APUNTE") == "cerca":
+		var mejor: float = INF
+		for e in combat._enemies:
+			if t.hueco_entre(combat._player, e) < mejor:
+				mejor = t.hueco_entre(combat._player, e)
+				t.apunte = t.pos_de(e)
 	t._hay_apunte = true
 	print("%s: pilla a %d" % [nom, t.reparto_habilidad(ab, t._quien).size()])
+	for e in combat._enemies:
+		print("  antes: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp, str(t.pos_de(e).round()),
+			t.hueco_entre(combat._player, e)])
 	# Las de carga (Martillo de guerra), soltadas ya: lo que se mira es el golpe, no el turno de cargar.
 	combat.habilidades._usar_habilidad(ab, ab.carga_turnos > 0)
 	var t0: int = Time.get_ticks_msec()
@@ -114,6 +124,16 @@ func _correr() -> void:
 	for g in combat._fx._gestos:
 		print("  gesto: anim=%s t_ini=%.2f t_imp=%.2f escala=%.2f" % [str(g.get("anim", "")), float(g["t_ini"]),
 			float(g["t_imp"]), combat._fx.escala_tiempo])
+	# SIN FOTOS (headless): la vida y el sitio de cada enemigo antes y despues de que se vea el golpe.
+	# Sirve para los repartos (Carniceria) y los tirones (Desgarro).
+	if OS.get_environment("SUELO_SIN_FOTOS") != "":
+		await get_tree().create_timer(1.2, true, false, true).timeout
+		for e in combat._enemies:
+			print("  despues: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp,
+				str(t.pos_de(e).round()), t.hueco_entre(combat._player, e)])
+		print("=== FIN ===")
+		get_tree().quit(0)
+		return
 	for i in FOTOS.size():
 		var falta: float = FOTOS[i] - float(Time.get_ticks_msec() - t0) / 1000.0
 		if falta > 0.0:

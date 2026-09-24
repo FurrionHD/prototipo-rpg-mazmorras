@@ -511,7 +511,13 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			# -1 = la huella del mapa: cada uno con la escala de la zona en la que cae.
 			match -1 if en_mapa else ab.area_modo:
 				-1:
-					for o in reparto_mapa:
+					var de_este_golpe: Array = reparto_mapa
+					# REPARTIDOS (la Carniceria): este golpe es para UNO de los vivos, por turnos. El
+					# orden de reparto_mapa es el mismo en todas las maquinas.
+					if ab.forma_reparte:
+						var vivos_h: Array = reparto_mapa.filter(func(o): return (o["c"] as Combatant).is_alive())
+						de_este_golpe = [] if vivos_h.is_empty() else [vivos_h[i % vivos_h.size()]]
+					for o in de_este_golpe:
 						var tm: Combatant = o["c"]
 						if not tm.is_alive():
 							continue
@@ -608,6 +614,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 					# contra tres bichos te daria el buff tres veces.
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico, "objetivo",
 						float(escala_por_obj.get(t, 1.0)), float(escala_por_obj.get(t, 1.0)))
+			# EL TIRON (Desgarro): a los que les entro y siguen en pie. Se arrastran cuando se VEA el golpe.
+			if en_mapa and ab.tiron > 0.0:
+				for t in tocados:
+					if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
+						_pantalla.turno_mapa.pedir_tiron(t, _pantalla._player, ab.tiron)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_pantalla._player)
 		Game.ganar("fuerza", _pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, Game.GAIN_FUERZA_ATAQUE,
