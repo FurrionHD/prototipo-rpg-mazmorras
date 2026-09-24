@@ -23,8 +23,9 @@ const T_QUIETO := 0.2        # la raja entera antes de irse
 const T_APAGAR := 0.7
 const K_ALTO := SueloRoto.K_ALTO
 const ALTO := 1.5           # alto del tajo, en veces el ancho de la huella en ese punto
-const COMBA := 0.32          # lo que se comba hacia delante el filo, en veces su alto
-const GROSOR := 0.16         # lo grueso que es en el medio, en veces su alto (en las puntas, nada)
+const ECHADA := 0.55         # lo que se echa hacia atras la punta, en veces su alto
+const BASE := 0.6            # lo ancho que es abajo, en veces su alto
+const GRUESO := 0.07         # medio grosor abajo, en veces su alto (de canto es lo que se ve)
 const BLANCO := Color(0.97, 0.98, 1.0)
 const AIRE := Color(0.72, 0.80, 0.92)
 const POLVO := SueloRoto.POLVO
@@ -132,17 +133,20 @@ func _alfa_suelo() -> float:
 	return 1.0 - clampf((_t - T_VIAJE - T_QUIETO) / T_APAGAR, 0.0, 1.0)
 
 
-# Un punto de la cuchilla puesta a 's' px: 'u' a lo largo de la media luna (-1 abajo, en el suelo; 1
-# arriba, en su punta alta) y 'z' de su grosor (0 el borde de atras, 1 el FILO). Es un TAJO VERTICAL, como
-# en sus referencias (24/09): la media luna esta de pie en el plano DEL CORTE (el que contiene hacia
-# donde va), con la curva hacia delante. Por eso de lado se ve como un ")" alto, y lanzada al norte o al
-# sur se ve de canto: casi una linea (lo que pidio: "por perspectiva, casi una linea").
-func _en_cuchilla(s: float, u: float, z: float) -> Vector2:
+# Un punto de la cuchilla puesta a 's' px: 'u' de abajo (-1, en el suelo) a arriba (1, la punta) y 'z' de
+# atras (0) al FILO (1). Es un TAJO VERTICAL en el plano del corte (el que contiene hacia donde va), como
+# sus referencias: de lado se ve entero y al norte o al sur de canto, casi una linea. Y con SU forma (su
+# dibujo, 24/09): como una aleta, ANCHA ABAJO y AFILADA ARRIBA, con la punta echada hacia atras; el filo
+# de delante combado y el de atras hundido.
+func _en_cuchilla(s: float, u: float, z: float, lado: float = 0.0) -> Vector2:
 	var alto: float = maxf(forma.ancho_en(s), 6.0) * ALTO
-	var hueco: float = 1.0 - u * u
-	var adelante: float = alto * (COMBA - GROSOR * (1.0 - z)) * hueco
-	var subida: float = alto * (u + 1.0) * 0.5
-	return forma.origen + _dir * (s + adelante) + Vector2(0.0, -subida * K_ALTO)
+	var v: float = clampf((u + 1.0) * 0.5, 0.0, 1.0)
+	var delante: float = -alto * ECHADA * v * v                                  # el filo: sube y se va hacia atras
+	var detras: float = -alto * (BASE * pow(1.0 - v, 1.4) + ECHADA * v)          # el lomo: hundido
+	# 'lado' (-1..1): el GROSOR del corte, que solo se ve de canto (al norte o al sur): ancho abajo y
+	# nada en la punta, como el resto.
+	var grueso: float = alto * GRUESO * pow(1.0 - v, 0.8) * z
+	return forma.origen + _dir * (s + lerpf(detras, delante, z)) + _nor * lado * grueso 		+ Vector2(0.0, -alto * v * K_ALTO)
 
 
 # ------------------------------------------------------------
@@ -232,21 +236,35 @@ func draw_line_aire(a: Vector2, b: Vector2, col: Color, w: float) -> void:
 # Una media luna de aire puesta a 's': el filo de delante (el suelo combado) y el lomo por detras, con
 # el nucleo blanco pegado al filo. 'esc' la encoge (la estela).
 func _cuchilla(s: float, col: Color, esc: float) -> void:
-	var n: int = 16
-	# Del borde de atras (casi transparente) al filo (blanco), en cuatro franjas.
+	# SIN RAYA en el filo (lo pidio: "que sea un corte, no una linea delante"): el borde de delante es DURO
+	# porque ahi la lamina es blanca y opaca, y hacia atras se DIFUMINA hasta nada.
+	var n_alto: int = 10
+	var zs: Array = [0.0, 0.35, 0.6, 0.8, 0.93, 1.0]
 	var filas: Array = []
-	for z in [0.0, 0.45, 0.8, 1.0]:
+	for z in zs:
 		var fila := PackedVector2Array()
-		for i in n + 1:
-			fila.append(_en_cuchilla(s, lerpf(-1.0, 1.0, float(i) / float(n)) * esc, z))
+		for i in n_alto + 1:
+			fila.append(_en_cuchilla(s, lerpf(-1.0, 1.0, float(i) / float(n_alto)) * esc, z))
 		filas.append(fila)
-	var colores: Array = [Color(AIRE, col.a * 0.08), Color(AIRE, col.a * 0.4), Color(AIRE.lerp(BLANCO, 0.5), col.a * 0.7), col]
 	for k in filas.size() - 1:
-		_banda(filas[k + 1], filas[k], colores[k + 1], colores[k])
-	var filo: PackedVector2Array = filas[filas.size() - 1]
-	# El resplandor del filo: de canto (al norte o al sur) casi todo es esta linea, y tiene que leerse.
-	_aire.draw_polyline(filo, Color(AIRE, col.a * 0.35), 7.0)
-	_aire.draw_polyline(filo, Color(BLANCO, col.a), 2.4)
+		var za: float = float(zs[k + 1])
+		var zb: float = float(zs[k])
+		_banda(filas[k + 1], filas[k], _color_lamina(za, col), _color_lamina(zb, col))
+	# LA CARA DE DELANTE, con su grosor: de lado se funde con el filo; de canto (norte, sur) es lo que se
+	# ve, una cuña blanca ancha abajo y afilada arriba, con un halo que se difumina.
+	for par in [[1.0, 2.2, 0.3], [1.0, 1.0, 1.0]]:
+		var izq := PackedVector2Array()
+		var der := PackedVector2Array()
+		for i in n_alto + 1:
+			var u: float = lerpf(-1.0, 1.0, float(i) / float(n_alto)) * esc
+			izq.append(_en_cuchilla(s, u, float(par[0]), -float(par[1])))
+			der.append(_en_cuchilla(s, u, float(par[0]), float(par[1])))
+		_banda(izq, der, Color(BLANCO, col.a * float(par[2])))
+
+
+# El color de la lamina de atras (0) al filo (1): transparente y azulado atras, blanco y opaco delante.
+func _color_lamina(z: float, col: Color) -> Color:
+	return Color(AIRE.lerp(BLANCO, z), col.a * pow(z, 1.8))
 
 
 # Rellena la banda entre dos lineas del mismo largo, a triangulos (nunca falla aunque se cruce), con el

@@ -104,7 +104,9 @@ func _correr() -> void:
 		var medida: float = maxf(maxf(f0.radio, f0.largo), 40.0)
 		if int(ab.forma_apunte) == CombatFormas.Apunte.DELANTE and int(ab.forma) == CombatFormas.Tipo.CIRCULO:
 			medida += PISA + ALCANCE[arma]
-		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
+		# ATAQUES_ACERCA=3 -> tres veces mas cerca (para mirar un efecto de cerca).
+		var acerca: float = maxf(float(OS.get_environment("ATAQUES_ACERCA")), 1.0) if OS.get_environment("ATAQUES_ACERCA") != "" else 1.0
+		var zoom: float = float(LADO) / (2.0 * (medida + 30.0)) * acerca
 		_cam.zoom = Vector2(zoom, zoom)
 		var hoja := Image.create(LADO * cols, LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 		for fila in DIRS.size():
@@ -113,7 +115,7 @@ func _correr() -> void:
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
 			# La camara, un poco hacia donde va el ataque (salvo los que caen a tu alrededor).
 			var hacia_cam: float = 0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.35
-			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam
+			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam / acerca
 			# 1) Apuntando: la huella.
 			_forma_huella = f
 			_huella.queue_redraw()
