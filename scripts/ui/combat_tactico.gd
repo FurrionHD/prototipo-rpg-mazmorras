@@ -538,6 +538,7 @@ func radio_del_turno() -> float:
 # (un enemigo acercandose) y la pantalla no debe hacer nada mas este fotograma.
 func tick(delta: float) -> bool:
 	_tick_huellas(delta)
+	_tick_gestos(delta)
 	_preparar_altas()
 	_recoger_de_la_arena(delta)
 	match _fase:
@@ -843,6 +844,10 @@ func guardar_carga(c: Combatant, ab: AbilityData) -> void:
 	if arena != null:
 		arena.poner_huella(c, f, ab.forma_nucleo, COLOR_CARGA)
 	_anotar_huella_red(c, CLASE_CARGA, f, ab.forma_nucleo)
+	# Y se queda con el arma en alto mientras carga (ver _animar).
+	var cu: Node2D = cuerpo_de(c)
+	if cu != null:
+		_animar(cu, _mirada_de(cu), false)
 
 
 func tiene_carga(c: Combatant) -> bool:
@@ -1480,6 +1485,59 @@ func _huella(cuerpo: Node2D) -> Rect2:
 	return Rect2(-HUELLA_POR_DEFECTO * 0.5, HUELLA_POR_DEFECTO)
 
 
+# ------------------------------------------------------------
+#  EL GESTO DEL CUERPO en el mapa (24/09)
+# ------------------------------------------------------------
+# Cuando la pelea avisa de que uno de los tuyos hace su gesto (CombatFX.gesto_iniciado), lo hace SU
+# CUERPO DEL MAPA, mirando hacia donde golpea (su _facing: apuntando ya se giro hacia el raton). La
+# animacion la dice el estilo de la habilidad (CombatFX.ANIM_CUERPO_MAPA); sin ella, el golpe de su
+# arma. Al acabar vuelve a la guardia (o a la pose de carga, si esta cargando).
+# El MOLINETE no es una animacion sino un GIRO: la pose de espada extendida pasando por las ocho
+# direcciones, dos vueltas en el sentido de las agujas como su estela (BarridoAire.GIRO).
+const T_VUELTA_MOLINETE := 0.2    # = BarridoAire.T_ENTRE: una vuelta por golpe
+var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
+
+func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return false
+	var m = cuerpo.get("_muneco")
+	if not (m is MunecoJugador) or not (m as MunecoJugador).hay_dibujo():
+		return false
+	if anim == "":
+		anim = _pantalla.figuras._anim_golpe_de(c)
+	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
+	(m as MunecoJugador).animar("%s_%d" % [anim, d])
+	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m}
+	return true
+
+
+func _tick_gestos(delta: float) -> void:
+	for cuerpo in _gestos_mapa.keys():
+		var g: Dictionary = _gestos_mapa[cuerpo]
+		g["t"] = float(g["t"]) + delta
+		if not is_instance_valid(cuerpo) or not is_instance_valid(g["m"]):
+			_gestos_mapa.erase(cuerpo)
+			continue
+		var t: float = float(g["t"])
+		if String(g["anim"]) == "molinete":
+			# Las direcciones van 0 = S, 1 = SE, 2 = E...: al reves de las agujas en pantalla. Restar es girar
+			# como la estela. 8 pasos por vuelta, dos vueltas, y se queda mirando a donde empezo.
+			var paso: int = mini(int(t / (T_VUELTA_MOLINETE / 8.0)), 16)
+			(g["m"] as MunecoJugador).animar("molinete_%d" % posmod(int(g["d0"]) - paso, 8))
+		if t >= float(g["dur"]) and (String(g["anim"]) != "molinete" or t >= 2.0 * T_VUELTA_MOLINETE):
+			_gestos_mapa.erase(cuerpo)
+			_animar(cuerpo, _mirada_de(cuerpo), false)
+
+
+# El combatiente de uno de los cuerpos de los tuyos (null si no es de ninguno).
+func _aliado_de_cuerpo(cuerpo: Node2D) -> Combatant:
+	for c in _pantalla._aliados:
+		if cuerpo_de(c) == cuerpo:
+			return c
+	return null
+
+
 func _mirada_de(cuerpo: Node2D) -> Vector2:
 	var f = cuerpo.get("_facing")
 	return f if f is Vector2 and f != Vector2.ZERO else Vector2.DOWN
@@ -1496,6 +1554,15 @@ func _animar(cuerpo: Node2D, dir: Vector2, moviendose: bool, vel: Vector2 = Vect
 		cuerpo.set("_facing", dir.normalized())
 	var muneco = cuerpo.get("_muneco")
 	if muneco is MunecoJugador and (muneco as MunecoJugador).hay_dibujo():
+		# En pleno gesto (el Molinete girando, un tajo bajando) no se le pisa con la guardia.
+		if _gestos_mapa.has(cuerpo):
+			return
+		# CARGANDO, quieto: el arma en alto hasta soltarla (lo pidio el jefe: "que mantenga el martillo en
+		# alto hasta que golpea el suelo").
+		var c: Combatant = _aliado_de_cuerpo(cuerpo)
+		if not moviendose and c != null and (_cargas.has(c) or c.charging != null):
+			(muneco as MunecoJugador).animar("en_alto_%d" % SpriteLienzo.dir8(dir))
+			return
 		(muneco as MunecoJugador).animar(PoseJugador.animacion(dir, 1, moviendose, false, true, 0))
 		return
 	# LA COPIA DE RED de un bicho no lleva _facing ni velocidad: su pose sale de un ANGULO y de un "se

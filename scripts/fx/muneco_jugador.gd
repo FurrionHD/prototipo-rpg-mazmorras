@@ -81,7 +81,8 @@ var _idx_arma_mano: PackedInt32Array = []
 # Solo en estas: son golpes de un solo barrido (la mano cruza el eje UNA vez, volteo limpio). En
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
 # Las FAENAS (PoseJugador.FAENAS) tambien entran, ver _reordenar_arma_mano.
-const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m"]
+const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clavar", "barrido_2m",
+	"grito"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -565,7 +566,7 @@ func _reordenar_arma_mano(i: int) -> void:
 	# que desaparezca entera se le pone un minimo hacia delante a partir de la descarga (mitad
 	# tardia de los fotogramas: el windup se queda con su profundidad real, recogido detras del
 	# hombro tiene que poder ocultarse igual que al sur).
-	var forzar: bool = base == "golpe_2m" and i >= _marcos / 2
+	var forzar: bool = base in ["golpe_2m", "tajo_2m", "clavar"] and i >= _marcos / 2
 	# LAS FAENAS, SIEMPRE DELANTE. Se agarran por el centro del cuerpo (las dos manos juntas, x = 0),
 	# asi que su profundidad cae en el mismo plano que la cabeza y el redondeo decidia: alzado, el pico
 	# se iba detras del pelo y no se veia subir. En una faena la herramienta ES lo que se mira.

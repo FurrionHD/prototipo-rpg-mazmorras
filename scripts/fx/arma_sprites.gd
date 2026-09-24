@@ -90,7 +90,8 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 # _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq"]
-const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m"]
+const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
+	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

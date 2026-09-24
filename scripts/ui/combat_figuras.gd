@@ -639,6 +639,9 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 		var c: Combatant = _combatant_de_bloque_aliado(b)
 		if c == null:
 			return
+		# EN EL MAPA lo hace su cuerpo, hacia donde golpea y con la animacion de la habilidad.
+		if _pantalla.tactico:
+			_pantalla.turno_mapa.gesto_en_mapa(c, String(pide), dur)
 		_pose_marcar(nodo, PoseSprite.GESTO)
 		(nodo as MunecoJugador).animar("%s_4" % _anim_golpe_de(c))
 

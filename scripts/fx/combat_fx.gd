@@ -1483,8 +1483,10 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# _marcar_gestos al arrancar la cola, que es cuando ya se sabe a quienes alcanza la accion
 		# entera y se puede decidir adonde va el bicho.
 		"gesto": gesto,
-		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim.
-		"anim": anim,
+		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim. Las del
+		# JUGADOR en el mapa salen de su estilo (ANIM_CUERPO_MAPA): asi el espejo, que recibe el estilo en
+		# el paquete de impactos, pone al cuerpo la misma sin que viaje nada mas.
+		"anim": anim if anim != &"" else StringName(ANIM_CUERPO_MAPA.get(estilo, "")),
 		# EL SUELO QUE SE ROMPE: el golpe llega cuando la rotura alcanza a esta victima (ver
 		# arrancar_cola), y su dibujo de siempre no sale -- el dibujo ES el suelo.
 		"retraso_suelo": retraso_suelo,
@@ -1652,6 +1654,13 @@ const INFLADO_TRAMO := 0.62
 const SALTO_ALTURA := 90.0
 # EL GESTO DE ATACAR de toda la vida: cuanto antes del golpe arranca (el brazo que se echa atras)
 # y cuanto tarda en recogerse despues del ultimo.
+# LA ANIMACION DEL CUERPO de las habilidades del jugador en el combate del MAPA (24/09), por su estilo.
+# Las que no estan, el golpe de siempre de su arma. Los nombres son los de PoseJugador.ANIMS.
+const ANIM_CUERPO_MAPA := {
+	Estilo.TAJO_DEVASTADOR: "tajo_2m", Estilo.TAJO_VERDUGO: "tajo_2m", Estilo.MARTILLO_GUERRA: "tajo_2m",
+	Estilo.MOLINETE: "molinete", Estilo.SEGAR: "barrido_2m", Estilo.GRITO_GUERRA: "grito",
+	Estilo.TEMBLOR_SUELO: "clavar",
+}
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
 

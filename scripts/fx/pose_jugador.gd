@@ -273,6 +273,17 @@ const ANIMS := [
 	{"n": "desenvainar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 5, "ultimo": true},
 	{"n": "golpe_izq", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "golpe_2m", "loop": false, "fps": 10.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# LAS HABILIDADES A DOS MANOS en el combate del mapa (24/09, pedidas por el jefe). Ocho direcciones:
+	# en el mapa se golpea hacia donde se apunta. 'en_alto' es la CARGA (Martillo de guerra, Tajo del
+	# verdugo: el arma arriba hasta soltarla) y 'tajo_2m' lo que la suelta (y el Tajo devastador);
+	# 'clavar' el Temblor; 'molinete' la espada extendida (el GIRO no esta aqui: lo da el juego cambiando
+	# de direccion, ver CombatTactico._girar_molinete); 'barrido_2m' el Segar; 'grito' el Grito de guerra.
+	{"n": "en_alto", "loop": true, "fps": 3.0, "dirs": 8, "marcos": 4, "ultimo": false},
+	{"n": "tajo_2m", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "clavar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "molinete", "loop": true, "fps": 2.0, "dirs": 8, "marcos": 1, "ultimo": false},
+	{"n": "barrido_2m", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "grito", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -916,6 +927,12 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"talar": return _pose_talar(t)
 		"segar": return _pose_segar(t)
 		"extraer": return _pose_extraer(t)
+		"en_alto": return _pose_en_alto(t)
+		"tajo_2m": return _pose_tajo_2m(t)
+		"clavar": return _pose_clavar(t)
+		"molinete": return _pose_molinete(t)
+		"barrido_2m": return _pose_barrido_2m(t)
+		"grito": return _pose_grito(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1117,6 +1134,76 @@ static func _pose_segar(t: float) -> Dictionary:
 	return {"brazo_der": SpriteLienzo.tramos(t, der_keys), "brazo_izq": 0.80,
 		"torsion": SpriteLienzo.tramos(t, tor_keys),
 		"agacha": 0.78, "inclina": 0.20, "paso": 0.10}
+
+
+# ------------------------------------------------------------
+#  LAS HABILIDADES A DOS MANOS (martillo y mandoble en el mapa, 24/09)
+# ------------------------------------------------------------
+# EL ARMA EN ALTO, cargando (Martillo de guerra, Tajo del verdugo: "que mantenga el martillo en alto
+# hasta que golpea el suelo"). Los dos brazos arriba y un poco atras, el pecho abierto y los pies
+# plantados; respira despacio para que se vea vivo mientras espera su turno. Un pelo de 'rumbo' para
+# que el arma no quede de canto mirando al sur.
+static func _pose_en_alto(t: float) -> Dictionary:
+	return {"brazo_der": -2.25 + 0.04 * sin(TAU * t), "brazo_izq": -2.25 + 0.04 * sin(TAU * t),
+		"inclina": -0.06, "agacha": 0.14, "bote": 0.25 * sin(TAU * t), "paso": 0.18, "rumbo": 0.15}
+
+
+# EL TAJO QUE BAJA DE ARRIBA: sale de 'en_alto' (su fotograma 0 es esa pose), coge un pelo mas de aire
+# y lo baja todo de golpe hasta el suelo, "pum". Se queda ABAJO, cargado: no se recompone (eso lo hace
+# la guardia al acabar el gesto), porque un golpe asi no rebota.
+static func _pose_tajo_2m(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, -2.25], [0.2, -2.45], [0.45, -1.2], [0.6, 1.2], [0.7, 1.6], [1.0, 1.55]]
+	var incl_keys := [[0.0, -0.06], [0.2, -0.14], [0.6, 0.36], [1.0, 0.32]]
+	var agacha_keys := [[0.0, 0.14], [0.2, 0.10], [0.6, 0.34], [1.0, 0.30]]
+	var avance_keys := [[0.0, 0.0], [0.2, -0.6], [0.6, 2.6], [1.0, 2.2]]
+	var rumbo_keys := [[0.0, 0.15], [0.6, 0.28], [1.0, 0.2]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys), "paso": 0.2}
+
+
+# CLAVAR EL MARTILLO A TUS PIES (el Temblor, su dibujo del 23/09: el mango vertical y la cabeza en el
+# suelo). Lo sube y lo hunde de canto delante de los pies, agachandose con el: los brazos acaban casi
+# colgando, asi que el eje del arma (hombro -> mano) apunta al suelo.
+static func _pose_clavar(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, -0.55], [0.3, -2.2], [0.5, -2.0], [0.7, 0.2], [1.0, 0.15]]
+	var agacha_keys := [[0.0, 0.10], [0.5, 0.05], [0.7, 0.40], [1.0, 0.38]]
+	var incl_keys := [[0.0, 0.06], [0.3, -0.12], [0.7, 0.30], [1.0, 0.28]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys), "paso": 0.22, "rumbo": 0.2}
+
+
+# EL MOLINETE: la espada EXTENDIDA DELANTE, a dos manos y un pelo por debajo de la horizontal, las
+# piernas abiertas. Solo la postura: el giro (dos vueltas) lo da el juego pasando por las ocho
+# direcciones, asi la cara y el orden de las piezas estan bien en cada una.
+static func _pose_molinete(_t: float) -> Dictionary:
+	return {"brazo_der": 1.3, "brazo_izq": 1.3, "agacha": 0.18, "inclina": 0.10, "paso": 0.24}
+
+
+# EL SEGAR: el arma extendida al frente y baja, y el TRONCO la barre (torsion, como talar): primero
+# hacia TU derecha y luego de vuelta a la izquierda. Dos barridos, uno por golpe.
+static func _pose_barrido_2m(t: float) -> Dictionary:
+	var tor_keys := [[0.0, -1.0], [0.4, 1.0], [0.5, 1.05], [0.9, -1.0], [1.0, -1.0]]
+	return {"brazo_der": 1.25, "brazo_izq": 1.25,
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"agacha": 0.24, "inclina": 0.14, "paso": 0.24}
+
+
+# EL GRITO DE GUERRA: levanta el arma a dos manos, echa el pecho atras y aguanta TEMBLANDO mientras
+# grita.
+static func _pose_grito(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, -0.55], [0.35, -2.3], [1.0, -2.3]]
+	var incl_keys := [[0.0, 0.08], [0.35, -0.22], [1.0, -0.20]]
+	var tiembla: float = 0.0 if t < 0.35 else 0.35 * sin(t * 40.0)
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"bote": tiembla, "agacha": 0.10, "paso": 0.25}
 
 
 # EXTRAER EL CRISTAL. De rodillas (mas bajo que segar: el cuerpo esta tirado en el suelo), el tronco
