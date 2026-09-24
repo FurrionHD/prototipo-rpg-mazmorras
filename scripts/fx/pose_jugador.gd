@@ -293,6 +293,15 @@ const ANIMS := [
 	# 17,5 fps: los dos barridos acaban a 0,2 s uno del otro, como sus dos golpes (CombatFX.T_ENCADENADO).
 	{"n": "barrido_2m", "loop": false, "fps": 17.5, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "grito", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# EL HACHA GRANDE (24/09). 'hendedura_2m' el hachazo vertical desde la guardia (sin carga); 'hachazo_2m'
+	# el Hachazo brutal (un barrido enorme que se clava); 'carniceria_2m' sus tres barridos a 0,2 s uno de
+	# otro (20 fps x 16 marcos); 'gancho_2m' el Desgarro (estira y tira hacia ti); 'mirada' la Sed de sangre.
+	# Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar una = retocar su impacto.
+	{"n": "hendedura_2m", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "hachazo_2m", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "carniceria_2m", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 16, "ultimo": true},
+	{"n": "gancho_2m", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "mirada", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -985,6 +994,11 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"molinete": return _pose_molinete(t)
 		"barrido_2m": return _pose_barrido_2m(t)
 		"grito": return _pose_grito(t)
+		"hendedura_2m": return _pose_hendedura_2m(t)
+		"hachazo_2m": return _pose_hachazo_2m(t)
+		"carniceria_2m": return _pose_carniceria_2m(t)
+		"gancho_2m": return _pose_gancho_2m(t)
+		"mirada": return _pose_mirada(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1272,6 +1286,108 @@ static func _pose_grito(t: float) -> Dictionary:
 	return {"brazo_der": b, "brazo_izq": b,
 		"inclina": SpriteLienzo.tramos(t, incl_keys),
 		"bote": tiembla, "agacha": 0.10, "paso": 0.25, "junta": 1.0}
+
+
+# ------------------------------------------------------------
+#  EL HACHA GRANDE (24/09): "el hacha hace golpes LATERALES" (el jefe). Parten todas de la guardia a dos
+#  manos (guardia_2m: brazos a 0.40, junta) y los barridos los da el TRONCO (torsion), como el Segar.
+# ------------------------------------------------------------
+# LA HENDEDURA: sube el hacha por encima de la cabeza desde la guardia y la baja de golpe al suelo
+# delante, y ahi se queda, hundida (como el tajo_2m, pero sin venir de la carga).
+static func _pose_hendedura_2m(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, 0.40], [0.3, 3.9], [0.42, 4.1], [0.52, 3.3], [0.6, 2.2], [0.66, 1.6],
+		[0.75, 1.42], [1.0, 1.45]]
+	var incl_keys := [[0.0, 0.10], [0.42, -0.14], [0.66, 0.38], [1.0, 0.34]]
+	var agacha_keys := [[0.0, 0.22], [0.42, 0.10], [0.66, 0.36], [1.0, 0.32]]
+	var avance_keys := [[0.0, 0.0], [0.42, -0.8], [0.66, 2.4], [1.0, 2.0]]
+	var rumbo_keys := [[0.0, 0.0], [0.42, 0.3], [0.66, 0.85], [1.0, 0.8]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"rumbo": SpriteLienzo.tramos(t, rumbo_keys), "paso": 0.26, "junta": 1.0}
+
+
+# EL HACHAZO BRUTAL: se arma a la IZQUIERDA con todo el tronco torcido y el hacha un pelo alzada, y la
+# suelta de lado a lado: lenta al arrancar, rapidisima al final (como su media luna, que va a s^2), y
+# SE CLAVA al otro lado, quieta, antes de recomponerse. El barrido empieza en 0,45 (su impacto: el
+# efecto sale en el golpe y le llega a cada uno al pasar).
+static func _pose_hachazo_2m(t: float) -> Dictionary:
+	var tor_keys := [[0.0, 0.0], [0.35, -1.3], [0.45, -1.35], [0.55, -0.95], [0.62, -0.1], [0.70, 1.25],
+		[0.88, 1.25], [1.0, 1.0]]
+	var brazo_keys := [[0.0, 0.40], [0.35, 1.7], [0.45, 1.75], [0.70, 1.3], [0.88, 1.25], [1.0, 1.2]]
+	var incl_keys := [[0.0, 0.10], [0.45, -0.04], [0.70, 0.30], [1.0, 0.24]]
+	var agacha_keys := [[0.0, 0.22], [0.45, 0.20], [0.70, 0.34], [1.0, 0.30]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys), "paso": 0.32, "junta": 1.0}
+
+
+# LA CARNICERIA: tres barridos (dcha, izda, dcha) y ninguno limpio: cada uno a una altura (como sus tres
+# medias lunas, que van a 4, 11 y 6,5 de alto) y el cuerpo dando tumbos entre ellos. Cada golpe cae al
+# ACABAR su barrido, a 0,2 s uno de otro (CombatFX.T_ENCADENADO): en 0,3 / 0,55 / 0,8 de la animacion.
+static func _pose_carniceria_2m(t: float) -> Dictionary:
+	var tor_keys := [[0.0, 0.0], [0.19, -1.05], [0.30, 1.05], [0.44, 1.0], [0.55, -1.05], [0.69, -1.0],
+		[0.80, 1.05], [0.9, 0.9], [1.0, 0.5]]
+	var brazo_keys := [[0.0, 0.40], [0.19, 1.2], [0.30, 1.15], [0.44, 1.65], [0.55, 1.55], [0.69, 1.3],
+		[0.80, 1.35], [1.0, 1.1]]
+	var incl_keys := [[0.0, 0.10], [0.30, 0.28], [0.44, 0.10], [0.55, 0.30], [0.69, 0.14], [0.80, 0.32],
+		[1.0, 0.24]]
+	var avance_keys := [[0.0, 0.0], [0.30, 1.2], [0.44, 0.4], [0.55, 1.6], [0.69, 0.8], [0.80, 2.0],
+		[1.0, 1.4]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"agacha": 0.26, "paso": 0.30, "junta": 1.0}
+
+
+# EL DESGARRO: "extender hacia delante y luego tirar hacia nosotros" (el jefe). Echa el hacha atras un
+# momento, la LANZA al frente estirandose entero (el cuerpo se va detras del arma) y, enganchado, TIRA:
+# se echa hacia atras, el hacha baja y se recoge hacia el. El golpe (y el tiron) en 0,5: con el brazo
+# estirado del todo, justo cuando engancha.
+static func _pose_gancho_2m(t: float) -> Dictionary:
+	var brazo_keys := [[0.0, 0.40], [0.2, 0.9], [0.38, 1.45], [0.5, 1.5], [0.68, 0.95], [0.82, 0.7],
+		[1.0, 0.6]]
+	var avance_keys := [[0.0, 0.0], [0.2, -1.0], [0.38, 3.4], [0.5, 3.8], [0.68, -1.4], [0.82, -1.8],
+		[1.0, -1.2]]
+	var incl_keys := [[0.0, 0.10], [0.2, -0.04], [0.45, 0.40], [0.5, 0.42], [0.68, -0.20], [0.82, -0.24],
+		[1.0, -0.10]]
+	var agacha_keys := [[0.0, 0.22], [0.45, 0.14], [0.68, 0.36], [1.0, 0.30]]
+	var tor_keys := [[0.0, 0.0], [0.2, 0.25], [0.5, -0.1], [0.75, 0.35], [1.0, 0.2]]
+	var b: float = SpriteLienzo.tramos(t, brazo_keys)
+	return {"brazo_der": b, "brazo_izq": b,
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"torsion": SpriteLienzo.tramos(t, tor_keys), "paso": 0.34, "junta": 1.0}
+
+
+# LA MIRADA ASESINA (Sed de sangre): no ataca. Baja la cabeza y se ENCORVA hacia delante como quien va a
+# embestir, da medio paso, aprieta el hacha (la baja y la recoge) y RESPIRA fuerte, con un temblor de
+# rabia contenida. Que no se quede tieso mirando (lo pidio el jefe). En guardia de dos manos todo el rato.
+static func _pose_mirada(t: float) -> Dictionary:
+	# Encorvado LO JUSTO: mas, y la cabeza (que es enorme) baja y tapa el hacha de la guardia.
+	var incl_keys := [[0.0, 0.10], [0.3, 0.22], [0.85, 0.21], [1.0, 0.12]]
+	var agacha_keys := [[0.0, 0.22], [0.3, 0.32], [0.85, 0.31], [1.0, 0.24]]
+	var avance_keys := [[0.0, 0.0], [0.3, 1.3], [0.85, 1.2], [1.0, 0.2]]
+	# A la altura de la guardia: mas abajo el hacha se escondia detras de las piernas.
+	var brazo_keys := [[0.0, 0.40], [0.3, 0.46], [0.85, 0.46], [1.0, 0.40]]
+	# La respiracion (dos golpes de aire) y el temblor, solo mientras aguanta encorvado.
+	var dentro: float = clampf((t - 0.25) / 0.1, 0.0, 1.0) * clampf((0.95 - t) / 0.1, 0.0, 1.0)
+	var respira: float = 0.5 * absf(sin(TAU * t * 2.0))
+	var tiembla: float = 0.18 * sin(t * 55.0)
+	var b: float = SpriteLienzo.tramos(t, brazo_keys) + 0.03 * sin(t * 55.0) * dentro
+	return {"brazo_der": b, "brazo_izq": b,
+		"inclina": SpriteLienzo.tramos(t, incl_keys) + 0.03 * respira * dentro,
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"avance": SpriteLienzo.tramos(t, avance_keys),
+		"bote": (respira + tiembla) * dentro, "paso": 0.36, "junta": 1.0,
+		"eje_2m": GUARDIA_EJE_FRENTE}
 
 
 # EXTRAER EL CRISTAL. De rodillas (mas bajo que segar: el cuerpo esta tirado en el suelo), el tronco

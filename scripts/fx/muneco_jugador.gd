@@ -82,11 +82,12 @@ var _idx_arma_mano: PackedInt32Array = []
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
 # Las FAENAS (PoseJugador.FAENAS) tambien entran, ver _reordenar_arma_mano.
 const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clavar", "barrido_2m",
-	"grito", "en_alto"]
-# Las de DOS MANOS (martillo y mandoble): en estas el arma del lado de la camara se pinta delante de todo.
+	"grito", "en_alto", "hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada"]
+# Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
-	"guardia_2m", "guardia_2m_and", "guardia_2m_cor", "molinete"]
+	"guardia_2m", "guardia_2m_and", "guardia_2m_cor", "molinete",
+	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -224,7 +225,8 @@ func terminada() -> bool:
 # ¿Lleva martillo o mandoble? Entonces su guardia es la del arma al hombro (ver animar). De momento
 # solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
-const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m"}
+const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
+	"arma_hacha_grande_": "guardia_2m"}
 var _guardia_propia: String = ""
 
 func _reindexar_arma_mano() -> void:

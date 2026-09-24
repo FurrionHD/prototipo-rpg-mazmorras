@@ -1676,10 +1676,10 @@ const ANIM_CUERPO_MAPA := {
 	# Los golpes de siempre del martillo y el mandoble, con nombre para que se sepa cuando tocan (abajo).
 	Estilo.MANDOBLE_TAJO: "golpe_2m", Estilo.MARTILLO_GOLPE: "golpe_2m", Estilo.GOLPE_SISMICO: "golpe_2m",
 	Estilo.ONDA_EXPANSIVA: "golpe_2m", Estilo.ROMPECORAZAS: "golpe_2m",
-	# El HACHA GRANDE (24/09), PROVISIONAL con las del mandoble hasta que tenga las suyas (paso 3). Sin
-	# estar aqui sus golpes contaban como magia (a 0,075 s) y la Carniceria no iba con sus tres barridos.
-	Estilo.HACHA_TAJO: "golpe_2m", Estilo.HENDEDURA: "tajo_2m", Estilo.HACHAZO_BRUTAL: "barrido_2m",
-	Estilo.CARNICERIA: "barrido_2m", Estilo.DESGARRO: "barrido_2m",
+	# El HACHA GRANDE (24/09). Sin estar aqui sus golpes contaban como magia (a 0,075 s) y la Carniceria no
+	# iba con sus tres barridos. La Sed de sangre no pega: su gesto sale del adorno sobre ti (fx_sobre_mi).
+	Estilo.HACHA_TAJO: "golpe_2m", Estilo.HENDEDURA: "hendedura_2m", Estilo.HACHAZO_BRUTAL: "hachazo_2m",
+	Estilo.CARNICERIA: "carniceria_2m", Estilo.DESGARRO: "gancho_2m", Estilo.SED_SANGRE: "mirada",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1689,6 +1689,9 @@ const ANIM_CUERPO_MAPA := {
 const IMPACTO_ANIM_MAPA := {
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
+	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
+	# carniceria 0,3x16/20 = acaba el primero; gancho 0,5x12/18 = engancha; mirada 0,3x12/12 = encorvado).
+	"hendedura_2m": 0.44, "hachazo_2m": 0.30, "carniceria_2m": 0.24, "gancho_2m": 0.33, "mirada": 0.30,
 }
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
@@ -1755,8 +1758,11 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 	var pa: Control = _visual(ev["ba"])
 	if pa == null or vistos.has(pa):
 		return
-	# Un ataque a uno mismo (un aura, un buff) no es un golpe: ahi no hay gesto de atacar.
-	if pa == _visual(ev["bv"]):
+	# Un ataque a uno mismo (un aura, un buff) no es un golpe: ahi no hay gesto de atacar. SALVO en el mapa
+	# si su estilo tiene cuerpo propio (ANIM_CUERPO_MAPA): la Sed de sangre no pega, y su mirada es todo
+	# lo que hace el personaje.
+	var propio: bool = rect_en_mapa.is_valid() and String(ev.get("anim", "")) != ""
+	if pa == _visual(ev["bv"]) and not propio:
 		return
 	var cuando: Array[float] = []
 	for i in _cola.size():
@@ -1767,6 +1773,8 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		if int(_cola[i].get("pos_tanda", 0)) >= MAX_IMPACTOS_ANIMADOS:
 			continue
 		cuando.append(float(_cola[i]["t"]))
+	if cuando.is_empty() and propio:
+		cuando.append(float(ev["t"]))
 	if cuando.is_empty():
 		return
 	cuando.sort()
@@ -2299,8 +2307,11 @@ func _process(delta: float) -> void:
 			# dibuja UNO (son una cosa grande, no un proyectil por cabeza). Los demas siguen con su
 			# numero y su temblor.
 			# Y los del SUELO QUE SE ROMPE no pintan su efecto de siempre: su dibujo es la rotura.
+			# (La Sed de sangre en el mapa tampoco: su dibujo es la mirada de HachaAire; el adorno solo trae
+			# el gesto del cuerpo.)
 			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
-					and float(ev.get("retraso_suelo", -1.0)) < 0.0:
+					and float(ev.get("retraso_suelo", -1.0)) < 0.0 \
+					and not (rect_en_mapa.is_valid() and estilo == Estilo.SED_SANGRE):
 				# El portador cubre TODO lo alcanzado: va al centro del grupo y con el ancho de
 				# todos. Lo demas apunta a su tarjeta y lleva el ancho de una.
 				var destino: Vector2 = _punto(ev["bv"])
