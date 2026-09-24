@@ -261,7 +261,10 @@ func terminada() -> bool:
 # solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
-	"arma_hacha_grande_": "guardia_2m"}
+	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga"}
+# Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
+# espada en la derecha no te pone la guardia de la daga.
+const _GUARDIA_SOLO_DER := ["arma_daga_"]
 var _guardia_propia: String = ""
 
 func _reindexar_arma_mano() -> void:
@@ -270,7 +273,7 @@ func _reindexar_arma_mano() -> void:
 	for i in _capas.size():
 		var clave: String = String(_capas[i]["clave"])
 		for pre in _GUARDIA_DE:
-			if clave.begins_with(pre):
+			if clave.begins_with(pre) and (not _GUARDIA_SOLO_DER.has(pre) or clave.ends_with("_der")):
 				_guardia_propia = String(_GUARDIA_DE[pre])
 		if clave.begins_with("arma_") and not _capas[i].has("z") \
 				and (clave.ends_with("_mano_der") or clave.ends_with("_mano_izq")):
@@ -527,11 +530,14 @@ func fijar(nombre: String, marco: int) -> void:
 # CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
 # _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
 func _con_su_guardia(nombre: String) -> String:
-	# Y su DESENVAINAR, que acaba en esa guardia (ver PoseJugador._pose_desenvainar_2m).
-	if _guardia_propia != "" and nombre.begins_with("desenvainar_") and not nombre.begins_with("desenvainar_2m"):
-		return "desenvainar_2m_" + nombre.substr(12)
-	if _guardia_propia != "" and nombre.begins_with("guardia_") \
-			and not nombre.begins_with("guardia_2m"):
+	# Y su DESENVAINAR, que acaba en esa guardia (ver PoseJugador._pose_desenvainar_2m / _daga):
+	# "guardia_2m" -> "desenvainar_2m", "guardia_daga" -> "desenvainar_daga".
+	if _guardia_propia == "":
+		return nombre
+	var desenv: String = "desenvainar" + _guardia_propia.substr(7)
+	if nombre.begins_with("desenvainar_") and not nombre.begins_with(desenv):
+		return desenv + "_" + nombre.substr(12)
+	if nombre.begins_with("guardia_") and not nombre.begins_with(_guardia_propia):
 		return _guardia_propia + "_" + nombre.substr(8)
 	return nombre
 

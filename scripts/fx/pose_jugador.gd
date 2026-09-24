@@ -302,6 +302,12 @@ const ANIMS := [
 	{"n": "carniceria_2m", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 16, "ultimo": true},
 	{"n": "gancho_2m", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "mirada", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	# LA DAGA (24/09): su guardia (la de su referencia: brazo estirado al frente y la daga AL REVES) y el
+	# desenvainar que acaba en ella (mismo ritmo que el de dos manos).
+	{"n": "guardia_daga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_daga_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_daga_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_daga", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -567,11 +573,14 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 			Vector3(s * CODO.x, CODO.y, CODO.z), hombro, a)
 		p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = _girar_miembro(
 			Vector3(s * MANO.x, MANO.y, MANO.z), hombro, a)
-		if junta > 0.0:
+		# 'junta_izq' / 'junta_der': lo mismo pero de UNA mano (la guardia de la daga recoge la izquierda
+		# junto al pecho y deja la derecha estirada).
+		var jn: float = clampf(float(pose.get("junta_izq" if lado == 0 else "junta_der", junta)), 0.0, 1.0)
+		if jn > 0.0:
 			var mn: Vector3 = p[P_MANO_IZQ if lado == 0 else P_MANO_DER]
 			var cd: Vector3 = p[P_CODO_IZQ if lado == 0 else P_CODO_DER]
-			mn.x = lerpf(mn.x, s * JUNTA_X, junta)
-			cd.x = lerpf(cd.x, s * HOMBRO.x * 0.55, junta * 0.6)
+			mn.x = lerpf(mn.x, s * JUNTA_X, jn)
+			cd.x = lerpf(cd.x, s * HOMBRO.x * 0.55, jn * 0.6)
 			p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = mn
 			p[P_CODO_IZQ if lado == 0 else P_CODO_DER] = cd
 
@@ -909,6 +918,11 @@ static func agarre_arma(esq: Dictionary, mano: int, estado: String) -> Dictionar
 			# LA MUÑECA (24/09): el arma iba siempre en la linea del antebrazo, asi que con la mano a la
 			# cintura la hoja apuntaba al suelo. 'muneca' la levanta hacia arriba (radianes): la guardia
 			# de su boceto, la hoja en diagonal hacia arriba y hacia delante.
+			# EL AGARRE AL REVES (la daga, 24/09): 'eje_der' / 'eje_izq' fijan hacia donde va la hoja de esa
+			# mano, en el sistema del cuerpo (como 'eje_2m'). Hoja hacia abajo = la daga agarrada al reves.
+			var clave_eje: String = "eje_der" if mano == 0 else "eje_izq"
+			if pose_a.has(clave_eje):
+				return {"empunadura": e, "eje": (pose_a[clave_eje] as Vector3).normalized(), "atras": false}
 			var mu: float = float(pose_a.get("muneca", 0.0))
 			if not is_zero_approx(mu):
 				eje1 = Vector3(eje1.x, eje1.y * cos(mu) - eje1.z * sin(mu),
@@ -999,6 +1013,10 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"carniceria_2m": return _pose_carniceria_2m(t)
 		"gancho_2m": return _pose_gancho_2m(t)
 		"mirada": return _pose_mirada(t)
+		"guardia_daga": return _pose_guardia_daga(t)
+		"guardia_daga_and": return _pose_guardia_daga_and(t)
+		"guardia_daga_cor": return _pose_guardia_daga_cor(t)
+		"desenvainar_daga": return _pose_desenvainar_daga(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1500,6 +1518,60 @@ static func _pose_desenvainar(t: float) -> Dictionary:
 		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
 		"inclina": 0.06 + 0.06 * SpriteLienzo.tramos(t, incl_keys),
 		"agacha": 0.10, "sacando": t}
+
+
+# ------------------------------------------------------------
+#  LA DAGA (24/09). Su guardia es la de SU REFERENCIA: el brazo del arma ESTIRADO al frente a la altura del
+#  pecho, puño cerrado, y la daga agarrada AL REVES (la hoja sale por debajo del puño, hacia abajo y hacia
+#  dentro, cruzando por delante del cuerpo). La otra mano, recogida junto al pecho; con dos dagas lleva la
+#  segunda IGUAL, al reves. MunecoJugador cambia 'guardia*' por 'guardia_daga*' si llevas daga.
+# ------------------------------------------------------------
+const DAGA_EJE_DER := Vector3(0.55, 0.30, -0.78)    # al reves: abajo, hacia dentro y un pelo al frente
+const DAGA_EJE_IZQ := Vector3(-0.50, 0.35, -0.80)
+
+static func _pose_guardia_daga(t: float) -> Dictionary:
+	return {"bote": 0.25 * sin(TAU * t),
+		"brazo_der": 1.30 + 0.04 * sin(TAU * t), "brazo_izq": 0.85 + 0.04 * sin(TAU * t),
+		"junta_izq": 0.75, "inclina": 0.12, "agacha": 0.20, "paso": 0.32, "torsion": 0.20,
+		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ}
+
+
+static func _pose_guardia_daga_and(t: float) -> Dictionary:
+	return {"paso": 0.32 + 0.12 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
+		"brazo_der": 1.30 + 0.05 * sin(TAU * t), "brazo_izq": 0.85 + 0.05 * sin(TAU * t),
+		"junta_izq": 0.75, "inclina": 0.14, "agacha": 0.16, "torsion": 0.20,
+		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ}
+
+
+static func _pose_guardia_daga_cor(t: float) -> Dictionary:
+	return {"paso": 0.58 * sin(TAU * t), "bote": 0.95 * absf(sin(TAU * t)),
+		"brazo_der": 1.20 + 0.08 * sin(TAU * t), "brazo_izq": 0.85 + 0.08 * sin(TAU * t),
+		"junta_izq": 0.75, "inclina": 0.26, "agacha": 0.10, "torsion": 0.15,
+		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ}
+
+
+# SACAR LA DAGA de la cadera y quedarse en su guardia: la mano baja al costado, agarra y la saca de un tiron
+# llevandola al frente. El ultimo fotograma ES _pose_guardia_daga(0) (sin salto al pasar a la guardia).
+static func _pose_desenvainar_daga(t: float) -> Dictionary:
+	var fin: Dictionary = _pose_guardia_daga(0.0)
+	var der_keys := [[0.0, 0.15], [0.35, -0.10], [0.55, 0.30], [1.0, float(fin["brazo_der"])]]
+	var izq_keys := [[0.0, 0.10], [0.35, -0.10], [0.6, 0.40], [1.0, float(fin["brazo_izq"])]]
+	var jun_keys := [[0.0, 0.0], [0.6, 0.2], [1.0, float(fin["junta_izq"])]]
+	var agacha_keys := [[0.0, 0.08], [0.35, 0.14], [1.0, float(fin["agacha"])]]
+	var paso_keys := [[0.0, 0.0], [1.0, float(fin["paso"])]]
+	var tor_keys := [[0.0, 0.0], [1.0, float(fin["torsion"])]]
+	var incl_keys := [[0.0, 0.04], [0.35, 0.14], [1.0, float(fin["inclina"])]]
+	return {"brazo_der": SpriteLienzo.tramos(t, der_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"junta_izq": SpriteLienzo.tramos(t, jun_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"paso": SpriteLienzo.tramos(t, paso_keys),
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"bote": float(fin.get("bote", 0.0)) * t,
+		# En la cadera hasta que la mano llega (0,35); de ahi viaja al puño, ya al reves.
+		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ,
+		"sacando": -1.0 if t < 0.35 else clampf((t - 0.35) / 0.65, 0.0, 1.0)}
 
 
 # ENCAJAR UN GOLPE. Cuatro marcos, una direccion, y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto,
