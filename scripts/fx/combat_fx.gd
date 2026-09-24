@@ -741,7 +741,7 @@ const FAMILIAS: Array = [
 	# El resto de cosas a tu favor, que no son ni "un numero que sube" ni nada con forma propia:
 	# el destello de siempre, que en todo el juego significa "esto es bueno".
 	["favor", "destello", [
-		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA, StatusEffects.Id.OPORTUNISTA,
 	]],
 ]
 # Los 8 PLATOS se quedan SOLO con el tinte a proposito, y no es un olvido: duran 20 minutos de

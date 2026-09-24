@@ -33,7 +33,7 @@ const DEV_ESTADOS_CATS: Array = [
 	["Buffs", [
 		StatusEffects.Id.FORTALEZA, StatusEffects.Id.BALUARTE, StatusEffects.Id.PRESTEZA,
 		StatusEffects.Id.REGENERACION, StatusEffects.Id.REGEN_MANA, StatusEffects.Id.SIGILO,
-		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA,
+		StatusEffects.Id.GUARDIA_CARNE, StatusEffects.Id.ESCOLTA, StatusEffects.Id.OPORTUNISTA,
 	]],
 	["Debuffs", [
 		StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.MARCA,

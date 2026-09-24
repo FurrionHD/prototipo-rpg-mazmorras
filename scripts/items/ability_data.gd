@@ -250,6 +250,15 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # EL TIRON (solo en el mapa): px que se ARRASTRA hacia quien golpea a cada enemigo que encaja el golpe,
 # en el instante en que se ve llegar. Nunca hasta meterselo encima. 0 = no tira. El Desgarro (24/09).
 @export var tiron: float = 0.0
+# HASTA DONDE SE APUNTA una forma LIBRE, en px desde el borde de lo que pisas (0 = el alcance del arma,
+# como DELANTE). El Oportunista de la daga se pone hasta 150 px lejos (24/09).
+@export var forma_rango: float = 0.0
+# A LA ESPALDA (solo en el mapa): la huella elige UN enemigo (el mas cercano a su centro) y el que la
+# lanza aparece detras de el antes de golpear. Detras = del otro lado del que viene. Sin nadie dentro no
+# hay salto ni golpe. El Oportunista de la daga (24/09).
+@export var salto_espalda: bool = false
+# CRITICO DE MAS de esta habilidad, sumado a la probabilidad de siempre (0.3 = +30 puntos).
+@export var crit_extra: float = 0.0
 
 # REPARTO POR GOLPE (solo ENEMIGOS, multi-golpe a un solo objetivo): cada golpe elige objetivo al
 # azar entre TU grupo vivo, en vez de descargarlos todos sobre el mismo. Con 2 golpes pueden caer
@@ -606,6 +615,8 @@ func resumen(manos: int = 1) -> String:
 		if por > 0.0:
 			l.append("Suma %s golpe%s por cada enemigo extra en combate (hasta %d)." % [
 				_num(por), "" if por == 1.0 else "s", golpes_extra_max])
+		if crit_extra > 0.0:
+			l.append("+%d%% de probabilidad de crítico." % roundi(crit_extra * 100.0))
 	elif not es_imbuicion() and limpia_debuffs <= 0:
 		l.append("No hace daño.")
 

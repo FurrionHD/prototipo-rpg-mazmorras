@@ -393,7 +393,7 @@ static func imbue_proc_chance(base: float, stat: float, rival_resistencia: float
 # cambia la MAGNITUD: esquiva, critico y aturdir se siguen resolviendo igual, porque quien pega
 # sigue siendo el mismo con su misma Destreza.
 static func resolve_attack(attacker: Combatant, defender: Combatant,
-		defending: bool = false, atk_override: float = -1.0) -> Dictionary:
+		defending: bool = false, atk_override: float = -1.0, crit_extra: float = 0.0) -> Dictionary:
 	# Por hab() y no por abilities.*: los platos suben la HABILIDAD BASE, asi que la Destreza/
 	# Agilidad que se usan aqui son las EFECTIVAS (ver Combatant.hab).
 	var atk_dex := attacker.hab("destreza")
@@ -416,7 +416,7 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Defender NO anula el critico: lo deja a la MITAD (DEFEND_CRIT_MULT). El x0.5 va DESPUES del
 	# clamp, sobre la probabilidad ya resuelta, para que reduzca lo que de verdad te iban a sacar.
 	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat
-		+ attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
+		+ attacker.status_crit_flat() + crit_extra - defender.crit_resist, 0.0, 1.0)
 	if defending:
 		crit_p *= DEFEND_CRIT_MULT
 	# EL ATURDIR VA POR DONDE VAN TODOS LOS ESTADOS. Hasta ahora tenia carril propio -- su propio

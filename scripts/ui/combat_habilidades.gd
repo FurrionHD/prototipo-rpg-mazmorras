@@ -237,7 +237,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	var estilo_ab: int = _pantalla.efectos._estilo_de_habilidad(ab, _pantalla._player)
 	if ab.golpe_es_de_escudo(i) and not (ab.es_toda_de_escudo() and ab.fx_estilo >= 0):
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
-	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov)
+	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov, ab.crit_extra)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
@@ -444,8 +444,14 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# daria maná gratis por energia que ya no gastas.
 	if en_mapa:
 		reparto_mapa = _pantalla.turno_mapa.reparto_habilidad(ab, _pantalla._player)
+		# A LA ESPALDA (Oportunista): uno solo, el mas cercano al centro, y apareces detras de el. El
+		# salto se pide ANTES de sus golpes, que es el orden en que viaja al espejo.
+		if ab.salto_espalda and reparto_mapa.size() > 1:
+			reparto_mapa = reparto_mapa.slice(0, 1)
 		if not reparto_mapa.is_empty():
 			obj = reparto_mapa[0]["c"]
+			if ab.salto_espalda:
+				_pantalla.turno_mapa.pedir_salto(_pantalla._player, obj, _pantalla._player)
 		# EL SUELO QUE SE ROMPE: desde aqui cada golpe que se encole llega cuando la rotura alcanza a
 		# su victima (ver efectos.fijar_suelo). Se quita al acabar los golpes, mas abajo.
 		if ab.suelo_roto >= 0:
@@ -485,7 +491,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# efectos_por_golpe, cada tajo que acierta tira los efectos (sangrado 40%/hit).
 	# Las de UTILIDAD PURA (dano_mult 0, p.ej. Canalizar) NO golpean.
 	if ab.dano_mult > 0.0:
-		golpes = ab.num_golpes(manos, _pantalla._vivos().size())   # flurries: más golpes cuantos más enemigos
+		# Flurries: más golpes cuantos más enemigos. En el mapa cuentan los que pilla la HUELLA, no todos
+		# los de la pelea (la Ráfaga en medio de un grupo; el Desaparecer, una puñalada a cada uno).
+		var n_enemigos: int = reparto_mapa.size() if en_mapa and not reparto_mapa.is_empty() \
+			else _pantalla._vivos().size()
+		golpes = ab.num_golpes(manos, n_enemigos)
 		# PLAN de golpes: mano y multiplicador de cada uno. Intercala las manos del dual (der, izq,
 		# der, izq) y, en arma+escudo, alterna arma (fuerte) / escudo (flojo). Ver ab.plan_golpes.
 		var plan: Array = ab.plan_golpes(golpes, manos)

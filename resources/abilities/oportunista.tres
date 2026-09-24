@@ -5,7 +5,7 @@
 
 [sub_resource type="Resource" id="SA_0"]
 script = ExtResource("2")
-estado = 22
+estado = 34
 prob = 1.0
 en_objetivo = false
 turns = 30
@@ -22,6 +22,13 @@ golpes_max = 1
 golpes_dual_min = 2
 golpes_dual_max = 2
 dano_mult = 0.7
+fx_estilo = 37
 redirige_al_morir = true
-descripcion = "Dejas de buscar el hueco tú solo y empiezas a aprovechar los que abren los demás. Cada vez que uno de los tuyos entra, tú ya estás detrás."
+crit_extra = 0.3
+forma = 1
+forma_apunte = 3
+forma_rango = 150.0
+forma_radio = 16.0
+salto_espalda = true
+descripcion = "Apareces a la espalda de uno y le clavas la daga donde más duele. Desde entonces, cada hueco que abre uno de los tuyos cerca de ti es tuyo: tú ya estás detrás."
 efectos = [SubResource("SA_0")]

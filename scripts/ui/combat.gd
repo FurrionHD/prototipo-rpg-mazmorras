@@ -534,6 +534,8 @@ func _ready() -> void:
 	_fx.tinte_cambiado.connect(figuras._on_tinte_cambiado)
 	# EL SPRITE SE MUEVE CON EL CUERPO. CombatFX lleva el reloj y avisa; el dueño de los sprites es
 	# esta pantalla, asi que el cambio de animacion se hace aqui.
+	# El salto del Oportunista va ANTES que el gesto: aparece a la espalda y el gesto sale ya mirandole.
+	_fx.gesto_iniciado.connect(turno_mapa._on_gesto_salto)
 	_fx.gesto_iniciado.connect(figuras._on_gesto_iniciado)
 	_fx.gesto_terminado.connect(figuras._on_gesto_terminado)
 	_fx.golpe_encajado.connect(figuras._on_golpe_encajado)
@@ -1918,7 +1920,8 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 		return
 	var escoltas: Array = []
 	for al in _aliados_vivos():
-		if al != _player and al.has_status(StatusEffects.Id.ESCOLTA):
+		if al != _player and (al.has_status(StatusEffects.Id.ESCOLTA)
+				or al.has_status(StatusEffects.Id.OPORTUNISTA)):
 			escoltas.append(al)
 	if escoltas.is_empty():
 		return
@@ -1929,10 +1932,22 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			break
 		var pct: float = 0.0
 		var inst = null
+		# EL OPORTUNISTA (daga) manda sobre la Escolta si lleva los dos y le pilla a tiro: entra a la
+		# espalda. En el mapa, fuera de su alcance no entra por el (y si no hay Escolta, no entra).
+		var oport = null
+		for e in esc.statuses:
+			if e.id() == StatusEffects.Id.OPORTUNISTA:
+				var alc: float = float(e.d.get("alcance_mapa", 0.0))
+				if not tactico or alc <= 0.0 \
+						or turno_mapa.pies_de(esc).distance_to(turno_mapa.pies_de(obj)) <= alc:
+					oport = e
 		for e in esc.statuses:
 			if e.id() == StatusEffects.Id.ESCOLTA:
 				pct = maxf(pct, float(e.d.get("seguimiento_pct", 0.0)))
 				inst = e
+		if oport != null:
+			inst = oport
+			pct = float(oport.d.get("seguimiento_pct", 0.0))
 		if pct <= 0.0:
 			continue
 		# NO ENTRA EL QUE NO PUEDE PEGAR. Este golpe salta FUERA de tu turno, asi que no pasa por
@@ -1948,8 +1963,15 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 		# lleve dos armas y pegue dos veces -- lo que se cobra es meterse en el hueco, no el numero
 		# de tajos que quepan.
 		if inst != null and inst.gastar_uso():
-			esc.quitar_estado(StatusEffects.Id.ESCOLTA)
+			esc.quitar_estado(inst.id())
 			_log_extra("%s se queda sin huecos que aprovechar." % esc.nombre)
+		# EL OPORTUNISTA APARECE A LA ESPALDA: del otro lado del que acaba de pegar. Se pide antes de sus
+		# golpes, que es el orden en que viaja al espejo.
+		var crit_extra: float = 0.0
+		if oport != null:
+			crit_extra = float(oport.d.get("crit_extra", 0.0))
+			if tactico:
+				turno_mapa.pedir_salto(esc, obj, quien_actuaba)
 		# _player es "quien tiene el turno" en todo el motor de golpes, asi que se le presta un
 		# momento al escolta para que el golpe salga con SUS numeros, y se devuelve al acabar. TODO
 		# lo que lea _player (la imbuicion, la excelia, el mana) tiene que quedar dentro del prestamo.
@@ -1967,10 +1989,13 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			esc.set_active_hand(i)
 			# El estilo se lee DESPUES de fijar la mano: en dual, cada golpe se ve con SU arma.
 			var estilo: int = efectos._estilo_de_habilidad(null, esc)
+			# El del Oportunista es una puñalada, no su basico.
+			if oport != null:
+				estilo = CombatFX.Estilo.PUNALADA
 			var arma: String = esc.current_hand_name()
 			var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
 			efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
-			var r := StatsMath.resolve_attack(esc, obj, false)
+			var r := StatsMath.resolve_attack(esc, obj, false, -1.0, crit_extra)
 			if r.evaded:
 				_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
 				efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)

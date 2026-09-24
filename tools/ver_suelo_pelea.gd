@@ -109,8 +109,40 @@ func _correr() -> void:
 			if t.hueco_entre(combat._player, e) < mejor:
 				mejor = t.hueco_entre(combat._player, e)
 				t.apunte = t.pos_de(e)
+	# SUELO_ARRIMAR=1: el jugador se pone pegado a la izquierda del grupo (las de alcance corto de la daga).
+	if OS.get_environment("SUELO_ARRIMAR") != "":
+		var izq: Combatant = null
+		for e in combat._enemies:
+			if izq == null or t.pos_de(e).x < t.pos_de(izq).x:
+				izq = e
+		t._colocar(combat._player, t.cuerpo_de(combat._player), t.pos_de(izq) + Vector2(-26, 0))
+		t.apunte = t.pos_de(izq) + Vector2(20, 0)
+	# SUELO_SEGUIMIENTO=1: el jugador lleva Oportunista y "un compañero" (el primer enemigo, prestado como
+	# _player) acaba de pegar al segundo. Se mira si entra, salta a su espalda y gasta carga.
+	if OS.get_environment("SUELO_SEGUIMIENTO") != "":
+		var yo: Combatant = combat._player
+		yo.apply_status(StatusEffects.Id.OPORTUNISTA, 30)
+		for obj in [combat._enemies[1], combat._enemies[2]]:
+			print("  seguimiento: yo en %s, pega %s a %s en %s (distancia %.0f)" % [str(t.pos_de(yo).round()),
+				combat._enemies[0].nombre, obj.nombre, str(t.pos_de(obj).round()),
+				t.pies_de(yo).distance_to(t.pies_de(obj))])
+			combat._player = combat._enemies[0]
+			combat._disparar_seguimientos(obj)
+			combat._player = yo
+			combat._fx.arrancar_cola()
+			await get_tree().create_timer(1.0, true, false, true).timeout
+			var usos: int = -1
+			for e in yo.statuses:
+				if e.id() == StatusEffects.Id.OPORTUNISTA:
+					usos = int(e.get("usos")) if e.get("usos") != null else -2
+			print("  -> yo en %s, %s vida=%.1f, usos=%d" % [str(t.pos_de(yo).round()), obj.nombre,
+				obj.current_hp, usos])
+		print("=== FIN ===")
+		get_tree().quit(0)
+		return
 	t._hay_apunte = true
-	print("%s: pilla a %d" % [nom, t.reparto_habilidad(ab, t._quien).size()])
+	print("%s: pilla a %d  (jugador en %s)" % [nom, t.reparto_habilidad(ab, t._quien).size(),
+		str(t.pos_de(combat._player).round())])
 	for e in combat._enemies:
 		print("  antes: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp, str(t.pos_de(e).round()),
 			t.hueco_entre(combat._player, e)])
@@ -131,6 +163,7 @@ func _correr() -> void:
 		for e in combat._enemies:
 			print("  despues: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp,
 				str(t.pos_de(e).round()), t.hueco_entre(combat._player, e)])
+		print("  despues: jugador en %s" % str(t.pos_de(combat._player).round()))
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return

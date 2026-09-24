@@ -341,8 +341,11 @@ static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcan
 	var dir: Vector2 = hacia - pies
 	var centro: Vector2 = pies
 	match int(ab.forma_apunte):
-		Apunte.DELANTE, Apunte.LIBRE:
+		Apunte.DELANTE:
 			centro = pies + dir.limit_length(pisa + alcance)
+		Apunte.LIBRE:
+			var rango: float = ab.forma_rango if ab.forma_rango > 0.0 else alcance
+			centro = pies + dir.limit_length(pisa + rango)
 		Apunte.OBJETIVO:
 			centro = hacia
 	var r: float = ab.forma_radio if ab.forma_radio > 0.0 else R_BASE

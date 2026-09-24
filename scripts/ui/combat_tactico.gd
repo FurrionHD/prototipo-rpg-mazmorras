@@ -541,6 +541,7 @@ func tick(delta: float) -> bool:
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_tirones(delta)
+	_tick_saltos(delta)
 	_preparar_altas()
 	_recoger_de_la_arena(delta)
 	match _fase:
@@ -1613,6 +1614,94 @@ func _tick_tirones(delta: float) -> void:
 		if u >= 1.0:
 			_tirones.erase(tr)
 	_enviar_bichos()
+
+
+# ------------------------------------------------------------
+#  EL SALTO A LA ESPALDA (Oportunista de la daga, 24/09)
+# ------------------------------------------------------------
+# El que lo hace APARECE detras del enemigo, del otro lado de 'desde' (el mismo, con la habilidad; el
+# compañero que acaba de pegarle, al entrar detras). El SITIO lo decide quien lleva la pelea con sus
+# posiciones y viaja al espejo en el paquete de impactos, delante de los golpes (espejo._apuntar_salto_red).
+# Cada maquina lo hace cuando ARRANCA su gesto de golpear (CombatFX.gesto_iniciado): primero aparece,
+# despues apuñala. Solo mueve el cuerpo quien lo mueve siempre (_es_mio); quien lleva la pelea apunta
+# ademas el sitio en _pos, que es donde la pelea cuenta que esta el personaje de otro humano.
+const T_SALTO_ESPERA := 3.0   # si el gesto no llega a verse (sin capa de efectos), se hace igual
+const HUECO_ESPALDA := 2.0
+var _saltos: Array = []   # {c, hasta (el nodo), hacia (los pies del enemigo), espera}
+
+func pedir_salto(c: Combatant, victima: Combatant, desde: Combatant) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or victima == null:
+		return
+	var p = sitio_a_la_espalda(c, victima, desde)
+	if p == null:
+		return
+	var hacia: Vector2 = pies_de(victima)
+	if not _es_mio(c):
+		_pos[c] = p
+	_pantalla.espejo._apuntar_salto_red(c, p, victima)
+	anotar_salto(c, p, hacia)
+
+
+# Tambien en el espejo, al leer el paquete de impactos.
+func anotar_salto(c: Combatant, hasta: Vector2, hacia: Vector2) -> void:
+	if c == null:
+		return
+	_saltos.append({"c": c, "hasta": hasta, "hacia": hacia, "espera": 0.0})
+
+
+# DONDE SE PONE (el nodo, no los pies), o null si no hay sitio. Pegado al enemigo por detras: sus pies, mas
+# lo que pisa el enemigo y medio de lo que pisa el que salta. Si detras hay pared o se sale de la arena,
+# prueba a los lados, cada vez mas abiertos hacia el frente.
+func sitio_a_la_espalda(c: Combatant, victima: Combatant, desde: Combatant):
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo_de(victima) == null:
+		return null
+	var pv: Vector2 = pies_de(victima)
+	var dir: Vector2 = pv - pies_de(desde if desde != null else c)
+	if dir.length_squared() < 0.01:
+		dir = Vector2.RIGHT
+	dir = dir.normalized()
+	var largo: float = maxf(radio_pisa(victima), 8.0) + radio_pisa(c) * 0.5 + HUECO_ESPALDA
+	var dentro: Rect2 = _dentro(_arena())
+	for giro in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.0, -2.0]:
+		var nodo: Vector2 = pv + dir.rotated(float(giro) * PI * 0.25) * largo \
+			- Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+		if _sobre_suelo(nodo, cuerpo) and (not dentro.has_area() or dentro.has_point(nodo)):
+			return nodo
+	return null
+
+
+func _on_gesto_salto(b: Dictionary, _dir: int, _dur: float, _anim: StringName) -> void:
+	if _saltos.is_empty():
+		return
+	var c: Combatant = _de_bloque(b)
+	for s in _saltos:
+		if s["c"] == c:
+			_hacer_salto(s)
+			return
+
+
+func _hacer_salto(s: Dictionary) -> void:
+	_saltos.erase(s)
+	var c: Combatant = s["c"]
+	if not _es_mio(c):
+		return
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or not c.is_alive():
+		return
+	_colocar(c, cuerpo, s["hasta"])
+	# Mirando al enemigo: el gesto que arranca ahora mismo lee esta mirada (ver gesto_en_mapa).
+	_animar(cuerpo, Vector2(s["hacia"]) - Vector2(s["hasta"]) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO), false)
+	# El circulo de andar de su turno ya no vale: se quedaria pintado donde estaba.
+	if _quien == c and _fase == Fase.MOVIENDO:
+		_inicio = cuerpo.global_position
+
+
+func _tick_saltos(delta: float) -> void:
+	for s in _saltos.duplicate():
+		s["espera"] = float(s["espera"]) + delta
+		if float(s["espera"]) >= T_SALTO_ESPERA:
+			_hacer_salto(s)
 
 
 # ------------------------------------------------------------

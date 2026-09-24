@@ -43,7 +43,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PLATO_ESTOMAGO, PLATO_FORTUNA,
 	ENRAIZADO,
 	RESGUARDO,
-	CEGUERA }
+	CEGUERA,
+	OPORTUNISTA }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -361,6 +362,15 @@ static var _defs: Dictionary = {
 		# con dual sale por algo mas de un ataque entero.
 		"turns": 30, "usos": 5, "seguimiento_pct": 0.75,
 		"descripcion": "Dejas de ir por tu cuenta: entras justo detrás del que abre el hueco.",
+	},
+	# EL OPORTUNISTA DE LA DAGA (24/09): la Escolta del picaro. Tambien por cargas, pero en el MAPA solo
+	# entra si el enemigo golpeado esta a 'alcance_mapa' px de ti, y entonces APARECE A SU ESPALDA (del
+	# otro lado del compañero que le ha pegado) y le mete una puñalada con 'crit_extra' de critico. Fuera
+	# de alcance no entra y NO gasta carga. En la fila entra siempre, como la Escolta.
+	Id.OPORTUNISTA: {
+		"id": Id.OPORTUNISTA, "nombre": "Oportunista", "icono": "🗡", "color": Color(0.62, 0.55, 0.85),
+		"turns": 30, "usos": 5, "seguimiento_pct": 0.75, "crit_extra": 0.3, "alcance_mapa": 150.0,
+		"descripcion": "Cada hueco que abre uno de los tuyos es tuyo: apareces detrás y entras.",
 	},
 
 	# --- PLATOS DE COCINA (KAN-119) ---------------------------------------------------

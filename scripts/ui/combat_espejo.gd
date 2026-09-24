@@ -1125,6 +1125,17 @@ static func _bloques_suelo(tipo: int, f: CombatFormas.Forma, semilla: int, nucle
 			roundi(f.ancho * 16.0), roundi(f.ancho_fin * 16.0)])
 
 
+# EL SALTO A LA ESPALDA (Oportunista) viaja igual, DELANTE de los golpes de quien salta: un bloque de
+# cinco enteros [M, quien, x x16, y x16, victima] (x, y = donde queda su nodo). Ver turno_mapa.pedir_salto.
+const MARCA_SALTO := -8
+
+func _apuntar_salto_red(c: Combatant, p: Vector2, victima: Combatant) -> void:
+	if _pantalla._espejo or not Net.activo:
+		return
+	_impactos_red.append_array(PackedInt32Array([MARCA_SALTO, _cod_combatiente(c),
+		roundi(p.x * 16.0), roundi(p.y * 16.0), _cod_combatiente(victima)]))
+
+
 static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 	var tipo_f: int = d[j + 3]
 	var o := Vector2(float(d[j + 6]) / 16.0, float(d[j + 7]) / 16.0)
@@ -1169,6 +1180,15 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 				var s: Array = _leer_suelo(datos, j)
 				_pantalla.efectos.fijar_suelo(int(s[0]), s[1], int(s[2]), float(s[3]))
 			j += 15
+			continue
+		if ca == MARCA_SALTO:
+			var quien: Combatant = _de_codigo(datos[j + 1])
+			var vic: Combatant = _de_codigo(datos[j + 4])
+			if quien != null and vic != null:
+				_pantalla.turno_mapa.anotar_salto(quien,
+					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
+					_pantalla.turno_mapa.pies_de(vic))
+			j += 5
 			continue
 		var cv: int = datos[j + 1]
 		var dmg: float = float(datos[j + 2]) / 100.0
