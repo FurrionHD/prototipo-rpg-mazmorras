@@ -319,6 +319,22 @@ const ANIMS := [
 	{"n": "punalada_daga_izq", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 9, "ultimo": true},
 	{"n": "lanzar_humo", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "afilar_veneno", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	# EL ESTOQUE (24/09). Sus DOS guardias (su referencia de esgrima): la de siempre, en garde de ataque, y
+	# la DEFENSIVA mientras dura En guardia ('guardia_estoque_def', mas baja y con la hoja pegada). Sus
+	# golpes: 'estocada_estoque' el fondo (basico, Paso ligero, Punzada al nervio), 'estocada_honda' la
+	# Penetrante, 'finta_estoque' amago + fondo (Fintas, una por golpe), 'pinchazo_estoque' el pinchazo corto
+	# sin fondo de la Danza (uno por golpe, avanzando) y 'ponerse_en_guardia' el gesto de En guardia.
+	# Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar una = retocar su impacto.
+	{"n": "guardia_estoque", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_def", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "estocada_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "estocada_honda", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "finta_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "pinchazo_estoque", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "ponerse_en_guardia", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -1035,6 +1051,16 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"punalada_daga_izq": return _pose_punalada_daga(t, true)
 		"lanzar_humo": return _pose_lanzar_humo(t)
 		"afilar_veneno": return _pose_afilar_veneno(t)
+		"guardia_estoque": return _pose_guardia_estoque(t)
+		"guardia_estoque_and": return _pose_guardia_estoque_and(t)
+		"guardia_estoque_cor": return _pose_guardia_estoque_cor(t)
+		"guardia_estoque_def": return _pose_guardia_estoque_def(t)
+		"desenvainar_estoque": return _pose_desenvainar_estoque(t)
+		"estocada_estoque": return _pose_estocada_estoque(t)
+		"estocada_honda": return _pose_estocada_honda(t)
+		"finta_estoque": return _pose_finta_estoque(t)
+		"pinchazo_estoque": return _pose_pinchazo_estoque(t)
+		"ponerse_en_guardia": return _pose_ponerse_en_guardia(t)
 		"cadaver":
 			# La MISMA pose final de la muerte, sacada de la misma funcion. Escribir los numeros otra
 			# vez aqui seria garantizar que el dia que se retoque la caida el cadaver se quede como
@@ -1696,6 +1722,152 @@ static func _pose_afilar_veneno(t: float) -> Dictionary:
 	p["brazo_izq"] = lerpf(0.85, 1.0 + 0.18 * pasa, dentro)
 	p["junta_izq"] = lerpf(0.75, 0.95 - 0.25 * absf(pasa), dentro)
 	p["inclina"] = 0.16
+	p["bote"] = 0.0
+	return p
+
+
+# ------------------------------------------------------------
+#  EL ESTOQUE (24/09). SU REFERENCIA (esgrima): la guardia de ataque es el EN GARDE -- de perfil, rodillas
+#  flexionadas y piernas abiertas, el brazo del arma ESTIRADO al frente con la punta ADELANTE y un pelo
+#  arriba, y la otra mano ALZADA DETRAS de la cabeza. La estocada es el FONDO: la pierna de delante sale,
+#  la de atras se estira, el brazo llega entero y la mano de atras cae hacia atras. La DEFENSIVA (En
+#  guardia) es mas BAJA y con el estoque PEGADO al cuerpo, la hoja en diagonal delante del pecho.
+#  El estoque no va a dos manos: la izquierda va libre (o con escudo/varita).
+# ------------------------------------------------------------
+const ESTOQUE_EJE := Vector3(0.0, 1.0, 0.22)           # la punta al frente y un pelo arriba
+const ESTOQUE_EJE_DEF := Vector3(0.10, 0.70, 0.70)     # pegada: en diagonal, adelante y arriba
+const ESTOQUE_EJE_ALTO := Vector3(0.05, 0.15, 1.0)     # en vertical delante de la cara (el saludo)
+
+static func _pose_guardia_estoque(t: float) -> Dictionary:
+	return {"bote": 0.2 * sin(TAU * t),
+		"brazo_der": 1.35 + 0.03 * sin(TAU * t), "brazo_izq": 3.7 + 0.04 * sin(TAU * t),
+		"inclina": 0.05, "agacha": 0.26, "paso": 0.45, "torsion": 0.55,
+		"eje_der": ESTOQUE_EJE}
+
+
+static func _pose_guardia_estoque_and(t: float) -> Dictionary:
+	return {"paso": 0.45 + 0.12 * sin(TAU * t), "bote": 0.35 * absf(sin(TAU * t)),
+		"brazo_der": 1.35 + 0.04 * sin(TAU * t), "brazo_izq": 3.7 + 0.05 * sin(TAU * t),
+		"inclina": 0.07, "agacha": 0.22, "torsion": 0.55, "eje_der": ESTOQUE_EJE}
+
+
+static func _pose_guardia_estoque_cor(t: float) -> Dictionary:
+	return {"paso": 0.58 * sin(TAU * t), "bote": 0.9 * absf(sin(TAU * t)),
+		"brazo_der": 1.25 + 0.06 * sin(TAU * t), "brazo_izq": 3.5 + 0.08 * sin(TAU * t),
+		"inclina": 0.22, "agacha": 0.10, "torsion": 0.4, "eje_der": ESTOQUE_EJE}
+
+
+# LA DEFENSIVA (mientras dura En guardia): mas baja y mas abierta, el peso atras, y el estoque recogido
+# delante del cuerpo con la hoja en diagonal. Respira mas despacio: esta esperando.
+static func _pose_guardia_estoque_def(t: float) -> Dictionary:
+	return {"bote": 0.15 * sin(TAU * t),
+		"brazo_der": 0.80 + 0.03 * sin(TAU * t), "brazo_izq": 3.4 + 0.03 * sin(TAU * t),
+		"inclina": -0.04, "agacha": 0.42, "paso": 0.55, "torsion": 0.5,
+		"eje_der": ESTOQUE_EJE_DEF}
+
+
+# SACAR EL ESTOQUE: como la daga, de la cadera a la guardia (el ultimo fotograma ES la guardia).
+static func _pose_desenvainar_estoque(t: float) -> Dictionary:
+	var fin: Dictionary = _pose_guardia_estoque(0.0)
+	var der_keys := [[0.0, 0.15], [0.35, -0.10], [0.6, 0.6], [1.0, float(fin["brazo_der"])]]
+	var izq_keys := [[0.0, 0.10], [0.45, 0.4], [1.0, float(fin["brazo_izq"])]]
+	var agacha_keys := [[0.0, 0.08], [0.35, 0.14], [1.0, float(fin["agacha"])]]
+	var paso_keys := [[0.0, 0.0], [1.0, float(fin["paso"])]]
+	var tor_keys := [[0.0, 0.0], [1.0, float(fin["torsion"])]]
+	var incl_keys := [[0.0, 0.04], [0.35, 0.12], [1.0, float(fin["inclina"])]]
+	var giro: float = clampf((t - 0.35) / 0.65, 0.0, 1.0)
+	return {"brazo_der": SpriteLienzo.tramos(t, der_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"paso": SpriteLienzo.tramos(t, paso_keys),
+		"torsion": SpriteLienzo.tramos(t, tor_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"bote": float(fin.get("bote", 0.0)) * t,
+		# Sale colgando (la linea del brazo) y acaba apuntando al frente.
+		"eje_der": Vector3(0.0, 0.35, -1.0).normalized().lerp(ESTOQUE_EJE, giro),
+		"sacando": -1.0 if t < 0.35 else giro}
+
+
+# EL FONDO (la estocada de siempre): recoge un pelo, y la pierna de delante SALE con el brazo llegando
+# entero; la de atras se estira, el tronco se echa encima y la mano de atras cae hacia atras. Aguanta un
+# instante y vuelve a la guardia. Golpe en 0,5 (brazo estirado del todo).
+static func _fondo(t: float, t_rec: float, t_imp: float, t_aguanta: float, hondo: float) -> Dictionary:
+	var g: Dictionary = _pose_guardia_estoque(0.0)
+	var p: Dictionary = g.duplicate()
+	var av_keys := [[0.0, 0.0], [t_rec, -1.5 * hondo], [t_imp, 7.0 * hondo], [t_aguanta, 6.4 * hondo], [1.0, 0.0]]
+	var paso_keys := [[0.0, 0.45], [t_rec, 0.40], [t_imp, 0.95 + 0.15 * (hondo - 1.0)], [t_aguanta, 0.9], [1.0, 0.45]]
+	var agacha_keys := [[0.0, 0.26], [t_rec, 0.22], [t_imp, 0.36], [t_aguanta, 0.36], [1.0, 0.26]]
+	var incl_keys := [[0.0, 0.05], [t_rec, -0.04], [t_imp, 0.30], [t_aguanta, 0.28], [1.0, 0.05]]
+	var brazo_keys := [[0.0, 1.35], [t_rec, 1.15 - 0.15 * (hondo - 1.0)], [t_imp, 1.57], [t_aguanta, 1.55], [1.0, 1.35]]
+	var izq_keys := [[0.0, 3.7], [t_rec, 3.8], [t_imp, -0.9], [t_aguanta, -0.85], [1.0, 3.7]]
+	var tor_keys := [[0.0, 0.55], [t_rec, 0.55 + 0.3 * hondo], [t_imp, 0.75], [t_aguanta, 0.72], [1.0, 0.55]]
+	p["avance"] = SpriteLienzo.tramos(t, av_keys)
+	p["paso"] = SpriteLienzo.tramos(t, paso_keys)
+	p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+	p["inclina"] = SpriteLienzo.tramos(t, incl_keys)
+	p["brazo_der"] = SpriteLienzo.tramos(t, brazo_keys)
+	p["brazo_izq"] = SpriteLienzo.tramos(t, izq_keys)
+	p["torsion"] = SpriteLienzo.tramos(t, tor_keys)
+	p["bote"] = 0.0
+	# En el fondo la hoja va recta, en la linea del brazo estirado.
+	p["eje_der"] = ESTOQUE_EJE.lerp(Vector3(0.0, 1.0, 0.0), SpriteLienzo.tramos(t,
+		[[0.0, 0.0], [t_imp, 1.0], [t_aguanta, 1.0], [1.0, 0.0]]))
+	return p
+
+
+static func _pose_estocada_estoque(t: float) -> Dictionary:
+	return _fondo(t, 0.3, 0.5, 0.7, 1.0)
+
+
+# LA PENETRANTE: el mismo fondo pero HONDO -- se recoge mas (el tronco se enrosca) y llega mas lejos. Golpe
+# en 0,55, y aguanta estirado mas rato (la hoja atraviesa).
+static func _pose_estocada_honda(t: float) -> Dictionary:
+	return _fondo(t, 0.35, 0.55, 0.82, 1.3)
+
+
+# LAS FINTAS: el AMAGO (medio fondo que se queda a medias y vuelve) y el fondo de verdad. Amago en 0,2,
+# golpe en 0,62. Una por golpe (se repite, ver CombatTactico._REPITE_POR_GOLPE).
+static func _pose_finta_estoque(t: float) -> Dictionary:
+	if t < 0.38:
+		# Medio fondo: sale hasta la mitad y se recoge.
+		var u: float = t / 0.38
+		var p: Dictionary = _fondo(0.5 * sin(PI * u) * 0.9, 0.3, 0.5, 0.7, 0.55)
+		p["brazo_izq"] = 3.7
+		return p
+	return _fondo(0.3 + (t - 0.38) / 0.62 * 0.7, 0.3, 0.5, 0.7, 1.0)
+
+
+# EL PINCHAZO de la Danza: sin fondo (las piernas ya van avanzando por la linea), solo el brazo que entra y
+# sale rapido con el tronco detras. Golpe en 0,45.
+static func _pose_pinchazo_estoque(t: float) -> Dictionary:
+	var g: Dictionary = _pose_guardia_estoque(0.0)
+	var p: Dictionary = g.duplicate()
+	p["brazo_der"] = SpriteLienzo.tramos(t, [[0.0, 1.35], [0.25, 1.15], [0.45, 1.6], [0.65, 1.55], [1.0, 1.35]])
+	p["avance"] = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.25, -0.6], [0.45, 2.4], [1.0, 0.0]])
+	p["inclina"] = SpriteLienzo.tramos(t, [[0.0, 0.05], [0.45, 0.2], [1.0, 0.05]])
+	p["torsion"] = SpriteLienzo.tramos(t, [[0.0, 0.55], [0.25, 0.75], [0.45, 0.6], [1.0, 0.55]])
+	p["eje_der"] = ESTOQUE_EJE.lerp(Vector3(0.0, 1.0, 0.0), SpriteLienzo.tramos(t,
+		[[0.0, 0.0], [0.45, 1.0], [0.65, 1.0], [1.0, 0.0]]))
+	p["bote"] = 0.0
+	return p
+
+
+# PONERSE EN GUARDIA: sube la hoja en vertical delante de la cara (el saludo, el destello corre por ella en
+# 0,4) y baja a la guardia DEFENSIVA, asentandose mas bajo. El ultimo fotograma ES la defensiva.
+static func _pose_ponerse_en_guardia(t: float) -> Dictionary:
+	var g: Dictionary = _pose_guardia_estoque(0.0)
+	var d: Dictionary = _pose_guardia_estoque_def(0.0)
+	var p: Dictionary = g.duplicate()
+	p["brazo_der"] = SpriteLienzo.tramos(t, [[0.0, float(g["brazo_der"])], [0.4, 1.25], [0.6, 1.2],
+		[1.0, float(d["brazo_der"])]])
+	p["agacha"] = SpriteLienzo.tramos(t, [[0.0, float(g["agacha"])], [0.4, 0.2], [1.0, float(d["agacha"])]])
+	p["paso"] = SpriteLienzo.tramos(t, [[0.0, float(g["paso"])], [0.6, 0.4], [1.0, float(d["paso"])]])
+	p["inclina"] = SpriteLienzo.tramos(t, [[0.0, float(g["inclina"])], [0.4, 0.0], [1.0, float(d["inclina"])]])
+	p["brazo_izq"] = SpriteLienzo.tramos(t, [[0.0, float(g["brazo_izq"])], [1.0, float(d["brazo_izq"])]])
+	p["torsion"] = SpriteLienzo.tramos(t, [[0.0, float(g["torsion"])], [0.4, 0.3], [1.0, float(d["torsion"])]])
+	var alto: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.4, 1.0], [0.6, 1.0], [1.0, 0.0]])
+	var fin: float = clampf((t - 0.6) / 0.4, 0.0, 1.0)
+	p["eje_der"] = ESTOQUE_EJE.lerp(ESTOQUE_EJE_ALTO, alto) if t < 0.6 else ESTOQUE_EJE_ALTO.lerp(ESTOQUE_EJE_DEF, fin)
 	p["bote"] = 0.0
 	return p
 

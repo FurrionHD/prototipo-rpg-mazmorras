@@ -84,7 +84,8 @@ var _idx_arma_mano: PackedInt32Array = []
 const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clavar", "barrido_2m",
 	"grito", "en_alto", "hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
-	"afilar_veneno"]
+	"afilar_veneno", "estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque",
+	"ponerse_en_guardia"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -395,11 +396,15 @@ func terminada() -> bool:
 # solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
-	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga"}
+	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
-const _GUARDIA_SOLO_DER := ["arma_daga_"]
+const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_"]
 var _guardia_propia: String = ""
+# EN GUARDIA (estoque): mientras dura, la guardia quieta es la DEFENSIVA (guardia_estoque_def). La pone
+# el mapa al ver el gesto de ponerse en guardia y la quita su siguiente gesto (CombatTactico.gesto_en_mapa);
+# sacar el arma (empezar otra pelea) tambien.
+var guardia_defensiva: bool = false
 
 func _reindexar_arma_mano() -> void:
 	_idx_arma_mano.clear()
@@ -668,6 +673,12 @@ func _con_su_guardia(nombre: String) -> String:
 	# "guardia_2m" -> "desenvainar_2m", "guardia_daga" -> "desenvainar_daga".
 	if _guardia_propia == "":
 		return nombre
+	if nombre.begins_with("desenvainar"):
+		guardia_defensiva = false
+	# La DEFENSIVA solo en la quieta ("guardia_N"): andando y corriendo se mueve con la de siempre.
+	if guardia_defensiva and _guardia_propia == "guardia_estoque" and nombre.begins_with("guardia_") \
+			and nombre.substr(8).is_valid_int():
+		return "guardia_estoque_def_" + nombre.substr(8)
 	var desenv: String = "desenvainar" + _guardia_propia.substr(7)
 	if nombre.begins_with("desenvainar_") and not nombre.begins_with(desenv):
 		return desenv + "_" + nombre.substr(12)

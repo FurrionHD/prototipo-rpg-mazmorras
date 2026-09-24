@@ -607,6 +607,9 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_cuerpo = cuerpo
 	_foco = cuerpo
 	_inicio = cuerpo.global_position
+	# Su turno: se le acaba En guardia (vuelve a su guardia de ataque).
+	if cuerpo.get("_muneco") is MunecoJugador:
+		(cuerpo.get("_muneco") as MunecoJugador).guardia_defensiva = false
 	if radio >= 0.0:
 		_radio = radio
 	else:
@@ -2066,7 +2069,9 @@ func _tick_deslices(delta: float) -> void:
 # direcciones, dos vueltas en el sentido de las agujas como su estela (BarridoAire.GIRO).
 const T_VUELTA_MOLINETE := 0.2    # = BarridoAire.T_ENTRE: una vuelta por golpe
 # Los gestos que se REPITEN en cada golpe, y su version con la mano izquierda (dos dagas).
-const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq"}
+const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq",
+	# El estoque (una mano siempre): la finta y el pinchazo de la Danza, uno por golpe.
+	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque"}
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 
@@ -2098,6 +2103,10 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
 	var escala: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	(m as MunecoJugador).velocidad = escala
+	# EN GUARDIA: ponerse en guardia la enciende (su quieta pasa a ser la defensiva) y dura hasta su
+	# siguiente turno (la apaga empezar_turno; sus contraataques no). Sale del gesto, que ven todas las maquinas.
+	if anim == "ponerse_en_guardia":
+		(m as MunecoJugador).guardia_defensiva = true
 	(m as MunecoJugador).animar("%s_%d" % [anim, d])
 	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,
 		"escala": escala}

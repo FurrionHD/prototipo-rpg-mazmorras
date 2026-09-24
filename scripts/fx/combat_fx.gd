@@ -1727,6 +1727,13 @@ const ANIM_CUERPO_MAPA := {
 	# puñalada. Las puñaladas de Desaparecer empiezan tirando la bomba (ver encolar: 'lanzar_humo').
 	Estilo.DAGA_CORTE: "tajo_daga", Estilo.DAGA_RAFAGA: "tajo_daga", Estilo.PUNALADA: "punalada_daga",
 	Estilo.IMBUIR_FILO: "afilar_veneno",
+	# EL ESTOQUE (24/09). El fondo para el basico, el Paso ligero, la Punzada y el contraataque; la finta y
+	# el pinchazo de la Danza se REPITEN en cada golpe (CombatTactico._REPITE_POR_GOLPE). En guardia no pega:
+	# su gesto sale de su adorno sobre ti.
+	Estilo.ESTOQUE_PUNZADA: "estocada_estoque", Estilo.PASO_LIGERO: "estocada_estoque",
+	Estilo.PUNZADA_NERVIO: "estocada_estoque", Estilo.ESTOCADA_PENETRANTE: "estocada_honda",
+	Estilo.FINTAS: "finta_estoque", Estilo.DANZA_ACERO: "pinchazo_estoque",
+	Estilo.EN_GUARDIA: "ponerse_en_guardia",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1742,6 +1749,9 @@ const IMPACTO_ANIM_MAPA := {
 	# La daga: tajo 0,45x6/24; estocada 0,5x8/22; bomba en el suelo 0,62x11/16; veneno 0,3x9/12.
 	"tajo_daga": 0.11, "tajo_daga_izq": 0.11, "tajo_daga_solo": 0.11, "punalada_daga": 0.18,
 	"punalada_daga_izq": 0.18, "lanzar_humo": 0.43, "afilar_veneno": 0.22,
+	# El estoque: fondo 0,5x10/22; honda 0,55x12/20; finta 0,62x12/22; pinchazo 0,45x7/24; saludo 0,4x8/12.
+	"estocada_estoque": 0.23, "estocada_honda": 0.33, "finta_estoque": 0.34, "pinchazo_estoque": 0.13,
+	"ponerse_en_guardia": 0.27,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
