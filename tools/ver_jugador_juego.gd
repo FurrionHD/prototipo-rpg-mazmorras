@@ -63,11 +63,18 @@ func _ready() -> void:
 		push_error("[ver jugador juego] no hay Player en la escena")
 		get_tree().quit(1)
 		return
-	Game.player_color = TINTE
+	# Vestido se juzga con sus colores de verdad: el tinte de prueba lo dejaba todo de un color.
+	if args.size() <= 3:
+		Game.player_color = TINTE
 	if not Game.tiene_imagen_cuerpo():
 		Game.set_imagen_cuerpo(_cara_de_prueba())
 	if args.size() > 2:
 		_equipar_para_ver(String(args[2]))
+	# 4o argumento: una ARMADURA entera por su prefijo ("hierro_completo", "cuero"...). La pose mueve
+	# todas las capas a la vez (cuerpo, ropa, armadura y arma), asi que hay que juzgarla vestida.
+	var armadura: String = String(args[3]) if args.size() > 3 else ""
+	if armadura != "":
+		_vestir_para_ver(armadura)
 	p._pintar_cuerpo()
 	# EL JUGADOR REIMPONE SU ANIMACION EN CADA FRAME DE FISICA (ver player._actualizar_animacion), asi
 	# que sin pararlo esto captura ocho veces el idle y parece que las direcciones no cambian. Costo
@@ -107,7 +114,10 @@ func _ready() -> void:
 			out.blit_rect(trozo, Rect2i(0, 0, LADO, LADO), en)
 	out.resize(out.get_width() * ZOOM, out.get_height() * ZOOM, Image.INTERPOLATE_NEAREST)
 	DirAccess.make_dir_recursive_absolute(SALIDA)
-	var ruta: String = "%sjuego_jugador_%s.png" % [SALIDA, anim]
+	var extra: String = ""
+	for k in range(2, mini(args.size(), 4)):
+		extra += "_" + String(args[k])
+	var ruta: String = "%sjuego_jugador_%s%s.png" % [SALIDA, anim, extra]
 	out.save_png(ruta)
 	print("[ver jugador juego] %s · direcciones %s" % [anim, str(dirs)])
 	print("[ver jugador juego] ", ProjectSettings.globalize_path(ruta))
@@ -184,6 +194,16 @@ func _hoja_modelos(pieza: String) -> void:
 # en la esquina. Lo que hay que poder ver de un vistazo es (a) que la imagen cae DENTRO de la cabeza,
 # (b) que se recorta en circulo y no queda cuadrada, y (c) que no sale girada ni del reves. Con una
 # foto de verdad, lo tercero no se notaria.
+# Viste las cinco piezas de una armadura por su prefijo (resources/armor/<prefijo>_<pieza>.tres).
+func _vestir_para_ver(prefijo: String) -> void:
+	var pj: PersonajeData = Game.lider()
+	for pieza in ["casco", "pecho", "manos", "pantalones", "botas"]:
+		var ruta: String = "res://resources/armor/%s_%s.tres" % [prefijo, pieza]
+		if ResourceLoader.exists(ruta):
+			pj.set("equipped_" + pieza, load(ruta))
+	print("[ver jugador juego] armadura: %s" % prefijo)
+
+
 # Equipa un arma (o dos: "daga+daga") por nombre de Tipo, para ver como queda dibujada. Busca el
 # .tres cuyo WeaponData.tipo coincide.
 func _equipar_para_ver(spec: String) -> void:

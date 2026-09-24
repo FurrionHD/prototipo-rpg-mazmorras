@@ -91,7 +91,8 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq"]
 const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
-	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito"]
+	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito",
+	"guardia_2m", "guardia_2m_and", "guardia_2m_cor"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

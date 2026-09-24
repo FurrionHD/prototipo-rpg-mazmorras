@@ -82,7 +82,11 @@ var _idx_arma_mano: PackedInt32Array = []
 # guardia* el brazo oscila con sin(TAU*t) y reordenar por fotograma daria tembleque de +-16.
 # Las FAENAS (PoseJugador.FAENAS) tambien entran, ver _reordenar_arma_mano.
 const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clavar", "barrido_2m",
-	"grito"]
+	"grito", "en_alto"]
+# Las de DOS MANOS (martillo y mandoble): en estas el arma del lado de la camara se pinta delante de todo.
+# Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
+const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
+	"guardia_2m", "guardia_2m_and", "guardia_2m_cor", "molinete"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -217,10 +221,19 @@ func terminada() -> bool:
 
 # Cachea que capas son "arma en mano" para el reordenado por fotograma. Se llama al final de cada
 # 'montar' (la lista de capas puede haber cambiado: equipar/desequipar un arma).
+# ¿Lleva martillo o mandoble? Entonces su guardia es la del arma al hombro (ver animar). De momento
+# solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
+const _ARMAS_AL_HOMBRO := ["arma_mandoble_", "arma_martillo_grande_"]
+var _guardia_hombro: bool = false
+
 func _reindexar_arma_mano() -> void:
 	_idx_arma_mano.clear()
+	_guardia_hombro = false
 	for i in _capas.size():
 		var clave: String = String(_capas[i]["clave"])
+		for pre in _ARMAS_AL_HOMBRO:
+			if clave.begins_with(pre):
+				_guardia_hombro = true
 		if clave.begins_with("arma_") and not _capas[i].has("z") \
 				and (clave.ends_with("_mano_der") or clave.ends_with("_mano_izq")):
 			_idx_arma_mano.append(i)
@@ -453,6 +466,7 @@ func _pintar_capas() -> void:
 # ============================================================
 # 'nombre' viene ya con su direccion ("walk_3"), como lo devuelve PoseJugador.animacion.
 func animar(nombre: String) -> void:
+	nombre = _con_su_guardia(nombre)
 	if nombre == _anim and _fijo < 0:
 		return
 	_aplicar_anim(nombre, true)
@@ -461,10 +475,19 @@ func animar(nombre: String) -> void:
 # Clava un fotograma concreto y para el reloj. Lo usa la pantalla de combate, que decide ella cuando
 # avanza un gesto en vez de dejarlo correr.
 func fijar(nombre: String, marco: int) -> void:
+	nombre = _con_su_guardia(nombre)
 	if nombre != _anim:
 		_aplicar_anim(nombre, false)
 	_fijo = clampi(marco, 0, maxi(0, _marcos - 1))
 	_escribir(_fijo)
+
+
+# CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
+# _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
+func _con_su_guardia(nombre: String) -> String:
+	if _guardia_hombro and nombre.begins_with("guardia_") and not nombre.begins_with("guardia_2m"):
+		return "guardia_2m_" + nombre.substr(8)
+	return nombre
 
 
 func _aplicar_anim(nombre: String, reinicia: bool) -> void:
@@ -555,7 +578,8 @@ func _escribir(i: int) -> void:
 # en los golpes de _BASES_REORDEN_ARMA; fuera de ahi manda lo que dejo _ordenar.
 func _reordenar_arma_mano(i: int) -> void:
 	var base: String = _base_de(_anim)
-	if _idx_arma_mano.is_empty() or not (_BASES_REORDEN_ARMA.has(base) or PoseJugador.FAENAS.has(base)):
+	if _idx_arma_mano.is_empty() or not (_BASES_REORDEN_ARMA.has(base) or PoseJugador.FAENAS.has(base)
+			or _BASES_ARMA_DELANTE.has(base)):
 		return
 	var esq: Dictionary = _esqueleto_de(base, i, _dir_de(_anim))
 	# EL HACHAZO A DOS MANOS, EN LA DESCARGA, SE FUERZA DELANTE. El golpe empuja la empuñadura
@@ -566,7 +590,9 @@ func _reordenar_arma_mano(i: int) -> void:
 	# que desaparezca entera se le pone un minimo hacia delante a partir de la descarga (mitad
 	# tardia de los fotogramas: el windup se queda con su profundidad real, recogido detras del
 	# hombro tiene que poder ocultarse igual que al sur).
-	var forzar: bool = base in ["golpe_2m", "tajo_2m", "clavar"] and i >= _marcos / 2
+	# (24/09) YA NO SE FUERZA en los golpes: pintada encima de todo se veia el arma SOBRE el personaje al
+	# pegar hacia el norte (lo vio el jefe). Ahora esos golpes caen a su derecha (rumbo) y se ven solos.
+	var forzar: bool = false
 	# LAS FAENAS, SIEMPRE DELANTE. Se agarran por el centro del cuerpo (las dos manos juntas, x = 0),
 	# asi que su profundidad cae en el mismo plano que la cabeza y el redondeo decidia: alzado, el pico
 	# se iba detras del pelo y no se veia subir. En una faena la herramienta ES lo que se mira.
@@ -575,6 +601,17 @@ func _reordenar_arma_mano(i: int) -> void:
 	for k in _idx_arma_mano:
 		var c: Dictionary = _capas[k]
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
+		# A DOS MANOS SE MIDE EL MEDIO DEL ARMA, no el agarre: apoyada en el hombro las manos quedan delante
+		# del pecho y el mango asoma por detras (de espaldas, hacia la camara), y por el agarre se pintaba
+		# detras del cuerpo y no se veia.
+		if _BASES_ARMA_DELANTE.has(base):
+			var ag: Dictionary = PoseJugador.agarre_arma(esq, 2, "mano")
+			prof = PoseJugador.profundidad_de(esq, (ag["empunadura"] as Vector3) + (ag["eje"] as Vector3) * 26.0)
+		# DELANTE DE VERDAD, DELANTE DE TODO: si el agarre esta del lado de la camara, el arma se pinta por
+		# encima del cuerpo y del pelo (con su profundidad pura quedaba detras del torso, cuyo z es fijo, y
+		# al sur el tajo desaparecia). Si esta del otro lado, se queda detras: es donde esta.
+		if prof > 1.0 and _BASES_ARMA_DELANTE.has(base):
+			prof = maxf(prof, 40.0)
 		if forzar:
 			# NO BASTA CON "delante del cuerpo": mirando al norte el pelo que cuelga TAMBIEN se pone
 			# delante (te tapa la espalda, JugadorSprites.Z_CUELGA_DELANTE = 2046 -- correcto, es tu

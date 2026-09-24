@@ -23,6 +23,12 @@ const MUESTRAS := 24
 
 func _ready() -> void:
 	print("=== HORNEANDO SPRITES ===")
+	# HORNO_SOLO=jugador: solo las capas del personaje (retocando poses no hace falta rehornear el mundo).
+	# No limpia huerfanos: eso necesita la lista entera.
+	if OS.get_environment("HORNO_SOLO") == "jugador":
+		_hornear_jugador()
+		get_tree().quit()
+		return
 	var d := DirAccess.open(FICHAS)
 	if d == null:
 		push_error("[horno] no encuentro %s" % FICHAS)
