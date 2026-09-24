@@ -110,6 +110,10 @@ func _correr() -> void:
 	await _esperar(1)
 	for ev in combat._fx._cola:
 		print("  golpe: t=%.2f retraso_suelo=%.2f dmg=%.1f" % [float(ev["t"]), float(ev.get("retraso_suelo", -1.0)), float(ev["dmg"])])
+	# Y el gesto del cuerpo: su arranque y su primer golpe (en tiempo de animacion), y la escala.
+	for g in combat._fx._gestos:
+		print("  gesto: anim=%s t_ini=%.2f t_imp=%.2f escala=%.2f" % [str(g.get("anim", "")), float(g["t_ini"]),
+			float(g["t_imp"]), combat._fx.escala_tiempo])
 	for i in FOTOS.size():
 		var falta: float = FOTOS[i] - float(Time.get_ticks_msec() - t0) / 1000.0
 		if falta > 0.0:

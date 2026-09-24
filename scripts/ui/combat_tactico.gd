@@ -1506,15 +1506,23 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 		return false
 	if anim == "":
 		anim = _pantalla.figuras._anim_golpe_de(c)
+	# UN GESTO POR ACCION: la pelea vuelve a avisar en cada impacto (uno por golpe y victima), y con su
+	# animacion entera ya cubriendo todos los golpes, reiniciarla la cortaba a medias.
+	if _gestos_mapa.has(cuerpo) and String(_gestos_mapa[cuerpo]["anim"]) == anim:
+		return true
 	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
+	var escala: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	(m as MunecoJugador).velocidad = escala
 	(m as MunecoJugador).animar("%s_%d" % [anim, d])
-	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m}
+	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,
+		"escala": escala}
 	return true
 
 
 func _tick_gestos(delta: float) -> void:
 	for cuerpo in _gestos_mapa.keys():
 		var g: Dictionary = _gestos_mapa[cuerpo]
+		# El reloj del gesto va en tiempo REAL (su 'dur' viene asi); el giro del Molinete, en el de la pelea.
 		g["t"] = float(g["t"]) + delta
 		if not is_instance_valid(cuerpo) or not is_instance_valid(g["m"]):
 			_gestos_mapa.erase(cuerpo)
@@ -1523,10 +1531,12 @@ func _tick_gestos(delta: float) -> void:
 		if String(g["anim"]) == "molinete":
 			# Las direcciones van 0 = S, 1 = SE, 2 = E...: al reves de las agujas en pantalla. Restar es girar
 			# como la estela. 8 pasos por vuelta, dos vueltas, y se queda mirando a donde empezo.
-			var paso: int = mini(int(t / (T_VUELTA_MOLINETE / 8.0)), 16)
+			var paso: int = mini(int(t * float(g["escala"]) / (T_VUELTA_MOLINETE / 8.0)), 16)
 			(g["m"] as MunecoJugador).animar("molinete_%d" % posmod(int(g["d0"]) - paso, 8))
-		if t >= float(g["dur"]) and (String(g["anim"]) != "molinete" or t >= 2.0 * T_VUELTA_MOLINETE):
+		if t >= float(g["dur"]) and (String(g["anim"]) != "molinete"
+				or t * float(g["escala"]) >= 2.0 * T_VUELTA_MOLINETE):
 			_gestos_mapa.erase(cuerpo)
+			(g["m"] as MunecoJugador).velocidad = 1.0
 			_animar(cuerpo, _mirada_de(cuerpo), false)
 
 

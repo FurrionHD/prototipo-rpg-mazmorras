@@ -1418,6 +1418,8 @@ func _lanzar_suelo(espera: float) -> void:
 	_suelo = {}
 	if s.is_empty() or not is_instance_valid(s["padre"]):
 		return
+	# Los del aire (estelas del mandoble) van al ritmo de la pelea, como sus golpes y el muñeco.
+	BarridoAire.ritmo = escala_tiempo
 	SueloRoto.lanzar(s["padre"], s["forma"], int(s["tipo"]), int(s["semilla"]), float(s["nucleo"]), espera)
 
 
@@ -1527,7 +1529,11 @@ func arrancar_cola() -> float:
 	# que dedurciendolo aqui las dos pantallas sacan la misma duracion sin sincronizar nada.
 	var magia: bool = false
 	for ev in _cola:
-		if int(ev.get("estilo", Estilo.MELEE)) != Estilo.MELEE:
+		var est_ev: int = int(ev.get("estilo", Estilo.MELEE))
+		# EN EL MAPA los golpes de arma con cuerpo propio (ANIM_CUERPO_MAPA) no son magia: con el reparto de
+		# la magia sus golpes caian a 0,075 s y ni la estela ni el muñeco (dos vueltas, dos barridos)
+		# podian ir con ellos.
+		if est_ev != Estilo.MELEE and not (rect_en_mapa.is_valid() and ANIM_CUERPO_MAPA.has(est_ev)):
 			magia = true
 			break
 	# (Lo que le queda por bajar a cada barra ya se apunto al ENCOLAR cada golpe, no aqui: ver
@@ -1577,6 +1583,8 @@ func arrancar_cola() -> float:
 			p["t_ini"] = float(p["t_ini"]) + desfase
 			p["t_imp"] = float(p["t_imp"]) + desfase
 			p["t_fin"] = float(p["t_fin"]) + desfase
+	for p in _gestos:
+		p["t_ini"] = maxf(float(p["t_ini"]), 0.0)
 	_t = 0.0
 	if magia:
 		_dur = minf(arranque + T_PUM + extra + T_COLA_MAGIA, TOPE_TOTAL_MAGIA)
@@ -1660,6 +1668,18 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.TAJO_DEVASTADOR: "tajo_2m", Estilo.TAJO_VERDUGO: "tajo_2m", Estilo.MARTILLO_GUERRA: "tajo_2m",
 	Estilo.MOLINETE: "molinete", Estilo.SEGAR: "barrido_2m", Estilo.GRITO_GUERRA: "grito",
 	Estilo.TEMBLOR_SUELO: "clavar",
+	# Los golpes de siempre del martillo y el mandoble, con nombre para que se sepa cuando tocan (abajo).
+	Estilo.MANDOBLE_TAJO: "golpe_2m", Estilo.MARTILLO_GOLPE: "golpe_2m", Estilo.GOLPE_SISMICO: "golpe_2m",
+	Estilo.ONDA_EXPANSIVA: "golpe_2m", Estilo.ROMPECORAZAS: "golpe_2m",
+}
+# CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
+# en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
+# como la cola se retrasa lo que haga falta para darle tiempo (_adelanto_de_gestos), el suelo que se
+# rompe, los numeros y el daño llegan cuando el arma llega -- no antes (lo pregunto el jefe el 24/09:
+# "el golpe sismico es cuando el martillo ya ha golpeado, no?"). Retocar una animacion = retocar esto.
+const IMPACTO_ANIM_MAPA := {
+	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
+	"grito": 0.20,
 }
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
@@ -1749,7 +1769,9 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		"actor": pa,
 		"bloque": ev["ba"],
 		"tipo": AbilityData.Gesto.EN_SITIO,
-		"t_ini": maxf(cuando[0] - T_ANIM_ADELANTO, 0.0),
+		# SIN recortar a cero todavia: si el arma tarda mas que el arranque, _adelanto_de_gestos lo ve y
+		# retrasa toda la cola (el recorte se hace despues, al desplazar).
+		"t_ini": cuando[0] - _adelanto_anim(ev),
 		"t_imp": cuando[0],
 		"t_fin": cuando[cuando.size() - 1] + T_ANIM_COLA,
 		"golpes": cuando,
@@ -1759,6 +1781,16 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		"ini_lanzado": false,
 		"fin_lanzado": false,
 	})
+
+
+# Lo que el gesto empieza antes de su primer golpe: el de siempre, o EN EL MAPA lo que tarda el arma de
+# su animacion en tocar (IMPACTO_ANIM_MAPA, en segundos reales -> tiempo de animacion).
+func _adelanto_anim(ev: Dictionary) -> float:
+	if rect_en_mapa.is_valid():
+		var imp = IMPACTO_ANIM_MAPA.get(String(ev.get("anim", "")))
+		if imp != null:
+			return float(imp)
+	return T_ANIM_ADELANTO
 
 
 # EL SALTO: coger aire, hincharse hasta cubrir a todos los que va a golpear, y dejarse caer encima.

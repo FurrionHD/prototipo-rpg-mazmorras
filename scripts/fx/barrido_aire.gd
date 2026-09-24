@@ -30,7 +30,12 @@ const AIRE := Color(0.74, 0.82, 0.94)
 const POLVO := SueloRoto.POLVO
 const TIERRA := Color(0.45, 0.40, 0.33)
 
+# EL RITMO DE LA PELEA (CombatFX.escala_tiempo): el reloj de este efecto va en tiempo de ANIMACION, el
+# mismo en el que caen sus golpes (T_ENTRE entre uno y otro). Lo pone CombatFX antes de lanzarlo.
+static var ritmo: float = 1.0
+
 var modo: int = Modo.GIRO
+var _ritmo: float = 1.0
 var forma: CombatFormas.Forma = null
 var _t: float = 0.0
 var _rng := RandomNumberGenerator.new()
@@ -54,7 +59,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esp
 	b._rng.seed = semilla
 	# El Molinete da la vuelta ANTES de su golpe y el Segar barre antes del suyo: arrancan antes.
 	var antes: float = T_ENTRE if m == Modo.GIRO else (T_BARRIDO if m == Modo.SIEGA else 0.0)
-	b._t = antes - espera
+	b._ritmo = maxf(ritmo, 0.05)
+	b._t = antes - espera * b._ritmo
 	b.z_as_relative = false
 	b.z_index = SueloRoto.Z_SUELO
 	b.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -125,7 +131,7 @@ func _capa(z: int) -> Node2D:
 
 
 func _process(delta: float) -> void:
-	_t += delta
+	_t += delta * _ritmo
 	if _t >= duracion():
 		queue_free()
 		return

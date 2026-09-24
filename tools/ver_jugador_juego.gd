@@ -90,7 +90,9 @@ func _ready() -> void:
 	# solo un fotograma de cada (la hoja seria de 64 casillas y no cabe nada).
 	var una_sola: bool = dirs.size() >= 8
 	# Tantas columnas como fotogramas tenga la animacion (las hay de 12).
-	var cols: int = 1 if una_sola else maxi(1, int(PoseJugador._anim(anim).get("marcos", 8)))
+	# La que de verdad pone el muñeco (con martillo o mandoble cambia la guardia y el desenvainar).
+	var real: String = String(m._con_su_guardia("%s_0" % anim)).rsplit("_", true, 1)[0]
+	var cols: int = 1 if una_sola else maxi(1, int(PoseJugador._anim(real).get("marcos", 8)))
 	var filas: int = dirs.size() if not una_sola else 1
 	var ancho: int = (dirs.size() if una_sola else cols) * LADO
 	var out := Image.create(ancho, maxi(1, filas) * LADO, false, Image.FORMAT_RGBA8)

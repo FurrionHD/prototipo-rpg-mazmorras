@@ -273,6 +273,9 @@ const ANIMS := [
 	{"n": "guardia_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "desenvainar", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 5, "ultimo": true},
+	# El de MARTILLO y MANDOBLE (24/09): acaba EXACTO en su guardia (guardia_2m), o el arma saltaba al pasar
+	# de una a otra. 8 marcos a 22 fps = lo mismo que el de siempre (player._DESENVAINAR_DUR, 5/14 s).
+	{"n": "desenvainar_2m", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "golpe_izq", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "golpe_2m", "loop": false, "fps": 15.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	# LAS HABILIDADES A DOS MANOS en el combate del mapa (24/09, pedidas por el jefe). Ocho direcciones:
@@ -287,7 +290,8 @@ const ANIMS := [
 	{"n": "tajo_2m", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "clavar", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "molinete", "loop": true, "fps": 2.0, "dirs": 8, "marcos": 1, "ultimo": false},
-	{"n": "barrido_2m", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# 17,5 fps: los dos barridos acaban a 0,2 s uno del otro, como sus dos golpes (CombatFX.T_ENCADENADO).
+	{"n": "barrido_2m", "loop": false, "fps": 17.5, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "grito", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
@@ -968,6 +972,7 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		"guardia_2m_and": return _pose_guardia_2m_and(t)
 		"guardia_2m_cor": return _pose_guardia_2m_cor(t)
 		"desenvainar": return _pose_desenvainar(t)
+		"desenvainar_2m": return _pose_desenvainar_2m(t)
 		"encaje": return _pose_encaje(t)
 		"muerte": return _pose_muerte(t)
 		"picar": return _pose_picar(t)
@@ -1345,6 +1350,32 @@ static func _pose_guardia_cor(t: float) -> Dictionary:
 # espalda), agarra y tira hasta dejarla en guardia. 'sacando' (0..1) se lo pasa a la capa del arma
 # para que interpole el agarre entre "envainada" y "en mano" -- el hueso no sabe de armas, solo
 # publica el reloj.
+# SACAR EL MARTILLO O EL MANDOBLE DE LA ESPALDA y quedarse en guardia. La derecha sube por delante hasta
+# por encima del hombro (4.0 = atras-arriba, ver el arco de _pose_golpe_2m), agarra el mango, y lo trae
+# por encima y por delante hasta la guardia; la izquierda se une al mango al final (junta). El ultimo
+# fotograma ES _pose_guardia_2m(0): sin eso el arma daba un salto al pasar a la guardia.
+static func _pose_desenvainar_2m(t: float) -> Dictionary:
+	var fin: Dictionary = _pose_guardia_2m(0.0)
+	var der_keys := [[0.0, 0.15], [0.3, 3.3], [0.45, 3.5], [0.75, 1.3], [1.0, float(fin["brazo_der"])]]
+	var izq_keys := [[0.0, 0.10], [0.6, 0.25], [1.0, float(fin["brazo_izq"])]]
+	var junta_keys := [[0.0, 0.0], [0.7, 0.0], [1.0, 1.0]]
+	var agacha_keys := [[0.0, 0.08], [1.0, float(fin["agacha"])]]
+	var paso_keys := [[0.0, 0.0], [1.0, float(fin["paso"])]]
+	var incl_keys := [[0.0, 0.04], [0.45, -0.06], [1.0, float(fin["inclina"])]]
+	return {"brazo_der": SpriteLienzo.tramos(t, der_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"junta": SpriteLienzo.tramos(t, junta_keys),
+		"agacha": SpriteLienzo.tramos(t, agacha_keys),
+		"paso": SpriteLienzo.tramos(t, paso_keys),
+		"inclina": SpriteLienzo.tramos(t, incl_keys),
+		"bote": float(fin.get("bote", 0.0)) * t,
+		"eje_2m": fin["eje_2m"],
+		# El arma se queda en la espalda hasta que la mano llega (t ~ 0.4) y de ahi viaja a la guardia.
+		# Hasta entonces -1 = envainada de verdad: solo se ve de espaldas (con 0 se pintaba siempre, y
+		# mirando al sur salia cruzada por DELANTE del pecho).
+		"sacando": -1.0 if t < 0.4 else clampf((t - 0.4) / 0.6, 0.0, 1.0)}
+
+
 static func _pose_desenvainar(t: float) -> Dictionary:
 	var brazo_keys := [[0.0, 0.15], [0.35, 0.55], [0.60, -0.20], [1.0, -0.55]]
 	var izq_keys := [[0.0, 0.0], [0.50, 0.10], [1.0, -0.30]]

@@ -466,6 +466,10 @@ func _pintar_capas() -> void:
 #  ANIMAR
 # ============================================================
 # 'nombre' viene ya con su direccion ("walk_3"), como lo devuelve PoseJugador.animacion.
+# A que ritmo corre (1 = el suyo). En el combate del mapa, durante un gesto, el de la pelea
+# (CombatFX.escala_tiempo), para que el arma toque cuando cae el golpe.
+var velocidad: float = 1.0
+
 func animar(nombre: String) -> void:
 	nombre = _con_su_guardia(nombre)
 	if nombre == _anim and _fijo < 0:
@@ -486,6 +490,9 @@ func fijar(nombre: String, marco: int) -> void:
 # CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
 # _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
 func _con_su_guardia(nombre: String) -> String:
+	# Y su DESENVAINAR, que acaba en esa guardia (ver PoseJugador._pose_desenvainar_2m).
+	if _guardia_propia != "" and nombre.begins_with("desenvainar_") and not nombre.begins_with("desenvainar_2m"):
+		return "desenvainar_2m_" + nombre.substr(12)
 	if _guardia_propia != "" and nombre.begins_with("guardia_") \
 			and not nombre.begins_with("guardia_2m"):
 		return _guardia_propia + "_" + nombre.substr(8)
@@ -542,7 +549,7 @@ func _que_anim(sf: SpriteFrames, nombre: String) -> String:
 func _process(delta: float) -> void:
 	if _capas.is_empty() or _anim == "" or _fijo >= 0:
 		return
-	_reloj += delta
+	_reloj += delta * velocidad
 	var i: int = int(_reloj * _fps)
 	if _loop:
 		i = i % _marcos
