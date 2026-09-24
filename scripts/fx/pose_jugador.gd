@@ -335,6 +335,17 @@ const ANIMS := [
 	{"n": "finta_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "pinchazo_estoque", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
 	{"n": "ponerse_en_guardia", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# Y las mismas CON ESCUDO (el escudo delante, ver _pose): MunecoJugador las pone si lleva escudo.
+	{"n": "guardia_estoque_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_and_esc", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_cor_esc", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_estoque_def_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_estoque_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "estocada_estoque_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "estocada_honda_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "finta_estoque_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "pinchazo_estoque_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "ponerse_en_guardia_esc", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# 'ancla': la unica direccion que se hornea de una anim de 'dirs': 1. Encaje y muerte van al
 	# NORTE (4, de espaldas): en combate el jugador mira a los enemigos, no a la camara. Sin 'ancla'
 	# la de una direccion es la 0 (sur), que es lo que valia cuando "se te veia de frente".
@@ -1007,6 +1018,13 @@ static func fps_de(base: String) -> float:
 
 
 static func _pose(anim: String, t: float) -> Dictionary:
+	# EL ESTOQUE CON ESCUDO ('<anim>_esc'): la misma pose, pero la izquierda lleva el escudo DELANTE en vez
+	# de ir alzada detras de la cabeza (con el escudo ahi arriba no se veia ni tenia sentido).
+	if anim.ends_with("_esc"):
+		var p: Dictionary = _pose(anim.trim_suffix("_esc"), t)
+		p["brazo_izq"] = 1.0
+		p["junta_izq"] = 0.3
+		return p
 	match anim:
 		"idle": return _pose_idle(t)
 		"sigilo": return _pose_sigilo(t)

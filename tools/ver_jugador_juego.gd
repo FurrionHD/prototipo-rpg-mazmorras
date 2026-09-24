@@ -236,6 +236,9 @@ func _equipar_para_ver(spec: String) -> void:
 	var o: WeaponData = _arma_de_tipo(off_tn) if off_tn != "" else null
 	if o != null:
 		pj.equipped_off = o
+	# "estoque+escudo_grande": un ESCUDO en la otra mano (escudo_pequeno / escudo_normal / escudo_grande).
+	elif off_tn.begins_with("escudo_") and ResourceLoader.exists("res://resources/shields/%s.tres" % off_tn):
+		pj.equipped_off = load("res://resources/shields/%s.tres" % off_tn)
 	print("[ver jugador juego] arma: %s%s" % [main_tn, (" + " + off_tn) if off_tn != "" else ""])
 
 

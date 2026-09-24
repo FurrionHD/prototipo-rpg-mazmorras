@@ -85,7 +85,8 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"grito", "en_alto", "hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
 	"afilar_veneno", "estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque",
-	"ponerse_en_guardia"]
+	"ponerse_en_guardia", "estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc",
+	"pinchazo_estoque_esc", "ponerse_en_guardia_esc"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -405,12 +406,20 @@ var _guardia_propia: String = ""
 # el mapa al ver el gesto de ponerse en guardia y la quita su siguiente gesto (CombatTactico.gesto_en_mapa);
 # sacar el arma (empezar otra pelea) tambien.
 var guardia_defensiva: bool = false
+# CON ESCUDO, el estoque usa sus variantes '_esc' (el escudo delante; ver PoseJugador._pose).
+var _con_escudo: bool = false
+const _ESTOQUE_CON_ESCUDO := ["guardia_estoque", "guardia_estoque_and", "guardia_estoque_cor",
+	"guardia_estoque_def", "desenvainar_estoque", "estocada_estoque", "estocada_honda", "finta_estoque",
+	"pinchazo_estoque", "ponerse_en_guardia"]
 
 func _reindexar_arma_mano() -> void:
 	_idx_arma_mano.clear()
 	_guardia_propia = ""
+	_con_escudo = false
 	for i in _capas.size():
 		var clave: String = String(_capas[i]["clave"])
+		if clave.begins_with("escudo_") and clave.ends_with("_mano_izq"):
+			_con_escudo = true
 		for pre in _GUARDIA_DE:
 			if clave.begins_with(pre) and (not _GUARDIA_SOLO_DER.has(pre) or clave.ends_with("_der")):
 				_guardia_propia = String(_GUARDIA_DE[pre])
@@ -669,6 +678,17 @@ func fijar(nombre: String, marco: int) -> void:
 # CON MARTILLO O MANDOBLE la guardia es la suya, con el arma al hombro (ver PoseJugador.
 # _pose_guardia_2m): quien pide 'guardia_N' no tiene por que saber que arma lleva.
 func _con_su_guardia(nombre: String) -> String:
+	var n: String = _con_su_guardia_base(nombre)
+	if not _con_escudo:
+		return n
+	# "estocada_estoque_3" -> "estocada_estoque_esc_3"
+	var partes: PackedStringArray = n.rsplit("_", true, 1)
+	if partes.size() == 2 and partes[1].is_valid_int() and _ESTOQUE_CON_ESCUDO.has(partes[0]):
+		return "%s_esc_%s" % [partes[0], partes[1]]
+	return n
+
+
+func _con_su_guardia_base(nombre: String) -> String:
 	# Y su DESENVAINAR, que acaba en esa guardia (ver PoseJugador._pose_desenvainar_2m / _daga):
 	# "guardia_2m" -> "desenvainar_2m", "guardia_daga" -> "desenvainar_daga".
 	if _guardia_propia == "":

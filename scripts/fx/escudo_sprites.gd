@@ -36,20 +36,38 @@ enum Tono {
 # Nombre de cada ShieldData.Tamano, para las claves de capa. El indice es el valor del enum.
 const TAMANO_NOMBRE := ["pequeno", "normal", "grande"]
 
-# GEOMETRIA por tamaño, en unidades de mundo (PoseJugador.ALTO_MUNDO = 60). 'largo' es de punta a
-# punta a lo largo del eje del agarre; 'r_arriba'/'r_abajo' son el radio en cada extremo -- variar
-# los dos es lo que saca las tres siluetas sin mas piezas: casi iguales = redondo (rodela); muy
-# distintos = con punta (heater); largo grande y radios parecidos = alto y recto (torre).
+# LAS TRES SILUETAS (rehechas el 24/09, lo pidio el: "el pequeño y el grande son basicamente del mismo
+# tamaño y forma"). Antes eran una cadena de circulos (una salchicha) y solo cambiaba el largo. Ahora
+# cada una es una LAMINA PLANA con su silueta, en unidades de mundo (PoseJugador.ALTO_MUNDO = 60),
+# medida en el plano del escudo: 'u' hacia arriba (su eje) y 'v' de lado; el agarre en (0, 0).
+#   pequeno  LA RODELA de parry: un disco pequeño, casi todo aro y un umbo gordo en el centro.
+#   normal   EL DE CABALLERO (el tipico "escudo de plata"): arriba recto, los lados bajan y se cierran
+#            en punta; aro y una franja de metal por el medio.
+#   grande   LA PUERTA (el de los caballeros de Lothric): alto del hombro a la rodilla, casi recto, la
+#            parte de arriba en arco; aro gordo, dos bandas y una arista por el medio.
+# OJO CON LA ESCALA: una unidad sale a ~0,83 px (la primera version, a ojo, salio la MITAD de lo que se
+# queria: la rodela 7x5 px, tapada entera por el puño). El paso del relleno, del orden de un pixel.
 const GEO := {
-	"pequeno": {"largo": 9.0,  "r_arriba": 4.2, "r_abajo": 4.0, "remache": 1.5},
-	"normal":  {"largo": 13.0, "r_arriba": 4.6, "r_abajo": 1.7, "remache": 1.2},
-	"grande":  {"largo": 17.5, "r_arriba": 3.7, "r_abajo": 3.3, "remache": 1.1},
+	"pequeno": {"arriba": 7.0, "abajo": 7.0, "ancho": 7.0, "aro": 1.6, "umbo": 2.6, "paso": 0.9},
+	"normal":  {"arriba": 11.0, "abajo": 15.0, "ancho": 10.0, "aro": 1.6, "franja": 1.6, "paso": 1.0},
+	"grande":  {"arriba": 21.0, "abajo": 19.0, "ancho": 12.0, "aro": 1.9, "bandas": [10.0, -12.0],
+		"franja": 1.6, "paso": 1.1},
 }
+# Cuanto va la lamina por DELANTE del antebrazo (el brazo la lleva por detras, por las correas).
+const SEPARA_DEL_BRAZO := 1.2
 
 # En que animaciones dibuja cada capa (nombre BASE, sin direccion). Mismo criterio que ArmaSprites,
 # sin golpe_izq/golpe_2m: ver la cabecera.
-const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar"]
-const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe"]
+const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
+	"desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc"]
+# En mano: las de siempre y las de las armas de una mano con guardia propia (daga, estoque; 24/09: con
+# ellas el escudo NO salia). El estoque con escudo va por sus variantes '_esc' (el escudo delante).
+const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe",
+	"guardia_daga", "guardia_daga_and", "guardia_daga_cor", "tajo_daga", "tajo_daga_solo", "punalada_daga",
+	"lanzar_humo", "afilar_veneno",
+	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
+	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
+	"ponerse_en_guardia_esc"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -147,6 +165,9 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	var ag: Dictionary = PoseJugador.agarre_escudo(esq, estado)
 	var grip: Vector3 = ag["empunadura"]
 	var eje: Vector3 = ag["eje"]
+	# A LA ESPALDA va DERECHO (colgado de las correas), no cruzado como la hoja de un mandoble.
+	if estado != "mano":
+		eje = Vector3(0.0, -0.1, 1.0).normalized()
 
 	if sac >= 0.0 and estado != "mano":
 		var agm: Dictionary = PoseJugador.agarre_escudo(esq, "mano")
@@ -155,31 +176,101 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 		if eje.length() > 0.01:
 			eje = eje.normalized()
 
-	_dibujar(piezas, esq, grip, eje, g)
+	# La lamina se separa del brazo hacia DELANTE en la mano, y de la espalda hacia ATRAS envainada.
+	var atras: float = 1.0 - clampf(sac, 0.0, 1.0) if estado != "mano" else 0.0
+	_dibujar(piezas, esq, grip, eje, g, tamano, 1.0 - 2.0 * atras)
 
 
+# LA LAMINA: se rellena su silueta con piezas pequeñas colocadas EN SU PLANO (eje hacia arriba y el
+# lateral del cuerpo de lado), asi que se escorza sola al girar: de frente se ve entera y de perfil se
+# queda en el canto, como un escudo de verdad. El pixel sale de la proyeccion de siempre (poner).
 static func _dibujar(piezas: Array, esq: Dictionary, grip: Vector3, eje: Vector3,
-		g: Dictionary) -> void:
-	var largo: float = float(g.get("largo", 10.0))
-	var r_arriba: float = float(g.get("r_arriba", 4.0))
-	var r_abajo: float = float(g.get("r_abajo", 4.0))
-	# El agarre cae a un tercio desde abajo (como se lleva un escudo de verdad: el antebrazo pasa
-	# por la correa central-baja, no por el medio exacto), no en el centro geometrico.
-	var arriba: Vector3 = grip + eje * (largo * 0.62)
-	var abajo: Vector3 = grip - eje * (largo * 0.38)
+		g: Dictionary, tamano: String, hacia: float = 1.0) -> void:
+	var arriba_v: Vector3 = eje.normalized()
+	var lado: Vector3 = Vector3.RIGHT - arriba_v * arriba_v.dot(Vector3.RIGHT)
+	lado = lado.normalized() if lado.length() > 0.01 else Vector3.RIGHT
+	var frente: Vector3 = arriba_v.cross(lado).normalized()
+	if frente.y < 0.0:
+		frente = -frente
+	var centro: Vector3 = grip + frente * SEPARA_DEL_BRAZO * hacia
+	var paso: float = float(g.get("paso", 0.7))
+	var r: float = paso * 0.78
+	# Toda la lamina gira ENTERA con la torsion de la mano (como el arma en la mano, ver 'z_torsion').
+	var opts := {"z_torsion": grip.z}
+	var ancho: float = float(g["ancho"])
+	var u := -float(g["abajo"])
+	while u <= float(g["arriba"]) + 0.001:
+		var v := -ancho
+		while v <= ancho + 0.001:
+			var zona: int = _zona(tamano, g, u, v)
+			if zona >= 0:
+				var p: Vector3 = centro + arriba_v * u + lado * v
+				PoseJugador.poner(piezas, esq, p, Vector3(r, r * 0.6, r), _tono(zona, g, u, v), opts)
+			v += paso
+		u += paso
 
-	# El aro metalico: el perfil MAS ANCHO, para que asome como borde alrededor de la madera.
-	PoseJugador.cadena(piezas, esq, abajo, arriba, r_abajo, r_arriba, Tono.METAL)
 
-	# El cuerpo (madera/cuero), un pelo mas estrecho que el aro -- deja el aro asomando alrededor
-	# entero, como el reborde metalico de un escudo de verdad.
-	var m: float = 0.82
-	PoseJugador.cadena(piezas, esq, abajo, arriba, r_abajo * m, r_arriba * m, Tono.MADERA)
-	# El realce de luz: mas estrecho todavia y SOLO sobre la madera (no se sale de su silueta), la
-	# misma idea que el filo de una hoja.
-	PoseJugador.cadena(piezas, esq, abajo, arriba, r_abajo * m * 0.55, r_arriba * m * 0.55,
-		Tono.MADERA_L, {"solo_sobre": [Tono.MADERA]})
+# QUE HAY en (u, v) de la lamina: -1 fuera; 0 el aro; 1 el cuerpo; 2 el metal de encima (umbo, franja,
+# bandas).
+static func _zona(tamano: String, g: Dictionary, u: float, v: float) -> int:
+	var aro: float = float(g["aro"])
+	var borde: float = _hasta_el_borde(tamano, g, u, v)
+	if borde < 0.0:
+		return -1
+	if borde < aro:
+		return 0
+	match tamano:
+		"pequeno":
+			if Vector2(u, v).length() < float(g["umbo"]):
+				return 2
+		"normal":
+			if absf(v) < float(g["franja"]) * 0.5:
+				return 2
+		"grande":
+			if absf(v) < float(g["franja"]) * 0.5:
+				return 2
+			for b in g["bandas"]:
+				if absf(u - float(b)) < aro * 0.6:
+					return 2
+	return 1
 
-	# El remache central, sobre el propio agarre.
-	var remache: float = float(g.get("remache", 1.2))
-	PoseJugador.poner(piezas, esq, grip, Vector3(remache, remache, remache), Tono.METAL_L)
+
+# Cuanto le falta a (u, v) para salirse de la silueta (negativo = fuera). Es lo que da el grosor del aro
+# igual en todo el borde.
+static func _hasta_el_borde(tamano: String, g: Dictionary, u: float, v: float) -> float:
+	var ancho: float = float(g["ancho"])
+	var arriba: float = float(g["arriba"])
+	var abajo: float = float(g["abajo"])
+	match tamano:
+		"pequeno":
+			return ancho - Vector2(u, v).length()
+		"normal":
+			# Recto arriba y por los lados hasta la mitad; de ahi los lados se cierran en punta (un arco).
+			var lat: float = ancho
+			if u < 0.0:
+				var k: float = clampf(-u / abajo, 0.0, 1.0)
+				lat = ancho * sqrt(maxf(0.0, 1.0 - k * k))
+			return minf(arriba - u, lat - absf(v))
+		"grande":
+			# Casi un rectangulo (un pelo mas estrecho abajo), con la parte de arriba en ARCO.
+			var k2: float = clampf((u + abajo) / (arriba + abajo), 0.0, 1.0)
+			var lat2: float = lerpf(ancho * 0.9, ancho, k2)
+			var techo: float = arriba - 2.2 * (v / ancho) * (v / ancho)
+			return minf(minf(techo - u, u + abajo), lat2 - absf(v))
+	return -1.0
+
+
+# El tono de cada zona. El cuerpo lleva LUZ arriba a la izquierda y sombra abajo a la derecha (el mismo
+# lado de luz que el resto del personaje), y el metal de encima brilla.
+static func _tono(zona: int, g: Dictionary, u: float, v: float) -> int:
+	match zona:
+		0:
+			return Tono.METAL
+		2:
+			return Tono.METAL_L
+	var luz: float = u / maxf(float(g["arriba"]), 1.0) - v / maxf(float(g["ancho"]), 1.0)
+	if luz > 0.55:
+		return Tono.MADERA_L
+	if luz < -0.6:
+		return Tono.MADERA_S
+	return Tono.MADERA

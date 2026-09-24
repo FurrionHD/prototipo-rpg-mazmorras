@@ -89,13 +89,16 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 # En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver
 # _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
-	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque"]
+	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
 	"afilar_veneno",
 	"guardia_estoque", "guardia_estoque_and", "guardia_estoque_cor", "guardia_estoque_def",
-	"estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque", "ponerse_en_guardia"]
+	"estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque", "ponerse_en_guardia",
+	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
+	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
+	"ponerse_en_guardia_esc"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]

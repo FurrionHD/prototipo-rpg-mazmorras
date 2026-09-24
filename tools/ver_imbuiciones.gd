@@ -18,7 +18,7 @@ const ZOOM := 5
 const MOMENTOS := 4
 const ENTRE := 0.13   # segundos entre un momento y el siguiente
 const FONDO := Color(0.11, 0.12, 0.15)
-const ARMAS := ["martillo_grande", "mandoble", "hacha_grande", "daga"]
+const ARMAS := ["martillo_grande", "mandoble", "hacha_grande", "daga", "estoque"]
 
 
 func _filas() -> Array:
@@ -47,7 +47,11 @@ func _ready() -> void:
 		return
 	p.set_physics_process(false)
 	var pj: PersonajeData = Game.lider()
+	# IMBUICIONES_ARMAS=estoque,daga: solo esas (y sin la hoja del Manto).
+	var pedidas: String = OS.get_environment("IMBUICIONES_ARMAS")
 	for arma in ARMAS:
+		if pedidas != "" and not (arma in pedidas.split(",")):
+			continue
 		pj.equipped_off = null
 		pj.equipped_main = _arma_de_tipo(arma)
 		p._pintar_cuerpo()
@@ -55,7 +59,8 @@ func _ready() -> void:
 	pj.equipped_main = null
 	pj.equipped_off = null
 	p._pintar_cuerpo()
-	await _hoja(p, "idle_%d" % dir, true, "%s/manto.png" % salida, 34)
+	if pedidas == "":
+		await _hoja(p, "idle_%d" % dir, true, "%s/manto.png" % salida, 34)
 	print("[ver imbuiciones] ", ProjectSettings.globalize_path(salida))
 	get_tree().quit()
 
