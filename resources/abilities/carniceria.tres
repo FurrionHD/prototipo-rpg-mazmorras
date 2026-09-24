@@ -20,6 +20,7 @@ dano_mult = 0.7
 redirige_al_morir = true
 efectos_por_golpe = true
 fx_estilo = 78
+suelo_roto = 10
 forma = 2
 forma_apunte = 1
 forma_radio = 45.0

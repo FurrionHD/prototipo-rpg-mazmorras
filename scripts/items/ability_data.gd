@@ -237,6 +237,8 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # expansiva), 2 = ESTALLIDO (Martillo de guerra: geiser de polvo y grietas), 3 = ESTELA (Rompecorazas:
 # no rompe nada, es la estela del arma; pega en el instante del golpe), 4 = CORTE (Tajo del verdugo: una
 # cuchilla de aire que corre por la linea), 5 = GIRO (Molinete), 6 = SIEGA (Segar), 7 = GRITO (Grito de guerra).
+# El HACHA GRANDE (HachaAire): 9 = HACHAZO (Hachazo brutal), 10 = CARNICERIA, 11 = DESGARRO, 12 = HENDEDURA,
+# 13 = MIRADA (Sed de sangre).
 # Ver SueloRoto.Tipo. Con esto el golpe NO cae a la vez sobre todos: a cada uno le llega
 # cuando la rotura alcanza su cuerpo, saliendo del centro de la huella (del que golpea, en el cono).
 @export var suelo_roto: int = -1

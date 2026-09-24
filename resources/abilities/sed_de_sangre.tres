@@ -23,6 +23,7 @@ coste_energia = 50
 cooldown = 4
 dano_mult = 0.0
 fx_sobre_mi = 80
+suelo_roto = 13
 forma = 2
 forma_apunte = 1
 forma_radio = 90.0

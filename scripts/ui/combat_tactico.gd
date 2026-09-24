@@ -1518,6 +1518,58 @@ func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
 			_arrancar_tiron(tr)
 
 
+# LA SANGRE DEL HACHA (24/09): cada golpe de hacha que ENTRA salpica desde el cuerpo que lo encaja, hacia
+# donde va el tajo: los barridos de lado (el Brutal hacia su giro, la Carniceria alternando), la Hendedura
+# hacia fuera y el Desgarro hacia quien tira, dejando ademas el surco del arrastre. En todas las maquinas.
+const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatFX.Estilo.HACHAZO_BRUTAL,
+	CombatFX.Estilo.CARNICERIA, CombatFX.Estilo.DESGARRO]
+
+func _on_impacto(ev: Dictionary) -> void:
+	var estilo: int = int(ev.get("estilo", 0))
+	if not _pantalla.tactico or estilo not in _SANGRA:
+		return
+	var v: Combatant = _de_bloque(ev["bv"])
+	var cuerpo: Node2D = cuerpo_de(v)
+	var arena: ArenaCombate = _arena()
+	if cuerpo == null or arena == null:
+		return
+	var a: Combatant = _de_bloque(ev["ba"])
+	var r: Rect2 = bulto_de(v)
+	var pies_v: Vector2 = pies_de(v)
+	var desde: Vector2 = r.get_center() if r.has_area() else pies_v + Vector2(0.0, -12.0)
+	var radial: Vector2 = (pies_v - pies_de(a)).normalized() if a != null and cuerpo_de(a) != null else Vector2.RIGHT
+	var dir: Vector2 = radial.rotated(PI * 0.5) * 0.85 + radial * 0.45
+	var fuerza: float = clampf(float(ev.get("peso", 1.0)), 0.3, 1.5) * (1.35 if bool(ev.get("crit", false)) else 1.0)
+	match estilo:
+		CombatFX.Estilo.HACHAZO_BRUTAL:
+			fuerza *= 1.4
+		CombatFX.Estilo.CARNICERIA:
+			var lado: float = 1.0 if int(ev.get("pos_tanda", 0)) % 2 == 0 else -1.0
+			dir = radial.rotated(PI * 0.5 * lado) * 0.85 + radial * 0.45
+			fuerza *= 0.8
+		CombatFX.Estilo.HENDEDURA:
+			dir = radial
+		CombatFX.Estilo.DESGARRO:
+			dir = -radial
+			SangreMapa.surco(arena, cuerpo, pies_v - cuerpo.global_position)
+		CombatFX.Estilo.HACHA_TAJO:
+			fuerza *= 0.6
+	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
+
+
+# El combatiente de un bloque de la pelea (aliado o enemigo). null si no es de nadie.
+func _de_bloque(b) -> Combatant:
+	if not b is Dictionary:
+		return null
+	for c in _pantalla._enemies:
+		if is_same(_pantalla._bloque_de(c), b):
+			return c
+	for c in _pantalla._aliados:
+		if is_same(_pantalla._bloque_de(c), b):
+			return c
+	return null
+
+
 func _arrancar_tiron(tr: Dictionary) -> void:
 	var c: Combatant = tr["c"]
 	var cuerpo: Node2D = cuerpo_de(c)

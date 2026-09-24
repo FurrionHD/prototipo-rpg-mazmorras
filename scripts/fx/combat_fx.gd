@@ -60,6 +60,11 @@ signal gesto_terminado(bloque: Dictionary)
 # lo deriva de lo que ya recibe.
 signal golpe_encajado(bloque: Dictionary, dur: float)
 
+# EL GOLPE QUE ENTRA, entero (el evento de la cola: atacante, victima, estilo, tanda, critico, peso...).
+# Sale con el encaje, solo si no lo esquiva y sin el filtro de golpes juntos. Lo escucha el combate del
+# mapa para lo que va SOBRE EL CUERPO de verdad: la sangre del hacha (SangreMapa).
+signal impacto_visto(ev: Dictionary)
+
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
 # sitio y lo que viaja es el efecto, que es lo que diferencia lanzar un conjuro de dar un tajo.
@@ -1671,6 +1676,10 @@ const ANIM_CUERPO_MAPA := {
 	# Los golpes de siempre del martillo y el mandoble, con nombre para que se sepa cuando tocan (abajo).
 	Estilo.MANDOBLE_TAJO: "golpe_2m", Estilo.MARTILLO_GOLPE: "golpe_2m", Estilo.GOLPE_SISMICO: "golpe_2m",
 	Estilo.ONDA_EXPANSIVA: "golpe_2m", Estilo.ROMPECORAZAS: "golpe_2m",
+	# El HACHA GRANDE (24/09), PROVISIONAL con las del mandoble hasta que tenga las suyas (paso 3). Sin
+	# estar aqui sus golpes contaban como magia (a 0,075 s) y la Carniceria no iba con sus tres barridos.
+	Estilo.HACHA_TAJO: "golpe_2m", Estilo.HENDEDURA: "tajo_2m", Estilo.HACHAZO_BRUTAL: "barrido_2m",
+	Estilo.CARNICERIA: "barrido_2m", Estilo.DESGARRO: "barrido_2m",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1897,6 +1906,7 @@ func _encajar(ev: Dictionary) -> void:
 	# sacudida y el flash mas abajo.
 	if bool(ev["evadido"]):
 		return
+	impacto_visto.emit(ev)
 	var pv: Control = _visual(ev["bv"])
 	if pv == null:
 		return

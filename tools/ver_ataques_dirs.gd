@@ -12,8 +12,10 @@ const HABILIDADES := [
 	["martillo", "onda_expansiva"], ["martillo", "temblor"],
 	["mandoble", "molinete"], ["mandoble", "segar"], ["mandoble", "tajo_devastador"],
 	["mandoble", "tajo_del_verdugo"], ["mandoble", "grito_de_guerra"],
+	["hacha", "hachazo_brutal"], ["hacha", "carniceria"], ["hacha", "desgarro"], ["hacha", "hendedura"],
+	["hacha", "sed_de_sangre"],
 ]
-const ALCANCE := {"martillo": 32.25, "mandoble": 34.5}
+const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25}
 const PISA := 6.0
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
@@ -27,10 +29,17 @@ const MOMENTOS := {
 	5: [0.06, 0.13, 0.2, 0.3, 0.45],
 	6: [0.07, 0.14, 0.27, 0.34, 0.5],
 	7: [0.08, 0.18, 0.3, 0.45, 0.7],
+	# El hacha (HachaAire): en su reloj, que en la Carniceria, el Desgarro y la Hendedura arranca antes del golpe.
+	9: [0.05, 0.11, 0.17, 0.25, 0.6],
+	10: [0.06, 0.1, 0.29, 0.5, 0.9],
+	11: [0.04, 0.08, 0.12, 0.17, 0.3],
+	12: [0.04, 0.08, 0.14, 0.24, 0.6],
+	13: [0.05, 0.15, 0.3, 0.45, 0.65],
 }
 const COLOR_HUELLA := Color(1.0, 0.72, 0.25)
 
 var _cam: Camera2D
+var _enemigos: Array = []    # donde estan los pies de cada figura roja
 var _huella: Node2D
 var _forma_huella = null
 var _rotulo: Label
@@ -87,9 +96,11 @@ func _correr() -> void:
 	for i in 8:
 		var a: float = TAU * float(i) / 8.0 + 0.2
 		_figura(Vector2(cos(a), sin(a)) * 62.0, Color(0.8, 0.35, 0.35))
+		_enemigos.append(Vector2(cos(a), sin(a)) * 62.0)
 	for i in 5:
 		var a2: float = TAU * float(i) / 5.0 + 0.9
 		_figura(Vector2(cos(a2), sin(a2)) * 118.0, Color(0.8, 0.35, 0.35))
+		_enemigos.append(Vector2(cos(a2), sin(a2)) * 118.0)
 	var pedidas: String = OS.get_environment("ATAQUES_LISTA")
 	for h in HABILIDADES:
 		var arma: String = h[0]
@@ -130,14 +141,43 @@ func _correr() -> void:
 				f_suelo = CombatFormas.cono(yo, f.centro - yo, EstelaGolpe.RADIO, 0.0)
 			var s: Node2D = SueloRoto.lanzar(self, f_suelo, ab.suelo_roto, 1234 + fila, ab.forma_nucleo)
 			s.set_process(false)
+			# LA SANGRE DEL HACHA: sale en el juego cuando el golpe entra (CombatTactico._on_impacto); aqui se
+			# simula sobre cada figura que pilla la huella, a su instante (retraso del efecto).
+			var sangres: Array = []   # {n: SangreMapa, t0, hecho}
+			if ab.suelo_roto >= SueloRoto.Tipo.HACHAZO and ab.suelo_roto != SueloRoto.Tipo.MIRADA:
+				BarridoAire.ritmo = 1.0
+				var antes: float = HachaAire._antes(ab.suelo_roto - SueloRoto.Tipo.HACHAZO)
+				for p in _enemigos:
+					if not f.toca(Rect2(p - Vector2(7, 26), Vector2(14, 26))):
+						continue
+					var radial: Vector2 = (p - yo).normalized()
+					var dir_g: Vector2 = radial.rotated(PI * 0.5) * 0.85 + radial * 0.45
+					var fuerza: float = 1.0
+					match ab.suelo_roto:
+						SueloRoto.Tipo.HACHAZO: fuerza = 1.4
+						SueloRoto.Tipo.DESGARRO: dir_g = -radial
+						SueloRoto.Tipo.HENDEDURA: dir_g = radial
+					SangreMapa.salpicar(self, p - Vector2(0, 13), p, dir_g, fuerza, 77 + fila)
+					var n: Node2D = get_child(get_child_count() - 1)
+					n.set_process(false)
+					sangres.append({"n": n, "t0": antes + SueloRoto.retraso(f_suelo, p, ab.suelo_roto), "hecho": 0.0})
 			for col in tiempos.size():
 				s.set("_t", float(tiempos[col]))
+				for sg in sangres:
+					var quiere: float = float(tiempos[col]) - float(sg["t0"])
+					while float(sg["hecho"]) + 0.01 <= quiere:
+						(sg["n"] as Node2D).call("_process", 0.01)
+						sg["hecho"] = float(sg["hecho"]) + 0.01
+					(sg["n"] as Node2D).visible = quiere >= 0.0
 				for hijo in ["_geiser", "_aire", "_atras", "_delante"]:
 					if s.get(hijo) != null:
 						(s.get(hijo) as Node2D).queue_redraw()
 				s.queue_redraw()
 				await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, float(tiempos[col])])
 			s.queue_free()
+			for sg in sangres:
+				if is_instance_valid(sg["n"]):
+					(sg["n"] as Node).queue_free()
 			await get_tree().process_frame
 		var ruta: String = "%s/%s_%s.png" % [salida, arma, nom]
 		hoja.save_png(ruta)

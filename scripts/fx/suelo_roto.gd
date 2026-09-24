@@ -24,7 +24,10 @@ class_name SueloRoto
 #    GIRO, SIEGA, GRITO   el Molinete, el Segar y el Grito de guerra (24/09): estelas y onda de aire.
 #                 Viven en BarridoAire (su Modo = tipo - GIRO).
 #    TAJO         el basico del mandoble (24/09): tambien en BarridoAire.
-enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO }
+#    HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA   el HACHA GRANDE (24/09). Viven en HachaAire (su
+#                 Modo = tipo - HACHAZO). Van al final: los numeros viajan por red y no se reciclan.
+enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
+	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA }
 
 const T_SALIR := 1.0      # lo que tarda el frente en llegar al borde
 const T_SALIR_ESTALLIDO := 0.4   # el estallido es un golpe seco: sus grietas corren mucho mas
@@ -70,6 +73,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	if t == Tipo.CORTE:
 		return CorteAire.lanzar(padre, f, semilla, espera)
+	if t >= Tipo.HACHAZO:
+		return HachaAire.lanzar(padre, f, t - Tipo.HACHAZO, semilla, espera)
 	if t >= Tipo.GIRO:
 		return BarridoAire.lanzar(padre, f, t - Tipo.GIRO, semilla, espera)
 	var s := SueloRoto.new()
@@ -92,6 +97,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
 	if t == Tipo.CORTE:
 		return CorteAire.retraso_px(p.distance_to(origen_de(f)), f.radio)
+	if t >= Tipo.HACHAZO:
+		return HachaAire.retraso(t - Tipo.HACHAZO, f, p)
 	if t >= Tipo.GIRO:
 		return BarridoAire.retraso_px(t - Tipo.GIRO, p.distance_to(origen_de(f)), f.radio)
 	var u: float = clampf(p.distance_to(origen_de(f)) / f.radio, 0.0, 1.0)
@@ -105,6 +112,8 @@ static func t_salir_de(t: int) -> float:
 		return CorteAire.T_VIAJE
 	if t == Tipo.GRITO:
 		return BarridoAire.T_ONDA
+	if t >= Tipo.HACHAZO:
+		return HachaAire.t_salir(t - Tipo.HACHAZO)
 	if t >= Tipo.GIRO:
 		return BarridoAire.T_ENTRE * 2.0
 	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
