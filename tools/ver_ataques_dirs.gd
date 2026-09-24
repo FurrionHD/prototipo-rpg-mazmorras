@@ -17,7 +17,7 @@ const HABILIDADES := [
 	["daga", "rafaga"], ["daga", "punalada"], ["daga", "filo_emponzonado"], ["daga", "desaparecer"],
 	["daga", "oportunista"],
 	["estoque", "estocada_penetrante"], ["estoque", "fintas"], ["estoque", "punzada_al_nervio"],
-	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"],
+	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"], ["estoque", "en_guardia"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25}
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
@@ -27,6 +27,8 @@ const MOMENTOS_ESTOQUE := {
 	"punzada_al_nervio": [-0.03, 0.0, 0.05, 0.1, 0.2],
 	"paso_ligero": [0.05, 0.12, 0.2, 0.24, 0.38],
 	"danza_de_acero": [0.06, 0.16, 0.26, 0.36, 0.55],
+	# Tres de la postura al activarla y dos de la esquiva en guardia (el golpe llega a los 0.6).
+	"en_guardia": [0.05, 0.12, 0.2, 0.63, 0.72],
 }
 # LA DAGA (DagaAire) pinta golpe a golpe sobre cada cuerpo: sus momentos van por habilidad.
 const MOMENTOS_DAGA := {
@@ -302,7 +304,17 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 	cajas.sort_custom(func(a, b): return a.get_center().distance_squared_to(yo) < b.get_center().distance_squared_to(yo))
 	var piezas: Array = []   # {n, t0}
 	var camino: Array = []   # [de, a, dur] si la figura se mueve
+	var esquiva: EstoqueAire = null
 	match nom:
+		"en_guardia":
+			# La hoja mira hacia la fila; la esquiva, de un golpe que viene de ahi.
+			var hacia: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+			var mano: Vector2 = yo + Vector2(5.0, -EstoqueAire.ALTO_TORSO)
+			piezas.append({"n": EstoqueAire.postura(self, EstoqueAire.Modo.GUARDIA, null, yo, hacia, semilla, 0.0, 1.0,
+				mano), "t0": 0.0})
+			esquiva = EstoqueAire.postura(self, EstoqueAire.Modo.ESQUIVA, _yo_fig, yo, hacia, semilla, 0.0, 1.0, mano,
+				true, Rect2(yo - Vector2(7, 26), Vector2(14, 26)))
+			piezas.append({"n": esquiva, "t0": 0.6})
 		"estocada_penetrante":
 			for i in cajas.size():
 				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PENETRANTE, yo + alto, cajas[i], false,
@@ -374,6 +386,9 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 		if not camino.is_empty():
 			var u: float = clampf(t / float(camino[2]), 0.0, 1.0)
 			_yo_fig.position = (camino[0] as Vector2).lerp(camino[1], u) - Vector2(7, 26)
+		# La esquiva mueve la figura (en el juego lo hace su _process, aqui parado).
+		if esquiva != null:
+			_yo_fig.position = esquiva._base_muneco + esquiva._a * esquiva._lado * esquiva._cuanto_fuera(t - 0.6)
 		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
 	for pz in piezas:
 		if pz["n"] != null:

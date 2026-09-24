@@ -550,6 +550,8 @@ func _ready() -> void:
 	_fx.impacto_visto.connect(turno_mapa._on_impacto)
 	# Los golpes de la daga se pintan sobre el cuerpo de verdad (ver turno_mapa._on_dibujo_mapa).
 	_fx.dibujo_en_mapa.connect(turno_mapa._on_dibujo_mapa)
+	# Y quien esquiva se aparta de lado (ver turno_mapa._on_esquiva).
+	_fx.esquiva_vista.connect(turno_mapa._on_esquiva)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		altas._apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))

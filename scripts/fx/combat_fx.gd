@@ -64,6 +64,9 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 # Sale con el encaje, solo si no lo esquiva y sin el filtro de golpes juntos. Lo escucha el combate del
 # mapa para lo que va SOBRE EL CUERPO de verdad: la sangre del hacha (SangreMapa).
 signal impacto_visto(ev: Dictionary)
+# Y el que se ESQUIVA, en el mismo instante. Lo escucha el mapa para la esquiva En guardia del estoque
+# (ev["guardia"]: el que esquivaba estaba en guardia).
+signal esquiva_vista(ev: Dictionary)
 # EN EL MAPA, los golpes con DIBUJO PROPIO (la daga, 24/09) no pintan el de la tarjeta: avisan, en el
 # instante en que saldria su dibujo ('vuelo' antes del golpe, en tiempo de la pelea), y el combate del
 # mapa lo pinta sobre el cuerpo de verdad (CombatTactico._on_dibujo_mapa -> DagaAire). Tambien los esquivados.
@@ -378,7 +381,7 @@ const FX_ARMA := {
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
-	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO]
+	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1963,6 +1966,7 @@ func _encajar(ev: Dictionary) -> void:
 	# Un golpe esquivado no se encaja: no le ha dado. Es la misma condicion que ya se salta la
 	# sacudida y el flash mas abajo.
 	if bool(ev["evadido"]):
+		esquiva_vista.emit(ev)
 		return
 	impacto_visto.emit(ev)
 	var pv: Control = _visual(ev["bv"])

@@ -144,7 +144,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
 		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
-		semilla: int = 0, mult_elem: float = 1.0) -> void:
+		semilla: int = 0, mult_elem: float = 1.0, guardia_red: bool = false) -> void:
 	# LOS QUE HAN ENCAJADO UN GOLPE DE LOS TUYOS en esta accion: solo detras de esos entran la Escolta y
 	# el Oportunista (antes entraban contra el enemigo SELECCIONADO aunque la accion fuera un Filo
 	# emponzoñado o una cura, lo vio el jefe el 24/09).
@@ -176,10 +176,16 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
 		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem,
 		_retraso_suelo(victima))
+	# LA ESQUIVA EN GUARDIA (estoque): el mapa la enseña con su propio gesto (CombatTactico._on_esquiva).
+	# En el espejo en_guardia no viaja: le llega marcada en el paquete (guardia_red).
+	var en_guardia: bool = evadido and (guardia_red or (not _pantalla._espejo and victima.en_guardia))
+	if en_guardia and not _pantalla._fx._cola.is_empty() and is_same(_pantalla._fx._cola.back()["bv"], bv):
+		_pantalla._fx._cola.back()["guardia"] = true
 	# Y de paso se apunta para los espejos: al pasar TODOS los golpes por aqui, el compañero ve
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
-	_pantalla.espejo._apuntar_impacto_red(atacante, victima, dmg, crit, evadido, elem, estilo, peso, solo_dibujo,
-		sfx, semilla)
+	# (La esquiva en guardia va en el daño, que en un esquivado es siempre 0: -1 = "en guardia".)
+	_pantalla.espejo._apuntar_impacto_red(atacante, victima, -1.0 if en_guardia else dmg, crit, evadido, elem,
+		estilo, peso, solo_dibujo, sfx, semilla)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien

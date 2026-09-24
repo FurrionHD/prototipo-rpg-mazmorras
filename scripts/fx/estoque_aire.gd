@@ -18,7 +18,12 @@
 extends Node2D
 class_name EstoqueAire
 
-enum Modo { PUNZADA, PENETRANTE, FINTA, NERVIO, DANZA, RASTRO }
+enum Modo { PUNZADA, PENETRANTE, FINTA, NERVIO, DANZA, RASTRO, GUARDIA, ESQUIVA }
+#    GUARDIA     al ponerte En guardia: un destello recorre la hoja de la mano a la punta, el aire se
+#                cierra sobre tus pies y se levanta polvo a los lados (te plantas en la postura)
+#    ESQUIVA     CUALQUIERA que esquiva (de los tuyos o enemigo): el cuerpo se aparta de lado y vuelve y
+#                deja su eco donde estaba. En guardia, ademas, la hoja destella parando el golpe (el
+#                contraataque viene despues, aparte)
 
 const T_ENTRA := 0.055        # lo que tarda la aguja en llegar (acaba en el golpe)
 const T_AMAGO := 0.09         # el amago de la Finta: sale y se retira antes de la de verdad
@@ -60,6 +65,18 @@ var _de: Vector2 = Vector2.ZERO
 var _a: Vector2 = Vector2.ZERO
 var _dur: float = 0.2
 var _rafagas: Array = []
+# La postura y la esquiva.
+var _muneco: CanvasItem = null   # Node2D en el juego; la figura (ColorRect) en las hojas
+var _mano_fija: Vector2 = Vector2.INF
+var _base_muneco: Vector2 = Vector2.ZERO
+var _parada: bool = true
+var _lado: float = 11.0
+const T_BRILLA_HOJA := 0.12   # lo que tarda el destello en recorrer la hoja
+const T_ESQ_SALE := 0.07      # la esquiva: sale de lado...
+const T_ESQ_QUIETO := 0.1     # ...se queda...
+const T_ESQ_VUELVE := 0.16    # ...y vuelve a su sitio
+const LADO_ESQUIVA := 11.0
+const LARGO_HOJA := 28.0
 
 
 # UN GOLPE sobre un cuerpo, como DagaAire.golpe.
@@ -99,6 +116,45 @@ static func rastro(padre: Node, de: Vector2, a: Vector2, dur: float, semilla: in
 	return e
 
 
+# EN GUARDIA (al activarla) y LA ESQUIVA en guardia, sobre el que la hace. 'muneco' = su MunecoJugador
+# (sin el, las hojas de prueba: la mano en 'mano_fija'); 'pies' = sus pies; 'hacia' = hacia donde mira la
+# hoja (en la esquiva: de donde viene el golpe). La esquiva MUEVE el muñeco de lado y lo devuelve.
+# LA ESQUIVA VALE PARA TODOS (lo pidio el: "el esquive es para todos en general"): quien esquiva un golpe
+# se aparta de lado y vuelve, sea de los tuyos (se mueve su MunecoJugador) o un enemigo (su sprite). Solo
+# En guardia lleva ademas la PARADA (el destello de la hoja): 'parada'. 'caja' = lo que se ve del cuerpo,
+# para el tamaño del eco.
+static func postura(padre: Node, m: int, muneco: CanvasItem, pies: Vector2, hacia: Vector2, semilla: int,
+		espera: float, ritmo: float, mano_fija: Vector2 = Vector2.INF, parada: bool = true,
+		caja: Rect2 = Rect2()) -> EstoqueAire:
+	var e := _nuevo(padre, m, semilla, ritmo)
+	if e == null:
+		return null
+	e._muneco = muneco
+	e._parada = parada
+	e._caja = caja
+	# Lo que se aparta: un palmo, o media anchura si el cuerpo es grande.
+	e._lado = maxf(LADO_ESQUIVA, caja.size.x * 0.4) if caja.has_area() else LADO_ESQUIVA
+	e._mano_fija = mano_fija
+	e._de = pies
+	e._dir = hacia.normalized() if hacia.length_squared() > 0.01 else Vector2.RIGHT
+	e._t = -maxf(espera, 0.0)
+	e._suelo = Node2D.new()
+	e._suelo.z_as_relative = false
+	e._suelo.z_index = SueloRoto.Z_SUELO
+	e.add_child(e._suelo)
+	e._suelo.draw.connect(e._dibujar_suelo_postura)
+	# De lado respecto al golpe, hacia el lado que toque (se alterna con la semilla).
+	e._a = e._dir.orthogonal() * (1.0 if e._rng.randf() < 0.5 else -1.0)
+	# EL SITIO DE VERDAD del muñeco, compartido entre esquivas que se pisan (dos golpes seguidos): la
+	# segunda no puede tomar como sitio el de la primera, ya apartado.
+	if m == Modo.ESQUIVA and is_instance_valid(muneco):
+		if not muneco.has_meta(&"esq_base"):
+			muneco.set_meta(&"esq_base", muneco.position)
+		muneco.set_meta(&"esq_n", int(muneco.get_meta(&"esq_n", 0)) + 1)
+		e._base_muneco = muneco.get_meta(&"esq_base")
+	return e
+
+
 static func _nuevo(padre: Node, m: int, semilla: int, ritmo: float) -> EstoqueAire:
 	if padre == null:
 		return null
@@ -118,17 +174,65 @@ func duracion() -> float:
 		Modo.PENETRANTE: return T_ASOMA + 0.35
 		Modo.NERVIO: return T_CHISPA + 0.1
 		Modo.RASTRO: return _dur + T_POLVO + 0.1
+		Modo.GUARDIA: return T_BRILLA_HOJA + T_POLVO + 0.1
+		Modo.ESQUIVA: return T_ESQ_SALE + T_ESQ_QUIETO + T_ESQ_VUELVE + 0.15
 	return T_APAGA + 0.1
 
 
 func _process(delta: float) -> void:
 	_t += delta * _ritmo
 	if _t >= duracion():
+		_devolver_muneco()
 		queue_free()
 		return
+	if modo == Modo.ESQUIVA and is_instance_valid(_muneco):
+		_muneco.position = _base_muneco + _a * _lado * _cuanto_fuera(_t)
 	queue_redraw()
 	if _suelo != null:
 		_suelo.queue_redraw()
+
+
+func _exit_tree() -> void:
+	_devolver_muneco()
+
+
+# El muñeco, a su sitio (la esquiva no mueve al personaje en la pelea: solo su dibujo, y vuelve).
+func _devolver_muneco() -> void:
+	if modo != Modo.ESQUIVA or not is_instance_valid(_muneco):
+		return
+	_muneco.position = _base_muneco
+	var n: int = int(_muneco.get_meta(&"esq_n", 1)) - 1
+	if n <= 0:
+		_muneco.remove_meta(&"esq_base")
+		_muneco.remove_meta(&"esq_n")
+	else:
+		_muneco.set_meta(&"esq_n", n)
+	_muneco = null   # una sola vez (lo llaman el final y _exit_tree)
+
+
+# Lo apartado que esta el cuerpo en la esquiva (0 = en su sitio, 1 = del todo a un lado).
+func _cuanto_fuera(t: float) -> float:
+	if t <= 0.0:
+		return 0.0
+	if t < T_ESQ_SALE:
+		var u: float = t / T_ESQ_SALE
+		return 1.0 - (1.0 - u) * (1.0 - u)
+	t -= T_ESQ_SALE
+	if t < T_ESQ_QUIETO:
+		return 1.0
+	t -= T_ESQ_QUIETO
+	var v: float = clampf(t / T_ESQ_VUELVE, 0.0, 1.0)
+	return 1.0 - v * v * (3.0 - 2.0 * v)
+
+
+# La mano del arma en mundo (sin muñeco, la fija de las hojas).
+func _mano() -> Vector2:
+	if not is_instance_valid(_muneco):
+		return _mano_fija if _mano_fija != Vector2.INF else _de + Vector2(6.0, -ALTO_TORSO)
+	var m = _muneco.call("punto_mano") if _muneco.has_method("punto_mano") else Vector2.INF
+	if not (m is Vector2) or m == Vector2.INF:
+		return _muneco.global_position + Vector2(6.0, -ALTO_TORSO)
+	return _muneco.global_position + m
 
 
 # ------------------------------------------------------------
@@ -162,6 +266,12 @@ func _preparar_golpe() -> void:
 func _draw() -> void:
 	if modo == Modo.RASTRO:
 		_dibujar_rastro()
+		return
+	if modo == Modo.GUARDIA:
+		_dibujar_guardia()
+		return
+	if modo == Modo.ESQUIVA:
+		_dibujar_esquiva()
 		return
 	if modo == Modo.FINTA:
 		_dibujar_amago()
@@ -271,6 +381,88 @@ func _hasta_el_borde(d: Vector2) -> float:
 	var tx: float = h.x / absf(d.x) if absf(d.x) > 0.001 else INF
 	var ty: float = h.y / absf(d.y) if absf(d.y) > 0.001 else INF
 	return minf(minf(tx, ty), 40.0)
+
+
+# ------------------------------------------------------------
+#  EN GUARDIA Y LA ESQUIVA
+# ------------------------------------------------------------
+# EL DESTELLO QUE RECORRE LA HOJA: un brillo que corre de la mano a la punta (con su estela detras) y
+# revienta en estrella en la punta. La hoja va de la mano hacia donde mira.
+func _dibujar_guardia() -> void:
+	if _t < 0.0:
+		return
+	var mano: Vector2 = _mano()
+	var punta: Vector2 = mano + _dir * LARGO_HOJA
+	var k: float = clampf(_t / T_BRILLA_HOJA, 0.0, 1.0)
+	var va: float = clampf((_t - T_BRILLA_HOJA) / 0.25, 0.0, 1.0)
+	if k < 1.0:
+		var cab: Vector2 = mano.lerp(punta, k * k * (3.0 - 2.0 * k))
+		BarridoAire.cometa(self, mano.lerp(cab, 0.3), cab, 3.2, Color(BLANCO, 0.9))
+		BarridoAire.brillo(self, cab, 5.0, Color(BLANCO, 0.55))
+	var pulso: float = exp(-maxf(_t - T_BRILLA_HOJA, 0.0) / 0.06) if _t >= T_BRILLA_HOJA * 0.7 else 0.0
+	if pulso > 0.01:
+		BarridoAire.destello(self, punta, 11.0 * (0.4 + 0.8 * pulso), Color(BLANCO, (1.0 - va) * pulso), 0.3)
+
+
+# La postura se nota en el SUELO: el aire se cierra sobre los pies y el polvo sale a los dos lados.
+func _dibujar_suelo_postura() -> void:
+	if _t < 0.0:
+		return
+	if modo == Modo.GUARDIA:
+		var k: float = clampf(_t / 0.2, 0.0, 1.0)
+		BarridoAire.brillo(_suelo, _de, 26.0 * (1.0 - 0.6 * k), Color(AIRE, 0.28 * (1.0 - k)))
+		var lado: Vector2 = _dir.orthogonal()
+		_bocanada_hacia(_de + lado * 5.0, lado, _t)
+		_bocanada_hacia(_de - lado * 5.0, -lado, _t)
+	elif modo == Modo.ESQUIVA:
+		# El pie que empuja al salir de lado.
+		_bocanada_hacia(_de, -_a, _t)
+		# El eco y las rafagas, DETRAS de los cuerpos (en esta capa baja): encima tapaban al que esquiva.
+		_dibujar_eco(_suelo)
+
+
+func _bocanada_hacia(p: Vector2, hacia: Vector2, t: float) -> void:
+	if t < 0.0 or t > T_POLVO:
+		return
+	var k: float = t / T_POLVO
+	var s: float = 1.0 - (1.0 - k) * (1.0 - k)
+	for i in 3:
+		var d: Vector2 = hacia.rotated((float(i) - 1.0) * 0.5)
+		var q: Vector2 = p + d * 10.0 * s + Vector2(0.0, -3.0 * s)
+		BarridoAire.brillo(_suelo, q, 3.5 + 4.5 * s, Color(POLVO, 0.5 * (1.0 - k)))
+
+
+# LA ESQUIVA: el eco del cuerpo donde estaba (se queda mientras el cuerpo esta fuera) y el destello de la
+# parada en la hoja, girado hacia el golpe.
+func _dibujar_esquiva() -> void:
+	if _t < 0.0 or not _parada:
+		return
+	# LA PARADA: la hoja destella donde desvia el golpe, al llegar este (t = 0).
+	var pulso: float = exp(-_t / 0.05)
+	var cruce: Vector2 = _mano() + _dir * 10.0
+	BarridoAire.destello(self, cruce, 13.0 * (0.35 + 0.8 * pulso), Color(BLANCO, pulso), _dir.angle() + 0.785)
+	BarridoAire.brillo(self, cruce, 9.0 * pulso, Color(1.0, 0.95, 0.8, 0.5 * pulso))
+
+
+func _dibujar_eco(ci: CanvasItem) -> void:
+	if _t < 0.0:
+		return
+	var fuera: float = _cuanto_fuera(_t)
+	var a_eco: float = 0.45 * fuera * (1.0 - clampf((_t - T_ESQ_SALE - T_ESQ_QUIETO) / T_ESQ_VUELVE, 0.0, 1.0))
+	# El tamaño del que esquiva: su caja (un jefe grande deja un eco grande); sin ella, el de una persona.
+	var alto: float = clampf(_caja.size.y, 14.0, 90.0) if _caja.has_area() else 26.0
+	var ancho: float = clampf(_caja.size.x, 10.0, 90.0) if _caja.has_area() else 14.0
+	if a_eco > 0.01:
+		for k in 3:
+			var h: float = alto * (0.2 + 0.32 * float(k))
+			BarridoAire.brillo(ci, _de + Vector2(0.0, -h), ancho * (0.42 if k == 1 else 0.36), Color(AIRE, a_eco))
+	# Rafagas del salto de lado, de donde estaba hacia donde va.
+	if _t < T_ESQ_SALE + 0.1:
+		var va: float = clampf((_t - T_ESQ_SALE) / 0.1, 0.0, 1.0)
+		for i in 3:
+			var alt := Vector2(0.0, -alto * (0.25 + 0.3 * float(i)))
+			var cab: Vector2 = _de + alt + _a * _lado * fuera
+			BarridoAire.cometa(ci, _de + alt - _a * 3.0, cab, 2.0, Color(AIRE, 0.6 * (1.0 - va)))
 
 
 # ------------------------------------------------------------

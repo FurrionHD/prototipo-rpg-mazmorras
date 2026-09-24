@@ -1224,13 +1224,17 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 		_pantalla.efectos._fx_tanda(maxi(0, tanda))
 		# Con MASCARA en cada campo: sin ella, el elemento se leia con los bits del estilo y del
 		# peso pegados detras y salia un numero absurdo.
+		# Un esquivado con daño -1 = esquivado EN GUARDIA (ver efectos._fx_golpe).
+		var guardia_red: bool = (flags & 2) != 0 and dmg < 0.0
+		if guardia_red:
+			dmg = 0.0
 		_pantalla.efectos._fx_golpe(_de_codigo(ca), victima, dmg, (flags & 1) != 0, (flags & 2) != 0,
 			((flags >> 3) & 7) - 1, (flags >> 6) & 255, float((flags >> 14) & 127) / 64.0,
 			(flags & 2097152) != 0, Sonido.clave_de((flags >> 22) & 511),
 			# El gesto y la animacion van por su valor de siempre (no viajan: el Combatant del
 			# atacante ya los trae). La SEMILLA si viaja, y se pasa TAL CUAL: es lo que hace que
 			# el golpe suene con la misma version y el mismo tono que en la pantalla del que pega.
-			AbilityData.Gesto.AUTO, &"", semilla)
+			AbilityData.Gesto.AUTO, &"", semilla, 1.0, guardia_red)
 	_pantalla.efectos.soltar_suelo()
 	_pantalla._fx.arrancar_cola()
 

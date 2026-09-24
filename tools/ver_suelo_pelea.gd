@@ -155,6 +155,25 @@ func _correr() -> void:
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return
+	# SUELO_ESQUIVA=1: el primer enemigo le pega al jugador (en guardia) y lo esquiva. Se mide lo que se aparta
+	# el muñeco y que vuelve a su sitio.
+	if OS.get_environment("SUELO_ESQUIVA") != "":
+		var yo2: Combatant = combat._player
+		yo2.en_guardia = true
+		var mun: Node2D = t.cuerpo_de(yo2).get("_muneco")
+		var base: Vector2 = mun.position
+		combat.efectos._fx_golpe(combat._enemies[0], yo2, 0.0, false, true)
+		print("  en guardia marcado en la cola: %s" % str(combat._fx._cola.back().get("guardia", false)))
+		combat._fx.arrancar_cola()
+		var maximo: float = 0.0
+		var t1: int = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t1 < 1500:
+			await get_tree().process_frame
+			maximo = maxf(maximo, mun.position.distance_to(base))
+		print("  esquiva: se aparto %.1f px y acabo a %.1f px de su sitio" % [maximo, mun.position.distance_to(base)])
+		print("=== FIN ===")
+		get_tree().quit(0)
+		return
 	t._hay_apunte = true
 	print("%s: pilla a %d  (jugador en %s)" % [nom, t.reparto_habilidad(ab, t._quien).size(),
 		str(t.pos_de(combat._player).round())])

@@ -1626,6 +1626,26 @@ func _on_impacto(ev: Dictionary) -> void:
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 
+# LA ESQUIVA SE VE (24/09, para TODOS, lo pidio el): quien esquiva un golpe se aparta de lado y vuelve,
+# dejando su eco (EstoqueAire.Modo.ESQUIVA). Se mueve solo el DIBUJO (el muñeco de los tuyos, el sprite de
+# un enemigo), no su sitio en la pelea. Si esquivaba En guardia, ademas la parada en la hoja. En todas las
+# maquinas: el espejo recibe los mismos golpes (y la marca de guardia, ver efectos._fx_golpe).
+func _on_esquiva(ev: Dictionary) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or not _pantalla.tactico:
+		return
+	var v: Combatant = _de_bloque(ev["bv"])
+	var a: Combatant = _de_bloque(ev["ba"])
+	var cuerpo: Node2D = cuerpo_de(v)
+	if v == null or cuerpo == null or v == a:
+		return
+	var dibujo: Node2D = cuerpo.get("_muneco") if cuerpo.get("_muneco") is Node2D else cuerpo.get("_sprite")
+	var hacia: Vector2 = pies_de(a) - pies_de(v) if a != null and cuerpo_de(a) != null else Vector2.RIGHT
+	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	EstoqueAire.postura(arena, EstoqueAire.Modo.ESQUIVA, dibujo, pies_de(v), hacia,
+		int(ev.get("semilla", 1)) | 1, 0.0, ritmo, Vector2.INF, bool(ev.get("guardia", false)), bulto_de(v))
+
+
 const _MODO_ESTOQUE := {
 	CombatFX.Estilo.ESTOQUE_PUNZADA: EstoqueAire.Modo.PUNZADA,
 	CombatFX.Estilo.PASO_LIGERO: EstoqueAire.Modo.PUNZADA,
@@ -1650,6 +1670,19 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
+		return
+	# EN GUARDIA (sobre ti): el destello por la hoja y la postura en el suelo, mirando al enemigo mas cercano.
+	if estilo == CombatFX.Estilo.EN_GUARDIA:
+		var mas_cerca: Combatant = null
+		var d_min: float = INF
+		for e in _pantalla._vivos():
+			var d_e: float = pies_de(e).distance_squared_to(pies_de(v))
+			if d_e < d_min:
+				d_min = d_e
+				mas_cerca = e
+		var hacia_g: Vector2 = (pies_de(mas_cerca) - pies_de(v)) if mas_cerca != null else Vector2.RIGHT
+		EstoqueAire.postura(arena, EstoqueAire.Modo.GUARDIA, cuerpo_de(v).get("_muneco"), pies_de(v), hacia_g,
+			semilla, vuelo, ritmo)
 		return
 	# EL ESTOQUE: todo de punta (EstoqueAire), desde la altura del pecho del que pega.
 	if estilo in _MODO_ESTOQUE:
