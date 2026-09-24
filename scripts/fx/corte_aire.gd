@@ -207,7 +207,7 @@ func _dibujar_aire() -> void:
 				continue
 			var p0: Vector2 = _en_cuchilla(s0, float(r["u"]), float(r["z"]))
 			var p1: Vector2 = p0 - _dir * (s0 - maxf(s1, 0.0))
-			draw_line_aire(p1, p0, Color(BLANCO, 0.35 * a_c * (1.0 - 0.7 * absf(_dir.y))), 1.0)
+			BarridoAire.cometa(_aire, p1, p0, 1.6, Color(BLANCO, 0.35 * a_c * (1.0 - 0.7 * absf(_dir.y))))
 		_cuchilla(va, Color(BLANCO, 0.95 * a_c), 1.0)
 	# Las piedras que salta a su paso: hacia fuera y hacia arriba, girando, y caen.
 	for pz in _piedras:
@@ -227,10 +227,6 @@ func _dibujar_aire() -> void:
 		for q in pz["poly"]:
 			cara.append(c + (q as Vector2).rotated(rot))
 		_aire.draw_colored_polygon(cara, PIEDRA)
-
-
-func draw_line_aire(a: Vector2, b: Vector2, col: Color, w: float) -> void:
-	_aire.draw_line(a, b, col, w)
 
 
 # Una media luna de aire puesta a 's': el filo de delante (el suelo combado) y el lomo por detras, con
