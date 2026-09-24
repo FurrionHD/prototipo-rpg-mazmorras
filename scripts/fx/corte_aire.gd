@@ -235,18 +235,24 @@ func _cuchilla(s: float, col: Color, esc: float) -> void:
 		filo.append(_en_cuchilla(s, u, 1.0))
 		# El lomo va por detras y mas bajo: da el grosor de la media luna.
 		lomo.append(_en_cuchilla(s - 13.0 * (1.0 - u * u), u, 0.4))
-	var poly := filo.duplicate()
-	for i in range(n, -1, -1):
-		poly.append(lomo[i])
-	_aire.draw_colored_polygon(poly, Color(AIRE, col.a * 0.8))
-	# El nucleo: una franja blanca pegada al filo.
-	var nucleo := filo.duplicate()
-	for i in range(n, -1, -1):
+	# A TRIANGULOS y no como un poligono: mirando al sur la media luna se ve de canto y su contorno se
+	# cruza consigo mismo, y un poligono asi no se puede rellenar (salia solo la raya).
+	var nucleo := PackedVector2Array()
+	for i in n + 1:
 		nucleo.append(filo[i].lerp(lomo[i], 0.5))
-	_aire.draw_colored_polygon(nucleo, col)
+	_banda(filo, lomo, Color(AIRE, col.a * 0.8))
+	_banda(filo, nucleo, col)
 	_aire.draw_polyline(filo, Color(BLANCO, col.a), 2.4)
 	# Por donde corta el suelo, una linea fina bajo el filo.
 	var pie := PackedVector2Array()
 	for i in n + 1:
 		pie.append(_en_cuchilla(s, lerpf(-1.0, 1.0, float(i) / float(n)) * esc, 0.0))
 	_aire.draw_polyline(pie, Color(BLANCO, col.a * 0.6), 1.0)
+
+
+# Rellena la banda entre dos lineas del mismo largo, a triangulos (nunca falla, aunque se cruce).
+func _banda(a: PackedVector2Array, b: PackedVector2Array, col: Color) -> void:
+	var cols := PackedColorArray([col, col, col])
+	for i in a.size() - 1:
+		_aire.draw_primitive(PackedVector2Array([a[i], a[i + 1], b[i + 1]]), cols, PackedVector2Array())
+		_aire.draw_primitive(PackedVector2Array([a[i], b[i + 1], b[i]]), cols, PackedVector2Array())
