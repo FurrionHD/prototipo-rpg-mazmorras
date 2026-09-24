@@ -639,8 +639,11 @@ static func _escudo_de(out: Array, sh: ShieldData, pj: PersonajeData) -> void:
 	# A LA ESPALDA SE VE DESDE TODOS LADOS (25/09, lo pidio el: "si sobresale por el lado, de frente no se
 	# ve que sobresale"): de espaldas va delante del cuerpo y de frente DETRAS (z_atras), asomando por los
 	# lados lo que sea mas ancho que el.
+	# EL ANCLA, CENTRADA (la nuca) y no P_ESPALDA: aquella esta corrida a un lado (la empuñadura de un arma
+	# cruzada) y con ella una diagonal lo ponia delante y la de enfrente DETRAS del cuerpo (25/09: "muy god
+	# hacia este lado, pero muy lamentable hacia este"). Centrada, las dos quedan en espejo.
 	out.append({"clave": "escudo_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
-		"ancla": PoseJugador.P_ESPALDA, "tinte": false,
+		"ancla": PoseJugador.P_NUCA, "tinte": false,
 		"z": Z_ARMA_ESPALDA_DELANTE, "z_atras": Z_ESCUDO_ESPALDA_DETRAS,
 		"frames": EscudoSprites.frames("escudo_%s_espalda" % tn, 1.0)}.merged(pin))
 
