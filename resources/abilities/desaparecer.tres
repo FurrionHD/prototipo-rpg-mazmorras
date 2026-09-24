@@ -29,5 +29,6 @@ forma_apunte = 2
 forma_desde_quien_ataca = true
 forma_radio = 45.0
 forma_reparte = true
+suelo_roto = 14
 descripcion = "Revientas un frasco de humo a tus pies y, antes de que se aclare, cada uno de los que te rodean se lleva su puñalada. Cuando se disipa siguen peleando, pero ya no contigo."
 efectos = [SubResource("SA_0")]

@@ -1523,7 +1523,9 @@ func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
 # donde va el tajo: los barridos de lado (el Brutal hacia su giro, la Carniceria alternando), la Hendedura
 # hacia fuera y el Desgarro hacia quien tira, dejando ademas el surco del arrastre. En todas las maquinas.
 const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatFX.Estilo.HACHAZO_BRUTAL,
-	CombatFX.Estilo.CARNICERIA, CombatFX.Estilo.DESGARRO]
+	CombatFX.Estilo.CARNICERIA, CombatFX.Estilo.DESGARRO,
+	# La DAGA (24/09): poca, de los tajos; la Puñalada, un chorro por detras (por donde asoma la punta).
+	CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, CombatFX.Estilo.PUNALADA]
 
 func _on_impacto(ev: Dictionary) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
@@ -1555,7 +1557,41 @@ func _on_impacto(ev: Dictionary) -> void:
 			SangreMapa.surco(arena, cuerpo, pies_v - cuerpo.global_position)
 		CombatFX.Estilo.HACHA_TAJO:
 			fuerza *= 0.6
+		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA:
+			fuerza *= 0.35
+		CombatFX.Estilo.PUNALADA:
+			dir = radial
+			fuerza *= 0.8
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
+
+
+# EL DIBUJO DE UN GOLPE DE DAGA, sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
+# maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
+func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or not _pantalla.tactico:
+		return
+	var v: Combatant = _de_bloque(ev["bv"])
+	var a: Combatant = _de_bloque(ev["ba"])
+	if v == null or cuerpo_de(v) == null:
+		return
+	var estilo: int = int(ev.get("estilo", 0))
+	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+	if estilo == CombatFX.Estilo.IMBUIR_FILO:
+		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
+		return
+	var modo: int = DagaAire.Modo.TAJO
+	if estilo == CombatFX.Estilo.DAGA_RAFAGA:
+		modo = DagaAire.Modo.RAFAGA
+	elif estilo == CombatFX.Estilo.PUNALADA:
+		modo = DagaAire.Modo.PUNALADA
+	var caja: Rect2 = bulto_de(v)
+	# De donde viene: la altura del pecho del que pega (sin el, desde su lado del cuerpo).
+	var desde: Vector2 = pies_de(a) + Vector2(0.0, -DagaAire.ALTO_TORSO) if a != null and cuerpo_de(a) != null \
+		else caja.get_center() - Vector2(20.0, 0.0)
+	DagaAire.golpe(arena, modo, desde, caja, bool(ev.get("evadido", false)), bool(ev.get("crit", false)),
+		int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 
 
 # El combatiente de un bloque de la pelea (aliado o enemigo). null si no es de nadie.
@@ -1684,10 +1720,16 @@ func _on_gesto_salto(b: Dictionary, _dir: int, _dur: float, _anim: StringName) -
 func _hacer_salto(s: Dictionary) -> void:
 	_saltos.erase(s)
 	var c: Combatant = s["c"]
-	if not _es_mio(c):
-		return
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null or not c.is_alive():
+		return
+	# LA SOMBRA se ve en todas las pantallas; el cuerpo solo lo mueve quien lo mueve siempre.
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		var bajo := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+		DagaAire.sombra(arena, cuerpo.global_position + bajo, Vector2(s["hasta"]) + bajo,
+			int(Vector2(s["hasta"]).x * 31.0) | 1, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+	if not _es_mio(c):
 		return
 	_colocar(c, cuerpo, s["hasta"])
 	# Mirando al enemigo: el gesto que arranca ahora mismo lee esta mirada (ver gesto_en_mapa).

@@ -543,6 +543,8 @@ func _ready() -> void:
 	_fx.golpe_encajado.connect(turno_mapa._on_golpe_encajado)
 	# La sangre del hacha sale sobre el cuerpo que encaja el golpe (ver turno_mapa._on_impacto).
 	_fx.impacto_visto.connect(turno_mapa._on_impacto)
+	# Los golpes de la daga se pintan sobre el cuerpo de verdad (ver turno_mapa._on_dibujo_mapa).
+	_fx.dibujo_en_mapa.connect(turno_mapa._on_dibujo_mapa)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
 	_fx.apagar_ahora.connect(func(b: Dictionary) -> void:
 		altas._apagar_visual(b, bool(b.get("fx_apagar_aliado", false))))

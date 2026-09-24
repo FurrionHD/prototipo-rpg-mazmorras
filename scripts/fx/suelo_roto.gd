@@ -26,8 +26,9 @@ class_name SueloRoto
 #    TAJO         el basico del mandoble (24/09): tambien en BarridoAire.
 #    HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA   el HACHA GRANDE (24/09). Viven en HachaAire (su
 #                 Modo = tipo - HACHAZO). Van al final: los numeros viajan por red y no se reciclan.
+#    HUMO         la bomba de humo de Desaparecer (daga, 24/09). Vive en DagaAire.
 enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
-	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA }
+	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO }
 
 const T_SALIR := 1.0      # lo que tarda el frente en llegar al borde
 const T_SALIR_ESTALLIDO := 0.4   # el estallido es un golpe seco: sus grietas corren mucho mas
@@ -73,6 +74,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	if t == Tipo.CORTE:
 		return CorteAire.lanzar(padre, f, semilla, espera)
+	if t == Tipo.HUMO:
+		return DagaAire.humo(padre, f, semilla, espera)
 	if t >= Tipo.HACHAZO:
 		return HachaAire.lanzar(padre, f, t - Tipo.HACHAZO, semilla, espera)
 	if t >= Tipo.GIRO:
@@ -97,6 +100,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
 	if t == Tipo.CORTE:
 		return CorteAire.retraso_px(p.distance_to(origen_de(f)), f.radio)
+	if t == Tipo.HUMO:
+		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t >= Tipo.HACHAZO:
 		return HachaAire.retraso(t - Tipo.HACHAZO, f, p)
 	if t >= Tipo.GIRO:
@@ -112,6 +117,8 @@ static func t_salir_de(t: int) -> float:
 		return CorteAire.T_VIAJE
 	if t == Tipo.GRITO:
 		return BarridoAire.T_ONDA
+	if t == Tipo.HUMO:
+		return DagaAire.T_HUMO_ABRE
 	if t >= Tipo.HACHAZO:
 		return HachaAire.t_salir(t - Tipo.HACHAZO)
 	if t >= Tipo.GIRO:

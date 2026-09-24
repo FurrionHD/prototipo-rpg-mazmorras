@@ -64,6 +64,10 @@ signal golpe_encajado(bloque: Dictionary, dur: float)
 # Sale con el encaje, solo si no lo esquiva y sin el filtro de golpes juntos. Lo escucha el combate del
 # mapa para lo que va SOBRE EL CUERPO de verdad: la sangre del hacha (SangreMapa).
 signal impacto_visto(ev: Dictionary)
+# EN EL MAPA, los golpes con DIBUJO PROPIO (la daga, 24/09) no pintan el de la tarjeta: avisan, en el
+# instante en que saldria su dibujo ('vuelo' antes del golpe, en tiempo de la pelea), y el combate del
+# mapa lo pinta sobre el cuerpo de verdad (CombatTactico._on_dibujo_mapa -> DagaAire). Tambien los esquivados.
+signal dibujo_en_mapa(ev: Dictionary, vuelo: float)
 
 # COMO se presenta un impacto. MELEE es lo de siempre: la tarjeta del que pega EMBISTE a la del
 # que lo recibe. Todos los demas son de hechizo y NINGUNO embiste -- el que lanza se queda en su
@@ -366,6 +370,9 @@ const FX_ARMA := {
 	0: Estilo.PUNOS_GOLPE,       # PUNOS (ir a mano limpia tambien tiene su dibujo)
 }
 
+
+# Los que en el MAPA pintan su dibujo propio sobre el cuerpo (ver la señal dibujo_en_mapa): la daga.
+const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -2309,7 +2316,9 @@ func _process(delta: float) -> void:
 			# Y los del SUELO QUE SE ROMPE no pintan su efecto de siempre: su dibujo es la rotura.
 			# (La Sed de sangre en el mapa tampoco: su dibujo es la mirada de HachaAire; el adorno solo trae
 			# el gesto del cuerpo.)
-			if _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
+			if rect_en_mapa.is_valid() and estilo in DIBUJO_MAPA:
+				dibujo_en_mapa.emit(ev, vuelo)
+			elif _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
 					and float(ev.get("retraso_suelo", -1.0)) < 0.0 \
 					and not (rect_en_mapa.is_valid() and estilo == Estilo.SED_SANGRE):
 				# El portador cubre TODO lo alcanzado: va al centro del grupo y con el ancho de

@@ -14,8 +14,18 @@ const HABILIDADES := [
 	["mandoble", "tajo_del_verdugo"], ["mandoble", "grito_de_guerra"],
 	["hacha", "hachazo_brutal"], ["hacha", "carniceria"], ["hacha", "desgarro"], ["hacha", "hendedura"],
 	["hacha", "sed_de_sangre"],
+	["daga", "rafaga"], ["daga", "punalada"], ["daga", "filo_emponzonado"], ["daga", "desaparecer"],
+	["daga", "oportunista"],
 ]
-const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25}
+const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0}
+# LA DAGA (DagaAire) pinta golpe a golpe sobre cada cuerpo: sus momentos van por habilidad.
+const MOMENTOS_DAGA := {
+	"rafaga": [-0.02, 0.03, 0.09, 0.16, 0.3],
+	"punalada": [-0.04, 0.0, 0.03, 0.07, 0.16],
+	"filo_emponzonado": [0.08, 0.25, 0.45, 0.7, 1.2],
+	"desaparecer": [0.05, 0.2, 0.3, 0.45, 1.6],
+	"oportunista": [0.04, 0.09, 0.15, 0.2, 0.3],
+}
 const PISA := 6.0
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
@@ -43,6 +53,7 @@ var _enemigos: Array = []    # donde estan los pies de cada figura roja
 var _huella: Node2D
 var _forma_huella = null
 var _rotulo: Label
+var _yo_fig: ColorRect = null
 
 
 func _ready() -> void:
@@ -75,7 +86,7 @@ func _draw() -> void:
 			draw_rect(Rect2(x, y, 16, 16), Color(0.11, 0.12, 0.14), false, 1.0)
 
 
-func _figura(p: Vector2, col: Color) -> void:
+func _figura(p: Vector2, col: Color) -> ColorRect:
 	var fig := ColorRect.new()
 	fig.color = col
 	fig.size = Vector2(14, 26)
@@ -83,6 +94,7 @@ func _figura(p: Vector2, col: Color) -> void:
 	fig.z_index = 1024
 	fig.z_as_relative = false
 	add_child(fig)
+	return fig
 
 
 func _correr() -> void:
@@ -91,12 +103,14 @@ func _correr() -> void:
 		salida = "user://ataques"
 	DirAccess.make_dir_recursive_absolute(salida)
 	var yo := Vector2.ZERO
-	_figura(yo, Color(0.35, 0.6, 1.0))
+	_yo_fig = _figura(yo, Color(0.35, 0.6, 1.0))
 	# Enemigos alrededor: un anillo cerca y unos cuantos mas lejos, para ver hasta donde llega cada uno.
+	# ATAQUES_ANILLO=34 -> el anillo de cerca mas pegado (la daga no llega a 62).
+	var anillo: float = float(OS.get_environment("ATAQUES_ANILLO")) if OS.get_environment("ATAQUES_ANILLO") != "" else 62.0
 	for i in 8:
 		var a: float = TAU * float(i) / 8.0 + 0.2
-		_figura(Vector2(cos(a), sin(a)) * 62.0, Color(0.8, 0.35, 0.35))
-		_enemigos.append(Vector2(cos(a), sin(a)) * 62.0)
+		_figura(Vector2(cos(a), sin(a)) * anillo, Color(0.8, 0.35, 0.35))
+		_enemigos.append(Vector2(cos(a), sin(a)) * anillo)
 	for i in 5:
 		var a2: float = TAU * float(i) / 5.0 + 0.9
 		_figura(Vector2(cos(a2), sin(a2)) * 118.0, Color(0.8, 0.35, 0.35))
@@ -108,7 +122,7 @@ func _correr() -> void:
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
 		var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
-		var tiempos: Array = MOMENTOS.get(ab.suelo_roto, [])
+		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" else MOMENTOS.get(ab.suelo_roto, [])
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -123,17 +137,29 @@ func _correr() -> void:
 		for fila in DIRS.size():
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + (DIRS[fila][1] as Vector2).normalized() * 70.0
+			# El Oportunista se pone ENCIMA de un enemigo: el mas cercano a esa direccion.
+			if nom == "oportunista":
+				var mejor: float = INF
+				for p in _enemigos:
+					var dd: float = absf(angle_difference((p - yo).angle(), (DIRS[fila][1] as Vector2).angle())) \
+						+ (p - yo).length() * 0.002
+					if dd < mejor:
+						mejor = dd
+						hacia = p + Vector2(0, -13)
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
 			# La camara, un poco hacia donde va el ataque (salvo los que caen a tu alrededor).
 			var hacia_cam: float = 0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.35
 			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam / acerca
 			# 1) Apuntando: la huella.
-			_forma_huella = f
+			_forma_huella = f if int(ab.forma) >= 0 else null
 			_huella.queue_redraw()
 			await _viñeta(hoja, 0, fila, "%s · %s · apuntando" % [ab.nombre, dir_n])
 			_forma_huella = null
 			_huella.queue_redraw()
 			if tiempos.is_empty():
+				continue
+			if arma == "daga":
+				await _efecto_daga(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			# 2) El efecto, en sus cinco momentos.
 			var f_suelo = f
@@ -183,6 +209,70 @@ func _correr() -> void:
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 	get_tree().quit(0)
+
+
+# LA DAGA: cada golpe sobre las figuras que pilla su huella, en su instante (como en el juego, donde los
+# pinta CombatTactico._on_dibujo_mapa golpe a golpe).
+func _efecto_daga(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiempos: Array, dir_n: String,
+		yo: Vector2) -> void:
+	BarridoAire.ritmo = 1.0
+	var mano: Vector2 = yo + Vector2(0.0, -DagaAire.ALTO_TORSO)
+	var cajas: Array = []
+	if int(ab.forma) >= 0:
+		for p in _enemigos:
+			var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			if f.toca(r):
+				cajas.append(r)
+	var cu: Vector2 = f.centro_util()
+	cajas.sort_custom(func(a, b): return a.get_center().distance_squared_to(cu) < b.get_center().distance_squared_to(cu))
+	var piezas: Array = []   # {n, t0}
+	var salta_a: Vector2 = Vector2.INF
+	var semilla: int = 900 + fila * 13
+	match nom:
+		"rafaga":
+			var g: int = 3 + mini(4, int(floor(1.15 * float(maxi(cajas.size(), 1) - 1))))
+			for i in g:
+				if cajas.is_empty():
+					break
+				piezas.append({"n": DagaAire.golpe(self, DagaAire.Modo.RAFAGA, mano, cajas[i % cajas.size()],
+					false, i == 2, i, semilla + i, 0.0, 1.0), "t0": 0.075 * float(i)})
+		"punalada":
+			for i in mini(cajas.size(), 2):
+				piezas.append({"n": DagaAire.golpe(self, DagaAire.Modo.PUNALADA, mano, cajas[i], false, i == 0, 0,
+					semilla + i, 0.0, 1.0), "t0": 0.0})
+		"desaparecer":
+			piezas.append({"n": SueloRoto.lanzar(self, f, SueloRoto.Tipo.HUMO, semilla), "t0": 0.0})
+			for i in cajas.size():
+				piezas.append({"n": DagaAire.golpe(self, DagaAire.Modo.TAJO, mano, cajas[i], false, false, i,
+					semilla + i, 0.0, 1.0), "t0": DagaAire.T_HUMO_ABRE + 0.075 * float(i)})
+		"oportunista":
+			if not cajas.is_empty():
+				var r0: Rect2 = cajas[0]
+				var pies_v := Vector2(r0.get_center().x, r0.end.y - 2.0)
+				salta_a = pies_v + (pies_v - yo).normalized() * (8.0 + 3.0 + 2.0)
+				piezas.append({"n": DagaAire.sombra(self, yo, salta_a, semilla, 1.0), "t0": 0.0})
+				piezas.append({"n": DagaAire.golpe(self, DagaAire.Modo.PUNALADA, salta_a + Vector2(0.0, -DagaAire.ALTO_TORSO),
+					r0, false, true, 0, semilla, 0.0, 1.0), "t0": 0.2})
+		"filo_emponzonado":
+			piezas.append({"n": DagaAire.ponzona(self, null, semilla, 0.0, 1.0, mano + Vector2(6.0, 0.0)), "t0": 0.0})
+	for pz in piezas:
+		(pz["n"] as Node).set_process(false)
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		for pz in piezas:
+			var n: Node2D = pz["n"]
+			n.set("_t", t - float(pz["t0"]))
+			n.queue_redraw()
+			var su = n.get("_suelo")
+			if su is Node2D:
+				(su as Node2D).queue_redraw()
+		if salta_a != Vector2.INF:
+			_yo_fig.position = (salta_a if t >= 0.08 else yo) - Vector2(7, 26)
+		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
+	for pz in piezas:
+		(pz["n"] as Node).queue_free()
+	_yo_fig.position = yo - Vector2(7, 26)
+	await get_tree().process_frame
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:
