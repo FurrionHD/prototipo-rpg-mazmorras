@@ -55,6 +55,8 @@ const GEO := {
 }
 # Cuanto va la lamina por DELANTE del antebrazo (el brazo la lleva por detras, por las correas).
 const SEPARA_DEL_BRAZO := 1.2
+# De P_ESPALDA (corrido a la derecha y alto, para la empuñadura de un arma cruzada) al MEDIO de la espalda.
+const CENTRO_ESPALDA := Vector3(4.0, -1.5, -4.0)
 
 # En que animaciones dibuja cada capa (nombre BASE, sin direccion). Mismo criterio que ArmaSprites,
 # sin golpe_izq/golpe_2m: ver la cabecera.
@@ -156,18 +158,18 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	# mano. -1 = no se esta desenvainando. Mismo mecanismo que ArmaSprites.pintar.
 	var sac: float = float((esq.get("pose", {}) as Dictionary).get("sacando", -1.0))
 
-	# ENVAINADO: solo se dibuja de espaldas (el resto de direcciones lo tapa el cuerpo, y un escudo
-	# es demasiado ancho para "mandarlo detras" y que cuele -- asoma por los lados igual que una
-	# hoja larga). Durante 'desenvainar' se dibuja siempre: esta viajando a la mano.
-	if estado != "mano" and sac < 0.0 and not _DIRS_ESPALDA.has(int(esq.get("dir", 0))):
-		return
+	# ENVAINADO SE DIBUJA EN TODAS LAS DIRECCIONES (25/09): de frente va DETRAS del cuerpo (su capa lleva
+	# z_atras, ver JugadorSprites._escudo_de) y lo que sea mas ancho que el asoma por los lados. Antes solo
+	# salia de espaldas y un escudo puerta no se veia de frente por ningun lado.
 
 	var ag: Dictionary = PoseJugador.agarre_escudo(esq, estado)
 	var grip: Vector3 = ag["empunadura"]
 	var eje: Vector3 = ag["eje"]
-	# A LA ESPALDA va DERECHO (colgado de las correas), no cruzado como la hoja de un mandoble.
+	# A LA ESPALDA va DERECHO (colgado de las correas), no cruzado como la hoja de un mandoble, y CENTRADO
+	# (P_ESPALDA esta corrido a un lado, donde asoma la empuñadura de un arma cruzada).
 	if estado != "mano":
 		eje = Vector3(0.0, -0.1, 1.0).normalized()
+		grip += CENTRO_ESPALDA
 
 	if sac >= 0.0 and estado != "mano":
 		var agm: Dictionary = PoseJugador.agarre_escudo(esq, "mano")

@@ -84,6 +84,10 @@ const Z_GORRO := 2051
 # mandoble, que es lo que hace de verdad.
 const Z_ARMA_ESPALDA_DELANTE := 2043
 const Z_ARMA_CADERA_DELANTE := 5       # justo por encima de la ropa (torso va a 3)
+# El escudo a la espalda visto de FRENTE: por debajo del cuerpo (1) y por encima del suelo (-1).
+const Z_ESCUDO_ESPALDA_DETRAS := 0
+# El escudo EN LA MANO del lado de la camara: por encima del gorro (2051), lo mas alto del personaje.
+const Z_ESCUDO_MANO_DELANTE := 2052
 
 static var CAPAS := [
 	{"ranura": Ranura.CUERPO, "clave": "cuerpo", "gen": CuerpoSprites, "piezas": 1,
@@ -625,12 +629,19 @@ static func _escudo_de(out: Array, sh: ShieldData, pj: PersonajeData) -> void:
 	# que manda en el brillo.
 	var pin: Dictionary = _pintura_arma(pj, "off", PaletaEquipo.METAL,
 		EscudoSprites.CLAVE_ROLES, EscudoSprites.ROLES)
+	# EN LA MANO: del lado de la camara va por encima de TODO, cabeza y casco incluidos (25/09: el escudo
+	# grande alzado al Defender quedaba por DEBAJO del casco, que tiene su z fijo arriba). Del otro lado,
+	# detras del cuerpo.
 	out.append({"clave": "escudo_%s_mano_izq" % tn, "ranura": Ranura.MANO_IZQ,
 		"ancla": PoseJugador.P_EMPUNADURA_IZQ, "tinte": false,
+		"z": Z_ESCUDO_MANO_DELANTE, "z_atras": Z_ESCUDO_ESPALDA_DETRAS,
 		"frames": EscudoSprites.frames("escudo_%s_mano_izq" % tn, 1.0)}.merged(pin))
+	# A LA ESPALDA SE VE DESDE TODOS LADOS (25/09, lo pidio el: "si sobresale por el lado, de frente no se
+	# ve que sobresale"): de espaldas va delante del cuerpo y de frente DETRAS (z_atras), asomando por los
+	# lados lo que sea mas ancho que el.
 	out.append({"clave": "escudo_%s_espalda" % tn, "ranura": Ranura.ARMA_ESPALDA,
 		"ancla": PoseJugador.P_ESPALDA, "tinte": false,
-		"z": Z_ARMA_ESPALDA_DELANTE,
+		"z": Z_ARMA_ESPALDA_DELANTE, "z_atras": Z_ESCUDO_ESPALDA_DETRAS,
 		"frames": EscudoSprites.frames("escudo_%s_espalda" % tn, 1.0)}.merged(pin))
 
 
