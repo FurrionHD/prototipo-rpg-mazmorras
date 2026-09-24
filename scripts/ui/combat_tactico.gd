@@ -1675,6 +1675,7 @@ func _tick_tirones(delta: float) -> void:
 # ademas el sitio en _pos, que es donde la pelea cuenta que esta el personaje de otro humano.
 const T_SALTO_ESPERA := 3.0   # si el gesto no llega a verse (sin capa de efectos), se hace igual
 const HUECO_ESPALDA := 2.0
+const SEPARA_ESPALDAS := 16.0   # lo minimo entre dos que aparecen a la espalda (un cuerpo de ancho)
 var _saltos: Array = []   # {c, hasta (el nodo), hacia (los pies del enemigo), espera}
 
 func pedir_salto(c: Combatant, victima: Combatant, desde: Combatant) -> void:
@@ -1711,11 +1712,30 @@ func sitio_a_la_espalda(c: Combatant, victima: Combatant, desde: Combatant):
 	dir = dir.normalized()
 	var largo: float = maxf(radio_pisa(victima), 8.0) + radio_pisa(c) * 0.5 + HUECO_ESPALDA
 	var dentro: Rect2 = _dentro(_arena())
-	for giro in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.0, -2.0]:
-		var nodo: Vector2 = pv + dir.rotated(float(giro) * PI * 0.25) * largo \
-			- Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
-		if _sobre_suelo(nodo, cuerpo) and (not dentro.has_area() or dentro.has_point(nodo)):
-			return nodo
+	# VARIOS A LA ESPALDA DEL MISMO (lo vio el jefe: dos con Oportunista caian uno encima del otro). Los
+	# sitios ya cogidos -- los cuerpos de los tuyos y los saltos que aun no se han hecho -- no valen: se
+	# abre en ABANICO detras del enemigo (cada vez mas a los lados) y, si se llena, un palmo mas atras.
+	var ocupados: Array = []
+	for al in _pantalla._aliados:
+		if al != c and al.is_alive() and cuerpo_de(al) != null:
+			ocupados.append(pos_de(al))
+	for sp in _saltos:
+		if sp["c"] != c:
+			ocupados.append(sp["hasta"])
+	for anillo in 3:
+		var r: float = largo + float(anillo) * SEPARA_ESPALDAS
+		for giro in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.0, -2.0]:
+			var nodo: Vector2 = pv + dir.rotated(float(giro) * PI * 0.25) * r \
+				- Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+			if not _sobre_suelo(nodo, cuerpo) or (dentro.has_area() and not dentro.has_point(nodo)):
+				continue
+			var libre: bool = true
+			for o in ocupados:
+				if nodo.distance_to(o) < SEPARA_ESPALDAS:
+					libre = false
+					break
+			if libre:
+				return nodo
 	return null
 
 

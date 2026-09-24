@@ -145,6 +145,13 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		solo_dibujo: bool = false, sfx: String = "",
 		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
 		semilla: int = 0, mult_elem: float = 1.0) -> void:
+	# LOS QUE HAN ENCAJADO UN GOLPE DE LOS TUYOS en esta accion: solo detras de esos entran la Escolta y
+	# el Oportunista (antes entraban contra el enemigo SELECCIONADO aunque la accion fuera un Filo
+	# emponzoñado o una cura, lo vio el jefe el 24/09).
+	if not solo_dibujo and not evadido and dmg > 0.0 and victima != null \
+			and _pantalla._enemies.has(victima) and _pantalla._aliados.has(atacante) \
+			and not _pantalla.golpeados_en_la_accion.has(victima):
+		_pantalla.golpeados_en_la_accion.append(victima)
 	if _pantalla._fx == null:
 		return
 	var bv: Dictionary = _pantalla._bloque_de(victima)

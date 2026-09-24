@@ -122,7 +122,16 @@ func _correr() -> void:
 	if OS.get_environment("SUELO_SEGUIMIENTO") != "":
 		var yo: Combatant = combat._player
 		yo.apply_status(StatusEffects.Id.OPORTUNISTA, 30)
+		# SIN GOLPE (el Filo emponzoñado, una cura): no tiene que entrar nadie.
+		combat.golpeados_en_la_accion.clear()
+		var vida_antes: float = combat._enemies[1].current_hp
+		combat._player = combat._enemies[0]
+		combat._disparar_seguimientos(combat._enemies[1])
+		combat._player = yo
+		print("  sin golpe: %s" % ("BIEN, no entra nadie" if is_equal_approx(vida_antes, combat._enemies[1].current_hp)
+			else "MAL: ha entrado sin que nadie pegara"))
 		for obj in [combat._enemies[1], combat._enemies[2]]:
+			combat.golpeados_en_la_accion.append(obj)   # "el compañero le acaba de pegar"
 			print("  seguimiento: yo en %s, pega %s a %s en %s (distancia %.0f)" % [str(t.pos_de(yo).round()),
 				combat._enemies[0].nombre, obj.nombre, str(t.pos_de(obj).round()),
 				t.pies_de(yo).distance_to(t.pies_de(obj))])

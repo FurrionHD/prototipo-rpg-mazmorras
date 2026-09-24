@@ -1097,6 +1097,7 @@ func _process(delta: float) -> void:
 
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
+	golpeados_en_la_accion.clear()   # un contraataque de antes no abre hueco para esta accion
 	if _dps_on:
 		_turnos_jugador += 1
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
@@ -1917,8 +1918,16 @@ var _en_seguimiento: bool = false
 # mas que con una, pero no el doble.
 const DUAL_SEGUIMIENTO_MULT := 0.6
 
+# Los enemigos a los que un golpe de los tuyos ha hecho daño en la accion que se esta cerrando (lo apunta
+# efectos._fx_golpe). Se vacia al cerrar cada accion.
+var golpeados_en_la_accion: Array = []
+
 func _disparar_seguimientos(obj: Combatant) -> void:
 	if _en_seguimiento or obj == null or not obj.is_alive():
+		return
+	# Solo si de verdad le ha pegado alguien de los tuyos: una accion que no golpea (Filo emponzoñado, una
+	# cura, un buff) no abre ningun hueco, aunque ese enemigo este seleccionado.
+	if not golpeados_en_la_accion.has(obj):
 		return
 	var escoltas: Array = []
 	for al in _aliados_vivos():
@@ -2055,8 +2064,13 @@ func _log_extra(txt: String) -> void:
 func _tras_accion_jugador_varios(objs: Array) -> void:
 	# Los seguimientos van ANTES de rematar a los caidos: si el golpe del escolta es el que lo mata,
 	# tiene que contar como muerto en esta misma accion y no quedarse "vivo con 0".
-	if not objs.is_empty() and objs[0] is Combatant:
-		_disparar_seguimientos(objs[0])
+	# Detras del primero que de verdad ha encajado un golpe tuyo (en un area el principal puede no ser
+	# uno de ellos). Y la lista se vacia aqui: es de ESTA accion.
+	for o in objs:
+		if o is Combatant and golpeados_en_la_accion.has(o):
+			_disparar_seguimientos(o)
+			break
+	golpeados_en_la_accion.clear()
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
 	for o in objs:
 		if o != null and not o.is_alive() and not vistos.has(o):
