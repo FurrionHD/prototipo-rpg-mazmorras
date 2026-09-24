@@ -1086,17 +1086,6 @@ func _vigilar_alcance() -> void:
 	var ahora: Array = [_pantalla._target_idx, llega(_quien, _pantalla._objetivo()), llega_a_alguno(_quien)]
 	if ahora != _alcance_visto:
 		_alcance_visto = ahora
-		# TRAZA (24/09, "no me sale Esperar lejos de todos"): con quien cree que llega y a cuanto.
-		var cerca: float = INF
-		var quien_n: String = "-"
-		for e in _pantalla._vivos():
-			var h: float = hueco_entre(_quien, e)
-			if h < cerca:
-				cerca = h
-				quien_n = e.nombre
-		print("[alcance] %s: objetivo %d llega=%s a_alguno=%s | mas cerca %s a %.0f px (alcance %.0f) | boton visible=%s" % [
-			_quien.nombre if _quien != null else "?", int(ahora[0]), str(ahora[1]), str(ahora[2]), quien_n, cerca,
-			alcance_de(_quien), str(_pantalla._actions_box != null and _pantalla._actions_box.visible)])
 		if _pantalla._actions_box != null and _pantalla._actions_box.visible:
 			_pantalla._refresh_actions()
 
