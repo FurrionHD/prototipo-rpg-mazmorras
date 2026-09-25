@@ -24,6 +24,9 @@ const HABILIDADES := [
 	["larga", "guardia_rota"],
 	["escudo", "golpe_escudo_pequeno"], ["escudo", "golpe_escudo_normal"], ["escudo", "golpe_escudo_grande"],
 	["escudo", "embestida"],
+	["larga", "voto_de_guardia"], ["larga", "voz_de_mando"],
+	["escudo", "provocacion"], ["escudo", "cobertura"], ["escudo", "escolta"], ["escudo", "muro_guardian"],
+	["escudo", "guardia_de_carne"], ["escudo", "postura_rodela"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25}
@@ -45,6 +48,15 @@ const MOMENTOS_ESPADA := {
 	"golpe_escudo_normal": [-0.03, 0.02, 0.07, 0.13, 0.3],
 	"golpe_escudo_grande": [-0.03, 0.02, 0.07, 0.13, 0.3],
 	"embestida": [0.04, 0.1, 0.16, 0.22, 0.4],
+	# Las de apoyo (ApoyoAire): los de la huella son de los TUYOS (figuras verdes).
+	"voto_de_guardia": [0.03, 0.1, 0.2, 0.45, 0.8],
+	"voz_de_mando": [0.02, 0.08, 0.16, 0.26, 0.4],
+	"provocacion": [-0.02, 0.04, 0.1, 0.18, 0.3],
+	"cobertura": [0.03, 0.1, 0.2, 0.35, 0.6],
+	"escolta": [0.05, 0.12, 0.2, 0.3, 0.5],
+	"muro_guardian": [0.03, 0.08, 0.2, 0.5, 0.75],
+	"guardia_de_carne": [0.03, 0.1, 0.22, 0.35, 0.5],
+	"postura_rodela": [0.03, 0.1, 0.18, 0.3, 0.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -85,6 +97,11 @@ const MOMENTOS := {
 	13: [0.05, 0.15, 0.3, 0.45, 0.65],
 }
 const COLOR_HUELLA := Color(1.0, 0.72, 0.25)
+# LA CARPETA de cada arma dentro de ATAQUES_SALIDA (25/09, lo pidio el: una por arma).
+const CARPETA := {"espada": "espada_corta", "larga": "espada_larga"}
+const APOYO_ALIADOS := ["voto_de_guardia", "voz_de_mando", "cobertura", "escolta", "muro_guardian"]
+const VERDE := Color(0.35, 0.8, 0.45)
+const ROJO := Color(0.8, 0.35, 0.35)
 
 var _cam: Camera2D
 var _enemigos: Array = []    # donde estan los pies de cada figura roja
@@ -92,6 +109,7 @@ var _huella: Node2D
 var _forma_huella = null
 var _rotulo: Label
 var _yo_fig: ColorRect = null
+var _figs: Array = []        # las figuras de alrededor (rojas; verdes en las de apoyo)
 
 
 func _ready() -> void:
@@ -147,11 +165,11 @@ func _correr() -> void:
 	var anillo: float = float(OS.get_environment("ATAQUES_ANILLO")) if OS.get_environment("ATAQUES_ANILLO") != "" else 62.0
 	for i in 8:
 		var a: float = TAU * float(i) / 8.0 + 0.2
-		_figura(Vector2(cos(a), sin(a)) * anillo, Color(0.8, 0.35, 0.35))
+		_figs.append(_figura(Vector2(cos(a), sin(a)) * anillo, ROJO))
 		_enemigos.append(Vector2(cos(a), sin(a)) * anillo)
 	for i in 5:
 		var a2: float = TAU * float(i) / 5.0 + 0.9
-		_figura(Vector2(cos(a2), sin(a2)) * 118.0, Color(0.8, 0.35, 0.35))
+		_figs.append(_figura(Vector2(cos(a2), sin(a2)) * 118.0, ROJO))
 		_enemigos.append(Vector2(cos(a2), sin(a2)) * 118.0)
 	var pedidas: String = OS.get_environment("ATAQUES_LISTA")
 	for h in HABILIDADES:
@@ -260,7 +278,9 @@ func _correr() -> void:
 				if is_instance_valid(sg["n"]):
 					(sg["n"] as Node).queue_free()
 			await get_tree().process_frame
-		var ruta: String = "%s/%s_%s.png" % [salida, arma, nom]
+		var carpeta: String = "%s/%s" % [salida, CARPETA.get(arma, arma)]
+		DirAccess.make_dir_recursive_absolute(carpeta)
+		var ruta: String = "%s/%s.png" % [carpeta, nom]
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 	get_tree().quit(0)
@@ -535,6 +555,31 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 			if primero.has_area():
 				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.EMBESTIDA, fin_c + alto, primero, false,
 					false, 0, semilla, 0.0, 1.0), "t0": dur_c})
+		"voto_de_guardia", "voz_de_mando", "provocacion", "cobertura":
+			piezas.append({"n": SueloRoto.lanzar(self, f, ab.suelo_roto, semilla), "t0": 0.0})
+			var m_ap: int = ApoyoAire.Modo.PRESTEZA if nom == "voz_de_mando" \
+				else (ApoyoAire.Modo.AMPARO_C if nom == "cobertura" else -1)
+			if m_ap >= 0:
+				for i in cajas.size():
+					piezas.append({"n": ApoyoAire.cuerpo(self, m_ap, yo + alto, cajas[i], semilla + i, 0.0, 1.0), "t0": 0.03})
+		"escolta", "muro_guardian":
+			# A uno de los tuyos: el mas cercano a esa direccion.
+			var mejor_a: Rect2 = Rect2()
+			var d_a: float = INF
+			for p in _enemigos:
+				var dd: float = absf(angle_difference((p - yo).angle(), hacia_fila.angle())) * 60.0 + (p - yo).length()
+				if dd < d_a:
+					d_a = dd
+					mejor_a = Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			if mejor_a.has_area():
+				var m_u: int = ApoyoAire.Modo.ESCOLTA if nom == "escolta" else ApoyoAire.Modo.MURO
+				# El Muro: "su enemigo" hacia fuera del corro.
+				var fuera: Vector2 = (mejor_a.get_center() - yo) if nom == "muro_guardian" else Vector2.ZERO
+				piezas.append({"n": ApoyoAire.cuerpo(self, m_u, yo + alto, mejor_a, semilla, 0.0, 1.0, fuera), "t0": 0.0})
+		"guardia_de_carne", "postura_rodela":
+			var yo_caja := Rect2(yo - Vector2(7, 26), Vector2(14, 26))
+			var m_s: int = ApoyoAire.Modo.CARNE if nom == "guardia_de_carne" else ApoyoAire.Modo.RODELA
+			piezas.append({"n": ApoyoAire.cuerpo(self, m_s, yo + alto, yo_caja, semilla, 0.0, 1.0, hacia_fila), "t0": 0.0})
 		"senalar_el_hueco":
 			if not cajas.is_empty():
 				for g in 2:
@@ -558,8 +603,14 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 	for pz in piezas:
 		if pz["n"] != null:
 			(pz["n"] as Node).set_process(false)
+	for fg in _figs:
+		(fg as ColorRect).color = VERDE if nom in APOYO_ALIADOS else ROJO
 	for col in tiempos.size():
 		var t: float = float(tiempos[col])
+		# La Guardia de carne: tu, mas grande y rojizo (en el juego, el muñeco mientras dure).
+		if nom == "guardia_de_carne":
+			_yo_fig.color = Color(0.35, 0.6, 1.0).lerp(Color(0.9, 0.45, 0.5), 0.6) if t > 0.0 else Color(0.35, 0.6, 1.0)
+			_yo_fig.scale = Vector2.ONE * (1.12 if t > 0.0 else 1.0)
 		for pz in piezas:
 			var n: Node2D = pz["n"]
 			if n == null:
@@ -587,6 +638,10 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 		if pz["n"] != null:
 			(pz["n"] as Node).queue_free()
 	_yo_fig.position = yo - Vector2(7, 26)
+	_yo_fig.color = Color(0.35, 0.6, 1.0)
+	_yo_fig.scale = Vector2.ONE
+	for fg in _figs:
+		(fg as ColorRect).color = ROJO
 	await get_tree().process_frame
 
 

@@ -286,6 +286,7 @@ func desmontar() -> void:
 # EL SIGILO SE VE (24/09, Desaparecer: "te quedas mas transparente para que se note"): los tuyos que lo
 # llevan, medio transparentes. 'quitar' los deja a todos enteros (al acabar la pelea).
 const ALFA_SIGILO := 0.45
+const ESCALA_CARNE := 1.12
 
 func _sigilo_visible(quitar: bool) -> void:
 	for al in _pantalla._aliados:
@@ -296,8 +297,14 @@ func _sigilo_visible(quitar: bool) -> void:
 		if not (m is CanvasItem):
 			continue
 		var a: float = 1.0 if quitar or not al.has_status(StatusEffects.Id.SIGILO) else ALFA_SIGILO
-		if not is_equal_approx((m as CanvasItem).modulate.a, a):
-			(m as CanvasItem).modulate.a = a
+		# LA GUARDIA DE CARNE SE VE (25/09, lo pidio el): "te tiene que hacer mas grande y ponerte rojito un poco".
+		var carne: bool = not quitar and al.has_status(StatusEffects.Id.GUARDIA_CARNE)
+		var col := Color(1.0, 0.72, 0.7, a) if carne else Color(1.0, 1.0, 1.0, a)
+		if not (m as CanvasItem).modulate.is_equal_approx(col):
+			(m as CanvasItem).modulate = col
+		var esc: Vector2 = Vector2.ONE * (ESCALA_CARNE if carne else 1.0)
+		if m is Node2D and not (m as Node2D).scale.is_equal_approx(esc):
+			(m as Node2D).scale = esc
 
 
 # ------------------------------------------------------------
@@ -1792,6 +1799,14 @@ const _MODO_ESTOQUE := {
 	CombatFX.Estilo.ESTOCADA_MARCIAL: EstoqueAire.Modo.PENETRANTE,
 }
 
+# LAS DE APOYO de la espada larga y el escudo (ApoyoAire), lo de cada cuerpo. -1 = nada en el cuerpo.
+const _MODO_APOYO := {
+	CombatFX.Estilo.VOTO_GUARDIA: -1, CombatFX.Estilo.PROVOCACION_FX: -1,
+	CombatFX.Estilo.VOZ_MANDO: ApoyoAire.Modo.PRESTEZA, CombatFX.Estilo.COBERTURA: ApoyoAire.Modo.AMPARO_C,
+	CombatFX.Estilo.ESCOLTA_FX: ApoyoAire.Modo.ESCOLTA, CombatFX.Estilo.MURO_GUARDIAN: ApoyoAire.Modo.MURO,
+	CombatFX.Estilo.GUARDIA_CARNE_FX: ApoyoAire.Modo.CARNE, CombatFX.Estilo.POSTURA_RODELA: ApoyoAire.Modo.RODELA,
+}
+
 const _MODO_ESPADA := {
 	CombatFX.Estilo.ESPADA_TAJO: EspadaAire.Modo.TAJO,
 	CombatFX.Estilo.TAJO_QUEBRANTADOR: EspadaAire.Modo.QUEBRANTADOR,
@@ -1850,6 +1865,25 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			modo_e = EstoqueAire.Modo.PUNZADA
 		EstoqueAire.golpe(arena, modo_e, desde_e, caja_e, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
+		return
+	# LAS DE APOYO (ApoyoAire): lo de la huella ya ha salido por el suelo; aqui lo de cada cuerpo.
+	if estilo in _MODO_APOYO:
+		var m_ap: int = int(_MODO_APOYO[estilo])
+		if m_ap < 0:
+			return   # el Voto y la Provocacion: todo lo suyo esta en el suelo
+		var desde_ap: Vector2 = pies_de(a) + Vector2(0.0, -ApoyoAire.ALTO_TORSO) \
+			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center()
+		var hacia_ap := Vector2.ZERO
+		if m_ap == ApoyoAire.Modo.MURO or m_ap == ApoyoAire.Modo.RODELA:
+			var mas_cerca_ap: Combatant = null
+			var d_ap: float = INF
+			for e in _pantalla._vivos():
+				var de: float = pies_de(e).distance_squared_to(pies_de(v))
+				if de < d_ap:
+					d_ap = de
+					mas_cerca_ap = e
+			hacia_ap = (pies_de(mas_cerca_ap) - pies_de(v)) if mas_cerca_ap != null else Vector2.RIGHT
+		ApoyoAire.cuerpo(arena, m_ap, desde_ap, bulto_de(v), semilla, vuelo, ritmo, hacia_ap)
 		return
 	# EL ESCUDAZO (EscudoAire): el impacto en el cuerpo. La CHAPA sale una vez: en el Golpe de escudo la pinta su
 	# onda (el golpe 0 con suelo); en el escudazo suelto (Guardia rota, que va detras del tajo, y el contraataque

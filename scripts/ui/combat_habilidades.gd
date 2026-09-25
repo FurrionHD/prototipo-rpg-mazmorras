@@ -803,7 +803,6 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		estados_log.append("cooldowns −%dt%s" % [ab.reduce_cooldowns,
 			"" if destrabadas == 0 else " (%d lista%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
 
-	_aliados_mapa = null   # ya se ha usado: que no lo lea la siguiente tirada de efectos que no es de aqui
 	# ---- Mensaje al jugador ----
 	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada
 	# uno y el total). Un "0 de daño (2 golpes)" no decia si habias fallado, esquivado o pegado a
@@ -861,6 +860,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# nunca: se quedaba con el recuadro de vivo, los chips de sus estados congelados a la vista y su
 	# marca en la barra de turnos, pero sin poder atacarlo. Como todas las habilidades que alcanzan
 	# a secundarios llevan estado, parecia un bug "de los debuffs".
+	_aliados_mapa = null   # ya se ha usado (tambien el adorno): que no lo lea nada que no sea de esta accion
 	_pantalla._tras_accion_jugador_varios(tocados if not tocados.is_empty() else [obj])
 
 

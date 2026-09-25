@@ -333,7 +333,9 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 	# porque esa reparte SEGUN LA HUELLA de un area (adyacentes al principal); un apoyo de grupo no
 	# tiene "principal" que golpear, va a TODOS por igual.
 	if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
-		for al in _pantalla._aliados_vivos():
+		# EN EL MAPA, solo los tuyos que pillo su huella (combat_habilidades._aliados_mapa).
+		var grupo_ad = _pantalla.habilidades._aliados_mapa
+		for al in (grupo_ad if grupo_ad != null else _pantalla._aliados_vivos()):
 			_pantalla.efectos._fx_golpe(e, al, 0.0, false, false, el, estilo, 1.0, true, sfx)
 		return
 	if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:

@@ -13,6 +13,7 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+suelo_roto = 25
 forma_a_aliados = true
 forma_radio = 60.0
 forma_apunte = 2

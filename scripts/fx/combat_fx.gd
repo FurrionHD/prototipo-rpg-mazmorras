@@ -390,7 +390,10 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
 	# y la espada larga (EspadaAire / EstoqueAire) y el escudazo (EscudoAire), 25/09.
 	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
-	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO, Estilo.EMBESTIDA_ESCUDO]
+	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO, Estilo.EMBESTIDA_ESCUDO,
+	# y las de apoyo (ApoyoAire): lo de la huella sale por el suelo; esto es lo de cada cuerpo.
+	Estilo.VOTO_GUARDIA, Estilo.VOZ_MANDO, Estilo.PROVOCACION_FX, Estilo.COBERTURA, Estilo.ESCOLTA_FX,
+	Estilo.MURO_GUARDIAN, Estilo.GUARDIA_CARNE_FX, Estilo.POSTURA_RODELA]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1767,6 +1770,10 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.ESPADA_LARGA_TAJO: "tajo_espada", Estilo.TAJO_PESADO: "tajo_espada",
 	Estilo.TAJO_DESARMANTE: "barrido_espada", Estilo.GUARDIA_ROTA: "barrido_espada",
 	Estilo.ESTOCADA_MARCIAL: "estocada_estoque", Estilo.ESCUDAZO: "defensa", Estilo.EMBESTIDA_ESCUDO: "defensa",
+	# Las de apoyo, tambien PROVISIONALES: cerrarse (defensa) o dar la voz (grito).
+	Estilo.VOTO_GUARDIA: "defensa", Estilo.COBERTURA: "defensa", Estilo.MURO_GUARDIAN: "defensa",
+	Estilo.POSTURA_RODELA: "defensa", Estilo.VOZ_MANDO: "grito", Estilo.PROVOCACION_FX: "grito",
+	Estilo.GUARDIA_CARNE_FX: "grito",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
 }
