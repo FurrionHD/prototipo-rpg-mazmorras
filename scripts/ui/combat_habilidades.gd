@@ -221,7 +221,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# TODO lo de este golpe cae a la vez, alcance a uno o a cuatro: un molinete es UN barrido por
 	# golpe, no un golpecito por bicho. La resolucion sigue yendo objetivo a objetivo; lo unico que
 	# se agrupa es como se ve (ver _fx_tanda).
-	_pantalla.efectos._fx_tanda(i)
+	# CON DOS ARMAS A LA VEZ (el Golpe demoledor a dos mazas, 25/09): todos sus golpes en la misma tanda, caen juntos.
+	_pantalla.efectos._fx_tanda(0 if ab.dual_a_la_vez and manos >= 2 else i)
 	# Manda lo que pida la habilidad (fx_estilo) y, si no pide nada, el gesto del arma con la que
 	# esta pegando. Igual que la rata, que muerde le salga la tecnica o no.
 	#
@@ -486,7 +487,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			if ab.suelo_roto == SueloRoto.Tipo.ESTELA:
 				var pies: Vector2 = _pantalla.turno_mapa.pies_de(_pantalla._player)
 				f_suelo = CombatFormas.cono(pies, f_suelo.centro - pies, EstelaGolpe.RADIO, 0.0)
-			_pantalla.efectos.fijar_suelo(ab.suelo_roto, f_suelo, (randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
+			# Con dos armas, su variante de dos manos si la tiene (la maza: SueloRoto.con_manos).
+			_pantalla.efectos.fijar_suelo(SueloRoto.con_manos(ab.suelo_roto, manos), f_suelo,
+				(randi() & 0x3FFFFFFF) | 1, ab.forma_nucleo)
 	var mana_ganado: float = ab.mana_gain
 	if es_conversion and not soltando:
 		mana_ganado += coste / ab.energia_a_mana

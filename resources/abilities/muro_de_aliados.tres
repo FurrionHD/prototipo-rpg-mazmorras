@@ -13,6 +13,7 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+suelo_roto = 33
 forma = 1
 forma_apunte = 2
 forma_radio = 120.0

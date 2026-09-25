@@ -27,9 +27,13 @@ const HABILIDADES := [
 	["larga", "voto_de_guardia"], ["larga", "voz_de_mando"],
 	["escudo", "provocacion"], ["escudo", "cobertura"], ["escudo", "escolta"], ["escudo", "muro_guardian"],
 	["escudo", "guardia_de_carne"], ["escudo", "postura_rodela"],
+	# LA MAZA PEQUEÑA (25/09). "maza2" = con DOS mazas: sale como <habilidad>_dual.png.
+	["maza", "basico"], ["maza", "golpe_demoledor"], ["maza2", "golpe_demoledor"], ["maza", "rompepiernas"],
+	["maza2", "rompepiernas"], ["maza", "culatazo"], ["maza2", "culatazo"], ["maza", "aplastamiento"],
+	["maza", "grito_de_aliento"], ["maza2", "grito_de_aliento"], ["maza", "muro_de_aliados"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
-	"espada": 18.75, "larga": 23.25, "escudo": 23.25}
+	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75}
 # LA ESPADA CORTA (EspadaAire), como la daga: golpe a golpe sobre cada cuerpo. "basico" no tiene ficha: el
 # tajo de siempre sobre el de delante.
 const MOMENTOS_ESPADA := {
@@ -57,6 +61,18 @@ const MOMENTOS_ESPADA := {
 	"muro_guardian": [0.06, 0.14, 0.22, 0.45, 0.8],
 	"guardia_de_carne": [0.03, 0.1, 0.22, 0.35, 0.5],
 	"postura_rodela": [0.03, 0.1, 0.18, 0.3, 0.5],
+}
+# LA MAZA (MazaAire): el suelo por SueloRoto y lo de cada cuerpo golpe a golpe. '_dual' = con dos mazas.
+const MOMENTOS_MAZA := {
+	"basico": [-0.04, -0.01, 0.02, 0.08, 0.18],
+	"golpe_demoledor": [-0.03, 0.02, 0.08, 0.18, 0.45],
+	"rompepiernas": [0.03, 0.07, 0.11, 0.18, 0.35],
+	"rompepiernas_dual": [-0.06, -0.01, 0.12, 0.2, 0.34],
+	"culatazo": [-0.03, 0.0, 0.03, 0.1, 0.2],
+	"culatazo_dual": [-0.02, 0.02, 0.1, 0.14, 0.25],
+	"aplastamiento": [-0.04, 0.02, 0.1, 0.22, 0.4],
+	"grito_de_aliento": [0.02, 0.08, 0.16, 0.26, 0.4],
+	"muro_de_aliados": [0.03, 0.1, 0.2, 0.4, 0.7],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -98,8 +114,9 @@ const MOMENTOS := {
 }
 const COLOR_HUELLA := Color(1.0, 0.72, 0.25)
 # LA CARPETA de cada arma dentro de ATAQUES_SALIDA (25/09, lo pidio el: una por arma).
-const CARPETA := {"espada": "espada_corta", "larga": "espada_larga"}
-const APOYO_ALIADOS := ["voto_de_guardia", "voz_de_mando", "cobertura", "escolta", "muro_guardian"]
+const CARPETA := {"espada": "espada_corta", "larga": "espada_larga", "maza2": "maza"}
+const APOYO_ALIADOS := ["voto_de_guardia", "voz_de_mando", "cobertura", "escolta", "muro_guardian",
+	"grito_de_aliento", "muro_de_aliados"]
 const VERDE := Color(0.35, 0.8, 0.45)
 const ROJO := Color(0.8, 0.35, 0.35)
 
@@ -186,10 +203,12 @@ func _correr() -> void:
 			ab.forma_radio = 10.0
 		else:
 			ab = load("res://resources/abilities/%s.tres" % nom)
+		var dual: bool = arma == "maza2"
 		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
+			else (MOMENTOS_MAZA.get(nom + ("_dual" if dual else ""), MOMENTOS_MAZA.get(nom, [])) if arma.begins_with("maza") \
 			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" \
 			else (MOMENTOS_ESPADA.get(nom, []) if arma in ["espada", "larga", "escudo"] \
-			else MOMENTOS.get(ab.suelo_roto, [])))
+			else MOMENTOS.get(ab.suelo_roto, []))))
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -233,6 +252,9 @@ func _correr() -> void:
 				continue
 			if arma in ["espada", "larga", "escudo"]:
 				await _efecto_espada(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
+				continue
+			if arma.begins_with("maza"):
+				await _efecto_maza(ab, nom, dual, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			# 2) El efecto, en sus cinco momentos.
 			var f_suelo = f
@@ -280,7 +302,7 @@ func _correr() -> void:
 			await get_tree().process_frame
 		var carpeta: String = "%s/%s" % [salida, CARPETA.get(arma, arma)]
 		DirAccess.make_dir_recursive_absolute(carpeta)
-		var ruta: String = "%s/%s.png" % [carpeta, nom]
+		var ruta: String = "%s/%s%s.png" % [carpeta, nom, "_dual" if arma == "maza2" else ""]
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 	get_tree().quit(0)
@@ -649,6 +671,109 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 	for fg in _figs:
 		(fg as ColorRect).color = ROJO
 	await get_tree().process_frame
+
+
+# LA MAZA: el suelo (por SueloRoto, con su variante de dos mazas) y lo de cada cuerpo cuando le llega. El Muro de
+# aliados MUEVE las figuras verdes: su paso hacia ti.
+func _efecto_maza(ab: AbilityData, nom: String, dual: bool, f, fila: int, hoja: Image, tiempos: Array, dir_n: String,
+		yo: Vector2) -> void:
+	BarridoAire.ritmo = 1.0
+	var semilla: int = 300 + fila * 13
+	var alto := Vector2(0.0, -MazaAire.ALTO_TORSO)
+	var cajas: Array = []     # [Rect2, indice de su figura]
+	for i in _enemigos.size():
+		var r := Rect2((_enemigos[i] as Vector2) - Vector2(7, 26), Vector2(14, 26))
+		if f.toca(r):
+			cajas.append([r, i])
+	cajas.sort_custom(func(a, b): return (a[0] as Rect2).get_center().distance_squared_to(yo) \
+		< (b[0] as Rect2).get_center().distance_squared_to(yo))
+	var piezas: Array = []    # {n, t0}
+	var pasos: Array = []     # {fig, de, a}: las figuras que se arriman (Muro)
+	var tipo: int = SueloRoto.con_manos(ab.suelo_roto, 2 if dual else 1)
+	match nom:
+		"basico":
+			var mejor: Rect2 = Rect2()
+			var d_mejor: float = INF
+			for p in _enemigos:
+				var dd: float = absf(angle_difference((p - yo).angle(), f.dir.angle())) * 60.0 + (p - yo).length()
+				if dd < d_mejor:
+					d_mejor = dd
+					mejor = Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			piezas.append({"n": MazaAire.golpe(self, MazaAire.Modo.PORRAZO, yo + alto, mejor, false, false, 0,
+				semilla, 0.0, 1.0), "t0": 0.0})
+		"golpe_demoledor", "aplastamiento":
+			piezas.append({"n": SueloRoto.lanzar(self, f, tipo, semilla, ab.forma_nucleo), "t0": 0.0})
+			var m: int = MazaAire.Modo.DEMOLEDOR_C if nom == "golpe_demoledor" else MazaAire.Modo.APLASTA_C
+			for i in cajas.size():
+				var r0: Rect2 = cajas[i][0]
+				piezas.append({"n": MazaAire.golpe(self, m, yo + alto, r0, false, i == 0, 0, semilla + i, 0.0, 1.0),
+					"t0": SueloRoto.retraso(f, _pies_caja(r0), tipo)})
+			if nom == "aplastamiento":
+				var linea_e = CombatFormas.linea(yo, f.dir, ab.forma_escudo_largo, ShieldData.ANCHO_ESCUDAZO[1])
+				for p in _enemigos:
+					var r_e := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+					if linea_e.toca(r_e):
+						piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, r_e, false, false, 1,
+							semilla + 99, 0.0, 1.0, true), "t0": SueloRoto.retraso(f, _pies_caja(r_e), tipo) + BarridoAire.T_ENTRE})
+		"rompepiernas":
+			# Con dos mazas la ida ACABA en el primer golpe (como el Doble tajo): arranca T_BARRE antes.
+			piezas.append({"n": SueloRoto.lanzar(self, f, tipo, semilla), "t0": -MazaAire.T_BARRE if dual else 0.0})
+			for i in cajas.size():
+				var r1: Rect2 = cajas[i][0]
+				for g in (2 if dual else 1):
+					var t_g: float = (0.0 if dual else SueloRoto.retraso(f, _pies_caja(r1), tipo)) + MazaAire.T_ENTRE * float(g)
+					piezas.append({"n": MazaAire.golpe(self, MazaAire.Modo.ROMPE_C, yo + alto, r1, false, i == 0, g,
+						semilla + i * 7 + g, 0.0, 1.0), "t0": t_g})
+		"culatazo":
+			if not cajas.is_empty():
+				for g in (2 if dual else 1):
+					piezas.append({"n": MazaAire.golpe(self, MazaAire.Modo.CULATAZO, yo + alto, cajas[0][0], false, g == 1, g,
+						semilla + g, 0.0, 1.0), "t0": 0.1 * float(g)})
+		"grito_de_aliento", "muro_de_aliados":
+			piezas.append({"n": SueloRoto.lanzar(self, f, tipo, semilla), "t0": 0.0})
+			var m_a: int = MazaAire.Modo.ALIENTO_C if nom == "grito_de_aliento" else MazaAire.Modo.MURO_C
+			for i in cajas.size():
+				var r2: Rect2 = cajas[i][0]
+				piezas.append({"n": MazaAire.golpe(self, m_a, yo + alto, r2, false, false, 0, semilla + i, 0.0, 1.0),
+					"t0": 0.03})
+				if nom == "muro_de_aliados":
+					var de: Vector2 = _enemigos[int(cajas[i][1])]
+					var largo: float = minf(ab.junta_aliados, de.distance_to(yo) - 24.0)
+					if largo > 2.0:
+						pasos.append({"fig": _figs[int(cajas[i][1])], "de": de, "a": de + (yo - de).normalized() * largo})
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).set_process(false)
+	for fg in _figs:
+		(fg as ColorRect).color = VERDE if nom in APOYO_ALIADOS else ROJO
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		for pz in piezas:
+			var n: Node2D = pz["n"]
+			if n == null:
+				continue
+			n.set("_t", t - float(pz["t0"]))
+			n.queue_redraw()
+			for hijo in ["_suelo", "_atras", "_delante"]:
+				var su = n.get(hijo)
+				if su is Node2D:
+					(su as Node2D).queue_redraw()
+		for ps in pasos:
+			var u: float = clampf(t / 0.16, 0.0, 1.0)
+			(ps["fig"] as ColorRect).position = (ps["de"] as Vector2).lerp(ps["a"], u) - Vector2(7, 26)
+		await _viñeta(hoja, col + 1, fila, "%s%s · %s · %.2f s" % [ab.nombre, " (dos mazas)" if dual else "", dir_n, t])
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).queue_free()
+	for ps in pasos:
+		(ps["fig"] as ColorRect).position = (ps["de"] as Vector2) - Vector2(7, 26)
+	for fg in _figs:
+		(fg as ColorRect).color = ROJO
+	await get_tree().process_frame
+
+
+func _pies_caja(r: Rect2) -> Vector2:
+	return Vector2(r.get_center().x, r.end.y)
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:

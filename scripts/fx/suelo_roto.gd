@@ -30,7 +30,12 @@ class_name SueloRoto
 enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
 	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO, DANZA,
 	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO, ESCUDO_ONDA,
-	ESCUDO_VOTO, ESCUDO_VOZ, ESCUDO_PROVOCA, ESCUDO_AMPARO }
+	ESCUDO_VOTO, ESCUDO_VOZ, ESCUDO_PROVOCA, ESCUDO_AMPARO,
+	MAZA_DEMOLEDOR, MAZA_DEMOLEDOR_DOS, MAZA_ROMPE, MAZA_ROMPE_DOS, MAZA_APLASTA, MAZA_ALIENTO, MAZA_ALIENTO_DOS,
+	MAZA_MURO }
+# MAZA_* (maza pequeña, 25/09): viven en MazaAire (su Modo = tipo - MAZA_DEMOLEDOR). Van DETRAS de los ESCUDO_*, asi
+# que se miran ANTES que el 't >= ESCUDO_VOTO'. Los '_DOS' son los de dos mazas: la ficha dice el de una y
+# con_manos() cambia al de dos.
 # ESCUDO_VOTO..ESCUDO_AMPARO (25/09): las de apoyo de la espada larga y el escudo (Voto de guardia, Voz de mando,
 # Provocacion, Cobertura). No pegan: solo se ven. Viven en ApoyoAire (su Modo = tipo - ESCUDO_VOTO).
 # ESCUDO_ONDA (25/09): el Golpe de escudo, la onda de choque que sale hacia delante. Vive en EscudoAire. Va
@@ -90,6 +95,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.MAZA_DEMOLEDOR:
+		return MazaAire.area(padre, f, t - Tipo.MAZA_DEMOLEDOR, semilla, n_nucleo, espera)
 	if t >= Tipo.ESCUDO_VOTO:
 		return ApoyoAire.area(padre, f, t - Tipo.ESCUDO_VOTO, semilla, espera)
 	if t == Tipo.ESCUDO_ONDA:
@@ -124,6 +131,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.MAZA_DEMOLEDOR:
+		return MazaAire.retraso(t - Tipo.MAZA_DEMOLEDOR, f, p)
 	if t >= Tipo.ESCUDO_VOTO:
 		return 0.0
 	if t == Tipo.ESCUDO_ONDA:
@@ -149,6 +158,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.MAZA_DEMOLEDOR:
+		return MazaAire.t_salir(t - Tipo.MAZA_DEMOLEDOR)
 	if t >= Tipo.ESCUDO_VOTO:
 		return 0.2
 	if t == Tipo.ESCUDO_ONDA:
@@ -160,6 +171,18 @@ static func t_salir_de(t: int) -> float:
 	if t >= Tipo.GIRO:
 		return BarridoAire.T_ENTRE * 2.0
 	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
+
+
+# EL DE DOS MANOS (la maza en dual, 25/09): la ficha lleva el de una; con dos armas que la traen, su variante.
+# Solo lo decide quien resuelve: al espejo le llega ya el numero bueno.
+static func con_manos(t: int, manos: int) -> int:
+	if manos < 2:
+		return t
+	match t:
+		Tipo.MAZA_DEMOLEDOR: return Tipo.MAZA_DEMOLEDOR_DOS
+		Tipo.MAZA_ROMPE: return Tipo.MAZA_ROMPE_DOS
+		Tipo.MAZA_ALIENTO: return Tipo.MAZA_ALIENTO_DOS
+	return t
 
 
 # De donde sale la rotura: el centro del circulo, o los pies del que golpea en el cono y la linea.

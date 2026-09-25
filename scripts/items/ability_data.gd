@@ -286,6 +286,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # CIERRA FILAS (solo en el mapa): los tuyos que pilla la huella dan un paso de estos px HACIA el que la lanza,
 # sin meterse encima de nadie. 0 = nadie se mueve. El Muro de aliados de la maza (25/09): "cierras la formacion".
 @export var junta_aliados: float = 0.0
+# LAS DOS A LA VEZ (con dos armas): sus golpes caen JUNTOS, en un solo gesto de las dos manos, en vez de uno con
+# cada mano por turnos. El Golpe demoledor a dos mazas (25/09). Con un arma no cambia nada.
+@export var dual_a_la_vez: bool = false
 # EL ESCUDAZO TIENE SU PROPIA HUELLA (solo en el mapa): los golpes de escudo (escudo_desde_golpe) no caen
 # en la forma de la habilidad sino en una LINEA de este largo, hacia donde apuntas, y los estados que no
 # son por golpe van solo a los que se comen el escudazo. El ancho lo pone el escudo (ShieldData.

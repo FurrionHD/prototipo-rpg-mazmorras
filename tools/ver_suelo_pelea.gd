@@ -64,7 +64,11 @@ func _correr() -> void:
 	if dual != "":
 		var pz: PackedStringArray = dual.split(",")
 		Game.equipar_arma(load("res://resources/weapons/%s.tres" % pz[0]))
-		print("  secundaria: ", Game.equipar_secundaria(load("res://resources/weapons/%s.tres" % pz[1])))
+		# Dos iguales (dos mazas): la segunda, una COPIA (la misma arma fisica no va en las dos manos).
+		var otra: Resource = load("res://resources/weapons/%s.tres" % pz[1])
+		if pz[0] == pz[1]:
+			otra = otra.duplicate()
+		print("  secundaria: ", Game.equipar_secundaria(otra))
 		# Y la habilidad EQUIPADA: sin eso no se sabe que arma la aporta y cae a la principal.
 		var hab: String = OS.get_environment("SUELO_HAB")
 		print("  equipada: ", Game.colocar_habilidad(load("res://resources/abilities/%s.tres" % hab), 0))

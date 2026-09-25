@@ -1822,6 +1822,18 @@ const _MODO_ESPADA := {
 	CombatFX.Estilo.GUARDIA_ROTA: EspadaAire.Modo.QUEBRANTADOR,
 }
 
+# LA MAZA PEQUEÑA (MazaAire, 25/09), lo de cada cuerpo. El Demoledor: la resonancia al llegarle; el Aplastamiento:
+# su mazazo (el escudazo de despues ya va como ESCUDAZO). Las de apoyo, en cada uno de los tuyos.
+const _MODO_MAZA := {
+	CombatFX.Estilo.MAZA_GOLPE: MazaAire.Modo.PORRAZO,
+	CombatFX.Estilo.CULATAZO: MazaAire.Modo.CULATAZO,
+	CombatFX.Estilo.ROMPEPIERNAS: MazaAire.Modo.ROMPE_C,
+	CombatFX.Estilo.APLASTAMIENTO: MazaAire.Modo.APLASTA_C,
+	CombatFX.Estilo.GOLPE_DEMOLEDOR: MazaAire.Modo.DEMOLEDOR_C,
+	CombatFX.Estilo.GRITO_ALIENTO: MazaAire.Modo.ALIENTO_C,
+	CombatFX.Estilo.MURO_ALIADOS: MazaAire.Modo.MURO_C,
+}
+
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
@@ -1897,6 +1909,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			else EscudoAire.Modo.ESCUDAZO
 		EscudoAire.golpe(arena, modo_z, desde_z, caja_z, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo, suelta)
+		return
+	# LA MAZA: porrazos (MazaAire), desde la altura del pecho del que pega (o del que la lanza, en las de apoyo).
+	if estilo in _MODO_MAZA:
+		var caja_m: Rect2 = bulto_de(v)
+		var desde_m: Vector2 = pies_de(a) + Vector2(0.0, -MazaAire.ALTO_TORSO) 			if a != null and cuerpo_de(a) != null else caja_m.get_center() - Vector2(20.0, 0.0)
+		MazaAire.golpe(arena, int(_MODO_MAZA[estilo]), desde_m, caja_m, bool(ev.get("evadido", false)),
+			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 		return
 	# LA ESPADA CORTA: tajos con cuerpo (EspadaAire), desde la altura del pecho del que pega.
 	if estilo in _MODO_ESPADA:
