@@ -21,6 +21,8 @@ const EJE_MANO := Vector3(-0.2, 0.55, 0.8)         # el arma que solo se sujeta 
 # El brazo del escudo pegado delante del torso (como la defensa con escudo, algo mas bajo).
 const ESCUDO_BRAZO := 1.15
 const ESCUDO_JUNTA := 0.25
+# Lo que el brazo abre/cruza en horizontal en los golpes que barren (rad, con x = +-1). Como la espada corta.
+const ABRE := PoseJugador.ESPADA_ABRE
 
 const ANIMS := ["guardia_larga", "guardia_larga_and", "guardia_larga_cor", "desenvainar_larga", "tajo_larga",
 	"rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga"]
@@ -160,6 +162,9 @@ static func _golpe(t: float, base: String, esc: bool) -> Dictionary:
 	var a: float = _k(t, a_keys)
 	var x: float = _k(t, x_keys)
 	p["brazo_der"] = a
+	# La MANO barre con la hoja (x: + fuera, - dentro), no solo la hoja: los conos de 90-100 grados del tajo,
+	# la Guardia rota y el Desarmante se quedaban en ~40 con la mano quieta al frente (PoseJugador.ESPADA_ABRE).
+	p["abre_der"] = ABRE * x
 	p["torsion"] = t0 + _k(t, tor)
 	p["avance"] = _k(t, av)
 	p["inclina"] = i0 + _k(t, incl)
