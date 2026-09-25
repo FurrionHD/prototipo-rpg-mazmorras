@@ -1685,6 +1685,15 @@ const _MODO_ESTOQUE := {
 	CombatFX.Estilo.DANZA_ACERO: EstoqueAire.Modo.DANZA,
 }
 
+const _MODO_ESPADA := {
+	CombatFX.Estilo.ESPADA_TAJO: EspadaAire.Modo.TAJO,
+	CombatFX.Estilo.TAJO_QUEBRANTADOR: EspadaAire.Modo.QUEBRANTADOR,
+	CombatFX.Estilo.DOBLE_TAJO: EspadaAire.Modo.DOBLE,
+	CombatFX.Estilo.CAMBIO_RITMO: EspadaAire.Modo.RITMO,
+	CombatFX.Estilo.SENALAR_HUECO: EspadaAire.Modo.SENALAR,
+	CombatFX.Estilo.CORTE_TENDONES: EspadaAire.Modo.TENDONES,
+}
+
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
@@ -1727,6 +1736,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		if modo_e == EstoqueAire.Modo.FINTA and int(ev.get("pos_tanda", 0)) > 0:
 			modo_e = EstoqueAire.Modo.PUNZADA
 		EstoqueAire.golpe(arena, modo_e, desde_e, caja_e, bool(ev.get("evadido", false)),
+			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
+		return
+	# LA ESPADA CORTA: tajos con cuerpo (EspadaAire), desde la altura del pecho del que pega.
+	if estilo in _MODO_ESPADA:
+		var caja_s: Rect2 = bulto_de(v)
+		var desde_s: Vector2 = pies_de(a) + Vector2(0.0, -EspadaAire.ALTO_TORSO) \
+			if a != null and cuerpo_de(a) != null else caja_s.get_center() - Vector2(20.0, 0.0)
+		EspadaAire.golpe(arena, int(_MODO_ESPADA[estilo]), desde_s, caja_s, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 		return
 	var modo: int = DagaAire.Modo.TAJO

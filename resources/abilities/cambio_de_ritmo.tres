@@ -20,6 +20,7 @@ forma_apunte = 1
 forma_radio = 60.0
 forma_ancho = 14.0
 avance = true
+suelo_roto = 15
 reduce_cooldowns = 1
 redirige_al_morir = true
 descripcion = "Rompes la cadencia a media pelea. No hace gran cosa por sí solo, pero te deja las manos listas antes de tiempo."

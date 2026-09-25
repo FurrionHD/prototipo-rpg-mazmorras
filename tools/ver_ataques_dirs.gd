@@ -18,8 +18,21 @@ const HABILIDADES := [
 	["daga", "oportunista"],
 	["estoque", "estocada_penetrante"], ["estoque", "fintas"], ["estoque", "punzada_al_nervio"],
 	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"], ["estoque", "en_guardia"],
+	["espada", "basico"], ["espada", "tajo_quebrantador"], ["espada", "doble_tajo"], ["espada", "cambio_de_ritmo"],
+	["espada", "senalar_el_hueco"], ["espada", "corte_de_tendones"],
 ]
-const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25}
+const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
+	"espada": 18.75}
+# LA ESPADA CORTA (EspadaAire), como la daga: golpe a golpe sobre cada cuerpo. "basico" no tiene ficha: el
+# tajo de siempre sobre el de delante.
+const MOMENTOS_ESPADA := {
+	"basico": [-0.04, -0.01, 0.02, 0.08, 0.16],
+	"tajo_quebrantador": [-0.06, -0.02, 0.03, 0.12, 0.3],
+	"doble_tajo": [-0.02, 0.04, 0.1, 0.2, 0.36],
+	"cambio_de_ritmo": [0.04, 0.1, 0.16, 0.24, 0.4],
+	"senalar_el_hueco": [-0.02, 0.03, 0.12, 0.4, 0.8],
+	"corte_de_tendones": [-0.03, 0.0, 0.05, 0.15, 0.35],
+}
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
 	"estocada_penetrante": [-0.03, 0.0, 0.03, 0.08, 0.2],
@@ -133,9 +146,18 @@ func _correr() -> void:
 		var nom: String = h[1]
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
-		var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
+		var ab: AbilityData
+		if nom == "basico":
+			ab = AbilityData.new()
+			ab.nombre = "Tajo (basico)"
+			ab.forma = CombatFormas.Tipo.CIRCULO
+			ab.forma_apunte = CombatFormas.Apunte.DELANTE
+			ab.forma_radio = 10.0
+		else:
+			ab = load("res://resources/abilities/%s.tres" % nom)
 		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
-			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" else MOMENTOS.get(ab.suelo_roto, []))
+			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" \
+			else (MOMENTOS_ESPADA.get(nom, []) if arma == "espada" else MOMENTOS.get(ab.suelo_roto, [])))
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -176,6 +198,9 @@ func _correr() -> void:
 				continue
 			if arma == "estoque":
 				await _efecto_estoque(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
+				continue
+			if arma == "espada":
+				await _efecto_espada(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			# 2) El efecto, en sus cinco momentos.
 			var f_suelo = f
@@ -390,6 +415,81 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 		# La esquiva mueve la figura (en el juego lo hace su _process, aqui parado).
 		if esquiva != null:
 			_yo_fig.position = esquiva._base_muneco + esquiva._a * esquiva._lado * esquiva._cuanto_fuera(t - 0.6)
+		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).queue_free()
+	_yo_fig.position = yo - Vector2(7, 26)
+	await get_tree().process_frame
+
+
+# LA ESPADA CORTA: cada golpe sobre las figuras que pilla su huella; Cambio de ritmo MUEVE la figura azul
+# (avance, al compas de la Danza) y cada tajo cae al pasar.
+func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiempos: Array, dir_n: String,
+		yo: Vector2) -> void:
+	BarridoAire.ritmo = 1.0
+	var semilla: int = 500 + fila * 13
+	var alto := Vector2(0.0, -EspadaAire.ALTO_TORSO)
+	var cajas: Array = []
+	for p in _enemigos:
+		var r := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+		if f.toca(r):
+			cajas.append(r)
+	cajas.sort_custom(func(a, b): return a.get_center().distance_squared_to(yo) < b.get_center().distance_squared_to(yo))
+	var piezas: Array = []   # {n, t0}
+	var camino: Array = []
+	match nom:
+		"basico":
+			if not cajas.is_empty():
+				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.TAJO, yo + alto, cajas[0], false, false, 0,
+					semilla, 0.0, 1.0), "t0": 0.0})
+		"tajo_quebrantador", "corte_de_tendones":
+			var m: int = EspadaAire.Modo.QUEBRANTADOR if nom == "tajo_quebrantador" else EspadaAire.Modo.TENDONES
+			for i in cajas.size():
+				piezas.append({"n": EspadaAire.golpe(self, m, yo + alto, cajas[i], false, i == 0, 0, semilla + i, 0.0, 1.0),
+					"t0": 0.0})
+		"doble_tajo":
+			for i in cajas.size():
+				for g in 2:
+					piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.DOBLE, yo + alto, cajas[i], false, g == 1, g,
+						semilla + i * 7 + g, 0.0, 1.0), "t0": 0.09 * float(g)})
+		"senalar_el_hueco":
+			if not cajas.is_empty():
+				for g in 2:
+					piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.SENALAR, yo + alto, cajas[0], false, false, g,
+						semilla + g, 0.0, 1.0), "t0": 0.09 * float(g)})
+		"cambio_de_ritmo":
+			var fin: Vector2 = f.origen + f.dir * f.largo
+			for p in _enemigos:
+				if fin.distance_to(p) < 22.0:
+					fin = p - f.dir * 22.0
+			var dur: float = yo.distance_to(fin) / EstoqueAire.V_DANZA
+			camino = [yo, fin, dur]
+			piezas.append({"n": EstoqueAire.rastro(self, yo, fin, dur, semilla), "t0": 0.0})
+			for i in cajas.size():
+				var r3: Rect2 = cajas[i]
+				var cerca3 := Vector2(clampf(yo.x, r3.position.x, r3.end.x), clampf(yo.y, r3.position.y, r3.end.y))
+				var t0: float = yo.distance_to(cerca3) / EstoqueAire.V_DANZA
+				var ahi: Vector2 = yo.lerp(fin, clampf(t0 / maxf(dur, 0.01), 0.0, 1.0))
+				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.RITMO, ahi + alto - f.dir * 12.0, r3, false,
+					i == 0, i, semilla + i, 0.0, 1.0), "t0": t0})
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).set_process(false)
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		for pz in piezas:
+			var n: Node2D = pz["n"]
+			if n == null:
+				continue
+			n.set("_t", t - float(pz["t0"]))
+			n.queue_redraw()
+			var su = n.get("_suelo")
+			if su is Node2D:
+				(su as Node2D).queue_redraw()
+		if not camino.is_empty():
+			var u: float = clampf(t / float(camino[2]), 0.0, 1.0)
+			_yo_fig.position = (camino[0] as Vector2).lerp(camino[1], u) - Vector2(7, 26)
 		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
 	for pz in piezas:
 		if pz["n"] != null:
