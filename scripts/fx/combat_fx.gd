@@ -1767,13 +1767,13 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.CAMBIO_RITMO: "tajo_paso_espada",
 	# LA ESPADA LARGA (25/09): PROVISIONALES hasta sus animaciones (paso 3), para que sus golpes no cuenten
 	# como magia. El escudazo, la defensa (sube el escudo; ademas te deja en guardia).
-	Estilo.ESPADA_LARGA_TAJO: "tajo_espada", Estilo.TAJO_PESADO: "tajo_espada",
-	Estilo.TAJO_DESARMANTE: "barrido_espada", Estilo.GUARDIA_ROTA: "barrido_espada",
-	Estilo.ESTOCADA_MARCIAL: "estocada_estoque", Estilo.ESCUDAZO: "defensa", Estilo.EMBESTIDA_ESCUDO: "defensa",
-	# Las de apoyo, tambien PROVISIONALES: cerrarse (defensa) o dar la voz (grito).
-	Estilo.VOTO_GUARDIA: "defensa", Estilo.COBERTURA: "defensa", Estilo.MURO_GUARDIAN: "defensa",
-	Estilo.POSTURA_RODELA: "defensa", Estilo.VOZ_MANDO: "grito", Estilo.PROVOCACION_FX: "grito",
-	Estilo.GUARDIA_CARNE_FX: "grito",
+	Estilo.ESPADA_LARGA_TAJO: "tajo_larga", Estilo.TAJO_PESADO: "pesado_larga",
+	Estilo.TAJO_DESARMANTE: "desarme_larga", Estilo.GUARDIA_ROTA: "rota_larga",
+	Estilo.ESTOCADA_MARCIAL: "estocada_larga", Estilo.VOTO_GUARDIA: "voto_larga", Estilo.VOZ_MANDO: "voz_larga",
+	# Las de ESCUDO (PoseLarga), con cualquier arma de una mano.
+	Estilo.ESCUDAZO: "golpe_escudo", Estilo.EMBESTIDA_ESCUDO: "embestida_escudo",
+	Estilo.PROVOCACION_FX: "provoca_escudo", Estilo.COBERTURA: "amparo_escudo", Estilo.MURO_GUARDIAN: "amparo_escudo",
+	Estilo.POSTURA_RODELA: "rodela_escudo", Estilo.GUARDIA_CARNE_FX: "carne_escudo", Estilo.ESCOLTA_FX: "escolta_escudo",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
 }
@@ -1798,15 +1798,21 @@ const IMPACTO_ANIM_MAPA := {
 	# subirlo de 0,14); barrido y tajo bajo 0,45x10/20; tajo a la carrera 0,45x7/24.
 	"tajo_espada": 0.14, "reves_espada": 0.14, "barrido_espada": 0.225, "tajo_bajo_espada": 0.225,
 	"tajo_paso_espada": 0.13,
+	# La espada larga y las de escudo (PoseLarga): clave del golpe x marcos / fps.
+	"tajo_larga": 0.14, "rota_larga": 0.14, "pesado_larga": 0.31, "desarme_larga": 0.225, "estocada_larga": 0.2,
+	"voto_larga": 0.17, "voz_larga": 0.23, "golpe_escudo": 0.16, "embestida_escudo": 0.3, "provoca_escudo": 0.15,
+	"amparo_escudo": 0.2, "rodela_escudo": 0.2, "carne_escudo": 0.23, "escolta_escudo": 0.17,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
 # Y las FINTAS (25/09, idea suya): el amago solo en la primera; las demas, estocadas rapidas.
 const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": "pinchazo_estoque",
-	"tajo_espada": "reves_espada"}   # la espada: tajo y, de vuelta, el reves
+	"tajo_espada": "reves_espada",
+	# La Guardia rota: el tajo y, en su segundo golpe, el escudazo (25/09: "que se vea cada golpe").
+	"rota_larga": "golpe_escudo"}   # la espada: tajo y, de vuelta, el reves
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
-const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque",
+const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",
 	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada"]
 const T_RESPIRO_REPITE := 0.06
 const T_ANIM_ADELANTO := 0.16

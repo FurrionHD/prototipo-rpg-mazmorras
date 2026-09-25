@@ -2329,6 +2329,8 @@ func _tick_deslices(delta: float) -> void:
 # direcciones, dos vueltas en el sentido de las agujas como su estela (BarridoAire.GIRO).
 const T_VUELTA_MOLINETE := 0.2    # = BarridoAire.T_ENTRE: una vuelta por golpe
 # Los gestos que se REPITEN en cada golpe, y su version con la mano izquierda (dos dagas).
+const _GESTOS_QUE_DEFIENDEN := ["defensa", "voto_larga", "golpe_escudo", "embestida_escudo", "provoca_escudo",
+	"amparo_escudo", "rodela_escudo"]
 const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq",
 	# El estoque (una mano siempre): la finta y el pinchazo de la Danza, uno por golpe.
 	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque",
@@ -2372,8 +2374,9 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 	# siguiente turno (la apaga empezar_turno; sus contraataques no). Sale del gesto, que ven todas las maquinas.
 	if anim == "ponerse_en_guardia":
 		(m as MunecoJugador).guardia_defensiva = true
-	# Y el DEFENDER, igual: se queda en su postura de defensa hasta su turno.
-	if anim == "defensa":
+	# Y el DEFENDER, igual: se queda en su postura de defensa hasta su turno. Tambien las que te dejan EN GUARDIA
+	# (bloqueo_turnos: el Voto, los golpes de escudo, la Embestida, la Provocacion, el Muro, la rodela).
+	if anim in _GESTOS_QUE_DEFIENDEN:
 		(m as MunecoJugador).postura_defensa = true
 	(m as MunecoJugador).animar("%s_%d" % [anim, d])
 	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,

@@ -90,7 +90,8 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 # _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
 	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc",
-	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc"]
+	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc",
+	"desenvainar_larga", "desenvainar_larga_esc"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
@@ -102,7 +103,11 @@ const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe
 	"ponerse_en_guardia_esc",
 	"defensa_1m", "defensa_escudo", "defensa_daga", "defensa_estoque",
 	# La espada corta (25/09): con una, con dos y con escudo.
-	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "defensa_espada", "guardia_espada2", "guardia_espada2_and", "guardia_espada2_cor", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "defensa_espada2", "guardia_espada_esc", "guardia_espada_and_esc", "guardia_espada_cor_esc", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc"]
+	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "defensa_espada", "guardia_espada2", "guardia_espada2_and", "guardia_espada2_cor", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "defensa_espada2", "guardia_espada_esc", "guardia_espada_and_esc", "guardia_espada_cor_esc", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc",
+	# La espada larga (25/09), sin y con escudo, y las de escudo (con cualquier arma de una mano).
+	"guardia_larga", "guardia_larga_and", "guardia_larga_cor", "tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga", "defensa_larga",
+	"guardia_larga_esc", "guardia_larga_and_esc", "guardia_larga_cor_esc", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc",
+	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]

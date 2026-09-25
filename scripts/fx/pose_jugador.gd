@@ -371,6 +371,38 @@ const ANIMS := [
 	{"n": "barrido_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "tajo_bajo_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "tajo_paso_espada_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	# LA ESPADA LARGA (25/09, PoseLarga): sin escudo ('_larga') y con el ('_larga_esc').
+	{"n": "guardia_larga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_larga_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_larga_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_larga", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_larga", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rota_larga", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "pesado_larga", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "desarme_larga", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "estocada_larga", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "voto_larga", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "voz_larga", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "defensa_larga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_larga_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_larga_and_esc", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_larga_cor_esc", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_larga_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_larga_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rota_larga_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "pesado_larga_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "desarme_larga_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "estocada_larga_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "voto_larga_esc", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "voz_larga_esc", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# LAS DE ESCUDO (25/09, PoseLarga), con cualquier arma de una mano.
+	{"n": "golpe_escudo", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "embestida_escudo", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "provoca_escudo", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "amparo_escudo", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rodela_escudo", "loop": false, "fps": 14.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "carne_escudo", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "escolta_escudo", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# LA POSTURA DE DEFENSA (el Defender, 24/09: "se nos olvido en todas las armas"). Una por combinacion;
 	# MunecoJugador elige cual ('defensa_N' -> la suya) y se queda en ella hasta su turno.
 	{"n": "defensa_1m", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
@@ -1061,6 +1093,11 @@ static func fps_de(base: String) -> float:
 
 
 static func _pose(anim: String, t: float) -> Dictionary:
+	# LA ESPADA LARGA y LAS DE ESCUDO (PoseLarga): antes que el '_esc' de abajo, que su guardia con escudo es otra.
+	if anim.contains("_larga") or anim.ends_with("_escudo"):
+		var pl: Dictionary = PoseLarga.pose(anim, t)
+		if not pl.is_empty():
+			return pl
 	# EL ESTOQUE CON ESCUDO ('<anim>_esc'): la misma pose, pero la izquierda lleva el escudo DELANTE en vez
 	# de ir alzada detras de la cabeza (con el escudo ahi arriba no se veia ni tenia sentido).
 	if anim.ends_with("_esc"):

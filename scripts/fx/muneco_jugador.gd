@@ -87,7 +87,9 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"afilar_veneno", "estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque",
 	"ponerse_en_guardia", "estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc",
 	"pinchazo_estoque_esc", "ponerse_en_guardia_esc",
-	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc"]
+	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc",
+	"tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc",
+	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -399,10 +401,10 @@ func terminada() -> bool:
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
 	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque",
-	"arma_espada_corta_": "guardia_espada"}
+	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
-const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_"]
+const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_", "arma_espada_larga_"]
 var _guardia_propia: String = ""
 # EN GUARDIA (estoque): mientras dura, la guardia quieta es la DEFENSIVA (guardia_estoque_def). La pone
 # el mapa al ver el gesto de ponerse en guardia y la quita su siguiente gesto (CombatTactico.gesto_en_mapa);
@@ -413,7 +415,9 @@ var _con_escudo: bool = false
 const _ESTOQUE_CON_ESCUDO := ["guardia_estoque", "guardia_estoque_and", "guardia_estoque_cor",
 	"guardia_estoque_def", "desenvainar_estoque", "estocada_estoque", "estocada_honda", "finta_estoque",
 	"pinchazo_estoque", "ponerse_en_guardia",
-	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "desenvainar_espada", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada"]
+	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "desenvainar_espada", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada",
+	# La espada larga (25/09): con escudo, la guardia del caballero (PoseLarga).
+	"guardia_larga", "guardia_larga_and", "guardia_larga_cor", "desenvainar_larga", "tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga"]
 # LA ESPADA CORTA CON DOS (25/09): su guardia es otra ("guardia_espada2", la de las dos espadas) y sus golpes
 # tambien: quien anima pide "tajo_espada" (o "tajo_espada_izq") y aqui se cambia por "tajo_espada2(_izq)".
 const _ESPADA_GOLPES := ["tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada_izq", "reves_espada_izq", "barrido_espada_izq", "tajo_bajo_espada_izq", "tajo_paso_espada_izq"]
@@ -699,6 +703,7 @@ func _variante_defensa() -> String:
 		"guardia_estoque": return "defensa_estoque"
 		"guardia_espada": return "defensa_espada"
 		"guardia_espada2": return "defensa_espada2"
+		"guardia_larga": return "defensa_larga"
 	return "defensa_1m"
 
 
