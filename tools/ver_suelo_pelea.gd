@@ -101,6 +101,15 @@ func _correr() -> void:
 	media /= float(enemigos.size())
 	var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
 	combat._player.current_energy = combat._player.max_energy
+	# SUELO_STATS=1: el ataque y la defensa de cada uno de los tuyos (de donde sale lo que pega un escudazo).
+	if OS.get_environment("SUELO_STATS") != "":
+		for al in combat._aliados:
+			var a: Combatant = al
+			print("  stats %s: nv=%d atk=%.1f (base %.1f + arma %.1f, mv %.2f) def=%.1f (base %.1f + armadura %.1f) escudo_def=%.1f atk_escudo=%.1f fx_escudo=%d multiplic=%s" % [
+				a.nombre, a.level, a.atk(), a.base_attack, a.ataque_arma, a.motion_value, a.def_value(),
+				a.base_defense, a.extra_defense, a.defend_defense, a.atk_escudo(), a.fx_escudo,
+				str(a.stats_multiplicativas)])
+			print("    habs: fuerza=%.0f resistencia=%.0f" % [a.hab("fuerza"), a.hab("resistencia")])
 	t.apunte = media
 	# Las de un solo enemigo, al MAS CERCANO: el centro del grupo les queda fuera de alcance.
 	if OS.get_environment("SUELO_APUNTE") == "cerca":
