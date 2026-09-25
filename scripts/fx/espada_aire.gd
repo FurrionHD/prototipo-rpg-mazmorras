@@ -130,7 +130,9 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 		return null
 	var e := EspadaAire.new()
 	e.modo = m
-	e._rng.seed = semilla
+	# Pasada por hash: con semillas seguidas (golpes de una misma accion) el primer numero al azar salia casi
+	# igual y todos los cortes elegian el mismo lado.
+	e._rng.seed = hash(semilla)
 	e._ritmo = maxf(ritmo, 0.05)
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
@@ -382,26 +384,34 @@ func _dibujar_tierra(capa: Node2D, izq: float, der: float) -> void:
 func _preparar_golpe() -> void:
 	var alto: float = _caja.size.y if _caja.has_area() else 24.0
 	_largo = clampf(alto * 0.9, 16.0, 28.0)
-	# Hacia el lado al que golpeas (como el mandoble); si le pegas de frente o de espaldas, alterna.
-	var lado: float = signf(_dir.x) if absf(_dir.x) > 0.25 else (1.0 if _rng.randf() < 0.5 else -1.0)
-	# Cada golpe CRUZA el anterior: con dos espadas (o el Doble tajo) sale una X sobre el cuerpo.
+	# EL ANGULO DEL CORTE, con la perspectiva de la camara (25/09: "sale siempre igual en las 5 direcciones").
+	# La hoja cruza el cuerpo DE LADO respecto a quien pega: ese lado es la perpendicular al golpe en el suelo
+	# (y el suelo, a 45 grados, se ve achatado en vertical: PlazaSprites.K), con un pelo de fondo hacia el
+	# golpe para que de E u O no se quede en una raya vertical. A eso se le suma lo que BAJA la hoja
+	# (la inclinacion del tajo), distinta en cada golpe. Asi cada direccion de ataque da su corte.
+	const K := 0.7071
+	var lateral: Vector2 = Vector2(-_dir.y, _dir.x * K) + Vector2(_dir.x, _dir.y * K) * 0.35
+	lateral = lateral.normalized() if lateral.length_squared() > 0.001 else Vector2.RIGHT
+	# De que lado entra: al azar el primero y CRUZANDO el anterior en cada golpe (dos espadas: una X).
+	var lado: float = 1.0 if _rng.randf() < 0.5 else -1.0
 	if _n % 2 == 1:
 		lado = -lado
-	_trazo = Vector2(0.55 * lado, 1.0).normalized()
+	# Cuanto baja: de tajo casi tumbado (15º) a casi vertical (72º), cada golpe el suyo.
+	var baja: float = deg_to_rad(_rng.randf_range(15.0, 72.0))
 	match modo:
 		Modo.RITMO:
-			# Pasas de largo: un tajo TUMBADO cruzando el cuerpo, un pelo inclinado hacia el lado por el que pasas.
-			# (Siguiendo la direccion de la carrera, al N y al S salia una raya vertical.)
-			_trazo = Vector2(1.0, 0.3 * lado).normalized()
+			baja = deg_to_rad(_rng.randf_range(8.0, 20.0))   # pasas de largo: el tajo va tumbado
 			_largo *= 1.15
 		Modo.SENALAR:
-			# LAS DOS EN EL MISMO SITIO: el angulo sale del cuerpo, no del golpe ni de la semilla.
-			var l2: float = 1.0 if fposmod(_caja.position.x * 0.37 + _caja.position.y * 0.61, 2.0) < 1.0 else -1.0
-			_trazo = Vector2(0.55 * l2, 1.0).normalized()
+			# LAS DOS EN EL MISMO SITIO: lado e inclinacion salen del cuerpo, no del golpe ni de la semilla.
+			var h: float = fposmod(_caja.position.x * 0.37 + _caja.position.y * 0.61, 2.0)
+			lado = 1.0 if h < 1.0 else -1.0
+			baja = deg_to_rad(30.0 + 25.0 * fposmod(h, 1.0))
 		Modo.TENDONES:
 			# La de mas (dos espadas), baja y casi plana, a las piernas.
-			_trazo = Vector2(1.0, 0.18 * lado).normalized()
+			baja = deg_to_rad(_rng.randf_range(4.0, 12.0))
 			_c = Vector2(_c.x, (_caja.end.y - alto * 0.18) if _caja.has_area() else _c.y + 8.0)
+	_trazo = (lateral * lado * cos(baja) + Vector2(0.0, 1.0) * sin(baja)).normalized()
 	if _fallo:
 		_c += Vector2((1.0 if _rng.randf() < 0.5 else -1.0) * (_caja.size.x * 0.75 + 4.0), 0.0)
 	# Semilla propia de la pincelada: en el Señalar, la misma en los dos golpes (salen identicas).
