@@ -54,7 +54,7 @@ const MOMENTOS_ESPADA := {
 	"provocacion": [-0.02, 0.04, 0.1, 0.18, 0.3],
 	"cobertura": [0.03, 0.1, 0.2, 0.35, 0.6],
 	"escolta": [0.05, 0.12, 0.2, 0.3, 0.5],
-	"muro_guardian": [0.03, 0.08, 0.2, 0.5, 0.75],
+	"muro_guardian": [0.06, 0.14, 0.22, 0.45, 0.8],
 	"guardia_de_carne": [0.03, 0.1, 0.22, 0.35, 0.5],
 	"postura_rodela": [0.03, 0.1, 0.18, 0.3, 0.5],
 }
@@ -576,6 +576,12 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				# El Muro: "su enemigo" hacia fuera del corro.
 				var fuera: Vector2 = (mejor_a.get_center() - yo) if nom == "muro_guardian" else Vector2.ZERO
 				piezas.append({"n": ApoyoAire.cuerpo(self, m_u, yo + alto, mejor_a, semilla, 0.0, 1.0, fuera), "t0": 0.0})
+				# El Muro MUEVE tu figura: te deslizas junto a el (con el rastro), del lado de "su enemigo".
+				if nom == "muro_guardian":
+					var pies_a := Vector2(mejor_a.get_center().x, mejor_a.end.y)
+					var sitio_m: Vector2 = pies_a + fuera.normalized() * ApoyoAire.MURO_SITIO
+					camino = [yo, sitio_m, ApoyoAire.T_MURO_LLEGA]
+					piezas.append({"n": EstoqueAire.rastro(self, yo, sitio_m, ApoyoAire.T_MURO_LLEGA, semilla), "t0": 0.0})
 		"guardia_de_carne", "postura_rodela":
 			var yo_caja := Rect2(yo - Vector2(7, 26), Vector2(14, 26))
 			var m_s: int = ApoyoAire.Modo.CARNE if nom == "guardia_de_carne" else ApoyoAire.Modo.RODELA

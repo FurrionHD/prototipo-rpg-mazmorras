@@ -13,7 +13,10 @@
 #    PRESTEZA  Voz de mando, en cada uno de los tuyos que la recibe: cometas doradas que le suben por los pies.
 #    AMPARO_C  Cobertura, en cada uno: una chapa pequeña de luz delante de el.
 #    ESCOLTA   tres cometas doradas de ti al compañero y un anillo que le late a los pies.
-#    MURO      una chapa GRANDE plantada junto al protegido, del lado de su enemigo mas cercano.
+#    MURO      tu cuerpo se DESLIZA junto al protegido, del lado de su enemigo mas cercano (el movimiento y su rastro
+#              los pone el desliz: CombatTactico.pedir_ponerse_delante); al llegar, "me planto": polvo a tus pies
+#              y un destello en tu escudo hacia el enemigo; y una marca azul a tus pies y a los suyos, unidas por un
+#              brillo en el suelo, que se apaga al rato. (La v1 era una chapa de luz flotando: "no se que hace", 25/09.)
 #    CARNE     Guardia de carne: dos pulsos rojos (lo que dura se ve en el muñeco: CombatTactico._estados_visibles).
 #    RODELA    Postura de rodela: la chapa alzada hacia el enemigo mas cercano, con un destello que la recorre.
 #  Coordenadas de MUNDO; los circulos del suelo van SIN achatar (como las huellas).
@@ -36,6 +39,8 @@ const POLVO := SueloRoto.POLVO
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 const ALTO_TORSO := 14.0
 const ALTO_CABEZA := 26.0
+const T_MURO_LLEGA := 0.16   # = CombatTactico.T_PASO: lo que tarda en deslizarse hasta su sitio
+const MURO_SITIO := 24.0     # = CombatTactico.SEPARACION + 2: a cuanto del protegido se planta
 
 var modo: int = Modo.VOTO
 var forma: CombatFormas.Forma = null
@@ -263,13 +268,32 @@ func _dibujar_suelo() -> void:
 				var k6: float = _sale(tk3, 0.3)
 				_anillo(_suelo, _pies, 8.0 + 14.0 * k6, 7.0, Color(ORO_CLARO, 0.95 * (1.0 - k6)), Color(ORO, 0.5 * (1.0 - k6)))
 		Modo.MURO:
-			# Donde se planta: polvo a los dos lados de la base.
-			if _t < 0.45:
-				var kp2: float = _t / 0.45
-				var base: Vector2 = _pies + Vector2(_dir.x, _dir.y * K) * 22.0
+			var tm: float = _t - T_MURO_LLEGA
+			if tm < 0.0:
+				return
+			var sitio: Vector2 = _pies + _dir * MURO_SITIO
+			# "Me planto": polvo a los dos lados de tus pies.
+			if tm < 0.45:
+				var kp2: float = tm / 0.45
 				for s in [-1.0, 1.0]:
-					BarridoAire.brillo(_suelo, base + _lat.normalized() * s * (6.0 + 10.0 * kp2), 6.0 + 6.0 * kp2,
+					BarridoAire.brillo(_suelo, sitio + _lat.normalized() * s * (5.0 + 9.0 * kp2), 5.0 + 6.0 * kp2,
 						Color(POLVO, 0.55 * (1.0 - kp2)))
+			# Las dos marcas y el brillo que las une, que se apagan al rato.
+			var km: float = _sale(tm, 0.12)
+			var va_m: float = clampf((tm - 0.45) / 0.3, 0.0, 1.0)
+			var alfa_m: float = km * (1.0 - va_m)
+			if alfa_m > 0.0:
+				for c_m in [_pies, sitio]:
+					_anillo(_suelo, c_m, 11.0, 5.0, Color(BLANCO, 0.85 * alfa_m), Color(GUARDIA, 0.45 * alfa_m))
+				# El brillo del suelo: manchas suaves en fila (no una raya), y una luz que corre de ti a el.
+				var n_b: int = 6
+				for i in n_b:
+					var u: float = (float(i) + 0.5) / float(n_b)
+					BarridoAire.brillo(_suelo, sitio.lerp(_pies, u), 6.0, Color(GUARDIA, 0.3 * alfa_m))
+				var uc: float = clampf(tm / 0.25, 0.0, 1.0)
+				if uc < 1.0:
+					var pc: Vector2 = sitio.lerp(_pies, uc)
+					BarridoAire.cometa(_suelo, sitio.lerp(_pies, maxf(uc - 0.35, 0.0)), pc, 4.0, Color(BLANCO, 0.9 * km))
 		Modo.CARNE:
 			var k7: float = _sale(_t, 0.35)
 			_anillo(_suelo, _pies, 6.0 + 18.0 * k7, 5.0, Color(ROJO_CLARO, 0.85 * (1.0 - k7)), Color(ROJO, 0.4 * (1.0 - k7)))
@@ -348,15 +372,12 @@ func _draw() -> void:
 				BarridoAire.destello(self, _c, 7.0 + 9.0 * pulso, Color(ORO_CLARO, pulso), 0.2)
 				BarridoAire.brillo(self, _c, 12.0, Color(ORO, 0.4 * exp(-tl / 0.15)))
 		Modo.MURO:
-			# La chapa GRANDE cae y se planta, aguanta y se va.
-			var cae: float = _sale(_t, 0.08)
-			var va2: float = clampf((_t - 0.55) / 0.3, 0.0, 1.0)
-			var base: Vector2 = _pies + Vector2(_dir.x, _dir.y * K) * 22.0
-			var en: Vector2 = base + Vector2(0.0, -20.0 - 10.0 * (1.0 - cae))
-			_chapa(self, en, _lat, 1.6, 0.9 * cae * (1.0 - va2), GUARDIA)
-			var pulso2: float = exp(-maxf(_t - 0.08, 0.0) / 0.05)
-			if _t >= 0.08:
-				BarridoAire.destello(self, base + Vector2(0.0, -4.0), 6.0 + 9.0 * pulso2, Color(BLANCO, pulso2), 0.0)
+			# Al llegar, el destello en tu escudo, hacia el enemigo (el escudo de verdad lo alza tu muñeco).
+			var tm2: float = _t - T_MURO_LLEGA
+			if tm2 >= 0.0:
+				var pulso2: float = exp(-tm2 / 0.05)
+				var escudo_en: Vector2 = _pies + _dir * (MURO_SITIO + 6.0) + Vector2(0.0, -ALTO_TORSO)
+				BarridoAire.destello(self, escudo_en, 7.0 + 10.0 * pulso2, Color(BLANCO, pulso2), 0.3)
 		Modo.CARNE:
 			for i in 2:
 				var tk: float = _t - 0.2 * float(i)
