@@ -23,6 +23,7 @@ const HABILIDADES := [
 	["larga", "basico"], ["larga", "tajo_pesado"], ["larga", "tajo_desarmante"], ["larga", "estocada_marcial"],
 	["larga", "guardia_rota"],
 	["escudo", "golpe_escudo_pequeno"], ["escudo", "golpe_escudo_normal"], ["escudo", "golpe_escudo_grande"],
+	["escudo", "embestida"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25}
@@ -43,6 +44,7 @@ const MOMENTOS_ESPADA := {
 	"golpe_escudo_pequeno": [-0.03, 0.02, 0.07, 0.13, 0.3],
 	"golpe_escudo_normal": [-0.03, 0.02, 0.07, 0.13, 0.3],
 	"golpe_escudo_grande": [-0.03, 0.02, 0.07, 0.13, 0.3],
+	"embestida": [0.04, 0.1, 0.16, 0.22, 0.4],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -521,6 +523,18 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 				var llega_z: float = SueloRoto.retraso_caja(f, cajas[i], ab.suelo_roto)
 				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, cajas[i], false,
 					i == 0, 0, semilla + i, 0.0, 1.0), "t0": llega_z})
+		"embestida":
+			# La carga: corres por la linea hasta pegarte al primero (o al final) con el rastro, y el choque al llegar.
+			var fin_c: Vector2 = f.origen + f.dir * f.largo
+			var primero: Rect2 = cajas[0] if not cajas.is_empty() else Rect2()
+			if primero.has_area():
+				fin_c = Vector2(primero.get_center().x, primero.end.y) - f.dir * 22.0   # CombatTactico.SEPARACION
+			var dur_c: float = 0.16
+			camino = [yo, fin_c, dur_c]
+			piezas.append({"n": EstoqueAire.rastro(self, yo, fin_c, dur_c, semilla), "t0": 0.0})
+			if primero.has_area():
+				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.EMBESTIDA, fin_c + alto, primero, false,
+					false, 0, semilla, 0.0, 1.0), "t0": dur_c})
 		"senalar_el_hueco":
 			if not cajas.is_empty():
 				for g in 2:

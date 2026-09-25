@@ -1854,12 +1854,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# EL ESCUDAZO (EscudoAire): el impacto en el cuerpo. La CHAPA sale una vez: en el Golpe de escudo la pinta su
 	# onda (el golpe 0 con suelo); en el escudazo suelto (Guardia rota, que va detras del tajo, y el contraataque
 	# de la rodela, sin suelo) la pinta este, delante de quien pega.
-	if estilo == CombatFX.Estilo.ESCUDAZO:
+	if estilo == CombatFX.Estilo.ESCUDAZO or estilo == CombatFX.Estilo.EMBESTIDA_ESCUDO:
 		var caja_z: Rect2 = bulto_de(v)
 		var desde_z: Vector2 = pies_de(a) + Vector2(0.0, -EscudoAire.ALTO_TORSO) \
 			if a != null and cuerpo_de(a) != null else caja_z.get_center() - Vector2(20.0, 0.0)
 		var suelta: bool = float(ev.get("retraso_suelo", -1.0)) < 0.0 or int(ev.get("pos_tanda", 0)) > 0
-		EscudoAire.golpe(arena, EscudoAire.Modo.ESCUDAZO, desde_z, caja_z, bool(ev.get("evadido", false)),
+		var modo_z: int = EscudoAire.Modo.EMBESTIDA if estilo == CombatFX.Estilo.EMBESTIDA_ESCUDO \
+			else EscudoAire.Modo.ESCUDAZO
+		EscudoAire.golpe(arena, modo_z, desde_z, caja_z, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo, suelta)
 		return
 	# LA ESPADA CORTA: tajos con cuerpo (EspadaAire), desde la altura del pecho del que pega.

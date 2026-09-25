@@ -10,11 +10,13 @@
 #    ESCUDAZO   lo que se ve sobre CADA cuerpo que lo encaja: el impacto (destello pequeño, esquirlas a los lados,
 #               el aire que sale por detras y polvo a los pies). Con 'chapa' ademas la chapa DELANTE DE QUIEN PEGA:
 #               el escudazo suelto (segundo golpe de la Guardia rota, contraataque de la rodela), que no tiene onda.
+#    EMBESTIDA  el choque al llegar de la carga (el rastro del cuerpo lo pone el desliz, EstoqueAire.rastro): la
+#               chapa pegada al enemigo (quien pega aun va de camino cuando esto se pide) y todo mas gordo.
 # ============================================================
 extends Node2D
 class_name EscudoAire
 
-enum Modo { ESCUDAZO, ONDA }
+enum Modo { ESCUDAZO, ONDA, EMBESTIDA }
 
 const T_LLEGA := 0.06        # lo que tarda la chapa en estamparse (sale de antes del golpe)
 const T_CHAPA := 0.22        # lo que se queda la chapa despues del golpe, apagandose
@@ -42,6 +44,7 @@ var _fallo: bool = false
 var _crit: bool = false
 var _n: int = 0
 var _con_chapa: bool = false
+var _fuerza: float = 1.0              # la Embestida: todo mas gordo
 var _c: Vector2 = Vector2.ZERO        # el pecho del que lo encaja
 var _toque: Vector2 = Vector2.ZERO    # donde se ve el golpe en el cuerpo: su cara que mira a quien pega
 var _chapa_en: Vector2 = Vector2.ZERO # donde se estampa la chapa: delante de quien pega
@@ -125,6 +128,11 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 	e._dir = (e._c - desde).normalized() if e._c.distance_squared_to(desde) > 0.01 else Vector2.RIGHT
 	e._chapa_en = desde + Vector2(e._dir.x, e._dir.y * K) * 9.0
 	e._preparar()
+	if m == Modo.EMBESTIDA:
+		# Quien embiste aun va de camino: la chapa, pegada a la cara del que lo encaja.
+		e._fuerza = 1.35
+		e._con_chapa = true
+		e._chapa_en = e._toque - Vector2(e._dir.x, e._dir.y * K) * 5.0
 	return e
 
 
@@ -204,7 +212,7 @@ func _draw() -> void:
 		_dibujar_polvo_onda()
 		return
 	if _con_chapa:
-		_dibujar_chapa(_chapa_en, _lat, 1.0)
+		_dibujar_chapa(_chapa_en, _lat, _fuerza)
 	if _t < 0.0 or _fallo:
 		return
 	# El aire por detras del cuerpo solo en el escudazo SUELTO: en el Golpe de escudo ya esta la onda, y un arco
@@ -272,8 +280,8 @@ func _dibujar_aire() -> void:
 	var k: float = clampf(_t / T_ONDA, 0.0, 1.0)
 	if k >= 1.0:
 		return
-	var r: float = lerpf(8.0, 30.0 if not _crit else 38.0, 1.0 - pow(1.0 - k, 2.0))
-	var grueso: float = lerpf(9.0, 3.0, k)
+	var r: float = lerpf(8.0, (30.0 if not _crit else 38.0) * _fuerza, 1.0 - pow(1.0 - k, 2.0))
+	var grueso: float = lerpf(9.0, 3.0, k) * _fuerza
 	var alfa: float = 0.95 * (1.0 - k)
 	var base: float = _dir.angle()
 	var mitad: float = deg_to_rad(70.0)
@@ -308,9 +316,9 @@ func _dibujar_polvo() -> void:
 	var atras: Vector2 = Vector2(_dir.x, _dir.y * K)
 	for j in 3:
 		var lado: float = float(j - 1)
-		var q: Vector2 = _pies + atras * (3.0 + 10.0 * k) + _lat.normalized() * lado * (4.0 + 5.0 * k) \
+		var q: Vector2 = _pies + atras * (3.0 + 10.0 * k) * _fuerza + _lat.normalized() * lado * (4.0 + 5.0 * k) \
 			+ Vector2(0.0, -1.5 * float(j % 2) * k)
-		BarridoAire.brillo(_suelo, q, 4.0 + 5.0 * k, Color(POLVO, 0.5 * (1.0 - k)))
+		BarridoAire.brillo(_suelo, q, (4.0 + 5.0 * k) * _fuerza, Color(POLVO, 0.5 * (1.0 - k)))
 
 
 # ------------------------------------------------------------
