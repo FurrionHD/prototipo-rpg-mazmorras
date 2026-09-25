@@ -40,9 +40,9 @@ const MOMENTOS_ESPADA := {
 	"tajo_desarmante": [0.03, 0.07, 0.12, 0.2, 0.4],
 	"estocada_marcial": [-0.03, 0.0, 0.03, 0.08, 0.2],
 	"guardia_rota": [0.04, 0.1, 0.2, 0.26, 0.4],
-	"golpe_escudo_pequeno": [-0.04, 0.0, 0.04, 0.1, 0.22],
-	"golpe_escudo_normal": [-0.04, 0.0, 0.04, 0.1, 0.22],
-	"golpe_escudo_grande": [-0.04, 0.0, 0.04, 0.1, 0.22],
+	"golpe_escudo_pequeno": [-0.03, 0.02, 0.07, 0.13, 0.3],
+	"golpe_escudo_normal": [-0.03, 0.02, 0.07, 0.13, 0.3],
+	"golpe_escudo_grande": [-0.03, 0.02, 0.07, 0.13, 0.3],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -509,15 +509,18 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 						var t_e: float = SueloRoto.retraso(f, Vector2(r_e.get_center().x, r_e.end.y), ab.suelo_roto) \
 							+ EspadaAire.T_ENTRE
 						piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, r_e, false, false, 1,
-							semilla + 99, 0.0, 1.0), "t0": t_e})
+							semilla + 99, 0.0, 1.0, true), "t0": t_e})
 		"estocada_marcial":
 			for i in cajas.size():
 				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PENETRANTE, yo + alto, cajas[i], false,
 					i == 0, 0, semilla + i, 0.0, 1.0), "t0": 0.0})
 		"golpe_escudo_pequeno", "golpe_escudo_normal", "golpe_escudo_grande":
+			# UN escudazo: la onda (con la chapa delante de ti) y el impacto en cada uno cuando le llega.
+			piezas.append({"n": SueloRoto.lanzar(self, f, ab.suelo_roto, semilla), "t0": 0.0})
 			for i in cajas.size():
+				var llega_z: float = SueloRoto.retraso_caja(f, cajas[i], ab.suelo_roto)
 				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, cajas[i], false,
-					i == 0, i, semilla + i, 0.0, 1.0), "t0": 0.0})
+					i == 0, 0, semilla + i, 0.0, 1.0), "t0": llega_z})
 		"senalar_el_hueco":
 			if not cajas.is_empty():
 				for g in 2:

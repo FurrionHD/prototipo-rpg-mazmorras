@@ -29,7 +29,9 @@ class_name SueloRoto
 #    HUMO         la bomba de humo de Desaparecer (daga, 24/09). Vive en DagaAire.
 enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
 	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO, DANZA,
-	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO }
+	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO, ESCUDO_ONDA }
+# ESCUDO_ONDA (25/09): el Golpe de escudo, la onda de choque que sale hacia delante. Vive en EscudoAire. Va
+# detras de las ESPADA_* pero NO es una de ellas: se mira antes que el 't >= ESPADA_QUIEBRA'.
 # ESPADA_* (espada corta, 25/09): los barridos del Tajo quebrantador, el Doble tajo y el Corte de tendones.
 # Y de la ESPADA LARGA (25/09): el Tajo desarmante y el Tajo pesado.
 # Viven en EspadaAire (su Modo = QUIEBRA + tipo - ESPADA_QUIEBRA).
@@ -85,6 +87,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t == Tipo.ESCUDO_ONDA:
+		return EscudoAire.onda(padre, f, semilla, espera)
 	if t >= Tipo.ESPADA_QUIEBRA:
 		return EspadaAire.barrido(padre, f, EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA, semilla, espera)
 	if t >= Tipo.HACHAZO:
@@ -115,6 +119,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t == Tipo.ESCUDO_ONDA:
+		return EscudoAire.retraso(f, p)
 	if t >= Tipo.ESPADA_QUIEBRA:
 		return EspadaAire.retraso(EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA, f, p)
 	if t >= Tipo.HACHAZO:
@@ -136,6 +142,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t == Tipo.ESCUDO_ONDA:
+		return EscudoAire.T_CHOQUE
 	if t >= Tipo.ESPADA_QUIEBRA:
 		return EspadaAire.t_salir(EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA)
 	if t >= Tipo.HACHAZO:
