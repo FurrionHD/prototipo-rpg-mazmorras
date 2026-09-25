@@ -59,6 +59,15 @@ func _correr() -> void:
 	if ref is SaveData:
 		Game.importar_partida(ref)
 	Game.semilla_mundo = 424242
+	# SUELO_DUAL=espada_corta,daga: la principal y la secundaria (la mano que se ve pegar en cada golpe).
+	var dual: String = OS.get_environment("SUELO_DUAL")
+	if dual != "":
+		var pz: PackedStringArray = dual.split(",")
+		Game.equipar_arma(load("res://resources/weapons/%s.tres" % pz[0]))
+		print("  secundaria: ", Game.equipar_secundaria(load("res://resources/weapons/%s.tres" % pz[1])))
+		# Y la habilidad EQUIPADA: sin eso no se sabe que arma la aporta y cae a la principal.
+		var hab: String = OS.get_environment("SUELO_HAB")
+		print("  equipada: ", Game.colocar_habilidad(load("res://resources/abilities/%s.tres" % hab), 0))
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	await _esperar(5)
 	Game.entrar_arena_de_pruebas()
@@ -219,9 +228,23 @@ func _correr() -> void:
 			t.hueco_entre(combat._player, e)])
 	# Cada aviso de gesto del cuerpo, con su animacion (la finta y luego pinchazos, la bomba y puñaladas...).
 	var t_av: int = Time.get_ticks_msec()
-	combat._fx.gesto_iniciado.connect(func(_b, _d, dur, anim) -> void:
-		print("  aviso: %s a %.2f s (dura %.2f)" % [anim, (Time.get_ticks_msec() - t_av) / 1000.0, dur]))
+	combat._fx.gesto_iniciado.connect(func(_b, _d, dur, anim, m) -> void:
+		print("  aviso: %s mano=%d a %.2f s (dura %.2f)" % [anim, m, (Time.get_ticks_msec() - t_av) / 1000.0, dur])
+		var mu = t.cuerpo_de(combat._player).get("_muneco")
+		if mu != null:
+			(func() -> void: print("    muneco: ", mu._anim)).call_deferred())
 	# Las de carga (Martillo de guerra), soltadas ya: lo que se mira es el golpe, no el turno de cargar.
+	# Con SUELO_DUAL y la habilidad sin desbloquear en la partida de referencia, su mano como la reparte Game
+	# (build del Combatant): la de las armas que la traen.
+	if dual != "" and not combat._player.ability_hands.has(ab):
+		var idxs: Array = []
+		var pj: PersonajeData = Game.lider()
+		if Game.habilidades_de_item(pj.equipped_main).has(ab):
+			idxs.append(0)
+		if pj.equipped_off is WeaponData and Game.habilidades_de_item(pj.equipped_off).has(ab):
+			idxs.append(1)
+		combat._player.ability_hands[ab] = idxs if not idxs.is_empty() else [0]
+		print("  manos de la habilidad: ", combat._player.ability_hands[ab])
 	combat.habilidades._usar_habilidad(ab, ab.carga_turnos > 0)
 	var t0: int = Time.get_ticks_msec()
 	await _esperar(1)

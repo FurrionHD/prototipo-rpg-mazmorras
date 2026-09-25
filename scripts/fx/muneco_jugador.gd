@@ -734,10 +734,11 @@ func _con_su_guardia_base(nombre: String) -> String:
 	if guardia_defensiva and _guardia_propia == "guardia_estoque" and nombre.begins_with("guardia_") \
 			and nombre.substr(8).is_valid_int():
 		return "guardia_estoque_def_" + nombre.substr(8)
-	# Con dos espadas, sus golpes: "tajo_espada_izq_3" -> "tajo_espada2_izq_3".
-	if _guardia_propia == "guardia_espada2":
-		var pz: PackedStringArray = nombre.rsplit("_", true, 1)
-		if pz.size() == 2 and pz[1].is_valid_int() and _ESPADA_GOLPES.has(pz[0]):
+	# Con dos espadas, sus golpes: "tajo_espada_izq_3" -> "tajo_espada2_izq_3". Y la espada en la IZQUIERDA con
+	# otra cosa en la derecha (daga + espada corta): su golpe con la izquierda solo existe en la de dos.
+	var pz: PackedStringArray = nombre.rsplit("_", true, 1)
+	if pz.size() == 2 and pz[1].is_valid_int() and _ESPADA_GOLPES.has(pz[0]) \
+			and (_guardia_propia == "guardia_espada2" or pz[0].ends_with("_izq")):
 			return pz[0].replace("_espada", "_espada2") + "_" + pz[1]
 	var desenv: String = "desenvainar" + _guardia_propia.substr(7)
 	if nombre.begins_with("desenvainar_") and not nombre.begins_with(desenv):

@@ -48,7 +48,8 @@ signal apagar_ahora(bloque: Dictionary)
 # EL CUERPO EMPIEZA (y termina) SU GESTO. Lo escucha combat.gd, que es el dueño de los sprites:
 # aqui solo se lleva el reloj. 'dir' es la direccion del sprite (0 = mirando a camara) y 'dur' lo
 # que dura el gesto EN SEGUNDOS REALES, para que la animacion se ajuste a el y no al reves.
-signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, anim: StringName)
+# 'mano': la del golpe que se avisa (0 derecha, 1 izquierda; -1 = no se sabe). Ver efectos._fx_golpe.
+signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, anim: StringName, mano: int)
 signal gesto_terminado(bloque: Dictionary)
 
 # LA OTRA MITAD DEL GOLPE: al que se lo comen tambien se le mueve el cuerpo. Va APARTE de los
@@ -1479,7 +1480,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		evadido: bool, color_elem: Color, estilo: int = Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "", elem: int = 0, escudo: int = -1,
 		gesto: int = -1, anim: StringName = &"", semilla: int = 0,
-		mult_elem: float = 1.0, retraso_suelo: float = -1.0) -> void:
+		mult_elem: float = 1.0, retraso_suelo: float = -1.0, mano: int = -1) -> void:
 	if b_victima.is_empty() or _cola.size() >= MAX_EVENTOS:
 		_tanda_pedida = -1
 		return
@@ -1526,6 +1527,8 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# EL SUELO QUE SE ROMPE: el golpe llega cuando la rotura alcanza a esta victima (ver
 		# arrancar_cola), y su dibujo de siempre no sale -- el dibujo ES el suelo.
 		"retraso_suelo": retraso_suelo,
+		# CON QUE MANO pega este golpe (efectos._fx_golpe): el muñeco la usa en vez de alternar a ciegas.
+		"mano": mano,
 	})
 	# LA VIDA NO PUEDE BAJAR ANTES QUE EL GOLPE. Se apunta AQUI, en el mismo instante en que el
 	# golpe se resuelve, y no al arrancar la cola: entre una cosa y otra combat.gd llama a
@@ -1887,6 +1890,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 	if pa == _visual(ev["bv"]) and not propio:
 		return
 	var cuando: Array[float] = []
+	var manos: Array[int] = []   # la mano de cada golpe de 'cuando'
 	# UNO POR TANDA: un golpe que pilla a tres son tres impactos pero UN golpe (25/09, la espada corta: su
 	# barrido se relanzaba por cada enemigo, con avisos de 0 s que reiniciaban la animacion a medias).
 	var tandas_vistas: Dictionary = {}
@@ -1900,6 +1904,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 			continue
 		tandas_vistas[pt] = true
 		cuando.append(float(_cola[i]["t"]))
+		manos.append(int(_cola[i].get("mano", -1)))
 	if cuando.is_empty() and propio:
 		cuando.append(float(ev["t"]))
 	if cuando.is_empty():
@@ -1919,6 +1924,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		"t_imp": cuando[0],
 		"t_fin": cuando[cuando.size() - 1] + T_ANIM_COLA,
 		"golpes": cuando,
+		"manos": manos,
 		"sig": 0,
 		"dir8": SpritesEnemigo.dir8(dir),
 		"anim": ev.get("anim", &""),
@@ -2012,12 +2018,15 @@ func _cola_de_gestos() -> float:
 # En SEGUNDOS REALES: quien la reproduce corre con el reloj del motor, no con el nuestro.
 # 'siguiente' = no es el arranque sino uno de los golpes de despues: si su animacion sigue con otra
 # (ANIM_SIGUIENTE_MAPA: la finta con pinchazos), se avisa con esa.
-func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false) -> void:
+# 'golpe' = el indice del golpe que se avisa, para sacar su mano.
+func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false, golpe: int = 0) -> void:
 	var anim: String = String(p.get("anim", ""))
 	if siguiente:
 		anim = String(ANIM_SIGUIENTE_MAPA.get(anim, anim))
+	var manos: Array = p.get("manos", [])
+	var mano: int = int(manos[golpe]) if golpe >= 0 and golpe < manos.size() else -1
 	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
-		dur_anim / maxf(escala_tiempo, 0.01), StringName(anim))
+		dur_anim / maxf(escala_tiempo, 0.01), StringName(anim), mano)
 
 
 # ============================================================
@@ -2100,7 +2109,7 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 			# El primero ya lo lanzo el arranque de arriba (salvo la bomba: su arranque fue tirarla).
 			if sig > 0 or bool(p.get("tras_suelo", false)):
 				var hueco: float = float(golpes[sig]) - float(golpes[sig - 1]) if sig > 0 else 0.3
-				_avisar_gesto(p, hueco, true)
+				_avisar_gesto(p, hueco, true, sig)
 		if not bool(p["fin_lanzado"]) and _t >= t_fin:
 			p["fin_lanzado"] = true
 			gesto_terminado.emit(p["bloque"])

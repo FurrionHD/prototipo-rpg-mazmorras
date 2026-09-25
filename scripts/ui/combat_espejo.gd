@@ -1073,9 +1073,13 @@ func _cod_combatiente(c: Combatant) -> int:
 # cuatro enteros por impacto. Si se toca una punta y no la otra NO SALTA NINGUN ERROR: el espejo
 # simplemente lee otro estilo y otro peso, y ve la pelea con efectos distintos a los tuyos. Las
 # mascaras de cada campo tienen que cuadrar aqui y en aplicar_impactos.
+# LA MANO QUE PEGA (1 = la izquierda) en el ultimo bit de las banderas: el de signo del entero de 32. Se lee
+# con '(flags >> 31) & 1', que vale igual con el signo extendido.
+const BIT_MANO_IZQ := 1 << 31
+
 func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		crit: bool, evadido: bool, elem: int, estilo: int, peso: float,
-		solo_dibujo: bool = false, sfx: String = "", semilla: int = 0) -> void:
+		solo_dibujo: bool = false, sfx: String = "", semilla: int = 0, mano: int = 0) -> void:
 	if _pantalla._espejo or not Net.activo or _impactos_red.size() >= MAX_IMPACTOS_RED * 5:
 		return
 	var ca: int = _cod_combatiente(atacante)
@@ -1093,7 +1097,8 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		| (((elem + 1) & 7) << 3) | ((estilo & 255) << 6) \
 		| (clampi(roundi(peso * 64.0), 0, 127) << 14) \
 		| (2097152 if solo_dibujo else 0) \
-		| (((Sonido.CLAVES.find(sfx) + 1) & 511) << 22)
+		| (((Sonido.CLAVES.find(sfx) + 1) & 511) << 22) \
+		| (BIT_MANO_IZQ if mano == 1 else 0)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
 	_impactos_red.append(roundi(minf(dmg, 3000.0) * 100.0))   # x100: los dos decimales que se pintan (300000 cabe de sobra)
@@ -1234,7 +1239,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 			# El gesto y la animacion van por su valor de siempre (no viajan: el Combatant del
 			# atacante ya los trae). La SEMILLA si viaja, y se pasa TAL CUAL: es lo que hace que
 			# el golpe suene con la misma version y el mismo tono que en la pantalla del que pega.
-			AbilityData.Gesto.AUTO, &"", semilla, 1.0, guardia_red)
+			AbilityData.Gesto.AUTO, &"", semilla, 1.0, guardia_red, (flags >> 31) & 1)
 	_pantalla.efectos.soltar_suelo()
 	_pantalla._fx.arrancar_cola()
 

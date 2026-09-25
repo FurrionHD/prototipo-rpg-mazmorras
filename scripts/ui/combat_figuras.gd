@@ -405,7 +405,8 @@ func _combatant_de_bloque_aliado(b: Dictionary) -> Combatant:
 # aqui puede tocarle a cualquiera del grupo. "golpe_2m" si el arma principal es a dos manos; si
 # tiene secundaria de una mano, alterna de mano golpe a golpe (igual que en el mapa, ver
 # _golpe_mano); si no, siempre la derecha.
-func _anim_golpe_de(c: Combatant) -> String:
+# 'mano': la del golpe (0 derecha, 1 izquierda); -1 = no se sabe y se alterna.
+func _anim_golpe_de(c: Combatant, mano: int = -1) -> String:
 	var pj: PersonajeData = Game.pj_de_combatant(c)
 	if pj == null:
 		return "golpe"
@@ -413,9 +414,9 @@ func _anim_golpe_de(c: Combatant) -> String:
 	if main is WeaponData and bool(main.dos_manos):
 		return "golpe_2m"
 	if pj.equipped_off is WeaponData:
-		var mano: int = 1 - int(_golpe_mano.get(c, 0))
-		_golpe_mano[c] = mano
-		return "golpe_izq" if mano == 1 else "golpe"
+		var m: int = mano if mano >= 0 else 1 - int(_golpe_mano.get(c, 0))
+		_golpe_mano[c] = m
+		return "golpe_izq" if m == 1 else "golpe"
 	return "golpe"
 
 
@@ -601,7 +602,7 @@ func _pose_ajustar(sp: AnimatedSprite2D, anim: StringName, dur: float) -> void:
 # sale el speed_scale. Hay que hacerlo asi porque un AnimatedSprite2D corre con el reloj del motor,
 # mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
-func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"") -> void:
+func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"", mano: int = -1) -> void:
 	var nodo: Node = _nodo_pose_de(b)
 	if nodo == null:
 		return   # sin sprite/muñeco el gesto sigue valiendo: lo que se mueve es la figura
@@ -641,9 +642,9 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 			return
 		# EN EL MAPA lo hace su cuerpo, hacia donde golpea y con la animacion de la habilidad.
 		if _pantalla.tactico:
-			_pantalla.turno_mapa.gesto_en_mapa(c, String(pide), dur)
+			_pantalla.turno_mapa.gesto_en_mapa(c, String(pide), dur, mano)
 		_pose_marcar(nodo, PoseSprite.GESTO)
-		(nodo as MunecoJugador).animar("%s_4" % _anim_golpe_de(c))
+		(nodo as MunecoJugador).animar("%s_4" % _anim_golpe_de(c, mano))
 
 
 # Y AL ACABAR, a reposo. Sin esto se queda clavado en el ultimo frame del ataque: 'embestida' es

@@ -144,7 +144,13 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 		estilo: int = CombatFX.Estilo.MELEE, peso: float = 1.0,
 		solo_dibujo: bool = false, sfx: String = "",
 		gesto: int = AbilityData.Gesto.AUTO, anim: StringName = &"",
-		semilla: int = 0, mult_elem: float = 1.0, guardia_red: bool = false) -> void:
+		semilla: int = 0, mult_elem: float = 1.0, guardia_red: bool = false, mano: int = -1) -> void:
+	# CON QUE MANO pega (0 la principal/derecha, 1 la secundaria/izquierda). La sabe quien RESUELVE (la mano
+	# activa del Combatant: las habilidades pegan con el arma que las trae, el basico alterna); el espejo la
+	# recibe en el paquete. Con ella el muñeco pega con la mano de verdad (daga + espada corta: cada golpe
+	# con su arma) en vez de alternar a ciegas.
+	if mano < 0:
+		mano = 1 if atacante != null and atacante.current_hand_slot() == "off" else 0
 	# LOS QUE HAN ENCAJADO UN GOLPE DE LOS TUYOS en esta accion: solo detras de esos entran la Escolta y
 	# el Oportunista (antes entraban contra el enemigo SELECCIONADO aunque la accion fuera un Filo
 	# emponzoñado o una cura, lo vio el jefe el 24/09).
@@ -175,7 +181,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	_pantalla._fx.encolar(_pantalla._bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
 		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem,
-		_retraso_suelo(victima))
+		_retraso_suelo(victima), mano)
 	# LA ESQUIVA EN GUARDIA (estoque): el mapa la enseña con su propio gesto (CombatTactico._on_esquiva).
 	# En el espejo en_guardia no viaja: le llega marcada en el paquete (guardia_red).
 	var en_guardia: bool = evadido and (guardia_red or (not _pantalla._espejo and victima.en_guardia))
@@ -185,7 +191,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	# (La esquiva en guardia va en el daño, que en un esquivado es siempre 0: -1 = "en guardia".)
 	_pantalla.espejo._apuntar_impacto_red(atacante, victima, -1.0 if en_guardia else dmg, crit, evadido, elem,
-		estilo, peso, solo_dibujo, sfx, semilla)
+		estilo, peso, solo_dibujo, sfx, semilla, mano)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien

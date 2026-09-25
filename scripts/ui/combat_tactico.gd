@@ -2066,7 +2066,7 @@ func _sitio_en_abanico(c: Combatant, pv: Vector2, dir: Vector2, largo: float, si
 	return null
 
 
-func _on_gesto_salto(b: Dictionary, _dir: int, _dur: float, _anim: StringName) -> void:
+func _on_gesto_salto(b: Dictionary, _dir: int, _dur: float, _anim: StringName, _mano: int = -1) -> void:
 	if _saltos.is_empty():
 		return
 	var c: Combatant = _de_bloque(b)
@@ -2250,7 +2250,7 @@ func anotar_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void
 
 
 # Su gesto ha arrancado: el paso de ANTES y el avance salen ya; el de TRAS espera a que acaben los golpes.
-func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName) -> void:
+func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName, _mano: int = -1) -> void:
 	if _deslices.is_empty():
 		return
 	var c: Combatant = _de_bloque(b)
@@ -2342,7 +2342,8 @@ const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "puna
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 
-func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
+# 'mano': la del golpe (0 derecha, 1 izquierda; -1 = no se sabe y se alterna como antes).
+func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bool:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return false
@@ -2359,7 +2360,9 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float) -> bool:
 		anim = "tajo_daga_solo"
 	elif _REPITE_POR_GOLPE.has(anim):
 		if (m as MunecoJugador).lleva_arma_izq():
-			var izq: bool = bool(_mano_izq_toca.get(cuerpo, false))
+			# LA MANO DE VERDAD (la del golpe que resolvio la pelea): con daga + espada corta cada golpe sale
+			# con el arma que pega. Solo si no se sabe, alternando.
+			var izq: bool = mano == 1 if mano >= 0 else bool(_mano_izq_toca.get(cuerpo, false))
 			_mano_izq_toca[cuerpo] = not izq
 			if izq:
 				anim = String(_REPITE_POR_GOLPE[anim])
