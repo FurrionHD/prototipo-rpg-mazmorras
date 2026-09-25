@@ -27,11 +27,11 @@ const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 1
 # tajo de siempre sobre el de delante.
 const MOMENTOS_ESPADA := {
 	"basico": [-0.04, -0.01, 0.02, 0.08, 0.16],
-	"tajo_quebrantador": [-0.06, -0.02, 0.03, 0.12, 0.3],
-	"doble_tajo": [-0.02, 0.04, 0.1, 0.2, 0.36],
+	"tajo_quebrantador": [0.03, 0.07, 0.11, 0.18, 0.35],
+	"doble_tajo": [-0.06, -0.01, 0.12, 0.2, 0.34],
 	"cambio_de_ritmo": [0.04, 0.1, 0.16, 0.24, 0.4],
 	"senalar_el_hueco": [-0.02, 0.03, 0.12, 0.4, 0.8],
-	"corte_de_tendones": [-0.03, 0.0, 0.05, 0.15, 0.35],
+	"corte_de_tendones": [0.03, 0.07, 0.11, 0.18, 0.35],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -186,7 +186,7 @@ func _correr() -> void:
 			var hacia_cam: float = 0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.35
 			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam / acerca
 			# 1) Apuntando: la huella.
-			_forma_huella = f if int(ab.forma) >= 0 else null
+			_forma_huella = f if int(ab.forma) >= 0 and nom != "basico" else null
 			_huella.queue_redraw()
 			await _viñeta(hoja, 0, fila, "%s · %s · apuntando" % [ab.nombre, dir_n])
 			_forma_huella = null
@@ -438,21 +438,40 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 	cajas.sort_custom(func(a, b): return a.get_center().distance_squared_to(yo) < b.get_center().distance_squared_to(yo))
 	var piezas: Array = []   # {n, t0}
 	var camino: Array = []
+	var hacia_fila: Vector2 = f.dir
 	match nom:
 		"basico":
-			if not cajas.is_empty():
-				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.TAJO, yo + alto, cajas[0], false, false, 0,
+			# El basico no tiene huella: le pega al que tengas mas a mano hacia donde miras.
+			var mejor: Rect2 = Rect2()
+			var d_mejor: float = INF
+			for p in _enemigos:
+				var dd: float = absf(angle_difference((p - yo).angle(), hacia_fila.angle())) * 60.0 + (p - yo).length()
+				if dd < d_mejor:
+					d_mejor = dd
+					mejor = Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			if mejor.has_area():
+				piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.TAJO, yo + alto, mejor, false, false, 0,
 					semilla, 0.0, 1.0), "t0": 0.0})
-		"tajo_quebrantador", "corte_de_tendones":
-			var m: int = EspadaAire.Modo.QUEBRANTADOR if nom == "tajo_quebrantador" else EspadaAire.Modo.TENDONES
+		"tajo_quebrantador", "corte_de_tendones", "doble_tajo":
+			# El barrido (por el camino del suelo, como el juego) y, en cada cuerpo, lo suyo a su instante.
+			var s_b: Node2D = SueloRoto.lanzar(self, f, ab.suelo_roto, semilla)
+			# El Doble tajo acaba su primer barrido EN el golpe: arranca T_BARRE antes.
+			piezas.append({"n": s_b, "t0": -EspadaAire.T_BARRE if nom == "doble_tajo" else 0.0})
+			var m: int = EspadaAire.Modo.QUEBRANTADOR if nom == "tajo_quebrantador" \
+				else (EspadaAire.Modo.TENDONES if nom == "corte_de_tendones" else EspadaAire.Modo.DOBLE)
+			var golpes_b: int = 2 if nom == "doble_tajo" else 1
 			for i in cajas.size():
-				piezas.append({"n": EspadaAire.golpe(self, m, yo + alto, cajas[i], false, i == 0, 0, semilla + i, 0.0, 1.0),
-					"t0": 0.0})
-		"doble_tajo":
-			for i in cajas.size():
-				for g in 2:
-					piezas.append({"n": EspadaAire.golpe(self, EspadaAire.Modo.DOBLE, yo + alto, cajas[i], false, g == 1, g,
-						semilla + i * 7 + g, 0.0, 1.0), "t0": 0.09 * float(g)})
+				var pies_i: Vector2 = Vector2((cajas[i] as Rect2).get_center().x, (cajas[i] as Rect2).end.y)
+				var llega: float = SueloRoto.retraso(f, pies_i, ab.suelo_roto)
+				for g in golpes_b:
+					var t_g: float = llega + EspadaAire.T_ENTRE * float(g)
+					piezas.append({"n": EspadaAire.golpe(self, m, yo + alto, cajas[i], false, i == 0, g,
+						semilla + i * 7 + g, 0.0, 1.0), "t0": t_g})
+					SangreMapa.salpicar(self, (cajas[i] as Rect2).get_center(), pies_i,
+						(pies_i - yo).normalized().rotated(PI * 0.5) * 0.85 + (pies_i - yo).normalized() * 0.45,
+						0.6, 77 + i + g)
+					var n_s: Node2D = get_child(get_child_count() - 1)
+					piezas.append({"n": n_s, "t0": t_g, "sangre": true})
 		"senalar_el_hueco":
 			if not cajas.is_empty():
 				for g in 2:
@@ -482,11 +501,21 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 			var n: Node2D = pz["n"]
 			if n == null:
 				continue
+			if bool(pz.get("sangre", false)):
+				var quiere: float = t - float(pz["t0"])
+				var hecho: float = float(pz.get("hecho", 0.0))
+				while hecho + 0.01 <= quiere:
+					n.call("_process", 0.01)
+					hecho += 0.01
+				pz["hecho"] = hecho
+				n.visible = quiere >= 0.0
+				continue
 			n.set("_t", t - float(pz["t0"]))
 			n.queue_redraw()
-			var su = n.get("_suelo")
-			if su is Node2D:
-				(su as Node2D).queue_redraw()
+			for hijo in ["_suelo", "_atras", "_delante"]:
+				var su = n.get(hijo)
+				if su is Node2D:
+					(su as Node2D).queue_redraw()
 		if not camino.is_empty():
 			var u: float = clampf(t / float(camino[2]), 0.0, 1.0)
 			_yo_fig.position = (camino[0] as Vector2).lerp(camino[1], u) - Vector2(7, 26)

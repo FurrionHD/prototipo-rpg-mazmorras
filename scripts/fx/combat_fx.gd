@@ -1754,6 +1754,10 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.PUNZADA_NERVIO: "estocada_estoque", Estilo.ESTOCADA_PENETRANTE: "estocada_honda",
 	Estilo.FINTAS: "finta_estoque", Estilo.DANZA_ACERO: "pinchazo_estoque",
 	Estilo.EN_GUARDIA: "ponerse_en_guardia",
+	# LA ESPADA CORTA (25/09): de momento el golpe de siempre a una mano (sus animaciones propias, en el paso 3).
+	# Sin estar aqui sus golpes contaban como magia (a 0,075 s) y el segundo barrido del Doble tajo no casaba.
+	Estilo.ESPADA_TAJO: "golpe", Estilo.TAJO_QUEBRANTADOR: "golpe", Estilo.DOBLE_TAJO: "golpe",
+	Estilo.CAMBIO_RITMO: "golpe", Estilo.SENALAR_HUECO: "golpe", Estilo.CORTE_TENDONES: "golpe",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
 }

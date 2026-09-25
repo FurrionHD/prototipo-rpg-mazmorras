@@ -28,7 +28,10 @@ class_name SueloRoto
 #                 Modo = tipo - HACHAZO). Van al final: los numeros viajan por red y no se reciclan.
 #    HUMO         la bomba de humo de Desaparecer (daga, 24/09). Vive en DagaAire.
 enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
-	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO, DANZA }
+	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO, DANZA,
+	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON }
+# ESPADA_* (espada corta, 25/09): los barridos del Tajo quebrantador, el Doble tajo y el Corte de tendones.
+# Viven en EspadaAire (su Modo = QUIEBRA + tipo - ESPADA_QUIEBRA).
 # DANZA (estoque, Danza de acero): no rompe ni pinta nada, solo lleva el COMPAS. Un frente que corre por la
 # linea a EstoqueAire.V_DANZA, el mismo paso al que avanza el cuerpo (CombatTactico, al oir
 # CombatFX.suelo_lanzado): cada estocada cae cuando le pasas al lado. Lo que se ve es el rastro del cuerpo.
@@ -81,6 +84,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.ESPADA_QUIEBRA:
+		return EspadaAire.barrido(padre, f, EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA, semilla, espera)
 	if t >= Tipo.HACHAZO:
 		return HachaAire.lanzar(padre, f, t - Tipo.HACHAZO, semilla, espera)
 	if t >= Tipo.GIRO:
@@ -109,6 +114,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.ESPADA_QUIEBRA:
+		return EspadaAire.retraso(EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA, f, p)
 	if t >= Tipo.HACHAZO:
 		return HachaAire.retraso(t - Tipo.HACHAZO, f, p)
 	if t >= Tipo.GIRO:
@@ -128,6 +135,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.ESPADA_QUIEBRA:
+		return EspadaAire.t_salir(EspadaAire.Modo.QUIEBRA + t - Tipo.ESPADA_QUIEBRA)
 	if t >= Tipo.HACHAZO:
 		return HachaAire.t_salir(t - Tipo.HACHAZO)
 	if t >= Tipo.GIRO:

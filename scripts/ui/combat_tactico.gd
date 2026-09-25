@@ -1591,7 +1591,10 @@ func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
 const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatFX.Estilo.HACHAZO_BRUTAL,
 	CombatFX.Estilo.CARNICERIA, CombatFX.Estilo.DESGARRO,
 	# La DAGA (24/09): poca, de los tajos; la Puñalada, un chorro por detras (por donde asoma la punta).
-	CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, CombatFX.Estilo.PUNALADA]
+	CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, CombatFX.Estilo.PUNALADA,
+	# La ESPADA CORTA (25/09): entre la daga y el hacha.
+	CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, CombatFX.Estilo.DOBLE_TAJO,
+	CombatFX.Estilo.CAMBIO_RITMO, CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES]
 
 func _on_impacto(ev: Dictionary) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
@@ -1628,6 +1631,12 @@ func _on_impacto(ev: Dictionary) -> void:
 		CombatFX.Estilo.PUNALADA:
 			dir = radial
 			fuerza *= 0.8
+		CombatFX.Estilo.CORTE_TENDONES:
+			desde = Vector2(desde.x, lerpf(desde.y, pies_v.y, 0.6))   # sale de las piernas
+			fuerza *= 0.7
+		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, \
+				CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.TAJO_QUEBRANTADOR:
+			fuerza *= 0.55
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 

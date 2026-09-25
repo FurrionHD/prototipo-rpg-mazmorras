@@ -1,65 +1,129 @@
 # ============================================================
 #  espada_aire.gd
-#  LOS EFECTOS DE LA ESPADA CORTA en el mapa (25/09/2026). Corta como la daga pero con CUERPO: la media
-#  luna es mas grande y mas gruesa, y cada habilidad deja su marca sobre el cuerpo que la recibe. Sale golpe
-#  a golpe (CombatFX.dibujo_en_mapa -> CombatTactico._on_dibujo_mapa), en todas las maquinas, como la daga
-#  y el estoque: el espejo recibe los mismos golpes, asi que no cuesta red.
-#    TAJO          la media luna de siempre (el basico)
-#    QUEBRANTADOR  un tajo ANCHO y horizontal que revienta la guardia: una placa de luz delante del cuerpo
-#                  que salta en pedazos
-#    DOBLE         los dos cortes en diagonal se QUEDAN puestos y forman una cruz; al cerrarse, destella
-#    RITMO         Cambio de ritmo: tajo corto y tres marcas del compas; la tercera llega antes y se rompe
-#    SENALAR       Señalar el hueco: los dos cortes EN EL MISMO SITIO y una diana que se queda puesta
-#    TENDONES      Corte de tendones: tajo BAJO y plano, a las piernas, con polvo a los pies
-#  La SANGRE va aparte (SangreMapa, al encajar). Coordenadas de MUNDO; todo sale de una semilla.
-#  NADA DE LINEAS (efectos-sin-lineas): filo duro que se difumina, cometas, destellos en estrella.
+#  LOS EFECTOS DE LA ESPADA CORTA en el mapa (25/09/2026, SEGUNDA VERSION). La primera eran medias lunas
+#  sueltas sobre cada cuerpo, todas con la misma forma mirases desde donde mirases ("lamentables, no
+#  mantienen perspectiva"). Esta copia lo que ya le gusto:
+#    - LOS CONOS son UN barrido que cruza a todos (como el hacha y el Segar), en el aire alrededor de
+#      quien pega y con la perspectiva del suelo. A cada uno le llega su golpe cuando el barrido le pasa.
+#      Van por el camino del suelo (ficha 'suelo_roto', SueloRoto.lanzar, red, instante del golpe):
+#        QUIEBRA   el Tajo quebrantador: un barrido ANCHO a la cintura, de lado a lado
+#        CRUZ      el Doble tajo: ida BAJANDO y vuelta SUBIENDO, que se cruzan en X delante de ti
+#        TENDON    el Corte de tendones: un barrido a RAS DEL SUELO que levanta tierra
+#    - LO DE CADA CUERPO es la PINCELADA del basico del mandoble (BarridoAire.TAJO: "nivel dios"), en
+#      diagonal hacia el lado al que golpeas y cruzando la de antes en cada golpe. Sale golpe a golpe
+#      (CombatFX.dibujo_en_mapa -> CombatTactico._on_dibujo_mapa):
+#        TAJO      la pincelada (el basico; los golpes de mas con dos espadas)
+#        QUEBRANTADOR  en el golpe del barrido, la guardia que salta en pedazos; en los de mas, pincelada
+#        DOBLE     nada en el cuerpo (lo pinta el barrido); a partir del tercer golpe, pincelada
+#        RITMO     Cambio de ritmo: la pincelada TUMBADA, en la direccion en la que pasas
+#        SENALAR   Señalar el hueco: dos pinceladas EXACTAS una encima de otra y la diana roja
+#        TENDONES  en el golpe del barrido, polvo a los pies; en los de mas, pincelada baja
+#  Coordenadas de MUNDO; todo sale de una semilla. NADA DE LINEAS (efectos-sin-lineas).
 # ============================================================
 extends Node2D
 class_name EspadaAire
 
-enum Modo { TAJO, QUEBRANTADOR, DOBLE, RITMO, SENALAR, TENDONES }
+enum Modo { TAJO, QUEBRANTADOR, DOBLE, RITMO, SENALAR, TENDONES, QUIEBRA, CRUZ, TENDON }
 
-const T_TAJO := 0.06          # lo que tarda la media luna de punta a punta (acaba en el golpe)
-const T_APAGA := 0.16         # y lo que tarda en irse
-const T_QUEDA := 0.22         # lo que se quedan quietos los cortes de la cruz antes de irse
-const T_PEDAZOS := 0.4        # lo que vuelan los pedazos de la guardia
-const T_DIANA := 0.9          # lo que se queda la diana puesta
-const T_COMPAS := 0.07        # entre marca y marca del compas
+const T_BARRE := 0.15         # lo que tarda un barrido de punta a punta (lento al salir, rapidisimo al final)
+const T_CLAVADO := 0.08       # lo que se queda entero al acabar (como el hachazo)
+const T_APAGA_SECO := 0.1     # y se va DE GOLPE
+const T_SUELO := 0.5          # lo que se queda la marca del suelo
+const T_SUELO_APAGAR := 0.45
+const COLA := deg_to_rad(110.0)   # la cola de la media luna (el hacha 95: esta es mas larga y fina)
+const ACERO := Color(0.80, 0.84, 0.90)
+const ACERO_AZUL := Color(0.45, 0.58, 0.82)
+const OSCURO := SueloRoto.OSCURO
+const LABIO := SueloRoto.LABIO
+const T_ENTRE := BarridoAire.T_ENTRE   # entre los dos barridos del Doble tajo (CombatFX.T_ENCADENADO)
+const T_APAGA := 0.22
+const T_SALE := 0.05          # lo que tarda la pincelada en abrirse
+const T_PEDAZOS := 0.4
+const T_DIANA := 0.9
 const T_POLVO := 0.45
-const GRAVEDAD := 380.0
 const ALTO_TORSO := 14.0
+const ALTO_CINTURA := 9.0     # el Quebrantador
+const ALTO_SUELO := 2.0       # los Tendones
+const GRAVEDAD := 380.0
 
 const BLANCO := BarridoAire.BLANCO
-const ACERO := Color(0.80, 0.84, 0.90)
+const AIRE := BarridoAire.AIRE
 const GUARDIA := Color(0.72, 0.84, 1.0)
 const DIANA := Color(1.0, 0.36, 0.26)
 const DIANA_CLARA := Color(1.0, 0.82, 0.55)
-const POLVO := Color(0.55, 0.51, 0.45)
+const POLVO := SueloRoto.POLVO
+const TIERRA := Color(0.45, 0.40, 0.33)
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 
 var modo: int = Modo.TAJO
 var _t: float = 0.0
 var _ritmo: float = 1.0
 var _rng := RandomNumberGenerator.new()
-var _suelo: Node2D = null
-var _desde: Vector2 = Vector2.ZERO
+# El golpe sobre un cuerpo.
 var _caja: Rect2 = Rect2()
 var _fallo: bool = false
 var _crit: bool = false
 var _n: int = 0
-var _c: Vector2 = Vector2.ZERO      # donde cae
-var _o: Vector2 = Vector2.ZERO      # el centro del arco de la media luna
-var _r: float = 16.0
-var _a_ini: float = 0.0
-var _a_fin: float = 1.0
-var _grueso: float = 9.0
-var _dir: Vector2 = Vector2.RIGHT
-var _pies: Vector2 = Vector2.ZERO
+var _c: Vector2 = Vector2.ZERO
+var _dir: Vector2 = Vector2.RIGHT     # de donde viene el golpe (del que pega al cuerpo)
+var _trazo: Vector2 = Vector2.DOWN    # hacia donde baja la pincelada
+var _largo: float = 24.0
+var _borde_a: PackedFloat32Array = PackedFloat32Array()
+var _borde_b: PackedFloat32Array = PackedFloat32Array()
+var _motas: Array = []
 var _pedazos: Array = []
-var _marcas: Array = []
+var _suelo: Node2D = null
+var _pies: Vector2 = Vector2.ZERO
+# El barrido.
+var forma: CombatFormas.Forma = null
+var _centro: Vector2 = Vector2.ZERO
+var _atras: Node2D = null
+var _delante: Node2D = null
+var _chispas: Array = []
+var _tierra: Array = []
 
 
-# UN GOLPE sobre un cuerpo, como DagaAire.golpe. 'n' = el numero de golpe de la accion.
+# ------------------------------------------------------------
+#  LOS BARRIDOS (por SueloRoto: la ficha dice cual)
+# ------------------------------------------------------------
+# 'espera' = segundos hasta el golpe. El barrido del Quebrantador y el de los Tendones EMPIEZAN en el golpe
+# y le llegan a cada uno al pasar (retraso); los dos del Doble tajo acaban en sus golpes, como el Segar.
+static func barrido(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> EspadaAire:
+	if padre == null or f == null:
+		return null
+	var e := EspadaAire.new()
+	e.modo = m
+	e.forma = f
+	e._rng.seed = semilla
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
+	e._t = (T_BARRE if m == Modo.CRUZ else 0.0) - espera * e._ritmo
+	e.z_as_relative = false
+	e.z_index = SueloRoto.Z_SUELO
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	return e
+
+
+# CUANDO LE LLEGA a 'p' el golpe del barrido, en segundos desde el golpe (la misma cuenta que el dibujo).
+static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
+	if m == Modo.CRUZ or f == null:
+		return 0.0
+	var o: Vector2 = SueloRoto.origen_de(f)
+	var mitad: float = deg_to_rad(f.apertura * 0.5)
+	if mitad <= 0.001 or p.distance_squared_to(o) < 0.01:
+		return 0.0
+	var fr: float = clampf(angle_difference(f.dir.angle() - mitad, (p - o).angle()) / (2.0 * mitad), 0.0, 1.0)
+	# La cabeza va a lerp(izq, der, s^2) (como el hachazo): le llega cuando s = sqrt(fr).
+	return T_BARRE * sqrt(fr)
+
+
+static func t_salir(m: int) -> float:
+	return 2.0 * T_ENTRE if m == Modo.CRUZ else T_BARRE
+
+
+# ------------------------------------------------------------
+#  UN GOLPE SOBRE UN CUERPO (como DagaAire.golpe)
+# ------------------------------------------------------------
 static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool, crit: bool, n: int,
 		semilla: int, espera: float, ritmo: float) -> EspadaAire:
 	if padre == null:
@@ -72,23 +136,55 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	padre.add_child(e)
-	e._desde = desde
 	e._caja = caja
 	e._fallo = fallo
 	e._crit = crit
 	e._n = n
 	e._t = -maxf(espera, 0.0)
-	e._preparar()
+	e._c = caja.get_center() if caja.has_area() else desde
+	e._pies = Vector2(e._c.x, caja.end.y) if caja.has_area() else e._c + Vector2(0.0, ALTO_TORSO)
+	e._dir = (e._c - desde).normalized() if e._c.distance_squared_to(desde) > 0.01 else Vector2.RIGHT
+	e._preparar_golpe()
 	return e
 
 
 func duracion() -> float:
 	match modo:
-		Modo.QUEBRANTADOR: return T_PEDAZOS + 0.1
-		Modo.DOBLE: return T_QUEDA + T_APAGA + 0.1
-		Modo.SENALAR: return (T_DIANA if _n == 1 else T_APAGA) + 0.15
-		Modo.TENDONES: return T_POLVO + 0.1
-	return T_APAGA + 0.1
+		Modo.QUIEBRA, Modo.TENDON: return T_BARRE + T_SUELO + T_SUELO_APAGAR + 0.1
+		Modo.CRUZ: return T_ENTRE + T_BARRE + T_CLAVADO + T_APAGA_SECO + 0.3
+		Modo.QUEBRANTADOR: return T_PEDAZOS + 0.4
+		Modo.SENALAR: return (T_DIANA if _n == 1 else T_SALE + T_APAGA + 0.1) + 0.15
+		Modo.TENDONES: return T_POLVO + 0.4
+	return T_SALE + 0.08 + T_APAGA + 0.1
+
+
+func _ready() -> void:
+	if forma == null:
+		return
+	# EL BARRIDO: capas detras y delante del que pega (la estela le rodea de verdad).
+	_centro = forma.origen
+	_dir = forma.dir.normalized() if forma.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	_atras = _capa(Game.Z_PERSONAJES - 1)
+	_delante = _capa(Game.Z_PERSONAJES + 80)
+	for i in 18:
+		_chispas.append({"t0": _rng.randf_range(0.0, T_BARRE * (2.0 if modo == Modo.CRUZ else 1.0)
+			+ (T_ENTRE - T_BARRE if modo == Modo.CRUZ else 0.0)),
+			"vel": _rng.randf_range(90.0, 170.0), "abre": _rng.randf_range(0.1, 0.7)})
+	if modo == Modo.TENDON:
+		for i in 14:
+			var u: float = (float(i) + _rng.randf_range(0.0, 1.0)) / 14.0
+			_tierra.append({"u": u, "r": forma.radio * _rng.randf_range(0.45, 0.95),
+				"v": Vector2(_rng.randf_range(15.0, 35.0), _rng.randf_range(35.0, 75.0)),
+				"tam": _rng.randf_range(1.2, 2.4)})
+
+
+func _capa(z: int) -> Node2D:
+	var n := Node2D.new()
+	n.z_as_relative = false
+	n.z_index = z
+	add_child(n)
+	n.draw.connect(_dibujar_capa.bind(n))
+	return n
 
 
 func _process(delta: float) -> void:
@@ -97,69 +193,238 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	queue_redraw()
+	if _atras != null:
+		_atras.queue_redraw()
+		_delante.queue_redraw()
 	if _suelo != null:
 		_suelo.queue_redraw()
 
 
 # ------------------------------------------------------------
-#  PREPARAR
+#  EL BARRIDO
 # ------------------------------------------------------------
-func _preparar() -> void:
-	_c = _caja.get_center() if _caja.has_area() else _desde
-	var alto: float = _caja.size.y if _caja.has_area() else 24.0
-	_pies = Vector2(_c.x, _caja.end.y) if _caja.has_area() else _c + Vector2(0.0, ALTO_TORSO)
-	_dir = (_c - _desde).normalized() if _c.distance_squared_to(_desde) > 0.01 else Vector2.RIGHT
-	_r = clampf(alto * 0.8, 13.0, 24.0)
-	# El eje del tajo (el angulo de la cuerda) y lo que abre el arco, por habilidad.
-	var eje: float
-	var abre: float = 55.0
+func _dibujar_capa(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var mitad: float = deg_to_rad(forma.apertura * 0.5)
+	var izq: float = _dir.angle() - mitad
+	var der: float = _dir.angle() + mitad
+	var r: float = forma.radio
 	match modo:
-		Modo.QUEBRANTADOR:
-			eje = _rng.randf_range(-0.12, 0.12)       # horizontal y ancho
-			_r *= 1.25
-			abre = 68.0
-		Modo.DOBLE:
-			eje = (-0.8 if _n % 2 == 0 else 0.8) + _rng.randf_range(-0.08, 0.08)   # la cruz
+		Modo.QUIEBRA, Modo.TENDON:
+			var alto: float = ALTO_CINTURA if modo == Modo.QUIEBRA else ALTO_SUELO
+			_barrido(capa, 0.0, izq, der, r * 0.95, r * (0.55 if modo == Modo.QUIEBRA else 0.42),
+				func(_a: float) -> float: return alto, 20.0 if modo == Modo.QUIEBRA else 15.0)
+			_chispas_barrido(capa, r * 0.95, func(t: float) -> float:
+				return lerpf(izq, der, pow(clampf(t / T_BARRE, 0.0, 1.0), 2.0)),
+				func(_a: float) -> float: return alto)
+			if modo == Modo.TENDON:
+				_dibujar_tierra(capa, izq, der)
+		Modo.CRUZ:
+			# Ida BAJANDO (de la cabeza a las rodillas) y vuelta SUBIENDO: delante de ti se cruzan en X.
+			for k in 2:
+				var desde: float = izq if k == 0 else der
+				var hasta: float = der if k == 0 else izq
+				var alto_de := func(a: float) -> float:
+					var u: float = clampf((a - desde) / (hasta - desde), 0.0, 1.0)
+					return lerpf(18.0, 2.0, u) if k == 0 else lerpf(2.0, 18.0, u)
+				_barrido(capa, float(k) * T_ENTRE, desde, hasta, r * 0.92, r * 0.42, alto_de, 16.0)
+
+
+# UN BARRIDO del hachazo (HachaAire._barrido): de 'desde' a 'hasta' empezando en 't0' (s^2: lento al salir,
+# rapidisimo al final), se queda CLAVADO un instante con la cola recogiendose y se apaga de golpe. Destello
+# al clavarse. 'alto_de' = Callable(angulo) -> altura del filo ahi.
+func _barrido(capa: Node2D, t0: float, desde: float, hasta: float, r: float, grueso: float, alto_de: Callable,
+		destello_r: float) -> void:
+	var tk: float = _t - t0
+	if tk < 0.0:
+		return
+	var s: float = clampf(tk / T_BARRE, 0.0, 1.0)
+	var cabeza: float = lerpf(desde, hasta, s * s)
+	var tc: float = tk - T_BARRE
+	var apaga: float = clampf((tc - T_CLAVADO) / T_APAGA_SECO, 0.0, 1.0)
+	if apaga >= 1.0:
+		return
+	var recoge: float = clampf(tc / T_CLAVADO, 0.0, 1.0) if tc > 0.0 else 0.0
+	var sentido: float = signf(hasta - desde)
+	var cola: float = cabeza - sentido * minf(COLA * (1.0 - 0.55 * recoge), absf(cabeza - desde))
+	_mordisco(capa, cola, cabeza, r, grueso, alto_de, 0.95 * (1.0 - apaga))
+	var h: float = float(alto_de.call(cabeza))
+	var p: Vector2 = _en_arco(cabeza, r, h)
+	if _es_mia(capa, p, h):
+		var pulso: float = exp(-absf(tc) / 0.04)
+		BarridoAire.destello(capa, p, destello_r * (0.3 + 0.9 * pulso), Color(BLANCO, (1.0 - apaga) * (0.5 + 0.5 * pulso)),
+			_t * 2.0)
+
+
+# LA MEDIA LUNA (copia de HachaAire._mordisco): la CABEZA gorda que se corta en seco, fina hacia la cola. De
+# fuera hacia dentro: el filo blanco y duro, acero, un velo AZUL ACERO (el del hacha es rojo) y nada.
+func _mordisco(capa: Node2D, a_cola: float, a_cabeza: float, r: float, grueso: float, alto_de: Callable,
+		alfa: float) -> void:
+	if alfa <= 0.0 or absf(a_cabeza - a_cola) < 0.01:
+		return
+	var n: int = maxi(8, int(absf(a_cabeza - a_cola) / 0.06))
+	var fr: Array = [0.0, 0.1, 0.38, 0.72, 1.0]
+	var cols: Array = [BLANCO, ACERO, ACERO_AZUL, ACERO_AZUL, ACERO_AZUL]
+	var al: Array = [1.0, 0.95, 0.6, 0.28, 0.0]
+	for i in n:
+		var s0: float = float(i) / float(n)
+		var s1: float = float(i + 1) / float(n)
+		var a0: float = lerpf(a_cola, a_cabeza, s0)
+		var a1: float = lerpf(a_cola, a_cabeza, s1)
+		var h0: float = float(alto_de.call(a0))
+		var h1: float = float(alto_de.call(a1))
+		if not _es_mia(capa, _en_arco((a0 + a1) * 0.5, r, (h0 + h1) * 0.5), (h0 + h1) * 0.5):
+			continue
+		var g0: float = grueso * (0.1 + 0.9 * pow(s0, 1.4))
+		var g1: float = grueso * (0.1 + 0.9 * pow(s1, 1.4))
+		var l0: float = alfa * (0.3 + 0.7 * s0)
+		var l1: float = alfa * (0.3 + 0.7 * s1)
+		for k in fr.size() - 1:
+			var p00: Vector2 = _en_arco(a0, r - g0 * float(fr[k]), h0)
+			var p10: Vector2 = _en_arco(a1, r - g1 * float(fr[k]), h1)
+			var p01: Vector2 = _en_arco(a0, r - g0 * float(fr[k + 1]), h0)
+			var p11: Vector2 = _en_arco(a1, r - g1 * float(fr[k + 1]), h1)
+			var c00 := Color(cols[k], l0 * float(al[k]))
+			var c10 := Color(cols[k], l1 * float(al[k]))
+			var c01 := Color(cols[k + 1], l0 * float(al[k + 1]))
+			var c11 := Color(cols[k + 1], l1 * float(al[k + 1]))
+			capa.draw_primitive(PackedVector2Array([p00, p10, p11]), PackedColorArray([c00, c10, c11]), PackedVector2Array())
+			capa.draw_primitive(PackedVector2Array([p00, p11, p01]), PackedColorArray([c00, c11, c01]), PackedVector2Array())
+
+
+# LA MARCA EN EL SUELO del barrido (HachaAire._tajo_arco/_gasa): oscura en el centro con el labio claro por
+# fuera, afilada en las puntas. Se queda un rato y se va.
+func _marca_suelo(a0: float, a1: float, r: float, ancho: float, alfa: float) -> void:
+	if alfa <= 0.0 or absf(a1 - a0) < 0.02:
+		return
+	var n: int = maxi(6, int(absf(a1 - a0) / 0.07))
+	var pts := PackedVector2Array()
+	for i in n + 1:
+		var a: float = lerpf(a0, a1, float(i) / float(n))
+		pts.append(_centro + Vector2(cos(a), sin(a)) * r)
+	for capa_i in 2:
+		var w_k: float = 2.2 if capa_i == 0 else 1.0
+		for i in n:
+			var s0: float = float(i) / float(n)
+			var s1: float = float(i + 1) / float(n)
+			var d: Vector2 = (pts[i + 1] - pts[i]).normalized().orthogonal()
+			var w0: float = ancho * w_k * pow(sin(PI * s0), 0.6)
+			var w1: float = ancho * w_k * pow(sin(PI * s1), 0.6)
+			if capa_i == 0:
+				var cl := Color(LABIO, 0.45 * alfa)
+				var trl := Color(LABIO, 0.0)
+				for lado in [1.0, -1.0]:
+					var q0: Vector2 = pts[i] + d * w0 * 0.4 * lado
+					var q1: Vector2 = pts[i + 1] + d * w1 * 0.4 * lado
+					var e0: Vector2 = pts[i] + d * w0 * lado
+					var e1: Vector2 = pts[i + 1] + d * w1 * lado
+					draw_primitive(PackedVector2Array([q0, q1, e1]), PackedColorArray([cl, cl, trl]), PackedVector2Array())
+					draw_primitive(PackedVector2Array([q0, e1, e0]), PackedColorArray([cl, trl, trl]), PackedVector2Array())
+			else:
+				var co := Color(OSCURO, 0.85 * alfa)
+				draw_primitive(PackedVector2Array([pts[i] + d * w0 * 0.45, pts[i + 1] + d * w1 * 0.45,
+					pts[i + 1] - d * w1 * 0.45]), PackedColorArray([co, co, co]), PackedVector2Array())
+				draw_primitive(PackedVector2Array([pts[i] + d * w0 * 0.45, pts[i + 1] - d * w1 * 0.45,
+					pts[i] - d * w0 * 0.45]), PackedColorArray([co, co, co]), PackedVector2Array())
+
+
+# Un punto del arco alrededor de quien pega, a 'alto' px de pantalla sobre el suelo.
+func _en_arco(a: float, r: float, alto: float) -> Vector2:
+	return _centro + Vector2(cos(a), sin(a)) * r + Vector2(0.0, -alto)
+
+
+func _es_mia(capa: Node2D, p: Vector2, alto: float) -> bool:
+	return (p.y < _centro.y - alto) == (capa == _atras)
+
+
+# Las chispas que suelta la punta al pasar (BarridoAire._chispas).
+func _chispas_barrido(capa: Node2D, r: float, cabeza_en: Callable, alto_de: Callable) -> void:
+	for ch in _chispas:
+		var t0: float = float(ch["t0"])
+		var tp: float = _t - t0
+		if tp < 0.0 or tp > 0.2 or t0 > T_BARRE:
+			continue
+		var a: float = float(cabeza_en.call(t0))
+		var h: float = float(alto_de.call(a))
+		var tang: Vector2 = Vector2(-sin(a), cos(a))
+		var v: Vector2 = (tang + Vector2(cos(a), sin(a)) * float(ch["abre"])).normalized() * float(ch["vel"])
+		var p0: Vector2 = _en_arco(a, r * 0.97, h) + v * tp
+		if not _es_mia(capa, p0, h):
+			continue
+		BarridoAire.cometa(capa, p0 - v.normalized() * 6.0, p0, 1.6, Color(BLANCO, 0.9 * (1.0 - tp / 0.2)))
+
+
+# La tierra que salta al paso del barrido bajo (como la del Segar).
+func _dibujar_tierra(capa: Node2D, izq: float, der: float) -> void:
+	for m in _tierra:
+		var u: float = float(m["u"])
+		var cuando: float = T_BARRE * sqrt(u)
+		var tp: float = _t - cuando
+		if tp < 0.0 or tp > 0.45:
+			continue
+		var ang: float = lerpf(izq, der, u)
+		var v: Vector2 = m["v"]
+		var z: float = v.y * tp - SueloRoto.GRAVEDAD_PIEDRAS * tp * tp
+		if z < 0.0:
+			continue
+		var p2: Vector2 = _centro + Vector2(cos(ang), sin(ang)) * (float(m["r"]) + v.x * tp) \
+			+ Vector2(0.0, -z * SueloRoto.K_ALTO)
+		if not _es_mia(capa, p2, 0.0):
+			continue
+		var tam: float = float(m["tam"])
+		capa.draw_rect(Rect2(p2 - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), TIERRA)
+
+
+# ------------------------------------------------------------
+#  LA PINCELADA (copia del basico del mandoble: BarridoAire._tajo_basico)
+# ------------------------------------------------------------
+func _preparar_golpe() -> void:
+	var alto: float = _caja.size.y if _caja.has_area() else 24.0
+	_largo = clampf(alto * 0.9, 16.0, 28.0)
+	# Hacia el lado al que golpeas (como el mandoble); si le pegas de frente o de espaldas, alterna.
+	var lado: float = signf(_dir.x) if absf(_dir.x) > 0.25 else (1.0 if _rng.randf() < 0.5 else -1.0)
+	# Cada golpe CRUZA el anterior: con dos espadas (o el Doble tajo) sale una X sobre el cuerpo.
+	if _n % 2 == 1:
+		lado = -lado
+	_trazo = Vector2(0.55 * lado, 1.0).normalized()
+	match modo:
 		Modo.RITMO:
-			eje = float([-0.5, 0.5, 1.2][_n % 3]) + _rng.randf_range(-0.2, 0.2)
-			_r *= 0.8
-			abre = 48.0
+			# Pasas de largo: un tajo TUMBADO cruzando el cuerpo, un pelo inclinado hacia el lado por el que pasas.
+			# (Siguiendo la direccion de la carrera, al N y al S salia una raya vertical.)
+			_trazo = Vector2(1.0, 0.3 * lado).normalized()
+			_largo *= 1.15
 		Modo.SENALAR:
-			# EL MISMO SITIO en los dos cortes: el angulo sale de donde esta el cuerpo, no de la semilla.
-			eje = fposmod(_caja.position.x * 0.37 + _caja.position.y * 0.61, 1.6) - 0.8
+			# LAS DOS EN EL MISMO SITIO: el angulo sale del cuerpo, no del golpe ni de la semilla.
+			var l2: float = 1.0 if fposmod(_caja.position.x * 0.37 + _caja.position.y * 0.61, 2.0) < 1.0 else -1.0
+			_trazo = Vector2(0.55 * l2, 1.0).normalized()
 		Modo.TENDONES:
-			eje = _rng.randf_range(-0.1, 0.1)         # plano, a ras de las piernas
-			_c = Vector2(_c.x, (_caja.end.y - alto * 0.14) if _caja.has_area() else _c.y + 8.0)
-			_r *= 1.05
-			abre = 62.0
-		_:
-			var angs: Array = [-0.7, 0.7, 1.4, -0.35, 0.35]
-			eje = float(angs[(_n + _rng.randi_range(0, 4)) % angs.size()]) + _rng.randf_range(-0.2, 0.2)
+			# La de mas (dos espadas), baja y casi plana, a las piernas.
+			_trazo = Vector2(1.0, 0.18 * lado).normalized()
+			_c = Vector2(_c.x, (_caja.end.y - alto * 0.18) if _caja.has_area() else _c.y + 8.0)
 	if _fallo:
-		var lado: float = 1.0 if _rng.randf() < 0.5 else -1.0
-		_c += Vector2(lado * (_caja.size.x * 0.7 + 5.0), 0.0)
-	var medio: float = eje + PI * 0.5
-	_o = _c - Vector2(cos(medio), sin(medio)) * _r
-	var sentido: float = 1.0 if _rng.randf() < 0.5 else -1.0
-	_a_ini = medio - sentido * deg_to_rad(abre)
-	_a_fin = medio + sentido * deg_to_rad(abre)
-	_grueso = _r * (0.45 if modo == Modo.TENDONES else 0.62)
-	if modo == Modo.QUEBRANTADOR and not _fallo:
-		# Los PEDAZOS de la guardia: salen de la placa hacia atras y a los lados, y caen.
+		_c += Vector2((1.0 if _rng.randf() < 0.5 else -1.0) * (_caja.size.x * 0.75 + 4.0), 0.0)
+	# Semilla propia de la pincelada: en el Señalar, la misma en los dos golpes (salen identicas).
+	var rp := RandomNumberGenerator.new()
+	rp.seed = int(_caja.position.x * 13.0 + _caja.position.y * 7.0) if modo == Modo.SENALAR else _rng.seed + 11
+	for i in 25:
+		_borde_a.append(rp.randf_range(0.75, 1.2))
+		_borde_b.append(rp.randf_range(0.75, 1.2))
+	for _k in 2:
+		_borde_a[rp.randi_range(4, 20)] *= 0.45
+	for _k in 4:
+		_motas.append({"s": rp.randf_range(0.05, 0.95), "off": rp.randf_range(-7.0, 7.0), "tam": rp.randf_range(0.8, 1.8)})
+	if modo == Modo.QUEBRANTADOR and _n == 0 and not _fallo:
+		# Los PEDAZOS de la guardia: una placa delante del cuerpo que salta hacia atras y a los lados.
 		var placa: Vector2 = _placa()
 		var lado_p: Vector2 = _dir.orthogonal()
-		for i in 8:
-			var u: float = (float(i) / 7.0) * 2.0 - 1.0
-			_pedazos.append({"p": placa + lado_p * u * _r * 0.9,
-				"v": (_dir * _rng.randf_range(40.0, 95.0) + lado_p * u * _rng.randf_range(30.0, 70.0)
-					+ Vector2(0.0, -_rng.randf_range(30.0, 80.0))),
+		for i in 5:
+			var u: float = (float(i) / 4.0) * 2.0 - 1.0
+			_pedazos.append({"p": placa + lado_p * u * 9.0 + Vector2(0.0, _rng.randf_range(-6.0, 6.0)),
+				"v": _dir * _rng.randf_range(40.0, 95.0) + lado_p * u * _rng.randf_range(30.0, 70.0)
+					+ Vector2(0.0, -_rng.randf_range(30.0, 80.0)),
 				"tam": _rng.randf_range(2.2, 4.0), "giro": _rng.randf() * TAU, "gira": _rng.randf_range(-14.0, 14.0)})
-	if modo == Modo.RITMO:
-		# Las tres marcas del compas, a un lado y por encima del cuerpo, en fila.
-		var lado_m: Vector2 = _dir.orthogonal() * (1.0 if _rng.randf() < 0.5 else -1.0)
-		for i in 3:
-			_marcas.append(_c + Vector2(0.0, -_r * 0.9) + lado_m * (float(i) - 1.0) * 8.0)
-	if modo == Modo.TENDONES:
+	if modo == Modo.TENDONES and _n == 0:
 		_suelo = Node2D.new()
 		_suelo.z_as_relative = false
 		_suelo.z_index = SueloRoto.Z_SUELO
@@ -167,189 +432,115 @@ func _preparar() -> void:
 		_suelo.draw.connect(_dibujar_polvo)
 
 
-# Donde va la placa de la guardia: delante del cuerpo, del lado del que pega.
 func _placa() -> Vector2:
 	var h: float = (_caja.size.x * 0.5) if _caja.has_area() else 8.0
-	return _caja.get_center() - _dir * (h + 2.0) if _caja.has_area() else _c - _dir * 8.0
+	return _caja.get_center() - _dir * (h + 2.0)
 
 
-# ------------------------------------------------------------
-#  DIBUJAR
-# ------------------------------------------------------------
+func _con_pincelada() -> bool:
+	match modo:
+		Modo.QUEBRANTADOR, Modo.TENDONES: return _n >= 1
+		Modo.DOBLE: return _n >= 2
+	return true
+
+
 func _draw() -> void:
-	var quieto: float = T_QUEDA if modo == Modo.DOBLE else 0.0
-	_dibujar_tajo(quieto)
+	if forma != null:
+		# EL BARRIDO: aqui solo su marca en el suelo (lo del aire va en sus capas). El Doble tajo no la deja:
+		# va por el aire, a la altura del pecho.
+		if modo != Modo.CRUZ and _t >= 0.0:
+			var mitad: float = deg_to_rad(forma.apertura * 0.5)
+			var izq: float = _dir.angle() - mitad
+			var hasta: float = lerpf(izq, izq + 2.0 * mitad, pow(clampf(_t / T_BARRE, 0.0, 1.0), 2.0))
+			var tv: float = _t - T_BARRE
+			var alfa_s: float = 1.0 - clampf((tv - T_SUELO) / T_SUELO_APAGAR, 0.0, 1.0)
+			_marca_suelo(izq, hasta, forma.radio * (0.78 if modo == Modo.QUIEBRA else 0.72),
+				1.6 if modo == Modo.QUIEBRA else 2.4, alfa_s)
+		return
+	if _con_pincelada():
+		_pincelada(1.0 if not (modo == Modo.SENALAR and _n == 1) else 1.25)
 	match modo:
 		Modo.QUEBRANTADOR: _dibujar_guardia()
-		Modo.DOBLE: _dibujar_cruz()
-		Modo.RITMO: _dibujar_compas()
 		Modo.SENALAR: _dibujar_diana()
 
 
-# LA MEDIA LUNA, que crece de punta a punta hasta el golpe y se va desde la cola. 'quieto' = lo que se
-# queda entera despues del golpe antes de empezar a irse (la cruz del Doble tajo).
-func _dibujar_tajo(quieto: float) -> void:
-	if _t < -T_TAJO:
-		return
-	var p: float = clampf((_t + T_TAJO) / T_TAJO, 0.0, 1.0)
-	p = 1.0 - (1.0 - p) * (1.0 - p)
-	var cabeza: float = lerpf(_a_ini, _a_fin, p)
-	var tv: float = _t - quieto
-	var va: float = clampf(tv / T_APAGA, 0.0, 1.0) if tv > 0.0 else 0.0
-	var cola: float = lerpf(_a_ini, _a_fin, va * 0.85)
-	var alfa: float = (0.4 if _fallo else 1.0) * (1.0 - va)
-	if alfa <= 0.0:
-		return
-	# UN ECO detras, un poco mas pequeño: el peso de la hoja.
-	var o_e: Vector2 = _c - (_c - _o) * 0.86 - _dir * 3.0
-	_media_luna(o_e, _r * 0.86, cola, lerpf(_a_ini, cabeza, 0.85), _grueso * 0.8, alfa * 0.3)
-	_media_luna(_o, _r, cola, cabeza, _grueso, alfa)
-	if not _fallo:
-		var pulso: float = exp(-absf(_t) / 0.04)
-		var rd: float = (11.0 if _crit else 6.0) * (0.3 + 0.9 * pulso)
-		BarridoAire.destello(self, _c, rd, Color(BLANCO, (1.0 - va) * (0.35 + 0.65 * pulso)), 0.3 + float(_n))
+func _punto(s: float, lado: float) -> Vector2:
+	var nor: Vector2 = Vector2(-_trazo.y, _trazo.x)
+	return _c + _trazo * (s - 0.5) * _largo + nor * (sin(PI * s) * _largo * 0.07 + lado)
 
 
-# Copia de DagaAire._media_luna: el FILO de fuera blanco y duro, que se difumina hacia dentro por el acero.
-func _media_luna(o: Vector2, r: float, a_cola: float, a_cab: float, grueso: float, alfa: float) -> void:
-	if alfa <= 0.0 or absf(a_cab - a_cola) < 0.02:
-		return
-	var n: int = 14
-	var fr: Array = [0.0, 0.15, 0.55, 1.0]
-	var cols: Array = [BLANCO, BLANCO, ACERO, ACERO]
-	var al: Array = [1.0, 0.9, 0.45, 0.0]
-	for i in n:
-		var s0: float = float(i) / float(n)
-		var s1: float = float(i + 1) / float(n)
-		var a0: float = lerpf(a_cola, a_cab, s0)
-		var a1: float = lerpf(a_cola, a_cab, s1)
-		var w0: float = grueso * pow(sin(PI * s0), 0.7)
-		var w1: float = grueso * pow(sin(PI * s1), 0.7)
-		var l0: float = alfa * (0.35 + 0.65 * s0)
-		var l1: float = alfa * (0.35 + 0.65 * s1)
-		var u0 := Vector2(cos(a0), sin(a0))
-		var u1 := Vector2(cos(a1), sin(a1))
-		for k in fr.size() - 1:
-			var p00: Vector2 = o + u0 * (r - w0 * float(fr[k]))
-			var p10: Vector2 = o + u1 * (r - w1 * float(fr[k]))
-			var p01: Vector2 = o + u0 * (r - w0 * float(fr[k + 1]))
-			var p11: Vector2 = o + u1 * (r - w1 * float(fr[k + 1]))
-			var c00 := Color(cols[k], l0 * float(al[k]))
-			var c10 := Color(cols[k], l1 * float(al[k]))
-			var c01 := Color(cols[k + 1], l0 * float(al[k + 1]))
-			var c11 := Color(cols[k + 1], l1 * float(al[k + 1]))
-			draw_primitive(PackedVector2Array([p00, p10, p11]), PackedColorArray([c00, c10, c11]), PackedVector2Array())
-			draw_primitive(PackedVector2Array([p00, p11, p01]), PackedColorArray([c00, c11, c01]), PackedVector2Array())
-
-
-# LA GUARDIA QUE SE ROMPE: una placa de luz curva delante del cuerpo que aparece justo antes del golpe y,
-# al llegar el tajo, salta en pedazos (cuñas de luz que giran y caen).
-func _dibujar_guardia() -> void:
-	if _fallo:
-		return
-	var placa: Vector2 = _placa()
-	if _t < 0.0 and _t >= -T_TAJO * 1.5:
-		var k: float = 1.0 + _t / (T_TAJO * 1.5)
-		# La placa: una media luna de luz azulada de cara al que pega.
-		var ang: float = (-_dir).angle()
-		var o: Vector2 = placa + _dir * _r * 0.9
-		var cuerda: float = deg_to_rad(42.0)
-		_media_luna_color(o, _r * 0.9, ang - cuerda, ang + cuerda, 5.0, 0.75 * k, GUARDIA)
-		BarridoAire.brillo(self, placa, _r * 0.8, Color(GUARDIA, 0.25 * k))
-		return
+# UN CORTE SOBRE EL CUERPO: un solo trazo, afilado en las puntas y mas grueso en medio, bordes rotos y
+# alguna mota. 'grueso' lo engorda (la segunda del Señalar, encima de la primera).
+func _pincelada(grueso: float) -> void:
 	if _t < 0.0:
 		return
-	# El REVENTON y los pedazos.
+	var sale: float = clampf(_t / T_SALE, 0.0, 1.0)
+	var apaga: float = clampf((_t - T_SALE - 0.08) / T_APAGA, 0.0, 1.0)
+	var alfa: float = (0.45 if _fallo else 1.0) * (1.0 - apaga)
+	if alfa <= 0.0:
+		return
+	var n: int = _borde_a.size() - 1
+	var fino: float = 1.0 - 0.5 * apaga
+	for capa_i in 2:
+		var ancho_k: float = (1.7 if capa_i == 0 else 1.0) * grueso
+		var col: Color = Color(AIRE, 0.25 * alfa) if capa_i == 0 else Color(BLANCO, 0.95 * alfa)
+		for i in n:
+			var s0: float = float(i) / float(n)
+			var s1: float = float(i + 1) / float(n)
+			if s1 > sale:
+				break
+			var w0: float = 1.5 * pow(sin(PI * s0), 1.3) * ancho_k * fino
+			var w1: float = 1.5 * pow(sin(PI * s1), 1.3) * ancho_k * fino
+			var a0: Vector2 = _punto(s0, w0 * _borde_a[i])
+			var a1: Vector2 = _punto(s1, w1 * _borde_a[i + 1])
+			var b0: Vector2 = _punto(s0, -w0 * _borde_b[i])
+			var b1: Vector2 = _punto(s1, -w1 * _borde_b[i + 1])
+			var cols := PackedColorArray([col, col, col])
+			draw_primitive(PackedVector2Array([a0, a1, b1]), cols, PackedVector2Array())
+			draw_primitive(PackedVector2Array([a0, b1, b0]), cols, PackedVector2Array())
+	for m in _motas:
+		if float(m["s"]) > sale:
+			continue
+		var p: Vector2 = _punto(float(m["s"]), float(m["off"]) * (1.0 + apaga))
+		var tam: float = float(m["tam"])
+		draw_rect(Rect2(p - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(BLANCO, 0.8 * alfa))
+	if not _fallo:
+		var pulso: float = exp(-_t / 0.05)
+		if pulso > 0.05:
+			BarridoAire.destello(self, _c, (5.0 if not _crit else 8.0) + 7.0 * pulso, Color(BLANCO, 0.85 * pulso), 0.4)
+
+
+# LA GUARDIA QUE SE ROMPE (Quebrantador, en el golpe del barrido): un destello azulado delante del cuerpo y
+# los pedazos, cuñas de luz que giran y caen.
+func _dibujar_guardia() -> void:
+	if _fallo or _pedazos.is_empty() or _t < 0.0:
+		return
+	var placa: Vector2 = _placa()
 	var kf: float = clampf(_t / 0.12, 0.0, 1.0)
-	BarridoAire.brillo(self, placa, _r * (0.6 + 0.8 * kf), Color(GUARDIA, 0.5 * (1.0 - kf)))
+	BarridoAire.brillo(self, placa, 10.0 + 12.0 * kf, Color(GUARDIA, 0.55 * (1.0 - kf)))
+	BarridoAire.destello(self, placa, 12.0 * (1.0 - kf * 0.5), Color(BLANCO, 1.0 - kf), _dir.angle())
 	for pz in _pedazos:
 		var q: Vector2 = (pz["p"] as Vector2) + (pz["v"] as Vector2) * _t + Vector2(0.0, 0.5 * GRAVEDAD * _t * _t)
 		var a: float = float(pz["giro"]) + float(pz["gira"]) * _t
 		var s: float = float(pz["tam"])
 		var alfa: float = clampf(1.0 - _t / T_PEDAZOS, 0.0, 1.0)
 		var d := Vector2(cos(a), sin(a))
-		var n: Vector2 = d.orthogonal() * s * 0.45
-		draw_primitive(PackedVector2Array([q - d * s, q + n, q + d * s * 0.8, q - n]),
+		var nn: Vector2 = d.orthogonal() * s * 0.45
+		draw_primitive(PackedVector2Array([q - d * s, q + nn, q + d * s * 0.8, q - nn]),
 			PackedColorArray([Color(GUARDIA, alfa * 0.5), Color(BLANCO, alfa), Color(GUARDIA, alfa * 0.8),
 				Color(BLANCO, alfa)]), PackedVector2Array())
 
 
-# Una media luna de un solo color (la placa de la guardia).
-func _media_luna_color(o: Vector2, r: float, a0: float, a1: float, grueso: float, alfa: float, col: Color) -> void:
-	var n: int = 10
-	for i in n:
-		var s0: float = float(i) / float(n)
-		var s1: float = float(i + 1) / float(n)
-		var u0 := Vector2(cos(lerpf(a0, a1, s0)), sin(lerpf(a0, a1, s0)))
-		var u1 := Vector2(cos(lerpf(a0, a1, s1)), sin(lerpf(a0, a1, s1)))
-		var w0: float = grueso * pow(sin(PI * s0), 0.6)
-		var w1: float = grueso * pow(sin(PI * s1), 0.6)
-		var fuera := Color(BLANCO, alfa)
-		var dentro := Color(col, 0.0)
-		draw_primitive(PackedVector2Array([o + u0 * r, o + u1 * r, o + u1 * (r - w1)]),
-			PackedColorArray([fuera, fuera, dentro]), PackedVector2Array())
-		draw_primitive(PackedVector2Array([o + u0 * r, o + u1 * (r - w1), o + u0 * (r - w0)]),
-			PackedColorArray([fuera, dentro, dentro]), PackedVector2Array())
-
-
-# LA CRUZ se cierra con el segundo corte: destello grande en el cruce.
-func _dibujar_cruz() -> void:
-	if _fallo or _n % 2 == 0 or _t < 0.0:
-		return
-	var k: float = clampf(_t / (T_QUEDA * 0.8), 0.0, 1.0)
-	var pulso: float = sin(PI * k)
-	BarridoAire.destello(self, _c, (20.0 if _crit else 15.0) * (0.4 + 0.6 * pulso), Color(BLANCO, pulso), PI * 0.25)
-	BarridoAire.brillo(self, _c, _r * 1.1, Color(ACERO, 0.3 * pulso))
-
-
-# EL COMPAS QUE SE ROMPE: dos marcas que llegan a su tiempo y la tercera que llega ANTES (con el golpe) y
-# revienta en chispas.
-func _dibujar_compas() -> void:
-	if _fallo or _marcas.is_empty():
-		return
-	for i in 3:
-		var t0: float = -T_COMPAS * float(2 - i) - (0.0 if i == 2 else T_COMPAS * 0.6)
-		var tm: float = _t - t0
-		if tm < 0.0:
-			continue
-		var q: Vector2 = _marcas[i]
-		if i < 2:
-			var va: float = clampf((tm - 0.12) / 0.12, 0.0, 1.0)
-			var s: float = 3.0 * minf(tm / 0.03, 1.0)
-			_rombo(q, s, Color(BLANCO, 0.9 * (1.0 - va)))
-		else:
-			var kr: float = clampf(tm / 0.18, 0.0, 1.0)
-			if kr >= 1.0:
-				continue
-			BarridoAire.destello(self, q, 7.0 * (1.0 - kr * 0.5), Color(BLANCO, 1.0 - kr), 0.4)
-			for j in 4:
-				var a: float = TAU * float(j) / 4.0 + 0.4
-				var d := Vector2(cos(a), sin(a))
-				BarridoAire.cometa(self, q + d * 10.0 * kr * 0.4, q + d * (2.0 + 10.0 * kr), 1.8,
-					Color(BLANCO, 0.9 * (1.0 - kr)))
-
-
-func _rombo(c: Vector2, s: float, col: Color) -> void:
-	if col.a <= 0.0 or s <= 0.2:
-		return
-	var tr := Color(col, 0.0)
-	draw_primitive(PackedVector2Array([c + Vector2(0, -s * 1.3), c + Vector2(s, 0), c + Vector2(0, s * 1.3)]),
-		PackedColorArray([col, tr, col]), PackedVector2Array())
-	draw_primitive(PackedVector2Array([c + Vector2(0, -s * 1.3), c + Vector2(-s, 0), c + Vector2(0, s * 1.3)]),
-		PackedColorArray([col, tr, col]), PackedVector2Array())
-
-
-# LA DIANA del segundo corte: un anillo que se cierra sobre el sitio del corte, un punto en medio y cuatro
-# cuñas apuntando dentro. Se queda puesta y late, y se va sola.
+# LA DIANA del segundo corte (le gusto: "el efecto rojo esta guapo"): un anillo que se cierra sobre el corte,
+# un punto en medio y cuatro cuñas apuntando dentro. Se queda puesta, late y se va sola.
 func _dibujar_diana() -> void:
 	if _fallo or _n != 1 or _t < 0.0:
 		return
-	var cierra: float = clampf(_t / 0.12, 0.0, 1.0)
-	cierra = 1.0 - (1.0 - cierra) * (1.0 - cierra)
+	var cierra: float = 1.0 - pow(1.0 - clampf(_t / 0.12, 0.0, 1.0), 2.0)
 	var va: float = clampf((_t - (T_DIANA - 0.25)) / 0.25, 0.0, 1.0)
 	var late: float = 0.85 + 0.15 * sin(_t * 14.0)
 	var alfa: float = (1.0 - va) * minf(_t / 0.05, 1.0)
-	var r: float = lerpf(_r * 1.6, _r * 0.75, cierra) * late
+	var r: float = lerpf(_largo * 1.3, _largo * 0.6, cierra) * late
 	_anillo(_c, r, 2.6, Color(DIANA, 0.85 * alfa))
 	_anillo(_c, r * 0.45, 1.8, Color(DIANA_CLARA, 0.6 * alfa))
 	BarridoAire.brillo(self, _c, 3.5, Color(DIANA_CLARA, alfa))
@@ -359,7 +550,7 @@ func _dibujar_diana() -> void:
 		BarridoAire.cometa(self, _c + d * (r + 7.0), _c + d * (r + 1.0), 2.4, Color(DIANA, 0.9 * alfa))
 
 
-# Un anillo relleno, mas opaco en medio del grosor y transparente a los dos bordes (no una raya).
+# Un anillo relleno, opaco en medio del grosor y transparente a los dos bordes (no una raya).
 func _anillo(c: Vector2, r: float, grueso: float, col: Color) -> void:
 	if col.a <= 0.0:
 		return
@@ -377,14 +568,12 @@ func _anillo(c: Vector2, r: float, grueso: float, col: Color) -> void:
 				PackedColorArray([tr, col, col]), PackedVector2Array())
 
 
-# EL POLVO a los pies del Corte de tendones: el cuerpo cede y levanta tierra a los dos lados.
+# EL POLVO a los pies (Tendones, en el golpe del barrido): el cuerpo cede y levanta tierra a los lados.
 func _dibujar_polvo() -> void:
 	if _fallo or _t < 0.0:
 		return
 	var k: float = clampf(_t / T_POLVO, 0.0, 1.0)
-	var lado: Vector2 = Vector2(_dir.y, -_dir.x) if absf(_dir.x) < 0.3 else Vector2(1.0, 0.0)
 	for s in [-1.0, 1.0]:
 		for j in 3:
-			var q: Vector2 = _pies + lado * s * (4.0 + 14.0 * k * (0.6 + 0.3 * float(j))) \
-				+ Vector2(0.0, -2.0 - 3.0 * float(j) * k)
-			BarridoAire.brillo(_suelo, q, 4.0 + 5.0 * k, Color(POLVO, 0.45 * (1.0 - k)))
+			var q: Vector2 = _pies + Vector2(s * (4.0 + 14.0 * k * (0.6 + 0.3 * float(j))), -2.0 - 3.0 * float(j) * k)
+			BarridoAire.brillo(_suelo, q, 5.0 + 6.0 * k, Color(POLVO, 0.6 * (1.0 - k)))
