@@ -61,7 +61,9 @@ static func guardia(t: float, esc: bool, m: int) -> Dictionary:
 		p = {"brazo_der": 0.85 + 0.03 * s, "brazo_izq": -1.25 + 0.04 * s, "torsion": 0.4, "eje_der": EJE_SOLA,
 			"bote": 0.25 * s, "inclina": 0.06, "agacha": 0.30, "paso": 0.50}
 	if m == 1:
-		p["paso"] = float(p["paso"]) + 0.12 * s
+		# Las piernas se CRUZAN (antes 'guardia + 0.12 * s': la zancada de la guardia fija con un temblor, y se
+		# deslizaba "andando sin animacion").
+		p["paso"] = 0.10 + 0.40 * s
 		p["bote"] = 0.4 * absf(s)
 		p["agacha"] = float(p["agacha"]) - 0.06
 		p["inclina"] = float(p["inclina"]) + 0.04

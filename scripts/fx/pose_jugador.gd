@@ -686,6 +686,14 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 			Vector3(s * CODO.x, CODO.y, CODO.z), hombro, a)
 		p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = _girar_miembro(
 			Vector3(s * MANO.x, MANO.y, MANO.z), hombro, a)
+		# 'abre_izq' / 'abre_der' (25/09): el brazo gira TAMBIEN en horizontal sobre el hombro (positivo = la
+		# mano hacia FUERA de su lado, negativo = cruza por delante del cuerpo). Sin esto la unica forma de
+		# llevar la mano de lado era la torsion del tronco, y un tajo de 120 grados se quedaba en 40: la mano
+		# de delante no barria nada ("el brazo se mueve a lo mucho 40 y el ataque es de ciento y pico").
+		var ab: float = float(pose.get("abre_izq" if lado == 0 else "abre_der", 0.0))
+		if not is_zero_approx(ab):
+			for pk in [P_CODO_IZQ if lado == 0 else P_CODO_DER, P_MANO_IZQ if lado == 0 else P_MANO_DER]:
+				p[pk] = _girar_xy(p[pk], hombro, -s * ab)
 		# 'junta_izq' / 'junta_der': lo mismo pero de UNA mano (la guardia de la daga recoge la izquierda
 		# junto al pecho y deja la derecha estirada).
 		var jn: float = clampf(float(pose.get("junta_izq" if lado == 0 else "junta_der", junta)), 0.0, 1.0)
@@ -803,6 +811,15 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 # escribir un ciclo de andar.
 static func _girar_miembro(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
 	return _girar_yz(v, pivote, -ang)
+
+
+# Vuelta en PLANTA (los ejes X e Y) alrededor de un pivote: la del brazo que barre en horizontal ('abre_*').
+static func _girar_xy(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
+	var dx: float = v.x - pivote.x
+	var dy: float = v.y - pivote.y
+	var c: float = cos(ang)
+	var s: float = sin(ang)
+	return Vector3(pivote.x + dx * c - dy * s, pivote.y + dx * s + dy * c, v.z)
 
 
 static func _girar_yz(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
@@ -2102,6 +2119,7 @@ static func _pose_muerte(t: float) -> Dictionary:
 const ESPADA_EJE := Vector3(-0.45, 0.55, 0.75)        # con una: arriba, adelante y hacia fuera
 const ESPADA2_EJE_DER := Vector3(-0.95, 0.25, -0.12)  # con dos: la derecha TUMBADA hacia fuera
 const ESPADA2_EJE_IZQ := Vector3(0.05, 0.22, 1.0)     # y la izquierda VERTICAL
+const ESPADA_ABRE := 1.05   # lo que el brazo abre/cruza en horizontal en los golpes (rad, con x = +-1)
 
 static func _pose_espada(anim: String, t: float) -> Dictionary:
 	var dual: bool = anim.contains("espada2")
@@ -2130,7 +2148,9 @@ static func _guardia_espada(t: float, dual: bool, m: int) -> Dictionary:
 			"eje_der": ESPADA2_EJE_DER, "eje_izq": ESPADA2_EJE_IZQ,
 			"bote": 0.25 * s, "inclina": 0.05, "agacha": 0.28, "paso": 0.42}
 	if m == 1:
-		p["paso"] = float(p["paso"]) + 0.12 * s
+		# Las piernas se CRUZAN (antes 'guardia + 0.12 * s': la zancada de la guardia fija con un temblor, y se
+		# deslizaba "andando sin animacion").
+		p["paso"] = 0.10 + 0.40 * s
 		p["bote"] = 0.4 * absf(s)
 		p["agacha"] = float(p["agacha"]) - 0.06
 		p["inclina"] = float(p["inclina"]) + 0.04
@@ -2251,6 +2271,9 @@ static func _golpe_espada(t: float, base: String, dual: bool, izq: bool) -> Dict
 	var a: float = SpriteLienzo.tramos(t, a_keys)
 	var x: float = SpriteLienzo.tramos(t, x_keys)
 	p[k_brazo] = a
+	# La mano BARRE en horizontal con la hoja (x: + fuera, - dentro): el arco del efecto es de ciento y pico
+	# grados, y con solo la torsion la mano de delante se quedaba quieta.
+	p["abre_izq" if izq else "abre_der"] = ESPADA_ABRE * x
 	p["torsion"] = t0 + sg * SpriteLienzo.tramos(t, tor)
 	p["avance"] = SpriteLienzo.tramos(t, av)
 	p["inclina"] = i0 + SpriteLienzo.tramos(t, incl)
