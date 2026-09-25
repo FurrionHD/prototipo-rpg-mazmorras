@@ -1590,6 +1590,18 @@ func arrancar_cola() -> float:
 	# es encadenarse mas apretados dentro de la misma ventana.
 	var extra: float = minf(t_enc * float(n_tandas - 1), TOPE_RACHA_MAGIA if magia else TOPE_RACHA)
 	var paso: float = extra / maxf(1.0, float(n_tandas - 1))
+	# EN EL MAPA, LOS GESTOS QUE SE REPITEN POR GOLPE necesitan que cada golpe les deje llegar a tocar: si
+	# el siguiente aviso llega antes, la animacion se reinicia a medias y se ve UNA estocada donde hay dos
+	# (25/09, las Fintas: su finta clava a 0,34 s y los golpes iban a 0,20). Aqui no manda el tope.
+	if rect_en_mapa.is_valid() and n_tandas > 1:
+		var minimo: float = 0.0
+		for ev in _cola:
+			var a_ev: String = String(ev.get("anim", ""))
+			if a_ev in ANIM_REPITE_MAPA:
+				minimo = maxf(minimo, float(IMPACTO_ANIM_MAPA.get(a_ev, 0.0)) + T_RESPIRO_REPITE)
+		if minimo > paso:
+			paso = minimo
+			extra = paso * float(n_tandas - 1)
 	for i in n:
 		var pos: int = int(orden[int(_cola[i].get("tanda", 0))])
 		_cola[i]["t"] = arranque + paso * float(pos)
@@ -1761,6 +1773,10 @@ const IMPACTO_ANIM_MAPA := {
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
 const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo"}
+# Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
+# golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
+const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque"]
+const T_RESPIRO_REPITE := 0.06
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
 
