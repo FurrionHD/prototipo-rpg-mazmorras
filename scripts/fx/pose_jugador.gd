@@ -1621,7 +1621,7 @@ static func _pose_guardia_2m(t: float) -> Dictionary:
 
 
 static func _pose_guardia_2m_and(t: float) -> Dictionary:
-	return {"paso": 0.30 + 0.12 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
+	return {"paso": 0.10 + 0.40 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
 		"brazo_der": 0.40 + 0.04 * sin(TAU * t), "brazo_izq": 0.40 + 0.04 * sin(TAU * t),
 		"inclina": 0.12, "agacha": 0.18, "junta": 1.0, "eje_2m": GUARDIA_EJE_FRENTE}
 
@@ -1706,7 +1706,7 @@ static func _pose_guardia_daga(t: float) -> Dictionary:
 
 
 static func _pose_guardia_daga_and(t: float) -> Dictionary:
-	return {"paso": 0.32 + 0.12 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
+	return {"paso": 0.10 + 0.40 * sin(TAU * t), "bote": 0.45 * absf(sin(TAU * t)),
 		"brazo_der": 1.30 + 0.05 * sin(TAU * t), "brazo_izq": 0.85 + 0.05 * sin(TAU * t),
 		"junta_izq": 0.75, "inclina": 0.14, "agacha": 0.16, "torsion": 0.20,
 		"eje_der": DAGA_EJE_DER, "eje_izq": DAGA_EJE_IZQ}
@@ -1871,7 +1871,7 @@ static func _pose_guardia_estoque(t: float) -> Dictionary:
 
 
 static func _pose_guardia_estoque_and(t: float) -> Dictionary:
-	return {"paso": 0.45 + 0.12 * sin(TAU * t), "bote": 0.35 * absf(sin(TAU * t)),
+	return {"paso": 0.10 + 0.40 * sin(TAU * t), "bote": 0.35 * absf(sin(TAU * t)),
 		"brazo_der": 1.35 + 0.04 * sin(TAU * t), "brazo_izq": 3.7 + 0.05 * sin(TAU * t),
 		"inclina": 0.07, "agacha": 0.22, "torsion": 0.55, "eje_der": ESTOQUE_EJE}
 
