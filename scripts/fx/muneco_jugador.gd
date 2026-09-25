@@ -86,7 +86,8 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
 	"afilar_veneno", "estocada_estoque", "estocada_honda", "finta_estoque", "pinchazo_estoque",
 	"ponerse_en_guardia", "estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc",
-	"pinchazo_estoque_esc", "ponerse_en_guardia_esc"]
+	"pinchazo_estoque_esc", "ponerse_en_guardia_esc",
+	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -397,10 +398,11 @@ func terminada() -> bool:
 # solo esas dos, que son las armas hechas (lo pidio el jefe el 24/09).
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
-	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque"}
+	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque",
+	"arma_espada_corta_": "guardia_espada"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
-const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_"]
+const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_"]
 var _guardia_propia: String = ""
 # EN GUARDIA (estoque): mientras dura, la guardia quieta es la DEFENSIVA (guardia_estoque_def). La pone
 # el mapa al ver el gesto de ponerse en guardia y la quita su siguiente gesto (CombatTactico.gesto_en_mapa);
@@ -410,7 +412,11 @@ var guardia_defensiva: bool = false
 var _con_escudo: bool = false
 const _ESTOQUE_CON_ESCUDO := ["guardia_estoque", "guardia_estoque_and", "guardia_estoque_cor",
 	"guardia_estoque_def", "desenvainar_estoque", "estocada_estoque", "estocada_honda", "finta_estoque",
-	"pinchazo_estoque", "ponerse_en_guardia"]
+	"pinchazo_estoque", "ponerse_en_guardia",
+	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "desenvainar_espada", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada"]
+# LA ESPADA CORTA CON DOS (25/09): su guardia es otra ("guardia_espada2", la de las dos espadas) y sus golpes
+# tambien: quien anima pide "tajo_espada" (o "tajo_espada_izq") y aqui se cambia por "tajo_espada2(_izq)".
+const _ESPADA_GOLPES := ["tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada_izq", "reves_espada_izq", "barrido_espada_izq", "tajo_bajo_espada_izq", "tajo_paso_espada_izq"]
 
 func _reindexar_arma_mano() -> void:
 	_idx_arma_mano.clear()
@@ -426,6 +432,9 @@ func _reindexar_arma_mano() -> void:
 		if clave.begins_with("arma_") and not _capas[i].has("z") \
 				and (clave.ends_with("_mano_der") or clave.ends_with("_mano_izq")):
 			_idx_arma_mano.append(i)
+	# Espada corta y algo en la izquierda: la guardia de las dos espadas.
+	if _guardia_propia == "guardia_espada" and lleva_arma_izq():
+		_guardia_propia = "guardia_espada2"
 
 
 # ============================================================
@@ -688,6 +697,8 @@ func _variante_defensa() -> String:
 		"guardia_2m": return "defensa_2m"
 		"guardia_daga": return "defensa_daga"
 		"guardia_estoque": return "defensa_estoque"
+		"guardia_espada": return "defensa_espada"
+		"guardia_espada2": return "defensa_espada2"
 	return "defensa_1m"
 
 
@@ -718,6 +729,11 @@ func _con_su_guardia_base(nombre: String) -> String:
 	if guardia_defensiva and _guardia_propia == "guardia_estoque" and nombre.begins_with("guardia_") \
 			and nombre.substr(8).is_valid_int():
 		return "guardia_estoque_def_" + nombre.substr(8)
+	# Con dos espadas, sus golpes: "tajo_espada_izq_3" -> "tajo_espada2_izq_3".
+	if _guardia_propia == "guardia_espada2":
+		var pz: PackedStringArray = nombre.rsplit("_", true, 1)
+		if pz.size() == 2 and pz[1].is_valid_int() and _ESPADA_GOLPES.has(pz[0]):
+			return pz[0].replace("_espada", "_espada2") + "_" + pz[1]
 	var desenv: String = "desenvainar" + _guardia_propia.substr(7)
 	if nombre.begins_with("desenvainar_") and not nombre.begins_with(desenv):
 		return desenv + "_" + nombre.substr(12)

@@ -1754,10 +1754,11 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.PUNZADA_NERVIO: "estocada_estoque", Estilo.ESTOCADA_PENETRANTE: "estocada_honda",
 	Estilo.FINTAS: "finta_estoque", Estilo.DANZA_ACERO: "pinchazo_estoque",
 	Estilo.EN_GUARDIA: "ponerse_en_guardia",
-	# LA ESPADA CORTA (25/09): de momento el golpe de siempre a una mano (sus animaciones propias, en el paso 3).
-	# Sin estar aqui sus golpes contaban como magia (a 0,075 s) y el segundo barrido del Doble tajo no casaba.
-	Estilo.ESPADA_TAJO: "golpe", Estilo.TAJO_QUEBRANTADOR: "golpe", Estilo.DOBLE_TAJO: "golpe",
-	Estilo.CAMBIO_RITMO: "golpe", Estilo.SENALAR_HUECO: "golpe", Estilo.CORTE_TENDONES: "golpe",
+	# LA ESPADA CORTA (25/09). Todas se REPITEN en cada golpe (con dos espadas, alternando de mano); el tajo
+	# sigue con el reves (ANIM_SIGUIENTE_MAPA). Sin estar aqui sus golpes contaban como magia (a 0,075 s).
+	Estilo.ESPADA_TAJO: "tajo_espada", Estilo.SENALAR_HUECO: "tajo_espada", Estilo.DOBLE_TAJO: "tajo_espada",
+	Estilo.TAJO_QUEBRANTADOR: "barrido_espada", Estilo.CORTE_TENDONES: "tajo_bajo_espada",
+	Estilo.CAMBIO_RITMO: "tajo_paso_espada",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
 }
@@ -1778,14 +1779,20 @@ const IMPACTO_ANIM_MAPA := {
 	# El estoque: fondo 0,5x10/22; honda 0,55x12/20; finta 0,62x12/22; pinchazo 0,45x7/24; saludo 0,4x8/12.
 	"estocada_estoque": 0.23, "estocada_honda": 0.33, "finta_estoque": 0.34, "pinchazo_estoque": 0.13,
 	"ponerse_en_guardia": 0.27, "defensa": 0.1,
+	# La espada corta: tajo y reves 0,42x8/24 (a 0,14: el Doble tajo encadena sus barridos a 0,2 s, no
+	# subirlo de 0,14); barrido y tajo bajo 0,45x10/20; tajo a la carrera 0,45x7/24.
+	"tajo_espada": 0.14, "reves_espada": 0.14, "barrido_espada": 0.225, "tajo_bajo_espada": 0.225,
+	"tajo_paso_espada": 0.13,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
 # Y las FINTAS (25/09, idea suya): el amago solo en la primera; las demas, estocadas rapidas.
-const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": "pinchazo_estoque"}
+const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": "pinchazo_estoque",
+	"tajo_espada": "reves_espada"}   # la espada: tajo y, de vuelta, el reves
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
-const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque"]
+const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque",
+	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada"]
 const T_RESPIRO_REPITE := 0.06
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
@@ -1859,13 +1866,18 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 	if pa == _visual(ev["bv"]) and not propio:
 		return
 	var cuando: Array[float] = []
+	# UNO POR TANDA: un golpe que pilla a tres son tres impactos pero UN golpe (25/09, la espada corta: su
+	# barrido se relanzaba por cada enemigo, con avisos de 0 s que reiniciaban la animacion a medias).
+	var tandas_vistas: Dictionary = {}
 	for i in _cola.size():
 		if _cola[i]["ba"] != ev["ba"] or bool(_cola[i].get("solo_dibujo", false)):
 			continue
 		# Solo los que se ven: de la 7ª tanda en adelante ya no se anima nadie, igual que la
 		# embestida, o con una racha larga el bicho se convierte en un parpadeo.
-		if int(_cola[i].get("pos_tanda", 0)) >= MAX_IMPACTOS_ANIMADOS:
+		var pt: int = int(_cola[i].get("pos_tanda", 0))
+		if pt >= MAX_IMPACTOS_ANIMADOS or tandas_vistas.has(pt):
 			continue
+		tandas_vistas[pt] = true
 		cuando.append(float(_cola[i]["t"]))
 	if cuando.is_empty() and propio:
 		cuando.append(float(ev["t"]))

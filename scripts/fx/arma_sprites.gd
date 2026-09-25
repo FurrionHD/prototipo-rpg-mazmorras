@@ -89,7 +89,8 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 # En qué animaciones dibuja cada capa (nombre BASE, sin dirección). Las FAENAS van aparte (ver
 # _dibuja_en): mientras picas, la espada sigue colgada de la cadera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
-	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc"]
+	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc",
+	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
@@ -99,7 +100,9 @@ const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe
 	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
 	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
 	"ponerse_en_guardia_esc",
-	"defensa_1m", "defensa_escudo", "defensa_daga", "defensa_estoque"]
+	"defensa_1m", "defensa_escudo", "defensa_daga", "defensa_estoque",
+	# La espada corta (25/09): con una, con dos y con escudo.
+	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "defensa_espada", "guardia_espada2", "guardia_espada2_and", "guardia_espada2_cor", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "defensa_espada2", "guardia_espada_esc", "guardia_espada_and_esc", "guardia_espada_cor_esc", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]

@@ -607,6 +607,9 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_cuerpo = cuerpo
 	_foco = cuerpo
 	_inicio = cuerpo.global_position
+	# CON DOS ARMAS cada accion empieza por la DERECHA: con golpes impares (el Doble tajo con dos espadas son 3,
+	# la Rafaga con dos dagas 5) la siguiente accion empezaba por la izquierda.
+	_mano_izq_toca.erase(cuerpo)
 	# Su turno: se le acaba En guardia (vuelve a su guardia de ataque) y el frente de su Defender.
 	_frente_defensa.erase(c)
 	if cuerpo.get("_muneco") is MunecoJugador:
@@ -2133,7 +2136,10 @@ const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "puna
 	# El estoque (una mano siempre): la finta y el pinchazo de la Danza, uno por golpe.
 	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque",
 	# Las puñaladas de tras la bomba (CombatFX las avisa ya con su nombre: ANIM_SIGUIENTE_MAPA).
-	"tajo_daga_solo": "tajo_daga_solo"}
+	"tajo_daga_solo": "tajo_daga_solo",
+	# La espada corta (25/09): con una, siempre la derecha; con dos, alternando (MunecoJugador los cambia
+	# por los de las dos espadas).
+	"tajo_espada": "tajo_espada_izq", "reves_espada": "reves_espada_izq", "barrido_espada": "barrido_espada_izq", "tajo_bajo_espada": "tajo_bajo_espada_izq", "tajo_paso_espada": "tajo_paso_espada_izq"}
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 

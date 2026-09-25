@@ -61,7 +61,7 @@ const CENTRO_ESPALDA := Vector3(4.0, -1.5, -4.0)
 # En que animaciones dibuja cada capa (nombre BASE, sin direccion). Mismo criterio que ArmaSprites,
 # sin golpe_izq/golpe_2m: ver la cabecera.
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
-	"desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc"]
+	"desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc", "desenvainar_espada_esc"]
 # En mano: las de siempre y las de las armas de una mano con guardia propia (daga, estoque; 24/09: con
 # ellas el escudo NO salia). El estoque con escudo va por sus variantes '_esc' (el escudo delante).
 const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe",
@@ -69,7 +69,8 @@ const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe",
 	"lanzar_humo", "afilar_veneno",
 	"guardia_estoque_esc", "guardia_estoque_and_esc", "guardia_estoque_cor_esc", "guardia_estoque_def_esc",
 	"estocada_estoque_esc", "estocada_honda_esc", "finta_estoque_esc", "pinchazo_estoque_esc",
-	"ponerse_en_guardia_esc", "defensa_escudo"]
+	"ponerse_en_guardia_esc", "defensa_escudo",
+	"guardia_espada_esc", "guardia_espada_and_esc", "guardia_espada_cor_esc", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

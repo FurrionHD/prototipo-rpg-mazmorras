@@ -335,6 +335,42 @@ const ANIMS := [
 	{"n": "finta_estoque", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "pinchazo_estoque", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
 	{"n": "ponerse_en_guardia", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# LA ESPADA CORTA (25/09): con una ('_espada'), con dos ('_espada2', y '_izq' si pega la izquierda) y con
+	# escudo ('_esc'). Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar una = retocar su impacto.
+	{"n": "guardia_espada", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_espada", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_espada", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "reves_espada", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "barrido_espada", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_bajo_espada", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_paso_espada", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "defensa_espada", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada2", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada2_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada2_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_espada2", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_espada2", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_espada2_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "reves_espada2", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "reves_espada2_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "barrido_espada2", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "barrido_espada2_izq", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_bajo_espada2", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_bajo_espada2_izq", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_paso_espada2", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "tajo_paso_espada2_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "defensa_espada2", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada_and_esc", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_espada_cor_esc", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_espada_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tajo_espada_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "reves_espada_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "barrido_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_bajo_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "tajo_paso_espada_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
 	# LA POSTURA DE DEFENSA (el Defender, 24/09: "se nos olvido en todas las armas"). Una por combinacion;
 	# MunecoJugador elige cual ('defensa_N' -> la suya) y se queda en ella hasta su turno.
 	{"n": "defensa_1m", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
@@ -1032,6 +1068,11 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		p["brazo_izq"] = 1.0
 		p["junta_izq"] = 0.3
 		return p
+	# LA ESPADA CORTA: todas sus variantes salen de una funcion (ver _pose_espada).
+	if anim.contains("espada"):
+		var pe: Dictionary = _pose_espada(anim, t)
+		if not pe.is_empty():
+			return pe
 	match anim:
 		"idle": return _pose_idle(t)
 		"sigilo": return _pose_sigilo(t)
@@ -2009,3 +2050,185 @@ static func _pose_muerte(t: float) -> Dictionary:
 		"brazo_der": -0.45 * (1.0 - flojo), "brazo_izq": -0.32 * (1.0 - flojo),
 		"paso": 0.22 * flojo}
 
+
+# ------------------------------------------------------------
+#  LA ESPADA CORTA (25/09). SUS REFERENCIAS: con UNA, piernas muy abiertas y de tres cuartos, el puño del
+#  arma BAJO y adelantado (a la altura de la cadera) con la hoja en diagonal hacia arriba y hacia FUERA, y la
+#  otra mano abierta echada atras (el equilibrio). Con DOS (el espadachin de dos espadas): de frente, los dos
+#  puños bajos junto a la cadera, una espada TUMBADA hacia fuera y la otra VERTICAL. El Defender: la hoja
+#  atravesada delante del pecho; con dos, cruzadas como las dagas.
+#  Los nombres: '<anim>_espada' con una, '<anim>_espada2' con dos (y '_izq' si pega la izquierda). Los pide
+#  MunecoJugador (_GUARDIA_DE / _con_su_guardia_base): quien anima pide 'tajo_espada' sin saber si hay dos.
+#  El eje de la hoja va en el sistema del cuerpo: x = hacia la izquierda del personaje (la derecha es -x),
+#  y = al frente, z = arriba.
+# ------------------------------------------------------------
+const ESPADA_EJE := Vector3(-0.45, 0.55, 0.75)        # con una: arriba, adelante y hacia fuera
+const ESPADA2_EJE_DER := Vector3(-0.95, 0.25, -0.12)  # con dos: la derecha TUMBADA hacia fuera
+const ESPADA2_EJE_IZQ := Vector3(0.05, 0.22, 1.0)     # y la izquierda VERTICAL
+
+static func _pose_espada(anim: String, t: float) -> Dictionary:
+	var dual: bool = anim.contains("espada2")
+	var izq: bool = anim.ends_with("_izq")
+	var base: String = anim.replace("espada2", "espada").trim_suffix("_izq")
+	match base:
+		"guardia_espada": return _guardia_espada(t, dual, 0)
+		"guardia_espada_and": return _guardia_espada(t, dual, 1)
+		"guardia_espada_cor": return _guardia_espada(t, dual, 2)
+		"desenvainar_espada": return _desenvainar_espada(t, dual)
+		"defensa_espada": return _defensa_espada(t, dual)
+		"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada":
+			return _golpe_espada(t, base, dual, izq)
+	return {}
+
+
+# 'm': 0 quieta, 1 andando, 2 corriendo.
+static func _guardia_espada(t: float, dual: bool, m: int) -> Dictionary:
+	var s: float = sin(TAU * t)
+	var p: Dictionary
+	if not dual:
+		p = {"brazo_der": 0.85 + 0.03 * s, "brazo_izq": -1.25 + 0.04 * s, "torsion": 0.4, "eje_der": ESPADA_EJE,
+			"bote": 0.25 * s, "inclina": 0.06, "agacha": 0.30, "paso": 0.50}
+	else:
+		p = {"brazo_der": 0.5 + 0.03 * s, "brazo_izq": 0.5 + 0.03 * s, "torsion": 0.05,
+			"eje_der": ESPADA2_EJE_DER, "eje_izq": ESPADA2_EJE_IZQ,
+			"bote": 0.25 * s, "inclina": 0.05, "agacha": 0.28, "paso": 0.42}
+	if m == 1:
+		p["paso"] = float(p["paso"]) + 0.12 * s
+		p["bote"] = 0.4 * absf(s)
+		p["agacha"] = float(p["agacha"]) - 0.06
+		p["inclina"] = float(p["inclina"]) + 0.04
+	elif m == 2:
+		p["paso"] = 0.58 * s
+		p["bote"] = 0.95 * absf(s)
+		p["agacha"] = 0.10
+		p["inclina"] = 0.22
+		p["torsion"] = float(p["torsion"]) * 0.6
+	return p
+
+
+# SACARLA de la cadera y quedarse en su guardia (el ultimo fotograma ES la guardia, sin salto). Con dos, las
+# dos manos a la vez.
+static func _desenvainar_espada(t: float, dual: bool) -> Dictionary:
+	var fin: Dictionary = _guardia_espada(0.0, dual, 0)
+	var der_keys := [[0.0, 0.15], [0.35, -0.10], [0.6, 0.5], [1.0, float(fin["brazo_der"])]]
+	var izq_keys := [[0.0, 0.10], [0.35, -0.10 if dual else 0.0], [0.6, 0.45 if dual else -0.6],
+		[1.0, float(fin["brazo_izq"])]]
+	var giro: float = clampf((t - 0.35) / 0.65, 0.0, 1.0)
+	var colgando := Vector3(0.0, 0.35, -1.0).normalized()
+	var p: Dictionary = {"brazo_der": SpriteLienzo.tramos(t, der_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"agacha": SpriteLienzo.tramos(t, [[0.0, 0.08], [0.35, 0.14], [1.0, float(fin["agacha"])]]),
+		"paso": SpriteLienzo.tramos(t, [[0.0, 0.0], [1.0, float(fin["paso"])]]),
+		"torsion": SpriteLienzo.tramos(t, [[0.0, 0.0], [1.0, float(fin["torsion"])]]),
+		"inclina": SpriteLienzo.tramos(t, [[0.0, 0.04], [0.35, 0.12], [1.0, float(fin["inclina"])]]),
+		"bote": 0.0,
+		"eje_der": colgando.lerp(fin["eje_der"], giro),
+		"sacando": -1.0 if t < 0.35 else giro}
+	if dual:
+		p["eje_izq"] = colgando.lerp(fin["eje_izq"], giro)
+	return p
+
+
+# EL DEFENDER: la hoja ATRAVESADA delante del pecho (hacia tu izquierda) y la otra mano apoyada en ella para
+# aguantar. Con dos, cruzadas como las dagas.
+static func _defensa_espada(t: float, dual: bool) -> Dictionary:
+	var s: float = sin(TAU * t)
+	if dual:
+		return {"bote": 0.12 * s, "agacha": 0.36, "paso": 0.4, "inclina": 0.02, "torsion": 0.1,
+			"brazo_der": 1.35 + 0.02 * s, "brazo_izq": 1.35 + 0.02 * s, "junta_der": 0.9, "junta_izq": 0.9,
+			"eje_der": Vector3(-0.6, 0.3, 0.75), "eje_izq": Vector3(0.6, 0.3, 0.75)}
+	return {"bote": 0.12 * s, "agacha": 0.34, "paso": 0.45, "inclina": 0.0, "torsion": 0.25,
+		"brazo_der": 1.4 + 0.02 * s, "brazo_izq": 1.3, "junta_izq": 0.6,
+		"eje_der": Vector3(1.0, 0.25, 0.3)}
+
+
+# LOS GOLPES. Todos salen de la guardia y vuelven a ella (primer y ultimo fotograma = la guardia), y el brazo
+# que NO pega se queda como estaba. Arcos POR ENCIMA (el brazo pasa por pi, no por abajo: ver la revision de
+# poses). 'x' = cuanto va la hoja hacia FUERA (+) o hacia dentro (-) del lado de la mano que pega.
+#   tajo      el de siempre: se arma alto y fuera y baja en diagonal hacia dentro (golpe en 0,42)
+#   reves     el de vuelta: de abajo-dentro sube hacia fuera (golpe en 0,42). El segundo del Doble tajo
+#   barrido   el Quebrantador: el brazo al frente y la hoja TUMBADA barre de fuera a dentro con todo el
+#             tronco (golpe en 0,45)
+#   tajo_bajo los Tendones: agachado a fondo, la hoja tumbada a ras de las piernas (golpe en 0,45)
+#   tajo_paso Cambio de ritmo: un tajo corto sin plantarse, las piernas corriendo (golpe en 0,45)
+# Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar uno = retocar su impacto.
+static func _golpe_espada(t: float, base: String, dual: bool, izq: bool) -> Dictionary:
+	var g: Dictionary = _guardia_espada(0.0, dual, 0)
+	var p: Dictionary = g.duplicate()
+	var k_brazo: String = "brazo_izq" if izq else "brazo_der"
+	var k_eje: String = "eje_izq" if izq else "eje_der"
+	var fuera: float = 1.0 if izq else -1.0     # hacia fuera de la mano que pega, en x del cuerpo
+	var sg: float = -1.0 if izq else 1.0         # el tronco gira al reves con la izquierda
+	var a0: float = float(g[k_brazo])
+	var e0: Vector3 = g[k_eje] if g.has(k_eje) else Vector3(0.0, 0.35, -1.0)
+	var t0: float = float(g["torsion"])
+	var i0: float = float(g["inclina"])
+	var ag0: float = float(g["agacha"])
+	var a_keys: Array
+	var x_keys: Array
+	var tor: Array
+	var av: Array
+	var incl: Array
+	var hoja_tumbada: bool = false
+	var z_hoja: float = 0.0
+	match base:
+		"tajo_espada":
+			a_keys = [[0.0, a0], [0.28, 3.55], [0.42, 1.75], [0.55, 0.5], [0.78, 0.6], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.28, 0.55], [0.55, -0.7], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.28, 0.45], [0.45, -0.35], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.28, -1.0], [0.45, 3.2], [0.7, 2.0], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.28, -0.16], [0.45, 0.24], [1.0, 0.0]]
+		"reves_espada":
+			a_keys = [[0.0, a0], [0.25, 0.15], [0.42, 1.7], [0.55, 2.6], [0.78, 2.2], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.25, -0.7], [0.55, 0.6], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.25, -0.35], [0.45, 0.4], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.25, -0.6], [0.45, 2.6], [0.7, 1.6], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.25, 0.14], [0.45, -0.06], [1.0, 0.0]]
+		"barrido_espada":
+			hoja_tumbada = true
+			z_hoja = 0.1
+			a_keys = [[0.0, a0], [0.3, 1.35], [0.45, 1.45], [0.62, 1.4], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.3, 1.0], [0.45, 0.0], [0.62, -1.0], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.3, 0.9], [0.45, 0.0], [0.62, -0.8], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.3, -0.6], [0.45, 2.6], [0.62, 2.2], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.3, -0.04], [0.45, 0.16], [1.0, 0.0]]
+			p["agacha"] = SpriteLienzo.tramos(t, [[0.0, ag0], [0.3, ag0 + 0.04], [0.45, ag0 + 0.08], [1.0, ag0]])
+		"tajo_bajo_espada":
+			hoja_tumbada = true
+			z_hoja = -0.3
+			a_keys = [[0.0, a0], [0.3, 0.95], [0.45, 0.62], [0.62, 0.55], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.3, 1.0], [0.45, 0.0], [0.62, -1.0], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.3, 0.7], [0.45, 0.0], [0.62, -0.6], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.3, -0.4], [0.45, 2.2], [0.62, 1.8], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.3, 0.1], [0.45, 0.3], [0.7, 0.26], [1.0, 0.0]]
+			p["agacha"] = SpriteLienzo.tramos(t, [[0.0, ag0], [0.3, 0.5], [0.45, 0.6], [0.7, 0.55], [1.0, ag0]])
+			p["paso"] = SpriteLienzo.tramos(t, [[0.0, float(g["paso"])], [0.45, 0.72], [0.7, 0.7], [1.0, float(g["paso"])]])
+		_:   # tajo_paso_espada
+			a_keys = [[0.0, a0], [0.25, 2.6], [0.45, 1.3], [0.62, 0.6], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.25, 0.5], [0.62, -0.6], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.25, 0.3], [0.45, -0.25], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.45, 2.0], [1.0, 0.0]]
+			incl = [[0.0, 0.14], [0.45, 0.26], [1.0, 0.14]]
+			p["paso"] = 0.55 * sin(TAU * t)
+			p["bote"] = 0.8 * absf(sin(TAU * t))
+	var a: float = SpriteLienzo.tramos(t, a_keys)
+	var x: float = SpriteLienzo.tramos(t, x_keys)
+	p[k_brazo] = a
+	p["torsion"] = t0 + sg * SpriteLienzo.tramos(t, tor)
+	p["avance"] = SpriteLienzo.tramos(t, av)
+	p["inclina"] = i0 + SpriteLienzo.tramos(t, incl)
+	if base != "tajo_paso_espada":
+		p["bote"] = 0.0
+	# La hoja: en la linea del brazo (colgando = (0,0,-1), al frente = (0,1,0), arriba = (0,0,1)) con lo que
+	# vaya hacia fuera o hacia dentro; o TUMBADA (barrido, tajo bajo), barriendo de fuera a dentro.
+	var ek: Vector3
+	if hoja_tumbada:
+		ek = Vector3(x * fuera, 0.55 + 0.5 * (1.0 - absf(x)), z_hoja)
+	else:
+		ek = Vector3(x * fuera, sin(a), -cos(a))
+	var k: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.15, 1.0], [0.85, 1.0], [1.0, 0.0]])
+	p[k_eje] = e0.lerp(ek.normalized(), k)
+	# La izquierda pega por el lado LEJANO a la camara: un pelo de rumbo la saca (como golpe_izq).
+	if izq:
+		p["rumbo"] = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.3, 0.2], [0.62, 0.3], [1.0, 0.0]])
+	return p
