@@ -10,6 +10,10 @@ prob = 0.45
 
 [resource]
 script = ExtResource("1")
+forma_apertura = 90.0
+forma_radio = 55.0
+forma_apunte = 1
+forma = 2
 nombre = "Tajo desarmante"
 precio = 1200
 coste_energia = 48

@@ -4,6 +4,11 @@
 
 [resource]
 script = ExtResource("1")
+forma_a_aliados = true
+forma_radio = 16.0
+forma_rango = 150.0
+forma_apunte = 3
+forma = 1
 nombre = "Muro"
 precio = 4500
 coste_energia = 66

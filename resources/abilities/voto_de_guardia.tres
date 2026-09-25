@@ -12,15 +12,19 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+defensa_a_aliados = true
+forma_a_aliados = true
+forma_radio = 80.0
+forma_apunte = 2
+forma = 1
 nombre = "Voto de guardia"
 precio = 2000
 coste_energia = 42
 cooldown = 4
 golpes_min = 1
 golpes_max = 1
-dano_mult = 0.7
-fx_estilo = 53
-fx_sobre_mi = 57
+dano_mult = 0
+fx_estilo = 57
 bloqueo_turnos = 1
-descripcion = "Clavas los pies y cierras la guardia. No es un ataque: es decidir que por aquí no pasa nadie."
+descripcion = "Clavas los pies y cierras la guardia, y los tuyos que tengas cerca cierran filas contigo. No es un ataque: es decidir que por aquí no pasa nadie."
 efectos = [SubResource("SA_0")]

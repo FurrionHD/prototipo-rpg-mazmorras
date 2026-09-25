@@ -4,6 +4,9 @@
 
 [resource]
 script = ExtResource("1")
+forma_radio = 150.0
+forma_apunte = 2
+forma = 1
 nombre = "Provocación"
 precio = 2000
 coste_energia = 40

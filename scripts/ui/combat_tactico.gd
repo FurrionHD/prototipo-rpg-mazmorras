@@ -677,6 +677,7 @@ var apunte: Vector2 = Vector2.ZERO
 var _hay_apunte: bool = false
 var _pillados_vistos: int = -1
 const CLAVE_APUNTE := &"apuntando"
+const CLAVE_APUNTE_ESCUDO := &"apuntando_escudazo"
 
 
 # ¿Esta habilidad se resuelve con su huella del mapa?
@@ -715,7 +716,50 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 		if plan["v"] != null:
 			out.append({"c": plan["v"], "escala": 1.0})
 		return out
+	if ab.forma_a_aliados:
+		return out   # lo que pilla son de los tuyos: ver aliados_de_huella
+	return _reparto_en(ab, c, forma_de(ab, c, apunte))
+
+
+# EL ESCUDAZO de la Guardia rota (AbilityData.forma_escudo_largo): a quien le cae, con la misma regla.
+func reparto_escudazo(ab: AbilityData, c: Combatant) -> Array:
+	if not _hay_apunte or ab.forma_escudo_largo <= 0.0:
+		return []
+	return _reparto_en(ab, c, forma_escudazo(ab, c, apunte))
+
+
+# La LINEA del escudazo: sale de tus pies hacia donde apuntas, y su ancho lo pone tu escudo.
+func forma_escudazo(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
+	var f = forma_de(ab, c, hacia)
+	var tam: int = clampi(c.fx_escudo, 0, ShieldData.ANCHO_ESCUDAZO.size() - 1)
+	return CombatFormas.linea(pies_de(c), f.dir, ab.forma_escudo_largo, float(ShieldData.ANCHO_ESCUDAZO[tam]))
+
+
+# LOS TUYOS QUE PILLA LA HUELLA (AbilityData.forma_a_aliados), del mas cercano al centro al mas lejano, y a
+# igualdad por su sitio en _aliados (el mismo orden en todas las maquinas). Con el lanzador si queda dentro,
+# salvo que la habilidad no valga sobre uno mismo (el Muro).
+func aliados_de_huella(ab: AbilityData, c: Combatant) -> Array:
+	if not _hay_apunte:
+		return []
 	var f = forma_de(ab, c, apunte)
+	var lista: Array = []
+	for al in _pantalla._aliados_vivos():
+		if ab.excluye_al_lanzador() and al == c:
+			continue
+		var r: Rect2 = bulto_de(al)
+		if not f.toca(r):
+			continue
+		lista.append({"c": al, "d": r.get_center().distance_squared_to(f.centro_util()),
+			"i": _pantalla._aliados.find(al)})
+	lista.sort_custom(func(x, y):
+		if is_equal_approx(float(x["d"]), float(y["d"])):
+			return int(x["i"]) < int(y["i"])
+		return float(x["d"]) < float(y["d"]))
+	return lista.map(func(x): return x["c"])
+
+
+func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
+	var out: Array = []
 	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
 	var lista: Array = []
 	for e in _pantalla._vivos():
@@ -829,11 +873,16 @@ func _refrescar_apunte(raton: Vector2) -> void:
 		return
 	var f = forma_de(_apuntando, _quien, raton)
 	var arena: ArenaCombate = _arena()
+	# EL ESCUDAZO (Guardia rota): su linea, dentro de la huella del tajo.
+	var f_esc = forma_escudazo(_apuntando, _quien, raton) if _apuntando.forma_escudo_largo > 0.0 else null
 	if arena != null:
 		arena.poner_huella(CLAVE_APUNTE, f, _apuntando.forma_nucleo)
+		if f_esc != null:
+			arena.poner_huella(CLAVE_APUNTE_ESCUDO, f_esc, 0.0, COLOR_ESCUDAZO)
 	# Y a los demas: si llevo la pelea la apunto en la lista que reparto; si soy espejo, se la mando.
 	_anotar_huella_red(_quien, CLASE_APUNTANDO, f, _apuntando.forma_nucleo)
-	_enviar_mi_huella(f, _apuntando.forma_nucleo)
+	_anotar_huella_red(_quien, CLASE_ESCUDAZO, f_esc, 0.0)
+	_enviar_mi_huella(f, _apuntando.forma_nucleo, f_esc)
 	# MIRA HACIA DONDE APUNTA (lo pidio el usuario), pero solo QUIETO: andando manda la pose de andar
 	# (ver _tick_moviendo). Su cuerpo es el de esta maquina, y su cara viaja con el, por el canal del
 	# jugador.
@@ -843,14 +892,23 @@ func _refrescar_apunte(raton: Vector2) -> void:
 	# los demas jugadores, y cada movimiento del raton seria una linea en su pantalla.
 	apunte = raton
 	_hay_apunte = true
-	var n: int = reparto_habilidad(_apuntando, _quien).size()
+	var aliados: Array = aliados_de_huella(_apuntando, _quien) if _apuntando.forma_a_aliados else []
+	var n: int = aliados.size() if _apuntando.forma_a_aliados else reparto_habilidad(_apuntando, _quien).size()
 	# EL PASO dice en que orden: no es lo mismo pegar e irte que llegar y pegar.
 	var modo_paso: int = int(plan_paso(_apuntando, _quien)["modo"]) if _apuntando.paso else -1
 	# Andando no se puede soltar (ver _confirmar_apunte): el letrero lo dice. -2 = "estoy andando".
 	var visto: int = -2 if _andando else n + (modo_paso + 1) * 1000
+	if _apuntando.forma_a_aliados and not aliados.is_empty():
+		visto += 100000 * (_pantalla._aliados.find(aliados[0]) + 1)
 	if visto != _pillados_vistos and is_instance_valid(_letrero):
 		_pillados_vistos = visto
 		var pilla: String = "no pilla a nadie" if n == 0 else ("pilla a 1" if n == 1 else "pilla a %d" % n)
+		if _apuntando.forma_a_aliados:
+			if _apuntando.objetivo_aliado == AbilityData.Objetivo.ALIADO:
+				pilla = "elige a uno de los tuyos" if n == 0 else "a %s" % (aliados[0] as Combatant).nombre
+			else:
+				pilla = "no llega a ninguno de los tuyos" if n == 0 \
+					else ("llega a 1 de los tuyos" if n == 1 else "llega a %d de los tuyos" % n)
 		match modo_paso:
 			Desliz.TRAS: pilla = "estocada y te apartas"
 			Desliz.ANTES: pilla = "te acercas y estocada"
@@ -865,6 +923,10 @@ func _confirmar_apunte() -> void:
 	if _andando:
 		return
 	var ab: AbilityData = _apuntando
+	# LAS DE UNO DE LOS TUYOS (Escolta, Muro) no se lanzan al aire: sin nadie debajo, el clic no hace nada.
+	if ab.forma_a_aliados and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO \
+			and aliados_de_huella(ab, _quien).is_empty():
+		return
 	_dejar_de_apuntar()
 	apunte = _raton_en_mundo()
 	_hay_apunte = true
@@ -879,11 +941,13 @@ func _cancelar_apunte() -> void:
 func _dejar_de_apuntar() -> void:
 	if _apuntando != null and _quien != null:
 		_anotar_huella_red(_quien, CLASE_APUNTANDO, null, 0.0)
+		_anotar_huella_red(_quien, CLASE_ESCUDAZO, null, 0.0)
 		_enviar_mi_huella(null, 0.0)
 	_apuntando = null
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(CLAVE_APUNTE)
+		arena.quitar_huella(CLAVE_APUNTE_ESCUDO)
 	if is_instance_valid(_boton_volver):
 		_boton_volver.queue_free()
 	_boton_volver = null
@@ -1024,6 +1088,8 @@ func olvidar_carga(c: Combatant) -> void:
 const FLOATS_HUELLA := 15
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
+const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va con la de apuntar
+const CLASES_HUELLA := 3
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
 var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
@@ -1064,7 +1130,7 @@ func _cod(c: Combatant) -> int:
 func _anotar_huella_red(c: Combatant, clase: int, f, nucleo: float) -> void:
 	if _pantalla._espejo:
 		return
-	var cod: int = _cod(c) * 2 + clase   # la de apuntar y la de cargar del mismo no se pisan
+	var cod: int = _cod(c) * CLASES_HUELLA + clase   # las de apuntar, cargar y escudazo del mismo no se pisan
 	if f == null:
 		if _huellas_red.erase(cod):
 			_huellas_cambiadas = true
@@ -1074,11 +1140,14 @@ func _anotar_huella_red(c: Combatant, clase: int, f, nucleo: float) -> void:
 
 
 # EN EL ESPEJO que apunta: su huella, a quien lleva la pelea (solo si ha cambiado). Vacia = ya no apunto.
-func _enviar_mi_huella(f, nucleo: float) -> void:
+func _enviar_mi_huella(f, nucleo: float, f_escudo = null) -> void:
 	if not _pantalla._espejo:
 		return
 	var d: PackedFloat32Array = PackedFloat32Array() if f == null \
 		else _empaquetar(_cod(_quien), CLASE_APUNTANDO, f, nucleo)
+	# El escudazo, pegado detras (la de apuntar va siempre la primera).
+	if f != null and f_escudo != null:
+		d.append_array(_empaquetar(_cod(_quien), CLASE_ESCUDAZO, f_escudo, 0.0))
 	if d == _mi_huella_enviada:
 		return
 	_mi_huella_enviada = d
@@ -1097,9 +1166,12 @@ func huella_de_espejo(d: PackedFloat32Array, emisor: int) -> void:
 		return
 	if int(d[1]) < 0 or d.size() < FLOATS_HUELLA:
 		_anotar_huella_red(c, CLASE_APUNTANDO, null, 0.0)
+		_anotar_huella_red(c, CLASE_ESCUDAZO, null, 0.0)
 		return
 	var x: Array = _desempaquetar(d, 0)
 	_anotar_huella_red(c, CLASE_APUNTANDO, x[2], x[3])
+	var esc = _desempaquetar(d, FLOATS_HUELLA)[2] if d.size() >= FLOATS_HUELLA * 2 else null
+	_anotar_huella_red(c, CLASE_ESCUDAZO, esc, 0.0)
 
 
 # Cada fotograma en quien lleva la pelea: reparte si algo cambio (o cada medio segundo, por si se
@@ -1110,7 +1182,7 @@ func _tick_huellas(delta: float) -> void:
 	# La de apuntar solo vive mientras es el turno de ese: si se fue sin avisar, se borra aqui.
 	for cod in _huellas_red.keys():
 		var d: PackedFloat32Array = _huellas_red[cod]
-		if int(d[1]) == CLASE_APUNTANDO and (_pantalla._state != _pantalla.State.WAITING_PLAYER
+		if int(d[1]) != CLASE_CARGA and (_pantalla._state != _pantalla.State.WAITING_PLAYER
 				or _pantalla.espejo._de_codigo(int(d[0])) != _pantalla._player):
 			_huellas_red.erase(cod)
 			_huellas_cambiadas = true
@@ -1147,16 +1219,17 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 		var x: Array = _desempaquetar(d, i)
 		i += FLOATS_HUELLA
 		var c: Combatant = _pantalla.espejo._de_codigo(int(x[0]))
-		if int(x[1]) == CLASE_APUNTANDO and _apuntando != null and c == _quien:
+		if int(x[1]) != CLASE_CARGA and _apuntando != null and c == _quien:
 			continue
 		var clave: String = "red_%d_%d" % [int(x[0]), int(x[1])]
-		arena.poner_huella(clave, x[2], x[3],
-			COLOR_CARGA if int(x[1]) == CLASE_CARGA else COLOR_APUNTE)
+		arena.poner_huella(clave, x[2], x[3], COLOR_CARGA if int(x[1]) == CLASE_CARGA
+			else (COLOR_ESCUDAZO if int(x[1]) == CLASE_ESCUDAZO else COLOR_APUNTE))
 		_claves_red.append(clave)
 
 
 const COLOR_APUNTE := Color(1.0, 0.75, 0.3)
 const COLOR_CARGA := Color(1.0, 0.45, 0.25)
+const COLOR_ESCUDAZO := Color(0.55, 0.8, 1.0)   # la linea del escudazo, dentro de la del tajo
 
 
 # EL TURNO SE HA IDO: se eligio accion, o se lo ha llevado otra cosa (huyo, cayo).
@@ -1367,6 +1440,16 @@ func _enviar_bichos() -> void:
 func _presa_de(e: Combatant) -> Combatant:
 	var mejor: Combatant = null
 	var d_mejor: float = INF
+	# PROVOCADO (la Provocacion del escudo, 25/09): va a por quien le provoca, el mas cercano si son varios.
+	# Luego, al pegar, el sorteo sigue inclinado hacia el (combat_objetivos._peso_aggro).
+	for c in _pantalla._aliados_vivos():
+		if c.provocar_turnos > 0 and e in c.provocados:
+			var dp: float = hueco_entre(e, c)
+			if dp < d_mejor:
+				d_mejor = dp
+				mejor = c
+	if mejor != null:
+		return mejor
 	for c in _pantalla._aliados_vivos():
 		var d: float = hueco_entre(e, c)
 		if d < d_mejor:
@@ -1577,7 +1660,7 @@ const T_TIRON_ESPERA := 3.0
 var _tirones: Array = []   # {c, de, px, espera, t, desde, hasta}
 
 func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
-	if _pantalla._espejo or c == null or de == null or px <= 0.0:
+	if _pantalla._espejo or c == null or de == null or is_zero_approx(px):
 		return
 	_tirones.append({"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0})
 
@@ -1793,8 +1876,12 @@ func _arrancar_tiron(tr: Dictionary) -> void:
 	if cuerpo == null or not c.is_alive() or cuerpo_de(tr["de"]) == null:
 		return
 	var desde: Vector2 = cuerpo.global_position
-	var largo: float = minf(float(tr["px"]), maxf(0.0, hueco_entre(tr["de"], c) - ALCANCE_MINIMO))
 	tr["desde"] = desde
+	# NEGATIVO = EMPUJON (la Embestida): se aleja de quien golpea. La pared lo para (_tick_tirones).
+	if float(tr["px"]) < 0.0:
+		tr["hasta"] = desde + (desde - pos_de(tr["de"])).normalized() * -float(tr["px"])
+		return
+	var largo: float = minf(float(tr["px"]), maxf(0.0, hueco_entre(tr["de"], c) - ALCANCE_MINIMO))
 	tr["hasta"] = desde + (pos_de(tr["de"]) - desde).normalized() * largo
 
 
@@ -1876,6 +1963,14 @@ func sitio_a_la_espalda(c: Combatant, victima: Combatant, desde: Combatant):
 		dir = Vector2.RIGHT
 	dir = dir.normalized()
 	var largo: float = maxf(radio_pisa(victima), 8.0) + radio_pisa(c) * 0.5 + HUECO_ESPALDA
+	return _sitio_en_abanico(c, pv, dir, largo, false)
+
+
+# EL SITIO junto a 'pv' (unos pies) en la direccion 'dir' a 'largo' px, o null. Si no cabe, abre en abanico
+# (cada vez mas a los lados) y, si se llena, un palmo mas lejos. 'sin_pisar' = ademas no puede quedar encima
+# de NADIE (enemigos incluidos): el Muro se pone entre los suyos y el enemigo, no dentro de el.
+func _sitio_en_abanico(c: Combatant, pv: Vector2, dir: Vector2, largo: float, sin_pisar: bool):
+	var cuerpo: Node2D = cuerpo_de(c)
 	var dentro: Rect2 = _dentro(_arena())
 	# VARIOS A LA ESPALDA DEL MISMO (lo vio el jefe: dos con Oportunista caian uno encima del otro). Los
 	# sitios ya cogidos -- los cuerpos de los tuyos y los saltos que aun no se han hecho -- no valen: se
@@ -1893,6 +1988,8 @@ func sitio_a_la_espalda(c: Combatant, victima: Combatant, desde: Combatant):
 			var nodo: Vector2 = pv + dir.rotated(float(giro) * PI * 0.25) * r \
 				- Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 			if not _sobre_suelo(nodo, cuerpo) or (dentro.has_area() and not dentro.has_point(nodo)):
+				continue
+			if sin_pisar and _hay_otro_en(c, nodo):
 				continue
 			var libre: bool = true
 			for o in ocupados:
@@ -2031,6 +2128,41 @@ func pedir_movimiento(ab: AbilityData, c: Combatant, golpes: int) -> void:
 		var f = forma_de(ab, c, apunte)
 		pedir_desliz(c, f.origen + f.dir * f.largo - Vector2(0.0, PoseJugador.PIES_BAJO_NODO),
 			Desliz.AVANCE, golpes)
+
+
+# LA CARGA (Embestida, 25/09): corres por la linea hasta pegarte al primero que pilla ('victima') y le das
+# al llegar; sin nadie, hasta el final de la linea y ya. 'golpes' = los que va a dar.
+func pedir_carga(ab: AbilityData, c: Combatant, victima: Combatant, golpes: int) -> void:
+	var f = forma_de(ab, c, apunte)
+	var fin: Vector2 = f.origen + f.dir * f.largo
+	if victima != null:
+		fin = pies_de(victima) - f.dir * (maxf(radio_pisa(victima), 8.0) + radio_pisa(c))
+	pedir_desliz(c, _sitio_libre_hacia(c, fin), Desliz.ANTES if victima != null else Desliz.YA,
+		golpes if victima != null else 0)
+
+
+# EL MURO (25/09): te pones junto a quien cubres, DEL LADO DEL ENEMIGO MAS CERCANO A EL (no "delante" suyo:
+# de donde le viene el golpe). Sin enemigos, no te mueves. Sale ya: no hay golpe que esperar.
+func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or aliado == null or cuerpo_de(aliado) == null:
+		return
+	var enemigo: Combatant = null
+	var d_mejor: float = INF
+	for e in _pantalla._vivos():
+		var d: float = hueco_entre(aliado, e)
+		if d < d_mejor:
+			d_mejor = d
+			enemigo = e
+	if enemigo == null:
+		return
+	var pa: Vector2 = pies_de(aliado)
+	var dir: Vector2 = pies_de(enemigo) - pa
+	if dir.length_squared() < 0.01:
+		dir = Vector2.RIGHT
+	var largo: float = maxf(maxf(radio_pisa(aliado), 8.0) + radio_pisa(c) + HUECO_ESPALDA, SEPARACION + 2.0)
+	var p = _sitio_en_abanico(c, pa, dir.normalized(), largo, true)
+	if p != null:
+		pedir_desliz(c, p, Desliz.YA, 0)
 
 
 func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void:

@@ -10,6 +10,10 @@ prob = 0.25
 
 [resource]
 script = ExtResource("1")
+forma_apertura = 90.0
+forma_radio = 40.0
+forma_apunte = 1
+forma = 2
 nombre = "Golpe de escudo"
 inicial = true
 coste_energia = 55

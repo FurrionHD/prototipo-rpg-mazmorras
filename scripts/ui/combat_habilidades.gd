@@ -176,11 +176,12 @@ func _accion_habilidad() -> void:
 			b.disabled = true
 			b.tooltip_text = "⛔ No tienes a nadie más a quien cubrir\n\n%s" % b.tooltip_text
 		# Las que caen sobre un aliado preguntan A QUIEN antes de resolverse, igual que un Filo.
-		if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
-			b.pressed.connect(_elegir_aliado_habilidad.bind(ab))
-		elif _pantalla.turno_mapa.usa_huella(ab):
-			# EN EL MAPA, las que ya estan hechas se APUNTAN antes de salir (ver turno_mapa.apuntar).
+		# EN EL MAPA, las que ya estan hechas se APUNTAN antes de salir (ver turno_mapa.apuntar). Tambien las de
+		# un aliado (Escolta, Muro): se le apunta en el suelo en vez de elegirlo en una lista.
+		if _pantalla.turno_mapa.usa_huella(ab):
 			b.pressed.connect(_pantalla.turno_mapa.apuntar.bind(ab))
+		elif ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
+			b.pressed.connect(_elegir_aliado_habilidad.bind(ab))
 		else:
 			b.pressed.connect(_usar_habilidad.bind(ab))
 		_pantalla._celda_submenu(b)
@@ -210,7 +211,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
 	# campo que usan los resultados de hechizo, ver _log_hechizo). 'm_golpe' = el multiplicador que
 	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).
-	var r := {"c": objetivo, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
+	var r := {"c": objetivo, "i": i, "dmg": 0.0, "imbue": 0.0, "mult_imbue": 1.0, "crit": false,
 		"evaded": false, "mana": 0.0, "conecto": false, "estados": [], "linea": "",
 		"robado": 0.0}
 	# Los golpes DE ESCUDO pegan con tu DEFENSA, no con tu arma (ver AbilityData.escudo_desde_golpe).
@@ -294,6 +295,11 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 			r.estados.append(imb_h)
 			r.linea += "  ⚡ " + imb_h
 	return r
+
+
+# LOS TUYOS QUE PILLO LA HUELLA de la habilidad en curso (AbilityData.forma_a_aliados), o null fuera del
+# mapa / en las que no van a los tuyos. Lo leen los buffs de grupo: en el mapa, solo a los de dentro.
+var _aliados_mapa = null
 
 
 # A quien se le puede echar una habilidad de aliado: los vivos, sin el que la usa si es de cubrir.
@@ -443,8 +449,17 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	# Al SOLTAR una carga la conversion NO paga otra vez: la energia se fundio al empezarla, y aqui
 	# 'coste' vale lo que tengas AHORA. Sin este guardia, una habilidad de conversion con carga te
 	# daria maná gratis por energia que ya no gastas.
+	_aliados_mapa = null
+	var reparto_escudo: Array = []   # a quien le cae el escudazo, si tiene huella propia (Guardia rota)
 	if en_mapa:
 		reparto_mapa = _pantalla.turno_mapa.reparto_habilidad(ab, _pantalla._player)
+		reparto_escudo = _pantalla.turno_mapa.reparto_escudazo(ab, _pantalla._player)
+		# LAS DE LOS TUYOS (Voz de mando, Cobertura, Voto, Escolta, Muro): a quien pillo la huella. La de UN
+		# aliado se queda con el mas cercano al centro; sin nadie, con nadie (no se cae al que la lanza).
+		if ab.forma_a_aliados:
+			_aliados_mapa = _pantalla.turno_mapa.aliados_de_huella(ab, _pantalla._player)
+			if ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
+				_pantalla._hab_aliado = null if _aliados_mapa.is_empty() else _aliados_mapa[0]
 		# A LA ESPALDA (Oportunista): uno solo, el mas cercano al centro, y apareces detras de el. El
 		# salto se pide ANTES de sus golpes, que es el orden en que viaja al espejo.
 		if ab.salto_espalda and reparto_mapa.size() > 1:
@@ -457,6 +472,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# ANTES de los golpes, que es el orden en que viaja al espejo (como el salto).
 		if ab.paso or ab.avance:
 			_pantalla.turno_mapa.pedir_movimiento(ab, _pantalla._player,
+				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
+		# LA CARGA (Embestida): corres hasta el primero que pilla, y le pegas al llegar.
+		if ab.carga:
+			_pantalla.turno_mapa.pedir_carga(ab, _pantalla._player,
+				null if reparto_mapa.is_empty() else reparto_mapa[0]["c"],
 				0 if reparto_mapa.is_empty() else ab.num_golpes(manos, reparto_mapa.size()))
 		# EL SUELO QUE SE ROMPE: desde aqui cada golpe que se encole llega cuando la rotura alcanza a
 		# su victima (ver efectos.fijar_suelo). Se quita al acabar los golpes, mas abajo.
@@ -510,6 +530,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# es el total contra TODOS y no vale para decidir a quien se le aplican los efectos: ver el
 		# bloque de efectos no-por-golpe al final del bucle.
 		var conecto_por_obj: Dictionary = {}
+		# Los que se han comido un ESCUDAZO que entra (solo cuenta con huella de escudo propia, ver abajo).
+		var conecto_escudo: Dictionary = {}
 		# FRACCION DE DAÑO que ha encajado cada objetivo (1.0 el principal, menos los secundarios de
 		# un area). De aqui sale la probabilidad de que les prenda el estado: quien se come el 40%
 		# del golpe tiene el 40% de la tirada. Derivarlo del daño y no de un campo aparte hace que
@@ -528,6 +550,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			match -1 if en_mapa else ab.area_modo:
 				-1:
 					var de_este_golpe: Array = reparto_mapa
+					# EL ESCUDAZO CON HUELLA PROPIA (Guardia rota): los golpes de escudo van a su linea.
+					if ab.forma_escudo_largo > 0.0 and ab.golpe_es_de_escudo(i):
+						de_este_golpe = reparto_escudo
 					# REPARTIDOS (la Carniceria): este golpe es para UNO de los vivos, por turnos. El
 					# orden de reparto_mapa es el mismo en todas las maquinas.
 					if ab.forma_reparte:
@@ -598,6 +623,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 					# contador de arriba suma los aciertos contra CUALQUIERA, asi que no sirve para
 					# saber si a ESTE le llego algo. Ver el bloque de efectos no-por-golpe.
 					conecto_por_obj[r.c] = int(conecto_por_obj.get(r.c, 0)) + 1
+					if ab.golpe_es_de_escudo(r.get("i", 0)):
+						conecto_escudo[r.c] = true
 				if r.crit:
 					hubo_critico = true
 				mana_ganado_golpes += r.mana
@@ -633,13 +660,17 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		if not ab.efectos_por_golpe:
 			for t in tocados:
 				if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
+					# CON ESCUDAZO DE HUELLA PROPIA (Guardia rota), lo que aplica (el aturdido) es del escudo: solo a
+					# quien se lo ha comido, no a todo el cono del tajo.
+					if en_mapa and ab.forma_escudo_largo > 0.0 and not conecto_escudo.has(t):
+						continue
 					# "objetivo": aqui solo van los efectos que le lanzas AL RIVAL. Los buffs propios
 					# se aplican una sola vez, justo debajo -- si fueran por este bucle, un area
 					# contra tres bichos te daria el buff tres veces.
 					estados_log += _tirar_efectos_habilidad(ab, t, hubo_critico, "objetivo",
 						float(escala_por_obj.get(t, 1.0)), float(escala_por_obj.get(t, 1.0)))
 			# EL TIRON (Desgarro): a los que les entro y siguen en pie. Se arrastran cuando se VEA el golpe.
-			if en_mapa and ab.tiron > 0.0:
+			if en_mapa and not is_zero_approx(ab.tiron):
 				for t in tocados:
 					if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
 						_pantalla.turno_mapa.pedir_tiron(t, _pantalla._player, ab.tiron)
@@ -677,6 +708,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		var sin_dano: Array = _objetivos_hab(ab, obj)
 		if en_mapa:
 			sin_dano = reparto_mapa.map(func(o): return o["c"])
+		if ab.forma_a_aliados:
+			sin_dano = []
 		for t in sin_dano:
 			if t != null and t.is_alive():
 				estados_log += _tirar_efectos_habilidad(ab, t, false, "objetivo")
@@ -701,14 +734,17 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		_pantalla._player.guardia_spd_mult = ab.guardia_spd_mult
 		_pantalla._player.evasion_bonus = ab.evasion_bonus
 		_pantalla._player.guardia_contra_mult = ab.contra_mult
+		_pantalla._player.guardia_contra_escudo = ab.contra_con_escudo
 	# Foco arcano (Canalización): concede cargas que amplifican tus proximos hechizos.
 	if ab.foco_cargas > 0:
 		_pantalla._player.foco_cargas += ab.foco_cargas
 	# Provocacion (escudo): pasas a atraer los golpes N turnos (ver _elegir_objetivo_enemigo).
 	# OJO: va al MISMO nivel que el Foco, no dentro. Estuvo anidada por error y, como la
 	# Provocacion no da cargas de Foco, no se aplicaba NUNCA.
-	if ab.provoca_turnos > 0:
+	# EN EL MAPA, solo a los que pillo su huella (Combatant.provocados); si no pillo a nadie, no provoca.
+	if ab.provoca_turnos > 0 and not (en_mapa and reparto_mapa.is_empty()):
 		_pantalla._player.provocar_turnos = ab.provoca_turnos
+		_pantalla._player.provocados = reparto_mapa.map(func(o): return o["c"]) if en_mapa else []
 	# COBERTURA (escudo grande, "Muro"): te plantas delante del aliado elegido. Va al MISMO nivel
 	# que la Provocacion, no dentro de nada -- ver el aviso de ahi arriba, que a la Provocacion le
 	# paso justo eso y no se aplicaba nunca.
@@ -724,6 +760,20 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			a_cubrir.protegido_por = _pantalla._player
 			_pantalla._player.proteger_turnos = ab.protege_turnos
 			_pantalla._defendiendo[_pantalla._player] = true   # cubrir es tener el escudo alto: ver _begin_player_turn
+			# EN EL MAPA te pones a su lado, de donde le viene el enemigo.
+			if en_mapa:
+				_pantalla.turno_mapa.pedir_ponerse_delante(_pantalla._player, a_cubrir)
+	# EN DEFENSA A LOS TUYOS (Voto de guardia): en el mapa, los de la huella; en la fila, todo el grupo.
+	if ab.defensa_a_aliados:
+		var a_defender: Array = []
+		if _aliados_mapa != null:
+			a_defender = _aliados_mapa
+		else:
+			a_defender.assign(_pantalla._aliados_vivos())
+		for al in a_defender:
+			_pantalla._poner_en_defensa(al)
+		if not a_defender.is_empty():
+			estados_log.append("en defensa: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
 	# IMBUICION DESDE EL ARMA (el veneno de la daga). Reutiliza la misma maquinaria que los Filos:
 	# se gasta 1 carga por ATAQUE, aguanta entre combates y se ve en el mismo chip. OJO: aplicar_imbue
 	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola
@@ -753,16 +803,18 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		estados_log.append("cooldowns −%dt%s" % [ab.reduce_cooldowns,
 			"" if destrabadas == 0 else " (%d lista%s)" % [destrabadas, "" if destrabadas == 1 else "s"]])
 
+	_aliados_mapa = null   # ya se ha usado: que no lo lea la siguiente tirada de efectos que no es de aqui
 	# ---- Mensaje al jugador ----
 	# Con daño van DOS lineas: el RASTRO (que hizo cada golpe) y el REPARTO (cuanto se llevo cada
 	# uno y el total). Un "0 de daño (2 golpes)" no decia si habias fallado, esquivado o pegado a
 	# un muerto. Mismo criterio que los hechizos (ver _log_hechizo): nunca una linea por golpe,
 	# que el log solo tiene LOG_MAX.
 	var msg: String
-	if en_mapa and reparto_mapa.is_empty():
+	if en_mapa and reparto_mapa.is_empty() and reparto_escudo.is_empty() and not ab.forma_a_aliados:
 		# La huella no rozo a nadie: el golpe da en el suelo (la regla que dio el usuario para la magia,
 		# y que vale igual aqui: si se han ido, mala suerte).
-		msg = "%s usa %s, pero golpea el suelo: no alcanza a nadie." % [_pantalla._player.nombre, ab.nombre]
+		msg = ("%s usa %s, pero golpea el suelo: no alcanza a nadie." if ab.dano_mult > 0.0
+			else "%s usa %s, pero no hay ningún enemigo a su alcance.") % [_pantalla._player.nombre, ab.nombre]
 	elif ab.dano_mult > 0.0:
 		var titulo: String = ab.nombre if tocados.size() > 1 else "%s → %s" % [ab.nombre, _pantalla._etq(obj)]
 		var sin_dar: String = "… no le has dado con ninguno de los %d golpe%s." % [
@@ -847,8 +899,17 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 		if al_enemigo:
 			destinos.append(objetivo)
 		elif a.a_todo_el_grupo:
-			for al in _pantalla._aliados_vivos():
+			for al in (_aliados_mapa if _aliados_mapa != null else _pantalla._aliados_vivos()):
 				destinos.append(al)
+		elif _aliados_mapa != null and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO \
+				and _pantalla._hab_aliado == null:
+			pass   # en el mapa, apuntada a uno de los tuyos que ya no estaba: no se cae al que la lanza
+		elif ab.sigue_al_aliado:
+			# La Escolta: el estado es TUYO (entras tu detras); el elegido es a quien sigues.
+			var seguido: Combatant = _pantalla._hab_objetivo_aliado()
+			if seguido != null and seguido != _pantalla._player:
+				destinos.append(_pantalla._player)
+				_pantalla._player.escoltando_a = seguido
 		else:
 			destinos.append(_pantalla._hab_objetivo_aliado())
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))

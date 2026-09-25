@@ -10,6 +10,13 @@ prob = 0.3
 
 [resource]
 script = ExtResource("1")
+tiron = -18.0
+carga = true
+forma_solo_primero = true
+forma_ancho = 16.0
+forma_radio = 60.0
+forma_apunte = 1
+forma = 3
 nombre = "Embestida"
 precio = 2500
 coste_energia = 54

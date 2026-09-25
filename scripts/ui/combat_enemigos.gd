@@ -850,7 +850,11 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	# devuelve el golpe. Sin esto, el riposte caia en el MELEE de siempre, o sea que no dibujaba
 	# NADA: el bicho fallaba, se comia un contraataque y en pantalla no pasaba nada.
 	var estilo: int = _pantalla.efectos._estilo_de_habilidad(null, quien)
-	var result := StatsMath.resolve_attack(quien, atacante, false)
+	# EN LA POSTURA DE RODELA lo que devuelves es un ESCUDAZO (25/09): se ve como tal y pega con tu Defensa.
+	var con_escudo: bool = quien.en_guardia and quien.guardia_contra_escudo
+	if con_escudo:
+		estilo = CombatFX.Estilo.ESCUDAZO
+	var result := StatsMath.resolve_attack(quien, atacante, false, quien.atk_escudo() if con_escudo else -1.0)
 	_pantalla._debug_ataque(quien, atacante, result, false)
 	# COMO EMPIEZA LA FRASE. Se arma aqui y no en cada return porque las dos ramas (el riposte que
 	# conecta y el que le esquivan) cuentan lo mismo: como paraste el golpe.
@@ -882,7 +886,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	# EL ARMA SALE DEL COMBATIENTE, no escrita a mano. Decia "el estoque" siempre, y desde que el
 	# escudo pequeño tambien ripostea eso mentia con cualquier otra arma. set_active_hand(0) de
 	# arriba ya ha fijado la principal, asi que current_hand_name() es exactamente con lo que pega.
-	var arma: String = quien.current_hand_name()
+	var arma: String = "el escudo" if con_escudo else quien.current_hand_name()
 	if arma == "":
 		arma = "lo que tiene a mano"
 	return "%s con %s: %s%.2f de daño! %s" % [abrir, arma, extra, dmg,

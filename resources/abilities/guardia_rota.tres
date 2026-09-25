@@ -10,6 +10,11 @@ prob = 0.3
 
 [resource]
 script = ExtResource("1")
+forma_escudo_largo = 55.0
+forma_apertura = 100.0
+forma_radio = 55.0
+forma_apunte = 1
+forma = 2
 nombre = "Guardia rota"
 precio = 2500
 coste_energia = 62

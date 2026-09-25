@@ -250,6 +250,7 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 @export var forma_reparte: bool = false
 # EL TIRON (solo en el mapa): px que se ARRASTRA hacia quien golpea a cada enemigo que encaja el golpe,
 # en el instante en que se ve llegar. Nunca hasta meterselo encima. 0 = no tira. El Desgarro (24/09).
+# NEGATIVO = EMPUJA, alejandolo de quien golpea (la Embestida, 25/09).
 @export var tiron: float = 0.0
 # HASTA DONDE SE APUNTA una forma LIBRE, en px desde el borde de lo que pisas (0 = el alcance del arma,
 # como DELANTE). El Oportunista de la daga se pone hasta 150 px lejos (24/09).
@@ -271,6 +272,25 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # caen por el camino, del primero al ultimo. La linea se corta donde haya pared o el borde, y nunca
 # acabas encima de nadie. La Danza de acero (24/09).
 @export var avance: bool = false
+# LA HUELLA ES PARA LOS TUYOS (solo en el mapa): lo que pilla no son enemigos sino aliados, contando al que
+# la lanza si queda dentro. Con objetivo ALIADO es el mas cercano al centro (Escolta, Muro: se apunta a
+# uno); con buffs a_todo_el_grupo, solo los de dentro (Voz de mando, Cobertura). En la fila, como siempre.
+# La espada larga y el escudo (25/09).
+@export var forma_a_aliados: bool = false
+# SIGUE AL ALIADO (la Escolta, 25/09): su estado propio va AL QUE LA LANZA, no al elegido, y le engancha a
+# el (Combatant.escoltando_a): solo entra detras de los golpes de ESE. "Te pegas a uno de los tuyos".
+@export var sigue_al_aliado: bool = false
+# PONE EN DEFENSA (como el boton Defender) a los tuyos: en el mapa, a los que pilla la huella; en la fila,
+# a todo el grupo. El Voto de guardia (25/09): "que todos entren en posicion de defensa cerca de ti".
+@export var defensa_a_aliados: bool = false
+# EL ESCUDAZO TIENE SU PROPIA HUELLA (solo en el mapa): los golpes de escudo (escudo_desde_golpe) no caen
+# en la forma de la habilidad sino en una LINEA de este largo, hacia donde apuntas, y los estados que no
+# son por golpe van solo a los que se comen el escudazo. El ancho lo pone el escudo (ShieldData.
+# ANCHO_ESCUDAZO). 0 = no hay. La Guardia rota (25/09): el cono del tajo y, dentro, la linea del escudo.
+@export var forma_escudo_largo: float = 0.0
+# LA CARGA (solo en el mapa, con LINEA): corres por la linea hasta el PRIMERO que pille y le pegas; sin
+# nadie, hasta el final. La Embestida del escudo (25/09).
+@export var carga: bool = false
 # CRITICO DE MAS de esta habilidad, sumado a la probabilidad de siempre (0.3 = +30 puntos).
 @export var crit_extra: float = 0.0
 # DEFENSA QUE IGNORA DE MAS esta habilidad, sumada a la penetracion del arma (0.2 = un 20% mas de la
@@ -462,6 +482,9 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 @export var evasion_bonus: float = 0.0
 # Daño del contraataque (riposte) respecto a un básico (1.0 = golpe normal).
 @export var contra_mult: float = 1.0
+# Mientras dure la postura, lo que devuelves (al esquivar Y al parar) es un ESCUDAZO: pega con tu Defensa
+# y se ve como un golpe de escudo. La Postura de rodela (25/09): "que devuelva los escudazos y ya".
+@export var contra_con_escudo: bool = false
 
 # --- COBERTURA REAL (escudo torre, "Muro"): te plantas DELANTE de un aliado N turnos suyos y los
 # golpes que el sorteo le manda a el te llegan a TI. Es lo unico del juego que MUEVE un golpe de
@@ -476,7 +499,7 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 # no mitiga nada y te cobraba la energia igual (playtest del 11/09/2026, el Muro). Sale del campo y no
 # de una bandera aparte para que ninguna habilidad nueva de cobertura se olvide de marcarla.
 func excluye_al_lanzador() -> bool:
-	return protege_turnos > 0
+	return protege_turnos > 0 or sigue_al_aliado   # ni cubrirte ni escoltarte a ti mismo
 
 
 # Nº de impactos (aleatorio dentro del rango; dual usa su rango si lo tiene). 'enemigos' = nº de
@@ -667,7 +690,12 @@ func resumen(manos: int = 1) -> String:
 	if provoca_turnos > 0:
 		l.append("Durante %d turnos los enemigos tienden a atacarte a ti." % provoca_turnos)
 	if postura_contraataque:
-		l.append("Te pones en guardia: esquivas más y devuelves los golpes que esquives, pero vas más lento.")
+		if contra_con_escudo:
+			l.append("Te pones en guardia: esquivas más y devuelves de un ESCUDAZO (con tu Defensa) lo que esquives o pares, pero vas más lento.")
+		else:
+			l.append("Te pones en guardia: esquivas más y devuelves los golpes que esquives, pero vas más lento.")
+	if defensa_a_aliados:
+		l.append("Pone en defensa a los tuyos que tengas cerca hasta su próximo turno.")
 	if protege_turnos > 0:
 		l.append(("Te plantas delante del aliado %d turno%s: los golpes que le busquen a él te"
 			+ " llegan a TI, con tu bloqueo y tu defensa.") % [

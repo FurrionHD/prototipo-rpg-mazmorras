@@ -123,6 +123,13 @@ func _correr() -> void:
 	# SUELO_APUNTE=lejos: hacia atras, lejos del grupo (el Paso ligero para irse).
 	if OS.get_environment("SUELO_APUNTE") == "lejos":
 		t.apunte = t.pies_de(combat._player) + Vector2(-80, 0)
+	# SUELO_APUNTE=aliado: al compañero mas alejado del jugador (el Muro, la Escolta).
+	if OS.get_environment("SUELO_APUNTE") == "aliado":
+		var lejos: float = -1.0
+		for al in combat._aliados:
+			if al != combat._player and t.pos_de(al).distance_to(t.pos_de(combat._player)) > lejos:
+				lejos = t.pos_de(al).distance_to(t.pos_de(combat._player))
+				t.apunte = t.pies_de(al)
 	# SUELO_SEGUIMIENTO=1: el jugador lleva Oportunista y "un compañero" (el primer enemigo, prestado como
 	# _player) acaba de pegar al segundo. Se mira si entra, salta a su espalda y gasta carga.
 	if OS.get_environment("SUELO_SEGUIMIENTO") != "":
@@ -194,7 +201,9 @@ func _correr() -> void:
 		get_tree().quit(0)
 		return
 	t._hay_apunte = true
-	print("%s: pilla a %d  (jugador en %s)" % [nom, t.reparto_habilidad(ab, t._quien).size(),
+	print("%s: pilla a %d, escudazo a %d, de los tuyos %d  (jugador en %s)" % [nom,
+		t.reparto_habilidad(ab, t._quien).size(), t.reparto_escudazo(ab, t._quien).size(),
+		t.aliados_de_huella(ab, t._quien).size() if ab.forma_a_aliados else 0,
 		str(t.pos_de(combat._player).round())])
 	for e in combat._enemies:
 		print("  antes: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp, str(t.pos_de(e).round()),
@@ -221,6 +230,12 @@ func _correr() -> void:
 			print("  despues: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp,
 				str(t.pos_de(e).round()), t.hueco_entre(combat._player, e)])
 		print("  despues: jugador en %s" % str(t.pos_de(combat._player).round()))
+		# LO DE LOS TUYOS (las de apoyo de la espada larga y el escudo, 25/09): defensa, estados, provocacion.
+		for al in combat._aliados:
+			print("  aliado %s: pos=%s defiende=%s estados=[%s] provoca=%d a %d guardia=%s escudazo=%s" % [
+				al.nombre, str(t.pos_de(al).round()), str(combat._defendiendo.get(al, false)),
+				al.status_summary(), al.provocar_turnos, al.provocados.size(), str(al.en_guardia),
+				str(al.guardia_contra_escudo)])
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return

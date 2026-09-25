@@ -1620,6 +1620,18 @@ func _accion_esperar() -> void:
 	_state = State.ADVANCING
 
 
+# PONE EN DEFENSA a 'c' hasta su proximo turno, como el boton Defender. Lo usan el propio Defender y el Voto
+# de guardia, que se lo pone a los tuyos de alrededor (25/09). EN EL MAPA SE VE: el gesto de defenderse
+# sobre uno mismo (CombatFX.Estilo.DEFENSA), por el camino de los golpes para que lo vean todas las
+# maquinas; el muñeco se queda en su postura hasta su turno. Solo cubre por delante: hacia donde mira AHORA.
+func _poner_en_defensa(c: Combatant) -> void:
+	_defendiendo[c] = true
+	if tactico:
+		turno_mapa.fijar_frente_defensa(c)
+		efectos._fx_golpe(c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
+			CombatFX.Estilo.DEFENSA, 1.0, true)
+
+
 # Accion Defender (KAN-54): mitiga el proximo daño, suma la defensa del escudo y deja los criticos
 # en tu contra a la MITAD (no los anula, ver StatsMath.DEFEND_CRIT_MULT) hasta tu siguiente turno.
 # Cuesta el turno (no atacas).
@@ -1627,13 +1639,8 @@ func _accion_defender() -> void:
 	if espejo._enviar_si_espejo("defender"):
 		return
 	_player.spend_energy(DEFEND_ENERGY_COST)   # Defender consume energia (KAN-57)
-	_player_defending = true
-	# EN EL MAPA SE VE: el gesto de defenderse sobre uno mismo (CombatFX.Estilo.DEFENSA), por el camino de
-	# los golpes para que lo vean todas las maquinas; el muñeco se queda en su postura hasta su turno.
+	_poner_en_defensa(_player)
 	if tactico:
-		turno_mapa.fijar_frente_defensa(_player)   # solo cubre por delante: hacia donde mira AHORA
-		efectos._fx_golpe(_player, _player, 0.0, false, false, Elementos.Elemento.NINGUNO,
-			CombatFX.Estilo.DEFENSA, 1.0, true)
 		if _fx != null:
 			_fx.arrancar_cola()
 		espejo._soltar_impactos_red()
@@ -1983,7 +1990,8 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 						or turno_mapa.pies_de(esc).distance_to(turno_mapa.pies_de(obj)) <= alc:
 					oport = e
 		for e in esc.statuses:
-			if e.id() == StatusEffects.Id.ESCOLTA:
+			# LA ESCOLTA va enganchada a UNO (Combatant.escoltando_a): detras de los demas no entra.
+			if e.id() == StatusEffects.Id.ESCOLTA and (esc.escoltando_a == null or esc.escoltando_a == quien_actuaba):
 				pct = maxf(pct, float(e.d.get("seguimiento_pct", 0.0)))
 				inst = e
 		if oport != null:

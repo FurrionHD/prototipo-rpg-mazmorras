@@ -40,7 +40,7 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var pesos: Array[float] = []
 	var total: float = 0.0
 	for c in vivos:
-		var w: float = _peso_aggro(c)
+		var w: float = _peso_aggro(c, quien)
 		# ATENUADO: para el reparto GOLPE A GOLPE de una habilidad multi-golpe. Ahi el sorteo se
 		# repite 5-6 veces seguidas, y con el peso entero el tanque se comia casi la tanda completa
 		# (~5 de 6). La raiz cuadrada lo suaviza SIN invertir el orden: sigue siendo el que mas come,
@@ -131,8 +131,13 @@ func _romper_cobertura(c: Combatant) -> void:
 # El SIGILO entra aqui como el espejo exacto de la Provocacion: un multiplicador mas sobre el mismo
 # peso. Por eso INCLINA la balanza y no obliga -- al sigiloso le siguen pudiendo pegar, igual que
 # provocar no garantiza que te peguen a ti.
-func _peso_aggro(c: Combatant) -> float:
-	return c.aggro_base * (PROVOCA_PESO if c.provocar_turnos > 0 else 1.0) * c.status_aggro_mult()
+#
+# 'atacante': EN EL MAPA la Provocacion solo pesa para los enemigos que pillo su huella (Combatant.provocados).
+# Sin atacante (el reparto de la excelia) o sin lista (la fila), pesa para todos.
+func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
+	var provoca: bool = c.provocar_turnos > 0 and (atacante == null or c.provocados.is_empty()
+		or atacante in c.provocados)
+	return c.aggro_base * (PROVOCA_PESO if provoca else 1.0) * c.status_aggro_mult()
 
 
 func _peso_aggro_total() -> float:

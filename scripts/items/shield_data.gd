@@ -30,6 +30,9 @@ extends Resource
 class_name ShieldData
 
 enum Tamano { PEQUENO, NORMAL, GRANDE }  # GRANDE = escudos de tanque
+# EL ANCHO DEL ESCUDAZO en el mapa, por tamaño (AbilityData.forma_escudo_largo): la linea de la Guardia rota
+# es mas gorda cuanto mas escudo (25/09, lo pidio el). Indice = Tamano.
+const ANCHO_ESCUDAZO := [14.0, 20.0, 28.0]
 
 @export var nombre: String = "Escudo pequeño"
 @export var tamano: Tamano = Tamano.PEQUENO

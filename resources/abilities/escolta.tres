@@ -12,12 +12,19 @@ turns = 30
 
 [resource]
 script = ExtResource("1")
+forma_a_aliados = true
+forma_radio = 16.0
+forma_rango = 150.0
+forma_apunte = 3
+forma = 1
 nombre = "Escolta"
 precio = 3000
 coste_energia = 58
 cooldown = 6
 dano_mult = 0.0
 objetivo_aliado = 1
+sigue_al_aliado = true
+efectos = [SubResource("SA_0")]
 requiere_escudo = true
 fx_estilo = 103
 descripcion = "Te pegas a uno de los tuyos y entras detrás de cada golpe suyo. No paras nada por él: le abres sitio."

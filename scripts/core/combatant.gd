@@ -108,6 +108,7 @@ var defend_defense: float = 0.0
 var en_guardia: bool = false        # true = estas en la postura de guardia/contraataque
 var guardia_spd_mult: float = 1.0   # multiplica tu velocidad mientras aguantas (< 1 = lento)
 var guardia_contra_mult: float = 1.0    # daño del riposte al esquivar (vs un básico)
+var guardia_contra_escudo: bool = false # lo que devuelves en la postura es un ESCUDAZO (Postura de rodela)
 
 # Esquiva EXTRA por HABILIDADES/BUFFS (0 = ninguna). Generico: la suben la postura del
 # estoque y (futuro) cualquier buff de esquiva. Si > 0, rompe el tope normal de esquiva
@@ -137,6 +138,9 @@ var escudo_contra_mult: float = 0.0   # fraccion del daño con la que lo devuelv
 # cualquiera de las dos puntas cuando uno cae, que es la mitad de los bugs de puntero colgado.
 # Quien los toca, los toca por pares: ver combat.gd._romper_cobertura.
 var protegiendo_a: Combatant = null   # a QUIEN cubro (null = a nadie)
+# A QUIEN ESCOLTA (la Escolta del escudo): solo entra detras de los golpes de ese. null = de cualquiera de los
+# tuyos (lo de antes, por si algo le pone el estado sin pasar por la habilidad).
+var escoltando_a: Combatant = null
 var protegido_por: Combatant = null   # QUIEN se pone delante de mi
 var proteger_turnos: int = 0          # turnos que me quedan cubriendole. Baja 1 por turno mio.
 
@@ -151,6 +155,9 @@ const AGGRO_ESCUDO := 2.0   # llevar escudo = el doble de probable que te elijan
 # combat.gd.PROVOCA_PESO y _elegir_objetivo_enemigo). Estado POR COMBATE (un Combatant nuevo por
 # combate -> arranca a 0). Lo pone la habilidad de escudo; baja 1 por turno suyo.
 var provocar_turnos: int = 0
+# EN EL MAPA, A QUIEN provoca: los enemigos que pillo la huella de la Provocacion (25/09). Vacio = a todos
+# (la fila, donde no hay huella). Solo lo mira quien lleva la pelea, que es quien mueve a los enemigos.
+var provocados: Array = []
 
 # --- FOCO ARCANO (Canalización reworkeada, KAN-56/57) ---
 # Cargas que amplifican tus HECHIZOS: cada hechizo OFENSIVO que lanzas gasta 1 y pega
@@ -661,6 +668,7 @@ func salir_de_guardia() -> void:
 	en_guardia = false
 	guardia_spd_mult = 1.0
 	guardia_contra_mult = 1.0
+	guardia_contra_escudo = false
 	evasion_bonus = 0.0
 
 func is_alive() -> bool:

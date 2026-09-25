@@ -13,6 +13,10 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+forma_a_aliados = true
+forma_radio = 150.0
+forma_apunte = 2
+forma = 1
 nombre = "Voz de mando"
 precio = 4000
 coste_energia = 66
