@@ -1832,6 +1832,18 @@ const _MODO_MAZA := {
 	CombatFX.Estilo.MURO_ALIADOS: MazaAire.Modo.MURO_C,
 }
 
+# EL BASTON Y LA VARITA (BastonAire, 26/09), lo de cada cuerpo.
+const _MODO_BASTON := {
+	CombatFX.Estilo.BASTON_GOLPE: BastonAire.Modo.GOLPE,
+	CombatFX.Estilo.BASTONAZO: BastonAire.Modo.BASTONAZO_C,
+	CombatFX.Estilo.VIENTO_LIMPIO: BastonAire.Modo.VIENTO_C,
+	CombatFX.Estilo.FOCO_ARCANO: BastonAire.Modo.FOCO,
+	CombatFX.Estilo.VELO_UMBRIO: BastonAire.Modo.VELO,
+	CombatFX.Estilo.PURIFICAR: BastonAire.Modo.PURIFICAR,
+	CombatFX.Estilo.CHISPA_VINCULADA: BastonAire.Modo.CHISPA,
+	CombatFX.Estilo.EGIDA_MENOR: BastonAire.Modo.EGIDA,
+}
+
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
@@ -1907,6 +1919,30 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			else EscudoAire.Modo.ESCUDAZO
 		EscudoAire.golpe(arena, modo_z, desde_z, caja_z, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo, suelta)
+		return
+	# EL BASTON Y LA VARITA (BastonAire): desde el pecho del que la lanza. La Egida mira a su enemigo mas cercano;
+	# el Foco de la varita, mas pequeño que el del baston.
+	if estilo in _MODO_BASTON:
+		var m_b: int = int(_MODO_BASTON[estilo])
+		var caja_b: Rect2 = bulto_de(v)
+		var desde_b: Vector2 = pies_de(a) + Vector2(0.0, -BastonAire.ALTO_TORSO) 			if a != null and cuerpo_de(a) != null else caja_b.get_center() - Vector2(20.0, 0.0)
+		var hacia_b := Vector2.ZERO
+		if m_b == BastonAire.Modo.EGIDA:
+			var mas_cerca_b: Combatant = null
+			var d_b: float = INF
+			for e in _pantalla._vivos():
+				var de_b: float = pies_de(e).distance_squared_to(pies_de(v))
+				if de_b < d_b:
+					d_b = de_b
+					mas_cerca_b = e
+			hacia_b = (pies_de(mas_cerca_b) - pies_de(v)) if mas_cerca_b != null else Vector2.RIGHT
+		var esc_b: float = 1.0
+		if m_b == BastonAire.Modo.FOCO:
+			var pj_b: PersonajeData = Game.pj_de_combatant(v)
+			if pj_b != null and not (pj_b.equipped_main is WeaponData and int(pj_b.equipped_main.tipo) == WeaponData.Tipo.BASTON):
+				esc_b = 0.7
+		BastonAire.golpe(arena, m_b, desde_b, caja_b, bool(ev.get("evadido", false)), bool(ev.get("crit", false)),
+			int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo, hacia_b, esc_b)
 		return
 	# LA MAZA: porrazos (MazaAire), desde la altura del pecho del que pega (o del que la lanza, en las de apoyo).
 	if estilo in _MODO_MAZA:

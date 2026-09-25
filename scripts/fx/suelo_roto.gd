@@ -32,7 +32,8 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO, ESCUDO_ONDA,
 	ESCUDO_VOTO, ESCUDO_VOZ, ESCUDO_PROVOCA, ESCUDO_AMPARO,
 	MAZA_DEMOLEDOR, MAZA_DEMOLEDOR_DOS, MAZA_ROMPE, MAZA_ROMPE_DOS, MAZA_APLASTA, MAZA_ALIENTO, MAZA_ALIENTO_DOS,
-	MAZA_MURO }
+	MAZA_MURO, BASTON_BARRE, BASTON_SELLO, BASTON_VIENTO }
+# BASTON_* (baston, 26/09): viven en BastonAire (su Modo = tipo - BASTON_BARRE). Van DETRAS de los MAZA_*: se miran antes.
 # MAZA_* (maza pequeña, 25/09): viven en MazaAire (su Modo = tipo - MAZA_DEMOLEDOR). Van DETRAS de los ESCUDO_*, asi
 # que se miran ANTES que el 't >= ESCUDO_VOTO'. Los '_DOS' son los de dos mazas: la ficha dice el de una y
 # con_manos() cambia al de dos.
@@ -95,6 +96,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.BASTON_BARRE:
+		return BastonAire.area(padre, f, t - Tipo.BASTON_BARRE, semilla, espera)
 	if t >= Tipo.MAZA_DEMOLEDOR:
 		return MazaAire.area(padre, f, t - Tipo.MAZA_DEMOLEDOR, semilla, n_nucleo, espera)
 	if t >= Tipo.ESCUDO_VOTO:
@@ -131,6 +134,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.BASTON_BARRE:
+		return BastonAire.retraso(t - Tipo.BASTON_BARRE, f, p)
 	if t >= Tipo.MAZA_DEMOLEDOR:
 		return MazaAire.retraso(t - Tipo.MAZA_DEMOLEDOR, f, p)
 	if t >= Tipo.ESCUDO_VOTO:
@@ -158,6 +163,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.BASTON_BARRE:
+		return BastonAire.t_salir(t - Tipo.BASTON_BARRE)
 	if t >= Tipo.MAZA_DEMOLEDOR:
 		return MazaAire.t_salir(t - Tipo.MAZA_DEMOLEDOR)
 	if t >= Tipo.ESCUDO_VOTO:

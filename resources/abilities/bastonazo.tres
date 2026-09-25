@@ -10,6 +10,7 @@ prob = 0.45
 
 [resource]
 script = ExtResource("1")
+suelo_roto = 34
 forma = 2
 forma_apunte = 1
 forma_radio = 35.0

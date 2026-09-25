@@ -31,9 +31,14 @@ const HABILIDADES := [
 	["maza", "basico"], ["maza", "golpe_demoledor"], ["maza2", "golpe_demoledor"], ["maza", "rompepiernas"],
 	["maza2", "rompepiernas"], ["maza", "culatazo"], ["maza2", "culatazo"], ["maza", "aplastamiento"],
 	["maza", "grito_de_aliento"], ["maza2", "grito_de_aliento"], ["maza", "muro_de_aliados"],
+	# EL BASTON Y LA VARITA (26/09). "canalizar" = el Foco arcano del baston; "canalizar_varita", el de la varita.
+	["baston", "basico"], ["baston", "bastonazo"], ["baston", "sello_arcano"], ["baston", "viento_limpio"],
+	["baston", "velo_umbrio"], ["baston", "canalizar"],
+	["varita", "canalizar_varita"], ["varita", "purificar"], ["varita", "chispa_vinculada"], ["varita", "egida_menor"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
-	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75}
+	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
+	"baston": 21.0, "varita": 21.0}
 # LA ESPADA CORTA (EspadaAire), como la daga: golpe a golpe sobre cada cuerpo. "basico" no tiene ficha: el
 # tajo de siempre sobre el de delante.
 const MOMENTOS_ESPADA := {
@@ -73,6 +78,19 @@ const MOMENTOS_MAZA := {
 	"aplastamiento": [-0.04, 0.02, 0.1, 0.22, 0.4],
 	"grito_de_aliento": [0.02, 0.08, 0.16, 0.26, 0.4],
 	"muro_de_aliados": [0.03, 0.1, 0.2, 0.4, 0.7],
+}
+# EL BASTON Y LA VARITA (BastonAire): el suelo por SueloRoto y lo de cada cuerpo cuando le llega.
+const MOMENTOS_BASTON := {
+	"basico": [-0.05, -0.02, 0.02, 0.08, 0.18],
+	"bastonazo": [0.04, 0.1, 0.16, 0.24, 0.45],
+	"sello_arcano": [0.08, 0.2, 0.36, 0.45, 0.6],
+	"viento_limpio": [0.06, 0.14, 0.24, 0.36, 0.55],
+	"velo_umbrio": [0.06, 0.14, 0.24, 0.36, 0.6],
+	"canalizar": [0.06, 0.16, 0.28, 0.36, 0.55],
+	"canalizar_varita": [0.06, 0.16, 0.28, 0.36, 0.55],
+	"purificar": [0.03, 0.1, 0.22, 0.4, 0.65],
+	"chispa_vinculada": [0.06, 0.16, 0.3, 0.42, 0.7],
+	"egida_menor": [0.03, 0.08, 0.16, 0.35, 0.65],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -116,7 +134,7 @@ const COLOR_HUELLA := Color(1.0, 0.72, 0.25)
 # LA CARPETA de cada arma dentro de ATAQUES_SALIDA (25/09, lo pidio el: una por arma).
 const CARPETA := {"espada": "espada_corta", "larga": "espada_larga", "maza2": "maza"}
 const APOYO_ALIADOS := ["voto_de_guardia", "voz_de_mando", "cobertura", "escolta", "muro_guardian",
-	"grito_de_aliento", "muro_de_aliados"]
+	"grito_de_aliento", "muro_de_aliados", "viento_limpio", "purificar", "chispa_vinculada", "egida_menor"]
 const VERDE := Color(0.35, 0.8, 0.45)
 const ROJO := Color(0.8, 0.35, 0.35)
 
@@ -204,7 +222,7 @@ func _correr() -> void:
 		else:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		var dual: bool = arma == "maza2"
-		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
+		var tiempos: Array = MOMENTOS_BASTON.get(nom, []) if arma in ["baston", "varita"] 			else MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
 			else (MOMENTOS_MAZA.get(nom + ("_dual" if dual else ""), MOMENTOS_MAZA.get(nom, [])) if arma.begins_with("maza") \
 			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" \
 			else (MOMENTOS_ESPADA.get(nom, []) if arma in ["espada", "larga", "escudo"] \
@@ -224,7 +242,7 @@ func _correr() -> void:
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + (DIRS[fila][1] as Vector2).normalized() * 70.0
 			# El Oportunista se pone ENCIMA de un enemigo: el mas cercano a esa direccion.
-			if nom == "oportunista":
+			if nom in ["oportunista", "purificar", "chispa_vinculada", "egida_menor"]:
 				var mejor: float = INF
 				for p in _enemigos:
 					var dd: float = absf(angle_difference((p - yo).angle(), (DIRS[fila][1] as Vector2).angle())) \
@@ -252,6 +270,9 @@ func _correr() -> void:
 				continue
 			if arma in ["espada", "larga", "escudo"]:
 				await _efecto_espada(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
+				continue
+			if arma in ["baston", "varita"]:
+				await _efecto_baston(ab, nom, f, fila, hoja, tiempos, dir_n, yo, DIRS[fila][1])
 				continue
 			if arma.begins_with("maza"):
 				await _efecto_maza(ab, nom, dual, f, fila, hoja, tiempos, dir_n, yo)
@@ -765,6 +786,101 @@ func _efecto_maza(ab: AbilityData, nom: String, dual: bool, f, fila: int, hoja: 
 		(ps["fig"] as ColorRect).position = (ps["de"] as Vector2) - Vector2(7, 26)
 	for fg in _figs:
 		(fg as ColorRect).color = ROJO
+	await get_tree().process_frame
+
+
+# EL BASTON Y LA VARITA: el suelo (por SueloRoto) y lo de cada cuerpo cuando le llega. El Bastonazo EMPUJA las
+# figuras que pilla (su tiron en negativo); lo que te echas encima (Velo, Foco) va sobre tu figura; las de un aliado,
+# al mas cercano a esa direccion.
+func _efecto_baston(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tiempos: Array, dir_n: String,
+		yo: Vector2, hacia_fila: Vector2) -> void:
+	BarridoAire.ritmo = 1.0
+	var semilla: int = 500 + fila * 13
+	var alto := Vector2(0.0, -BastonAire.ALTO_TORSO)
+	var cajas: Array = []     # [Rect2, indice de su figura]
+	if int(ab.forma) >= 0:
+		for i in _enemigos.size():
+			var r := Rect2((_enemigos[i] as Vector2) - Vector2(7, 26), Vector2(14, 26))
+			if f.toca(r):
+				cajas.append([r, i])
+	cajas.sort_custom(func(a, b): return (a[0] as Rect2).get_center().distance_squared_to(f.centro_util()) 		< (b[0] as Rect2).get_center().distance_squared_to(f.centro_util()))
+	var yo_caja := Rect2(yo - Vector2(7, 26), Vector2(14, 26))
+	var piezas: Array = []    # {n, t0}
+	var pasos: Array = []     # {fig, de, a, t0}: las figuras que se apartan (Bastonazo)
+	match nom:
+		"basico":
+			var mejor: Rect2 = Rect2()
+			var d_mejor: float = INF
+			for p in _enemigos:
+				var dd: float = absf(angle_difference((p - yo).angle(), f.dir.angle())) * 60.0 + (p - yo).length()
+				if dd < d_mejor:
+					d_mejor = dd
+					mejor = Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			piezas.append({"n": BastonAire.golpe(self, BastonAire.Modo.GOLPE, yo + alto, mejor, false, false, 0,
+				semilla, 0.0, 1.0), "t0": 0.0})
+		"bastonazo":
+			piezas.append({"n": SueloRoto.lanzar(self, f, ab.suelo_roto, semilla), "t0": 0.0})
+			for i in cajas.size():
+				var r1: Rect2 = cajas[i][0]
+				var t1: float = SueloRoto.retraso(f, _pies_caja(r1), ab.suelo_roto)
+				piezas.append({"n": BastonAire.golpe(self, BastonAire.Modo.BASTONAZO_C, yo + alto, r1, false, i == 0, 0,
+					semilla + i, 0.0, 1.0), "t0": t1})
+				var de: Vector2 = _enemigos[int(cajas[i][1])]
+				pasos.append({"fig": _figs[int(cajas[i][1])], "de": de, "a": de + (de - yo).normalized() * -ab.tiron, "t0": t1})
+		"sello_arcano":
+			# Se cierra en el suelo y alcanza a todos a la vez: nada en cada cuerpo.
+			piezas.append({"n": SueloRoto.lanzar(self, f, ab.suelo_roto, semilla), "t0": 0.0})
+		"viento_limpio":
+			piezas.append({"n": SueloRoto.lanzar(self, f, ab.suelo_roto, semilla), "t0": 0.0})
+			for i in cajas.size():
+				var r2: Rect2 = cajas[i][0]
+				piezas.append({"n": BastonAire.golpe(self, BastonAire.Modo.VIENTO_C, yo + alto, r2, false, false, 0,
+					semilla + i, 0.0, 1.0), "t0": SueloRoto.retraso(f, _pies_caja(r2), ab.suelo_roto)})
+		"velo_umbrio", "canalizar", "canalizar_varita":
+			var m_s: int = BastonAire.Modo.VELO if nom == "velo_umbrio" else BastonAire.Modo.FOCO
+			piezas.append({"n": BastonAire.golpe(self, m_s, yo + alto, yo_caja, false, false, 0, semilla, 0.0, 1.0,
+				Vector2.ZERO, 0.7 if nom == "canalizar_varita" else 1.0), "t0": 0.0})
+		"purificar", "chispa_vinculada", "egida_menor":
+			if not cajas.is_empty():
+				var m_v: int = {"purificar": BastonAire.Modo.PURIFICAR, "chispa_vinculada": BastonAire.Modo.CHISPA,
+					"egida_menor": BastonAire.Modo.EGIDA}[nom]
+				# La Egida, hacia fuera del corro (su "enemigo mas cercano").
+				var r3: Rect2 = cajas[0][0]
+				var mano: Vector2 = yo + alto + (hacia_fila as Vector2).normalized().orthogonal() * 5.0
+				piezas.append({"n": BastonAire.golpe(self, m_v, mano, r3, false, false, 0, semilla, 0.0, 1.0,
+					r3.get_center() - yo), "t0": 0.0})
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).set_process(false)
+	for fg in _figs:
+		(fg as ColorRect).color = VERDE if nom in APOYO_ALIADOS else ROJO
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		# El Velo: tu figura medio transparente en cuanto la sombra te ha tapado (el Sigilo, en el juego).
+		if nom == "velo_umbrio":
+			_yo_fig.color = Color(0.35, 0.6, 1.0, 0.45 if t > BastonAire.T_CAE_VELO else 1.0)
+		for pz in piezas:
+			var n: Node2D = pz["n"]
+			if n == null:
+				continue
+			n.set("_t", t - float(pz["t0"]))
+			n.queue_redraw()
+			for hijo in ["_suelo", "_atras", "_delante"]:
+				var su = n.get(hijo)
+				if su is Node2D:
+					(su as Node2D).queue_redraw()
+		for ps in pasos:
+			var u: float = clampf((t - float(ps["t0"])) / 0.12, 0.0, 1.0)
+			(ps["fig"] as ColorRect).position = (ps["de"] as Vector2).lerp(ps["a"], u) - Vector2(7, 26)
+		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [ab.nombre, dir_n, t])
+	for pz in piezas:
+		if pz["n"] != null:
+			(pz["n"] as Node).queue_free()
+	for ps in pasos:
+		(ps["fig"] as ColorRect).position = (ps["de"] as Vector2) - Vector2(7, 26)
+	for fg in _figs:
+		(fg as ColorRect).color = ROJO
+	_yo_fig.color = Color(0.35, 0.6, 1.0)
 	await get_tree().process_frame
 
 

@@ -398,7 +398,11 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y la maza pequeña (MazaAire), 25/09: porrazos sobre cada cuerpo y lo de los tuyos en las de apoyo. El Golpe
 	# demoledor y el Aplastamiento NO (26/09, lo dijo el: "pegas uno que golpea a todos"): como el Golpe sismico, un
 	# solo mazazo al suelo; su dibujo es la rotura, sin nada en cada cuerpo.
-	Estilo.MAZA_GOLPE, Estilo.ROMPEPIERNAS, Estilo.CULATAZO, Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS]
+	Estilo.MAZA_GOLPE, Estilo.ROMPEPIERNAS, Estilo.CULATAZO, Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS,
+	# y el baston y la varita (BastonAire), 26/09: el palo en cada cuerpo, lo de los tuyos y lo que te echas encima.
+	# El Sello arcano NO: se cierra en el suelo y alcanza a todos a la vez (un golpe de area = un impacto).
+	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.VIENTO_LIMPIO, Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1788,6 +1792,8 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.MAZA_GOLPE: "mazazo_maza", Estilo.ROMPEPIERNAS: "rompe_maza", Estilo.CULATAZO: "culatazo_maza",
 	Estilo.GOLPE_DEMOLEDOR: "demoledor_maza", Estilo.APLASTAMIENTO: "aplasta_maza",
 	Estilo.GRITO_ALIENTO: "aliento_maza", Estilo.MURO_ALIADOS: "muro_maza",
+	# EL BASTON (26/09): PROVISIONALES hasta sus animaciones (paso 3), para que sus golpes no cuenten como magia.
+	Estilo.BASTON_GOLPE: "golpe_2m", Estilo.BASTONAZO: "golpe_2m",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
