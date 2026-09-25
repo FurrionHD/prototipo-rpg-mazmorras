@@ -2371,7 +2371,9 @@ const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "puna
 	"tajo_daga_solo": "tajo_daga_solo",
 	# La espada corta (25/09): con una, siempre la derecha; con dos, alternando (MunecoJugador los cambia
 	# por los de las dos espadas).
-	"tajo_espada": "tajo_espada_izq", "reves_espada": "reves_espada_izq", "barrido_espada": "barrido_espada_izq", "tajo_bajo_espada": "tajo_bajo_espada_izq", "tajo_paso_espada": "tajo_paso_espada_izq"}
+	"tajo_espada": "tajo_espada_izq", "reves_espada": "reves_espada_izq", "barrido_espada": "barrido_espada_izq", "tajo_bajo_espada": "tajo_bajo_espada_izq", "tajo_paso_espada": "tajo_paso_espada_izq",
+	# La maza (26/09): igual que la espada corta. El Demoledor con dos NO: es un gesto de las dos manos a la vez.
+	"mazazo_maza": "mazazo_maza_izq", "rompe_maza": "rompe_maza_izq", "culatazo_maza": "culatazo_maza_izq"}
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 

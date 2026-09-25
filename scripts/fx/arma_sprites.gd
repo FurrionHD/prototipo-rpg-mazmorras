@@ -91,7 +91,8 @@ const HERRAMIENTAS_2M := ["pico", "hacha_talar"]
 const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte", "cadaver", "desenvainar",
 	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc",
 	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc",
-	"desenvainar_larga", "desenvainar_larga_esc"]
+	"desenvainar_larga", "desenvainar_larga_esc",
+	"desenvainar_maza", "desenvainar_maza2", "desenvainar_maza_esc"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
@@ -107,7 +108,11 @@ const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe
 	# La espada larga (25/09), sin y con escudo, y las de escudo (con cualquier arma de una mano).
 	"guardia_larga", "guardia_larga_and", "guardia_larga_cor", "tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga", "defensa_larga",
 	"guardia_larga_esc", "guardia_larga_and_esc", "guardia_larga_cor_esc", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc",
-	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo"]
+	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo",
+	# La maza pequeña (26/09): con una, con dos y con escudo.
+	"guardia_maza", "guardia_maza_and", "guardia_maza_cor", "mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "guardia_maza2", "guardia_maza2_and", "guardia_maza2_cor", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2",
+	"guardia_maza_esc", "guardia_maza_and_esc", "guardia_maza_cor_esc", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc",
+	"defensa_maza", "defensa_maza2"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]

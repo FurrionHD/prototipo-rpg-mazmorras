@@ -1783,10 +1783,11 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.POSTURA_RODELA: "rodela_escudo", Estilo.GUARDIA_CARNE_FX: "carne_escudo", Estilo.ESCOLTA_FX: "escolta_escudo",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
-	# LA MAZA PEQUEÑA (25/09): PROVISIONALES hasta sus animaciones (paso 3), para que sus golpes no cuenten como
-	# magia (a 0,075 s).
-	Estilo.MAZA_GOLPE: "golpe", Estilo.GOLPE_DEMOLEDOR: "golpe", Estilo.ROMPEPIERNAS: "golpe",
-	Estilo.APLASTAMIENTO: "golpe", Estilo.CULATAZO: "golpe",
+	# LA MAZA PEQUEÑA (26/09). El mazazo, el Rompepiernas y el Culatazo se REPITEN en cada golpe (con dos mazas,
+	# alternando de mano); el Demoledor con dos, UN gesto de las dos manos. El Aplastamiento sigue con el escudazo.
+	Estilo.MAZA_GOLPE: "mazazo_maza", Estilo.ROMPEPIERNAS: "rompe_maza", Estilo.CULATAZO: "culatazo_maza",
+	Estilo.GOLPE_DEMOLEDOR: "demoledor_maza", Estilo.APLASTAMIENTO: "aplasta_maza",
+	Estilo.GRITO_ALIENTO: "aliento_maza", Estilo.MURO_ALIADOS: "muro_maza",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1813,6 +1814,10 @@ const IMPACTO_ANIM_MAPA := {
 	"tajo_larga": 0.14, "rota_larga": 0.14, "pesado_larga": 0.31, "desarme_larga": 0.225, "estocada_larga": 0.2,
 	"voto_larga": 0.17, "voz_larga": 0.23, "golpe_escudo": 0.16, "embestida_escudo": 0.3, "provoca_escudo": 0.15,
 	"amparo_escudo": 0.2, "rodela_escudo": 0.2, "carne_escudo": 0.23, "escolta_escudo": 0.17,
+	# La maza (26/09): mazazo 0,45x8/24; rompe 0,45x10/20; culatazo 0,45x7/24; demoledor 0,55x10/18; aplasta
+	# 0,42x8/24 (como la Guardia rota: el escudazo va 0,2 detras); aliento 0,3x8/12; muro 0,45x8/16.
+	"mazazo_maza": 0.15, "rompe_maza": 0.225, "culatazo_maza": 0.13, "demoledor_maza": 0.31, "aplasta_maza": 0.14,
+	"aliento_maza": 0.2, "muro_maza": 0.225,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
@@ -1820,11 +1825,14 @@ const IMPACTO_ANIM_MAPA := {
 const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": "pinchazo_estoque",
 	"tajo_espada": "reves_espada",
 	# La Guardia rota: el tajo y, en su segundo golpe, el escudazo (25/09: "que se vea cada golpe").
-	"rota_larga": "golpe_escudo"}   # la espada: tajo y, de vuelta, el reves
+	"rota_larga": "golpe_escudo",
+	# El Aplastamiento (26/09): el mazazo y, en su segundo golpe, el escudazo.
+	"aplasta_maza": "golpe_escudo"}   # la espada: tajo y, de vuelta, el reves
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",
-	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada"]
+	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada",
+	"mazazo_maza", "rompe_maza", "culatazo_maza", "aplasta_maza"]
 const T_RESPIRO_REPITE := 0.06
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18

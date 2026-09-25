@@ -371,6 +371,45 @@ const ANIMS := [
 	{"n": "barrido_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "tajo_bajo_espada_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "tajo_paso_espada_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	# LA MAZA PEQUEÑA (26/09): con una ('_maza'), con dos ('_maza2', y '_izq' si pega la izquierda) y con escudo
+	# ('_maza_esc'). Todas en _pose_maza. El Aplastamiento solo va con escudo; con dos no hay.
+	{"n": "guardia_maza", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_maza", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "mazazo_maza", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rompe_maza", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "culatazo_maza", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "demoledor_maza", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "aliento_maza", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "muro_maza", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "defensa_maza", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "aplasta_maza", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "guardia_maza2", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza2_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza2_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_maza2", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "mazazo_maza2", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "mazazo_maza2_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rompe_maza2", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "rompe_maza2_izq", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "culatazo_maza2", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "culatazo_maza2_izq", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "demoledor_maza2", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "aliento_maza2", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "muro_maza2", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "defensa_maza2", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza_esc", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza_and_esc", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_maza_cor_esc", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_maza_esc", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "mazazo_maza_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "rompe_maza_esc", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "culatazo_maza_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 7, "ultimo": true},
+	{"n": "demoledor_maza_esc", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "aplasta_maza_esc", "loop": false, "fps": 24.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "aliento_maza_esc", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "muro_maza_esc", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# LA ESPADA LARGA (25/09, PoseLarga): sin escudo ('_larga') y con el ('_larga_esc').
 	{"n": "guardia_larga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_larga_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
@@ -1122,6 +1161,11 @@ static func _pose(anim: String, t: float) -> Dictionary:
 		p["brazo_izq"] = 1.0
 		p["junta_izq"] = 0.3
 		return p
+	# LA MAZA PEQUEÑA: todas sus variantes salen de una funcion (ver _pose_maza).
+	if anim.contains("_maza"):
+		var pm: Dictionary = _pose_maza(anim, t)
+		if not pm.is_empty():
+			return pm
 	# LA ESPADA CORTA: todas sus variantes salen de una funcion (ver _pose_espada).
 	if anim.contains("espada"):
 		var pe: Dictionary = _pose_espada(anim, t)
@@ -2288,6 +2332,220 @@ static func _golpe_espada(t: float, base: String, dual: bool, izq: bool) -> Dict
 		ek = Vector3(x * fuera, sin(a), -cos(a))
 	var k: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.15, 1.0], [0.85, 1.0], [1.0, 0.0]])
 	p[k_eje] = e0.lerp(ek.normalized(), k)
+	# La izquierda pega por el lado LEJANO a la camara: un pelo de rumbo la saca (como golpe_izq).
+	if izq:
+		p["rumbo"] = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.3, 0.2], [0.62, 0.3], [1.0, 0.0]])
+	return p
+
+
+# ------------------------------------------------------------
+#  LA MAZA PEQUEÑA (26/09). Sin referencia suya: la propuesta es la de "maza y escudo" de siempre.
+#  GUARDIA (su indicacion, 26/09: "las mazas delante apuntadas hacia arriba, en vez de un brazo hacia el lado";
+#  no se agarran como la espada). Los brazos HACIA DELANTE (no abiertos: asi salia en T, "decia hacia alante"),
+#  los puños delante a la altura del pecho y las mazas EN VERTICAL, la bola arriba. Con UNA, asi la derecha y
+#  la otra mano delante, mas baja. Con DOS: las dos asi, una junto a la otra. Con ESCUDO: el '_esc' de siempre (el escudo delante; ver _pose).
+#  Los nombres: '<anim>_maza' con una, '<anim>_maza2' con dos (y '_izq' si pega la izquierda). Los pide
+#  MunecoJugador (_GUARDIA_DE / _con_su_guardia_base): quien anima pide 'mazazo_maza' sin saber si hay dos.
+#  El eje del arma: del puño a la bola, en el sistema del cuerpo (x = izquierda, y = al frente, z = arriba).
+# ------------------------------------------------------------
+const MAZA_EJE := Vector3(-0.15, 0.2, 0.97)           # hacia ARRIBA, un pelo al frente y hacia fuera
+const MAZA2_EJE_IZQ := Vector3(0.15, 0.2, 0.97)       # con dos, la izquierda igual, en espejo
+const MAZA_ABRE_GUARDIA := 0.2   # los puños apenas separados: delante, no a los lados
+const MAZA_ABRE := 0.7   # lo que el brazo abre/cruza en horizontal en los golpes (rad, con x = +-1)
+
+static func _pose_maza(anim: String, t: float) -> Dictionary:
+	var dual: bool = anim.contains("maza2")
+	var izq: bool = anim.ends_with("_izq")
+	var base: String = anim.replace("maza2", "maza").trim_suffix("_izq")
+	match base:
+		"guardia_maza": return _guardia_maza(t, dual, 0)
+		"guardia_maza_and": return _guardia_maza(t, dual, 1)
+		"guardia_maza_cor": return _guardia_maza(t, dual, 2)
+		"desenvainar_maza": return _desenvainar_maza(t, dual)
+		"defensa_maza": return _defensa_maza(t, dual)
+		"mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza":
+			return _golpe_maza(t, base, dual, izq)
+	return {}
+
+
+# 'm': 0 quieta, 1 andando, 2 corriendo.
+static func _guardia_maza(t: float, dual: bool, m: int) -> Dictionary:
+	var s: float = sin(TAU * t)
+	var p: Dictionary = {"brazo_der": 1.2 + 0.04 * s, "abre_der": MAZA_ABRE_GUARDIA, "brazo_izq": 0.85 + 0.04 * s,
+		"junta_izq": 0.25, "torsion": 0.1, "eje_der": MAZA_EJE, "bote": 0.25 * s, "inclina": 0.08, "agacha": 0.28,
+		"paso": 0.42}
+	if dual:
+		p["brazo_izq"] = 1.2 + 0.04 * s
+		p["abre_izq"] = MAZA_ABRE_GUARDIA
+		p["eje_izq"] = MAZA2_EJE_IZQ
+		p.erase("junta_izq")
+		p["torsion"] = 0.05
+	if m == 1:
+		# Las piernas se CRUZAN (la regla de la receta: nunca 'guardia + 0.12 * s').
+		p["paso"] = 0.10 + 0.40 * s
+		p["bote"] = 0.4 * absf(s)
+		p["agacha"] = float(p["agacha"]) - 0.06
+		p["inclina"] = float(p["inclina"]) + 0.04
+	elif m == 2:
+		p["paso"] = 0.58 * s
+		p["bote"] = 0.95 * absf(s)
+		p["agacha"] = 0.10
+		p["inclina"] = 0.22
+		p["torsion"] = float(p["torsion"]) * 0.6
+	return p
+
+
+# SACARLA de la cadera y quedarse en su guardia (el ultimo fotograma ES la guardia). Con dos, las dos a la vez.
+static func _desenvainar_maza(t: float, dual: bool) -> Dictionary:
+	var fin: Dictionary = _guardia_maza(0.0, dual, 0)
+	var der_keys := [[0.0, 0.15], [0.35, -0.10], [0.65, 1.4], [1.0, float(fin["brazo_der"])]]
+	var izq_keys := [[0.0, 0.10], [0.35, -0.10 if dual else 0.0], [0.65, 0.7], [1.0, float(fin["brazo_izq"])]]
+	var giro: float = clampf((t - 0.35) / 0.65, 0.0, 1.0)
+	var colgando := Vector3(0.0, 0.35, -1.0).normalized()
+	var p: Dictionary = {"brazo_der": SpriteLienzo.tramos(t, der_keys),
+		"brazo_izq": SpriteLienzo.tramos(t, izq_keys),
+		"agacha": SpriteLienzo.tramos(t, [[0.0, 0.08], [0.35, 0.14], [1.0, float(fin["agacha"])]]),
+		"paso": SpriteLienzo.tramos(t, [[0.0, 0.0], [1.0, float(fin["paso"])]]),
+		"torsion": SpriteLienzo.tramos(t, [[0.0, 0.0], [1.0, float(fin["torsion"])]]),
+		"inclina": SpriteLienzo.tramos(t, [[0.0, 0.04], [0.35, 0.12], [1.0, float(fin["inclina"])]]),
+		"bote": 0.0,
+		"abre_der": float(fin["abre_der"]) * giro,
+		"eje_der": colgando.lerp(fin["eje_der"], giro).normalized(),
+		"sacando": -1.0 if t < 0.35 else giro}
+	if dual:
+		p["abre_izq"] = float(fin["abre_izq"]) * giro
+		p["eje_izq"] = colgando.lerp(fin["eje_izq"], giro).normalized()
+	return p
+
+
+# EL DEFENDER: el mango ATRAVESADO delante del pecho, la bola hacia tu izquierda y arriba, y la otra mano
+# apoyando. Con dos, cruzadas en X como las dagas.
+static func _defensa_maza(t: float, dual: bool) -> Dictionary:
+	var s: float = sin(TAU * t)
+	if dual:
+		return {"bote": 0.12 * s, "agacha": 0.36, "paso": 0.4, "inclina": 0.02, "torsion": 0.1,
+			"brazo_der": 1.35 + 0.02 * s, "brazo_izq": 1.35 + 0.02 * s, "junta_der": 0.9, "junta_izq": 0.9,
+			"eje_der": Vector3(-0.6, 0.3, 0.75), "eje_izq": Vector3(0.6, 0.3, 0.75)}
+	return {"bote": 0.12 * s, "agacha": 0.34, "paso": 0.45, "inclina": 0.0, "torsion": 0.25,
+		"brazo_der": 1.45 + 0.02 * s, "brazo_izq": 1.3, "junta_izq": 0.6,
+		"eje_der": Vector3(1.0, 0.25, 0.45)}
+
+
+# LOS GOLPES. Salen de la guardia y vuelven a ella (primer y ultimo fotograma = la guardia); el brazo que no
+# pega se queda como estaba, salvo en las de LAS DOS A LA VEZ con dos mazas. Arcos POR ENCIMA (el brazo pasa
+# por pi). 'x' = cuanto va la bola hacia FUERA (+) o hacia dentro (-) del lado de la mano que pega.
+#   mazazo     el basico: arriba y atras, y cae en diagonal corta, con todo el tronco (golpe en 0,45)
+#   rompe      el Rompepiernas: agachado a fondo, la bola barre a la altura de las rodillas (golpe en 0,45)
+#   culatazo   con el MANGO: el brazo se recoge y sale recto al frente a la altura de la cara con la bola
+#              hacia atras, el pomo por delante (golpe en 0,45)
+#   demoledor  el Golpe demoledor: se alza a lo mas alto y cae VERTICAL hasta el suelo, doblado (golpe en 0,55).
+#              Con dos, LAS DOS A LA VEZ, cada una por su lado
+#   aplasta    el mazazo del Aplastamiento: de arriba abajo, corto (golpe en 0,42); sigue el golpe de escudo
+#   aliento    el Grito: la maza ARRIBA del todo, el pecho fuera (en 0,3). Con dos, se entrechocan en alto
+#   muro       el Muro: la maza (o las dos) contra el suelo a tus pies, "aqui me planto" (golpe en 0,45)
+# Sus impactos, en CombatFX.IMPACTO_ANIM_MAPA: retocar uno = retocar su impacto.
+static func _golpe_maza(t: float, base: String, dual: bool, izq: bool) -> Dictionary:
+	var g: Dictionary = _guardia_maza(0.0, dual, 0)
+	var p: Dictionary = g.duplicate()
+	var k_brazo: String = "brazo_izq" if izq else "brazo_der"
+	var k_eje: String = "eje_izq" if izq else "eje_der"
+	var fuera: float = 1.0 if izq else -1.0
+	var sg: float = -1.0 if izq else 1.0
+	var a0: float = float(g[k_brazo])
+	var e0: Vector3 = g[k_eje] if g.has(k_eje) else Vector3(0.0, 0.35, -1.0)
+	var t0: float = float(g["torsion"])
+	var i0: float = float(g["inclina"])
+	var ag0: float = float(g["agacha"])
+	var a_keys: Array
+	var x_keys: Array = [[0.0, 0.0], [1.0, 0.0]]
+	var tor: Array = [[0.0, 0.0], [1.0, 0.0]]
+	var av: Array = [[0.0, 0.0], [1.0, 0.0]]
+	var incl: Array = [[0.0, 0.0], [1.0, 0.0]]
+	var ag: Array = [[0.0, ag0], [1.0, ag0]]
+	var las_dos: bool = false      # con dos mazas, las dos a la vez (la izquierda, en espejo)
+	var tumbada: bool = false      # la bola barre de lado (Rompepiernas)
+	var mango_delante: bool = false   # el pomo por delante (Culatazo)
+	match base:
+		"mazazo_maza":
+			a_keys = [[0.0, a0], [0.28, 3.35], [0.45, 1.35], [0.6, 0.75], [0.8, 0.95], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.28, 0.35], [0.55, -0.45], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.28, 0.35], [0.45, -0.35], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.28, -0.8], [0.45, 3.0], [0.7, 1.8], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.28, -0.14], [0.45, 0.26], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.45, ag0 + 0.1], [1.0, ag0]]
+		"rompe_maza":
+			tumbada = true
+			a_keys = [[0.0, a0], [0.3, 1.0], [0.45, 0.62], [0.62, 0.55], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.3, 1.0], [0.45, 0.0], [0.62, -1.0], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.3, 0.8], [0.45, 0.0], [0.62, -0.7], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.3, -0.4], [0.45, 2.2], [0.62, 1.8], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.3, 0.1], [0.45, 0.32], [0.7, 0.26], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.3, 0.5], [0.45, 0.62], [0.7, 0.55], [1.0, ag0]]
+			p["paso"] = SpriteLienzo.tramos(t, [[0.0, float(g["paso"])], [0.45, 0.72], [0.7, 0.7], [1.0, float(g["paso"])]])
+		"culatazo_maza":
+			mango_delante = true
+			a_keys = [[0.0, a0], [0.3, 1.25], [0.45, 1.7], [0.62, 1.65], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.3, 0.25], [0.45, -0.1], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.3, 0.45], [0.45, -0.4], [0.62, -0.35], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.3, -0.8], [0.45, 3.4], [0.62, 3.0], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.3, -0.06], [0.45, 0.14], [1.0, 0.0]]
+		"demoledor_maza":
+			las_dos = dual
+			a_keys = [[0.0, a0], [0.35, 3.45], [0.55, 0.85], [0.62, 0.55], [0.8, 0.6], [1.0, a0]]
+			tor = [[0.0, 0.0], [0.35, 0.15], [0.55, -0.1], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.35, -1.0], [0.55, 3.0], [0.8, 2.4], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.35, -0.22], [0.55, 0.42], [0.8, 0.36], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.35, ag0 - 0.1], [0.55, 0.6], [0.8, 0.55], [1.0, ag0]]
+		"aplasta_maza":
+			a_keys = [[0.0, a0], [0.25, 3.3], [0.42, 1.1], [0.58, 0.7], [0.8, 0.9], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.25, 0.15], [0.5, -0.2], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.25, 0.25], [0.42, -0.25], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.25, -0.6], [0.42, 2.6], [0.7, 1.6], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.25, -0.12], [0.42, 0.3], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.42, ag0 + 0.14], [1.0, ag0]]
+		"aliento_maza":
+			las_dos = dual
+			# Con dos, las bolas se juntan arriba: cada brazo cruza un poco hacia el otro.
+			a_keys = [[0.0, a0], [0.3, 3.05], [0.75, 3.0], [1.0, a0]]
+			x_keys = [[0.0, 0.0], [0.3, -0.35 if dual else 0.1], [0.75, -0.3 if dual else 0.1], [1.0, 0.0]]
+			tor = [[0.0, 0.0], [0.3, -0.25 if not dual else -0.2], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.3, -0.2], [0.75, -0.18], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.3, 0.12], [0.75, 0.12], [1.0, ag0]]
+		_:   # muro_maza
+			las_dos = dual
+			a_keys = [[0.0, a0], [0.25, 2.9], [0.45, 0.75], [0.7, 0.75], [1.0, a0]]
+			tor = [[0.0, 0.0], [0.25, 0.1], [0.45, -0.1], [1.0, 0.0]]
+			av = [[0.0, 0.0], [0.45, 1.2], [1.0, 0.0]]
+			incl = [[0.0, 0.0], [0.25, -0.1], [0.45, 0.3], [0.7, 0.26], [1.0, 0.0]]
+			ag = [[0.0, ag0], [0.25, ag0 - 0.06], [0.45, 0.5], [0.7, 0.48], [1.0, ag0]]
+	var a: float = SpriteLienzo.tramos(t, a_keys)
+	var x: float = SpriteLienzo.tramos(t, x_keys)
+	p[k_brazo] = a
+	var k_abre: String = "abre_izq" if izq else "abre_der"
+	p[k_abre] = float(g.get(k_abre, 0.0)) + MAZA_ABRE * x
+	p["torsion"] = t0 + sg * SpriteLienzo.tramos(t, tor)
+	p["avance"] = SpriteLienzo.tramos(t, av)
+	p["inclina"] = i0 + SpriteLienzo.tramos(t, incl)
+	p["agacha"] = SpriteLienzo.tramos(t, ag)
+	p["bote"] = 0.0
+	# El eje: del puño a la bola en la linea del brazo (colgando = (0,0,-1), al frente = (0,1,0), arriba =
+	# (0,0,1)); TUMBADA barriendo de fuera a dentro; o al reves (el pomo por delante) en el Culatazo.
+	var ek: Vector3
+	if tumbada:
+		ek = Vector3(x * fuera, 0.55 + 0.5 * (1.0 - absf(x)), -0.3)
+	elif mango_delante:
+		ek = Vector3(x * fuera * 0.4, -sin(a) * 0.6, 0.8)
+	else:
+		ek = Vector3(x * fuera, sin(a), -cos(a))
+	var k: float = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.15, 1.0], [0.85, 1.0], [1.0, 0.0]])
+	p[k_eje] = e0.lerp(ek.normalized(), k).normalized()
+	# LAS DOS A LA VEZ: la izquierda hace lo mismo en espejo (el arco con su x hacia su fuera).
+	if las_dos and not izq:
+		var ei: Vector3 = g["eje_izq"] if g.has("eje_izq") else Vector3(0.0, 0.35, -1.0)
+		p["brazo_izq"] = a
+		p["abre_izq"] = float(g.get("abre_izq", 0.0)) + MAZA_ABRE * x
+		p["eje_izq"] = ei.lerp(Vector3(-x * fuera, sin(a), -cos(a)).normalized(), k).normalized()
+		p["torsion"] = SpriteLienzo.tramos(t, [[0.0, t0], [0.3, 0.0], [0.7, 0.0], [1.0, t0]])
 	# La izquierda pega por el lado LEJANO a la camara: un pelo de rumbo la saca (como golpe_izq).
 	if izq:
 		p["rumbo"] = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.3, 0.2], [0.62, 0.3], [1.0, 0.0]])

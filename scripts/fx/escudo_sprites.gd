@@ -73,7 +73,9 @@ const _ANIM_MANO := ["guardia", "guardia_and", "guardia_cor", "golpe",
 	"guardia_espada_esc", "guardia_espada_and_esc", "guardia_espada_cor_esc", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc",
 	# La espada larga con escudo (25/09): el escudo en la mano TAMBIEN al desenvainar (acaba en su guardia).
 	"guardia_larga_esc", "guardia_larga_and_esc", "guardia_larga_cor_esc", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc", "desenvainar_larga_esc",
-	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo"]
+	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo",
+	# La maza con escudo (26/09): el escudo en la mano TAMBIEN al desenvainar (acaba en su guardia).
+	"guardia_maza_esc", "guardia_maza_and_esc", "guardia_maza_cor_esc", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc", "desenvainar_maza_esc"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

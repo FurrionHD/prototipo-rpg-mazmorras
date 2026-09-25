@@ -89,7 +89,8 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"pinchazo_estoque_esc", "ponerse_en_guardia_esc",
 	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc",
 	"tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc",
-	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo"]
+	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo",
+	"mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -401,10 +402,10 @@ func terminada() -> bool:
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
 	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque",
-	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga"}
+	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga", "arma_maza_peq_": "guardia_maza"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
-const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_", "arma_espada_larga_"]
+const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_", "arma_espada_larga_", "arma_maza_peq_"]
 var _guardia_propia: String = ""
 # EN GUARDIA (estoque): mientras dura, la guardia quieta es la DEFENSIVA (guardia_estoque_def). La pone
 # el mapa al ver el gesto de ponerse en guardia y la quita su siguiente gesto (CombatTactico.gesto_en_mapa);
@@ -417,9 +418,15 @@ const _ESTOQUE_CON_ESCUDO := ["guardia_estoque", "guardia_estoque_and", "guardia
 	"pinchazo_estoque", "ponerse_en_guardia",
 	"guardia_espada", "guardia_espada_and", "guardia_espada_cor", "desenvainar_espada", "tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada",
 	# La espada larga (25/09): con escudo, la guardia del caballero (PoseLarga).
-	"guardia_larga", "guardia_larga_and", "guardia_larga_cor", "desenvainar_larga", "tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga"]
+	"guardia_larga", "guardia_larga_and", "guardia_larga_cor", "desenvainar_larga", "tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga",
+	# La maza (26/09): con escudo, la misma pose con el escudo delante.
+	"guardia_maza", "guardia_maza_and", "guardia_maza_cor", "desenvainar_maza", "mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza"]
 # LA ESPADA CORTA CON DOS (25/09): su guardia es otra ("guardia_espada2", la de las dos espadas) y sus golpes
 # tambien: quien anima pide "tajo_espada" (o "tajo_espada_izq") y aqui se cambia por "tajo_espada2(_izq)".
+# LA MAZA CON DOS (26/09), igual: "mazazo_maza(_izq)" -> "mazazo_maza2(_izq)". Y las de las dos manos a la vez
+# (Demoledor, Grito, Muro), sin '_izq'.
+const _MAZA_GOLPES := ["mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aliento_maza", "muro_maza",
+	"mazazo_maza_izq", "rompe_maza_izq", "culatazo_maza_izq"]
 const _ESPADA_GOLPES := ["tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada_izq", "reves_espada_izq", "barrido_espada_izq", "tajo_bajo_espada_izq", "tajo_paso_espada_izq"]
 
 func _reindexar_arma_mano() -> void:
@@ -439,6 +446,9 @@ func _reindexar_arma_mano() -> void:
 	# Espada corta y algo en la izquierda: la guardia de las dos espadas.
 	if _guardia_propia == "guardia_espada" and lleva_arma_izq():
 		_guardia_propia = "guardia_espada2"
+	# Y la maza con algo en la izquierda: la de las dos mazas.
+	if _guardia_propia == "guardia_maza" and lleva_arma_izq():
+		_guardia_propia = "guardia_maza2"
 
 
 # ============================================================
@@ -704,6 +714,8 @@ func _variante_defensa() -> String:
 		"guardia_espada": return "defensa_espada"
 		"guardia_espada2": return "defensa_espada2"
 		"guardia_larga": return "defensa_larga"
+		"guardia_maza": return "defensa_maza"
+		"guardia_maza2": return "defensa_maza2"
 	return "defensa_1m"
 
 
@@ -740,6 +752,9 @@ func _con_su_guardia_base(nombre: String) -> String:
 	if pz.size() == 2 and pz[1].is_valid_int() and _ESPADA_GOLPES.has(pz[0]) \
 			and (_guardia_propia == "guardia_espada2" or pz[0].ends_with("_izq")):
 			return pz[0].replace("_espada", "_espada2") + "_" + pz[1]
+	if pz.size() == 2 and pz[1].is_valid_int() and _MAZA_GOLPES.has(pz[0]) \
+			and (_guardia_propia == "guardia_maza2" or pz[0].ends_with("_izq")):
+			return pz[0].replace("_maza", "_maza2") + "_" + pz[1]
 	var desenv: String = "desenvainar" + _guardia_propia.substr(7)
 	if nombre.begins_with("desenvainar_") and not nombre.begins_with(desenv):
 		return desenv + "_" + nombre.substr(12)
