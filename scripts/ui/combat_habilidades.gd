@@ -796,8 +796,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.limpia_debuffs > 0:
 		# Sin ternario a proposito: _aliados_vivos() devuelve Array[Combatant] y la otra rama un
 		# Array pelado, y GDScript avisa de que los dos lados no son del mismo tipo.
+		# EN EL MAPA el de grupo (Viento limpio, 26/09) solo limpia a los que pilla su cono.
 		var a_limpiar: Array = []
-		if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
+		if ab.objetivo_aliado == AbilityData.Objetivo.GRUPO and _aliados_mapa != null:
+			a_limpiar = _aliados_mapa
+		elif ab.objetivo_aliado == AbilityData.Objetivo.GRUPO:
 			a_limpiar.assign(_pantalla._aliados_vivos())
 		else:
 			a_limpiar.append(_pantalla._hab_objetivo_aliado())

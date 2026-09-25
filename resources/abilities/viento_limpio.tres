@@ -4,6 +4,11 @@
 
 [resource]
 script = ExtResource("1")
+forma = 2
+forma_apunte = 1
+forma_radio = 130.0
+forma_apertura = 70.0
+forma_a_aliados = true
 nombre = "Viento limpio"
 precio = 4000
 coste_energia = 70

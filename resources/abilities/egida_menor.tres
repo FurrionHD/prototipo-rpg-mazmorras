@@ -12,6 +12,11 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 3
+forma_radio = 16.0
+forma_rango = 120.0
+forma_a_aliados = true
 nombre = "Égida menor"
 precio = 1200
 coste_energia = 34

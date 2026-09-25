@@ -4,6 +4,11 @@
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 3
+forma_radio = 16.0
+forma_rango = 60.0
+forma_a_aliados = true
 nombre = "Purificar"
 precio = 4000
 coste_energia = 75

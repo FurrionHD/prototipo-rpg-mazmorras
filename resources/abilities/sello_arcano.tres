@@ -11,6 +11,10 @@ turns = 2
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 3
+forma_radio = 30.0
+forma_rango = 120.0
 nombre = "Sello arcano"
 precio = 4000
 coste_energia = 54

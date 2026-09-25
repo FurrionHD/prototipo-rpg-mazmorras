@@ -10,6 +10,11 @@ prob = 0.45
 
 [resource]
 script = ExtResource("1")
+forma = 2
+forma_apunte = 1
+forma_radio = 35.0
+forma_apertura = 100.0
+tiron = -25.0
 nombre = "Bastonazo"
 inicial = true
 coste_energia = 26
