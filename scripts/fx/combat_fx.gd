@@ -395,9 +395,10 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y las de apoyo (ApoyoAire): lo de la huella sale por el suelo; esto es lo de cada cuerpo.
 	Estilo.VOTO_GUARDIA, Estilo.VOZ_MANDO, Estilo.PROVOCACION_FX, Estilo.COBERTURA, Estilo.ESCOLTA_FX,
 	Estilo.MURO_GUARDIAN, Estilo.GUARDIA_CARNE_FX, Estilo.POSTURA_RODELA,
-	# y la maza pequeña (MazaAire), 25/09: porrazos sobre cada cuerpo y lo de los tuyos en las de apoyo.
-	Estilo.MAZA_GOLPE, Estilo.GOLPE_DEMOLEDOR, Estilo.ROMPEPIERNAS, Estilo.APLASTAMIENTO, Estilo.CULATAZO,
-	Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS]
+	# y la maza pequeña (MazaAire), 25/09: porrazos sobre cada cuerpo y lo de los tuyos en las de apoyo. El Golpe
+	# demoledor y el Aplastamiento NO (26/09, lo dijo el: "pegas uno que golpea a todos"): como el Golpe sismico, un
+	# solo mazazo al suelo; su dibujo es la rotura, sin nada en cada cuerpo.
+	Estilo.MAZA_GOLPE, Estilo.ROMPEPIERNAS, Estilo.CULATAZO, Estilo.GRITO_ALIENTO, Estilo.MURO_ALIADOS]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan

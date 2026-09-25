@@ -1822,14 +1822,12 @@ const _MODO_ESPADA := {
 	CombatFX.Estilo.GUARDIA_ROTA: EspadaAire.Modo.QUEBRANTADOR,
 }
 
-# LA MAZA PEQUEÑA (MazaAire, 25/09), lo de cada cuerpo. El Demoledor: la resonancia al llegarle; el Aplastamiento:
-# su mazazo (el escudazo de despues ya va como ESCUDAZO). Las de apoyo, en cada uno de los tuyos.
+# LA MAZA PEQUEÑA (MazaAire, 25/09), lo de cada cuerpo. El Demoledor y el mazazo del Aplastamiento no pintan nada
+# en los cuerpos (un solo golpe al suelo, como el Golpe sismico). Las de apoyo, en cada uno de los tuyos.
 const _MODO_MAZA := {
 	CombatFX.Estilo.MAZA_GOLPE: MazaAire.Modo.PORRAZO,
 	CombatFX.Estilo.CULATAZO: MazaAire.Modo.CULATAZO,
 	CombatFX.Estilo.ROMPEPIERNAS: MazaAire.Modo.ROMPE_C,
-	CombatFX.Estilo.APLASTAMIENTO: MazaAire.Modo.APLASTA_C,
-	CombatFX.Estilo.GOLPE_DEMOLEDOR: MazaAire.Modo.DEMOLEDOR_C,
 	CombatFX.Estilo.GRITO_ALIENTO: MazaAire.Modo.ALIENTO_C,
 	CombatFX.Estilo.MURO_ALIADOS: MazaAire.Modo.MURO_C,
 }

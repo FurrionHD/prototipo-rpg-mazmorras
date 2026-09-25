@@ -702,12 +702,8 @@ func _efecto_maza(ab: AbilityData, nom: String, dual: bool, f, fila: int, hoja: 
 			piezas.append({"n": MazaAire.golpe(self, MazaAire.Modo.PORRAZO, yo + alto, mejor, false, false, 0,
 				semilla, 0.0, 1.0), "t0": 0.0})
 		"golpe_demoledor", "aplastamiento":
+			# UN solo mazazo al suelo: nada en cada cuerpo (como el Golpe sismico).
 			piezas.append({"n": SueloRoto.lanzar(self, f, tipo, semilla, ab.forma_nucleo), "t0": 0.0})
-			var m: int = MazaAire.Modo.DEMOLEDOR_C if nom == "golpe_demoledor" else MazaAire.Modo.APLASTA_C
-			for i in cajas.size():
-				var r0: Rect2 = cajas[i][0]
-				piezas.append({"n": MazaAire.golpe(self, m, yo + alto, r0, false, i == 0, 0, semilla + i, 0.0, 1.0),
-					"t0": SueloRoto.retraso(f, _pies_caja(r0), tipo)})
 			if nom == "aplastamiento":
 				var linea_e = CombatFormas.linea(yo, f.dir, ab.forma_escudo_largo, ShieldData.ANCHO_ESCUDAZO[1])
 				for p in _enemigos:

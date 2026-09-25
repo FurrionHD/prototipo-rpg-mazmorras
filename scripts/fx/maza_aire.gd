@@ -5,11 +5,13 @@
 #  hacha y la espada (EspadaAire._barrido) y los anillos rellenos de ApoyoAire. NADA DE LINEAS.
 #  EN EL SUELO (por SueloRoto: la ficha dice cual; el de DOS MANOS lo elige SueloRoto.con_manos):
 #    DEMOLEDOR     Golpe demoledor: la maza cae en la punta, crater con grietas cortas y la RESONANCIA (anillos
-#                  escalonados hasta el borde de la huella, que es el frente del daño).
+#                  escalonados hasta el borde de la huella, que es el frente del daño). UN SOLO golpe al suelo que
+#                  alcanza a todos: nada en cada cuerpo, como el Golpe sismico (26/09, lo pidio el).
 #    DEMOLEDOR_DOS con dos mazas A LA VEZ: dos craters juntos, un anillo mas y mas gordos.
 #    ROMPE         Rompepiernas: un barrido BAJO de la cabeza de la maza, de hierro y polvo, que levanta tierra.
 #    ROMPE_DOS     con dos mazas: ida con una y vuelta con la otra (como el Doble tajo), las dos a ras de suelo.
-#    APLASTA       Aplastamiento: el mazazo de arriba abajo, crater pequeño y un anillo (el escudazo es de EscudoAire).
+#    APLASTA       Aplastamiento: el mazazo al suelo, crater pequeño y un anillo; nada en cada cuerpo (el escudazo
+#                  de despues si, es de EscudoAire y solo a los de su linea).
 #    ALIENTO       Grito de aliento: dos ondas CALIDAS hasta el borde y un destello en alto (la maza alzada).
 #    ALIENTO_DOS   con dos mazas: las entrechocas en alto y saltan chispas.
 #    MURO          Muro de aliados: un golpe al suelo a tus pies y un anillo azul que se CIERRA hacia ti.
@@ -18,8 +20,6 @@
 #                  mazas, una y otra), la mancha ROMA del impacto, la onda que sale por detras y esquirlas.
 #    CULATAZO      con el mango, a la cabeza: un golpe recto, corto y seco, y un destello duro.
 #    ROMPE_C       el Rompepiernas en cada uno: el porrazo a la rodilla, de lado, y polvo a los pies.
-#    APLASTA_C     el mazazo del Aplastamiento: de arriba abajo, y la guardia que salta en pedazos.
-#    DEMOLEDOR_C   la resonancia del Demoledor al llegarle: un anillo a sus pies y la sacudida en el cuerpo.
 #    ALIENTO_C     Grito de aliento, en cada uno de los tuyos: brio calido que le sube de los pies al pecho.
 #    MURO_C        Muro de aliados, en cada uno: su marca azul y la estela por el suelo hacia ti (se arrima).
 #  Coordenadas de MUNDO; el suelo SIN achatar (como las huellas); la altura a K. Todo sale de una semilla.
@@ -29,7 +29,7 @@ class_name MazaAire
 
 # Los del suelo (DEMOLEDOR..MURO) van en el orden de SueloRoto.Tipo.MAZA_*: no reordenar.
 enum Modo { DEMOLEDOR, DEMOLEDOR_DOS, ROMPE, ROMPE_DOS, APLASTA, ALIENTO, ALIENTO_DOS, MURO,
-	PORRAZO, CULATAZO, ROMPE_C, APLASTA_C, DEMOLEDOR_C, ALIENTO_C, MURO_C }
+	PORRAZO, CULATAZO, ROMPE_C, ALIENTO_C, MURO_C }
 
 const K := 0.7071
 const BLANCO := BarridoAire.BLANCO
@@ -87,7 +87,6 @@ var _lado: float = 1.0
 var _swing: Array = []                # la curva por la que llega la cabeza: [ini, control, fin]
 var _mancha: PackedVector2Array = PackedVector2Array()   # la mancha roma, en local (se escala)
 var _esquirlas: Array = []
-var _pedazos: Array = []
 var _motas: Array = []
 # El suelo.
 var _centro: Vector2 = Vector2.ZERO
@@ -245,10 +244,6 @@ func _preparar_golpe() -> void:
 			_imp = Vector2(cara.x, _caja.end.y - alto * 0.22) if _caja.has_area() else cara + Vector2(0.0, 6.0)
 			# Viene BAJA y de lado, casi a ras de suelo.
 			_swing = [_imp + _lat * _lado * 18.0 - _dir * 4.0, _imp + _lat * _lado * 9.0 - _dir * 6.0 + Vector2(0.0, 2.0), _imp]
-		Modo.APLASTA_C:
-			_imp = cara + Vector2(0.0, -alto * 0.2)
-			# De ARRIBA ABAJO con todo el peso.
-			_swing = [_imp + Vector2(0.0, -28.0) + _lat * _lado * 5.0, _imp + Vector2(0.0, -14.0) + _lat * _lado * 5.0, _imp]
 		Modo.PORRAZO:
 			_imp = cara + Vector2(0.0, -alto * _rng.randf_range(0.05, 0.2))
 			# De lado y de arriba, cada golpe con su inclinacion.
@@ -271,25 +266,16 @@ func _preparar_golpe() -> void:
 		var med: float = ang + PI / float(n_p)
 		_mancha.append(Vector2(cos(med), sin(med)) * largo * 0.7)
 	# Las esquirlas: salen por detras (hacia donde empuja el golpe) y hacia arriba, y caen.
-	for i in (7 if modo == Modo.APLASTA_C else 5):
+	for i in 5:
 		var sal: Vector2 = (_dir + _lat * _rng.randf_range(-0.9, 0.9)).normalized()
 		_esquirlas.append({"v": sal * _rng.randf_range(40.0, 90.0) + Vector2(0.0, -_rng.randf_range(30.0, 80.0)),
 			"tam": _rng.randf_range(1.2, 2.3)})
-	if modo == Modo.APLASTA_C and _n == 0 and not _fallo:
-		# LA GUARDIA EN PEDAZOS (la del Quebrantador): cuñas de luz que saltan hacia atras y a los lados.
-		var placa: Vector2 = cara + Vector2(0.0, -alto * 0.1)
-		for i in 5:
-			var u: float = (float(i) / 4.0) * 2.0 - 1.0
-			_pedazos.append({"p": placa + _lat * u * 9.0 + Vector2(0.0, _rng.randf_range(-6.0, 6.0)),
-				"v": _dir * _rng.randf_range(40.0, 95.0) + _lat * u * _rng.randf_range(30.0, 70.0)
-					+ Vector2(0.0, -_rng.randf_range(30.0, 80.0)),
-				"tam": _rng.randf_range(2.2, 4.0), "giro": _rng.randf() * TAU, "gira": _rng.randf_range(-14.0, 14.0)})
 	if modo == Modo.ALIENTO_C:
 		for i in 6:
 			_motas.append({"x": _rng.randf_range(-7.0, 7.0), "t0": _rng.randf_range(0.0, 0.16),
 				"v": _rng.randf_range(60.0, 100.0)})
 	# Lo del SUELO de un cuerpo (polvo, anillos a los pies) va por debajo de los cuerpos.
-	if modo in [Modo.ROMPE_C, Modo.DEMOLEDOR_C, Modo.MURO_C, Modo.ALIENTO_C, Modo.APLASTA_C]:
+	if modo in [Modo.ROMPE_C, Modo.MURO_C, Modo.ALIENTO_C]:
 		_suelo = Node2D.new()
 		_suelo.z_as_relative = false
 		_suelo.z_index = SueloRoto.Z_SUELO
@@ -307,8 +293,6 @@ func duracion() -> float:
 		Modo.MURO: return 0.85
 		Modo.ALIENTO_C: return 0.55
 		Modo.MURO_C: return 0.7
-		Modo.DEMOLEDOR_C: return 0.45
-		Modo.APLASTA_C: return 0.6
 	return 0.5
 
 
@@ -438,14 +422,8 @@ func _draw() -> void:
 		_dibujar_suelo_area()
 		return
 	match modo:
-		Modo.PORRAZO, Modo.CULATAZO, Modo.ROMPE_C, Modo.APLASTA_C:
+		Modo.PORRAZO, Modo.CULATAZO, Modo.ROMPE_C:
 			_dibujar_porrazo()
-		Modo.DEMOLEDOR_C:
-			if _t >= 0.0 and not _fallo:
-				var k: float = _sale(_t, 0.12)
-				BarridoAire.brillo(self, _c, 10.0 + 6.0 * k, Color(HIERRO, 0.45 * (1.0 - clampf(_t / 0.3, 0.0, 1.0))))
-				var pulso: float = exp(-_t / 0.05)
-				BarridoAire.destello(self, _c + Vector2(0.0, -2.0), 5.0 + 6.0 * pulso, Color(BLANCO, 0.8 * pulso), _dir.angle())
 		Modo.ALIENTO_C:
 			for m in _motas:
 				var tp: float = _t - float(m["t0"])
@@ -462,7 +440,7 @@ func _draw() -> void:
 
 func _dibujar_porrazo() -> void:
 	var t_sw: float = T_JAB if modo == Modo.CULATAZO else T_SWING
-	var grueso: float = {Modo.CULATAZO: 5.0, Modo.APLASTA_C: 10.0}.get(modo, 8.0)
+	var grueso: float = 5.0 if modo == Modo.CULATAZO else 8.0
 	# 1) LA CABEZA QUE LLEGA: acaba en el golpe y se apaga enseguida.
 	var s: float = clampf((_t + t_sw) / t_sw, 0.0, 1.0)
 	if s > 0.0:
@@ -470,7 +448,7 @@ func _dibujar_porrazo() -> void:
 		_estela(self, maxf(0.0, s - 0.7), s * s * (3.0 - 2.0 * s), grueso, (0.45 if _fallo else 0.9) * (1.0 - apaga))
 	if _t < 0.0 or _fallo:
 		return
-	var escala: float = {Modo.CULATAZO: 0.6, Modo.ROMPE_C: 0.85, Modo.APLASTA_C: 1.3}.get(modo, 1.0) * (1.3 if _crit else 1.0)
+	var escala: float = {Modo.CULATAZO: 0.6, Modo.ROMPE_C: 0.85}.get(modo, 1.0) * (1.3 if _crit else 1.0)
 	# 2) EL DESTELLO del impacto: duro y corto en el culatazo.
 	var pulso: float = exp(-_t / (0.035 if modo == Modo.CULATAZO else 0.05))
 	BarridoAire.destello(self, _imp, (7.0 + 8.0 * pulso) * escala, Color(BLANCO, pulso), _dir.angle() + 0.4 * _lado)
@@ -502,22 +480,6 @@ func _dibujar_porrazo() -> void:
 			var vel: Vector2 = v + Vector2(0.0, GRAVEDAD * _t)
 			BarridoAire.cometa(self, p - vel.normalized() * 4.0, p, float(q["tam"]),
 				Color(LABIO.lerp(BLANCO, 0.4), 0.9 * (1.0 - _t / 0.4)))
-	# 6) LA GUARDIA EN PEDAZOS (Aplastamiento).
-	for pz in _pedazos:
-		if _t > 0.4:
-			break
-		var q2: Vector2 = (pz["p"] as Vector2) + (pz["v"] as Vector2) * _t + Vector2(0.0, 0.5 * GRAVEDAD * _t * _t)
-		var a: float = float(pz["giro"]) + float(pz["gira"]) * _t
-		var tam: float = float(pz["tam"])
-		var alfa: float = clampf(1.0 - _t / 0.4, 0.0, 1.0)
-		var d := Vector2(cos(a), sin(a))
-		var nn: Vector2 = d.orthogonal() * tam * 0.45
-		draw_primitive(PackedVector2Array([q2 - d * tam, q2 + nn, q2 + d * tam * 0.8, q2 - nn]),
-			PackedColorArray([Color(GUARDIA, alfa * 0.5), Color(BLANCO, alfa), Color(GUARDIA, alfa * 0.8),
-				Color(BLANCO, alfa)]), PackedVector2Array())
-	if not _pedazos.is_empty() and _t < 0.12:
-		var kf: float = _t / 0.12
-		BarridoAire.brillo(self, _imp, 10.0 + 12.0 * kf, Color(GUARDIA, 0.5 * (1.0 - kf)))
 
 
 # Lo de los pies de un cuerpo.
@@ -525,7 +487,7 @@ func _dibujar_suelo_cuerpo() -> void:
 	if _t < 0.0:
 		return
 	match modo:
-		Modo.ROMPE_C, Modo.APLASTA_C:
+		Modo.ROMPE_C:
 			if _fallo:
 				return
 			# El cuerpo cede: polvo a los dos lados de los pies.
@@ -534,11 +496,6 @@ func _dibujar_suelo_cuerpo() -> void:
 				for j in 3:
 					var q: Vector2 = _pies + _lat * s * (4.0 + 14.0 * k * (0.6 + 0.3 * float(j))) + Vector2(0.0, -2.0 - 3.0 * float(j) * k)
 					BarridoAire.brillo(_suelo, q, 5.0 + 6.0 * k, Color(POLVO, 0.6 * (1.0 - k)))
-		Modo.DEMOLEDOR_C:
-			if _fallo:
-				return
-			var k2: float = _sale(_t, 0.3)
-			_arco(_suelo, _pies, 6.0 + 12.0 * k2, 5.0, 0.0, TAU, Color(BLANCO, 0.75 * (1.0 - k2)), Color(POLVO, 0.4 * (1.0 - k2)))
 		Modo.ALIENTO_C:
 			var k3: float = _sale(_t, 0.3)
 			_arco(_suelo, _pies, 5.0 + 11.0 * k3, 4.0, 0.0, TAU, Color(BRIO_CLARO, 0.85 * (1.0 - k3)), Color(BRIO, 0.35 * (1.0 - k3)))
@@ -692,18 +649,9 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.DEMOLEDOR, Modo.DEMOLEDOR_DOS, Modo.APLASTA:
 			if capa != _delante:
 				return
-			# LA CABEZA QUE CAE sobre cada crater (de un lado con dos mazas: se juntan en el golpe).
-			var t_cae: float = T_SWING * (1.4 if modo == Modo.APLASTA else 1.0)
-			var s: float = clampf((_t + t_cae) / t_cae, 0.0, 1.0)
-			var apaga: float = clampf(_t / 0.1, 0.0, 1.0)
+			# EL IMPACTO en cada crater (la maza que cae la cuenta el muñeco, como en el martillo).
 			for i in _craters.size():
 				var pc: Vector2 = _craters[i]["c"]
-				var lado: float = 0.0 if _craters.size() == 1 else (1.0 if i == 0 else -1.0)
-				var ini: Vector2 = pc + Vector2(0.0, -34.0) + _lat * lado * 10.0
-				var cae: Vector2 = ini.lerp(pc, s * s)
-				if s > 0.0 and apaga < 1.0:
-					BarridoAire.cometa(capa, ini.lerp(pc, maxf(0.0, s * s - 0.5)), cae, 9.0, Color(BLANCO, 0.9 * (1.0 - apaga)))
-					BarridoAire.brillo(capa, cae, 5.0, Color(HIERRO, 0.7 * (1.0 - apaga)))
 				if _t >= 0.0:
 					var pulso: float = exp(-_t / 0.05)
 					BarridoAire.destello(capa, pc + Vector2(0.0, -2.0), (10.0 if modo != Modo.APLASTA else 8.0) + 14.0 * pulso,
