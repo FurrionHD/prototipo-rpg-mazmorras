@@ -18,7 +18,7 @@ const ZOOM := 5
 const MOMENTOS := 4
 const ENTRE := 0.13   # segundos entre un momento y el siguiente
 const FONDO := Color(0.11, 0.12, 0.15)
-const ARMAS := ["martillo_grande", "mandoble", "hacha_grande", "daga", "estoque", "espada_corta", "espada_larga"]
+const ARMAS := ["martillo_grande", "mandoble", "hacha_grande", "daga", "estoque", "espada_corta", "espada_larga", "maza_peq"]
 
 
 func _filas() -> Array:
