@@ -774,6 +774,11 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			_pantalla._poner_en_defensa(al)
 		if not a_defender.is_empty():
 			estados_log.append("en defensa: %s" % ", ".join(a_defender.map(func(x): return x.nombre)))
+	# CIERRAN FILAS (Muro de aliados): los de la huella se arriman un paso al que la lanza.
+	if ab.junta_aliados > 0.0 and _aliados_mapa != null:
+		for al in _aliados_mapa:
+			if al != _pantalla._player and al.is_alive():
+				_pantalla.turno_mapa.pedir_juntar(al, _pantalla._player, ab.junta_aliados)
 	# IMBUICION DESDE EL ARMA (el veneno de la daga). Reutiliza la misma maquinaria que los Filos:
 	# se gasta 1 carga por ATAQUE, aguanta entre combates y se ve en el mismo chip. OJO: aplicar_imbue
 	# SUSTITUYE, asi que envenenar la daga te quita el Filo o el Manto que llevaras -- hay una sola

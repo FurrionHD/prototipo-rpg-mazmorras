@@ -283,6 +283,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # PONE EN DEFENSA (como el boton Defender) a los tuyos: en el mapa, a los que pilla la huella; en la fila,
 # a todo el grupo. El Voto de guardia (25/09): "que todos entren en posicion de defensa cerca de ti".
 @export var defensa_a_aliados: bool = false
+# CIERRA FILAS (solo en el mapa): los tuyos que pilla la huella dan un paso de estos px HACIA el que la lanza,
+# sin meterse encima de nadie. 0 = nadie se mueve. El Muro de aliados de la maza (25/09): "cierras la formacion".
+@export var junta_aliados: float = 0.0
 # EL ESCUDAZO TIENE SU PROPIA HUELLA (solo en el mapa): los golpes de escudo (escudo_desde_golpe) no caen
 # en la forma de la habilidad sino en una LINEA de este largo, hacia donde apuntas, y los estados que no
 # son por golpe van solo a los que se comen el escudazo. El ancho lo pone el escudo (ShieldData.

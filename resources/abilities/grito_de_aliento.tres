@@ -14,6 +14,10 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 2
+forma_radio = 150.0
+forma_a_aliados = true
 nombre = "Grito de aliento"
 precio = 4000
 coste_energia = 66

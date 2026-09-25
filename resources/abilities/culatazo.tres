@@ -10,6 +10,10 @@ prob = 0.25
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 1
+forma_radio = 16.0
+forma_solo_primero = true
 nombre = "Culatazo"
 precio = 1200
 coste_energia = 44

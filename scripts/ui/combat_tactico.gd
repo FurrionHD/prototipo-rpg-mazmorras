@@ -2230,6 +2230,22 @@ func pedir_ponerse_delante(c: Combatant, aliado: Combatant) -> void:
 		pedir_desliz(c, p, Desliz.YA, 0)
 
 
+# CERRAR FILAS (Muro de aliados de la maza, 25/09): 'c' da un paso de 'px' hacia 'hacia', sin acabar
+# encima de el ni de nadie. Sale ya: no hay golpe que esperar.
+func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
+	if _pantalla._espejo or not _pantalla.tactico or c == null or hacia == null or c == hacia \
+			or cuerpo_de(c) == null or cuerpo_de(hacia) == null:
+		return
+	var pc: Vector2 = pies_de(c)
+	var ph: Vector2 = pies_de(hacia)
+	var largo: float = minf(px, pc.distance_to(ph) - SEPARACION - 2.0)
+	if largo < 2.0:
+		return
+	var hasta: Vector2 = _sitio_libre_hacia(c, pc + (ph - pc).normalized() * largo)
+	if not hasta.is_equal_approx(pos_de(c)):
+		pedir_desliz(c, hasta, Desliz.YA, 0)
+
+
 func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null:
 		return

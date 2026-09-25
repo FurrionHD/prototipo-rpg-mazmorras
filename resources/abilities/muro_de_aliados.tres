@@ -13,6 +13,11 @@ turns = 3
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 2
+forma_radio = 120.0
+forma_a_aliados = true
+junta_aliados = 25.0
 nombre = "Muro de aliados"
 precio = 4000
 coste_energia = 66

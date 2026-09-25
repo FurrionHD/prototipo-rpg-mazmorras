@@ -226,6 +226,8 @@ func _correr() -> void:
 	for e in combat._enemies:
 		print("  antes: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp, str(t.pos_de(e).round()),
 			t.hueco_entre(combat._player, e)])
+	for al in combat._aliados:
+		print("  antes: aliado %s pos=%s" % [al.nombre, str(t.pos_de(al).round())])
 	# Cada aviso de gesto del cuerpo, con su animacion (la finta y luego pinchazos, la bomba y puñaladas...).
 	var t_av: int = Time.get_ticks_msec()
 	combat._fx.gesto_iniciado.connect(func(_b, _d, dur, anim, m) -> void:

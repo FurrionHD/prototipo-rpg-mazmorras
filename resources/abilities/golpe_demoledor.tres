@@ -10,6 +10,10 @@ prob = 0.15
 
 [resource]
 script = ExtResource("1")
+forma = 1
+forma_apunte = 1
+forma_radio = 35.0
+forma_nucleo = 12.0
 nombre = "Golpe demoledor"
 inicial = true
 coste_energia = 42

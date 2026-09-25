@@ -10,6 +10,10 @@ prob = 0.35
 
 [resource]
 script = ExtResource("1")
+forma = 2
+forma_apunte = 1
+forma_radio = 45.0
+forma_apertura = 100.0
 nombre = "Rompepiernas"
 precio = 1200
 coste_energia = 44
