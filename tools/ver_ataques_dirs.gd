@@ -324,7 +324,8 @@ func _efecto_estoque(ab: AbilityData, nom: String, f, fila: int, hoja: Image, ti
 			for i in g:
 				if cajas.is_empty():
 					break
-				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.FINTA, yo + alto, cajas[i % cajas.size()],
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.FINTA if i == 0 else EstoqueAire.Modo.PUNZADA,
+					yo + alto, cajas[i % cajas.size()],
 					false, i == 1, i, semilla + i, 0.0, 1.0), "t0": 0.075 * float(i)})
 		"punzada_al_nervio":
 			if not cajas.is_empty():

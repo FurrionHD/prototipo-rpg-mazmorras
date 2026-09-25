@@ -1598,7 +1598,9 @@ func arrancar_cola() -> float:
 		for ev in _cola:
 			var a_ev: String = String(ev.get("anim", ""))
 			if a_ev in ANIM_REPITE_MAPA:
-				minimo = maxf(minimo, float(IMPACTO_ANIM_MAPA.get(a_ev, 0.0)) + T_RESPIRO_REPITE)
+				# Lo que cuenta es lo que tarda en tocar la que SIGUE (la finta sigue a pinchazos).
+				var a_sig_ev: String = String(ANIM_SIGUIENTE_MAPA.get(a_ev, a_ev))
+				minimo = maxf(minimo, float(IMPACTO_ANIM_MAPA.get(a_sig_ev, 0.0)) + T_RESPIRO_REPITE)
 		if minimo > paso:
 			paso = minimo
 			extra = paso * float(n_tandas - 1)
@@ -1772,7 +1774,8 @@ const IMPACTO_ANIM_MAPA := {
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.
-const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo"}
+# Y las FINTAS (25/09, idea suya): el amago solo en la primera; las demas, estocadas rapidas.
+const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": "pinchazo_estoque"}
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque"]
@@ -1967,9 +1970,14 @@ func _cola_de_gestos() -> float:
 # -- que ademas es 'loop = false', asi que ahi se queda para siempre.
 # Avisa de que el cuerpo hace su gesto, con la animacion que pida y el tiempo que tiene para ella.
 # En SEGUNDOS REALES: quien la reproduce corre con el reloj del motor, no con el nuestro.
-func _avisar_gesto(p: Dictionary, dur_anim: float) -> void:
+# 'siguiente' = no es el arranque sino uno de los golpes de despues: si su animacion sigue con otra
+# (ANIM_SIGUIENTE_MAPA: la finta con pinchazos), se avisa con esa.
+func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false) -> void:
+	var anim: String = String(p.get("anim", ""))
+	if siguiente:
+		anim = String(ANIM_SIGUIENTE_MAPA.get(anim, anim))
 	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
-		dur_anim / maxf(escala_tiempo, 0.01), StringName(p.get("anim", "")))
+		dur_anim / maxf(escala_tiempo, 0.01), StringName(anim))
 
 
 # ============================================================
@@ -2052,7 +2060,7 @@ func _aplicar_gestos(mov: Dictionary, esc: Dictionary, zorden: Dictionary) -> vo
 			# El primero ya lo lanzo el arranque de arriba (salvo la bomba: su arranque fue tirarla).
 			if sig > 0 or bool(p.get("tras_suelo", false)):
 				var hueco: float = float(golpes[sig]) - float(golpes[sig - 1]) if sig > 0 else 0.3
-				_avisar_gesto(p, hueco)
+				_avisar_gesto(p, hueco, true)
 		if not bool(p["fin_lanzado"]) and _t >= t_fin:
 			p["fin_lanzado"] = true
 			gesto_terminado.emit(p["bloque"])

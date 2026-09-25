@@ -1722,7 +1722,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var caja_e: Rect2 = bulto_de(v)
 		var desde_e: Vector2 = pies_de(a) + Vector2(0.0, -EstoqueAire.ALTO_TORSO) \
 			if a != null and cuerpo_de(a) != null else caja_e.get_center() - Vector2(20.0, 0.0)
-		EstoqueAire.golpe(arena, int(_MODO_ESTOQUE[estilo]), desde_e, caja_e, bool(ev.get("evadido", false)),
+		var modo_e: int = int(_MODO_ESTOQUE[estilo])
+		# LAS FINTAS: el amago solo en la primera; las demas son estocadas a secas.
+		if modo_e == EstoqueAire.Modo.FINTA and int(ev.get("pos_tanda", 0)) > 0:
+			modo_e = EstoqueAire.Modo.PUNZADA
+		EstoqueAire.golpe(arena, modo_e, desde_e, caja_e, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 		return
 	var modo: int = DagaAire.Modo.TAJO
@@ -2101,7 +2105,9 @@ const T_VUELTA_MOLINETE := 0.2    # = BarridoAire.T_ENTRE: una vuelta por golpe
 # Los gestos que se REPITEN en cada golpe, y su version con la mano izquierda (dos dagas).
 const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "punalada_daga_izq",
 	# El estoque (una mano siempre): la finta y el pinchazo de la Danza, uno por golpe.
-	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque"}
+	"finta_estoque": "finta_estoque", "pinchazo_estoque": "pinchazo_estoque",
+	# Las puñaladas de tras la bomba (CombatFX las avisa ya con su nombre: ANIM_SIGUIENTE_MAPA).
+	"tajo_daga_solo": "tajo_daga_solo"}
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 

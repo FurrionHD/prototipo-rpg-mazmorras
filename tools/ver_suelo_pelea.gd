@@ -199,6 +199,10 @@ func _correr() -> void:
 	for e in combat._enemies:
 		print("  antes: %s vida=%.1f pos=%s hueco=%.1f" % [e.nombre, e.current_hp, str(t.pos_de(e).round()),
 			t.hueco_entre(combat._player, e)])
+	# Cada aviso de gesto del cuerpo, con su animacion (la finta y luego pinchazos, la bomba y puñaladas...).
+	var t_av: int = Time.get_ticks_msec()
+	combat._fx.gesto_iniciado.connect(func(_b, _d, dur, anim) -> void:
+		print("  aviso: %s a %.2f s (dura %.2f)" % [anim, (Time.get_ticks_msec() - t_av) / 1000.0, dur]))
 	# Las de carga (Martillo de guerra), soltadas ya: lo que se mira es el golpe, no el turno de cargar.
 	combat.habilidades._usar_habilidad(ab, ab.carga_turnos > 0)
 	var t0: int = Time.get_ticks_msec()
