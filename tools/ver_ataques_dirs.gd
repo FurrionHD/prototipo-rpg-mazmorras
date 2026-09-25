@@ -20,9 +20,12 @@ const HABILIDADES := [
 	["estoque", "paso_ligero"], ["estoque", "danza_de_acero"], ["estoque", "en_guardia"],
 	["espada", "basico"], ["espada", "tajo_quebrantador"], ["espada", "doble_tajo"], ["espada", "cambio_de_ritmo"],
 	["espada", "senalar_el_hueco"], ["espada", "corte_de_tendones"],
+	["larga", "basico"], ["larga", "tajo_pesado"], ["larga", "tajo_desarmante"], ["larga", "estocada_marcial"],
+	["larga", "guardia_rota"],
+	["escudo", "golpe_escudo_pequeno"], ["escudo", "golpe_escudo_normal"], ["escudo", "golpe_escudo_grande"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
-	"espada": 18.75}
+	"espada": 18.75, "larga": 23.25, "escudo": 23.25}
 # LA ESPADA CORTA (EspadaAire), como la daga: golpe a golpe sobre cada cuerpo. "basico" no tiene ficha: el
 # tajo de siempre sobre el de delante.
 const MOMENTOS_ESPADA := {
@@ -32,6 +35,14 @@ const MOMENTOS_ESPADA := {
 	"cambio_de_ritmo": [0.04, 0.1, 0.16, 0.24, 0.4],
 	"senalar_el_hueco": [-0.02, 0.03, 0.12, 0.4, 0.8],
 	"corte_de_tendones": [0.03, 0.07, 0.11, 0.18, 0.35],
+	# LA ESPADA LARGA y el ESCUDO (25/09), por el mismo camino (EspadaAire, EstoqueAire, EscudoAire).
+	"tajo_pesado": [-0.03, 0.02, 0.07, 0.14, 0.45],
+	"tajo_desarmante": [0.03, 0.07, 0.12, 0.2, 0.4],
+	"estocada_marcial": [-0.03, 0.0, 0.03, 0.08, 0.2],
+	"guardia_rota": [0.04, 0.1, 0.2, 0.26, 0.4],
+	"golpe_escudo_pequeno": [-0.04, 0.0, 0.04, 0.1, 0.22],
+	"golpe_escudo_normal": [-0.04, 0.0, 0.04, 0.1, 0.22],
+	"golpe_escudo_grande": [-0.04, 0.0, 0.04, 0.1, 0.22],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -157,7 +168,8 @@ func _correr() -> void:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		var tiempos: Array = MOMENTOS_DAGA.get(nom, []) if arma == "daga" \
 			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" \
-			else (MOMENTOS_ESPADA.get(nom, []) if arma == "espada" else MOMENTOS.get(ab.suelo_roto, [])))
+			else (MOMENTOS_ESPADA.get(nom, []) if arma in ["espada", "larga", "escudo"] \
+			else MOMENTOS.get(ab.suelo_roto, [])))
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -199,7 +211,7 @@ func _correr() -> void:
 			if arma == "estoque":
 				await _efecto_estoque(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
 				continue
-			if arma == "espada":
+			if arma in ["espada", "larga", "escudo"]:
 				await _efecto_espada(ab, nom, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			# 2) El efecto, en sus cinco momentos.
@@ -472,6 +484,40 @@ func _efecto_espada(ab: AbilityData, nom: String, f, fila: int, hoja: Image, tie
 						0.6, 77 + i + g)
 					var n_s: Node2D = get_child(get_child_count() - 1)
 					piezas.append({"n": n_s, "t0": t_g, "sangre": true})
+		"tajo_pesado", "tajo_desarmante", "guardia_rota":
+			# El barrido o la raja (camino del suelo) y, en cada cuerpo, su corte cuando le llega. El Tajo pesado cae
+			# T_CAE antes del golpe. La Guardia rota ademas mete el ESCUDAZO por su linea, un golpe despues.
+			var s_l: Node2D = SueloRoto.lanzar(self, f, ab.suelo_roto, semilla)
+			piezas.append({"n": s_l, "t0": -EspadaAire.T_CAE if nom == "tajo_pesado" else 0.0})
+			var m_l: int = EspadaAire.Modo.PESADO_C if nom == "tajo_pesado" \
+				else (EspadaAire.Modo.DESARME if nom == "tajo_desarmante" else EspadaAire.Modo.QUEBRANTADOR)
+			for i in cajas.size():
+				var pies_l: Vector2 = Vector2((cajas[i] as Rect2).get_center().x, (cajas[i] as Rect2).end.y)
+				var llega_l: float = SueloRoto.retraso(f, pies_l, ab.suelo_roto)
+				piezas.append({"n": EspadaAire.golpe(self, m_l, yo + alto, cajas[i], false, i == 0, 0,
+					semilla + i * 7, 0.0, 1.0), "t0": llega_l})
+				SangreMapa.salpicar(self, (cajas[i] as Rect2).get_center(), pies_l,
+					(pies_l - yo).normalized() if nom == "tajo_pesado"
+					else (pies_l - yo).normalized().rotated(PI * 0.5) * 0.85 + (pies_l - yo).normalized() * 0.45,
+					0.6, 77 + i)
+				piezas.append({"n": get_child(get_child_count() - 1), "t0": llega_l, "sangre": true})
+			if nom == "guardia_rota":
+				var linea_e = CombatFormas.linea(yo, f.dir, ab.forma_escudo_largo, ShieldData.ANCHO_ESCUDAZO[1])
+				for p in _enemigos:
+					var r_e := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+					if linea_e.toca(r_e):
+						var t_e: float = SueloRoto.retraso(f, Vector2(r_e.get_center().x, r_e.end.y), ab.suelo_roto) \
+							+ EspadaAire.T_ENTRE
+						piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, r_e, false, false, 1,
+							semilla + 99, 0.0, 1.0), "t0": t_e})
+		"estocada_marcial":
+			for i in cajas.size():
+				piezas.append({"n": EstoqueAire.golpe(self, EstoqueAire.Modo.PENETRANTE, yo + alto, cajas[i], false,
+					i == 0, 0, semilla + i, 0.0, 1.0), "t0": 0.0})
+		"golpe_escudo_pequeno", "golpe_escudo_normal", "golpe_escudo_grande":
+			for i in cajas.size():
+				piezas.append({"n": EscudoAire.golpe(self, EscudoAire.Modo.ESCUDAZO, yo + alto, cajas[i], false,
+					i == 0, i, semilla + i, 0.0, 1.0), "t0": 0.0})
 		"senalar_el_hueco":
 			if not cajas.is_empty():
 				for g in 2:

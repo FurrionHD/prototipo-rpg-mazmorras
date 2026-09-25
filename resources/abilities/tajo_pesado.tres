@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1")
+suelo_roto = 20
 forma_ancho = 20.0
 forma_radio = 65.0
 forma_apunte = 1

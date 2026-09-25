@@ -29,8 +29,9 @@ class_name SueloRoto
 #    HUMO         la bomba de humo de Desaparecer (daga, 24/09). Vive en DagaAire.
 enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, TAJO,
 	HACHAZO, CARNICERIA, DESGARRO, HENDEDURA, MIRADA, HUMO, DANZA,
-	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON }
+	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO }
 # ESPADA_* (espada corta, 25/09): los barridos del Tajo quebrantador, el Doble tajo y el Corte de tendones.
+# Y de la ESPADA LARGA (25/09): el Tajo desarmante y el Tajo pesado.
 # Viven en EspadaAire (su Modo = QUIEBRA + tipo - ESPADA_QUIEBRA).
 # DANZA (estoque, Danza de acero): no rompe ni pinta nada, solo lleva el COMPAS. Un frente que corre por la
 # linea a EstoqueAire.V_DANZA, el mismo paso al que avanza el cuerpo (CombatTactico, al oir

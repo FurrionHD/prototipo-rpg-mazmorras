@@ -387,7 +387,10 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
 	# y la espada corta (EspadaAire): tajos con cuerpo, sobre cada cuerpo.
 	Estilo.ESPADA_TAJO, Estilo.TAJO_QUEBRANTADOR, Estilo.DOBLE_TAJO, Estilo.CAMBIO_RITMO,
-	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES]
+	Estilo.SENALAR_HUECO, Estilo.CORTE_TENDONES,
+	# y la espada larga (EspadaAire / EstoqueAire) y el escudazo (EscudoAire), 25/09.
+	Estilo.ESPADA_LARGA_TAJO, Estilo.TAJO_PESADO, Estilo.TAJO_DESARMANTE, Estilo.GUARDIA_ROTA,
+	Estilo.ESTOCADA_MARCIAL, Estilo.ESCUDAZO]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -1759,6 +1762,11 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.ESPADA_TAJO: "tajo_espada", Estilo.SENALAR_HUECO: "tajo_espada", Estilo.DOBLE_TAJO: "tajo_espada",
 	Estilo.TAJO_QUEBRANTADOR: "barrido_espada", Estilo.CORTE_TENDONES: "tajo_bajo_espada",
 	Estilo.CAMBIO_RITMO: "tajo_paso_espada",
+	# LA ESPADA LARGA (25/09): PROVISIONALES hasta sus animaciones (paso 3), para que sus golpes no cuenten
+	# como magia. El escudazo, la defensa (sube el escudo; ademas te deja en guardia).
+	Estilo.ESPADA_LARGA_TAJO: "tajo_espada", Estilo.TAJO_PESADO: "tajo_espada",
+	Estilo.TAJO_DESARMANTE: "barrido_espada", Estilo.GUARDIA_ROTA: "barrido_espada",
+	Estilo.ESTOCADA_MARCIAL: "estocada_estoque", Estilo.ESCUDAZO: "defensa",
 	# El Defender de cualquier arma: 'defensa' lo cambia el muñeco por la de su combinacion.
 	Estilo.DEFENSA: "defensa",
 }

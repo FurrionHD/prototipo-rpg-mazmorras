@@ -18,12 +18,23 @@
 #        RITMO     Cambio de ritmo: la pincelada TUMBADA, en la direccion en la que pasas
 #        SENALAR   Señalar el hueco: dos pinceladas EXACTAS una encima de otra y la diana roja
 #        TENDONES  en el golpe del barrido, polvo a los pies; en los de mas, pincelada baja
+#  LA ESPADA LARGA (25/09) vive aqui tambien, copiando lo mismo:
+#        DESARMA   el barrido del Tajo desarmante: a la altura del BRAZO, mas fino, y le llega a cada uno al pasar
+#        PESADO    el Tajo pesado: la hoja CAE en vertical y el suelo se abre por la linea (la Hendedura del
+#                  hacha, que le gusto, pero de acero: raja RECTA y limpia con un filo de luz azul que se apaga)
+#        DESARME   (cuerpo) el tajo al brazo: pincelada corta y alta, choque de acero con chispas y un
+#                  destello que sale despedido (el arma que suelta)
+#        PESADO_C  (cuerpo) la pincelada casi vertical, mas larga y mas gorda
+#  El basico de la espada larga es la pincelada de siempre (TAJO); la Guardia rota, el barrido QUIEBRA con
+#  la guardia en pedazos (QUEBRANTADOR); la Estocada marcial, la de EstoqueAire.
 #  Coordenadas de MUNDO; todo sale de una semilla. NADA DE LINEAS (efectos-sin-lineas).
 # ============================================================
 extends Node2D
 class_name EspadaAire
 
-enum Modo { TAJO, QUEBRANTADOR, DOBLE, RITMO, SENALAR, TENDONES, QUIEBRA, CRUZ, TENDON }
+# Los barridos (QUIEBRA..PESADO) van en el orden de SueloRoto.Tipo.ESPADA_*: no reordenar.
+enum Modo { TAJO, QUEBRANTADOR, DOBLE, RITMO, SENALAR, TENDONES, QUIEBRA, CRUZ, TENDON, DESARMA, PESADO,
+	DESARME, PESADO_C }
 
 const T_BARRE := 0.15         # lo que tarda un barrido de punta a punta (lento al salir, rapidisimo al final)
 const T_CLAVADO := 0.08       # lo que se queda entero al acabar (como el hachazo)
@@ -45,6 +56,11 @@ const ALTO_TORSO := 14.0
 const ALTO_CINTURA := 9.0     # el Quebrantador
 const ALTO_SUELO := 2.0       # los Tendones
 const GRAVEDAD := 380.0
+const ALTO_BRAZO := 12.0      # el Tajo desarmante
+const T_CAE := 0.07           # la caida del Tajo pesado (la de la Hendedura)
+const T_RAJA := 0.12          # y lo que tarda el suelo en abrirse hasta el final (algo mas rapida: es acero)
+const T_FILO := 0.22          # lo que tarda en apagarse el filo de luz de la raja
+const T_CHOQUE := 0.35        # las chispas del choque de acero (Desarmante)
 
 const BLANCO := BarridoAire.BLANCO
 const AIRE := BarridoAire.AIRE
@@ -81,6 +97,10 @@ var _atras: Node2D = null
 var _delante: Node2D = null
 var _chispas: Array = []
 var _tierra: Array = []
+var _raja: PackedVector2Array = PackedVector2Array()   # Tajo pesado
+var _piedras: Array = []
+var _choque: Array = []    # Desarmante: chispas del choque {v, tam}
+var _suelta: Dictionary = {}   # Desarmante: el destello del arma que sale despedida
 
 
 # ------------------------------------------------------------
@@ -96,7 +116,8 @@ static func barrido(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, es
 	e.forma = f
 	e._rng.seed = semilla
 	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
-	e._t = (T_BARRE if m == Modo.CRUZ else 0.0) - espera * e._ritmo
+	# El Doble tajo acaba su primer barrido EN el golpe; el Tajo pesado cae antes de abrir el suelo.
+	e._t = (T_BARRE if m == Modo.CRUZ else (T_CAE if m == Modo.PESADO else 0.0)) - espera * e._ritmo
 	e.z_as_relative = false
 	e.z_index = SueloRoto.Z_SUELO
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -109,6 +130,9 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 	if m == Modo.CRUZ or f == null:
 		return 0.0
 	var o: Vector2 = SueloRoto.origen_de(f)
+	if m == Modo.PESADO:
+		# El suelo se abre de donde cae la hoja hacia el final de la linea, a velocidad fija.
+		return T_RAJA * clampf((p - o).dot(f.dir) / maxf(f.radio, 1.0), 0.0, 1.0)
 	var mitad: float = deg_to_rad(f.apertura * 0.5)
 	if mitad <= 0.001 or p.distance_squared_to(o) < 0.01:
 		return 0.0
@@ -118,7 +142,10 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 
 
 static func t_salir(m: int) -> float:
-	return 2.0 * T_ENTRE if m == Modo.CRUZ else T_BARRE
+	match m:
+		Modo.CRUZ: return 2.0 * T_ENTRE
+		Modo.PESADO: return T_RAJA
+	return T_BARRE
 
 
 # ------------------------------------------------------------
@@ -152,7 +179,9 @@ static func golpe(padre: Node, m: int, desde: Vector2, caja: Rect2, fallo: bool,
 
 func duracion() -> float:
 	match modo:
-		Modo.QUIEBRA, Modo.TENDON: return T_BARRE + T_SUELO + T_SUELO_APAGAR + 0.1
+		Modo.QUIEBRA, Modo.TENDON, Modo.DESARMA: return T_BARRE + T_SUELO + T_SUELO_APAGAR + 0.1
+		Modo.PESADO: return T_CAE + T_RAJA + T_SUELO + T_SUELO_APAGAR + 0.1
+		Modo.DESARME: return maxf(T_SALE + 0.08 + T_APAGA, T_CHOQUE + 0.25) + 0.1
 		Modo.CRUZ: return T_ENTRE + T_BARRE + T_CLAVADO + T_APAGA_SECO + 0.3
 		Modo.QUEBRANTADOR: return T_PEDAZOS + 0.4
 		Modo.SENALAR: return (T_DIANA if _n == 1 else T_SALE + T_APAGA + 0.1) + 0.15
@@ -172,6 +201,18 @@ func _ready() -> void:
 		_chispas.append({"t0": _rng.randf_range(0.0, T_BARRE * (2.0 if modo == Modo.CRUZ else 1.0)
 			+ (T_ENTRE - T_BARRE if modo == Modo.CRUZ else 0.0)),
 			"vel": _rng.randf_range(90.0, 170.0), "abre": _rng.randf_range(0.1, 0.7)})
+	if modo == Modo.PESADO:
+		# LA RAJA: casi recta (el acero corta limpio; la del hacha va quebrada), de donde cae la hoja al final.
+		var ini: Vector2 = _centro + _dir * forma.radio * 0.2
+		var fin: Vector2 = _centro + _dir * forma.radio * 0.98
+		var nor: Vector2 = _dir.orthogonal()
+		for i in 13:
+			var s: float = float(i) / 12.0
+			var lado: float = 0.0 if i == 0 or i == 12 else _rng.randf_range(-1.0, 1.0) * forma.ancho * 0.03
+			_raja.append(ini.lerp(fin, s) + nor * lado)
+		for i in 5:
+			_piedras.append({"v": Vector2(_rng.randf_range(-22.0, 22.0), _rng.randf_range(-22.0, 22.0)) + _dir * 18.0,
+				"vz": _rng.randf_range(40.0, 75.0), "tam": _rng.randf_range(1.3, 2.3)})
 	if modo == Modo.TENDON:
 		for i in 14:
 			var u: float = (float(i) + _rng.randf_range(0.0, 1.0)) / 14.0
@@ -213,6 +254,14 @@ func _dibujar_capa(capa: Node2D) -> void:
 	var der: float = _dir.angle() + mitad
 	var r: float = forma.radio
 	match modo:
+		Modo.PESADO:
+			_caida(capa)
+		Modo.DESARMA:
+			# A la altura del BRAZO y mas fino que el del Quebrantador: busca el brazo, no el cuerpo.
+			_barrido(capa, 0.0, izq, der, r * 0.95, r * 0.4, func(_a: float) -> float: return ALTO_BRAZO, 16.0)
+			_chispas_barrido(capa, r * 0.95, func(t: float) -> float:
+				return lerpf(izq, der, pow(clampf(t / T_BARRE, 0.0, 1.0), 2.0)),
+				func(_a: float) -> float: return ALTO_BRAZO)
 		Modo.QUIEBRA, Modo.TENDON:
 			var alto: float = ALTO_CINTURA if modo == Modo.QUIEBRA else ALTO_SUELO
 			_barrido(capa, 0.0, izq, der, r * 0.95, r * (0.55 if modo == Modo.QUIEBRA else 0.42),
@@ -331,6 +380,118 @@ func _marca_suelo(a0: float, a1: float, r: float, ancho: float, alfa: float) -> 
 					pts[i] - d * w0 * 0.45]), PackedColorArray([co, co, co]), PackedVector2Array())
 
 
+# LA CAIDA del Tajo pesado (copia de HachaAire._hendedura): una media luna en VERTICAL que baja sobre donde
+# empieza la raja, mas alta que la del hacha (la hoja es larga), con el velo azul acero detras del filo.
+func _caida(capa: Node2D) -> void:
+	if capa != _delante or _raja.is_empty():
+		return
+	var ini: Vector2 = _raja[0]
+	var alto_ini: float = 52.0
+	var s: float = clampf(_t / T_CAE, 0.0, 1.0)
+	s = s * s
+	var apaga: float = clampf((_t - T_CAE - 0.04) / 0.1, 0.0, 1.0)
+	if apaga >= 1.0:
+		return
+	var alfa: float = 0.95 * (1.0 - apaga)
+	var s_cola: float = maxf(0.0, s - 0.65)
+	var n: int = 12
+	var curva: Vector2 = _dir * 5.0   # un pelo curvada hacia donde abre el suelo
+	var ancho_d: Vector2 = Vector2(1.0, 0.0)
+	for i in n:
+		var u0: float = lerpf(s_cola, s, float(i) / float(n))
+		var u1: float = lerpf(s_cola, s, float(i + 1) / float(n))
+		var p0: Vector2 = ini + Vector2(0.0, -alto_ini * (1.0 - u0)) + curva * sin(PI * u0)
+		var p1: Vector2 = ini + Vector2(0.0, -alto_ini * (1.0 - u1)) + curva * sin(PI * u1)
+		var k0: float = float(i) / float(n)
+		var k1: float = float(i + 1) / float(n)
+		var w0: float = 12.0 * (0.15 + 0.85 * k0)
+		var w1: float = 12.0 * (0.15 + 0.85 * k1)
+		# El filo blanco por delante (hacia donde abre) y el velo azul acero por detras.
+		var c0 := Color(BLANCO, alfa * (0.2 + 0.8 * k0))
+		var c1 := Color(BLANCO, alfa * (0.2 + 0.8 * k1))
+		var v0 := Color(ACERO_AZUL, alfa * 0.5 * k0)
+		var v1 := Color(ACERO_AZUL, alfa * 0.5 * k1)
+		var tr := Color(ACERO_AZUL, 0.0)
+		capa.draw_primitive(PackedVector2Array([p0 + ancho_d * w0 * 0.5, p1 + ancho_d * w1 * 0.5, p1]),
+			PackedColorArray([c0, c1, v1]), PackedVector2Array())
+		capa.draw_primitive(PackedVector2Array([p0 + ancho_d * w0 * 0.5, p1, p0]),
+			PackedColorArray([c0, v1, v0]), PackedVector2Array())
+		capa.draw_primitive(PackedVector2Array([p0, p1, p1 - ancho_d * w1 * 0.5]),
+			PackedColorArray([v0, v1, tr]), PackedVector2Array())
+		capa.draw_primitive(PackedVector2Array([p0, p1 - ancho_d * w1 * 0.5, p0 - ancho_d * w0 * 0.5]),
+			PackedColorArray([v0, tr, tr]), PackedVector2Array())
+	var pulso: float = exp(-absf(_t - T_CAE) / 0.04)
+	BarridoAire.destello(capa, ini, 7.0 + 16.0 * pulso, Color(BLANCO, alfa * pulso), 0.2)
+	# Las piedras que salta el final del corte.
+	var tp: float = _t - T_CAE - T_RAJA
+	if tp > 0.0:
+		for p in _piedras:
+			var z: float = float(p["vz"]) * tp - SueloRoto.GRAVEDAD_PIEDRAS * tp * tp
+			if z < 0.0:
+				continue
+			var q: Vector2 = _raja[_raja.size() - 1] + (p["v"] as Vector2) * tp + Vector2(0.0, -z * SueloRoto.K_ALTO)
+			var tam: float = float(p["tam"])
+			capa.draw_rect(Rect2(q - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), TIERRA)
+
+
+# LA RAJA del Tajo pesado (copia de HachaAire._dibujar_raja): el frente corre a velocidad fija y se para en
+# seco; cada trozo se abre un poco despues de que pase. Encima, mientras se abre, un FILO DE LUZ azul por el
+# fondo del corte que se apaga enseguida (lo que la distingue de la del hacha: es acero, no un tajo sucio).
+func _dibujar_raja() -> void:
+	var tr: float = _t - T_CAE
+	if tr < 0.0 or _raja.size() < 2:
+		return
+	var alfa: float = 1.0 - clampf((tr - T_RAJA - T_SUELO) / T_SUELO_APAGAR, 0.0, 1.0)
+	if alfa <= 0.0:
+		return
+	var frente: float = clampf(tr / T_RAJA, 0.0, 1.0)
+	var n: int = _raja.size() - 1
+	var w_max: float = maxf(forma.ancho, 8.0) * 0.32
+	var luz: float = 1.0 - clampf((tr - T_RAJA) / T_FILO, 0.0, 1.0)
+	for i in n:
+		var s0: float = float(i) / float(n)
+		var s1: float = float(i + 1) / float(n)
+		if s0 >= frente:
+			break
+		var p0: Vector2 = _raja[i]
+		var p1: Vector2 = _raja[i + 1] if s1 <= frente else _raja[i].lerp(_raja[i + 1], (frente - s0) / (s1 - s0))
+		var abre0: float = clampf((tr - s0 * T_RAJA) / 0.1, 0.0, 1.0)
+		var abre1: float = clampf((tr - s1 * T_RAJA) / 0.1, 0.0, 1.0)
+		# Mas ancha en medio que en las puntas: un corte, no una zanja.
+		var w0: float = w_max * (0.35 + 0.65 * sin(PI * clampf(s0 * 0.9 + 0.05, 0.0, 1.0))) * (0.25 + 0.75 * abre0)
+		var w1: float = w_max * (0.35 + 0.65 * sin(PI * clampf(s1 * 0.9 + 0.05, 0.0, 1.0))) * (0.25 + 0.75 * abre1)
+		var d: Vector2 = (p1 - p0).normalized().orthogonal() if p1.distance_squared_to(p0) > 0.001 else _dir.orthogonal()
+		var cl := Color(LABIO, 0.5 * alfa)
+		var trc := Color(LABIO, 0.0)
+		for lado in [1.0, -1.0]:
+			draw_primitive(PackedVector2Array([p0 + d * w0 * 0.5 * lado, p1 + d * w1 * 0.5 * lado, p1 + d * (w1 * 0.5 + 2.0) * lado]),
+				PackedColorArray([cl, cl, trc]), PackedVector2Array())
+			draw_primitive(PackedVector2Array([p0 + d * w0 * 0.5 * lado, p1 + d * (w1 * 0.5 + 2.0) * lado, p0 + d * (w0 * 0.5 + 2.0) * lado]),
+				PackedColorArray([cl, trc, trc]), PackedVector2Array())
+		var co := Color(OSCURO, 0.9 * alfa)
+		draw_primitive(PackedVector2Array([p0 + d * w0 * 0.5, p1 + d * w1 * 0.5, p1 - d * w1 * 0.5]),
+			PackedColorArray([co, co, co]), PackedVector2Array())
+		draw_primitive(PackedVector2Array([p0 + d * w0 * 0.5, p1 - d * w1 * 0.5, p0 - d * w0 * 0.5]),
+			PackedColorArray([co, co, co]), PackedVector2Array())
+		# EL FILO DE LUZ por el fondo: blanco en el eje, azul hacia los labios, y se apaga.
+		if luz > 0.0:
+			var cb := Color(BLANCO, 0.9 * luz * alfa)
+			var ca := Color(ACERO_AZUL, 0.0)
+			for lado2 in [1.0, -1.0]:
+				draw_primitive(PackedVector2Array([p0, p1, p1 + d * w1 * 0.45 * lado2]),
+					PackedColorArray([cb, cb, ca]), PackedVector2Array())
+				draw_primitive(PackedVector2Array([p0, p1 + d * w1 * 0.45 * lado2, p0 + d * w0 * 0.45 * lado2]),
+					PackedColorArray([cb, ca, ca]), PackedVector2Array())
+	# Donde cae la hoja, polvo; y en el tope, polvo hacia delante.
+	if tr < 0.45:
+		var k: float = tr / 0.45
+		BarridoAire.brillo(self, _raja[0], 6.0 + 8.0 * k, Color(POLVO, 0.45 * (1.0 - k)))
+	var tt: float = tr - T_RAJA
+	if tt >= 0.0 and tt < 0.5:
+		var k2: float = tt / 0.5
+		BarridoAire.brillo(self, _raja[n] + _dir * 5.0 * sqrt(k2), 5.0 + 7.0 * k2, Color(POLVO, 0.5 * (1.0 - k2)))
+
+
 # Un punto del arco alrededor de quien pega, a 'alto' px de pantalla sobre el suelo.
 func _en_arco(a: float, r: float, alto: float) -> Vector2:
 	return _centro + Vector2(cos(a), sin(a)) * r + Vector2(0.0, -alto)
@@ -411,6 +572,15 @@ func _preparar_golpe() -> void:
 			# La de mas (dos espadas), baja y casi plana, a las piernas.
 			baja = deg_to_rad(_rng.randf_range(4.0, 12.0))
 			_c = Vector2(_c.x, (_caja.end.y - alto * 0.18) if _caja.has_area() else _c.y + 8.0)
+		Modo.DESARME:
+			# Al BRAZO: corta, poco inclinada y alta, del lado por el que entra.
+			baja = deg_to_rad(_rng.randf_range(10.0, 30.0))
+			_largo *= 0.75
+			_c += Vector2(0.0, -alto * 0.12) + lateral * lado * 3.0
+		Modo.PESADO_C:
+			# De arriba abajo con todo el peso: casi vertical, larga.
+			baja = deg_to_rad(_rng.randf_range(76.0, 86.0))
+			_largo = clampf(alto * 1.15, 20.0, 34.0)
 	_trazo = (lateral * lado * cos(baja) + Vector2(0.0, 1.0) * sin(baja)).normalized()
 	if _fallo:
 		_c += Vector2((1.0 if _rng.randf() < 0.5 else -1.0) * (_caja.size.x * 0.75 + 4.0), 0.0)
@@ -434,6 +604,16 @@ func _preparar_golpe() -> void:
 				"v": _dir * _rng.randf_range(40.0, 95.0) + lado_p * u * _rng.randf_range(30.0, 70.0)
 					+ Vector2(0.0, -_rng.randf_range(30.0, 80.0)),
 				"tam": _rng.randf_range(2.2, 4.0), "giro": _rng.randf() * TAU, "gira": _rng.randf_range(-14.0, 14.0)})
+	if modo == Modo.DESARME and not _fallo:
+		# EL CHOQUE DE ACERO: chispas que salen del brazo hacia fuera (del lado contrario a quien pega) y el
+		# arma del enemigo, un destello alargado que sale despedido girando y cae.
+		for i in 9:
+			var a: float = _dir.angle() + _rng.randf_range(-1.1, 1.1)
+			_choque.append({"v": Vector2(cos(a), sin(a) * 0.7) * _rng.randf_range(70.0, 150.0)
+				+ Vector2(0.0, -_rng.randf_range(10.0, 50.0)), "tam": _rng.randf_range(1.3, 2.2)})
+		_suelta = {"v": (_dir + lateral * lado * 0.8).normalized() * _rng.randf_range(45.0, 65.0)
+			+ Vector2(0.0, -_rng.randf_range(70.0, 95.0)), "giro": _rng.randf() * TAU,
+			"gira": _rng.randf_range(12.0, 18.0) * lado}
 	if modo == Modo.TENDONES and _n == 0:
 		_suelo = Node2D.new()
 		_suelo.z_as_relative = false
@@ -456,22 +636,33 @@ func _con_pincelada() -> bool:
 
 func _draw() -> void:
 	if forma != null:
+		if modo == Modo.PESADO:
+			_dibujar_raja()
+			return
 		# EL BARRIDO: aqui solo su marca en el suelo (lo del aire va en sus capas). El Doble tajo no la deja:
-		# va por el aire, a la altura del pecho.
+		# va por el aire, a la altura del pecho; el Desarmante, una muy fina (va alto, al brazo).
 		if modo != Modo.CRUZ and _t >= 0.0:
 			var mitad: float = deg_to_rad(forma.apertura * 0.5)
 			var izq: float = _dir.angle() - mitad
 			var hasta: float = lerpf(izq, izq + 2.0 * mitad, pow(clampf(_t / T_BARRE, 0.0, 1.0), 2.0))
 			var tv: float = _t - T_BARRE
 			var alfa_s: float = 1.0 - clampf((tv - T_SUELO) / T_SUELO_APAGAR, 0.0, 1.0)
-			_marca_suelo(izq, hasta, forma.radio * (0.78 if modo == Modo.QUIEBRA else 0.72),
-				1.6 if modo == Modo.QUIEBRA else 2.4, alfa_s)
+			match modo:
+				Modo.QUIEBRA: _marca_suelo(izq, hasta, forma.radio * 0.78, 1.6, alfa_s)
+				Modo.DESARMA: _marca_suelo(izq, hasta, forma.radio * 0.8, 0.9, alfa_s * 0.6)
+				_: _marca_suelo(izq, hasta, forma.radio * 0.72, 2.4, alfa_s)
 		return
 	if _con_pincelada():
-		_pincelada(1.0 if not (modo == Modo.SENALAR and _n == 1) else 1.25)
+		var grueso: float = 1.0
+		if modo == Modo.SENALAR and _n == 1:
+			grueso = 1.25
+		elif modo == Modo.PESADO_C:
+			grueso = 1.4
+		_pincelada(grueso)
 	match modo:
 		Modo.QUEBRANTADOR: _dibujar_guardia()
 		Modo.SENALAR: _dibujar_diana()
+		Modo.DESARME: _dibujar_choque()
 
 
 func _punto(s: float, lado: float) -> Vector2:
@@ -539,6 +730,36 @@ func _dibujar_guardia() -> void:
 		draw_primitive(PackedVector2Array([q - d * s, q + nn, q + d * s * 0.8, q - nn]),
 			PackedColorArray([Color(GUARDIA, alfa * 0.5), Color(BLANCO, alfa), Color(GUARDIA, alfa * 0.8),
 				Color(BLANCO, alfa)]), PackedVector2Array())
+
+
+# EL CHOQUE DE ACERO del Desarmante: un destello duro sobre el brazo, las chispas (cometas que caen) y el
+# arma del enemigo que sale despedida: una cuña de luz alargada que gira, sube y cae apagandose.
+func _dibujar_choque() -> void:
+	if _fallo or _t < 0.0 or _choque.is_empty():
+		return
+	var pulso: float = exp(-_t / 0.05)
+	if pulso > 0.05:
+		BarridoAire.destello(self, _c, 9.0 + 9.0 * pulso, Color(BLANCO, pulso), _t * 3.0 + 0.6)
+	for ch in _choque:
+		if _t > T_CHOQUE:
+			break
+		var v: Vector2 = ch["v"]
+		var q: Vector2 = _c + v * _t + Vector2(0.0, 0.5 * GRAVEDAD * _t * _t)
+		var vel: Vector2 = v + Vector2(0.0, GRAVEDAD * _t)
+		var k: float = 1.0 - _t / T_CHOQUE
+		BarridoAire.cometa(self, q - vel.normalized() * 5.0 * float(ch["tam"]), q, float(ch["tam"]),
+			Color(Color(1.0, 0.93, 0.7), 0.95 * k))
+	var ts: float = _t
+	if ts < 0.55 and not _suelta.is_empty():
+		var q2: Vector2 = _c + (_suelta["v"] as Vector2) * ts + Vector2(0.0, 0.5 * GRAVEDAD * ts * ts)
+		var a: float = float(_suelta["giro"]) + float(_suelta["gira"]) * ts
+		var d := Vector2(cos(a), sin(a))
+		var nn: Vector2 = d.orthogonal() * 1.6
+		var alfa: float = clampf(1.0 - (ts - 0.35) / 0.2, 0.0, 1.0)
+		draw_primitive(PackedVector2Array([q2 - d * 7.0, q2 + nn, q2 + d * 7.0, q2 - nn]),
+			PackedColorArray([Color(ACERO, 0.2 * alfa), Color(BLANCO, alfa), Color(ACERO, 0.6 * alfa),
+				Color(BLANCO, alfa)]), PackedVector2Array())
+		BarridoAire.brillo(self, q2 + d * 5.0, 3.0, Color(BLANCO, 0.6 * alfa))
 
 
 # LA DIANA del segundo corte (le gusto: "el efecto rojo esta guapo"): un anillo que se cierra sobre el corte,

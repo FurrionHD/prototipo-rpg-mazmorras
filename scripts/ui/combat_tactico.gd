@@ -1680,7 +1680,10 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA, CombatFX.Estilo.PUNALADA,
 	# La ESPADA CORTA (25/09): entre la daga y el hacha.
 	CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.TAJO_QUEBRANTADOR, CombatFX.Estilo.DOBLE_TAJO,
-	CombatFX.Estilo.CAMBIO_RITMO, CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES]
+	CombatFX.Estilo.CAMBIO_RITMO, CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES,
+	# La ESPADA LARGA (25/09): como la corta, algo mas en el Tajo pesado. El escudazo no corta.
+	CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, CombatFX.Estilo.TAJO_DESARMANTE,
+	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL]
 
 func _on_impacto(ev: Dictionary) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
@@ -1721,8 +1724,15 @@ func _on_impacto(ev: Dictionary) -> void:
 			desde = Vector2(desde.x, lerpf(desde.y, pies_v.y, 0.6))   # sale de las piernas
 			fuerza *= 0.7
 		CombatFX.Estilo.ESPADA_TAJO, CombatFX.Estilo.DOBLE_TAJO, CombatFX.Estilo.CAMBIO_RITMO, \
-				CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.TAJO_QUEBRANTADOR:
+				CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.TAJO_QUEBRANTADOR, \
+				CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_DESARMANTE, CombatFX.Estilo.GUARDIA_ROTA:
 			fuerza *= 0.55
+		CombatFX.Estilo.TAJO_PESADO:
+			dir = radial   # de arriba abajo: sale hacia delante, como la Hendedura
+			fuerza *= 0.9
+		CombatFX.Estilo.ESTOCADA_MARCIAL:
+			dir = radial
+			fuerza *= 0.6
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 
@@ -1778,6 +1788,8 @@ const _MODO_ESTOQUE := {
 	CombatFX.Estilo.FINTAS: EstoqueAire.Modo.FINTA,
 	CombatFX.Estilo.PUNZADA_NERVIO: EstoqueAire.Modo.NERVIO,
 	CombatFX.Estilo.DANZA_ACERO: EstoqueAire.Modo.DANZA,
+	# La Estocada marcial de la espada larga: la punta limpia que atraviesa, como la penetrante.
+	CombatFX.Estilo.ESTOCADA_MARCIAL: EstoqueAire.Modo.PENETRANTE,
 }
 
 const _MODO_ESPADA := {
@@ -1787,6 +1799,12 @@ const _MODO_ESPADA := {
 	CombatFX.Estilo.CAMBIO_RITMO: EspadaAire.Modo.RITMO,
 	CombatFX.Estilo.SENALAR_HUECO: EspadaAire.Modo.SENALAR,
 	CombatFX.Estilo.CORTE_TENDONES: EspadaAire.Modo.TENDONES,
+	# LA ESPADA LARGA (25/09): la pincelada de siempre en el basico, casi vertical en el Tajo pesado, al brazo con
+	# choque de acero en el Desarmante y la guardia en pedazos en el tajo de la Guardia rota.
+	CombatFX.Estilo.ESPADA_LARGA_TAJO: EspadaAire.Modo.TAJO,
+	CombatFX.Estilo.TAJO_PESADO: EspadaAire.Modo.PESADO_C,
+	CombatFX.Estilo.TAJO_DESARMANTE: EspadaAire.Modo.DESARME,
+	CombatFX.Estilo.GUARDIA_ROTA: EspadaAire.Modo.QUEBRANTADOR,
 }
 
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
@@ -1831,6 +1849,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		if modo_e == EstoqueAire.Modo.FINTA and int(ev.get("pos_tanda", 0)) > 0:
 			modo_e = EstoqueAire.Modo.PUNZADA
 		EstoqueAire.golpe(arena, modo_e, desde_e, caja_e, bool(ev.get("evadido", false)),
+			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
+		return
+	# EL ESCUDAZO (EscudoAire): la chapa que se estampa, desde el pecho del que pega.
+	if estilo == CombatFX.Estilo.ESCUDAZO:
+		var caja_z: Rect2 = bulto_de(v)
+		var desde_z: Vector2 = pies_de(a) + Vector2(0.0, -EscudoAire.ALTO_TORSO) \
+			if a != null and cuerpo_de(a) != null else caja_z.get_center() - Vector2(20.0, 0.0)
+		EscudoAire.golpe(arena, EscudoAire.Modo.ESCUDAZO, desde_z, caja_z, bool(ev.get("evadido", false)),
 			bool(ev.get("crit", false)), int(ev.get("pos_tanda", 0)), semilla, vuelo, ritmo)
 		return
 	# LA ESPADA CORTA: tajos con cuerpo (EspadaAire), desde la altura del pecho del que pega.
