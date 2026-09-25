@@ -104,6 +104,17 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 	return await _peticion("estado", id, contrasena, {}, _json({"quien_soy": quien_soy}))
 
 
+# EL VINCULO DE STEAM (ver la cabecera de servidor/nube). Va por ?steam= en vez de ?id=, y sin contraseña.
+func vinculo_leer(steam_id: int, ticket := "") -> Dictionary:
+	return await _peticion("vinculo_leer", "", "", {}, _json({"ticket": ticket}), false, PLAZO_CORTO,
+		"steam=%d" % steam_id)
+
+
+func vinculo_poner(steam_id: int, id: String, ticket := "") -> Dictionary:
+	return await _peticion("vinculo_poner", "", "", {}, _json({"id": id, "ticket": ticket}), false,
+		PLAZO_CORTO, "steam=%d" % steam_id)
+
+
 # ============================================================
 #  Cosas de dentro
 # ------------------------------------------------------------
@@ -123,7 +134,7 @@ func _subir(op: String, id: String, token: int, save: PackedByteArray, meta: Dic
 # mundo llevan acentos, y una cabecera HTTP solo admite ASCII.
 func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary = {},
 		cuerpo: PackedByteArray = PackedByteArray(), binario := false,
-		plazo: float = PLAZO_CORTO) -> Dictionary:
+		plazo: float = PLAZO_CORTO, consulta := "") -> Dictionary:
 	if _padre == null or not _padre.is_inside_tree():
 		return _fallo("sin_red", "La nube no está lista.")
 	var h := HTTPRequest.new()
@@ -131,11 +142,13 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	h.use_threads = true   # subir 4 MB no puede congelar el juego
 	_padre.add_child(h)
 	var hs := PackedStringArray(["x-pass: " + contrasena.uri_encode()])
-	if op == "abrir" or op == "crear" or op == "estado":
+	if op == "abrir" or op == "crear" or op == "estado" or op.begins_with("vinculo_"):
 		hs.append("content-type: application/json")
 	for k in cabeceras:
 		hs.append("%s: %s" % [k, str(cabeceras[k]).uri_encode()])
-	var err: int = h.request_raw("%s/v1/%s?id=%s" % [url, op, id.uri_encode()], hs,
+	if consulta == "":
+		consulta = "id=" + id.uri_encode()
+	var err: int = h.request_raw("%s/v1/%s?%s" % [url, op, consulta], hs,
 		HTTPClient.METHOD_POST, cuerpo)
 	if err != OK:
 		h.queue_free()

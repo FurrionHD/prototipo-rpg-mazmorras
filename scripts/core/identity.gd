@@ -24,6 +24,8 @@
 extends Node
 
 const RUTA := "user://identidad.cfg"
+# Donde se lee y escribe. Solo las pruebas lo cambian, para no pisar la identidad de verdad de este PC.
+var ruta: String = RUTA
 const SECCION := "jugador"
 
 # Tu ID: 24 hex aleatorios. Se genera UNA VEZ y no cambia nunca mas.
@@ -87,28 +89,30 @@ func para_cerrojo() -> String:
 func _cargar() -> void:
 	var solo_leer: bool = _solo_leer()
 	var cfg := ConfigFile.new()
-	var err: int = cfg.load(RUTA)
+	var err: int = cfg.load(ruta)
 	var intentos: int = 0
 	# "No existe" con el TEMPORAL presente tambien es "lo estan escribiendo": en Windows, renombrar
 	# encima deja un instante sin fichero, y leer justo ahi estrenaria identidad igual que antes.
 	while err != OK and intentos < REINTENTOS_LECTURA \
-			and (err != ERR_FILE_NOT_FOUND or FileAccess.file_exists(RUTA + ".tmp")):
+			and (err != ERR_FILE_NOT_FOUND or FileAccess.file_exists(ruta + ".tmp")):
 		# Casi siempre es otro proceso escribiendolo en este mismo instante: en unos milisegundos esta.
 		OS.delay_msec(ESPERA_REINTENTO_MS)
 		cfg = ConfigFile.new()
-		err = cfg.load(RUTA)
+		err = cfg.load(ruta)
 		intentos += 1
 	if err == OK:
 		id = String(cfg.get_value(SECCION, "id", ""))
 		nombre = String(cfg.get_value(SECCION, "nombre", ""))
 		direccion_preferida = String(cfg.get_value(SECCION, "direccion", ""))
+		id_anterior = String(cfg.get_value(SECCION, "id_anterior", ""))
+		_steam_ignorar = String(cfg.get_value(SECCION, "steam_ignorar", ""))
 	elif err != ERR_FILE_NOT_FOUND:
 		# De verdad ilegible. Se avisa fuerte porque no es inocuo -- los personajes que tengas en
 		# mundos compartidos quedan a nombre del id viejo -- y se APARTA en vez de pisarlo.
-		push_warning("[identidad] no se pudo leer %s (error %d): se estrena identidad" % [RUTA, err])
+		push_warning("[identidad] no se pudo leer %s (error %d): se estrena identidad" % [ruta, err])
 		if not solo_leer:
-			var apartado: String = "%s.ilegible_%d" % [RUTA, int(Time.get_unix_time_from_system())]
-			DirAccess.rename_absolute(ProjectSettings.globalize_path(RUTA),
+			var apartado: String = "%s.ilegible_%d" % [ruta, int(Time.get_unix_time_from_system())]
+			DirAccess.rename_absolute(ProjectSettings.globalize_path(ruta),
 				ProjectSettings.globalize_path(apartado))
 
 	var cambiado := false
@@ -132,16 +136,20 @@ func _guardar() -> void:
 	cfg.set_value(SECCION, "id", id)
 	cfg.set_value(SECCION, "nombre", nombre)
 	cfg.set_value(SECCION, "direccion", direccion_preferida)
+	if id_anterior != "":
+		cfg.set_value(SECCION, "id_anterior", id_anterior)
+	if _steam_ignorar != "":
+		cfg.set_value(SECCION, "steam_ignorar", _steam_ignorar)
 	# A un temporal y luego se renombra encima: el renombrado es atomico, asi que quien lea en ese
 	# momento ve el fichero viejo entero o el nuevo entero, nunca uno a medias.
-	var tmp: String = RUTA + ".tmp"
+	var tmp: String = ruta + ".tmp"
 	var err: int = cfg.save(tmp)
 	if err != OK:
 		push_warning("[identidad] no se pudo guardar %s (error %d)" % [tmp, err])
 		return
-	err = DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(RUTA))
+	err = DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(ruta))
 	if err != OK:
-		push_warning("[identidad] no se pudo colocar %s (error %d)" % [RUTA, err])
+		push_warning("[identidad] no se pudo colocar %s (error %d)" % [ruta, err])
 
 
 # Cambiarte el nombre visible. Devuelve el nombre que ha quedado (vacio no se acepta).
@@ -171,6 +179,104 @@ func poner_id(nuevo: String) -> bool:
 	_guardar()
 	print("[identidad] id cambiado a mano: ", id)
 	return true
+
+
+# ============================================================
+#  EL VINCULO CON STEAM (22/09/2026)
+#  Tu id es de ESTE PC (identidad.cfg): en otro PC eras otro jugador y habia que pegar el id a mano.
+#  Con Steam, la nube guarda un VINCULO "tu cuenta de Steam -> tu id" y cualquier PC con tu Steam puede
+#  recogerlo. El id NO cambia de forma ni de origen (sigue siendo nuestro numero de 24 hex): las
+#  partidas y los personajes de hoy no se tocan. "Pegar otro id..." sigue de plan B, tambien sin Steam.
+#
+#  comprobar_steam() dice en que caso estas y solo decide sola lo que no tiene vuelta de hoja:
+#    igual        tu Steam ya apunta a este id. Nada que hacer.
+#    sin_vinculo  tu Steam no apunta a nadie: se PREGUNTA ("vincular este PC" / "todavia no").
+#    adoptado     tu Steam apunta a otro id y este PC no tiene mundos (recien instalado): se usa ese.
+#    distinto     tu Steam apunta a otro id y este PC tiene mundos: se PREGUNTA (usar el de Steam /
+#                 seguir con el de este PC solo aqui / que Steam use el de este PC).
+#    callado      ya contestaste "ahora no" a esta misma situacion: no se vuelve a preguntar.
+#    sin_steam / sin_red   no se puede mirar: se juega con el id de este PC, como siempre.
+#  Todo cambio guarda el id que se deja en `id_anterior`, para poder volver.
+#  La SEGURIDAD de esto con Spacewar es floja a proposito: ver la cabecera de servidor/nube.
+# ------------------------------------------------------------
+const _TUNEL = preload("res://scripts/net/tunel_steam.gd")
+
+var id_anterior: String = ""   # el otro id del ultimo cambio por Steam, para deshacerlo
+var _steam_ignorar: String = "" # vinculo al que ya se dijo "ahora no" ("-" = a no tener vinculo)
+var steam_id: int = 0
+var steam_nombre: String = ""
+var vinculo: String = ""        # el id al que apunta tu Steam en la nube ("" = a ninguno)
+
+
+# steam_falso / nombre_falso: SOLO pruebas, para no necesitar Steam.
+func comprobar_steam(tengo_mundos: bool, steam_falso := 0, nombre_falso := "") -> Dictionary:
+	if steam_falso != 0:
+		steam_id = steam_falso
+		steam_nombre = nombre_falso
+	else:
+		var motivo: String = _TUNEL.iniciar_cuenta()
+		if motivo != "":
+			return {"caso": "sin_steam", "mensaje": motivo}
+		var st: Object = Engine.get_singleton("Steam")
+		steam_id = int(st.getSteamID())
+		steam_nombre = String(st.getPersonaName())
+	var r: Dictionary = await Nube.vinculo_leer(steam_id)
+	if not r.get("ok", false):
+		return {"caso": "sin_red", "mensaje": String(r.get("mensaje", "No se pudo mirar tu cuenta de Steam."))}
+	vinculo = String(r.get("id", ""))
+	if vinculo == id:
+		return {"caso": "igual"}
+	if vinculo == "":
+		return {"caso": "callado" if _steam_ignorar == "-" else "sin_vinculo"}
+	if not tengo_mundos:
+		_cambiar_id(vinculo, "tu Steam ya tenia identidad y este PC no tenia mundos")
+		return {"caso": "adoptado"}
+	return {"caso": "callado" if _steam_ignorar == vinculo else "distinto"}
+
+
+# "Que mi Steam use la identidad de ESTE PC": reescribe el vinculo de la nube con mi id.
+func vincular_este_pc() -> Dictionary:
+	if steam_id == 0:
+		return {"ok": false, "mensaje": "Steam no está abierto."}
+	var r: Dictionary = await Nube.vinculo_poner(steam_id, id)
+	if r.get("ok", false):
+		var antes: String = String(r.get("anterior", ""))
+		if antes != "" and antes != id:
+			id_anterior = antes
+		vinculo = id
+		_steam_ignorar = ""
+		_guardar()
+		print("[identidad] Steam %d -> %s (antes: %s)" % [steam_id, id, antes if antes != "" else "nada"])
+	return r
+
+
+# "Usar la identidad de mi Steam" en este PC.
+func usar_la_de_steam() -> void:
+	if vinculo != "" and vinculo != id:
+		_cambiar_id(vinculo, "elegido: la de Steam")
+
+
+# "Ahora no": seguir con el id de este PC sin tocar la nube, y no volver a preguntar lo mismo.
+func steam_ahora_no() -> void:
+	_steam_ignorar = vinculo if vinculo != "" else "-"
+	_guardar()
+
+
+# Volver al id de antes del ultimo cambio (se intercambian: se puede ir y volver).
+func volver_al_anterior() -> bool:
+	if not _id_valido(id_anterior):
+		return false
+	_cambiar_id(id_anterior, "vuelta al anterior")
+	return true
+
+
+func _cambiar_id(nuevo: String, por_que: String) -> void:
+	id_anterior = id
+	id = nuevo
+	recien_creada = false
+	_steam_ignorar = ""
+	_guardar()
+	print("[identidad] id %s -> %s (%s)" % [id_anterior, id, por_que])
 
 
 func _id_valido(s: String) -> bool:

@@ -1,0 +1,13 @@
+[configuration]
+entry_symbol = "godotsteam_server_init"
+compatibility_minimum = "4.4"
+
+; GodotSteam Server 4.11 (GDExtension), de codeberg.org/godotsteam/godotsteam-server, etiqueta v4.11-gde.
+; Es la que deja a la SALA entrar en Steam como "servidor de juego" anónimo. Solo Windows 64.
+
+[libraries]
+windows.debug.x86_64 = "res://addons/godotsteam_server/win64/libgodotsteam_server.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/godotsteam_server/win64/libgodotsteam_server.windows.template_release.x86_64.dll"
+
+[dependencies]
+windows.x86_64 = { "res://addons/godotsteam_server/win64/steam_api64.dll": "" }

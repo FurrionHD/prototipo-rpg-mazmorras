@@ -49,7 +49,7 @@ func _ready() -> void:
 	var clave_sala: String = args[i + 2]
 	Identidad.id = args[i + 3]   # solo en memoria: cada proceso es otra persona
 	rol = args[i + 4]
-	Identidad.nombre = "Ana" if rol == "A" else "Berto"
+	Identidad.nombre = "Ana" if rol in ["A", "S"] else "Berto"
 	# Como hace el menu de multijugador: al tener personaje, al pueblo y anunciar el lugar.
 	Net.partida.entrada_lista.connect(func():
 		var arbol := get_tree()
@@ -64,10 +64,20 @@ func _ready() -> void:
 		Game.asegurar_uid(pj)
 		Net.partida.mandar_alta_personaje(pj))
 	await _esperar(0.5)
-	ok(Net.unirse("127.0.0.1", clave_sala, puerto, true) == OK, "me conecto a la sala")
+	if rol == "S":
+		# POR STEAM (prueba_sala_steam): como un amigo de otra casa, por Mundos.unirse con la clave del
+		# mundo. La nube le da las direcciones de la sala y tiene que escoger la de Steam.
+		var r: Dictionary = await Mundos.unirse(args[i + 5], clave_sala)
+		ok(r.get("ok", false) and String(r.get("direccion", "")) == "Steam",
+			"me uno por Steam: %s" % str(r))
+		ok(Net.tunel.modo == "cliente", "el tunel esta abierto (%s)" % Net.tunel.modo)
+	else:
+		ok(Net.unirse("127.0.0.1", clave_sala, puerto, true) == OK, "me conecto a la sala")
 	ok(await _hasta(func(): return _entrado, 60.0), "entro en el mundo")
 	await _esperar(1.0)
-	if rol == "A":
+	if rol == "S":
+		await _guion_s()
+	elif rol == "A":
 		await _guion_a()
 	else:
 		await _guion_b()
@@ -92,6 +102,17 @@ func _guion_a() -> void:
 	# "Cierro el juego": guardar por el camino del invitado y fuera. La sala tiene que seguir para B.
 	await Ventana.guardar_al_cerrar()
 	Net.desconectar()
+
+
+# S: Ana, por Steam. Lo mismo que A hasta el bote (sin nadie a quien aceptar) y se va.
+func _guion_s() -> void:
+	ok(Game.money == 100 and Game.lider().nombre == "Ana", "soy Ana, con mis 100 monedas (%d)" % Game.money)
+	ok(Net.hogar.depositar_bote(30), "echo 30 al bote")
+	ok(await _hasta(func(): return Net.hogar.bote_visible() == 30, 10.0), "el bote tiene 30")
+	print("[S] %s" % Net.tunel.resumen())
+	await Ventana.guardar_al_cerrar()
+	Net.desconectar()
+	ok(await _hasta(func(): return Net.tunel.modo == "", 5.0), "el tunel se cierra tras despedirse")
 
 
 func _guion_b() -> void:

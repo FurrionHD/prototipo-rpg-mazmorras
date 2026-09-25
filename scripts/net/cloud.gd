@@ -285,6 +285,18 @@ func consultar(id: String, contrasena: String) -> Dictionary:
 
 
 # ============================================================
+#  EL VINCULO DE STEAM: que tu cuenta de Steam recuerde tu identidad de jugador (ver Identidad,
+#  "EL VINCULO CON STEAM"). r["id"] vacio = esa cuenta aun no tiene vinculo.
+# ------------------------------------------------------------
+func vinculo_leer(steam_id: int) -> Dictionary:
+	return await almacen.vinculo_leer(steam_id)
+
+
+func vinculo_poner(steam_id: int, id: String) -> Dictionary:
+	return await almacen.vinculo_poner(steam_id, id)
+
+
+# ============================================================
 #  LAS DIRECCIONES que se publican al abrir
 #  El juego NO puede adivinar cual de las direcciones de la maquina es la de Hamachi
 #  (get_local_addresses() las devuelve todas, incluidas las virtuales y la del movil compartiendo).
