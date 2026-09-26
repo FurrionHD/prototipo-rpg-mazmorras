@@ -94,12 +94,13 @@ const T_ENTRE_ECLIPSE := 0.2     # de la oscuridad a la luz
 const T_VIVE_ECLIPSE := 0.9
 const T_CIERRA_ECLIPSE := 0.3
 const ALTO_ECLIPSE := 55.0
-const LENGUAS_ECLIPSE := 26
-const CORONA_BLANCA := Color(0.85, 0.95, 1.0)
-const CORONA_MAGENTA := Color(1.0, 0.22, 0.66)
-const GLITCH_CIAN := Color(0.0, 0.95, 1.0)
-const GLITCH_MAGENTA := Color(1.0, 0.1, 0.8)
-const GLITCH_AMARILLO := Color(1.0, 0.92, 0.1)
+const LENGUAS_ECLIPSE := 22
+# (27/09: "blanco, amarillo, morado, azul y negro: los colores de esas magias", no un arcoiris)
+const CORONA_BLANCA := Color(0.92, 0.95, 1.0)
+const ECLIPSE_LUZ := Color(1.0, 0.95, 0.72)       # blanco-amarillo: la luz
+const ECLIPSE_AZUL := Color(0.45, 0.62, 1.0)
+const ECLIPSE_MORADO := Color(0.55, 0.22, 0.85)   # la oscuridad
+const CORONA_MAGENTA := ECLIPSE_MORADO
 
 # EL MANTO PRISMATICO
 const T_CARGA_PRISMA := 0.3
@@ -1805,11 +1806,12 @@ static func t_llega_eclipse(f: CombatFormas.Forma) -> float:
 	return T_CARGA_SOL + maxf(f.ancho - 6.0, 0.0) / V_ORBE_ECLIPSE
 
 
-# Lo que se ve de una esquirla con su ABERRACION CROMATICA: tres copias de color desplazadas y la negra encima.
+# UNA ESQUIRLA de la oscuridad: cristal negro con el filo MORADO a un lado y BLANCO al otro (la oscuridad y la luz:
+# 27/09, sin los colores de arcoiris de antes). Dos copias desplazadas y la negra encima.
 static func _esquirla_glitch(ci: CanvasItem, pts: PackedVector2Array, off: float, alfa: float) -> void:
 	if alfa <= 0.0 or pts.size() < 3:
 		return
-	var copias: Array = [[Vector2(-off, 0.0), GLITCH_CIAN], [Vector2(off, 0.0), GLITCH_MAGENTA], [Vector2(0.0, off), GLITCH_AMARILLO]]
+	var copias: Array = [[Vector2(-off, -off * 0.5), ECLIPSE_MORADO], [Vector2(off, off * 0.5), CORONA_BLANCA]]
 	for cp in copias:
 		var q := PackedVector2Array()
 		for p in pts:
@@ -1818,20 +1820,49 @@ static func _esquirla_glitch(ci: CanvasItem, pts: PackedVector2Array, off: float
 	ci.draw_colored_polygon(pts, Color(NEGRO, alfa))
 
 
-# LA CORONA del disco: lenguas de llama finas y onduladas alrededor, la de fuera magenta y la de dentro blanco-azulada.
+# UNA LLAMA DE LA CORONA (27/09, su referencia): lengua larga que sale del borde del disco y ONDULA a lo largo (no
+# solo se curva), gorda cerca del borde y afilandose hasta una punta fina; tono plano.
+func _llama_corona(ci: CanvasItem, c: Vector2, a: float, r0: float, largo: float, ancho: float, col: Color, fase: float) -> void:
+	if largo <= 0.5 or col.a <= 0.0:
+		return
+	var n: int = 10
+	var d := Vector2(cos(a), sin(a))
+	var t := Vector2(-d.y, d.x)
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var ola: float = sin(u * 4.0 + fase + _t * 5.0) * largo * 0.16 * u
+		var eje: Vector2 = c + d * (r0 + largo * u) + t * ola
+		var w: float = ancho * pow(1.0 - u, 0.9) * (0.7 + 0.5 * sin(minf(u * 3.0, 1.0) * PI * 0.5))
+		pv.append(eje + t * w)
+		pv.append(eje - t * w)
+		pc.append(col)
+		pc.append(col)
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+
+
+# LA CORONA del disco (su referencia): muchas llamas onduladas alrededor en TRES capas, de fuera a dentro: MORADO
+# (la oscuridad; largas y finas), AZUL, y BLANCO-AMARILLO (la luz; mas cortas y gordas); y el ARO BLANCO grueso
+# pegado al disco. Colores de las dos magias que junta, nada mas.
 func _corona_eclipse(ci: CanvasItem, c: Vector2, r: float, largo: float, alfa: float) -> void:
 	if alfa <= 0.0 or largo <= 0.5:
 		return
-	var paso: float = floor(_t * 12.0)
-	for capa_c in 2:
-		var col: Color = CORONA_MAGENTA if capa_c == 0 else CORONA_BLANCA
-		var esc: float = 1.0 if capa_c == 0 else 0.85
+	var paso: float = floor(_t * 10.0)
+	var capas: Array = [[ECLIPSE_MORADO, 1.0, 0.2, 0.0], [ECLIPSE_AZUL, 0.8, 0.24, 0.5], [ECLIPSE_LUZ, 0.55, 0.26, 0.25]]
+	for cp in capas:
 		for i in LENGUAS_ECLIPSE:
-			var a: float = TAU * (float(i) + 0.5 * float(capa_c)) / float(LENGUAS_ECLIPSE) + _t * 0.5
-			var salto: float = MagiaAire._ruido(float(i) + paso * 1.3, float(capa_c) + float(_semilla % 23))
-			var l: float = largo * (0.55 + 0.7 * salto) * esc
-			var curva: float = 0.5 * sin(_t * 3.0 + float(i) * 1.7)
-			_lengua_sol(ci, c, a, r * 0.95, l, curva, r * (0.12 if capa_c == 0 else 0.16), Color(col, alfa))
+			var a: float = TAU * (float(i) + float(cp[3])) / float(LENGUAS_ECLIPSE) + _t * 0.25
+			var salto: float = MagiaAire._ruido(float(i) + paso * 1.3, float(cp[3]) * 7.0 + float(_semilla % 23))
+			var l: float = largo * float(cp[1]) * (0.6 + 0.6 * salto)
+			_llama_corona(ci, c, a, r * 0.9, l, r * float(cp[2]) * (0.8 + 0.4 * salto), Color(cp[0] as Color, alfa),
+				float(i) * 1.9 + float(cp[3]) * 5.0)
+	MagiaAire._anillo(ci, c, r * 1.02, r * 0.16, Color(ECLIPSE_LUZ, alfa))
+	MagiaAire._anillo(ci, c, r, r * 0.08, Color(1.0, 1.0, 1.0, alfa))
 
 
 func _eclipse(capa: Node2D) -> void:
@@ -1845,7 +1876,7 @@ func _eclipse(capa: Node2D) -> void:
 	var cierra: float = clampf((t_osc - T_VIVE_ECLIPSE) / T_CIERRA_ECLIPSE, 0.0, 1.0)
 	var vivo: float = nace * (1.0 - cierra * cierra)
 	var disco: Vector2 = _c + _alto(ALTO_ECLIPSE)
-	var r_d: float = clampf(_r * 0.2, 18.0, 30.0) * vivo
+	var r_d: float = clampf(_r * 0.24, 22.0, 36.0) * vivo
 	var mano: Vector2 = _o + _alto(ALTO_MANO)
 	# 1) LA CARGA y el ORBE (negro con el borde blanco) que sube de tu mano al cielo del circulo.
 	if tn < 0.0:
@@ -1863,7 +1894,7 @@ func _eclipse(capa: Node2D) -> void:
 			if uk < 0.0:
 				break
 			var pk: Vector2 = mano.lerp(disco, uk) + _alto(14.0 * sin(uk * PI))
-			MagiaAire._anillo(capa, pk, 4.0 - 0.5 * float(k), 1.6, Color(CORONA_MAGENTA if k % 2 == 0 else CORONA_BLANCA, 0.8 - 0.14 * float(k)))
+			MagiaAire._anillo(capa, pk, 4.0 - 0.5 * float(k), 1.6, Color(ECLIPSE_MORADO if k % 2 == 0 else ECLIPSE_LUZ, 0.8 - 0.14 * float(k)))
 		_disco(capa, p, 6.0, NEGRO, NEGRO)
 		MagiaAire._anillo(capa, p, 6.0, 2.0, Color(CORONA_BLANCA, 1.0))
 		return
@@ -1877,7 +1908,7 @@ func _eclipse(capa: Node2D) -> void:
 			var kl: float = t_luz / 0.6
 			var fr: float = _r * (1.0 - pow(1.0 - kl, 2.0))
 			MagiaAire._anillo(capa, _c, fr, 12.0, Color(CORONA_BLANCA, 0.7 * (1.0 - kl)))
-			MagiaAire._anillo(capa, _c, fr, 5.0, Color(CORONA_MAGENTA, 0.8 * (1.0 - kl)))
+			MagiaAire._anillo(capa, _c, fr, 5.0, Color(ECLIPSE_LUZ, 0.8 * (1.0 - kl)))
 		# El borde del circulo, una raya de luz fria mientras dura (que se sepa hasta donde llega).
 		MagiaAire._anillo(capa, _c, _r, 4.0, Color(CORONA_BLANCA, 0.25 * vivo))
 		return
@@ -1902,7 +1933,7 @@ func _eclipse(capa: Node2D) -> void:
 		var estalla: float = 0.0
 		if t_luz >= 0.0:
 			estalla = exp(-t_luz * 4.0) * minf(1.0, t_luz * 20.0)
-		var largo_c: float = r_d * (1.1 + 2.6 * estalla) * (0.6 + 0.4 * vivo)
+		var largo_c: float = r_d * (2.2 + 1.8 * estalla) * (0.6 + 0.4 * vivo)
 		_corona_eclipse(capa, disco, r_d, largo_c, vivo)
 		_disco(capa, disco, r_d, NEGRO, NEGRO)
 		MagiaAire._anillo(capa, disco, r_d, 2.5, Color(CORONA_BLANCA, vivo))
@@ -1914,12 +1945,14 @@ func _eclipse(capa: Node2D) -> void:
 		MagiaAire._anillo(capa, disco, r_d * 1.15, r_d * 0.5, Color(CORONA_BLANCA, 0.3 * vivo))
 		if t_luz >= 0.0 and t_luz < 0.5:
 			var kf: float = t_luz / 0.5
-			BarridoAire.brillo(capa, disco, r_d * 5.0 * (1.0 - kf * 0.5), Color(CORONA_BLANCA, 0.55 * (1.0 - kf)))
+			# (un aro, no un brillo encima: el disco sigue negro tambien en la luz)
+			MagiaAire._anillo(capa, disco, r_d * (1.6 + 1.5 * kf), r_d * 1.2, Color(ECLIPSE_LUZ, 0.5 * (1.0 - kf)))
 			for i in 10:
 				var a: float = TAU * float(i) / 10.0 + 0.3
 				var l2: float = _r * (0.5 + 0.6 * kf) * (0.8 + 0.2 * float(i % 2))
-				_cuna(capa, _c, a, 6.0, l2, 0.16, Color(CORONA_MAGENTA, 0.6 * (1.0 - kf)))
-				_cuna(capa, _c, a, 6.0, l2 * 0.8, 0.08, Color(CORONA_BLANCA, 0.8 * (1.0 - kf)))
+				# Desde el BORDE del disco (no desde el centro: cruzaban por encima del negro).
+				_cuna(capa, disco, a, r_d * 1.1, r_d * 1.1 + l2, 0.16, Color(ECLIPSE_LUZ, 0.6 * (1.0 - kf)))
+				_cuna(capa, disco, a, r_d * 1.1, r_d * 1.1 + l2 * 0.8, 0.08, Color(1.0, 1.0, 1.0, 0.8 * (1.0 - kf)))
 		if cierra > 0.0 and cierra < 1.0:
 			BarridoAire.destello(capa, disco, 34.0 * (1.0 - cierra), Color(CORONA_BLANCA, 1.0 - cierra), 0.4)
 
