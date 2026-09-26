@@ -38,7 +38,7 @@ const HABILIDADES := [
 	# LAS MAGIAS (26/09): la huella de cada hechizo, sacada de su ficha (CombatTactico.huella_hechizo).
 	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
 	["magia", "vendaje_de_luz"], ["magia", "bola_fuego"], ["magia", "chorro_agua"], ["magia", "rayo"], ["magia", "pulso_arcano"],
-	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
+	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "filo_torrente"], ["magia", "filo_radiante"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
@@ -112,6 +112,8 @@ const MOMENTOS_MAGIA := {
 	"filo_ardiente": [0.12, 0.38, 0.62, 0.85, 1.2],
 	"filo_fulgurante": [0.12, 0.38, 0.62, 0.85, 1.2],
 	"filo_umbrio": [0.12, 0.38, 0.62, 0.85, 1.2],
+	"filo_torrente": [0.12, 0.38, 0.62, 0.85, 1.2],
+	"filo_radiante": [0.12, 0.38, 0.62, 0.85, 1.2],
 	"mar_de_brasas": [0.2, 0.55, 1.05, 1.65, 2.2],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 }
