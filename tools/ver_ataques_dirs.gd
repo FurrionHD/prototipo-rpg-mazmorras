@@ -117,6 +117,7 @@ const MOMENTOS_MAGIA := {
 	"filo_radiante": [0.12, 0.38, 0.62, 0.85, 1.2],
 	"mar_de_brasas": [0.2, 0.55, 1.05, 1.65, 2.2],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
+	"estallido_solar": [0.08, 0.25, 0.5, 0.82, 0.97, 1.12, 1.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -293,6 +294,9 @@ func _correr() -> void:
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
 			if hechizo != null:
 				f.cunas = hechizo.forma_cunas
+				# De donde sale lo que se lanza a un circulo (ver CombatTactico.forma_hechizo).
+				if f.tipo == CombatFormas.Tipo.CIRCULO:
+					f.ancho = yo.distance_to(f.centro)
 			# La camara, un poco hacia donde va el ataque (salvo los que caen a tu alrededor).
 			var hacia_cam: float = 0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.35
 			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam / acerca

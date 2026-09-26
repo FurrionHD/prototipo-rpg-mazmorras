@@ -928,6 +928,11 @@ func forma_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> RefCounted
 	# El centro, en la rejilla de 1/16 de px en la que viaja por red: la Andanada saca de el donde caen sus bolas
 	# (MagiaAire.puntos_andanada) y tiene que salir IGUAL aqui y en el espejo.
 	f.centro = (f.centro * 16.0).round() / 16.0
+	# DE DONDE SALE lo que se lanza a un CIRCULO (la chispa del Estallido): el circulo no guarda su origen y por red
+	# solo viaja el centro, asi que en su 'ancho' (que el circulo no usa) va lo lejos que esta de ti, hacia atras por
+	# su 'dir'. Ver MagiaMayor.origen.
+	if f.tipo == CombatFormas.Tipo.CIRCULO:
+		f.ancho = roundf(pies_de(c).distance_to(f.centro) * 16.0) / 16.0
 	return f
 
 

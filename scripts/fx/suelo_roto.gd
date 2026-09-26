@@ -35,7 +35,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	MAZA_MURO, BASTON_BARRE, BASTON_SELLO, BASTON_VIENTO,
 	MAGIA_ALIENTO, MAGIA_LLUVIA, MAGIA_ORBE, MAGIA_BOLA, MAGIA_ORBE_FALLA, MAGIA_BOLA_FALLA,
 	MAGIA_ANDANADA, MAGIA_OLA, MAGIA_RAYO, MAGIA_HELICE, MAGIA_HELICE_FALLA,
-	MAGIA_LAVA, MAGIA_JABALINA, MAGIA_JABALINA_FALLA, MAGIA_MIASMA, MAGIA_ONDA_FUERZA }
+	MAGIA_LAVA, MAGIA_JABALINA, MAGIA_JABALINA_FALLA, MAGIA_MIASMA, MAGIA_ONDA_FUERZA,
+	MAGIA_SOL, MAGIA_VORAGINE, MAGIA_SHOCK, MAGIA_TORMENTA, MAGIA_LUZ }
+# MAGIA_SOL.. (las de 3 frases, 26/09): viven en MagiaMayor (su Modo = tipo - MAGIA_SOL). Van DETRAS de las MAGIA_*: se
+# miran antes.
 # MAGIA_* (las magias, 26/09): viven en MagiaAire (su Modo = tipo - MAGIA_ALIENTO). Van DETRAS de los BASTON_*: se
 # miran antes. Los _FALLA son el mismo proyectil cuando no hay nadie donde cae (se apaga en vez de reventar).
 # BASTON_* (baston, 26/09): viven en BastonAire (su Modo = tipo - BASTON_BARRE). Van DETRAS de los MAZA_*: se miran antes.
@@ -101,6 +104,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.MAGIA_SOL:
+		return MagiaMayor.area(padre, f, t - Tipo.MAGIA_SOL, semilla, espera)
 	if t >= Tipo.MAGIA_ALIENTO:
 		return MagiaAire.area(padre, f, t - Tipo.MAGIA_ALIENTO, semilla, espera)
 	if t >= Tipo.BASTON_BARRE:
@@ -141,6 +146,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.MAGIA_SOL:
+		return MagiaMayor.retraso(t - Tipo.MAGIA_SOL, f, p)
 	if t >= Tipo.MAGIA_ALIENTO:
 		return MagiaAire.retraso(t - Tipo.MAGIA_ALIENTO, f, p)
 	if t >= Tipo.BASTON_BARRE:
@@ -172,6 +179,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.MAGIA_SOL:
+		return MagiaMayor.t_salir(t - Tipo.MAGIA_SOL)
 	if t >= Tipo.MAGIA_ALIENTO:
 		return MagiaAire.t_salir(t - Tipo.MAGIA_ALIENTO)
 	if t >= Tipo.BASTON_BARRE:

@@ -33,3 +33,4 @@ forma_radio = 100.0
 forma_apunte = 3
 forma_rango = 180.0
 forma_caida = Array[float]([1.4, 0.1])
+suelo_mapa = 53
