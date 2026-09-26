@@ -15,3 +15,9 @@ alcance = 0
 dano_objetivo = 1.0
 dano_salpicon = 0.0
 descripcion = "La primera magia que aprende cualquiera: fuerza sin forma, empujada contra un solo cuerpo. No arde, no moja y no chisporrotea, asi que tampoco hay nada que la apague ni piel que la resista. Barata de recitar y sin una gota de talento dentro."
+; LA FORMA EN EL MAPA (26/09, su decision): un PROYECTIL recto que se lleva el primero que se cruce.
+forma = 3
+forma_radio = 150.0
+forma_ancho = 8.0
+forma_apunte = 1
+forma_solo_primero = true

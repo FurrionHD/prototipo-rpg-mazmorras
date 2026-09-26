@@ -119,6 +119,12 @@ func _correr() -> void:
 	for e in enemigos:
 		media += (e as Node2D).global_position
 	media /= float(enemigos.size())
+	# SUELO_MAGIA=brasa: un hechizo del mapa (26/09): se apunta al grupo (o SUELO_APUNTE=cerca al mas cercano),
+	# se suelta entero y se dice a quien le cae y con cuanto.
+	if OS.get_environment("SUELO_MAGIA") != "":
+		await _magia_en_pelea(combat, OS.get_environment("SUELO_MAGIA"), media)
+		get_tree().quit(0)
+		return
 	# SUELO_HECHIZO=eclipse: el CIRCULO MAGICO en la pelea (26/09): frase a frase, el disparo y un fallo.
 	if OS.get_environment("SUELO_HECHIZO") != "":
 		await _circulo_en_pelea(combat, OS.get_environment("SUELO_HECHIZO"))
@@ -335,4 +341,37 @@ func _circulo_en_pelea(combat: Node, nom: String) -> void:
 	await _foto("%s_fallo" % nom)
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	print("  circulos vivos al final: ", t._circulos.size())
+	print("=== FIN ===")
+
+
+func _magia_en_pelea(combat: Node, nom: String, media: Vector2) -> void:
+	var s: SpellData = load("res://resources/spells/%s.tres" % nom)
+	var yo: Combatant = combat._player
+	var t = combat.turno_mapa
+	yo.current_mp = yo.max_mp
+	var punto: Vector2 = media
+	if OS.get_environment("SUELO_APUNTE") == "cerca":
+		var mejor: float = INF
+		for e in combat._enemies:
+			var d: float = t.pos_de(e).distance_to(t.pos_de(yo))
+			if d < mejor:
+				mejor = d
+				punto = t.pos_de(e)
+	print("  yo en %s, apunto a %s" % [str(t.pies_de(yo).round()), str(punto.round())])
+	for e in combat._enemies:
+		print("  enemigo %s en %s (hueco %.1f)" % [e.nombre, str(t.pies_de(e).round()), t.hueco_entre(yo, e)])
+	print("  forma: ", t.forma_hechizo(s, yo, punto))
+	for d in t.reparto_hechizo(s, yo, punto):
+		print("  le cae a %s x%.2f" % [d["c"].nombre, float(d["escala"])])
+	var antes: Dictionary = {}
+	for e in combat._enemies:
+		antes[e] = e.current_hp
+	combat.magia._elegir_hechizo(s, null, punto)
+	combat._cast_index = s.longitud()
+	combat.magia._disparar_hechizo()
+	await get_tree().create_timer(0.3, true, false, true).timeout
+	for e in combat._enemies:
+		print("  %s: %.1f -> %.1f" % [e.nombre, float(antes[e]), e.current_hp])
+	for l in combat._log_lines.slice(maxi(0, combat._log_lines.size() - 4)):
+		print("  log: ", l)
 	print("=== FIN ===")

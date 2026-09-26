@@ -325,12 +325,35 @@ func _casteos_vistos() -> Dictionary:
 	for c in _pantalla._casteos:
 		var d: Dictionary = _pantalla._casteos[c]
 		if d.get("spell") is SpellData:
-			out[c] = [d["spell"], int(d.get("idx", 0))]
+			out[c] = [d["spell"], int(d.get("idx", 0)), d.get("punto")]
 	return out
+
+
+# LA HUELLA DEL HECHIZO mientras se recita: donde va a caer (el aviso, como las cargas). Se pinta con la
+# forma de AHORA desde la posicion de quien recita, que no se mueve mientras canta.
+var _huellas_canto: Dictionary = {}   # Combatant -> clave de la huella en la arena
+
+func _pintar_huellas_canto(vistos: Dictionary) -> void:
+	var arena: ArenaCombate = _arena()
+	for c in _huellas_canto.keys():
+		if not vistos.has(c) or not (vistos[c][2] is Vector2):
+			if arena != null:
+				arena.quitar_huella(_huellas_canto[c])
+			_huellas_canto.erase(c)
+	if arena == null:
+		return
+	for c in vistos:
+		var spell: SpellData = vistos[c][0]
+		if not (vistos[c][2] is Vector2) or not usa_huella_hechizo(spell):
+			continue
+		var clave: StringName = StringName("canto_%d" % _pantalla._aliados.find(c))
+		_huellas_canto[c] = clave
+		arena.poner_huella(clave, forma_hechizo(spell, c, vistos[c][2]), 0.0, COLOR_CARGA)
 
 
 func _tick_circulos() -> void:
 	var vistos: Dictionary = _casteos_vistos()
+	_pintar_huellas_canto(vistos)
 	for c in vistos:
 		var spell: SpellData = vistos[c][0]
 		var dichas: int = vistos[c][1]
@@ -398,7 +421,9 @@ func circulos_para_red() -> Dictionary:
 		var d: Dictionary = _pantalla._casteos[c]
 		var i: int = _pantalla._aliados.find(c)
 		if i >= 0 and d.get("spell") is SpellData:
-			cs.append([i, (d["spell"] as SpellData).resource_path, int(d.get("idx", 0))])
+			var pt = d.get("punto")
+			cs.append([i, (d["spell"] as SpellData).resource_path, int(d.get("idx", 0))]
+				+ ([(pt as Vector2).x, (pt as Vector2).y] if pt is Vector2 else []))
 	return {"c": cs, "f": _fines}
 
 
@@ -421,10 +446,12 @@ func aplicar_circulos_red(d: Dictionary) -> void:
 		var i2: int = int(c[0])
 		var sp2 = load(str(c[1])) if str(c[1]) != "" else null
 		if i2 >= 0 and i2 < _pantalla._aliados.size() and sp2 is SpellData:
-			_casteos_red[_pantalla._aliados[i2]] = [sp2, int(c[2])]
+			_casteos_red[_pantalla._aliados[i2]] = [sp2, int(c[2]),
+				Vector2(float(c[3]), float(c[4])) if (c as Array).size() >= 5 else null]
 
 
 func _apagar_circulos() -> void:
+	_pintar_huellas_canto({})
 	for c in _circulos:
 		var circ = _circulos[c]
 		if is_instance_valid(circ) and not (circ as CirculoMagico).acabando():
@@ -854,6 +881,79 @@ func reparto_habilidad(ab: AbilityData, c: Combatant) -> Array:
 	return _reparto_en(ab, c, forma_de(ab, c, apunte))
 
 
+# ------------------------------------------------------------
+#  LOS HECHIZOS EN EL MAPA (26/09): se apuntan AL ELEGIRLOS y caen en ese sitio al soltarlos
+# ------------------------------------------------------------
+# La huella de un hechizo es la de una habilidad hecha con los campos de su ficha: asi el apuntado, la huella
+# que ven los demas y el reparto son los mismos que ya funcionan con las armas.
+var _huellas_hechizo: Dictionary = {}   # SpellData -> AbilityData
+var _hechizo_apuntado: Array = []       # [SpellData, aliado] mientras se apunta un hechizo
+
+func usa_huella_hechizo(spell: SpellData) -> bool:
+	return spell != null and spell.forma_apunte >= 0 and spell.forma >= 0
+
+
+func huella_hechizo(spell: SpellData) -> AbilityData:
+	if _huellas_hechizo.has(spell):
+		return _huellas_hechizo[spell]
+	var ab := AbilityData.new()
+	ab.nombre = spell.nombre
+	ab.forma = spell.forma
+	ab.forma_apunte = spell.forma_apunte
+	ab.forma_radio = spell.forma_radio
+	ab.forma_apertura = spell.forma_apertura
+	ab.forma_rango = spell.forma_rango
+	ab.forma_ancho = spell.forma_ancho
+	ab.forma_solo_primero = spell.forma_solo_primero
+	_huellas_hechizo[spell] = ab
+	return ab
+
+
+# Elegiste un hechizo con huella: a apuntar. Al confirmar se empieza a recitar (combat_magia._elegir_hechizo).
+func apuntar_hechizo(spell: SpellData, aliado: Combatant) -> void:
+	_hechizo_apuntado = [spell, aliado]
+	apuntar(huella_hechizo(spell))
+	if _apuntando == null:
+		_hechizo_apuntado = []
+
+
+# La forma del hechizo lanzado por 'c' hacia 'punto', desde sus pies (con las cuñas puestas).
+func forma_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> RefCounted:
+	var f = forma_de(huella_hechizo(spell), c, punto)
+	f.cunas = spell.forma_cunas
+	return f
+
+
+# A QUIEN LE CAE y con cuanto: [{c, escala}], ordenados como las habilidades (el primero es el principal).
+# La escala es el multiplicador de daño: el de su cuña si el cono va por cuñas, si no dano_objetivo. Vacio =
+# no hay nadie donde cae: se pierde contra el suelo.
+func reparto_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
+	var f = forma_hechizo(spell, c, punto)
+	var out: Array = _reparto_en(huella_hechizo(spell), c, f)
+	for d in out:
+		var esc: float = spell.dano_objetivo
+		if spell.forma_cunas > 1 and not spell.forma_escalas.is_empty():
+			var k: int = f.cuna_de(bulto_de(d["c"]))
+			esc = spell.forma_escalas[clampi(k, 0, spell.forma_escalas.size() - 1)]
+		d["escala"] = esc
+	return out
+
+
+# EL SIGUIENTE ESLABON de una cadena (la Descarga): el vivo mas cercano a 'desde' que no este en 'ya', a no
+# mas de 'maximo' px entre cuerpos. null = no hay a quien saltar. A igualdad, el de menor indice.
+func siguiente_en_cadena(desde: Combatant, ya: Array, maximo: float) -> Combatant:
+	var mejor: Combatant = null
+	var d_mejor: float = INF
+	for e in _pantalla._vivos():
+		if ya.has(e):
+			continue
+		var d: float = hueco_entre(desde, e)
+		if d <= maximo and d < d_mejor - 0.001:
+			mejor = e
+			d_mejor = d
+	return mejor
+
+
 # EL ESCUDAZO de la Guardia rota (AbilityData.forma_escudo_largo): a quien le cae, con la misma regla.
 func reparto_escudazo(ab: AbilityData, c: Combatant) -> Array:
 	if not _hay_apunte or ab.forma_escudo_largo <= 0.0:
@@ -1060,6 +1160,13 @@ func _confirmar_apunte() -> void:
 	if ab.forma_a_aliados and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO \
 			and aliados_de_huella(ab, _quien).is_empty():
 		return
+	# UN HECHIZO: el sitio se queda sellado con el conjuro y se empieza a recitar.
+	if not _hechizo_apuntado.is_empty():
+		var hz: Array = _hechizo_apuntado
+		_hechizo_apuntado = []
+		_dejar_de_apuntar()
+		_pantalla.magia._elegir_hechizo(hz[0], hz[1], _raton_en_mundo())
+		return
 	_dejar_de_apuntar()
 	apunte = _raton_en_mundo()
 	_hay_apunte = true
@@ -1067,8 +1174,13 @@ func _confirmar_apunte() -> void:
 
 
 func _cancelar_apunte() -> void:
+	var era_hechizo: bool = not _hechizo_apuntado.is_empty()
+	_hechizo_apuntado = []
 	_dejar_de_apuntar()
-	_pantalla.habilidades._accion_habilidad()   # de vuelta al menu de habilidades
+	if era_hechizo:
+		_pantalla.magia._accion_magia()   # de vuelta al menu de magia
+	else:
+		_pantalla.habilidades._accion_habilidad()   # de vuelta al menu de habilidades
 
 
 func _dejar_de_apuntar() -> void:

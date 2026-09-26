@@ -915,7 +915,10 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 				# El destinatario viaja como indice en _aliados (igual que la pocion). -1 = a si mismo.
 				var ia_m: int = int(accion.get("aliado", -1))
 				var al_m: Combatant = _pantalla._aliados[ia_m] if ia_m >= 0 and ia_m < _pantalla._aliados.size() else null
-				_pantalla.magia._elegir_hechizo(hechizo, al_m)
+				# EN EL MAPA, el sitio que apunto (sellado). Sin el, false: aqui no se apunta por el.
+				var pt_m: Array = accion.get("punto", [])
+				_pantalla.magia._elegir_hechizo(hechizo, al_m,
+					Vector2(float(pt_m[0]), float(pt_m[1])) if pt_m.size() >= 2 else false)
 			else:
 				_pantalla._accion_atacar()   # ya no lo lleva: no se pierde el turno
 		"frase":

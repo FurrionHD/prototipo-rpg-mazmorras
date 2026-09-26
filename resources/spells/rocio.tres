@@ -22,3 +22,8 @@ dano_objetivo = 0.92
 dano_salpicon = 0.92
 efectos = [SubResource("SA_mojado")]
 descripcion = "Hechizo corto de agua. Una sola frase y la llovizna cae sobre todos por igual: no mata a nadie, pero los deja a todos empapados. Y lo empapado arde peor... y conduce el rayo mejor."
+; LA FORMA EN EL MAPA (26/09, su decision): una LINEA gorda y algo larga hacia delante; moja a todos los de dentro.
+forma = 3
+forma_radio = 110.0
+forma_ancho = 30.0
+forma_apunte = 1

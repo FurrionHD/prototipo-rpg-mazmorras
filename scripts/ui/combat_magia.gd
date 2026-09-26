@@ -136,19 +136,30 @@ func _coste_efectivo(spell: SpellData) -> float:
 # conjuro se caia por algo que no era culpa tuya: si mataban al ultimo enemigo mientras recitabas, o
 # si te tumbaban a ti, el mana se habia ido igual. Fallar SI sigue costandolo: eso si es tuyo.
 # 'aliado' = a quien va, para los que caen sobre los tuyos (null = al que lanza).
-func _elegir_hechizo(spell: SpellData, aliado: Combatant = null) -> void:
+# 'punto' = EN EL MAPA, donde cae (se apunta al elegirlo, ver turno_mapa.apuntar_hechizo). null = aun sin
+# apuntar (si el hechizo tiene huella, primero se apunta); false = no hay punto (viene de fuera sin el).
+func _elegir_hechizo(spell: SpellData, aliado: Combatant = null, punto: Variant = null) -> void:
+	# EN EL MAPA, el que tiene huella se APUNTA antes de la primera frase: el sitio queda sellado.
+	if _pantalla.tactico and punto == null and _pantalla.turno_mapa.usa_huella_hechizo(spell):
+		_pantalla.turno_mapa.apuntar_hechizo(spell, aliado)
+		return
 	# ESPEJO: aqui solo se ELIGE. El conjuro entero (mana, frases y disparo) lo lleva el anfitrion;
 	# lo que se enruta despues, turno a turno, son las frases (ver _mostrar_test). El destinatario
-	# viaja como INDICE en _aliados, igual que ya hacia la pocion.
+	# viaja como INDICE en _aliados, igual que ya hacia la pocion. Y el punto, sellado.
 	if _pantalla._espejo and spell != null:
-		_pantalla.espejo._responder_al_anfitrion({"tipo": "magia", "ruta": spell.resource_path,
-			"aliado": _pantalla._aliados.find(aliado) if aliado != null else -1})
+		var resp: Dictionary = {"tipo": "magia", "ruta": spell.resource_path,
+			"aliado": _pantalla._aliados.find(aliado) if aliado != null else -1}
+		if punto is Vector2:
+			resp["punto"] = [(punto as Vector2).x, (punto as Vector2).y]
+		_pantalla.espejo._responder_al_anfitrion(resp)
 		return
 	if not _pantalla._player.has_mana(_coste_efectivo(spell)):
 		return
 	_pantalla._cast_spell = spell
 	_pantalla._cast_index = 0
 	_pantalla._cast_aliado = aliado if aliado != null else _pantalla._player
+	if punto is Vector2:
+		_pantalla._casteos[_pantalla._player]["punto"] = punto
 	_mostrar_test(0)
 
 
@@ -411,6 +422,19 @@ func _disparar_hechizo() -> void:
 func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# Todos los enemigos tocados (area + rebotes): hay que rematarlos AL FINAL, de una vez.
 	var tocados: Array = []
+	# EN EL MAPA, lo que tape su huella en el sitio que se apunto al empezar: le da a quien este AHI ahora
+	# (si se han ido, mala suerte). Sin nadie dentro, se pierde contra el suelo (el mana ya esta pagado).
+	var punto = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("punto")
+	var en_mapa: bool = _pantalla.tactico and punto is Vector2 and _pantalla.turno_mapa.usa_huella_hechizo(spell)
+	var reparto_mapa: Array = []
+	if en_mapa:
+		reparto_mapa = _pantalla.turno_mapa.reparto_hechizo(spell, _pantalla._player, punto)
+		if spell.tipo == SpellData.TipoEfecto.ATAQUE and reparto_mapa.is_empty():
+			_pantalla._set_log("💨 %s de %s cae donde no hay nadie y se pierde contra el suelo." % [
+				spell.nombre, _pantalla._player.nombre])
+			return tocados
+		if not reparto_mapa.is_empty():
+			obj = reparto_mapa[0]["c"]
 	# DAÑO solo para hechizos de ATAQUE (los de BUFF/DEBUFF no pegan, solo aplican estado).
 	var dano: float = 0.0
 	# EL DIBUJO UNICO, antes de resolver nada: es UNA cosa que cae sobre todos, no una por bicho.
@@ -449,8 +473,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			# en el principal y de ahi alcanza a sus vecinos -- asi que el efecto de los vecinos
 			# sale DEL PRINCIPAL, no de tu mano. Si reparte IGUAL a todos (Rocío, Torrente), si
 			# es que has barrido a todo el mundo, y entonces cada ola sale de ti.
-			var reparte_igual: bool = spell.alcance == SpellData.Alcance.TODOS
-			for t in _pantalla.objetivos._objetivos_area(spell, obj):
+			var reparte_igual: bool = spell.alcance == SpellData.Alcance.TODOS or en_mapa
+			for t in (reparto_mapa if en_mapa else _pantalla.objetivos._objetivos_area(spell, obj)):
 				var de: Combatant = null if (reparte_igual or t.c == obj) else obj
 				res_area.append(_resolver_golpes_hechizo(spell, t.c, foco, float(t.escala),
 					true, de))
@@ -473,11 +497,25 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# La cadena arranca DESPUES del ultimo golpe del area: un rebote es una cosa que pasa
 		# detras, no a la vez (ver _fx_tanda).
 		var tanda_reb: int = spell.golpes()
+		# EN EL MAPA, la CADENA (forma_cadena): cada salto al mas cercano del ultimo que aun no haya recibido.
+		var cadena: bool = en_mapa and spell.forma_cadena > 0.0
+		var ya: Array = tocados.duplicate()
+		var desde: Combatant = obj
 		for i in spell.rebotes_n():
 			var vivos: Array[Combatant] = _pantalla._vivos()
 			if vivos.is_empty():
 				break   # no queda nadie a quien saltar: la cadena se apaga
-			var victima: Combatant = vivos.pick_random()
+			var victima: Combatant = null
+			if cadena:
+				victima = _pantalla.turno_mapa.siguiente_en_cadena(desde, ya, spell.forma_cadena)
+				if victima == null:
+					break   # nadie a tiro del ultimo: la cadena se corta
+				ya.append(victima)
+				desde = victima
+				if anterior == null:
+					anterior = obj   # el primer salto sale del que recibio el rayo, no de tu mano
+			else:
+				victima = vivos.pick_random()
 			res_reb.append(_resolver_golpes_hechizo(spell, victima, foco, spell.dano_rebote,
 				spell.rebote_estados, anterior, true, tanda_reb))
 			tanda_reb += spell.golpes()

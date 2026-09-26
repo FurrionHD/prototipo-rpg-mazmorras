@@ -179,6 +179,21 @@ const RADIO_CURA_AREA := 200.0
 @export var forma_radio: float = 0.0
 @export var forma_apertura: float = 0.0
 @export var forma_desde_quien_ataca: bool = false
+# LA HUELLA EN EL MAPA, hechizo a hechizo (26/09, las magias una a una). Mismos campos y mismo sentido que en
+# AbilityData: el hechizo se APUNTA al elegirlo (antes de la primera frase) y cae en ESE sitio al soltarlo
+# (ver magia-tactico-se-apunta-al-empezar). -1 = aun sin huella: va como en la fila.
+@export var forma_apunte: int = -1
+@export var forma_rango: float = 0.0          # LIBRE: lo mas lejos que puede caer el centro
+@export var forma_ancho: float = 0.0          # LINEA
+@export var forma_solo_primero: bool = false  # LINEA: se lo lleva solo el primero que se cruza (un proyectil)
+# CUÑAS: el CONO partido a lo ancho en tantas cuñas; la del centro es la 0 y hacia fuera suben (con 5: 0 en
+# medio, 1 a los lados, 2 en los bordes). La Brasa: el centro de la llamarada quema mas que los bordes.
+@export var forma_cunas: int = 0
+# El multiplicador de daño por cuña (0 = la del centro). Sin cuñas, todos cobran dano_objetivo.
+@export var forma_escalas: Array[float] = []
+# CADENA (la Descarga en el mapa): > 0 = los rebotes saltan al enemigo MAS CERCANO del ultimo tocado que
+# aun no haya recibido, hasta esta distancia en px; si no hay ninguno, la cadena se corta.
+@export var forma_cadena: float = 0.0
 
 # REBOTES: impactos EXTRA, despues del area, cada uno a un enemigo VIVO al AZAR. Pueden
 # repetir objetivo y pueden caer en el principal: en 1v1 rebotan todos sobre el unico

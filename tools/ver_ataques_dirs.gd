@@ -35,10 +35,12 @@ const HABILIDADES := [
 	["baston", "basico"], ["baston", "bastonazo"], ["baston", "sello_arcano"], ["baston", "viento_limpio"],
 	["baston", "velo_umbrio"], ["baston", "canalizar"],
 	["varita", "canalizar_varita"], ["varita", "purificar"], ["varita", "chispa_vinculada"], ["varita", "egida_menor"],
+	# LAS MAGIAS (26/09): la huella de cada hechizo, sacada de su ficha (CombatTactico.huella_hechizo).
+	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
-	"baston": 21.0, "varita": 21.0}
+	"baston": 21.0, "varita": 21.0, "magia": 21.0}
 # LA ESPADA CORTA (EspadaAire), como la daga: golpe a golpe sobre cada cuerpo. "basico" no tiene ficha: el
 # tajo de siempre sobre el de delante.
 const MOMENTOS_ESPADA := {
@@ -213,7 +215,19 @@ func _correr() -> void:
 		if pedidas != "" and not (nom in pedidas.split(",")):
 			continue
 		var ab: AbilityData
-		if nom == "basico":
+		var hechizo: SpellData = null
+		if arma == "magia":
+			hechizo = load("res://resources/spells/%s.tres" % nom)
+			ab = AbilityData.new()
+			ab.nombre = hechizo.nombre
+			ab.forma = hechizo.forma
+			ab.forma_apunte = hechizo.forma_apunte
+			ab.forma_radio = hechizo.forma_radio
+			ab.forma_apertura = hechizo.forma_apertura
+			ab.forma_rango = hechizo.forma_rango
+			ab.forma_ancho = hechizo.forma_ancho
+			ab.forma_solo_primero = hechizo.forma_solo_primero
+		elif nom == "basico":
 			ab = AbilityData.new()
 			ab.nombre = "Tajo (basico)"
 			ab.forma = CombatFormas.Tipo.CIRCULO
@@ -227,6 +241,8 @@ func _correr() -> void:
 			else (MOMENTOS_ESTOQUE.get(nom, []) if arma == "estoque" \
 			else (MOMENTOS_ESPADA.get(nom, []) if arma in ["espada", "larga", "escudo"] \
 			else MOMENTOS.get(ab.suelo_roto, []))))
+		if arma == "magia":
+			tiempos = []   # de momento solo la huella: los efectos llegan en el paso 2
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -251,6 +267,8 @@ func _correr() -> void:
 						mejor = dd
 						hacia = p + Vector2(0, -13)
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], hacia)
+			if hechizo != null:
+				f.cunas = hechizo.forma_cunas
 			# La camara, un poco hacia donde va el ataque (salvo los que caen a tu alrededor).
 			var hacia_cam: float = 0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.35
 			_cam.global_position = yo + (DIRS[fila][1] as Vector2).normalized() * medida * hacia_cam / acerca

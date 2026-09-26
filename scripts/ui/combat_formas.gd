@@ -66,6 +66,8 @@ class Forma extends RefCounted:
 	# LINEA que se ESTRECHA: el ancho al llegar al final (< 0 = igual que al salir). El Tajo del verdugo
 	# (24/09, su dibujo): ancha pegada a ti y afilada hasta una punta al fondo, un cono al reves.
 	var ancho_fin: float = -1.0
+	# CONO partido A LO ANCHO en cuñas (la Brasa, 26/09): ver cuna_de.
+	var cunas: int = 0
 
 	# El ancho de la LINEA a 't' px de su salida (a lo largo).
 	func ancho_en(t: float) -> float:
@@ -156,6 +158,22 @@ class Forma extends RefCounted:
 		if d == INF:
 			return 0
 		return clampi(int(d / (medida() / float(tramos))), 0, tramos - 1)
+
+	# EN QUE CUÑA del cono cae esta caja, contada desde el CENTRO: 0 la de en medio, y +1 por cada cuña hacia
+	# los bordes (con 5: 0, 1, 2). Manda el trozo de la caja mas cercano al eje del cono que este dentro.
+	func cuna_de(r: Rect2) -> int:
+		if cunas <= 1 or tipo != CombatFormas.Tipo.CONO or apertura <= 0.0:
+			return 0
+		var mejor: float = INF
+		for p in [_mas_cerca(r, origen), r.get_center(), r.position, r.end,
+				Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:
+			if contiene(p) and (p as Vector2).distance_squared_to(origen) >= 1.0:
+				mejor = minf(mejor, absf(rad_to_deg(((p as Vector2) - origen).angle_to(dir))))
+		if mejor == INF:
+			return 0
+		var paso: float = apertura / float(cunas)
+		var k: int = clampi(int((mejor + apertura * 0.5) / paso), 0, cunas - 1)
+		return absi(k - (cunas - 1) / 2) if cunas % 2 == 1 else mini(absi(k - cunas / 2), absi(k - (cunas / 2 - 1)))
 
 	# Lo que mide a lo largo: el radio del cono, el largo de la linea.
 	func medida() -> float:
@@ -465,6 +483,20 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 				ci.draw_colored_polygon(pts, Color(relleno, relleno.a * alfa * (1.5 if n_tr > 1 else 1.0)))
 				if k > 0:
 					ci.draw_arc(f.origen, r0, a0, a1, 32, Color(col, col.a * 0.7), 1.5)
+			# Con CUÑAS (la Brasa), la del centro mas llena y cada una hacia el borde mas tenue, con una raya
+			# entre ellas: se lee donde quema entero.
+			if f.cunas > 1:
+				var paso: float = (a1 - a0) / float(f.cunas)
+				for j in f.cunas:
+					var banda: int = absi(j - (f.cunas - 1) / 2)
+					var pc := PackedVector2Array([f.origen])
+					for i in 9:
+						var ac: float = a0 + paso * (float(j) + float(i) / 8.0)
+						pc.append(f.origen + Vector2(cos(ac), sin(ac)) * f.radio)
+					ci.draw_colored_polygon(pc, Color(relleno, relleno.a * maxf(0.0, 1.2 - 0.5 * float(banda))))
+					if j > 0:
+						var aj: float = a0 + paso * float(j)
+						ci.draw_line(f.origen, f.origen + Vector2(cos(aj), sin(aj)) * f.radio, Color(col, col.a * 0.6), 1.5)
 			ci.draw_arc(f.origen, f.radio, a0, a1, 48, col, 2.5)
 			ci.draw_line(f.origen, f.origen + Vector2(cos(a0), sin(a0)) * f.radio, col, 2.5)
 			ci.draw_line(f.origen, f.origen + Vector2(cos(a1), sin(a1)) * f.radio, col, 2.5)

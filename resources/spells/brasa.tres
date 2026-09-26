@@ -23,3 +23,11 @@ dano_objetivo = 1.5
 dano_salpicon = 0.75
 efectos = [SubResource("SA_quema")]
 descripcion = "Hechizo corto de fuego. Una sola frase y la llama prende donde la pones, y de paso lame a los que se apinen a su lado. Cuanto mas juntos vengan, peor para ellos."
+; LA FORMA EN EL MAPA (26/09, su decision): un CONO de llamas desde tu mano partido en 5 cuñas; el centro
+; quema entero, las de al lado menos y las de los bordes menos aun.
+forma = 2
+forma_radio = 55.0
+forma_apertura = 90.0
+forma_apunte = 1
+forma_cunas = 5
+forma_escalas = Array[float]([1.5, 1.1, 0.75])
