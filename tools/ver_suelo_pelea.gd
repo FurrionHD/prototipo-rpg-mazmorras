@@ -363,15 +363,23 @@ func _magia_en_pelea(combat: Node, nom: String, media: Vector2) -> void:
 	print("  forma: ", t.forma_hechizo(s, yo, punto))
 	for d in t.reparto_hechizo(s, yo, punto):
 		print("  le cae a %s x%.2f" % [d["c"].nombre, float(d["escala"])])
+	# SUELO_AGUANTAN=1: los enemigos no caen (para ver empujes y cadenas enteras).
+	if OS.get_environment("SUELO_AGUANTAN") != "":
+		for e in combat._enemies:
+			e.max_hp = 99999.0
+			e.current_hp = 99999.0
 	var antes: Dictionary = {}
+	var pos_antes: Dictionary = {}
 	for e in combat._enemies:
 		antes[e] = e.current_hp
+		pos_antes[e] = t.pos_de(e)
 	combat.magia._elegir_hechizo(s, null, punto)
 	combat._cast_index = s.longitud()
 	combat.magia._disparar_hechizo()
-	await get_tree().create_timer(0.3, true, false, true).timeout
+	await get_tree().create_timer(1.5, true, false, true).timeout
 	for e in combat._enemies:
-		print("  %s: %.1f -> %.1f" % [e.nombre, float(antes[e]), e.current_hp])
+		print("  %s: %.1f -> %.1f  (se ha movido %.1f px)" % [e.nombre, float(antes[e]), e.current_hp,
+			(pos_antes[e] as Vector2).distance_to(t.pos_de(e))])
 	for l in combat._log_lines.slice(maxi(0, combat._log_lines.size() - 4)):
 		print("  log: ", l)
 	print("=== FIN ===")
