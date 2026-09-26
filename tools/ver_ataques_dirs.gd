@@ -1092,7 +1092,7 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	for col in tiempos.size():
 		var t: float = float(tiempos[col])
 		s.set("_t", t)
-		for hijo in ["_suelo", "_delante", "_brillo"]:
+		for hijo in ["_suelo", "_delante", "_brillo", "_lluvia"]:
 			if s.get(hijo) != null:
 				(s.get(hijo) as Node2D).queue_redraw()
 		for ar in arcos:

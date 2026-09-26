@@ -85,7 +85,11 @@ const T_GOTA_TORMENTA := 0.32
 const T_RAYO_TORMENTA := 0.3
 const ALTO_NUBE_TORMENTA := 62.0
 const R_OJO_TORMENTA := 0.2      # el ojo, en fraccion del radio
+const ALFA_NUBE_TORMENTA := 0.68
+const Z_RAYOS_TORMENTA := Z_ENCIMA - 3   # los rayos y la lluvia, por DEBAJO de la nube
 const NUBE_HONDA := Color(0.1, 0.12, 0.19)
+const NUBE_MEDIA := Color(0.33, 0.38, 0.5)
+const BORLAS_NUBE := 16
 const CIELO_OJO := Color(0.55, 0.75, 1.0)
 const T_BARRE_SHOCK := 0.35      # lo que tarda el deshacerse en ir del centro al borde
 const T_DESHACE_SHOCK := 0.3     # lo que tarda cada trozo en irse
@@ -115,6 +119,7 @@ var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
+var _lluvia: Node2D = null
 
 
 static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> MagiaMayor:
@@ -274,6 +279,21 @@ func _preparar() -> void:
 	_suelo = _capa(SueloRoto.Z_SUELO, false)
 	_delante = _capa(Z_ENCIMA, false)
 	_brillo = _capa(Z_ENCIMA + 1, true)
+	if modo == Modo.TORMENTA:
+		# (26/09: "la nube mas transparente" y "los rayos parecen estar por encima") la NUBE en un CanvasGroup para
+		# que sea transparente de una pieza (sin que los solapes se oscurezcan); la LLUVIA y los RAYOS por debajo.
+		_delante.queue_free()
+		var g := CanvasGroup.new()
+		g.z_as_relative = false
+		g.z_index = Z_ENCIMA
+		g.self_modulate = Color(1.0, 1.0, 1.0, ALFA_NUBE_TORMENTA)
+		add_child(g)
+		# Lo que se dibuja va en un HIJO del grupo (el CanvasGroup junta a sus hijos, no su propio dibujo).
+		var hoja_n := Node2D.new()
+		g.add_child(hoja_n)
+		hoja_n.draw.connect(_dibujar_capa.bind(hoja_n))
+		_delante = hoja_n
+		_lluvia = _capa(Z_RAYOS_TORMENTA + 1, false)
 
 
 func _capa(z: int, aditiva: bool) -> Node2D:
@@ -294,7 +314,7 @@ func _process(delta: float) -> void:
 	if _t >= duracion():
 		queue_free()
 		return
-	for n in [_suelo, _delante, _brillo]:
+	for n in [_suelo, _delante, _brillo, _lluvia]:
 		if n != null:
 			(n as Node2D).queue_redraw()
 
@@ -1329,13 +1349,50 @@ func _banda_nube(ci: CanvasItem, c: Vector2, a0: float, r0: float, r1: float, vu
 		pc.append(col)
 		pc.append(col)
 		# Los bultos del borde de fuera.
-		if k > 0 and k < n and k % 2 == 0:
+		if k > 0 and k < n and k % 2 == 0 and ancho > _r * 0.2:
 			var rb: float = w * (0.45 + 0.25 * MagiaAire._ruido(float(k), sem))
 			ci.draw_circle(c + d * (rr + w * 0.45), rb, col)
 	for k in n:
 		var b: int = k * 2
 		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
 	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+
+
+# LA NUBE (26/09, tercera: "cerrada, no acabada en puntas; que parezca una nube"): un bulto REDONDO con el borde en
+# BORLAS de distintos tamaños (la sombra honda por debajo, el cuerpo y la luz arriba en cada borla), y POR DENTRO la
+# espiral en un tono mas claro que se enrosca hacia el OJO, que es un hueco oscuro con el borde encendido. Se forma
+# creciendo desde el ojo y al irse el ojo se abre.
+func _nube_tormenta(ci: CanvasItem, forma_n: float, viva: float, giro: float, r_ojo: float) -> void:
+	var c: Vector2 = _c + _alto(ALTO_NUBE_TORMENTA)
+	var R: float = _r * lerpf(0.5, 1.0, forma_n)
+	var n_b: int = BORLAS_NUBE
+	# 1) La SOMBRA de debajo: las borlas y el cuerpo, un pelo mas abajo y mas oscuros.
+	for pasada in 2:
+		var col: Color = NUBE_HONDA if pasada == 0 else MagiaAire.NUBE
+		var off: Vector2 = Vector2(0.0, 6.0) if pasada == 0 else Vector2.ZERO
+		_disco(ci, c + off, R * 0.84, col, col)
+		for i in n_b:
+			var a: float = TAU * float(i) / float(n_b) + giro * 0.25
+			var rb: float = R * (0.2 + 0.08 * MagiaAire._ruido(float(i), 3.0))
+			ci.draw_circle(c + off + Vector2(cos(a), sin(a)) * (R - rb * 0.55), rb, col)
+	# 2) La LUZ de arriba: en cada borla de la mitad de arriba, un bulto claro hacia arriba a la izquierda.
+	for i in n_b:
+		var a2: float = TAU * float(i) / float(n_b) + giro * 0.25
+		if sin(a2) > 0.35:
+			continue
+		var rb2: float = R * (0.2 + 0.08 * MagiaAire._ruido(float(i), 3.0))
+		var pb: Vector2 = c + Vector2(cos(a2), sin(a2)) * (R - rb2 * 0.55) + Vector2(-rb2 * 0.15, -rb2 * 0.25)
+		ci.draw_circle(pb, rb2 * 0.62, NUBE_MEDIA)
+	# 3) La ESPIRAL de dentro: bandas claras que se enroscan hacia el ojo y se afilan a los dos lados (dentro del bulto).
+	for brazo in 4:
+		var a_b: float = giro + TAU * float(brazo) / 4.0
+		_banda_nube(ci, c, a_b, R * r_ojo * 1.1, R * 0.8, 2.6, R * 0.16, NUBE_MEDIA, float(brazo) * 5.0)
+	for brazo2 in 4:
+		var a_b2: float = giro + TAU * float(brazo2) / 4.0 - 0.15
+		_banda_nube(ci, c + Vector2(-1.0, -2.0), a_b2, R * r_ojo * 1.2, R * 0.72, 2.4, R * 0.07, MagiaAire.NUBE_LUZ,
+			float(brazo2) * 5.0 + 2.0)
+	# 4) EL OJO: el hueco oscuro.
+	_disco(ci, c, R * r_ojo, NUBE_HONDA, NUBE_HONDA.darkened(0.2))
 
 
 func _tormenta(capa: Node2D) -> void:
@@ -1390,7 +1447,7 @@ func _tormenta(capa: Node2D) -> void:
 			var pg: Vector2 = _c + Vector2(cos(a_g), sin(a_g)) * _r * float(g["d"])
 			MagiaAire._anillo(capa, pg, 1.5 + 5.0 * tg / 0.2, 1.4, Color(MagiaAire.AGUA_CLARA, 0.8 * (1.0 - tg / 0.2) * viva))
 		return
-	if capa == _delante:
+	if capa == _lluvia:
 		# LA LLUVIA EN ESPIRAL: gotas que caen de la nube y se van girando con el remolino.
 		for g in _gotas:
 			if tn < float(g["t0"]):
@@ -1405,19 +1462,9 @@ func _tormenta(capa: Node2D) -> void:
 			var cab: Vector2 = base + _alto(h)
 			var cola: Vector2 = cab + _alto(9.0) + Vector2(-sin(a_g2), cos(a_g2)) * 3.0
 			BarridoAire.cometa(capa, cola, cab, 1.8, Color(MagiaAire.AGUA_CLARA, 0.85 * viva))
-		# LA NUBE (26/09, rehecha: "bolas" no): un velo que lo une todo y TRES BRAZOS que se enroscan hacia el ojo, en
-		# tonos planos (la sombra honda por debajo, el cuerpo y la luz por arriba), con el borde de fuera en BULTOS que
-		# se funden. Se forma entrando desde fuera en espiral y al irse el ojo se abre y se deshace.
-		var ojo_c: Vector2 = _c + _alto(ALTO_NUBE_TORMENTA)
-		BarridoAire.brillo(capa, ojo_c, _r * 1.15, Color(NUBE_HONDA, 0.8 * viva))
-		_disco(capa, ojo_c, _r * 0.85, Color(MagiaAire.NUBE, 0.0), Color(MagiaAire.NUBE, 0.55 * viva))
-		var capas_n: Array = [[NUBE_HONDA, 1.0, Vector2(0.0, 6.0)], [MagiaAire.NUBE, 0.82, Vector2.ZERO],
-			[MagiaAire.NUBE_LUZ, 0.45, Vector2(-2.0, -5.0)]]
-		for cn in capas_n:
-			for brazo in 4:
-				var a_b: float = giro + TAU * float(brazo) / 4.0 + (1.0 - forma_n) * 1.5
-				_banda_nube(capa, ojo_c + (cn[2] as Vector2), a_b, _r * r_ojo * 1.05, _r * lerpf(1.25, 1.0, forma_n),
-					2.8, _r * 0.42 * float(cn[1]) * viva, Color(cn[0] as Color, 0.82 * viva), float(brazo) * 5.0)
+		return
+	if capa == _delante:
+		_nube_tormenta(capa, forma_n, viva, giro, r_ojo)
 		return
 	if capa == _brillo:
 		# EL OJO: su borde brilla frio y dentro se ve el cielo claro; y los RELAMPAGOS dentro de la nube (fogonazos
@@ -1444,6 +1491,7 @@ static func rayo_tormenta(padre: Node, caja: Rect2, semilla: int, espera: float,
 		return null
 	var e := MagiaMayor.new()
 	e.modo = Modo.RAYO_TORMENTA
+	e.set_meta("bajo_nube", true)
 	e._semilla = semilla
 	e._rng.seed = hash(semilla)
 	e._ritmo = maxf(ritmo, 0.05)
@@ -1457,14 +1505,14 @@ static func rayo_tormenta(padre: Node, caja: Rect2, semilla: int, espera: float,
 	else:
 		e._o = pies + _alto(ALTO_NUBE_TORMENTA) + Vector2(-10.0, 0.0)
 	e.z_as_relative = false
-	e.z_index = Z_ENCIMA
+	e.z_index = Z_RAYOS_TORMENTA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
 	for i in 6:
 		var a: float = e._rng.randf_range(0.0, TAU)
 		e._motas.append({"a": a, "largo": e._rng.randf_range(9.0, 16.0)})
 	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
-	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	e._brillo = e._capa(Z_RAYOS_TORMENTA, true)
 	return e
 
 
