@@ -110,7 +110,7 @@ const MOMENTOS_MAGIA := {
 	"debilidad": [0.15, 0.32, 0.45, 0.7, 1.1],
 	"fortaleza": [0.12, 0.26, 0.38, 0.6, 0.95],
 	"filo_ardiente": [0.08, 0.2, 0.3, 0.38, 0.55],
-	"mar_de_brasas": [0.15, 0.35, 0.6, 0.9, 1.9],
+	"mar_de_brasas": [0.2, 0.55, 1.05, 1.65, 2.2],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
