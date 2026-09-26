@@ -1664,23 +1664,36 @@ const HUECO_LOSA := 2.0
 func _losas_de_la_franja() -> Array:
 	var w: float = _largo
 	var h: float = _ancho * 0.47
-	var ch: float = h * 0.85
-	var contorno: Array = [Vector2(ch, -h), Vector2(w - ch, -h), Vector2(w, -h + ch), Vector2(w, h - ch),
-		Vector2(w - ch, h), Vector2(ch, h), Vector2(0.0, h - ch), Vector2(0.0, -h + ch)]
 	var nx: int = int(clampf(w / 20.0, 5.0, 10.0))
+	var celda: float = w / float(nx)
 	var ny: int = 3
-	var semillas: Array = []
+	# El contorno de la franja: una CAPSULA (puntas redondas). Las semillas de dentro dan losas; las de un anillo
+	# por FUERA son suelo que no se rompe: sus celdas se tiran, y asi el borde lo forman los cantos quebrados de las
+	# losas (26/09: "los cortes no son muy rectos?").
+	var r_cap: float = minf(h, w * 0.5)
+	var dentro: Array = []
 	for i in nx:
 		for j in ny:
-			semillas.append(Vector2((float(i) + 0.5 + _rng.randf_range(-0.35, 0.35)) / float(nx) * w,
-				((float(j) + 0.5 + _rng.randf_range(-0.3, 0.3)) / float(ny) - 0.5) * 2.0 * h * 0.92))
+			var q := Vector2((float(i) + 0.5 + _rng.randf_range(-0.35, 0.35)) / float(nx) * w,
+				((float(j) + 0.5 + _rng.randf_range(-0.3, 0.3)) / float(ny) - 0.5) * 2.0 * h * 0.9)
+			if _dist_capsula(q, w, r_cap) < -1.0:
+				dentro.append(q)
+	var fuera: Array = []
+	var perimetro: int = int((2.0 * (w - 2.0 * r_cap) + TAU * r_cap) / (celda * 0.8)) + 4
+	for k in perimetro:
+		var q2: Vector2 = _en_capsula(float(k) / float(perimetro) + _rng.randf_range(-0.02, 0.02), w, r_cap)
+		var nrm: Vector2 = _normal_capsula(q2, w, r_cap)
+		fuera.append(q2 + nrm * celda * _rng.randf_range(0.35, 0.75))
+	var caja: Array = [Vector2(-celda * 2.0, -h - celda * 2.0), Vector2(w + celda * 2.0, -h - celda * 2.0),
+		Vector2(w + celda * 2.0, h + celda * 2.0), Vector2(-celda * 2.0, h + celda * 2.0)]
+	var todas: Array = dentro + fuera
 	var out: Array = []
-	for a in semillas.size():
-		var poly: Array = contorno.duplicate()
-		for b in semillas.size():
+	for a in dentro.size():
+		var poly: Array = caja.duplicate()
+		for b in todas.size():
 			if a == b:
 				continue
-			poly = _recorta_mitad(poly, semillas[a], semillas[b])
+			poly = _recorta_mitad(poly, todas[a], todas[b])
 			if poly.size() < 3:
 				break
 		if poly.size() < 3:
@@ -1699,6 +1712,37 @@ func _losas_de_la_franja() -> Array:
 		out.append({"pts": enc, "cen": cen, "u": clampf(cen.x / maxf(w, 1.0), 0.0, 1.0), "r": r,
 			"tono": _rng.randf_range(-0.03, 0.04)})
 	return out
+
+
+# La capsula de largo 'w' (de x=0 a x=w) y radio 'r' en las puntas: distancia con signo (negativo = dentro),
+# un punto de su contorno por fraccion del perimetro, y la normal hacia fuera.
+static func _dist_capsula(q: Vector2, w: float, r: float) -> float:
+	var x: float = clampf(q.x, r, w - r)
+	return q.distance_to(Vector2(x, 0.0)) - r
+
+
+static func _en_capsula(f: float, w: float, r: float) -> Vector2:
+	var recto: float = maxf(w - 2.0 * r, 0.0)
+	var total: float = 2.0 * recto + TAU * r
+	var d: float = fposmod(f, 1.0) * total
+	if d < recto:
+		return Vector2(r + d, -r)
+	d -= recto
+	if d < PI * r:
+		var a: float = -PI * 0.5 + d / r
+		return Vector2(w - r, 0.0) + Vector2(cos(a), sin(a)) * r
+	d -= PI * r
+	if d < recto:
+		return Vector2(w - r - d, r)
+	d -= recto
+	var a2: float = PI * 0.5 + d / r
+	return Vector2(r, 0.0) + Vector2(cos(a2), sin(a2)) * r
+
+
+static func _normal_capsula(q: Vector2, w: float, r: float) -> Vector2:
+	var x: float = clampf(q.x, r, w - r)
+	var d: Vector2 = q - Vector2(x, 0.0)
+	return d.normalized() if d.length_squared() > 0.0001 else Vector2.UP
 
 
 # Sutherland-Hodgman contra UN semiplano: se queda con lo que esta mas cerca de 'a' que de 'b'.
