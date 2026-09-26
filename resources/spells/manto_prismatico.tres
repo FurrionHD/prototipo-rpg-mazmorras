@@ -6,7 +6,7 @@
 script = ExtResource("1")
 nombre = "Manto prismático"
 tipo = 1
-frases = Array[String](["No pido un elemento: los pido todos", "Que el mundo elija por mí esta vez", "Y que lo que salga me dure hasta el final"])
+frases = Array[String](["No pido un elemento: los pido todos", "Que el mundo elija por mí esta vez", "Fuego, agua, rayo, luz o noche: cualquiera me vale", "Y que lo que salga me dure hasta el final"])
 rareza = 5
 coste_mana = 24
 dano_base = 0.0
