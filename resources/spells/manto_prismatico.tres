@@ -20,3 +20,10 @@ imbue_intensidad = 0.6
 imbue_elemento_aleatorio = true
 imbue_spd_mult = 1.1
 descripcion = "El canto más largo del tomo, y ni el que lo recita sabe cómo va a terminar. Algo se decide ahí arriba y baja hecho fuego, agua, rayo, luz o noche. Sea lo que sea, se queda mucho tiempo, y mientras esté te pesa menos todo."
+; (26/09, su decision) cada golpe que das sale de un elemento al azar y cada uno que recibes lo defiendes como uno al azar.
+imbue_prisma = true
+; LA FORMA EN EL MAPA (26/09): a TODOS los tuyos alrededor de ti, a cada uno el suyo.
+forma = 1
+forma_radio = 80.0
+forma_apunte = 2
+forma_a_aliados = true

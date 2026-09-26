@@ -22,6 +22,8 @@ class_name ImbueVisual
 
 const BIT_CUERPO := 8
 const DESDE_ESTADO := 16
+# El ARCOIRIS del Manto prismatico (26/09): muy por encima de los estados para no pisarlos.
+const BIT_PRISMA := 1 << 20
 
 # Que suelta el elemento. Lo lee el shader ('modo'): el fuego LLAMAS, el agua GOTAS y un reflejo, el
 # rayo RAYITOS en zigzag, la luz DESTELLOS de estrella, la oscuridad HUMO y el veneno gotas y burbujas.
@@ -40,9 +42,12 @@ const RAMPAS := {
 const RAMPA_VENENO := [Color(0.12, 0.30, 0.05), Color(0.35, 0.72, 0.12), Color(0.62, 0.95, 0.30), Color(0.85, 1.0, 0.60)]
 
 
-static func codigo(elem: int, estado: int, cuerpo: bool, usos: int) -> int:
+static func codigo(elem: int, estado: int, cuerpo: bool, usos: int, prisma: bool = false) -> int:
 	if usos <= 0:
 		return 0
+	# El prismatico cambia de elemento en cada golpe: se pinta SIEMPRE igual (arcoiris), no con el que toque.
+	if prisma:
+		return BIT_PRISMA | (BIT_CUERPO if cuerpo else 0)
 	var tiene_elem: bool = Elementos.tiene_color(elem)
 	if not tiene_elem and estado < 0:
 		return 0
@@ -60,7 +65,7 @@ static func de_ficha(pj: PersonajeData) -> int:
 		return 0
 	var im: Dictionary = pj.imbue
 	return codigo(int(im.get("elem", 0)), int(im.get("estado", -1)), bool(im.get("cuerpo", false)),
-		int(im.get("usos", 0)))
+		int(im.get("usos", 0)), bool(im.get("prisma", false)))
 
 
 # El de un COMBATIENTE (en pelea la imbuicion vive ahi y se gasta golpe a golpe; la ficha solo se pone
@@ -68,7 +73,11 @@ static func de_ficha(pj: PersonajeData) -> int:
 static func de_combatiente(c: Combatant) -> int:
 	if c == null:
 		return 0
-	return codigo(c.imbue_elemento, c.imbue_estado, c.imbue_cuerpo, c.imbue_usos)
+	return codigo(c.imbue_elemento, c.imbue_estado, c.imbue_cuerpo, c.imbue_usos, c.imbue_prisma)
+
+
+static func es_prisma(cod: int) -> bool:
+	return (cod & BIT_PRISMA) != 0
 
 
 static func es_cuerpo(cod: int) -> bool:
@@ -81,6 +90,8 @@ static func elemento(cod: int) -> int:
 
 # -1 = no lleva estado (es elemental).
 static func estado(cod: int) -> int:
+	if es_prisma(cod):
+		return -1
 	return (cod / DESDE_ESTADO) - 1
 
 
@@ -95,6 +106,8 @@ static func color(cod: int) -> Color:
 
 
 static func modo(cod: int) -> int:
+	if es_prisma(cod):
+		return Modo.ESTRELLA   # destellos, que en arcoiris lucen mas que nada
 	match elemento(cod):
 		Elementos.Elemento.FUEGO:
 			return Modo.LLAMA
@@ -112,6 +125,9 @@ static func modo(cod: int) -> int:
 # [sombra, base, luz, nucleo]. Un estado que no sea el veneno (si algun dia hay otro Filo de estado)
 # sale de su color, aclarado y oscurecido.
 static func rampa(cod: int) -> Array:
+	if es_prisma(cod):
+		# El shader la repinta en arcoiris ('arcoiris'); de base, blancos para que tenga luz que teñir.
+		return [Color(0.45, 0.45, 0.5), Color(0.8, 0.8, 0.85), Color(0.95, 0.95, 1.0), Color(1.0, 1.0, 1.0)]
 	var e: int = elemento(cod)
 	if RAMPAS.has(e):
 		return RAMPAS[e]

@@ -190,6 +190,9 @@ static func mult_afinidad_pura(afinidad: int, elem: int) -> float:
 static func mult_recibido(elem: int, defender) -> float:
 	if elem == Elemento.NINGUNO or defender == null:
 		return 1.0
+	# El MANTO PRISMATICO defiende como un elemento al azar en cada golpe que le entra.
+	if defender is Combatant and defender.imbue_prisma and defender.imbue_cuerpo:
+		defender.rodar_prisma()
 	var base: float
 	if defender.resist_elemental.has(elem):
 		# Override a medida: es un valor ABSOLUTO que puso el diseñador. No se escala.

@@ -484,7 +484,7 @@ func _volatil(c: Combatant) -> Dictionary:
 			c.proteger_turnos],
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
-			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza]}
+			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza, c.imbue_prisma]}
 
 
 func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
@@ -536,6 +536,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		if imb.size() >= 8:
 			c.imbue_prob_doble = float(imb[6])
 			c.imbue_por_destreza = bool(imb[7])
+		c.imbue_prisma = imb.size() >= 9 and bool(imb[8])
 		# Y la AFINIDAD, que es la mitad de un manto (resistencias, inmunidades, aturdimiento).
 		# Sin esto, quien llevara un Manto y sufriera un traspaso de anfitrion perdia todo el lado
 		# defensivo aunque el chip siguiera diciendo 🛡: solo le quedaba el bonus de daño.

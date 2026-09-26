@@ -22,3 +22,8 @@ dano_salpicon = 1.0
 fx_estilo = 109
 fx_unico = true
 descripcion = "Primero la oscuridad se lo traga todo, y del mismo sitio que se lo tragó sale la luz. Cae sobre todos por igual. Nadie ha explicado todavía por qué funciona en ese orden y no al revés."
+; LA FORMA EN EL MAPA (26/09, su decision): circulo enorme LIBRE, el mismo daño a todos los de dentro.
+forma = 1
+forma_radio = 140.0
+forma_apunte = 3
+forma_rango = 220.0

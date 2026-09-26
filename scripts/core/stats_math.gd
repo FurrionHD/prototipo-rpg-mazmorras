@@ -490,6 +490,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	dmg *= mult_elem
 	var mult_imbue := 1.0
 	var dmg_imbue := 0.0   # la PORCION elemental, aparte: para poder ENSEÑARLA en el log
+	# El PRISMATICO sortea su elemento en cada golpe (lo que se enseña despues lee el que ha salido).
+	if attacker.imbue_prisma:
+		attacker.rodar_prisma()
 	if attacker.imbue_pct > 0.0 and attacker.imbue_elemento != Elementos.Elemento.NINGUNO:
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
 		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue

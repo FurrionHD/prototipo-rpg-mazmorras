@@ -35,6 +35,14 @@ uniform bool filo = false;
 uniform bool indexada = false;
 uniform float tonos = 16.0;
 uniform float fuerza : hint_range(0.0, 1.0) = 1.0;
+// EL ARCOIRIS del Manto prismatico (26/09): todo lo que pinta se repinta con un tono que recorre la silueta
+// en bandas y va girando por el arcoiris, conservando su luz (el nucleo sigue siendo lo mas claro).
+uniform bool arcoiris = false;
+
+vec3 tono_hsv(float h, float s, float v) {
+	vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+	return v * mix(vec3(1.0), k, s);
+}
 
 // DONDE ACABA EL FOTOGRAMA de verdad, en UV del atlas (x0, y0, x1, y1). Lo pone aura_capa.gd, que
 // dibuja el trozo con aire alrededor: lo de fuera de aqui es el aire (o el fotograma vecino de la
@@ -253,6 +261,13 @@ void fragment() {
 	}
 	// SIN multiplicar por COLOR: en Godot 4 llega YA multiplicado por la textura (ver paleta_equipo), y
 	// fuera del dibujo su alfa es 0 -- justo donde vive todo lo de este shader.
+	if (arcoiris && res.a > 0.0) {
+		float luz = dot(res.rgb, vec3(0.299, 0.587, 0.114));
+		float h = fract(celda.y * 0.045 + celda.x * 0.015 - TIME * 0.45);
+		// En pixeles: el tono va a escalones, no en degradado liso.
+		h = floor(h * 7.0) / 7.0;
+		res.rgb = tono_hsv(h, 0.78 - 0.5 * smoothstep(0.85, 1.0, luz), 0.45 + 0.65 * luz);
+	}
 	res.a = clamp(res.a * fuerza, 0.0, 1.0);
 	COLOR = res;
 }

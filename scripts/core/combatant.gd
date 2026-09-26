@@ -357,6 +357,10 @@ var imbue_pct: float = 0.0
 # de llegar a pegar un solo golpe con ella.
 var imbue_usos: int = 0
 var imbue_cuerpo: bool = false
+# PRISMATICA (el Manto prismatico, 26/09: "que pegue de un elemento aleatorio cada vez y defienda de random
+# tambien, es mas gracioso asi"): el elemento se SORTEA en cada golpe que das y en cada uno que recibes
+# (rodar_prisma). imbue_elemento guarda el ultimo que salio.
+var imbue_prisma: bool = false
 # ESTADO que aplican tus golpes imbuidos (Quemadura / Rayo / Mojado) y su probabilidad BASE
 # (en igualdad de poder). La prob. real la escala un contest de tu Magia vs su Resistencia.
 var imbue_estado: int = -1
@@ -426,8 +430,9 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
 		prob_doble: float = 0.0, por_destreza: bool = false,
-		spd_mult: float = 1.0) -> void:
+		spd_mult: float = 1.0, prisma: bool = false) -> void:
 	imbue_elemento = elem
+	imbue_prisma = prisma
 	imbue_pct = pct
 	imbue_usos = maxi(1, usos)
 	imbue_cuerpo = cuerpo
@@ -448,6 +453,17 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		# SUAVE del imbuido (no eres el elemento, te lo has puesto encima).
 		elemento = elem
 		elemento_intensidad = intensidad
+
+
+# EL SORTEO DEL PRISMATICO: otro elemento de los cinco para el golpe que va a salir (o a entrar). En un
+# manto, la afinidad cambia con el. Lo llama quien resuelve (StatsMath al pegar, Elementos al recibir).
+func rodar_prisma() -> void:
+	if not imbue_prisma or imbue_usos <= 0:
+		return
+	var e: int = Elementos.TODOS[randi() % Elementos.TODOS.size()]
+	imbue_elemento = e
+	if imbue_cuerpo:
+		elemento = e
 
 
 # GASTO DEFENSIVO de la imbuicion de CUERPO: se cobra una carga cuando la afinidad te ha servido de
@@ -576,6 +592,7 @@ func consumir_imbue() -> bool:
 	imbue_elemento = Elementos.Elemento.NINGUNO
 	imbue_pct = 0.0
 	imbue_cuerpo = false
+	imbue_prisma = false
 	imbue_estado = -1
 	imbue_prob = 0.0
 	imbue_spd_mult = 1.0   # la ligereza se va con el manto: por eso no es un estado por turnos

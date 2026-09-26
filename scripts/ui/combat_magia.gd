@@ -583,7 +583,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				_aplicar_estado_hechizo(spell, d_db["c"])
 				_pantalla.efectos._fx_golpe(_pantalla._player, d_db["c"], 0.0, false, false, int(spell.elemento),
 					CombatFX.Estilo.MALDICION, 1.0, true)
-		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR 				and spell.tipo != SpellData.TipoEfecto.CURACION:
+		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR \
+				and spell.tipo != SpellData.TipoEfecto.CURACION and spell.imbue_tipo == 0:
 			# EN EL MAPA, a todos los tuyos que pille el circulo (la Fortaleza).
 			var antes_al: Combatant = _pantalla._cast_aliado
 			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
@@ -599,7 +600,17 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	if spell.tipo == SpellData.TipoEfecto.CURACION:
 		_curar_con_hechizo(spell)
 	# IMBUICION (KAN-58): el hechizo no pega, tiñe tus GOLPES DE ARMA con su elemento.
-	if spell.imbue_tipo > 0:
+	if spell.imbue_tipo > 0 and en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR:
+		# EN EL MAPA, A TODOS LOS TUYOS de alrededor (el Manto prismatico, 26/09): a cada uno el suyo.
+		var antes_im: Combatant = _pantalla._cast_aliado
+		for al_i in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
+			_pantalla._cast_aliado = al_i
+			_aplicar_imbuicion(spell)
+			_pantalla.efectos._fx_golpe(_pantalla._player, al_i, 0.0, false, false,
+				int(spell.elemento), CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM,
+				1.0, true)
+		_pantalla._cast_aliado = antes_im
+	elif spell.imbue_tipo > 0:
 		_aplicar_imbuicion(spell)
 		# EN EL MAPA se ve llegar: el elemento viaja de tu mano al arma de quien lo recibe.
 		if en_mapa and _pantalla._cast_aliado != null:
@@ -837,8 +848,8 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 	var quien: Combatant = _pantalla._cast_aliado
 	quien.aplicar_imbue(elem_id, spell.imbue_pct, spell.imbue_usos, cuerpo,
 		spell.imbue_estado, spell.imbue_prob, spell.imbue_intensidad,
-		0.0, false, spell.imbue_spd_mult)
-	var elem: String = Elementos.nombre(elem_id)
+		0.0, false, spell.imbue_spd_mult, spell.imbue_prisma)
+	var elem: String = "🌈 todos (uno al azar cada golpe)" if spell.imbue_prisma else Elementos.nombre(elem_id)
 	var usos_txt: String = "%d carga%s" % [spell.imbue_usos, "" if spell.imbue_usos == 1 else "s"]
 	print("[imbuicion] %s imbuye %s de %s a %s: +%d%% de daño %s durante %s" % [
 		_pantalla._player.nombre, ("el CUERPO" if cuerpo else "el ARMA"), elem, quien.nombre,
@@ -848,7 +859,10 @@ func _aplicar_imbuicion(spell: SpellData) -> void:
 		("cuerpo" if cuerpo else "arma"), elem, roundi(spell.imbue_pct * 100.0), elem, usos_txt]
 		) if quien == _pantalla._player else ("✨ Imbuyes %s %s de %s: +%d%% de daño de %s (%s)." % [
 		de_quien, quien.nombre, elem, roundi(spell.imbue_pct * 100.0), elem, usos_txt])
-	if cuerpo:
+	if cuerpo and spell.imbue_prisma:
+		# El PRISMATICO no tiene una afinidad fija: la sortea en cada golpe (enseñar la del primero seria mentir).
+		msg += "  🛡 Defiendes como un elemento al azar en cada golpe que te entra."
+	elif cuerpo:
 		# Lo que ganas y lo que pierdes, DERIVADO del estado REAL del jugador (ya lleva la
 		# afinidad puesta con su FRANJA de intensidad). Nada hardcodeado: si tocas la tabla o
 		# la intensidad, este texto se actualiza solo y dice el % de verdad.

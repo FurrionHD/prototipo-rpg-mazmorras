@@ -303,6 +303,7 @@ func _montar_auras() -> void:
 		(m as ShaderMaterial).set_shader_parameter("c_nucleo", rampa[3])
 		(m as ShaderMaterial).set_shader_parameter("modo", ImbueVisual.modo(_imbue_cod))
 		(m as ShaderMaterial).set_shader_parameter("filo", not cuerpo)
+		(m as ShaderMaterial).set_shader_parameter("arcoiris", ImbueVisual.es_prisma(_imbue_cod))
 	for c in _capas:
 		if not cuerpo and not String(c["clave"]).begins_with("arma_"):
 			continue
