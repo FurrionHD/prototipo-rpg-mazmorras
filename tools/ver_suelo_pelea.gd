@@ -258,6 +258,11 @@ func _correr() -> void:
 			idxs.append(1)
 		combat._player.ability_hands[ab] = idxs if not idxs.is_empty() else [0]
 		print("  manos de la habilidad: ", combat._player.ability_hands[ab])
+	# SUELO_ALIADO_VIEJO=1: como si la accion anterior hubiera sido a otro aliado (una Egida): lo que es sobre ti
+	# (el Velo) tiene que seguir cayendo en ti (26/09).
+	if OS.get_environment("SUELO_ALIADO_VIEJO") != "":
+		combat._hab_aliado = combat._aliados[combat._aliados.size() - 1]
+		print("  aliado guardado de antes: ", combat._hab_aliado.nombre)
 	combat.habilidades._usar_habilidad(ab, ab.carga_turnos > 0)
 	var t0: int = Time.get_ticks_msec()
 	await _esperar(1)

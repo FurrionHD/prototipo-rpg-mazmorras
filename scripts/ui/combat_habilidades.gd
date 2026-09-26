@@ -361,6 +361,10 @@ func _empezar_carga_jugador(ab: AbilityData) -> void:
 # _begin_player_turn). Cuando es true no se vuelve a cobrar ni a validar nada: la energia y el
 # cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
 func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
+	# EL ALIADO ELEGIDO SOLO VALE PARA LAS DE UN ALIADO (26/09, fallo suyo): se quedaba guardado de la ultima
+	# (una Egida, un Purificar...) y el Velo umbrio, que es sobre ti, se lo echaba a ese.
+	if ab != null and ab.objetivo_aliado != AbilityData.Objetivo.ALIADO:
+		_pantalla._hab_aliado = null
 	# En el espejo se elige, pero resuelve el anfitrion: le viaja QUE habilidad (por su ruta) y
 	# contra quien. El la busca en el loadout de mi personaje, que es el mismo que tiene el.
 	if _pantalla._espejo and ab != null:
