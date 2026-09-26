@@ -96,7 +96,8 @@ const T_CIERRA_ECLIPSE := 0.3
 # (27/09: "el efecto no esta centrado en el circulo de daño") el disco va EN el centro del circulo, sin subirlo.
 const ALTO_ECLIPSE := 0.0
 # LAS DOS VERSIONES que pidio para elegir (27/09: "yo pedia una u otra, damelas por separado"): 0 = CORONA de llamas
-# (su segunda referencia), 1 = CORONA DE ESQUIRLAS negras con el filo de colores (su primera referencia).
+# (su segunda referencia), 1 = CORONA DE ESQUIRLAS negras con el filo de colores (su primera referencia),
+# 2 = la BOCA del monstruo que sale del agujero y muerde (27/09, su tercera referencia).
 static var eclipse_variante: int = 0
 const LENGUAS_ECLIPSE := 30
 # (27/09: "blanco, amarillo, morado, azul y negro: los colores de esas magias", no un arcoiris)
@@ -1946,6 +1947,9 @@ func _eclipse(capa: Node2D) -> void:
 		return
 	if vivo <= 0.0 and cierra >= 1.0:
 		return
+	if eclipse_variante == 2:
+		_eclipse_boca(capa, tn, t_osc, t_luz, cierra)
+		return
 	if capa == _suelo:
 		# LA SOMBRA que se traga el circulo (mas negra en el golpe de oscuridad) y luego la LUZ que lo barre.
 		var osc: float = clampf(tn / T_FORMA_ECLIPSE, 0.0, 1.0) * 0.45 + (0.35 * exp(-maxf(t_osc, 0.0) * 3.0) if t_osc >= 0.0 else 0.0)
@@ -2162,3 +2166,126 @@ func _petalos_prisma(capa: Node2D) -> void:
 			for m in _motas:
 				var pm: Vector2 = cabeza + (m["d"] as Vector2) * float(m["v"]) * t_r + Vector2(0.0, 50.0 * t_r * t_r)
 				BarridoAire.destello(capa, pm, 4.0, Color(arcoiris(float(m["h"])), 1.0 - kr), t_r * 6.0)
+
+
+# ------------------------------------------------------------
+#  ECLIPSE, VERSION C: la BOCA (27/09, su referencia: un monstruo de sombra con dientes en zigzag y ojos de cristal,
+#  entre remolinos magenta y cian). Se abre un agujero negro en el suelo del circulo, de el salen dos MANDIBULAS con la
+#  boca abierta (la de atras y la de delante, desde el borde) y en el golpe de oscuridad CIERRAN mordiendo a todos los
+#  de dentro; en el de luz se escapa luz por entre los dientes; y se hunden.
+# ------------------------------------------------------------
+const BOCA_MAGENTA := Color(1.0, 0.27, 0.62)
+const BOCA_CIAN := Color(0.5, 0.92, 1.0)
+const BOCA_CUERPO := Color(0.13, 0.04, 0.2)
+const T_SUBE_BOCA := 0.3
+const T_MUERDE := 0.09
+const DIENTES := 9
+
+# Un punto de una mandibula: 'u' a lo largo (0..1 de un extremo al otro de su medio circulo), 'v' de la base (0, en el
+# borde del agujero) a la punta (1, donde van los dientes). 'lado' -1 la de atras (arriba), 1 la de delante.
+func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) -> Vector2:
+	# La de atras recorre la mitad de arriba del borde (de PI a TAU); la de delante, la de abajo (de 0 a PI).
+	var a: float = PI + PI * u if lado < 0.0 else PI * u
+	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r
+	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
+	var sobre: Vector2 = base + _alto(alto)
+	var centro_linea: Vector2 = Vector2(base.x, _c.y) + _alto(alto * 0.25)
+	var punta: Vector2 = sobre.lerp(centro_linea, cierre)
+	return base.lerp(punta, v)
+
+
+func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: float) -> void:
+	if alto <= 0.5 or alfa <= 0.0:
+		return
+	var n: int = DIENTES * 2
+	var cuerpo := Color(BOCA_CUERPO, alfa)
+	var borde := Color(BOCA_MAGENTA, alfa)
+	# POR TRAMOS (un quad por tramo y un triangulo por diente): una sola silueta se cruzaba consigo misma al cerrarse
+	# y Godot no la rellenaba (la de atras desaparecia).
+	for k in n:
+		var u0: float = float(k) / float(n)
+		var u1: float = float(k + 1) / float(n)
+		var b0: Vector2 = _punto_boca(lado, u0, 0.0, alto, cierre)
+		var b1: Vector2 = _punto_boca(lado, u1, 0.0, alto, cierre)
+		var t0: Vector2 = _punto_boca(lado, u0, 0.84, alto, cierre)
+		var t1: Vector2 = _punto_boca(lado, u1, 0.84, alto, cierre)
+		ci.draw_primitive(PackedVector2Array([b0, b1, t1, t0]), PackedColorArray([cuerpo, cuerpo, cuerpo, cuerpo]), PackedVector2Array())
+		# Las vetas claras a lo largo.
+		for j in 2:
+			var v0: float = 0.3 + 0.26 * float(j)
+			var c0: Color = Color(BOCA_CIAN if j == 0 else BOCA_MAGENTA, 0.75 * alfa)
+			ci.draw_primitive(PackedVector2Array([_punto_boca(lado, u0, v0, alto, cierre), _punto_boca(lado, u1, v0, alto, cierre),
+				_punto_boca(lado, u1, v0 + 0.05, alto, cierre), _punto_boca(lado, u0, v0 + 0.05, alto, cierre)]),
+				PackedColorArray([c0, c0, c0, c0]), PackedVector2Array())
+		# El DIENTE de este tramo (uno cada dos tramos), con su borde magenta.
+		if k % 2 == 0:
+			var u2: float = float(k + 2) / float(n)
+			var d0: Vector2 = t0
+			var d1: Vector2 = _punto_boca(lado, u2, 0.84, alto, cierre)
+			var pt: Vector2 = _punto_boca(lado, (u0 + u2) * 0.5, 1.0, alto, cierre)
+			var cen: Vector2 = (d0 + d1 + pt) / 3.0
+			ci.draw_primitive(PackedVector2Array([cen + (d0 - cen) * 1.3, cen + (d1 - cen) * 1.3, cen + (pt - cen) * 1.3]),
+				PackedColorArray([borde, borde, borde]), PackedVector2Array())
+			ci.draw_primitive(PackedVector2Array([d0, d1, pt]), PackedColorArray([cuerpo, cuerpo, cuerpo]), PackedVector2Array())
+	# El borde magenta de la base, por el borde del agujero.
+	for k in n:
+		var q0: Vector2 = _punto_boca(lado, float(k) / float(n), 0.0, alto, cierre)
+		var q1: Vector2 = _punto_boca(lado, float(k + 1) / float(n), 0.0, alto, cierre)
+		var q2: Vector2 = _punto_boca(lado, float(k + 1) / float(n), 0.07, alto, cierre)
+		var q3: Vector2 = _punto_boca(lado, float(k) / float(n), 0.07, alto, cierre)
+		ci.draw_primitive(PackedVector2Array([q0, q1, q2, q3]), PackedColorArray([borde, borde, borde, borde]), PackedVector2Array())
+	# Los OJOS DE CRISTAL: rombos negros de borde cian, repartidos por la mandibula.
+	for i in 3:
+		var p: Vector2 = _punto_boca(lado, 0.25 + 0.25 * float(i), 0.45, alto, cierre)
+		var w: float = alto * 0.07 + 2.0
+		var h: float = w * 1.9
+		var rombo := PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)])
+		var rombo2 := PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)])
+		ci.draw_colored_polygon(rombo2, Color(BOCA_CIAN, alfa))
+		ci.draw_colored_polygon(rombo, Color(0.02, 0.0, 0.05, alfa))
+		ci.draw_circle(p + Vector2(-w * 0.2, -h * 0.55), w * 0.28, Color(1, 1, 1, alfa))
+
+
+func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:
+	var sube: float = 1.0 - pow(1.0 - clampf(tn / T_SUBE_BOCA, 0.0, 1.0), 2.0)
+	var hunde: float = cierra                            # al final se hunden en el agujero
+	var alto: float = _r * 0.85 * sube * (1.0 - hunde)
+	# La boca se abre un pelo mas justo antes (el amago) y CIERRA de golpe en el golpe de oscuridad.
+	var cierre: float = 0.0
+	if t_osc > -T_MUERDE:
+		cierre = clampf((t_osc + T_MUERDE) / T_MUERDE, 0.0, 1.0)
+		cierre = cierre * cierre
+	var amago: float = clampf((tn - T_SUBE_BOCA) / 0.12, 0.0, 1.0) * (1.0 - cierre)
+	alto *= 1.0 + 0.12 * amago
+	var alfa: float = 1.0 - smoothstep(0.6, 1.0, hunde)
+	if capa == _suelo:
+		# EL AGUJERO y sus REMOLINOS (mechones de magenta, cian y morado que giran hacia dentro), y la sombra.
+		var r_h: float = _r * (0.3 + 0.7 * sube) * (1.0 - 0.6 * hunde)
+		BarridoAire.brillo(capa, _c, _r * 1.2, Color(BOCA_CUERPO, 0.7 * alfa))
+		for i in 14:
+			var a0: float = TAU * float(i) / 14.0 - _t * 1.6
+			var col: Color = [BOCA_MAGENTA, BOCA_CIAN, ECLIPSE_MORADO][i % 3]
+			_mechon(capa, _c, a0, r_h * 0.8, r_h * 1.25, -1.4, _r * 0.05, Color(col, 0.8 * alfa), float(i), false)
+		_disco(capa, _c, r_h, NEGRO, NEGRO)
+		return
+	if capa == _delante:
+		# Primero la de ATRAS (arriba en pantalla) y luego la de DELANTE, que la tapa.
+		_mandibula(capa, -1.0, alto, cierre, alfa)
+		_mandibula(capa, 1.0, alto, cierre, alfa)
+		return
+	if capa == _brillo:
+		# EL MORDISCO: fogonazo magenta en la linea donde se juntan los dientes.
+		if t_osc >= 0.0 and t_osc < 0.3:
+			var km: float = t_osc / 0.3
+			for k in 5:
+				var px: float = lerpf(-_r, _r, (float(k) + 0.5) / 5.0)
+				BarridoAire.brillo(capa, _c + Vector2(px, 0.0) + _alto(alto * 0.25), 16.0 * (1.0 - km), Color(BOCA_MAGENTA, 0.7 * (1.0 - km)))
+		# LA LUZ que se escapa por entre los dientes (el golpe de luz): rayos blanco-amarillos por la costura.
+		if t_luz >= 0.0 and t_luz < 0.55 and alfa > 0.0:
+			var kl: float = t_luz / 0.55
+			for k in DIENTES:
+				var px2: float = lerpf(-_r * 0.9, _r * 0.9, (float(k) + 0.5) / float(DIENTES))
+				var p: Vector2 = _c + Vector2(px2, 0.0) + _alto(alto * 0.25)
+				for sgn in [-1.0, 1.0]:
+					_cuna(capa, p, sgn * PI * 0.5 + 0.3 * sin(float(k) * 2.0), 0.0, 40.0 + 50.0 * kl, 0.18, Color(ECLIPSE_LUZ, (1.0 - kl)))
+				BarridoAire.brillo(capa, p, 18.0, Color(1.0, 1.0, 1.0, (1.0 - kl)))
