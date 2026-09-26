@@ -366,7 +366,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# LA COLUMNA DE LUZ de la Luz restauradora en el mapa (26/09, MagiaMayor.columna_luz) sobre cada uno que cura.
 		CURA_GRUPO = 125,
 		# EL MANTO en el mapa (26/09): como IMBUIR_ELEM pero al CUERPO (MagiaAire.filo con cuerpo = true).
-		IMBUIR_CUERPO = 126 }
+		IMBUIR_CUERPO = 126,
+		# EL MANTO PRISMATICO en el mapa (27/09): el chorro de petalos de arcoiris (MagiaMayor.petalos_prisma).
+		IMBUIR_PRISMA = 127 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -423,7 +425,9 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y la columna de luz de la cura de grupo (MagiaMayor), sobre cada uno de los tuyos.
 	Estilo.CURA_GRUPO,
 	# y el manto que llega al cuerpo de un aliado (MagiaAire.filo, cuerpo).
-	Estilo.IMBUIR_CUERPO]
+	Estilo.IMBUIR_CUERPO,
+	# y el chorro de petalos del prismatico (MagiaMayor).
+	Estilo.IMBUIR_PRISMA]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
@@ -511,7 +515,7 @@ const T_VUELO := {
 	# La CURACION nace encima del que se cura, no viaja. Un pelin de adelanto para que el halo ya
 	# este abierto cuando sube la barra de vida. (Y un 0.0 aqui seria "no se dibuja nada".)
 	Estilo.CURACION_LUZ: 0.12, Estilo.CURACION_LUZ_MAYOR: 0.14,
-	Estilo.MALDICION: 0.1, Estilo.FORTALECER: 0.1, Estilo.IMBUIR_ELEM: 0.6, Estilo.TORMENTA_RAYO: 0.06, Estilo.CURA_GRUPO: 0.12, Estilo.IMBUIR_CUERPO: 0.6,
+	Estilo.MALDICION: 0.1, Estilo.FORTALECER: 0.1, Estilo.IMBUIR_ELEM: 0.6, Estilo.TORMENTA_RAYO: 0.06, Estilo.CURA_GRUPO: 0.12, Estilo.IMBUIR_CUERPO: 0.6, Estilo.IMBUIR_PRISMA: 0.6,
 	# LOS DE LOS HONGOS. Ninguno viaja: la nube brota encima del alcanzado y el micelio sale del
 	# suelo, asi que su vuelo es solo el ADELANTO con el que empieza a dibujarse. La nube lo lleva
 	# largo porque tiene que verse ABRIRSE antes del impacto -- ahi esta toda la habilidad.

@@ -25,6 +25,13 @@
 #              de el sale una ONDA calida por el suelo hasta el borde, levantando motas, y lo que deja se apaga desde el
 #              centro. A cada uno de los tuyos le cae su COLUMNA DE LUZ cuando le llega (columna_luz, sobre el cuerpo):
 #              plumas que bajan, motas que suben y un halo sobre la cabeza. Tambien fuera de combate (AreaCuracion).
+#    PRISMA    Manto prismatico (27/09): motas de arcoiris se juntan en el pecho del que lo lanza, destello y un anillo
+#              multicolor que se abre por el suelo; a cada uno de los tuyos le vuela un CHORRO DE PETALOS de arcoiris
+#              con pinchos y anillos (su referencia) que le envuelve y revienta en chispas (petalos_prisma).
+#    ECLIPSE   Eclipse (27/09, sus referencias): un orbe sube de tu mano al cielo del circulo y alli nace un DISCO NEGRO
+#              con su CORONA de llamas blanco-azuladas de borde magenta; en el golpe de oscuridad revientan ESQUIRLAS
+#              negras con aberracion cromatica (cian, magenta, amarillo) y el circulo se oscurece; en el de luz la corona
+#              ESTALLA en petalos de luz. Al final el disco se cierra en un punto.
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -33,7 +40,7 @@ class_name MagiaMayor
 
 # Los cinco primeros van en el orden de SueloRoto.Tipo.MAGIA_SOL..; los de despues son SOBRE UN CUERPO (no viajan
 # como suelo).
-enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ, RAYO_TORMENTA, COLUMNA_LUZ }
+enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ, PRISMA, ECLIPSE, RAYO_TORMENTA, COLUMNA_LUZ, PETALOS_PRISMA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -80,6 +87,25 @@ const T_AGUA_CAE := 0.46         # cuando toca el suelo (el golpe de agua va det
 const T_ROMPE := 0.58            # cuando revienta en obsidiana
 const T_VIVE_OBSIDIANA := 0.8    # lo que se queda antes de deshacerse
 const ALTO_AGUA := 55.0
+# EL ECLIPSE
+const V_ORBE_ECLIPSE := 320.0
+const T_FORMA_ECLIPSE := 0.45    # el disco nace (el primer golpe, el de oscuridad, cae con el hecho)
+const T_ENTRE_ECLIPSE := 0.2     # de la oscuridad a la luz
+const T_VIVE_ECLIPSE := 0.9
+const T_CIERRA_ECLIPSE := 0.3
+const ALTO_ECLIPSE := 55.0
+const LENGUAS_ECLIPSE := 26
+const CORONA_BLANCA := Color(0.85, 0.95, 1.0)
+const CORONA_MAGENTA := Color(1.0, 0.22, 0.66)
+const GLITCH_CIAN := Color(0.0, 0.95, 1.0)
+const GLITCH_MAGENTA := Color(1.0, 0.1, 0.8)
+const GLITCH_AMARILLO := Color(1.0, 0.92, 0.1)
+
+# EL MANTO PRISMATICO
+const T_CARGA_PRISMA := 0.3
+const T_ESPIRAL_PRISMA := 0.7
+const PETALOS_CHORRO := 9
+
 # LA LUZ RESTAURADORA
 const T_PILAR_LUZ := 0.26        # el pilar sube (y arriba se abre la flor)
 const T_ONDA_LUZ := 0.45         # la onda llega al borde
@@ -127,6 +153,7 @@ var _motas: Array = []
 var _trozos: Array = []
 var _rayos: Array = []
 var _gotas: Array = []
+var _duracion_vuelo: float = 0.6
 var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
@@ -178,6 +205,10 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return t_llega_orbe(f) + T_HUNDE + T_ABRE_POZO
 		Modo.TORMENTA:
 			return t_llega_tormenta(f) + T_FORMA_NUBE
+		Modo.ECLIPSE:
+			return t_llega_eclipse(f) + T_FORMA_ECLIPSE
+		Modo.PRISMA:
+			return T_CARGA_PRISMA
 		Modo.LUZ:
 			var u_l: float = clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0)
 			return T_PILAR_LUZ + T_ONDA_LUZ * (1.0 - sqrt(1.0 - u_l))
@@ -198,6 +229,8 @@ static func t_salir(m: int) -> float:
 		Modo.SHOCK: return T_CALIENTA
 		Modo.TORMENTA: return T_CARGA_SOL + T_SUBE_VIENTO + T_FORMA_NUBE
 		Modo.LUZ: return T_PILAR_LUZ + T_ONDA_LUZ
+		Modo.ECLIPSE: return T_CARGA_SOL + T_FORMA_ECLIPSE
+		Modo.PRISMA: return T_CARGA_PRISMA
 	return 0.3
 
 
@@ -210,6 +243,9 @@ func duracion() -> float:
 		Modo.RAYO_TORMENTA: return T_RAYO_TORMENTA + 0.5
 		Modo.LUZ: return T_PILAR_LUZ + T_ONDA_LUZ + T_APAGA_LUZ + 0.3
 		Modo.COLUMNA_LUZ: return 1.0
+		Modo.ECLIPSE: return t_llega_eclipse(forma) + T_FORMA_ECLIPSE + T_VIVE_ECLIPSE + T_CIERRA_ECLIPSE + 0.2
+		Modo.PRISMA: return T_CARGA_PRISMA + 0.7
+		Modo.PETALOS_PRISMA: return T_ESPIRAL_PRISMA + 0.9
 	return 1.0
 
 
@@ -257,6 +293,15 @@ func _preparar() -> void:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
 					"t0": _rng.randf_range(0.0, T_PULSO * float(TIRONES) + 0.2), "piedra": _rng.randf() < 0.4,
 					"giro": _rng.randf_range(0.0, TAU)})
+		Modo.ECLIPSE:
+			for i in 34:
+				var a_e: float = _rng.randf_range(0.0, TAU)
+				_esquirlas.append({"dir": Vector2(cos(a_e), sin(a_e)), "d": _rng.randf_range(0.25, 1.0),
+					"alto": _rng.randf_range(0.4, 1.0), "largo": _rng.randf_range(22.0, 46.0), "ancho": _rng.randf_range(7.0, 15.0)})
+		Modo.PRISMA:
+			for i in 12:
+				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(14.0, 24.0),
+					"t0": _rng.randf_range(0.0, 0.08), "h": float(i) / 12.0})
 		Modo.LUZ:
 			for i in 30:
 				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": sqrt(_rng.randf()) * 0.97, "tam": _rng.randf_range(3.0, 5.0)})
@@ -349,6 +394,9 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.RAYO_TORMENTA: _rayo_tormenta(capa)
 		Modo.LUZ: _luz(capa)
 		Modo.COLUMNA_LUZ: _columna_luz(capa)
+		Modo.ECLIPSE: _eclipse(capa)
+		Modo.PRISMA: _prisma(capa)
+		Modo.PETALOS_PRISMA: _petalos_prisma(capa)
 
 
 # ------------------------------------------------------------
@@ -1747,3 +1795,288 @@ func _columna_luz(capa: Node2D) -> void:
 			BarridoAire.destello(capa, pm, float(m["tam"]) * 2.2, Color(LUZ_BLANCA, 1.0 - tm / 0.6), tm * 4.0)
 		if _t >= 0.0 and _t < 0.2:
 			BarridoAire.brillo(capa, _c + Vector2(0.0, -_r * 0.5), 20.0 * (1.0 - _t / 0.2), Color(LUZ_BLANCA, 0.5 * (1.0 - _t / 0.2)))
+
+
+# ------------------------------------------------------------
+#  EL ECLIPSE (sus referencias: disco negro con corona de llamas blanco-azuladas de borde magenta; esquirlas negras con
+#  los bordes partidos en cian, magenta y amarillo, tipo glitch)
+# ------------------------------------------------------------
+static func t_llega_eclipse(f: CombatFormas.Forma) -> float:
+	return T_CARGA_SOL + maxf(f.ancho - 6.0, 0.0) / V_ORBE_ECLIPSE
+
+
+# Lo que se ve de una esquirla con su ABERRACION CROMATICA: tres copias de color desplazadas y la negra encima.
+static func _esquirla_glitch(ci: CanvasItem, pts: PackedVector2Array, off: float, alfa: float) -> void:
+	if alfa <= 0.0 or pts.size() < 3:
+		return
+	var copias: Array = [[Vector2(-off, 0.0), GLITCH_CIAN], [Vector2(off, 0.0), GLITCH_MAGENTA], [Vector2(0.0, off), GLITCH_AMARILLO]]
+	for cp in copias:
+		var q := PackedVector2Array()
+		for p in pts:
+			q.append(p + (cp[0] as Vector2))
+		ci.draw_colored_polygon(q, Color(cp[1] as Color, 0.9 * alfa))
+	ci.draw_colored_polygon(pts, Color(NEGRO, alfa))
+
+
+# LA CORONA del disco: lenguas de llama finas y onduladas alrededor, la de fuera magenta y la de dentro blanco-azulada.
+func _corona_eclipse(ci: CanvasItem, c: Vector2, r: float, largo: float, alfa: float) -> void:
+	if alfa <= 0.0 or largo <= 0.5:
+		return
+	var paso: float = floor(_t * 12.0)
+	for capa_c in 2:
+		var col: Color = CORONA_MAGENTA if capa_c == 0 else CORONA_BLANCA
+		var esc: float = 1.0 if capa_c == 0 else 0.85
+		for i in LENGUAS_ECLIPSE:
+			var a: float = TAU * (float(i) + 0.5 * float(capa_c)) / float(LENGUAS_ECLIPSE) + _t * 0.5
+			var salto: float = MagiaAire._ruido(float(i) + paso * 1.3, float(capa_c) + float(_semilla % 23))
+			var l: float = largo * (0.55 + 0.7 * salto) * esc
+			var curva: float = 0.5 * sin(_t * 3.0 + float(i) * 1.7)
+			_lengua_sol(ci, c, a, r * 0.95, l, curva, r * (0.12 if capa_c == 0 else 0.16), Color(col, alfa))
+
+
+func _eclipse(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var tl: float = t_llega_eclipse(forma)
+	var tn: float = _t - tl                                  # desde que nace el disco
+	var t_osc: float = tn - T_FORMA_ECLIPSE                  # desde el golpe de oscuridad
+	var t_luz: float = t_osc - T_ENTRE_ECLIPSE               # desde el de luz
+	var nace: float = 1.0 - pow(1.0 - clampf(tn / T_FORMA_ECLIPSE, 0.0, 1.0), 3.0)
+	var cierra: float = clampf((t_osc - T_VIVE_ECLIPSE) / T_CIERRA_ECLIPSE, 0.0, 1.0)
+	var vivo: float = nace * (1.0 - cierra * cierra)
+	var disco: Vector2 = _c + _alto(ALTO_ECLIPSE)
+	var r_d: float = clampf(_r * 0.2, 18.0, 30.0) * vivo
+	var mano: Vector2 = _o + _alto(ALTO_MANO)
+	# 1) LA CARGA y el ORBE (negro con el borde blanco) que sube de tu mano al cielo del circulo.
+	if tn < 0.0:
+		if capa != _delante:
+			return
+		if _t < T_CARGA_SOL:
+			var kc: float = _t / T_CARGA_SOL
+			_disco(capa, mano, 2.0 + 5.0 * kc, NEGRO, NEGRO)
+			MagiaAire._anillo(capa, mano, 3.0 + 5.0 * kc, 2.0, Color(CORONA_BLANCA, kc))
+			return
+		var u: float = clampf((_t - T_CARGA_SOL) / maxf(tl - T_CARGA_SOL, 0.01), 0.0, 1.0)
+		var p: Vector2 = mano.lerp(disco, u) + _alto(14.0 * sin(u * PI))
+		for k in 5:
+			var uk: float = u - 0.07 * float(k + 1)
+			if uk < 0.0:
+				break
+			var pk: Vector2 = mano.lerp(disco, uk) + _alto(14.0 * sin(uk * PI))
+			MagiaAire._anillo(capa, pk, 4.0 - 0.5 * float(k), 1.6, Color(CORONA_MAGENTA if k % 2 == 0 else CORONA_BLANCA, 0.8 - 0.14 * float(k)))
+		_disco(capa, p, 6.0, NEGRO, NEGRO)
+		MagiaAire._anillo(capa, p, 6.0, 2.0, Color(CORONA_BLANCA, 1.0))
+		return
+	if vivo <= 0.0 and cierra >= 1.0:
+		return
+	if capa == _suelo:
+		# LA SOMBRA que se traga el circulo (mas negra en el golpe de oscuridad) y luego la LUZ que lo barre.
+		var osc: float = clampf(tn / T_FORMA_ECLIPSE, 0.0, 1.0) * 0.45 + (0.35 * exp(-maxf(t_osc, 0.0) * 3.0) if t_osc >= 0.0 else 0.0)
+		BarridoAire.brillo(capa, _c, _r * 1.1, Color(NEGRO, osc * (1.0 - cierra)))
+		if t_luz >= 0.0 and t_luz < 0.6:
+			var kl: float = t_luz / 0.6
+			var fr: float = _r * (1.0 - pow(1.0 - kl, 2.0))
+			MagiaAire._anillo(capa, _c, fr, 12.0, Color(CORONA_BLANCA, 0.7 * (1.0 - kl)))
+			MagiaAire._anillo(capa, _c, fr, 5.0, Color(CORONA_MAGENTA, 0.8 * (1.0 - kl)))
+		# El borde del circulo, una raya de luz fria mientras dura (que se sepa hasta donde llega).
+		MagiaAire._anillo(capa, _c, _r, 4.0, Color(CORONA_BLANCA, 0.25 * vivo))
+		return
+	if capa == _delante:
+		# LAS ESQUIRLAS del golpe de oscuridad: cristales negros afilados que salen del disco hacia fuera por todo el
+		# circulo y caen, con su aberracion cromatica.
+		if t_osc >= 0.0 and t_osc < 0.75:
+			var ke: float = t_osc / 0.75
+			for ez in _esquirlas:
+				var d: float = _r * float(ez["d"]) * (1.0 - pow(1.0 - minf(1.0, ke * 1.5), 2.0))
+				var dir: Vector2 = ez["dir"]
+				var h: float = ALTO_ECLIPSE * (1.0 - minf(1.0, ke * 1.3)) * float(ez["alto"])
+				var base: Vector2 = _c + dir * d + _alto(h)
+				var largo: float = float(ez["largo"]) * (1.0 - ke * 0.4)
+				var ancho: float = float(ez["ancho"])
+				var eje: Vector2 = (dir + Vector2(0.0, -0.3 * (1.0 - ke))).normalized()
+				var nor := Vector2(-eje.y, eje.x)
+				var pts := PackedVector2Array([base - eje * largo * 0.3 + nor * ancho, base + eje * largo,
+					base - eje * largo * 0.3 - nor * ancho * 0.6])
+				_esquirla_glitch(capa, pts, 3.0, 1.0 - smoothstep(0.7, 1.0, ke))
+		# EL DISCO y su CORONA: negro puro, con las llamas alrededor; en el golpe de luz la corona ESTALLA hacia fuera.
+		var estalla: float = 0.0
+		if t_luz >= 0.0:
+			estalla = exp(-t_luz * 4.0) * minf(1.0, t_luz * 20.0)
+		var largo_c: float = r_d * (1.1 + 2.6 * estalla) * (0.6 + 0.4 * vivo)
+		_corona_eclipse(capa, disco, r_d, largo_c, vivo)
+		_disco(capa, disco, r_d, NEGRO, NEGRO)
+		MagiaAire._anillo(capa, disco, r_d, 2.5, Color(CORONA_BLANCA, vivo))
+		return
+	if capa == _brillo:
+		# El resplandor frio del borde del disco; el FOGONAZO del golpe de luz y sus PETALOS de luz por todo el circulo;
+		# y el destello al cerrarse.
+		# (un aro, no un brillo encima: el disco tiene que seguir negro)
+		MagiaAire._anillo(capa, disco, r_d * 1.15, r_d * 0.5, Color(CORONA_BLANCA, 0.3 * vivo))
+		if t_luz >= 0.0 and t_luz < 0.5:
+			var kf: float = t_luz / 0.5
+			BarridoAire.brillo(capa, disco, r_d * 5.0 * (1.0 - kf * 0.5), Color(CORONA_BLANCA, 0.55 * (1.0 - kf)))
+			for i in 10:
+				var a: float = TAU * float(i) / 10.0 + 0.3
+				var l2: float = _r * (0.5 + 0.6 * kf) * (0.8 + 0.2 * float(i % 2))
+				_cuna(capa, _c, a, 6.0, l2, 0.16, Color(CORONA_MAGENTA, 0.6 * (1.0 - kf)))
+				_cuna(capa, _c, a, 6.0, l2 * 0.8, 0.08, Color(CORONA_BLANCA, 0.8 * (1.0 - kf)))
+		if cierra > 0.0 and cierra < 1.0:
+			BarridoAire.destello(capa, disco, 34.0 * (1.0 - cierra), Color(CORONA_BLANCA, 1.0 - cierra), 0.4)
+
+
+# ------------------------------------------------------------
+#  EL MANTO PRISMATICO
+# ------------------------------------------------------------
+# El color del arcoiris de 'h' (0..1), plano y vivo.
+static func arcoiris(h: float, v: float = 1.0) -> Color:
+	return Color.from_hsv(fposmod(h, 1.0), 0.72, v)
+
+
+# UN PETALO PRISMATICO (su referencia): hoja de tono plano con PINCHOS en el borde de fuera y un ANILLO dentro (un
+# ojo claro con nucleo), orientada por 'eje'; 'blanco' la hace silueta blanca (los de delante del chorro).
+static func _petalo_prisma(ci: CanvasItem, p: Vector2, eje: Vector2, largo: float, col: Color, alfa: float, sem: float,
+		blanco: bool) -> void:
+	if largo <= 0.8 or alfa <= 0.0:
+		return
+	var nor := Vector2(-eje.y, eje.x)
+	var pts := PackedVector2Array()
+	var n: int = 9
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var w: float = largo * 0.34 * sin(u * PI) * (1.0 - 0.25 * u)
+		# Los pinchos, por el lado de fuera.
+		if k % 3 == 1:
+			w *= 1.45
+		pts.append(p + eje * (u - 0.5) * largo + nor * w)
+	for k in range(n - 1, 0, -1):
+		var u2: float = float(k) / float(n)
+		pts.append(p + eje * (u2 - 0.5) * largo - nor * largo * 0.26 * sin(u2 * PI) * (1.0 - 0.25 * u2))
+	var fondo: Color = Color(1.0, 1.0, 1.0, alfa) if blanco else Color(col, alfa)
+	if Geometry2D.triangulate_polygon(pts).size() > 0:
+		ci.draw_colored_polygon(pts, fondo)
+	# El anillo de dentro (un "ojo"): circulo claro con el nucleo del color.
+	var ojo: Vector2 = p + eje * largo * 0.05
+	var r_o: float = largo * 0.16
+	ci.draw_circle(ojo, r_o, Color(col.lightened(0.55) if not blanco else col, alfa))
+	ci.draw_circle(ojo, r_o * 0.55, Color(col.darkened(0.15) if not blanco else Color(1, 1, 1), alfa))
+	if MagiaAire._ruido(sem, 3.0) < 0.5:
+		ci.draw_circle(ojo, r_o * 0.25, Color(1.0, 1.0, 1.0, alfa))
+
+
+func _prisma(capa: Node2D) -> void:
+	# EL ARRANQUE en el que la lanza: motas de arcoiris que se juntan en su pecho, un destello en estrella y un ANILLO
+	# multicolor que se abre por el suelo hasta el borde (80 px): a quien pille, le llega su chorro de petalos.
+	if _t < 0.0:
+		return
+	var pecho: Vector2 = _c + _alto(14.0)
+	var kc: float = clampf(_t / T_CARGA_PRISMA, 0.0, 1.0)
+	var t_o: float = _t - T_CARGA_PRISMA
+	if capa == _suelo:
+		if t_o >= 0.0 and t_o < 0.6:
+			var ko: float = t_o / 0.6
+			var fr: float = _r * (1.0 - pow(1.0 - ko, 2.0))
+			for j in 6:
+				MagiaAire._anillo(capa, _c, fr - float(j) * 3.0, 3.0, Color(arcoiris(float(j) / 6.0 + _t), 0.8 * (1.0 - ko)))
+		return
+	if capa == _delante:
+		if t_o < 0.0:
+			for m in _motas:
+				var km: float = clampf((_t - float(m["t0"])) / (T_CARGA_PRISMA - float(m["t0"])), 0.0, 1.0)
+				var desde: Vector2 = pecho + Vector2(cos(float(m["a"])), sin(float(m["a"])) * K) * float(m["d"])
+				_petalo_prisma(capa, desde.lerp(pecho, km * km), (pecho - desde).normalized(), 7.0 * (1.0 - km * 0.6),
+					arcoiris(float(m["h"])), 1.0, float(m["h"]) * 10.0, false)
+		return
+	if capa == _brillo:
+		if t_o < 0.0:
+			BarridoAire.brillo(capa, pecho, 6.0 + 10.0 * kc, Color(arcoiris(_t * 2.0), 0.5 * kc))
+		elif t_o < 0.45:
+			var kd: float = t_o / 0.45
+			BarridoAire.destello(capa, pecho, 26.0 * (1.0 - kd * 0.5), Color(1.0, 1.0, 1.0, 1.0 - kd), 0.3)
+			for j in 6:
+				BarridoAire.brillo(capa, pecho + Vector2(cos(TAU * float(j) / 6.0), sin(TAU * float(j) / 6.0) * K) * 10.0 * kd,
+					7.0, Color(arcoiris(float(j) / 6.0), 0.6 * (1.0 - kd)))
+
+
+# EL CHORRO DE PETALOS hasta uno de los tuyos (su referencia): petalos de arcoiris que vuelan en arco de 'desde' a su
+# cuerpo, le dan vueltas subiendole por el cuerpo y revientan en chispas de colores sobre su cabeza.
+static func petalos_prisma(padre: Node, desde: Vector2, caja: Rect2, semilla: int, espera: float, ritmo: float) -> MagiaMayor:
+	if padre == null:
+		return null
+	var e := MagiaMayor.new()
+	e.modo = Modo.PETALOS_PRISMA
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._t = -maxf(espera, 0.0)
+	e._o = desde
+	e._c = Vector2(caja.get_center().x, caja.end.y)      # sus pies
+	e._r = maxf(caja.size.y, 16.0) / K                   # su alto ("altura")
+	e._duracion_vuelo = maxf(espera, 0.1)
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	for i in PETALOS_CHORRO:
+		e._trozos.append({"h": float(i) / float(PETALOS_CHORRO) + e._rng.randf_range(-0.03, 0.03),
+			"retraso": float(i) * 0.035, "lado": e._rng.randf_range(-8.0, 8.0), "largo": e._rng.randf_range(11.0, 16.0)})
+	for i in 12:
+		var a: float = e._rng.randf_range(0.0, TAU)
+		e._motas.append({"d": Vector2(cos(a), sin(a) * K), "v": e._rng.randf_range(30.0, 70.0), "h": e._rng.randf()})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, true)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+func _pos_chorro(u: float, lado: float) -> Vector2:
+	var pecho: Vector2 = _c + _alto(_r * 0.5)
+	var d: Vector2 = pecho - _o
+	var nor: Vector2 = d.normalized().orthogonal() if d.length_squared() > 1.0 else Vector2.UP
+	return _o.lerp(pecho, u) + _alto(20.0 * sin(u * PI)) + nor * lado * sin(u * PI)
+
+
+func _petalos_prisma(capa: Node2D) -> void:
+	var t_vuelo: float = _t + _duracion_vuelo            # desde que salen
+	if capa == _suelo:
+		if _t >= 0.0 and _t < 0.8:
+			var ks: float = _t / 0.8
+			for j in 3:
+				MagiaAire._anillo(capa, _c, 6.0 + 20.0 * (1.0 - pow(1.0 - ks, 2.0)) - float(j) * 3.0, 2.5,
+					Color(arcoiris(float(j) / 3.0 + _t), 0.8 * (1.0 - ks)))
+		return
+	if capa == _delante:
+		for pt in _trozos:
+			var tp: float = t_vuelo - float(pt["retraso"])
+			if tp < 0.0:
+				continue
+			var u: float = tp / _duracion_vuelo
+			var col: Color = arcoiris(float(pt["h"]) + _t * 0.3)
+			var blanco: bool = float(pt["retraso"]) < 0.04        # el de delante del chorro, en silueta blanca
+			if u < 1.0:
+				# EL VUELO en arco hasta su pecho.
+				var p: Vector2 = _pos_chorro(u, float(pt["lado"]))
+				var sig: Vector2 = _pos_chorro(minf(u + 0.05, 1.0), float(pt["lado"]))
+				var eje: Vector2 = (sig - p).normalized() if sig.distance_squared_to(p) > 0.01 else Vector2.RIGHT
+				_petalo_prisma(capa, p, eje, float(pt["largo"]), col, 1.0, float(pt["h"]) * 10.0, blanco)
+			else:
+				# LA ESPIRAL por su cuerpo, de los pies a la cabeza, y se deshace.
+				var ks2: float = (tp - _duracion_vuelo) / T_ESPIRAL_PRISMA
+				if ks2 >= 1.0:
+					continue
+				var a: float = ks2 * TAU * 2.0 + float(pt["h"]) * TAU
+				var r_e: float = 11.0
+				var p2: Vector2 = _c + Vector2(cos(a) * r_e, sin(a) * r_e * K) + _alto(_r * ks2)
+				var eje2 := Vector2(-sin(a), cos(a) * K).normalized()
+				_petalo_prisma(capa, p2, eje2, float(pt["largo"]) * (1.0 - ks2 * 0.5), col, 1.0 - smoothstep(0.7, 1.0, ks2),
+					float(pt["h"]) * 10.0, false)
+		return
+	if capa == _brillo:
+		# LAS CHISPAS de colores sobre la cabeza cuando llega la espiral arriba.
+		var t_r: float = _t - T_ESPIRAL_PRISMA * 0.8
+		if t_r >= 0.0 and t_r < 0.5:
+			var kr: float = t_r / 0.5
+			var cabeza: Vector2 = _c + _alto(_r + 4.0)
+			BarridoAire.destello(capa, cabeza, 20.0 * (1.0 - kr * 0.5), Color(1.0, 1.0, 1.0, 1.0 - kr), kr)
+			for m in _motas:
+				var pm: Vector2 = cabeza + (m["d"] as Vector2) * float(m["v"]) * t_r + Vector2(0.0, 50.0 * t_r * t_r)
+				BarridoAire.destello(capa, pm, 4.0, Color(arcoiris(float(m["h"])), 1.0 - kr), t_r * 6.0)

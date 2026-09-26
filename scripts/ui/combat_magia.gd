@@ -607,7 +607,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			_pantalla._cast_aliado = al_i
 			_aplicar_imbuicion(spell)
 			_pantalla.efectos._fx_golpe(_pantalla._player, al_i, 0.0, false, false,
-				int(spell.elemento), CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM,
+				int(spell.elemento), CombatFX.Estilo.IMBUIR_PRISMA if spell.imbue_prisma
+					else (CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM),
 				1.0, true)
 		_pantalla._cast_aliado = antes_im
 	elif spell.imbue_tipo > 0:

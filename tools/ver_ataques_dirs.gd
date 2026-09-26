@@ -41,6 +41,7 @@ const HABILIDADES := [
 	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "filo_torrente"], ["magia", "filo_radiante"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
 	["magia", "estallido_solar"], ["magia", "voragine_sombra"], ["magia", "luz_restauradora"], ["magia", "shock_termico"], ["magia", "tormenta"], ["magia", "manto_brasas"], ["magia", "manto_marea"], ["magia", "manto_centellas"],
 	["magia", "manto_aureo"], ["magia", "manto_umbrio"],
+	["magia", "manto_prismatico"], ["magia", "eclipse"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
@@ -128,6 +129,8 @@ const MOMENTOS_MAGIA := {
 	"manto_centellas": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
 	"manto_aureo": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
 	"manto_umbrio": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
+	"manto_prismatico": [0.1, 0.25, 0.45, 0.65, 0.85, 1.05, 1.3, 1.55],
+	"eclipse": [0.15, 0.4, 0.62, 0.8, 0.95, 1.1, 1.4, 1.7, 1.95],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -1001,6 +1004,9 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 			# La cura de grupo: su columna de luz en cada uno; el resto (la Fortaleza), su aura.
 			if sp.tipo == SpellData.TipoEfecto.CURACION:
 				sueltos.append({"n": MagiaMayor.columna_luz(self, cj2, 9, 0.0, 1.0), "t0": llega2})
+			elif sp.imbue_prisma:
+				# El prismatico: su chorro de petalos del pecho del mago a cada uno (sale tras la carga).
+				sueltos.append({"n": MagiaMayor.petalos_prisma(self, yo + Vector2(0, -13), cj2, 9, 0.6, 1.0), "t0": MagiaMayor.T_CARGA_PRISMA + 0.6})
 			else:
 				sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": llega2})
 	elif sp.imbue_tipo > 0:

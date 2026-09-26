@@ -2200,6 +2200,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		MagiaAire.filo(arena, desde_i, bulto_de(v), col_i, semilla, vuelo, ritmo, el_i,
 			estilo == CombatFX.Estilo.IMBUIR_CUERPO)
 		return
+	# EL CHORRO DE PETALOS del Manto prismatico (MagiaMayor): del pecho de quien lo lanza al que lo recibe.
+	if estilo == CombatFX.Estilo.IMBUIR_PRISMA:
+		var desde_p: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center()
+		MagiaMayor.petalos_prisma(arena, desde_p, bulto_de(v), semilla, vuelo, ritmo)
+		return
 	# EL RAYO DE LA TORMENTA (MagiaMayor): del borde del ojo a sus pies.
 	if estilo == CombatFX.Estilo.TORMENTA_RAYO:
 		MagiaMayor.rayo_tormenta(arena, bulto_de(v), semilla, vuelo, ritmo)
