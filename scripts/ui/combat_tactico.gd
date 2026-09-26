@@ -944,7 +944,34 @@ func reparto_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
 		if spell.forma_cunas > 1 and not spell.forma_escalas.is_empty():
 			var k: int = f.cuna_de(bulto_de(d["c"]))
 			esc = spell.forma_escalas[clampi(k, 0, spell.forma_escalas.size() - 1)]
+		elif spell.forma_caida.size() >= 2:
+			esc = lerpf(spell.forma_caida[0], spell.forma_caida[1], lejania_al_centro(f, d["c"]))
 		d["escala"] = esc
+	return out
+
+
+# Lo lejos del centro de un circulo que queda un cuerpo: 0 en medio, 1 en el borde (por su punto mas cercano).
+func lejania_al_centro(f, c: Combatant) -> float:
+	var r: Rect2 = bulto_de(c)
+	var cerca := Vector2(clampf(f.centro.x, r.position.x, r.end.x), clampf(f.centro.y, r.position.y, r.end.y))
+	return clampf(cerca.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0)
+
+
+# LOS DE DENTRO de un hechizo disperso (la Tormenta), para repartir sus golpes al azar entre ellos.
+func dentro_del_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
+	var out: Array = []
+	for d in _reparto_en(huella_hechizo(spell), c, forma_hechizo(spell, c, punto)):
+		out.append(d["c"])
+	return out
+
+
+# LOS QUE SALPICA un golpe sobre 'c' (el rayo de la Tormenta): los vivos a 'radio' px de su cuerpo, sin el.
+func vecinos_de(c: Combatant, radio: float) -> Array:
+	var out: Array = []
+	var r: Rect2 = bulto_de(c).grow(radio)
+	for e in _pantalla._vivos():
+		if e != c and r.intersects(bulto_de(e)):
+			out.append(e)
 	return out
 
 
@@ -1952,6 +1979,13 @@ func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
 	_tirones.append({"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0})
 
 
+# ATRAER A UN PUNTO (la Vorágine): como el tiron, pero hacia 'hacia' (el centro de la huella) y sin pasarse de el.
+func pedir_atraccion(c: Combatant, de: Combatant, hacia: Vector2, px: float) -> void:
+	if _pantalla._espejo or c == null or de == null or px <= 0.0:
+		return
+	_tirones.append({"c": c, "de": de, "px": px, "hacia": hacia, "espera": 0.0, "t": -1.0})
+
+
 func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
 	for tr in _tirones:
 		if float(tr["t"]) < 0.0 and is_same(_pantalla._bloque_de(tr["c"]), b):
@@ -2289,6 +2323,9 @@ func _de_bloque(b) -> Combatant:
 	return null
 
 
+# Hasta donde se acercan al centro los que atrae un pozo: no se amontonan todos en el mismo pixel.
+const HUECO_ATRAE := 12.0
+
 func _arrancar_tiron(tr: Dictionary) -> void:
 	var c: Combatant = tr["c"]
 	var cuerpo: Node2D = cuerpo_de(c)
@@ -2299,6 +2336,13 @@ func _arrancar_tiron(tr: Dictionary) -> void:
 		return
 	var desde: Vector2 = cuerpo.global_position
 	tr["desde"] = desde
+	# HACIA UN PUNTO (la Vorágine): sus pies van hacia el, sin pasarse (se quedan a HUECO_ATRAE del centro).
+	if tr.has("hacia"):
+		var pies: Vector2 = pies_de(c)
+		var hacia: Vector2 = tr["hacia"]
+		var largo_a: float = minf(float(tr["px"]), maxf(0.0, pies.distance_to(hacia) - HUECO_ATRAE))
+		tr["hasta"] = desde + (hacia - pies).normalized() * largo_a
+		return
 	# NEGATIVO = EMPUJON (la Embestida): se aleja de quien golpea. La pared lo para (_tick_tirones).
 	if float(tr["px"]) < 0.0:
 		tr["hasta"] = desde + (desde - pos_de(tr["de"])).normalized() * -float(tr["px"])

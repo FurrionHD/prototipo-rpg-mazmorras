@@ -18,3 +18,9 @@ imbue_estado = 5
 imbue_prob = 0.15
 imbue_intensidad = 0.6
 descripcion = "Un canto largo que te enciende por dentro hasta no proyectar sombra. Nada de lo oscuro te alcanza igual... y lo oscuro lo sabe, y viene con más ganas."
+; LA FORMA EN EL MAPA (26/09, su decision): como los Filos, clic a UNO de los tuyos a distancia (tu incluido).
+forma = 0
+forma_radio = 10.0
+forma_apunte = 3
+forma_rango = 150.0
+forma_a_aliados = true

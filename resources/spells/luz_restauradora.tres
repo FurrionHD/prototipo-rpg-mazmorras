@@ -16,3 +16,9 @@ fx_estilo = 111
 hits = 1
 alcance = 2
 descripcion = "Se abre una luz sobre todo el grupo a la vez y cierra lo que encuentra. Entra de golpe, no poco a poco: lo que cura, lo cura ya. Cuanto mejor sea el bastón, más da."
+; LA FORMA EN EL MAPA (26/09, su decision): alrededor del que la lanza, igual que fuera de combate
+; (SpellData.RADIO_CURA_AREA), repartida entre los que alcance.
+forma = 1
+forma_radio = 200.0
+forma_apunte = 2
+forma_a_aliados = true

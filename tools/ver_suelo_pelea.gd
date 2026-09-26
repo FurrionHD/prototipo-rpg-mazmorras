@@ -373,13 +373,20 @@ func _magia_en_pelea(combat: Node, nom: String, media: Vector2) -> void:
 	for e in combat._enemies:
 		antes[e] = e.current_hp
 		pos_antes[e] = t.pos_de(e)
-	combat.magia._elegir_hechizo(s, null, punto)
+	# A UNO DE LOS TUYOS (Filos, Mantos): a ti mismo. Y a los tuyos, algo de daño para ver las curas.
+	var al_hz: Combatant = yo if s.forma_a_aliados and s.forma_apunte != CombatFormas.Apunte.ALREDEDOR else null
+	for al in combat._aliados:
+		al.current_hp = al.max_hp * 0.5
+		print("  aliado %s en %s: %.0f/%.0f" % [al.nombre, str(t.pies_de(al).round()), al.current_hp, al.max_hp])
+	combat.magia._elegir_hechizo(s, al_hz, punto if al_hz == null else t.pies_de(yo))
 	combat._cast_index = s.longitud()
 	combat.magia._disparar_hechizo()
 	await get_tree().create_timer(1.5, true, false, true).timeout
 	for e in combat._enemies:
 		print("  %s: %.1f -> %.1f  (se ha movido %.1f px)" % [e.nombre, float(antes[e]), e.current_hp,
 			(pos_antes[e] as Vector2).distance_to(t.pos_de(e))])
+	for al in combat._aliados:
+		print("  aliado %s acaba en %.0f/%.0f  imbuido: %s" % [al.nombre, al.current_hp, al.max_hp, "%d x%d cuerpo=%s" % [al.imbue_elemento, al.imbue_usos, al.imbue_cuerpo]])
 	for l in combat._log_lines.slice(maxi(0, combat._log_lines.size() - 4)):
 		print("  log: ", l)
 	print("=== FIN ===")

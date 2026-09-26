@@ -23,3 +23,11 @@ dano_objetivo = 1.0
 fx_estilo = 108
 fx_unico = true
 descripcion = "Se abre un pozo bajo el objetivo y tira de él hacia dentro, a tirones. No revienta ni salpica: aprieta, y el que sale de ahí sale sin fuerza para pegar."
+; LA FORMA EN EL MAPA (26/09, su decision): como el Estallido pero con algo menos de daño, y tira de todos hacia
+; el centro (mas cuanto mas cerca estan): para juntar enemigos.
+forma = 1
+forma_radio = 100.0
+forma_apunte = 3
+forma_rango = 180.0
+forma_caida = Array[float]([0.4, 0.03])
+forma_atrae = 60.0

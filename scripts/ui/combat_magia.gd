@@ -484,10 +484,14 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		var res_area: Array = []
 		if spell.dispersa:
 			# EN EL MAPA las bolas caen en SUS puntos del circulo apuntado (MagiaAire.puntos_andanada), no al azar.
+			# LA TORMENTA (forma_salpicon) no cae en puntos: reparte sus golpes al azar entre los de DENTRO.
 			var puntos: Array = []
-			if en_mapa:
+			var dentro: Array = []
+			if en_mapa and spell.forma_salpicon > 0.0:
+				dentro = _pantalla.turno_mapa.dentro_del_hechizo(spell, _pantalla._player, punto)
+			elif en_mapa:
 				puntos = MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto))
-			res_area = _resolver_dispersa(spell, foco, puntos)
+			res_area = _resolver_dispersa(spell, foco, puntos, dentro)
 			for r in res_area:
 				tocados.append(r.c)
 		else:
@@ -508,7 +512,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		var res_reb: Array = []
 		# LOS GOLPES QUE SOBRAN (Vorágine, Venablo, Pulso arcano): si el objetivo cae antes de
 		# llevarse todos los suyos, el resto salta a otros enemigos en vez de perderse.
-		if spell.sobrantes_saltan() and not res_area.is_empty():
+		# En un CIRCULO del mapa (la Vorágine) no: ya le cae a cada uno de los de dentro.
+		if spell.sobrantes_saltan() and not res_area.is_empty() and not (en_mapa and spell.forma == CombatFormas.Tipo.CIRCULO):
 			var fila_m = _pantalla.turno_mapa.fila_del_proyectil(spell, _pantalla._player, punto) if en_mapa else null
 			for r in _saltar_sobrantes(spell, res_area[0], foco, fila_m):
 				res_reb.append(r)
@@ -556,6 +561,16 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				if t2.is_alive() and not empujados.has(t2):
 					empujados.append(t2)
 					_pantalla.turno_mapa.pedir_tiron(t2, _pantalla._player, spell.forma_tiron)
+		# EL POZO (Vorágine): arrastra hacia el centro a los que siguen en pie, mas cuanto mas cerca estan.
+		if en_mapa and spell.forma_atrae > 0.0:
+			var f_at = _pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto)
+			var atraidos: Array = []
+			for t3 in tocados:
+				if t3.is_alive() and not atraidos.has(t3):
+					atraidos.append(t3)
+					var cerca_c: float = 1.0 - _pantalla.turno_mapa.lejania_al_centro(f_at, t3)
+					_pantalla.turno_mapa.pedir_atraccion(t3, _pantalla._player, f_at.centro,
+						spell.forma_atrae * lerpf(0.5, 1.0, cerca_c))
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
 		_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
@@ -568,7 +583,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				_aplicar_estado_hechizo(spell, d_db["c"])
 				_pantalla.efectos._fx_golpe(_pantalla._player, d_db["c"], 0.0, false, false, int(spell.elemento),
 					CombatFX.Estilo.MALDICION, 1.0, true)
-		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR:
+		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR 				and spell.tipo != SpellData.TipoEfecto.CURACION:
 			# EN EL MAPA, a todos los tuyos que pille el circulo (la Fortaleza).
 			var antes_al: Combatant = _pantalla._cast_aliado
 			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
@@ -765,7 +780,11 @@ func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -
 # nada; solo con la parte magica, la cura se quedaria en un rasguño a los pocos tiers.
 func _curar_con_hechizo(spell: SpellData) -> void:
 	var destinos: Array[Combatant] = []
-	if spell.alcance == SpellData.Alcance.TODOS:
+	if spell.alcance == SpellData.Alcance.TODOS and _pantalla.tactico and _pantalla.turno_mapa.usa_huella_hechizo(spell):
+		# EN EL MAPA, como fuera de combate: a los tuyos que pille su circulo alrededor del que la lanza.
+		for al in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
+			destinos.append(al)
+	elif spell.alcance == SpellData.Alcance.TODOS:
 		destinos = _pantalla._aliados_vivos()
 	elif _pantalla._cast_aliado != null:
 		destinos = [_pantalla._cast_aliado] as Array[Combatant]
@@ -987,7 +1006,7 @@ func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float, fila:
 # salpica. En 1v1 no hay adyacentes, asi que el salpicon no cambia nada: solo mejora el multi.
 # 'puntos' (EN EL MAPA): donde cae cada bola. Le da a quien pille el circulito de la bola (MagiaAire.R_BOLA): el
 # mas cercano al centro es el principal y el resto salpicados. Una bola sin nadie debajo se pierde.
-func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = []) -> Array:
+func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentro: Array = []) -> Array:
 	var n: int = spell.golpes()
 	var acc: Dictionary = {}     # Combatant -> {c, dano, mult, golpes, trail, estados}
 	var anun: Dictionary = {}    # Combatant -> estados ya anunciados (no repetir en el log)
@@ -1020,10 +1039,20 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = []) -> Ar
 					"escala": spell.dano_objetivo if k_b == 0 or elem != spell.elemento else spell.dano_salpicon})
 				if elem != spell.elemento:
 					break   # los golpes que no son de su elemento no salpican
+		elif not dentro.is_empty():
+			# LA TORMENTA en el mapa: a uno de los de DENTRO al azar; los rayos salpican a sus vecinos.
+			var candidatos: Array = dentro.filter(func(x): return x.is_alive())
+			if candidatos.is_empty():
+				break
+			principal = candidatos.pick_random()
+			objetivos = [{"c": principal, "escala": spell.dano_objetivo}]
+			if elem == spell.elemento:
+				for v in _pantalla.turno_mapa.vecinos_de(principal, spell.forma_salpicon):
+					objetivos.append({"c": v, "escala": spell.dano_salpicon})
 		else:
 			principal = vivos.pick_random()
 		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
-		if not puntos.is_empty():
+		if not puntos.is_empty() or not dentro.is_empty():
 			pass
 		elif spell.salpica() and elem == spell.elemento:
 			objetivos = _pantalla.objetivos._objetivos_area(spell, principal)

@@ -17,3 +17,9 @@ imbue_usos = 10
 imbue_estado = 12
 imbue_prob = 0.15
 descripcion = "Un canto largo que te reviste de agua viva: te afinas al elemento. Las llamas se apagan al tocarte, pero la tormenta te encontrará indefenso."
+; LA FORMA EN EL MAPA (26/09, su decision): como los Filos, clic a UNO de los tuyos a distancia (tu incluido).
+forma = 0
+forma_radio = 10.0
+forma_apunte = 3
+forma_rango = 150.0
+forma_a_aliados = true

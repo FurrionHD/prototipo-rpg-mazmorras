@@ -26,3 +26,10 @@ fx_estilo_salpicon = 107
 fx_unico = true
 efectos = [SubResource("SA_vulnerable")]
 descripcion = "Un golpe de luz que revienta en el sitio y no deja donde esconderse. Alcanza a los de al lado casi igual que al del medio: la luz no distingue. A quien pilla de lleno lo deja deslumbrado y con la guardia abierta."
+; LA FORMA EN EL MAPA (26/09, su decision): un SOL que nace en el sitio que eliges, circulo r100 LIBRE; el daño
+; baja con la distancia al centro (forma_caida: 1.4 en el centro -> 0.1 en el borde).
+forma = 1
+forma_radio = 100.0
+forma_apunte = 3
+forma_rango = 180.0
+forma_caida = Array[float]([1.4, 0.1])

@@ -39,3 +39,10 @@ dano_salpicon = 1.0
 dispersa = true
 descripcion = "Se abre el cielo. La lluvia cae a cantaros sobre TODOS y, entre ella, los rayos saltan sin rumbo buscando lo que ya esta empapado. Nadie elige donde cae cada gota ni cada trueno."
 efectos = [SubResource("SA_mojado"), SubResource("SA_electrizado"), SubResource("SA_stun")]
+; LA FORMA EN EL MAPA (26/09, su decision): circulo r110 LIBRE con la nube encima: los 20 golpes caen al azar
+; entre los de DENTRO, y los rayos salpican a los que esten a forma_salpicon px del que reciben.
+forma = 1
+forma_radio = 110.0
+forma_apunte = 3
+forma_rango = 200.0
+forma_salpicon = 30.0

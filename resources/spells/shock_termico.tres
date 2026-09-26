@@ -37,3 +37,10 @@ dano_objetivo = 1.6
 dano_salpicon = 0.7
 efectos = [SubResource("SA_quema"), SubResource("SA_mojado")]
 descripcion = "Dos golpes en el mismo aliento y en este orden: la llama prende, y el agua cae encima de lo que acaba de arder. Lo que revienta no es ninguna de las dos, es el salto entre ellas. Si la llama no prende, el agua no encuentra nada que romper."
+; LA FORMA EN EL MAPA (26/09, su decision): circulo r55 LIBRE que se pone al rojo, le cae agua y revienta en
+; cristales de obsidiana. 1.6 en el centro -> 0.7 en el borde.
+forma = 1
+forma_radio = 55.0
+forma_apunte = 3
+forma_rango = 170.0
+forma_caida = Array[float]([1.6, 0.7])

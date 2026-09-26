@@ -39,6 +39,7 @@ const HABILIDADES := [
 	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
 	["magia", "vendaje_de_luz"], ["magia", "bola_fuego"], ["magia", "chorro_agua"], ["magia", "rayo"], ["magia", "pulso_arcano"],
 	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "filo_torrente"], ["magia", "filo_radiante"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
+	["magia", "estallido_solar"], ["magia", "voragine_sombra"], ["magia", "luz_restauradora"], ["magia", "shock_termico"], ["magia", "tormenta"], ["magia", "manto_brasas"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,

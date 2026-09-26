@@ -198,6 +198,15 @@ const RADIO_CURA_AREA := 200.0
 @export var forma_a_aliados: bool = false
 # EMPUJE (el Torrente): px que se aparta a cada enemigo al que le entra (negativo = hacia fuera, como el Bastonazo).
 @export var forma_tiron: float = 0.0
+# CAIDA CON LA DISTANCIA (el Estallido solar): [centro, borde] = el multiplicador de daño en el centro del circulo
+# y en su borde; entre medias, segun lo lejos del centro que quede el cuerpo. Vacio = todos cobran igual.
+@export var forma_caida: Array[float] = []
+# ATRAE AL CENTRO (la Vorágine): px que arrastra hacia el centro de la huella a cada enemigo que pilla; a mas cerca
+# del centro, mas tira (del 50% en el borde al 100% en medio), sin pasarse del centro.
+@export var forma_atrae: float = 0.0
+# SALPICON EN EL MAPA de un hechizo DISPERSO (la Tormenta): los golpes de su elemento alcanzan ademas a los que
+# esten a estos px del que lo recibe. 0 = no salpica.
+@export var forma_salpicon: float = 0.0
 # SU EFECTO EN EL MAPA (SueloRoto.Tipo, los MAGIA_*): lo que se ve al soltarlo, y a cada uno le llega el golpe
 # cuando le alcanza. -1 = ninguno (se pinta como en la fila).
 @export var suelo_mapa: int = -1
