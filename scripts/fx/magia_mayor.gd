@@ -97,7 +97,8 @@ const T_CIERRA_ECLIPSE := 0.3
 const ALTO_ECLIPSE := 0.0
 # LAS DOS VERSIONES que pidio para elegir (27/09: "yo pedia una u otra, damelas por separado"): 0 = CORONA de llamas
 # (su segunda referencia), 1 = CORONA DE ESQUIRLAS negras con el filo de colores (su primera referencia),
-# 2 = la BOCA del monstruo que sale del agujero y muerde (27/09, su tercera referencia).
+# 2 = la BOCA del monstruo que sale del agujero y muerde (27/09, su tercera referencia), 3 = el GUSANO entero (la misma
+# referencia, "que se le vea la forma": cuerpo en S, cabeza con la boca abierta, se lanza y muerde).
 static var eclipse_variante: int = 0
 const LENGUAS_ECLIPSE := 30
 # (27/09: "blanco, amarillo, morado, azul y negro: los colores de esas magias", no un arcoiris)
@@ -1950,6 +1951,9 @@ func _eclipse(capa: Node2D) -> void:
 	if eclipse_variante == 2:
 		_eclipse_boca(capa, tn, t_osc, t_luz, cierra)
 		return
+	if eclipse_variante == 3:
+		_eclipse_gusano(capa, tn, t_osc, t_luz, cierra)
+		return
 	if capa == _suelo:
 		# LA SOMBRA que se traga el circulo (mas negra en el golpe de oscuridad) y luego la LUZ que lo barre.
 		var osc: float = clampf(tn / T_FORMA_ECLIPSE, 0.0, 1.0) * 0.45 + (0.35 * exp(-maxf(t_osc, 0.0) * 3.0) if t_osc >= 0.0 else 0.0)
@@ -2286,6 +2290,172 @@ func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: 
 			for k in DIENTES:
 				var px2: float = lerpf(-_r * 0.9, _r * 0.9, (float(k) + 0.5) / float(DIENTES))
 				var p: Vector2 = _c + Vector2(px2, 0.0) + _alto(alto * 0.25)
+				for sgn in [-1.0, 1.0]:
+					_cuna(capa, p, sgn * PI * 0.5 + 0.3 * sin(float(k) * 2.0), 0.0, 40.0 + 50.0 * kl, 0.18, Color(ECLIPSE_LUZ, (1.0 - kl)))
+				BarridoAire.brillo(capa, p, 18.0, Color(1.0, 1.0, 1.0, (1.0 - kl)))
+
+
+# ------------------------------------------------------------
+#  ECLIPSE, VERSION D: el GUSANO (27/09: "el que te pase es como un gusano god y se le ve la forma"). Sale del agujero
+#  un cuerpo largo en S con la cabeza arriba y la boca ABIERTA mirando al circulo; se echa atras, se LANZA en picado y
+#  en el golpe de oscuridad la boca se cierra sobre el circulo (las mandibulas de la version C) con el cuerpo detras;
+#  en el de luz se escapa luz entre los dientes; y se hunde.
+# ------------------------------------------------------------
+const T_ATRAS_GUSANO := 0.12     # se echa atras antes de lanzarse
+const T_PICADO := 0.12           # lo que tarda en caer sobre el circulo
+
+# El ESPINAZO del gusano: de la base (el agujero) a la cabeza, una curva con su punto de control; 'u' 0..1.
+func _espinazo(base: Vector2, ctrl: Vector2, cabeza: Vector2, u: float, ondula: float) -> Vector2:
+	var a: Vector2 = base.lerp(ctrl, u)
+	var b: Vector2 = ctrl.lerp(cabeza, u)
+	var p: Vector2 = a.lerp(b, u)
+	return p + Vector2(sin(u * PI * 2.0 + _t * 3.0) * ondula * sin(u * PI), 0.0)
+
+
+func _cuerpo_gusano(ci: CanvasItem, base: Vector2, ctrl: Vector2, cabeza: Vector2, grosor: float, ondula: float, alfa: float) -> void:
+	if alfa <= 0.0:
+		return
+	var n: int = 22
+	var pts: Array = []
+	var nors: Array = []
+	var anchos: Array = []
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var p0: Vector2 = _espinazo(base, ctrl, cabeza, u, ondula)
+		var p1: Vector2 = _espinazo(base, ctrl, cabeza, minf(u + 0.02, 1.0), ondula)
+		var p_1: Vector2 = _espinazo(base, ctrl, cabeza, maxf(u - 0.02, 0.0), ondula)
+		var tg: Vector2 = (p1 - p_1).normalized() if p1.distance_squared_to(p_1) > 0.0001 else Vector2.UP
+		pts.append(p0)
+		nors.append(Vector2(-tg.y, tg.x))
+		anchos.append(grosor * (0.55 + 0.45 * u))
+	var magenta := Color(BOCA_MAGENTA, alfa)
+	var cuerpo := Color(BOCA_CUERPO, alfa)
+	var cian := Color(BOCA_CIAN, 0.85 * alfa)
+	for k in n:
+		var a0: Vector2 = pts[k]
+		var a1: Vector2 = pts[k + 1]
+		var n0: Vector2 = nors[k]
+		var n1: Vector2 = nors[k + 1]
+		var w0: float = anchos[k]
+		var w1: float = anchos[k + 1]
+		# Los PINCHOS del lomo (en zigzag, del lado de fuera), con borde magenta.
+		if k % 2 == 0:
+			var pm: Vector2 = a0.lerp(a1, 0.5) + (n0 + n1).normalized() * (w0 + w1) * 0.5 * 1.7
+			ci.draw_primitive(PackedVector2Array([a0 + n0 * w0 * 0.8, pm, a1 + n1 * w1 * 0.8]), PackedColorArray([magenta, magenta, magenta]), PackedVector2Array())
+		# El borde magenta (un pelo mas ancho) y el cuerpo.
+		ci.draw_primitive(PackedVector2Array([a0 + n0 * w0 * 1.14, a1 + n1 * w1 * 1.14, a1 - n1 * w1 * 1.14, a0 - n0 * w0 * 1.14]),
+			PackedColorArray([magenta, magenta, magenta, magenta]), PackedVector2Array())
+		ci.draw_primitive(PackedVector2Array([a0 + n0 * w0, a1 + n1 * w1, a1 - n1 * w1, a0 - n0 * w0]),
+			PackedColorArray([cuerpo, cuerpo, cuerpo, cuerpo]), PackedVector2Array())
+		# La VETA cian a lo largo, del lado de la barriga.
+		ci.draw_primitive(PackedVector2Array([a0 - n0 * w0 * 0.55, a1 - n1 * w1 * 0.55, a1 - n1 * w1 * 0.75, a0 - n0 * w0 * 0.75]),
+			PackedColorArray([cian, cian, cian, cian]), PackedVector2Array())
+		# Las CRESTAS de los segmentos: una banda magenta de lado a lado cada pocos tramos.
+		if k % 3 == 1:
+			ci.draw_primitive(PackedVector2Array([a0 + n0 * w0 * 0.9, a0.lerp(a1, 0.35) + n0 * w0 * 0.9,
+				a0.lerp(a1, 0.35) - n0 * w0 * 0.9, a0 - n0 * w0 * 0.9]), PackedColorArray([magenta, magenta, magenta, magenta]), PackedVector2Array())
+	# Los OJOS DE CRISTAL a lo largo del cuerpo.
+	for i in 4:
+		var k2: int = 5 + i * 4
+		if k2 >= n:
+			break
+		var p: Vector2 = pts[k2]
+		var w: float = float(anchos[k2]) * 0.3 + 1.0
+		var h: float = w * 1.9
+		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)]), Color(BOCA_CIAN, alfa))
+		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)]), Color(0.02, 0.0, 0.05, alfa))
+		ci.draw_circle(p + Vector2(-w * 0.2, -h * 0.55), w * 0.3, Color(1, 1, 1, alfa))
+
+
+# LA CABEZA con la boca ABIERTA hacia 'dir': dos mandibulas en cuña con dientes por dentro, borde magenta, la garganta
+# negra entre ellas y dos ojos de cristal.
+func _cabeza_gusano(ci: CanvasItem, p: Vector2, dir: Vector2, tam: float, abre: float, alfa: float) -> void:
+	if alfa <= 0.0 or tam <= 0.5:
+		return
+	var nor := Vector2(-dir.y, dir.x)
+	var ang: float = 0.35 + 0.55 * abre
+	var magenta := Color(BOCA_MAGENTA, alfa)
+	var cuerpo := Color(BOCA_CUERPO, alfa)
+	# La garganta negra.
+	ci.draw_colored_polygon(PackedVector2Array([p - dir * tam * 0.2, p + dir.rotated(ang) * tam * 1.3, p + dir * tam * 1.1, p + dir.rotated(-ang) * tam * 1.3]),
+		Color(0.0, 0.0, 0.0, alfa))
+	for lado in [-1.0, 1.0]:
+		var eje: Vector2 = dir.rotated(ang * float(lado))
+		var fuera: Vector2 = Vector2(-eje.y, eje.x) * float(lado)
+		var raiz: Vector2 = p - dir * tam * 0.35
+		var punta: Vector2 = p + eje * tam * 1.6
+		var lomo: Vector2 = p + eje * tam * 0.6 + fuera * tam * 0.55
+		var dentro: Vector2 = p + eje * tam * 0.7 - fuera * tam * 0.05
+		var cen: Vector2 = (raiz + punta + lomo) / 3.0
+		ci.draw_colored_polygon(PackedVector2Array([cen + (raiz - cen) * 1.15, cen + (lomo - cen) * 1.15, cen + (punta - cen) * 1.15, cen + (dentro - cen) * 1.15]), magenta)
+		ci.draw_colored_polygon(PackedVector2Array([raiz, lomo, punta, dentro]), cuerpo)
+		# Los DIENTES por dentro de la mandibula (hacia la garganta).
+		for k in 4:
+			var u: float = 0.25 + 0.2 * float(k)
+			var b0: Vector2 = raiz.lerp(punta, u) - fuera * tam * 0.05
+			var b1: Vector2 = raiz.lerp(punta, u + 0.12) - fuera * tam * 0.05
+			var pt: Vector2 = b0.lerp(b1, 0.5) - fuera * tam * 0.28
+			ci.draw_colored_polygon(PackedVector2Array([b0, pt, b1]), Color(0.96, 0.9, 1.0, alfa))
+		# El ojo de cristal en el lomo.
+		var po: Vector2 = raiz.lerp(lomo, 0.55)
+		var w: float = tam * 0.12
+		ci.draw_colored_polygon(PackedVector2Array([po + eje * w * 2.4, po + fuera * w, po - eje * w * 2.4, po - fuera * w]), Color(BOCA_CIAN, alfa))
+		ci.draw_colored_polygon(PackedVector2Array([po + eje * w * 1.7, po + fuera * w * 0.6, po - eje * w * 1.7, po - fuera * w * 0.6]), Color(0.02, 0.0, 0.05, alfa))
+
+
+func _eclipse_gusano(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:
+	var sube: float = 1.0 - pow(1.0 - clampf(tn / T_SUBE_BOCA, 0.0, 1.0), 2.0)
+	var alfa: float = 1.0 - smoothstep(0.6, 1.0, cierra)
+	var alto_max: float = _r * 1.15
+	# Donde esta la cabeza: sube, se echa atras (arriba y un poco hacia atras) y cae en picado sobre el centro.
+	var t_pic: float = t_osc + T_PICADO                       # desde que empieza el picado
+	var arriba: Vector2 = _c + _alto(alto_max * sube) + Vector2(-_r * 0.25, 0.0)
+	var atras: float = clampf((t_pic + T_ATRAS_GUSANO) / T_ATRAS_GUSANO, 0.0, 1.0) * (1.0 if t_pic < 0.0 else 0.0)
+	arriba += _alto(alto_max * 0.12 * atras) + Vector2(-_r * 0.12 * atras, 0.0)
+	var picado: float = clampf(t_pic / T_PICADO, 0.0, 1.0)
+	picado = picado * picado
+	var cabeza: Vector2 = arriba.lerp(_c + _alto(_r * 0.3), picado)
+	# La base: del centro del agujero; al morder, el cuerpo sale del borde de atras (la boca tapa el centro).
+	var base: Vector2 = _c.lerp(_c + Vector2(0.0, -_r * 0.95), picado)
+	var ctrl: Vector2 = base + _alto(alto_max * (0.9 + 0.4 * picado)) + Vector2(_r * 0.55, 0.0)
+	var hundido: float = cierra
+	cabeza = cabeza.lerp(_c, hundido)
+	ctrl = ctrl.lerp(_c, hundido)
+	var grosor: float = _r * 0.3 * sube
+	var mordido: bool = picado >= 1.0
+	if capa == _suelo:
+		# El agujero y sus remolinos (los de la version C).
+		var r_h: float = _r * (0.3 + 0.7 * sube) * (1.0 - 0.6 * cierra)
+		BarridoAire.brillo(capa, _c, _r * 1.2, Color(BOCA_CUERPO, 0.7 * alfa))
+		for i in 14:
+			var a0: float = TAU * float(i) / 14.0 - _t * 1.6
+			var col: Color = [BOCA_MAGENTA, BOCA_CIAN, ECLIPSE_MORADO][i % 3]
+			_mechon(capa, _c, a0, r_h * 0.8, r_h * 1.25, -1.4, _r * 0.05, Color(col, 0.8 * alfa), float(i), false)
+		_disco(capa, _c, r_h, NEGRO, NEGRO)
+		return
+	if capa == _delante:
+		if not mordido:
+			var dir: Vector2 = (_c - cabeza).normalized() if cabeza.distance_squared_to(_c) > 1.0 else Vector2.DOWN
+			dir = dir.lerp(Vector2.DOWN, 0.3).normalized()
+			_cuerpo_gusano(capa, base, ctrl, cabeza, grosor, _r * 0.25 * (1.0 - picado), alfa)
+			_cabeza_gusano(capa, cabeza, dir, grosor * 1.25 * (1.0 + 0.9 * picado), 0.7 + 0.3 * atras, alfa)
+		else:
+			# EL MORDISCO: el cuerpo detras, subiendo del borde de atras, y la boca cerrada sobre todo el circulo.
+			_cuerpo_gusano(capa, base + Vector2(_r * 0.35, 0.0), base + _alto(_r * 0.85) + Vector2(_r * 0.5, 0.0), base + _alto(_r * 0.35) + Vector2(-_r * 0.1, 0.0), grosor * (1.0 - hundido), _r * 0.1, alfa)
+			var alto_b: float = _r * 0.85 * (1.0 - hundido)
+			_mandibula(capa, -1.0, alto_b, 1.0, alfa)
+			_mandibula(capa, 1.0, alto_b, 1.0, alfa)
+		return
+	if capa == _brillo:
+		var alto_c: float = _r * 0.85 * (1.0 - hundido) * 0.25
+		if t_osc >= 0.0 and t_osc < 0.3:
+			var km: float = t_osc / 0.3
+			BarridoAire.brillo(capa, _c + _alto(alto_c), _r * 0.9 * (1.0 - km * 0.4), Color(BOCA_MAGENTA, 0.5 * (1.0 - km)))
+		if t_luz >= 0.0 and t_luz < 0.55 and alfa > 0.0:
+			var kl: float = t_luz / 0.55
+			for k in DIENTES:
+				var px: float = lerpf(-_r * 0.9, _r * 0.9, (float(k) + 0.5) / float(DIENTES))
+				var p: Vector2 = _c + Vector2(px, 0.0) + _alto(alto_c)
 				for sgn in [-1.0, 1.0]:
 					_cuna(capa, p, sgn * PI * 0.5 + 0.3 * sin(float(k) * 2.0), 0.0, 40.0 + 50.0 * kl, 0.18, Color(ECLIPSE_LUZ, (1.0 - kl)))
 				BarridoAire.brillo(capa, p, 18.0, Color(1.0, 1.0, 1.0, (1.0 - kl)))

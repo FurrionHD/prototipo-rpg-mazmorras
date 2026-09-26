@@ -130,7 +130,7 @@ const MOMENTOS_MAGIA := {
 	"manto_aureo": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
 	"manto_umbrio": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
 	"manto_prismatico": [0.1, 0.25, 0.45, 0.65, 0.85, 1.05, 1.3, 1.55],
-	"eclipse": [0.15, 0.4, 0.62, 0.8, 0.95, 1.1, 1.4, 1.7, 1.95],
+	"eclipse": [0.15, 0.4, 0.55, 0.66, 0.74, 0.8, 0.95, 1.1, 1.4, 1.7, 1.95],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
