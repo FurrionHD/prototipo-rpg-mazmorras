@@ -119,6 +119,7 @@ const MOMENTOS_MAGIA := {
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 	"estallido_solar": [0.08, 0.25, 0.5, 0.82, 0.97, 1.12, 1.5],
 	"voragine_sombra": [0.2, 0.36, 0.55, 0.72, 0.95, 1.4, 1.75],
+	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -275,6 +276,9 @@ func _correr() -> void:
 		var medida: float = maxf(maxf(f0.radio, f0.largo), 40.0)
 		if int(ab.forma_apunte) == CombatFormas.Apunte.DELANTE and int(ab.forma) == CombatFormas.Tipo.CIRCULO:
 			medida += PISA + ALCANCE[arma]
+		# Un circulo LIBRE (las magias) cae a 70 px de ti: que quepa entero.
+		if int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE and int(ab.forma) == CombatFormas.Tipo.CIRCULO:
+			medida = maxf(medida, f0.radio + 70.0 * 0.65)
 		# ATAQUES_ACERCA=3 -> tres veces mas cerca (para mirar un efecto de cerca).
 		var acerca: float = maxf(float(OS.get_environment("ATAQUES_ACERCA")), 1.0) if OS.get_environment("ATAQUES_ACERCA") != "" else 1.0
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0)) * acerca

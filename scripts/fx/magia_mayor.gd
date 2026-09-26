@@ -13,6 +13,10 @@
 #              negra, aro claro, halo y destello en cruz). En cada tiron los mechones se enroscan y se cierran de golpe,
 #              el ojo se enciende y el humo y los trozos caen dentro. Al final se cierra en un punto.
 #              (Los ojos de muerte se probaron aqui y no; _ojo_muerte queda para una magia futura.)
+#    SHOCK     Shock termico (26/09: todo EN EL SITIO, nada sale de ti): el suelo se pone AL ROJO desde el centro con
+#              grietas de lava y llamas (el golpe de fuego); encima se junta una ESFERA DE AGUA que cae de golpe, vapor
+#              (el golpe de agua); el suelo se enfria a negro y REVIENTA en pinchos y esquirlas de OBSIDIANA con vetas
+#              de lava que se apagan.
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -57,6 +61,20 @@ const TINTA_CLARA := Color(0.58, 0.54, 0.47)
 const ECLIPSE := Color(0.55, 0.62, 0.72)
 const ECLIPSE_CLARO := Color(0.95, 0.97, 1.0)
 const ALTO_OJO_ECLIPSE := 8.0
+
+# EL SHOCK TERMICO
+const T_CALIENTA := 0.28         # el frente al rojo llega al borde (el golpe de fuego)
+const T_AGUA_NACE := 0.08        # la esfera de agua empieza a juntarse
+const T_AGUA_BAJA := 0.16        # lo que tarda en caer
+const T_AGUA_CAE := 0.46         # cuando toca el suelo (el golpe de agua va detras del de fuego)
+const T_ROMPE := 0.58            # cuando revienta en obsidiana
+const T_VIVE_OBSIDIANA := 0.8    # lo que se queda antes de deshacerse
+const ALTO_AGUA := 55.0
+const OBSIDIANA := Color(0.07, 0.05, 0.1)
+const OBSIDIANA_BRILLO := Color(0.42, 0.36, 0.62)
+const OBSIDIANA_CARA := Color(0.66, 0.6, 0.92)     # la cara de los pinchos (que se lean sobre el suelo negro)
+const VAPOR := Color(0.72, 0.74, 0.78)
+const VAPOR_CLARO := Color(0.95, 0.96, 0.98)
 const PINCEL := Color(0.8, 0.78, 0.84)
 const VIOLETA_HONDO := Color(0.24, 0.07, 0.3)
 
@@ -73,6 +91,7 @@ var _motas: Array = []
 var _trozos: Array = []
 var _rayos: Array = []
 var _gotas: Array = []
+var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
@@ -120,6 +139,9 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 		Modo.VORAGINE:
 			# El primer tiron, con el pozo ya abierto (los otros dos van detras, al paso de los golpes).
 			return t_llega_orbe(f) + T_HUNDE + T_ABRE_POZO
+		Modo.SHOCK:
+			# El de fuego, cuando el suelo al rojo le llega (el de agua va detras, al paso de los golpes).
+			return _llega_calor(p.distance_to(f.centro) / maxf(f.radio, 1.0))
 	return 0.0
 
 
@@ -131,6 +153,7 @@ static func t_salir(m: int) -> float:
 	match m:
 		Modo.SOL: return T_CARGA_SOL + T_CRECE + T_APRIETA + T_ONDA_SOL
 		Modo.VORAGINE: return T_CARGA_SOL + T_HUNDE + T_ABRE_POZO
+		Modo.SHOCK: return T_CALIENTA
 	return 0.3
 
 
@@ -138,6 +161,7 @@ func duracion() -> float:
 	match modo:
 		Modo.SOL: return t_llega(forma) + T_CRECE + T_APRIETA + T_ONDA_SOL + T_RESPLANDOR + 0.3
 		Modo.VORAGINE: return _t_cierra() + T_CIERRA + 0.3
+		Modo.SHOCK: return T_ROMPE + T_VIVE_OBSIDIANA + 0.6
 	return 1.0
 
 
@@ -185,6 +209,28 @@ func _preparar() -> void:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
 					"t0": _rng.randf_range(0.0, T_PULSO * float(TIRONES) + 0.2), "piedra": _rng.randf() < 0.4,
 					"giro": _rng.randf_range(0.0, TAU)})
+		Modo.SHOCK:
+			_rayos = _losas_circulo()
+			for i in 22:
+				_gotas.append({"a": _rng.randf_range(0.0, TAU), "d": 0.95 * sqrt(_rng.randf()), "tam": _rng.randf_range(3.0, 6.0),
+					"sem": _rng.randf_range(0.0, 50.0)})
+			for i in 10:
+				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(8.0, 14.0), "tam": _rng.randf_range(1.5, 2.5)})
+			for i in 16:
+				var av: float = _rng.randf_range(0.0, TAU)
+				_trozos.append({"dir": Vector2(cos(av), sin(av)), "d": _rng.randf_range(0.2, 0.9), "t0": _rng.randf(),
+					"vida": _rng.randf_range(0.6, 1.0), "sube": _rng.randf_range(25.0, 50.0), "tam": _rng.randf_range(9.0, 16.0)})
+			for i in 10:
+				var ap2: float = _rng.randf_range(0.0, TAU)
+				var dp: float = _rng.randf_range(0.15, 0.85)
+				_esquirlas.append({"pincho": true, "dir": Vector2(cos(ap2), sin(ap2)), "d": dp, "tam": _rng.randf_range(5.0, 9.0),
+					"t0": dp * 0.1})
+			for i in 22:
+				var ae: float = _rng.randf_range(0.0, TAU)
+				_esquirlas.append({"pincho": false, "dir": Vector2(cos(ae), sin(ae)), "d": _rng.randf_range(0.0, 0.8),
+					"vel": Vector2(_rng.randf_range(50.0, 110.0), _rng.randf_range(80.0, 140.0)), "tam": _rng.randf_range(3.5, 7.0),
+					"giro": _rng.randf_range(0.0, TAU), "gira": _rng.randf_range(-12.0, 12.0), "lados": _rng.randi_range(3, 4),
+					"sem": _rng.randf_range(0.0, 50.0), "t0": _rng.randf_range(0.0, 0.05)})
 	_suelo = _capa(SueloRoto.Z_SUELO, false)
 	_delante = _capa(Z_ENCIMA, false)
 	_brillo = _capa(Z_ENCIMA + 1, true)
@@ -217,6 +263,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 	match modo:
 		Modo.SOL: _sol(capa)
 		Modo.VORAGINE: _voragine(capa)
+		Modo.SHOCK: _shock(capa)
 
 
 # ------------------------------------------------------------
@@ -848,3 +895,242 @@ func _voragine(capa: Node2D) -> void:
 			_cuna(capa, ojo_b, a_c, r_o * 1.05, r_o * (3.2 + 2.0 * ap), 0.05, Color(ECLIPSE_CLARO, (0.75 + 0.25 * ap) * vivo))
 		if cierra > 0.0 and cierra < 1.0:
 			BarridoAire.destello(capa, ojo_b, 24.0 * (1.0 - cierra), Color(ECLIPSE_CLARO, 1.0 - cierra), 0.0)
+
+
+# ------------------------------------------------------------
+#  EL SHOCK TERMICO (todo en el sitio, 26/09: "que ocurra directo en el sitio, no lanzandolo desde el personaje")
+# ------------------------------------------------------------
+# Lo que va del suelo al rojo a 'u' (0 centro .. 1 borde): el frente sale del centro como 1 - (1 - k)^2.
+static func _llega_calor(u: float) -> float:
+	return T_CALIENTA * (1.0 - sqrt(1.0 - clampf(u, 0.0, 1.0)))
+
+
+# UNA ESQUIRLA DE OBSIDIANA: cristal negro afilado (3-4 puntas) con una cara brillante violacea y una veta de lava.
+# UNA GOTA/ESFERA DE AGUA de contorno que tiembla, estirada en vertical 'estira' veces.
+func _gota_agua(ci: CanvasItem, c: Vector2, r: float, estira: float, col: Color) -> void:
+	if r <= 0.3:
+		return
+	var n: int = 18
+	var pts := PackedVector2Array()
+	for k in n:
+		var a: float = TAU * float(k) / float(n)
+		var rr: float = r * (1.0 + 0.07 * sin(a * 3.0 + _t * 18.0) + 0.04 * sin(a * 5.0 - _t * 11.0))
+		pts.append(c + Vector2(cos(a) * rr / sqrt(estira), sin(a) * rr * estira))
+	ci.draw_colored_polygon(pts, col)
+
+
+static func _esquirla(ci: CanvasItem, p: Vector2, tam: float, giro: float, lados: int, sem: float, alfa: float,
+		brasa: float) -> void:
+	if tam <= 0.4 or alfa <= 0.0:
+		return
+	var pts := PackedVector2Array()
+	for k in lados:
+		var a: float = giro + TAU * float(k) / float(lados) + 0.5 * (MagiaAire._ruido(float(k), sem) - 0.5)
+		var rr: float = tam * (0.55 + 0.6 * MagiaAire._ruido(float(k) + 3.0, sem))
+		if k == 0:
+			rr = tam * 1.5   # una punta larga
+		pts.append(p + Vector2(cos(a), sin(a)) * rr)
+	ci.draw_colored_polygon(pts, Color(OBSIDIANA, alfa))
+	# La cara que brilla: el triangulo entre el centro y las dos primeras puntas.
+	ci.draw_colored_polygon(PackedVector2Array([p, pts[0], pts[1]]), Color(OBSIDIANA_BRILLO, 0.85 * alfa))
+	# La veta de lava que aun queda dentro, apagandose.
+	if brasa > 0.0:
+		var m: Vector2 = p.lerp(pts[lados - 1], 0.5)
+		ci.draw_colored_polygon(PackedVector2Array([p, m + (pts[lados - 1] - p).orthogonal().normalized() * tam * 0.18,
+			m.lerp(pts[lados - 1], 0.6)]), Color(MagiaAire.LAVA_CLARA, brasa * alfa))
+
+
+# LAS LOSAS del circulo (como las del Mar de brasas, que le gustaron): anillos partidos en sectores con los vertices
+# movidos, el borde de fuera quebrado (nada de cortes rectos) y cada losa encogida hacia su centro: el hueco es la
+# grieta por la que se ve la lava. Puntos relativos al centro; 'u' = lo lejos del centro (0..1).
+func _losas_circulo() -> Array:
+	var out: Array = []
+	var anillos: Array = [[0.0, 0.3, 3], [0.3, 0.64, 6], [0.64, 1.0, 9]]
+	var jit: Dictionary = {}
+	for an in anillos:
+		var n: int = int(an[2])
+		var giro: float = _rng.randf_range(0.0, TAU)
+		for k in n:
+			var a0: float = giro + TAU * float(k) / float(n)
+			var a1: float = giro + TAU * float(k + 1) / float(n)
+			var r0: float = float(an[0]) * _r
+			var r1: float = float(an[1]) * _r
+			var pts: Array = []
+			# Borde de fuera en 3 tramos (con ruido), y el de dentro igual pero al reves.
+			for q in 4:
+				var a: float = lerpf(a0, a1, float(q) / 3.0)
+				var ruido: float = 0.0 if q == 0 or q == 3 else _rng.randf_range(-0.06, 0.06) * _r
+				pts.append(Vector2(cos(a), sin(a)) * (r1 + ruido))
+			if r0 > 0.5:
+				for q in range(3, -1, -1):
+					var a2: float = lerpf(a0, a1, float(q) / 3.0)
+					var ruido2: float = 0.0 if q == 0 or q == 3 else _rng.randf_range(-0.04, 0.04) * _r
+					pts.append(Vector2(cos(a2), sin(a2)) * (r0 + ruido2))
+			else:
+				pts.append(Vector2.ZERO)
+			var cen := Vector2.ZERO
+			for q2 in pts:
+				cen += q2
+			cen /= float(pts.size())
+			var poly := PackedVector2Array()
+			for q3 in pts:
+				var d: Vector2 = (q3 as Vector2) - cen
+				poly.append(cen + d * maxf(0.0, 1.0 - 2.2 / maxf(d.length(), 1.0)))
+			out.append({"pts": poly, "cen": cen, "u": clampf(cen.length() / _r, 0.0, 1.0)})
+	return out
+
+
+func _losa(ci: CanvasItem, lo: Dictionary, col: Color, brillo: Color) -> void:
+	var poly: PackedVector2Array = lo["pts"]
+	var pv := PackedVector2Array()
+	for q in poly:
+		pv.append(_c + q)
+	if Geometry2D.triangulate_polygon(pv).size() == 0:
+		return
+	ci.draw_colored_polygon(pv, col)
+	# La cara que brilla (de obsidiana, o la parte mas caliente de la losa al rojo).
+	if brillo.a > 0.0 and pv.size() >= 3:
+		var cen: Vector2 = _c + (lo["cen"] as Vector2)
+		ci.draw_colored_polygon(PackedVector2Array([cen, pv[0], pv[1]]), brillo)
+
+
+func _shock(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var t_cae: float = _t - T_AGUA_CAE                        # desde que el agua toca el suelo
+	var t_rompe: float = _t - T_ROMPE                         # desde que revienta en obsidiana
+	var enfria: float = clampf(t_cae / 0.18, 0.0, 1.0)        # rojo -> negro, desde el centro
+	var fin: float = 1.0 - clampf((_t - T_ROMPE - T_VIVE_OBSIDIANA) / 0.45, 0.0, 1.0)
+	if capa == _suelo:
+		# LA LAVA de debajo, que asoma por las grietas entre losas: se enciende con el frente y se apaga tras el agua.
+		var k_rojo: float = clampf(_t / T_CALIENTA, 0.0, 1.0)
+		var frente: float = _r * (1.0 - pow(1.0 - k_rojo, 2.0))
+		var brasa: float = (1.0 - clampf(t_cae / 1.0, 0.0, 1.0) * 0.8) * fin
+		BarridoAire.brillo(capa, _c, frente * 1.2, Color(MagiaAire.FUEGO_ROJO, 0.5 * brasa))
+		_disco(capa, _c, frente, Color(MagiaAire.LAVA_CLARA, brasa), Color(MagiaAire.LAVA, brasa))
+		if k_rojo < 1.0:
+			MagiaAire._anillo(capa, _c, frente, 5.0, Color(MagiaAire.LAVA_CLARA, 0.9))
+		# LAS LOSAS: al rojo cuando les llega el frente, NEGRAS (obsidiana) cuando les llega el frio del agua (tambien
+		# desde el centro), y al reventar se levantan un pelo y se apagan.
+		var frio: float = _r * (1.0 - pow(1.0 - enfria, 2.0)) * 1.05
+		for lo in _rayos:
+			var u: float = float(lo["u"])
+			var t_l: float = _t - _llega_calor(u)
+			if t_l < 0.0 or fin <= 0.0:
+				continue
+			var nace: float = clampf(t_l / 0.08, 0.0, 1.0)
+			if (lo["cen"] as Vector2).length() <= frio and enfria > 0.0:
+				_losa(capa, lo, Color(OBSIDIANA, fin), Color(OBSIDIANA_BRILLO, 0.7 * fin))
+			else:
+				var cal: Color = MagiaAire.FUEGO_ROJO.lerp(MagiaAire.LAVA, 0.35 + 0.3 * MagiaAire._ruido(u * 10.0, 2.0))
+				_losa(capa, lo, Color(cal.darkened(0.25), nace), Color(MagiaAire.LAVA_CLARA, 0.55 * nace))
+		# Los CHARCOS de la salpicadura, que se evaporan.
+		if t_cae >= 0.0 and t_cae < 0.6:
+			var ks: float = t_cae / 0.6
+			MagiaAire._anillo(capa, _c, _r * (0.3 + 0.8 * (1.0 - pow(1.0 - ks, 2.0))), 5.0,
+				Color(MagiaAire.AGUA_CLARA, 0.85 * (1.0 - ks)))
+		return
+	if capa == _delante:
+		# LAS LLAMAS que brotan del suelo al rojo (bocanadas de sus referencias, pequeñas y a saltos).
+		if enfria < 1.0:
+			var paso: float = floor(_t * 14.0)
+			for ll in _gotas:
+				var u: float = float(ll["d"])
+				var t_ll: float = _t - _llega_calor(u)
+				if t_ll < 0.0:
+					continue
+				var viva: float = clampf(t_ll / 0.1, 0.0, 1.0) * (1.0 - enfria)
+				var pl: Vector2 = _c + Vector2(cos(float(ll["a"])), sin(float(ll["a"]))) * _r * u
+				var alto_l: float = float(ll["tam"]) * (0.7 + 0.6 * MagiaAire._ruido(paso, float(ll["sem"]))) * viva
+				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 2.4, 0.3 * (MagiaAire._ruido(paso + 1.0, float(ll["sem"])) - 0.5),
+					alto_l * 0.7, Color(MagiaAire.FUEGO_ROJO, 0.9 * viva))
+				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 1.6, 0.2, alto_l * 0.45, Color(MagiaAire.FUEGO_NARANJA, viva))
+				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 0.9, 0.1, alto_l * 0.25, Color(MagiaAire.FUEGO_AMARILLO, viva))
+		# LA ESFERA DE AGUA: se junta sobre el centro y cae de golpe.
+		var t_esfera: float = _t - T_AGUA_NACE
+		if t_esfera >= 0.0 and t_cae < 0.0:
+			var kf: float = clampf(t_esfera / 0.14, 0.0, 1.0)
+			var kc: float = clampf((_t - (T_AGUA_CAE - T_AGUA_BAJA)) / T_AGUA_BAJA, 0.0, 1.0)
+			var h: float = ALTO_AGUA * (1.0 - kc * kc)
+			var r_e: float = clampf(_r * 0.45, 16.0, 28.0) * (0.3 + 0.7 * kf)
+			var pe: Vector2 = _c + _alto(h)
+			# Gotas que se juntan en la esfera mientras se forma.
+			for m in _motas:
+				var km: float = clampf(t_esfera / 0.14, 0.0, 1.0)
+				var desde: Vector2 = pe + Vector2(cos(float(m["a"])), sin(float(m["a"])) * K) * float(m["d"]) * 2.0
+				if km < 1.0:
+					_disco(capa, desde.lerp(pe, km), float(m["tam"]) * 1.3, Color(MagiaAire.AGUA_CLARA, 0.9), Color(MagiaAire.AGUA, 0.8))
+			# Estirada al caer (una gota gorda), en tonos planos: el borde hondo, el cuerpo, la cara clara y el reflejo;
+			# el contorno tiembla (agua viva) y suelta gotas por arriba al bajar.
+			var estira: float = 1.0 + 0.35 * kc
+			_gota_agua(capa, pe, r_e * 1.08, estira, Color(MagiaAire.AGUA_HONDA, 0.95))
+			_gota_agua(capa, pe + Vector2(0.0, -r_e * 0.04), r_e * 0.92, estira, Color(MagiaAire.AGUA, 0.95))
+			_gota_agua(capa, pe + Vector2(-r_e * 0.3, -r_e * 0.3), r_e * 0.34, estira, Color(MagiaAire.AGUA_CLARA, 0.9))
+			_disco(capa, pe + Vector2(-r_e * 0.35, -r_e * 0.42), r_e * 0.16, Color.WHITE, Color.WHITE)
+			if kc > 0.0:
+				for j in 4:
+					var pj: Vector2 = pe + _alto(r_e * (1.2 + 0.5 * float(j)) * kc) + Vector2((float(j) - 1.5) * r_e * 0.35, 0.0)
+					_gota_agua(capa, pj, r_e * (0.18 - 0.03 * float(j)), 1.4, Color(MagiaAire.AGUA_CLARA, 0.9 * (1.0 - kc * 0.5)))
+		# EL VAPOR: bocanadas grises blancas que suben y se abren al tocar el agua el suelo rojo.
+		if t_cae >= 0.0:
+			for v in _trozos:
+				var tv: float = t_cae - float(v["t0"]) * 0.25
+				var kv: float = tv / float(v["vida"])
+				if kv < 0.0 or kv >= 1.0:
+					continue
+				var pv: Vector2 = _c + (v["dir"] as Vector2) * _r * float(v["d"]) * (0.4 + 0.6 * kv) \
+					+ _alto(6.0 + float(v["sube"]) * kv)
+				var rv: float = float(v["tam"]) * (0.6 + 1.2 * kv)
+				_disco(capa, pv, rv, Color(VAPOR, 0.75 * sin(kv * PI)), Color(VAPOR, 0.0))
+				_disco(capa, pv + Vector2(-rv * 0.2, -rv * 0.25), rv * 0.55, Color(VAPOR_CLARO, 0.6 * sin(kv * PI)),
+					Color(VAPOR_CLARO, 0.0))
+		# LOS PINCHOS DE OBSIDIANA que brotan del suelo al reventar, y las ESQUIRLAS que saltan.
+		if t_rompe >= 0.0 and fin > 0.0:
+			for pz in _esquirlas:
+				if bool(pz["pincho"]):
+					var kp: float = clampf((t_rompe - float(pz["t0"])) / 0.08, 0.0, 1.0)
+					if kp <= 0.0:
+						continue
+					var base: Vector2 = _c + (pz["dir"] as Vector2) * _r * float(pz["d"])
+					var alto_p: float = float(pz["tam"]) * 3.2 * (1.0 - pow(1.0 - kp, 3.0)) * fin
+					var w: float = float(pz["tam"]) * 0.7
+					var incl: Vector2 = (pz["dir"] as Vector2) * alto_p * 0.35
+					var punta: Vector2 = base + _alto(alto_p) + incl
+					capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(w, 0.0),
+						base + Vector2(0.0, w * 0.4)]), Color(OBSIDIANA, fin))
+					capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(-w * 0.1, 0.0)]),
+						Color(OBSIDIANA_CARA, fin))
+					var brasa_p: float = 1.0 - clampf(t_rompe / 0.7, 0.0, 1.0)
+					if brasa_p > 0.0:
+						capa.draw_colored_polygon(PackedVector2Array([base + Vector2(w * 0.15, 0.0), base.lerp(punta, 0.55),
+							base + Vector2(w * 0.45, 0.0)]), Color(MagiaAire.LAVA_CLARA, brasa_p * fin))
+				else:
+					var ke: float = (t_rompe - float(pz["t0"])) / 0.75
+					if ke < 0.0 or ke >= 1.0:
+						continue
+					var te: float = ke * 0.75
+					var p0: Vector2 = _c + (pz["dir"] as Vector2) * _r * float(pz["d"])
+					var vel: Vector2 = pz["vel"]
+					var h2: float = maxf(0.0, vel.y * te - 160.0 * te * te)
+					var pe2: Vector2 = p0 + (pz["dir"] as Vector2) * vel.x * te + _alto(h2)
+					_esquirla(capa, pe2, float(pz["tam"]) * (1.0 - ke * 0.3), float(pz["giro"]) + te * float(pz["gira"]),
+						int(pz["lados"]), float(pz["sem"]), 1.0 - smoothstep(0.75, 1.0, ke), 1.0 - ke)
+		return
+	if capa == _brillo:
+		# El resplandor del calor y el fogonazo del choque (agua contra roca al rojo) y el crujido al reventar.
+		if enfria < 1.0:
+			var k_r: float = clampf(_t / T_CALIENTA, 0.0, 1.0)
+			BarridoAire.brillo(capa, _c + _alto(6.0), _r * (0.3 + 0.7 * k_r), Color(MagiaAire.FUEGO_NARANJA, 0.3 * (1.0 - enfria)))
+		if t_cae >= 0.0 and t_cae < 0.22:
+			var kf2: float = t_cae / 0.22
+			BarridoAire.brillo(capa, _c + _alto(4.0), _r * 0.8 * (1.0 - kf2 * 0.4), Color(VAPOR_CLARO, 0.5 * (1.0 - kf2)))
+		# La base de cada pincho brilla a lava un rato (asi se leen sobre el suelo negro).
+		if t_rompe >= 0.0 and fin > 0.0:
+			var kb: float = 1.0 - clampf(t_rompe / 0.8, 0.0, 1.0)
+			for pz in _esquirlas:
+				if bool(pz["pincho"]):
+					var bp: Vector2 = _c + (pz["dir"] as Vector2) * _r * float(pz["d"])
+					BarridoAire.brillo(capa, bp, float(pz["tam"]) * 2.2, Color(MagiaAire.LAVA, 0.55 * kb * fin))
+		if t_rompe >= 0.0 and t_rompe < 0.3:
+			var kr: float = t_rompe / 0.3
+			BarridoAire.destello(capa, _c + _alto(6.0), _r * 0.55 * (1.0 - kr * 0.5), Color(MagiaAire.LAVA_CLARA, 1.0 - kr), 0.35)
