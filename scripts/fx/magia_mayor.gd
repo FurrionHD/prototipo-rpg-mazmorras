@@ -74,6 +74,7 @@ const OBSIDIANA := Color(0.07, 0.05, 0.1)
 const OBSIDIANA_BRILLO := Color(0.42, 0.36, 0.62)
 const OBSIDIANA_CARA := Color(0.66, 0.6, 0.92)     # la cara de los pinchos (que se lean sobre el suelo negro)
 const VAPOR := Color(0.72, 0.74, 0.78)
+const AGUA_MEDIA := Color(0.3, 0.55, 0.92)
 const VAPOR_CLARO := Color(0.95, 0.96, 0.98)
 const PINCEL := Color(0.8, 0.78, 0.84)
 const VIOLETA_HONDO := Color(0.24, 0.07, 0.3)
@@ -211,8 +212,8 @@ func _preparar() -> void:
 					"giro": _rng.randf_range(0.0, TAU)})
 		Modo.SHOCK:
 			_rayos = _losas_circulo()
-			for i in 22:
-				_gotas.append({"a": _rng.randf_range(0.0, TAU), "d": 0.95 * sqrt(_rng.randf()), "tam": _rng.randf_range(3.0, 6.0),
+			for i in 16:
+				_gotas.append({"a": _rng.randf_range(0.0, TAU), "d": 0.9 * sqrt(_rng.randf()), "tam": _rng.randf_range(4.0, 7.0),
 					"sem": _rng.randf_range(0.0, 50.0)})
 			for i in 10:
 				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(8.0, 14.0), "tam": _rng.randf_range(1.5, 2.5)})
@@ -906,6 +907,47 @@ static func _llega_calor(u: float) -> float:
 
 
 # UNA ESQUIRLA DE OBSIDIANA: cristal negro afilado (3-4 puntas) con una cara brillante violacea y una veta de lava.
+# UNA LLAMA de las de sus referencias (fuego estilizado): silueta llena que nace redonda en 'base' y sube en una punta
+# que se mece, con una segunda punta a un lado; cuatro capas de tono plano (roja, naranja, amarilla y el nucleo casi
+# blanco), cada una mas pequeña y pegada a la base. Cambia de forma a saltos ('paso') como el fuego de pixel.
+func _llama(ci: CanvasItem, base: Vector2, tam: float, sem: float, paso: float) -> void:
+	if tam <= 0.5:
+		return
+	var capas: Array = [[1.0, MagiaAire.FUEGO_ROJO], [0.74, MagiaAire.FUEGO_NARANJA], [0.5, MagiaAire.FUEGO_AMARILLO],
+		[0.26, MagiaAire.FUEGO_BLANCO]]
+	var alto: float = tam * (3.2 + 1.2 * MagiaAire._ruido(paso, sem))
+	var ancho: float = tam * 1.05
+	var lado: float = -1.0 if MagiaAire._ruido(paso + 7.0, sem) < 0.5 else 1.0
+	var mece: float = (MagiaAire._ruido(paso + 3.0, sem) - 0.5) * tam * 1.4
+	for cp in capas:
+		var e: float = float(cp[0])
+		var h: float = alto * (0.35 + 0.65 * e)
+		var w: float = ancho * e
+		var b: Vector2 = base + Vector2(0.0, -w * 0.15)
+		var pts := PackedVector2Array()
+		var m: int = 8
+		# Lado izquierdo de abajo arriba, la punta y el derecho de arriba abajo, y la panza redonda por debajo.
+		for side in [-1.0, 1.0]:
+			for k in m + 1:
+				if side > 0.0 and k == 0:
+					continue   # la punta ya la puso el lado izquierdo
+				var kk: int = k if side < 0.0 else m - k
+				var u: float = float(kk) / float(m)
+				# Ancha abajo (la panza) y afilandose hasta la punta, sin tramos de ancho cero (Godot no rellena
+				# un contorno con puntos repetidos en linea).
+				var wu: float = w * pow(1.0 - u, 0.8) * (0.8 + 0.3 * sin(minf(u * 2.5, 1.0) * PI * 0.5))
+				# La segunda punta: un lobulo que sale a un lado a media altura.
+				if side == lado and u > 0.45 and u < 0.75:
+					wu += w * 0.55 * sin((u - 0.45) / 0.3 * PI) * (1.0 - absf(u - 0.6) * 3.0)
+				var x: float = side * wu + mece * u * u
+				pts.append(b + Vector2(x, -h * u))
+		for k in 5:
+			var a: float = PI * float(k + 1) / 6.0
+			pts.append(b + Vector2(cos(a) * w * 0.85, sin(a) * w * 0.45))
+		if Geometry2D.triangulate_polygon(pts).size() > 0:
+			ci.draw_colored_polygon(pts, cp[1])
+
+
 # UNA GOTA/ESFERA DE AGUA de contorno que tiembla, estirada en vertical 'estira' veces.
 func _gota_agua(ci: CanvasItem, c: Vector2, r: float, estira: float, col: Color) -> void:
 	if r <= 0.3:
@@ -1031,21 +1073,40 @@ func _shock(capa: Node2D) -> void:
 				Color(MagiaAire.AGUA_CLARA, 0.85 * (1.0 - ks)))
 		return
 	if capa == _delante:
-		# LAS LLAMAS que brotan del suelo al rojo (bocanadas de sus referencias, pequeñas y a saltos).
+		# (26/09: "el fuego se puede mejorar") LLAMAS GRANDES de las suyas: siluetas llenas en cuatro tonos que se mecen
+		# y cambian a saltos; un MURO de llamas corre con el frente al rojo, y ASCUAS que suben. Se apagan con el agua
+		# (desde el centro, como el frio). De atras hacia delante, para que las de delante tapen a las de atras.
 		if enfria < 1.0:
-			var paso: float = floor(_t * 14.0)
+			var paso: float = floor(_t * 12.0)
+			var k_fr: float = clampf(_t / T_CALIENTA, 0.0, 1.0)
+			var r_fr: float = _r * (1.0 - pow(1.0 - k_fr, 2.0))
+			var frio_l: float = _r * (1.0 - pow(1.0 - enfria, 2.0)) * 1.05
+			var orden: Array = []
 			for ll in _gotas:
 				var u: float = float(ll["d"])
 				var t_ll: float = _t - _llega_calor(u)
 				if t_ll < 0.0:
 					continue
-				var viva: float = clampf(t_ll / 0.1, 0.0, 1.0) * (1.0 - enfria)
 				var pl: Vector2 = _c + Vector2(cos(float(ll["a"])), sin(float(ll["a"]))) * _r * u
-				var alto_l: float = float(ll["tam"]) * (0.7 + 0.6 * MagiaAire._ruido(paso, float(ll["sem"]))) * viva
-				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 2.4, 0.3 * (MagiaAire._ruido(paso + 1.0, float(ll["sem"])) - 0.5),
-					alto_l * 0.7, Color(MagiaAire.FUEGO_ROJO, 0.9 * viva))
-				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 1.6, 0.2, alto_l * 0.45, Color(MagiaAire.FUEGO_NARANJA, viva))
-				_lengua_sol(capa, pl, -PI * 0.5, 0.0, alto_l * 0.9, 0.1, alto_l * 0.25, Color(MagiaAire.FUEGO_AMARILLO, viva))
+				if enfria > 0.0 and u * _r <= frio_l:
+					continue
+				var viva: float = clampf(t_ll / 0.09, 0.0, 1.0)
+				orden.append([pl, float(ll["tam"]) * viva, float(ll["sem"])])
+			# El muro: llamas en el frente mientras avanza.
+			if k_fr < 1.0:
+				for j in 14:
+					var a_m: float = TAU * float(j) / 14.0 + 0.2 * MagiaAire._ruido(float(j), 2.0)
+					orden.append([_c + Vector2(cos(a_m), sin(a_m)) * r_fr, 4.5 * (1.0 - k_fr * 0.4), float(j) * 3.7])
+			orden.sort_custom(func(x, y): return (x[0] as Vector2).y < (y[0] as Vector2).y)
+			for o in orden:
+				_llama(capa, o[0], float(o[1]), float(o[2]), paso)
+			# Las ascuas que suben del suelo al rojo.
+			for m in _motas:
+				var tm: float = fmod(_t * 0.9 + float(m["d"]) * 0.1, 0.6)
+				var pa: Vector2 = _c + Vector2(cos(float(m["a"])), sin(float(m["a"]))) * _r * 0.6 * (float(m["d"]) / 14.0) \
+					+ _alto(tm * 70.0) + Vector2(sin(_t * 6.0 + float(m["a"])) * 3.0, 0.0)
+				_disco(capa, pa, float(m["tam"]) * (1.0 - tm / 0.6), Color(MagiaAire.FUEGO_AMARILLO, 1.0 - enfria),
+					Color(MagiaAire.FUEGO_NARANJA, 1.0 - enfria))
 		# LA ESFERA DE AGUA: se junta sobre el centro y cae de golpe.
 		var t_esfera: float = _t - T_AGUA_NACE
 		if t_esfera >= 0.0 and t_cae < 0.0:
@@ -1063,10 +1124,31 @@ func _shock(capa: Node2D) -> void:
 			# Estirada al caer (una gota gorda), en tonos planos: el borde hondo, el cuerpo, la cara clara y el reflejo;
 			# el contorno tiembla (agua viva) y suelta gotas por arriba al bajar.
 			var estira: float = 1.0 + 0.35 * kc
-			_gota_agua(capa, pe, r_e * 1.08, estira, Color(MagiaAire.AGUA_HONDA, 0.95))
-			_gota_agua(capa, pe + Vector2(0.0, -r_e * 0.04), r_e * 0.92, estira, Color(MagiaAire.AGUA, 0.95))
-			_gota_agua(capa, pe + Vector2(-r_e * 0.3, -r_e * 0.3), r_e * 0.34, estira, Color(MagiaAire.AGUA_CLARA, 0.9))
-			_disco(capa, pe + Vector2(-r_e * 0.35, -r_e * 0.42), r_e * 0.16, Color.WHITE, Color.WHITE)
+			# (26/09: "el agua tiene mucho borde") sin borde oscuro: un halo suave, el cuerpo, la parte de abajo algo
+			# mas honda, un remolino de espuma que gira dentro y el reflejo.
+			BarridoAire.brillo(capa, pe, r_e * 1.5, Color(MagiaAire.AGUA, 0.35))
+			_gota_agua(capa, pe, r_e, estira, Color(AGUA_MEDIA, 0.95))
+			_gota_agua(capa, pe + Vector2(-r_e * 0.14, -r_e * 0.16 * estira), r_e * 0.7, estira, Color(MagiaAire.AGUA, 0.9))
+			# Dos medias lunas de ESPUMA que giran dentro (bandas rellenas, no puntos).
+			for j in 2:
+				var a_e: float = _t * 7.0 + PI * float(j)
+				var pts_e := PackedVector2Array()
+				var n_e: int = 8
+				for q in n_e + 1:
+					var u0: float = float(q) / float(n_e)
+					var ang: float = a_e + u0 * 2.0
+					var rr0: float = r_e * 0.66
+					var w0: float = r_e * 0.1 * sin(u0 * PI)
+					pts_e.append(pe + Vector2(cos(ang) / sqrt(estira), sin(ang) * estira) * (rr0 + w0))
+				for q in range(n_e, -1, -1):
+					var u1: float = float(q) / float(n_e)
+					var ang1: float = a_e + u1 * 2.0
+					var w1: float = r_e * 0.1 * sin(u1 * PI)
+					pts_e.append(pe + Vector2(cos(ang1) / sqrt(estira), sin(ang1) * estira) * (r_e * 0.66 - w1))
+				if Geometry2D.triangulate_polygon(pts_e).size() > 0:
+					capa.draw_colored_polygon(pts_e, Color(MagiaAire.ESPUMA, 0.85))
+			_gota_agua(capa, pe + Vector2(-r_e * 0.32, -r_e * 0.34 * estira), r_e * 0.26, estira, Color(MagiaAire.AGUA_CLARA, 0.9))
+			_disco(capa, pe + Vector2(-r_e * 0.38, -r_e * 0.44 * estira), r_e * 0.1, Color.WHITE, Color.WHITE)
 			if kc > 0.0:
 				for j in 4:
 					var pj: Vector2 = pe + _alto(r_e * (1.2 + 0.5 * float(j)) * kc) + Vector2((float(j) - 1.5) * r_e * 0.35, 0.0)
