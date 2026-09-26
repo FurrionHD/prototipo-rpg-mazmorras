@@ -45,8 +45,10 @@ const T_PULSO := 0.22            # entre tiron y tiron (los tres golpes)
 const TIRONES := 3
 const T_CIERRA := 0.35           # y lo que tarda en cerrarse en un punto
 const NEGRO := Color(0.03, 0.02, 0.04)
-const SOMBRA_ROJA := Color(0.92, 0.1, 0.09)
-const SOMBRA_GRANATE := Color(0.42, 0.02, 0.05)
+# (26/09: "en vez de rojo usa blanco") negro y blanco, como su dibujo.
+const SOMBRA_CLARA := Color(0.95, 0.94, 0.97)
+const SOMBRA_GRIS := Color(0.26, 0.24, 0.3)
+const BLANCO_OJO := Color(0.96, 0.95, 0.98)
 const PINCEL := Color(0.8, 0.78, 0.84)
 const VIOLETA_HONDO := Color(0.24, 0.07, 0.3)
 
@@ -543,7 +545,7 @@ func _brazo(ci: CanvasItem, c: Vector2, a0: float, r_in: float, r_out: float, vu
 static func _anillos_rotos(ci: CanvasItem, c: Vector2, r: float, giro: float, alfa: float) -> void:
 	if r <= 0.5:
 		return
-	_disco(ci, c, r, Color(SOMBRA_GRANATE, alfa), Color(SOMBRA_GRANATE, alfa))
+	_disco(ci, c, r * 1.1, Color(NEGRO, alfa), Color(NEGRO, alfa))
 	var radios: Array = [0.95, 0.72, 0.5]
 	for j in radios.size():
 		var rr: float = r * float(radios[j])
@@ -558,10 +560,10 @@ static func _anillos_rotos(ci: CanvasItem, c: Vector2, r: float, giro: float, al
 				var w: float = r * 0.09
 				var d0 := Vector2(cos(b0), sin(b0))
 				var d1 := Vector2(cos(b1), sin(b1))
-				var cr := Color(SOMBRA_ROJA, alfa)
+				var cr := Color(SOMBRA_CLARA, alfa)
 				ci.draw_primitive(PackedVector2Array([c + d0 * (rr - w), c + d0 * (rr + w), c + d1 * (rr + w), c + d1 * (rr - w)]),
 					PackedColorArray([cr, cr, cr, cr]), PackedVector2Array())
-	_disco(ci, c, r * 0.24, Color(SOMBRA_ROJA, alfa), Color(SOMBRA_ROJA, alfa))
+	_disco(ci, c, r * 0.24, Color(SOMBRA_CLARA, alfa), Color(SOMBRA_CLARA, alfa))
 	_disco(ci, c, r * 0.12, Color(NEGRO, alfa), Color(NEGRO, alfa))
 
 
@@ -620,31 +622,42 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 			poly.append(_ojo_p(c, eje, nor, gancho if cola > 0.0 else punta))
 	if Geometry2D.triangulate_polygon(poly).size() > 0:
 		ci.draw_colored_polygon(poly, Color(NEGRO, alfa))
-	# El iris rojo: la almendra de dentro, mas pequeña.
-	var rojo := PackedVector2Array()
-	for k in n + 1:
-		var q1: Vector2 = (arriba[k] as Vector2) * Vector2(0.74, 0.62)
-		rojo.append(_ojo_p(c, eje, nor, q1))
-	for k in range(n, -1, -1):
-		var q2: Vector2 = (abajo[k] as Vector2) * Vector2(0.74, 0.56)
-		rojo.append(_ojo_p(c, eje, nor, q2))
-	if alto > 1.2 and Geometry2D.triangulate_polygon(rojo).size() > 0:
-		ci.draw_colored_polygon(rojo, Color(SOMBRA_ROJA, alfa))
-		# Los anillos negros del iris, aplastados contra los parpados (como si el parpado los cortase).
-		var pc: Vector2 = Vector2(mira * largo * 0.14, 0.0)
-		for j in 4:
-			var rr: float = largo * (0.035 + 0.045 * float(j))
-			var anillo := PackedVector2Array()
-			for k in 20:
-				var a: float = TAU * float(k) / 20.0
-				var q3: Vector2 = pc + Vector2(cos(a) * rr * 1.7, sin(a) * rr)
-				var uu: float = clampf(q3.x / largo + 0.5, 0.0, 1.0)
-				var lim: float = pow(sin(uu * PI), 0.7) * alto * 0.62
-				q3.y = clampf(q3.y, -lim, lim * 0.85)
-				anillo.append(_ojo_p(c, eje, nor, q3))
-			anillo.append(anillo[0])
-			ci.draw_polyline(anillo, Color(NEGRO, alfa), maxf(0.7, largo * 0.035), true)
-		ci.draw_circle(_ojo_p(c, eje, nor, Vector2(pc.x, 0.0)), largo * 0.05 * minf(abre * 1.5, 1.0), Color(NEGRO, alfa))
+	# (26/09, su referencia del ojo: "intenta que sean asi" y "en vez de rojo usa blanco") dentro, una MEDIA LUNA
+	# blanca que sigue el parpado de arriba; el IRIS de anillos blancos rotos hacia la punta; y por fuera PINCELADAS
+	# blancas rotas.
+	if alto > 1.2:
+		var luna := PackedVector2Array()
+		var n_l: int = 10
+		for k in n_l + 1:
+			var u: float = lerpf(0.12, 0.72, float(k) / float(n_l))
+			var x: float = (u - 0.5) * largo
+			var cur: float = pow(sin(u * PI), 0.7)
+			var g: float = alto * 0.22 * sin(float(k) / float(n_l) * PI)
+			luna.append(_ojo_p(c, eje, nor, Vector2(x, -alto * cur * 0.42 - g)))
+		for k in range(n_l, -1, -1):
+			var u2: float = lerpf(0.12, 0.72, float(k) / float(n_l))
+			var x2: float = (u2 - 0.5) * largo
+			var cur2: float = pow(sin(u2 * PI), 0.7)
+			var g2: float = alto * 0.22 * sin(float(k) / float(n_l) * PI)
+			luna.append(_ojo_p(c, eje, nor, Vector2(x2, -alto * cur2 * 0.42 + g2)))
+		if Geometry2D.triangulate_polygon(luna).size() > 0:
+			ci.draw_colored_polygon(luna, Color(BLANCO_OJO, alfa))
+		# El iris: anillos blancos rotos que giran, hacia la punta del ojo.
+		var iris: Vector2 = _ojo_p(c, eje, nor, Vector2(largo * (0.16 + 0.05 * mira), alto * 0.18))
+		_anillos_rotos(ci, iris, alto * 0.72, _t * 3.0 + sem, alfa)
+		# Las pinceladas blancas por fuera del parpado de arriba (el borde de fuera del ojo), con huecos.
+		for k in n:
+			if MagiaAire._ruido(float(k) * 1.3, sem + 5.0) < 0.4:
+				continue
+			var e0: Vector2 = arriba[k]
+			var e1: Vector2 = arriba[k + 1]
+			var w0: float = 0.5 + 1.2 * sin(float(k) / float(n) * PI)
+			var p0: Vector2 = _ojo_p(c, eje, nor, e0 + Vector2(0.0, -2.2))
+			var p1: Vector2 = _ojo_p(c, eje, nor, e1 + Vector2(0.0, -2.2 - w0 * 0.5))
+			var t: Vector2 = (p1 - p0).normalized().orthogonal()
+			ci.draw_primitive(PackedVector2Array([p0 - t * w0, p1, p0 + t * w0]),
+				PackedColorArray([Color(BLANCO_OJO, alfa), Color(BLANCO_OJO, 0.0), Color(BLANCO_OJO, alfa)]),
+				PackedVector2Array())
 
 
 func _voragine(capa: Node2D) -> void:
@@ -674,7 +687,7 @@ func _voragine(capa: Node2D) -> void:
 				var desde: Vector2 = mano + Vector2(cos(float(m["a"])), sin(float(m["a"])) * K) * float(m["d"])
 				BarridoAire.cometa(capa, desde.lerp(mano, maxf(0.0, km * km - 0.2)), desde.lerp(mano, km * km),
 					float(m["tam"]) * 1.4, Color(NEGRO, 0.85))
-			_disco(capa, mano, 2.0 + 4.0 * kc, NEGRO, Color(SOMBRA_GRANATE, 0.9))
+			_disco(capa, mano, 2.0 + 4.0 * kc, NEGRO, Color(SOMBRA_GRIS, 0.9))
 			return
 		var u: float = clampf((_t - T_CARGA_SOL) / maxf(tl - T_CARGA_SOL, 0.01), 0.0, 1.0)
 		var a: Vector2 = mano
@@ -692,7 +705,7 @@ func _voragine(capa: Node2D) -> void:
 			_disco(capa, p, 7.0, NEGRO, Color(NEGRO, 0.9))
 			_anillos_rotos(capa, p, 4.0, _t * 9.0, 1.0)
 			return
-		BarridoAire.brillo(capa, p, 13.0, Color(SOMBRA_ROJA, 0.35))
+		BarridoAire.brillo(capa, p, 13.0, Color(SOMBRA_CLARA, 0.35))
 		return
 	# 2) EL POZO.
 	if capa == _suelo:
@@ -707,8 +720,8 @@ func _voragine(capa: Node2D) -> void:
 		# EL AGUJERO NEGRO: halo rojo oscuro, el borde que brilla en rojo y el disco negro puro; las pinceladas rotas
 		# giran pegadas a su borde (las de su primera referencia).
 		var r_h: float = _r * 0.6 * vivo * (1.0 + 0.08 * ap)
-		BarridoAire.brillo(capa, _c, r_h * 1.35, Color(SOMBRA_GRANATE, 0.6 * vivo))
-		MagiaAire._anillo(capa, _c, r_h, 4.0 + 3.0 * ap, Color(SOMBRA_ROJA, (0.55 + 0.4 * ap) * vivo))
+		BarridoAire.brillo(capa, _c, r_h * 1.35, Color(SOMBRA_GRIS, 0.6 * vivo))
+		MagiaAire._anillo(capa, _c, r_h, 4.0 + 3.0 * ap, Color(SOMBRA_CLARA, (0.55 + 0.4 * ap) * vivo))
 		_disco(capa, _c, r_h, NEGRO, NEGRO)
 		for i in 3:
 			_brazo(capa, _c, giro * 1.3 + TAU * float(i) / 3.0, r_h * 0.98, r_h * 1.12, 1.4, _r * 0.03 * vivo, vivo * 0.9,
@@ -727,7 +740,7 @@ func _voragine(capa: Node2D) -> void:
 		_arco_r = 0.0
 		# El tiron: una onda granate que se cierra hacia el agujero.
 		if ap > 0.02:
-			MagiaAire._anillo(capa, _c, lerpf(r_h, _r * 1.05, ap), 5.0, Color(SOMBRA_GRANATE, 0.7 * ap))
+			MagiaAire._anillo(capa, _c, lerpf(r_h, _r * 1.05, ap), 5.0, Color(SOMBRA_GRIS, 0.7 * ap))
 		return
 	if capa == _delante:
 		if tp < 0.0:
@@ -750,9 +763,9 @@ func _voragine(capa: Node2D) -> void:
 	if capa == _brillo:
 		if tp < 0.0:
 			var kh2: float = clampf(t_hunde / T_HUNDE, 0.0, 1.0)
-			BarridoAire.brillo(capa, _c, 18.0 * kh2, Color(SOMBRA_ROJA, 0.5 * kh2))
+			BarridoAire.brillo(capa, _c, 18.0 * kh2, Color(SOMBRA_CLARA, 0.5 * kh2))
 			return
 		# El resplandor rojo del ojo, que late con los tirones, y el destello rojo al cerrarse.
-		BarridoAire.brillo(capa, _c, _r * 0.6 * vivo * 1.15, Color(SOMBRA_ROJA, (0.12 + 0.25 * ap) * vivo))
+		BarridoAire.brillo(capa, _c, _r * 0.6 * vivo * 1.15, Color(SOMBRA_CLARA, (0.12 + 0.25 * ap) * vivo))
 		if cierra > 0.0 and cierra < 1.0:
-			BarridoAire.destello(capa, _c + _alto(3.0), 20.0 * (1.0 - cierra), Color(SOMBRA_ROJA, 1.0 - cierra), 0.5)
+			BarridoAire.destello(capa, _c + _alto(3.0), 20.0 * (1.0 - cierra), Color(SOMBRA_CLARA, 1.0 - cierra), 0.5)
