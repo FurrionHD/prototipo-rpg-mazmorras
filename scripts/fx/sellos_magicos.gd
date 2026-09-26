@@ -12,7 +12,8 @@
 #              debilitar dientes hacia dentro · cura petalos.
 #    CAPAS   = las frases: 1 nucleo, 2 anillo de fuera, 3 tres satelites que orbitan, 4 la corona sobre la cabeza.
 #    RAREZA  = detalle (anillos finos de mas, cuentas).
-#    MEZCLAS = cada capa toma un elemento de la mezcla, en orden (el Eclipse alterna luz y sombra).
+#    MEZCLAS = nucleo y satelites del primer elemento, anillo y corona del segundo (el Eclipse: morado abajo,
+#              dorado fuera y arriba). El Prismatico es aparte: un elemento en cada satelite.
 #  SIN RUNAS NI LETRAS: el hueco entre anillos lleva un FRISO de marcas abstractas (rombos, puntos, rayitas).
 #  Una receta es un Dictionary: {"n": frases, "grupos": [grupo...]}. Cada grupo gira entero y tiene piezas en
 #  sus coordenadas; CirculoMagico lo dibuja. RETOQUES deja cambiar a mano la receta de una magia concreta.
@@ -109,9 +110,10 @@ static func elementos_por_capa(spell: SpellData) -> Array:
 	var out: Array = []
 	for i in 6:
 		out.append(lista[i % lista.size()])
-	# Con mezcla, el anillo es el SEGUNDO elemento y los satelites alternan empezando por el primero.
+	# Con mezcla, el anillo es el SEGUNDO elemento, los tres satelites TODOS del primero y la corona del segundo
+	# (26/09, el usuario con el Eclipse: satelites de colores alternos "queda raro").
 	if lista.size() > 1:
-		out = [lista[0], lista[1], lista[0], lista[1 % lista.size()], lista[0], lista[1]]
+		out = [lista[0], lista[1], lista[0], lista[0], lista[0], lista[1]]
 	return out
 
 
