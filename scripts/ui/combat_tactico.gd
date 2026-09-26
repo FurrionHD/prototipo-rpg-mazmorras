@@ -317,8 +317,10 @@ func _sigilo_visible(quitar: bool) -> void:
 var _circulos: Dictionary = {}   # Combatant -> CirculoMagico
 
 
-# Los conjuros en curso que se ven: {Combatant: [SpellData, frases dichas]}.
+# Los conjuros en curso que se ven: {Combatant: [SpellData, frases dichas]}. En el espejo, los de la red.
 func _casteos_vistos() -> Dictionary:
+	if _pantalla._espejo:
+		return _casteos_red
 	var out: Dictionary = {}
 	for c in _pantalla._casteos:
 		var d: Dictionary = _pantalla._casteos[c]
@@ -359,22 +361,67 @@ func _tick_circulos() -> void:
 
 # El conjuro de 'c' se acaba: 'disparo' = se suelta (fogonazo); si no, se ha recitado mal (se rompe). Si aun no
 # habia circulo (falla la primera frase), sale uno para romperse.
-func circulo_acaba(c: Combatant, disparo: bool) -> void:
+func circulo_acaba(c: Combatant, disparo: bool, spell: SpellData = null) -> void:
+	if spell == null:
+		spell = (_pantalla._casteos.get(c, {}) as Dictionary).get("spell") as SpellData
+	# Para los espejos: viaja en la instantanea (circulos_para_red).
+	if not _pantalla._espejo and spell != null:
+		_fin_seq += 1
+		_fines.append([_pantalla._aliados.find(c), disparo, spell.resource_path, _fin_seq])
+		if _fines.size() > 4:
+			_fines.pop_front()
 	var circ = _circulos.get(c)
 	if circ == null or not is_instance_valid(circ) or (circ as CirculoMagico).acabando():
 		circ = null
 		if disparo:
 			return
-		var d: Dictionary = _pantalla._casteos.get(c, {})
 		var cu: Node2D = cuerpo_de(c)
-		if cu == null or not (d.get("spell") is SpellData):
+		if cu == null or spell == null:
 			return
-		circ = CirculoMagico.crear(cu, d["spell"], Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+		circ = CirculoMagico.crear(cu, spell, Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
 	if disparo:
 		(circ as CirculoMagico).disparar()
 	else:
 		(circ as CirculoMagico).fallar()
 	_circulos.erase(c)
+
+
+# --- EN RED: quien lleva la pelea manda los conjuros en curso y los finales; el espejo los pinta igual. ---
+var _fines: Array = []            # [aliado, disparo, ruta, seq]: los ultimos, por si se pierde una instantanea
+var _fin_seq: int = 0
+var _casteos_red: Dictionary = {} # ESPEJO: {Combatant: [SpellData, frases dichas]}
+var _fin_visto: int = -1          # ESPEJO: el ultimo final ya pintado (-1 = aun no ha llegado ninguna)
+
+func circulos_para_red() -> Dictionary:
+	var cs: Array = []
+	for c in _pantalla._casteos:
+		var d: Dictionary = _pantalla._casteos[c]
+		var i: int = _pantalla._aliados.find(c)
+		if i >= 0 and d.get("spell") is SpellData:
+			cs.append([i, (d["spell"] as SpellData).resource_path, int(d.get("idx", 0))])
+	return {"c": cs, "f": _fines}
+
+
+func aplicar_circulos_red(d: Dictionary) -> void:
+	# Los finales primero: el circulo se cierra (o se rompe) antes de que la conciliacion lo apague.
+	var fines: Array = d.get("f", [])
+	var tope: int = _fin_visto
+	for f in fines:
+		var seq: int = int(f[3])
+		tope = maxi(tope, seq)
+		if _fin_visto < 0 or seq <= _fin_visto:
+			continue   # al llegar a mitad no se repiten los de antes
+		var i: int = int(f[0])
+		var sp = load(str(f[2])) if str(f[2]) != "" else null
+		if i >= 0 and i < _pantalla._aliados.size() and sp is SpellData:
+			circulo_acaba(_pantalla._aliados[i], bool(f[1]), sp)
+	_fin_visto = maxi(tope, 0)
+	_casteos_red.clear()
+	for c in d.get("c", []):
+		var i2: int = int(c[0])
+		var sp2 = load(str(c[1])) if str(c[1]) != "" else null
+		if i2 >= 0 and i2 < _pantalla._aliados.size() and sp2 is SpellData:
+			_casteos_red[_pantalla._aliados[i2]] = [sp2, int(c[2])]
 
 
 func _apagar_circulos() -> void:

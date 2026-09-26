@@ -329,7 +329,9 @@ func instantanea() -> Dictionary:
 	return {"a": _valores(_pantalla._aliados, true), "e": _valores(_pantalla._enemies),
 		"turno": _pantalla._aliados.find(_pantalla._player), "log": _trozo_log(),
 		"logn": _pantalla._log_lines.size(), "fin": _pantalla._state == _pantalla.State.FINISHED,
-		"rev": _rev, "vel": _pantalla._vel_pelea}
+		"rev": _rev, "vel": _pantalla._vel_pelea,
+		# Los CIRCULOS MAGICOS (26/09): quien recita, que magia y cuantas frases, y como acabaron los ultimos.
+		"circ": _pantalla.turno_mapa.circulos_para_red() if _pantalla.tactico else {}}
 
 
 # Las frases escritas desde la ultima instantanea (como mucho _LOG_TROZO_MAX, las ultimas).
@@ -428,6 +430,8 @@ func aplicar_instantanea(snap: Dictionary) -> void:
 		_rev_pedida = true
 		Net.peleas.pedir_roster_pelea()
 	_volcar(_pantalla._aliados, snap.get("a", []))
+	if _pantalla.tactico and snap.get("circ") is Dictionary:
+		_pantalla.turno_mapa.aplicar_circulos_red(snap["circ"])
 	_volcar(_pantalla._enemies, snap.get("e", []))
 	_apagar_caidos()
 	var t: int = int(snap.get("turno", -1))
