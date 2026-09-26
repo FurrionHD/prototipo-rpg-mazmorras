@@ -119,6 +119,11 @@ func _correr() -> void:
 	for e in enemigos:
 		media += (e as Node2D).global_position
 	media /= float(enemigos.size())
+	# SUELO_HECHIZO=eclipse: el CIRCULO MAGICO en la pelea (26/09): frase a frase, el disparo y un fallo.
+	if OS.get_environment("SUELO_HECHIZO") != "":
+		await _circulo_en_pelea(combat, OS.get_environment("SUELO_HECHIZO"))
+		get_tree().quit(0)
+		return
 	var ab: AbilityData = load("res://resources/abilities/%s.tres" % nom)
 	combat._player.current_energy = combat._player.max_energy
 	# SUELO_STATS=1: el ataque y la defensa de cada uno de los tuyos (de donde sale lo que pega un escudazo).
@@ -296,3 +301,32 @@ func _correr() -> void:
 		await _foto("%s_%d" % [nom, i])
 	print("=== FIN ===")
 	get_tree().quit(0)
+
+
+func _circulo_en_pelea(combat: Node, nom: String) -> void:
+	var s: SpellData = load("res://resources/spells/%s.tres" % nom)
+	var yo: Combatant = combat._player
+	var t = combat.turno_mapa
+	for k in range(1, s.longitud() + 1):
+		combat._casteos[yo] = {"spell": s, "idx": k}
+		await get_tree().create_timer(0.2, true, false, true).timeout
+		await _foto("%s_frase%d_sale" % [nom, k])
+		await get_tree().create_timer(0.8, true, false, true).timeout
+		await _foto("%s_frase%d" % [nom, k])
+	print("  circulos vivos: ", t._circulos.size())
+	t.circulo_acaba(yo, true)
+	combat._casteos.erase(yo)
+	await get_tree().create_timer(0.25, true, false, true).timeout
+	await _foto("%s_disparo1" % nom)
+	await get_tree().create_timer(0.2, true, false, true).timeout
+	await _foto("%s_disparo2" % nom)
+	await get_tree().create_timer(0.5, true, false, true).timeout
+	combat._casteos[yo] = {"spell": s, "idx": 1}
+	await get_tree().create_timer(0.9, true, false, true).timeout
+	t.circulo_acaba(yo, false)
+	combat._casteos.erase(yo)
+	await get_tree().create_timer(0.2, true, false, true).timeout
+	await _foto("%s_fallo" % nom)
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	print("  circulos vivos al final: ", t._circulos.size())
+	print("=== FIN ===")

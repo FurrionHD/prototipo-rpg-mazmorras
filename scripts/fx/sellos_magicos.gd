@@ -29,7 +29,7 @@ const R_ANILLO := 31.0
 const R_ORBITA := 42.0
 const R_SAT := 8.5
 const R_CORONA := 14.0
-const ALTO_CORONA := 46.0
+const ALTO_CORONA := 62.0   # por encima del casco del muñeco del juego (la cabeza llega a ~40)
 
 # [halo, nucleo] por elemento. NINGUNO = arcano (violeta azulado; la oscuridad tira a magenta para no confundirse).
 const TONOS := {

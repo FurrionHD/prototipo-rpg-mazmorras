@@ -276,6 +276,7 @@ func desmontar() -> void:
 	_modos_guardados.clear()
 	_tirones.clear()
 	_quitar_circulo()
+	_apagar_circulos()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
@@ -305,6 +306,83 @@ func _sigilo_visible(quitar: bool) -> void:
 		var esc: Vector2 = Vector2.ONE * (ESCALA_CARNE if carne else 1.0)
 		if m is Node2D and not (m as Node2D).scale.is_equal_approx(esc):
 			(m as Node2D).scale = esc
+
+
+# ------------------------------------------------------------
+#  LOS CIRCULOS MAGICOS de quien recita (26/09): a sus pies, una capa por frase (CirculoMagico).
+# ------------------------------------------------------------
+# Se CONCILIAN cada fotograma con los conjuros en curso: asi los cubre todos (huir, morir, cambiar, acabar la
+# pelea) sin tocar cada salida. El disparo y el fallo los avisa combat_magia (circulo_acaba) antes de limpiar
+# el conjuro, para que el circulo se cierre en un fogonazo o se rompa en vez de apagarse sin mas.
+var _circulos: Dictionary = {}   # Combatant -> CirculoMagico
+
+
+# Los conjuros en curso que se ven: {Combatant: [SpellData, frases dichas]}.
+func _casteos_vistos() -> Dictionary:
+	var out: Dictionary = {}
+	for c in _pantalla._casteos:
+		var d: Dictionary = _pantalla._casteos[c]
+		if d.get("spell") is SpellData:
+			out[c] = [d["spell"], int(d.get("idx", 0))]
+	return out
+
+
+func _tick_circulos() -> void:
+	var vistos: Dictionary = _casteos_vistos()
+	for c in vistos:
+		var spell: SpellData = vistos[c][0]
+		var dichas: int = vistos[c][1]
+		var circ = _circulos.get(c)
+		if circ != null and (not is_instance_valid(circ) or (circ as CirculoMagico).acabando()):
+			circ = null
+		if circ != null and str((circ as CirculoMagico).receta.get("clave", "")) != SellosMagicos.clave_de(spell):
+			(circ as CirculoMagico).apagar()
+			circ = null
+		if dichas <= 0:
+			continue
+		if circ == null:
+			var cu: Node2D = cuerpo_de(c)
+			if cu == null:
+				continue
+			circ = CirculoMagico.crear(cu, spell, Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+			_circulos[c] = circ
+		if (circ as CirculoMagico).frases_dichas() < dichas:
+			(circ as CirculoMagico).a_la_frase(dichas)
+	for c in _circulos.keys():
+		if vistos.has(c) and int(vistos[c][1]) > 0:
+			continue
+		var circ2 = _circulos[c]
+		if is_instance_valid(circ2) and not (circ2 as CirculoMagico).acabando():
+			(circ2 as CirculoMagico).apagar()
+		_circulos.erase(c)
+
+
+# El conjuro de 'c' se acaba: 'disparo' = se suelta (fogonazo); si no, se ha recitado mal (se rompe). Si aun no
+# habia circulo (falla la primera frase), sale uno para romperse.
+func circulo_acaba(c: Combatant, disparo: bool) -> void:
+	var circ = _circulos.get(c)
+	if circ == null or not is_instance_valid(circ) or (circ as CirculoMagico).acabando():
+		circ = null
+		if disparo:
+			return
+		var d: Dictionary = _pantalla._casteos.get(c, {})
+		var cu: Node2D = cuerpo_de(c)
+		if cu == null or not (d.get("spell") is SpellData):
+			return
+		circ = CirculoMagico.crear(cu, d["spell"], Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+	if disparo:
+		(circ as CirculoMagico).disparar()
+	else:
+		(circ as CirculoMagico).fallar()
+	_circulos.erase(c)
+
+
+func _apagar_circulos() -> void:
+	for c in _circulos:
+		var circ = _circulos[c]
+		if is_instance_valid(circ) and not (circ as CirculoMagico).acabando():
+			(circ as CirculoMagico).apagar()
+	_circulos.clear()
 
 
 # ------------------------------------------------------------
@@ -647,6 +725,7 @@ func tick(delta: float) -> bool:
 	if is_instance_valid(_foco):
 		Game.camara_tactica_sigue(_foco.global_position)
 	_sigilo_visible(false)
+	_tick_circulos()
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_tirones(delta)

@@ -388,6 +388,8 @@ func _disparar_hechizo() -> void:
 	var obj: Combatant = _pantalla._objetivo()
 	var tocados: Array = _resolver_hechizo(spell, obj)
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.circulo_acaba(_pantalla._player, true)   # el circulo se cierra en un fogonazo
 	_limpiar_casteo()
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()
@@ -1188,6 +1190,8 @@ func _backfire(elegida: String = "", correcta: String = "") -> void:
 	_pantalla._set_log("💥 %s recita mal el conjuro y se descontrola: %.2f de daño. El hechizo se pierde."
 		% [_pantalla._player.nombre, dmg])
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # aun fallando, es un turno sin gasto de energia (KAN-57)
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.circulo_acaba(_pantalla._player, false)   # el circulo se agrieta y se rompe
 	_limpiar_casteo()
 	_pantalla._update_hp()
 	_pantalla._fin_de_eleccion()

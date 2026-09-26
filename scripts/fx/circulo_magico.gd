@@ -24,7 +24,7 @@ const T_APAGA := 0.35
 const ANCHO := 0.9           # el nucleo del trazo
 const HALO := 2.0            # el difuminado a cada lado
 const Z_LUZ := SueloRoto.Z_SUELO + 1
-const Z_CORONA := Game.Z_PERSONAJES + 80
+const Z_CORONA := Game.Z_PERSONAJES + 2590   # por encima de TODOS los cuerpos (su tope ronda +2560), bajo los nombres (+2600)
 
 var receta: Dictionary = {}
 var auto: bool = true         # false = el reloj lo lleva otro (las hojas: avanzar())
