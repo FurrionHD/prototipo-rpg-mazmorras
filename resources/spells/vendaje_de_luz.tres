@@ -16,3 +16,9 @@ fx_estilo = 110
 hits = 1
 alcance = 0
 descripcion = "Un poco de luz sobre uno de los tuyos, lo justo para cerrar lo que sangra. No es gran cosa, pero llega al instante y cuesta poco."
+; LA FORMA EN EL MAPA (26/09, su decision): clic a UNO de los tuyos a distancia (tu incluido).
+forma = 0
+forma_radio = 10.0
+forma_apunte = 3
+forma_rango = 150.0
+forma_a_aliados = true

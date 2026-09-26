@@ -97,6 +97,34 @@ var _delante: Node2D = null
 var _brillo: Node2D = null
 
 
+# LA ANDANADA: donde cae cada bola dentro del circulo apuntado. Sale SOLO de la forma (su centro, en la rejilla
+# de 1/16 en la que viaja por red), asi que quien resuelve, el dibujo y el espejo sacan los mismos puntos.
+const R_BOLA := 16.0
+const BOLAS := 4
+
+static func puntos_andanada(f: CombatFormas.Forma) -> Array:
+	var out: Array = []
+	if f == null:
+		return out
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(roundi(f.centro.x * 16.0), roundi(f.centro.y * 16.0)))
+	var r: float = maxf(f.radio - R_BOLA * 0.5, 4.0)
+	var intentos: int = 0
+	while out.size() < BOLAS and intentos < 60:
+		intentos += 1
+		var a: float = rng.randf_range(0.0, TAU)
+		var d: float = r * sqrt(rng.randf())
+		var p: Vector2 = f.centro + Vector2(cos(a), sin(a)) * d
+		var lejos: bool = true
+		for q in out:
+			if (q as Vector2).distance_to(p) < R_BOLA * 1.3:
+				lejos = false
+				break
+		if lejos or intentos > 45:
+			out.append(p)
+	return out
+
+
 # ------------------------------------------------------------
 #  EN EL SUELO
 # ------------------------------------------------------------

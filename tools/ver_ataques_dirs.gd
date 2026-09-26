@@ -37,6 +37,7 @@ const HABILIDADES := [
 	["varita", "canalizar_varita"], ["varita", "purificar"], ["varita", "chispa_vinculada"], ["varita", "egida_menor"],
 	# LAS MAGIAS (26/09): la huella de cada hechizo, sacada de su ficha (CombatTactico.huella_hechizo).
 	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
+	["magia", "vendaje_de_luz"], ["magia", "bola_fuego"], ["magia", "chorro_agua"], ["magia", "rayo"], ["magia", "pulso_arcano"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,

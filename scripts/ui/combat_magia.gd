@@ -66,7 +66,8 @@ func _accion_magia() -> void:
 			b.disabled = true
 			b.tooltip_text = "⛔ Nadie del grupo lleva arma que imbuir\n\n%s" % b.tooltip_text
 		# Los que caen sobre un ALIADO preguntan antes a quien; el resto van directos al enemigo.
-		if _va_a_aliado(spell):
+		# EN EL MAPA, el que se apunta sobre un aliado (Vendaje) no pregunta: se elige al apuntar.
+		if _va_a_aliado(spell) and not (_pantalla.tactico and _pantalla.turno_mapa.usa_huella_hechizo(spell)):
 			b.pressed.connect(_elegir_objetivo_aliado.bind(spell))
 		else:
 			b.pressed.connect(_elegir_hechizo.bind(spell))
@@ -476,7 +477,11 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		#    a vivos al azar; cada bola aplica ahi el alcance del hechizo. Ver _resolver_dispersa.
 		var res_area: Array = []
 		if spell.dispersa:
-			res_area = _resolver_dispersa(spell, foco)
+			# EN EL MAPA las bolas caen en SUS puntos del circulo apuntado (MagiaAire.puntos_andanada), no al azar.
+			var puntos: Array = []
+			if en_mapa:
+				puntos = MagiaAire.puntos_andanada(_pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto))
+			res_area = _resolver_dispersa(spell, foco, puntos)
 			for r in res_area:
 				tocados.append(r.c)
 		else:
@@ -498,7 +503,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# LOS GOLPES QUE SOBRAN (Vorágine, Venablo, Pulso arcano): si el objetivo cae antes de
 		# llevarse todos los suyos, el resto salta a otros enemigos en vez de perderse.
 		if spell.sobrantes_saltan() and not res_area.is_empty():
-			for r in _saltar_sobrantes(spell, res_area[0], foco):
+			var fila_m = _pantalla.turno_mapa.fila_del_proyectil(spell, _pantalla._player, punto) if en_mapa else null
+			for r in _saltar_sobrantes(spell, res_area[0], foco, fila_m):
 				res_reb.append(r)
 				tocados.append(r.c)
 		# De donde SALE cada arco. El primero de tu mano, y a partir de ahi cada salto desde la
@@ -537,6 +543,13 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			anterior = victima
 		if con_efecto:
 			_pantalla.efectos.soltar_suelo()
+		# EL EMPUJE (Torrente): a los que les entro y siguen en pie, cuando se vea el golpe.
+		if en_mapa and not is_zero_approx(spell.forma_tiron):
+			var empujados: Array = []
+			for t2 in tocados:
+				if t2.is_alive() and not empujados.has(t2):
+					empujados.append(t2)
+					_pantalla.turno_mapa.pedir_tiron(t2, _pantalla._player, spell.forma_tiron)
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
 		_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
@@ -894,7 +907,9 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 #
 # Se pintan como un ARCO que sale del que acaba de caer: es lo que hace que se lea como "lo que le
 # sobraba se ha ido a otro" y no como un segundo lanzamiento.
-func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float) -> Array:
+# 'fila' (EN EL MAPA): los que se cruza el proyectil, en orden. Los que sobran SIGUEN POR LA LINEA hasta el siguiente
+# vivo de la fila (no saltan a cualquiera de la pelea: un orbe no se teletransporta); sin nadie, se pierden.
+func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float, fila: Variant = null) -> Array:
 	var out: Array = []
 	var n: int = spell.golpes()
 	var hechos: int = int(primero.get("golpes", n))
@@ -903,7 +918,16 @@ func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float) -> Ar
 		var vivos: Array[Combatant] = _pantalla._vivos()
 		if vivos.is_empty():
 			break   # no queda nadie: se pierden, como siempre
-		var victima: Combatant = vivos.pick_random()
+		var victima: Combatant = null
+		if fila is Array:
+			for c_f in fila:
+				if (c_f as Combatant).is_alive():
+					victima = c_f
+					break
+			if victima == null:
+				break   # no queda nadie en la linea: se pierden
+		else:
+			victima = vivos.pick_random()
 		var r: Dictionary = _resolver_golpes_hechizo(spell, victima, foco, spell.dano_objetivo,
 			true, anterior, true, 0, hechos)
 		if int(r.golpes) <= 0:
@@ -923,7 +947,9 @@ func _saltar_sobrantes(spell: SpellData, primero: Dictionary, foco: float) -> Ar
 # las del ELEMENTO DE IDENTIDAD del hechizo (spell.elemento) salpican a los adyacentes: en la
 # Tormenta el rayo arquea a los lados y la lluvia cae suelta; en la Andanada todo es fuego = todo
 # salpica. En 1v1 no hay adyacentes, asi que el salpicon no cambia nada: solo mejora el multi.
-func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
+# 'puntos' (EN EL MAPA): donde cae cada bola. Le da a quien pille el circulito de la bola (MagiaAire.R_BOLA): el
+# mas cercano al centro es el principal y el resto salpicados. Una bola sin nadie debajo se pierde.
+func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = []) -> Array:
 	var n: int = spell.golpes()
 	var acc: Dictionary = {}     # Combatant -> {c, dano, mult, golpes, trail, estados}
 	var anun: Dictionary = {}    # Combatant -> estados ya anunciados (no repetir en el log)
@@ -932,11 +958,36 @@ func _resolver_dispersa(spell: SpellData, foco: float) -> Array:
 		var vivos: Array[Combatant] = _pantalla._vivos()
 		if vivos.is_empty():
 			break   # no queda nadie: los golpes que faltaban se pierden
-		var principal: Combatant = vivos.pick_random()
+		var principal: Combatant = null
 		var elem: int = spell.elemento_de_golpe(i, n)   # UN elemento para toda la bola
-		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
 		var objetivos: Array
-		if spell.salpica() and elem == spell.elemento:
+		if not puntos.is_empty():
+			var p_b: Vector2 = puntos[i % puntos.size()]
+			var bola := CombatFormas.circulo(p_b, MagiaAire.R_BOLA)
+			var bajo: Array = []
+			for e in vivos:
+				var caja: Rect2 = _pantalla.turno_mapa.bulto_de(e)
+				if bola.toca(caja):
+					bajo.append({"c": e, "d": caja.get_center().distance_squared_to(p_b), "i": _pantalla._enemies.find(e)})
+			if bajo.is_empty():
+				continue   # la bola cae donde no hay nadie
+			bajo.sort_custom(func(x, y):
+				if is_equal_approx(float(x["d"]), float(y["d"])):
+					return int(x["i"]) < int(y["i"])
+				return float(x["d"]) < float(y["d"]))
+			principal = bajo[0]["c"]
+			objetivos = []
+			for k_b in bajo.size():
+				objetivos.append({"c": bajo[k_b]["c"],
+					"escala": spell.dano_objetivo if k_b == 0 or elem != spell.elemento else spell.dano_salpicon})
+				if elem != spell.elemento:
+					break   # los golpes que no son de su elemento no salpican
+		else:
+			principal = vivos.pick_random()
+		# ¿Esta bola salpica? Solo los golpes del elemento de identidad, y solo si hay salpicon.
+		if not puntos.is_empty():
+			pass
+		elif spell.salpica() and elem == spell.elemento:
 			objetivos = _pantalla.objetivos._objetivos_area(spell, principal)
 		else:
 			objetivos = [{"c": principal, "escala": spell.dano_objetivo}]

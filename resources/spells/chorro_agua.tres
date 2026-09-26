@@ -20,3 +20,9 @@ alcance = 2
 dano_salpicon = 1.0
 descripcion = "Hechizo medio de agua. Una avenida que rompe sobre TODA la fila: a diferencia del rocio, esta si duele, y empapa a casi todos de una pasada. Deja el terreno listo para que el fuego arda peor y el rayo conduzca mejor."
 efectos = [SubResource("SA_mojado")]
+; LA FORMA EN EL MAPA (26/09, su decision): una OLA mas grande que el Rocio, que barre y empuja un poco.
+forma = 3
+forma_radio = 200.0
+forma_ancho = 85.0
+forma_apunte = 1
+forma_tiron = -18.0

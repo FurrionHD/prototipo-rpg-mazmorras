@@ -905,6 +905,9 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 	ab.forma_rango = spell.forma_rango
 	ab.forma_ancho = spell.forma_ancho
 	ab.forma_solo_primero = spell.forma_solo_primero
+	ab.forma_a_aliados = spell.forma_a_aliados
+	if spell.forma_a_aliados:
+		ab.objetivo_aliado = AbilityData.Objetivo.ALIADO
 	_huellas_hechizo[spell] = ab
 	return ab
 
@@ -921,6 +924,9 @@ func apuntar_hechizo(spell: SpellData, aliado: Combatant) -> void:
 func forma_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> RefCounted:
 	var f = forma_de(huella_hechizo(spell), c, punto)
 	f.cunas = spell.forma_cunas
+	# El centro, en la rejilla de 1/16 de px en la que viaja por red: la Andanada saca de el donde caen sus bolas
+	# (MagiaAire.puntos_andanada) y tiene que salir IGUAL aqui y en el espejo.
+	f.centro = (f.centro * 16.0).round() / 16.0
 	return f
 
 
@@ -928,6 +934,8 @@ func forma_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> RefCounted
 # La escala es el multiplicador de daño: el de su cuña si el cono va por cuñas, si no dano_objetivo. Vacio =
 # no hay nadie donde cae: se pierde contra el suelo.
 func reparto_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
+	if spell.forma_a_aliados:
+		return []   # va a uno de los tuyos (el elegido al apuntar), no pilla enemigos
 	var f = forma_hechizo(spell, c, punto)
 	var out: Array = _reparto_en(huella_hechizo(spell), c, f)
 	for d in out:
@@ -936,6 +944,20 @@ func reparto_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
 			var k: int = f.cuna_de(bulto_de(d["c"]))
 			esc = spell.forma_escalas[clampi(k, 0, spell.forma_escalas.size() - 1)]
 		d["escala"] = esc
+	return out
+
+
+# LOS QUE SE CRUZA UN PROYECTIL (una linea de solo_primero), en orden desde quien lo lanza: a donde siguen los
+# golpes que sobran si el primero cae (el Pulso arcano).
+func fila_del_proyectil(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
+	var ab: AbilityData = huella_hechizo(spell).duplicate()
+	ab.forma_solo_primero = false
+	var out: Array = []
+	for d in _reparto_en(ab, c, forma_hechizo(spell, c, punto)):
+		out.append(d["c"])
+	# De cerca a lejos desde quien lo lanza (el reparto ordena por el centro de la huella).
+	var pies: Vector2 = pies_de(c)
+	out.sort_custom(func(x, y): return bulto_de(x).get_center().distance_squared_to(pies) < bulto_de(y).get_center().distance_squared_to(pies))
 	return out
 
 
@@ -1163,9 +1185,16 @@ func _confirmar_apunte() -> void:
 	# UN HECHIZO: el sitio se queda sellado con el conjuro y se empieza a recitar.
 	if not _hechizo_apuntado.is_empty():
 		var hz: Array = _hechizo_apuntado
+		var aliado_hz = hz[1]
+		# A UNO DE LOS TUYOS (el Vendaje): sin nadie debajo el clic no hace nada; con alguien, va a ese.
+		if ab.forma_a_aliados:
+			var bajo: Array = aliados_de_huella(ab, _quien)
+			if bajo.is_empty():
+				return
+			aliado_hz = bajo[0]
 		_hechizo_apuntado = []
 		_dejar_de_apuntar()
-		_pantalla.magia._elegir_hechizo(hz[0], hz[1], _raton_en_mundo())
+		_pantalla.magia._elegir_hechizo(hz[0], aliado_hz, _raton_en_mundo())
 		return
 	_dejar_de_apuntar()
 	apunte = _raton_en_mundo()

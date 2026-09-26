@@ -194,6 +194,10 @@ const RADIO_CURA_AREA := 200.0
 # CADENA (la Descarga en el mapa): > 0 = los rebotes saltan al enemigo MAS CERCANO del ultimo tocado que
 # aun no haya recibido, hasta esta distancia en px; si no hay ninguno, la cadena se corta.
 @export var forma_cadena: float = 0.0
+# A UNO DE LOS TUYOS (el Vendaje de luz en el mapa): la huella se pone sobre un aliado y se lo echas a ese.
+@export var forma_a_aliados: bool = false
+# EMPUJE (el Torrente): px que se aparta a cada enemigo al que le entra (negativo = hacia fuera, como el Bastonazo).
+@export var forma_tiron: float = 0.0
 # SU EFECTO EN EL MAPA (SueloRoto.Tipo, los MAGIA_*): lo que se ve al soltarlo, y a cada uno le llega el golpe
 # cuando le alcanza. -1 = ninguno (se pinta como en la fila).
 @export var suelo_mapa: int = -1

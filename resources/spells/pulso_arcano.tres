@@ -11,3 +11,10 @@ coste_mana = 8
 dano_base = 22.34
 hits = 2
 descripcion = "El pulso de siempre, recitado dos veces y soltado de golpe: dos impactos secos en el mismo sitio. No reparte, no salta y no deja nada ardiendo; toda la magia va a una sola cabeza, que es justo lo que hace falta cuando delante solo hay una y es enorme."
+; LA FORMA EN EL MAPA (26/09, su decision, su dibujo): DOS ORBES que avanzan girando uno alrededor del otro
+; y cruzandose (doble helice); proyectil recto, al primero que se cruce, dos impactos.
+forma = 3
+forma_radio = 170.0
+forma_ancho = 8.0
+forma_apunte = 1
+forma_solo_primero = true
