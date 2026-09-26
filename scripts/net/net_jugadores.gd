@@ -422,6 +422,41 @@ func _rel_fx_cura(que: int, lugar: String) -> void:
 			_set_fx_cura.rpc_id(pid, de, que)
 
 
+# --- EL CIRCULO MAGICO de quien recita fuera de combate (26/09), para que lo vean los demas ------------
+# Viaja la RUTA del hechizo, cuantas frases lleva y como acaba (CirculoMagico.Fin); el dibujo lo hace cada
+# pantalla sobre el avatar del emisor. Mismo camino que el bocadillo del canto: por el host, a los del mismo lugar.
+func anunciar_circulo(ruta: String, dichas: int, fin: int) -> void:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
+		return
+	if Net.es_host:
+		for pid in Net._peers:
+			if Net._peers[pid].get("lugar", "") == Net._mi_lugar:
+				_set_circulo.rpc_id(pid, Net._mi_id(), ruta, dichas, fin)
+	else:
+		_rel_circulo.rpc_id(1, ruta, dichas, fin, Net._mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _set_circulo(emisor: int, ruta: String, dichas: int, fin: int) -> void:
+	var a = Net._avatares.get(emisor)   # SIN tipar: puede estar liberado
+	if a == null or not is_instance_valid(a) or not (a is Node2D):
+		return
+	var sp = load(ruta) if ruta.begins_with("res://") else null
+	CirculoMagico.en_cuerpo(a, sp as SpellData, dichas, fin)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_circulo(ruta: String, dichas: int, fin: int, lugar: String) -> void:
+	if not Net.es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if Net._mi_lugar == lugar:
+		_set_circulo(de, ruta, dichas, fin)
+	for pid in Net._peers:
+		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
+			_set_circulo.rpc_id(pid, de, ruta, dichas, fin)
+
+
 # --- ENTRAR EN LA PELEA DE UN JUGADOR (el que la ejecuta puede no ser el) ---------------------
 # Para echarle una magia de apoyo a alguien que esta peleando hay que entrar en SU pelea, pero esa
 # pelea la puede estar ejecutando otro (el esta espejando). Asi que se le pregunta a EL quien la lleva,

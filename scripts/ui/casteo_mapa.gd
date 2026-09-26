@@ -76,6 +76,8 @@ var _frase: int = 0                 # por que frase vamos (0 = ninguna recitada 
 # El circulo verde de una CURA DE AREA mientras la recitas (ver AreaCuracion). null si no toca.
 var _circulo: AreaCuracion = null
 var _cerrado: bool = false
+# EL CIRCULO MAGICO (26/09): ya se ha cerrado en fogonazo o roto (entonces _cerrar no lo apaga).
+var _circ_acabado: bool = false
 
 var _panel: VBoxContainer = null
 var _globo: Node2D = null
@@ -424,6 +426,7 @@ func _responder(elegida: String, correcta: String) -> void:
 		_backfire(correcta)
 		return
 	_frase += 1
+	_circulo_magico(CirculoMagico.Fin.SIGUE)
 	Game.contar_frase_recitada(_pj)   # el mismo contador oculto que en combate (Encantamiento rapido)
 	if _frase < _spell.longitud():
 		_mostrar_frase()
@@ -455,6 +458,7 @@ func _completar() -> void:
 		_objetivo = _reapuntar()
 	var obj := _objetivo
 	var destino = _destino_pj
+	_circulo_magico(CirculoMagico.Fin.DISPARO)
 	_cerrar()
 	lanzado.emit(sp, obj, destino)
 
@@ -481,6 +485,7 @@ func _backfire(correcta: String = "") -> void:
 	if is_instance_valid(_jugador) and _jugador.has_method("hacer_ruido"):
 		_jugador.hacer_ruido(RUIDO_ESTALLIDO, RUIDO_ESTALLIDO_DUR)
 	Game.sumar_alboroto(ALBOROTO_CANTANDO * RUIDO_ESTALLIDO_DUR)
+	_circulo_magico(CirculoMagico.Fin.FALLO)
 	_cerrar()
 	fallado.emit(sp, dano, muerto)
 	if muerto:
@@ -515,6 +520,7 @@ func interrumpir() -> Dictionary:
 
 func _cerrar() -> void:
 	_cerrado = true
+	_circulo_magico(CirculoMagico.Fin.APAGA)
 	_apagar_circulo()
 	_soltar_ruido()
 	_globo_estado("", Color.WHITE)   # se apaga el bocadillo, aqui y en las otras pantallas
@@ -680,6 +686,17 @@ func _globo_estado(texto: String, color: Color) -> void:
 		else:
 			_globo.mostrar(texto, color)
 	Net.jugadores.anunciar_canto(texto, color)
+
+
+# EL CIRCULO MAGICO a tus pies (CirculoMagico.en_cuerpo), aqui y en las pantallas de los demas.
+func _circulo_magico(fin: int) -> void:
+	if _circ_acabado or _spell == null:
+		return
+	if fin != CirculoMagico.Fin.SIGUE:
+		_circ_acabado = true
+	if is_instance_valid(_jugador):
+		CirculoMagico.en_cuerpo(_jugador, _spell, _frase, fin)
+	Net.jugadores.anunciar_circulo(_spell.resource_path, _frase, fin)
 
 
 # Quita el circulo de la cura de area (aqui y, con 'avisar', en las otras pantallas).

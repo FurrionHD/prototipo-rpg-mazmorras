@@ -40,6 +40,32 @@ var _luz: Node2D
 var _corona: Node2D
 
 
+# FUERA DE COMBATE (casteo_mapa, y lo mismo en las pantallas de los demas por Net.jugadores.anunciar_circulo):
+# el circulo de 'cuerpo' pasa a 'dichas' frases o acaba como diga 'fin'. En la pelea lo lleva CombatTactico.
+enum Fin { SIGUE, DISPARO, FALLO, APAGA }
+
+static func en_cuerpo(cuerpo: Node2D, spell: SpellData, dichas: int, fin: int) -> void:
+	if cuerpo == null or not is_instance_valid(cuerpo):
+		return
+	var circ: CirculoMagico = null
+	for h in cuerpo.get_children():
+		if h is CirculoMagico and not (h as CirculoMagico).acabando() and h.has_meta(&"mapa"):
+			circ = h
+	if circ != null and spell != null and str(circ.receta.get("clave", "")) != SellosMagicos.clave_de(spell):
+		circ.apagar()
+		circ = null
+	if circ == null and spell != null and (fin == Fin.FALLO or (fin == Fin.SIGUE and dichas > 0)):
+		circ = crear(cuerpo, spell, Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+		circ.set_meta(&"mapa", true)
+	if circ == null:
+		return
+	match fin:
+		Fin.SIGUE: circ.a_la_frase(dichas)
+		Fin.DISPARO: circ.disparar()
+		Fin.FALLO: circ.fallar()
+		_: circ.apagar()
+
+
 static func crear(padre: Node, spell: SpellData, en: Vector2 = Vector2.ZERO) -> CirculoMagico:
 	if padre == null or spell == null:
 		return null
