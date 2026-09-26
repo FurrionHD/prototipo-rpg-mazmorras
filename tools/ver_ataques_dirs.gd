@@ -101,6 +101,11 @@ const MOMENTOS_MAGIA := {
 	"descarga": [0.1, 0.2, 0.3, 0.4, 0.55],
 	"rocio": [0.12, 0.3, 0.6, 1.0, 1.9],
 	"pulso_menor": [0.05, 0.12, 0.2, 0.28, 0.45],
+	"vendaje_de_luz": [0.02, 0.12, 0.3, 0.5, 0.75],
+	"bola_fuego": [0.12, 0.26, 0.4, 0.62, 1.1],
+	"chorro_agua": [0.12, 0.28, 0.45, 0.7, 1.4],
+	"rayo": [0.04, 0.1, 0.2, 0.35, 0.6],
+	"pulso_arcano": [0.08, 0.18, 0.3, 0.42, 0.6],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -943,7 +948,27 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 		pillados = pillados.slice(0, 1)
 	var tipo: int = sp.suelo_mapa
 	var f_ef = f
-	var proyectil: bool = tipo == SueloRoto.Tipo.MAGIA_ORBE or tipo == SueloRoto.Tipo.MAGIA_BOLA
+	# EL VENDAJE: la luz sobre la figura que tenga la huella encima (en el juego, uno de los tuyos).
+	if sp.forma_a_aliados:
+		var caja_c: Rect2 = Rect2()
+		var d_c: float = INF
+		for p in _enemigos:
+			var cj := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			var dd: float = cj.get_center().distance_to(f.centro)
+			if dd < d_c:
+				d_c = dd
+				caja_c = cj
+		var cu := MagiaAire.cura(self, caja_c, 55 + fila, 0.0, 1.0)
+		cu.set_process(false)
+		for col in tiempos.size():
+			cu.set("_t", float(tiempos[col]))
+			for hijo in ["_suelo", "_brillo"]:
+				(cu.get(hijo) as Node2D).queue_redraw()
+			await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [sp.nombre, dir_n, float(tiempos[col])])
+		cu.queue_free()
+		await get_tree().process_frame
+		return
+	var proyectil: bool = tipo in [SueloRoto.Tipo.MAGIA_ORBE, SueloRoto.Tipo.MAGIA_BOLA, SueloRoto.Tipo.MAGIA_HELICE]
 	if proyectil:
 		var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - yo)
 		var largo: float = f.largo if f.tipo == CombatFormas.Tipo.LINEA else yo.distance_to(f.centro)
@@ -954,8 +979,11 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 			var cerca := Vector2(clampf(yo.x, c0.position.x, c0.end.x), clampf(yo.y, c0.position.y, c0.end.y))
 			largo = maxf((cerca - yo).dot(dir.normalized()), 4.0)
 		else:
-			tipo = SueloRoto.Tipo.MAGIA_ORBE_FALLA if tipo == SueloRoto.Tipo.MAGIA_ORBE else SueloRoto.Tipo.MAGIA_BOLA_FALLA
+			tipo = {SueloRoto.Tipo.MAGIA_ORBE: SueloRoto.Tipo.MAGIA_ORBE_FALLA, SueloRoto.Tipo.MAGIA_BOLA: SueloRoto.Tipo.MAGIA_BOLA_FALLA,
+				SueloRoto.Tipo.MAGIA_HELICE: SueloRoto.Tipo.MAGIA_HELICE_FALLA}[tipo]
 		f_ef = CombatFormas.linea(yo, dir, largo, 8.0)
+	if tipo == SueloRoto.Tipo.MAGIA_RAYO:
+		f_ef = CombatFormas.circulo(Vector2(pillados[0].get_center().x, pillados[0].end.y) if not pillados.is_empty() else f.centro, 8.0)
 	var s: Node2D = SueloRoto.lanzar(self, f_ef, tipo, 1234 + fila)
 	s.set_process(false)
 	# LA CADENA: del primero al mas cercano que no haya recibido (60 px), hasta 3 saltos.

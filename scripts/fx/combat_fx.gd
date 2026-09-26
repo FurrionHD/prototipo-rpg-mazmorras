@@ -404,7 +404,9 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.VIENTO_LIMPIO, Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
 	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR,
 	# y el ARCO de las cadenas de rayo (MagiaAire, 26/09): de pecho a pecho, del ultimo tocado al siguiente.
-	Estilo.ARCO]
+	Estilo.ARCO,
+	# y el Vendaje de luz sobre el aliado (MagiaAire.cura).
+	Estilo.CURACION_LUZ]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan

@@ -586,7 +586,13 @@ func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFo
 	var tm = _pantalla.turno_mapa
 	var f = tm.forma_hechizo(spell, _pantalla._player, punto)
 	var tipo: int = spell.suelo_mapa
-	if tipo != SueloRoto.Tipo.MAGIA_ORBE and tipo != SueloRoto.Tipo.MAGIA_BOLA:
+	# EL RAYO DEL CIELO cae sobre los pies del primero (o en el sitio, si no hay nadie).
+	if tipo == SueloRoto.Tipo.MAGIA_RAYO:
+		if reparto.is_empty():
+			return CombatFormas.circulo(f.centro, 8.0)
+		var cj: Rect2 = tm.bulto_de(reparto[0]["c"])
+		return CombatFormas.circulo(Vector2(cj.get_center().x, cj.end.y), 8.0)
+	if tipo != SueloRoto.Tipo.MAGIA_ORBE and tipo != SueloRoto.Tipo.MAGIA_BOLA and tipo != SueloRoto.Tipo.MAGIA_HELICE:
 		return f
 	var o: Vector2 = tm.pies_de(_pantalla._player)
 	var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - o)
@@ -606,6 +612,7 @@ static func _tipo_fallo(tipo: int) -> int:
 	match tipo:
 		SueloRoto.Tipo.MAGIA_ORBE: return SueloRoto.Tipo.MAGIA_ORBE_FALLA
 		SueloRoto.Tipo.MAGIA_BOLA: return SueloRoto.Tipo.MAGIA_BOLA_FALLA
+		SueloRoto.Tipo.MAGIA_HELICE: return SueloRoto.Tipo.MAGIA_HELICE_FALLA
 	return tipo
 
 
@@ -1007,7 +1014,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = []) -> Ar
 			# uno y de ahi alcanza a sus vecinos (ver _resolver_hechizo, misma regla).
 			# La bola y SU salpicon son el mismo instante: cae en uno y revienta, no va tocando
 			# vecinos de uno en uno. Cada bola (i) si es su propia tanda. Ver _fx_tanda.
-			_pantalla.efectos._fx_tanda(i)
+			_pantalla.efectos._fx_tanda(0 if not puntos.is_empty() else i)
 			# Igual que en _resolver_golpes_hechizo: al vecino le llega la ONDA de lo que ha
 			# reventado en el principal, no otra bola. Ver _estilo_salpicon.
 			_pantalla.efectos._fx_golpe(_pantalla._player if obj == principal else principal, obj, dmg,

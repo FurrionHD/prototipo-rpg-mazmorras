@@ -2135,6 +2135,10 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var col_a: Color = Elementos.color(elem_a) if Elementos.tiene_color(elem_a) else MagiaAire.RAYO
 		MagiaAire.arco(arena, desde_a, caja_v.get_center(), col_a, semilla, vuelo, ritmo)
 		return
+	# EL VENDAJE DE LUZ sobre el aliado (MagiaAire.cura).
+	if estilo == CombatFX.Estilo.CURACION_LUZ:
+		MagiaAire.cura(arena, bulto_de(v), semilla, vuelo, ritmo)
+		return
 	# EL DEFENDER no pinta nada: lo que se ve es su postura (el gesto, ver gesto_en_mapa).
 	if estilo == CombatFX.Estilo.DEFENSA:
 		return

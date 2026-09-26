@@ -11,8 +11,18 @@
 #              relleno y un destello. ORBE_FALLA: no habia nadie, se apaga al final del recorrido.
 #    BOLA      Descarga: una bola electrica chisporroteando hasta el primero; revienta en un fogonazo y de ella
 #              salen los ARCOS de la cadena. BOLA_FALLA: se deshace en chispas.
+#    ANDANADA  Andanada ignea: cuatro bolas de fuego caen del cielo, una tras otra, en sus puntos del circulo
+#              (puntos_andanada); su sombra crece en el suelo antes y cada una revienta en una bocanada.
+#    OLA       Torrente: una ola de verdad se levanta delante de ti y recorre la franja, con cresta de espuma y
+#              rociada por delante; detras deja el suelo mojado. Arrastra (el empuje lo pone la ficha).
+#    RAYO_CIELO Rayo: un relampago cae del cielo sobre el primero (fogonazo, onda y chamusquina); de ahi salen los
+#              ARCOS de la cadena.
+#    HELICE    Pulso arcano (su dibujo): DOS orbes que avanzan girando uno alrededor del otro y se cruzan (doble
+#              helice); se juntan al llegar y revientan dos veces. HELICE_FALLA: se apagan al final.
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa):
 #    ARCO      el salto de una cadena: un rayo quebrado RELLENO de pecho a pecho que chisporrotea.
+#    CURA      Vendaje de luz: una columna de luz calida cae sobre el aliado, una venda de luz le rodea el pecho
+#              y suben destellos.
 #  NADA DE LINEAS peladas (bandas rellenas con halo, cometas y destellos de BarridoAire). Coordenadas de MUNDO;
 #  el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -20,7 +30,8 @@ extends Node2D
 class_name MagiaAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.MAGIA_*: no reordenar.
-enum Modo { ALIENTO, LLUVIA, ORBE, BOLA, ORBE_FALLA, BOLA_FALLA, ARCO }
+enum Modo { ALIENTO, LLUVIA, ORBE, BOLA, ORBE_FALLA, BOLA_FALLA, ANDANADA, OLA, RAYO_CIELO, HELICE, HELICE_FALLA,
+	ARCO, CURA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -63,6 +74,31 @@ const ARCANO_CLARO := Color(0.92, 0.86, 1.0)
 const RAYO := Color(1.0, 0.9, 0.25)
 const RAYO_CLARO := Color(1.0, 1.0, 0.86)
 
+# LA ANDANADA
+const T_ENTRE_BOLAS := 0.1       # entre una bola y la siguiente
+const T_CAE_BOLA := 0.24         # lo que tarda una bola en caer
+const ALTO_CAIDA := 95.0
+
+# LA OLA
+const T_OLA := 0.55              # lo que tarda en recorrer la franja
+const ALTO_OLA := 30.0
+const AGUA_HONDA := Color(0.12, 0.3, 0.7)
+const ESPUMA := Color(0.93, 0.97, 1.0)
+
+# EL RAYO DEL CIELO
+const T_RAYO_CAE := 0.08
+const ALTO_RAYO := 120.0
+
+# LA HELICE
+const V_HELICE := 260.0
+const AMPLITUD_HELICE := 11.0
+const PASO_HELICE := 46.0        # px que avanza en una vuelta entera
+
+# LA CURA
+const T_CURA := 0.95
+const LUZ_CALIDA := Color(1.0, 0.9, 0.55)
+const LUZ_BLANCA := Color(1.0, 0.99, 0.92)
+
 # EL ARCO
 const T_ARCO := 0.28
 const T_REJITTER := 0.045
@@ -89,6 +125,7 @@ var _gotas: Array = []
 var _charcos: Array = []
 var _nubes: Array = []
 var _motas: Array = []
+var _puntos: Array = []
 # El arco.
 var _desde: Vector2 = Vector2.ZERO
 var _hasta: Vector2 = Vector2.ZERO
@@ -161,6 +198,20 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return maxf(0.0, (p - o).dot(f.dir)) / V_ORBE
 		Modo.BOLA, Modo.BOLA_FALLA:
 			return maxf(0.0, (p - o).dot(f.dir)) / V_BOLA
+		Modo.ANDANADA:
+			# La bola MAS CERCANA a 'p' (la que le cae encima).
+			var pts: Array = puntos_andanada(f)
+			var mejor: int = 0
+			for i in pts.size():
+				if (pts[i] as Vector2).distance_squared_to(p) < (pts[mejor] as Vector2).distance_squared_to(p):
+					mejor = i
+			return T_ENTRE_BOLAS * float(mejor) + T_CAE_BOLA
+		Modo.OLA:
+			return clampf((p - o).dot(f.dir) / maxf(f.largo, 1.0), 0.0, 1.0) * T_OLA
+		Modo.RAYO_CIELO:
+			return T_RAYO_CAE
+		Modo.HELICE, Modo.HELICE_FALLA:
+			return maxf(0.0, (p - o).dot(f.dir)) / V_HELICE
 	return 0.0
 
 
@@ -168,6 +219,9 @@ static func t_salir(m: int) -> float:
 	match m:
 		Modo.ALIENTO: return T_ALIENTO
 		Modo.LLUVIA: return T_FRENTE + T_CAIDA
+		Modo.ANDANADA: return T_ENTRE_BOLAS * float(BOLAS - 1) + T_CAE_BOLA
+		Modo.OLA: return T_OLA
+		Modo.RAYO_CIELO: return T_RAYO_CAE
 	return 0.3
 
 
@@ -177,7 +231,12 @@ func duracion() -> float:
 		Modo.LLUVIA: return T_LLUEVE + 1.8
 		Modo.ORBE, Modo.ORBE_FALLA: return _largo / V_ORBE + T_REVIENTA + 0.5
 		Modo.BOLA, Modo.BOLA_FALLA: return _largo / V_BOLA + T_REVIENTA + 0.7
+		Modo.ANDANADA: return T_ENTRE_BOLAS * float(BOLAS - 1) + T_CAE_BOLA + 1.3
+		Modo.OLA: return T_OLA + 1.6
+		Modo.RAYO_CIELO: return T_RAYO_CAE + 0.9
+		Modo.HELICE, Modo.HELICE_FALLA: return _largo / V_HELICE + T_REVIENTA + 0.5
 		Modo.ARCO: return T_ARCO + 0.05
+		Modo.CURA: return T_CURA
 	return 1.0
 
 
@@ -230,7 +289,24 @@ func _preparar_area() -> void:
 			for i in n_nu:
 				_nubes.append({"u": (float(i) + 0.5) / float(n_nu), "v": _rng.randf_range(-0.25, 0.25),
 					"r": _rng.randf_range(0.34, 0.5) * _ancho, "fase": _rng.randf_range(0.0, TAU)})
-		Modo.ORBE, Modo.ORBE_FALLA, Modo.BOLA, Modo.BOLA_FALLA:
+		Modo.ANDANADA:
+			_puntos = puntos_andanada(forma)
+			for i in 20:
+				_ascuas.append({"b": i % maxi(_puntos.size(), 1), "a": _rng.randf_range(0.0, TAU),
+					"d": _rng.randf_range(2.0, R_BOLA * 0.9), "tam": _rng.randf_range(0.8, 1.5),
+					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(0.7, 1.2)})
+		Modo.OLA:
+			for i in 26:
+				_gotas.append({"v": _rng.randf_range(-0.5, 0.5), "t0": _rng.randf_range(0.0, T_OLA * 0.95),
+					"vel": Vector2(_rng.randf_range(40.0, 80.0), _rng.randf_range(-50.0, -20.0)), "largo": _rng.randf_range(4.0, 7.0)})
+			for i in int(clampf(_largo / 14.0, 8.0, 16.0)):
+				_charcos.append({"u": (float(i) + _rng.randf_range(0.1, 0.9)) / clampf(_largo / 14.0, 8.0, 16.0),
+					"v": _rng.randf_range(-0.38, 0.38), "r": _rng.randf_range(5.0, 11.0)})
+		Modo.RAYO_CIELO:
+			for i in 7:
+				var a: float = _rng.randf_range(0.0, TAU)
+				_motas.append({"d": Vector2(cos(a), sin(a) * K), "v": _rng.randf_range(25.0, 55.0), "tam": _rng.randf_range(1.0, 1.8)})
+		Modo.ORBE, Modo.ORBE_FALLA, Modo.BOLA, Modo.BOLA_FALLA, Modo.HELICE, Modo.HELICE_FALLA:
 			for i in 7:
 				var a: float = _rng.randf_range(0.0, TAU)
 				_motas.append({"d": Vector2(cos(a), sin(a) * K), "v": _rng.randf_range(20.0, 45.0), "tam": _rng.randf_range(1.0, 1.8)})
@@ -259,6 +335,32 @@ static func arco(padre: Node, desde: Vector2, hasta: Vector2, col: Color, semill
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+# EL VENDAJE DE LUZ sobre un aliado: 'caja' = su cuerpo.
+static func cura(padre: Node, caja: Rect2, semilla: int, espera: float, ritmo: float) -> MagiaAire:
+	if padre == null:
+		return null
+	var e := MagiaAire.new()
+	e.modo = Modo.CURA
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._t = -maxf(espera, 0.0)
+	e._desde = Vector2(caja.get_center().x, caja.end.y)   # sus pies
+	e._hasta = caja.get_center()                          # su pecho
+	e._ancho = maxf(caja.size.x, 10.0)
+	e._largo = maxf(caja.size.y, 16.0)
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	for i in 9:
+		e._motas.append({"x": e._rng.randf_range(-0.6, 0.6), "t0": e._rng.randf_range(0.1, 0.55),
+			"sube": e._rng.randf_range(18.0, 30.0), "tam": e._rng.randf_range(3.0, 5.5)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, true)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	return e
 
@@ -416,7 +518,12 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.LLUVIA: _lluvia(capa)
 		Modo.ORBE, Modo.ORBE_FALLA: _orbe(capa)
 		Modo.BOLA, Modo.BOLA_FALLA: _bola(capa)
+		Modo.ANDANADA: _andanada(capa)
+		Modo.OLA: _ola(capa)
+		Modo.RAYO_CIELO: _rayo_cielo(capa)
+		Modo.HELICE, Modo.HELICE_FALLA: _helice(capa)
 		Modo.ARCO: _arco(capa)
+		Modo.CURA: _cura(capa)
 
 
 # Un punto del cono en el suelo: a la fraccion 'u' del radio y 'a' radianes del eje.
@@ -691,3 +798,293 @@ func _arco(capa: Node2D) -> void:
 	if _t >= 0.0:
 		var k2: float = clampf(_t / 0.18, 0.0, 1.0)
 		BarridoAire.destello(capa, _hasta, 11.0 * (1.0 - k2 * 0.5), Color(claro, 1.0 - k2), sem)
+
+
+# ------------------------------------------------------------
+#  LA ANDANADA: bolas de fuego del cielo
+# ------------------------------------------------------------
+func _andanada(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	for i in _puntos.size():
+		var p: Vector2 = _puntos[i]
+		var t0: float = T_ENTRE_BOLAS * float(i)
+		var tb: float = _t - t0
+		if tb < 0.0:
+			continue
+		var cae: float = clampf(tb / T_CAE_BOLA, 0.0, 1.0)
+		var tr: float = tb - T_CAE_BOLA   # desde que revienta
+		if capa == _suelo:
+			if tr < 0.0:
+				# LA SOMBRA de la bola, que crece y se oscurece segun baja.
+				BarridoAire.brillo(capa, p, 4.0 + 8.0 * cae, Color(CHAMUSCADO, 0.45 * cae))
+			else:
+				var apaga: float = 1.0 - clampf((tr - 0.3) / 1.0, 0.0, 1.0)
+				BarridoAire.brillo(capa, p, R_BOLA * 1.05, Color(CHAMUSCADO, 0.5 * apaga))
+				if tr < 0.35:
+					_anillo(capa, p, 3.0 + R_BOLA * 1.3 * (1.0 - pow(1.0 - tr / 0.35, 2.0)), 3.0, Color(FUEGO_NARANJA, 0.7 * (1.0 - tr / 0.35)))
+			continue
+		if capa == _delante:
+			if tr < 0.0:
+				# LA BOLA cayendo: cola de fuego hacia arriba y humo detras.
+				var alto: float = ALTO_CAIDA * (1.0 - cae * cae)
+				var c: Vector2 = p + _alto(alto)
+				BarridoAire.cometa(capa, c + _alto(26.0), c, 5.0, Color(FUEGO_ROJO, 0.55))
+				BarridoAire.cometa(capa, c + _alto(16.0), c, 3.2, Color(FUEGO_AMARILLO, 0.8))
+				_bocanada(capa, c, 5.0, 0.1, float(i) * 7.0)
+			elif tr < 0.5:
+				# EL REVENTON: una bocanada que se abre y se hace humo.
+				var k: float = tr / 0.5
+				_bocanada(capa, p + _alto(4.0 + 10.0 * k), 5.0 + R_BOLA * 0.9 * (1.0 - pow(1.0 - k, 2.0)), k, float(i) * 13.0)
+			continue
+		if capa == _brillo:
+			if tr < 0.0:
+				BarridoAire.brillo(capa, p + _alto(ALTO_CAIDA * (1.0 - cae * cae)), 10.0, Color(FUEGO_NARANJA, 0.4))
+			elif tr < 0.2:
+				BarridoAire.brillo(capa, p + _alto(5.0), R_BOLA * 1.6 * (1.0 - tr / 0.2), Color(FUEGO_AMARILLO, 0.5 * (1.0 - tr / 0.2)))
+				BarridoAire.destello(capa, p + _alto(6.0), 14.0 * (1.0 - tr / 0.2), Color(FUEGO_BLANCO, 1.0 - tr / 0.2), float(i))
+	# LAS ASCUAS de cada reventon.
+	if capa == _suelo:
+		for a in _ascuas:
+			var b: int = int(a["b"])
+			if b >= _puntos.size():
+				continue
+			var tr2: float = _t - T_ENTRE_BOLAS * float(b) - T_CAE_BOLA
+			if tr2 < 0.0:
+				continue
+			var vida: float = 1.0 - clampf((tr2 - 0.2) / float(a["vida"]), 0.0, 1.0)
+			if vida <= 0.0:
+				continue
+			var late: float = 0.6 + 0.4 * sin(_t * 11.0 + float(a["fase"]))
+			var q: Vector2 = (_puntos[b] as Vector2) + Vector2(cos(float(a["a"])), sin(float(a["a"]))) * float(a["d"])
+			BarridoAire.brillo(capa, q, float(a["tam"]) * 2.4, Color(FUEGO_NARANJA, 0.5 * vida * late))
+			BarridoAire.brillo(capa, q, float(a["tam"]), Color(FUEGO_AMARILLO, vida * late))
+
+
+# ------------------------------------------------------------
+#  LA OLA: agua que se levanta y recorre la franja
+# ------------------------------------------------------------
+func _ola(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var k: float = clampf(_t / T_OLA, 0.0, 1.0)
+	var frente: float = _largo * k
+	var rompe: float = clampf((_t - T_OLA) / 0.3, 0.0, 1.0)   # al llegar al fondo se desploma
+	var n: int = 14
+	if capa == _suelo:
+		# EL SUELO MOJADO detras de la ola, y charcos que se secan.
+		var seca: float = 1.0 - clampf((_t - T_OLA) / 1.5, 0.0, 1.0)
+		for ch in _charcos:
+			var u: float = float(ch["u"])
+			if u * _largo > frente:
+				continue
+			var c: Vector2 = _o + _dir * _largo * u + _lat * _ancho * float(ch["v"])
+			BarridoAire.brillo(capa, c, float(ch["r"]) * 1.4, Color(CHARCO, 0.45 * seca))
+			BarridoAire.brillo(capa, c + Vector2(-2.0, -2.0), float(ch["r"]) * 0.4, Color(AGUA_CLARA, 0.35 * seca))
+		return
+	if capa == _delante:
+		if rompe >= 1.0:
+			return
+		# EL CUERPO DE LA OLA: de la base (atras, en el suelo) a la cresta (delante, en alto), a todo lo ancho.
+		var alto: float = ALTO_OLA * (0.55 + 0.45 * sin(minf(k * 3.0, 1.0) * PI * 0.5)) * (1.0 - rompe)
+		var fondo: float = 44.0
+		# LA LAMINA DE AGUA que arrastra detras de la ola, de ti a la cresta.
+		var lam := PackedVector2Array([_o + _lat * _ancho * 0.45, _o + _dir * maxf(0.0, frente - fondo) + _lat * _ancho * 0.5,
+			_o + _dir * maxf(0.0, frente - fondo) - _lat * _ancho * 0.5, _o - _lat * _ancho * 0.45])
+		capa.draw_polygon(lam, PackedColorArray([Color(AGUA, 0.0), Color(AGUA, 0.28 * (1.0 - rompe)),
+			Color(AGUA, 0.28 * (1.0 - rompe)), Color(AGUA, 0.0)]))
+		var pv := PackedVector2Array()
+		var pc := PackedColorArray()
+		var pi := PackedInt32Array()
+		var filas: int = 4
+		for j in n + 1:
+			var v: float = lerpf(-0.5, 0.5, float(j) / float(n))
+			var borde: float = 1.0 - 0.7 * pow(absf(v) * 2.0, 6.0)   # los extremos, un pelo mas bajos
+			var ondula: float = sin(v * 9.0 + _t * 10.0) * 2.5
+			for f in filas + 1:
+				var q: float = float(f) / float(filas)   # 0 atras (suelo) .. 1 cresta
+				var d: float = maxf(0.0, frente - fondo * (1.0 - q)) + ondula * q
+				var h: float = alto * borde * sin(q * PI * 0.5)
+				pv.append(_o + _dir * d + _lat * _ancho * v + _alto(h))
+				pc.append(Color(AGUA_HONDA.lerp(AGUA, q), (0.55 + 0.4 * q) * (1.0 - rompe)))
+		for j in n:
+			for f in filas:
+				var a: int = j * (filas + 1) + f
+				var b: int = (j + 1) * (filas + 1) + f
+				pi.append_array([a, a + 1, b, a + 1, b + 1, b])
+		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
+		# LA CRESTA DE ESPUMA: una lengua blanca de punta a punta, por encima.
+		var cresta := PackedVector2Array()
+		var anchos := PackedFloat32Array()
+		var bordes := PackedColorArray()
+		var nucleos := PackedColorArray()
+		for j in n + 1:
+			var v2: float = lerpf(-0.5, 0.5, float(j) / float(n))
+			var borde2: float = 1.0 - 0.7 * pow(absf(v2) * 2.0, 6.0)
+			cresta.append(_o + _dir * (frente + sin(v2 * 9.0 + _t * 10.0) * 2.5) + _lat * _ancho * v2
+				+ _alto(alto * borde2 + 1.5))
+			anchos.append(4.0 * borde2 + 1.0)
+			bordes.append(Color(AGUA_CLARA, 0.8 * (1.0 - rompe)))
+			nucleos.append(Color(ESPUMA, 1.0 - rompe))
+		_lengua(capa, cresta, anchos, bordes, nucleos)
+		return
+	if capa == _brillo:
+		# LA ROCIADA que salta por delante de la cresta.
+		for g in _gotas:
+			var tg: float = _t - float(g["t0"])
+			if tg < 0.0 or tg > 0.35:
+				continue
+			var base: Vector2 = _o + _dir * (_largo * clampf(float(g["t0"]) / T_OLA, 0.0, 1.0)) + _lat * _ancho * float(g["v"]) \
+				+ _alto(ALTO_OLA * 0.9)
+			var vel: Vector2 = g["vel"]
+			var pos: Vector2 = base + _dir * vel.x * tg + Vector2(0.0, vel.y * tg + 90.0 * tg * tg)
+			var ant: Vector2 = base + _dir * vel.x * maxf(0.0, tg - 0.05) + Vector2(0.0, vel.y * maxf(0.0, tg - 0.05))
+			BarridoAire.cometa(capa, ant, pos, 1.6, Color(ESPUMA, 0.9 * (1.0 - tg / 0.35)))
+		# Y el desplome al fondo: una salpicadura grande.
+		if rompe > 0.0 and rompe < 1.0:
+			var fin: Vector2 = _o + _dir * _largo
+			for j in 5:
+				var v3: float = lerpf(-0.4, 0.4, float(j) / 4.0)
+				BarridoAire.brillo(capa, fin + _lat * _ancho * v3 + _alto(8.0 * (1.0 - rompe)), 9.0 * (1.0 + rompe), Color(AGUA_CLARA, 0.3 * (1.0 - rompe)))
+
+
+# ------------------------------------------------------------
+#  EL RAYO DEL CIELO
+# ------------------------------------------------------------
+func _rayo_cielo(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var p: Vector2 = forma.centro
+	var tr: float = _t - T_RAYO_CAE
+	var chispa: float = floor(_t / T_REJITTER)
+	if capa == _suelo:
+		if tr >= 0.0:
+			var apaga: float = 1.0 - clampf(tr / 0.9, 0.0, 1.0)
+			BarridoAire.brillo(capa, p, 14.0, Color(CHAMUSCADO, 0.5 * apaga))
+			if tr < 0.3:
+				_anillo(capa, p, 4.0 + 22.0 * (1.0 - pow(1.0 - tr / 0.3, 2.0)), 3.0, Color(RAYO, 0.75 * (1.0 - tr / 0.3)))
+		return
+	if capa != _brillo:
+		return
+	if tr < 0.0:
+		# EL AVISO: un hilo tenue que tantea desde arriba antes del golpe.
+		var baja: float = clampf(_t / T_RAYO_CAE, 0.0, 1.0)
+		_quebrado(capa, p + _alto(ALTO_RAYO), p + _alto(ALTO_RAYO * (1.0 - baja)), RAYO, RAYO_CLARO, chispa * 7.0, 8, 5.0, 1.4, 0.45)
+		return
+	if tr < 0.3:
+		# EL RELAMPAGO: grueso, chisporroteando, y se apaga a tirones.
+		var alfa: float = (1.0 - tr / 0.3) * (0.65 + 0.35 * _ruido(chispa, 3.0))
+		_quebrado(capa, p + _alto(ALTO_RAYO), p, RAYO, RAYO_CLARO, chispa * 11.0, 12, 7.0, 6.5, alfa)
+		# Una rama suelta.
+		var medio: Vector2 = p + _alto(ALTO_RAYO * (0.45 + 0.2 * _ruido(chispa, 4.0)))
+		_quebrado(capa, medio, medio + Vector2((12.0 if _ruido(chispa, 5.0) < 0.5 else -12.0), 14.0), RAYO, RAYO_CLARO,
+			chispa * 5.0, 4, 3.0, 2.4, alfa * 0.7)
+	if tr < 0.14:
+		BarridoAire.brillo(capa, p + _alto(8.0), 34.0 * (1.0 - tr / 0.14), Color(RAYO_CLARO, 0.55 * (1.0 - tr / 0.14)))
+	if tr < 0.3:
+		BarridoAire.destello(capa, p + _alto(4.0), 24.0 * (1.0 - tr / 0.3 * 0.6), Color(RAYO_CLARO, 1.0 - tr / 0.3), 0.3)
+	# Chispas que saltan del sitio.
+	if tr < 0.4:
+		for m in _motas:
+			var pm: Vector2 = p + (m["d"] as Vector2) * float(m["v"]) * tr + Vector2(0.0, -30.0 * tr + 60.0 * tr * tr)
+			BarridoAire.brillo(capa, pm, float(m["tam"]), Color(RAYO_CLARO, 1.0 - tr / 0.4))
+
+
+# ------------------------------------------------------------
+#  LA HELICE: dos orbes que giran uno alrededor del otro
+# ------------------------------------------------------------
+# Donde va el orbe 'cual' (0/1) a los 't' segundos: avanza por la linea y gira alrededor del eje (a lo ancho en el
+# suelo y en altura), el otro medio giro por detras. Al llegar se juntan (la amplitud se cierra al final).
+func _pos_helice(t: float, cual: int) -> Vector2:
+	var d: float = clampf(t * V_HELICE, 0.0, _largo)
+	var fase: float = d / PASO_HELICE * TAU + PI * float(cual)
+	var cierra: float = clampf((_largo - d) / 20.0, 0.0, 1.0) * clampf(d / 10.0, 0.0, 1.0)
+	var a: float = AMPLITUD_HELICE * cierra
+	return _o + _dir * (6.0 + d) + _lat * sin(fase) * a + _alto(ALTO_MANO + cos(fase) * a * 0.8)
+
+
+func _helice(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _brillo:
+		return
+	var t_llega: float = _largo / V_HELICE
+	var falla: bool = modo == Modo.HELICE_FALLA
+	if _t < t_llega:
+		for cual in 2:
+			var p: Vector2 = _pos_helice(_t, cual)
+			var fase: float = clampf(_t * V_HELICE, 0.0, _largo) / PASO_HELICE * TAU + PI * float(cual)
+			var delante: float = 0.75 + 0.25 * cos(fase)   # el de detras, un pelo mas apagado
+			# La ESTELA: sigue la espiral, a trocitos de cometa.
+			for k in 8:
+				var ta: float = _t - float(k + 1) * 0.02
+				var tb: float = _t - float(k) * 0.02
+				if ta < 0.0:
+					break
+				BarridoAire.cometa(capa, _pos_helice(ta, cual), _pos_helice(tb, cual), 5.0 - 0.6 * float(k),
+					Color(ARCANO, 0.55 * delante * (1.0 - float(k) / 6.0)))
+			BarridoAire.brillo(capa, p, 13.0, Color(ARCANO, 0.5 * delante))
+			BarridoAire.brillo(capa, p, 5.2, Color(ARCANO_CLARO, delante))
+			BarridoAire.destello(capa, p, 9.0, Color(ARCANO_CLARO, 0.55 * delante), _t * 9.0 + float(cual))
+		return
+	var tr: float = _t - t_llega
+	var fin: Vector2 = _pos_helice(t_llega, 0)
+	if falla:
+		var kf: float = clampf(tr / T_REVIENTA, 0.0, 1.0)
+		if kf < 1.0:
+			BarridoAire.brillo(capa, fin, 10.0 * (1.0 - kf), Color(ARCANO, 0.4 * (1.0 - kf)))
+			BarridoAire.brillo(capa, fin, 4.0 * (1.0 - kf), Color(ARCANO_CLARO, 1.0 - kf))
+		return
+	# DOS REVENTONES seguidos (dos impactos): anillo, destello y motas.
+	for golpe in 2:
+		var tg: float = tr - 0.08 * float(golpe)
+		if tg < 0.0:
+			continue
+		var k2: float = clampf(tg / T_REVIENTA, 0.0, 1.0)
+		if k2 >= 1.0:
+			continue
+		if tg < 0.1:
+			BarridoAire.brillo(capa, fin, 20.0 * (1.0 - tg / 0.1), Color(ARCANO_CLARO, 0.45 * (1.0 - tg / 0.1)))
+		_anillo(capa, fin, 4.0 + (18.0 + 6.0 * float(golpe)) * (1.0 - pow(1.0 - k2, 2.0)), 4.0, Color(ARCANO, 0.8 * (1.0 - k2)), K)
+		BarridoAire.destello(capa, fin, 18.0 * (1.0 - k2 * 0.6), Color(ARCANO_CLARO, 1.0 - k2), 0.4 + 0.8 * float(golpe))
+	if tr < 0.45:
+		for m in _motas:
+			var pm: Vector2 = fin + (m["d"] as Vector2) * float(m["v"]) * tr + Vector2(0.0, 40.0 * tr * tr)
+			BarridoAire.brillo(capa, pm, float(m["tam"]), Color(ARCANO_CLARO, 1.0 - tr / 0.45))
+
+
+# ------------------------------------------------------------
+#  EL VENDAJE DE LUZ, sobre el aliado
+# ------------------------------------------------------------
+func _cura(capa: Node2D) -> void:
+	if _t < -0.1:
+		return
+	var k: float = clampf((_t + 0.1) / T_CURA, 0.0, 1.0)
+	var vida: float = sin(k * PI)
+	var pies: Vector2 = _desde
+	var pecho: Vector2 = _hasta
+	if capa == _suelo:
+		# Un circulo de luz calida a sus pies.
+		BarridoAire.brillo(capa, pies, _ancho * 1.3, Color(LUZ_CALIDA, 0.35 * vida))
+		return
+	if capa != _brillo:
+		return
+	# LA COLUMNA que baja: mas ancha arriba, se mete en el cuerpo.
+	var baja: float = clampf((_t + 0.1) / 0.2, 0.0, 1.0)
+	var arriba: Vector2 = pies + _alto(70.0)
+	var abajo: Vector2 = arriba.lerp(pies, baja)
+	var col := PackedVector2Array([arriba, arriba.lerp(abajo, 0.5), abajo])
+	_lengua(capa, col, PackedFloat32Array([_ancho * 0.9, _ancho * 0.75, _ancho * 0.55]),
+		PackedColorArray([Color(LUZ_CALIDA, 0.0), Color(LUZ_CALIDA, 0.35 * vida), Color(LUZ_CALIDA, 0.45 * vida)]),
+		PackedColorArray([Color(LUZ_BLANCA, 0.0), Color(LUZ_BLANCA, 0.55 * vida), Color(LUZ_BLANCA, 0.7 * vida)]))
+	# LA VENDA: un anillo de luz que se ciñe al pecho y sube un poco.
+	if _t > 0.0:
+		var kv: float = clampf(_t / 0.5, 0.0, 1.0)
+		_anillo(capa, pecho + Vector2(0.0, 4.0 - 8.0 * kv), _ancho * (0.95 - 0.25 * kv), 2.2, Color(LUZ_CALIDA, 0.85 * (1.0 - kv * kv)), K * 0.55)
+		if _t < 0.18:
+			BarridoAire.destello(capa, pecho, 14.0 * (1.0 - _t / 0.18), Color(LUZ_BLANCA, 1.0 - _t / 0.18), 0.2)
+	# DESTELLOS que suben.
+	for m in _motas:
+		var tm: float = _t - float(m["t0"])
+		if tm < 0.0 or tm > 0.45:
+			continue
+		var q: Vector2 = pies + Vector2(float(m["x"]) * _ancho, -_largo * 0.3) + _alto(float(m["sube"]) * tm / 0.45)
+		BarridoAire.destello(capa, q, float(m["tam"]) * sin(tm / 0.45 * PI), Color(LUZ_BLANCA, 0.9), tm * 4.0)
