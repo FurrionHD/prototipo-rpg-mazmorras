@@ -161,6 +161,9 @@ var _trozos: Array = []
 var _rayos: Array = []
 var _gotas: Array = []
 var _duracion_vuelo: float = 0.6
+# LA DEFORMACION de la boca del Eclipse (27/09: "¿siempre se genera con la misma deformacion?"): sale de la semilla de
+# cada lanzamiento (que viaja por red: el espejo ve el mismo monstruo). [fases del ruido x6, desfase de dientes y pinchos]
+var _forma_boca: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
@@ -301,6 +304,10 @@ func _preparar() -> void:
 					"t0": _rng.randf_range(0.0, T_PULSO * float(TIRONES) + 0.2), "piedra": _rng.randf() < 0.4,
 					"giro": _rng.randf_range(0.0, TAU)})
 		Modo.ECLIPSE:
+			_forma_boca = []
+			for i in 6:
+				_forma_boca.append(_rng.randf_range(0.0, TAU))
+			_forma_boca.append(_rng.randf_range(0.0, 100.0))
 			for i in 34:
 				var a_e: float = _rng.randf_range(0.0, TAU)
 				_esquirlas.append({"dir": Vector2(cos(a_e), sin(a_e)), "d": _rng.randf_range(0.25, 1.0),
@@ -2194,9 +2201,11 @@ func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) ->
 	# La de atras recorre la mitad de arriba del borde (de PI a TAU); la de delante, la de abajo (de 0 a PI).
 	var a: float = PI + PI * u if lado < 0.0 else PI * u
 	# (27/09: "muy redondo, tiene que ser mas deforme, mas monstruoso") BULTOS: el borde y la altura van con ruido.
-	var ruido: float = sin(u * 7.0 + lado * 2.1) * 0.08 + sin(u * 13.0 + lado * 5.3) * 0.05 + sin(u * 3.0 - lado) * 0.06
+	var fb: Array = _forma_boca
+	var o: int = 0 if lado < 0.0 else 3
+	var ruido: float = sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07
 	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * (1.0 + ruido)
-	var h: float = alto * (0.85 + 0.35 * (0.5 + 0.5 * sin(u * 5.0 + lado * 1.3)))
+	var h: float = alto * (0.8 + 0.4 * (0.5 + 0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2]))))
 	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
 	var sobre: Vector2 = base + _alto(h)
 	var centro_linea: Vector2 = Vector2(base.x, _c.y) + _alto(alto * 0.25)
@@ -2233,14 +2242,14 @@ func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: f
 			var t1: Vector2 = _punto_boca(lado, u1, 1.04, alto, cierre)
 			ci.draw_primitive(PackedVector2Array([b0, b1, t1, t0]), PackedColorArray([hondo, hondo, claro, claro]), PackedVector2Array())
 			# Los PINCHOS de fuera (en la base, hacia fuera del agujero), de tamaños distintos, uno si y otro no.
-			if k % 3 == 1:
+			if (k + int(_forma_boca[6])) % 3 == 1:
 				var fuera: Vector2 = (b0 - _c).normalized()
-				var largo: float = _r * (0.1 + 0.12 * MagiaAire._ruido(float(k), lado + 3.0))
+				var largo: float = _r * (0.1 + 0.12 * MagiaAire._ruido(float(k), lado + 3.0 + float(_forma_boca[6])))
 				var pm: Vector2 = b0.lerp(b1, 0.5) + fuera * largo + _alto(largo * 0.4)
 				ci.draw_primitive(PackedVector2Array([b0, pm, b1]), PackedColorArray([hondo, claro, hondo]), PackedVector2Array())
 		# Las MANCHAS difusas del cuerpo (textura, no rayas).
 		for i in 5:
-			var pmn: Vector2 = _punto_boca(lado, 0.12 + 0.19 * float(i), 0.35 + 0.3 * MagiaAire._ruido(float(i), lado), alto, cierre)
+			var pmn: Vector2 = _punto_boca(lado, 0.12 + 0.19 * float(i), 0.35 + 0.3 * MagiaAire._ruido(float(i), lado + float(_forma_boca[6])), alto, cierre)
 			BarridoAire.brillo(ci, pmn, _r * (0.1 + 0.06 * MagiaAire._ruido(float(i), 7.0)), Color(BOCA_MAGENTA, 0.35 * alfa))
 	if parte == 0:
 		return
@@ -2254,13 +2263,13 @@ func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: f
 		var u2: float = float(k + 2) / float(n)
 		var d0: Vector2 = _punto_boca(lado, u0, 1.0, alto, cierre)
 		var d1: Vector2 = _punto_boca(lado, u2, 1.0, alto, cierre)
-		var largo_d: float = _r * (0.14 + 0.1 * MagiaAire._ruido(float(k), lado + 9.0))
+		var largo_d: float = _r * (0.14 + 0.1 * MagiaAire._ruido(float(k), lado + 9.0 + float(_forma_boca[6])))
 		var pt: Vector2 = _punto_boca(lado, (u0 + u2) * 0.5, 1.0, alto, cierre) + _hacia_linea(lado, alto, cierre) * largo_d
 		ci.draw_primitive(PackedVector2Array([d0, d1, pt]), PackedColorArray([hueso_sombra, hueso_sombra, hueso]), PackedVector2Array())
 	# Los OJOS DE CRISTAL, de tamaños distintos.
 	for i in 3:
 		var p: Vector2 = _punto_boca(lado, 0.22 + 0.27 * float(i), 0.5, alto, cierre)
-		var w: float = (alto * 0.06 + 2.0) * (0.7 + 0.6 * MagiaAire._ruido(float(i), lado + 2.0))
+		var w: float = (alto * 0.06 + 2.0) * (0.7 + 0.6 * MagiaAire._ruido(float(i), lado + 2.0 + float(_forma_boca[6])))
 		var h: float = w * 1.9
 		var rombo := PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)])
 		var rombo2 := PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)])
