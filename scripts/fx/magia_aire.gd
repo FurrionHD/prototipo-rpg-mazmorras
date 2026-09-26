@@ -885,48 +885,77 @@ func _ola(capa: Node2D) -> void:
 	if capa == _delante:
 		if rompe >= 1.0:
 			return
-		# EL CUERPO DE LA OLA: de la base (atras, en el suelo) a la cresta (delante, en alto), a todo lo ancho.
+		# LA OLA SIN CORTES (26/09: "no es muy cortado directamente?"): a lo ancho se redondea (alta y opaca en el
+		# centro, baja y transparente en los lados), el frente se curva (el centro va delante) y ondula, la base se
+		# funde con el agua de detras y la lamina se deshace por los bordes.
 		var alto: float = ALTO_OLA * (0.55 + 0.45 * sin(minf(k * 3.0, 1.0) * PI * 0.5)) * (1.0 - rompe)
 		var fondo: float = 44.0
-		# LA LAMINA DE AGUA que arrastra detras de la ola, de ti a la cresta.
-		var lam := PackedVector2Array([_o + _lat * _ancho * 0.45, _o + _dir * maxf(0.0, frente - fondo) + _lat * _ancho * 0.5,
-			_o + _dir * maxf(0.0, frente - fondo) - _lat * _ancho * 0.5, _o - _lat * _ancho * 0.45])
-		capa.draw_polygon(lam, PackedColorArray([Color(AGUA, 0.0), Color(AGUA, 0.28 * (1.0 - rompe)),
-			Color(AGUA, 0.28 * (1.0 - rompe)), Color(AGUA, 0.0)]))
+		var apaga: float = 1.0 - rompe
 		var pv := PackedVector2Array()
 		var pc := PackedColorArray()
 		var pi := PackedInt32Array()
-		var filas: int = 4
+		# LA LAMINA DE AGUA que arrastra detras, de ti a la ola: una rejilla que se difumina a los lados y hacia ti.
+		var cols: int = 10
+		var filas_l: int = 6
+		var hasta: float = maxf(0.0, frente - fondo * 0.6)
+		for j in cols + 1:
+			var v: float = lerpf(-0.5, 0.5, float(j) / float(cols))
+			for f in filas_l + 1:
+				var q: float = float(f) / float(filas_l)
+				var ancho_q: float = 0.85 + 0.15 * sin(q * 7.0 + _t * 6.0 + v * 3.0)
+				pv.append(_o + _dir * hasta * q + _lat * _ancho * 1.15 * v * ancho_q)
+				pc.append(Color(AGUA, 0.4 * pow(cos(v * PI), 0.8) * q * apaga))
+		for j in cols:
+			for f in filas_l:
+				var a0: int = j * (filas_l + 1) + f
+				var b0: int = (j + 1) * (filas_l + 1) + f
+				pi.append_array([a0, a0 + 1, b0, a0 + 1, b0 + 1, b0])
+		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
+		# EL CUERPO: de la base (atras, en el suelo, transparente) a la cresta (delante, en alto).
+		pv = PackedVector2Array()
+		pc = PackedColorArray()
+		pi = PackedInt32Array()
+		var filas: int = 5
 		for j in n + 1:
 			var v: float = lerpf(-0.5, 0.5, float(j) / float(n))
-			var borde: float = 1.0 - 0.7 * pow(absf(v) * 2.0, 6.0)   # los extremos, un pelo mas bajos
-			var ondula: float = sin(v * 9.0 + _t * 10.0) * 2.5
+			var perfil: float = pow(cos(v * PI), 0.35)
+			var curva: float = -10.0 * pow(v * 2.0, 2.0)   # el centro por delante
+			var ondula: float = sin(v * 9.0 + _t * 10.0) * 2.5 + sin(v * 17.0 - _t * 7.0) * 1.2
 			for f in filas + 1:
 				var q: float = float(f) / float(filas)   # 0 atras (suelo) .. 1 cresta
-				var d: float = maxf(0.0, frente - fondo * (1.0 - q)) + ondula * q
-				var h: float = alto * borde * sin(q * PI * 0.5)
-				pv.append(_o + _dir * d + _lat * _ancho * v + _alto(h))
-				pc.append(Color(AGUA_HONDA.lerp(AGUA, q), (0.55 + 0.4 * q) * (1.0 - rompe)))
+				var d: float = maxf(0.0, frente - fondo * (1.0 - q) + (curva + ondula) * q)
+				var h: float = alto * perfil * sin(q * PI * 0.5)
+				pv.append(_o + _dir * d + _lat * _ancho * 1.2 * v * (0.9 + 0.1 * q) + _alto(h))
+				pc.append(Color(AGUA_HONDA.lerp(AGUA, q), (0.25 + 0.7 * q) * q * perfil * apaga))
 		for j in n:
 			for f in filas:
 				var a: int = j * (filas + 1) + f
 				var b: int = (j + 1) * (filas + 1) + f
 				pi.append_array([a, a + 1, b, a + 1, b + 1, b])
 		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
-		# LA CRESTA DE ESPUMA: una lengua blanca de punta a punta, por encima.
+		# LA CRESTA DE ESPUMA: gorda en el centro y afilada hacia los lados, siguiendo la curva del frente.
 		var cresta := PackedVector2Array()
 		var anchos := PackedFloat32Array()
 		var bordes := PackedColorArray()
 		var nucleos := PackedColorArray()
 		for j in n + 1:
 			var v2: float = lerpf(-0.5, 0.5, float(j) / float(n))
-			var borde2: float = 1.0 - 0.7 * pow(absf(v2) * 2.0, 6.0)
-			cresta.append(_o + _dir * (frente + sin(v2 * 9.0 + _t * 10.0) * 2.5) + _lat * _ancho * v2
-				+ _alto(alto * borde2 + 1.5))
-			anchos.append(4.0 * borde2 + 1.0)
-			bordes.append(Color(AGUA_CLARA, 0.8 * (1.0 - rompe)))
-			nucleos.append(Color(ESPUMA, 1.0 - rompe))
+			var perfil2: float = pow(cos(v2 * PI), 0.35)
+			var curva2: float = -10.0 * pow(v2 * 2.0, 2.0)
+			var ondula2: float = sin(v2 * 9.0 + _t * 10.0) * 2.5 + sin(v2 * 17.0 - _t * 7.0) * 1.2
+			cresta.append(_o + _dir * maxf(0.0, frente + curva2 + ondula2) + _lat * _ancho * 1.2 * v2 + _alto(alto * perfil2 + 1.5))
+			anchos.append(0.5 + 4.2 * perfil2)
+			bordes.append(Color(AGUA_CLARA, 0.8 * perfil2 * apaga))
+			nucleos.append(Color(ESPUMA, perfil2 * apaga))
 		_lengua(capa, cresta, anchos, bordes, nucleos)
+		# Motas de espuma que se desprenden por la cara de la ola.
+		for j in 7:
+			var v3: float = lerpf(-0.36, 0.36, float(j) / 6.0) + sin(_t * 5.0 + float(j)) * 0.03
+			var perfil3: float = pow(cos(v3 * PI), 0.6)
+			var q3: float = 0.55 + 0.35 * (0.5 + 0.5 * sin(_t * 13.0 + float(j) * 2.1))
+			var p3: Vector2 = _o + _dir * maxf(0.0, frente - fondo * (1.0 - q3) - 10.0 * pow(v3 * 2.0, 2.0) * q3) + _lat * _ancho * v3 \
+				+ _alto(alto * perfil3 * sin(q3 * PI * 0.5))
+			BarridoAire.brillo(capa, p3, 2.4, Color(ESPUMA, 0.55 * perfil3 * apaga))
 		return
 	if capa == _brillo:
 		# LA ROCIADA que salta por delante de la cresta.
