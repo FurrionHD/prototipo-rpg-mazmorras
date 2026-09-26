@@ -499,7 +499,7 @@ const T_VUELO := {
 	# La CURACION nace encima del que se cura, no viaja. Un pelin de adelanto para que el halo ya
 	# este abierto cuando sube la barra de vida. (Y un 0.0 aqui seria "no se dibuja nada".)
 	Estilo.CURACION_LUZ: 0.12, Estilo.CURACION_LUZ_MAYOR: 0.14,
-	Estilo.MALDICION: 0.1, Estilo.FORTALECER: 0.1, Estilo.IMBUIR_ELEM: 0.32,
+	Estilo.MALDICION: 0.1, Estilo.FORTALECER: 0.1, Estilo.IMBUIR_ELEM: 0.6,
 	# LOS DE LOS HONGOS. Ninguno viaja: la nube brota encima del alcanzado y el micelio sale del
 	# suelo, asi que su vuelo es solo el ADELANTO con el que empieza a dibujarse. La nube lo lleva
 	# largo porque tiene que verse ABRIRSE antes del impacto -- ahi esta toda la habilidad.

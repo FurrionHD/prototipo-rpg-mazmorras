@@ -172,6 +172,8 @@ var _charcos: Array = []
 var _nubes: Array = []
 var _motas: Array = []
 var _puntos: Array = []
+var _pies_filo: Vector2 = Vector2.ZERO
+var _elem_filo: int = 0
 # El arco.
 var _desde: Vector2 = Vector2.ZERO
 var _hasta: Vector2 = Vector2.ZERO
@@ -299,7 +301,7 @@ func duracion() -> float:
 		Modo.ARCO: return T_ARCO + 0.05
 		Modo.CURA: return T_CURA
 		Modo.MALDICION, Modo.FORTALECER: return T_SOBRE
-		Modo.FILO: return 0.75
+		Modo.FILO: return T_FILO_IMPACTO + 0.05
 	return 1.0
 
 
@@ -467,7 +469,8 @@ static func sobre_cuerpo(padre: Node, m: int, caja: Rect2, col: Color, semilla: 
 
 
 # EL FILO: de 'desde' (el pecho de quien lo lanza) al arma de quien lo recibe ('caja', su cuerpo).
-static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: int, espera: float, ritmo: float) -> MagiaAire:
+static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: int, espera: float, ritmo: float,
+		elem: int = 0) -> MagiaAire:
 	if padre == null:
 		return null
 	var e := MagiaAire.new()
@@ -481,10 +484,18 @@ static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: 
 	e._largo = maxf(espera, 0.05)
 	e._desde = desde
 	e._hasta = caja.get_center() + Vector2(caja.size.x * 0.35, 0.0)   # por la mano del arma
+	e._ancho = maxf(caja.size.x, 10.0)
+	e._pies_filo = Vector2(caja.get_center().x, caja.end.y)
+	e._elem_filo = elem
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
+	for i in 14:
+		var a: float = e._rng.randf_range(0.0, TAU)
+		e._motas.append({"d": Vector2(cos(a), sin(a) * K), "v": e._rng.randf_range(30.0, 70.0), "tam": e._rng.randf_range(1.4, 2.6),
+			"giro": e._rng.randf_range(0.0, TAU)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, true)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	return e
 
@@ -1574,29 +1585,123 @@ func _pos_filo(u: float) -> Vector2:
 	return _desde.lerp(_hasta, u) + Vector2(0.0, -alto * sin(u * PI))
 
 
+const T_CARGA_FILO := 0.2      # lo que se concentra en tu mano antes de salir (del vuelo: el resto es el viaje)
+const T_FILO_IMPACTO := 0.95
+
+# UN TROZO del elemento (lo que deja la estela y lo que salta al reventar): brasa, gota, chispa, estrella o humo.
+func _trozo_elem(ci: CanvasItem, p: Vector2, tam: float, alfa: float, sem: float) -> void:
+	var claro: Color = color.lerp(Color.WHITE, 0.65)
+	match _elem_filo:
+		Elementos.Elemento.FUEGO:
+			_bocanada(ci, p, tam * 1.6, clampf(1.0 - alfa, 0.0, 0.9), sem)
+		Elementos.Elemento.AGUA:
+			BarridoAire.brillo(ci, p, tam * 1.3, Color(color, 0.6 * alfa))
+			ci.draw_circle(p, tam * 0.7, Color(claro, alfa))
+		Elementos.Elemento.RAYO:
+			var a: float = TAU * _ruido(sem, 3.0)
+			_quebrado(ci, p, p + Vector2(cos(a), sin(a) * K) * tam * 3.0, color, claro, sem, 3, tam * 0.9, tam * 0.8, alfa)
+		Elementos.Elemento.LUZ:
+			BarridoAire.destello(ci, p, tam * 2.6, Color(claro, alfa), sem)
+		Elementos.Elemento.OSCURIDAD:
+			BarridoAire.brillo(ci, p, tam * 2.0, Color(MALDITO_OSCURO, 0.7 * alfa))
+			BarridoAire.brillo(ci, p, tam * 0.8, Color(color.lightened(0.3), alfa))
+		_:
+			BarridoAire.brillo(ci, p, tam * 1.4, Color(color, alfa))
+
+
+# EL FILO (26/09: "algo mas epico que te alcanza, que digas: dios, se nota que me has imbuido"): CARGA en tu mano,
+# VIAJE en dos cintas trenzadas con estela de trozos de su elemento e IMPACTO: una esfera del elemento revienta
+# alrededor de el, una espiral le sube por el cuerpo hasta el arma y el arma estalla.
 func _filo(capa: Node2D) -> void:
+	var total: float = _largo                       # el vuelo entero (carga + viaje)
+	var viaje: float = maxf(total - T_CARGA_FILO, 0.05)
+	var claro: Color = color.lerp(Color.WHITE, 0.7)
+	var t0: float = _t + total                      # desde que empieza
+	if capa == _suelo:
+		if _t >= 0.0 and _t < T_FILO_IMPACTO:
+			var k: float = _t / T_FILO_IMPACTO
+			_anillo(capa, _pies_filo, _ancho * (0.6 + 1.6 * (1.0 - pow(1.0 - minf(1.0, k * 2.0), 2.0))), 3.0,
+				Color(color, 0.7 * (1.0 - k)))
+			BarridoAire.brillo(capa, _pies_filo, _ancho * 1.4, Color(color, 0.3 * sin(k * PI)))
+		return
 	if capa != _brillo:
 		return
-	var viaje: float = _largo   # lo que dura el viaje (el vuelo)
-	var claro: Color = color.lerp(Color.WHITE, 0.7)
-	var u: float = clampf((_t + viaje) / viaje, 0.0, 1.0)
+	# 1) LA CARGA: motas del elemento que giran y se meten en tu mano; la mano se enciende.
+	if t0 < T_CARGA_FILO:
+		var kc: float = clampf(t0 / T_CARGA_FILO, 0.0, 1.0)
+		for j in 8:
+			var a: float = TAU * float(j) / 8.0 + t0 * 9.0
+			var r: float = 16.0 * (1.0 - kc)
+			var p: Vector2 = _desde + Vector2(cos(a), sin(a) * K) * r
+			BarridoAire.cometa(capa, _desde + Vector2(cos(a - 0.5), sin(a - 0.5) * K) * (r + 4.0), p, 1.8, Color(color, 0.85))
+		BarridoAire.brillo(capa, _desde, 5.0 + 9.0 * kc, Color(color, 0.55 * kc))
+		BarridoAire.brillo(capa, _desde, 2.5 + 2.5 * kc, Color(claro, kc))
+		return
+	# 2) EL VIAJE: dos cintas que se trenzan siguiendo el arco, cabezas brillantes y estela de trozos.
 	if _t < 0.0:
-		# La CINTA del elemento: una cometa que sigue el arco, con la cabeza brillante.
-		for k in 6:
-			var ua: float = clampf(u - 0.07 * float(k + 1), 0.0, 1.0)
-			var ub: float = clampf(u - 0.07 * float(k), 0.0, 1.0)
-			BarridoAire.cometa(capa, _pos_filo(ua), _pos_filo(ub), 4.0 - 0.5 * float(k), Color(color, 0.7 * (1.0 - float(k) / 6.0)))
-		BarridoAire.brillo(capa, _pos_filo(u), 8.0, Color(color, 0.5))
-		BarridoAire.brillo(capa, _pos_filo(u), 3.2, Color(claro, 1.0))
+		var u: float = clampf((t0 - T_CARGA_FILO) / viaje, 0.0, 1.0)
+		var dir: Vector2 = (_pos_filo(minf(u + 0.02, 1.0)) - _pos_filo(maxf(u - 0.02, 0.0))).normalized()
+		var lat: Vector2 = dir.orthogonal()
+		for cinta in 2:
+			var fase: float = PI * float(cinta)
+			for k in 9:
+				var ua: float = clampf(u - 0.05 * float(k + 1), 0.0, 1.0)
+				var ub: float = clampf(u - 0.05 * float(k), 0.0, 1.0)
+				var oa: Vector2 = lat * sin(ua * 16.0 + fase) * 5.0
+				var ob: Vector2 = lat * sin(ub * 16.0 + fase) * 5.0
+				BarridoAire.cometa(capa, _pos_filo(ua) + oa, _pos_filo(ub) + ob, 4.6 - 0.45 * float(k),
+					Color(color, 0.8 * (1.0 - float(k) / 9.0)))
+			var cab: Vector2 = _pos_filo(u) + lat * sin(u * 16.0 + fase) * 5.0
+			BarridoAire.brillo(capa, cab, 9.0, Color(color, 0.55))
+			BarridoAire.brillo(capa, cab, 3.6, Color(claro, 1.0))
+		# Trozos que se quedan atras y caen.
+		for k2 in 6:
+			var ut: float = u - 0.07 * float(k2 + 1)
+			if ut < 0.0:
+				break
+			var caida: float = 0.07 * float(k2 + 1) * viaje
+			_trozo_elem(capa, _pos_filo(ut) + Vector2(sin(float(k2) * 2.3) * 4.0, 50.0 * caida * caida + 8.0 * caida),
+				2.0, 1.0 - float(k2) / 6.0, float(k2) + floor(t0 * 20.0))
+		BarridoAire.destello(capa, _pos_filo(u), 10.0, Color(claro, 0.8), t0 * 7.0)
 		return
-	# AL LLEGAR: el arma se enciende de golpe (destello y onda del color del elemento).
-	var k2: float = clampf(_t / 0.4, 0.0, 1.0)
-	if k2 >= 1.0:
+	# 3) EL IMPACTO.
+	var ki: float = clampf(_t / T_FILO_IMPACTO, 0.0, 1.0)
+	if ki >= 1.0:
 		return
-	BarridoAire.brillo(capa, _hasta, 16.0 * (1.0 - k2), Color(color, 0.5 * (1.0 - k2)))
-	_anillo(capa, _hasta, 3.0 + 12.0 * (1.0 - pow(1.0 - k2, 2.0)), 2.5, Color(color, 0.8 * (1.0 - k2)), K)
-	BarridoAire.destello(capa, _hasta, 14.0 * (1.0 - k2 * 0.5), Color(claro, 1.0 - k2), 0.7)
+	var pecho: Vector2 = _pies_filo + _alto(ALTO_PECHO)
+	# La ESFERA del elemento que revienta a su alrededor (con su borde brillante), y el fogonazo.
+	if _t < 0.4:
+		var ke: float = _t / 0.4
+		var re: float = _ancho * (0.8 + 1.3 * (1.0 - pow(1.0 - ke, 2.0)))
+		BarridoAire.brillo(capa, pecho, re, Color(color, 0.3 * (1.0 - ke)))
+		_anillo(capa, pecho, re, 4.0, Color(claro, 0.9 * (1.0 - ke)))
+		if _t < 0.12:
+			BarridoAire.brillo(capa, pecho, 30.0 * (1.0 - _t / 0.12), Color(claro, 0.6 * (1.0 - _t / 0.12)))
+	# Fragmentos del elemento que salen despedidos.
+	if _t < 0.5:
+		for m in _motas:
+			var pm: Vector2 = pecho + (m["d"] as Vector2) * float(m["v"]) * _t + Vector2(0.0, 55.0 * _t * _t)
+			_trozo_elem(capa, pm, float(m["tam"]), 1.0 - _t / 0.5, float(m["giro"]) + floor(_t * 18.0))
+	# LA ESPIRAL que le sube por el cuerpo hasta el arma.
+	var ks: float = clampf((_t - 0.08) / 0.45, 0.0, 1.0)
+	if ks > 0.0 and ks < 1.0:
+		for k3 in 10:
+			var q: float = ks - 0.06 * float(k3)
+			if q < 0.0:
+				break
+			var a3: float = q * TAU * 2.2
+			var p3: Vector2 = _pies_filo + Vector2(cos(a3) * _ancho * 0.75, sin(a3) * _ancho * 0.75 * K) + _alto(q * _largo_cuerpo())
+			BarridoAire.brillo(capa, p3, 3.2 - 0.2 * float(k3), Color(color, 0.8 * (1.0 - float(k3) / 10.0)))
+		BarridoAire.brillo(capa, _pies_filo + _alto(ks * _largo_cuerpo()), 4.0, Color(claro, 1.0))
+	# EL ARMA ESTALLA: destello grande en la mano del arma cuando llega la espiral, y queda latiendo.
+	if _t > 0.4:
+		var ka: float = clampf((_t - 0.4) / 0.55, 0.0, 1.0)
+		BarridoAire.destello(capa, _hasta, 26.0 * (1.0 - ka * 0.7), Color(claro, 1.0 - ka), 0.6 + ka)
+		BarridoAire.brillo(capa, _hasta, 14.0 * (1.0 - ka * 0.5), Color(color, 0.55 * (1.0 - ka)))
 
+
+func _largo_cuerpo() -> float:
+	return maxf(_pies_filo.y - _hasta.y, 12.0) / K
 
 # ------------------------------------------------------------
 #  LA MIASMA: la maldicion que cae y se extiende por el suelo

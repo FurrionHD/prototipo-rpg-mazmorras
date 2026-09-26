@@ -38,7 +38,7 @@ const HABILIDADES := [
 	# LAS MAGIAS (26/09): la huella de cada hechizo, sacada de su ficha (CombatTactico.huella_hechizo).
 	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
 	["magia", "vendaje_de_luz"], ["magia", "bola_fuego"], ["magia", "chorro_agua"], ["magia", "rayo"], ["magia", "pulso_arcano"],
-	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
+	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
@@ -109,7 +109,9 @@ const MOMENTOS_MAGIA := {
 	"pulso_arcano": [0.08, 0.18, 0.3, 0.42, 0.6],
 	"debilidad": [0.15, 0.32, 0.45, 0.7, 1.1],
 	"fortaleza": [0.12, 0.26, 0.38, 0.6, 0.95],
-	"filo_ardiente": [0.08, 0.2, 0.3, 0.38, 0.55],
+	"filo_ardiente": [0.12, 0.38, 0.62, 0.85, 1.2],
+	"filo_fulgurante": [0.12, 0.38, 0.62, 0.85, 1.2],
+	"filo_umbrio": [0.12, 0.38, 0.62, 0.85, 1.2],
 	"mar_de_brasas": [0.2, 0.55, 1.05, 1.65, 2.2],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 }
@@ -986,7 +988,7 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 				d_i = cji.get_center().distance_to(f.centro)
 				caja_i = cji
 		var col_i: Color = Elementos.color(sp.elemento) if Elementos.tiene_color(sp.elemento) else MagiaAire.ARCANO
-		sueltos.append({"n": MagiaAire.filo(self, yo + Vector2(0, -13), caja_i, col_i, 9, 0.32, 1.0), "t0": 0.32})
+		sueltos.append({"n": MagiaAire.filo(self, yo + Vector2(0, -13), caja_i, col_i, 9, 0.6, 1.0, sp.elemento), "t0": 0.6})
 	if not sueltos.is_empty():
 		for su in sueltos:
 			(su["n"] as Node).set_process(false)

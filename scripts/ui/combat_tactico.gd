@@ -2158,7 +2158,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var el_i: int = int(ev.get("elem", 0))
 		var col_i: Color = Elementos.color(el_i) if Elementos.tiene_color(el_i) else MagiaAire.ARCANO
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center()
-		MagiaAire.filo(arena, desde_i, bulto_de(v), col_i, semilla, vuelo, ritmo)
+		MagiaAire.filo(arena, desde_i, bulto_de(v), col_i, semilla, vuelo, ritmo, el_i)
 		return
 	# EL VENDAJE DE LUZ sobre el aliado (MagiaAire.cura).
 	if estilo == CombatFX.Estilo.CURACION_LUZ:
