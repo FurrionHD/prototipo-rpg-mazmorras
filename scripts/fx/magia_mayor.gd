@@ -94,7 +94,7 @@ const T_ENTRE_ECLIPSE := 0.2     # de la oscuridad a la luz
 const T_VIVE_ECLIPSE := 0.9
 const T_CIERRA_ECLIPSE := 0.3
 const ALTO_ECLIPSE := 55.0
-const LENGUAS_ECLIPSE := 22
+const LENGUAS_ECLIPSE := 30
 # (27/09: "blanco, amarillo, morado, azul y negro: los colores de esas magias", no un arcoiris)
 const CORONA_BLANCA := Color(0.92, 0.95, 1.0)
 const ECLIPSE_LUZ := Color(1.0, 0.95, 0.72)       # blanco-amarillo: la luz
@@ -1820,24 +1820,36 @@ static func _esquirla_glitch(ci: CanvasItem, pts: PackedVector2Array, off: float
 	ci.draw_colored_polygon(pts, Color(NEGRO, alfa))
 
 
-# UNA LLAMA DE LA CORONA (27/09, su referencia): lengua larga que sale del borde del disco y ONDULA a lo largo (no
-# solo se curva), gorda cerca del borde y afilandose hasta una punta fina; tono plano.
-func _llama_corona(ci: CanvasItem, c: Vector2, a: float, r0: float, largo: float, ancho: float, col: Color, fase: float) -> void:
-	if largo <= 0.5 or col.a <= 0.0:
-		return
-	var n: int = 10
+# EL CAMINO de una llama de la corona: sale del borde en 'a', sube 'largo' y hace una S (y la punta se riza). 'u' de 0
+# (el borde) a 1 (la punta). Las capas de una misma llama siguen el MISMO camino y por eso encajan (su referencia).
+func _camino_llama(c: Vector2, a: float, r0: float, largo: float, fase: float, u: float) -> Vector2:
 	var d := Vector2(cos(a), sin(a))
 	var t := Vector2(-d.y, d.x)
+	var ola: float = sin(u * 3.2 + fase + _t * 4.0) * largo * 0.17 * u
+	var rizo: float = pow(u, 3.0) * largo * 0.22 * sin(fase * 1.7)
+	return c + d * (r0 + largo * u) + t * (ola + rizo)
+
+
+# Una capa de la llama: banda por el camino, de 'u0' a 'u1', con su ancho maximo 'w' (gorda abajo, punta fina).
+func _banda_llama(ci: CanvasItem, c: Vector2, a: float, r0: float, largo: float, fase: float, u0: float, u1: float,
+		w: float, desvio: float, col: Color) -> void:
+	if w <= 0.2 or col.a <= 0.0 or u1 <= u0:
+		return
+	var n: int = 10
 	var pv := PackedVector2Array()
 	var pc := PackedColorArray()
 	var pi := PackedInt32Array()
 	for k in n + 1:
-		var u: float = float(k) / float(n)
-		var ola: float = sin(u * 4.0 + fase + _t * 5.0) * largo * 0.16 * u
-		var eje: Vector2 = c + d * (r0 + largo * u) + t * ola
-		var w: float = ancho * pow(1.0 - u, 0.9) * (0.7 + 0.5 * sin(minf(u * 3.0, 1.0) * PI * 0.5))
-		pv.append(eje + t * w)
-		pv.append(eje - t * w)
+		var u: float = lerpf(u0, u1, float(k) / float(n))
+		var p0: Vector2 = _camino_llama(c, a, r0, largo, fase, u)
+		var p1: Vector2 = _camino_llama(c, a, r0, largo, fase, minf(u + 0.03, 1.0))
+		var tg: Vector2 = (p1 - p0).normalized() if p1.distance_squared_to(p0) > 0.0001 else Vector2(cos(a), sin(a))
+		var nor := Vector2(-tg.y, tg.x)
+		var k2: float = float(k) / float(n)
+		var ww: float = w * pow(1.0 - k2, 0.8) * (0.75 + 0.35 * sin(minf(k2 * 3.0, 1.0) * PI * 0.5))
+		var centro: Vector2 = p0 + nor * desvio * w
+		pv.append(centro + nor * ww)
+		pv.append(centro - nor * ww)
 		pc.append(col)
 		pc.append(col)
 	for k in n:
@@ -1846,23 +1858,28 @@ func _llama_corona(ci: CanvasItem, c: Vector2, a: float, r0: float, largo: float
 	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
 
 
-# LA CORONA del disco (su referencia): muchas llamas onduladas alrededor en TRES capas, de fuera a dentro: MORADO
-# (la oscuridad; largas y finas), AZUL, y BLANCO-AMARILLO (la luz; mas cortas y gordas); y el ARO BLANCO grueso
-# pegado al disco. Colores de las dos magias que junta, nada mas.
+# LA CORONA (27/09, tercera, su referencia): una MELENA de llamas en S muy juntas; cada llama es UNA forma con sus capas
+# encajadas: el BORDE MORADO (la mas ancha y larga, con la punta en hebra), el CUERPO AZUL, y la VETA BLANCO-AMARILLA
+# brillante por dentro. Entre llama y llama, HEBRAS finas que se rizan. Y el ARO BLANCO grueso pegado al disco.
 func _corona_eclipse(ci: CanvasItem, c: Vector2, r: float, largo: float, alfa: float) -> void:
 	if alfa <= 0.0 or largo <= 0.5:
 		return
-	var paso: float = floor(_t * 10.0)
-	var capas: Array = [[ECLIPSE_MORADO, 1.0, 0.2, 0.0], [ECLIPSE_AZUL, 0.8, 0.24, 0.5], [ECLIPSE_LUZ, 0.55, 0.26, 0.25]]
-	for cp in capas:
-		for i in LENGUAS_ECLIPSE:
-			var a: float = TAU * (float(i) + float(cp[3])) / float(LENGUAS_ECLIPSE) + _t * 0.25
-			var salto: float = MagiaAire._ruido(float(i) + paso * 1.3, float(cp[3]) * 7.0 + float(_semilla % 23))
-			var l: float = largo * float(cp[1]) * (0.6 + 0.6 * salto)
-			_llama_corona(ci, c, a, r * 0.9, l, r * float(cp[2]) * (0.8 + 0.4 * salto), Color(cp[0] as Color, alfa),
-				float(i) * 1.9 + float(cp[3]) * 5.0)
-	MagiaAire._anillo(ci, c, r * 1.02, r * 0.16, Color(ECLIPSE_LUZ, alfa))
-	MagiaAire._anillo(ci, c, r, r * 0.08, Color(1.0, 1.0, 1.0, alfa))
+	var paso: float = floor(_t * 8.0)
+	var n: int = LENGUAS_ECLIPSE
+	for i in n:
+		var a: float = TAU * float(i) / float(n) + _t * 0.2 + 0.08 * sin(float(i) * 2.3)
+		var salto: float = MagiaAire._ruido(float(i) + paso * 0.7, float(_semilla % 29))
+		var l: float = largo * (0.65 + 0.5 * MagiaAire._ruido(float(i), 4.0) + 0.12 * salto)
+		var fase: float = float(i) * 2.1
+		var w: float = r * 0.2
+		_banda_llama(ci, c, a, r * 0.92, l, fase, 0.0, 1.0, w, 0.0, Color(ECLIPSE_MORADO, alfa))
+		_banda_llama(ci, c, a, r * 0.92, l, fase, 0.0, 0.8, w * 0.72, -0.15, Color(ECLIPSE_AZUL, alfa))
+		_banda_llama(ci, c, a, r * 0.92, l, fase, 0.0, 0.62, w * 0.3, -0.35, Color(ECLIPSE_LUZ, alfa))
+		# La hebra que sale entre esta llama y la siguiente.
+		var a2: float = a + PI / float(n)
+		_banda_llama(ci, c, a2, r * 0.95, l * 0.8, fase + 1.3, 0.1, 1.0, r * 0.06, 0.0, Color(ECLIPSE_AZUL.lightened(0.3), 0.85 * alfa))
+	MagiaAire._anillo(ci, c, r * 1.04, r * 0.2, Color(ECLIPSE_AZUL.lightened(0.4), alfa))
+	MagiaAire._anillo(ci, c, r * 1.0, r * 0.1, Color(1.0, 1.0, 1.0, alfa))
 
 
 func _eclipse(capa: Node2D) -> void:
