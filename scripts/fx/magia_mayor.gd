@@ -17,13 +17,19 @@
 #              grietas de lava y llamas (el golpe de fuego); encima se junta una ESFERA DE AGUA que cae de golpe, vapor
 #              (el golpe de agua); el suelo se enfria a negro y REVIENTA en pinchos y esquirlas de OBSIDIANA con vetas
 #              de lava que se apagan.
+#    TORMENTA  Tormenta (el OJO DE TORMENTA que eligio): un remolino de viento sube de tu mano al cielo del sitio; alli
+#              la nube se enrosca en tres brazos alrededor de un ojo, llueve en espiral y relampaguea dentro. Los golpes
+#              de rayo caen del BORDE DEL OJO sobre quien reciben (rayo_tormenta, sobre el cuerpo) y saltan en arco a los
+#              de al lado (el salpicon). Al acabar el ojo se abre y la nube se deshace.
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
 extends Node2D
 class_name MagiaMayor
 
-enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ }
+# Los cinco primeros van en el orden de SueloRoto.Tipo.MAGIA_SOL..; los de despues son SOBRE UN CUERPO (no viajan
+# como suelo).
+enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ, RAYO_TORMENTA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -70,6 +76,17 @@ const T_AGUA_CAE := 0.46         # cuando toca el suelo (el golpe de agua va det
 const T_ROMPE := 0.58            # cuando revienta en obsidiana
 const T_VIVE_OBSIDIANA := 0.8    # lo que se queda antes de deshacerse
 const ALTO_AGUA := 55.0
+# LA TORMENTA
+const T_SUBE_VIENTO := 0.22      # el remolino sube de tu mano a la nube
+const T_FORMA_NUBE := 0.35       # la nube se enrosca (el primer golpe cae con ella hecha)
+const T_LLUEVE_TORMENTA := 1.75  # lo que llueve (los 20 golpes caen en ~1,3 s)
+const T_SE_VA_TORMENTA := 0.5
+const T_GOTA_TORMENTA := 0.32
+const T_RAYO_TORMENTA := 0.3
+const ALTO_NUBE_TORMENTA := 62.0
+const R_OJO_TORMENTA := 0.2      # el ojo, en fraccion del radio
+const NUBE_HONDA := Color(0.1, 0.12, 0.19)
+const CIELO_OJO := Color(0.55, 0.75, 1.0)
 const T_BARRE_SHOCK := 0.35      # lo que tarda el deshacerse en ir del centro al borde
 const T_DESHACE_SHOCK := 0.3     # lo que tarda cada trozo en irse
 const OBSIDIANA := Color(0.07, 0.05, 0.1)
@@ -142,6 +159,8 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 		Modo.VORAGINE:
 			# El primer tiron, con el pozo ya abierto (los otros dos van detras, al paso de los golpes).
 			return t_llega_orbe(f) + T_HUNDE + T_ABRE_POZO
+		Modo.TORMENTA:
+			return t_llega_tormenta(f) + T_FORMA_NUBE
 		Modo.SHOCK:
 			# El de fuego, cuando el suelo al rojo le llega (el de agua va detras, al paso de los golpes).
 			return _llega_calor(p.distance_to(f.centro) / maxf(f.radio, 1.0))
@@ -157,6 +176,7 @@ static func t_salir(m: int) -> float:
 		Modo.SOL: return T_CARGA_SOL + T_CRECE + T_APRIETA + T_ONDA_SOL
 		Modo.VORAGINE: return T_CARGA_SOL + T_HUNDE + T_ABRE_POZO
 		Modo.SHOCK: return T_CALIENTA
+		Modo.TORMENTA: return T_CARGA_SOL + T_SUBE_VIENTO + T_FORMA_NUBE
 	return 0.3
 
 
@@ -165,6 +185,8 @@ func duracion() -> float:
 		Modo.SOL: return t_llega(forma) + T_CRECE + T_APRIETA + T_ONDA_SOL + T_RESPLANDOR + 0.3
 		Modo.VORAGINE: return _t_cierra() + T_CIERRA + 0.3
 		Modo.SHOCK: return T_ROMPE + T_VIVE_OBSIDIANA + T_BARRE_SHOCK + T_DESHACE_SHOCK + 0.1
+		Modo.TORMENTA: return _t_se_va_tormenta() + T_SE_VA_TORMENTA + 0.1
+		Modo.RAYO_TORMENTA: return T_RAYO_TORMENTA + 0.5
 	return 1.0
 
 
@@ -212,6 +234,21 @@ func _preparar() -> void:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
 					"t0": _rng.randf_range(0.0, T_PULSO * float(TIRONES) + 0.2), "piedra": _rng.randf() < 0.4,
 					"giro": _rng.randf_range(0.0, TAU)})
+		Modo.TORMENTA:
+			_tormenta_c = _c
+			_tormenta_r = _r
+			_tormenta_hay = true
+			# Los BULTOS de la nube en tres brazos: 'u' de dentro (el ojo) a fuera, y cuando entran.
+			for brazo in 3:
+				for k in 11:
+					var u_b: float = (float(k) + _rng.randf_range(0.0, 0.6)) / 11.0
+					_motas.append({"a": TAU * float(brazo) / 3.0 + _rng.randf_range(-0.25, 0.25), "u": u_b,
+						"r": _rng.randf_range(0.11, 0.17) * _r, "t0": (1.0 - u_b) * 0.12 + _rng.randf_range(0.0, 0.06)})
+			for i in 90:
+				_gotas.append({"a": _rng.randf_range(0.0, TAU), "d": sqrt(_rng.randf()) * 0.98, "t0": _rng.randf_range(0.0, 0.35)})
+			for i in 9:
+				var ac: float = _rng.randf_range(0.0, TAU)
+				_trozos.append({"dir": Vector2(cos(ac), sin(ac)), "d": sqrt(_rng.randf()) * 0.85, "tam": _rng.randf_range(6.0, 11.0)})
 		Modo.SHOCK:
 			_rayos = _losas_circulo()
 			for i in 16:
@@ -267,6 +304,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.SOL: _sol(capa)
 		Modo.VORAGINE: _voragine(capa)
 		Modo.SHOCK: _shock(capa)
+		Modo.TORMENTA: _tormenta(capa)
+		Modo.RAYO_TORMENTA: _rayo_tormenta(capa)
 
 
 # ------------------------------------------------------------
@@ -1244,3 +1283,223 @@ func _shock(capa: Node2D) -> void:
 		if t_rompe >= 0.0 and t_rompe < 0.3:
 			var kr: float = t_rompe / 0.3
 			BarridoAire.destello(capa, _c + _alto(6.0), _r * 0.55 * (1.0 - kr * 0.5), Color(MagiaAire.LAVA_CLARA, 1.0 - kr), 0.35)
+
+
+# ------------------------------------------------------------
+#  LA TORMENTA (el ojo de tormenta)
+# ------------------------------------------------------------
+# Donde esta la ultima tormenta que se abrio en ESTA maquina (quien resuelve y el espejo la lanzan cada uno): de ahi
+# salen los rayos de cada golpe (rayo_tormenta), del borde de su ojo.
+static var _tormenta_c: Vector2 = Vector2.ZERO
+static var _tormenta_r: float = 0.0
+static var _tormenta_hay: bool = false
+
+
+func _t_se_va_tormenta() -> float:
+	return t_llega_tormenta(forma) + T_FORMA_NUBE + T_LLUEVE_TORMENTA
+
+
+static func t_llega_tormenta(_f: CombatFormas.Forma) -> float:
+	return T_CARGA_SOL + T_SUBE_VIENTO
+
+
+func _pos_nube(a: float, u: float) -> Vector2:
+	# Un punto de la nube: angulo 'a' y fraccion 'u' del radio (el ojo en u ~ R_OJO), en el aire.
+	return _c + Vector2(cos(a), sin(a)) * _r * u + _alto(ALTO_NUBE_TORMENTA)
+
+
+# UNA BANDA DE NUBE que se enrosca alrededor de 'c' de 'r0' (el ojo) a 'r1' en 'vuelta' radianes: gorda por el
+# medio y redondeada en las puntas, con BULTOS en el borde de fuera (discos del mismo tono que se funden con ella).
+func _banda_nube(ci: CanvasItem, c: Vector2, a0: float, r0: float, r1: float, vuelta: float, ancho: float, col: Color,
+		sem: float) -> void:
+	if ancho <= 0.5 or col.a <= 0.0:
+		return
+	var n: int = 16
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var ang: float = a0 - vuelta * u
+		var rr: float = lerpf(r0, r1, u)
+		var d := Vector2(cos(ang), sin(ang))
+		var w: float = ancho * pow(sin(u * PI), 0.45)
+		pv.append(c + d * (rr + w * 0.6))
+		pv.append(c + d * maxf(rr - w * 0.6, r0 * 0.9))
+		pc.append(col)
+		pc.append(col)
+		# Los bultos del borde de fuera.
+		if k > 0 and k < n and k % 2 == 0:
+			var rb: float = w * (0.45 + 0.25 * MagiaAire._ruido(float(k), sem))
+			ci.draw_circle(c + d * (rr + w * 0.45), rb, col)
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+
+
+func _tormenta(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var tl: float = t_llega_tormenta(forma)
+	var tn: float = _t - tl                                   # desde que empieza a formarse la nube
+	var forma_n: float = 1.0 - pow(1.0 - clampf(tn / T_FORMA_NUBE, 0.0, 1.0), 2.0)
+	var se_va: float = clampf((_t - _t_se_va_tormenta()) / T_SE_VA_TORMENTA, 0.0, 1.0)
+	var viva: float = forma_n * (1.0 - se_va)
+	var giro: float = _t * 1.3
+	var mano: Vector2 = _o + _alto(ALTO_MANO)
+	# 1) LA CARGA y EL REMOLINO DE VIENTO que sube de tu mano al cielo del sitio.
+	if tn < 0.0:
+		if capa != _brillo:
+			return
+		if _t < T_CARGA_SOL:
+			var kc: float = _t / T_CARGA_SOL
+			for j in 3:
+				var q: Vector2 = mano + Vector2(cos(_t * 20.0 + float(j) * 2.1), sin(_t * 20.0 + float(j) * 2.1) * K) * 9.0 * (1.0 - kc)
+				MagiaAire._quebrado(capa, mano, q, MagiaAire.RAYO, MagiaAire.RAYO_CLARO, floor(_t / 0.045) + float(j), 3, 2.0, 1.6, 0.9)
+			BarridoAire.brillo(capa, mano, 5.0 + 8.0 * kc, Color(MagiaAire.AGUA, 0.5 * kc))
+			return
+		var u: float = clampf((_t - T_CARGA_SOL) / T_SUBE_VIENTO, 0.0, 1.0)
+		var arriba: Vector2 = _c + _alto(ALTO_NUBE_TORMENTA)
+		for j in 3:
+			var fase: float = TAU * float(j) / 3.0
+			for k in 6:
+				var ua: float = clampf(u - 0.07 * float(k + 1), 0.0, 1.0)
+				var ub: float = clampf(u - 0.07 * float(k), 0.0, 1.0)
+				var pa: Vector2 = mano.lerp(arriba, ua) + _alto(18.0 * sin(ua * PI)) + Vector2(cos(ua * 12.0 + fase), sin(ua * 12.0 + fase) * K) * 6.0
+				var pb: Vector2 = mano.lerp(arriba, ub) + _alto(18.0 * sin(ub * PI)) + Vector2(cos(ub * 12.0 + fase), sin(ub * 12.0 + fase) * K) * 6.0
+				BarridoAire.cometa(capa, pa, pb, 4.0 - 0.5 * float(k), Color(MagiaAire.NUBE_LUZ, 0.8 * (1.0 - float(k) / 6.0)))
+		BarridoAire.brillo(capa, mano.lerp(arriba, u) + _alto(18.0 * sin(u * PI)), 8.0, Color(MagiaAire.AGUA_CLARA, 0.6))
+		return
+	if viva <= 0.0:
+		return
+	var r_ojo: float = R_OJO_TORMENTA * (1.0 + 0.8 * se_va)          # al irse el ojo se abre
+	if capa == _suelo:
+		# LA SOMBRA de la nube y el suelo MOJADO con sus charcos; las salpicaduras de la lluvia.
+		BarridoAire.brillo(capa, _c, _r * 1.05, Color(0.05, 0.07, 0.12, 0.5 * viva))
+		for ch in _trozos:
+			var cp: Vector2 = _c + (ch["dir"] as Vector2) * _r * float(ch["d"])
+			var rch: float = float(ch["tam"]) * clampf(tn / 0.8, 0.0, 1.0)
+			BarridoAire.brillo(capa, cp, rch * 1.3, Color(MagiaAire.CHARCO, 0.45 * viva))
+			MagiaAire._anillo(capa, cp, rch * 0.85, 1.4, Color(MagiaAire.AGUA, 0.3 * viva))
+		for g in _gotas:
+			var tg: float = fmod(tn - float(g["t0"]), T_GOTA_TORMENTA)
+			if tn - float(g["t0"]) < T_GOTA_TORMENTA * 0.9 or tg > 0.2:
+				continue
+			var a_g: float = float(g["a"]) + giro + 0.6
+			var pg: Vector2 = _c + Vector2(cos(a_g), sin(a_g)) * _r * float(g["d"])
+			MagiaAire._anillo(capa, pg, 1.5 + 5.0 * tg / 0.2, 1.4, Color(MagiaAire.AGUA_CLARA, 0.8 * (1.0 - tg / 0.2) * viva))
+		return
+	if capa == _delante:
+		# LA LLUVIA EN ESPIRAL: gotas que caen de la nube y se van girando con el remolino.
+		for g in _gotas:
+			if tn < float(g["t0"]):
+				continue
+			var tg2: float = fmod(tn - float(g["t0"]), T_GOTA_TORMENTA)
+			var kg: float = tg2 / T_GOTA_TORMENTA
+			if kg > 0.95:
+				continue
+			var a_g2: float = float(g["a"]) + giro + 0.6 * kg
+			var base: Vector2 = _c + Vector2(cos(a_g2), sin(a_g2)) * _r * float(g["d"])
+			var h: float = ALTO_NUBE_TORMENTA * (1.0 - kg)
+			var cab: Vector2 = base + _alto(h)
+			var cola: Vector2 = cab + _alto(9.0) + Vector2(-sin(a_g2), cos(a_g2)) * 3.0
+			BarridoAire.cometa(capa, cola, cab, 1.8, Color(MagiaAire.AGUA_CLARA, 0.85 * viva))
+		# LA NUBE (26/09, rehecha: "bolas" no): un velo que lo une todo y TRES BRAZOS que se enroscan hacia el ojo, en
+		# tonos planos (la sombra honda por debajo, el cuerpo y la luz por arriba), con el borde de fuera en BULTOS que
+		# se funden. Se forma entrando desde fuera en espiral y al irse el ojo se abre y se deshace.
+		var ojo_c: Vector2 = _c + _alto(ALTO_NUBE_TORMENTA)
+		BarridoAire.brillo(capa, ojo_c, _r * 1.15, Color(NUBE_HONDA, 0.8 * viva))
+		_disco(capa, ojo_c, _r * 0.85, Color(MagiaAire.NUBE, 0.0), Color(MagiaAire.NUBE, 0.55 * viva))
+		var capas_n: Array = [[NUBE_HONDA, 1.0, Vector2(0.0, 6.0)], [MagiaAire.NUBE, 0.82, Vector2.ZERO],
+			[MagiaAire.NUBE_LUZ, 0.45, Vector2(-2.0, -5.0)]]
+		for cn in capas_n:
+			for brazo in 4:
+				var a_b: float = giro + TAU * float(brazo) / 4.0 + (1.0 - forma_n) * 1.5
+				_banda_nube(capa, ojo_c + (cn[2] as Vector2), a_b, _r * r_ojo * 1.05, _r * lerpf(1.25, 1.0, forma_n),
+					2.8, _r * 0.42 * float(cn[1]) * viva, Color(cn[0] as Color, 0.82 * viva), float(brazo) * 5.0)
+		return
+	if capa == _brillo:
+		# EL OJO: su borde brilla frio y dentro se ve el cielo claro; y los RELAMPAGOS dentro de la nube (fogonazos
+		# que encienden un trozo de nube y ramas quebradas que la cruzan).
+		var ojo: Vector2 = _c + _alto(ALTO_NUBE_TORMENTA)
+		MagiaAire._anillo(capa, ojo, _r * r_ojo, 5.0, Color(MagiaAire.AGUA_CLARA, 0.45 * viva))
+		BarridoAire.brillo(capa, ojo, _r * r_ojo * 0.9, Color(CIELO_OJO, 0.35 * viva))
+		var tic: float = floor(tn / 0.09)
+		for j in 2:
+			if MagiaAire._ruido(tic, float(j) + float(_semilla % 17)) < 0.55:
+				continue
+			var a_r: float = TAU * MagiaAire._ruido(tic + 3.0, float(j))
+			var u_r: float = lerpf(r_ojo + 0.1, 0.9, MagiaAire._ruido(tic + 5.0, float(j)))
+			var pr: Vector2 = _pos_nube(a_r, u_r)
+			BarridoAire.brillo(capa, pr, _r * 0.28, Color(MagiaAire.RAYO_CLARO, 0.45 * viva))
+			var q2: Vector2 = _pos_nube(a_r + 0.5, u_r * 0.8)
+			MagiaAire._quebrado(capa, pr, q2, MagiaAire.RAYO, MagiaAire.RAYO_CLARO, tic * 7.0 + float(j), 5, 4.0, 2.4, 0.9 * viva)
+
+
+# EL RAYO DE UN GOLPE de la Tormenta sobre un cuerpo ('caja'): sale del borde del ojo de la tormenta (o del cielo, si
+# aqui no hay ninguna) y cae en sus pies; fogonazo, onda, chispazos que saltan a los lados y la chamusquina.
+static func rayo_tormenta(padre: Node, caja: Rect2, semilla: int, espera: float, ritmo: float) -> MagiaMayor:
+	if padre == null:
+		return null
+	var e := MagiaMayor.new()
+	e.modo = Modo.RAYO_TORMENTA
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._t = -maxf(espera, 0.0)
+	var pies := Vector2(caja.get_center().x, caja.end.y)
+	e._c = pies
+	if _tormenta_hay:
+		var d: Vector2 = pies - _tormenta_c
+		var dir: Vector2 = d.normalized() if d.length_squared() > 1.0 else Vector2.RIGHT
+		e._o = _tormenta_c + dir * _tormenta_r * R_OJO_TORMENTA + _alto(ALTO_NUBE_TORMENTA)
+	else:
+		e._o = pies + _alto(ALTO_NUBE_TORMENTA) + Vector2(-10.0, 0.0)
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	for i in 6:
+		var a: float = e._rng.randf_range(0.0, TAU)
+		e._motas.append({"a": a, "largo": e._rng.randf_range(9.0, 16.0)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+func _rayo_tormenta(capa: Node2D) -> void:
+	if _t < -0.04:
+		return
+	var k: float = clampf((_t + 0.04) / T_RAYO_TORMENTA, 0.0, 1.0)
+	var tic: float = floor(_t / 0.04)
+	if capa == _suelo:
+		if _t >= 0.0:
+			var ks: float = clampf(_t / 0.5, 0.0, 1.0)
+			BarridoAire.brillo(capa, _c, 10.0, Color(MagiaAire.CHAMUSCADO, 0.5 * (1.0 - ks)))
+			MagiaAire._anillo(capa, _c, 4.0 + 16.0 * (1.0 - pow(1.0 - minf(1.0, _t / 0.25), 2.0)), 3.0,
+				Color(MagiaAire.RAYO_CLARO, 0.8 * (1.0 - minf(1.0, _t / 0.25))))
+		return
+	if capa != _brillo or k >= 1.0:
+		return
+	var alfa: float = (1.0 - k) * (0.75 + 0.25 * MagiaAire._ruido(tic, 5.0))
+	var largo: float = _o.distance_to(_c)
+	var tramos: int = clampi(int(largo / 8.0), 5, 14)
+	# El RAYO GORDO: el halo ancho y encima el nucleo, quebrado, que cambia de forma cada poco.
+	MagiaAire._quebrado(capa, _o, _c, MagiaAire.RAYO, MagiaAire.RAYO_CLARO, tic * 13.0 + float(_semilla % 91), tramos,
+		clampf(largo * 0.08, 3.0, 8.0), 7.0, alfa * 0.6)
+	MagiaAire._quebrado(capa, _o, _c, MagiaAire.RAYO, Color.WHITE, tic * 13.0 + float(_semilla % 91), tramos,
+		clampf(largo * 0.08, 3.0, 8.0), 3.4, alfa)
+	# Una rama que se suelta del medio.
+	var medio: Vector2 = _o.lerp(_c, 0.5)
+	MagiaAire._quebrado(capa, medio, medio + (_c - _o).normalized().rotated(0.8) * 14.0, MagiaAire.RAYO, MagiaAire.RAYO_CLARO,
+		tic * 3.0, 3, 2.4, 2.0, alfa * 0.7)
+	if _t >= 0.0:
+		# EL IMPACTO: fogonazo, destello y CHISPAZOS que saltan a los lados (el rayo salpica).
+		var ki: float = clampf(_t / 0.2, 0.0, 1.0)
+		BarridoAire.brillo(capa, _c + _alto(6.0), 22.0 * (1.0 - ki * 0.5), Color(MagiaAire.RAYO_CLARO, 0.6 * (1.0 - ki)))
+		BarridoAire.destello(capa, _c + _alto(4.0), 18.0 * (1.0 - ki * 0.4), Color(MagiaAire.RAYO_CLARO, 1.0 - ki), 0.3)
+		for m in _motas:
+			var a: float = float(m["a"])
+			var q: Vector2 = _c + Vector2(cos(a), sin(a) * 0.5) * float(m["largo"]) * (0.4 + 0.6 * ki)
+			MagiaAire._quebrado(capa, _c, q, MagiaAire.RAYO, MagiaAire.RAYO_CLARO, tic + a, 3, 2.2, 1.8, 1.0 - ki)

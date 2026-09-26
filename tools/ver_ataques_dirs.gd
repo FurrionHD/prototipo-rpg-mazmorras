@@ -120,6 +120,7 @@ const MOMENTOS_MAGIA := {
 	"estallido_solar": [0.08, 0.25, 0.5, 0.82, 0.97, 1.12, 1.5],
 	"voragine_sombra": [0.2, 0.36, 0.55, 0.72, 0.95, 1.4, 1.75],
 	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2, 1.45, 1.6, 1.75, 1.95],
+	"tormenta": [0.1, 0.3, 0.5, 0.75, 0.95, 1.25, 1.6, 2.1, 2.4, 2.65],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -1058,6 +1059,14 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	s.set_process(false)
 	# LA CADENA: del primero al mas cercano que no haya recibido (60 px), hasta 3 saltos.
 	var arcos: Array = []   # {n, t0}
+	# LA TORMENTA: sus rayos de muestra, uno a cada figura de dentro, escalonados como sus golpes.
+	var rayos_t: Array = []   # {n, t0}
+	if tipo == SueloRoto.Tipo.MAGIA_TORMENTA and not pillados.is_empty():
+		var t_r0: float = MagiaMayor.retraso(MagiaMayor.Modo.TORMENTA, f_ef, f_ef.centro)
+		for i in pillados.size() * 2:
+			var rt := MagiaMayor.rayo_tormenta(self, pillados[i % pillados.size()], 90 + i, 0.0, 1.0)
+			rt.set_process(false)
+			rayos_t.append({"n": rt, "t0": t_r0 + 0.14 * float(i)})
 	if sp.forma_cadena > 0.0 and not pillados.is_empty():
 		var t_llega: float = MagiaAire.retraso(tipo - SueloRoto.Tipo.MAGIA_ALIENTO, f_ef, Vector2(pillados[0].get_center().x, pillados[0].end.y))
 		var ya: Array = [pillados[0]]
@@ -1089,8 +1098,14 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 		for ar in arcos:
 			(ar["n"] as Node2D).set("_t", t - float(ar["t0"]))
 			((ar["n"] as Node2D).get("_brillo") as Node2D).queue_redraw()
+		for rt2 in rayos_t:
+			(rt2["n"] as Node2D).set("_t", t - float(rt2["t0"]))
+			for hijo2 in ["_suelo", "_brillo"]:
+				((rt2["n"] as Node2D).get(hijo2) as Node2D).queue_redraw()
 		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [sp.nombre, dir_n, t])
 	s.queue_free()
 	for ar in arcos:
 		(ar["n"] as Node).queue_free()
+	for rt3 in rayos_t:
+		(rt3["n"] as Node).queue_free()
 	await get_tree().process_frame

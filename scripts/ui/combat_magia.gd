@@ -1077,9 +1077,15 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			_pantalla.efectos._fx_tanda(0 if not puntos.is_empty() else i)
 			# Igual que en _resolver_golpes_hechizo: al vecino le llega la ONDA de lo que ha
 			# reventado en el principal, no otra bola. Ver _estilo_salpicon.
+			# LA TORMENTA en el mapa: el rayo cae del ojo sobre el principal (TORMENTA_RAYO), a los de al lado les
+			# salta en ARCO desde el, y la lluvia no pinta nada por cuerpo (la lluvia ya es el efecto del suelo).
+			var estilo_b: int = _pantalla.efectos._estilo_hechizo(spell, elem, false, obj != principal)
+			if not dentro.is_empty():
+				estilo_b = CombatFX.Estilo.ARCO if obj != principal \
+					else (CombatFX.Estilo.TORMENTA_RAYO if elem == spell.elemento else CombatFX.Estilo.MELEE)
 			_pantalla.efectos._fx_golpe(_pantalla._player if obj == principal else principal, obj, dmg,
 				bool(res.get("crit", false)), false, elem,
-				_pantalla.efectos._estilo_hechizo(spell, elem, false, obj != principal),
+				estilo_b,
 				_pantalla.efectos._peso_hechizo(spell, float(t.escala)), false, "",
 				AbilityData.Gesto.AUTO, &"", 0, float(res.get("mult_elem", 1.0)))
 			_pantalla._apuntar_dano(obj, dmg, _pantalla._player)   # contador oculto de Cazador
