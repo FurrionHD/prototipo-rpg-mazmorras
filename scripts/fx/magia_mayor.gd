@@ -50,12 +50,12 @@ const NEGRO := Color(0.03, 0.02, 0.04)
 const SOMBRA_CLARA := Color(0.95, 0.94, 0.97)
 const SOMBRA_GRIS := Color(0.26, 0.24, 0.3)
 const BLANCO_OJO := Color(0.96, 0.95, 0.98)
-# El remolino de tinta y el ojo de eclipse (su referencia).
+# El remolino de tinta y el ojo de eclipse (su referencia; el eclipse en BLANCO FRIO, 26/09: el dorado se leia como luz).
 const TINTA := Color(0.05, 0.04, 0.03)
 const TINTA_MEDIA := Color(0.2, 0.17, 0.13)
 const TINTA_CLARA := Color(0.58, 0.54, 0.47)
-const ORO := Color(1.0, 0.78, 0.18)
-const ORO_CLARO := Color(1.0, 0.96, 0.72)
+const ECLIPSE := Color(0.55, 0.62, 0.72)
+const ECLIPSE_CLARO := Color(0.95, 0.97, 1.0)
 const ALTO_OJO_ECLIPSE := 8.0
 const PINCEL := Color(0.8, 0.78, 0.84)
 const VIOLETA_HONDO := Color(0.24, 0.07, 0.3)
@@ -758,10 +758,10 @@ func _voragine(capa: Node2D) -> void:
 					+ Vector2(sin(float(k) * 2.3 + _t * 8.0) * 2.5, 0.0)
 				_disco(capa, pk, 5.5 - 0.5 * float(k), Color(NEGRO, 0.75 - 0.09 * float(k)), Color(VIOLETA_HONDO, 0.0))
 			_disco(capa, p, 7.0, TINTA, Color(TINTA, 0.9))
-			_disco(capa, p, 3.2, ORO_CLARO, ORO)
+			_disco(capa, p, 3.2, ECLIPSE_CLARO, ECLIPSE)
 			_disco(capa, p, 1.6, TINTA, TINTA)
 			return
-		BarridoAire.brillo(capa, p, 13.0, Color(ORO, 0.4))
+		BarridoAire.brillo(capa, p, 13.0, Color(ECLIPSE, 0.4))
 		return
 	# 2) EL POZO.
 	if capa == _suelo:
@@ -814,8 +814,8 @@ func _voragine(capa: Node2D) -> void:
 		# pupila negra.
 		var r_ojo: float = _r * 0.11 * vivo * (1.0 + 0.25 * ap)
 		var ojo: Vector2 = _c + _alto(ALTO_OJO_ECLIPSE)
-		_disco(capa, ojo, r_ojo * 1.6, Color(ORO, 0.9 * vivo), Color(ORO, 0.0))
-		_disco(capa, ojo, r_ojo, Color(ORO_CLARO, vivo), Color(ORO, vivo))
+		_disco(capa, ojo, r_ojo * 1.6, Color(ECLIPSE, 0.9 * vivo), Color(ECLIPSE, 0.0))
+		_disco(capa, ojo, r_ojo, Color(ECLIPSE_CLARO, vivo), Color(ECLIPSE, vivo))
 		_disco(capa, ojo, r_ojo * 0.52, Color(TINTA, vivo), Color(TINTA, vivo))
 		# El HUMO y los TROZOS que el pozo se traga: salen del borde y van en espiral al centro.
 		for tz in _trozos:
@@ -842,9 +842,9 @@ func _voragine(capa: Node2D) -> void:
 		# (sin nucleo blanco: la pupila negra tiene que seguir viendose)
 		var r_o: float = _r * 0.11 * vivo
 		var ojo_b: Vector2 = _c + _alto(ALTO_OJO_ECLIPSE)
-		MagiaAire._anillo(capa, ojo_b, r_o * 1.25, r_o * (0.9 + 0.6 * ap), Color(ORO, (0.3 + 0.35 * ap) * vivo))
+		MagiaAire._anillo(capa, ojo_b, r_o * 1.25, r_o * (0.9 + 0.6 * ap), Color(ECLIPSE, (0.3 + 0.35 * ap) * vivo))
 		for k in 4:
 			var a_c: float = PI * 0.5 * float(k)
-			_cuna(capa, ojo_b, a_c, r_o * 1.05, r_o * (3.2 + 2.0 * ap), 0.05, Color(ORO_CLARO, (0.75 + 0.25 * ap) * vivo))
+			_cuna(capa, ojo_b, a_c, r_o * 1.05, r_o * (3.2 + 2.0 * ap), 0.05, Color(ECLIPSE_CLARO, (0.75 + 0.25 * ap) * vivo))
 		if cierra > 0.0 and cierra < 1.0:
-			BarridoAire.destello(capa, ojo_b, 24.0 * (1.0 - cierra), Color(ORO_CLARO, 1.0 - cierra), 0.0)
+			BarridoAire.destello(capa, ojo_b, 24.0 * (1.0 - cierra), Color(ECLIPSE_CLARO, 1.0 - cierra), 0.0)
