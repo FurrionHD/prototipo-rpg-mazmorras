@@ -17,3 +17,9 @@ imbue_usos = 15
 imbue_estado = 5
 imbue_prob = 0.3
 descripcion = "El filo se pone blanco y deja de tener sombra. Lo que toca queda a la vista, y lo que queda a la vista se defiende peor."
+; LA FORMA EN EL MAPA (26/09, su decision): clic a UNO de los tuyos a distancia (tu incluido).
+forma = 0
+forma_radio = 10.0
+forma_apunte = 3
+forma_rango = 150.0
+forma_a_aliados = true

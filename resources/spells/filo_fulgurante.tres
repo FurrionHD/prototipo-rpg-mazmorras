@@ -17,3 +17,9 @@ imbue_usos = 10
 imbue_estado = 8
 imbue_prob = 0.3
 descripcion = "Tu arma cruje de electricidad: cada impacto sacude al enemigo y lo deja aturdido y torpe."
+; LA FORMA EN EL MAPA (26/09, su decision): clic a UNO de los tuyos a distancia (tu incluido).
+forma = 0
+forma_radio = 10.0
+forma_apunte = 3
+forma_rango = 150.0
+forma_a_aliados = true

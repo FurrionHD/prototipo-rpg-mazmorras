@@ -906,7 +906,8 @@ func huella_hechizo(spell: SpellData) -> AbilityData:
 	ab.forma_ancho = spell.forma_ancho
 	ab.forma_solo_primero = spell.forma_solo_primero
 	ab.forma_a_aliados = spell.forma_a_aliados
-	if spell.forma_a_aliados:
+	# A UNO de los tuyos (Vendaje, Filos) salvo que caiga ALREDEDOR de ti: entonces es a todos los que pille (Fortaleza).
+	if spell.forma_a_aliados and spell.forma_apunte != CombatFormas.Apunte.ALREDEDOR:
 		ab.objetivo_aliado = AbilityData.Objetivo.ALIADO
 	_huellas_hechizo[spell] = ab
 	return ab
@@ -945,6 +946,18 @@ func reparto_hechizo(spell: SpellData, c: Combatant, punto: Vector2) -> Array:
 			esc = spell.forma_escalas[clampi(k, 0, spell.forma_escalas.size() - 1)]
 		d["escala"] = esc
 	return out
+
+
+# LOS TUYOS QUE PILLA LA HUELLA de un hechizo de apoyo en area (Fortaleza alrededor de ti), en el orden de siempre.
+func aliados_hechizo(spell: SpellData, c: Combatant) -> Array:
+	var ab: AbilityData = huella_hechizo(spell)
+	var lista: Array = []
+	var f = forma_hechizo(spell, c, pies_de(c))
+	for al in _pantalla._aliados_vivos():
+		var r: Rect2 = bulto_de(al)
+		if f.toca(r):
+			lista.append(al)
+	return lista
 
 
 # LOS QUE SE CRUZA UN PROYECTIL (una linea de solo_primero), en orden desde quien lo lanza: a donde siguen los
@@ -1187,7 +1200,7 @@ func _confirmar_apunte() -> void:
 		var hz: Array = _hechizo_apuntado
 		var aliado_hz = hz[1]
 		# A UNO DE LOS TUYOS (el Vendaje): sin nadie debajo el clic no hace nada; con alguien, va a ese.
-		if ab.forma_a_aliados:
+		if ab.forma_a_aliados and ab.objetivo_aliado == AbilityData.Objetivo.ALIADO:
 			var bajo: Array = aliados_de_huella(ab, _quien)
 			if bajo.is_empty():
 				return

@@ -18,3 +18,8 @@ coste_mana = 7
 dano_base = 0.0
 descripcion = "Buff: te potencia el daño un rato. Al lanzarlo sobre ti SIEMPRE prende (no falla)."
 efectos = [SubResource("SA_fort")]
+; LA FORMA EN EL MAPA (26/09, su decision): en AREA alrededor de ti, a todos los tuyos que pille.
+forma = 1
+forma_radio = 60.0
+forma_apunte = 2
+forma_a_aliados = true

@@ -442,6 +442,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			else:
 				_pantalla.efectos.fijar_suelo(spell.suelo_mapa, f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
 				con_efecto = true
+		if spell.tipo == SpellData.TipoEfecto.DEBUFF and reparto_mapa.is_empty():
+			_pantalla._set_log("💨 %s de %s cae donde no hay nadie." % [spell.nombre, _pantalla._player.nombre])
+			return tocados
 		if spell.tipo == SpellData.TipoEfecto.ATAQUE and reparto_mapa.is_empty():
 			_pantalla._set_log("💨 %s de %s cae donde no hay nadie y se pierde contra el suelo." % [
 				spell.nombre, _pantalla._player.nombre])
@@ -556,7 +559,19 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		_pantalla._set_log("✨ %s lanza %s." % [_pantalla._player.nombre, spell.nombre])
 		# Los estados de un hechizo sin daño (buff/debuff) se aplican aqui: no hay golpes que
 		# los lleven. Los de ATAQUE ya los ha tirado cada golpe con SU elemento.
-		_aplicar_estado_hechizo(spell)
+		if en_mapa and spell.tipo == SpellData.TipoEfecto.DEBUFF:
+			# EN EL MAPA, a todos los que pille la huella, cada uno con su tirada (la Debilidad).
+			for d_db in reparto_mapa:
+				_aplicar_estado_hechizo(spell, d_db["c"])
+		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR:
+			# EN EL MAPA, a todos los tuyos que pille el circulo (la Fortaleza).
+			var antes_al: Combatant = _pantalla._cast_aliado
+			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
+				_pantalla._cast_aliado = al_f
+				_aplicar_estado_hechizo(spell)
+			_pantalla._cast_aliado = antes_al
+		else:
+			_aplicar_estado_hechizo(spell)
 	# CURACION: no pega, cura. Va DESPUES del bloque de daño y no dentro, porque un hechizo de
 	# curacion nunca entra por ahi (su tipo no es ATAQUE).
 	if spell.tipo == SpellData.TipoEfecto.CURACION:
