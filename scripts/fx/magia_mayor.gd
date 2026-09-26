@@ -93,7 +93,11 @@ const T_FORMA_ECLIPSE := 0.45    # el disco nace (el primer golpe, el de oscurid
 const T_ENTRE_ECLIPSE := 0.2     # de la oscuridad a la luz
 const T_VIVE_ECLIPSE := 0.9
 const T_CIERRA_ECLIPSE := 0.3
-const ALTO_ECLIPSE := 55.0
+# (27/09: "el efecto no esta centrado en el circulo de daño") el disco va EN el centro del circulo, sin subirlo.
+const ALTO_ECLIPSE := 0.0
+# LAS DOS VERSIONES que pidio para elegir (27/09: "yo pedia una u otra, damelas por separado"): 0 = CORONA de llamas
+# (su segunda referencia), 1 = CORONA DE ESQUIRLAS negras con el filo de colores (su primera referencia).
+static var eclipse_variante: int = 0
 const LENGUAS_ECLIPSE := 30
 # (27/09: "blanco, amarillo, morado, azul y negro: los colores de esas magias", no un arcoiris)
 const CORONA_BLANCA := Color(0.92, 0.95, 1.0)
@@ -1882,6 +1886,31 @@ func _corona_eclipse(ci: CanvasItem, c: Vector2, r: float, largo: float, alfa: f
 	MagiaAire._anillo(ci, c, r * 1.0, r * 0.1, Color(1.0, 1.0, 1.0, alfa))
 
 
+# LA CORONA DE ESQUIRLAS (version B, su primera referencia): un estallido de pinchos negros alrededor del disco, de
+# largos muy distintos, cada uno con el filo desdoblado en MORADO a un lado y BLANCO al otro; en el golpe de luz los
+# pinchos se estiran y el filo se enciende en blanco-amarillo.
+func _corona_esquirlas(ci: CanvasItem, c: Vector2, r: float, estalla: float, alfa: float) -> void:
+	if alfa <= 0.0:
+		return
+	var n: int = 30
+	for i in n:
+		var a: float = TAU * (float(i) + 0.4 * (MagiaAire._ruido(float(i), 2.0) - 0.5)) / float(n) + _t * 0.15
+		var d := Vector2(cos(a), sin(a))
+		var nor := Vector2(-d.y, d.x)
+		var largo: float = r * (0.7 + 1.9 * pow(MagiaAire._ruido(float(i), 5.0), 1.5)) * (1.0 + 0.7 * estalla) * alfa
+		var w: float = r * (0.16 + 0.14 * MagiaAire._ruido(float(i), 8.0))
+		var tuerce: float = (MagiaAire._ruido(float(i), 11.0) - 0.5) * largo * 0.35
+		var pts := PackedVector2Array([c + d * r * 0.9 + nor * w, c + d * (r + largo) + nor * tuerce, c + d * r * 0.9 - nor * w * 0.7])
+		if estalla > 0.05:
+			# Filo encendido de luz.
+			var q := PackedVector2Array()
+			for p in pts:
+				q.append(p + (p - c).normalized() * 2.5)
+			ci.draw_colored_polygon(q, Color(ECLIPSE_LUZ, 0.9 * estalla * alfa))
+		_esquirla_glitch(ci, pts, 2.5, alfa)
+	MagiaAire._anillo(ci, c, r * 1.02, r * 0.12, Color(1.0, 1.0, 1.0, 0.8 * alfa))
+
+
 func _eclipse(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
@@ -1930,9 +1959,9 @@ func _eclipse(capa: Node2D) -> void:
 		MagiaAire._anillo(capa, _c, _r, 4.0, Color(CORONA_BLANCA, 0.25 * vivo))
 		return
 	if capa == _delante:
-		# LAS ESQUIRLAS del golpe de oscuridad: cristales negros afilados que salen del disco hacia fuera por todo el
-		# circulo y caen, con su aberracion cromatica.
-		if t_osc >= 0.0 and t_osc < 0.75:
+		# LAS ESQUIRLAS del golpe de oscuridad (solo en la version B): cristales negros afilados que salen del disco
+		# hacia fuera por todo el circulo y caen, con el filo de colores.
+		if eclipse_variante == 1 and t_osc >= 0.0 and t_osc < 0.75:
 			var ke: float = t_osc / 0.75
 			for ez in _esquirlas:
 				var d: float = _r * float(ez["d"]) * (1.0 - pow(1.0 - minf(1.0, ke * 1.5), 2.0))
@@ -1950,8 +1979,11 @@ func _eclipse(capa: Node2D) -> void:
 		var estalla: float = 0.0
 		if t_luz >= 0.0:
 			estalla = exp(-t_luz * 4.0) * minf(1.0, t_luz * 20.0)
-		var largo_c: float = r_d * (2.2 + 1.8 * estalla) * (0.6 + 0.4 * vivo)
-		_corona_eclipse(capa, disco, r_d, largo_c, vivo)
+		if eclipse_variante == 1:
+			_corona_esquirlas(capa, disco, r_d, estalla, vivo)
+		else:
+			var largo_c: float = r_d * (2.2 + 1.8 * estalla) * (0.6 + 0.4 * vivo)
+			_corona_eclipse(capa, disco, r_d, largo_c, vivo)
 		_disco(capa, disco, r_d, NEGRO, NEGRO)
 		MagiaAire._anillo(capa, disco, r_d, 2.5, Color(CORONA_BLANCA, vivo))
 		return

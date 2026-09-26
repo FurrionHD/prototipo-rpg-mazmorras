@@ -247,6 +247,9 @@ func _correr() -> void:
 		_figs.append(_figura(Vector2(cos(a2), sin(a2)) * 118.0, ROJO))
 		_enemigos.append(Vector2(cos(a2), sin(a2)) * 118.0)
 	var pedidas: String = OS.get_environment("ATAQUES_LISTA")
+	# ATAQUES_ECLIPSE=1 -> la version B del Eclipse (corona de esquirlas); sin nada, la A (corona de llamas).
+	if OS.get_environment("ATAQUES_ECLIPSE") != "":
+		MagiaMayor.eclipse_variante = int(OS.get_environment("ATAQUES_ECLIPSE"))
 	for h in HABILIDADES:
 		var arma: String = h[0]
 		var nom: String = h[1]
