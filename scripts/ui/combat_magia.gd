@@ -809,8 +809,13 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 		# lo que hace el conjuro. Va como daño NEGATIVO (ver CombatFX.encolar), que es lo que le da su
 		# «+N» verde, la barra subiendo despacio y el viaje por red al espejo sin tocar el paquete.
 		var pedida: float = cura * c.status_heal_recv_mult()
+		# EN EL MAPA, la de grupo con su efecto por el suelo (la onda de la Luz restauradora): a cada uno le cae su
+		# columna de luz cuando la onda le llega.
+		var estilo_c: int = spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ
+		if _pantalla.tactico and spell.suelo_mapa >= 0 and spell.alcance == SpellData.Alcance.TODOS:
+			estilo_c = CombatFX.Estilo.CURA_GRUPO
 		_pantalla.efectos._fx_golpe(_pantalla._player, c, -pedida, false, false, int(spell.elemento),
-			spell.fx_estilo if spell.fx_estilo >= 0 else CombatFX.Estilo.CURACION_LUZ, 1.5, false)
+			estilo_c, 1.5, false)
 		partes.append("%s +%.0f%s" % [c.nombre, pedida,
 			"" if absf(real - pedida) < 0.5 else " (le suben %.0f)" % real])
 	_pantalla._set_log("✨ %s lanza %s.  %s" % [_pantalla._player.nombre, spell.nombre, "  ·  ".join(partes)])

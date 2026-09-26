@@ -1796,15 +1796,22 @@ func _curar_en_area(spell: SpellData) -> void:
 	Net.jugadores.anunciar_fx_cura(Net.jugadores.FX_CURA_ONDA)
 	for m in mios:
 		var pj_m: PersonajeData = m[0]
-		_tras(float(m[1]) / radio * AreaCuracion.T_ONDA, func() -> void:
-			Game.apoyo_desde_mapa(spell, pj_m, Game.lider().nombre, cura, entre))
+		var cuerpo_m: Node2D = cuerpo_de(pj_m)
+		_tras(AreaCuracion.retraso(float(m[1])), func() -> void:
+			Game.apoyo_desde_mapa(spell, pj_m, Game.lider().nombre, cura, entre)
+			# Su COLUMNA DE LUZ al llegarle la onda (como en la pelea).
+			if is_instance_valid(cuerpo_m) and cuerpo_m.get_parent() != null:
+				MagiaMayor.columna_luz(cuerpo_m.get_parent(), Cuerpos.caja_de(cuerpo_m), randi() | 1, 0.0, 1.0))
 	for o in otros:
 		var datos: Array = o
-		_tras(float(datos[4]) / radio * AreaCuracion.T_ONDA, func() -> void:
+		_tras(AreaCuracion.retraso(float(datos[4])), func() -> void:
 			Net.jugadores.apoyo_a_otro(spell, int(datos[0]), int(datos[1]), String(datos[2]), false, entre)
 			# Aqui solo el DIBUJO: su vida se cura en la maquina de su dueño, que es quien sabe cuanta tiene.
 			if is_instance_valid(datos[3]):
-				CuraEnCurso.lanzar(datos[3], null, 0.0, 0.0))
+				CuraEnCurso.lanzar(datos[3], null, 0.0, 0.0)
+				var cu_o: Node2D = datos[3]
+				if cu_o.get_parent() != null:
+					MagiaMayor.columna_luz(cu_o.get_parent(), Cuerpos.caja_de(cu_o), randi() | 1, 0.0, 1.0))
 	_toast("✨ %s: %d aliado%s en el área." % [spell.nombre, entre, "" if entre == 1 else "s"])
 
 

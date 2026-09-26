@@ -21,6 +21,10 @@
 #              la nube se enrosca en tres brazos alrededor de un ojo, llueve en espiral y relampaguea dentro. Los golpes
 #              de rayo caen del BORDE DEL OJO sobre quien reciben (rayo_tormenta, sobre el cuerpo) y saltan en arco a los
 #              de al lado (el salpicon). Al acabar el ojo se abre y la nube se deshace.
+#    LUZ       Luz restauradora (pilar y onda dorada): un PILAR de luz sube de quien la lanza y arriba se abre en FLOR;
+#              de el sale una ONDA calida por el suelo hasta el borde, levantando motas, y lo que deja se apaga desde el
+#              centro. A cada uno de los tuyos le cae su COLUMNA DE LUZ cuando le llega (columna_luz, sobre el cuerpo):
+#              plumas que bajan, motas que suben y un halo sobre la cabeza. Tambien fuera de combate (AreaCuracion).
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -29,7 +33,7 @@ class_name MagiaMayor
 
 # Los cinco primeros van en el orden de SueloRoto.Tipo.MAGIA_SOL..; los de despues son SOBRE UN CUERPO (no viajan
 # como suelo).
-enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ, RAYO_TORMENTA }
+enum Modo { SOL, VORAGINE, SHOCK, TORMENTA, LUZ, RAYO_TORMENTA, COLUMNA_LUZ }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -76,6 +80,14 @@ const T_AGUA_CAE := 0.46         # cuando toca el suelo (el golpe de agua va det
 const T_ROMPE := 0.58            # cuando revienta en obsidiana
 const T_VIVE_OBSIDIANA := 0.8    # lo que se queda antes de deshacerse
 const ALTO_AGUA := 55.0
+# LA LUZ RESTAURADORA
+const T_PILAR_LUZ := 0.26        # el pilar sube (y arriba se abre la flor)
+const T_ONDA_LUZ := 0.45         # la onda llega al borde
+const T_APAGA_LUZ := 0.5
+const ALTO_PILAR_LUZ := 70.0
+const LUZ_DORADA := Color(1.0, 0.84, 0.42)
+const LUZ_BLANCA := Color(1.0, 0.98, 0.9)
+
 # LA TORMENTA
 const T_SUBE_VIENTO := 0.22      # el remolino sube de tu mano a la nube
 const T_FORMA_NUBE := 0.35       # la nube se enrosca (el primer golpe cae con ella hecha)
@@ -166,6 +178,9 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return t_llega_orbe(f) + T_HUNDE + T_ABRE_POZO
 		Modo.TORMENTA:
 			return t_llega_tormenta(f) + T_FORMA_NUBE
+		Modo.LUZ:
+			var u_l: float = clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0)
+			return T_PILAR_LUZ + T_ONDA_LUZ * (1.0 - sqrt(1.0 - u_l))
 		Modo.SHOCK:
 			# El de fuego, cuando el suelo al rojo le llega (el de agua va detras, al paso de los golpes).
 			return _llega_calor(p.distance_to(f.centro) / maxf(f.radio, 1.0))
@@ -182,6 +197,7 @@ static func t_salir(m: int) -> float:
 		Modo.VORAGINE: return T_CARGA_SOL + T_HUNDE + T_ABRE_POZO
 		Modo.SHOCK: return T_CALIENTA
 		Modo.TORMENTA: return T_CARGA_SOL + T_SUBE_VIENTO + T_FORMA_NUBE
+		Modo.LUZ: return T_PILAR_LUZ + T_ONDA_LUZ
 	return 0.3
 
 
@@ -192,6 +208,8 @@ func duracion() -> float:
 		Modo.SHOCK: return T_ROMPE + T_VIVE_OBSIDIANA + T_BARRE_SHOCK + T_DESHACE_SHOCK + 0.1
 		Modo.TORMENTA: return _t_se_va_tormenta() + T_SE_VA_TORMENTA + 0.1
 		Modo.RAYO_TORMENTA: return T_RAYO_TORMENTA + 0.5
+		Modo.LUZ: return T_PILAR_LUZ + T_ONDA_LUZ + T_APAGA_LUZ + 0.3
+		Modo.COLUMNA_LUZ: return 1.0
 	return 1.0
 
 
@@ -239,6 +257,9 @@ func _preparar() -> void:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
 					"t0": _rng.randf_range(0.0, T_PULSO * float(TIRONES) + 0.2), "piedra": _rng.randf() < 0.4,
 					"giro": _rng.randf_range(0.0, TAU)})
+		Modo.LUZ:
+			for i in 30:
+				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": sqrt(_rng.randf()) * 0.97, "tam": _rng.randf_range(3.0, 5.0)})
 		Modo.TORMENTA:
 			_tormenta_c = _c
 			_tormenta_r = _r
@@ -326,6 +347,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.SHOCK: _shock(capa)
 		Modo.TORMENTA: _tormenta(capa)
 		Modo.RAYO_TORMENTA: _rayo_tormenta(capa)
+		Modo.LUZ: _luz(capa)
+		Modo.COLUMNA_LUZ: _columna_luz(capa)
 
 
 # ------------------------------------------------------------
@@ -1559,3 +1582,168 @@ func _rayo_tormenta(capa: Node2D) -> void:
 			var a: float = float(m["a"])
 			var q: Vector2 = _c + Vector2(cos(a), sin(a) * 0.5) * float(m["largo"]) * (0.4 + 0.6 * ki)
 			MagiaAire._quebrado(capa, _c, q, MagiaAire.RAYO, MagiaAire.RAYO_CLARO, tic + a, 3, 2.2, 1.8, 1.0 - ki)
+
+
+# ------------------------------------------------------------
+#  LA LUZ RESTAURADORA (pilar y onda dorada)
+# ------------------------------------------------------------
+# Una PLUMA de luz: hoja alargada rellena en dos tonos (el borde calido y el raquis claro por el medio), ladeada 'giro'.
+static func _pluma(ci: CanvasItem, p: Vector2, largo: float, giro: float, alfa: float) -> void:
+	if largo <= 0.5 or alfa <= 0.0:
+		return
+	var eje := Vector2(cos(giro), sin(giro))
+	var nor := Vector2(-eje.y, eje.x)
+	var pts := PackedVector2Array()
+	var n: int = 8
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		pts.append(p + eje * (u - 0.5) * largo + nor * largo * 0.2 * sin(u * PI) * (1.0 - 0.3 * u))
+	for k in range(n - 1, 0, -1):
+		var u2: float = float(k) / float(n)
+		pts.append(p + eje * (u2 - 0.5) * largo - nor * largo * 0.16 * sin(u2 * PI) * (1.0 - 0.3 * u2))
+	ci.draw_colored_polygon(pts, Color(LUZ_DORADA, alfa))
+	ci.draw_colored_polygon(PackedVector2Array([p - eje * largo * 0.5, p + eje * largo * 0.45 + nor * largo * 0.03,
+		p + eje * largo * 0.45 - nor * largo * 0.03]), Color(LUZ_BLANCA, alfa))
+
+
+func _luz(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var alto_p: float = ALTO_PILAR_LUZ
+	var sube: float = 1.0 - pow(1.0 - clampf(_t / T_PILAR_LUZ, 0.0, 1.0), 2.0)
+	var t_o: float = _t - T_PILAR_LUZ                       # desde que sale la onda
+	var ko: float = clampf(t_o / T_ONDA_LUZ, 0.0, 1.0)
+	var frente: float = _r * (1.0 - pow(1.0 - ko, 2.0))
+	var t_fin: float = t_o - T_ONDA_LUZ
+	var apaga: float = 1.0 - clampf(t_fin / T_APAGA_LUZ, 0.0, 1.0)
+	var flor: float = clampf((_t - T_PILAR_LUZ * 0.7) / 0.18, 0.0, 1.0)
+	var top: Vector2 = _c + _alto(alto_p * sube)
+	if capa == _suelo:
+		# El suelo encendido bajo el pilar y la ONDA DORADA que sale hacia fuera; lo que deja se apaga desde el centro.
+		BarridoAire.brillo(capa, _c, 18.0 + 10.0 * sube, Color(LUZ_DORADA, 0.5 * apaga))
+		if t_o >= 0.0:
+			if ko < 1.0:
+				MagiaAire._anillo(capa, _c, frente, 14.0, Color(LUZ_DORADA, 0.55))
+				MagiaAire._anillo(capa, _c, frente, 4.0, Color(LUZ_BLANCA, 0.9))
+				BarridoAire.brillo(capa, _c, frente, Color(LUZ_DORADA, 0.12))
+			else:
+				var hueco: float = _r * (1.0 - pow(1.0 - clampf(t_fin / T_APAGA_LUZ, 0.0, 1.0), 2.0))
+				MagiaAire._anillo(capa, _c, lerpf(hueco, _r, 0.5), maxf((_r - hueco) * 0.5, 2.0), Color(LUZ_DORADA, 0.18 * apaga))
+		return
+	if capa == _delante:
+		# Los PETALOS de la flor que se abre arriba del pilar (siluetas llenas), y luego caen deshaciendose en motas.
+		if flor > 0.0 and apaga > 0.0:
+			var abre_f: float = 1.0 - pow(1.0 - flor, 3.0)
+			for i in 8:
+				var a: float = TAU * float(i) / 8.0 + _t * 0.8
+				var largo_f: float = 30.0 * abre_f * (0.8 + 0.2 * float(i % 2))
+				var dir := Vector2(cos(a), sin(a) * K)
+				_pluma(capa, top + dir * largo_f * 0.5, largo_f, dir.angle(), apaga)
+		# Las MOTAS que levanta la onda al pasar, subiendo.
+		if t_o >= 0.0:
+			for m in _motas:
+				var u_m: float = float(m["d"])
+				var tm: float = t_o - T_ONDA_LUZ * (1.0 - sqrt(1.0 - u_m))
+				if tm < 0.0 or tm > 0.8:
+					continue
+				var pm: Vector2 = _c + Vector2(cos(float(m["a"])), sin(float(m["a"]))) * _r * u_m + _alto(tm * 40.0)
+				_estrella(capa, pm, float(m["tam"]) * 0.35, float(m["tam"]), 4, _t * 3.0, Color(LUZ_BLANCA, 1.0 - tm / 0.8),
+					Color(LUZ_DORADA, 0.8 * (1.0 - tm / 0.8)), 0.4)
+		return
+	if capa == _brillo:
+		# EL PILAR: una columna calida con el nucleo blanco que sube de tus pies, y su resplandor.
+		if apaga > 0.0:
+			var ancho_p: float = 17.0 * (1.0 - 0.4 * clampf(t_fin / T_APAGA_LUZ, 0.0, 1.0))
+			# Relleno en tres bandas verticales: bordes transparentes, centro opaco (sin rayas).
+			for j in 2:
+				var s: float = -1.0 if j == 0 else 1.0
+				capa.draw_primitive(PackedVector2Array([_c + Vector2(s * ancho_p, 0.0), _c, top, top + Vector2(s * ancho_p * 0.6, 0.0)]),
+					PackedColorArray([Color(LUZ_DORADA, 0.0), Color(LUZ_DORADA, 0.85 * apaga), Color(LUZ_DORADA, 0.6 * apaga),
+						Color(LUZ_DORADA, 0.0)]), PackedVector2Array())
+				capa.draw_primitive(PackedVector2Array([_c + Vector2(s * ancho_p * 0.35, 0.0), _c, top, top + Vector2(s * ancho_p * 0.2, 0.0)]),
+					PackedColorArray([Color(LUZ_BLANCA, 0.0), Color(LUZ_BLANCA, 0.9 * apaga), Color(LUZ_BLANCA, 0.7 * apaga),
+						Color(LUZ_BLANCA, 0.0)]), PackedVector2Array())
+			BarridoAire.brillo(capa, top, 14.0 + 8.0 * flor, Color(LUZ_DORADA, 0.35 * apaga))
+			BarridoAire.destello(capa, top, 10.0 + 4.0 * flor, Color(LUZ_BLANCA, 0.8 * apaga), _t * 0.8)
+
+
+# LA COLUMNA DE LUZ sobre uno de los tuyos al curarlo ('caja' = su cuerpo): la luz le cae encima, bajan PLUMAS
+# meciendose, suben MOTAS doradas y se le queda un HALO sobre la cabeza un momento.
+static func columna_luz(padre: Node, caja: Rect2, semilla: int, espera: float, ritmo: float) -> MagiaMayor:
+	if padre == null:
+		return null
+	var e := MagiaMayor.new()
+	e.modo = Modo.COLUMNA_LUZ
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._t = -maxf(espera, 0.0)
+	e._c = Vector2(caja.get_center().x, caja.end.y)       # sus pies
+	e._r = maxf(caja.size.y, 20.0)                         # su alto
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	for i in 5:
+		e._trozos.append({"x": e._rng.randf_range(-12.0, 12.0), "t0": e._rng.randf_range(0.0, 0.25),
+			"largo": e._rng.randf_range(5.0, 8.0), "fase": e._rng.randf_range(0.0, TAU)})
+	for i in 10:
+		e._motas.append({"x": e._rng.randf_range(-10.0, 10.0), "t0": e._rng.randf_range(0.05, 0.5),
+			"tam": e._rng.randf_range(1.6, 2.8)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, true)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+func _columna_luz(capa: Node2D) -> void:
+	if _t < -0.08:
+		return
+	var alto_c: float = _r * 1.6
+	var baja: float = clampf((_t + 0.08) / 0.12, 0.0, 1.0)
+	var vive: float = 1.0 - clampf((_t - 0.35) / 0.45, 0.0, 1.0)
+	var cabeza: Vector2 = _c + Vector2(0.0, -_r - 6.0)
+	if capa == _suelo:
+		if _t >= 0.0:
+			var ks: float = clampf(_t / 0.4, 0.0, 1.0)
+			MagiaAire._anillo(capa, _c, 5.0 + 16.0 * (1.0 - pow(1.0 - ks, 2.0)), 3.0, Color(LUZ_DORADA, 0.8 * (1.0 - ks)))
+			BarridoAire.brillo(capa, _c, 14.0, Color(LUZ_DORADA, 0.45 * vive))
+		return
+	if capa == _delante:
+		# Las PLUMAS que bajan meciendose alrededor del cuerpo.
+		for pl in _trozos:
+			var tp: float = _t - float(pl["t0"])
+			if tp < 0.0 or tp > 0.9:
+				continue
+			var kp: float = tp / 0.9
+			var p: Vector2 = _c + Vector2(float(pl["x"]) + sin(tp * 6.0 + float(pl["fase"])) * 5.0, -alto_c * (1.0 - kp) * 0.9)
+			_pluma(capa, p, float(pl["largo"]), 0.6 * sin(tp * 6.0 + float(pl["fase"])) + PI * 0.5 * 0.3, sin(kp * PI))
+		# El HALO sobre la cabeza.
+		if _t >= 0.05:
+			var kh: float = clampf((_t - 0.05) / 0.15, 0.0, 1.0)
+			var al_h: float = kh * (1.0 - clampf((_t - 0.6) / 0.35, 0.0, 1.0))
+			MagiaAire._anillo(capa, cabeza, 6.5, 2.4, Color(LUZ_DORADA, al_h), 0.4)
+			MagiaAire._anillo(capa, cabeza, 6.5, 1.0, Color(LUZ_BLANCA, al_h), 0.4)
+		return
+	if capa == _brillo:
+		# LA COLUMNA que le cae encima (banda calida con nucleo blanco) y las MOTAS que suben.
+		if vive > 0.0:
+			var arriba: Vector2 = _c + Vector2(0.0, -alto_c)
+			var bajo: Vector2 = arriba.lerp(_c, baja)
+			var w: float = 9.0
+			for j in 2:
+				var s: float = -1.0 if j == 0 else 1.0
+				capa.draw_primitive(PackedVector2Array([arriba + Vector2(s * w, 0.0), arriba, bajo, bajo + Vector2(s * w, 0.0)]),
+					PackedColorArray([Color(LUZ_DORADA, 0.0), Color(LUZ_DORADA, 0.55 * vive), Color(LUZ_DORADA, 0.8 * vive),
+						Color(LUZ_DORADA, 0.0)]), PackedVector2Array())
+				capa.draw_primitive(PackedVector2Array([arriba + Vector2(s * w * 0.3, 0.0), arriba, bajo, bajo + Vector2(s * w * 0.3, 0.0)]),
+					PackedColorArray([Color(LUZ_BLANCA, 0.0), Color(LUZ_BLANCA, 0.6 * vive), Color(LUZ_BLANCA, 0.9 * vive),
+						Color(LUZ_BLANCA, 0.0)]), PackedVector2Array())
+		for m in _motas:
+			var tm: float = _t - float(m["t0"])
+			if tm < 0.0 or tm > 0.6:
+				continue
+			var pm: Vector2 = _c + Vector2(float(m["x"]), -tm * 60.0)
+			BarridoAire.destello(capa, pm, float(m["tam"]) * 2.2, Color(LUZ_BLANCA, 1.0 - tm / 0.6), tm * 4.0)
+		if _t >= 0.0 and _t < 0.2:
+			BarridoAire.brillo(capa, _c + Vector2(0.0, -_r * 0.5), 20.0 * (1.0 - _t / 0.2), Color(LUZ_BLANCA, 0.5 * (1.0 - _t / 0.2)))

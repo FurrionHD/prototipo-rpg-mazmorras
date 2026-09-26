@@ -2203,6 +2203,10 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.TORMENTA_RAYO:
 		MagiaMayor.rayo_tormenta(arena, bulto_de(v), semilla, vuelo, ritmo)
 		return
+	# LA COLUMNA DE LUZ de la cura de grupo (MagiaMayor) sobre cada uno de los tuyos.
+	if estilo == CombatFX.Estilo.CURA_GRUPO:
+		MagiaMayor.columna_luz(arena, bulto_de(v), semilla, vuelo, ritmo)
+		return
 	# EL VENDAJE DE LUZ sobre el aliado (MagiaAire.cura).
 	if estilo == CombatFX.Estilo.CURACION_LUZ:
 		MagiaAire.cura(arena, bulto_de(v), semilla, vuelo, ritmo)

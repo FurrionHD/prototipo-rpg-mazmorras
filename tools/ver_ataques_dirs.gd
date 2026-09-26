@@ -121,6 +121,7 @@ const MOMENTOS_MAGIA := {
 	"voragine_sombra": [0.2, 0.36, 0.55, 0.72, 0.95, 1.4, 1.75],
 	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2, 1.45, 1.6, 1.75, 1.95],
 	"tormenta": [0.1, 0.3, 0.5, 0.75, 0.95, 1.25, 1.6, 2.1, 2.4, 2.65],
+	"luz_restauradora": [0.1, 0.25, 0.4, 0.55, 0.7, 0.9, 1.2],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -991,7 +992,11 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 			sueltos.append({"n": SueloRoto.lanzar(self, f, sp.suelo_mapa, 4321 + fila), "t0": 0.0})
 		for cj2 in cajas_f:
 			var llega2: float = SueloRoto.retraso_caja(f, cj2, sp.suelo_mapa) if sp.suelo_mapa >= 0 else 0.0
-			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": llega2})
+			# La cura de grupo: su columna de luz en cada uno; el resto (la Fortaleza), su aura.
+			if sp.tipo == SpellData.TipoEfecto.CURACION:
+				sueltos.append({"n": MagiaMayor.columna_luz(self, cj2, 9, 0.0, 1.0), "t0": llega2})
+			else:
+				sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": llega2})
 	elif sp.imbue_tipo > 0:
 		var caja_i: Rect2 = Rect2()
 		var d_i: float = INF
