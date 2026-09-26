@@ -130,9 +130,14 @@ func _hornear_jugador() -> void:
 	# que lleva puesto alguien significaria que el resto de peinados se dibujan al vuelo en el juego.
 	# 'todas_las_capas' ya las genera (generar y no frames: aqui hay que DIBUJARLAS siempre, aunque
 	# haya un horneado viejo en disco, o rehornear tras tocar un generador no serviria de nada).
+	# HORNO_CAPAS=cuerpo,arma_baston: solo las capas que EMPIEZAN por eso (para iterar una pose deprisa; el
+	# resto se queda con su horneado viejo hasta el horno entero).
+	var solo: PackedStringArray = OS.get_environment("HORNO_CAPAS").split(",", false)
 	for c in JugadorSprites.todas_las_capas():
-		var sf: SpriteFrames = JugadorSprites.generar_capa(c, 1.0)
 		var clave: String = String(c["clave"])
+		if not solo.is_empty() and not Array(solo).any(func(pre): return clave.begins_with(pre)):
+			continue
+		var sf: SpriteFrames = JugadorSprites.generar_capa(c, 1.0)
 		var n: int = CapaJugador.hornear(sf, clave, 1.0)
 		if n <= 0:
 			push_error("[horno] no pude escribir la capa %s" % clave)

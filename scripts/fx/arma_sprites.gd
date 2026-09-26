@@ -64,8 +64,10 @@ const GEO := {
 	"maza_peq":        {"mango": 9.0,  "hoja": 0.0,  "r_mango": 1.8, "cabeza": 3.8, "cabeza_forma": "bola"},
 	"hacha_grande":    {"mango": 17.0, "hoja": 0.0,  "r_mango": 2.1, "cabeza": 6.2, "cabeza_forma": "hacha"},
 	"martillo_grande": {"mango": 17.0, "hoja": 0.0,  "r_mango": 2.2, "cabeza": 5.4, "cabeza_forma": "caja"},
-	"baston":          {"mango": 22.0, "hoja": 0.0,  "r_mango": 1.7, "cabeza": 2.8, "cabeza_forma": "orbe"},
-	"varita":          {"mango": 8.0,  "hoja": 0.0,  "r_mango": 1.2, "cabeza": 2.0, "cabeza_forma": "orbe"},
+	# El baston, de PELEA (26/09): casi tan alto como el personaje, que se agarra cruzado con las manos separadas.
+	"baston":          {"mango": 34.0, "hoja": 0.0,  "r_mango": 1.6, "cabeza": 3.0, "cabeza_forma": "orbe"},
+	# La varita, algo mas larga desde que se agita en la mano (26/09): a 8 no se veia girar.
+	"varita":          {"mango": 11.0, "hoja": 0.0,  "r_mango": 1.2, "cabeza": 2.3, "cabeza_forma": "orbe"},
 	# LAS HERRAMIENTAS DE RECOLECTAR (ver HERRAMIENTA_ANIM). El pico: astil largo y la cabeza CRUZADA
 	# en el plano del golpe, con las dos puntas curvadas hacia el mango.
 	"pico":            {"mango": 15.0, "hoja": 0.0,  "r_mango": 1.5, "cabeza": 6.5, "cabeza_forma": "pico"},
@@ -92,7 +94,7 @@ const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte"
 	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc",
 	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc",
 	"desenvainar_larga", "desenvainar_larga_esc",
-	"desenvainar_maza", "desenvainar_maza2", "desenvainar_maza_esc"]
+	"desenvainar_maza", "desenvainar_maza2", "desenvainar_maza_esc", "desenvainar_baston"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
@@ -112,14 +114,18 @@ const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe
 	# La maza pequeña (26/09): con una, con dos y con escudo.
 	"guardia_maza", "guardia_maza_and", "guardia_maza_cor", "mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "guardia_maza2", "guardia_maza2_and", "guardia_maza2_cor", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2",
 	"guardia_maza_esc", "guardia_maza_and_esc", "guardia_maza_cor_esc", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc",
-	"defensa_maza", "defensa_maza2"]
+	"defensa_maza", "defensa_maza2",
+	# La floritura de la varita (26/09): la varita en la izquierda y lo de la derecha en su guardia.
+	"floritura", "floritura_daga", "floritura_estoque", "floritura_espada", "floritura_larga", "floritura_maza"]
 # En estas la mano IZQUIERDA va sin arma y su daga se queda ENVAINADA (Desaparecer: "si tienes dos dagas
 # primero guarda una"). La de la derecha sigue en la mano.
 const _ANIM_SOLO_DER := ["lanzar_humo", "tajo_daga_solo"]
 const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"en_alto", "tajo_2m", "clavar", "molinete", "barrido_2m", "grito",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor",
-	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m"]
+	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m",
+	# El baston (26/09). Su desenvainar NO: ahi lo pinta la capa de la espalda viajando a la mano.
+	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -175,7 +181,7 @@ static func claves_de(tn: String) -> Array:
 	if tn == "punos":
 		return []
 	if tn == "varita":
-		return ["arma_varita_cadera_izq"]
+		return ["arma_varita_mano_izq", "arma_varita_cadera_izq"]
 	if tn in DOS_MANOS:
 		return ["arma_%s_mano_der" % tn, "arma_%s_espalda" % tn]
 	if tn == "espada_larga":

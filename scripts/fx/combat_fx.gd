@@ -1793,7 +1793,12 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.GOLPE_DEMOLEDOR: "demoledor_maza", Estilo.APLASTAMIENTO: "aplasta_maza",
 	Estilo.GRITO_ALIENTO: "aliento_maza", Estilo.MURO_ALIADOS: "muro_maza",
 	# EL BASTON (26/09): PROVISIONALES hasta sus animaciones (paso 3), para que sus golpes no cuenten como magia.
-	Estilo.BASTON_GOLPE: "golpe_2m", Estilo.BASTONAZO: "golpe_2m",
+	Estilo.BASTON_GOLPE: "golpe_baston", Estilo.BASTONAZO: "bastonazo_baston", Estilo.SELLO_ARCANO: "sello_baston",
+	Estilo.VIENTO_LIMPIO: "viento_baston", Estilo.VELO_UMBRIO: "velo_baston",
+	# El Foco: con baston, plantarlo; con la varita, la floritura (lo cambia el muñeco: _con_su_guardia_base).
+	Estilo.FOCO_ARCANO: "foco_baston",
+	# LA VARITA (26/09): sus habilidades, la floritura (una generica para todo, lo dijo el).
+	Estilo.PURIFICAR: "floritura", Estilo.CHISPA_VINCULADA: "floritura", Estilo.EGIDA_MENOR: "floritura",
 }
 # CUANDO TOCA EL ARMA en cada una, en segundos desde que empieza la animacion (sale de sus claves y su fps
 # en PoseJugador: el fotograma del impacto / fps). EN EL MAPA el gesto arranca eso antes del golpe, y
@@ -1824,6 +1829,11 @@ const IMPACTO_ANIM_MAPA := {
 	# 0,42x8/24 (como la Guardia rota: el escudazo va 0,2 detras); aliento 0,3x8/12; muro 0,45x8/16.
 	"mazazo_maza": 0.15, "rompe_maza": 0.225, "culatazo_maza": 0.13, "demoledor_maza": 0.31, "aplasta_maza": 0.14,
 	"aliento_maza": 0.2, "muro_maza": 0.225,
+	# El baston (26/09): golpe 0,45x8/20; bastonazo 0,45x10/20 (arranca el barrido); sello 0,25x12/16 (empieza a
+	# trazar: el suelo se cierra T_CIERRA despues, con el palo clavado); viento 0,5x10/16; foco 0,45x10/12; velo
+	# 0,3x10/12. La floritura de la varita: suelta la punta en 0,72x12/16.
+	"golpe_baston": 0.18, "bastonazo_baston": 0.225, "sello_baston": 0.19, "viento_baston": 0.31,
+	"foco_baston": 0.375, "velo_baston": 0.25, "floritura": 0.54,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.

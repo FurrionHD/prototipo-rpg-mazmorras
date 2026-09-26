@@ -90,12 +90,14 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada", "tajo_espada2", "tajo_espada2_izq", "reves_espada2", "reves_espada2_izq", "barrido_espada2", "barrido_espada2_izq", "tajo_bajo_espada2", "tajo_bajo_espada2_izq", "tajo_paso_espada2", "tajo_paso_espada2_izq", "tajo_espada_esc", "reves_espada_esc", "barrido_espada_esc", "tajo_bajo_espada_esc", "tajo_paso_espada_esc",
 	"tajo_larga", "rota_larga", "pesado_larga", "desarme_larga", "estocada_larga", "voto_larga", "voz_larga", "tajo_larga_esc", "rota_larga_esc", "pesado_larga_esc", "desarme_larga_esc", "estocada_larga_esc", "voto_larga_esc", "voz_larga_esc",
 	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo",
-	"mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc"]
+	"mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc",
+	"golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "floritura", "floritura_daga", "floritura_estoque", "floritura_espada", "floritura_larga", "floritura_maza"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor", "molinete",
-	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m"]
+	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m",
+	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "desenvainar_baston", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston"]
 # La cara: un Sprite2D con tu PNG, o null si este personaje no tiene imagen.
 var _cara: Sprite2D = null
 # El esqueleto de cada (animacion, fotograma) ya montado. 'esqueleto' construye un diccionario
@@ -402,7 +404,7 @@ func terminada() -> bool:
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
 	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque",
-	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga", "arma_maza_peq_": "guardia_maza"}
+	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga", "arma_maza_peq_": "guardia_maza", "arma_baston_": "guardia_baston"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
 const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_", "arma_espada_larga_", "arma_maza_peq_"]
@@ -716,6 +718,7 @@ func _variante_defensa() -> String:
 		"guardia_larga": return "defensa_larga"
 		"guardia_maza": return "defensa_maza"
 		"guardia_maza2": return "defensa_maza2"
+		"guardia_baston": return "defensa_baston"
 	return "defensa_1m"
 
 
@@ -736,6 +739,14 @@ func _con_su_guardia(nombre: String) -> String:
 
 
 func _con_su_guardia_base(nombre: String) -> String:
+	# LA VARITA (26/09): su floritura, con la derecha en la guardia de lo que lleve ('floritura_daga_3'); y el
+	# Foco arcano sin baston (el de la varita) tambien es la floritura.
+	var pf: PackedStringArray = nombre.rsplit("_", true, 1)
+	if pf.size() == 2 and pf[1].is_valid_int() and (pf[0] == "floritura"
+			or (pf[0] == "foco_baston" and _guardia_propia != "guardia_baston")):
+		var suf: String = _guardia_propia.substr(7) if _guardia_propia in ["guardia_daga", "guardia_estoque",
+			"guardia_espada", "guardia_larga", "guardia_maza"] else ""
+		return "floritura%s_%s" % [suf, pf[1]]
 	# Y su DESENVAINAR, que acaba en esa guardia (ver PoseJugador._pose_desenvainar_2m / _daga):
 	# "guardia_2m" -> "desenvainar_2m", "guardia_daga" -> "desenvainar_daga".
 	if _guardia_propia == "":

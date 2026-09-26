@@ -72,6 +72,13 @@ func _correr() -> void:
 		# Y la habilidad EQUIPADA: sin eso no se sabe que arma la aporta y cae a la principal.
 		var hab: String = OS.get_environment("SUELO_HAB")
 		print("  equipada: ", Game.colocar_habilidad(load("res://resources/abilities/%s.tres" % hab), 0))
+	# SUELO_ARMA=baston, o daga+varita: la principal y, si va, la varita en la izquierda (26/09).
+	var arma: String = OS.get_environment("SUELO_ARMA")
+	if arma != "":
+		var pa: PackedStringArray = arma.split("+")
+		Game.equipar_arma(load("res://resources/weapons/%s.tres" % pa[0]))
+		if pa.size() > 1 and pa[1] == "varita":
+			print("  varita: ", Game.equipar_secundaria(load("res://resources/wands/varita.tres")))
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	await _esperar(5)
 	Game.entrar_arena_de_pruebas()

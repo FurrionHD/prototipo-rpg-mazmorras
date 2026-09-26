@@ -590,7 +590,10 @@ static func _arma_de(out: Array, item, lado: int, pj: PersonajeData) -> void:
 		ArmaSprites.familia_de(tn), ArmaSprites.CLAVE_ROLES, ArmaSprites.ROLES)
 
 	if tn == "varita":
-		# La varita solo cuelga de la cadera: no se desenvaina en el mapa.
+		# La varita: en la IZQUIERDA (la mano del escudo) con el arma fuera, y colgada de la cadera si no (26/09).
+		out.append({"clave": "arma_varita_mano_izq", "ranura": Ranura.MANO_IZQ,
+			"ancla": PoseJugador.P_EMPUNADURA_IZQ, "tinte": false,
+			"frames": ArmaSprites.frames("arma_varita_mano_izq", 1.0)}.merged(pin))
 		out.append({"clave": "arma_varita_cadera_izq", "ranura": Ranura.ARMA_CADERA,
 			"ancla": PoseJugador.P_CADERA_IZQ, "tinte": false,
 			"z": Z_ARMA_CADERA_DELANTE,

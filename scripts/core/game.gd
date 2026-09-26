@@ -8626,8 +8626,9 @@ func _secundaria_valida(main: WeaponData, item: Resource) -> bool:
 	if item is WandData:
 		# La varita (soporte) va con armas LIGERAS (daga / espada corta / maza peq / estoque)
 		# Y con la ESPADA LARGA (que si no solo admite escudo): buena combinacion de soporte.
+		# Y a PUÑOS (26/09, lo dijo el: "tiene poca utilidad, pero se puede"), como con las manos vacias.
 		return int(main.tipo) in [WeaponData.Tipo.DAGA, WeaponData.Tipo.ESPADA_CORTA,
-			WeaponData.Tipo.MAZA_PEQ, WeaponData.Tipo.ESPADA_LARGA, WeaponData.Tipo.ESTOQUE]
+			WeaponData.Tipo.MAZA_PEQ, WeaponData.Tipo.ESPADA_LARGA, WeaponData.Tipo.ESTOQUE, WeaponData.Tipo.PUNOS]
 	if item is WeaponData:
 		var w: WeaponData = item
 		if not w.puede_dual:

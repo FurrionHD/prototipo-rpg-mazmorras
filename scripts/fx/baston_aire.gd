@@ -122,7 +122,8 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			var mitad: float = deg_to_rad(f.apertura * 0.5)
 			if mitad <= 0.001 or p.distance_squared_to(o) < 0.01:
 				return 0.0
-			var fr: float = clampf(angle_difference(f.dir.angle() - mitad, (p - o).angle()) / (2.0 * mitad), 0.0, 1.0)
+			# Empieza por tu DERECHA (la direccion + la mitad) y va hacia la izquierda.
+			var fr: float = clampf(angle_difference((p - o).angle(), f.dir.angle() + mitad) / (2.0 * mitad), 0.0, 1.0)
 			return T_BARRE * sqrt(fr)
 		Modo.SELLO:
 			return T_CIERRA
@@ -710,9 +711,10 @@ func _dibujar_capa(capa: Node2D) -> void:
 			var mitad: float = deg_to_rad(forma.apertura * 0.5)
 			var izq: float = _dir.angle() - mitad
 			var der: float = _dir.angle() + mitad
-			# De que lado empieza: al azar por la semilla (no siempre igual).
-			var desde: float = izq if (int(_rng.seed) & 2) == 0 else der
-			var hasta: float = der if desde == izq else izq
+			# De TU DERECHA a tu izquierda, como el cuerpo (PoseBaston: cargado a la derecha, barre por delante). Con y
+			# hacia abajo, tu derecha es la direccion + 90 grados.
+			var desde: float = der
+			var hasta: float = izq
 			_barrido(capa, desde, hasta, _r * 0.92, _r * 0.62)
 			# LA RACHA DEL EMPUJON: polvo que sale hacia fuera detras del palo, al paso.
 			for m in _motas:

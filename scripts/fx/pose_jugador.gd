@@ -411,6 +411,25 @@ const ANIMS := [
 	{"n": "aliento_maza_esc", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	{"n": "muro_maza_esc", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# LA ESPADA LARGA (25/09, PoseLarga): sin escudo ('_larga') y con el ('_larga_esc').
+	# EL BASTON (26/09, PoseBaston): cruzado en diagonal a dos manos, y sus habilidades.
+	{"n": "guardia_baston", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_baston_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_baston_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_baston", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "defensa_baston", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "golpe_baston", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "bastonazo_baston", "loop": false, "fps": 20.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "sello_baston", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "viento_baston", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "foco_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "velo_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	# LA FLORITURA DE LA VARITA (26/09, PoseBaston): la izquierda con la varita; la derecha en la guardia de lo que lleve.
+	{"n": "floritura", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "floritura_daga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "floritura_estoque", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "floritura_espada", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "floritura_larga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "floritura_maza", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "guardia_larga", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_larga_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_larga_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
@@ -1070,6 +1089,22 @@ static func agarre_arma(esq: Dictionary, mano: int, estado: String) -> Dictionar
 				# eje sale del medio de los hombros, que es de donde tiran los dos brazos. 'eje_2m' lo fija
 				# a mano (la guardia: el arma APOYADA EN EL HOMBRO, su boceto del 24/09). Sin 'junta' (las
 				# faenas, ya aprobadas asi) se queda como estaba.
+				# EL BASTON (26/09): las manos SEPARADAS en el palo. Va de la derecha hacia la izquierda (y la
+				# cabeza, mas alla), y 'palo' es lo que asoma por detras de la derecha: asi pasa por las dos manos.
+				if pose_a.has("palo"):
+					var d_palo: Vector3 = p[P_EMPUNADURA_IZQ] - p[P_EMPUNADURA_DER]
+					if d_palo.length() < 0.5:
+						d_palo = Vector3(0.0, 0.3, 1.0)
+					d_palo = d_palo.normalized()
+					# En los golpes el palo va a donde diga 'eje_2m', por el MEDIO de las manos; 'eje_k' (0..1) mezcla
+					# desde el de la guardia (el de las manos) para que no salte al empezar ni al acabar.
+					var base_palo: Vector3 = p[P_EMPUNADURA_DER]
+					var k_palo: float = clampf(float(pose_a.get("eje_k", 0.0)), 0.0, 1.0)
+					if pose_a.has("eje_2m") and k_palo > 0.0:
+						d_palo = d_palo.lerp((pose_a["eje_2m"] as Vector3).normalized(), k_palo).normalized()
+						base_palo = base_palo.lerp(p[P_EMPUNADURA_DER].lerp(p[P_EMPUNADURA_IZQ], 0.5), k_palo)
+					return {"empunadura": base_palo - d_palo * float(pose_a["palo"]), "eje": d_palo,
+						"atras": false}
 				var jun: float = float(pose_a.get("junta", -1.0))
 				if jun >= 0.0:
 					var agarre: Vector3 = p[P_EMPUNADURA_DER].lerp(p[P_EMPUNADURA_IZQ], 0.5 * jun)
@@ -1149,6 +1184,11 @@ static func fps_de(base: String) -> float:
 
 
 static func _pose(anim: String, t: float) -> Dictionary:
+	# EL BASTON y LA FLORITURA DE LA VARITA (PoseBaston): antes que nada ('floritura_espada' lleva "espada").
+	if anim.contains("baston") or anim.begins_with("floritura"):
+		var pb: Dictionary = PoseBaston.pose(anim, t)
+		if not pb.is_empty():
+			return pb
 	# LA ESPADA LARGA y LAS DE ESCUDO (PoseLarga): antes que el '_esc' de abajo, que su guardia con escudo es otra.
 	if anim.contains("_larga") or anim.ends_with("_escudo"):
 		var pl: Dictionary = PoseLarga.pose(anim, t)
