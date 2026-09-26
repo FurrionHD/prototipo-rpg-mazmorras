@@ -94,6 +94,13 @@ const MOMENTOS_BASTON := {
 	"chispa_vinculada": [0.06, 0.16, 0.3, 0.42, 0.7],
 	"egida_menor": [0.03, 0.08, 0.16, 0.35, 0.65],
 }
+# LAS MAGIAS (MagiaAire): el efecto por el suelo y, en la Descarga, los arcos de la cadena.
+const MOMENTOS_MAGIA := {
+	"brasa": [0.1, 0.22, 0.36, 0.55, 0.85],
+	"descarga": [0.1, 0.2, 0.3, 0.4, 0.55],
+	"rocio": [0.12, 0.3, 0.6, 1.0, 1.9],
+	"pulso_menor": [0.05, 0.12, 0.2, 0.28, 0.45],
+}
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
 	"estocada_penetrante": [-0.03, 0.0, 0.03, 0.08, 0.2],
@@ -242,7 +249,7 @@ func _correr() -> void:
 			else (MOMENTOS_ESPADA.get(nom, []) if arma in ["espada", "larga", "escudo"] \
 			else MOMENTOS.get(ab.suelo_roto, []))))
 		if arma == "magia":
-			tiempos = []   # de momento solo la huella: los efectos llegan en el paso 2
+			tiempos = MOMENTOS_MAGIA.get(nom, [])
 		var cols: int = 1 + tiempos.size()
 		# El zoom de toda la hoja: que quepa la forma mas larga de esta habilidad, en cualquier direccion.
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, PISA, ALCANCE[arma], yo + Vector2(70, 0))
@@ -291,6 +298,9 @@ func _correr() -> void:
 				continue
 			if arma in ["baston", "varita"]:
 				await _efecto_baston(ab, nom, f, fila, hoja, tiempos, dir_n, yo, DIRS[fila][1])
+				continue
+			if hechizo != null:
+				await _efecto_magia(hechizo, f, fila, hoja, tiempos, dir_n, yo)
 				continue
 			if arma.begins_with("maza"):
 				await _efecto_maza(ab, nom, dual, f, fila, hoja, tiempos, dir_n, yo)
@@ -916,3 +926,72 @@ func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:
 	var cen: Vector2i = img.get_size() / 2
 	hoja.blit_rect(img, Rect2i(cen - Vector2i(LADO, LADO) / 2, Vector2i(LADO, LADO)),
 		Vector2i(col * LADO, fila * LADO))
+
+
+# LAS MAGIAS: el efecto por el suelo con la forma que le da la pelea (los proyectiles, hasta el primero que pillan)
+# y los ARCOS de la cadena de la Descarga, cada uno en su instante (como en el juego, uno tras otro).
+func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir_n: String, yo: Vector2) -> void:
+	BarridoAire.ritmo = 1.0
+	var pillados: Array = []
+	for p in _enemigos:
+		var caja := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+		if f.toca(caja):
+			pillados.append(caja)
+	pillados.sort_custom(func(x, y): return (x as Rect2).get_center().distance_squared_to(yo) < (y as Rect2).get_center().distance_squared_to(yo))
+	if sp.forma_solo_primero and pillados.size() > 1:
+		pillados = pillados.slice(0, 1)
+	var tipo: int = sp.suelo_mapa
+	var f_ef = f
+	var proyectil: bool = tipo == SueloRoto.Tipo.MAGIA_ORBE or tipo == SueloRoto.Tipo.MAGIA_BOLA
+	if proyectil:
+		var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - yo)
+		var largo: float = f.largo if f.tipo == CombatFormas.Tipo.LINEA else yo.distance_to(f.centro)
+		if not pillados.is_empty():
+			var c0: Rect2 = pillados[0]
+			if f.tipo != CombatFormas.Tipo.LINEA:
+				dir = Vector2(c0.get_center().x, c0.end.y) - yo
+			var cerca := Vector2(clampf(yo.x, c0.position.x, c0.end.x), clampf(yo.y, c0.position.y, c0.end.y))
+			largo = maxf((cerca - yo).dot(dir.normalized()), 4.0)
+		else:
+			tipo = SueloRoto.Tipo.MAGIA_ORBE_FALLA if tipo == SueloRoto.Tipo.MAGIA_ORBE else SueloRoto.Tipo.MAGIA_BOLA_FALLA
+		f_ef = CombatFormas.linea(yo, dir, largo, 8.0)
+	var s: Node2D = SueloRoto.lanzar(self, f_ef, tipo, 1234 + fila)
+	s.set_process(false)
+	# LA CADENA: del primero al mas cercano que no haya recibido (60 px), hasta 3 saltos.
+	var arcos: Array = []   # {n, t0}
+	if sp.forma_cadena > 0.0 and not pillados.is_empty():
+		var t_llega: float = MagiaAire.retraso(tipo - SueloRoto.Tipo.MAGIA_ALIENTO, f_ef, Vector2(pillados[0].get_center().x, pillados[0].end.y))
+		var ya: Array = [pillados[0]]
+		var desde: Rect2 = pillados[0]
+		for i in sp.rebotes:
+			var mejor: Rect2 = Rect2()
+			var d_m: float = INF
+			for p in _enemigos:
+				var caja2 := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+				if ya.has(caja2):
+					continue
+				var d: float = caja2.get_center().distance_to(desde.get_center()) - 14.0
+				if d <= sp.forma_cadena and d < d_m:
+					d_m = d
+					mejor = caja2
+			if not mejor.has_area():
+				break
+			var a := MagiaAire.arco(self, desde.get_center(), mejor.get_center(), MagiaAire.RAYO, 77 + i, 0.0, 1.0)
+			a.set_process(false)
+			arcos.append({"n": a, "t0": t_llega + 0.075 * float(i + 1)})
+			ya.append(mejor)
+			desde = mejor
+	for col in tiempos.size():
+		var t: float = float(tiempos[col])
+		s.set("_t", t)
+		for hijo in ["_suelo", "_delante", "_brillo"]:
+			if s.get(hijo) != null:
+				(s.get(hijo) as Node2D).queue_redraw()
+		for ar in arcos:
+			(ar["n"] as Node2D).set("_t", t - float(ar["t0"]))
+			((ar["n"] as Node2D).get("_brillo") as Node2D).queue_redraw()
+		await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [sp.nombre, dir_n, t])
+	s.queue_free()
+	for ar in arcos:
+		(ar["n"] as Node).queue_free()
+	await get_tree().process_frame

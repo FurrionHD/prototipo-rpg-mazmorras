@@ -194,6 +194,9 @@ const RADIO_CURA_AREA := 200.0
 # CADENA (la Descarga en el mapa): > 0 = los rebotes saltan al enemigo MAS CERCANO del ultimo tocado que
 # aun no haya recibido, hasta esta distancia en px; si no hay ninguno, la cadena se corta.
 @export var forma_cadena: float = 0.0
+# SU EFECTO EN EL MAPA (SueloRoto.Tipo, los MAGIA_*): lo que se ve al soltarlo, y a cada uno le llega el golpe
+# cuando le alcanza. -1 = ninguno (se pinta como en la fila).
+@export var suelo_mapa: int = -1
 
 # REBOTES: impactos EXTRA, despues del area, cada uno a un enemigo VIVO al AZAR. Pueden
 # repetir objetivo y pueden caer en el principal: en 1v1 rebotan todos sobre el unico

@@ -32,7 +32,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	ESPADA_QUIEBRA, ESPADA_CRUZ, ESPADA_TENDON, ESPADA_DESARMA, ESPADA_PESADO, ESCUDO_ONDA,
 	ESCUDO_VOTO, ESCUDO_VOZ, ESCUDO_PROVOCA, ESCUDO_AMPARO,
 	MAZA_DEMOLEDOR, MAZA_DEMOLEDOR_DOS, MAZA_ROMPE, MAZA_ROMPE_DOS, MAZA_APLASTA, MAZA_ALIENTO, MAZA_ALIENTO_DOS,
-	MAZA_MURO, BASTON_BARRE, BASTON_SELLO, BASTON_VIENTO }
+	MAZA_MURO, BASTON_BARRE, BASTON_SELLO, BASTON_VIENTO,
+	MAGIA_ALIENTO, MAGIA_LLUVIA, MAGIA_ORBE, MAGIA_BOLA, MAGIA_ORBE_FALLA, MAGIA_BOLA_FALLA }
+# MAGIA_* (las magias, 26/09): viven en MagiaAire (su Modo = tipo - MAGIA_ALIENTO). Van DETRAS de los BASTON_*: se
+# miran antes. Los _FALLA son el mismo proyectil cuando no hay nadie donde cae (se apaga en vez de reventar).
 # BASTON_* (baston, 26/09): viven en BastonAire (su Modo = tipo - BASTON_BARRE). Van DETRAS de los MAZA_*: se miran antes.
 # MAZA_* (maza pequeña, 25/09): viven en MazaAire (su Modo = tipo - MAZA_DEMOLEDOR). Van DETRAS de los ESCUDO_*, asi
 # que se miran ANTES que el 't >= ESCUDO_VOTO'. Los '_DOS' son los de dos mazas: la ficha dice el de una y
@@ -96,6 +99,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.MAGIA_ALIENTO:
+		return MagiaAire.area(padre, f, t - Tipo.MAGIA_ALIENTO, semilla, espera)
 	if t >= Tipo.BASTON_BARRE:
 		return BastonAire.area(padre, f, t - Tipo.BASTON_BARRE, semilla, espera)
 	if t >= Tipo.MAZA_DEMOLEDOR:
@@ -134,6 +139,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.MAGIA_ALIENTO:
+		return MagiaAire.retraso(t - Tipo.MAGIA_ALIENTO, f, p)
 	if t >= Tipo.BASTON_BARRE:
 		return BastonAire.retraso(t - Tipo.BASTON_BARRE, f, p)
 	if t >= Tipo.MAZA_DEMOLEDOR:
@@ -163,6 +170,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.MAGIA_ALIENTO:
+		return MagiaAire.t_salir(t - Tipo.MAGIA_ALIENTO)
 	if t >= Tipo.BASTON_BARRE:
 		return BastonAire.t_salir(t - Tipo.BASTON_BARRE)
 	if t >= Tipo.MAZA_DEMOLEDOR:

@@ -116,12 +116,16 @@ func _fx_tanda(i: int) -> void:
 # acabar los golpes: un contraataque de despues no tiene que esperar a ninguna grieta.
 var _suelo_forma: CombatFormas.Forma = null
 var _suelo_tipo: int = 0
+# LA CADENA sale de donde revienta el golpe principal (la Descarga, 26/09): los ARCOS de la accion no esperan a
+# su propia distancia sino a lo que tardo el PRIMER golpe. Es una regla (no viaja): el espejo llama igual.
+var _rs_primero: float = -1.0
 
 func fijar_suelo(tipo: int, forma: CombatFormas.Forma, semilla: int, nucleo: float) -> void:
 	if forma == null or _pantalla._fx == null or not _pantalla.tactico:
 		return
 	_suelo_forma = forma
 	_suelo_tipo = tipo
+	_rs_primero = -1.0
 	var arena: Node = _pantalla.turno_mapa._arena()
 	if arena != null:
 		_pantalla._fx.pedir_suelo(arena, forma, tipo, semilla, nucleo)
@@ -133,10 +137,15 @@ func soltar_suelo() -> void:
 	_suelo_forma = null
 
 
-func _retraso_suelo(victima: Combatant) -> float:
+func _retraso_suelo(victima: Combatant, estilo: int = -1) -> float:
 	if _suelo_forma == null or victima == null or not _pantalla._enemies.has(victima):
 		return -1.0
-	return SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima), _suelo_tipo)
+	if estilo == CombatFX.Estilo.ARCO and _rs_primero >= 0.0:
+		return _rs_primero
+	var rs: float = SueloRoto.retraso_caja(_suelo_forma, _pantalla.turno_mapa.bulto_de(victima), _suelo_tipo)
+	if _rs_primero < 0.0:
+		_rs_primero = rs
+	return rs
 
 
 func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
@@ -181,7 +190,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	_pantalla._fx.encolar(_pantalla._bloque_de(atacante), bv, dmg, crit, evadido,
 		_color_golpe(atacante, elem, estilo), estilo, peso, solo_dibujo, sfx, elem,
 		atacante.fx_escudo if atacante != null else -1, gesto, anim, semilla, mult_elem,
-		_retraso_suelo(victima), mano)
+		_retraso_suelo(victima, estilo), mano)
 	# LA ESQUIVA EN GUARDIA (estoque): el mapa la enseña con su propio gesto (CombatTactico._on_esquiva).
 	# En el espejo en_guardia no viaja: le llega marcada en el paquete (guardia_red).
 	var en_guardia: bool = evadido and (guardia_red or (not _pantalla._espejo and victima.en_guardia))

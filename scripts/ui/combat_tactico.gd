@@ -2098,6 +2098,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
 		return
+	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
+	if estilo == CombatFX.Estilo.ARCO:
+		var caja_v: Rect2 = bulto_de(v)
+		var desde_a: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null 			else caja_v.get_center() - Vector2(30.0, 0.0)
+		var elem_a: int = int(ev.get("elem", Elementos.Elemento.RAYO))
+		var col_a: Color = Elementos.color(elem_a) if Elementos.tiene_color(elem_a) else MagiaAire.RAYO
+		MagiaAire.arco(arena, desde_a, caja_v.get_center(), col_a, semilla, vuelo, ritmo)
+		return
 	# EL DEFENDER no pinta nada: lo que se ve es su postura (el gesto, ver gesto_en_mapa).
 	if estilo == CombatFX.Estilo.DEFENSA:
 		return

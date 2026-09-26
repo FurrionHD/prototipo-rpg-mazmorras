@@ -31,3 +31,4 @@ forma_apertura = 50.0
 forma_apunte = 1
 forma_cunas = 5
 forma_escalas = Array[float]([1.5, 1.1, 0.75])
+suelo_mapa = 37

@@ -402,7 +402,9 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y el baston y la varita (BastonAire), 26/09: el palo en cada cuerpo, lo de los tuyos y lo que te echas encima.
 	# El Sello arcano NO: se cierra en el suelo y alcanza a todos a la vez (un golpe de area = un impacto).
 	Estilo.BASTON_GOLPE, Estilo.BASTONAZO, Estilo.VIENTO_LIMPIO, Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
-	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR]
+	Estilo.PURIFICAR, Estilo.CHISPA_VINCULADA, Estilo.EGIDA_MENOR,
+	# y el ARCO de las cadenas de rayo (MagiaAire, 26/09): de pecho a pecho, del ultimo tocado al siguiente.
+	Estilo.ARCO]
 
 # LOS GESTOS DEL JUGADOR, para lo que hay que tratar distinto por ser suyo. Hoy es una cosa: el
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan

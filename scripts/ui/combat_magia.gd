@@ -427,8 +427,20 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	var punto = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("punto")
 	var en_mapa: bool = _pantalla.tactico and punto is Vector2 and _pantalla.turno_mapa.usa_huella_hechizo(spell)
 	var reparto_mapa: Array = []
+	var con_efecto: bool = false
 	if en_mapa:
 		reparto_mapa = _pantalla.turno_mapa.reparto_hechizo(spell, _pantalla._player, punto)
+		# SU EFECTO EN EL MAPA (MagiaAire, por el suelo): cada golpe llega cuando el efecto alcanza a su victima.
+		if spell.suelo_mapa >= 0:
+			var f_ef = _forma_efecto(spell, punto, reparto_mapa)
+			if reparto_mapa.is_empty():
+				# Sin nadie no hay golpes que lo lleven: se lanza aqui a pelo (el orbe se apaga al final).
+				var arena: Node = _pantalla.turno_mapa._arena()
+				if arena != null:
+					SueloRoto.lanzar(arena, f_ef, _tipo_fallo(spell.suelo_mapa), (randi() & 0x3FFFFFFF) | 1)
+			else:
+				_pantalla.efectos.fijar_suelo(spell.suelo_mapa, f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
+				con_efecto = true
 		if spell.tipo == SpellData.TipoEfecto.ATAQUE and reparto_mapa.is_empty():
 			_pantalla._set_log("💨 %s de %s cae donde no hay nadie y se pierde contra el suelo." % [
 				spell.nombre, _pantalla._player.nombre])
@@ -523,6 +535,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			# Se apunta aunque este rebote la mate: los muertos se rematan al final de la accion
 			# (_tras_accion_jugador_varios), asi que su tarjeta sigue ahi para el arco siguiente.
 			anterior = victima
+		if con_efecto:
+			_pantalla.efectos.soltar_suelo()
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
 		_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:
@@ -550,6 +564,36 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
 		StatsMath.magic_value(obj.abilities, obj.level, obj.base_magic)])
 	return tocados
+
+
+# LA FORMA DEL EFECTO de un hechizo en el mapa. Los PROYECTILES (orbe, bola) van de tus pies al primero que
+# pillan (hasta el borde de su cuerpo: ahi revientan) o, si no hay nadie, hasta el final de su recorrido; el
+# resto, la huella tal cual.
+func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFormas.Forma:
+	var tm = _pantalla.turno_mapa
+	var f = tm.forma_hechizo(spell, _pantalla._player, punto)
+	var tipo: int = spell.suelo_mapa
+	if tipo != SueloRoto.Tipo.MAGIA_ORBE and tipo != SueloRoto.Tipo.MAGIA_BOLA:
+		return f
+	var o: Vector2 = tm.pies_de(_pantalla._player)
+	var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - o)
+	var largo: float = f.largo if f.tipo == CombatFormas.Tipo.LINEA else o.distance_to(f.centro)
+	if not reparto.is_empty():
+		var caja: Rect2 = tm.bulto_de(reparto[0]["c"])
+		if f.tipo != CombatFormas.Tipo.LINEA:
+			dir = caja.get_center() + Vector2(0.0, caja.size.y * 0.5) - o
+		var cerca := Vector2(clampf(o.x, caja.position.x, caja.end.x), clampf(o.y, caja.position.y, caja.end.y))
+		largo = (cerca - o).dot(dir.normalized()) if dir.length_squared() > 0.0001 else 0.0
+		largo = maxf(largo, 4.0)
+	return CombatFormas.linea(o, dir, largo, 8.0)
+
+
+# El mismo proyectil cuando no hay nadie donde cae: se apaga en vez de reventar.
+static func _tipo_fallo(tipo: int) -> int:
+	match tipo:
+		SueloRoto.Tipo.MAGIA_ORBE: return SueloRoto.Tipo.MAGIA_ORBE_FALLA
+		SueloRoto.Tipo.MAGIA_BOLA: return SueloRoto.Tipo.MAGIA_BOLA_FALLA
+	return tipo
 
 
 # EL CANTO QUE TE INTERRUMPIERON. Estabas recitando en el mapa y esta misma pelea te ha caido
