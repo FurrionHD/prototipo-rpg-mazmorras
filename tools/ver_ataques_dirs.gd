@@ -107,6 +107,11 @@ const MOMENTOS_MAGIA := {
 	"chorro_agua": [0.12, 0.28, 0.45, 0.7, 1.4],
 	"rayo": [0.04, 0.1, 0.2, 0.35, 0.6],
 	"pulso_arcano": [0.08, 0.18, 0.3, 0.42, 0.6],
+	"debilidad": [0.02, 0.15, 0.3, 0.5, 0.7],
+	"fortaleza": [0.02, 0.15, 0.3, 0.5, 0.7],
+	"filo_ardiente": [0.08, 0.2, 0.3, 0.38, 0.55],
+	"mar_de_brasas": [0.12, 0.3, 0.55, 1.0, 1.9],
+	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -949,6 +954,45 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 		pillados = pillados.slice(0, 1)
 	var tipo: int = sp.suelo_mapa
 	var f_ef = f
+	# LAS SIN GOLPE: la maldicion en cada figura del circulo, la fortaleza en las de alrededor (y en ti) y el filo
+	# de ti a la figura mas cercana a la huella.
+	var sueltos: Array = []   # {n, t0}
+	if sp.tipo == SpellData.TipoEfecto.DEBUFF:
+		for cj in pillados:
+			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.MALDICION, cj, Color.WHITE, 9, 0.0, 1.0), "t0": 0.0})
+	elif sp.forma_a_aliados and int(sp.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
+		var cajas_f: Array = [Rect2(yo - Vector2(7, 26), Vector2(14, 26))]
+		for p in _enemigos:
+			var cjf := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			if f.toca(cjf):
+				cajas_f.append(cjf)
+		for cj2 in cajas_f:
+			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": 0.0})
+	elif sp.imbue_tipo > 0:
+		var caja_i: Rect2 = Rect2()
+		var d_i: float = INF
+		for p in _enemigos:
+			var cji := Rect2(p - Vector2(7, 26), Vector2(14, 26))
+			if cji.get_center().distance_to(f.centro) < d_i:
+				d_i = cji.get_center().distance_to(f.centro)
+				caja_i = cji
+		var col_i: Color = Elementos.color(sp.elemento) if Elementos.tiene_color(sp.elemento) else MagiaAire.ARCANO
+		sueltos.append({"n": MagiaAire.filo(self, yo + Vector2(0, -13), caja_i, col_i, 9, 0.32, 1.0), "t0": 0.32})
+	if not sueltos.is_empty():
+		for su in sueltos:
+			(su["n"] as Node).set_process(false)
+		for col in tiempos.size():
+			for su in sueltos:
+				(su["n"] as Node2D).set("_t", float(tiempos[col]) - float(su["t0"]))
+				for hijo in ["_suelo", "_delante", "_brillo"]:
+					var hn = (su["n"] as Node2D).get(hijo)
+					if hn is Node2D:
+						(hn as Node2D).queue_redraw()
+			await _viñeta(hoja, col + 1, fila, "%s · %s · %.2f s" % [sp.nombre, dir_n, float(tiempos[col])])
+		for su in sueltos:
+			(su["n"] as Node).queue_free()
+		await get_tree().process_frame
+		return
 	# EL VENDAJE: la luz sobre la figura que tenga la huella encima (en el juego, uno de los tuyos).
 	if sp.forma_a_aliados:
 		var caja_c: Rect2 = Rect2()
@@ -969,7 +1013,8 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 		cu.queue_free()
 		await get_tree().process_frame
 		return
-	var proyectil: bool = tipo in [SueloRoto.Tipo.MAGIA_ORBE, SueloRoto.Tipo.MAGIA_BOLA, SueloRoto.Tipo.MAGIA_HELICE]
+	var proyectil: bool = tipo in [SueloRoto.Tipo.MAGIA_ORBE, SueloRoto.Tipo.MAGIA_BOLA, SueloRoto.Tipo.MAGIA_HELICE,
+		SueloRoto.Tipo.MAGIA_JABALINA]
 	if proyectil:
 		var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - yo)
 		var largo: float = f.largo if f.tipo == CombatFormas.Tipo.LINEA else yo.distance_to(f.centro)
@@ -981,7 +1026,8 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 			largo = maxf((cerca - yo).dot(dir.normalized()), 4.0)
 		else:
 			tipo = {SueloRoto.Tipo.MAGIA_ORBE: SueloRoto.Tipo.MAGIA_ORBE_FALLA, SueloRoto.Tipo.MAGIA_BOLA: SueloRoto.Tipo.MAGIA_BOLA_FALLA,
-				SueloRoto.Tipo.MAGIA_HELICE: SueloRoto.Tipo.MAGIA_HELICE_FALLA}[tipo]
+				SueloRoto.Tipo.MAGIA_HELICE: SueloRoto.Tipo.MAGIA_HELICE_FALLA,
+				SueloRoto.Tipo.MAGIA_JABALINA: SueloRoto.Tipo.MAGIA_JABALINA_FALLA}[tipo]
 		f_ef = CombatFormas.linea(yo, dir, largo, 8.0)
 	if tipo == SueloRoto.Tipo.MAGIA_RAYO:
 		f_ef = CombatFormas.circulo(Vector2(pillados[0].get_center().x, pillados[0].end.y) if not pillados.is_empty() else f.centro, 8.0)

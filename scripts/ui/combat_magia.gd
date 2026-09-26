@@ -563,12 +563,16 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			# EN EL MAPA, a todos los que pille la huella, cada uno con su tirada (la Debilidad).
 			for d_db in reparto_mapa:
 				_aplicar_estado_hechizo(spell, d_db["c"])
+				_pantalla.efectos._fx_golpe(_pantalla._player, d_db["c"], 0.0, false, false, int(spell.elemento),
+					CombatFX.Estilo.MALDICION, 1.0, true)
 		elif en_mapa and spell.forma_a_aliados and spell.forma_apunte == CombatFormas.Apunte.ALREDEDOR:
 			# EN EL MAPA, a todos los tuyos que pille el circulo (la Fortaleza).
 			var antes_al: Combatant = _pantalla._cast_aliado
 			for al_f in _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player):
 				_pantalla._cast_aliado = al_f
 				_aplicar_estado_hechizo(spell)
+				_pantalla.efectos._fx_golpe(_pantalla._player, al_f, 0.0, false, false, int(spell.elemento),
+					CombatFX.Estilo.FORTALECER, 1.0, true)
 			_pantalla._cast_aliado = antes_al
 		else:
 			_aplicar_estado_hechizo(spell)
@@ -579,6 +583,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# IMBUICION (KAN-58): el hechizo no pega, tiñe tus GOLPES DE ARMA con su elemento.
 	if spell.imbue_tipo > 0:
 		_aplicar_imbuicion(spell)
+		# EN EL MAPA se ve llegar: el elemento viaja de tu mano al arma de quien lo recibe.
+		if en_mapa and _pantalla._cast_aliado != null:
+			_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._cast_aliado, 0.0, false, false,
+				int(spell.elemento), CombatFX.Estilo.IMBUIR_ELEM, 1.0, true)
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF
@@ -607,7 +615,8 @@ func _forma_efecto(spell: SpellData, punto: Vector2, reparto: Array) -> CombatFo
 			return CombatFormas.circulo(f.centro, 8.0)
 		var cj: Rect2 = tm.bulto_de(reparto[0]["c"])
 		return CombatFormas.circulo(Vector2(cj.get_center().x, cj.end.y), 8.0)
-	if tipo != SueloRoto.Tipo.MAGIA_ORBE and tipo != SueloRoto.Tipo.MAGIA_BOLA and tipo != SueloRoto.Tipo.MAGIA_HELICE:
+	if not (tipo in [SueloRoto.Tipo.MAGIA_ORBE, SueloRoto.Tipo.MAGIA_BOLA, SueloRoto.Tipo.MAGIA_HELICE,
+			SueloRoto.Tipo.MAGIA_JABALINA]):
 		return f
 	var o: Vector2 = tm.pies_de(_pantalla._player)
 	var dir: Vector2 = f.dir if f.tipo == CombatFormas.Tipo.LINEA else (f.centro - o)
@@ -628,6 +637,7 @@ static func _tipo_fallo(tipo: int) -> int:
 		SueloRoto.Tipo.MAGIA_ORBE: return SueloRoto.Tipo.MAGIA_ORBE_FALLA
 		SueloRoto.Tipo.MAGIA_BOLA: return SueloRoto.Tipo.MAGIA_BOLA_FALLA
 		SueloRoto.Tipo.MAGIA_HELICE: return SueloRoto.Tipo.MAGIA_HELICE_FALLA
+		SueloRoto.Tipo.MAGIA_JABALINA: return SueloRoto.Tipo.MAGIA_JABALINA_FALLA
 	return tipo
 
 

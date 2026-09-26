@@ -23,6 +23,14 @@
 #    ARCO      el salto de una cadena: un rayo quebrado RELLENO de pecho a pecho que chisporrotea.
 #    CURA      Vendaje de luz: una columna de luz calida cae sobre el aliado, una venda de luz le rodea el pecho
 #              y suben destellos.
+#    MALDICION Debilidad: una niebla violeta cae sobre el enemigo y lo aplasta (galones hacia abajo, anillo que
+#              se cierra a sus pies, gotas oscuras).
+#    FORTALECER Fortaleza: un aura roja sube por el cuerpo (galones hacia arriba, anillo que se abre, destello).
+#    FILO      los Filos: el elemento viaja en arco de tu mano a su arma y revienta en ella.
+#  Y POR EL SUELO, tambien:
+#    LAVA      Mar de brasas: el suelo se raja desde ti, las grietas se llenan de lava, salen llamas y luego se
+#              enfria (rojo -> negro).
+#    JABALINA  Venablo de tormenta: dos lanzas de rayo, una tras otra, rectas al primero; revientan en chispazos.
 #  NADA DE LINEAS peladas (bandas rellenas con halo, cometas y destellos de BarridoAire). Coordenadas de MUNDO;
 #  el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -31,7 +39,8 @@ class_name MagiaAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.MAGIA_*: no reordenar.
 enum Modo { ALIENTO, LLUVIA, ORBE, BOLA, ORBE_FALLA, BOLA_FALLA, ANDANADA, OLA, RAYO_CIELO, HELICE, HELICE_FALLA,
-	ARCO, CURA }
+	LAVA, JABALINA, JABALINA_FALLA,
+	ARCO, CURA, MALDICION, FORTALECER, FILO }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -93,6 +102,23 @@ const ALTO_RAYO := 120.0
 const V_HELICE := 260.0
 const AMPLITUD_HELICE := 11.0
 const PASO_HELICE := 46.0        # px que avanza en una vuelta entera
+
+# LA LAVA
+const T_LAVA := 0.4              # lo que tarda en rajarse la franja entera desde ti
+const LAVA := Color(1.0, 0.45, 0.08)
+const LAVA_CLARA := Color(1.0, 0.85, 0.35)
+const COSTRA := Color(0.16, 0.06, 0.04)
+
+# LA JABALINA
+const V_JABALINA := 520.0
+const T_ENTRE_LANZAS := 0.1
+
+# LA MALDICION Y LA FORTALEZA
+const T_SOBRE := 0.8
+const MALDITO := Color(0.55, 0.3, 0.75)
+const MALDITO_OSCURO := Color(0.16, 0.06, 0.22)
+const FUERZA := Color(1.0, 0.42, 0.22)
+const FUERZA_CLARA := Color(1.0, 0.85, 0.6)
 
 # LA CURA
 const T_CURA := 0.95
@@ -212,6 +238,10 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return T_RAYO_CAE
 		Modo.HELICE, Modo.HELICE_FALLA:
 			return maxf(0.0, (p - o).dot(f.dir)) / V_HELICE
+		Modo.LAVA:
+			return clampf((p - o).dot(f.dir) / maxf(f.largo, 1.0), 0.0, 1.0) * T_LAVA + 0.08
+		Modo.JABALINA, Modo.JABALINA_FALLA:
+			return maxf(0.0, (p - o).dot(f.dir)) / V_JABALINA
 	return 0.0
 
 
@@ -222,6 +252,7 @@ static func t_salir(m: int) -> float:
 		Modo.ANDANADA: return T_ENTRE_BOLAS * float(BOLAS - 1) + T_CAE_BOLA
 		Modo.OLA: return T_OLA
 		Modo.RAYO_CIELO: return T_RAYO_CAE
+		Modo.LAVA: return T_LAVA
 	return 0.3
 
 
@@ -235,8 +266,12 @@ func duracion() -> float:
 		Modo.OLA: return T_OLA + 1.6
 		Modo.RAYO_CIELO: return T_RAYO_CAE + 0.9
 		Modo.HELICE, Modo.HELICE_FALLA: return _largo / V_HELICE + T_REVIENTA + 0.5
+		Modo.LAVA: return T_LAVA + 2.2
+		Modo.JABALINA, Modo.JABALINA_FALLA: return _largo / V_JABALINA + T_ENTRE_LANZAS + T_REVIENTA + 0.5
 		Modo.ARCO: return T_ARCO + 0.05
 		Modo.CURA: return T_CURA
+		Modo.MALDICION, Modo.FORTALECER: return T_SOBRE
+		Modo.FILO: return 0.75
 	return 1.0
 
 
@@ -302,11 +337,36 @@ func _preparar_area() -> void:
 			for i in int(clampf(_largo / 14.0, 8.0, 16.0)):
 				_charcos.append({"u": (float(i) + _rng.randf_range(0.1, 0.9)) / clampf(_largo / 14.0, 8.0, 16.0),
 					"v": _rng.randf_range(-0.38, 0.38), "r": _rng.randf_range(5.0, 11.0)})
+		Modo.LAVA:
+			# LAS GRIETAS: caminos quebrados a lo largo de la franja (uno largo por el medio y ramas), y los
+			# sitios de donde saldran llamas.
+			for g in 5:
+				var v0: float = lerpf(-0.36, 0.36, float(g) / 4.0) + _rng.randf_range(-0.05, 0.05)
+				var pts: Array = []
+				var u: float = _rng.randf_range(0.0, 0.12)
+				var v: float = v0
+				while u < 1.0:
+					pts.append(Vector2(u, v))
+					u += _rng.randf_range(0.06, 0.12)
+					v = clampf(v + _rng.randf_range(-0.09, 0.09), -0.46, 0.46)
+				_manchas.append({"pts": pts, "grueso": _rng.randf_range(3.0, 4.6) if g % 2 == 0 else _rng.randf_range(2.0, 3.0)})
+			# LOS CHARCOS DE LAVA sobre las grietas.
+			for i in 10:
+				var g2: Dictionary = _manchas[_rng.randi_range(0, _manchas.size() - 1)]
+				var q: Vector2 = (g2["pts"] as Array)[_rng.randi_range(0, (g2["pts"] as Array).size() - 1)]
+				_charcos.append({"u": q.x, "v": q.y, "r": _rng.randf_range(4.0, 8.0)})
+			for i in 34:
+				_bocanadas.append({"u": _rng.randf_range(0.05, 0.98), "v": _rng.randf_range(-0.42, 0.42),
+					"t0": _rng.randf_range(0.0, 0.9), "vida": _rng.randf_range(0.4, 0.65), "tam": _rng.randf_range(0.7, 1.2),
+					"fase": _rng.randf_range(0.0, 50.0)})
+			for i in 30:
+				_ascuas.append({"u": _rng.randf_range(0.0, 1.0), "v": _rng.randf_range(-0.45, 0.45), "tam": _rng.randf_range(0.8, 1.5),
+					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(1.2, 1.9)})
 		Modo.RAYO_CIELO:
 			for i in 7:
 				var a: float = _rng.randf_range(0.0, TAU)
 				_motas.append({"d": Vector2(cos(a), sin(a) * K), "v": _rng.randf_range(25.0, 55.0), "tam": _rng.randf_range(1.0, 1.8)})
-		Modo.ORBE, Modo.ORBE_FALLA, Modo.BOLA, Modo.BOLA_FALLA, Modo.HELICE, Modo.HELICE_FALLA:
+		Modo.ORBE, Modo.ORBE_FALLA, Modo.BOLA, Modo.BOLA_FALLA, Modo.HELICE, Modo.HELICE_FALLA, Modo.JABALINA, Modo.JABALINA_FALLA:
 			for i in 7:
 				var a: float = _rng.randf_range(0.0, TAU)
 				_motas.append({"d": Vector2(cos(a), sin(a) * K), "v": _rng.randf_range(20.0, 45.0), "tam": _rng.randf_range(1.0, 1.8)})
@@ -331,6 +391,57 @@ static func arco(padre: Node, desde: Vector2, hasta: Vector2, col: Color, semill
 	e._t = -maxf(espera, 0.0)
 	e._desde = desde
 	e._hasta = hasta
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+# LA MALDICION y la FORTALEZA sobre un cuerpo ('caja').
+static func sobre_cuerpo(padre: Node, m: int, caja: Rect2, col: Color, semilla: int, espera: float, ritmo: float) -> MagiaAire:
+	if padre == null:
+		return null
+	var e := MagiaAire.new()
+	e.modo = m
+	e.color = col
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._t = -maxf(espera, 0.0)
+	e._desde = Vector2(caja.get_center().x, caja.end.y)
+	e._hasta = caja.get_center()
+	e._ancho = maxf(caja.size.x, 10.0)
+	e._largo = maxf(caja.size.y, 16.0)
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	for i in 8:
+		e._motas.append({"x": e._rng.randf_range(-0.55, 0.55), "t0": e._rng.randf_range(0.0, 0.45),
+			"tam": e._rng.randf_range(2.5, 4.0)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, m == Modo.FORTALECER)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+# EL FILO: de 'desde' (el pecho de quien lo lanza) al arma de quien lo recibe ('caja', su cuerpo).
+static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: int, espera: float, ritmo: float) -> MagiaAire:
+	if padre == null:
+		return null
+	var e := MagiaAire.new()
+	e.modo = Modo.FILO
+	e.color = col
+	e._semilla = semilla
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	# El viaje ocupa el vuelo: sale 'espera' segundos antes de llegar.
+	e._t = -maxf(espera, 0.0)
+	e._largo = maxf(espera, 0.05)
+	e._desde = desde
+	e._hasta = caja.get_center() + Vector2(caja.size.x * 0.35, 0.0)   # por la mano del arma
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -522,8 +633,12 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.OLA: _ola(capa)
 		Modo.RAYO_CIELO: _rayo_cielo(capa)
 		Modo.HELICE, Modo.HELICE_FALLA: _helice(capa)
+		Modo.LAVA: _lava(capa)
+		Modo.JABALINA, Modo.JABALINA_FALLA: _jabalina(capa)
 		Modo.ARCO: _arco(capa)
 		Modo.CURA: _cura(capa)
+		Modo.MALDICION, Modo.FORTALECER: _sobre(capa)
+		Modo.FILO: _filo(capa)
 
 
 # Un punto del cono en el suelo: a la fraccion 'u' del radio y 'a' radianes del eje.
@@ -1117,3 +1232,236 @@ func _cura(capa: Node2D) -> void:
 			continue
 		var q: Vector2 = pies + Vector2(float(m["x"]) * _ancho, -_largo * 0.3) + _alto(float(m["sube"]) * tm / 0.45)
 		BarridoAire.destello(capa, q, float(m["tam"]) * sin(tm / 0.45 * PI), Color(LUZ_BLANCA, 0.9), tm * 4.0)
+
+
+# ------------------------------------------------------------
+#  LA LAVA: el suelo se raja y arde
+# ------------------------------------------------------------
+func _en_franja(u: float, v: float) -> Vector2:
+	return _o + _dir * _largo * u + _lat * _ancho * v
+
+
+func _lava(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var frente: float = clampf(_t / T_LAVA, 0.0, 1.0)
+	var enfria: float = clampf((_t - T_LAVA - 0.5) / 1.4, 0.0, 1.0)   # 0 al rojo vivo .. 1 costra negra
+	var vida: float = 1.0 - clampf((_t - T_LAVA - 1.5) / 0.7, 0.0, 1.0)
+	if capa == _suelo:
+		# El suelo calentado: un resplandor rojo oscuro por donde ha pasado la raja.
+		var n: int = int(clampf(_largo / 20.0, 4.0, 10.0))
+		for j in n:
+			var u: float = (float(j) + 0.5) / float(n)
+			if u > frente:
+				continue
+			BarridoAire.brillo(capa, _en_franja(u, 0.0), _ancho * 0.75, Color(COSTRA.lerp(FUEGO_ROJO, 0.55 * (1.0 - enfria)), 0.6 * vida))
+		# LAS GRIETAS: bandas quebradas; costra oscura por fuera y lava por dentro, que se va enfriando.
+		for g in _manchas:
+			var pts: Array = g["pts"]
+			var linea := PackedVector2Array()
+			for q in pts:
+				if (q as Vector2).x > frente:
+					break
+				linea.append(_en_franja((q as Vector2).x, (q as Vector2).y))
+			if linea.size() < 2:
+				continue
+			var anchos := PackedFloat32Array()
+			var bordes := PackedColorArray()
+			var nucleos := PackedColorArray()
+			for i in linea.size():
+				var abre: float = clampf((frente - float((pts[i] as Vector2).x)) * 6.0, 0.0, 1.0)
+				anchos.append(float(g["grueso"]) * (0.5 + 0.5 * abre) * (1.0 - 0.3 * enfria))
+				bordes.append(Color(COSTRA.lerp(LAVA, 0.6 * (1.0 - enfria)), 0.95 * vida))
+				nucleos.append(Color(LAVA_CLARA.lerp(COSTRA, enfria), vida))
+			_lengua(capa, linea, anchos, bordes, nucleos)
+		# LOS CHARCOS de lava: manchas que burbujean encima de las grietas.
+		for ch in _charcos:
+			if float(ch["u"]) > frente:
+				continue
+			var pc2: Vector2 = _en_franja(float(ch["u"]), float(ch["v"]))
+			var burb: float = 0.85 + 0.15 * sin(_t * 7.0 + float(ch["u"]) * 20.0)
+			BarridoAire.brillo(capa, pc2, float(ch["r"]) * 1.6 * burb, Color(LAVA.lerp(COSTRA, enfria), 0.75 * vida))
+			BarridoAire.brillo(capa, pc2, float(ch["r"]) * 0.7 * burb, Color(LAVA_CLARA.lerp(COSTRA, enfria), 0.9 * vida))
+		# ASCUAS que laten en la franja.
+		for a in _ascuas:
+			var u2: float = float(a["u"])
+			if u2 > frente:
+				continue
+			var t_a: float = _t - u2 * T_LAVA
+			var va: float = 1.0 - clampf((t_a - 0.4) / float(a["vida"]), 0.0, 1.0)
+			if va <= 0.0:
+				continue
+			var late: float = 0.6 + 0.4 * sin(_t * 9.0 + float(a["fase"]))
+			var p: Vector2 = _en_franja(u2, float(a["v"]))
+			BarridoAire.brillo(capa, p, float(a["tam"]) * 2.4, Color(FUEGO_NARANJA, 0.5 * va * late))
+			BarridoAire.brillo(capa, p, float(a["tam"]), Color(FUEGO_AMARILLO, va * late))
+		return
+	if capa == _delante:
+		# LLAMAS que salen de las grietas: bocanadas pequeñas que suben.
+		for b in _bocanadas:
+			var u3: float = float(b["u"])
+			var tb: float = _t - u3 * T_LAVA - float(b["t0"])
+			if tb < 0.0:
+				continue
+			var k: float = tb / float(b["vida"])
+			if k >= 1.0:
+				continue
+			var c: Vector2 = _en_franja(u3, float(b["v"])) + _alto(4.0 + 22.0 * k)
+			_bocanada(capa, c, (4.0 + 8.0 * sin(k * PI)) * float(b["tam"]), k, float(b["fase"]))
+		return
+	if capa == _brillo:
+		if enfria < 1.0:
+			var n2: int = int(clampf(_largo / 30.0, 3.0, 7.0))
+			for j in n2:
+				var u4: float = (float(j) + 0.5) / float(n2)
+				if u4 > frente:
+					continue
+				BarridoAire.brillo(capa, _en_franja(u4, 0.0) + _alto(6.0), _ancho * 0.45, Color(LAVA, 0.18 * (1.0 - enfria)))
+
+
+# ------------------------------------------------------------
+#  LA JABALINA: dos lanzas de rayo, rectas
+# ------------------------------------------------------------
+func _pos_lanza(t: float) -> Vector2:
+	return _o + _dir * (6.0 + clampf(t * V_JABALINA, 0.0, _largo)) + _alto(ALTO_MANO)
+
+
+func _jabalina(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _brillo:
+		return
+	var t_llega: float = _largo / V_JABALINA
+	var falla: bool = modo == Modo.JABALINA_FALLA
+	var chispa: float = floor(_t / T_REJITTER)
+	for lanza in 2:
+		var tl: float = _t - T_ENTRE_LANZAS * float(lanza)
+		if tl < 0.0:
+			continue
+		if tl < t_llega:
+			var p: Vector2 = _pos_lanza(tl)
+			var cola: Vector2 = p - _dir * 46.0 * minf(1.0, tl * V_JABALINA / 46.0)
+			# EL ASTA: una lengua larga y afilada, nucleo blanco y halo amarillo.
+			var asta := PackedVector2Array([cola, cola.lerp(p, 0.55), p + _dir * 6.0])
+			_lengua(capa, asta, PackedFloat32Array([0.8, 5.2, 0.8]),
+				PackedColorArray([Color(RAYO, 0.0), Color(RAYO, 0.75), Color(RAYO, 0.9)]),
+				PackedColorArray([Color(RAYO_CLARO, 0.2), Color(RAYO_CLARO, 1.0), Color(RAYO_CLARO, 1.0)]))
+			BarridoAire.brillo(capa, p, 15.0, Color(RAYO, 0.45))
+			BarridoAire.brillo(capa, p + _dir * 3.0, 5.0, Color(RAYO_CLARO, 0.9))
+			# Chisporroteo a lo largo del asta.
+			for j in 3:
+				var q0: Vector2 = cola.lerp(p, 0.2 + 0.3 * float(j))
+				var ang: float = TAU * _ruido(chispa + float(j) * 5.0 + float(lanza) * 17.0, 2.0)
+				_quebrado(capa, q0, q0 + Vector2(cos(ang), sin(ang) * K) * 11.0, RAYO, RAYO_CLARO,
+					chispa * 9.0 + float(j), 3, 2.6, 2.0, 0.9)
+			continue
+		var tr: float = tl - t_llega
+		var fin: Vector2 = _pos_lanza(t_llega)
+		var k2: float = clampf(tr / T_REVIENTA, 0.0, 1.0)
+		if k2 >= 1.0:
+			continue
+		if falla:
+			BarridoAire.brillo(capa, fin, 8.0 * (1.0 - k2), Color(RAYO, 0.4 * (1.0 - k2)))
+			continue
+		# EL CHISPAZO: fogonazo, onda y chispas quebradas.
+		if tr < 0.1:
+			BarridoAire.brillo(capa, fin, 24.0 * (1.0 - tr / 0.1), Color(RAYO_CLARO, 0.5 * (1.0 - tr / 0.1)))
+		_anillo(capa, fin, 4.0 + 16.0 * (1.0 - pow(1.0 - k2, 2.0)), 3.0, Color(RAYO, 0.75 * (1.0 - k2)), K)
+		BarridoAire.destello(capa, fin, 18.0 * (1.0 - k2 * 0.5), Color(RAYO_CLARO, 1.0 - k2), 0.3 + float(lanza))
+		if tr < 0.2:
+			for j in 5:
+				var a3: float = TAU * float(j) / 5.0 + _ruido(float(lanza), float(j)) * 0.9
+				_quebrado(capa, fin, fin + Vector2(cos(a3), sin(a3) * K) * 12.0 * (0.5 + tr / 0.2 * 0.5), RAYO, RAYO_CLARO,
+					chispa * 13.0 + float(j), 3, 2.2, 1.6, 1.0 - tr / 0.2)
+
+
+# ------------------------------------------------------------
+#  LA MALDICION y LA FORTALEZA, sobre un cuerpo
+# ------------------------------------------------------------
+# Un galon (una "V" rellena) en 'c', de ancho 'w', apuntando hacia abajo (dir 1) o hacia arriba (dir -1).
+func _galon(ci: CanvasItem, c: Vector2, w: float, dir: float, col: Color) -> void:
+	var g: float = w * 0.28
+	var pts := PackedVector2Array([c + Vector2(-w * 0.5, -dir * w * 0.35), c + Vector2(0.0, dir * w * 0.15),
+		c + Vector2(w * 0.5, -dir * w * 0.35), c + Vector2(w * 0.5, -dir * w * 0.35 + -dir * g),
+		c + Vector2(0.0, dir * w * 0.15 - dir * g), c + Vector2(-w * 0.5, -dir * w * 0.35 - dir * g)])
+	ci.draw_colored_polygon(pts, col)
+
+
+func _sobre(capa: Node2D) -> void:
+	if _t < -0.05:
+		return
+	var k: float = clampf((_t + 0.05) / T_SOBRE, 0.0, 1.0)
+	var vida: float = sin(k * PI)
+	var pies: Vector2 = _desde
+	var maldito: bool = modo == Modo.MALDICION
+	var col: Color = MALDITO if maldito else FUERZA
+	var claro: Color = MALDITO_OSCURO if maldito else FUERZA_CLARA
+	if capa == _suelo:
+		# Un anillo a sus pies: se CIERRA sobre el maldito, se ABRE en el fortalecido.
+		var r: float = _ancho * (1.3 - 0.7 * k) if maldito else _ancho * (0.5 + 0.9 * k)
+		_anillo(capa, pies, r, 2.2, Color(col, 0.75 * vida))
+		BarridoAire.brillo(capa, pies, _ancho * 0.9, Color(claro if maldito else col, (0.45 if maldito else 0.25) * vida))
+		return
+	if capa == _delante:
+		if maldito:
+			# LA NIEBLA que cae y lo envuelve: bultos oscuros que bajan por el cuerpo.
+			for j in 4:
+				var q: float = fmod(k * 1.4 + float(j) * 0.25, 1.0)
+				var p: Vector2 = pies + Vector2(sin(float(j) * 2.1) * _ancho * 0.3, -_largo * (1.3 - q * 1.2))
+				BarridoAire.brillo(capa, p, _ancho * 0.45, Color(MALDITO_OSCURO, 0.5 * vida * sin(q * PI)))
+		# LOS GALONES: hacia abajo aplastando (maldicion) o hacia arriba subiendo (fortaleza), en fila.
+		for j in 3:
+			var q2: float = fmod(k * 1.8 + float(j) / 3.0, 1.0)
+			var y: float = _largo * (1.2 - q2 * 1.1) if maldito else _largo * (0.1 + q2 * 1.1)
+			_galon(capa, pies + Vector2(0.0, -y), _ancho * 0.8, 1.0 if maldito else -1.0,
+				Color(col if maldito else FUERZA_CLARA, 0.8 * vida * sin(q2 * PI)))
+		return
+	if capa == _brillo:
+		if maldito:
+			# Gotas oscuras que caen de el.
+			for m in _motas:
+				var tm: float = _t - float(m["t0"])
+				if tm < 0.0 or tm > 0.4:
+					continue
+				var q3: Vector2 = pies + Vector2(float(m["x"]) * _ancho, -_largo * 0.6 + _largo * 0.6 * tm / 0.4)
+				BarridoAire.cometa(capa, q3 + Vector2(0.0, -5.0), q3, 1.6, Color(MALDITO, 0.8 * (1.0 - tm / 0.4)))
+		else:
+			# Llamitas de aura que suben por los lados y un destello en el pecho.
+			for m in _motas:
+				var tm2: float = _t - float(m["t0"])
+				if tm2 < 0.0 or tm2 > 0.45:
+					continue
+				var q4: Vector2 = pies + Vector2(float(m["x"]) * _ancho, -_largo * 0.9 * tm2 / 0.45)
+				BarridoAire.cometa(capa, q4 + Vector2(0.0, 7.0), q4, 2.0, Color(FUERZA, 0.8 * (1.0 - tm2 / 0.45)))
+			if _t >= 0.0 and _t < 0.2:
+				BarridoAire.destello(capa, _hasta, 14.0 * (1.0 - _t / 0.2), Color(FUERZA_CLARA, 1.0 - _t / 0.2), 0.3)
+
+
+# ------------------------------------------------------------
+#  EL FILO: el elemento viaja en arco de tu mano a su arma
+# ------------------------------------------------------------
+func _pos_filo(u: float) -> Vector2:
+	var alto: float = 18.0 + _desde.distance_to(_hasta) * 0.15
+	return _desde.lerp(_hasta, u) + Vector2(0.0, -alto * sin(u * PI))
+
+
+func _filo(capa: Node2D) -> void:
+	if capa != _brillo:
+		return
+	var viaje: float = _largo   # lo que dura el viaje (el vuelo)
+	var claro: Color = color.lerp(Color.WHITE, 0.7)
+	var u: float = clampf((_t + viaje) / viaje, 0.0, 1.0)
+	if _t < 0.0:
+		# La CINTA del elemento: una cometa que sigue el arco, con la cabeza brillante.
+		for k in 6:
+			var ua: float = clampf(u - 0.07 * float(k + 1), 0.0, 1.0)
+			var ub: float = clampf(u - 0.07 * float(k), 0.0, 1.0)
+			BarridoAire.cometa(capa, _pos_filo(ua), _pos_filo(ub), 4.0 - 0.5 * float(k), Color(color, 0.7 * (1.0 - float(k) / 6.0)))
+		BarridoAire.brillo(capa, _pos_filo(u), 8.0, Color(color, 0.5))
+		BarridoAire.brillo(capa, _pos_filo(u), 3.2, Color(claro, 1.0))
+		return
+	# AL LLEGAR: el arma se enciende de golpe (destello y onda del color del elemento).
+	var k2: float = clampf(_t / 0.4, 0.0, 1.0)
+	if k2 >= 1.0:
+		return
+	BarridoAire.brillo(capa, _hasta, 16.0 * (1.0 - k2), Color(color, 0.5 * (1.0 - k2)))
+	_anillo(capa, _hasta, 3.0 + 12.0 * (1.0 - pow(1.0 - k2, 2.0)), 2.5, Color(color, 0.8 * (1.0 - k2)), K)
+	BarridoAire.destello(capa, _hasta, 14.0 * (1.0 - k2 * 0.5), Color(claro, 1.0 - k2), 0.7)
