@@ -1375,14 +1375,22 @@ func _nube_tormenta(ci: CanvasItem, forma_n: float, viva: float, giro: float, r_
 			var a: float = TAU * float(i) / float(n_b) + giro * 0.25
 			var rb: float = R * (0.2 + 0.08 * MagiaAire._ruido(float(i), 3.0))
 			ci.draw_circle(c + off + Vector2(cos(a), sin(a)) * (R - rb * 0.55), rb, col)
-	# 2) La LUZ de arriba: en cada borla de la mitad de arriba, un bulto claro hacia arriba a la izquierda.
+	# 2) LA LUZ en TODAS las borlas (26/09: "¿por que solo hay circulos en el de arriba?"): un bulto claro hacia arriba
+	# a la izquierda, mas fuerte en las de arriba y mas suave en las de abajo, para que el borde se lea entero. Y un
+	# segundo anillo de borlas por DENTRO, que le da volumen a toda la nube.
 	for i in n_b:
 		var a2: float = TAU * float(i) / float(n_b) + giro * 0.25
-		if sin(a2) > 0.35:
-			continue
 		var rb2: float = R * (0.2 + 0.08 * MagiaAire._ruido(float(i), 3.0))
 		var pb: Vector2 = c + Vector2(cos(a2), sin(a2)) * (R - rb2 * 0.55) + Vector2(-rb2 * 0.15, -rb2 * 0.25)
-		ci.draw_circle(pb, rb2 * 0.62, NUBE_MEDIA)
+		var luz: float = 0.35 + 0.65 * (0.5 - 0.5 * sin(a2))
+		ci.draw_circle(pb, rb2 * 0.62, MagiaAire.NUBE.lerp(NUBE_MEDIA, luz))
+	var n_d: int = 10
+	for i in n_d:
+		var a3: float = TAU * (float(i) + 0.5) / float(n_d) - giro * 0.2
+		var rb3: float = R * (0.17 + 0.06 * MagiaAire._ruido(float(i), 9.0))
+		var pd: Vector2 = c + Vector2(cos(a3), sin(a3)) * R * 0.56
+		ci.draw_circle(pd + Vector2(0.0, rb3 * 0.2), rb3, NUBE_HONDA.lerp(MagiaAire.NUBE, 0.55))
+		ci.draw_circle(pd + Vector2(-rb3 * 0.15, -rb3 * 0.2), rb3 * 0.7, MagiaAire.NUBE.lerp(NUBE_MEDIA, 0.35 + 0.4 * (0.5 - 0.5 * sin(a3))))
 	# 3) La ESPIRAL de dentro: bandas claras que se enroscan hacia el ojo y se afilan a los dos lados (dentro del bulto).
 	for brazo in 4:
 		var a_b: float = giro + TAU * float(brazo) / 4.0
