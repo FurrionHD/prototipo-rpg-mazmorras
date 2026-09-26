@@ -2193,9 +2193,12 @@ const DIENTES := 9
 func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) -> Vector2:
 	# La de atras recorre la mitad de arriba del borde (de PI a TAU); la de delante, la de abajo (de 0 a PI).
 	var a: float = PI + PI * u if lado < 0.0 else PI * u
-	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r
+	# (27/09: "muy redondo, tiene que ser mas deforme, mas monstruoso") BULTOS: el borde y la altura van con ruido.
+	var ruido: float = sin(u * 7.0 + lado * 2.1) * 0.08 + sin(u * 13.0 + lado * 5.3) * 0.05 + sin(u * 3.0 - lado) * 0.06
+	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * (1.0 + ruido)
+	var h: float = alto * (0.85 + 0.35 * (0.5 + 0.5 * sin(u * 5.0 + lado * 1.3)))
 	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
-	var sobre: Vector2 = base + _alto(alto)
+	var sobre: Vector2 = base + _alto(h)
 	var centro_linea: Vector2 = Vector2(base.x, _c.y) + _alto(alto * 0.25)
 	var punta: Vector2 = sobre.lerp(centro_linea, cierre)
 	return base.lerp(punta, v)
@@ -2211,53 +2214,53 @@ func _hacia_linea(lado: float, alto: float, cierre: float) -> Vector2:
 
 # 'parte': 0 = el cuerpo, 1 = los dientes y los ojos. Van en dos pasadas (los dos cuerpos y luego los dientes de los dos)
 # para que al cerrar se vean los de arriba y los de abajo encajados, y no tape el cuerpo de delante los de atras.
+# (27/09, cuarta) SIN LINEAS: nada de vetas de lado a lado ni bordes rectos ("rayas de pelota"): el cuerpo va en
+# degradado de hondo (la base) a violeta (la punta), con manchas difusas, pinchos por fuera y dientes color hueso.
 func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: float, parte: int = -1) -> void:
 	if alto <= 0.5 or alfa <= 0.0:
 		return
 	var n: int = DIENTES * 2
-	var cuerpo := Color(BOCA_CUERPO, alfa)
-	var borde := Color(BOCA_MAGENTA, alfa)
-	# POR TRAMOS (un quad por tramo y un triangulo por diente): una sola silueta se cruzaba consigo misma al cerrarse
-	# y Godot no la rellenaba (la de atras desaparecia).
+	var hondo := Color(BOCA_CUERPO, alfa)
+	var claro := Color(BOCA_VIOLETA, alfa)
+	if parte != 1:
+		for k in n:
+			var u0: float = float(k) / float(n)
+			var u1: float = float(k + 1) / float(n)
+			var b0: Vector2 = _punto_boca(lado, u0, 0.0, alto, cierre)
+			var b1: Vector2 = _punto_boca(lado, u1, 0.0, alto, cierre)
+			# Un pelo MAS ALLA de la linea: los dos cuerpos se solapan y no queda costura.
+			var t0: Vector2 = _punto_boca(lado, u0, 1.04, alto, cierre)
+			var t1: Vector2 = _punto_boca(lado, u1, 1.04, alto, cierre)
+			ci.draw_primitive(PackedVector2Array([b0, b1, t1, t0]), PackedColorArray([hondo, hondo, claro, claro]), PackedVector2Array())
+			# Los PINCHOS de fuera (en la base, hacia fuera del agujero), de tamaños distintos, uno si y otro no.
+			if k % 3 == 1:
+				var fuera: Vector2 = (b0 - _c).normalized()
+				var largo: float = _r * (0.1 + 0.12 * MagiaAire._ruido(float(k), lado + 3.0))
+				var pm: Vector2 = b0.lerp(b1, 0.5) + fuera * largo + _alto(largo * 0.4)
+				ci.draw_primitive(PackedVector2Array([b0, pm, b1]), PackedColorArray([hondo, claro, hondo]), PackedVector2Array())
+		# Las MANCHAS difusas del cuerpo (textura, no rayas).
+		for i in 5:
+			var pmn: Vector2 = _punto_boca(lado, 0.12 + 0.19 * float(i), 0.35 + 0.3 * MagiaAire._ruido(float(i), lado), alto, cierre)
+			BarridoAire.brillo(ci, pmn, _r * (0.1 + 0.06 * MagiaAire._ruido(float(i), 7.0)), Color(BOCA_MAGENTA, 0.35 * alfa))
+	if parte == 0:
+		return
+	# LOS DIENTES: color hueso, de tamaños distintos, los de delante desplazados medio diente; SIN borde.
+	var hueso := Color(0.9, 0.84, 0.96, alfa)
+	var hueso_sombra := Color(0.62, 0.52, 0.72, alfa)
 	for k in n:
+		if k % 2 != (0 if lado < 0.0 else 1) or k + 2 > n:
+			continue
 		var u0: float = float(k) / float(n)
-		var u1: float = float(k + 1) / float(n)
-		var b0: Vector2 = _punto_boca(lado, u0, 0.0, alto, cierre)
-		var b1: Vector2 = _punto_boca(lado, u1, 0.0, alto, cierre)
-		# (27/09: "los dientes no encajan, quedan huecos") el cuerpo llega HASTA la linea del centro y los dientes la
-		# pasan, y los de delante van desplazados medio diente: encajan como una cremallera.
-		var t0: Vector2 = _punto_boca(lado, u0, 1.0, alto, cierre)
-		var t1: Vector2 = _punto_boca(lado, u1, 1.0, alto, cierre)
-		if parte != 1:
-			ci.draw_primitive(PackedVector2Array([b0, b1, t1, t0]), PackedColorArray([cuerpo, cuerpo, cuerpo, cuerpo]), PackedVector2Array())
-		# Las vetas claras a lo largo.
-		for j in (2 if parte != 1 else 0):
-			var v0: float = 0.3 + 0.26 * float(j)
-			var c0: Color = Color(BOCA_CIAN if j == 0 else BOCA_MAGENTA, 0.75 * alfa)
-			ci.draw_primitive(PackedVector2Array([_punto_boca(lado, u0, v0, alto, cierre), _punto_boca(lado, u1, v0, alto, cierre),
-				_punto_boca(lado, u1, v0 + 0.05, alto, cierre), _punto_boca(lado, u0, v0 + 0.05, alto, cierre)]),
-				PackedColorArray([c0, c0, c0, c0]), PackedVector2Array())
-		# El DIENTE de este tramo (uno cada dos tramos), con su borde magenta.
-		if parte != 0 and k % 2 == (0 if lado < 0.0 else 1) and k + 2 <= n:
-			var u2: float = float(k + 2) / float(n)
-			var d0: Vector2 = t0
-			var d1: Vector2 = _punto_boca(lado, u2, 1.0, alto, cierre)
-			var pt: Vector2 = _punto_boca(lado, (u0 + u2) * 0.5, 1.0, alto, cierre) + _hacia_linea(lado, alto, cierre) * _r * 0.2
-			var cen: Vector2 = (d0 + d1 + pt) / 3.0
-			ci.draw_primitive(PackedVector2Array([cen + (d0 - cen) * 1.3, cen + (d1 - cen) * 1.3, cen + (pt - cen) * 1.3]),
-				PackedColorArray([borde, borde, borde]), PackedVector2Array())
-			ci.draw_primitive(PackedVector2Array([d0, d1, pt]), PackedColorArray([cuerpo, cuerpo, cuerpo]), PackedVector2Array())
-	# El borde magenta de la base, por el borde del agujero.
-	for k in (n if parte != 1 else 0):
-		var q0: Vector2 = _punto_boca(lado, float(k) / float(n), 0.0, alto, cierre)
-		var q1: Vector2 = _punto_boca(lado, float(k + 1) / float(n), 0.0, alto, cierre)
-		var q2: Vector2 = _punto_boca(lado, float(k + 1) / float(n), 0.07, alto, cierre)
-		var q3: Vector2 = _punto_boca(lado, float(k) / float(n), 0.07, alto, cierre)
-		ci.draw_primitive(PackedVector2Array([q0, q1, q2, q3]), PackedColorArray([borde, borde, borde, borde]), PackedVector2Array())
-	# Los OJOS DE CRISTAL: rombos negros de borde cian, repartidos por la mandibula.
-	for i in (3 if parte != 0 else 0):
-		var p: Vector2 = _punto_boca(lado, 0.25 + 0.25 * float(i), 0.45, alto, cierre)
-		var w: float = alto * 0.07 + 2.0
+		var u2: float = float(k + 2) / float(n)
+		var d0: Vector2 = _punto_boca(lado, u0, 1.0, alto, cierre)
+		var d1: Vector2 = _punto_boca(lado, u2, 1.0, alto, cierre)
+		var largo_d: float = _r * (0.14 + 0.1 * MagiaAire._ruido(float(k), lado + 9.0))
+		var pt: Vector2 = _punto_boca(lado, (u0 + u2) * 0.5, 1.0, alto, cierre) + _hacia_linea(lado, alto, cierre) * largo_d
+		ci.draw_primitive(PackedVector2Array([d0, d1, pt]), PackedColorArray([hueso_sombra, hueso_sombra, hueso]), PackedVector2Array())
+	# Los OJOS DE CRISTAL, de tamaños distintos.
+	for i in 3:
+		var p: Vector2 = _punto_boca(lado, 0.22 + 0.27 * float(i), 0.5, alto, cierre)
+		var w: float = (alto * 0.06 + 2.0) * (0.7 + 0.6 * MagiaAire._ruido(float(i), lado + 2.0))
 		var h: float = w * 1.9
 		var rombo := PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)])
 		var rombo2 := PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)])
@@ -2318,9 +2321,7 @@ func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: 
 		# EL MORDISCO: fogonazo magenta en la linea donde se juntan los dientes.
 		if t_osc >= 0.0 and t_osc < 0.3:
 			var km: float = t_osc / 0.3
-			for k in 5:
-				var px: float = lerpf(-_r, _r, (float(k) + 0.5) / 5.0)
-				BarridoAire.brillo(capa, _c + Vector2(px, 0.0) + _alto(alto * 0.25), 16.0 * (1.0 - km), Color(BOCA_MAGENTA, 0.7 * (1.0 - km)))
+			BarridoAire.brillo(capa, _c + _alto(alto * 0.25), _r * 0.8 * (1.0 - km * 0.3), Color(BOCA_MAGENTA, 0.4 * (1.0 - km)))
 		# LA LUZ que se escapa por entre los dientes (el golpe de luz): rayos blanco-amarillos por la costura.
 		if t_luz >= 0.0 and t_luz < 0.55 and alfa > 0.0:
 			var kl: float = t_luz / 0.55
