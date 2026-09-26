@@ -31,3 +31,4 @@ forma_apunte = 3
 forma_rango = 180.0
 forma_caida = Array[float]([0.4, 0.03])
 forma_atrae = 60.0
+suelo_mapa = 54

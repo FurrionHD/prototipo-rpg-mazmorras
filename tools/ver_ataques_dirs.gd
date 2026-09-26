@@ -118,6 +118,7 @@ const MOMENTOS_MAGIA := {
 	"mar_de_brasas": [0.2, 0.55, 1.05, 1.65, 2.2],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 	"estallido_solar": [0.08, 0.25, 0.5, 0.82, 0.97, 1.12, 1.5],
+	"voragine_sombra": [0.2, 0.36, 0.55, 0.72, 0.95, 1.4, 1.75],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
