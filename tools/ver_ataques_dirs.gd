@@ -107,10 +107,10 @@ const MOMENTOS_MAGIA := {
 	"chorro_agua": [0.12, 0.28, 0.45, 0.7, 1.4],
 	"rayo": [0.04, 0.1, 0.2, 0.35, 0.6],
 	"pulso_arcano": [0.08, 0.18, 0.3, 0.42, 0.6],
-	"debilidad": [0.02, 0.15, 0.3, 0.5, 0.7],
-	"fortaleza": [0.02, 0.15, 0.3, 0.5, 0.7],
+	"debilidad": [0.15, 0.32, 0.45, 0.7, 1.1],
+	"fortaleza": [0.12, 0.26, 0.38, 0.6, 0.95],
 	"filo_ardiente": [0.08, 0.2, 0.3, 0.38, 0.55],
-	"mar_de_brasas": [0.12, 0.3, 0.55, 1.0, 1.9],
+	"mar_de_brasas": [0.15, 0.35, 0.6, 0.9, 1.9],
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
@@ -958,16 +958,25 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	# de ti a la figura mas cercana a la huella.
 	var sueltos: Array = []   # {n, t0}
 	if sp.tipo == SpellData.TipoEfecto.DEBUFF:
+		# La MIASMA por el suelo y, a cada uno, su maldicion cuando le llega.
+		if sp.suelo_mapa >= 0:
+			BarridoAire.ritmo = 1.0
+			sueltos.append({"n": SueloRoto.lanzar(self, f, sp.suelo_mapa, 4321 + fila), "t0": 0.0})
 		for cj in pillados:
-			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.MALDICION, cj, Color.WHITE, 9, 0.0, 1.0), "t0": 0.0})
+			var llega: float = SueloRoto.retraso_caja(f, cj, sp.suelo_mapa) if sp.suelo_mapa >= 0 else 0.0
+			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.MALDICION, cj, Color.WHITE, 9, 0.0, 1.0), "t0": llega})
 	elif sp.forma_a_aliados and int(sp.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
 		var cajas_f: Array = [Rect2(yo - Vector2(7, 26), Vector2(14, 26))]
 		for p in _enemigos:
 			var cjf := Rect2(p - Vector2(7, 26), Vector2(14, 26))
 			if f.toca(cjf):
 				cajas_f.append(cjf)
+		if sp.suelo_mapa >= 0:
+			BarridoAire.ritmo = 1.0
+			sueltos.append({"n": SueloRoto.lanzar(self, f, sp.suelo_mapa, 4321 + fila), "t0": 0.0})
 		for cj2 in cajas_f:
-			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": 0.0})
+			var llega2: float = SueloRoto.retraso_caja(f, cj2, sp.suelo_mapa) if sp.suelo_mapa >= 0 else 0.0
+			sueltos.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, cj2, Color.WHITE, 9, 0.0, 1.0), "t0": llega2})
 	elif sp.imbue_tipo > 0:
 		var caja_i: Rect2 = Rect2()
 		var d_i: float = INF

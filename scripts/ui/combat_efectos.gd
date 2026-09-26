@@ -138,7 +138,10 @@ func soltar_suelo() -> void:
 
 
 func _retraso_suelo(victima: Combatant, estilo: int = -1) -> float:
-	if _suelo_forma == null or victima == null or not _pantalla._enemies.has(victima):
+	if _suelo_forma == null or victima == null:
+		return -1.0
+	# A los enemigos siempre; a los TUYOS solo lo que es de apoyo y va por el suelo (la onda de la Fortaleza).
+	if not _pantalla._enemies.has(victima) and estilo != CombatFX.Estilo.FORTALECER:
 		return -1.0
 	if estilo == CombatFX.Estilo.ARCO and _rs_primero >= 0.0:
 		return _rs_primero

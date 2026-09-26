@@ -434,7 +434,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		# SU EFECTO EN EL MAPA (MagiaAire, por el suelo): cada golpe llega cuando el efecto alcanza a su victima.
 		if spell.suelo_mapa >= 0:
 			var f_ef = _forma_efecto(spell, punto, reparto_mapa)
-			if reparto_mapa.is_empty():
+			# Los de apoyo en area (Fortaleza) no pillan enemigos: cuentan los tuyos que haya dentro.
+			var hay_alguien: bool = not reparto_mapa.is_empty() or (spell.forma_a_aliados
+				and not _pantalla.turno_mapa.aliados_hechizo(spell, _pantalla._player).is_empty())
+			if not hay_alguien:
 				# Sin nadie no hay golpes que lo lleven: se lanza aqui a pelo (el orbe se apaga al final).
 				var arena: Node = _pantalla.turno_mapa._arena()
 				if arena != null:
@@ -587,6 +590,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		if en_mapa and _pantalla._cast_aliado != null:
 			_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._cast_aliado, 0.0, false, false,
 				int(spell.elemento), CombatFX.Estilo.IMBUIR_ELEM, 1.0, true)
+	# El efecto por el suelo se suelta aqui tambien (el de una magia sin golpe, como la Debilidad, se fijo arriba).
+	if con_efecto:
+		_pantalla.efectos.soltar_suelo()
 	# Excelia (formula dedicada de Magia): entrena al LANZAR, escalado por el mana
 	# gastado (hechizos caros = mas potentes = entrenan mas) x reto del enemigo.
 	var mana_factor: float = float(spell.coste_mana) / Game.MAGIA_COSTE_REF

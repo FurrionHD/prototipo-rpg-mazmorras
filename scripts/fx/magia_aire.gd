@@ -31,6 +31,12 @@
 #    LAVA      Mar de brasas: el suelo se raja desde ti, las grietas se llenan de lava, salen llamas y luego se
 #              enfria (rojo -> negro).
 #    JABALINA  Venablo de tormenta: dos lanzas de rayo, una tras otra, rectas al primero; revientan en chispazos.
+#    MIASMA    Debilidad (26/09: "no hay un efecto previo que dispare la debilidad"): una bola de maldicion baja sobre
+#              el centro del circulo, revienta y una ola de miasma se abre por el suelo; a cada uno le entra la
+#              MALDICION (sobre el cuerpo) cuando le alcanza.
+#    ONDA_FUERZA Fortaleza (lo mismo, 26/09): concentras el poder (motas rojas que se juntan en tu pecho), un
+#              fogonazo y una onda de fuerza sale de ti por el suelo; a cada uno de los tuyos le entra el aura
+#              (FORTALECER) cuando le llega.
 #  NADA DE LINEAS peladas (bandas rellenas con halo, cometas y destellos de BarridoAire). Coordenadas de MUNDO;
 #  el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -39,7 +45,7 @@ class_name MagiaAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.MAGIA_*: no reordenar.
 enum Modo { ALIENTO, LLUVIA, ORBE, BOLA, ORBE_FALLA, BOLA_FALLA, ANDANADA, OLA, RAYO_CIELO, HELICE, HELICE_FALLA,
-	LAVA, JABALINA, JABALINA_FALLA,
+	LAVA, JABALINA, JABALINA_FALLA, MIASMA, ONDA_FUERZA,
 	ARCO, CURA, MALDICION, FORTALECER, FILO }
 
 const K := 0.7071
@@ -104,7 +110,7 @@ const AMPLITUD_HELICE := 11.0
 const PASO_HELICE := 46.0        # px que avanza en una vuelta entera
 
 # LA LAVA
-const T_LAVA := 0.4              # lo que tarda en rajarse la franja entera desde ti
+const T_LAVA := 0.8              # lo que tarda el frente de lava en llegar al fondo (se ve avanzar, como el martillo)
 const LAVA := Color(1.0, 0.45, 0.08)
 const LAVA_CLARA := Color(1.0, 0.85, 0.35)
 const COSTRA := Color(0.16, 0.06, 0.04)
@@ -112,6 +118,15 @@ const COSTRA := Color(0.16, 0.06, 0.04)
 # LA JABALINA
 const V_JABALINA := 520.0
 const T_ENTRE_LANZAS := 0.1
+
+# LA MIASMA (la Debilidad por el suelo)
+const T_CAE_MALDICION := 0.3
+const T_EXPANDE := 0.32
+const ALTO_MALDICION := 70.0
+
+# LA ONDA DE FUERZA (la Fortaleza por el suelo)
+const T_CARGA := 0.24
+const T_ONDA_FUERZA := 0.3
 
 # LA MALDICION Y LA FORTALEZA
 const T_SOBRE := 0.8
@@ -242,6 +257,10 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return clampf((p - o).dot(f.dir) / maxf(f.largo, 1.0), 0.0, 1.0) * T_LAVA + 0.08
 		Modo.JABALINA, Modo.JABALINA_FALLA:
 			return maxf(0.0, (p - o).dot(f.dir)) / V_JABALINA
+		Modo.MIASMA:
+			return T_CAE_MALDICION + clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0) * T_EXPANDE
+		Modo.ONDA_FUERZA:
+			return T_CARGA + clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ONDA_FUERZA
 	return 0.0
 
 
@@ -253,6 +272,8 @@ static func t_salir(m: int) -> float:
 		Modo.OLA: return T_OLA
 		Modo.RAYO_CIELO: return T_RAYO_CAE
 		Modo.LAVA: return T_LAVA
+		Modo.MIASMA: return T_CAE_MALDICION + T_EXPANDE
+		Modo.ONDA_FUERZA: return T_CARGA + T_ONDA_FUERZA
 	return 0.3
 
 
@@ -268,6 +289,8 @@ func duracion() -> float:
 		Modo.HELICE, Modo.HELICE_FALLA: return _largo / V_HELICE + T_REVIENTA + 0.5
 		Modo.LAVA: return T_LAVA + 2.2
 		Modo.JABALINA, Modo.JABALINA_FALLA: return _largo / V_JABALINA + T_ENTRE_LANZAS + T_REVIENTA + 0.5
+		Modo.MIASMA: return T_CAE_MALDICION + T_EXPANDE + 1.1
+		Modo.ONDA_FUERZA: return T_CARGA + T_ONDA_FUERZA + 0.8
 		Modo.ARCO: return T_ARCO + 0.05
 		Modo.CURA: return T_CURA
 		Modo.MALDICION, Modo.FORTALECER: return T_SOBRE
@@ -337,31 +360,45 @@ func _preparar_area() -> void:
 			for i in int(clampf(_largo / 14.0, 8.0, 16.0)):
 				_charcos.append({"u": (float(i) + _rng.randf_range(0.1, 0.9)) / clampf(_largo / 14.0, 8.0, 16.0),
 					"v": _rng.randf_range(-0.38, 0.38), "r": _rng.randf_range(5.0, 11.0)})
-		Modo.LAVA:
-			# LAS GRIETAS: caminos quebrados a lo largo de la franja (uno largo por el medio y ramas), y los
-			# sitios de donde saldran llamas.
-			for g in 5:
-				var v0: float = lerpf(-0.36, 0.36, float(g) / 4.0) + _rng.randf_range(-0.05, 0.05)
-				var pts: Array = []
-				var u: float = _rng.randf_range(0.0, 0.12)
-				var v: float = v0
-				while u < 1.0:
-					pts.append(Vector2(u, v))
-					u += _rng.randf_range(0.06, 0.12)
-					v = clampf(v + _rng.randf_range(-0.09, 0.09), -0.46, 0.46)
-				_manchas.append({"pts": pts, "grueso": _rng.randf_range(3.0, 4.6) if g % 2 == 0 else _rng.randf_range(2.0, 3.0)})
-			# LOS CHARCOS DE LAVA sobre las grietas.
+		Modo.ONDA_FUERZA:
+			for i in 12:
+				var a2: float = _rng.randf_range(0.0, TAU)
+				_motas.append({"a": a2, "d": _rng.randf_range(16.0, 28.0), "t0": _rng.randf_range(0.0, 0.1),
+					"tam": _rng.randf_range(1.2, 2.0)})
 			for i in 10:
-				var g2: Dictionary = _manchas[_rng.randi_range(0, _manchas.size() - 1)]
-				var q: Vector2 = (g2["pts"] as Array)[_rng.randi_range(0, (g2["pts"] as Array).size() - 1)]
-				_charcos.append({"u": q.x, "v": q.y, "r": _rng.randf_range(4.0, 8.0)})
-			for i in 34:
-				_bocanadas.append({"u": _rng.randf_range(0.05, 0.98), "v": _rng.randf_range(-0.42, 0.42),
-					"t0": _rng.randf_range(0.0, 0.9), "vida": _rng.randf_range(0.4, 0.65), "tam": _rng.randf_range(0.7, 1.2),
+				_humos.append({"a": _rng.randf_range(0.0, TAU), "r": _rng.randf_range(4.0, 7.0), "vida": _rng.randf_range(0.4, 0.6)})
+		Modo.MIASMA:
+			for i in 14:
+				var a: float = _rng.randf_range(0.0, TAU)
+				_humos.append({"a": a, "d": _rng.randf_range(0.35, 1.0), "r": _rng.randf_range(5.0, 9.0),
+					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(0.6, 0.95)})
+		Modo.LAVA:
+			# EL MAR DE LAVA (26/09: las grietas eran "lineas guarras con llamitas"): placas de costra que flotan,
+			# burbujas que revientan y un muro de llamas por toda la superficie.
+			for i in 12:
+				var pts_p: Array = []
+				var n_p: int = 6
+				var rp: float = _rng.randf_range(0.05, 0.1)
+				for k in n_p:
+					var a: float = TAU * float(k) / float(n_p) + _rng.randf_range(-0.3, 0.3)
+					pts_p.append(Vector2(cos(a), sin(a)) * rp * _rng.randf_range(0.7, 1.2))
+				_charcos.append({"u": _rng.randf_range(0.08, 0.95), "v": _rng.randf_range(-0.32, 0.32), "pts": pts_p,
+					"deriva": Vector2(_rng.randf_range(-0.02, 0.02), _rng.randf_range(-0.03, 0.03))})
+			for i in 26:
+				_motas.append({"u": _rng.randf_range(0.05, 0.97), "v": _rng.randf_range(-0.38, 0.38),
+					"t0": _rng.randf_range(0.0, 1.3), "r": _rng.randf_range(2.0, 4.0)})
+			for i in 46:
+				_bocanadas.append({"u": _rng.randf_range(0.03, 0.98), "v": _rng.randf_range(-0.4, 0.4),
+					"t0": _rng.randf_range(0.0, 0.3), "vida": _rng.randf_range(0.45, 0.7), "tam": _rng.randf_range(0.9, 1.5),
 					"fase": _rng.randf_range(0.0, 50.0)})
 			for i in 30:
 				_ascuas.append({"u": _rng.randf_range(0.0, 1.0), "v": _rng.randf_range(-0.45, 0.45), "tam": _rng.randf_range(0.8, 1.5),
 					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(1.2, 1.9)})
+			# LAS PIEDRAS que salta el frente al abrirse (como el suelo que rompe el martillo).
+			for i in 22:
+				_chispas.append({"u": _rng.randf_range(0.02, 1.0), "v": _rng.randf_range(-0.4, 0.4),
+					"vel": Vector2(_rng.randf_range(10.0, 30.0), _rng.randf_range(-70.0, -40.0)), "tam": _rng.randf_range(1.4, 2.6),
+					"piedra": _rng.randf() < 0.6})
 		Modo.RAYO_CIELO:
 			for i in 7:
 				var a: float = _rng.randf_range(0.0, TAU)
@@ -634,6 +671,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.RAYO_CIELO: _rayo_cielo(capa)
 		Modo.HELICE, Modo.HELICE_FALLA: _helice(capa)
 		Modo.LAVA: _lava(capa)
+		Modo.MIASMA: _miasma(capa)
+		Modo.ONDA_FUERZA: _onda_fuerza(capa)
 		Modo.JABALINA, Modo.JABALINA_FALLA: _jabalina(capa)
 		Modo.ARCO: _arco(capa)
 		Modo.CURA: _cura(capa)
@@ -1245,78 +1284,109 @@ func _lava(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
 	var frente: float = clampf(_t / T_LAVA, 0.0, 1.0)
-	var enfria: float = clampf((_t - T_LAVA - 0.5) / 1.4, 0.0, 1.0)   # 0 al rojo vivo .. 1 costra negra
+	var enfria: float = clampf((_t - T_LAVA - 0.7) / 1.2, 0.0, 1.0)   # 0 al rojo vivo .. 1 costra negra
 	var vida: float = 1.0 - clampf((_t - T_LAVA - 1.5) / 0.7, 0.0, 1.0)
 	if capa == _suelo:
-		# El suelo calentado: un resplandor rojo oscuro por donde ha pasado la raja.
-		var n: int = int(clampf(_largo / 20.0, 4.0, 10.0))
-		for j in n:
-			var u: float = (float(j) + 0.5) / float(n)
-			if u > frente:
-				continue
-			BarridoAire.brillo(capa, _en_franja(u, 0.0), _ancho * 0.75, Color(COSTRA.lerp(FUEGO_ROJO, 0.55 * (1.0 - enfria)), 0.6 * vida))
-		# LAS GRIETAS: bandas quebradas; costra oscura por fuera y lava por dentro, que se va enfriando.
-		for g in _manchas:
-			var pts: Array = g["pts"]
-			var linea := PackedVector2Array()
-			for q in pts:
-				if (q as Vector2).x > frente:
-					break
-				linea.append(_en_franja((q as Vector2).x, (q as Vector2).y))
-			if linea.size() < 2:
-				continue
-			var anchos := PackedFloat32Array()
-			var bordes := PackedColorArray()
-			var nucleos := PackedColorArray()
-			for i in linea.size():
-				var abre: float = clampf((frente - float((pts[i] as Vector2).x)) * 6.0, 0.0, 1.0)
-				anchos.append(float(g["grueso"]) * (0.5 + 0.5 * abre) * (1.0 - 0.3 * enfria))
-				bordes.append(Color(COSTRA.lerp(LAVA, 0.6 * (1.0 - enfria)), 0.95 * vida))
-				nucleos.append(Color(LAVA_CLARA.lerp(COSTRA, enfria), vida))
-			_lengua(capa, linea, anchos, bordes, nucleos)
-		# LOS CHARCOS de lava: manchas que burbujean encima de las grietas.
-		for ch in _charcos:
-			if float(ch["u"]) > frente:
-				continue
-			var pc2: Vector2 = _en_franja(float(ch["u"]), float(ch["v"]))
-			var burb: float = 0.85 + 0.15 * sin(_t * 7.0 + float(ch["u"]) * 20.0)
-			BarridoAire.brillo(capa, pc2, float(ch["r"]) * 1.6 * burb, Color(LAVA.lerp(COSTRA, enfria), 0.75 * vida))
-			BarridoAire.brillo(capa, pc2, float(ch["r"]) * 0.7 * burb, Color(LAVA_CLARA.lerp(COSTRA, enfria), 0.9 * vida))
-		# ASCUAS que laten en la franja.
-		for a in _ascuas:
-			var u2: float = float(a["u"])
+		# LA SUPERFICIE: una malla a lo largo y a lo ancho de la franja, hasta donde ha llegado; cada vertice con su
+		# color de lava (el ruido se mueve despacio: se ve fluir) y los bordes irregulares y difuminados.
+		var cols: int = 12
+		var filas: int = int(clampf(_largo / 9.0, 10.0, 22.0))
+		var pv := PackedVector2Array()
+		var pc := PackedColorArray()
+		var pi := PackedInt32Array()
+		var paso_t: float = floor(_t * 6.0)
+		for j in cols + 1:
+			var v: float = lerpf(-0.5, 0.5, float(j) / float(cols))
+			for f in filas + 1:
+				var u: float = float(f) / float(filas)
+				var dentro: float = clampf((frente - u) * 5.0, 0.0, 1.0)
+				var orilla: float = 0.42 + 0.06 * sin(u * 23.0 + float(j)) + 0.04 * _ruido(float(f), 11.0)
+				var lado: float = 1.0 - smoothstep(orilla - 0.08, orilla, absf(v))
+				var n: float = 0.5 + 0.5 * sin(u * 13.0 + v * 9.0 + _t * 2.2) * cos(v * 7.0 - u * 5.0 - _t * 1.6)
+				var vivo: Color = FUEGO_ROJO.lerp(LAVA, smoothstep(0.2, 0.6, n)).lerp(LAVA_CLARA, smoothstep(0.7, 0.95, n))
+				# El borde del frente, al blanco: la lava recien salida.
+				vivo = vivo.lerp(FUEGO_BLANCO, 0.6 * (1.0 - clampf(absf(frente - u) * 12.0, 0.0, 1.0)) * (1.0 - frente * frente))
+				var frio: Color = COSTRA.lerp(FUEGO_ROJO, 0.5 * smoothstep(0.8, 1.0, n))   # vetas que aun brillan
+				pv.append(_en_franja(u, v))
+				var arranca: float = smoothstep(0.0, 0.1, u + 0.02 * sin(v * 17.0))   # a tus pies se funde, sin corte
+				pc.append(Color(vivo.lerp(frio, enfria), 0.95 * dentro * lado * vida * arranca))
+		for j in cols:
+			for f in filas:
+				var a0: int = j * (filas + 1) + f
+				var b0: int = (j + 1) * (filas + 1) + f
+				pi.append_array([a0, a0 + 1, b0, a0 + 1, b0 + 1, b0])
+		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
+		# LAS PLACAS DE COSTRA que flotan y se van soldando al enfriarse.
+		for pl in _charcos:
+			var u2: float = float(pl["u"])
 			if u2 > frente:
 				continue
-			var t_a: float = _t - u2 * T_LAVA
-			var va: float = 1.0 - clampf((t_a - 0.4) / float(a["vida"]), 0.0, 1.0)
-			if va <= 0.0:
+			var crece: float = clampf((_t - u2 * T_LAVA) / 0.5, 0.0, 1.0) * (1.0 + 0.8 * enfria)
+			var cen: Vector2 = Vector2(u2, float(pl["v"])) + (pl["deriva"] as Vector2) * _t
+			var poly := PackedVector2Array()
+			for q in pl["pts"]:
+				var qq: Vector2 = cen + (q as Vector2) * crece
+				poly.append(_en_franja(qq.x, qq.y * 0.9))
+			capa.draw_colored_polygon(poly, Color(COSTRA, 0.85 * vida))
+		# LAS BURBUJAS que revientan: un anillito claro que se abre.
+		for b in _motas:
+			var tb: float = fmod(_t - float(b["t0"]), 0.7)
+			if _t < float(b["t0"]) or float(b["u"]) > frente or tb > 0.25 or enfria > 0.7:
+				continue
+			var pb: Vector2 = _en_franja(float(b["u"]), float(b["v"]))
+			_anillo(capa, pb, float(b["r"]) * (0.4 + tb / 0.25), 1.4, Color(LAVA_CLARA, 0.9 * (1.0 - tb / 0.25)))
+		# ASCUAS que quedan latiendo sobre la costra.
+		for a in _ascuas:
+			var u3: float = float(a["u"])
+			if u3 > frente or enfria <= 0.0:
 				continue
 			var late: float = 0.6 + 0.4 * sin(_t * 9.0 + float(a["fase"]))
-			var p: Vector2 = _en_franja(u2, float(a["v"]))
-			BarridoAire.brillo(capa, p, float(a["tam"]) * 2.4, Color(FUEGO_NARANJA, 0.5 * va * late))
-			BarridoAire.brillo(capa, p, float(a["tam"]), Color(FUEGO_AMARILLO, va * late))
+			var pa: Vector2 = _en_franja(u3, float(a["v"]))
+			BarridoAire.brillo(capa, pa, float(a["tam"]) * 2.2, Color(FUEGO_NARANJA, 0.5 * enfria * vida * late))
 		return
 	if capa == _delante:
-		# LLAMAS que salen de las grietas: bocanadas pequeñas que suben.
-		for b in _bocanadas:
-			var u3: float = float(b["u"])
-			var tb: float = _t - u3 * T_LAVA - float(b["t0"])
-			if tb < 0.0:
+		# EL FRENTE que avanza: una erupcion de punta a punta de la franja (llamas altas y seguidas) mientras corre.
+		if frente < 1.0:
+			for j3 in 7:
+				var v3: float = lerpf(-0.36, 0.36, float(j3) / 6.0)
+				var kf: float = fmod(_t * 3.0 + float(j3) * 0.37, 1.0)
+				var cf: Vector2 = _en_franja(frente, v3) + _alto(4.0 + 20.0 * kf)
+				_bocanada(capa, cf, 6.0 + 8.0 * sin(kf * PI), kf * 0.6, float(j3) * 9.0 + floor(_t * 3.0))
+		# LAS PIEDRAS que salta al abrirse: trozos de costra que vuelan y caen.
+		for pz in _chispas:
+			var tz: float = _t - float(pz["u"]) * T_LAVA
+			if tz < 0.0 or tz > 0.6:
 				continue
-			var k: float = tb / float(b["vida"])
+			var vz: Vector2 = pz["vel"]
+			var pz0: Vector2 = _en_franja(float(pz["u"]), float(pz["v"]))
+			var pos: Vector2 = pz0 + _dir * vz.x * tz + Vector2(0.0, vz.y * tz + 160.0 * tz * tz)
+			if pos.y > pz0.y + 1.0:
+				continue
+			if bool(pz["piedra"]):
+				capa.draw_circle(pos, float(pz["tam"]), Color(COSTRA, 0.95))
+				capa.draw_circle(pos + Vector2(-0.4, -0.4), float(pz["tam"]) * 0.45, Color(FUEGO_ROJO, 0.9))
+			else:
+				BarridoAire.cometa(capa, pos + Vector2(0.0, 5.0), pos, 1.6, Color(FUEGO_AMARILLO, 1.0 - tz / 0.6))
+		# EL MURO DE LLAMAS: bocanadas grandes que suben de toda la superficie mientras esta viva.
+		for bo in _bocanadas:
+			var u4: float = float(bo["u"])
+			var tf: float = _t - u4 * T_LAVA - float(bo["t0"])
+			if tf < 0.0:
+				continue
+			var k: float = tf / float(bo["vida"])
 			if k >= 1.0:
 				continue
-			var c: Vector2 = _en_franja(u3, float(b["v"])) + _alto(4.0 + 22.0 * k)
-			_bocanada(capa, c, (4.0 + 8.0 * sin(k * PI)) * float(b["tam"]), k, float(b["fase"]))
+			var c: Vector2 = _en_franja(u4, float(bo["v"])) + _alto(3.0 + 26.0 * k)
+			_bocanada(capa, c, (5.0 + 9.0 * sin(k * PI)) * float(bo["tam"]), k, float(bo["fase"]))
 		return
 	if capa == _brillo:
-		if enfria < 1.0:
-			var n2: int = int(clampf(_largo / 30.0, 3.0, 7.0))
-			for j in n2:
-				var u4: float = (float(j) + 0.5) / float(n2)
-				if u4 > frente:
-					continue
-				BarridoAire.brillo(capa, _en_franja(u4, 0.0) + _alto(6.0), _ancho * 0.45, Color(LAVA, 0.18 * (1.0 - enfria)))
+		# EL CALOR: un resplandor naranja sobre la franja mientras esta al rojo.
+		var n2: int = int(clampf(_largo / 25.0, 4.0, 8.0))
+		for j2 in n2:
+			var u5: float = (float(j2) + 0.5) / float(n2)
+			if u5 > frente:
+				continue
+			BarridoAire.brillo(capa, _en_franja(u5, 0.0) + _alto(6.0), _ancho * 0.55, Color(LAVA, 0.22 * (1.0 - enfria) * vida))
 
 
 # ------------------------------------------------------------
@@ -1465,3 +1535,104 @@ func _filo(capa: Node2D) -> void:
 	BarridoAire.brillo(capa, _hasta, 16.0 * (1.0 - k2), Color(color, 0.5 * (1.0 - k2)))
 	_anillo(capa, _hasta, 3.0 + 12.0 * (1.0 - pow(1.0 - k2, 2.0)), 2.5, Color(color, 0.8 * (1.0 - k2)), K)
 	BarridoAire.destello(capa, _hasta, 14.0 * (1.0 - k2 * 0.5), Color(claro, 1.0 - k2), 0.7)
+
+
+# ------------------------------------------------------------
+#  LA MIASMA: la maldicion que cae y se extiende por el suelo
+# ------------------------------------------------------------
+func _miasma(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var c: Vector2 = forma.centro
+	var r: float = maxf(forma.radio, 8.0)
+	var cae: float = clampf(_t / T_CAE_MALDICION, 0.0, 1.0)
+	var tr: float = _t - T_CAE_MALDICION        # desde que revienta
+	var abre: float = clampf(tr / T_EXPANDE, 0.0, 1.0)
+	var apaga: float = 1.0 - clampf((tr - T_EXPANDE - 0.2) / 0.8, 0.0, 1.0)
+	if capa == _suelo:
+		if tr < 0.0:
+			# LA SOMBRA de lo que cae: una mancha que se oscurece y aprieta.
+			BarridoAire.brillo(capa, c, r * (0.7 - 0.35 * cae), Color(MALDITO_OSCURO, 0.55 * cae))
+			return
+		# LA MANCHA de miasma que se abre hasta el borde, y la ola violeta en su frente.
+		BarridoAire.brillo(capa, c, r * (0.3 + 0.95 * abre), Color(MALDITO_OSCURO, 0.62 * apaga))
+		if abre < 1.0:
+			_anillo(capa, c, r * (1.0 - pow(1.0 - abre, 2.0)), 4.5, Color(MALDITO, 0.85 * (1.0 - abre * 0.4)))
+		elif apaga > 0.0:
+			_anillo(capa, c, r, 2.5, Color(MALDITO, 0.45 * apaga))
+		return
+	if capa == _delante:
+		if tr < 0.0:
+			# LA BOLA DE MALDICION bajando: un nucleo oscuro con bocanadas de humo violeta que se quedan atras.
+			var alto: float = ALTO_MALDICION * (1.0 - cae * cae)
+			var p: Vector2 = c + _alto(alto)
+			for j in 4:
+				var q: float = float(j + 1) * 0.08
+				var pj: Vector2 = c + _alto(ALTO_MALDICION * (1.0 - pow(maxf(0.0, cae - q), 2.0))) + Vector2(sin(_t * 9.0 + float(j)) * 2.5, 0.0)
+				BarridoAire.brillo(capa, pj, 6.0 - float(j), Color(MALDITO_OSCURO, 0.5 - 0.1 * float(j)))
+			BarridoAire.brillo(capa, p, 8.0, Color(MALDITO_OSCURO, 0.9))
+			return
+		# LA NIEBLA que sale rodando hacia fuera y se deshace.
+		for h in _humos:
+			var k: float = tr / float(h["vida"])
+			if k < 0.0 or k >= 1.0:
+				continue
+			var d: float = r * float(h["d"]) * (1.0 - pow(1.0 - minf(1.0, k * 1.6), 2.0))
+			var pm: Vector2 = c + Vector2(cos(float(h["a"])), sin(float(h["a"]))) * d + _alto(3.0 + 8.0 * k)
+			BarridoAire.brillo(capa, pm, float(h["r"]) * (0.8 + 0.6 * k), Color(MALDITO_OSCURO, 0.55 * sin(k * PI)))
+		return
+	if capa == _brillo:
+		if tr < 0.0:
+			var p2: Vector2 = c + _alto(ALTO_MALDICION * (1.0 - cae * cae))
+			BarridoAire.brillo(capa, p2, 12.0, Color(MALDITO, 0.45))
+			BarridoAire.brillo(capa, p2, 3.5, Color(0.95, 0.8, 1.0, 0.9))
+			return
+		# EL REVENTON: destello violeta y un fogonazo corto.
+		if tr < 0.22:
+			BarridoAire.brillo(capa, c + _alto(4.0), r * 0.8 * (1.0 - tr / 0.22), Color(MALDITO, 0.5 * (1.0 - tr / 0.22)))
+			BarridoAire.destello(capa, c + _alto(5.0), 18.0 * (1.0 - tr / 0.22 * 0.5), Color(0.95, 0.8, 1.0, 1.0 - tr / 0.22), 0.5)
+
+
+# ------------------------------------------------------------
+#  LA ONDA DE FUERZA: la Fortaleza sale de ti
+# ------------------------------------------------------------
+func _onda_fuerza(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var c: Vector2 = forma.centro
+	var r: float = maxf(forma.radio, 8.0)
+	var pecho: Vector2 = c + _alto(ALTO_PECHO)
+	var tr: float = _t - T_CARGA
+	var abre: float = clampf(tr / T_ONDA_FUERZA, 0.0, 1.0)
+	if capa == _suelo:
+		if tr < 0.0:
+			BarridoAire.brillo(capa, c, 14.0 * (_t / T_CARGA), Color(FUERZA, 0.3 * (_t / T_CARGA)))
+			return
+		# LA ONDA: un anillo rojo que corre por el suelo hasta el borde, con un velo detras que se apaga.
+		var apaga: float = 1.0 - clampf((tr - T_ONDA_FUERZA) / 0.5, 0.0, 1.0)
+		BarridoAire.brillo(capa, c, r * (0.3 + 0.8 * abre), Color(FUERZA, 0.18 * apaga))
+		if abre < 1.0:
+			_anillo(capa, c, 6.0 + (r - 6.0) * (1.0 - pow(1.0 - abre, 2.0)), 5.0, Color(FUERZA, 0.85 * (1.0 - abre * 0.5)))
+		# Polvo que levanta al pasar.
+		for h in _humos:
+			var k: float = (tr - abre * 0.0) / float(h["vida"])
+			if k < 0.0 or k >= 1.0:
+				continue
+			var ph: Vector2 = c + Vector2(cos(float(h["a"])), sin(float(h["a"]))) * r * (1.0 - pow(1.0 - minf(1.0, k * 1.4), 2.0)) * 0.95
+			BarridoAire.brillo(capa, ph, float(h["r"]) * (1.0 + k), Color(SueloRoto.POLVO, 0.35 * sin(k * PI)))
+		return
+	if capa == _brillo:
+		if tr < 0.0:
+			# CONCENTRA EL PODER: motas rojas que vienen de alrededor hacia tu pecho, y el pecho se enciende.
+			var kc: float = clampf(_t / T_CARGA, 0.0, 1.0)
+			for m in _motas:
+				var km: float = clampf((_t - float(m["t0"])) / (T_CARGA - float(m["t0"])), 0.0, 1.0)
+				var desde: Vector2 = pecho + Vector2(cos(float(m["a"])), sin(float(m["a"])) * K) * float(m["d"])
+				var pm: Vector2 = desde.lerp(pecho, km * km)
+				BarridoAire.cometa(capa, desde.lerp(pecho, maxf(0.0, km * km - 0.15)), pm, float(m["tam"]) * 1.4, Color(FUERZA, 0.8))
+			BarridoAire.brillo(capa, pecho, 6.0 + 8.0 * kc, Color(FUERZA, 0.4 * kc))
+			return
+		# EL FOGONAZO al soltarla.
+		if tr < 0.25:
+			BarridoAire.brillo(capa, pecho, 22.0 * (1.0 - tr / 0.25), Color(FUERZA_CLARA, 0.5 * (1.0 - tr / 0.25)))
+			BarridoAire.destello(capa, pecho, 18.0 * (1.0 - tr / 0.25 * 0.5), Color(FUERZA_CLARA, 1.0 - tr / 0.25), 0.2)
