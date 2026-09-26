@@ -8,10 +8,11 @@
 #              que llena el circulo del centro hacia fuera; el resplandor que deja se apaga desde el centro.
 #    VORAGINE  Voragine de sombra (sus referencias: remolino negro en media luna con pinceladas rotas y un ojo rojo de
 #              anillos; "ojos de muerte" negros con iris rojo): un ORBE negro sale de tu mano con estela de humo y se
-#              HUNDE en el sitio; se abre un AGUJERO NEGRO (26/09, su dibujo: un circulo grande con los ojos en corona
-#              alrededor, curvados con el borde y todos hacia el mismo lado, como hojas) con el borde rojo y pinceladas
-#              rotas girando; en cada tiron la corona da un tiron de giro, los ojos se entornan y el humo y los trozos
-#              caen dentro. Al final se cierra en un punto.
+#              HUNDE en el sitio; se abre un REMOLINO de mechones negros de tinta (26/09, su referencia: llamas oscuras
+#              con puntas y vetas grises de pincel girando hacia dentro) con un OJO DE ECLIPSE dorado en medio (pupila
+#              negra, aro claro, halo y destello en cruz). En cada tiron los mechones se enroscan y se cierran de golpe,
+#              el ojo se enciende y el humo y los trozos caen dentro. Al final se cierra en un punto.
+#              (Los ojos de muerte se probaron aqui y no; _ojo_muerte queda para una magia futura.)
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -49,6 +50,13 @@ const NEGRO := Color(0.03, 0.02, 0.04)
 const SOMBRA_CLARA := Color(0.95, 0.94, 0.97)
 const SOMBRA_GRIS := Color(0.26, 0.24, 0.3)
 const BLANCO_OJO := Color(0.96, 0.95, 0.98)
+# El remolino de tinta y el ojo de eclipse (su referencia).
+const TINTA := Color(0.05, 0.04, 0.03)
+const TINTA_MEDIA := Color(0.2, 0.17, 0.13)
+const TINTA_CLARA := Color(0.58, 0.54, 0.47)
+const ORO := Color(1.0, 0.78, 0.18)
+const ORO_CLARO := Color(1.0, 0.96, 0.72)
+const ALTO_OJO_ECLIPSE := 8.0
 const PINCEL := Color(0.8, 0.78, 0.84)
 const VIOLETA_HONDO := Color(0.24, 0.07, 0.3)
 
@@ -64,6 +72,7 @@ var _r: float = 30.0
 var _motas: Array = []
 var _trozos: Array = []
 var _rayos: Array = []
+var _gotas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
@@ -161,12 +170,16 @@ func _preparar() -> void:
 				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(12.0, 22.0),
 					"t0": _rng.randf_range(0.0, 0.05), "tam": _rng.randf_range(1.4, 2.4)})
 			# Los OJOS DE MUERTE alrededor del area: donde, cuanto miden, su giro y cuando se abren.
-			# En CORONA alrededor del agujero, repartidos y un pelo desordenados (su dibujo), y se solapan un poco.
-			var n_ojos: int = 9
-			for i in n_ojos:
-				var a: float = TAU * (float(i) + _rng.randf_range(-0.12, 0.12)) / float(n_ojos)
-				_rayos.append({"a": a, "d": _rng.randf_range(-0.04, 0.05), "largo": _rng.randf_range(0.78, 0.92),
-					"t0": 0.03 * float(i) + _rng.randf_range(0.0, 0.04), "sem": _rng.randf_range(0.0, 50.0)})
+			# Los MECHONES del remolino: de fuera hacia dentro, cada uno una llama de tinta que se enrosca.
+			for i in 42:
+				var d0: float = _rng.randf_range(0.25, 1.0)
+				_rayos.append({"a": _rng.randf_range(0.0, TAU), "d": d0, "vuelta": _rng.randf_range(0.9, 1.7),
+					"cae": _rng.randf_range(0.18, 0.42), "ancho": _rng.randf_range(0.08, 0.14) * (0.6 + 0.6 * d0),
+					"sem": _rng.randf_range(0.0, 50.0), "claro": _rng.randf() < 0.45, "t0": _rng.randf_range(0.0, 0.18) * (1.0 - d0)})
+			# Gotas de tinta sueltas alrededor.
+			for i in 14:
+				_gotas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.9, 1.2), "t0": _rng.randf_range(0.0, 0.3),
+					"tam": _rng.randf_range(0.8, 1.8)})
 			# El HUMO y los TROZOS de suelo que el pozo arrastra hacia dentro.
 			for i in 26:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
@@ -660,6 +673,48 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 				PackedVector2Array())
 
 
+# UN MECHON DE TINTA: una llama oscura que se enrosca alrededor de 'c' (en el SUELO, sin achatar) de 'r0' a 'r1' en
+# 'vuelta' radianes; gorda a un tercio, con la cola afilada hacia fuera y la cabeza redonda hacia dentro, y un par
+# de PUNTAS que le salen por fuera (las llamas con pinchos de su referencia).
+func _mechon(ci: CanvasItem, c: Vector2, a0: float, r0: float, r1: float, vuelta: float, ancho: float, col: Color,
+		sem: float, puntas: bool) -> void:
+	if ancho <= 0.3 or col.a <= 0.0:
+		return
+	var n: int = 12
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var ang: float = a0 + vuelta * u
+		var rr: float = lerpf(r0, r1, u)
+		var d := Vector2(cos(ang), sin(ang))
+		# De dentro (u = 0, redondeada) a fuera (u = 1, afilada).
+		var w: float = ancho * pow(sin(minf(u * 1.5, 1.0) * PI * 0.5), 0.6) * pow(1.0 - u, 0.9)
+		w = maxf(w, ancho * 0.25 * (1.0 - u))
+		pv.append(c + d * (rr + w))
+		pv.append(c + d * maxf(rr - w, 0.0))
+		pc.append(col)
+		pc.append(col)
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+	if not puntas:
+		return
+	for j in 2:
+		var u2: float = 0.35 + 0.3 * float(j) + 0.1 * MagiaAire._ruido(sem, float(j))
+		var ang2: float = a0 + vuelta * u2
+		var rr2: float = lerpf(r0, r1, u2)
+		var d2 := Vector2(cos(ang2), sin(ang2))
+		var t2 := Vector2(-d2.y, d2.x) * signf(vuelta)
+		var w2: float = ancho * 0.55
+		var base: Vector2 = c + d2 * (rr2 + w2 * 0.6)
+		var punta: Vector2 = base + (d2 * 0.9 + t2 * 0.8).normalized() * ancho * (1.6 + MagiaAire._ruido(sem, 4.0 + float(j)))
+		ci.draw_primitive(PackedVector2Array([base - t2 * w2, punta, base + t2 * w2]), PackedColorArray([col, col, col]),
+			PackedVector2Array())
+
+
 func _voragine(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
@@ -702,10 +757,11 @@ func _voragine(capa: Node2D) -> void:
 				var pk: Vector2 = a.lerp(b, uk) + _alto(10.0 * sin(uk * PI) + 3.0 * float(k)) \
 					+ Vector2(sin(float(k) * 2.3 + _t * 8.0) * 2.5, 0.0)
 				_disco(capa, pk, 5.5 - 0.5 * float(k), Color(NEGRO, 0.75 - 0.09 * float(k)), Color(VIOLETA_HONDO, 0.0))
-			_disco(capa, p, 7.0, NEGRO, Color(NEGRO, 0.9))
-			_anillos_rotos(capa, p, 4.0, _t * 9.0, 1.0)
+			_disco(capa, p, 7.0, TINTA, Color(TINTA, 0.9))
+			_disco(capa, p, 3.2, ORO_CLARO, ORO)
+			_disco(capa, p, 1.6, TINTA, TINTA)
 			return
-		BarridoAire.brillo(capa, p, 13.0, Color(SOMBRA_CLARA, 0.35))
+		BarridoAire.brillo(capa, p, 13.0, Color(ORO, 0.4))
 		return
 	# 2) EL POZO.
 	if capa == _suelo:
@@ -717,34 +773,50 @@ func _voragine(capa: Node2D) -> void:
 			var kh: float = clampf(t_hunde / T_HUNDE, 0.0, 1.0)
 			_disco(capa, _c, 5.0 + 8.0 * kh, NEGRO, Color(NEGRO, 0.6))
 			return
-		# EL AGUJERO NEGRO: halo rojo oscuro, el borde que brilla en rojo y el disco negro puro; las pinceladas rotas
-		# giran pegadas a su borde (las de su primera referencia).
-		var r_h: float = _r * 0.6 * vivo * (1.0 + 0.08 * ap)
-		BarridoAire.brillo(capa, _c, r_h * 1.35, Color(SOMBRA_GRIS, 0.6 * vivo))
-		MagiaAire._anillo(capa, _c, r_h, 4.0 + 3.0 * ap, Color(SOMBRA_CLARA, (0.55 + 0.4 * ap) * vivo))
-		_disco(capa, _c, r_h, NEGRO, NEGRO)
-		for i in 3:
-			_brazo(capa, _c, giro * 1.3 + TAU * float(i) / 3.0, r_h * 0.98, r_h * 1.12, 1.4, _r * 0.03 * vivo, vivo * 0.9,
-				float(i) * 7.0)
-		# LA CORONA DE OJOS por fuera del borde, curvados con el y todos hacia el mismo lado; gira con el remolino.
-		var r_ojos: float = r_h + _r * 0.14
-		var largo_o: float = TAU * r_ojos / float(maxi(_rayos.size(), 1))
-		_arco_c = _c
-		for oj in _rayos:
-			var ko: float = clampf((tp - float(oj["t0"])) / 0.22, 0.0, 1.0)
-			var abre_o: float = (1.0 - pow(1.0 - ko, 2.0)) * (1.0 - cierra) * (1.0 - 0.5 * ap)
-			_arco_r = r_ojos * (1.0 + float(oj["d"]))
-			var mira: float = 0.6 * sin(_t * 2.0 + float(oj["sem"]))
-			_ojo_muerte(capa, _c, largo_o * float(oj["largo"]) * vivo, float(oj["a"]) + giro * 0.35, abre_o, mira, 1.0,
-				float(oj["sem"]), 1.0)
-		_arco_r = 0.0
-		# El tiron: una onda granate que se cierra hacia el agujero.
-		if ap > 0.02:
-			MagiaAire._anillo(capa, _c, lerpf(r_h, _r * 1.05, ap), 5.0, Color(SOMBRA_GRIS, 0.7 * ap))
+		# EL REMOLINO DE TINTA: una masa negra en medio, y los mechones por capas (el halo marron, la tinta negra y
+		# las vetas grises encima), enroscandose hacia dentro; en cada tiron se cierran hacia el centro.
+		var cierre: float = 1.0 - 0.22 * ap
+		BarridoAire.brillo(capa, _c, _r * 0.85 * vivo, Color(TINTA, 0.9 * vivo))
+		_disco(capa, _c, _r * 0.42 * vivo * cierre, TINTA, Color(TINTA, 0.95 * vivo))
+		for pasada in 3:
+			for mc in _rayos:
+				var km: float = clampf((tp - float(mc["t0"])) / 0.25, 0.0, 1.0)
+				if km <= 0.0:
+					continue
+				var crece: float = (1.0 - pow(1.0 - km, 2.0)) * vivo
+				var r_fuera: float = _r * float(mc["d"]) * cierre
+				var r_dentro: float = maxf(r_fuera - _r * float(mc["cae"]), _r * 0.08)
+				var a_m: float = float(mc["a"]) + giro * (1.3 - 0.6 * float(mc["d"]))
+				var w_m: float = _r * float(mc["ancho"]) * crece
+				match pasada:
+					0:
+						_mechon(capa, _c, a_m, r_dentro * crece, r_fuera * crece, -float(mc["vuelta"]), w_m * 1.5,
+							Color(TINTA_MEDIA, 0.75 * vivo), float(mc["sem"]), false)
+					1:
+						_mechon(capa, _c, a_m, r_dentro * crece, r_fuera * crece, -float(mc["vuelta"]), w_m,
+							Color(TINTA, vivo), float(mc["sem"]), true)
+					2:
+						if bool(mc["claro"]):
+							_mechon(capa, _c, a_m - 0.1, r_dentro * crece * 1.05, r_fuera * crece * 0.92,
+								-float(mc["vuelta"]) * 0.8, w_m * 0.32, Color(TINTA_CLARA, 0.8 * vivo), float(mc["sem"]), false)
+		# Las gotas de tinta que salpican alrededor.
+		for gt in _gotas:
+			var kg: float = clampf((tp - float(gt["t0"])) / 0.3, 0.0, 1.0)
+			if kg <= 0.0:
+				continue
+			var pg: Vector2 = _c + Vector2(cos(float(gt["a"]) + giro * 0.3), sin(float(gt["a"]) + giro * 0.3)) * _r * float(gt["d"]) * vivo
+			_disco(capa, pg, float(gt["tam"]) * vivo, Color(TINTA, 0.9), Color(TINTA, 0.9))
 		return
 	if capa == _delante:
 		if tp < 0.0:
 			return
+		# EL OJO DE ECLIPSE, flotando un pelo sobre el centro (encima de quien este ahi): halo de oro, aro claro y la
+		# pupila negra.
+		var r_ojo: float = _r * 0.11 * vivo * (1.0 + 0.25 * ap)
+		var ojo: Vector2 = _c + _alto(ALTO_OJO_ECLIPSE)
+		_disco(capa, ojo, r_ojo * 1.6, Color(ORO, 0.9 * vivo), Color(ORO, 0.0))
+		_disco(capa, ojo, r_ojo, Color(ORO_CLARO, vivo), Color(ORO, vivo))
+		_disco(capa, ojo, r_ojo * 0.52, Color(TINTA, vivo), Color(TINTA, vivo))
 		# El HUMO y los TROZOS que el pozo se traga: salen del borde y van en espiral al centro.
 		for tz in _trozos:
 			var tk: float = (tp - float(tz["t0"])) / 0.55
@@ -766,6 +838,13 @@ func _voragine(capa: Node2D) -> void:
 			BarridoAire.brillo(capa, _c, 18.0 * kh2, Color(SOMBRA_CLARA, 0.5 * kh2))
 			return
 		# El resplandor rojo del ojo, que late con los tirones, y el destello rojo al cerrarse.
-		BarridoAire.brillo(capa, _c, _r * 0.6 * vivo * 1.15, Color(SOMBRA_CLARA, (0.12 + 0.25 * ap) * vivo))
+		# El HALO DORADO del eclipse y su destello en cruz, que se encienden en cada tiron.
+		# (sin nucleo blanco: la pupila negra tiene que seguir viendose)
+		var r_o: float = _r * 0.11 * vivo
+		var ojo_b: Vector2 = _c + _alto(ALTO_OJO_ECLIPSE)
+		MagiaAire._anillo(capa, ojo_b, r_o * 1.25, r_o * (0.9 + 0.6 * ap), Color(ORO, (0.3 + 0.35 * ap) * vivo))
+		for k in 4:
+			var a_c: float = PI * 0.5 * float(k)
+			_cuna(capa, ojo_b, a_c, r_o * 1.05, r_o * (3.2 + 2.0 * ap), 0.05, Color(ORO_CLARO, (0.75 + 0.25 * ap) * vivo))
 		if cierra > 0.0 and cierra < 1.0:
-			BarridoAire.destello(capa, _c + _alto(3.0), 20.0 * (1.0 - cierra), Color(SOMBRA_CLARA, 1.0 - cierra), 0.5)
+			BarridoAire.destello(capa, ojo_b, 24.0 * (1.0 - cierra), Color(ORO_CLARO, 1.0 - cierra), 0.0)
