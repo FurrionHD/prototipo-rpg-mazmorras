@@ -373,21 +373,14 @@ func _preparar_area() -> void:
 				_humos.append({"a": a, "d": _rng.randf_range(0.35, 1.0), "r": _rng.randf_range(5.0, 9.0),
 					"fase": _rng.randf_range(0.0, TAU), "vida": _rng.randf_range(0.6, 0.95)})
 		Modo.LAVA:
-			# EL MAR DE LAVA (26/09: las grietas eran "lineas guarras con llamitas"): placas de costra que flotan,
-			# burbujas que revientan y un muro de llamas por toda la superficie.
-			for i in 12:
-				var pts_p: Array = []
-				var n_p: int = 6
-				var rp: float = _rng.randf_range(0.05, 0.1)
-				for k in n_p:
-					var a: float = TAU * float(k) / float(n_p) + _rng.randf_range(-0.3, 0.3)
-					pts_p.append(Vector2(cos(a), sin(a)) * rp * _rng.randf_range(0.7, 1.2))
-				_charcos.append({"u": _rng.randf_range(0.08, 0.95), "v": _rng.randf_range(-0.32, 0.32), "pts": pts_p,
-					"deriva": Vector2(_rng.randf_range(-0.02, 0.02), _rng.randf_range(-0.03, 0.03))})
+			# EL SUELO QUE SE RAJA EN LOSAS (26/09, sus referencias: piedra oscura rota y la lava brillando por las
+			# grietas). Celdas de Voronoi dentro de la franja, encogidas: el hueco entre losas es la grieta, y por
+			# el se ve la malla de lava que va debajo.
+			_charcos = _losas_de_la_franja()
 			for i in 26:
 				_motas.append({"u": _rng.randf_range(0.05, 0.97), "v": _rng.randf_range(-0.38, 0.38),
 					"t0": _rng.randf_range(0.0, 1.3), "r": _rng.randf_range(2.0, 4.0)})
-			for i in 46:
+			for i in 16:
 				_bocanadas.append({"u": _rng.randf_range(0.03, 0.98), "v": _rng.randf_range(-0.4, 0.4),
 					"t0": _rng.randf_range(0.0, 0.3), "vida": _rng.randf_range(0.45, 0.7), "tam": _rng.randf_range(0.9, 1.5),
 					"fase": _rng.randf_range(0.0, 50.0)})
@@ -1316,34 +1309,33 @@ func _lava(capa: Node2D) -> void:
 				var b0: int = (j + 1) * (filas + 1) + f
 				pi.append_array([a0, a0 + 1, b0, a0 + 1, b0 + 1, b0])
 		RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi, pv, pc)
-		# LAS PLACAS DE COSTRA que flotan y se van soldando al enfriarse.
+		# LAS LOSAS: se abren cuando pasa el frente (suben un poco y se separan); piedra oscura con la cara de arriba
+		# algo mas clara y su canto en sombra. Lo que queda entre ellas es la grieta con la lava.
 		for pl in _charcos:
-			var u2: float = float(pl["u"])
-			if u2 > frente:
+			var t_pl: float = _t - float(pl["u"]) * T_LAVA
+			if t_pl < 0.0:
 				continue
-			var crece: float = clampf((_t - u2 * T_LAVA) / 0.5, 0.0, 1.0) * (1.0 + 0.8 * enfria)
-			var cen: Vector2 = Vector2(u2, float(pl["v"])) + (pl["deriva"] as Vector2) * _t
-			if crece <= 0.05:
-				continue
-			# En abanico desde el centro (draw_colored_polygon triangula y falla con placas diminutas o torcidas).
-			var pv2 := PackedVector2Array([_en_franja(cen.x, cen.y * 0.9)])
-			var pc2 := PackedColorArray([Color(COSTRA, 0.85 * vida)])
-			var pi2 := PackedInt32Array()
-			var n_pl: int = (pl["pts"] as Array).size()
-			for q in pl["pts"]:
-				var qq: Vector2 = cen + (q as Vector2) * crece
-				pv2.append(_en_franja(qq.x, qq.y * 0.9))
-				pc2.append(Color(COSTRA, 0.85 * vida))
-			for k2 in n_pl:
-				pi2.append_array([0, 1 + k2, 1 + (k2 + 1) % n_pl])
-			RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi2, pv2, pc2)
-		# LAS BURBUJAS que revientan: un anillito claro que se abre.
-		for b in _motas:
-			var tb: float = fmod(_t - float(b["t0"]), 0.7)
-			if _t < float(b["t0"]) or float(b["u"]) > frente or tb > 0.25 or enfria > 0.7:
-				continue
-			var pb: Vector2 = _en_franja(float(b["u"]), float(b["v"]))
-			_anillo(capa, pb, float(b["r"]) * (0.4 + tb / 0.25), 1.4, Color(LAVA_CLARA, 0.9 * (1.0 - tb / 0.25)))
+			var sube: float = clampf(t_pl / 0.14, 0.0, 1.0)
+			var alto_l: float = 2.2 * sube * (1.0 - 0.4 * enfria)
+			var cen: Vector2 = pl["cen"]
+			var tono: float = float(pl["tono"])
+			var canto := Color(0.06, 0.05, 0.05, vida)
+			var cara_c := Color(0.17 + tono, 0.15 + tono, 0.16 + tono, vida)
+			var cara_b := Color(0.09 + tono, 0.08 + tono, 0.09 + tono, vida)
+			var pts: Array = pl["pts"]
+			var n_l: int = pts.size()
+			# El canto (sombra, abajo) y la cara (arriba, un pelo mas alta), cada una en abanico desde su centro.
+			for capa_l in 2:
+				var off: Vector2 = Vector2(0.0, 1.4) if capa_l == 0 else _alto(alto_l)
+				var pv3 := PackedVector2Array([_en_losa(cen) + off])
+				var pc3 := PackedColorArray([canto if capa_l == 0 else cara_c])
+				var pi3 := PackedInt32Array()
+				for q in pts:
+					pv3.append(_en_losa(q) + off)
+					pc3.append(canto if capa_l == 0 else cara_b)
+				for k3 in n_l:
+					pi3.append_array([0, 1 + k3, 1 + (k3 + 1) % n_l])
+				RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi3, pv3, pc3)
 		# ASCUAS que quedan latiendo sobre la costra.
 		for a in _ascuas:
 			var u3: float = float(a["u"])
@@ -1360,7 +1352,7 @@ func _lava(capa: Node2D) -> void:
 				var v3: float = lerpf(-0.36, 0.36, float(j3) / 6.0)
 				var kf: float = fmod(_t * 3.0 + float(j3) * 0.37, 1.0)
 				var cf: Vector2 = _en_franja(frente, v3) + _alto(4.0 + 20.0 * kf)
-				_bocanada(capa, cf, 6.0 + 8.0 * sin(kf * PI), kf * 0.6, float(j3) * 9.0 + floor(_t * 3.0))
+				_bocanada(capa, cf, 4.0 + 5.0 * sin(kf * PI), kf * 0.6, float(j3) * 9.0 + floor(_t * 3.0))
 		# LAS PIEDRAS que salta al abrirse: trozos de costra que vuelan y caen.
 		for pz in _chispas:
 			var tz: float = _t - float(pz["u"]) * T_LAVA
@@ -1386,9 +1378,18 @@ func _lava(capa: Node2D) -> void:
 			if k >= 1.0:
 				continue
 			var c: Vector2 = _en_franja(u4, float(bo["v"])) + _alto(3.0 + 26.0 * k)
-			_bocanada(capa, c, (5.0 + 9.0 * sin(k * PI)) * float(bo["tam"]), k, float(bo["fase"]))
+			_bocanada(capa, c, (3.0 + 5.0 * sin(k * PI)) * float(bo["tam"]), k, float(bo["fase"]))
 		return
 	if capa == _brillo:
+		# EL ESTALLIDO donde nace la grieta (a tus pies, delante), como en su referencia: una estrella de lava.
+		if _t < 0.35:
+			BarridoAire.destello(capa, _en_franja(0.08, 0.0), 20.0 * (1.0 - _t / 0.35), Color(LAVA_CLARA, 1.0 - _t / 0.35), 0.3)
+		# Cada losa, al abrirse, suelta un resplandor por sus bordes.
+		for pl2 in _charcos:
+			var t2: float = _t - float(pl2["u"]) * T_LAVA
+			if t2 < 0.0 or t2 > 0.35:
+				continue
+			BarridoAire.brillo(capa, _en_losa(pl2["cen"]), float(pl2["r"]) * 1.2, Color(LAVA, 0.35 * (1.0 - t2 / 0.35)))
 		# EL CALOR: un resplandor naranja sobre la franja mientras esta al rojo.
 		var n2: int = int(clampf(_largo / 25.0, 4.0, 8.0))
 		for j2 in n2:
@@ -1645,3 +1646,74 @@ func _onda_fuerza(capa: Node2D) -> void:
 		if tr < 0.25:
 			BarridoAire.brillo(capa, pecho, 22.0 * (1.0 - tr / 0.25), Color(FUERZA_CLARA, 0.5 * (1.0 - tr / 0.25)))
 			BarridoAire.destello(capa, pecho, 18.0 * (1.0 - tr / 0.25 * 0.5), Color(FUERZA_CLARA, 1.0 - tr / 0.25), 0.2)
+
+
+# ------------------------------------------------------------
+#  LAS LOSAS del Mar de brasas
+# ------------------------------------------------------------
+# Punto local de la franja (x a lo largo en px, y a lo ancho en px desde el eje) a mundo.
+func _en_losa(q: Vector2) -> Vector2:
+	return _o + _dir * q.x + _lat * q.y
+
+
+# Las losas: celdas de Voronoi de unas semillas repartidas por la franja, recortadas por su contorno (un
+# rectangulo con las esquinas muy achaflanadas, sin cortes rectos en las puntas) y encogidas 'HUECO' px hacia
+# su centro: ese hueco es la grieta. [{pts (locales), cen, u (a que fraccion del largo), r, tono}]
+const HUECO_LOSA := 2.0
+
+func _losas_de_la_franja() -> Array:
+	var w: float = _largo
+	var h: float = _ancho * 0.47
+	var ch: float = h * 0.85
+	var contorno: Array = [Vector2(ch, -h), Vector2(w - ch, -h), Vector2(w, -h + ch), Vector2(w, h - ch),
+		Vector2(w - ch, h), Vector2(ch, h), Vector2(0.0, h - ch), Vector2(0.0, -h + ch)]
+	var nx: int = int(clampf(w / 20.0, 5.0, 10.0))
+	var ny: int = 3
+	var semillas: Array = []
+	for i in nx:
+		for j in ny:
+			semillas.append(Vector2((float(i) + 0.5 + _rng.randf_range(-0.35, 0.35)) / float(nx) * w,
+				((float(j) + 0.5 + _rng.randf_range(-0.3, 0.3)) / float(ny) - 0.5) * 2.0 * h * 0.92))
+	var out: Array = []
+	for a in semillas.size():
+		var poly: Array = contorno.duplicate()
+		for b in semillas.size():
+			if a == b:
+				continue
+			poly = _recorta_mitad(poly, semillas[a], semillas[b])
+			if poly.size() < 3:
+				break
+		if poly.size() < 3:
+			continue
+		var cen := Vector2.ZERO
+		for q in poly:
+			cen += q
+		cen /= float(poly.size())
+		var enc: Array = []
+		var r: float = 0.0
+		for q in poly:
+			var d: Vector2 = (q as Vector2) - cen
+			var l: float = d.length()
+			enc.append(cen + d * maxf(0.0, 1.0 - HUECO_LOSA / maxf(l, 0.01)))
+			r = maxf(r, l)
+		out.append({"pts": enc, "cen": cen, "u": clampf(cen.x / maxf(w, 1.0), 0.0, 1.0), "r": r,
+			"tono": _rng.randf_range(-0.03, 0.04)})
+	return out
+
+
+# Sutherland-Hodgman contra UN semiplano: se queda con lo que esta mas cerca de 'a' que de 'b'.
+static func _recorta_mitad(poly: Array, a: Vector2, b: Vector2) -> Array:
+	var out: Array = []
+	var m: Vector2 = (a + b) * 0.5
+	var nrm: Vector2 = b - a
+	var n: int = poly.size()
+	for i in n:
+		var p: Vector2 = poly[i]
+		var q: Vector2 = poly[(i + 1) % n]
+		var dp: float = (p - m).dot(nrm)
+		var dq: float = (q - m).dot(nrm)
+		if dp <= 0.0:
+			out.append(p)
+		if (dp < 0.0 and dq > 0.0) or (dp > 0.0 and dq < 0.0):
+			out.append(p + (q - p) * (dp / (dp - dq)))
+	return out
