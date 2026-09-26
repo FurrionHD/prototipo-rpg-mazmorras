@@ -70,6 +70,8 @@ const T_AGUA_CAE := 0.46         # cuando toca el suelo (el golpe de agua va det
 const T_ROMPE := 0.58            # cuando revienta en obsidiana
 const T_VIVE_OBSIDIANA := 0.8    # lo que se queda antes de deshacerse
 const ALTO_AGUA := 55.0
+const T_BARRE_SHOCK := 0.35      # lo que tarda el deshacerse en ir del centro al borde
+const T_DESHACE_SHOCK := 0.3     # lo que tarda cada trozo en irse
 const OBSIDIANA := Color(0.07, 0.05, 0.1)
 const OBSIDIANA_BRILLO := Color(0.42, 0.36, 0.62)
 const OBSIDIANA_CARA := Color(0.66, 0.6, 0.92)     # la cara de los pinchos (que se lean sobre el suelo negro)
@@ -162,7 +164,7 @@ func duracion() -> float:
 	match modo:
 		Modo.SOL: return t_llega(forma) + T_CRECE + T_APRIETA + T_ONDA_SOL + T_RESPLANDOR + 0.3
 		Modo.VORAGINE: return _t_cierra() + T_CIERRA + 0.3
-		Modo.SHOCK: return T_ROMPE + T_VIVE_OBSIDIANA + 0.6
+		Modo.SHOCK: return T_ROMPE + T_VIVE_OBSIDIANA + T_BARRE_SHOCK + T_DESHACE_SHOCK + 0.1
 	return 1.0
 
 
@@ -1022,6 +1024,15 @@ func _losas_circulo() -> Array:
 	return out
 
 
+# La losa encogida hacia su centro a 'k' de su tamaño (al desmoronarse).
+func _losa_encogida(ci: CanvasItem, lo: Dictionary, k: float, col: Color, brillo: Color) -> void:
+	var cen: Vector2 = lo["cen"]
+	var pts := PackedVector2Array()
+	for q in (lo["pts"] as PackedVector2Array):
+		pts.append(cen + (q - cen) * k + Vector2(0.0, (1.0 - k) * 2.0))
+	_losa(ci, {"pts": pts, "cen": cen}, col, brillo)
+
+
 func _losa(ci: CanvasItem, lo: Dictionary, col: Color, brillo: Color) -> void:
 	var poly: PackedVector2Array = lo["pts"]
 	var pv := PackedVector2Array()
@@ -1036,18 +1047,26 @@ func _losa(ci: CanvasItem, lo: Dictionary, col: Color, brillo: Color) -> void:
 		ci.draw_colored_polygon(PackedVector2Array([cen, pv[0], pv[1]]), brillo)
 
 
+# Lo que queda de lo que esta a 'u' del centro (1 entero .. 0 ya se ha ido).
+func _queda_shock(u: float) -> float:
+	var t0: float = T_ROMPE + T_VIVE_OBSIDIANA + clampf(u, 0.0, 1.0) * T_BARRE_SHOCK
+	return 1.0 - clampf((_t - t0) / T_DESHACE_SHOCK, 0.0, 1.0)
+
+
 func _shock(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
 	var t_cae: float = _t - T_AGUA_CAE                        # desde que el agua toca el suelo
 	var t_rompe: float = _t - T_ROMPE                         # desde que revienta en obsidiana
 	var enfria: float = clampf(t_cae / 0.18, 0.0, 1.0)        # rojo -> negro, desde el centro
-	var fin: float = 1.0 - clampf((_t - T_ROMPE - T_VIVE_OBSIDIANA) / 0.45, 0.0, 1.0)
+	# (26/09, su regla: las areas se van en el mismo orden en que nacen) SE DESHACE DESDE EL CENTRO: 'fin' es lo que
+	# queda de lo de en medio y _queda_shock(u) lo de cada sitio; el borde es lo ultimo en irse.
+	var fin: float = _queda_shock(1.0)
 	if capa == _suelo:
 		# LA LAVA de debajo, que asoma por las grietas entre losas: se enciende con el frente y se apaga tras el agua.
 		var k_rojo: float = clampf(_t / T_CALIENTA, 0.0, 1.0)
 		var frente: float = _r * (1.0 - pow(1.0 - k_rojo, 2.0))
-		var brasa: float = (1.0 - clampf(t_cae / 1.0, 0.0, 1.0) * 0.8) * fin
+		var brasa: float = (1.0 - clampf(t_cae / 1.0, 0.0, 1.0) * 0.8) * _queda_shock(0.0)
 		BarridoAire.brillo(capa, _c, frente * 1.2, Color(MagiaAire.FUEGO_ROJO, 0.5 * brasa))
 		_disco(capa, _c, frente, Color(MagiaAire.LAVA_CLARA, brasa), Color(MagiaAire.LAVA, brasa))
 		if k_rojo < 1.0:
@@ -1058,11 +1077,18 @@ func _shock(capa: Node2D) -> void:
 		for lo in _rayos:
 			var u: float = float(lo["u"])
 			var t_l: float = _t - _llega_calor(u)
-			if t_l < 0.0 or fin <= 0.0:
+			var queda: float = _queda_shock(u)
+			if t_l < 0.0 or queda <= 0.0:
 				continue
 			var nace: float = clampf(t_l / 0.08, 0.0, 1.0)
 			if (lo["cen"] as Vector2).length() <= frio and enfria > 0.0:
-				_losa(capa, lo, Color(OBSIDIANA, fin), Color(OBSIDIANA_BRILLO, 0.7 * fin))
+				if queda < 1.0:
+					# Se DESMORONA: el polvo que suelta, y la losa encogiendose hacia su centro.
+					var cen_l: Vector2 = _c + (lo["cen"] as Vector2)
+					BarridoAire.brillo(capa, cen_l, _r * 0.12 * (1.6 - queda), Color(SueloRoto.POLVO, 0.55 * sin(queda * PI)))
+					_losa_encogida(capa, lo, queda, Color(OBSIDIANA, queda), Color(OBSIDIANA_BRILLO, 0.7 * queda))
+				else:
+					_losa(capa, lo, Color(OBSIDIANA, 1.0), Color(OBSIDIANA_BRILLO, 0.7))
 			else:
 				var cal: Color = MagiaAire.FUEGO_ROJO.lerp(MagiaAire.LAVA, 0.35 + 0.3 * MagiaAire._ruido(u * 10.0, 2.0))
 				_losa(capa, lo, Color(cal.darkened(0.25), nace), Color(MagiaAire.LAVA_CLARA, 0.55 * nace))
@@ -1171,10 +1197,12 @@ func _shock(capa: Node2D) -> void:
 			for pz in _esquirlas:
 				if bool(pz["pincho"]):
 					var kp: float = clampf((t_rompe - float(pz["t0"])) / 0.08, 0.0, 1.0)
-					if kp <= 0.0:
+					var q_p: float = _queda_shock(float(pz["d"]))
+					if kp <= 0.0 or q_p <= 0.0:
 						continue
 					var base: Vector2 = _c + (pz["dir"] as Vector2) * _r * float(pz["d"])
-					var alto_p: float = float(pz["tam"]) * 3.2 * (1.0 - pow(1.0 - kp, 3.0)) * fin
+					# Al irse se HUNDE en el suelo (se acorta) y se oscurece.
+					var alto_p: float = float(pz["tam"]) * 3.2 * (1.0 - pow(1.0 - kp, 3.0)) * q_p
 					var w: float = float(pz["tam"]) * 0.7
 					var incl: Vector2 = (pz["dir"] as Vector2) * alto_p * 0.35
 					var punta: Vector2 = base + _alto(alto_p) + incl

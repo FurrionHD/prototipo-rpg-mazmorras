@@ -119,7 +119,7 @@ const MOMENTOS_MAGIA := {
 	"venablo_de_tormenta": [0.08, 0.16, 0.24, 0.34, 0.5],
 	"estallido_solar": [0.08, 0.25, 0.5, 0.82, 0.97, 1.12, 1.5],
 	"voragine_sombra": [0.2, 0.36, 0.55, 0.72, 0.95, 1.4, 1.75],
-	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2],
+	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2, 1.45, 1.6, 1.75, 1.95],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
