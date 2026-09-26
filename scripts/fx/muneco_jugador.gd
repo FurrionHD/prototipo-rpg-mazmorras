@@ -383,7 +383,9 @@ func animar_desde(nombre: String, marco: int) -> void:
 func lleva_arma_izq() -> bool:
 	for c in _capas:
 		var clave: String = String(c["clave"])
-		if clave.begins_with("arma_") and clave.ends_with("_mano_izq"):
+		# La VARITA no cuenta (26/09): no es un arma que pegue, y con ella la daga alternaba de mano y la espada
+		# o la maza cogian su guardia de dos.
+		if clave.begins_with("arma_") and clave.ends_with("_mano_izq") and not clave.begins_with("arma_varita_"):
 			return true
 	return false
 
