@@ -1323,11 +1323,20 @@ func _lava(capa: Node2D) -> void:
 				continue
 			var crece: float = clampf((_t - u2 * T_LAVA) / 0.5, 0.0, 1.0) * (1.0 + 0.8 * enfria)
 			var cen: Vector2 = Vector2(u2, float(pl["v"])) + (pl["deriva"] as Vector2) * _t
-			var poly := PackedVector2Array()
+			if crece <= 0.05:
+				continue
+			# En abanico desde el centro (draw_colored_polygon triangula y falla con placas diminutas o torcidas).
+			var pv2 := PackedVector2Array([_en_franja(cen.x, cen.y * 0.9)])
+			var pc2 := PackedColorArray([Color(COSTRA, 0.85 * vida)])
+			var pi2 := PackedInt32Array()
+			var n_pl: int = (pl["pts"] as Array).size()
 			for q in pl["pts"]:
 				var qq: Vector2 = cen + (q as Vector2) * crece
-				poly.append(_en_franja(qq.x, qq.y * 0.9))
-			capa.draw_colored_polygon(poly, Color(COSTRA, 0.85 * vida))
+				pv2.append(_en_franja(qq.x, qq.y * 0.9))
+				pc2.append(Color(COSTRA, 0.85 * vida))
+			for k2 in n_pl:
+				pi2.append_array([0, 1 + k2, 1 + (k2 + 1) % n_pl])
+			RenderingServer.canvas_item_add_triangle_array(capa.get_canvas_item(), pi2, pv2, pc2)
 		# LAS BURBUJAS que revientan: un anillito claro que se abre.
 		for b in _motas:
 			var tb: float = fmod(_t - float(b["t0"]), 0.7)
