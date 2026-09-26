@@ -8,9 +8,10 @@
 #              que llena el circulo del centro hacia fuera; el resplandor que deja se apaga desde el centro.
 #    VORAGINE  Voragine de sombra (sus referencias: remolino negro en media luna con pinceladas rotas y un ojo rojo de
 #              anillos; "ojos de muerte" negros con iris rojo): un ORBE negro sale de tu mano con estela de humo y se
-#              HUNDE en el sitio; se abre un pozo negro con brazos en espiral que giran hacia dentro y un ojo rojo en
-#              medio; alrededor del area se ABREN ojos de muerte que miran al centro. En cada tiron el remolino se
-#              APRIETA de golpe y tira de humo y trozos hacia dentro. Al final se cierra en un punto.
+#              HUNDE en el sitio; se abre un AGUJERO NEGRO (26/09, su dibujo: un circulo grande con los ojos en corona
+#              alrededor, curvados con el borde y todos hacia el mismo lado, como hojas) con el borde rojo y pinceladas
+#              rotas girando; en cada tiron la corona da un tiron de giro, los ojos se entornan y el humo y los trozos
+#              caen dentro. Al final se cierra en un punto.
 #  Criterio (el suyo): siluetas llenas de 3-4 tonos con halo, efecto previo que lo dispare, nada de rayas peladas.
 #  Coordenadas de MUNDO; el suelo SIN achatar; lo que va en el aire, a su altura por K. Todo sale de una semilla.
 # ============================================================
@@ -158,12 +159,12 @@ func _preparar() -> void:
 				_motas.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(12.0, 22.0),
 					"t0": _rng.randf_range(0.0, 0.05), "tam": _rng.randf_range(1.4, 2.4)})
 			# Los OJOS DE MUERTE alrededor del area: donde, cuanto miden, su giro y cuando se abren.
-			var n_ojos: int = int(clampf(_r / 16.0, 5.0, 8.0))
+			# En CORONA alrededor del agujero, repartidos y un pelo desordenados (su dibujo), y se solapan un poco.
+			var n_ojos: int = 9
 			for i in n_ojos:
-				var a: float = TAU * (float(i) + _rng.randf_range(-0.25, 0.25)) / float(n_ojos)
-				_rayos.append({"a": a, "d": _rng.randf_range(0.78, 1.02), "largo": _rng.randf_range(28.0, 38.0),
-					"giro": _rng.randf_range(-0.45, 0.45), "t0": _rng.randf_range(0.0, 0.22), "alto": _rng.randf_range(6.0, 22.0),
-					"cola": -1.0 if _rng.randf() < 0.5 else 1.0, "sem": _rng.randf_range(0.0, 50.0)})
+				var a: float = TAU * (float(i) + _rng.randf_range(-0.12, 0.12)) / float(n_ojos)
+				_rayos.append({"a": a, "d": _rng.randf_range(-0.04, 0.05), "largo": _rng.randf_range(0.78, 0.92),
+					"t0": 0.03 * float(i) + _rng.randf_range(0.0, 0.04), "sem": _rng.randf_range(0.0, 50.0)})
 			# El HUMO y los TROZOS de suelo que el pozo arrastra hacia dentro.
 			for i in 26:
 				_trozos.append({"a": _rng.randf_range(0.0, TAU), "d": _rng.randf_range(0.5, 1.1), "tam": _rng.randf_range(2.0, 4.5),
@@ -567,6 +568,22 @@ static func _anillos_rotos(ci: CanvasItem, c: Vector2, r: float, giro: float, al
 # UN OJO DE MUERTE (su referencia): almendra negra de borde de pincel con una punta larga a un lado y un gancho al otro,
 # dentro un iris ROJO con anillos negros que se aplastan contra los parpados. 'abre' 0 cerrado .. 1 abierto; 'mira'
 # mueve la pupila (-1..1 a lo largo). 'cola' pone la punta a un lado u otro.
+# CURVADO (su dibujo, 26/09: "los ojos en los bordes tienen que quedar con la curvatura"): con 'arco_r' > 0 el ojo se
+# dobla sobre el circulo de centro 'arco_c' y radio 'arco_r'; 'giro' es entonces su angulo en ese circulo y 'c' no
+# se usa (a lo largo = por el borde; hacia fuera = y negativa, el parpado de arriba mira hacia fuera).
+var _arco_c: Vector2 = Vector2.ZERO
+var _arco_r: float = 0.0
+var _arco_a: float = 0.0
+const ARCO_INCLINA := 0.32
+
+func _ojo_p(c: Vector2, eje: Vector2, nor: Vector2, q: Vector2) -> Vector2:
+	if _arco_r <= 0.0:
+		return c + eje * q.x + nor * q.y
+	var a: float = _arco_a + q.x / _arco_r
+	# Inclinado: la punta (x > 0) se abre hacia fuera, como las hojas de un molinillo.
+	return _arco_c + Vector2(cos(a), sin(a)) * (_arco_r - q.y + q.x * ARCO_INCLINA)
+
+
 func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: float, mira: float, cola: float,
 		sem: float, alfa: float) -> void:
 	if abre <= 0.02 or alfa <= 0.0:
@@ -574,6 +591,7 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 	var alto: float = largo * 0.2 * abre
 	var eje := Vector2(cos(giro), sin(giro))
 	var nor := Vector2(-eje.y, eje.x)
+	_arco_a = giro
 	var n: int = 12
 	var arriba: Array = []
 	var abajo: Array = []
@@ -595,23 +613,21 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 	var poly := PackedVector2Array()
 	for i in pts.size():
 		var q: Vector2 = pts[i]
-		poly.append(c + eje * q.x + nor * q.y)
+		poly.append(_ojo_p(c, eje, nor, q))
 		if i == n:
-			var ext: Vector2 = punta if cola > 0.0 else gancho
-			poly.append(c + eje * ext.x + nor * ext.y)
+			poly.append(_ojo_p(c, eje, nor, punta if cola > 0.0 else gancho))
 		elif i == pts.size() - 1:
-			var ext2: Vector2 = gancho if cola > 0.0 else punta
-			poly.append(c + eje * ext2.x + nor * ext2.y)
+			poly.append(_ojo_p(c, eje, nor, gancho if cola > 0.0 else punta))
 	if Geometry2D.triangulate_polygon(poly).size() > 0:
 		ci.draw_colored_polygon(poly, Color(NEGRO, alfa))
 	# El iris rojo: la almendra de dentro, mas pequeña.
 	var rojo := PackedVector2Array()
 	for k in n + 1:
 		var q1: Vector2 = (arriba[k] as Vector2) * Vector2(0.74, 0.62)
-		rojo.append(c + eje * q1.x + nor * q1.y)
+		rojo.append(_ojo_p(c, eje, nor, q1))
 	for k in range(n, -1, -1):
 		var q2: Vector2 = (abajo[k] as Vector2) * Vector2(0.74, 0.56)
-		rojo.append(c + eje * q2.x + nor * q2.y)
+		rojo.append(_ojo_p(c, eje, nor, q2))
 	if alto > 1.2 and Geometry2D.triangulate_polygon(rojo).size() > 0:
 		ci.draw_colored_polygon(rojo, Color(SOMBRA_ROJA, alfa))
 		# Los anillos negros del iris, aplastados contra los parpados (como si el parpado los cortase).
@@ -625,10 +641,10 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 				var uu: float = clampf(q3.x / largo + 0.5, 0.0, 1.0)
 				var lim: float = pow(sin(uu * PI), 0.7) * alto * 0.62
 				q3.y = clampf(q3.y, -lim, lim * 0.85)
-				anillo.append(c + eje * q3.x + nor * q3.y)
+				anillo.append(_ojo_p(c, eje, nor, q3))
 			anillo.append(anillo[0])
 			ci.draw_polyline(anillo, Color(NEGRO, alfa), maxf(0.7, largo * 0.035), true)
-		ci.draw_circle(c + eje * pc.x, largo * 0.05 * minf(abre * 1.5, 1.0), Color(NEGRO, alfa))
+		ci.draw_circle(_ojo_p(c, eje, nor, Vector2(pc.x, 0.0)), largo * 0.05 * minf(abre * 1.5, 1.0), Color(NEGRO, alfa))
 
 
 func _voragine(capa: Node2D) -> void:
@@ -688,16 +704,30 @@ func _voragine(capa: Node2D) -> void:
 			var kh: float = clampf(t_hunde / T_HUNDE, 0.0, 1.0)
 			_disco(capa, _c, 5.0 + 8.0 * kh, NEGRO, Color(NEGRO, 0.6))
 			return
-		# Los BRAZOS del remolino (tres medias lunas negras enroscandose hacia dentro).
+		# EL AGUJERO NEGRO: halo rojo oscuro, el borde que brilla en rojo y el disco negro puro; las pinceladas rotas
+		# giran pegadas a su borde (las de su primera referencia).
+		var r_h: float = _r * 0.6 * vivo * (1.0 + 0.08 * ap)
+		BarridoAire.brillo(capa, _c, r_h * 1.35, Color(SOMBRA_GRANATE, 0.6 * vivo))
+		MagiaAire._anillo(capa, _c, r_h, 4.0 + 3.0 * ap, Color(SOMBRA_ROJA, (0.55 + 0.4 * ap) * vivo))
+		_disco(capa, _c, r_h, NEGRO, NEGRO)
 		for i in 3:
-			var a0: float = giro + TAU * float(i) / 3.0
-			_brazo(capa, _c, a0, r_pozo * 0.6, _r * (0.95 - 0.12 * ap) * vivo, 2.3, _r * 0.24 * vivo, vivo, float(i) * 7.0)
-		# El POZO y su ojo rojo de anillos.
-		_disco(capa, _c, r_pozo, NEGRO, Color(NEGRO, 0.95))
-		_anillos_rotos(capa, _c, r_pozo * 0.42, -giro * 1.2, vivo)
-		# Anillo de la onda que se cierra hacia dentro en cada tiron.
+			_brazo(capa, _c, giro * 1.3 + TAU * float(i) / 3.0, r_h * 0.98, r_h * 1.12, 1.4, _r * 0.03 * vivo, vivo * 0.9,
+				float(i) * 7.0)
+		# LA CORONA DE OJOS por fuera del borde, curvados con el y todos hacia el mismo lado; gira con el remolino.
+		var r_ojos: float = r_h + _r * 0.14
+		var largo_o: float = TAU * r_ojos / float(maxi(_rayos.size(), 1))
+		_arco_c = _c
+		for oj in _rayos:
+			var ko: float = clampf((tp - float(oj["t0"])) / 0.22, 0.0, 1.0)
+			var abre_o: float = (1.0 - pow(1.0 - ko, 2.0)) * (1.0 - cierra) * (1.0 - 0.5 * ap)
+			_arco_r = r_ojos * (1.0 + float(oj["d"]))
+			var mira: float = 0.6 * sin(_t * 2.0 + float(oj["sem"]))
+			_ojo_muerte(capa, _c, largo_o * float(oj["largo"]) * vivo, float(oj["a"]) + giro * 0.35, abre_o, mira, 1.0,
+				float(oj["sem"]), 1.0)
+		_arco_r = 0.0
+		# El tiron: una onda granate que se cierra hacia el agujero.
 		if ap > 0.02:
-			MagiaAire._anillo(capa, _c, lerpf(r_pozo * 1.1, _r * 0.95, ap), 5.0, Color(SOMBRA_GRANATE, 0.7 * ap))
+			MagiaAire._anillo(capa, _c, lerpf(r_h, _r * 1.05, ap), 5.0, Color(SOMBRA_GRANATE, 0.7 * ap))
 		return
 	if capa == _delante:
 		if tp < 0.0:
@@ -716,16 +746,6 @@ func _voragine(capa: Node2D) -> void:
 					Color(0.12, 0.09, 0.1, vivo), 0.8)
 			else:
 				_disco(capa, pz, tam * 1.2, Color(NEGRO, 0.7 * vivo * sin(tk * PI)), Color(VIOLETA_HONDO, 0.0))
-		# Los OJOS DE MUERTE alrededor del area, flotando: se abren, miran al centro, se entornan en cada tiron.
-		for oj in _rayos:
-			var ko: float = clampf((tp - float(oj["t0"])) / 0.22, 0.0, 1.0)
-			var abre_o: float = (1.0 - pow(1.0 - ko, 2.0)) * (1.0 - cierra) * (1.0 - 0.45 * ap)
-			var a_o: float = float(oj["a"])
-			var po: Vector2 = _c + Vector2(cos(a_o), sin(a_o)) * _r * float(oj["d"]) \
-				+ _alto(float(oj["alto"]) + 2.0 * sin(_t * 3.0 + float(oj["sem"])))
-			var mira: float = clampf(-cos(a_o) * 1.2, -1.0, 1.0)
-			_ojo_muerte(capa, po, float(oj["largo"]) * (0.75 + 0.25 * vivo), float(oj["giro"]), abre_o, mira,
-				float(oj["cola"]), float(oj["sem"]), 1.0)
 		return
 	if capa == _brillo:
 		if tp < 0.0:
@@ -733,6 +753,6 @@ func _voragine(capa: Node2D) -> void:
 			BarridoAire.brillo(capa, _c, 18.0 * kh2, Color(SOMBRA_ROJA, 0.5 * kh2))
 			return
 		# El resplandor rojo del ojo, que late con los tirones, y el destello rojo al cerrarse.
-		BarridoAire.brillo(capa, _c, r_pozo * (1.2 + 0.5 * ap), Color(SOMBRA_ROJA, (0.25 + 0.35 * ap) * vivo))
+		BarridoAire.brillo(capa, _c, _r * 0.6 * vivo * 1.15, Color(SOMBRA_ROJA, (0.12 + 0.25 * ap) * vivo))
 		if cierra > 0.0 and cierra < 1.0:
 			BarridoAire.destello(capa, _c + _alto(3.0), 20.0 * (1.0 - cierra), Color(SOMBRA_ROJA, 1.0 - cierra), 0.5)
