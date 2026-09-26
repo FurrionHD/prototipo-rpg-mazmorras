@@ -39,7 +39,8 @@ const HABILIDADES := [
 	["magia", "brasa"], ["magia", "descarga"], ["magia", "rocio"], ["magia", "pulso_menor"],
 	["magia", "vendaje_de_luz"], ["magia", "bola_fuego"], ["magia", "chorro_agua"], ["magia", "rayo"], ["magia", "pulso_arcano"],
 	["magia", "debilidad"], ["magia", "fortaleza"], ["magia", "filo_ardiente"], ["magia", "filo_fulgurante"], ["magia", "filo_umbrio"], ["magia", "filo_torrente"], ["magia", "filo_radiante"], ["magia", "mar_de_brasas"], ["magia", "venablo_de_tormenta"],
-	["magia", "estallido_solar"], ["magia", "voragine_sombra"], ["magia", "luz_restauradora"], ["magia", "shock_termico"], ["magia", "tormenta"], ["magia", "manto_brasas"],
+	["magia", "estallido_solar"], ["magia", "voragine_sombra"], ["magia", "luz_restauradora"], ["magia", "shock_termico"], ["magia", "tormenta"], ["magia", "manto_brasas"], ["magia", "manto_marea"], ["magia", "manto_centellas"],
+	["magia", "manto_aureo"], ["magia", "manto_umbrio"],
 ]
 const ALCANCE := {"martillo": 32.25, "mandoble": 34.5, "hacha": 32.25, "daga": 15.0, "estoque": 32.25,
 	"espada": 18.75, "larga": 23.25, "escudo": 23.25, "maza": 18.75, "maza2": 18.75,
@@ -122,6 +123,11 @@ const MOMENTOS_MAGIA := {
 	"shock_termico": [0.1, 0.25, 0.4, 0.5, 0.62, 0.8, 1.2, 1.45, 1.6, 1.75, 1.95],
 	"tormenta": [0.1, 0.3, 0.5, 0.75, 0.95, 1.25, 1.6, 2.1, 2.4, 2.65],
 	"luz_restauradora": [0.1, 0.25, 0.4, 0.55, 0.7, 0.9, 1.2],
+	"manto_brasas": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
+	"manto_marea": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
+	"manto_centellas": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
+	"manto_aureo": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
+	"manto_umbrio": [0.12, 0.38, 0.62, 0.8, 0.95, 1.2, 1.5],
 }
 # EL ESTOQUE (EstoqueAire), como la daga: golpe a golpe sobre cada cuerpo.
 const MOMENTOS_ESTOQUE := {
@@ -1006,7 +1012,8 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 				d_i = cji.get_center().distance_to(f.centro)
 				caja_i = cji
 		var col_i: Color = Elementos.color(sp.elemento) if Elementos.tiene_color(sp.elemento) else MagiaAire.ARCANO
-		sueltos.append({"n": MagiaAire.filo(self, yo + Vector2(0, -13), caja_i, col_i, 9, 0.6, 1.0, sp.elemento), "t0": 0.6})
+		sueltos.append({"n": MagiaAire.filo(self, yo + Vector2(0, -13), caja_i, col_i, 9, 0.6, 1.0, sp.elemento,
+			sp.imbue_tipo == 2), "t0": 0.6})
 	if not sueltos.is_empty():
 		for su in sueltos:
 			(su["n"] as Node).set_process(false)

@@ -26,7 +26,9 @@
 #    MALDICION Debilidad: una niebla violeta cae sobre el enemigo y lo aplasta (galones hacia abajo, anillo que
 #              se cierra a sus pies, gotas oscuras).
 #    FORTALECER Fortaleza: un aura roja sube por el cuerpo (galones hacia arriba, anillo que se abre, destello).
-#    FILO      los Filos: el elemento viaja en arco de tu mano a su arma y revienta en ella.
+#    FILO      los Filos: el elemento viaja en arco de tu mano a su arma y revienta en ella. Con 'cuerpo' (los
+#              MANTOS, 26/09): la esfera le envuelve entero y DOS CINTAS le suben en espiral de los pies a la cabeza
+#              (tres vueltas) y rematan en un destello sobre ella; el aura que se queda es la de ImbueVisual.
 #  Y POR EL SUELO, tambien:
 #    LAVA      Mar de brasas: el suelo se raja desde ti, las grietas se llenan de lava, salen llamas y luego se
 #              enfria (rojo -> negro).
@@ -174,6 +176,8 @@ var _motas: Array = []
 var _puntos: Array = []
 var _pies_filo: Vector2 = Vector2.ZERO
 var _elem_filo: int = 0
+var _cuerpo_filo: bool = false
+var _alto_manto: float = 20.0   # lo que mide el cuerpo que envuelve el manto (de los pies a la cabeza), en "altura"
 # El arco.
 var _desde: Vector2 = Vector2.ZERO
 var _hasta: Vector2 = Vector2.ZERO
@@ -301,7 +305,7 @@ func duracion() -> float:
 		Modo.ARCO: return T_ARCO + 0.05
 		Modo.CURA: return T_CURA
 		Modo.MALDICION, Modo.FORTALECER: return T_SOBRE
-		Modo.FILO: return T_FILO_IMPACTO + 0.05
+		Modo.FILO: return (T_MANTO_IMPACTO if _cuerpo_filo else T_FILO_IMPACTO) + 0.05
 	return 1.0
 
 
@@ -470,7 +474,7 @@ static func sobre_cuerpo(padre: Node, m: int, caja: Rect2, col: Color, semilla: 
 
 # EL FILO: de 'desde' (el pecho de quien lo lanza) al arma de quien lo recibe ('caja', su cuerpo).
 static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: int, espera: float, ritmo: float,
-		elem: int = 0) -> MagiaAire:
+		elem: int = 0, cuerpo: bool = false) -> MagiaAire:
 	if padre == null:
 		return null
 	var e := MagiaAire.new()
@@ -483,7 +487,10 @@ static func filo(padre: Node, desde: Vector2, caja: Rect2, col: Color, semilla: 
 	e._t = -maxf(espera, 0.0)
 	e._largo = maxf(espera, 0.05)
 	e._desde = desde
-	e._hasta = caja.get_center() + Vector2(caja.size.x * 0.35, 0.0)   # por la mano del arma
+	e._cuerpo_filo = cuerpo
+	e._alto_manto = maxf(caja.size.y, 16.0) / K
+	# Al ARMA (por la mano del arma); el MANTO, al pecho.
+	e._hasta = caja.get_center() + (Vector2.ZERO if cuerpo else Vector2(caja.size.x * 0.35, 0.0))
 	e._ancho = maxf(caja.size.x, 10.0)
 	e._pies_filo = Vector2(caja.get_center().x, caja.end.y)
 	e._elem_filo = elem
@@ -1587,6 +1594,7 @@ func _pos_filo(u: float) -> Vector2:
 
 const T_CARGA_FILO := 0.2      # lo que se concentra en tu mano antes de salir (del vuelo: el resto es el viaje)
 const T_FILO_IMPACTO := 0.95
+const T_MANTO_IMPACTO := 1.1
 
 # UN TROZO del elemento (lo que deja la estela y lo que salta al reventar): brasa, gota, chispa, estrella o humo.
 func _trozo_elem(ci: CanvasItem, p: Vector2, tam: float, alfa: float, sem: float) -> void:
@@ -1665,6 +1673,9 @@ func _filo(capa: Node2D) -> void:
 		BarridoAire.destello(capa, _pos_filo(u), 10.0, Color(claro, 0.8), t0 * 7.0)
 		return
 	# 3) EL IMPACTO.
+	if _cuerpo_filo:
+		_manto_llega()
+		return
 	var ki: float = clampf(_t / T_FILO_IMPACTO, 0.0, 1.0)
 	if ki >= 1.0:
 		return
@@ -1698,6 +1709,60 @@ func _filo(capa: Node2D) -> void:
 		var ka: float = clampf((_t - 0.4) / 0.55, 0.0, 1.0)
 		BarridoAire.destello(capa, _hasta, 26.0 * (1.0 - ka * 0.7), Color(claro, 1.0 - ka), 0.6 + ka)
 		BarridoAire.brillo(capa, _hasta, 14.0 * (1.0 - ka * 0.5), Color(color, 0.55 * (1.0 - ka)))
+
+
+# LA LLEGADA DEL MANTO (en la capa de brillo): la esfera del elemento le envuelve entero y revienta, DOS CINTAS le
+# suben en espiral trenzadas de los pies a la cabeza (tres vueltas, gordas, con trozos de su elemento que se sueltan)
+# y arriba rematan en un destello; en los pies queda un anillo que se abre.
+func _manto_llega() -> void:
+	var capa: Node2D = _brillo
+	if _t >= T_MANTO_IMPACTO:
+		return
+	var claro: Color = color.lerp(Color.WHITE, 0.7)
+	var alto: float = _alto_manto
+	var pecho: Vector2 = _pies_filo + _alto(alto * 0.5)
+	# La ESFERA que le envuelve entero y revienta.
+	if _t < 0.45:
+		var ke: float = _t / 0.45
+		var re: float = maxf(_ancho, alto * K * 0.55) * (0.9 + 0.8 * (1.0 - pow(1.0 - ke, 2.0)))
+		BarridoAire.brillo(capa, pecho, re, Color(color, 0.35 * (1.0 - ke)))
+		_anillo(capa, pecho, re, 5.0, Color(claro, 0.9 * (1.0 - ke)))
+		if _t < 0.12:
+			BarridoAire.brillo(capa, pecho, 36.0 * (1.0 - _t / 0.12), Color(claro, 0.6 * (1.0 - _t / 0.12)))
+	# Los fragmentos del elemento que salen despedidos.
+	if _t < 0.5:
+		for m in _motas:
+			var pm: Vector2 = pecho + (m["d"] as Vector2) * float(m["v"]) * _t + Vector2(0.0, 55.0 * _t * _t)
+			_trozo_elem(capa, pm, float(m["tam"]), 1.0 - _t / 0.5, float(m["giro"]) + floor(_t * 18.0))
+	# LAS DOS CINTAS en espiral de los pies a la cabeza.
+	var ks: float = clampf((_t - 0.05) / 0.7, 0.0, 1.0)
+	var se_van: float = 1.0 - clampf((_t - 0.75) / 0.3, 0.0, 1.0)
+	if ks > 0.0 and se_van > 0.0:
+		for cinta in 2:
+			var fase: float = PI * float(cinta)
+			for k3 in 14:
+				var q: float = ks - 0.045 * float(k3)
+				if q < 0.0:
+					break
+				var a3: float = q * TAU * 3.0 + fase
+				var r3: float = _ancho * (0.85 + 0.25 * sin(q * PI))
+				var p3: Vector2 = _pies_filo + Vector2(cos(a3) * r3, sin(a3) * r3 * K) + _alto(q * alto)
+				var q2: float = maxf(0.0, q - 0.045)
+				var a4: float = q2 * TAU * 3.0 + fase
+				var p4: Vector2 = _pies_filo + Vector2(cos(a4) * r3, sin(a4) * r3 * K) + _alto(q2 * alto)
+				BarridoAire.cometa(capa, p4, p3, (6.5 - 0.35 * float(k3)), Color(color, 0.9 * (1.0 - float(k3) / 14.0) * se_van))
+				if k3 % 4 == 2:
+					_trozo_elem(capa, p3 + Vector2(0.0, 3.0), 1.6, 0.8 * se_van, float(k3) + floor(_t * 16.0) + fase)
+			var a5: float = ks * TAU * 3.0 + fase
+			var cab: Vector2 = _pies_filo + Vector2(cos(a5) * _ancho, sin(a5) * _ancho * K) + _alto(ks * alto)
+			BarridoAire.brillo(capa, cab, 7.0, Color(color, 0.6 * se_van))
+			BarridoAire.brillo(capa, cab, 3.0, Color(claro, se_van))
+	# EL REMATE sobre la cabeza cuando llegan arriba, y el anillo que se abre en los pies.
+	if _t > 0.7:
+		var kr: float = clampf((_t - 0.7) / 0.4, 0.0, 1.0)
+		var cabeza: Vector2 = _pies_filo + _alto(alto + 4.0)
+		BarridoAire.destello(capa, cabeza, 24.0 * (1.0 - kr * 0.6), Color(claro, 1.0 - kr), 0.4 + kr)
+		BarridoAire.brillo(capa, pecho, alto * 0.6, Color(color, 0.3 * (1.0 - kr)))
 
 
 func _largo_cuerpo() -> float:

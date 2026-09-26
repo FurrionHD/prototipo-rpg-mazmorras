@@ -603,8 +603,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 		_aplicar_imbuicion(spell)
 		# EN EL MAPA se ve llegar: el elemento viaja de tu mano al arma de quien lo recibe.
 		if en_mapa and _pantalla._cast_aliado != null:
+			# El MANTO (imbuicion de CUERPO) le envuelve entero; el Filo va a su arma.
 			_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._cast_aliado, 0.0, false, false,
-				int(spell.elemento), CombatFX.Estilo.IMBUIR_ELEM, 1.0, true)
+				int(spell.elemento), CombatFX.Estilo.IMBUIR_CUERPO if spell.imbue_tipo == 2 else CombatFX.Estilo.IMBUIR_ELEM,
+				1.0, true)
 	# El efecto por el suelo se suelta aqui tambien (el de una magia sin golpe, como la Debilidad, se fijo arriba).
 	if con_efecto:
 		_pantalla.efectos.soltar_suelo()

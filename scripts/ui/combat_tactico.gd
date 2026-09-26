@@ -2193,11 +2193,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		MagiaAire.sobre_cuerpo(arena, MagiaAire.Modo.MALDICION if estilo == CombatFX.Estilo.MALDICION
 			else MagiaAire.Modo.FORTALECER, bulto_de(v), Color.WHITE, semilla, vuelo, ritmo)
 		return
-	if estilo == CombatFX.Estilo.IMBUIR_ELEM:
+	if estilo == CombatFX.Estilo.IMBUIR_ELEM or estilo == CombatFX.Estilo.IMBUIR_CUERPO:
 		var el_i: int = int(ev.get("elem", 0))
 		var col_i: Color = Elementos.color(el_i) if Elementos.tiene_color(el_i) else MagiaAire.ARCANO
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center()
-		MagiaAire.filo(arena, desde_i, bulto_de(v), col_i, semilla, vuelo, ritmo, el_i)
+		MagiaAire.filo(arena, desde_i, bulto_de(v), col_i, semilla, vuelo, ritmo, el_i,
+			estilo == CombatFX.Estilo.IMBUIR_CUERPO)
 		return
 	# EL RAYO DE LA TORMENTA (MagiaMayor): del borde del ojo a sus pies.
 	if estilo == CombatFX.Estilo.TORMENTA_RAYO:
