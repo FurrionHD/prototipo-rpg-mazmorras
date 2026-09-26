@@ -23,8 +23,8 @@ fx_estilo = 119
 fx_estilo_salpicon = 119
 descripcion = "El fuego deja de caer del cielo y sale de abajo: el suelo entero se abre en ascuas y arde a la vez para todos. No pega tan fuerte como una andanada bien puesta, pero es muy raro que alguien salga de ahi sin humear."
 efectos = [SubResource("SA_quema")]
-; LA FORMA EN EL MAPA (26/09, su decision): una FRANJA de lava delante de ti; arde para todos los de dentro.
+; LA FORMA EN EL MAPA (26/09, su decision): una FRANJA de lava delante de ti (retocada: algo mas corta y mas ancha); arde para todos los de dentro.
 forma = 3
-forma_radio = 170.0
-forma_ancho = 60.0
+forma_radio = 150.0
+forma_ancho = 85.0
 forma_apunte = 1
