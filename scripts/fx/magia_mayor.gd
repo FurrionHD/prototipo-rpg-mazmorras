@@ -2197,6 +2197,7 @@ const BOCA_CIAN := Color(0.98, 0.92, 0.65)        # (idem: las VETAS y los crist
 const BOCA_CUERPO := Color(0.12, 0.04, 0.18)      # violeta hondo de oscuridad
 const BOCA_VIOLETA := Color(0.32, 0.14, 0.45)
 const T_SUBE_BOCA := 0.22
+const DEFORMA_BOCA := 0.5         # cuanto se deforma la boca como mucho (1 = lo de antes)
 const T_HOYO := 0.14             # primero se abre el agujero entero; despues sale la boca
 const T_MUERDE := 0.09
 const DIENTES := 9
@@ -2361,7 +2362,8 @@ func _remolinos_boca(ci: CanvasItem, r_h: float, alfa: float) -> void:
 
 
 func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:
-	_deforma = lerpf(0.15, 1.0, smoothstep(0.0, T_FORMA_ECLIPSE, tn))
+	# (27/09: "menos distorsionado, quizas me pase") la mitad de la de antes: sale casi redonda y se queda en DEFORMA_BOCA.
+	_deforma = lerpf(0.1, DEFORMA_BOCA, smoothstep(0.0, T_FORMA_ECLIPSE, tn))
 	var abre_hoyo: float = 1.0 - pow(1.0 - clampf(tn / T_HOYO, 0.0, 1.0), 2.0)
 	var sube: float = 1.0 - pow(1.0 - clampf((tn - T_HOYO) / T_SUBE_BOCA, 0.0, 1.0), 2.0)
 	_escala_boca = lerpf(0.55, 1.0, sube)
