@@ -2,6 +2,42 @@
 
 ---
 
+# v0.15.0
+
+## ⚔️ El combate en el mapa (solo en la arena de pruebas)
+
+**En la arena se pelea sobre el propio mapa**, sin cambiar de pantalla. En tu turno andas lo que te dé la
+Agilidad y luego actúas; los enemigos se acercan en el suyo. Para huir, sal por el borde de la arena.
+
+**Cada arma pega a su manera**: martillo, mandoble, hacha, daga, estoque, espada corta, espada larga, maza,
+bastón y varita tienen alcance propio, sus habilidades se apuntan con el ratón (conos, líneas, círculos) y
+cada una tiene su animación y su efecto. Los escudos solo paran lo que viene por delante.
+
+**Las 30 magias tienen forma en el mapa**: se apuntan al empezar a recitar, se ve el círculo mágico mientras
+cantas y, al soltarlas, tu personaje hace su floritura con la varita o alza el bastón.
+
+**Se juega en compañía**: la pelea la lleva el servidor y todos la veis igual en el mapa.
+
+## 🎮 Steam
+
+**Se puede jugar sin Hamachi**: la conexión va por Steam, y puedes invitar a tus amigos desde la pausa.
+
+## 🏘️ El pueblo
+
+**El pueblo ha crecido**: barrio norte con cuartel, plaza con fuente, barrios al este y al oeste, y un
+**mercadillo** donde se compra la comida en los puestos (con fruta y platos nuevos). Los vendedores abren al
+amanecer y se van al atardecer, y hay guardias haciendo el relevo en los portones.
+
+## 🔧 Arreglos
+
+**Quien está de encargo se lleva su equipo**: mientras está fuera no se le puede cambiar ni quitar nada.
+
+**En la pausa sale el código del mundo** con un botón para copiarlo.
+
+**Las hebillas cuestan un lingote**, y el equipo mejorado ya no brilla blanco de más.
+
+---
+
 # v0.14.1
 
 ## 🌍 Los mundos compartidos, en la nube

@@ -79,3 +79,6 @@ tools/huellas/mundo_ref.tres
 # La nube (servidor/nube): lo que genera wrangler al probar en local (con los mundos de prueba dentro)
 servidor/nube/.wrangler/
 servidor/nube/node_modules/
+
+# Copias temporales de Windows al sobrescribir una DLL en uso (GodotSteam con el editor abierto)
+~*.TMP
