@@ -384,15 +384,23 @@ func _sincronizar_auras() -> void:
 func _z_auras() -> void:
 	if _imbue_cod == 0 or not ImbueVisual.es_cuerpo(_imbue_cod):
 		return
+	# (27/09, "no se ve hacia el noroeste") por debajo de las capas del CUERPO (las de z propio: cuerpo, ropa, pelo),
+	# no de todas: al noroeste el arma va detras con un z muy negativo, y el aura bajaba con ella hasta debajo del
+	# suelo de la arena. Lo que va detras del cuerpo (el arma) queda por debajo del aura, que solo pinta alrededor.
 	var zmin: int = 4096
 	for c in _capas:
 		var s: AnimatedSprite2D = c["nodo"]
-		if s.visible:
+		if s.visible and c.has("z"):
 			zmin = mini(zmin, s.z_index)
+	if zmin == 4096:
+		for c in _capas:
+			var s2: AnimatedSprite2D = c["nodo"]
+			if s2.visible:
+				zmin = mini(zmin, s2.z_index)
 	for c in _capas:
 		var a = c.get("aura")
 		if a != null and is_instance_valid(a):
-			(a as CanvasItem).z_index = maxi(-4096, zmin - 1)
+			(a as CanvasItem).z_index = maxi(0, zmin - 1)   # nunca por debajo del suelo del piso (z -1)
 
 
 # LA HERRAMIENTA DE UNA FAENA (el pico al picar). {} la quita. Remonta con el mismo personaje: la
