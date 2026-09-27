@@ -300,8 +300,8 @@ func _montar_auras() -> void:
 		_mat_aura_plana = ShaderMaterial.new()
 		_mat_aura_plana.shader = SHADER_AURA
 		_mat_aura_plana.set_shader_parameter("indexada", false)
-	# EL PRISMATICO (27/09: "imbuicion de arma MAS manto, multicolor"): el aura de cuerpo por detras Y el arma hecha de
-	# arcoiris por encima, como un Filo. Su material de arma va aparte (filo = true).
+	# LOS MANTOS (27/09: "los mantos te imbuyen los ataques de las armas tambien"): el aura de cuerpo por detras Y el
+	# arma hecha de su elemento por encima, como un Filo (el prismatico, de arcoiris). Material de arma aparte (filo).
 	var prisma: bool = ImbueVisual.es_prisma(_imbue_cod)
 	if _mat_aura_filo == null:
 		_mat_aura_filo = ShaderMaterial.new()
@@ -323,8 +323,8 @@ func _montar_auras() -> void:
 		if not cuerpo and not es_arma:
 			continue
 		var s: AnimatedSprite2D = c["nodo"]
-		if prisma and es_arma:
-			# El arma del prismatico: hecha de arcoiris, encima del arma (como un Filo).
+		if cuerpo and es_arma:
+			# El arma de un Manto: hecha de su elemento (el prismatico, de arcoiris), encima del arma (como un Filo).
 			var af: Node2D = AURA_CAPA.new()
 			af.desfase = s.offset
 			af.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

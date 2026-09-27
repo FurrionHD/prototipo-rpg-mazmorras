@@ -63,12 +63,12 @@ func _ready() -> void:
 	p._pintar_cuerpo()
 	if pedidas == "":
 		await _hoja(p, "idle_%d" % dir, true, "%s/manto.png" % salida, 34)
-	# IMBUICIONES_PRISMA=1: solo la del prismatico, con arma (el arcoiris en el cuerpo y en el arma).
+	# IMBUICIONES_PRISMA=1: los MANTOS con arma (el aura en el cuerpo y el arma de su elemento; el prismatico, arcoiris).
 	if OS.get_environment("IMBUICIONES_PRISMA") != "":
 		for arma2 in ["espada_larga", "baston", "hacha_grande"]:
 			pj.equipped_main = _arma_de_tipo(arma2)
 			p._pintar_cuerpo()
-			await _hoja(p, "guardia_%d" % dir, true, "%s/prisma_%s.png" % [salida, arma2], 34)
+			await _hoja(p, "guardia_%d" % dir, true, "%s/manto_con_%s.png" % [salida, arma2], 34)
 		pj.equipped_main = null
 		p._pintar_cuerpo()
 	print("[ver imbuiciones] ", ProjectSettings.globalize_path(salida))
