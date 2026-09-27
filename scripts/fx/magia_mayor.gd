@@ -164,6 +164,8 @@ var _duracion_vuelo: float = 0.6
 # LA DEFORMACION de la boca del Eclipse (27/09: "¿siempre se genera con la misma deformacion?"): sale de la semilla de
 # cada lanzamiento (que viaja por red: el espejo ve el mismo monstruo). [fases del ruido x6, desfase de dientes y pinchos]
 var _forma_boca: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+# Cuanto de esa deformacion hay ahora (27/09: "que empiece menos deformada"): sale casi redonda y se deforma al abrirse.
+var _deforma: float = 1.0
 var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
@@ -2203,9 +2205,9 @@ func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) ->
 	# (27/09: "muy redondo, tiene que ser mas deforme, mas monstruoso") BULTOS: el borde y la altura van con ruido.
 	var fb: Array = _forma_boca
 	var o: int = 0 if lado < 0.0 else 3
-	var ruido: float = sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07
+	var ruido: float = (sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07) * _deforma
 	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * (1.0 + ruido)
-	var h: float = alto * (0.8 + 0.4 * (0.5 + 0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2]))))
+	var h: float = alto * (1.0 + _deforma * 0.4 * (0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2])) - 0.25))
 	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
 	var sobre: Vector2 = base + _alto(h)
 	var centro_linea: Vector2 = Vector2(base.x, _c.y) + _alto(alto * 0.25)
@@ -2296,6 +2298,7 @@ func _remolinos_boca(ci: CanvasItem, r_h: float, alfa: float) -> void:
 
 
 func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:
+	_deforma = lerpf(0.15, 1.0, smoothstep(0.0, T_FORMA_ECLIPSE, tn))
 	var sube: float = 1.0 - pow(1.0 - clampf(tn / T_SUBE_BOCA, 0.0, 1.0), 2.0)
 	var hunde: float = cierra                            # al final se hunden en el agujero
 	var alto: float = _r * 0.85 * sube * (1.0 - hunde)
