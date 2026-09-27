@@ -423,6 +423,11 @@ func _disparar_hechizo() -> void:
 func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# Todos los enemigos tocados (area + rebotes): hay que rematarlos AL FINAL, de una vez.
 	var tocados: Array = []
+	# EL GESTO DE LANZAR (27/09): los golpes de este conjuro los hace el cuerpo con la floritura de la varita o el
+	# conjuro del baston, no con el golpe de su arma. Aqui y al espejo, delante de los golpes.
+	if _pantalla.tactico and _pantalla._fx != null:
+		_pantalla._fx.lanza_hechizo(_pantalla._bloque_de(_pantalla._player))
+		_pantalla.espejo._apuntar_lanza_red(_pantalla._player)
 	# EN EL MAPA, lo que tape su huella en el sitio que se apunto al empezar: le da a quien este AHI ahora
 	# (si se han ido, mala suerte). Sin nadie dentro, se pierde contra el suelo (el mana ya esta pagado).
 	var punto = (_pantalla._casteos.get(_pantalla._player, {}) as Dictionary).get("punto")
@@ -442,6 +447,8 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				var arena: Node = _pantalla.turno_mapa._arena()
 				if arena != null:
 					SueloRoto.lanzar(arena, f_ef, _tipo_fallo(spell.suelo_mapa), (randi() & 0x3FFFFFFF) | 1)
+				# Sin golpes no hay cola que traiga el gesto: la floritura, a pelo (como el efecto, solo aqui).
+				_pantalla.turno_mapa.gesto_en_mapa(_pantalla._player, "lanzar", 0.75)
 			else:
 				_pantalla.efectos.fijar_suelo(spell.suelo_mapa, f_ef, (randi() & 0x3FFFFFFF) | 1, 0.0)
 				con_efecto = true

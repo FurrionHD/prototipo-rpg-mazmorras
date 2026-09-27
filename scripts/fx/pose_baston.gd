@@ -19,7 +19,7 @@ class_name PoseBaston
 const PALO := 5.0          # lo que asoma el palo por detras de la mano derecha en la guardia
 const ANIMS := ["guardia_baston", "guardia_baston_and", "guardia_baston_cor", "desenvainar_baston",
 	"defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston",
-	"velo_baston"]
+	"velo_baston", "conjuro_baston"]
 # Las guardias con las que puede ir la floritura (la de la mano derecha): '' = la de siempre.
 const FLORITURAS := ["floritura", "floritura_daga", "floritura_estoque", "floritura_espada", "floritura_larga",
 	"floritura_maza"]
@@ -34,7 +34,7 @@ static func pose(anim: String, t: float) -> Dictionary:
 		"guardia_baston_cor": return guardia(t, 2)
 		"desenvainar_baston": return _desenvainar(t)
 		"defensa_baston": return _defensa(t)
-		"golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston":
+		"golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston":
 			return _golpe(anim, t)
 	return {}
 
@@ -109,6 +109,7 @@ static func _defensa(t: float) -> Dictionary:
 #   viento     el Viento limpio: un abanicazo de abajo a la derecha hacia arriba y al frente (sale en 0,5)
 #   foco       el Foco arcano: plantas el palo de pie delante de ti, con las dos manos, y lo alzas un poco (0,45)
 #   velo       el Velo umbrio: el palo por encima de la cabeza y te encoges debajo con el palo pegado (0,3)
+#   conjuro    LANZAR UN HECHIZO con el baston: el orbe en alto da dos vueltas y lo apuntas al frente (0,72)
 static func _golpe(anim: String, t: float) -> Dictionary:
 	var g: Dictionary = guardia(0.0, 0)
 	var p: Dictionary = g.duplicate()
@@ -200,6 +201,28 @@ static func _golpe(anim: String, t: float) -> Dictionary:
 			p["torsion"] = _k(t, [[0.0, tr], [0.22, 0.0], [0.85, 0.0], [1.0, tr]])
 			p["agacha"] = _k(t, [[0.0, ag], [0.22, ag - 0.1], [0.42, 0.62], [0.85, 0.6], [1.0, ag]])
 			p["inclina"] = _k(t, [[0.0, inc], [0.22, -0.12], [0.42, 0.3], [0.85, 0.28], [1.0, inc]])
+		"conjuro_baston":
+			# LANZAR UN HECHIZO (27/09): el palo de pie y en alto, el orbe da dos vueltas por encima de la cabeza y
+			# en 0,72 lo apuntas al frente, que es cuando sale el conjuro (a la par que la floritura de la varita).
+			var fi: float = 2.0 * TAU * clampf((t - 0.2) / 0.42, 0.0, 1.0)
+			var gira: float = _k(t, [[0.0, 0.0], [0.2, 1.0], [0.6, 1.0], [0.68, 0.0], [1.0, 0.0]])
+			var alto := Vector3(0.3 * cos(fi) * gira, 0.2 + 0.2 * sin(fi) * gira, 1.0)
+			var apunta := Vector3(0.0, 1.0, 0.3)
+			var k_ap: float = _k(t, [[0.0, 0.0], [0.62, 0.0], [0.72, 1.0], [0.88, 1.0], [1.0, 0.0]])
+			p["eje_k"] = _k(t, [[0.0, 0.0], [0.18, 1.0], [0.88, 1.0], [1.0, 0.0]])
+			p["eje_2m"] = alto.lerp(apunta, k_ap).normalized()
+			p["palo"] = _k(t, [[0.0, PALO], [0.18, 14.0], [0.62, 14.0], [0.72, 11.0], [0.88, 11.0], [1.0, PALO]])
+			var alza: float = _k(t, [[0.0, 0.0], [0.2, 0.6], [0.6, 0.65], [0.72, 0.1], [0.88, 0.1], [1.0, 0.0]])
+			p["brazo_der"] = _k(t, [[0.0, bd], [0.18, 1.3], [0.72, 1.45], [0.88, 1.45], [1.0, bd]]) + alza \
+				+ 0.1 * sin(fi) * gira
+			p["abre_der"] = _k(t, [[0.0, ad], [0.18, -0.35], [0.88, -0.35], [1.0, ad]])
+			p["brazo_izq"] = _k(t, [[0.0, bi], [0.18, 1.45], [0.72, 1.6], [0.88, 1.6], [1.0, bi]]) + alza \
+				+ 0.1 * sin(fi) * gira
+			p["abre_izq"] = _k(t, [[0.0, ai], [0.18, -0.35], [0.88, -0.35], [1.0, ai]])
+			p["torsion"] = _k(t, [[0.0, tr], [0.18, 0.0], [0.62, 0.05], [0.72, -0.1], [1.0, tr]])
+			p["inclina"] = _k(t, [[0.0, inc], [0.2, -0.1], [0.6, -0.12], [0.72, inc + 0.16], [0.88, inc + 0.12], [1.0, inc]])
+			p["agacha"] = _k(t, [[0.0, ag], [0.2, ag - 0.12], [0.62, ag - 0.12], [0.72, ag + 0.06], [1.0, ag]])
+			p["avance"] = _k(t, [[0.0, 0.0], [0.62, 0.0], [0.72, 2.0], [0.88, 1.6], [1.0, 0.0]])
 	return p
 
 

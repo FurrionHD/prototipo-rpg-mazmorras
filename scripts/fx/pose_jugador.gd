@@ -423,6 +423,7 @@ const ANIMS := [
 	{"n": "viento_baston", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "foco_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "velo_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "conjuro_baston", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	# LA FLORITURA DE LA VARITA (26/09, PoseBaston): la izquierda con la varita; la derecha en la guardia de lo que lleve.
 	{"n": "floritura", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "floritura_daga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},

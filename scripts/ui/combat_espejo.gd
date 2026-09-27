@@ -1160,6 +1160,16 @@ func _apuntar_desliz_red(c: Combatant, p: Vector2, modo: int, golpes: int) -> vo
 		roundi(p.x * 16.0), roundi(p.y * 16.0), modo + golpes * 8]))
 
 
+# EL GESTO DE LANZAR UN HECHIZO (27/09) viaja igual, DELANTE de los golpes del conjuro: [M, quien, 0, 0, 0].
+# Ver CombatFX.lanza_hechizo.
+const MARCA_LANZA := -10
+
+func _apuntar_lanza_red(c: Combatant) -> void:
+	if _pantalla._espejo or not Net.activo:
+		return
+	_impactos_red.append_array(PackedInt32Array([MARCA_LANZA, _cod_combatiente(c), 0, 0, 0]))
+
+
 static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 	var tipo_f: int = d[j + 3]
 	var o := Vector2(float(d[j + 6]) / 16.0, float(d[j + 7]) / 16.0)
@@ -1212,6 +1222,12 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 				_pantalla.turno_mapa.anotar_salto(quien,
 					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
 					_pantalla.turno_mapa.pies_de(vic))
+			j += 5
+			continue
+		if ca == MARCA_LANZA:
+			var quien_l: Combatant = _de_codigo(datos[j + 1])
+			if quien_l != null:
+				_pantalla._fx.lanza_hechizo(_pantalla._bloque_de(quien_l))
 			j += 5
 			continue
 		if ca == MARCA_DESLIZ:

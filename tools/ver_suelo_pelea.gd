@@ -380,6 +380,13 @@ func _magia_en_pelea(combat: Node, nom: String, media: Vector2) -> void:
 		print("  aliado %s en %s: %.0f/%.0f" % [al.nombre, str(t.pies_de(al).round()), al.current_hp, al.max_hp])
 	combat.magia._elegir_hechizo(s, al_hz, punto if al_hz == null else t.pies_de(yo))
 	combat._cast_index = s.longitud()
+	# El gesto de lanzar (27/09): floritura de la varita o conjuro del baston.
+	var t_av: int = Time.get_ticks_msec()
+	combat._fx.gesto_iniciado.connect(func(_b, _d, dur, anim, _m) -> void:
+		var mu = t.cuerpo_de(yo).get("_muneco")
+		print("  aviso: %s a %.2f s (dura %.2f)" % [anim, (Time.get_ticks_msec() - t_av) / 1000.0, dur])
+		if mu != null:
+			(func() -> void: print("    muneco: ", mu._anim)).call_deferred())
 	combat.magia._disparar_hechizo()
 	await get_tree().create_timer(1.5, true, false, true).timeout
 	for e in combat._enemies:

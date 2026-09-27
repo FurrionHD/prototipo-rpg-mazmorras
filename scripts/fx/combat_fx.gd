@@ -1557,7 +1557,7 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		# QUE ANIMACION pide (vacio = su gesto de atacar de siempre). Ver AbilityData.fx_anim. Las del
 		# JUGADOR en el mapa salen de su estilo (ANIM_CUERPO_MAPA): asi el espejo, que recibe el estilo en
 		# el paquete de impactos, pone al cuerpo la misma sin que viaje nada mas.
-		"anim": anim if anim != &"" else _anim_mapa(estilo),
+		"anim": anim if anim != &"" else (&"lanzar" if is_same(b_atacante, _lanza_bloque) else _anim_mapa(estilo)),
 		# EL SUELO QUE SE ROMPE: el golpe llega cuando la rotura alcanza a esta victima (ver
 		# arrancar_cola), y su dibujo de siempre no sale -- el dibujo ES el suelo.
 		"retraso_suelo": retraso_suelo,
@@ -1583,6 +1583,18 @@ func encolar(b_atacante: Dictionary, b_victima: Dictionary, dmg: float, crit: bo
 		_recalcular_meta(b_victima, "hp")
 
 
+# LANZAR UN HECHIZO (27/09): mientras se resuelve un conjuro, los golpes de su lanzador llevan el gesto 'lanzar'
+# (el muñeco lo hace floritura de varita o conjuro de baston: MunecoJugador._con_su_guardia_base). Los hechizos
+# pegan con estilos de todo tipo (hasta MELEE), asi que no sale del estilo: lo marca quien resuelve
+# (combat_magia) y al espejo le llega en el paquete de impactos (CombatEspejo.MARCA_LANZA). Se suelta al
+# arrancar la cola.
+var _lanza_bloque = null
+
+func lanza_hechizo(bloque: Dictionary) -> void:
+	if rect_en_mapa.is_valid() and not bloque.is_empty():
+		_lanza_bloque = bloque
+
+
 # LA ANIMACION DEL CUERPO de un estilo en el mapa. Las puñaladas de DESAPARECER son un DAGA_CORTE como el
 # basico, pero llegan con la bomba de humo (el suelo pedido es HUMO): su gesto empieza tirandola.
 func _anim_mapa(estilo: int) -> StringName:
@@ -1596,6 +1608,8 @@ func _anim_mapa(estilo: int) -> StringName:
 # en la duracion del turno (ver _pausa_lectura en combat.gd). 0.0 = no habia nada que animar, y
 # entonces manda quien llama (un turno aturdido se queda su pausa corta de lectura).
 func arrancar_cola() -> float:
+	# El gesto de lanzar ya va apuntado en cada golpe (encolar): la marca no pasa a la accion siguiente.
+	_lanza_bloque = null
 	if _cola.is_empty():
 		# El martillo al suelo sin pillar a nadie: la rotura sale igual (es lo que se ve del golpe), y el
 		# turno dura lo que tarda en abrirse.
@@ -1860,6 +1874,8 @@ const IMPACTO_ANIM_MAPA := {
 	# 0,3x10/12. La floritura de la varita: suelta la punta en 0,72x12/16.
 	"golpe_baston": 0.18, "bastonazo_baston": 0.225, "sello_baston": 0.19, "viento_baston": 0.31,
 	"foco_baston": 0.375, "velo_baston": 0.25, "floritura": 0.54,
+	# LANZAR UN HECHIZO: la floritura suelta la punta y el conjuro del baston apunta el orbe en 0,72x12/16.
+	"lanzar": 0.54, "conjuro_baston": 0.54,
 }
 # Tras el primer golpe, con que animacion sigue cada gesto (para adelantar el aviso de los siguientes lo
 # que tarda ESA en tocar): la bomba de Desaparecer sigue a puñaladas.

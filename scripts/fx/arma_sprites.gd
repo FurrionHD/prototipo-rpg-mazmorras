@@ -125,7 +125,7 @@ const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor",
 	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m",
 	# El baston (26/09). Su desenvainar NO: ahi lo pinta la capa de la espalda viajando a la mano.
-	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston"]
+	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
