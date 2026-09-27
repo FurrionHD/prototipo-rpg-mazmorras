@@ -255,6 +255,7 @@ var _imbue_ficha: int = 0        # el que dice su ficha (lo pone su cuerpo)
 var _imbue_pelea: int = -1       # el de su combatiente, en la pelea tactica; -1 = no hay pelea
 var _mat_aura: ShaderMaterial = null
 var _mat_aura_plana: ShaderMaterial = null
+var _mat_aura_filo: ShaderMaterial = null   # el arma del prismatico (arcoiris encima, como un Filo)
 
 func poner_imbue(cod: int) -> void:
 	_imbue_ficha = cod
@@ -282,6 +283,10 @@ func _montar_auras() -> void:
 		if viejo != null and is_instance_valid(viejo):
 			(viejo as Node).queue_free()
 		c.erase("aura")
+		var viejo_f = c.get("aura_filo")
+		if viejo_f != null and is_instance_valid(viejo_f):
+			(viejo_f as Node).queue_free()
+		c.erase("aura_filo")
 	if _imbue_cod == 0:
 		return
 	var cuerpo: bool = ImbueVisual.es_cuerpo(_imbue_cod)
@@ -295,19 +300,39 @@ func _montar_auras() -> void:
 		_mat_aura_plana = ShaderMaterial.new()
 		_mat_aura_plana.shader = SHADER_AURA
 		_mat_aura_plana.set_shader_parameter("indexada", false)
+	# EL PRISMATICO (27/09: "imbuicion de arma MAS manto, multicolor"): el aura de cuerpo por detras Y el arma hecha de
+	# arcoiris por encima, como un Filo. Su material de arma va aparte (filo = true).
+	var prisma: bool = ImbueVisual.es_prisma(_imbue_cod)
+	if _mat_aura_filo == null:
+		_mat_aura_filo = ShaderMaterial.new()
+		_mat_aura_filo.shader = SHADER_AURA
+		_mat_aura_filo.set_shader_parameter("indexada", true)
+		_mat_aura_filo.set_shader_parameter("tonos", float(CapaJugador.RAMPA_TONOS))
 	var rampa: Array = ImbueVisual.rampa(_imbue_cod)
-	for m in [_mat_aura, _mat_aura_plana]:
+	for m in [_mat_aura, _mat_aura_plana, _mat_aura_filo]:
 		(m as ShaderMaterial).set_shader_parameter("c_oscuro", rampa[0])
 		(m as ShaderMaterial).set_shader_parameter("c_base", rampa[1])
 		(m as ShaderMaterial).set_shader_parameter("c_claro", rampa[2])
 		(m as ShaderMaterial).set_shader_parameter("c_nucleo", rampa[3])
 		(m as ShaderMaterial).set_shader_parameter("modo", ImbueVisual.modo(_imbue_cod))
 		(m as ShaderMaterial).set_shader_parameter("filo", not cuerpo)
-		(m as ShaderMaterial).set_shader_parameter("arcoiris", ImbueVisual.es_prisma(_imbue_cod))
+		(m as ShaderMaterial).set_shader_parameter("arcoiris", prisma)
+	_mat_aura_filo.set_shader_parameter("filo", true)
 	for c in _capas:
-		if not cuerpo and not String(c["clave"]).begins_with("arma_"):
+		var es_arma: bool = String(c["clave"]).begins_with("arma_")
+		if not cuerpo and not es_arma:
 			continue
 		var s: AnimatedSprite2D = c["nodo"]
+		if prisma and es_arma:
+			# El arma del prismatico: hecha de arcoiris, encima del arma (como un Filo).
+			var af: Node2D = AURA_CAPA.new()
+			af.desfase = s.offset
+			af.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			af.material = _mat_aura_filo.duplicate()
+			af.z_as_relative = true
+			af.z_index = 0
+			s.add_child(af)
+			c["aura_filo"] = af
 		var a: Node2D = AURA_CAPA.new()
 		a.desfase = s.offset
 		a.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -331,6 +356,15 @@ func _montar_auras() -> void:
 
 # La animacion, el fotograma y la visibilidad de cada aura, las de su capa.
 func _sincronizar_auras() -> void:
+	# La del arma del prismatico sigue a su capa igual que las demas.
+	for c in _capas:
+		var af = c.get("aura_filo")
+		if af == null or not is_instance_valid(af):
+			continue
+		var sf: AnimatedSprite2D = c["nodo"]
+		(af as Node2D).visible = sf.visible
+		if sf.visible and sf.sprite_frames != null and sf.frame < sf.sprite_frames.get_frame_count(sf.animation):
+			af.poner(sf.sprite_frames.get_frame_texture(sf.animation, sf.frame))
 	for c in _capas:
 		var a = c.get("aura")
 		if a == null or not is_instance_valid(a):

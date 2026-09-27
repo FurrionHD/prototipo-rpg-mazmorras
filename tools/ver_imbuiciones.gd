@@ -30,6 +30,8 @@ func _filas() -> Array:
 		["agua", E.AGUA, -1],
 		["luz", E.LUZ, -1],
 		["oscuridad", E.OSCURIDAD, -1],
+		# El Manto PRISMATICO (27/09): arcoiris en el cuerpo Y en el arma.
+		["prisma", -1, -1],
 	]
 
 
@@ -61,6 +63,14 @@ func _ready() -> void:
 	p._pintar_cuerpo()
 	if pedidas == "":
 		await _hoja(p, "idle_%d" % dir, true, "%s/manto.png" % salida, 34)
+	# IMBUICIONES_PRISMA=1: solo la del prismatico, con arma (el arcoiris en el cuerpo y en el arma).
+	if OS.get_environment("IMBUICIONES_PRISMA") != "":
+		for arma2 in ["espada_larga", "baston", "hacha_grande"]:
+			pj.equipped_main = _arma_de_tipo(arma2)
+			p._pintar_cuerpo()
+			await _hoja(p, "guardia_%d" % dir, true, "%s/prisma_%s.png" % [salida, arma2], 34)
+		pj.equipped_main = null
+		p._pintar_cuerpo()
 	print("[ver imbuiciones] ", ProjectSettings.globalize_path(salida))
 	get_tree().quit()
 
@@ -74,7 +84,10 @@ func _hoja(p: Node2D, anim: String, cuerpo: bool, ruta: String, sube: int) -> vo
 	out.fill(FONDO)
 	for i in filas.size():
 		var f: Array = filas[i]
-		m.poner_imbue(ImbueVisual.codigo(int(f[1]), int(f[2]), cuerpo, 10))
+		if String(f[0]) == "prisma":
+			m.poner_imbue(ImbueVisual.codigo(0, -1, true, 10, true))
+		else:
+			m.poner_imbue(ImbueVisual.codigo(int(f[1]), int(f[2]), cuerpo, 10))
 		m.animar(anim)
 		m.fijar(anim, 2)
 		for k in MOMENTOS:
