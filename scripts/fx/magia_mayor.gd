@@ -166,6 +166,9 @@ var _duracion_vuelo: float = 0.6
 var _forma_boca: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 # Cuanto de esa deformacion hay ahora (27/09: "que empiece menos deformada"): sale casi redonda y se deforma al abrirse.
 var _deforma: float = 1.0
+# Lo abierta que esta la boca respecto al agujero (27/09: "primero el agujero y luego que salga de dentro"): nace
+# pequeña dentro del agujero y crece hasta su borde.
+var _escala_boca: float = 1.0
 var _esquirlas: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
@@ -2193,7 +2196,8 @@ const BOCA_MAGENTA := Color(0.55, 0.30, 0.72)     # (el nombre se queda: es el B
 const BOCA_CIAN := Color(0.98, 0.92, 0.65)        # (idem: las VETAS y los cristales) oro de luz
 const BOCA_CUERPO := Color(0.12, 0.04, 0.18)      # violeta hondo de oscuridad
 const BOCA_VIOLETA := Color(0.32, 0.14, 0.45)
-const T_SUBE_BOCA := 0.3
+const T_SUBE_BOCA := 0.22
+const T_HOYO := 0.14             # primero se abre el agujero entero; despues sale la boca
 const T_MUERDE := 0.09
 const DIENTES := 9
 
@@ -2206,7 +2210,7 @@ func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) ->
 	var fb: Array = _forma_boca
 	var o: int = 0 if lado < 0.0 else 3
 	var ruido: float = (sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07) * _deforma
-	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * (1.0 + ruido)
+	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * _escala_boca * (1.0 + ruido)
 	var h: float = alto * (1.0 + _deforma * 0.4 * (0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2])) - 0.25))
 	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
 	var sobre: Vector2 = base + _alto(h)
@@ -2299,7 +2303,9 @@ func _remolinos_boca(ci: CanvasItem, r_h: float, alfa: float) -> void:
 
 func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:
 	_deforma = lerpf(0.15, 1.0, smoothstep(0.0, T_FORMA_ECLIPSE, tn))
-	var sube: float = 1.0 - pow(1.0 - clampf(tn / T_SUBE_BOCA, 0.0, 1.0), 2.0)
+	var abre_hoyo: float = 1.0 - pow(1.0 - clampf(tn / T_HOYO, 0.0, 1.0), 2.0)
+	var sube: float = 1.0 - pow(1.0 - clampf((tn - T_HOYO) / T_SUBE_BOCA, 0.0, 1.0), 2.0)
+	_escala_boca = lerpf(0.55, 1.0, sube)
 	var hunde: float = cierra                            # al final se hunden en el agujero
 	var alto: float = _r * 0.85 * sube * (1.0 - hunde)
 	# La boca se abre un pelo mas justo antes (el amago) y CIERRA de golpe en el golpe de oscuridad.
@@ -2312,7 +2318,7 @@ func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: 
 	var alfa: float = 1.0 - smoothstep(0.6, 1.0, hunde)
 	if capa == _suelo:
 		# EL AGUJERO y sus REMOLINOS (mechones de magenta, cian y morado que giran hacia dentro), y la sombra.
-		var r_h: float = _r * (0.3 + 0.7 * sube) * (1.0 - 0.6 * hunde)
+		var r_h: float = _r * 1.03 * abre_hoyo * (1.0 - 0.6 * hunde)
 		BarridoAire.brillo(capa, _c, _r * 1.25, Color(BOCA_CUERPO, 0.75 * alfa))
 		_remolinos_boca(capa, r_h, alfa)
 		_disco(capa, _c, r_h, NEGRO, NEGRO)
