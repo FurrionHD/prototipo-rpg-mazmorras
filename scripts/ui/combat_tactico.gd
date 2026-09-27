@@ -761,6 +761,8 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_terminar()
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
+		print("[tactico] %s no tiene cuerpo en el mapa de esta maquina (dir %s): turno sin andar" % [
+			c.nombre, str(direccion_red(c)) if not _pantalla._espejo else "espejo"])
 		return
 	_quien = c
 	_cuerpo = cuerpo

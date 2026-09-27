@@ -315,6 +315,9 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 		Net._mi_lugar, Game.semilla_mundo, Game.tienda_t2_abierta(), Game.player_imagen_png,
 		Game.player_color_alpha, PackedInt32Array(Game.pisos_desbloqueados()),
 		Game.lider().aspecto_completo()["piezas"])
+	# ...con MIS compañeros (a los humanos se les anuncia al saludarse; al trabajador no le llegaba nunca)...
+	if not Net.soy_sala:
+		Net.jugadores.anunciar_grupo_a(quien)
 	# ...y a los humanos que ya estaban: son sus presas, sus bichos tienen que verles.
 	for otro in Net._peers:
 		if otro == quien or es_trabajador(otro):

@@ -1137,15 +1137,24 @@ func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	if yo != null and yo is Node2D:
 		puntos.append((yo as Node2D).global_position)
+	# EL TRABAJADOR DE PELEA (27/09) no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
+	# humanos que le mandan sus fichas (ver abrir_pelea_de_fichas), y cuentan como el grupo.
+	var extra: int = 0
+	for q in _puntos_arena_fichas:
+		puntos.append(q)
+		extra += 1
 	if puntos.is_empty():
 		return Rect2i()
-	var cuantos: int = puntos.size() + companeros().size()
+	var cuantos: int = puntos.size() + (companeros().size() if extra == 0 else 0)
 	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
 	var r: Rect2i = ArenaCalculo.rect_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado)
 	if r.size.x < ArenaCalculo.ARENA_MIN.x or r.size.y < ArenaCalculo.ARENA_MIN.y:
 		return Rect2i()
 	return r
 
+
+# Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.
+var _puntos_arena_fichas: Array = []
 
 # La arena viva de la pelea en curso, y lo que hay que devolver a su sitio al acabar.
 var _arena_nodo: Node = null
@@ -14139,7 +14148,16 @@ func abrir_pelea_de_fichas(enemy_nodes: Array, enemy_initiated: bool, grupos: Ar
 	var dobles0: Array = []
 	for f in fichas0:
 		dobles0.append(Net.partida.ficha_de_dict(f))
-	if dobles0.is_empty() or not _abrir_pelea(enemy_nodes, enemy_initiated, dobles0):
+	# LA ARENA (combate tactico, 27/09): se calcula con los cuerpos de los que pelean en ESTA maquina (su avatar
+	# y el de sus compañeros), que aqui no hay jugador.
+	_puntos_arena_fichas.clear()
+	for k in fichas0.size():
+		var cu: Node2D = cuerpo_de_red(peer0, int((fichas0[k] as Dictionary).get("cuerpo", k)))
+		if cu != null:
+			_puntos_arena_fichas.append(cu.global_position)
+	var abierta: bool = not dobles0.is_empty() and _abrir_pelea(enemy_nodes, enemy_initiated, dobles0)
+	_puntos_arena_fichas.clear()
+	if not abierta:
 		return {}
 	var combat: Node = _active_layer.get_child(0)
 	var huecos: Dictionary = {peer0: []}

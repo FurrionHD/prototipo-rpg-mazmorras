@@ -205,6 +205,24 @@ func anunciar_grupo() -> void:
 	# Un trabajador de piso no es nadie: ni se mueve, ni pelea, ni tiene cara que anunciar.
 	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
 		return
+	var datos: Array = _datos_grupo()
+	if Net.es_host:
+		for pid in Net._peers:
+			_set_grupo.rpc_id(pid, Net._mi_id(), datos)
+	else:
+		_rel_grupo.rpc_id(1, datos)
+
+
+# SOLO a uno (27/09): el host se lo manda a un TRABAJADOR recien llegado, que no pasa por el saludo de los
+# humanos. Sin esto el trabajador no creaba nunca los cuerpos de los compañeros del host, y en la pelea tactica
+# que el ejecuta esos compañeros no tenian cuerpo (turno sin andar).
+func anunciar_grupo_a(pid: int) -> void:
+	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+		return
+	_set_grupo.rpc_id(pid, Net._mi_id(), _datos_grupo())
+
+
+func _datos_grupo() -> Array:
 	var datos: Array = []
 	for pj in Game.companeros():
 		# "piezas" = su pelo y su ropa (ver PersonajeData.aspecto_completo). La clave que no metas
@@ -215,11 +233,7 @@ func anunciar_grupo() -> void:
 			# Lo que lleva puesto, igual que el lider (ver anunciar_aspecto). Aqui sale gratis porque
 			# esto ya viajaba como diccionario.
 			"equipo": Game.pj_a_dict(pj).get("equipo", {})})
-	if Net.es_host:
-		for pid in Net._peers:
-			_set_grupo.rpc_id(pid, Net._mi_id(), datos)
-	else:
-		_rel_grupo.rpc_id(1, datos)
+	return datos
 
 
 @rpc("any_peer", "call_remote", "reliable")

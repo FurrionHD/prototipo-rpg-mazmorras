@@ -88,7 +88,9 @@ const MAX_CONEXIONES := 32
 #     (Fase 3, mismo dia y sin repartir aun: _te_piden_permiso / _respuesta_permiso para la sala.)
 # 21: _saludar lleva el TOKEN de invitacion de Steam al final y hay un RPC nuevo, _registrar_invitacion.
 #     Un build del 20 no los conoce: el invitado se quedaria esperando el "Aceptar" que ya no toca.
-const PROTOCOLO := 21
+# 22 (27/09): el paquete de impactos lleva MARCA_LANZA (el gesto de lanzar un hechizo en el tactico) y las
+#     peleas de la ARENA las ejecuta un trabajador de pelea. Un build del 26 leeria la marca como un golpe.
+const PROTOCOLO := 22
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
