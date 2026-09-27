@@ -2209,9 +2209,12 @@ func _punto_boca(lado: float, u: float, v: float, alto: float, cierre: float) ->
 	# (27/09: "muy redondo, tiene que ser mas deforme, mas monstruoso") BULTOS: el borde y la altura van con ruido.
 	var fb: Array = _forma_boca
 	var o: int = 0 if lado < 0.0 else 3
-	var ruido: float = (sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07) * _deforma
+	# (27/09: "evita cosas como estas", el hueco del lado) en las ESQUINAS (u = 0 y 1) no hay deformacion: las dos
+	# mandibulas se juntan siempre en el mismo punto y a la misma altura.
+	var esquina: float = sin(u * PI)
+	var ruido: float = (sin(u * 7.0 + float(fb[o])) * 0.08 + sin(u * 13.0 + float(fb[o + 1])) * 0.05 + sin(u * 3.0 + float(fb[o + 2])) * 0.07) * _deforma * esquina
 	var base: Vector2 = _c + Vector2(cos(a), sin(a)) * _r * _escala_boca * (1.0 + ruido)
-	var h: float = alto * (1.0 + _deforma * 0.4 * (0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2])) - 0.25))
+	var h: float = alto * (1.0 + _deforma * esquina * 0.4 * (0.5 * sin(u * 5.0 + float(fb[o] + fb[o + 2])) - 0.25))
 	# Abierta: la punta se levanta sobre el borde. Cerrada: se dobla hasta la linea del centro (tapando su mitad).
 	var sobre: Vector2 = base + _alto(h)
 	var centro_linea: Vector2 = Vector2(base.x, _c.y) + _alto(alto * 0.25)
@@ -2284,6 +2287,62 @@ func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: f
 		ci.draw_circle(p + Vector2(-w * 0.2, -h * 0.55), w * 0.28, Color(1, 1, 1, alfa))
 
 
+# EL AGUJERO NEGRO (27/09: "es muy cutre, hazlo mas epico"): el suelo se RAJA alrededor con luz violeta en las
+# grietas, un DISCO DE ACRECION de bandas de luz violeta y oro que giran (mas encendidas por un lado), trozos y motas
+# que CAEN en espiral hacia dentro, el HORIZONTE con su borde brillante y el negro puro.
+func _agujero_epico(ci: CanvasItem, r_h: float, abre: float, alfa: float) -> void:
+	if r_h <= 1.0 or alfa <= 0.0:
+		return
+	BarridoAire.brillo(ci, _c, r_h * 1.7, Color(BOCA_CUERPO, 0.85 * alfa))
+	# Las GRIETAS del suelo: cuñas de luz violeta que salen del borde hacia fuera (crecen al abrirse).
+	for i in 11:
+		var a: float = TAU * float(i) / 11.0 + 0.4 * sin(float(i) * 3.7 + float(_forma_boca[6]))
+		var largo: float = r_h * (0.5 + 0.45 * MagiaAire._ruido(float(i), float(_forma_boca[6]))) * abre
+		_cuna(ci, _c + Vector2(cos(a), sin(a)) * r_h * 1.1, a, 0.0, largo, 0.14, Color(BOCA_MAGENTA, alfa))
+		_cuna(ci, _c + Vector2(cos(a), sin(a)) * r_h * 1.1, a, 0.0, largo * 0.65, 0.06, Color(BOCA_CIAN, 0.9 * alfa))
+	# EL DISCO DE ACRECION: bandas en anillo que giran; cada banda se enciende a lo largo de su arco (el lado que
+	# viene hacia ti brilla mas), en violeta y oro.
+	var bandas: Array = [[1.42, 0.16, BOCA_VIOLETA, 0.9, 1.0], [1.3, 0.1, BOCA_MAGENTA, 1.0, 1.6], [1.18, 0.07, BOCA_CIAN, 1.0, 2.3],
+		[1.08, 0.05, Color(1, 1, 1), 0.9, 3.1]]
+	for bd in bandas:
+		var rr: float = r_h * float(bd[0])
+		var w: float = r_h * float(bd[1])
+		var col: Color = bd[2]
+		var n: int = 40
+		var pv := PackedVector2Array()
+		var pc := PackedColorArray()
+		var pi := PackedInt32Array()
+		for k in n + 1:
+			var ang: float = TAU * float(k) / float(n)
+			# ARCOS que giran (dos por banda, cada banda a su velocidad), con huecos: un remolino, no una diana.
+			var brillo: float = 0.08 + 0.92 * pow(0.5 + 0.5 * sin(ang * 2.0 + _t * float(bd[4]) * 1.8 + float(bd[4])), 3.0)
+			var d := Vector2(cos(ang), sin(ang))
+			var c_in := Color(col, 0.0)
+			var c_mid := Color(col, float(bd[3]) * brillo * alfa)
+			pv.append(_c + d * (rr - w))
+			pv.append(_c + d * rr)
+			pv.append(_c + d * (rr + w))
+			pc.append(c_in)
+			pc.append(c_mid)
+			pc.append(c_in)
+		for k in n:
+			var b: int = k * 3
+			pi.append_array([b, b + 1, b + 3, b + 1, b + 4, b + 3, b + 1, b + 2, b + 4, b + 2, b + 5, b + 4])
+		RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+	# LO QUE CAE: motas y piedrecitas en espiral hacia el horizonte, con su estela.
+	for i in 18:
+		var ciclo: float = fmod(_t * 0.9 + float(i) * 0.137, 1.0)
+		var ang2: float = float(i) * 2.4 + ciclo * 4.0 - _t * 1.2
+		var d2: float = r_h * lerpf(1.8, 1.0, ciclo * ciclo)
+		var p: Vector2 = _c + Vector2(cos(ang2), sin(ang2)) * d2
+		var p_ant: Vector2 = _c + Vector2(cos(ang2 - 0.35), sin(ang2 - 0.35)) * (d2 + r_h * 0.08)
+		var col2: Color = BOCA_CIAN if i % 3 == 0 else BOCA_MAGENTA
+		BarridoAire.cometa(ci, p_ant, p, 2.2, Color(col2, 0.9 * alfa * sin(ciclo * PI)))
+	# EL HORIZONTE: el borde brillante pegado al negro, y el negro puro.
+	MagiaAire._anillo(ci, _c, r_h, r_h * 0.1, Color(1.0, 0.95, 1.0, 0.9 * alfa))
+	_disco(ci, _c, r_h, NEGRO, NEGRO)
+
+
 # LOS REMOLINOS del agujero (27/09: "son unas puntas muy marcadas y se ve raro"): hebras de HUMO suave, bultos
 # difuminados que siguen una espiral hacia dentro, sin puntas ni bordes duros.
 func _remolinos_boca(ci: CanvasItem, r_h: float, alfa: float) -> void:
@@ -2319,9 +2378,7 @@ func _eclipse_boca(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: 
 	if capa == _suelo:
 		# EL AGUJERO y sus REMOLINOS (mechones de magenta, cian y morado que giran hacia dentro), y la sombra.
 		var r_h: float = _r * 1.03 * abre_hoyo * (1.0 - 0.6 * hunde)
-		BarridoAire.brillo(capa, _c, _r * 1.25, Color(BOCA_CUERPO, 0.75 * alfa))
-		_remolinos_boca(capa, r_h, alfa)
-		_disco(capa, _c, r_h, NEGRO, NEGRO)
+		_agujero_epico(capa, r_h, abre_hoyo, alfa)
 		return
 	if capa == _delante:
 		# Primero la de ATRAS (arriba en pantalla) y luego la de DELANTE, que la tapa; abiertas, cada una entera; al
