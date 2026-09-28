@@ -42,7 +42,7 @@ var _hasta: Vector2 = Vector2.ZERO
 var _ancho: float = 16.0
 var _viaje: float = 0.12
 var _eje: Vector2 = Vector2.RIGHT     # hacia donde muerde (de quien muerde a quien recibe): el tiron va al reves
-var _boca: Vector2 = Vector2.UP       # hacia donde queda la mandibula de ARRIBA (la de abajo, al contrario)
+var _boca: Vector2 = Vector2.RIGHT    # el eje en el que se cierran las mandibulas (el del mordisco, variado)
 var _tam: float = 10.0
 var _o: Vector2 = Vector2.ZERO
 var _r: float = 25.0
@@ -120,11 +120,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	e._ancho = maxf(caja.size.x, 10.0)
 	var eje: Vector2 = (e._hasta - desde).normalized() if e._hasta.distance_squared_to(desde) > 1.0 else Vector2.RIGHT
 	e._eje = eje
-	# UNA BOCA MUERDE ARRIBA Y ABAJO, venga de donde venga (lo corrigio el usuario, 28/09: de lado "su boca no esta
-	# de lado"). NUNCA CON ANGULO FIJO igual: se inclina hacia el lado del que viene quien muerde, y cada mordisco
+	# LAS MANDIBULAS VAN A LO LARGO DE LA LINEA DEL MORDISCO: una del lado de quien muerde y la otra al otro lado
+	# del cuerpo, y se cierran sobre el (lo corrigio el usuario, 28/09: la boca no muerde de lado). Cada mordisco
 	# con su variacion; el frenesi, mas revuelto.
-	var inclina: float = eje.x * 0.35 + e._rng.randf_range(-0.2, 0.2) * (2.5 if m == Modo.FRENESI else 1.0)
-	e._boca = Vector2.UP.rotated(inclina)
+	e._boca = eje.rotated(e._rng.randf_range(-0.3, 0.3) * (2.0 if m == Modo.FRENESI else 1.0))
 	e._tam = maxf(e._ancho * 0.6, 10.0) * (0.7 if m == Modo.FRENESI else 1.0)
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
