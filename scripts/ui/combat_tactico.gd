@@ -3260,6 +3260,29 @@ func _tick_crias(delta: float) -> void:
 			_nacer_cria(c)
 
 
+# LOS QUE CAEN A MEDIA PELEA (28/09, decision del usuario): se mueren en su sitio (su 'muerte', hacia donde
+# miraban) y se DESVANECEN, para no estorbar. Al acabar la pelea vuelven al suelo como CADAVER para recogerlos:
+# Game los mata (morir / marcar_cadaver) y ahi se les devuelve el alfa (quitar_muerto_en_pelea). Lo llama el
+# apagado de su tarjeta (combat_altas._apagar_visual), que ya espera al golpe que lo mata y corre en TODAS las
+# pantallas, tambien en los espejos.
+const T_DESVANECE_MUERTO := 0.6
+
+func morir_en_mapa(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo.has_meta("muerto_en_pelea"):
+		return
+	_gestos_bicho.erase(cuerpo)
+	_por_nacer.erase(c)
+	_poses_carga.erase(c)
+	var natural: float = _poner_anim_bicho(cuerpo, "muerte", -1.0, false)
+	cuerpo.set_meta("gesto_pelea", true)
+	var t: Tween = cuerpo.create_tween()
+	t.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	t.tween_interval(maxf(natural, 0.0) + 0.3)
+	t.tween_property(cuerpo, "modulate:a", 0.0, T_DESVANECE_MUERTO)
+	cuerpo.set_meta("muerto_en_pelea", t)
+
+
 # LA POSE DE CARGA (Reventon hinchado, Presion encogida, Combustion al rojo). Se mira 'charging' cada
 # fotograma, y no se engancha a _enemy_begin_charge, porque 'charging' ya viaja al espejo con el estado:
 # asi la ven igual todas las pantallas sin mandar nada. Al soltar la pisa el gesto de la habilidad. Si se

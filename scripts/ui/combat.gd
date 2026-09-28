@@ -1467,7 +1467,9 @@ func _on_continue_pressed() -> void:
 		# Los INVOCADOS (Rey Slime) van SIEMPRE como muertos: no tienen nodo en la mazmorra, asi que
 		# no dejan cadaver que reanimar. Ademas, si el slot reutiliza el hueco de un enemigo real que
 		# cayo, forzarlo a muerto evita que Game reanime al original (con la vida del invocado) al huir.
-		if e_muerto or _slots_invocados.has(i):
+		# EN EL MAPA (28/09) el invocado SI tiene nodo, el suyo (Game.dar_cuerpo_a_cria): va como cualquiera, y
+		# el que sobrevive se deshace en baba al reanudarlo (enemy.reanudar_tras_combate, meta 'cria_brote').
+		if e_muerto or (_slots_invocados.has(i) and not tactico):
 			muertos.append(i)
 		# (La pasiva slayer de cada abatido se tira en _end, no aqui: ver alli.)
 		hp_left.append(_enemies[i].current_hp)

@@ -1526,6 +1526,7 @@ var sello_pudre: float = -1.0
 # Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se
 # borra), apagado e interactuable para extraerle el cristal (minijuego).
 func morir() -> void:
+	quitar_muerto_en_pelea()
 	_dead = true
 	_winding = false
 	set_physics_process(false)  # detiene la IA
@@ -1681,6 +1682,20 @@ func poder_normalizado() -> float:
 
 
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
+# Cayo en una pelea del mapa y se desvanecio para no estorbar (CombatTactico.morir_en_mapa): al volverse
+# cadaver, se le ve otra vez tirado en el suelo para recogerlo.
+func quitar_muerto_en_pelea() -> void:
+	if not has_meta("muerto_en_pelea"):
+		return
+	var t = get_meta("muerto_en_pelea")
+	if t is Tween and (t as Tween).is_valid():
+		(t as Tween).kill()
+	remove_meta("muerto_en_pelea")
+	if has_meta("gesto_pelea"):
+		remove_meta("gesto_pelea")
+	modulate.a = 1.0
+
+
 # La cria se derrite (su 'muerte', que es un charco) y se funde. Sin cadaver: el nodo se libera y su
 # _exit_tree quita los espejos de las demas maquinas.
 func _deshacer_cria() -> void:

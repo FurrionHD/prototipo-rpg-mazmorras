@@ -281,6 +281,25 @@ func _correr() -> void:
 		_ver(t.pos_de(crias[0]).distance_to(t.pos_de(crias[1])) >= t.SEPARA_CRIA - 0.5, "las dos no se pisan")
 	print("  anims de las crias: %s" % str(anims_cria.keys()))
 	_ver(anims_cria.has("nacer"), "se levantan del charco ('nacer')")
+	# 8) CAE A MEDIA PELEA: se muere en su sitio y se desvanece; al cerrar la pelea vuelve como cadaver.
+	if crias.size() >= 2 and t.cuerpo_de(crias[1]) != null:
+		var cm: Combatant = crias[1]
+		var cuerpo_m: Node2D = t.cuerpo_de(cm)
+		cm.current_hp = 0.0
+		combat._morir_enemigo(cm)
+		var vio_muerte: bool = false
+		var t5: int = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t5 < 2500:
+			await get_tree().process_frame
+			if String((cuerpo_m.get("_sprite") as AnimatedSprite2D).animation).begins_with("muerte"):
+				vio_muerte = true
+		_ver(vio_muerte, "el que cae se muere en el mapa ('muerte')")
+		_ver(cuerpo_m.modulate.a < 0.05, "y se desvanece (alfa %.2f)" % cuerpo_m.modulate.a)
+		Game.matar_enemigo_de_combate(cuerpo_m)   # lo que hace el cierre de la pelea
+		_ver(is_equal_approx(cuerpo_m.modulate.a, 1.0) and cuerpo_m.esta_muerto(),
+			"al acabar, vuelve al suelo como cadaver")
+		print("  cadaver: anim %s" % (cuerpo_m.get("_sprite") as AnimatedSprite2D).animation)
+
 	# Si huis, se deshacen: el embudo de todas las salidas es reanudar_tras_combate.
 	if not crias.is_empty() and t.cuerpo_de(crias[0]) != null:
 		var cn: Node2D = t.cuerpo_de(crias[0])

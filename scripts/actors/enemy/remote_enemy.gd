@@ -415,6 +415,19 @@ func morir() -> void:
 # en la maquina de su DUEÑO, que es la que manda sobre el (igual que el respawn de las vetas). Este
 # nodo es solo el espejo; tickearlos aqui tambien seria envenenarlo dos veces. La firma se mantiene
 # igual que la de enemy.gd para que Game pueda llamar a los dos sin preguntar cual es cual.
+# Lo mismo que enemy.quitar_muerto_en_pelea: se desvanecio al caer en la pelea y como cadaver vuelve a verse.
+func quitar_muerto_en_pelea() -> void:
+	if not has_meta("muerto_en_pelea"):
+		return
+	var t = get_meta("muerto_en_pelea")
+	if t is Tween and (t as Tween).is_valid():
+		(t as Tween).kill()
+	remove_meta("muerto_en_pelea")
+	if has_meta("gesto_pelea"):
+		remove_meta("gesto_pelea")
+	modulate.a = 1.0
+
+
 func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 	_combat_triggered = false
 	hp_restante = hp
@@ -425,6 +438,7 @@ func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 # Ha caido en la maquina que simula el piso: aqui pasa a verse como cadaver. Mismo gris apagado
 # que enemy.morir(), para que los dos jugadores vean lo mismo.
 func marcar_cadaver() -> void:
+	quitar_muerto_en_pelea()
 	if muerto:
 		return
 	muerto = true
