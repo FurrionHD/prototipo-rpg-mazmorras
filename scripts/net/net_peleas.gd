@@ -1494,6 +1494,70 @@ func _aplicar_mover(lote: Array, desde: int) -> void:
 			nodo.mover_en_pelea(par[1], float(par[2]), bool(par[3]))
 
 
+# LAS CRIAS DEL BROTE (28/09): quien lleva la pelea no simula el piso, asi que le pide al dueño que las haga
+# nacer (Game.nacer_cria_aqui, reservadas a su nombre) y el dueño le contesta con el net_id de cada una para
+# que enganche su espejo al hueco 'slot' (Game.cuerpo_de_cria_listo). Mismo camino que mover_bichos_en_pelea.
+func pedir_cria(slot: int, ruta: String, pos: Vector2, t: float) -> void:
+	if not Net.activo or multiplayer.multiplayer_peer == null:
+		return
+	if Net.es_host:
+		_encaminar_cria(slot, ruta, pos, t, Net._mi_lugar, multiplayer.get_unique_id())
+	else:
+		_pedir_cria.rpc_id(1, slot, ruta, pos, t, Net._mi_lugar)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String) -> void:
+	if not Net.es_host:
+		return
+	_encaminar_cria(slot, ruta, pos, t, lugar, multiplayer.get_remote_sender_id())
+
+
+func _encaminar_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
+	if Net._mi_lugar == lugar and Net._soy_dueno:
+		_nacer_cria_dueno(slot, ruta, pos, t, para)
+		return
+	var dueno: int = Net._dueno_de(lugar)
+	if dueno != 0 and dueno != 1:
+		_rel_cria.rpc_id(dueno, slot, ruta, pos, t, lugar, para)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_cria(slot: int, ruta: String, pos: Vector2, t: float, lugar: String, para: int) -> void:
+	if Net._mi_lugar != lugar or not Net._soy_dueno:
+		return
+	_nacer_cria_dueno(slot, ruta, pos, t, para)
+
+
+func _nacer_cria_dueno(slot: int, ruta: String, pos: Vector2, t: float, para: int) -> void:
+	var data: EnemyData = load(ruta) as EnemyData if ResourceLoader.exists(ruta) else null
+	var n = Game.nacer_cria_aqui(data, pos, t, para) if data != null else null
+	if n == null or not n.has_meta("net_id"):
+		return
+	var id: int = int(n.get_meta("net_id"))
+	if para == multiplayer.get_unique_id():
+		Game.cuerpo_de_cria_listo(slot, id)
+	elif Net.es_host:
+		_cria_lista.rpc_id(para, slot, id)
+	else:
+		_rel_cria_lista.rpc_id(1, para, slot, id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_cria_lista(para: int, slot: int, id: int) -> void:
+	if not Net.es_host:
+		return
+	if para == multiplayer.get_unique_id():
+		Game.cuerpo_de_cria_listo(slot, id)
+	else:
+		_cria_lista.rpc_id(para, slot, id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _cria_lista(slot: int, id: int) -> void:
+	Game.cuerpo_de_cria_listo(slot, id)
+
+
 # MAGIA (hito 5.4-C): recitar son varios turnos con su examen de frases, asi que no basta con
 # mandar una accion suelta como en las habilidades — hay que enrutar CADA frase. El anfitrion
 # sortea las opciones (lleva la pelea) y el dueño responde con la que eligio.

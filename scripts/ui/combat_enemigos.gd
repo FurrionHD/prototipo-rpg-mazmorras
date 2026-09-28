@@ -563,13 +563,17 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			if cria == null:
 				break   # no cabe ninguno mas
 			invocados += 1
+			# EN EL MAPA nace con CUERPO, entre el Rey y los tuyos (antes de la gota: la gota va a el).
+			if _pantalla.tactico:
+				_pantalla.turno_mapa.dar_cuerpo_a_cria(e, cria, pick)
 			# EL BROTE SE VE SALIR DE EL. Una gota gorda se DESPRENDE de la tarjeta del Rey y cae en
 			# el hueco donde nace el secuaz, con su mismo color. Sin esto los slimes aparecian de la
 			# nada y no se leia que habian salido de su masa, que es toda la gracia de la habilidad.
 			# Cada gota en SU tanda, para que las dos no salgan pegadas.
 			_pantalla.efectos._fx_tanda(_k)
 			_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
-				CombatFX.Estilo.SLIME_ESCUPE if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true)
+				CombatFX.Estilo.SLIME_ESCUPE if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true,
+				"", ab.gesto, ab.fx_anim)   # el cuerpo del Rey hace SU brote, no la embestida por defecto
 		_pantalla._update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
 	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe

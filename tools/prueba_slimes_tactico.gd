@@ -244,5 +244,49 @@ func _correr() -> void:
 	_ver(vistas.keys().any(func(k): return String(k).begins_with("deshincharse")), "interrumpida, se deshincha")
 	_ver(not cu.has_meta("gesto_pelea"), "y vuelve a lo suyo")
 
+	# 7) EL BROTE: las crias nacen con CUERPO, entre el que las suelta y los tuyos, sin pisarse, y se levantan.
+	print("--- brote ---")
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	var inv: AbilityData = load("res://resources/abilities/rey_slime_invocacion.tres")
+	var antes: Array = combat._enemies.duplicate()
+	combat.enemigos._enemy_use_ability(e, inv)
+	combat._fx.arrancar_cola()
+	var crias: Array = []
+	for c in combat._enemies:
+		if not antes.has(c):   # nuevas (o reestrenando el hueco de un muerto: otro Combatant)
+			crias.append(c)
+	var anims_cria: Dictionary = {}
+	var t4: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t4 < 3000:
+		await get_tree().process_frame
+		for c in crias:
+			var cc: Node2D = t.cuerpo_de(c)
+			if cc != null and cc.get("_sprite") is AnimatedSprite2D:
+				anims_cria[String((cc.get("_sprite") as AnimatedSprite2D).animation).get_slice("_", 0)] = true
+	_ver(crias.size() == 2, "el Brote mete 2 crias (hay %d)" % crias.size())
+	var centro_tuyos := Vector2.ZERO
+	for a in al:
+		centro_tuyos += t.pos_de(a)
+	centro_tuyos /= float(al.size())
+	var hacia: Vector2 = (centro_tuyos - t.pos_de(e)).normalized()
+	for c in crias:
+		var cc: Node2D = t.cuerpo_de(c)
+		_ver(cc != null, "la cria %s tiene cuerpo en el mapa" % c.nombre)
+		if cc == null:
+			continue
+		print("  cria %s en %s (rey en %s)" % [c.nombre, str(cc.global_position.round()), str(t.pos_de(e).round())])
+		_ver((cc.global_position - t.pos_de(e)).dot(hacia) > 0.0, "y nace del lado de los tuyos")
+		_ver(not cc.has_meta("gesto_pelea"), "y ya ha acabado de nacer")
+	if crias.size() == 2 and t.cuerpo_de(crias[0]) != null and t.cuerpo_de(crias[1]) != null:
+		_ver(t.pos_de(crias[0]).distance_to(t.pos_de(crias[1])) >= t.SEPARA_CRIA - 0.5, "las dos no se pisan")
+	print("  anims de las crias: %s" % str(anims_cria.keys()))
+	_ver(anims_cria.has("nacer"), "se levantan del charco ('nacer')")
+	# Si huis, se deshacen: el embudo de todas las salidas es reanudar_tras_combate.
+	if not crias.is_empty() and t.cuerpo_de(crias[0]) != null:
+		var cn: Node2D = t.cuerpo_de(crias[0])
+		cn.reanudar_tras_combate(-1.0)
+		await get_tree().create_timer(2.0, true, false, true).timeout
+		_ver(not is_instance_valid(cn), "si sobrevive a la pelea, la cria se deshace")
+
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)

@@ -13806,6 +13806,11 @@ func _destrabar_combate() -> void:
 	# volvia a mirar nunca: el mismo cuelgue de antes, pero ahora tapado por la propia red.
 	if Time.get_ticks_msec() - _montaje_ms < 1000 or _active_enemies.is_empty():
 		return
+	# CON PANTALLA NO SE TOCA: la lista va POR INDICE con combat._enemies, y quitarle un hueco vacio
+	# (la cria del Brote cuyo cuerpo aun viene por red, o un nodo liberado a media pelea) corria a todos
+	# los de detras un puesto -- cada tarjeta acababa con el cuerpo de otro (28/09).
+	if is_instance_valid(_active_layer):
+		return
 	var vivos: Array[Node] = []   # TIPADO: _active_enemies es Array[Node] y no traga un Array pelado
 	for n in _active_enemies:
 		if is_instance_valid(n):
@@ -14074,6 +14079,69 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	if bool(nodo.get("es_boss")):
 		Musica.cambiar_cima("jefe")
 	return true
+
+
+# LAS CRIAS DEL BROTE CON CUERPO (28/09). Antes el Rey metia slimes en la pelea SIN nodo en el mapa: no se
+# les veia, no andaban y no dejaban cadaver (y si reestrenaban el hueco de un muerto, heredaban SU cuerpo).
+# Ahora nacen como enemigos DE VERDAD en el piso, en 'pos', y ocupan el hueco 'slot' del cruce por indice
+# con combat._enemies. Los crea quien simula el piso: si la pelea la lleva otro (un trabajador de pelea),
+# se le piden al dueño y el cuerpo se engancha cuando llega su espejo (cuerpo_de_cria_listo).
+func dar_cuerpo_a_cria(slot: int, data: EnemyData, pos: Vector2, t: float) -> void:
+	if not combate_activo() or data == null or slot < 0:
+		return
+	# El hueco YA, aunque el cuerpo llegue luego por red: el cruce por indice no puede esperar.
+	while _active_enemies.size() <= slot:
+		_active_enemies.append(null)
+	if _active_enemies[slot] != null:
+		matar_enemigo_de_combate(_active_enemies[slot])   # el cadaver al que releva (como un refuerzo)
+	_active_enemies[slot] = null
+	if not Net.activo or Net._soy_dueno:
+		var yo: int = multiplayer.get_unique_id() if Net.activo else 0
+		_poner_cuerpo_de_cria(slot, nacer_cria_aqui(data, pos, t, yo))
+	else:
+		Net.peleas.pedir_cria(slot, String(data.resource_path), pos, t)
+
+
+# SOLO quien simula el piso: la cria, congelada y reservada para la pelea de 'para' (0 = la mia, en solitario).
+func nacer_cria_aqui(data: EnemyData, pos: Vector2, t: float, para: int) -> Node:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("crear_enemigo"):
+		return null
+	var n = piso.crear_enemigo(data, pos, 0.0, t, 0)   # mut 0: una cria no muta
+	if n == null:
+		return null
+	n.set_meta("cria_brote", true)   # si sobrevive a la pelea se deshace (enemy.reanudar_tras_combate)
+	n._combat_triggered = true
+	n.velocity = Vector2.ZERO
+	if Net.activo and para != 0 and n.has_meta("net_id"):
+		Net.peleas._enem_ocupados[int(n.get_meta("net_id"))] = para
+	return n
+
+
+# EN QUIEN LLEVA LA PELEA: el dueño ya la creo (net_id 'id'); su espejo puede tardar un pelin en llegar.
+func cuerpo_de_cria_listo(slot: int, id: int) -> void:
+	for _i in 240:
+		var n = Net.peleas._nodo_de_id(id)
+		if n != null and is_instance_valid(n):
+			if n.has_method("entrar_en_pelea"):
+				n.entrar_en_pelea()
+			_poner_cuerpo_de_cria(slot, n)
+			return
+		await get_tree().process_frame
+	print("[brote] la cria %d no llego a tiempo: se queda sin cuerpo" % id)
+
+
+func _poner_cuerpo_de_cria(slot: int, n) -> void:
+	if n == null or not is_instance_valid(n) or not combate_activo() or slot >= _active_enemies.size():
+		return
+	if _active_enemies[slot] != null:
+		return   # el hueco se lo ha quedado otro mientras llegaba (no deberia)
+	_active_enemies[slot] = n
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	if combat != null and bool(combat.get("tactico")):
+		combat.turno_mapa.cria_con_cuerpo(slot)
+		combat.altas._alta_de_combatiente()   # que los espejos le encuentren el cuerpo (su net_id)
 
 
 # Ha caido uno en la pelea: el primero de la cola entra en SU hueco. En ese hueco y no en "el primer

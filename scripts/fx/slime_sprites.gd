@@ -279,6 +279,7 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_escupir(anims, corona, esc)
 	_montar_encaje(anims, corona, esc)
 	_montar_muerte(anims, corona, esc)
+	_montar_nacer(anims, corona, esc)
 	_montar_cadaver(anims, corona, esc)
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
@@ -502,6 +503,25 @@ static func _pose_muerte(t: float) -> Dictionary:
 		"avance": 0.0,   # no se va a ninguna parte: se deshace donde esta
 		"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE,
 		"derretido": SpriteLienzo.tramos(t, derr_keys)}
+
+
+# NACER (la cria del Brote, 28/09): LA MUERTE AL REVES. La gota del Rey cae, queda un charco y el
+# charco se levanta y se hace slime: la misma geometria que morir (cuernos y ojos que salen del gel
+# cuando ya tiene cuerpo), recorrida hacia atras, y al final un respingo de estrenarse.
+static func _pose_nacer(t: float) -> Dictionary:
+	var squash_keys := [[0.0, 0.42], [0.20, 0.48], [0.40, 0.66], [0.60, 0.92], [0.76, 1.16],
+		[0.88, 0.94], [1.0, 1.0]]
+	var derr_keys := [[0.0, 1.0], [0.20, 0.90], [0.40, 0.62], [0.60, 0.28], [0.76, 0.0], [1.0, 0.0]]
+	var bote_keys := [[0.0, 0.0], [0.60, 0.0], [0.76, 0.40], [0.88, 0.0], [1.0, 0.0]]
+	return {"squash": SpriteLienzo.tramos(t, squash_keys), "avance": 0.0,
+		"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE,
+		"derretido": SpriteLienzo.tramos(t, derr_keys)}
+
+
+static func _montar_nacer(anims: Array, corona: bool, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		return _pose_nacer(t)
+	_montar_animacion(anims, corona, esc, "nacer", false, 10.0, pose, true, 8, 8)
 
 
 static func _montar_muerte(anims: Array, corona: bool, esc: float) -> void:

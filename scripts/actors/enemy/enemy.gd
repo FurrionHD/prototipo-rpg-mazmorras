@@ -1681,6 +1681,24 @@ func poder_normalizado() -> float:
 
 
 # Tras extraer el cristal: el cuerpo se desvanece (baja opacidad) y desaparece.
+# La cria se derrite (su 'muerte', que es un charco) y se funde. Sin cadaver: el nodo se libera y su
+# _exit_tree quita los espejos de las demas maquinas.
+func _deshacer_cria() -> void:
+	_dead = true
+	set_physics_process(false)
+	velocity = Vector2.ZERO
+	remove_from_group("enemy")
+	var anim := StringName("muerte_%d" % SpriteLienzo.dir8(_facing)) if _facing != Vector2.ZERO else &"muerte_0"
+	if _sprite.sprite_frames != null and _sprite.sprite_frames.has_animation(anim):
+		_sprite.speed_scale = 1.0
+		_sprite.play(anim)
+	var t := create_tween()
+	t.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)   # tambien con el mundo en pausa (una pelea abierta)
+	t.tween_interval(0.8)
+	t.tween_property(self, "modulate:a", 0.0, 0.6)
+	t.tween_callback(queue_free)
+
+
 func desvanecer() -> void:
 	remove_from_group("corpse")  # ya no interactuable
 	# Que deje de emanar antes del fundido: si no, sigue soltando cuadraditos mientras se va.
@@ -2091,6 +2109,12 @@ func congelar_en_cola() -> void:
 
 func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	if _dead:
+		return
+	# UNA CRIA DEL BROTE que sobrevive (huisteis): sin el Rey peleando no pinta nada, se DESHACE en baba y
+	# se va, sin cadaver (decision del usuario, 28/09). Pasa aqui porque es el embudo de todas las salidas:
+	# el cierre local, el resultado que manda un trabajador de pelea y las reservas que se sueltan.
+	if has_meta("cria_brote"):
+		_deshacer_cria()
 		return
 	hp_restante = hp
 	estados_restantes = estados.duplicate()

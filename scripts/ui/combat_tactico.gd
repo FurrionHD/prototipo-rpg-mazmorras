@@ -2213,6 +2213,14 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL]
 
 func _on_impacto(ev: Dictionary) -> void:
+	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
+	if _pantalla.tactico:
+		var va: Combatant = _de_bloque(ev["bv"])
+		var aa: Combatant = _de_bloque(ev["ba"])
+		if va != null and aa != null and va != aa and _pantalla._enemies.has(va) and _pantalla._enemies.has(aa):
+			if _por_nacer.has(va) or _pantalla._espejo:
+				_nacer_cria(va)
+				return
 	var estilo: int = int(ev.get("estilo", 0))
 	if not _pantalla.tactico or estilo not in _SANGRA:
 		return
@@ -3122,6 +3130,7 @@ func _poner_anim_bicho(cuerpo: Node2D, base: String, dur: float, o_embestida: bo
 
 func _tick_gestos_bicho(delta: float) -> void:
 	_tick_cargas_bicho(delta)
+	_tick_crias(delta)
 	for cuerpo in _gestos_bicho.keys():
 		if not is_instance_valid(cuerpo):
 			_gestos_bicho.erase(cuerpo)
@@ -3147,6 +3156,108 @@ func _tick_gestos_bicho(delta: float) -> void:
 			continue
 		_gestos_bicho.erase(cuerpo)
 		_soltar_gesto_bicho(cuerpo)
+
+
+# ------------------------------------------------------------
+#  LAS CRIAS DEL BROTE (28/09): nacen con cuerpo, ENTRE EL REY Y LOS TUYOS (decision del usuario: son su
+#  escudo). Quien lleva la pelea elige el sitio y se lo pide a Game (que lo crea, o se lo pide al dueño del
+#  piso). Hasta que le cae encima la gota del Rey es un CHARCO quieto (el primer marco de 'nacer'); con la
+#  gota se levanta y se hace slime. En las demas pantallas se levanta igual: un golpe de enemigo a enemigo
+#  solo puede ser esto.
+# ------------------------------------------------------------
+const SEPARA_CRIA := 30.0
+const T_NACER_MAX := 1.5              # si la gota no llega (o llego antes que su cuerpo), nace igual
+var _por_nacer: Dictionary = {}       # Combatant -> segundos esperando la gota
+var _sitios_cria: Array = []          # [[pos, t_msec]]: los ya pedidos, cuyo cuerpo aun puede no estar
+
+func dar_cuerpo_a_cria(rey: Combatant, cria: Combatant, data: EnemyData) -> void:
+	if _pantalla._espejo or cuerpo_de(rey) == null:
+		return
+	var slot: int = _pantalla._enemies.find(cria)
+	if slot < 0:
+		return
+	var p: Vector2 = sitio_para_cria(rey)
+	_sitios_cria.append([p, Time.get_ticks_msec()])
+	Game.dar_cuerpo_a_cria(slot, data, p, 0.2)   # la 't' con la que nace en la pelea (altas._invocar_slime)
+
+
+func sitio_para_cria(rey: Combatant) -> Vector2:
+	var pr: Vector2 = pos_de(rey)
+	var suma := Vector2.ZERO
+	var n: int = 0
+	for al in _pantalla._aliados:
+		if al.is_alive() and cuerpo_de(al) != null:
+			suma += pos_de(al)
+			n += 1
+	var dir: Vector2 = (suma / float(n) - pr).normalized() if n > 0 else Vector2.DOWN
+	if dir == Vector2.ZERO:
+		dir = Vector2.DOWN
+	var ocupados: Array = []
+	var ahora: int = Time.get_ticks_msec()
+	for s in _sitios_cria.duplicate():
+		if ahora - int(s[1]) > 4000:
+			_sitios_cria.erase(s)
+		else:
+			ocupados.append(s[0])
+	for grupo in [_pantalla._enemies, _pantalla._aliados]:
+		for c in grupo:
+			if c != rey and (c as Combatant).is_alive() and cuerpo_de(c) != null:
+				ocupados.append(pos_de(c))
+	var cuerpo_rey: Node2D = cuerpo_de(rey)
+	var dentro: Rect2 = _dentro(_arena())
+	var base: float = radio_pisa(rey) + 18.0
+	for anillo in 3:
+		var r: float = base + float(anillo) * 18.0
+		for giro in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8]:
+			var p: Vector2 = pr + dir.rotated(float(giro)) * r
+			if dentro.has_area() and not dentro.has_point(p):
+				continue
+			if not _sobre_suelo(p, cuerpo_rey):
+				continue
+			var libre: bool = true
+			for o in ocupados:
+				if p.distance_to(o) < SEPARA_CRIA:
+					libre = false
+					break
+			if libre:
+				return p
+	return pr + dir * base
+
+
+# Game le acaba de poner cuerpo (el suyo, o el espejo que llego por red): charco quieto hasta la gota.
+func cria_con_cuerpo(slot: int) -> void:
+	if slot < 0 or slot >= _pantalla._enemies.size():
+		return
+	var c: Combatant = _pantalla._enemies[slot]
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return
+	var rey_hacia := Vector2.DOWN
+	for al in _pantalla._aliados:
+		if al.is_alive() and cuerpo_de(al) != null:
+			rey_hacia = pos_de(al) - cuerpo.global_position
+			break
+	_animar(cuerpo, rey_hacia, false)
+	if _poner_anim_bicho(cuerpo, "nacer", -1.0, false) < 0.0:
+		return
+	(cuerpo.get("_sprite") as AnimatedSprite2D).pause()
+	(cuerpo.get("_sprite") as AnimatedSprite2D).frame = 0
+	cuerpo.set_meta("gesto_pelea", true)
+	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": INF, "encaje": false, "cola": PackedStringArray(),
+		"sostener": false}
+	_por_nacer[c] = 0.0
+
+
+func _nacer_cria(c: Combatant) -> void:
+	_por_nacer.erase(c)
+	gesto_bicho_en_mapa(c, &"nacer", -1.0)
+
+
+func _tick_crias(delta: float) -> void:
+	for c in _por_nacer.keys():
+		_por_nacer[c] = float(_por_nacer[c]) + delta
+		if float(_por_nacer[c]) >= T_NACER_MAX or not c.is_alive():
+			_nacer_cria(c)
 
 
 # LA POSE DE CARGA (Reventon hinchado, Presion encogida, Combustion al rojo). Se mira 'charging' cada
