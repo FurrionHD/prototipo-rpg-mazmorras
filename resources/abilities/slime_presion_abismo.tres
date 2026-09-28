@@ -23,3 +23,4 @@ forma = 3
 forma_apunte = 1
 forma_radio = 60.0
 forma_ancho = 20.0
+carga = true

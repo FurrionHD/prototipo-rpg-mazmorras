@@ -297,6 +297,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # LA CARGA (solo en el mapa, con LINEA): corres por la linea hasta el PRIMERO que pille y le pegas; sin
 # nadie, hasta el final. La Embestida del escudo (25/09).
 @export var carga: bool = false
+# EL SALTO (solo en el mapa, con CIRCULO): el que la lanza se echa por el aire y cae en el centro de su huella,
+# sin quedar encima de nadie. El Reventon del slime y el Aplastamiento del Rey (28/09): "el slime hinchandose
+# y saltando sobre los personajes".
+@export var salta: bool = false
 # CRITICO DE MAS de esta habilidad, sumado a la probabilidad de siempre (0.3 = +30 puntos).
 @export var crit_extra: float = 0.0
 # DEFENSA QUE IGNORA DE MAS esta habilidad, sumada a la penetracion del arma (0.2 = un 20% mas de la

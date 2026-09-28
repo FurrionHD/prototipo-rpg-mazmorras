@@ -174,5 +174,47 @@ func _correr() -> void:
 	t.olvidar_carga(e)
 	_ver(not arena.huellas.has(e), "interrumpida, la huella se va")
 
+	# 5) EL CUERPO: el Reventon SALTA al centro de su circulo y el placaje EMBISTE por su linea, con su animacion.
+	print("--- cuerpo ---")
+	var cu: Node2D = t.cuerpo_de(e)
+	var sp: AnimatedSprite2D = cu.get("_sprite")
+	var vistas: Dictionary = {}
+	for prueba in [["slime_reventon", "inflar", 62.0], ["slime_placaje_viscoso", "embestida", 44.0]]:
+		# Que acabe lo anterior ANTES de colocar: la pelea sigue viva y en un segundo se mueven los turnos.
+		await get_tree().create_timer(1.0, true, false, true).timeout
+		# Los dos de delante otra vez delante, con trecho (el placaje es una linea de 40: mas cerca).
+		# Respecto al NODO del slime: sus pies salen de su dibujo, y en pleno 'inflar' estan movidos.
+		var pe2: Vector2 = t.pos_de(e)
+		t._colocar(al[0], t.cuerpo_de(al[0]), pe2 + Vector2(float(prueba[2]), -14))
+		t._colocar(al[1], t.cuerpo_de(al[1]), pe2 + Vector2(float(prueba[2]) + 2.0, 12))
+		var ab2: AbilityData = load("res://resources/abilities/%s.tres" % prueba[0])
+		var antes_pos: Vector2 = t.pos_de(e)
+		var sp_y0: float = sp.position.y
+		vistas.clear()
+		var alto_max: float = 0.0
+		combat.enemigos._enemy_use_ability(e, ab2, al[0])
+		combat._fx.arrancar_cola()
+		var t1: int = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t1 < 2500:
+			await get_tree().process_frame
+			vistas[String(sp.animation)] = true
+			alto_max = maxf(alto_max, sp_y0 - sp.position.y)
+		var movido: float = antes_pos.distance_to(t.pos_de(e))
+		print("    forma %s centro %s; pies slime %s; los tuyos %s / %s; log: %s" % [str(t.ultima_forma_enemigo),
+			str(t.ultima_forma_enemigo.centro.round()) if t.ultima_forma_enemigo != null else "-", str(t.pies_de(e).round()),
+			str(t.pos_de(al[0]).round()), str(t.pos_de(al[1]).round()), combat._log_lines.back()])
+		print("  %s: se movio %.1f px (de %s a %s), subio %.1f, anims %s" % [prueba[0], movido,
+			str(antes_pos.round()), str(t.pos_de(e).round()), alto_max, str(vistas.keys())])
+		_ver(movido > 8.0, "%s mueve al slime" % prueba[0])
+		var hizo: bool = false
+		for k in vistas:
+			if String(k).begins_with(prueba[1]):
+				hizo = true
+		_ver(hizo, "%s: el cuerpo del mapa hace '%s'" % [prueba[0], prueba[1]])
+		if prueba[0] == "slime_reventon":
+			_ver(alto_max > 10.0, "el Reventon va por el aire")
+		_ver(absf(sp.position.y - sp_y0) < 0.5, "y el dibujo acaba en el suelo")
+		_ver(not cu.has_meta("gesto_pelea"), "y el gesto se suelta")
+
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)

@@ -25,3 +25,4 @@ forma_apunte = 3
 forma_radio = 35.0
 forma_nucleo = 15.0
 forma_rango = 90.0
+salta = true

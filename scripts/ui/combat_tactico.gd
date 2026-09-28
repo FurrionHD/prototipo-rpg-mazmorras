@@ -1485,6 +1485,43 @@ func reparto_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null)
 	return _reparto_en(ab, e, forma_para_soltar(e, ab, preferido))
 
 
+# LO QUE MUEVE AL ENEMIGO su habilidad, con la huella que acaba de soltar (forma_para_soltar):
+#   salta   el Reventon, el Aplastamiento: por el aire hasta el centro del circulo (sin caer encima de nadie)
+#   carga   el Placaje, la Presion: embiste por su linea hasta pegarse al primero que pilla (sin nadie, al final)
+# Lo decide quien lleva la pelea y sale con el gesto, como el paso del estoque (pedir_desliz).
+const T_SALTO_BICHO := 0.4
+const ALTO_SALTO_BICHO := 26.0
+const T_EMBESTIDA_BICHO := 0.2
+
+func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> void:
+	var f = ultima_forma_enemigo
+	if f == null or cuerpo_de(e) == null or _pantalla._espejo:
+		return
+	var hasta: Vector2 = pos_de(e)
+	var dur: float = T_EMBESTIDA_BICHO
+	var arco: float = 0.0
+	if ab.salta:
+		hasta = _sitio_libre_hacia(e, f.centro)
+		dur = T_SALTO_BICHO
+		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
+	elif ab.carga and f.tipo == CombatFormas.Tipo.LINEA:
+		var fin: Vector2 = f.origen + f.dir * f.largo
+		# El primero que se cruza (el mas cercano a sus pies).
+		var v: Combatant = null
+		for d in lista:
+			if v == null or pies_de(d["c"]).distance_squared_to(f.origen) < pies_de(v).distance_squared_to(f.origen):
+				v = d["c"]
+		if v != null:
+			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + radio_pisa(e))
+		hasta = _sitio_libre_hacia(e, fin)
+	else:
+		return
+	# El salto se ve aunque caiga casi en el sitio (los tuyos le tapan el hueco): bota en el aire.
+	if hasta.distance_to(pos_de(e)) < 2.0 and not ab.salta:
+		return
+	pedir_desliz(e, hasta, Desliz.ANTES, maxi(1, golpes), dur, arco)
+
+
 # EMPIEZA A CARGAR: elige el sitio YA y lo deja pintado en ROJO hasta que suelte.
 func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> void:
 	var f = forma_de(ab, e, mejor_apunte(e, ab, preferido)["punto"])
@@ -2733,7 +2770,7 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 # el NODO. Sin sitio, donde esta.
 func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
 	var cuerpo: Node2D = cuerpo_de(c)
-	var bajo := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var bajo: Vector2 = _bajo_de(c)
 	var ini: Vector2 = pos_de(c)
 	if cuerpo == null:
 		return ini
@@ -2754,6 +2791,13 @@ func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
 		if not _hay_otro_en(c, p2):
 			return p2
 	return ini
+
+
+# DE SU NODO A SUS PIES: los tuyos, PoseJugador.PIES_BAJO_NODO; un enemigo, lo que diga su dibujo (ver pies_de).
+func _bajo_de(c: Combatant) -> Vector2:
+	if _pantalla._enemies.has(c):
+		return pies_de(c) - pos_de(c)
+	return Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 
 
 # ¿Queda el nodo 'p' encima de alguien vivo que no sea 'c' (enemigo o de los tuyos)?
@@ -2830,13 +2874,17 @@ func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
 		pedir_desliz(c, hasta, Desliz.YA, 0)
 
 
-func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void:
+# 'dur' (> 0) = lo que tarda, en tiempo de la pelea (si no, el paso de siempre); 'arco' = lo alto que va por el aire
+# (el salto de un enemigo: su dibujo sube y baja, sus pies van por el suelo).
+func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
 	if _pantalla._espejo or not _pantalla.tactico or c == null:
 		return
 	if not _es_mio(c):
 		_pos[c] = hasta
 	_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes)
 	anotar_desliz(c, hasta, modo, golpes)
+	(_deslices.back() as Dictionary)["dur"] = dur
+	(_deslices.back() as Dictionary)["arco"] = arco
 
 
 # Tambien en el espejo, al leer el paquete de impactos.
@@ -2860,6 +2908,9 @@ func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName, _
 			d["armado"] = true
 			d["espera"] = 0.0
 			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
+			# EL SALTO de un enemigo: se infla durante su gesto y CAE al acabarlo, que es cuando pega.
+			if float(d.get("arco", 0.0)) > 0.0:
+				d["tope"] = maxf(0.0, dur - _dur_desliz(d))
 			return
 
 
@@ -2881,7 +2932,7 @@ func _dur_desliz(d: Dictionary) -> float:
 	if int(d["modo"]) == Desliz.AVANCE:
 		return maxf(Vector2(d["desde"]).distance_to(Vector2(d["hasta"])) / EstoqueAire.V_DANZA, 0.05)
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
-	return T_PASO / maxf(ritmo, 0.05)
+	return float(d.get("dur", -1.0) if float(d.get("dur", -1.0)) > 0.0 else T_PASO) / maxf(ritmo, 0.05)
 
 
 func _tick_deslices(delta: float) -> void:
@@ -2890,6 +2941,9 @@ func _tick_deslices(delta: float) -> void:
 		var cuerpo: Node2D = cuerpo_de(c)
 		if cuerpo == null or not c.is_alive():
 			_deslices.erase(d)
+			# Si cae en pleno salto, el dibujo vuelve al suelo.
+			if cuerpo != null and d.has("sp0") and cuerpo.get("_sprite") is Node2D:
+				(cuerpo.get("_sprite") as Node2D).position = Vector2(d["sp0"])
 			continue
 		if float(d["t"]) < 0.0:
 			d["espera"] = float(d["espera"]) + delta
@@ -2897,10 +2951,13 @@ func _tick_deslices(delta: float) -> void:
 				continue
 			d["t"] = 0.0
 			d["desde"] = cuerpo.global_position
-			# EL RASTRO (polvo y aire) se ve en todas las pantallas, lo mueva quien lo mueva.
+			var sp0 = cuerpo.get("_sprite")
+			if sp0 is Node2D:
+				d["sp0"] = (sp0 as Node2D).position
+			# EL RASTRO (polvo y aire) se ve en todas las pantallas, lo mueva quien lo mueva. Por el aire no deja.
 			var arena: ArenaCombate = _arena()
-			if arena != null:
-				var bajo := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+			if arena != null and float(d.get("arco", 0.0)) <= 0.0:
+				var bajo: Vector2 = _bajo_de(c)
 				EstoqueAire.rastro(arena, Vector2(d["desde"]) + bajo, Vector2(d["hasta"]) + bajo, _dur_desliz(d),
 					int(Vector2(d["hasta"]).x * 31.0) | 1)
 		var dur: float = _dur_desliz(d)
@@ -2912,8 +2969,16 @@ func _tick_deslices(delta: float) -> void:
 		# apunto en _pos al pedirlo.
 		if _es_mio(c):
 			_colocar(c, cuerpo, Vector2(d["desde"]).lerp(Vector2(d["hasta"]), k))
+			if _pantalla._enemies.has(c):
+				_apuntar_bicho(cuerpo, u < 1.0)
+		# POR EL AIRE: el dibujo sube y baja (en todas las pantallas); los pies siguen por el suelo.
+		var arco: float = float(d.get("arco", 0.0))
+		var sp = cuerpo.get("_sprite")
+		if arco > 0.0 and sp is Node2D and d.has("sp0"):
+			(sp as Node2D).position = Vector2(d["sp0"]) - Vector2(0.0, sin(PI * u) * arco)
 		if u >= 1.0:
 			_deslices.erase(d)
+			_enviar_bichos()
 			if _es_mio(c) and _quien == c and _fase == Fase.MOVIENDO:
 				_inicio = cuerpo.global_position
 
@@ -2989,7 +3054,72 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 	return true
 
 
+# ------------------------------------------------------------
+#  EL GESTO DE UN ENEMIGO en el mapa (28/09, los slimes)
+# ------------------------------------------------------------
+# Lo mismo para los bichos: la animacion que pide la habilidad (AbilityData.fx_anim: 'inflar', 'escupir'...)
+# o su embestida, EN SU CUERPO DEL MAPA y hacia donde mira (antes solo se animaba la tarjeta, que en el mapa
+# esta escondida). 'encaje' = le acaban de pegar: sacudida, que nunca pisa un gesto suyo. Mientras dura, el
+# cuerpo lleva la marca 'gesto_pelea' y su _actualizar_animacion no le cambia la animacion (en red, la copia
+# del bicho la recalcula al verse mover).
+var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje}
+
+func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or not c.is_alive():
+		return
+	var sp = cuerpo.get("_sprite")
+	if not (sp is AnimatedSprite2D) or (sp as AnimatedSprite2D).sprite_frames == null:
+		return
+	if encaje and _gestos_bicho.has(cuerpo) and not bool(_gestos_bicho[cuerpo]["encaje"]):
+		return
+	var frames: SpriteFrames = (sp as AnimatedSprite2D).sprite_frames
+	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
+	var base: String = "encaje" if encaje else (String(pide) if pide != &"" else "embestida")
+	var anim := StringName("%s_%d" % [base, d])
+	# Las que solo tienen la direccion 0 (inflar, escupir, encaje) valen igual: un slime es una bola.
+	if not frames.has_animation(anim):
+		anim = StringName("%s_0" % base)
+	if not frames.has_animation(anim) and not encaje:
+		anim = StringName("embestida_%d" % d)
+	if not frames.has_animation(anim):
+		return
+	var fps: float = maxf(frames.get_animation_speed(anim), 0.1)
+	var natural: float = float(frames.get_frame_count(anim)) / fps
+	(sp as AnimatedSprite2D).speed_scale = clampf(natural / maxf(dur, 0.05), 0.25, 6.0)
+	(sp as AnimatedSprite2D).play(anim)
+	(sp as AnimatedSprite2D).frame = 0
+	cuerpo.set_meta("gesto_pelea", true)
+	if cuerpo.get("_anim_actual") != null:
+		cuerpo.set("_anim_actual", String(anim))
+	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.2), "encaje": encaje}
+
+
+func _tick_gestos_bicho(delta: float) -> void:
+	for cuerpo in _gestos_bicho.keys():
+		if not is_instance_valid(cuerpo):
+			_gestos_bicho.erase(cuerpo)
+			continue
+		var g: Dictionary = _gestos_bicho[cuerpo]
+		g["t"] = float(g["t"]) + delta
+		if float(g["t"]) < float(g["dur"]):
+			continue
+		_gestos_bicho.erase(cuerpo)
+		_soltar_gesto_bicho(cuerpo)
+
+
+func _soltar_gesto_bicho(cuerpo: Node2D) -> void:
+	cuerpo.remove_meta("gesto_pelea")
+	var sp = cuerpo.get("_sprite")
+	if sp is AnimatedSprite2D:
+		(sp as AnimatedSprite2D).speed_scale = 1.0
+	if cuerpo.get("_anim_actual") != null:
+		cuerpo.set("_anim_actual", "")
+	_animar(cuerpo, _mirada_de(cuerpo), false)
+
+
 func _tick_gestos(delta: float) -> void:
+	_tick_gestos_bicho(delta)
 	for cuerpo in _gestos_mapa.keys():
 		var g: Dictionary = _gestos_mapa[cuerpo]
 		# El reloj del gesto va en tiempo REAL (su 'dur' viene asi); el giro del Molinete, en el de la pelea.
@@ -3034,7 +3164,13 @@ func _aliado_de_cuerpo(cuerpo: Node2D) -> Combatant:
 
 func _mirada_de(cuerpo: Node2D) -> Vector2:
 	var f = cuerpo.get("_facing")
-	return f if f is Vector2 and f != Vector2.ZERO else Vector2.DOWN
+	if f is Vector2 and f != Vector2.ZERO:
+		return f
+	# La copia de red de un bicho no lleva _facing: mira por un angulo (remote_enemy._mira).
+	var ang = cuerpo.get("_mira")
+	if ang is float:
+		return Vector2.RIGHT.rotated(ang)
+	return Vector2.DOWN
 
 
 # Pone la pose de andar o de quieto. Con el arbol en pausa el cuerpo no se anima solo (su

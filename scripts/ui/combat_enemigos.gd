@@ -448,6 +448,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var robado_total: float = 0.0   # lo que se ha curado chupando (AbilityData.robo_vida)
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
+		# EN EL MAPA el salto y la embestida mueven al bicho con su gesto (antes de encolar los golpes).
+		if lista_mapa != null:
+			_pantalla.turno_mapa.mover_enemigo(e, ab, lista_mapa, golpes)
 		# LOS GOLPES SE REPARTEN por la huella (forma_reparte: la Tromba, la Escision): uno a cada uno de
 		# los de dentro, por turnos y del mas cercano al centro al mas lejano. Va por la rama del reparto.
 		var reparte_mapa: bool = lista_mapa != null and ab.forma_reparte

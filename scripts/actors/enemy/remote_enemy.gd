@@ -276,6 +276,9 @@ var _embistiendo: bool = false
 func _actualizar_animacion() -> void:
 	if _sprite == null or not _sprite.visible:
 		return
+	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa): no se le pisa con andar/quieto.
+	if has_meta("gesto_pelea"):
+		return
 	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _embistiendo, _mov)
 	if nombre != _anim_actual:
 		# GIRAR NO REINICIA EL PASO, igual que en enemy._actualizar_animacion y por el mismo motivo:

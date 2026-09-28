@@ -460,6 +460,9 @@ var _mov_anim: bool = false
 func _actualizar_animacion(vel_real: Vector2 = Vector2.ZERO) -> void:
 	if not _sprite.visible:
 		return
+	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa): no se le pisa con andar/quieto.
+	if has_meta("gesto_pelea"):
+		return
 	var vel: float = vel_real.length()
 	if _mov_anim:
 		_mov_anim = vel > ANDAR_SALE

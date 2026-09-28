@@ -561,6 +561,11 @@ func _on_anim_muneco_terminada(m: MunecoJugador) -> void:
 # Un encaje SI pisa a otro encaje: seis mordiscos de un Frenesi tienen que leerse como seis
 # sacudidas, no como un temblor continuo. Lo que no puede es pisar a algo de mas rango.
 func _on_golpe_encajado(b: Dictionary, dur: float) -> void:
+	# EN EL MAPA el que se sacude es el cuerpo del bicho (la tarjeta esta escondida).
+	if _pantalla.tactico:
+		var ce: Combatant = _pantalla.turno_mapa._de_bloque(b)
+		if ce != null and _pantalla._enemies.has(ce):
+			_pantalla.turno_mapa.gesto_bicho_en_mapa(ce, &"", dur, true)
 	var nodo: Node = _nodo_pose_de(b)
 	if nodo == null:
 		return
@@ -603,6 +608,11 @@ func _pose_ajustar(sp: AnimatedSprite2D, anim: StringName, dur: float) -> void:
 # mientras que el gesto corre con el de CombatFX (escala_tiempo) -- a velocidad x2 el cuerpo iria
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
 func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"", mano: int = -1) -> void:
+	# EN EL MAPA el gesto del bicho lo hace su cuerpo, hacia donde mira (CombatTactico.gesto_bicho_en_mapa).
+	if _pantalla.tactico:
+		var ce: Combatant = _pantalla.turno_mapa._de_bloque(b)
+		if ce != null and _pantalla._enemies.has(ce):
+			_pantalla.turno_mapa.gesto_bicho_en_mapa(ce, pide, dur)
 	var nodo: Node = _nodo_pose_de(b)
 	if nodo == null:
 		return   # sin sprite/muñeco el gesto sigue valiendo: lo que se mueve es la figura
