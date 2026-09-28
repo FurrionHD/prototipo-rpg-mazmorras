@@ -2367,7 +2367,8 @@ const _MODO_BASTON := {
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
-	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO}
+	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
+	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()

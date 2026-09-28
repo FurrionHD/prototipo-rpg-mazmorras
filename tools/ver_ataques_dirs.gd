@@ -1160,7 +1160,7 @@ const MOMENTOS_SLIME := {
 	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
 	"slime_salpicadura_ardiente": [0.05, 0.12, 0.22, 0.4, 0.9],
 	"slime_combustion": [0.03, 0.1, 0.2, 0.4, 0.9],
-	"slime_ignicion": [0.05, 0.2, 0.35, 0.5, 0.7],
+	"slime_ignicion": [0.05, 0.2, 0.4, 0.7, 1.1],
 	"slime_presion_abismo": [0.12, 0.28, 0.45, 0.7, 1.4],
 	"slime_tromba_abisal": [-0.08, 0.02, 0.15, 0.35, 0.6],
 	"rey_slime_aplastamiento": [0.03, 0.1, 0.22, 0.45, 1.2],
@@ -1257,7 +1257,7 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					for i in range(antes, get_child_count()):
 						piezas.append({"n": get_child(i), "t0": 0.0})
 				elif nom == "slime_ignicion":
-					piezas.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, bulto, col, semilla, 0.0, 1.0), "t0": 0.0})
+					piezas.append({"n": SlimeAire.sobre_cuerpo(self, SlimeAire.Modo.IGNICION, bulto.get_center(), bulto, col, semilla, 0.0, 1.0), "t0": 0.0})
 				else:
 					var modo_s: int = SlimeAire.Modo.GOLPE
 					var vuelo: float = 0.05

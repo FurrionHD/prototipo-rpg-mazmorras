@@ -12,14 +12,17 @@
 #    SALPICA     Salpicadura ardiente: se sacude y saltan gotas de lava en anillo; chisporrotean en el suelo.
 #    ROCIADA     Rociada corrosiva: un abanico de gotas (cometas) por el cono que dejan manchas.
 #    LLAMARADA   Llamarada: el aliento de la Brasa (MagiaAire.ALIENTO) estrechado a su linea.
-#    PRESION     Presion del abismo: la ola del Torrente (MagiaAire.OLA), negra, por su linea.
+#    PRESION     Presion del abismo: un frente de OSCURIDAD (mechones de tinta como llamas negras) que recorre su
+#                linea y deja el suelo manchado. El abisal es de oscuridad, no de agua (lo dijo el usuario, 28/09).
 #    PLACAJE     Placaje: el rastro de baba que deja al embestir y el salpicon al chocar.
 #    EMBATE      Doble embate: los dos coletazos, la ida y vuelta del Segar (BarridoAire.SIEGA) en gel.
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa, CombatFX.Estilo.SLIME_*):
 #    GOLPE       el basico: salpicon de gel sobre el que recibe, hacia atras de donde viene el golpe.
 #    ESCUPE      el Escupitajo (y las gotas del Brote): una bola de baba en parabola con estela de gotas que
 #                revienta en el pecho y deja un charquito.
-#    TROMBA      Tromba abisal: una columna de agua negra cae del cielo sobre el y salpica.
+#    TROMBA      Tromba abisal: una columna de OSCURIDAD (mechones de tinta) cae sobre el, con la cabeza redonda, y
+#                revienta en llamas negras a sus pies.
+#    IGNICION    Ignicion: el slime de fuego SE PRENDE: llamas que le suben del cuerpo, calor en el suelo y ascuas.
 #    TROZO       Escision: un trozo del Rey sale disparado hacia el, le revienta encima y vuelve.
 #  NADA DE LINEAS peladas: gel = silueta llena con borde oscuro, cuerpo y brillo; gotas = cometas. Suelo sin
 #  achatar; lo que va por el aire, a su altura por K. Coordenadas de MUNDO.
@@ -29,7 +32,7 @@ class_name SlimeAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.SLIME_*: no reordenar.
 enum Modo { SPLAT, APLASTA, MAREA, COMBUSTION, SALPICA, ROCIADA, LLAMARADA, PRESION, PLACAJE, EMBATE,
-	GOLPE, ESCUPE, TROMBA, TROZO }
+	GOLPE, ESCUPE, TROMBA, TROZO, IGNICION }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -55,7 +58,14 @@ const FUEGO_AMARILLO := Color(1.0, 0.82, 0.3)
 const FUEGO_BLANCO := Color(1.0, 0.97, 0.78)
 const HUMO := Color(0.13, 0.11, 0.11)
 const CHAMUSCADO := Color(0.05, 0.03, 0.02)
-const ABISMO := Color(0.35, 0.38, 0.55)   # el tinte de la ola negra (se multiplica sobre el agua del Torrente)
+# LA OSCURIDAD del abisal (su referencia de la Voragine, 26/09): mechones de tinta negra como llamas con puntas, en
+# negro-marron, con vetas grises claras de pincel y un halo violeta muy suave.
+const TINTA := Color(0.04, 0.025, 0.035)
+const TINTA_MEDIA := Color(0.15, 0.09, 0.13)
+const VETA := Color(0.56, 0.52, 0.58)
+const HALO_OSCURO := Color(0.42, 0.22, 0.62)
+const T_OSCURO := 0.45           # lo que tarda el frente de la Presion en recorrer su linea
+const T_IGNICION := 0.9
 
 var modo: int = Modo.SPLAT
 var forma: CombatFormas.Forma = null
@@ -109,11 +119,6 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	match m:
 		Modo.LLAMARADA:
 			return MagiaAire.area(padre, _cono_de_linea(f), MagiaAire.Modo.ALIENTO, semilla, espera)
-		Modo.PRESION:
-			var ola: Node2D = MagiaAire.area(padre, f, MagiaAire.Modo.OLA, semilla, espera)
-			if ola != null:
-				ola.modulate = ABISMO
-			return ola
 		Modo.EMBATE:
 			var b: Node2D = BarridoAire.lanzar(padre, f, BarridoAire.Modo.SIEGA, semilla, espera)
 			if b != null:
@@ -163,7 +168,7 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 		Modo.LLAMARADA:
 			return MagiaAire.retraso(MagiaAire.Modo.ALIENTO, _cono_de_linea(f), p)
 		Modo.PRESION:
-			return MagiaAire.retraso(MagiaAire.Modo.OLA, f, p)
+			return clampf((p - f.origen).dot(f.dir) / maxf(f.largo, 1.0), 0.0, 1.0) * T_OSCURO
 		Modo.EMBATE:
 			return BarridoAire.retraso_px(BarridoAire.Modo.SIEGA, p.distance_to(o), f.radio)
 	return 0.0
@@ -179,7 +184,7 @@ static func t_salir(m: int) -> float:
 		Modo.ROCIADA: return T_ROCIADA
 		Modo.PLACAJE: return T_PLACAJE
 		Modo.LLAMARADA: return MagiaAire.t_salir(MagiaAire.Modo.ALIENTO)
-		Modo.PRESION: return MagiaAire.t_salir(MagiaAire.Modo.OLA)
+		Modo.PRESION: return T_OSCURO
 		Modo.EMBATE: return BarridoAire.T_ENTRE * 2.0
 	return 0.3
 
@@ -216,6 +221,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, col: 
 		var a: float = atras.angle() + e._rng.randf_range(-1.1, 1.1)
 		e._gotas.append({"v": Vector2(cos(a), sin(a) * K) * e._rng.randf_range(35.0, 70.0),
 			"sube": e._rng.randf_range(20.0, 45.0), "tam": e._rng.randf_range(2.4, 3.8), "t0": e._rng.randf_range(0.0, 0.05)})
+	for i in 14:
+		e._llamas.append({"x": e._rng.randf_range(-0.5, 0.5), "t0": e._rng.randf_range(0.0, 0.55),
+			"tam": e._rng.randf_range(0.8, 1.3), "fase": e._rng.randf_range(0.0, 50.0), "vida": e._rng.randf_range(0.35, 0.55),
+			"a": e._rng.randf_range(0.0, TAU)})
 	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
 	e._delante = e._capa(Z_ENCIMA, false)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
@@ -232,7 +241,9 @@ func duracion() -> float:
 		Modo.PLACAJE: return T_PLACAJE + T_QUEDA + T_SECA
 		Modo.GOLPE: return 0.6
 		Modo.ESCUPE: return 0.25 + T_QUEDA * 0.6 + T_SECA
-		Modo.TROMBA: return T_COLUMNA + 0.7
+		Modo.TROMBA: return T_COLUMNA + 0.8
+		Modo.IGNICION: return T_IGNICION + 0.5
+		Modo.PRESION: return T_OSCURO + 1.2
 		Modo.TROZO: return 0.75
 	return 1.0
 
@@ -274,6 +285,13 @@ func _preparar_area() -> void:
 			for i in 20:
 				_gotas.append({"a": _rng.randf_range(-mitad, mitad) * 0.9, "u": _rng.randf_range(0.35, 1.0),
 					"sube": _rng.randf_range(6.0, 16.0), "tam": _rng.randf_range(1.6, 2.8), "t0": _rng.randf_range(0.0, 0.08)})
+		Modo.PRESION:
+			var n3: int = int(clampf(_largo / 4.0, 12.0, 30.0))
+			for i in n3:
+				_llamas.append({"u": (float(i) + _rng.randf_range(0.0, 0.8)) / float(n3), "v": _rng.randf_range(-0.45, 0.45),
+					"tam": _rng.randf_range(0.8, 1.3), "fase": _rng.randf_range(0.0, 50.0), "vida": _rng.randf_range(0.45, 0.7)})
+			for i in 10:
+				_manchas.append({"u": _rng.randf_range(0.05, 1.0), "v": _rng.randf_range(-0.3, 0.3), "r": _rng.randf_range(0.3, 0.5) * _ancho})
 		Modo.PLACAJE:
 			var n2: int = int(clampf(_largo / 5.0, 5.0, 16.0))
 			for i in n2:
@@ -476,6 +494,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.GOLPE: _golpe(capa)
 		Modo.ESCUPE: _escupe(capa)
 		Modo.TROMBA: _tromba(capa)
+		Modo.PRESION: _presion(capa)
+		Modo.IGNICION: _ignicion(capa)
 		Modo.TROZO: _trozo(capa)
 
 
@@ -708,25 +728,141 @@ func _tromba(capa: Node2D) -> void:
 	if _t < -T_COLUMNA:
 		return
 	var cae: float = clampf((_t + T_COLUMNA) / T_COLUMNA, 0.0, 1.0)   # 0 arriba, 1 ya en el suelo
-	var sale: float = clampf(_t / 0.45, 0.0, 1.0)                     # despues: se deshace
+	var sale: float = clampf(_t / 0.5, 0.0, 1.0)                      # despues: se deshace hacia arriba
+	var arriba: Vector2 = _pies + _alto(ALTO_COLUMNA)
+	var cabeza: Vector2 = arriba.lerp(_pies, cae)
+	var r0: float = maxf(_ancho * 0.9, 12.0)
 	if capa == _delante:
-		# LA COLUMNA: una lengua gruesa de agua negra de lo alto a su cabeza, que se adelgaza al acabar.
-		var arriba: Vector2 = _pies + _alto(ALTO_COLUMNA)
-		var abajo: Vector2 = arriba.lerp(_pies, cae)
-		var grueso: float = maxf(_ancho * 0.9, 12.0) * (1.0 - sale)
-		if grueso > 0.5:
-			# Agua NEGRA: borde casi negro y el cuerpo del color hondo del slime, con el brillo solo en el centro.
-			var negro: Color = color.darkened(0.7)
-			var pts := PackedVector2Array([arriba, arriba.lerp(abajo, 0.5), abajo])
-			var anchos := PackedFloat32Array([grueso * 0.6, grueso, grueso * 1.15])
-			var bordes := PackedColorArray([Color(negro, 0.0), Color(negro, 0.9), Color(negro, 0.95)])
-			var nucleos := PackedColorArray([Color(color.darkened(0.3), 0.0), Color(color.darkened(0.3), 0.85), Color(color, 0.95)])
-			MagiaAire._lengua(capa, pts, anchos, bordes, nucleos)
-		if _t >= 0.0:
-			_golpe(capa)
+		# LA COLUMNA: mechones de tinta apilados de lo alto a la cabeza, mas gordos abajo; al caer se van deshaciendo
+		# desde abajo hacia arriba (la cola se queda, la cabeza revienta).
+		var n: int = 14   # solapados: una columna seguida, no cuentas sueltas
+		for k in n:
+			var u: float = float(k) / float(n - 1)          # 0 arriba, 1 la cabeza
+			if _t >= 0.0 and u > 1.0 - sale:
+				continue
+			var p: Vector2 = arriba.lerp(cabeza, u)
+			var r: float = r0 * lerpf(0.55, 0.95, u) * (1.0 - sale * 0.6)
+			_llama_oscura(capa, p, r, 0.25 + 0.5 * sale, float(k) * 7.3, false)
+		# LA CABEZA, redonda y mas gorda: lo que golpea (nunca un corte recto).
+		if _t < 0.0:
+			_llama_oscura(capa, cabeza, r0 * 1.25, 0.2, 31.0, true)
+		else:
+			# EL REVENTON a sus pies: llamas negras que se abren en corro y se apagan.
+			for l in _llamas:
+				var kl: float = clampf((_t - float(l["t0"]) * 0.25) / float(l["vida"]), 0.0, 1.0)
+				if kl <= 0.0 or kl >= 1.0:
+					continue
+				var d := Vector2(cos(float(l["a"])), sin(float(l["a"])))
+				var pl: Vector2 = _pies + d * r0 * (0.5 + 1.3 * kl) + _alto(4.0 + 10.0 * kl)
+				_llama_oscura(capa, pl, r0 * 0.55 * float(l["tam"]), kl, float(l["fase"]), false)
 	elif capa == _suelo and _t >= 0.0:
-		_charco(capa, _pies, _ancho * 0.6 * clampf(_t / 0.12, 0.0, 1.0), 1.0 - sale * 0.8, 9.0)
-		MagiaAire._anillo(capa, _pies, _ancho * (0.4 + 0.9 * sale), 5.0, Color(_claro(), 0.6 * (1.0 - sale)))
+		# LA MANCHA de oscuridad en el suelo, que se va apagando.
+		_mancha_oscura(capa, _pies, r0 * (1.2 + 0.6 * sale), 0.7 * (1.0 - smoothstep(0.4, 1.0, _t / 0.8)), 3.0)
+	elif capa == _brillo and _t > -T_COLUMNA:
+		BarridoAire.brillo(capa, cabeza, r0 * 1.6, Color(HALO_OSCURO, 0.35 * (1.0 - sale)))
+
+
+func _presion(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var frente: float = clampf(_t / T_OSCURO, 0.0, 1.0)
+	var lat: Vector2 = _dir.orthogonal()
+	if capa == _suelo:
+		# EL SUELO MANCHADO por donde ha pasado.
+		for m in _manchas:
+			if float(m["u"]) > frente:
+				continue
+			var pm: Vector2 = _o + _dir * _largo * float(m["u"]) + lat * _ancho * float(m["v"])
+			var vive: float = 1.0 - smoothstep(0.3, 1.0, (_t - float(m["u"]) * T_OSCURO) / 1.1)
+			_mancha_oscura(capa, pm, float(m["r"]), 0.6 * vive, float(m["u"]) * 17.0)
+		return
+	if capa == _delante:
+		# LOS MECHONES: cada uno nace cuando el frente pasa por su sitio, sube y se apaga.
+		for l in _llamas:
+			var kl: float = clampf((_t - float(l["u"]) * T_OSCURO) / float(l["vida"]), 0.0, 1.0)
+			if kl <= 0.0 or kl >= 1.0:
+				continue
+			var pl: Vector2 = _o + _dir * _largo * float(l["u"]) + lat * _ancho * float(l["v"]) + _alto(6.0 * kl)
+			_llama_oscura(capa, pl, 6.5 * float(l["tam"]) * (1.0 + 0.4 * (1.0 - kl)), kl, float(l["fase"]), false)
+		# LA CRESTA del frente: una llama grande que empuja por delante.
+		if frente < 1.0:
+			_llama_oscura(capa, _o + _dir * _largo * frente, maxf(_ancho * 0.6, 9.0), 0.15, 5.0, true)
+		return
+	if frente < 1.0:
+		BarridoAire.brillo(capa, _o + _dir * _largo * frente, _ancho, Color(HALO_OSCURO, 0.3))
+
+
+func _ignicion(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var k: float = clampf(_t / T_IGNICION, 0.0, 1.0)
+	var apaga: float = 1.0 - smoothstep(0.75, 1.0, _t / (T_IGNICION + 0.4))
+	var base: Vector2 = Vector2(_hasta.x, _pies.y - _largo * 0.35)   # donde arde: sobre su lomo
+	if capa == _suelo:
+		# EL CALOR en el suelo: un anillo naranja que se abre bajo el.
+		MagiaAire._anillo(capa, _pies, _ancho * (0.5 + 0.5 * k), 5.0, Color(FUEGO_NARANJA, 0.45 * apaga))
+		return
+	if capa == _delante:
+		# LAS LLAMAS le suben del cuerpo: nacen por su lomo y sus costados, suben, crecen y se hacen humo.
+		for l in _llamas:
+			var kl: float = clampf((_t - float(l["t0"])) / float(l["vida"]), 0.0, 1.0)
+			if kl <= 0.0 or kl >= 1.0:
+				continue
+			var pl: Vector2 = base + Vector2(float(l["x"]) * _ancho, 0.0) + _alto(4.0 + 22.0 * kl)
+			_bocanada(capa, pl, 5.5 * float(l["tam"]) * (0.7 + 0.6 * sin(kl * PI)), kl, float(l["fase"]))
+		# Y una gran llama sobre el, que late mientras se enciende.
+		var lat: float = 0.8 + 0.2 * sin(_t * 18.0)
+		_bocanada(capa, base + _alto(8.0), _ancho * 0.45 * lat * sin(clampf(_t / 0.25, 0.0, 1.0) * PI * 0.5) * apaga, 0.1 + 0.6 * k, 3.0)
+		return
+	# EL BRILLO del cuerpo al rojo.
+	BarridoAire.brillo(capa, _hasta, _ancho * 1.1, Color(FUEGO_NARANJA, 0.55 * apaga))
+	if _t < 0.2:
+		BarridoAire.destello(capa, base, _ancho * 0.8, Color(FUEGO_AMARILLO, 1.0 - _t / 0.2))
+
+
+# UN MECHON DE OSCURIDAD: la llama de la bocanada con la paleta de tinta (negro fuera, marron-violeta dentro, vetas
+# grises claras en el centro). 'k' = su edad (0 nace, 1 se apaga); 'redonda' = la cabeza de la tromba (sin puntas
+# arriba: es lo que golpea).
+func _llama_oscura(ci: CanvasItem, c: Vector2, r: float, k: float, fase: float, redonda: bool) -> void:
+	if r <= 0.5:
+		return
+	var paso: float = floor(_t * 12.0) + fase
+	var n: int = 14
+	var contorno := PackedVector2Array()
+	for i in n:
+		var a: float = TAU * float(i) / float(n)
+		var d := Vector2(cos(a), sin(a))
+		var rr: float = r * (0.8 + 0.3 * _ruido(float(i) + paso * 2.7, fase))
+		if d.y < -0.2 and not redonda:
+			rr *= 1.0 + 0.4 * (-d.y) + (0.6 * (-d.y) if (i + int(paso)) % 3 == 0 else 0.0)
+		contorno.append(Vector2(d.x * rr, d.y * rr * (1.15 if d.y < 0.0 else 0.85)))
+	var vida: float = 1.0 - smoothstep(0.65, 1.0, k)
+	var capas: Array = [[1.0, TINTA, 0.92], [0.62, TINTA_MEDIA, 0.95], [0.26, VETA, 0.8 * (1.0 - smoothstep(0.3, 0.8, k))]]
+	for cp in capas:
+		var alfa: float = float(cp[2]) * vida
+		if alfa <= 0.01:
+			continue
+		var pts := PackedVector2Array()
+		for i in n:
+			pts.append(c + contorno[i] * float(cp[0]) + (Vector2(r * 0.12, -r * 0.1) if float(cp[0]) < 0.3 else Vector2.ZERO))
+		_abanico(ci, c, pts, Color(cp[1] as Color, alfa))
+
+
+# UNA MANCHA DE OSCURIDAD en el suelo (sin achatar): negra en el centro, difuminada al borde.
+func _mancha_oscura(ci: CanvasItem, c: Vector2, r: float, alfa: float, sem: float) -> void:
+	if r <= 0.5 or alfa <= 0.01:
+		return
+	var n: int = 18
+	var pv := PackedVector2Array([c])
+	var pc := PackedColorArray([Color(TINTA, alfa)])
+	var pi := PackedInt32Array()
+	for i in n:
+		var a: float = TAU * float(i) / float(n)
+		pv.append(c + Vector2(cos(a), sin(a)) * r * (0.75 + 0.4 * _ruido(float(i), sem)))
+		pc.append(Color(TINTA_MEDIA, 0.0))
+	for i in n:
+		pi.append_array([0, 1 + i, 1 + (i + 1) % n])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
 
 
 func _trozo(capa: Node2D) -> void:

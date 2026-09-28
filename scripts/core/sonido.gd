@@ -91,6 +91,7 @@ const ALIAS_ESTILO := {
 	CombatFX.Estilo.SLIME_ESCUPE: "escupitajo",
 	CombatFX.Estilo.SLIME_TROMBA: "vortice",
 	CombatFX.Estilo.SLIME_TROZO: "escupitajo",
+	CombatFX.Estilo.SLIME_IGNICION: "aura",
 }
 
 # CUANTO SE OYE segun el peso del golpe (la fraccion que se lleva ese objetivo: 1.0 el principal,
