@@ -43,3 +43,5 @@ fx_basico = 19
 habilidades = [ExtResource("3_lla"), ExtResource("4_sal"), ExtResource("5_com"), ExtResource("6_ign")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (28/09): slime mediano.
+alcance = 20.0

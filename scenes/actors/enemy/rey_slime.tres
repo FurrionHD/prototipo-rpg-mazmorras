@@ -66,3 +66,5 @@ sala_luz_radio = 4.5
 sala_luz_intensidad = 0.4
 sala_freno = 0.7
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (28/09): con 15 solo llegaba a 1 px dentro de su propio borde.
+alcance = 35.0
