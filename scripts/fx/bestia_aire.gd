@@ -41,7 +41,8 @@ var _desde: Vector2 = Vector2.ZERO
 var _hasta: Vector2 = Vector2.ZERO
 var _ancho: float = 16.0
 var _viaje: float = 0.12
-var _eje: Vector2 = Vector2.RIGHT     # hacia donde muerde (de quien muerde a quien recibe), ya variado
+var _eje: Vector2 = Vector2.RIGHT     # hacia donde muerde (de quien muerde a quien recibe): el tiron va al reves
+var _boca: Vector2 = Vector2.UP       # hacia donde queda la mandibula de ARRIBA (la de abajo, al contrario)
 var _tam: float = 10.0
 var _o: Vector2 = Vector2.ZERO
 var _r: float = 25.0
@@ -118,9 +119,12 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		e._rng.randf_range(-0.2, 0.1) * caja.size.y)
 	e._ancho = maxf(caja.size.x, 10.0)
 	var eje: Vector2 = (e._hasta - desde).normalized() if e._hasta.distance_squared_to(desde) > 1.0 else Vector2.RIGHT
-	# NUNCA CON ANGULO FIJO: segun de donde viene, y cada mordisco con su variacion. El frenesi, de cualquier lado.
-	e._eje = eje.rotated(e._rng.randf_range(-0.35, 0.35)) if m != Modo.FRENESI \
-		else Vector2.RIGHT.rotated(e._rng.randf_range(0.0, TAU))
+	e._eje = eje
+	# UNA BOCA MUERDE ARRIBA Y ABAJO, venga de donde venga (lo corrigio el usuario, 28/09: de lado "su boca no esta
+	# de lado"). NUNCA CON ANGULO FIJO igual: se inclina hacia el lado del que viene quien muerde, y cada mordisco
+	# con su variacion; el frenesi, mas revuelto.
+	var inclina: float = eje.x * 0.35 + e._rng.randf_range(-0.2, 0.2) * (2.5 if m == Modo.FRENESI else 1.0)
+	e._boca = Vector2.UP.rotated(inclina)
 	e._tam = maxf(e._ancho * 0.6, 10.0) * (0.7 if m == Modo.FRENESI else 1.0)
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
@@ -172,7 +176,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 # Dos mandibulas, una a cada lado del eje, que se cierran hacia el. Mientras viaja el golpe (t < 0) se van
 # juntando, cada vez mas deprisa; en el golpe chocan (destello) y tiran un pelin hacia quien muerde; luego se van.
 func _mordisco(capa: Node2D) -> void:
-	var perp := Vector2(-_eje.y, _eje.x)
+	var perp: Vector2 = _boca
 	var cierre: float    # 0 = abiertas del todo, 1 = cerradas
 	var alfa: float = 1.0
 	var tiron := Vector2.ZERO
@@ -188,7 +192,7 @@ func _mordisco(capa: Node2D) -> void:
 	if capa == _brillo:
 		if _t >= 0.0 and _t < 0.14:
 			BarridoAire.destello(capa, _hasta + tiron, _tam * 0.9, Color(1.0, 0.95, 0.85, 0.85 * (1.0 - _t / 0.14)),
-				_eje.angle())
+				_boca.angle())
 		return
 	if capa != _delante:
 		return
