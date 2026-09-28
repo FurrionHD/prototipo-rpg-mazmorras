@@ -18,3 +18,8 @@ efectos = [SubResource("SA_0")]
 fx_anim = &"cornada"
 fx_estilo = 20
 cooldown = 3
+; EN EL MAPA (28/09): cono corto, mete el colmillo y levanta.
+forma = 2
+forma_apunte = 1
+forma_radio = 28.0
+forma_apertura = 70.0

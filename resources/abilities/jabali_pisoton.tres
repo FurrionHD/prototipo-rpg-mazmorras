@@ -13,3 +13,7 @@ dano_mult = 0.9
 fx_anim = &"pisoton"
 fx_estilo = 22
 cooldown = 2
+; EN EL MAPA (28/09): machaca lo que tiene pegado alrededor.
+forma = 1
+forma_apunte = 2
+forma_radio = 30.0

@@ -18,3 +18,8 @@ efectos = [SubResource("SA_raiz")]
 fx_estilo = 24
 fx_anim = &"raices"
 cooldown = 4
+; EN EL MAPA (28/09): el suelo se abre bajo un punto lejos.
+forma = 1
+forma_apunte = 3
+forma_radio = 30.0
+forma_rango = 110.0

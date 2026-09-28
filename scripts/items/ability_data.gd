@@ -252,6 +252,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # en el instante en que se ve llegar. Nunca hasta meterselo encima. 0 = no tira. El Desgarro (24/09).
 # NEGATIVO = EMPUJA, alejandolo de quien golpea (la Embestida, 25/09).
 @export var tiron: float = 0.0
+# APARTA A LOS LADOS (solo en el mapa, con LINEA): px que se lleva a un lado de la linea, al suyo, a cada uno
+# que encaja el golpe. La Embestida del jabali (28/09): "que empuje hacia los lados a los que choca".
+@export var aparta_lados: float = 0.0
 # HASTA DONDE SE APUNTA una forma LIBRE, en px desde el borde de lo que pisas (0 = el alcance del arma,
 # como DELANTE). El Oportunista de la daga se pone hasta 150 px lejos (24/09).
 @export var forma_rango: float = 0.0

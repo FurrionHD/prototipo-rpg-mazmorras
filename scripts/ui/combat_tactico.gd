@@ -2196,6 +2196,23 @@ func pedir_atraccion(c: Combatant, de: Combatant, hacia: Vector2, px: float) -> 
 		_tirones.append(tr)
 
 
+# APARTAR A UN LADO de la linea del que embiste (la Embestida del jabali, 28/09): cada uno sale hacia SU lado
+# de la linea (el de la ultima huella que solto el enemigo); el que va justo por el medio, a uno por su codigo.
+func pedir_apartar(c: Combatant, de: Combatant, px: float) -> void:
+	if _pantalla._espejo or c == null or de == null or px <= 0.0:
+		return
+	var f = ultima_forma_enemigo
+	var eje: Vector2 = f.dir if f != null and f.dir != Vector2.ZERO else (pos_de(c) - pos_de(de)).normalized()
+	var perp := Vector2(-eje.y, eje.x)
+	var origen: Vector2 = f.origen if f != null else pies_de(de)
+	var lado: float = signf(perp.dot(pies_de(c) - origen))
+	if is_zero_approx(lado):
+		lado = 1.0 if _cod(c) % 2 == 0 else -1.0
+	var tr := {"c": c, "de": de, "px": px, "desplaza": perp * lado * px, "espera": 0.0, "t": -1.0}
+	if not _tiron_a_otro_humano(tr):
+		_tirones.append(tr)
+
+
 # EL PERSONAJE DE OTRO HUMANO no se puede arrastrar desde aqui: su cuerpo lo mueve SU maquina (y con un
 # trabajador de pelea, TODOS son de otro). Asi que el sitio donde acaba se decide YA, con la pared que lo
 # para, y viaja como un desliz EMPUJON, que su maquina hace al encajar el golpe; aqui se apunta en _pos.
@@ -2618,6 +2635,9 @@ func _arrancar_tiron(tr: Dictionary) -> void:
 # Adonde lleva un tiron a 'c', saliendo de 'desde' (su nodo). La pared no se mira aqui.
 func _hasta_de_tiron(tr: Dictionary, desde: Vector2) -> Vector2:
 	var c: Combatant = tr["c"]
+	# UN DESPLAZAMIENTO YA DECIDIDO (apartar a un lado, pedir_apartar).
+	if tr.has("desplaza"):
+		return desde + Vector2(tr["desplaza"])
 	# HACIA UN PUNTO (la Vorágine): sus pies van hacia el, sin pasarse (se quedan a HUECO_ATRAE del centro).
 	if tr.has("hacia"):
 		var pies: Vector2 = pies_de(c)

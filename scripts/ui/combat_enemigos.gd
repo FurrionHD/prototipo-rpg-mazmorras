@@ -474,6 +474,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
 				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
 					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
+				# Y EL QUE LOS APARTA A LOS LADOS (la Embestida del jabali, 28/09).
+				if lista_mapa != null and ab.aparta_lados > 0.0 and int(sub["conecto"]) > 0 and t.is_alive():
+					_pantalla.turno_mapa.pedir_apartar(t, e, ab.aparta_lados)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				mult_por_obj[t] = float(sub["mult_elem"]); robado_total += float(sub["robado"])

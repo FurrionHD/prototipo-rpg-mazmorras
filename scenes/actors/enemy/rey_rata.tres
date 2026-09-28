@@ -51,3 +51,5 @@ fx_basico = 14
 habilidades = [ExtResource("5_den"), ExtResource("6_chi"), ExtResource("7_yug")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (28/09): mas grande que la rata.
+alcance = 20.0

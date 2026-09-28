@@ -20,3 +20,8 @@ efectos = [SubResource("SA_peg")]
 efectos_por_golpe = true
 fx_estilo = 23
 cooldown = 2
+; EN EL MAPA (28/09): barrido de rama en cono ancho, a todos (como el Segar).
+forma = 2
+forma_apunte = 1
+forma_radio = 55.0
+forma_apertura = 140.0

@@ -19,3 +19,8 @@ efectos = [SubResource("SA_ven")]
 fx_anim = &"escupir"
 fx_estilo = 10
 cooldown = 3
+; EN EL MAPA (28/09): escupe a un punto lejos y salpica un charco.
+forma = 1
+forma_apunte = 3
+forma_radio = 20.0
+forma_rango = 100.0

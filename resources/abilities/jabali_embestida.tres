@@ -18,3 +18,10 @@ efectos = [SubResource("SA_stun")]
 fx_estilo = 21
 gesto = 3
 cooldown = 3
+; EN EL MAPA (28/09): arrolla por la linea, se para pegado al primero y APARTA a los lados a los que choca.
+forma = 3
+forma_apunte = 1
+forma_radio = 90.0
+forma_ancho = 22.0
+carga = true
+aparta_lados = 28.0

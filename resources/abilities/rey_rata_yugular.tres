@@ -18,3 +18,10 @@ dano_mult = 1.5
 efectos = [SubResource("SA_0")]
 fx_estilo = 16
 cooldown = 4
+; EN EL MAPA (28/09): se lanza por la linea y se pega al primero que pilla (solo a ese).
+forma = 3
+forma_apunte = 1
+forma_radio = 55.0
+forma_ancho = 12.0
+forma_solo_primero = true
+carga = true

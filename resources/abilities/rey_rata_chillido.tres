@@ -26,3 +26,10 @@ efectos = [SubResource("SA_0"), SubResource("SA_1")]
 fx_anim = &"chillido"
 fx_estilo = 17
 cooldown = 3
+; EN EL MAPA (28/09): cono ancho a 2 tramos, cerca pega mas (como el Grito del mandoble).
+forma = 2
+forma_apunte = 1
+forma_radio = 100.0
+forma_apertura = 120.0
+forma_tramos = 2
+forma_tramo_baja = 0.4
