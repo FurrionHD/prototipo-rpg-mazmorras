@@ -30,3 +30,6 @@ forma_radio = 25.0
 forma_rango = 60.0
 forma_reparte = true
 salta = true
+; EN EL MAPA: el polvo al caer (BESTIA_POLVO) y un remolino de mordiscos en cada cuerpo.
+fx_estilo_mapa = 135
+suelo_roto = 70

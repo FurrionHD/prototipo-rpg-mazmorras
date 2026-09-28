@@ -249,6 +249,10 @@ func _correr() -> void:
 		_enemigos.append(Vector2(cos(a2), sin(a2)) * 118.0)
 	var pedidas: String = OS.get_environment("ATAQUES_LISTA")
 	# ATAQUES_ENEMIGOS=1 -> las hojas de los ENEMIGOS (28/09, los slimes): enemigos/slimes/<slime>/<habilidad>.png.
+	if OS.get_environment("ATAQUES_ENEMIGOS") != "" and OS.get_environment("ATAQUES_BESTIA") != "":
+		await _hojas_bestias(salida, pedidas, OS.get_environment("ATAQUES_BESTIA"))
+		get_tree().quit(0)
+		return
 	if OS.get_environment("ATAQUES_ENEMIGOS") != "":
 		await _hojas_slimes(salida, pedidas)
 		get_tree().quit(0)
@@ -1323,3 +1327,166 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
+
+
+# LAS BESTIAS DE LOS PISOS BAJOS (28/09): rata, rey rata, jabali y trent. ATAQUES_BESTIA=rata (el .tres) ->
+# enemigos/<bestia>/<habilidad>.png. Como las de los slimes, con BestiaAire y la sangre de los que la echan.
+const MOMENTOS_BESTIA := {
+	"basico": [-0.1, -0.04, 0.0, 0.1, 0.3],
+	"rata_mordisco_sangrante": [-0.08, 0.0, 0.1, 0.22, 0.4],
+	"rata_frenesi_dentelladas": [0.05, 0.15, 0.35, 0.6, 0.9],
+}
+const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI}
+
+func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
+	BarridoAire.ritmo = 1.0
+	var yo := Vector2.ZERO
+	_yo_fig.visible = false
+	_color_huella = Color(1.0, 0.3, 0.25)
+	for fg in _figs:
+		(fg as ColorRect).color = AZUL
+	var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % bestia)
+	var cuerpo := Node2D.new()
+	cuerpo.z_index = 1000
+	cuerpo.z_as_relative = false
+	add_child(cuerpo)
+	var spr := AnimatedSprite2D.new()
+	spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5)
+	spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	cuerpo.add_child(spr)
+	spr.play(&"idle_0")
+	spr.pause()
+	var rd: Rect2 = load("res://scripts/ui/combat_tactico.gd").rect_dibujo(cuerpo)
+	spr.position = yo - Vector2(rd.get_center().x, rd.position.y + rd.size.y * ed.centro_suelo_real())
+	var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+	var bulto0: Rect2 = Rect2(rd.position + spr.position, rd.size)
+	var alcance: float = ed.alcance_real()
+	var habs: Array = ["basico"]
+	for h in ed.habilidades:
+		habs.append((h as AbilityData).resource_path.get_file().get_basename())
+	for nom in habs:
+		if pedidas != "" and not (String(nom) in pedidas.split(",")):
+			continue
+		var ab: AbilityData
+		if nom == "basico":
+			ab = AbilityData.new()
+			ab.nombre = "Basico"
+			ab.forma = CombatFormas.Tipo.CIRCULO
+			ab.forma_apunte = CombatFormas.Apunte.DELANTE
+			ab.forma_radio = 8.0
+			ab.fx_estilo_mapa = CombatFX.Estilo.BESTIA_MORDISCO
+		else:
+			ab = load("res://resources/abilities/%s.tres" % nom)
+		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)):
+			continue   # aun sin efecto propio
+		var modo_b: int = ESTILO_A_BESTIA[int(ab.fx_estilo_mapa)]
+		var sin_huella: bool = int(ab.forma) < 0
+		if sin_huella:
+			ab = ab.duplicate()
+			ab.forma = CombatFormas.Tipo.CIRCULO
+			ab.forma_apunte = CombatFormas.Apunte.DELANTE
+			ab.forma_radio = 8.0
+		var tiempos: Array = MOMENTOS_BESTIA.get(nom, [0.05, 0.15, 0.3, 0.5, 0.9])
+		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, yo + Vector2(70, 0))
+		var medida: float = maxf(maxf(f0.radio, f0.largo), 40.0)
+		if int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
+			medida = maxf(medida, f0.radio + 70.0 * 0.7)
+		# Los mordiscos sueltos, de cerca: si no, las mandibulas no se ven.
+		medida = 32.0 if (nom == "basico" or sin_huella) else maxf(medida, 90.0)
+		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
+		_cam.zoom = Vector2(zoom, zoom)
+		var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+		for fila in DIRS.size():
+			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+			var dir_n: String = DIRS[fila][0]
+			var hacia: Vector2 = yo + dvec * 70.0
+			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+			cuerpo.position = Vector2.ZERO
+			# La figura que recibe el mordisco suelto (en el juego, uno de los tuyos).
+			var fig_presa: ColorRect = null
+			if nom == "basico" or sin_huella:
+				fig_presa = _figura(yo + dvec * (pisa + alcance * 0.7 + 7.0) + Vector2(0, 13), AZUL)
+				fig_presa.z_index = Game.Z_PERSONAJES
+			var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, hacia)
+			_cam.global_position = yo + dvec * medida * (0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.3)
+			_forma_huella = f if nom != "basico" and not sin_huella else null
+			_huella.queue_redraw()
+			await _viñeta(hoja, 0, fila, "%s · %s · %s · apuntando" % [ed.enemy_name, ab.nombre, dir_n])
+			_forma_huella = null
+			_huella.queue_redraw()
+			var cajas: Array = []
+			if nom == "basico" or sin_huella:
+				cajas = [Rect2(yo + dvec * (pisa + alcance * 0.7 + 7.0) - Vector2(7, 13), Vector2(14, 26))]
+			else:
+				for q in _enemigos:
+					var r := Rect2((q as Vector2) - Vector2(7, 26), Vector2(14, 26))
+					if f.toca(r):
+						cajas.append(r)
+				var cu: Vector2 = f.centro_util()
+				cajas.sort_custom(func(x, y): return (x as Rect2).get_center().distance_squared_to(cu) < (y as Rect2).get_center().distance_squared_to(cu))
+			# EL SALTO (Frenesi): la bestia ya esta en el centro de su circulo cuando empiezan los mordiscos.
+			if ab.salta:
+				cuerpo.position = f.centro - yo
+			var bulto: Rect2 = Rect2(bulto0.position + cuerpo.position, bulto0.size)
+			var semilla: int = 700 + fila * 31
+			var piezas: Array = []   # {n, t0, sim}
+			var antes: int = get_child_count()
+			if ab.suelo_roto >= 0:
+				SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
+				for i in range(antes, get_child_count()):
+					piezas.append({"n": get_child(i), "t0": 0.0, "sim": false})
+			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else 0.14
+			var golpes: int = maxi(ab.golpes_max, 1)
+			for g in golpes:
+				if cajas.is_empty():
+					break
+				var rg: Rect2 = cajas[g % cajas.size()]
+				var t0: float = (0.12 * float(g) + 0.08) if modo_b == BestiaAire.Modo.FRENESI else 0.22 * float(g)
+				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0),
+					"t0": t0, "sim": false})
+				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
+				if modo_b != BestiaAire.Modo.MORDISCO:
+					var antes_s: int = get_child_count()
+					SangreMapa.salpicar(self, rg.get_center(), _pies_caja(rg), rg.get_center() - bulto.get_center(),
+						0.7 if modo_b == BestiaAire.Modo.MORDISCO_SANGRA else 0.4, semilla + g)
+					for i in range(antes_s, get_child_count()):
+						piezas.append({"n": get_child(i), "t0": t0, "sim": true})
+			for pz in piezas:
+				if pz["n"] != null:
+					(pz["n"] as Node).set_process(false)
+			for c in tiempos.size():
+				var t: float = float(tiempos[c])
+				for pz in piezas:
+					var n: Node2D = pz["n"]
+					if n == null or not is_instance_valid(n):
+						continue
+					if bool(pz["sim"]):
+						# La sangre se simula (va por fisica): se le da cuerda hasta este momento.
+						var objetivo: float = t - float(pz["t0"])
+						while float(n.get("_t")) < objetivo and is_instance_valid(n):
+							n._process(1.0 / 120.0)
+						n.visible = objetivo >= 0.0
+						continue
+					n.set("_t", t - float(pz["t0"]))
+					n.queue_redraw()
+					for hijo in ["_suelo", "_delante", "_brillo"]:
+						var su = n.get(hijo)
+						if su is Node2D:
+							(su as Node2D).queue_redraw()
+				await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, t])
+			if fig_presa != null:
+				fig_presa.queue_free()
+			for pz in piezas:
+				if pz["n"] != null and is_instance_valid(pz["n"]):
+					(pz["n"] as Node).queue_free()
+			await get_tree().process_frame
+		var carpeta: String = "%s/enemigos/%s" % [salida, bestia]
+		DirAccess.make_dir_recursive_absolute(carpeta)
+		var ruta: String = "%s/%s.png" % [carpeta, nom]
+		hoja.save_png(ruta)
+		print("[hoja] ", ruta)
+	cuerpo.queue_free()
+	await get_tree().process_frame
+

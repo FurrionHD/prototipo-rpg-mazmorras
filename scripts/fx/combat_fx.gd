@@ -373,7 +373,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# de la Tromba y el trozo de la Escision. En la fila no salen: solo los pone el mapa (fx_estilo_mapa).
 		SLIME_GOLPE = 128, SLIME_ESCUPE = 129, SLIME_TROMBA = 130, SLIME_TROZO = 131,
 		# La Ignicion en el mapa: el slime se prende (llamas que le suben del cuerpo).
-		SLIME_IGNICION = 132 }
+		SLIME_IGNICION = 132,
+		# LAS BESTIAS de los pisos bajos en el mapa (28/09, BestiaAire): las mandibulas de la rata (basico, sangrante y el
+		# remolino del Frenesi). Solo las pone el mapa.
+		BESTIA_MORDISCO = 133, BESTIA_MORDISCO_SANGRA = 134, BESTIA_FRENESI = 135 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -401,6 +404,8 @@ const FX_ARMA := {
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
+	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
+	Estilo.BESTIA_MORDISCO, Estilo.BESTIA_MORDISCO_SANGRA, Estilo.BESTIA_FRENESI,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -548,6 +553,8 @@ const T_VUELO := {
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
 	# Los del slime en el mapa: el escupitajo y el trozo VIAJAN (su vuelo es el viaje), la columna cae.
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
+	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
+	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

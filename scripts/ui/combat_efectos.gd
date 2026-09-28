@@ -237,6 +237,9 @@ func _estilo_de_habilidad(ab: AbilityData, atacante: Combatant = null) -> int:
 			return ab.fx_estilo_mapa
 		if ab == null and atacante != null and atacante.es_slime and _pantalla._enemies.has(atacante):
 			return CombatFX.Estilo.SLIME_GOLPE
+		# Los mordiscos de rata (su basico) en el mapa: las mandibulas de BestiaAire.
+		if ab == null and atacante != null and atacante.fx_basico == CombatFX.Estilo.MORDISCO and _pantalla._enemies.has(atacante):
+			return CombatFX.Estilo.BESTIA_MORDISCO
 	if ab != null and ab.fx_estilo >= 0:
 		return ab.fx_estilo
 	if atacante != null and atacante.fx_basico >= 0:

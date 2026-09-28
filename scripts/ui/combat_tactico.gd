@@ -2265,7 +2265,9 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	CombatFX.Estilo.CAMBIO_RITMO, CombatFX.Estilo.SENALAR_HUECO, CombatFX.Estilo.CORTE_TENDONES,
 	# La ESPADA LARGA (25/09): como la corta, algo mas en el Tajo pesado. El escudazo no corta.
 	CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, CombatFX.Estilo.TAJO_DESARMANTE,
-	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL]
+	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL,
+	# La RATA (28/09): el Mordisco sangrante y el Frenesi (el basico, no: muerde, pero no es el que sangra).
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI]
 
 func _on_impacto(ev: Dictionary) -> void:
 	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
@@ -2305,6 +2307,10 @@ func _on_impacto(ev: Dictionary) -> void:
 			SangreMapa.surco(arena, cuerpo, pies_v - cuerpo.global_position)
 		CombatFX.Estilo.HACHA_TAJO:
 			fuerza *= 0.6
+		CombatFX.Estilo.BESTIA_MORDISCO_SANGRA:
+			fuerza *= 0.7
+		CombatFX.Estilo.BESTIA_FRENESI:
+			fuerza *= 0.4
 		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA:
 			fuerza *= 0.35
 		CombatFX.Estilo.PUNALADA:
@@ -2432,6 +2438,8 @@ const _MODO_BASTON := {
 const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
 	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
+const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2452,6 +2460,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_s: Vector2 = bulto_de(a).get_center() - Vector2(0.0, bulto_de(a).size.y * 0.15) 			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		SlimeAire.sobre_cuerpo(arena, int(_MODO_SLIME[estilo]), desde_s, bulto_de(v), ev.get("color", Color.WHITE),
 			semilla, vuelo, ritmo)
+		return
+	# LAS BESTIAS (BestiaAire, 28/09): las mandibulas de la rata, de quien muerde al que recibe.
+	if estilo in _MODO_BESTIA:
+		var desde_b: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo)
 		return
 	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
 	if estilo == CombatFX.Estilo.ARCO:

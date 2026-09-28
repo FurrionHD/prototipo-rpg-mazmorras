@@ -38,7 +38,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	MAGIA_LAVA, MAGIA_JABALINA, MAGIA_JABALINA_FALLA, MAGIA_MIASMA, MAGIA_ONDA_FUERZA,
 	MAGIA_SOL, MAGIA_VORAGINE, MAGIA_SHOCK, MAGIA_TORMENTA, MAGIA_LUZ, MAGIA_PRISMA, MAGIA_ECLIPSE,
 	SLIME_SPLAT, SLIME_APLASTA, SLIME_MAREA, SLIME_COMBUSTION, SLIME_SALPICA, SLIME_ROCIADA, SLIME_LLAMARADA,
-	SLIME_PRESION, SLIME_PLACAJE, SLIME_EMBATE }
+	SLIME_PRESION, SLIME_PLACAJE, SLIME_EMBATE,
+	BESTIA_POLVO }
+# BESTIA_* (rata, rey rata, jabali y trent en el mapa, 28/09): viven en BestiaAire (su Modo = tipo - BESTIA_POLVO).
+# De enemigo como los SLIME_*, y DETRAS de ellos: se miran antes.
 # SLIME_* (los slimes en el mapa, 28/09): viven en SlimeAire (su Modo = tipo - SLIME_SPLAT). Son de ENEMIGO: el golpe
 # les llega a los TUYOS con el frente (ver es_de_enemigo). Van DETRAS de todo: se miran los primeros.
 # MAGIA_SOL.. (las de 3 frases, 26/09): viven en MagiaMayor (su Modo = tipo - MAGIA_SOL). Van DETRAS de las MAGIA_*: se
@@ -108,6 +111,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.BESTIA_POLVO:
+		return BestiaAire.area(padre, f, t - Tipo.BESTIA_POLVO, semilla, espera)
 	if t >= Tipo.SLIME_SPLAT:
 		return SlimeAire.area(padre, f, t - Tipo.SLIME_SPLAT, semilla, espera)
 	if t >= Tipo.MAGIA_SOL:
@@ -152,6 +157,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.BESTIA_POLVO:
+		return BestiaAire.retraso(t - Tipo.BESTIA_POLVO, f, p)
 	if t >= Tipo.SLIME_SPLAT:
 		return SlimeAire.retraso(t - Tipo.SLIME_SPLAT, f, p)
 	if t >= Tipo.MAGIA_SOL:
@@ -187,6 +194,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.BESTIA_POLVO:
+		return BestiaAire.t_salir(t - Tipo.BESTIA_POLVO)
 	if t >= Tipo.SLIME_SPLAT:
 		return SlimeAire.t_salir(t - Tipo.SLIME_SPLAT)
 	if t >= Tipo.MAGIA_SOL:

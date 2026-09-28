@@ -20,3 +20,5 @@ efectos = [SubResource("SA_sang")]
 efectos_por_golpe = true
 fx_estilo = 14
 cooldown = 2
+; EN EL MAPA (28/09): las mandibulas de BestiaAire, y sangre si entra.
+fx_estilo_mapa = 134
