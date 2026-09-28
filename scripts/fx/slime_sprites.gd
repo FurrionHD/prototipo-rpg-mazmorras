@@ -356,10 +356,9 @@ static func _montar_ignicion(anims: Array, corona: bool, esc: float) -> void:
 		return {"squash": SpriteLienzo.tramos(t, squash_keys),
 			"avance": 0.0,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente. Y ademas esto lo monta
-	# TODO slime (el generador es comun), asi que ocho direcciones serian ocho veces el coste para
-	# seis bichos que ni siquiera tienen la habilidad.
-	_montar_animacion(anims, corona, esc, "ignicion", false, 12.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (28/09): en el combate del MAPA el slime la suelta mirando a donde sea, y con una sola
+	# se veia de frente aunque mirase al norte (lo pidio el usuario: "ahora tiene que ser hacia todas").
+	_montar_animacion(anims, corona, esc, "ignicion", false, 12.0, pose, true, 8, 8)
 
 
 # EL BROTE del Rey Slime: se estira hacia arriba y SE DESPLOMA, expulsando a las crias.
@@ -391,7 +390,7 @@ static func _montar_brote(anims: Array, corona: bool, esc: float) -> void:
 		return {"squash": SpriteLienzo.tramos(t, squash_keys),
 			"avance": 0.0,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
-	_montar_animacion(anims, corona, esc, "brote", false, 10.0, pose, true, 1, 8)
+	_montar_animacion(anims, corona, esc, "brote", false, 10.0, pose, true, 8, 8)   # 8 dirs: el mapa (28/09)
 
 
 # ESCUPIR: se comprime y suelta por arriba. Lo usan las cinco habilidades de ESCUPITAJO del bloque de
@@ -416,9 +415,8 @@ static func _montar_escupir(anims: Array, corona: bool, esc: float) -> void:
 		return {"squash": SpriteLienzo.tramos(t, squash_keys),
 			"avance": 0.0,
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
-	# UNA SOLA DIRECCION, y aqui pesa doble: esto lo monta TODO slime (el generador es comun a los
-	# seis), asi que ocho direcciones serian ocho veces el coste en cada uno.
-	_montar_animacion(anims, corona, esc, "escupir", false, 12.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (28/09): en el mapa escupe hacia donde apunta, no siempre hacia la camara.
+	_montar_animacion(anims, corona, esc, "escupir", false, 12.0, pose, true, 8, 8)
 
 
 # MORIRSE: SE DERRITE EN UN CHARCO. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve
@@ -451,7 +449,7 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, corona: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, corona, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	_montar_animacion(anims, corona, esc, "muerte", false, 10.0, pose, true, 8, 8)   # 8 dirs: el mapa (28/09)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -492,7 +490,8 @@ static func _montar_encaje(anims: Array, corona: bool, esc: float) -> void:
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	# 18 fps para 4 marcos = 0,22 s. Tiene que caber DENTRO de un golpe: una rafaga de seis mordiscos
 	# se ha de leer como seis sacudidas, no como un temblor continuo.
-	_montar_animacion(anims, corona, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# 8 direcciones (28/09): en el mapa se sacude hacia atras de donde mira, no siempre hacia la camara.
+	_montar_animacion(anims, corona, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, corona: bool, esc: float,
