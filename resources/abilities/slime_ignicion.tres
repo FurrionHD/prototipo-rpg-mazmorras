@@ -18,3 +18,4 @@ coste_energia = 0.0
 dano_mult = 0.0
 efectos = [SubResource("SA_fort")]
 cooldown = 4
+fx_estilo_mapa = 122

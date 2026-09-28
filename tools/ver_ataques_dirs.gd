@@ -182,6 +182,7 @@ var _cam: Camera2D
 var _enemigos: Array = []    # donde estan los pies de cada figura roja
 var _huella: Node2D
 var _forma_huella = null
+var _color_huella: Color = COLOR_HUELLA   # rojo en las de los enemigos
 var _rotulo: Label
 var _yo_fig: ColorRect = null
 var _figs: Array = []        # las figuras de alrededor (rojas; verdes en las de apoyo)
@@ -196,7 +197,7 @@ func _ready() -> void:
 	add_child(_huella)
 	_huella.draw.connect(func():
 		if _forma_huella != null:
-			CombatFormas.dibujar(_forma_huella, _huella, COLOR_HUELLA))
+			CombatFormas.dibujar(_forma_huella, _huella, _color_huella))
 	var capa := CanvasLayer.new()
 	add_child(capa)
 	_rotulo = Label.new()
@@ -247,6 +248,11 @@ func _correr() -> void:
 		_figs.append(_figura(Vector2(cos(a2), sin(a2)) * 118.0, ROJO))
 		_enemigos.append(Vector2(cos(a2), sin(a2)) * 118.0)
 	var pedidas: String = OS.get_environment("ATAQUES_LISTA")
+	# ATAQUES_ENEMIGOS=1 -> las hojas de los ENEMIGOS (28/09, los slimes): enemigos/slimes/<slime>/<habilidad>.png.
+	if OS.get_environment("ATAQUES_ENEMIGOS") != "":
+		await _hojas_slimes(salida, pedidas)
+		get_tree().quit(0)
+		return
 	# ATAQUES_ECLIPSE=1 -> la version B del Eclipse (corona de esquirlas); sin nada, la A (corona de llamas).
 	if OS.get_environment("ATAQUES_ECLIPSE") != "":
 		MagiaMayor.eclipse_variante = int(OS.get_environment("ATAQUES_ECLIPSE"))
@@ -1130,3 +1136,190 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 	for rt3 in rayos_t:
 		(rt3["n"] as Node).queue_free()
 	await get_tree().process_frame
+
+
+# ------------------------------------------------------------
+#  LOS ENEMIGOS (28/09): los SLIMES
+# ------------------------------------------------------------
+# El slime de verdad en el centro (su dibujo, mirando a cada direccion) y los tuyos en AZUL alrededor. Cada
+# habilidad con su forma de la ficha (el alcance de los enemigos, 15) y su efecto del mapa (SlimeAire), del color
+# de ESE slime. Una carpeta por slime: la misma habilidad sale en cada uno que la tiene, con su color.
+const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "slime_fuego"],
+	["abisal", "slime_abisal"], ["profundo", "slime_profundo"], ["rey", "rey_slime"]]
+const ALCANCE_ENEMIGO := 15.0
+const AZUL := Color(0.35, 0.6, 1.0)
+# Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
+const MOMENTOS_SLIME := {
+	"basico": [-0.02, 0.03, 0.1, 0.2, 0.4],
+	"slime_placaje_viscoso": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_placaje_corrosivo": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_doble_embate": [0.05, 0.12, 0.25, 0.32, 0.5],
+	"slime_reventon": [0.02, 0.08, 0.16, 0.35, 1.2],
+	"slime_rociada_corrosiva": [0.05, 0.12, 0.22, 0.35, 0.9],
+	"slime_escupitajo_toxico": [-0.18, -0.08, 0.02, 0.15, 0.5],
+	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
+	"slime_salpicadura_ardiente": [0.05, 0.12, 0.22, 0.4, 0.9],
+	"slime_combustion": [0.03, 0.1, 0.2, 0.4, 0.9],
+	"slime_ignicion": [0.05, 0.2, 0.35, 0.5, 0.7],
+	"slime_presion_abismo": [0.12, 0.28, 0.45, 0.7, 1.4],
+	"slime_tromba_abisal": [-0.08, 0.02, 0.15, 0.35, 0.6],
+	"rey_slime_aplastamiento": [0.03, 0.1, 0.22, 0.45, 1.2],
+	"rey_slime_escision": [-0.12, 0.02, 0.2, 0.4, 0.62],
+	"rey_slime_marea": [0.1, 0.3, 0.5, 0.75, 1.3],
+}
+
+func _hojas_slimes(salida: String, pedidas: String) -> void:
+	BarridoAire.ritmo = 1.0
+	var yo := Vector2.ZERO
+	_yo_fig.visible = false
+	_color_huella = Color(1.0, 0.3, 0.25)
+	for fg in _figs:
+		(fg as ColorRect).color = AZUL
+	var solo: String = OS.get_environment("ATAQUES_SLIME")   # ATAQUES_SLIME=rey -> solo ese
+	for sl in SLIMES:
+		if solo != "" and sl[0] != solo:
+			continue
+		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % sl[1])
+		var col: Color = ed.color_visual(0.5)
+		# SU DIBUJO: un cuerpo con su sprite, con los pies (su centro en el suelo) en el centro de la hoja.
+		var cuerpo := Node2D.new()
+		cuerpo.z_index = 1000
+		cuerpo.z_as_relative = false
+		add_child(cuerpo)
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5)
+		spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		cuerpo.add_child(spr)
+		spr.play(&"idle_0")
+		spr.pause()
+		var rd: Rect2 = load("res://scripts/ui/combat_tactico.gd").rect_dibujo(cuerpo)
+		spr.position = yo - Vector2(rd.get_center().x, rd.position.y + rd.size.y * ed.centro_suelo_real())
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
+		var habs: Array = ["basico"]
+		for h in ed.habilidades:
+			habs.append((h as AbilityData).resource_path.get_file().get_basename())
+		for nom in habs:
+			if pedidas != "" and not (String(nom) in pedidas.split(",")):
+				continue
+			var ab: AbilityData
+			if nom == "basico":
+				ab = AbilityData.new()
+				ab.nombre = "Basico"
+				ab.forma = CombatFormas.Tipo.CIRCULO
+				ab.forma_apunte = CombatFormas.Apunte.DELANTE
+				ab.forma_radio = 8.0
+			else:
+				ab = load("res://resources/abilities/%s.tres" % nom)
+			if int(ab.forma) < 0 and nom != "slime_ignicion":
+				continue   # sin huella (el Brote): no hay nada que enseñar aqui
+			var tiempos: Array = MOMENTOS_SLIME.get(nom, [0.05, 0.15, 0.3, 0.5, 0.9])
+			var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, ALCANCE_ENEMIGO, yo + Vector2(70, 0)) if int(ab.forma) >= 0 else null
+			var medida: float = 70.0 if f0 == null else maxf(maxf(f0.radio, f0.largo), 40.0)
+			if f0 != null and int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
+				medida = maxf(medida, f0.radio + 70.0 * 0.7)
+			medida = maxf(medida, 90.0)
+			var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
+			_cam.zoom = Vector2(zoom, zoom)
+			var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+			for fila in DIRS.size():
+				var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+				var dir_n: String = DIRS[fila][0]
+				var hacia: Vector2 = yo + dvec * 70.0
+				spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+				var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa, ALCANCE_ENEMIGO, hacia) if int(ab.forma) >= 0 else null
+				var hacia_cam: float = 0.0 if f == null or int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.3
+				_cam.global_position = yo + dvec * medida * hacia_cam
+				# 1) La huella, en ROJO (es de enemigo).
+				_forma_huella = f if nom != "basico" else null
+				_huella.queue_redraw()
+				await _viñeta(hoja, 0, fila, "%s · %s · %s · apuntando" % [ed.enemy_name, ab.nombre, dir_n])
+				_forma_huella = null
+				_huella.queue_redraw()
+				# 2) Los tuyos que pilla (en el orden de cercania al centro de la huella).
+				var cajas: Array = []
+				for p in _enemigos:
+					var r := Rect2((p as Vector2) - Vector2(7, 26), Vector2(14, 26))
+					if f != null and f.toca(r):
+						cajas.append(r)
+				if f != null:
+					var cu: Vector2 = f.centro_util()
+					cajas.sort_custom(func(x, y): return (x as Rect2).get_center().distance_squared_to(cu) < (y as Rect2).get_center().distance_squared_to(cu))
+				if nom == "basico":
+					cajas = [Rect2(yo + dvec * 26.0 - Vector2(7, 13), Vector2(14, 26))]
+				var boca: Vector2 = bulto.get_center() - Vector2(0.0, bulto.size.y * 0.15)
+				var semilla: int = SlimeAire.semilla_con_color(700 + fila * 31, col)
+				var piezas: Array = []   # {n, t0}
+				var antes: int = get_child_count()
+				if ab.suelo_roto >= 0 and f != null:
+					SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
+					for i in range(antes, get_child_count()):
+						piezas.append({"n": get_child(i), "t0": 0.0})
+				elif nom == "slime_ignicion":
+					piezas.append({"n": MagiaAire.sobre_cuerpo(self, MagiaAire.Modo.FORTALECER, bulto, col, semilla, 0.0, 1.0), "t0": 0.0})
+				else:
+					var modo_s: int = SlimeAire.Modo.GOLPE
+					var vuelo: float = 0.05
+					match int(ab.fx_estilo_mapa):
+						CombatFX.Estilo.SLIME_ESCUPE:
+							modo_s = SlimeAire.Modo.ESCUPE
+							vuelo = 0.26
+						CombatFX.Estilo.SLIME_TROMBA:
+							modo_s = SlimeAire.Modo.TROMBA
+							vuelo = 0.16
+						CombatFX.Estilo.SLIME_TROZO:
+							modo_s = SlimeAire.Modo.TROZO
+							vuelo = 0.22
+					var golpes: int = maxi(ab.golpes_max, 1) if ab.forma_reparte else 1
+					if ab.forma_reparte and not cajas.is_empty():
+						for g in golpes:
+							var rg: Rect2 = cajas[g % cajas.size()]
+							piezas.append({"n": SlimeAire.sobre_cuerpo(self, modo_s, boca, rg, col, semilla + g, vuelo, 1.0),
+								"t0": 0.2 * float(g)})
+					else:
+						for i in cajas.size():
+							piezas.append({"n": SlimeAire.sobre_cuerpo(self, modo_s, boca, cajas[i], col, semilla + i, vuelo, 1.0),
+								"t0": 0.0})
+				# EL EMPUJON de la Marea: los que pilla se apartan cuando les llega.
+				var pasos: Array = []
+				if not is_zero_approx(ab.tiron) and f != null and ab.suelo_roto >= 0:
+					for i in _enemigos.size():
+						var r2 := Rect2((_enemigos[i] as Vector2) - Vector2(7, 26), Vector2(14, 26))
+						if f.toca(r2):
+							var de: Vector2 = _enemigos[i]
+							pasos.append({"fig": _figs[i], "de": de, "a": de + (de - yo).normalized() * -ab.tiron,
+								"t0": SueloRoto.retraso(f, _pies_caja(r2), ab.suelo_roto)})
+				for pz in piezas:
+					if pz["n"] != null:
+						(pz["n"] as Node).set_process(false)
+				for c in tiempos.size():
+					var t: float = float(tiempos[c])
+					for pz in piezas:
+						var n: Node2D = pz["n"]
+						if n == null or not is_instance_valid(n):
+							continue
+						# Lo que viaja (el escupitajo, el trozo) arranca en -vuelo: su _t cuenta desde ahi.
+						n.set("_t", t - float(pz["t0"]))
+						n.queue_redraw()
+						for hijo in ["_suelo", "_delante", "_brillo", "_atras", "_aire", "_geiser"]:
+							var su = n.get(hijo)
+							if su is Node2D:
+								(su as Node2D).queue_redraw()
+					for ps in pasos:
+						var u: float = clampf((t - float(ps["t0"])) / 0.15, 0.0, 1.0)
+						(ps["fig"] as ColorRect).position = (ps["de"] as Vector2).lerp(ps["a"], u) - Vector2(7, 26)
+					await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, t])
+				for pz in piezas:
+					if pz["n"] != null and is_instance_valid(pz["n"]):
+						(pz["n"] as Node).queue_free()
+				for ps in pasos:
+					(ps["fig"] as ColorRect).position = (ps["de"] as Vector2) - Vector2(7, 26)
+				await get_tree().process_frame
+			var carpeta: String = "%s/enemigos/slimes/%s" % [salida, sl[0]]
+			DirAccess.make_dir_recursive_absolute(carpeta)
+			var ruta: String = "%s/%s.png" % [carpeta, nom]
+			hoja.save_png(ruta)
+			print("[hoja] ", ruta)
+		cuerpo.queue_free()
+		await get_tree().process_frame

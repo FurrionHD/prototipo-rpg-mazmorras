@@ -368,7 +368,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# EL MANTO en el mapa (26/09): como IMBUIR_ELEM pero al CUERPO (MagiaAire.filo con cuerpo = true).
 		IMBUIR_CUERPO = 126,
 		# EL MANTO PRISMATICO en el mapa (27/09): el chorro de petalos de arcoiris (MagiaMayor.petalos_prisma).
-		IMBUIR_PRISMA = 127 }
+		IMBUIR_PRISMA = 127,
+		# LOS SLIMES en el mapa (28/09, SlimeAire): el salpicon del basico, el escupitajo en parabola, la columna
+		# de la Tromba y el trozo de la Escision. En la fila no salen: solo los pone el mapa (fx_estilo_mapa).
+		SLIME_GOLPE = 128, SLIME_ESCUPE = 129, SLIME_TROMBA = 130, SLIME_TROZO = 131 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -394,6 +397,8 @@ const FX_ARMA := {
 
 # Los que en el MAPA pintan su dibujo propio sobre el cuerpo (ver la señal dibujo_en_mapa): la daga.
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
+	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
+	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -539,6 +544,8 @@ const T_VUELO := {
 	Estilo.EXPLOSION: 0.08,
 	# El SPLAT cae de MAS ARRIBA que un rayo y pesa mas: se ve venir, que es media gracia.
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
+	# Los del slime en el mapa: el escupitajo y el trozo VIAJAN (su vuelo es el viaje), la columna cae.
+	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

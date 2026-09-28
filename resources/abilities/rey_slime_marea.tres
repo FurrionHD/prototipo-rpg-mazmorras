@@ -35,3 +35,5 @@ forma_apunte = 2
 forma_radio = 120.0
 forma_tramos = 3
 forma_tramo_baja = 0.25
+suelo_roto = 62
+tiron = -40.0

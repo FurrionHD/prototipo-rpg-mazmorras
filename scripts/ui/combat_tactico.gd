@@ -2366,6 +2366,9 @@ const _MODO_BASTON := {
 
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
+const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
+	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO}
+
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null or not _pantalla.tactico:
@@ -2379,6 +2382,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
+		return
+	# LOS SLIMES (SlimeAire, 28/09): del cuerpo del slime (un poco por encima de su centro: la boca) al que recibe.
+	if estilo in _MODO_SLIME:
+		var desde_s: Vector2 = bulto_de(a).get_center() - Vector2(0.0, bulto_de(a).size.y * 0.15) 			if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		SlimeAire.sobre_cuerpo(arena, int(_MODO_SLIME[estilo]), desde_s, bulto_de(v), ev.get("color", Color.WHITE),
+			semilla, vuelo, ritmo)
 		return
 	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
 	if estilo == CombatFX.Estilo.ARCO:

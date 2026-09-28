@@ -36,7 +36,11 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	MAGIA_ALIENTO, MAGIA_LLUVIA, MAGIA_ORBE, MAGIA_BOLA, MAGIA_ORBE_FALLA, MAGIA_BOLA_FALLA,
 	MAGIA_ANDANADA, MAGIA_OLA, MAGIA_RAYO, MAGIA_HELICE, MAGIA_HELICE_FALLA,
 	MAGIA_LAVA, MAGIA_JABALINA, MAGIA_JABALINA_FALLA, MAGIA_MIASMA, MAGIA_ONDA_FUERZA,
-	MAGIA_SOL, MAGIA_VORAGINE, MAGIA_SHOCK, MAGIA_TORMENTA, MAGIA_LUZ, MAGIA_PRISMA, MAGIA_ECLIPSE }
+	MAGIA_SOL, MAGIA_VORAGINE, MAGIA_SHOCK, MAGIA_TORMENTA, MAGIA_LUZ, MAGIA_PRISMA, MAGIA_ECLIPSE,
+	SLIME_SPLAT, SLIME_APLASTA, SLIME_MAREA, SLIME_COMBUSTION, SLIME_SALPICA, SLIME_ROCIADA, SLIME_LLAMARADA,
+	SLIME_PRESION, SLIME_PLACAJE, SLIME_EMBATE }
+# SLIME_* (los slimes en el mapa, 28/09): viven en SlimeAire (su Modo = tipo - SLIME_SPLAT). Son de ENEMIGO: el golpe
+# les llega a los TUYOS con el frente (ver es_de_enemigo). Van DETRAS de todo: se miran los primeros.
 # MAGIA_SOL.. (las de 3 frases, 26/09): viven en MagiaMayor (su Modo = tipo - MAGIA_SOL). Van DETRAS de las MAGIA_*: se
 # miran antes.
 # MAGIA_* (las magias, 26/09): viven en MagiaAire (su Modo = tipo - MAGIA_ALIENTO). Van DETRAS de los BASTON_*: se
@@ -104,6 +108,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.SLIME_SPLAT:
+		return SlimeAire.area(padre, f, t - Tipo.SLIME_SPLAT, semilla, espera)
 	if t >= Tipo.MAGIA_SOL:
 		return MagiaMayor.area(padre, f, t - Tipo.MAGIA_SOL, semilla, espera)
 	if t >= Tipo.MAGIA_ALIENTO:
@@ -146,6 +152,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.SLIME_SPLAT:
+		return SlimeAire.retraso(t - Tipo.SLIME_SPLAT, f, p)
 	if t >= Tipo.MAGIA_SOL:
 		return MagiaMayor.retraso(t - Tipo.MAGIA_SOL, f, p)
 	if t >= Tipo.MAGIA_ALIENTO:
@@ -179,6 +187,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.SLIME_SPLAT:
+		return SlimeAire.t_salir(t - Tipo.SLIME_SPLAT)
 	if t >= Tipo.MAGIA_SOL:
 		return MagiaMayor.t_salir(t - Tipo.MAGIA_SOL)
 	if t >= Tipo.MAGIA_ALIENTO:
@@ -198,6 +208,11 @@ static func t_salir_de(t: int) -> float:
 	if t >= Tipo.GIRO:
 		return BarridoAire.T_ENTRE * 2.0
 	return T_SALIR_ESTALLIDO if t == Tipo.ESTALLIDO else T_SALIR
+
+
+# ¿Lo lanza un ENEMIGO? Entonces a quien le llega el frente es a los tuyos (CombatEfectos._retraso_suelo).
+static func es_de_enemigo(t: int) -> bool:
+	return t >= Tipo.SLIME_SPLAT
 
 
 # EL DE DOS MANOS (la maza en dual, 25/09): la ficha lleva el de una; con dos armas que la traen, su variante.

@@ -86,6 +86,11 @@ const ALIAS_ESTILO := {
 	CombatFX.Estilo.ESCOLTA_FX: "senalar_hueco",
 	# El Muro es la misma plancha de la Cobertura, mas grande y plantada. El sonido pega entero.
 	CombatFX.Estilo.MURO_GUARDIAN: "cobertura",
+	# Los del slime en el mapa (28/09) suenan como sus dibujos de la fila.
+	CombatFX.Estilo.SLIME_GOLPE: "placaje",
+	CombatFX.Estilo.SLIME_ESCUPE: "escupitajo",
+	CombatFX.Estilo.SLIME_TROMBA: "vortice",
+	CombatFX.Estilo.SLIME_TROZO: "escupitajo",
 }
 
 # CUANTO SE OYE segun el peso del golpe (la fraccion que se lleva ese objetivo: 1.0 el principal,

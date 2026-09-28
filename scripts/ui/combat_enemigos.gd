@@ -451,6 +451,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		# EN EL MAPA el salto y la embestida mueven al bicho con su gesto (antes de encolar los golpes).
 		if lista_mapa != null:
 			_pantalla.turno_mapa.mover_enemigo(e, ab, lista_mapa, golpes)
+			# Y SU EFECTO POR EL SUELO (el charco del Reventon, la Marea...): desde aqui a cada uno de los tuyos
+			# el golpe le llega cuando el frente le alcanza. Con el COLOR del slime en la semilla (SlimeAire).
+			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
+					SlimeAire.semilla_con_color(randi(), e.color_visual), ab.forma_nucleo)
 		# LOS GOLPES SE REPARTEN por la huella (forma_reparte: la Tromba, la Escision): uno a cada uno de
 		# los de dentro, por turnos y del mas cercano al centro al mas lejano. Va por la rama del reparto.
 		var reparte_mapa: bool = lista_mapa != null and ab.forma_reparte
@@ -466,6 +471,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				var esc_prob: float = 1.0 if es_princ else ab.area_prob_secundario
 				var sub := _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
 					es_princ or ab.area_efectos_secundarios, esc_prob)
+				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
+				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
+					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				mult_por_obj[t] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
@@ -523,6 +531,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			mult_por_obj[obj] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
+		_pantalla.efectos.soltar_suelo()
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
 			total, golpes, "" if golpes == 1 else "s", tocados.size(), "" if tocados.size() == 1 else "s"])
 	else:
@@ -560,7 +569,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# Cada gota en SU tanda, para que las dos no salgan pegadas.
 			_pantalla.efectos._fx_tanda(_k)
 			_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
-				CombatFX.Estilo.ESCUPITAJO, 1.2, true)
+				CombatFX.Estilo.SLIME_ESCUPE if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true)
 		_pantalla._update_hp()   # refresca los bloques revividos/nuevos (nombre + barra)
 
 	# Mensaje: con daño va el DESGLOSE de dos lineas (mismo helper que tus habilidades: rastro golpe

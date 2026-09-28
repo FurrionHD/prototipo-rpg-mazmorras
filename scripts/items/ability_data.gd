@@ -443,6 +443,9 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 # Si el bicho no tiene esa animacion se cae a su embestida, asi que pedir una que no existe no
 # rompe nada: simplemente ataca como siempre.
 @export var fx_anim: StringName = &""
+# EL DIBUJO EN EL MAPA si es otro que el de la fila (-1 = el mismo, fx_estilo). Los slimes (28/09): en la fila el
+# escupitajo es su ESCUPITAJO de tarjeta; en el mapa, SLIME_ESCUPE sobre el cuerpo. Solo lo lee el mapa.
+@export var fx_estilo_mapa: int = -1
 
 # QUE TE ECHAS TU ENCIMA, aparte de lo que le hagas al enemigo. -1 = nada.
 #

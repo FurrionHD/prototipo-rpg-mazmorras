@@ -140,8 +140,12 @@ func soltar_suelo() -> void:
 func _retraso_suelo(victima: Combatant, estilo: int = -1) -> float:
 	if _suelo_forma == null or victima == null:
 		return -1.0
-	# A los enemigos siempre; a los TUYOS solo lo que es de apoyo y va por el suelo (la onda de la Fortaleza).
-	if not _pantalla._enemies.has(victima) and estilo != CombatFX.Estilo.FORTALECER and estilo != CombatFX.Estilo.CURA_GRUPO:
+	# A los enemigos siempre; a los TUYOS solo lo que es de apoyo y va por el suelo (la onda de la Fortaleza) o lo
+	# que LANZA UN ENEMIGO (el charco del Reventon, la Marea: SueloRoto.es_de_enemigo).
+	if not _pantalla._enemies.has(victima) and estilo != CombatFX.Estilo.FORTALECER and estilo != CombatFX.Estilo.CURA_GRUPO 			and not SueloRoto.es_de_enemigo(_suelo_tipo):
+		return -1.0
+	# Y al reves: lo de un enemigo no le llega a los suyos por el suelo.
+	if _pantalla._enemies.has(victima) and SueloRoto.es_de_enemigo(_suelo_tipo):
 		return -1.0
 	if estilo == CombatFX.Estilo.ARCO and _rs_primero >= 0.0:
 		return _rs_primero
@@ -227,6 +231,12 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 # tanto cuando le sale la tecnica como cuando no. Y si el bicho tampoco dice nada, el empujon de
 # tarjeta de siempre.
 func _estilo_de_habilidad(ab: AbilityData, atacante: Combatant = null) -> int:
+	# EN EL MAPA, lo que se dibuja sobre el cuerpo (28/09): el de su ficha si lo tiene, y el basico de los slimes.
+	if _pantalla.tactico:
+		if ab != null and ab.fx_estilo_mapa >= 0:
+			return ab.fx_estilo_mapa
+		if ab == null and atacante != null and atacante.es_slime and _pantalla._enemies.has(atacante):
+			return CombatFX.Estilo.SLIME_GOLPE
 	if ab != null and ab.fx_estilo >= 0:
 		return ab.fx_estilo
 	if atacante != null and atacante.fx_basico >= 0:
