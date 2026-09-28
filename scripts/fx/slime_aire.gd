@@ -12,16 +12,17 @@
 #    SALPICA     Salpicadura ardiente: se sacude y saltan gotas de lava en anillo; chisporrotean en el suelo.
 #    ROCIADA     Rociada corrosiva: un abanico de gotas (cometas) por el cono que dejan manchas.
 #    LLAMARADA   Llamarada: el aliento de la Brasa (MagiaAire.ALIENTO) estrechado a su linea.
-#    PRESION     Presion del abismo: un frente de OSCURIDAD (mechones de tinta como llamas negras) que recorre su
-#                linea y deja el suelo manchado. El abisal es de oscuridad, no de agua (lo dijo el usuario, 28/09).
+#    PRESION     Presion del abismo: una ola de GARRAS NEGRAS en media luna (con su pincelada clara rota) que barre su
+#                linea y deja tinta salpicada y sombra. El abisal es de OSCURIDAD, no de agua (lo dijo el usuario,
+#                28/09), y con el lenguaje de NUESTRA oscuridad (la Voragine): nada de fuego negro.
 #    PLACAJE     Placaje: el rastro de baba que deja al embestir y el salpicon al chocar.
 #    EMBATE      Doble embate: los dos coletazos, la ida y vuelta del Segar (BarridoAire.SIEGA) en gel.
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa, CombatFX.Estilo.SLIME_*):
 #    GOLPE       el basico: salpicon de gel sobre el que recibe, hacia atras de donde viene el golpe.
 #    ESCUPE      el Escupitajo (y las gotas del Brote): una bola de baba en parabola con estela de gotas que
 #                revienta en el pecho y deja un charquito.
-#    TROMBA      Tromba abisal: una columna de OSCURIDAD (mechones de tinta) cae sobre el, con la cabeza redonda, y
-#                revienta en llamas negras a sus pies.
+#    TROMBA      Tromba abisal: un EMBUDO de medias lunas negras que gira y se estrecha cae sobre el (cabeza negra con
+#                el ojo claro del eclipse) y a sus pies se abre un REMOLINO de brazos negros, una Voragine pequeña.
 #    IGNICION    Ignicion: el slime de fuego SE PRENDE: llamas que le suben del cuerpo, calor en el suelo y ascuas.
 #    TROZO       Escision: un trozo del Rey sale disparado hacia el, le revienta encima y vuelve.
 #  NADA DE LINEAS peladas: gel = silueta llena con borde oscuro, cuerpo y brillo; gotas = cometas. Suelo sin
@@ -58,12 +59,8 @@ const FUEGO_AMARILLO := Color(1.0, 0.82, 0.3)
 const FUEGO_BLANCO := Color(1.0, 0.97, 0.78)
 const HUMO := Color(0.13, 0.11, 0.11)
 const CHAMUSCADO := Color(0.05, 0.03, 0.02)
-# LA OSCURIDAD del abisal (su referencia de la Voragine, 26/09): mechones de tinta negra como llamas con puntas, en
-# negro-marron, con vetas grises claras de pincel y un halo violeta muy suave.
-const TINTA := Color(0.04, 0.025, 0.035)
-const TINTA_MEDIA := Color(0.15, 0.09, 0.13)
-const VETA := Color(0.56, 0.52, 0.58)
-const HALO_OSCURO := Color(0.42, 0.22, 0.62)
+# LA OSCURIDAD del abisal: la de la Voragine (MagiaMayor): formas negras RELLENAS en media luna con una pincelada
+# clara ROTA en el borde, gotas de tinta, sombra en el suelo y el ojo blanco-azulado del eclipse. Sin llamas.
 const T_OSCURO := 0.45           # lo que tarda el frente de la Presion en recorrer su linea
 const T_IGNICION := 0.9
 
@@ -728,38 +725,45 @@ func _tromba(capa: Node2D) -> void:
 	if _t < -T_COLUMNA:
 		return
 	var cae: float = clampf((_t + T_COLUMNA) / T_COLUMNA, 0.0, 1.0)   # 0 arriba, 1 ya en el suelo
-	var sale: float = clampf(_t / 0.5, 0.0, 1.0)                      # despues: se deshace hacia arriba
+	var sale: float = clampf(_t / 0.55, 0.0, 1.0)                     # despues: el remolino se cierra y se va
 	var arriba: Vector2 = _pies + _alto(ALTO_COLUMNA)
-	var cabeza: Vector2 = arriba.lerp(_pies, cae)
-	var r0: float = maxf(_ancho * 0.9, 12.0)
+	var cabeza: Vector2 = arriba.lerp(_pies + _alto(6.0), cae)
+	var r0: float = maxf(_ancho * 0.8, 11.0)
+	var giro: float = _t * 9.0
 	if capa == _delante:
-		# LA COLUMNA: mechones de tinta apilados de lo alto a la cabeza, mas gordos abajo; al caer se van deshaciendo
-		# desde abajo hacia arriba (la cola se queda, la cabeza revienta).
-		var n: int = 14   # solapados: una columna seguida, no cuentas sueltas
+		# EL EMBUDO: anillos de media luna negra apilados de lo alto a la cabeza, anchos arriba y estrechos abajo, cada
+		# uno girando (su pincelada da la vuelta); se deshace de abajo arriba al tocar.
+		var n: int = 9
 		for k in n:
-			var u: float = float(k) / float(n - 1)          # 0 arriba, 1 la cabeza
-			if _t >= 0.0 and u > 1.0 - sale:
+			var u: float = float(k) / float(n - 1)        # 0 arriba, 1 la cabeza
+			if _t >= 0.0 and u > 1.0 - sale * 1.4:
 				continue
-			var p: Vector2 = arriba.lerp(cabeza, u)
-			var r: float = r0 * lerpf(0.55, 0.95, u) * (1.0 - sale * 0.6)
-			_llama_oscura(capa, p, r, 0.25 + 0.5 * sale, float(k) * 7.3, false)
-		# LA CABEZA, redonda y mas gorda: lo que golpea (nunca un corte recto).
+			var pk: Vector2 = arriba.lerp(cabeza, u)
+			var rk: float = r0 * lerpf(1.25, 0.55, u)
+			_anillo_negro(capa, pk, rk, 0.34, 2.2 + 1.6 * u, giro * (1.0 + u) + float(k) * 0.9, 1.0 - sale, float(k))
 		if _t < 0.0:
-			_llama_oscura(capa, cabeza, r0 * 1.25, 0.2, 31.0, true)
+			# LA CABEZA: bola negra con el ojo claro.
+			MagiaMayor._disco(capa, cabeza, r0 * 0.55, MagiaMayor.NEGRO, Color(MagiaMayor.NEGRO, 0.9))
+			MagiaMayor._disco(capa, cabeza, r0 * 0.2, MagiaMayor.ECLIPSE_CLARO, MagiaMayor.ECLIPSE)
 		else:
-			# EL REVENTON a sus pies: llamas negras que se abren en corro y se apagan.
-			for l in _llamas:
-				var kl: float = clampf((_t - float(l["t0"]) * 0.25) / float(l["vida"]), 0.0, 1.0)
-				if kl <= 0.0 or kl >= 1.0:
+			# LAS GOTAS DE TINTA que salta al reventar.
+			for g in _gotas:
+				var kg: float = clampf((_t - float(g["t0"])) / 0.45, 0.0, 1.0)
+				if kg <= 0.0 or kg >= 1.0:
 					continue
-				var d := Vector2(cos(float(l["a"])), sin(float(l["a"])))
-				var pl: Vector2 = _pies + d * r0 * (0.5 + 1.3 * kl) + _alto(4.0 + 10.0 * kl)
-				_llama_oscura(capa, pl, r0 * 0.55 * float(l["tam"]), kl, float(l["fase"]), false)
-	elif capa == _suelo and _t >= 0.0:
-		# LA MANCHA de oscuridad en el suelo, que se va apagando.
-		_mancha_oscura(capa, _pies, r0 * (1.2 + 0.6 * sale), 0.7 * (1.0 - smoothstep(0.4, 1.0, _t / 0.8)), 3.0)
-	elif capa == _brillo and _t > -T_COLUMNA:
-		BarridoAire.brillo(capa, cabeza, r0 * 1.6, Color(HALO_OSCURO, 0.35 * (1.0 - sale)))
+				var r: Array = _vuelo(_pies, g["v"], float(g["sube"]), kg, 0.45)
+				MagiaMayor._disco(capa, r[1], float(g["tam"]) * (1.0 - kg * 0.5), Color(MagiaMayor.NEGRO, 0.9), Color(MagiaMayor.NEGRO, 0.9))
+	elif capa == _suelo:
+		# LA SOMBRA que crece bajo el mientras cae, y al tocar EL REMOLINO de brazos negros a sus pies.
+		BarridoAire.brillo(capa, _pies, r0 * (0.8 + 0.8 * cae), Color(MagiaMayor.NEGRO, 0.5 * cae * (1.0 - sale)))
+		if _t >= 0.0:
+			var abre: float = 1.0 - pow(1.0 - clampf(_t / 0.12, 0.0, 1.0), 2.0)
+			var vivo: float = abre * (1.0 - sale * sale)
+			for k in 5:
+				_brazo(capa, _pies, TAU * float(k) / 5.0 - _t * 6.0, r0 * 0.25, r0 * 1.9 * abre, -2.2, r0 * 0.28 * vivo,
+					vivo, float(k) * 3.1)
+	elif capa == _brillo and _t >= 0.0 and _t < 0.3:
+		BarridoAire.destello(capa, _pies + _alto(4.0), r0 * 1.3 * (1.0 - _t / 0.3), Color(MagiaMayor.ECLIPSE_CLARO, 1.0 - _t / 0.3))
 
 
 func _presion(capa: Node2D) -> void:
@@ -768,28 +772,147 @@ func _presion(capa: Node2D) -> void:
 	var frente: float = clampf(_t / T_OSCURO, 0.0, 1.0)
 	var lat: Vector2 = _dir.orthogonal()
 	if capa == _suelo:
-		# EL SUELO MANCHADO por donde ha pasado.
+		# LA SOMBRA por donde ha pasado y la TINTA que salpica.
+		var tras: float = 1.0 - smoothstep(0.4, 1.0, (_t - T_OSCURO) / 0.9)
+		for k in 6:
+			var uk: float = (float(k) + 0.5) / 6.0
+			if uk > frente:
+				break
+			BarridoAire.brillo(capa, _o + _dir * _largo * uk, _ancho * 0.9, Color(MagiaMayor.NEGRO, 0.35 * tras))
 		for m in _manchas:
 			if float(m["u"]) > frente:
 				continue
-			var pm: Vector2 = _o + _dir * _largo * float(m["u"]) + lat * _ancho * float(m["v"])
-			var vive: float = 1.0 - smoothstep(0.3, 1.0, (_t - float(m["u"]) * T_OSCURO) / 1.1)
-			_mancha_oscura(capa, pm, float(m["r"]), 0.6 * vive, float(m["u"]) * 17.0)
+			var pm: Vector2 = _o + _dir * _largo * float(m["u"]) + lat * _ancho * float(m["v"]) * 1.2
+			MagiaMayor._disco(capa, pm, float(m["r"]) * 0.35, Color(MagiaMayor.NEGRO, 0.85 * tras), Color(MagiaMayor.NEGRO, 0.85 * tras))
 		return
 	if capa == _delante:
-		# LOS MECHONES: cada uno nace cuando el frente pasa por su sitio, sube y se apaga.
-		for l in _llamas:
-			var kl: float = clampf((_t - float(l["u"]) * T_OSCURO) / float(l["vida"]), 0.0, 1.0)
-			if kl <= 0.0 or kl >= 1.0:
+		# LAS GARRAS: medias lunas negras que avanzan con el frente, abombadas hacia delante; tres escalonadas en la
+		# cresta y las de detras se deshacen.
+		for k in 4:
+			var uk: float = frente - 0.12 * float(k)
+			if uk < 0.0:
 				continue
-			var pl: Vector2 = _o + _dir * _largo * float(l["u"]) + lat * _ancho * float(l["v"]) + _alto(6.0 * kl)
-			_llama_oscura(capa, pl, 6.5 * float(l["tam"]) * (1.0 + 0.4 * (1.0 - kl)), kl, float(l["fase"]), false)
-		# LA CRESTA del frente: una llama grande que empuja por delante.
-		if frente < 1.0:
-			_llama_oscura(capa, _o + _dir * _largo * frente, maxf(_ancho * 0.6, 9.0), 0.15, 5.0, true)
+			var vivo: float = (1.0 - 0.25 * float(k)) * (1.0 - smoothstep(0.85, 1.0, _t / (T_OSCURO + 0.3)))
+			var c: Vector2 = _o + _dir * _largo * uk + _alto(4.0 + 3.0 * float(k % 2))
+			_garra(capa, c, _dir, lat, _ancho * (1.05 + 0.12 * float(k)), _ancho * 0.65, _ancho * 0.32, vivo, float(k) * 2.3 + floor(_t * 10.0))
 		return
 	if frente < 1.0:
-		BarridoAire.brillo(capa, _o + _dir * _largo * frente, _ancho, Color(HALO_OSCURO, 0.3))
+		BarridoAire.brillo(capa, _o + _dir * _largo * frente, _ancho * 0.8, Color(MagiaMayor.ECLIPSE, 0.25))
+
+
+# UN ANILLO del embudo: la mitad de DELANTE de una elipse (el aro visto a 45 grados), negra y rellena, mas gorda en
+# medio y afilada en las puntas, con trozos de pincelada clara que corren con 'giro'.
+func _anillo_negro(ci: CanvasItem, c: Vector2, r: float, achata: float, grueso: float, giro: float, alfa: float,
+		sem: float) -> void:
+	if r <= 0.5 or alfa <= 0.01:
+		return
+	var n: int = 12
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var a: float = PI * u                       # de un lado al otro por DELANTE (y positiva)
+		var d := Vector2(cos(a), sin(a) * achata)
+		var w: float = grueso * sin(u * PI)
+		pv.append(c + d * r + Vector2(0.0, w))
+		pv.append(c + d * r - Vector2(0.0, w * 0.5))
+		pc.append(Color(MagiaMayor.NEGRO, alfa))
+		pc.append(Color(MagiaMayor.NEGRO, alfa))
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+	# La pincelada: dos trozos cortos por la parte de abajo que se desplazan con el giro (asi se ve girar).
+	for j in 2:
+		var u0: float = fposmod(giro * 0.16 + float(j) * 0.5 + sem * 0.13, 1.0)
+		if u0 < 0.1 or u0 > 0.8:
+			continue
+		var a0: float = PI * u0
+		var a1: float = PI * (u0 + 0.16)
+		var p0: Vector2 = c + Vector2(cos(a0), sin(a0) * achata) * r + Vector2(0.0, grueso * 0.9)
+		var p1: Vector2 = c + Vector2(cos(a1), sin(a1) * achata) * r + Vector2(0.0, grueso * 0.9)
+		var t: Vector2 = (p1 - p0).normalized().orthogonal() * grueso * 0.35
+		ci.draw_primitive(PackedVector2Array([p0 - t, p1, p0 + t]),
+			PackedColorArray([Color(MagiaMayor.PINCEL, alfa), Color(MagiaMayor.PINCEL, 0.0), Color(MagiaMayor.PINCEL, alfa)]),
+			PackedVector2Array())
+
+
+# UNA GARRA de la Presion: media luna negra rellena, atravesada a 'eje' y abombada hacia el, gorda en medio y afilada
+# en las puntas, con su pincelada clara ROTA por el filo de delante.
+func _garra(ci: CanvasItem, c: Vector2, eje: Vector2, lat: Vector2, ancho: float, bomba: float, grueso: float,
+		alfa: float, sem: float) -> void:
+	if alfa <= 0.01 or ancho <= 0.5:
+		return
+	var n: int = 12
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	var filo: Array = []
+	for k in n + 1:
+		var s2: float = float(k) / float(n) * 2.0 - 1.0     # -1 .. 1 a lo ancho
+		var q: Vector2 = c + lat * s2 * ancho + eje * bomba * (1.0 - s2 * s2)
+		var w: float = grueso * (1.0 - s2 * s2) * (0.85 + 0.3 * _ruido(float(k), sem))
+		pv.append(q + eje * w * 0.5)
+		pv.append(q - eje * w)
+		pc.append(Color(MagiaMayor.NEGRO, alfa))
+		pc.append(Color(MagiaMayor.NEGRO, alfa * 0.8))
+		filo.append([q + eje * (w * 0.5 + 1.2), w])
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+	for k in n:
+		if _ruido(float(k) * 1.7, sem + 3.0) < 0.4:
+			continue
+		var p0: Vector2 = filo[k][0]
+		var p1: Vector2 = filo[k + 1][0]
+		var g: float = 0.4 + 0.9 * float(filo[k][1]) / maxf(grueso, 0.1)
+		var t: Vector2 = (p1 - p0).normalized().orthogonal() * g
+		ci.draw_primitive(PackedVector2Array([p0 - t, p1, p0 + t]),
+			PackedColorArray([Color(MagiaMayor.PINCEL, alfa), Color(MagiaMayor.PINCEL, 0.0), Color(MagiaMayor.PINCEL, alfa)]),
+			PackedVector2Array())
+
+
+# UN BRAZO DEL REMOLINO (el de la Voragine, MagiaMayor._brazo): media luna negra que se enrosca de 'r_out' a 'r_in' en
+# el suelo, con su pincelada clara rota por fuera.
+func _brazo(ci: CanvasItem, c: Vector2, a0: float, r_in: float, r_out: float, vuelta: float, grueso: float, alfa: float,
+		sem: float) -> void:
+	if grueso <= 0.3 or alfa <= 0.01:
+		return
+	var n: int = 12
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	var bordes: Array = []
+	for k in n + 1:
+		var u: float = float(k) / float(n)
+		var ang: float = a0 + vuelta * u
+		var rr: float = lerpf(r_out, r_in, u)
+		var d := Vector2(cos(ang), sin(ang))
+		var w: float = grueso * sin(u * PI) * (0.85 + 0.3 * _ruido(float(k), sem))
+		pv.append(c + d * (rr + w))
+		pv.append(c + d * maxf(rr - w * 0.4, 0.0))
+		pc.append(Color(MagiaMayor.NEGRO, alfa))
+		pc.append(Color(MagiaMayor.NEGRO, alfa))
+		bordes.append([c + d * (rr + w), d, w, u])
+	for k in n:
+		var b: int = k * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+	for k in n:
+		if _ruido(float(k) * 1.7, sem + 3.0) < 0.35:
+			continue
+		var e0: Array = bordes[k]
+		var e1: Array = bordes[k + 1]
+		var g0: float = 0.4 + 1.1 * sin(float(e0[3]) * PI)
+		var g1: float = 0.4 + 1.1 * sin(float(e1[3]) * PI)
+		var p0: Vector2 = (e0[0] as Vector2) + (e0[1] as Vector2) * 1.3
+		var p1: Vector2 = (e1[0] as Vector2) + (e1[1] as Vector2) * 1.3
+		var t: Vector2 = (p1 - p0).normalized().orthogonal()
+		ci.draw_primitive(PackedVector2Array([p0 - t * g0, p1 - t * g1 * 0.2, p1 + t * g1 * 0.2, p0 + t * g0]),
+			PackedColorArray([Color(MagiaMayor.PINCEL, alfa), Color(MagiaMayor.PINCEL, 0.0), Color(MagiaMayor.PINCEL, 0.0),
+				Color(MagiaMayor.PINCEL, alfa)]), PackedVector2Array())
 
 
 func _ignicion(capa: Node2D) -> void:
@@ -818,51 +941,6 @@ func _ignicion(capa: Node2D) -> void:
 	BarridoAire.brillo(capa, _hasta, _ancho * 1.1, Color(FUEGO_NARANJA, 0.55 * apaga))
 	if _t < 0.2:
 		BarridoAire.destello(capa, base, _ancho * 0.8, Color(FUEGO_AMARILLO, 1.0 - _t / 0.2))
-
-
-# UN MECHON DE OSCURIDAD: la llama de la bocanada con la paleta de tinta (negro fuera, marron-violeta dentro, vetas
-# grises claras en el centro). 'k' = su edad (0 nace, 1 se apaga); 'redonda' = la cabeza de la tromba (sin puntas
-# arriba: es lo que golpea).
-func _llama_oscura(ci: CanvasItem, c: Vector2, r: float, k: float, fase: float, redonda: bool) -> void:
-	if r <= 0.5:
-		return
-	var paso: float = floor(_t * 12.0) + fase
-	var n: int = 14
-	var contorno := PackedVector2Array()
-	for i in n:
-		var a: float = TAU * float(i) / float(n)
-		var d := Vector2(cos(a), sin(a))
-		var rr: float = r * (0.8 + 0.3 * _ruido(float(i) + paso * 2.7, fase))
-		if d.y < -0.2 and not redonda:
-			rr *= 1.0 + 0.4 * (-d.y) + (0.6 * (-d.y) if (i + int(paso)) % 3 == 0 else 0.0)
-		contorno.append(Vector2(d.x * rr, d.y * rr * (1.15 if d.y < 0.0 else 0.85)))
-	var vida: float = 1.0 - smoothstep(0.65, 1.0, k)
-	var capas: Array = [[1.0, TINTA, 0.92], [0.62, TINTA_MEDIA, 0.95], [0.26, VETA, 0.8 * (1.0 - smoothstep(0.3, 0.8, k))]]
-	for cp in capas:
-		var alfa: float = float(cp[2]) * vida
-		if alfa <= 0.01:
-			continue
-		var pts := PackedVector2Array()
-		for i in n:
-			pts.append(c + contorno[i] * float(cp[0]) + (Vector2(r * 0.12, -r * 0.1) if float(cp[0]) < 0.3 else Vector2.ZERO))
-		_abanico(ci, c, pts, Color(cp[1] as Color, alfa))
-
-
-# UNA MANCHA DE OSCURIDAD en el suelo (sin achatar): negra en el centro, difuminada al borde.
-func _mancha_oscura(ci: CanvasItem, c: Vector2, r: float, alfa: float, sem: float) -> void:
-	if r <= 0.5 or alfa <= 0.01:
-		return
-	var n: int = 18
-	var pv := PackedVector2Array([c])
-	var pc := PackedColorArray([Color(TINTA, alfa)])
-	var pi := PackedInt32Array()
-	for i in n:
-		var a: float = TAU * float(i) / float(n)
-		pv.append(c + Vector2(cos(a), sin(a)) * r * (0.75 + 0.4 * _ruido(float(i), sem)))
-		pc.append(Color(TINTA_MEDIA, 0.0))
-	for i in n:
-		pi.append_array([0, 1 + i, 1 + (i + 1) % n])
-	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
 
 
 func _trozo(capa: Node2D) -> void:
