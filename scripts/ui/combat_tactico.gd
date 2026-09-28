@@ -2464,7 +2464,8 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LAS BESTIAS (BestiaAire, 28/09): las mandibulas de la rata, de quien muerde al que recibe.
 	if estilo in _MODO_BESTIA:
 		var desde_b: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
-		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo)
+		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo,
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
 		return
 	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
 	if estilo == CombatFX.Estilo.ARCO:

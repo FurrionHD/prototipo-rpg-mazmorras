@@ -105,7 +105,7 @@ static func t_salir(m: int) -> float:
 # 'desde' = de donde viene (quien muerde), 'caja' = el cuerpo que lo recibe, 'espera' = lo que falta para el
 # golpe: las mandibulas se van cerrando en ese tiempo y se juntan justo en el golpe.
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float) -> BestiaAire:
+		ritmo: float, boca: float = -1.0) -> BestiaAire:
 	if padre == null:
 		return null
 	var e := BestiaAire.new()
@@ -124,7 +124,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	# del cuerpo, y se cierran sobre el (lo corrigio el usuario, 28/09: la boca no muerde de lado). Cada mordisco
 	# con su variacion; el frenesi, mas revuelto.
 	e._boca = eje.rotated(e._rng.randf_range(-0.3, 0.3) * (2.0 if m == Modo.FRENESI else 1.0))
-	e._tam = maxf(e._ancho * 0.6, 10.0) * (0.7 if m == Modo.FRENESI else 1.0)
+	# LA BOCA VA A ESCALA DE QUIEN MUERDE, no de quien recibe ("los mordiscos son muy grandes para el tamaño de la
+	# rata", 28/09): 'boca' = el ancho del dibujo del que muerde. El rey rata muerde mas grande con lo mismo.
+	var de_quien: float = boca if boca > 0.0 else e._ancho
+	e._tam = maxf(de_quien * 0.3, 4.0) * (0.8 if m == Modo.FRENESI else 1.0)
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -195,9 +198,68 @@ func _mordisco(capa: Node2D) -> void:
 		return
 	if capa != _delante:
 		return
-	var abre: float = lerpf(_tam * 1.25, _tam * 0.2, cierre)
-	for lado in [-1.0, 1.0]:
-		_mandibula(capa, _hasta + tiron + perp * lado * abre, perp * -lado, alfa)
+	# EL REBOTE: al llegar a tope la boca afloja un pelin en vez de quedarse clavada (como en la fila).
+	if _t > 0.03 and _t < 0.1:
+		cierre = 1.0 - 0.14 * sin((_t - 0.03) / 0.07 * PI)
+	# LOS PALETOS DE LA FILA (lo pidio el usuario, 28/09: las medias lunas, para el acechador): dos hileras de
+	# dientes que se cierran, cada una de un lado de la linea del mordisco -- la de arriba del lado de quien muerde.
+	var media: float = _tam
+	var largo_max: float = media * 0.85
+	var sep: float = lerpf(largo_max * 1.6, -largo_max * 0.12, cierre)
+	var fila: Vector2 = Vector2(-perp.y, perp.x)   # a lo largo de cada hilera
+	var c: Vector2 = _hasta + tiron
+	for d in _P_PALETOS_ARRIBA:
+		_diente(capa, c, fila, perp, media, largo_max, sep, d, alfa)
+	for d in _P_PALETOS_ABAJO:
+		_diente(capa, c, fila, -perp, media, largo_max, sep, d, alfa)
+	# LO QUE DEJA: los dos agujeros de los paletos, con su gota escurriendo.
+	if _t >= 0.0 and cierre > 0.85:
+		for s in [-1.0, 1.0]:
+			var p: Vector2 = c + fila * (0.13 * media * s)
+			_bola(capa, p, maxf(1.6, largo_max * 0.2), Color(SANGRE, 0.95 * alfa))
+			BarridoAire.cometa(capa, p, p + Vector2(0.0, largo_max * 0.55), maxf(1.2, largo_max * 0.16),
+				Color(SANGRE, 0.6 * alfa))
+
+
+# ROEDOR (la tabla de la fila, capa_hechizos._P_PALETOS_*): dos PALETOS anchos de punta recta que dominan la
+# boca y dientecitos a los lados. Cada diente: [off_x (-1..1 sobre media boca), semiancho, largo, inclinacion, punta].
+const _P_PALETOS_ARRIBA := [
+	[-0.165, 0.160, 1.00, 0.0, 0.05], [0.165, 0.160, 1.00, 0.0, 0.05],
+	[-0.44, 0.070, 0.34, 0.0, 0.35], [0.44, 0.070, 0.34, 0.0, 0.35],
+	[-0.60, 0.065, 0.28, 0.0, 0.35], [0.60, 0.065, 0.28, 0.0, 0.35],
+	[-0.75, 0.060, 0.22, 0.0, 0.40], [0.75, 0.060, 0.22, 0.0, 0.40],
+]
+const _P_PALETOS_ABAJO := [
+	[-0.145, 0.140, 0.72, 0.0, 0.08], [0.145, 0.140, 0.72, 0.0, 0.08],
+	[-0.40, 0.065, 0.28, 0.0, 0.35], [0.40, 0.065, 0.28, 0.0, 0.35],
+	[-0.56, 0.060, 0.24, 0.0, 0.35], [0.56, 0.060, 0.24, 0.0, 0.35],
+	[-0.71, 0.055, 0.20, 0.0, 0.40], [0.71, 0.055, 0.20, 0.0, 0.40],
+]
+const SANGRE := Color(0.72, 0.06, 0.08)
+const ENCIA := Color(0.10, 0.03, 0.05)
+
+
+# UN DIENTE de una hilera. 'crece' = hacia donde crece (hacia la otra hilera). La mandibula va CURVADA: abre por el
+# centro y en las comisuras casi se tocan (sin eso, dos rejas paralelas). Sin lineas: el contorno es el mismo diente
+# un poco mas grande y oscuro detras (filo duro).
+func _diente(ci: CanvasItem, centro: Vector2, fila: Vector2, crece: Vector2, media: float, largo_max: float,
+		sep: float, d: Array, alfa: float) -> void:
+	var x: float = float(d[0]) * media
+	var w: float = float(d[1]) * media
+	var largo: float = float(d[2]) * largo_max
+	var incl: float = float(d[3]) * largo
+	var k: float = float(d[0])
+	# La ENCIA va detras de los dientes: 'sep' es el hueco entre las PUNTAS de los paletos, asi que al cerrar se
+	# tocan las puntas y no se montan una hilera entera sobre la otra (salia una cruz).
+	var base: Vector2 = centro + fila * x - crece * (sep * 0.5 + largo_max) * (1.0 - 0.3 * k * k)
+	var pta: Vector2 = base + fila * incl + crece * largo
+	var w2: float = w * lerpf(0.78, 0.05, float(d[4]))
+	var pts := PackedVector2Array([base - fila * w, base + fila * w, pta + fila * w2, pta - fila * w2])
+	var borde: float = maxf(0.35, w * 0.18)
+	var fuera := PackedVector2Array([base - fila * (w + borde) - crece * borde, base + fila * (w + borde) - crece * borde,
+		pta + fila * (w2 + borde) + crece * borde, pta - fila * (w2 + borde) + crece * borde])
+	_poligono(ci, fuera, Color(ENCIA, 0.8 * alfa))
+	_poligono(ci, pts, Color(HUESO, alfa))
 
 
 # Una MANDIBULA: media luna llena (la boca, oscura, con un halo difuminado detras) y los colmillos de hueso

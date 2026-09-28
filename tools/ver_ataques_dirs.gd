@@ -1444,7 +1444,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					break
 				var rg: Rect2 = cajas[g % cajas.size()]
 				var t0: float = (0.12 * float(g) + 0.08) if modo_b == BestiaAire.Modo.FRENESI else 0.22 * float(g)
-				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0),
+				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x),
 					"t0": t0, "sim": false})
 				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
 				if modo_b != BestiaAire.Modo.MORDISCO:
