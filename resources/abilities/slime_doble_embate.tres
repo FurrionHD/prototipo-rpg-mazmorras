@@ -21,3 +21,7 @@ reparto_por_golpe = true
 efectos = [SubResource("SA_peg2")]
 fx_estilo = 19
 cooldown = 3
+forma = 2
+forma_apunte = 1
+forma_radio = 35.0
+forma_apertura = 100.0

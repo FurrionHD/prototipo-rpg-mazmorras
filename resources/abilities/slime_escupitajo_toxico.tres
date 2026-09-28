@@ -18,3 +18,7 @@ coste_energia = 0.0
 dano_mult = 1.2
 efectos = [SubResource("SA_ven2")]
 cooldown = 3
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 90.0

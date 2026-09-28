@@ -291,7 +291,7 @@ func _draw() -> void:
 var huellas: Dictionary = {}
 
 func poner_huella(clave: Variant, forma: RefCounted, nucleo: float = 0.0,
-		color: Color = Color(1.0, 0.75, 0.3)) -> void:
+		color: Color = Color(0.45, 0.85, 1.0)) -> void:
 	huellas[clave] = {"forma": forma, "nucleo": nucleo, "color": color}
 
 

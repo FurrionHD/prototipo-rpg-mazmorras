@@ -23,3 +23,7 @@ dano_mult = 1.2
 efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
 fx_estilo = 19
 cooldown = 3
+forma = 3
+forma_apunte = 1
+forma_radio = 40.0
+forma_ancho = 16.0

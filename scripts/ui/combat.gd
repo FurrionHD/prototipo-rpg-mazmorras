@@ -1900,6 +1900,8 @@ func _morir_enemigo(e: Combatant) -> void:
 	_gauge.erase(e)   # fuera del orden de turnos: ya no acumula barra ni puede actuar
 	if _timeline != null:
 		_timeline.quitar(e)
+	if tactico:
+		turno_mapa.olvidar_carga(e)   # si cae cargando, su huella roja se va con el
 	altas._apagar_bloque(e)
 	print("[combate] %s cae (quedan %d en pie)" % [e.nombre, _vivos().size()])
 	# Si el que ha caido era tu objetivo, salta al siguiente vivo. _objetivo() ya lo haria

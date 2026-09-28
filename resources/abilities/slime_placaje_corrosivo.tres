@@ -23,3 +23,7 @@ dano_mult = 1.3
 efectos = [SubResource("SA_debil"), SubResource("SA_ven")]
 fx_estilo = 19
 cooldown = 3
+forma = 3
+forma_apunte = 1
+forma_radio = 40.0
+forma_ancho = 16.0

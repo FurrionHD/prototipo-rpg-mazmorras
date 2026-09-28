@@ -68,6 +68,8 @@ func _enemy_turn(e: Combatant) -> void:
 			var interrumpida: String = e.charging.nombre
 			e.charging = null
 			e.charge_left = 0
+			if _pantalla.tactico:
+				_pantalla.turno_mapa.olvidar_carga(e)   # su huella roja se va con ella
 			print("[habilidad enemigo] %s ATURDIDO: se le INTERRUMPE %s" % [e.nombre, interrumpida])
 			_pantalla._set_log("%s está aturdido: se le interrumpe %s. 💫" % [_pantalla._etq(e), interrumpida])
 		else:
@@ -108,7 +110,13 @@ func _enemy_turn(e: Combatant) -> void:
 	# A QUIEN va: uno de los tuyos que siga en pie (ver _elegir_objetivo_enemigo). Se decide AQUI,
 	# en el momento de pegar, y no al empezar el turno: entre medias puede haber caido alguien.
 	var obj: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo()
-	if obj == null:
+	# EN EL MAPA solo valen las que llegan desde donde esta: las de huella si pillan a alguien (aunque no
+	# tenga a nadie a tiro de su basico: un escupitajo llega mas lejos), las demas si hay a quien pegar.
+	var decidida: AbilityData = null
+	if _pantalla.tactico:
+		decidida = _pantalla.turno_mapa.sacar_decidida(e)
+		listas = listas.filter(func(ab): return _pantalla.turno_mapa.sirve_en_mapa(e, ab, obj))
+	if obj == null and listas.is_empty():
 		# No queda nadie de los tuyos a quien pegar -- o, en el mapa, nadie A SU ALCANCE: se ha
 		# acercado todo lo que le deja su radio y no llega, asi que pierde el ataque (la misma regla
 		# que tu). Sale con _pausa_lectura (no con un return pelado): el enemigo YA perdio su barra en
@@ -120,11 +128,15 @@ func _enemy_turn(e: Combatant) -> void:
 	# el boton de atacar; al bicho hay que quitarle el ataque basico AQUI, o el estado seria mitad
 	# mecanica y mitad decorado -- y sin dar ningun error, que es como se pierden estas cosas.
 	# Si tiene tecnica lista la usa (para conjurar no hacen falta los pies) y si no, pierde el turno.
+	# Sin nadie a tiro del basico (obj nulo en el mapa), lo que le queda es la habilidad que si llega.
 	var atado: bool = e.enraizado()
-	if not listas.is_empty() and (atado or randf() < e.prob_habilidad):
-		var elegida: AbilityData = listas[randi() % listas.size()]
+	var elegida: AbilityData = decidida if decidida != null and listas.has(decidida) else null
+	if elegida == null and not listas.is_empty() and (atado or obj == null or (
+			_pantalla.turno_mapa.sacar_tirada(e) if _pantalla.tactico else randf() < e.prob_habilidad)):
+		elegida = listas[randi() % listas.size()]
+	if elegida != null:
 		if elegida.carga_turnos > 0:
-			_enemy_begin_charge(e, elegida)
+			_enemy_begin_charge(e, elegida, obj)
 		else:
 			_enemy_use_ability(e, elegida, obj)
 		return
@@ -311,7 +323,7 @@ func _fx_sobre_mi(ab: AbilityData) -> void:
 		ab.fx_sobre_mi, 1.3, true)
 
 
-func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
+func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant, lista_area = null) -> void:
 	if ab == null or ab.dano_mult > 0.0:
 		return
 	var estilo: int = _pantalla.efectos._estilo_de_habilidad(ab, e)
@@ -343,8 +355,8 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant) -> void:
 		return
 	if obj == null:
 		return
-	if ab.es_area():
-		for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
+	if lista_area != null or ab.es_area():
+		for o in (lista_area if lista_area != null else _pantalla.objetivos._objetivos_area_aliados(ab, obj)):
 			_pantalla.efectos._fx_golpe(e, o["c"], 0.0, false, false, el, estilo,
 				float(o["escala"]), true, sfx)
 	else:
@@ -373,10 +385,13 @@ func _hay_sitio_para_invocar(e: Combatant) -> bool:
 	return escolta_viva < _pantalla.MAX_ENEMIGOS - 1 and hay_hueco
 
 
-func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
+func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null) -> void:
 	e.charging = ab
 	e.charge_left = ab.carga_turnos
 	e.start_cooldown(ab)
+	# EN EL MAPA elige YA donde va a caer y lo deja pintado en rojo: tienes la carga para salirte.
+	if _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
+		_pantalla.turno_mapa.guardar_carga_enemigo(e, ab, obj)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
 		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
 	_pantalla._set_log("⚡ %s se prepara para %s. ¡Prepárate! (aturdirlo lo interrumpe)" % [_pantalla._etq(e), ab.nombre])
@@ -390,14 +405,29 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData) -> void:
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
 # resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
-	var obj: Combatant = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
+	# EN EL MAPA, con su forma en la ficha: le cae a quien pille la huella (la de su carga, o la mejor desde
+	# donde esta), no a la fila. [{c, escala}], el principal el primero. null = como en la fila.
+	var lista_mapa = null
+	var obj: Combatant = null
+	if _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
+		lista_mapa = _pantalla.turno_mapa.reparto_enemigo(e, ab, victima)
+		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
+	else:
+		obj = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
+		# LAS QUE SOLO SE ECHA ENCIMA (la Ignicion) no necesitan a nadie a tiro.
+		if obj == null and _pantalla.tactico and _pantalla.turno_mapa.solo_a_si_mismo(ab):
+			obj = e
 	if obj == null:
+		e.start_cooldown(ab)   # la solto igual (contra el suelo): no vale repetirla al turno siguiente
 		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
 	e.start_cooldown(ab)   # instantaneas: cooldown al usar (las cargadas ya lo arrancaron)
 	print("[habilidad enemigo] %s usa %s contra %s" % [e.nombre, ab.nombre, obj.nombre])
-	_fx_adorno(e, ab, obj)
+	# Los que pilla el area: los de la huella en el mapa, o el principal y sus vecinos de fila.
+	var lista_area = lista_mapa if lista_mapa != null \
+		else (_pantalla.objetivos._objetivos_area_aliados(ab, obj) if ab.es_area() else null)
+	_fx_adorno(e, ab, obj, lista_area)
 	var total: float = 0.0
 	var golpes: int = 0
 	var estados_log: Array = []
@@ -418,13 +448,18 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	var robado_total: float = 0.0   # lo que se ha curado chupando (AbilityData.robo_vida)
 	if ab.dano_mult > 0.0:
 		golpes = ab.num_golpes(1)   # los enemigos usan una sola "mano"
-		if ab.es_area():
+		# LOS GOLPES SE REPARTEN por la huella (forma_reparte: la Tromba, la Escision): uno a cada uno de
+		# los de dentro, por turnos y del mas cercano al centro al mas lejano. Va por la rama del reparto.
+		var reparte_mapa: bool = lista_mapa != null and ab.forma_reparte
+		if lista_area != null and not reparte_mapa:
 			# AREA (SPLASH sobre tu grupo): el principal encaja los golpes al 100%; los adyacentes,
 			# a area_secundario. Los estados llegan a los lados solo si area_efectos_secundarios.
-			for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
+			# EN EL MAPA, lo que no es area en la fila (un placaje en linea, una rociada en cono) les da a
+			# todos los que pilla por igual, estados incluidos.
+			for o in lista_area:
 				var t: Combatant = o["c"]
 				var esc: float = float(o["escala"])
-				var es_princ: bool = t == obj
+				var es_princ: bool = t == obj or not ab.es_area()
 				var esc_prob: float = 1.0 if es_princ else ab.area_prob_secundario
 				var sub := _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
 					es_princ or ab.area_efectos_secundarios, esc_prob)
@@ -435,7 +470,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				if bool(sub["defendio"]) and not defendieron.has(t): defendieron.append(t)
 				if String(sub["contra"]) != "": contra_txt = String(sub["contra"])
 				if not e.is_alive(): break
-		elif ab.reparto_por_golpe:
+		elif ab.reparto_por_golpe or reparte_mapa:
 			# REPARTO POR GOLPE: cada golpe elige un aliado vivo al azar (pueden repetir objetivo).
 			# El PRIMER golpe es el principal y va con el peso ENTERO (el aggro y la provocacion
 			# mandan igual que en un turno normal: ~80% al que provoca). Los golpes ADICIONALES son
@@ -449,10 +484,19 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			var principal: Combatant = null
 			var conecto_algo: int = 0
 			for i in golpes:
-				var t: Combatant = _pantalla.objetivos._elegir_objetivo_enemigo(i > 0)
+				var t: Combatant = null
+				var esc_t: float = 1.0
+				if reparte_mapa:
+					# Por turnos entre los de la huella que sigan en pie.
+					var en_pie: Array = (lista_mapa as Array).filter(func(o): return (o["c"] as Combatant).is_alive())
+					if en_pie.is_empty(): break
+					t = en_pie[i % en_pie.size()]["c"]
+					esc_t = float(en_pie[i % en_pie.size()]["escala"])
+				else:
+					t = _pantalla.objetivos._elegir_objetivo_enemigo(i > 0)
 				if t == null: break
 				if principal == null: principal = t
-				var sub := _enemy_resolver_golpes(e, ab, t, 1, 1.0, contra_txt == "",
+				var sub := _enemy_resolver_golpes(e, ab, t, 1, esc_t, contra_txt == "",
 					ab.efectos_por_golpe, 1.0, i)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				conecto_algo += int(sub["conecto"])
@@ -481,11 +525,13 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	else:
 		# Habilidad de PURO ESTADO (sin daño): tira sus efectos a-objetivo. Si es de area (Bramido,
 		# Alarido), el debuff cae sobre TODA la fila alcanzada; si no, solo sobre el objetivo.
-		if ab.es_area():
-			for o in _pantalla.objetivos._objetivos_area_aliados(ab, obj):
+		if lista_area != null:
+			for o in lista_area:
 				var t: Combatant = o["c"]
 				estados_log += _enemy_tirar_efectos(e, ab, t, 1.0, "objetivo")
 				if not tocados.has(t): tocados.append(t)
+		elif obj == e:
+			pass   # solo se echa algo encima (la Ignicion en el mapa): lo suyo va en los "self" de abajo
 		else:
 			estados_log += _enemy_tirar_efectos(e, ab, obj, 1.0, "objetivo")
 			tocados.append(obj)
@@ -526,8 +572,11 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 		msg = _pantalla.magia._log_desglose(titulo, rastro, tocados, dano_por_obj, total, sin_dar)
 	else:
 		msg = "%s usa %s" % [_pantalla._etq(e), ab.nombre]
-		msg += " y alcanza a %d de los tuyos." % tocados.size() if tocados.size() > 1 \
-			else " contra %s." % _pantalla._etq(obj)
+		if obj == e:
+			msg += "."
+		else:
+			msg += " y alcanza a %d de los tuyos." % tocados.size() if tocados.size() > 1 \
+				else " contra %s." % _pantalla._etq(obj)
 	if not defendieron.is_empty():
 		# La guardia tapa TODOS los golpes del turno; si no se dice, con una habilidad multi-golpe
 		# parece que defender no ha servido de nada.

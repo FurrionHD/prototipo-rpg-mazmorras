@@ -1060,11 +1060,15 @@ func aliados_de_huella(ab: AbilityData, c: Combatant) -> Array:
 	return lista.map(func(x): return x["c"])
 
 
+# A quien pilla la forma 'f' que lanza 'c': los del OTRO bando. Si la lanza un enemigo, los tuyos (ver
+# LAS HABILIDADES DEL ENEMIGO); el orden de desempate, su sitio en su lista, igual en todas las maquinas.
 func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 	var out: Array = []
 	var nucleo = CombatFormas.circulo(f.centro, ab.forma_nucleo) if ab.forma_nucleo > 0.0 else null
 	var lista: Array = []
-	for e in _pantalla._vivos():
+	var de_enemigo: bool = _pantalla._enemies.has(c)
+	var bando: Array = _pantalla._enemies if not de_enemigo else _pantalla._aliados
+	for e in (_pantalla._vivos() if not de_enemigo else _pantalla._aliados_vivos()):
 		var r: Rect2 = bulto_de(e)
 		if not f.toca(r):
 			continue
@@ -1078,7 +1082,7 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
 		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance else f.centro_util()
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(ref),
-			"i": _pantalla._enemies.find(e)})
+			"i": bando.find(e)})
 	lista.sort_custom(func(x, y):
 		if is_equal_approx(float(x["d"]), float(y["d"])):
 			return int(x["i"]) < int(y["i"])
@@ -1397,6 +1401,152 @@ func olvidar_carga(c: Combatant) -> void:
 
 
 # ------------------------------------------------------------
+#  LAS HABILIDADES DEL ENEMIGO EN EL MAPA (28/09, empezando por los slimes)
+# ------------------------------------------------------------
+# Con su forma en la ficha (forma/forma_apunte, como las tuyas) el enemigo APUNTA: busca el sitio o la
+# direccion que pilla a MAS de los tuyos a la vez (lo pidio el usuario: "el reventon es el slime
+# hinchandose y saltando sobre los personajes: intentara caer sobre varios"). Las CARGADAS eligen el sitio
+# al empezar y su huella se queda ROJA en el suelo toda la carga: al soltar cae ahi, y el que se haya
+# salido se ha librado. Todo esto corre solo en quien lleva la pelea (la IA es suya); a los espejos les
+# llegan la huella de la carga (por el paquete de huellas) y los golpes (por los impactos).
+
+# EL MEJOR SITIO: {punto, n, valor}. Prueba a apuntar a cada uno de los tuyos, al punto medio de cada pareja
+# y al centro de todos (lo que importa en un circulo es donde cae), y se queda con el que mas pilla, pesando
+# cada uno por lo que le entra (el nucleo cuenta entero, el anillo menos). A igualdad, el que pilla a su
+# PRESA ('preferido', el que eligio el sorteo por aggro), y si no el primero: el mismo en todas las maquinas.
+# n = 0: desde aqui no pilla a nadie.
+func mejor_apunte(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> Dictionary:
+	var vivos: Array = _pantalla._aliados_vivos()
+	var pies: Vector2 = pies_de(e)
+	var puntos: Array = []
+	for a in vivos:
+		puntos.append(bulto_de(a).get_center())
+	var cae_en_un_sitio: bool = int(ab.forma) in [CombatFormas.Tipo.CIRCULO, CombatFormas.Tipo.PUNTO] \
+		and int(ab.forma_apunte) != CombatFormas.Apunte.ALREDEDOR
+	if cae_en_un_sitio and vivos.size() > 1:
+		var suma := Vector2.ZERO
+		for i in puntos.size():
+			suma += puntos[i]
+			for j in range(i + 1, puntos.size()):
+				puntos.append(((puntos[i] as Vector2) + (puntos[j] as Vector2)) * 0.5)
+		if vivos.size() > 2:
+			puntos.append(suma / float(vivos.size()))
+	var mejor: Dictionary = {"punto": pies + Vector2.RIGHT, "n": 0, "valor": 0.0}
+	for p in puntos:
+		var rep: Array = _reparto_en(ab, e, forma_de(ab, e, p))
+		if rep.is_empty():
+			continue
+		var valor: float = 0.0
+		for d in rep:
+			valor += float(d["escala"])
+			if d["c"] == preferido:
+				valor += 0.001
+		if valor > float(mejor["valor"]) + 0.0001:
+			mejor = {"punto": p, "n": rep.size(), "valor": valor}
+	return mejor
+
+
+# ¿Puede usar 'ab' en el mapa este turno? Con huella, si desde aqui pilla a alguien; sin huella, si tiene a
+# quien pegar ('obj', ya filtrado por alcance) o si es de las que solo se echa encima (la Ignicion).
+func sirve_en_mapa(e: Combatant, ab: AbilityData, obj: Combatant) -> bool:
+	if usa_huella(ab):
+		return int(mejor_apunte(e, ab, obj)["n"]) > 0
+	return obj != null or solo_a_si_mismo(ab)
+
+
+static func solo_a_si_mismo(ab: AbilityData) -> bool:
+	if ab == null or ab.dano_mult > 0.0 or ab.invoca_cantidad > 0:
+		return false
+	for a in ab.efectos:
+		if a.en_objetivo:
+			return false
+	return true
+
+
+# LA HUELLA CON LA QUE SUELTA 'ab': la de su carga si la estaba cargando (fija, se borra del suelo al soltar)
+# y si no la mejor desde donde esta. Se gira hacia ella.
+var ultima_forma_enemigo = null
+
+func forma_para_soltar(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> RefCounted:
+	var f = null
+	var d: Array = _cargas.get(e, [])
+	if d.size() >= 3 and d[0] == ab:
+		f = d[2]
+		olvidar_carga(e)
+	else:
+		f = forma_de(ab, e, mejor_apunte(e, ab, preferido)["punto"])
+	ultima_forma_enemigo = f
+	_encarar(e, f.centro_util())
+	return f
+
+
+# A quien le cae y con cuanto: [{c, escala}], el primero el principal (el mas cercano al centro).
+func reparto_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> Array:
+	return _reparto_en(ab, e, forma_para_soltar(e, ab, preferido))
+
+
+# EMPIEZA A CARGAR: elige el sitio YA y lo deja pintado en ROJO hasta que suelte.
+func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> void:
+	var f = forma_de(ab, e, mejor_apunte(e, ab, preferido)["punto"])
+	_cargas[e] = [ab, f.centro, f]
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.poner_huella(e, f, ab.forma_nucleo, COLOR_ENEMIGO)
+	_anotar_huella_red(e, CLASE_CARGA, f, ab.forma_nucleo)
+	_encarar(e, f.centro_util())
+
+
+# Se gira hacia donde va a soltar, y se lo cuenta al dueño del bicho si es de otra maquina.
+func _encarar(e: Combatant, p: Vector2) -> void:
+	var cu: Node2D = cuerpo_de(e)
+	if cu == null or p.distance_squared_to(cu.global_position) < 1.0:
+		return
+	_animar(cu, p - cu.global_position, false)
+	_apuntar_bicho(cu, false)
+	_enviar_bichos()
+
+
+# DESDE LEJOS: antes de echar a andar, si tiene lista una habilidad que YA pilla a alguien desde donde esta
+# (el escupitajo, la tromba), la tirada de habilidad se hace aqui; si sale, la suelta sin moverse. La tirada
+# se guarda para que _enemy_turn no tire otra vez: una por turno, ande o no.
+var _tiradas: Dictionary = {}     # Combatant -> bool
+var _decididas: Dictionary = {}   # Combatant -> AbilityData
+
+func _decidir_de_lejos(e: Combatant) -> bool:
+	if _pantalla._dps_on or e.silenciado() or e.charging != null \
+			or _pantalla.enemigos._invocacion_lista(e) != null:
+		return false
+	var buenas: Array = []
+	for ab in e.habilidades:
+		if e.ability_ready(ab) and ab.invoca_cantidad <= 0 and usa_huella(ab) \
+				and int(mejor_apunte(e, ab)["n"]) > 0:
+			buenas.append(ab)
+	if buenas.is_empty():
+		return false
+	var sale: bool = randf() < e.prob_habilidad
+	_tiradas[e] = sale
+	if not sale:
+		return false
+	_decididas[e] = buenas[randi() % buenas.size()]
+	return true
+
+
+# La tirada de habilidad de este turno: la de _decidir_de_lejos si la hubo, o una nueva.
+func sacar_tirada(e: Combatant) -> bool:
+	if _tiradas.has(e):
+		var t: bool = _tiradas[e]
+		_tiradas.erase(e)
+		return t
+	return randf() < e.prob_habilidad
+
+
+func sacar_decidida(e: Combatant) -> AbilityData:
+	var ab: AbilityData = _decididas.get(e)
+	_decididas.erase(e)
+	return ab
+
+
+# ------------------------------------------------------------
 #  QUE LOS DEMAS VEAN LAS HUELLAS
 # ------------------------------------------------------------
 # Quien lleva la pelea guarda TODAS las huellas vivas (la que se apunta, sea de aqui o de un espejo, y
@@ -1543,14 +1693,20 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 		if int(x[1]) != CLASE_CARGA and _apuntando != null and c == _quien:
 			continue
 		var clave: String = "red_%d_%d" % [int(x[0]), int(x[1])]
-		arena.poner_huella(clave, x[2], x[3], COLOR_CARGA if int(x[1]) == CLASE_CARGA
-			else (COLOR_ESCUDAZO if int(x[1]) == CLASE_ESCUDAZO else COLOR_APUNTE))
+		var col: Color = COLOR_CARGA if int(x[1]) == CLASE_CARGA \
+			else (COLOR_ESCUDAZO if int(x[1]) == CLASE_ESCUDAZO else COLOR_APUNTE)
+		if _pantalla._enemies.has(c):
+			col = COLOR_ENEMIGO
+		arena.poner_huella(clave, x[2], x[3], col)
 		_claves_red.append(clave)
 
 
-const COLOR_APUNTE := Color(1.0, 0.75, 0.3)
-const COLOR_CARGA := Color(1.0, 0.45, 0.25)
-const COLOR_ESCUDAZO := Color(0.55, 0.8, 1.0)   # la linea del escudazo, dentro de la del tajo
+# ROJO = ENEMIGO (decidido con el usuario el 28/09): las nuestras van en frios, del color de nuestro
+# circulo de movimiento, para que una huella roja en el suelo se lea siempre como "apartate".
+const COLOR_APUNTE := Color(0.45, 0.85, 1.0)
+const COLOR_CARGA := Color(0.35, 0.5, 1.0)
+const COLOR_ESCUDAZO := Color(0.95, 0.95, 1.0)   # la linea del escudazo, dentro de la del tajo
+const COLOR_ENEMIGO := Color(1.0, 0.3, 0.25)
 
 
 # EL TURNO SE HA IDO: se eligio accion, o se lo ha llevado otra cosa (huyo, cayo).
@@ -1660,10 +1816,16 @@ func turno_enemigo(e: Combatant) -> void:
 	var cuerpo: Node2D = cuerpo_de(e)
 	var radio: float = radio_de(e)
 	var presa: Combatant = _presa_de(e)
+	_tiradas.erase(e)
+	_decididas.erase(e)
 	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal. Y el
 	# que ya tiene a alguien a tiro no se mueve: pega desde donde esta.
 	if cuerpo == null or presa == null or radio <= 0.0 or e.aturdido() \
 			or hueco_entre(e, presa) <= alcance_de(e) * ARRIMARSE:
+		_turno_enemigo_de_siempre(e)
+		return
+	# Lo que ya llega desde aqui (un escupitajo) se suelta sin andar, si le sale la tirada.
+	if _decidir_de_lejos(e):
 		_turno_enemigo_de_siempre(e)
 		return
 	_quien = e

@@ -145,7 +145,13 @@ class Forma extends RefCounted:
 		if tramos <= 1:
 			return 0
 		var d: float = INF
-		if tipo == CombatFormas.Tipo.CONO:
+		# EL CIRCULO a tramos va en ANILLOS desde el centro (la Marea del Rey Slime, 28/09): cobra el anillo
+		# del trozo de su cuerpo mas cercano al centro.
+		if tipo == CombatFormas.Tipo.CIRCULO:
+			d = _mas_cerca(r, centro).distance_to(centro)
+			if d > radio:
+				return 0
+		elif tipo == CombatFormas.Tipo.CONO:
 			for p in [_mas_cerca(r, origen), r.get_center(), r.position, r.end,
 					Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:
 				if contiene(p):
@@ -388,7 +394,9 @@ static func _forma_mapa(ab: AbilityData, pies: Vector2, dir: Vector2, centro: Ve
 			return l
 		Tipo.PUNTO:
 			return punto(centro, r)
-	return circulo(centro, r)
+	var ci := circulo(centro, r)
+	ci.tramos = ab.forma_tramos
+	return ci
 
 
 # Monta la forma que pide la ficha con los radios que pida (0 = el de por defecto de esa forma).
@@ -460,6 +468,12 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 	match f.tipo:
 		Tipo.PUNTO, Tipo.CIRCULO:
 			ci.draw_circle(f.centro, maxf(f.radio, 2.0), relleno)
+			# Con TRAMOS, los anillos de dentro mas llenos (pegan mas) y una raya entre ellos.
+			if f.tipo == Tipo.CIRCULO and f.tramos > 1:
+				for k in range(1, f.tramos):
+					var rk: float = f.radio * float(k) / float(f.tramos)
+					ci.draw_circle(f.centro, rk, relleno)
+					ci.draw_arc(f.centro, rk, 0.0, TAU, 48, Color(col, col.a * 0.7), 1.5)
 			ci.draw_arc(f.centro, maxf(f.radio, 2.0), 0.0, TAU, 64, col, 2.5)
 		Tipo.CONO:
 			var a0: float = f.dir.angle() - deg_to_rad(f.apertura * 0.5)

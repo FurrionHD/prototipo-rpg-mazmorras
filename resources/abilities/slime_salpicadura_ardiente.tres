@@ -22,3 +22,6 @@ reparto_por_golpe = true
 efectos = [SubResource("SA_quema")]
 efectos_por_golpe = true
 cooldown = 3
+forma = 1
+forma_apunte = 2
+forma_radio = 35.0
