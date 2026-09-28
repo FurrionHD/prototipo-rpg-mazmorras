@@ -172,14 +172,18 @@ func _correr() -> void:
 	# 4) ATURDIDO CARGANDO: se le borra la huella.
 	combat.enemigos._enemy_begin_charge(e, rev, al[1])
 	t.olvidar_carga(e)
+	e.charging = null   # como hace el aturdido de verdad (combat_enemigos)
 	_ver(not arena.huellas.has(e), "interrumpida, la huella se va")
 
 	# 5) EL CUERPO: el Reventon SALTA al centro de su circulo y el placaje EMBISTE por su linea, con su animacion.
 	print("--- cuerpo ---")
 	var cu: Node2D = t.cuerpo_de(e)
 	var sp: AnimatedSprite2D = cu.get("_sprite")
+	# El del GENERADOR, no el horneado: las animaciones nuevas (hinchado, aplaston...) no estan en disco
+	# hasta que se rehornea.
+	sp.sprite_frames = SlimeSprites.generar_de(cu.get("data"), 0.0)
 	var vistas: Dictionary = {}
-	for prueba in [["slime_reventon", "inflar", 62.0], ["slime_placaje_viscoso", "embestida", 44.0]]:
+	for prueba in [["slime_reventon", "hinchado,aplaston,deshincharse", 62.0], ["slime_placaje_viscoso", "embestida", 44.0]]:
 		# Que acabe lo anterior ANTES de colocar: la pelea sigue viva y en un segundo se mueven los turnos.
 		await get_tree().create_timer(1.0, true, false, true).timeout
 		# Los dos de delante otra vez delante, con trecho (el placaje es una linea de 40: mas cerca).
@@ -206,15 +210,39 @@ func _correr() -> void:
 		print("  %s: se movio %.1f px (de %s a %s), subio %.1f, anims %s" % [prueba[0], movido,
 			str(antes_pos.round()), str(t.pos_de(e).round()), alto_max, str(vistas.keys())])
 		_ver(movido > 8.0, "%s mueve al slime" % prueba[0])
-		var hizo: bool = false
-		for k in vistas:
-			if String(k).begins_with(prueba[1]):
-				hizo = true
-		_ver(hizo, "%s: el cuerpo del mapa hace '%s'" % [prueba[0], prueba[1]])
+		for quiere in String(prueba[1]).split(","):
+			var hizo: bool = false
+			for k in vistas:
+				if String(k).begins_with(quiere):
+					hizo = true
+			_ver(hizo, "%s: el cuerpo del mapa hace '%s'" % [prueba[0], quiere])
 		if prueba[0] == "slime_reventon":
 			_ver(alto_max > 10.0, "el Reventon va por el aire")
 		_ver(absf(sp.position.y - sp_y0) < 0.5, "y el dibujo acaba en el suelo")
 		_ver(not cu.has_meta("gesto_pelea"), "y el gesto se suelta")
+
+	# 6) LA POSE DE CARGA: se infla y se QUEDA hinchado; si la carga se va sin soltarla, se deshincha.
+	print("--- pose de carga ---")
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	vistas.clear()
+	combat.enemigos._enemy_begin_charge(e, rev, al[1])
+	var t2: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t2 < 2000:
+		await get_tree().process_frame
+		vistas[String(sp.animation)] = true
+	print("  cargando: anims %s, ahora %s" % [str(vistas.keys()), sp.animation])
+	_ver(vistas.keys().any(func(k): return String(k).begins_with("inflar")), "al cargar se infla")
+	_ver(String(sp.animation).begins_with("hinchado") and cu.has_meta("gesto_pelea"), "y se queda hinchado")
+	e.charging = null
+	t.olvidar_carga(e)
+	vistas.clear()
+	var t3: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t3 < 3000:
+		await get_tree().process_frame
+		vistas[String(sp.animation)] = true
+	print("  interrumpida: anims %s" % str(vistas.keys()))
+	_ver(vistas.keys().any(func(k): return String(k).begins_with("deshincharse")), "interrumpida, se deshincha")
+	_ver(not cu.has_meta("gesto_pelea"), "y vuelve a lo suyo")
 
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)

@@ -442,7 +442,17 @@ enum Gesto { AUTO = -1, QUIETO, EN_SITIO, PASO, VIAJE, SALTO, ATRAVESAR }
 #
 # Si el bicho no tiene esa animacion se cae a su embestida, asi que pedir una que no existe no
 # rompe nada: simplemente ataca como siempre.
+#
+# EN CADENA (28/09, los slimes en el mapa): "hinchado>aplaston>deshincharse". La primera se ajusta al
+# gesto; las demas salen detras, cada una a su ritmo. Va en el mismo nombre para que viaje por red tal
+# cual en el paquete de impactos. En la fila (la tarjeta) solo cuenta la primera.
 @export var fx_anim: StringName = &""
+# LO QUE HACE SU CUERPO MIENTRAS CARGA (solo en el mapa): cadena como la de arriba y la ULTIMA se
+# queda en bucle hasta que suelta ("inflar>hinchado" en el Reventon). Vacio = nada, como siempre.
+# Lo lee el combate mirando 'charging', que ya viaja al espejo: no hace falta mandar nada mas.
+@export var fx_anim_carga: StringName = &""
+# Y si le INTERRUMPEN la carga (aturdido): el Reventon se deshincha. Vacio = vuelve a reposo.
+@export var fx_anim_interrumpe: StringName = &""
 # EL DIBUJO EN EL MAPA si es otro que el de la fila (-1 = el mismo, fx_estilo). Los slimes (28/09): en la fila el
 # escupitajo es su ESCUPITAJO de tarjeta; en el mapa, SLIME_ESCUPE sobre el cuerpo. Solo lo lee el mapa.
 @export var fx_estilo_mapa: int = -1

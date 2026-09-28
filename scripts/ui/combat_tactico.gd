@@ -3072,40 +3072,56 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 # esta escondida). 'encaje' = le acaban de pegar: sacudida, que nunca pisa un gesto suyo. Mientras dura, el
 # cuerpo lleva la marca 'gesto_pelea' y su _actualizar_animacion no le cambia la animacion (en red, la copia
 # del bicho la recalcula al verse mover).
-var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje}
+# EN CADENA ('pide' = "hinchado>aplaston>deshincharse", ver AbilityData.fx_anim): la primera dura 'dur' y las
+# demas salen detras a su ritmo. 'sostener' = la ultima se queda en bucle hasta que otro gesto la pise (la
+# pose de CARGA: ver _tick_cargas_bicho). 'dur' <= 0 = a su ritmo.
+var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener}
 
-func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false) -> void:
+func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false,
+		sostener: bool = false) -> void:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null or not c.is_alive():
 		return
-	var sp = cuerpo.get("_sprite")
-	if not (sp is AnimatedSprite2D) or (sp as AnimatedSprite2D).sprite_frames == null:
-		return
 	if encaje and _gestos_bicho.has(cuerpo) and not bool(_gestos_bicho[cuerpo]["encaje"]):
 		return
+	var partes: PackedStringArray = String(pide).split(">", false)
+	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "embestida")
+	var natural: float = _poner_anim_bicho(cuerpo, base, dur, not encaje)
+	if natural < 0.0:
+		return
+	cuerpo.set_meta("gesto_pelea", true)
+	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
+		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+
+
+# Pone la animacion 'base' hacia donde mira, ajustada a 'dur' (<= 0: a su ritmo). Devuelve lo que dura a su
+# ritmo, o -1 si no la tiene. 'o_embestida' = si no la tiene, su embestida.
+func _poner_anim_bicho(cuerpo: Node2D, base: String, dur: float, o_embestida: bool) -> float:
+	var sp = cuerpo.get("_sprite")
+	if not (sp is AnimatedSprite2D) or (sp as AnimatedSprite2D).sprite_frames == null:
+		return -1.0
 	var frames: SpriteFrames = (sp as AnimatedSprite2D).sprite_frames
 	var d: int = SpriteLienzo.dir8(_mirada_de(cuerpo))
-	var base: String = "encaje" if encaje else (String(pide) if pide != &"" else "embestida")
 	var anim := StringName("%s_%d" % [base, d])
-	# Las que solo tienen la direccion 0 (inflar, escupir, encaje) valen igual: un slime es una bola.
+	# Las que solo tienen la direccion 0 valen igual: un slime es una bola.
 	if not frames.has_animation(anim):
 		anim = StringName("%s_0" % base)
-	if not frames.has_animation(anim) and not encaje:
+	if not frames.has_animation(anim) and o_embestida:
 		anim = StringName("embestida_%d" % d)
 	if not frames.has_animation(anim):
-		return
+		return -1.0
 	var fps: float = maxf(frames.get_animation_speed(anim), 0.1)
 	var natural: float = float(frames.get_frame_count(anim)) / fps
-	(sp as AnimatedSprite2D).speed_scale = clampf(natural / maxf(dur, 0.05), 0.25, 6.0)
+	(sp as AnimatedSprite2D).speed_scale = clampf(natural / dur, 0.25, 6.0) if dur > 0.0 else 1.0
 	(sp as AnimatedSprite2D).play(anim)
 	(sp as AnimatedSprite2D).frame = 0
-	cuerpo.set_meta("gesto_pelea", true)
 	if cuerpo.get("_anim_actual") != null:
 		cuerpo.set("_anim_actual", String(anim))
-	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.2), "encaje": encaje}
+	return natural
 
 
 func _tick_gestos_bicho(delta: float) -> void:
+	_tick_cargas_bicho(delta)
 	for cuerpo in _gestos_bicho.keys():
 		if not is_instance_valid(cuerpo):
 			_gestos_bicho.erase(cuerpo)
@@ -3114,8 +3130,58 @@ func _tick_gestos_bicho(delta: float) -> void:
 		g["t"] = float(g["t"]) + delta
 		if float(g["t"]) < float(g["dur"]):
 			continue
+		# La siguiente de la cadena, a su ritmo.
+		var cola: PackedStringArray = g["cola"]
+		if not cola.is_empty():
+			var natural: float = _poner_anim_bicho(cuerpo, cola[0], -1.0, false)
+			g["cola"] = cola.slice(1)
+			g["t"] = 0.0
+			g["dur"] = maxf(natural, 0.05)   # si no la tiene, pasa a la siguiente
+			continue
+		# LA POSE DE CARGA se queda: si la animacion no es de bucle (la ignicion), vuelve a empezar.
+		if bool(g["sostener"]):
+			var sp = cuerpo.get("_sprite")
+			if sp is AnimatedSprite2D and not (sp as AnimatedSprite2D).is_playing():
+				(sp as AnimatedSprite2D).play()
+				(sp as AnimatedSprite2D).frame = 0
+			continue
 		_gestos_bicho.erase(cuerpo)
 		_soltar_gesto_bicho(cuerpo)
+
+
+# LA POSE DE CARGA (Reventon hinchado, Presion encogida, Combustion al rojo). Se mira 'charging' cada
+# fotograma, y no se engancha a _enemy_begin_charge, porque 'charging' ya viaja al espejo con el estado:
+# asi la ven igual todas las pantallas sin mandar nada. Al soltar la pisa el gesto de la habilidad. Si se
+# le va la carga y NO llega ese gesto (aturdido, o no llega en T_CARGA_SUELTA), hace su 'interrumpe'.
+const T_CARGA_SUELTA := 1.5
+var _poses_carga: Dictionary = {}   # Combatant -> {ab, t}
+
+func _tick_cargas_bicho(delta: float) -> void:
+	for e in _pantalla._enemies:
+		var ab: AbilityData = e.charging if e.is_alive() else null
+		if ab != null and ab.fx_anim_carga != &"" and not _poses_carga.has(e) and cuerpo_de(e) != null:
+			_poses_carga[e] = {"ab": ab, "t": 0.0}
+			gesto_bicho_en_mapa(e, ab.fx_anim_carga, -1.0, false, true)
+	for e in _poses_carga.keys():
+		var p: Dictionary = _poses_carga[e]
+		if e.is_alive() and e.charging == p["ab"]:
+			continue
+		var cuerpo: Node2D = cuerpo_de(e)
+		var g = _gestos_bicho.get(cuerpo) if cuerpo != null else null
+		# Muerto, o ya salio el gesto de soltarla: nada que hacer.
+		if not e.is_alive() or g == null or not bool(g["sostener"]):
+			_poses_carga.erase(e)
+			continue
+		p["t"] = float(p["t"]) + delta
+		if not e.aturdido() and float(p["t"]) < T_CARGA_SUELTA:
+			continue
+		_poses_carga.erase(e)
+		var ab_ido: AbilityData = p["ab"]
+		if ab_ido.fx_anim_interrumpe != &"":
+			gesto_bicho_en_mapa(e, ab_ido.fx_anim_interrumpe, -1.0)
+		else:
+			_gestos_bicho.erase(cuerpo)
+			_soltar_gesto_bicho(cuerpo)
 
 
 func _soltar_gesto_bicho(cuerpo: Node2D) -> void:

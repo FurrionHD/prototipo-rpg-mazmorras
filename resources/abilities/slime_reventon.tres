@@ -6,7 +6,9 @@
 script = ExtResource("1")
 fx_estilo = 9
 gesto = 4
-fx_anim = &"inflar"
+fx_anim = &"hinchado>aplaston>deshincharse"
+fx_anim_carga = &"inflar>hinchado"
+fx_anim_interrumpe = &"deshincharse"
 coste_energia = 0.0
 nombre = "Reventón"
 cooldown = 4

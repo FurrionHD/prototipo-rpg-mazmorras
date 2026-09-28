@@ -95,8 +95,10 @@ const SOMBRA_R := Vector3(12.0, 7.0, 0.0)
 # superficie de un elipsoide esta a una distancia distinta en cada direccion, asi que un punto que
 # encaja mirando al sur flota mirando al norte. Anclandolos por direccion eso no puede pasar.
 
-# CUERNOS: dos pinchos de gel denso, arriba y un poco adelantados.
-const CUERNO_DIR := Vector3(0.50, 0.12, 0.86)
+# CUERNOS: dos pinchos de gel denso, EN LA CORONILLA (y = 0). Iban un poco adelantados (0.12) y eso
+# los condenaba de espaldas: los dos quedaban "detras", se pintaban antes del cuerpo, que los tapaba,
+# y encima encogidos -- mirando al norte eran dos muñones y la cabeza parecia cortada recta (28/09).
+const CUERNO_DIR := Vector3(0.50, 0.0, 0.86)
 const CUERNO_R := Vector3(3.8, 3.8, 5.0)
 # La base BIEN metida: rozando la superficie, el cuerno se despegaba en el frame de mas estiron de
 # la embestida (el cuerpo se alarga y el adorno se queda). Un solape de una celda no aguanta nada.
@@ -130,6 +132,9 @@ const GEMA_R := Vector3(1.15, 1.15, 1.15)
 # Lo que esta DETRAS se dibuja mas pequeño: sin esto los dos cuernos asoman casi iguales por la
 # coronilla y parecen gemelos, que es justo lo contrario de lo que tienen que contar.
 const ORNAMENTO_DETRAS_ESC := 0.75
+# Cuanto tiene que quedar un pincho por detras del centro (unidades de mundo, ya girado) para
+# encogerse del todo hasta ORNAMENTO_DETRAS_ESC. Un cuerno de perfil queda a ~8.
+const ORNAMENTO_FONDO_MAX := 8.0
 # Cuanto se comprime el escorzo de los ornamentos y de los ojos (ver 'escorzo' en _piezas).
 const ORNAMENTO_ESCORZO := 0.35
 const OJO_ESCORZO := 0.60
@@ -265,6 +270,10 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false,
 	_montar_walk(anims, corona, esc)
 	_montar_embestida(anims, corona, esc)
 	_montar_inflar(anims, corona, esc)
+	_montar_hinchado(anims, corona, esc)
+	_montar_deshincharse(anims, corona, esc)
+	_montar_encogido(anims, corona, esc)
+	_montar_aplaston(anims, corona, esc)
 	_montar_ignicion(anims, corona, esc)
 	_montar_brote(anims, corona, esc)
 	_montar_escupir(anims, corona, esc)
@@ -330,6 +339,55 @@ static func _montar_inflar(anims: Array, corona: bool, esc: float) -> void:
 			"avance": 0.0,   # no se mueve: coge aire en el sitio
 			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
 	_montar_animacion(anims, corona, esc, "inflar", false, 9.0, pose, true)
+
+
+# HINCHADO (bucle): la carga del Reventon. Se queda en la pose final de 'inflar' (squash 1,24,
+# despegado 0,55) y LATE: el aire que ha tragado empuja por dentro. Empalma sin salto con 'inflar'.
+static func _montar_hinchado(anims: Array, corona: bool, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		var latido: float = sin(TAU * t)
+		return {"squash": 1.24 + 0.06 * latido, "avance": 0.0,
+			"bote": (0.55 + 0.10 * latido) * BOTE}
+	_montar_animacion(anims, corona, esc, "hinchado", true, 8.0, pose, false)
+
+
+# DESHINCHARSE: suelta el aire. Tras caer del Reventon/Aplastamiento y cuando lo INTERRUMPEN
+# (aturdido a media carga). Arranca en la pose de 'hinchado', se desploma por debajo del reposo y
+# TIEMBLA (alterna en cada marco, cada vez menos) hasta quedarse en su sitio.
+static func _montar_deshincharse(anims: Array, corona: bool, esc: float) -> void:
+	var squash_keys := [[0.0, 1.24], [0.143, 1.02], [0.286, 0.74], [0.429, 0.90], [0.571, 0.80],
+		[0.714, 0.94], [0.857, 0.96], [1.0, 1.0]]
+	var bote_keys := [[0.0, 0.55], [0.143, 0.20], [0.286, -0.20], [0.429, 0.06], [0.571, -0.08],
+		[0.714, 0.02], [0.857, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys), "avance": 0.0,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	_montar_animacion(anims, corona, esc, "deshincharse", false, 10.0, pose, true)
+
+
+# ENCOGIDO (bucle): la carga de la Presion. Aplastado contra el suelo como un muelle, temblando de
+# tension: lo contrario del hinchado. Al soltar sale la embestida, que empieza tambien agazapada.
+static func _montar_encogido(anims: Array, corona: bool, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		# Alterna en cada marco (como la ignicion): tension, no respiracion.
+		var tiembla: float = 1.0 if int(round(t * FRAMES)) % 2 == 0 else -1.0
+		# 0,03 no se leia: parecia quieto. Tiembla tambien adelante-atras, como algo a punto de saltar.
+		return {"squash": 0.68 + 0.05 * tiembla, "avance": -1.2 + 0.7 * tiembla, "bote": 0.0}
+	_montar_animacion(anims, corona, esc, "encogido", true, 12.0, pose, false)
+
+
+# APLASTON: tocar suelo tras el salto. Como el encaje, EMPIEZA YA APLASTADO (un impacto no tiene
+# anticipacion), rebota pasandose y se asienta. No viaja: donde cae, se queda.
+static func _montar_aplaston(anims: Array, corona: bool, esc: float) -> void:
+	# No baja de 0,58: a 0,50 la corona del Rey se hundia entera en la torta y solo asomaban las gemas.
+	var squash_keys := [[0.0, 0.58], [0.143, 0.66], [0.286, 1.14], [0.429, 1.10], [0.571, 0.86],
+		[0.714, 1.06], [0.857, 0.98], [1.0, 1.0]]
+	var bote_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.30], [0.429, 0.20], [0.571, 0.0],
+		[0.714, 0.06], [0.857, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"squash": SpriteLienzo.tramos(t, squash_keys), "avance": 0.0,
+			"bote": SpriteLienzo.tramos(t, bote_keys) * BOTE}
+	_montar_animacion(anims, corona, esc, "aplaston", false, 14.0, pose, true)
 
 
 # LA IGNICION del slime de fuego: se pone al rojo. No toca a nadie -- es un buff sobre si mismo --
@@ -667,14 +725,21 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	# chinchetas clavadas en la mancha.
 	var orn_esc: float = 1.0 - derretido
 	var ornamentos: Array = ([] if orn_esc < 0.12 else _ornamentos(corona))
+	# DETRAS = que su base NO se ve desde la camara (queda al otro lado del filo de la cabeza): solo
+	# esos van antes del cuerpo y apagados. Antes bastaba con quedar un pelin hacia atras, y de
+	# espaldas eso tapaba los dos cuernos enteros. Y el encogido ya no es de golpe: crece con lo
+	# que el pincho queda por detras del otro, asi que de espaldas (los dos a la par) salen enteros
+	# y solo de lado el de atras se queda en ORNAMENTO_DETRAS_ESC.
 	var delante: Array = []
 	for orn in ornamentos:
 		var base: Vector3 = orn["base"]
-		if Vector2(base.x, base.y).rotated(ang).y > 0.0:
+		var fondo: float = Vector2(base.x, base.y).rotated(ang).y
+		var encoge: float = lerpf(1.0, ORNAMENTO_DETRAS_ESC, clampf(-fondo / ORNAMENTO_FONDO_MAX, 0.0, 1.0))
+		orn["esc"] = encoge
+		if _base_visible(base, fondo):
 			delante.append(orn)
 			continue
-		# El de detras, mas pequeño: sin eso los dos asoman iguales por la coronilla y parecen gemelos.
-		_pincho(poner, orn, ORNAMENTO_DETRAS_ESC * orn_esc, Tono.DETRAS, Tono.DETRAS)
+		_pincho(poner, orn, encoge * orn_esc, Tono.DETRAS, Tono.DETRAS)
 
 	# 3. EL CUERPO, entero en SOMBRA...
 	poner.call(CUERPO, CUERPO_R, Tono.SOMBRA, [], false)
@@ -689,8 +754,11 @@ static func _piezas(dir: int, pose: Dictionary, corona: bool, esc: float) -> Arr
 	# 5. Los ornamentos de DELANTE, ya sobre el cuerpo. Sin contorno propio contra el: se probo para
 	#    "recortarlos" y queda peor -- como el cuerno nace justo en el filo de la cabeza, esa linea lo
 	#    convierte en una pastilla suelta pegada al costado. El contorno va SOLO contra el vacio.
+	# De atras a delante: el que queda por detras (de lado) lo tapa el de delante, no al reves.
+	delante.sort_custom(func(a, b): return Vector2(a["base"].x, a["base"].y).rotated(ang).y \
+		< Vector2(b["base"].x, b["base"].y).rotated(ang).y)
 	for orn in delante:
-		_pincho(poner, orn, orn_esc, Tono.ORNAMENTO, Tono.GEMA)
+		_pincho(poner, orn, float(orn["esc"]) * orn_esc, Tono.ORNAMENTO, Tono.GEMA)
 
 	# 6. BRILLOS especulares: dos manchas claras en la cresta. NO giran (la luz esta clavada en el
 	#    mundo, no en el bicho) y van 'solo_sobre' BASE para no derramarse sobre los cuernos ni el
@@ -752,6 +820,16 @@ static func _en_el_cuerpo(dir: Vector3, hunde: float) -> Vector3:
 	var d: Vector3 = dir.normalized()
 	var p := Vector3(CUERPO_ANCLA_R.x * d.x, CUERPO_ANCLA_R.y * d.y, CUERPO_ANCLA_R.z * d.z)
 	return CUERPO + p - d * hunde
+
+
+# Si la BASE de un ornamento (local, sin girar) queda en la cara del cuerpo que ve la camara: la
+# normal del elipsoide de anclaje contra la direccion de la camara (del sur y desde arriba a 45
+# grados). 'fondo' es su Y ya girada. Por encima de cero se ve: va DESPUES del cuerpo.
+static func _base_visible(base: Vector3, fondo: float) -> bool:
+	var rel: Vector3 = base - CUERPO
+	var ny: float = fondo / (CUERPO_ANCLA_R.y * CUERPO_ANCLA_R.y)
+	var nz: float = rel.z / (CUERPO_ANCLA_R.z * CUERPO_ANCLA_R.z)
+	return ny * SpriteLienzo.COS_CAM + nz * SpriteLienzo.SIN_CAM > 0.0
 
 
 # Los ornamentos de la cabeza en coordenadas LOCALES (mirando al sur): los dos cuernos del slime

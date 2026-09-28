@@ -628,6 +628,7 @@ func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = 
 		# otro dia.
 		var anim := StringName("embestida_%d" % dir)
 		if pide != &"":
+			pide = StringName(String(pide).get_slice(">", 0))   # en cadena, la tarjeta solo hace la primera
 			var propia := StringName("%s_%d" % [pide, dir])
 			# Y SI ESA ANIMACION SOLO TIENE LA DIRECCION 0, VALE IGUAL. Hay habilidades que se dibujan
 			# en una sola direccion a proposito -- el pisoton y el bramido del Minotauro, igual que
