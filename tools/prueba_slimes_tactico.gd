@@ -300,6 +300,43 @@ func _correr() -> void:
 			"al acabar, vuelve al suelo como cadaver")
 		print("  cadaver: anim %s" % (cuerpo_m.get("_sprite") as AnimatedSprite2D).animation)
 
+	# 9) LA MAREA EMPUJA A UN PERSONAJE DE OTRO HUMANO: quien lleva la pelea NO mueve su cuerpo (lo mueve su
+	#    maquina): apunta donde acaba y manda un desliz EMPUJON. Se simulan las dos mitades en este proceso.
+	print("--- empujon a otro humano ---")
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	var otro: Combatant = al[1]
+	var cu_otro: Node2D = t.cuerpo_de(otro)
+	var p_otro0: Vector2 = cu_otro.global_position
+	Net.activo = true                     # (solo para que cuente como pelea en red)
+	combat._dueno_aliado[otro] = 99       # es de otro humano...
+	var pj_otro: PersonajeData = Game.pj_de_combatant(otro)
+	pj_otro.set_meta("cuerpo_red", 0)     # ...y este es el cuerpo que me pinta la red
+	Net._avatares[99] = cu_otro
+	t._pos[otro] = p_otro0
+	t._deslices.clear()
+	t.pedir_tiron(otro, e, -40.0)
+	var d_emp: Dictionary = t._deslices.back() if not t._deslices.is_empty() else {}
+	_ver(not d_emp.is_empty() and int(d_emp["modo"]) == t.Desliz.EMPUJON, "sale como desliz EMPUJON (por red)")
+	_ver(t._tirones.is_empty(), "y no como tiron local")
+	var p_fin: Vector2 = t._pos[otro]
+	print("  apuntado: de %s a %s" % [str(p_otro0.round()), str(p_fin.round())])
+	_ver(p_fin.distance_to(p_otro0) > 20.0 and (p_fin - p_otro0).dot(p_otro0 - t.pos_de(e)) > 0.0,
+		"la pelea lo cuenta empujado, lejos del slime")
+	await get_tree().create_timer(0.5, true, false, true).timeout
+	_ver(cu_otro.global_position.distance_to(p_otro0) < 0.5, "su cuerpo aqui NO se mueve (no es mio)")
+	# La otra mitad: SU maquina (aqui vuelve a ser mio) lo mueve al encajar el golpe.
+	combat._dueno_aliado.erase(otro)
+	pj_otro.remove_meta("cuerpo_red")
+	Net._avatares.erase(99)
+	Net.activo = false
+	t._deslices.clear()
+	t.anotar_desliz(otro, p_fin, t.Desliz.EMPUJON, 1)
+	await get_tree().create_timer(0.3, true, false, true).timeout
+	_ver(cu_otro.global_position.distance_to(p_otro0) < 0.5, "su maquina espera al golpe")
+	combat._fx.golpe_encajado.emit(combat._bloque_de(otro), 0.2)
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	_ver(cu_otro.global_position.distance_to(p_fin) < 1.0, "y al entrarle el golpe se lo lleva el empujon")
+
 	# Si huis, se deshacen: el embudo de todas las salidas es reanudar_tras_combate.
 	if not crias.is_empty() and t.cuerpo_de(crias[0]) != null:
 		var cn: Node2D = t.cuerpo_de(crias[0])

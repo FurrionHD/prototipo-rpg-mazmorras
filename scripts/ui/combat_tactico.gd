@@ -2182,20 +2182,58 @@ var _tirones: Array = []   # {c, de, px, espera, t, desde, hasta}
 func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
 	if _pantalla._espejo or c == null or de == null or is_zero_approx(px):
 		return
-	_tirones.append({"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0})
+	var tr := {"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0}
+	if not _tiron_a_otro_humano(tr):
+		_tirones.append(tr)
 
 
 # ATRAER A UN PUNTO (la Vorágine): como el tiron, pero hacia 'hacia' (el centro de la huella) y sin pasarse de el.
 func pedir_atraccion(c: Combatant, de: Combatant, hacia: Vector2, px: float) -> void:
 	if _pantalla._espejo or c == null or de == null or px <= 0.0:
 		return
-	_tirones.append({"c": c, "de": de, "px": px, "hacia": hacia, "espera": 0.0, "t": -1.0})
+	var tr := {"c": c, "de": de, "px": px, "hacia": hacia, "espera": 0.0, "t": -1.0}
+	if not _tiron_a_otro_humano(tr):
+		_tirones.append(tr)
+
+
+# EL PERSONAJE DE OTRO HUMANO no se puede arrastrar desde aqui: su cuerpo lo mueve SU maquina (y con un
+# trabajador de pelea, TODOS son de otro). Asi que el sitio donde acaba se decide YA, con la pared que lo
+# para, y viaja como un desliz EMPUJON, que su maquina hace al encajar el golpe; aqui se apunta en _pos.
+# Antes se movia solo la copia de esta maquina: en las pantallas de los jugadores no se movia nadie, y la
+# pelea contaba con un sitio donde el personaje no estaba.
+func _tiron_a_otro_humano(tr: Dictionary) -> bool:
+	var c: Combatant = tr["c"]
+	if not Net.activo or not _pantalla._aliados.has(c) or _es_mio(c):
+		return false
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo_de(tr["de"]) == null:
+		return true   # sin cuerpo no hay nada que mover (y tampoco aqui)
+	var desde: Vector2 = pos_de(c)
+	var hasta: Vector2 = _hasta_de_tiron(tr, desde)
+	# La pared (o el borde de la arena) lo para, igual que en _tick_tirones.
+	var dentro: Rect2 = _dentro(_arena())
+	var pasos: int = maxi(1, ceili(desde.distance_to(hasta) / 4.0))
+	var fin: Vector2 = desde
+	for k in range(1, pasos + 1):
+		var p: Vector2 = desde.lerp(hasta, float(k) / float(pasos))
+		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+			break
+		fin = p
+	if fin.distance_to(desde) > 1.0:
+		pedir_desliz(c, fin, Desliz.EMPUJON, 1, T_TIRON)
+	return true
 
 
 func _on_golpe_encajado(b: Dictionary, _dur: float) -> void:
 	for tr in _tirones:
 		if float(tr["t"]) < 0.0 and is_same(_pantalla._bloque_de(tr["c"]), b):
 			_arrancar_tiron(tr)
+	# El empujon a un personaje de otro humano: sale con SU golpe, en todas las maquinas (lo mueve la suya).
+	for d in _deslices:
+		if int(d["modo"]) == Desliz.EMPUJON and not bool(d["armado"]) and is_same(_pantalla._bloque_de(d["c"]), b):
+			d["armado"] = true
+			d["espera"] = 0.0
+			d["tope"] = 0.0
 
 
 # LA SANGRE DEL HACHA (24/09): cada golpe de hacha que ENTRA salpica desde el cuerpo que lo encaja, hacia
@@ -2574,19 +2612,23 @@ func _arrancar_tiron(tr: Dictionary) -> void:
 		return
 	var desde: Vector2 = cuerpo.global_position
 	tr["desde"] = desde
+	tr["hasta"] = _hasta_de_tiron(tr, desde)
+
+
+# Adonde lleva un tiron a 'c', saliendo de 'desde' (su nodo). La pared no se mira aqui.
+func _hasta_de_tiron(tr: Dictionary, desde: Vector2) -> Vector2:
+	var c: Combatant = tr["c"]
 	# HACIA UN PUNTO (la Vorágine): sus pies van hacia el, sin pasarse (se quedan a HUECO_ATRAE del centro).
 	if tr.has("hacia"):
 		var pies: Vector2 = pies_de(c)
 		var hacia: Vector2 = tr["hacia"]
 		var largo_a: float = minf(float(tr["px"]), maxf(0.0, pies.distance_to(hacia) - HUECO_ATRAE))
-		tr["hasta"] = desde + (hacia - pies).normalized() * largo_a
-		return
-	# NEGATIVO = EMPUJON (la Embestida): se aleja de quien golpea. La pared lo para (_tick_tirones).
+		return desde + (hacia - pies).normalized() * largo_a
+	# NEGATIVO = EMPUJON (la Embestida, la Marea): se aleja de quien golpea. La pared lo para (_tick_tirones).
 	if float(tr["px"]) < 0.0:
-		tr["hasta"] = desde + (desde - pos_de(tr["de"])).normalized() * -float(tr["px"])
-		return
+		return desde + (desde - pos_de(tr["de"])).normalized() * -float(tr["px"])
 	var largo: float = minf(float(tr["px"]), maxf(0.0, hueco_entre(tr["de"], c) - ALCANCE_MINIMO))
-	tr["hasta"] = desde + (pos_de(tr["de"]) - desde).normalized() * largo
+	return desde + (pos_de(tr["de"]) - desde).normalized() * largo
 
 
 func _tick_tirones(delta: float) -> void:
@@ -2753,7 +2795,9 @@ func _tick_saltos(delta: float) -> void:
 #   TRAS    al acabar sus golpes: la estocada y luego el paso (Paso ligero con alguien pegado)
 #   YA      en el acto: no hay golpe que esperar (Paso ligero sin nadie)
 #   AVANCE  al empezar su gesto, y dura lo que sus golpes: cruzas la linea (Danza de acero)
-enum Desliz { ANTES, TRAS, YA, AVANCE }
+#   EMPUJON al encajar ESE el golpe: el tiron/empujon a un personaje de OTRO humano (la Marea, 28/09), que
+#           solo puede mover su maquina (ver pedir_tiron)
+enum Desliz { ANTES, TRAS, YA, AVANCE, EMPUJON }
 const T_PASO := 0.16           # lo que tarda el paso de lado, en tiempo de la pelea
 # (el avance va a EstoqueAire.V_DANZA, el compas de sus golpes)
 var _deslices: Array = []   # {c, hasta (el nodo), modo, golpes, espera, tope, armado, t (-1 sin arrancar), desde}
@@ -2913,6 +2957,9 @@ func anotar_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void
 	var ya: bool = modo == Desliz.YA or golpes <= 0
 	_deslices.append({"c": c, "hasta": hasta, "modo": modo, "golpes": maxi(1, golpes), "espera": 0.0,
 		"tope": 0.0 if ya else T_SALTO_ESPERA, "armado": ya, "t": -1.0, "desde": Vector2.ZERO})
+	# El empujon va al ritmo del tiron (el paquete de red no lleva la duracion).
+	if modo == Desliz.EMPUJON:
+		(_deslices.back() as Dictionary)["dur"] = T_TIRON
 
 
 # Su gesto ha arrancado: el paso de ANTES y el avance salen ya; el de TRAS espera a que acaben los golpes.
@@ -2922,7 +2969,7 @@ func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName, _
 	var c: Combatant = _de_bloque(b)
 	for d in _deslices:
 		# El avance no va con el gesto: va al compas de sus golpes (_on_suelo_lanzado).
-		if d["c"] == c and not bool(d["armado"]) and int(d["modo"]) != Desliz.AVANCE:
+		if d["c"] == c and not bool(d["armado"]) and int(d["modo"]) not in [Desliz.AVANCE, Desliz.EMPUJON]:
 			d["armado"] = true
 			d["espera"] = 0.0
 			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
