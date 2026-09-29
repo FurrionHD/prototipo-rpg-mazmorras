@@ -278,6 +278,7 @@ static func generar(color: Color = Color(0.50, 0.44, 0.28), escala: float = 1.0)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_guadanas(anims, esc)
+	_montar_basico(anims, esc)
 	_montar_ensarte(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
@@ -342,7 +343,8 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 # juntas. Lo que lo separa del Ensarte es justo eso: alli sale UNA recta y aqui bajan LAS DOS en
 # arco. 'alza' sube el cuerpo entero y 'abre' despliega los brazos, y las dos cosas van a la vez.
 #
-# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
+# OCHO DIRECCIONES (29/09): en el mapa las deja caer hacia donde mira. Caen en el 0,5 (3,5 marcos a 13 fps = 0,27 s,
+# CombatFX.IMPACTO_ANIM_MAPA), que es cuando cruzan las dos hojas (InsectoAire.GUADANA).
 static func _montar_guadanas(anims: Array, esc: float) -> void:
 	var alza_keys := [[0.0, 0.0], [0.143, 0.75], [0.286, 1.0], [0.429, 0.30], [0.571, -0.35],
 		[0.714, -0.15], [1.0, 0.0]]
@@ -351,7 +353,20 @@ static func _montar_guadanas(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose({"alza": SpriteLienzo.tramos(t, alza_keys),
 			"abre": SpriteLienzo.tramos(t, abre_keys)})
-	_montar_animacion(anims, esc, "guadanas", false, 13.0, pose, true, 1, FRAMES)
+	_montar_animacion(anims, esc, "guadanas", false, 13.0, pose, true, 8, FRAMES)
+
+
+# EL BASICO DEL MAPA (29/09): clavada, y de pronto UN brazo (su izquierdo: 'abre' con 'abre_izq' plegado) ya esta fuera -- de plegado a estirado entre un
+# marco y el siguiente, sin paso intermedio ("cuando por fin se mueve, ya te ha cortado") -- con el cuerpo echandose
+# detras, y lo recoge. La hoja que cruza a la victima es InsectoAire.TAJO, que viene de ese lado. 6 marcos a 16 fps:
+# corta en el 0,5 (2,5/16 = 0,16 s = CombatFX.T_ANIM_ADELANTO).
+static func _montar_basico(anims: Array, esc: float) -> void:
+	var abre_keys := [[0.0, 0.0], [0.4, 0.0], [0.5, 1.0], [0.75, 0.8], [1.0, 0.1]]
+	var avance_keys := [[0.0, 0.0], [0.4, -0.5], [0.5, 2.8], [0.75, 2.4], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		return _pose({"abre": SpriteLienzo.tramos(t, abre_keys), "abre_izq": 0.05,
+			"avance": SpriteLienzo.tramos(t, avance_keys)})
+	_montar_animacion(anims, esc, "basico", false, 16.0, pose, true, 8, 6)
 
 
 # ENSARTE (fx_anim = "ensarte"). "Se queda quieta, muy quieta, y de pronto ya esta dentro. Sale por
@@ -390,7 +405,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
 			"abre": 0.0})
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE: SE VUELCA DE ESPALDAS. Ocho fotogramas en UNA sola direccion.
@@ -416,7 +432,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, al reves que 'muerte'. Es

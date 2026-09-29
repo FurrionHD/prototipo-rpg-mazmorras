@@ -3009,7 +3009,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
 	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
-	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON}
+	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
+	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3046,8 +3047,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo in _MODO_INSECTO:
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		# LA DOBLE GUADAÑA: cada golpe cae desde el lado de SU mitad (tanda 0 = la izquierda, 1 = la derecha; ver
+		# mitades_que_toca). El tajo del basico sale de su brazo izquierdo (lo decide InsectoAire).
+		var lado_i: float = 1.0
+		if estilo == CombatFX.Estilo.INSECTO_GUADANA:
+			lado_i = -1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
-			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)))
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)), lado_i)
 		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
 		if estilo == CombatFX.Estilo.INSECTO_APRETON:
 			if a != null:

@@ -27,3 +27,6 @@ forma_apunte = 1
 forma_radio = 40.0
 forma_apertura = 120.0
 forma_mitades = true
+; EFECTO EN EL MAPA (29/09): se yergue y caen las dos; a cada uno la hoja de SU mitad desde su lado, al de en medio las
+; dos cruzadas (INSECTO_GUADANA).
+fx_estilo_mapa = 154

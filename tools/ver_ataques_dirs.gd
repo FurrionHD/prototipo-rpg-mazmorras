@@ -1353,6 +1353,8 @@ const MOMENTOS_BESTIA := {
 	# El ciempies: los picotazos de la Oleada van cada 0,22 s (el reparto: uno a cada uno).
 	"ciempies_oleada": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 0.9],
 	"ciempies_enrosque": [0.0, 0.05, 0.1, 0.18, 0.3],
+	# La segadora: las hojas cruzando, el corte (la izquierda) y la derecha 0,075 s despues, y la X que se queda.
+	"segadora_guadanas": [-0.08, -0.03, 0.0, 0.05, 0.09, 0.16, 0.3],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1360,7 +1362,8 @@ const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.
 	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
 	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
-	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON}
+	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
+	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1427,12 +1430,16 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.BESTIA_RAMALAZO:
 			tiempos = [-0.24, -0.1, 0.0, 0.15, 0.32]
 		# El palazo del escarabajo: se ve llegar la pala, aplastarse y saltar las chispas.
-		if nom == "basico" and ed.fx_basico_mapa in [CombatFX.Estilo.INSECTO_PALA, CombatFX.Estilo.INSECTO_FORCIPULAS]:
+		if nom == "basico" and ed.fx_basico_mapa in [CombatFX.Estilo.INSECTO_PALA, CombatFX.Estilo.INSECTO_FORCIPULAS,
+				CombatFX.Estilo.INSECTO_TAJO]:
 			tiempos = [-0.08, 0.0, 0.05, 0.12, 0.25]
 		# LO QUE HACE SU CUERPO (29/09, el escarabajo: "la embestida es mas visual del sprite que de efectos"): la
 		# animacion de la habilidad, en el fotograma que toca en cada momento (arranca IMPACTO_ANIM_MAPA antes del
 		# golpe, como en el juego). Apuntando, la ultima de su pose de carga. Solo si el bicho la tiene.
 		var anim_hab: String = String(ab.fx_anim).split(">")[0] if ab.fx_anim != &"" else ""
+		# El basico, con su 'basico' si la tiene (como CombatTactico.gesto_bicho_en_mapa).
+		if nom == "basico" and anim_hab == "":
+			anim_hab = "basico"
 		var partes_carga: PackedStringArray = String(ab.fx_anim_carga).split(">", false)
 		var anim_carga: String = partes_carga[partes_carga.size() - 1] if not partes_carga.is_empty() else ""
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, yo + Vector2(70, 0))
@@ -1557,6 +1564,18 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), ra2, semilla + i, 0.0, 1.0,
 						bulto.size.x, 1.0 if i == 0 else ab.area_secundario),
 						"t0": SueloRoto.retraso(f, _pies_caja(ra2), ab.suelo_roto), "sim": false})
+				cajas = []
+			# LA DOBLE GUADAÑA: a cada uno, una hoja por cada mitad del cono en la que este (como
+			# CombatTactico.mitades_que_toca), la izquierda primero y la derecha 0,075 s despues (dos tandas de magia).
+			if modo_i == InsectoAire.Modo.GUADANA:
+				for i in cajas.size():
+					var rm: Rect2 = cajas[i]
+					for k in 2:
+						var giro: float = deg_to_rad(f.apertura * 0.25) * (-1.0 if k == 0 else 1.0)
+						if not CombatFormas.cono(f.origen, f.dir.rotated(giro), f.radio, f.apertura * 0.5).toca(rm):
+							continue
+						piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), rm, semilla + i * 5 + k,
+							0.12, 1.0, bulto.size.x, 1.0, -1.0 if k == 0 else 1.0), "t0": 0.075 * float(k), "sim": false})
 				cajas = []
 			# EL CAPARAZON: el reflejo sobre el, con SU caja.
 			if sobre_si:

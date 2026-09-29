@@ -50,3 +50,5 @@ prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): llega lejos con las guadañas.
 alcance = 35.0
+; EL BASICO EN EL MAPA (29/09): despliega el brazo derecho de golpe y la hoja de hueso cruza a la victima (INSECTO_TAJO).
+fx_basico_mapa = 153

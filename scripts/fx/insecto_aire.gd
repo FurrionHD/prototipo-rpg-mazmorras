@@ -32,6 +32,14 @@
 #    APRETON     el Enrosque (al enroscarse y en cada turno suyo): dos medias lunas que aprietan a la presa por los
 #                lados a la altura de la cintura y un destello rojo apagado. Enroscado lo pinta su SPRITE (dos
 #                mitades a los pies de la presa: CombatTactico._tick_vis_enrosque) y la presa tiembla.
+#  LA SEGADORA (29/09), igual: el gesto lo hace SU CUERPO (SegadoraSprites despliega el brazo de golpe, alza y deja
+#  caer las dos guadañas) y aqui el corte sobre la victima:
+#    TAJO        el basico: UNA media luna grande y muy combada, color HUESO (sus hojas son quitina palida: el ocre
+#                apagado del bicho no se veia en el suelo oscuro), que cruza el cuerpo en diagonal desde el lado del
+#                brazo que corta (el izquierdo, el que despliega su sprite), destello en estrella y sangre que salta de la punta.
+#    GUADANA     cada golpe de la Doble guadaña: lo mismo mas grande, desde el lado de SU mitad del cono (el golpe 0
+#                es la mitad izquierda, el 1 la derecha: CombatTactico.mitades_que_toca). Al del medio le caen las
+#                dos casi a la vez en diagonales contrarias y se le queda la X.
 #  LAS HEBRAS NO SON LINEAS (lo aprobo el usuario, 29/09): cada una es un hilo relleno que se afila, mas grueso junto a
 #  los nudos, con un halo suave detras. Coordenadas de MUNDO.
 # ============================================================
@@ -39,7 +47,7 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS, APRETON, OLEADA }
+	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA, OLEADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
@@ -74,6 +82,10 @@ const SEDA_SOMBRA := Color(0.22, 0.2, 0.28)
 const VENENO := Color(0.46, 0.84, 0.22)
 const VENENO_OSCURO := Color(0.12, 0.34, 0.08)
 const VENENO_CLARO := Color(0.82, 1.0, 0.56)
+const HUESO := Color(0.98, 0.95, 0.84)
+const HUESO_DENTRO := Color(0.8, 0.68, 0.46)
+const SANGRE := Color(0.62, 0.05, 0.05)
+const T_TAJO := 0.42              # lo que se queda el corte tras el golpe (lo bastante para que el segundo lo cruce)
 
 var modo: int = Modo.QUELICEROS
 var forma: CombatFormas.Forma = null
@@ -178,8 +190,9 @@ static func t_salir(s: int) -> float:
 # 'desde' = de donde viene (quien muerde), 'caja' = el cuerpo que lo recibe, 'espera' = lo que falta para el golpe
 # (los colmillos se clavan justo en el), 'boca' = el ancho del dibujo de quien muerde (van a SU escala).
 # 'peso' (ARROLLA): la fraccion del golpe que se lleva (CombatFX: 1 el primero, menos los de detras).
+# 'de_lado' (TAJO, GUADANA): de que lado de quien corta viene la hoja (-1 su izquierda, +1 su derecha).
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0, peso: float = 1.0) -> InsectoAire:
+		ritmo: float, boca: float = -1.0, peso: float = 1.0, de_lado: float = 1.0) -> InsectoAire:
 	if padre == null:
 		return null
 	var e := InsectoAire.new()
@@ -256,6 +269,30 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		Modo.APRETON:
 			e._t = -maxf(espera, 0.0)
 			e._hasta = caja.get_center() + Vector2(0.0, caja.size.y * 0.12)
+		Modo.TAJO, Modo.GUADANA:
+			e._viaje = clampf(espera, 0.06, 0.14)
+			e._t = -e._viaje
+			e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x,
+				e._rng.randf_range(-0.12, 0.05) * caja.size.y)
+			e._eje = eje
+			# EL BASICO CORTA CON LA IZQUIERDA: es el brazo que despliega su sprite ('abre' con 'abre_izq' plegado).
+			if m == Modo.TAJO:
+				de_lado = -1.0
+			# La mano que corta: su izquierda es el eje girado a la izquierda EN PANTALLA (y hacia abajo).
+			var mano: Vector2 = eje.orthogonal() * (-1.0 if de_lado > 0.0 else 1.0)
+			e._lado = mano
+			# LA DIAGONAL: de la mano hacia el otro lado, un poco hacia delante y CAYENDO (baja en pantalla). Cada tajo
+			# ladeado a su manera, y los dos de la Doble guadaña en diagonales contrarias (la X del de en medio).
+			var d: Vector2 = (-mano + eje * 0.35).normalized() + Vector2(0.0, 0.5)
+			e._dir = d.normalized().rotated(e._rng.randf_range(-0.2, 0.2))
+			var grande: float = 1.25 if m == Modo.GUADANA else 1.0
+			e._largo = maxf(caja.size.y * 1.35, 28.0) * grande * e._rng.randf_range(0.94, 1.06)
+			# GORDA: a 0,2 del largo salia una raya (el relleno se difumina hacia dentro).
+			e._tam = e._largo * 0.4
+			# La sangre sale de la punta hacia donde va el corte, abierta.
+			for i in 6:
+				e._piezas.append({"d": e._dir.rotated(e._rng.randf_range(-0.8, 0.8)), "v": e._rng.randf_range(10.0, 20.0),
+					"sube": e._rng.randf_range(4.0, 9.0), "tam": e._rng.randf_range(0.9, 1.6), "t0": e._rng.randf_range(0.0, 0.05)})
 		Modo.CAPARAZON:
 			# Sobre SU cuerpo: la caja es la suya. Sale al cerrarse del todo (el golpe).
 			e._t = -maxf(espera, 0.0)
@@ -334,6 +371,7 @@ func duracion() -> float:
 		Modo.CAPARAZON: return T_CAPARAZON
 		Modo.PATITAS: return 0.34
 		Modo.APRETON: return 0.4
+		Modo.TAJO, Modo.GUADANA: return T_TAJO
 		Modo.RODADA: return T_RODADA + 1.4
 		Modo.OLEADA: return T_OLEADA
 	return T_CLAVADO + T_IRSE
@@ -369,6 +407,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.FORCIPULAS: _forcipulas(capa)
 		Modo.PATITAS: _patitas(capa)
 		Modo.APRETON: _apreton(capa)
+		Modo.TAJO, Modo.GUADANA: _tajo(capa)
 		Modo.VENENO: _veneno(capa)
 		Modo.HEBRAS: _hebras(capa)
 		Modo.RED: _red(capa)
@@ -913,3 +952,64 @@ func _apreton(capa: Node2D) -> void:
 		var hacia: float = PI if s > 0.0 else 0.0
 		BestiaAire._media_luna(capa, o, hacia - 0.95, hacia + 0.95, r, _ancho * 0.6, Color(0.98, 0.5, 0.38),
 			Color(0.5, 0.1, 0.07), alfa, true)
+
+
+# ------------------------------------------------------------
+#  LA SEGADORA
+# ------------------------------------------------------------
+# EL TAJO DE UNA GUADAÑA: una media luna llena y MUY combada (es una hoja curva, no una espada), filo de hueso duro y
+# difuminada hacia dentro, que CRUZA el cuerpo en diagonal: la cabeza corre de la mano al otro lado en el viaje (se lee
+# que la hoja PASA) y la cola la alcanza despues. Destello en estrella en el golpe y sangre que salta de la punta.
+func _tajo(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.1:
+			# PEQUEÑO: a la escala de la hoja tapaba el corte entero.
+			BarridoAire.destello(capa, c, _tam * 0.6, Color(1.0, 0.97, 0.88, 0.8 * (1.0 - _t / 0.1)), _dir.angle() + 0.4)
+		return
+	if capa != _delante:
+		return
+	var corre: float   # lo que lleva recorrido la cabeza (1 = paso entero)
+	var alfa: float
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		corre = 1.0 - (1.0 - u) * (1.0 - u)
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		corre = 1.0
+		alfa = 1.0 - smoothstep(0.08, T_TAJO, _t)
+	var base: Vector2 = c - _dir * _largo * 0.55
+	var punta: Vector2 = c + _dir * _largo * 0.45
+	var m: Vector2 = (base + punta) * 0.5
+	var d: Vector2 = punta - base
+	var n: Vector2 = d.orthogonal().normalized()
+	if n.dot(_eje) > 0.0:
+		n = -n   # el centro detras: la hoja se comba hacia delante, hacia donde corta
+	var o: Vector2 = m + n * d.length() * 0.42
+	var r: float = o.distance_to(punta)
+	# QUE PASE POR EL CUERPO: el arco por base y punta se sale por un lado (su flecha); se corre todo para que el
+	# medio de la hoja caiga en el centro de la victima y no en su borde.
+	var flecha: float = r - d.length() * 0.42
+	base += n * flecha
+	punta += n * flecha
+	o += n * flecha
+	var a_ini: float = (base - o).angle()
+	var a_fin: float = a_ini + wrapf((punta - o).angle() - a_ini, -PI, PI)
+	var cabeza: float = lerpf(a_ini, a_fin, corre)
+	var cola: float = lerpf(a_ini, a_fin, 0.0 if _t < 0.0 else clampf(_t / T_TAJO, 0.0, 0.8))
+	BestiaAire._media_luna(capa, o, cola, cabeza, r, _tam, HUESO, HUESO_DENTRO, alfa, false)
+	if _t < 0.0:
+		return
+	# LA HERIDA: un tajo oscuro fino a lo largo del corte, que se queda un poco mas que la hoja.
+	var ah: float = 1.0 - smoothstep(0.1, T_TAJO, _t)
+	BestiaAire._media_luna(capa, o, lerpf(a_ini, a_fin, 0.2), lerpf(a_ini, a_fin, 0.85), r - _tam * 0.15, _tam * 0.35,
+		SANGRE.lightened(0.2), SANGRE.darkened(0.4), 0.8 * ah, true)
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.32:
+			continue
+		var k: float = tg / 0.32
+		var q: Vector2 = punta.lerp(c, 0.3) + (g["d"] as Vector2) * float(g["v"]) * sqrt(k) \
+			+ Vector2(0.0, -float(g["sube"]) * k + 16.0 * k * k)
+		BestiaAire._bola(capa, q, float(g["tam"]) * 1.8, Color(SANGRE, 0.35 * (1.0 - k)))
+		capa.draw_circle(q, float(g["tam"]), Color(SANGRE, 1.0 - k * k))
