@@ -16,7 +16,8 @@ func _ready() -> void:
 	var salida: String = args[2]
 	DirAccess.make_dir_recursive_absolute(salida)
 	var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % enemigo)
-	var sf: SpriteFrames = SlimeSprites.generar_de(ed, 0.0)
+	# El generador de SU familia (29/09: tambien la rata y el rey rata), siempre al vuelo.
+	var sf: SpriteFrames = SpritesEnemigo._generador(ed).generar_de(ed, 0.0)
 	for anim in anims:
 		var img: Image = _hoja(sf, anim)
 		var ruta: String = salida.path_join("%s_%s.png" % [enemigo, anim])

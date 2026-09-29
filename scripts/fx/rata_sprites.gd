@@ -181,6 +181,7 @@ static func generar(color: Color = Color(0.5, 0.42, 0.34), rey: bool = false,
 	_montar_walk(anims, rey, esc)
 	_montar_embestida(anims, rey, esc)
 	_montar_chillido(anims, rey, esc)
+	_montar_ataques(anims, rey, esc)
 	_montar_encaje(anims, rey, esc)
 	_montar_muerte(anims, rey, esc)
 	_montar_cadaver(anims, rey, esc)
@@ -249,8 +250,97 @@ static func _montar_chillido(anims: Array, rey: bool, esc: float) -> void:
 			"cola": 1.8 * sin(TAU * t * 2.0) * (1.0 - t * 0.5),
 			"patas": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys)}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, rey, esc, "chillido", false, 10.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (29/09): en el tactico se le ve desde cualquier lado.
+	_montar_animacion(anims, rey, esc, "chillido", false, 10.0, pose, true)
+
+
+# ------------------------------------------------------------
+#  LOS ATAQUES DEL TACTICO (29/09, aprobados uno a uno): cada habilidad con su gesto, en 8 direcciones.
+#  Los que se repiten por golpe (basico, dentellada, frenesi) son UN gesto: la pelea lo vuelve a lanzar en
+#  cada golpe (CombatFX._aplicar_gestos), asi que la Dentellada son tres cabezazos sin escribirlos tres veces.
+# ------------------------------------------------------------
+static func _montar_ataques(anims: Array, rey: bool, esc: float) -> void:
+	# EL BASICO: un cabezazo corto y seco. Recoge el cuello, lo dispara hacia delante, muerde y vuelve. No se
+	# lanza entera (eso era la embestida): el cuerpo apenas se mueve.
+	var b_cuello := [[0.0, 0.0], [0.25, -0.6], [0.45, 1.5], [0.62, 1.3], [1.0, 0.0]]
+	var b_agacha := [[0.0, 0.0], [0.25, 0.35], [0.45, 0.05], [1.0, 0.0]]
+	var b_avance := [[0.0, 0.0], [0.25, -0.3], [0.45, 1.0], [0.62, 0.9], [1.0, 0.0]]
+	var b_estira := [[0.0, 1.0], [0.25, 0.92], [0.45, 1.08], [1.0, 1.0]]
+	var basico := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, b_avance), "estira": SpriteLienzo.tramos(t, b_estira),
+			"cola": 0.8 * sin(TAU * t), "patas": 0.0, "agacha": SpriteLienzo.tramos(t, b_agacha),
+			"cuello": SpriteLienzo.tramos(t, b_cuello)}
+	_montar_animacion(anims, rey, esc, "basico", false, 16.0, basico, true)
+
+	# EL MORDISCO SANGRANTE: el mismo cabezazo, y al morder SACUDE la cabeza de lado a lado (desgarra).
+	var d_lado := [[0.0, 0.0], [0.4, 0.0], [0.5, 1.1], [0.6, -1.1], [0.7, 1.0], [0.8, -0.8], [0.9, 0.0], [1.0, 0.0]]
+	var d_cuello := [[0.0, 0.0], [0.22, -0.6], [0.4, 1.4], [0.85, 1.2], [1.0, 0.0]]
+	var desgarro := func(t: float) -> Dictionary:
+		var p: Dictionary = basico.call(minf(t * 1.2, 0.5) if t < 0.42 else 0.5)
+		p["cuello"] = SpriteLienzo.tramos(t, d_cuello)
+		p["cabeza_lado"] = SpriteLienzo.tramos(t, d_lado)
+		p["avance"] = SpriteLienzo.tramos(t, [[0.0, 0.0], [0.4, 0.9], [0.85, 0.7], [1.0, 0.0]])
+		# El cuerpo acompaña el tiron: se tuerce un pelin hacia cada lado.
+		p["rumbo"] = SpriteLienzo.tramos(t, d_lado) * 0.12
+		p["cola"] = 1.4 * sin(TAU * t * 2.0)
+		return p
+	_montar_animacion(anims, rey, esc, "desgarro", false, 16.0, desgarro, true, 8, 11)
+
+	# EL FRENESI, en tres: AGAZAPADA mientras carga (bucle: pegada al suelo, temblando), el SALTO (se estira
+	# en el aire, patas abiertas) y el FRENESI de cada mordisco (una sacudida revuelta, cada una a otro lado).
+	var agazapado := func(t: float) -> Dictionary:
+		return {"avance": 0.25 * sin(TAU * t * 2.0), "estira": 0.86 + 0.02 * sin(TAU * t * 4.0),
+			"cola": 1.6 * sin(TAU * t * 2.0), "patas": 0.0, "agacha": 0.82,
+			"cuello": -0.4, "cabeza_lado": 0.3 * sin(TAU * t * 3.0)}
+	_montar_animacion(anims, rey, esc, "agazapado", true, 12.0, agazapado, false)
+	var s_agacha := [[0.0, 0.82], [0.3, -0.15], [1.0, -0.1]]
+	var s_estira := [[0.0, 0.86], [0.3, 1.3], [1.0, 1.25]]
+	var s_abre := [[0.0, 0.0], [0.3, 1.0], [1.0, 1.0]]
+	var s_cuello := [[0.0, -0.4], [0.3, 0.9], [1.0, 1.0]]
+	var salto := func(t: float) -> Dictionary:
+		return {"avance": 0.0, "estira": SpriteLienzo.tramos(t, s_estira), "cola": 0.6 * sin(TAU * t),
+			"patas": 0.0, "agacha": SpriteLienzo.tramos(t, s_agacha), "abre_patas": SpriteLienzo.tramos(t, s_abre),
+			"cuello": SpriteLienzo.tramos(t, s_cuello)}
+	_montar_animacion(anims, rey, esc, "salto_rata", false, 12.0, salto, true)
+	var f_lado := [[0.0, 0.0], [0.2, -1.0], [0.4, 1.0], [0.6, -0.6], [1.0, 0.0]]
+	var f_cuello := [[0.0, 0.2], [0.4, 1.4], [1.0, 0.2]]
+	var frenesi := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, [[0.0, 0.0], [0.4, 0.7], [1.0, 0.0]]), "estira": 1.0,
+			"cola": 1.8 * sin(TAU * t * 2.0), "patas": 0.6 * sin(TAU * t * 2.0), "agacha": 0.3,
+			"cuello": SpriteLienzo.tramos(t, f_cuello), "cabeza_lado": SpriteLienzo.tramos(t, f_lado),
+			"rumbo": SpriteLienzo.tramos(t, f_lado) * 0.3}
+	_montar_animacion(anims, rey, esc, "frenesi", false, 20.0, frenesi, true, 8, 6)
+
+	# LA DENTELLADA REAL (el rey): un cabezazo PESADO con un paso adelante. La pelea lo repite en cada una de
+	# las tres tarascadas.
+	var t_cuello := [[0.0, 0.0], [0.3, -0.8], [0.5, 1.7], [0.7, 1.5], [1.0, 0.0]]
+	var t_agacha := [[0.0, 0.0], [0.3, 0.45], [0.5, 0.0], [1.0, 0.0]]
+	var t_avance := [[0.0, 0.0], [0.3, -0.5], [0.5, 2.0], [0.7, 1.9], [1.0, 0.6]]
+	var t_estira := [[0.0, 1.0], [0.3, 0.9], [0.5, 1.15], [0.7, 1.1], [1.0, 1.0]]
+	var dentellada := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, t_avance), "estira": SpriteLienzo.tramos(t, t_estira),
+			"cola": 1.2 * sin(TAU * t), "patas": 0.7 * sin(PI * clampf((t - 0.3) / 0.4, 0.0, 1.0)),
+			"agacha": SpriteLienzo.tramos(t, t_agacha), "cuello": SpriteLienzo.tramos(t, t_cuello)}
+	_montar_animacion(anims, rey, esc, "dentellada", false, 13.0, dentellada, true)
+
+	# A LA YUGULAR (el rey): se agazapa y SE TIENDE entera en el salto (patas atras, cuerpo largo, cuello
+	# fuera), y al llegar se queda ENGANCHADA zarandeando la cabeza (el 'zarandeo', detras en la cadena).
+	var y_agacha := [[0.0, 0.0], [0.3, 0.9], [0.45, -0.1], [1.0, -0.05]]
+	var y_estira := [[0.0, 1.0], [0.3, 0.84], [0.45, 1.35], [1.0, 1.3]]
+	var y_abre := [[0.0, 0.0], [0.3, 0.0], [0.45, 1.0], [1.0, 1.0]]
+	var y_cuello := [[0.0, 0.0], [0.3, -0.5], [0.45, 1.3], [1.0, 1.4]]
+	var yugular := func(t: float) -> Dictionary:
+		return {"avance": 0.0, "estira": SpriteLienzo.tramos(t, y_estira), "cola": 0.9 * sin(TAU * t),
+			"patas": 0.0, "agacha": SpriteLienzo.tramos(t, y_agacha), "abre_patas": SpriteLienzo.tramos(t, y_abre),
+			"cuello": SpriteLienzo.tramos(t, y_cuello)}
+	_montar_animacion(anims, rey, esc, "yugular", false, 12.0, yugular, true)
+	var z_lado := [[0.0, 0.0], [0.15, 1.2], [0.3, -1.2], [0.45, 1.1], [0.6, -1.0], [0.8, 0.4], [1.0, 0.0]]
+	var zarandeo := func(t: float) -> Dictionary:
+		var suelta: float = clampf((t - 0.75) / 0.25, 0.0, 1.0)
+		return {"avance": 0.6 * (1.0 - suelta), "estira": lerpf(1.12, 1.0, suelta), "cola": 1.5 * sin(TAU * t * 2.0),
+			"patas": 0.0, "agacha": 0.15 * (1.0 - suelta), "cuello": lerpf(1.4, 0.0, suelta),
+			"cabeza_lado": SpriteLienzo.tramos(t, z_lado), "rumbo": SpriteLienzo.tramos(t, z_lado) * 0.2}
+	_montar_animacion(anims, rey, esc, "zarandeo", false, 16.0, zarandeo, true, 8, 12)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -295,7 +385,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, rey: bool, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, rey, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el tactico muere en su sitio, mirando adonde miraba.
+	_montar_animacion(anims, rey, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -336,7 +427,8 @@ static func _montar_encaje(anims: Array, rey: bool, esc: float) -> void:
 	# LOS CUATRO BICHOS ENCAJAN A 18 fps, aunque sus otras animaciones vayan cada una a lo suyo. Es
 	# la duracion que espera CombatFX.T_ENCAJE, y cuadrando las dos el sprite se reproduce a su
 	# velocidad natural en vez de estirado o comprimido por _pose_ajustar.
-	_montar_animacion(anims, rey, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09): en el tactico se la ve de cualquier lado.
+	_montar_animacion(anims, rey, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, rey: bool, esc: float, nombre: String,
@@ -422,6 +514,13 @@ static func _piezas(dir: int, pose: Dictionary, rey: bool, esc: float) -> Array:
 	# enterrado. Va a mano y no calculado: el punto mas bajo de la silueta girada depende de que
 	# pieza sea la que sobresalga, y eso cambia con el angulo.
 	var apoyo: float = float(pose.get("apoyo", 0.0))
+	# LA CABEZA SUELTA (29/09, los ataques del tactico): 'cuello' la adelanta (el cabezazo del mordisco) y
+	# 'cabeza_lado' la lleva de lado (el desgarro, el zarandeo). Mueve la cabeza ENTERA -- hocico, orejas, ojos
+	# y cicatriz --, no una pieza suelta. Con default 0.0: las poses de siempre no se enteran. Poco: la cabeza
+	# solapa con el cuerpo ~2,8 unidades, y pasada la mitad de eso se despega (ver motor-sprites-tres-trampas).
+	var cabeza := Vector3(float(pose.get("cabeza_lado", 0.0)), float(pose.get("cuello", 0.0)), 0.0)
+	# 'abre_patas': las delanteras adelante y las traseras atras, a la vez (el cuerpo tendido del salto).
+	var abre: float = float(pose.get("abre_patas", 0.0))
 
 	# Agazapada = mas corta, mas ancha y mas BAJA (se aplasta contra el suelo antes de saltar).
 	var largo: float = estira * (1.0 - 0.18 * agacha)
@@ -502,14 +601,14 @@ static func _piezas(dir: int, pose: Dictionary, rey: bool, esc: float) -> Array:
 	# PATAS: bajas, a los lados. Al trotar, las delanteras y las traseras van en contrafase.
 	for lado in [-1.0, 1.0]:
 		for k in PATA_Y.size():
-			var swing: float = fase_patas * (1.0 if k == 0 else -1.0) * lado
+			var swing: float = fase_patas * (1.0 if k == 0 else -1.0) * lado + abre * (1.0 if k == 0 else -1.0)
 			poner.call(Vector3(lado * PATA_X, PATA_Y[k] + swing * 1.1, PATA_Z),
 				PATA_R, Tono.SOMBRA, CHATO_TUMBADO)
 
 	# CUERPO, cabeza y hocico.
 	poner.call(CUERPO, CUERPO_R, Tono.BASE, CHATO_CUERPO)
-	poner.call(CABEZA, CABEZA_R, Tono.BASE, CHATO_REDONDO)
-	poner.call(HOCICO, HOCICO_R, Tono.BASE, CHATO_REDONDO)
+	poner.call(CABEZA + cabeza, CABEZA_R, Tono.BASE, CHATO_REDONDO)
+	poner.call(HOCICO + cabeza, HOCICO_R, Tono.BASE, CHATO_REDONDO)
 
 	# LOMO iluminado: la franja del espinazo. Va MAS ALTO que el eje del cuerpo (la luz viene de
 	# arriba y el espinazo es lo mas alto del bicho), asi que en pantalla queda desplazado hacia
@@ -526,9 +625,9 @@ static func _piezas(dir: int, pose: Dictionary, rey: bool, esc: float) -> Array:
 	# le muerde un trozo con una elipse de tono VACIO, que es lo que deja la muesca en el borde.
 	# Y tampoco orejas: volteadas quedan DEBAJO de la cabeza, o sea tapadas por ella.
 	for lado in ([-1.0, 1.0] if tumba <= PI * 0.5 else []):
-		poner.call(Vector3(lado * OREJA.x, OREJA.y, OREJA.z), OREJA_R, Tono.OREJA_INT, CHATO_OREJA)
+		poner.call(Vector3(lado * OREJA.x, OREJA.y, OREJA.z) + cabeza, OREJA_R, Tono.OREJA_INT, CHATO_OREJA)
 	if rey and tumba <= PI * 0.5:
-		poner.call(Vector3(-OREJA.x - 1.0, OREJA.y, OREJA.z + 1.1),
+		poner.call(Vector3(-OREJA.x - 1.0, OREJA.y, OREJA.z + 1.1) + cabeza,
 			Vector3(1.0, 0.8, 1.0), Tono.VACIO, CHATO_OREJA)
 
 	# OJOS. De ESPALDAS no se le ven: con la camara a 45 grados, una rata que se aleja enseña la
@@ -558,11 +657,11 @@ static func _piezas(dir: int, pose: Dictionary, rey: bool, esc: float) -> Array:
 	if rey and not lados.is_empty():
 		for k in 5:
 			var d: float = float(k) - 2.0     # -2..+2: el 0 cae justo en el ojo
-			poner.call(Vector3(OJO.x + d * 0.42, OJO.y + d * 0.62, OJO.z + 0.3),
+			poner.call(Vector3(OJO.x + d * 0.42, OJO.y + d * 0.62, OJO.z + 0.3) + cabeza,
 				Vector3(0.4, 0.4, 0.4), Tono.CICATRIZ, CHATO_REDONDO)
 
 	for l in lados:
-		poner.call(Vector3(l * OJO.x, OJO.y, OJO.z), OJO_R, Tono.OJO_T, CHATO_REDONDO)
+		poner.call(Vector3(l * OJO.x, OJO.y, OJO.z) + cabeza, OJO_R, Tono.OJO_T, CHATO_REDONDO)
 
 	# PATAS ARRIBA, LAS PATAS SE PINTAN LAS ULTIMAS. El orden de esta lista ES la profundidad -- aqui
 	# no hay z-buffer -- y esta cableado para un bicho DE PIE: las patas van primero porque el cuerpo

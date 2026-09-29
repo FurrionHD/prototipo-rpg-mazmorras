@@ -3189,7 +3189,9 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	if encaje and _gestos_bicho.has(cuerpo) and not bool(_gestos_bicho[cuerpo]["encaje"]):
 		return
 	var partes: PackedStringArray = String(pide).split(">", false)
-	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "embestida")
+	# Sin animacion pedida (el ataque basico): la 'basico' del bicho si la tiene (29/09, el cabezazo de la rata);
+	# si no, _poner_anim_bicho cae a su embestida de siempre.
+	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "basico")
 	var natural: float = _poner_anim_bicho(cuerpo, base, dur, not encaje)
 	if natural < 0.0:
 		return

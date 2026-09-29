@@ -29,3 +29,5 @@ forma_apertura = 90.0
 forma_reparte = true
 ; EN EL MAPA (29/09): tres tarascadas de paletos, mas lentas y con mas peso que el Frenesi (BestiaAire.DENTELLADA).
 fx_estilo_mapa = 136
+; EL CUERPO (29/09): un cabezazo pesado con un paso adelante, uno por tarascada.
+fx_anim = &"dentellada"

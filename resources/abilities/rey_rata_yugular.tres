@@ -28,3 +28,5 @@ carga = true
 ; EN EL MAPA (29/09): la estela de polvo al lanzarse (BESTIA_ESTELA) y el mordisco al cuello con el destello rojo.
 fx_estilo_mapa = 137
 suelo_roto = 72
+; EL CUERPO (29/09): se agazapa, se tiende en el salto y al llegar se queda enganchado zarandeando.
+fx_anim = &"yugular>zarandeo"

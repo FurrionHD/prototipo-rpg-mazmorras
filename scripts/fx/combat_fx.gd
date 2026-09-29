@@ -1869,6 +1869,8 @@ const ANIM_CUERPO_MAPA := {
 # rompe, los numeros y el daño llegan cuando el arma llega -- no antes (lo pregunto el jefe el 24/09:
 # "el golpe sismico es cuando el martillo ya ha golpeado, no?"). Retocar una animacion = retocar esto.
 const IMPACTO_ANIM_MAPA := {
+	# La rata y el rey rata (29/09): la sacudida del Frenesi muerde a 0,4x5/20; el cabezazo de la Dentellada a 0,5x7/13.
+	"frenesi": 0.10, "dentellada": 0.27,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
@@ -1908,7 +1910,9 @@ const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": 
 	# La Guardia rota: el tajo y, en su segundo golpe, el escudazo (25/09: "que se vea cada golpe").
 	"rota_larga": "golpe_escudo",
 	# El Aplastamiento (26/09): el mazazo y, en su segundo golpe, el escudazo.
-	"aplasta_maza": "golpe_escudo"}   # la espada: tajo y, de vuelta, el reves
+	"aplasta_maza": "golpe_escudo",   # la espada: tajo y, de vuelta, el reves
+	# El Frenesi de la rata (29/09): salta, y cada mordisco de despues es una sacudida.
+	"salto_rata": "frenesi"}
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",

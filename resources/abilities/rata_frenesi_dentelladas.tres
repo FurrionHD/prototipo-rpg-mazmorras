@@ -33,3 +33,7 @@ salta = true
 ; EN EL MAPA: el polvo al caer (BESTIA_POLVO) y un remolino de mordiscos en cada cuerpo.
 fx_estilo_mapa = 135
 suelo_roto = 70
+; EL CUERPO (29/09): agazapada temblando mientras carga, tendida en el salto y una sacudida en cada mordisco
+; (CombatFX.ANIM_SIGUIENTE_MAPA: salto_rata -> frenesi).
+fx_anim = &"salto_rata"
+fx_anim_carga = &"agazapado"
