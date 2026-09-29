@@ -17,3 +17,5 @@ cooldown = 2
 forma = 1
 forma_apunte = 2
 forma_radio = 30.0
+; EFECTO EN EL MAPA (29/09): dos pisotones con sus grietas y su anillo de polvo (BESTIA_PISOTON). Nada en los cuerpos.
+suelo_roto = 74

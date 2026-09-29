@@ -19,6 +19,16 @@
 #    CHILLIDO        el Chillido del rey rata: cuatro frentes de sonido finos y seguidos que se abren en el cono y
 #                    TIEMBLAN (el Grito del mandoble, pero agudo). Mas vivos en el tramo de cerca. Sin polvo.
 #    ESTELA          la estela de polvo corta de la Yugular, por la linea, detras del cuerpo que se lanza.
+#  EL JABALI (29/09):
+#    SURCO           la Embestida por el suelo: las rodadas de las pezuñas, terrones que saltan a los lados y polvo.
+#    PISOTON         los dos pisotones: grietas cortas desde sus patas (las del martillo, en pequeño) y un anillo
+#                    de polvo a ras; el segundo agranda las grietas del primero.
+#    COLMILLO        (sobre un cuerpo) el basico: una media luna de hueso que engancha de ABAJO ARRIBA (la pincelada
+#                    del mandoble, en hueso).
+#    CORNADA         (sobre un cuerpo) lo mismo, mas grande y mas lento, terrones y un desgarro en la punta, y al
+#                    que engancha lo LEVANTA un palmo (su dibujo sube y cae).
+#    CHOQUE          (sobre un cuerpo) lo que arrolla la Embestida: el frente del choque y un chorro de polvo hacia
+#                    donde sale despedido.
 #  NADA DE LINEAS: siluetas llenas con filo duro y un halo difuminado detras (ver efectos-sin-lineas).
 #  Coordenadas de MUNDO.
 # ============================================================
@@ -26,7 +36,8 @@ extends Node2D
 class_name BestiaAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.BESTIA_*: no reordenar.
-enum Modo { POLVO, CHILLIDO, ESTELA, MORDISCO, MORDISCO_SANGRA, FRENESI, DENTELLADA, YUGULAR, TEMBLOR }
+enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON,
+	MORDISCO, MORDISCO_SANGRA, FRENESI, DENTELLADA, YUGULAR, TEMBLOR, COLMILLO, CORNADA, CHOQUE }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -38,6 +49,10 @@ const T_ENTRE_CH := 0.07          # entre frente y frente del Chillido
 const T_ESTELA := 0.2             # = CombatTactico.T_EMBESTIDA_BICHO (la estela va con el cuerpo, como el Placaje)
 const T_TIEMBLA := 0.45           # lo que tiembla el que se come el Chillido
 const SONIDO := Color(0.86, 0.82, 1.0)
+const T_PISA_ENTRE := 0.2         # entre los dos pisotones (CombatFX.T_ENCADENADO)
+const T_GRIETA := 0.1             # lo que tarda una grieta del pisoton en abrirse entera
+const T_LEVANTA := 0.32           # lo que dura el palmo que levanta la Cornada (sube y cae)
+const TIERRA := Color(0.36, 0.28, 0.2)
 
 const HUESO := Color(0.96, 0.93, 0.84)
 const HUESO_SOMBRA := Color(0.62, 0.55, 0.46)
@@ -64,6 +79,8 @@ var _largo: float = 40.0
 var _lento: float = 1.0               # la Dentellada y la Yugular cierran y sueltan mas despacio: pesan mas
 var _dibujo: CanvasItem = null        # lo que tiembla (el muñeco de los tuyos, el sprite de un enemigo)
 var _base_dibujo: Vector2 = Vector2.ZERO
+var _a_colmillo: float = 0.0          # hacia donde se comba la media luna del colmillo (el lado de quien embiste)
+var _grietas: Array = []              # las del pisoton: {pts, w0, w1, t0}
 var _puffs: Array = []
 var _piedras: Array = []
 var _delante: Node2D = null
@@ -102,7 +119,7 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 				var a2: float = e._rng.randf_range(0.0, TAU)
 				e._piedras.append({"a": a2, "v": e._rng.randf_range(40.0, 75.0), "sube": e._rng.randf_range(14.0, 26.0),
 					"tam": e._rng.randf_range(1.2, 2.0)})
-		Modo.ESTELA:
+		Modo.ESTELA, Modo.SURCO:
 			# Bocanadas por la linea, que se levantan al paso del cuerpo. Solo hasta el 85%: el ultimo trozo es donde
 			# se queda pegado al que muerde, y ahi no hay carrera.
 			var n: int = int(clampf(e._largo / 5.0, 6.0, 14.0))
@@ -110,6 +127,43 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 				e._puffs.append({"u": (float(i) + e._rng.randf_range(0.0, 0.8)) / float(n) * 0.85,
 					"v": e._rng.randf_range(-0.5, 0.5), "tam": e._rng.randf_range(0.35, 0.6),
 					"sube": e._rng.randf_range(3.0, 7.0)})
+			# El SURCO del jabali, ademas: terrones que saltan a los dos lados al paso de las pezuñas.
+			if m == Modo.SURCO:
+				for i in int(clampf(e._largo / 7.0, 6.0, 16.0)):
+					e._piedras.append({"u": e._rng.randf_range(0.05, 0.85), "lado": -1.0 if i % 2 == 0 else 1.0,
+						"v": e._rng.randf_range(18.0, 34.0), "sube": e._rng.randf_range(10.0, 20.0),
+						"tam": e._rng.randf_range(1.4, 2.4)})
+		Modo.PISOTON:
+			# LAS GRIETAS, las del martillo en pequeño: salen de debajo de sus patas (no del centro: ahi esta el) y el
+			# segundo pisoton las alarga y abre alguna mas.
+			# NACEN FUERA DE SU CUERPO (desde la mitad del radio): saliendo de debajo de el parecian patas de araña.
+			var n_g: int = 6
+			for i in n_g:
+				var ang: float = TAU * (float(i) + e._rng.randf_range(-0.3, 0.3)) / float(n_g)
+				var p1: PackedVector2Array = e._quebrada(ang, e._r * 0.5, e._r * 0.78)
+				e._grietas.append({"pts": p1, "w0": 2.2, "w1": 1.0, "t0": 0.0})
+				var sigue: PackedVector2Array = e._quebrada(ang + e._rng.randf_range(-0.2, 0.2), e._r * 0.76, e._r * 1.1,
+					p1[p1.size() - 1])
+				e._grietas.append({"pts": sigue, "w0": 1.2, "w1": 0.3, "t0": T_PISA_ENTRE})
+			for i in 4:
+				var ang2: float = TAU * (float(i) + 0.5 + e._rng.randf_range(-0.3, 0.3)) / 4.0
+				e._grietas.append({"pts": e._quebrada(ang2, e._r * 0.52, e._r * 0.92), "w0": 1.6, "w1": 0.3,
+					"t0": T_PISA_ENTRE})
+			# EL BORDE DEL HUNDIMIENTO (el del martillo): un anillo quebrado alrededor de sus patas, de donde salen las
+			# grietas. Es lo que las lee como suelo roto y no como patas.
+			var borde := PackedVector2Array()
+			for i in 41:
+				var a4: float = TAU * float(i % 40) / 40.0
+				borde.append(e._o + Vector2(cos(a4), sin(a4)) * e._r * 0.5 * (1.0 + 0.06 * sin(a4 * 5.0 + 1.3)
+					+ e._rng.randf_range(-0.04, 0.04)))
+			borde[40] = borde[0]
+			e._grietas.push_front({"pts": borde, "w0": 2.4, "w1": 2.4, "t0": 0.0})
+			# El anillo de polvo de cada pisoton.
+			for k in 2:
+				for i in 14:
+					var a3: float = TAU * (float(i) + e._rng.randf_range(0.0, 0.8)) / 14.0
+					e._puffs.append({"a": a3, "k": k, "u": e._rng.randf_range(0.75, 1.05),
+						"tam": e._rng.randf_range(0.14, 0.24), "sube": e._rng.randf_range(2.0, 5.0)})
 	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
 	e._delante = e._capa(Z_ENCIMA, false)
 	return e
@@ -124,7 +178,7 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 		# El Chillido le llega a cada uno cuando el PRIMER frente le pasa por encima (como el Grito).
 		Modo.CHILLIDO:
 			return clampf(p.distance_to(SueloRoto.origen_de(f)) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ONDA_CH
-		Modo.ESTELA:
+		Modo.ESTELA, Modo.SURCO:
 			return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_ESTELA
 	return 0.0
 
@@ -133,8 +187,25 @@ static func t_salir(m: int) -> float:
 	match m:
 		Modo.POLVO: return T_POLVO
 		Modo.CHILLIDO: return T_ONDA_CH
-		Modo.ESTELA: return T_ESTELA
+		Modo.ESTELA, Modo.SURCO: return T_ESTELA
+		Modo.PISOTON: return T_GRIETA
 	return 0.2
+
+
+# Una grieta quebrada que sale en 'ang' de r0 a r1 (desde _o, o desde 'desde' si se da: la que sigue a otra). Se
+# tuerce pero vuelve a su rumbo, como las del martillo (SueloRoto._quebrada).
+func _quebrada(ang: float, r0: float, r1: float, desde: Vector2 = Vector2.INF) -> PackedVector2Array:
+	var p: Vector2 = desde if desde != Vector2.INF else _o + Vector2(cos(ang), sin(ang)) * r0
+	var pts := PackedVector2Array([p])
+	var rumbo: float = ang
+	var paso: float = 3.0
+	var r: float = r0
+	while r < r1:
+		rumbo = lerpf(rumbo, ang, 0.35) + _rng.randf_range(-0.55, 0.55)
+		p += Vector2(cos(rumbo), sin(rumbo)) * paso
+		pts.append(p)
+		r += paso
+	return pts
 
 
 # ------------------------------------------------------------
@@ -143,7 +214,7 @@ static func t_salir(m: int) -> float:
 # 'desde' = de donde viene (quien muerde), 'caja' = el cuerpo que lo recibe, 'espera' = lo que falta para el
 # golpe: las mandibulas se van cerrando en ese tiempo y se juntan justo en el golpe.
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0) -> BestiaAire:
+		ritmo: float, boca: float = -1.0, dibujo: CanvasItem = null) -> BestiaAire:
 	if padre == null:
 		return null
 	var e := BestiaAire.new()
@@ -152,7 +223,8 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	e._ritmo = maxf(ritmo, 0.05)
 	match m:
 		Modo.FRENESI: e._viaje = clampf(espera, 0.06, 0.12)
-		Modo.DENTELLADA: e._viaje = clampf(espera, 0.12, 0.24)
+		Modo.DENTELLADA, Modo.CORNADA: e._viaje = clampf(espera, 0.12, 0.24)
+		Modo.CHOQUE: e._viaje = 0.0
 		_: e._viaje = clampf(espera, 0.08, 0.2)
 	e._t = -e._viaje
 	e._desde = desde
@@ -177,8 +249,21 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	match m:
 		Modo.FRENESI: escala = 0.8
 		Modo.YUGULAR: escala = 1.15
+		Modo.CORNADA: escala = 1.4
 	e._tam = maxf(de_quien * 0.3, 4.0) * escala
 	e._lento = 1.3 if m == Modo.DENTELLADA else (1.15 if m == Modo.YUGULAR else 1.0)
+	# EL COLMILLO se comba hacia el lado de quien embiste (entra por ahi) y sube; si viene de arriba o de abajo, a un
+	# lado cualquiera. Cada golpe con su variacion.
+	if m == Modo.COLMILLO or m == Modo.CORNADA:
+		var de_lado: float = -eje.x if absf(eje.x) > 0.25 else (1.0 if e._rng.randf() < 0.5 else -1.0)
+		e._a_colmillo = (0.0 if de_lado > 0.0 else PI) + e._rng.randf_range(-0.3, 0.3)
+		e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x, -0.05 * caja.size.y)
+	e._largo = maxf(caja.size.y, 10.0)   # lo alto del cuerpo: donde tiene los pies
+	if m == Modo.CORNADA:
+		e._tomar_dibujo(dibujo)
+		for i in 6:
+			e._piedras.append({"vx": e._rng.randf_range(-22.0, 22.0), "sube": e._rng.randf_range(8.0, 16.0),
+				"tam": e._rng.randf_range(1.4, 2.4)})
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -207,15 +292,20 @@ static func temblor(padre: Node, dibujo: CanvasItem, caja: Rect2, semilla: int, 
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
 	e._delante = e._capa(Z_ENCIMA, false)
-	# EL SITIO DE VERDAD del dibujo, compartido con la esquiva (EstoqueAire) y con otros temblores: el segundo no
-	# puede tomar como sitio el del primero, ya movido.
-	if is_instance_valid(dibujo):
-		if not dibujo.has_meta(&"esq_base"):
-			dibujo.set_meta(&"esq_base", dibujo.get("position"))
-		dibujo.set_meta(&"esq_n", int(dibujo.get_meta(&"esq_n", 0)) + 1)
-		e._base_dibujo = dibujo.get_meta(&"esq_base")
-		e._dibujo = dibujo
+	e._tomar_dibujo(dibujo)
 	return e
+
+
+# EL SITIO DE VERDAD del dibujo que se mueve (el temblor, la Cornada), compartido con la esquiva (EstoqueAire) y
+# entre ellos: el segundo no puede tomar como sitio el del primero, ya movido.
+func _tomar_dibujo(dibujo: CanvasItem) -> void:
+	if not is_instance_valid(dibujo):
+		return
+	if not dibujo.has_meta(&"esq_base"):
+		dibujo.set_meta(&"esq_base", dibujo.get("position"))
+	dibujo.set_meta(&"esq_n", int(dibujo.get_meta(&"esq_n", 0)) + 1)
+	_base_dibujo = dibujo.get_meta(&"esq_base")
+	_dibujo = dibujo
 
 
 func duracion() -> float:
@@ -224,6 +314,11 @@ func duracion() -> float:
 		Modo.CHILLIDO: return T_ONDA_CH + 3.0 * T_ENTRE_CH + 0.2
 		Modo.ESTELA: return T_ESTELA + 0.75
 		Modo.TEMBLOR: return T_TIEMBLA
+		Modo.SURCO: return T_ESTELA + 0.9
+		Modo.PISOTON: return T_PISA_ENTRE + 1.2
+		Modo.COLMILLO: return 0.3
+		Modo.CORNADA: return maxf(0.45, T_LEVANTA + 0.05)
+		Modo.CHOQUE: return 0.6
 	return (T_CERRADO + T_IRSE) * _lento
 
 
@@ -259,12 +354,16 @@ func _exit_tree() -> void:
 # Lo que se aparta el dibujo en este instante: un vaiven rapido de lado a lado que se va apagando. Publica para
 # las hojas (ahi no corre _process: les ponen el tiempo a mano).
 func aplicar_temblor() -> void:
-	if modo != Modo.TEMBLOR or not is_instance_valid(_dibujo):
+	if not is_instance_valid(_dibujo):
 		return
 	var fuera := Vector2.ZERO
-	if _t >= 0.0:
+	if _t >= 0.0 and modo == Modo.TEMBLOR:
 		var amp: float = 1.8 * (1.0 - _t / T_TIEMBLA)
 		fuera = Vector2(sin(_t * 95.0) * amp, sin(_t * 61.0 + 1.3) * amp * 0.35).round()
+	# LA CORNADA levanta un palmo: sube rapido y cae, con un botecito al caer.
+	elif _t >= 0.0 and modo == Modo.CORNADA and _t < T_LEVANTA:
+		var k: float = _t / T_LEVANTA
+		fuera = Vector2(0.0, -round(6.0 * sin(PI * minf(k * 1.25, 1.0)) + 1.5 * sin(PI * clampf((k - 0.8) / 0.2, 0.0, 1.0))))
 	_dibujo.set("position", _base_dibujo + fuera)
 
 
@@ -287,6 +386,10 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.CHILLIDO: _chillido(capa)
 		Modo.ESTELA: _estela(capa)
 		Modo.TEMBLOR: _temblor(capa)
+		Modo.SURCO: _surco(capa)
+		Modo.PISOTON: _pisoton(capa)
+		Modo.COLMILLO, Modo.CORNADA: _colmillo(capa)
+		Modo.CHOQUE: _choque(capa)
 		_: _mordisco(capa)
 
 
@@ -610,6 +713,197 @@ func _arco_sonido(ci: CanvasItem, c: Vector2, r: float, lado: float, grueso: flo
 		halo_d.append(c + d * (r - g * 1.4))
 	_tira(ci, halo_f, halo_d, Color(col, col.a * 0.25))
 	_tira(ci, fuera, dentro, col)
+
+
+# ------------------------------------------------------------
+#  EL JABALI
+# ------------------------------------------------------------
+# EL COLMILLO: media luna de hueso que engancha de ABAJO ARRIBA por el lado de quien embiste (la pincelada del
+# mandoble, BarridoAire._tajo: filo duro y claro por fuera que se difumina hacia dentro y hacia la cola). Mientras
+# viaja el golpe la cabeza sube; en el golpe llega arriba y la cola la alcanza mientras se apaga.
+func _colmillo(capa: Node2D) -> void:
+	var cornada: bool = modo == Modo.CORNADA
+	var r: float = _tam * 1.7
+	var th: float = _a_colmillo
+	var s: float = 1.0 if cos(th) >= 0.0 else -1.0
+	var a_abajo: float = th + 1.3 * s
+	var a_arriba: float = th - 1.3 * s
+	var c: Vector2 = _hasta - Vector2(cos(th), sin(th)) * r * 0.45
+	var sale: float = 0.05
+	var u: float = clampf((_t + _viaje) / maxf(_viaje + sale, 0.01), 0.0, 1.0)
+	u = 1.0 - (1.0 - u) * (1.0 - u)
+	var cabeza: float = lerpf(a_abajo, a_arriba, u)
+	var k_ido: float = clampf((_t - sale) / (0.3 if cornada else 0.22), 0.0, 1.0)
+	var cola: float = lerpf(a_abajo, cabeza, maxf(0.15 * u, k_ido))
+	var alfa: float = clampf((_t + _viaje) / 0.04, 0.0, 1.0) * (1.0 - k_ido * k_ido)
+	var punta: Vector2 = c + Vector2(cos(cabeza), sin(cabeza)) * r
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.14:
+			BarridoAire.destello(capa, punta, _tam * (0.7 if cornada else 0.5),
+				Color(1.0, 0.96, 0.88, 0.8 * (1.0 - _t / 0.14)), th)
+		return
+	if capa != _delante:
+		return
+	var grueso: float = r * (0.5 if cornada else 0.45)
+	if alfa > 0.0:
+		# Detras, la misma media luna algo mayor y OSCURA (el contorno de los dientes): sin ella el hueso se perdia
+		# sobre un cuerpo claro.
+		_media_luna(capa, c, cola, cabeza, r * 1.06, grueso * 1.3, ENCIA, ENCIA, alfa * 0.5, false)
+		_media_luna(capa, c, cola, cabeza, r, grueso, HUESO, HUESO_SOMBRA, alfa, false)
+	if not cornada or _t < 0.0:
+		return
+	# EL DESGARRO en la punta (gotas que salen hacia fuera y caen) y los TERRONES que saltan de sus pies.
+	var k: float = clampf(_t / 0.4, 0.0, 1.0)
+	var fuera := Vector2(cos(cabeza), sin(cabeza))
+	for i in 4:
+		var d: Vector2 = fuera.rotated((float(i) - 1.5) * 0.35)
+		var p: Vector2 = punta + d * _tam * (0.2 + 0.7 * k) + Vector2(0.0, _tam * 0.6 * k * k)
+		BarridoAire.cometa(capa, p - d * _tam * 0.3, p, maxf(1.2, _tam * 0.12), Color(SANGRE, 0.8 * (1.0 - k)))
+	var pies: Vector2 = _hasta + Vector2(0.0, _largo * 0.5)
+	for pd in _piedras:
+		var kt: float = clampf(_t / 0.5, 0.0, 1.0)
+		if kt >= 1.0:
+			continue
+		var p2: Vector2 = pies + Vector2(float(pd["vx"]) * kt, -float(pd["sube"]) * 4.0 * kt * (1.0 - kt) * K)
+		var tam: float = float(pd["tam"])
+		capa.draw_rect(Rect2(p2 - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(TIERRA, 1.0 - kt * kt * kt))
+
+
+# LO QUE ARROLLA LA EMBESTIDA, en cada cuerpo: el FRENTE DEL CHOQUE (una media luna combada hacia quien embiste,
+# que se abre y se apaga), un destello, y un CHORRO DE POLVO desde sus pies hacia donde sale despedido.
+func _choque(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var sale: Vector2 = _eje
+	if capa == _brillo:
+		if _t < 0.12:
+			BarridoAire.destello(capa, _hasta - sale * _ancho * 0.3, _tam * 0.8,
+				Color(1.0, 0.95, 0.85, 0.8 * (1.0 - _t / 0.12)), sale.angle())
+		return
+	if capa != _delante:
+		return
+	var kf: float = clampf(_t / 0.22, 0.0, 1.0)
+	var r: float = _ancho * (0.55 + 0.35 * kf)
+	var th: float = (-sale).angle()
+	var c: Vector2 = _hasta + sale * r * 0.6
+	_media_luna(capa, c, th - 1.0, th + 1.0, r, r * 0.35, Color(0.96, 0.92, 0.84), POLVO_CLARO, 0.9 * (1.0 - kf), true)
+	var k: float = clampf(_t / 0.6, 0.0, 1.0)
+	var lejos := Vector2(sale.x, sale.y * K).normalized()
+	var pies: Vector2 = _hasta + Vector2(0.0, _largo * 0.5)
+	for i in 10:
+		var d: Vector2 = lejos.rotated((float(i) - 4.5) * 0.12)
+		var c2: Vector2 = pies + d * (6.0 + 26.0 * sqrt(k)) * (0.6 + 0.05 * float(i)) - Vector2(0.0, 5.0 * k)
+		var rr: float = _ancho * 0.18 * (0.6 + 0.9 * k)
+		_bola(capa, c2, rr * 1.25, Color(POLVO, 0.3 * (1.0 - k)))
+		_bola(capa, c2 + Vector2(-rr * 0.2, -rr * 0.25), rr * 0.8, Color(POLVO_CLARO, 0.4 * (1.0 - k)))
+
+
+# EL SURCO DE LA EMBESTIDA: las rodadas de las pezuñas (dos hileras de huellas que aparecen al paso), el polvo de
+# la estela y los terrones que saltan a los lados.
+func _surco(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var lat: Vector2 = _dir.orthogonal()
+	var cab: float = clampf(_t / T_ESTELA, 0.0, 1.0) * 0.85
+	var seca: float = 1.0 - smoothstep(T_ESTELA + 0.4, T_ESTELA + 0.9, _t)
+	if capa == _suelo:
+		var paso: float = 5.0
+		for i in int(_largo * cab / paso):
+			var u: float = float(i) * paso / _largo
+			for s in [-1.0, 1.0]:
+				var p: Vector2 = _o + _dir * _largo * u + lat * _ancho * 0.22 * s \
+					+ _dir * (1.5 if (i % 2 == 0) == (s > 0.0) else 0.0)
+				_bola(capa, p, 2.6, Color(0.16, 0.12, 0.09, 0.55 * seca))
+		return
+	if capa != _delante:
+		return
+	_estela(capa)
+	for pd in _piedras:
+		var tp: float = _t - float(pd["u"]) * T_ESTELA
+		if tp < 0.0 or tp > 0.45:
+			continue
+		var kv: float = tp / 0.45
+		var base: Vector2 = _o + _dir * _largo * float(pd["u"]) + lat * _ancho * 0.3 * float(pd["lado"])
+		var p2: Vector2 = base + lat * float(pd["lado"]) * float(pd["v"]) * kv \
+			- Vector2(0.0, float(pd["sube"]) * 4.0 * kv * (1.0 - kv) * K)
+		var tam: float = float(pd["tam"])
+		capa.draw_rect(Rect2(p2 - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(TIERRA, 1.0 - kv * kv * kv))
+
+
+# LOS DOS PISOTONES: en cada uno, la mancha del golpe bajo el, grietas que se abren desde sus patas (las del
+# martillo: raja negra que se afila con su labio claro, SueloRoto._trazo) y un anillo de polvo a ras.
+func _pisoton(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var apaga: float = 1.0 - smoothstep(T_PISA_ENTRE + 0.6, T_PISA_ENTRE + 1.2, _t)
+	if capa == _suelo:
+		for k in 2:
+			if _t >= float(k) * T_PISA_ENTRE:
+				_bola(capa, _o, _r * (0.35 + 0.1 * float(k)), Color(0.2, 0.16, 0.12, 0.3 * apaga))
+		for g in _grietas:
+			var tg: float = _t - float(g["t0"])
+			if tg < 0.0:
+				continue
+			var pts: PackedVector2Array = g["pts"]
+			var n: int = clampi(int(ceil(float(pts.size()) * clampf(tg / T_GRIETA, 0.0, 1.0))), 0, pts.size())
+			if n >= 2:
+				_trazo_grieta(capa, pts, n, float(g["w0"]), float(g["w1"]), apaga)
+		return
+	if capa != _delante:
+		return
+	for p in _puffs:
+		var tk: float = _t - float(p["k"]) * T_PISA_ENTRE
+		if tk < 0.0 or tk > 0.6:
+			continue
+		var k2: float = tk / 0.6
+		var rad: float = _r * float(p["u"]) * (0.3 + 0.7 * (1.0 - pow(1.0 - k2, 2.0)))
+		var c: Vector2 = _o + Vector2(cos(float(p["a"])), sin(float(p["a"]))) * rad - Vector2(0.0, float(p["sube"]) * k2 * K)
+		var rr: float = _r * float(p["tam"]) * (0.6 + 0.8 * k2)
+		_bola(capa, c, rr * 1.2, Color(POLVO, 0.26 * (1.0 - k2)))
+		_bola(capa, c + Vector2(-rr * 0.2, -rr * 0.25), rr * 0.75, Color(POLVO_CLARO, 0.34 * (1.0 - k2)))
+
+
+static func _trazo_grieta(ci: CanvasItem, pts: PackedVector2Array, n: int, w0: float, w1: float, a: float) -> void:
+	var total: float = float(maxi(1, pts.size() - 1))
+	for i in n - 1:
+		var w: float = lerpf(w0, w1, float(i) / total)
+		ci.draw_line(pts[i] + Vector2(0.6, 1.0), pts[i + 1] + Vector2(0.6, 1.0), Color(SueloRoto.LABIO, 0.35 * a), maxf(0.6, w * 0.5))
+	for i in n - 1:
+		var w2: float = lerpf(w0, w1, float(i) / total)
+		ci.draw_line(pts[i], pts[i + 1], Color(SueloRoto.OSCURO, 0.95 * a), w2)
+
+
+# UNA MEDIA LUNA sobre un arco alrededor de 'c', de 'a_cola' a 'a_cabeza' (BarridoAire._tajo): el filo, a 'r_filo',
+# duro y del color 'filo', y hacia dentro se difumina a nada. Gruesa cerca de la cabeza y afilada en las puntas; con
+# 'simetrica', gruesa en medio (el frente del choque).
+static func _media_luna(ci: CanvasItem, c: Vector2, a_cola: float, a_cabeza: float, r_filo: float, grueso: float,
+		filo: Color, dentro: Color, alfa: float, simetrica: bool) -> void:
+	if alfa <= 0.0 or absf(a_cabeza - a_cola) < 0.01:
+		return
+	var n: int = maxi(8, int(absf(a_cabeza - a_cola) / 0.08))
+	var fr: Array = [0.0, 0.12, 0.4, 1.0]
+	var al: Array = [1.0, 0.85, 0.3, 0.0]
+	for i in n:
+		var s0: float = float(i) / float(n)
+		var s1: float = float(i + 1) / float(n)
+		var d0 := Vector2(cos(lerpf(a_cola, a_cabeza, s0)), sin(lerpf(a_cola, a_cabeza, s0)))
+		var d1 := Vector2(cos(lerpf(a_cola, a_cabeza, s1)), sin(lerpf(a_cola, a_cabeza, s1)))
+		var g0: float = grueso * (sin(PI * s0) if simetrica else sin(PI * pow(s0, 2.2)))
+		var g1: float = grueso * (sin(PI * s1) if simetrica else sin(PI * pow(s1, 2.2)))
+		var l0: float = alfa * (1.0 if simetrica else 0.2 + 0.8 * s0)
+		var l1: float = alfa * (1.0 if simetrica else 0.2 + 0.8 * s1)
+		for k in fr.size() - 1:
+			var p00: Vector2 = c + d0 * (r_filo - g0 * float(fr[k]))
+			var p10: Vector2 = c + d1 * (r_filo - g1 * float(fr[k]))
+			var p01: Vector2 = c + d0 * (r_filo - g0 * float(fr[k + 1]))
+			var p11: Vector2 = c + d1 * (r_filo - g1 * float(fr[k + 1]))
+			var col: Color = dentro.lerp(filo, 1.0 - float(fr[k]))
+			var c00 := Color(col, l0 * float(al[k]))
+			var c10 := Color(col, l1 * float(al[k]))
+			var c01 := Color(dentro, l0 * float(al[k + 1]))
+			var c11 := Color(dentro, l1 * float(al[k + 1]))
+			ci.draw_primitive(PackedVector2Array([p00, p10, p11]), PackedColorArray([c00, c10, c11]), PackedVector2Array())
+			ci.draw_primitive(PackedVector2Array([p00, p11, p01]), PackedColorArray([c00, c11, c01]), PackedVector2Array())
 
 
 # Una bola blanda: el centro lleno y el borde que se difumina a nada.

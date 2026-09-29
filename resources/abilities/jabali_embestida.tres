@@ -25,3 +25,6 @@ forma_radio = 90.0
 forma_ancho = 22.0
 carga = true
 aparta_lados = 28.0
+; EFECTO EN EL MAPA (29/09): el surco por la linea (BESTIA_SURCO) y el choque con su chorro de polvo en cada uno.
+fx_estilo_mapa = 141
+suelo_roto = 73

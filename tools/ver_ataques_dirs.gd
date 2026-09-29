@@ -1338,11 +1338,15 @@ const MOMENTOS_BESTIA := {
 	"rey_rata_dentellada_real": [-0.06, 0.04, 0.26, 0.5, 0.85],
 	"rey_rata_chillido": [0.06, 0.14, 0.26, 0.4, 0.62],
 	"rey_rata_yugular": [0.08, 0.16, 0.22, 0.32, 0.55],
+	"jabali_cornada": [-0.1, 0.0, 0.1, 0.22, 0.4],
+	"jabali_embestida": [0.08, 0.16, 0.22, 0.35, 0.6],
+	"jabali_pisoton": [0.03, 0.12, 0.23, 0.35, 0.8],
 }
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
-	CombatFX.Estilo.BESTIA_TEMBLOR: BestiaAire.Modo.TEMBLOR}
+	CombatFX.Estilo.BESTIA_TEMBLOR: BestiaAire.Modo.TEMBLOR, CombatFX.Estilo.BESTIA_COLMILLO: BestiaAire.Modo.COLMILLO,
+	CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA, CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE}
 
 func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	BarridoAire.ritmo = 1.0
@@ -1381,12 +1385,15 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab.forma = CombatFormas.Tipo.CIRCULO
 			ab.forma_apunte = CombatFormas.Apunte.DELANTE
 			ab.forma_radio = 8.0
-			ab.fx_estilo_mapa = CombatFX.Estilo.BESTIA_MORDISCO
+			# El de su bicho (CombatEfectos._estilo_de_habilidad): la rata muerde, el jabali mete el colmillo.
+			ab.fx_estilo_mapa = CombatFX.Estilo.BESTIA_COLMILLO if ed.fx_basico == CombatFX.Estilo.CORNADA \
+				else CombatFX.Estilo.BESTIA_MORDISCO
 		else:
 			ab = load("res://resources/abilities/%s.tres" % nom)
-		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)):
+		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
+		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and ab.suelo_roto < 0:
 			continue   # aun sin efecto propio
-		var modo_b: int = ESTILO_A_BESTIA[int(ab.fx_estilo_mapa)]
+		var modo_b: int = ESTILO_A_BESTIA.get(int(ab.fx_estilo_mapa), -1)
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1479,7 +1486,19 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": BestiaAire.temblor(self, fig_t, rt, semilla + i, 0.0, 1.0),
 						"t0": SueloRoto.retraso(f, _pies_caja(rt), ab.suelo_roto), "sim": false})
 				cajas = []
-			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b == BestiaAire.Modo.DENTELLADA else 0.14)
+			# EL CHOQUE DE LA EMBESTIDA: en TODOS los que arrolla, cuando les llega (y nunca antes de que el llegue).
+			if modo_b == BestiaAire.Modo.CHOQUE:
+				for i in cajas.size():
+					var rc: Rect2 = cajas[i]
+					piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rc, semilla + i, 0.0, 1.0,
+						bulto.size.x), "t0": maxf(SueloRoto.retraso(f, _pies_caja(rc), ab.suelo_roto), BestiaAire.T_ESTELA),
+						"sim": false})
+				cajas = []
+			# Solo suelo (el Pisoton): nada en los cuerpos.
+			if modo_b < 0:
+				cajas = []
+			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b in [BestiaAire.Modo.DENTELLADA,
+				BestiaAire.Modo.CORNADA] else (0.12 if modo_b == BestiaAire.Modo.COLMILLO else 0.14))
 			var golpes: int = maxi(ab.golpes_max, 1)
 			for g in golpes:
 				if cajas.is_empty():
@@ -1493,10 +1512,17 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				# Y nunca antes de llegar: en el juego se lanza primero (Desliz.ANTES) y muerde despues.
 				if fin_carga != Vector2.INF:
 					t0 = maxf(t0, BestiaAire.T_ESTELA)
-				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x),
-					"t0": t0, "sim": false})
+				# La Cornada levanta a su figura (la del anillo, o la presa puesta dentro del cono).
+				var fig_g: ColorRect = null
+				if modo_b == BestiaAire.Modo.CORNADA:
+					for fg in _figs + presas_extra:
+						if rg.has_point((fg as ColorRect).position + Vector2(7, 13)):
+							fig_g = fg
+				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x,
+					fig_g), "t0": t0, "sim": false})
 				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
-				if modo_b != BestiaAire.Modo.MORDISCO:
+				if modo_b in [BestiaAire.Modo.MORDISCO_SANGRA, BestiaAire.Modo.FRENESI, BestiaAire.Modo.DENTELLADA,
+						BestiaAire.Modo.YUGULAR]:
 					var antes_s: int = get_child_count()
 					var desde_s: Vector2 = rg.get_center()
 					var fuerza_s: float = 0.4

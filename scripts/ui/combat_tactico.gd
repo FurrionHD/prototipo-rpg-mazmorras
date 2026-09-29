@@ -2447,7 +2447,9 @@ const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatF
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
 const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
-	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR}
+	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
+	CombatFX.Estilo.BESTIA_COLMILLO: BestiaAire.Modo.COLMILLO, CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA,
+	CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2472,8 +2474,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LAS BESTIAS (BestiaAire, 28/09): las mandibulas de la rata, de quien muerde al que recibe.
 	if estilo in _MODO_BESTIA:
 		var desde_b: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		# La Cornada levanta al que engancha: se le pasa su dibujo (el muñeco o el sprite, como la esquiva).
+		var cu_b: Node2D = cuerpo_de(v)
+		var dib_b = null
+		if estilo == CombatFX.Estilo.BESTIA_CORNADA:
+			dib_b = cu_b.get("_muneco") if cu_b.get("_muneco") is Node2D else cu_b.get("_sprite")
 		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo,
-			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, dib_b as CanvasItem)
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.

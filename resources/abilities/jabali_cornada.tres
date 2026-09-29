@@ -23,3 +23,5 @@ forma = 2
 forma_apunte = 1
 forma_radio = 28.0
 forma_apertura = 70.0
+; EFECTO EN EL MAPA (29/09): el colmillo grande que engancha de abajo arriba y levanta un palmo (BestiaAire.CORNADA).
+fx_estilo_mapa = 140
