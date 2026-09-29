@@ -32,3 +32,7 @@ forma_reparte = true
 ; rafaga de patitas clavandose de arriba abajo (INSECTO_PATITAS), con veneno si entra.
 fx_estilo_mapa = 151
 fx_anim = &"oleada"
+; TE PASA POR ENCIMA (29/09, idea del usuario): recorre su linea hasta el final mientras pega, y a cada uno le llegan
+; los patazos cuando le pasa por encima (el suelo INSECTO_OLEADA, que no pinta nada, reparte ese reloj).
+recorre = true
+suelo_roto = 80

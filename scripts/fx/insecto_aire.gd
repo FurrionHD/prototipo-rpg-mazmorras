@@ -39,10 +39,10 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS, APRETON }
+	FORCIPULAS, PATITAS, APRETON, OLEADA }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
-enum Suelo { TELARANA, RODADA }
-const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA]
+enum Suelo { TELARANA, RODADA, OLEADA }
+const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -57,6 +57,9 @@ const ABD_ALTO := 20.0
 # LO QUE TARDA LA BOLA EN CRUZAR SU LINEA: los marcos que rueda a su ritmo (EscarabajoSprites.RODAR_MARCOS /
 # RODAR_FPS). Con ello va el cuerpo por la linea (CombatTactico.mover_enemigo) y le llega el golpe a cada uno.
 const T_RODADA := 8.0 / 18.0
+# LO QUE TARDA EL CIEMPIES EN RECORRER SU LINEA en la Oleada de patas (CombatTactico.mover_enemigo, AbilityData.recorre):
+# a cada uno le llegan los patazos cuando le pasa por encima. Su suelo (OLEADA) no pinta nada: solo reparte ese reloj.
+const T_OLEADA := 0.5
 const T_PALA := 0.2               # lo que dura el aplaston del basico tras el golpe
 const T_ARROLLA := 0.4
 const T_CAPARAZON := 0.7
@@ -120,6 +123,8 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 	e._r = maxf(f.radio, 8.0)
 	e._dir = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	e._lejos = f.ancho if f.ancho > 8.0 else 60.0
+	if e.modo == Modo.OLEADA:
+		return e   # no pinta nada: solo el reloj de quien le pasa por encima (retraso)
 	if e.modo == Modo.RODADA:
 		e._o = SueloRoto.origen_de(f)
 		e._largo = maxf(f.largo, 4.0)
@@ -155,11 +160,16 @@ static func retraso(s: int, f: CombatFormas.Forma, p: Vector2) -> float:
 	# LA BOLA le llega a cada uno cuando pasa por donde esta.
 	if s == Suelo.RODADA:
 		return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_RODADA
+	if s == Suelo.OLEADA:
+		return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_OLEADA
 	return T_TELA_CAE
 
 
 static func t_salir(s: int) -> float:
-	return T_RODADA if s == Suelo.RODADA else T_TELA_CAE
+	match s:
+		Suelo.RODADA: return T_RODADA
+		Suelo.OLEADA: return T_OLEADA
+	return T_TELA_CAE
 
 
 # ------------------------------------------------------------
@@ -325,6 +335,7 @@ func duracion() -> float:
 		Modo.PATITAS: return 0.34
 		Modo.APRETON: return 0.4
 		Modo.RODADA: return T_RODADA + 1.4
+		Modo.OLEADA: return T_OLEADA
 	return T_CLAVADO + T_IRSE
 
 

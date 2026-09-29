@@ -1555,7 +1555,7 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		hasta = _sitio_libre_hacia(e, f.centro)
 		dur = T_SALTO_BICHO
 		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
-	elif ab.carga and f.tipo == CombatFormas.Tipo.LINEA:
+	elif (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
 		var fin: Vector2 = f.origen + f.dir * f.largo
 		# El primero que se cruza (el mas cercano a sus pies).
 		var v: Combatant = null
@@ -1564,10 +1564,13 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 				v = d["c"]
 		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie), y a lo que tarda la
 		# bola en cruzar (a cada uno le llega el golpe cuando le pasa por encima: InsectoAire.retraso).
-		if v != null and not ab.atraviesa:
+		if v != null and not ab.atraviesa and not ab.recorre:
 			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + radio_pisa(e))
 		if ab.atraviesa:
 			dur = InsectoAire.T_RODADA
+		# LA QUE RECORRE (la Oleada de patas): hasta el final, a lo que tarda en cruzar (InsectoAire.T_OLEADA).
+		if ab.recorre:
+			dur = InsectoAire.T_OLEADA
 		hasta = _sitio_libre_hacia(e, fin)
 	else:
 		return

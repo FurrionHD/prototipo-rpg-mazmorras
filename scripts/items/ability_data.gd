@@ -313,6 +313,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).
 @export var atraviesa: bool = false
+# RECORRE SU LINEA (solo en el mapa, con LINEA y sin carga): el enemigo va por ella hasta el final, sin pararse, mientras
+# pega; a cada uno le llegan sus golpes cuando el cuerpo le pasa por encima (lo retrasa su suelo). La Oleada de patas
+# del ciempies (29/09, idea del usuario: "te pasa por encima o por el lado mientras te golpea con las patas").
+@export var recorre: bool = false
 # LAS DOS MITADES (solo en el mapa, con CONO de 2 golpes): el golpe 1 cae en la mitad IZQUIERDA del cono y el
 # 2 en la DERECHA (vistas desde quien lo lanza); el que quede en medio se come los dos. La Doble guadaña de la
 # segadora (29/09, idea suya: "uno por cada lado").

@@ -1351,7 +1351,7 @@ const MOMENTOS_BESTIA := {
 	"escarabajo_rodar": [0.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.7, 1.2],
 	"escarabajo_caparazon": [-0.44, -0.2, 0.0, 0.08, 0.16, 0.3, 0.6],
 	# El ciempies: los picotazos de la Oleada van cada 0,22 s (el reparto: uno a cada uno).
-	"ciempies_oleada": [-0.1, -0.03, 0.03, 0.1, 0.25, 0.47, 0.7],
+	"ciempies_oleada": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 0.9],
 	"ciempies_enrosque": [0.0, 0.05, 0.1, 0.18, 0.3],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
@@ -1513,10 +1513,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				cuerpo.position = f.centro - yo
 			# LA CARGA (Yugular): se lanza por la linea y se queda pegada al primero (CombatTactico.mover_enemigo).
 			var fin_carga: Vector2 = Vector2.INF
-			if ab.carga and f.tipo == CombatFormas.Tipo.LINEA:
+			if (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
 				fin_carga = f.origen + f.dir * f.largo
 				# La que ATRAVIESA rueda hasta el final; las demas se paran pegadas al primero.
-				if not cajas.is_empty() and not ab.atraviesa:
+				if not cajas.is_empty() and not ab.atraviesa and not ab.recorre:
 					fin_carga = _pies_caja(cajas[0]) - f.dir * (8.0 + pisa)
 				cuerpo.position = fin_carga - yo
 			var bulto: Rect2 = Rect2(bulto0.position + cuerpo.position, bulto0.size)
@@ -1604,7 +1604,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				if ab.suelo_roto >= 0 and not ab.salta:
 					t0 += SueloRoto.retraso(f, _pies_caja(rg), ab.suelo_roto)
 				# Y nunca antes de llegar: en el juego se lanza primero (Desliz.ANTES) y muerde despues.
-				if fin_carga != Vector2.INF:
+				if fin_carga != Vector2.INF and not ab.recorre:
 					t0 = maxf(t0, BestiaAire.T_ESTELA)
 				# La Cornada levanta a su figura (la del anillo, o la presa puesta dentro del cono).
 				var fig_g: ColorRect = null
@@ -1645,7 +1645,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				var t: float = float(tiempos[c])
 				# La carga: el cuerpo va por la linea con la estela y llega en T_ESTELA (la bola, en T_RODADA).
 				if fin_carga != Vector2.INF:
-					var t_viaje: float = InsectoAire.T_RODADA if ab.atraviesa else BestiaAire.T_ESTELA
+					var t_viaje: float = InsectoAire.T_RODADA if ab.atraviesa else (InsectoAire.T_OLEADA if ab.recorre else BestiaAire.T_ESTELA)
 					cuerpo.position = (fin_carga - yo) * clampf(t / t_viaje, 0.0, 1.0)
 				# Y su animacion, en el fotograma de este momento.
 				var an_n := StringName("%s_%d" % [anim_hab, d8])

@@ -41,7 +41,7 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	SLIME_PRESION, SLIME_PLACAJE, SLIME_EMBATE,
 	BESTIA_POLVO, BESTIA_CHILLIDO, BESTIA_ESTELA, BESTIA_SURCO, BESTIA_PISOTON, BESTIA_SAVIA, BESTIA_RAICES,
 	BESTIA_RAMAZO,
-	INSECTO_TELARANA, INSECTO_RODADA }
+	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA }
 # INSECTO_* (los insectoides en el mapa, 29/09): viven en InsectoAire (su InsectoAire.Suelo = tipo - INSECTO_TELARANA).
 # De enemigo, y DETRAS de las BESTIA_*: se miran antes.
 # BESTIA_* (rata, rey rata, jabali y trent en el mapa, 28/09): viven en BestiaAire (su Modo = tipo - BESTIA_POLVO).
