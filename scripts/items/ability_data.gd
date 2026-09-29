@@ -306,6 +306,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 @export var charco_turnos: int = 0
 # Lo que se lee en el log cuando alguien lo pisa ("X pisa <esto>"). La Telaraña de la araña (29/09) es el segundo.
 @export var charco_texto: String = "la savia"
+# COMO SE VE lo que se queda: 0 = el charco de savia (BestiaAire.charco), 1 = la telaraña (InsectoAire.red). Viaja en la
+# 'apertura' de su huella (el circulo no la usa): ver CombatTactico.poner_charco.
+@export var charco_estilo: int = 0
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

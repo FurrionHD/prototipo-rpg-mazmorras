@@ -466,6 +466,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.turno_mapa.mover_enemigo(e, ab, lista_mapa, golpes)
 			# Y SU EFECTO POR EL SUELO (el charco del Reventon, la Marea...): desde aqui a cada uno de los tuyos
 			# el golpe le llega cuando el frente le alcanza. Con el COLOR del slime en la semilla (SlimeAire).
+			if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA:
+				_pantalla.turno_mapa.desde_quien_lanza(e, _pantalla.turno_mapa.ultima_forma_enemigo)
 			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
 					SlimeAire.semilla_con_color(randi(), e.color_visual), ab.forma_nucleo)

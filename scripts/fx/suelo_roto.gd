@@ -40,7 +40,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	SLIME_SPLAT, SLIME_APLASTA, SLIME_MAREA, SLIME_COMBUSTION, SLIME_SALPICA, SLIME_ROCIADA, SLIME_LLAMARADA,
 	SLIME_PRESION, SLIME_PLACAJE, SLIME_EMBATE,
 	BESTIA_POLVO, BESTIA_CHILLIDO, BESTIA_ESTELA, BESTIA_SURCO, BESTIA_PISOTON, BESTIA_SAVIA, BESTIA_RAICES,
-	BESTIA_RAMAZO }
+	BESTIA_RAMAZO,
+	INSECTO_TELARANA }
+# INSECTO_* (los insectoides en el mapa, 29/09): viven en InsectoAire (su InsectoAire.Suelo = tipo - INSECTO_TELARANA).
+# De enemigo, y DETRAS de las BESTIA_*: se miran antes.
 # BESTIA_* (rata, rey rata, jabali y trent en el mapa, 28/09): viven en BestiaAire (su Modo = tipo - BESTIA_POLVO).
 # De enemigo como los SLIME_*, y DETRAS de ellos: se miran antes.
 # SLIME_* (los slimes en el mapa, 28/09): viven en SlimeAire (su Modo = tipo - SLIME_SPLAT). Son de ENEMIGO: el golpe
@@ -112,6 +115,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.INSECTO_TELARANA:
+		return InsectoAire.area(padre, f, t - Tipo.INSECTO_TELARANA, semilla, espera)
 	if t >= Tipo.BESTIA_POLVO:
 		return BestiaAire.area(padre, f, t - Tipo.BESTIA_POLVO, semilla, espera)
 	if t >= Tipo.SLIME_SPLAT:
@@ -158,6 +163,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.INSECTO_TELARANA:
+		return InsectoAire.retraso(t - Tipo.INSECTO_TELARANA, f, p)
 	if t >= Tipo.BESTIA_POLVO:
 		return BestiaAire.retraso(t - Tipo.BESTIA_POLVO, f, p)
 	if t >= Tipo.SLIME_SPLAT:
@@ -195,6 +202,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.INSECTO_TELARANA:
+		return InsectoAire.t_salir(t - Tipo.INSECTO_TELARANA)
 	if t >= Tipo.BESTIA_POLVO:
 		return BestiaAire.t_salir(t - Tipo.BESTIA_POLVO)
 	if t >= Tipo.SLIME_SPLAT:

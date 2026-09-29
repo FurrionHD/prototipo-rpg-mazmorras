@@ -1604,6 +1604,14 @@ func _encarar(e: Combatant, p: Vector2) -> void:
 	_enviar_bichos()
 
 
+# DE DONDE SALE lo que un enemigo lanza a un CIRCULO (la Telaraña vuela desde la araña): el circulo no guarda su origen
+# y por red solo viaja el centro, asi que en su 'ancho' (que el circulo no usa) va lo lejos que esta de el, hacia atras
+# por su 'dir' (como los hechizos, forma_hechizo). Solo para los efectos que lo leen (InsectoAire).
+func desde_quien_lanza(e: Combatant, f) -> void:
+	if f != null and f.tipo == CombatFormas.Tipo.CIRCULO:
+		f.ancho = roundf(pies_de(e).distance_to(f.centro) * 16.0) / 16.0
+
+
 # ------------------------------------------------------------
 #  LA CARGA QUE PERSIGUE (29/09, el Ensarte de la segadora)
 # ------------------------------------------------------------
@@ -1994,9 +2002,14 @@ var _desde_charco: Dictionary = {}   # Combatant -> de donde parte lo que anda (
 func poner_charco(e: Combatant, ab: AbilityData, f) -> void:
 	if _pantalla._espejo or ab == null or ab.charco_turnos <= 0 or f == null:
 		return
-	_charcos[e] = {"f": f, "turnos": ab.charco_turnos, "max": ab.charco_turnos, "ab": ab}
-	_anotar_huella_red(e, CLASE_SAVIA, f, 1.0)
-	_charco_visible("savia_%d" % _cod(e), f, 1.0)
+	# COMO SE VE (la savia, la telaraña) va en la 'apertura' de una copia de la huella: el circulo no la usa, y asi
+	# viaja con ella a los espejos sin tocar el paquete.
+	var fc := CombatFormas.circulo(f.centro, f.radio)
+	fc.dir = f.dir
+	fc.apertura = float(ab.charco_estilo)
+	_charcos[e] = {"f": fc, "turnos": ab.charco_turnos, "max": ab.charco_turnos, "ab": ab}
+	_anotar_huella_red(e, CLASE_SAVIA, fc, 1.0)
+	_charco_visible("savia_%d" % _cod(e), fc, 1.0)
 
 
 # Al empezar el turno de un enemigo: SUS charcos se secan un turno (y los de los que ya cayeron, tambien).
@@ -2067,16 +2080,20 @@ func _charco_visible(clave: String, f, queda: float) -> void:
 		return
 	var n = _charco_vis.get(clave)
 	if n == null or not is_instance_valid(n):
-		n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
+		# La telaraña (charco_estilo 1) o el charco de savia de siempre.
+		if roundi(f.apertura) == 1:
+			n = InsectoAire.red(arena, f, hash(clave), InsectoAire.T_TELA_CAE)
+		else:
+			n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
 		_charco_vis[clave] = n
-	(n as BestiaAire).queda = queda
+	n.set("queda", queda)
 
 
 func _secar_charco_vis(clave: String) -> void:
 	var n = _charco_vis.get(clave)
 	_charco_vis.erase(clave)
 	if n != null and is_instance_valid(n):
-		(n as BestiaAire).secar()
+		n.call("secar")
 
 
 # LAS RAICES QUE ATAN (29/09, decision del usuario): mientras alguien este Enraizado se le ven enroscadas en las
@@ -2665,6 +2682,18 @@ func _on_impacto(ev: Dictionary) -> void:
 				_nacer_cria(va)
 				return
 	var estilo: int = int(ev.get("estilo", 0))
+	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado.
+	if _pantalla.tactico and estilo == CombatFX.Estilo.INSECTO_PONZONA:
+		var vv: Combatant = _de_bloque(ev["bv"])
+		var av: Combatant = _de_bloque(ev["ba"])
+		var arena_v: ArenaCombate = _arena()
+		if vv != null and cuerpo_de(vv) != null and arena_v != null:
+			var desde_v: Vector2 = bulto_de(av).get_center() if av != null and cuerpo_de(av) != null \
+				else bulto_de(vv).get_center() - Vector2(30.0, 0.0)
+			InsectoAire.sobre_cuerpo(arena_v, InsectoAire.Modo.VENENO, desde_v, bulto_de(vv),
+				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+		return
 	if not _pantalla.tactico or estilo not in _SANGRA:
 		return
 	var v: Combatant = _de_bloque(ev["bv"])
@@ -2835,6 +2864,8 @@ const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO
 	CombatFX.Estilo.BESTIA_COLMILLO: BestiaAire.Modo.COLMILLO, CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA,
 	CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE, CombatFX.Estilo.BESTIA_RAMALAZO: BestiaAire.Modo.RAMALAZO,
 	CombatFX.Estilo.BESTIA_PEGOTE: BestiaAire.Modo.PEGOTE}
+const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
+	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2866,6 +2897,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			dib_b = cu_b.get("_muneco") if cu_b.get("_muneco") is Node2D else cu_b.get("_sprite")
 		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo,
 			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, dib_b as CanvasItem)
+		return
+	# LOS INSECTOIDES (InsectoAire, 29/09): los colmillos de la araña, a SU escala, de quien muerde al que recibe.
+	if estilo in _MODO_INSECTO:
+		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
+			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.

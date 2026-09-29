@@ -1344,7 +1344,12 @@ const MOMENTOS_BESTIA := {
 	"trent_savia_corrosiva": [0.1, 0.28, 0.45, 0.9, 1.8],
 	"trent_raices_atenazantes": [0.12, 0.3, 0.5, 0.75, 1.2],
 	"trent_ramazo": [-0.2, -0.05, 0.08, 0.2, 0.42],
+	"arana_mordisco_ponzonoso": [-0.08, 0.0, 0.1, 0.3, 0.55],
+	"arana_telarana": [0.1, 0.25, 0.38, 0.5, 1.4],
 }
+# Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
+const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
+	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1395,9 +1400,11 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		else:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
-		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and ab.suelo_roto < 0:
+		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_INSECTO.has(int(ab.fx_estilo_mapa)) \
+				and ab.suelo_roto < 0:
 			continue   # aun sin efecto propio
 		var modo_b: int = ESTILO_A_BESTIA.get(int(ab.fx_estilo_mapa), -1)
+		var modo_i: int = ESTILO_A_INSECTO.get(int(ab.fx_estilo_mapa), -1)
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1488,6 +1495,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var piezas: Array = []   # {n, t0, sim}
 			var antes: int = get_child_count()
 			if ab.suelo_roto >= 0:
+				# Lo que vuela desde el (la Telaraña): lo lejos que esta, como en el juego (CombatTactico.desde_quien_lanza).
+				if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA and f.tipo == CombatFormas.Tipo.CIRCULO:
+					f.ancho = yo.distance_to(f.centro)
 				SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
 				for i in range(antes, get_child_count()):
 					piezas.append({"n": get_child(i), "t0": 0.0, "sim": false})
@@ -1511,8 +1521,16 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						"sim": false})
 				cajas = []
 			# EL CHARCO que se queda (la Savia): aparece cuando cae el goteron.
-			if ab.charco_turnos > 0:
+			if ab.charco_turnos > 0 and ab.charco_estilo == 1:
+				piezas.append({"n": InsectoAire.red(self, f, semilla, 0.0), "t0": InsectoAire.T_TELA_CAE, "sim": false})
+			elif ab.charco_turnos > 0:
 				piezas.append({"n": BestiaAire.charco(self, f, semilla, 0.0), "t0": BestiaAire.T_SAVIA_CAE, "sim": false})
+			# LAS HEBRAS de la Telaraña: en todos los que pilla, al caer.
+			if modo_i == InsectoAire.Modo.HEBRAS:
+				for i in cajas.size():
+					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), cajas[i], semilla + i, 0.0,
+						1.0, bulto.size.x), "t0": SueloRoto.retraso(f, _pies_caja(cajas[i]), ab.suelo_roto), "sim": false})
+				cajas = []
 			# LAS RAICES QUE ATAN, en cada uno de los que pillan, cuando salen del todo.
 			if ab.suelo_roto == SueloRoto.Tipo.BESTIA_RAICES:
 				for i in cajas.size():
@@ -1527,7 +1545,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 							0.0, 1.0, bulto.size.x), "t0": float(g2) * BestiaAire.T_RAMA_ENTRE, "sim": false})
 				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
-			if modo_b < 0:
+			if modo_b < 0 and modo_i < 0:
 				cajas = []
 			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b in [BestiaAire.Modo.DENTELLADA,
 				BestiaAire.Modo.CORNADA] else (0.12 if modo_b == BestiaAire.Modo.COLMILLO else 0.14))
@@ -1552,6 +1570,14 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					for fg in _figs + presas_extra:
 						if rg.has_point((fg as ColorRect).position + Vector2(7, 13)):
 							fig_g = fg
+				if modo_i >= 0:
+					# Los colmillos de la araña, y el veneno que salta (en el juego, solo si entra).
+					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), rg, semilla + g, 0.14, 1.0,
+						bulto.size.x), "t0": t0, "sim": false})
+					if modo_i == InsectoAire.Modo.PONZONA:
+						piezas.append({"n": InsectoAire.sobre_cuerpo(self, InsectoAire.Modo.VENENO, bulto.get_center(), rg,
+							semilla + g * 3, 0.0, 1.0), "t0": t0, "sim": false})
+					continue
 				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x,
 					fig_g), "t0": t0, "sim": false})
 				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
@@ -1611,6 +1637,33 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		var ruta: String = "%s/%s.png" % [carpeta, nom]
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
+		# LA TELARAÑA TURNO A TURNO (29/09): recien tendida, a 2/3, a 1/3 y secandose.
+		if ab.charco_estilo == 1 and ab.charco_turnos > 0:
+			var f_r = CombatFormas.circulo(Vector2(0, 30), ab.forma_radio)
+			var zoom_r: float = float(LADO) / (2.0 * (ab.forma_radio + 20.0))
+			_cam.zoom = Vector2(zoom_r, zoom_r)
+			_cam.global_position = f_r.centro
+			cuerpo.visible = false
+			var hoja_r := Image.create(LADO * 4, LADO, false, Image.FORMAT_RGBA8)
+			var textos: Array = ["recien tendida", "le quedan 2 turnos", "le queda 1 turno", "se deshace"]
+			var quedas: Array = [1.0, 2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
+			for c2 in 4:
+				var red_n: InsectoAire = InsectoAire.red(self, f_r, 4242, 0.0)
+				red_n.set_process(false)
+				red_n.queda = quedas[c2]
+				red_n._t = 1.0
+				if c2 == 3:
+					red_n._secando = 0.75
+				for hijo in ["_suelo", "_delante", "_brillo"]:
+					var su = red_n.get(hijo)
+					if su is Node2D:
+						(su as Node2D).queue_redraw()
+				await _viñeta(hoja_r, c2, 0, "%s · %s · %s" % [ed.enemy_name, ab.nombre, textos[c2]])
+				red_n.queue_free()
+			cuerpo.visible = true
+			var ruta_r: String = "%s/%s_turnos.png" % [carpeta, nom]
+			hoja_r.save_png(ruta_r)
+			print("[hoja] ", ruta_r)
 	cuerpo.queue_free()
 	await get_tree().process_frame
 

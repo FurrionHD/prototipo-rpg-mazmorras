@@ -31,3 +31,8 @@ forma_radio = 25.0
 forma_rango = 120.0
 charco_turnos = 3
 charco_texto = "la telaraña"
+; EFECTO EN EL MAPA (29/09): el ovillo que vuela desde la araña y se abre, la red tendida (InsectoAire.red) y las
+; hebras en las piernas de los que pilla.
+suelo_roto = 78
+fx_estilo_mapa = 146
+charco_estilo = 1

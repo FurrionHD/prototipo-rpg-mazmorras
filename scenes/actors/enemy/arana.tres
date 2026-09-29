@@ -52,3 +52,5 @@ habilidades = [ExtResource("3_fre"), ExtResource("4_yug")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): como el rey rata.
 alcance = 20.0
+; EL BASICO EN EL MAPA (29/09): los queliceros (InsectoAire.QUELICEROS).
+fx_basico_mapa = 144
