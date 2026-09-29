@@ -170,6 +170,7 @@ static func generar(color: Color = Color(0.30, 0.40, 0.28), escala: float = 1.0)
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_basico(anims, esc)
 	_montar_caparazon(anims, esc)
 	_montar_rodar(anims, esc)
 	_montar_encaje(anims, esc)
@@ -214,6 +215,22 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 			"estira": 1.0, "fase": 0.0, "paso": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0, "tumba": 0.0}
 	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
+
+
+# EL BASICO DEL MAPA (29/09): EL PALAZO. Se agacha un pelin echandose atras y empuja de golpe con la pala, corto y
+# seco, y vuelve. No es la embestida (que arrastra todo su peso un buen trecho): es un empujon en el sitio. El efecto
+# (InsectoAire PALA) cae sobre la victima justo al empujar.
+# CORTO A PROPOSITO: el gesto del basico dura lo que va de su adelanto (CombatFX.T_ANIM_ADELANTO, 0,16 s) al golpe mas
+# un pelin, y la animacion se ajusta a eso. 6 marcos a 16 fps y el empujon en la mitad (0,5x5/16 = 0,16 s): casi no
+# hay que acelerarla y empuja cuando cae el golpe.
+static func _montar_basico(anims: Array, esc: float) -> void:
+	var avance_keys := [[0.0, 0.0], [0.3, -1.6], [0.5, 4.6], [0.7, 3.6], [1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.0], [0.3, 0.7], [0.5, 0.15], [0.7, 0.25], [1.0, 0.0]]
+	var estira_keys := [[0.0, 1.0], [0.3, 0.96], [0.5, 1.08], [0.7, 1.04], [1.0, 1.0]]
+	var pose := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, avance_keys), "estira": SpriteLienzo.tramos(t, estira_keys),
+			"fase": 0.0, "paso": 0.0, "agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0, "tumba": 0.0}
+	_montar_animacion(anims, esc, "basico", false, 16.0, pose, true, 8, 6)
 
 
 # EL CAPARAZON: mete las patas y la cabeza y se aplasta contra el suelo. Una chapa, y nada mas.
@@ -395,7 +412,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA direccion, al reves que 'muerte' (ocho fotogramas en
@@ -425,7 +443,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"estira": 1.0, "fase": 0.0, "paso": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0, "tumba": 0.0}
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09), como la araña: en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,
