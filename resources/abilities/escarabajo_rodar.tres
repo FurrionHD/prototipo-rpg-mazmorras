@@ -29,3 +29,10 @@ forma_radio = 100.0
 forma_ancho = 24.0
 carga = true
 atraviesa = true
+; EN EL MAPA (29/09): se hace BOLA mientras carga (y se mece cogiendo impulso), rueda de verdad por la linea (la pelea
+; lo lleva en InsectoAire.T_RODADA) y deja detras la banda de tierra aplastada (INSECTO_RODADA); a cada uno que
+; atraviesa le pasa la bola por encima cuando llega (INSECTO_ARROLLA). Aturdido cargando, se desenrosca.
+fx_anim_carga = &"hacerse_bola>bola"
+fx_anim_interrumpe = &"desenroscarse"
+fx_estilo_mapa = 148
+suelo_roto = 79

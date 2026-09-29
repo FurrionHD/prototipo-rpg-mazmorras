@@ -386,7 +386,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		BESTIA_RAMALAZO = 142, BESTIA_PEGOTE = 143,
 		# LOS INSECTOIDES en el mapa (29/09, InsectoAire): los queliceros de la araña (basico y Mordisco ponzoñoso) y las
 		# hebras de la Telaraña en los que pilla. El veneno que entra lo pone CombatTactico._on_impacto.
-		INSECTO_QUELICEROS = 144, INSECTO_PONZONA = 145, INSECTO_HEBRAS = 146 }
+		INSECTO_QUELICEROS = 144, INSECTO_PONZONA = 145, INSECTO_HEBRAS = 146,
+		# Y los del escarabajo (29/09): el palazo del basico, la bola que pasa por encima de cada uno en la Embestida
+		# rodante y el reflejo del Caparazon sobre si mismo.
+		INSECTO_PALA = 147, INSECTO_ARROLLA = 148, INSECTO_CAPARAZON = 149 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -421,6 +424,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.BESTIA_RAMALAZO, Estilo.BESTIA_PEGOTE,
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
+	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -579,6 +583,8 @@ const T_VUELO := {
 	Estilo.BESTIA_RAMALAZO: 0.3, Estilo.BESTIA_PEGOTE: 0.02,
 	# Los colmillos de la araña llegan abiertos y se clavan en el golpe; las hebras salen EN el golpe (al caer la red).
 	Estilo.INSECTO_QUELICEROS: 0.14, Estilo.INSECTO_PONZONA: 0.14, Estilo.INSECTO_HEBRAS: 0.02,
+	# La pala llega y se aplasta en el golpe; la bola y el reflejo salen EN el golpe (la bola, cuando le pasa por encima).
+	Estilo.INSECTO_PALA: 0.12, Estilo.INSECTO_ARROLLA: 0.02, Estilo.INSECTO_CAPARAZON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1833,6 +1839,9 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.TAJO_DEVASTADOR: "tajo_2m", Estilo.TAJO_VERDUGO: "tajo_2m", Estilo.MARTILLO_GUERRA: "tajo_2m",
 	Estilo.MOLINETE: "molinete", Estilo.SEGAR: "barrido_2m", Estilo.GRITO_GUERRA: "grito",
 	Estilo.TEMBLOR_SUELO: "clavar",
+	# El Caparazon del escarabajo (29/09): no pega, y cerrarse es todo lo que hace (un buff sobre si mismo no tiene
+	# gesto de atacar: sin esto se quedaba quieto mientras le salia el reflejo).
+	Estilo.INSECTO_CAPARAZON: "caparazon",
 	# Los golpes de siempre del martillo y el mandoble, con nombre para que se sepa cuando tocan (abajo).
 	Estilo.MANDOBLE_TAJO: "golpe_2m", Estilo.MARTILLO_GOLPE: "golpe_2m", Estilo.GOLPE_SISMICO: "golpe_2m",
 	Estilo.ONDA_EXPANSIVA: "golpe_2m", Estilo.ROMPECORAZAS: "golpe_2m",
@@ -1890,6 +1899,10 @@ const IMPACTO_ANIM_MAPA := {
 	"frenesi": 0.10, "dentellada": 0.27,
 	# El jabali (29/09): el Pisoton estampa la pezuña a 0,571x7/12.
 	"pisoton": 0.33,
+	# El escarabajo (29/09): ya es BOLA cuando suelta la Embestida rodante (su pose de carga), asi que rueda desde el
+	# primer marco, a la vez que sale el rastro y que la pelea lo mueve por la linea. El Caparazon se aplasta del todo
+	# a 0,571x7/9.
+	"rodar": 0.0, "caparazon": 0.44,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
@@ -2416,7 +2429,9 @@ const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.E
 	# EL MURO NO ESTA: va sobre el PROTEGIDO (decision del usuario del 15/09/2026). Estuvo aqui,
 	# pintado sobre quien lo lanza, para que no se leyera como que el protegido se tapaba solo; el
 	# usuario lo quiere al reves: que el escudo aparezca encima de a quien estas defendiendo.
-	Estilo.POSTURA_RODELA]
+	Estilo.POSTURA_RODELA,
+	# EL CAPARAZON del escarabajo en el mapa (29/09): el reflejo va sobre el que se cierra.
+	Estilo.INSECTO_CAPARAZON]
 const _ESTILOS_DE_GRUPO := [Estilo.BARRIDO, Estilo.OLA_IGNEA, Estilo.SPLAT, Estilo.VORTICE, Estilo.EXPLOSION,
 	Estilo.ARRASTRE, Estilo.CHILLIDO, Estilo.PISOTON, Estilo.RAICES, Estilo.RODADA,
 	Estilo.CARGA,

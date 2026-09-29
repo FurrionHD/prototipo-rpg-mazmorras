@@ -27,3 +27,6 @@ fx_anim = &"caparazon"
 ; escarabajo encima del escarabajo: con el bicho cerrandose de verdad, sobra.
 fx_estilo = 0
 cooldown = 5
+; EN EL MAPA (29/09): se cierra (su 'caparazon', en 8 direcciones) y al aplastarse del todo le barre el lomo un
+; reflejo de hierro y levanta un anillo de polvo (INSECTO_CAPARAZON, sobre si mismo). En la fila sigue sin dibujo.
+fx_estilo_mapa = 149

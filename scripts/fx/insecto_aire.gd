@@ -16,16 +16,26 @@
 #  SE QUEDA:
 #    RED         la telaraña tendida en el suelo los turnos de la araña: radios y espiral, rocio; cada turno mas rota
 #                y deshilachada, y encoge (como el charco de savia, CombatTactico._charco_visible).
+#  EL ESCARABAJO (29/09): el gesto lo hace SU CUERPO (EscarabajoSprites: se hace bola y rueda de verdad, se cierra
+#  en el Caparazon) y aqui solo va lo que cae sobre los demas:
+#    PALA        el basico: un golpe CHATO y ancho (la pala empuja, no corta): una media luna gruesa y aplastada
+#                cruzada a la linea del golpe que se hunde en el cuerpo, destello de metal y chispas.
+#    ARROLLA     la Embestida rodante en CADA uno que atraviesa, cuando la bola le pasa por encima (el suelo lo
+#                retrasa: ver RODADA): el frente redondo de la bola que le cruza, destello y chispas a los lados.
+#    CAPARAZON   sobre el mismo, al cerrarse del todo: un reflejo que barre el lomo de punta a punta y un anillo de
+#                polvo a ras del suelo.
+#    RODADA      (suelo) la banda de tierra aplastada que deja la bola detras, con su labio a los lados, y el polvo
+#                que se levanta a su paso.
 #  LAS HEBRAS NO SON LINEAS (lo aprobo el usuario, 29/09): cada una es un hilo relleno que se afila, mas grueso junto a
 #  los nudos, con un halo suave detras. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name InsectoAire
 
-enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED }
+enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
-enum Suelo { TELARANA }
-const _MODO_DE_SUELO := [Modo.TELARANA]
+enum Suelo { TELARANA, RODADA }
+const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA]
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -37,6 +47,16 @@ const T_VENENO := 0.8
 const T_HEBRAS := 1.4
 const ABD_ATRAS := 7.0            # la punta del abdomen levantado de la araña, desde sus pies (px)
 const ABD_ALTO := 20.0
+# LO QUE TARDA LA BOLA EN CRUZAR SU LINEA: los marcos que rueda a su ritmo (EscarabajoSprites.RODAR_MARCOS /
+# RODAR_FPS). Con ello va el cuerpo por la linea (CombatTactico.mover_enemigo) y le llega el golpe a cada uno.
+const T_RODADA := 8.0 / 18.0
+const T_PALA := 0.2               # lo que dura el aplaston del basico tras el golpe
+const T_ARROLLA := 0.4
+const T_CAPARAZON := 0.7
+const HIERRO := Color(0.3, 0.42, 0.34)
+const HIERRO_FILO := Color(0.9, 0.97, 0.95)
+const CHISPA := Color(1.0, 0.86, 0.5)
+const TIERRA := Color(0.2, 0.16, 0.12)
 const QUITINA := Color(0.12, 0.08, 0.17)
 const QUITINA_CLARA := Color(0.6, 0.5, 0.78)
 const SEDA := Color(0.95, 0.95, 0.99)
@@ -70,6 +90,7 @@ var _rocio: Array = []                # RED: {i, j, fase}
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
+var _peso: float = 1.0                # ARROLLA: el primero que atraviesa, entero; los de detras, menos
 
 
 # ------------------------------------------------------------
@@ -92,6 +113,26 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 	e._r = maxf(f.radio, 8.0)
 	e._dir = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	e._lejos = f.ancho if f.ancho > 8.0 else 60.0
+	if e.modo == Modo.RODADA:
+		e._o = SueloRoto.origen_de(f)
+		e._largo = maxf(f.largo, 4.0)
+		e._ancho = maxf(f.ancho, 8.0)
+		# El borde de la banda, un poco irregular: un surco perfecto parece pintado con regla.
+		var n: int = int(clampf(e._largo / 4.0, 8.0, 40.0))
+		for i in n + 1:
+			e._radios.append({"u": float(i) / float(n), "i": e._rng.randf_range(-0.08, 0.08),
+				"d": e._rng.randf_range(-0.08, 0.08)})
+		# Las bocanadas de polvo por la linea, que se levantan al paso de la bola, a los dos lados.
+		for i in int(clampf(e._largo / 6.0, 6.0, 18.0)):
+			e._piezas.append({"u": e._rng.randf_range(0.04, 0.98), "lado": -1.0 if i % 2 == 0 else 1.0,
+				"sube": e._rng.randf_range(3.0, 7.0), "tam": e._rng.randf_range(0.3, 0.5), "sale": e._rng.randf_range(0.2, 0.6)})
+		# Y unos terrones que salen despedidos a los lados.
+		for i in int(clampf(e._largo / 12.0, 4.0, 9.0)):
+			e._anillos.append({"u": e._rng.randf_range(0.05, 0.95), "lado": -1.0 if i % 2 == 0 else 1.0,
+				"v": e._rng.randf_range(12.0, 24.0), "sube": e._rng.randf_range(8.0, 15.0), "tam": e._rng.randf_range(1.2, 2.0)})
+		e._suelo = e._capa(SueloRoto.Z_SUELO, false)
+		e._delante = e._capa(Z_ENCIMA, false)
+		return e
 	# Las pelusas de seda que saltan al reventar el ovillo.
 	for i in 10:
 		e._piezas.append({"a": TAU * (float(i) + e._rng.randf_range(0.0, 0.8)) / 10.0,
@@ -101,12 +142,17 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 	return e
 
 
-static func retraso(_s: int, f: CombatFormas.Forma, _p: Vector2) -> float:
-	return T_TELA_CAE if f != null else 0.0
-
-
-static func t_salir(_s: int) -> float:
+static func retraso(s: int, f: CombatFormas.Forma, p: Vector2) -> float:
+	if f == null:
+		return 0.0
+	# LA BOLA le llega a cada uno cuando pasa por donde esta.
+	if s == Suelo.RODADA:
+		return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_RODADA
 	return T_TELA_CAE
+
+
+static func t_salir(s: int) -> float:
+	return T_RODADA if s == Suelo.RODADA else T_TELA_CAE
 
 
 # ------------------------------------------------------------
@@ -114,8 +160,9 @@ static func t_salir(_s: int) -> float:
 # ------------------------------------------------------------
 # 'desde' = de donde viene (quien muerde), 'caja' = el cuerpo que lo recibe, 'espera' = lo que falta para el golpe
 # (los colmillos se clavan justo en el), 'boca' = el ancho del dibujo de quien muerde (van a SU escala).
+# 'peso' (ARROLLA): la fraccion del golpe que se lleva (CombatFX: 1 el primero, menos los de detras).
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float,
-		ritmo: float, boca: float = -1.0) -> InsectoAire:
+		ritmo: float, boca: float = -1.0, peso: float = 1.0) -> InsectoAire:
 	if padre == null:
 		return null
 	var e := InsectoAire.new()
@@ -144,6 +191,37 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 			for i in 8:
 				e._piezas.append({"d": eje.rotated(e._rng.randf_range(-1.3, 1.3)), "v": e._rng.randf_range(10.0, 20.0),
 					"sube": e._rng.randf_range(5.0, 11.0), "tam": e._rng.randf_range(0.9, 1.6)})
+		Modo.PALA:
+			# La pala llega desde el escarabajo y se aplasta EN el golpe. A su escala (la pala es suya).
+			e._viaje = clampf(espera, 0.06, 0.14)
+			e._t = -e._viaje
+			e._eje = eje.rotated(e._rng.randf_range(-0.22, 0.22))
+			e._lado = e._eje.orthogonal()
+			e._tam = maxf((boca if boca > 0.0 else e._ancho) * 0.36, 6.0) * e._rng.randf_range(0.92, 1.08)
+			# Las chispas saltan hacia donde empuja, abiertas: el hierro que rasca.
+			for i in 3:
+				e._piezas.append({"d": e._eje.rotated(e._rng.randf_range(-1.1, 1.1)), "v": e._rng.randf_range(10.0, 18.0),
+					"t0": e._rng.randf_range(0.0, 0.04)})
+		Modo.ARROLLA:
+			# Sale EN el golpe: es la bola que ya le esta pasando por encima.
+			e._t = -maxf(espera, 0.0)
+			e._peso = clampf(peso, 0.4, 1.0)
+			e._eje = eje
+			e._lado = eje.orthogonal()
+			e._tam = maxf((boca if boca > 0.0 else e._ancho) * 0.34, 5.0) * lerpf(0.7, 1.0, e._peso)
+			# Chispas A LOS LADOS: la bola pasa por encima y sigue, no rebota. Un poco hacia donde va.
+			for i in int(round(lerpf(4.0, 7.0, e._peso))):
+				var s: float = -1.0 if i % 2 == 0 else 1.0
+				e._piezas.append({"d": (e._lado * s).rotated(-s * e._rng.randf_range(0.15, 0.7)),
+					"v": e._rng.randf_range(14.0, 26.0) * lerpf(0.7, 1.0, e._peso), "t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.CAPARAZON:
+			# Sobre SU cuerpo: la caja es la suya. Sale al cerrarse del todo (el golpe).
+			e._t = -maxf(espera, 0.0)
+			e._hasta = caja.get_center()
+			e._tam = e._rng.randf_range(-0.12, 0.12)   # lo que se ladea el reflejo
+			for i in 12:
+				e._piezas.append({"a": TAU * (float(i) + e._rng.randf_range(0.0, 0.7)) / 12.0,
+					"u": e._rng.randf_range(0.85, 1.1), "sube": e._rng.randf_range(1.5, 4.0), "tam": e._rng.randf_range(0.16, 0.26)})
 		Modo.HEBRAS:
 			e._t = -maxf(espera, 0.0)
 			e._hasta = Vector2(caja.get_center().x, caja.end.y)   # los pies
@@ -209,6 +287,10 @@ func duracion() -> float:
 		Modo.VENENO: return T_VENENO
 		Modo.HEBRAS: return T_HEBRAS
 		Modo.RED: return INF if _secando < 0.0 else _secando + T_SECA
+		Modo.PALA: return T_PALA + 0.25
+		Modo.ARROLLA: return T_ARROLLA
+		Modo.CAPARAZON: return T_CAPARAZON
+		Modo.RODADA: return T_RODADA + 1.4
 	return T_CLAVADO + T_IRSE
 
 
@@ -242,6 +324,10 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.VENENO: _veneno(capa)
 		Modo.HEBRAS: _hebras(capa)
 		Modo.RED: _red(capa)
+		Modo.PALA: _pala(capa)
+		Modo.ARROLLA: _arrolla(capa)
+		Modo.CAPARAZON: _caparazon(capa)
+		Modo.RODADA: _rodada(capa)
 
 
 # ------------------------------------------------------------
@@ -477,3 +563,202 @@ func _red(capa: Node2D) -> void:
 		var brilla: float = 0.55 + 0.45 * sin(_t * 2.6 + float(d["fase"]))
 		capa.draw_circle(p, 1.1, Color(0.75, 0.85, 0.95, alfa))
 		BestiaAire._bola(capa, p, 2.6, Color(1.0, 1.0, 1.0, 0.45 * alfa * brilla))
+
+
+# ------------------------------------------------------------
+#  EL ESCARABAJO
+# ------------------------------------------------------------
+# EL PALAZO DEL BASICO: la pala empuja, no corta. Una media luna MUY abierta (mucho radio, poco angulo) combada hacia
+# la victima y cruzada a la linea del golpe; llega desde el escarabajo, se aplasta contra el cuerpo (se ensancha y
+# engorda) y se apaga. Con el destello de metal en el golpe y tres chispas hacia donde empuja.
+func _pala(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.12:
+			BarridoAire.destello(capa, c + _eje * _tam * 0.1, _tam * 1.0, Color(HIERRO_FILO, 0.85 * (1.0 - _t / 0.12)),
+				_eje.angle() + PI * 0.25)
+		return
+	if capa != _delante:
+		return
+	var llega: float
+	var alfa: float
+	var aplasta: float = 0.0
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		llega = u * u
+		alfa = clampf(u * 2.5, 0.0, 1.0)
+	else:
+		llega = 1.0
+		aplasta = clampf(_t / T_PALA, 0.0, 1.0)
+		alfa = 1.0 - smoothstep(0.3, 1.0, aplasta)
+	var r: float = _tam * 1.7
+	var frente: Vector2 = c - _eje * _tam * lerpf(1.3, 0.0, llega) + _eje * _tam * 0.25 * aplasta
+	var abre: float = 0.6 + 0.14 * aplasta
+	# GORDA: con medio _tam de grueso salia una raya (el relleno se difumina hacia dentro). Es una PLACA que aplasta.
+	BestiaAire._media_luna(capa, frente - _eje * r, _eje.angle() - abre, _eje.angle() + abre, r,
+		_tam * lerpf(1.1, 1.5, aplasta), HIERRO_FILO, HIERRO.lightened(0.35), alfa, true)
+	if _t >= 0.0:
+		_chispas(capa, c, 0.22, 0.3)
+
+
+# LAS CHISPAS: cometas cortas con la cabeza llena que salen de 'c' por su 'd' y caen un poco. 'dura' = lo que vuela
+# cada una; 'desde' = de a que fraccion de _tam arrancan (del borde del golpe, no del centro).
+func _chispas(capa: Node2D, c: Vector2, dura: float, desde: float) -> void:
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > dura:
+			continue
+		var k: float = tg / dura
+		var d: Vector2 = g["d"]
+		var a0: Vector2 = c + d * _tam * desde
+		var cabeza: Vector2 = a0 + d * float(g["v"]) * sqrt(k) + Vector2(0.0, 6.0 * k * k)
+		var cola: Vector2 = a0 + d * float(g["v"]) * sqrt(maxf(k - 0.35, 0.0))
+		BarridoAire.cometa(capa, cola, cabeza, maxf(1.4, _tam * 0.16), Color(CHISPA, 1.0 - k * k))
+
+
+# LA BOLA QUE LE PASA POR ENCIMA (Embestida rodante), en cada uno que atraviesa: el FRENTE REDONDO de la bola (una
+# media luna del radio de la bola, combada hacia donde va) que le cruza de lado a lado, un destello, chispas A LOS
+# LADOS (la bola sigue, no rebota) y polvo que sale de sus pies. El primero, entero; los de detras, mas pequeño.
+func _arrolla(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		if _t < 0.14:
+			BarridoAire.destello(capa, c, _tam * 1.4, Color(1.0, 0.97, 0.9, 0.9 * (1.0 - _t / 0.14)), _eje.angle())
+		return
+	if capa != _delante:
+		return
+	var k: float = clampf(_t / 0.16, 0.0, 1.0)
+	var r: float = _tam * 1.05
+	var o: Vector2 = c + _eje * _tam * lerpf(-0.9, 0.9, k) - _eje * r * 0.35
+	BestiaAire._media_luna(capa, o, _eje.angle() - 1.25, _eje.angle() + 1.25, r, r * 0.5, HIERRO_FILO, HIERRO,
+		0.95 * (1.0 - k * k), true)
+	# El polvo que le sale de los pies, a los dos lados.
+	var kp: float = clampf(_t / T_ARROLLA, 0.0, 1.0)
+	var pies: Vector2 = c + Vector2(0.0, _largo * 0.45)
+	for s in [-1.0, 1.0]:
+		var p: Vector2 = pies + _lado * s * _ancho * (0.3 + 0.7 * kp) - Vector2(0.0, 3.0 * kp)
+		BestiaAire._bola(capa, p, _ancho * 0.28 * (0.6 + 0.8 * kp), Color(BestiaAire.POLVO, 0.35 * (1.0 - kp)))
+		BestiaAire._bola(capa, p + Vector2(-1.0, -1.5), _ancho * 0.16 * (0.6 + 0.8 * kp),
+			Color(BestiaAire.POLVO_CLARO, 0.4 * (1.0 - kp)))
+	_chispas(capa, c, 0.3, 0.4)
+
+
+# EL CAPARAZON, sobre el mismo al cerrarse del todo: un REFLEJO estrecho y ladeado que barre el lomo de punta a punta
+# (el "clanc" del hierro; hecho de brillos blandos, no de una raya) con una estrellita arriba al pasar por el centro,
+# y un anillo de polvo bajo a ras del suelo, del golpe de aplastarse. Solo la mitad de delante: la de detras la
+# taparia el.
+func _caparazon(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var w: float = _ancho * 0.5
+	var h: float = _largo * 0.5
+	if capa == _delante:
+		var kp: float = clampf(_t / 0.5, 0.0, 1.0)
+		if kp >= 1.0:
+			return
+		var pies: Vector2 = _hasta + Vector2(0.0, h * 0.8)
+		for g in _piezas:
+			var a: float = float(g["a"])
+			if sin(a) < -0.1:
+				continue
+			var rad: float = w * float(g["u"]) * (0.75 + 0.55 * (1.0 - pow(1.0 - kp, 2.0)))
+			var p: Vector2 = pies + Vector2(cos(a), sin(a) * 0.45) * rad - Vector2(0.0, float(g["sube"]) * kp)
+			var rr: float = w * float(g["tam"]) * (0.6 + 0.8 * kp)
+			BestiaAire._bola(capa, p, rr * 1.2, Color(BestiaAire.POLVO, 0.3 * (1.0 - kp)))
+			BestiaAire._bola(capa, p + Vector2(-rr * 0.2, -rr * 0.25), rr * 0.75, Color(BestiaAire.POLVO_CLARO, 0.36 * (1.0 - kp)))
+		return
+	if capa != _brillo:
+		return
+	# EL LOMO: la mitad de arriba de su caja (esta aplastado: lo de abajo es el faldon).
+	var dc: Vector2 = _hasta + Vector2(0.0, -h * 0.15)
+	var rx: float = w * 0.8
+	var ry: float = h * 0.55
+	var ks: float = clampf(_t / 0.26, 0.0, 1.0)
+	if ks < 1.0:
+		var x: float = lerpf(-1.15, 1.15, ks * ks * (3.0 - 2.0 * ks))
+		for j in 11:
+			var yy: float = lerpf(-1.0, 1.0, float(j) / 10.0)
+			var px: float = x + yy * (0.35 + _tam)
+			var dentro: float = 1.0 - (px * px + yy * yy)
+			if dentro <= 0.0:
+				continue
+			BestiaAire._bola(capa, dc + Vector2(px * rx, yy * ry), rx * 0.2, Color(HIERRO_FILO, 0.6 * minf(dentro * 2.0, 1.0)))
+	var te: float = _t - 0.1
+	if te >= 0.0 and te < 0.16:
+		BarridoAire.destello(capa, dc + Vector2(0.0, -ry * 0.4), w * 0.55, Color(HIERRO_FILO, 0.9 * (1.0 - te / 0.16)), 0.3)
+
+
+# LO QUE DEJA LA BOLA EN EL SUELO: una BANDA de tierra aplastada del ancho de la bola, de donde sale a por donde va,
+# con el borde un poco irregular; dentro, mas oscura por el centro (hundida); fuera, un LABIO claro de la tierra que
+# aparta (como el borde del pisoton: sin el se leeria como una sombra). Polvo que se levanta a los lados a su paso y
+# terrones despedidos. Se va apagando al acabar.
+func _rodada(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var lat: Vector2 = _dir.orthogonal()
+	var va: float = clampf(_t / T_RODADA, 0.0, 1.0)
+	var seca: float = 1.0 - smoothstep(T_RODADA + 0.5, T_RODADA + 1.4, _t)
+	var semi: float = _ancho * 0.36
+	if capa == _suelo:
+		var fuera_i := PackedVector2Array()
+		var fuera_d := PackedVector2Array()
+		var borde_i := PackedVector2Array()
+		var borde_d := PackedVector2Array()
+		var medio_i := PackedVector2Array()
+		var medio_d := PackedVector2Array()
+		for rd in _radios:
+			var u: float = minf(float(rd["u"]), va)
+			var p: Vector2 = _o + _dir * _largo * u
+			var si: float = semi * (1.0 + float(rd["i"]))
+			var sd: float = semi * (1.0 + float(rd["d"]))
+			fuera_i.append(p - lat * (si + 2.4))
+			fuera_d.append(p + lat * (sd + 2.4))
+			borde_i.append(p - lat * si)
+			borde_d.append(p + lat * sd)
+			medio_i.append(p - lat * si * 0.5)
+			medio_d.append(p + lat * sd * 0.5)
+			if float(rd["u"]) >= va:
+				break
+		if borde_i.size() < 2:
+			return
+		# SIN BORDES DUROS (efectos sin lineas): la banda por capas, cada una mas estrecha y mas oscura, y lo de fuera
+		# apenas se nota. El labio de tierra apartada son TERRONES blandos a los lados, no una tira.
+		BestiaAire._tira(capa, fuera_i, fuera_d, Color(TIERRA, 0.12 * seca))
+		BestiaAire._tira(capa, borde_i, borde_d, Color(TIERRA, 0.16 * seca))
+		BestiaAire._tira(capa, medio_i, medio_d, Color(TIERRA, 0.18 * seca))
+		# Desordenados (sitio, tamaño, y alguno que falta): en fila y a compas se leian como una LINEA DE PUNTOS.
+		for k in borde_i.size():
+			var rd2: Dictionary = _radios[k]
+			var j_i: float = float(rd2["i"]) * 12.0
+			var j_d: float = float(rd2["d"]) * 12.0
+			if j_i > -0.4:
+				BestiaAire._bola(capa, fuera_i[k].lerp(borde_i[k], 0.3 + 0.3 * j_i) + _dir * j_d * 1.5, 2.4 + j_d * 1.2,
+					Color(0.62, 0.54, 0.44, 0.3 * seca))
+			if j_d > -0.4:
+				BestiaAire._bola(capa, fuera_d[k].lerp(borde_d[k], 0.3 + 0.3 * j_d) - _dir * j_i * 1.5, 2.4 + j_i * 1.2,
+					Color(0.62, 0.54, 0.44, 0.3 * seca))
+		return
+	if capa != _delante:
+		return
+	for g in _piezas:
+		var tp: float = _t - float(g["u"]) * T_RODADA
+		if tp < 0.0 or tp > 0.7:
+			continue
+		var kv: float = tp / 0.7
+		var lado: float = float(g["lado"])
+		var base: Vector2 = _o + _dir * _largo * float(g["u"]) + lat * semi * lado
+		var p2: Vector2 = base + lat * lado * float(g["sale"]) * semi * kv - Vector2(0.0, float(g["sube"]) * kv)
+		var rr: float = _ancho * float(g["tam"]) * (0.5 + 0.9 * kv)
+		BestiaAire._bola(capa, p2, rr * 1.2, Color(BestiaAire.POLVO, 0.3 * (1.0 - kv)))
+		BestiaAire._bola(capa, p2 + Vector2(-rr * 0.2, -rr * 0.25), rr * 0.75, Color(BestiaAire.POLVO_CLARO, 0.36 * (1.0 - kv)))
+	for pd in _anillos:
+		var tt: float = _t - float(pd["u"]) * T_RODADA
+		if tt < 0.0 or tt > 0.45:
+			continue
+		var kt: float = tt / 0.45
+		var b2: Vector2 = _o + _dir * _largo * float(pd["u"]) + lat * semi * float(pd["lado"])
+		var p3: Vector2 = b2 + lat * float(pd["lado"]) * float(pd["v"]) * kt - Vector2(0.0, float(pd["sube"]) * 4.0 * kt * (1.0 - kt) * K)
+		var tam: float = float(pd["tam"])
+		capa.draw_rect(Rect2(p3 - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(BestiaAire.TIERRA, 1.0 - kt * kt * kt))

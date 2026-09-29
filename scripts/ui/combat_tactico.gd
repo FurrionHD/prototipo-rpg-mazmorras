@@ -1562,9 +1562,12 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		for d in lista:
 			if v == null or pies_de(d["c"]).distance_squared_to(f.origen) < pies_de(v).distance_squared_to(f.origen):
 				v = d["c"]
-		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie).
+		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie), y a lo que tarda la
+		# bola en cruzar (a cada uno le llega el golpe cuando le pasa por encima: InsectoAire.retraso).
 		if v != null and not ab.atraviesa:
 			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + radio_pisa(e))
+		if ab.atraviesa:
+			dur = InsectoAire.T_RODADA
 		hasta = _sitio_libre_hacia(e, fin)
 	else:
 		return
@@ -2865,7 +2868,9 @@ const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO
 	CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE, CombatFX.Estilo.BESTIA_RAMALAZO: BestiaAire.Modo.RAMALAZO,
 	CombatFX.Estilo.BESTIA_PEGOTE: BestiaAire.Modo.PEGOTE}
 const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
-	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS}
+	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
+	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
+	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2903,7 +2908,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
-			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)))
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.
@@ -3614,6 +3619,10 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 # demas salen detras a su ritmo. 'sostener' = la ultima se queda en bucle hasta que otro gesto la pise (la
 # pose de CARGA: ver _tick_cargas_bicho). 'dur' <= 0 = a su ritmo.
 var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener}
+# LAS QUE NO SE AJUSTAN AL GOLPE: el gesto dura lo que va del arranque al ultimo golpe mas un pelin, y estas tienen su
+# propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
+# camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
+const _GESTO_A_SU_RITMO := ["rodar", "caparazon"]
 
 func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false,
 		sostener: bool = false) -> void:
@@ -3626,6 +3635,9 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	# Sin animacion pedida (el ataque basico): la 'basico' del bicho si la tiene (29/09, el cabezazo de la rata);
 	# si no, _poner_anim_bicho cae a su embestida de siempre.
 	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "basico")
+	# Las que van A SU RITMO digan lo que digan los golpes (_GESTO_A_SU_RITMO).
+	if base in _GESTO_A_SU_RITMO:
+		dur = -1.0
 	var natural: float = _poner_anim_bicho(cuerpo, base, dur, not encaje)
 	if natural < 0.0:
 		return

@@ -1346,10 +1346,16 @@ const MOMENTOS_BESTIA := {
 	"trent_ramazo": [-0.2, -0.05, 0.08, 0.2, 0.42],
 	"arana_mordisco_ponzonoso": [-0.08, 0.0, 0.1, 0.3, 0.55],
 	"arana_telarana": [0.1, 0.25, 0.38, 0.5, 1.4],
+	# El escarabajo (29/09): la bola cruzando la linea (llega al final en InsectoAire.T_RODADA) y desenroscandose; el
+	# Caparazon desde que empieza a cerrarse (-0,44) hasta el reflejo y el polvo.
+	"escarabajo_rodar": [0.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.7, 1.2],
+	"escarabajo_caparazon": [-0.44, -0.2, 0.0, 0.08, 0.16, 0.3, 0.6],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
-	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS}
+	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
+	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
+	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1370,7 +1376,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	cuerpo.z_as_relative = false
 	add_child(cuerpo)
 	var spr := AnimatedSprite2D.new()
-	spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5)
+	spr.sprite_frames = SpritesEnemigo._generador(ed).generar_de(ed, 0.5)   # GENERADO, no el horneado: salen las animaciones nuevas antes de hornear
 	spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	cuerpo.add_child(spr)
@@ -1415,6 +1421,15 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		# El ramalazo del trent brota antes: se ve crecer, caer y hundirse.
 		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.BESTIA_RAMALAZO:
 			tiempos = [-0.24, -0.1, 0.0, 0.15, 0.32]
+		# El palazo del escarabajo: se ve llegar la pala, aplastarse y saltar las chispas.
+		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.INSECTO_PALA:
+			tiempos = [-0.08, 0.0, 0.05, 0.12, 0.25]
+		# LO QUE HACE SU CUERPO (29/09, el escarabajo: "la embestida es mas visual del sprite que de efectos"): la
+		# animacion de la habilidad, en el fotograma que toca en cada momento (arranca IMPACTO_ANIM_MAPA antes del
+		# golpe, como en el juego). Apuntando, la ultima de su pose de carga. Solo si el bicho la tiene.
+		var anim_hab: String = String(ab.fx_anim).split(">")[0] if ab.fx_anim != &"" else ""
+		var partes_carga: PackedStringArray = String(ab.fx_anim_carga).split(">", false)
+		var anim_carga: String = partes_carga[partes_carga.size() - 1] if not partes_carga.is_empty() else ""
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, yo + Vector2(70, 0))
 		var medida: float = maxf(maxf(f0.radio, f0.largo), 40.0)
 		if int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
@@ -1431,7 +1446,12 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + dvec * 70.0
-			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+			var d8: int = SpriteLienzo.dir8(dvec)
+			spr.animation = StringName("idle_%d" % d8)
+			spr.frame = 0
+			if anim_carga != "" and spr.sprite_frames.has_animation(StringName("%s_%d" % [anim_carga, d8])):
+				spr.animation = StringName("%s_%d" % [anim_carga, d8])
+				spr.frame = 0
 			cuerpo.position = Vector2.ZERO
 			# EL FRENTE de su cuerpo hacia alli, como en el juego (CombatTactico.forma_de): de ahi salen conos y lineas
 			# y de ahi se cuenta el alcance.
@@ -1439,7 +1459,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var pisa_d: float = maxf(pisa, frente)
 			# La figura que recibe el mordisco suelto (en el juego, uno de los tuyos).
 			var fig_presa: ColorRect = null
-			if nom == "basico" or sin_huella:
+			var sobre_si: bool = modo_i == InsectoAire.Modo.CAPARAZON
+			if (nom == "basico" or sin_huella) and not sobre_si:
 				fig_presa = _figura(yo + dvec * (pisa_d + alcance * 0.7 + 7.0) + Vector2(0, 13), AZUL)
 				fig_presa.z_index = Game.Z_PERSONAJES
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa_d, alcance, hacia, frente * 0.85)
@@ -1451,7 +1472,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			_huella.queue_redraw()
 			var cajas: Array = []
 			var presas_extra: Array = []
-			if nom == "basico" or sin_huella:
+			if sobre_si:
+				cajas = []   # el reflejo va sobre el (mas abajo, con su caja)
+			elif nom == "basico" or sin_huella:
 				cajas = [Rect2(yo + dvec * (pisa_d + alcance * 0.7 + 7.0) - Vector2(7, 13), Vector2(14, 26))]
 			else:
 				for q in _enemigos:
@@ -1487,7 +1510,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var fin_carga: Vector2 = Vector2.INF
 			if ab.carga and f.tipo == CombatFormas.Tipo.LINEA:
 				fin_carga = f.origen + f.dir * f.largo
-				if not cajas.is_empty():
+				# La que ATRAVIESA rueda hasta el final; las demas se paran pegadas al primero.
+				if not cajas.is_empty() and not ab.atraviesa:
 					fin_carga = _pies_caja(cajas[0]) - f.dir * (8.0 + pisa)
 				cuerpo.position = fin_carga - yo
 			var bulto: Rect2 = Rect2(bulto0.position + cuerpo.position, bulto0.size)
@@ -1520,6 +1544,19 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						bulto.size.x), "t0": maxf(SueloRoto.retraso(f, _pies_caja(rc), ab.suelo_roto), BestiaAire.T_ESTELA),
 						"sim": false})
 				cajas = []
+			# LA BOLA DEL ESCARABAJO: en todos los que atraviesa, cuando les pasa por encima (el primero entero, los demas a
+			# area_secundario, como el peso del juego).
+			if modo_i == InsectoAire.Modo.ARROLLA:
+				for i in cajas.size():
+					var ra2: Rect2 = cajas[i]
+					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), ra2, semilla + i, 0.0, 1.0,
+						bulto.size.x, 1.0 if i == 0 else ab.area_secundario),
+						"t0": SueloRoto.retraso(f, _pies_caja(ra2), ab.suelo_roto), "sim": false})
+				cajas = []
+			# EL CAPARAZON: el reflejo sobre el, con SU caja.
+			if sobre_si:
+				piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), bulto, semilla, 0.0, 1.0,
+					bulto.size.x), "t0": 0.0, "sim": false})
 			# EL CHARCO que se queda (la Savia): aparece cuando cae el goteron.
 			if ab.charco_turnos > 0 and ab.charco_estilo == 1:
 				piezas.append({"n": InsectoAire.red(self, f, semilla, 0.0), "t0": InsectoAire.T_TELA_CAE, "sim": false})
@@ -1601,9 +1638,17 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					(pz["n"] as Node).set_process(false)
 			for c in tiempos.size():
 				var t: float = float(tiempos[c])
-				# La carga: el cuerpo va por la linea con la estela y llega en T_ESTELA.
+				# La carga: el cuerpo va por la linea con la estela y llega en T_ESTELA (la bola, en T_RODADA).
 				if fin_carga != Vector2.INF:
-					cuerpo.position = (fin_carga - yo) * clampf(t / BestiaAire.T_ESTELA, 0.0, 1.0)
+					var t_viaje: float = InsectoAire.T_RODADA if ab.atraviesa else BestiaAire.T_ESTELA
+					cuerpo.position = (fin_carga - yo) * clampf(t / t_viaje, 0.0, 1.0)
+				# Y su animacion, en el fotograma de este momento.
+				var an_n := StringName("%s_%d" % [anim_hab, d8])
+				if anim_hab != "" and spr.sprite_frames.has_animation(an_n):
+					var fps_a: float = spr.sprite_frames.get_animation_speed(an_n)
+					var desde_a: float = t + float(CombatFX.IMPACTO_ANIM_MAPA.get(anim_hab, CombatFX.T_ANIM_ADELANTO))
+					spr.animation = an_n
+					spr.frame = clampi(int(floor(desde_a * fps_a)), 0, spr.sprite_frames.get_frame_count(an_n) - 1)
 				for pz in piezas:
 					var n: Node2D = pz["n"]
 					if n == null or not is_instance_valid(n):

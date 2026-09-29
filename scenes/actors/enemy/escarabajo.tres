@@ -47,3 +47,5 @@ habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): como el rey rata.
 alcance = 20.0
+; EL BASICO EN EL MAPA (29/09): el palazo (INSECTO_PALA), chato y ancho: la pala empuja, no corta.
+fx_basico_mapa = 147

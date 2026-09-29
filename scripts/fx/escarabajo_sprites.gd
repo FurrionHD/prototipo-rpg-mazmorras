@@ -253,9 +253,9 @@ static func _montar_caparazon(anims: Array, esc: float) -> void:
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
 			"antena": SpriteLienzo.tramos(t, antena_keys), "tumba": 0.0,
 			"encoge": SpriteLienzo.tramos(t, encoge_keys)}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente. El combate cae a
-	# "caparazon_0" cuando la direccion que toca no existe.
-	_montar_animacion(anims, esc, "caparazon", false, 9.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (29/09): en el mapa se cierra mirando hacia donde miraba. Se aplasta del todo
+	# en 0,571x7/9 = 0,44 s (CombatFX.IMPACTO_ANIM_MAPA, que es cuando sale el reflejo del efecto).
+	_montar_animacion(anims, esc, "caparazon", false, 9.0, pose, true, 8, FRAMES)
 
 
 # CUANTO HAY QUE LEVANTAR AL ESCARABAJO PARA QUE RUEDE SOBRE EL SUELO Y NO DENTRO DE EL.
@@ -271,13 +271,14 @@ static func _montar_caparazon(anims: Array, esc: float) -> void:
 # salia FLOTANDO al empezar a rodar (donde sobraban dos unidades) y se hundia a media vuelta (donde
 # faltaban dos). Sacandolo del angulo cuadra en los ocho fotogramas y ademas se arregla solo el dia
 # que cambie el tamaño del caparazon.
-static func _apoyo_rodando(tumba_cuartos: float) -> float:
+# 'alto' = lo que se estira la altura (la bola es mas alta que el domo: ver REDONDEA).
+static func _apoyo_rodando(tumba_cuartos: float, alto: float = 1.0) -> float:
 	var th: float = tumba_cuartos * PI * 0.5
 	var c: float = cos(th)
 	var s: float = sin(th)
 	# Media altura del caparazon en la vertical DE AHORA, y donde ha quedado su centro.
-	var medio: float = sqrt(pow(ELITROS_R.x * s, 2.0) + pow(ELITROS_R.z * c, 2.0))
-	return maxf(0.0, medio - ELITROS.z * c)
+	var medio: float = sqrt(pow(ELITROS_R.x * s, 2.0) + pow(ELITROS_R.z * alto * c, 2.0))
+	return maxf(0.0, medio - ELITROS.z * alto * c)
 
 # LA EMBESTIDA RODANTE: se hace una bola y RUEDA hasta la victima.
 #
@@ -297,35 +298,68 @@ static func _apoyo_rodando(tumba_cuartos: float) -> float:
 # ademas mete las seis patas dentro, que si no van barriendo el aire en cada vuelta. Es la palanca
 # que ya usan la muerte (patas al cielo) y el caparazon.
 #
-# UNA VUELTA ENTERA Y NO DOS. Con ocho fotogramas, dos vueltas son 180 grados por marco: a partir de
-# ahi el ojo ya no sabe hacia donde gira -- es la rueda de carro del cine -- y puede leerse girando
-# al reves. Una vuelta deja 90 por marco, que se sigue leyendo.
+# A 90 GRADOS POR FOTOGRAMA COMO MUCHO. Pasado eso el ojo ya no sabe hacia donde gira -- es la rueda
+# de carro del cine -- y puede leerse girando al reves.
+#
+# EN EL MAPA (29/09, lo pidio el usuario: "tiene que literalmente hacerse una bola y rodar mientras se
+# desplaza"). Tres piezas, y ninguna se lanza sola hacia delante: el cuerpo lo lleva la pelea por la
+# linea (CombatTactico.mover_enemigo, en InsectoAire.T_RODADA), asi que el dibujo solo GIRA.
+#   hacerse_bola > bola   el turno de CARGA (AbilityData.fx_anim_carga): se hace bola de costado y se
+#                         mece adelante y atras cogiendo impulso, en bucle hasta que suelta.
+#   rodar                 al soltarla: DOS vueltas a 90 por marco mientras cruza la linea y, al acabar,
+#                         se desenrosca y se planta. Arranca en la pose de 'bola', que es donde estaba.
+#   desenroscarse         si le aturden cargando (fx_anim_interrumpe): se abre sin haber rodado.
+# Pose de BOLA: patas dentro, de costado para rodar como una rueda, un poco agachado.
+const BOLA := {"avance": 0.0, "estira": 1.0, "fase": 0.0, "paso": 0.0, "agacha": 0.3, "antena": 0.0,
+	"tumba": 0.0, "rumbo": PI * 0.5, "apoyo": 0.0, "encoge": 1.0}
+# LO QUE RUEDA: RODAR_VUELTAS marcos girando a RODAR_FPS. = InsectoAire.T_RODADA (lo que tarda en cruzar
+# la linea), no retocar uno sin el otro.
+const RODAR_MARCOS := 8
+const REDONDEA := 0.75          # lo que crece la altura del domo hecho bola (4,4 -> 7,7, casi el ancho)
+const RODAR_FPS := 18.0
+const RODAR_PLANTARSE := 4      # los marcos de despues: se desenrosca
+
+static func _pose_bola(encoge: float, tumba: float = 0.0, avance: float = 0.0, agacha: float = 0.3) -> Dictionary:
+	var p: Dictionary = BOLA.duplicate()
+	p["encoge"] = encoge
+	p["rumbo"] = PI * 0.5 * encoge
+	p["tumba"] = tumba
+	p["apoyo"] = _apoyo_rodando(tumba, (1.0 - 0.26 * agacha) * (1.0 + REDONDEA * encoge))
+	p["avance"] = avance
+	p["agacha"] = agacha
+	p["antena"] = 0.6 * (1.0 - encoge)
+	# Y REDONDA: se acorta a lo largo y mete la cabeza (ver 'bola' en _piezas).
+	p["bola"] = encoge
+	p["estira"] = 1.0 - 0.2 * encoge
+	return p
+
+
 static func _montar_rodar(anims: Array, esc: float) -> void:
-	# Se agazapa y se pone de costado, rueda, y se planta. El avance es el de su embestida.
-	var avance_keys := [[0.0, 0.0], [0.143, -1.2], [0.286, 0.6], [0.429, 3.6], [0.571, 6.6],
-		[0.714, 9.5], [0.857, 8.6], [1.0, 7.4]]
-	# EN CUARTOS DE VUELTA: 4.0 es una vuelta completa. Arranca despacio (le cuesta) y se lanza.
-	var tumba_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.7], [0.429, 1.9], [0.571, 3.1],
-		[0.714, 4.0], [0.857, 4.0], [1.0, 4.0]]
-	# El giro en planta que pone el eje de costado. Entra en el agazapo y se deshace al frenar.
-	var rumbo_keys := [[0.0, 0.0], [0.143, 0.55], [0.286, 1.0], [0.714, 1.0], [0.857, 0.55],
-		[1.0, 0.0]]
-	var encoge_keys := [[0.0, 0.0], [0.143, 0.6], [0.286, 1.0], [0.714, 1.0], [0.857, 0.45],
-		[1.0, 0.0]]
-	var agacha_keys := [[0.0, 0.0], [0.143, 0.75], [0.286, 0.30], [0.714, 0.30], [0.857, 0.65],
-		[1.0, 0.15]]
-	var pose := func(t: float) -> Dictionary:
-		var tumba: float = SpriteLienzo.tramos(t, tumba_keys)
-		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 9.5),
-			"estira": 1.0, "fase": 0.0, "paso": 0.0,
-			"agacha": SpriteLienzo.tramos(t, agacha_keys), "antena": 0.0,
-			"tumba": tumba,
-			"rumbo": SpriteLienzo.tramos(t, rumbo_keys) * PI * 0.5,
-			# EL APOYO SALE DEL PROPIO ANGULO, no de una tabla a mano (ver _apoyo_rodando).
-			"apoyo": _apoyo_rodando(tumba),
-			"encoge": SpriteLienzo.tramos(t, encoge_keys)}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "rodar", false, 12.0, pose, true, 1, FRAMES)
+	# HACERSE BOLA: se agacha, se pone de costado y mete las patas (la antena, lo primero que guarda).
+	var cierra_keys := [[0.0, 0.0], [0.4, 0.55], [0.8, 1.0], [1.0, 1.0]]
+	var agacha_c := [[0.0, 0.0], [0.4, 0.75], [1.0, 0.3]]
+	var hacerse := func(t: float) -> Dictionary:
+		return _pose_bola(SpriteLienzo.tramos(t, cierra_keys), 0.0, 0.0, SpriteLienzo.tramos(t, agacha_c))
+	_montar_animacion(anims, esc, "hacerse_bola", false, 12.0, hacerse, true, 8, 6)
+	# LA BOLA MECIENDOSE: se echa atras (rueda un poco hacia atras y retrocede) y vuelve, como quien coge
+	# carrerilla. EN BUCLE: el primer marco y el de despues del ultimo son el mismo.
+	var mece := func(t: float) -> Dictionary:
+		var s: float = sin(TAU * t)
+		return _pose_bola(1.0, -0.35 * s, -1.2 * (0.5 + 0.5 * s), 0.3 + 0.1 * (0.5 + 0.5 * s))
+	_montar_animacion(anims, esc, "bola", true, 8.0, mece, false, 8, 8)
+	# RODAR: RODAR_MARCOS girando (dos vueltas: 8 cuartos) y luego se desenrosca.
+	var total: int = RODAR_MARCOS + RODAR_PLANTARSE
+	var rodar := func(t: float) -> Dictionary:
+		var i: float = t * float(total - 1)
+		if i <= float(RODAR_MARCOS):
+			return _pose_bola(1.0, 8.0 * i / float(RODAR_MARCOS))
+		var k: float = (i - float(RODAR_MARCOS)) / float(RODAR_PLANTARSE - 1)
+		return _pose_bola(1.0 - k, 0.0, 0.0, lerpf(0.3, 0.0, k) + 0.25 * sin(PI * k))
+	_montar_animacion(anims, esc, "rodar", false, RODAR_FPS, rodar, true, 8, total)
+	# DESENROSCARSE: la bola se abre sin haber rodado (aturdido cargando).
+	var abre := func(t: float) -> Dictionary:
+		return _pose_bola(1.0 - t, 0.0, 0.0, lerpf(0.3, 0.0, t))
+	_montar_animacion(anims, esc, "desenroscarse", false, 12.0, abre, true, 8, 5)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -495,7 +529,12 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# Agachado = mas bajo y un pelin mas ancho: el caparazon se aplasta contra el suelo.
 	var largo: float = estira
 	var ancho: float = 1.0 + 0.06 * agacha
+	# HECHO BOLA, MAS ALTO: el domo es bajo (4,4 de alto contra 8,2 de ancho) y rodando de canto se quedaba en una
+	# MONEDA fina, un fotograma si y otro no. Subiendole la altura casi hasta el ancho, gire como gire es una bola.
+	# Va en los RADIOS antes de volcar (y en la altura de cada pieza), no en 'alto': al rodar de canto, lo que queda en
+	# horizontal es la altura, y si no se estira ANTES del giro la moneda sigue ahi. Sin bola, todo como estaba.
 	var alto: float = 1.0 - 0.26 * agacha
+	var red: float = 1.0 + REDONDEA * float(pose.get("bola", 0.0))
 
 	var piezas: Array = []
 	# EL AVANCE SE ROTA UNA VEZ Y LO LLEVAN TODAS LAS PIEZAS POR IGUAL (ver la trampa del meceo del
@@ -508,10 +547,10 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# del morro a la grupa. Lo que era el lomo acaba mirando al suelo.
 		# 'en_suelo' se lo salta: es la sombra de contacto, y el suelo ni vuelca ni sube.
 		var lx: float = local.x
-		var lz: float = local.z
+		var lz: float = local.z * (1.0 if en_suelo else red)   # la bola, mas alta ANTES de volcar
 		if tumba != 0.0 and not en_suelo:
-			lx = local.x * ct + local.z * st
-			lz = -local.x * st + local.z * ct
+			lx = local.x * ct + lz * st
+			lz = -local.x * st + lz * ct
 		var p := Vector2(lx * ancho, local.y * largo)
 		var rot: Vector2 = p.rotated(ang) + desp
 		var z: float = 0.0 if en_suelo else lz * alto + apoyo
@@ -523,8 +562,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# ANCHO se nota mucho mas que en el jabali. Con |sen| como mezcla, media vuelta deja la forma
 		# como estaba -- que es justo lo correcto: boca abajo mide lo mismo que boca arriba.
 		var mezcla: float = absf(st)
-		var rx: float = r.x if en_suelo else lerpf(r.x, r.z, mezcla)
-		var rz: float = r.z if en_suelo else lerpf(r.z, r.x, mezcla)
+		var rx: float = r.x if en_suelo else lerpf(r.x, r.z * red, mezcla)
+		var rz: float = r.z if en_suelo else lerpf(r.z * red, r.x, mezcla)
 		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rx * ancho * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang,
 			"persp": 1.0 if en_suelo else SpriteLienzo.persp_de(ry, rz * alto),
@@ -598,10 +637,15 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	poner.call(Vector3(0.0, ELITROS.y, ELITROS.z + ELITROS_R.z * 0.88),
 		COSTURA_R, Tono.COSTURA, [Tono.LOMO, Tono.BRILLO, Tono.BASE])
 
-	poner.call(PRONOTO, PRONOTO_R, Tono.BASE)
-	poner.call(Vector3(0.0, PRONOTO.y, PRONOTO.z + PRONOTO_R.z * 0.55),
+	# HECHO BOLA ('bola', la Embestida rodante): el cuello y la cabeza se meten bajo el caparazon. Sin esto, de costado
+	# salia una PILDORA con la cabeza asomando a un lado: un escarabajo tumbado, no una bola (29/09).
+	var mete: float = float(pose.get("bola", 0.0))
+	var pronoto: Vector3 = PRONOTO * Vector3(1.0, 1.0 - 0.55 * mete, 1.0 - 0.1 * mete)
+	var cabeza: Vector3 = CABEZA * Vector3(1.0, 1.0 - 0.75 * mete, 1.0 - 0.25 * mete)
+	poner.call(pronoto, PRONOTO_R, Tono.BASE)
+	poner.call(Vector3(0.0, pronoto.y, pronoto.z + PRONOTO_R.z * 0.55),
 		Vector3(PRONOTO_R.x * 0.66, PRONOTO_R.y * 0.72, PRONOTO_R.z), Tono.LOMO, [Tono.BASE])
-	poner.call(CABEZA, CABEZA_R, Tono.SOMBRA)
+	poner.call(cabeza, CABEZA_R, Tono.SOMBRA)
 
 	# QUIEN LE VE LA CARA: de espaldas no se le ven ni los ojos ni las antenas. Con la camara a 45
 	# grados un bicho que se aleja enseña la grupa, y eso es lo que hace que se lea de un vistazo si
