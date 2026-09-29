@@ -28,3 +28,5 @@ aparta_lados = 28.0
 ; EFECTO EN EL MAPA (29/09): el surco por la linea (BESTIA_SURCO) y el choque con su chorro de polvo en cada uno.
 fx_estilo_mapa = 141
 suelo_roto = 73
+; EL CUERPO (29/09): cabeza baja y galope mientras la pelea lo lleva por la linea, y el testarazo al llegar.
+fx_anim = &"arrollar"

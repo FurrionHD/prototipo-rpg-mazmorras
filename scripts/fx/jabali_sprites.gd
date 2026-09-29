@@ -162,6 +162,7 @@ static func generar(color: Color = Color(0.35, 0.26, 0.22), escala: float = 1.0)
 	_montar_embestida(anims, esc)
 	_montar_cornada(anims, esc)
 	_montar_pisoton(anims, esc)
+	_montar_tactico(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -256,8 +257,8 @@ static func _montar_cornada(anims: Array, esc: float) -> void:
 			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
 			"tumba": SpriteLienzo.tramos(t, tumba_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "cornada", false, 11.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (29/09): en el tactico se le ve desde cualquier lado.
+	_montar_animacion(anims, esc, "cornada", false, 11.0, pose, true)
 
 
 # EL PISOTON: se alza sobre las traseras y estampa las manos.
@@ -272,9 +273,9 @@ static func _montar_cornada(anims: Array, esc: float) -> void:
 # desplomado (0,95) en un solo fotograma, y eso son treinta. El fotograma 4 es el impacto y va SOLO
 # -- sin el valle del 3, un hundimiento no se lee como un golpe sino como agacharse.
 static func _montar_pisoton(anims: Array, esc: float) -> void:
-	# Un paso corto para ponerse encima y ya no se mueve mas: pisa donde esta.
-	var avance_keys := [[0.0, 0.0], [0.143, 0.8], [0.286, 2.0], [0.429, 2.6], [0.571, 2.8],
-		[1.0, 2.8]]
+	# PISA DONDE ESTA (29/09, el tactico: su circulo es a su alrededor). Antes daba un paso corto para ponerse
+	# encima, y en el mapa se le veia pisar delante de su propia huella.
+	var avance_keys := [[0.0, 0.0], [1.0, 0.0]]
 	var agacha_keys := [[0.0, 0.0], [0.143, 0.22], [0.286, -0.18], [0.429, -0.30], [0.571, 0.95],
 		[0.714, 0.55], [0.857, 0.28], [1.0, 0.10]]
 	# Negativo = la mano sube. Vuelve a cero DE GOLPE en el impacto: eso es la pezuña llegando.
@@ -291,7 +292,35 @@ static func _montar_pisoton(anims: Array, esc: float) -> void:
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
 			"cabeza": SpriteLienzo.tramos(t, cabeza_keys),
 			"escarba": SpriteLienzo.tramos(t, escarba_keys)}
-	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (29/09).
+	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true)
+
+
+# ------------------------------------------------------------
+#  LOS DEL TACTICO (29/09)
+# ------------------------------------------------------------
+static func _montar_tactico(anims: Array, esc: float) -> void:
+	# EL BASICO: un colmillazo corto. Baja la cabeza un momento y la sube de golpe (el enganche de la cornada, en
+	# pequeño y sin escarbar: el aviso es de las habilidades, no de cada golpe).
+	var b_cabeza := [[0.0, 0.0], [0.3, -2.4], [0.5, 5.0], [0.7, 3.2], [1.0, 0.0]]
+	var b_agacha := [[0.0, 0.0], [0.3, 0.45], [0.5, -0.1], [1.0, 0.0]]
+	var b_avance := [[0.0, 0.0], [0.3, -0.6], [0.5, 1.6], [0.7, 1.4], [1.0, 0.0]]
+	var b_tumba := [[0.0, 0.0], [0.3, 0.08], [0.5, 0.2], [0.7, 0.12], [1.0, 0.0]]
+	var basico := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, b_avance), "estira": 1.0 + 0.06 * sin(PI * t), "patas": 0.0,
+			"agacha": SpriteLienzo.tramos(t, b_agacha), "cabeza": SpriteLienzo.tramos(t, b_cabeza),
+			"tumba": SpriteLienzo.tramos(t, b_tumba), "escarba": 0.0}
+	_montar_animacion(anims, esc, "basico", false, 14.0, basico, true)
+
+	# LA EMBESTIDA EN EL MAPA: el cuerpo ya lo lleva la pelea por la linea (CombatTactico.mover_enemigo), asi
+	# que el dibujo no se lanza: cabeza baja, galope y el golpe de testuz al llegar.
+	var a_agacha := [[0.0, 0.2], [0.7, 0.75], [0.82, 0.9], [1.0, 0.3]]
+	var arrollar := func(t: float) -> Dictionary:
+		var choque: float = clampf((t - 0.75) / 0.25, 0.0, 1.0)
+		return {"avance": 1.2 * sin(PI * choque), "estira": 1.1 - 0.12 * sin(PI * choque),
+			"patas": sin(TAU * t * 2.0) * (1.0 - choque), "agacha": SpriteLienzo.tramos(t, a_agacha),
+			"cabeza": -1.6 + 2.0 * sin(PI * choque), "escarba": 0.0}
+	_montar_animacion(anims, esc, "arrollar", false, 14.0, arrollar, true)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -331,7 +360,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el tactico muere en su sitio, mirando adonde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -374,7 +404,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"escarba": 0.0}   # escarbar es un AVISO de que va a atacar: aqui no pinta nada
 	# LOS CUATRO BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando
 	# las dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09).
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,

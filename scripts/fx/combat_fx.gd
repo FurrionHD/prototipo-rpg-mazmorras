@@ -1876,6 +1876,8 @@ const ANIM_CUERPO_MAPA := {
 const IMPACTO_ANIM_MAPA := {
 	# La rata y el rey rata (29/09): la sacudida del Frenesi muerde a 0,4x5/20; el cabezazo de la Dentellada a 0,5x7/13.
 	"frenesi": 0.10, "dentellada": 0.27,
+	# El jabali (29/09): el Pisoton estampa la pezuña a 0,571x7/12.
+	"pisoton": 0.33,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
