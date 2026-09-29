@@ -24,3 +24,7 @@ forma = 1
 forma_apunte = 3
 forma_radio = 20.0
 forma_rango = 100.0
+; EFECTO EN EL MAPA (29/09): el goteron por el aire y el CHARCO que se queda 3 turnos suyos envenenando al que lo
+; pise (decision del usuario; CombatTactico.poner_charco).
+suelo_roto = 75
+charco_turnos = 3

@@ -300,6 +300,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # LA CARGA (solo en el mapa, con LINEA): corres por la linea hasta el PRIMERO que pille y le pegas; sin
 # nadie, hasta el final. La Embestida del escudo (25/09).
 @export var carga: bool = false
+# EL CHARCO QUE SE QUEDA (solo en el mapa, 29/09, la Savia del trent): su huella se queda en el suelo estos TURNOS
+# DE QUIEN LA LANZA (0 = nada), y a los del otro bando que la pisen -al pasar andando o al empezar su turno dentro-
+# les tira los estados de 'efectos', una vez por turno como mucho. Ver CombatTactico.poner_charco.
+@export var charco_turnos: int = 0
 # EL SALTO (solo en el mapa, con CIRCULO): el que la lanza se echa por el aire y cae en el centro de su huella,
 # sin quedar encima de nadie. El Reventon del slime y el Aplastamiento del Rey (28/09): "el slime hinchandose
 # y saltando sobre los personajes".

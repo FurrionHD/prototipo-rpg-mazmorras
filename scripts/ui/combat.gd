@@ -1214,6 +1214,8 @@ func _begin_player_turn() -> void:
 	# EN EL MAPA, aqui empieza a poder andar: el turno ya se juega (ni aturdido ni cargando).
 	if tactico:
 		turno_mapa.empezar_turno(_player)
+		# Si empieza el turno DENTRO de un charco (la Savia del trent), lo pisa (CombatTactico.charcos_empezar_turno).
+		turno_mapa.charcos_empezar_turno(_player)
 	# Si estas casteando un hechizo, el turno va al recitado / disparo, NO a las
 	# acciones normales (por diseño no puedes hacer otra cosa mientras cantas).
 	if _cast_spell != null:
@@ -1325,7 +1327,7 @@ func _motivo_bloqueo(id: int) -> String:
 	# Y el Enraizado igual, pero al reves: te corta el brazo, no la boca. El BASICO no se bloquea
 	# nunca -- se convierte en "Pasar" (ver _refresh_actions), que es lo que garantiza que siempre
 	# tengas una jugada.
-	if _player != null and _player.enraizado() and id == Action.HABILIDAD:
+	if _player != null and _player.enraizado() and id == Action.HABILIDAD and not tactico:
 		return "Estás enraizado (puedes lanzar hechizos)"
 	if id == Action.ATTACK and tactico and _pasa_el_turno():
 		return "Estás enraizado y no llegas a golpear"
@@ -1345,8 +1347,11 @@ func _motivo_bloqueo(id: int) -> String:
 # tienen que estar de acuerdo: el rotulo del boton, su tooltip y lo que hace al pulsarlo. Con la
 # condicion escrita tres veces, cambiarla en dos de los tres deja un boton que dice una cosa y hace
 # otra -- y eso no da ningun error.
+# EN EL MAPA el enraizado ya no te quita golpear (29/09, decision del usuario): solo te clava en el sitio
+# (CombatTactico no te deja andar) y pegas con lo que llegue desde ahi; lo que no llega sale en gris, y para
+# ceder el turno esta el boton de Pasar.
 func _pasa_el_turno() -> bool:
-	return _player != null and _player.enraizado()
+	return _player != null and _player.enraizado() and not tactico
 
 
 # EN EL MAPA, ¿el sexto boton (el de Huir) es ahora un "Pasar"? Lo es salvo pegado al muro de la
@@ -1378,7 +1383,7 @@ func _accion_disponible(id: int) -> bool:
 		# van como null, asi que un array de cuatro nulls "no esta vacio" y el boton se habilitaba
 		# para abrir un submenu sin nada dentro.
 		Action.HABILIDAD: return _tiene_alguna_habilidad() \
-			and not _player.silenciado() and not _player.enraizado()
+			and not _player.silenciado() and not (_player.enraizado() and not tactico)
 		Action.OBJETO: return Game.consumibles_total() > 0
 	return false
 
@@ -1400,6 +1405,9 @@ func _hay_hechizos() -> bool:
 # Oculta la barra tras elegir y consume una "accion lenta" si entraste agotado.
 func _fin_de_eleccion() -> void:
 	_ocultar_cajas()
+	# LO QUE HA ANDADO este turno pasa por encima de algun charco (la Savia del trent)? Solo quien lleva la pelea.
+	if tactico and not _espejo:
+		turno_mapa.charcos_tras_andar(_player)
 	if _slow_actions_left > 0:
 		_slow_actions_left -= 1
 	# Los CHIPS se repintan aqui, al cerrar CUALQUIER accion, y no solo cuando cambia la vida.

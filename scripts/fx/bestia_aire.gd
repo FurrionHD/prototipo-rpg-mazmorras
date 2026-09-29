@@ -29,6 +29,16 @@
 #                    que engancha lo LEVANTA un palmo (su dibujo sube y cae).
 #    CHOQUE          (sobre un cuerpo) lo que arrolla la Embestida: el frente del choque y un chorro de polvo hacia
 #                    donde sale despedido.
+#  EL TRENT (29/09):
+#    SAVIA           la Savia corrosiva: el goteron que llega por el aire desde su lado y revienta al caer (el charco
+#                    que se queda lo pinta CHARCO, aparte).
+#    RAICES          Raices atenazantes: el suelo se agrieta y las raices ASOMAN y se vuelven a meter, de vez en
+#                    cuando, hasta que salen del todo (lo pidio el). Las que se quedan agarrando son ATADO.
+#    RAMAZO          el Ramazo: la rama que barre el cono dos veces, ida y vuelta (el Segar del mandoble), con hojas.
+#    RAMALAZO        (sobre un cuerpo) el basico: un ramalazo de madera que cae de arriba abajo, con astillas y hojas.
+#    PEGOTE          (sobre un cuerpo) los pegotes de savia que deja el Ramazo (el Pegajoso), escurriendo.
+#    CHARCO          (se queda) el charco de savia que envenena al que lo pise: burbujea y se seca (CombatTactico).
+#    ATADO           (se queda) las raices enroscadas en las piernas de un Enraizado, mientras le dure.
 #  NADA DE LINEAS: siluetas llenas con filo duro y un halo difuminado detras (ver efectos-sin-lineas).
 #  Coordenadas de MUNDO.
 # ============================================================
@@ -36,8 +46,9 @@ extends Node2D
 class_name BestiaAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.BESTIA_*: no reordenar.
-enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON,
-	MORDISCO, MORDISCO_SANGRA, FRENESI, DENTELLADA, YUGULAR, TEMBLOR, COLMILLO, CORNADA, CHOQUE }
+enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON, SAVIA, RAICES, RAMAZO,
+	MORDISCO, MORDISCO_SANGRA, FRENESI, DENTELLADA, YUGULAR, TEMBLOR, COLMILLO, CORNADA, CHOQUE,
+	RAMALAZO, PEGOTE, CHARCO, ATADO }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -53,6 +64,18 @@ const T_PISA_ENTRE := 0.2         # entre los dos pisotones (CombatFX.T_ENCADENA
 const T_GRIETA := 0.1             # lo que tarda una grieta del pisoton en abrirse entera
 const T_LEVANTA := 0.32           # lo que dura el palmo que levanta la Cornada (sube y cae)
 const TIERRA := Color(0.36, 0.28, 0.2)
+const T_SAVIA_CAE := 0.35         # lo que vuela el goteron de savia hasta el suelo
+const T_RAICES := 0.8             # de que se agrieta el suelo a que salen del todo (asoman dos veces antes)
+const T_RAMA := 0.14              # lo que tarda un barrido del Ramazo (BarridoAire.T_BARRIDO)
+const T_RAMA_ENTRE := 0.2         # entre la ida y la vuelta (CombatFX.T_ENCADENADO)
+const T_SECA := 0.5               # lo que tarda en irse un charco o unas raices que sueltan
+const MADERA := Color(0.38, 0.26, 0.15)
+const MADERA_CLARA := Color(0.62, 0.46, 0.28)
+const CORTEZA := Color(0.17, 0.11, 0.07)
+const HOJA := Color(0.36, 0.56, 0.2)
+const SAVIA := Color(0.7, 0.6, 0.14)
+const SAVIA_CLARA := Color(0.96, 0.87, 0.42)
+const SAVIA_OSCURA := Color(0.36, 0.3, 0.06)
 
 const HUESO := Color(0.96, 0.93, 0.84)
 const HUESO_SOMBRA := Color(0.62, 0.55, 0.46)
@@ -81,6 +104,10 @@ var _dibujo: CanvasItem = null        # lo que tiembla (el muñeco de los tuyos,
 var _base_dibujo: Vector2 = Vector2.ZERO
 var _a_colmillo: float = 0.0          # hacia donde se comba la media luna del colmillo (el lado de quien embiste)
 var _grietas: Array = []              # las del pisoton: {pts, w0, w1, t0}
+var queda: float = 1.0                # CHARCO: lo que le queda antes de secarse (1 = recien caido); se encoge con ello
+var _secando: float = -1.0            # CHARCO / ATADO: desde cuando se esta yendo (-1 = sigue)
+var _hojas: Array = []                # RAMAZO / RAMALAZO: hojas y astillas que salen volando
+var _raices: Array = []               # RAICES / ATADO: cada raiz {x, d, h, curva, g, fase}
 var _puffs: Array = []
 var _piedras: Array = []
 var _delante: Node2D = null
@@ -158,6 +185,41 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 					+ e._rng.randf_range(-0.04, 0.04)))
 			borde[40] = borde[0]
 			e._grietas.push_front({"pts": borde, "w0": 2.4, "w1": 2.4, "t0": 0.0})
+			# El anillo de polvo de cada pisoton (mas abajo).
+			pass
+		Modo.SAVIA:
+			# Las gotas que salpican al reventar el goteron.
+			for i in 9:
+				e._piedras.append({"a": TAU * (float(i) + e._rng.randf_range(0.0, 0.7)) / 9.0,
+					"v": e._rng.randf_range(0.5, 1.0) * e._r, "sube": e._rng.randf_range(8.0, 16.0),
+					"tam": e._rng.randf_range(1.2, 2.2)})
+		Modo.RAICES:
+			# Seis raices repartidas por el circulo, cada una con su curva, su grosor y su FASE: asoman cada una a su
+			# ritmo, no todas a la vez. Y grietas cortas donde salen.
+			for i in 6:
+				var ang_r: float = TAU * (float(i) + e._rng.randf_range(-0.3, 0.3)) / 6.0
+				var d_r: float = e._r * e._rng.randf_range(0.15, 0.8)
+				e._raices.append({"p": e._o + Vector2(cos(ang_r), sin(ang_r)) * d_r,
+					"h": e._rng.randf_range(12.0, 18.0), "curva": e._rng.randf_range(-1.0, 1.0),
+					"g": e._rng.randf_range(2.2, 3.4), "fase": e._rng.randf_range(0.0, 0.12)})
+				var p_r: Vector2 = e._o + Vector2(cos(ang_r), sin(ang_r)) * d_r
+				for k2 in 2:
+					var a_g: float = e._rng.randf_range(0.0, TAU)
+					var pts_g := PackedVector2Array([p_r])
+					var q: Vector2 = p_r
+					for s2 in 3:
+						q += Vector2(cos(a_g + e._rng.randf_range(-0.5, 0.5)), sin(a_g + e._rng.randf_range(-0.5, 0.5))) * 3.0
+						pts_g.append(q)
+					e._grietas.append({"pts": pts_g, "w0": 1.6, "w1": 0.4, "t0": 0.0})
+		Modo.RAMAZO:
+			# Hojas que salen de la punta de la rama al barrer, en cada pasada.
+			for k3 in 2:
+				for i in 7:
+					e._hojas.append({"k": k3, "s": e._rng.randf_range(0.1, 0.95), "v": e._rng.randf_range(20.0, 45.0),
+						"gira": e._rng.randf_range(-8.0, 8.0), "tam": e._rng.randf_range(1.6, 2.6),
+						"hoja": e._rng.randf() < 0.7})
+	match m:
+		Modo.PISOTON:
 			# El anillo de polvo de cada pisoton.
 			for k in 2:
 				for i in 14:
@@ -180,6 +242,9 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return clampf(p.distance_to(SueloRoto.origen_de(f)) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ONDA_CH
 		Modo.ESTELA, Modo.SURCO:
 			return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_ESTELA
+		# El goteron cae a la vez en todo el charco; las raices agarran cuando salen del todo.
+		Modo.SAVIA: return T_SAVIA_CAE
+		Modo.RAICES: return T_RAICES
 	return 0.0
 
 
@@ -189,6 +254,9 @@ static func t_salir(m: int) -> float:
 		Modo.CHILLIDO: return T_ONDA_CH
 		Modo.ESTELA, Modo.SURCO: return T_ESTELA
 		Modo.PISOTON: return T_GRIETA
+		Modo.SAVIA: return T_SAVIA_CAE
+		Modo.RAICES: return T_RAICES
+		Modo.RAMAZO: return T_RAMA
 	return 0.2
 
 
@@ -254,11 +322,21 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	e._lento = 1.3 if m == Modo.DENTELLADA else (1.15 if m == Modo.YUGULAR else 1.0)
 	# EL COLMILLO se comba hacia el lado de quien embiste (entra por ahi) y sube; si viene de arriba o de abajo, a un
 	# lado cualquiera. Cada golpe con su variacion.
-	if m == Modo.COLMILLO or m == Modo.CORNADA:
+	if m == Modo.COLMILLO or m == Modo.CORNADA or m == Modo.RAMALAZO:
 		var de_lado: float = -eje.x if absf(eje.x) > 0.25 else (1.0 if e._rng.randf() < 0.5 else -1.0)
 		e._a_colmillo = (0.0 if de_lado > 0.0 else PI) + e._rng.randf_range(-0.3, 0.3)
 		e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x, -0.05 * caja.size.y)
 	e._largo = maxf(caja.size.y, 10.0)   # lo alto del cuerpo: donde tiene los pies
+	# EL RAMALAZO: astillas y hojas que saltan del golpe.
+	if m == Modo.RAMALAZO:
+		for i in 6:
+			e._hojas.append({"vx": e._rng.randf_range(-30.0, 30.0), "sube": e._rng.randf_range(6.0, 16.0),
+				"gira": e._rng.randf_range(-9.0, 9.0), "tam": e._rng.randf_range(1.5, 2.5), "hoja": i >= 3})
+	# LOS PEGOTES: tres pegotes de savia repartidos por el cuerpo.
+	if m == Modo.PEGOTE:
+		for i in 3:
+			e._puffs.append({"x": e._rng.randf_range(-0.35, 0.35), "y": e._rng.randf_range(-0.35, 0.25),
+				"r": e._rng.randf_range(0.12, 0.2), "t0": float(i) * 0.04})
 	if m == Modo.CORNADA:
 		e._tomar_dibujo(dibujo)
 		for i in 6:
@@ -296,6 +374,78 @@ static func temblor(padre: Node, dibujo: CanvasItem, caja: Rect2, semilla: int, 
 	return e
 
 
+# El radio que ocupa (y que PISA de verdad, CombatTactico._pisar_si) un charco: mengua segun se seca.
+static func radio_charco(f: CombatFormas.Forma, que_queda: float) -> float:
+	return f.radio * lerpf(0.6, 1.0, clampf(que_queda, 0.0, 1.0))
+
+
+# EL CHARCO QUE SE QUEDA (la Savia): no se va solo; se va cuando CombatTactico lo seca (secar()). 'espera' = lo
+# que falta para que caiga el goteron que lo hace.
+static func charco(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> BestiaAire:
+	if padre == null or f == null:
+		return null
+	var e := BestiaAire.new()
+	e.modo = Modo.CHARCO
+	e.forma = f
+	e._rng.seed = hash(semilla)
+	e._t = -maxf(espera, 0.0)
+	e.z_as_relative = false
+	e.z_index = SueloRoto.Z_SUELO
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	e._o = f.centro
+	e._r = maxf(f.radio, 6.0)
+	# El borde irregular (lobulos), y unas burbujas que suben y revientan cada una a su ritmo.
+	for i in 20:
+		e._piedras.append(e._rng.randf_range(0.88, 1.08))
+	for i in 4:
+		e._puffs.append({"x": e._rng.randf_range(-0.55, 0.55), "y": e._rng.randf_range(-0.5, 0.5),
+			"fase": e._rng.randf_range(0.0, 1.0), "per": e._rng.randf_range(0.8, 1.4), "r": e._rng.randf_range(1.2, 2.2)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
+	e._delante = e._capa(SueloRoto.Z_SUELO + 1, false)
+	return e
+
+
+# LAS RAICES QUE ATAN a un Enraizado: se enroscan en sus piernas y se quedan hasta que CombatTactico las seca. Si
+# todavia estan saliendo las raices de la habilidad (RAICES) debajo de el, esperan a que salgan del todo: el estado
+# se pone al resolver, antes de que se vea el golpe.
+static func atado(padre: Node, caja: Rect2, pies: Vector2, semilla: int) -> BestiaAire:
+	if padre == null:
+		return null
+	var e := BestiaAire.new()
+	e.modo = Modo.ATADO
+	e._rng.seed = hash(semilla)
+	e._t = 0.0
+	for hijo in padre.get_children():
+		if hijo is BestiaAire and (hijo as BestiaAire).modo == Modo.RAICES and (hijo as BestiaAire)._t < T_RAICES \
+				and pies.distance_to((hijo as BestiaAire)._o) <= (hijo as BestiaAire)._r + 12.0:
+			e._t = minf(e._t, -(T_RAICES - (hijo as BestiaAire)._t) / maxf((hijo as BestiaAire)._ritmo, 0.05))
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	e.seguir(caja, pies)
+	for i in 4:
+		e._raices.append({"x": (float(i) - 1.5) / 1.5 * 0.4 + e._rng.randf_range(-0.08, 0.08),
+			"h": e._rng.randf_range(0.28, 0.42), "curva": (1.0 if i % 2 == 0 else -1.0) * e._rng.randf_range(0.6, 1.0),
+			"g": e._rng.randf_range(1.8, 2.6), "fase": e._rng.randf_range(0.0, TAU)})
+	e._delante = e._capa(Z_ENCIMA, false)
+	return e
+
+
+# Donde esta el atado (le siguen si se le mueve el dibujo: un tiron que no le mueve de sitio, el temblor).
+func seguir(caja: Rect2, pies: Vector2) -> void:
+	_hasta = pies
+	_ancho = maxf(caja.size.x, 8.0)
+	_largo = maxf(caja.size.y, 10.0)
+
+
+# El charco se seca / las raices sueltan: se van en T_SECA y fuera.
+func secar() -> void:
+	if _secando < 0.0:
+		_secando = maxf(_t, 0.0)
+
+
 # EL SITIO DE VERDAD del dibujo que se mueve (el temblor, la Cornada), compartido con la esquiva (EstoqueAire) y
 # entre ellos: el segundo no puede tomar como sitio el del primero, ya movido.
 func _tomar_dibujo(dibujo: CanvasItem) -> void:
@@ -319,6 +469,12 @@ func duracion() -> float:
 		Modo.COLMILLO: return 0.3
 		Modo.CORNADA: return maxf(0.45, T_LEVANTA + 0.05)
 		Modo.CHOQUE: return 0.6
+		Modo.SAVIA: return T_SAVIA_CAE + 0.5
+		Modo.RAICES: return T_RAICES + 0.9
+		Modo.RAMAZO: return T_RAMA_ENTRE + 0.45
+		Modo.RAMALAZO: return 0.6
+		Modo.PEGOTE: return 1.3
+		Modo.CHARCO, Modo.ATADO: return INF if _secando < 0.0 else _secando + T_SECA
 	return (T_CERRADO + T_IRSE) * _lento
 
 
@@ -388,8 +544,14 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.TEMBLOR: _temblor(capa)
 		Modo.SURCO: _surco(capa)
 		Modo.PISOTON: _pisoton(capa)
-		Modo.COLMILLO, Modo.CORNADA: _colmillo(capa)
+		Modo.COLMILLO, Modo.CORNADA, Modo.RAMALAZO: _colmillo(capa)
 		Modo.CHOQUE: _choque(capa)
+		Modo.SAVIA: _savia(capa)
+		Modo.RAICES: _raices_suelo(capa)
+		Modo.RAMAZO: _ramazo(capa)
+		Modo.PEGOTE: _pegote(capa)
+		Modo.CHARCO: _charco(capa)
+		Modo.ATADO: _atado(capa)
 		_: _mordisco(capa)
 
 
@@ -723,18 +885,20 @@ func _arco_sonido(ci: CanvasItem, c: Vector2, r: float, lado: float, grueso: flo
 # viaja el golpe la cabeza sube; en el golpe llega arriba y la cola la alcanza mientras se apaga.
 func _colmillo(capa: Node2D) -> void:
 	var cornada: bool = modo == Modo.CORNADA
+	# EL RAMALAZO del trent es este mismo arco, pero CAE (de arriba abajo), de madera y mas gordo.
+	var rama: bool = modo == Modo.RAMALAZO
 	var r: float = _tam * 1.7
 	var th: float = _a_colmillo
 	var s: float = 1.0 if cos(th) >= 0.0 else -1.0
-	var a_abajo: float = th + 1.3 * s
-	var a_arriba: float = th - 1.3 * s
+	var a_ini: float = th + 1.3 * s * (-1.0 if rama else 1.0)
+	var a_fin: float = th - 1.3 * s * (-1.0 if rama else 1.0)
 	var c: Vector2 = _hasta - Vector2(cos(th), sin(th)) * r * 0.45
 	var sale: float = 0.05
 	var u: float = clampf((_t + _viaje) / maxf(_viaje + sale, 0.01), 0.0, 1.0)
 	u = 1.0 - (1.0 - u) * (1.0 - u)
-	var cabeza: float = lerpf(a_abajo, a_arriba, u)
-	var k_ido: float = clampf((_t - sale) / (0.3 if cornada else 0.22), 0.0, 1.0)
-	var cola: float = lerpf(a_abajo, cabeza, maxf(0.15 * u, k_ido))
+	var cabeza: float = lerpf(a_ini, a_fin, u)
+	var k_ido: float = clampf((_t - sale) / (0.3 if cornada or rama else 0.22), 0.0, 1.0)
+	var cola: float = lerpf(a_ini, cabeza, maxf(0.15 * u, k_ido))
 	var alfa: float = clampf((_t + _viaje) / 0.04, 0.0, 1.0) * (1.0 - k_ido * k_ido)
 	var punta: Vector2 = c + Vector2(cos(cabeza), sin(cabeza)) * r
 	if capa == _brillo:
@@ -744,12 +908,27 @@ func _colmillo(capa: Node2D) -> void:
 		return
 	if capa != _delante:
 		return
-	var grueso: float = r * (0.5 if cornada else 0.45)
-	if alfa > 0.0:
+	var grueso: float = r * (0.58 if rama else (0.5 if cornada else 0.45))
+	# EL RAMALAZO: como el Ramazo, lo que pega es una RAMA que cae girando (un radio del arco, no el arco: en media
+	# luna salia una raya fina), con su estela tenue detras.
+	if rama and alfa > 0.0:
+		_media_luna(capa, c, cola, cabeza, r, grueso, MADERA_CLARA, MADERA, alfa * 0.4, false)
+		_rama(capa, c, cabeza, r * 0.05, r * 1.05, 4.0, s, alfa)
+	elif alfa > 0.0:
 		# Detras, la misma media luna algo mayor y OSCURA (el contorno de los dientes): sin ella el hueso se perdia
-		# sobre un cuerpo claro.
-		_media_luna(capa, c, cola, cabeza, r * 1.06, grueso * 1.3, ENCIA, ENCIA, alfa * 0.5, false)
-		_media_luna(capa, c, cola, cabeza, r, grueso, HUESO, HUESO_SOMBRA, alfa, false)
+		# sobre un cuerpo claro. En la rama, la corteza.
+		_media_luna(capa, c, cola, cabeza, r * 1.06, grueso * 1.3, CORTEZA if rama else ENCIA,
+			CORTEZA if rama else ENCIA, alfa * (0.7 if rama else 0.5), false)
+		_media_luna(capa, c, cola, cabeza, r, grueso, MADERA_CLARA if rama else HUESO, MADERA if rama else HUESO_SOMBRA,
+			alfa, false)
+	# LAS ASTILLAS Y LAS HOJAS del ramalazo, saltando de donde pega.
+	if rama and _t >= 0.0:
+		var kh: float = clampf(_t / 0.55, 0.0, 1.0)
+		for h in _hojas:
+			var p_h: Vector2 = punta + Vector2(float(h["vx"]) * kh, -float(h["sube"]) * 4.0 * kh * (1.0 - kh) * K
+				+ (10.0 * kh * kh if bool(h["hoja"]) else 0.0))
+			_hoja_o_astilla(capa, p_h, float(h["tam"]), float(h["gira"]) * kh, bool(h["hoja"]), 1.0 - kh * kh)
+		return
 	if not cornada or _t < 0.0:
 		return
 	# EL DESGARRO en la punta (gotas que salen hacia fuera y caen) y los TERRONES que saltan de sus pies.
@@ -871,6 +1050,275 @@ static func _trazo_grieta(ci: CanvasItem, pts: PackedVector2Array, n: int, w0: f
 	for i in n - 1:
 		var w2: float = lerpf(w0, w1, float(i) / total)
 		ci.draw_line(pts[i], pts[i + 1], Color(SueloRoto.OSCURO, 0.95 * a), w2)
+
+
+# ------------------------------------------------------------
+#  EL TRENT
+# ------------------------------------------------------------
+# Una HOJA (un rombo verde con su nervio) o una ASTILLA (un palito claro), girada 'giro'.
+func _hoja_o_astilla(ci: CanvasItem, p: Vector2, tam: float, giro: float, hoja: bool, alfa: float) -> void:
+	if alfa <= 0.01:
+		return
+	var d := Vector2(cos(giro), sin(giro))
+	var n: Vector2 = d.orthogonal()
+	if hoja:
+		_poligono(ci, PackedVector2Array([p - d * tam * 1.3, p + n * tam * 0.6, p + d * tam * 1.3, p - n * tam * 0.6]),
+			Color(HOJA, alfa))
+		_poligono(ci, PackedVector2Array([p - d * tam * 1.1, p + n * tam * 0.15, p + d * tam * 1.1]),
+			Color(HOJA.darkened(0.35), alfa))
+	else:
+		_poligono(ci, PackedVector2Array([p - d * tam * 1.4 - n * 0.5, p - d * tam * 1.4 + n * 0.5,
+			p + d * tam * 1.4 + n * 0.3, p + d * tam * 1.4 - n * 0.3]), Color(MADERA_CLARA, alfa))
+
+
+# EL GOTERON DE SAVIA: llega por el aire desde el lado de quien lo escupe (en parabola), gotea por el camino y
+# revienta al caer salpicando. El charco que se queda es otro nodo (CHARCO), que aparece justo cuando cae este.
+func _savia(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	if _t < T_SAVIA_CAE:
+		var k: float = _t / T_SAVIA_CAE
+		var desde: Vector2 = _o - _dir * 60.0
+		var p: Vector2 = desde.lerp(_o, k) - Vector2(0.0, 34.0 * sin(PI * k) + 18.0 * (1.0 - k))
+		var antes: Vector2 = desde.lerp(_o, maxf(k - 0.12, 0.0)) \
+			- Vector2(0.0, 34.0 * sin(PI * maxf(k - 0.12, 0.0)) + 18.0 * (1.0 - maxf(k - 0.12, 0.0)))
+		BarridoAire.cometa(capa, antes, p, 4.0, Color(SAVIA, 0.55))
+		capa.draw_circle(p, 3.6, SAVIA_OSCURA)
+		capa.draw_circle(p, 3.0, SAVIA)
+		capa.draw_circle(p + Vector2(-0.9, -1.0), 1.1, SAVIA_CLARA)
+		return
+	# EL REVENTON: las gotas salen en corona y caen.
+	var kv: float = clampf((_t - T_SAVIA_CAE) / 0.45, 0.0, 1.0)
+	for g in _piedras:
+		var d := Vector2(cos(float(g["a"])), sin(float(g["a"])))
+		var p2: Vector2 = _o + d * float(g["v"]) * kv - Vector2(0.0, float(g["sube"]) * 4.0 * kv * (1.0 - kv) * K)
+		capa.draw_circle(p2, float(g["tam"]), Color(SAVIA, 1.0 - kv * kv))
+
+
+# LAS RAICES DE LA HABILIDAD: el suelo se agrieta donde van a salir, ASOMAN un poco y se vuelven a meter -- dos
+# veces, cada una a su ritmo -- y en T_RAICES salen del todo, se quedan un momento y se hunden (las que agarran a
+# alguien siguen en ATADO).
+func _raices_suelo(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var apaga: float = 1.0 - smoothstep(T_RAICES + 0.5, T_RAICES + 0.9, _t)
+	if capa == _suelo:
+		for g in _grietas:
+			var pts: PackedVector2Array = g["pts"]
+			var n: int = clampi(int(ceil(float(pts.size()) * clampf(_t / 0.15, 0.0, 1.0))), 0, pts.size())
+			if n >= 2:
+				_trazo_grieta(capa, pts, n, float(g["w0"]), float(g["w1"]), apaga)
+		for rz in _raices:
+			_bola(capa, rz["p"], 3.5, Color(0.1, 0.07, 0.05, 0.6 * apaga))
+		return
+	if capa != _delante:
+		return
+	for rz in _raices:
+		var tr: float = _t - float(rz["fase"])
+		var alto: float = 0.0
+		if tr < T_RAICES * 0.75:
+			# ASOMAN Y SE METEN: dos veces, un tercio de su alto.
+			alto = 0.35 * maxf(0.0, sin(PI * fposmod(tr, 0.3) / 0.22)) * (1.0 if fposmod(tr, 0.3) < 0.22 else 0.0)
+		else:
+			# SALEN DEL TODO (con un pelin de mas y vuelta), se quedan y se hunden.
+			var ks: float = clampf((tr - T_RAICES * 0.75) / (T_RAICES * 0.25), 0.0, 1.0)
+			alto = ks * (1.0 + 0.15 * sin(PI * ks))
+			alto *= 1.0 - smoothstep(T_RAICES + 0.45, T_RAICES + 0.85, _t)
+		_raiz(capa, rz["p"], float(rz["h"]) * alto, float(rz["g"]), float(rz["curva"]), 1.0)
+	# TIERRA que salta cuando salen del todo.
+	var kt: float = clampf((_t - T_RAICES * 0.75) / 0.4, 0.0, 1.0)
+	if kt > 0.0 and kt < 1.0:
+		for i in _raices.size():
+			var base: Vector2 = _raices[i]["p"]
+			for s in [-1.0, 1.0]:
+				var p3: Vector2 = base + Vector2(s * 10.0 * kt, -12.0 * 4.0 * kt * (1.0 - kt) * K)
+				capa.draw_rect(Rect2(p3 - Vector2(1.0, 1.0), Vector2(2.0, 2.0)), Color(TIERRA, 1.0 - kt))
+
+
+# UNA RAIZ saliendo del suelo en 'base', de alto 'h': un cuerno de madera curvo que se afila hacia la punta. Filo
+# de corteza oscura detras (un poco mas gorda) y una veta clara por un lado. 'curva' la tuerce a un lado.
+func _raiz(ci: CanvasItem, base: Vector2, h: float, g: float, curva: float, alfa: float) -> void:
+	if h < 1.0 or alfa <= 0.01:
+		return
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	var borde_i := PackedVector2Array()
+	var borde_d := PackedVector2Array()
+	var n: int = 7
+	for i in n + 1:
+		var s: float = float(i) / float(n)
+		var c: Vector2 = base + Vector2(curva * sin(s * PI * 0.8) * h * 0.4, -h * s)
+		var w: float = g * pow(1.0 - s, 0.8) + 0.35
+		izq.append(c - Vector2(w, 0.0))
+		der.append(c + Vector2(w, 0.0))
+		borde_i.append(c - Vector2(w + 0.8, 0.0))
+		borde_d.append(c + Vector2(w + 0.8, 0.0))
+	_tira(ci, borde_i, borde_d, Color(CORTEZA, alfa))
+	_tira(ci, izq, der, Color(MADERA, alfa))
+	# La veta clara, por el lado de la curva.
+	var veta_a := PackedVector2Array()
+	var veta_b := PackedVector2Array()
+	for i in n + 1:
+		veta_a.append(izq[i].lerp(der[i], 0.55 if curva >= 0.0 else 0.2))
+		veta_b.append(izq[i].lerp(der[i], 0.8 if curva >= 0.0 else 0.45))
+	_tira(ci, veta_a, veta_b, Color(MADERA_CLARA, alfa * 0.8))
+
+
+# EL RAMAZO: la rama barre el cono de un lado al otro y vuelve (el Segar, BarridoAire.SIEGA), a la cintura. La rama
+# es una media luna de madera con su corteza detras; sueltan hojas por donde pasa la punta.
+func _ramazo(capa: Node2D) -> void:
+	if capa != _delante or forma == null:
+		return
+	var mitad: float = deg_to_rad(forma.apertura * 0.5)
+	var c: Vector2 = _o - Vector2(0.0, 8.0 * K)
+	for k in 2:
+		var tk: float = _t - float(k) * T_RAMA_ENTRE
+		if tk < -T_RAMA or tk > 0.3:
+			continue
+		var sentido: float = 1.0 if k == 0 else -1.0
+		var a0: float = _dir.angle() - mitad * sentido
+		var a1: float = _dir.angle() + mitad * sentido
+		var u: float = clampf((tk + T_RAMA) / T_RAMA, 0.0, 1.0)
+		var cabeza: float = lerpf(a0, a1, 1.0 - (1.0 - u) * (1.0 - u))
+		var ido: float = clampf(tk / 0.3, 0.0, 1.0)
+		var cola: float = lerpf(a0, cabeza, maxf(0.2 * u, ido))
+		var alfa: float = 1.0 - ido * ido
+		# LA ESTELA del barrido, tenue, por donde ha pasado la punta (el Segar)...
+		_media_luna(capa, c, cola, cabeza, _r * 0.98, _r * 0.5, MADERA_CLARA, MADERA, alfa * 0.4, false)
+		# ...y LA RAMA de verdad: un palo que sale de el y gira con el barrido (una rama barre como un radio, no como
+		# un arco: la v1 era solo la media luna y se leia como una raya), gorda en la base y afilada en la punta.
+		if u > 0.0 and ido < 0.6:
+			_rama(capa, c, cabeza, 0.0, _r * 0.98, 4.2, -sentido, alfa * (1.0 - ido / 0.6))
+		# LAS HOJAS: salen de la punta cuando pasa por su sitio y vuelan hacia delante del barrido.
+		for h in _hojas:
+			if int(h["k"]) != k:
+				continue
+			var t_sale: float = -T_RAMA + T_RAMA * float(h["s"])
+			var edad: float = tk - t_sale
+			if edad < 0.0 or edad > 0.5:
+				continue
+			var a_h: float = lerpf(a0, a1, float(h["s"]))
+			var sitio: Vector2 = c + Vector2(cos(a_h), sin(a_h)) * _r * 0.93
+			var tang := Vector2(-sin(a_h), cos(a_h)) * sentido
+			var p_h: Vector2 = sitio + tang * float(h["v"]) * edad + Vector2(0.0, 18.0 * edad * edad)
+			_hoja_o_astilla(capa, p_h, float(h["tam"]), a_h + float(h["gira"]) * edad, bool(h["hoja"]), 1.0 - edad / 0.5)
+
+
+# UNA RAMA de 'r0' a 'r1' de 'c' en el angulo 'ang': gorda en la base ('g') y afilada en la punta, un pelin
+# combada hacia atras del barrido ('atras' = el lado del que viene), con su corteza, una veta clara y hojas en la punta.
+func _rama(ci: CanvasItem, c: Vector2, ang: float, r0: float, r1: float, g: float, atras: float, alfa: float) -> void:
+	if alfa <= 0.01:
+		return
+	var d := Vector2(cos(ang), sin(ang))
+	var n: Vector2 = d.orthogonal()
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	var bi := PackedVector2Array()
+	var bd := PackedVector2Array()
+	var vi := PackedVector2Array()
+	var vd := PackedVector2Array()
+	var pasos: int = 8
+	for i in pasos + 1:
+		var s: float = float(i) / float(pasos)
+		var p: Vector2 = c + d * lerpf(r0, r1, s) + n * atras * sin(s * PI * 0.9) * (r1 - r0) * 0.08
+		var w: float = g * pow(1.0 - s, 0.7) + 0.6
+		izq.append(p - n * w)
+		der.append(p + n * w)
+		bi.append(p - n * (w + 1.0))
+		bd.append(p + n * (w + 1.0))
+		vi.append(p - n * w * 0.1)
+		vd.append(p + n * w * 0.45)
+	_tira(ci, bi, bd, Color(CORTEZA, alfa))
+	_tira(ci, izq, der, Color(MADERA, alfa))
+	_tira(ci, vi, vd, Color(MADERA_CLARA, alfa * 0.8))
+	# Las hojas de la punta.
+	var punta: Vector2 = c + d * r1
+	for k in 3:
+		_hoja_o_astilla(ci, punta + n * (float(k) - 1.0) * 3.0 - d * float(k % 2) * 3.0, 2.2, ang + (float(k) - 1.0) * 0.7,
+			true, alfa)
+
+
+# LOS PEGOTES DE SAVIA sobre el que se come el Ramazo (el Pegajoso): se estampan y escurren hacia abajo.
+func _pegote(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	var apaga: float = 1.0 - smoothstep(0.9, 1.3, _t)
+	for p in _puffs:
+		var tp: float = _t - float(p["t0"])
+		if tp < 0.0:
+			continue
+		var crece: float = clampf(tp / 0.08, 0.0, 1.0)
+		var c: Vector2 = _hasta + Vector2(float(p["x"]) * _ancho, float(p["y"]) * _largo)
+		var r: float = maxf(1.5, float(p["r"]) * _ancho) * crece
+		capa.draw_circle(c, r + 0.8, Color(SAVIA_OSCURA, apaga))
+		capa.draw_circle(c, r, Color(SAVIA, apaga))
+		capa.draw_circle(c + Vector2(-r * 0.3, -r * 0.35), r * 0.35, Color(SAVIA_CLARA, apaga))
+		# Lo que escurre.
+		var escurre: float = clampf((tp - 0.1) / 0.8, 0.0, 1.0)
+		if escurre > 0.0:
+			BarridoAire.cometa(capa, c, c + Vector2(0.0, r + 6.0 * escurre), maxf(1.0, r * 0.5), Color(SAVIA, apaga * 0.9))
+
+
+# EL CHARCO DE SAVIA: una mancha espesa con el borde irregular (filo oscuro, cuerpo ambar, brillo), burbujas que
+# suben y revientan, y un vaho tenue. Se encoge segun le queda (CombatTactico.radio_charco) y al secarse se apaga.
+func _charco(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var entra: float = clampf(_t / 0.12, 0.0, 1.0)
+	var sale: float = 1.0 if _secando < 0.0 else 1.0 - clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+	var alfa: float = entra * sale
+	if alfa <= 0.0:
+		return
+	var r: float = radio_charco(forma, queda) * lerpf(0.4, 1.0, entra) * lerpf(0.8, 1.0, sale)
+	if capa == _suelo:
+		var n: int = _piedras.size()
+		var borde := PackedVector2Array()
+		var cuerpo := PackedVector2Array()
+		for i in n:
+			var a: float = TAU * float(i) / float(n)
+			var lob: float = float(_piedras[i])
+			borde.append(_o + Vector2(cos(a), sin(a)) * r * lob * 1.06)
+			cuerpo.append(_o + Vector2(cos(a), sin(a)) * r * lob)
+		_poligono(capa, borde, Color(SAVIA_OSCURA, 0.85 * alfa))
+		_poligono(capa, cuerpo, Color(SAVIA, 0.8 * alfa))
+		# El brillo arriba a la izquierda: es lo que lo hace liquido y espeso, no una mancha.
+		_bola(capa, _o + Vector2(-r * 0.3, -r * 0.3), r * 0.35, Color(SAVIA_CLARA, 0.55 * alfa))
+		return
+	if capa != _delante:
+		return
+	# LAS BURBUJAS: cada una crece y revienta (un anillo que se abre), a su ritmo.
+	for b in _puffs:
+		var ciclo: float = fposmod(_t / float(b["per"]) + float(b["fase"]), 1.0)
+		var c: Vector2 = _o + Vector2(float(b["x"]), float(b["y"])) * r
+		if ciclo < 0.8:
+			var rb: float = float(b["r"]) * (ciclo / 0.8)
+			capa.draw_circle(c, rb + 0.5, Color(SAVIA_OSCURA, 0.7 * alfa))
+			capa.draw_circle(c, rb, Color(SAVIA_CLARA, 0.8 * alfa))
+		else:
+			var kr: float = (ciclo - 0.8) / 0.2
+			_bola(capa, c, float(b["r"]) * (1.0 + 1.5 * kr), Color(SAVIA_CLARA, 0.5 * alfa * (1.0 - kr)))
+	# EL VAHO: dos hilos tenues que suben del charco (corrosiva).
+	for i in 2:
+		var kv: float = fposmod(_t * 0.6 + float(i) * 0.5, 1.0)
+		var base: Vector2 = _o + Vector2((float(i) - 0.5) * r * 0.6, 0.0)
+		_bola(capa, base + Vector2(sin(kv * 6.0 + float(i)) * 2.0, -kv * 16.0), 3.0 + 3.0 * kv,
+			Color(0.75, 0.8, 0.45, 0.18 * alfa * (1.0 - kv)))
+
+
+# LAS RAICES QUE ATAN: cuatro raices enroscadas en sus piernas, que suben de sus pies cruzandole el cuerpo, se
+# mecen un poco y al soltarle se hunden.
+func _atado(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	var sube: float = clampf(_t / 0.25, 0.0, 1.0)
+	var baja: float = 1.0 if _secando < 0.0 else 1.0 - clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+	var alto: float = sube * baja
+	if alto <= 0.0:
+		return
+	for rz in _raices:
+		var base: Vector2 = _hasta + Vector2(float(rz["x"]) * _ancho, 1.0)
+		var mece: float = 0.15 * sin(_t * 2.4 + float(rz["fase"]))
+		_raiz(capa, base, _largo * float(rz["h"]) * alto, float(rz["g"]), float(rz["curva"]) * (1.0 + mece), 1.0)
 
 
 # UNA MEDIA LUNA sobre un arco alrededor de 'c', de 'a_cola' a 'a_cabeza' (BarridoAire._tajo): el filo, a 'r_filo',

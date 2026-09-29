@@ -48,6 +48,9 @@ func _enemy_turn(e: Combatant) -> void:
 	if _pantalla._dps_on:
 		_pantalla._turnos_enemigo += 1
 	_abrir_turno_enemigo()
+	# Sus CHARCOS (la Savia del trent) se secan un turno suyo mas (CombatTactico.charcos_turno_enemigo).
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.charcos_turno_enemigo(e)
 	e.tick_cooldowns()   # habilidades del enemigo (KAN-58): baja 1 turno los cooldowns
 	# Estados alterados (KAN-58): tick al inicio del turno del enemigo.
 	var ev: Dictionary = e.tick_statuses()
@@ -129,7 +132,9 @@ func _enemy_turn(e: Combatant) -> void:
 	# mecanica y mitad decorado -- y sin dar ningun error, que es como se pierden estas cosas.
 	# Si tiene tecnica lista la usa (para conjurar no hacen falta los pies) y si no, pierde el turno.
 	# Sin nadie a tiro del basico (obj nulo en el mapa), lo que le queda es la habilidad que si llega.
-	var atado: bool = e.enraizado()
+	# EN EL MAPA NO (29/09, decision del usuario): enraizado solo le clava en el sitio (CombatTactico no le deja
+	# andar) y pega con lo que le llegue desde ahi, como a los tuyos.
+	var atado: bool = e.enraizado() and not _pantalla.tactico
 	var elegida: AbilityData = decidida if decidida != null and listas.has(decidida) else null
 	if elegida == null and not listas.is_empty() and (atado or obj == null or (
 			_pantalla.turno_mapa.sacar_tirada(e) if _pantalla.tactico else randf() < e.prob_habilidad)):
@@ -456,6 +461,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
 					SlimeAire.semilla_con_color(randi(), e.color_visual), ab.forma_nucleo)
+			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
+			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+				_pantalla.turno_mapa.poner_charco(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)
 		# LOS GOLPES SE REPARTEN por la huella (forma_reparte: la Tromba, la Escision): uno a cada uno de
 		# los de dentro, por turnos y del mas cercano al centro al mas lejano. Va por la rama del reparto.
 		var reparte_mapa: bool = lista_mapa != null and ab.forma_reparte

@@ -277,6 +277,8 @@ func desmontar() -> void:
 	_tirones.clear()
 	_quitar_circulo()
 	_apagar_circulos()
+	olvidar_charcos()
+	_quitar_raices()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
@@ -806,6 +808,7 @@ func tick(delta: float) -> bool:
 	_tick_circulos()
 	_tick_huellas(delta)
 	_tick_gestos(delta)
+	_tick_raices()
 	_tick_tirones(delta)
 	_tick_saltos(delta)
 	_tick_deslices(delta)
@@ -1626,7 +1629,8 @@ const FLOATS_HUELLA := 15
 const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va con la de apuntar
-const CLASES_HUELLA := 3
+const CLASE_SAVIA := 3      # un CHARCO que se queda (ver poner_charco): su 'nucleo' es lo que le queda (1 = recien)
+const CLASES_HUELLA := 4
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
 var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
@@ -1719,7 +1723,7 @@ func _tick_huellas(delta: float) -> void:
 	# La de apuntar solo vive mientras es el turno de ese: si se fue sin avisar, se borra aqui.
 	for cod in _huellas_red.keys():
 		var d: PackedFloat32Array = _huellas_red[cod]
-		if int(d[1]) != CLASE_CARGA and (_pantalla._state != _pantalla.State.WAITING_PLAYER
+		if int(d[1]) != CLASE_CARGA and int(d[1]) != CLASE_SAVIA and (_pantalla._state != _pantalla.State.WAITING_PLAYER
 				or _pantalla.espejo._de_codigo(int(d[0])) != _pantalla._player):
 			_huellas_red.erase(cod)
 			_huellas_cambiadas = true
@@ -1751,10 +1755,17 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 	for k in _claves_red:
 		arena.quitar_huella(k)
 	_claves_red.clear()
+	var charcos_vivos: Array = []
 	var i: int = 0
 	while i + FLOATS_HUELLA <= d.size():
 		var x: Array = _desempaquetar(d, i)
 		i += FLOATS_HUELLA
+		# LOS CHARCOS no son una huella de aviso: se pintan como charco (y se secan con lo que les queda).
+		if int(x[1]) == CLASE_SAVIA:
+			var clave_c: String = "savia_%d" % int(x[0])
+			_charco_visible(clave_c, x[2], float(x[3]))
+			charcos_vivos.append(clave_c)
+			continue
 		var c: Combatant = _pantalla.espejo._de_codigo(int(x[0]))
 		if int(x[1]) != CLASE_CARGA and _apuntando != null and c == _quien:
 			continue
@@ -1765,6 +1776,152 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 			col = COLOR_ENEMIGO
 		arena.poner_huella(clave, x[2], x[3], col)
 		_claves_red.append(clave)
+	for clave_v in _charco_vis.keys():
+		if not clave_v in charcos_vivos:
+			_secar_charco_vis(clave_v)
+
+
+# ------------------------------------------------------------
+#  LOS CHARCOS QUE SE QUEDAN (29/09, decision del usuario: la Savia del trent)
+# ------------------------------------------------------------
+# La huella de una habilidad con charco_turnos se queda en el suelo esos turnos de QUIEN LA LANZA (si cae antes, se
+# sigue secando en los turnos de los otros enemigos). Los del otro bando que la pisen -pasando por encima al andar,
+# o empezando su turno dentro- se llevan sus estados, una vez por turno como mucho y solo en quien lleva la pelea.
+# Los ven todos: viajan como una huella mas (CLASE_SAVIA) y cada maquina los pinta con BestiaAire.charco.
+var _charcos: Dictionary = {}        # Combatant (quien lo echo) -> {f, turnos, max, ab}
+var _charco_vis: Dictionary = {}     # clave -> BestiaAire (lo que se ve)
+var _pisado: Dictionary = {}         # Combatant -> true: ya se lo llevo este turno
+var _desde_charco: Dictionary = {}   # Combatant -> de donde parte lo que anda (sus pies)
+
+func poner_charco(e: Combatant, ab: AbilityData, f) -> void:
+	if _pantalla._espejo or ab == null or ab.charco_turnos <= 0 or f == null:
+		return
+	_charcos[e] = {"f": f, "turnos": ab.charco_turnos, "max": ab.charco_turnos, "ab": ab}
+	_anotar_huella_red(e, CLASE_SAVIA, f, 1.0)
+	_charco_visible("savia_%d" % _cod(e), f, 1.0)
+
+
+# Al empezar el turno de un enemigo: SUS charcos se secan un turno (y los de los que ya cayeron, tambien).
+func charcos_turno_enemigo(e: Combatant) -> void:
+	if _pantalla._espejo:
+		return
+	for dueno in _charcos.keys():
+		if dueno != e and (dueno as Combatant).is_alive():
+			continue
+		var ch: Dictionary = _charcos[dueno]
+		ch["turnos"] = int(ch["turnos"]) - 1
+		var clave: String = "savia_%d" % _cod(dueno)
+		if int(ch["turnos"]) <= 0:
+			_charcos.erase(dueno)
+			_anotar_huella_red(dueno, CLASE_SAVIA, null, 0.0)
+			_secar_charco_vis(clave)
+			continue
+		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
+		_anotar_huella_red(dueno, CLASE_SAVIA, ch["f"], queda)
+		_charco_visible(clave, ch["f"], queda)
+
+
+# Al empezar el turno de uno de los tuyos (en quien lleva la pelea): si empieza dentro, lo pisa.
+func charcos_empezar_turno(c: Combatant) -> void:
+	if _pantalla._espejo or c == null:
+		return
+	_pisado.erase(c)
+	_desde_charco[c] = pies_de(c)
+	_pisar_si(c, pies_de(c), pies_de(c))
+
+
+# Al cerrar su accion: lo que ha andado desde el principio del turno (en linea recta), por encima de un charco.
+func charcos_tras_andar(c: Combatant) -> void:
+	if _pantalla._espejo or c == null or not _desde_charco.has(c):
+		return
+	_pisar_si(c, _desde_charco[c], pies_de(c))
+	_desde_charco[c] = pies_de(c)
+
+
+func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
+	if _pisado.has(c) or not c.is_alive() or not _pantalla._aliados.has(c):
+		return
+	for dueno in _charcos:
+		var ch: Dictionary = _charcos[dueno]
+		var f = ch["f"]
+		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
+		var cerca: Vector2 = Geometry2D.get_closest_point_to_segment(f.centro, a, b)
+		if cerca.distance_to(f.centro) > BestiaAire.radio_charco(f, queda) + radio_pisa(c) * 0.5:
+			continue
+		_pisado[c] = true
+		# SI LO PISAS, TE ENVENENA (lo dijo el usuario): la probabilidad de su ficha sube a segura; tu resistencia
+		# a estados sigue contando.
+		var ab: AbilityData = ch["ab"]
+		var p_max: float = 0.01
+		for a_e in ab.efectos:
+			p_max = maxf(p_max, float(a_e.prob))
+		var puestos: Array = _pantalla.enemigos._enemy_tirar_efectos(dueno, ab, c, 1.0, "objetivo", 1.0 / p_max)
+		_pantalla._set_log("🧪 %s pisa la savia%s." % [c.nombre,
+			(": " + ", ".join(puestos)) if not puestos.is_empty() else " y aguanta"])
+		_pantalla._update_hp()
+		return
+
+
+# Lo que se ve de un charco: lo crea si no esta y le dice lo que le queda (se encoge y apaga al secarse).
+func _charco_visible(clave: String, f, queda: float) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or f == null:
+		return
+	var n = _charco_vis.get(clave)
+	if n == null or not is_instance_valid(n):
+		n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
+		_charco_vis[clave] = n
+	(n as BestiaAire).queda = queda
+
+
+func _secar_charco_vis(clave: String) -> void:
+	var n = _charco_vis.get(clave)
+	_charco_vis.erase(clave)
+	if n != null and is_instance_valid(n):
+		(n as BestiaAire).secar()
+
+
+# LAS RAICES QUE ATAN (29/09, decision del usuario): mientras alguien este Enraizado se le ven enroscadas en las
+# piernas (BestiaAire.atado); al soltarle, se hunden. Se mira cada fotograma el estado, que ya viaja al espejo
+# (Combatant.enraizado mira puertas_remotas): lo ven todos sin mandar nada.
+var _raices: Dictionary = {}   # Combatant -> BestiaAire
+
+func _tick_raices() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	var todos: Array = []
+	todos.append_array(_pantalla._aliados)
+	todos.append_array(_pantalla._enemies)
+	for c in todos:
+		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null
+		var n = _raices.get(c)
+		if atado:
+			if n == null or not is_instance_valid(n):
+				n = BestiaAire.atado(arena, bulto_de(c), pies_de(c), _cod(c))
+				_raices[c] = n
+			(n as BestiaAire).seguir(bulto_de(c), pies_de(c))
+		elif n != null:
+			_raices.erase(c)
+			if is_instance_valid(n):
+				(n as BestiaAire).secar()
+
+
+func _quitar_raices() -> void:
+	for c in _raices.keys():
+		var n = _raices[c]
+		if n != null and is_instance_valid(n):
+			(n as BestiaAire).secar()
+	_raices.clear()
+
+
+# Al acabar la pelea no queda ninguno.
+func olvidar_charcos() -> void:
+	for clave in _charco_vis.keys():
+		_secar_charco_vis(clave)
+	_charcos.clear()
+	_pisado.clear()
+	_desde_charco.clear()
 
 
 # ROJO = ENEMIGO (decidido con el usuario el 28/09): las nuestras van en frios, del color de nuestro
@@ -2478,7 +2635,8 @@ const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
 	CombatFX.Estilo.BESTIA_COLMILLO: BestiaAire.Modo.COLMILLO, CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA,
-	CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE}
+	CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE, CombatFX.Estilo.BESTIA_RAMALAZO: BestiaAire.Modo.RAMALAZO,
+	CombatFX.Estilo.BESTIA_PEGOTE: BestiaAire.Modo.PEGOTE}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3024,6 +3182,10 @@ func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
 # 'dur' (> 0) = lo que tarda, en tiempo de la pelea (si no, el paso de siempre); 'arco' = lo alto que va por el aire
 # (el salto de un enemigo: su dibujo sube y baja, sus pies van por el suelo).
 func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
+	# ENRAIZADO NO SE MUEVE DEL SITIO (29/09): ni por sus habilidades (el paso, la carga, el salto) ni porque le
+	# empujen o le tiren. Las raices le sujetan; el golpe entra igual.
+	if c != null and c.enraizado():
+		return
 	if _pantalla._espejo or not _pantalla.tactico or c == null:
 		return
 	if not _es_mio(c):

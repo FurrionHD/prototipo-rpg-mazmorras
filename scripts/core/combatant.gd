@@ -282,6 +282,7 @@ var pj_escaparate: Resource = null
 # resto del turno. -1 = MELEE de siempre. Igual que color_visual, es dato de PRESENTACION que
 # viaja aqui porque la pantalla de combate solo ve Combatants.
 var fx_basico: int = -1
+var fx_basico_mapa: int = -1   # EnemyData.fx_basico_mapa: lo que pinta su basico en el mapa
 # QUE ESCUDO LLEVA, para dibujarlo: un ShieldData.Tamano (-1 = ninguno). Los tres escudos del juego
 # se distinguen por el TAMAÑO -- es su eje de balance, el bloqueo va por ahi y ni el tier ni la
 # rareza lo tocan -- asi que tienen que distinguirse tambien de un vistazo, y hasta ahora los tres

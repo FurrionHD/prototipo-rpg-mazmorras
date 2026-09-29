@@ -381,7 +381,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# de los que se comen el Chillido.
 		BESTIA_DENTELLADA = 136, BESTIA_YUGULAR = 137, BESTIA_TEMBLOR = 138,
 		# Y las del jabali (29/09): el colmillazo del basico, la Cornada que levanta y el choque de la Embestida.
-		BESTIA_COLMILLO = 139, BESTIA_CORNADA = 140, BESTIA_CHOQUE = 141 }
+		BESTIA_COLMILLO = 139, BESTIA_CORNADA = 140, BESTIA_CHOQUE = 141,
+		# Y las del trent (29/09): el ramalazo del basico y los pegotes de savia del Ramazo.
+		BESTIA_RAMALAZO = 142, BESTIA_PEGOTE = 143 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -413,6 +415,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.BESTIA_MORDISCO, Estilo.BESTIA_MORDISCO_SANGRA, Estilo.BESTIA_FRENESI,
 	Estilo.BESTIA_DENTELLADA, Estilo.BESTIA_YUGULAR, Estilo.BESTIA_TEMBLOR,
 	Estilo.BESTIA_COLMILLO, Estilo.BESTIA_CORNADA, Estilo.BESTIA_CHOQUE,
+	Estilo.BESTIA_RAMALAZO, Estilo.BESTIA_PEGOTE,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -567,6 +570,7 @@ const T_VUELO := {
 	Estilo.BESTIA_TEMBLOR: 0.02,
 	# El colmillo sube en ese tiempo y llega arriba en el golpe; el choque sale EN el golpe.
 	Estilo.BESTIA_COLMILLO: 0.12, Estilo.BESTIA_CORNADA: 0.18, Estilo.BESTIA_CHOQUE: 0.02,
+	Estilo.BESTIA_RAMALAZO: 0.14, Estilo.BESTIA_PEGOTE: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

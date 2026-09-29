@@ -25,3 +25,6 @@ forma = 2
 forma_apunte = 1
 forma_radio = 55.0
 forma_apertura = 140.0
+; EFECTO EN EL MAPA (29/09): la rama barre ida y vuelta (BESTIA_RAMAZO) y deja pegotes de savia en cada uno.
+suelo_roto = 77
+fx_estilo_mapa = 143

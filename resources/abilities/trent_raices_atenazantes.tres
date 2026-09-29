@@ -23,3 +23,6 @@ forma = 1
 forma_apunte = 3
 forma_radio = 30.0
 forma_rango = 110.0
+; EFECTO EN EL MAPA (29/09): las raices asoman y se meten hasta que salen del todo (BESTIA_RAICES); las que agarran
+; se quedan en sus piernas mientras dure el Enraizado (BestiaAire.atado).
+suelo_roto = 76

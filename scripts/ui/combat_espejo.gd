@@ -850,7 +850,9 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 	# jugada, no terminar la que ya estaba en marcha. Un conjuro a medias se sigue recitando aunque te
 	# silencien (aqui y en local: es la misma regla), o el invitado perderia el mana por un camino que
 	# al de al lado no le pasa.
-	var bloqueada: bool = (tipo == "habilidad" and (_pantalla._player.silenciado() or _pantalla._player.enraizado())) \
+	# (Enraizado en el mapa no bloquea nada: solo clava en el sitio, ver combat._pasa_el_turno.)
+	var bloqueada: bool = (tipo == "habilidad" and (_pantalla._player.silenciado()
+			or (_pantalla._player.enraizado() and not _pantalla.tactico))) \
 		or (tipo == "magia" and _pantalla._player.silenciado())
 	if bloqueada:
 		print("[combate] '%s' de %s rechazada: esta silenciado o enraizado" % [tipo, _pantalla._player.nombre])

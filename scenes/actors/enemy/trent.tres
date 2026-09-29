@@ -51,6 +51,7 @@ resist_estado = {
 2: -0.7
 }
 fx_basico = 23
+fx_basico_mapa = 142
 habilidades = [ExtResource("3_esc"), ExtResource("4_plc"), ExtResource("7_rai")]
 prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

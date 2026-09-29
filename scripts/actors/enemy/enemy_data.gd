@@ -127,6 +127,10 @@ func centro_suelo_real() -> float:
 # turnos da el mismo empujon que un esqueleto. Aqui se pone COMO ATACA EL BICHO, que suele ser una
 # sola cosa (la rata muerde, el acechador desgarra), y las habilidades lo afinan por encima.
 @export var fx_basico: int = -1
+# Y LO QUE PINTA ESE BASICO EN EL MAPA sobre el cuerpo (CombatFX.Estilo.BESTIA_*), -1 = lo de su fx_basico. Hace
+# falta porque un mismo fx_basico lo comparten bichos muy distintos: el golpetazo es del trent, del golem, del
+# coloso... y en el mapa el del trent es un ramalazo de madera (29/09).
+@export var fx_basico_mapa: int = -1
 
 
 # Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
@@ -582,6 +586,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.sprite_res = resource_path
 	c.sprite_t = t
 	c.fx_basico = fx_basico
+	c.fx_basico_mapa = fx_basico_mapa
 	c.alcance = alcance_real()
 	c.mutante = mutante
 	return c

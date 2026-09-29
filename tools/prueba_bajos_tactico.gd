@@ -138,5 +138,42 @@ func _correr() -> void:
 				_ver(eje_despues > eje_antes + 10.0 and absf(mov.dot(f_emb.dir)) < 3.0,
 					"la Embestida aparta a %s hacia SU lado (de lado, no hacia delante)" % al[k].nombre)
 
+		# EL TRENT (29/09): la Savia deja CHARCO (y pisarlo cuenta), y el Enraizado solo te clava en el sitio.
+		if clave == "trent":
+			var savia: AbilityData = load("res://resources/abilities/trent_savia_corrosiva.tres")
+			combat.enemigos._enemy_use_ability(e, savia, al[0])
+			combat._fx.arrancar_cola()
+			await get_tree().create_timer(1.0, true, false, true).timeout
+			_ver(t._charcos.has(e), "la Savia deja un charco en el suelo")
+			if t._charcos.has(e):
+				var fc = t._charcos[e]["f"]
+				# Uno que empieza el turno DENTRO lo pisa; otro que pasa andando por encima, tambien.
+				t._colocar(al[1], t.cuerpo_de(al[1]), fc.centro - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+				await _esperar(2)
+				t.charcos_empezar_turno(al[1])
+				_ver(t._pisado.has(al[1]), "empezar el turno dentro del charco lo pisa")
+				t.charcos_empezar_turno(al[2])
+				t._colocar(al[2], t.cuerpo_de(al[2]), fc.centro * 2.0 - t.pies_de(al[2]) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+				await _esperar(2)
+				t.charcos_tras_andar(al[2])
+				_ver(t._pisado.has(al[2]), "cruzar el charco andando lo pisa")
+				# Se seca en tres turnos suyos.
+				for _k in 3:
+					t.charcos_turno_enemigo(e)
+				_ver(not t._charcos.has(e), "el charco se seca a los 3 turnos del trent")
+			var raices: AbilityData = load("res://resources/abilities/trent_raices_atenazantes.tres")
+			al[0].apply_status(StatusEffects.Id.ENRAIZADO, 2)
+			_ver(t.radio_de(al[0]) == 0.0, "enraizado no anda")
+			var antes_r: Vector2 = t.pos_de(al[0])
+			t.pedir_desliz(al[0], antes_r + Vector2(40, 0), 0, 1)
+			await _esperar(20)
+			_ver(t.pos_de(al[0]).distance_to(antes_r) < 1.0, "enraizado no se mueve ni empujado")
+			combat._player = al[0]
+			_ver(not combat._pasa_el_turno() and combat._motivo_bloqueo(combat.Action.HABILIDAD) != "Estás enraizado (puedes lanzar hechizos)",
+				"enraizado en el mapa puede atacar y usar tecnicas si llega")
+			await _esperar(3)
+			_ver(t._raices.has(al[0]), "enraizado lleva las raices en las piernas")
+			var _r = raices
+
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)

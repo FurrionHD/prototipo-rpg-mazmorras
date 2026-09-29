@@ -1341,12 +1341,16 @@ const MOMENTOS_BESTIA := {
 	"jabali_cornada": [-0.1, 0.0, 0.1, 0.22, 0.4],
 	"jabali_embestida": [0.08, 0.16, 0.22, 0.35, 0.6],
 	"jabali_pisoton": [0.03, 0.12, 0.23, 0.35, 0.8],
+	"trent_savia_corrosiva": [0.1, 0.28, 0.45, 0.9, 1.8],
+	"trent_raices_atenazantes": [0.12, 0.3, 0.5, 0.75, 1.2],
+	"trent_ramazo": [-0.07, 0.0, 0.13, 0.2, 0.45],
 }
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
 	CombatFX.Estilo.BESTIA_TEMBLOR: BestiaAire.Modo.TEMBLOR, CombatFX.Estilo.BESTIA_COLMILLO: BestiaAire.Modo.COLMILLO,
-	CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA, CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE}
+	CombatFX.Estilo.BESTIA_CORNADA: BestiaAire.Modo.CORNADA, CombatFX.Estilo.BESTIA_CHOQUE: BestiaAire.Modo.CHOQUE,
+	CombatFX.Estilo.BESTIA_RAMALAZO: BestiaAire.Modo.RAMALAZO, CombatFX.Estilo.BESTIA_PEGOTE: BestiaAire.Modo.PEGOTE}
 
 func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	BarridoAire.ritmo = 1.0
@@ -1386,8 +1390,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab.forma_apunte = CombatFormas.Apunte.DELANTE
 			ab.forma_radio = 8.0
 			# El de su bicho (CombatEfectos._estilo_de_habilidad): la rata muerde, el jabali mete el colmillo.
-			ab.fx_estilo_mapa = CombatFX.Estilo.BESTIA_COLMILLO if ed.fx_basico == CombatFX.Estilo.CORNADA \
-				else CombatFX.Estilo.BESTIA_MORDISCO
+			ab.fx_estilo_mapa = ed.fx_basico_mapa if ed.fx_basico_mapa >= 0 else (CombatFX.Estilo.BESTIA_COLMILLO
+				if ed.fx_basico == CombatFX.Estilo.CORNADA else CombatFX.Estilo.BESTIA_MORDISCO)
 		else:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
@@ -1407,7 +1411,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			medida = maxf(medida, f0.radio + 70.0 * 0.7)
 		# Los mordiscos sueltos, de cerca: si no, las mandibulas no se ven.
 		# Y las huellas cortas (Dentellada real, Yugular), mas de cerca que las grandes.
-		medida = 32.0 if (nom == "basico" or sin_huella) else maxf(medida, 90.0 if medida > 60.0 else 55.0)
+		# (Los grandes, como el trent, necesitan sitio: su presa esta a su alcance mas medio cuerpo.)
+		medida = maxf(32.0, alcance + rd.size.y * 0.4) if (nom == "basico" or sin_huella) \
+			else maxf(medida, 90.0 if medida > 60.0 else 55.0)
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
 		_cam.zoom = Vector2(zoom, zoom)
 		var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
@@ -1453,8 +1459,11 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				# a los lados del cono, para que se vea a quien muerde.
 				if cajas.is_empty():
 					# La linea de la Yugular: una al final. El cono: dos, a los lados.
-					var sitios: Array = [f.origen + f.dir * f.largo * 0.85] if f.tipo == CombatFormas.Tipo.LINEA \
-						else [f.origen + dvec.rotated(-0.35) * f.radio * 0.8, f.origen + dvec.rotated(0.35) * f.radio * 0.8]
+					var sitios: Array = [f.origen + dvec.rotated(-0.35) * f.radio * 0.8, f.origen + dvec.rotated(0.35) * f.radio * 0.8]
+					if f.tipo == CombatFormas.Tipo.LINEA:
+						sitios = [f.origen + f.dir * f.largo * 0.85]
+					elif f.tipo == CombatFormas.Tipo.CIRCULO:
+						sitios = [f.centro + Vector2(-f.radio * 0.4, 0.0), f.centro + Vector2(f.radio * 0.4, 0.0)]
 					for sitio in sitios:
 						var pies_p: Vector2 = (sitio as Vector2) + Vector2(0, 13)
 						var fp: ColorRect = _figura(pies_p, AZUL)
@@ -1497,6 +1506,22 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rc, semilla + i, 0.0, 1.0,
 						bulto.size.x), "t0": maxf(SueloRoto.retraso(f, _pies_caja(rc), ab.suelo_roto), BestiaAire.T_ESTELA),
 						"sim": false})
+				cajas = []
+			# EL CHARCO que se queda (la Savia): aparece cuando cae el goteron.
+			if ab.charco_turnos > 0:
+				piezas.append({"n": BestiaAire.charco(self, f, semilla, 0.0), "t0": BestiaAire.T_SAVIA_CAE, "sim": false})
+			# LAS RAICES QUE ATAN, en cada uno de los que pillan, cuando salen del todo.
+			if ab.suelo_roto == SueloRoto.Tipo.BESTIA_RAICES:
+				for i in cajas.size():
+					var ra: Rect2 = cajas[i]
+					piezas.append({"n": BestiaAire.atado(self, ra, _pies_caja(ra), semilla + i), "t0": BestiaAire.T_RAICES,
+						"sim": false})
+			# LOS PEGOTES del Ramazo: en todos los que pilla, en cada pasada.
+			if modo_b == BestiaAire.Modo.PEGOTE:
+				for g2 in maxi(ab.golpes_max, 1):
+					for i in cajas.size():
+						piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), cajas[i], semilla + i * 7 + g2,
+							0.0, 1.0, bulto.size.x), "t0": float(g2) * BestiaAire.T_RAMA_ENTRE, "sim": false})
 				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
 			if modo_b < 0:
