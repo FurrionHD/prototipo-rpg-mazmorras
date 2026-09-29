@@ -389,7 +389,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		INSECTO_QUELICEROS = 144, INSECTO_PONZONA = 145, INSECTO_HEBRAS = 146,
 		# Y los del escarabajo (29/09): el palazo del basico, la bola que pasa por encima de cada uno en la Embestida
 		# rodante y el reflejo del Caparazon sobre si mismo.
-		INSECTO_PALA = 147, INSECTO_ARROLLA = 148, INSECTO_CAPARAZON = 149 }
+		INSECTO_PALA = 147, INSECTO_ARROLLA = 148, INSECTO_CAPARAZON = 149,
+		# Y los del ciempies (29/09): las forcipulas en tijera del basico y la rafaga de patitas de la Oleada.
+		INSECTO_FORCIPULAS = 150, INSECTO_PATITAS = 151 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -424,7 +426,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.BESTIA_RAMALAZO, Estilo.BESTIA_PEGOTE,
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
-	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON,
+	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -585,6 +587,8 @@ const T_VUELO := {
 	Estilo.INSECTO_QUELICEROS: 0.14, Estilo.INSECTO_PONZONA: 0.14, Estilo.INSECTO_HEBRAS: 0.02,
 	# La pala llega y se aplasta en el golpe; la bola y el reflejo salen EN el golpe (la bola, cuando le pasa por encima).
 	Estilo.INSECTO_PALA: 0.12, Estilo.INSECTO_ARROLLA: 0.02, Estilo.INSECTO_CAPARAZON: 0.02,
+	# Las forcipulas llegan abiertas y se cruzan en el golpe; las patitas empiezan a clavarse justo antes.
+	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1903,6 +1907,8 @@ const IMPACTO_ANIM_MAPA := {
 	# primer marco, a la vez que sale el rastro y que la pelea lo mueve por la linea. El Caparazon se aplasta del todo
 	# a 0,571x7/9.
 	"rodar": 0.0, "caparazon": 0.44,
+	# El ciempies (29/09): cada sacudida de la Oleada pica a 0,5x5/18.
+	"oleada": 0.14,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

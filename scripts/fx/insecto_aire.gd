@@ -26,13 +26,17 @@
 #                polvo a ras del suelo.
 #    RODADA      (suelo) la banda de tierra aplastada que deja la bola detras, con su labio a los lados, y el polvo
 #                que se levanta a su paso.
+#  EL CIEMPIES (29/09), igual: el gesto es de su cuerpo (CiempiesSprites) y aqui lo que cae sobre la victima:
+#    FORCIPULAS  el basico: dos ganchos finos que entran desde los lados y SE CRUZAN como una tijera.
+#    PATITAS     cada picotazo de la Oleada de patas: 6-8 patitas que se clavan escalonadas de arriba abajo.
 #  LAS HEBRAS NO SON LINEAS (lo aprobo el usuario, 29/09): cada una es un hilo relleno que se afila, mas grueso junto a
 #  los nudos, con un halo suave detras. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name InsectoAire
 
-enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA }
+enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
+	FORCIPULAS, PATITAS }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA]
@@ -214,6 +218,28 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 				var s: float = -1.0 if i % 2 == 0 else 1.0
 				e._piezas.append({"d": (e._lado * s).rotated(-s * e._rng.randf_range(0.15, 0.7)),
 					"v": e._rng.randf_range(14.0, 26.0) * lerpf(0.7, 1.0, e._peso), "t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.FORCIPULAS:
+			e._viaje = clampf(espera, 0.08, 0.2)
+			e._t = -e._viaje
+			e._eje = eje.rotated(e._rng.randf_range(-0.3, 0.3))
+			e._lado = e._eje.orthogonal()
+			# A la escala de un ciempies GRANDE: con 0,2 salian dos rayitas.
+			e._tam = maxf((boca if boca > 0.0 else e._ancho) * 0.32, 7.0)
+		Modo.PATITAS:
+			# Escalonadas de arriba abajo en 0,1 s; del lado de quien pica sobre todo, alguna del otro.
+			e._t = -maxf(espera, 0.0)
+			e._eje = eje
+			e._tam = maxf(e._ancho * 0.5, 7.0)
+			var n: int = e._rng.randi_range(6, 8)
+			for i in n:
+				var h: float = float(i) / float(n - 1)
+				var lado_p: float = -1.0 if e._rng.randf() < 0.75 else 1.0
+				var sitio: Vector2 = caja.get_center() + Vector2(e._rng.randf_range(-0.3, 0.3) * caja.size.x,
+					lerpf(-0.38, 0.4, h) * caja.size.y)
+				var d: Vector2 = (eje * 0.8 + Vector2(-lado_p * eje.y, lado_p * eje.x) * 0.35 * e._rng.randf_range(0.3, 1.0)
+					+ Vector2(0.0, 0.25)).normalized()
+				e._piezas.append({"p": sitio, "d": d, "t0": h * 0.1 + e._rng.randf_range(-0.01, 0.01),
+					"gota": e._rng.randf() < 0.4})
 		Modo.CAPARAZON:
 			# Sobre SU cuerpo: la caja es la suya. Sale al cerrarse del todo (el golpe).
 			e._t = -maxf(espera, 0.0)
@@ -290,6 +316,7 @@ func duracion() -> float:
 		Modo.PALA: return T_PALA + 0.25
 		Modo.ARROLLA: return T_ARROLLA
 		Modo.CAPARAZON: return T_CAPARAZON
+		Modo.PATITAS: return 0.34
 		Modo.RODADA: return T_RODADA + 1.4
 	return T_CLAVADO + T_IRSE
 
@@ -321,6 +348,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 	match modo:
 		Modo.TELARANA: _telarana(capa)
 		Modo.QUELICEROS, Modo.PONZONA: _queliceros(capa)
+		Modo.FORCIPULAS: _forcipulas(capa)
+		Modo.PATITAS: _patitas(capa)
 		Modo.VENENO: _veneno(capa)
 		Modo.HEBRAS: _hebras(capa)
 		Modo.RED: _red(capa)
@@ -762,3 +791,81 @@ func _rodada(capa: Node2D) -> void:
 		var p3: Vector2 = b2 + lat * float(pd["lado"]) * float(pd["v"]) * kt - Vector2(0.0, float(pd["sube"]) * 4.0 * kt * (1.0 - kt) * K)
 		var tam: float = float(pd["tam"])
 		capa.draw_rect(Rect2(p3 - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(BestiaAire.TIERRA, 1.0 - kt * kt * kt))
+
+
+# ------------------------------------------------------------
+#  EL CIEMPIES
+# ------------------------------------------------------------
+# LAS FORCIPULAS DEL BASICO: dos medias lunas finas y GANCHUDAS que entran desde los lados y SE CRUZAN como una tijera
+# sobre el cuerpo (las de la araña se cierran en paralelo y se juntan; estas se pasan: cada punta acaba al otro lado).
+# Rojo oscuro con el filo ambar, un destello en el cruce y dos marcas. El veneno que entra lo pone CombatTactico.
+func _forcipulas(capa: Node2D) -> void:
+	var cierre: float
+	var alfa: float
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		cierre = 1.0 - (1.0 - u) * (1.0 - u)
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		cierre = 1.0
+		alfa = 1.0 - smoothstep(T_CLAVADO * 0.5, T_CLAVADO + T_IRSE, _t)
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.12:
+			BarridoAire.destello(capa, c, _tam * 1.1, Color(1.0, 0.8, 0.45, 0.85 * (1.0 - _t / 0.12)), _eje.angle() + 0.4)
+		return
+	if capa != _delante or alfa <= 0.01:
+		return
+	for s in [-1.0, 1.0]:
+		# De un lado (del lado del ciempies) al OTRO lado de la victima: la punta se pasa del eje, y por eso se cruzan.
+		var base: Vector2 = c - _eje * _tam * 1.3 + _lado * s * _tam * 1.2
+		var punta: Vector2 = c + _eje * _tam * 0.35 - _lado * s * _tam * 0.55
+		var m: Vector2 = (base + punta) * 0.5
+		var d: Vector2 = punta - base
+		var n: Vector2 = d.orthogonal().normalized()
+		if n.dot(_eje) > 0.0:
+			n = -n   # combada hacia delante: el gancho
+		var o: Vector2 = m + n * d.length() * 0.35
+		var r: float = o.distance_to(punta)
+		var a_ini: float = (base - o).angle()
+		var a_fin: float = a_ini + wrapf((punta - o).angle() - a_ini, -PI, PI)
+		var cabeza: float = lerpf(a_ini, a_fin, cierre)
+		var cola: float = a_ini if _t < 0.0 else lerpf(a_ini, a_fin, clampf(_t / (T_CLAVADO + T_IRSE), 0.0, 0.85))
+		BestiaAire._media_luna(capa, o, cola, cabeza, r, _tam * 0.85, Color(1.0, 0.76, 0.32), Color(0.5, 0.09, 0.07),
+			alfa, false)
+	if _t >= 0.0:
+		for s2 in [-1.0, 1.0]:
+			BestiaAire._bola(capa, c + _lado * s2 * _tam * 0.2, maxf(1.3, _tam * 0.15), Color(0.3, 0.04, 0.04, 0.9 * alfa))
+
+
+# LA RAFAGA DE PATITAS (Oleada de patas), en cada picotazo: 6-8 pinchos cortos y rellenos (cometas con la punta
+# ambar) que se clavan ESCALONADOS de arriba abajo, desde fuera del cuerpo y sobre todo del lado de quien pica. Como
+# una ola que le recorre.
+func _patitas(capa: Node2D) -> void:
+	if capa == _brillo:
+		return
+	if capa != _delante:
+		return
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < -0.06 or tg > 0.2:
+			continue
+		var p: Vector2 = g["p"]
+		var d: Vector2 = g["d"]
+		if tg < 0.0:
+			# Entrando: la cometa viene de fuera hacia su sitio.
+			var k: float = 1.0 + tg / 0.06
+			var cab: Vector2 = p - d * _tam * 1.4 * (1.0 - k)
+			BarridoAire.cometa(capa, cab - d * _tam * 1.5, cab, maxf(2.6, _tam * 0.4), Color(1.0, 0.78, 0.34, k))
+			continue
+		# Clavada: se queda un momento y se apaga, con un puntito oscuro donde pincho.
+		var a: float = 1.0 - tg / 0.2
+		# GORDAS: una figura mide 14 px y a 0,26 de grueso se quedaban en alfileres de dos pixeles.
+		BarridoAire.cometa(capa, p - d * _tam * 1.5, p, maxf(2.6, _tam * 0.4), Color(1.0, 0.78, 0.34, a))
+		BestiaAire._bola(capa, p, maxf(1.2, _tam * 0.16), Color(0.35, 0.05, 0.04, 0.8 * a))
+		# EL VENENO, en la punta de alguna: una gotita verde que escurre (la mancha grande de la araña, en cada uno de
+		# los cinco picotazos, lo tapaba todo de verde).
+		if bool(g["gota"]):
+			var q: Vector2 = p + Vector2(0.0, 1.0 + _tam * 0.5 * (tg / 0.2))
+			BestiaAire._bola(capa, q, maxf(1.4, _tam * 0.14) * 1.6, Color(VENENO, 0.3 * a))
+			capa.draw_circle(q, maxf(1.0, _tam * 0.12), Color(VENENO, a))

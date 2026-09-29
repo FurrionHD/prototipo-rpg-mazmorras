@@ -199,6 +199,7 @@ static func generar(color: Color = Color(0.60, 0.15, 0.12), escala: float = 1.0)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_enrosque(anims, esc)
+	_montar_tactico(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -282,6 +283,30 @@ static func _montar_enrosque(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "enrosque", false, 11.0, pose, true, 1, FRAMES)
 
 
+# ------------------------------------------------------------
+#  LOS DEL TACTICO (29/09)
+# ------------------------------------------------------------
+# EL BASICO: se alza un momento y deja caer la cabeza PICANDO con las forcipulas (el efecto, dos ganchos que se
+# cruzan como una tijera, cae sobre la victima: InsectoAire.FORCIPULAS). Corto como el palazo del escarabajo: 6
+# marcos a 16 fps, pica en la mitad (0,5x5/16 = 0,16 s = CombatFX.T_ANIM_ADELANTO).
+# LA OLEADA DE PATAS: ya encima, una SACUDIDA por picotazo (se repite con cada golpe: IMPACTO_ANIM_MAPA "oleada"):
+# la onda se dispara, las patas baten y la mitad delantera empuja. 6 marcos a 18 fps, pica a 0,5x5/18 = 0,14 s.
+static func _montar_tactico(anims: Array, esc: float) -> void:
+	var b_alza := [[0.0, 0.0], [0.3, 1.0], [0.5, 0.15], [0.7, 0.1], [1.0, 0.0]]
+	var b_avance := [[0.0, 0.0], [0.3, -1.0], [0.5, 3.4], [0.7, 2.8], [1.0, 0.0]]
+	var basico := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, b_avance), "fase": t * 0.3, "onda": 0.5, "paso": 0.2,
+			"alza": SpriteLienzo.tramos(t, b_alza), "enrosca": 0.0}
+	_montar_animacion(anims, esc, "basico", false, 16.0, basico, true, 8, 6)
+	var o_avance := [[0.0, 1.5], [0.5, 4.2], [1.0, 1.5]]
+	var o_onda := [[0.0, 0.6], [0.5, 1.7], [1.0, 0.6]]
+	var o_alza := [[0.0, 0.35], [0.5, 0.0], [1.0, 0.35]]
+	var oleada := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, o_avance), "fase": t * 0.5, "onda": SpriteLienzo.tramos(t, o_onda),
+			"paso": 1.0, "alza": SpriteLienzo.tramos(t, o_alza), "enrosca": 0.0}
+	_montar_animacion(anims, esc, "oleada", false, 18.0, oleada, true, 8, 6)
+
+
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
 # ahi al bicho se le mira siempre de frente. Para el mapa esta 'cadaver'.
 #
@@ -306,7 +331,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA direccion, al reves que 'muerte' (ocho fotogramas en
@@ -336,7 +362,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"fase": 0.35 * t, "onda": SpriteLienzo.tramos(t, onda_keys), "paso": 0.3,
 			"alza": 0.0, "enrosca": 0.0}
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,

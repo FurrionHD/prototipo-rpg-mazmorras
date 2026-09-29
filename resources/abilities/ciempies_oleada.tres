@@ -28,3 +28,7 @@ forma_apunte = 1
 forma_radio = 45.0
 forma_ancho = 18.0
 forma_reparte = true
+; EFECTO Y CUERPO EN EL MAPA (29/09): una sacudida del cuerpo por picotazo ('oleada') y en cada uno que recibe, una
+; rafaga de patitas clavandose de arriba abajo (INSECTO_PATITAS), con veneno si entra.
+fx_estilo_mapa = 151
+fx_anim = &"oleada"

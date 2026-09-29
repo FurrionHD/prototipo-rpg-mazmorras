@@ -1350,12 +1350,15 @@ const MOMENTOS_BESTIA := {
 	# Caparazon desde que empieza a cerrarse (-0,44) hasta el reflejo y el polvo.
 	"escarabajo_rodar": [0.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.7, 1.2],
 	"escarabajo_caparazon": [-0.44, -0.2, 0.0, 0.08, 0.16, 0.3, 0.6],
+	# El ciempies: los picotazos de la Oleada van cada 0,22 s (el reparto: uno a cada uno).
+	"ciempies_oleada": [-0.1, -0.03, 0.03, 0.1, 0.25, 0.47, 0.7],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
 	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
 	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
-	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON}
+	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
+	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1422,7 +1425,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.BESTIA_RAMALAZO:
 			tiempos = [-0.24, -0.1, 0.0, 0.15, 0.32]
 		# El palazo del escarabajo: se ve llegar la pala, aplastarse y saltar las chispas.
-		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.INSECTO_PALA:
+		if nom == "basico" and ed.fx_basico_mapa in [CombatFX.Estilo.INSECTO_PALA, CombatFX.Estilo.INSECTO_FORCIPULAS]:
 			tiempos = [-0.08, 0.0, 0.05, 0.12, 0.25]
 		# LO QUE HACE SU CUERPO (29/09, el escarabajo: "la embestida es mas visual del sprite que de efectos"): la
 		# animacion de la habilidad, en el fotograma que toca en cada momento (arranca IMPACTO_ANIM_MAPA antes del
@@ -1611,7 +1614,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					# Los colmillos de la araña, y el veneno que salta (en el juego, solo si entra).
 					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), rg, semilla + g, 0.14, 1.0,
 						bulto.size.x), "t0": t0, "sim": false})
-					if modo_i == InsectoAire.Modo.PONZONA:
+					if modo_i in [InsectoAire.Modo.PONZONA, InsectoAire.Modo.FORCIPULAS]:
 						piezas.append({"n": InsectoAire.sobre_cuerpo(self, InsectoAire.Modo.VENENO, bulto.get_center(), rg,
 							semilla + g * 3, 0.0, 1.0), "t0": t0, "sim": false})
 					continue

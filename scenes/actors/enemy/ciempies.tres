@@ -52,3 +52,5 @@ prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (29/09): es largo.
 alcance = 25.0
+; EL BASICO EN EL MAPA (29/09): las forcipulas que se cruzan como una tijera (INSECTO_FORCIPULAS).
+fx_basico_mapa = 150

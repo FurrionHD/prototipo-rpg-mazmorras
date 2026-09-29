@@ -2685,8 +2685,9 @@ func _on_impacto(ev: Dictionary) -> void:
 				_nacer_cria(va)
 				return
 	var estilo: int = int(ev.get("estilo", 0))
-	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado.
-	if _pantalla.tactico and estilo == CombatFX.Estilo.INSECTO_PONZONA:
+	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado. Y el de las forcipulas
+	# del ciempies (el de la Oleada va en sus propias patitas: InsectoAire._patitas).
+	if _pantalla.tactico and estilo in [CombatFX.Estilo.INSECTO_PONZONA, CombatFX.Estilo.INSECTO_FORCIPULAS]:
 		var vv: Combatant = _de_bloque(ev["bv"])
 		var av: Combatant = _de_bloque(ev["ba"])
 		var arena_v: ArenaCombate = _arena()
@@ -2870,7 +2871,8 @@ const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO
 const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
 	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
 	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
-	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON}
+	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
+	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
