@@ -1417,12 +1417,16 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var hacia: Vector2 = yo + dvec * 70.0
 			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
 			cuerpo.position = Vector2.ZERO
+			# EL FRENTE de su cuerpo hacia alli, como en el juego (CombatTactico.forma_de): de ahi salen conos y lineas
+			# y de ahi se cuenta el alcance.
+			var frente: float = load("res://scripts/ui/combat_tactico.gd").frente_dibujo(cuerpo, yo, dvec)
+			var pisa_d: float = maxf(pisa, frente)
 			# La figura que recibe el mordisco suelto (en el juego, uno de los tuyos).
 			var fig_presa: ColorRect = null
 			if nom == "basico" or sin_huella:
-				fig_presa = _figura(yo + dvec * (pisa + alcance * 0.7 + 7.0) + Vector2(0, 13), AZUL)
+				fig_presa = _figura(yo + dvec * (pisa_d + alcance * 0.7 + 7.0) + Vector2(0, 13), AZUL)
 				fig_presa.z_index = Game.Z_PERSONAJES
-			var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, hacia)
+			var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa_d, alcance, hacia, frente * 0.85)
 			_cam.global_position = yo + dvec * medida * (0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.3)
 			_forma_huella = f if nom != "basico" and not sin_huella else null
 			_huella.queue_redraw()
@@ -1432,7 +1436,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var cajas: Array = []
 			var presas_extra: Array = []
 			if nom == "basico" or sin_huella:
-				cajas = [Rect2(yo + dvec * (pisa + alcance * 0.7 + 7.0) - Vector2(7, 13), Vector2(14, 26))]
+				cajas = [Rect2(yo + dvec * (pisa_d + alcance * 0.7 + 7.0) - Vector2(7, 13), Vector2(14, 26))]
 			else:
 				for q in _enemigos:
 					var r := Rect2((q as Vector2) - Vector2(7, 26), Vector2(14, 26))

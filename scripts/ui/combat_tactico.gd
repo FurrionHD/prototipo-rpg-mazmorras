@@ -593,6 +593,8 @@ func radio_de(c: Combatant) -> float:
 # El radio es una fraccion del ancho que se VE (el dibujo en los enemigos, la caja de siempre en los
 # tuyos): lo que pisa un cuerpo es bastante menos que lo que abulta.
 const PISA := 0.33
+# Donde arrancan los conos y las lineas de un enemigo: esta fraccion de su frente (ver forma_de).
+const FRENTE_METIDO := 0.85
 
 
 # Donde tiene los pies, con el cuerpo donde la PELEA dice que esta (pos_de: la posicion sellada si es
@@ -849,7 +851,16 @@ func usa_huella(ab: AbilityData) -> bool:
 
 # La forma de 'ab' lanzada por 'c' hacia 'hacia', desde SUS PIES y con 'c' donde la PELEA dice.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), radio_pisa(c), alcance_de(c), hacia)
+	var pisa: float = radio_pisa(c)
+	var sale: float = 0.0
+	# UN ENEMIGO golpea desde el FRENTE de su cuerpo hacia alli (frente_dibujo): de ahi salen sus conos y lineas
+	# (un pelo metidos bajo el morro, que el pico no quede suelto) y de ahi se cuenta su alcance. Nunca menos que lo
+	# de siempre: la IA mide si llega con radio_pisa, y quedarse corto la haria pegar desde donde no alcanza.
+	if _pantalla._enemies.has(c):
+		var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
+		pisa = maxf(pisa, frente)
+		sale = frente * FRENTE_METIDO
+	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
 	# EL PASO y EL AVANCE enseñan lo que va a pasar de verdad: el circulo donde acabas y la linea hasta
 	# donde llegas (recortados por pared, borde o un cuerpo en el sitio).
 	if ab.paso:
@@ -1109,14 +1120,16 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 #     grande, y su sitio dentro de el lo dice su MARGIN.
 static var _cache_dibujo := {}
 
-static func rect_dibujo(cuerpo: Node2D) -> Rect2:
+static func rect_dibujo(cuerpo: Node2D, anim: StringName = &"") -> Rect2:
 	if cuerpo == null:
 		return Rect2()
 	for hijo in cuerpo.get_children():
 		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible \
 				and (hijo as AnimatedSprite2D).sprite_frames != null:
 			var spr: AnimatedSprite2D = hijo
-			var local: Rect2 = _pintado_local(spr)
+			# 'anim': el de ESA animacion (su primer marco) en vez del que se ve ahora (ver frente_dibujo).
+			var usa: bool = anim != &"" and spr.sprite_frames.has_animation(anim)
+			var local: Rect2 = _pintado_local(spr, anim if usa else spr.animation, 0 if usa else spr.frame)
 			if not local.has_area():
 				return Rect2()
 			var t: Transform2D = spr.get_global_transform()
@@ -1132,8 +1145,24 @@ static func rect_dibujo(cuerpo: Node2D) -> Rect2:
 # Lo pintado del fotograma que se ve, en px de la textura y relativo al ORIGEN del sprite (su punto de
 # dibujo, con 'centered' y 'offset' ya dentro). Cacheado por textura: las de una especie se generan una
 # vez y son las mismas para todos los suyos, asi que get_image solo se paga la primera vez.
-static func _pintado_local(spr: AnimatedSprite2D) -> Rect2:
-	var tex: Texture2D = spr.sprite_frames.get_frame_texture(spr.animation, spr.frame)
+# EL FRENTE DE UN ENEMIGO hacia 'dir' (29/09, lo pidio el: "ten en cuenta el tamaño y la forma del enemigo, los
+# conos no pueden salir de la misma posicion en todas las direcciones"): cuanto hay de sus pies al borde de su
+# dibujo MIRANDO HACIA ALLI (su 'idle' en esa direccion, no lo que se vea ahora). El dibujo se toma como la elipse
+# de su caja: un jabalí de lado tiene el morro lejos, de frente cerca. Estatica: la usan tambien las hojas.
+static func frente_dibujo(cuerpo: Node2D, pies: Vector2, dir: Vector2) -> float:
+	if cuerpo == null or dir.length_squared() < 0.0001:
+		return 0.0
+	var d: Vector2 = dir.normalized()
+	var r: Rect2 = rect_dibujo(cuerpo, StringName("idle_%d" % SpriteLienzo.dir8(d)))
+	if not r.has_area():
+		return 0.0
+	var a: float = r.size.x * 0.5
+	var b: float = r.size.y * 0.5
+	return maxf((r.get_center() - pies).dot(d) + sqrt(a * d.x * a * d.x + b * d.y * b * d.y), 0.0)
+
+
+static func _pintado_local(spr: AnimatedSprite2D, anim: StringName, marco: int) -> Rect2:
+	var tex: Texture2D = spr.sprite_frames.get_frame_texture(anim, marco)
 	if tex == null:
 		return Rect2()
 	var clave: int = tex.get_instance_id()

@@ -359,9 +359,9 @@ static func de_hechizo(spell: SpellData, pos_lanzador: Vector2, pos_objetivo: Ve
 #            pisa (la misma medida que el alcance del basico). Igual en todas las direcciones.
 #   hacia    a donde apunta: el raton, o la posicion del enemigo pulsado
 # DELANTE y LIBRE ponen el centro donde apuntas pero sin pasar de ese tope; ALREDEDOR, en ti. El CONO
-# y la LINEA salen de tus pies.
+# y la LINEA salen de tus pies, o 'sale' px por delante de ellos (los enemigos: del frente de su cuerpo).
 static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcance: float,
-		hacia: Vector2) -> Forma:
+		hacia: Vector2, sale: float = 0.0) -> Forma:
 	var dir: Vector2 = hacia - pies
 	var centro: Vector2 = pies
 	match int(ab.forma_apunte):
@@ -374,7 +374,7 @@ static func de_habilidad_mapa(ab: AbilityData, pies: Vector2, pisa: float, alcan
 			centro = hacia
 	var r: float = ab.forma_radio if ab.forma_radio > 0.0 else R_BASE
 	var ap: float = ab.forma_apertura if ab.forma_apertura > 0.0 else APERTURA_BARRIDO
-	var f: Forma = _forma_mapa(ab, pies, dir, centro, r, ap)
+	var f: Forma = _forma_mapa(ab, pies + _dir_segura(dir) * sale, dir, centro, r, ap)
 	# Hacia donde apuntas va SIEMPRE en la forma, tambien en el circulo: el Molinete empieza a girar desde ahi.
 	f.dir = _dir_segura(dir)
 	return f
