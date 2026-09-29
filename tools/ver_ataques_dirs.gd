@@ -1343,7 +1343,7 @@ const MOMENTOS_BESTIA := {
 	"jabali_pisoton": [0.03, 0.12, 0.23, 0.35, 0.8],
 	"trent_savia_corrosiva": [0.1, 0.28, 0.45, 0.9, 1.8],
 	"trent_raices_atenazantes": [0.12, 0.3, 0.5, 0.75, 1.2],
-	"trent_ramazo": [-0.07, 0.0, 0.13, 0.2, 0.45],
+	"trent_ramazo": [-0.2, -0.05, 0.08, 0.2, 0.42],
 }
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
@@ -1405,6 +1405,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab.forma_apunte = CombatFormas.Apunte.DELANTE
 			ab.forma_radio = 8.0
 		var tiempos: Array = MOMENTOS_BESTIA.get(nom, [0.05, 0.15, 0.3, 0.5, 0.9])
+		# El ramalazo del trent brota antes: se ve crecer, caer y hundirse.
+		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.BESTIA_RAMALAZO:
+			tiempos = [-0.24, -0.1, 0.0, 0.15, 0.32]
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, yo + Vector2(70, 0))
 		var medida: float = maxf(maxf(f0.radio, f0.largo), 40.0)
 		if int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
@@ -1528,6 +1531,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				cajas = []
 			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b in [BestiaAire.Modo.DENTELLADA,
 				BestiaAire.Modo.CORNADA] else (0.12 if modo_b == BestiaAire.Modo.COLMILLO else 0.14))
+			if modo_b == BestiaAire.Modo.RAMALAZO:
+				vuelo = 0.3
 			var golpes: int = maxi(ab.golpes_max, 1)
 			for g in golpes:
 				if cajas.is_empty():

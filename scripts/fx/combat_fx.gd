@@ -570,7 +570,8 @@ const T_VUELO := {
 	Estilo.BESTIA_TEMBLOR: 0.02,
 	# El colmillo sube en ese tiempo y llega arriba en el golpe; el choque sale EN el golpe.
 	Estilo.BESTIA_COLMILLO: 0.12, Estilo.BESTIA_CORNADA: 0.18, Estilo.BESTIA_CHOQUE: 0.02,
-	Estilo.BESTIA_RAMALAZO: 0.14, Estilo.BESTIA_PEGOTE: 0.02,
+	# La raiz del ramalazo brota, se alza y cae: sale bastante antes del golpe.
+	Estilo.BESTIA_RAMALAZO: 0.3, Estilo.BESTIA_PEGOTE: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

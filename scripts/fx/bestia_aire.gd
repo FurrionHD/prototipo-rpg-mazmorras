@@ -292,6 +292,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 	match m:
 		Modo.FRENESI: e._viaje = clampf(espera, 0.06, 0.12)
 		Modo.DENTELLADA, Modo.CORNADA: e._viaje = clampf(espera, 0.12, 0.24)
+		Modo.RAMALAZO: e._viaje = clampf(espera, 0.2, 0.32)   # brota, se alza y cae: necesita su rato
 		Modo.CHOQUE: e._viaje = 0.0
 		_: e._viaje = clampf(espera, 0.08, 0.2)
 	e._t = -e._viaje
@@ -884,20 +885,24 @@ func _arco_sonido(ci: CanvasItem, c: Vector2, r: float, lado: float, grueso: flo
 # mandoble, BarridoAire._tajo: filo duro y claro por fuera que se difumina hacia dentro y hacia la cola). Mientras
 # viaja el golpe la cabeza sube; en el golpe llega arriba y la cola la alcanza mientras se apaga.
 func _colmillo(capa: Node2D) -> void:
+	# EL RAMALAZO del trent va aparte: una RAIZ que brota del suelo delante de la victima, se alza y cae sobre ella
+	# como un latigo, y se vuelve a hundir (lo pidio el, 29/09: "que los ataques salgan del suelo, que asi ataca con
+	# raices y no quedan cosas volando"; la rama suelta salia de la nada, con la base cortada en seco).
+	if modo == Modo.RAMALAZO:
+		_latigazo_raiz(capa)
+		return
 	var cornada: bool = modo == Modo.CORNADA
-	# EL RAMALAZO del trent es este mismo arco, pero CAE (de arriba abajo), de madera y mas gordo.
-	var rama: bool = modo == Modo.RAMALAZO
 	var r: float = _tam * 1.7
 	var th: float = _a_colmillo
 	var s: float = 1.0 if cos(th) >= 0.0 else -1.0
-	var a_ini: float = th + 1.3 * s * (-1.0 if rama else 1.0)
-	var a_fin: float = th - 1.3 * s * (-1.0 if rama else 1.0)
+	var a_ini: float = th + 1.3 * s
+	var a_fin: float = th - 1.3 * s
 	var c: Vector2 = _hasta - Vector2(cos(th), sin(th)) * r * 0.45
 	var sale: float = 0.05
 	var u: float = clampf((_t + _viaje) / maxf(_viaje + sale, 0.01), 0.0, 1.0)
 	u = 1.0 - (1.0 - u) * (1.0 - u)
 	var cabeza: float = lerpf(a_ini, a_fin, u)
-	var k_ido: float = clampf((_t - sale) / (0.3 if cornada or rama else 0.22), 0.0, 1.0)
+	var k_ido: float = clampf((_t - sale) / (0.3 if cornada else 0.22), 0.0, 1.0)
 	var cola: float = lerpf(a_ini, cabeza, maxf(0.15 * u, k_ido))
 	var alfa: float = clampf((_t + _viaje) / 0.04, 0.0, 1.0) * (1.0 - k_ido * k_ido)
 	var punta: Vector2 = c + Vector2(cos(cabeza), sin(cabeza)) * r
@@ -908,27 +913,12 @@ func _colmillo(capa: Node2D) -> void:
 		return
 	if capa != _delante:
 		return
-	var grueso: float = r * (0.58 if rama else (0.5 if cornada else 0.45))
-	# EL RAMALAZO: como el Ramazo, lo que pega es una RAMA que cae girando (un radio del arco, no el arco: en media
-	# luna salia una raya fina), con su estela tenue detras.
-	if rama and alfa > 0.0:
-		_media_luna(capa, c, cola, cabeza, r, grueso, MADERA_CLARA, MADERA, alfa * 0.4, false)
-		_rama(capa, c, cabeza, r * 0.05, r * 1.05, 4.0, s, alfa)
-	elif alfa > 0.0:
+	var grueso: float = r * (0.5 if cornada else 0.45)
+	if alfa > 0.0:
 		# Detras, la misma media luna algo mayor y OSCURA (el contorno de los dientes): sin ella el hueso se perdia
-		# sobre un cuerpo claro. En la rama, la corteza.
-		_media_luna(capa, c, cola, cabeza, r * 1.06, grueso * 1.3, CORTEZA if rama else ENCIA,
-			CORTEZA if rama else ENCIA, alfa * (0.7 if rama else 0.5), false)
-		_media_luna(capa, c, cola, cabeza, r, grueso, MADERA_CLARA if rama else HUESO, MADERA if rama else HUESO_SOMBRA,
-			alfa, false)
-	# LAS ASTILLAS Y LAS HOJAS del ramalazo, saltando de donde pega.
-	if rama and _t >= 0.0:
-		var kh: float = clampf(_t / 0.55, 0.0, 1.0)
-		for h in _hojas:
-			var p_h: Vector2 = punta + Vector2(float(h["vx"]) * kh, -float(h["sube"]) * 4.0 * kh * (1.0 - kh) * K
-				+ (10.0 * kh * kh if bool(h["hoja"]) else 0.0))
-			_hoja_o_astilla(capa, p_h, float(h["tam"]), float(h["gira"]) * kh, bool(h["hoja"]), 1.0 - kh * kh)
-		return
+		# sobre un cuerpo claro.
+		_media_luna(capa, c, cola, cabeza, r * 1.06, grueso * 1.3, ENCIA, ENCIA, alfa * 0.5, false)
+		_media_luna(capa, c, cola, cabeza, r, grueso, HUESO, HUESO_SOMBRA, alfa, false)
 	if not cornada or _t < 0.0:
 		return
 	# EL DESGARRO en la punta (gotas que salen hacia fuera y caen) y los TERRONES que saltan de sus pies.
@@ -1164,64 +1154,137 @@ func _raiz(ci: CanvasItem, base: Vector2, h: float, g: float, curva: float, alfa
 	_tira(ci, veta_a, veta_b, Color(MADERA_CLARA, alfa * 0.8))
 
 
-# EL RAMAZO: la rama barre el cono de un lado al otro y vuelve (el Segar, BarridoAire.SIEGA), a la cintura. La rama
-# es una media luna de madera con su corteza detras; sueltan hojas por donde pasa la punta.
+# EL RAMAZO: una RAIZ larga que brota del suelo delante de el, barre el cono de un lado al otro y vuelve (el Segar,
+# BarridoAire.SIEGA) pegada al suelo, y se hunde (29/09: salen del suelo, no de el; la rama suelta tenia la base
+# cortada en seco). Por donde pasa la punta salta tierra.
 func _ramazo(capa: Node2D) -> void:
-	if capa != _delante or forma == null:
+	if forma == null:
 		return
 	var mitad: float = deg_to_rad(forma.apertura * 0.5)
-	var c: Vector2 = _o - Vector2(0.0, 8.0 * K)
+	var a0: float = _dir.angle() - mitad
+	var a1: float = _dir.angle() + mitad
+	var largo: float = _r * 0.95
+	# DONDE ESTA LA PUNTA: sale hacia el borde de ida, barre, espera, vuelve, espera y se hunde.
+	var t_sale: float = -T_RAMA - 0.12
+	var t_vuelta: float = T_RAMA_ENTRE - T_RAMA
+	var ang: float = a0
+	var fuera: float = 1.0   # 0 = metida en el suelo, 1 = entera
+	if _t < -T_RAMA:
+		fuera = clampf((_t - t_sale) / 0.12, 0.0, 1.0)
+	elif _t < 0.0:
+		ang = lerpf(a0, a1, 1.0 - pow(1.0 - (_t + T_RAMA) / T_RAMA, 2.0))
+	elif _t < t_vuelta:
+		ang = a1
+	elif _t < T_RAMA_ENTRE:
+		ang = lerpf(a1, a0, 1.0 - pow(1.0 - (_t - t_vuelta) / T_RAMA, 2.0))
+	else:
+		fuera = 1.0 - clampf((_t - T_RAMA_ENTRE - 0.06) / 0.24, 0.0, 1.0)
+	var hueco: float = clampf((_t - t_sale) / 0.06, 0.0, 1.0) * (1.0 - clampf((_t - T_RAMA_ENTRE - 0.3) / 0.25, 0.0, 1.0))
+	if _t < t_sale:
+		return
+	if capa == _suelo:
+		_agujero_atras(capa, _o, 6.0, hueco)
+		return
+	if capa != _delante:
+		return
+	# LA ESTELA tenue del barrido, a ras de suelo.
 	for k in 2:
 		var tk: float = _t - float(k) * T_RAMA_ENTRE
-		if tk < -T_RAMA or tk > 0.3:
+		if tk < -T_RAMA or tk > 0.25:
 			continue
-		var sentido: float = 1.0 if k == 0 else -1.0
-		var a0: float = _dir.angle() - mitad * sentido
-		var a1: float = _dir.angle() + mitad * sentido
+		var b0: float = a0 if k == 0 else a1
+		var b1: float = a1 if k == 0 else a0
 		var u: float = clampf((tk + T_RAMA) / T_RAMA, 0.0, 1.0)
-		var cabeza: float = lerpf(a0, a1, 1.0 - (1.0 - u) * (1.0 - u))
-		var ido: float = clampf(tk / 0.3, 0.0, 1.0)
-		var cola: float = lerpf(a0, cabeza, maxf(0.2 * u, ido))
-		var alfa: float = 1.0 - ido * ido
-		# LA ESTELA del barrido, tenue, por donde ha pasado la punta (el Segar)...
-		_media_luna(capa, c, cola, cabeza, _r * 0.98, _r * 0.5, MADERA_CLARA, MADERA, alfa * 0.4, false)
-		# ...y LA RAMA de verdad: un palo que sale de el y gira con el barrido (una rama barre como un radio, no como
-		# un arco: la v1 era solo la media luna y se leia como una raya), gorda en la base y afilada en la punta.
-		if u > 0.0 and ido < 0.6:
-			_rama(capa, c, cabeza, 0.0, _r * 0.98, 4.2, -sentido, alfa * (1.0 - ido / 0.6))
-		# LAS HOJAS: salen de la punta cuando pasa por su sitio y vuelan hacia delante del barrido.
-		for h in _hojas:
-			if int(h["k"]) != k:
-				continue
-			var t_sale: float = -T_RAMA + T_RAMA * float(h["s"])
-			var edad: float = tk - t_sale
-			if edad < 0.0 or edad > 0.5:
-				continue
-			var a_h: float = lerpf(a0, a1, float(h["s"]))
-			var sitio: Vector2 = c + Vector2(cos(a_h), sin(a_h)) * _r * 0.93
-			var tang := Vector2(-sin(a_h), cos(a_h)) * sentido
-			var p_h: Vector2 = sitio + tang * float(h["v"]) * edad + Vector2(0.0, 18.0 * edad * edad)
-			_hoja_o_astilla(capa, p_h, float(h["tam"]), a_h + float(h["gira"]) * edad, bool(h["hoja"]), 1.0 - edad / 0.5)
+		var cabeza: float = lerpf(b0, b1, 1.0 - (1.0 - u) * (1.0 - u))
+		var ido: float = clampf(tk / 0.25, 0.0, 1.0)
+		_media_luna(capa, _o, lerpf(b0, cabeza, maxf(0.2 * u, ido)), cabeza, largo, _r * 0.4, MADERA_CLARA, MADERA,
+			0.35 * (1.0 - ido), false)
+	# LA RAIZ: de la boca del agujero a la punta, arqueada por encima del suelo.
+	var punta: Vector2 = _o + Vector2(cos(ang), sin(ang)) * largo * fuera
+	var ctrl: Vector2 = _o.lerp(punta, 0.45) - Vector2(0.0, _r * 0.3 * fuera)
+	_latigo(capa, _o, ctrl, punta, 5.0, 1.0)
+	_agujero_labio(capa, _o, 6.0, hueco)
+	# LA TIERRA que salta donde pasa la punta, en cada pasada.
+	for h in _hojas:
+		var k2: int = int(h["k"])
+		var tk2: float = _t - float(k2) * T_RAMA_ENTRE
+		var edad: float = tk2 - (-T_RAMA + T_RAMA * float(h["s"]))
+		if edad < 0.0 or edad > 0.45:
+			continue
+		var b0h: float = a0 if k2 == 0 else a1
+		var b1h: float = a1 if k2 == 0 else a0
+		var a_h: float = lerpf(b0h, b1h, float(h["s"]))
+		var sitio: Vector2 = _o + Vector2(cos(a_h), sin(a_h)) * largo
+		var tang := Vector2(-sin(a_h), cos(a_h)) * (1.0 if k2 == 0 else -1.0)
+		var kv: float = edad / 0.45
+		var p_h: Vector2 = sitio + tang * float(h["v"]) * edad * 0.8 - Vector2(0.0, 14.0 * 4.0 * kv * (1.0 - kv) * K)
+		var tam: float = float(h["tam"])
+		capa.draw_rect(Rect2(p_h - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(TIERRA, 1.0 - kv * kv))
 
 
-# UNA RAMA de 'r0' a 'r1' de 'c' en el angulo 'ang': gorda en la base ('g') y afilada en la punta, un pelin
-# combada hacia atras del barrido ('atras' = el lado del que viene), con su corteza, una veta clara y hojas en la punta.
-func _rama(ci: CanvasItem, c: Vector2, ang: float, r0: float, r1: float, g: float, atras: float, alfa: float) -> void:
-	if alfa <= 0.01:
+# EL RAMALAZO (el basico): una raiz brota del suelo delante de la victima (del lado del trent), se alza, cae sobre
+# ella de arriba abajo y se vuelve a hundir. Tierra al brotar y un destello al pegar.
+func _latigazo_raiz(capa: Node2D) -> void:
+	var eje2 := Vector2(_eje.x, _eje.y).normalized() if _eje.length_squared() > 0.001 else Vector2.RIGHT
+	var pies: Vector2 = _hasta + Vector2(0.0, _largo * 0.45)
+	var boca: Vector2 = pies - eje2 * _ancho * 0.9 + eje2.orthogonal() * sin(_a_colmillo * 3.0) * _ancho * 0.3
+	var alto: float = _largo * 1.25
+	var t0: float = -_viaje
+	var arriba: Vector2 = boca + Vector2(sin(_a_colmillo) * 4.0, -alto)
+	var golpe: Vector2 = _hasta + eje2 * _ancho * 0.15
+	var punta: Vector2
+	var ctrl: Vector2
+	if _t < t0 + _viaje * 0.6:
+		var e: float = clampf((_t - t0) / (_viaje * 0.6), 0.0, 1.0)
+		punta = boca.lerp(arriba, 1.0 - (1.0 - e) * (1.0 - e))
+		ctrl = boca.lerp(punta, 0.5)
+	elif _t < 0.0:
+		var sw: float = clampf((_t - t0 - _viaje * 0.6) / (_viaje * 0.4), 0.0, 1.0)
+		sw = sw * sw
+		punta = arriba.lerp(golpe, sw)
+		ctrl = boca + Vector2(0.0, -alto * 0.85) + eje2 * _ancho * 0.3 * sw
+	else:
+		var hunde: float = clampf((_t - 0.12) / 0.28, 0.0, 1.0)
+		punta = golpe.lerp(boca, hunde)
+		ctrl = (boca + Vector2(0.0, -alto * 0.85) + eje2 * _ancho * 0.3).lerp(boca, hunde)
+	var hueco: float = clampf((_t - t0) / 0.05, 0.0, 1.0) * (1.0 - clampf((_t - 0.4) / 0.15, 0.0, 1.0))
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.14:
+			BarridoAire.destello(capa, golpe, _tam * 0.7, Color(1.0, 0.96, 0.88, 0.8 * (1.0 - _t / 0.14)), 0.3)
 		return
-	var d := Vector2(cos(ang), sin(ang))
-	var n: Vector2 = d.orthogonal()
+	if capa != _delante or _t < t0:
+		return
+	_agujero_atras(capa, boca, 4.0, hueco)
+	if _t < 0.4:
+		_latigo(capa, boca, ctrl, punta, 3.6, 1.0)
+	_agujero_labio(capa, boca, 4.0, hueco)
+	# LA TIERRA que salta al brotar.
+	var kt: float = clampf((_t - t0) / 0.4, 0.0, 1.0)
+	if kt < 1.0:
+		for h in _hojas:
+			var p_h: Vector2 = boca + Vector2(float(h["vx"]) * 0.5 * kt, -float(h["sube"]) * 4.0 * kt * (1.0 - kt) * K)
+			var tam: float = float(h["tam"])
+			capa.draw_rect(Rect2(p_h - Vector2(tam, tam) * 0.5, Vector2(tam, tam)), Color(TIERRA, 1.0 - kt * kt))
+
+
+# UNA RAIZ-LATIGO de 'base' a 'punta' por la curva de 'ctrl' (bezier): gorda en la base ('g') y afilada en la punta,
+# con su corteza detras y una veta clara.
+func _latigo(ci: CanvasItem, base: Vector2, ctrl: Vector2, punta: Vector2, g: float, alfa: float) -> void:
+	if alfa <= 0.01 or base.distance_to(punta) < 1.0:
+		return
 	var izq := PackedVector2Array()
 	var der := PackedVector2Array()
 	var bi := PackedVector2Array()
 	var bd := PackedVector2Array()
 	var vi := PackedVector2Array()
 	var vd := PackedVector2Array()
-	var pasos: int = 8
+	var pasos: int = 12
 	for i in pasos + 1:
 		var s: float = float(i) / float(pasos)
-		var p: Vector2 = c + d * lerpf(r0, r1, s) + n * atras * sin(s * PI * 0.9) * (r1 - r0) * 0.08
-		var w: float = g * pow(1.0 - s, 0.7) + 0.6
+		var p: Vector2 = base.lerp(ctrl, s).lerp(ctrl.lerp(punta, s), s)
+		var tg: Vector2 = ((ctrl - base) * (1.0 - s) + (punta - ctrl) * s)
+		var n: Vector2 = tg.normalized().orthogonal() if tg.length_squared() > 0.0001 else Vector2.RIGHT
+		var w: float = g * pow(1.0 - s, 0.75) + 0.5
 		izq.append(p - n * w)
 		der.append(p + n * w)
 		bi.append(p - n * (w + 1.0))
@@ -1231,11 +1294,38 @@ func _rama(ci: CanvasItem, c: Vector2, ang: float, r0: float, r1: float, g: floa
 	_tira(ci, bi, bd, Color(CORTEZA, alfa))
 	_tira(ci, izq, der, Color(MADERA, alfa))
 	_tira(ci, vi, vd, Color(MADERA_CLARA, alfa * 0.8))
-	# Las hojas de la punta.
-	var punta: Vector2 = c + d * r1
+
+
+# EL AGUJERO de donde sale una raiz: la boca oscura (detras de la raiz) y el LABIO de tierra de delante, que va
+# ENCIMA de la raiz y le tapa la base (sin el se veia el corte recto).
+func _agujero_atras(ci: CanvasItem, c: Vector2, r: float, alfa: float) -> void:
+	if alfa <= 0.01:
+		return
+	_poligono(ci, _elipse(c, r * 1.3, r * 0.6), Color(0.08, 0.06, 0.04, 0.9 * alfa))
+
+
+func _agujero_labio(ci: CanvasItem, c: Vector2, r: float, alfa: float) -> void:
+	if alfa <= 0.01:
+		return
+	# La media luna de tierra del borde de delante (la de abajo en pantalla), y unos terrones sobre ella.
+	var fuera := PackedVector2Array()
+	var dentro := PackedVector2Array()
+	for i in 11:
+		var a: float = lerpf(0.05, PI - 0.05, float(i) / 10.0)
+		fuera.append(c + Vector2(cos(a) * r * 1.6, sin(a) * r * 0.85))
+		dentro.append(c + Vector2(cos(a) * r * 1.25, sin(a) * r * 0.35))
+	_tira(ci, fuera, dentro, Color(TIERRA, alfa))
 	for k in 3:
-		_hoja_o_astilla(ci, punta + n * (float(k) - 1.0) * 3.0 - d * float(k % 2) * 3.0, 2.2, ang + (float(k) - 1.0) * 0.7,
-			true, alfa)
+		var p: Vector2 = c + Vector2((float(k) - 1.0) * r * 0.9, r * 0.55)
+		ci.draw_rect(Rect2(p - Vector2(1.0, 1.0), Vector2(2.0, 2.0)), Color(TIERRA.darkened(0.3), alfa))
+
+
+static func _elipse(c: Vector2, rx: float, ry: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 14:
+		var a: float = TAU * float(i) / 14.0
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
 
 
 # LOS PEGOTES DE SAVIA sobre el que se come el Ramazo (el Pegajoso): se estampan y escurren hacia abajo.
