@@ -273,18 +273,26 @@ func _queliceros(capa: Node2D) -> void:
 		return
 	var filo: Color = VENENO_CLARO if verde else Color(0.96, 0.93, 1.0)
 	var dentro: Color = VENENO if verde else QUITINA_CLARA
-	var r: float = _tam * 1.7
-	var th: float = _eje.angle()
+	# LA PINZA "(  )" QUE SE CIERRA SOBRE LA VICTIMA (dibujo del usuario, 29/09): cada media luna nace a un lado, del
+	# lado de la araña, se comba HACIA FUERA y su punta se clava en el cuerpo; las dos puntas se juntan ahi, en el
+	# golpe. Cada una es un arco de circulo que pasa por su base y por la punta, con el centro hacia dentro (asi se
+	# comba hacia fuera y el filo duro queda por fuera).
+	var punta: Vector2 = c + _eje * _tam * 0.45
 	for s in [-1.0, 1.0]:
-		# ABRAZAN EL CUERPO POR FUERA, como una pinza "(  )" (lo dibujo el usuario, 29/09): cada una sale del lado de la
-		# araña, rodea el costado y las puntas se juntan al otro lado de la victima. Arco alrededor del mordisco.
-		var o: Vector2 = c
-		var a_ini: float = th + s * PI * 0.85
-		var a_fin: float = th + s * PI * 0.06
+		var base: Vector2 = c - _eje * _tam * 1.5 + _lado * s * _tam * 1.25
+		var m: Vector2 = (base + punta) * 0.5
+		var d: Vector2 = punta - base
+		var n: Vector2 = d.orthogonal().normalized()
+		if n.dot(_lado * s) > 0.0:
+			n = -n   # el centro hacia el eje del mordisco: el arco se comba hacia fuera
+		var o: Vector2 = m + n * d.length() * 0.45
+		var r: float = o.distance_to(punta)
+		var a_ini: float = (base - o).angle()
+		var a_fin: float = a_ini + wrapf((punta - o).angle() - a_ini, -PI, PI)
 		var cabeza: float = lerpf(a_ini, a_fin, cierre)
 		# Toda la estela a la vista mientras cierra; al soltar, la cola alcanza a la cabeza y se apaga.
 		var cola: float = a_ini if _t < 0.0 else lerpf(a_ini, a_fin, clampf(_t / (T_CLAVADO + T_IRSE), 0.0, 0.85))
-		BestiaAire._media_luna(capa, o, cola, cabeza, r, _tam * 1.0, filo, dentro, alfa, false)
+		BestiaAire._media_luna(capa, o, cola, cabeza, r, _tam * 0.8, filo, dentro, alfa, false)
 	# LAS DOS MARCAS al cerrar; en el ponzoñoso, goteando.
 	if _t >= 0.0:
 		var escurre: float = clampf(_t / 0.4, 0.0, 1.0)
