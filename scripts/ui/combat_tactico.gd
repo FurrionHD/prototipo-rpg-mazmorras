@@ -2267,7 +2267,9 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	CombatFX.Estilo.ESPADA_LARGA_TAJO, CombatFX.Estilo.TAJO_PESADO, CombatFX.Estilo.TAJO_DESARMANTE,
 	CombatFX.Estilo.GUARDIA_ROTA, CombatFX.Estilo.ESTOCADA_MARCIAL,
 	# La RATA (28/09): el Mordisco sangrante y el Frenesi (el basico, no: muerde, pero no es el que sangra).
-	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI]
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI,
+	# El REY RATA (29/09): cada tarascada de la Dentellada, y la Yugular con un chorro gordo desde el cuello.
+	CombatFX.Estilo.BESTIA_DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR]
 
 func _on_impacto(ev: Dictionary) -> void:
 	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
@@ -2311,6 +2313,11 @@ func _on_impacto(ev: Dictionary) -> void:
 			fuerza *= 0.7
 		CombatFX.Estilo.BESTIA_FRENESI:
 			fuerza *= 0.4
+		CombatFX.Estilo.BESTIA_DENTELLADA:
+			fuerza *= 0.6
+		CombatFX.Estilo.BESTIA_YUGULAR:
+			desde = Vector2(desde.x, r.position.y + r.size.y * 0.28) if r.has_area() else desde   # del cuello
+			fuerza *= 1.4
 		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA:
 			fuerza *= 0.35
 		CombatFX.Estilo.PUNALADA:
@@ -2439,7 +2446,8 @@ const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatF
 	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
 const _MODO_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
-	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI}
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
+	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2466,6 +2474,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_b: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		BestiaAire.sobre_cuerpo(arena, int(_MODO_BESTIA[estilo]), desde_b, bulto_de(v), semilla, vuelo, ritmo,
 			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0)
+		return
+	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
+	# esquiva) y le vibra el sonido junto a la cabeza.
+	if estilo == CombatFX.Estilo.BESTIA_TEMBLOR:
+		var cu_t: Node2D = cuerpo_de(v)
+		var dib_t = cu_t.get("_muneco") if cu_t.get("_muneco") is Node2D else cu_t.get("_sprite")
+		BestiaAire.temblor(arena, dib_t as CanvasItem, bulto_de(v), semilla, vuelo, ritmo)
 		return
 	# EL ARCO de una cadena (MagiaAire): del pecho del ultimo tocado (o de quien lo lanza) al pecho de este.
 	if estilo == CombatFX.Estilo.ARCO:

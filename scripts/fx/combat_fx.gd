@@ -376,7 +376,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		SLIME_IGNICION = 132,
 		# LAS BESTIAS de los pisos bajos en el mapa (28/09, BestiaAire): las mandibulas de la rata (basico, sangrante y el
 		# remolino del Frenesi). Solo las pone el mapa.
-		BESTIA_MORDISCO = 133, BESTIA_MORDISCO_SANGRA = 134, BESTIA_FRENESI = 135 }
+		BESTIA_MORDISCO = 133, BESTIA_MORDISCO_SANGRA = 134, BESTIA_FRENESI = 135,
+		# Y las del rey rata (29/09): las tres tarascadas de la Dentellada real, la Yugular al cuello y el temblor
+		# de los que se comen el Chillido.
+		BESTIA_DENTELLADA = 136, BESTIA_YUGULAR = 137, BESTIA_TEMBLOR = 138 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -406,6 +409,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.BESTIA_MORDISCO, Estilo.BESTIA_MORDISCO_SANGRA, Estilo.BESTIA_FRENESI,
+	Estilo.BESTIA_DENTELLADA, Estilo.BESTIA_YUGULAR, Estilo.BESTIA_TEMBLOR,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -555,6 +559,9 @@ const T_VUELO := {
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,
+	Estilo.BESTIA_DENTELLADA: 0.18, Estilo.BESTIA_YUGULAR: 0.14,
+	# El temblor del Chillido empieza EN el golpe (cuando le pasa la onda): un pelin de vuelo solo para que se dibuje.
+	Estilo.BESTIA_TEMBLOR: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

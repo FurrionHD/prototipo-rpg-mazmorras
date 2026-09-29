@@ -1335,9 +1335,14 @@ const MOMENTOS_BESTIA := {
 	"basico": [-0.1, -0.04, 0.0, 0.1, 0.3],
 	"rata_mordisco_sangrante": [-0.08, 0.0, 0.1, 0.22, 0.4],
 	"rata_frenesi_dentelladas": [0.05, 0.15, 0.35, 0.6, 0.9],
+	"rey_rata_dentellada_real": [-0.06, 0.04, 0.26, 0.5, 0.85],
+	"rey_rata_chillido": [0.06, 0.14, 0.26, 0.4, 0.62],
+	"rey_rata_yugular": [0.08, 0.16, 0.22, 0.32, 0.55],
 }
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
-	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI}
+	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
+	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
+	CombatFX.Estilo.BESTIA_TEMBLOR: BestiaAire.Modo.TEMBLOR}
 
 func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	BarridoAire.ritmo = 1.0
@@ -1394,7 +1399,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		if int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
 			medida = maxf(medida, f0.radio + 70.0 * 0.7)
 		# Los mordiscos sueltos, de cerca: si no, las mandibulas no se ven.
-		medida = 32.0 if (nom == "basico" or sin_huella) else maxf(medida, 90.0)
+		# Y las huellas cortas (Dentellada real, Yugular), mas de cerca que las grandes.
+		medida = 32.0 if (nom == "basico" or sin_huella) else maxf(medida, 90.0 if medida > 60.0 else 55.0)
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
 		_cam.zoom = Vector2(zoom, zoom)
 		var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
@@ -1417,6 +1423,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			_forma_huella = null
 			_huella.queue_redraw()
 			var cajas: Array = []
+			var presas_extra: Array = []
 			if nom == "basico" or sin_huella:
 				cajas = [Rect2(yo + dvec * (pisa + alcance * 0.7 + 7.0) - Vector2(7, 13), Vector2(14, 26))]
 			else:
@@ -1425,10 +1432,34 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					if f.toca(r):
 						cajas.append(r)
 				var cu: Vector2 = f.centro_util()
+				# SOLO AL PRIMERO (la Yugular): el mas cercano a quien se lanza, como en el juego.
+				if ab.forma_solo_primero:
+					cu = yo
 				cajas.sort_custom(func(x, y): return (x as Rect2).get_center().distance_squared_to(cu) < (y as Rect2).get_center().distance_squared_to(cu))
+				if ab.forma_solo_primero and cajas.size() > 1:
+					cajas = cajas.slice(0, 1)
+				# LAS HUELLAS CORTAS (la Dentellada real, cono r30): el anillo de figuras queda fuera. Dos presas dentro,
+				# a los lados del cono, para que se vea a quien muerde.
+				if cajas.is_empty():
+					# La linea de la Yugular: una al final. El cono: dos, a los lados.
+					var sitios: Array = [f.origen + f.dir * f.largo * 0.85] if f.tipo == CombatFormas.Tipo.LINEA \
+						else [f.origen + dvec.rotated(-0.35) * f.radio * 0.8, f.origen + dvec.rotated(0.35) * f.radio * 0.8]
+					for sitio in sitios:
+						var pies_p: Vector2 = (sitio as Vector2) + Vector2(0, 13)
+						var fp: ColorRect = _figura(pies_p, AZUL)
+						fp.z_index = Game.Z_PERSONAJES
+						presas_extra.append(fp)
+						cajas.append(Rect2(pies_p - Vector2(7, 26), Vector2(14, 26)))
 			# EL SALTO (Frenesi): la bestia ya esta en el centro de su circulo cuando empiezan los mordiscos.
 			if ab.salta:
 				cuerpo.position = f.centro - yo
+			# LA CARGA (Yugular): se lanza por la linea y se queda pegada al primero (CombatTactico.mover_enemigo).
+			var fin_carga: Vector2 = Vector2.INF
+			if ab.carga and f.tipo == CombatFormas.Tipo.LINEA:
+				fin_carga = f.origen + f.dir * f.largo
+				if not cajas.is_empty():
+					fin_carga = _pies_caja(cajas[0]) - f.dir * (8.0 + pisa)
+				cuerpo.position = fin_carga - yo
 			var bulto: Rect2 = Rect2(bulto0.position + cuerpo.position, bulto0.size)
 			var semilla: int = 700 + fila * 31
 			var piezas: Array = []   # {n, t0, sim}
@@ -1437,20 +1468,46 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
 				for i in range(antes, get_child_count()):
 					piezas.append({"n": get_child(i), "t0": 0.0, "sim": false})
-			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else 0.14
+			# EL TEMBLOR DEL CHILLIDO: en CADA uno de los alcanzados, cuando le pasa la onda (sobre su figura, que tiembla).
+			if modo_b == BestiaAire.Modo.TEMBLOR:
+				for i in cajas.size():
+					var rt: Rect2 = cajas[i]
+					var fig_t: ColorRect = null
+					for q in _enemigos.size():
+						if rt.has_point((_enemigos[q] as Vector2) - Vector2(0, 13)):
+							fig_t = _figs[q]
+					piezas.append({"n": BestiaAire.temblor(self, fig_t, rt, semilla + i, 0.0, 1.0),
+						"t0": SueloRoto.retraso(f, _pies_caja(rt), ab.suelo_roto), "sim": false})
+				cajas = []
+			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b == BestiaAire.Modo.DENTELLADA else 0.14)
 			var golpes: int = maxi(ab.golpes_max, 1)
 			for g in golpes:
 				if cajas.is_empty():
 					break
 				var rg: Rect2 = cajas[g % cajas.size()]
-				var t0: float = (0.12 * float(g) + 0.08) if modo_b == BestiaAire.Modo.FRENESI else 0.22 * float(g)
+				var t0: float = (0.12 * float(g) + 0.08) if modo_b == BestiaAire.Modo.FRENESI \
+					else (0.26 if modo_b == BestiaAire.Modo.DENTELLADA else 0.22) * float(g)
+				# La Yugular muerde al llegar (lo que tarda la estela hasta el).
+				if ab.suelo_roto >= 0 and not ab.salta:
+					t0 += SueloRoto.retraso(f, _pies_caja(rg), ab.suelo_roto)
+				# Y nunca antes de llegar: en el juego se lanza primero (Desliz.ANTES) y muerde despues.
+				if fin_carga != Vector2.INF:
+					t0 = maxf(t0, BestiaAire.T_ESTELA)
 				piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), rg, semilla + g, vuelo, 1.0, bulto.size.x),
 					"t0": t0, "sim": false})
 				# LA SANGRE (solo las que la echan): como en el juego, desde el cuerpo hacia donde tira quien muerde.
 				if modo_b != BestiaAire.Modo.MORDISCO:
 					var antes_s: int = get_child_count()
-					SangreMapa.salpicar(self, rg.get_center(), _pies_caja(rg), rg.get_center() - bulto.get_center(),
-						0.7 if modo_b == BestiaAire.Modo.MORDISCO_SANGRA else 0.4, semilla + g)
+					var desde_s: Vector2 = rg.get_center()
+					var fuerza_s: float = 0.4
+					match modo_b:
+						BestiaAire.Modo.MORDISCO_SANGRA: fuerza_s = 0.7
+						BestiaAire.Modo.DENTELLADA: fuerza_s = 0.6
+						BestiaAire.Modo.YUGULAR:
+							fuerza_s = 1.4
+							desde_s = Vector2(rg.get_center().x, rg.position.y + rg.size.y * 0.28)
+					SangreMapa.salpicar(self, desde_s, _pies_caja(rg), rg.get_center() - bulto.get_center(),
+						fuerza_s, semilla + g)
 					for i in range(antes_s, get_child_count()):
 						piezas.append({"n": get_child(i), "t0": t0, "sim": true})
 			for pz in piezas:
@@ -1458,6 +1515,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					(pz["n"] as Node).set_process(false)
 			for c in tiempos.size():
 				var t: float = float(tiempos[c])
+				# La carga: el cuerpo va por la linea con la estela y llega en T_ESTELA.
+				if fin_carga != Vector2.INF:
+					cuerpo.position = (fin_carga - yo) * clampf(t / BestiaAire.T_ESTELA, 0.0, 1.0)
 				for pz in piezas:
 					var n: Node2D = pz["n"]
 					if n == null or not is_instance_valid(n):
@@ -1470,6 +1530,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						n.visible = objetivo >= 0.0
 						continue
 					n.set("_t", t - float(pz["t0"]))
+					if n.has_method("aplicar_temblor"):
+						n.call("aplicar_temblor")
 					n.queue_redraw()
 					for hijo in ["_suelo", "_delante", "_brillo"]:
 						var su = n.get(hijo)
@@ -1478,6 +1540,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, t])
 			if fig_presa != null:
 				fig_presa.queue_free()
+			for fp in presas_extra:
+				(fp as Node).queue_free()
 			for pz in piezas:
 				if pz["n"] != null and is_instance_valid(pz["n"]):
 					(pz["n"] as Node).queue_free()

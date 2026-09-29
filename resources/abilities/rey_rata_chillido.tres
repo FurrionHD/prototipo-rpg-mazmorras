@@ -33,3 +33,6 @@ forma_radio = 100.0
 forma_apertura = 120.0
 forma_tramos = 2
 forma_tramo_baja = 0.4
+; EN EL MAPA (29/09): los frentes de sonido por el cono (BESTIA_CHILLIDO) y el temblor en cada uno al que alcanza.
+fx_estilo_mapa = 138
+suelo_roto = 71

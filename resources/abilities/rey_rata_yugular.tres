@@ -25,3 +25,6 @@ forma_radio = 55.0
 forma_ancho = 12.0
 forma_solo_primero = true
 carga = true
+; EN EL MAPA (29/09): la estela de polvo al lanzarse (BESTIA_ESTELA) y el mordisco al cuello con el destello rojo.
+fx_estilo_mapa = 137
+suelo_roto = 72
