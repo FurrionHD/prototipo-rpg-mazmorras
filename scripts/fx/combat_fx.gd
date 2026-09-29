@@ -1924,7 +1924,9 @@ const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": 
 	# El Aplastamiento (26/09): el mazazo y, en su segundo golpe, el escudazo.
 	"aplasta_maza": "golpe_escudo",   # la espada: tajo y, de vuelta, el reves
 	# El Frenesi de la rata (29/09): salta, y cada mordisco de despues es una sacudida.
-	"salto_rata": "frenesi"}
+	"salto_rata": "frenesi",
+	# El Ramazo del trent (29/09): barre y, en el segundo golpe, vuelve.
+	"barrido_raiz": "barrido_vuelta"}
 # Las que el cuerpo REPITE en cada golpe (las mismas que CombatTactico._REPITE_POR_GOLPE): entre golpe y
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",

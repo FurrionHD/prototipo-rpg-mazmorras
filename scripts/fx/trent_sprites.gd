@@ -249,6 +249,7 @@ static func generar(color: Color = Color(0.35, 0.5, 0.25), escala: float = 1.0) 
 	_montar_embestida(anims, esc)
 	_montar_escupir(anims, esc)
 	_montar_raices(anims, esc)
+	_montar_tactico(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -327,8 +328,34 @@ static func _montar_escupir(anims: Array, esc: float) -> void:
 			"brazos": SpriteLienzo.tramos(t, brazos_keys),
 			"alza": SpriteLienzo.tramos(t, alza_keys),
 			"patas": 0.0}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "escupir", false, 10.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (29/09): en el tactico se le ve desde cualquier lado.
+	_montar_animacion(anims, esc, "escupir", false, 10.0, pose, true)
+
+
+# ------------------------------------------------------------
+#  LOS DEL TACTICO (29/09): sus ataques salen del SUELO (raices), asi que el cuerpo no se abalanza: MANDA.
+# ------------------------------------------------------------
+static func _montar_tactico(anims: Array, esc: float) -> void:
+	# EL BASICO: baja las ramas hacia el suelo y tira de ellas hacia arriba de golpe -- es el que arranca la raiz que
+	# le cae encima a su victima. Sin paso: planta los pies.
+	var b_alza := [[0.0, 0.0], [0.35, -1.0], [0.55, 1.0], [0.75, 0.7], [1.0, 0.0]]
+	var b_mece := [[0.0, 0.0], [0.35, 1.0], [0.55, -0.9], [0.75, -0.5], [1.0, 0.0]]
+	var b_brazos := [[0.0, 0.0], [0.35, 0.5], [0.55, 0.2], [1.0, 0.0]]
+	var basico := func(t: float) -> Dictionary:
+		return {"avance": 0.0, "mece": SpriteLienzo.tramos(t, b_mece), "balanceo": 0.0,
+			"brazos": SpriteLienzo.tramos(t, b_brazos), "alza": SpriteLienzo.tramos(t, b_alza), "patas": 0.0}
+	_montar_animacion(anims, esc, "basico", false, 9.0, basico, true)
+
+	# EL RAMAZO: barre con las ramas bajas de un lado al otro (la raiz barre con el), y en el segundo golpe vuelve
+	# (CombatFX.ANIM_SIGUIENTE_MAPA: barrido_raiz -> barrido_vuelta).
+	for vuelta in [false, true]:
+		var signo: float = -1.0 if vuelta else 1.0
+		var bal_keys := [[0.0, -1.1 * signo], [0.5, 1.2 * signo], [1.0, 1.0 * signo]]
+		var brz_keys := [[0.0, -0.6 * signo], [0.5, 0.9 * signo], [1.0, 0.6 * signo]]
+		var barrido := func(t: float) -> Dictionary:
+			return {"avance": 0.0, "mece": 0.9 * sin(PI * t), "balanceo": SpriteLienzo.tramos(t, bal_keys),
+				"brazos": SpriteLienzo.tramos(t, brz_keys), "alza": -0.6, "patas": 0.0}
+		_montar_animacion(anims, esc, "barrido_vuelta" if vuelta else "barrido_raiz", false, 10.0, barrido, true, 8, 6)
 
 
 # CLAVA LAS RAMAS EN EL SUELO: lo que hace antes de que las raices broten bajo tus pies. Se echa
@@ -391,7 +418,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (29/09): en el tactico cae en su sitio, mirando adonde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -429,7 +457,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"patas": 0.0}   # no da un paso
 	# LOS CUATRO BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando
 	# las dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (29/09).
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,

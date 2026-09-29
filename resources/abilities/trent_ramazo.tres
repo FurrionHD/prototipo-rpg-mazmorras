@@ -28,3 +28,5 @@ forma_apertura = 140.0
 ; EFECTO EN EL MAPA (29/09): la rama barre ida y vuelta (BESTIA_RAMAZO) y deja pegotes de savia en cada uno.
 suelo_roto = 77
 fx_estilo_mapa = 143
+; EL CUERPO (29/09): barre con las ramas bajas de un lado al otro y vuelve, con la raiz.
+fx_anim = &"barrido_raiz"
