@@ -4,8 +4,9 @@
 #  su visto bueno (ver la memoria insectoides-tactico). Aparte de BestiaAire para no engordarlo mas; usa sus piezas
 #  estaticas (_tira, _poligono, _bola). Empieza por la ARAÑA:
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa, CombatFX.Estilo.INSECTO_*):
-#    QUELICEROS  el basico: dos colmillos curvos (ganchos de quitina con la punta clara) que se clavan de golpe y se
-#                retiran. A escala de la araña y orientados segun de donde viene el golpe, cada uno con su variacion.
+#    QUELICEROS  el basico: dos colmillos curvos (ganchos de quitina con la punta clara) SOBRE el que recibe, a lo
+#                largo de la linea del mordisco, que se cierran como una pinza (como el mordisco de la rata; el gesto
+#                de morder lo hace la araña en su sprite). A escala de la araña, cada uno con su variacion.
 #    PONZONA     el Mordisco ponzoñoso: los mismos colmillos, un pelin mas grandes, con la punta mojada de veneno.
 #    VENENO      (lo pone CombatTactico._on_impacto, SOLO SI ENTRA) gotitas verdes que saltan de donde muerde y una
 #                mancha verde que se apaga.
@@ -35,6 +36,8 @@ const T_TELA_CAE := 0.4           # lo que vuela el ovillo hasta el suelo
 const T_SECA := 0.5               # lo que tarda en irse la red al secarse
 const T_VENENO := 0.8
 const T_HEBRAS := 1.4
+const ABD_ATRAS := 7.0            # la punta del abdomen levantado de la araña, desde sus pies (px)
+const ABD_ALTO := 20.0
 const QUITINA := Color(0.12, 0.08, 0.17)
 const QUITINA_MEDIA := Color(0.3, 0.22, 0.42)
 const QUITINA_CLARA := Color(0.6, 0.5, 0.78)
@@ -135,7 +138,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 			e._eje = eje.rotated(e._rng.randf_range(-0.28, 0.28))
 			e._lado = e._eje.orthogonal()
 			var de_quien: float = boca if boca > 0.0 else e._ancho
-			e._tam = maxf(de_quien * 0.28, 4.0) * (1.12 if m == Modo.PONZONA else 1.0)
+			e._tam = maxf(de_quien * 0.2, 4.0) * (1.12 if m == Modo.PONZONA else 1.0)
 		Modo.VENENO:
 			e._t = -maxf(espera, 0.0)
 			e._eje = eje
@@ -247,45 +250,48 @@ func _dibujar_capa(capa: Node2D) -> void:
 # ------------------------------------------------------------
 #  LOS QUELICEROS
 # ------------------------------------------------------------
-# Dos colmillos, uno a cada lado de la linea del mordisco, que llegan ABIERTOS desde el lado de la araña y se clavan
-# cerrandose hacia dentro justo en el golpe (destello pequeño). Se quedan un momento y salen hacia atras apagandose.
+# COMO EL MORDISCO DE LA RATA, con forma de colmillos (29/09, lo pidio el usuario: "se ven raras las mandibulas
+# saliendo de no la araña"; el gesto de morder lo hace la araña en su sprite). Dos colmillos grandes y curvos
+# SOBRE EL CUERPO que recibe, a lo largo de la linea del mordisco: uno del lado de la araña y el otro al otro lado
+# del cuerpo. Aparecen abiertos, se cierran como una pinza justo en el golpe (destello), tiran un pelin hacia la
+# araña y se abren y se van.
 func _queliceros(capa: Node2D) -> void:
-	var abre: float
-	var clava: float
+	var cierre: float    # 0 = abiertos del todo, 1 = cerrados
 	var alfa: float
+	var tiron := Vector2.ZERO
 	if _t < 0.0:
 		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
-		abre = 1.0 - u * u
-		clava = u * u
+		cierre = u * u
 		alfa = clampf(u * 3.0, 0.0, 1.0)
 	else:
+		var kt: float = clampf(_t / T_CLAVADO, 0.0, 1.0)
+		tiron = -_eje * _tam * 0.3 * sin(PI * minf(kt * 1.6, 1.0))
 		var kr: float = smoothstep(T_CLAVADO, T_CLAVADO + T_IRSE, _t)
-		abre = 0.25 * kr
-		clava = 1.0 - 0.7 * kr
+		cierre = 1.0 - 0.5 * kr
 		alfa = 1.0 - kr
-		# EL REBOTE al clavarse: empuja un pelin mas y vuelve.
-		if _t < 0.08:
-			clava += 0.12 * sin(_t / 0.08 * PI)
+		# EL REBOTE: al llegar a tope aprieta y afloja un pelin.
+		if _t > 0.03 and _t < 0.1:
+			cierre = 1.0 - 0.12 * sin((_t - 0.03) / 0.07 * PI)
+	var c: Vector2 = _hasta + tiron
 	if capa == _brillo:
 		if _t >= 0.0 and _t < 0.12:
-			BarridoAire.destello(capa, _hasta, _tam * 0.75, Color(0.92, 0.86, 1.0, 0.8 * (1.0 - _t / 0.12)), _eje.angle())
+			BarridoAire.destello(capa, c, _tam * 0.8, Color(0.92, 0.86, 1.0, 0.8 * (1.0 - _t / 0.12)), _eje.angle())
 		return
 	if capa != _delante or alfa <= 0.01:
 		return
-	# EL DE ATRAS PRIMERO (el de arriba en pantalla), para que el de delante lo tape.
-	var lados: Array = [-1.0, 1.0]
-	if (_lado * -1.0).y > _lado.y:
-		lados = [1.0, -1.0]
-	for s in lados:
-		var base: Vector2 = _hasta - _eje * _tam * (1.3 - 0.35 * clava) + _lado * s * _tam * (0.42 + 0.3 * abre)
-		var punta: Vector2 = _hasta + _eje * _tam * lerpf(-0.45, 0.12, clava) + _lado * s * _tam * (0.05 + 0.5 * abre)
-		# Se comba hacia FUERA y vuelve a entrar en la punta: un gancho, no un cuerno recto.
-		var ctrl: Vector2 = base + _eje * _tam * 0.8 + _lado * s * _tam * (0.38 + 0.2 * abre)
-		_gancho(capa, base, ctrl, punta, _tam * 0.22, alfa, modo == Modo.PONZONA)
-	# LO QUE DEJAN al salir: los dos agujeritos.
-	if _t >= 0.0:
+	# LA PINZA: cada colmillo nace lejos del centro por la linea del mordisco, se comba hacia un lado y vuelve con la
+	# punta hacia el centro. Los dos se combian hacia el MISMO lado: juntos dibujan una C que se cierra.
+	var sep: float = lerpf(_tam * 0.9, _tam * 0.08, cierre)
+	for s in [-1.0, 1.0]:
+		var hacia: Vector2 = _eje * s          # -1: el del lado de la araña; +1: el del otro lado
+		var base: Vector2 = c - hacia * (sep * 0.5 + _tam * 0.95) + _lado * _tam * 0.15
+		var punta: Vector2 = c - hacia * sep * 0.5 - _lado * _tam * 0.12
+		var ctrl: Vector2 = c - hacia * (sep * 0.5 + _tam * 0.75) + _lado * _tam * 0.95
+		_gancho(capa, base, ctrl, punta, _tam * 0.24, alfa, modo == Modo.PONZONA)
+	# LO QUE DEJAN al cerrar: los dos agujeritos.
+	if _t >= 0.0 and cierre > 0.8:
 		for s2 in [-1.0, 1.0]:
-			var p: Vector2 = _hasta + _eje * _tam * 0.1 + _lado * s2 * _tam * 0.06
+			var p: Vector2 = c + _eje * s2 * _tam * 0.12
 			BestiaAire._bola(capa, p, maxf(1.2, _tam * 0.14), Color(VENENO_OSCURO if modo == Modo.PONZONA else QUITINA,
 				0.85 * alfa))
 
@@ -411,7 +417,8 @@ static func hilo(ci: CanvasItem, a: Vector2, ctrl: Vector2, b: Vector2, g: float
 func _telarana(capa: Node2D) -> void:
 	if _t < 0.0 or capa != _delante:
 		return
-	var desde: Vector2 = _o - _dir * _lejos + Vector2(0.0, -12.0)
+	# De la PUNTA DEL ABDOMEN levantado (AranaSprites, la 'telarana'): un poco detras de sus pies y bien arriba.
+	var desde: Vector2 = _o - _dir * (_lejos + ABD_ATRAS) + Vector2(0.0, -ABD_ALTO)
 	if _t < T_TELA_CAE:
 		var k: float = _t / T_TELA_CAE
 		var p: Vector2 = _vuelo(desde, k)

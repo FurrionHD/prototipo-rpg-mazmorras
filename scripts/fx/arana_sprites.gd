@@ -91,10 +91,13 @@ const PASO_ALTO := 3.0
 
 # QUELICEROS: los dos ganchos del veneno, colgando bajo la cara y curvandose hacia dentro. Cadena
 # corta, y la punta en tono claro -- es lo que dice que este bicho envenena.
-const QUELICERO := Vector3(1.9, 8.4, 4.6)
-const QUELICERO_SEGMENTOS := 4
-const QUELICERO_R0 := 1.25
-const QUELICERO_R1 := 0.70
+# MAS GRANDES desde el tactico (29/09, lo aprobo el usuario): con cuatro bolitas no se leia que iba a morder al
+# alzarse. Y SE ABREN Y SE CIERRAN ('muerde' en la pose): abiertos se apartan hacia fuera, cerrados se juntan.
+const QUELICERO := Vector3(2.1, 8.6, 4.8)
+const QUELICERO_SEGMENTOS := 6
+const QUELICERO_R0 := 1.9
+const QUELICERO_R1 := 1.0
+const QUELICERO_ABRE := 2.6        # lo que se aparta la punta hacia fuera con muerde = 1
 
 # OJOS: tres pares en la frente del cefalotorax, la fila de arriba mas pequeña. No son dos: una
 # araña se reconoce por el RACIMO de ojos, y con dos se lee como un roedor.
@@ -126,6 +129,10 @@ const MARCA_B_R := Vector3(2.6, 2.6, 1.4)
 const ALZA_MAX := 0.62             # radianes a alza = 1.0
 const PIVOTE_Y := -5.0
 const PIVOTE_Z := 4.0
+
+# LEVANTAR EL ABDOMEN para tirar la telaraña (29/09): el abdomen gira hacia arriba alrededor del pediculo, con
+# la punta hacia el objetivo por encima de su lomo. 'abdomen' en la pose, 0..1.
+const ABDOMEN_ALZA_MAX := 1.25     # radianes a abdomen = 1.0
 
 const LUNGE_DIST := 8.0            # cuanto viaja en la embestida, en unidades de mundo
 # ENCAJAR UN GOLPE: que FRACCION de su embestida la empuja hacia atras el impacto. ALTA -- al reves
@@ -213,6 +220,7 @@ static func generar(color: Color = Color(0.30, 0.25, 0.40), escala: float = 1.0)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_telarana(anims, esc)
+	_montar_ataques(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -254,7 +262,8 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 		return {"avance": SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 8.0),
 			"estira": 1.0, "fase": 0.0, "paso": 0.0,
 			"agacha": SpriteLienzo.tramos(t, agacha_keys),
-			"alza": SpriteLienzo.tramos(t, alza_keys), "encoge": 0.0}
+			"alza": SpriteLienzo.tramos(t, alza_keys), "encoge": 0.0,
+			"muerde": SpriteLienzo.tramos(t, [[0.0, 0.0], [0.34, 1.0], [0.62, 1.0], [0.74, -0.4], [1.0, 0.0]])}
 	_montar_animacion(anims, esc, "embestida", false, 11.0, pose, true)
 
 
@@ -268,23 +277,53 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 # que se mueve es el vientre. 'estira' escala el cuerpo a lo largo, asi que un tiron corto -- se
 # comprime y se suelta en un fotograma -- se lee como el abdomen bombeando. Las patas delanteras
 # levantan un pelin al final, que es como una araña remata el lance.
+#
+# EN EL TACTICO (29/09, aprobado): BAJA LA CABEZA Y LEVANTA EL ABDOMEN con la punta hacia el objetivo, lo bombea y
+# dispara (el ovillo sale de ahi, InsectoAire._telarana). En las 8 direcciones.
 static func _montar_telarana(anims: Array, esc: float) -> void:
 	# Se agacha y AHI SE QUEDA: el disparo no la mueve del sitio.
-	var agacha_keys := [[0.0, 0.0], [0.143, 0.35], [0.286, 0.60], [0.429, 0.55], [0.571, 0.40],
-		[0.714, 0.30], [0.857, 0.20], [1.0, 0.10]]
-	# EL BOMBEO. Se comprime a lo largo y se suelta de golpe en el 0,429: ese salto es el disparo.
-	var estira_keys := [[0.0, 1.0], [0.143, 0.94], [0.286, 0.86], [0.429, 1.14], [0.571, 1.06],
-		[0.714, 0.98], [0.857, 1.0], [1.0, 1.0]]
-	# Un tironcito de las delanteras al soltar, nada de alzarse (eso es el mordisco).
-	var alza_keys := [[0.0, 0.0], [0.143, 0.0], [0.286, 0.08], [0.429, 0.30], [0.571, 0.22],
-		[0.714, 0.10], [1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.0], [0.2, 0.35], [0.45, 0.45], [0.7, 0.3], [1.0, 0.0]]
+	# EL ABDOMEN sube, se queda arriba mientras bombea y baja al final.
+	var abd_keys := [[0.0, 0.0], [0.25, 0.9], [0.4, 1.0], [0.5, 0.82], [0.7, 0.85], [1.0, 0.0]]
+	# EL BOMBEO: se comprime y se suelta de golpe en el 0,45: ese salto es el disparo.
+	var estira_keys := [[0.0, 1.0], [0.3, 0.9], [0.4, 0.86], [0.45, 1.1], [0.6, 1.02], [1.0, 1.0]]
 	var pose := func(t: float) -> Dictionary:
 		return {"avance": 0.0,
 			"estira": SpriteLienzo.tramos(t, estira_keys), "fase": 0.0, "paso": 0.0,
-			"agacha": SpriteLienzo.tramos(t, agacha_keys),
-			"alza": SpriteLienzo.tramos(t, alza_keys), "encoge": 0.0}
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "telarana", false, 12.0, pose, true, 1, FRAMES)
+			"agacha": SpriteLienzo.tramos(t, agacha_keys), "alza": 0.0, "encoge": 0.0,
+			"abdomen": SpriteLienzo.tramos(t, abd_keys)}
+	_montar_animacion(anims, esc, "telarana", false, 12.0, pose, true, 8, 10)
+
+
+# ------------------------------------------------------------
+#  LOS ATAQUES DEL TACTICO (29/09, aprobados): en 8 direcciones, y MUERDE CON SU SPRITE (se alza, abre los
+#  queliceros y pica): el efecto de los colmillos cae sobre la victima justo cuando cierra.
+#  Los que se repiten por golpe (basico, mordisco) son UN gesto: la pelea lo vuelve a lanzar en cada golpe.
+# ------------------------------------------------------------
+static func _montar_ataques(anims: Array, esc: float) -> void:
+	# EL BASICO: se alza un poco enseñando los queliceros abiertos, se echa un pasito adelante, pica (cierra) y
+	# vuelve. El picotazo cae en el 0,45.
+	var b_alza := [[0.0, 0.0], [0.3, 0.5], [0.45, 0.12], [0.65, 0.08], [1.0, 0.0]]
+	var b_avance := [[0.0, 0.0], [0.3, -0.6], [0.45, 2.6], [0.65, 2.3], [1.0, 0.0]]
+	var b_muerde := [[0.0, 0.0], [0.3, 1.0], [0.42, 0.9], [0.47, -0.4], [0.7, -0.3], [1.0, 0.0]]
+	var b_agacha := [[0.0, 0.0], [0.3, 0.0], [0.45, 0.25], [1.0, 0.0]]
+	var basico := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, b_avance), "estira": 1.0, "fase": 0.0, "paso": 0.0,
+			"agacha": SpriteLienzo.tramos(t, b_agacha), "alza": SpriteLienzo.tramos(t, b_alza), "encoge": 0.0,
+			"muerde": SpriteLienzo.tramos(t, b_muerde)}
+	_montar_animacion(anims, esc, "basico", false, 16.0, basico, true)
+
+	# EL MORDISCO PONZOÑOSO: el mismo, mas alta y mas adelante, y al clavar se queda un momento apretando (el
+	# veneno entra). La pelea lo repite en cada uno de sus mordiscos.
+	var m_alza := [[0.0, 0.0], [0.28, 0.75], [0.42, 0.15], [0.75, 0.1], [1.0, 0.0]]
+	var m_avance := [[0.0, 0.0], [0.28, -0.9], [0.42, 3.6], [0.75, 3.3], [1.0, 0.4]]
+	var m_muerde := [[0.0, 0.0], [0.28, 1.2], [0.38, 1.1], [0.44, -0.5], [0.75, -0.45], [1.0, 0.0]]
+	var m_agacha := [[0.0, 0.0], [0.28, 0.0], [0.42, 0.35], [0.75, 0.3], [1.0, 0.0]]
+	var mordisco := func(t: float) -> Dictionary:
+		return {"avance": SpriteLienzo.tramos(t, m_avance), "estira": 1.0, "fase": 0.0, "paso": 0.0,
+			"agacha": SpriteLienzo.tramos(t, m_agacha), "alza": SpriteLienzo.tramos(t, m_alza), "encoge": 0.0,
+			"muerde": SpriteLienzo.tramos(t, m_muerde)}
+	_montar_animacion(anims, esc, "mordisco", false, 14.0, mordisco, true, 8, 10)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -313,7 +352,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# EN LAS 8 DIRECCIONES desde el tactico (29/09): en el mapa se le ve morir mire a donde mire.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -349,7 +389,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"encoge": SpriteLienzo.tramos(t, encoge_keys)}
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las dos
 	# el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# EN LAS 8 DIRECCIONES desde el tactico (29/09).
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,
@@ -400,7 +441,9 @@ static func _colores(color: Color) -> Array:
 		# morado ya apagado el resultado es un gris. Misma leccion que el ocre del jabali.
 		c.lerp(Color(0.72, 0.66, 0.86), 0.42),                # LOMO
 		c.lerp(Color(0.86, 0.82, 0.70), 0.62),                # MARCA (la mancha clara del abdomen)
-		c.darkened(0.60),                     # QUELICERO (quitina oscura)
+		# QUELICERO: quitina, pero MAS CLARA que las patas (29/09): del tono de las patas se perdia en el contorno y no
+		# se leia que abria la boca para morder.
+		c.darkened(0.12),                     # QUELICERO
 		# PONZONA y OJO_T tienen que ser DOS COSAS DISTINTAS a ojo. Con los dos en amarillo (y aun
 		# separados en pantalla) la cara se leia como cuatro puntos iguales y no habia forma de saber
 		# cual era la mirada. La punta del quelicero va en hueso apagado y los ojos en amarillo vivo:
@@ -425,6 +468,17 @@ static func _curva(a: Vector3, codo: Vector3, b: Vector3, f: float) -> Vector3:
 # ALZARSE: gira un punto en el plano largo-alto alrededor del pivote del abdomen. Se aplica al
 # cuerpo Y a los anclajes de las patas (van clavadas en el cefalotorax, asi que suben con el), pero
 # NO a las puntas de las traseras: son las que se quedan en el suelo sosteniendola.
+# LEVANTAR EL ABDOMEN (la Telaraña): gira un punto de atras hacia ARRIBA alrededor del pediculo.
+static func _levantar_abdomen(local: Vector3, a: float) -> Vector3:
+	if a == 0.0:
+		return local
+	var dy: float = local.y - PEDICULO.y
+	var dz: float = local.z - PEDICULO.z
+	var ca: float = cos(-a)
+	var sa: float = sin(-a)
+	return Vector3(local.x, PEDICULO.y + dy * ca - dz * sa, PEDICULO.z + dy * sa + dz * ca)
+
+
 static func _alzar(local: Vector3, a: float) -> Vector3:
 	if a == 0.0:
 		return local
@@ -454,6 +508,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var paso: float = float(pose["paso"])
 	var alza: float = float(pose["alza"]) * ALZA_MAX
 	var encoge: float = float(pose["encoge"])
+	var muerde: float = float(pose.get("muerde", 0.0))
+	var abd_a: float = float(pose.get("abdomen", 0.0)) * ABDOMEN_ALZA_MAX
 
 	# Agachada = mas baja y un pelin mas ancha (se aplasta contra el suelo).
 	var largo: float = estira
@@ -563,17 +619,21 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# --- EL CUERPO ---
 	# ABDOMEN primero (es lo de atras), luego el pediculo y el cefalotorax por encima.
-	var abd: Vector3 = _alzar(ABDOMEN, alza)
-	poner.call(cuerpo, abd, ABDOMEN_R, Tono.BASE)
+	# LEVANTADO, el abdomen SE PONE DE PIE: las elipses no giran, asi que se le cambia lo largo por lo alto (sin
+	# esto solo se desplazaba y parecia que encogia, no que se levantaba).
+	var pie: float = pow(sin(abd_a), 2.0)
+	var abd_r := Vector3(ABDOMEN_R.x, lerpf(ABDOMEN_R.y, ABDOMEN_R.z, pie), lerpf(ABDOMEN_R.z, ABDOMEN_R.y * 1.1, pie))
+	var abd: Vector3 = _alzar(_levantar_abdomen(ABDOMEN, abd_a), alza)
+	poner.call(cuerpo, abd, abd_r, Tono.BASE)
 	# LOMO iluminado del abdomen: mas alto que su eje (la luz viene de arriba), asi que en pantalla
 	# queda desplazado hacia arriba y la mitad de abajo se queda en tono base = el costado en
 	# penumbra. Solo sobre BASE, para no aclarar patas ni contorno.
-	poner.call(cuerpo, _alzar(Vector3(0.0, ABDOMEN.y + 0.8, ABDOMEN.z + ABDOMEN_R.z * 0.60), alza),
-		Vector3(ABDOMEN_R.x * 0.66, ABDOMEN_R.y * 0.72, ABDOMEN_R.z), Tono.LOMO, [Tono.BASE])
+	poner.call(cuerpo, _alzar(_levantar_abdomen(Vector3(0.0, ABDOMEN.y + 0.8, ABDOMEN.z + ABDOMEN_R.z * 0.60),
+		abd_a), alza), Vector3(abd_r.x * 0.66, abd_r.y * 0.72, abd_r.z), Tono.LOMO, [Tono.BASE])
 	# LA MARCA: dos manchas claras en el eje del abdomen, la de atras mas ancha. Va sobre el lomo Y
 	# sobre la base, porque a media vuelta cae medio dentro y medio fuera de la zona iluminada.
-	poner.call(cuerpo, _alzar(MARCA_A, alza), MARCA_A_R, Tono.MARCA, [Tono.BASE, Tono.LOMO])
-	poner.call(cuerpo, _alzar(MARCA_B, alza), MARCA_B_R, Tono.MARCA, [Tono.BASE, Tono.LOMO])
+	poner.call(cuerpo, _alzar(_levantar_abdomen(MARCA_A, abd_a), alza), MARCA_A_R, Tono.MARCA, [Tono.BASE, Tono.LOMO])
+	poner.call(cuerpo, _alzar(_levantar_abdomen(MARCA_B, abd_a), alza), MARCA_B_R, Tono.MARCA, [Tono.BASE, Tono.LOMO])
 
 	poner.call(cuerpo, _alzar(PEDICULO, alza), PEDICULO_R, Tono.SOMBRA)
 
@@ -596,14 +656,15 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# QUELICEROS: cuelgan bajo la cara y se curvan hacia dentro y hacia delante. En cadena, como los
 	# colmillos del jabali: una elipse alargada no se curva. La ULTIMA bolita va en tono ponzoña.
+	# ABIERTOS (muerde > 0) la punta se aparta hacia fuera y se adelanta; CERRADOS (< 0) se juntan por dentro.
 	for lado in lados:
 		for j in QUELICERO_SEGMENTOS:
 			var f: float = float(j) / float(QUELICERO_SEGMENTOS - 1)
-			var q := _alzar(Vector3(lado * (QUELICERO.x - f * 0.9),
-				QUELICERO.y + f * f * 1.6,          # se adelanta al bajar
-				QUELICERO.z - f * 3.2), alza)       # y baja
+			var q := _alzar(Vector3(lado * (QUELICERO.x - f * 1.2 + f * muerde * QUELICERO_ABRE),
+				QUELICERO.y + f * f * 2.8 + f * maxf(muerde, 0.0) * 1.6,   # se adelanta al bajar (y mas abierto)
+				QUELICERO.z - f * 4.0), alza)       # y baja
 			poner.call(delante, q, Vector3.ONE * lerpf(QUELICERO_R0, QUELICERO_R1, f),
-				Tono.PONZONA if j == QUELICERO_SEGMENTOS - 1 else Tono.QUELICERO)
+				Tono.PONZONA if j >= QUELICERO_SEGMENTOS - 2 else Tono.QUELICERO)
 
 	# EL RACIMO DE OJOS: tres pares en la frente. Claros y grandecitos a proposito -- son lo unico
 	# que dice hacia donde mira, y en la mazmorra el bicho se ve pequeño.

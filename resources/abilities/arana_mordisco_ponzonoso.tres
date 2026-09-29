@@ -22,3 +22,5 @@ fx_estilo = 28
 cooldown = 3
 ; EFECTO EN EL MAPA (29/09): los colmillos mojados, y el veneno que salta solo si entra (CombatTactico._on_impacto).
 fx_estilo_mapa = 145
+; EL CUERPO (29/09): se alza, abre los queliceros y pica (se repite en cada mordisco).
+fx_anim = &"mordisco"
