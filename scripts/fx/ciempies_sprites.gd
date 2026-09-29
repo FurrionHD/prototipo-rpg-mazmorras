@@ -110,6 +110,18 @@ const ESPIRAL_R := 7.6
 const ESPIRAL_PASO_ANG := 0.48
 const ESPIRAL_ANG0 := 0.5
 
+# ENROSCADO EN SU PRESA (29/09, el Enrosque en el mapa): una HELICE alrededor del origen (donde se pone la presa), que
+# sube del suelo al pecho con la cabeza arriba y DELANTE. Se pinta en DOS mitades ('mitad' en la pose: 1 = los
+# anillos del lado lejano, 2 = los del cercano), porque en el juego van en dos sprites: uno detras de la presa y otro
+# encima. Asi la abraza de verdad en vez de quedarse pegado por delante.
+# MEDIDO sobre la hoja con la figura dentro (media figura = 2,2 unidades de este dibujo): con 6,8 de radio y 13 de alto
+# salia un aro el triple de ancho que la presa, con la cabeza por encima de la suya, y los anillos tan separados que
+# era un COLLAR DE CUENTAS. Pegado al cuerpo, hasta el pecho, y con los anillos a menos de su grosor.
+const HELICE_R := 4.6           # el radio del abrazo: pegado a la presa y asomando un poco por los lados (un personaje mide 22 px de ancho = 3,5 unidades de medio)
+const HELICE_ALTO := 16.0       # lo que sube la cabeza: hasta el pecho de un personaje (38 px; la camara a 45 se come la altura)
+const HELICE_PASO := 0.5        # angulo entre anillo y anillo: una vuelta y cuarto en los quince
+const HELICE_A0 := PI * 0.2     # la cabeza, delante y a un lado (en el centro era una cara en la barriga)
+
 const LUNGE_DIST := 8.5
 # Encaja mucho: es largo pero no pesa nada, y un golpe lo manda de lado.
 const ENCAJE_RETRO := 0.50
@@ -305,6 +317,43 @@ static func _montar_tactico(anims: Array, esc: float) -> void:
 		return {"avance": SpriteLienzo.tramos(t, o_avance), "fase": t * 0.5, "onda": SpriteLienzo.tramos(t, o_onda),
 			"paso": 1.0, "alza": SpriteLienzo.tramos(t, o_alza), "enrosca": 0.0}
 	_montar_animacion(anims, esc, "oleada", false, 18.0, oleada, true, 8, 6)
+	_montar_enroscado(anims, esc)
+
+
+# EL ENROSQUE EN EL MAPA: cada una en DOS mitades, '<nombre>_detras' y '<nombre>_delante' (ver HELICE_*), que el
+# combate pone en dos sprites a los pies de la presa, uno por detras de ella y otro encima. UNA direccion: la helice
+# es la misma la mire quien la mire.
+#   enroscarse     trepa por ella: la helice crece desde el suelo y se cierra segun sube, girando.
+#   enroscado      en bucle mientras la tiene: respira apretando y las patas se agarran.
+#   apreton        cada turno suyo (el daño): el abrazo se cierra de golpe y vuelve.
+#   desenroscarse  la suelta: baja y se abre (luego el combate lo deja tirado a su lado).
+static func _montar_enroscado(anims: Array, esc: float) -> void:
+	var base := func(sube: float, aprieta: float, gira: float, fase: float, paso: float) -> Dictionary:
+		return {"avance": 0.0, "fase": fase, "onda": 0.0, "paso": paso, "alza": 0.0, "enrosca": 0.0,
+			"cinto": 1.0, "sube": sube, "aprieta": aprieta, "gira": gira}
+	for m in [1, 2]:
+		var suf: String = "_detras" if m == 1 else "_delante"
+		var entra := func(t: float) -> Dictionary:
+			var d: Dictionary = base.call(t, lerpf(1.6, 1.0, t * t), 0.35 * (1.0 - t), t, 1.0 - t)
+			d["mitad"] = m
+			return d
+		_montar_animacion(anims, esc, "enroscarse" + suf, false, 12.0, entra, true, 1, 6)
+		var bucle := func(t: float) -> Dictionary:
+			var d: Dictionary = base.call(1.0, 1.0 + 0.05 * sin(TAU * t), 0.02 * sin(TAU * t), t, 0.6)
+			d["mitad"] = m
+			return d
+		_montar_animacion(anims, esc, "enroscado" + suf, true, 8.0, bucle, false, 1, 8)
+		var aprieta_keys := [[0.0, 1.0], [0.3, 0.74], [0.5, 0.7], [0.75, 0.86], [1.0, 1.0]]
+		var apreton := func(t: float) -> Dictionary:
+			var d: Dictionary = base.call(1.0, SpriteLienzo.tramos(t, aprieta_keys), 0.0, t * 0.5, 0.3)
+			d["mitad"] = m
+			return d
+		_montar_animacion(anims, esc, "apreton" + suf, false, 14.0, apreton, true, 1, 5)
+		var sale := func(t: float) -> Dictionary:
+			var d: Dictionary = base.call(1.0 - t, lerpf(1.0, 1.6, t * t), -0.35 * t, t, t)
+			d["mitad"] = m
+			return d
+		_montar_animacion(anims, esc, "desenroscarse" + suf, false, 12.0, sale, true, 1, 6)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -459,6 +508,11 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var paso: float = float(pose["paso"])
 	var alza: float = float(pose["alza"])
 	var enrosca: float = float(pose["enrosca"])
+	var cinto: float = float(pose.get("cinto", 0.0))
+	var mitad: int = int(pose.get("mitad", 0))
+	var aprieta: float = float(pose.get("aprieta", 1.0))
+	var sube_h: float = float(pose.get("sube", 1.0))
+	var gira_h: float = float(pose.get("gira", 0.0))
 
 	# EL AVANCE SE ROTA UNA VEZ Y LO LLEVAN TODAS LAS PIEZAS POR IGUAL (la trampa del meceo del
 	# trent): sumarlo a la Y local antes de rotar solo funciona si TODAS las piezas giran.
@@ -506,6 +560,20 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			sube = alza * ALZA_ALTO * g * g
 			p.y -= sube * 0.42
 		var z: float = CUERPO_Z + sube
+		# ENROSCADO: el anillo va a su sitio de la helice (y 'lat', hacia donde salen las patas, pasa a ser hacia fuera).
+		var lat := Vector2(1.0, 0.0)
+		var delante: bool = true
+		if cinto > 0.0:
+			var a_h: float = HELICE_A0 - float(i) * HELICE_PASO + gira_h * TAU
+			var ph := Vector2(cos(a_h), sin(a_h)) * HELICE_R * aprieta
+			p = p.lerp(ph, cinto)
+			z = lerpf(z, CUERPO_Z + HELICE_ALTO * sube_h * (1.0 - f), cinto)
+			if cinto > 0.5:
+				lat = ph.normalized()
+			delante = sin(a_h) > 0.0
+		var ini_suelo: int = suelo.size()
+		var ini_patas: int = patas.size()
+		grupos[i]["del"] = delante
 		var r: Vector3 = ANILLO_R0.lerp(ANILLO_R1, f)
 		var grupo: Array = grupos[i]["piezas"]
 		# La altura EN PANTALLA de este anillo: es con lo que se ordena la profundidad al final.
@@ -530,14 +598,20 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		if i > 0 and i % 2 == 1:
 			for s in 2:
 				var lado: float = -1.0 if s == 0 else 1.0
+				# Enroscado, las de dentro se clavan en la presa y no se ven: solo las de fuera, agarrando.
+				if cinto > 0.5 and lado < 0.0:
+					continue
 				# ONDA METACRONAL: cada par va por detras del anterior. Los dos lados van ademas en
 				# contrafase (el +0.5), o el bicho remaria con las veinte patas a la vez.
 				var giro: float = TAU * (fase + float(i) * DESFASE_PATAS + (0.0 if s == 0 else 0.5))
 				var vaiven: float = sin(giro) * paso * PASO_LARGO
 				var levanta: float = maxf(0.0, cos(giro)) * paso * PASO_ALTO
-				var ancla := Vector3(p.x + lado * PATA_X * (r.x / ANILLO_R0.x), p.y, PATA_Z)
-				var punta := Vector3(p.x + lado * (PATA_X + PATA_ALCANCE),
-					p.y + vaiven, levanta)
+				var tg := Vector2(-lat.y, lat.x)
+				var alto_a: float = z - CUERPO_Z
+				var a2: Vector2 = p + lat * lado * PATA_X * (r.x / ANILLO_R0.x)
+				var p2: Vector2 = p + lat * lado * (PATA_X + PATA_ALCANCE * (0.6 if cinto > 0.5 else 1.0)) + tg * vaiven
+				var ancla := Vector3(a2.x, a2.y, PATA_Z + alto_a)
+				var punta := Vector3(p2.x, p2.y, levanta + alto_a * 0.85)
 				var codo: Vector3 = ancla.lerp(punta, 0.5) + Vector3(
 					lado * PATA_PANZA, 0.0, PATA_PANZA * 1.3)
 				for j in PATA_SEGMENTOS:
@@ -550,6 +624,12 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		poner.call(grupo, Vector3(p.x, p.y, z), r, Tono.BASE)
 		poner.call(grupo, Vector3(p.x, p.y, z + r.z * 0.52),
 			Vector3(PLACA_R.x * (r.x / ANILLO_R0.x), PLACA_R.y, PLACA_R.z), Tono.PLACA, [Tono.BASE])
+
+		# De que mitad son la sombra y las patas de este anillo (ver 'mitad').
+		for k in range(ini_suelo, suelo.size()):
+			suelo[k]["del"] = delante
+		for k in range(ini_patas, patas.size()):
+			patas[k]["del"] = delante
 
 		# --- LA CABEZA (anillo 0) ---
 		if i == 0:
@@ -602,6 +682,12 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# anillos por su altura en pantalla (los de arriba primero, o sea los mas lejanos), los cruces
 	# salen bien solos en los 8 x 8 fotogramas sin un solo caso especial.
 	grupos.sort_custom(func(a, b): return float(a["sy"]) < float(b["sy"]))
+	# SOLO UNA MITAD del enroscado (1 = la de detras de la presa, 2 = la de delante).
+	if mitad > 0:
+		var quiere: bool = mitad == 2
+		suelo = suelo.filter(func(q): return bool(q.get("del", true)) == quiere)
+		patas = patas.filter(func(q): return bool(q.get("del", true)) == quiere)
+		grupos = grupos.filter(func(g): return bool(g.get("del", true)) == quiere)
 
 	var piezas: Array = suelo + patas
 	for g in grupos:

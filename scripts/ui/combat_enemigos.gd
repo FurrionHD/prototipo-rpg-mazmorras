@@ -833,8 +833,10 @@ func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
 	var result := StatsMath.resolve_attack(e, presa, false, -1.0, 0.0, 0.0, false)
 	var dmg: float = result.damage * e.dummy_dmg_out_mult
 	presa.take_damage(dmg)
+	# EL APRETON (29/09): su dibujo propio en el mapa; el sprite enroscado aprieta a la vez (CombatTactico).
+	var estilo_ap: int = CombatFX.Estilo.INSECTO_APRETON if _pantalla.tactico else _pantalla.efectos._estilo_de_habilidad(null, e)
 	_pantalla.efectos._fx_golpe(e, presa, dmg, result.crit, false, e.elemento_ataque,
-		_pantalla.efectos._estilo_de_habilidad(null, e), 1.0, false, "", AbilityData.Gesto.EN_SITIO, &"", 0,
+		estilo_ap, 1.0, false, "", AbilityData.Gesto.EN_SITIO, &"", 0,
 		float(result.get("mult_elem", 1.0)))
 	var pj_p: PersonajeData = Game.pj_de_combatant(presa)
 	Game.desgastar_armadura(pj_p)

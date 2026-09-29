@@ -29,6 +29,9 @@
 #  EL CIEMPIES (29/09), igual: el gesto es de su cuerpo (CiempiesSprites) y aqui lo que cae sobre la victima:
 #    FORCIPULAS  el basico: dos ganchos finos que entran desde los lados y SE CRUZAN como una tijera.
 #    PATITAS     cada picotazo de la Oleada de patas: 6-8 patitas que se clavan escalonadas de arriba abajo.
+#    APRETON     el Enrosque (al enroscarse y en cada turno suyo): dos medias lunas que aprietan a la presa por los
+#                lados a la altura de la cintura y un destello rojo apagado. Enroscado lo pinta su SPRITE (dos
+#                mitades a los pies de la presa: CombatTactico._tick_vis_enrosque) y la presa tiembla.
 #  LAS HEBRAS NO SON LINEAS (lo aprobo el usuario, 29/09): cada una es un hilo relleno que se afila, mas grueso junto a
 #  los nudos, con un halo suave detras. Coordenadas de MUNDO.
 # ============================================================
@@ -36,7 +39,7 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS }
+	FORCIPULAS, PATITAS, APRETON }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA]
@@ -240,6 +243,9 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 					+ Vector2(0.0, 0.25)).normalized()
 				e._piezas.append({"p": sitio, "d": d, "t0": h * 0.1 + e._rng.randf_range(-0.01, 0.01),
 					"gota": e._rng.randf() < 0.4})
+		Modo.APRETON:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = caja.get_center() + Vector2(0.0, caja.size.y * 0.12)
 		Modo.CAPARAZON:
 			# Sobre SU cuerpo: la caja es la suya. Sale al cerrarse del todo (el golpe).
 			e._t = -maxf(espera, 0.0)
@@ -317,6 +323,7 @@ func duracion() -> float:
 		Modo.ARROLLA: return T_ARROLLA
 		Modo.CAPARAZON: return T_CAPARAZON
 		Modo.PATITAS: return 0.34
+		Modo.APRETON: return 0.4
 		Modo.RODADA: return T_RODADA + 1.4
 	return T_CLAVADO + T_IRSE
 
@@ -350,6 +357,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.QUELICEROS, Modo.PONZONA: _queliceros(capa)
 		Modo.FORCIPULAS: _forcipulas(capa)
 		Modo.PATITAS: _patitas(capa)
+		Modo.APRETON: _apreton(capa)
 		Modo.VENENO: _veneno(capa)
 		Modo.HEBRAS: _hebras(capa)
 		Modo.RED: _red(capa)
@@ -869,3 +877,28 @@ func _patitas(capa: Node2D) -> void:
 			var q: Vector2 = p + Vector2(0.0, 1.0 + _tam * 0.5 * (tg / 0.2))
 			BestiaAire._bola(capa, q, maxf(1.4, _tam * 0.14) * 1.6, Color(VENENO, 0.3 * a))
 			capa.draw_circle(q, maxf(1.0, _tam * 0.12), Color(VENENO, a))
+
+
+# EL APRETON: el abrazo se cierra. Dos medias lunas a los lados de la cintura que entran hacia el cuerpo (el anillo que
+# aprieta), un destello rojo apagado en medio, y se sueltan.
+func _apreton(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		# Rojo, no blanco: el destello aditivo sobre el cuerpo claro se iba al blanco.
+		if _t < 0.16:
+			BarridoAire.destello(capa, c, _ancho * 0.6, Color(0.85, 0.12, 0.08, 0.7 * (1.0 - _t / 0.16)), 0.2)
+		return
+	if capa != _delante:
+		return
+	var k: float = clampf(_t / 0.12, 0.0, 1.0)
+	var alfa: float = 1.0 - smoothstep(0.14, 0.4, _t)
+	# GORDAS Y PEGADAS: con un tercio de ancho de grueso y lejos del cuerpo salian dos rayas sueltas en el aire.
+	for s in [-1.0, 1.0]:
+		var x: float = _ancho * lerpf(0.8, 0.3, k * k)
+		var r: float = _ancho * 0.5
+		var o: Vector2 = c + Vector2(s * (x + r), 0.0)
+		var hacia: float = PI if s > 0.0 else 0.0
+		BestiaAire._media_luna(capa, o, hacia - 0.95, hacia + 0.95, r, _ancho * 0.6, Color(0.98, 0.5, 0.38),
+			Color(0.5, 0.1, 0.07), alfa, true)

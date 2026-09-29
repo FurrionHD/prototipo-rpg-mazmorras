@@ -25,3 +25,6 @@ fx_estilo = 30
 cooldown = 4
 ; EN EL MAPA (29/09): si entra, se queda enroscado en su victima (CombatTactico.empezar_enrosque).
 enrosca = true
+; EN EL MAPA (29/09): el golpe con el que se enrosca, como los apretones (INSECTO_APRETON). Enroscado lo pinta su
+; sprite en dos mitades a los pies de la presa (CombatTactico._tick_vis_enrosque).
+fx_estilo_mapa = 152

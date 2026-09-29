@@ -19,11 +19,50 @@ func _ready() -> void:
 	# El generador de SU familia (29/09: tambien la rata y el rey rata), siempre al vuelo.
 	var sf: SpriteFrames = SpritesEnemigo._generador(ed).generar_de(ed, 0.0)
 	for anim in anims:
-		var img: Image = _hoja(sf, anim)
+		# LAS DE DOS MITADES (el Enrosque del ciempies, 29/09): detras, la presa, delante; como en el juego.
+		var img: Image = _hoja_con_presa(sf, anim, SpritesEnemigo.escala_de(ed)) if sf.has_animation("%s_detras_0" % anim) else _hoja(sf, anim)
 		var ruta: String = salida.path_join("%s_%s.png" % [enemigo, anim])
 		img.save_png(ruta)
 		print("[hoja] ", ruta)
 	get_tree().quit()
+
+
+# Una fila: por fotograma, la mitad de detras, la PRESA (una figura azul del tamaño de un personaje, 22x38 px de mundo
+# de los pies a la cabeza: PoseJugador.CAJA_CUERPO, con los pies en el
+# origen del dibujo = el centro del lienzo) y la mitad de delante encima.
+func _hoja_con_presa(sf: SpriteFrames, anim: String, escala: float) -> Image:
+	var det := "%s_detras_0" % anim
+	var dl := "%s_delante_0" % anim
+	var n: int = sf.get_frame_count(det)
+	var wh: Vector2i = _lienzo_de(sf.get_frame_texture(det, 0))
+	var fig := Vector2i(int(round(22.0 / escala)), int(round(38.0 / escala)))
+	var caja := Rect2i(wh / 2 - Vector2i(fig.x, fig.y + 2), Vector2i(fig.x * 2, fig.y + 4))
+	for nom in [det, dl]:
+		for i in sf.get_frame_count(nom):
+			var a0: AtlasTexture = sf.get_frame_texture(nom, i)
+			caja = caja.merge(Rect2i(Vector2i(a0.margin.position), Vector2i(a0.region.size)))
+	caja = caja.grow(2).intersection(Rect2i(Vector2i.ZERO, wh))
+	var cw: int = caja.size.x * ZOOM
+	var ch: int = caja.size.y * ZOOM
+	var out := Image.create((cw + HUECO) * n + HUECO, ch + HUECO * 2, false, Image.FORMAT_RGBA8)
+	out.fill(FONDO)
+	for i in n:
+		var lienzo := Image.create(wh.x, wh.y, false, Image.FORMAT_RGBA8)
+		lienzo.fill(Color(0, 0, 0, 0))
+		_pegar(lienzo, sf.get_frame_texture(det, i))
+		lienzo.fill_rect(Rect2i(Vector2i(wh.x / 2 - fig.x / 2, wh.y / 2 - fig.y), fig), Color(0.35, 0.6, 1.0))
+		_pegar(lienzo, sf.get_frame_texture(dl, mini(i, sf.get_frame_count(dl) - 1)))
+		var amp: Image = lienzo.get_region(caja)
+		amp.resize(cw, ch, Image.INTERPOLATE_NEAREST)
+		out.blend_rect(amp, Rect2i(0, 0, cw, ch), Vector2i(HUECO + i * (cw + HUECO), HUECO))
+	return out
+
+
+func _pegar(lienzo: Image, at: AtlasTexture) -> void:
+	var src: Image = at.atlas.get_image()
+	src.convert(Image.FORMAT_RGBA8)
+	var trozo: Image = src.get_region(Rect2i(at.region))
+	lienzo.blend_rect(trozo, Rect2i(Vector2i.ZERO, trozo.get_size()), Vector2i(at.margin.position))
 
 
 func _lienzo_de(at: AtlasTexture) -> Vector2i:

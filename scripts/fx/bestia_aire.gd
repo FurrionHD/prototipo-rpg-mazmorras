@@ -100,6 +100,7 @@ var _r: float = 25.0
 var _dir: Vector2 = Vector2.RIGHT
 var _largo: float = 40.0
 var _lento: float = 1.0               # la Dentellada y la Yugular cierran y sueltan mas despacio: pesan mas
+var mudo: bool = false                # TEMBLOR sin las ondas de sonido: solo el meneo (el apreton del ciempies)
 var _dibujo: CanvasItem = null        # lo que tiembla (el muñeco de los tuyos, el sprite de un enemigo)
 var _base_dibujo: Vector2 = Vector2.ZERO
 var _a_colmillo: float = 0.0          # hacia donde se comba la media luna del colmillo (el lado de quien embiste)
@@ -842,7 +843,7 @@ func _estela(capa: Node2D) -> void:
 # ------------------------------------------------------------
 # Dos medias lunas de sonido a cada lado de la cabeza, ")" y "(", que vibran y se van abriendo mientras se apagan.
 func _temblor(capa: Node2D) -> void:
-	if capa != _delante or _t < 0.0:
+	if capa != _delante or _t < 0.0 or mudo:
 		return
 	var k: float = _t / T_TIEMBLA
 	var alfa: float = (1.0 - k) * clampf(_t / 0.05, 0.0, 1.0)

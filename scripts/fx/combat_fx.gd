@@ -391,7 +391,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# rodante y el reflejo del Caparazon sobre si mismo.
 		INSECTO_PALA = 147, INSECTO_ARROLLA = 148, INSECTO_CAPARAZON = 149,
 		# Y los del ciempies (29/09): las forcipulas en tijera del basico y la rafaga de patitas de la Oleada.
-		INSECTO_FORCIPULAS = 150, INSECTO_PATITAS = 151 }
+		INSECTO_FORCIPULAS = 150, INSECTO_PATITAS = 151,
+		# Y el apreton del Enrosque (al enroscarse y en cada turno suyo).
+		INSECTO_APRETON = 152 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -427,6 +429,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
 	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
+	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -588,7 +591,7 @@ const T_VUELO := {
 	# La pala llega y se aplasta en el golpe; la bola y el reflejo salen EN el golpe (la bola, cuando le pasa por encima).
 	Estilo.INSECTO_PALA: 0.12, Estilo.INSECTO_ARROLLA: 0.02, Estilo.INSECTO_CAPARAZON: 0.02,
 	# Las forcipulas llegan abiertas y se cruzan en el golpe; las patitas empiezan a clavarse justo antes.
-	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06,
+	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06, Estilo.INSECTO_APRETON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

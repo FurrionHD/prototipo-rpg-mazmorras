@@ -1728,6 +1728,7 @@ func forcejear(c: Combatant) -> String:
 	for e in _enroscados.keys():
 		if _enroscados[e]["presa"] != c:
 			continue
+		_temblar_presa(c)   # forcejea
 		if randf() < PROB_SOLTARSE:
 			soltar_enrosque(e, "")
 			return "💪 %s forcejea y se suelta de %s." % [c.nombre, _pantalla._etq(e)]
@@ -1766,6 +1767,138 @@ func olvidar_enroscados() -> void:
 		(_enroscados[e]["presa"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
 	_enroscados.clear()
 	_presas_carga.clear()
+	for e in _vis_enrosque.keys():
+		_quitar_vis_enrosque(e)
+
+
+# ------------------------------------------------------------
+#  EL ENROSQUE, COMO SE VE (29/09, lo pidio el usuario: "se enrosca DE VERDAD alrededor")
+# ------------------------------------------------------------
+# Mientras un ciempies tiene a alguien enroscado, su cuerpo de siempre se esconde y en su lugar van DOS sprites a los
+# pies de la presa: la mitad de la helice de detras (por debajo de los personajes) y la de delante (por encima), asi
+# la abraza en vez de quedarse pegado delante (CiempiesSprites._montar_enroscado). Trepa al empezar, respira en bucle,
+# aprieta en cada turno suyo (_on_dibujo_mapa, INSECTO_APRETON) y al soltarla se desenrosca y vuelve a verse su
+# cuerpo, que nunca se movio de su lado. En TODAS las maquinas: en el espejo la pareja se deduce (ver _pares_enrosque).
+var _vis_enrosque: Dictionary = {}   # Combatant (el ciempies) -> {presa, det, del, sp (su sprite de siempre), sale}
+
+# Quien tiene enroscado a quien. Quien lleva la pelea lo sabe (_enroscados); al espejo solo le llega el ESTADO de los
+# dos (Combatant.PUERTA_ENROSCADO), asi que cada ciempies enroscado va con el de los tuyos enroscado mas cercano.
+func _pares_enrosque() -> Dictionary:
+	var out: Dictionary = {}
+	if not _pantalla._espejo:
+		for e in _enroscados:
+			out[e] = _enroscados[e]["presa"]
+		return out
+	for e in _pantalla._enemies:
+		if not (e as Combatant).is_alive() or not (e as Combatant).has_status(StatusEffects.Id.ENROSCADO):
+			continue
+		var mejor: Combatant = null
+		var mejor_d: float = INF
+		for c in _pantalla._aliados:
+			if not (c as Combatant).is_alive() or not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) \
+					or out.values().has(c) or cuerpo_de(c) == null:
+				continue
+			var d: float = pos_de(c).distance_squared_to(pos_de(e))
+			if d < mejor_d:
+				mejor_d = d
+				mejor = c
+		if mejor != null:
+			out[e] = mejor
+	return out
+
+
+func _tick_vis_enrosque() -> void:
+	if not _pantalla.tactico:
+		return
+	var arena: ArenaCombate = _arena()
+	var pares: Dictionary = _pares_enrosque() if arena != null else {}
+	for e in pares:
+		var v = _vis_enrosque.get(e)
+		if v != null and not bool(v["sale"]) and v["presa"] == pares[e]:
+			continue
+		if v != null:
+			_quitar_vis_enrosque(e)
+		var cu: Node2D = cuerpo_de(e)
+		var sp = cu.get("_sprite") if cu != null else null
+		if not (sp is AnimatedSprite2D) or not (sp as AnimatedSprite2D).sprite_frames.has_animation(&"enroscado_detras_0"):
+			continue   # sin sus mitades (un horneado viejo): se queda como estaba
+		var mitades: Array = []
+		for suf in ["_detras", "_delante"]:
+			var m := AnimatedSprite2D.new()
+			m.sprite_frames = (sp as AnimatedSprite2D).sprite_frames
+			m.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			m.z_as_relative = false
+			m.z_index = Game.Z_PERSONAJES + (-1 if suf == "_detras" else 1)
+			arena.add_child(m)
+			m.global_scale = (sp as AnimatedSprite2D).global_scale
+			m.play(StringName("enroscarse%s_0" % suf))
+			mitades.append(m)
+		(sp as AnimatedSprite2D).visible = false
+		_vis_enrosque[e] = {"presa": pares[e], "det": mitades[0], "del": mitades[1], "sp": sp, "sale": false}
+	for e in _vis_enrosque.keys():
+		var v: Dictionary = _vis_enrosque[e]
+		var det: AnimatedSprite2D = v["det"]
+		var dl: AnimatedSprite2D = v["del"]
+		if not is_instance_valid(det) or not is_instance_valid(dl):
+			_quitar_vis_enrosque(e)
+			continue
+		# El origen del dibujo (el centro del lienzo) a los pies de la presa.
+		var presa: Combatant = v["presa"]
+		if cuerpo_de(presa) != null:
+			det.global_position = pies_de(presa)
+			dl.global_position = det.global_position
+		var sigue: bool = pares.has(e) and pares[e] == presa
+		if sigue:
+			# Trepar y apretar no son bucle: al acabar, vuelve a respirar.
+			if not det.is_playing():
+				det.play(&"enroscado_detras_0")
+				dl.play(&"enroscado_delante_0")
+			continue
+		# Muerto: fuera ya (su muerte la hace su cuerpo). Soltado: se desenrosca y luego se le vuelve a ver.
+		if not (e as Combatant).is_alive():
+			_quitar_vis_enrosque(e)
+		elif not bool(v["sale"]):
+			v["sale"] = true
+			det.play(&"desenroscarse_detras_0")
+			dl.play(&"desenroscarse_delante_0")
+		elif not det.is_playing():
+			_quitar_vis_enrosque(e)
+
+
+func _quitar_vis_enrosque(e: Combatant) -> void:
+	var v = _vis_enrosque.get(e)
+	_vis_enrosque.erase(e)
+	if v == null:
+		return
+	for k in ["det", "del"]:
+		if is_instance_valid(v[k]):
+			(v[k] as Node).queue_free()
+	if is_instance_valid(v["sp"]):
+		(v["sp"] as CanvasItem).visible = true
+
+
+# EL APRETON en el sprite enroscado (y en el golpe con el que se enrosca, si ya esta respirando).
+func _apretar_vis_enrosque(e: Combatant) -> void:
+	var v = _vis_enrosque.get(e)
+	if v == null or bool(v["sale"]) or not is_instance_valid(v["det"]):
+		return
+	if not String((v["det"] as AnimatedSprite2D).animation).begins_with("enroscado"):
+		return   # aun trepando: que acabe
+	(v["det"] as AnimatedSprite2D).play(&"apreton_detras_0")
+	(v["del"] as AnimatedSprite2D).play(&"apreton_delante_0")
+
+
+# LA PRESA TIEMBLA (el apreton, o forcejea al pasar): su dibujo, como la esquiva, sin las ondas del Chillido.
+func _temblar_presa(c: Combatant, espera: float = 0.0) -> void:
+	var arena: ArenaCombate = _arena()
+	var cu: Node2D = cuerpo_de(c)
+	if arena == null or cu == null:
+		return
+	var dib = cu.get("_muneco") if cu.get("_muneco") is Node2D else cu.get("_sprite")
+	var t: BestiaAire = BestiaAire.temblor(arena, dib as CanvasItem, bulto_de(c), randi(), espera,
+		_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+	if t != null:
+		t.mudo = true
 
 
 # LAS DOS MITADES del cono (la Doble guadaña): de los golpes 0 (mitad izquierda, vista desde quien lo lanza) y 1
@@ -2872,7 +3005,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_PONZONA: InsectoAire.Modo.PONZONA, CombatFX.Estilo.INSECTO_HEBRAS: InsectoAire.Modo.HEBRAS,
 	CombatFX.Estilo.INSECTO_PALA: InsectoAire.Modo.PALA, CombatFX.Estilo.INSECTO_ARROLLA: InsectoAire.Modo.ARROLLA,
 	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
-	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS}
+	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
+	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2911,6 +3045,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)))
+		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
+		if estilo == CombatFX.Estilo.INSECTO_APRETON:
+			if a != null:
+				_apretar_vis_enrosque(a)
+			_temblar_presa(v, vuelo)
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.
@@ -3676,6 +3815,7 @@ func _poner_anim_bicho(cuerpo: Node2D, base: String, dur: float, o_embestida: bo
 
 func _tick_gestos_bicho(delta: float) -> void:
 	_tick_cargas_bicho(delta)
+	_tick_vis_enrosque()
 	_tick_crias(delta)
 	for cuerpo in _gestos_bicho.keys():
 		if not is_instance_valid(cuerpo):
