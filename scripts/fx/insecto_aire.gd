@@ -4,10 +4,9 @@
 #  su visto bueno (ver la memoria insectoides-tactico). Aparte de BestiaAire para no engordarlo mas; usa sus piezas
 #  estaticas (_tira, _poligono, _bola). Empieza por la ARAÑA:
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa, CombatFX.Estilo.INSECTO_*):
-#    QUELICEROS  el basico: dos colmillos curvos (ganchos de quitina con la punta clara) SOBRE el que recibe, a lo
-#                largo de la linea del mordisco, que se cierran como una pinza (como el mordisco de la rata; el gesto
-#                de morder lo hace la araña en su sprite). A escala de la araña, cada uno con su variacion.
-#    PONZONA     el Mordisco ponzoñoso: los mismos colmillos, un pelin mas grandes, con la punta mojada de veneno.
+#    QUELICEROS  el basico: el EFECTO de un mordisco (no se dibujan colmillos: los enseña la araña en su sprite), dos
+#                medias lunas que entran desde los lados y se cierran sobre el cuerpo. A escala de la araña.
+#    PONZONA     el Mordisco ponzoñoso: lo mismo en verde y goteando.
 #    VENENO      (lo pone CombatTactico._on_impacto, SOLO SI ENTRA) gotitas verdes que saltan de donde muerde y una
 #                mancha verde que se apaga.
 #    HEBRAS      a los que pilla la Telaraña al caer: unas hebras pegadas del suelo a sus piernas, un momento.
@@ -39,9 +38,7 @@ const T_HEBRAS := 1.4
 const ABD_ATRAS := 7.0            # la punta del abdomen levantado de la araña, desde sus pies (px)
 const ABD_ALTO := 20.0
 const QUITINA := Color(0.12, 0.08, 0.17)
-const QUITINA_MEDIA := Color(0.3, 0.22, 0.42)
 const QUITINA_CLARA := Color(0.6, 0.5, 0.78)
-const PUNTA := Color(0.95, 0.9, 0.82)
 const SEDA := Color(0.95, 0.95, 0.99)
 const SEDA_SOMBRA := Color(0.22, 0.2, 0.28)
 const VENENO := Color(0.46, 0.84, 0.22)
@@ -248,87 +245,54 @@ func _dibujar_capa(capa: Node2D) -> void:
 
 
 # ------------------------------------------------------------
-#  LOS QUELICEROS
+#  EL MORDISCO DE LA ARAÑA
 # ------------------------------------------------------------
-# COMO EL MORDISCO DE LA RATA, con forma de colmillos (29/09, lo pidio el usuario: "se ven raras las mandibulas
-# saliendo de no la araña"; el gesto de morder lo hace la araña en su sprite). Dos colmillos grandes y curvos
-# SOBRE EL CUERPO que recibe, a lo largo de la linea del mordisco: uno del lado de la araña y el otro al otro lado
-# del cuerpo. Aparecen abiertos, se cierran como una pinza justo en el golpe (destello), tiran un pelin hacia la
-# araña y se abren y se van.
+# NO SE DIBUJAN COLMILLOS (29/09, lo pidio el usuario: "quedan feos de pelitas; mejor que sea el efecto visual de un
+# mordisco, y si envenena que sea el efecto pero verde y goteando"). Los colmillos los enseña la araña en su sprite;
+# aqui va EL MORDISCO: dos medias lunas llenas (filo duro, difuminadas por dentro, como los tajos de las armas) que
+# entran DESDE LOS LADOS -los queliceros de una araña estan a los lados- y se cierran sobre el cuerpo justo en el
+# golpe, con un destello y las dos marcas. El ponzoñoso, en verde y goteando.
 func _queliceros(capa: Node2D) -> void:
-	var cierre: float    # 0 = abiertos del todo, 1 = cerrados
+	var cierre: float    # 0 = empezando a entrar, 1 = cerradas
 	var alfa: float
-	var tiron := Vector2.ZERO
 	if _t < 0.0:
 		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
-		cierre = u * u
+		cierre = 1.0 - (1.0 - u) * (1.0 - u)
 		alfa = clampf(u * 3.0, 0.0, 1.0)
 	else:
-		var kt: float = clampf(_t / T_CLAVADO, 0.0, 1.0)
-		tiron = -_eje * _tam * 0.3 * sin(PI * minf(kt * 1.6, 1.0))
-		var kr: float = smoothstep(T_CLAVADO, T_CLAVADO + T_IRSE, _t)
-		cierre = 1.0 - 0.5 * kr
-		alfa = 1.0 - kr
-		# EL REBOTE: al llegar a tope aprieta y afloja un pelin.
-		if _t > 0.03 and _t < 0.1:
-			cierre = 1.0 - 0.12 * sin((_t - 0.03) / 0.07 * PI)
-	var c: Vector2 = _hasta + tiron
+		cierre = 1.0
+		alfa = 1.0 - smoothstep(T_CLAVADO * 0.5, T_CLAVADO + T_IRSE, _t)
+	var verde: bool = modo == Modo.PONZONA
+	var c: Vector2 = _hasta
 	if capa == _brillo:
 		if _t >= 0.0 and _t < 0.12:
-			BarridoAire.destello(capa, c, _tam * 0.8, Color(0.92, 0.86, 1.0, 0.8 * (1.0 - _t / 0.12)), _eje.angle())
+			BarridoAire.destello(capa, c, _tam * 1.1, Color(0.7, 1.0, 0.5, 0.8 * (1.0 - _t / 0.12)) if verde \
+				else Color(0.92, 0.86, 1.0, 0.8 * (1.0 - _t / 0.12)), _eje.angle())
 		return
 	if capa != _delante or alfa <= 0.01:
 		return
-	# LA PINZA: cada colmillo nace lejos del centro por la linea del mordisco, se comba hacia un lado y vuelve con la
-	# punta hacia el centro. Los dos se combian hacia el MISMO lado: juntos dibujan una C que se cierra.
-	var sep: float = lerpf(_tam * 0.9, _tam * 0.08, cierre)
+	var filo: Color = VENENO_CLARO if verde else Color(0.96, 0.93, 1.0)
+	var dentro: Color = VENENO if verde else QUITINA_CLARA
+	var r: float = _tam * 1.9
 	for s in [-1.0, 1.0]:
-		var hacia: Vector2 = _eje * s          # -1: el del lado de la araña; +1: el del otro lado
-		var base: Vector2 = c - hacia * (sep * 0.5 + _tam * 0.95) + _lado * _tam * 0.15
-		var punta: Vector2 = c - hacia * sep * 0.5 - _lado * _tam * 0.12
-		var ctrl: Vector2 = c - hacia * (sep * 0.5 + _tam * 0.75) + _lado * _tam * 0.95
-		_gancho(capa, base, ctrl, punta, _tam * 0.24, alfa, modo == Modo.PONZONA)
-	# LO QUE DEJAN al cerrar: los dos agujeritos.
-	if _t >= 0.0 and cierre > 0.8:
+		# El centro de su arco, a un lado del cuerpo: la cabeza de la media luna acaba justo en el centro del mordisco.
+		var o: Vector2 = c + _lado * s * r - _eje * r * 0.25
+		var a_fin: float = (c - o).angle()
+		# Barre desde detras (del lado de la araña) hacia dentro: engancha como un colmillo.
+		var a_ini: float = a_fin + s * 1.9
+		var cabeza: float = lerpf(a_ini, a_fin, cierre)
+		# Toda la estela a la vista mientras cierra; al soltar, la cola alcanza a la cabeza y se apaga.
+		var cola: float = a_ini if _t < 0.0 else lerpf(a_ini, a_fin, clampf(_t / (T_CLAVADO + T_IRSE), 0.0, 0.85))
+		BestiaAire._media_luna(capa, o, cola, cabeza, r, _tam * 1.0, filo, dentro, alfa, false)
+	# LAS DOS MARCAS al cerrar; en el ponzoñoso, goteando.
+	if _t >= 0.0:
+		var escurre: float = clampf(_t / 0.4, 0.0, 1.0)
 		for s2 in [-1.0, 1.0]:
-			var p: Vector2 = c + _eje * s2 * _tam * 0.12
-			BestiaAire._bola(capa, p, maxf(1.2, _tam * 0.14), Color(VENENO_OSCURO if modo == Modo.PONZONA else QUITINA,
-				0.85 * alfa))
-
-
-# UN COLMILLO de 'base' a 'punta' por la curva de 'ctrl' (bezier): gordo en la base y afilado en la punta, con su filo
-# oscuro detras, una veta clara por un lado y la punta de hueso. Con 'mojado', una gota de veneno colgando de ella.
-func _gancho(ci: CanvasItem, base: Vector2, ctrl: Vector2, punta: Vector2, g: float, alfa: float, mojado: bool) -> void:
-	if alfa <= 0.01 or base.distance_to(punta) < 1.0:
-		return
-	var izq := PackedVector2Array()
-	var der := PackedVector2Array()
-	var bi := PackedVector2Array()
-	var bd := PackedVector2Array()
-	var vi := PackedVector2Array()
-	var vd := PackedVector2Array()
-	var pasos: int = 10
-	for i in pasos + 1:
-		var s: float = float(i) / float(pasos)
-		var p: Vector2 = base.lerp(ctrl, s).lerp(ctrl.lerp(punta, s), s)
-		var tg: Vector2 = (ctrl - base) * (1.0 - s) + (punta - ctrl) * s
-		var n: Vector2 = tg.normalized().orthogonal() if tg.length_squared() > 0.0001 else Vector2.RIGHT
-		var w: float = g * pow(1.0 - s, 0.85) + 0.3
-		izq.append(p - n * w)
-		der.append(p + n * w)
-		bi.append(p - n * (w + 0.8))
-		bd.append(p + n * (w + 0.8))
-		vi.append(p - n * w * 0.05)
-		vd.append(p + n * w * 0.5)
-	BestiaAire._tira(ci, bi, bd, Color(QUITINA, alfa))
-	BestiaAire._tira(ci, izq, der, Color(QUITINA_MEDIA, alfa))
-	BestiaAire._tira(ci, vi.slice(0, 8), vd.slice(0, 8), Color(QUITINA_CLARA, 0.8 * alfa))
-	# LA PUNTA de hueso: el ultimo tramo, mas claro.
-	BestiaAire._tira(ci, izq.slice(7), der.slice(7), Color(VENENO_CLARO if mojado else PUNTA, alfa))
-	if mojado:
-		var gota: Vector2 = punta + Vector2(0.0, 1.2 + 0.6 * sin(_t * 30.0))
-		ci.draw_circle(gota, maxf(1.0, g * 0.5) + 0.5, Color(VENENO_OSCURO, alfa))
-		ci.draw_circle(gota, maxf(1.0, g * 0.5), Color(VENENO, alfa))
+			var p: Vector2 = c + _lado * s2 * _tam * 0.22
+			BestiaAire._bola(capa, p, maxf(1.3, _tam * 0.16), Color(VENENO_OSCURO if verde else QUITINA, 0.9 * alfa))
+			if verde:
+				BarridoAire.cometa(capa, p, p + Vector2(0.0, 1.5 + _tam * 0.9 * escurre), maxf(1.0, _tam * 0.14),
+					Color(VENENO, 0.9 * alfa))
 
 
 # ------------------------------------------------------------
