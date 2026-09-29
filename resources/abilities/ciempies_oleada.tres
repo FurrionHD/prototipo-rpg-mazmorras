@@ -22,3 +22,9 @@ efectos = [SubResource("SA_ven")]
 efectos_por_golpe = true
 fx_estilo = 31
 cooldown = 3
+; EN EL MAPA (29/09): se echa encima de lo que tiene delante y reparte los picotazos entre los que pille.
+forma = 3
+forma_apunte = 1
+forma_radio = 45.0
+forma_ancho = 18.0
+forma_reparte = true

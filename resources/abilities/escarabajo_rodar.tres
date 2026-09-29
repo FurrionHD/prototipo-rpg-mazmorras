@@ -22,3 +22,10 @@ fx_anim = &"rodar"
 ; verdad, asi que el dibujo seria una segunda rodada encima de la primera.
 fx_estilo = 0
 cooldown = 4
+; EN EL MAPA (29/09): rueda por la linea hasta el final ATRAVESANDO (hasta area_max, los de detras a area_secundario).
+forma = 3
+forma_apunte = 1
+forma_radio = 100.0
+forma_ancho = 24.0
+carga = true
+atraviesa = true

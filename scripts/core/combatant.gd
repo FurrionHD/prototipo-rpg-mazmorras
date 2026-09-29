@@ -1531,6 +1531,7 @@ func reducir_cooldowns(turnos: int, excepto = null) -> int:
 # defecto y MIENTE en silencio. Por eso viajan como dos banderas en la instantanea, y no se recalculan.
 const PUERTA_SILENCIO := 1
 const PUERTA_ENRAIZADO := 2
+const PUERTA_ENROSCADO := 4
 var puertas_remotas: int = -1
 
 
@@ -1557,13 +1558,26 @@ func enraizado() -> bool:
 	return false
 
 
-# Las dos puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
+# ¿Enroscado? (el Enrosque del ciempies, 29/09, solo en el mapa). Lo llevan LOS DOS: la presa, que no se mueve
+# ni puede hacer nada mas que pasar, y el ciempies que la aprieta, que tampoco se mueve. Ver CombatTactico.
+func enroscado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_ENROSCADO) != 0
+	for e in statuses:
+		if bool(e.d.get("enrosca", false)):
+			return true
+	return false
+
+
+# Las puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
 func puertas() -> int:
 	var v: int = 0
 	if silenciado():
 		v |= PUERTA_SILENCIO
 	if enraizado():
 		v |= PUERTA_ENRAIZADO
+	if enroscado():
+		v |= PUERTA_ENROSCADO
 	return v
 
 

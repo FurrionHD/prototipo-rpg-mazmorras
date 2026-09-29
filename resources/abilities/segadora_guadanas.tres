@@ -21,3 +21,9 @@ efectos_por_golpe = true
 fx_estilo = 117
 fx_anim = &"guadanas"
 cooldown = 3
+; EN EL MAPA (29/09): cono partido en dos mitades, una guadaña por lado; el de en medio se come las dos.
+forma = 2
+forma_apunte = 1
+forma_radio = 40.0
+forma_apertura = 120.0
+forma_mitades = true

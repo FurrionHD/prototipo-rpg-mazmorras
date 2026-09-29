@@ -854,6 +854,12 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 	var bloqueada: bool = (tipo == "habilidad" and (_pantalla._player.silenciado()
 			or (_pantalla._player.enraizado() and not _pantalla.tactico))) \
 		or (tipo == "magia" and _pantalla._player.silenciado())
+	# ENROSCADO (el ciempies, en el mapa): solo vale pasar; cualquier otra cosa se queda en forcejear.
+	if _pantalla.tactico and _pantalla._player.enroscado() and tipo != "esperar":
+		print("[combate] '%s' de %s rechazada: esta enroscado" % [tipo, _pantalla._player.nombre])
+		_fin_de_espera()
+		_pantalla._accion_esperar()
+		return
 	if bloqueada:
 		print("[combate] '%s' de %s rechazada: esta silenciado o enraizado" % [tipo, _pantalla._player.nombre])
 		_pantalla._traza_add("RECHAZO '%s' del peer %d: %s no puede (silencio/enraizado)" % [

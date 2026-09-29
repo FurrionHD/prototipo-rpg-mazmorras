@@ -394,7 +394,7 @@ static func imbue_proc_chance(base: float, stat: float, rival_resistencia: float
 # sigue siendo el mismo con su misma Destreza.
 static func resolve_attack(attacker: Combatant, defender: Combatant,
 		defending: bool = false, atk_override: float = -1.0, crit_extra: float = 0.0,
-		penetra_extra: float = 0.0) -> Dictionary:
+		penetra_extra: float = 0.0, puede_esquivar: bool = true) -> Dictionary:
 	# Por hab() y no por abilities.*: los platos suben la HABILIDAD BASE, asi que la Destreza/
 	# Agilidad que se usan aqui son las EFECTIVAS (ver Combatant.hab).
 	var atk_dex := attacker.hab("destreza")
@@ -434,8 +434,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		aturde_p = StatusEffects.prob_final(attacker.aturdir_base, attacker, defender,
 			StatusEffects.Id.ATURDIDO)
 
-	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba).
-	if randf() < evade_p:
+	# 1) Esquiva: base − penalizacion de esquiva del defensor (escudo estorba). Sin 'puede_esquivar' (el apreton
+	# del Enrosque: te tiene rodeado) no hay a donde apartarse.
+	if puede_esquivar and randf() < evade_p:
 		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
 			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p}
 

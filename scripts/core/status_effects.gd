@@ -44,7 +44,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ENRAIZADO,
 	RESGUARDO,
 	CEGUERA,
-	OPORTUNISTA }
+	OPORTUNISTA,
+	ENROSCADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -372,6 +373,14 @@ static var _defs: Dictionary = {
 		"turns": 30, "usos": 5, "seguimiento_pct": 0.75, "crit_extra": 0.3, "alcance_mapa": 150.0,
 		"descripcion": "Cada hueco que abre uno de los tuyos es tuyo: apareces detrás y entras.",
 	},
+	# EL ENROSQUE DEL CIEMPIES (29/09, solo en el mapa). Lo llevan LOS DOS, la presa y el que la aprieta: los dos
+	# clavados en el sitio, y la presa sin poder hacer nada mas que pasar. NO se va por turnos (por eso tantos):
+	# lo quita CombatTactico cuando se sueltan (ver empezar_enrosque). Sin is_stun: el turno lo tienes, para pasar.
+	Id.ENROSCADO: {
+		"id": Id.ENROSCADO, "nombre": "Enroscado", "icono": "🐛", "color": Color(0.62, 0.45, 0.3),
+		"turns": 999, "enrosca": true, "debuff": true,
+		"descripcion": "Te tiene rodeado y aprieta. Mientras no te suelte, ni te mueves ni levantas el brazo.",
+	},
 
 	# --- PLATOS DE COCINA (KAN-119) ---------------------------------------------------
 	# Buffs LARGOS (PLATO_TURNOS = 20 min de mapa) que se comen en el pueblo o abajo. Tres cosas
@@ -605,6 +614,9 @@ class Instance extends RefCounted:
 		# iria a la quinta entrada.
 		if usos > 0:
 			return "x%d" % usos
+		# El Enroscado no se va por turnos: dura hasta que te sueltan (CombatTactico).
+		if bool(d.get("enrosca", false)):
+			return "∞"
 		return tiempo_restante() if es_tiempo_real() else "%dt" % turns
 
 	# Multiplicador BASE del estado de stat (override o catalogo), SIN contar stacks.
@@ -739,6 +751,8 @@ class Instance extends RefCounted:
 			lineas.append("Impide tirar habilidades y hechizos.")
 		if bool(d.get("enraiza", false)):
 			lineas.append("Impide atacar y tirar habilidades. Los hechizos sí salen.")
+		if bool(d.get("enrosca", false)):
+			lineas.append("No te mueves ni puedes hacer nada más que pasar.")
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -789,6 +803,9 @@ static func estados_que_salen(statuses: Array) -> Array:
 		if e.is_heal() or e.is_mana_heal():
 			continue
 		if float(e.d.get("hp_mult", 1.0)) != 1.0:
+			continue
+		# El Enroscado es de la pelea (lo sujeta el ciempies de ESA pelea): fuera no hay quien te suelte.
+		if bool(e.d.get("enrosca", false)):
 			continue
 		out.append(dict_de_instancia(e))
 	return out
@@ -893,6 +910,8 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		return "le corta hechizos y habilidades"
 	if bool(d.get("enraiza", false)):
 		return "le clava al suelo: no puede atacar ni usar habilidades (los hechizos sí)"
+	if bool(d.get("enrosca", false)):
+		return "le enrosca: no se mueve ni puede hacer nada más que pasar"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)

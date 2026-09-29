@@ -304,6 +304,24 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # DE QUIEN LA LANZA (0 = nada), y a los del otro bando que la pisen -al pasar andando o al empezar su turno dentro-
 # les tira los estados de 'efectos', una vez por turno como mucho. Ver CombatTactico.poner_charco.
 @export var charco_turnos: int = 0
+# Lo que se lee en el log cuando alguien lo pisa ("X pisa <esto>"). La Telaraña de la araña (29/09) es el segundo.
+@export var charco_texto: String = "la savia"
+# ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
+# arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
+# area_max. La Embestida rodante del escarabajo (29/09).
+@export var atraviesa: bool = false
+# LAS DOS MITADES (solo en el mapa, con CONO de 2 golpes): el golpe 1 cae en la mitad IZQUIERDA del cono y el
+# 2 en la DERECHA (vistas desde quien lo lanza); el que quede en medio se come los dos. La Doble guadaña de la
+# segadora (29/09, idea suya: "uno por cada lado").
+@export var forma_mitades: bool = false
+# PERSIGUE A SU PRESA (solo en el mapa, carga de un ENEMIGO con LINEA): al empezar a cargar no pinta la huella
+# en el suelo, MARCA A UNO de los tuyos (nunca al de mas aggro si hay otro) y al soltar la linea sale hacia
+# donde este entonces. Apartarse no sirve: se evita aturdiendole o metiendo a otro en medio (la linea es de
+# forma_solo_primero). El Ensarte de la segadora (29/09).
+@export var carga_persigue: bool = false
+# ENROSCA (solo en el mapa): si el golpe entra, el que la lanza se queda enroscado en su victima y los dos
+# clavados (CombatTactico.empezar_enrosque). El Enrosque del ciempies (29/09).
+@export var enrosca: bool = false
 # EL SALTO (solo en el mapa, con CIRCULO): el que la lanza se echa por el aire y cae en el centro de su huella,
 # sin quedar encima de nadie. El Reventon del slime y el Aplastamiento del Rey (28/09): "el slime hinchandose
 # y saltando sobre los personajes".

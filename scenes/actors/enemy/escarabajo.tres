@@ -45,3 +45,5 @@ resist_aturdir = 0.5
 fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (29/09): como el rey rata.
+alcance = 20.0

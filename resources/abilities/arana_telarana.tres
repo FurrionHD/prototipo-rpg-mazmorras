@@ -24,3 +24,10 @@ efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
 fx_anim = &"telarana"
 fx_estilo = 29
 cooldown = 4
+; EN EL MAPA (29/09): la red cae en un punto lejos y SE QUEDA 3 turnos suyos: quien la pise, pegajoso.
+forma = 1
+forma_apunte = 3
+forma_radio = 25.0
+forma_rango = 120.0
+charco_turnos = 3
+charco_texto = "la telaraña"

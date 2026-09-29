@@ -18,3 +18,13 @@ efectos = [SubResource("SA_her")]
 fx_estilo = 118
 fx_anim = &"ensarte"
 cooldown = 4
+; EN EL MAPA (29/09): se queda QUIETA un turno marcando a su presa (nunca al de mas aggro) y sale hacia donde
+; este; se pega al primero que se cruce. Se evita aturdiendola o metiendo a otro en medio.
+forma = 3
+forma_apunte = 1
+forma_radio = 120.0
+forma_ancho = 12.0
+forma_solo_primero = true
+carga = true
+carga_turnos = 1
+carga_persigue = true

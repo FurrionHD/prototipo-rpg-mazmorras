@@ -278,6 +278,7 @@ func desmontar() -> void:
 	_quitar_circulo()
 	_apagar_circulos()
 	olvidar_charcos()
+	olvidar_enroscados()
 	_quitar_raices()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
@@ -564,8 +565,9 @@ func radio_de(c: Combatant) -> float:
 	if c == null or c.abilities == null:
 		return 0.0
 	# CLAVADO: enraizado no anda (el mismo estado que le quita el basico), y quien esta cargando un
-	# golpe tampoco -- es lo que hace que la carga se pague (decision del usuario).
-	if c.enraizado() or c.charging != null:
+	# golpe tampoco -- es lo que hace que la carga se pague (decision del usuario). Enroscado (el ciempies y su
+	# presa), tampoco.
+	if c.enraizado() or c.enroscado() or c.charging != null:
 		return 0.0
 	return StatsMath.radio_movimiento(float(c.abilities.agilidad),
 		Game.agilidad_esperada_piso(), c.overload_factor)
@@ -809,6 +811,8 @@ func tick(delta: float) -> bool:
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_raices()
+	_tick_presas_carga()
+	_tick_enroscados()
 	_tick_tirones(delta)
 	_tick_saltos(delta)
 	_tick_deslices(delta)
@@ -1094,7 +1098,7 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
 		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
-		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance else f.centro_util()
+		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance or ab.atraviesa else f.centro_util()
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(ref),
 			"i": bando.find(e)})
 	lista.sort_custom(func(x, y):
@@ -1103,6 +1107,13 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 		return float(x["d"]) < float(y["d"]))
 	if ab.forma_solo_primero and lista.size() > 1:
 		lista = lista.slice(0, 1)
+	# LA QUE ATRAVIESA (la Embestida rodante): el primero que se cruza, entero; los de detras, area_secundario,
+	# hasta area_max.
+	if ab.atraviesa:
+		if ab.area_max > 0 and lista.size() > ab.area_max:
+			lista = lista.slice(0, ab.area_max)
+		for k in range(1, lista.size()):
+			lista[k]["escala"] = float(lista[k]["escala"]) * ab.area_secundario
 	for d in lista:
 		out.append({"c": d["c"], "escala": d["escala"]})
 	return out
@@ -1423,6 +1434,7 @@ func recuperar_carga(c: Combatant) -> void:
 
 # Si le interrumpen la carga (aturdido) o cae, la huella se va con ella.
 func olvidar_carga(c: Combatant) -> void:
+	_presas_carga.erase(c)
 	if not _cargas.has(c):
 		return
 	_cargas.erase(c)
@@ -1502,7 +1514,14 @@ var ultima_forma_enemigo = null
 func forma_para_soltar(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> RefCounted:
 	var f = null
 	var d: Array = _cargas.get(e, [])
-	if d.size() >= 3 and d[0] == ab:
+	var presa = _presas_carga.get(e)
+	if presa != null and d.size() >= 1 and d[0] == ab:
+		# EL ENSARTE sale hacia donde este su presa AHORA (si sigue en pie; si no, a lo mejor que tenga).
+		olvidar_carga(e)
+		var hacia: Vector2 = bulto_de(presa).get_center() if (presa as Combatant).is_alive() \
+			else mejor_apunte(e, ab, preferido)["punto"]
+		f = forma_de(ab, e, hacia)
+	elif d.size() >= 3 and d[0] == ab and d[2] != null:
 		f = d[2]
 		olvidar_carga(e)
 	else:
@@ -1543,7 +1562,8 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		for d in lista:
 			if v == null or pies_de(d["c"]).distance_squared_to(f.origen) < pies_de(v).distance_squared_to(f.origen):
 				v = d["c"]
-		if v != null:
+		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie).
+		if v != null and not ab.atraviesa:
 			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + radio_pisa(e))
 		hasta = _sitio_libre_hacia(e, fin)
 	else:
@@ -1556,6 +1576,15 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 
 # EMPIEZA A CARGAR: elige el sitio YA y lo deja pintado en ROJO hasta que suelte.
 func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant = null) -> void:
+	# LA QUE PERSIGUE (el Ensarte): no hay sitio fijo, hay PRESA. Se le marca a ella y la marca la sigue.
+	if ab.carga_persigue:
+		var presa: Combatant = _presa_ensarte(e, ab)
+		if presa != null:
+			_presas_carga[e] = presa
+			_cargas[e] = [ab, pies_de(presa), null]
+			_marcar_presa(e, presa)
+			_encarar(e, pies_de(presa))
+			return
 	var f = forma_de(ab, e, mejor_apunte(e, ab, preferido)["punto"])
 	_cargas[e] = [ab, f.centro, f]
 	var arena: ArenaCombate = _arena()
@@ -1573,6 +1602,175 @@ func _encarar(e: Combatant, p: Vector2) -> void:
 	_animar(cu, p - cu.global_position, false)
 	_apuntar_bicho(cu, false)
 	_enviar_bichos()
+
+
+# ------------------------------------------------------------
+#  LA CARGA QUE PERSIGUE (29/09, el Ensarte de la segadora)
+# ------------------------------------------------------------
+# Una linea fina con la huella fija solo le daria a quien estuviera cargando tambien (lo vio el usuario), asi que
+# esta marca a UNA PRESA y sale hacia donde este al soltar. La presa nunca es el de mas aggro si hay otro ("que
+# evite siempre el que mas agro genere": va a por los blandos). La marca es un circulo rojo a sus pies que la
+# sigue; viaja como la huella de su carga.
+var _presas_carga: Dictionary = {}   # Combatant (quien carga) -> Combatant (su presa)
+
+func _presa_ensarte(e: Combatant, ab: AbilityData) -> Combatant:
+	var candidatos: Array = _pantalla._aliados_vivos().duplicate()
+	if candidatos.is_empty():
+		return null
+	if candidatos.size() > 1:
+		var tanque: Combatant = null
+		var peso_max: float = -INF
+		for c in candidatos:
+			var p: float = _pantalla.objetivos._peso_aggro(c, e)
+			if p > peso_max + 0.0001:
+				peso_max = p
+				tanque = c
+		candidatos.erase(tanque)
+	# Mejor uno al que llegue desde aqui; si no llega a ninguno, cualquiera (cargando no se anda, pero la presa
+	# puede acercarse sola).
+	var a_tiro: Array = candidatos.filter(func(c): return hueco_entre(e, c) <= ab.forma_radio)
+	if not a_tiro.is_empty():
+		candidatos = a_tiro
+	return candidatos[randi() % candidatos.size()]
+
+
+func _forma_marca(presa: Combatant) -> RefCounted:
+	return CombatFormas.circulo(pies_de(presa), maxf(radio_pisa(presa), 10.0) + 4.0)
+
+
+func _marcar_presa(e: Combatant, presa: Combatant) -> void:
+	var f = _forma_marca(presa)
+	var arena: ArenaCombate = _arena()
+	if arena != null:
+		arena.poner_huella(e, f, 0.0, COLOR_ENEMIGO)
+	_anotar_huella_red(e, CLASE_CARGA, f, 0.0)
+	var d: Array = _cargas.get(e, [])
+	if d.size() >= 2:
+		d[1] = pies_de(presa)
+
+
+# Cada fotograma en quien lleva la pelea: la marca sigue a su presa; si cae, se busca otra.
+func _tick_presas_carga() -> void:
+	if _pantalla._espejo:
+		return
+	for e in _presas_carga.keys():
+		var presa: Combatant = _presas_carga[e]
+		var d: Array = _cargas.get(e, [])
+		if not (e as Combatant).is_alive() or d.is_empty():
+			continue
+		if not presa.is_alive():
+			presa = _presa_ensarte(e, d[0])
+			if presa == null:
+				continue
+			_presas_carga[e] = presa
+		elif d.size() >= 2 and (d[1] as Vector2).distance_squared_to(pies_de(presa)) < 1.0:
+			continue
+		_marcar_presa(e, presa)
+
+
+# ------------------------------------------------------------
+#  EL ENROSQUE (29/09, el ciempies; decisiones del usuario)
+# ------------------------------------------------------------
+# Si el Enrosque entra, el ciempies se queda enroscado en su presa y los dos llevan el estado Enroscado: clavados
+# en el sitio (radio_de, pedir_desliz). Mientras dure:
+#   - el ciempies no ataca a nadie mas ni se suelta solo: cada turno suyo le aprieta (el daño de un basico que no
+#     se esquiva, CombatEnemigos._enemy_apretar);
+#   - la presa solo puede pasar, y al pasar tiene PROB_SOLTARSE de soltarse (forcejear);
+#   - lo sueltan los DEMAS: aturdiendole o haciendole SUELTA_POR_DANO de su vida maxima desde que enrosco.
+# Todo en quien lleva la pelea; el estado viaja a los espejos como puerta (Combatant.PUERTA_ENROSCADO).
+const PROB_SOLTARSE := 0.3
+const SUELTA_POR_DANO := 0.35
+var _enroscados: Dictionary = {}   # Combatant (el que enrosca) -> {"presa": Combatant, "hp": vida al enroscar}
+
+func empezar_enrosque(e: Combatant, presa: Combatant) -> bool:
+	if _pantalla._espejo or e == null or presa == null or not e.is_alive() or not presa.is_alive() \
+			or _enroscados.has(e) or presa.enroscado():
+		return false
+	_enroscados[e] = {"presa": presa, "hp": e.current_hp}
+	e.apply_status(StatusEffects.Id.ENROSCADO)
+	presa.apply_status(StatusEffects.Id.ENROSCADO)
+	return true
+
+
+# A quien tiene enroscado 'e' (null = a nadie).
+func enrosque_de(e: Combatant) -> Combatant:
+	var d = _enroscados.get(e)
+	return d["presa"] if d != null else null
+
+
+# Lo suelta: los dos pierden el estado y se dice por que.
+func soltar_enrosque(e: Combatant, motivo: String) -> void:
+	var d = _enroscados.get(e)
+	if d == null:
+		return
+	_enroscados.erase(e)
+	var presa: Combatant = d["presa"]
+	e.quitar_estado(StatusEffects.Id.ENROSCADO)
+	presa.quitar_estado(StatusEffects.Id.ENROSCADO)
+	if motivo != "":
+		_pantalla._set_log(motivo)
+	_pantalla._update_hp()
+
+
+# LA PRESA PASA: forcejea, y con PROB_SOLTARSE se suelta. Devuelve la linea del log.
+func forcejear(c: Combatant) -> String:
+	for e in _enroscados.keys():
+		if _enroscados[e]["presa"] != c:
+			continue
+		if randf() < PROB_SOLTARSE:
+			soltar_enrosque(e, "")
+			return "💪 %s forcejea y se suelta de %s." % [c.nombre, _pantalla._etq(e)]
+		return "%s forcejea, pero %s no le suelta. 🐛" % [c.nombre, _pantalla._etq(e)]
+	return "%s pasa el turno. ⏳" % c.nombre
+
+
+# Cada fotograma en quien lleva la pelea: lo que suelta al ciempies sin que sea su turno.
+func _tick_enroscados() -> void:
+	if _pantalla._espejo:
+		return
+	for e in _enroscados.keys():
+		var d: Dictionary = _enroscados[e]
+		var presa: Combatant = d["presa"]
+		if not (e as Combatant).is_alive() or not presa.is_alive():
+			soltar_enrosque(e, "")
+		elif (e as Combatant).aturdido():
+			soltar_enrosque(e, "💫 %s, aturdido, suelta a %s." % [_pantalla._etq(e), presa.nombre])
+		elif float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_POR_DANO * float((e as Combatant).max_hp):
+			soltar_enrosque(e, "🐛 %s no aguanta más golpes y suelta a %s." % [_pantalla._etq(e), presa.nombre])
+	# Un Enroscado sin nadie que lo sujete (no deberia pasar) no se queda para siempre.
+	for c in _pantalla._aliados + _pantalla._enemies:
+		if not (c as Combatant).has_status(StatusEffects.Id.ENROSCADO) or _enroscados.has(c):
+			continue
+		var sujeto: bool = false
+		for e2 in _enroscados:
+			if _enroscados[e2]["presa"] == c:
+				sujeto = true
+		if not sujeto:
+			(c as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+
+
+func olvidar_enroscados() -> void:
+	for e in _enroscados.keys():
+		(e as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+		(_enroscados[e]["presa"] as Combatant).quitar_estado(StatusEffects.Id.ENROSCADO)
+	_enroscados.clear()
+	_presas_carga.clear()
+
+
+# LAS DOS MITADES del cono (la Doble guadaña): de los golpes 0 (mitad izquierda, vista desde quien lo lanza) y 1
+# (la derecha), cuales le caen a 'c' con la ultima huella que solto el enemigo. En medio, los dos.
+func mitades_que_toca(c: Combatant) -> Array:
+	var f = ultima_forma_enemigo
+	if f == null or f.tipo != CombatFormas.Tipo.CONO:
+		return [0, 1]
+	var out: Array = []
+	var r: Rect2 = bulto_de(c)
+	var cuarto: float = deg_to_rad(f.apertura * 0.25)
+	for k in 2:
+		var giro: float = -cuarto if k == 0 else cuarto
+		if CombatFormas.cono(f.origen, f.dir.rotated(giro), f.radio, f.apertura * 0.5).toca(r):
+			out.append(k)
+	return out
 
 
 # DESDE LEJOS: antes de echar a andar, si tiene lista una habilidad que YA pilla a alguien desde donde esta
@@ -1856,7 +2054,7 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 		for a_e in ab.efectos:
 			p_max = maxf(p_max, float(a_e.prob))
 		var puestos: Array = _pantalla.enemigos._enemy_tirar_efectos(dueno, ab, c, 1.0, "objetivo", 1.0 / p_max)
-		_pantalla._set_log("🧪 %s pisa la savia%s." % [c.nombre,
+		_pantalla._set_log("🧪 %s pisa %s%s." % [c.nombre, ab.charco_texto,
 			(": " + ", ".join(puestos)) if not puestos.is_empty() else " y aguanta"])
 		_pantalla._update_hp()
 		return
@@ -3184,7 +3382,7 @@ func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
 func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
 	# ENRAIZADO NO SE MUEVE DEL SITIO (29/09): ni por sus habilidades (el paso, la carga, el salto) ni porque le
 	# empujen o le tiren. Las raices le sujetan; el golpe entra igual.
-	if c != null and c.enraizado():
+	if c != null and (c.enraizado() or c.enroscado()):
 		return
 	if _pantalla._espejo or not _pantalla.tactico or c == null:
 		return

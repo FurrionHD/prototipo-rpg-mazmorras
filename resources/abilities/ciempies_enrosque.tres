@@ -23,3 +23,5 @@ efectos = [SubResource("SA_lento"), SubResource("SA_peg")]
 fx_anim = &"enrosque"
 fx_estilo = 30
 cooldown = 4
+; EN EL MAPA (29/09): si entra, se queda enroscado en su victima (CombatTactico.empezar_enrosque).
+enrosca = true

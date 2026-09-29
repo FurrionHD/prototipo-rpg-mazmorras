@@ -48,3 +48,5 @@ fx_basico = 117
 habilidades = [ExtResource("3_gua"), ExtResource("4_ens")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (29/09): llega lejos con las guadañas.
+alcance = 35.0

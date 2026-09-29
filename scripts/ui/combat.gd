@@ -1290,6 +1290,9 @@ func _ayuda_accion(id: int) -> String:
 		Action.OBJETO:
 			return "Una poción, para ti o para quien elijas del grupo. Empieza a curar en este mismo turno, pero el resto llega poco a poco: te toca aguantar mientras hace efecto."
 		Action.FLEE:
+			if tactico and _player != null and _player.enroscado():
+				return "Forcejeas para que te suelte y cedes el turno: un %d%% de las veces te sueltas." % roundi(
+					CombatTactico.PROB_SOLTARSE * 100.0)
 			if _huir_es_pasar():
 				return "Te quedas donde has andado y cedes el turno. Recuperas algo de energía, menos que atacando. Pegado al borde de la arena, este botón se convierte en Huir."
 			return "Abandonas el combate. Te llevas lo que ya tengas, pero el enemigo sigue vivo."
@@ -1321,6 +1324,9 @@ func _refresh_actions() -> void:
 
 
 func _motivo_bloqueo(id: int) -> String:
+	# ENROSCADO (el ciempies, solo en el mapa): manda sobre todo lo demas, solo te queda pasar.
+	if tactico and _player != null and _player.enroscado() and id != Action.FLEE:
+		return "Te tienen enroscado: solo puedes forcejear (Pasar)"
 	# El Silencio manda sobre el otro motivo: si estas silenciado, da igual que tengas hechizos.
 	if _player != null and _player.silenciado() and (id == Action.MAGIC or id == Action.HABILIDAD):
 		return "Estás silenciado"
@@ -1360,7 +1366,8 @@ func _pasa_el_turno() -> bool:
 # "Esperar", y se perdian turnos sin querer (lo pidio cambiar el usuario el 24/09). Lo miran los
 # mismos tres que _pasa_el_turno: el rotulo, su tooltip y lo que hace al pulsarlo.
 func _huir_es_pasar() -> bool:
-	return tactico and _player != null and not turno_mapa.en_el_borde()
+	# Enroscado tampoco se huye, aunque estes en el borde: te tienen agarrado.
+	return tactico and _player != null and (not turno_mapa.en_el_borde() or _player.enroscado())
 
 
 # EN EL MAPA, ¿tu objetivo elegido esta fuera de tu alcance? (con nadie a tiro, tambien)
@@ -1370,6 +1377,9 @@ func _objetivo_fuera_de_alcance() -> bool:
 
 
 func _accion_disponible(id: int) -> bool:
+	# ENROSCADO (el Enrosque del ciempies, 29/09): "como no puedes atacar con el que esta enroscado", solo pasar.
+	if tactico and _player != null and _player.enroscado() and id != Action.FLEE:
+		return false
 	match id:
 		# En la fila, SIEMPRE disponible: es el suelo del menu. Enraizado no lo desactiva, lo convierte
 		# en "Pasar" (ver _refresh_actions y _accion_atacar). En el mapa el suelo es el sexto boton
@@ -1624,7 +1634,11 @@ func _accion_esperar() -> void:
 		return
 	var basico: float = _player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN
 	_player.regen_energy(basico * PASAR_ENERGIA_FRAC)
-	_set_log("%s pasa el turno y recupera el aliento. ⏳" % _player.nombre)
+	# ENROSCADO: pasar es forcejear, con su probabilidad de soltarse (CombatTactico.forcejear).
+	if tactico and _player.enroscado():
+		_set_log(turno_mapa.forcejear(_player))
+	else:
+		_set_log("%s pasa el turno y recupera el aliento. ⏳" % _player.nombre)
 	_update_hp()
 	_fin_de_eleccion()
 	_state = State.ADVANCING

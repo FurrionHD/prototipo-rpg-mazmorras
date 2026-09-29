@@ -92,6 +92,14 @@ func _enemy_turn(e: Combatant) -> void:
 		_enemy_use_ability(e, cargada)
 		return
 
+	# ENROSCADO (el Enrosque del ciempies, 29/09): mientras tenga a alguien enroscado no hace otra cosa que
+	# apretarle. Ni ataca a nadie mas ni se suelta solo (ver CombatTactico.empezar_enrosque).
+	if _pantalla.tactico:
+		var enroscada: Combatant = _pantalla.turno_mapa.enrosque_de(e)
+		if enroscada != null:
+			_enemy_apretar(e, enroscada)
+			return
+
 	# INVOCACION (Rey Slime): tiene PRIORIDAD sobre todo lo demas. Si el Rey trae una habilidad de
 	# invocacion lista y hay sitio para meter slimes, la lanza SIEMPRE (telegrafiada). Va antes del
 	# roll normal para que "siempre que la tenga sin cd" se cumpla, y el gate evita malgastarla con
@@ -477,8 +485,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				var esc: float = float(o["escala"])
 				var es_princ: bool = t == obj or not ab.es_area()
 				var esc_prob: float = 1.0 if es_princ else ab.area_prob_secundario
-				var sub := _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
-					es_princ or ab.area_efectos_secundarios, esc_prob)
+				var sub: Dictionary
+				if lista_mapa != null and ab.forma_mitades:
+					# LA DOBLE GUADAÑA: a cada uno, el golpe de la mitad (o las dos) en la que esta.
+					sub = _enemy_resolver_mitades(e, ab, t, esc, contra_txt == "",
+						es_princ or ab.area_efectos_secundarios, esc_prob)
+				else:
+					sub = _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
+						es_princ or ab.area_efectos_secundarios, esc_prob)
 				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
 				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
 					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
@@ -542,6 +556,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			mult_por_obj[obj] = float(sub["mult_elem"]); robado_total += float(sub["robado"])
 			tocados.append(obj)
 			if bool(sub["defendio"]): defendieron.append(obj)
+			# EL ENROSQUE (el ciempies, en el mapa): si ha entrado, se queda enroscado en el.
+			if _pantalla.tactico and ab.enrosca and int(sub["conecto"]) > 0 and obj.is_alive() and e.is_alive() \
+					and _pantalla.turno_mapa.empezar_enrosque(e, obj):
+				estados_log.append(str(StatusEffects.def(StatusEffects.Id.ENROSCADO).get("nombre", "?")))
 		_pantalla.efectos.soltar_suelo()
 		print("        total: %.2f de daño en %d golpe%s (%d objetivo%s)" % [
 			total, golpes, "" if golpes == 1 else "s", tocados.size(), "" if tocados.size() == 1 else "s"])
@@ -782,6 +800,51 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	return {"total": total, "conecto": conecto, "estados": estados, "contra": contra,
 		"defendio": defendiendo, "rastro": rastro, "robado": robado,
 		"mult_elem": Elementos.mult_recibido(e.elemento_ataque, t)}
+
+
+# LA DOBLE GUADAÑA en el mapa (AbilityData.forma_mitades): a 't' le caen los golpes de las mitades del cono en
+# las que esta (CombatTactico.mitades_que_toca), cada uno en SU tanda (0 la izquierda, 1 la derecha). Devuelve lo
+# mismo que _enemy_resolver_golpes, sumado.
+func _enemy_resolver_mitades(e: Combatant, ab: AbilityData, t: Combatant, escala: float,
+		permitir_contra: bool, aplicar_efectos: bool, escala_prob: float) -> Dictionary:
+	var out: Dictionary = {"total": 0.0, "conecto": 0, "estados": [], "contra": "", "defendio": false,
+		"rastro": [], "robado": 0.0, "mult_elem": Elementos.mult_recibido(e.elemento_ataque, t)}
+	for k in _pantalla.turno_mapa.mitades_que_toca(t):
+		if not t.is_alive() or not e.is_alive():
+			break
+		var sub := _enemy_resolver_golpes(e, ab, t, 1, escala, permitir_contra and String(out["contra"]) == "",
+			aplicar_efectos, escala_prob, int(k))
+		out["total"] = float(out["total"]) + float(sub["total"])
+		out["conecto"] = int(out["conecto"]) + int(sub["conecto"])
+		out["estados"] += sub["estados"]
+		out["rastro"] += sub["rastro"]
+		out["robado"] = float(out["robado"]) + float(sub["robado"])
+		out["defendio"] = bool(out["defendio"]) or bool(sub["defendio"])
+		if String(sub["contra"]) != "":
+			out["contra"] = String(sub["contra"])
+	return out
+
+
+# EL APRETON del Enrosque (29/09): el turno del ciempies que tiene a alguien enroscado. El daño de un basico que
+# no se esquiva (le tiene rodeado) ni se para con la guardia (no hay por donde).
+func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
+	var result := StatsMath.resolve_attack(e, presa, false, -1.0, 0.0, 0.0, false)
+	var dmg: float = result.damage * e.dummy_dmg_out_mult
+	presa.take_damage(dmg)
+	_pantalla.efectos._fx_golpe(e, presa, dmg, result.crit, false, e.elemento_ataque,
+		_pantalla.efectos._estilo_de_habilidad(null, e), 1.0, false, "", AbilityData.Gesto.EN_SITIO, &"", 0,
+		float(result.get("mult_elem", 1.0)))
+	var pj_p: PersonajeData = Game.pj_de_combatant(presa)
+	Game.desgastar_armadura(pj_p)
+	Game.contar_dano_recibido(dmg, pj_p)
+	_pantalla._set_log("🐛 %s aprieta a %s: %.2f de daño." % [_pantalla._etq(e), presa.nombre, dmg])
+	_pantalla._update_hp()
+	if not presa.is_alive():
+		_pantalla.altas._caer_aliado(presa)
+		if _pantalla.altas.derrota():
+			_pantalla._end(false)
+			return
+	_pantalla._pausa_lectura()
 
 
 # Tira los estados (StatusApplication) de una habilidad del enemigo 'e'. Respeta 'en_objetivo':
