@@ -250,8 +250,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 # NO SE DIBUJAN COLMILLOS (29/09, lo pidio el usuario: "quedan feos de pelitas; mejor que sea el efecto visual de un
 # mordisco, y si envenena que sea el efecto pero verde y goteando"). Los colmillos los enseña la araña en su sprite;
 # aqui va EL MORDISCO: dos medias lunas llenas (filo duro, difuminadas por dentro, como los tajos de las armas) que
-# entran DESDE LOS LADOS -los queliceros de una araña estan a los lados- y se cierran sobre el cuerpo justo en el
-# golpe, con un destello y las dos marcas. El ponzoñoso, en verde y goteando.
+# ABRAZAN EL CUERPO POR FUERA desde los lados -los queliceros de una araña estan a los lados- y se cierran como una
+# pinza "(  )" con las puntas al otro lado, justo en el golpe, con un destello y las dos marcas. El ponzoñoso, en verde y goteando.
 func _queliceros(capa: Node2D) -> void:
 	var cierre: float    # 0 = empezando a entrar, 1 = cerradas
 	var alfa: float
@@ -273,13 +273,14 @@ func _queliceros(capa: Node2D) -> void:
 		return
 	var filo: Color = VENENO_CLARO if verde else Color(0.96, 0.93, 1.0)
 	var dentro: Color = VENENO if verde else QUITINA_CLARA
-	var r: float = _tam * 1.9
+	var r: float = _tam * 1.7
+	var th: float = _eje.angle()
 	for s in [-1.0, 1.0]:
-		# El centro de su arco, a un lado del cuerpo: la cabeza de la media luna acaba justo en el centro del mordisco.
-		var o: Vector2 = c + _lado * s * r - _eje * r * 0.25
-		var a_fin: float = (c - o).angle()
-		# Barre desde detras (del lado de la araña) hacia dentro: engancha como un colmillo.
-		var a_ini: float = a_fin + s * 1.9
+		# ABRAZAN EL CUERPO POR FUERA, como una pinza "(  )" (lo dibujo el usuario, 29/09): cada una sale del lado de la
+		# araña, rodea el costado y las puntas se juntan al otro lado de la victima. Arco alrededor del mordisco.
+		var o: Vector2 = c
+		var a_ini: float = th + s * PI * 0.85
+		var a_fin: float = th + s * PI * 0.06
 		var cabeza: float = lerpf(a_ini, a_fin, cierre)
 		# Toda la estela a la vista mientras cierra; al soltar, la cola alcanza a la cabeza y se apaga.
 		var cola: float = a_ini if _t < 0.0 else lerpf(a_ini, a_fin, clampf(_t / (T_CLAVADO + T_IRSE), 0.0, 0.85))
