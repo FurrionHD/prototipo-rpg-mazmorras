@@ -91,6 +91,8 @@ func _correr() -> void:
 	await _probar_presa(combat, t, e, al)
 	print("--- pasivas (paso B) ---")
 	await _probar_pasivas(combat, t, al)
+	print("--- desplazamientos (paso C) ---")
+	_probar_desplazar(combat, t, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
 
@@ -228,6 +230,26 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 				break
 		_ver(al[0].has_status(StatusEffects.Id.QUEMADURA), "pegarle de cerca al slime de fuego te puede quemar")
 		sf.al_ser_golpeado_prob = pr
+
+
+func _probar_desplazar(combat, t, al: Array) -> void:
+	var e: Combatant = _de(combat, t, "jabali")
+	var car: AbilityData = load("res://resources/abilities/jabali_embestida.tres")
+	e.charging = car
+	e.charge_left = 2
+	var txt: String = combat.desplazado(e, 30.0, al[0])
+	_ver(e.charging == null and txt != "", "un empujon grande le corta la carga al enemigo (%s)" % txt)
+	var sp: SpellData = load("res://resources/spells/bola_fuego.tres")
+	combat._casteos[al[1]] = {"spell": sp, "idx": 1}
+	txt = combat.desplazado(al[1], 30.0, e)
+	_ver(not combat._casteos.has(al[1]) and txt != "", "y uno grande le corta el conjuro a uno de los tuyos (%s)" % txt)
+	combat._casteos[al[1]] = {"spell": sp, "idx": 1}
+	var g0: float = float(combat._gauge.get(al[1], 0.0))
+	txt = combat.desplazado(al[1], 12.0, e)
+	var g1: float = float(combat._gauge.get(al[1], 0.0))
+	_ver(combat._casteos.has(al[1]) and txt == "", "uno pequeño no le corta el conjuro")
+	_ver(g1 < g0 - 1.0, "pero le retrasa en la barra (%.1f -> %.1f)" % [g0, g1])
+	combat._casteos.erase(al[1])
 
 
 func _colocar(t, al: Array, sitios: Array) -> void:

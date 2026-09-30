@@ -568,6 +568,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 				if t2.is_alive() and not empujados.has(t2):
 					empujados.append(t2)
 					_pantalla.turno_mapa.pedir_tiron(t2, _pantalla._player, spell.forma_tiron)
+					var dsp: String = _pantalla.desplazado(t2, spell.forma_tiron, _pantalla._player)
+					if dsp != "":
+						_pantalla._set_log(dsp)
 		# EL POZO (Vorágine): arrastra hacia el centro a los que siguen en pie, mas cuanto mas cerca estan.
 		if en_mapa and spell.forma_atrae > 0.0:
 			var f_at = _pantalla.turno_mapa.forma_hechizo(spell, _pantalla._player, punto)
@@ -578,6 +581,10 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 					var cerca_c: float = 1.0 - _pantalla.turno_mapa.lejania_al_centro(f_at, t3)
 					_pantalla.turno_mapa.pedir_atraccion(t3, _pantalla._player, f_at.centro,
 						spell.forma_atrae * lerpf(0.5, 1.0, cerca_c))
+					var dsp2: String = _pantalla.desplazado(t3, spell.forma_atrae * lerpf(0.5, 1.0, cerca_c),
+						_pantalla._player)
+					if dsp2 != "":
+						_pantalla._set_log(dsp2)
 		dano = _log_hechizo(spell, res_area, res_reb, foco)
 		_pantalla._dps_add("Hechizo: %s" % spell.nombre, dano)   # una entrada por lanzamiento, agregada
 	else:

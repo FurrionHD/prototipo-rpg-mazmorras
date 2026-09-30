@@ -544,6 +544,15 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
 				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
 					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
+					# Y lo que le hace el empujon: grande, le corta lo que prepare; pequeño, le retrasa.
+					var dsp: String = _pantalla.desplazado(t, ab.tiron, e)
+					if dsp != "":
+						_pantalla._set_log(dsp)
+				# LA CARGA QUE ARROLLA (la acorazada) es un desplazamiento grande para el que pilla por medio.
+				elif lista_mapa != null and ab.carga and ab.atraviesa and int(sub["conecto"]) > 0:
+					var dsp2: String = _pantalla.desplazado(t, _pantalla.DESPLAZA_CORTA, e)
+					if dsp2 != "":
+						_pantalla._set_log(dsp2)
 				# Y LA QUE SE PEGA (el Adherirse del chupasimas, 30/09): al primero al que le entre, se le queda encima.
 				if lista_mapa != null and ab.pega and int(sub["conecto"]) > 0 and t.is_alive() and e.is_alive() \
 						and _pantalla.turno_mapa.empezar_pegada(e, t):

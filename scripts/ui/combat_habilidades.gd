@@ -683,6 +683,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 				for t in tocados:
 					if t.is_alive() and int(conecto_por_obj.get(t, 0)) > 0:
 						_pantalla.turno_mapa.pedir_tiron(t, _pantalla._player, ab.tiron)
+						# Grande, le corta la carga que tenga; pequeño, le retrasa en la barra.
+						var dsp: String = _pantalla.desplazado(t, ab.tiron, _pantalla._player)
+						if dsp != "":
+							_pantalla._set_log(dsp)
 		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_pantalla._player)
 		Game.ganar("fuerza", _pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, Game.GAIN_FUERZA_ATAQUE,

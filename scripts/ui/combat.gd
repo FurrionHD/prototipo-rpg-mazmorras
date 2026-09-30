@@ -2466,6 +2466,47 @@ func _rehacer_log(lineas: Array) -> void:
 #  - CRITICO -> aplica el ESTADO Aturdido (pierde su proximo turno, via el motor de
 #    estados; se ve el 💫 en su etiqueta y lo gestiona el tick del turno).
 #  - normal  -> retraso PARCIAL de barra ATB (stagger; pierde tempo, no el turno).
+# LOS DESPLAZAMIENTOS (30/09, decision del usuario; plan stateless-sniffing-bentley). Que te muevan a la fuerza (un
+# tiron, un empujon, que te atraiga un pozo, que te arrolle una carga):
+#   GRANDE (>= DESPLAZA_CORTA px): te CORTA lo que estes cargando o recitando. NO es un aturdido: tu turno sigue
+#          siendo tuyo, pero el ataque que preparabas se ha ido (el maná no se cobra: se paga al soltar).
+#   PEQUEÑO: te RETRASA en la barra de accion, en proporcion (hasta DESPLAZA_ATB_MAX de barra).
+# Vale igual para los dos bandos (ramas espejo): lo que te interrumpe a ti les interrumpe a ellos.
+const DESPLAZA_CORTA := 24.0
+const DESPLAZA_ATB_MAX := 0.3
+
+func desplazado(c: Combatant, px: float, quien: Combatant = null) -> String:
+	if c == null or not c.is_alive():
+		return ""
+	if absf(px) >= DESPLAZA_CORTA:
+		return interrumpir(c, quien)
+	if _gauge.has(c) and absf(px) > 0.5:
+		_gauge[c] -= UMBRAL * DESPLAZA_ATB_MAX * clampf(absf(px) / DESPLAZA_CORTA, 0.0, 1.0)
+	return ""
+
+
+# Le corta a 'c' la carga o el conjuro que lleve (si lleva). Devuelve la linea del log ("" si no llevaba nada).
+func interrumpir(c: Combatant, quien: Combatant = null) -> String:
+	if c == null:
+		return ""
+	var que: String = ""
+	if c.charging != null:
+		que = c.charging.nombre
+		c.charging = null
+		c.charge_left = 0
+		if tactico:
+			turno_mapa.olvidar_carga(c)
+	elif _casteos.has(c):
+		var sp = (_casteos[c] as Dictionary).get("spell")
+		que = (sp as SpellData).nombre if sp is SpellData else "el conjuro"
+		_casteos.erase(c)
+		_update_hp()   # se va el chip del conjuro de su bloque
+	if que == "":
+		return ""
+	print("[desplazamiento] %s INTERRUMPIDO: pierde %s" % [c.nombre, que])
+	return "💢 %s sale despedido%s y pierde %s." % [c.nombre, (" por " + quien.nombre) if quien != null else "", que]
+
+
 func _aplicar_aturdir(objetivo: Combatant, es_crit: bool) -> String:
 	if es_crit:
 		objetivo.apply_status(StatusEffects.Id.ATURDIDO)
