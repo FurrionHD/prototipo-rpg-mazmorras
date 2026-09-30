@@ -22,4 +22,5 @@ fx_estilo = 15
 cooldown = 2
 ; EFECTO EN EL MAPA (30/09): cada mordisco, las fauces que cierran y TIRAN (jiron de sangre y la victima arrastrada).
 fx_estilo_mapa = 171
-
+; SU GESTO EN EL MAPA (30/09, AcechadorSprites._montar_ataques).
+fx_anim = &"desgarrar"

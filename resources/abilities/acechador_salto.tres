@@ -26,3 +26,5 @@ salta = true
 ; EFECTO EN EL MAPA (30/09): la estela de sombra que sigue su salto y, al caer, las fauces al cuello con el destello rojo
 ; (FIERA_YUGULAR).
 fx_estilo_mapa = 170
+; SU GESTO EN EL MAPA (30/09, AcechadorSprites._montar_ataques).
+fx_anim = &"yugular"

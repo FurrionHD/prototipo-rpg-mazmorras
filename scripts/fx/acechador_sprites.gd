@@ -83,7 +83,9 @@ const ESCAPULA_SUBE := 1.5
 # FINO, y eso es la mitad de la silueta: con 2,4-2,0 de radio el cuello rellenaba el hueco entre el
 # pecho y el craneo y el bicho salia como un TUBO del morro a la cola, sin cabeza que se distinguiera.
 # Lo que hace que una cabeza se lea como cabeza es que haya un estrechamiento antes.
-const CUELLO_SEGMENTOS := 3
+# CINCO y no tres (30/09): con el hocico disparado (morder, la Yugular) el cuello se estira y con tres eslabones se
+# abria un hueco entre ellos -- la cabeza salia suelta, flotando delante del cuerpo.
+const CUELLO_SEGMENTOS := 5
 const CUELLO_A := Vector3(0.0, 8.6, 12.6)
 const CUELLO_B := Vector3(0.0, 13.2, 11.0)
 const CUELLO_R0 := 1.95
@@ -313,6 +315,7 @@ static func generar(color: Color = Color(0.3, 0.27, 0.24), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_ataques(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -397,6 +400,107 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
 
 
+# ------------------------------------------------------------
+#  LOS ATAQUES DEL TACTICO (30/09, aprobados con el): cada habilidad con su gesto, en 8 direcciones.
+#  Claves nuevas de _piezas (todas con default, las poses de siempre no pagan nada):
+#    hocico   cuanto se dispara la cabeza hacia delante (el cuello se estira con ella)
+#    boca     cuanto abre la mandibula
+#    sacude   el meneo de lado de la cabeza (desgarra)
+#    empina   se alza sobre las traseras (el cuarto delantero sube)
+#    zi_* / zd_*  el zarpazo de cada delantera: 'alza' la levanta y 'barre' la lleva de fuera (+) a dentro (-)
+# ------------------------------------------------------------
+static func _montar_ataques(anims: Array, esc: float) -> void:
+	# EL BASICO (morder): una tarascada corta. Recoge el cuello abriendo la boca, lo dispara, cierra y vuelve. El
+	# cuerpo apenas avanza (lanzarse entero era la embestida). Muerde en 0,36 de 7/16 = 0,16 s (T_ANIM_ADELANTO).
+	var b_hocico := [[0.0, 0.0], [0.2, -1.0], [0.36, 3.2], [0.55, 2.8], [1.0, 0.0]]
+	var b_boca := [[0.0, 0.0], [0.2, 1.0], [0.3, 1.0], [0.38, 0.0], [1.0, 0.0]]
+	var b_agacha := [[0.0, 0.0], [0.2, 0.3], [0.36, 0.1], [1.0, 0.0]]
+	var b_avance := [[0.0, 0.0], [0.2, -0.6], [0.36, 1.4], [0.6, 1.2], [1.0, 0.0]]
+	var b_cabeza := [[0.0, -0.3], [0.2, -0.8], [0.36, 0.2], [1.0, -0.3]]
+	var basico := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["hocico"] = SpriteLienzo.tramos(t, b_hocico)
+		p["boca"] = SpriteLienzo.tramos(t, b_boca)
+		p["agacha"] = SpriteLienzo.tramos(t, b_agacha)
+		p["avance"] = SpriteLienzo.tramos(t, b_avance)
+		p["cabeza"] = SpriteLienzo.tramos(t, b_cabeza)
+		p["cola"] = 0.6 * sin(TAU * t)
+		return p
+	_montar_animacion(anims, esc, "basico", false, 16.0, basico, true)
+
+	# EL ZARPAZO DOBLE (el mismo nombre que el de la acorazada: 'zarpazo', la primera garra toca a 4/20 y la segunda
+	# 0,2 s despues). Pero es ALTO Y AGIL: se empina sobre las traseras y la zarpa llega lejos.
+	var d: float = 4.0 / 11.0
+	var z_alza := [[0.0, 0.0], [0.18, 1.0], [0.36, 0.55], [0.5, 0.0], [1.0, 0.0]]
+	var z_barre := [[0.0, 0.0], [0.18, 1.0], [0.36, -1.0], [0.5, -0.3], [0.62, 0.0], [1.0, 0.0]]
+	var zarpazo := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["zi_alza"] = SpriteLienzo.tramos(t, z_alza)
+		p["zi_barre"] = SpriteLienzo.tramos(t, z_barre)
+		var t2: float = clampf(t - d, 0.0, 1.0)
+		p["zd_alza"] = SpriteLienzo.tramos(t2, z_alza) if t >= d else 0.0
+		p["zd_barre"] = SpriteLienzo.tramos(t2, z_barre) if t >= d else 0.0
+		p["empina"] = 0.6 * maxf(float(p["zi_alza"]), float(p["zd_alza"]))
+		p["boca"] = 0.5 * maxf(float(p["zi_alza"]), float(p["zd_alza"]))
+		p["cabeza"] = 0.4
+		p["cola"] = 0.5 * sin(TAU * t)
+		return p
+	_montar_animacion(anims, esc, "zarpazo", false, 20.0, zarpazo, true, 8, 12)
+
+	# EL SALTO A LA YUGULAR: se agazapa EN EL SITIO (grupa arriba, cabeza pegada al suelo), en el aire va estirado
+	# como una linea con las patas recogidas, y cae EMPINADO con la cabeza ALTA, al cuello. SIN 'alza' ni avance de
+	# vuelo: el arco lo pone el salto del tactico (CombatTactico.mover_enemigo), y con los dos saltaria dos veces.
+	# 14 marcos a 16 fps: despega a 0,25 (0,21 s) y muerde a 0,74 (0,6 s: IMPACTO_ANIM_MAPA "yugular"), justo lo
+	# que dura el salto (0,4 s) despues de despegar.
+	var y_agacha := [[0.0, 0.0], [0.1, 0.7], [0.24, 0.8], [0.34, 0.1], [0.62, 0.0], [0.74, 0.25], [0.85, 0.3], [1.0, 0.0]]
+	var y_cabeza := [[0.0, -0.3], [0.24, -1.8], [0.4, 0.4], [0.62, 1.2], [0.74, 2.4], [0.85, 2.0], [1.0, -0.3]]
+	var y_hocico := [[0.0, 0.0], [0.24, -0.8], [0.45, 1.0], [0.7, 2.2], [0.78, 2.6], [1.0, 0.0]]
+	var y_boca := [[0.0, 0.0], [0.5, 0.2], [0.66, 1.0], [0.75, 0.0], [1.0, 0.0]]
+	var y_estira := [[0.0, 1.0], [0.24, 0.9], [0.4, 1.1], [0.62, 1.1], [0.74, 0.97], [1.0, 1.0]]
+	var y_recoge := [[0.0, 0.0], [0.26, 0.0], [0.34, 0.8], [0.55, 1.0], [0.68, 0.3], [0.74, 0.0], [1.0, 0.0]]
+	var y_empina := [[0.0, 0.0], [0.62, 0.1], [0.74, 0.7], [0.85, 0.6], [1.0, 0.0]]
+	var y_avance := [[0.0, 0.0], [0.24, -1.2], [0.34, 0.0], [1.0, 0.0]]
+	var y_cola := [[0.0, 0.3], [0.24, -0.6], [0.5, 0.8], [1.0, 0.2]]
+	# UN PALMO de despegue propio en el vuelo: sin el, con las patas recogidas y a ras de suelo, parecia de pie. El
+	# arco grande lo sigue poniendo el tactico.
+	var y_alza := [[0.0, 0.0], [0.3, 0.0], [0.4, 0.5], [0.6, 0.5], [0.72, 0.0], [1.0, 0.0]]
+	var yugular := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["agacha"] = SpriteLienzo.tramos(t, y_agacha)
+		p["cabeza"] = SpriteLienzo.tramos(t, y_cabeza)
+		p["hocico"] = SpriteLienzo.tramos(t, y_hocico)
+		p["boca"] = SpriteLienzo.tramos(t, y_boca)
+		p["estira"] = SpriteLienzo.tramos(t, y_estira)
+		p["recoge"] = SpriteLienzo.tramos(t, y_recoge)
+		p["empina"] = SpriteLienzo.tramos(t, y_empina)
+		p["avance"] = SpriteLienzo.tramos(t, y_avance)
+		p["cola"] = SpriteLienzo.tramos(t, y_cola)
+		p["alza"] = SpriteLienzo.tramos(t, y_alza) * SALTO_ALTO
+		return p
+	_montar_animacion(anims, esc, "yugular", false, 16.0, yugular, true, 8, 14)
+
+	# DESGARRAR (cada mordisco de la Dentellada desgarradora; la pelea lo repite en cada golpe): clava la cabeza y
+	# TIRA HACIA ATRAS -- el cuerpo se echa atras con las patas clavadas -- sacudiendo la cabeza. 12 marcos a 18 fps:
+	# muerde a 0,36 (0,22 s: IMPACTO_ANIM_MAPA "desgarrar").
+	var g_hocico := [[0.0, 0.0], [0.2, -0.6], [0.36, 3.0], [0.5, 2.6], [0.7, 1.4], [1.0, 0.0]]
+	var g_boca := [[0.0, 0.0], [0.2, 1.0], [0.3, 1.0], [0.37, 0.0], [1.0, 0.0]]
+	var g_avance := [[0.0, 0.0], [0.2, -0.4], [0.36, 1.4], [0.5, 0.4], [0.7, -2.4], [0.85, -2.0], [1.0, 0.0]]
+	var g_agacha := [[0.0, 0.0], [0.36, 0.15], [0.55, 0.5], [0.75, 0.55], [1.0, 0.0]]
+	var g_cabeza := [[0.0, -0.3], [0.36, -0.2], [0.55, -1.0], [0.75, -0.8], [1.0, -0.3]]
+	var desgarrar := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["hocico"] = SpriteLienzo.tramos(t, g_hocico)
+		p["boca"] = SpriteLienzo.tramos(t, g_boca)
+		p["avance"] = SpriteLienzo.tramos(t, g_avance)
+		p["agacha"] = SpriteLienzo.tramos(t, g_agacha)
+		p["cabeza"] = SpriteLienzo.tramos(t, g_cabeza)
+		# El meneo, solo mientras tira.
+		p["sacude"] = 1.3 * sin(TAU * (t - 0.4) * 3.0) * (smoothstep(0.38, 0.45, t) - smoothstep(0.75, 0.85, t))
+		p["cola"] = -0.5
+		return p
+	_montar_animacion(anims, esc, "desgarrar", false, 18.0, desgarrar, true, 8, 12)
+
+
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
 # y EMPEZANDO YA GOLPEADO: el frame 0 es el impacto, no la pose de reposo. Un golpe no tiene
 # anticipacion, y con cuatro marcos un fotograma de espera se comeria la animacion entera.
@@ -421,7 +525,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 		return p
 	# TODOS LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las
 	# dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# EN OCHO DIRECCIONES (30/09): en el tactico encaja mirando a donde mire.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -464,7 +569,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# EN OCHO DIRECCIONES (30/09): en el tactico muere mirando a donde mire (el 'rumbo' gira desde ahi).
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -567,6 +673,11 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var apoyo: float = float(pose.get("apoyo", 0.0))
 	var ct: float = cos(tumba)
 	var st: float = sin(tumba)
+	# LOS ATAQUES DEL TACTICO (ver _montar_ataques), con default: las poses de siempre no pagan.
+	var hocico: float = float(pose.get("hocico", 0.0))
+	var boca: float = float(pose.get("boca", 0.0))
+	var sacude: float = float(pose.get("sacude", 0.0))
+	var empina: float = float(pose.get("empina", 0.0))
 
 	# Agazapado = mas bajo y algo mas largo (se estira hacia delante al bajar el cuarto delantero).
 	var largo: float = estira * (1.0 + 0.07 * agacha)
@@ -593,6 +704,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# ANCHO-ALTURA. Lo que era el costado pasa a mirar al cielo.
 		var lx: float = local.x
 		var lz: float = local.z
+		# EMPINARSE: el cuarto delantero sube, girando alrededor de las zarpas de atras (que no se despegan).
+		if empina != 0.0 and not en_suelo:
+			lz += maxf(0.0, local.y - PATA_Y[1]) * empina * 0.32
 		if tumba != 0.0 and not en_suelo:
 			lx = local.x * ct + local.z * st
 			lz = -local.x * st + local.z * ct
@@ -675,26 +789,63 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	#
 	# En el salto 'fase_patas' llega negativo y grande: ahi no es el trote, es RECOGER las cuatro
 	# patas bajo el cuerpo, asi que se usa el mismo balanceo pero tirando de las cuatro hacia dentro.
-	for lado in [-1.0, 1.0]:
-		for k in PATA_Y.size():
-			var delantera: bool = k == 0
-			# El trote: delanteras contra traseras, y un lado contra el otro. Es el paso cruzado.
-			var swing: float = fase_patas * (1.0 if delantera else -1.0) * lado
-			# RECOGER es OTRA cosa que el trote y va en su propia clave. Mezcladas en una sola (el
-			# primer intento) las cuatro patas seguian yendo alternadas en el aire -- dos hacia
-			# delante y dos hacia atras --, o sea trotando en el vacio, que es justo lo que no hace un
-			# felino saltando. Recogiendo, las CUATRO se meten bajo el cuerpo a la vez.
-			var mete: float = recoge * (1.0 if delantera else -1.0) * 1.6
-			var base_y: float = PATA_Y[k] + swing * PASO_LARGO - mete
-			var corvejon: float = 0.0 if delantera else -CORVEJON
-			# Y la pata se ENCOGE al recoger: la caña y la zarpa suben HACIA el muslo, que es
-			# aumentar el solape. Encoger una pata no puede descoserla nunca.
-			var encoge: float = recoge * PATA_ENCOGE
-			poner.call(Vector3(lado * PATA_X, base_y, MUSLO_Z), MUSLO_R, Tono.PATA)
-			poner.call(Vector3(lado * (PATA_X + PATA_ABRE * 0.7), base_y + corvejon,
-				CANA_Z + encoge), CANA_R, Tono.PATA)
-			poner.call(Vector3(lado * (PATA_X + PATA_ABRE), base_y + corvejon * 0.4,
-				ZARPA_Z + encoge * 1.5), ZARPA_R, Tono.PATA)
+	# 'modo': 0 = las patas de siempre; las delanteras que estan dando un ZARPAZO van aparte, con PROFUNDIDAD (la
+	# receta de la acorazada, 30/09): 1 = las del lado de LEJOS de la camara (antes del cuerpo: detras), 2 = las de
+	# CERCA (despues de la cabeza: delante). Pintarlas siempre encima ponia un brazo en la espalda.
+	var z_alza: Array = [float(pose.get("zi_alza", 0.0)), float(pose.get("zd_alza", 0.0))]
+	var z_barre: Array = [float(pose.get("zi_barre", 0.0)), float(pose.get("zd_barre", 0.0))]
+	var patas := func(modo: int) -> void:
+		for lado in [-1.0, 1.0]:
+			for k in PATA_Y.size():
+				var delantera: bool = k == 0
+				var i_z: int = 0 if lado < 0.0 else 1
+				var en_zarpa: bool = delantera and float(z_alza[i_z]) > 0.08
+				if en_zarpa != (modo != 0):
+					continue
+				if en_zarpa:
+					# Hacia la camara = hacia abajo en pantalla: la Y ya girada de su mano, contra el centro del tronco.
+					var mano_suelo := Vector2(lado * (PATA_X + 2.0), PATA_Y[0] + float(z_alza[i_z]) * 5.5).rotated(ang)
+					if (mano_suelo.y > 0.5) != (modo == 2):
+						continue
+					# LA ZARPA EN EL AIRE: un BRAZO ENTERO del hombro a la zarpa (cuentas pegadas, no la zarpa suelta,
+					# que lejos del cuerpo es una bola flotando), largo como sus patas, y tres uñas de hueso. La de
+					# LEJOS apenas sube: si no, asoma por encima del lomo como un bulto en la espalda.
+					# FINO Y LARGO, como sus cañas: con cuentas del radio del muslo (5,4 de alto) salia una BOLA oscura
+					# pegada al pecho, y la zarpa no llegaba a salir por delante. Llega hasta la altura del morro.
+					var al: float = float(z_alza[i_z])
+					# La de LEJOS va BAJA (por debajo del cuello): subiendo, asomaba por encima como una antena.
+					var sube: float = al * (7.0 if modo == 2 else -3.0)
+					var hombro := Vector3(lado * PATA_X, PATA_Y[0] + 1.0, MUSLO_Z + 1.0)
+					var mano := Vector3(lado * (PATA_X + al * 1.0 + float(z_barre[i_z]) * 3.0),
+						PATA_Y[0] + al * 11.0, MUSLO_Z - 2.0 + sube)
+					for f in [0.0, 0.2, 0.4, 0.6, 0.8]:
+						poner.call(hombro.lerp(mano, f), Vector3(1.3, 1.5, lerpf(2.4, 1.4, f)), Tono.PATA)
+					poner.call(mano, ZARPA_R * 1.15, Tono.PATA)
+					var hacia: Vector3 = (mano - hombro).normalized()
+					var de_lado: Vector3 = Vector3(-hacia.y, hacia.x, 0.0).normalized()
+					for una in [-1.0, 0.0, 1.0]:
+						poner.call(mano + hacia * 2.2 + de_lado * una * 1.1 - Vector3(0.0, 0.0, 0.6),
+							Vector3(0.5, 0.75, 0.5), Tono.COLMILLO_T)
+					continue
+				# El trote: delanteras contra traseras, y un lado contra el otro. Es el paso cruzado.
+				var swing: float = fase_patas * (1.0 if delantera else -1.0) * lado
+				# RECOGER es OTRA cosa que el trote y va en su propia clave. Mezcladas en una sola (el
+				# primer intento) las cuatro patas seguian yendo alternadas en el aire -- dos hacia
+				# delante y dos hacia atras --, o sea trotando en el vacio, que es justo lo que no hace un
+				# felino saltando. Recogiendo, las CUATRO se meten bajo el cuerpo a la vez.
+				var mete: float = recoge * (1.0 if delantera else -1.0) * 1.6
+				var base_y: float = PATA_Y[k] + swing * PASO_LARGO - mete
+				var corvejon: float = 0.0 if delantera else -CORVEJON
+				# Y la pata se ENCOGE al recoger: la caña y la zarpa suben HACIA el muslo, que es
+				# aumentar el solape. Encoger una pata no puede descoserla nunca.
+				var encoge: float = recoge * PATA_ENCOGE
+				poner.call(Vector3(lado * PATA_X, base_y, MUSLO_Z), MUSLO_R, Tono.PATA)
+				poner.call(Vector3(lado * (PATA_X + PATA_ABRE * 0.7), base_y + corvejon,
+					CANA_Z + encoge), CANA_R, Tono.PATA)
+				poner.call(Vector3(lado * (PATA_X + PATA_ABRE), base_y + corvejon * 0.4,
+					ZARPA_Z + encoge * 1.5), ZARPA_R, Tono.PATA)
+	patas.call(0)
+	patas.call(1)
 
 	# EL TRONCO, en tres piezas y de atras hacia delante. La GRUPA va primero y el PECHO al final:
 	# asi el cuarto delantero, que es lo que mira a la camara cuando el bicho viene hacia ti, se
@@ -730,8 +881,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for k in CUELLO_SEGMENTOS:
 		var f: float = float(k) / float(CUELLO_SEGMENTOS - 1)
 		var c: Vector3 = CUELLO_A.lerp(CUELLO_B, f)
-		poner.call(Vector3(c.x, c.y, c.z + cabeza_y * f), Vector3.ONE * lerpf(CUELLO_R0, CUELLO_R1, f),
-			Tono.BASE)
+		poner.call(Vector3(c.x + sacude * f, c.y + hocico * f, c.z + cabeza_y * f),
+			Vector3.ONE * lerpf(CUELLO_R0, CUELLO_R1, f), Tono.BASE)
 
 	# QUIEN LE VE LA CARA: de ESPALDAS no se le ven ni los ojos ni los colmillos -- con la camara a 45
 	# grados un bicho que se aleja enseña la grupa, y eso es lo que hace que se lea de un vistazo si
@@ -748,29 +899,35 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		lados = [signf(DIR_VECS[dir].x)]
 
 	# CABEZA, MORRO y MANDIBULA. 'cabeza_y' las sube y las baja a las tres por igual.
-	poner.call(Vector3(CABEZA.x, CABEZA.y, CABEZA.z + cabeza_y), CABEZA_R, Tono.BASE)
+	# (El hocico la dispara hacia delante, el meneo la lleva de lado y la boca baja la mandibula.)
+	poner.call(Vector3(CABEZA.x + sacude, CABEZA.y + hocico, CABEZA.z + cabeza_y), CABEZA_R, Tono.BASE)
 	# La caña de la nariz va en su tono solo si se le ve la cara: de espaldas lo que asoma es la nuca,
 	# y una mancha clara ahi canta como un borron en mitad del lomo.
-	poner.call(Vector3(MORRO.x, MORRO.y, MORRO.z + cabeza_y), MORRO_R,
+	poner.call(Vector3(MORRO.x + sacude, MORRO.y + hocico, MORRO.z + cabeza_y + boca * 0.3), MORRO_R,
 		Tono.MORRO_T if not lados.is_empty() else Tono.SOMBRA)
-	poner.call(Vector3(MANDIBULA.x, MANDIBULA.y, MANDIBULA.z + cabeza_y), MANDIBULA_R, Tono.SOMBRA)
+	poner.call(Vector3(MANDIBULA.x + sacude, MANDIBULA.y + hocico - boca * 0.4, MANDIBULA.z + cabeza_y - boca * 1.4),
+		MANDIBULA_R, Tono.SOMBRA)
 
 	# OREJAS: puntiagudas y hacia atras. Estas SI se ven de espaldas -- es lo primero que se le ve a
 	# un lobo que se aleja.
 	for lado in [-1.0, 1.0]:
-		poner.call(Vector3(lado * OREJA.x, OREJA.y, OREJA.z + cabeza_y), OREJA_R, Tono.CRIN_T)
+		poner.call(Vector3(lado * OREJA.x + sacude, OREJA.y + hocico, OREJA.z + cabeza_y), OREJA_R, Tono.CRIN_T)
 
 	# COLMILLOS: cuatro, cortos y hacia ABAJO. Dos por lado, uno delante del otro, que es lo que
 	# convierte dos puntitos en una dentadura.
 	for lado in lados:
 		for j in 2:
-			poner.call(Vector3(lado * COLMILLO.x, COLMILLO.y - float(j) * COLMILLO_SEPARA,
-					COLMILLO.z + cabeza_y), COLMILLO_R, Tono.COLMILLO_T)
+			# Con la boca abierta, los de atras bajan con la mandibula: se le ve la dentadura abierta.
+			poner.call(Vector3(lado * COLMILLO.x + sacude, COLMILLO.y - float(j) * COLMILLO_SEPARA + hocico,
+					COLMILLO.z + cabeza_y + boca * (0.3 if j == 0 else -1.2)), COLMILLO_R, Tono.COLMILLO_T)
 
 	# OJOS, con la misma regla. Van los ULTIMOS de todo: son lo mas claro del bicho y no los puede
 	# tapar nada.
+	# LA ZARPA LEVANTADA del zarpazo del lado de la camara, delante del cuerpo y de la cabeza.
+	patas.call(2)
+
 	for l in lados:
-		poner.call(Vector3(l * OJO.x, OJO.y, OJO.z + cabeza_y), OJO_R, Tono.OJO_T)
+		poner.call(Vector3(l * OJO.x + sacude, OJO.y + hocico, OJO.z + cabeza_y), OJO_R, Tono.OJO_T)
 
 	# VOLCADO, DOS GRUPOS CAMBIAN DE LADO. El orden de esta lista ES la profundidad -- aqui no hay
 	# z-buffer -- y esta cableado para un bicho DE PIE: las patas primero (el tronco las tapa) y el

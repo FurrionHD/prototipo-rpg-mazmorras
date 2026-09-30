@@ -1963,6 +1963,9 @@ const IMPACTO_ANIM_MAPA := {
 	# La acorazada (30/09): la primera garra del Zarpazo toca a 4/20; la Carga arremete desde el primer marco (como la
 	# bola del escarabajo: la pelea la lleva por la linea y el pisoton cae a 5/12, con las losas).
 	"zarpazo": 0.2, "arremeter": 0.0,
+	# El acechador (30/09): la Yugular muerde a 0,74x13/16 (se agazapa 0,2 s y vuela lo que dura el salto, 0,4); cada
+	# desgarro de la Dentellada a 0,36x11/18.
+	"yugular": 0.6, "desgarrar": 0.22,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
