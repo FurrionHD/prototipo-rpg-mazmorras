@@ -14,6 +14,9 @@
 #                contragolpe es su tajo de siempre (InsectoAire.TAJO) con su gesto.
 #    ECO         la Ecolocalizacion del chillon: medias lunas palidas que salen de su cabeza hacia el que va en
 #                sigilo y lo envuelven al llegar (CombatTactico lo pone entero un momento: "te ha pillado").
+#    ARRASTRE    el EMPUJON PEQUEÑO (menos de Pantalla.DESPLAZA_CORTA: no corta, retrasa la barra): polvo en los pies y
+#                una marca corta de arrastre en el suelo, en la direccion en la que le han movido (se lee que le han
+#                desplazado, no que ha andado). Con el texto "RETRASADO" y la estela de su ficha en la barra de turnos.
 #    ESQUIRLAS   a quien le cortan la carga: lo que cargaba se rompe en esquirlas que saltan del pecho, caen y se
 #                apagan (el hechizo, ademas, rompe su circulo: CombatTactico.circulo_acaba).
 #  NADA DE LINEAS (efectos-sin-lineas): medias lunas llenas, bolas, bocanadas y esquirlas rellenas. Y NADA CON ANGULO
@@ -23,7 +26,7 @@
 extends Node2D
 class_name PasivaAire
 
-enum Modo { LLAMADA, ARDE, LATIDO, DESTELLO, ECO, ESQUIRLAS }
+enum Modo { LLAMADA, ARDE, LATIDO, DESTELLO, ECO, ESQUIRLAS, ARRASTRE }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -51,6 +54,10 @@ const ECO_C := Color(0.86, 0.8, 1.0)
 const T_ESQUIRLAS := 0.7
 const CARGA_C := Color(1.0, 0.84, 0.42)
 const CONJURO_C := Color(0.78, 0.62, 1.0)
+const T_ARRASTRE := 0.22          # lo que dura el deslizamiento (CombatTactico mueve el cuerpo a la vez)
+const T_ARRASTRE_QUEDA := 0.7     # y lo que tarda en irse la marca
+const POLVO := Color(0.55, 0.5, 0.44)
+const SURCO := Color(0.08, 0.07, 0.06)
 
 var modo: int = Modo.LLAMADA
 var _t: float = 0.0
@@ -145,6 +152,27 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 	return e
 
 
+# EL EMPUJON PEQUEÑO: de 'pies0' a 'pies1' (donde estaba y donde acaba), con el ancho de lo que pisa.
+static func arrastre(padre: Node, pies0: Vector2, pies1: Vector2, ancho: float, semilla: int, ritmo: float) -> PasivaAire:
+	if padre == null:
+		return null
+	var e := PasivaAire.new()
+	e.modo = Modo.ARRASTRE
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._o = pies0
+	e._pies = pies1
+	e._ancho = maxf(ancho, 8.0)
+	e._eje = (pies1 - pies0).normalized() if pies1.distance_squared_to(pies0) > 0.25 else Vector2.RIGHT
+	for i in 7:
+		e._piezas.append({"u": e._rng.randf_range(0.1, 1.0), "lado": e._rng.randf_range(-1.0, 1.0),
+			"tam": e._rng.randf_range(0.8, 1.3), "sube": e._rng.randf_range(4.0, 9.0)})
+	e._suelo = e._capa(SueloRoto.Z_SUELO + 2, false)
+	e._delante = e._capa(Z_ENCIMA, false)
+	padre.add_child(e)
+	return e
+
+
 func duracion() -> float:
 	match modo:
 		Modo.LLAMADA: return T_LLAMADA + T_ENTRE_LLAMADA * 2.0
@@ -153,6 +181,7 @@ func duracion() -> float:
 		Modo.DESTELLO: return T_DESTELLO
 		Modo.ECO: return T_ECO_ENVUELVE
 		Modo.ESQUIRLAS: return T_ESQUIRLAS
+		Modo.ARRASTRE: return T_ARRASTRE + T_ARRASTRE_QUEDA
 	return 0.5
 
 
@@ -187,6 +216,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.DESTELLO: _destello(capa)
 		Modo.ECO: _eco(capa)
 		Modo.ESQUIRLAS: _esquirlas(capa)
+		Modo.ARRASTRE: _arrastre(capa)
 
 
 # El punto del borde de 'r' en la direccion 'd' desde su centro (el hocico, el lado del golpe).
@@ -427,3 +457,36 @@ func _esquirlas(capa: Node2D) -> void:
 		capa.draw_colored_polygon(PackedVector2Array([pos + v0, pos + v1, pos + v2]), Color(_color.darkened(0.25), alfa))
 		capa.draw_colored_polygon(PackedVector2Array([pos + v0 * 0.7, pos + v1 * 0.5, pos + (v2 * 0.3)]),
 			Color(Color.WHITE.lerp(_color, 0.35), alfa))
+
+
+# ------------------------------------------------------------
+#  EL EMPUJON PEQUEÑO
+# ------------------------------------------------------------
+# En el SUELO, la marca del arrastre: dos surcos cortos y blandos (los dos pies), bolas oscuras que se estiran desde
+# donde estaba hasta donde va y se borran. Delante, polvo que se levanta a los lados de los pies al deslizarse.
+func _arrastre(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var u: float = clampf(_t / T_ARRASTRE, 0.0, 1.0)
+	var fin: Vector2 = _o.lerp(_pies, u)
+	var lat: Vector2 = _eje.orthogonal()
+	var largo: float = _o.distance_to(fin)
+	if capa == _suelo:
+		var borra: float = 1.0 - clampf((_t - T_ARRASTRE) / T_ARRASTRE_QUEDA, 0.0, 1.0)
+		for pie in [-1.0, 1.0]:
+			var n: int = maxi(3, int(largo / 1.5))
+			for i in n + 1:
+				var k: float = float(i) / float(n)
+				var q: Vector2 = _o.lerp(fin, k) + lat * pie * _ancho * 0.22
+				# Mas marcado hacia el final (donde frena y aprieta).
+				BestiaAire._bola(capa, q, _ancho * 0.16 * (0.6 + 0.6 * k), Color(SURCO, 0.6 * borra * (0.4 + 0.6 * k)))
+		return
+	if capa != _delante:
+		return
+	for p in _piezas:
+		var tp: float = _t - float(p["u"]) * T_ARRASTRE
+		if tp < 0.0 or tp > 0.5:
+			continue
+		var k2: float = tp / 0.5
+		var c: Vector2 = _o.lerp(_pies, float(p["u"])) + lat * float(p["lado"]) * _ancho * (0.35 + 0.4 * k2) 			- _eje * 3.0 * k2 + Vector2(0.0, -float(p["sube"]) * k2 * K)
+		BestiaAire._bola(capa, c, _ancho * 0.3 * float(p["tam"]) * (0.6 + 0.8 * sqrt(k2)), Color(POLVO, 0.7 * (1.0 - k2)))

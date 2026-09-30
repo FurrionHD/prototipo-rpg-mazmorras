@@ -50,6 +50,12 @@ var _marcadores: Dictionary = {}
 # enemigo). Lo pone combat.gd via marcar_objetivo() cada vez que cambia _target_idx.
 var _objetivo: Combatant = null
 
+# EL EMPUJON PEQUEÑO (30/09): a quien le retrasan la barra, su ficha deja una ESTELA hacia atras (de donde estaba a
+# donde queda, que se ve cuanto turno ha perdido) y el marcador destella. {c, desde (ratio), t}.
+const T_ESTELA := 0.8
+const ESTELA_C := Color(1.0, 0.72, 0.35)
+var _estelas: Array = []
+
 
 # Da de alta un marcador. 'material' puede ser null (color plano, como el cuerpo sin imagen);
 # 'texto' es lo que va escrito encima (el numero del enemigo; vacio para el jugador, que ya
@@ -124,6 +130,28 @@ func anadir(c: Combatant, color: Color, material: ShaderMaterial, texto: String)
 	_marcadores[c] = {"marco": marco, "flecha": flecha, "ratio": 0.0}
 
 
+# 'c' acaba de perder barra: estaba en 'ratio_antes' (0..1). Se ve al colocarlo (set_ratios) y se va sola.
+func retrasar(c: Combatant, ratio_antes: float) -> void:
+	if c == null or not _marcadores.has(c):
+		return
+	_estelas.append({"c": c, "desde": clampf(ratio_antes, 0.0, 1.0), "t": 0.0})
+	var marcador: Control = (_marcadores[c]["marco"] as Control).get_child(0)
+	marcador.modulate = Color(2.2, 1.7, 1.1)
+	var tw := marcador.create_tween()
+	tw.tween_property(marcador, "modulate", Color.WHITE, 0.45)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if _estelas.is_empty():
+		set_process(false)
+		return
+	for e in _estelas:
+		e["t"] = float(e["t"]) + delta
+	_estelas = _estelas.filter(func(e): return float(e["t"]) < T_ESTELA and _marcadores.has(e["c"]))
+	queue_redraw()
+
+
 # Saca un marcador de la barra (al morir su dueño: ya no espera turno).
 func quitar(c: Combatant) -> void:
 	if not _marcadores.has(c):
@@ -182,6 +210,17 @@ func _draw() -> void:
 
 	# Linea de la barra.
 	draw_line(a, b, Color(0.45, 0.45, 0.5), 3.0)
+	# Las ESTELAS del empujon: una cuña rellena de donde estaba a donde queda, gruesa junto a la ficha y afilada hacia
+	# atras, que se apaga.
+	for e in _estelas:
+		var p0: Vector2 = _punto_de(float(e["desde"]))
+		var p1: Vector2 = _punto_de(float(_marcadores[e["c"]]["ratio"]))
+		if p0.distance_to(p1) < 2.0:
+			continue
+		var alfa: float = 1.0 - float(e["t"]) / T_ESTELA
+		var n: Vector2 = (p1 - p0).normalized().orthogonal() * RADIO * 0.7
+		draw_polygon(PackedVector2Array([p0, p1 + n, p1 - n]),
+			PackedColorArray([Color(ESTELA_C, 0.0), Color(ESTELA_C, 0.75 * alfa), Color(ESTELA_C, 0.75 * alfa)]))
 	# Punto de accion: una marca ATRAVESADA en el extremo de llegada, y su etiqueta al lado de
 	# fuera (en vertical, encima; tumbada, por encima de la linea como siempre).
 	if vertical:

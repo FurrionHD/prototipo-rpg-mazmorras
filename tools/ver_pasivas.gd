@@ -8,7 +8,8 @@ const LADO := 420
 const AZUL := Color(0.35, 0.6, 1.0)
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
-const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido"]
+const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
+	"empujon", "barra"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -122,10 +123,10 @@ func _ojos(e: Dictionary, encendido: float) -> void:
 	(spr.material as ShaderMaterial).set_shader_parameter("encendido", encendido)
 
 
-func _texto(texto: String, en: Vector2, t0: float, col: Color) -> void:
+func _texto(texto: String, en: Vector2, t0: float, col: Color, tam: int = 9) -> void:
 	var l := Label.new()
 	l.text = texto
-	l.add_theme_font_size_override("font_size", 9)
+	l.add_theme_font_size_override("font_size", tam)
 	l.add_theme_color_override("font_color", col)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 3)
@@ -437,3 +438,88 @@ func _hoja_interrumpido(salida: String) -> void:
 			nodos.append(circ)
 		await _limpiar(piezas, nodos)
 	_guardar(hoja, salida, "interrumpido")
+
+
+# ------------------------------------------------------------
+#  EL EMPUJON PEQUEÑO: le mueven menos de 24 px (no le corta nada, le retrasa la barra): arrastre, polvo y "RETRASADO"
+# ------------------------------------------------------------
+func _hoja_empujon(salida: String) -> void:
+	var tiempos: Array = [0.0, 0.06, 0.12, 0.2, 0.3, 0.45, 0.65, 0.9]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	_zoom(40.0)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var quien := _figura(-dvec * 6.0 + Vector2(0, 13), Color(0.8, 0.35, 0.35))
+		var p0: Vector2 = dvec * 24.0 + Vector2(0, 13)
+		var p1: Vector2 = p0 + dvec * 18.0
+		var fig := _figura(p0, AZUL)
+		_cam.global_position = (p0 + p1) * 0.5 + Vector2(0, -10)
+		var piezas: Array = [{"n": PasivaAire.arrastre(self, p0, p1, 14.0, 151 + fila, 1.0), "t0": 0.0}]
+		(piezas[0]["n"] as Node).set_process(false)
+		_texto("RETRASADO", p1 + Vector2(0, -26), 0.05, Color(0.72, 0.74, 0.8), 5)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			var u: float = clampf(t / PasivaAire.T_ARRASTRE, 0.0, 1.0)
+			var pies: Vector2 = p0.lerp(p1, 1.0 - (1.0 - u) * (1.0 - u))
+			# Al frenar, un tambaleo corto.
+			var tam: float = sin(clampf((t - PasivaAire.T_ARRASTRE) / 0.18, 0.0, 1.0) * PI * 3.0) * 1.5
+			fig.position = pies - Vector2(7, 26) + dvec.orthogonal() * tam
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Empujon pequeño · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [quien, fig])
+	_guardar(hoja, salida, "empujon")
+
+
+# LA BARRA DE TURNOS con el empujon (tu ficha retrocede con su estela y destella) y el numero de la EMBOSCADA con su
+# marca, tal como salen en la pelea (misma fuente y tamaño que CombatFX._soltar_numero_de).
+func _hoja_barra(salida: String) -> void:
+	var tiempos: Array = [-0.05, 0.0, 0.15, 0.35, 0.6]
+	var hoja := Image.create(LADO * tiempos.size(), LADO, false, Image.FORMAT_RGBA8)
+	_cam.zoom = Vector2.ONE
+	_cam.global_position = Vector2.ZERO
+	var tl: Control = load("res://scripts/ui/turn_timeline.gd").new()
+	tl.size = Vector2(400, 60)
+	tl.position = Vector2(-200, -150)
+	add_child(tl)
+	var yo := Combatant.new("Tu", 1, Abilities.new(), 50, 5, 5, 5)
+	var rata := Combatant.new("Rata", 1, Abilities.new(), 50, 5, 5, 5)
+	rata.sprite_res = "res://scenes/actors/enemy/rata.tres"
+	var arana := Combatant.new("Araña", 1, Abilities.new(), 50, 5, 5, 5)
+	arana.sprite_res = "res://scenes/actors/enemy/arana.tres"
+	tl.anadir(yo, AZUL, null, "")
+	tl.anadir(rata, Color(0.6, 0.45, 0.35), null, "1")
+	tl.anadir(arana, Color(0.45, 0.4, 0.6), null, "2")
+	var ratios := {yo: 0.72, rata: 0.4, arana: 0.15}
+	tl.set_ratios(ratios)
+	var num := Label.new()
+	num.text = "134.42 ✱"
+	num.add_theme_font_size_override("font_size", 19)
+	num.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
+	num.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	num.add_theme_constant_override("outline_size", 4)
+	num.position = Vector2(-60, 20)
+	add_child(num)
+	var num2 := num.duplicate() as Label
+	num2.text = "134.42"
+	num2.position = Vector2(-60, 60)
+	add_child(num2)
+	for c in tiempos.size():
+		var t: float = tiempos[c]
+		if t >= 0.0 and tl.get("_estelas").is_empty():
+			tl.retrasar(yo, 0.72)
+			ratios[yo] = 0.52
+			tl.set_ratios(ratios)
+			for tw in get_tree().get_processed_tweens():
+				tw.kill()
+			tl.set_process(false)
+		if t >= 0.0:
+			tl.get("_estelas")[0]["t"] = t
+			var marcador: Control = (tl.get("_marcadores")[yo]["marco"] as Control).get_child(0)
+			marcador.modulate = Color(2.2, 1.7, 1.1).lerp(Color.WHITE, clampf(t / 0.45, 0.0, 1.0))
+			tl.queue_redraw()
+		await _viñeta(hoja, c, 0, "Barra: tu ficha pierde turno · %.2f s   (abajo: numero con y sin Emboscada)" % t)
+	tl.queue_free()
+	num.queue_free()
+	num2.queue_free()
+	await get_tree().process_frame
+	_guardar(hoja, salida, "barra_turnos")
