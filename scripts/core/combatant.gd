@@ -217,6 +217,20 @@ var on_hit: Array = []
 var al_ser_golpeado: Array = []
 var al_ser_golpeado_prob: float = 0.0
 var al_ser_golpeado_fx: int = -1
+# Las pasivas de las bestias (EnemyData.caparazon_frente y compañia). 'regen_cortada' = turnos suyos que le quedan
+# sin curarse (lo pone el elemento que se la corta, ver marcar_regen_cortada).
+var caparazon_frente: float = 1.0
+var volteo_mult: float = 1.0
+var olor_sangre_mult: float = 1.0
+var regen_turno: float = 0.0
+var regen_corta_elem: int = 0
+var regen_corta_turnos: int = 2
+var regen_cortada: int = 0
+
+# Le ha entrado un golpe o un hechizo de 'elem': si es el que le corta la regeneracion, se queda sin ella.
+func marcar_regen_cortada(elem: int) -> void:
+	if regen_turno > 0.0 and regen_corta_elem != 0 and elem == regen_corta_elem:
+		regen_cortada = regen_corta_turnos
 
 # HABILIDADES del enemigo (Array[AbilityData]) y probabilidad de usar una cada turno.
 # Las rellena EnemyData; el jugador no las usa por aqui (tira de su loadout). Ver combat.gd.

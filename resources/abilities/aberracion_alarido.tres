@@ -24,3 +24,7 @@ efectos = [SubResource("SA_deb"), SubResource("SA_vuln")]
 fx_anim = &"alarido"
 fx_estilo = 17
 cooldown = 5
+; EN EL MAPA (30/09): circulo grande alrededor de ella.
+forma = 1
+forma_apunte = 2
+forma_radio = 70.0

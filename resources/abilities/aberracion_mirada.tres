@@ -18,3 +18,8 @@ efectos = [SubResource("SA_miedo")]
 fx_anim = &"mirada"
 fx_estilo = 33
 cooldown = 5
+; EN EL MAPA (30/09): el ojo: un cono estrecho y largo, solo a quien tenga delante.
+forma = 2
+forma_apunte = 1
+forma_radio = 120.0
+forma_apertura = 30.0

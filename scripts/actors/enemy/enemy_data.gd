@@ -265,6 +265,19 @@ func drop_factor_piso(piso: int) -> float:
 @export var al_ser_golpeado: Array = []
 @export var al_ser_golpeado_prob: float = 0.0
 @export var al_ser_golpeado_fx: int = -1
+# --- LAS PASIVAS DE LAS BESTIAS (30/09) --- Ver Pantalla._mult_pasivas y CombatEnemigos._regenerar.
+# CAPARAZON (bestia acorazada): lo que le entra DE FRENTE (el golpe de un arma, en el mapa, desde su media vuelta
+# de delante) se multiplica por esto; 1 = nada. Hay que rodearla. Y VOLTEO: aturdida se vuelca y enseña la tripa,
+# todo le entra por 'volteo_mult' (y sin caparazon).
+@export var caparazon_frente: float = 1.0
+@export var volteo_mult: float = 1.0
+# OLOR A SANGRE (acechador): va siempre a por quien sangra (si nadie sangra, al de menos vida) y le pega por esto.
+@export var olor_sangre_mult: float = 1.0
+# CARNE QUE SE CIERRA (aberracion): al empezar su turno se cura esta fraccion de su vida maxima, salvo que le haya
+# entrado 'regen_corta_elem' (un Elementos.Elemento): entonces 'regen_corta_turnos' turnos suyos sin curarse.
+@export var regen_turno: float = 0.0
+@export var regen_corta_elem: int = 0
+@export var regen_corta_turnos: int = 2
 
 # --- SISTEMA ELEMENTAL (KAN-58) ---
 # elemento = afinidad propia (Elementos.Elemento): define su perfil de resist/debilidad por
@@ -562,6 +575,12 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.al_ser_golpeado = al_ser_golpeado
 	c.al_ser_golpeado_prob = al_ser_golpeado_prob
 	c.al_ser_golpeado_fx = al_ser_golpeado_fx
+	c.caparazon_frente = caparazon_frente
+	c.volteo_mult = volteo_mult
+	c.olor_sangre_mult = olor_sangre_mult
+	c.regen_turno = regen_turno
+	c.regen_corta_elem = regen_corta_elem
+	c.regen_corta_turnos = regen_corta_turnos
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
 	c.habilidades = habilidades
 	c.prob_habilidad = prob_habilidad

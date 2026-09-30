@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2_sa"]
+
+[sub_resource type="Resource" id="SA_sang"]
+script = ExtResource("2_sa")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+nombre = "Salto a la yugular"
+descripcion = "No lo ves acercarse: lo ves ya en el aire. Cae encima de quien huele más a sangre y va directo al cuello."
+coste_energia = 0.0
+dano_mult = 1.6
+efectos = [SubResource("SA_sang")]
+fx_estilo = 15
+cooldown = 3
+; EN EL MAPA (30/09): salta sobre su presa hasta 110 px (circulo r14 LIBRE) y se queda alli (no vuelve como el chillon).
+forma = 1
+forma_apunte = 3
+forma_radio = 14.0
+forma_rango = 110.0
+salta = true

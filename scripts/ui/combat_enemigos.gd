@@ -65,6 +65,7 @@ func _enemy_turn(e: Combatant) -> void:
 		else:
 			_pantalla._pausa_lectura()
 		return
+	_regenerar(e)
 	if ev.stunned:
 		# Aturdir a un enemigo que se estaba CARGANDO cancela su ataque (interrupcion).
 		if e.charging != null:
@@ -183,6 +184,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# las dos ramas de aqui abajo -la que falla y la que acierta- igual que hace la de habilidades.
 	var estilo_bas: int = _pantalla.efectos._estilo_de_habilidad(null, e)
 	var result := StatsMath.resolve_attack(e, obj, defendiendo)
+	_pantalla._aplicar_pasivas(result, e, obj)
 	_pantalla._debug_ataque(e, obj, result, defendiendo)
 	if result.evaded:
 		# El "FALLA" se apunta aqui arriba y no en cada rama: por debajo esto se bifurca en
@@ -335,6 +337,24 @@ func _enemy_turn(e: Combatant) -> void:
 #
 # Vale para los dos bandos: los bichos llevan imbue_usos a 0 y se quedan con su elemento_ataque de
 # siempre.
+# CARNE QUE SE CIERRA (la aberracion, 30/09, EnemyData.regen_turno): al empezar su turno, aturdida o no, se cura su
+# fraccion de vida maxima. Si le entro luz (Combatant.marcar_regen_cortada) gasta un turno de los que le quedan sin
+# curarse.
+func _regenerar(e: Combatant) -> void:
+	if e.regen_turno <= 0.0 or not e.is_alive():
+		return
+	if e.regen_cortada > 0:
+		e.regen_cortada -= 1
+		_pantalla._set_log("La carne de %s no se cierra: la luz se la ha quemado. ✨" % _pantalla._etq(e))
+		return
+	if e.current_hp >= e.max_hp:
+		return
+	var antes: float = e.current_hp
+	e.heal(e.max_hp * e.regen_turno)
+	_pantalla._update_hp()
+	_pantalla._set_log("La carne de %s se cierra (+%d). 🩹" % [_pantalla._etq(e), roundi(e.current_hp - antes)])
+
+
 func _elem_encima(e: Combatant) -> int:
 	if e == null:
 		return Elementos.Elemento.NINGUNO
@@ -731,6 +751,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		var result := StatsMath.resolve_attack(e, t, defendiendo)
+		_pantalla._aplicar_pasivas(result, e, t)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
 			Game.contar_esquiva(pj_t)   # contador oculto de Reflejos
@@ -1022,6 +1043,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	if con_escudo:
 		estilo = CombatFX.Estilo.ESCUDAZO
 	var result := StatsMath.resolve_attack(quien, atacante, false, quien.atk_escudo() if con_escudo else -1.0)
+	_pantalla._aplicar_pasivas(result, quien, atacante)
 	_pantalla._debug_ataque(quien, atacante, result, false)
 	# COMO EMPIEZA LA FRASE. Se arma aqui y no en cada return porque las dos ramas (el riposte que
 	# conecta y el que le esquivan) cuentan lo mismo: como paraste el golpe.

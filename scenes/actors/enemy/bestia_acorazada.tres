@@ -43,4 +43,10 @@ al_golpear = [SubResource("SA_san")]
 resist_aturdir = 0.4
 fx_basico = 23
 habilidades = [ExtResource("3_cor"), ExtResource("4_emb")]
+; ALCANCE del basico en el mapa (30/09).
+alcance = 20.0
+; PASIVA CAPARAZON (30/09): de frente (media vuelta de delante, en el mapa) le entra la mitad; hay que rodearla. Y
+; VOLTEO: aturdida se vuelca y le entra un 50% mas. Ver Pantalla._mult_pasivas.
+caparazon_frente = 0.5
+volteo_mult = 1.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

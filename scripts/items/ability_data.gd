@@ -313,6 +313,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).
 @export var atraviesa: bool = false
+# EL PISOTON DEL FINAL (solo en el mapa, con 'atraviesa'): radio del circulo que cae donde acaba la linea; a quien pille
+# le entra el golpe ENTERO (fuera del tope de area_max). Se pinta en rojo con la linea mientras carga. La Carga
+# acorazada de la bestia (30/09): arrolla y al pararse pisa.
+@export var pisoton_final: float = 0.0
 # RECORRE SU LINEA (solo en el mapa, con LINEA y sin carga): el enemigo va por ella hasta el final, sin pararse, mientras
 # pega; a cada uno le llegan sus golpes cuando el cuerpo le pasa por encima (lo retrasa su suelo). La Oleada de patas
 # del ciempies (29/09, idea del usuario: "te pasa por encima o por el lado mientras te golpea con las patas").

@@ -37,6 +37,10 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 		vivos = _pantalla.turno_mapa.alcanzables(quien, vivos)
 	if vivos.is_empty():
 		return null
+	# OLOR A SANGRE (el acechador): ni aggro ni sorteo, va a por quien sangra. Provocado si hace caso a la Provocacion.
+	var olor: Combatant = presa_por_olor(quien, vivos)
+	if olor != null and not atenuado:
+		return _redirigir_cobertura(olor)
 	var pesos: Array[float] = []
 	var total: float = 0.0
 	for c in vivos:
@@ -55,6 +59,26 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 		if r < 0.0:
 			return _redirigir_cobertura(vivos[i])
 	return _redirigir_cobertura(vivos[vivos.size() - 1])
+
+
+# OLOR A SANGRE (30/09, EnemyData.olor_sangre_mult): entre 'vivos', el que sangra (el que menos vida le quede si son
+# varios) y, si nadie sangra, el de menos vida (por fraccion). null si 'quien' no tiene la pasiva o esta PROVOCADO
+# (la Provocacion del escudo le puede: es la herramienta del tanque para quitarselo al herido).
+func presa_por_olor(quien: Combatant, vivos: Array) -> Combatant:
+	if quien == null or quien.olor_sangre_mult == 1.0 or vivos.is_empty():
+		return null
+	for c in vivos:
+		if c.provocar_turnos > 0 and quien in c.provocados:
+			return null
+	var mejor: Combatant = null
+	var clave_mejor: float = INF
+	for c in vivos:
+		# Los que sangran van antes que cualquiera que no sangre (el +1 los separa: la fraccion va de 0 a 1).
+		var clave: float = c.current_hp / maxf(1.0, c.max_hp) + (0.0 if c.has_status(StatusEffects.Id.SANGRADO) else 1.0)
+		if clave < clave_mejor:
+			clave_mejor = clave
+			mejor = c
+	return mejor
 
 
 # COBERTURA (escudo grande): el golpe que el sorteo le manda al protegido se lo come su protector.

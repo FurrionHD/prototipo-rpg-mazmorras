@@ -1120,9 +1120,33 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 			lista = lista.slice(0, ab.area_max)
 		for k in range(1, lista.size()):
 			lista[k]["escala"] = float(lista[k]["escala"]) * ab.area_secundario
+		# EL PISOTON DEL FINAL: a los que pille, el golpe entero (esten o no en la linea), detras de los de la linea.
+		var pis = pisoton_de(ab, f)
+		if pis != null:
+			for e in (_pantalla._vivos() if not de_enemigo else _pantalla._aliados_vivos()):
+				if not pis.toca(bulto_de(e)):
+					continue
+				var ya: bool = false
+				for d in lista:
+					if d["c"] == e:
+						d["escala"] = ab.forma_escala
+						ya = true
+				if not ya:
+					lista.append({"c": e, "escala": ab.forma_escala})
 	for d in lista:
 		out.append({"c": d["c"], "escala": d["escala"]})
 	return out
+
+
+# EL PISOTON DEL FINAL de una carga que atraviesa (AbilityData.pisoton_final): el circulo donde acaba su linea, o null.
+func pisoton_de(ab: AbilityData, f) -> RefCounted:
+	if ab == null or f == null or ab.pisoton_final <= 0.0 or f.tipo != CombatFormas.Tipo.LINEA:
+		return null
+	return CombatFormas.circulo(f.origen + f.dir * f.largo, ab.pisoton_final)
+
+
+func _clave_pisoton(c: Combatant) -> String:
+	return "pisoton_%d" % _cod(c)
 
 
 # LO QUE TIENE PINTADO un enemigo, en MUNDO: la caja que abraza su dibujo EN EL FOTOGRAMA QUE SE VE.
@@ -1430,9 +1454,11 @@ func recuperar_carga(c: Combatant) -> void:
 	var d: Array = _cargas.get(c, [])
 	_cargas.erase(c)
 	_anotar_huella_red(c, CLASE_CARGA, null, 0.0)
+	_anotar_huella_red(c, CLASE_PISOTON, null, 0.0)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(c)
+		arena.quitar_huella(_clave_pisoton(c))
 	if d.size() >= 2:
 		apunte = d[1]
 		_hay_apunte = true
@@ -1445,9 +1471,11 @@ func olvidar_carga(c: Combatant) -> void:
 		return
 	_cargas.erase(c)
 	_anotar_huella_red(c, CLASE_CARGA, null, 0.0)
+	_anotar_huella_red(c, CLASE_PISOTON, null, 0.0)
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_huella(c)
+		arena.quitar_huella(_clave_pisoton(c))
 
 
 # ------------------------------------------------------------
@@ -1612,6 +1640,11 @@ func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant =
 	if arena != null:
 		arena.poner_huella(e, f, ab.forma_nucleo, COLOR_ENEMIGO)
 	_anotar_huella_red(e, CLASE_CARGA, f, ab.forma_nucleo)
+	var pis = pisoton_de(ab, f)
+	if pis != null:
+		if arena != null:
+			arena.poner_huella(_clave_pisoton(e), pis, 0.0, COLOR_ENEMIGO)
+		_anotar_huella_red(e, CLASE_PISOTON, pis, 0.0)
 	_encarar(e, f.centro_util())
 
 
@@ -2183,7 +2216,8 @@ const CLASE_APUNTANDO := 0
 const CLASE_CARGA := 1
 const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va con la de apuntar
 const CLASE_SAVIA := 3      # un CHARCO que se queda (ver poner_charco): su 'nucleo' es lo que le queda (1 = recien)
-const CLASES_HUELLA := 4
+const CLASE_PISOTON := 4    # el circulo del final de una carga que atraviesa (AbilityData.pisoton_final)
+const CLASES_HUELLA := 5
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
 var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
@@ -2728,6 +2762,10 @@ func _presa_de(e: Combatant) -> Combatant:
 				mejor = c
 	if mejor != null:
 		return mejor
+	# OLOR A SANGRE (el acechador): se acerca a quien sangra, este donde este (combat_objetivos.presa_por_olor).
+	var olor: Combatant = _pantalla.objetivos.presa_por_olor(e, _pantalla._aliados_vivos())
+	if olor != null:
+		return olor
 	for c in _pantalla._aliados_vivos():
 		var d: float = hueco_entre(e, c)
 		if d < d_mejor:

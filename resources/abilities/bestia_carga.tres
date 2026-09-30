@@ -16,3 +16,12 @@ area_secundario = 0.5
 carga_turnos = 1
 fx_estilo = 21
 cooldown = 4
+; EN EL MAPA (30/09): arrolla por la linea hasta el final ATRAVESANDO (hasta 3, los de en medio a mitad) y al pararse
+; PISA: circulo r30 donde acaba, golpe entero (AbilityData.pisoton_final). Aturdirla cargando la sigue parando.
+forma = 3
+forma_apunte = 1
+forma_radio = 120.0
+forma_ancho = 32.0
+carga = true
+atraviesa = true
+pisoton_final = 30.0

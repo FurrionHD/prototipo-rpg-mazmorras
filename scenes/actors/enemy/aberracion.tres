@@ -44,4 +44,11 @@ resist_elemental = {
 status_resist = 1.7
 fx_basico = 34
 habilidades = [ExtResource("3_emb"), ExtResource("4_chi"), ExtResource("5_mir")]
+; ALCANCE del basico en el mapa (30/09): llega con los tentaculos.
+alcance = 35.0
+; PASIVA CARNE QUE SE CIERRA (30/09): al empezar su turno se cura el 8% de su vida; la LUZ (4) se la corta 2 turnos
+; suyos. Ver CombatEnemigos._regenerar.
+regen_turno = 0.08
+regen_corta_elem = 4
+regen_corta_turnos = 2
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

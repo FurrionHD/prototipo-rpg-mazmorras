@@ -498,6 +498,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
 		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue
 		dmg += dmg_imbue
+		defender.marcar_regen_cortada(attacker.imbue_elemento)
+	# El golpe entero de un elemento (o la porcion imbuida, arriba) le corta la regeneracion a quien la tenga.
+	defender.marcar_regen_cortada(attacker.elemento_ataque)
 
 	# 4.5) DAÑO QUE RECIBE el defensor por sus estados: Marca (se la ha puesto alguien para que
 	# TODO el grupo le pegue mas) y Guardia de carne (el doble de vida a cambio del doble de daño).
@@ -600,6 +603,8 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).
 	var mult_elem := Elementos.mult_recibido(elem, defender)
 	dmg *= mult_elem
+	# La luz le corta la regeneracion a la aberracion (Combatant.marcar_regen_cortada).
+	defender.marcar_regen_cortada(elem)
 	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem,
 		"crit": is_crit, "crit_p": crit_p}
 

@@ -448,6 +448,38 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
 		else "una bocanada", quien.nombre, (": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
 
 
+# LAS PASIVAS DE LAS BESTIAS QUE TOCAN EL DAÑO DE UN GOLPE (30/09): lo que multiplica el golpe de ARMA de 'atacante' a
+# 'defensor', sea de los tuyos o suyo. Caparazon (de frente, en el mapa, la mitad; aturdida se vuelca y le entra
+# mas) y Olor a sangre (a quien sangra le pega mas). Lo aplica cada sitio que resuelve un golpe, sobre el resultado.
+func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
+	if atacante == null or defensor == null:
+		return 1.0
+	var m: float = 1.0
+	if defensor.volteo_mult != 1.0 and defensor.aturdido():
+		m *= defensor.volteo_mult
+	elif defensor.caparazon_frente != 1.0 and tactico and turno_mapa.cubre_de_frente(defensor, atacante):
+		m *= defensor.caparazon_frente
+	if atacante.olor_sangre_mult != 1.0 and defensor.has_status(StatusEffects.Id.SANGRADO):
+		m *= atacante.olor_sangre_mult
+	return m
+
+
+# Aplica _mult_pasivas a un resultado de StatsMath.resolve_attack y lo cuenta en el log si cambia algo.
+func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combatant) -> void:
+	if result.get("evaded", false):
+		return
+	var m: float = _mult_pasivas(atacante, defensor)
+	if m == 1.0:
+		return
+	result.damage = maxf(0.1, float(result.damage) * m)
+	if defensor.volteo_mult != 1.0 and defensor.aturdido():
+		_log_extra("%s está volcada y enseña la tripa" % _etq(defensor))
+	elif defensor.caparazon_frente != 1.0 and m < 1.0:
+		_log_extra("el caparazón de %s para el golpe de frente" % _etq(defensor))
+	elif atacante.olor_sangre_mult != 1.0:
+		_log_extra("%s huele la sangre de %s" % [_etq(atacante), defensor.nombre])
+
+
 func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
 	var pj: PersonajeData = Game.pj_de_combatant(quien)
 	Game.contar_dano_infligido(dmg, pj)
@@ -1566,6 +1598,7 @@ func _accion_atacar() -> void:
 	var obj: Combatant = _objetivo()
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, obj, false)
+	_aplicar_pasivas(result, _player, obj)
 	_debug_ataque(_player, obj, result)
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
@@ -2094,6 +2127,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			var m_mano: float = 1.0 if i == 0 else DUAL_SEGUIMIENTO_MULT
 			efectos._fx_tanda(i)   # los dos golpes son dos, no uno: cada uno con su tanda
 			var r := StatsMath.resolve_attack(esc, obj, false, -1.0, crit_extra)
+			_aplicar_pasivas(r, esc, obj)
 			if r.evaded:
 				_log_extra("%s entra detrás pero %s lo esquiva. 💨" % [esc.nombre, obj.nombre])
 				efectos._fx_golpe(esc, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo)

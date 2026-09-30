@@ -241,6 +241,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		estilo_ab = CombatFX.Estilo.ESCUDAZO
 	var result := StatsMath.resolve_attack(_pantalla._player, objetivo, false, atk_ov, ab.crit_extra,
 		ab.penetracion_extra)
+	_pantalla._aplicar_pasivas(result, _pantalla._player, objetivo)
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
