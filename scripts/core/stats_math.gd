@@ -489,6 +489,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	#     resistencia/debilidad del objetivo. Nunca penaliza el daño base: solo el extra.
 	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
 	dmg *= mult_elem
+	# LAS PASIVAS DEL QUE RECIBE (los constructos, 30/09): se miran ANTES de que este golpe las cambie (el agua que
+	# ablanda al golem no se cobra a si misma el x1,3).
+	var mult_pasiva := defender.mult_pasiva_recibido()
 	var mult_imbue := 1.0
 	var dmg_imbue := 0.0   # la PORCION elemental, aparte: para poder ENSEÑARLA en el log
 	# El PRISMATICO sortea su elemento en cada golpe (lo que se enseña despues lee el que ha salido).
@@ -498,14 +501,14 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
 		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue
 		dmg += dmg_imbue
-		defender.marcar_regen_cortada(attacker.imbue_elemento)
+		defender.recibe_elemento(attacker.imbue_elemento)
 	# El golpe entero de un elemento (o la porcion imbuida, arriba) le corta la regeneracion a quien la tenga.
-	defender.marcar_regen_cortada(attacker.elemento_ataque)
+	defender.recibe_elemento(attacker.elemento_ataque)
 
 	# 4.5) DAÑO QUE RECIBE el defensor por sus estados: Marca (se la ha puesto alguien para que
 	# TODO el grupo le pegue mas) y Guardia de carne (el doble de vida a cambio del doble de daño).
 	# Va al FINAL, sobre el daño ya mitigado, para que multiplique lo que de verdad le entra.
-	dmg *= defender.status_dmg_taken_mult()
+	dmg *= defender.status_dmg_taken_mult() * mult_pasiva
 	# Y lo que pega DE MAS el atacante por sus estados (plato de Fuerza). Espejo del de arriba: uno
 	# es "cuanto te entra", el otro "cuanto sacas", y por eso son dos claves y no una.
 	dmg *= attacker.status_dmg_dealt_mult()
@@ -603,8 +606,10 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	# Multiplicador ELEMENTAL segun la resistencia/debilidad del objetivo (KAN-58).
 	var mult_elem := Elementos.mult_recibido(elem, defender)
 	dmg *= mult_elem
-	# La luz le corta la regeneracion a la aberracion (Combatant.marcar_regen_cortada).
-	defender.marcar_regen_cortada(elem)
+	# Las pasivas del que recibe (el golem blando, la gargola posada), antes de que este hechizo las cambie.
+	dmg *= defender.mult_pasiva_recibido()
+	# La luz le corta la regeneracion a la aberracion; el agua ablanda al golem (Combatant.recibe_elemento).
+	defender.recibe_elemento(elem)
 	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem,
 		"crit": is_crit, "crit_p": crit_p}
 

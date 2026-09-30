@@ -23,3 +23,10 @@ efectos = [SubResource("SA_lento"), SubResource("SA_vuln")]
 fx_anim = &"mirada"
 fx_estilo = 33
 cooldown = 5
+; EN EL MAPA (30/09, constructos paso 1): cono r100 de 40 grados; lentitud y vulnerable a todos los de dentro.
+forma = 2
+forma_apunte = 1
+forma_radio = 100.0
+forma_apertura = 40.0
+area_modo = 1
+area_efectos_secundarios = true

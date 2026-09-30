@@ -821,6 +821,7 @@ func tick(delta: float) -> bool:
 	_tick_gestos(delta)
 	_tick_raices()
 	_tick_ojos_camada()
+	_tick_posadas()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -3076,7 +3077,7 @@ const T_TIRON_ESPERA := 3.0
 var _tirones: Array = []   # {c, de, px, espera, t, desde, hasta}
 
 func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
-	if _pantalla._espejo or c == null or de == null or is_zero_approx(px):
+	if _pantalla._espejo or c == null or de == null or is_zero_approx(px) or c.imparable:
 		return
 	var tr := {"c": c, "de": de, "px": px, "espera": 0.0, "t": -1.0}
 	if not _tiron_a_otro_humano(tr):
@@ -3085,7 +3086,7 @@ func pedir_tiron(c: Combatant, de: Combatant, px: float) -> void:
 
 # ATRAER A UN PUNTO (la Vorágine): como el tiron, pero hacia 'hacia' (el centro de la huella) y sin pasarse de el.
 func pedir_atraccion(c: Combatant, de: Combatant, hacia: Vector2, px: float) -> void:
-	if _pantalla._espejo or c == null or de == null or px <= 0.0:
+	if _pantalla._espejo or c == null or de == null or px <= 0.0 or c.imparable:
 		return
 	var tr := {"c": c, "de": de, "px": px, "hacia": hacia, "espera": 0.0, "t": -1.0}
 	if not _tiron_a_otro_humano(tr):
@@ -3469,6 +3470,25 @@ func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
 		CombatFX.Estilo.AVISO_INMUNE:
 			if _pantalla._fx != null:
 				_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+
+
+# POSADA, ES PIEDRA (la gargola, 30/09): esta posada si no se ha movido desde que empezo su ultimo turno (antes del
+# primero, lo esta: empieza la pelea encaramada). Moverse, el Picado o que la muevan la bajan hasta su turno siguiente.
+const POSADA_HOLGURA := 4.0
+var _inicio_turno: Dictionary = {}   # Combatant -> sus pies al empezar su ultimo turno
+
+func marcar_inicio_turno(c: Combatant) -> void:
+	if cuerpo_de(c) != null:
+		_inicio_turno[c] = pies_de(c)
+
+
+func _tick_posadas() -> void:
+	for e in _pantalla._enemies:
+		if e.posada_mult == 1.0 or cuerpo_de(e) == null:
+			continue
+		if not _inicio_turno.has(e):
+			_inicio_turno[e] = pies_de(e)
+		e.posada = pies_de(e).distance_to(_inicio_turno[e]) <= POSADA_HOLGURA
 
 
 # LOS OJOS DE LA CAMADA (el Rey de la camada, 30/09): mientras vive el rey, a las de su familia les brillan los ojos

@@ -43,4 +43,8 @@ inmune_estados = [0, 1]
 resist_aturdir = 0.7
 fx_basico = 18
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
+; ALCANCE del basico en el mapa (30/09).
+alcance = 20.0
+; POSADA, ES PIEDRA (30/09, constructos paso 1): si no se ha movido desde su ultimo turno, recibe la mitad.
+posada_mult = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

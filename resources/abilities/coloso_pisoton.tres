@@ -21,3 +21,11 @@ area_prob_secundario = 0.5
 efectos = [SubResource("SA_lento")]
 fx_estilo = 22
 cooldown = 4
+; EN EL MAPA (30/09, constructos paso 1): circulo r60 ALREDEDOR a 3 tramos (cerca mas); cargado 1 turno con la huella
+; roja: sal de ella (es imparable: no se le corta).
+carga_turnos = 1
+forma = 1
+forma_apunte = 2
+forma_radio = 60.0
+forma_tramos = 3
+forma_tramo_baja = 0.25

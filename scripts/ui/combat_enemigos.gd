@@ -68,6 +68,14 @@ func _enemy_turn(e: Combatant) -> void:
 		return
 	_regenerar(e)
 	e.enfriar_amenaza()   # su tabla de amenaza se enfria un poco cada turno suyo
+	# BARRO BLANDO: se le va secando turno a turno.
+	if e.ablandado > 0:
+		e.ablandado -= 1
+		if e.ablandado == 0:
+			_pantalla._set_log("La arcilla de %s vuelve a secarse." % _pantalla._etq(e))
+	# POSADA: su turno empieza donde esta; si acaba sin moverse, vuelve a ser piedra.
+	if e.posada_mult != 1.0 and _pantalla.tactico:
+		_pantalla.turno_mapa.marcar_inicio_turno(e)
 	if ev.stunned:
 		# Aturdir a un enemigo que se estaba CARGANDO cancela su ataque (interrupcion).
 		if e.charging != null:

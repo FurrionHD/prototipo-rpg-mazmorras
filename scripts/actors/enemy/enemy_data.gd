@@ -294,6 +294,17 @@ func drop_factor_piso(piso: int) -> float:
 @export var ecolocaliza: bool = false
 # LA QUE EVITA AL TANQUE (segadora): en su reparto, el primero de su tabla de amenaza pesa menos (va a por los blandos).
 @export var evita_tanque: bool = false
+# --- LOS CONSTRUCTOS (30/09, paso 1 con el usuario) ---
+# BARRO BLANDO (golem de arcilla): un golpe o hechizo de 'ablanda_elem' (0 = nada) le quita lo endurecido (FORTALEZA) y
+# durante 'ablanda_turnos' turnos suyos recibe x'ablanda_mult'. "Mojalo antes de pegarle".
+@export var ablanda_elem: int = 0
+@export var ablanda_mult: float = 1.3
+@export var ablanda_turnos: int = 2
+# POSADA, ES PIEDRA (gargola): si desde que empezo su ultimo turno no se ha movido, recibe x'posada_mult'. Al volar
+# (moverse, el Picado, que la muevan) lo pierde hasta su siguiente turno. 1 = no la tiene.
+@export var posada_mult: float = 1.0
+# IMPARABLE (coloso): tirones, empujones y atracciones no le mueven ni le cortan la carga.
+@export var imparable: bool = false
 # Lo que se dice en el log cuando salta 'al_ser_golpeado' ("" = lo de siempre segun su dibujo).
 @export var al_ser_golpeado_texto: String = ""
 
@@ -603,6 +614,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.reflejo_prob = reflejo_prob
 	c.ecolocaliza = ecolocaliza
 	c.evita_tanque = evita_tanque
+	c.ablanda_elem = ablanda_elem
+	c.ablanda_mult = ablanda_mult
+	c.ablanda_turnos = ablanda_turnos
+	c.posada_mult = posada_mult
+	c.imparable = imparable
 	c.al_ser_golpeado_texto = al_ser_golpeado_texto
 	c.regen_turno = regen_turno
 	c.regen_corta_elem = regen_corta_elem

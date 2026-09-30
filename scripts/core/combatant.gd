@@ -234,6 +234,14 @@ var emboscada_mult: float = 1.0
 var reflejo_prob: float = 0.0
 var ecolocaliza: bool = false
 var evita_tanque: bool = false
+# Los constructos (30/09): ver EnemyData.
+var ablanda_elem: int = 0
+var ablanda_mult: float = 1.3
+var ablanda_turnos: int = 2
+var ablandado: int = 0            # turnos suyos que le quedan blando (Barro blando)
+var posada_mult: float = 1.0
+var posada: bool = true           # lo pone CombatTactico._tick_posadas (no se ha movido desde que empezo su turno)
+var imparable: bool = false
 var al_ser_golpeado_texto: String = ""
 
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
@@ -266,6 +274,26 @@ func primero_en_amenaza() -> Combatant:
 			v = float(amenaza[k])
 			mejor = k
 	return mejor
+
+# LE HA ENTRADO un golpe o un hechizo de 'elem' (StatsMath, en los dos caminos): lo que le hace a sus pasivas.
+func recibe_elemento(elem: int) -> void:
+	marcar_regen_cortada(elem)
+	# BARRO BLANDO: el agua le deshace lo endurecido y le deja blando.
+	if ablanda_elem != 0 and elem == ablanda_elem:
+		if has_status(StatusEffects.Id.FORTALEZA):
+			quitar_estado(StatusEffects.Id.FORTALEZA)
+		ablandado = ablanda_turnos
+
+
+# LO QUE RECIBE DE MAS O DE MENOS por sus pasivas (sobre el daño ya mitigado, golpes y hechizos): blando, o posada.
+func mult_pasiva_recibido() -> float:
+	var m: float = 1.0
+	if ablandado > 0:
+		m *= ablanda_mult
+	if posada_mult != 1.0 and posada:
+		m *= posada_mult
+	return m
+
 
 # Le ha entrado un golpe o un hechizo de 'elem': si es el que le corta la regeneracion, se queda sin ella.
 func marcar_regen_cortada(elem: int) -> void:

@@ -44,4 +44,8 @@ resist_aturdir = 0.85
 status_resist = 1.6
 fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
+; ALCANCE del basico en el mapa (30/09): hasta donde llegan sus brazos dibujados (le asoman fuera de lo que pisa).
+alcance = 35.0
+; IMPARABLE (30/09, constructos paso 1): no se le puede mover ni cortar la carga.
+imparable = true
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

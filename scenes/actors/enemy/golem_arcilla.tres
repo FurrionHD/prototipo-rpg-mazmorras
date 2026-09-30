@@ -44,4 +44,8 @@ inmune_estados = [0, 1]
 resist_aturdir = 0.6
 fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
+; ALCANCE del basico en el mapa (30/09): se cuenta desde el borde de lo que pisa; 22 = sus puños llegan de lado.
+alcance = 22.0
+; BARRO BLANDO (30/09, constructos paso 1): el agua le quita lo endurecido y le deja 2 turnos recibiendo x1,3.
+ablanda_elem = 2
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

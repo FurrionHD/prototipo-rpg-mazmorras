@@ -2485,6 +2485,9 @@ const DESPLAZA_ATB_MAX := 0.3
 func desplazado(c: Combatant, px: float, quien: Combatant = null) -> String:
 	if c == null or not c.is_alive():
 		return ""
+	# IMPARABLE (el coloso): ni le mueven ni le cortan nada.
+	if c.imparable:
+		return ""
 	if absf(px) >= DESPLAZA_CORTA:
 		return interrumpir(c, quien)
 	if _gauge.has(c) and absf(px) > 0.5:

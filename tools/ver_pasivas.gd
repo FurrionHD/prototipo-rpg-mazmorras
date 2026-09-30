@@ -9,7 +9,7 @@ const AZUL := Color(0.35, 0.6, 1.0)
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
 const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
-	"empujon", "barra"]
+	"empujon", "barra", "alcance"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -523,3 +523,60 @@ func _hoja_barra(salida: String) -> void:
 	num2.queue_free()
 	await get_tree().process_frame
 	_guardar(hoja, salida, "barra_turnos")
+
+
+# ------------------------------------------------------------
+#  EL ALCANCE DE LOS GRANDES (30/09, constructos paso 1): el golpe de su cuerpo ('embestida') en N..S, con una figura
+#  JUSTO en el borde de su alcance (azul) y otra pegada (verde). El alcance se cuenta como en la pelea
+#  (CombatTactico.hueco_entre): de sus pies menos lo que pisa (PISA del ancho de su dibujo) a la caja del que recibe.
+#  PASIVAS_ALCANCE=golem_arcilla:22,coloso:35
+# ------------------------------------------------------------
+func _hoja_alcance(salida: String) -> void:
+	var pedido: String = OS.get_environment("PASIVAS_ALCANCE")
+	if pedido == "":
+		pedido = "golem_arcilla:22,coloso:35"
+	for par in pedido.split(","):
+		var nom: String = par.split(":")[0]
+		var alc: float = float(par.split(":")[1])
+		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % nom)
+		var e0 := _enemigo(nom, Vector2.ZERO, Vector2.RIGHT)
+		var spr: AnimatedSprite2D = e0["spr"]
+		var n_frames: int = spr.sprite_frames.get_frame_count(&"embestida_0")
+		var cols: int = 7
+		var hoja := Image.create(LADO * cols, LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+		var rd: Rect2 = e0["rd"]
+		var pisa: float = rd.size.x * 0.33
+		_zoom(maxf(rd.size.y, rd.size.x) * 0.5 + alc + 30.0)
+		for fila in DIRS.size():
+			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+			# La figura en el borde: se aleja hasta que el hueco (de sus pies menos lo que pisa a su caja) = alcance.
+			var d: float = 0.0
+			while d < 400.0:
+				var pies_f: Vector2 = dvec * d
+				var caja := Rect2(pies_f - Vector2(7, 26), Vector2(14, 26))
+				var cerca := Vector2(clampf(0.0, caja.position.x, caja.end.x), clampf(0.0, caja.position.y, caja.end.y))
+				if cerca.length() - pisa >= alc:
+					break
+				d += 0.5
+			var lejos := _figura(dvec * d, AZUL)
+			# Y otra pegada a el (hueco 0), para comparar.
+			var d0: float = 0.0
+			while d0 < 400.0:
+				var pies_0: Vector2 = dvec.rotated(0.9) * d0
+				var caja0 := Rect2(pies_0 - Vector2(7, 26), Vector2(14, 26))
+				var cerca0 := Vector2(clampf(0.0, caja0.position.x, caja0.end.x), clampf(0.0, caja0.position.y, caja0.end.y))
+				if cerca0.length() - pisa >= 0.0:
+					break
+				d0 += 0.5
+			var pegada := _figura(dvec.rotated(0.9) * d0, Color(0.35, 0.8, 0.45))
+			_cam.global_position = dvec * d * 0.4 + Vector2(0, -rd.size.y * 0.3)
+			for c in cols:
+				var fr: int = int(round(float(c) / float(cols - 1) * float(n_frames - 1)))
+				_mirar(e0, dvec, "embestida", fr)
+				await _viñeta(hoja, c, fila, "%s · alcance %d · %s · fotograma %d/%d" % [ed.enemy_name, int(alc), DIRS[fila][0],
+					fr + 1, n_frames])
+			lejos.queue_free()
+			pegada.queue_free()
+		(e0["nodo"] as Node).queue_free()
+		await get_tree().process_frame
+		_guardar(hoja, salida, "alcance_%s" % nom)

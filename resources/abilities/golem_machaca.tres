@@ -13,3 +13,10 @@ dano_mult = 2.1
 carga_turnos = 1
 fx_estilo = 23
 cooldown = 4
+; EN EL MAPA (30/09, constructos paso 1): los dos puños caen en un circulo r30 DELANTE; cargado 1 turno, la huella se
+; queda roja toda la carga (el que se sale, se libra). Pega a todos los de dentro.
+forma = 1
+forma_apunte = 1
+forma_radio = 30.0
+area_modo = 1
+area_secundario = 1.0
