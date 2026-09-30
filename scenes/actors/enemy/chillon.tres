@@ -48,3 +48,7 @@ fx_basico = 17
 habilidades = [ExtResource("3_chi"), ExtResource("4_pic")]
 prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (30/09): muerde de cerca.
+alcance = 15.0
+; EL BASICO EN EL MAPA (30/09): se lanza ('embestida') y en ti, los dos paletos (SIMA_PALETOS).
+fx_basico_mapa = 162

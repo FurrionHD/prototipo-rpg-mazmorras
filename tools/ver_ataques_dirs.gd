@@ -1373,7 +1373,8 @@ const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.
 # Y las SIMAS (30/09, SimaAire).
 const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
-	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA}
+	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
+	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,

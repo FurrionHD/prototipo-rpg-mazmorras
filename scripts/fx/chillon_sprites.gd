@@ -458,7 +458,8 @@ static func _montar_chillido(anims: Array, esc: float) -> void:
 		return p
 	# UNA SOLA DIRECCION: solo se ve en la pantalla de combate, y ahi se le mira de frente. El combate
 	# cae a "chillido_0" cuando la direccion que toca no existe (ver combat.gd:_on_gesto_iniciado).
-	_montar_animacion(anims, esc, "chillido", false, 8.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa grita hacia donde mira (el cono).
+	_montar_animacion(anims, esc, "chillido", false, 8.0, pose, true, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADO: el frame 0 es el
@@ -484,7 +485,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 		p["encara"] = 0.30
 		return p
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (30/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -530,7 +532,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 11.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (30/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 11.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA direccion, al reves que 'muerte' (ocho fotogramas en

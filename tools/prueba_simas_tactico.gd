@@ -5,8 +5,8 @@
 # turnos, a golpes (25%) o aturdida. Acaba con BIEN/MAL.
 extends Node
 
-const ENEMIGOS := ["miconido", "chupasimas"]
-const ALCANCES := {"miconido": 20.0, "chupasimas": 15.0}
+const ENEMIGOS := ["miconido", "chupasimas", "chillon"]
+const ALCANCES := {"miconido": 20.0, "chupasimas": 15.0, "chillon": 15.0}
 var _mal: int = 0
 
 
@@ -114,6 +114,8 @@ func _correr() -> void:
 			_ver(not t._charcos.has(e), "la nube se va a los 2 turnos del miconido")
 		if clave == "chupasimas":
 			await _probar_pegada(combat, t, e, al)
+		if clave == "chillon":
+			await _probar_chillon(combat, t, e, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
 
@@ -198,6 +200,33 @@ func _probar_pegada(combat, t, e, al: Array) -> void:
 	_ver(salen.filter(func(d): return int(d.get("id", -1)) == StatusEffects.Id.PEGADO).is_empty(),
 		"la Sanguijuela no sale de la pelea")
 	t.soltar_pegada(e, "")
+
+
+func _probar_chillon(combat, t, e, al: Array) -> void:
+	var chi: AbilityData = load("res://resources/abilities/chillon_chillido.tres")
+	_ver(chi.suelo_roto == SueloRoto.Tipo.SIMA_ULTRA, "el Chillido lleva el ultrasonido (suelo %d)" % chi.suelo_roto)
+	var pe: Vector2 = t.pies_de(e)
+	_colocar(t, al, [pe + Vector2(t.radio_pisa(e) + 30, 0), pe + Vector2(-t.radio_pisa(e) - 30, 0)])
+	await _esperar(2)
+	var rep: Array = t._reparto_en(chi, e, t.forma_de(chi, e, t.pies_de(al[0])))
+	_ver(rep.size() == 1 and rep[0]["c"] == al[0], "el Chillido pilla al de delante y no al de detras")
+	# El Picado: baja sobre uno de lejos, muerde y vuelve.
+	var pic: AbilityData = load("res://resources/abilities/chillon_picado.tres")
+	_colocar(t, al, [pe + Vector2(70, 10), pe + Vector2(-240, 60)])
+	await _esperar(2)
+	var antes: Vector2 = t.pos_de(e)
+	var hp0: float = al[0].current_hp
+	var lejos_max: float = 0.0
+	combat.enemigos._enemy_use_ability(e, pic, al[0])
+	combat._fx.arrancar_cola()
+	for _k in 120:
+		await get_tree().process_frame
+		lejos_max = maxf(lejos_max, t.pos_de(e).distance_to(antes))
+	await _segundos(1.0)
+	print("  picado: se alejo %.0f px y acabo a %.0f px de donde estaba" % [lejos_max, t.pos_de(e).distance_to(antes)])
+	_ver(lejos_max > 30.0, "el Picado baja hasta su presa")
+	_ver(t.pos_de(e).distance_to(antes) < 4.0, "y vuelve a donde estaba")
+	_ver(al[0].current_hp < hp0, "y la muerde")
 
 
 func _colocar(t, al: Array, sitios: Array) -> void:

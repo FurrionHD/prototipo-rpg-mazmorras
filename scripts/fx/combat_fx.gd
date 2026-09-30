@@ -401,7 +401,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# LAS SIMAS en el mapa (30/09, SimaAire): el miconido, su porrazo, la tos de la Bocanada y el Latigazo.
 		SIMA_PORRAZO = 156, SIMA_TOS = 157, SIMA_LATIGO = 158,
 		# Y el chupasimas: su ventosa (basico y Adherirse) y cada chupada del Drenaje.
-		SIMA_VENTOSA = 159, SIMA_CHUPADA = 160 }
+		SIMA_VENTOSA = 159, SIMA_CHUPADA = 160,
+		# Y el chillon: los oidos en blanco del Chillido y los paletos del basico y del Picado.
+		SIMA_OIDOS = 161, SIMA_PALETOS = 162 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -440,6 +442,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
+	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -608,7 +611,7 @@ const T_VUELO := {
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
 	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
-	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.INSECTO_APRETON: 0.02,
+	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.SIMA_OIDOS: 0.02, Estilo.SIMA_PALETOS: 0.1, Estilo.INSECTO_APRETON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

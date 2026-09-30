@@ -22,3 +22,11 @@ efectos = [SubResource("SA_sil")]
 fx_estilo = 17
 fx_anim = &"chillido"
 cooldown = 4
+; EN EL MAPA (30/09): cono delante, grita hacia donde mira. Los pulsos de ultrasonido por el cono (SIMA_ULTRA) y a
+; cada uno, cuando le llega, los oidos en blanco y un temblor (SIMA_OIDOS).
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 100.0
+suelo_roto = 81
+fx_estilo_mapa = 161

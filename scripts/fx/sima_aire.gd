@@ -16,6 +16,13 @@
 #                cierra hacia dentro, con una gota de sangre y otra de agua (va mojada).
 #    CHUPADA     cada chupada del Drenaje: gotas rojas que salen del pecho de la victima y suben hasta ella en fila, y
 #                su cuerpo se enrojece un momento al tragarlas.
+#  EL CHILLON (30/09):
+#    PALETOS     el basico y cada mordisco del Picado: los dos paletos, dos pinchazos gemelos (cometas cortas y gordas
+#                que se clavan juntas) con su puntito de sangre. No es la media luna de la rata.
+#    ULTRA       (suelo) el Chillido: pulsos palidos, lila y blanco, que salen de su boca por el cono temblando (un
+#                pitido que no se oye, se siente). No son los frentes finos del rey rata.
+#    OIDOS       a cada uno que alcanza el Chillido (cuando le llega el pulso): un fogonazo blanco en la cabeza que se
+#                cierra sobre los oidos; la figura tiembla (CombatTactico._temblar_presa).
 #  SE QUEDA:
 #    NUBE        la Bocanada (AbilityData.charco_estilo 2): la nube parda flotando a la altura de la cara los turnos
 #                del miconido, cada vez mas rala y mas pequeña (como el charco de savia: CombatTactico._charco_visible).
@@ -26,7 +33,10 @@
 extends Node2D
 class_name SimaAire
 
-enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA }
+enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA, ULTRA, OIDOS, PALETOS }
+# Los del suelo, en el orden de SueloRoto.Tipo.SIMA_*: no reordenar.
+enum Suelo { ULTRA }
+const _MODO_DE_SUELO := [Modo.ULTRA]
 
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 const ESPORA := Color(0.5, 0.4, 0.24)
@@ -40,6 +50,11 @@ const T_SECA := 0.5
 const T_VENTOSA := 0.45
 const T_CHUPADA := 0.4
 const DIENTE := Color(0.96, 0.88, 0.84)
+const ULTRA_C := Color(0.86, 0.8, 1.0)
+const T_ULTRA := 0.45              # lo que tarda un pulso en llegar al borde del cono
+const T_ENTRE_ULTRA := 0.1         # entre pulso y pulso (tres)
+const T_OIDOS := 0.4
+const T_PALETOS := 0.35
 const SANGRE := Color(0.62, 0.05, 0.07)
 const AGUA := Color(0.55, 0.75, 0.95)
 
@@ -62,6 +77,7 @@ var _piezas: Array = []
 var _borde: Color = Color(0.12, 0.1, 0.07)
 var _carne: Color = Color(0.55, 0.5, 0.42)
 var _brillo_c: Color = Color(0.78, 0.74, 0.64)
+var forma: CombatFormas.Forma = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
 
@@ -112,6 +128,17 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 				e._piezas.append({"d": Vector2(e._rng.randf_range(-1.0, 1.0), -e._rng.randf_range(0.3, 1.0)).normalized(),
 					"v": e._rng.randf_range(8.0, 16.0), "tam": e._rng.randf_range(0.9, 1.5), "agua": i >= 3,
 					"t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.PALETOS:
+			e._viaje = clampf(espera, 0.05, 0.12)
+			e._t = -e._viaje
+			e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.15, 0.15) * caja.size.x,
+				e._rng.randf_range(-0.2, 0.05) * caja.size.y)
+			e._eje = eje.rotated(e._rng.randf_range(-0.3, 0.3))
+			e._r = maxf(caja.size.x * 0.4, 5.0)
+		Modo.OIDOS:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.2)
+			e._r = maxf(caja.size.x * 0.9, 10.0)
 		Modo.CHUPADA:
 			e._t = -maxf(espera, 0.0)
 			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.45)
@@ -136,6 +163,40 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 	e._delante = e._capa(Z_ENCIMA, false)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	return e
+
+
+# ------------------------------------------------------------
+#  EN EL SUELO
+# ------------------------------------------------------------
+static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, espera: float) -> Node2D:
+	if padre == null or f == null or s < 0 or s >= _MODO_DE_SUELO.size():
+		return null
+	var e := SimaAire.new()
+	e.modo = int(_MODO_DE_SUELO[s])
+	e.forma = f
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
+	e._t = -espera * e._ritmo
+	e._o = f.origen
+	e._r = maxf(f.radio, 8.0)
+	e._eje = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	e._delante = e._capa(Z_ENCIMA, true)
+	return e
+
+
+# CUANDO LE LLEGA el primer pulso a 'p'.
+static func retraso(s: int, f: CombatFormas.Forma, p: Vector2) -> float:
+	if f == null:
+		return 0.0
+	return clampf(p.distance_to(f.origen) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ULTRA
+
+
+static func t_salir(_s: int) -> float:
+	return T_ULTRA
 
 
 # LA NUBE QUE SE QUEDA (la Bocanada). No se va sola: la seca CombatTactico. 'espera' = lo que falta para que salga.
@@ -211,6 +272,9 @@ func duracion() -> float:
 		Modo.NUBE, Modo.ATADO: return INF if _secando < 0.0 else _secando + T_SECA
 		Modo.VENTOSA: return T_VENTOSA
 		Modo.CHUPADA: return T_CHUPADA + 0.2
+		Modo.ULTRA: return T_ULTRA + 2.0 * T_ENTRE_ULTRA + 0.15
+		Modo.OIDOS: return T_OIDOS
+		Modo.PALETOS: return T_PALETOS
 	return 1.0
 
 
@@ -246,6 +310,9 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.ATADO: _atado(capa)
 		Modo.VENTOSA: _ventosa(capa)
 		Modo.CHUPADA: _chupada(capa)
+		Modo.ULTRA: _ultra(capa)
+		Modo.OIDOS: _oidos(capa)
+		Modo.PALETOS: _paletos(capa)
 
 
 # ------------------------------------------------------------
@@ -514,3 +581,74 @@ func _chupada(capa: Node2D) -> void:
 	# Donde sale: una mancha roja en el pecho que se apaga.
 	var am: float = 1.0 - clampf(_t / T_CHUPADA, 0.0, 1.0)
 	BestiaAire._bola(capa, a, 5.0, Color(SANGRE, 0.5 * am))
+
+
+# ------------------------------------------------------------
+#  EL CHILLON
+# ------------------------------------------------------------
+# LOS PALETOS: dos pinchazos gemelos, juntos y paralelos, que entran por la linea del mordisco y se clavan; al
+# clavarse, un destello pequeño y un puntito de sangre en cada uno. Gordos: son la marca que queda.
+func _paletos(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	var lado: Vector2 = _eje.orthogonal()
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.08:
+			BarridoAire.destello(capa, c, _r * 0.6, Color(1.0, 0.95, 0.95, 0.7 * (1.0 - _t / 0.08)), _eje.angle())
+		return
+	if capa != _delante:
+		return
+	var entra: float
+	var alfa: float
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		entra = u * u
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		entra = 1.0
+		alfa = 1.0 - smoothstep(0.08, T_PALETOS, _t)
+	for s in [-1.0, 1.0]:
+		var punta: Vector2 = c + lado * s * _r * 0.28 - _eje * _r * 1.2 * (1.0 - entra)
+		BarridoAire.cometa(capa, punta - _eje * _r * 1.1, punta, maxf(2.4, _r * 0.34), Color(DIENTE, alfa))
+		if _t >= 0.0:
+			capa.draw_circle(c + lado * s * _r * 0.28, maxf(1.2, _r * 0.13), Color(SANGRE, alfa))
+
+
+# EL ULTRASONIDO: tres pulsos seguidos que salen de su boca y se abren por el cono hasta su borde. Cada pulso es una
+# BANDA GORDA de filo duro y difuminada por detras (como los tajos), palida, que PARPADEA deprisa: eso es el pitido
+# que "se siente". Dibujarlo tres veces temblando salia como rayas finas concentricas (y parecido al rey rata).
+func _ultra(capa: Node2D) -> void:
+	if forma == null or capa != _delante:
+		return
+	var media: float = deg_to_rad(maxf(forma.apertura, 20.0)) * 0.5
+	for k in 3:
+		var tk: float = _t - float(k) * T_ENTRE_ULTRA
+		if tk < 0.0 or tk > T_ULTRA + 0.15:
+			continue
+		var u: float = clampf(tk / T_ULTRA, 0.0, 1.0)
+		var r: float = lerpf(6.0, _r, u)
+		var parpadeo: float = 0.75 + 0.25 * sin(_t * 80.0 + float(k) * 2.0)
+		var alfa: float = (1.0 - smoothstep(0.7, 1.0, u)) * (1.0 - float(k) * 0.2) * clampf(tk / 0.05, 0.0, 1.0) * parpadeo
+		BestiaAire._media_luna(capa, _o, _eje.angle() - media, _eje.angle() + media, r, lerpf(8.0, 18.0, u),
+			Color(1.0, 1.0, 1.0), ULTRA_C, 0.55 * alfa, true)
+
+
+# LOS OIDOS EN BLANCO: dos medias lunas blancas que se cierran sobre la cabeza desde los lados, como dos manos tapando
+# los oidos, y al juntarse un fogonazo blanco. (Un anillo entero alrededor se leia como una burbuja.)
+func _oidos(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var c: Vector2 = _hasta
+	var k: float = clampf(_t / 0.16, 0.0, 1.0)
+	if capa == _brillo:
+		if _t >= 0.12 and _t < 0.3:
+			BarridoAire.destello(capa, c, _r * 0.55, Color(1.0, 1.0, 1.0, 0.85 * (1.0 - (_t - 0.12) / 0.18)), 0.0)
+		return
+	if capa != _delante:
+		return
+	var alfa: float = 1.0 - smoothstep(0.16, T_OIDOS, _t)
+	var rr: float = _r * 0.5
+	for s in [-1.0, 1.0]:
+		var o: Vector2 = c + Vector2(s * _r * lerpf(1.1, 0.35, k * k), 0.0)
+		var hacia: float = PI if s > 0.0 else 0.0   # combadas hacia la cabeza
+		BestiaAire._media_luna(capa, o + Vector2(s * rr, 0.0), hacia - 0.9, hacia + 0.9, rr, rr * 0.7,
+			Color(1.0, 1.0, 1.0), ULTRA_C, 0.9 * alfa, true)

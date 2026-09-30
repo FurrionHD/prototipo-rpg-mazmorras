@@ -12,3 +12,12 @@ golpes_max = 3
 dano_mult = 0.7
 fx_estilo = 14
 cooldown = 2
+; EN EL MAPA (30/09): baja de un salto sobre una presa hasta 90 px, muerde y VUELVE a donde estaba (AbilityData.vuelve).
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 90.0
+salta = true
+vuelve = true
+; EFECTO EN EL MAPA: los paletos en cada mordisco (SIMA_PALETOS).
+fx_estilo_mapa = 162

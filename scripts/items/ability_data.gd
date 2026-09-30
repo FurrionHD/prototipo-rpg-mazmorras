@@ -332,6 +332,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # PEGA (solo en el mapa): si el golpe entra, el que la lanza se queda PEGADO encima de su victima y va con ella a donde
 # vaya, chupandole cada turno suyo (CombatTactico.empezar_pegada). El Adherirse del chupasimas (30/09).
 @export var pega: bool = false
+# VUELVE (solo en el mapa, con 'salta'): acabados los golpes, el que la lanza vuelve de otro salto a donde estaba. El
+# Picado del chillon (30/09): "cae, muerde y ya esta otra vez arriba" (CombatTactico.mover_enemigo).
+@export var vuelve: bool = false
 # EL SALTO (solo en el mapa, con CIRCULO): el que la lanza se echa por el aire y cae en el centro de su huella,
 # sin quedar encima de nadie. El Reventon del slime y el Aplastamiento del Rey (28/09): "el slime hinchandose
 # y saltando sobre los personajes".

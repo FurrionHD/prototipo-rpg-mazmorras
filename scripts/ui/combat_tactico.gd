@@ -1588,7 +1588,11 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 	# El salto se ve aunque caiga casi en el sitio (los tuyos le tapan el hueco): bota en el aire.
 	if hasta.distance_to(pos_de(e)) < 2.0 and not ab.salta:
 		return
+	var desde: Vector2 = pos_de(e)
 	pedir_desliz(e, hasta, Desliz.ANTES, maxi(1, golpes), dur, arco)
+	# PICA Y SE VA (el Picado del chillon, 30/09): acabados los golpes, de otro salto a donde estaba.
+	if ab.vuelve:
+		pedir_desliz(e, desde, Desliz.TRAS, maxi(1, golpes), dur, arco)
 
 
 # EMPIEZA A CARGAR: elige el sitio YA y lo deja pintado en ROJO hasta que suelte.
@@ -3236,7 +3240,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
-	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA}
+	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
+	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3294,6 +3299,9 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var col_s: Color = a.color_visual if a != null else Color(0.52, 0.46, 0.3)
 		SimaAire.sobre_cuerpo(arena, int(_MODO_SIMA[estilo]), caja_a, bulto_de(v), pies_de(v), col_s, semilla, vuelo, ritmo,
 			pies_de(a) if a != null and cuerpo_de(a) != null else Vector2.INF)
+		# LOS OIDOS EN BLANCO: la figura tiembla, como con el Chillido del rey rata.
+		if estilo == CombatFX.Estilo.SIMA_OIDOS:
+			_temblar_presa(v, vuelo)
 		# EL LATIGO ATA CON SU CARNE: si le enraiza, el atado es el de cordones de micelio y no las raices del trent.
 		if estilo == CombatFX.Estilo.SIMA_LATIGO:
 			cuerpo_de(v).set_meta("atado_micelio", col_s)
