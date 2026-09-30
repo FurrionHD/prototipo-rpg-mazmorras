@@ -356,17 +356,22 @@ static func _montar_guadanas(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "guadanas", false, 13.0, pose, true, 8, FRAMES)
 
 
-# EL BASICO DEL MAPA (29/09): clavada, y de pronto UN brazo (su izquierdo: 'abre' con 'abre_izq' plegado) ya esta fuera -- de plegado a estirado entre un
+# EL BASICO DEL MAPA (29/09): clavada, y de pronto UN brazo ya esta fuera -- de plegado a estirado entre un
 # marco y el siguiente, sin paso intermedio ("cuando por fin se mueve, ya te ha cortado") -- con el cuerpo echandose
 # detras, y lo recoge. La hoja que cruza a la victima es InsectoAire.TAJO, que viene de ese lado. 6 marcos a 16 fps:
 # corta en el 0,5 (2,5/16 = 0,16 s = CombatFX.T_ANIM_ADELANTO).
+# UNO CADA VEZ (30/09, pedido suyo: "si va alternando de brazo con el basico estaria bien"): 'basico' con su brazo
+# IZQUIERDO ('abre' con 'abre_izq' plegado: medido en la hoja, es el que sale) y 'basico_der' con el derecho; la pelea
+# los alterna (CombatTactico.gesto_bicho_en_mapa) y el tajo sale de ese lado (InsectoAire.TAJO).
 static func _montar_basico(anims: Array, esc: float) -> void:
 	var abre_keys := [[0.0, 0.0], [0.4, 0.0], [0.5, 1.0], [0.75, 0.8], [1.0, 0.1]]
 	var avance_keys := [[0.0, 0.0], [0.4, -0.5], [0.5, 2.8], [0.75, 2.4], [1.0, 0.0]]
-	var pose := func(t: float) -> Dictionary:
-		return _pose({"abre": SpriteLienzo.tramos(t, abre_keys), "abre_izq": 0.05,
-			"avance": SpriteLienzo.tramos(t, avance_keys)})
-	_montar_animacion(anims, esc, "basico", false, 16.0, pose, true, 8, 6)
+	for der in [false, true]:
+		var pose := func(t: float) -> Dictionary:
+			var a: float = SpriteLienzo.tramos(t, abre_keys)
+			return _pose({"abre": 0.05 if der else a, "abre_izq": a if der else 0.05,
+				"avance": SpriteLienzo.tramos(t, avance_keys)})
+		_montar_animacion(anims, esc, "basico_der" if der else "basico", false, 16.0, pose, true, 8, 6)
 
 
 # ENSARTE (fx_anim = "ensarte"). "Se queda quieta, muy quieta, y de pronto ya esta dentro. Sale por

@@ -1633,8 +1633,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 							fig_g = fg
 				if modo_i >= 0:
 					# Los colmillos de la araña, y el veneno que salta (en el juego, solo si entra).
+					# El tajo de la segadora sale del brazo de 'basico' (el izquierdo; 'basico_der' es el otro).
 					piezas.append({"n": InsectoAire.sobre_cuerpo(self, modo_i, bulto.get_center(), rg, semilla + g, 0.14, 1.0,
-						bulto.size.x), "t0": t0, "sim": false})
+						bulto.size.x, 1.0, -1.0 if modo_i == InsectoAire.Modo.TAJO else 1.0), "t0": t0, "sim": false})
 					if modo_i in [InsectoAire.Modo.PONZONA, InsectoAire.Modo.FORCIPULAS]:
 						piezas.append({"n": InsectoAire.sobre_cuerpo(self, InsectoAire.Modo.VENENO, bulto.get_center(), rg,
 							semilla + g * 3, 0.0, 1.0), "t0": t0, "sim": false})

@@ -36,7 +36,7 @@
 #  caer las dos guadañas) y aqui el corte sobre la victima:
 #    TAJO        el basico: UNA media luna grande y muy combada, color HUESO (sus hojas son quitina palida: el ocre
 #                apagado del bicho no se veia en el suelo oscuro), que cruza el cuerpo en diagonal desde el lado del
-#                brazo que corta (el izquierdo, el que despliega su sprite), destello en estrella y sangre que salta de la punta.
+#                brazo que corta (alterna: CombatTactico.gesto_bicho_en_mapa), destello en estrella y sangre que salta de la punta.
 #    GUADANA     cada golpe de la Doble guadaña: lo mismo mas grande, desde el lado de SU mitad del cono (el golpe 0
 #                es la mitad izquierda, el 1 la derecha: CombatTactico.mitades_que_toca). Al del medio le caen las
 #                dos casi a la vez en diagonales contrarias y se le queda la X.
@@ -275,9 +275,6 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 			e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x,
 				e._rng.randf_range(-0.12, 0.05) * caja.size.y)
 			e._eje = eje
-			# EL BASICO CORTA CON LA IZQUIERDA: es el brazo que despliega su sprite ('abre' con 'abre_izq' plegado).
-			if m == Modo.TAJO:
-				de_lado = -1.0
 			# La mano que corta: su izquierda es el eje girado a la izquierda EN PANTALLA (y hacia abajo).
 			var mano: Vector2 = eje.orthogonal() * (-1.0 if de_lado > 0.0 else 1.0)
 			e._lado = mano

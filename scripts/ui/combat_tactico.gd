@@ -3048,9 +3048,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		# LA DOBLE GUADAÑA: cada golpe cae desde el lado de SU mitad (tanda 0 = la izquierda, 1 = la derecha; ver
-		# mitades_que_toca). El tajo del basico sale de su brazo izquierdo (lo decide InsectoAire).
+		# mitades_que_toca). El tajo del basico, del brazo que acaba de desplegar su sprite (gesto_bicho_en_mapa).
 		var lado_i: float = 1.0
-		if estilo == CombatFX.Estilo.INSECTO_GUADANA:
+		if estilo == CombatFX.Estilo.INSECTO_TAJO:
+			lado_i = float(cuerpo_de(a).get_meta("lado_basico", -1.0)) if a != null and cuerpo_de(a) != null else -1.0
+		elif estilo == CombatFX.Estilo.INSECTO_GUADANA:
 			lado_i = -1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
 			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)), lado_i)
@@ -3785,6 +3787,13 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	# Sin animacion pedida (el ataque basico): la 'basico' del bicho si la tiene (29/09, el cabezazo de la rata);
 	# si no, _poner_anim_bicho cae a su embestida de siempre.
 	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "basico")
+	# LOS QUE ALTERNAN DE BRAZO (30/09, la segadora): si tiene 'basico_der', un basico con cada brazo. El lado se queda
+	# apuntado en el cuerpo para que el efecto salga de esa mano (_on_dibujo_mapa, INSECTO_TAJO).
+	if base == "basico" and _tiene_anim_bicho(cuerpo, "basico_der"):
+		var der: bool = float(cuerpo.get_meta("lado_basico", 1.0)) < 0.0
+		cuerpo.set_meta("lado_basico", 1.0 if der else -1.0)
+		if der:
+			base = "basico_der"
 	# Las que van A SU RITMO digan lo que digan los golpes (_GESTO_A_SU_RITMO).
 	if base in _GESTO_A_SU_RITMO:
 		dur = -1.0
@@ -3794,6 +3803,12 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	cuerpo.set_meta("gesto_pelea", true)
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
 		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+
+
+func _tiene_anim_bicho(cuerpo: Node2D, base: String) -> bool:
+	var sp = cuerpo.get("_sprite")
+	return sp is AnimatedSprite2D and (sp as AnimatedSprite2D).sprite_frames != null \
+		and (sp as AnimatedSprite2D).sprite_frames.has_animation(StringName("%s_0" % base))
 
 
 # Pone la animacion 'base' hacia donde mira, ajustada a 'dur' (<= 0: a su ritmo). Devuelve lo que dura a su
