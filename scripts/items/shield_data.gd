@@ -62,6 +62,11 @@ const ANCHO_ESCUDAZO := [14.0, 20.0, 28.0]
 # 0.6 / 1.0 / 1.6 -> aggro efectivo 1.2 / 2.0 / 3.2. Sin esto el pequeño era "el grande peor":
 # se comia los mismos golpes y paraba menos. Ahora la rodela te deja escurrirte.
 @export var aggro_mult: float = 1.0
+# CUANTA AMENAZA GENERAS con el (30/09, decision del usuario): lo que pegas y curas se multiplica por esto en la tabla
+# de amenaza de cada enemigo (CombatObjetivos.generacion_amenaza). 2,5 / 3,25 / 4 del pequeño al grande: el tanque
+# actua menos y pega menos, y con un x2 los DPS le quitaban la amenaza en dos turnos. Distinto de aggro_mult, que es
+# lo que atraes SIN HACER NADA.
+@export var amenaza_mult: float = 2.5
 # RIPOSTE AL BLOQUEAR: probabilidad de devolver el golpe que paras, y con que fraccion del daño.
 # Por PROBABILIDAD a proposito: contraatacar en CADA bloqueo es roto. Solo salta con la guardia
 # arriba (igual que la autorregeneracion), asi que hay que gastar el turno en Defender o traerlo

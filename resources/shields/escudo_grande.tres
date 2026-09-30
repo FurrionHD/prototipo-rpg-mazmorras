@@ -17,6 +17,8 @@ resist_estados_base = 0.18
 velocidad_mult = 0.82
 evasion_penal = 0.08
 aggro_mult = 1.6
+; LA AMENAZA QUE GENERAS con el (30/09): ver ShieldData.amenaza_mult.
+amenaza_mult = 4.0
 contra_prob = 0.0
 contra_mult = 0.0
 habilidades = [ExtResource("2"), ExtResource("n0_guardi"), ExtResource("n2_embest"), ExtResource("3"), ExtResource("n3_muro")]

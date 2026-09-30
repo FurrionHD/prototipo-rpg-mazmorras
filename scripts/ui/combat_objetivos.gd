@@ -246,12 +246,12 @@ func habilidad_para_interrumpir(e: Combatant, obj: Combatant) -> AbilityData:
 	return habilidad_que_interrumpe(e)
 
 
-# CUANTA AMENAZA GENERA 'quien' por cada punto: el doble con escudo (aggro_base: el tanque tiene que PEGAR para
-# sujetarlos) y la mitad en sigilo.
+# CUANTA AMENAZA GENERA 'quien' por cada punto: la de su escudo (Combatant.amenaza_gen: 2,5 / 3,25 / 4 del pequeño
+# al grande, decision del usuario: el tanque actua menos y pega menos) y la mitad en sigilo.
 func generacion_amenaza(quien: Combatant) -> float:
 	if quien == null:
 		return 1.0
-	return quien.aggro_base * (AMENAZA_SIGILO if quien.has_status(StatusEffects.Id.SIGILO) else 1.0)
+	return quien.amenaza_gen * (AMENAZA_SIGILO if quien.has_status(StatusEffects.Id.SIGILO) else 1.0)
 
 
 # CURAR TAMBIEN SE NOTA: la mitad de lo curado, repartida entre todos los enemigos vivos. El curandero no pasa

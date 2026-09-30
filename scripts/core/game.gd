@@ -8380,6 +8380,8 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# 3.2). La rodela te deja escurrirte y la torre se planta delante: es lo que separa al duelista
 	# del defensor definitivo. Ver ShieldData.aggro_mult.
 	c.aggro_base = Combatant.AGGRO_ESCUDO * float(m["aggro_mult"]) if float(m["defend_defense"]) > 0.0 else 1.0
+	# LA AMENAZA QUE GENERA (30/09): la del escudo que lleve (ShieldData.amenaza_mult), 1 sin escudo.
+	c.amenaza_gen = float(m["amenaza_mult"]) if float(m["defend_defense"]) > 0.0 else 1.0
 	# RIPOSTE AL BLOQUEAR: la rodela devuelve el golpe que para, por probabilidad y solo con la
 	# guardia arriba. Ver combat.gd (las DOS ramas del golpe enemigo: basico y habilidad).
 	c.escudo_contra_prob = float(m["contra_prob"])
@@ -8456,6 +8458,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# del escudo: sin escudo (dos manos, dual, mano libre) estas claves tienen que existir igual,
 		# o el que las lee revienta. 1.0 = aggro normal, 0.0 = no ripostas al bloquear.
 		"aggro_mult": 1.0,
+		"amenaza_mult": 1.0,   # sin escudo, la amenaza de lo que haces a secas
 		"contra_prob": 0.0,
 		"contra_mult": 0.0,
 		# EFICACIA del loadout: la mayor de las dos manos, NO la suma. Es una propiedad del golpe
@@ -8486,6 +8489,7 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 		# Lo que hace que este escudo no sea otro con otros numeros: cuanto atrae los golpes y si
 		# devuelve los que para. Se ASIGNAN (no se acumulan): solo cabe un escudo en la off.
 		m["aggro_mult"] = float(sh_m["aggro_mult"])
+		m["amenaza_mult"] = float(sh_m["amenaza_mult"])
 		m["contra_prob"] = float(sh_m["contra_prob"])
 		m["contra_mult"] = float(sh_m["contra_mult"])
 	elif p.equipped_off is WeaponData:

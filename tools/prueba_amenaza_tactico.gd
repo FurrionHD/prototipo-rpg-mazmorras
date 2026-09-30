@@ -84,6 +84,7 @@ func _correr() -> void:
 		a.max_hp = 99999.0
 		a.current_hp = 99999.0
 		a.aggro_base = 1.0          # sin escudo: numeros limpios
+		a.amenaza_gen = 1.0
 		a.quitar_estado(StatusEffects.Id.SIGILO)
 	var e: Combatant = combat._enemies[0]
 	print("--- amenaza (paso A) ---")
@@ -105,10 +106,15 @@ func _probar_tabla(combat, t, e: Combatant, al: Array) -> void:
 	combat._apuntar_dano(e, 10.0, al[0])
 	_ver(is_equal_approx(float(e.amenaza.get(al[0], 0.0)), 10.0), "pegarle 10 da 10 de amenaza con el (%.1f)" % float(e.amenaza.get(al[0], 0.0)))
 	_ver(combat._enemies[1].amenaza.get(al[0], 0.0) == 0.0, "y con el otro enemigo, nada")
-	al[0].aggro_base = 2.0
+	var grande: ShieldData = load("res://resources/shields/escudo_grande.tres")
+	al[0].amenaza_gen = grande.amenaza_mult
 	combat._apuntar_dano(e, 10.0, al[0])
-	_ver(is_equal_approx(float(e.amenaza[al[0]]), 30.0), "con escudo genera el doble (%.1f)" % float(e.amenaza[al[0]]))
-	al[0].aggro_base = 1.0
+	_ver(is_equal_approx(float(e.amenaza[al[0]]), 50.0), "con escudo grande genera x4 (%.1f)" % float(e.amenaza[al[0]]))
+	al[0].amenaza_gen = 1.0
+	var peq: ShieldData = load("res://resources/shields/escudo_pequeno.tres")
+	var med: ShieldData = load("res://resources/shields/escudo_normal.tres")
+	_ver(is_equal_approx(peq.amenaza_mult, 2.5) and is_equal_approx(med.amenaza_mult, 3.25) and is_equal_approx(grande.amenaza_mult, 4.0),
+		"pequeño x2,5, mediano x3,25, grande x4")
 	combat.objetivos.amenaza_por_cura(al[1], 20.0)
 	var n_e: int = combat._vivos().size()
 	_ver(is_equal_approx(float(e.amenaza.get(al[1], 0.0)), 10.0 / float(n_e)), "curar 20 reparte la mitad entre los %d enemigos (%.2f)" % [n_e, float(e.amenaza.get(al[1], 0.0))])

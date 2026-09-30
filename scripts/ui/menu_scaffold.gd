@@ -1078,6 +1078,9 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	filas.append(["Atrae golpes", "×%.1f%s" % [Combatant.AGGRO_ESCUDO * ag,
 		"" if is_equal_approx(ag, 1.0)
 		else ("  (menos que lo normal)" if ag < 1.0 else "  (más que lo normal)")]])
+	# Y LA AMENAZA QUE GENERA lo que haces con el (30/09): del pequeño al grande, cuanto sujetas a los enemigos.
+	if m.has("amenaza_mult") and float(m["amenaza_mult"]) != 1.0:
+		filas.append(["Genera amenaza", "×%.2f" % float(m["amenaza_mult"])])
 	# Solo si de verdad ripostea: el escudo grande no lo hace y una fila con "0%" no dice nada.
 	if float(m.get("contra_prob", 0.0)) > 0.0:
 		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [

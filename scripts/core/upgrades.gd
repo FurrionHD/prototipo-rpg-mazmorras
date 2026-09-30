@@ -774,6 +774,7 @@ static func shield_mods(sh: ShieldData, tmult: float, rareza: int, mejoras: Dict
 		# que los dos de arriba: son lo que ES el escudo, no lo bien hecho que esta. Un escudo
 		# pristino no atrae mas golpes ni ripostea mas a menudo -- pega mas fuerte y para mejor.
 		"aggro_mult": sh.aggro_mult,
+		"amenaza_mult": sh.amenaza_mult,
 		"contra_prob": sh.contra_prob,
 		"contra_mult": sh.contra_mult,
 		"resist_estados": (sh.resist_estados_base + dim_sum(RESISTENCIA_STEP, _count(mejoras, RESISTENCIA))) * rmult,
