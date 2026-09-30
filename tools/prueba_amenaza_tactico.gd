@@ -4,7 +4,7 @@
 # los que le llegan ESTE turno, salvo que le provoquen o le saquen mucha amenaza. Acaba con BIEN/MAL.
 extends Node
 
-const ENEMIGOS := ["jabali", "rata"]
+const ENEMIGOS := ["jabali", "rata", "rey_rata", "arana", "segadora", "chillon", "slime_fuego"]
 var _mal: int = 0
 
 
@@ -53,7 +53,7 @@ func _correr() -> void:
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	for i in ENEMIGOS.size():
 		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % ENEMIGOS[i],
-			jug.global_position + Vector2(-200 + 200 * i, 60), {})
+			jug.global_position + Vector2(-300 + 110 * i, 60 + 70 * (i % 2)), {})
 	await _esperar(25)
 	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
 		print("MAL: no se abre la pelea")
@@ -89,6 +89,8 @@ func _correr() -> void:
 	print("--- amenaza (paso A) ---")
 	await _probar_tabla(combat, t, e, al)
 	await _probar_presa(combat, t, e, al)
+	print("--- pasivas (paso B) ---")
+	await _probar_pasivas(combat, t, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
 
@@ -104,7 +106,8 @@ func _probar_tabla(combat, t, e: Combatant, al: Array) -> void:
 	_ver(is_equal_approx(float(e.amenaza[al[0]]), 30.0), "con escudo genera el doble (%.1f)" % float(e.amenaza[al[0]]))
 	al[0].aggro_base = 1.0
 	combat.objetivos.amenaza_por_cura(al[1], 20.0)
-	_ver(is_equal_approx(float(e.amenaza.get(al[1], 0.0)), 5.0), "curar 20 reparte la mitad entre los 2 enemigos (%.1f)" % float(e.amenaza.get(al[1], 0.0)))
+	var n_e: int = combat._vivos().size()
+	_ver(is_equal_approx(float(e.amenaza.get(al[1], 0.0)), 10.0 / float(n_e)), "curar 20 reparte la mitad entre los %d enemigos (%.2f)" % [n_e, float(e.amenaza.get(al[1], 0.0))])
 	combat.objetivos.provocar_amenaza(al[1], [e])
 	_ver(e.primero_en_amenaza() == al[1], "la Provocacion le pone el primero de su tabla")
 	var v: float = float(e.amenaza[al[1]])
@@ -132,6 +135,99 @@ func _probar_presa(combat, t, e: Combatant, al: Array) -> void:
 	_ver(t._presa_de(e) == al[0], "y si le provoca, tambien")
 	al[0].provocar_turnos = 0
 	al[0].provocados = []
+
+
+func _de(combat, t, clave: String) -> Combatant:
+	for x in combat._enemies:
+		var ed = t.cuerpo_de(x).get("data") if t.cuerpo_de(x) != null else null
+		if ed != null and String(ed.resource_path).get_file().get_basename() == clave:
+			return x
+	return null
+
+
+func _al_lado(t, x: Combatant) -> Vector2:
+	return t.pies_de(x) + Vector2(t.radio_pisa(x) + 10.0, 0.0)
+
+
+func _probar_pasivas(combat, t, al: Array) -> void:
+	for x in combat._enemies:
+		x.amenaza = {}
+	# REY DE LA CAMADA
+	var rey: Combatant = _de(combat, t, "rey_rata")
+	var rata: Combatant = _de(combat, t, "rata")
+	_ver(rey != null and rata != null, "hay rey rata y rata")
+	if rey != null and rata != null:
+		_ver(is_equal_approx(combat._mult_pasivas(rata, al[0]), 1.05), "con el rey vivo la rata pega un 5%% mas (%.2f)" % combat._mult_pasivas(rata, al[0]))
+		_ver(is_equal_approx(combat._mult_pasivas(rey, al[0]), 1.0), "el rey no se da el empujon a si mismo")
+		_colocar(t, al, [t.pies_de(rata) + Vector2(20, 0), t.pies_de(rata) + Vector2(-300, 100)])
+		await _esperar(2)
+		var txt: String = ""
+		for _k in 20:
+			combat._camada_hecha = false
+			txt = combat._camada_salta(rey, al[0])
+			if txt.find("falla") < 0:
+				break
+		_ver(txt != "", "cuando el rey pega, la rata de al lado salta detras (%s)" % txt)
+		combat._camada_hecha = false
+		_ver(combat._camada_salta(rey, al[1]) == "", "y a una victima lejos de las ratas no salta ninguna")
+		_ver(combat._camada_salta(rey, al[0]) == "", "una sola vez por accion")
+	# EMBOSCADA
+	var ara: Combatant = _de(combat, t, "arana")
+	if ara != null:
+		al[0].apply_status(StatusEffects.Id.PEGAJOSO, 2)
+		_ver(is_equal_approx(combat._mult_pasivas(ara, al[0]), 1.5), "la araña pega un 50%% mas al pegajoso (%.2f)" % combat._mult_pasivas(ara, al[0]))
+		_ver(combat.objetivos._peso_aggro(al[0], ara) > combat.objetivos._peso_aggro(al[1], ara), "y va a por el")
+		al[0].quitar_estado(StatusEffects.Id.PEGAJOSO)
+	# FILO DE REFLEJO
+	var seg: Combatant = _de(combat, t, "segadora")
+	if seg != null:
+		var p0: float = seg.reflejo_prob
+		seg.reflejo_prob = 1.0
+		_colocar(t, al, [_al_lado(t, seg), t.pies_de(seg) + Vector2(-300, 100)])
+		await _esperar(2)
+		var tocado: bool = false
+		for _k in 20:
+			var hp0: float = al[0].current_hp
+			combat._reflejo(seg, al[0])
+			if al[0].current_hp < hp0:
+				tocado = true
+				break
+		_ver(tocado, "la segadora devuelve el golpe al que le pega de cerca")
+		var hp1: float = al[1].current_hp
+		combat._reflejo(seg, al[1])
+		_ver(is_equal_approx(al[1].current_hp, hp1), "y al que le pega de lejos no")
+		seg.reflejo_prob = p0
+		seg.amenaza = {al[0]: 100.0, al[1]: 10.0}
+		var con: float = combat.objetivos._peso_aggro(al[0], seg)
+		seg.evita_tanque = false
+		var sin: float = combat.objetivos._peso_aggro(al[0], seg)
+		seg.evita_tanque = true
+		_ver(con < sin, "y evita al primero de su tabla (%.2f contra %.2f)" % [con, sin])
+		seg.amenaza = {}
+	# ECOLOCALIZACION
+	var chi: Combatant = _de(combat, t, "chillon")
+	var jab: Combatant = _de(combat, t, "jabali")
+	if chi != null and jab != null:
+		al[0].apply_status(StatusEffects.Id.SIGILO, 2)
+		var w_chi: float = combat.objetivos._peso_aggro(al[0], chi)
+		var w_jab: float = combat.objetivos._peso_aggro(al[0], jab)
+		_ver(w_chi > w_jab, "el chillon va a por el sigiloso (%.2f) y el jabali no (%.2f)" % [w_chi, w_jab])
+		al[0].quitar_estado(StatusEffects.Id.SIGILO)
+		chi.apply_status(StatusEffects.Id.CEGUERA, 2)
+		_ver(not chi.has_status(StatusEffects.Id.CEGUERA), "al chillon no se le puede cegar")
+	# CUERPO ARDIENTE
+	var sf: Combatant = _de(combat, t, "slime_fuego")
+	if sf != null:
+		var pr: float = sf.al_ser_golpeado_prob
+		sf.al_ser_golpeado_prob = 1.0
+		_colocar(t, al, [_al_lado(t, sf), t.pies_de(sf) + Vector2(-300, 100)])
+		await _esperar(2)
+		for _k in 20:
+			combat._pasiva_al_golpearle(sf, al[0])
+			if al[0].has_status(StatusEffects.Id.QUEMADURA):
+				break
+		_ver(al[0].has_status(StatusEffects.Id.QUEMADURA), "pegarle de cerca al slime de fuego te puede quemar")
+		sf.al_ser_golpeado_prob = pr
 
 
 func _colocar(t, al: Array, sitios: Array) -> void:

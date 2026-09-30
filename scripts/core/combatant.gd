@@ -226,6 +226,15 @@ var regen_turno: float = 0.0
 var regen_corta_elem: int = 0
 var regen_corta_turnos: int = 2
 var regen_cortada: int = 0
+# Las del repaso de pasivas (30/09): ver EnemyData.
+var camada_mult: float = 1.0
+var camada_salto: float = 0.0
+var camada_radio: float = 80.0
+var emboscada_mult: float = 1.0
+var reflejo_prob: float = 0.0
+var ecolocaliza: bool = false
+var evita_tanque: bool = false
+var al_ser_golpeado_texto: String = ""
 
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
 # (Combatant -> float). La sube el daño que le hacen (Pantalla._apuntar_dano), las curas (a todos, la mitad y

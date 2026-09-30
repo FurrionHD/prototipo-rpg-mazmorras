@@ -278,6 +278,24 @@ func drop_factor_piso(piso: int) -> float:
 @export var regen_turno: float = 0.0
 @export var regen_corta_elem: int = 0
 @export var regen_corta_turnos: int = 2
+# --- LAS PASIVAS DEL REPASO (30/09, decididas con el; ver la memoria pasivas-de-enemigos) ---
+# REY DE LA CAMADA (rey rata): mientras vive, las de su familia pegan por 'camada_mult'; y cuando EL pega, las que
+# esten a 'camada_radio' de su victima (en el mapa) saltan a morderla detras de el (el Oportunista de la daga, en
+# rata), cada una a 'camada_salto' de su golpe y hasta Pantalla.CAMADA_MAX. Ver Pantalla._camada_salta.
+@export var camada_mult: float = 1.0
+@export var camada_salto: float = 0.0
+@export var camada_radio: float = 80.0
+# EMBOSCADA (araña): a quien este PEGAJOSO (su telaraña) le pega por esto, y en su reparto pesa mas.
+@export var emboscada_mult: float = 1.0
+# FILO DE REFLEJO (segadora): probabilidad de devolverle el golpe a quien le pegue CUERPO A CUERPO.
+@export var reflejo_prob: float = 0.0
+# ECOLOCALIZACION (chillon): el sigilo no le engaña -- al reves, VA a por el que lo lleva (CombatObjetivos.ECO_SIGILO).
+# La ceguera se la quita 'inmune_estados'.
+@export var ecolocaliza: bool = false
+# LA QUE EVITA AL TANQUE (segadora): en su reparto, el primero de su tabla de amenaza pesa menos (va a por los blandos).
+@export var evita_tanque: bool = false
+# Lo que se dice en el log cuando salta 'al_ser_golpeado' ("" = lo de siempre segun su dibujo).
+@export var al_ser_golpeado_texto: String = ""
 
 # --- SISTEMA ELEMENTAL (KAN-58) ---
 # elemento = afinidad propia (Elementos.Elemento): define su perfil de resist/debilidad por
@@ -578,6 +596,14 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.caparazon_frente = caparazon_frente
 	c.volteo_mult = volteo_mult
 	c.olor_sangre_mult = olor_sangre_mult
+	c.camada_mult = camada_mult
+	c.camada_salto = camada_salto
+	c.camada_radio = camada_radio
+	c.emboscada_mult = emboscada_mult
+	c.reflejo_prob = reflejo_prob
+	c.ecolocaliza = ecolocaliza
+	c.evita_tanque = evita_tanque
+	c.al_ser_golpeado_texto = al_ser_golpeado_texto
 	c.regen_turno = regen_turno
 	c.regen_corta_elem = regen_corta_elem
 	c.regen_corta_turnos = regen_corta_turnos

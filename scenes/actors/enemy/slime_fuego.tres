@@ -14,6 +14,11 @@ script = ExtResource("2_sa")
 estado = 9
 prob = 0.5
 
+[sub_resource type="Resource" id="SA_arde"]
+script = ExtResource("2_sa")
+estado = 2
+prob = 1.0
+
 [sub_resource type="Resource" id="SA_quema"]
 script = ExtResource("2_sa")
 estado = 2
@@ -45,3 +50,7 @@ prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): slime mediano.
 alcance = 20.0
+; CUERPO ARDIENTE (30/09, repaso de pasivas): 30% de quemar a quien le pegue cuerpo a cuerpo (Pantalla._pasiva_al_golpearle).
+al_ser_golpeado = [SubResource("SA_arde")]
+al_ser_golpeado_prob = 0.3
+al_ser_golpeado_texto = "sus llamas"

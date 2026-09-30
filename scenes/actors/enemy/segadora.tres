@@ -52,3 +52,7 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 35.0
 ; EL BASICO EN EL MAPA (29/09): despliega el brazo derecho de golpe y la hoja de hueso cruza a la victima (INSECTO_TAJO).
 fx_basico_mapa = 153
+; FILO DE REFLEJO (30/09, repaso de pasivas): 25% de devolverle el golpe a quien le pegue cuerpo a cuerpo; y en su
+; reparto evita al primero de su tabla de amenaza (va a por los blandos).
+reflejo_prob = 0.25
+evita_tanque = true

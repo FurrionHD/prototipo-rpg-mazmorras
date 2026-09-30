@@ -32,6 +32,11 @@ const AMENAZA_PROVOCA := 1.1     # la Provocacion te pone un 10% por encima del 
 # uno que no le llega si le provoca o si pesa esto veces el mejor de los que si (lo pidio el: "si va a tardar dos
 # turnos en llegar al que mas aggro le genera, no debe ir a por el si en este turno puede pegar a uno").
 const PERSEGUIR_X := 2.5
+# LAS PASIVAS EN EL REPARTO (30/09): el chillon va a por el que va en sigilo (y sin la rebaja del sigilo), la araña
+# a por el que esta en su red, y la segadora evita al primero de su tabla (va a por los blandos).
+const ECO_SIGILO := 3.0
+const EMBOSCADA_PESO := 2.0
+const EVITA_TANQUE := 0.35
 
 
 # A QUIEN pega el enemigo: uno de los tuyos que siga en pie, sorteado por PESO. Dos capas, y ninguna
@@ -183,6 +188,12 @@ func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
 	if total > 0.0:
 		var cuota: float = float(atacante.amenaza.get(c, 0.0)) / total
 		w *= 1.0 + AMENAZA_PESO * cuota * float(_pantalla._aliados_vivos().size())
+	if atacante.ecolocaliza and c.has_status(StatusEffects.Id.SIGILO):
+		w = w / maxf(c.status_aggro_mult(), 0.01) * ECO_SIGILO
+	if atacante.emboscada_mult != 1.0 and c.has_status(StatusEffects.Id.PEGAJOSO):
+		w *= EMBOSCADA_PESO
+	if atacante.evita_tanque and _pantalla._aliados_vivos().size() > 1 and atacante.primero_en_amenaza() == c:
+		w *= EVITA_TANQUE
 	return w
 
 

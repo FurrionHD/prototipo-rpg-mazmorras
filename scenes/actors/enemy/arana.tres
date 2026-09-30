@@ -54,3 +54,5 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 20.0
 ; EL BASICO EN EL MAPA (29/09): los queliceros (InsectoAire.QUELICEROS).
 fx_basico_mapa = 144
+; EMBOSCADA (30/09, repaso de pasivas): a quien este pegajoso (en su telaraña) le pega un 50% mas y va a por el.
+emboscada_mult = 1.5

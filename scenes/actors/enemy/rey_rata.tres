@@ -53,3 +53,8 @@ prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): mas grande que la rata.
 alcance = 20.0
+; REY DE LA CAMADA (30/09, repaso de pasivas): mientras vive, sus ratas pegan un 5% mas; y cuando EL pega, las que esten
+; a 80 px de su victima saltan a morderla detras de el a la mitad de su golpe (hasta 3). Ver Pantalla._camada_salta.
+camada_mult = 1.05
+camada_salto = 0.5
+camada_radio = 80.0

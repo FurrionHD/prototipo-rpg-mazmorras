@@ -40,6 +40,7 @@ func _no_llega(e: Combatant, ab: AbilityData = null) -> void:
 func _abrir_turno_enemigo() -> void:
 	for c in _pantalla._aliados:
 		c.imbue_def_gastada = false
+	_pantalla._camada_hecha = false   # la camada salta una vez por accion del rey
 
 
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
@@ -276,6 +277,10 @@ func _enemy_turn(e: Combatant) -> void:
 	# si solo se toca una, el escudo ripostea contra los ataques a secas y no contra las tecnicas.
 	var contra_bloq: String = _riposte_bloqueo(e, obj, defendiendo)
 	_pantalla._set_log(msg)
+	# REY DE LA CAMADA: sus ratas saltan detras de el.
+	var camada: String = _pantalla._camada_salta(e, obj)
+	if camada != "":
+		_pantalla._set_log(camada)
 	# Como ENTRADA APARTE del log, no pegado con un \n al golpe del bicho: cada linea del log es una
 	# entrada, y metiendo dos en una se cuentan como una sola para el tope y para el anti-repetido.
 	if contra_bloq != "":
@@ -819,6 +824,11 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	# haber matado al enemigo a mitad de su propia habilidad: un muerto no te envenena).
 	if aplicar_efectos and not ab.efectos_por_golpe and conecto > 0 and t.is_alive() and e.is_alive():
 		estados += _enemy_tirar_efectos(e, ab, t, escala, "objetivo", escala_prob)
+	# REY DE LA CAMADA: tras su habilidad, sus ratas saltan detras de el (una vez por accion).
+	if conecto > 0 and e.camada_salto > 0.0 and t.is_alive():
+		var camada: String = _pantalla._camada_salta(e, t)
+		if camada != "":
+			_pantalla._set_log(camada)
 	# Excelia: encajar el golpe entrena la Resistencia de QUIEN lo encaja, modulada por el daño.
 	# Mismo trato que el ataque BASICO (ver _enemy_turn): que el enemigo use una habilidad en vez de
 	# pegar de frente no puede cambiar lo que aprendes de comertelo. Antes esta rama solo pagaba la

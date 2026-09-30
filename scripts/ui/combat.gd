@@ -432,6 +432,7 @@ var _ultimo_en_golpear: Dictionary = {}   # Combatant -> PersonajeData
 const HUECO_CUERPO_A_CUERPO := 30.0
 
 func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
+	_reflejo(obj, quien)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
 		return
@@ -444,8 +445,84 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
 	var puestos: Array = enemigos._enemy_tirar_efectos(obj, ab, quien, 1.0, "objetivo")
 	if obj.al_ser_golpeado_fx >= 0:
 		efectos._fx_golpe(obj, quien, 0.0, false, false, Elementos.Elemento.NINGUNO, obj.al_ser_golpeado_fx, 1.0, true)
-	_log_extra("%s suelta %s sobre %s%s" % [_etq(obj), "polvo" if obj.al_ser_golpeado_fx == CombatFX.Estilo.SIMA_POLVO
-		else "una bocanada", quien.nombre, (": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+	var que: String = obj.al_ser_golpeado_texto if obj.al_ser_golpeado_texto != "" \
+		else ("polvo" if obj.al_ser_golpeado_fx == CombatFX.Estilo.SIMA_POLVO else "una bocanada")
+	_log_extra("%s suelta %s sobre %s%s" % [_etq(obj), que, quien.nombre,
+		(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
+# FILO DE REFLEJO (la segadora, 30/09, EnemyData.reflejo_prob): al que le pega CUERPO A CUERPO se lo devuelve con un
+# tajo de los suyos, a veces. Va en SU propia tanda, detras del golpe que lo provoca. Si le tumba, lo remata el cierre
+# de la accion (_tras_accion_jugador_varios).
+func _reflejo(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or obj.reflejo_prob <= 0.0 or not _enemies.has(obj) or not obj.is_alive() \
+			or not quien.is_alive() or not obj.puede_atacar():
+		return
+	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return
+	if randf() >= obj.reflejo_prob:
+		return
+	var estilo: int = efectos._estilo_de_habilidad(null, obj)
+	var r := StatsMath.resolve_attack(obj, quien, false)
+	_aplicar_pasivas(r, obj, quien)
+	if _fx != null:
+		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+	if r.evaded:
+		efectos._fx_golpe(obj, quien, 0.0, false, true, obj.elemento_ataque, estilo)
+		_log_extra("%s devuelve el golpe, pero %s lo esquiva. 💨" % [_etq(obj), quien.nombre])
+		return
+	var dmg: float = float(r.damage) * obj.dummy_dmg_out_mult
+	quien.take_damage(dmg)
+	efectos._fx_golpe(obj, quien, dmg, r.crit, false, obj.elemento_ataque, estilo)
+	_update_hp()
+	_log_extra("%s le devuelve el golpe a %s: %.2f%s" % [_etq(obj), quien.nombre, dmg, " 💥" if r.crit else ""])
+
+
+# REY DE LA CAMADA (el rey rata, 30/09, EnemyData.camada_salto): cuando EL le pega a 'victima', las ratas de su familia
+# que esten cerca de ella (en el mapa, a camada_radio; en la fila, todas) saltan a morderla detras de el -- el
+# Oportunista de la daga, en rata --, cada una a camada_salto de su golpe y hasta CAMADA_MAX: que tres ratas no te
+# revienten. Una vez por accion suya. Devuelve lo que pasa, para el log.
+const CAMADA_MAX := 3
+var _camada_hecha: bool = false
+
+func _camada_salta(rey: Combatant, victima: Combatant) -> String:
+	if _camada_hecha or rey == null or victima == null or rey.camada_salto <= 0.0 or not victima.is_alive():
+		return ""
+	_camada_hecha = true
+	var ratas: Array = []
+	for e in _enemies:
+		if e == rey or not e.is_alive() or e.familia != rey.familia or e.camada_mult != 1.0 or not e.puede_atacar():
+			continue
+		if tactico and turno_mapa.pies_de(e).distance_to(turno_mapa.pies_de(victima)) > rey.camada_radio:
+			continue
+		ratas.append(e)
+	if tactico:
+		var pv: Vector2 = turno_mapa.pies_de(victima)
+		ratas.sort_custom(func(a, b): return turno_mapa.pies_de(a).distance_squared_to(pv) \
+			< turno_mapa.pies_de(b).distance_squared_to(pv))
+	var partes: Array = []
+	for rata in ratas.slice(0, CAMADA_MAX):
+		if not victima.is_alive():
+			break
+		if tactico:
+			turno_mapa.pedir_salto(rata, victima, rey)
+		var estilo: int = efectos._estilo_de_habilidad(null, rata)
+		var r := StatsMath.resolve_attack(rata, victima, false)
+		_aplicar_pasivas(r, rata, victima)
+		if _fx != null:
+			efectos._fx_tanda(_fx.ultima_tanda() + 1)
+		if r.evaded:
+			efectos._fx_golpe(rata, victima, 0.0, false, true, rata.elemento_ataque, estilo)
+			partes.append("%s falla" % rata.nombre)
+			continue
+		var dmg: float = float(r.damage) * rey.camada_salto * rata.dummy_dmg_out_mult
+		victima.take_damage(dmg)
+		efectos._fx_golpe(rata, victima, dmg, r.crit, false, rata.elemento_ataque, estilo)
+		partes.append("%s %.2f" % [rata.nombre, dmg])
+	_update_hp()
+	if partes.is_empty():
+		return ""
+	return "🐀 La camada salta detrás de su rey: %s." % ", ".join(partes)
 
 
 # LAS PASIVAS DE LAS BESTIAS QUE TOCAN EL DAÑO DE UN GOLPE (30/09): lo que multiplica el golpe de ARMA de 'atacante' a
@@ -461,7 +538,22 @@ func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
 		m *= defensor.caparazon_frente
 	if atacante.olor_sangre_mult != 1.0 and defensor.has_status(StatusEffects.Id.SANGRADO):
 		m *= atacante.olor_sangre_mult
+	# EMBOSCADA (la araña): a quien esta pegado en su telaraña.
+	if atacante.emboscada_mult != 1.0 and defensor.has_status(StatusEffects.Id.PEGAJOSO):
+		m *= atacante.emboscada_mult
+	# REY DE LA CAMADA: las de su familia pegan mas mientras el viva.
+	m *= _mult_camada(atacante)
 	return m
+
+
+# El empujon del Rey de la camada a 'atacante' (1 si no es de ninguna camada con rey vivo).
+func _mult_camada(atacante: Combatant) -> float:
+	if atacante == null or not _enemies.has(atacante) or atacante.camada_mult != 1.0:
+		return 1.0
+	for e in _enemies:
+		if e != atacante and e.is_alive() and e.camada_mult != 1.0 and e.familia == atacante.familia:
+			return e.camada_mult
+	return 1.0
 
 
 # Aplica _mult_pasivas a un resultado de StatsMath.resolve_attack y lo cuenta en el log si cambia algo.
@@ -478,6 +570,8 @@ func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combata
 		_log_extra("el caparazón de %s para el golpe de frente" % _etq(defensor))
 	elif atacante.olor_sangre_mult != 1.0:
 		_log_extra("%s huele la sangre de %s" % [_etq(atacante), defensor.nombre])
+	elif atacante.emboscada_mult != 1.0:
+		_log_extra("%s caza a %s en su telaraña" % [_etq(atacante), defensor.nombre])
 
 
 func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
@@ -2204,19 +2298,25 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 			_morir_enemigo(o)
 	if _vivos().is_empty():
 		_end(true)
+		return
+	# EL QUE ACTUABA PUEDE HABER CAIDO en su propia accion (el Filo de reflejo de la segadora, 30/09).
+	if _player != null and not _player.is_alive():
+		altas._caer_aliado(_player)
+		if altas.derrota():
+			_end(false)
+			return
+	# El turno TUYO tambien dura lo que dure su animacion. Antes volvia a ADVANCING en el acto,
+	# y con la embestida puesta eso significaba que un combo de ocho golpes se quedaba a medias
+	# porque el bicho de al lado ya tenia la barra llena y le montaba su turno encima.
+	# Se reutiliza PAUSED (que es lo que congela el ATB); si no hubo golpes, todo sigue igual
+	# que siempre y no se añade ni un frame de espera.
+	var dur: float = _fx.arrancar_cola() if _fx != null else 0.0
+	espejo._soltar_impactos_red()
+	if dur > 0.0:
+		_pause_left = dur
+		_state = State.PAUSED
 	else:
-		# El turno TUYO tambien dura lo que dure su animacion. Antes volvia a ADVANCING en el acto,
-		# y con la embestida puesta eso significaba que un combo de ocho golpes se quedaba a medias
-		# porque el bicho de al lado ya tenia la barra llena y le montaba su turno encima.
-		# Se reutiliza PAUSED (que es lo que congela el ATB); si no hubo golpes, todo sigue igual
-		# que siempre y no se añade ni un frame de espera.
-		var dur: float = _fx.arrancar_cola() if _fx != null else 0.0
-		espejo._soltar_impactos_red()
-		if dur > 0.0:
-			_pause_left = dur
-			_state = State.PAUSED
-		else:
-			_state = State.ADVANCING
+		_state = State.ADVANCING
 
 
 func _end(player_won: bool, fled: bool = false) -> void:

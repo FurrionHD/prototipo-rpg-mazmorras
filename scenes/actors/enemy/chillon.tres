@@ -52,3 +52,6 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 15.0
 ; EL BASICO EN EL MAPA (30/09): se lanza ('embestida') y en ti, los dos paletos (SIMA_PALETOS).
 fx_basico_mapa = 162
+; ECOLOCALIZACION (30/09, repaso de pasivas): no le ciegan (33 = Ceguera) y va a por el que va en sigilo.
+inmune_estados = [33]
+ecolocaliza = true
