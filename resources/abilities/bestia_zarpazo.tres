@@ -25,3 +25,5 @@ forma = 2
 forma_apunte = 1
 forma_radio = 30.0
 forma_apertura = 90.0
+; EFECTO EN EL MAPA (30/09): la garra, tres arañazos de hueso, cada golpe por un lado (FIERA_ZARPA).
+fx_estilo_mapa = 167

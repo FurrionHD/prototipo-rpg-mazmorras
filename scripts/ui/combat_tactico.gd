@@ -1142,7 +1142,7 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 func pisoton_de(ab: AbilityData, f) -> RefCounted:
 	if ab == null or f == null or ab.pisoton_final <= 0.0 or f.tipo != CombatFormas.Tipo.LINEA:
 		return null
-	return CombatFormas.circulo(f.origen + f.dir * f.largo, ab.pisoton_final)
+	return FieraAire.circulo_pisoton(f, ab.pisoton_final)
 
 
 func _clave_pisoton(c: Combatant) -> String:
@@ -3079,6 +3079,11 @@ func _on_impacto(ev: Dictionary) -> void:
 				_nacer_cria(va)
 				return
 	var estilo: int = int(ev.get("estilo", 0))
+	# EL CAPARAZON DE LA ACORAZADA (30/09): el golpe de ARMA de los tuyos que le entra de frente se para en sus placas
+	# (Pantalla._mult_pasivas le quita la mitad): se ve el destello. En todas las maquinas con la misma regla. La magia no
+	# la para: se reconoce por el elemento (sin elemento, o el de la imbuicion de quien pega, es el arma).
+	if _pantalla.tactico:
+		_placa_si_para(ev)
 	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado. Y el de las forcipulas
 	# del ciempies (el de la Oleada va en sus propias patitas: InsectoAire._patitas).
 	if _pantalla.tactico and estilo in [CombatFX.Estilo.INSECTO_PONZONA, CombatFX.Estilo.INSECTO_FORCIPULAS]:
@@ -3291,6 +3296,25 @@ const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, Combat
 	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS, CombatFX.Estilo.SIMA_ALA: SimaAire.Modo.ALA,
 	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
 
+func _placa_si_para(ev: Dictionary) -> void:
+	var vc: Combatant = _de_bloque(ev["bv"])
+	var ac: Combatant = _de_bloque(ev["ba"])
+	if vc == null or ac == null or vc.caparazon_frente >= 1.0 or vc.aturdido() or bool(ev.get("solo_dibujo", false)) 			or float(ev.get("dmg", 0.0)) <= 0.0 or not _pantalla._enemies.has(vc) or _pantalla._enemies.has(ac):
+		return
+	var elem: int = int(ev.get("elem", Elementos.Elemento.NINGUNO))
+	if elem != Elementos.Elemento.NINGUNO and elem != ac.imbue_elemento:
+		return
+	var arena: ArenaCombate = _arena()
+	if arena == null or cuerpo_de(vc) == null or cuerpo_de(ac) == null or not cubre_de_frente(vc, ac):
+		return
+	FieraAire.sobre_cuerpo(arena, FieraAire.Modo.PLACA, bulto_de(ac).get_center(), bulto_de(vc),
+		(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+		_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0, -1.0, vc.color_visual)
+
+
+const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
+	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA}
+
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null or not _pantalla.tactico:
@@ -3358,6 +3382,15 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 				_raices.erase(v)
 				if is_instance_valid(viejo):
 					(viejo as BestiaAire).secar()
+		return
+	# LAS BESTIAS DE LAS SIMAS (FieraAire, 30/09): de quien pega al que recibe, a la escala de quien pega y con el color de
+	# su ficha (las placas de la acorazada). El Zarpazo: el primer golpe por un lado y el segundo por el otro.
+	if estilo in _MODO_FIERA:
+		var desde_f: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		var lado_f: float = (-1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0) if estilo == CombatFX.Estilo.FIERA_ZARPA else 0.0
+		FieraAire.sobre_cuerpo(arena, int(_MODO_FIERA[estilo]), desde_f, bulto_de(v), semilla, vuelo, ritmo,
+			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0,
+			a.color_visual if a != null else FieraAire.PLACA_C, lado_f)
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.

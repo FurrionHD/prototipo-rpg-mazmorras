@@ -504,8 +504,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA:
 				_pantalla.turno_mapa.desde_quien_lanza(e, _pantalla.turno_mapa.ultima_forma_enemigo)
 			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+				# (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
 				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
-					SlimeAire.semilla_con_color(randi(), e.color_visual), ab.forma_nucleo)
+					SlimeAire.semilla_con_color(randi(), e.color_visual),
+					ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
 			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
 			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.turno_mapa.poner_charco(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)

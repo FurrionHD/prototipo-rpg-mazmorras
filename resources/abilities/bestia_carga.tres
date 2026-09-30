@@ -25,3 +25,7 @@ forma_ancho = 32.0
 carga = true
 atraviesa = true
 pisoton_final = 30.0
+; EFECTO EN EL MAPA (30/09): la banda raspada por su tripa con las pisadas y las lajas (FIERA_ARROLLA) y, al final, las
+; losas del pisoton; en cada uno que arrolla, el choque del jabali (BESTIA_CHOQUE).
+fx_estilo_mapa = 141
+suelo_roto = 83

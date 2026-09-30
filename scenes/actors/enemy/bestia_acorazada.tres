@@ -49,4 +49,6 @@ alcance = 20.0
 ; VOLTEO: aturdida se vuelca y le entra un 50% mas. Ver Pantalla._mult_pasivas.
 caparazon_frente = 0.5
 volteo_mult = 1.5
+; EL BASICO EN EL MAPA (30/09): el testarazo con la testuz blindada (FIERA_TESTARAZO).
+fx_basico_mapa = 166
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

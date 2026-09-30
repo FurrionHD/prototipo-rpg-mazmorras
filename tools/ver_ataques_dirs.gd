@@ -182,6 +182,7 @@ var _cam: Camera2D
 var _enemigos: Array = []    # donde estan los pies de cada figura roja
 var _huella: Node2D
 var _forma_huella = null
+var _forma_huella2 = null   # la segunda huella de la misma habilidad (el pisoton de la Carga acorazada)
 var _color_huella: Color = COLOR_HUELLA   # rojo en las de los enemigos
 var _rotulo: Label
 var _yo_fig: ColorRect = null
@@ -197,7 +198,9 @@ func _ready() -> void:
 	add_child(_huella)
 	_huella.draw.connect(func():
 		if _forma_huella != null:
-			CombatFormas.dibujar(_forma_huella, _huella, _color_huella))
+			CombatFormas.dibujar(_forma_huella, _huella, _color_huella)
+		if _forma_huella2 != null:
+			CombatFormas.dibujar(_forma_huella2, _huella, _color_huella))
 	var capa := CanvasLayer.new()
 	add_child(capa)
 	_rotulo = Label.new()
@@ -1257,7 +1260,7 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				var piezas: Array = []   # {n, t0}
 				var antes: int = get_child_count()
 				if ab.suelo_roto >= 0 and f != null:
-					SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
+					SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
 					for i in range(antes, get_child_count()):
 						piezas.append({"n": get_child(i), "t0": 0.0})
 				elif nom == "slime_ignicion":
@@ -1360,6 +1363,11 @@ const MOMENTOS_BESTIA := {
 	# El miconido: el latigo saliendo de la mano, llegando, enroscado y el atado; la nube saliendo y quedandose.
 	"miconido_micelio": [-0.15, -0.08, 0.0, 0.08, 0.2, 0.45, 0.8],
 	"miconido_esporas": [0.0, 0.1, 0.2, 0.35, 0.6, 1.0, 1.6],
+	# La acorazada (30/09): los dos zarpazos (0 y 0,22), la carga cruzando (llega en T_RODADA) y el pisoton, y el
+	# destello del caparazon.
+	"bestia_zarpazo": [-0.06, 0.0, 0.06, 0.16, 0.22, 0.28, 0.45],
+	"bestia_carga": [0.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.8, 1.3],
+	"caparazon": [-0.02, 0.0, 0.04, 0.1, 0.2, 0.32],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1376,6 +1384,9 @@ const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, Com
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
 	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS, CombatFX.Estilo.SIMA_ALA: SimaAire.Modo.ALA,
 	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
+# Y las BESTIAS DE LAS SIMAS (30/09, FieraAire).
+const ESTILO_A_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
+	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1410,11 +1421,18 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	var habs: Array = ["basico"]
 	for h in ed.habilidades:
 		habs.append((h as AbilityData).resource_path.get_file().get_basename())
+	# LA PASIVA DEL CAPARAZON (la acorazada, 30/09): uno de los tuyos le pega de frente y se ve el destello en sus placas.
+	if ed.caparazon_frente < 1.0:
+		habs.append("caparazon")
 	for nom in habs:
 		if pedidas != "" and not (String(nom) in pedidas.split(",")):
 			continue
 		var ab: AbilityData
-		if nom == "basico":
+		if nom == "caparazon":
+			ab = AbilityData.new()
+			ab.nombre = "Caparazon (pasiva)"
+			ab.fx_estilo_mapa = CombatFX.Estilo.FIERA_PLACA
+		elif nom == "basico":
 			ab = AbilityData.new()
 			ab.nombre = "Basico"
 			ab.forma = CombatFormas.Tipo.CIRCULO
@@ -1427,11 +1445,12 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
 		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_INSECTO.has(int(ab.fx_estilo_mapa)) \
-				and not ESTILO_A_SIMA.has(int(ab.fx_estilo_mapa)) and ab.suelo_roto < 0:
+				and not ESTILO_A_SIMA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_FIERA.has(int(ab.fx_estilo_mapa)) 				and ab.suelo_roto < 0:
 			continue   # aun sin efecto propio
 		var modo_b: int = ESTILO_A_BESTIA.get(int(ab.fx_estilo_mapa), -1)
 		var modo_i: int = ESTILO_A_INSECTO.get(int(ab.fx_estilo_mapa), -1)
 		var modo_s: int = ESTILO_A_SIMA.get(int(ab.fx_estilo_mapa), -1)
+		var modo_f: int = ESTILO_A_FIERA.get(int(ab.fx_estilo_mapa), -1)
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1467,6 +1486,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		# (Los grandes, como el trent, necesitan sitio: su presa esta a su alcance mas medio cuerpo.)
 		medida = maxf(32.0, alcance + rd.size.y * 0.4) if (nom == "basico" or sin_huella) \
 			else maxf(medida, 90.0 if medida > 60.0 else 55.0)
+		# El pisoton de la Carga acorazada cae DELANTE del final de la linea: que quepa.
+		if ab.pisoton_final > 0.0:
+			medida += ab.pisoton_final * 1.5
 		var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
 		_cam.zoom = Vector2(zoom, zoom)
 		var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
@@ -1494,9 +1516,12 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa_d, alcance, hacia, frente * 0.85)
 			_cam.global_position = yo + dvec * medida * (0.0 if int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.3)
 			_forma_huella = f if nom != "basico" and not sin_huella else null
+			# EL PISOTON del final de la Carga acorazada, pintado con la linea (como CombatTactico.pisoton_de).
+			_forma_huella2 = FieraAire.circulo_pisoton(f, ab.pisoton_final) 				if ab.pisoton_final > 0.0 and f.tipo == CombatFormas.Tipo.LINEA else null
 			_huella.queue_redraw()
 			await _viñeta(hoja, 0, fila, "%s · %s · %s · apuntando" % [ed.enemy_name, ab.nombre, dir_n])
 			_forma_huella = null
+			_forma_huella2 = null
 			_huella.queue_redraw()
 			var cajas: Array = []
 			var presas_extra: Array = []
@@ -1554,7 +1579,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				# Lo que vuela desde el (la Telaraña): lo lejos que esta, como en el juego (CombatTactico.desde_quien_lanza).
 				if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA and f.tipo == CombatFormas.Tipo.CIRCULO:
 					f.ancho = yo.distance_to(f.centro)
-				SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.forma_nucleo)
+				SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
 				for i in range(antes, get_child_count()):
 					piezas.append({"n": get_child(i), "t0": 0.0, "sim": false})
 			# EL TEMBLOR DEL CHILLIDO: en CADA uno de los alcanzados, cuando le pasa la onda (sobre su figura, que tiembla).
@@ -1634,7 +1659,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						ed.color_visual(0.5), semilla + i, 0.0, 1.0), "t0": 0.0, "sim": false})
 				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
-			if modo_b < 0 and modo_i < 0 and modo_s < 0:
+			if modo_b < 0 and modo_i < 0 and modo_s < 0 and modo_f < 0:
 				cajas = []
 			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b in [BestiaAire.Modo.DENTELLADA,
 				BestiaAire.Modo.CORNADA] else (0.12 if modo_b == BestiaAire.Modo.COLMILLO else 0.14))
@@ -1659,6 +1684,17 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					for fg in _figs + presas_extra:
 						if rg.has_point((fg as ColorRect).position + Vector2(7, 13)):
 							fig_g = fg
+				if modo_f == FieraAire.Modo.PLACA:
+					# El caparazon: el destello va SOBRE ELLA, desde la figura que le pega de frente.
+					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, rg.get_center(), bulto, semilla, 0.0, 1.0, -1.0,
+						ed.color_visual(0.5)), "t0": 0.0, "sim": false})
+					break
+				if modo_f >= 0:
+					# La acorazada: el testarazo, y la garra (el primer golpe por un lado y el segundo por el otro).
+					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, bulto.get_center(), rg, semilla + g,
+						0.1 if modo_f == FieraAire.Modo.ZARPA else 0.0, 1.0, bulto.size.x, ed.color_visual(0.5),
+						(-1.0 if g % 2 == 0 else 1.0) if modo_f == FieraAire.Modo.ZARPA else 0.0), "t0": t0, "sim": false})
+					continue
 				if modo_s >= 0:
 					# El porrazo del miconido, y su latigo (que sale de su mano y, si enraiza, se queda atado).
 					var vuelo_s: float = SimaAire.T_LATIGO_VA if modo_s == SimaAire.Modo.LATIGO else 0.0

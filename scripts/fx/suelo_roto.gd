@@ -42,7 +42,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	BESTIA_POLVO, BESTIA_CHILLIDO, BESTIA_ESTELA, BESTIA_SURCO, BESTIA_PISOTON, BESTIA_SAVIA, BESTIA_RAICES,
 	BESTIA_RAMAZO,
 	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA,
-	SIMA_ULTRA, SIMA_ANILLO }
+	SIMA_ULTRA, SIMA_ANILLO,
+	FIERA_ARROLLA }
+# FIERA_* (las bestias de las simas, 30/09): viven en FieraAire (su FieraAire.Suelo = tipo - FIERA_ARROLLA). Detras de todo;
+# la Carga acorazada lleva en el NUCLEO el radio de su pisoton (AbilityData.pisoton_final).
 # SIMA_* (las simas en el mapa, 30/09): viven en SimaAire (su SimaAire.Suelo = tipo - SIMA_ULTRA). Detras de todo.
 # INSECTO_* (los insectoides en el mapa, 29/09): viven en InsectoAire (su InsectoAire.Suelo = tipo - INSECTO_TELARANA).
 # De enemigo, y DETRAS de las BESTIA_*: se miran antes.
@@ -117,6 +120,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t >= Tipo.FIERA_ARROLLA:
+		return FieraAire.area(padre, f, t - Tipo.FIERA_ARROLLA, semilla, espera, n_nucleo)
 	if t >= Tipo.SIMA_ULTRA:
 		return SimaAire.area(padre, f, t - Tipo.SIMA_ULTRA, semilla, espera)
 	if t >= Tipo.INSECTO_TELARANA:
@@ -167,6 +172,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t >= Tipo.FIERA_ARROLLA:
+		return FieraAire.retraso(t - Tipo.FIERA_ARROLLA, f, p)
 	if t >= Tipo.SIMA_ULTRA:
 		return SimaAire.retraso(t - Tipo.SIMA_ULTRA, f, p)
 	if t >= Tipo.INSECTO_TELARANA:
@@ -208,6 +215,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t >= Tipo.FIERA_ARROLLA:
+		return FieraAire.t_salir(t - Tipo.FIERA_ARROLLA)
 	if t >= Tipo.SIMA_ULTRA:
 		return SimaAire.t_salir(t - Tipo.SIMA_ULTRA)
 	if t >= Tipo.INSECTO_TELARANA:

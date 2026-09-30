@@ -405,7 +405,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Y el chillon: los oidos en blanco del Chillido y los paletos del basico y del Picado.
 		SIMA_OIDOS = 161, SIMA_PALETOS = 162,
 		# Y la polilla: el roce de ala del basico, el polvo en la cara (Aleteo, Nube y su pasiva) y el velo si ciega.
-		SIMA_ALA = 163, SIMA_POLVO = 164, SIMA_VELO = 165 }
+		SIMA_ALA = 163, SIMA_POLVO = 164, SIMA_VELO = 165,
+		# LAS BESTIAS DE LAS SIMAS en el mapa (30/09, FieraAire): la acorazada, su testarazo, el zarpazo y su caparazon.
+		FIERA_TESTARAZO = 166, FIERA_ZARPA = 167, FIERA_PLACA = 168 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -445,6 +447,8 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
 	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
+	# y las bestias de las simas (FieraAire, 30/09).
+	Estilo.FIERA_TESTARAZO, Estilo.FIERA_ZARPA, Estilo.FIERA_PLACA,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -615,6 +619,8 @@ const T_VUELO := {
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
 	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.SIMA_OIDOS: 0.02, Estilo.SIMA_PALETOS: 0.1,
 	Estilo.SIMA_ALA: 0.12, Estilo.SIMA_POLVO: 0.02, Estilo.SIMA_VELO: 0.02, Estilo.INSECTO_APRETON: 0.02,
+	# El testarazo y el caparazon salen EN el golpe; la garra llega cruzando (FieraAire._zarpa).
+	Estilo.FIERA_TESTARAZO: 0.02, Estilo.FIERA_ZARPA: 0.1, Estilo.FIERA_PLACA: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
