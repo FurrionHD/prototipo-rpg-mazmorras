@@ -3,10 +3,12 @@
 #  LOS EFECTOS DE LOS CONSTRUCTOS en el mapa (30/09/2026, paso 2, uno a uno y con su visto bueno; ver la memoria
 #  constructos-tactico). Empieza por el GOLEM DE ARCILLA:
 #  SOBRE UN CUERPO (CombatTactico._on_dibujo_mapa, CombatFX.Estilo.CONSTRUCTO_*):
-#    APLASTON    el puñetazo (el gesto lo hace su sprite, 'embestida'): sobre quien lo recibe, una media luna gorda de
-#                barro del lado por el que entra el puño, TERRONES de arcilla (bolas con su borde, como su sprite) que
-#                saltan hacia atras de la victima y caen, y un poco de polvo seco. En la Machaca, mas gordo ('peso').
-#    PEGOTES     si el golpe le deja LENTO: pegotes de barro en los pies un momento (CombatTactico._on_impacto).
+#    APLASTON    el puñetazo (el gesto lo hace su sprite, 'embestida'), copiado del porrazo de la maza (MazaAire, "god"):
+#                el puño CAE DE ARRIBA ABAJO sobre quien lo recibe (la estela de arcilla que baja), el fogonazo romo
+#                del impacto, una onda que APLASTA contra el suelo y PIEDRECILLAS angulosas que saltan alto y caen
+#                ("pega duro y es grande"). En la Machaca, mas gordo ('peso'). La 1a version (media luna de lado y
+#                terrones redondos) se leia como un corte horizontal y "circulos guarros" (30/09).
+#    PEGOTES     si el golpe le deja LENTO: manchas de barro en los pies un momento (CombatTactico._on_impacto).
 #  SOBRE EL GOLEM (CombatTactico._tick_barro, mirando su estado; tambien en el espejo):
 #    COCERSE     el fuego lo cuece (o se Endurece): un resplandor de brasa que le sube de los pies a la cabeza y vaho.
 #    VAPOR       el agua le cae estando cocido: una nube de vapor al apagarse.
@@ -44,6 +46,9 @@ var _ancho: float = 14.0
 var _largo: float = 26.0
 var _peso: float = 1.0
 var _incl: float = 0.0
+var _imp: Vector2 = Vector2.ZERO     # APLASTON: donde entra el puño
+var _swing: Array = []               # APLASTON: por donde baja (bezier de tres puntos)
+const GRAVEDAD := 320.0
 var _piezas: Array = []
 var _secando: float = -1.0
 var _borde: Color = Color(0.2, 0.14, 0.09)
@@ -79,15 +84,35 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 	e._t = -maxf(espera, 0.0)
 	match m:
 		Modo.APLASTON:
-			# Los terrones: salen hacia atras de la victima (hacia donde le empuja el puño), en abanico, y caen al suelo.
-			for i in int(round(8.0 * peso)):
-				e._piezas.append({"d": e._eje.rotated(e._rng.randf_range(-1.0, 1.0)), "v": e._rng.randf_range(12.0, 26.0) * peso,
-					"sube": e._rng.randf_range(8.0, 18.0), "tam": e._rng.randf_range(2.0, 3.4) * sqrt(peso),
-					"t0": e._rng.randf_range(0.0, 0.05)})
+			# EL IMPACTO: arriba en su cuerpo (cabeza y hombros), del lado de quien pega. El puño viene de ARRIBA, un poco
+			# de su lado (cada golpe con su inclinacion).
+			e._imp = caja.get_center() - e._eje * caja.size.x * 0.15 + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x,
+				-caja.size.y * e._rng.randf_range(0.18, 0.3))
+			var lado: float = 1.0 if e._rng.randf() < 0.5 else -1.0
+			var alto: float = caja.size.y * (1.1 + 0.3 * peso)
+			e._swing = [e._imp + Vector2(-e._eje.x * 8.0 + lado * 7.0, -alto), e._imp + Vector2(-e._eje.x * 4.0 + lado * 3.0, -alto * 0.45),
+				e._imp]
+			# LAS PIEDRECILLAS: poligonos de 4-5 lados (no bolas), que salen hacia arriba y hacia donde empuja el golpe, alto,
+			# girando, y caen con peso.
+			for i in int(round(11.0 * peso)):
+				var sal: Vector2 = (Vector2(e._eje.x, e._eje.y * K) * 0.6 + Vector2(e._rng.randf_range(-1.0, 1.0), 0.0)).normalized()
+				var n_l: int = 4 + e._rng.randi() % 2
+				var forma := PackedVector2Array()
+				for k in n_l:
+					var a: float = TAU * float(k) / float(n_l) + e._rng.randf_range(-0.35, 0.35)
+					forma.append(Vector2(cos(a), sin(a)) * e._rng.randf_range(0.65, 1.1))
+				e._piezas.append({"v": sal * e._rng.randf_range(30.0, 70.0) * sqrt(peso)
+					+ Vector2(0.0, -e._rng.randf_range(70.0, 130.0) * sqrt(peso)),
+					"tam": e._rng.randf_range(1.6, 3.0) * sqrt(peso), "gira": e._rng.randf_range(-14.0, 14.0),
+					"forma": forma, "t0": e._rng.randf_range(0.0, 0.04)})
 		Modo.PEGOTES:
-			for i in 5:
-				e._piezas.append({"x": e._rng.randf_range(-0.45, 0.45), "y": e._rng.randf_range(-0.12, 0.04),
-					"tam": e._rng.randf_range(1.8, 3.0)})
+			for i in 4:
+				var mancha := PackedVector2Array()
+				for k in 9:
+					var a2: float = TAU * float(k) / 9.0
+					mancha.append(Vector2(cos(a2), sin(a2) * 0.6) * e._rng.randf_range(0.6, 1.15))
+				e._piezas.append({"x": e._rng.randf_range(-0.4, 0.4), "y": e._rng.randf_range(-0.1, 0.02),
+					"tam": e._rng.randf_range(2.2, 3.4), "forma": mancha})
 		Modo.COCERSE, Modo.VAPOR:
 			for i in (7 if m == Modo.COCERSE else 11):
 				e._piezas.append({"x": e._rng.randf_range(-0.4, 0.4), "t0": e._rng.randf_range(0.0, 0.35),
@@ -184,49 +209,104 @@ func _terron(ci: CanvasItem, p: Vector2, r: float, alfa: float) -> void:
 # ------------------------------------------------------------
 #  EL APLASTON (el puñetazo y la Machaca)
 # ------------------------------------------------------------
+const T_BAJA := 0.12
+
+func _en_swing(u: float) -> Vector2:
+	var p0: Vector2 = _swing[0]
+	var p1: Vector2 = _swing[1]
+	var p2: Vector2 = _swing[2]
+	return p0.lerp(p1, u).lerp(p1.lerp(p2, u), u)
+
+
+# LA ESTELA DEL PUÑO que baja (la de la maza, MazaAire._estela, en arcilla): banda rellena GORDA en la cabeza y afilada
+# y transparente hacia la cola.
+func _estela_puno(ci: CanvasItem, s_cola: float, s_cabeza: float, grueso: float, alfa: float) -> void:
+	if alfa <= 0.0 or s_cabeza - s_cola < 0.01:
+		return
+	var n: int = 10
+	var tr := Color(_barro, 0.0)
+	for i in n:
+		var u0: float = float(i) / float(n)
+		var u1: float = float(i + 1) / float(n)
+		var p0: Vector2 = _en_swing(lerpf(s_cola, s_cabeza, u0))
+		var p1: Vector2 = _en_swing(lerpf(s_cola, s_cabeza, u1))
+		var d: Vector2 = (p1 - p0).normalized().orthogonal() if p1.distance_squared_to(p0) > 0.0001 else Vector2.RIGHT
+		var w0: float = grueso * pow(u0, 1.3)
+		var w1: float = grueso * pow(u1, 1.3)
+		var c0 := Color(_claro, alfa * u0)
+		var c1 := Color(_claro, alfa * u1)
+		var h0 := Color(_barro, alfa * 0.6 * u0)
+		var h1 := Color(_barro, alfa * 0.6 * u1)
+		for lado in [1.0, -1.0]:
+			ci.draw_primitive(PackedVector2Array([p0, p1, p1 + d * w1 * 0.45 * lado]), PackedColorArray([c0, c1, h1]), PackedVector2Array())
+			ci.draw_primitive(PackedVector2Array([p0, p1 + d * w1 * 0.45 * lado, p0 + d * w0 * 0.45 * lado]),
+				PackedColorArray([c0, h1, h0]), PackedVector2Array())
+			ci.draw_primitive(PackedVector2Array([p0 + d * w0 * 0.45 * lado, p1 + d * w1 * 0.45 * lado, p1 + d * w1 * lado]),
+				PackedColorArray([h0, h1, tr]), PackedVector2Array())
+			ci.draw_primitive(PackedVector2Array([p0 + d * w0 * 0.45 * lado, p1 + d * w1 * lado, p0 + d * w0 * lado]),
+				PackedColorArray([h0, tr, tr]), PackedVector2Array())
+
+
+# UNA PIEDRECILLA: poligono con su borde oscuro, su cara y una arista clara (como la piedra de su sprite).
+func _piedra(ci: CanvasItem, p: Vector2, forma: PackedVector2Array, tam: float, giro: float, alfa: float) -> void:
+	if alfa <= 0.01 or tam <= 0.3:
+		return
+	var fuera := PackedVector2Array()
+	var dentro := PackedVector2Array()
+	for q in forma:
+		var r: Vector2 = q.rotated(giro)
+		fuera.append(p + r * (tam + 0.8))
+		dentro.append(p + r * tam)
+	ci.draw_colored_polygon(fuera, Color(_borde, alfa))
+	ci.draw_colored_polygon(dentro, Color(_barro, alfa))
+	ci.draw_colored_polygon(PackedVector2Array([dentro[0], dentro[1], p]), Color(_claro, alfa))
+
+
 func _aplaston(capa: Node2D) -> void:
-	if _t < 0.0:
-		return
-	var sale: Vector2 = _eje
-	# GORDO (la 1a version, al ancho de la figura, salia una raya fina): del alto de medio cuerpo, y mas en la Machaca.
-	var r: float = maxf(_largo * 0.62, 14.0) * (0.8 + 0.25 * _peso)
-	if capa == _brillo:
-		if _t < 0.1:
-			BarridoAire.brillo(capa, _hasta - sale * r * 0.3, r * 0.9, Color(1.0, 0.9, 0.75, 0.5 * (1.0 - _t / 0.1)))
-		return
-	if capa == _suelo:
-		# Los terrones que han caido se quedan un momento en el suelo; y el polvo seco a sus pies, hacia atras.
+	var escala: float = 0.85 + 0.35 * _peso
+	var grueso: float = maxf(_ancho * 0.9, 12.0) * escala
+	if capa == _delante:
+		# 1) EL PUÑO QUE BAJA: la estela de arriba abajo que acaba en el golpe y se apaga enseguida.
+		var sw: float = clampf((_t + T_BAJA) / T_BAJA, 0.0, 1.0)
+		if sw > 0.0 and _t < 0.1:
+			_estela_puno(capa, maxf(0.0, sw - 0.75), sw * sw * (3.0 - 2.0 * sw), grueso, 0.95 * (1.0 - clampf(_t / 0.1, 0.0, 1.0)))
+		if _t < 0.0:
+			return
+		# 3) LA ONDA que aplasta: media luna rellena hacia ABAJO (contra el suelo) que se abre y se apaga.
+		var ko: float = clampf(_t / 0.2, 0.0, 1.0)
+		if ko < 1.0:
+			var ang: float = PI * 0.5 + _incl * 0.5
+			BestiaAire._media_luna(capa, _imp, ang - 1.35, ang + 1.35, (5.0 + 16.0 * ko) * escala, lerpf(11.0, 6.0, ko) * escala,
+				_claro, _barro, 0.85 * (1.0 - ko), true)
+		# 4) LAS PIEDRECILLAS: saltan alto, giran y caen; al llegar a los pies se paran y se apagan.
 		for g in _piezas:
-			var tg: float = _t - float(g["t0"]) - 0.32
-			if tg < 0.0:
+			var tg: float = _t - float(g["t0"])
+			if tg < 0.0 or tg > 0.7:
 				continue
-			var d: Vector2 = g["d"]
-			var p: Vector2 = _pies + Vector2(d.x, d.y * K) * float(g["v"])
-			_terron(capa, p, float(g["tam"]) * 0.8, 1.0 - clampf(tg / 0.2, 0.0, 1.0))
-		var kp: float = clampf(_t / 0.45, 0.0, 1.0)
-		for i in 3:
-			var q: Vector2 = _pies + Vector2(sale.x, sale.y * K) * _ancho * (0.3 + 0.5 * kp) \
-				+ Vector2(sale.y, -sale.x) * _ancho * 0.35 * (float(i) - 1.0) - Vector2(0.0, 5.0 * kp)
-			BestiaAire._bola(capa, q, _ancho * (0.25 + 0.3 * kp), Color(POLVO, 0.35 * (1.0 - kp)))
+			var v: Vector2 = g["v"]
+			var p: Vector2 = _imp + v * tg + Vector2(0.0, 0.5 * GRAVEDAD * tg * tg)
+			var suelo_y: float = _pies.y + 2.0 + float(g["tam"])
+			var alfa: float = 1.0
+			if p.y > suelo_y and v.y + GRAVEDAD * tg > 0.0:
+				p.y = suelo_y
+				alfa = 1.0 - clampf((tg - 0.45) / 0.25, 0.0, 1.0)
+			_piedra(capa, p, g["forma"], float(g["tam"]), float(g["gira"]) * minf(tg, 0.45), alfa)
 		return
-	# EL FRENTE DEL APLASTON: una media luna gorda de barro del lado por el que entra el puño (contorno oscuro, cuerpo
-	# de su arcilla, filo claro), que se aplasta y se va.
-	var kf: float = clampf(_t / 0.08, 0.0, 1.0)
-	var th: float = (-sale).angle() + _incl
-	var c: Vector2 = _hasta + sale * r * 0.5
-	var alfa: float = 1.0 - smoothstep(0.1, 0.26, _t)
-	BestiaAire._media_luna(capa, c, th - 1.05, th + 1.05, r * 1.1 * (0.85 + 0.2 * kf), r * 0.85, _borde, _borde, alfa * 0.9, true)
-	BestiaAire._media_luna(capa, c, th - 0.95, th + 0.95, r * (0.85 + 0.2 * kf), r * 0.75, _claro, _barro, alfa, true)
-	# LOS TERRONES: suben y caen (parabola achatada) hasta el suelo, a su alrededor.
-	for g in _piezas:
-		var tg2: float = _t - float(g["t0"])
-		if tg2 < 0.0 or tg2 > 0.32:
-			continue
-		var kt: float = tg2 / 0.32
-		var d2: Vector2 = g["d"]
-		var p2: Vector2 = _hasta.lerp(_pies, kt) + Vector2(d2.x, d2.y * K) * float(g["v"]) * kt \
-			- Vector2(0.0, float(g["sube"]) * 4.0 * kt * (1.0 - kt) * K)
-		_terron(capa, p2, float(g["tam"]), 1.0)
+	if capa == _brillo:
+		if _t < 0.0:
+			return
+		# 2) EL FOGONAZO ROMO del impacto: destello corto y un brillo calido.
+		var pulso: float = exp(-_t / 0.06)
+		BarridoAire.destello(capa, _imp, (9.0 + 10.0 * pulso) * escala, Color(1.0, 0.95, 0.85, pulso), _incl + 0.4)
+		BarridoAire.brillo(capa, _imp, grueso * 0.8, Color(1.0, 0.85, 0.65, 0.5 * (1.0 - clampf(_t / 0.2, 0.0, 1.0))))
+		return
+	if capa == _suelo and _t >= 0.0:
+		# 5) EL POLVO que levanta a sus pies (el golpe le hunde contra el suelo), hacia los lados.
+		var kp: float = clampf(_t / 0.45, 0.0, 1.0)
+		for i in 4:
+			var lado: float = -1.0 if i % 2 == 0 else 1.0
+			var q: Vector2 = _pies + Vector2(lado * _ancho * (0.35 + 0.6 * kp) * (1.0 + 0.3 * float(i / 2)), -4.0 * kp)
+			BestiaAire._bola(capa, q, _ancho * (0.28 + 0.3 * kp) * escala, Color(POLVO, 0.4 * (1.0 - kp)))
 
 
 # ------------------------------------------------------------
@@ -238,9 +318,16 @@ func _pegotes(capa: Node2D) -> void:
 	var sale: float = clampf(_t / 0.1, 0.0, 1.0)
 	var alfa: float = 1.0 - smoothstep(0.6, 1.0, _t / T_PEGOTES)
 	for g in _piezas:
-		var p: Vector2 = _pies + Vector2(float(g["x"]) * _ancho, float(g["y"]) * _largo)
-		# Resbalan un poco hacia abajo mientras se van.
-		_terron(capa, p + Vector2(0.0, 1.5 * _t), float(g["tam"]) * sale, alfa)
+		var p: Vector2 = _pies + Vector2(float(g["x"]) * _ancho, float(g["y"]) * _largo + 1.5 * _t)
+		# MANCHAS de barro pegadas (con su borde), no bolas; resbalan un poco mientras se van.
+		var tam: float = float(g["tam"]) * sale
+		var fuera := PackedVector2Array()
+		var dentro := PackedVector2Array()
+		for q in (g["forma"] as PackedVector2Array):
+			fuera.append(p + q * (tam + 0.8))
+			dentro.append(p + q * tam)
+		capa.draw_colored_polygon(fuera, Color(_borde, alfa))
+		capa.draw_colored_polygon(dentro, Color(_barro.darkened(0.2), alfa))
 
 
 # ------------------------------------------------------------

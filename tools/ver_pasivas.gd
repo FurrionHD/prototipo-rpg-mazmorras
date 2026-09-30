@@ -609,7 +609,7 @@ func _carpeta_golem(salida: String) -> String:
 
 
 func _hoja_golem_basico(salida: String) -> void:
-	var tiempos: Array = [-0.12, -0.04, 0.0, 0.04, 0.1, 0.18, 0.3, 0.5]
+	var tiempos: Array = [-0.08, -0.03, 0.0, 0.04, 0.1, 0.2, 0.32, 0.5]
 	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 	_zoom(74.0)
 	var t_anim: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("embestida", CombatFX.T_ANIM_ADELANTO))
