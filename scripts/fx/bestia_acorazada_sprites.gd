@@ -632,16 +632,24 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# En la muerte 'abre' las despatarra hacia los lados y las tumba.
 	var z_alza: Array = [float(pose.get("zi_alza", 0.0)), float(pose.get("zd_alza", 0.0))]
 	var z_barre: Array = [float(pose.get("zi_barre", 0.0)), float(pose.get("zd_barre", 0.0))]
-	# 'alzadas': solo las delanteras que estan dando un zarpazo (se pintan DESPUES del cuerpo, encima: es ancha y
-	# debajo de ella no se veian); sin el, todas las demas.
-	var patas := func(alzadas: bool) -> void:
+	# 'modo': 0 = las patas de siempre; las delanteras que estan dando un ZARPAZO van aparte, con PROFUNDIDAD: 1 = las
+	# que caen del lado de LEJOS de la camara (se pintan ANTES del cuerpo: detras, asomando solo por fuera de el), 2 =
+	# las del lado de CERCA (DESPUES del cuerpo y la cabeza: delante). Pintarlas siempre encima ponia un brazo en la
+	# espalda cuando la pata estaba al otro lado (lo vio el, 30/09).
+	var patas := func(modo: int) -> void:
 		for lado in [-1.0, 1.0]:
 			for k in PATA_Y.size():
 				var delantera: bool = k == 0
 				var i_z: int = 0 if lado < 0.0 else 1
 				var en_zarpa: bool = delantera and float(z_alza[i_z]) > 0.08
-				if en_zarpa != alzadas:
+				if en_zarpa != (modo != 0):
 					continue
+				if en_zarpa:
+					# Hacia la camara = hacia abajo en pantalla: la Y ya girada de su mano, contra el centro del tronco.
+					var mano_suelo := Vector2(lado * (PATA_X + 2.0), PATA_Y[0] + float(z_alza[i_z]) * 4.6).rotated(ang)
+					var delante_cam: bool = mano_suelo.y > 0.5
+					if delante_cam != (modo == 2):
+						continue
 				var swing: float = fase_patas * (1.0 if delantera else -1.0) * lado
 				var base_y: float = PATA_Y[k] + swing * PASO_LARGO
 				if delantera:
@@ -653,7 +661,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 				if delantera:
 					# Lejos: por delante del pecho y por fuera del caparazon, que es donde se ve la garra.
 					var i_l: int = 0 if lado < 0.0 else 1
-					sube = float(z_alza[i_l]) * 4.8
+					# La del lado de LEJOS apenas sube: si no, asoma por encima del lomo como un bulto en la espalda.
+					sube = float(z_alza[i_l]) * (4.8 if modo == 2 else 1.6)
 					base_y += float(z_alza[i_l]) * 4.6
 					px += lado * (float(z_alza[i_l]) * 1.4 + float(z_barre[i_l]) * 2.4)
 					pz += lado * (float(z_alza[i_l]) * 2.0 + float(z_barre[i_l]) * 3.2)
@@ -676,7 +685,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 				poner.call(Vector3(px, base_y, MUSLO_Z - abre * 1.6 - escarba * 0.5 + sube * 0.6), MUSLO_R, Tono.PATA)
 				poner.call(Vector3(pz, base_y + sube * 0.2, PEZUNA_Z + sube), PEZUNA_R, Tono.PATA)
 	if not volcada:
-		patas.call(false)
+		patas.call(0)
+		patas.call(1)
 
 	# COLA: un muñon corto.
 	var cola := func() -> void:
@@ -739,7 +749,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	if volcada:
 		vientre.call()
 		cola.call()
-		patas.call(false)
+		patas.call(0)
 
 	# QUIEN LE VE LA CARA: de ESPALDAS no se le ven los ojos -- con la camara a 45 grados un bicho que
 	# se aleja enseña la grupa, y eso es lo que hace que se lea de un vistazo si viene o si huye.
@@ -767,8 +777,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for lado in [-1.0, 1.0]:
 		poner.call(Vector3(lado * PUA.x, PUA.y, PUA.z + cabeza_y), PUA_R, Tono.PUA_T)
 
-	# LA GARRA LEVANTADA del zarpazo, encima de todo el cuerpo.
-	patas.call(true)
+	# LA GARRA LEVANTADA del zarpazo del lado de la camara, delante del cuerpo.
+	patas.call(2)
 
 	# OJOS: los ULTIMOS, y solo si se le ve la cara. Pequeños, que es lo suyo en un bicho acorazado.
 	for l in lados:
