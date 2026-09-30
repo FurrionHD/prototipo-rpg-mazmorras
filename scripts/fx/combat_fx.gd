@@ -412,7 +412,12 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# mordisco de la Dentellada desgarradora (tira).
 		FIERA_FAUCES = 169, FIERA_YUGULAR = 170, FIERA_DENTELLADA = 171,
 		# Y la aberracion: su tentaculo (basico y Latigazo) y el ojo que se abre sobre quien le pilla la Mirada.
-		FIERA_TENTACULO = 172, FIERA_MIRADA = 173 }
+		FIERA_TENTACULO = 172, FIERA_MIRADA = 173,
+		# LAS PASIVAS DEL REPASO y los AVISOS (30/09, PasivaAire): la llamada del Rey de la camada, la lengua de fuego del
+		# Cuerpo ardiente, el destello del Filo de reflejo; y sobre quien le pasa: le cortan la carga, le retrasan la barra
+		# (el empujon pequeño; su 'peso' lleva hacia donde: 0,5 + px / 48) o es INMUNE a lo que le echan. Solo en el mapa.
+		PASIVA_LLAMADA = 174, PASIVA_ARDE = 175, PASIVA_DESTELLO = 176,
+		AVISO_INTERRUMPIDO = 177, AVISO_RETRASO = 178, AVISO_INMUNE = 179 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -456,6 +461,9 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.FIERA_TESTARAZO, Estilo.FIERA_ZARPA, Estilo.FIERA_PLACA,
 	Estilo.FIERA_FAUCES, Estilo.FIERA_YUGULAR, Estilo.FIERA_DENTELLADA, Estilo.FIERA_TENTACULO, Estilo.FIERA_MIRADA,
 	Estilo.INSECTO_APRETON,
+	# y las pasivas del repaso y los avisos (PasivaAire, 30/09).
+	Estilo.PASIVA_LLAMADA, Estilo.PASIVA_ARDE, Estilo.PASIVA_DESTELLO,
+	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -632,6 +640,9 @@ const T_VUELO := {
 	Estilo.FIERA_FAUCES: 0.14, Estilo.FIERA_YUGULAR: 0.4, Estilo.FIERA_DENTELLADA: 0.18,
 	# El tentaculo brota mientras llega el golpe; el ojo se abre EN el golpe (cuando le llega la Mirada por su cono).
 	Estilo.FIERA_TENTACULO: 0.16, Estilo.FIERA_MIRADA: 0.02,
+	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
+	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
+	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -2664,6 +2675,8 @@ func _process(delta: float) -> void:
 			# el gesto del cuerpo.)
 			if rect_en_mapa.is_valid() and estilo in DIBUJO_MAPA:
 				dibujo_en_mapa.emit(ev, vuelo)
+			elif estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE:
+				pass   # las pasivas y los avisos (PasivaAire) solo se pintan en el mapa
 			elif _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
 					and float(ev.get("retraso_suelo", -1.0)) < 0.0 \
 					and not (rect_en_mapa.is_valid() and estilo == Estilo.SED_SANGRE):
@@ -2957,6 +2970,10 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 			lbl.text += " ▲"
 		elif mult < 0.99:
 			lbl.text += " ▼"
+		# Y LAS MARCAS DE LAS PASIVAS (30/09): la ✱ de la Emboscada (le ha pillado en su tela). Lo dice la pantalla,
+		# que es quien sabe de quien es cada bloque (marca_numero).
+		if marca_numero.is_valid():
+			lbl.text += String(marca_numero.call(ev))
 		lbl.add_theme_color_override("font_color", ev["color"])
 		lbl.add_theme_font_size_override("font_size", 28 if crit else 19)
 
@@ -2985,6 +3002,35 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 	_numeros.append({"lbl": lbl, "t": -(RETRASO_CRIT if crit else 0.0),
 		"x": lbl.position.x, "y": lbl.position.y, "crit": crit})
 	# Techo: si se pasa, el mas viejo se recicla en vez de dejar la pantalla llena.
+	while _numeros.size() > MAX_NUMEROS:
+		_soltar_numero(_numeros.pop_front())
+
+
+# LA MARCA de un golpe (ev -> " ✱" o ""). La pone la pantalla del combate.
+var marca_numero: Callable = Callable()
+
+
+# UN AVISO que sube sobre la figura como un numero ("¡INTERRUMPIDO!", "RETRASADO", "INMUNE"), en el mismo pool.
+func texto_sobre(bloque: Dictionary, texto: String, color: Color, tam: int = 16) -> void:
+	if capa_numeros == null or not is_instance_valid(capa_numeros) or bloque.is_empty():
+		return
+	var r: Rect2 = _rect_mapa(bloque)
+	if not r.has_area():
+		var pv: Control = _visual(bloque)
+		if pv == null:
+			return
+		r = pv.get_global_rect()
+	var lbl: Label = _coger_numero()
+	lbl.text = texto
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_font_size_override("font_size", tam)
+	var base: Vector2 = Vector2(r.get_center().x, r.position.y) - capa_numeros.global_position
+	base.y = maxf(base.y - 6.0, SUBIDA_NUMERO + 8.0)
+	lbl.position = base - Vector2(60, 24)
+	lbl.modulate.a = 1.0
+	lbl.scale = Vector2.ONE
+	lbl.visible = true
+	_numeros.append({"lbl": lbl, "t": 0.0, "x": lbl.position.x, "y": lbl.position.y, "crit": false})
 	while _numeros.size() > MAX_NUMEROS:
 		_soltar_numero(_numeros.pop_front())
 

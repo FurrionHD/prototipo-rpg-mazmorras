@@ -1389,6 +1389,8 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				if not silencioso:
 					_pantalla._set_log("… %s es INMUNE a %s." % [_pantalla._etq(objetivo), nom])
 				print("[estado] %s es INMUNE a %s" % [objetivo.nombre, nom])
+			if al_enemigo:
+				_pantalla.aviso_inmune(objetivo, _pantalla._player)
 			continue
 		if al_enemigo:
 			# Mi eficacia contra su resistencia, por la puerta comun. Lo del ATURDIDO ya va dentro:

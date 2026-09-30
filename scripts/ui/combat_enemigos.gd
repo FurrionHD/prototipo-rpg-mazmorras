@@ -958,6 +958,8 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 			# no te electrizan). Las otras vias de es_inmune no son suyas y no le gastan nada.
 			if al_jugador and objetivo.inmune_por_afinidad(a.estado):
 				objetivo.gastar_imbue_defensiva()
+			if al_jugador:
+				_pantalla.aviso_inmune(objetivo, e)
 			continue   # apply_status ya lo avisaria, pero asi no ensucia el log de aplicados
 		# Solo los estados que te LANZAN a ti se resisten; los buffs propios siempre prenden.
 		# escala_prob < 1.0 en los SECUNDARIOS del area cuando la habilidad lo pide (el lento pilla

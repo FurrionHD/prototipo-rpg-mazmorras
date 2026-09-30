@@ -465,6 +465,8 @@ func _reflejo(obj: Combatant, quien: Combatant) -> void:
 	var estilo: int = efectos._estilo_de_habilidad(null, obj)
 	var r := StatsMath.resolve_attack(obj, quien, false)
 	_aplicar_pasivas(r, obj, quien)
+	# EL DESTELLO en su guadaña al pararlo (30/09, PasivaAire), en la tanda del golpe que lo provoca.
+	efectos._fx_golpe(obj, quien, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.PASIVA_DESTELLO, 1.0, true)
 	if _fx != null:
 		efectos._fx_tanda(_fx.ultima_tanda() + 1)
 	if r.evaded:
@@ -501,6 +503,10 @@ func _camada_salta(rey: Combatant, victima: Combatant) -> String:
 		ratas.sort_custom(func(a, b): return turno_mapa.pies_de(a).distance_squared_to(pv) \
 			< turno_mapa.pies_de(b).distance_squared_to(pv))
 	var partes: Array = []
+	# LA LLAMADA (30/09, PasivaAire): el rey chilla a los suyos antes de que salten.
+	if not ratas.is_empty() and _fx != null:
+		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+		efectos._fx_golpe(rey, victima, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.PASIVA_LLAMADA, 1.0, true)
 	for rata in ratas.slice(0, CAMADA_MAX):
 		if not victima.is_alive():
 			break
@@ -702,6 +708,7 @@ func _ready() -> void:
 	_fx.impacto_visto.connect(turno_mapa._on_impacto)
 	# Los golpes de la daga se pintan sobre el cuerpo de verdad (ver turno_mapa._on_dibujo_mapa).
 	_fx.dibujo_en_mapa.connect(turno_mapa._on_dibujo_mapa)
+	_fx.marca_numero = turno_mapa.marca_numero
 	# Y quien esquiva se aparta de lado (ver turno_mapa._on_esquiva).
 	_fx.esquiva_vista.connect(turno_mapa._on_esquiva)
 	# El gris del cadaver espera a que se vea el golpe que lo mata (ver _apagar_diferido).
@@ -2482,7 +2489,32 @@ func desplazado(c: Combatant, px: float, quien: Combatant = null) -> String:
 		return interrumpir(c, quien)
 	if _gauge.has(c) and absf(px) > 0.5:
 		_gauge[c] -= UMBRAL * DESPLAZA_ATB_MAX * clampf(absf(px) / DESPLAZA_CORTA, 0.0, 1.0)
+		# Se VE (30/09): arrastre y polvo en los pies, "RETRASADO" y la estela de su ficha en la barra. El peso lleva
+		# cuanto y hacia donde (0,5 + px / 48; px > 0 = hacia quien tira), que asi viaja al espejo.
+		if tactico:
+			efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
+				CombatFX.Estilo.AVISO_RETRASO, 0.5 + clampf(px / (DESPLAZA_CORTA * 2.0), -0.5, 0.5), true)
 	return ""
+
+
+# Lo que lleva 'c' en la barra de accion (0..1): la barra de turnos lo usa para la estela del empujon.
+func ratio_de(c: Combatant) -> float:
+	return clampf(float(_gauge.get(c, 0.0)) / UMBRAL, 0.0, 1.0)
+
+
+# "INMUNE" sobre 'objetivo' (30/09): lo que le han echado no le prende por inmunidad (el chillon a la ceguera, el slime
+# de fuego a la quemadura...). Una vez por fotograma y objetivo: un golpe con tres estados no lo dice tres veces.
+var _inmune_dicho: Dictionary = {}
+
+func aviso_inmune(objetivo: Combatant, lanzador: Combatant) -> void:
+	if not tactico or objetivo == null or not objetivo.is_alive():
+		return
+	var f: int = Engine.get_process_frames()
+	if int(_inmune_dicho.get(objetivo, -1)) == f:
+		return
+	_inmune_dicho[objetivo] = f
+	efectos._fx_golpe(lanzador if lanzador != null else objetivo, objetivo, 0.0, false, false, Elementos.Elemento.NINGUNO,
+		CombatFX.Estilo.AVISO_INMUNE, 1.0, true)
 
 
 # Le corta a 'c' la carga o el conjuro que lleve (si lleva). Devuelve la linea del log ("" si no llevaba nada).
@@ -2490,6 +2522,7 @@ func interrumpir(c: Combatant, quien: Combatant = null) -> String:
 	if c == null:
 		return ""
 	var que: String = ""
+	var era_conjuro: bool = false
 	if c.charging != null:
 		que = c.charging.nombre
 		c.charging = null
@@ -2499,11 +2532,19 @@ func interrumpir(c: Combatant, quien: Combatant = null) -> String:
 	elif _casteos.has(c):
 		var sp = (_casteos[c] as Dictionary).get("spell")
 		que = (sp as SpellData).nombre if sp is SpellData else "el conjuro"
+		era_conjuro = true
+		# Su circulo se ROMPE (no se apaga sin mas), en todas las maquinas (circulos_para_red).
+		if tactico:
+			turno_mapa.circulo_acaba(c, false, sp as SpellData)
 		_casteos.erase(c)
 		_update_hp()   # se va el chip del conjuro de su bloque
 	if que == "":
 		return ""
 	print("[desplazamiento] %s INTERRUMPIDO: pierde %s" % [c.nombre, que])
+	# Se VE (30/09): lo que cargaba salta en esquirlas y sale "¡INTERRUMPIDO!". El peso dice que era (1 carga, 0,5 conjuro).
+	if tactico:
+		efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
+			CombatFX.Estilo.AVISO_INTERRUMPIDO, 0.5 if era_conjuro else 1.0, true)
 	return "💢 %s sale despedido%s y pierde %s." % [c.nombre, (" por " + quien.nombre) if quien != null else "", que]
 
 

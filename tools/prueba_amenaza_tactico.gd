@@ -178,6 +178,12 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 			if txt.find("falla") < 0:
 				break
 		_ver(txt != "", "cuando el rey pega, la rata de al lado salta detras (%s)" % txt)
+		_ver(_hay_efecto(combat, CombatFX.Estilo.PASIVA_LLAMADA), "y se ve la llamada del rey")
+		await _esperar(2)
+		var spr_r = t.cuerpo_de(rata).get("_sprite") if t.cuerpo_de(rata) != null else null
+		var mat_r = spr_r.material if spr_r is CanvasItem else null
+		_ver(mat_r is ShaderMaterial and float(mat_r.get_shader_parameter("encendido")) == 1.0,
+			"con el rey vivo a la rata le brillan los ojos")
 		combat._camada_hecha = false
 		_ver(combat._camada_salta(rey, al[1]) == "", "y a una victima lejos de las ratas no salta ninguna")
 		_ver(combat._camada_salta(rey, al[0]) == "", "una sola vez por accion")
@@ -187,6 +193,11 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 		al[0].apply_status(StatusEffects.Id.PEGAJOSO, 2)
 		_ver(is_equal_approx(combat._mult_pasivas(ara, al[0]), 1.5), "la araña pega un 50%% mas al pegajoso (%.2f)" % combat._mult_pasivas(ara, al[0]))
 		_ver(combat.objetivos._peso_aggro(al[0], ara) > combat.objetivos._peso_aggro(al[1], ara), "y va a por el")
+		var ev_m := {"estilo": CombatFX.Estilo.INSECTO_QUELICEROS, "ba": combat._bloque_de(ara), "bv": combat._bloque_de(al[0]),
+			"evadido": false}
+		_ver(t.marca_numero(ev_m) == " ✱", "y su numero lleva la marca de la Emboscada")
+		ev_m["bv"] = combat._bloque_de(al[1])
+		_ver(t.marca_numero(ev_m) == "", "y al que no esta en la tela, no")
 		al[0].quitar_estado(StatusEffects.Id.PEGAJOSO)
 	# FILO DE REFLEJO
 	var seg: Combatant = _de(combat, t, "segadora")
@@ -203,6 +214,7 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 				tocado = true
 				break
 		_ver(tocado, "la segadora devuelve el golpe al que le pega de cerca")
+		_ver(_hay_efecto(combat, CombatFX.Estilo.PASIVA_DESTELLO), "con el destello en su guadaña")
 		var hp1: float = al[1].current_hp
 		combat._reflejo(seg, al[1])
 		_ver(is_equal_approx(al[1].current_hp, hp1), "y al que le pega de lejos no")
@@ -225,6 +237,8 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 		al[0].quitar_estado(StatusEffects.Id.SIGILO)
 		chi.apply_status(StatusEffects.Id.CEGUERA, 2)
 		_ver(not chi.has_status(StatusEffects.Id.CEGUERA), "al chillon no se le puede cegar")
+		combat.aviso_inmune(chi, al[0])
+		_ver(_hay_efecto(combat, CombatFX.Estilo.AVISO_INMUNE), "y sale el INMUNE")
 	# CUERPO ARDIENTE
 	var sf: Combatant = _de(combat, t, "slime_fuego")
 	if sf != null:
@@ -237,6 +251,7 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 			if al[0].has_status(StatusEffects.Id.QUEMADURA):
 				break
 		_ver(al[0].has_status(StatusEffects.Id.QUEMADURA), "pegarle de cerca al slime de fuego te puede quemar")
+		_ver(_hay_efecto(combat, CombatFX.Estilo.PASIVA_ARDE), "con su lengua de fuego")
 		sf.al_ser_golpeado_prob = pr
 
 
@@ -247,6 +262,7 @@ func _probar_desplazar(combat, t, al: Array) -> void:
 	e.charge_left = 2
 	var txt: String = combat.desplazado(e, 30.0, al[0])
 	_ver(e.charging == null and txt != "", "un empujon grande le corta la carga al enemigo (%s)" % txt)
+	_ver(_hay_efecto(combat, CombatFX.Estilo.AVISO_INTERRUMPIDO), "y se ve el INTERRUMPIDO")
 	var sp: SpellData = load("res://resources/spells/bola_fuego.tres")
 	combat._casteos[al[1]] = {"spell": sp, "idx": 1}
 	txt = combat.desplazado(al[1], 30.0, e)
@@ -257,6 +273,7 @@ func _probar_desplazar(combat, t, al: Array) -> void:
 	var g1: float = float(combat._gauge.get(al[1], 0.0))
 	_ver(combat._casteos.has(al[1]) and txt == "", "uno pequeño no le corta el conjuro")
 	_ver(g1 < g0 - 1.0, "pero le retrasa en la barra (%.1f -> %.1f)" % [g0, g1])
+	_ver(_hay_efecto(combat, CombatFX.Estilo.AVISO_RETRASO, 0.75), "y se ve el RETRASADO (con cuanto y hacia donde en el peso)")
 	combat._casteos.erase(al[1])
 
 
@@ -283,6 +300,16 @@ func _probar_interrumpir(combat, t, al: Array) -> void:
 	al[0].provocar_turnos = 0
 	al[0].provocados = []
 	combat._casteos.erase(al[1])
+
+
+# Hay en la cola de efectos uno de 'estilo' (y con ese peso, si se da).
+func _hay_efecto(combat, estilo: int, peso: float = -1.0) -> bool:
+	if combat._fx == null:
+		return false
+	for ev in combat._fx._cola:
+		if int(ev.get("estilo", -1)) == estilo and (peso < 0.0 or is_equal_approx(float(ev.get("peso", -1.0)), peso)):
+			return true
+	return false
 
 
 func _colocar(t, al: Array, sitios: Array) -> void:

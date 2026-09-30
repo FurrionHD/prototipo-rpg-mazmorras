@@ -304,6 +304,9 @@ func _sigilo_visible(quitar: bool) -> void:
 		if not (m is CanvasItem):
 			continue
 		var a: float = 1.0 if quitar or not al.has_status(StatusEffects.Id.SIGILO) else ALFA_SIGILO
+		# LA ECOLOCALIZACION (el chillon, 30/09): al que pilla su eco se le ve entero un momento ("te ha pillado").
+		if a < 1.0 and Time.get_ticks_msec() < int(cu.get_meta(&"revelado_hasta", 0)):
+			a = 1.0
 		# LA GUARDIA DE CARNE SE VE (25/09, lo pidio el): "te tiene que hacer mas grande y ponerte rojito un poco".
 		var carne: bool = not quitar and al.has_status(StatusEffects.Id.GUARDIA_CARNE)
 		var col := Color(1.0, 0.72, 0.7, a) if carne else Color(1.0, 1.0, 1.0, a)
@@ -817,6 +820,7 @@ func tick(delta: float) -> bool:
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_raices()
+	_tick_ojos_camada()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -3397,6 +3401,110 @@ const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, Combat
 	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS, CombatFX.Estilo.SIMA_ALA: SimaAire.Modo.ALA,
 	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
 
+# ------------------------------------------------------------
+#  LAS PASIVAS DEL REPASO Y LOS AVISOS (30/09, PasivaAire; ver la memoria pasivas-de-enemigos)
+# ------------------------------------------------------------
+const EMBOSCADA_BOCA := 1.5    # el mordisco de la araña a quien esta en su tela, mas grande
+const REVELADO_ECO := 0.8      # lo que se le ve entero al que pilla el eco, desde que le llega
+const AVISO_INTERRUMPIDO_C := Color(1.0, 0.55, 0.35)
+const AVISO_RETRASO_C := Color(0.72, 0.74, 0.8)
+const AVISO_INMUNE_C := Color(0.8, 0.85, 0.95)
+
+# La EMBOSCADA: 'a' es de las que cazan en su tela y 'v' esta pegado en ella (en todas las maquinas: el estado viaja).
+func emboscada(a: Combatant, v: Combatant) -> bool:
+	return a != null and v != null and a.emboscada_mult != 1.0 and v.has_status(StatusEffects.Id.PEGAJOSO)
+
+
+# La marca del numero (CombatFX.marca_numero): la ✱ si el golpe es de la Emboscada.
+func marca_numero(ev: Dictionary) -> String:
+	if not _pantalla.tactico or bool(ev.get("evadido", false)):
+		return ""
+	var estilo: int = int(ev.get("estilo", 0))
+	if estilo not in [CombatFX.Estilo.INSECTO_QUELICEROS, CombatFX.Estilo.INSECTO_PONZONA]:
+		return ""
+	return " ✱" if emboscada(_de_bloque(ev["ba"]), _de_bloque(ev["bv"])) else ""
+
+
+func _dibujo_pasiva(ev: Dictionary, vuelo: float) -> void:
+	var arena: ArenaCombate = _arena()
+	var v: Combatant = _de_bloque(ev["bv"])
+	var a: Combatant = _de_bloque(ev["ba"])
+	if arena == null or v == null or cuerpo_de(v) == null:
+		return
+	var estilo: int = int(ev.get("estilo", 0))
+	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+	var caja_a: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
+	match estilo:
+		CombatFX.Estilo.PASIVA_LLAMADA:
+			# El rey (a) llama a su camada al pegar a su victima (v).
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.LLAMADA, caja_a, bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
+		CombatFX.Estilo.PASIVA_ARDE:
+			# Del slime (a) a quien le pego (v).
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ARDE, caja_a, bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
+		CombatFX.Estilo.PASIVA_DESTELLO:
+			# Sobre la segadora (a), del lado de quien le pega (v).
+			if caja_a.has_area():
+				PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.DESTELLO, bulto_de(v), caja_a, pies_de(a), semilla, vuelo, ritmo)
+		CombatFX.Estilo.AVISO_INTERRUMPIDO:
+			# El peso dice que era: 1 la carga de un arma, 0,5 un conjuro (su circulo se rompe aparte, circulo_acaba).
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ESQUIRLAS, Rect2(), bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
+				1.0 if float(ev.get("peso", 1.0)) > 0.75 else 0.0)
+			if _pantalla._fx != null:
+				_pantalla._fx.texto_sobre(ev["bv"], "¡INTERRUMPIDO!", AVISO_INTERRUMPIDO_C, 16)
+		CombatFX.Estilo.AVISO_RETRASO:
+			# EL EMPUJON PEQUEÑO: el peso lleva cuanto y hacia donde (0,5 + px / 48; px > 0 = hacia quien tira).
+			var px: float = (float(ev.get("peso", 0.5)) - 0.5) * 2.0 * _pantalla.DESPLAZA_CORTA
+			var hacia: Vector2 = (pies_de(a) - pies_de(v)).normalized() if a != null and a != v and cuerpo_de(a) != null \
+				else Vector2.RIGHT
+			var p0: Vector2 = pies_de(v)
+			PasivaAire.arrastre(arena, p0, p0 + hacia * px, radio_pisa(v) * 2.0, semilla, ritmo)
+			_temblar_presa(v, PasivaAire.T_ARRASTRE)
+			if _pantalla._fx != null:
+				_pantalla._fx.texto_sobre(ev["bv"], "RETRASADO", AVISO_RETRASO_C, 13)
+			# Y su ficha en la barra: estaba donde esta ahora mas lo que ha perdido.
+			if _pantalla._timeline != null and _pantalla._timeline.has_method("retrasar"):
+				var perdida: float = _pantalla.DESPLAZA_ATB_MAX * clampf(absf(px) / _pantalla.DESPLAZA_CORTA, 0.0, 1.0)
+				_pantalla._timeline.retrasar(v, _pantalla.ratio_de(v) + perdida)
+		CombatFX.Estilo.AVISO_INMUNE:
+			if _pantalla._fx != null:
+				_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+
+
+# LOS OJOS DE LA CAMADA (el Rey de la camada, 30/09): mientras vive el rey, a las de su familia les brillan los ojos
+# (shaders/ojos_camada sobre su sprite). Se apagan todas a la vez al caer el. En todas las maquinas (mira quien vive).
+const _OJOS_CAMADA := preload("res://shaders/ojos_camada.gdshader")
+
+func _tick_ojos_camada() -> void:
+	var reyes: Array = []
+	for e in _pantalla._enemies:
+		if e.camada_mult != 1.0 and not (e.familia in reyes):
+			reyes.append(e.familia)
+	if reyes.is_empty():
+		return
+	for e in _pantalla._enemies:
+		if e.camada_mult != 1.0 or not (e.familia in reyes):
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var spr = cu.get("_sprite")
+		if not (spr is CanvasItem):
+			continue
+		var enc: float = 1.0 if e.is_alive() and _pantalla._mult_camada(e) != 1.0 else 0.0
+		var mat: ShaderMaterial = (spr as CanvasItem).material as ShaderMaterial
+		if mat == null or mat.shader != _OJOS_CAMADA:
+			if enc <= 0.0:
+				continue
+			mat = ShaderMaterial.new()
+			mat.shader = _OJOS_CAMADA
+			(spr as CanvasItem).material = mat
+		# (Sin fijar, el parametro llega null: el valor por defecto del shader no se lee desde aqui.)
+		var ahora = mat.get_shader_parameter("encendido")
+		if ahora == null or not is_equal_approx(float(ahora), enc):
+			mat.set_shader_parameter("encendido", enc)
+
+
 func _placa_si_para(ev: Dictionary) -> void:
 	var vc: Combatant = _de_bloque(ev["bv"])
 	var ac: Combatant = _de_bloque(ev["ba"])
@@ -3420,6 +3528,9 @@ const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_TENTACULO: FieraAire.Modo.TENTACULO, CombatFX.Estilo.FIERA_MIRADA: FieraAire.Modo.MIRADA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
+	if int(ev.get("estilo", 0)) >= CombatFX.Estilo.PASIVA_LLAMADA and int(ev.get("estilo", 0)) <= CombatFX.Estilo.AVISO_INMUNE:
+		_dibujo_pasiva(ev, vuelo)
+		return
 	var arena: ArenaCombate = _arena()
 	if arena == null or not _pantalla.tactico:
 		return
@@ -3454,6 +3565,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo in _MODO_INSECTO:
 		var desde_i: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		# LA EMBOSCADA (la araña, 30/09): al que esta en su tela, la tela late bajo el y el mordisco sale mas grande.
+		var boca_i: float = bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0
+		if estilo in [CombatFX.Estilo.INSECTO_QUELICEROS, CombatFX.Estilo.INSECTO_PONZONA] and emboscada(a, v):
+			boca_i *= EMBOSCADA_BOCA
+			PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.LATIDO, bulto_de(a), bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
 		# LA DOBLE GUADAÑA: cada golpe cae desde el lado de SU mitad (tanda 0 = la izquierda, 1 = la derecha; ver
 		# mitades_que_toca). El tajo del basico, del brazo que acaba de desplegar su sprite (gesto_bicho_en_mapa).
 		var lado_i: float = 1.0
@@ -3462,7 +3578,7 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		elif estilo == CombatFX.Estilo.INSECTO_GUADANA:
 			lado_i = -1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0
 		InsectoAire.sobre_cuerpo(arena, int(_MODO_INSECTO[estilo]), desde_i, bulto_de(v), semilla, vuelo, ritmo,
-			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0, float(ev.get("peso", 1.0)), lado_i)
+			boca_i, float(ev.get("peso", 1.0)), lado_i)
 		# EL APRETON del Enrosque: el sprite enroscado aprieta y la presa tiembla.
 		if estilo == CombatFX.Estilo.INSECTO_APRETON:
 			if a != null:
@@ -3472,6 +3588,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	# LAS SIMAS (SimaAire, 30/09): del cuerpo de quien lo lanza (su mano, su tamaño, sus colores) al que recibe.
 	if estilo in _MODO_SIMA:
 		var caja_a: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
+		# LA ECOLOCALIZACION (el chillon, 30/09): al que va en sigilo le llega su eco y se le ve entero un momento.
+		if estilo == CombatFX.Estilo.SIMA_PALETOS and a != null and a.ecolocaliza and v.has_status(StatusEffects.Id.SIGILO):
+			var eco: PasivaAire = PasivaAire.sobre_cuerpo(arena, PasivaAire.Modo.ECO, caja_a, bulto_de(v), pies_de(v), semilla,
+				vuelo, ritmo)
+			if eco != null:
+				cuerpo_de(v).set_meta(&"revelado_hasta", Time.get_ticks_msec()
+					+ int((eco._viaje - vuelo + REVELADO_ECO) * 1000.0 / maxf(ritmo, 0.05)))
 		var col_s: Color = a.color_visual if a != null else Color(0.52, 0.46, 0.3)
 		SimaAire.sobre_cuerpo(arena, int(_MODO_SIMA[estilo]), caja_a, bulto_de(v), pies_de(v), col_s, semilla, vuelo, ritmo,
 			pies_de(a) if a != null and cuerpo_de(a) != null else Vector2.INF)

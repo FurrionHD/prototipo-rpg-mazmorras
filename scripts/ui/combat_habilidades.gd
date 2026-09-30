@@ -938,6 +938,8 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 		var nom: String = str(StatusEffects.def(a.estado).get("nombre", "?"))
 		for d in destinos:
 			if d == null or not d.is_alive() or d.es_inmune(a.estado):
+				if al_enemigo and d != null and d.is_alive():
+					_pantalla.aviso_inmune(d, _pantalla._player)
 				continue
 			# Solo lo que le LANZAS a alguien se resiste; un buff tuyo siempre prende (igual que
 			# en los hechizos, ver _aplicar_estado_hechizo).
