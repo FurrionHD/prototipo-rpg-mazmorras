@@ -51,4 +51,6 @@ alcance = 35.0
 regen_turno = 0.08
 regen_corta_elem = 4
 regen_corta_turnos = 2
+; EL BASICO EN EL MAPA (30/09): el tentaculo que brota, restalla y se recoge (FIERA_TENTACULO).
+fx_basico_mapa = 172
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

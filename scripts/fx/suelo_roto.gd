@@ -43,7 +43,7 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	BESTIA_RAMAZO,
 	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA,
 	SIMA_ULTRA, SIMA_ANILLO,
-	FIERA_ARROLLA }
+	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO }
 # FIERA_* (las bestias de las simas, 30/09): viven en FieraAire (su FieraAire.Suelo = tipo - FIERA_ARROLLA). Detras de todo;
 # la Carga acorazada lleva en el NUCLEO el radio de su pisoton (AbilityData.pisoton_final).
 # SIMA_* (las simas en el mapa, 30/09): viven en SimaAire (su SimaAire.Suelo = tipo - SIMA_ULTRA). Detras de todo.

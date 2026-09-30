@@ -25,15 +25,25 @@
 #                rojas hacia el acechador y la victima arrastrada un palmo hacia el.
 #    VAHO        (se queda) la pasiva Olor a sangre: sobre quien sangra, mientras haya un acechador en la pelea, un
 #                hilo de vaho rojo que sube ondulando. CombatTactico._tick_olor lo pone y lo quita.
+#  Y LA ABERRACION (30/09):
+#    TENTACULO   el basico y cada golpe del Latigazo: un tentaculo DEL SPRITE (su morado, borde, lomo claro y
+#                ventosas) que brota de su masa, llega en curva, RESTALLA y se recoge; verdugon rojo y baba.
+#    MIRADA      sobre quien le pilla la Mirada del vacio: se le abre un OJO negro con la pupila del eclipse encima de
+#                la cabeza, y tiembla encogido (el miedo).
+#    PUSTULAS    (sobre ella) la Carne que se cierra: bultos que se hinchan y se hunden al curarse.
+#    GRIETAS     (se queda) mientras la luz le corta la cura: rajas doradas que chisporrotean. CombatTactico._tick_carne.
+#  POR EL SUELO: CONO (la Mirada: el ojo se enciende y tres medias lunas negras recorren el cono) y ALARIDO (frentes
+#  de sonido rotos y deformes en circulo completo, violeta enfermizo).
 #  NADA DE LINEAS (efectos-sin-lineas): medias lunas rellenas, bolas blandas, cometas. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name FieraAire
 
-enum Modo { TESTARAZO, ZARPA, PLACA, ARROLLA, FAUCES, YUGULAR, DENTELLADA, VAHO }
+enum Modo { TESTARAZO, ZARPA, PLACA, ARROLLA, FAUCES, YUGULAR, DENTELLADA, VAHO,
+	TENTACULO, MIRADA, PUSTULAS, GRIETAS, CONO, ALARIDO }
 # Los del suelo, en el orden de SueloRoto.Tipo.FIERA_*: no reordenar.
-enum Suelo { ARROLLA }
-const _MODO_DE_SUELO := [Modo.ARROLLA]
+enum Suelo { ARROLLA, CONO, ALARIDO }
+const _MODO_DE_SUELO := [Modo.ARROLLA, Modo.CONO, Modo.ALARIDO]
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -56,6 +66,11 @@ const T_SECA := 0.5               # lo que tarda en irse el vaho cuando deja de 
 const MANDIBULA := Color(0.1, 0.07, 0.07)
 const ENCIA_ROJA := Color(0.42, 0.07, 0.09)
 const VAHO := Color(0.78, 0.1, 0.12)
+# LA ABERRACION: lo que tarda la Mirada en recorrer su cono y el Alarido en llegar a su borde.
+const T_CONO := 0.35
+const T_ALARIDO := 0.45
+const ALARIDO := Color(0.66, 0.42, 0.9)
+const ALARIDO_CLARO := Color(0.93, 0.84, 1.0)
 
 var modo: int = Modo.TESTARAZO
 var _ritmo: float = 1.0
@@ -174,6 +189,34 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 					e._piezas.append({"a": e._rng.randf_range(-0.45, 0.45), "v": e._rng.randf_range(0.8, 1.3),
 						"t0": e._rng.randf_range(0.0, 0.05), "g": e._rng.randf_range(0.7, 1.1)})
 			e._t = -e._viaje
+		Modo.TENTACULO:
+			# Brota del BORDE de su masa hacia quien recibe, cada golpe de un sitio ('lado': -1, 0, 1, y un poco al azar).
+			e._viaje = clampf(espera, 0.1, 0.22)
+			e._t = -e._viaje
+			var de_quien: float = boca if boca > 0.0 else 20.0
+			e._lado = (lado if lado != 0.0 else e._rng.randf_range(-1.0, 1.0)) + e._rng.randf_range(-0.25, 0.25)
+			if absf(e._lado) < 0.3:
+				e._lado = 0.3 * (1.0 if e._rng.randf() < 0.5 else -1.0)
+			# NACE DENTRO DE LA MASA (a 0,3 de su ancho y con la bajada salia despegado, un tentaculo suelto al lado) y del
+			# grosor de los del sprite.
+			e._o = desde + eje * de_quien * 0.12 + eje.orthogonal() * e._lado * de_quien * 0.16 + Vector2(0.0, de_quien * 0.05)
+			e._tam = clampf(de_quien * 0.1, 2.2, 4.5)
+			e._placa = color
+			e._placa_clara = color.lightened(0.35)
+			for i in 5:
+				e._piezas.append({"d": Vector2(e._rng.randf_range(-1.0, 1.0), e._rng.randf_range(-1.2, -0.3)).normalized(),
+					"v": e._rng.randf_range(6.0, 14.0), "r": e._rng.randf_range(0.8, 1.5), "t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.MIRADA:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = Vector2(caja.get_center().x, caja.position.y - caja.size.y * 0.15)
+			e._tomar_dibujo(dibujo)
+		Modo.PUSTULAS:
+			e._t = -maxf(espera, 0.0)
+			e._o = caja.get_center()
+			e._placa = color
+			for i in 7:
+				e._piezas.append({"x": e._rng.randf_range(-0.2, 0.2), "y": e._rng.randf_range(-0.3, 0.08),
+					"r": e._rng.randf_range(1.8, 2.8) * maxf(caja.size.x / 30.0, 0.6), "t0": float(i) * 0.05})
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -187,6 +230,36 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 
 
 # EL VAHO DEL OLOR A SANGRE sobre 'caja' (quien sangra): se queda hasta que le llaman a secar(); lo mueve seguir().
+# LAS GRIETAS DE LUZ sobre la aberracion ('caja'): como el vaho, se quedan hasta secar() y las mueve seguir().
+static func grietas(padre: Node, caja: Rect2, semilla: int) -> FieraAire:
+	if padre == null:
+		return null
+	var e := FieraAire.new()
+	e.modo = Modo.GRIETAS
+	e._rng.seed = hash(semilla)
+	e._t = 0.0
+	e._incl = e._rng.randf_range(0.0, TAU)
+	# Cuatro rajas quebradas en coordenadas de su caja (-0,5..0,5), repartidas por la carne.
+	for i in 4:
+		var pts := PackedVector2Array()
+		# EN LA MASA DEL MEDIO, cortas: su caja incluye los tentaculos, y repartidas por toda ella salian fuera del cuerpo.
+		var p := Vector2(e._rng.randf_range(-0.16, 0.16), e._rng.randf_range(-0.28, 0.05))
+		var a: float = e._rng.randf_range(0.0, TAU)
+		for k in 5:
+			pts.append(p)
+			a += e._rng.randf_range(-0.9, 0.9)
+			p += Vector2(cos(a) * 0.045, sin(a) * 0.05)
+		e._lajas.append({"pts": pts})
+	e.seguir(caja)
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
 static func vaho(padre: Node, caja: Rect2, semilla: int) -> FieraAire:
 	if padre == null:
 		return null
@@ -209,6 +282,7 @@ func seguir(caja: Rect2) -> void:
 	_hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.1)
 	_ancho = maxf(caja.size.x, 10.0)
 	_largo = maxf(caja.size.y, 10.0)
+	_o = caja.get_center()
 
 
 func secar() -> void:
@@ -231,8 +305,12 @@ func aplicar_temblor() -> void:
 	if not is_instance_valid(_dibujo):
 		return
 	var fuera := Vector2.ZERO
-	if _t >= 0.0 and _t < T_TIRON:
+	if modo == Modo.DENTELLADA and _t >= 0.0 and _t < T_TIRON:
 		fuera = (-_eje * _tam * 0.45 * sin(PI * _t / T_TIRON)).round()
+	# EL MIEDO de la Mirada: se encoge (baja un pelin) y tiembla mientras le mira el ojo.
+	elif modo == Modo.MIRADA and _t >= 0.0 and _t < 0.5:
+		var k: float = 1.0 - _t / 0.5
+		fuera = Vector2(sin(_t * 85.0) * 1.3 * k, 1.0 + 0.5 * sin(_t * 60.0) * k).round()
 	_dibujo.set("position", _base_dibujo + fuera)
 
 
@@ -271,6 +349,17 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	e._o = SueloRoto.origen_de(f)
 	e._dir = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	# LA MIRADA y EL ALARIDO (la aberracion): solo su forma; se pintan encima de los cuerpos.
+	if e.modo in [Modo.CONO, Modo.ALARIDO]:
+		e._largo = maxf(f.radio, 8.0)
+		e._banda = deg_to_rad(f.apertura if f.apertura > 0.0 else 30.0)
+		e._o = f.origen if e.modo == Modo.CONO else f.centro
+		e._incl = e._rng.randf_range(0.0, TAU)
+		padre.add_child(e)
+		e._delante = e._capa(Z_ENCIMA, false)
+		e._brillo = e._capa(Z_ENCIMA + 1, true)
+		e._t = -espera * e._ritmo
+		return e
 	e._largo = maxf(f.largo, 4.0)
 	e._banda = maxf(f.ancho, 8.0)
 	# El borde de la banda, irregular (un surco perfecto parece de regla).
@@ -328,10 +417,16 @@ static func circulo_pisoton(f, r: float) -> RefCounted:
 static func retraso(s: int, f: CombatFormas.Forma, p: Vector2) -> float:
 	if f == null:
 		return 0.0
+	match int(_MODO_DE_SUELO[s]) if s >= 0 and s < _MODO_DE_SUELO.size() else -1:
+		Modo.CONO: return clampf(p.distance_to(f.origen) / maxf(f.radio, 1.0), 0.0, 1.0) * T_CONO
+		Modo.ALARIDO: return clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ALARIDO
 	return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * T_ARROLLA
 
 
-static func t_salir(_s: int) -> float:
+static func t_salir(s: int) -> float:
+	match int(_MODO_DE_SUELO[s]) if s >= 0 and s < _MODO_DE_SUELO.size() else -1:
+		Modo.CONO: return T_CONO
+		Modo.ALARIDO: return T_ALARIDO
 	return T_ARROLLA
 
 
@@ -344,7 +439,12 @@ func duracion() -> float:
 		Modo.DENTELLADA: return maxf((T_CERRADO + T_IRSE) * _lento, T_TIRON + 0.2)
 		Modo.YUGULAR: return maxf((T_CERRADO + T_IRSE) * _lento, T_ESTELA_VIVE)
 		Modo.FAUCES: return (T_CERRADO + T_IRSE) * _lento
-		Modo.VAHO: return INF if _secando < 0.0 else _secando + T_SECA
+		Modo.VAHO, Modo.GRIETAS: return INF if _secando < 0.0 else _secando + T_SECA
+		Modo.TENTACULO: return 0.5
+		Modo.MIRADA: return 0.55
+		Modo.PUSTULAS: return 0.9
+		Modo.CONO: return T_CONO + 0.25
+		Modo.ALARIDO: return T_ALARIDO + 3.0 * 0.09 + 0.25
 	return 1.0
 
 
@@ -397,6 +497,12 @@ func _dibujar_capa(capa: Node2D) -> void:
 			_estela_sombra(capa)
 			_fauces(capa)
 		Modo.VAHO: _vaho(capa)
+		Modo.TENTACULO: _tentaculo(capa)
+		Modo.MIRADA: _ojo_mirada(capa)
+		Modo.PUSTULAS: _pustulas(capa)
+		Modo.GRIETAS: _grietas_luz(capa)
+		Modo.CONO: _cono_mirada(capa)
+		Modo.ALARIDO: _alarido(capa)
 
 
 # ------------------------------------------------------------
@@ -858,3 +964,286 @@ func _vaho(capa: Node2D) -> void:
 			BestiaAire._bola(capa, p, r * 1.8, Color(VAHO, a * 0.35))
 			BestiaAire._bola(capa, p, r, Color(VAHO, a))
 			BestiaAire._bola(capa, p, r * 0.45, Color(1.0, 0.45, 0.42, a * 0.7))
+
+
+# ------------------------------------------------------------
+#  LA ABERRACION
+# ------------------------------------------------------------
+# EL TENTACULO (basico y cada golpe del Latigazo): es PARTE DEL SPRITE (lo-que-sale-del-cuerpo-parece-sprite): de su
+# morado, con su borde oscuro, el lomo mas claro y ventosas palidas por debajo. Brota del borde de su masa (cada golpe
+# de un sitio: 'lado'), va en curva hasta quien recibe, RESTALLA (la curva se da la vuelta de golpe) y se recoge.
+func _tentaculo(capa: Node2D) -> void:
+	var dist: float = _o.distance_to(_hasta)
+	if dist < 2.0:
+		return
+	var eje: Vector2 = (_hasta - _o) / dist
+	var lat: Vector2 = eje.orthogonal()
+	# Cuanto ha salido (0..1): brota mientras llega el golpe, se queda un momento y se recoge.
+	var u: float
+	if _t < 0.0:
+		var k: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		u = 1.0 - (1.0 - k) * (1.0 - k)
+	else:
+		u = 1.0 - smoothstep(0.1, 0.3, _t)
+	# EL RESTALLIDO: la panza de la curva pasa de un lado al otro justo en el golpe.
+	var panza: float = lerpf(1.0, -0.7, smoothstep(-0.05, 0.05, _t)) * _lado
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.12:
+			BarridoAire.destello(capa, _hasta, _tam * 1.6, Color(0.98, 0.9, 1.0, 0.8 * (1.0 - _t / 0.12)), eje.angle())
+		return
+	if capa != _delante:
+		return
+	# LA MARCA DEL AZOTE, detras del tentaculo: un verdugon rojo de lado a lado del cuerpo, que se va.
+	if _t >= 0.0 and _t < 0.45:
+		var km: float = _t / 0.45
+		var a_m: Vector2 = _hasta - lat * _ancho * 0.45 + Vector2(0.0, -2.0)
+		var b_m: Vector2 = _hasta + lat * _ancho * 0.45 + Vector2(0.0, 2.0)
+		BarridoAire.cometa(capa, a_m, b_m, maxf(1.6, _ancho * 0.12), Color(0.85, 0.12, 0.16, 0.85 * (1.0 - km)))
+	if u > 0.02:
+		var ctrl: Vector2 = (_o + _hasta) * 0.5 + lat * dist * 0.32 * panza - Vector2(0.0, dist * 0.12)
+		var n: int = 16
+		var pts: Array = []
+		for i in n + 1:
+			var v: float = u * float(i) / float(n)
+			var a: Vector2 = _o.lerp(ctrl, v)
+			var b: Vector2 = ctrl.lerp(_hasta, v)
+			pts.append(a.lerp(b, v))
+		# Tres pasadas, como un sprite: el borde, la carne y el lomo con luz; y las ventosas por debajo.
+		for pasada in 3:
+			for i in pts.size():
+				var f: float = float(i) / float(n)
+				var r: float = lerpf(_tam, _tam * 0.35, f)
+				var p: Vector2 = pts[i]
+				match pasada:
+					# El borde, solo fuera del cuerpo: en el arranque (dentro de su masa) seria un tubo pegado encima.
+					0:
+						if f > 0.18:
+							BestiaAire._bola(capa, p, r + 0.9, _placa.darkened(0.7))
+					1: BestiaAire._bola(capa, p, r, _placa)
+					2: BestiaAire._bola(capa, p + Vector2(-0.2, -r * 0.35), r * 0.5, _placa_clara)
+		for i in range(2, pts.size() - 1, 2):
+			var f2: float = float(i) / float(n)
+			BestiaAire._bola(capa, (pts[i] as Vector2) + Vector2(0.0, lerpf(_tam, _tam * 0.35, f2) * 0.45),
+				maxf(0.6, _tam * 0.22 * (1.0 - f2 * 0.5)), Color(0.93, 0.8, 0.9))
+	# EL RESTALLIDO en la punta: una media luna corta y palida atravesada al tentaculo, y la baba que salta y cae.
+	if _t >= 0.0 and _t < 0.16:
+		var kr: float = _t / 0.16
+		var th: float = eje.angle() + PI * 0.5 * _lado
+		BestiaAire._media_luna(capa, _hasta, th - 0.7, th + 0.7, _tam * (2.2 + 1.2 * kr), _tam * 0.8,
+			Color(1.0, 0.95, 1.0), _placa_clara, 1.0 - kr, true)
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.45:
+			continue
+		var kg: float = tg / 0.45
+		var d: Vector2 = g["d"]
+		var p2: Vector2 = _hasta + d * float(g["v"]) * kg + Vector2(0.0, 14.0 * kg * kg)
+		BestiaAire._bola(capa, p2, float(g["r"]) * (1.0 - 0.3 * kg), Color(_placa.lightened(0.25), 1.0 - kg * kg))
+
+
+# LA MIRADA DEL VACIO sobre quien la recibe: se le ABRE UN OJO encima de la cabeza (negro, la almendra de la
+# oscuridad, con la pupila clara del eclipse: oscuridad-nuestro-lenguaje), le mira y se cierra; y el se encoge
+# temblando (el miedo). El temblor lo pone aplicar_temblor.
+func _ojo_mirada(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	var abre: float = smoothstep(0.0, 0.12, _t) * (1.0 - smoothstep(0.38, 0.52, _t))
+	if abre <= 0.01:
+		return
+	var w: float = maxf(_ancho * 1.1, 10.0)
+	var h: float = w * 0.45 * abre
+	var c: Vector2 = _hasta
+	var arriba := PackedVector2Array()
+	var abajo := PackedVector2Array()
+	var halo_a := PackedVector2Array()
+	var halo_b := PackedVector2Array()
+	var n: int = 14
+	for i in n + 1:
+		var s: float = float(i) / float(n) * 2.0 - 1.0
+		var alto: float = h * (1.0 - s * s)
+		arriba.append(c + Vector2(s * w, -alto))
+		abajo.append(c + Vector2(s * w, alto * 0.8))
+		halo_a.append(c + Vector2(s * w * 1.25, -alto * 1.5 - 1.0))
+		halo_b.append(c + Vector2(s * w * 1.25, alto * 1.3 + 1.0))
+	BestiaAire._tira(capa, halo_a, halo_b, Color(MagiaMayor.ECLIPSE, 0.3 * abre))
+	BestiaAire._tira(capa, arriba, abajo, Color(MagiaMayor.NEGRO, 0.95))
+	# La pupila clara, que te mira. Se mueve un pelin (no es un dibujo quieto: esta mirando).
+	var pup: Vector2 = c + Vector2(sin(_t * 9.0) * w * 0.12, 0.0)
+	MagiaMayor._disco(capa, pup, h * 0.62, Color(MagiaMayor.ECLIPSE_CLARO, abre), Color(MagiaMayor.ECLIPSE, 0.0))
+	MagiaMayor._disco(capa, pup, h * 0.28, Color(MagiaMayor.NEGRO, abre), Color(MagiaMayor.NEGRO, abre * 0.6))
+
+
+# LA CARNE QUE SE CIERRA (al empezar su turno, si se cura): bultos de su carne que se hinchan y se hunden sobre ella,
+# como pustulas que cierran las heridas; cada uno con su brillo humedo arriba.
+func _pustulas(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.5:
+			continue
+		var k: float = tg / 0.5
+		var r: float = float(g["r"]) * sin(PI * minf(k * 1.3, 1.0))
+		if r <= 0.4:
+			continue
+		var p: Vector2 = _o + Vector2(float(g["x"]) * _ancho, float(g["y"]) * _largo)
+		# Con contraste: del mismo tono que la carne no se veian (burbujas palidas).
+		MagiaMayor._disco(capa, p, r + 1.0, _placa.darkened(0.6), Color(_placa.darkened(0.6), 0.9))
+		MagiaMayor._disco(capa, p, r, _placa.lightened(0.3), _placa.lightened(0.05))
+		BestiaAire._bola(capa, p + Vector2(-r * 0.3, -r * 0.35), r * 0.35, Color(1.0, 0.9, 1.0, 0.8))
+
+
+# LAS GRIETAS DE LUZ (mientras la luz le corta la cura): rajas doradas en su carne que chisporrotean. Se quedan hasta
+# que vuelve a curarse (secar()).
+func _grietas_luz(capa: Node2D) -> void:
+	var vivo: float = clampf(_t / 0.3, 0.0, 1.0)
+	if _secando >= 0.0:
+		vivo *= 1.0 - clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+	if vivo <= 0.0:
+		return
+	var late: float = 0.75 + 0.25 * sin(_t * 7.0 + _incl)
+	for g in _lajas:
+		var pts := PackedVector2Array()
+		for q in (g["pts"] as PackedVector2Array):
+			pts.append(_o + Vector2(q.x * _ancho, q.y * _largo))
+		if capa == _brillo:
+			for q2 in pts:
+				BarridoAire.brillo(capa, q2, _ancho * 0.07, Color(1.0, 0.8, 0.35, 0.25 * vivo * late))
+			continue
+		if capa != _delante:
+			continue
+		# FINAS: gordas eran hojas doradas pegadas, no rajas.
+		_raja(capa, pts, maxf(0.6, _ancho * 0.018), vivo * late)
+	# Las chispas: suben de las rajas y se apagan.
+	if capa != _delante:
+		return
+	for i in 5:
+		var fase: float = fposmod(_t * 1.4 + float(i) * 0.21 + _incl, 1.0)
+		var base_g: Dictionary = _lajas[i % _lajas.size()]
+		var q3: Vector2 = (base_g["pts"] as PackedVector2Array)[int(fase * 7.0) % (base_g["pts"] as PackedVector2Array).size()]
+		var p3: Vector2 = _o + Vector2(q3.x * _ancho, q3.y * _largo) - Vector2(0.0, fase * _largo * 0.35)
+		BarridoAire.cometa(capa, p3 + Vector2(0.0, 2.5), p3, 1.1, Color(1.0, 0.88, 0.5, vivo * (1.0 - fase)))
+
+
+# ------------------------------------------------------------
+#  LA ABERRACION POR EL SUELO
+# ------------------------------------------------------------
+# LA MIRADA DEL VACIO por su cono: el ojo se ENCIENDE (el punto de luz del eclipse, alto, donde tiene el ojo) y por el
+# cono avanzan tres medias lunas NEGRAS de lado a lado, con el pincel claro roto por delante, que se abren y se
+# apagan al llegar (la Voragine, no un rayo).
+func _cono_mirada(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	# SU OJO: el cono sale del frente de su cuerpo a ras de suelo; el ojo esta un poco mas atras y en alto.
+	var ojo: Vector2 = _o - _dir * 9.0 - Vector2(0.0, 8.0)
+	if capa == _brillo:
+		if _t < 0.3:
+			var ke: float = _t / 0.3
+			BarridoAire.destello(capa, ojo, 7.0 + 5.0 * sin(PI * ke), Color(MagiaMayor.ECLIPSE_CLARO, 0.9 * (1.0 - ke)), 0.0)
+		return
+	if capa != _delante:
+		return
+	if _t < 0.3:
+		MagiaMayor._disco(capa, ojo, 2.6 * (1.0 - _t / 0.3), Color(MagiaMayor.ECLIPSE_CLARO, 1.0), Color(MagiaMayor.ECLIPSE, 0.0))
+	var mitad: float = _banda * 0.5
+	for ola in 3:
+		var to: float = _t - float(ola) * 0.08
+		if to < 0.0:
+			continue
+		var k: float = clampf(to / T_CONO, 0.0, 1.0)
+		var r: float = lerpf(8.0, _largo, 1.0 - (1.0 - k) * (1.0 - k))
+		var alfa: float = (1.0 - smoothstep(0.7, 1.0, k)) * (1.0 - 0.2 * float(ola))
+		if alfa <= 0.0:
+			continue
+		# GORDAS (a 2,5-7 eran rayitas negras que casi no se veian).
+		var grueso: float = lerpf(6.0, 13.0, k) * (1.0 - 0.2 * float(ola))
+		var n: int = 12
+		var fuera := PackedVector2Array()
+		var dentro := PackedVector2Array()
+		var filo: Array = []
+		for i in n + 1:
+			var s: float = float(i) / float(n) * 2.0 - 1.0
+			var a: float = _dir.angle() + s * mitad
+			var w: float = grueso * (1.0 - s * s) * (0.85 + 0.3 * sin(float(i) * 2.1 + float(ola)))
+			var d := Vector2(cos(a), sin(a))
+			fuera.append(_o + d * (r + w * 0.5))
+			dentro.append(_o + d * maxf(r - w, 0.0))
+			filo.append([_o + d * (r + w * 0.5 + 1.0), w])
+		BestiaAire._tira(capa, fuera, dentro, Color(MagiaMayor.NEGRO, alfa))
+		for i in n:
+			if sin(float(i) * 3.3 + float(ola) * 1.7) < 0.1:
+				continue
+			var p0: Vector2 = filo[i][0]
+			var p1: Vector2 = filo[i + 1][0]
+			var t2: Vector2 = (p1 - p0).normalized().orthogonal() * (0.4 + 0.9 * float(filo[i][1]) / maxf(grueso, 0.1))
+			capa.draw_primitive(PackedVector2Array([p0 - t2, p1, p0 + t2]),
+				PackedColorArray([Color(MagiaMayor.PINCEL, alfa), Color(MagiaMayor.PINCEL, 0.0), Color(MagiaMayor.PINCEL, alfa)]),
+				PackedVector2Array())
+
+
+# EL ALARIDO DEMENTE: frentes de sonido en CIRCULO COMPLETO alrededor de ella, pero ROTOS y DEFORMES (lo que "no
+# deberias estar oyendo"): cada frente ondula fuerte, tiene huecos y tiembla, en un violeta enfermizo. El Chillido del
+# rey rata, retorcido. Del filo claro y duro a nada hacia dentro, y un halo tenue por fuera.
+func _alarido(capa: Node2D) -> void:
+	if capa != _delante or _t < 0.0:
+		return
+	var alto := Vector2(0.0, -5.0)
+	for k in 4:
+		var tk: float = _t - float(k) * 0.09
+		if tk < 0.0:
+			continue
+		var prog: float = clampf(tk / T_ALARIDO, 0.0, 1.0)
+		var rf: float = _largo * (1.0 - (1.0 - prog) * (1.0 - prog))
+		var apaga: float = clampf((tk - T_ALARIDO) / 0.2, 0.0, 1.0)
+		var alfa: float = (0.85 - 0.14 * float(k)) * (1.0 - 0.35 * prog) * (1.0 - apaga)
+		if alfa <= 0.0 or rf < 4.0:
+			continue
+		var grueso: float = lerpf(3.0, 6.5, prog)
+		var ondula: float = 2.5 + 3.5 * prog
+		var n: int = 48
+		for i in n:
+			var s0: float = float(i) / float(n)
+			var s1: float = float(i + 1) / float(n)
+			# LOS HUECOS: trozos del frente que no estan (cambian de sitio en cada frente).
+			var roto0: float = sin(s0 * TAU * 3.0 + float(k) * 2.3 + _incl)
+			if roto0 < -0.55:
+				continue
+			var a0: float = s0 * TAU
+			var a1: float = s1 * TAU
+			var w0: float = rf + sin(a0 * 5.0 + _t * 30.0 + float(k)) * ondula + sin(a0 * 13.0 - _t * 55.0) * ondula * 0.35
+			var w1: float = rf + sin(a1 * 5.0 + _t * 30.0 + float(k)) * ondula + sin(a1 * 13.0 - _t * 55.0) * ondula * 0.35
+			var d0 := Vector2(cos(a0), sin(a0))
+			var d1 := Vector2(cos(a1), sin(a1))
+			var borde: float = clampf((roto0 + 0.55) / 0.4, 0.0, 1.0)
+			var f0: Vector2 = _o + d0 * w0 + alto
+			var f1: Vector2 = _o + d1 * w1 + alto
+			var i0: Vector2 = _o + d0 * maxf(w0 - grueso, 0.0) + alto
+			var i1: Vector2 = _o + d1 * maxf(w1 - grueso, 0.0) + alto
+			var h0: Vector2 = _o + d0 * (w0 + grueso * 0.6) + alto
+			var h1: Vector2 = _o + d1 * (w1 + grueso * 0.6) + alto
+			var c0 := Color(ALARIDO_CLARO, alfa * borde)
+			var nada := Color(ALARIDO, 0.0)
+			capa.draw_primitive(PackedVector2Array([f0, f1, i1]), PackedColorArray([c0, c0, nada]), PackedVector2Array())
+			capa.draw_primitive(PackedVector2Array([f0, i1, i0]), PackedColorArray([c0, nada, nada]), PackedVector2Array())
+			var hc := Color(ALARIDO, alfa * borde * 0.35)
+			capa.draw_primitive(PackedVector2Array([f0, f1, h1]), PackedColorArray([hc, hc, nada]), PackedVector2Array())
+			capa.draw_primitive(PackedVector2Array([f0, h1, h0]), PackedColorArray([hc, nada, nada]), PackedVector2Array())
+
+
+# UNA RAJA DE LUZ rellena (no una raya): cada tramo es una cuña dorada, gorda en medio de la raja y afilada en las
+# puntas, con el nucleo casi blanco.
+static func _raja(ci: CanvasItem, pts: PackedVector2Array, w: float, alfa: float) -> void:
+	var n: int = pts.size()
+	if n < 2 or alfa <= 0.0:
+		return
+	for capa_r in 2:
+		var ancho: float = w * (1.0 if capa_r == 0 else 0.45)
+		var col: Color = Color(1.0, 0.76, 0.28, alfa) if capa_r == 0 else Color(1.0, 0.97, 0.82, alfa)
+		for i in n - 1:
+			var s0: float = float(i) / float(n - 1)
+			var s1: float = float(i + 1) / float(n - 1)
+			var g0: float = ancho * sin(PI * s0) + 0.2
+			var g1: float = ancho * sin(PI * s1) + 0.2
+			var d: Vector2 = (pts[i + 1] - pts[i]).normalized().orthogonal()
+			ci.draw_primitive(PackedVector2Array([pts[i] - d * g0, pts[i + 1] - d * g1, pts[i + 1] + d * g1, pts[i] + d * g0]),
+				PackedColorArray([col, col, col, col]), PackedVector2Array())

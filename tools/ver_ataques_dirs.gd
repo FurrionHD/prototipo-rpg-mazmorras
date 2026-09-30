@@ -1375,6 +1375,13 @@ const MOMENTOS_BESTIA := {
 	"acechador_salto": [-0.3, -0.2, -0.1, 0.0, 0.08, 0.2, 0.4],
 	"acechador_dentellada": [-0.06, 0.0, 0.08, 0.16, 0.22, 0.3, 0.4, 0.6],
 	"olor_sangre": [0.15, 0.5, 0.9, 1.4, 1.9, 2.3],
+	# La aberracion (30/09): los tres tentaculos del Latigazo (0; 0,22; 0,44) brotando, restallando y recogiendose; la
+	# Mirada recorriendo el cono y el ojo abriendose; el Alarido abriendose; y su pasiva (pustulas, y grietas de luz).
+	"aberracion_latigazo": [-0.12, -0.04, 0.0, 0.1, 0.22, 0.3, 0.44, 0.6],
+	"aberracion_mirada": [0.0, 0.1, 0.2, 0.3, 0.45, 0.6],
+	"aberracion_alarido": [0.0, 0.1, 0.2, 0.3, 0.45, 0.7],
+	"carne_cierra": [0.0, 0.1, 0.2, 0.3, 0.45],
+	"carne_quemada": [0.1, 0.4, 0.8, 1.2, 1.6],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1395,7 +1402,8 @@ const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, Com
 const ESTILO_A_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
 	CombatFX.Estilo.FIERA_FAUCES: FieraAire.Modo.FAUCES, CombatFX.Estilo.FIERA_YUGULAR: FieraAire.Modo.YUGULAR,
-	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA}
+	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA,
+	CombatFX.Estilo.FIERA_TENTACULO: FieraAire.Modo.TENTACULO, CombatFX.Estilo.FIERA_MIRADA: FieraAire.Modo.MIRADA}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1436,6 +1444,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	# LA PASIVA DEL OLOR A SANGRE (el acechador, 30/09): el vaho sobre uno de los tuyos que sangra.
 	if ed.olor_sangre_mult != 1.0:
 		habs.append("olor_sangre")
+	# LA CARNE QUE SE CIERRA (la aberracion, 30/09): las pustulas al curarse y las grietas de luz cuando no puede.
+	if ed.regen_turno > 0.0:
+		habs.append("carne_cierra")
+		habs.append("carne_quemada")
 	for nom in habs:
 		if pedidas != "" and not (String(nom) in pedidas.split(",")):
 			continue
@@ -1448,6 +1460,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab = AbilityData.new()
 			ab.nombre = "Olor a sangre (pasiva)"
 			ab.fx_estilo_mapa = CombatFX.Estilo.FIERA_FAUCES   # (para que pase; el modo es VAHO, abajo)
+		elif nom in ["carne_cierra", "carne_quemada"]:
+			ab = AbilityData.new()
+			ab.nombre = "Carne que se cierra (pasiva)" if nom == "carne_cierra" else "Carne que se cierra (cortada por la luz)"
+			ab.fx_estilo_mapa = CombatFX.Estilo.FIERA_FAUCES   # (para que pase; el modo, abajo)
 		elif nom == "basico":
 			ab = AbilityData.new()
 			ab.nombre = "Basico"
@@ -1469,6 +1485,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		var modo_f: int = ESTILO_A_FIERA.get(int(ab.fx_estilo_mapa), -1)
 		if nom == "olor_sangre":
 			modo_f = FieraAire.Modo.VAHO
+		elif nom == "carne_cierra":
+			modo_f = FieraAire.Modo.PUSTULAS
+		elif nom == "carne_quemada":
+			modo_f = FieraAire.Modo.GRIETAS
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1486,6 +1506,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		# Las fauces del acechador: se ven llegar abiertas, cerrar y tirar.
 		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.FIERA_FAUCES:
 			tiempos = [-0.1, -0.04, 0.0, 0.06, 0.15, 0.3]
+		# El tentaculo de la aberracion: brota, restalla y se recoge.
+		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.FIERA_TENTACULO:
+			tiempos = [-0.12, -0.05, 0.0, 0.06, 0.15, 0.3]
 		# LO QUE HACE SU CUERPO (29/09, el escarabajo: "la embestida es mas visual del sprite que de efectos"): la
 		# animacion de la habilidad, en el fotograma que toca en cada momento (arranca IMPACTO_ANIM_MAPA antes del
 		# golpe, como en el juego). Apuntando, la ultima de su pose de carga. Solo si el bicho la tiene.
@@ -1690,6 +1713,18 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": SimaAire.sobre_cuerpo(self, modo_s, bulto, cajas[i], _pies_caja(cajas[i]),
 						ed.color_visual(0.5), semilla + i, 0.0, 1.0), "t0": 0.0, "sim": false})
 				cajas = []
+			# LA MIRADA: el ojo en TODOS los que pilla el cono, cuando les llega.
+			if modo_f == FieraAire.Modo.MIRADA:
+				for i in cajas.size():
+					var rmi: Rect2 = cajas[i]
+					var fig_m: ColorRect = null
+					for fg in _figs + presas_extra:
+						if rmi.has_point((fg as ColorRect).position + Vector2(7, 13)):
+							fig_m = fg
+					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, bulto.get_center(), rmi, semilla + i, 0.0, 1.0,
+						bulto.size.x, ed.color_visual(0.5), 0.0, fig_m), "t0": SueloRoto.retraso(f, _pies_caja(rmi), ab.suelo_roto),
+						"sim": false})
+				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
 			if modo_b < 0 and modo_i < 0 and modo_s < 0 and modo_f < 0:
 				cajas = []
@@ -1721,6 +1756,13 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, rg.get_center(), bulto, semilla, 0.0, 1.0, -1.0,
 						ed.color_visual(0.5)), "t0": 0.0, "sim": false})
 					break
+				if modo_f == FieraAire.Modo.PUSTULAS:
+					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, bulto.get_center(), bulto, semilla, 0.0, 1.0, -1.0,
+						ed.color_visual(0.5)), "t0": 0.0, "sim": false})
+					break
+				if modo_f == FieraAire.Modo.GRIETAS:
+					piezas.append({"n": FieraAire.grietas(self, bulto, semilla), "t0": 0.0, "sim": false})
+					break
 				if modo_f == FieraAire.Modo.VAHO:
 					# El olor a sangre: el vaho sobre la figura que sangra.
 					piezas.append({"n": FieraAire.vaho(self, rg, semilla), "t0": 0.0, "sim": false})
@@ -1735,6 +1777,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						FieraAire.Modo.FAUCES: espera_f = 0.14
 						FieraAire.Modo.DENTELLADA: espera_f = 0.18
 						FieraAire.Modo.YUGULAR: espera_f = _TACTICO.T_SALTO_BICHO
+						FieraAire.Modo.TENTACULO: espera_f = 0.16
 					var desde_f: Vector2 = bulto0.get_center() if modo_f == FieraAire.Modo.YUGULAR else bulto.get_center()
 					var fig_f: ColorRect = null
 					if modo_f == FieraAire.Modo.DENTELLADA:
@@ -1743,7 +1786,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 								fig_f = fg
 					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, desde_f, rg, semilla + g,
 						espera_f, 1.0, bulto.size.x, ed.color_visual(0.5),
-						(-1.0 if g % 2 == 0 else 1.0) if modo_f == FieraAire.Modo.ZARPA else 0.0, fig_f, arco_salto),
+						(-1.0 if g % 2 == 0 else 1.0) if modo_f == FieraAire.Modo.ZARPA
+							else ([-1.0, 1.0, 0.01][g % 3] if modo_f == FieraAire.Modo.TENTACULO else 0.0), fig_f, arco_salto),
 						"t0": t0, "sim": false})
 					# LA SANGRE del acechador (en el juego, solo si entra): el chorro del cuello y el jiron hacia el.
 					if modo_f in [FieraAire.Modo.YUGULAR, FieraAire.Modo.DENTELLADA]:

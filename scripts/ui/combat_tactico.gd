@@ -282,6 +282,7 @@ func desmontar() -> void:
 	olvidar_pegadas()
 	_quitar_raices()
 	_quitar_olor()
+	_quitar_carne()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
@@ -817,6 +818,7 @@ func tick(delta: float) -> bool:
 	_tick_gestos(delta)
 	_tick_raices()
 	_tick_olor()
+	_tick_carne()
 	_tick_presas_carga()
 	_tick_enroscados()
 	_tick_pegadas(delta)
@@ -2544,6 +2546,47 @@ func _tick_olor() -> void:
 				n.call("secar")
 
 
+# LA CARNE QUE SE CIERRA (30/09, la pasiva de la aberracion): cuando se cura (su vida sube), las pustulas sobre ella;
+# y mientras la luz le corta la cura (regen_cortada, que viaja al espejo), las grietas doradas. Se mira el estado cada
+# fotograma, como el olor: lo ven todos sin mandar nada.
+var _carne_vida: Dictionary = {}   # Combatant -> la vida del fotograma anterior
+var _grietas: Dictionary = {}      # Combatant -> FieraAire
+
+func _tick_carne() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	for e in _pantalla._enemies:
+		var c: Combatant = e
+		if c.regen_turno <= 0.0:
+			continue
+		var vivo: bool = c.is_alive() and cuerpo_de(c) != null
+		var antes: float = float(_carne_vida.get(c, c.current_hp))
+		_carne_vida[c] = c.current_hp
+		if vivo and c.current_hp > antes + 0.5:
+			FieraAire.sobre_cuerpo(arena, FieraAire.Modo.PUSTULAS, bulto_de(c).get_center(), bulto_de(c), _cod(c) + randi() % 97,
+				0.0, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0, -1.0, c.color_visual)
+		var n = _grietas.get(c)
+		if vivo and c.regen_cortada > 0:
+			if n == null or not is_instance_valid(n):
+				n = FieraAire.grietas(arena, bulto_de(c), _cod(c))
+				_grietas[c] = n
+			n.call("seguir", bulto_de(c))
+		elif n != null:
+			_grietas.erase(c)
+			if is_instance_valid(n):
+				n.call("secar")
+
+
+func _quitar_carne() -> void:
+	for c in _grietas.keys():
+		var n = _grietas[c]
+		if n != null and is_instance_valid(n):
+			n.call("secar")
+	_grietas.clear()
+	_carne_vida.clear()
+
+
 func _quitar_olor() -> void:
 	for c in _olor.keys():
 		var n = _olor[c]
@@ -3359,7 +3402,8 @@ func _placa_si_para(ev: Dictionary) -> void:
 const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
 	CombatFX.Estilo.FIERA_FAUCES: FieraAire.Modo.FAUCES, CombatFX.Estilo.FIERA_YUGULAR: FieraAire.Modo.YUGULAR,
-	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA}
+	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA,
+	CombatFX.Estilo.FIERA_TENTACULO: FieraAire.Modo.TENTACULO, CombatFX.Estilo.FIERA_MIRADA: FieraAire.Modo.MIRADA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3434,10 +3478,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo in _MODO_FIERA:
 		var desde_f: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		var lado_f: float = (-1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0) if estilo == CombatFX.Estilo.FIERA_ZARPA else 0.0
+		# El tentaculo de la aberracion: cada golpe del Latigazo brota de un sitio de su masa.
+		if estilo == CombatFX.Estilo.FIERA_TENTACULO:
+			lado_f = [-1.0, 1.0, 0.01][int(ev.get("tanda", 0)) % 3]
 		# La Dentellada arrastra a su victima (su dibujo, como la Cornada); la Yugular sale al despegar, y su estela
 		# sigue el arco del salto (el de mover_enemigo).
 		var dib_f = null
-		if estilo == CombatFX.Estilo.FIERA_DENTELLADA:
+		if estilo in [CombatFX.Estilo.FIERA_DENTELLADA, CombatFX.Estilo.FIERA_MIRADA]:
 			dib_f = cuerpo_de(v).get("_muneco") if cuerpo_de(v).get("_muneco") is Node2D else cuerpo_de(v).get("_sprite")
 		var arco_f: float = ALTO_SALTO_BICHO * clampf(radio_pisa(a) / 10.0, 1.0, 2.5) \
 			if estilo == CombatFX.Estilo.FIERA_YUGULAR and a != null and cuerpo_de(a) != null else 0.0

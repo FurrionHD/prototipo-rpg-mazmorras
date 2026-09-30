@@ -410,7 +410,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		FIERA_TESTARAZO = 166, FIERA_ZARPA = 167, FIERA_PLACA = 168,
 		# Y el acechador: sus fauces (basico), el Salto a la yugular (estela de sombra y fauces al cuello) y cada
 		# mordisco de la Dentellada desgarradora (tira).
-		FIERA_FAUCES = 169, FIERA_YUGULAR = 170, FIERA_DENTELLADA = 171 }
+		FIERA_FAUCES = 169, FIERA_YUGULAR = 170, FIERA_DENTELLADA = 171,
+		# Y la aberracion: su tentaculo (basico y Latigazo) y el ojo que se abre sobre quien le pilla la Mirada.
+		FIERA_TENTACULO = 172, FIERA_MIRADA = 173 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -452,7 +454,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
 	# y las bestias de las simas (FieraAire, 30/09).
 	Estilo.FIERA_TESTARAZO, Estilo.FIERA_ZARPA, Estilo.FIERA_PLACA,
-	Estilo.FIERA_FAUCES, Estilo.FIERA_YUGULAR, Estilo.FIERA_DENTELLADA,
+	Estilo.FIERA_FAUCES, Estilo.FIERA_YUGULAR, Estilo.FIERA_DENTELLADA, Estilo.FIERA_TENTACULO, Estilo.FIERA_MIRADA,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -628,6 +630,8 @@ const T_VUELO := {
 	# Las fauces llegan abiertas y se cierran en el golpe; la Yugular sale AL DESPEGAR (lo que dura el salto,
 	# CombatTactico.T_SALTO_BICHO): la estela de sombra va con el por el aire.
 	Estilo.FIERA_FAUCES: 0.14, Estilo.FIERA_YUGULAR: 0.4, Estilo.FIERA_DENTELLADA: 0.18,
+	# El tentaculo brota mientras llega el golpe; el ojo se abre EN el golpe (cuando le llega la Mirada por su cono).
+	Estilo.FIERA_TENTACULO: 0.16, Estilo.FIERA_MIRADA: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

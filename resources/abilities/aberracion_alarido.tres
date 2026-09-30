@@ -28,3 +28,7 @@ cooldown = 5
 forma = 1
 forma_apunte = 2
 forma_radio = 70.0
+; EFECTO EN EL MAPA (30/09): frentes de sonido rotos y deformes en circulo (FIERA_ALARIDO) y, en cada uno que
+; alcanza, el temblor del Chillido (BESTIA_TEMBLOR).
+fx_estilo_mapa = 138
+suelo_roto = 85

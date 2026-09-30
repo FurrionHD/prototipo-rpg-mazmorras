@@ -480,6 +480,8 @@ func _volatil(c: Combatant) -> Dictionary:
 	# todavia. Lo cierra _reenlazar_coberturas, en una segunda pasada. Ver retomar().
 	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy, "foco": c.foco_cargas,
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
+		# La cura cortada por la luz (la aberracion, 30/09): sus grietas se ven en todas las maquinas.
+		"regen_cortada": c.regen_cortada,
 		"cubre": [_pantalla._aliados.find(c.protegiendo_a) if c.protegiendo_a != null else -1,
 			c.proteger_turnos],
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
@@ -495,6 +497,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.current_energy = float(v.get("en", c.current_energy))
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
+	c.regen_cortada = int(v.get("regen_cortada", c.regen_cortada))
 	# COBERTURA: aqui solo se apunta el indice en bruto; el puntero lo cierra _reenlazar_coberturas
 	# cuando ya estan todos montados. Se guarda EN EL DICT y no en el Combatant para no dejar un
 	# campo a medias en el que la redireccion pueda creerse.

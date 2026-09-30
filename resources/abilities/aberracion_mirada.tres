@@ -23,3 +23,7 @@ forma = 2
 forma_apunte = 1
 forma_radio = 120.0
 forma_apertura = 30.0
+; EFECTO EN EL MAPA (30/09): el ojo se enciende y medias lunas negras recorren el cono (FIERA_CONO); sobre cada
+; uno, un ojo que se abre y el miedo (FIERA_MIRADA).
+fx_estilo_mapa = 173
+suelo_roto = 84
