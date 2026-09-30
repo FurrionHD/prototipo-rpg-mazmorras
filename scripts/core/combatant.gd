@@ -227,6 +227,34 @@ var regen_corta_elem: int = 0
 var regen_corta_turnos: int = 2
 var regen_cortada: int = 0
 
+# LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
+# (Combatant -> float). La sube el daño que le hacen (Pantalla._apuntar_dano), las curas (a todos, la mitad y
+# repartida) y la Provocacion (te pone arriba); se enfria al empezar cada turno suyo. La lee su reparto de objetivo
+# (CombatObjetivos._peso_aggro). Solo la lleva quien resuelve la pelea (y viaja en el traspaso).
+var amenaza: Dictionary = {}
+const AMENAZA_ENFRIA := 0.8
+
+func sumar_amenaza(quien: Combatant, cant: float) -> void:
+	if quien == null or cant <= 0.0:
+		return
+	amenaza[quien] = float(amenaza.get(quien, 0.0)) + cant
+
+
+func enfriar_amenaza() -> void:
+	for k in amenaza.keys():
+		amenaza[k] = float(amenaza[k]) * AMENAZA_ENFRIA
+
+
+# Quien va el primero en su tabla (null si nadie le ha hecho nada todavia).
+func primero_en_amenaza() -> Combatant:
+	var mejor: Combatant = null
+	var v: float = 0.0
+	for k in amenaza.keys():
+		if is_instance_valid(k) and (k as Combatant).is_alive() and float(amenaza[k]) > v:
+			v = float(amenaza[k])
+			mejor = k
+	return mejor
+
 # Le ha entrado un golpe o un hechizo de 'elem': si es el que le corta la regeneracion, se queda sin ella.
 func marcar_regen_cortada(elem: int) -> void:
 	if regen_turno > 0.0 and regen_corta_elem != 0 and elem == regen_corta_elem:

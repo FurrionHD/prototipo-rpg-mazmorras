@@ -66,6 +66,7 @@ func _enemy_turn(e: Combatant) -> void:
 			_pantalla._pausa_lectura()
 		return
 	_regenerar(e)
+	e.enfriar_amenaza()   # su tabla de amenaza se enfria un poco cada turno suyo
 	if ev.stunned:
 		# Aturdir a un enemigo que se estaba CARGANDO cancela su ataque (interrupcion).
 		if e.charging != null:

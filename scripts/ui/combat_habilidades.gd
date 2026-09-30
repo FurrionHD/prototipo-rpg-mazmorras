@@ -754,6 +754,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.provoca_turnos > 0 and not (en_mapa and reparto_mapa.is_empty()):
 		_pantalla._player.provocar_turnos = ab.provoca_turnos
 		_pantalla._player.provocados = reparto_mapa.map(func(o): return o["c"]) if en_mapa else []
+		# Y en SU tabla de amenaza te pone arriba del todo (el taunt de verdad).
+		_pantalla.objetivos.provocar_amenaza(_pantalla._player, _pantalla._player.provocados)
 	# COBERTURA (escudo grande, "Muro"): te plantas delante del aliado elegido. Va al MISMO nivel
 	# que la Provocacion, no dentro de nada -- ver el aviso de ahi arriba, que a la Provocacion le
 	# paso justo eso y no se aplicaba nunca.

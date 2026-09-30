@@ -481,6 +481,10 @@ func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combata
 
 
 func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
+	# LA AMENAZA (30/09): pegarle a ESE enemigo te sube en SU tabla. Es el unico sitio por el que pasan todos los
+	# golpes de los tuyos a un enemigo.
+	if objetivo != null and quien != null and dmg > 0.0 and _enemies.has(objetivo):
+		objetivo.sumar_amenaza(quien, dmg * objetivos.generacion_amenaza(quien))
 	var pj: PersonajeData = Game.pj_de_combatant(quien)
 	Game.contar_dano_infligido(dmg, pj)
 	if pj != null and objetivo != null:

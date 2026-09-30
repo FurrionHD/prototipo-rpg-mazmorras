@@ -21,6 +21,17 @@ func _init(pantalla: Pantalla) -> void:
 # enemigo, frente a los que no (peso 1.0). x4 => con 1 provocador entre 4, ~57% de los golpes van a
 # el; el resto se reparte. No es forzado: solo inclina la balanza. PROVISIONAL -> playtest.
 const PROVOCA_PESO := 4.0
+# LA AMENAZA (30/09, como en el WoW; plan stateless-sniffing-bentley): cada enemigo con su tabla (Combatant.amenaza).
+# Tu cuota de SU tabla multiplica tu peso: 1 + AMENAZA_PESO x cuota x vivos (con la cuota justa, x3 todos; con
+# toda la amenaza, x(1 + 2n)). El sigilo genera la mitad; las curas, la mitad de lo curado repartida entre todos.
+const AMENAZA_PESO := 2.0
+const AMENAZA_CURA := 0.5
+const AMENAZA_SIGILO := 0.5
+const AMENAZA_PROVOCA := 1.1     # la Provocacion te pone un 10% por encima del primero de su tabla
+# A QUIEN SE ACERCA (CombatTactico._presa_de): el de mas peso ENTRE LOS QUE LE LLEGAN ESTE TURNO. Solo persigue a
+# uno que no le llega si le provoca o si pesa esto veces el mejor de los que si (lo pidio el: "si va a tardar dos
+# turnos en llegar al que mas aggro le genera, no debe ir a por el si en este turno puede pegar a uno").
+const PERSEGUIR_X := 2.5
 
 
 # A QUIEN pega el enemigo: uno de los tuyos que siga en pie, sorteado por PESO. Dos capas, y ninguna
@@ -45,12 +56,11 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var total: float = 0.0
 	for c in vivos:
 		var w: float = _peso_aggro(c, quien)
-		# ATENUADO: para el reparto GOLPE A GOLPE de una habilidad multi-golpe. Ahi el sorteo se
-		# repite 5-6 veces seguidas, y con el peso entero el tanque se comia casi la tanda completa
-		# (~5 de 6). La raiz cuadrada lo suaviza SIN invertir el orden: sigue siendo el que mas come,
-		# pero los demas reciben lo suyo. En la eleccion de UN objetivo (turno normal) no se toca.
-		if atenuado:
-			w = sqrt(w)
+		# SORTEO INCLINADO (30/09): en la eleccion de UN objetivo el peso va AL CUADRADO -- casi siempre el primero
+		# de su tabla, alguna vez otro. ATENUADO (el reparto GOLPE A GOLPE de una multi-golpe, que sortea 5-6
+		# veces seguidas): el peso a secas, para que los demas reciban lo suyo sin invertir el orden.
+		if not atenuado:
+			w = w * w
 		pesos.append(w)
 		total += w
 	var r: float = randf() * total
@@ -161,7 +171,53 @@ func _romper_cobertura(c: Combatant) -> void:
 func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
 	var provoca: bool = c.provocar_turnos > 0 and (atacante == null or c.provocados.is_empty()
 		or atacante in c.provocados)
-	return c.aggro_base * (PROVOCA_PESO if provoca else 1.0) * c.status_aggro_mult()
+	var w: float = c.aggro_base * (PROVOCA_PESO if provoca else 1.0) * c.status_aggro_mult()
+	# SIN UN ENEMIGO CONCRETO (el reparto de la excelia de Resistencia) se queda como siempre.
+	if atacante == null or not _pantalla._enemies.has(atacante):
+		return w
+	# SU TABLA DE AMENAZA: tu cuota de lo que le han hecho entre todos los que siguen en pie.
+	var total: float = 0.0
+	for k in atacante.amenaza.keys():
+		if is_instance_valid(k) and (k as Combatant).is_alive():
+			total += float(atacante.amenaza[k])
+	if total > 0.0:
+		var cuota: float = float(atacante.amenaza.get(c, 0.0)) / total
+		w *= 1.0 + AMENAZA_PESO * cuota * float(_pantalla._aliados_vivos().size())
+	return w
+
+
+# CUANTA AMENAZA GENERA 'quien' por cada punto: el doble con escudo (aggro_base: el tanque tiene que PEGAR para
+# sujetarlos) y la mitad en sigilo.
+func generacion_amenaza(quien: Combatant) -> float:
+	if quien == null:
+		return 1.0
+	return quien.aggro_base * (AMENAZA_SIGILO if quien.has_status(StatusEffects.Id.SIGILO) else 1.0)
+
+
+# CURAR TAMBIEN SE NOTA: la mitad de lo curado, repartida entre todos los enemigos vivos. El curandero no pasa
+# desapercibido, pero pega menos que pegar.
+func amenaza_por_cura(sanador: Combatant, cura: float) -> void:
+	if sanador == null or cura <= 0.0 or not _pantalla._aliados.has(sanador):
+		return
+	var vivos: Array = _pantalla._vivos()
+	if vivos.is_empty():
+		return
+	var parte: float = cura * AMENAZA_CURA * generacion_amenaza(sanador) / float(vivos.size())
+	for e in vivos:
+		(e as Combatant).sumar_amenaza(sanador, parte)
+
+
+# LA PROVOCACION: a los que pillo (o a todos, en la fila) les pone a 'quien' un poco por encima del primero de su
+# tabla. Ademas sigue pesando PROVOCA_PESO mientras dure.
+func provocar_amenaza(quien: Combatant, enemigos: Array) -> void:
+	if quien == null:
+		return
+	for e in (enemigos if not enemigos.is_empty() else _pantalla._vivos()):
+		var c: Combatant = e
+		var top: float = 0.0
+		for k in c.amenaza.keys():
+			top = maxf(top, float(c.amenaza[k]))
+		c.amenaza[quien] = maxf(float(c.amenaza.get(quien, 0.0)), top * AMENAZA_PROVOCA + 1.0)
 
 
 func _peso_aggro_total() -> float:

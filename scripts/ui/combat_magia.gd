@@ -826,6 +826,8 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 		var cura: float = spell.cura_de(c.max_hp, parte_magica, entre)
 		c.heal(cura)
 		var real: float = c.current_hp - antes
+		# CURAR GENERA AMENAZA con todos los enemigos (la mitad, repartida: ver CombatObjetivos.amenaza_por_cura).
+		_pantalla.objetivos.amenaza_por_cura(_pantalla._player, real)
 		# EL NUMERO QUE VUELA ES LO QUE CURA EL HECHIZO, aunque pase del maximo: se pidio asi, para ver
 		# lo que hace el conjuro. Va como daño NEGATIVO (ver CombatFX.encolar), que es lo que le da su
 		# «+N» verde, la barra subiendo despacio y el viaje por red al espejo sin tocar el paquete.

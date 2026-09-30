@@ -2848,12 +2848,26 @@ func _presa_de(e: Combatant) -> Combatant:
 	var olor: Combatant = _pantalla.objetivos.presa_por_olor(e, _pantalla._aliados_vivos())
 	if olor != null:
 		return olor
+	# LA AMENAZA Y LO QUE LE LLEGA ESTE TURNO (30/09, CombatObjetivos): el de mas peso de su tabla ENTRE LOS QUE
+	# ALCANZA andando este turno; solo persigue a uno que no le llega si pesa PERSEGUIR_X veces mas. Sin nadie a
+	# tiro este turno, el de mas peso. A igual peso, el mas cercano.
+	var mejor_llega: Combatant = null
+	var w_llega: float = -1.0
+	var mejor_todo: Combatant = null
+	var w_todo: float = -1.0
+	var radio: float = radio_de(e)
 	for c in _pantalla._aliados_vivos():
-		var d: float = hueco_entre(e, c)
-		if d < d_mejor:
-			d_mejor = d
-			mejor = c
-	return mejor
+		var hueco: float = hueco_entre(e, c)
+		var w: float = _pantalla.objetivos._peso_aggro(c, e) / (1.0 + hueco * 0.002)
+		if w > w_todo:
+			w_todo = w
+			mejor_todo = c
+		if hueco - alcance_de(e) <= radio and w > w_llega:
+			w_llega = w
+			mejor_llega = c
+	if mejor_llega != null and w_todo < w_llega * _pantalla.objetivos.PERSEGUIR_X:
+		return mejor_llega
+	return mejor_todo
 
 
 # ------------------------------------------------------------

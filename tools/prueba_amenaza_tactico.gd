@@ -1,0 +1,140 @@
+# LA AMENAZA POR ENEMIGO EN EL TACTICO (30/09, plan stateless-sniffing-bentley). Sin ventana:
+#   godot --headless --path . res://tools/prueba_amenaza_tactico.tscn
+# La tabla de amenaza de cada enemigo (daño, curas, Provocacion, enfriado) y a quien se acerca: el de mas peso entre
+# los que le llegan ESTE turno, salvo que le provoquen o le saquen mucha amenaza. Acaba con BIEN/MAL.
+extends Node
+
+const ENEMIGOS := ["jabali", "rata"]
+var _mal: int = 0
+
+
+func _ready() -> void:
+	call_deferred("_empezar")
+
+
+func _empezar() -> void:
+	reparent(get_tree().root)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	var hueco := Node.new()
+	get_tree().root.add_child(hueco)
+	get_tree().current_scene = hueco
+	_correr()
+
+
+func _esperar(n: int) -> void:
+	for _i in n:
+		await get_tree().process_frame
+
+
+func _esperar_a(cond: Callable, tope_s: float) -> bool:
+	var t0: int = Time.get_ticks_msec()
+	while not cond.call():
+		if Time.get_ticks_msec() - t0 > tope_s * 1000.0:
+			return false
+		await get_tree().process_frame
+	return true
+
+
+func _ver(ok: bool, que: String) -> void:
+	print("  %s: %s" % ["BIEN" if ok else "MAL", que])
+	if not ok:
+		_mal += 1
+
+
+func _correr() -> void:
+	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if ref is SaveData:
+		Game.importar_partida(ref)
+	Game.semilla_mundo = 424242
+	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
+	await _esperar(5)
+	Game.entrar_arena_de_pruebas()
+	await _esperar(15)
+	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	for i in ENEMIGOS.size():
+		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % ENEMIGOS[i],
+			jug.global_position + Vector2(-200 + 200 * i, 60), {})
+	await _esperar(25)
+	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
+		print("MAL: no se abre la pelea")
+		get_tree().quit(1)
+		return
+	var combat: Node = null
+	await _esperar(5)
+	for n in get_tree().root.get_children():
+		if n is CanvasLayer:
+			for h in n.get_children():
+				if h.get("tactico") != null:
+					combat = h
+	if combat == null or not combat.tactico:
+		print("MAL: la pelea no es tactica")
+		get_tree().quit(1)
+		return
+	var t = combat.turno_mapa
+	if not await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0):
+		print("MAL: no llego un turno de los tuyos")
+		get_tree().quit(1)
+		return
+	var al: Array = combat._aliados
+	if al.size() < 2:
+		print("MAL: hacen falta dos de los tuyos y hay %d" % al.size())
+		get_tree().quit(1)
+		return
+	for a in al:
+		a.max_hp = 99999.0
+		a.current_hp = 99999.0
+		a.aggro_base = 1.0          # sin escudo: numeros limpios
+		a.quitar_estado(StatusEffects.Id.SIGILO)
+	var e: Combatant = combat._enemies[0]
+	print("--- amenaza (paso A) ---")
+	await _probar_tabla(combat, t, e, al)
+	await _probar_presa(combat, t, e, al)
+	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
+	get_tree().quit(0 if _mal == 0 else 1)
+
+
+func _probar_tabla(combat, t, e: Combatant, al: Array) -> void:
+	for x in combat._enemies:
+		x.amenaza = {}
+	combat._apuntar_dano(e, 10.0, al[0])
+	_ver(is_equal_approx(float(e.amenaza.get(al[0], 0.0)), 10.0), "pegarle 10 da 10 de amenaza con el (%.1f)" % float(e.amenaza.get(al[0], 0.0)))
+	_ver(combat._enemies[1].amenaza.get(al[0], 0.0) == 0.0, "y con el otro enemigo, nada")
+	al[0].aggro_base = 2.0
+	combat._apuntar_dano(e, 10.0, al[0])
+	_ver(is_equal_approx(float(e.amenaza[al[0]]), 30.0), "con escudo genera el doble (%.1f)" % float(e.amenaza[al[0]]))
+	al[0].aggro_base = 1.0
+	combat.objetivos.amenaza_por_cura(al[1], 20.0)
+	_ver(is_equal_approx(float(e.amenaza.get(al[1], 0.0)), 5.0), "curar 20 reparte la mitad entre los 2 enemigos (%.1f)" % float(e.amenaza.get(al[1], 0.0)))
+	combat.objetivos.provocar_amenaza(al[1], [e])
+	_ver(e.primero_en_amenaza() == al[1], "la Provocacion le pone el primero de su tabla")
+	var v: float = float(e.amenaza[al[1]])
+	e.enfriar_amenaza()
+	_ver(is_equal_approx(float(e.amenaza[al[1]]), v * 0.8), "y al empezar su turno se enfria un 20%")
+	var w0: float = combat.objetivos._peso_aggro(al[0], e)
+	var w1: float = combat.objetivos._peso_aggro(al[1], e)
+	_ver(w1 > w0, "pesa mas el de mas amenaza (%.2f contra %.2f)" % [w1, w0])
+
+
+func _probar_presa(combat, t, e: Combatant, al: Array) -> void:
+	var pe: Vector2 = t.pies_de(e)
+	var lejos: float = t.radio_de(e) + t.alcance_de(e) + t.radio_pisa(e) + 90.0
+	_colocar(t, al, [pe + Vector2(lejos, 0), pe + Vector2(0, t.radio_pisa(e) + 30)])
+	await _esperar(2)
+	for a in al:
+		a.provocar_turnos = 0
+	e.amenaza = {al[0]: 12.0, al[1]: 10.0}
+	_ver(t._presa_de(e) == al[1], "con poca diferencia va al que le llega este turno, no al lejano")
+	e.amenaza = {al[0]: 200.0, al[1]: 1.0}
+	_ver(t._presa_de(e) == al[0], "si el lejano le saca muchisima amenaza, va a por el")
+	e.amenaza = {al[0]: 12.0, al[1]: 10.0}
+	al[0].provocar_turnos = 2
+	al[0].provocados = [e]
+	_ver(t._presa_de(e) == al[0], "y si le provoca, tambien")
+	al[0].provocar_turnos = 0
+	al[0].provocados = []
+
+
+func _colocar(t, al: Array, sitios: Array) -> void:
+	for i in al.size():
+		var s: Vector2 = sitios[i] if i < sitios.size() else sitios[0] + Vector2(-260 - 40 * i, 90)
+		t._colocar(al[i], t.cuerpo_de(al[i]), s - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))

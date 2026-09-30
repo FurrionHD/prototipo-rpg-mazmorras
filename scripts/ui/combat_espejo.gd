@@ -482,11 +482,22 @@ func _volatil(c: Combatant) -> Dictionary:
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
 		# La cura cortada por la luz (la aberracion, 30/09): sus grietas se ven en todas las maquinas.
 		"regen_cortada": c.regen_cortada,
+		# SU TABLA DE AMENAZA (30/09), como la cobertura: por INDICE de aliado, nunca la referencia.
+		"amenaza": _amenaza_por_indice(c),
 		"cubre": [_pantalla._aliados.find(c.protegiendo_a) if c.protegiendo_a != null else -1,
 			c.proteger_turnos],
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
 			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza, c.imbue_prisma]}
+
+
+func _amenaza_por_indice(c: Combatant) -> Dictionary:
+	var out: Dictionary = {}
+	for k in c.amenaza.keys():
+		var i: int = _pantalla._aliados.find(k)
+		if i >= 0:
+			out[i] = float(c.amenaza[k])
+	return out
 
 
 func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
@@ -498,6 +509,14 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
 	c.regen_cortada = int(v.get("regen_cortada", c.regen_cortada))
+	# La tabla de amenaza: los aliados ya estan montados cuando llegan los enemigos (retomar los hace antes).
+	var am = v.get("amenaza", {})
+	if am is Dictionary and not (am as Dictionary).is_empty():
+		c.amenaza = {}
+		for idx in am:
+			var i: int = int(idx)
+			if i >= 0 and i < _pantalla._aliados.size():
+				c.amenaza[_pantalla._aliados[i]] = float(am[idx])
 	# COBERTURA: aqui solo se apunta el indice en bruto; el puntero lo cierra _reenlazar_coberturas
 	# cuando ya estan todos montados. Se guarda EN EL DICT y no en el Combatant para no dejar un
 	# campo a medias en el que la redireccion pueda creerse.
