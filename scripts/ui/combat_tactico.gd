@@ -725,6 +725,9 @@ func alcance_de(c: Combatant) -> float:
 func llega(a: Combatant, b: Combatant) -> bool:
 	if a == null or b == null:
 		return false
+	# En el aire (la gargola cargando el Picado) no la alcanza el cuerpo a cuerpo de los tuyos.
+	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
+		return false
 	var tope: float = alcance_de(a)
 	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
 		tope += HOLGURA_ALCANCE

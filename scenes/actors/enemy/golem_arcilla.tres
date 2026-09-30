@@ -46,6 +46,8 @@ fx_basico = 23
 habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
 ; ALCANCE del basico en el mapa (30/09): se cuenta desde el borde de lo que pisa; 22 = sus puños llegan de lado.
 alcance = 22.0
-; BARRO BLANDO (30/09, constructos paso 1): el agua le quita lo endurecido y le deja 2 turnos recibiendo x1,3.
+; BARRO COCIDO (30/09, constructos paso 1): el agua le quita lo endurecido y le deja 2 turnos recibiendo x1,3; el
+; fuego lo cuece: se endurece solo y 2 turnos recibe x0,7.
 ablanda_elem = 2
+cuece_elem = 1
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

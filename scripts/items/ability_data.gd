@@ -227,6 +227,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # expansiva, que se va apagando al alejarse (lo pidio el usuario). La probabilidad de los estados baja
 # con el daño, como en todas las areas. Cada uno cobra el tramo MAS CERCANO que le toque.
 @export var forma_tramos: int = 0
+# SE ELEVA mientras la carga (el Picado de la gargola, 30/09): ahi arriba no le llegan los golpes cuerpo a cuerpo
+# (Combatant.volando, Pantalla._aplicar_pasivas y CombatTactico.llega). La magia si.
+@export var eleva: bool = false
 @export var forma_tramo_baja: float = 0.25
 # EL ANCHO DE UNA LINEA, al salir de ti y al llegar al fondo (0 = el de por defecto; el del fondo < 0 =
 # igual que al salir). Con el del fondo a casi 0 es el Tajo del verdugo: un cono al reves, ancho pegado

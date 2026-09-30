@@ -238,10 +238,18 @@ var evita_tanque: bool = false
 var ablanda_elem: int = 0
 var ablanda_mult: float = 1.3
 var ablanda_turnos: int = 2
-var ablandado: int = 0            # turnos suyos que le quedan blando (Barro blando)
+var ablandado: int = 0            # turnos suyos que le quedan blando (Barro cocido: el agua)
+var cuece_elem: int = 0
+var cuece_mult: float = 0.7
+var cocido: int = 0               # turnos suyos que le quedan cocido (Barro cocido: el fuego)
 var posada_mult: float = 1.0
 var posada: bool = true           # lo pone CombatTactico._tick_posadas (no se ha movido desde que empezo su turno)
 var imparable: bool = false
+
+# EN EL AIRE (la gargola cargando su Picado, 30/09): los golpes cuerpo a cuerpo de los tuyos no le llegan; la magia (y
+# las armas a distancia, cuando las haya) si. Lo marca la habilidad que carga (AbilityData.eleva).
+func volando() -> bool:
+	return charging != null and charging.eleva
 var al_ser_golpeado_texto: String = ""
 
 # LA TABLA DE AMENAZA de este enemigo (30/09, como en el WoW): cuanta le ha generado cada uno de los tuyos
@@ -278,11 +286,16 @@ func primero_en_amenaza() -> Combatant:
 # LE HA ENTRADO un golpe o un hechizo de 'elem' (StatsMath, en los dos caminos): lo que le hace a sus pasivas.
 func recibe_elemento(elem: int) -> void:
 	marcar_regen_cortada(elem)
-	# BARRO BLANDO: el agua le deshace lo endurecido y le deja blando.
+	# BARRO COCIDO: el agua le deshace lo endurecido y le deja blando; el fuego lo cuece (se endurece solo).
 	if ablanda_elem != 0 and elem == ablanda_elem:
 		if has_status(StatusEffects.Id.FORTALEZA):
 			quitar_estado(StatusEffects.Id.FORTALEZA)
 		ablandado = ablanda_turnos
+		cocido = 0
+	elif cuece_elem != 0 and elem == cuece_elem:
+		apply_status(StatusEffects.Id.FORTALEZA, ablanda_turnos)
+		cocido = ablanda_turnos
+		ablandado = 0
 
 
 # LO QUE RECIBE DE MAS O DE MENOS por sus pasivas (sobre el daño ya mitigado, golpes y hechizos): blando, o posada.
@@ -290,6 +303,8 @@ func mult_pasiva_recibido() -> float:
 	var m: float = 1.0
 	if ablandado > 0:
 		m *= ablanda_mult
+	elif cocido > 0:
+		m *= cuece_mult
 	if posada_mult != 1.0 and posada:
 		m *= posada_mult
 	return m

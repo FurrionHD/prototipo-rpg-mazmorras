@@ -566,6 +566,12 @@ func _mult_camada(atacante: Combatant) -> float:
 func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combatant) -> void:
 	if result.get("evaded", false):
 		return
+	# EN EL AIRE (la gargola cargando el Picado): el golpe de arma de los tuyos no le llega. Aqui solo pasan golpes de
+	# arma (la magia va por otro camino), asi que el hechizo si entra.
+	if defensor != null and defensor.volando() and _enemies.has(defensor) and not _enemies.has(atacante):
+		result["evaded"] = true
+		_log_extra("%s está en el aire: no le llega" % _etq(defensor))
+		return
 	var m: float = _mult_pasivas(atacante, defensor)
 	if m == 1.0:
 		return

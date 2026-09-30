@@ -20,5 +20,7 @@ forma_apunte = 3
 forma_radio = 22.0
 forma_rango = 120.0
 salta = true
+; EN EL AIRE toda la carga: el cuerpo a cuerpo no le llega, la magia si (lo pidio el usuario, 30/09).
+eleva = true
 area_modo = 1
 area_secundario = 1.0

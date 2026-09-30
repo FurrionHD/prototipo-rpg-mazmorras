@@ -141,11 +141,13 @@ func _probar_golem(combat, t, e, al: Array) -> void:
 	e.ablandado = 0
 	e.apply_status(StatusEffects.Id.FORTALEZA, 3)
 	_ver(is_equal_approx(e.mult_pasiva_recibido(), 1.0), "seco recibe normal")
+	e.quitar_estado(StatusEffects.Id.FORTALEZA)
 	_golpe_de(al[0], e, Elementos.Elemento.FUEGO)
-	_ver(e.ablandado == 0 and e.has_status(StatusEffects.Id.FORTALEZA), "el fuego no le ablanda")
+	_ver(e.ablandado == 0 and e.cocido == 2 and e.has_status(StatusEffects.Id.FORTALEZA), "el fuego lo cuece: se endurece solo")
+	_ver(is_equal_approx(e.mult_pasiva_recibido(), 0.7), "cocido recibe x0,7 (%.2f)" % e.mult_pasiva_recibido())
 	_golpe_de(al[0], e, Elementos.Elemento.AGUA)
 	_ver(e.ablandado == 2 and not e.has_status(StatusEffects.Id.FORTALEZA), "el agua le quita lo endurecido y le deja blando 2 turnos")
-	_ver(is_equal_approx(e.mult_pasiva_recibido(), 1.3), "blando recibe x1,3 (%.2f)" % e.mult_pasiva_recibido())
+	_ver(is_equal_approx(e.mult_pasiva_recibido(), 1.3) and e.cocido == 0, "blando recibe x1,3 (%.2f)" % e.mult_pasiva_recibido())
 	e.ablandado = 0
 
 
@@ -174,6 +176,20 @@ func _probar_gargola(combat, t, e, al: Array) -> void:
 	t.marcar_inicio_turno(e)
 	await _esperar(2)
 	_ver(e.posada, "y en su siguiente turno, si no se mueve, lo vuelve a ser")
+	# En el aire mientras carga el Picado.
+	_colocar(t, al, [t.pies_de(e) + Vector2(t.radio_pisa(e) + 8, 0), t.pies_de(e) + Vector2(-260, 80)])
+	await _esperar(2)
+	_ver(t.llega(al[0], e), "en el suelo, el de al lado le llega")
+	e.charging = pic
+	e.charge_left = 1
+	_ver(not t.llega(al[0], e), "cargando el Picado esta en el aire: el cuerpo a cuerpo no le llega")
+	var r: Dictionary = {"damage": 10.0, "evaded": false}
+	combat._aplicar_pasivas(r, al[0], e)
+	_ver(bool(r.evaded), "y un golpe de arma le falla")
+	var sp: Dictionary = StatsMath.resolve_spell(al[0], e, load("res://resources/spells/bola_fuego.tres"))
+	_ver(float(sp.get("damage", 0.0)) > 0.0, "la magia si le entra")
+	e.charging = null
+	e.charge_left = 0
 
 
 func _probar_coloso(combat, t, e, al: Array) -> void:
