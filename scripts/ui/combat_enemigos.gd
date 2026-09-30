@@ -228,6 +228,8 @@ func _enemy_turn(e: Combatant) -> void:
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
 	obj.take_damage(dmg)
+	# LO QUE PARA le sube en la tabla de este enemigo (el tanque sube aguantando).
+	_pantalla.objetivos.amenaza_por_parar(obj, e, dmg_bruto - dmg)
 	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
 		1.0, false, "", AbilityData.Gesto.AUTO, &"", 0, float(result.get("mult_elem", 1.0)))
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
@@ -792,6 +794,7 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
 			t.take_damage(dmg)
+			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
 			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
 			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va
 			# ligero. Se acumula para decirlo UNA vez en el log y no una por golpe.

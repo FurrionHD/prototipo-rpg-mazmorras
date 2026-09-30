@@ -94,6 +94,8 @@ func _correr() -> void:
 	await _probar_pasivas(combat, t, al)
 	print("--- desplazamientos (paso C) ---")
 	_probar_desplazar(combat, t, al)
+	print("--- el tanque sube parando y con el escudo ---")
+	_probar_parar(combat, t, al)
 	print("--- ir a interrumpir (paso D) ---")
 	_probar_interrumpir(combat, t, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
@@ -253,6 +255,26 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 		_ver(al[0].has_status(StatusEffects.Id.QUEMADURA), "pegarle de cerca al slime de fuego te puede quemar")
 		_ver(_hay_efecto(combat, CombatFX.Estilo.PASIVA_ARDE), "con su lengua de fuego")
 		sf.al_ser_golpeado_prob = pr
+
+
+func _probar_parar(combat, t, al: Array) -> void:
+	var e: Combatant = _de(combat, t, "jabali")
+	e.amenaza = {}
+	combat.objetivos.amenaza_por_parar(al[0], e, 10.0)
+	var gen: float = combat.objetivos.generacion_amenaza(al[0])
+	_ver(is_equal_approx(float(e.amenaza.get(al[0], 0.0)), 10.0 * gen),
+		"parar 10 de un golpe te sube 10 x tu generacion en su tabla (%.2f)" % float(e.amenaza.get(al[0], 0.0)))
+	combat.objetivos.amenaza_por_parar(e, al[0], 10.0)
+	_ver(al[0].amenaza.is_empty(), "y al reves (un enemigo que para) no cuenta")
+	_ver(is_equal_approx(float(combat.CombatObjetivos.AMENAZA_ESCUDO), 3.0), "los golpes de escudo generan x3")
+	e.amenaza = {}
+	combat._apuntar_dano(e, 10.0, al[1], combat.CombatObjetivos.AMENAZA_ESCUDO)
+	var con: float = float(e.amenaza.get(al[1], 0.0))
+	e.amenaza = {}
+	combat._apuntar_dano(e, 10.0, al[1])
+	var sin: float = float(e.amenaza.get(al[1], 0.0))
+	_ver(is_equal_approx(con, sin * 3.0), "un golpe de escudo sube el triple (%.1f contra %.1f)" % [con, sin])
+	e.amenaza = {}
 
 
 func _probar_desplazar(combat, t, al: Array) -> void:

@@ -28,6 +28,12 @@ const AMENAZA_PESO := 2.0
 const AMENAZA_CURA := 0.5
 const AMENAZA_SIGILO := 0.5
 const AMENAZA_PROVOCA := 1.1     # la Provocacion te pone un 10% por encima del primero de su tabla
+# EL TANQUE TAMBIEN SUBE AGUANTANDO (30/09, decision del usuario: "entre que actuas menos porque eres mas lento, lo mas
+# probable es que peguen siempre a los DPS"): lo que PARAS de un golpe (lo que le quitan tu defensa, tu armadura y tu
+# bloqueo) te sube en la tabla de ESE enemigo, por la generacion de tu escudo. Y los golpes dados CON EL ESCUDO
+# (escudazo, embestida, los de escudo de las combinadas) generan AMENAZA_ESCUDO veces.
+const AMENAZA_PARAR := 1.0
+const AMENAZA_ESCUDO := 3.0
 # A QUIEN SE ACERCA (CombatTactico._presa_de): el de mas peso ENTRE LOS QUE LE LLEGAN ESTE TURNO. Solo persigue a
 # uno que no le llega si le provoca o si pesa esto veces el mejor de los que si (lo pidio el: "si va a tardar dos
 # turnos en llegar al que mas aggro le genera, no debe ir a por el si en este turno puede pegar a uno").
@@ -252,6 +258,14 @@ func generacion_amenaza(quien: Combatant) -> float:
 	if quien == null:
 		return 1.0
 	return quien.amenaza_gen * (AMENAZA_SIGILO if quien.has_status(StatusEffects.Id.SIGILO) else 1.0)
+
+
+# PARAR TAMBIEN SE NOTA: 'defensor' (de los tuyos) ha parado 'parado' puntos de un golpe de 'enemigo'.
+func amenaza_por_parar(defensor: Combatant, enemigo: Combatant, parado: float) -> void:
+	if defensor == null or enemigo == null or parado <= 0.0 or not _pantalla._aliados.has(defensor) \
+			or not _pantalla._enemies.has(enemigo):
+		return
+	enemigo.sumar_amenaza(defensor, parado * AMENAZA_PARAR * generacion_amenaza(defensor))
 
 
 # CURAR TAMBIEN SE NOTA: la mitad de lo curado, repartida entre todos los enemigos vivos. El curandero no pasa

@@ -580,11 +580,11 @@ func _aplicar_pasivas(result: Dictionary, atacante: Combatant, defensor: Combata
 		_log_extra("%s caza a %s en su telaraña" % [_etq(atacante), defensor.nombre])
 
 
-func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
+func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant, mult_amenaza: float = 1.0) -> void:
 	# LA AMENAZA (30/09): pegarle a ESE enemigo te sube en SU tabla. Es el unico sitio por el que pasan todos los
-	# golpes de los tuyos a un enemigo.
+	# golpes de los tuyos a un enemigo. 'mult_amenaza': los golpes de escudo (CombatObjetivos.AMENAZA_ESCUDO).
 	if objetivo != null and quien != null and dmg > 0.0 and _enemies.has(objetivo):
-		objetivo.sumar_amenaza(quien, dmg * objetivos.generacion_amenaza(quien))
+		objetivo.sumar_amenaza(quien, dmg * objetivos.generacion_amenaza(quien) * mult_amenaza)
 	var pj: PersonajeData = Game.pj_de_combatant(quien)
 	Game.contar_dano_infligido(dmg, pj)
 	if pj != null and objetivo != null:
