@@ -20,3 +20,7 @@ forma_apunte = 1
 forma_radio = 30.0
 area_modo = 1
 area_secundario = 1.0
+; EFECTO EN EL MAPA (30/09, constructos paso 2): el suelo se agrieta en losas (las del Golpe sismico) y sobre cada uno
+; de dentro el aplaston de barro, mas gordo (ConstructoAire).
+fx_estilo_mapa = 181
+suelo_roto = 1

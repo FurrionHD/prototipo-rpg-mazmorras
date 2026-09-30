@@ -417,7 +417,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Cuerpo ardiente, el destello del Filo de reflejo; y sobre quien le pasa: le cortan la carga, le retrasan la barra
 		# (el empujon pequeño; su 'peso' lleva hacia donde: 0,5 + px / 48) o es INMUNE a lo que le echan. Solo en el mapa.
 		PASIVA_LLAMADA = 174, PASIVA_ARDE = 175, PASIVA_DESTELLO = 176,
-		AVISO_INTERRUMPIDO = 177, AVISO_RETRASO = 178, AVISO_INMUNE = 179 }
+		AVISO_INTERRUMPIDO = 177, AVISO_RETRASO = 178, AVISO_INMUNE = 179,
+		# LOS CONSTRUCTOS en el mapa (30/09, ConstructoAire): el golem, su puñetazo de barro y el de la Machaca (mas gordo).
+		CONSTRUCTO_PUNO = 180, CONSTRUCTO_MACHACA = 181 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -464,6 +466,8 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y las pasivas del repaso y los avisos (PasivaAire, 30/09).
 	Estilo.PASIVA_LLAMADA, Estilo.PASIVA_ARDE, Estilo.PASIVA_DESTELLO,
 	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE,
+	# y los constructos (ConstructoAire, 30/09).
+	Estilo.CONSTRUCTO_PUNO, Estilo.CONSTRUCTO_MACHACA,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -643,6 +647,8 @@ const T_VUELO := {
 	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
 	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
+	# El puño lo lleva su sprite: el barro revienta EN el golpe.
+	Estilo.CONSTRUCTO_PUNO: 0.02, Estilo.CONSTRUCTO_MACHACA: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte

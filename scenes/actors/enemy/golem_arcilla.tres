@@ -50,4 +50,6 @@ alcance = 22.0
 ; fuego lo cuece: se endurece solo y 2 turnos recibe x0,7.
 ablanda_elem = 2
 cuece_elem = 1
+; EFECTO DEL BASICO EN EL MAPA (30/09, constructos paso 2): el aplaston de barro con sus terrones (ConstructoAire).
+fx_basico_mapa = 180
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -824,6 +824,7 @@ func tick(delta: float) -> bool:
 	_tick_gestos(delta)
 	_tick_raices()
 	_tick_ojos_camada()
+	_tick_barro()
 	_tick_posadas()
 	_tick_olor()
 	_tick_carne()
@@ -3203,6 +3204,18 @@ func _on_impacto(ev: Dictionary) -> void:
 				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
 				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 		return
+	# LOS PEGOTES DEL GOLEM (30/09): si su golpe le ha dejado lento, barro en los pies.
+	if _pantalla.tactico and estilo in [CombatFX.Estilo.CONSTRUCTO_PUNO, CombatFX.Estilo.CONSTRUCTO_MACHACA]:
+		var vg: Combatant = _de_bloque(ev["bv"])
+		var ag: Combatant = _de_bloque(ev["ba"])
+		var arena_g: ArenaCombate = _arena()
+		if vg != null and cuerpo_de(vg) != null and arena_g != null and vg.has_status(StatusEffects.Id.LENTO) \
+				and not bool(ev.get("evadido", false)):
+			ConstructoAire.sobre_cuerpo(arena_g, ConstructoAire.Modo.PEGOTES, Vector2.ZERO, bulto_de(vg), pies_de(vg),
+				ag.color_visual if ag != null else ConstructoAire.ARCILLA,
+				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+		return
 	# EL VELO DE LA POLILLA (30/09): si el polvo le ha cegado, un velo sobre los ojos.
 	if _pantalla.tactico and estilo == CombatFX.Estilo.SIMA_POLVO:
 		var vp: Combatant = _de_bloque(ev["bv"])
@@ -3494,6 +3507,72 @@ func _tick_posadas() -> void:
 		e.posada = pies_de(e).distance_to(_inicio_turno[e]) <= POSADA_HOLGURA
 
 
+# EL BARRO COCIDO SE VE (el golem, 30/09): terracota mientras esta cocido o endurecido (Fortaleza), barro mojado
+# mientras esta blando; con su vaho o sus gotas (ConstructoAire DURO/BLANDO) y, al cambiar, el resplandor de cocerse o
+# la nube de vapor. En todas las maquinas: el estado viaja (ablandado/cocido en la instantanea, la Fortaleza con los
+# estados).
+const _TINTE_CONSTRUCTO := preload("res://shaders/tinte_constructo.gdshader")
+const TERRACOTA := Vector3(1.18, 0.78, 0.6)
+const BARRO_MOJADO := Vector3(0.62, 0.56, 0.54)
+var _barro: Dictionary = {}   # Combatant -> {estado: "", "duro", "blando"; nodo: ConstructoAire}
+
+func _estado_barro(e: Combatant) -> String:
+	if not e.is_alive():
+		return ""
+	if e.ablandado > 0:
+		return "blando"
+	if e.cocido > 0 or e.has_status(StatusEffects.Id.FORTALEZA):
+		return "duro"
+	return ""
+
+
+func _tick_barro() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	for e in _pantalla._enemies:
+		if e.ablanda_elem == 0 and e.cuece_elem == 0:
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var d: Dictionary = _barro.get(e, {"estado": "", "nodo": null})
+		var ahora: String = _estado_barro(e)
+		if ahora != String(d["estado"]):
+			var viejo = d["nodo"]
+			if viejo != null and is_instance_valid(viejo):
+				(viejo as ConstructoAire).secar()
+			d["nodo"] = null
+			# El cambio se ve: cocerse (a duro) o el vapor (de duro a blando).
+			if ahora == "duro":
+				ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.COCERSE, Vector2.ZERO, bulto_de(e), pies_de(e),
+					e.color_visual, _cod(e) + randi() % 97, 0.0, 1.0)
+			elif ahora == "blando" and String(d["estado"]) == "duro":
+				ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.VAPOR, Vector2.ZERO, bulto_de(e), pies_de(e),
+					e.color_visual, _cod(e) + randi() % 97, 0.0, 1.0)
+			if ahora != "":
+				d["nodo"] = ConstructoAire.estado(arena, ConstructoAire.Modo.DURO if ahora == "duro" else ConstructoAire.Modo.BLANDO,
+					bulto_de(e), pies_de(e), e.color_visual, _cod(e))
+			d["estado"] = ahora
+			_barro[e] = d
+		var n = d["nodo"]
+		if n != null and is_instance_valid(n):
+			(n as ConstructoAire).seguir(bulto_de(e), pies_de(e))
+		# El tono sobre su sprite.
+		var spr = cu.get("_sprite")
+		if spr is CanvasItem:
+			var mat: ShaderMaterial = (spr as CanvasItem).material as ShaderMaterial
+			if mat == null or mat.shader != _TINTE_CONSTRUCTO:
+				if ahora == "":
+					continue
+				mat = ShaderMaterial.new()
+				mat.shader = _TINTE_CONSTRUCTO
+				(spr as CanvasItem).material = mat
+			mat.set_shader_parameter("fuerza", 0.0 if ahora == "" else 1.0)
+			mat.set_shader_parameter("tinte", TERRACOTA if ahora == "duro" else BARRO_MOJADO)
+			mat.set_shader_parameter("humedo", 1.0 if ahora == "blando" else 0.0)
+
+
 # LOS OJOS DE LA CAMADA (el Rey de la camada, 30/09): mientras vive el rey, a las de su familia les brillan los ojos
 # (shaders/ojos_camada sobre su sprite). Se apagan todas a la vez al caer el. En todas las maquinas (mira quien vive).
 const _OJOS_CAMADA := preload("res://shaders/ojos_camada.gdshader")
@@ -3632,6 +3711,14 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 				_raices.erase(v)
 				if is_instance_valid(viejo):
 					(viejo as BestiaAire).secar()
+		return
+	# LOS CONSTRUCTOS (ConstructoAire, 30/09): el aplaston de barro del golem sobre el que recibe, con su arcilla.
+	if estilo in [CombatFX.Estilo.CONSTRUCTO_PUNO, CombatFX.Estilo.CONSTRUCTO_MACHACA]:
+		var desde_c: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
+			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.APLASTON, desde_c, bulto_de(v), pies_de(v),
+			a.color_visual if a != null else ConstructoAire.ARCILLA, semilla, vuelo, ritmo,
+			1.5 if estilo == CombatFX.Estilo.CONSTRUCTO_MACHACA else 1.0)
 		return
 	# LAS BESTIAS DE LAS SIMAS (FieraAire, 30/09): de quien pega al que recibe, a la escala de quien pega y con el color de
 	# su ficha (las placas de la acorazada). El Zarpazo: el primer golpe por un lado y el segundo por el otro.

@@ -79,6 +79,9 @@ const CLAVES := [
 #
 # Cada una suena con la de su familia, no con una cualquiera:
 const ALIAS_ESTILO := {
+	# El golem (30/09): su puñetazo y la Machaca suenan como su golpetazo de siempre.
+	CombatFX.Estilo.CONSTRUCTO_PUNO: "golpetazo",
+	CombatFX.Estilo.CONSTRUCTO_MACHACA: "golpetazo",
 	# La postura de la rodela es una guardia, igual que la del estoque. Misma familia, mismo sonido.
 	CombatFX.Estilo.POSTURA_RODELA: "en_guardia",
 	# La Escolta es marcar por donde entra el otro y entrar detras: es el mismo gesto que señalar

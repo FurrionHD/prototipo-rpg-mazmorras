@@ -482,6 +482,7 @@ func _volatil(c: Combatant) -> Dictionary:
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
 		# La cura cortada por la luz (la aberracion, 30/09): sus grietas se ven en todas las maquinas.
 		"regen_cortada": c.regen_cortada,
+		"ablandado": c.ablandado, "cocido": c.cocido,
 		# SU TABLA DE AMENAZA (30/09), como la cobertura: por INDICE de aliado, nunca la referencia.
 		"amenaza": _amenaza_por_indice(c),
 		"cubre": [_pantalla._aliados.find(c.protegiendo_a) if c.protegiendo_a != null else -1,
@@ -509,6 +510,8 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
 	c.regen_cortada = int(v.get("regen_cortada", c.regen_cortada))
+	c.ablandado = int(v.get("ablandado", c.ablandado))
+	c.cocido = int(v.get("cocido", c.cocido))
 	# La tabla de amenaza: los aliados ya estan montados cuando llegan los enemigos (retomar los hace antes).
 	var am = v.get("amenaza", {})
 	if am is Dictionary and not (am as Dictionary).is_empty():

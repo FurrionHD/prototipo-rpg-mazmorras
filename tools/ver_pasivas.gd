@@ -9,7 +9,7 @@ const AZUL := Color(0.35, 0.6, 1.0)
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
 const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
-	"empujon", "barra", "alcance"]
+	"empujon", "barra", "alcance", "golem_basico", "golem_machaca", "golem_estados"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -580,3 +580,165 @@ func _hoja_alcance(salida: String) -> void:
 		(e0["nodo"] as Node).queue_free()
 		await get_tree().process_frame
 		_guardar(hoja, salida, "alcance_%s" % nom)
+
+
+# ------------------------------------------------------------
+#  EL GOLEM (30/09, constructos paso 2, ConstructoAire). Carpeta enemigos/golem_arcilla/.
+# ------------------------------------------------------------
+const _TACTICO_G := preload("res://scripts/ui/combat_tactico.gd")
+
+# Los pies de una figura justo al borde de su alcance en 'dvec' (como CombatTactico.hueco_entre).
+func _al_alcance(e: Dictionary, dvec: Vector2, alc: float) -> Vector2:
+	var pisa: float = (e["rd"] as Rect2).size.x * 0.33
+	var pe: Vector2 = (e["nodo"] as Node2D).position
+	var d: float = 0.0
+	while d < 400.0:
+		var pies_f: Vector2 = pe + dvec * d
+		var caja := Rect2(pies_f - Vector2(7, 26), Vector2(14, 26))
+		var cerca := Vector2(clampf(pe.x, caja.position.x, caja.end.x), clampf(pe.y, caja.position.y, caja.end.y))
+		if cerca.distance_to(pe) - pisa >= alc:
+			break
+		d += 0.5
+	return pe + dvec * d
+
+
+func _carpeta_golem(salida: String) -> String:
+	var c: String = "%s/golem_arcilla" % salida
+	DirAccess.make_dir_recursive_absolute(c)
+	return c
+
+
+func _hoja_golem_basico(salida: String) -> void:
+	var tiempos: Array = [-0.12, -0.04, 0.0, 0.04, 0.1, 0.18, 0.3, 0.5]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	_zoom(74.0)
+	var t_anim: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("embestida", CombatFX.T_ANIM_ADELANTO))
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("golem_arcilla", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var fig_p: Vector2 = _al_alcance(g, dvec, ed.alcance_real())
+		var fig := _figura(fig_p, AZUL)
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = (bg.get_center() + fig_p) * 0.5
+		var piezas: Array = [
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.APLASTON, bg.get_center(), _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 201 + fila, 0.0, 1.0), "t0": 0.0},
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.PEGOTES, Vector2.ZERO, _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 211 + fila, 0.0, 1.0), "t0": 0.02}]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "embestida", int(floor((t + t_anim) * 12.0)))
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Golem · basico (y lento: pegotes) · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_golem(salida), "basico")
+
+
+var _huella_g: Node2D = null
+var _forma_g = null
+
+func _hoja_golem_machaca(salida: String) -> void:
+	var tiempos: Array = [-0.1, 0.0, 0.05, 0.12, 0.2, 0.32, 0.5]
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/golem_machaca.tres")
+	_zoom(72.0)
+	if _huella_g == null:
+		_huella_g = Node2D.new()
+		_huella_g.z_index = 1
+		add_child(_huella_g)
+		_huella_g.draw.connect(func():
+			if _forma_g != null:
+				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
+	var t_anim: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("embestida", CombatFX.T_ANIM_ADELANTO))
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("golem_arcilla", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var frente: float = _TACTICO_G.frente_dibujo(g["nodo"], Vector2.ZERO, dvec)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, maxf(pisa, frente), ed.alcance_real(), dvec * 70.0, frente * 0.85)
+		var sitios: Array = [f.centro + dvec.orthogonal() * f.radio * 0.4 + Vector2(0, 13), f.centro - dvec.orthogonal() * f.radio * 0.45 + dvec * 6.0 + Vector2(0, 13)]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = (_bulto(g).get_center() + f.centro) * 0.5
+		_mirar(g, dvec)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Golem · Machaca · %s · cargando (huella roja)" % DIRS[fila][0])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 301 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		var bg: Rect2 = _bulto(g)
+		for i in figs.size():
+			var fg: ColorRect = figs[i]
+			piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.APLASTON, bg.get_center(), _caja_fig(fg),
+				sitios[i], ed.color_visual(0.5), 311 + fila * 3 + i, 0.0, 1.0, 1.5),
+				"t0": SueloRoto.retraso(f, sitios[i], ab.suelo_roto)})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "embestida", int(floor((t + t_anim) * 12.0)))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Golem · Machaca · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_golem(salida), "machaca")
+
+
+# LOS ESTADOS: fila 1 se cuece (fuego o Endurecerse) y se queda duro; fila 2 lo mojan estando cocido (vapor) y se queda
+# blando; fila 3 blando un rato (gotas y charquito). Mirando al S y al E.
+func _hoja_golem_estados(salida: String) -> void:
+	var tiempos: Array = [0.0, 0.15, 0.3, 0.5, 0.8, 1.2, 1.7]
+	var filas: Array = [["se cuece y queda duro (terracota)", Vector2(0, 1)], ["duro -> lo mojan: vapor y queda blando", Vector2(0, 1)],
+		["blando (barro mojado)", Vector2(1, 0.4)], ["duro visto de lado", Vector2(1, 0.4)]]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * filas.size(), false, Image.FORMAT_RGBA8)
+	_zoom(52.0)
+	_cam.global_position = Vector2(0, -30)
+	for fila in filas.size():
+		var dvec: Vector2 = (filas[fila][1] as Vector2).normalized()
+		var g := _enemigo("golem_arcilla", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var bg: Rect2 = _bulto(g)
+		var col: Color = ed.color_visual(0.5)
+		var spr: AnimatedSprite2D = g["spr"]
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/tinte_constructo.gdshader")
+		spr.material = mat
+		var piezas: Array = []
+		var tinte_de: Callable
+		match fila:
+			0:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.COCERSE, Vector2.ZERO, bg, Vector2.ZERO, col, 401, 0.0, 1.0), "t0": 0.0})
+				piezas.append({"n": ConstructoAire.estado(self, ConstructoAire.Modo.DURO, bg, Vector2.ZERO, col, 402), "t0": 0.0})
+				tinte_de = func(t): return [clampf(t / 0.4, 0.0, 1.0), _TACTICO_G.TERRACOTA, 0.0]
+			1:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.VAPOR, Vector2.ZERO, bg, Vector2.ZERO, col, 403, 0.0, 1.0), "t0": 0.0})
+				piezas.append({"n": ConstructoAire.estado(self, ConstructoAire.Modo.BLANDO, bg, Vector2.ZERO, col, 404), "t0": 0.0})
+				tinte_de = func(t): return [1.0, _TACTICO_G.TERRACOTA if t < 0.15 else _TACTICO_G.BARRO_MOJADO, 0.0 if t < 0.15 else 1.0]
+			2:
+				piezas.append({"n": ConstructoAire.estado(self, ConstructoAire.Modo.BLANDO, bg, Vector2.ZERO, col, 405), "t0": 0.0})
+				tinte_de = func(_t): return [1.0, _TACTICO_G.BARRO_MOJADO, 1.0]
+			3:
+				piezas.append({"n": ConstructoAire.estado(self, ConstructoAire.Modo.DURO, bg, Vector2.ZERO, col, 406), "t0": 0.0})
+				tinte_de = func(_t): return [1.0, _TACTICO_G.TERRACOTA, 0.0]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			var ti: Array = tinte_de.call(t)
+			mat.set_shader_parameter("fuerza", ti[0])
+			mat.set_shader_parameter("tinte", ti[1])
+			mat.set_shader_parameter("humedo", ti[2])
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Golem · %s · %.2f s" % [filas[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]])
+	_guardar(hoja, _carpeta_golem(salida), "estados")
