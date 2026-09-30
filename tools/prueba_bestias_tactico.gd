@@ -153,6 +153,17 @@ func _probar_acorazada(combat, t, e, al: Array) -> void:
 	var r: Dictionary = {"damage": 10.0, "evaded": false}
 	combat._aplicar_pasivas(r, al[0], e)
 	_ver(is_equal_approx(float(r.damage), 5.0), "y el golpe que se resuelve de frente se queda en la mitad")
+	# EL VOLTEO en el mapa (con el horneado del 30/09): aturdida se vuelca y se queda patas arriba; al pasarsele, se endereza.
+	var sp = t.cuerpo_de(e).get("_sprite")
+	e.apply_status(StatusEffects.Id.ATURDIDO, 1)
+	await _segundos(1.2)
+	var an: String = String((sp as AnimatedSprite2D).animation) if sp is AnimatedSprite2D else ""
+	_ver(an.begins_with("volcada"), "aturdida se queda patas arriba ('%s')" % an)
+	e.quitar_estado(StatusEffects.Id.ATURDIDO)
+	await _esperar(3)
+	an = String((sp as AnimatedSprite2D).animation) if sp is AnimatedSprite2D else ""
+	_ver(an.begins_with("enderezarse"), "al pasarsele se endereza ('%s')" % an)
+	await _segundos(0.8)
 
 
 func _probar_acechador(combat, t, e, al: Array) -> void:
