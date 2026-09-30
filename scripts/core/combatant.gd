@@ -245,6 +245,7 @@ var cocido: int = 0               # turnos suyos que le quedan cocido (Barro coc
 var posada_mult: float = 1.0
 var posada: bool = true           # lo pone CombatTactico._tick_posadas (no se ha movido desde que empezo su turno)
 var imparable: bool = false
+var anim_basico: StringName = &""   # ver EnemyData.anim_basico
 
 # EN EL AIRE (la gargola cargando su Picado, 30/09): los golpes cuerpo a cuerpo de los tuyos no le llegan; la magia (y
 # las armas a distancia, cuando las haya) si. Lo marca la habilidad que carga (AbilityData.eleva).

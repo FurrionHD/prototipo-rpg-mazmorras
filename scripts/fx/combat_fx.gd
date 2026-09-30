@@ -1987,6 +1987,8 @@ const IMPACTO_ANIM_MAPA := {
 	# El acechador (30/09): la Yugular muerde a 0,74x13/16 (se agazapa 0,2 s y vuela lo que dura el salto, 0,4); cada
 	# desgarro de la Dentellada a 0,36x11/18.
 	"yugular": 0.6, "desgarrar": 0.22,
+	# El golem (30/09): sube los brazos y los deja caer; con su 'embestida' (8 marcos) el puño toca en el 6.
+	"golem_golpe": 0.5,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

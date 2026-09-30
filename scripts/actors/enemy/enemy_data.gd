@@ -131,6 +131,10 @@ func centro_suelo_real() -> float:
 # falta porque un mismo fx_basico lo comparten bichos muy distintos: el golpetazo es del trent, del golem, del
 # coloso... y en el mapa el del trent es un ramalazo de madera (29/09).
 @export var fx_basico_mapa: int = -1
+# EL GESTO DEL BASICO en el mapa ("" = el de siempre: su 'basico' o su embestida, con el adelanto de siempre). Si su
+# animacion tarda en tocar (el golem sube los brazos y los deja caer), se le pone un nombre con su tiempo en
+# CombatFX.IMPACTO_ANIM_MAPA; si el sprite no tiene una animacion con ese nombre, hace su embestida con ese tiempo.
+@export var anim_basico: StringName = &""
 
 
 # Color REAL con el que se pinta este bicho: su color base aclarado segun su 't' (los mas
@@ -665,6 +669,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.sprite_t = t
 	c.fx_basico = fx_basico
 	c.fx_basico_mapa = fx_basico_mapa
+	c.anim_basico = anim_basico
 	c.alcance = alcance_real()
 	c.mutante = mutante
 	return c

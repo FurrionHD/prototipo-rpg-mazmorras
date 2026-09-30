@@ -52,4 +52,6 @@ ablanda_elem = 2
 cuece_elem = 1
 ; EFECTO DEL BASICO EN EL MAPA (30/09, constructos paso 2): el aplaston de barro con sus terrones (ConstructoAire).
 fx_basico_mapa = 180
+; SU GESTO: sube los brazos y los deja caer (CombatFX.IMPACTO_ANIM_MAPA "golem_golpe": el efecto sale cuando el puño toca).
+anim_basico = &"golem_golpe"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

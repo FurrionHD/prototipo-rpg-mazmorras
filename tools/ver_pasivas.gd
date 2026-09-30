@@ -602,6 +602,15 @@ func _al_alcance(e: Dictionary, dvec: Vector2, alc: float) -> Vector2:
 	return pe + dvec * d
 
 
+# El fotograma de su 'embestida' en el instante 't' del golpe, COMO EN LA PELEA: arranca IMPACTO_ANIM_MAPA antes del
+# golpe y se estira a ese adelanto mas la cola (CombatFX.T_ANIM_COLA).
+func _marco_golpe(g: Dictionary, t: float) -> int:
+	var adel: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("golem_golpe", CombatFX.T_ANIM_ADELANTO))
+	var dur: float = adel + CombatFX.T_ANIM_COLA
+	var n: int = (g["spr"] as AnimatedSprite2D).sprite_frames.get_frame_count(&"embestida_0")
+	return clampi(int(floor((t + adel) / dur * float(n))), 0, n - 1)
+
+
 func _carpeta_golem(salida: String) -> String:
 	var c: String = "%s/golem_arcilla" % salida
 	DirAccess.make_dir_recursive_absolute(c)
@@ -612,7 +621,6 @@ func _hoja_golem_basico(salida: String) -> void:
 	var tiempos: Array = [-0.08, -0.03, 0.0, 0.04, 0.1, 0.2, 0.32, 0.5]
 	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 	_zoom(74.0)
-	var t_anim: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("embestida", CombatFX.T_ANIM_ADELANTO))
 	for fila in DIRS.size():
 		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 		var g := _enemigo("golem_arcilla", Vector2.ZERO, dvec)
@@ -630,7 +638,7 @@ func _hoja_golem_basico(salida: String) -> void:
 			(pz["n"] as Node).set_process(false)
 		for c in tiempos.size():
 			var t: float = tiempos[c]
-			_mirar(g, dvec, "embestida", int(floor((t + t_anim) * 12.0)))
+			_mirar(g, dvec, "embestida", _marco_golpe(g, t))
 			_en(piezas, t)
 			await _viñeta(hoja, c, fila, "Golem · basico (y lento: pegotes) · %s · %.2f s" % [DIRS[fila][0], t])
 		await _limpiar(piezas, [g["nodo"], fig])
@@ -652,7 +660,6 @@ func _hoja_golem_machaca(salida: String) -> void:
 		_huella_g.draw.connect(func():
 			if _forma_g != null:
 				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
-	var t_anim: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("embestida", CombatFX.T_ANIM_ADELANTO))
 	for fila in DIRS.size():
 		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 		var g := _enemigo("golem_arcilla", Vector2.ZERO, dvec)
@@ -687,7 +694,7 @@ func _hoja_golem_machaca(salida: String) -> void:
 			(pz["n"] as Node).set_process(false)
 		for c in tiempos.size():
 			var t: float = tiempos[c]
-			_mirar(g, dvec, "embestida", int(floor((t + t_anim) * 12.0)))
+			_mirar(g, dvec, "embestida", _marco_golpe(g, t))
 			_en(piezas, t)
 			await _viñeta(hoja, c + 1, fila, "Golem · Machaca · %s · %.2f s" % [DIRS[fila][0], t])
 		await _limpiar(piezas, [g["nodo"]] + figs)

@@ -208,7 +208,8 @@ func _enemy_turn(e: Combatant) -> void:
 	if result.evaded:
 		# El "FALLA" se apunta aqui arriba y no en cada rama: por debajo esto se bifurca en
 		# esquiva a secas y esquiva-con-contraataque, y el golpe fallado es el mismo en las dos.
-		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo_bas)
+		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, true, e.elemento_ataque, estilo_bas, 1.0, false, "",
+			AbilityData.Gesto.AUTO, e.anim_basico)
 		# Excelia: esquivar un golpe entrena Agilidad (en vez de correr en circulos). La entrena
 		# EL QUE ESQUIVA, no el que llevas delante.
 		Game.ganar("agilidad", _pantalla._reto(e, pj_obj), Game.GAIN_AGILIDAD_ESQUIVAR,
@@ -243,7 +244,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# LO QUE PARA le sube en la tabla de este enemigo (el tanque sube aguantando).
 	_pantalla.objetivos.amenaza_por_parar(obj, e, dmg_bruto - dmg)
 	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
-		1.0, false, "", AbilityData.Gesto.AUTO, &"", 0, float(result.get("mult_elem", 1.0)))
+		1.0, false, "", AbilityData.Gesto.AUTO, e.anim_basico, 0, float(result.get("mult_elem", 1.0)))
 	# El MANTO ha recortado el golpe por su elemento: se le cobra la carga (tope de una por accion).
 	if obj.resiste_por_afinidad(e.elemento_ataque):
 		obj.gastar_imbue_defensiva()
