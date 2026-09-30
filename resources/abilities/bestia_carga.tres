@@ -29,3 +29,6 @@ pisoton_final = 30.0
 ; losas del pisoton; en cada uno que arrolla, el choque del jabali (BESTIA_CHOQUE).
 fx_estilo_mapa = 141
 suelo_roto = 83
+; EL CUERPO (30/09): se agazapa y escarba mientras avisa; al soltar galopa bajo y se empina para el pisoton.
+fx_anim_carga = &"agazapar>escarbar"
+fx_anim = &"arremeter"

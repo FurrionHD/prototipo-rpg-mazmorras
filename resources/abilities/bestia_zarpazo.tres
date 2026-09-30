@@ -27,3 +27,6 @@ forma_radio = 30.0
 forma_apertura = 90.0
 ; EFECTO EN EL MAPA (30/09): la garra, tres arañazos de hueso, cada golpe por un lado (FIERA_ZARPA).
 fx_estilo_mapa = 167
+; EL CUERPO (30/09): la acorazada levanta una delantera y la barre, luego la otra (el acechador, sin "zarpazo" propio,
+; cae a su embestida).
+fx_anim = &"zarpazo"

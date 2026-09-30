@@ -1953,6 +1953,9 @@ const IMPACTO_ANIM_MAPA := {
 	"adherirse": 0.18,
 	# La polilla: el batido grande de la Nube suelta el polvo a 0,571x7/10.
 	"nube": 0.4,
+	# La acorazada (30/09): la primera garra del Zarpazo toca a 4/20; la Carga arremete desde el primer marco (como la
+	# bola del escarabajo: la pelea la lleva por la linea y el pisoton cae a 5/12, con las losas).
+	"zarpazo": 0.2, "arremeter": 0.0,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

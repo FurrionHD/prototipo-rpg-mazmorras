@@ -4104,7 +4104,7 @@ var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener
 # LAS QUE NO SE AJUSTAN AL GOLPE: el gesto dura lo que va del arranque al ultimo golpe mas un pelin, y estas tienen su
 # propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
 # camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
-const _GESTO_A_SU_RITMO := ["rodar", "caparazon"]
+const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter"]
 
 func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false,
 		sostener: bool = false) -> void:
@@ -4169,6 +4169,7 @@ func _poner_anim_bicho(cuerpo: Node2D, base: String, dur: float, o_embestida: bo
 
 func _tick_gestos_bicho(delta: float) -> void:
 	_tick_cargas_bicho(delta)
+	_tick_volcadas()
 	_tick_vis_enrosque()
 	_tick_crias(delta)
 	for cuerpo in _gestos_bicho.keys():
@@ -4356,6 +4357,30 @@ func _tick_cargas_bicho(delta: float) -> void:
 		else:
 			_gestos_bicho.erase(cuerpo)
 			_soltar_gesto_bicho(cuerpo)
+
+
+# EL VOLTEO DE LA ACORAZADA (30/09, su pasiva: EnemyData.volteo_mult): aturdida se vuelca y se queda PATAS ARRIBA
+# ('volcar>volcada', sostenida) mientras le dure; al pasarsele, 'enderezarse'. Se mira el estado cada fotograma (viaja al
+# espejo con los estados), asi que la ven igual todas las pantallas. Si estaba cargando, la pose de carga se va: el
+# volteo es la interrupcion.
+var _volcadas: Dictionary = {}   # Combatant -> true
+
+func _tick_volcadas() -> void:
+	for e in _pantalla._enemies:
+		if (e as Combatant).volteo_mult == 1.0:
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var tumbada: bool = (e as Combatant).is_alive() and (e as Combatant).aturdido()
+		if tumbada and not _volcadas.has(e):
+			_volcadas[e] = true
+			_poses_carga.erase(e)
+			gesto_bicho_en_mapa(e, &"volcar>volcada", -1.0, false, true)
+		elif not tumbada and _volcadas.has(e):
+			_volcadas.erase(e)
+			if (e as Combatant).is_alive():
+				gesto_bicho_en_mapa(e, &"enderezarse", -1.0)
 
 
 func _soltar_gesto_bicho(cuerpo: Node2D) -> void:

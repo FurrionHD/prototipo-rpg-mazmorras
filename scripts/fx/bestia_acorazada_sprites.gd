@@ -202,6 +202,15 @@ static func generar(color: Color = Color(0.5, 0.3, 0.25), escala: float = 1.0) -
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
+	# EL TACTICO (30/09): la Carga (agazaparse y escarbar mientras avisa, arremeter y el pisoton), el Zarpazo y el
+	# VOLTEO de su pasiva (aturdida se vuelca patas arriba: Pantalla._mult_pasivas, CombatTactico._tick_volcadas).
+	_montar_agazapar(anims, esc)
+	_montar_escarbar(anims, esc)
+	_montar_arremeter(anims, esc)
+	_montar_zarpazo(anims, esc)
+	_montar_volcar(anims, esc)
+	_montar_volcada(anims, esc)
+	_montar_enderezarse(anims, esc)
 	var lado: int = _celdas(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lado, lado)
@@ -214,7 +223,8 @@ static func generar(color: Color = Color(0.5, 0.3, 0.25), escala: float = 1.0) -
 # sale a la cara en el dibujo, que es donde mas cuesta encontrarlo.
 static func _reposo() -> Dictionary:
 	return {"avance": 0.0, "estira": 1.0, "patas": 0.0, "agacha": 0.0, "cabeza": 0.0,
-		"hunde": 0.0, "escarba": 0.0}
+		"hunde": 0.0, "escarba": 0.0, "alza": 0.0, "vuelco": 0.0,
+		"zi_alza": 0.0, "zi_barre": 0.0, "zd_alza": 0.0, "zd_barre": 0.0}
 
 
 # Quieto: resuella. Muy lento -- tiene agilidad 15, la segunda mas baja del juego despues del coloso.
@@ -291,7 +301,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 		return p
 	# TODOS LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las
 	# dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# EN LAS OCHO DIRECCIONES (30/09): en el tactico se le ve encajar desde cualquier lado.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -325,7 +336,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 9.0, pose, true, 1, 8)
+	# EN LAS OCHO DIRECCIONES (30/09): en el tactico muere mirando a donde mire.
+	_montar_animacion(anims, esc, "muerte", false, 9.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -342,6 +354,122 @@ static func _montar_cadaver(anims: Array, esc: float) -> void:
 	# ultimo_incluido = false y NO true: con un solo marco, el divisor de _montar_animacion seria
 	# (1 - 1) = 0 y el reparto de t saldria NaN. La pose se pide fija, asi que da igual.
 	_montar_animacion(anims, esc, "cadaver", false, 1.0, pose, false, 8, 1)
+
+
+# ------------------------------------------------------------
+#  EL TACTICO (30/09)
+# ------------------------------------------------------------
+# AGAZAPARSE: el turno de aviso de la Carga (AbilityData.fx_anim_carga "agazapar>escarbar"). Baja el testuz casi hasta
+# el suelo y se hunde sobre las patas; luego ESCARBAR en bucle hasta que suelta.
+const AGAZAPA := 0.65
+
+static func _montar_agazapar(anims: Array, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		var k: float = 1.0 - (1.0 - t) * (1.0 - t)
+		p["agacha"] = AGAZAPA * k
+		p["cabeza"] = -1.9 * AGAZAPA * k
+		p["estira"] = 1.0 - 0.05 * k
+		return p
+	_montar_animacion(anims, esc, "agazapar", false, 10.0, pose, true, 8, 5)
+
+
+# ESCARBAR: agazapada, raspa el suelo con las delanteras y tiembla de ganas. En bucle mientras avisa.
+static func _montar_escarbar(anims: Array, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["agacha"] = AGAZAPA
+		p["cabeza"] = -1.9 * AGAZAPA + 0.2 * sin(TAU * t)
+		p["escarba"] = 0.5 + 0.5 * sin(TAU * t)
+		p["estira"] = 0.95 + 0.012 * sin(TAU * t * 2.0)
+		p["hunde"] = 0.25 * sin(TAU * t)
+		return p
+	_montar_animacion(anims, esc, "escarbar", true, 8.0, pose, false)
+
+
+# ARREMETER: la Carga suelta (AbilityData.fx_anim "arremeter", CombatFX.IMPACTO_ANIM_MAPA 0: arranca con el golpe). La
+# pelea la lleva por la linea (InsectoAire.T_RODADA); aqui GALOPA baja con el testuz por delante y, al llegar, SE EMPINA
+# sobre las traseras y cae con todo el peso: el PISOTON (sus losas las pinta FieraAire). 10 marcos a 12 fps: galope
+# hasta el 3, arriba en el 4 y el golpe en el 5 (0,42 s, cuando salen las losas).
+static func _montar_arremeter(anims: Array, esc: float) -> void:
+	var alza_keys := [[0.0, 0.0], [0.3, 0.0], [0.44, 1.4], [0.56, -0.15], [0.72, 0.05], [1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.75], [0.3, 0.75], [0.44, 0.1], [0.56, 0.8], [0.72, 0.3], [1.0, 0.05]]
+	var cabeza_keys := [[0.0, -1.5], [0.3, -1.5], [0.44, 1.6], [0.56, -1.4], [0.72, -0.3], [1.0, 0.0]]
+	var estira_keys := [[0.0, 1.04], [0.3, 1.04], [0.44, 0.96], [0.56, 1.12], [0.72, 0.99], [1.0, 1.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["alza"] = SpriteLienzo.tramos(t, alza_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		p["estira"] = SpriteLienzo.tramos(t, estira_keys)
+		# El galope: las patas a toda prisa y el bamboleo, solo mientras corre.
+		var corre: float = 1.0 - smoothstep(0.26, 0.36, t)
+		p["patas"] = 1.6 * sin(TAU * t * 3.2) * corre
+		p["hunde"] = 0.9 * sin(TAU * t * 3.2) * corre
+		p["cabeza"] = float(p["cabeza"]) + 0.5 * sin(TAU * t * 6.4) * corre
+		return p
+	_montar_animacion(anims, esc, "arremeter", false, 12.0, pose, true, 8, 10)
+
+
+# EL ZARPAZO DOBLE: es baja y ancha, no se pone de pie. Levanta UNA delantera, la abre hacia fuera y la barre hacia
+# dentro (el arañazo), y luego la otra. 12 marcos a 20 fps: la primera garra toca en el 4 (0,2 s, IMPACTO_ANIM_MAPA) y
+# la segunda en el 8 (0,2 s despues: CombatFX.T_ENCADENADO). El cuerpo se ladea hacia la pata que pega.
+static func _montar_zarpazo(anims: Array, esc: float) -> void:
+	var d: float = 4.0 / 11.0
+	var alza_keys := [[0.0, 0.0], [0.18, 1.0], [0.36, 0.55], [0.5, 0.0], [1.0, 0.0]]
+	var barre_keys := [[0.0, 0.0], [0.18, 1.0], [0.36, -1.0], [0.5, -0.3], [0.62, 0.0], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["zi_alza"] = SpriteLienzo.tramos(t, alza_keys)
+		p["zi_barre"] = SpriteLienzo.tramos(t, barre_keys)
+		var t2: float = clampf(t - d, 0.0, 1.0)
+		p["zd_alza"] = SpriteLienzo.tramos(t2, alza_keys) if t >= d else 0.0
+		p["zd_barre"] = SpriteLienzo.tramos(t2, barre_keys) if t >= d else 0.0
+		p["hunde"] = 0.9 * (float(p["zd_alza"]) - float(p["zi_alza"]))
+		p["agacha"] = 0.18
+		p["cabeza"] = -0.5
+		return p
+	_montar_animacion(anims, esc, "zarpazo", false, 20.0, pose, true, 8, 12)
+
+
+# EL VOLTEO (su pasiva): aturdida se va de costado y se queda PATAS ARRIBA, enseñando la tripa -- es la señal de
+# "ahora, pegadle". VOLCAR es la vuelta (6 marcos), VOLCADA el bucle mientras dure el aturdimiento (patalea y se mece)
+# y ENDEREZARSE la vuelta atras al pasarsele.
+const VOLCADA_ABRE := 0.7
+
+static func _montar_volcar(anims: Array, esc: float) -> void:
+	var vuelco_keys := [[0.0, 0.0], [0.35, 0.9], [0.7, 2.5], [1.0, PI]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["vuelco"] = SpriteLienzo.tramos(t, vuelco_keys)
+		p["patas"] = 0.8 * sin(TAU * t * 1.5)
+		# Las patas se abren hacia fuera al volcarse: boca arriba asoman del contorno (juntas se leian como manchas
+		# sobre la tripa, no como patas).
+		p["abre"] = VOLCADA_ABRE * smoothstep(0.3, 1.0, t)
+		return p
+	_montar_animacion(anims, esc, "volcar", false, 12.0, pose, true, 8, 6)
+
+
+static func _montar_volcada(anims: Array, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["vuelco"] = PI + 0.14 * sin(TAU * t)
+		p["patas"] = 1.5 * sin(TAU * t * 2.0)
+		p["abre"] = VOLCADA_ABRE + 0.12 * sin(TAU * t * 2.0)
+		p["cabeza"] = 0.6 * sin(TAU * t)
+		return p
+	_montar_animacion(anims, esc, "volcada", true, 8.0, pose, false)
+
+
+static func _montar_enderezarse(anims: Array, esc: float) -> void:
+	var vuelco_keys := [[0.0, PI], [0.35, 2.3], [0.7, 0.6], [0.85, -0.1], [1.0, 0.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["vuelco"] = SpriteLienzo.tramos(t, vuelco_keys)
+		p["patas"] = 0.8 * sin(TAU * t * 1.5) * (1.0 - t)
+		p["abre"] = VOLCADA_ABRE * (1.0 - smoothstep(0.0, 0.7, t))
+		return p
+	_montar_animacion(anims, esc, "enderezarse", false, 12.0, pose, true, 8, 6)
 
 
 static func _montar_animacion(anims: Array, esc: float, nombre: String,
@@ -430,6 +558,13 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 'abre' solo existe en la muerte (las patas cediendo hacia fuera), con default para que las
 	# poses de siempre no paguen ni una operacion.
 	var abre: float = float(pose.get("abre", 0.0))
+	# EL TACTICO (30/09): 'alza' la empina sobre las traseras (el pisoton), 'vuelco' la hace rodar sobre su eje largo
+	# (PI = patas arriba) y zi/zd levantan y barren cada delantera (el zarpazo). Con default: las de siempre no pagan.
+	var alza: float = float(pose.get("alza", 0.0))
+	var vuelco: float = float(pose.get("vuelco", 0.0))
+	var volcada: bool = absf(wrapf(vuelco, -PI, PI)) > PI * 0.5
+	var s_v: float = sin(vuelco)
+	var c_v: float = cos(vuelco)
 
 	# Agazapada = mas baja y algo mas larga (se estira hacia delante al bajar el testuz).
 	var largo: float = estira * (1.0 + 0.05 * agacha)
@@ -453,13 +588,26 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# porque tiene que inclinar el bicho ENTERO alrededor de su eje largo -- si se aplicara solo
 		# al tronco, las patas y la cabeza se quedarian a nivel y el bicho se partiria por la mitad.
 		var lz: float = local.z + (0.0 if en_suelo else local.x * hunde * 0.055)
-		var p := Vector2(local.x * ancho, local.y * largo)
+		var lx: float = local.x
+		var rr: Vector3 = r
+		if not en_suelo:
+			# EMPINARSE: gira hacia arriba alrededor de las pezuñas de atras (que no se despegan del suelo).
+			lz += maxf(0.0, local.y - PATA_Y[1]) * alza * 0.42
+			# RODAR sobre el eje largo, a la altura del tronco. Al ir de costado el ancho y el alto de cada pieza se
+			# intercambian (lo que era ancho pasa a ser alto).
+			if vuelco != 0.0:
+				var dz: float = lz - TRONCO.z
+				lx = local.x * c_v - dz * s_v
+				lz = maxf(0.0, TRONCO.z + local.x * s_v + dz * c_v)
+				var mezcla: float = absf(s_v)
+				rr = Vector3(lerpf(r.x, r.z, mezcla), r.y, lerpf(r.z, r.x, mezcla))
+		var p := Vector2(lx * ancho, local.y * largo)
 		var rot: Vector2 = p.rotated(ang) + desp
 		var z: float = lz * alto
 		var sx: float = centro + rot.x * u
 		var sy: float = centro + (rot.y * SpriteLienzo.COS_CAM - z * SpriteLienzo.SIN_CAM) * u
-		var ry: float = r.y * largo
-		var rxm: float = r.x * ancho
+		var ry: float = rr.y * largo
+		var rxm: float = rr.x * ancho
 		# LA PERSPECTIVA SE MIDE SOBRE EL RADIO YA ROTADO. El motor aplasta el eje VERTICAL DE
 		# PANTALLA por 'persp' DESPUES de girar la pieza, pero 'persp_de' recibe el radio a lo LARGO,
 		# y los dos solo coinciden mirando al SUR: girado 90 grados, el que cae en vertical es el
@@ -472,7 +620,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# por donde la pieza girada sobresale.
 		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rxm * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang, "caja": caja, "chaflan": chaflan,
-			"persp": SpriteLienzo.persp_de(ry_rot, r.z * alto), "solo_sobre": solo_sobre})
+			"persp": SpriteLienzo.persp_de(ry_rot, rr.z * alto), "solo_sobre": solo_sobre})
 
 	# SOMBRA DE CONTACTO, lo primero (va debajo). ANCHA: esta es de las pocas a las que le pega,
 	# porque el bicho desborda sus propias patas y lo que proyecta sombra es el tronco entero.
@@ -482,27 +630,68 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# PATAS: columnares, dos piezas, y se mueven JUNTAS con el balanceo. Al andar, delanteras y
 	# traseras van en contrafase, y los dos lados tambien: es el paso cruzado.
 	# En la muerte 'abre' las despatarra hacia los lados y las tumba.
-	for lado in [-1.0, 1.0]:
-		for k in PATA_Y.size():
-			var delantera: bool = k == 0
-			var swing: float = fase_patas * (1.0 if delantera else -1.0) * lado
-			var base_y: float = PATA_Y[k] + swing * PASO_LARGO
-			if delantera:
-				base_y -= escarba * 2.2          # las delanteras raspan hacia atras al escarbar
-			var px: float = lado * (PATA_X + abre * 2.6)
-			# Al despatarrarse la pata BAJA (se tumba hacia fuera), y por eso el cuerpo acaba en el
-			# suelo: son las dos caras del mismo movimiento.
-			poner.call(Vector3(px, base_y, MUSLO_Z - abre * 1.6 - escarba * 0.5), MUSLO_R, Tono.PATA)
-			poner.call(Vector3(lado * (PATA_X + abre * 3.4), base_y, PEZUNA_Z), PEZUNA_R, Tono.PATA)
+	var z_alza: Array = [float(pose.get("zi_alza", 0.0)), float(pose.get("zd_alza", 0.0))]
+	var z_barre: Array = [float(pose.get("zi_barre", 0.0)), float(pose.get("zd_barre", 0.0))]
+	# 'alzadas': solo las delanteras que estan dando un zarpazo (se pintan DESPUES del cuerpo, encima: es ancha y
+	# debajo de ella no se veian); sin el, todas las demas.
+	var patas := func(alzadas: bool) -> void:
+		for lado in [-1.0, 1.0]:
+			for k in PATA_Y.size():
+				var delantera: bool = k == 0
+				var i_z: int = 0 if lado < 0.0 else 1
+				var en_zarpa: bool = delantera and float(z_alza[i_z]) > 0.08
+				if en_zarpa != alzadas:
+					continue
+				var swing: float = fase_patas * (1.0 if delantera else -1.0) * lado
+				var base_y: float = PATA_Y[k] + swing * PASO_LARGO
+				if delantera:
+					base_y -= escarba * 2.2          # las delanteras raspan hacia atras al escarbar
+				var px: float = lado * (PATA_X + abre * 2.6)
+				var pz: float = lado * (PATA_X + abre * 3.4)
+				# EL ZARPAZO: la delantera de ese lado sube, se estira hacia delante y barre de fuera (+) a dentro (-).
+				var sube: float = 0.0
+				if delantera:
+					# Lejos: por delante del pecho y por fuera del caparazon, que es donde se ve la garra.
+					var i_l: int = 0 if lado < 0.0 else 1
+					sube = float(z_alza[i_l]) * 4.8
+					base_y += float(z_alza[i_l]) * 4.6
+					px += lado * (float(z_alza[i_l]) * 1.4 + float(z_barre[i_l]) * 2.4)
+					pz += lado * (float(z_alza[i_l]) * 2.0 + float(z_barre[i_l]) * 3.2)
+				# LA GARRA EN EL AIRE: un BRAZO ENTERO del hombro a la pezuña (cuentas pegadas, del grosor del muslo), no
+				# la pezuña suelta -- lejos del cuerpo se leia como una bola flotando. Y tres uñas claras en la punta.
+				if en_zarpa:
+					var hombro := Vector3(lado * PATA_X, PATA_Y[0], MUSLO_Z + 1.0)
+					var mano := Vector3(pz, base_y + sube * 0.2, PEZUNA_Z + sube)
+					# GORDO Y CORTO, como sus patas: con cuentas finas y mas lejos salia un palo, una antena.
+					for f in [0.0, 0.5]:
+						poner.call(hombro.lerp(mano, f), MUSLO_R * 1.15, Tono.PATA)
+					poner.call(mano, PEZUNA_R * 1.15, Tono.PATA)
+					var hacia: Vector3 = (mano - hombro).normalized()
+					for una in [-1.0, 0.0, 1.0]:
+						poner.call(mano + hacia * 2.2 + Vector3(-hacia.y, hacia.x, 0.0).normalized() * una * 1.1,
+							Vector3(0.45, 0.6, 0.45), Tono.PUA_T)
+					continue
+				# Al despatarrarse la pata BAJA (se tumba hacia fuera), y por eso el cuerpo acaba en el
+				# suelo: son las dos caras del mismo movimiento.
+				poner.call(Vector3(px, base_y, MUSLO_Z - abre * 1.6 - escarba * 0.5 + sube * 0.6), MUSLO_R, Tono.PATA)
+				poner.call(Vector3(pz, base_y + sube * 0.2, PEZUNA_Z + sube), PEZUNA_R, Tono.PATA)
+	if not volcada:
+		patas.call(false)
 
 	# COLA: un muñon corto.
-	poner.call(COLA, COLA_R, Tono.SOMBRA)
+	var cola := func() -> void:
+		poner.call(COLA, COLA_R, Tono.SOMBRA)
+	if not volcada:
+		cola.call()
 
 	# EL VIENTRE, antes que el tronco: asoma por debajo y por los costados, y es la carne que hace
 	# que el bicho no se lea como una piedra. Va en tono CARNE y algo mas bajo y estrecho que el
 	# tronco, para que solo se le vea el borde de abajo.
-	poner.call(Vector3(0.0, TRONCO.y, TRONCO.z - 2.2),
-		Vector3(TRONCO_R.x * 0.90, TRONCO_R.y * 0.92, TRONCO_R.z * 0.6), Tono.CARNE)
+	var vientre := func() -> void:
+		poner.call(Vector3(0.0, TRONCO.y, TRONCO.z - 2.2),
+			Vector3(TRONCO_R.x * 0.90, TRONCO_R.y * 0.92, TRONCO_R.z * 0.6), Tono.CARNE)
+	if not volcada:
+		vientre.call()
 
 	# EL TRONCO y los dos cuartos. La GRUPA primero y el PECHO al final, para que el cuarto delantero
 	# -- que es lo que mira a la camara cuando la bestia viene hacia ti -- se recorte sobre el resto.
@@ -546,11 +735,17 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			Vector3(w * 0.90, PLACA_R.y * 0.34, PLACA_R.z * 0.5), Tono.PLACA_CLARA,
 			[Tono.PLACA], true, PLACA_CHAFLAN)
 
+	# PATAS ARRIBA: la tripa, la cola y las patas van ENCIMA de la coraza (pintadas despues: el orden es la profundidad).
+	if volcada:
+		vientre.call()
+		cola.call()
+		patas.call(false)
+
 	# QUIEN LE VE LA CARA: de ESPALDAS no se le ven los ojos -- con la camara a 45 grados un bicho que
 	# se aleja enseña la grupa, y eso es lo que hace que se lea de un vistazo si viene o si huye.
 	var frente: float = DIR_VECS[dir].y
 	var lados: Array = [-1.0, 1.0]
-	if frente <= -0.5:
+	if frente <= -0.5 or volcada:
 		lados = []
 	elif frente < -0.2:
 		lados = [signf(DIR_VECS[dir].x)]
@@ -571,6 +766,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# de la silueta desde cualquier lado.
 	for lado in [-1.0, 1.0]:
 		poner.call(Vector3(lado * PUA.x, PUA.y, PUA.z + cabeza_y), PUA_R, Tono.PUA_T)
+
+	# LA GARRA LEVANTADA del zarpazo, encima de todo el cuerpo.
+	patas.call(true)
 
 	# OJOS: los ULTIMOS, y solo si se le ve la cara. Pequeños, que es lo suyo en un bicho acorazado.
 	for l in lados:
