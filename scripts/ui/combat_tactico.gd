@@ -1565,7 +1565,12 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie), y a lo que tarda la
 		# bola en cruzar (a cada uno le llega el golpe cuando le pasa por encima: InsectoAire.retraso).
 		if v != null and not ab.atraviesa and not ab.recorre:
-			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + radio_pisa(e))
+			# EL ENSARTE se para con la CABEZA delante de su presa, no con los pies: la segadora es larga y con su
+			# radio de pisada acababa con los brazos encima de ella (30/09). Su frente real, como los conos.
+			var delante: float = radio_pisa(e)
+			if ab.carga_persigue:
+				delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
+			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
 		if ab.atraviesa:
 			dur = InsectoAire.T_RODADA
 		# LA QUE RECORRE (la Oleada de patas): hasta el final, a lo que tarda en cruzar (InsectoAire.T_OLEADA).
@@ -1680,6 +1685,8 @@ func _tick_presas_carga() -> void:
 		elif d.size() >= 2 and (d[1] as Vector2).distance_squared_to(pies_de(presa)) < 1.0:
 			continue
 		_marcar_presa(e, presa)
+		# Y SE GIRA CON ELLA: clavada, pero sin quitarle el ojo de encima (30/09).
+		_encarar(e, pies_de(presa))
 
 
 # ------------------------------------------------------------
@@ -2809,7 +2816,9 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	# La RATA (28/09): el Mordisco sangrante y el Frenesi (el basico, no: muerde, pero no es el que sangra).
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI,
 	# El REY RATA (29/09): cada tarascada de la Dentellada, y la Yugular con un chorro gordo desde el cuello.
-	CombatFX.Estilo.BESTIA_DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR]
+	CombatFX.Estilo.BESTIA_DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR,
+	# La SEGADORA (30/09): sus tajos, y el Ensarte con un chorro por detras (por donde asoma la hoja).
+	CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA]
 
 func _on_impacto(ev: Dictionary) -> void:
 	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
@@ -2889,6 +2898,11 @@ func _on_impacto(ev: Dictionary) -> void:
 		CombatFX.Estilo.ESTOCADA_MARCIAL:
 			dir = radial
 			fuerza *= 0.6
+		CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA:
+			fuerza *= 0.5
+		CombatFX.Estilo.INSECTO_ESTOCADA:
+			dir = radial
+			fuerza *= 1.1
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 
@@ -3010,7 +3024,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
 	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
-	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA}
+	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
+	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()

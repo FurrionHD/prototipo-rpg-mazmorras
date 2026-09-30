@@ -395,7 +395,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Y el apreton del Enrosque (al enroscarse y en cada turno suyo).
 		INSECTO_APRETON = 152,
 		# Y los de la segadora (29/09): el tajo de hueso del basico y cada guadaña de la Doble (desde el lado de su mitad).
-		INSECTO_TAJO = 153, INSECTO_GUADANA = 154 }
+		INSECTO_TAJO = 153, INSECTO_GUADANA = 154,
+		# Y la estocada del Ensarte: entra por delante y asoma por detras.
+		INSECTO_ESTOCADA = 155 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -431,7 +433,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# los insectoides (InsectoAire, 29/09): sobre el cuerpo que recibe.
 	Estilo.INSECTO_QUELICEROS, Estilo.INSECTO_PONZONA, Estilo.INSECTO_HEBRAS,
 	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
-	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA,
+	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -596,7 +598,7 @@ const T_VUELO := {
 	# Las forcipulas llegan abiertas y se cruzan en el golpe; las patitas empiezan a clavarse justo antes.
 	Estilo.INSECTO_FORCIPULAS: 0.14, Estilo.INSECTO_PATITAS: 0.06,
 	# La hoja de la segadora cruza el cuerpo en el viaje y corta en el golpe.
-	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_APRETON: 0.02,
+	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1, Estilo.INSECTO_APRETON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1919,6 +1921,8 @@ const IMPACTO_ANIM_MAPA := {
 	"oleada": 0.14,
 	# La segadora (29/09): las dos guadañas caen a 0,5x7/13.
 	"guadanas": 0.27,
+	# y el Ensarte, que ya esta dentro a 3/13 (despues de sus tres marcos clavada).
+	"ensarte": 0.23,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

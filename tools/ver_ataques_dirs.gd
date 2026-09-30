@@ -1355,6 +1355,8 @@ const MOMENTOS_BESTIA := {
 	"ciempies_enrosque": [0.0, 0.05, 0.1, 0.18, 0.3],
 	# La segadora: las hojas cruzando, el corte (la izquierda) y la derecha 0,075 s despues, y la X que se queda.
 	"segadora_guadanas": [-0.08, -0.03, 0.0, 0.05, 0.09, 0.16, 0.3],
+	# El Ensarte: se lanza, la hoja entra, asoma por detras y queda el agujero.
+	"segadora_ensarte": [0.1, 0.18, 0.23, 0.27, 0.32, 0.45, 0.7],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1363,7 +1365,8 @@ const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.
 	CombatFX.Estilo.INSECTO_CAPARAZON: InsectoAire.Modo.CAPARAZON,
 	CombatFX.Estilo.INSECTO_FORCIPULAS: InsectoAire.Modo.FORCIPULAS, CombatFX.Estilo.INSECTO_PATITAS: InsectoAire.Modo.PATITAS,
 	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
-	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA}
+	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
+	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1524,7 +1527,11 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 				fin_carga = f.origen + f.dir * f.largo
 				# La que ATRAVIESA rueda hasta el final; las demas se paran pegadas al primero.
 				if not cajas.is_empty() and not ab.atraviesa and not ab.recorre:
-					fin_carga = _pies_caja(cajas[0]) - f.dir * (8.0 + pisa)
+					# El Ensarte, con la cabeza delante de su presa (como CombatTactico.mover_enemigo).
+					var delante_c: float = pisa
+					if ab.carga_persigue:
+						delante_c = maxf(pisa, frente)
+					fin_carga = _pies_caja(cajas[0]) - f.dir * (8.0 + delante_c)
 				cuerpo.position = fin_carga - yo
 			var bulto: Rect2 = Rect2(bulto0.position + cuerpo.position, bulto0.size)
 			var semilla: int = 700 + fila * 31

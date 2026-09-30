@@ -28,3 +28,7 @@ forma_solo_primero = true
 carga = true
 carga_turnos = 1
 carga_persigue = true
+; EFECTO Y CUERPO EN EL MAPA (30/09): cargando, AGAZAPADA ('acecho') y girandose con su presa; al soltar se lanza
+; ('ensarte'), la pelea la lleva hasta el primero y SE QUEDA alli; en el, la hoja recta que asoma por detras.
+fx_estilo_mapa = 155
+fx_anim_carga = &"acecho"

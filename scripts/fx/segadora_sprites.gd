@@ -394,7 +394,15 @@ static func _montar_ensarte(anims: Array, esc: float) -> void:
 			# SOLO EL DERECHO: el izquierdo se queda plegado todo el rato.
 			"abre_izq": 0.05,
 			"avance": SpriteLienzo.tramos(t, avance_keys)})
-	_montar_animacion(anims, esc, "ensarte", false, 13.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa se lanza hacia su presa (la pelea la lleva y SE QUEDA alli; el avance de
+	# aqui es solo el estiron del cuerpo con el brazo). Ya esta dentro a 3/13 s (CombatFX.IMPACTO_ANIM_MAPA).
+	_montar_animacion(anims, esc, "ensarte", false, 13.0, pose, true, 8, FRAMES)
+	# EL ACECHO: la pose de la CARGA del Ensarte (AbilityData.fx_anim_carga), en bucle mientras la marca sigue a su
+	# presa. Agachada, los brazos pegados al pecho y lo unico que se mueve es la cabeza, que tantea ("se queda
+	# quieta, muy quieta"); el cuerpo entero se gira con la presa (CombatTactico._tick_presas_carga).
+	var acecho := func(t: float) -> Dictionary:
+		return _pose({"abre": 0.0, "agacha": 0.45, "avance": -0.8, "cabeza": 0.6 * sin(TAU * t)})
+	_montar_animacion(anims, esc, "acecho", true, 5.0, acecho, false, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion y EMPEZANDO YA GOLPEADA.

@@ -40,6 +40,9 @@
 #    GUADANA     cada golpe de la Doble guadaña: lo mismo mas grande, desde el lado de SU mitad del cono (el golpe 0
 #                es la mitad izquierda, el 1 la derecha: CombatTactico.mitades_que_toca). Al del medio le caen las
 #                dos casi a la vez en diagonales contrarias y se le queda la X.
+#    ESTOCADA    el Ensarte (30/09): la hoja RECTA entra con su estela (cometa de hueso) por delante, la punta ASOMA
+#                por detras de la victima con un chorro de esquirlas y sangre hacia donde iba, y se queda un agujero
+#                oscuro con el borde rojo. La segadora llega con ella (la pelea la mueve y se queda alli).
 #  LAS HEBRAS NO SON LINEAS (lo aprobo el usuario, 29/09): cada una es un hilo relleno que se afila, mas grueso junto a
 #  los nudos, con un halo suave detras. Coordenadas de MUNDO.
 # ============================================================
@@ -47,7 +50,7 @@ extends Node2D
 class_name InsectoAire
 
 enum Modo { TELARANA, QUELICEROS, PONZONA, VENENO, HEBRAS, RED, PALA, ARROLLA, CAPARAZON, RODADA,
-	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA }
+	FORCIPULAS, PATITAS, APRETON, OLEADA, TAJO, GUADANA, ESTOCADA }
 # Los del suelo, en el orden de SueloRoto.Tipo.INSECTO_*: no reordenar (el Modo si se puede).
 enum Suelo { TELARANA, RODADA, OLEADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
@@ -85,6 +88,7 @@ const VENENO_CLARO := Color(0.82, 1.0, 0.56)
 const HUESO := Color(0.98, 0.95, 0.84)
 const HUESO_DENTRO := Color(0.8, 0.68, 0.46)
 const SANGRE := Color(0.62, 0.05, 0.05)
+const T_ESTOCADA := 0.6          # lo que se queda el agujero
 const T_TAJO := 0.42              # lo que se queda el corte tras el golpe (lo bastante para que el segundo lo cruce)
 
 var modo: int = Modo.QUELICEROS
@@ -269,6 +273,18 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 		Modo.APRETON:
 			e._t = -maxf(espera, 0.0)
 			e._hasta = caja.get_center() + Vector2(0.0, caja.size.y * 0.12)
+		Modo.ESTOCADA:
+			e._viaje = clampf(espera, 0.06, 0.12)
+			e._t = -e._viaje
+			e._eje = eje.rotated(e._rng.randf_range(-0.08, 0.08))
+			e._lado = e._eje.orthogonal()
+			# GRANDE: a medio ancho de la figura la hoja era una aguja y el agujero un punto.
+			e._tam = maxf(e._ancho * 0.95, 12.0)
+			# Lo que sale por DETRAS: esquirlas de hueso y gotas, en un chorro estrecho hacia donde iba la hoja.
+			for i in 9:
+				e._piezas.append({"d": e._eje.rotated(e._rng.randf_range(-0.45, 0.45)), "v": e._rng.randf_range(14.0, 30.0),
+					"sube": e._rng.randf_range(3.0, 8.0), "tam": e._rng.randf_range(0.9, 1.7), "t0": e._rng.randf_range(0.0, 0.05),
+					"hueso": i % 3 == 0})
 		Modo.TAJO, Modo.GUADANA:
 			e._viaje = clampf(espera, 0.06, 0.14)
 			e._t = -e._viaje
@@ -369,6 +385,7 @@ func duracion() -> float:
 		Modo.PATITAS: return 0.34
 		Modo.APRETON: return 0.4
 		Modo.TAJO, Modo.GUADANA: return T_TAJO
+		Modo.ESTOCADA: return T_ESTOCADA
 		Modo.RODADA: return T_RODADA + 1.4
 		Modo.OLEADA: return T_OLEADA
 	return T_CLAVADO + T_IRSE
@@ -405,6 +422,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.PATITAS: _patitas(capa)
 		Modo.APRETON: _apreton(capa)
 		Modo.TAJO, Modo.GUADANA: _tajo(capa)
+		Modo.ESTOCADA: _estocada(capa)
 		Modo.VENENO: _veneno(capa)
 		Modo.HEBRAS: _hebras(capa)
 		Modo.RED: _red(capa)
@@ -1010,3 +1028,43 @@ func _tajo(capa: Node2D) -> void:
 			+ Vector2(0.0, -float(g["sube"]) * k + 16.0 * k * k)
 		BestiaAire._bola(capa, q, float(g["tam"]) * 1.8, Color(SANGRE, 0.35 * (1.0 - k)))
 		capa.draw_circle(q, float(g["tam"]), Color(SANGRE, 1.0 - k * k))
+
+
+# LA ESTOCADA DEL ENSARTE: la hoja RECTA. En el viaje, una cometa gorda de hueso entra por delante hasta el centro del
+# cuerpo; en el golpe la punta ASOMA por detras (otra cometa que sale y se recoge), un destello pequeño, esquirlas y
+# sangre en chorro hacia donde iba, y el agujero: un circulo oscuro con el borde rojo que se va cerrando.
+func _estocada(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	var gordo: float = maxf(4.0, _tam * 0.5)
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.1:
+			BarridoAire.destello(capa, c + _eje * _tam * 0.2, _tam * 0.7, Color(1.0, 0.97, 0.88, 0.85 * (1.0 - _t / 0.1)),
+				_eje.angle())
+		return
+	if capa != _delante:
+		return
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		var cab: Vector2 = c - _eje * _tam * 2.4 * (1.0 - u * u)
+		BarridoAire.cometa(capa, cab - _eje * _tam * 2.6, cab, gordo, Color(HUESO, clampf(u * 3.0, 0.0, 1.0)))
+		return
+	# EL AGUJERO, que se va cerrando.
+	var ag: float = 1.0 - smoothstep(0.15, T_ESTOCADA, _t)
+	var ra: float = _tam * 0.3 * (1.0 - 0.4 * clampf(_t / T_ESTOCADA, 0.0, 1.0))
+	BestiaAire._bola(capa, c, ra * 1.9, Color(SANGRE, 0.55 * ag))
+	capa.draw_circle(c, ra, Color(0.08, 0.02, 0.02, 0.95 * ag))
+	# LA PUNTA POR DETRAS: sale del todo en 0,05 s y se recoge en 0,2.
+	var sale: float = clampf(_t / 0.05, 0.0, 1.0) * (1.0 - smoothstep(0.08, 0.22, _t))
+	if sale > 0.01:
+		var trasera: Vector2 = c + _eje * _tam * (0.4 + 1.3 * sale)
+		BarridoAire.cometa(capa, c - _eje * _tam * 0.6, trasera, gordo * 0.8, Color(HUESO, sale))
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.34:
+			continue
+		var k: float = tg / 0.34
+		var q: Vector2 = c + _eje * _tam * 0.5 + (g["d"] as Vector2) * float(g["v"]) * sqrt(k) \
+			+ Vector2(0.0, -float(g["sube"]) * k + 18.0 * k * k)
+		var col: Color = HUESO if bool(g["hueso"]) else SANGRE
+		BestiaAire._bola(capa, q, float(g["tam"]) * 1.8, Color(col, 0.3 * (1.0 - k)))
+		capa.draw_circle(q, float(g["tam"]), Color(col, 1.0 - k * k))
