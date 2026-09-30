@@ -23,3 +23,6 @@ forma_apunte = 3
 forma_radio = 14.0
 forma_rango = 110.0
 salta = true
+; EFECTO EN EL MAPA (30/09): la estela de sombra que sigue su salto y, al caer, las fauces al cuello con el destello rojo
+; (FIERA_YUGULAR).
+fx_estilo_mapa = 170

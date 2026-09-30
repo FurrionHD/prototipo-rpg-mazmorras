@@ -63,4 +63,6 @@ alcance = 20.0
 ; PASIVA OLOR A SANGRE (30/09): va siempre a por quien sangra (si nadie, al de menos vida) y le pega un 30% mas.
 ; La Provocacion del escudo le puede. Ver combat_objetivos.presa_por_olor y Pantalla._mult_pasivas.
 olor_sangre_mult = 1.3
+; EL BASICO EN EL MAPA (30/09): las fauces largas con sus colmillos curvos (FIERA_FAUCES).
+fx_basico_mapa = 169
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

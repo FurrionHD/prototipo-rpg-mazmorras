@@ -15,12 +15,22 @@
 #                cuatro patas a los lados, lajas que saltan y polvo. Al llegar al final, EL PISOTON: las losas del Golpe
 #                sismico (SueloRoto.FRAGMENTOS) y el anillo de polvo del jabali (BestiaAire POLVO) en su circulo
 #                (AbilityData.pisoton_final). Van DENTRO de este nodo y a su reloj, para que las hojas los vean igual.
+#  Y EL ACECHADOR (30/09):
+#    FAUCES      el basico: dos mandibulas LARGAS y oscuras (un hocico, no los paletos de la rata) con colmillos curvos
+#                que se cruzan al cerrar; un destello y un tiron hacia quien muerde.
+#    YUGULAR     el Salto a la yugular: durante el salto, una ESTELA DE SOMBRA (pinceladas de tinta negra con su
+#                pincel claro roto, el lenguaje de la Voragine) que sigue su arco; al caer, las fauces ALTAS, al
+#                cuello, y el destello rojo en estrella. La sangre la pone CombatTactico._on_impacto (solo si entra).
+#    DENTELLADA  cada mordisco de la Dentellada desgarradora: las fauces y, al cerrar, TIRAN: un jiron de cometas
+#                rojas hacia el acechador y la victima arrastrada un palmo hacia el.
+#    VAHO        (se queda) la pasiva Olor a sangre: sobre quien sangra, mientras haya un acechador en la pelea, un
+#                hilo de vaho rojo que sube ondulando. CombatTactico._tick_olor lo pone y lo quita.
 #  NADA DE LINEAS (efectos-sin-lineas): medias lunas rellenas, bolas blandas, cometas. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name FieraAire
 
-enum Modo { TESTARAZO, ZARPA, PLACA, ARROLLA }
+enum Modo { TESTARAZO, ZARPA, PLACA, ARROLLA, FAUCES, YUGULAR, DENTELLADA, VAHO }
 # Los del suelo, en el orden de SueloRoto.Tipo.FIERA_*: no reordenar.
 enum Suelo { ARROLLA }
 const _MODO_DE_SUELO := [Modo.ARROLLA]
@@ -37,6 +47,15 @@ const T_PISOTON_DURA := 1.2
 const PLACA_C := Color(0.72, 0.56, 0.46)
 const PLACA_CLARA := Color(0.95, 0.86, 0.74)
 const PIEDRA := Color(0.46, 0.4, 0.34)
+# EL ACECHADOR: sus fauces cerradas se quedan lo de la rata; la Dentellada pesa mas y tira.
+const T_CERRADO := 0.22
+const T_IRSE := 0.18
+const T_ESTELA_VIVE := 0.3        # lo que dura cada trozo de la estela de sombra desde que pasa el cuerpo
+const T_TIRON := 0.26             # lo que tarda el tiron de la Dentellada (va y vuelve)
+const T_SECA := 0.5               # lo que tarda en irse el vaho cuando deja de sangrar
+const MANDIBULA := Color(0.1, 0.07, 0.07)
+const ENCIA_ROJA := Color(0.42, 0.07, 0.09)
+const VAHO := Color(0.78, 0.1, 0.12)
 
 var modo: int = Modo.TESTARAZO
 var _ritmo: float = 1.0
@@ -62,6 +81,12 @@ var forma: CombatFormas.Forma = null
 var _suelo: Node2D = null
 var _delante: Node2D = null
 var _brillo: Node2D = null
+var _desde: Vector2 = Vector2.ZERO   # YUGULAR: de donde salta (el centro de su cuerpo al despegar)
+var _arco: float = 0.0              # YUGULAR: lo alto que salta (CombatTactico.ALTO_SALTO_BICHO, a su tamaño)
+var _lento: float = 1.0
+var _dibujo: CanvasItem = null      # DENTELLADA: el de la victima, que se arrastra hacia el
+var _base_dibujo: Vector2 = Vector2.ZERO
+var _secando: float = -1.0          # VAHO: desde cuando se esta yendo (-1 = sigue)
 # EL PISOTON (solo ARROLLA): sus piezas van dentro y siguen el reloj de este nodo, con T_ARROLLA de retraso.
 var _hijos_pisoton: Array = []
 
@@ -79,7 +104,8 @@ var _t: float = 0.0:
 # ancho del dibujo de quien pega (el golpe va a SU escala, como los mordiscos de BestiaAire), 'color' = el de su ficha
 # (color_visual): las placas del testarazo y del caparazon van de su color. 'lado' = de que lado entra el zarpazo.
 static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semilla: int, espera: float, ritmo: float,
-		boca: float = -1.0, color: Color = PLACA_C, lado: float = 0.0) -> FieraAire:
+		boca: float = -1.0, color: Color = PLACA_C, lado: float = 0.0, dibujo: CanvasItem = null,
+		arco: float = 0.0) -> FieraAire:
 	if padre == null:
 		return null
 	var e := FieraAire.new()
@@ -120,13 +146,111 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, semil
 			for i in 7:
 				e._piezas.append({"d": (-eje).rotated(e._rng.randf_range(-1.1, 1.1)), "v": e._rng.randf_range(10.0, 20.0),
 					"t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.FAUCES, Modo.YUGULAR, Modo.DENTELLADA:
+			# LAS FAUCES VAN A LO LARGO DE LA LINEA DEL MORDISCO, como las de la rata (la boca no muerde de lado), cada
+			# mordisco con su variacion; y a la escala de quien muerde ('boca').
+			e._viaje = clampf(espera, 0.12, 0.24) if m == Modo.DENTELLADA else clampf(espera, 0.08, 0.2)
+			e._lento = 1.3 if m == Modo.DENTELLADA else (1.15 if m == Modo.YUGULAR else 1.0)
+			# ...pero ACOTADA por el cuerpo que recibe: el acechador mide 17 px de frente y 66 de perfil, y con su ancho a
+			# pelo las fauces salian diminutas hacia el norte y el sur y enormes de lado.
+			e._tam = clampf((boca if boca > 0.0 else e._ancho) * 0.34, e._largo * 0.3, e._largo * 0.42) 				* (1.15 if m == Modo.YUGULAR else 1.0)
+			e._incl = e._rng.randf_range(-0.3, 0.3) * (1.4 if m == Modo.DENTELLADA else 1.0)
+			if m == Modo.YUGULAR:
+				# AL CUELLO: alto en el cuerpo. Y el salto entero es su viaje: la estela va mientras vuela.
+				e._hasta = Vector2(caja.get_center().x + e._rng.randf_range(-0.08, 0.08) * caja.size.x,
+					caja.position.y + caja.size.y * 0.28)
+				e._eje = (e._hasta - desde).normalized() if e._hasta.distance_squared_to(desde) > 1.0 else Vector2.RIGHT
+				e._viaje = clampf(espera, 0.12, 0.5)
+				e._desde = desde
+				e._arco = arco
+				# Las gotas de tinta que suelta la estela: en que punto del arco y cuanto caen.
+				for i in 7:
+					e._piezas.append({"u": e._rng.randf_range(0.15, 0.85), "cae": e._rng.randf_range(6.0, 12.0),
+						"r": e._rng.randf_range(0.9, 1.6), "lado": e._rng.randf_range(-1.0, 1.0)})
+			if m == Modo.DENTELLADA:
+				e._tomar_dibujo(dibujo)
+				# El jiron: cuatro cometas de sangre que salen de la herida hacia el que tira, abiertas un poco.
+				for i in 4:
+					e._piezas.append({"a": e._rng.randf_range(-0.45, 0.45), "v": e._rng.randf_range(0.8, 1.3),
+						"t0": e._rng.randf_range(0.0, 0.05), "g": e._rng.randf_range(0.7, 1.1)})
+			e._t = -e._viaje
+	e.z_as_relative = false
+	e.z_index = Z_ENCIMA
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	padre.add_child(e)
+	# LA ESTELA DE SOMBRA va DETRAS de los cuerpos (la deja el, por el aire): encima de todo tapaba su propio salto.
+	if m == Modo.YUGULAR:
+		e._suelo = e._capa(Game.Z_PERSONAJES - 1, false)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	return e
+
+
+# EL VAHO DEL OLOR A SANGRE sobre 'caja' (quien sangra): se queda hasta que le llaman a secar(); lo mueve seguir().
+static func vaho(padre: Node, caja: Rect2, semilla: int) -> FieraAire:
+	if padre == null:
+		return null
+	var e := FieraAire.new()
+	e.modo = Modo.VAHO
+	e._rng.seed = hash(semilla)
+	e._ritmo = 1.0
+	e._t = 0.0
+	e._incl = e._rng.randf_range(0.0, TAU)   # la fase propia de cada uno: que no ondulen todos a la vez
+	e.seguir(caja)
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
 	e._delante = e._capa(Z_ENCIMA, false)
-	e._brillo = e._capa(Z_ENCIMA + 1, true)
 	return e
+
+
+func seguir(caja: Rect2) -> void:
+	_hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.1)
+	_ancho = maxf(caja.size.x, 10.0)
+	_largo = maxf(caja.size.y, 10.0)
+
+
+func secar() -> void:
+	if _secando < 0.0:
+		_secando = _t
+
+
+func _tomar_dibujo(dibujo: CanvasItem) -> void:
+	if not is_instance_valid(dibujo):
+		return
+	if not dibujo.has_meta(&"esq_base"):
+		dibujo.set_meta(&"esq_base", dibujo.get("position"))
+	dibujo.set_meta(&"esq_n", int(dibujo.get_meta(&"esq_n", 0)) + 1)
+	_base_dibujo = dibujo.get_meta(&"esq_base")
+	_dibujo = dibujo
+
+
+# El arrastre de la Dentellada: la victima va hacia quien tira y vuelve. Publica para las hojas (sin _process).
+func aplicar_temblor() -> void:
+	if not is_instance_valid(_dibujo):
+		return
+	var fuera := Vector2.ZERO
+	if _t >= 0.0 and _t < T_TIRON:
+		fuera = (-_eje * _tam * 0.45 * sin(PI * _t / T_TIRON)).round()
+	_dibujo.set("position", _base_dibujo + fuera)
+
+
+func _devolver_dibujo() -> void:
+	if not is_instance_valid(_dibujo):
+		return
+	_dibujo.set("position", _base_dibujo)
+	var n: int = int(_dibujo.get_meta(&"esq_n", 1)) - 1
+	if n <= 0:
+		_dibujo.remove_meta(&"esq_base")
+		_dibujo.remove_meta(&"esq_n")
+	else:
+		_dibujo.set_meta(&"esq_n", n)
+	_dibujo = null
+
+
+func _exit_tree() -> void:
+	_devolver_dibujo()
 
 
 # ------------------------------------------------------------
@@ -217,6 +341,10 @@ func duracion() -> float:
 		Modo.ZARPA: return T_ZARPA
 		Modo.PLACA: return T_PLACA
 		Modo.ARROLLA: return T_ARROLLA + (T_PISOTON_DURA if not _hijos_pisoton.is_empty() else 1.4)
+		Modo.DENTELLADA: return maxf((T_CERRADO + T_IRSE) * _lento, T_TIRON + 0.2)
+		Modo.YUGULAR: return maxf((T_CERRADO + T_IRSE) * _lento, T_ESTELA_VIVE)
+		Modo.FAUCES: return (T_CERRADO + T_IRSE) * _lento
+		Modo.VAHO: return INF if _secando < 0.0 else _secando + T_SECA
 	return 1.0
 
 
@@ -236,8 +364,10 @@ func _capa(z: int, aditiva: bool) -> Node2D:
 func _process(delta: float) -> void:
 	_t += delta * _ritmo
 	if _t >= duracion():
+		_devolver_dibujo()
 		queue_free()
 		return
+	aplicar_temblor()
 	for n in [_suelo, _delante, _brillo]:
 		if n != null:
 			(n as Node2D).queue_redraw()
@@ -262,6 +392,11 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.ZARPA: _zarpa(capa)
 		Modo.PLACA: _placa_fx(capa)
 		Modo.ARROLLA: _arrolla(capa)
+		Modo.FAUCES, Modo.DENTELLADA: _fauces(capa)
+		Modo.YUGULAR:
+			_estela_sombra(capa)
+			_fauces(capa)
+		Modo.VAHO: _vaho(capa)
 
 
 # ------------------------------------------------------------
@@ -466,3 +601,260 @@ func _arrolla(capa: Node2D) -> void:
 		for q in pts:
 			arriba.append(c + (q - c) * 0.55 + Vector2(-0.4, -0.5))
 		BestiaAire._poligono(capa, arriba, Color(0.64, 0.57, 0.48, a))
+
+
+# ------------------------------------------------------------
+#  EL ACECHADOR
+# ------------------------------------------------------------
+# LAS FAUCES: dos mandibulas largas y oscuras, una a cada lado de la linea del mordisco (la de quien muerde de su
+# lado), que se cierran de golpe; los colmillos curvos se CRUZAN al cerrar. Como el mordisco de la rata (se van
+# juntando mientras llega el golpe, rebotan un pelin y tiran hacia quien muerde), pero un hocico y no unos paletos.
+# La Yugular solo las abre en el ultimo tramo del salto (antes vuela la estela); la Dentellada tira mas fuerte.
+func _fauces(capa: Node2D) -> void:
+	var perp: Vector2 = _eje.rotated(_incl)
+	var fila: Vector2 = Vector2(-perp.y, perp.x)
+	var cierre: float
+	var alfa: float = 1.0
+	var tiron := Vector2.ZERO
+	if _t < 0.0:
+		var abre: float = minf(_viaje, 0.16 * _lento)
+		var u: float = clampf(1.0 + _t / abre, 0.0, 1.0)
+		cierre = u * u
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		cierre = 1.0
+		var kt: float = clampf(_t / (T_CERRADO * _lento), 0.0, 1.0)
+		var tira: float = 0.8 if modo == Modo.DENTELLADA else 0.35
+		tiron = -_eje * _tam * tira * sin(PI * minf(kt * 1.6, 1.0))
+		alfa = 1.0 - smoothstep(T_CERRADO * _lento, (T_CERRADO + T_IRSE) * _lento, _t)
+	if alfa <= 0.0:
+		return
+	var c: Vector2 = _hasta + tiron
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.14:
+			BarridoAire.destello(capa, c, _tam * 0.9, Color(1.0, 0.95, 0.85, 0.85 * (1.0 - _t / 0.14)), perp.angle())
+		return
+	if capa != _delante:
+		return
+	# EL REBOTE: al llegar a tope la boca afloja un pelin en vez de quedarse clavada.
+	if _t > 0.03 and _t < 0.1:
+		cierre = 1.0 - 0.12 * sin((_t - 0.03) / 0.07 * PI)
+	# LA YUGULAR: el destello rojo en estrella al cerrar, detras de los dientes y sin mezcla aditiva (sumado, naranja).
+	if modo == Modo.YUGULAR and _t >= 0.0 and _t < 0.26:
+		var kd: float = _t / 0.26
+		BarridoAire.destello(capa, c, _tam * lerpf(1.5, 2.1, kd), Color(0.90, 0.10, 0.12, 0.9 * (1.0 - kd)),
+			perp.angle() + PI * 0.125)
+	# LA DENTELLADA: el jiron, detras de las fauces (sale de la herida hacia el que tira).
+	if modo == Modo.DENTELLADA:
+		_jiron(capa, c)
+	# LARGAS Y FINAS (un hocico): con media boca de 1,3 y el grueso de la rata, cerradas eran un ovalo, un ojo.
+	var media: float = _tam * 1.6
+	var colmillo: float = _tam * 0.85
+	var sep: float = lerpf(colmillo * 2.0, -colmillo * 0.2, cierre)
+	_mandibula_larga(capa, c, fila, perp, media, colmillo, sep, alfa, 0.0)
+	_mandibula_larga(capa, c, fila, -perp, media, colmillo, sep, alfa, 0.09)
+	# LO QUE DEJA: los dos agujeros de los colmillos, con su gota escurriendo.
+	if _t >= 0.0 and cierre > 0.85:
+		for s in [-1.0, 1.0]:
+			var p: Vector2 = c + fila * (0.62 * media * s)
+			BestiaAire._bola(capa, p, maxf(1.5, colmillo * 0.17), Color(BestiaAire.SANGRE, 0.95 * alfa))
+			BarridoAire.cometa(capa, p, p + Vector2(0.0, colmillo * 0.6), maxf(1.1, colmillo * 0.14),
+				Color(BestiaAire.SANGRE, 0.6 * alfa))
+
+
+# LOS DIENTES de una mandibula: [donde a lo largo (-1..1), largo (fraccion del colmillo), ancho]. Los CANINOS largos
+# y curvos, y dientes cortos entre ellos. La de abajo va corrida un pelin ('corre'): encajan, no chocan punta con punta.
+const _DIENTES_FAUCES := [[-0.62, 1.0, 0.16], [0.62, 1.0, 0.16], [-0.86, 0.42, 0.09], [0.86, 0.42, 0.09],
+	[-0.38, 0.34, 0.08], [0.38, 0.34, 0.08], [-0.14, 0.28, 0.07], [0.14, 0.28, 0.07]]
+
+# UNA MANDIBULA LARGA: la media luna oscura (el filo de dentro curvado: abre por el medio y en las puntas casi se
+# juntan) con un borde algo mas claro para que se lea en un piso oscuro, la encia roja por dentro, y sus dientes de
+# hueso que crecen hacia la otra ('crece') y se curvan hacia el medio.
+func _mandibula_larga(ci: CanvasItem, c: Vector2, fila: Vector2, crece: Vector2, media: float, colmillo: float,
+		sep: float, alfa: float, corre: float) -> void:
+	var n: int = 14
+	var dentro := PackedVector2Array()
+	var fuera := PackedVector2Array()
+	var borde_d := PackedVector2Array()
+	var borde_f := PackedVector2Array()
+	var encia := PackedVector2Array()
+	var grueso: float = _tam * 0.32
+	for i in n + 1:
+		var k: float = float(i) / float(n) * 2.0 - 1.0
+		var q: Vector2 = c + fila * media * k - crece * (sep * 0.5 + colmillo * (0.15 + 0.35 * (1.0 - k * k)))
+		var g: float = grueso * pow(maxf(1.0 - k * k, 0.0), 0.55)
+		dentro.append(q)
+		fuera.append(q - crece * g)
+		borde_d.append(q + crece * 0.6)
+		borde_f.append(q - crece * (g + 1.0) - fila * k * 0.8)
+		encia.append(q - crece * g * 0.32)
+	var pts_b := PackedVector2Array(borde_d)
+	var inv_b := borde_f.duplicate()
+	inv_b.reverse()
+	pts_b.append_array(inv_b)
+	BestiaAire._poligono(ci, pts_b, Color(0.34, 0.27, 0.25, 0.85 * alfa))
+	var pts := PackedVector2Array(dentro)
+	var inv := fuera.duplicate()
+	inv.reverse()
+	pts.append_array(inv)
+	BestiaAire._poligono(ci, pts, Color(MANDIBULA, alfa))
+	BestiaAire._tira(ci, dentro, encia, Color(ENCIA_ROJA, 0.9 * alfa))
+	# LOS DIENTES, desde el filo de dentro.
+	for d in _DIENTES_FAUCES:
+		var k: float = clampf(float(d[0]) + corre, -0.95, 0.95)
+		var base: Vector2 = c + fila * media * k - crece * (sep * 0.5 + colmillo * (0.15 + 0.35 * (1.0 - k * k)))
+		var largo: float = colmillo * float(d[1])
+		var w: float = media * float(d[2]) * 0.5
+		# CURVO: la punta se va hacia el medio de la boca (un gancho), el lomo por fuera.
+		var gancho: Vector2 = -fila * signf(k) * largo * 0.3
+		var punta: Vector2 = base + crece * largo + gancho
+		var medio: Vector2 = base + crece * largo * 0.55 + gancho * 0.3
+		var diente := PackedVector2Array([base - fila * w, medio - fila * w * 0.7, punta, medio + fila * w * 0.7,
+			base + fila * w])
+		var sombra := PackedVector2Array([base - fila * (w + 0.6), medio - fila * (w * 0.7 + 0.6),
+			punta + (punta - medio).normalized() * 0.6, medio + fila * (w * 0.7 + 0.6), base + fila * (w + 0.6)])
+		BestiaAire._poligono(ci, sombra, Color(BestiaAire.ENCIA, 0.8 * alfa))
+		BestiaAire._poligono(ci, diente, Color(BestiaAire.HUESO, alfa))
+		# El lomo en sombra (la mitad de fuera de la curva): da el volumen del colmillo.
+		if float(d[1]) > 0.9:
+			BestiaAire._poligono(ci, PackedVector2Array([base + fila * signf(k) * w, medio + fila * signf(k) * w * 0.7,
+				punta, medio + fila * signf(k) * w * 0.05]), Color(BestiaAire.HUESO_SOMBRA, alfa))
+
+
+# EL JIRON DE LA DENTELLADA: al cerrar, cuatro cometas de sangre gordas que salen de la herida hacia el que tira
+# (con su contorno oscuro detras) y unas gotas.
+func _jiron(ci: CanvasItem, c: Vector2) -> void:
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.24:
+			continue
+		var k: float = tg / 0.24
+		var d: Vector2 = (-_eje).rotated(float(g["a"]))
+		var cabeza: Vector2 = c + d * _tam * 1.9 * float(g["v"]) * sqrt(k) + Vector2(0.0, 5.0 * k * k)
+		var cola: Vector2 = c + d * _tam * 0.5 * k
+		var ancho: float = maxf(1.6, _tam * 0.24 * float(g["g"])) * (1.0 - 0.4 * k)
+		var a: float = 1.0 - k * k
+		BarridoAire.cometa(ci, cola, cabeza, ancho * 1.5, Color(BestiaAire.ENCIA, 0.6 * a))
+		BarridoAire.cometa(ci, cola, cabeza, ancho, Color(BestiaAire.SANGRE, a))
+		BestiaAire._bola(ci, cabeza, ancho * 0.55, Color(BestiaAire.SANGRE, a))
+
+
+# DONDE VA SU CUERPO en el salto (0 = despega, 1 = cae): en recto del despegue al cuello, y el arco por encima.
+func _en_salto(u: float) -> Vector2:
+	var fin: Vector2 = _hasta - _eje * _tam * 1.2
+	return _desde.lerp(fin, u) - Vector2(0.0, _arco * 4.0 * u * (1.0 - u))
+
+
+# LA ESTELA DE SOMBRA DEL SALTO: tres pinceladas de tinta negra que siguen su arco (la gorda por el medio y dos mas
+# finas que salen un poco despues, a los lados), gordas por detras de el y que se afilan hasta nada; cada trozo vive
+# T_ESTELA_VIVE desde que pasa. Con la pincelada clara ROTA por el filo de arriba (el lenguaje de la Voragine:
+# oscuridad-nuestro-lenguaje) y gotas de tinta que caen. Detras de los cuerpos: la deja el.
+func _estela_sombra(capa: Node2D) -> void:
+	if capa != _suelo:
+		return
+	var u_h: float = clampf((_t + _viaje) / maxf(_viaje, 0.01), 0.0, 1.0)
+	if u_h <= 0.0:
+		return
+	var desde_cae: float = maxf(_t, 0.0)
+	var grueso: float = _tam * 0.6
+	var lat: Vector2 = _eje.orthogonal()
+	for hebra in 3:
+		var off: float = [0.0, -0.8, 0.8][hebra]
+		var g: float = grueso * [1.0, 0.45, 0.4][hebra]
+		var retrasa: float = [0.0, 0.1, 0.16][hebra]
+		var pts := PackedVector2Array()
+		var anchos := PackedFloat32Array()
+		var alfas := PackedFloat32Array()
+		var n: int = 22
+		for i in n + 1:
+			var u: float = u_h * float(i) / float(n)
+			var edad: float = (u_h - u) * _viaje + desde_cae - retrasa * _viaje
+			var a: float = clampf(1.0 - edad / T_ESTELA_VIVE, 0.0, 1.0)
+			# Se afila hacia el cuerpo (la punta la tapa el) y hacia la cola (que ya se va).
+			var cabeza: float = clampf((u_h - u) / 0.14, 0.0, 1.0)
+			var cola: float = clampf(u / 0.1, 0.0, 1.0)
+			var ruido: float = 0.85 + 0.3 * sin(float(i) * 2.3 + float(hebra) * 4.1)
+			pts.append(_en_salto(u) + lat * off * grueso * sin(PI * u))
+			anchos.append(g * sqrt(a) * cabeza * cola * ruido)
+			alfas.append(a * (0.95 if hebra == 0 else 0.75))
+		_cinta(capa, pts, anchos, alfas, MagiaMayor.NEGRO)
+		# LA PINCELADA CLARA ROTA, por el filo de arriba de la gorda.
+		if hebra == 0:
+			for i in n:
+				if sin(float(i) * 3.7 + 1.1) < 0.2 or anchos[i] < 0.8:
+					continue
+				var p0: Vector2 = pts[i]
+				var p1: Vector2 = pts[i + 1]
+				var nn: Vector2 = (p1 - p0).orthogonal().normalized()
+				if nn.y > 0.0:
+					nn = -nn
+				var q0: Vector2 = p0 + nn * anchos[i] * 0.85
+				var q1: Vector2 = p1 + nn * anchos[i + 1] * 0.85
+				var t: Vector2 = nn * maxf(0.4, anchos[i] * 0.22)
+				capa.draw_primitive(PackedVector2Array([q0 - t, q1, q0 + t]),
+					PackedColorArray([Color(MagiaMayor.PINCEL, alfas[i]), Color(MagiaMayor.PINCEL, 0.0),
+						Color(MagiaMayor.PINCEL, alfas[i])]), PackedVector2Array())
+	# LAS GOTAS DE TINTA: se sueltan al pasar el cuerpo y caen apagandose.
+	for g2 in _piezas:
+		var u2: float = float(g2["u"])
+		if u2 > u_h:
+			continue
+		var edad2: float = (u_h - u2) * _viaje + desde_cae
+		var k: float = clampf(edad2 / (T_ESTELA_VIVE * 1.2), 0.0, 1.0)
+		if k >= 1.0:
+			continue
+		var p2: Vector2 = _en_salto(u2) + lat * float(g2["lado"]) * grueso * 0.8 + Vector2(0.0, float(g2["cae"]) * k * k)
+		MagiaMayor._disco(capa, p2, float(g2["r"]) * (1.0 - 0.4 * k), Color(MagiaMayor.NEGRO, 1.0 - k),
+			Color(MagiaMayor.NEGRO, 0.0))
+
+
+# UNA CINTA rellena por unos puntos, cada uno con su ancho y su alfa (sin rayas: una banda con degradado de alfa).
+static func _cinta(ci: CanvasItem, pts: PackedVector2Array, anchos: PackedFloat32Array, alfas: PackedFloat32Array,
+		col: Color) -> void:
+	var n: int = pts.size()
+	if n < 2:
+		return
+	var pv := PackedVector2Array()
+	var pc := PackedColorArray()
+	var pi := PackedInt32Array()
+	var d_prev: Vector2 = Vector2.RIGHT
+	for i in n:
+		var d: Vector2 = pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]
+		if d.length_squared() > 0.0001:
+			d_prev = d.normalized()
+		var nn: Vector2 = d_prev.orthogonal()
+		pv.append(pts[i] + nn * anchos[i])
+		pv.append(pts[i] - nn * anchos[i] * 0.7)
+		pc.append(Color(col, alfas[i]))
+		pc.append(Color(col, alfas[i] * 0.8))
+	for i in n - 1:
+		var b: int = i * 2
+		pi.append_array([b, b + 1, b + 2, b + 1, b + 3, b + 2])
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), pi, pv, pc)
+
+
+# EL VAHO DEL OLOR A SANGRE: un hilo de vaho rojo que sube ondulando desde la cabeza de quien sangra. No es una raya:
+# bocanadas blandas encadenadas que suben sin parar (nacen abajo, se abren y se apagan arriba), con un nucleo mas vivo.
+func _vaho(capa: Node2D) -> void:
+	if capa != _delante:
+		return
+	var vivo: float = clampf(_t / 0.4, 0.0, 1.0)
+	if _secando >= 0.0:
+		vivo *= 1.0 - clampf((_t - _secando) / T_SECA, 0.0, 1.0)
+	if vivo <= 0.0:
+		return
+	var alto: float = _largo * 0.95
+	var n: int = 16
+	for hilo in 2:
+		var fase: float = _incl + float(hilo) * 2.4
+		var lado: float = (float(hilo) - 0.5) * _ancho * 0.18
+		for i in n:
+			var s: float = fposmod(float(i) / float(n) + _t * (0.32 + 0.06 * float(hilo)), 1.0)
+			var x: float = sin(s * 5.0 - _t * 2.4 + fase) * _ancho * 0.22 * (0.35 + s)
+			var p: Vector2 = _hasta + Vector2(lado * (1.0 - s) + x, -alto * s)
+			# GORDAS Y QUE SE ABREN al subir: con bolitas finas el hilo se leia como una raya roja (efectos-sin-lineas).
+			var r: float = _ancho * 0.17 * (0.7 + 0.6 * s) * (1.0 if hilo == 0 else 0.7)
+			var a: float = vivo * sin(PI * s) * (0.42 if hilo == 0 else 0.3)
+			BestiaAire._bola(capa, p, r * 1.8, Color(VAHO, a * 0.35))
+			BestiaAire._bola(capa, p, r, Color(VAHO, a))
+			BestiaAire._bola(capa, p, r * 0.45, Color(1.0, 0.45, 0.42, a * 0.7))

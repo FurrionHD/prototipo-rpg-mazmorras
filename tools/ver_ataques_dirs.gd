@@ -6,6 +6,8 @@
 #   ATAQUES_SALIDA=/carpeta ATAQUES_LISTA=tajo_del_verdugo godot --path . res://tools/ver_ataques_dirs.tscn
 extends Node2D
 
+# El combate tactico no tiene class_name: sus constantes (el salto de los enemigos) se leen de su script.
+const _TACTICO := preload("res://scripts/ui/combat_tactico.gd")
 const LADO := 420            # px de pantalla de cada viñeta
 const HABILIDADES := [
 	["martillo", "golpe_sismico"], ["martillo", "martillo_de_guerra"], ["martillo", "rompecorazas"],
@@ -1368,6 +1370,11 @@ const MOMENTOS_BESTIA := {
 	"bestia_zarpazo": [-0.06, 0.0, 0.06, 0.16, 0.22, 0.28, 0.45],
 	"bestia_carga": [0.0, 0.11, 0.22, 0.33, 0.44, 0.55, 0.8, 1.3],
 	"caparazon": [-0.02, 0.0, 0.04, 0.1, 0.2, 0.32],
+	# El acechador (30/09): el salto entero con su estela (despega a -0,4) y la caida al cuello; los dos mordiscos de la
+	# Dentellada (0 y 0,22) tirando; y el vaho del Olor a sangre subiendo (y secandose en la ultima).
+	"acechador_salto": [-0.3, -0.2, -0.1, 0.0, 0.08, 0.2, 0.4],
+	"acechador_dentellada": [-0.06, 0.0, 0.08, 0.16, 0.22, 0.3, 0.4, 0.6],
+	"olor_sangre": [0.15, 0.5, 0.9, 1.4, 1.9, 2.3],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1386,7 +1393,9 @@ const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, Com
 	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
 # Y las BESTIAS DE LAS SIMAS (30/09, FieraAire).
 const ESTILO_A_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
-	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA}
+	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
+	CombatFX.Estilo.FIERA_FAUCES: FieraAire.Modo.FAUCES, CombatFX.Estilo.FIERA_YUGULAR: FieraAire.Modo.YUGULAR,
+	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1424,6 +1433,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	# LA PASIVA DEL CAPARAZON (la acorazada, 30/09): uno de los tuyos le pega de frente y se ve el destello en sus placas.
 	if ed.caparazon_frente < 1.0:
 		habs.append("caparazon")
+	# LA PASIVA DEL OLOR A SANGRE (el acechador, 30/09): el vaho sobre uno de los tuyos que sangra.
+	if ed.olor_sangre_mult != 1.0:
+		habs.append("olor_sangre")
 	for nom in habs:
 		if pedidas != "" and not (String(nom) in pedidas.split(",")):
 			continue
@@ -1432,6 +1444,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab = AbilityData.new()
 			ab.nombre = "Caparazon (pasiva)"
 			ab.fx_estilo_mapa = CombatFX.Estilo.FIERA_PLACA
+		elif nom == "olor_sangre":
+			ab = AbilityData.new()
+			ab.nombre = "Olor a sangre (pasiva)"
+			ab.fx_estilo_mapa = CombatFX.Estilo.FIERA_FAUCES   # (para que pase; el modo es VAHO, abajo)
 		elif nom == "basico":
 			ab = AbilityData.new()
 			ab.nombre = "Basico"
@@ -1451,6 +1467,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		var modo_i: int = ESTILO_A_INSECTO.get(int(ab.fx_estilo_mapa), -1)
 		var modo_s: int = ESTILO_A_SIMA.get(int(ab.fx_estilo_mapa), -1)
 		var modo_f: int = ESTILO_A_FIERA.get(int(ab.fx_estilo_mapa), -1)
+		if nom == "olor_sangre":
+			modo_f = FieraAire.Modo.VAHO
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1465,6 +1483,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		if nom == "basico" and ed.fx_basico_mapa in [CombatFX.Estilo.INSECTO_PALA, CombatFX.Estilo.INSECTO_FORCIPULAS,
 				CombatFX.Estilo.INSECTO_TAJO]:
 			tiempos = [-0.08, 0.0, 0.05, 0.12, 0.25]
+		# Las fauces del acechador: se ven llegar abiertas, cerrar y tirar.
+		if nom == "basico" and ed.fx_basico_mapa == CombatFX.Estilo.FIERA_FAUCES:
+			tiempos = [-0.1, -0.04, 0.0, 0.06, 0.15, 0.3]
 		# LO QUE HACE SU CUERPO (29/09, el escarabajo: "la embestida es mas visual del sprite que de efectos"): la
 		# animacion de la habilidad, en el fotograma que toca en cada momento (arranca IMPACTO_ANIM_MAPA antes del
 		# golpe, como en el juego). Apuntando, la ultima de su pose de carga. Solo si el bicho la tiene.
@@ -1496,6 +1517,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 			var dir_n: String = DIRS[fila][0]
 			var hacia: Vector2 = yo + dvec * 70.0
+			# EL SALTO A LA YUGULAR va a por su presa LEJOS (hasta 110): con la del anillo, casi no saltaba.
+			if modo_f == FieraAire.Modo.YUGULAR:
+				hacia = yo + dvec * 100.0
 			var d8: int = SpriteLienzo.dir8(dvec)
 			spr.animation = StringName("idle_%d" % d8)
 			spr.frame = 0
@@ -1559,6 +1583,14 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			# EL SALTO (Frenesi): la bestia ya esta en el centro de su circulo cuando empiezan los mordiscos.
 			if ab.salta:
 				cuerpo.position = f.centro - yo
+			# EL SALTO A LA YUGULAR (el acechador): se le ve volar por su arco hasta pegarse a su presa (en el juego,
+			# _sitio_libre_hacia), a lo que dura el salto (_TACTICO.T_SALTO_BICHO), con la estela detras.
+			var fin_salto: Vector2 = Vector2.INF
+			var arco_salto: float = 0.0
+			if ab.salta and modo_f == FieraAire.Modo.YUGULAR and not cajas.is_empty():
+				fin_salto = _pies_caja(cajas[0]) - dvec * (pisa_d + 6.0)
+				arco_salto = _TACTICO.ALTO_SALTO_BICHO * clampf(pisa / 10.0, 1.0, 2.5)
+				cuerpo.position = Vector2.ZERO
 			# LA CARGA (Yugular): se lanza por la linea y se queda pegada al primero (CombatTactico.mover_enemigo).
 			var fin_carga: Vector2 = Vector2.INF
 			if (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
@@ -1689,11 +1721,44 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, rg.get_center(), bulto, semilla, 0.0, 1.0, -1.0,
 						ed.color_visual(0.5)), "t0": 0.0, "sim": false})
 					break
+				if modo_f == FieraAire.Modo.VAHO:
+					# El olor a sangre: el vaho sobre la figura que sangra.
+					piezas.append({"n": FieraAire.vaho(self, rg, semilla), "t0": 0.0, "sim": false})
+					break
 				if modo_f >= 0:
 					# La acorazada: el testarazo, y la garra (el primer golpe por un lado y el segundo por el otro).
-					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, bulto.get_center(), rg, semilla + g,
-						0.1 if modo_f == FieraAire.Modo.ZARPA else 0.0, 1.0, bulto.size.x, ed.color_visual(0.5),
-						(-1.0 if g % 2 == 0 else 1.0) if modo_f == FieraAire.Modo.ZARPA else 0.0), "t0": t0, "sim": false})
+					# El acechador: las fauces; la Yugular sale al despegar (desde donde salta, con el arco) y la
+					# Dentellada arrastra a su figura.
+					var espera_f: float = 0.0
+					match modo_f:
+						FieraAire.Modo.ZARPA: espera_f = 0.1
+						FieraAire.Modo.FAUCES: espera_f = 0.14
+						FieraAire.Modo.DENTELLADA: espera_f = 0.18
+						FieraAire.Modo.YUGULAR: espera_f = _TACTICO.T_SALTO_BICHO
+					var desde_f: Vector2 = bulto0.get_center() if modo_f == FieraAire.Modo.YUGULAR else bulto.get_center()
+					var fig_f: ColorRect = null
+					if modo_f == FieraAire.Modo.DENTELLADA:
+						for fg in _figs + presas_extra + ([fig_presa] if fig_presa != null else []):
+							if rg.has_point((fg as ColorRect).position + Vector2(7, 13)):
+								fig_f = fg
+					piezas.append({"n": FieraAire.sobre_cuerpo(self, modo_f, desde_f, rg, semilla + g,
+						espera_f, 1.0, bulto.size.x, ed.color_visual(0.5),
+						(-1.0 if g % 2 == 0 else 1.0) if modo_f == FieraAire.Modo.ZARPA else 0.0, fig_f, arco_salto),
+						"t0": t0, "sim": false})
+					# LA SANGRE del acechador (en el juego, solo si entra): el chorro del cuello y el jiron hacia el.
+					if modo_f in [FieraAire.Modo.YUGULAR, FieraAire.Modo.DENTELLADA]:
+						var antes_f: int = get_child_count()
+						var desde_sf: Vector2 = rg.get_center()
+						var hacia_sf: Vector2 = rg.get_center() - bulto.get_center()
+						var fuerza_f: float = 0.7
+						if modo_f == FieraAire.Modo.YUGULAR:
+							desde_sf = Vector2(rg.get_center().x, rg.position.y + rg.size.y * 0.28)
+							fuerza_f = 1.4
+						else:
+							hacia_sf = -hacia_sf
+						SangreMapa.salpicar(self, desde_sf, _pies_caja(rg), hacia_sf, fuerza_f, semilla + g)
+						for i in range(antes_f, get_child_count()):
+							piezas.append({"n": get_child(i), "t0": t0, "sim": true})
 					continue
 				if modo_s >= 0:
 					# El porrazo del miconido, y su latigo (que sale de su mano y, si enraiza, se queda atado).
@@ -1736,6 +1801,10 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					(pz["n"] as Node).set_process(false)
 			for c in tiempos.size():
 				var t: float = float(tiempos[c])
+				# El salto a la yugular: por su arco, y al caer se queda pegado.
+				if fin_salto != Vector2.INF:
+					var us: float = clampf((t + _TACTICO.T_SALTO_BICHO) / _TACTICO.T_SALTO_BICHO, 0.0, 1.0)
+					cuerpo.position = (fin_salto - yo) * us - Vector2(0.0, arco_salto * 4.0 * us * (1.0 - us))
 				# La carga: el cuerpo va por la linea con la estela y llega en T_ESTELA (la bola, en T_RODADA).
 				if fin_carga != Vector2.INF:
 					var t_viaje: float = InsectoAire.T_RODADA if ab.atraviesa else (InsectoAire.T_OLEADA if ab.recorre else BestiaAire.T_ESTELA)

@@ -281,6 +281,7 @@ func desmontar() -> void:
 	olvidar_enroscados()
 	olvidar_pegadas()
 	_quitar_raices()
+	_quitar_olor()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
@@ -815,6 +816,7 @@ func tick(delta: float) -> bool:
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_raices()
+	_tick_olor()
 	_tick_presas_carga()
 	_tick_enroscados()
 	_tick_pegadas(delta)
@@ -2513,6 +2515,43 @@ func _tick_raices() -> void:
 				n.call("secar")
 
 
+# EL OLOR A SANGRE (30/09, la pasiva del acechador): mientras haya un acechador vivo en la pelea, a cada uno de los
+# tuyos que sangra le sube un hilo de vaho rojo (FieraAire.vaho): "a este lo huele". Como las raices, se mira el estado
+# cada fotograma (el sangrado ya viaja al espejo) y lo ven todos sin mandar nada.
+var _olor: Dictionary = {}   # Combatant -> FieraAire
+
+func _tick_olor() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	var huele: bool = false
+	for e in _pantalla._enemies:
+		if (e as Combatant).is_alive() and (e as Combatant).olor_sangre_mult != 1.0:
+			huele = true
+			break
+	for c in _pantalla._aliados:
+		var sangra: bool = huele and (c as Combatant).is_alive() and (c as Combatant).has_status(StatusEffects.Id.SANGRADO) \
+			and cuerpo_de(c) != null
+		var n = _olor.get(c)
+		if sangra:
+			if n == null or not is_instance_valid(n):
+				n = FieraAire.vaho(arena, bulto_de(c), _cod(c))
+				_olor[c] = n
+			n.call("seguir", bulto_de(c))
+		elif n != null:
+			_olor.erase(c)
+			if is_instance_valid(n):
+				n.call("secar")
+
+
+func _quitar_olor() -> void:
+	for c in _olor.keys():
+		var n = _olor[c]
+		if n != null and is_instance_valid(n):
+			n.call("secar")
+	_olor.clear()
+
+
 func _quitar_raices() -> void:
 	for c in _raices.keys():
 		var n = _raices[c]
@@ -3067,7 +3106,9 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	# El REY RATA (29/09): cada tarascada de la Dentellada, y la Yugular con un chorro gordo desde el cuello.
 	CombatFX.Estilo.BESTIA_DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR,
 	# La SEGADORA (30/09): sus tajos, y el Ensarte con un chorro por detras (por donde asoma la hoja).
-	CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA]
+	CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA,
+	# El ACECHADOR (30/09): la Yugular, un chorro gordo desde el cuello; cada mordisco de la Dentellada, hacia el.
+	CombatFX.Estilo.FIERA_YUGULAR, CombatFX.Estilo.FIERA_DENTELLADA]
 
 func _on_impacto(ev: Dictionary) -> void:
 	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
@@ -3140,9 +3181,12 @@ func _on_impacto(ev: Dictionary) -> void:
 			fuerza *= 0.4
 		CombatFX.Estilo.BESTIA_DENTELLADA:
 			fuerza *= 0.6
-		CombatFX.Estilo.BESTIA_YUGULAR:
+		CombatFX.Estilo.BESTIA_YUGULAR, CombatFX.Estilo.FIERA_YUGULAR:
 			desde = Vector2(desde.x, r.position.y + r.size.y * 0.28) if r.has_area() else desde   # del cuello
 			fuerza *= 1.4
+		CombatFX.Estilo.FIERA_DENTELLADA:
+			dir = -radial   # hacia el que tira
+			fuerza *= 0.7
 		CombatFX.Estilo.DAGA_CORTE, CombatFX.Estilo.DAGA_RAFAGA:
 			fuerza *= 0.35
 		CombatFX.Estilo.PUNALADA:
@@ -3313,7 +3357,9 @@ func _placa_si_para(ev: Dictionary) -> void:
 
 
 const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
-	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA}
+	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
+	CombatFX.Estilo.FIERA_FAUCES: FieraAire.Modo.FAUCES, CombatFX.Estilo.FIERA_YUGULAR: FieraAire.Modo.YUGULAR,
+	CombatFX.Estilo.FIERA_DENTELLADA: FieraAire.Modo.DENTELLADA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3388,9 +3434,16 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo in _MODO_FIERA:
 		var desde_f: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		var lado_f: float = (-1.0 if int(ev.get("tanda", 0)) % 2 == 0 else 1.0) if estilo == CombatFX.Estilo.FIERA_ZARPA else 0.0
+		# La Dentellada arrastra a su victima (su dibujo, como la Cornada); la Yugular sale al despegar, y su estela
+		# sigue el arco del salto (el de mover_enemigo).
+		var dib_f = null
+		if estilo == CombatFX.Estilo.FIERA_DENTELLADA:
+			dib_f = cuerpo_de(v).get("_muneco") if cuerpo_de(v).get("_muneco") is Node2D else cuerpo_de(v).get("_sprite")
+		var arco_f: float = ALTO_SALTO_BICHO * clampf(radio_pisa(a) / 10.0, 1.0, 2.5) \
+			if estilo == CombatFX.Estilo.FIERA_YUGULAR and a != null and cuerpo_de(a) != null else 0.0
 		FieraAire.sobre_cuerpo(arena, int(_MODO_FIERA[estilo]), desde_f, bulto_de(v), semilla, vuelo, ritmo,
 			bulto_de(a).size.x if a != null and cuerpo_de(a) != null else -1.0,
-			a.color_visual if a != null else FieraAire.PLACA_C, lado_f)
+			a.color_visual if a != null else FieraAire.PLACA_C, lado_f, dib_f, arco_f)
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.
