@@ -22,3 +22,13 @@ efectos = [SubResource("SA_ven")]
 fx_estilo = 112
 fx_anim = &"esporas"
 cooldown = 3
+; EN EL MAPA (30/09): la nube sale del sombrero alrededor de el y SE QUEDA flotando 2 turnos suyos: al que empiece
+; el turno dentro o la cruce le cae el veneno (el charco de la savia, en nube: charco_estilo 2).
+forma = 1
+forma_apunte = 2
+forma_radio = 40.0
+charco_turnos = 2
+charco_texto = "las esporas"
+charco_estilo = 2
+; EFECTO EN EL MAPA: el sombrero revienta ('esporas', 8 direcciones) y a cada uno una nubecilla en la cara (SIMA_TOS).
+fx_estilo_mapa = 157

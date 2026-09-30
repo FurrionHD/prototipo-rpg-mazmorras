@@ -351,7 +351,8 @@ static func generar(color: Color = Color(0.52, 0.46, 0.30), escala: float = 1.0)
 # y esa animacion se comporte distinto sin que nadie sepa por que.
 static func _pose(campos: Dictionary = {}) -> Dictionary:
 	var p := {"avance": 0.0, "mece": 0.0, "balanceo": 0.0, "patas": 0.0, "brazos": 0.0,
-		"sacude": 0.0, "hincha": 0.0, "hunde": 0.0, "derrumbe": 0.0, "cordon": 0.0, "puff": 0.0}
+		"sacude": 0.0, "hincha": 0.0, "hunde": 0.0, "derrumbe": 0.0, "cordon": 0.0, "puff": 0.0,
+		"lanza": 0.0}
 	for k in campos:
 		p[k] = campos[k]
 	return p
@@ -427,7 +428,8 @@ static func _montar_esporas(anims: Array, esc: float) -> void:
 		return _pose({"hincha": SpriteLienzo.tramos(t, hincha_keys),
 			"hunde": SpriteLienzo.tramos(t, hunde_keys),
 			"puff": SpriteLienzo.tramos(t, puff_keys)})
-	_montar_animacion(anims, esc, "esporas", false, 12.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa. La nube sale en el reventon, 0,571x7/12 = 0,33 s (IMPACTO_ANIM_MAPA).
+	_montar_animacion(anims, esc, "esporas", false, 12.0, pose, true, 8, FRAMES)
 
 
 # LATIGAZO DE MICELIO (fx_anim = "micelio"). ES LO CONTRARIO DE HINCHARSE: aqui BAJA el cuerpo y SE
@@ -438,8 +440,11 @@ static func _montar_esporas(anims: Array, esc: float) -> void:
 # El cordon sale RAPIDO (llega al 0,286) y luego SE QUEDA: no vuelve. Esa permanencia es lo que dice
 # que se ha enganchado -- que es justo lo que hace la habilidad, que aplica Enraizado.
 static func _montar_micelio(anims: Array, esc: float) -> void:
-	var cordon_keys := [[0.0, 0.0], [0.143, 0.45], [0.286, 1.0], [0.429, 0.96], [0.571, 1.0],
-		[0.714, 0.98], [1.0, 1.0]]
+	# EN EL MAPA (30/09, lo pidio el usuario: "que el latigo parezca un brazo suyo, no una linea desde la base"): ya
+	# no hay cordon del pie. Echa el brazo atras y lo LANZA al frente en el 0,286; de su mano sale el latigo
+	# (SimaAire.LATIGO, que llega a la victima 0,2 s despues: CombatFX.IMPACTO_ANIM_MAPA "micelio" 0,37). El
+	# brazo se queda estirado mientras tira.
+	var lanza_keys := [[0.0, 0.0], [0.143, -0.5], [0.286, 1.0], [0.571, 1.0], [0.857, 0.9], [1.0, 0.6]]
 	# Se hunde sobre las patas y ahi se queda, agarrado.
 	var hunde_keys := [[0.0, 0.0], [0.143, 0.30], [0.286, 0.62], [0.429, 0.55], [1.0, 0.48]]
 	# Y se echa hacia atras tirando del hilo.
@@ -447,11 +452,11 @@ static func _montar_micelio(anims: Array, esc: float) -> void:
 		[1.0, -1.0]]
 	var brazos_keys := [[0.0, 0.0], [0.143, 0.5], [0.286, 1.1], [0.571, 0.9], [1.0, 0.8]]
 	var pose := func(t: float) -> Dictionary:
-		return _pose({"cordon": SpriteLienzo.tramos(t, cordon_keys),
+		return _pose({"lanza": SpriteLienzo.tramos(t, lanza_keys),
 			"hunde": SpriteLienzo.tramos(t, hunde_keys),
 			"brazos": SpriteLienzo.tramos(t, brazos_keys),
 			"mece": SpriteLienzo.tramos(t, mece_keys)})
-	_montar_animacion(anims, esc, "micelio", false, 12.0, pose, true, 1, FRAMES)
+	_montar_animacion(anims, esc, "micelio", false, 12.0, pose, true, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente) y
@@ -475,7 +480,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"sacude": SpriteLienzo.tramos(t, sacude_keys)})
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las dos el
 	# sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (30/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE: SE DESHINCHA. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve en la pantalla
@@ -515,7 +521,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (30/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que
@@ -638,6 +645,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var derrumbe: float = clampf(float(pose["derrumbe"]), 0.0, 1.0)
 	var cordon: float = clampf(float(pose["cordon"]), 0.0, 1.0)
 	var puff: float = clampf(float(pose["puff"]), 0.0, 1.0)
+	var lanza: float = clampf(float(pose["lanza"]), -0.5, 1.0)
 
 	# EL DERRUMBE: todo baja hacia el suelo y todo se abre a lo ancho, que es lo que convierte una
 	# seta en un monton. Bajando sin ensanchar saldria la MISMA seta mas pequeña, que se lee como que
@@ -726,7 +734,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			"delante": Vector2(raiz.x, raiz.y).rotated(ang).y > 0.0})
 	for b in brazos:
 		if not bool(b["delante"]):
-			_brazo(poner, detras, b, fase_brazos, Tono.BRAZO_OSC)
+			_brazo(poner, detras, b, fase_brazos, Tono.BRAZO_OSC, lanza if float(b["lado"]) > 0.0 else 0.0)
 
 	# 5. EL CUERPO. No gira: es redondo en planta y esta centrado en el eje, asi que rotarlo no lo
 	#    moveria ni un pixel y solo costaria.
@@ -823,7 +831,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 12. EL BRAZO DE DELANTE, ya sobre el cuerpo.
 	for b in brazos:
 		if bool(b["delante"]):
-			_brazo(poner, delante, b, fase_brazos, Tono.BRAZO)
+			_brazo(poner, delante, b, fase_brazos, Tono.BRAZO, lanza if float(b["lado"]) > 0.0 else 0.0)
 
 	# 13. LA BOCANADA: motas casi blancas saliendo en anillo del borde del sombrero. Solo aparece en
 	#     'esporas' (en la muerte no, ver el comentario de _pose_muerte), y crece con 'puff'.
@@ -842,7 +850,10 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 # Un BRAZO: cadena de segmentos que sale del cuerpo, se abre y CAE, con una mano de dedos al final.
 # En cadena y no de una pieza porque un brazo recto parece un palo clavado; encadenado se curva.
 # 'fase' lo mece hacia delante y atras (el paso, el golpe); negativo lo descuelga.
-static func _brazo(poner: Callable, dest: Array, b: Dictionary, fase: float, tono: int) -> void:
+# 'lanza' (el Latigazo, 30/09): ESTE brazo se levanta y se estira AL FRENTE, hacia el centro, a la altura del hombro:
+# de su mano sale el latigo de micelio (SimaAire.LATIGO), que asi se lee como su brazo alargandose. Negativo = lo echa
+# atras para coger impulso.
+static func _brazo(poner: Callable, dest: Array, b: Dictionary, fase: float, tono: int, lanza: float = 0.0) -> void:
 	var lado: float = float(b["lado"])
 	var raiz: Vector3 = b["raiz"]
 	var punta := raiz
@@ -857,6 +868,10 @@ static func _brazo(poner: Callable, dest: Array, b: Dictionary, fase: float, ton
 			# OJO al tocar esto: 'fase' no puede estirar mucho la cadena o los segmentos se separan y
 			# el brazo sale a trozos sueltos justo durante el ataque, que es cuando se mira.
 			raiz.z - abre * BRAZO_CAIDA + fase * f * 0.7)
+		if lanza != 0.0:
+			var al_frente := Vector3(raiz.x - lado * absf(raiz.x) * 0.7 * f, raiz.y + abre * 1.6, raiz.z + abre * 0.4)
+			var atras := Vector3(raiz.x + lado * abre * 0.3, raiz.y - abre * 0.8, raiz.z - abre * 0.5)
+			punta = punta.lerp(al_frente, lanza) if lanza > 0.0 else punta.lerp(atras, -lanza)
 		poner.call(dest, punta, Vector3.ONE * lerpf(BRAZO_R0, BRAZO_R1, f), tono)
 	# LA MANO: los dedos en abanico desde la punta. Cuatro motas y no una bola -- una bola al final de
 	# un brazo se lee como un muñon, y en la referencia los dedos son largos y abiertos.

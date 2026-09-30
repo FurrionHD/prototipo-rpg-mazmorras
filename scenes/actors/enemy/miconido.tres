@@ -46,3 +46,8 @@ fx_basico = 23
 habilidades = [ExtResource("3_esp"), ExtResource("4_mic")]
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (30/09): brazos cortos.
+alcance = 20.0
+; EL BASICO EN EL MAPA (30/09): le deja caer el sombrero encima ('embestida'); en la victima, el aplaston y las
+; esporas (SIMA_PORRAZO).
+fx_basico_mapa = 156

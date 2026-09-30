@@ -2213,7 +2213,8 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 		for a_e in ab.efectos:
 			p_max = maxf(p_max, float(a_e.prob))
 		var puestos: Array = _pantalla.enemigos._enemy_tirar_efectos(dueno, ab, c, 1.0, "objetivo", 1.0 / p_max)
-		_pantalla._set_log("🧪 %s pisa %s%s." % [c.nombre, ab.charco_texto,
+		# La nube no se pisa: se respira.
+		_pantalla._set_log("🧪 %s %s %s%s." % [c.nombre, "respira" if ab.charco_estilo == 2 else "pisa", ab.charco_texto,
 			(": " + ", ".join(puestos)) if not puestos.is_empty() else " y aguanta"])
 		_pantalla._update_hp()
 		return
@@ -2226,9 +2227,11 @@ func _charco_visible(clave: String, f, queda: float) -> void:
 		return
 	var n = _charco_vis.get(clave)
 	if n == null or not is_instance_valid(n):
-		# La telaraña (charco_estilo 1) o el charco de savia de siempre.
+		# La telaraña (charco_estilo 1), la nube de esporas (2) o el charco de savia de siempre.
 		if roundi(f.apertura) == 1:
 			n = InsectoAire.red(arena, f, hash(clave), InsectoAire.T_TELA_CAE)
+		elif roundi(f.apertura) == 2:
+			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
 		else:
 			n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
 		_charco_vis[clave] = n
@@ -2257,22 +2260,29 @@ func _tick_raices() -> void:
 	for c in todos:
 		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null
 		var n = _raices.get(c)
+		# EL DEL MICELIO (30/09): lo marca el Latigazo al pegar (_on_dibujo_mapa), con el color del miconido.
+		var micelio = cuerpo_de(c).get_meta("atado_micelio", null) if cuerpo_de(c) != null else null
 		if atado:
 			if n == null or not is_instance_valid(n):
-				n = BestiaAire.atado(arena, bulto_de(c), pies_de(c), _cod(c))
+				if micelio is Color:
+					n = SimaAire.atado(arena, bulto_de(c), pies_de(c), micelio, _cod(c))
+				else:
+					n = BestiaAire.atado(arena, bulto_de(c), pies_de(c), _cod(c))
 				_raices[c] = n
-			(n as BestiaAire).seguir(bulto_de(c), pies_de(c))
+			n.call("seguir", bulto_de(c), pies_de(c))
 		elif n != null:
 			_raices.erase(c)
+			if cuerpo_de(c) != null:
+				cuerpo_de(c).remove_meta("atado_micelio")
 			if is_instance_valid(n):
-				(n as BestiaAire).secar()
+				n.call("secar")
 
 
 func _quitar_raices() -> void:
 	for c in _raices.keys():
 		var n = _raices[c]
 		if n != null and is_instance_valid(n):
-			(n as BestiaAire).secar()
+			n.call("secar")
 	_raices.clear()
 
 
@@ -3027,6 +3037,9 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
 	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
 
+const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
+	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO}
+
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null or not _pantalla.tactico:
@@ -3076,6 +3089,20 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			if a != null:
 				_apretar_vis_enrosque(a)
 			_temblar_presa(v, vuelo)
+		return
+	# LAS SIMAS (SimaAire, 30/09): del cuerpo de quien lo lanza (su mano, su tamaño, sus colores) al que recibe.
+	if estilo in _MODO_SIMA:
+		var caja_a: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
+		var col_s: Color = a.color_visual if a != null else Color(0.52, 0.46, 0.3)
+		SimaAire.sobre_cuerpo(arena, int(_MODO_SIMA[estilo]), caja_a, bulto_de(v), pies_de(v), col_s, semilla, vuelo, ritmo)
+		# EL LATIGO ATA CON SU CARNE: si le enraiza, el atado es el de cordones de micelio y no las raices del trent.
+		if estilo == CombatFX.Estilo.SIMA_LATIGO:
+			cuerpo_de(v).set_meta("atado_micelio", col_s)
+			var viejo = _raices.get(v)
+			if viejo is BestiaAire:
+				_raices.erase(v)
+				if is_instance_valid(viejo):
+					(viejo as BestiaAire).secar()
 		return
 	# EL CHILLIDO DEL REY RATA (29/09): al que le pasa la onda le tiembla el dibujo (el muñeco o el sprite, como la
 	# esquiva) y le vibra el sonido junto a la cabeza.

@@ -1357,6 +1357,9 @@ const MOMENTOS_BESTIA := {
 	"segadora_guadanas": [-0.08, -0.03, 0.0, 0.05, 0.09, 0.16, 0.3],
 	# El Ensarte: se lanza, la hoja entra, asoma por detras y queda el agujero.
 	"segadora_ensarte": [0.1, 0.18, 0.23, 0.27, 0.32, 0.45, 0.7],
+	# El miconido: el latigo saliendo de la mano, llegando, enroscado y el atado; la nube saliendo y quedandose.
+	"miconido_micelio": [-0.15, -0.08, 0.0, 0.08, 0.2, 0.45, 0.8],
+	"miconido_esporas": [0.0, 0.1, 0.2, 0.35, 0.6, 1.0, 1.6],
 }
 # Y los INSECTOIDES (29/09, InsectoAire), por la misma tuberia.
 const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUELICEROS,
@@ -1367,6 +1370,9 @@ const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.
 	CombatFX.Estilo.INSECTO_APRETON: InsectoAire.Modo.APRETON,
 	CombatFX.Estilo.INSECTO_TAJO: InsectoAire.Modo.TAJO, CombatFX.Estilo.INSECTO_GUADANA: InsectoAire.Modo.GUADANA,
 	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
+# Y las SIMAS (30/09, SimaAire).
+const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
+	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1418,10 +1424,11 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			ab = load("res://resources/abilities/%s.tres" % nom)
 		# Las que solo pintan el SUELO (el Pisoton) valen igual: modo -1, nada en los cuerpos.
 		if not ESTILO_A_BESTIA.has(int(ab.fx_estilo_mapa)) and not ESTILO_A_INSECTO.has(int(ab.fx_estilo_mapa)) \
-				and ab.suelo_roto < 0:
+				and not ESTILO_A_SIMA.has(int(ab.fx_estilo_mapa)) and ab.suelo_roto < 0:
 			continue   # aun sin efecto propio
 		var modo_b: int = ESTILO_A_BESTIA.get(int(ab.fx_estilo_mapa), -1)
 		var modo_i: int = ESTILO_A_INSECTO.get(int(ab.fx_estilo_mapa), -1)
+		var modo_s: int = ESTILO_A_SIMA.get(int(ab.fx_estilo_mapa), -1)
 		var sin_huella: bool = int(ab.forma) < 0
 		if sin_huella:
 			ab = ab.duplicate()
@@ -1443,6 +1450,9 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		# El basico, con su 'basico' si la tiene (como CombatTactico.gesto_bicho_en_mapa).
 		if nom == "basico" and anim_hab == "":
 			anim_hab = "basico"
+			# Sin 'basico' propio, su embestida (como CombatTactico._poner_anim_bicho: el sombrero del miconido).
+			if not spr.sprite_frames.has_animation(&"basico_0"):
+				anim_hab = "embestida"
 		var partes_carga: PackedStringArray = String(ab.fx_anim_carga).split(">", false)
 		var anim_carga: String = partes_carga[partes_carga.size() - 1] if not partes_carga.is_empty() else ""
 		var f0 = CombatFormas.de_habilidad_mapa(ab, yo, pisa, alcance, yo + Vector2(70, 0))
@@ -1591,6 +1601,8 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 			# EL CHARCO que se queda (la Savia): aparece cuando cae el goteron.
 			if ab.charco_turnos > 0 and ab.charco_estilo == 1:
 				piezas.append({"n": InsectoAire.red(self, f, semilla, 0.0), "t0": InsectoAire.T_TELA_CAE, "sim": false})
+			elif ab.charco_turnos > 0 and ab.charco_estilo == 2:
+				piezas.append({"n": SimaAire.nube(self, f, semilla, 0.0), "t0": 0.0, "sim": false})
 			elif ab.charco_turnos > 0:
 				piezas.append({"n": BestiaAire.charco(self, f, semilla, 0.0), "t0": BestiaAire.T_SAVIA_CAE, "sim": false})
 			# LAS HEBRAS de la Telaraña: en todos los que pilla, al caer.
@@ -1612,8 +1624,14 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 						piezas.append({"n": BestiaAire.sobre_cuerpo(self, modo_b, bulto.get_center(), cajas[i], semilla + i * 7 + g2,
 							0.0, 1.0, bulto.size.x), "t0": float(g2) * BestiaAire.T_RAMA_ENTRE, "sim": false})
 				cajas = []
+			# LA TOS de la Bocanada: en todos los de dentro a la vez.
+			if modo_s == SimaAire.Modo.TOS:
+				for i in cajas.size():
+					piezas.append({"n": SimaAire.sobre_cuerpo(self, modo_s, bulto, cajas[i], _pies_caja(cajas[i]),
+						ed.color_visual(0.5), semilla + i, 0.0, 1.0), "t0": 0.0, "sim": false})
+				cajas = []
 			# Solo suelo (el Pisoton): nada en los cuerpos.
-			if modo_b < 0 and modo_i < 0:
+			if modo_b < 0 and modo_i < 0 and modo_s < 0:
 				cajas = []
 			var vuelo: float = 0.08 if modo_b == BestiaAire.Modo.FRENESI else (0.18 if modo_b in [BestiaAire.Modo.DENTELLADA,
 				BestiaAire.Modo.CORNADA] else (0.12 if modo_b == BestiaAire.Modo.COLMILLO else 0.14))
@@ -1638,6 +1656,15 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					for fg in _figs + presas_extra:
 						if rg.has_point((fg as ColorRect).position + Vector2(7, 13)):
 							fig_g = fg
+				if modo_s >= 0:
+					# El porrazo del miconido, y su latigo (que sale de su mano y, si enraiza, se queda atado).
+					var vuelo_s: float = SimaAire.T_LATIGO_VA if modo_s == SimaAire.Modo.LATIGO else 0.0
+					piezas.append({"n": SimaAire.sobre_cuerpo(self, modo_s, bulto, rg, _pies_caja(rg), ed.color_visual(0.5),
+						semilla + g, vuelo_s, 1.0), "t0": t0, "sim": false})
+					if modo_s == SimaAire.Modo.LATIGO:
+						piezas.append({"n": SimaAire.atado(self, rg, _pies_caja(rg), ed.color_visual(0.5), semilla + g),
+							"t0": t0 + 0.1, "sim": false})
+					continue
 				if modo_i >= 0:
 					# Los colmillos de la araña, y el veneno que salta (en el juego, solo si entra).
 					# El tajo de la segadora sale del brazo de 'basico' (el izquierdo; 'basico_der' es el otro).
