@@ -3094,7 +3094,8 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo in _MODO_SIMA:
 		var caja_a: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
 		var col_s: Color = a.color_visual if a != null else Color(0.52, 0.46, 0.3)
-		SimaAire.sobre_cuerpo(arena, int(_MODO_SIMA[estilo]), caja_a, bulto_de(v), pies_de(v), col_s, semilla, vuelo, ritmo)
+		SimaAire.sobre_cuerpo(arena, int(_MODO_SIMA[estilo]), caja_a, bulto_de(v), pies_de(v), col_s, semilla, vuelo, ritmo,
+			pies_de(a) if a != null and cuerpo_de(a) != null else Vector2.INF)
 		# EL LATIGO ATA CON SU CARNE: si le enraiza, el atado es el de cordones de micelio y no las raices del trent.
 		if estilo == CombatFX.Estilo.SIMA_LATIGO:
 			cuerpo_de(v).set_meta("atado_micelio", col_s)

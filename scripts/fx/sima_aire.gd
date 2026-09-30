@@ -8,7 +8,7 @@
 #                aplaston redondo sobre la cabeza y una bocanada de esporas pardas que sale a los lados.
 #    TOS         a cada uno que pilla la Bocanada: una nubecilla parda en la cara que se abre y motas que suben.
 #    LATIGO      el Latigazo de micelio: NO ES UNA RAYA DESDE SUS PIES (lo pidio el usuario, 30/09: "que el latigo
-#                parezca un brazo suyo"). Sale de la MANO del brazo que su sprite lanza al frente ('micelio') y se
+#                parezca un brazo suyo"). Sale de la MANO del brazo que su sprite levanta EN ALTO ('micelio') y se
 #                pinta COMO SU SPRITE: una cadena de cuentas con el borde oscuro, el relleno de su brazo y un brillo,
 #                del grosor de su brazo y afilandose; ondea como un latigo, se enrosca en la pierna y se recoge.
 #  SE QUEDA:
@@ -61,8 +61,9 @@ var _brillo: Node2D = null
 # ------------------------------------------------------------
 # 'desde' = el cuerpo de quien lo lanza (su caja, para sacar su mano y su tamaño), 'caja' = el que lo recibe,
 # 'espera' = lo que falta para el golpe, 'color' = el de la ficha del bicho (su color_visual).
+# 'pies_a' = los pies de quien lo lanza (CombatTactico.pies_de): la mano del latigo se cuenta desde ahi.
 static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v: Vector2, color: Color, semilla: int,
-		espera: float, ritmo: float) -> SimaAire:
+		espera: float, ritmo: float, pies_a: Vector2 = Vector2.INF) -> SimaAire:
 	if padre == null:
 		return null
 	var e := SimaAire.new()
@@ -72,7 +73,8 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 	e._ancho = maxf(caja.size.x, 8.0)
 	e._largo = maxf(caja.size.y, 10.0)
 	e._tonos(color)
-	var yo: Vector2 = Vector2(desde.get_center().x, desde.end.y) if desde.has_area() else caja.get_center() - Vector2(40, 0)
+	var yo: Vector2 = pies_a if pies_a != Vector2.INF else (Vector2(desde.get_center().x, desde.end.y) if desde.has_area()
+		else caja.get_center() - Vector2(40, 0))
 	var eje: Vector2 = (pies_v - yo).normalized() if pies_v.distance_squared_to(yo) > 1.0 else Vector2.RIGHT
 	e._eje = eje
 	match m:
@@ -92,8 +94,10 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 		Modo.LATIGO:
 			e._viaje = clampf(espera, 0.08, T_LATIGO_VA)
 			e._t = -e._viaje
-			# LA MANO: la de su brazo lanzado al frente ('micelio'), a la altura del hombro y medio cuerpo por delante.
-			e._mano = yo + eje * desde.size.x * 0.42 - Vector2(0.0, desde.size.y * 0.42)
+			# LA MANO: la de SU brazo en alto ('micelio'), sacada del propio sprite (MiconidoSprites.mano_del_latigo)
+			# y escalada con el ancho de su dibujo, que es el del ala del sombrero.
+			var px: float = desde.size.x / (2.0 * MiconidoSprites.ALA_R.x) if desde.has_area() else 2.0
+			e._mano = yo + MiconidoSprites.mano_del_latigo(eje) * px
 			# Donde se enrosca: la espinilla.
 			e._hasta = pies_v - Vector2(0.0, caja.size.y * 0.2)
 			e._r = maxf(desde.size.x * 0.07, 2.6)   # el grosor del brazo en la raiz

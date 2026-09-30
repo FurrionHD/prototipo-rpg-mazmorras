@@ -732,9 +732,12 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			Vector3(lado * BRAZO_DIR.x, BRAZO_DIR.y, BRAZO_DIR.z), 1.0, CUERPO, CUERPO_ANCLA_R)
 		brazos.append({"lado": lado, "raiz": raiz,
 			"delante": Vector2(raiz.x, raiz.y).rotated(ang).y > 0.0})
+	# EL QUE LANZA EL LATIGO es el que da a la camara (mano_del_latigo elige igual): con el otro, mirando al este la mano
+	# quedaba al otro lado del cuerpo y el cordon cruzaba por encima del sombrero.
+	var lado_lanza: float = _lado_del_latigo(ang)
 	for b in brazos:
 		if not bool(b["delante"]):
-			_brazo(poner, detras, b, fase_brazos, Tono.BRAZO_OSC, lanza if float(b["lado"]) > 0.0 else 0.0)
+			_brazo(poner, detras, b, fase_brazos, Tono.BRAZO_OSC, lanza if float(b["lado"]) == lado_lanza else 0.0)
 
 	# 5. EL CUERPO. No gira: es redondo en planta y esta centrado en el eje, asi que rotarlo no lo
 	#    moveria ni un pixel y solo costaria.
@@ -831,7 +834,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 12. EL BRAZO DE DELANTE, ya sobre el cuerpo.
 	for b in brazos:
 		if bool(b["delante"]):
-			_brazo(poner, delante, b, fase_brazos, Tono.BRAZO, lanza if float(b["lado"]) > 0.0 else 0.0)
+			_brazo(poner, delante, b, fase_brazos, Tono.BRAZO, lanza if float(b["lado"]) == lado_lanza else 0.0)
 
 	# 13. LA BOCANADA: motas casi blancas saliendo en anillo del borde del sombrero. Solo aparece en
 	#     'esporas' (en la muerte no, ver el comentario de _pose_muerte), y crece con 'puff'.
@@ -869,9 +872,8 @@ static func _brazo(poner: Callable, dest: Array, b: Dictionary, fase: float, ton
 			# el brazo sale a trozos sueltos justo durante el ataque, que es cuando se mira.
 			raiz.z - abre * BRAZO_CAIDA + fase * f * 0.7)
 		if lanza != 0.0:
-			var al_frente := Vector3(raiz.x - lado * absf(raiz.x) * 0.7 * f, raiz.y + abre * 1.6, raiz.z + abre * 0.4)
-			var atras := Vector3(raiz.x + lado * abre * 0.3, raiz.y - abre * 0.8, raiz.z - abre * 0.5)
-			punta = punta.lerp(al_frente, lanza) if lanza > 0.0 else punta.lerp(atras, -lanza)
+			punta = punta.lerp(_brazo_en_alto(raiz, lado, abre), lanza) if lanza > 0.0 \
+				else punta.lerp(Vector3(raiz.x + lado * abre * 0.3, raiz.y - abre * 0.8, raiz.z - abre * 0.5), -lanza)
 		poner.call(dest, punta, Vector3.ONE * lerpf(BRAZO_R0, BRAZO_R1, f), tono)
 	# LA MANO: los dedos en abanico desde la punta. Cuatro motas y no una bola -- una bola al final de
 	# un brazo se lee como un muñon, y en la referencia los dedos son largos y abiertos.
@@ -879,6 +881,35 @@ static func _brazo(poner: Callable, dest: Array, b: Dictionary, fase: float, ton
 		var a: float = PI * (0.20 + 0.60 * float(j) / float(DEDOS - 1))
 		poner.call(dest, punta + Vector3(lado * cos(a) * DEDO_LARGO * 0.8,
 			sin(a) * DEDO_LARGO * 0.5, -DEDO_LARGO * 0.75), DEDO_R, tono)
+
+
+# EL BRAZO DEL LATIGO, EN ALTO (30/09): hacia fuera, algo al frente y SUBIENDO por encima del hombro, como quien va a
+# soltar un latigazo. A media altura y al frente la mano caia a la altura de la entrepierna y el cordon parecia salirle
+# de ahi (lo dijo el usuario); en alto y a un lado se lee que sale de la mano.
+static func _brazo_en_alto(raiz: Vector3, lado: float, abre: float) -> Vector3:
+	# FUERA DEL ALA: subiendo mas y sin abrirse, la mano quedaba DEBAJO del sombrero (ALA_R.x 9) y el cordon parecia
+	# salir del ala. Estirado hacia fuera y algo arriba, el brazo asoma entero por el lado.
+	return Vector3(raiz.x + lado * abre * 1.0, raiz.y + abre * 0.45, raiz.z + abre * 0.6)
+
+
+# QUE BRAZO lanza el latigo mirando con 'ang': el que queda mas hacia la camara (su mano, abajo en pantalla); en empate
+# (de frente o de espaldas) el +1.
+static func _lado_del_latigo(ang: float) -> float:
+	var y_mas: float = Vector2(1.0, 0.0).rotated(ang).y
+	return -1.0 if y_mas < -0.1 else 1.0
+
+
+# DONDE ESTA LA MANO DEL LATIGO con el brazo en alto, mirando hacia 'hacia' (en pantalla): desde sus pies y en
+# unidades de mundo ya proyectadas (x, y de pantalla), igual que las pinta _piezas. SimaAire.LATIGO lo escala con el
+# ancho de su dibujo (el del ala del sombrero = 2 x ALA_R.x) y saca de ahi el cordon, pegado a la mano del sprite.
+static func mano_del_latigo(hacia: Vector2) -> Vector2:
+	var dir: int = SpriteLienzo.dir8(hacia)
+	var ang: float = DIR_VECS[dir].angle() - DIR_VECS[0].angle()
+	var lado: float = _lado_del_latigo(ang)
+	var raiz: Vector3 = _en_la_pieza(Vector3(lado * BRAZO_DIR.x, BRAZO_DIR.y, BRAZO_DIR.z), 1.0, CUERPO, CUERPO_ANCLA_R)
+	var mano: Vector3 = _brazo_en_alto(raiz, lado, BRAZO_PASO * float(BRAZO_SEGMENTOS - 1))
+	var rot: Vector2 = Vector2(mano.x, mano.y).rotated(ang)
+	return Vector2(rot.x, rot.y * SpriteLienzo.COS_CAM - mano.z * SpriteLienzo.SIN_CAM)
 
 
 # La plantilla de un frame: que tono le toca a cada celda.

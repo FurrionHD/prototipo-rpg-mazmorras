@@ -1389,7 +1389,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 		(fg as ColorRect).color = AZUL
 	var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % bestia)
 	var cuerpo := Node2D.new()
-	cuerpo.z_index = 1000
+	cuerpo.z_index = Game.Z_PERSONAJES   # como en el juego (enemy.gd): lo de detras de los cuerpos se tapa
 	cuerpo.z_as_relative = false
 	add_child(cuerpo)
 	var spr := AnimatedSprite2D.new()
@@ -1660,7 +1660,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 					# El porrazo del miconido, y su latigo (que sale de su mano y, si enraiza, se queda atado).
 					var vuelo_s: float = SimaAire.T_LATIGO_VA if modo_s == SimaAire.Modo.LATIGO else 0.0
 					piezas.append({"n": SimaAire.sobre_cuerpo(self, modo_s, bulto, rg, _pies_caja(rg), ed.color_visual(0.5),
-						semilla + g, vuelo_s, 1.0), "t0": t0, "sim": false})
+						semilla + g, vuelo_s, 1.0, yo + cuerpo.position), "t0": t0, "sim": false})
 					if modo_s == SimaAire.Modo.LATIGO:
 						piezas.append({"n": SimaAire.atado(self, rg, _pies_caja(rg), ed.color_visual(0.5), semilla + g),
 							"t0": t0 + 0.1, "sim": false})
