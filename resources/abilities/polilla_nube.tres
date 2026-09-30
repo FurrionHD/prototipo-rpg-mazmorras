@@ -25,3 +25,12 @@ efectos = [SubResource("SA_ven")]
 fx_estilo = 112
 fx_anim = &"nube"
 cooldown = 4
+; EN EL MAPA (30/09): circulo grande alrededor de ella ("no hay donde apartarse"). No se queda: la nube que dura es
+; la del miconido.
+forma = 1
+forma_apunte = 2
+forma_radio = 60.0
+; EFECTO EN EL MAPA: un batido enorme ('nube'), el anillo de polvo que se abre por el circulo (SIMA_ANILLO) y a cada
+; uno, su polvo en la cara (SIMA_POLVO).
+suelo_roto = 82
+fx_estilo_mapa = 164

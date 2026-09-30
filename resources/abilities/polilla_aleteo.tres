@@ -19,3 +19,15 @@ efectos = [SubResource("SA_deb")]
 fx_estilo = 116
 fx_anim = &"aletear"
 cooldown = 3
+; EN EL MAPA (30/09, idea del usuario): cono estrecho de 40 grados, medio largo, por TRAMOS: cuanto mas lejos te
+; pilla, menos daño y MENOS PROBABLE que te ciegue (tramos_bajan_prob).
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 40.0
+forma_tramos = 3
+forma_tramo_baja = 0.25
+tramos_bajan_prob = true
+; EFECTO EN EL MAPA: tres batidos ('aletear') y en cada uno que pilla, el polvo en la cara (SIMA_POLVO) y el velo si
+; le ciega.
+fx_estilo_mapa = 164

@@ -3054,6 +3054,15 @@ func _on_impacto(ev: Dictionary) -> void:
 				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
 				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 		return
+	# EL VELO DE LA POLILLA (30/09): si el polvo le ha cegado, un velo sobre los ojos.
+	if _pantalla.tactico and estilo == CombatFX.Estilo.SIMA_POLVO:
+		var vp: Combatant = _de_bloque(ev["bv"])
+		var arena_p: ArenaCombate = _arena()
+		if vp != null and cuerpo_de(vp) != null and arena_p != null and vp.has_status(StatusEffects.Id.CEGUERA):
+			SimaAire.sobre_cuerpo(arena_p, SimaAire.Modo.VELO, Rect2(), bulto_de(vp), pies_de(vp), Color.WHITE,
+				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+		return
 	if not _pantalla.tactico or estilo not in _SANGRA:
 		return
 	var v: Combatant = _de_bloque(ev["bv"])
@@ -3241,7 +3250,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
-	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS}
+	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS, CombatFX.Estilo.SIMA_ALA: SimaAire.Modo.ALA,
+	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()

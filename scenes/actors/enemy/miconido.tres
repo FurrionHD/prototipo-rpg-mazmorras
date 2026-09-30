@@ -13,6 +13,12 @@ estado = 0
 prob = 0.45
 cap = 2
 
+; El Veneno de la bocanada de esporas al golpearle (al_ser_golpeado).
+[sub_resource type="Resource" id="SA_bocanada"]
+script = ExtResource("2")
+estado = 0
+prob = 1.0
+
 [resource]
 script = ExtResource("1")
 enemy_name = "Miconido"
@@ -51,3 +57,8 @@ alcance = 20.0
 ; EL BASICO EN EL MAPA (30/09): le deja caer el sombrero encima ('embestida'); en la victima, el aplaston y las
 ; esporas (SIMA_PORRAZO).
 fx_basico_mapa = 156
+; PASIVA (30/09, idea del usuario): quien le pega con el arma DE CERCA tiene un 30% de que le suelte una bocanada de
+; esporas en la cara, y envenena (Pantalla._pasiva_al_golpearle).
+al_ser_golpeado = [SubResource("SA_bocanada")]
+al_ser_golpeado_prob = 0.3
+al_ser_golpeado_fx = 157

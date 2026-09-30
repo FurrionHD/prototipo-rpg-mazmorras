@@ -1374,7 +1374,8 @@ const ESTILO_A_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.
 const ESTILO_A_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
 	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
 	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA, CombatFX.Estilo.SIMA_OIDOS: SimaAire.Modo.OIDOS,
-	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS}
+	CombatFX.Estilo.SIMA_PALETOS: SimaAire.Modo.PALETOS, CombatFX.Estilo.SIMA_ALA: SimaAire.Modo.ALA,
+	CombatFX.Estilo.SIMA_POLVO: SimaAire.Modo.POLVO, CombatFX.Estilo.SIMA_VELO: SimaAire.Modo.VELO}
 const ESTILO_A_BESTIA := {CombatFX.Estilo.BESTIA_MORDISCO: BestiaAire.Modo.MORDISCO,
 	CombatFX.Estilo.BESTIA_MORDISCO_SANGRA: BestiaAire.Modo.MORDISCO_SANGRA, CombatFX.Estilo.BESTIA_FRENESI: BestiaAire.Modo.FRENESI,
 	CombatFX.Estilo.BESTIA_DENTELLADA: BestiaAire.Modo.DENTELLADA, CombatFX.Estilo.BESTIA_YUGULAR: BestiaAire.Modo.YUGULAR,
@@ -1627,7 +1628,7 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 							0.0, 1.0, bulto.size.x), "t0": float(g2) * BestiaAire.T_RAMA_ENTRE, "sim": false})
 				cajas = []
 			# LA TOS de la Bocanada: en todos los de dentro a la vez.
-			if modo_s == SimaAire.Modo.TOS:
+			if modo_s in [SimaAire.Modo.TOS, SimaAire.Modo.POLVO]:
 				for i in cajas.size():
 					piezas.append({"n": SimaAire.sobre_cuerpo(self, modo_s, bulto, cajas[i], _pies_caja(cajas[i]),
 						ed.color_visual(0.5), semilla + i, 0.0, 1.0), "t0": 0.0, "sim": false})

@@ -403,7 +403,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Y el chupasimas: su ventosa (basico y Adherirse) y cada chupada del Drenaje.
 		SIMA_VENTOSA = 159, SIMA_CHUPADA = 160,
 		# Y el chillon: los oidos en blanco del Chillido y los paletos del basico y del Picado.
-		SIMA_OIDOS = 161, SIMA_PALETOS = 162 }
+		SIMA_OIDOS = 161, SIMA_PALETOS = 162,
+		# Y la polilla: el roce de ala del basico, el polvo en la cara (Aleteo, Nube y su pasiva) y el velo si ciega.
+		SIMA_ALA = 163, SIMA_POLVO = 164, SIMA_VELO = 165 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -442,7 +444,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
 	# las simas (SimaAire, 30/09).
 	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
-	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS,
+	Estilo.SIMA_OIDOS, Estilo.SIMA_PALETOS, Estilo.SIMA_ALA, Estilo.SIMA_POLVO, Estilo.SIMA_VELO,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -611,7 +613,8 @@ const T_VUELO := {
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
 	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
 	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
-	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.SIMA_OIDOS: 0.02, Estilo.SIMA_PALETOS: 0.1, Estilo.INSECTO_APRETON: 0.02,
+	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.SIMA_OIDOS: 0.02, Estilo.SIMA_PALETOS: 0.1,
+	Estilo.SIMA_ALA: 0.12, Estilo.SIMA_POLVO: 0.02, Estilo.SIMA_VELO: 0.02, Estilo.INSECTO_APRETON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1942,6 +1945,8 @@ const IMPACTO_ANIM_MAPA := {
 	# El chupasimas: planta la ventosa a 0,286x7/11 (el Adherirse, que ademas salta); cada tiron del Drenaje, a su
 	# escalon (se repite por golpe: ANIM_REPITE_MAPA no, el Drenaje es una sola anim que bombea).
 	"adherirse": 0.18,
+	# La polilla: el batido grande de la Nube suelta el polvo a 0,571x7/10.
+	"nube": 0.4,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

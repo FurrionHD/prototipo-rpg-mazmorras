@@ -502,6 +502,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				var esc: float = float(o["escala"])
 				var es_princ: bool = t == obj or not ab.es_area()
 				var esc_prob: float = 1.0 if es_princ else ab.area_prob_secundario
+				# Los tramos lejanos prenden menos (AbilityData.tramos_bajan_prob: el Aleteo de la polilla).
+				if lista_mapa != null and ab.tramos_bajan_prob:
+					esc_prob *= esc
 				var sub: Dictionary
 				if lista_mapa != null and ab.forma_mitades:
 					# LA DOBLE GUADAÑA: a cada uno, el golpe de la mitad (o las dos) en la que esta.
@@ -1040,6 +1043,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 		"elem": quien.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO})
 	_pantalla._apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
+	_pantalla._pasiva_al_golpearle(atacante, quien)
 	_pantalla._dps_add("Contraataque", dmg)
 	_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.

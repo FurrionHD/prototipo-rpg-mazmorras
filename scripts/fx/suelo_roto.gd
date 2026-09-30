@@ -42,7 +42,7 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	BESTIA_POLVO, BESTIA_CHILLIDO, BESTIA_ESTELA, BESTIA_SURCO, BESTIA_PISOTON, BESTIA_SAVIA, BESTIA_RAICES,
 	BESTIA_RAMAZO,
 	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA,
-	SIMA_ULTRA }
+	SIMA_ULTRA, SIMA_ANILLO }
 # SIMA_* (las simas en el mapa, 30/09): viven en SimaAire (su SimaAire.Suelo = tipo - SIMA_ULTRA). Detras de todo.
 # INSECTO_* (los insectoides en el mapa, 29/09): viven en InsectoAire (su InsectoAire.Suelo = tipo - INSECTO_TELARANA).
 # De enemigo, y DETRAS de las BESTIA_*: se miran antes.

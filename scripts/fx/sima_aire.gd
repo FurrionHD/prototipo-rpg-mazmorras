@@ -23,6 +23,14 @@
 #                pitido que no se oye, se siente). No son los frentes finos del rey rata.
 #    OIDOS       a cada uno que alcanza el Chillido (cuando le llega el pulso): un fogonazo blanco en la cabeza que se
 #                cierra sobre los oidos; la figura tiembla (CombatTactico._temblar_presa).
+#  LA POLILLA (30/09): POLVO DE ALAS, palido (lila y gris) y con motas que BRILLAN como escamas; no las esporas pardas
+#  del miconido.
+#    ALA         el basico: un roce de ala, media luna blanda y polvorienta que barre la cara, y motas brillando al caer.
+#    POLVO       el Aleteo (tres bocanadas en la cara, una por batido), cada uno que pilla la Nube, y la pasiva de
+#                soltar polvo al tocarla (EnemyData.al_ser_golpeado).
+#    VELO        si le ha cegado: un velo gris sobre los ojos un momento (CombatTactico._on_impacto).
+#    ANILLO      (suelo) la Nube: un anillo gordo de polvo que sale de ella y se abre por todo el circulo, lleno de
+#                motas que brillan.
 #  SE QUEDA:
 #    NUBE        la Bocanada (AbilityData.charco_estilo 2): la nube parda flotando a la altura de la cara los turnos
 #                del miconido, cada vez mas rala y mas pequeña (como el charco de savia: CombatTactico._charco_visible).
@@ -33,10 +41,10 @@
 extends Node2D
 class_name SimaAire
 
-enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA, ULTRA, OIDOS, PALETOS }
+enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA, ULTRA, OIDOS, PALETOS, ALA, POLVO, VELO, ANILLO }
 # Los del suelo, en el orden de SueloRoto.Tipo.SIMA_*: no reordenar.
-enum Suelo { ULTRA }
-const _MODO_DE_SUELO := [Modo.ULTRA]
+enum Suelo { ULTRA, ANILLO }
+const _MODO_DE_SUELO := [Modo.ULTRA, Modo.ANILLO]
 
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 const ESPORA := Color(0.5, 0.4, 0.24)
@@ -55,6 +63,13 @@ const T_ULTRA := 0.45              # lo que tarda un pulso en llegar al borde de
 const T_ENTRE_ULTRA := 0.1         # entre pulso y pulso (tres)
 const T_OIDOS := 0.4
 const T_PALETOS := 0.35
+const POLVO_C := Color(0.84, 0.78, 0.9)
+const POLVO_OSC := Color(0.52, 0.47, 0.58)
+const ESCAMA := Color(1.0, 0.97, 0.84)
+const T_ALA := 0.4
+const T_POLVO := 0.6
+const T_VELO := 0.9
+const T_ANILLO := 0.5
 const SANGRE := Color(0.62, 0.05, 0.07)
 const AGUA := Color(0.55, 0.75, 0.95)
 
@@ -128,6 +143,24 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 				e._piezas.append({"d": Vector2(e._rng.randf_range(-1.0, 1.0), -e._rng.randf_range(0.3, 1.0)).normalized(),
 					"v": e._rng.randf_range(8.0, 16.0), "tam": e._rng.randf_range(0.9, 1.5), "agua": i >= 3,
 					"t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.ALA:
+			e._viaje = clampf(espera, 0.06, 0.14)
+			e._t = -e._viaje
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.3)
+			e._eje = eje
+			e._r = maxf(caja.size.x * 1.2, 14.0)   # a 0,8 salia una raya fina
+			e._piezas = _motas_nuevas(e._rng, 10)
+		Modo.POLVO:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.25)
+			e._eje = eje
+			# GRANDE: a medio ancho de figura se quedaba en una bola tenue y una chispita.
+			e._r = maxf(caja.size.x * 1.2, 14.0)
+			e._piezas = _motas_nuevas(e._rng, 14)
+		Modo.VELO:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.22)
+			e._r = maxf(caja.size.x * 0.55, 7.0)
 		Modo.PALETOS:
 			e._viaje = clampf(espera, 0.05, 0.12)
 			e._t = -e._viaje
@@ -177,9 +210,14 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 	e._rng.seed = hash(semilla)
 	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
 	e._t = -espera * e._ritmo
-	e._o = f.origen
+	e._o = f.centro if e.modo == Modo.ANILLO else f.origen
 	e._r = maxf(f.radio, 8.0)
 	e._eje = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	# Las motas del anillo, repartidas por la vuelta.
+	if e.modo == Modo.ANILLO:
+		for i in 26:
+			e._piezas.append({"a": TAU * (float(i) + e._rng.randf_range(0.0, 0.8)) / 26.0, "u": e._rng.randf_range(0.75, 1.05),
+				"sube": e._rng.randf_range(2.0, 7.0), "fase": e._rng.randf_range(0.0, TAU)})
 	e.z_as_relative = false
 	e.z_index = Z_ENCIMA
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -192,11 +230,13 @@ static func area(padre: Node, f: CombatFormas.Forma, s: int, semilla: int, esper
 static func retraso(s: int, f: CombatFormas.Forma, p: Vector2) -> float:
 	if f == null:
 		return 0.0
+	if s == Suelo.ANILLO:
+		return clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ANILLO
 	return clampf(p.distance_to(f.origen) / maxf(f.radio, 1.0), 0.0, 1.0) * T_ULTRA
 
 
-static func t_salir(_s: int) -> float:
-	return T_ULTRA
+static func t_salir(s: int) -> float:
+	return T_ANILLO if s == Suelo.ANILLO else T_ULTRA
 
 
 # LA NUBE QUE SE QUEDA (la Bocanada). No se va sola: la seca CombatTactico. 'espera' = lo que falta para que salga.
@@ -275,6 +315,10 @@ func duracion() -> float:
 		Modo.ULTRA: return T_ULTRA + 2.0 * T_ENTRE_ULTRA + 0.15
 		Modo.OIDOS: return T_OIDOS
 		Modo.PALETOS: return T_PALETOS
+		Modo.ALA: return T_ALA
+		Modo.POLVO: return T_POLVO
+		Modo.VELO: return T_VELO
+		Modo.ANILLO: return T_ANILLO + 0.5
 	return 1.0
 
 
@@ -313,6 +357,10 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.ULTRA: _ultra(capa)
 		Modo.OIDOS: _oidos(capa)
 		Modo.PALETOS: _paletos(capa)
+		Modo.ALA: _ala(capa)
+		Modo.POLVO: _polvo(capa)
+		Modo.VELO: _velo(capa)
+		Modo.ANILLO: _anillo(capa)
 
 
 # ------------------------------------------------------------
@@ -652,3 +700,118 @@ func _oidos(capa: Node2D) -> void:
 		var hacia: float = PI if s > 0.0 else 0.0   # combadas hacia la cabeza
 		BestiaAire._media_luna(capa, o + Vector2(s * rr, 0.0), hacia - 0.9, hacia + 0.9, rr, rr * 0.7,
 			Color(1.0, 1.0, 1.0), ULTRA_C, 0.9 * alfa, true)
+
+
+# ------------------------------------------------------------
+#  LA POLILLA
+# ------------------------------------------------------------
+static func _motas_nuevas(rng: RandomNumberGenerator, n: int) -> Array:
+	var out: Array = []
+	for i in n:
+		out.append({"p": Vector2(rng.randf_range(-1.0, 1.0), rng.randf_range(-0.7, 0.7)), "v": rng.randf_range(0.3, 1.0),
+			"t0": rng.randf_range(0.0, 0.2), "fase": rng.randf_range(0.0, TAU), "brilla": rng.randf() < 0.45})
+	return out
+
+
+# UNA ESCAMA QUE BRILLA: una estrellita de cuatro puntas que se enciende y se apaga.
+func _escama(capa: Node2D, p: Vector2, fase: float, alfa: float) -> void:
+	var b: float = 0.5 + 0.5 * sin(_t * 18.0 + fase)
+	if b * alfa < 0.05:
+		return
+	BarridoAire.destello(capa, p, 2.6 + 1.6 * b, Color(ESCAMA, alfa * b), fase)
+
+
+# Las motas de polvo (bolas blandas palidas), cayendo despacio; algunas brillan.
+func _motas_polvo(capa: Node2D, c: Vector2, extension: float, dura: float, alfa0: float) -> void:
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > dura:
+			continue
+		var k: float = tg / dura
+		var q: Vector2 = c + (g["p"] as Vector2) * extension * (0.6 + 0.6 * k) + Vector2(0.0, 6.0 * k * float(g["v"]))
+		var a: float = alfa0 * (1.0 - k * k)
+		BestiaAire._bola(capa, q, extension * 0.28 * (0.7 + 0.5 * k), Color(POLVO_C, 0.35 * a))
+		if bool(g["brilla"]):
+			_escama(capa, q, float(g["fase"]), a)
+
+
+# EL ROCE DE ALA: una media luna ancha y blanda (poco filo, mucho polvo) que barre la cara de lado, y el polvo que
+# suelta cayendo con brillos.
+func _ala(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	if capa != _delante:
+		return
+	var barre: float
+	var alfa: float
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		barre = 1.0 - (1.0 - u) * (1.0 - u)
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		barre = 1.0
+		alfa = 1.0 - smoothstep(0.05, T_ALA * 0.6, _t)
+	var lado: Vector2 = _eje.orthogonal()
+	var o: Vector2 = c - _eje * _r * 0.9
+	var a0: float = _eje.angle() - 1.2
+	var cabeza: float = lerpf(a0, _eje.angle() + 1.2, barre)
+	# MACIZA: el ala es una placa de polvo, no un filo. Y bolas de polvo a lo largo de lo que ha barrido.
+	BestiaAire._media_luna(capa, o, a0, cabeza, _r, _r * 0.8, Color(1.0, 0.98, 1.0), POLVO_C, alfa, true)
+	for i in 6:
+		var a: float = lerpf(a0, cabeza, (float(i) + 0.5) / 6.0)
+		BestiaAire._bola(capa, o + Vector2(cos(a), sin(a)) * _r * 0.8, _r * 0.3, Color(POLVO_C, 0.5 * alfa))
+	if _t >= 0.0:
+		_motas_polvo(capa, c + lado * _r * 0.2, _r * 0.8, T_ALA, 1.0)
+
+
+# EL POLVO EN LA CARA: tres bocanadas que revientan una tras otra delante de la cara (los tres batidos del Aleteo) y
+# se quedan flotando con sus brillos.
+func _polvo(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	for k in 3:
+		var tk: float = _t - float(k) * 0.08
+		if tk < 0.0:
+			continue
+		var u: float = clampf(tk / (T_POLVO - 0.16), 0.0, 1.0)
+		# LLEGA VOLANDO desde el lado de la polilla y revienta en la cara.
+		var llega: float = clampf(tk / 0.12, 0.0, 1.0)
+		var p: Vector2 = _hasta + Vector2(float(k - 1) * _r * 0.35, -float(k % 2) * _r * 0.2) \
+			- _eje * _r * 1.6 * (1.0 - llega) * (1.0 - llega)
+		var rr: float = _r * lerpf(0.35, 0.8, sqrt(u))
+		BestiaAire._bola(capa, p, rr, Color(POLVO_C, 0.8 * (1.0 - u)))
+		BestiaAire._bola(capa, p - Vector2(1.0, 1.5), rr * 0.5, Color(1.0, 1.0, 1.0, 0.5 * (1.0 - u)))
+	_motas_polvo(capa, _hasta, _r, T_POLVO, 1.0)
+
+
+# EL VELO: si le ha cegado, una franja gris y blanda sobre los ojos que se queda un momento y se va.
+func _velo(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	var a: float = clampf(_t / 0.12, 0.0, 1.0) * (1.0 - smoothstep(T_VELO * 0.6, T_VELO, _t))
+	for i in 5:
+		var x: float = (float(i) - 2.0) / 2.0
+		BestiaAire._bola(capa, _hasta + Vector2(x * _r * 0.8, sin(_t * 3.0 + float(i)) * 0.6), _r * 0.42,
+			Color(POLVO_OSC.lightened(0.2), 0.55 * a))
+
+
+# EL ANILLO DE LA NUBE: una banda gorda de polvo que sale de ella y se abre hasta el borde de su circulo (filo claro
+# por fuera, difuminada hacia dentro), y las motas que se quedan brillando a su paso.
+func _anillo(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	var u: float = clampf(_t / T_ANILLO, 0.0, 1.0)
+	var r: float = lerpf(6.0, _r, 1.0 - (1.0 - u) * (1.0 - u))
+	var alfa: float = 1.0 - smoothstep(0.75, 1.0, _t / (T_ANILLO + 0.5))
+	var aplana: float = 0.7
+	for i in 36:
+		var a: float = TAU * float(i) / 36.0
+		var p: Vector2 = _o + Vector2(cos(a), sin(a) * aplana) * r
+		BestiaAire._bola(capa, p, lerpf(5.0, 12.0, u), Color(POLVO_C, 0.28 * alfa))
+	for g in _piezas:
+		var ug: float = float(g["u"])
+		if u < ug * 0.9:
+			continue
+		var p2: Vector2 = _o + Vector2(cos(float(g["a"])), sin(float(g["a"])) * aplana) * _r * ug \
+			- Vector2(0.0, float(g["sube"]) * clampf((_t - T_ANILLO * ug) / 0.4, 0.0, 1.0))
+		BestiaAire._bola(capa, p2, 3.0, Color(POLVO_C, 0.4 * alfa))
+		_escama(capa, p2, float(g["fase"]), alfa)

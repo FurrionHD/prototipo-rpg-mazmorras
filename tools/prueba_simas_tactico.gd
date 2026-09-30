@@ -5,8 +5,8 @@
 # turnos, a golpes (25%) o aturdida. Acaba con BIEN/MAL.
 extends Node
 
-const ENEMIGOS := ["miconido", "chupasimas", "chillon"]
-const ALCANCES := {"miconido": 20.0, "chupasimas": 15.0, "chillon": 15.0}
+const ENEMIGOS := ["miconido", "chupasimas", "chillon", "polilla"]
+const ALCANCES := {"miconido": 20.0, "chupasimas": 15.0, "chillon": 15.0, "polilla": 20.0}
 var _mal: int = 0
 
 
@@ -112,10 +112,13 @@ func _correr() -> void:
 			for _k in 2:
 				t.charcos_turno_enemigo(e)
 			_ver(not t._charcos.has(e), "la nube se va a los 2 turnos del miconido")
+			await _probar_pasiva(combat, t, e, al, StatusEffects.Id.VENENO, "el miconido envenena")
 		if clave == "chupasimas":
 			await _probar_pegada(combat, t, e, al)
 		if clave == "chillon":
 			await _probar_chillon(combat, t, e, al)
+		if clave == "polilla":
+			await _probar_polilla(combat, t, e, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
 
@@ -224,9 +227,63 @@ func _probar_chillon(combat, t, e, al: Array) -> void:
 		lejos_max = maxf(lejos_max, t.pos_de(e).distance_to(antes))
 	await _segundos(1.0)
 	print("  picado: se alejo %.0f px y acabo a %.0f px de donde estaba" % [lejos_max, t.pos_de(e).distance_to(antes)])
-	_ver(lejos_max > 30.0, "el Picado baja hasta su presa")
+	_ver(lejos_max > 15.0, "el Picado baja hasta su presa (cae a su lado, no encima: 26-41 px segun el apunte)")
 	_ver(t.pos_de(e).distance_to(antes) < 4.0, "y vuelve a donde estaba")
 	_ver(al[0].current_hp < hp0, "y la muerde")
+
+
+func _probar_polilla(combat, t, e, al: Array) -> void:
+	var ale: AbilityData = load("res://resources/abilities/polilla_aleteo.tres")
+	var pe: Vector2 = t.pies_de(e)
+	var r0: float = t.radio_pisa(e)
+	_colocar(t, al, [pe + Vector2(r0 + 10, 0), pe + Vector2(r0 + 50, 0)])
+	await _esperar(2)
+	var rep: Array = t._reparto_en(ale, e, t.forma_de(ale, e, t.pies_de(al[1])))
+	print("  aleteo: %s" % _txt(rep))
+	var esc_cerca: float = -1.0
+	var esc_lejos: float = -1.0
+	for d in rep:
+		if d["c"] == al[0]: esc_cerca = float(d["escala"])
+		if d["c"] == al[1]: esc_lejos = float(d["escala"])
+	_ver(esc_cerca > esc_lejos and esc_lejos > 0.0, "el Aleteo por tramos: cerca %.2f, lejos %.2f" % [esc_cerca, esc_lejos])
+	_ver(ale.tramos_bajan_prob, "y lejos ciega menos (tramos_bajan_prob)")
+	var nube: AbilityData = load("res://resources/abilities/polilla_nube.tres")
+	_colocar(t, al, [pe + Vector2(r0 + 20, 0), pe + Vector2(-r0 - 30, 10)])
+	await _esperar(2)
+	var rep_n: Array = t._reparto_en(nube, e, t.forma_de(nube, e, pe))
+	_ver(rep_n.size() == 2, "la Nube pilla a todos los de alrededor (%d)" % rep_n.size())
+	await _probar_pasiva(combat, t, e, al, StatusEffects.Id.CEGUERA, "la polilla ciega")
+
+
+# LA PASIVA AL SER GOLPEADO: de cerca, tarde o temprano le pone el estado; de lejos nunca.
+func _probar_pasiva(combat, t, e, al: Array, estado: int, que: String) -> void:
+	var pe: Vector2 = t.pies_de(e)
+	var quien = al[0]
+	_colocar(t, al, [pe + Vector2(t.radio_pisa(e) + 12, 0), pe + Vector2(-240, 60)])
+	await _esperar(2)
+	quien.quitar_estado(estado)
+	var veces: int = 0
+	for _k in 80:
+		combat._pasiva_al_golpearle(e, quien)
+		veces += 1
+		if quien.has_status(estado):
+			break
+	_ver(quien.has_status(estado), "%s al pegarle de cerca (a los %d golpes)" % [que, veces])
+	quien.quitar_estado(estado)
+	_colocar(t, al, [pe + Vector2(160, 0), pe + Vector2(-240, 60)])
+	await _esperar(2)
+	for _k in 80:
+		combat._pasiva_al_golpearle(e, quien)
+	_ver(not quien.has_status(estado), "y de lejos nunca")
+	quien.quitar_estado(estado)
+	await _segundos(0.5)
+
+
+func _txt(rep: Array) -> String:
+	var out: Array = []
+	for d in rep:
+		out.append("%s x%.2f" % [d["c"].nombre, float(d["escala"])])
+	return "[%s]" % ", ".join(out)
 
 
 func _colocar(t, al: Array, sitios: Array) -> void:

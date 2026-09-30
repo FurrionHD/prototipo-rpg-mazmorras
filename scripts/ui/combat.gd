@@ -426,6 +426,28 @@ var _ultimo_en_golpear: Dictionary = {}   # Combatant -> PersonajeData
 # Un golpe del grupo a un enemigo: se lo apunta a QUIEN lo dio, no al lider. Es el mismo motivo por
 # el que en el playtest habia un personaje con 44.435 de daño infligido y cero excelia: el contador
 # iba al de cabeza y la excelia al que pegaba.
+# LA PASIVA DEL ENEMIGO AL SER GOLPEADO (30/09, EnemyData.al_ser_golpeado): tras un golpe DE ARMA de 'quien' que ha
+# entrado en 'obj'. En el mapa solo si le ha pegado de cerca (el hueco entre los dos, a un paso). Tira la probabilidad
+# de la pasiva y, si sale, sus estados a quien le pego (con su resistencia, por la puerta comun) y su dibujo.
+const HUECO_CUERPO_A_CUERPO := 30.0
+
+func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
+			or not _enemies.has(obj) or not quien.is_alive():
+		return
+	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return
+	if randf() >= obj.al_ser_golpeado_prob:
+		return
+	var ab := AbilityData.new()
+	ab.efectos = obj.al_ser_golpeado
+	var puestos: Array = enemigos._enemy_tirar_efectos(obj, ab, quien, 1.0, "objetivo")
+	if obj.al_ser_golpeado_fx >= 0:
+		efectos._fx_golpe(obj, quien, 0.0, false, false, Elementos.Elemento.NINGUNO, obj.al_ser_golpeado_fx, 1.0, true)
+	_log_extra("%s suelta %s sobre %s%s" % [_etq(obj), "polvo" if obj.al_ser_golpeado_fx == CombatFX.Estilo.SIMA_POLVO
+		else "una bocanada", quien.nombre, (": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
 func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant) -> void:
 	var pj: PersonajeData = Game.pj_de_combatant(quien)
 	Game.contar_dano_infligido(dmg, pj)
@@ -1574,6 +1596,7 @@ func _accion_atacar() -> void:
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO, estilo_bas)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
+		_pasiva_al_golpearle(obj, _player)
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			magia._gastar_amplificadores(obj, _player.imbue_elemento)
@@ -2081,6 +2104,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			efectos._fx_golpe(esc, obj, dmg, r.crit, false,
 				esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
 			_apuntar_dano(obj, dmg, esc)
+			_pasiva_al_golpearle(obj, esc)
 			_dps_add("Seguimiento (%s)" % arma, dmg)
 			conecto = true
 			# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de

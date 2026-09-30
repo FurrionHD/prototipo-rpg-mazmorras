@@ -335,6 +335,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # VUELVE (solo en el mapa, con 'salta'): acabados los golpes, el que la lanza vuelve de otro salto a donde estaba. El
 # Picado del chillon (30/09): "cae, muerde y ya esta otra vez arriba" (CombatTactico.mover_enemigo).
 @export var vuelve: bool = false
+# LOS TRAMOS BAJAN TAMBIEN LA PROBABILIDAD de sus estados (solo en el mapa, con forma_tramos): cuanto mas lejos, menos
+# daño Y menos probable que prenda. El Aleteo cegador de la polilla (30/09, idea del usuario).
+@export var tramos_bajan_prob: bool = false
 # EL SALTO (solo en el mapa, con CIRCULO): el que la lanza se echa por el aire y cae en el centro de su huella,
 # sin quedar encima de nadie. El Reventon del slime y el Aplastamiento del Rey (28/09): "el slime hinchandose
 # y saltando sobre los personajes".

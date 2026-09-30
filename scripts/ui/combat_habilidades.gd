@@ -261,6 +261,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, dmg, result.crit, false,
 		_pantalla._player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab)
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player)   # contador oculto de Cazador
+	_pantalla._pasiva_al_golpearle(objetivo, _pantalla._player)
 	r.mana = _pantalla._ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
 		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)

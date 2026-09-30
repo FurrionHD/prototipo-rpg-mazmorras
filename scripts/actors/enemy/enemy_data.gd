@@ -257,6 +257,14 @@ func drop_factor_piso(piso: int) -> float:
 # Lista de StatusApplication (cada una con su prob). Un enemigo puede aplicar VARIOS:
 # p.ej. el slime venenoso mete Pegajoso Y Veneno. Ver status_application.gd.
 @export var al_golpear: Array = []
+# --- PASIVA AL SER GOLPEADO DE CERCA (30/09, idea del usuario: "este enemigo mejor matarlo a distancia porque hace
+# tal") --- Cuando uno de los tuyos le pega CON EL ARMA y de cerca (en el mapa: pegado a el; nunca la magia), con
+# 'al_ser_golpeado_prob' le devuelve estos estados (StatusApplication, a quien le ha pegado) y se ve
+# 'al_ser_golpeado_fx' sobre el (CombatFX.Estilo, -1 = nada). La polilla suelta polvo que ciega, el miconido una
+# bocanada de esporas que envenena. Ver Pantalla._pasiva_al_golpearle.
+@export var al_ser_golpeado: Array = []
+@export var al_ser_golpeado_prob: float = 0.0
+@export var al_ser_golpeado_fx: int = -1
 
 # --- SISTEMA ELEMENTAL (KAN-58) ---
 # elemento = afinidad propia (Elementos.Elemento): define su perfil de resist/debilidad por
@@ -551,6 +559,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.base_magic = base_magic * sqrt(fstat) * m_atk
 	# Estados que aplica al golpear (pegajoso/veneno, KAN-58 Fase 3).
 	c.on_hit = al_golpear
+	c.al_ser_golpeado = al_ser_golpeado
+	c.al_ser_golpeado_prob = al_ser_golpeado_prob
+	c.al_ser_golpeado_fx = al_ser_golpeado_fx
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
 	c.habilidades = habilidades
 	c.prob_habilidad = prob_habilidad

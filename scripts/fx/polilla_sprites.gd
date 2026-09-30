@@ -325,7 +325,8 @@ static func _montar_aletear(anims: Array, esc: float) -> void:
 		# Y se echa un pelin hacia delante: "se te viene a la cara".
 		p["avance"] = 2.2 * smoothstep(0.0, 0.5, t)
 		return _pose(p)
-	_montar_animacion(anims, esc, "aletear", false, 14.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa te aletea hacia donde estas (el cono).
+	_montar_animacion(anims, esc, "aletear", false, 14.0, pose, true, 8, FRAMES)
 
 
 # NUBE DE ESPORAS (fx_anim = "nube"). "Bate las alas una sola vez y el polvo lo tapa todo."
@@ -350,7 +351,7 @@ static func _montar_nube(anims: Array, esc: float) -> void:
 			"abre": SpriteLienzo.tramos(t, abre_keys),
 			"polvo": SpriteLienzo.tramos(t, polvo_keys),
 			"cabeceo": SpriteLienzo.tramos(t, cab_keys)})
-	_montar_animacion(anims, esc, "nube", false, 10.0, pose, true, 1, FRAMES)
+	_montar_animacion(anims, esc, "nube", false, 10.0, pose, true, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion y EMPEZANDO YA GOLPEADA: el frame 0 es el
@@ -372,7 +373,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"altura": SpriteLienzo.tramos(t, alt_keys),
 			"bate": SpriteLienzo.tramos(t, bate_keys)})
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (30/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE: SE CAE DEL AIRE. Ocho fotogramas en UNA sola direccion.
@@ -404,7 +406,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 11.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (30/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 11.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, al reves que 'muerte'. En

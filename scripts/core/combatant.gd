@@ -213,6 +213,10 @@ var statuses: Array = []
 # Estados que este combatiente aplica AL GOLPEAR (KAN-58 Fase 3). Array[StatusApplication].
 # Lo rellena EnemyData (slimes: pegajoso/veneno) o el arma del jugador (futuro: sangrado).
 var on_hit: Array = []
+# Y lo que devuelve AL SER GOLPEADO de cerca (EnemyData.al_ser_golpeado): estados, probabilidad y su dibujo.
+var al_ser_golpeado: Array = []
+var al_ser_golpeado_prob: float = 0.0
+var al_ser_golpeado_fx: int = -1
 
 # HABILIDADES del enemigo (Array[AbilityData]) y probabilidad de usar una cada turno.
 # Las rellena EnemyData; el jugador no las usa por aqui (tira de su loadout). Ver combat.gd.
