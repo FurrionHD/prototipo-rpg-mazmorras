@@ -9,7 +9,8 @@ const AZUL := Color(0.35, 0.6, 1.0)
 const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0)],
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
 const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
-	"empujon", "barra", "alcance", "golem_basico", "golem_machaca", "golem_estados"]
+	"empujon", "barra", "alcance", "golem_basico", "golem_machaca", "golem_estados",
+	"gargola_basico", "gargola_picado", "gargola_mirada", "gargola_estados"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -604,10 +605,11 @@ func _al_alcance(e: Dictionary, dvec: Vector2, alc: float) -> Vector2:
 
 # El fotograma de su 'embestida' en el instante 't' del golpe, COMO EN LA PELEA: arranca IMPACTO_ANIM_MAPA antes del
 # golpe y se estira a ese adelanto mas la cola (CombatFX.T_ANIM_COLA).
-func _marco_golpe(g: Dictionary, t: float) -> int:
-	var adel: float = float(CombatFX.IMPACTO_ANIM_MAPA.get("golem_golpe", CombatFX.T_ANIM_ADELANTO))
+# 'clave' = la de su tiempo de golpe; 'anim' = la animacion que pone.
+func _marco_golpe(g: Dictionary, t: float, clave: String = "golem_golpe", anim: String = "embestida") -> int:
+	var adel: float = float(CombatFX.IMPACTO_ANIM_MAPA.get(clave, CombatFX.T_ANIM_ADELANTO))
 	var dur: float = adel + CombatFX.T_ANIM_COLA
-	var n: int = (g["spr"] as AnimatedSprite2D).sprite_frames.get_frame_count(&"embestida_0")
+	var n: int = (g["spr"] as AnimatedSprite2D).sprite_frames.get_frame_count(StringName(anim + "_0"))
 	return clampi(int(floor((t + adel) / dur * float(n))), 0, n - 1)
 
 
@@ -749,3 +751,208 @@ func _hoja_golem_estados(salida: String) -> void:
 			await _viñeta(hoja, c, fila, "Golem · %s · %.2f s" % [filas[fila][0], t])
 		await _limpiar(piezas, [g["nodo"]])
 	_guardar(hoja, _carpeta_golem(salida), "estados")
+
+
+# ------------------------------------------------------------
+#  LA GARGOLA (30/09, constructos paso 2, ConstructoAire). Carpeta enemigos/gargola/.
+# ------------------------------------------------------------
+func _carpeta_gargola(salida: String) -> String:
+	var c: String = "%s/gargola" % salida
+	DirAccess.make_dir_recursive_absolute(c)
+	return c
+
+
+func _hoja_gargola_basico(salida: String) -> void:
+	var tiempos: Array = [-0.3, -0.15, -0.05, 0.0, 0.05, 0.12, 0.25, 0.45]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	_zoom(72.0)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("gargola", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var fig_p: Vector2 = _al_alcance(g, dvec, ed.alcance_real())
+		var fig := _figura(fig_p, AZUL)
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = (bg.get_center() + fig_p) * 0.5
+		var piezas: Array = [
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.SURCOS, bg.get_center(), _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 501 + fila, 0.0, 1.0), "t0": 0.0},
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.POLVO, Vector2.ZERO, _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 511 + fila, 0.0, 1.0), "t0": 0.02}]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "embestida", _marco_golpe(g, t, String(ed.anim_basico)))
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Gargola · zarpazo (y lento: polvo) · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_gargola(salida), "basico")
+
+
+# EL PICADO: columna 1 cargando (suspendida en el aire, la sombra en el suelo, la huella roja); luego el salto a la
+# huella con su arco (el de CombatTactico.mover_enemigo: T_SALTO_BICHO, y aterriza en el golpe) mientras hace 'picar'.
+func _hoja_gargola_picado(salida: String) -> void:
+	var tiempos: Array = [-0.4, -0.25, -0.12, -0.04, 0.0, 0.05, 0.12, 0.22, 0.4]
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/gargola_picado.tres")
+	_zoom(112.0)
+	if _huella_g == null:
+		_huella_g = Node2D.new()
+		_huella_g.z_index = 1
+		add_child(_huella_g)
+		_huella_g.draw.connect(func():
+			if _forma_g != null:
+				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("gargola", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, pisa, ed.alcance_real(), dvec * 80.0, pisa)
+		# Los dos de dentro, a los lados de donde cae (ella cae en medio).
+		var sitios: Array = [f.centro + dvec.orthogonal() * f.radio * 0.6 + Vector2(0, 4),
+			f.centro - dvec.orthogonal() * f.radio * 0.6 + Vector2(0, 4)]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = f.centro * 0.5 + Vector2(0, -28)
+		var spr: AnimatedSprite2D = g["spr"]
+		var sp0: Vector2 = spr.position
+		# 1) CARGANDO: suspendida (el vuelo, un marco de en medio).
+		_mirar(g, dvec, "vuelo", 2)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Gargola · Picado · %s · cargando (en el aire)" % DIRS[fila][0])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 601 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		for i in figs.size():
+			var fg: ColorRect = figs[i]
+			piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.PICADO, f.centro + Vector2(0, -30),
+				_caja_fig(fg), sitios[i], ed.color_visual(0.5), 611 + fila * 3 + i, 0.0, 1.0, 1.3),
+				"t0": SueloRoto.retraso_caja(f, _caja_fig(fg), ab.suelo_roto)})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		var arco: float = _TACTICO_G.ALTO_SALTO_BICHO * clampf(pisa / 10.0, 1.0, 2.5)
+		var t_salto: float = _TACTICO_G.T_SALTO_BICHO
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			var u: float = clampf((t + t_salto) / t_salto, 0.0, 1.0)
+			var k: float = 1.0 - (1.0 - u) * (1.0 - u)
+			(g["nodo"] as Node2D).position = Vector2.ZERO.lerp(f.centro, k)
+			spr.position = sp0 - Vector2(0.0, sin(PI * u) * arco)
+			_mirar(g, dvec, "picar", _marco_golpe(g, t, "picar", "picar"))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Gargola · Picado · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_gargola(salida), "picado")
+
+
+func _hoja_gargola_mirada(salida: String) -> void:
+	var tiempos: Array = [-0.2, 0.0, 0.1, 0.2, 0.3, 0.45, 0.7, 1.1]
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/gargola_mirada.tres")
+	_zoom(82.0)
+	if _huella_g == null:
+		_huella_g = Node2D.new()
+		_huella_g.z_index = 1
+		add_child(_huella_g)
+		_huella_g.draw.connect(func():
+			if _forma_g != null:
+				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("gargola", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var frente: float = _TACTICO_G.frente_dibujo(g["nodo"], Vector2.ZERO, dvec)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, maxf(pisa, frente), ed.alcance_real(), dvec * 90.0, frente * 0.85)
+		var sitios: Array = [f.origen + dvec * f.radio * 0.4 + Vector2(0, 13), f.origen + dvec.rotated(0.2) * f.radio * 0.78 + Vector2(0, 13)]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = f.origen + dvec * f.radio * 0.4 + Vector2(0, -10)
+		_mirar(g, dvec)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Gargola · Mirada petrea · %s · apuntando (cono)" % DIRS[fila][0])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 701 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		var bg: Rect2 = _bulto(g)
+		for i in figs.size():
+			var fg: ColorRect = figs[i]
+			piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.PETREA, bg.get_center(), _caja_fig(fg),
+				sitios[i], ed.color_visual(0.5), 711 + fila * 3 + i, 0.0, 1.0),
+				"t0": SueloRoto.retraso_caja(f, _caja_fig(fg), ab.suelo_roto)})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "mirada", _marco_golpe(g, t, "mirada", "mirada"))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Gargola · Mirada petrea · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_gargola(salida), "mirada")
+
+
+# LOS ESTADOS: fila 1 se posa y se hace estatua (gris); fila 2 le pegan posada (destello seco y chispas); fila 3 se
+# mueve y deja de ser piedra (vuelve el color y le caen trocitos); fila 4 en el aire (el vuelo de la carga, en bucle).
+func _hoja_gargola_estados(salida: String) -> void:
+	var tiempos: Array = [0.0, 0.1, 0.2, 0.35, 0.5, 0.7, 1.0]
+	var filas: Array = [["se posa: estatua", Vector2(0, 1)], ["le pegan posada: la mitad", Vector2(1, 0.4)],
+		["se mueve: deja de ser piedra", Vector2(0, 1)], ["en el aire (cargando el Picado)", Vector2(1, 0.4)]]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * filas.size(), false, Image.FORMAT_RGBA8)
+	_zoom(52.0)
+	_cam.global_position = Vector2(0, -30)
+	for fila in filas.size():
+		var dvec: Vector2 = (filas[fila][1] as Vector2).normalized()
+		var g := _enemigo("gargola", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var bg: Rect2 = _bulto(g)
+		var col: Color = ed.color_visual(0.5)
+		var spr: AnimatedSprite2D = g["spr"]
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/tinte_constructo.gdshader")
+		mat.set_shader_parameter("tinte", Vector3.ONE)
+		mat.set_shader_parameter("piedra", 1.0)
+		spr.material = mat
+		var piezas: Array = []
+		var gris_de: Callable
+		match fila:
+			0:
+				gris_de = func(t): return clampf(t / _TACTICO_G.T_A_PIEDRA, 0.0, 1.0)
+			1:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.ESTATUA, bg.get_center() - dvec * 40.0,
+					bg, Vector2.ZERO, col, 801, 0.0, 1.0), "t0": 0.1})
+				gris_de = func(_t): return 1.0
+			2:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.DESPEREZA, Vector2.ZERO, bg, Vector2.ZERO,
+					col, 802, 0.0, 1.0), "t0": 0.0})
+				gris_de = func(t): return 1.0 - clampf(t / _TACTICO_G.T_A_PIEDRA, 0.0, 1.0)
+			3:
+				gris_de = func(_t): return 0.0
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			mat.set_shader_parameter("fuerza", gris_de.call(t))
+			if fila == 3:
+				_mirar(g, dvec, "vuelo", c % 6)
+			elif fila == 2:
+				_mirar(g, dvec, "walk" if t > 0.0 else "idle", c)
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Gargola · %s · %.2f s" % [filas[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]])
+	_guardar(hoja, _carpeta_gargola(salida), "estados")

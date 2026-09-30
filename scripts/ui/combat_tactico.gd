@@ -3191,6 +3191,7 @@ func _on_impacto(ev: Dictionary) -> void:
 	# la para: se reconoce por el elemento (sin elemento, o el de la imbuicion de quien pega, es el arma).
 	if _pantalla.tactico:
 		_placa_si_para(ev)
+		_estatua_si_posada(ev)
 	# EL VENENO DE LA ARAÑA (29/09): solo si entra, gotitas verdes y la mancha donde se ha clavado. Y el de las forcipulas
 	# del ciempies (el de la Oleada va en sus propias patitas: InsectoAire._patitas).
 	if _pantalla.tactico and estilo in [CombatFX.Estilo.INSECTO_PONZONA, CombatFX.Estilo.INSECTO_FORCIPULAS]:
@@ -3213,6 +3214,18 @@ func _on_impacto(ev: Dictionary) -> void:
 				and not bool(ev.get("evadido", false)):
 			ConstructoAire.sobre_cuerpo(arena_g, ConstructoAire.Modo.PEGOTES, Vector2.ZERO, bulto_de(vg), pies_de(vg),
 				ag.color_visual if ag != null else ConstructoAire.ARCILLA,
+				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+		return
+	# EL POLVO DE LA GARGOLA (30/09): si su zarpazo le ha dejado lento, polvo de piedra en los pies.
+	if _pantalla.tactico and estilo == CombatFX.Estilo.GARGOLA_ZARPA:
+		var vz: Combatant = _de_bloque(ev["bv"])
+		var az: Combatant = _de_bloque(ev["ba"])
+		var arena_z: ArenaCombate = _arena()
+		if vz != null and cuerpo_de(vz) != null and arena_z != null and vz.has_status(StatusEffects.Id.LENTO) \
+				and not bool(ev.get("evadido", false)):
+			ConstructoAire.sobre_cuerpo(arena_z, ConstructoAire.Modo.POLVO, Vector2.ZERO, bulto_de(vz), pies_de(vz),
+				az.color_visual if az != null else ConstructoAire.BASALTO,
 				(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
 				_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 		return
@@ -3499,12 +3512,55 @@ func marcar_inicio_turno(c: Combatant) -> void:
 
 
 func _tick_posadas() -> void:
+	var dt: float = delta_posadas()
+	_t_posadas = Time.get_ticks_msec()
 	for e in _pantalla._enemies:
 		if e.posada_mult == 1.0 or cuerpo_de(e) == null:
 			continue
 		if not _inicio_turno.has(e):
 			_inicio_turno[e] = pies_de(e)
 		e.posada = pies_de(e).distance_to(_inicio_turno[e]) <= POSADA_HOLGURA
+		_tick_estatua(e, dt)
+
+
+# LA ESTATUA SE VE (30/09, paso 2): posada (y no en el aire) su sprite se va a gris piedra sin brillo (el shader
+# tinte_constructo, no el modulate); al dejar de estarlo recupera el color y le caen trocitos (ConstructoAire.DESPEREZA).
+const T_A_PIEDRA := 0.35
+var _estatuas: Dictionary = {}   # Combatant -> {piedra: bool, f: lo gris que esta ahora (0..1)}
+var _t_posadas: int = 0
+
+func delta_posadas() -> float:
+	var ahora: int = Time.get_ticks_msec()
+	var d: float = clampf(float(ahora - _t_posadas) / 1000.0, 0.0, 0.1) if _t_posadas > 0 else 0.0
+	return d
+
+
+func _tick_estatua(e: Combatant, delta: float) -> void:
+	var cu: Node2D = cuerpo_de(e)
+	var spr = cu.get("_sprite") if cu != null else null
+	if not (spr is CanvasItem):
+		return
+	var piedra: bool = e.is_alive() and e.posada and not e.volando()
+	var d: Dictionary = _estatuas.get(e, {"piedra": piedra, "f": 1.0 if piedra else 0.0})
+	if bool(d["piedra"]) and not piedra and e.is_alive():
+		var arena: ArenaCombate = _arena()
+		if arena != null:
+			ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.DESPEREZA, Vector2.ZERO, bulto_de(e), pies_de(e),
+				e.color_visual, _cod(e) + randi() % 97, 0.0, 1.0)
+	d["piedra"] = piedra
+	d["f"] = move_toward(float(d["f"]), 1.0 if piedra else 0.0, delta / T_A_PIEDRA)
+	_estatuas[e] = d
+	var mat: ShaderMaterial = (spr as CanvasItem).material as ShaderMaterial
+	if mat == null or mat.shader != _TINTE_CONSTRUCTO:
+		if float(d["f"]) <= 0.0:
+			return
+		mat = ShaderMaterial.new()
+		mat.shader = _TINTE_CONSTRUCTO
+		(spr as CanvasItem).material = mat
+	mat.set_shader_parameter("fuerza", float(d["f"]))
+	mat.set_shader_parameter("tinte", Vector3.ONE)
+	mat.set_shader_parameter("humedo", 0.0)
+	mat.set_shader_parameter("piedra", 1.0)
 
 
 # EL BARRO COCIDO SE VE (el golem, 30/09): terracota mientras esta cocido o endurecido (Fortaleza), barro mojado
@@ -3607,6 +3663,24 @@ func _tick_ojos_camada() -> void:
 			mat.set_shader_parameter("encendido", enc)
 
 
+# LE PEGAN A LA GARGOLA POSADA (30/09): es piedra y recibe la mitad (Combatant.mult_pasiva_recibido): destello seco,
+# chispas y lascas. Golpes y hechizos, que a los dos les quita la mitad. En todas las maquinas con la misma regla.
+func _estatua_si_posada(ev: Dictionary) -> void:
+	var vc: Combatant = _de_bloque(ev["bv"])
+	if vc == null or vc.posada_mult == 1.0 or not vc.posada or vc.volando() or bool(ev.get("solo_dibujo", false)) \
+			or float(ev.get("dmg", 0.0)) <= 0.0 or not _pantalla._enemies.has(vc):
+		return
+	var ac: Combatant = _de_bloque(ev["ba"])
+	var arena: ArenaCombate = _arena()
+	if arena == null or cuerpo_de(vc) == null:
+		return
+	var desde: Vector2 = bulto_de(ac).get_center() if ac != null and cuerpo_de(ac) != null \
+		else bulto_de(vc).get_center() - Vector2(30.0, 0.0)
+	ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.ESTATUA, desde, bulto_de(vc), pies_de(vc), vc.color_visual,
+		(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
+		_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+
+
 func _placa_si_para(ev: Dictionary) -> void:
 	var vc: Combatant = _de_bloque(ev["bv"])
 	var ac: Combatant = _de_bloque(ev["ba"])
@@ -3622,6 +3696,9 @@ func _placa_si_para(ev: Dictionary) -> void:
 		(int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1, 0.0,
 		_pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0, -1.0, vc.color_visual)
 
+
+const _MODO_GARGOLA := {CombatFX.Estilo.GARGOLA_ZARPA: ConstructoAire.Modo.SURCOS,
+	CombatFX.Estilo.GARGOLA_PICADO: ConstructoAire.Modo.PICADO, CombatFX.Estilo.GARGOLA_PETREA: ConstructoAire.Modo.PETREA}
 
 const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
@@ -3711,6 +3788,15 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 				_raices.erase(v)
 				if is_instance_valid(viejo):
 					(viejo as BestiaAire).secar()
+		return
+	# LA GARGOLA (ConstructoAire, 30/09): los surcos del zarpazo, la losa del Picado y la piedra de la Mirada, en su
+	# basalto.
+	if estilo in _MODO_GARGOLA:
+		var desde_g: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
+			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		ConstructoAire.sobre_cuerpo(arena, int(_MODO_GARGOLA[estilo]), desde_g, bulto_de(v), pies_de(v),
+			a.color_visual if a != null else ConstructoAire.BASALTO, semilla, vuelo, ritmo,
+			1.3 if estilo == CombatFX.Estilo.GARGOLA_PICADO else 1.0)
 		return
 	# LOS CONSTRUCTOS (ConstructoAire, 30/09): el aplaston de barro del golem sobre el que recibe, con su arcilla.
 	if estilo in [CombatFX.Estilo.CONSTRUCTO_PUNO, CombatFX.Estilo.CONSTRUCTO_MACHACA]:

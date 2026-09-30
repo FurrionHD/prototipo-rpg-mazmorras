@@ -306,7 +306,8 @@ func mult_pasiva_recibido() -> float:
 		m *= ablanda_mult
 	elif cocido > 0:
 		m *= cuece_mult
-	if posada_mult != 1.0 and posada:
+	# (En el aire, cargando el Picado, NO esta posada: no se ha movido de sitio, pero ya no es piedra.)
+	if posada_mult != 1.0 and posada and not volando():
 		m *= posada_mult
 	return m
 

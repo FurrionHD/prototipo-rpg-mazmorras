@@ -47,4 +47,8 @@ habilidades = [ExtResource("3_pis"), ExtResource("4_cor")]
 alcance = 20.0
 ; POSADA, ES PIEDRA (30/09, constructos paso 1): si no se ha movido desde su ultimo turno, recibe la mitad.
 posada_mult = 0.5
+; EFECTO DEL BASICO EN EL MAPA (30/09, constructos paso 2): los tres surcos de su zarpazo en basalto (ConstructoAire).
+fx_basico_mapa = 182
+; SU GESTO: la embestida, que toca en el 6o de 8 marcos (CombatFX.IMPACTO_ANIM_MAPA: el efecto sale cuando la garra toca).
+anim_basico = &"golpe_6_8"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

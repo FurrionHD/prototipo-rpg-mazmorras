@@ -43,7 +43,9 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	BESTIA_RAMAZO,
 	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA,
 	SIMA_ULTRA, SIMA_ANILLO,
-	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO }
+	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO,
+	CONSTRUCTO_PETREA }
+# CONSTRUCTO_* (los constructos, 30/09): viven en ConstructoAire. Detras de todo: se miran los primeros.
 # FIERA_* (las bestias de las simas, 30/09): viven en FieraAire (su FieraAire.Suelo = tipo - FIERA_ARROLLA). Detras de todo;
 # la Carga acorazada lleva en el NUCLEO el radio de su pisoton (AbilityData.pisoton_final).
 # SIMA_* (las simas en el mapa, 30/09): viven en SimaAire (su SimaAire.Suelo = tipo - SIMA_ULTRA). Detras de todo.
@@ -120,6 +122,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t == Tipo.CONSTRUCTO_PETREA:
+		return ConstructoAire.area(padre, f, semilla, espera)
 	if t >= Tipo.FIERA_ARROLLA:
 		return FieraAire.area(padre, f, t - Tipo.FIERA_ARROLLA, semilla, espera, n_nucleo)
 	if t >= Tipo.SIMA_ULTRA:
@@ -172,6 +176,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t == Tipo.CONSTRUCTO_PETREA:
+		return ConstructoAire.retraso(f, p)
 	if t >= Tipo.FIERA_ARROLLA:
 		return FieraAire.retraso(t - Tipo.FIERA_ARROLLA, f, p)
 	if t >= Tipo.SIMA_ULTRA:
@@ -215,6 +221,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t == Tipo.CONSTRUCTO_PETREA:
+		return ConstructoAire.T_CONO
 	if t >= Tipo.FIERA_ARROLLA:
 		return FieraAire.t_salir(t - Tipo.FIERA_ARROLLA)
 	if t >= Tipo.SIMA_ULTRA:

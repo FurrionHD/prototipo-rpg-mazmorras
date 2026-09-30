@@ -24,3 +24,11 @@ salta = true
 eleva = true
 area_modo = 1
 area_secundario = 1.0
+; EFECTO EN EL MAPA (30/09, constructos paso 2): despega y se queda suspendida toda la carga (la sombra en el suelo); al
+; soltar cae a plomo ('picar', las garras tocan en el 6 de 8): el suelo revienta (el ESTALLIDO, como la Machaca) y sobre
+; cada uno de dentro el golpe de arriba con piedrecillas, en basalto (ConstructoAire).
+fx_anim_carga = &"despegar>vuelo"
+fx_anim = &"picar"
+fx_anim_interrumpe = &"picar"
+fx_estilo_mapa = 183
+suelo_roto = 2

@@ -82,6 +82,10 @@ const ALIAS_ESTILO := {
 	# El golem (30/09): su puñetazo y la Machaca suenan como su golpetazo de siempre.
 	CombatFX.Estilo.CONSTRUCTO_PUNO: "golpetazo",
 	CombatFX.Estilo.CONSTRUCTO_MACHACA: "golpetazo",
+	# La gargola (30/09): su zarpazo, la losa del Picado (la carga) y la Mirada, como sonaban antes.
+	CombatFX.Estilo.GARGOLA_ZARPA: "zarpazo",
+	CombatFX.Estilo.GARGOLA_PICADO: "carga",
+	CombatFX.Estilo.GARGOLA_PETREA: "mirada",
 	# La postura de la rodela es una guardia, igual que la del estoque. Misma familia, mismo sonido.
 	CombatFX.Estilo.POSTURA_RODELA: "en_guardia",
 	# La Escolta es marcar por donde entra el otro y entrar detras: es el mismo gesto que señalar

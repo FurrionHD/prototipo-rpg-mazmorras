@@ -282,6 +282,9 @@ static func generar(color: Color = Color(0.4, 0.42, 0.45), escala: float = 1.0) 
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
 	_montar_mirada(anims, esc)
+	_montar_despegar(anims, esc)
+	_montar_vuelo(anims, esc)
+	_montar_picar(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
 	_montar_cadaver(anims, esc)
@@ -363,6 +366,66 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
 
 
+# EL PICADO EN EL MAPA (30/09, constructos paso 2): la carga dura un turno y la gargola la pasa EN EL AIRE (el cuerpo
+# a cuerpo no le llega). DESPEGAR la sube (alas abiertas del todo), VUELO la sostiene arriba en bucle mientras carga
+# (AbilityData.fx_anim_carga "despegar>vuelo") y PICAR la deja caer al soltar: arranca donde acaba el vuelo, se
+# recoge un instante y cae a plomo; las garras tocan el suelo en el marco 6 de 8 (CombatFX.IMPACTO_ANIM_MAPA
+# "picar"). Sin 'avance': quien la lleva por el suelo es la pelea (el salto de mover_enemigo).
+# LA SOMBRA NO SUBE (y encoge con la altura, ver _piezas): es lo que se lee como estar en el aire.
+const VUELO_ALTO := 5.2
+
+static func _montar_despegar(anims: Array, esc: float) -> void:
+	var abre_keys := [[0.0, 0.10], [0.4, 0.85], [0.7, 1.0], [1.0, 0.92]]
+	var vuela_keys := [[0.0, 0.0], [0.2, 0.0], [0.6, VUELO_ALTO * 0.8], [1.0, VUELO_ALTO]]
+	# Se agacha para impulsarse y estira las patas al despegar.
+	var agacha_keys := [[0.0, 0.0], [0.2, 0.45], [0.5, -0.30], [1.0, -0.30]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["abre"] = SpriteLienzo.tramos(t, abre_keys)
+		p["vuela"] = SpriteLienzo.tramos(t, vuela_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["alza"] = 0.4 * clampf(t * 2.0, 0.0, 1.0)
+		p["cola"] = -0.6 * t
+		return p
+	_montar_animacion(anims, esc, "despegar", false, 10.0, pose, true, 8, 6)
+
+
+# Suspendida: las alas baten despacio (abiertas, se cierran un poco y vuelven) y el cuerpo sube y baja con cada
+# batida, al reves que las alas (baja el ala, sube el cuerpo).
+static func _montar_vuelo(anims: Array, esc: float) -> void:
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		var bate: float = 0.5 + 0.5 * cos(TAU * t)
+		p["abre"] = 0.72 + 0.28 * bate
+		p["vuela"] = VUELO_ALTO + 0.6 * (1.0 - bate)
+		p["agacha"] = -0.30
+		p["alza"] = 0.4
+		p["cola"] = -0.6 + 0.25 * sin(TAU * t)
+		p["cabeza"] = 0.06 * sin(TAU * t)
+		return p
+	_montar_animacion(anims, esc, "vuelo", true, 7.0, pose, false, 8, 6)
+
+
+static func _montar_picar(anims: Array, esc: float) -> void:
+	# Marcos a t = i/7: 0 arriba, 1-2 se recoge (sube un pelin y encoge las alas), 3-5 cae, 5 TOCA (0,714), 6-7 se
+	# asienta con el peso.
+	var vuela_keys := [[0.0, VUELO_ALTO], [0.286, VUELO_ALTO + 0.6], [0.43, VUELO_ALTO * 0.75],
+		[0.57, VUELO_ALTO * 0.3], [0.714, 0.0], [1.0, 0.0]]
+	var abre_keys := [[0.0, 1.0], [0.286, 0.75], [0.57, 0.45], [0.714, 0.60], [0.857, 0.35], [1.0, 0.12]]
+	var agacha_keys := [[0.0, -0.30], [0.286, -0.35], [0.57, -0.20], [0.714, 1.0], [0.857, 0.55], [1.0, 0.15]]
+	var mece_keys := [[0.0, 0.0], [0.286, -0.9], [0.57, 0.4], [0.714, 1.6], [0.857, 1.0], [1.0, 0.3]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["vuela"] = SpriteLienzo.tramos(t, vuela_keys)
+		p["abre"] = SpriteLienzo.tramos(t, abre_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["mece"] = SpriteLienzo.tramos(t, mece_keys)
+		p["alza"] = 0.55 * (1.0 - clampf((t - 0.714) / 0.286, 0.0, 1.0))
+		p["cola"] = -0.8 * clampf(p["vuela"] / VUELO_ALTO, 0.0, 1.0)
+		return p
+	_montar_animacion(anims, esc, "picar", false, 12.0, pose, true)
+
+
 # LA MIRADA PETREA: se yergue, despliega las alas y SE QUEDA CLAVADA mirandote.
 #
 # ES LO CONTRARIO DE SU PICADO, y ese contraste es todo lo que hay que acertar. Hasta ahora esta
@@ -398,9 +461,9 @@ static func _montar_mirada(anims: Array, esc: float) -> void:
 		p["abre"] = SpriteLienzo.tramos(t, abre_keys)
 		p["cola"] = SpriteLienzo.tramos(t, cola_keys)
 		return p
-	# UNA SOLA DIRECCION: solo se ve en la pantalla de combate, y ahi se le mira de frente. El combate
-	# cae a "mirada_0" cuando la direccion que toca no existe (ver combat.gd:_on_gesto_iniciado).
-	_montar_animacion(anims, esc, "mirada", false, 8.0, pose, true, 1, FRAMES)
+	# LAS OCHO DIRECCIONES (30/09, el tactico): en el mapa mira hacia donde sale su cono. (Antes era solo la 0, la de la
+	# pantalla de combate, que sigue cayendo a "mirada_0".)
+	_montar_animacion(anims, esc, "mirada", false, 8.0, pose, true)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADA: el frame 0 es el
@@ -648,7 +711,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# 1. SOMBRA DE CONTACTO, lo primero (va debajo de todo). A ALTURA CERO: acompaña al bicho por el
 	#    suelo cuando pica pero NO sube con el, y esa separacion es lo que se lee como volar.
-	poner.call(Vector3(0.0, TORSO.y, 0.0), Vector3(TORSO_R.x * 1.15, TORSO_R.y * 1.15, 0.0),
+	#    Y ENCOGE CON LA ALTURA (30/09, el Picado en el mapa): cuanto mas arriba, mas pequeña.
+	var sombra_f: float = 1.0 - 0.05 * clampf(vuela, 0.0, VUELO_ALTO + 1.0)
+	poner.call(Vector3(0.0, TORSO.y, 0.0), Vector3(TORSO_R.x * 1.15, TORSO_R.y * 1.15, 0.0) * sombra_f,
 		Tono.SOMBRA_SUELO, [], false, true)
 
 	# LOS PIES, calculados una vez porque los usan las patas y las garras. GIRAN CON EL BICHO (al

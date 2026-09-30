@@ -30,3 +30,7 @@ forma_radio = 100.0
 forma_apertura = 40.0
 area_modo = 1
 area_efectos_secundarios = true
+; EFECTO EN EL MAPA (30/09, constructos paso 2): sus ojos claros se encienden y una onda de piedra gris recorre el cono
+; (SueloRoto.Tipo.CONSTRUCTO_PETREA); a cada uno que pilla se le cubre de piedra de los pies a media pierna.
+fx_estilo_mapa = 184
+suelo_roto = 86

@@ -16,12 +16,26 @@
 #                shader tinte_constructo sobre su sprite: el modulate lo reescribe el aviso del golpe cada fotograma).
 #    BLANDO      mientras esta mojado: gotas de barro que le caen y un charquito bajo los pies (y el tono de barro
 #                mojado en el shader).
+#  Y LA GARGOLA (30/09, paso 2, en su basalto: GargolaSprites._basalto):
+#    SURCOS      el zarpazo (el gesto lo hace su sprite): TRES SURCOS de garra que bajan de arriba abajo sobre quien lo
+#                recibe, gordos y cortos, inclinados del lado del golpe, y ESQUIRLAS angulosas que saltan.
+#    POLVO       si el zarpazo le deja LENTO: polvo de piedra en los pies un momento.
+#    PICADO      cae encima como una losa: el golpe de ARRIBA del aplaston con sus piedrecillas, en basalto (el suelo lo
+#                revienta el ESTALLIDO de la huella, como la Machaca).
+#    PETREA      la Mirada petrea sobre quien la recibe: se le cubre de piedra gris de los pies a media pierna.
+#    CONO        (por el suelo, SueloRoto.Tipo.CONSTRUCTO_PETREA) la onda de piedra gris que avanza por el cono desde
+#                sus ojos claros.
+#    ESTATUA     le pegan estando POSADA (recibe la mitad): destello seco de piedra, chispas y lascas.
+#    DESPEREZA   deja de estar posada (se mueve o se eleva): le caen trocitos de piedra, como desperezandose (el gris de
+#                estatua lo pone el shader tinte_constructo, CombatTactico._tick_posadas).
 #  NADA DE LINEAS (efectos-sin-lineas): medias lunas llenas, bolas con borde, cometas gordas. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name ConstructoAire
 
-enum Modo { APLASTON, PEGOTES, COCERSE, VAPOR, DURO, BLANDO }
+enum Modo { APLASTON, PEGOTES, COCERSE, VAPOR, DURO, BLANDO, SURCOS, POLVO, PICADO, PETREA, CONO, ESTATUA, DESPEREZA }
+# Los de la gargola: en basalto y no en arcilla.
+const _DE_PIEDRA := [Modo.SURCOS, Modo.POLVO, Modo.PICADO, Modo.PETREA, Modo.CONO, Modo.ESTATUA, Modo.DESPEREZA]
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -34,6 +48,15 @@ const T_SECA := 0.5
 const BRASA := Color(1.0, 0.55, 0.18)
 const VAHO := Color(0.86, 0.84, 0.82)
 const POLVO := Color(0.66, 0.57, 0.46)
+const BASALTO := Color(0.4, 0.42, 0.45)
+const POLVO_PIEDRA := Color(0.6, 0.62, 0.65)
+const OJO_CLARO := Color(0.86, 0.92, 0.96)
+const T_SURCOS := 0.5
+const T_POLVO := 0.8
+const T_PETREA := 1.2
+const T_CONO := 0.4
+const T_ESTATUA := 0.4
+const T_DESPEREZA := 0.8
 
 var modo: int = Modo.APLASTON
 var _t: float = 0.0
@@ -76,14 +99,14 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 	e._largo = maxf(caja.size.y, 10.0)
 	e._pies = pies
 	e._peso = peso
-	e._tonos(color)
+	e._tonos(color, m in _DE_PIEDRA)
 	e._hasta = caja.get_center() + Vector2(e._rng.randf_range(-0.12, 0.12) * caja.size.x,
 		e._rng.randf_range(-0.15, 0.05) * caja.size.y)
 	e._eje = (e._hasta - desde).normalized() if e._hasta.distance_squared_to(desde) > 1.0 else Vector2.RIGHT
 	e._incl = e._rng.randf_range(-0.25, 0.25)
 	e._t = -maxf(espera, 0.0)
 	match m:
-		Modo.APLASTON:
+		Modo.APLASTON, Modo.PICADO:
 			# EL IMPACTO: arriba en su cuerpo (cabeza y hombros), del lado de quien pega. El puño viene de ARRIBA, un poco
 			# de su lado (cada golpe con su inclinacion).
 			e._imp = caja.get_center() - e._eje * caja.size.x * 0.15 + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x,
@@ -105,6 +128,30 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 					+ Vector2(0.0, -e._rng.randf_range(70.0, 130.0) * sqrt(peso)),
 					"tam": e._rng.randf_range(1.6, 3.0) * sqrt(peso), "gira": e._rng.randf_range(-14.0, 14.0),
 					"forma": forma, "t0": e._rng.randf_range(0.0, 0.04)})
+		Modo.SURCOS:
+			# De que lado viene el golpe: los surcos se inclinan hacia alli (arriba del lado de quien pega).
+			var lado_s: float = -signf(e._eje.x) if absf(e._eje.x) > 0.15 else (1.0 if e._rng.randf() < 0.5 else -1.0)
+			e._incl = lado_s * e._rng.randf_range(0.25, 0.45)
+			e._imp = caja.get_center() + Vector2(e._rng.randf_range(-0.08, 0.08) * caja.size.x, -caja.size.y * 0.08)
+			for i in 7:
+				e._piezas.append(_esquirla(e._rng, Vector2(-lado_s * 0.8 + e._eje.x * 0.4, 0.0), 0.8))
+		Modo.ESTATUA:
+			e._imp = caja.get_center() - e._eje * caja.size.x * 0.25 + Vector2(0.0, -caja.size.y * 0.1)
+			for i in 6:
+				e._piezas.append(_esquirla(e._rng, Vector2(-e._eje.x, -e._eje.y * K), 0.6))
+		Modo.DESPEREZA:
+			# Trocitos que se le sueltan del lomo, los hombros y las alas y caen a sus pies.
+			for i in 9:
+				var q: Dictionary = _esquirla(e._rng, Vector2.ZERO, 0.5)
+				q["x"] = e._rng.randf_range(-0.42, 0.42)
+				q["y"] = e._rng.randf_range(-0.45, 0.05)
+				q["v"] = Vector2(e._rng.randf_range(-12.0, 12.0), e._rng.randf_range(-20.0, 0.0))
+				q["t0"] = e._rng.randf_range(0.0, 0.25)
+				e._piezas.append(q)
+		Modo.POLVO, Modo.PETREA:
+			for i in 6:
+				e._piezas.append({"x": e._rng.randf_range(-0.4, 0.4), "t0": e._rng.randf_range(0.0, 0.15),
+					"tam": e._rng.randf_range(0.8, 1.2), "sube": e._rng.randf_range(4.0, 9.0), "h": e._rng.randf_range(0.7, 1.0)})
 		Modo.PEGOTES:
 			for i in 4:
 				var mancha := PackedVector2Array()
@@ -144,10 +191,29 @@ func secar() -> void:
 		_secando = _t
 
 
-func _tonos(color: Color) -> void:
+func _tonos(color: Color, piedra: bool = false) -> void:
+	if piedra:
+		# EL BASALTO DE SU SPRITE (GargolaSprites._colores): el borde, la piedra y la luz fria del lomo.
+		_barro = GargolaSprites._basalto(color)
+		_borde = _barro.darkened(0.72)
+		_claro = _barro.lerp(Color(0.74, 0.78, 0.84), 0.34)
+		return
 	_barro = color.lerp(ARCILLA, 0.4)
 	_borde = _barro.darkened(0.65)
 	_claro = _barro.lightened(0.35)
+
+
+# UNA ESQUIRLA ANGULOSA (poligono de 4-5 lados) que sale hacia 'hacia' y hacia arriba, y cae con peso.
+static func _esquirla(rng: RandomNumberGenerator, hacia: Vector2, fuerza: float) -> Dictionary:
+	var n_l: int = 4 + rng.randi() % 2
+	var forma_e := PackedVector2Array()
+	for k in n_l:
+		var a: float = TAU * float(k) / float(n_l) + rng.randf_range(-0.35, 0.35)
+		forma_e.append(Vector2(cos(a), sin(a)) * rng.randf_range(0.6, 1.1))
+	var sal: Vector2 = (hacia * 0.7 + Vector2(rng.randf_range(-1.0, 1.0), 0.0)).normalized()
+	return {"v": sal * rng.randf_range(30.0, 60.0) * fuerza + Vector2(0.0, -rng.randf_range(60.0, 110.0) * fuerza),
+		"tam": rng.randf_range(1.5, 2.6), "gira": rng.randf_range(-14.0, 14.0), "forma": forma_e,
+		"t0": rng.randf_range(0.0, 0.05)}
 
 
 func duracion() -> float:
@@ -156,6 +222,13 @@ func duracion() -> float:
 		Modo.PEGOTES: return T_PEGOTES
 		Modo.COCERSE: return T_COCERSE
 		Modo.VAPOR: return T_VAPOR
+		Modo.PICADO: return T_APLASTON
+		Modo.SURCOS: return T_SURCOS
+		Modo.POLVO: return T_POLVO
+		Modo.PETREA: return T_PETREA
+		Modo.CONO: return T_CONO + 0.35
+		Modo.ESTATUA: return T_ESTATUA
+		Modo.DESPEREZA: return T_DESPEREZA
 	return INF   # los que se quedan: hasta que se secan
 
 
@@ -184,8 +257,14 @@ func _process(delta: float) -> void:
 
 func _dibujar_capa(capa: Node2D) -> void:
 	match modo:
-		Modo.APLASTON: _aplaston(capa)
+		Modo.APLASTON, Modo.PICADO: _aplaston(capa)
 		Modo.PEGOTES: _pegotes(capa)
+		Modo.SURCOS: _surcos(capa)
+		Modo.POLVO: _polvo(capa)
+		Modo.PETREA: _petrea(capa)
+		Modo.CONO: _cono(capa)
+		Modo.ESTATUA: _estatua(capa)
+		Modo.DESPEREZA: _despereza(capa)
 		Modo.COCERSE: _cocerse(capa)
 		Modo.VAPOR: _vapor(capa)
 		Modo.DURO: _duro(capa)
@@ -418,3 +497,306 @@ func _blando(capa: Node2D) -> void:
 		var y0: float = _hasta.y - _largo * [0.05, 0.15, 0.3][i]
 		var p: Vector2 = Vector2(x, lerpf(y0, _pies.y - 1.0, k * k))
 		_terron(capa, p, 2.6, q * (1.0 - smoothstep(0.85, 1.0, k)))
+
+
+# ------------------------------------------------------------
+#  LA GARGOLA
+# ------------------------------------------------------------
+# LAS ESQUIRLAS que saltan de 'desde' (las del aplaston: alto, girando, y al llegar a los pies se paran y se apagan).
+func _esquirlas(capa: CanvasItem, desde: Vector2, t: float, vida: float) -> void:
+	for g in _piezas:
+		var tg: float = t - float(g["t0"])
+		if tg < 0.0 or tg > vida:
+			continue
+		var v: Vector2 = g["v"]
+		var p: Vector2 = desde + v * tg + Vector2(0.0, 0.5 * GRAVEDAD * tg * tg)
+		var suelo_y: float = _pies.y + 2.0 + float(g["tam"])
+		var alfa: float = 1.0
+		if p.y > suelo_y and v.y + GRAVEDAD * tg > 0.0:
+			p.y = suelo_y
+			alfa = 1.0 - clampf((tg - vida * 0.65) / (vida * 0.35), 0.0, 1.0)
+		_piedra(capa, p, g["forma"], float(g["tam"]), float(g["gira"]) * minf(tg, 0.45), alfa)
+
+
+# UN SURCO de garra: huso relleno de 'a' (arriba) a 'b' (abajo), GORDO en medio y afilado en las puntas, con su borde
+# oscuro, la piedra y un filo claro del lado de la luz. 'u' = hasta donde ha bajado ya (0..1).
+func _surco(capa: CanvasItem, a: Vector2, b: Vector2, grueso: float, u: float, alfa: float) -> void:
+	if u <= 0.01 or alfa <= 0.01:
+		return
+	var n: int = 8
+	var d: Vector2 = (b - a)
+	var perp: Vector2 = d.normalized().orthogonal()
+	var fuera_i := PackedVector2Array()
+	var fuera_d := PackedVector2Array()
+	var dentro_i := PackedVector2Array()
+	var dentro_d := PackedVector2Array()
+	for i in n + 1:
+		var k: float = float(i) / float(n)
+		var p: Vector2 = a + d * k * u
+		# Mas gordo arriba de la mitad (donde entra la garra) y afilado al irse.
+		var w: float = grueso * sin(PI * k) * (1.0 - 0.35 * k)
+		fuera_i.append(p - perp * (w * 0.5 + 0.9))
+		fuera_d.append(p + perp * (w * 0.5 + 0.9))
+		dentro_i.append(p - perp * w * 0.5)
+		dentro_d.append(p + perp * w * 0.5)
+	BestiaAire._tira(capa, fuera_i, fuera_d, Color(_borde, alfa))
+	BestiaAire._tira(capa, dentro_i, dentro_d, Color(_barro, alfa))
+	# El filo claro: el tercio de un lado (el de la luz).
+	var claro_i := PackedVector2Array()
+	for i in n + 1:
+		claro_i.append(dentro_i[i].lerp(dentro_d[i], 0.35))
+	BestiaAire._tira(capa, dentro_i, claro_i, Color(_claro, alfa * 0.9))
+
+
+func _surcos(capa: Node2D) -> void:
+	var abajo := Vector2(0.0, 1.0).rotated(_incl)
+	if capa == _delante:
+		if _t < 0.0:
+			return
+		# Bajan de arriba abajo en 0,1 s (uno detras de otro, poco) y se quedan un momento antes de apagarse.
+		# GORDOS Y CORTOS, pero que se lean: casi del alto de la figura y de un tercio de su ancho cada uno (a 0,42 del
+		# alto y 3,5 px eran rasguños que no se veian).
+		var largo: float = _largo * 0.8
+		var grueso: float = clampf(_ancho * 0.42, 5.5, 9.0)
+		var alfa: float = 1.0 - smoothstep(0.55, 1.0, _t / T_SURCOS)
+		for i in 3:
+			var off: float = (float(i) - 1.0) * _ancho * 0.36
+			var tk: float = _t - float(i) * 0.025
+			var u: float = clampf(tk / 0.1, 0.0, 1.0)
+			var a: Vector2 = _imp + Vector2(off, 0.0) - abajo * largo * (0.55 - 0.08 * absf(float(i) - 1.0))
+			_surco(capa, a, a + abajo * largo, grueso * (1.0 - 0.15 * absf(float(i) - 1.0)), u * (2.0 - u), alfa)
+		_esquirlas(capa, _imp + abajo * largo * 0.35, _t - 0.06, 0.45)
+		return
+	if capa == _brillo and _t >= 0.0 and _t < 0.14:
+		# Un fogonazo seco y frio donde entra la garra.
+		var pulso: float = 1.0 - _t / 0.14
+		BarridoAire.destello(capa, _imp - abajo * _largo * 0.2, 7.0 + 6.0 * pulso, Color(0.9, 0.95, 1.0, pulso), _incl)
+
+
+# POLVO DE PIEDRA en los pies (le ha dejado lento): nubecillas grises que se levantan poco y se posan.
+func _polvo(capa: Node2D) -> void:
+	if _t < 0.0 or capa != _delante:
+		return
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0:
+			continue
+		var k: float = clampf(tg / (T_POLVO - 0.15), 0.0, 1.0)
+		var p: Vector2 = _pies + Vector2(float(g["x"]) * _ancho * (1.0 + 0.5 * k), -float(g["sube"]) * sin(k * PI * 0.5))
+		BestiaAire._bola(capa, p, _ancho * 0.2 * float(g["tam"]) * (0.7 + 0.6 * k), Color(POLVO_PIEDRA, 0.55 * (1.0 - k)))
+
+
+# LA PIEL SE HACE PIEDRA (la Mirada petrea): de los pies a media pierna, una capa de basalto claro con su borde y el
+# filo de arriba mellado, que SUBE en 0,25 s, se queda y se deshace en polvo al irse.
+func _petrea(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var sube: float = clampf(_t / 0.25, 0.0, 1.0)
+	sube = sube * (2.0 - sube)
+	var alfa: float = 1.0 - smoothstep(0.7, 1.0, _t / T_PETREA)
+	# Media pierna DE VERDAD: casi la mitad de la figura y un poco mas ancho que ella (a 0,32 x 0,3 eran motas en los pies).
+	var alto: float = _largo * 0.46 * sube
+	var mitad: float = _ancho * 0.62
+	if capa == _delante:
+		if alto < 1.0:
+			return
+		# El contorno: de un pie al otro por abajo y el filo de arriba mellado.
+		var n: int = 7
+		var fuera := PackedVector2Array()
+		var dentro := PackedVector2Array()
+		for i in n + 1:
+			var k: float = float(i) / float(n)
+			var x: float = lerpf(-mitad, mitad, k)
+			var mella: float = (0.12 + 0.12 * sin(float(i) * 2.7 + 1.3)) * alto
+			fuera.append(_pies + Vector2(x, -alto + mella))
+			dentro.append(_pies + Vector2(x, 1.5))
+		var borde_f := PackedVector2Array()
+		var borde_d := PackedVector2Array()
+		for i in n + 1:
+			var k2: float = float(i) / float(n) * 2.0 - 1.0
+			borde_f.append(fuera[i] + Vector2(k2 * 1.2, -1.1))
+			borde_d.append(dentro[i] + Vector2(k2 * 1.2, 0.8))
+		BestiaAire._tira(capa, borde_f, borde_d, Color(_borde, 0.95 * alfa))
+		BestiaAire._tira(capa, fuera, dentro, Color(_claro.lerp(_barro, 0.35), 0.95 * alfa))
+		# Las caras de la piedra: facetas mas oscuras (sin rayas).
+		for i in 3:
+			var cx: float = lerpf(-mitad * 0.6, mitad * 0.6, float(i) / 2.0)
+			var c: Vector2 = _pies + Vector2(cx, -alto * 0.35)
+			var h: float = alto * 0.3
+			var w: float = mitad * 0.28
+			capa.draw_colored_polygon(PackedVector2Array([c + Vector2(-w, 0.0), c + Vector2(0.0, -h),
+				c + Vector2(w * 1.1, 0.2), c + Vector2(0.3, h * 0.6)]), Color(_barro, 0.8 * alfa))
+		return
+	if capa == _suelo and _t > T_PETREA * 0.7:
+		_polvo_de(capa, (_t - T_PETREA * 0.7) / (T_PETREA * 0.3))
+
+
+func _polvo_de(capa: CanvasItem, k: float) -> void:
+	for g in _piezas:
+		var p: Vector2 = _pies + Vector2(float(g["x"]) * _ancho * (1.0 + 0.4 * k), -float(g["sube"]) * 0.5 * k)
+		BestiaAire._bola(capa, p, _ancho * 0.18 * float(g["tam"]) * (0.8 + 0.5 * k), Color(POLVO_PIEDRA, 0.45 * (1.0 - k)))
+
+
+# LE PEGAN POSADA (es piedra, recibe la mitad): destello SECO (corto, frio), chispas que saltan hacia quien pega y
+# lascas de piedra.
+func _estatua(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	if capa == _brillo:
+		if _t < 0.09:
+			var pulso: float = 1.0 - _t / 0.09
+			BarridoAire.destello(capa, _imp, 8.0 + 4.0 * pulso, Color(1.0, 1.0, 1.0, pulso), 0.35)
+		# Las chispas: cometas cortas y gordas, amarillo blanco, rapidas.
+		var k: float = clampf(_t / 0.22, 0.0, 1.0)
+		if k >= 1.0:
+			return
+		for i in 5:
+			var ang: float = (-_eje).angle() + (float(i) - 2.0) * 0.45 + sin(float(i) * 4.1) * 0.15
+			var d := Vector2(cos(ang), sin(ang) * K - 0.35).normalized()
+			var cab: Vector2 = _imp + d * (4.0 + 22.0 * k) + Vector2(0.0, 30.0 * k * k)
+			BarridoAire.cometa(capa, cab - d * 10.0 * (1.0 - k * 0.5), cab, 3.0, Color(1.0, 0.9, 0.6, 1.0 - k))
+		return
+	if capa == _delante:
+		_esquirlas(capa, _imp, _t, 0.35)
+
+
+# DEJA DE SER ESTATUA: se le sueltan trocitos del cuerpo que caen a sus pies, y un poco de polvo al llegar.
+func _despereza(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	if capa == _delante:
+		for g in _piezas:
+			var tg: float = _t - float(g["t0"])
+			if tg < 0.0:
+				continue
+			var p0: Vector2 = Vector2(_hasta.x + float(g["x"]) * _ancho, _hasta.y + float(g["y"]) * _largo)
+			var v: Vector2 = g["v"]
+			var p: Vector2 = p0 + v * tg + Vector2(0.0, 0.5 * GRAVEDAD * tg * tg)
+			var alfa: float = 1.0
+			if p.y > _pies.y + 1.0:
+				p.y = _pies.y + 1.0
+				alfa = 1.0 - clampf((_t - 0.5) / 0.3, 0.0, 1.0)
+			_piedra(capa, p, g["forma"], float(g["tam"]) * 0.8, float(g["gira"]) * minf(tg, 0.4), alfa)
+		return
+	if capa == _suelo and _t > 0.2:
+		var k: float = clampf((_t - 0.2) / 0.6, 0.0, 1.0)
+		for i in 4:
+			var lado: float = -1.0 if i % 2 == 0 else 1.0
+			BestiaAire._bola(capa, _pies + Vector2(lado * _ancho * (0.25 + 0.3 * float(i / 2) + 0.3 * k), -2.0 * k),
+				_ancho * (0.18 + 0.15 * k), Color(POLVO_PIEDRA, 0.4 * (1.0 - k)))
+
+
+# ------------------------------------------------------------
+#  POR EL SUELO: LA ONDA DE LA MIRADA PETREA (SueloRoto.Tipo.CONSTRUCTO_PETREA)
+# ------------------------------------------------------------
+var _o: Vector2 = Vector2.ZERO
+var _dir: Vector2 = Vector2.RIGHT
+var _banda: float = 0.7
+
+static func area(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> ConstructoAire:
+	if padre == null or f == null:
+		return null
+	var e := ConstructoAire.new()
+	e.modo = Modo.CONO
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	e._tonos(BASALTO, true)
+	e._o = f.origen
+	e._dir = f.dir.normalized() if f.dir.length_squared() > 0.0001 else Vector2.RIGHT
+	e._largo = maxf(f.radio, 8.0)
+	e._banda = deg_to_rad(f.apertura if f.apertura > 0.0 else 40.0)
+	# Las lascas que va levantando el frente: en que tramo del cono (u), a que lado (s) y cuanto saltan.
+	for i in 14:
+		var q: Dictionary = _esquirla(e._rng, Vector2.ZERO, 0.35)
+		q["u"] = e._rng.randf_range(0.15, 0.95)
+		q["s"] = e._rng.randf_range(-0.85, 0.85)
+		e._piezas.append(q)
+	padre.add_child(e)
+	e._suelo = e._capa(SueloRoto.Z_SUELO + 2, false)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._brillo = e._capa(Z_ENCIMA + 1, true)
+	e._t = -maxf(espera, 0.0) * e._ritmo
+	return e
+
+
+# CUANDO LE LLEGA el frente a 'p' (lo mismo que se dibuja).
+static func retraso(f: CombatFormas.Forma, p: Vector2) -> float:
+	if f == null:
+		return 0.0
+	var u: float = clampf(p.distance_to(f.origen) / maxf(f.radio, 1.0), 0.0, 1.0)
+	return (1.0 - sqrt(1.0 - u)) * T_CONO
+
+
+func _en_cono(u: float, s: float) -> Vector2:
+	var a: float = _dir.angle() + s * _banda * 0.5
+	return _o + Vector2(cos(a), sin(a)) * (_largo * u)
+
+
+# LA ONDA: sus ojos claros se encienden (alto, sobre donde nace el cono) y por el cono avanza un FRENTE de piedra gris,
+# relleno y gordo, con el filo claro delante y el borde oscuro detras; el suelo por donde pasa se queda gris un momento
+# y salta alguna lasca.
+func _cono(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	# SUS OJOS: en su cabeza, arriba y detras de donde nace el cono (a -14 salia en el pecho).
+	# De lado (E/O) el frente del cono esta a la altura de los pies y la cabeza queda mas arriba que hacia N/S.
+	var ojo: Vector2 = _o - _dir * 10.0 - Vector2(0.0, 27.0 + 14.0 * (1.0 - absf(_dir.y)))
+	var k: float = clampf(_t / T_CONO, 0.0, 1.0)
+	var r: float = _largo * (1.0 - (1.0 - k) * (1.0 - k))
+	var apaga: float = clampf((_t - T_CONO) / 0.35, 0.0, 1.0)
+	var mitad: float = _banda * 0.5
+	var n: int = 14
+	if capa == _brillo:
+		if _t < 0.3:
+			var ke: float = _t / 0.3
+			BarridoAire.destello(capa, ojo, 6.0 + 5.0 * sin(PI * ke), Color(OJO_CLARO, 0.9 * (1.0 - ke)), 0.0)
+		return
+	if capa == _suelo:
+		# El suelo PETRIFICADO por detras del frente: gris, que se apaga al final.
+		var fuera := PackedVector2Array()
+		var dentro := PackedVector2Array()
+		for i in n + 1:
+			var s: float = float(i) / float(n) * 2.0 - 1.0
+			var a: float = _dir.angle() + s * mitad
+			fuera.append(_o + Vector2(cos(a), sin(a)) * r)
+			dentro.append(_o + Vector2(cos(a), sin(a)) * 4.0)
+		BestiaAire._tira(capa, fuera, dentro, Color(_barro, 0.35 * (1.0 - apaga)))
+		return
+	if capa != _delante or apaga >= 1.0:
+		return
+	var alfa: float = 1.0 - apaga
+	# EL FRENTE: una banda de piedra gorda a lo ancho del cono, con el borde oscuro detras y el filo claro delante.
+	# GORDO (a 5-10 px se leia como una raya en arco): un frente de piedra con cuerpo.
+	var grueso: float = lerpf(11.0, 18.0, k)
+	var borde_f := PackedVector2Array()
+	var borde_d := PackedVector2Array()
+	var cara_f := PackedVector2Array()
+	var cara_d := PackedVector2Array()
+	var filo := PackedVector2Array()
+	for i in n + 1:
+		var s2: float = float(i) / float(n) * 2.0 - 1.0
+		var a2: float = _dir.angle() + s2 * mitad
+		var d := Vector2(cos(a2), sin(a2))
+		var w: float = grueso * (1.0 - 0.55 * s2 * s2) * (0.85 + 0.3 * sin(float(i) * 2.3 + 0.7))
+		borde_f.append(_o + d * (r + 1.0))
+		borde_d.append(_o + d * maxf(r - w - 1.2, 0.0))
+		cara_f.append(_o + d * r)
+		cara_d.append(_o + d * maxf(r - w, 0.0))
+		filo.append(_o + d * maxf(r - w * 0.3, 0.0))
+	BestiaAire._tira(capa, borde_f, borde_d, Color(_borde, 0.9 * alfa))
+	BestiaAire._tira(capa, cara_f, cara_d, Color(_barro, 0.95 * alfa))
+	BestiaAire._tira(capa, cara_f, filo, Color(_claro, 0.95 * alfa))
+	# LAS LASCAS: al pasarles el frente saltan un poco y caen.
+	for g in _piezas:
+		var t_llega: float = (1.0 - sqrt(1.0 - float(g["u"]))) * T_CONO
+		var tg: float = _t - t_llega
+		if tg < 0.0 or tg > 0.4:
+			continue
+		var base: Vector2 = _en_cono(float(g["u"]), float(g["s"]))
+		var v: Vector2 = g["v"]
+		var p: Vector2 = base + Vector2(v.x * 0.4, v.y) * tg + Vector2(0.0, 0.5 * GRAVEDAD * tg * tg)
+		if p.y > base.y:
+			p.y = base.y
+		_piedra(capa, p, g["forma"], float(g["tam"]) * 0.8, float(g["gira"]) * tg,
+			1.0 - clampf((tg - 0.25) / 0.15, 0.0, 1.0))

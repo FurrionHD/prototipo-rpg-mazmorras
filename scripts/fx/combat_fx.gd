@@ -419,7 +419,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		PASIVA_LLAMADA = 174, PASIVA_ARDE = 175, PASIVA_DESTELLO = 176,
 		AVISO_INTERRUMPIDO = 177, AVISO_RETRASO = 178, AVISO_INMUNE = 179,
 		# LOS CONSTRUCTOS en el mapa (30/09, ConstructoAire): el golem, su puñetazo de barro y el de la Machaca (mas gordo).
-		CONSTRUCTO_PUNO = 180, CONSTRUCTO_MACHACA = 181 }
+		CONSTRUCTO_PUNO = 180, CONSTRUCTO_MACHACA = 181,
+		# Y la gargola: los surcos de su zarpazo, la losa del Picado sobre cada uno y la piedra que sube por las piernas
+		# con la Mirada petrea.
+		GARGOLA_ZARPA = 182, GARGOLA_PICADO = 183, GARGOLA_PETREA = 184 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -468,6 +471,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.AVISO_INTERRUMPIDO, Estilo.AVISO_RETRASO, Estilo.AVISO_INMUNE,
 	# y los constructos (ConstructoAire, 30/09).
 	Estilo.CONSTRUCTO_PUNO, Estilo.CONSTRUCTO_MACHACA,
+	Estilo.GARGOLA_ZARPA, Estilo.GARGOLA_PICADO, Estilo.GARGOLA_PETREA,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -649,6 +653,9 @@ const T_VUELO := {
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
 	# El puño lo lleva su sprite: el barro revienta EN el golpe.
 	Estilo.CONSTRUCTO_PUNO: 0.02, Estilo.CONSTRUCTO_MACHACA: 0.02,
+	# La garra la lleva su sprite y los surcos se abren EN el golpe; la losa cae EN el golpe; la piedra sube cuando le
+	# llega la onda por su cono.
+	Estilo.GARGOLA_ZARPA: 0.02, Estilo.GARGOLA_PICADO: 0.02, Estilo.GARGOLA_PETREA: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1989,6 +1996,8 @@ const IMPACTO_ANIM_MAPA := {
 	"yugular": 0.6, "desgarrar": 0.22,
 	# El golem (30/09): sube los brazos y los deja caer; con su 'embestida' (8 marcos) el puño toca en el 6.
 	"golem_golpe": 0.5,
+	# La gargola (30/09): el Picado cae desde el vuelo de su carga ('picar', 8 marcos) y las garras tocan en el 6.
+	"picar": 0.5,
 	# LA REVISION DE SINCRONIA (30/09, tools/ver_sincro, lo pidio el usuario tras el golem): los basicos que tocan mas
 	# tarde que a mitad de su animacion (con el adelanto de siempre, 0,16, el efecto salia un marco o dos antes que el
 	# golpe). El nombre dice en que marco toca: el 5 de 8, el 6 de 8, el 4 de 6. Lo usan por EnemyData.anim_basico.
