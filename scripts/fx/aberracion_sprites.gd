@@ -178,6 +178,7 @@ static func generar(color: Color = Color(0.45, 0.2, 0.5), escala: float = 1.0) -
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_basico(anims, esc)
 	_montar_alarido(anims, esc)
 	_montar_mirada(anims, esc)
 	_montar_encaje(anims, esc)
@@ -256,6 +257,27 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "embestida", false, 12.0, pose, true)
 
 
+# EL LATIGAZO DEL TACTICO ('basico', 30/09; el Latigazo de tentaculo lo usa tambien y la pelea lo repite en cada
+# golpe): un gesto CORTO -- se encoge y SUELTA hacia el golpe con las fauces entreabiertas, sin avanzar. El tentaculo
+# que pega es el efecto (FieraAire.TENTACULO); si el cuerpo disparara ademas los seis (la 'embestida'), serian siete.
+# Suelta en 0,37 de 7/16 = 0,16 s (T_ANIM_ADELANTO).
+static func _montar_basico(anims: Array, esc: float) -> void:
+	var avance_keys := [[0.0, 0.0], [0.2, -1.2], [0.37, 1.2], [0.6, 0.6], [1.0, 0.0]]
+	var palpita_keys := [[0.0, 0.0], [0.2, -1.0], [0.37, 1.1], [0.6, 0.4], [1.0, 0.0]]
+	var azota_keys := [[0.0, 0.0], [0.2, -0.3], [0.37, 0.35], [0.6, 0.15], [1.0, 0.0]]
+	# Entreabierta y POCO: de perfil los dientes de las fauces abiertas se leian como una gota blanca colgando del ojo.
+	var boca_keys := [[0.0, 0.15], [0.2, 0.25], [0.37, 0.38], [1.0, 0.15]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["avance"] = SpriteLienzo.tramos(t, avance_keys)
+		p["palpita"] = SpriteLienzo.tramos(t, palpita_keys)
+		p["azota"] = SpriteLienzo.tramos(t, azota_keys)
+		p["boca"] = SpriteLienzo.tramos(t, boca_keys)
+		p["aplasta"] = 0.2 * maxf(0.0, -SpriteLienzo.tramos(t, azota_keys))
+		return p
+	_montar_animacion(anims, esc, "basico", false, 16.0, pose, true)
+
+
 # EL ALARIDO DEMENTE: abre las fauces DEL TODO, se hincha y grita. No pega a nadie -- es un estado --
 # asi que el cuerpo no puede ir a ningun sitio.
 #
@@ -291,7 +313,8 @@ static func _montar_alarido(anims: Array, esc: float) -> void:
 		p["parpado"] = 0.0
 		return p
 	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "alarido", false, 9.0, pose, true, 1, FRAMES)
+	# EN OCHO DIRECCIONES (30/09): en el tactico grita mirando a donde mire.
+	_montar_animacion(anims, esc, "alarido", false, 9.0, pose, true, 8, FRAMES)
 
 
 # LA MIRADA DEL VACIO: se yergue, ABRE EL OJO del todo y se queda clavada. Ni toca ni grita.
@@ -315,7 +338,8 @@ static func _montar_mirada(anims: Array, esc: float) -> void:
 	var boca_keys := [[0.0, 0.15], [0.143, 0.08], [0.286, 0.10], [0.571, 0.10], [1.0, 0.15]]
 	# EL PARPADO: cierra el ojo un instante al coger aire y lo abre DE PAR EN PAR el resto. Un ojo que
 	# parpadea justo antes es lo que hace que el de despues se lea como abierto del todo.
-	var parpado_keys := [[0.0, 0.0], [0.143, 0.85], [0.286, 0.0], [1.0, 0.0]]
+	# Cierra DEL TODO (1,0, como el idle): a 0,85 quedaba un ganchito blanco del globo en las diagonales.
+	var parpado_keys := [[0.0, 0.0], [0.143, 1.0], [0.286, 0.0], [1.0, 0.0]]
 	# La onda del cuerpo se apaga: se queda tiesa mirando.
 	var onda_keys := [[0.0, 0.0], [0.143, 0.6], [0.286, 0.3], [0.429, 0.10], [0.571, 0.0],
 		[0.714, 0.0], [0.857, 0.1], [1.0, 0.0]]
@@ -327,7 +351,8 @@ static func _montar_mirada(anims: Array, esc: float) -> void:
 		p["onda"] = SpriteLienzo.tramos(t, onda_keys)
 		return p
 	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "mirada", false, 9.0, pose, true, 1, FRAMES)
+	# EN OCHO DIRECCIONES (30/09): en el tactico mira hacia su cono.
+	_montar_animacion(anims, esc, "mirada", false, 9.0, pose, true, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente) y
@@ -354,7 +379,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 		return p
 	# TODOS LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las
 	# dos el sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# EN OCHO DIRECCIONES (30/09): en el tactico encaja mirando a donde mire.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE. OCHO fotogramas en UNA sola direccion: la muerte solo se ve en la pantalla de combate, y
@@ -391,7 +417,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 9.0, pose, true, 1, 8)
+	# EN OCHO DIRECCIONES (30/09).
+	_montar_animacion(anims, esc, "muerte", false, 9.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que

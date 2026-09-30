@@ -21,3 +21,5 @@ forma_radio = 90.0
 forma_reparte = true
 ; EFECTO EN EL MAPA (30/09): cada golpe, un tentaculo que brota de un sitio de su masa (FIERA_TENTACULO).
 fx_estilo_mapa = 172
+; SU GESTO EN EL MAPA (30/09): el del basico, una sacudida por golpe (AberracionSprites._montar_basico).
+fx_anim = &"basico"
