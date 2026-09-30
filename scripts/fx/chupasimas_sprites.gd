@@ -278,7 +278,15 @@ static func _montar_adherirse(anims: Array, esc: float) -> void:
 		return _pose({"boca": SpriteLienzo.tramos(t, boca_keys),
 			"alza": SpriteLienzo.tramos(t, alza_keys),
 			"arco": SpriteLienzo.tramos(t, arco_keys)})
-	_montar_animacion(anims, esc, "adherirse", false, 11.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa lo hace saltando hacia su presa (AbilityData.salta).
+	_montar_animacion(anims, esc, "adherirse", false, 11.0, pose, true, 8, FRAMES)
+	# PEGADA (30/09, el Adherirse en el mapa): la pose con la que va encima de su presa mientras le chupa, en bucle. La
+	# del final del Adherirse -encogida y tirando- con un bombeo lento: sigue chupando aunque no sea su turno.
+	# (CombatTactico._tick_vis_pegadas la sube a la altura del pecho de la presa.)
+	var pegada := func(t: float) -> Dictionary:
+		return _pose({"boca": 0.2, "alza": 0.4, "arco": 0.74 + 0.06 * sin(TAU * t),
+			"hincha": 0.12 + 0.1 * (0.5 - 0.5 * cos(TAU * t))})
+	_montar_animacion(anims, esc, "adherido", true, 5.0, pegada, false, 8, 6)
 
 
 # DRENAJE (fx_anim = "drenaje"). "Bombea. Se le ve el cuerpo llenarse a tirones mientras a ti se te
@@ -298,7 +306,8 @@ static func _montar_drenaje(anims: Array, esc: float) -> void:
 		return _pose({"hincha": SpriteLienzo.tramos(t, hincha_keys),
 			"arco": SpriteLienzo.tramos(t, arco_keys),
 			"alza": 0.40, "boca": 0.20})   # sigue pegada todo el rato
-	_montar_animacion(anims, esc, "drenaje", false, 11.0, pose, true, 1, FRAMES)
+	# OCHO DIRECCIONES (30/09): en el mapa, pegada encima de su presa.
+	_montar_animacion(anims, esc, "drenaje", false, 11.0, pose, true, 8, FRAMES)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente) y
@@ -317,7 +326,8 @@ static func _montar_encaje(anims: Array, esc: float) -> void:
 			"arco": SpriteLienzo.tramos(t, arco_keys)})
 	# LOS BICHOS ENCAJAN A 18 fps: es la duracion que espera CombatFX.T_ENCAJE, y cuadrando las dos el
 	# sprite va a su velocidad natural en vez de estirado por _pose_ajustar.
-	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 1, 4)
+	# OCHO DIRECCIONES (30/09): en el mapa encaja mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "encaje", false, 18.0, pose, true, 8, 4)
 
 
 # MORIRSE: SE QUEDA LAXA. Ocho fotogramas en UNA sola direccion -- la muerte solo se ve en la pantalla
@@ -346,7 +356,8 @@ static func _pose_muerte(t: float) -> Dictionary:
 static func _montar_muerte(anims: Array, esc: float) -> void:
 	var pose := func(t: float) -> Dictionary:
 		return _pose_muerte(t)
-	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 1, 8)
+	# OCHO DIRECCIONES (30/09): en el mapa muere mirando hacia donde miraba.
+	_montar_animacion(anims, esc, "muerte", false, 10.0, pose, true, 8, 8)
 
 
 # EL CADAVER DEL MAPA: UN fotograma por CADA UNA de las ocho direcciones, que es justo al reves que

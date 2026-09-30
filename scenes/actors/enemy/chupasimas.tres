@@ -53,3 +53,7 @@ fx_basico = 114
 habilidades = [ExtResource("3_adh"), ExtResource("4_dre")]
 prob_habilidad = 0.5
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; ALCANCE del basico en el mapa (30/09): tiene que tocarte con la boca.
+alcance = 15.0
+; EL BASICO EN EL MAPA (30/09): se echa encima con la boca abierta ('embestida') y en ti, su ventosa (SIMA_VENTOSA).
+fx_basico_mapa = 159

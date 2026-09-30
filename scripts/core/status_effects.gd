@@ -45,7 +45,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	RESGUARDO,
 	CEGUERA,
 	OPORTUNISTA,
-	ENROSCADO }
+	ENROSCADO,
+	PEGADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -381,6 +382,15 @@ static var _defs: Dictionary = {
 		"turns": 999, "enrosca": true, "debuff": true,
 		"descripcion": "Te tiene rodeado y aprieta. Mientras no te suelte, ni te mueves ni levantas el brazo.",
 	},
+	# LA SANGUIJUELA PEGADA (30/09, el Adherirse del chupasimas, solo en el mapa). Lo llevan LOS DOS: la sanguijuela,
+	# que va encima de su presa a donde vaya y no anda por su cuenta, y la presa, que SI se mueve y ataca (es lo que lo
+	# separa del Enroscado): solo la lleva encima chupando. NO se va por turnos: la quita CombatTactico (ver
+	# empezar_pegada).
+	Id.PEGADO: {
+		"id": Id.PEGADO, "nombre": "Sanguijuela", "icono": "🩸", "color": Color(0.55, 0.2, 0.28),
+		"turns": 999, "pega": true, "debuff": true,
+		"descripcion": "Llevas una sanguijuela pegada que te chupa cada turno suyo. Quítasela a golpes o aturdiéndola.",
+	},
 
 	# --- PLATOS DE COCINA (KAN-119) ---------------------------------------------------
 	# Buffs LARGOS (PLATO_TURNOS = 20 min de mapa) que se comen en el pueblo o abajo. Tres cosas
@@ -615,7 +625,7 @@ class Instance extends RefCounted:
 		if usos > 0:
 			return "x%d" % usos
 		# El Enroscado no se va por turnos: dura hasta que te sueltan (CombatTactico).
-		if bool(d.get("enrosca", false)):
+		if bool(d.get("enrosca", false)) or bool(d.get("pega", false)):
 			return "∞"
 		return tiempo_restante() if es_tiempo_real() else "%dt" % turns
 
@@ -753,6 +763,8 @@ class Instance extends RefCounted:
 			lineas.append("Impide atacar y tirar habilidades. Los hechizos sí salen.")
 		if bool(d.get("enrosca", false)):
 			lineas.append("No te mueves ni puedes hacer nada más que pasar.")
+		if bool(d.get("pega", false)):
+			lineas.append("Te chupa cada turno suyo hasta que se la quitan.")
 		# ESCOLTA, igual: era un chip mudo.
 		if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 			lineas.append("Atacas detrás de un compañero.")
@@ -805,7 +817,7 @@ static func estados_que_salen(statuses: Array) -> Array:
 		if float(e.d.get("hp_mult", 1.0)) != 1.0:
 			continue
 		# El Enroscado es de la pelea (lo sujeta el ciempies de ESA pelea): fuera no hay quien te suelte.
-		if bool(e.d.get("enrosca", false)):
+		if bool(e.d.get("enrosca", false)) or bool(e.d.get("pega", false)):
 			continue
 		out.append(dict_de_instancia(e))
 	return out
@@ -912,6 +924,8 @@ static func efecto_legible(id: int, mult: float = 0.0, escala: float = 1.0) -> S
 		return "le clava al suelo: no puede atacar ni usar habilidades (los hechizos sí)"
 	if bool(d.get("enrosca", false)):
 		return "le enrosca: no se mueve ni puede hacer nada más que pasar"
+	if bool(d.get("pega", false)):
+		return "se le pega encima y le chupa cada turno"
 	if float(d.get("seguimiento_pct", 0.0)) > 0.0:
 		return "pegas detrás de cada aliado realizando un %d%% del daño básico" % roundi(
 			float(d["seguimiento_pct"]) * 100.0)

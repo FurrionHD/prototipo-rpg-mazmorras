@@ -1532,6 +1532,7 @@ func reducir_cooldowns(turnos: int, excepto = null) -> int:
 const PUERTA_SILENCIO := 1
 const PUERTA_ENRAIZADO := 2
 const PUERTA_ENROSCADO := 4
+const PUERTA_PEGADO := 8
 var puertas_remotas: int = -1
 
 
@@ -1569,6 +1570,17 @@ func enroscado() -> bool:
 	return false
 
 
+# ¿Con una sanguijuela pegada, o siendo la sanguijuela? (el Adherirse del chupasimas, 30/09, solo en el mapa). Lo
+# llevan LOS DOS; a la presa no le quita nada (anda y ataca), a la sanguijuela no la deja andar. Ver CombatTactico.
+func pegado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_PEGADO) != 0
+	for e in statuses:
+		if bool(e.d.get("pega", false)):
+			return true
+	return false
+
+
 # Las puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
 func puertas() -> int:
 	var v: int = 0
@@ -1578,6 +1590,8 @@ func puertas() -> int:
 		v |= PUERTA_ENRAIZADO
 	if enroscado():
 		v |= PUERTA_ENROSCADO
+	if pegado():
+		v |= PUERTA_PEGADO
 	return v
 
 

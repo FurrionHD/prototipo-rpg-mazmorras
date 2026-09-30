@@ -11,6 +11,11 @@
 #                parezca un brazo suyo"). Sale de la MANO del brazo que su sprite levanta EN ALTO ('micelio') y se
 #                pinta COMO SU SPRITE: una cadena de cuentas con el borde oscuro, el relleno de su brazo y un brillo,
 #                del grosor de su brazo y afilandose; ondea como un latigo, se enrosca en la pierna y se recoge.
+#  EL CHUPASIMAS (30/09):
+#    VENTOSA     el basico y el Adherirse: SU BOCA vista de frente sobre la victima, un anillo de dientecitos que se
+#                cierra hacia dentro, con una gota de sangre y otra de agua (va mojada).
+#    CHUPADA     cada chupada del Drenaje: gotas rojas que salen del pecho de la victima y suben hasta ella en fila, y
+#                su cuerpo se enrojece un momento al tragarlas.
 #  SE QUEDA:
 #    NUBE        la Bocanada (AbilityData.charco_estilo 2): la nube parda flotando a la altura de la cara los turnos
 #                del miconido, cada vez mas rala y mas pequeña (como el charco de savia: CombatTactico._charco_visible).
@@ -21,7 +26,7 @@
 extends Node2D
 class_name SimaAire
 
-enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO }
+enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA }
 
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 const ESPORA := Color(0.5, 0.4, 0.24)
@@ -32,6 +37,11 @@ const T_LATIGO_VA := 0.2          # lo que tarda en llegar desde la mano (Combat
 const T_LATIGO_SUELTA := 0.35     # lo que se queda enroscado tras el golpe y se recoge
 const T_NUBE_SALE := 0.33         # la nube sale en el reventon del sombrero ('esporas')
 const T_SECA := 0.5
+const T_VENTOSA := 0.45
+const T_CHUPADA := 0.4
+const DIENTE := Color(0.96, 0.88, 0.84)
+const SANGRE := Color(0.62, 0.05, 0.07)
+const AGUA := Color(0.55, 0.75, 0.95)
 
 var modo: int = Modo.PORRAZO
 var _t: float = 0.0
@@ -91,6 +101,24 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v:
 			for i in 7:
 				e._piezas.append({"p": Vector2(e._rng.randf_range(-0.5, 0.5), e._rng.randf_range(-0.3, 0.3)),
 					"tam": e._rng.randf_range(0.28, 0.45), "t0": e._rng.randf_range(0.0, 0.08)})
+		Modo.VENTOSA:
+			e._viaje = clampf(espera, 0.06, 0.14)
+			e._t = -e._viaje
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.42) \
+				+ Vector2(e._rng.randf_range(-0.12, 0.12) * caja.size.x, e._rng.randf_range(-0.06, 0.06) * caja.size.y)
+			e._r = maxf(caja.size.x * 0.55, 7.0)   # a 0,42 era un punto tapado por ella; a 0,75, el doble que la figura
+			e._carne = color
+			for i in 5:
+				e._piezas.append({"d": Vector2(e._rng.randf_range(-1.0, 1.0), -e._rng.randf_range(0.3, 1.0)).normalized(),
+					"v": e._rng.randf_range(8.0, 16.0), "tam": e._rng.randf_range(0.9, 1.5), "agua": i >= 3,
+					"t0": e._rng.randf_range(0.0, 0.05)})
+		Modo.CHUPADA:
+			e._t = -maxf(espera, 0.0)
+			e._hasta = Vector2(caja.get_center().x, caja.position.y + caja.size.y * 0.45)
+			e._mano = desde.get_center() if desde.has_area() else e._hasta - Vector2(0.0, 12.0)
+			e._carne = color
+			for i in 5:
+				e._piezas.append({"t0": float(i) * 0.04, "lado": e._rng.randf_range(-1.0, 1.0), "tam": e._rng.randf_range(1.3, 2.0)})
 		Modo.LATIGO:
 			e._viaje = clampf(espera, 0.08, T_LATIGO_VA)
 			e._t = -e._viaje
@@ -181,6 +209,8 @@ func duracion() -> float:
 		Modo.TOS: return T_TOS
 		Modo.LATIGO: return T_LATIGO_SUELTA + 0.25
 		Modo.NUBE, Modo.ATADO: return INF if _secando < 0.0 else _secando + T_SECA
+		Modo.VENTOSA: return T_VENTOSA
+		Modo.CHUPADA: return T_CHUPADA + 0.2
 	return 1.0
 
 
@@ -214,6 +244,8 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.LATIGO: _latigo(capa)
 		Modo.NUBE: _nube(capa)
 		Modo.ATADO: _atado(capa)
+		Modo.VENTOSA: _ventosa(capa)
+		Modo.CHUPADA: _chupada(capa)
 
 
 # ------------------------------------------------------------
@@ -396,3 +428,89 @@ func _atado(capa: Node2D) -> void:
 			var ang: float = PI * float(j) / 10.0
 			anillo.append(Vector2(_hasta.x + cos(ang) * _ancho * 0.5, cy + sin(ang) * r * 1.4 + cos(ang) * inc * _ancho * 0.5))
 		_cordon(capa, anillo, r, r, alfa)
+
+
+# ------------------------------------------------------------
+#  EL CHUPASIMAS
+# ------------------------------------------------------------
+# LA VENTOSA: su boca redonda vista de frente sobre la victima. Un aro de su carne que llega grande y se CIERRA,
+# con los dientecitos por dentro apuntando al centro (cometas cortas y gordas, no rayas); al cerrarse, un
+# destello, gotas de sangre y alguna de agua que salpican hacia arriba, y el aro se apaga.
+func _ventosa(capa: Node2D) -> void:
+	var c: Vector2 = _hasta
+	if capa == _brillo:
+		if _t >= 0.0 and _t < 0.1:
+			BarridoAire.destello(capa, c, _r * 0.8, Color(1.0, 0.9, 0.9, 0.7 * (1.0 - _t / 0.1)), 0.5)
+		return
+	if capa != _delante:
+		return
+	var cierre: float
+	var alfa: float
+	if _t < 0.0:
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		cierre = u * u
+		alfa = clampf(u * 3.0, 0.0, 1.0)
+	else:
+		cierre = 1.0
+		alfa = 1.0 - smoothstep(0.12, T_VENTOSA, _t)
+	var r: float = _r * lerpf(1.5, 0.75, cierre)
+	var aplana: float = 0.72   # el aro visto un poco de lado
+	# EL ARO DE CARNE: una corona de bolas de su color con el borde oscuro.
+	for i in 14:
+		var a: float = TAU * float(i) / 14.0
+		var p: Vector2 = c + Vector2(cos(a), sin(a) * aplana) * r
+		capa.draw_circle(p.round(), r * 0.26 + 1.0, Color(_carne.darkened(0.7), alfa))
+	for i in 14:
+		var a: float = TAU * float(i) / 14.0
+		var p: Vector2 = c + Vector2(cos(a), sin(a) * aplana) * r
+		capa.draw_circle(p.round(), r * 0.26, Color(_carne.lightened(0.1), alfa))
+	# LOS DIENTES, hacia dentro.
+	for i in 10:
+		var a: float = TAU * (float(i) + 0.5) / 10.0
+		var d := Vector2(cos(a), sin(a) * aplana)
+		var base: Vector2 = c + d * r * 0.85
+		var punta: Vector2 = c + d * r * lerpf(0.55, 0.3, cierre)
+		BarridoAire.cometa(capa, base, punta, maxf(1.8, r * 0.2), Color(DIENTE, alfa))
+	if _t < 0.0:
+		return
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.35:
+			continue
+		var k: float = tg / 0.35
+		var q: Vector2 = c + (g["d"] as Vector2) * float(g["v"]) * sqrt(k) + Vector2(0.0, 16.0 * k * k)
+		var col: Color = AGUA if bool(g["agua"]) else SANGRE
+		BestiaAire._bola(capa, q, float(g["tam"]) * 1.8, Color(col, 0.3 * (1.0 - k)))
+		capa.draw_circle(q, float(g["tam"]), Color(col, 1.0 - k * k))
+
+
+# LA CHUPADA: cinco gotas rojas que salen del pecho de la victima en fila y SUBEN hasta la sanguijuela (con una
+# comba: cada una su lado), cometas rellenas con la cola hacia donde vienen; al llegar, su cuerpo se enrojece.
+func _chupada(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var a: Vector2 = _hasta
+	var b: Vector2 = _mano
+	var d: Vector2 = b - a
+	var n: Vector2 = d.orthogonal().normalized()
+	if capa == _brillo:
+		var llega: float = clampf((_t - 0.12) / 0.15, 0.0, 1.0) * (1.0 - clampf((_t - T_CHUPADA) / 0.2, 0.0, 1.0))
+		if llega > 0.01:
+			BestiaAire._bola(capa, b, maxf(d.length() * 0.35, 8.0), Color(0.8, 0.08, 0.1, 0.35 * llega))
+		return
+	if capa != _delante:
+		return
+	for g in _piezas:
+		var tg: float = _t - float(g["t0"])
+		if tg < 0.0 or tg > 0.2:
+			continue
+		var k: float = tg / 0.2
+		var comba: float = sin(PI * k) * float(g["lado"]) * minf(d.length() * 0.25, 6.0)
+		var cab: Vector2 = a + d * k + n * comba
+		var k0: float = maxf(k - 0.3, 0.0)
+		var cola: Vector2 = a + d * k0 + n * sin(PI * k0) * float(g["lado"]) * minf(d.length() * 0.25, 6.0)
+		BarridoAire.cometa(capa, cola, cab, float(g["tam"]) * 2.0, Color(SANGRE.lightened(0.15), 1.0 - k * 0.3))
+		capa.draw_circle(cab, float(g["tam"]), Color(SANGRE, 1.0))
+	# Donde sale: una mancha roja en el pecho que se apaga.
+	var am: float = 1.0 - clampf(_t / T_CHUPADA, 0.0, 1.0)
+	BestiaAire._bola(capa, a, 5.0, Color(SANGRE, 0.5 * am))

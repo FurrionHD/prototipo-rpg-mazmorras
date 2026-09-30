@@ -21,3 +21,6 @@ efectos = [SubResource("SA_her")]
 fx_estilo = 115
 fx_anim = &"drenaje"
 cooldown = 4
+; EFECTO EN EL MAPA (30/09): en cada chupada, las gotas que suben de la victima a ella (SIMA_CHUPADA). Pegada, la usa
+; cada turno suyo contra su presa.
+fx_estilo_mapa = 160

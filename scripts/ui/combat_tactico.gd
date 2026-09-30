@@ -279,6 +279,7 @@ func desmontar() -> void:
 	_apagar_circulos()
 	olvidar_charcos()
 	olvidar_enroscados()
+	olvidar_pegadas()
 	_quitar_raices()
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
@@ -569,6 +570,9 @@ func radio_de(c: Combatant) -> float:
 	# presa), tampoco.
 	if c.enraizado() or c.enroscado() or c.charging != null:
 		return 0.0
+	# LA SANGUIJUELA PEGADA no anda por su cuenta: va encima de su presa (_tick_pegadas). La presa si anda.
+	if c.pegado() and _pantalla._enemies.has(c):
+		return 0.0
 	return StatsMath.radio_movimiento(float(c.abilities.agilidad),
 		Game.agilidad_esperada_piso(), c.overload_factor)
 
@@ -813,6 +817,8 @@ func tick(delta: float) -> bool:
 	_tick_raices()
 	_tick_presas_carga()
 	_tick_enroscados()
+	_tick_pegadas(delta)
+	_tick_vis_pegadas()
 	_tick_tirones(delta)
 	_tick_saltos(delta)
 	_tick_deslices(delta)
@@ -1898,6 +1904,197 @@ func _apretar_vis_enrosque(e: Combatant) -> void:
 	(v["del"] as AnimatedSprite2D).play(&"apreton_delante_0")
 
 
+# ------------------------------------------------------------
+#  LA SANGUIJUELA PEGADA (30/09, el Adherirse del chupasimas; decisiones del usuario)
+# ------------------------------------------------------------
+# Si el Adherirse entra, el chupasimas se queda PEGADO encima de su presa y los dos llevan el estado Sanguijuela
+# (StatusEffects.Id.PEGADO). Lo que la separa del Enrosque del ciempies: la presa SI anda y ataca; la lleva encima.
+#   - la sanguijuela va con ella a donde vaya: quien lleva la pelea la coloca a sus pies cada fotograma (su cuerpo de
+#     verdad, asi que pegarle es pegarle AHI) y su dibujo sube a la altura del pecho (_tick_vis_pegadas);
+#   - cada turno suyo le chupa (el Drenaje, CombatEnemigos) sin andar ni cambiar de presa;
+#   - se despega: SUELTA_PEGADA de su vida maxima desde que se pego (a golpes de cualquiera), aturdida, o tras
+#     PEGADA_TURNOS turnos suyos; y cae al lado de su presa.
+const PEGADA_TURNOS := 3
+const SUELTA_PEGADA := 0.25
+const T_ENVIO_PEGADA := 0.15     # cada cuanto se manda su sitio a los demas mientras la presa anda
+var _pegadas: Dictionary = {}    # Combatant (la sanguijuela) -> {presa, hp (al pegarse), turnos, bajo (sus pies - nodo)}
+var _envio_pegada: float = 0.0
+
+func empezar_pegada(e: Combatant, presa: Combatant) -> bool:
+	if _pantalla._espejo or e == null or presa == null or not e.is_alive() or not presa.is_alive() \
+			or _pegadas.has(e) or presa.enroscado() or cuerpo_de(e) == null or cuerpo_de(presa) == null:
+		return false
+	# Una por presa: dos sanguijuelas en el mismo pecho no se leen.
+	for otra in _pegadas:
+		if _pegadas[otra]["presa"] == presa:
+			return false
+	_pegadas[e] = {"presa": presa, "hp": e.current_hp, "turnos": PEGADA_TURNOS, "bajo": _bajo_de(e)}
+	e.apply_status(StatusEffects.Id.PEGADO)
+	presa.apply_status(StatusEffects.Id.PEGADO)
+	return true
+
+
+# A quien lleva pegada 'e' (null = a nadie).
+func pegada_de(e: Combatant) -> Combatant:
+	var d = _pegadas.get(e)
+	return d["presa"] if d != null else null
+
+
+# Un turno suyo chupando: al gastar el ultimo se despega sola.
+func gastar_turno_pegada(e: Combatant) -> void:
+	var d = _pegadas.get(e)
+	if d == null:
+		return
+	d["turnos"] = int(d["turnos"]) - 1
+	if int(d["turnos"]) <= 0:
+		soltar_pegada(e, "🩸 %s, harta, se despega de %s." % [_pantalla._etq(e), (d["presa"] as Combatant).nombre])
+
+
+# Se despega: los dos pierden el estado, y la sanguijuela cae al lado de su presa (del lado de donde vino).
+func soltar_pegada(e: Combatant, motivo: String) -> void:
+	var d = _pegadas.get(e)
+	if d == null:
+		return
+	_pegadas.erase(e)
+	var presa: Combatant = d["presa"]
+	e.quitar_estado(StatusEffects.Id.PEGADO)
+	presa.quitar_estado(StatusEffects.Id.PEGADO)
+	if e.is_alive() and cuerpo_de(e) != null and cuerpo_de(presa) != null:
+		var lado: float = -1.0 if randf() < 0.5 else 1.0
+		var junto: Vector2 = pies_de(presa) + Vector2(lado * (SEPARACION + radio_pisa(e)), 6.0)
+		pedir_desliz(e, _sitio_libre_hacia(e, junto), Desliz.YA, 0, 0.22, 10.0)
+	if motivo != "":
+		_pantalla._set_log(motivo)
+	_pantalla._update_hp()
+
+
+# Cada fotograma en quien lleva la pelea: lo que la despega sin que sea su turno, y llevarla encima de su presa.
+func _tick_pegadas(delta: float) -> void:
+	if _pantalla._espejo:
+		return
+	_envio_pegada += delta
+	var movida: bool = false
+	for e in _pegadas.keys():
+		var d: Dictionary = _pegadas[e]
+		var presa: Combatant = d["presa"]
+		if not (e as Combatant).is_alive() or not presa.is_alive():
+			soltar_pegada(e, "")
+			continue
+		if (e as Combatant).aturdido():
+			soltar_pegada(e, "💫 %s, aturdida, se despega de %s." % [_pantalla._etq(e), presa.nombre])
+			continue
+		if float(d["hp"]) - (e as Combatant).current_hp >= SUELTA_PEGADA * float((e as Combatant).max_hp):
+			soltar_pegada(e, "🩸 A %s le arrancan a %s a golpes." % [presa.nombre, _pantalla._etq(e)])
+			continue
+		# ENCIMA DE SU PRESA: sus pies en los de ella (con los pies que tenia al pegarse: su dibujo va subido y
+		# pies_de se iria con el), un pelo mas al sur para que se pinte delante. No en mitad de un salto.
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null or cuerpo_de(presa) == null or _en_desliz(e):
+			continue
+		var p: Vector2 = pies_de(presa) - Vector2(d["bajo"])
+		p.y = maxf(p.y, pos_de(presa).y + 2.0)
+		if pos_de(e).distance_to(p) > 0.5:
+			_colocar(e, cu, p)
+			_apuntar_bicho(cu, false)
+			movida = true
+	if movida and _envio_pegada >= T_ENVIO_PEGADA:
+		_envio_pegada = 0.0
+		_enviar_bichos()
+	# Una Sanguijuela sin nadie que la sujete (no deberia pasar) no se queda para siempre.
+	for c in _pantalla._aliados + _pantalla._enemies:
+		if not (c as Combatant).has_status(StatusEffects.Id.PEGADO) or _pegadas.has(c):
+			continue
+		var sujeto: bool = false
+		for e2 in _pegadas:
+			if _pegadas[e2]["presa"] == c:
+				sujeto = true
+		if not sujeto:
+			(c as Combatant).quitar_estado(StatusEffects.Id.PEGADO)
+
+
+func _en_desliz(c: Combatant) -> bool:
+	for d in _deslices:
+		if d["c"] == c:
+			return true
+	return false
+
+
+func olvidar_pegadas() -> void:
+	for e in _pegadas.keys():
+		(e as Combatant).quitar_estado(StatusEffects.Id.PEGADO)
+		(_pegadas[e]["presa"] as Combatant).quitar_estado(StatusEffects.Id.PEGADO)
+	_pegadas.clear()
+	for cu in _vis_pegadas.keys():
+		_bajar_vis_pegada(cu)
+
+
+# COMO SE VE, EN TODAS LAS MAQUINAS: la sanguijuela pegada lleva el dibujo subido a la altura del pecho de su presa,
+# en su pose 'adherido' en bucle (sus gestos, el Drenaje o encajar, la pisan y luego vuelve), mirando hacia la presa.
+# En el espejo la presa se deduce: la de los tuyos con la Sanguijuela mas cercana.
+var _vis_pegadas: Dictionary = {}   # cuerpo (Node2D) -> {sp (su sprite), base (la posicion del sprite sin subir)}
+
+func _tick_vis_pegadas() -> void:
+	if not _pantalla.tactico:
+		return
+	var vivos: Dictionary = {}
+	for e in _pantalla._enemies:
+		if not (e as Combatant).is_alive() or not (e as Combatant).pegado():
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		var presa: Combatant = pegada_de(e) if not _pantalla._espejo else _presa_pegada_cerca(e)
+		if cu == null or presa == null or cuerpo_de(presa) == null:
+			continue
+		var sp = cu.get("_sprite")
+		if not (sp is AnimatedSprite2D):
+			continue
+		vivos[cu] = true
+		if not _vis_pegadas.has(cu):
+			_vis_pegadas[cu] = {"sp": sp, "base": (sp as Node2D).position}
+		if _en_desliz(e):
+			continue   # en el aire lo lleva el salto
+		# A LA ALTURA DEL PECHO de la presa: el centro de su dibujo (sin subir) sobre el pecho de ella.
+		var base: Vector2 = _vis_pegadas[cu]["base"]
+		var sube_ya: float = base.y - (sp as Node2D).position.y
+		var centro_sin: float = bulto_de(e).get_center().y + sube_ya
+		var pecho: float = bulto_de(presa).position.y + bulto_de(presa).size.y * 0.45
+		(sp as Node2D).position = base - Vector2(0.0, maxf(centro_sin - pecho, 0.0))
+		# Su pose de pegada, si no esta en mitad de un gesto suyo.
+		if not _gestos_bicho.has(cu):
+			var d8: int = SpriteLienzo.dir8(bulto_de(presa).get_center() - pies_de(e))
+			var anim := StringName("adherido_%d" % d8)
+			if (sp as AnimatedSprite2D).sprite_frames.has_animation(anim) and (sp as AnimatedSprite2D).animation != anim:
+				(sp as AnimatedSprite2D).speed_scale = 1.0
+				(sp as AnimatedSprite2D).play(anim)
+			cu.set_meta("gesto_pelea", true)
+	for cu in _vis_pegadas.keys():
+		if not vivos.has(cu):
+			_bajar_vis_pegada(cu)
+
+
+func _bajar_vis_pegada(cu) -> void:
+	var v = _vis_pegadas.get(cu)
+	_vis_pegadas.erase(cu)
+	if v == null or not is_instance_valid(cu):
+		return
+	if is_instance_valid(v["sp"]):
+		(v["sp"] as Node2D).position = v["base"]
+	if not _gestos_bicho.has(cu):
+		(cu as Node2D).remove_meta("gesto_pelea")
+
+
+func _presa_pegada_cerca(e: Combatant) -> Combatant:
+	var mejor: Combatant = null
+	var mejor_d: float = INF
+	for c in _pantalla._aliados:
+		if not (c as Combatant).is_alive() or not (c as Combatant).pegado() or cuerpo_de(c) == null:
+			continue
+		var d: float = pos_de(c).distance_squared_to(pos_de(e))
+		if d < mejor_d:
+			mejor_d = d
+			mejor = c
+	return mejor
+
+
 # LA PRESA TIEMBLA (el apreton, o forcejea al pasar): su dibujo, como la esquiva, sin las ondas del Chillido.
 func _temblar_presa(c: Combatant, espera: float = 0.0) -> void:
 	var arena: ArenaCombate = _arena()
@@ -2261,7 +2458,7 @@ func _tick_raices() -> void:
 		var atado: bool = (c as Combatant).is_alive() and (c as Combatant).enraizado() and cuerpo_de(c) != null
 		var n = _raices.get(c)
 		# EL DEL MICELIO (30/09): lo marca el Latigazo al pegar (_on_dibujo_mapa), con el color del miconido.
-		var micelio = cuerpo_de(c).get_meta("atado_micelio", null) if cuerpo_de(c) != null else null
+		var micelio = cuerpo_de(c).get_meta("atado_micelio") if cuerpo_de(c) != null and cuerpo_de(c).has_meta("atado_micelio") else null
 		if atado:
 			if n == null or not is_instance_valid(n):
 				if micelio is Color:
@@ -3038,7 +3235,8 @@ const _MODO_INSECTO := {CombatFX.Estilo.INSECTO_QUELICEROS: InsectoAire.Modo.QUE
 	CombatFX.Estilo.INSECTO_ESTOCADA: InsectoAire.Modo.ESTOCADA}
 
 const _MODO_SIMA := {CombatFX.Estilo.SIMA_PORRAZO: SimaAire.Modo.PORRAZO, CombatFX.Estilo.SIMA_TOS: SimaAire.Modo.TOS,
-	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO}
+	CombatFX.Estilo.SIMA_LATIGO: SimaAire.Modo.LATIGO, CombatFX.Estilo.SIMA_VENTOSA: SimaAire.Modo.VENTOSA,
+	CombatFX.Estilo.SIMA_CHUPADA: SimaAire.Modo.CHUPADA}
 
 func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var arena: ArenaCombate = _arena()
@@ -3620,7 +3818,7 @@ func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
 func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
 	# ENRAIZADO NO SE MUEVE DEL SITIO (29/09): ni por sus habilidades (el paso, la carga, el salto) ni porque le
 	# empujen o le tiren. Las raices le sujetan; el golpe entra igual.
-	if c != null and (c.enraizado() or c.enroscado()):
+	if c != null and (c.enraizado() or c.enroscado() or (c.pegado() and _pantalla._enemies.has(c))):
 		return
 	if _pantalla._espejo or not _pantalla.tactico or c == null:
 		return

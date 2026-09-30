@@ -399,7 +399,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Y la estocada del Ensarte: entra por delante y asoma por detras.
 		INSECTO_ESTOCADA = 155,
 		# LAS SIMAS en el mapa (30/09, SimaAire): el miconido, su porrazo, la tos de la Bocanada y el Latigazo.
-		SIMA_PORRAZO = 156, SIMA_TOS = 157, SIMA_LATIGO = 158 }
+		SIMA_PORRAZO = 156, SIMA_TOS = 157, SIMA_LATIGO = 158,
+		# Y el chupasimas: su ventosa (basico y Adherirse) y cada chupada del Drenaje.
+		SIMA_VENTOSA = 159, SIMA_CHUPADA = 160 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -437,7 +439,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.INSECTO_PALA, Estilo.INSECTO_ARROLLA, Estilo.INSECTO_CAPARAZON, Estilo.INSECTO_FORCIPULAS, Estilo.INSECTO_PATITAS,
 	Estilo.INSECTO_TAJO, Estilo.INSECTO_GUADANA, Estilo.INSECTO_ESTOCADA,
 	# las simas (SimaAire, 30/09).
-	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO,
+	Estilo.SIMA_PORRAZO, Estilo.SIMA_TOS, Estilo.SIMA_LATIGO, Estilo.SIMA_VENTOSA, Estilo.SIMA_CHUPADA,
 	Estilo.INSECTO_APRETON,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
@@ -604,7 +606,9 @@ const T_VUELO := {
 	# La hoja de la segadora cruza el cuerpo en el viaje y corta en el golpe.
 	Estilo.INSECTO_TAJO: 0.12, Estilo.INSECTO_GUADANA: 0.12, Estilo.INSECTO_ESTOCADA: 0.1,
 	# El porrazo y la tos salen EN el golpe; el latigo sale de la mano y tarda en llegar (SimaAire.T_LATIGO_VA).
-	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2, Estilo.INSECTO_APRETON: 0.02,
+	Estilo.SIMA_PORRAZO: 0.02, Estilo.SIMA_TOS: 0.02, Estilo.SIMA_LATIGO: 0.2,
+	# La boca llega abierta y se cierra en el golpe; las gotas suben EN el golpe.
+	Estilo.SIMA_VENTOSA: 0.12, Estilo.SIMA_CHUPADA: 0.02, Estilo.INSECTO_APRETON: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1932,6 +1936,9 @@ const IMPACTO_ANIM_MAPA := {
 	# El miconido (30/09): el sombrero revienta a 0,571x7/12; el brazo se lanza a 0,286x7/12 = 0,17 y el latigo
 	# tarda 0,2 en llegar.
 	"esporas": 0.33, "micelio": 0.37,
+	# El chupasimas: planta la ventosa a 0,286x7/11 (el Adherirse, que ademas salta); cada tiron del Drenaje, a su
+	# escalon (se repite por golpe: ANIM_REPITE_MAPA no, el Drenaje es una sola anim que bombea).
+	"adherirse": 0.18,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

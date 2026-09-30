@@ -24,3 +24,13 @@ efectos = [SubResource("SA_san"), SubResource("SA_moj")]
 fx_estilo = 114
 fx_anim = &"adherirse"
 cooldown = 3
+; EN EL MAPA (30/09): salta a una presa hasta 70 px y, si entra, SE QUEDA PEGADA encima de ella (AbilityData.pega):
+; va con ella a donde vaya y le chupa cada turno suyo (CombatTactico.empezar_pegada).
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 70.0
+salta = true
+pega = true
+; EFECTO EN EL MAPA: la ventosa al caer (SIMA_VENTOSA).
+fx_estilo_mapa = 159

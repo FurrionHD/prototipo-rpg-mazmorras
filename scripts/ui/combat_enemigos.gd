@@ -99,6 +99,21 @@ func _enemy_turn(e: Combatant) -> void:
 		if enroscada != null:
 			_enemy_apretar(e, enroscada)
 			return
+		# PEGADA (el Adherirse del chupasimas, 30/09): mientras lleve a alguien pegado, cada turno suyo le chupa (su
+		# habilidad que roba vida, el Drenaje, este o no en espera) sin andar ni cambiar de presa. Cuenta sus turnos.
+		var pegada: Combatant = _pantalla.turno_mapa.pegada_de(e)
+		if pegada != null:
+			var chupa: AbilityData = null
+			for ab in e.habilidades:
+				if ab.robo_vida > 0.0:
+					chupa = ab
+			if chupa != null:
+				_enemy_use_ability(e, chupa, pegada)
+			else:
+				_pantalla._set_log("%s sigue pegada a %s. 🩸" % [_pantalla._etq(e), pegada.nombre])
+				_pantalla._pausa_lectura()
+			_pantalla.turno_mapa.gastar_turno_pegada(e)
+			return
 
 	# INVOCACION (Rey Slime): tiene PRIORIDAD sobre todo lo demas. Si el Rey trae una habilidad de
 	# invocacion lista y hay sitio para meter slimes, la lanza SIEMPRE (telegrafiada). Va antes del
@@ -498,6 +513,10 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
 				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
 					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
+				# Y LA QUE SE PEGA (el Adherirse del chupasimas, 30/09): al primero al que le entre, se le queda encima.
+				if lista_mapa != null and ab.pega and int(sub["conecto"]) > 0 and t.is_alive() and e.is_alive() \
+						and _pantalla.turno_mapa.empezar_pegada(e, t):
+					sub["estados"].append(str(StatusEffects.def(StatusEffects.Id.PEGADO).get("nombre", "?")))
 				# Y EL QUE LOS APARTA A LOS LADOS (la Embestida del jabali, 28/09).
 				if lista_mapa != null and ab.aparta_lados > 0.0 and int(sub["conecto"]) > 0 and t.is_alive():
 					_pantalla.turno_mapa.pedir_apartar(t, e, ab.aparta_lados)
