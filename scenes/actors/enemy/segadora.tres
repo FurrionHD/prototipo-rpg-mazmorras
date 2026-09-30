@@ -56,3 +56,5 @@ fx_basico_mapa = 153
 ; reparto evita al primero de su tabla de amenaza (va a por los blandos).
 reflejo_prob = 0.25
 evita_tanque = true
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_4_6"

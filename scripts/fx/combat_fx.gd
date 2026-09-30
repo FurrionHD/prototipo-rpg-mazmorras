@@ -1989,6 +1989,14 @@ const IMPACTO_ANIM_MAPA := {
 	"yugular": 0.6, "desgarrar": 0.22,
 	# El golem (30/09): sube los brazos y los deja caer; con su 'embestida' (8 marcos) el puño toca en el 6.
 	"golem_golpe": 0.5,
+	# LA REVISION DE SINCRONIA (30/09, tools/ver_sincro, lo pidio el usuario tras el golem): los basicos que tocan mas
+	# tarde que a mitad de su animacion (con el adelanto de siempre, 0,16, el efecto salia un marco o dos antes que el
+	# golpe). El nombre dice en que marco toca: el 5 de 8, el 6 de 8, el 4 de 6. Lo usan por EnemyData.anim_basico.
+	"golpe_5_8": 0.23, "golpe_6_8": 0.40, "golpe_4_6": 0.25,
+	# Y las habilidades que tambien tocaban tarde: la cornada del jabali (sube la cabeza en el 5) y el enrosque del
+	# ciempies (se cierra en el 5). (Los SALTOS -el Picado del chillon- no: el golpe llega con el cuerpo que salta, y
+	# con fx_anim puesto la pelea dejaria de moverlo.)
+	"cornada": 0.23, "enrosque": 0.23,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

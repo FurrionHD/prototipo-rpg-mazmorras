@@ -52,3 +52,5 @@ volteo_mult = 1.5
 ; EL BASICO EN EL MAPA (30/09): el testarazo con la testuz blindada (FIERA_TESTARAZO).
 fx_basico_mapa = 166
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_6_8"

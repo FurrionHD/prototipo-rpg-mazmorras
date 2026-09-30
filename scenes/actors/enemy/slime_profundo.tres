@@ -40,3 +40,5 @@ habilidades = [ExtResource("3_rev"), ExtResource("4_emb")]
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): slime mediano.
 alcance = 20.0
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_6_8"

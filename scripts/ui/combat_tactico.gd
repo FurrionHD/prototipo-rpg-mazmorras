@@ -4464,6 +4464,11 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	# Sin animacion pedida (el ataque basico): la 'basico' del bicho si la tiene (29/09, el cabezazo de la rata);
 	# si no, _poner_anim_bicho cae a su embestida de siempre.
 	var base: String = "encaje" if encaje else (partes[0] if not partes.is_empty() else "basico")
+	# UN NOMBRE QUE SOLO DICE SU TIEMPO (30/09, EnemyData.anim_basico, "golpe_6_8"...): si el sprite no tiene esa
+	# animacion, hace la de siempre -- su 'basico' (y la alternancia de brazos de abajo) o su embestida --; el tiempo de
+	# golpe ya lo ha puesto CombatFX con ese nombre (IMPACTO_ANIM_MAPA).
+	if not encaje and base != "basico" and not _tiene_anim_bicho(cuerpo, base) and not _tiene_anim_bicho(cuerpo, base + "_0"):
+		base = "basico"
 	# LOS QUE ALTERNAN DE BRAZO (30/09, la segadora): si tiene 'basico_der', un basico con cada brazo. El lado se queda
 	# apuntado en el cuerpo para que el efecto salga de esa mano (_on_dibujo_mapa, INSECTO_TAJO).
 	if base == "basico" and _tiene_anim_bicho(cuerpo, "basico_der"):

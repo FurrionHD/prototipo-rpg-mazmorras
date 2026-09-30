@@ -49,3 +49,5 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 20.0
 ; EL BASICO EN EL MAPA (29/09): el palazo (INSECTO_PALA), chato y ancho: la pala empuja, no corta.
 fx_basico_mapa = 147
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_4_6"

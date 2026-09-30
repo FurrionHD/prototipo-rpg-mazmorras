@@ -63,3 +63,5 @@ fx_basico_mapa = 163
 al_ser_golpeado = [SubResource("SA_polvo")]
 al_ser_golpeado_prob = 0.3
 al_ser_golpeado_fx = 164
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_5_8"

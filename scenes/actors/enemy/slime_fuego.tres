@@ -55,3 +55,5 @@ al_ser_golpeado = [SubResource("SA_arde")]
 al_ser_golpeado_prob = 0.3
 al_ser_golpeado_texto = "sus llamas"
 al_ser_golpeado_fx = 175
+; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"golpe_6_8"
