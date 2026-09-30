@@ -161,6 +161,11 @@ func _enemy_turn(e: Combatant) -> void:
 	# EN EL MAPA NO (29/09, decision del usuario): enraizado solo le clava en el sitio (CombatTactico no le deja
 	# andar) y pega con lo que le llegue desde ahi, como a los tuyos.
 	var atado: bool = e.enraizado() and not _pantalla.tactico
+	# IR A INTERRUMPIR (30/09): si su objetivo esta cargando o recitando y tiene con que cortarselo, lo usa (salvo que
+	# le provoque otro: CombatObjetivos.habilidad_para_interrumpir).
+	var corta: AbilityData = _pantalla.objetivos.habilidad_para_interrumpir(e, obj)
+	if corta != null and listas.has(corta):
+		decidida = corta
 	var elegida: AbilityData = decidida if decidida != null and listas.has(decidida) else null
 	if elegida == null and not listas.is_empty() and (atado or obj == null or (
 			_pantalla.turno_mapa.sacar_tirada(e) if _pantalla.tactico else randf() < e.prob_habilidad)):

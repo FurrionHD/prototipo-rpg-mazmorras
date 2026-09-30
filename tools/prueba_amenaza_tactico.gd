@@ -93,6 +93,8 @@ func _correr() -> void:
 	await _probar_pasivas(combat, t, al)
 	print("--- desplazamientos (paso C) ---")
 	_probar_desplazar(combat, t, al)
+	print("--- ir a interrumpir (paso D) ---")
+	_probar_interrumpir(combat, t, al)
 	print("=== FIN (%s) ===" % ("TODO BIEN" if _mal == 0 else "%d MAL" % _mal))
 	get_tree().quit(0 if _mal == 0 else 1)
 
@@ -249,6 +251,31 @@ func _probar_desplazar(combat, t, al: Array) -> void:
 	var g1: float = float(combat._gauge.get(al[1], 0.0))
 	_ver(combat._casteos.has(al[1]) and txt == "", "uno pequeño no le corta el conjuro")
 	_ver(g1 < g0 - 1.0, "pero le retrasa en la barra (%.1f -> %.1f)" % [g0, g1])
+	combat._casteos.erase(al[1])
+
+
+func _probar_interrumpir(combat, t, al: Array) -> void:
+	var e: Combatant = _de(combat, t, "jabali")
+	e.amenaza = {}
+	e.ability_cooldowns.clear()
+	for a in al:
+		a.provocar_turnos = 0
+		a.provocados = []
+	_ver(combat.objetivos.puede_interrumpir(e), "el jabali tiene con que interrumpir (su Embestida aturde)")
+	var sp: SpellData = load("res://resources/spells/bola_fuego.tres")
+	var sin: float = combat.objetivos._peso_aggro(al[1], e)
+	combat._casteos[al[1]] = {"spell": sp, "idx": 1}
+	var con: float = combat.objetivos._peso_aggro(al[1], e)
+	_ver(con > sin * 2.5, "el que recita pesa el triple para el (%.2f contra %.2f)" % [con, sin])
+	var hab: AbilityData = combat.objetivos.habilidad_para_interrumpir(e, al[1])
+	_ver(hab != null, "y elige la habilidad que se lo corta (%s)" % (hab.nombre if hab != null else "ninguna"))
+	al[0].provocar_turnos = 2
+	al[0].provocados = [e]
+	var prov: float = combat.objetivos._peso_aggro(al[1], e)
+	_ver(is_equal_approx(prov, sin), "PERO si le provoca otro, no va a cortarle nada (%.2f)" % prov)
+	_ver(combat.objetivos.habilidad_para_interrumpir(e, al[1]) == null, "ni usa la habilidad para eso")
+	al[0].provocar_turnos = 0
+	al[0].provocados = []
 	combat._casteos.erase(al[1])
 
 

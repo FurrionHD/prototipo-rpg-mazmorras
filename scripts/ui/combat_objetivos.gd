@@ -37,6 +37,10 @@ const PERSEGUIR_X := 2.5
 const ECO_SIGILO := 3.0
 const EMBOSCADA_PESO := 2.0
 const EVITA_TANQUE := 0.35
+# IR A INTERRUMPIR (30/09): el que esta cargando o recitando pesa esto veces mas para un enemigo que tenga con que
+# cortarselo (aturdir o desplazarle a lo grande), salvo que a ese enemigo le este PROVOCANDO otro: la Provocacion
+# manda ("provocar antes de que tu mago tire la magia, para que no vayan a interrumpirle").
+const INTERRUMPE_PESO := 3.0
 
 
 # A QUIEN pega el enemigo: uno de los tuyos que siga en pie, sorteado por PESO. Dos capas, y ninguna
@@ -194,7 +198,52 @@ func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
 		w *= EMBOSCADA_PESO
 	if atacante.evita_tanque and _pantalla._aliados_vivos().size() > 1 and atacante.primero_en_amenaza() == c:
 		w *= EVITA_TANQUE
+	if esta_preparando(c) and puede_interrumpir(atacante) and not provocado_por_otro(atacante, c):
+		w *= INTERRUMPE_PESO
 	return w
+
+
+# ¿'c' esta cargando una habilidad o recitando un conjuro? (lo que se le puede cortar)
+func esta_preparando(c: Combatant) -> bool:
+	return c != null and (c.charging != null or _pantalla._casteos.has(c))
+
+
+# La habilidad LISTA de 'e' que corta lo que otro prepara: la que aturde, la que desplaza a lo grande (tiron >=
+# Pantalla.DESPLAZA_CORTA) o la carga que arrolla. null si no tiene ninguna lista.
+func habilidad_que_interrumpe(e: Combatant) -> AbilityData:
+	if e == null or e.silenciado():
+		return null
+	for ab in e.habilidades:
+		var a: AbilityData = ab
+		if not e.ability_ready(a) or a.invoca_cantidad > 0:
+			continue
+		if absf(a.tiron) >= _pantalla.DESPLAZA_CORTA or (a.carga and a.atraviesa):
+			return a
+		for ef in a.efectos:
+			if ef != null and int(ef.get("estado")) == StatusEffects.Id.ATURDIDO:
+				return a
+	return null
+
+
+# ¿Tiene con que interrumpir? Una habilidad lista de las de arriba, o un basico que aturde.
+func puede_interrumpir(e: Combatant) -> bool:
+	return e != null and (habilidad_que_interrumpe(e) != null or e.aturdir_base > 0.0)
+
+
+# ¿A 'e' le esta provocando alguien que no es 'c'? Entonces va a por el provocador, no a cortarle nada a 'c'.
+func provocado_por_otro(e: Combatant, c: Combatant) -> bool:
+	for d in _pantalla._aliados_vivos():
+		if d != c and d.provocar_turnos > 0 and (d.provocados.is_empty() or e in d.provocados):
+			return true
+	return false
+
+
+# LA HABILIDAD CON LA QUE 'e' IRIA A CORTARLE a 'obj' lo que prepara (null si no toca: no prepara nada, no tiene
+# con que, o le provoca otro). _enemy_turn la prefiere a la tirada de siempre.
+func habilidad_para_interrumpir(e: Combatant, obj: Combatant) -> AbilityData:
+	if not esta_preparando(obj) or provocado_por_otro(e, obj):
+		return null
+	return habilidad_que_interrumpe(e)
 
 
 # CUANTA AMENAZA GENERA 'quien' por cada punto: el doble con escudo (aggro_base: el tanque tiene que PEGAR para
