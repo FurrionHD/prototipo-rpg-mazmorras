@@ -838,7 +838,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 				var corvejon: float = 0.0 if delantera else -CORVEJON
 				# Y la pata se ENCOGE al recoger: la caña y la zarpa suben HACIA el muslo, que es
 				# aumentar el solape. Encoger una pata no puede descoserla nunca.
-				var encoge: float = recoge * PATA_ENCOGE
+				# Y AL VOLCAR TAMBIEN (30/09): la muerte en ocho direcciones soltaba la zarpa de la caña a media caida
+				# mirando al E y al NE (el horno canto trozos de 15-18 px). Una pata que cede se dobla, y doblada solapa.
+				var encoge: float = recoge * PATA_ENCOGE + absf(st) * PATA_ENCOGE * 0.9
 				poner.call(Vector3(lado * PATA_X, base_y, MUSLO_Z), MUSLO_R, Tono.PATA)
 				poner.call(Vector3(lado * (PATA_X + PATA_ABRE * 0.7), base_y + corvejon,
 					CANA_Z + encoge), CANA_R, Tono.PATA)
