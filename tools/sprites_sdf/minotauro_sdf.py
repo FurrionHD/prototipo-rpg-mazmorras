@@ -195,6 +195,11 @@ def huesos(pose):
     X = {'raiz': raiz, 'torso': torso}
     X['cabeza'] = comp(torso, sobre(CUELLO_PIV, rz(pose['cabeza_gira']) @ rx(-pose['cabeza'])))
     X['cola'] = comp(torso, sobre(Z(0, -4.6, 21.4), rz(pose['cola'])))
+    # EL FALDON SIGUE A LOS MUSLOS (01/10: al subir la rodilla en el pisoton, el muslo lo atravesaba): el de delante se
+    # levanta con la pierna que se adelanta, el de atras con la que se va hacia atras. Gira desde el cinturon.
+    adel = [pose['pierna_d'][0], pose['pierna_i'][0]]
+    X['faldon_del'] = comp(raiz, sobre(Z(0, 4.5, 20.6), rx(0.8 * max(max(adel), 0.0))))
+    X['faldon_tras'] = comp(raiz, sobre(Z(0, -4.5, 20.6), rx(0.8 * min(min(adel), 0.0))))
     for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
         a, abre, codo, *resto = pose['brazo_' + nom]
         # 'barre' (opcional, 4o valor): el brazo gira alrededor de la VERTICAL en el hombro (+ hacia la derecha del bicho,
@@ -358,7 +363,8 @@ def escena(pose):
             eje = (b - a) / np.linalg.norm(b - a)
             ex = np.array([1.0, 0, 0]); ey = np.cross(eje, ex)
             add(lambda P, a=a, b=b, ex=ex, ey=ey, eje=eje, w=anchos[k]: sd_caja(P, (a + b) / 2, [ex, ey, eje],
-                [w, 0.35, np.linalg.norm(b - a) / 2 + 0.35], 0.3), 'cuero', 0, 'ropa', hueso='raiz')
+                [w, 0.35, np.linalg.norm(b - a) / 2 + 0.35], 0.3), 'cuero', 0, 'ropa',
+                hueso='faldon_del' if s > 0 else 'faldon_tras')
 
     # COLA con borla
     p = Z(0, -4.6, 21.4)
@@ -693,7 +699,7 @@ def anim_pisoton(t):
     brazos = tramos(t, [(M[0], 0.0), (M[2], 0.8), (M[3], 1.0), (M[4], -0.2), (M[5], -0.1), (M[7], 0.0)])
     cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.15), (M[4], -0.35), (M[5], -0.3), (M[7], 0.0)])
     pies = {'i': (0.0, -0.6, 0.0), 'd': (0.0, 2.4, 0.0) if t >= M[4] - 1e-6 else None}
-    return POSE(pierna_d=(1.3 * sube, 1.5 * sube), pies=pies, agacha=agacha, inclina=inclina, cabeza=cabeza,
+    return POSE(pierna_d=(1.1 * sube, 1.5 * sube), pies=pies, agacha=agacha, inclina=inclina, cabeza=cabeza,
                 # Los brazos se ABREN hacia los lados (no al frente) para equilibrarse, y al pisar caen.
                 brazo_d=(0.15 * min(brazos, 0.0), 0.65 * max(brazos, 0.0) + 0.05, 0.25),
                 brazo_i=(0.15 * min(brazos, 0.0), 0.65 * max(brazos, 0.0) + 0.05, 0.25),
