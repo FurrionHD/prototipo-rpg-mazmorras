@@ -23,7 +23,8 @@ forma_apunte = 2
 forma_radio = 70.0
 forma_tramos = 2
 forma_tramo_baja = 0.3
-; EFECTO EN EL MAPA (02/10, paso 2): un solo impacto en el suelo (crater, grietas y dos anillos de losas: SueloRoto.Tipo
-; .MINO_PISOTON) y a cada uno polvo en los pies y le tiembla la figura (MINO_SISMO).
+; EFECTO EN EL MAPA (02/10, paso 2): un solo impacto en el suelo, las LOSAS DEL GOLPE SISMICO del martillo
+; (SueloRoto.Tipo.FRAGMENTOS: "que pegue con lo que ya tenemos", las suyas propias no casaban) y a cada uno polvo en los
+; pies y le tiembla la figura (MINO_SISMO).
 fx_estilo_mapa = 191
-suelo_roto = 89
+suelo_roto = 1
