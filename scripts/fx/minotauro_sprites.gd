@@ -167,7 +167,7 @@ const BRAZO_CODO_REPOSO := 0.22
 
 # --- EL PUÑETAZO (su golpe basico, fx_basico = GOLPETAZO). Pega SIEMPRE EL MISMO BRAZO del cuerpo y
 # no "el de delante": si cambiara de mano segun por donde se le mire, al girar el bicho el golpe
-# saltaria de un lado a otro. Es la misma razon por la que el hacha iba en un lado fijo.
+# saltaria de un lado a otro.
 #
 # SON TRES POSES, Y LAS DIBUJO EL USUARIO: una raya vertical, una L, y una raya horizontal.
 #
@@ -249,10 +249,17 @@ const FALDON_R := Vector3(2.6, 1.8, 2.4)
 const BRAZALETE_SEG := 4
 const BRAZALETE_R := Vector3(2.7, 2.6, 2.6)
 
-# EL HACHA SE FUE, y no por sitio: NO LA USABA. Ninguna de sus tres habilidades es un hachazo -- son
-# cornada, pisoton y bramido -- y un arma que el bicho no levanta nunca no cuenta lo que hace, solo
-# ocupa una mano y obliga a un lienzo mas ancho del que necesita. Lo que le da escala al bicho ya lo
-# hacen el taparrabos y los brazaletes (ver CUERO_T), que ademas no mienten sobre como pelea.
+# --- LAS MANOS (01/10, "que las manos parezcan manos"): palma y DEDOS que asoman de ella con hueco entre ellos (el
+# contorno los separa), y el pulgar aparte. La derecha esta CERRADA sobre el mango (nudillos); la izquierda, abierta.
+const PALMA_R := Vector3(2.3, 2.1, 2.1)
+const DEDO_R := 0.95
+const DEDO_SEPARA := 1.35          # entre centros de dedos: 1,9 de diametro, asi que queda hueco
+const DEDO_SALE := 2.2             # cuanto asoman de la palma
+# LA CORNADA A CUATRO PATAS: el torso se inclina sobre la cadera.
+const INCLINA_PIVOTE := Vector3(0.0, 0.0, 20.5)
+
+# SIN HACHA (01/10, tras probar la labrys otra vez: "esta pegada de forma lamentable, no la agarra con la mano"). Lo
+# que le da escala ya lo hacen el taparrabos y los brazaletes, y el ataque en cono es un BARRIDO CON EL BRAZO.
 
 # LA CORNADA: viaja lo suyo, pero menos que una carga de bestia -- es un jefe pesado.
 const LUNGE_DIST := 9.0
@@ -267,7 +274,7 @@ const ENCAJE_RETRO := 0.22
 # profundidad BAJA en pantalla. Es la leccion del cadaver del golem.
 # SIN EL HACHA, EL ANCHO LO MANDA LA CORNADA: es la que VIAJA (9 unidades), y en las diagonales ese
 # viaje se va entero a lo ancho -- 6,4 unidades de puro desplazamiento antes de contar el bicho. Con
-# el hacha hacian falta 1,58 porque colgaba por fuera del puño de un brazo ya abierto y el avance se
+# el hacha (02/09) hacian falta 1,58 porque colgaba por fuera del puño de un brazo ya abierto y el avance se
 # la llevaba todavia mas lejos.
 #
 # EL NUMERO ESTA MEDIDO, NO PUESTO A OJO: el horno avisa de que fotogramas TOCAN EL BORDE de su
@@ -365,8 +372,26 @@ static func clave_de(ed: EnemyData, t: float) -> String:
 		snappedf(ed.escala_visual, 0.05))
 
 
-static func _clave(col: Color, esc: float) -> String:
-	return "minotauro_%s_%.2f" % [col.to_html(false), esc]
+static func _clave(col: Color, esc: float, roto: bool = false) -> String:
+	return "minotauro_%s_%.2f%s" % [col.to_html(false), esc, "_roto" if roto else ""]
+
+
+# EL CUERNO PARTIDO (01/10, la Rabia del guardian, idea del usuario): la misma variante con el cuerno IZQUIERDO roto
+# (CUERNO_ROTO_LADO), en su propio horneado. Al entrar en rabia la pelea le cambia los frames al vuelo
+# (CombatTactico._tick_rabia) sin cortar la animacion que lleve.
+const CUERNO_ROTO_LADO := -1.0
+const CUERNO_ROTO_QUEDA := 3       # segmentos que le quedan: el muñon
+
+static func generar_roto_de(ed: EnemyData, t: float) -> SpriteFrames:
+	return generar(ed.color_visual(t), ed.escala_visual, true)
+
+
+static func clave_roto_de(ed: EnemyData, t: float) -> String:
+	return _clave(SpriteLienzo.cuantizar_hsv(ed.color_visual(t), COLOR_PASOS), snappedf(ed.escala_visual, 0.05), true)
+
+
+# Lo que lee _piezas mientras se genera la variante rota (un generador a la vez: no hay hilos).
+static var _roto: bool = false
 
 
 static func escala_base() -> float:
@@ -409,19 +434,21 @@ static func _origen(escala: float) -> Vector2:
 	return Vector2(float(lz.x) * 0.5, alto_celdas * LIENZO_ARRIBA)
 
 
-static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0) -> SpriteFrames:
+static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0, roto: bool = false) -> SpriteFrames:
 	# cuantizar_hsv y no cuantizar a secas: el pardo rojizo es un color apagado y redondear canal a
 	# canal le cambiaria el TONO -- dos canales parecidos caen en el mismo escalon y sale un oliva.
 	# Le paso lo mismo al Rey rata en su dia.
 	var col: Color = SpriteLienzo.cuantizar_hsv(color, COLOR_PASOS)
 	var esc: float = snappedf(escala, 0.05)      # se cuantiza tambien, o el cache no acierta
-	var clave: String = _clave(col, esc)
+	var clave: String = _clave(col, esc, roto)
 	if _cache.has(clave):
 		return _cache[clave]
+	_roto = roto
 	var anims: Array = []
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_barrido(anims, esc)
 	_montar_cornada(anims, esc)
 	_montar_pisoton(anims, esc)
 	_montar_bramido(anims, esc)
@@ -431,6 +458,7 @@ static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0) 
 	var lz: Vector2i = _lienzo(esc)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(
 		anims, SpriteLienzo.paleta(_colores(col)), lz.x, lz.y)
+	_roto = false
 	_cache[clave] = sf
 	return sf
 
@@ -441,7 +469,14 @@ static func generar(color: Color = Color(0.55, 0.34, 0.2), escala: float = 1.0) 
 static func _reposo() -> Dictionary:
 	return {"avance": 0.0, "resopla": 0.0, "patas": 0.0, "agacha": 0.0, "cabeza": 0.0,
 		"brazos": 0.0, "codo": 0.0, "punetazo": 0.0, "ladea": 0.0, "pisa": 0.0, "rodilla": 0.0,
-		"rodilla_paso": 0.0, "testuz": 0.0, "vuelca": 0.0}
+		"rodilla_paso": 0.0, "testuz": 0.0, "vuelca": 0.0,
+		# EL BRAZO DEL BARRIDO (01/10): 'brazo_mez' mezcla el angulo del brazo que pega (GOLPE_LADO) con 'brazo_a' (0 a
+		# plomo, PI/2 al frente) y su codo con 'brazo_codo'; 'barre' lo gira de lado a lado alrededor de la vertical (+ hacia
+		# fuera, - cruzando por delante del cuerpo).
+		"brazo_mez": 0.0, "brazo_a": 0.0, "brazo_codo": 0.0, "barre": 0.0,
+		# 'suelo' = los dos brazos A PLOMO EN EL MUNDO (las manos al suelo, a cuatro patas) e 'inclina' = el torso hacia
+		# delante sobre la cadera (radianes). Van juntos en la Cornada.
+		"suelo": 0.0, "inclina": 0.0}
 
 
 # Quieto: RESUELLA. Un jefe parado tiene que dar la sensacion de que esta conteniendose, no de que
@@ -535,31 +570,71 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "embestida", false, 10.0, pose, true)
 
 
-# LA CORNADA: escarba -> baja el testuz -> embiste LADEADO -> engancha hacia arriba.
-# NO es periodica, asi que va por TRAMOS.
-#
-# LO QUE LA HACE UNA CORNADA ES EL LADEO. Embistiendo de frente con la cabeza baja, lo que se ve es
-# un tio agachado corriendo; ladeando el torso y la cabeza, el cuerno de ese lado se adelanta y
-# apunta -- y al final del golpe el cuello ENGANCHA HACIA ARRIBA, que es lo que hace un toro de
-# verdad y lo que cuenta el sangrado de su habilidad.
-static func _montar_cornada(anims: Array, esc: float) -> void:
-	var avance_keys := [[0.0, 0.0], [0.30, -1.8], [0.60, 5.4], [0.78, 9.0], [1.0, 6.4]]
-	var agacha_keys := [[0.0, 0.0], [0.30, 0.55], [0.60, 0.80], [0.78, 0.35], [1.0, 0.08]]
-	# El ladeo entra en el aviso y se mantiene durante el viaje: es la puntería del cuerno.
-	var ladea_keys := [[0.0, 0.0], [0.30, 0.65], [0.60, 0.85], [0.78, 0.55], [1.0, 0.0]]
-	# Y EL ENGANCHE: la cabeza baja durante toda la carrera y sube DE GOLPE en el impacto.
-	var cabeza_keys := [[0.0, -0.2], [0.30, -1.9], [0.60, -2.4], [0.78, 1.9], [1.0, 0.2]]
-	# Los brazos se echan atras al correr, como los de algo que embiste con la cabeza.
-	var brazos_keys := [[0.0, 0.0], [0.30, -0.22], [0.60, -0.34], [0.78, -0.10], [1.0, 0.0]]
+# EL BARRIDO (01/10, habilidad nueva, cono delante), CON EL BRAZO: sin hacha, abre el brazo que pega (GOLPE_LADO)
+# hacia fuera y atras con el torso girado, y lo pasa de lado a lado por delante, a la altura del pecho y casi estirado,
+# con el torso acompañando. Pasa por EL FRENTE en el 5o de 8 marcos (t = 0,571; IMPACTO_ANIM_MAPA "mino_barrido").
+static func _montar_barrido(anims: Array, esc: float) -> void:
+	var barre_keys := [[0.0, 0.0], [0.143, 0.9], [0.286, 1.35], [0.429, 1.0], [0.571, 0.0], [0.714, -0.95],
+		[0.857, -1.2], [1.0, -0.6]]
+	var mez_keys := [[0.0, 0.0], [0.143, 0.8], [0.286, 1.0], [0.857, 1.0], [1.0, 0.45]]
+	var a_keys := [[0.0, 0.4], [0.143, 1.15], [0.286, 1.3], [0.571, 1.45], [0.857, 1.35], [1.0, 0.9]]
+	var codo_keys := [[0.0, 0.2], [0.286, 0.45], [0.429, 0.25], [0.571, 0.05], [0.714, 0.1], [1.0, 0.3]]
+	var ladea_keys := [[0.0, 0.0], [0.286, 0.34], [0.429, 0.3], [0.571, -0.05], [0.714, -0.3], [0.857, -0.34],
+		[1.0, -0.15]]
+	var agacha_keys := [[0.0, 0.0], [0.286, 0.2], [0.571, 0.32], [0.857, 0.2], [1.0, 0.08]]
+	var cabeza_keys := [[0.0, -0.2], [0.286, 0.2], [0.571, -0.9], [0.857, -0.6], [1.0, -0.3]]
 	var pose := func(t: float) -> Dictionary:
 		var p: Dictionary = _reposo()
+		p["brazo_mez"] = SpriteLienzo.tramos(t, mez_keys)
+		p["brazo_a"] = SpriteLienzo.tramos(t, a_keys)
+		p["brazo_codo"] = SpriteLienzo.tramos(t, codo_keys)
+		p["barre"] = SpriteLienzo.tramos(t, barre_keys)
+		p["ladea"] = SpriteLienzo.tramos(t, ladea_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["avance"] = 1.2 * SpriteLienzo.tramos(t, agacha_keys)
+		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
+		p["codo"] = 0.3
+		return p
+	_montar_animacion(anims, esc, "barrido", false, 10.0, pose, true)
+
+
+# LA CORNADA, A CUATRO PATAS TODO EL CAMINO (01/10, sus dos diagnosticos: "si es una embestida tiene que ir agachado o
+# a cuatro patas y luego se reincorpora", y despues "agachado TODO el camino, no solo un par de marcos"):
+#   0        baja el testuz, ya inclinandose
+#   0,14     SE TIRA: el torso cae hacia delante y las manos van al suelo (coge impulso hacia atras)
+#   0,29-0,57 galopa a cuatro patas con los cuernos por delante
+#   0,714    (6o de 8) ENGANCHA hacia arriba con la cabeza, SIN levantarse
+#   0,86-1   se reincorpora
+static func _montar_cornada(anims: Array, esc: float) -> void:
+	var inclina_keys := [[0.0, 0.3], [0.143, 0.95], [0.286, 1.2], [0.429, 1.25], [0.571, 1.25], [0.714, 1.05],
+		[0.857, 0.75], [1.0, 0.25]]
+	var suelo_keys := [[0.0, 0.2], [0.143, 0.85], [0.286, 1.0], [0.714, 1.0], [0.857, 0.6], [1.0, 0.0]]
+	var avance_keys := [[0.0, 0.0], [0.143, -0.6], [0.286, 1.0], [0.429, 3.6], [0.571, 6.4], [0.714, 9.0],
+		[0.857, 8.4], [1.0, 7.0]]
+	var agacha_keys := [[0.0, 0.1], [0.143, 0.4], [0.286, 0.55], [0.571, 0.55], [0.714, 0.5], [0.857, 0.35],
+		[1.0, 0.1]]
+	# La cabeza baja toda la carrera (los cuernos por delante) y ENGANCHA hacia arriba en el golpe.
+	# EL TESTUZ VA AL REVES QUE EL TORSO: el craneo va montado en un torso que se inclina 1,2 rad, asi que sin
+	# devolverle el giro los cuernos apuntan AL SUELO -- y de frente eso se leia como dos patas mas saliendo de la cara
+	# ("los cuernos salen raros, como atravesando"). Levantandolo, los cuernos quedan al frente y algo arriba.
+	var cabeza_keys := [[0.0, -0.6], [0.143, -1.0], [0.286, -1.2], [0.571, -1.3], [0.714, 1.0], [0.857, 0.4],
+		[1.0, -0.2]]
+	var testuz_keys := [[0.0, 0.1], [0.143, 0.4], [0.286, 0.5], [0.571, 0.5], [0.714, 0.8], [0.857, 0.5],
+		[1.0, 0.1]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["inclina"] = SpriteLienzo.tramos(t, inclina_keys)
+		p["suelo"] = SpriteLienzo.tramos(t, suelo_keys)
 		p["avance"] = SpriteLienzo.tramos(t, avance_keys) * (LUNGE_DIST / 9.0)
 		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
-		p["ladea"] = SpriteLienzo.tramos(t, ladea_keys)
 		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
-		p["brazos"] = SpriteLienzo.tramos(t, brazos_keys)
-		# Corriendo se lleva los codos recogidos, no los brazos estirados hacia atras.
-		p["codo"] = 0.30 + 0.45 * clampf(t * 2.0, 0.0, 1.0)
+		p["testuz"] = SpriteLienzo.tramos(t, testuz_keys)
+		p["ladea"] = 0.18 * clampf((t - 0.3) * 4.0, 0.0, 1.0) * (1.0 - clampf((t - 0.75) * 4.0, 0.0, 1.0))
+		# Galopa mientras embiste: patas Y brazos, en contrafase.
+		var galope: float = sin(TAU * t * 3.0) * clampf((t - 0.2) * 5.0, 0.0, 1.0) * (1.0 - clampf((t - 0.75) * 5.0, 0.0, 1.0))
+		p["patas"] = 0.55 * galope
+		p["brazos"] = -0.15 * galope
+		p["codo"] = 0.1
 		return p
 	_montar_animacion(anims, esc, "cornada", false, 10.0, pose, true)
 
@@ -581,13 +656,16 @@ static func _montar_pisoton(anims: Array, esc: float) -> void:
 	# pisoton desde el sur: la pata subiendo son trece pixeles, pero el bicho entero pasa del 109% de
 	# su altura al 83%, o sea treinta. El fotograma 4 es el impacto y va SOLO -- sin el valle previo
 	# del 3, un hundimiento no se lee como un golpe, se lee como agacharse.
-	var agacha_keys := [[0.0, 0.0], [0.143, 0.18], [0.286, -0.14], [0.429, -0.30], [0.571, 0.55],
-		[0.714, 0.34], [0.857, 0.18], [1.0, 0.08]]
+	# (01/10, en 8 direcciones) MAS CONTENIDO: de lado, pasar del 109% al 83% de golpe no se leia como un pisoton,
+	# se leia como que el cuerpo entero se aplastaba ("le pasa algo raro al cuerpo entero").
+	var agacha_keys := [[0.0, 0.0], [0.143, 0.12], [0.286, -0.10], [0.429, -0.18], [0.571, 0.32],
+		[0.714, 0.22], [0.857, 0.12], [1.0, 0.05]]
 	var pisa_keys := [[0.0, 0.0], [0.143, 0.15], [0.286, 0.60], [0.429, 1.0], [0.571, 0.0],
 		[0.714, 0.0], [1.0, 0.0]]
 	# Los brazos se abren para hacer sitio y caen con el pisoton: es de donde sale el peso.
-	var brazos_keys := [[0.0, 0.0], [0.143, 0.10], [0.286, 0.30], [0.429, 0.44], [0.571, -0.16],
-		[0.714, -0.06], [1.0, 0.0]]
+	# POCO: 'brazos' los sube POR DELANTE, y de lado a 0,44 parecia que lanzaba un puñetazo con los dos.
+	var brazos_keys := [[0.0, 0.0], [0.143, 0.06], [0.286, 0.16], [0.429, 0.22], [0.571, -0.12],
+		[0.714, -0.04], [1.0, 0.0]]
 	var codo_keys := [[0.0, 0.20], [0.143, 0.35], [0.286, 0.60], [0.429, 0.75], [0.571, 0.20],
 		[0.714, 0.26], [1.0, 0.30]]
 	var cabeza_keys := [[0.0, -0.2], [0.143, 0.3], [0.286, 0.8], [0.429, 1.1], [0.571, -1.8],
@@ -601,7 +679,8 @@ static func _montar_pisoton(anims: Array, esc: float) -> void:
 		p["codo"] = SpriteLienzo.tramos(t, codo_keys)
 		p["cabeza"] = SpriteLienzo.tramos(t, cabeza_keys)
 		return p
-	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true, 1, FRAMES)
+	# En 8 direcciones (01/10, el tactico): en el mapa pisa mirando hacia donde mira.
+	_montar_animacion(anims, esc, "pisoton", false, 12.0, pose, true)
 
 
 # EL BRAMIDO EMBRAVECIDO (dano 0, furia sobre si mismo): PURO GESTO. Se yergue, echa la cabeza atras
@@ -644,7 +723,8 @@ static func _montar_bramido(anims: Array, esc: float) -> void:
 		p["codo"] = SpriteLienzo.tramos(t, codo_keys)
 		p["resopla"] = sin(TAU * t * 3.0) * clampf((t - 0.35) * 3.0, 0.0, 1.0)
 		return p
-	_montar_animacion(anims, esc, "bramido", false, 8.0, pose, true, 1, FRAMES)
+	# En 8 direcciones (01/10, el tactico).
+	_montar_animacion(anims, esc, "bramido", false, 8.0, pose, true)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA sola direccion (en combate se le ve siempre de frente)
@@ -737,7 +817,7 @@ static func _montar_animacion(anims: Array, esc: float, nombre: String,
 		for i in marcos:
 			# La GEOMETRIA se cachea por (animacion, frame, direccion, escala) y NO por color: es lo
 			# que evita que entrar a un piso lleno de bichos congele el juego.
-			var clave: String = "%s_%d_%d_%.2f" % [nombre, i, dir, esc]
+			var clave: String = "%s_%d_%d_%.2f%s" % [nombre, i, dir, esc, "_roto" if _roto else ""]
 			var plant: PackedByteArray = _cache_plantillas.get(clave, PackedByteArray())
 			if plant.is_empty():
 				plant = _plantilla(dir, pose_fn.call(float(i) / divisor), esc)
@@ -813,6 +893,12 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var rodilla_paso: float = float(pose["rodilla_paso"])
 	var testuz: float = clampf(float(pose["testuz"]), -0.35, TESTUZ_MAX)
 	var vuelca: float = float(pose["vuelca"])
+	var brazo_mez: float = clampf(float(pose["brazo_mez"]), 0.0, 1.0)
+	var brazo_a: float = float(pose["brazo_a"])
+	var brazo_codo: float = float(pose["brazo_codo"])
+	var barre: float = float(pose["barre"])
+	var suelo: float = clampf(float(pose["suelo"]), 0.0, 1.0)
+	var inclina: float = float(pose["inclina"])
 
 	# Agazapado = mas bajo. 'alto' multiplica TODAS las alturas, asi que agacharse hunde el bicho
 	# entero sobre las piernas, que es lo que hace un bipedo pesado.
@@ -826,8 +912,18 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# local (x ancho, y largo, z altura, en unidades de mundo) -> celda de pantalla.
 	# 'gira' a false deja la pieza SIN rotar su forma (para las que ya vienen orientadas a mano).
-	var poner := func(local: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
+	# EL TORSO INCLINADO (01/10, la Cornada a cuatro patas): lo que va de cintura para arriba ('sup' encendido) gira
+	# hacia delante alrededor de la cadera (INCLINA_PIVOTE). Un Dictionary y no un bool porque la lambda lo captura por
+	# valor: asi se ve el cambio.
+	var sup: Dictionary = {"on": false}
+	var poner := func(local0: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			en_suelo: bool = false) -> void:
+		var local: Vector3 = local0
+		if bool(sup["on"]) and not is_zero_approx(inclina):
+			var dy: float = local.y - INCLINA_PIVOTE.y
+			var dz: float = local.z - INCLINA_PIVOTE.z
+			local = Vector3(local.x, INCLINA_PIVOTE.y + dy * cos(inclina) + dz * sin(inclina),
+				INCLINA_PIVOTE.z + dz * cos(inclina) - dy * sin(inclina))
 		# EL LADEO Y EL VUELCO, los dos en el plano de delante: 'ladea' inclina el bicho de costado
 		# (la cornada) y 'vuelca' lo echa hacia delante sobre la mano (la muerte). Se aplican aqui y
 		# no pieza a pieza porque tienen que inclinar el cuerpo ENTERO alrededor de los pies: si solo
@@ -930,68 +1026,96 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		else:
 			detras.append(lado)
 
-	# Dibuja un brazo entero: cadena de piezas por PASOS UNITARIOS, con un CODO de verdad -- un salto
-	# de angulo EN UNA JUNTA -- en el plano Y-Z.
-	var brazo := func(lado: float) -> void:
+	# DE AQUI ARRIBA, TODO VA CON EL TORSO: si se inclina (la embestida a cuatro patas), se inclina todo esto.
+	sup["on"] = true
+
+	# LA MANO (01/10): palma, cuatro dedos que asoman con hueco entre ellos y el pulgar del lado de dentro. Cerrada (el
+	# puño) los dedos son NUDILLOS; abierta, asoman mas y se separan.
+	var mano := func(c: Vector3, d: Vector3, lado: float, tono: int, cerrada: bool) -> void:
+		var palma: Vector3 = c + d * 0.6
+		poner.call(palma, PALMA_R, tono)
+		# El eje a lo ancho de la mano: perpendicular al brazo y a la vertical del mundo (o a lo ancho del cuerpo).
+		var ancho: Vector3 = Vector3(0.0, 0.0, 1.0).cross(d)
+		if ancho.length() < 0.2:
+			ancho = Vector3(1.0, 0.0, 0.0)
+		ancho = ancho.normalized()
+		var sale: float = DEDO_SALE * (0.75 if cerrada else 1.0)
+		for i in 4:
+			var o: float = (float(i) - 1.5) * DEDO_SEPARA * (0.85 if cerrada else 1.0)
+			var dedo: Vector3 = palma + d * sale + ancho * o
+			poner.call(dedo, Vector3.ONE * DEDO_R, tono)
+			if not cerrada:
+				poner.call(dedo + d * 1.1, Vector3.ONE * DEDO_R * 0.85, tono)
+		# El pulgar, del lado de dentro del cuerpo y un poco hacia delante.
+		var dentro: Vector3 = ancho * (-1.0 if ancho.x * lado > 0.0 else 1.0)
+		poner.call(palma + dentro * (PALMA_R.x + 0.4) + d * 0.6 + Vector3(0.0, 0.6, 0.0), Vector3.ONE * DEDO_R, tono)
+
+	# LA CADENA DE UN BRAZO, sin dibujarla: por PASOS UNITARIOS, con un CODO de verdad -- un salto de angulo EN UNA
+	# JUNTA -- en el plano Y-Z.
+	var cadena := func(lado: float) -> Dictionary:
 		# 'brazos' > 0 lo sube por DELANTE (bramido, apoyo al morir); < 0 lo echa atras (correr).
 		var a: float = lerpf(BRAZO_ANG_REPOSO, BRAZO_ANG_ALTO, maxf(0.0, brazos)) \
 			+ minf(0.0, brazos) * 1.2
 		var flex: float = BRAZO_CODO_REPOSO + BRAZO_CODO * clampf(codo, 0.0, 1.0)
-		# EL PUÑETAZO, solo en el brazo que pega: 'punetazo' negativo lo arma por detras cerrando el
-		# codo, positivo lo extiende al frente abriendolo. El hombro y el codo van A LA VEZ, que es lo
-		# que convierte un brazo que rota en un brazo que GOLPEA.
+		# EL PUÑETAZO, solo en el brazo que pega (ver BRAZO_ANG_ARMADO).
 		if is_equal_approx(lado, GOLPE_LADO) and not is_zero_approx(punetazo):
-			# -1..1 -> 0..1 (armado arriba -> descargado abajo), y se MEZCLA con la pose normal por el
-			# valor absoluto: asi en 'punetazo' = 0 el brazo esta exactamente donde estaria sin golpe y
-			# no pega un salto al entrar y salir de la animacion.
 			var u01: float = punetazo * 0.5 + 0.5
 			var mez: float = absf(punetazo)
 			a = lerpf(a, lerpf(BRAZO_ANG_ARMADO, BRAZO_ANG_GOLPE, u01), mez)
 			flex = lerpf(flex, lerpf(BRAZO_CODO, BRAZO_CODO * 0.08, u01), mez)
+		# EL BRAZO DEL BARRIDO: su angulo y su codo los manda la pose.
+		var del_golpe: bool = is_equal_approx(lado, GOLPE_LADO)
+		if del_golpe and brazo_mez > 0.0:
+			a = lerpf(a, brazo_a, brazo_mez)
+			flex = lerpf(flex, BRAZO_CODO_REPOSO + BRAZO_CODO * brazo_codo, brazo_mez)
+		# A CUATRO PATAS: los dos brazos A PLOMO EN EL MUNDO, o sea echados hacia delante en el cuerpo lo mismo que se
+		# inclina el torso (y un pelin mas, para que la mano apoye por delante del hombro).
+		if suelo > 0.0:
+			a = lerpf(a, inclina * 1.05, suelo)
+			flex = lerpf(flex, BRAZO_CODO_REPOSO * 0.5, suelo)
 		var hz: float = HOMBRO_Z - BRAZO_BAJA
 		var al_fondo: bool = lado in detras
 		if al_fondo:
 			hz -= HOMBRO_BAJA_DETRAS
-		# EL BRAZO DEL FONDO VA EN PENUMBRA, y esto es lo que salva el PERFIL. De lado, los dos brazos,
-		# el torso y las piernas caen sobre el mismo eje de pantalla -- lo que los separa a lo ancho
-		# pasa a ser PROFUNDIDAD, que no se ve -- asi que, todos en el mismo tono, el bicho salia como
-		# un BULTO sin lectura interna: no se distinguian ni brazos ni piernas.
-		#
-		# El codo ayuda pero no basta. Lo que de verdad los separa es que el de atras este mas oscuro,
-		# que ademas es lo que pasa de verdad: la luz viene de arriba y delante. Y no contradice la
-		# regla del golem ("una pieza con su propia LUZ se lee como una pieza aparte"): alli eso era
-		# malo porque el hombro TENIA que fundirse con el cuerpo; aqui es justo lo que se busca.
+		# EL BRAZO DEL FONDO VA EN PENUMBRA: de perfil es lo unico que lo separa del torso (ver la nota del
+		# coloso y del golem).
 		var tono_brazo: int = Tono.SOMBRA if al_fondo else Tono.BASE
 		var p3 := Vector3(lado * HOMBRO_X, HOMBRO_Y, hz)
+		var d_fin := Vector3(0.0, 0.0, -1.0)
+		var pts: Array = []
 		for k in BRAZO_SEGMENTOS:
 			var f: float = float(k) / float(BRAZO_SEGMENTOS - 1)
-			poner.call(p3, Vector3.ONE * lerpf(BRAZO_R0, BRAZO_R1, f), tono_brazo)
-			# EL BRAZALETE: va sobre el antebrazo y por ENCIMA del segmento, no en vez de el, asi que
-			# si algun dia se mueve la cadena el brazalete la sigue solo.
-			if k == BRAZALETE_SEG:
-				poner.call(p3, BRAZALETE_R, Tono.CUERO_T, [Tono.BASE])
-			# EL CODO, TODO DE GOLPE Y EN UNA SOLA JUNTA. Repartido entre los seis segmentos -- que es
-			# como estaba -- el brazo no dobla: se COMBA, y un brazo combado se sigue leyendo tieso.
+			pts.append({"p": p3, "r": lerpf(BRAZO_R0, BRAZO_R1, f), "brazalete": k == BRAZALETE_SEG})
+			# EL CODO, TODO DE GOLPE Y EN UNA SOLA JUNTA (repartido, el brazo se comba y se lee tieso).
 			if k == BRAZO_CODO_SEG - 1:
 				a += flex
-			# EL DESVIO A LO ANCHO CAMBIA DE SIGNO EN EL CODO: el brazo sale hacia fuera y el antebrazo
-			# se vuelve hacia dentro, como el del jugador (ver BRAZO_ABRE / BRAZO_METE). Es lo que hace
-			# que el brazo CUELGUE en vez de abrirse en aspa.
+			# EL DESVIO A LO ANCHO CAMBIA DE SIGNO EN EL CODO (ver BRAZO_ABRE / BRAZO_METE).
 			var lat: float = -BRAZO_METE if k >= BRAZO_CODO_SEG - 1 else BRAZO_ABRE
-			# POR PASOS UNITARIOS: se avanza BRAZO_PASO en la direccion actual, que va NORMALIZADA. El
-			# paso no cambia nunca, asi que dos piezas seguidas se solapan igual venga como venga el
-			# brazo -- que es lo unico que permite doblar la cadena sin descoserla.
-			#
-			# Y lo que se separa del cuerpo va DENTRO de la direccion, no sumado encima: sumandolo
-			# aparte el paso real era 2,46 y no 2,4, o sea que el presupuesto de solape del codo estaba
-			# calculado sobre un numero que no era el de verdad.
-			p3 += Vector3(lado * lat, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized() * BRAZO_PASO
-		# EL PUÑO, colgando del ultimo segmento.
-		poner.call(p3, PUNO_R, tono_brazo)
+			var d3 := Vector3(lado * lat, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized()
+			# EL BARRIDO: el brazo que pega gira de lado a lado alrededor de la vertical.
+			if not is_zero_approx(barre) and del_golpe:
+				var xy := Vector2(d3.x, d3.y).rotated(-barre)
+				d3 = Vector3(xy.x, xy.y, d3.z).normalized()
+			p3 += d3 * BRAZO_PASO
+			d_fin = d3
+		return {"pts": pts, "mano": p3, "d": d_fin, "tono": tono_brazo, "lado": lado}
+
+	var brazos_c: Dictionary = {}
+	for lado in lados_brazo:
+		brazos_c[lado] = cadena.call(lado)
+
+	var dibuja_brazo := func(lado: float) -> void:
+		var c: Dictionary = brazos_c[lado]
+		for pt in c["pts"]:
+			poner.call(pt["p"], Vector3.ONE * float(pt["r"]), int(c["tono"]))
+			if bool(pt["brazalete"]):
+				poner.call(pt["p"], BRAZALETE_R, Tono.CUERO_T, [Tono.BASE])
+		# LA MANO: cerrada (puño) en el puñetazo; abierta en lo demas.
+		mano.call(c["mano"], c["d"], lado, int(c["tono"]), is_equal_approx(lado, GOLPE_LADO) and absf(punetazo) > 0.3)
 
 	# EL BRAZO DE DETRAS, antes que el torso: el cuerpo tiene que taparlo.
 	for lado in detras:
-		brazo.call(lado)
+		dibuja_brazo.call(lado)
 
 	# --- EL TORSO EN V, de abajo arriba.
 	poner.call(CADERA, CADERA_R, Tono.BASE)
@@ -1061,12 +1185,19 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		# 'cv' es la inclinacion en el plano vertical: empieza abierto hacia fuera y se va cerrando
 		# hacia arriba y delante.
 		var cv: float = 0.0
-		for k in CUERNO_SEGMENTOS:
+		var n_seg: int = CUERNO_SEGMENTOS
+		if _roto and is_equal_approx(lado, CUERNO_ROTO_LADO):
+			n_seg = CUERNO_ROTO_QUEDA
+		for k in n_seg:
 			var f: float = float(k) / float(CUERNO_SEGMENTOS - 1)
 			# El cuerno se construye en local y se gira AL PONERLO, no antes: si se girase la base y se
 			# siguiera creciendo desde ahi, la cadena saldria del craneo en la direccion vieja.
 			poner.call(testa.call(cp, 1.0), Vector3.ONE * lerpf(CUERNO_R0, CUERNO_R1, f),
 				Tono.CUERNO_T)
+			# EL MUÑON: donde se partio, el hueso por dentro (mas oscuro) en la punta que queda.
+			if n_seg < CUERNO_SEGMENTOS and k == n_seg - 1:
+				poner.call(testa.call(cp + Vector3(lado * 0.5, 0.0, 0.5), 1.0), Vector3.ONE * CUERNO_R0 * 0.7, Tono.SOMBRA,
+					[Tono.CUERNO_T])
 			cp.x += lado * cos(cv) * CUERNO_ABRE * CUERNO_PASO
 			cp.z += sin(cv + 0.55) * CUERNO_PASO
 			cp.y += (1.0 - cos(cv)) * CUERNO_PASO * 0.55
@@ -1123,7 +1254,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# EL BRAZO DE DELANTE, al final del todo: va por encima del torso y de la cabeza.
 	for lado in delante:
-		brazo.call(lado)
+		dibuja_brazo.call(lado)
 
 	return piezas
 

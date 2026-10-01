@@ -53,6 +53,9 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var sf: SpriteFrames = SpritesEnemigo.frames_de(ed, t)
+	# VER_ROTO=1: la variante rota (el cuerno partido del Minotauro en rabia).
+	if OS.get_environment("VER_ROTO") == "1":
+		sf = SpritesEnemigo.frames_roto_de(ed, t)
 	if sf == null:
 		push_error("[ver animacion] %s no tiene sprite generado" % enemigo)
 		get_tree().quit(1)

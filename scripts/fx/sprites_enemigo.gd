@@ -146,6 +146,20 @@ static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return g.generar_de(ed, t)
 
 
+# LA VARIANTE ROTA (01/10, el cuerno partido del Minotauro en rabia): la del generador que la tenga (generar_roto_de /
+# clave_roto_de), horneada o al vuelo como la normal. null si ese enemigo no tiene variante rota.
+static func frames_roto_de(ed: EnemyData, t: float) -> SpriteFrames:
+	var g = _generador(ed)
+	if g == null or ed.sprite_frames != null or not g.has_method("generar_roto_de"):
+		return null
+	var clave: String = g.clave_roto_de(ed, t)
+	if not _horneado.has(clave):
+		_horneado[clave] = SpriteLienzo.cargar_horneado(clave)
+	if _horneado[clave] != null:
+		return _horneado[clave]
+	return g.generar_roto_de(ed, t)
+
+
 # Lo ya leido de disco, por clave. null = se miro y no estaba (no se vuelve a mirar en cada bicho).
 static var _horneado: Dictionary = {}
 

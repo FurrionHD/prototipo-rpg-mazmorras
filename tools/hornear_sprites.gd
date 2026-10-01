@@ -70,6 +70,15 @@ func _ready() -> void:
 			total += 1
 			recortados += _avisar_recortes(sf, clave)
 			sueltas += _avisar_islas(sf, clave)
+			# Y SU VARIANTE ROTA si la tiene (el cuerno partido del Minotauro, 01/10).
+			if g.has_method("generar_roto_de"):
+				var clave_r: String = g.clave_roto_de(ed, t)
+				var sf_r: SpriteFrames = g.generar_roto_de(ed, t)
+				var n_r: int = SpriteLienzo.hornear(sf_r, clave_r)
+				if n_r > 0:
+					bytes += n_r
+					total += 1
+					recortados += _avisar_recortes(sf_r, clave_r)
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,
