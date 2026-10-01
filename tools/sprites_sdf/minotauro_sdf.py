@@ -35,9 +35,15 @@ F_ = np.array([0.0, -S, -C])         # hacia dentro de la pantalla
 # viejo (ancho 1,46 / arriba 1,28 / abajo 0,34 de su altura de 40), para que el juego lo coloque igual.
 PPU = 3.1 / 1.15
 _ALTO_CELDAS = 40.0 * PPU
-W = int(math.ceil(_ALTO_CELDAS * 1.46)); W += W % 2
+# EL ANCHO, MAS QUE EL VIEJO (1,46 -> 2,2): con el brazo estirado y el hacha (el barrido) llega a ~30 unidades del
+# centro. Crece igual a los dos lados, asi que el centro y los pies siguen donde estaban.
+W = int(math.ceil(_ALTO_CELDAS * 2.2)); W += W % 2
 H = int(math.ceil(_ALTO_CELDAS * 1.62)); H += H % 2
 OX, OY = W / 2, _ALTO_CELDAS * 1.28
+# Y MAS ALTO, crecido IGUAL por arriba y por abajo (el hacha en alto se salia por arriba y al golpear hacia la camara,
+# por abajo): el centro del lienzo -- donde el juego pone el nodo -- no se mueve respecto a los pies.
+MARGEN_V = 58
+H += 2 * MARGEN_V; OY += MARGEN_V
 ESTIRA = 1.18                        # las alturas, estiradas (si no, a 45 grados un humanoide sale achaparrado)
 PIERNA_EXTRA = 1.8                   # de la cadera para arriba sube esto: piernas mas largas
 
@@ -291,13 +297,18 @@ def escena(pose):
         mango_a, mango_b = puno - abajo * 6.0, puno + abajo * 5.5
         cab = puno + abajo * 5.6
         h_hacha = 'antebrazo_d'
-    elif pose['hacha'] == 'alto':
+    elif pose['hacha'] in ('alto', 'lado'):
         # EN ALTO para el hachazo: cogida por el extremo del mango, la cabeza lejos del puño (palanca larga).
         puno = MUNECA(HACHA_LADO) + Z(-0.2, 0.4, -2.2)
         abajo = np.array([0.0, 0.15, -1.0]); abajo /= np.linalg.norm(abajo)
-        afuera = np.array([0.0, 1.0, 0.0])
-        mango_a, mango_b = puno - abajo * 1.6, puno + abajo * 11.5
-        cab = puno + abajo * 10.5
+        # 'alto' (el hachazo): las hojas en el plano del golpe de arriba abajo. 'lado' (el barrido): TUMBADAS, en el
+        # plano del golpe de lado a lado, con el filo por delante.
+        afuera = np.array([0.0, 1.0, 0.0]) if pose['hacha'] == 'alto' else np.array([1.0, 0.0, 0.0])
+        # En el barrido se coge MAS CORTA (la mano cerca de la cabeza): con el brazo estirado de lado y la palanca
+        # entera, el hacha se salia del lienzo.
+        largo = 11.5 if pose['hacha'] == 'alto' else 7.5
+        mango_a, mango_b = puno - abajo * 1.6, puno + abajo * largo
+        cab = puno + abajo * (largo - 1.0)
         h_hacha = 'antebrazo_d'
     else:
         base = Z(4.0, -5.4, 18.5); tope = Z(-5.0, -5.4, 33.5)
@@ -486,10 +497,26 @@ def anim_basico(t):
                 avance=avance, gira=gira, cabeza=cabeza, pierna_i=(paso, 0.25 * max(0.0, paso)),
                 pierna_d=(-0.6 * paso, 0.1), cola=0.3 * gira)
 
+def anim_barrido(t):
+    # EL BARRIDO (el cono): echa el hacha ATRAS a su derecha con el torso girado y las piernas abiertas, y la pasa en
+    # horizontal por DELANTE de lado a lado, con todo el torso. Pasa por el frente en el 5o de 8 (M[4]; "mino_barrido").
+    a = tramos(t, [(M[0], 0.4), (M[1], 0.9), (M[2], 1.15), (M[3], 1.2), (M[4], 1.2), (M[5], 1.15), (M[6], 1.05), (M[7], 0.7)])
+    abre = tramos(t, [(M[0], 0.1), (M[1], 0.9), (M[2], 1.3), (M[3], 1.0), (M[4], 0.0), (M[5], -0.6), (M[6], -0.8), (M[7], -0.4)])
+    codo = tramos(t, [(M[0], 0.5), (M[1], 0.4), (M[2], 0.2), (M[3], 0.1), (M[4], 0.0), (M[5], 0.05), (M[6], 0.2), (M[7], 0.4)])
+    gira = tramos(t, [(M[0], 0.0), (M[1], 0.35), (M[2], 0.5), (M[3], 0.35), (M[4], -0.05), (M[5], -0.4), (M[6], -0.5), (M[7], -0.25)])
+    agacha = tramos(t, [(M[0], 0.0), (M[1], 0.4), (M[2], 0.8), (M[3], 0.9), (M[4], 1.0), (M[5], 1.0), (M[6], 0.8), (M[7], 0.3)])
+    inclina = tramos(t, [(M[0], 0.0), (M[2], 0.1), (M[4], 0.2), (M[6], 0.15), (M[7], 0.05)])
+    avance = tramos(t, [(M[0], 0.0), (M[2], -0.6), (M[3], 0.4), (M[4], 1.0), (M[5], 1.2), (M[7], 0.8)])
+    otro = tramos(t, [(M[0], 0.0), (M[2], 0.35), (M[4], 0.1), (M[6], -0.3), (M[7], -0.1)])
+    return POSE(hacha='lado', brazo_d=(a, abre, codo), brazo_i=(otro, 0.5, 0.5), gira=gira, agacha=agacha,
+                inclina=inclina, avance=avance, cabeza=-0.1 * agacha, pierna_i=(0.2 * agacha, 0.15),
+                pierna_d=(-0.15 * agacha, 0.1), cola=0.4 * gira)
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
     'basico': (8, 10.0, False, 8, anim_basico),
+    'barrido': (8, 10.0, False, 8, anim_barrido),
 }
 
 

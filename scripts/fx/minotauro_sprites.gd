@@ -18,17 +18,21 @@ const CARPETA := "res://assets/sprites/enemigos/minotauro_sdf/"
 
 # EL LIENZO, el mismo que salia del generador viejo (y el que usa el script de python): 40 unidades de alto a escala
 # 3,1 son 107,8 celdas; de ancho 1,46 de eso, de alto 1,62 y los pies a 1,28 desde arriba.
-const LIENZO := Vector2i(158, 176)
+# EL ANCHO crece a 2,2 (238): con el brazo estirado y el hacha (el barrido) se salia. Crece igual a los dos lados, asi
+# que el centro (donde el juego pone el nodo) y los pies siguen en el mismo sitio. Y el alto, 58 mas por arriba y por
+# abajo (el hachazo se salia), por lo mismo.
+const LIENZO := Vector2i(238, 292)
 
 # Las animaciones que pide el juego -> la hoja de donde salen, cuantas direcciones y fotogramas tienen, fps y si repiten.
-# PROVISIONAL (01/10): estan hechas 'idle', 'walk' y 'basico'; el resto repite la quieta hasta que se hagan.
+# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico' y 'barrido'; el resto repite la quieta hasta que se hagan.
 const ANIMS := {
 	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
 	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
 	"embestida": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	# EL HACHAZO, su basico: toca en el 6o de 8 a 10 fps (0,5 s; CombatFX.IMPACTO_ANIM_MAPA "mino_hachazo").
 	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
-	"barrido": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	# EL BARRIDO (el cono): el hacha pasa por delante en el 5o de 8 a 10 fps (0,4 s; IMPACTO_ANIM_MAPA "mino_barrido").
+	"barrido": {"hoja": "barrido", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cornada": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"pisoton": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
 	"bramido": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},

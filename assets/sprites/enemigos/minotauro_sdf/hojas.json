@@ -1,7 +1,7 @@
 {
  "lienzo": [
-  158,
-  176
+  238,
+  292
  ],
  "anims": {
   "idle": {
@@ -17,6 +17,12 @@
    "dirs": 8
   },
   "basico": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "barrido": {
    "fotogramas": 8,
    "fps": 10.0,
    "loop": false,

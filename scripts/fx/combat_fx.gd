@@ -2008,6 +2008,8 @@ const IMPACTO_ANIM_MAPA := {
 	"coloso_golpe": 0.5, "sismico": 0.5,
 	# El Minotauro (01/10, rehecho en 3D): el hachazo ('basico', 8 marcos a 10 fps) clava el hacha en el 6.
 	"mino_hachazo": 0.5,
+	# y el barrido ('barrido', 8 marcos a 10 fps) pasa por delante en el 5. (Su habilidad de cono aun no existe.)
+	"mino_barrido": 0.4,
 	# LA REVISION DE SINCRONIA (30/09, tools/ver_sincro, lo pidio el usuario tras el golem): los basicos que tocan mas
 	# tarde que a mitad de su animacion (con el adelanto de siempre, 0,16, el efecto salia un marco o dos antes que el
 	# golpe). El nombre dice en que marco toca: el 5 de 8, el 6 de 8, el 4 de 6. Lo usan por EnemyData.anim_basico.
