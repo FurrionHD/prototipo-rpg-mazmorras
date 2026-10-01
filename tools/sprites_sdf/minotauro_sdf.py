@@ -81,8 +81,8 @@ def escena():
     add(lambda P: sd_elipsoide(P, Z(0, 1.0, 29.4), np.array([9.2, 5.8, 5.4 * ESTIRA])), 'piel', 2.0)
     for s in (-1, 1):
         add(lambda P, s=s: sd_elipsoide(P, Z(4.4 * s, 3.8, 29.0), np.array([4.2, 2.8, 3.2 * ESTIRA])), 'piel', 1.2)
-    add(lambda P: sd_elipsoide(P, Z(0, -1.2, 33.4), np.array([6.2, 3.6, 2.8 * ESTIRA])), 'piel', 2.0)   # trapecio
-    add(lambda P: sd_cono(P, Z(0, -0.2, 32.0), Z(0, 1.0, 36.4), 3.6, 3.2), 'piel', 1.5)                 # cuello
+    add(lambda P: sd_elipsoide(P, Z(0, -1.2, 32.6), np.array([5.2, 3.4, 2.4 * ESTIRA])), 'piel', 1.6)   # trapecio
+    add(lambda P: sd_cono(P, Z(0, 0.0, 32.0), Z(0, 1.0, 36.4), 3.3, 3.0), 'piel', 1.2)                 # cuello
 
     # BRAZOS: deltoide, brazo, antebrazo gordo, puño; el brazalete por encima (union dura)
     for s in (-1, 1):
@@ -136,10 +136,21 @@ def escena():
             p = q; r = r2; th += 0.26
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
-    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 22.2), np.array([5.5, 4.7, 1.2 * ESTIRA])), 'cuero', 0, 'ropa')
+    # El cinto BAJO, en la cadera: alto, se leia como la cintura y el pecho parecia cortisimo.
+    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([5.2, 4.6, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
+    # LAS TIRAS, en tres tramos que siguen el cuerpo (sale con el bulto de la ingle y cae) y se estrechan: una tabla
+    # plana no tenia volumen ni cogia luz. (Puntos ya en coordenadas finales: la tira cruza el escalon de PIERNA_EXTRA.)
+    E = ESTIRA
     for s in (1, -1):
-        ejes = [np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0])]
-        add(lambda P, s=s, e=ejes: sd_caja(P, Z(0, 4.9 * s, 18.2), e, [2.0, 0.35, 5.0 * ESTIRA], 0.3), 'cuero', 0, 'ropa')
+        pts = [np.array([0, 4.5 * s, (20.4 + PIERNA_EXTRA) * E]), np.array([0, 5.4 * s, (17.4 + 1.2) * E]),
+               np.array([0, 5.1 * s, (14.4 + 0.5) * E]), np.array([0, 4.5 * s, 11.8 * E])]
+        anchos = [2.3, 2.1, 1.9]
+        for k in range(3):
+            a, b = pts[k], pts[k + 1]
+            eje = (b - a) / np.linalg.norm(b - a)
+            ex = np.array([1.0, 0, 0]); ey = np.cross(eje, ex)
+            add(lambda P, a=a, b=b, ex=ex, ey=ey, eje=eje, w=anchos[k]: sd_caja(P, (a + b) / 2, [ex, ey, eje],
+                [w, 0.35, np.linalg.norm(b - a) / 2 + 0.35], 0.3), 'cuero', 0, 'ropa')
 
     # COLA con borla
     p = Z(0, -4.6, 21.4)
