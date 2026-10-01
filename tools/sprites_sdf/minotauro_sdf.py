@@ -168,10 +168,10 @@ def puno_reposo(s):
 
 def agarre_hacha(pose):
     """Donde va el hacha en el marco de reposo del antebrazo derecho, para 'alto' y 'lado': (puño, eje del mango hacia
-    la cabeza, largo). En el hachazo se coge por el extremo (palanca larga); en el barrido, mas corta."""
+    la cabeza, largo). En el hachazo se coge por el extremo (palanca larga), tambien en el barrido: asi el hacha sale LEJOS del cuerpo."""
     puno = MUNECA(HACHA_LADO) + Z(-0.2, 0.4, -2.2)
     abajo = np.array([0.0, 0.15, -1.0]); abajo /= np.linalg.norm(abajo)
-    largo = 11.5 if pose['hacha'] == 'alto' else 7.5
+    largo = 11.5
     return puno, abajo, largo
 
 
@@ -573,23 +573,26 @@ def anim_basico(t):
 
 
 def anim_barrido(t):
-    # EL BARRIDO (el cono), A DOS MANOS de lado a lado (01/10, como lo explico el usuario): empieza con el hacha agarrada
-    # a su DERECHA, la echa atras, la pasa por DELANTE con los dos brazos estirados al frente (5o de 8, M[4]:
-    # "mino_barrido"), la lleva hasta su IZQUIERDA en espejo -- como si se la llevara la otra mano -- y RECUPERA hacia
-    # donde empezo. El MANGO recorre un arco alrededor del cuerpo apuntando hacia fuera; los brazos lo siguen y el tronco
-    # gira con el.
-    fi = tramos(t, [(M[0], 0.9), (M[1], 1.15), (M[2], 1.3), (M[3], 0.75), (M[4], 0.0), (M[5], -0.8), (M[6], -1.25), (M[7], 0.4)])
-    z = tramos(t, [(M[0], 24.0), (M[2], 26.0), (M[4], 23.5), (M[6], 25.0), (M[7], 24.0)])
-    r = 10.0
-    d = np.array([-math.sin(fi), math.cos(fi), -0.25])
-    mango = (Z(-r * math.sin(fi), 1.5 + r * math.cos(fi), z), d / np.linalg.norm(d))
-    gira = tramos(t, [(M[0], 0.2), (M[1], 0.35), (M[2], 0.45), (M[3], 0.25), (M[4], 0.0), (M[5], -0.3), (M[6], -0.45), (M[7], 0.05)])
-    agacha = tramos(t, [(M[0], 0.5), (M[1], 0.7), (M[2], 0.8), (M[3], 0.9), (M[4], 1.0), (M[5], 1.0), (M[6], 0.8), (M[7], 0.5)])
-    inclina = tramos(t, [(M[0], 0.1), (M[2], 0.12), (M[4], 0.2), (M[6], 0.15), (M[7], 0.1)])
+    # EL BARRIDO (el cono), A DOS MANOS de lado a lado, como lo dibujo el usuario (01/10): los dos brazos CASI RECTOS y el
+    # hacha LEJOS Y BAJA -- a un lado, delante de los pies a mitad (5o de 8, M[4]: "mino_barrido") y al otro lado en
+    # espejo --, y recupera. Lo que lleva el hacha de lado a lado es sobre todo el TRONCO (gira): asi los dos hombros
+    # quedan de cara al hacha y los dos brazos llegan rectos tambien en los lados. (Con el hacha pegada al cuerpo y a
+    # media altura, los codos se doblaban raro.)
+    ang = tramos(t, [(M[0], 1.0), (M[1], 1.25), (M[2], 1.4), (M[3], 0.8), (M[4], 0.0), (M[5], -0.8), (M[6], -1.3), (M[7], 0.45)])
+    gira = 0.6 * ang
+    fi = ang - gira
+    z = tramos(t, [(M[0], 21.0), (M[2], 22.0), (M[4], 20.0), (M[6], 21.5), (M[7], 21.0)])
+    r = R_BARRIDO
+    d = np.array([-math.sin(fi), math.cos(fi), -0.3])
+    mango = (Z(-r * math.sin(fi), 1.0 + r * math.cos(fi), z), d / np.linalg.norm(d))
+    agacha = tramos(t, [(M[0], 0.6), (M[1], 0.8), (M[2], 0.9), (M[3], 1.0), (M[4], 1.1), (M[5], 1.0), (M[6], 0.9), (M[7], 0.6)])
+    inclina = tramos(t, [(M[0], 0.15), (M[2], 0.18), (M[4], 0.28), (M[6], 0.2), (M[7], 0.15)])
     avance = tramos(t, [(M[0], 0.0), (M[2], -0.6), (M[3], 0.3), (M[4], 1.0), (M[5], 1.2), (M[6], 1.0), (M[7], 0.6)])
     return POSE(hacha='lado', mango=mango, gira=gira, agacha=agacha, inclina=inclina, avance=avance,
-                cabeza=-0.1 * agacha, cabeza_gira=-0.4 * gira, pierna_i=(0.2 * agacha, 0.15),
+                cabeza=-0.1 * agacha, cabeza_gira=-0.3 * gira, pierna_i=(0.2 * agacha, 0.15),
                 pierna_d=(-0.15 * agacha, 0.1), cola=0.4 * gira)
+
+R_BARRIDO = 10.0
 
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
