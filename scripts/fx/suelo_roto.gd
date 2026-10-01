@@ -44,7 +44,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	INSECTO_TELARANA, INSECTO_RODADA, INSECTO_OLEADA,
 	SIMA_ULTRA, SIMA_ANILLO,
 	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO,
-	CONSTRUCTO_PETREA, CONSTRUCTO_SISMO }
+	CONSTRUCTO_PETREA, CONSTRUCTO_SISMO,
+	MINO_BARRIDO, MINO_PISOTON, MINO_BRAMIDO }
+# MINO_* (el Minotauro, 02/10): el BARRIDO es el Hachazo brutal de HachaAire (barre como su sprite: de su izquierda a su
+# derecha); el PISOTON y el BRAMIDO viven en MinotauroAire. Detras de todo: se miran los primeros.
 # CONSTRUCTO_* (los constructos, 30/09): viven en ConstructoAire. Detras de todo: se miran los primeros.
 # FIERA_* (las bestias de las simas, 30/09): viven en FieraAire (su FieraAire.Suelo = tipo - FIERA_ARROLLA). Detras de todo;
 # la Carga acorazada lleva en el NUCLEO el radio de su pisoton (AbilityData.pisoton_final).
@@ -122,6 +125,10 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t == Tipo.MINO_BARRIDO:
+		return HachaAire.lanzar(padre, f, HachaAire.Modo.HACHAZO, semilla, espera)
+	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
+		return MinotauroAire.area(padre, f, t == Tipo.MINO_BRAMIDO, semilla, espera)
 	if t == Tipo.CONSTRUCTO_PETREA:
 		return ConstructoAire.area(padre, f, semilla, espera)
 	if t == Tipo.CONSTRUCTO_SISMO:
@@ -178,6 +185,10 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t == Tipo.MINO_BARRIDO:
+		return HachaAire.retraso(HachaAire.Modo.HACHAZO, f, p)
+	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
+		return MinotauroAire.retraso(f, p, t == Tipo.MINO_BRAMIDO)
 	if t == Tipo.CONSTRUCTO_PETREA:
 		return ConstructoAire.retraso(f, p)
 	if t == Tipo.CONSTRUCTO_SISMO:
@@ -225,6 +236,12 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t == Tipo.MINO_BARRIDO:
+		return HachaAire.T_BRUTAL
+	if t == Tipo.MINO_PISOTON:
+		return MinotauroAire.T_PISOTON
+	if t == Tipo.MINO_BRAMIDO:
+		return MinotauroAire.T_BRAMIDO
 	if t == Tipo.CONSTRUCTO_PETREA:
 		return ConstructoAire.T_CONO
 	if t == Tipo.CONSTRUCTO_SISMO:

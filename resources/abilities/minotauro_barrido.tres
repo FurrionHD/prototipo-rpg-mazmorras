@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Barrido de hacha"
+descripcion = "Agarra el hacha a dos manos por el extremo y la pasa por delante de un lado a otro, con todo el tronco. Pilla a todo lo que tenga delante y lo aparta de un manotazo."
+coste_energia = 0.0
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.5
+area_modo = 1
+area_max = 99
+cooldown = 3
+; EN EL MAPA (02/10, Minotauro paso 2): CONO de 60 y 150 grados desde el frente de su cuerpo, a TODOS los de delante, y
+; los aparta un poco (20 px: un desplazamiento pequeño, solo les retrasa la barra).
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 150.0
+tiron = -20.0
+; EFECTO EN EL MAPA: la media luna del Hachazo brutal (SueloRoto.Tipo.MINO_BARRIDO), que barre como su hacha, y a cada
+; uno su sangre (MINO_BARRIDO). Su gesto, el barrido a dos manos (pasa por delante en el 5).
+fx_anim = &"mino_barrido"
+fx_estilo = 23
+fx_estilo_mapa = 189
+suelo_roto = 88

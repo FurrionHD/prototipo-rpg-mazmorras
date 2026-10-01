@@ -827,6 +827,7 @@ func tick(delta: float) -> bool:
 	_tick_barro()
 	_tick_posadas()
 	_tick_runas()
+	_tick_minotauro()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -3175,7 +3176,10 @@ const _SANGRA := [CombatFX.Estilo.HACHA_TAJO, CombatFX.Estilo.HENDEDURA, CombatF
 	# La SEGADORA (30/09): sus tajos, y el Ensarte con un chorro por detras (por donde asoma la hoja).
 	CombatFX.Estilo.INSECTO_TAJO, CombatFX.Estilo.INSECTO_GUADANA, CombatFX.Estilo.INSECTO_ESTOCADA,
 	# El ACECHADOR (30/09): la Yugular, un chorro gordo desde el cuello; cada mordisco de la Dentellada, hacia el.
-	CombatFX.Estilo.FIERA_YUGULAR, CombatFX.Estilo.FIERA_DENTELLADA]
+	CombatFX.Estilo.FIERA_YUGULAR, CombatFX.Estilo.FIERA_DENTELLADA,
+	# El MINOTAURO (02/10): su hachazo (de arriba abajo, gordo), lo que pilla el Barrido (hacia donde barre) y la Cornada
+	# (hacia donde empuja).
+	CombatFX.Estilo.MINO_HACHAZO, CombatFX.Estilo.MINO_BARRIDO, CombatFX.Estilo.MINO_CORNADA]
 
 func _on_impacto(ev: Dictionary) -> void:
 	# LA GOTA DEL BROTE cae sobre su cria: se levanta. De enemigo a enemigo no pega nadie mas.
@@ -3302,6 +3306,14 @@ func _on_impacto(ev: Dictionary) -> void:
 		CombatFX.Estilo.INSECTO_ESTOCADA:
 			dir = radial
 			fuerza *= 1.1
+		CombatFX.Estilo.MINO_HACHAZO:
+			dir = radial   # de arriba abajo: sale hacia delante, como la Hendedura
+			fuerza *= 1.2
+		CombatFX.Estilo.MINO_BARRIDO:
+			fuerza *= 1.3   # hacia donde barre, como el Hachazo brutal (el dir de siempre)
+		CombatFX.Estilo.MINO_CORNADA:
+			dir = radial
+			fuerza *= 1.2
 	SangreMapa.salpicar(arena, desde, pies_v, dir, fuerza, int(ev.get("semilla", 1)))
 
 
@@ -3560,6 +3572,106 @@ func _tick_runas() -> void:
 		mat.set_shader_parameter("humedo", 0.0)
 		mat.set_shader_parameter("piedra", 0.0)
 		mat.set_shader_parameter("runas", 1.0 if ahora else 0.0)
+
+
+# EL MINOTAURO (02/10, paso 2; MinotauroAire). Se mira cada fotograma lo que ya viaja al espejo (la carga y la vida), asi
+# que lo ven igual todas las pantallas sin mandar nada:
+#  - ESCARBA mientras carga la Cornada (agazapado): terrones hacia atras, polvo y vaho; al soltarla se seca.
+#  - LA RABIA (por debajo de su umbral, Combatant.en_rabia): al cruzarlo, una vez, el cuerno sale volando, el fogonazo
+#    rojizo y el vaho (MinotauroAire.RABIA), y su sprite pasa a la variante del cuerno partido (SpritesEnemigo
+#    .frames_roto_de); mientras le dure, vaho de vez en cuando (RABIOSO) y los ojos rojos y el rojizo (shader
+#    rabia_minotauro).
+const _RABIA_MINO := preload("res://shaders/rabia_minotauro.gdshader")
+const _CARGA_ESCARBA := &"mino_agacharse>mino_agazapado"
+var _escarbas: Dictionary = {}   # Combatant -> MinotauroAire (ESCARBA)
+var _rabias: Dictionary = {}     # Combatant -> MinotauroAire (RABIOSO) o null; esta = ya entro en rabia
+
+# Hacia donde mira su cuerpo en el mapa: su _facing si lo tiene; si no (el espejo), el sufijo de su animacion.
+func _mira_de(cu: Node2D) -> Vector2:
+	var f = cu.get("_facing")
+	if f is Vector2 and (f as Vector2).length_squared() > 0.0001:
+		return (f as Vector2).normalized()
+	var spr = cu.get("_sprite")
+	if spr is AnimatedSprite2D:
+		var partes: PackedStringArray = String((spr as AnimatedSprite2D).animation).rsplit("_", true, 1)
+		if partes.size() == 2 and partes[1].is_valid_int():
+			var ang: float = PI * 0.5 - float(int(partes[1])) * PI * 0.25
+			return Vector2(cos(ang), sin(ang))
+	return Vector2.DOWN
+
+
+func _tick_minotauro() -> void:
+	var arena: ArenaCombate = _arena()
+	for e in _pantalla._enemies:
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null or arena == null:
+			continue
+		# ESCARBA (cargando la Cornada).
+		var ab: AbilityData = e.charging if e.is_alive() else null
+		var escarba: bool = ab != null and ab.fx_anim_carga == _CARGA_ESCARBA
+		var n_e = _escarbas.get(e)
+		if escarba:
+			if n_e == null or not is_instance_valid(n_e):
+				n_e = MinotauroAire.sobre_el(arena, MinotauroAire.Modo.ESCARBA, bulto_de(e), pies_de(e), _mira_de(cu),
+					_cod(e) + randi() % 97)
+				_escarbas[e] = n_e
+			(n_e as MinotauroAire).seguir(bulto_de(e), pies_de(e), _mira_de(cu))
+		elif n_e != null:
+			if is_instance_valid(n_e):
+				(n_e as MinotauroAire).secar()
+			_escarbas.erase(e)
+		# LA RABIA.
+		if e.rabia_umbral <= 0.0:
+			continue
+		var rabia: bool = e.en_rabia()
+		if rabia and not _rabias.has(e):
+			MinotauroAire.sobre_el(arena, MinotauroAire.Modo.RABIA, bulto_de(e), pies_de(e), _mira_de(cu), _cod(e) + 31)
+			_rabias[e] = MinotauroAire.sobre_el(arena, MinotauroAire.Modo.RABIOSO, bulto_de(e), pies_de(e), _mira_de(cu),
+				_cod(e) + 37)
+			_sprite_roto(cu)
+		elif not rabia and _rabias.has(e):
+			var n_r = _rabias[e]
+			if n_r != null and is_instance_valid(n_r):
+				(n_r as MinotauroAire).secar()
+			_rabias.erase(e)
+		var n_r2 = _rabias.get(e)
+		if n_r2 != null and is_instance_valid(n_r2):
+			(n_r2 as MinotauroAire).seguir(bulto_de(e), pies_de(e), _mira_de(cu))
+		# Los ojos y el rojizo.
+		var spr = cu.get("_sprite")
+		if not (spr is CanvasItem):
+			continue
+		var mat: ShaderMaterial = (spr as CanvasItem).material as ShaderMaterial
+		if mat == null or mat.shader != _RABIA_MINO:
+			if not rabia:
+				continue
+			mat = ShaderMaterial.new()
+			mat.shader = _RABIA_MINO
+			(spr as CanvasItem).material = mat
+		mat.set_shader_parameter("encendido", 1.0 if rabia else 0.0)
+
+
+# EL CUERNO PARTIDO: su sprite pasa a la variante rota, en la misma animacion y fotograma.
+func _sprite_roto(cu: Node2D) -> void:
+	var spr = cu.get("_sprite")
+	var ed = cu.get("data")
+	if not (spr is AnimatedSprite2D) or not (ed is EnemyData):
+		return
+	var t_v = cu.get("current_t")
+	var roto: SpriteFrames = SpritesEnemigo.frames_roto_de(ed, float(t_v) if t_v != null else 0.5)
+	var sp: AnimatedSprite2D = spr
+	if roto == null or sp.sprite_frames == roto:
+		return
+	var anim: StringName = sp.animation
+	var fr: int = sp.frame
+	var prog: float = sp.frame_progress
+	var sonando: bool = sp.is_playing()
+	sp.sprite_frames = roto
+	if roto.has_animation(anim):
+		sp.animation = anim
+		if sonando:
+			sp.play(anim)
+		sp.set_frame_and_progress(fr, prog)
 
 
 # LA ESTATUA SE VE (30/09, paso 2): posada (y no en el aire) su sprite se va a gris piedra sin brillo (el shader
@@ -3837,6 +3949,23 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 			semilla, vuelo, ritmo)
 		if _pantalla._fx != null:
 			_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+		return
+	# EL MINOTAURO (MinotauroAire, 02/10): el hachazo que cae (o se clava en el suelo si lo esquiva), el enganche de la
+	# Cornada y el polvo del Pisoton; a los dos ultimos les tiembla la figura. Lo del Barrido va por el suelo (el filo) y la
+	# sangre: aqui no pinta nada mas.
+	if estilo in [CombatFX.Estilo.MINO_HACHAZO, CombatFX.Estilo.MINO_BARRIDO, CombatFX.Estilo.MINO_CORNADA,
+			CombatFX.Estilo.MINO_SISMO]:
+		if estilo == CombatFX.Estilo.MINO_BARRIDO:
+			return
+		var desde_m: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
+		var modo_m: int = {CombatFX.Estilo.MINO_HACHAZO: MinotauroAire.Modo.HACHAZO,
+			CombatFX.Estilo.MINO_CORNADA: MinotauroAire.Modo.CORNADA, CombatFX.Estilo.MINO_SISMO: MinotauroAire.Modo.SISMO}[estilo]
+		MinotauroAire.sobre_cuerpo(arena, modo_m, desde_m, bulto_de(v), pies_de(v), semilla, vuelo, ritmo,
+			bool(ev.get("evadido", false)))
+		if estilo != CombatFX.Estilo.MINO_HACHAZO and not bool(ev.get("evadido", false)):
+			var cu_m: Node2D = cuerpo_de(v)
+			var dib_m = cu_m.get("_muneco") if cu_m.get("_muneco") is Node2D else cu_m.get("_sprite")
+			BestiaAire.temblor(arena, dib_m as CanvasItem, bulto_de(v), semilla, vuelo, ritmo)
 		return
 	# Al que le pilla el Pisoton le tiembla la figura (como el Chillido).
 	if estilo == CombatFX.Estilo.COLOSO_SISMO:

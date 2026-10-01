@@ -32,3 +32,9 @@ forma_ancho = 28.0
 carga = true
 carga_turnos = 1
 tiron = -40.0
+; EFECTO EN EL MAPA (02/10, paso 2): mientras carga escarba (CombatTactico._tick_minotauro); el desliz deja el surco de la
+; Embestida del jabali (SueloRoto.Tipo.BESTIA_SURCO: va al tiempo del desliz y se para en el primero, como esta; la banda
+; de la acorazada va al ritmo de ATRAVESAR) y el enganche es el fogonazo romo en los cuernos (MINO_CORNADA), con la
+; sangre y el temblor de quien lo recibe.
+fx_estilo_mapa = 190
+suelo_roto = 73

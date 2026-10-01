@@ -4,6 +4,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_cornada.tres" id="3_cor"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_pisoton.tres" id="4_pis"]
 [ext_resource type="Resource" path="res://resources/abilities/minotauro_bramido.tres" id="5_bra"]
+[ext_resource type="Resource" path="res://resources/abilities/minotauro_barrido.tres" id="8_bar"]
 [ext_resource type="Resource" path="res://resources/materials/cuero_t3.tres" id="6_cuero"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_minotauro.tres" id="7_nuc"]
 
@@ -44,7 +45,9 @@ drop_piso_debut = 12
 drop_piso_pleno = 12
 fx_basico = 23
 anim_basico = &"mino_hachazo"
-habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra")]
+; Y LO QUE PINTA EN EL MAPA (02/10, paso 2): el hachazo que cae sobre quien lo recibe (MinotauroAire.HACHAZO).
+fx_basico_mapa = 188
+habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra"), ExtResource("8_bar")]
 status_resist = 1.8
 eficacia = 1.5
 prob_habilidad = 0.5

@@ -89,6 +89,12 @@ const ALIAS_ESTILO := {
 	# El coloso (01/10): su manotazo suena a golpetazo y el Pisoton como sonaba.
 	CombatFX.Estilo.COLOSO_MAZO: "golpetazo",
 	CombatFX.Estilo.COLOSO_SISMO: "pisoton",
+	# El Minotauro (02/10): el hachazo suena a golpetazo; lo que le llega a cada uno del Barrido y de la Cornada, a su
+	# golpe; el Pisoton, como sonaba.
+	CombatFX.Estilo.MINO_HACHAZO: "golpetazo",
+	CombatFX.Estilo.MINO_BARRIDO: "golpetazo",
+	CombatFX.Estilo.MINO_CORNADA: "carga",
+	CombatFX.Estilo.MINO_SISMO: "pisoton",
 	# La postura de la rodela es una guardia, igual que la del estoque. Misma familia, mismo sonido.
 	CombatFX.Estilo.POSTURA_RODELA: "en_guardia",
 	# La Escolta es marcar por donde entra el otro y entrar detras: es el mismo gesto que señalar

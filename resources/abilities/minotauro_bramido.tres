@@ -33,3 +33,7 @@ cooldown = 5
 forma = 1
 forma_apunte = 2
 forma_radio = 140.0
+; EFECTO EN EL MAPA (02/10, paso 2): el vaho del morro y tres anillos graves (SueloRoto.Tipo.MINO_BRAMIDO); a cada uno
+; le tiembla la figura, como con el Chillido (BESTIA_TEMBLOR).
+fx_estilo_mapa = 138
+suelo_roto = 90

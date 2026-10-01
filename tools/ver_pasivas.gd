@@ -11,7 +11,8 @@ const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0
 const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
 	"empujon", "barra", "alcance", "golem_basico", "golem_machaca", "golem_estados",
 	"gargola_basico", "gargola_picado", "gargola_mirada", "gargola_estados",
-	"coloso_basico", "coloso_pisoton", "coloso_estados"]
+	"coloso_basico", "coloso_pisoton", "coloso_estados",
+	"mino_basico", "mino_esquiva", "mino_barrido", "mino_cornada", "mino_pisoton", "mino_bramido", "mino_rabia"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -148,7 +149,7 @@ func _en(piezas: Array, t: float) -> void:
 		if n.has_method("aplicar_temblor"):
 			n.call("aplicar_temblor")
 		(n as Node2D).queue_redraw()
-		for hijo in ["_suelo", "_delante", "_brillo"]:
+		for hijo in ["_suelo", "_delante", "_brillo", "_atras"]:
 			var su = n.get(hijo)
 			if su is Node2D:
 				(su as Node2D).queue_redraw()
@@ -1093,3 +1094,279 @@ func _hoja_coloso_estados(salida: String) -> void:
 			await _viñeta(hoja, c, fila, "Coloso · %s · %.2f s" % [filas[fila][0], t])
 		await _limpiar(piezas, [g["nodo"]])
 	_guardar(hoja, _carpeta_coloso(salida), "estados")
+
+
+# ------------------------------------------------------------
+#  EL MINOTAURO (02/10, paso 2, MinotauroAire). Carpeta enemigos/minotauro/. Su ficha es guardian_rango.
+# ------------------------------------------------------------
+const _MINO := "guardian_rango"
+
+func _carpeta_mino(salida: String) -> String:
+	var c: String = "%s/minotauro" % salida
+	DirAccess.make_dir_recursive_absolute(c)
+	return c
+
+
+func _huella_lista() -> void:
+	if _huella_g == null:
+		_huella_g = Node2D.new()
+		_huella_g.z_index = 1
+		add_child(_huella_g)
+		_huella_g.draw.connect(func():
+			if _forma_g != null:
+				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
+
+
+# Lo que se queda sobre el (escarbar, rabioso): suelta sus tandas hasta 't' (en el juego lo hace su _process).
+func _estado_hasta(n: MinotauroAire, t: float) -> void:
+	while n._siguiente <= t:
+		n._t = n._siguiente
+		n._soltar_tanda()
+	n._t = t
+
+
+func _hoja_mino_basico(salida: String) -> void:
+	var tiempos: Array = [-0.4, -0.2, -0.08, -0.04, 0.0, 0.05, 0.12, 0.25]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	_zoom(100.0)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var fig_p: Vector2 = _al_alcance(g, dvec, ed.alcance_real())
+		var fig := _figura(fig_p, AZUL)
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = (bg.get_center() + fig_p) * 0.5
+		var piezas: Array = [{"n": MinotauroAire.sobre_cuerpo(self, MinotauroAire.Modo.HACHAZO, bg.get_center(),
+			_caja_fig(fig), fig_p, 1201 + fila, 0.0, 1.0), "t0": 0.0}]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "basico", _marco_golpe(g, t, String(ed.anim_basico), "basico"))
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Minotauro · hachazo · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_mino(salida), "basico")
+
+
+# Si lo esquiva: el filo se clava en el suelo a su lado.
+func _hoja_mino_esquiva(salida: String) -> void:
+	var tiempos: Array = [-0.08, -0.04, 0.0, 0.05, 0.12, 0.25, 0.45]
+	var filas: Array = [DIRS[2], DIRS[3], DIRS[4]]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * filas.size(), false, Image.FORMAT_RGBA8)
+	_zoom(100.0)
+	for fila in filas.size():
+		var dvec: Vector2 = (filas[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var fig_p: Vector2 = _al_alcance(g, dvec, ed.alcance_real())
+		var fig := _figura(fig_p, AZUL)
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = (bg.get_center() + fig_p) * 0.5
+		var piezas: Array = [{"n": MinotauroAire.sobre_cuerpo(self, MinotauroAire.Modo.HACHAZO, bg.get_center(),
+			_caja_fig(fig), fig_p, 1211 + fila, 0.0, 1.0, true), "t0": 0.0}]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "basico", _marco_golpe(g, t, String(ed.anim_basico), "basico"))
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Minotauro · hachazo ESQUIVADO · %s · %.2f s" % [filas[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_mino(salida), "basico_esquivado")
+
+
+func _hoja_mino_barrido(salida: String) -> void:
+	var tiempos: Array = [-0.3, -0.1, 0.0, 0.06, 0.12, 0.2, 0.32, 0.6]
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/minotauro_barrido.tres")
+	_zoom(100.0)
+	_huella_lista()
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var frente: float = _TACTICO_G.frente_dibujo(g["nodo"], Vector2.ZERO, dvec)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, maxf(pisa, frente), ed.alcance_real(), dvec * 70.0, frente * 0.85)
+		# Tres de los tuyos repartidos por el cono: a un lado, delante y al otro.
+		var sitios: Array = [f.origen + dvec.rotated(1.0) * f.radio * 0.7 + Vector2(0, 13),
+			f.origen + dvec * f.radio * 0.55 + Vector2(0, 13), f.origen + dvec.rotated(-1.05) * f.radio * 0.8 + Vector2(0, 13)]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = f.origen + dvec * f.radio * 0.3 + Vector2(0, -25)
+		_mirar(g, dvec)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Minotauro · Barrido · %s · apuntando (cono)" % DIRS[fila][0])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 1221 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "mino_barrido", _marco_golpe(g, t, "mino_barrido", "mino_barrido"))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Minotauro · Barrido · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_mino(salida), "barrido")
+
+
+# Tres columnas cargando (escarba) y luego el desliz y el enganche.
+func _hoja_mino_cornada(salida: String) -> void:
+	var cargas: Array = [0.3, 0.9, 1.5]
+	var tiempos: Array = [-0.2, -0.12, -0.05, 0.0, 0.05, 0.12, 0.25, 0.45]
+	var hoja := Image.create(LADO * (cargas.size() + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/minotauro_cornada.tres")
+	_zoom(115.0)
+	_huella_lista()
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var frente: float = _TACTICO_G.frente_dibujo(g["nodo"], Vector2.ZERO, dvec)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, maxf(pisa, frente), ed.alcance_real(), dvec * 90.0, frente * 0.85)
+		var vic: Vector2 = f.origen + dvec * f.largo * 0.72 + Vector2(0, 13.0 * maxf(dvec.y, 0.0))
+		var fig := _figura(vic, AZUL)
+		# Donde se para: pegado a ella (como CombatTactico.mover_enemigo).
+		var fin: Vector2 = vic - dvec * (8.0 + pisa)
+		_cam.global_position = fin * 0.5 + Vector2(0, -30)
+		var nodo: Node2D = g["nodo"]
+		# CARGANDO: agazapado escarbando, con la huella roja.
+		var esc: MinotauroAire = MinotauroAire.sobre_el(self, MinotauroAire.Modo.ESCARBA, _bulto(g), Vector2.ZERO, dvec, 1231 + fila)
+		esc.set_process(false)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		for c in cargas.size():
+			_mirar(g, dvec, "mino_agazapado", int(cargas[c] * 6.0) % 4)
+			_estado_hasta(esc, cargas[c])
+			_en([{"n": esc, "t0": 0.0}], cargas[c])
+			await _viñeta(hoja, c, fila, "Minotauro · Cornada · %s · cargando (escarba) %.1f s" % [DIRS[fila][0], cargas[c]])
+		esc.queue_free()
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 1241 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		var bg0: Rect2 = _bulto(g)
+		var engancha: MinotauroAire = MinotauroAire.sobre_cuerpo(self, MinotauroAire.Modo.CORNADA, bg0.get_center() + fin,
+			_caja_fig(fig), vic, 1251 + fila, 0.0, 1.0)
+		engancha.set_process(false)
+		piezas.append({"n": engancha, "t0": 0.0})
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			# El desliz: de sus pies al sitio donde se para, en los 0,2 s de antes del golpe.
+			nodo.position = Vector2.ZERO.lerp(fin, clampf((t + 0.2) / 0.2, 0.0, 1.0))
+			_mirar(g, dvec, "mino_cornada", _marco_golpe(g, t, "mino_cornada", "mino_cornada"))
+			_en(piezas, t)
+			await _viñeta(hoja, cargas.size() + c, fila, "Minotauro · Cornada · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_mino(salida), "cornada")
+
+
+# El Pisoton y el Bramido: circulo a su alrededor, tres de los tuyos (cerca, a media distancia y al borde).
+func _hoja_mino_area(salida: String, nom: String, titulo: String, anim: String, zoom: float, tiempos: Array) -> void:
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/minotauro_%s.tres" % nom)
+	_zoom(zoom)
+	_huella_lista()
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, pisa, ed.alcance_real(), dvec * 40.0, pisa)
+		var sitios: Array = [f.centro + dvec * f.radio * 0.4 + Vector2(0, 8),
+			f.centro + dvec.rotated(1.2) * f.radio * 0.65, f.centro + dvec.rotated(-1.0) * f.radio * 0.9]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = f.centro + Vector2(0, -30)
+		_mirar(g, dvec)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Minotauro · %s · %s · su huella" % [titulo, DIRS[fila][0]])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 1261 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		for i in figs.size():
+			var fg: ColorRect = figs[i]
+			var t0: float = SueloRoto.retraso_caja(f, _caja_fig(fg), ab.suelo_roto)
+			if nom == "pisoton":
+				piezas.append({"n": MinotauroAire.sobre_cuerpo(self, MinotauroAire.Modo.SISMO, Vector2.ZERO, _caja_fig(fg),
+					sitios[i], 1271 + fila * 3 + i, 0.0, 1.0), "t0": t0})
+			piezas.append({"n": BestiaAire.temblor(self, fg, _caja_fig(fg), 1281 + fila * 3 + i, 0.0, 1.0), "t0": t0})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, anim, _marco_golpe(g, t, anim, anim))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Minotauro · %s · %s · %.2f s" % [titulo, DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_mino(salida), nom)
+
+
+func _hoja_mino_pisoton(salida: String) -> void:
+	await _hoja_mino_area(salida, "pisoton", "Pisoton atronador", "mino_pisoton", 110.0,
+		[-0.25, -0.05, 0.0, 0.06, 0.14, 0.24, 0.4, 0.75])
+
+
+func _hoja_mino_bramido(salida: String) -> void:
+	await _hoja_mino_area(salida, "bramido", "Bramido embravecido", "mino_bramido", 170.0,
+		[-0.3, -0.05, 0.05, 0.15, 0.3, 0.45, 0.7, 1.0])
+
+
+# LA RABIA: al cruzar el umbral (cuerno que vuela, fogonazo, vaho) y despues (ojos rojos, rojizo y vaho a ratos).
+func _hoja_mino_rabia(salida: String) -> void:
+	var tiempos: Array = [-0.1, 0.05, 0.15, 0.3, 0.5, 0.7, 1.2, 2.6]
+	var filas: Array = [DIRS[4], DIRS[2], DIRS[1], DIRS[0]]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * filas.size(), false, Image.FORMAT_RGBA8)
+	_zoom(80.0)
+	for fila in filas.size():
+		var dvec: Vector2 = (filas[fila][1] as Vector2).normalized()
+		var g := _enemigo(_MINO, Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var spr: AnimatedSprite2D = g["spr"]
+		var normal: SpriteFrames = spr.sprite_frames
+		var roto: SpriteFrames = SpritesEnemigo.frames_roto_de(ed, 0.5)
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/rabia_minotauro.gdshader")
+		spr.material = mat
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = bg.get_center() + Vector2(0, 10)
+		var rab: MinotauroAire = MinotauroAire.sobre_el(self, MinotauroAire.Modo.RABIA, bg, Vector2.ZERO, dvec, 1291 + fila)
+		var rabioso: MinotauroAire = MinotauroAire.sobre_el(self, MinotauroAire.Modo.RABIOSO, bg, Vector2.ZERO, dvec, 1295 + fila)
+		rab.set_process(false)
+		rabioso.set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			spr.sprite_frames = roto if t >= 0.0 and roto != null else normal
+			_mirar(g, dvec, "idle", c % 8)
+			mat.set_shader_parameter("encendido", 1.0 if t >= 0.0 else 0.0)
+			_en([{"n": rab, "t0": 0.0}], t)
+			if t >= 0.0:
+				_estado_hasta(rabioso, t)
+				_en([{"n": rabioso, "t0": 0.0}], t)
+			await _viñeta(hoja, c, fila, "Minotauro · entra en RABIA · %s · %.2f s" % [filas[fila][0], t])
+		await _limpiar([{"n": rab}, {"n": rabioso}], [g["nodo"]])
+	_guardar(hoja, _carpeta_mino(salida), "rabia")

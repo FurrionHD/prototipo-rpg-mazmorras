@@ -33,6 +33,8 @@ const ANIMS := {
 	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	# EL BARRIDO (el cono): el hacha pasa por delante en el 5o de 8 a 10 fps (0,4 s; IMPACTO_ANIM_MAPA "mino_barrido").
 	"barrido": {"hoja": "barrido", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	# Y con el nombre de su tiempo de golpe (el fx_anim de minotauro_barrido): "barrido" a secas podria pisarlo otro.
+	"mino_barrido": {"hoja": "barrido", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cornada": {"hoja": "mino_cornada", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
 	# LA CORNADA (01/10): mientras avisa se pone A CUATRO PATAS echandose el hacha a la espalda y se queda AGAZAPADO
 	# escarbando (fx_anim_carga "mino_agacharse>mino_agazapado"); al soltar, el juego le desliza por la linea y ENGANCHA

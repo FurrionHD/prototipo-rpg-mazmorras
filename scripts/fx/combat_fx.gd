@@ -425,7 +425,11 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		GARGOLA_ZARPA = 182, GARGOLA_PICADO = 183, GARGOLA_PETREA = 184,
 		# Y el coloso: su manotazo de sillar, el temblor de quien le pilla el Pisoton y el aviso de que no se le mueve
 		# (Imparable).
-		COLOSO_MAZO = 185, COLOSO_SISMO = 186, COLOSO_CLAVADO = 187 }
+		COLOSO_MAZO = 185, COLOSO_SISMO = 186, COLOSO_CLAVADO = 187,
+		# EL MINOTAURO en el mapa (02/10, MinotauroAire): el hachazo que cae sobre quien lo recibe (o se clava en el suelo
+		# si lo esquiva), lo que le llega a cada uno con el Barrido (la sangre; el filo va por el suelo), el enganche de la
+		# Cornada y el temblor de quien le pilla el Pisoton.
+		MINO_HACHAZO = 188, MINO_BARRIDO = 189, MINO_CORNADA = 190, MINO_SISMO = 191 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -476,6 +480,8 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.CONSTRUCTO_PUNO, Estilo.CONSTRUCTO_MACHACA,
 	Estilo.GARGOLA_ZARPA, Estilo.GARGOLA_PICADO, Estilo.GARGOLA_PETREA,
 	Estilo.COLOSO_MAZO, Estilo.COLOSO_SISMO, Estilo.COLOSO_CLAVADO,
+	# y el Minotauro (MinotauroAire, 02/10).
+	Estilo.MINO_HACHAZO, Estilo.MINO_BARRIDO, Estilo.MINO_CORNADA, Estilo.MINO_SISMO,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -662,6 +668,8 @@ const T_VUELO := {
 	Estilo.GARGOLA_ZARPA: 0.02, Estilo.GARGOLA_PICADO: 0.02, Estilo.GARGOLA_PETREA: 0.02,
 	# El brazo del coloso lo lleva su sprite (cae EN el golpe); el temblor, cuando le llega su anillo; el aviso, ya.
 	Estilo.COLOSO_MAZO: 0.02, Estilo.COLOSO_SISMO: 0.02, Estilo.COLOSO_CLAVADO: 0.02,
+	# El hacha del Minotauro la lleva su sprite: el filo baja EN el golpe (MinotauroAire.T_BAJA antes); lo demas, ya.
+	Estilo.MINO_HACHAZO: 0.08, Estilo.MINO_BARRIDO: 0.02, Estilo.MINO_CORNADA: 0.02, Estilo.MINO_SISMO: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -2008,8 +2016,10 @@ const IMPACTO_ANIM_MAPA := {
 	"coloso_golpe": 0.5, "sismico": 0.5,
 	# El Minotauro (01/10, rehecho en 3D): el hachazo ('basico', 8 marcos a 10 fps) clava el hacha en el 6.
 	"mino_hachazo": 0.5,
-	# y el barrido ('barrido', 8 marcos a 10 fps) pasa por delante en el 5. (Su habilidad de cono aun no existe.)
-	"mino_barrido": 0.4,
+	# y el barrido ('mino_barrido', 8 marcos a 10 fps) pasa por delante en el 5 (la habilidad minotauro_barrido). Con 0,3
+	# y no 0,4: la media luna del Hachazo brutal arranca EN el golpe y tarda en llegar al frente; asi el hacha del sprite
+	# y el filo pasan por delante juntos (02/10, visto en la hoja).
+	"mino_barrido": 0.3,
 	# y la cornada ('mino_cornada', 8 marcos a 12 fps) engancha con los cuernos en el 3, al acabar el desliz.
 	"mino_cornada": 0.17,
 	# y el pisoton ('mino_pisoton', 8 marcos a 12 fps) cae en el 5.
