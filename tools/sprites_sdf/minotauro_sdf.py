@@ -76,7 +76,7 @@ def escena():
         L.append((fn, mat, grupo, k))
 
     # TORSO EN V
-    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 21.4), np.array([4.6, 4.1, 3.2 * ESTIRA])), 'piel', 0)
+    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 21.4), np.array([4.1, 3.9, 3.2 * ESTIRA])), 'piel', 0)
     add(lambda P: sd_elipsoide(P, Z(0, 0.8, 24.8), np.array([4.8, 4.2, 3.8 * ESTIRA])), 'piel', 2.0)
     add(lambda P: sd_elipsoide(P, Z(0, 1.0, 29.4), np.array([8.0, 5.6, 5.4 * ESTIRA])), 'piel', 2.0)
     for s in (-1, 1):
@@ -104,11 +104,11 @@ def escena():
 
     # PIERNAS digitigradas: muslo, rodilla adelante, corvejon atras, pezuña
     for s in (-1, 1):
-        cad = Z(4.2 * s, 0.0, 20.0); rod = Z(4.8 * s, 1.4, 11.8); cor = Z(4.6 * s, -1.2, 5.6); pie = Z(4.7 * s, 0.6, 1.3)
-        add(lambda P, a=cad, b=rod: sd_cono(P, a, b, 3.7, 2.8), 'piel', 1.5)
+        cad = Z(3.6 * s, 0.0, 20.0); rod = Z(4.3 * s, 1.4, 11.8); cor = Z(4.3 * s, -1.2, 5.6); pie = Z(4.4 * s, 0.6, 1.3)
+        add(lambda P, a=cad, b=rod: sd_cono(P, a, b, 3.2, 2.7), 'piel', 1.5)
         add(lambda P, a=rod, b=cor: sd_cono(P, a, b, 2.6, 1.9), 'pelo', 1.0)
         add(lambda P, a=cor, b=pie: sd_cono(P, a, b, 1.9, 1.7), 'pelo', 0.8)
-        add(lambda P, c=Z(4.7 * s, 1.0, 1.0): sd_elipsoide(P, c, np.array([2.1, 2.6, 1.2 * ESTIRA])), 'pezuna', 0.4)
+        add(lambda P, c=Z(4.4 * s, 1.0, 1.0): sd_elipsoide(P, c, np.array([2.1, 2.6, 1.2 * ESTIRA])), 'pezuna', 0.4)
 
     # CABEZA: craneo, cara larga hacia abajo, morro claro, cejas, orejas, ojos, anilla
     add(lambda P: sd_elipsoide(P, Z(0, 0.8, 39.0), np.array([3.8, 3.8, 3.4 * ESTIRA])), 'piel', 1.5)
@@ -137,7 +137,7 @@ def escena():
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
     # El cinto BAJO, en la cadera: alto, se leia como la cintura y el pecho parecia cortisimo.
-    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([4.9, 4.5, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
+    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([4.5, 4.3, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
     # LAS TIRAS, en tres tramos que siguen el cuerpo (sale con el bulto de la ingle y cae) y se estrechan: una tabla
     # plana no tenia volumen ni cogia luz. (Puntos ya en coordenadas finales: la tira cruza el escalon de PIERNA_EXTRA.)
     E = ESTIRA
