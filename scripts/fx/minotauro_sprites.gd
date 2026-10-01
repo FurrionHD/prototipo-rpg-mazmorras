@@ -916,6 +916,11 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# hacia delante alrededor de la cadera (INCLINA_PIVOTE). Un Dictionary y no un bool porque la lambda lo captura por
 	# valor: asi se ve el cambio.
 	var sup: Dictionary = {"on": false}
+	# LA PARTE que se esta dibujando (pierna, torso, brazo, cabeza, cuerno): ver SpriteLienzo.contornear_grupos. Se
+	# sube con 'parte' antes de cada una; los adornos 'solo_sobre' no son parte (pintura encima).
+	var grupo: Dictionary = {"id": 0}
+	var parte := func() -> void:
+		grupo["id"] = int(grupo["id"]) + 1
 	var poner := func(local0: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			en_suelo: bool = false) -> void:
 		var local: Vector3 = local0
@@ -952,7 +957,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var ry_rot: float = sqrt(rxm * rxm * s_a * s_a + ry * ry * c_a * c_a)
 		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rxm * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang,
-			"persp": SpriteLienzo.persp_de(ry_rot, r.z * alto), "solo_sobre": solo_sobre})
+			"persp": SpriteLienzo.persp_de(ry_rot, r.z * alto), "solo_sobre": solo_sobre,
+			"grupo": 0 if (en_suelo or not solo_sobre.is_empty()) else int(grupo["id"])})
 
 	# SOMBRA DE CONTACTO, lo primero (va debajo). A ALTURA CERO: no sube con el bicho.
 	poner.call(Vector3(0.0, 0.0, 0.0), Vector3(PIERNA_X + PEZUNA_R.x, PEZUNA_R.y * 1.5, 0.0),
@@ -968,6 +974,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	if Vector2(-PIERNA_X, 0.0).rotated(ang).y > 0.0:
 		lados_pierna = [1.0, -1.0]
 	for lado in lados_pierna:
+		parte.call()
 		var swing: float = fase_patas * lado
 		var y_off: float = swing * PASO_LARGO
 		# Al andar, la pierna adelantada tambien SE LEVANTA. Sin esto los pies patinan por el suelo.
@@ -1105,6 +1112,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		brazos_c[lado] = cadena.call(lado)
 
 	var dibuja_brazo := func(lado: float) -> void:
+		parte.call()
 		var c: Dictionary = brazos_c[lado]
 		for pt in c["pts"]:
 			poner.call(pt["p"], Vector3.ONE * float(pt["r"]), int(c["tono"]))
@@ -1118,6 +1126,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		dibuja_brazo.call(lado)
 
 	# --- EL TORSO EN V, de abajo arriba.
+	parte.call()
 	poner.call(CADERA, CADERA_R, Tono.BASE)
 	# EL TAPARRABOS, justo despues de la cadera para que se recorte sobre ella, y el FALDON que cuelga
 	# por delante. Van en cuero oscuro: lo que le da escala al bicho es llevar encima algo hecho por
@@ -1181,6 +1190,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# Se dibujan SIEMPRE, tambien de espaldas: son su silueta, y un minotauro de espaldas sigue
 	# teniendo cuernos.
 	var cuerno := func(lado: float) -> void:
+		parte.call()
 		var cp := Vector3(lado * CUERNO_BASE.x, CUERNO_BASE.y, CUERNO_BASE.z + cabeza_y)
 		# 'cv' es la inclinacion en el plano vertical: empieza abierto hacia fuera y se va cerrando
 		# hacia arriba y delante.
@@ -1218,6 +1228,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for lado in detras_cuerno:
 		cuerno.call(lado)
 
+	# CUELLO y CABEZA, una parte (la linea va donde la cabeza tapa al torso, no entre cuello y craneo).
+	parte.call()
+	var id_cabeza: int = int(grupo["id"])
 	# CUELLO y CABEZA. 'cabeza_y' las sube y las baja: al andar cabecea, en la cornada se hunde y en
 	# el enganche sube de golpe.
 	poner.call(testa.call(Vector3(CUELLO.x, CUELLO.y, CUELLO.z + cabeza_y * 0.45), TESTUZ_CUELLO),
@@ -1238,6 +1251,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for lado in delante_cuerno:
 		cuerno.call(lado)
 
+	# La anilla y los ojos van con la cabeza aunque se pinten despues del cuerno de delante.
+	var id_max: int = int(grupo["id"])
+	grupo["id"] = id_cabeza
 	if not lados.is_empty():
 		# LA ANILLA: un arco de piezas colgando del hocico. Es el detalle que remata al bicho, y va
 		# en laton para que no se confunda con los cuernos (que son hueso).
@@ -1252,7 +1268,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for l in lados:
 		poner.call(testa.call(Vector3(l * OJO.x, OJO.y, OJO.z + cabeza_y), 1.0), OJO_R, Tono.OJO_T)
 
-	# EL BRAZO DE DELANTE, al final del todo: va por encima del torso y de la cabeza.
+	# EL BRAZO DE DELANTE, al final del todo: va por encima del torso y de la cabeza (por encima tambien del id del
+	# cuerno de delante, que se le quito a la anilla).
+	grupo["id"] = id_max
 	for lado in delante:
 		dibuja_brazo.call(lado)
 
@@ -1265,14 +1283,22 @@ static func _plantilla(dir: int, pose: Dictionary, esc: float) -> PackedByteArra
 	var plant := PackedByteArray()
 	plant.resize(lz.x * lz.y)
 	plant.fill(0)
+	var grupos := PackedByteArray()
+	grupos.resize(lz.x * lz.y)
+	grupos.fill(0)
 	var piezas: Array = _piezas(dir, pose, esc)
 	for p in piezas:
 		var pos: Vector2 = p["pos"]
 		var r: Vector2 = p["radio"]
 		SpriteLienzo.elipse(plant, lz.x, lz.y, pos.x, pos.y, r.x, r.y, int(p["tono"]),
 			float(p["ang"]), p["solo_sobre"], float(p["persp"]))
+		var g: int = int(p["grupo"])
+		if g > 0:
+			SpriteLienzo.elipse(grupos, lz.x, lz.y, pos.x, pos.y, r.x, r.y, g, float(p["ang"]), [], float(p["persp"]))
 
-	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear).
-	SpriteLienzo.contornear(plant, SpriteLienzo.caja_de_piezas(piezas, lz.x, lz.y), lz.x, lz.y,
-		Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
+	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear), y LAS LINEAS DE DENTRO donde una
+	# parte tapa a otra (SpriteLienzo.contornear_grupos).
+	var cj: Rect2i = SpriteLienzo.caja_de_piezas(piezas, lz.x, lz.y)
+	SpriteLienzo.contornear(plant, cj, lz.x, lz.y, Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
+	SpriteLienzo.contornear_grupos(plant, grupos, cj, lz.x, lz.y, Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
 	return plant

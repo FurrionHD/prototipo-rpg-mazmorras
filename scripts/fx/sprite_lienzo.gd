@@ -742,6 +742,34 @@ static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde
 				plant[idx] = borde
 
 
+# LAS LINEAS DE DENTRO (01/10, el usuario con el Minotauro de lado: "los colores se fusionan, no se donde es brazo y
+# donde el cuerpo; mira los personajes, que estan definidos"). 'contornear' solo perfila la silueta por FUERA, asi que
+# un brazo sobre el torso del mismo tono no tenia ninguna linea que lo separase.
+#
+# 'grupos' es un mapa paralelo a la plantilla con la PARTE a la que pertenece cada celda (0 = ninguna: la sombra y los
+# adornos 'solo_sobre', que son pintura encima y no partes). Los ids crecen en el orden de dibujo, asi que el mayor es
+# el que va DELANTE: la celda que toca a una parte de id MENOR se vuelve borde, y la linea queda en el filo de la pieza
+# de delante, que es donde la dibujaria un ilustrador.
+static func contornear_grupos(plant: PackedByteArray, grupos: PackedByteArray, cj: Rect2i, w: int, h: int,
+		borde: int, hueco_a: int, hueco_b: int) -> void:
+	for gy in range(maxi(1, cj.position.y), mini(h - 1, cj.end.y)):
+		var fila: int = gy * w
+		for gx in range(maxi(1, cj.position.x), mini(w - 1, cj.end.x)):
+			var idx: int = fila + gx
+			var g: int = grupos[idx]
+			if g == 0:
+				continue
+			var t: int = plant[idx]
+			if t == hueco_a or t == hueco_b or t == borde:
+				continue
+			var a: int = grupos[idx + 1]
+			var b: int = grupos[idx - 1]
+			var c: int = grupos[idx + w]
+			var d: int = grupos[idx - w]
+			if (a > 0 and a < g) or (b > 0 and b < g) or (c > 0 and c < g) or (d > 0 and d < g):
+				plant[idx] = borde
+
+
 # ------------------------------------------------------------
 #  Animacion
 # ------------------------------------------------------------
