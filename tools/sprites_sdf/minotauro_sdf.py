@@ -126,6 +126,8 @@ MAT = {
     'madera': [(0.30, 0.17, 0.10), (0.42, 0.25, 0.14), (0.52, 0.33, 0.19)],
     'cuerda': [(0.42, 0.31, 0.18), (0.58, 0.45, 0.27), (0.70, 0.57, 0.36)],
     'cuerda2': [(0.32, 0.23, 0.13), (0.46, 0.35, 0.20), (0.56, 0.44, 0.27)],
+    'cicatriz': [(0.50, 0.08, 0.07), (0.66, 0.12, 0.10), (0.78, 0.22, 0.17)],
+    'muñon':    [(0.48, 0.38, 0.27), (0.60, 0.48, 0.34), (0.70, 0.58, 0.42)],
 }
 NOMBRES = list(MAT.keys())
 BORDE = (0.13, 0.06, 0.05)
@@ -324,12 +326,18 @@ def escena(pose):
     # CUERNOS EN U (y el izquierdo partido en la variante 'roto', la rabia)
     for s in (-1, 1):
         p = Z(3.2 * s, 0.6, 41.2); th = 0.30; r = 1.8
-        n_seg = 3 if (pose.get('roto') and s == 1) else 7
+        roto = bool(pose.get('roto')) and s == 1
+        n_seg = 2 if roto else 7
         for k in range(n_seg):
             d = np.array([math.cos(th) * s, 0.12 + 0.06 * k, math.sin(th) * ESTIRA]); d /= np.linalg.norm(d)
             q = p + d * 1.7; r2 = max(0.5, r - 0.2)
             add(lambda P, a=p, b=q, ra=r, rb=r2: sd_cono(P, a, b, ra, rb), 'cuerno', 0, 'cuerno', hueso=hc)
             p = q; r = r2; th += 0.26
+        if roto:
+            # EL MUÑON: la punta astillada, mas oscura, con un par de esquirlas.
+            add(lambda P, c=p: sd_esfera(P, c, r * 1.05), 'muñon', 0, 'cuerno', hueso=hc)
+            for e in (np.array([0.5, 0.3, 0.6]), np.array([-0.3, -0.4, 0.7])):
+                add(lambda P, a=p, b=p + e * 1.2, ra=r * 0.5: sd_cono(P, a, b, ra, 0.15), 'muñon', 0, 'cuerno', hueso=hc)
 
     # TAPARRABOS: cinturon pegado a la piel (busca la superficie del cuerpo en cada direccion), nudo y tiras.
     def cuerpo_reposo(P):
@@ -350,6 +358,25 @@ def escena(pose):
         ang = 2 * math.pi * k / 36
         p0, dv = superficie(ang, 20.9)
         add(lambda P, c=p0 + dv * 0.2: sd_elipsoide(P, c, np.array([1.0, 1.0, 1.0 * ESTIRA])), 'cuero', 0, 'ropa', hueso='raiz')
+    # LA RABIA (01/10, el usuario: "aparte del cuerno roto, cicatrices"): por debajo del 30% de vida se le ven los TAJOS
+    # que lleva encima, rojo oscuro, en el pecho (en diagonal, como de espada) y en la espalda. Van pegados a la piel:
+    # cada punto del tajo se lleva hasta donde acaba el cuerpo en esa direccion (como el cinturon).
+    if pose.get('roto'):
+        def sobre_piel(x, z, lado):
+            dv = np.array([0.0, lado, 0.0])
+            c = Z(x, 0.0, z)
+            rr = np.arange(0.0, 12.0, 0.1)
+            dist = cuerpo_reposo(c + np.outer(rr, dv))
+            fuera = np.where(dist > 0)[0]
+            return c + dv * (rr[fuera[0] if len(fuera) else -1] - 0.7)      # hundida: que no asome del contorno
+        tajos = [((-5.5, 31.5), (2.5, 25.0), 1), ((-1.5, 32.5), (5.5, 27.5), 1), ((3.0, 24.5), (6.0, 21.8), 1),
+                 ((-4.5, 30.5), (3.5, 26.0), -1), ((2.0, 32.0), (6.5, 28.5), -1)]
+        for (x0, z0), (x1, z1), lado in tajos:
+            for k in range(11):
+                f = k / 10.0
+                q = sobre_piel(x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, lado)
+                grosor = 0.95 * (1.0 - abs(f - 0.5) * 1.1)
+                add(lambda P, c=q, r=max(grosor, 0.35): sd_esfera(P, c, r), 'cicatriz', 0, 'cicatriz')
     p_n, d_n = superficie(0.25, 20.9)
     nudo = p_n + d_n * 0.8
     add(lambda P: sd_elipsoide(P, nudo, np.array([1.0, 0.8, 0.9 * ESTIRA])), 'cuerda', 0, 'cuerda', hueso='raiz')
@@ -784,10 +811,11 @@ ANIMS = {
 
 
 def _trabajo(args):
-    nombre, d, i = args
+    nombre, d, i, roto = args
     n, fps, loop, dirs, fn = ANIMS[nombre]
     t = i / n if loop else (i / (n - 1) if n > 1 else 0.0)
     pose = fn(t)
+    pose['roto'] = roto
     if pose['hacha'] in ('alto', 'lado'):
         # Hacia donde se mueve la cabeza del hacha: el instante de antes y el de despues (ver 'filo' en escena).
         def cabeza(tt):
@@ -802,9 +830,9 @@ def _trabajo(args):
     return (nombre, d, i, render(d, pose))
 
 
-def hornear(nombres):
+def hornear(nombres, roto=False):
     os.makedirs(SALIDA, exist_ok=True); os.makedirs(VISTAS, exist_ok=True)
-    trabajos = [(nm, d, i) for nm in nombres for d in range(ANIMS[nm][3]) for i in range(ANIMS[nm][0])]
+    trabajos = [(nm, d, i, roto) for nm in nombres for d in range(ANIMS[nm][3]) for i in range(ANIMS[nm][0])]
     with Pool() as pool:
         hechos = pool.map(_trabajo, trabajos)
     meta_path = SALIDA + 'hojas.json'
@@ -817,7 +845,9 @@ def hornear(nombres):
         for (a, d, i, im) in hechos:
             if a == nm:
                 hoja.paste(im, (i * W, d * H))
-        hoja.save(SALIDA + nm + '.png')
+        hoja.save(SALIDA + nm + ('_roto' if roto else '') + '.png')
+        if roto:
+            continue
         meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs}
         # Vista para mirarla: las direcciones 0-4 en filas, ampliada.
         filas = min(dirs, 5)
@@ -836,5 +866,8 @@ if __name__ == '__main__':
         os.makedirs(VISTAS, exist_ok=True)
         for d in range(5):
             render(d, anim_idle(0.0)).save(VISTAS + 'sdf_%d.png' % d)
+    elif args[:1] == ['roto']:
+        # LA RABIA: las mismas animaciones con el cuerno partido y las cicatrices (<anim>_roto.png).
+        hornear(args[1:] or list(ANIMS.keys()), roto=True)
     else:
         hornear(args or list(ANIMS.keys()))
