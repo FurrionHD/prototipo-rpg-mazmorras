@@ -2491,8 +2491,14 @@ const DESPLAZA_ATB_MAX := 0.3
 func desplazado(c: Combatant, px: float, quien: Combatant = null) -> String:
 	if c == null or not c.is_alive():
 		return ""
-	# IMPARABLE (el coloso): ni le mueven ni le cortan nada.
+	# IMPARABLE (el coloso): ni le mueven ni le cortan nada. Y se ve (01/10): se clava en el suelo (COLOSO_CLAVADO).
 	if c.imparable:
+		if tactico and absf(px) > 0.5:
+			var f_c: int = Engine.get_process_frames()
+			if int(_inmune_dicho.get(c, -1)) != f_c:
+				_inmune_dicho[c] = f_c
+				efectos._fx_golpe(quien if quien != null else c, c, 0.0, false, false, Elementos.Elemento.NINGUNO,
+					CombatFX.Estilo.COLOSO_CLAVADO, 1.0, true)
 		return ""
 	if absf(px) >= DESPLAZA_CORTA:
 		return interrumpir(c, quien)

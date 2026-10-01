@@ -10,7 +10,8 @@ const DIRS := [["N", Vector2(0, -1)], ["NE", Vector2(1, -1)], ["E", Vector2(1, 0
 	["SE", Vector2(1, 1)], ["S", Vector2(0, 1)]]
 const HOJAS := ["camada", "ojos", "cuerpo_ardiente", "emboscada", "filo_reflejo", "ecolocalizacion", "interrumpido",
 	"empujon", "barra", "alcance", "golem_basico", "golem_machaca", "golem_estados",
-	"gargola_basico", "gargola_picado", "gargola_mirada", "gargola_estados"]
+	"gargola_basico", "gargola_picado", "gargola_mirada", "gargola_estados",
+	"coloso_basico", "coloso_pisoton", "coloso_estados"]
 
 var _cam: Camera2D
 var _rotulo: Label
@@ -956,3 +957,139 @@ func _hoja_gargola_estados(salida: String) -> void:
 			await _viñeta(hoja, c, fila, "Gargola · %s · %.2f s" % [filas[fila][0], t])
 		await _limpiar(piezas, [g["nodo"]])
 	_guardar(hoja, _carpeta_gargola(salida), "estados")
+
+
+# ------------------------------------------------------------
+#  EL COLOSO (01/10, constructos paso 2, ConstructoAire). Carpeta enemigos/coloso/.
+# ------------------------------------------------------------
+func _carpeta_coloso(salida: String) -> String:
+	var c: String = "%s/coloso" % salida
+	DirAccess.make_dir_recursive_absolute(c)
+	return c
+
+
+func _hoja_coloso_basico(salida: String) -> void:
+	var tiempos: Array = [-0.4, -0.25, -0.1, 0.0, 0.05, 0.12, 0.25, 0.45]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	_zoom(110.0)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("coloso", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var fig_p: Vector2 = _al_alcance(g, dvec, ed.alcance_real())
+		var fig := _figura(fig_p, AZUL)
+		var bg: Rect2 = _bulto(g)
+		_cam.global_position = (bg.get_center() + fig_p) * 0.5
+		var piezas: Array = [
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.MAZO, bg.get_center(), _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 901 + fila, 0.0, 1.0, 1.5), "t0": 0.0},
+			{"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.POLVO, Vector2.ZERO, _caja_fig(fig), fig_p,
+				ed.color_visual(0.5), 911 + fila, 0.0, 1.0), "t0": 0.02}]
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "basico", _marco_golpe(g, t, String(ed.anim_basico), "basico"))
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Coloso · manotazo (y lento: polvo) · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"], fig])
+	_guardar(hoja, _carpeta_coloso(salida), "basico")
+
+
+func _hoja_coloso_pisoton(salida: String) -> void:
+	var tiempos: Array = [-0.3, -0.05, 0.0, 0.08, 0.16, 0.26, 0.4, 0.7]
+	var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	var ab: AbilityData = load("res://resources/abilities/coloso_pisoton.tres")
+	_zoom(120.0)
+	if _huella_g == null:
+		_huella_g = Node2D.new()
+		_huella_g.z_index = 1
+		add_child(_huella_g)
+		_huella_g.draw.connect(func():
+			if _forma_g != null:
+				CombatFormas.dibujar(_forma_g, _huella_g, Color(1.0, 0.3, 0.25)))
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var g := _enemigo("coloso", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var rd: Rect2 = g["rd"]
+		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
+		var f = CombatFormas.de_habilidad_mapa(ab, Vector2.ZERO, pisa, ed.alcance_real(), dvec * 40.0, pisa)
+		# Tres de los tuyos: uno cerca, uno a media distancia y otro al borde.
+		var sitios: Array = [f.centro + dvec * f.radio * 0.4 + Vector2(0, 8),
+			f.centro + dvec.rotated(1.2) * f.radio * 0.65, f.centro + dvec.rotated(-1.0) * f.radio * 0.9]
+		var figs: Array = []
+		for sp in sitios:
+			figs.append(_figura(sp, AZUL))
+		_cam.global_position = f.centro + Vector2(0, -30)
+		_mirar(g, dvec)
+		_forma_g = f
+		_huella_g.queue_redraw()
+		await _viñeta(hoja, 0, fila, "Coloso · Pisoton sismico · %s · cargando (huella roja)" % DIRS[fila][0])
+		_forma_g = null
+		_huella_g.queue_redraw()
+		var piezas: Array = []
+		var antes: int = get_child_count()
+		SueloRoto.lanzar(self, f, ab.suelo_roto, 921 + fila, ab.forma_nucleo)
+		for i in range(antes, get_child_count()):
+			piezas.append({"n": get_child(i), "t0": 0.0})
+		for i in figs.size():
+			var fg: ColorRect = figs[i]
+			piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.SISMO, Vector2.ZERO, _caja_fig(fg),
+				sitios[i], ed.color_visual(0.5), 931 + fila * 3 + i, 0.0, 1.0),
+				"t0": SueloRoto.retraso_caja(f, _caja_fig(fg), ab.suelo_roto)})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			_mirar(g, dvec, "sismico", _marco_golpe(g, t, "sismico", "sismico"))
+			_en(piezas, t)
+			await _viñeta(hoja, c + 1, fila, "Coloso · Pisoton sismico · %s · %.2f s" % [DIRS[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]] + figs)
+	_guardar(hoja, _carpeta_coloso(salida), "pisoton")
+
+
+# LOS ESTADOS: fila 1 la Muralla (se planta: el pulso de las runas y los sillares), mirando al S; fila 2 igual de lado;
+# fila 3 con la Muralla puesta (las runas brillan); fila 4 le intentan empujar (Imparable: se clava).
+func _hoja_coloso_estados(salida: String) -> void:
+	var tiempos: Array = [0.0, 0.15, 0.3, 0.45, 0.6, 0.9, 1.3]
+	var filas: Array = [["Muralla: se planta", Vector2(0, 1)], ["Muralla de lado", Vector2(1, 0.4)],
+		["con la Muralla: runas encendidas", Vector2(0, 1)], ["le empujan: Imparable", Vector2(1, 0.4)]]
+	var hoja := Image.create(LADO * tiempos.size(), LADO * filas.size(), false, Image.FORMAT_RGBA8)
+	_zoom(78.0)
+	_cam.global_position = Vector2(0, -60)
+	for fila in filas.size():
+		var dvec: Vector2 = (filas[fila][1] as Vector2).normalized()
+		var g := _enemigo("coloso", Vector2.ZERO, dvec)
+		var ed: EnemyData = g["ed"]
+		var bg: Rect2 = _bulto(g)
+		var col: Color = ed.color_visual(0.5)
+		var spr: AnimatedSprite2D = g["spr"]
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/tinte_constructo.gdshader")
+		mat.set_shader_parameter("tinte", Vector3.ONE)
+		spr.material = mat
+		var piezas: Array = []
+		match fila:
+			0, 1:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.MURALLA, Vector2.ZERO, bg, Vector2.ZERO,
+					col, 941 + fila, 0.0, 1.0), "t0": _TACTICO_G.RUNAS_ESPERA})
+			3:
+				piezas.append({"n": ConstructoAire.sobre_cuerpo(self, ConstructoAire.Modo.CLAVADO, Vector2.ZERO, bg, Vector2.ZERO,
+					col, 951, 0.0, 1.0), "t0": 0.0})
+		for pz in piezas:
+			(pz["n"] as Node).set_process(false)
+		for c in tiempos.size():
+			var t: float = tiempos[c]
+			var enc: float = 0.0
+			if fila < 2:
+				enc = 1.0 if t >= _TACTICO_G.RUNAS_ESPERA else 0.0
+				_mirar(g, dvec, "muralla", mini(int(t / 0.125), 7))
+			elif fila == 2:
+				enc = 1.0
+			mat.set_shader_parameter("fuerza", enc)
+			mat.set_shader_parameter("runas", enc)
+			_en(piezas, t)
+			await _viñeta(hoja, c, fila, "Coloso · %s · %.2f s" % [filas[fila][0], t])
+		await _limpiar(piezas, [g["nodo"]])
+	_guardar(hoja, _carpeta_coloso(salida), "estados")

@@ -826,6 +826,7 @@ func tick(delta: float) -> bool:
 	_tick_ojos_camada()
 	_tick_barro()
 	_tick_posadas()
+	_tick_runas()
 	_tick_olor()
 	_tick_carne()
 	_tick_presas_carga()
@@ -3523,6 +3524,44 @@ func _tick_posadas() -> void:
 		_tick_estatua(e, dt)
 
 
+# LAS RUNAS DEL COLOSO (01/10, paso 2): al hacerse la Muralla (Fortaleza) se le encienden las runas con su pulso y
+# brotan los sillares (ConstructoAire.MURALLA), y mientras le dure le brillan (shader tinte_constructo 'runas'). Mira
+# el estado, que viaja al espejo: lo ven igual todas las pantallas. El estallido sale RUNAS_ESPERA despues de ponerse el
+# estado, que es cuando acaba de plantarse en su animacion.
+const RUNAS_ESPERA := 0.3
+var _runas: Dictionary = {}   # Combatant -> true si ya brillaba
+
+func _tick_runas() -> void:
+	var arena: ArenaCombate = _arena()
+	for e in _pantalla._enemies:
+		if not e.imparable:
+			continue
+		var cu: Node2D = cuerpo_de(e)
+		if cu == null:
+			continue
+		var ahora: bool = e.is_alive() and e.has_status(StatusEffects.Id.FORTALEZA)
+		var antes: bool = bool(_runas.get(e, false))
+		if ahora and not antes and arena != null:
+			ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.MURALLA, Vector2.ZERO, bulto_de(e), pies_de(e),
+				e.color_visual, _cod(e) + randi() % 97, RUNAS_ESPERA, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
+		_runas[e] = ahora
+		var spr = cu.get("_sprite")
+		if not (spr is CanvasItem):
+			continue
+		var mat: ShaderMaterial = (spr as CanvasItem).material as ShaderMaterial
+		if mat == null or mat.shader != _TINTE_CONSTRUCTO:
+			if not ahora:
+				continue
+			mat = ShaderMaterial.new()
+			mat.shader = _TINTE_CONSTRUCTO
+			(spr as CanvasItem).material = mat
+		mat.set_shader_parameter("fuerza", 1.0 if ahora else 0.0)
+		mat.set_shader_parameter("tinte", Vector3.ONE)
+		mat.set_shader_parameter("humedo", 0.0)
+		mat.set_shader_parameter("piedra", 0.0)
+		mat.set_shader_parameter("runas", 1.0 if ahora else 0.0)
+
+
 # LA ESTATUA SE VE (30/09, paso 2): posada (y no en el aire) su sprite se va a gris piedra sin brillo (el shader
 # tinte_constructo, no el modulate); al dejar de estarlo recupera el color y le caen trocitos (ConstructoAire.DESPEREZA).
 const T_A_PIEDRA := 0.35
@@ -3698,7 +3737,8 @@ func _placa_si_para(ev: Dictionary) -> void:
 
 
 const _MODO_GARGOLA := {CombatFX.Estilo.GARGOLA_ZARPA: ConstructoAire.Modo.SURCOS,
-	CombatFX.Estilo.GARGOLA_PICADO: ConstructoAire.Modo.PICADO, CombatFX.Estilo.GARGOLA_PETREA: ConstructoAire.Modo.PETREA}
+	CombatFX.Estilo.GARGOLA_PICADO: ConstructoAire.Modo.PICADO, CombatFX.Estilo.GARGOLA_PETREA: ConstructoAire.Modo.PETREA,
+	CombatFX.Estilo.COLOSO_MAZO: ConstructoAire.Modo.MAZO, CombatFX.Estilo.COLOSO_SISMO: ConstructoAire.Modo.SISMO}
 
 const _MODO_FIERA := {CombatFX.Estilo.FIERA_TESTARAZO: FieraAire.Modo.TESTARAZO,
 	CombatFX.Estilo.FIERA_ZARPA: FieraAire.Modo.ZARPA, CombatFX.Estilo.FIERA_PLACA: FieraAire.Modo.PLACA,
@@ -3791,12 +3831,24 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		return
 	# LA GARGOLA (ConstructoAire, 30/09): los surcos del zarpazo, la losa del Picado y la piedra de la Mirada, en su
 	# basalto.
+	# EL COLOSO NO SE MUEVE (Imparable, 01/10): se clava en el suelo y lo dice.
+	if estilo == CombatFX.Estilo.COLOSO_CLAVADO:
+		ConstructoAire.sobre_cuerpo(arena, ConstructoAire.Modo.CLAVADO, Vector2.ZERO, bulto_de(v), pies_de(v), v.color_visual,
+			semilla, vuelo, ritmo)
+		if _pantalla._fx != null:
+			_pantalla._fx.texto_sobre(ev["bv"], "INMUNE", AVISO_INMUNE_C, 14)
+		return
+	# Al que le pilla el Pisoton le tiembla la figura (como el Chillido).
+	if estilo == CombatFX.Estilo.COLOSO_SISMO:
+		var cu_s: Node2D = cuerpo_de(v)
+		var dib_s = cu_s.get("_muneco") if cu_s.get("_muneco") is Node2D else cu_s.get("_sprite")
+		BestiaAire.temblor(arena, dib_s as CanvasItem, bulto_de(v), semilla, vuelo, ritmo)
 	if estilo in _MODO_GARGOLA:
 		var desde_g: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(30.0, 0.0)
 		ConstructoAire.sobre_cuerpo(arena, int(_MODO_GARGOLA[estilo]), desde_g, bulto_de(v), pies_de(v),
 			a.color_visual if a != null else ConstructoAire.BASALTO, semilla, vuelo, ritmo,
-			1.3 if estilo == CombatFX.Estilo.GARGOLA_PICADO else 1.0)
+			1.3 if estilo == CombatFX.Estilo.GARGOLA_PICADO else (1.5 if estilo == CombatFX.Estilo.COLOSO_MAZO else 1.0))
 		return
 	# LOS CONSTRUCTOS (ConstructoAire, 30/09): el aplaston de barro del golem sobre el que recibe, con su arcilla.
 	if estilo in [CombatFX.Estilo.CONSTRUCTO_PUNO, CombatFX.Estilo.CONSTRUCTO_MACHACA]:

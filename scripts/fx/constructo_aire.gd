@@ -28,14 +28,25 @@
 #    ESTATUA     le pegan estando POSADA (recibe la mitad): destello seco de piedra, chispas y lascas.
 #    DESPEREZA   deja de estar posada (se mueve o se eleva): le caen trocitos de piedra, como desperezandose (el gris de
 #                estatua lo pone el shader tinte_constructo, CombatTactico._tick_posadas).
+#  Y EL COLOSO (30/09, paso 2, en su granito):
+#    MAZO        su manotazo (el brazo que cae lo hace su sprite, 'basico'): el golpe de ARRIBA del aplaston, mas gordo y
+#                con LASCAS CUADRADAS de sillar.
+#    SISMO       a quien le pilla el Pisoton: polvo de granito en los pies (y le tiembla la figura: CombatTactico).
+#    SISMO_SUELO (por el suelo, SueloRoto.Tipo.CONSTRUCTO_SISMO) tres anillos de losas que saltan desde el pie, el de
+#                dentro el mas gordo, y las grietas hasta el borde.
+#    MURALLA     se planta (Fortaleza): el pulso azul de sus runas de los pies a la cabeza y SILLARES que brotan alrededor
+#                de sus pies y se hunden (y mientras dure, las runas le brillan: shader tinte_constructo 'runas').
+#    CLAVADO     Imparable: intentan moverlo y no se mueve: grietas bajo sus pies y polvo a ras de suelo.
 #  NADA DE LINEAS (efectos-sin-lineas): medias lunas llenas, bolas con borde, cometas gordas. Coordenadas de MUNDO.
 # ============================================================
 extends Node2D
 class_name ConstructoAire
 
-enum Modo { APLASTON, PEGOTES, COCERSE, VAPOR, DURO, BLANDO, SURCOS, POLVO, PICADO, PETREA, CONO, ESTATUA, DESPEREZA }
+enum Modo { APLASTON, PEGOTES, COCERSE, VAPOR, DURO, BLANDO, SURCOS, POLVO, PICADO, PETREA, CONO, ESTATUA, DESPEREZA,
+	MAZO, SISMO, SISMO_SUELO, MURALLA, CLAVADO }
 # Los de la gargola: en basalto y no en arcilla.
-const _DE_PIEDRA := [Modo.SURCOS, Modo.POLVO, Modo.PICADO, Modo.PETREA, Modo.CONO, Modo.ESTATUA, Modo.DESPEREZA]
+const _DE_PIEDRA := [Modo.SURCOS, Modo.POLVO, Modo.PICADO, Modo.PETREA, Modo.CONO, Modo.ESTATUA, Modo.DESPEREZA,
+	Modo.MAZO, Modo.SISMO, Modo.SISMO_SUELO, Modo.MURALLA, Modo.CLAVADO]
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -57,6 +68,11 @@ const T_PETREA := 1.2
 const T_CONO := 0.4
 const T_ESTATUA := 0.4
 const T_DESPEREZA := 0.8
+const GRANITO := Color(0.45, 0.45, 0.5)
+const RUNA := Color(0.55, 0.9, 1.0)
+const T_MURALLA := 1.3
+const T_CLAVADO := 0.6
+const T_SISMO := 0.3
 
 var modo: int = Modo.APLASTON
 var _t: float = 0.0
@@ -106,7 +122,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 	e._incl = e._rng.randf_range(-0.25, 0.25)
 	e._t = -maxf(espera, 0.0)
 	match m:
-		Modo.APLASTON, Modo.PICADO:
+		Modo.APLASTON, Modo.PICADO, Modo.MAZO:
 			# EL IMPACTO: arriba en su cuerpo (cabeza y hombros), del lado de quien pega. El puño viene de ARRIBA, un poco
 			# de su lado (cada golpe con su inclinacion).
 			e._imp = caja.get_center() - e._eje * caja.size.x * 0.15 + Vector2(e._rng.randf_range(-0.1, 0.1) * caja.size.x,
@@ -128,6 +144,17 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 					+ Vector2(0.0, -e._rng.randf_range(70.0, 130.0) * sqrt(peso)),
 					"tam": e._rng.randf_range(1.6, 3.0) * sqrt(peso), "gira": e._rng.randf_range(-14.0, 14.0),
 					"forma": forma, "t0": e._rng.randf_range(0.0, 0.04)})
+		Modo.MURALLA:
+			# Seis sillares alrededor de sus pies (circulo en el suelo), cada uno con su tamaño y su momento.
+			for i in 6:
+				var a_m: float = TAU * (float(i) + 0.5) / 6.0 + e._rng.randf_range(-0.2, 0.2)
+				# Pegados a sus pies y GORDOS (a 0,85 del ancho y 7-10 px salian lejos y diminutos).
+				var r_m: float = e._rng.randf_range(0.42, 0.52)
+				e._piezas.append({"x": cos(a_m) * r_m, "y": sin(a_m) * r_m * 0.6, "w": e._rng.randf_range(13.0, 17.0),
+					"h": e._rng.randf_range(20.0, 30.0), "t0": e._rng.randf_range(0.0, 0.12)})
+		Modo.CLAVADO:
+			for i in 6:
+				e._piezas.append({"a": TAU * (float(i) + e._rng.randf_range(-0.3, 0.3)) / 6.0, "l": e._rng.randf_range(0.5, 0.85)})
 		Modo.SURCOS:
 			# De que lado viene el golpe: los surcos se inclinan hacia alli (arriba del lado de quien pega).
 			var lado_s: float = -signf(e._eje.x) if absf(e._eje.x) > 0.15 else (1.0 if e._rng.randf() < 0.5 else -1.0)
@@ -148,7 +175,7 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 				q["v"] = Vector2(e._rng.randf_range(-12.0, 12.0), e._rng.randf_range(-20.0, 0.0))
 				q["t0"] = e._rng.randf_range(0.0, 0.25)
 				e._piezas.append(q)
-		Modo.POLVO, Modo.PETREA:
+		Modo.POLVO, Modo.PETREA, Modo.SISMO:
 			for i in 6:
 				e._piezas.append({"x": e._rng.randf_range(-0.4, 0.4), "t0": e._rng.randf_range(0.0, 0.15),
 					"tam": e._rng.randf_range(0.8, 1.2), "sube": e._rng.randf_range(4.0, 9.0), "h": e._rng.randf_range(0.7, 1.0)})
@@ -164,6 +191,14 @@ static func sobre_cuerpo(padre: Node, m: int, desde: Vector2, caja: Rect2, pies:
 			for i in (7 if m == Modo.COCERSE else 11):
 				e._piezas.append({"x": e._rng.randf_range(-0.4, 0.4), "t0": e._rng.randf_range(0.0, 0.35),
 					"sube": e._rng.randf_range(18.0, 34.0), "tam": e._rng.randf_range(0.8, 1.3)})
+	# EL MAZO DEL COLOSO: las lascas son SILLARES (cuadradas, sin girar casi) y mas gordas.
+	if m == Modo.MAZO:
+		for g in e._piezas:
+			var lado_q: float = e._rng.randf_range(0.85, 1.1)
+			g["forma"] = PackedVector2Array([Vector2(-lado_q, -lado_q), Vector2(lado_q, -lado_q), Vector2(lado_q, lado_q),
+				Vector2(-lado_q, lado_q)])
+			g["tam"] = float(g["tam"]) * 1.35
+			g["gira"] = float(g["gira"]) * 0.3
 	e._suelo = e._capa(SueloRoto.Z_SUELO + 2, false)
 	e._delante = e._capa(Z_ENCIMA, false)
 	e._brillo = e._capa(Z_ENCIMA + 1, true)
@@ -229,6 +264,11 @@ func duracion() -> float:
 		Modo.CONO: return T_CONO + 0.35
 		Modo.ESTATUA: return T_ESTATUA
 		Modo.DESPEREZA: return T_DESPEREZA
+		Modo.MAZO: return T_APLASTON
+		Modo.SISMO: return T_POLVO
+		Modo.SISMO_SUELO: return T_SISMO + 0.8
+		Modo.MURALLA: return T_MURALLA
+		Modo.CLAVADO: return T_CLAVADO
 	return INF   # los que se quedan: hasta que se secan
 
 
@@ -257,7 +297,11 @@ func _process(delta: float) -> void:
 
 func _dibujar_capa(capa: Node2D) -> void:
 	match modo:
-		Modo.APLASTON, Modo.PICADO: _aplaston(capa)
+		Modo.APLASTON, Modo.PICADO, Modo.MAZO: _aplaston(capa)
+		Modo.SISMO: _polvo(capa)
+		Modo.SISMO_SUELO: _sismo_suelo(capa)
+		Modo.MURALLA: _muralla(capa)
+		Modo.CLAVADO: _clavado(capa)
 		Modo.PEGOTES: _pegotes(capa)
 		Modo.SURCOS: _surcos(capa)
 		Modo.POLVO: _polvo(capa)
@@ -800,3 +844,186 @@ func _cono(capa: Node2D) -> void:
 			p.y = base.y
 		_piedra(capa, p, g["forma"], float(g["tam"]) * 0.8, float(g["gira"]) * tg,
 			1.0 - clampf((tg - 0.25) / 0.15, 0.0, 1.0))
+
+
+# ------------------------------------------------------------
+#  EL COLOSO (30/09, paso 2, en su granito)
+# ------------------------------------------------------------
+# LOS SILLARES de la Muralla: bloques de granito con su borde, la cara y la tapa clara, que BROTAN del suelo (crecen
+# hacia arriba), se quedan y se hunden. Medio anillo delante de el (en _delante) y el otro medio detras (en _suelo,
+# bajo los cuerpos).
+func _sillar(capa: CanvasItem, base: Vector2, ancho: float, alto: float, alfa: float) -> void:
+	if alto < 0.8 or alfa <= 0.01:
+		return
+	var w: float = ancho * 0.5
+	capa.draw_rect(Rect2(base + Vector2(-w - 1.0, -alto - 1.0), Vector2(ancho + 2.0, alto + 2.0)), Color(_borde, alfa))
+	capa.draw_rect(Rect2(base + Vector2(-w, -alto), Vector2(ancho, alto)), Color(_barro, alfa))
+	capa.draw_rect(Rect2(base + Vector2(-w, -alto), Vector2(ancho, minf(alto, ancho * 0.35))), Color(_claro, alfa))
+	# La junta azul de la runa, a media altura (lo que lo mantiene de una pieza).
+	if alto > 5.0:
+		capa.draw_rect(Rect2(base + Vector2(-w * 0.5, -alto * 0.55), Vector2(w, 1.4)), Color(RUNA, alfa * 0.9))
+
+
+func _muralla(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var sube: float = clampf(_t / 0.18, 0.0, 1.0)
+	sube = sube * (2.0 - sube)
+	var baja: float = clampf((_t - (T_MURALLA - 0.35)) / 0.35, 0.0, 1.0)
+	var alto_k: float = sube * (1.0 - baja)
+	if capa == _brillo:
+		# EL PULSO DE LAS RUNAS: una luz azul fria que le sube de los pies a la cabeza.
+		var u: float = clampf(_t / 0.45, 0.0, 1.0)
+		if u < 1.0:
+			var c: Vector2 = Vector2(_hasta.x, lerpf(_pies.y - 4.0, _hasta.y - _largo * 0.45, u))
+			# Una banda que SUBE (a lo ancho de medio cuerpo), no un fogonazo que lo blanquea entero.
+			BestiaAire._bola(capa, c, _ancho * 0.22, Color(RUNA, 0.45 * sin(u * PI)))
+			BarridoAire.brillo(capa, c, _ancho * 0.35, Color(RUNA, 0.12 * sin(u * PI)))
+		return
+	for g in _piezas:
+		var delante: bool = float(g["y"]) > 0.0
+		if (capa == _delante) != delante or (capa != _delante and capa != _suelo):
+			continue
+		var tg: float = clampf((_t - float(g["t0"])) / 0.18, 0.0, 1.0)
+		var base: Vector2 = _pies + Vector2(float(g["x"]), float(g["y"])) * _ancho
+		_sillar(capa, base, float(g["w"]), float(g["h"]) * alto_k * tg * (2.0 - tg), 1.0)
+	# El polvo al brotar.
+	if capa == _suelo and _t < 0.5:
+		var kp: float = _t / 0.5
+		for g in _piezas:
+			var base2: Vector2 = _pies + Vector2(float(g["x"]), float(g["y"])) * _ancho
+			BestiaAire._bola(capa, base2, float(g["w"]) * (0.5 + 0.6 * kp), Color(POLVO_PIEDRA, 0.4 * (1.0 - kp)))
+
+
+# CLAVADO (Imparable): intentan moverlo y no se mueve: grietas cortas bajo sus pies y polvo que sale a ras de suelo.
+func _clavado(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var k: float = clampf(_t / 0.2, 0.0, 1.0)
+	var alfa: float = 1.0 - smoothstep(0.55, 1.0, _t / T_CLAVADO)
+	if capa == _suelo:
+		for g in _piezas:
+			var a: float = float(g["a"])
+			var d := Vector2(cos(a), sin(a))
+			_grieta(capa, _pies, d, _ancho * float(g["l"]) * 0.6 * k, 3.0, alfa)
+		return
+	if capa == _delante:
+		var kp: float = clampf(_t / T_CLAVADO, 0.0, 1.0)
+		for i in 4:
+			var lado: float = -1.0 if i % 2 == 0 else 1.0
+			BestiaAire._bola(capa, _pies + Vector2(lado * _ancho * (0.3 + 0.25 * float(i / 2) + 0.35 * kp), 1.0 - 3.0 * kp),
+				_ancho * (0.08 + 0.08 * kp), Color(POLVO_PIEDRA, 0.5 * (1.0 - kp)))
+
+
+# UNA GRIETA: cuña oscura rellena que se afila al irse (sin rayas), con el borde algo mas claro.
+func _grieta(capa: CanvasItem, o: Vector2, d: Vector2, largo: float, grueso: float, alfa: float) -> void:
+	if largo < 1.0 or alfa <= 0.01:
+		return
+	var n: Vector2 = d.orthogonal()
+	var codo: Vector2 = o + d * largo * 0.5 + n * largo * 0.12
+	var fin: Vector2 = o + d * largo
+	capa.draw_colored_polygon(PackedVector2Array([o + n * grueso, codo + n * grueso * 0.6, fin, codo - n * grueso * 0.6,
+		o - n * grueso]), Color(_borde.darkened(0.3), alfa))
+
+
+# ------------------------------------------------------------
+#  POR EL SUELO: EL PISOTON SISMICO (SueloRoto.Tipo.CONSTRUCTO_SISMO)
+# ------------------------------------------------------------
+# TRES ANILLOS DE LOSAS que se levantan uno detras de otro desde el pie (el de dentro el mas gordo: cerca pega mas, sus
+# tramos), grietas que corren desde el pie hasta el borde y polvo en el borde al final.
+static func area_sismo(padre: Node, f: CombatFormas.Forma, semilla: int, espera: float) -> ConstructoAire:
+	if padre == null or f == null:
+		return null
+	var e := ConstructoAire.new()
+	e.modo = Modo.SISMO_SUELO
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
+	e.process_mode = Node.PROCESS_MODE_ALWAYS
+	e._tonos(GRANITO, true)
+	e._o = f.centro
+	e._largo = maxf(f.radio, 8.0)
+	# Las losas: por anillo, a su radio, cada una con su forma (4-5 lados), su tamaño (menguando hacia fuera) y lo que
+	# se levanta.
+	for anillo in 3:
+		var r: float = e._largo * (float(anillo) + 0.55) / 3.0
+		var n_l: int = 8 + anillo * 5
+		# GORDAS (a 7-3,6 px eran motas): la de dentro casi como un pie suyo.
+		var tam: float = lerpf(15.0, 8.0, float(anillo) / 2.0)
+		for i in n_l:
+			var a: float = TAU * (float(i) + e._rng.randf_range(-0.3, 0.3)) / float(n_l)
+			var q: Dictionary = _esquirla(e._rng, Vector2.ZERO, 0.0)
+			# En CIRCULO, como su huella (huellas-suelo-circulos: nada de elipses).
+			q["p"] = Vector2(cos(a), sin(a)) * r * e._rng.randf_range(0.92, 1.06)
+			q["tam"] = tam * e._rng.randf_range(0.8, 1.15)
+			q["anillo"] = anillo
+			q["alza"] = tam * e._rng.randf_range(0.6, 1.0)
+			e._piezas.append(q)
+	# Las grietas: 7 radios desde el pie hasta el borde.
+	for i in 7:
+		e._radios_sismo.append({"a": TAU * (float(i) + e._rng.randf_range(-0.3, 0.3)) / 7.0, "l": e._rng.randf_range(0.75, 1.0)})
+	padre.add_child(e)
+	e._suelo = e._capa(SueloRoto.Z_SUELO + 2, false)
+	e._delante = e._capa(Z_ENCIMA, false)
+	e._t = -maxf(espera, 0.0) * e._ritmo
+	return e
+
+
+var _radios_sismo: Array = []
+
+# CUANDO LE LLEGA a 'p' (cada anillo, a su tiempo).
+static func retraso_sismo(f: CombatFormas.Forma, p: Vector2) -> float:
+	if f == null:
+		return 0.0
+	var u: float = clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0)
+	return u * T_SISMO
+
+
+func _sismo_suelo(capa: Node2D) -> void:
+	if _t < 0.0:
+		return
+	var apaga: float = clampf((_t - (T_SISMO + 0.45)) / 0.3, 0.0, 1.0)
+	var alfa: float = 1.0 - apaga
+	if capa == _suelo:
+		# LAS GRIETAS corren del pie al borde en lo que tarda el frente.
+		var k: float = clampf(_t / T_SISMO, 0.0, 1.0)
+		for g in _radios_sismo:
+			var a: float = float(g["a"])
+			_grieta(capa, _o, Vector2(cos(a), sin(a)), _largo * float(g["l"]) * k, 4.0, alfa)
+		# El polvo del borde, al llegar el frente.
+		if _t > T_SISMO * 0.8:
+			var kp: float = clampf((_t - T_SISMO * 0.8) / 0.5, 0.0, 1.0)
+			for i in 10:
+				var a2: float = TAU * float(i) / 10.0
+				BestiaAire._bola(capa, _o + Vector2(cos(a2), sin(a2)) * _largo * (0.95 + 0.1 * kp),
+					8.0 * (0.6 + 0.7 * kp), Color(POLVO_PIEDRA, 0.4 * (1.0 - kp)))
+	if capa != _suelo:
+		return
+	# LAS LOSAS, en la capa del suelo (bajo los cuerpos: encima tapaban sus piernas): cada anillo salta cuando le llega el
+	# frente (los de dentro antes), sube, cae y se queda un momento.
+	for g in _piezas:
+		var t_llega: float = (float(g["anillo"]) + 0.55) / 3.0 * T_SISMO
+		var tg: float = _t - t_llega
+		if tg < 0.0:
+			continue
+		var salto: float = clampf(tg / 0.22, 0.0, 1.0)
+		var h: float = float(g["alza"]) * sin(salto * PI) + float(g["alza"]) * 0.25 * (1.0 - salto)
+		var p: Vector2 = _o + Vector2(g["p"]) - Vector2(0.0, h * (1.0 - apaga))
+		_losa(capa, p, g["forma"], float(g["tam"]), float(g["gira"]) * 0.03 * salto, alfa)
+
+
+# UNA LOSA de suelo: como la piedrecilla, pero con la cara de arriba CLARA (es una placa levantada, no una piedra suelta).
+func _losa(ci: CanvasItem, p: Vector2, forma_l: PackedVector2Array, tam: float, giro: float, alfa: float) -> void:
+	if alfa <= 0.01:
+		return
+	var fuera := PackedVector2Array()
+	var cara := PackedVector2Array()
+	var tapa := PackedVector2Array()
+	for q in forma_l:
+		var r: Vector2 = q.rotated(giro)
+		fuera.append(p + Vector2(r.x, r.y * 0.7) * (tam + 1.0) + Vector2(0.0, 1.5))
+		cara.append(p + Vector2(r.x, r.y * 0.7) * tam + Vector2(0.0, 1.5))
+		tapa.append(p + Vector2(r.x, r.y * 0.7) * tam * 0.85)
+	ci.draw_colored_polygon(fuera, Color(_borde, alfa))
+	ci.draw_colored_polygon(cara, Color(_barro.darkened(0.25), alfa))
+	# La tapa CLARA: sobre el suelo oscuro de la mazmorra, una losa gris medio no se distinguia.
+	ci.draw_colored_polygon(tapa, Color(_claro, alfa))

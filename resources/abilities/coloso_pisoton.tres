@@ -29,3 +29,9 @@ forma_apunte = 2
 forma_radio = 60.0
 forma_tramos = 3
 forma_tramo_baja = 0.25
+; EFECTO EN EL MAPA (01/10, constructos paso 2): tres anillos de losas que saltan desde el pie y las grietas
+; (SueloRoto.Tipo.CONSTRUCTO_SISMO); a cada uno le tiembla la figura y polvo en los pies. Su gesto, el pisoton con su
+; tiempo ('sismico': el pie estampa en el 6 de 8).
+fx_anim = &"sismico"
+fx_estilo_mapa = 186
+suelo_roto = 87

@@ -4,12 +4,14 @@
 // CombatTactico._tick_barro. El tinte del nodo se coge en vertex(): en el fragment COLOR ya trae la textura.
 // Y LA GARGOLA POSADA (30/09, 'piedra'): gris de estatua, sin color y sin brillo (lo claro se apaga, tambien los
 // ojos). Lo sube y lo baja CombatTactico._tick_estatua.
+// Y EL COLOSO CON LA MURALLA (01/10, 'runas'): sus runas azules brillan mientras le dure (CombatTactico._tick_runas).
 shader_type canvas_item;
 
 uniform vec3 tinte = vec3(1.0, 1.0, 1.0);
 uniform float fuerza : hint_range(0.0, 1.0) = 0.0;
 uniform float humedo : hint_range(0.0, 1.0) = 0.0;   // el brillo del barro mojado
 uniform float piedra : hint_range(0.0, 1.0) = 0.0;   // la estatua: gris y mate
+uniform float runas : hint_range(0.0, 1.0) = 0.0;    // el coloso con la Muralla: las runas azules brillan y laten
 
 varying vec4 modul;
 
@@ -29,6 +31,9 @@ void fragment() {
 		float l = dot(t, vec3(0.3, 0.55, 0.15));
 		vec3 gris = vec3(l * (1.0 - 0.4 * smoothstep(0.45, 0.9, l)) * 0.95 + 0.02);
 		t = mix(t, gris, piedra);
+		// RUNAS: los pixeles azul claro (las juntas y los ojos del coloso) se encienden y laten despacio.
+		float azul = smoothstep(0.12, 0.3, c.b - c.r) * smoothstep(0.5, 0.75, c.b);
+		t += vec3(0.25, 0.55, 0.7) * azul * runas * (0.65 + 0.35 * sin(TIME * 3.0));
 		c.rgb = mix(c.rgb, t, fuerza);
 	}
 	COLOR = c * modul;

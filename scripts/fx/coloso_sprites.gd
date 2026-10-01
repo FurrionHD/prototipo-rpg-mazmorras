@@ -270,6 +270,8 @@ static func generar(color: Color = Color(0.45, 0.45, 0.5), escala: float = 1.0) 
 	_montar_idle(anims, esc)
 	_montar_walk(anims, esc)
 	_montar_embestida(anims, esc)
+	_montar_basico(anims, esc)
+	_montar_sismico(anims, esc)
 	_montar_muralla(anims, esc)
 	_montar_encaje(anims, esc)
 	_montar_muerte(anims, esc)
@@ -288,7 +290,10 @@ static func _reposo() -> Dictionary:
 		"patas": 0.0, "agacha": 0.0, "pisa": 0.0, "cabeza": 0.0,
 		# Las dos rodillas por separado: al morir le cede UNA y luego la otra, y ese desfase es lo
 		# que hace que se lea como que se parte y no como que se agacha.
-		"rodilla": 0.0, "rodilla2": 0.0, "desmorona": 0.0}
+		"rodilla": 0.0, "rodilla2": 0.0, "desmorona": 0.0,
+		# EL MANOTAZO (30/09, el tactico): lo que se le suma al angulo del brazo DERECHO (0 = a plomo, PI = arriba) y
+		# cuanto codo dobla (1 = el de siempre, 0 = brazo recto: el mazo que cae).
+		"mazo": 0.0, "codo_f": 1.0}
 
 
 # Quieto: casi NADA. A 2 fps -- lo mas lento del juego, mas que el trent -- y con un balanceo
@@ -344,6 +349,48 @@ static func _montar_embestida(anims: Array, esc: float) -> void:
 	_montar_animacion(anims, esc, "embestida", false, 9.0, pose, true)
 
 
+# EL MANOTAZO (30/09, el tactico, su basico): ALZA EL BRAZO DERECHO por encima de la cabeza (el codo doblado hacia
+# atras, cargando), lo AGUANTA un instante y lo DEJA CAER RECTO hacia delante y abajo, como un mazo, hasta la altura de
+# quien tiene delante (su alcance, 35, es el de los brazos). El cuerpo acompaña: se echa atras al alzar y se vuelca
+# hacia delante al caer. TOCA EN EL 6o DE 8 MARCOS (t = 0,714; CombatFX.IMPACTO_ANIM_MAPA "coloso_golpe").
+# Antes su basico era el Pisoton (el pie), y hacia la camara el golpe se quedaba corto.
+static func _montar_basico(anims: Array, esc: float) -> void:
+	# Cae hasta 0,55 (hacia delante y ABAJO): la figura le llega por la rodilla, y en horizontal (1,3) el puño pasaba a la
+	# altura de su hombro y hacia la camara se escondia sobre el torso.
+	var mazo_keys := [[0.0, 0.0], [0.286, 2.2], [0.43, 2.55], [0.571, 2.45], [0.714, 0.55], [0.857, 0.50],
+		[1.0, 0.30]]
+	var codo_keys := [[0.0, 1.0], [0.286, 1.0], [0.571, 0.9], [0.714, 0.0], [0.857, 0.1], [1.0, 0.7]]
+	var mece_keys := [[0.0, 0.0], [0.43, -0.9], [0.571, -0.8], [0.714, 2.0], [0.857, 1.5], [1.0, 0.4]]
+	var agacha_keys := [[0.0, 0.0], [0.43, 0.05], [0.714, 0.85], [0.857, 0.60], [1.0, 0.15]]
+	var avance_keys := [[0.0, 0.0], [0.43, -0.4], [0.714, 2.2], [0.857, 2.4], [1.0, 1.0]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["mazo"] = SpriteLienzo.tramos(t, mazo_keys)
+		p["codo_f"] = SpriteLienzo.tramos(t, codo_keys)
+		p["mece"] = SpriteLienzo.tramos(t, mece_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["avance"] = SpriteLienzo.tramos(t, avance_keys)
+		return p
+	_montar_animacion(anims, esc, "basico", false, 9.0, pose, true)
+
+
+# EL PISOTON SISMICO en el mapa: la misma pose que la embestida (el pie se queda arriba y estampa en el 6 de 8), con
+# su propio nombre para que la pelea le de su tiempo (CombatFX.IMPACTO_ANIM_MAPA "sismico") sin pisar el 'basico'.
+static func _montar_sismico(anims: Array, esc: float) -> void:
+	var pisa_keys := [[0.0, 0.0], [0.26, 1.0], [0.54, 1.0], [0.66, 0.0], [1.0, 0.0]]
+	var agacha_keys := [[0.0, 0.0], [0.26, 0.25], [0.54, 0.30], [0.66, 1.0], [0.80, 0.55], [1.0, 0.15]]
+	var mece_keys := [[0.0, 0.0], [0.26, -0.8], [0.54, -0.9], [0.66, 1.2], [0.80, 0.7], [1.0, 0.2]]
+	var pose := func(t: float) -> Dictionary:
+		var p: Dictionary = _reposo()
+		p["pisa"] = SpriteLienzo.tramos(t, pisa_keys)
+		p["agacha"] = SpriteLienzo.tramos(t, agacha_keys)
+		p["mece"] = SpriteLienzo.tramos(t, mece_keys)
+		# Sin 'avance': el pisoton es ALREDEDOR de el, no hacia nadie. Los brazos se abren para equilibrarse.
+		p["brazos"] = 0.7 * SpriteLienzo.tramos(t, pisa_keys)
+		return p
+	_montar_animacion(anims, esc, "sismico", false, 9.0, pose, true)
+
+
 # LA MURALLA: se PLANTA. Baja los brazos, se asienta sobre las dos piernas y no se mueve mas.
 #
 # HASTA AHORA ESTA HABILIDAD REPRODUCIA LA EMBESTIDA, o sea que el coloso levantaba una pierna del
@@ -379,8 +426,9 @@ static func _montar_muralla(anims: Array, esc: float) -> void:
 		p["rodilla"] = 0.16 * SpriteLienzo.tramos(t, agacha_keys) / 0.50
 		p["rodilla2"] = p["rodilla"]
 		return p
-	# UNA SOLA DIRECCION: solo se ve en combate, y ahi se le mira de frente.
-	_montar_animacion(anims, esc, "muralla", false, 8.0, pose, true, 1, FRAMES)
+	# LAS OCHO DIRECCIONES (30/09, el tactico): en el mapa se planta mirando hacia donde mira. (Antes solo la 0, la de la
+	# pantalla de combate, que sigue cayendo a "muralla_0".)
+	_montar_animacion(anims, esc, "muralla", false, 8.0, pose, true)
 
 
 # ENCAJAR UN GOLPE. Cuatro fotogramas en UNA direccion y EMPEZANDO YA GOLPEADO: el frame 0 es el
@@ -681,7 +729,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			"delante": Vector2(hombro.x, hombro.y).rotated(ang).y > 0.0})
 	for b in brazos:
 		if not bool(b["delante"]):
-			_brazo(poner, b, fase_brazos, DETRAS_ESC, Tono.BRAZO_OSC)
+			_brazo(poner, b, fase_brazos, DETRAS_ESC, Tono.BRAZO_OSC, float(pose["mazo"]), float(pose["codo_f"]))
 
 	# 3. LAS PIERNAS: la de DETRAS primero. La adelantada va en tono mas claro, que es lo que deja ver
 	#    de un vistazo cual ha dado el paso.
@@ -771,7 +819,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# 8. EL BRAZO DE DELANTE, ya sobre el cuerpo...
 	for b in brazos:
 		if bool(b["delante"]):
-			_brazo(poner, b, fase_brazos, 1.0, Tono.BRAZO)
+			_brazo(poner, b, fase_brazos, 1.0, Tono.BRAZO, float(pose["mazo"]), float(pose["codo_f"]))
 
 	# 9. ...y encima del todo SU hombrera, que es de donde cuelga (ver el punto 6).
 	for b in brazos:
@@ -830,8 +878,12 @@ static func _pierna(poner: Callable, b: Dictionary, rota: float, rota2: float, t
 # brazos caen sobre el eje de la pantalla -- lo que los separa a lo ancho pasa a ser PROFUNDIDAD --
 # asi que un brazo recto se pinta encima del torso y de las piernas y tapa el bicho entero.
 static func _brazo(poner: Callable, b: Dictionary, fase: float, esc_detras: float,
-		tono: int) -> void:
+		tono: int, mazo: float = 0.0, codo_f: float = 1.0) -> void:
 	var lado: float = float(b["lado"])
+	# El manotazo es SOLO del derecho; el otro se queda como estaba.
+	if lado < 0.0:
+		mazo = 0.0
+		codo_f = 1.0
 	var h0: Vector3 = b["hombro"]
 	# Nace por DEBAJO del centro de la hombrera, o el primer sillar del brazo la tapa entera y el
 	# coloso se queda sin la esquina de arriba.
@@ -849,7 +901,7 @@ static func _brazo(poner: Callable, b: Dictionary, fase: float, esc_detras: floa
 			#
 			# Y cabe de sobra porque el paso no cambia: un salto de angulo D separa el centro siguiente
 			# 2*PASO*sin(D/2) = 2*3,0*sin(0,43) = 2,5, contra los 4,8 que suman los radios de la junta.
-			var a: float = BRAZO_ANG_REPOSO + (BRAZO_CODO if k >= BRAZO_CODO_SEG else 0.0)
+			var a: float = BRAZO_ANG_REPOSO + mazo + (BRAZO_CODO * codo_f if k >= BRAZO_CODO_SEG else 0.0)
 			var d := Vector3(lado * BRAZO_ABRE, sin(a) * BRAZO_ADELANTA, -cos(a)).normalized()
 			eje += d * BRAZO_PASO
 		var p := Vector3(eje.x + lado * BRAZO_SEPARA * f, eje.y + fase * f * 2.4, eje.z)

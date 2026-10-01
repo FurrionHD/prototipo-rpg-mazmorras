@@ -422,7 +422,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		CONSTRUCTO_PUNO = 180, CONSTRUCTO_MACHACA = 181,
 		# Y la gargola: los surcos de su zarpazo, la losa del Picado sobre cada uno y la piedra que sube por las piernas
 		# con la Mirada petrea.
-		GARGOLA_ZARPA = 182, GARGOLA_PICADO = 183, GARGOLA_PETREA = 184 }
+		GARGOLA_ZARPA = 182, GARGOLA_PICADO = 183, GARGOLA_PETREA = 184,
+		# Y el coloso: su manotazo de sillar, el temblor de quien le pilla el Pisoton y el aviso de que no se le mueve
+		# (Imparable).
+		COLOSO_MAZO = 185, COLOSO_SISMO = 186, COLOSO_CLAVADO = 187 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -472,6 +475,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# y los constructos (ConstructoAire, 30/09).
 	Estilo.CONSTRUCTO_PUNO, Estilo.CONSTRUCTO_MACHACA,
 	Estilo.GARGOLA_ZARPA, Estilo.GARGOLA_PICADO, Estilo.GARGOLA_PETREA,
+	Estilo.COLOSO_MAZO, Estilo.COLOSO_SISMO, Estilo.COLOSO_CLAVADO,
 	# y el estoque (EstoqueAire): todo de punta, sobre cada cuerpo.
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.PASO_LIGERO,
 	Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO, Estilo.EN_GUARDIA, Estilo.DEFENSA,
@@ -656,6 +660,8 @@ const T_VUELO := {
 	# La garra la lleva su sprite y los surcos se abren EN el golpe; la losa cae EN el golpe; la piedra sube cuando le
 	# llega la onda por su cono.
 	Estilo.GARGOLA_ZARPA: 0.02, Estilo.GARGOLA_PICADO: 0.02, Estilo.GARGOLA_PETREA: 0.02,
+	# El brazo del coloso lo lleva su sprite (cae EN el golpe); el temblor, cuando le llega su anillo; el aviso, ya.
+	Estilo.COLOSO_MAZO: 0.02, Estilo.COLOSO_SISMO: 0.02, Estilo.COLOSO_CLAVADO: 0.02,
 	Estilo.VORTICE: 0.24, Estilo.ARRASTRE: 0.18,
 	# CERO SIGNIFICA "NO SE DIBUJA NADA". No es solo que el efecto salga sin adelanto: el `vuelo > 0`
 	# de mas abajo (donde se llama a CapaHechizos.alta) es justo lo que hace que el MELEE no pinte
@@ -1998,6 +2004,8 @@ const IMPACTO_ANIM_MAPA := {
 	"golem_golpe": 0.5,
 	# La gargola (30/09): el Picado cae desde el vuelo de su carga ('picar', 8 marcos) y las garras tocan en el 6.
 	"picar": 0.5,
+	# El coloso (01/10): su manotazo ('basico', 8 marcos) y el Pisoton ('sismico') tocan en el 6.
+	"coloso_golpe": 0.5, "sismico": 0.5,
 	# LA REVISION DE SINCRONIA (30/09, tools/ver_sincro, lo pidio el usuario tras el golem): los basicos que tocan mas
 	# tarde que a mitad de su animacion (con el adelanto de siempre, 0,16, el efecto salia un marco o dos antes que el
 	# golpe). El nombre dice en que marco toca: el 5 de 8, el 6 de 8, el 4 de 6. Lo usan por EnemyData.anim_basico.

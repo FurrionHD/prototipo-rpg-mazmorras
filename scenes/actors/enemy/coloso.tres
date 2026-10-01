@@ -48,4 +48,8 @@ habilidades = [ExtResource("3_pis"), ExtResource("4_emb")]
 alcance = 35.0
 ; IMPARABLE (30/09, constructos paso 1): no se le puede mover ni cortar la carga.
 imparable = true
+; EFECTO DEL BASICO EN EL MAPA (01/10, constructos paso 2): el manotazo de sillar, golpe de arriba con lascas cuadradas.
+fx_basico_mapa = 185
+; SU GESTO: alza el brazo y lo deja caer como un mazo ('basico', toca en el 6o de 8; CombatFX.IMPACTO_ANIM_MAPA).
+anim_basico = &"coloso_golpe"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
