@@ -195,11 +195,14 @@ def huesos(pose):
     X['cabeza'] = comp(torso, sobre(CUELLO_PIV, rz(pose['cabeza_gira']) @ rx(-pose['cabeza'])))
     X['cola'] = comp(torso, sobre(Z(0, -4.6, 21.4), rz(pose['cola'])))
     for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
-        a, abre, codo = pose['brazo_' + nom]
+        a, abre, codo, *resto = pose['brazo_' + nom]
+        # 'barre' (opcional, 4o valor): el brazo gira alrededor de la VERTICAL en el hombro (+ hacia la derecha del bicho,
+        # - hacia su izquierda). Hace falta para un barrido: con el brazo estirado al frente, 'abre' casi no lo mueve.
+        barre = resto[0] if resto else 0.0
         # Los signos: rx(+) lleva hacia DELANTE lo que esta ENCIMA del pivote, y hacia atras lo que cuelga DEBAJO. El
         # brazo y la pierna cuelgan, asi que "adelante" es rx(-); el codo dobla hacia delante (rx(-)) y la rodilla
         # hacia atras (rx(+)).
-        brazo = comp(torso, sobre(HOMBRO(s), ry(abre * s) @ rx(-a)))
+        brazo = comp(torso, sobre(HOMBRO(s), rz(barre) @ ry(abre * s) @ rx(-a)))
         X['brazo_' + nom] = brazo
         X['antebrazo_' + nom] = comp(brazo, sobre(CODO(s), rx(-codo)))
         adel, rod = pose['pierna_' + nom]
@@ -550,18 +553,20 @@ def anim_basico(t):
                 pierna_d=(-0.6 * paso, 0.1), cola=0.3 * gira)
 
 def anim_barrido(t):
-    # EL BARRIDO (el cono): echa el hacha ATRAS a su derecha con el torso girado y las piernas abiertas, y la pasa en
-    # horizontal por DELANTE de lado a lado, con todo el torso. Pasa por el frente en el 5o de 8 (M[4]; "mino_barrido").
-    a = tramos(t, [(M[0], 0.4), (M[1], 0.9), (M[2], 1.15), (M[3], 1.2), (M[4], 1.2), (M[5], 1.15), (M[6], 1.05), (M[7], 0.7)])
-    abre = tramos(t, [(M[0], 0.1), (M[1], 0.9), (M[2], 1.3), (M[3], 1.0), (M[4], 0.0), (M[5], -0.6), (M[6], -0.8), (M[7], -0.4)])
-    codo = tramos(t, [(M[0], 0.5), (M[1], 0.4), (M[2], 0.2), (M[3], 0.1), (M[4], 0.0), (M[5], 0.05), (M[6], 0.2), (M[7], 0.4)])
-    gira = tramos(t, [(M[0], 0.0), (M[1], 0.35), (M[2], 0.5), (M[3], 0.35), (M[4], -0.05), (M[5], -0.4), (M[6], -0.5), (M[7], -0.25)])
-    agacha = tramos(t, [(M[0], 0.0), (M[1], 0.4), (M[2], 0.8), (M[3], 0.9), (M[4], 1.0), (M[5], 1.0), (M[6], 0.8), (M[7], 0.3)])
-    inclina = tramos(t, [(M[0], 0.0), (M[2], 0.1), (M[4], 0.2), (M[6], 0.15), (M[7], 0.05)])
-    avance = tramos(t, [(M[0], 0.0), (M[2], -0.6), (M[3], 0.4), (M[4], 1.0), (M[5], 1.2), (M[7], 0.8)])
-    otro = tramos(t, [(M[0], 0.0), (M[2], 0.35), (M[4], 0.1), (M[6], -0.3), (M[7], -0.1)])
-    return POSE(hacha='lado', brazo_d=(a, abre, codo), brazo_i=(otro, 0.5, 0.5), gira=gira, agacha=agacha,
-                inclina=inclina, avance=avance, cabeza=-0.1 * agacha, pierna_i=(0.2 * agacha, 0.15),
+    # EL BARRIDO (el cono), A DOS MANOS de lado a lado (01/10, como lo explico el usuario): empieza con el hacha agarrada
+    # a su DERECHA, la echa atras, la pasa por DELANTE con los dos brazos estirados al frente (5o de 8, M[4]:
+    # "mino_barrido"), la lleva hasta su IZQUIERDA en espejo -- como si se la llevara la otra mano -- y RECUPERA hacia
+    # donde empezo. Lo que la lleva de lado a lado es 'barre' (el giro del hombro alrededor de la vertical); el torso
+    # acompaña y la mano izquierda sigue al mango sola.
+    barre = tramos(t, [(M[0], 0.7), (M[1], 1.0), (M[2], 1.2), (M[3], 0.7), (M[4], 0.0), (M[5], -0.8), (M[6], -1.15), (M[7], 0.3)])
+    a = tramos(t, [(M[0], 0.9), (M[1], 1.0), (M[2], 1.05), (M[3], 1.15), (M[4], 1.2), (M[5], 1.15), (M[6], 1.05), (M[7], 0.9)])
+    codo = tramos(t, [(M[0], 0.3), (M[1], 0.35), (M[2], 0.4), (M[3], 0.2), (M[4], 0.05), (M[5], 0.15), (M[6], 0.3), (M[7], 0.3)])
+    gira = tramos(t, [(M[0], 0.2), (M[1], 0.4), (M[2], 0.5), (M[3], 0.25), (M[4], 0.0), (M[5], -0.35), (M[6], -0.5), (M[7], 0.0)])
+    agacha = tramos(t, [(M[0], 0.5), (M[1], 0.7), (M[2], 0.8), (M[3], 0.9), (M[4], 1.0), (M[5], 1.0), (M[6], 0.8), (M[7], 0.5)])
+    inclina = tramos(t, [(M[0], 0.1), (M[2], 0.12), (M[4], 0.2), (M[6], 0.15), (M[7], 0.1)])
+    avance = tramos(t, [(M[0], 0.0), (M[2], -0.6), (M[3], 0.3), (M[4], 1.0), (M[5], 1.2), (M[6], 1.0), (M[7], 0.6)])
+    return POSE(hacha='lado', brazo_d=(a, 0.0, codo, barre), gira=gira, agacha=agacha, inclina=inclina, avance=avance,
+                cabeza=-0.1 * agacha, cabeza_gira=-0.4 * gira, pierna_i=(0.2 * agacha, 0.15),
                 pierna_d=(-0.15 * agacha, 0.1), cola=0.4 * gira)
 
 ANIMS = {
