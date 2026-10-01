@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b54uj7r77dya1"
-path="res://.godot/imported/minotauro_804d2a_3.10.png-3a16d1d21ecba7748db589aa4c5de570.ctex"
+uid="uid://esq4dewxlems"
+path="res://.godot/imported/minotauro3d.png-d9f56537aeb2391b9858025fe0126a66.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/minotauro_804d2a_3.10.png"
-dest_files=["res://.godot/imported/minotauro_804d2a_3.10.png-3a16d1d21ecba7748db589aa4c5de570.ctex"]
+source_file="res://assets/sprites/enemigos/minotauro3d.png"
+dest_files=["res://.godot/imported/minotauro3d.png-d9f56537aeb2391b9858025fe0126a66.ctex"]
 
 [params]
 
