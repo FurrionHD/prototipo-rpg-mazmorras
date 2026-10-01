@@ -76,18 +76,18 @@ def escena():
         L.append((fn, mat, grupo, k))
 
     # TORSO EN V
-    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 21.4), np.array([4.9, 4.2, 3.2 * ESTIRA])), 'piel', 0)
-    add(lambda P: sd_elipsoide(P, Z(0, 0.8, 24.8), np.array([5.4, 4.4, 3.8 * ESTIRA])), 'piel', 2.0)
-    add(lambda P: sd_elipsoide(P, Z(0, 1.0, 29.4), np.array([9.2, 5.8, 5.4 * ESTIRA])), 'piel', 2.0)
+    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 21.4), np.array([4.6, 4.1, 3.2 * ESTIRA])), 'piel', 0)
+    add(lambda P: sd_elipsoide(P, Z(0, 0.8, 24.8), np.array([4.8, 4.2, 3.8 * ESTIRA])), 'piel', 2.0)
+    add(lambda P: sd_elipsoide(P, Z(0, 1.0, 29.4), np.array([8.0, 5.6, 5.4 * ESTIRA])), 'piel', 2.0)
     for s in (-1, 1):
-        add(lambda P, s=s: sd_elipsoide(P, Z(4.4 * s, 3.8, 29.0), np.array([4.2, 2.8, 3.2 * ESTIRA])), 'piel', 1.2)
-    add(lambda P: sd_elipsoide(P, Z(0, -1.2, 32.6), np.array([5.2, 3.4, 2.4 * ESTIRA])), 'piel', 1.6)   # trapecio
+        add(lambda P, s=s: sd_elipsoide(P, Z(3.9 * s, 3.8, 29.0), np.array([3.8, 2.8, 3.2 * ESTIRA])), 'piel', 1.2)
+    add(lambda P: sd_elipsoide(P, Z(0, -1.2, 32.6), np.array([4.6, 3.4, 2.4 * ESTIRA])), 'piel', 1.6)   # trapecio
     add(lambda P: sd_cono(P, Z(0, 0.0, 32.0), Z(0, 1.0, 36.4), 3.3, 3.0), 'piel', 1.2)                 # cuello
 
     # BRAZOS: deltoide, brazo, antebrazo gordo, puño; el brazalete por encima (union dura)
     for s in (-1, 1):
         # EL CODO UN POCO DOBLADO (va hacia atras y el antebrazo sale hacia delante): un brazo recto es un espagueti.
-        hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -1.0, 23.6); mun = Z(12.4 * s, 2.0, 16.8)
+        hom = Z(8.5 * s, 0.4, 31.4); codo = Z(10.0 * s, -1.0, 23.6); mun = Z(11.2 * s, 2.0, 16.8)
         add(lambda P, c=hom: sd_elipsoide(P, c - Z(0, 0, 0.6), np.array([2.9, 3.0, 3.2 * ESTIRA])), 'piel', 2.2)
         # El brazo: hueso fino (se estrecha en el codo) y encima los MUSCULOS, fundidos poco para que se marquen.
         add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.6, 2.0), 'piel', 1.0)
@@ -137,7 +137,7 @@ def escena():
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
     # El cinto BAJO, en la cadera: alto, se leia como la cintura y el pecho parecia cortisimo.
-    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([5.2, 4.6, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
+    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([4.9, 4.5, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
     # LAS TIRAS, en tres tramos que siguen el cuerpo (sale con el bulto de la ingle y cae) y se estrechan: una tabla
     # plana no tenia volumen ni cogia luz. (Puntos ya en coordenadas finales: la tira cruza el escalon de PIERNA_EXTRA.)
     E = ESTIRA
@@ -162,7 +162,7 @@ def escena():
     add(lambda P, c=p: sd_elipsoide(P, c, np.array([1.3, 1.3, 2.0 * ESTIRA])), 'pelo', 0.5, 'cola')
 
     # EL HACHA en el puño derecho (x negativa): cabeza colgando bajo el puño, mango subiendo por detras del antebrazo
-    puno = Z(-12.4, 2.0, 16.8) + Z(-0.2, 0.4, -2.2)
+    puno = Z(-11.2, 2.0, 16.8) + Z(-0.2, 0.4, -2.2)
     abajo = np.array([-0.18, 0.1, -1.0]); abajo /= np.linalg.norm(abajo)
     add(lambda P: sd_cono(P, puno - abajo * 6.0, puno + abajo * 5.5, 0.55, 0.55), 'madera', 0, 'hacha')
     cab = puno + abajo * 5.6
