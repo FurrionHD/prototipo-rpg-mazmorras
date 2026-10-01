@@ -146,7 +146,7 @@ def POSE(**k):
     p = dict(avance=0.0, agacha=0.0, inclina=0.0, gira=0.0, ladea=0.0, cabeza=0.0, cabeza_gira=0.0,
              brazo_d=(0.0, 0.0, 0.0), brazo_i=(0.0, 0.0, 0.0),        # (adelante, abre, codo) en radianes
              pierna_d=(0.0, 0.0), pierna_i=(0.0, 0.0),                 # (adelante, rodilla)
-             cola=0.0, hacha='mano')
+             cola=0.0, hacha='mano', mango=None)
     p.update(k)
     return p
 
@@ -209,22 +209,28 @@ def huesos(pose):
         muslo = comp(raiz, sobre(CADERA(s), rx(-adel)))
         X['muslo_' + nom] = muslo
         X['pierna_' + nom] = comp(muslo, sobre(RODILLA(s), rx(rod)))
-    # A DOS MANOS (01/10, lo pidio el usuario: "el brazo que no tiene el arma no la agarra"): en el hachazo y el barrido
-    # la mano izquierda va al MANGO, un poco por encima de la derecha, y el brazo se dobla para llegar (IK de dos huesos,
-    # con el codo hacia fuera y abajo). Asi la agarra en todos los fotogramas haga lo que haga el brazo del hacha.
-    if pose['hacha'] in ('alto', 'lado'):
-        s = -HACHA_LADO
-        puno, abajo, largo = agarre_hacha(pose)
-        T = aplica(X['antebrazo_d'], puno + abajo * 2.6)
+    # A DOS MANOS (01/10): la animacion dice por donde va el MANGO ('mango' = (punto de agarre, hacia donde apunta la
+    # cabeza del hacha), en el marco del torso en reposo) y LOS DOS BRAZOS se doblan para llegar: la derecha en el
+    # agarre y la izquierda un poco mas arriba del mango (IK de dos huesos, codos hacia fuera y abajo). Antes se movia el
+    # brazo derecho por angulos y la izquierda intentaba alcanzarlo: con el brazo estirado, el mango quedaba mas lejos
+    # de lo que mide el otro brazo y la mano se quedaba a medio camino ("no agarra con las dos manos").
+    if pose.get('mango') is not None:
+        G, D = pose['mango']
         Mt = X['torso'][0]
-        S0 = HOMBRO(s); E0 = CODO(s); F0 = puno_reposo(s)
-        S = aplica(X['torso'], S0)
-        polo = Mt @ np.array([s * 1.0, -0.3, -0.6])
-        E, F = ik(S, T, np.linalg.norm(E0 - S0), np.linalg.norm(F0 - E0), polo)
-        R1 = rot_entre(Mt @ (E0 - S0), E - S) @ Mt
-        X['brazo_i'] = (R1, S - R1 @ S0)
-        R2 = rot_entre(R1 @ (F0 - E0), F - E) @ R1
-        X['antebrazo_i'] = (R2, E - R2 @ E0)
+        Gw = aplica(X['torso'], np.array(G, dtype=float))
+        Dw = Mt @ (np.array(D, dtype=float) / np.linalg.norm(D))
+        for s, nom, T in ((HACHA_LADO, 'd', Gw), (-HACHA_LADO, 'i', Gw + Dw * 2.6)):
+            S0 = HOMBRO(s); E0 = CODO(s); F0 = puno_reposo(s)
+            S = aplica(X['torso'], S0)
+            E, F = ik(S, T, np.linalg.norm(E0 - S0), np.linalg.norm(F0 - E0), Mt @ np.array([s * 1.0, -0.3, -0.6]))
+            R1 = rot_entre(Mt @ (E0 - S0), E - S) @ Mt
+            X['brazo_' + nom] = (R1, S - R1 @ S0)
+            R2 = rot_entre(R1 @ (F0 - E0), F - E) @ R1
+            X['antebrazo_' + nom] = (R2, E - R2 @ E0)
+        # EL HACHA cuelga del agarre: su puño de reposo va a Gw y su mango apunta a Dw.
+        puno, abajo, largo = agarre_hacha(pose)
+        Rh = rot_entre(abajo, Dw)
+        X['hacha'] = (Rh, Gw - Rh @ puno)
     return X
 
 
@@ -353,18 +359,18 @@ def escena(pose):
         h_hacha = 'antebrazo_d'
     elif pose['hacha'] in ('alto', 'lado'):
         puno, abajo, largo = agarre_hacha(pose)
+        h_hacha = 'hacha' if pose.get('mango') is not None else 'antebrazo_d'
         # EL FILO POR DELANTE (01/10, "si no le esta golpeando con la parte roma"): las hojas van en el plano que forman
         # el mango y HACIA DONDE SE MUEVE la cabeza del hacha en este fotograma ('filo', que pone _trabajo mirando el
         # instante de antes y el de despues). Sin movimiento (o sin dato), en el plano de delante.
         afuera = np.array([0.0, 1.0, 0.0])
         if pose.get('filo') is not None:
-            v = X['antebrazo_d'][0].T @ np.array(pose['filo'])
+            v = X[h_hacha][0].T @ np.array(pose['filo'])
             v = v - abajo * (v @ abajo)
             if np.linalg.norm(v) > 1e-3:
                 afuera = v / np.linalg.norm(v)
         mango_a, mango_b = puno - abajo * 1.6, puno + abajo * largo
         cab = puno + abajo * (largo - 1.0)
-        h_hacha = 'antebrazo_d'
     else:
         base = Z(4.0, -5.4, 18.5); tope = Z(-5.0, -5.4, 33.5)
         abajo = (base - tope) / np.linalg.norm(base - tope)
@@ -536,36 +542,52 @@ def tramos(t, claves):
 # LOS 8 INSTANTES QUE SE DIBUJAN de una animacion que no repite: 0, 1/7 ... 1. Los momentos clave van EN ellos.
 M = [i / 7.0 for i in range(8)]
 
+def _mango(t, claves):
+    """Interpola el agarre (punto, direccion) por tramos: claves = [(t, (x, y, z), (dx, dy, dz)), ...] en coordenadas
+    de reposo del torso (el punto pasa por Z: estirado como todo lo demas)."""
+    P = np.array([tramos(t, [(k[0], Z(*k[1])[i]) for k in claves]) for i in range(3)])
+    D = np.array([tramos(t, [(k[0], k[2][i]) for k in claves]) for i in range(3)])
+    return (P, D / np.linalg.norm(D))
+
+
 def anim_basico(t):
-    # EL HACHAZO (su golpe basico): ALZA el hacha por encima de la cabeza (codo doblado, el hacha detras), la AGUANTA
-    # echandose atras y la DEJA CAER delante con todo el cuerpo. Toca en el 6o de 8 (M[5]; CombatFX "mino_hachazo").
-    a = tramos(t, [(M[0], 0.4), (M[1], 1.6), (M[2], 2.5), (M[3], 2.65), (M[4], 1.9), (M[5], 0.95), (M[6], 0.85), (M[7], 0.5)])
-    codo = tramos(t, [(M[0], 0.5), (M[1], 0.7), (M[2], 0.4), (M[3], 0.55), (M[4], 0.3), (M[5], 0.0), (M[6], 0.05), (M[7], 0.3)])
+    # EL HACHAZO A DOS MANOS: el hacha sube por delante, se va por encima y DETRAS de la cabeza, se aguanta echado atras
+    # y baja delante con todo el cuerpo hasta clavarse en el suelo en el 6o de 8 (M[5]; "mino_hachazo"). Lo que se
+    # anima es el MANGO; los brazos lo siguen (ver 'mango' en huesos).
+    mango = _mango(t, [
+        (M[0], (-3.0, 6.0, 21.0), (-0.2, 0.6, -0.8)),
+        (M[1], (-3.0, 4.0, 31.0), (0.0, 0.1, 1.0)),
+        (M[2], (-1.5, 0.0, 39.0), (0.0, -0.6, 0.8)),
+        (M[3], (-1.5, -1.0, 40.0), (0.0, -0.85, 0.5)),
+        (M[4], (-1.5, 5.0, 36.0), (0.0, 0.5, 0.85)),
+        (M[5], (-1.0, 11.5, 22.0), (0.0, 0.6, -0.8)),
+        (M[6], (-1.0, 11.0, 21.0), (0.0, 0.55, -0.83)),
+        (M[7], (-2.5, 8.0, 21.5), (-0.1, 0.5, -0.85))])
     inclina = tramos(t, [(M[0], 0.0), (M[2], -0.12), (M[3], -0.18), (M[4], 0.1), (M[5], 0.38), (M[6], 0.34), (M[7], 0.15)])
     agacha = tramos(t, [(M[0], 0.0), (M[3], -0.3), (M[5], 1.4), (M[6], 1.2), (M[7], 0.5)])
     avance = tramos(t, [(M[0], 0.0), (M[3], -0.8), (M[5], 2.6), (M[6], 2.6), (M[7], 1.6)])
-    gira = tramos(t, [(M[0], 0.0), (M[2], 0.22), (M[3], 0.26), (M[5], -0.18), (M[7], -0.05)])
     cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.15), (M[5], -0.2), (M[7], -0.05)])
-    otro = tramos(t, [(M[0], 0.0), (M[3], 0.4), (M[5], -0.35), (M[7], -0.1)])
     paso = tramos(t, [(M[0], 0.0), (M[3], -0.1), (M[5], 0.35), (M[7], 0.2)])
-    return POSE(hacha='alto', brazo_d=(a, 0.12, codo), brazo_i=(otro, 0.15, 0.4), inclina=inclina, agacha=agacha,
-                avance=avance, gira=gira, cabeza=cabeza, pierna_i=(paso, 0.25 * max(0.0, paso)),
-                pierna_d=(-0.6 * paso, 0.1), cola=0.3 * gira)
+    return POSE(hacha='alto', mango=mango, inclina=inclina, agacha=agacha, avance=avance, cabeza=cabeza,
+                pierna_i=(paso, 0.25 * max(0.0, paso)), pierna_d=(-0.6 * paso, 0.1))
+
 
 def anim_barrido(t):
     # EL BARRIDO (el cono), A DOS MANOS de lado a lado (01/10, como lo explico el usuario): empieza con el hacha agarrada
     # a su DERECHA, la echa atras, la pasa por DELANTE con los dos brazos estirados al frente (5o de 8, M[4]:
     # "mino_barrido"), la lleva hasta su IZQUIERDA en espejo -- como si se la llevara la otra mano -- y RECUPERA hacia
-    # donde empezo. Lo que la lleva de lado a lado es 'barre' (el giro del hombro alrededor de la vertical); el torso
-    # acompaña y la mano izquierda sigue al mango sola.
-    barre = tramos(t, [(M[0], 0.7), (M[1], 1.0), (M[2], 1.2), (M[3], 0.7), (M[4], 0.0), (M[5], -0.8), (M[6], -1.15), (M[7], 0.3)])
-    a = tramos(t, [(M[0], 0.9), (M[1], 1.0), (M[2], 1.05), (M[3], 1.15), (M[4], 1.2), (M[5], 1.15), (M[6], 1.05), (M[7], 0.9)])
-    codo = tramos(t, [(M[0], 0.3), (M[1], 0.35), (M[2], 0.4), (M[3], 0.2), (M[4], 0.05), (M[5], 0.15), (M[6], 0.3), (M[7], 0.3)])
-    gira = tramos(t, [(M[0], 0.2), (M[1], 0.4), (M[2], 0.5), (M[3], 0.25), (M[4], 0.0), (M[5], -0.35), (M[6], -0.5), (M[7], 0.0)])
+    # donde empezo. El MANGO recorre un arco alrededor del cuerpo apuntando hacia fuera; los brazos lo siguen y el tronco
+    # gira con el.
+    fi = tramos(t, [(M[0], 0.9), (M[1], 1.15), (M[2], 1.3), (M[3], 0.75), (M[4], 0.0), (M[5], -0.8), (M[6], -1.25), (M[7], 0.4)])
+    z = tramos(t, [(M[0], 24.0), (M[2], 26.0), (M[4], 23.5), (M[6], 25.0), (M[7], 24.0)])
+    r = 10.0
+    d = np.array([-math.sin(fi), math.cos(fi), -0.25])
+    mango = (Z(-r * math.sin(fi), 1.5 + r * math.cos(fi), z), d / np.linalg.norm(d))
+    gira = tramos(t, [(M[0], 0.2), (M[1], 0.35), (M[2], 0.45), (M[3], 0.25), (M[4], 0.0), (M[5], -0.3), (M[6], -0.45), (M[7], 0.05)])
     agacha = tramos(t, [(M[0], 0.5), (M[1], 0.7), (M[2], 0.8), (M[3], 0.9), (M[4], 1.0), (M[5], 1.0), (M[6], 0.8), (M[7], 0.5)])
     inclina = tramos(t, [(M[0], 0.1), (M[2], 0.12), (M[4], 0.2), (M[6], 0.15), (M[7], 0.1)])
     avance = tramos(t, [(M[0], 0.0), (M[2], -0.6), (M[3], 0.3), (M[4], 1.0), (M[5], 1.2), (M[6], 1.0), (M[7], 0.6)])
-    return POSE(hacha='lado', brazo_d=(a, 0.0, codo, barre), gira=gira, agacha=agacha, inclina=inclina, avance=avance,
+    return POSE(hacha='lado', mango=mango, gira=gira, agacha=agacha, inclina=inclina, avance=avance,
                 cabeza=-0.1 * agacha, cabeza_gira=-0.4 * gira, pierna_i=(0.2 * agacha, 0.15),
                 pierna_d=(-0.15 * agacha, 0.1), cola=0.4 * gira)
 
@@ -587,7 +609,9 @@ def _trabajo(args):
         def cabeza(tt):
             pp = fn(min(max(tt, 0.0), 1.0))
             puno, abajo, largo = agarre_hacha(pp)
-            return aplica(huesos(pp)['antebrazo_d'], puno + abajo * (largo - 1.0))
+            Xp = huesos(pp)
+            hueso = Xp['hacha'] if pp.get('mango') is not None else Xp['antebrazo_d']
+            return aplica(hueso, puno + abajo * (largo - 1.0))
         v = cabeza(t + 0.04) - cabeza(t - 0.04)
         if np.linalg.norm(v) > 0.05:
             pose['filo'] = v
