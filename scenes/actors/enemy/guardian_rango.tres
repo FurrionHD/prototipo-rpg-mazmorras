@@ -43,6 +43,7 @@ nucleo_chance = 1.0
 drop_piso_debut = 12
 drop_piso_pleno = 12
 fx_basico = 23
+anim_basico = &"mino_hachazo"
 habilidades = [ExtResource("3_cor"), ExtResource("4_pis"), ExtResource("5_bra")]
 status_resist = 1.8
 eficacia = 1.5

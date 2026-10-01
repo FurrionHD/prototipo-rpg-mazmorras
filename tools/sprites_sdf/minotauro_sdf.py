@@ -155,13 +155,16 @@ def huesos(pose):
     X['cola'] = comp(torso, sobre(Z(0, -4.6, 21.4), rz(pose['cola'])))
     for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
         a, abre, codo = pose['brazo_' + nom]
-        brazo = comp(torso, sobre(HOMBRO(s), ry(abre * s) @ rx(a)))
+        # Los signos: rx(+) lleva hacia DELANTE lo que esta ENCIMA del pivote, y hacia atras lo que cuelga DEBAJO. El
+        # brazo y la pierna cuelgan, asi que "adelante" es rx(-); el codo dobla hacia delante (rx(-)) y la rodilla
+        # hacia atras (rx(+)).
+        brazo = comp(torso, sobre(HOMBRO(s), ry(abre * s) @ rx(-a)))
         X['brazo_' + nom] = brazo
-        X['antebrazo_' + nom] = comp(brazo, sobre(CODO(s), rx(codo)))
+        X['antebrazo_' + nom] = comp(brazo, sobre(CODO(s), rx(-codo)))
         adel, rod = pose['pierna_' + nom]
-        muslo = comp(raiz, sobre(CADERA(s), rx(adel)))
+        muslo = comp(raiz, sobre(CADERA(s), rx(-adel)))
         X['muslo_' + nom] = muslo
-        X['pierna_' + nom] = comp(muslo, sobre(RODILLA(s), rx(-rod)))
+        X['pierna_' + nom] = comp(muslo, sobre(RODILLA(s), rx(rod)))
     return X
 
 
@@ -437,9 +440,39 @@ def anim_walk(t):
                 agacha=0.35 * (0.5 - 0.5 * math.cos(2 * f)), gira=0.07 * math.sin(f), cabeza=0.05 * math.sin(2 * f),
                 cola=0.3 * math.sin(f))
 
+def tramos(t, claves):
+    """Interpola por tramos (como SpriteLienzo.tramos): claves = [(t, valor), ...]."""
+    if t <= claves[0][0]: return claves[0][1]
+    for (t0, v0), (t1, v1) in zip(claves, claves[1:]):
+        if t <= t1:
+            f = (t - t0) / max(t1 - t0, 1e-6)
+            f = f * f * (3 - 2 * f)
+            return v0 + (v1 - v0) * f
+    return claves[-1][1]
+
+# LOS 8 INSTANTES QUE SE DIBUJAN de una animacion que no repite: 0, 1/7 ... 1. Los momentos clave van EN ellos.
+M = [i / 7.0 for i in range(8)]
+
+def anim_basico(t):
+    # EL HACHAZO (su golpe basico): ALZA el hacha por encima de la cabeza (codo doblado, el hacha detras), la AGUANTA
+    # echandose atras y la DEJA CAER delante con todo el cuerpo. Toca en el 6o de 8 (M[5]; CombatFX "mino_hachazo").
+    a = tramos(t, [(M[0], 0.4), (M[1], 1.6), (M[2], 2.5), (M[3], 2.65), (M[4], 1.9), (M[5], 0.95), (M[6], 0.85), (M[7], 0.5)])
+    codo = tramos(t, [(M[0], 0.5), (M[1], 0.7), (M[2], 0.4), (M[3], 0.55), (M[4], 0.3), (M[5], 0.0), (M[6], 0.05), (M[7], 0.3)])
+    inclina = tramos(t, [(M[0], 0.0), (M[2], -0.12), (M[3], -0.18), (M[4], 0.1), (M[5], 0.38), (M[6], 0.34), (M[7], 0.15)])
+    agacha = tramos(t, [(M[0], 0.0), (M[3], -0.3), (M[5], 1.4), (M[6], 1.2), (M[7], 0.5)])
+    avance = tramos(t, [(M[0], 0.0), (M[3], -0.8), (M[5], 2.6), (M[6], 2.6), (M[7], 1.6)])
+    gira = tramos(t, [(M[0], 0.0), (M[2], 0.22), (M[3], 0.26), (M[5], -0.18), (M[7], -0.05)])
+    cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.15), (M[5], -0.2), (M[7], -0.05)])
+    otro = tramos(t, [(M[0], 0.0), (M[3], 0.4), (M[5], -0.35), (M[7], -0.1)])
+    paso = tramos(t, [(M[0], 0.0), (M[3], -0.1), (M[5], 0.35), (M[7], 0.2)])
+    return POSE(hacha='alto', brazo_d=(a, 0.12, codo), brazo_i=(otro, 0.15, 0.4), inclina=inclina, agacha=agacha,
+                avance=avance, gira=gira, cabeza=cabeza, pierna_i=(paso, 0.25 * max(0.0, paso)),
+                pierna_d=(-0.6 * paso, 0.1), cola=0.3 * gira)
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
+    'basico': (8, 10.0, False, 8, anim_basico),
 }
 
 

@@ -21,12 +21,13 @@ const CARPETA := "res://assets/sprites/enemigos/minotauro_sdf/"
 const LIENZO := Vector2i(158, 176)
 
 # Las animaciones que pide el juego -> la hoja de donde salen, cuantas direcciones y fotogramas tienen, fps y si repiten.
-# PROVISIONAL (01/10): solo estan hechas 'idle' y 'walk'; el resto repite la quieta hasta que se hagan.
+# PROVISIONAL (01/10): estan hechas 'idle', 'walk' y 'basico'; el resto repite la quieta hasta que se hagan.
 const ANIMS := {
 	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
 	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
 	"embestida": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
-	"basico": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	# EL HACHAZO, su basico: toca en el 6o de 8 a 10 fps (0,5 s; CombatFX.IMPACTO_ANIM_MAPA "mino_hachazo").
+	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"barrido": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cornada": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"pisoton": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},

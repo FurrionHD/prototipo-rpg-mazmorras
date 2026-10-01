@@ -15,6 +15,12 @@
    "fps": 6.0,
    "loop": true,
    "dirs": 8
+  },
+  "basico": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
   }
  }
 }
