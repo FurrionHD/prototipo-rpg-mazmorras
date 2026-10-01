@@ -754,6 +754,12 @@ static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde
 # 'unidas' son las parejas de partes que NACEN una de otra (el muslo de la cadera, el cuello del pecho, el cuerno del
 # craneo): entre ellas NO va linea. Con linea en las uniones el bicho salia "descuartizado, cortado por secciones".
 # Clave de cada pareja: clave_unidas(a, b).
+#
+# Y LA RAIZ: una celda con el bit RAIZ (128) es del NACIMIENTO de una parte -- el hombro y el primer tramo del brazo --
+# y no lleva linea ni la provoca. Con el hombro como frontera, de frente salia una raya entre hombro y pecho; con la raiz
+# metida en el torso, la raya cruzaba el brazo de traves donde acababa. Asi el brazo sale del cuerpo limpio y queda
+# perfilado en cuanto va suelto.
+const RAIZ := 128
 static func clave_unidas(a: int, b: int) -> int:
 	return mini(a, b) * 256 + maxi(a, b)
 
@@ -765,13 +771,13 @@ static func contornear_grupos(plant: PackedByteArray, grupos: PackedByteArray, c
 		for gx in range(maxi(1, cj.position.x), mini(w - 1, cj.end.x)):
 			var idx: int = fila + gx
 			var g: int = grupos[idx]
-			if g == 0:
+			if g == 0 or g >= RAIZ:
 				continue
 			var t: int = plant[idx]
 			if t == hueco_a or t == hueco_b or t == borde:
 				continue
 			for n in [grupos[idx + 1], grupos[idx - 1], grupos[idx + w], grupos[idx - w]]:
-				if n > 0 and n < g and not unidas.has(n * 256 + g):
+				if n > 0 and n < g and n < RAIZ and not unidas.has(n * 256 + g):
 					plant[idx] = borde
 					break
 

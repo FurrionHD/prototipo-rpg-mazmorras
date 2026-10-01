@@ -247,10 +247,12 @@ const FALDON := Vector3(0.0, 3.2, 18.4)
 const FALDON_R := Vector3(2.6, 1.8, 2.4)
 # El brazalete va en el segmento del antebrazo, cerca del puño.
 const BRAZALETE_SEG := 4
+# Los tramos del brazo que son su RAIZ, sin linea (ver SpriteLienzo.RAIZ): el brazo sale del hombro limpio.
+const BRAZO_RAIZ := 2
 const BRAZALETE_R := Vector3(2.7, 2.6, 2.6)
 
 # --- LAS MANOS (01/10, "que las manos parezcan manos"): palma y DEDOS que asoman de ella con hueco entre ellos (el
-# contorno los separa), y el pulgar aparte. La derecha esta CERRADA sobre el mango (nudillos); la izquierda, abierta.
+# contorno los separa), y el pulgar aparte. CERRADA (el puño) los dedos son nudillos.
 const PALMA_R := Vector3(2.3, 2.1, 2.1)
 const DEDO_R := 0.95
 const DEDO_SEPARA := 1.35          # entre centros de dedos: 1,9 de diametro, asi que queda hueco
@@ -920,7 +922,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var sup: Dictionary = {"on": false}
 	# LA PARTE que se esta dibujando (pierna, torso, brazo, cabeza, cuerno): ver SpriteLienzo.contornear_grupos. Se
 	# sube con 'parte' antes de cada una; los adornos 'solo_sobre' no son parte (pintura encima).
-	var grupo: Dictionary = {"id": 0}
+	var grupo: Dictionary = {"id": 0, "raiz": false}
 	var parte := func() -> void:
 		grupo["id"] = int(grupo["id"]) + 1
 	# Las partes que nacen una de otra, sin linea entre ellas (ver SpriteLienzo.contornear_grupos).
@@ -964,7 +966,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		piezas.append({"pos": Vector2(sx, sy), "radio": Vector2(rxm * u, ry * u),
 			"gira_forma": true, "tono": tono, "ang": ang,
 			"persp": SpriteLienzo.persp_de(ry_rot, r.z * alto), "solo_sobre": solo_sobre,
-			"grupo": 0 if (en_suelo or not solo_sobre.is_empty()) else int(grupo["id"])})
+			"grupo": 0 if (en_suelo or not solo_sobre.is_empty()) else int(grupo["id"]),
+			"raiz": bool(grupo["raiz"])})
 
 	# SOMBRA DE CONTACTO, lo primero (va debajo). A ALTURA CERO: no sube con el bicho.
 	poner.call(Vector3(0.0, 0.0, 0.0), Vector3(PIERNA_X + PEZUNA_R.x, PEZUNA_R.y * 1.5, 0.0),
@@ -1118,8 +1121,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for lado in lados_brazo:
 		brazos_c[lado] = cadena.call(lado)
 
-	# CADA BRAZO ES UNA PARTE CON SU HOMBRO (el hombro es donde nace: con linea entre los dos, el brazo salia cortado
-	# por la axila). Los de delante llevan ids por ENCIMA de todo (200+) aunque su hombro se pinte antes que la cabeza.
+	# CADA BRAZO ES UNA PARTE CON SU HOMBRO, y el hombro y los primeros tramos (BRAZO_RAIZ) son su RAIZ: sin linea (ver
+	# SpriteLienzo.RAIZ). Los de delante llevan ids por encima de todo (100+) aunque su hombro se pinte antes que la cabeza.
 	var ids_brazo: Dictionary = {}
 	var dibuja_brazo := func(lado: float) -> void:
 		if not ids_brazo.has(lado):
@@ -1127,10 +1130,14 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 			ids_brazo[lado] = int(grupo["id"])
 		grupo["id"] = int(ids_brazo[lado])
 		var c: Dictionary = brazos_c[lado]
+		var k: int = 0
 		for pt in c["pts"]:
+			grupo["raiz"] = k < BRAZO_RAIZ
+			k += 1
 			poner.call(pt["p"], Vector3.ONE * float(pt["r"]), int(c["tono"]))
 			if bool(pt["brazalete"]):
 				poner.call(pt["p"], BRAZALETE_R, Tono.CUERO_T, [Tono.BASE])
+		grupo["raiz"] = false
 		# LA MANO: cerrada (puño) en el puñetazo; abierta en lo demas.
 		mano.call(c["mano"], c["d"], lado, int(c["tono"]), is_equal_approx(lado, GOLPE_LADO) and absf(punetazo) > 0.3)
 
@@ -1144,7 +1151,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for idp in ids_pierna:
 		_unidas[SpriteLienzo.clave_unidas(idp, id_torso)] = true
 	for i in delante.size():
-		ids_brazo[delante[i]] = 200 + i
+		ids_brazo[delante[i]] = 100 + i
 	poner.call(CADERA, CADERA_R, Tono.BASE)
 	# EL TAPARRABOS, justo despues de la cadera para que se recorte sobre ella, y el FALDON que cuelga
 	# por delante. Van en cuero oscuro: lo que le da escala al bicho es llevar encima algo hecho por
@@ -1175,7 +1182,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		if lado in detras:
 			hz2 -= HOMBRO_BAJA_DETRAS
 		grupo["id"] = int(ids_brazo[lado])
+		grupo["raiz"] = true
 		poner.call(Vector3(lado * HOMBRO_X, HOMBRO_Y, hz2), HOMBRO_R, Tono.BASE)
+	grupo["raiz"] = false
 	grupo["id"] = id_torso
 
 	# QUIEN LE VE LA CARA: de ESPALDAS no se le ven ni los ojos ni la anilla ni el hocico. Un bicho
@@ -1318,6 +1327,8 @@ static func _plantilla(dir: int, pose: Dictionary, esc: float) -> PackedByteArra
 			float(p["ang"]), p["solo_sobre"], float(p["persp"]))
 		var g: int = int(p["grupo"])
 		if g > 0:
+			if bool(p["raiz"]):
+				g += SpriteLienzo.RAIZ
 			SpriteLienzo.elipse(grupos, lz.x, lz.y, pos.x, pos.y, r.x, r.y, g, float(p["ang"]), [], float(p["persp"]))
 
 	# CONTORNO al final, sobre la silueta ya completa (ver SpriteLienzo.contornear), y LAS LINEAS DE DENTRO donde una
