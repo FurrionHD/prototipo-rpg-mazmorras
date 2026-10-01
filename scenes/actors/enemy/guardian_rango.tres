@@ -56,4 +56,11 @@ sala_brote = 0.18
 sala_luz_radio = 5.5
 sala_luz_intensidad = 0.4
 sala_freno = 1.0
+; ALCANCE del basico en el mapa (01/10, paso 1): el de su brazo.
+alcance = 26.0
+; RABIA DEL GUARDIAN (01/10, paso 1, la idea del usuario): por debajo de este tanto de su vida entra en furia para
+; siempre: pega por rabia_mult y su barra corre por rabia_velocidad.
+rabia_umbral = 0.3
+rabia_mult = 1.3
+rabia_velocidad = 1.25
 metadata/_custom_type_script = "uid://le6jfvhlcbou"

@@ -228,6 +228,17 @@ var regen_corta_turnos: int = 2
 var regen_cortada: int = 0
 # Las del repaso de pasivas (30/09): ver EnemyData.
 var camada_mult: float = 1.0
+# RABIA DEL GUARDIAN (el Minotauro, 01/10): ver EnemyData.rabia_umbral.
+var rabia_umbral: float = 0.0
+var rabia_mult: float = 1.3
+var rabia_velocidad: float = 1.25
+
+# En rabia: vivo y por debajo de su umbral de vida. Sale de la vida, que ya viaja al espejo: lo ven igual todas las
+# pantallas sin mandar nada. (No vuelve atras aunque se cure: el umbral lo cruza la vida, y curarse por encima es raro;
+# si pasa, se le pasa la rabia.)
+func en_rabia() -> bool:
+	return rabia_umbral > 0.0 and is_alive() and max_hp > 0.0 and current_hp / max_hp < rabia_umbral
+
 var camada_salto: float = 0.0
 var camada_radio: float = 80.0
 var emboscada_mult: float = 1.0

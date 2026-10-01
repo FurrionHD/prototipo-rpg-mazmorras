@@ -549,6 +549,9 @@ func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
 		m *= atacante.emboscada_mult
 	# REY DE LA CAMADA: las de su familia pegan mas mientras el viva.
 	m *= _mult_camada(atacante)
+	# RABIA DEL GUARDIAN (el Minotauro): en rabia pega mas.
+	if atacante.en_rabia():
+		m *= atacante.rabia_mult
 	return m
 
 
@@ -1245,7 +1248,7 @@ func _process(delta: float) -> void:
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * datb * rate
 	for e in _vivos():
-		_gauge[e] += e.spd() * datb * escala
+		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0)
 
 	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
 	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el

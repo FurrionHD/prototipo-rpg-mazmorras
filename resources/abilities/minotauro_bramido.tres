@@ -29,3 +29,7 @@ area_max = 99
 fx_anim = &"bramido"
 fx_estilo = 17
 cooldown = 5
+; EN EL MAPA (01/10, Minotauro paso 1): circulo grande r140 a su ALREDEDOR: le llega a todo el que lo oye.
+forma = 1
+forma_apunte = 2
+forma_radio = 140.0

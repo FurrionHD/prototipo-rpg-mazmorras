@@ -298,6 +298,11 @@ func drop_factor_piso(piso: int) -> float:
 @export var ecolocaliza: bool = false
 # LA QUE EVITA AL TANQUE (segadora): en su reparto, el primero de su tabla de amenaza pesa menos (va a por los blandos).
 @export var evita_tanque: bool = false
+# RABIA DEL GUARDIAN (el Minotauro, 01/10): por debajo de 'rabia_umbral' de su vida entra en furia PARA SIEMPRE: pega
+# por 'rabia_mult' (Pantalla._mult_pasivas) y su barra de accion corre por 'rabia_velocidad'. 0 = no tiene.
+@export var rabia_umbral: float = 0.0
+@export var rabia_mult: float = 1.3
+@export var rabia_velocidad: float = 1.25
 # --- LOS CONSTRUCTOS (30/09, paso 1 con el usuario) ---
 # BARRO COCIDO (golem de arcilla), con cara y cruz (lo pidio el usuario: "que su pasiva no sea solo negativa para el
 # enemigo"). Un golpe o hechizo de 'ablanda_elem' (el agua) le quita lo endurecido (FORTALEZA) y durante 'ablanda_turnos'
@@ -622,6 +627,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.reflejo_prob = reflejo_prob
 	c.ecolocaliza = ecolocaliza
 	c.evita_tanque = evita_tanque
+	c.rabia_umbral = rabia_umbral
+	c.rabia_mult = rabia_mult
+	c.rabia_velocidad = rabia_velocidad
 	c.ablanda_elem = ablanda_elem
 	c.ablanda_mult = ablanda_mult
 	c.ablanda_turnos = ablanda_turnos

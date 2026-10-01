@@ -21,3 +21,12 @@ efectos_por_golpe = false
 fx_anim = &"cornada"
 fx_estilo = 20
 cooldown = 4
+; EN EL MAPA (01/10, Minotauro paso 1): embiste por una LINEA de 120 cargada 1 turno (la huella roja avisa), se para en
+; el primero que pilla y lo DESPLAZA lejos (40 px: un desplazamiento grande, le corta lo que estuviera cargando).
+forma = 3
+forma_apunte = 1
+forma_radio = 120.0
+forma_ancho = 28.0
+carga = true
+carga_turnos = 1
+tiron = -40.0
