@@ -750,8 +750,16 @@ static func contornear(plant: PackedByteArray, cj: Rect2i, w: int, h: int, borde
 # adornos 'solo_sobre', que son pintura encima y no partes). Los ids crecen en el orden de dibujo, asi que el mayor es
 # el que va DELANTE: la celda que toca a una parte de id MENOR se vuelve borde, y la linea queda en el filo de la pieza
 # de delante, que es donde la dibujaria un ilustrador.
+#
+# 'unidas' son las parejas de partes que NACEN una de otra (el muslo de la cadera, el cuello del pecho, el cuerno del
+# craneo): entre ellas NO va linea. Con linea en las uniones el bicho salia "descuartizado, cortado por secciones".
+# Clave de cada pareja: clave_unidas(a, b).
+static func clave_unidas(a: int, b: int) -> int:
+	return mini(a, b) * 256 + maxi(a, b)
+
+
 static func contornear_grupos(plant: PackedByteArray, grupos: PackedByteArray, cj: Rect2i, w: int, h: int,
-		borde: int, hueco_a: int, hueco_b: int) -> void:
+		borde: int, hueco_a: int, hueco_b: int, unidas: Dictionary = {}) -> void:
 	for gy in range(maxi(1, cj.position.y), mini(h - 1, cj.end.y)):
 		var fila: int = gy * w
 		for gx in range(maxi(1, cj.position.x), mini(w - 1, cj.end.x)):
@@ -762,12 +770,10 @@ static func contornear_grupos(plant: PackedByteArray, grupos: PackedByteArray, c
 			var t: int = plant[idx]
 			if t == hueco_a or t == hueco_b or t == borde:
 				continue
-			var a: int = grupos[idx + 1]
-			var b: int = grupos[idx - 1]
-			var c: int = grupos[idx + w]
-			var d: int = grupos[idx - w]
-			if (a > 0 and a < g) or (b > 0 and b < g) or (c > 0 and c < g) or (d > 0 and d < g):
-				plant[idx] = borde
+			for n in [grupos[idx + 1], grupos[idx - 1], grupos[idx + w], grupos[idx - w]]:
+				if n > 0 and n < g and not unidas.has(n * 256 + g):
+					plant[idx] = borde
+					break
 
 
 # ------------------------------------------------------------

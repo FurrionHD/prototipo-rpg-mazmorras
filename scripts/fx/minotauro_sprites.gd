@@ -392,6 +392,8 @@ static func clave_roto_de(ed: EnemyData, t: float) -> String:
 
 # Lo que lee _piezas mientras se genera la variante rota (un generador a la vez: no hay hilos).
 static var _roto: bool = false
+# Las parejas de partes UNIDAS del ultimo _piezas (sin linea entre ellas): las escribe _piezas y las lee _plantilla.
+static var _unidas: Dictionary = {}
 
 
 static func escala_base() -> float:
@@ -921,6 +923,10 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	var grupo: Dictionary = {"id": 0}
 	var parte := func() -> void:
 		grupo["id"] = int(grupo["id"]) + 1
+	# Las partes que nacen una de otra, sin linea entre ellas (ver SpriteLienzo.contornear_grupos).
+	_unidas.clear()
+	var ids_pierna: Array = []
+	var ids_cuerno: Array = []
 	var poner := func(local0: Vector3, r: Vector3, tono: int, solo_sobre: Array = [],
 			en_suelo: bool = false) -> void:
 		var local: Vector3 = local0
@@ -975,6 +981,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		lados_pierna = [1.0, -1.0]
 	for lado in lados_pierna:
 		parte.call()
+		ids_pierna.append(int(grupo["id"]))
 		var swing: float = fase_patas * lado
 		var y_off: float = swing * PASO_LARGO
 		# Al andar, la pierna adelantada tambien SE LEVANTA. Sin esto los pies patinan por el suelo.
@@ -1111,8 +1118,14 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	for lado in lados_brazo:
 		brazos_c[lado] = cadena.call(lado)
 
+	# CADA BRAZO ES UNA PARTE CON SU HOMBRO (el hombro es donde nace: con linea entre los dos, el brazo salia cortado
+	# por la axila). Los de delante llevan ids por ENCIMA de todo (200+) aunque su hombro se pinte antes que la cabeza.
+	var ids_brazo: Dictionary = {}
 	var dibuja_brazo := func(lado: float) -> void:
-		parte.call()
+		if not ids_brazo.has(lado):
+			parte.call()
+			ids_brazo[lado] = int(grupo["id"])
+		grupo["id"] = int(ids_brazo[lado])
 		var c: Dictionary = brazos_c[lado]
 		for pt in c["pts"]:
 			poner.call(pt["p"], Vector3.ONE * float(pt["r"]), int(c["tono"]))
@@ -1127,6 +1140,11 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 
 	# --- EL TORSO EN V, de abajo arriba.
 	parte.call()
+	var id_torso: int = int(grupo["id"])
+	for idp in ids_pierna:
+		_unidas[SpriteLienzo.clave_unidas(idp, id_torso)] = true
+	for i in delante.size():
+		ids_brazo[delante[i]] = 200 + i
 	poner.call(CADERA, CADERA_R, Tono.BASE)
 	# EL TAPARRABOS, justo despues de la cadera para que se recorte sobre ella, y el FALDON que cuelga
 	# por delante. Van en cuero oscuro: lo que le da escala al bicho es llevar encima algo hecho por
@@ -1156,7 +1174,9 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 		var hz2: float = HOMBRO_Z
 		if lado in detras:
 			hz2 -= HOMBRO_BAJA_DETRAS
+		grupo["id"] = int(ids_brazo[lado])
 		poner.call(Vector3(lado * HOMBRO_X, HOMBRO_Y, hz2), HOMBRO_R, Tono.BASE)
+	grupo["id"] = id_torso
 
 	# QUIEN LE VE LA CARA: de ESPALDAS no se le ven ni los ojos ni la anilla ni el hocico. Un bicho
 	# que se aleja enseña la nuca, y eso es lo que hace que se lea de un vistazo si viene o si huye.
@@ -1191,6 +1211,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# teniendo cuernos.
 	var cuerno := func(lado: float) -> void:
 		parte.call()
+		ids_cuerno.append(int(grupo["id"]))
 		var cp := Vector3(lado * CUERNO_BASE.x, CUERNO_BASE.y, CUERNO_BASE.z + cabeza_y)
 		# 'cv' es la inclinacion en el plano vertical: empieza abierto hacia fuera y se va cerrando
 		# hacia arriba y delante.
@@ -1231,6 +1252,7 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# CUELLO y CABEZA, una parte (la linea va donde la cabeza tapa al torso, no entre cuello y craneo).
 	parte.call()
 	var id_cabeza: int = int(grupo["id"])
+	_unidas[SpriteLienzo.clave_unidas(id_torso, id_cabeza)] = true
 	# CUELLO y CABEZA. 'cabeza_y' las sube y las baja: al andar cabecea, en la cornada se hunde y en
 	# el enganche sube de golpe.
 	poner.call(testa.call(Vector3(CUELLO.x, CUELLO.y, CUELLO.z + cabeza_y * 0.45), TESTUZ_CUELLO),
@@ -1254,6 +1276,8 @@ static func _piezas(dir: int, pose: Dictionary, esc: float) -> Array:
 	# La anilla y los ojos van con la cabeza aunque se pinten despues del cuerno de delante.
 	var id_max: int = int(grupo["id"])
 	grupo["id"] = id_cabeza
+	for idc in ids_cuerno:
+		_unidas[SpriteLienzo.clave_unidas(idc, id_cabeza)] = true
 	if not lados.is_empty():
 		# LA ANILLA: un arco de piezas colgando del hocico. Es el detalle que remata al bicho, y va
 		# en laton para que no se confunda con los cuernos (que son hueso).
@@ -1300,5 +1324,5 @@ static func _plantilla(dir: int, pose: Dictionary, esc: float) -> PackedByteArra
 	# parte tapa a otra (SpriteLienzo.contornear_grupos).
 	var cj: Rect2i = SpriteLienzo.caja_de_piezas(piezas, lz.x, lz.y)
 	SpriteLienzo.contornear(plant, cj, lz.x, lz.y, Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
-	SpriteLienzo.contornear_grupos(plant, grupos, cj, lz.x, lz.y, Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO)
+	SpriteLienzo.contornear_grupos(plant, grupos, cj, lz.x, lz.y, Tono.BORDE, Tono.VACIO, Tono.SOMBRA_SUELO, _unidas)
 	return plant
