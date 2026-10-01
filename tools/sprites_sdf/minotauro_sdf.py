@@ -139,14 +139,24 @@ def escena():
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
     # El cinto BAJO, en la cadera: alto, se leia como la cintura y el pecho parecia cortisimo.
-    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.4), np.array([4.3, 4.1, 0.9 * ESTIRA])), 'cuero', 0, 'ropa')
-    # LA CUERDA que lo sujeta: cuentas alternando dos tonos (se lee trenzada), un NUDO delante y dos CABOS colgando.
-    n_c = 30
+    # EL CINTURON PEGADO A LA PIEL: cada pieza se pone donde ACABA el cuerpo en esa direccion (se busca con la distancia
+    # del propio cuerpo). Un aro fijo se quedaba ENTERRADO por los costados, donde el arranque de los muslos es mas ancho.
+    def superficie(ang, z):
+        d = np.array([math.sin(ang), math.cos(ang), 0.0])
+        c = Z(0, -0.3, z)
+        rr = np.arange(0.0, 14.0, 0.1)
+        P = c + np.outer(rr, d)
+        dist = cuerpo_d(P, L)
+        fuera = np.where(dist > 0)[0]
+        return c + d * rr[fuera[0] if len(fuera) else -1], d
+    n_c = 36
     for k in range(n_c):
-        a = 2 * math.pi * k / n_c
-        c = Z(4.7 * math.sin(a), -0.3 + 4.5 * math.cos(a), 21.2)
-        add(lambda P, c=c: sd_esfera(P, c, 0.62), 'cuerda' if k % 2 == 0 else 'cuerda2', 0, 'cuerda')
-    nudo = Z(1.2, 4.5, 21.0)
+        ang = 2 * math.pi * k / n_c
+        for z, rz in ((20.9, 1.0),):
+            p0, d = superficie(ang, z)
+            add(lambda P, c=p0 + d * 0.2: sd_elipsoide(P, c, np.array([1.0, 1.0, rz * ESTIRA])), 'cuero', 0, 'ropa')
+    p_n, d_n = superficie(0.25, 20.9)
+    nudo = p_n + d_n * 0.8
     add(lambda P: sd_elipsoide(P, nudo, np.array([1.0, 0.8, 0.9 * ESTIRA])), 'cuerda', 0, 'cuerda')
     for off, largo in ((0.0, 3.6), (0.9, 2.8)):
         a = nudo + np.array([0.4 + off, 0.3, 0.0]); b = a + np.array([0.6, 0.4, -largo * ESTIRA])
@@ -200,6 +210,16 @@ def escena():
         add(filo, 'filo', 0, 'hacha')
     add(lambda P: sd_cono(P, cab - abajo * 1.2, cab + abajo * 1.2, 0.95, 0.95), 'hierro', 0, 'hacha')
     return L
+
+
+def cuerpo_d(P, L):
+    """Solo el cuerpo (lo que se funde): para pegarle cosas encima."""
+    d = None
+    for fn, m, g, k in L:
+        if g == 'cuerpo':
+            v = fn(P)
+            d = v if d is None else smin(d, v, k)
+    return d
 
 
 def evalua(P, L):
