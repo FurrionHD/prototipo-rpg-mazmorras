@@ -190,16 +190,17 @@ def escena(pose):
         hom = HOMBRO(s); codo = CODO(s); mun = MUNECA(s)
         add(lambda P, c=hom: sd_elipsoide(P, c - Z(0, 0, 0.6), np.array([2.9, 3.0, 3.2 * ESTIRA])), 'piel', 2.2)
         hb = 'brazo_' + nom; ha = 'antebrazo_' + nom
-        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.6, 2.0), 'piel', 1.0, hueso=hb)
+        gb = 'brazo_' + nom      # el brazo se funde CONSIGO MISMO, no con el pecho (si no, al cruzar por delante se mezclaba)
+        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.6, 2.0), 'piel', 0, gb, hueso=hb)
         bi = hom + (codo - hom) * 0.5
-        add(lambda P, c=bi + np.array([0.3 * s, 1.3, 0.0]): sd_elipsoide(P, c, np.array([2.9, 2.1, 3.0 * ESTIRA])), 'piel', 0.7, hueso=hb)
-        add(lambda P, c=bi + np.array([0.9 * s, -1.1, 0.4]): sd_elipsoide(P, c, np.array([2.7, 2.0, 3.2 * ESTIRA])), 'piel', 0.7, hueso=hb)
-        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 2.1, 1.9), 'piel', 0.8, hueso=ha)
+        add(lambda P, c=bi + np.array([0.3 * s, 1.3, 0.0]): sd_elipsoide(P, c, np.array([2.9, 2.1, 3.0 * ESTIRA])), 'piel', 0.7, gb, hueso=hb)
+        add(lambda P, c=bi + np.array([0.9 * s, -1.1, 0.4]): sd_elipsoide(P, c, np.array([2.7, 2.0, 3.2 * ESTIRA])), 'piel', 0.7, gb, hueso=hb)
+        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 2.1, 1.9), 'piel', 0.8, gb, hueso=ha)
         ab = codo + (mun - codo) * 0.3
-        add(lambda P, c=ab + np.array([0.7 * s, 0.5, 0.0]): sd_elipsoide(P, c, np.array([3.1, 2.4, 3.4 * ESTIRA])), 'piel', 0.8, hueso=ha)
+        add(lambda P, c=ab + np.array([0.7 * s, 0.5, 0.0]): sd_elipsoide(P, c, np.array([3.1, 2.4, 3.4 * ESTIRA])), 'piel', 0.8, gb, hueso=ha)
         add(lambda P, a=codo, b=mun: sd_cono(P, a + (b - a) * 0.45, a + (b - a) * 0.95, 2.95, 2.7), 'cuero', 0, 'brazalete', hueso=ha)
         puno = mun + Z(0.2 * s, 0.4, -2.2)
-        add(lambda P, c=puno: sd_elipsoide(P, c, np.array([2.6, 2.6, 2.6 * ESTIRA])), 'piel', 0.8, hueso=ha)
+        add(lambda P, c=puno: sd_elipsoide(P, c, np.array([2.6, 2.6, 2.6 * ESTIRA])), 'piel', 0.8, gb, hueso=ha)
 
     # PIERNAS digitigradas: muslo (muslo), rodilla adelante, corvejon atras y pezuña (pierna)
     for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
@@ -327,27 +328,39 @@ def escena(pose):
     return L
 
 
-def evalua(P, L):
-    """Distancia y material: el cuerpo se funde (smin), lo demas se une duro. Cada pieza se evalua llevando el punto
-    al marco de reposo de su hueso: p_reposo = M^T (p - t)."""
-    cuerpo = None
-    mat = np.zeros(len(P), dtype=int); mat_d = np.full(len(P), 1e9)
-    dur = np.full(len(P), 1e9); dur_mat = np.zeros(len(P), dtype=int)
+SUAVES = ('cuerpo', 'brazo_d', 'brazo_i')     # los grupos que se FUNDEN por dentro; entre ellos, union dura
+
+def evalua(P, L, con_grupo=False):
+    """Distancia y material (y el grupo, si se pide): cada grupo de SUAVES se funde por dentro (smin) y lo demas se une
+    duro. Cada pieza se evalua llevando el punto al marco de reposo de su hueso: p_reposo = M^T (p - t)."""
+    acc = {}; mat = {}; mat_d = {}
+    dur = np.full(len(P), 1e9); dur_mat = np.zeros(len(P), dtype=int); dur_g = np.zeros(len(P), dtype=int)
+    gid = {g: i for i, g in enumerate(SUAVES)}
     cache = {}
+    otros = {}
     for fn, m, g, k, Xh, nh in L:
         if nh not in cache:
             cache[nh] = (P - Xh[1]) @ Xh[0]
         d = fn(cache[nh])
         mi = NOMBRES.index(m)
-        if g == 'cuerpo':
-            cuerpo = d if cuerpo is None else smin(cuerpo, d, k)
-            mejor = d < mat_d
-            mat = np.where(mejor, mi, mat); mat_d = np.where(mejor, d, mat_d)
+        if g in gid:
+            if g not in acc:
+                acc[g] = d; mat[g] = np.full(len(P), mi); mat_d[g] = d
+            else:
+                acc[g] = smin(acc[g], d, k)
+                mejor = d < mat_d[g]
+                mat[g] = np.where(mejor, mi, mat[g]); mat_d[g] = np.where(mejor, d, mat_d[g])
         else:
+            if g not in otros: otros[g] = len(SUAVES) + len(otros)
             mejor = d < dur
-            dur_mat = np.where(mejor, mi, dur_mat); dur = np.minimum(dur, d)
-    usa_dur = dur < cuerpo
-    return np.where(usa_dur, dur, cuerpo), np.where(usa_dur, dur_mat, mat)
+            dur_mat = np.where(mejor, mi, dur_mat); dur_g = np.where(mejor, otros[g], dur_g); dur = np.minimum(dur, d)
+    dist = dur; mats = dur_mat; grp = dur_g
+    for g, dg in acc.items():
+        mejor = dg < dist
+        dist = np.where(mejor, dg, dist); mats = np.where(mejor, mat[g], mats); grp = np.where(mejor, gid[g], grp)
+    if con_grupo:
+        return dist, mats, grp
+    return dist, mats
 
 
 DIR_VECS = [(0, 1), (0.7, 0.7), (1, 0), (0.7, -0.7), (0, -1), (-0.7, -0.7), (-1, 0), (-0.7, 0.7)]
@@ -379,7 +392,7 @@ def render(dir_i, pose):
     if len(hi) == 0:
         return Image.fromarray((img.reshape(H, W, 4) * 255).astype(np.uint8), 'RGBA')
     P = a_local(O[hi] + np.outer(t[hi], F_))
-    _d, mats = evalua(P, L)
+    _d, mats, grupos = evalua(P, L, True)
     e = 0.05
     n = np.zeros_like(P)
     for a in range(3):
@@ -404,6 +417,7 @@ def render(dir_i, pose):
     img[hi, 3] = 1.0
     prof = np.full(H * W, np.inf); prof[hi] = t[hi]
     matmap = np.full(H * W, -1); matmap[hi] = mats
+    grpmap = np.full(H * W, -1); grpmap[hi] = grupos; grpmap = grpmap.reshape(H, W)
     img = img.reshape(H, W, 4); prof = prof.reshape(H, W); matmap = matmap.reshape(H, W)
     OJO_I = NOMBRES.index('ojo')
     # CONTORNO de fuera y LINEAS DE DENTRO donde hay salto de profundidad (lo de delante va suelto).
@@ -414,7 +428,10 @@ def render(dir_i, pose):
         ys = slice(max(0, dy), H + min(0, dy)); yd = slice(max(0, -dy), H + min(0, -dy))
         xs = slice(max(0, dx), W + min(0, dx)); xd = slice(max(0, -dx), W + min(0, -dx))
         vec_op[yd, xd] = opaco[ys, xs]; vec_pr[yd, xd] = prof[ys, xs]
-        borde = opaco & (~vec_op | ((matmap != OJO_I) & (vec_pr - prof > 2.6)))
+        vec_g = np.full_like(grpmap, -1); vec_g[yd, xd] = grpmap[ys, xs]
+        # Y ENTRE GRUPOS DE LOS QUE SE FUNDEN (el brazo por delante del pecho), con poco salto basta.
+        cruza = (vec_g != grpmap) & (grpmap < len(SUAVES)) & (vec_g >= 0) & (vec_g < len(SUAVES)) & (vec_pr - prof > 0.4)
+        borde = opaco & (~vec_op | ((matmap != OJO_I) & (vec_pr - prof > 2.6)) | cruza)
         sal[borde, :3] = BORDE
     return Image.fromarray((np.clip(sal, 0, 1) * 255).astype(np.uint8), 'RGBA')
 
