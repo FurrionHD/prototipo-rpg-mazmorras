@@ -64,6 +64,8 @@ MAT = {
     'hierro': [(0.20, 0.21, 0.25), (0.31, 0.32, 0.37), (0.46, 0.47, 0.52)],
     'filo':   [(0.62, 0.62, 0.66), (0.80, 0.80, 0.83), (0.92, 0.92, 0.94)],
     'madera': [(0.30, 0.17, 0.10), (0.42, 0.25, 0.14), (0.52, 0.33, 0.19)],
+    'cuerda': [(0.42, 0.31, 0.18), (0.58, 0.45, 0.27), (0.70, 0.57, 0.36)],
+    'cuerda2': [(0.32, 0.23, 0.13), (0.46, 0.35, 0.20), (0.56, 0.44, 0.27)],
 }
 NOMBRES = list(MAT.keys())
 BORDE = (0.13, 0.06, 0.05)
@@ -137,7 +139,19 @@ def escena():
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
     # El cinto BAJO, en la cadera: alto, se leia como la cintura y el pecho parecia cortisimo.
-    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.6), np.array([4.5, 4.3, 1.1 * ESTIRA])), 'cuero', 0, 'ropa')
+    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 20.4), np.array([4.3, 4.1, 0.9 * ESTIRA])), 'cuero', 0, 'ropa')
+    # LA CUERDA que lo sujeta: cuentas alternando dos tonos (se lee trenzada), un NUDO delante y dos CABOS colgando.
+    n_c = 30
+    for k in range(n_c):
+        a = 2 * math.pi * k / n_c
+        c = Z(4.7 * math.sin(a), -0.3 + 4.5 * math.cos(a), 21.2)
+        add(lambda P, c=c: sd_esfera(P, c, 0.62), 'cuerda' if k % 2 == 0 else 'cuerda2', 0, 'cuerda')
+    nudo = Z(1.2, 4.5, 21.0)
+    add(lambda P: sd_elipsoide(P, nudo, np.array([1.0, 0.8, 0.9 * ESTIRA])), 'cuerda', 0, 'cuerda')
+    for off, largo in ((0.0, 3.6), (0.9, 2.8)):
+        a = nudo + np.array([0.4 + off, 0.3, 0.0]); b = a + np.array([0.6, 0.4, -largo * ESTIRA])
+        add(lambda P, a=a, b=b: sd_cono(P, a, b, 0.5, 0.4), 'cuerda2', 0, 'cuerda')
+        add(lambda P, c=b: sd_esfera(P, c, 0.6), 'cuerda', 0, 'cuerda')
     # LAS TIRAS, en tres tramos que siguen el cuerpo (sale con el bulto de la ingle y cae) y se estrechan: una tabla
     # plana no tenia volumen ni cogia luz. (Puntos ya en coordenadas finales: la tira cruza el escalon de PIERNA_EXTRA.)
     E = ESTIRA
