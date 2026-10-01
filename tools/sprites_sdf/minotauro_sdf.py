@@ -147,7 +147,7 @@ def POSE(**k):
     p = dict(avance=0.0, agacha=0.0, inclina=0.0, gira=0.0, ladea=0.0, cabeza=0.0, cabeza_gira=0.0,
              brazo_d=(0.0, 0.0, 0.0), brazo_i=(0.0, 0.0, 0.0),        # (adelante, abre, codo) en radianes
              pierna_d=(0.0, 0.0), pierna_i=(0.0, 0.0),                 # (adelante, rodilla)
-             cola=0.0, hacha='mano', mango=None, pies=None)
+             cola=0.0, hacha='mano', mango=None, pies=None, una_mano=False)
     p.update(k)
     return p
 
@@ -234,7 +234,10 @@ def huesos(pose):
         Mt = X['torso'][0]
         Gw = aplica(X['torso'], np.array(G, dtype=float))
         Dw = Mt @ (np.array(D, dtype=float) / np.linalg.norm(D))
-        for s, nom, T in ((HACHA_LADO, 'd', Gw), (-HACHA_LADO, 'i', Gw + Dw * 2.6)):
+        manos = ((HACHA_LADO, 'd', Gw), (-HACHA_LADO, 'i', Gw + Dw * 2.6))
+        if pose.get('una_mano'):
+            manos = manos[:1]
+        for s, nom, T in manos:
             S0 = HOMBRO(s); E0 = CODO(s); F0 = puno_reposo(s)
             S = aplica(X['torso'], S0)
             E, F = ik(S, T, np.linalg.norm(E0 - S0), np.linalg.norm(F0 - E0), Mt @ np.array([s * 1.0, -0.3, -0.6]))
@@ -567,25 +570,29 @@ def _mango(t, claves):
 
 
 def anim_basico(t):
-    # EL HACHAZO A DOS MANOS: el hacha sube por delante, se va por encima y DETRAS de la cabeza, se aguanta echado atras
-    # y baja delante con todo el cuerpo hasta clavarse en el suelo en el 6o de 8 (M[5]; "mino_hachazo"). Lo que se
-    # anima es el MANGO; los brazos lo siguen (ver 'mango' en huesos).
+    # EL HACHAZO, A UNA MANO (01/10: a dos manos el hacha pasaba por encima y detras de la cabeza y se le metia dentro;
+    # "el basico, que es un golpe simple, que lo haga con una mano"). La derecha la sube POR ENCIMA DE SU HOMBRO DERECHO
+    # -- por fuera de la cabeza --, la aguanta atras y la deja caer delante hasta clavarla en el suelo en el 6o de 8
+    # (M[5]; "mino_hachazo"). La izquierda, libre, se abre para equilibrar. Se anima el MANGO y el brazo lo sigue.
     mango = _mango(t, [
-        (M[0], (-3.0, 6.0, 21.0), (-0.2, 0.6, -0.8)),
-        (M[1], (-3.0, 4.0, 31.0), (0.0, 0.1, 1.0)),
-        (M[2], (-1.5, 0.0, 39.0), (0.0, -0.6, 0.8)),
-        (M[3], (-1.5, -1.0, 40.0), (0.0, -0.85, 0.5)),
-        (M[4], (-1.5, 5.0, 36.0), (0.0, 0.5, 0.85)),
-        (M[5], (-1.0, 11.5, 22.0), (0.0, 0.6, -0.8)),
-        (M[6], (-1.0, 11.0, 21.0), (0.0, 0.55, -0.83)),
-        (M[7], (-2.5, 8.0, 21.5), (-0.1, 0.5, -0.85))])
-    inclina = tramos(t, [(M[0], 0.0), (M[2], -0.12), (M[3], -0.18), (M[4], 0.1), (M[5], 0.38), (M[6], 0.34), (M[7], 0.15)])
-    agacha = tramos(t, [(M[0], 0.0), (M[3], -0.3), (M[5], 1.4), (M[6], 1.2), (M[7], 0.5)])
-    avance = tramos(t, [(M[0], 0.0), (M[3], -0.8), (M[5], 2.6), (M[6], 2.6), (M[7], 1.6)])
-    cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.15), (M[5], -0.2), (M[7], -0.05)])
+        (M[0], (-10.0, 4.0, 17.0), (-0.15, 0.3, -0.95)),
+        (M[1], (-11.5, 9.0, 33.0), (-0.2, 0.3, 0.95)),
+        (M[2], (-11.0, -2.0, 43.0), (-0.25, -0.6, 0.75)),
+        (M[3], (-11.0, -4.0, 43.5), (-0.25, -0.85, 0.45)),
+        (M[4], (-10.0, 6.0, 41.0), (-0.1, 0.55, 0.8)),
+        (M[5], (-7.0, 12.0, 21.0), (0.0, 0.6, -0.8)),
+        (M[6], (-7.0, 11.5, 20.0), (0.0, 0.55, -0.83)),
+        (M[7], (-9.0, 7.0, 19.0), (-0.1, 0.4, -0.9))])
+    inclina = tramos(t, [(M[0], 0.0), (M[2], -0.1), (M[3], -0.15), (M[4], 0.1), (M[5], 0.35), (M[6], 0.32), (M[7], 0.12)])
+    agacha = tramos(t, [(M[0], 0.0), (M[3], -0.3), (M[5], 1.3), (M[6], 1.1), (M[7], 0.4)])
+    avance = tramos(t, [(M[0], 0.0), (M[3], -0.8), (M[5], 2.4), (M[6], 2.4), (M[7], 1.4)])
+    gira = tramos(t, [(M[0], 0.0), (M[2], 0.2), (M[3], 0.25), (M[5], -0.15), (M[7], -0.05)])
+    cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.1), (M[5], -0.2), (M[7], -0.05)])
+    otro = tramos(t, [(M[0], 0.05), (M[3], 0.35), (M[5], -0.3), (M[7], -0.05)])
     paso = tramos(t, [(M[0], 0.0), (M[3], -0.1), (M[5], 0.35), (M[7], 0.2)])
-    return POSE(hacha='alto', mango=mango, inclina=inclina, agacha=agacha, avance=avance, cabeza=cabeza,
-                pierna_i=(paso, 0.25 * max(0.0, paso)), pierna_d=(-0.6 * paso, 0.1))
+    return POSE(hacha='alto', mango=mango, una_mano=True, brazo_i=(otro, 0.45, 0.35), inclina=inclina, agacha=agacha,
+                avance=avance, gira=gira, cabeza=cabeza, pierna_i=(paso, 0.25 * max(0.0, paso)),
+                pierna_d=(-0.6 * paso, 0.1), cola=0.3 * gira)
 
 
 def anim_barrido(t):
