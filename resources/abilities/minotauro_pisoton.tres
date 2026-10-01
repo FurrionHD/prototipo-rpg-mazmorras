@@ -13,7 +13,7 @@ dano_mult = 1.7
 area_modo = 1
 area_max = 99
 area_secundario = 1.0
-fx_anim = &"pisoton"
+fx_anim = &"mino_pisoton"
 fx_estilo = 22
 cooldown = 4
 ; EN EL MAPA (01/10, Minotauro paso 1): circulo r70 a su ALREDEDOR, sin carga, a 2 tramos (de cerca pega mas): castiga

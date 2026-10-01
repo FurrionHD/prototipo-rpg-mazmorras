@@ -203,7 +203,8 @@ def huesos(pose):
         # Los signos: rx(+) lleva hacia DELANTE lo que esta ENCIMA del pivote, y hacia atras lo que cuelga DEBAJO. El
         # brazo y la pierna cuelgan, asi que "adelante" es rx(-); el codo dobla hacia delante (rx(-)) y la rodilla
         # hacia atras (rx(+)).
-        brazo = comp(torso, sobre(HOMBRO(s), rz(barre) @ ry(abre * s) @ rx(-a)))
+        # 'abre' + = hacia FUERA (con ry, el brazo colgando se va a -X con angulo +: por eso -abre*s).
+        brazo = comp(torso, sobre(HOMBRO(s), rz(barre) @ ry(-abre * s) @ rx(-a)))
         X['brazo_' + nom] = brazo
         X['antebrazo_' + nom] = comp(brazo, sobre(CODO(s), rx(-codo)))
         adel, rod = pose['pierna_' + nom]
@@ -215,6 +216,8 @@ def huesos(pose):
     # Sin esto, agacharse hundia las pezuñas en el suelo, porque la raiz baja con todo.
     if pose.get('pies') is not None:
         for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
+            if pose['pies'].get(nom) is None:
+                continue          # esta pierna va por sus angulos (la que sube en el pisoton)
             off = np.array(pose['pies'][nom], dtype=float)
             S0 = CADERA(s); E0 = RODILLA(s); F0 = PIE(s)
             S = aplica(X['raiz'], S0)
@@ -679,6 +682,24 @@ def anim_cornada(t):
     return POSE(hacha=hacha, cola=0.3 * gal, **p)
 
 
+def anim_pisoton(t):
+    # EL PISOTON: carga el peso en la izquierda y LEVANTA LA DERECHA con la rodilla alta, estirandose con los brazos
+    # abiertos para equilibrarse (el hacha en la mano); y la DEJA CAER con todo el peso en el 5o de 8 (M[4]; a 12 fps,
+    # "mino_pisoton" 0,33): el cuerpo se hunde, la cabeza baja y los brazos caen. Luego se recupera. La pierna de apoyo
+    # va siempre al suelo (IK); la que pisa va por angulos mientras sube y al suelo desde que pisa.
+    sube = tramos(t, [(M[0], 0.0), (M[1], 0.45), (M[2], 0.9), (M[3], 1.0), (M[4], 0.0), (M[7], 0.0)])
+    agacha = tramos(t, [(M[0], 0.0), (M[1], -0.1), (M[2], -0.4), (M[3], -0.5), (M[4], 1.7), (M[5], 1.5), (M[6], 0.7), (M[7], 0.15)])
+    inclina = tramos(t, [(M[0], 0.0), (M[2], -0.08), (M[3], -0.1), (M[4], 0.28), (M[5], 0.25), (M[6], 0.12), (M[7], 0.0)])
+    brazos = tramos(t, [(M[0], 0.0), (M[2], 0.8), (M[3], 1.0), (M[4], -0.2), (M[5], -0.1), (M[7], 0.0)])
+    cabeza = tramos(t, [(M[0], 0.0), (M[3], 0.15), (M[4], -0.35), (M[5], -0.3), (M[7], 0.0)])
+    pies = {'i': (0.0, -0.6, 0.0), 'd': (0.0, 2.4, 0.0) if t >= M[4] - 1e-6 else None}
+    return POSE(pierna_d=(1.3 * sube, 1.5 * sube), pies=pies, agacha=agacha, inclina=inclina, cabeza=cabeza,
+                # Los brazos se ABREN hacia los lados (no al frente) para equilibrarse, y al pisar caen.
+                brazo_d=(0.15 * min(brazos, 0.0), 0.65 * max(brazos, 0.0) + 0.05, 0.25),
+                brazo_i=(0.15 * min(brazos, 0.0), 0.65 * max(brazos, 0.0) + 0.05, 0.25),
+                ladea=-0.06 * sube, cola=0.25 * sube)
+
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
@@ -687,6 +708,7 @@ ANIMS = {
     'mino_agacharse': (6, 10.0, False, 8, anim_agacharse),
     'mino_agazapado': (4, 6.0, True, 8, anim_agazapado),
     'mino_cornada': (8, 12.0, False, 8, anim_cornada),
+    'mino_pisoton': (8, 12.0, False, 8, anim_pisoton),
 }
 
 
