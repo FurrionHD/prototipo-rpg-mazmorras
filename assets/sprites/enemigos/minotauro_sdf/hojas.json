@@ -51,6 +51,12 @@
    "fps": 12.0,
    "loop": false,
    "dirs": 8
+  },
+  "mino_bramido": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": false,
+   "dirs": 8
   }
  }
 }

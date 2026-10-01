@@ -706,6 +706,21 @@ def anim_pisoton(t):
                 ladea=-0.06 * sube, cola=0.25 * sube)
 
 
+def anim_bramido(t):
+    # EL BRAMIDO: coge aire (se encoge, la cabeza baja) y BRAMA en el 4o de 8 (M[3]; a 8 fps, "mino_bramido" 0,375): se
+    # yergue sacando pecho, echa la CABEZA ATRAS hasta que el morro apunta al cielo, abre el brazo libre y alza el hacha
+    # con la derecha. Aguanta temblando y se recupera.
+    agacha = tramos(t, [(M[0], 0.0), (M[1], 0.7), (M[2], -0.2), (M[3], -0.4), (M[4], -0.35), (M[5], -0.4), (M[6], 0.0), (M[7], 0.0)])
+    inclina = tramos(t, [(M[0], 0.0), (M[1], 0.18), (M[2], -0.08), (M[3], -0.22), (M[4], -0.2), (M[5], -0.22), (M[6], -0.05), (M[7], 0.0)])
+    cabeza = tramos(t, [(M[0], 0.0), (M[1], -0.3), (M[2], 0.45), (M[3], 0.85), (M[4], 0.8), (M[5], 0.85), (M[6], 0.3), (M[7], 0.0)])
+    abre = tramos(t, [(M[0], 0.0), (M[1], 0.1), (M[2], 0.5), (M[3], 0.85), (M[5], 0.85), (M[6], 0.35), (M[7], 0.05)])
+    alza = tramos(t, [(M[0], 0.0), (M[1], 0.1), (M[2], 1.5), (M[3], 2.6), (M[5], 2.6), (M[6], 1.0), (M[7], 0.1)])
+    tiembla = 0.04 * math.sin(2 * math.pi * t * 6.0) * (1.0 if M[3] - 1e-6 <= t <= M[5] + 1e-6 else 0.0)
+    return POSE(agacha=agacha, inclina=inclina + tiembla, cabeza=cabeza + tiembla,
+                brazo_d=(alza, 0.35 * abre, 0.2), brazo_i=(0.35 * abre, abre, 0.7 * abre),
+                cola=0.4 * tiembla / 0.04 if tiembla else 0.0)
+
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
@@ -715,6 +730,7 @@ ANIMS = {
     'mino_agazapado': (4, 6.0, True, 8, anim_agazapado),
     'mino_cornada': (8, 12.0, False, 8, anim_cornada),
     'mino_pisoton': (8, 12.0, False, 8, anim_pisoton),
+    'mino_bramido': (8, 8.0, False, 8, anim_bramido),
 }
 
 

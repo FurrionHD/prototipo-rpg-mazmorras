@@ -24,7 +24,8 @@ const CARPETA := "res://assets/sprites/enemigos/minotauro_sdf/"
 const LIENZO := Vector2i(238, 292)
 
 # Las animaciones que pide el juego -> la hoja de donde salen, cuantas direcciones y fotogramas tienen, fps y si repiten.
-# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico', 'barrido', la cornada y el pisoton; el resto repite la quieta.
+# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico', 'barrido', la cornada, el pisoton y el bramido; el resto
+# (encaje, muerte, cadaver) repite la quieta.
 const ANIMS := {
 	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
 	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
@@ -44,7 +45,10 @@ const ANIMS := {
 	# EL PISOTON (01/10): levanta la derecha con los brazos abiertos y la deja caer con todo el peso en el 5o de 8 a
 	# 12 fps (0,33 s: IMPACTO_ANIM_MAPA "mino_pisoton"). Nombre propio: "pisoton" lo usan otros.
 	"mino_pisoton": {"hoja": "mino_pisoton", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
-	"bramido": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},
+	"bramido": {"hoja": "mino_bramido", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},
+	# EL BRAMIDO (01/10): coge aire y brama en el 4o de 8 a 8 fps (0,375 s: IMPACTO_ANIM_MAPA "mino_bramido"), la cabeza
+	# atras, el hacha en alto y el otro brazo abierto.
+	"mino_bramido": {"hoja": "mino_bramido", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},
 	"encaje": {"hoja": "idle", "dirs": 1, "marcos": 4, "fps": 18.0, "loop": false},
 	"muerte": {"hoja": "idle", "dirs": 1, "marcos": 8, "fps": 9.0, "loop": false},
 	"cadaver": {"hoja": "idle", "dirs": 8, "marcos": 1, "fps": 1.0, "loop": false},

@@ -2014,6 +2014,8 @@ const IMPACTO_ANIM_MAPA := {
 	"mino_cornada": 0.17,
 	# y el pisoton ('mino_pisoton', 8 marcos a 12 fps) cae en el 5.
 	"mino_pisoton": 0.33,
+	# y el bramido ('mino_bramido', 8 marcos a 8 fps) brama en el 4.
+	"mino_bramido": 0.375,
 	# LA REVISION DE SINCRONIA (30/09, tools/ver_sincro, lo pidio el usuario tras el golem): los basicos que tocan mas
 	# tarde que a mitad de su animacion (con el adelanto de siempre, 0,16, el efecto salia un marco o dos antes que el
 	# golpe). El nombre dice en que marco toca: el 5 de 8, el 6 de 8, el 4 de 6. Lo usan por EnemyData.anim_basico.
