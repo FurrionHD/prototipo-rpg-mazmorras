@@ -415,6 +415,7 @@ def escena(pose):
     return L
 
 
+SALTO_ENTRE_GRUPOS = 1.6     # linea entre brazo y cuerpo solo si el brazo va CLARAMENTE por delante (no en el hombro)
 SUAVES = ('cuerpo', 'brazo_d', 'brazo_i')     # los grupos que se FUNDEN por dentro; entre ellos, union dura
 
 def evalua(P, L, con_grupo=False):
@@ -517,7 +518,7 @@ def render(dir_i, pose):
         vec_op[yd, xd] = opaco[ys, xs]; vec_pr[yd, xd] = prof[ys, xs]
         vec_g = np.full_like(grpmap, -1); vec_g[yd, xd] = grpmap[ys, xs]
         # Y ENTRE GRUPOS DE LOS QUE SE FUNDEN (el brazo por delante del pecho), con poco salto basta.
-        cruza = (vec_g != grpmap) & (grpmap < len(SUAVES)) & (vec_g >= 0) & (vec_g < len(SUAVES)) & (vec_pr - prof > 0.4)
+        cruza = (vec_g != grpmap) & (grpmap < len(SUAVES)) & (vec_g >= 0) & (vec_g < len(SUAVES)) & (vec_pr - prof > SALTO_ENTRE_GRUPOS)
         borde = opaco & (~vec_op | ((matmap != OJO_I) & (vec_pr - prof > 2.6)) | cruza)
         sal[borde, :3] = BORDE
     return Image.fromarray((np.clip(sal, 0, 1) * 255).astype(np.uint8), 'RGBA')
@@ -625,8 +626,13 @@ def anim_agacharse(t):
     p = _cuatro_patas(f)
     if t < 0.1:
         return POSE(**p)
+    # DEJAR EL HACHA (01/10, "no hay animacion de pillar el arma de la espalda"): en el 2o la sube por detras del hombro
+    # todavia en la mano (el hacha cuelga a su espalda), en el 3o ya esta en su sitio y la mano la suelta alli.
     if t < 0.3:
-        p['brazo_d'] = (2.4, 0.3, 1.6)
+        p['brazo_d'] = (2.45, 0.25, 1.75)
+        return POSE(hacha='mano', **p)
+    if t < 0.5:
+        p['brazo_d'] = (2.2, 0.3, 1.45)
     return POSE(hacha='espalda', **p)
 
 
@@ -652,7 +658,18 @@ def anim_cornada(t):
     # EL ENGANCHE: la cabeza sube de golpe en el 3o y vuelve.
     p['cabeza'] = tramos(t, [(M[0], 0.15), (M[1], 0.0), (M[2], 1.0), (M[3], 0.7), (M[5], 0.2), (M[7], 0.0)])
     p['inclina'] = p['inclina'] - tramos(t, [(M[0], 0.0), (M[2], 0.25), (M[4], 0.1), (M[7], 0.0)])
-    return POSE(hacha='mano' if t >= M[7] - 1e-6 else 'espalda', cola=0.3 * gal, **p)
+    # COGER EL HACHA DE LA ESPALDA (01/10): en el 5o la mano sube por encima del hombro hasta el mango; en el 6o ya la
+    # tiene (en la mano, colgando por detras); en el 7o la trae por delante y en el 8o la baja a su sitio.
+    hacha = 'espalda'
+    if t >= M[4] - 1e-6:
+        p['brazo_d'] = (2.2, 0.3, 1.45)
+    if t >= M[5] - 1e-6:
+        p['brazo_d'] = (2.45, 0.25, 1.75); hacha = 'mano'
+    if t >= M[6] - 1e-6:
+        p['brazo_d'] = (1.1, 0.15, 0.9)
+    if t >= M[7] - 1e-6:
+        p['brazo_d'] = (0.1, 0.02, 0.15)
+    return POSE(hacha=hacha, cola=0.3 * gal, **p)
 
 
 ANIMS = {
