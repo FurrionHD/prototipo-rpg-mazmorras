@@ -24,7 +24,7 @@ const CARPETA := "res://assets/sprites/enemigos/minotauro_sdf/"
 const LIENZO := Vector2i(238, 292)
 
 # Las animaciones que pide el juego -> la hoja de donde salen, cuantas direcciones y fotogramas tienen, fps y si repiten.
-# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico' y 'barrido'; el resto repite la quieta hasta que se hagan.
+# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico', 'barrido' y la cornada; el resto repite la quieta.
 const ANIMS := {
 	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
 	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
@@ -33,7 +33,13 @@ const ANIMS := {
 	"basico": {"hoja": "basico", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	# EL BARRIDO (el cono): el hacha pasa por delante en el 5o de 8 a 10 fps (0,4 s; IMPACTO_ANIM_MAPA "mino_barrido").
 	"barrido": {"hoja": "barrido", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
-	"cornada": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
+	"cornada": {"hoja": "mino_cornada", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
+	# LA CORNADA (01/10): mientras avisa se pone A CUATRO PATAS echandose el hacha a la espalda y se queda AGAZAPADO
+	# escarbando (fx_anim_carga "mino_agacharse>mino_agazapado"); al soltar, el juego le desliza por la linea y ENGANCHA
+	# en el 3o de 8 a 12 fps (0,17 s: IMPACTO_ANIM_MAPA "mino_cornada"). Nombres propios: "cornada" es la del jabali.
+	"mino_agacharse": {"hoja": "mino_agacharse", "dirs": 8, "marcos": 6, "fps": 10.0, "loop": false},
+	"mino_agazapado": {"hoja": "mino_agazapado", "dirs": 8, "marcos": 4, "fps": 6.0, "loop": true},
+	"mino_cornada": {"hoja": "mino_cornada", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
 	"pisoton": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false},
 	"bramido": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},
 	"encaje": {"hoja": "idle", "dirs": 1, "marcos": 4, "fps": 18.0, "loop": false},

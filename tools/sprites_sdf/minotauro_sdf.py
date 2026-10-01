@@ -138,6 +138,7 @@ def CODO(s): return Z(10.0 * s, -1.0, 23.6)
 def MUNECA(s): return Z(11.2 * s, 2.0, 16.8)
 def CADERA(s): return Z(3.6 * s, 0.0, 20.0)
 def RODILLA(s): return Z(4.3 * s, 1.4, 11.8)
+def PIE(s): return Z(4.4 * s, 0.6, 1.3)
 HACHA_LADO = -1          # la mano DERECHA del bicho (a la izquierda de la pantalla mirando al sur)
 
 
@@ -146,7 +147,7 @@ def POSE(**k):
     p = dict(avance=0.0, agacha=0.0, inclina=0.0, gira=0.0, ladea=0.0, cabeza=0.0, cabeza_gira=0.0,
              brazo_d=(0.0, 0.0, 0.0), brazo_i=(0.0, 0.0, 0.0),        # (adelante, abre, codo) en radianes
              pierna_d=(0.0, 0.0), pierna_i=(0.0, 0.0),                 # (adelante, rodilla)
-             cola=0.0, hacha='mano', mango=None)
+             cola=0.0, hacha='mano', mango=None, pies=None)
     p.update(k)
     return p
 
@@ -209,6 +210,20 @@ def huesos(pose):
         muslo = comp(raiz, sobre(CADERA(s), rx(-adel)))
         X['muslo_' + nom] = muslo
         X['pierna_' + nom] = comp(muslo, sobre(RODILLA(s), rx(rod)))
+    # LAS PEZUÑAS EN EL SUELO (01/10, la cornada a cuatro patas): con 'pies' (desplazamiento de cada pezuña respecto a su
+    # sitio de reposo, en el mundo) las piernas se doblan para que la pezuña quede ahi aunque la cadera baje ('agacha').
+    # Sin esto, agacharse hundia las pezuñas en el suelo, porque la raiz baja con todo.
+    if pose.get('pies') is not None:
+        for s, nom in ((HACHA_LADO, 'd'), (-HACHA_LADO, 'i')):
+            off = np.array(pose['pies'][nom], dtype=float)
+            S0 = CADERA(s); E0 = RODILLA(s); F0 = PIE(s)
+            S = aplica(X['raiz'], S0)
+            T = F0 + np.array([0.0, pose['avance'], 0.0]) + np.array([off[0], off[1], off[2] * ESTIRA])
+            E, F = ik(S, T, np.linalg.norm(E0 - S0), np.linalg.norm(F0 - E0), np.array([0.0, 1.0, 0.15]))
+            R1 = rot_entre(E0 - S0, E - S)
+            X['muslo_' + nom] = (R1, S - R1 @ S0)
+            R2 = rot_entre(R1 @ (F0 - E0), F - E) @ R1
+            X['pierna_' + nom] = (R2, E - R2 @ E0)
     # A DOS MANOS (01/10): la animacion dice por donde va el MANGO ('mango' = (punto de agarre, hacia donde apunta la
     # cabeza del hacha), en el marco del torso en reposo) y LOS DOS BRAZOS se doblan para llegar: la derecha en el
     # agarre y la izquierda un poco mas arriba del mango (IK de dos huesos, codos hacia fuera y abajo). Antes se movia el
@@ -594,11 +609,60 @@ def anim_barrido(t):
 
 R_BARRIDO = 10.0
 
+def _cuatro_patas(f):
+    """La pose a cuatro patas, mezclada 'f' (0 de pie .. 1 del todo): el torso casi horizontal, la cadera baja, los
+    brazos a plomo con los nudillos al suelo, la cabeza baja con los cuernos al frente y la cola arriba (sube sola al
+    inclinarse el torso). Es la de la referencia (referencia/embestida.png)."""
+    inc = 1.2 * f
+    return dict(inclina=inc, agacha=4.6 * f, brazo_d=(inc * 0.95, 0.15 * f, 0.15), brazo_i=(inc * 0.95, 0.15 * f, 0.15),
+                cabeza=0.2 * f, pies={'d': (0.0, -2.2 * f, 0.0), 'i': (0.0, 1.6 * f, 0.0)})
+
+
+def anim_agacharse(t):
+    # PONERSE A CUATRO PATAS (mientras avisa la Cornada, fx_anim_carga): se echa el hacha a la espalda (en el 2o
+    # fotograma la mano derecha esta por encima del hombro, dejandola) y baja hasta apoyar los nudillos.
+    f = tramos(t, [(0.0, 0.0), (0.2, 0.08), (0.4, 0.35), (0.6, 0.7), (0.8, 0.92), (1.0, 1.0)])
+    p = _cuatro_patas(f)
+    if t < 0.1:
+        return POSE(**p)
+    if t < 0.3:
+        p['brazo_d'] = (2.4, 0.3, 1.6)
+    return POSE(hacha='espalda', **p)
+
+
+def anim_agazapado(t):
+    # AGAZAPADO, en bucle hasta que suelta: resopla (el lomo sube y baja) y ESCARBA con la pezuña de atras.
+    r = math.sin(2 * math.pi * t)
+    p = _cuatro_patas(1.0)
+    p['agacha'] += 0.25 * r
+    p['pies'] = {'d': (0.0, -2.2 - 1.6 * max(0.0, r), 0.8 * max(0.0, r)), 'i': (0.0, 1.6, 0.0)}
+    p['cabeza'] = 0.2 + 0.08 * r
+    return POSE(hacha='espalda', cola=0.3 * r, **p)
+
+
+def anim_cornada(t):
+    # LA CORNADA: suelta y embiste a cuatro patas (el juego le desliza por la linea en 0,2 s), al llegar ENGANCHA hacia
+    # arriba con los cuernos (3o de 8 a 12 fps: "mino_cornada" 0,17) y se reincorpora; en el ultimo fotograma recupera
+    # el hacha a la mano.
+    f = tramos(t, [(M[0], 1.0), (M[1], 1.0), (M[2], 0.75), (M[3], 0.6), (M[4], 0.4), (M[5], 0.22), (M[6], 0.08), (M[7], 0.0)])
+    p = _cuatro_patas(f)
+    gal = math.sin(2 * math.pi * t * 2.0) * (1.0 if t < M[2] else 0.0)
+    p['brazo_d'] = (p['brazo_d'][0] + 0.35 * gal, p['brazo_d'][1], 0.15)
+    p['brazo_i'] = (p['brazo_i'][0] - 0.35 * gal, p['brazo_i'][1], 0.15)
+    # EL ENGANCHE: la cabeza sube de golpe en el 3o y vuelve.
+    p['cabeza'] = tramos(t, [(M[0], 0.15), (M[1], 0.0), (M[2], 1.0), (M[3], 0.7), (M[5], 0.2), (M[7], 0.0)])
+    p['inclina'] = p['inclina'] - tramos(t, [(M[0], 0.0), (M[2], 0.25), (M[4], 0.1), (M[7], 0.0)])
+    return POSE(hacha='mano' if t >= M[7] - 1e-6 else 'espalda', cola=0.3 * gal, **p)
+
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
     'basico': (8, 10.0, False, 8, anim_basico),
     'barrido': (8, 10.0, False, 8, anim_barrido),
+    'mino_agacharse': (6, 10.0, False, 8, anim_agacharse),
+    'mino_agazapado': (4, 6.0, True, 8, anim_agazapado),
+    'mino_cornada': (8, 12.0, False, 8, anim_cornada),
 }
 
 

@@ -27,6 +27,24 @@
    "fps": 10.0,
    "loop": false,
    "dirs": 8
+  },
+  "mino_agacharse": {
+   "fotogramas": 6,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "mino_agazapado": {
+   "fotogramas": 4,
+   "fps": 6.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "mino_cornada": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
   }
  }
 }

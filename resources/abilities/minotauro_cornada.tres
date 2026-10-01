@@ -18,7 +18,9 @@ golpes_max = 1
 dano_mult = 1.9
 efectos = [SubResource("SA_sangrado")]
 efectos_por_golpe = false
-fx_anim = &"cornada"
+fx_anim = &"mino_cornada"
+; EL CUERPO (01/10): mientras avisa se pone a cuatro patas (el hacha a la espalda) y escarba; al soltar embiste y engancha.
+fx_anim_carga = &"mino_agacharse>mino_agazapado"
 fx_estilo = 20
 cooldown = 4
 ; EN EL MAPA (01/10, Minotauro paso 1): embiste por una LINEA de 120 cargada 1 turno (la huella roja avisa), se para en
