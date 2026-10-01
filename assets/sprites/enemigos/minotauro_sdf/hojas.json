@@ -57,6 +57,18 @@
    "fps": 8.0,
    "loop": false,
    "dirs": 8
+  },
+  "mino_encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "mino_muerte": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8
   }
  }
 }

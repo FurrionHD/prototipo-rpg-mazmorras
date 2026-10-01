@@ -24,8 +24,7 @@ const CARPETA := "res://assets/sprites/enemigos/minotauro_sdf/"
 const LIENZO := Vector2i(238, 292)
 
 # Las animaciones que pide el juego -> la hoja de donde salen, cuantas direcciones y fotogramas tienen, fps y si repiten.
-# PROVISIONAL (01/10): estan hechas 'idle', 'walk', 'basico', 'barrido', la cornada, el pisoton y el bramido; el resto
-# (encaje, muerte, cadaver) repite la quieta.
+# Todas hechas (01/10). 'desde' = la primera columna de la hoja que se usa (el cadaver es el ultimo de la muerte).
 const ANIMS := {
 	"idle": {"hoja": "idle", "dirs": 8, "marcos": 8, "fps": 3.0, "loop": true},
 	"walk": {"hoja": "walk", "dirs": 8, "marcos": 8, "fps": 6.0, "loop": true},
@@ -49,9 +48,11 @@ const ANIMS := {
 	# EL BRAMIDO (01/10): coge aire y brama en el 4o de 8 a 8 fps (0,375 s: IMPACTO_ANIM_MAPA "mino_bramido"), la cabeza
 	# atras, el hacha en alto y el otro brazo abierto.
 	"mino_bramido": {"hoja": "mino_bramido", "dirs": 8, "marcos": 8, "fps": 8.0, "loop": false},
-	"encaje": {"hoja": "idle", "dirs": 1, "marcos": 4, "fps": 18.0, "loop": false},
-	"muerte": {"hoja": "idle", "dirs": 1, "marcos": 8, "fps": 9.0, "loop": false},
-	"cadaver": {"hoja": "idle", "dirs": 8, "marcos": 1, "fps": 1.0, "loop": false},
+	# ENCAJAR (01/10): ya golpeado se echa atras y se rehace; 4 marcos a 18 fps como todos (CombatFX.T_ENCAJE).
+	"encaje": {"hoja": "mino_encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
+	# MORIR (01/10): de rodillas soltando el hacha y se vence boca abajo. El CADAVER es su ultimo fotograma ('desde').
+	"muerte": {"hoja": "mino_muerte", "dirs": 8, "marcos": 8, "fps": 9.0, "loop": false},
+	"cadaver": {"hoja": "mino_muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
 }
 
 static var _cache: Dictionary = {}
@@ -121,7 +122,7 @@ static func generar(roto: bool = false) -> SpriteFrames:
 		for dir in int(a["dirs"]):
 			var plantillas: Array = []
 			for i in int(a["marcos"]):
-				plantillas.append(_plantilla(img, i, dir, paleta, indice))
+				plantillas.append(_plantilla(img, int(a.get("desde", 0)) + i, dir, paleta, indice))
 			anims.append({"nombre": "%s_%d" % [nombre, dir], "loop": a["loop"], "fps": a["fps"],
 				"plantillas": plantillas})
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(anims, SpriteLienzo.paleta(paleta), LIENZO.x, LIENZO.y)

@@ -147,7 +147,7 @@ def POSE(**k):
     p = dict(avance=0.0, agacha=0.0, inclina=0.0, gira=0.0, ladea=0.0, cabeza=0.0, cabeza_gira=0.0,
              brazo_d=(0.0, 0.0, 0.0), brazo_i=(0.0, 0.0, 0.0),        # (adelante, abre, codo) en radianes
              pierna_d=(0.0, 0.0), pierna_i=(0.0, 0.0),                 # (adelante, rodilla)
-             cola=0.0, hacha='mano', mango=None, pies=None, una_mano=False)
+             cola=0.0, hacha='mano', mango=None, pies=None, una_mano=False, vuelca=0.0, vuelca_y=0.0)
     p.update(k)
     return p
 
@@ -190,9 +190,13 @@ def ik(S, T, L1, L2, polo):
 def huesos(pose):
     """Las transformaciones de cada hueso para esta pose."""
     raiz = mover((0.0, pose['avance'], -pose['agacha'] * ESTIRA))
+    # SE VENCE HACIA DELANTE (la muerte): el cuerpo entero gira alrededor de un punto del suelo (las rodillas).
+    if pose.get('vuelca'):
+        piv = np.array([0.0, pose.get('vuelca_y', 0.0), 1.0])
+        raiz = comp(sobre(piv, rx(pose['vuelca'])), raiz)
     # EL TORSO gira sobre la pelvis: se inclina hacia delante, se ladea y se tuerce.
     torso = comp(raiz, sobre(PELVIS_PIV, rz(pose['gira']) @ ry(pose['ladea']) @ rx(pose['inclina'])))
-    X = {'raiz': raiz, 'torso': torso}
+    X = {'raiz': raiz, 'torso': torso, 'mundo': IDENT}
     X['cabeza'] = comp(torso, sobre(CUELLO_PIV, rz(pose['cabeza_gira']) @ rx(-pose['cabeza'])))
     X['cola'] = comp(torso, sobre(Z(0, -4.6, 21.4), rz(pose['cola'])))
     # EL FALDON SIGUE A LOS MUSLOS (01/10: al subir la rodilla en el pisoton, el muslo lo atravesaba): el de delante se
@@ -398,6 +402,14 @@ def escena(pose):
                 afuera = v / np.linalg.norm(v)
         mango_a, mango_b = puno - abajo * 1.6, puno + abajo * largo
         cab = puno + abajo * (largo - 1.0)
+    elif pose['hacha'] == 'suelo':
+        # TIRADA (la muerte): tumbada en el suelo a su derecha, con las hojas planas sobre el suelo.
+        tope = np.array([-13.0, 9.0, 1.0]); base = np.array([-15.5, -5.0, 0.8])
+        abajo = (base - tope) / np.linalg.norm(base - tope)
+        afuera = np.cross(abajo, np.array([0.0, 0.0, 1.0])); afuera /= np.linalg.norm(afuera)
+        mango_a, mango_b = tope, base
+        cab = tope + abajo * 1.2
+        h_hacha = 'mundo'
     else:
         base = Z(4.0, -5.4, 18.5); tope = Z(-5.0, -5.4, 33.5)
         abajo = (base - tope) / np.linalg.norm(base - tope)
@@ -724,6 +736,38 @@ def anim_bramido(t):
                 cola=0.4 * tiembla / 0.04 if tiembla else 0.0)
 
 
+def anim_encaje(t):
+    # ENCAJAR UN GOLPE: empieza YA golpeado (un golpe no tiene anticipacion): se echa atras con la cabeza arriba, se hunde
+    # un poco y se rehace. 4 fotogramas a 18 fps, como todos los bichos (CombatFX.T_ENCAJE).
+    g = tramos(t, [(0.0, 1.0), (1 / 3, 0.45), (2 / 3, 0.15), (1.0, 0.0)])
+    return POSE(inclina=-0.25 * g, cabeza=0.55 * g, agacha=0.6 * g, avance=-1.5 * g,
+                brazo_d=(-0.3 * g, 0.2 * g, 0.2), brazo_i=(-0.3 * g, 0.2 * g, 0.2), cola=0.3 * g)
+
+
+RODILLAS = (0.2, 1.6, 10.0)      # (muslo, rodilla, agacha): de rodillas con rodilla y pezuña en el suelo
+MUERTE_VUELCA = 1.36           # el pecho apoya en el suelo y la cabeza queda a ras
+RETROCEDE = 14.0
+
+
+def anim_muerte(t):
+    # MORIRSE: se tambalea, le fallan las rodillas, cae DE RODILLAS soltando el hacha (queda tirada a su lado) y se
+    # VENCE HACIA DELANTE hasta quedar boca abajo (gira alrededor de las rodillas). Es un jefe: cae como un rival, de
+    # rodillas primero. El ultimo fotograma es el CADAVER.
+    adel, rod, ag = RODILLAS
+    k = tramos(t, [(M[0], 0.0), (M[1], 0.35), (M[2], 0.8), (M[3], 1.0), (M[7], 1.0)])
+    vuelca = tramos(t, [(M[0], 0.0), (M[3], 0.0), (M[4], 0.3), (M[5], 0.75), (M[6], 1.12), (M[7], MUERTE_VUELCA)])
+    inclina = tramos(t, [(M[0], -0.15), (M[1], 0.15), (M[2], 0.25), (M[3], 0.3), (M[7], 0.3)])
+    cabeza = tramos(t, [(M[0], 0.5), (M[1], -0.2), (M[3], -0.45), (M[5], -0.3), (M[7], -0.15)])
+    brazo = tramos(t, [(M[0], -0.2), (M[2], 0.1), (M[3], 0.2), (M[5], 1.1), (M[7], 1.3)])
+    # Al caer RETROCEDE lo que hace falta para quedar tumbado SOBRE SU SITIO y no por delante (tumbado mide casi lo
+    # mismo que de pie y se salia del lienzo); el giro va alrededor de las rodillas, que retroceden con el.
+    atras = -RETROCEDE * (vuelca / MUERTE_VUELCA)
+    return POSE(agacha=0.4 + (ag - 0.4) * k, pierna_d=(adel * k, rod * k), pierna_i=(adel * k, rod * k),
+                inclina=inclina, cabeza=cabeza, avance=-1.0 * (1 - k) + atras,
+                brazo_d=(brazo, 0.25, 0.3), brazo_i=(brazo, 0.25, 0.3),
+                hacha='suelo' if t >= M[3] - 1e-6 else 'mano', vuelca=vuelca, vuelca_y=3.7 + atras)
+
+
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
     'walk': (8, 6.0, True, 8, anim_walk),
@@ -734,6 +778,8 @@ ANIMS = {
     'mino_cornada': (8, 12.0, False, 8, anim_cornada),
     'mino_pisoton': (8, 12.0, False, 8, anim_pisoton),
     'mino_bramido': (8, 8.0, False, 8, anim_bramido),
+    'mino_encaje': (4, 18.0, False, 8, anim_encaje),
+    'mino_muerte': (8, 9.0, False, 8, anim_muerte),
 }
 
 
