@@ -90,14 +90,14 @@ def escena():
         hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -1.0, 23.6); mun = Z(12.4 * s, 2.0, 16.8)
         add(lambda P, c=hom: sd_elipsoide(P, c - Z(0, 0, 0.6), np.array([2.9, 3.0, 3.2 * ESTIRA])), 'piel', 2.2)
         # El brazo: hueso fino (se estrecha en el codo) y encima los MUSCULOS, fundidos poco para que se marquen.
-        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.4, 1.8), 'piel', 1.0)
+        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.6, 2.0), 'piel', 1.0)
         bi = hom + (codo - hom) * 0.5
-        add(lambda P, c=bi + np.array([0.3 * s, 1.3, 0.0]): sd_elipsoide(P, c, np.array([2.3, 2.1, 3.0 * ESTIRA])), 'piel', 0.7)   # biceps
-        add(lambda P, c=bi + np.array([0.5 * s, -1.1, 0.4]): sd_elipsoide(P, c, np.array([2.2, 2.0, 3.2 * ESTIRA])), 'piel', 0.7)  # triceps
-        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 1.9, 1.7), 'piel', 0.8)
+        add(lambda P, c=bi + np.array([0.3 * s, 1.3, 0.0]): sd_elipsoide(P, c, np.array([2.9, 2.1, 3.0 * ESTIRA])), 'piel', 0.7)   # biceps (ancho a lo ancho: de frente)
+        add(lambda P, c=bi + np.array([0.9 * s, -1.1, 0.4]): sd_elipsoide(P, c, np.array([2.7, 2.0, 3.2 * ESTIRA])), 'piel', 0.7)  # triceps
+        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 2.1, 1.9), 'piel', 0.8)
         # EL ANTEBRAZO, gordo junto al codo y afinando hacia la muñeca, con el bulto hacia fuera y delante.
         ab = codo + (mun - codo) * 0.3
-        add(lambda P, c=ab + np.array([0.4 * s, 0.5, 0.0]): sd_elipsoide(P, c, np.array([2.6, 2.4, 3.2 * ESTIRA])), 'piel', 0.8)
+        add(lambda P, c=ab + np.array([0.7 * s, 0.5, 0.0]): sd_elipsoide(P, c, np.array([3.1, 2.4, 3.4 * ESTIRA])), 'piel', 0.8)
         add(lambda P, a=codo, b=mun: sd_cono(P, a + (b - a) * 0.45, a + (b - a) * 0.95, 2.95, 2.7), 'cuero', 0, 'brazalete')
         puno = mun + Z(0.2 * s, 0.4, -2.2)
         add(lambda P, c=puno: sd_elipsoide(P, c, np.array([2.6, 2.6, 2.6 * ESTIRA])), 'piel', 0.8)
