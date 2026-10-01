@@ -107,7 +107,7 @@ def aplica(X, p):
 
 # --- MATERIALES: tres tonos (sombra, base, luz) ---
 MAT = {
-    'piel':   [(0.50, 0.19, 0.11), (0.70, 0.30, 0.16), (0.87, 0.47, 0.24)],
+    'piel':   [(0.56, 0.23, 0.13), (0.70, 0.30, 0.16), (0.82, 0.41, 0.21)],
     'pelo':   [(0.22, 0.12, 0.09), (0.32, 0.18, 0.13), (0.42, 0.25, 0.18)],
     'pezuna': [(0.15, 0.16, 0.23), (0.22, 0.24, 0.32), (0.32, 0.34, 0.43)],
     'cuero':  [(0.15, 0.10, 0.08), (0.23, 0.15, 0.12), (0.31, 0.21, 0.16)],
@@ -388,8 +388,12 @@ def render(dir_i, pose):
     lx = luz_mundo[0] * ca - luz_mundo[1] * sa; ly = luz_mundo[0] * sa + luz_mundo[1] * ca
     ndl = n @ np.array([lx, ly, luz_mundo[2]])
     ao = np.clip(evalua(P + n * 1.2, L)[0] / 1.2, 0, 1)
-    banda = np.where(ndl > 0.62, 2, np.where(ndl > 0.22, 1, 0))
-    banda = np.where(ao < 0.55, np.maximum(banda - 1, 0), banda)
+    # PLANO, como los demas enemigos (01/10: "se nota demasiado que es 3D por los brillos"): casi todo en el tono BASE;
+    # la LUZ solo en lo que mira hacia arriba (hombros, lomo, craneo) y la SOMBRA solo en lo que da la espalda a la luz
+    # de verdad y en los huecos hondos. Con tres bandas por la luz de lado salian manchas siguiendo cada curva.
+    arriba = n[:, 2]
+    banda = np.where(arriba > 0.72, 2, np.where(ndl < -0.12, 0, 1))
+    banda = np.where(ao < 0.3, 0, banda)
     for i, nom in enumerate(NOMBRES):
         sel = mats == i
         bb = np.full(sel.sum(), 2) if nom == 'ojo' else banda[sel]
