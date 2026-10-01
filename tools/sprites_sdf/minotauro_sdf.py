@@ -86,11 +86,18 @@ def escena():
 
     # BRAZOS: deltoide, brazo, antebrazo gordo, puño; el brazalete por encima (union dura)
     for s in (-1, 1):
-        hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -0.2, 23.4); mun = Z(12.4 * s, 1.0, 16.6)
+        # EL CODO UN POCO DOBLADO (va hacia atras y el antebrazo sale hacia delante): un brazo recto es un espagueti.
+        hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -1.0, 23.6); mun = Z(12.4 * s, 2.0, 16.8)
         add(lambda P, c=hom: sd_elipsoide(P, c - Z(0, 0, 0.6), np.array([2.9, 3.0, 3.2 * ESTIRA])), 'piel', 2.2)
-        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.9, 2.2), 'piel', 1.2)
-        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 2.5, 2.1), 'piel', 1.0)
-        add(lambda P, a=codo, b=mun: sd_cono(P, a + (b - a) * 0.25, a + (b - a) * 0.6, 2.9, 2.7), 'piel', 1.0)  # el bulto del antebrazo
+        # El brazo: hueso fino (se estrecha en el codo) y encima los MUSCULOS, fundidos poco para que se marquen.
+        add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.4, 1.8), 'piel', 1.0)
+        bi = hom + (codo - hom) * 0.5
+        add(lambda P, c=bi + np.array([0.3 * s, 1.3, 0.0]): sd_elipsoide(P, c, np.array([2.3, 2.1, 3.0 * ESTIRA])), 'piel', 0.7)   # biceps
+        add(lambda P, c=bi + np.array([0.5 * s, -1.1, 0.4]): sd_elipsoide(P, c, np.array([2.2, 2.0, 3.2 * ESTIRA])), 'piel', 0.7)  # triceps
+        add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 1.9, 1.7), 'piel', 0.8)
+        # EL ANTEBRAZO, gordo junto al codo y afinando hacia la muñeca, con el bulto hacia fuera y delante.
+        ab = codo + (mun - codo) * 0.3
+        add(lambda P, c=ab + np.array([0.4 * s, 0.5, 0.0]): sd_elipsoide(P, c, np.array([2.6, 2.4, 3.2 * ESTIRA])), 'piel', 0.8)
         add(lambda P, a=codo, b=mun: sd_cono(P, a + (b - a) * 0.45, a + (b - a) * 0.95, 2.95, 2.7), 'cuero', 0, 'brazalete')
         puno = mun + Z(0.2 * s, 0.4, -2.2)
         add(lambda P, c=puno: sd_elipsoide(P, c, np.array([2.6, 2.6, 2.6 * ESTIRA])), 'piel', 0.8)
@@ -105,16 +112,16 @@ def escena():
 
     # CABEZA: craneo, cara larga hacia abajo, morro claro, cejas, orejas, ojos, anilla
     add(lambda P: sd_elipsoide(P, Z(0, 0.8, 39.0), np.array([3.8, 3.8, 3.4 * ESTIRA])), 'piel', 1.5)
-    add(lambda P: sd_cono(P, Z(0, 2.0, 38.4), Z(0, 5.0, 35.2), 3.3, 2.8), 'piel', 1.2)
-    add(lambda P: sd_elipsoide(P, Z(0, 5.8, 34.5), np.array([2.9, 2.0, 1.9 * ESTIRA])), 'morro', 0, 'morro')
+    add(lambda P: sd_cono(P, Z(0, 2.0, 38.6), Z(0, 6.4, 36.2), 3.3, 2.8), 'piel', 1.2)
+    add(lambda P: sd_elipsoide(P, Z(0, 7.3, 35.6), np.array([2.9, 2.1, 1.9 * ESTIRA])), 'morro', 0, 'morro')
     for s in (-1, 1):
-        add(lambda P, s=s: sd_elipsoide(P, Z(2.1 * s, 3.4, 39.7), np.array([1.5, 1.2, 0.7 * ESTIRA])), 'piel', 0.6)   # ceja
+        add(lambda P, s=s: sd_elipsoide(P, Z(2.1 * s, 3.8, 40.0), np.array([1.5, 1.2, 0.7 * ESTIRA])), 'piel', 0.6)   # ceja
         add(lambda P, s=s: sd_elipsoide(P, Z(4.3 * s, 0.2, 39.4), np.array([2.0, 0.9, 0.9 * ESTIRA])), 'piel', 0.5)   # oreja
-        add(lambda P, s=s: sd_esfera(P, Z(2.3 * s, 4.6, 38.5), 0.85), 'ojo', 0, 'ojo')
-        add(lambda P, s=s: sd_esfera(P, Z(1.1 * s, 7.6, 34.8), 0.5), 'pelo', 0, 'narina')
+        add(lambda P, s=s: sd_esfera(P, Z(2.3 * s, 5.0, 38.9), 0.85), 'ojo', 0, 'ojo')
+        add(lambda P, s=s: sd_esfera(P, Z(1.1 * s, 9.2, 35.9), 0.5), 'pelo', 0, 'narina')
     # La anilla: un toro de oro colgando del morro.
     def anilla(P):
-        q = P - Z(0, 7.3, 33.2)
+        q = P - Z(0, 8.8, 34.3)
         d2 = np.sqrt(q[:, 0] ** 2 + (q[:, 2] / ESTIRA) ** 2) - 1.2
         return np.sqrt(d2 ** 2 + q[:, 1] ** 2) - 0.38
     add(anilla, 'oro', 0, 'anilla')
@@ -144,7 +151,7 @@ def escena():
     add(lambda P, c=p: sd_elipsoide(P, c, np.array([1.3, 1.3, 2.0 * ESTIRA])), 'pelo', 0.5, 'cola')
 
     # EL HACHA en el puño derecho (x negativa): cabeza colgando bajo el puño, mango subiendo por detras del antebrazo
-    puno = Z(-12.4, 1.0, 16.6) + Z(-0.2, 0.4, -2.2)
+    puno = Z(-12.4, 2.0, 16.8) + Z(-0.2, 0.4, -2.2)
     abajo = np.array([-0.18, 0.1, -1.0]); abajo /= np.linalg.norm(abajo)
     add(lambda P: sd_cono(P, puno - abajo * 6.0, puno + abajo * 5.5, 0.55, 0.55), 'madera', 0, 'hacha')
     cab = puno + abajo * 5.6
