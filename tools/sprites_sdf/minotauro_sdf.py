@@ -17,7 +17,7 @@ W, H = 144, 186                      # lienzo
 OX, OY = W / 2, H - 16               # donde cae el origen (los pies)
 ESTIRA = 1.18                        # las alturas, estiradas (si no, a 45 grados un humanoide sale achaparrado)
 
-PIERNA_EXTRA = 3.5                   # todo lo que va de la cadera para arriba sube esto: piernas mas largas
+PIERNA_EXTRA = 1.8                   # todo lo que va de la cadera para arriba sube esto: piernas mas largas
 
 def Z(x, y, z):
     if z >= 18.0:
@@ -76,17 +76,17 @@ def escena():
         L.append((fn, mat, grupo, k))
 
     # TORSO EN V
-    add(lambda P: sd_elipsoide(P, Z(0, -0.6, 21.2), np.array([6.0, 4.6, 3.4 * ESTIRA])), 'piel', 0)
-    add(lambda P: sd_elipsoide(P, Z(0, 0.6, 24.6), np.array([5.6, 4.4, 3.6 * ESTIRA])), 'piel', 2.0)
-    add(lambda P: sd_elipsoide(P, Z(0, 0.9, 29.0), np.array([8.6, 5.4, 4.6 * ESTIRA])), 'piel', 2.0)
+    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 21.4), np.array([4.9, 4.2, 3.2 * ESTIRA])), 'piel', 0)
+    add(lambda P: sd_elipsoide(P, Z(0, 0.8, 24.8), np.array([5.4, 4.4, 3.8 * ESTIRA])), 'piel', 2.0)
+    add(lambda P: sd_elipsoide(P, Z(0, 1.0, 29.4), np.array([9.2, 5.8, 5.4 * ESTIRA])), 'piel', 2.0)
     for s in (-1, 1):
-        add(lambda P, s=s: sd_elipsoide(P, Z(4.2 * s, 3.4, 28.8), np.array([4.0, 2.6, 3.0 * ESTIRA])), 'piel', 1.2)
+        add(lambda P, s=s: sd_elipsoide(P, Z(4.4 * s, 3.8, 29.0), np.array([4.2, 2.8, 3.2 * ESTIRA])), 'piel', 1.2)
     add(lambda P: sd_elipsoide(P, Z(0, -1.2, 33.4), np.array([6.2, 3.6, 2.8 * ESTIRA])), 'piel', 2.0)   # trapecio
     add(lambda P: sd_cono(P, Z(0, -0.2, 32.0), Z(0, 1.0, 36.4), 3.6, 3.2), 'piel', 1.5)                 # cuello
 
     # BRAZOS: deltoide, brazo, antebrazo gordo, puño; el brazalete por encima (union dura)
     for s in (-1, 1):
-        hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -0.2, 23.4); mun = Z(11.8 * s, 1.0, 16.6)
+        hom = Z(9.6 * s, 0.4, 31.4); codo = Z(11.2 * s, -0.2, 23.4); mun = Z(12.4 * s, 1.0, 16.6)
         add(lambda P, c=hom: sd_elipsoide(P, c - Z(0, 0, 0.6), np.array([2.9, 3.0, 3.2 * ESTIRA])), 'piel', 2.2)
         add(lambda P, a=hom, b=codo: sd_cono(P, a, b, 2.9, 2.2), 'piel', 1.2)
         add(lambda P, a=codo, b=mun: sd_cono(P, a, b, 2.5, 2.1), 'piel', 1.0)
@@ -97,20 +97,20 @@ def escena():
 
     # PIERNAS digitigradas: muslo, rodilla adelante, corvejon atras, pezuña
     for s in (-1, 1):
-        cad = Z(5.0 * s, 0.0, 20.0); rod = Z(5.6 * s, 1.4, 11.8); cor = Z(5.2 * s, -1.2, 5.6); pie = Z(5.3 * s, 0.6, 1.3)
-        add(lambda P, a=cad, b=rod: sd_cono(P, a, b, 4.2, 2.9), 'piel', 1.5)
+        cad = Z(4.2 * s, 0.0, 20.0); rod = Z(4.8 * s, 1.4, 11.8); cor = Z(4.6 * s, -1.2, 5.6); pie = Z(4.7 * s, 0.6, 1.3)
+        add(lambda P, a=cad, b=rod: sd_cono(P, a, b, 3.7, 2.8), 'piel', 1.5)
         add(lambda P, a=rod, b=cor: sd_cono(P, a, b, 2.6, 1.9), 'pelo', 1.0)
         add(lambda P, a=cor, b=pie: sd_cono(P, a, b, 1.9, 1.7), 'pelo', 0.8)
-        add(lambda P, c=Z(5.3 * s, 1.0, 1.0): sd_elipsoide(P, c, np.array([2.1, 2.6, 1.2 * ESTIRA])), 'pezuna', 0.4)
+        add(lambda P, c=Z(4.7 * s, 1.0, 1.0): sd_elipsoide(P, c, np.array([2.1, 2.6, 1.2 * ESTIRA])), 'pezuna', 0.4)
 
     # CABEZA: craneo, cara larga hacia abajo, morro claro, cejas, orejas, ojos, anilla
     add(lambda P: sd_elipsoide(P, Z(0, 0.8, 39.0), np.array([3.8, 3.8, 3.4 * ESTIRA])), 'piel', 1.5)
     add(lambda P: sd_cono(P, Z(0, 2.0, 38.4), Z(0, 5.0, 35.2), 3.3, 2.8), 'piel', 1.2)
     add(lambda P: sd_elipsoide(P, Z(0, 5.8, 34.5), np.array([2.9, 2.0, 1.9 * ESTIRA])), 'morro', 0, 'morro')
     for s in (-1, 1):
-        add(lambda P, s=s: sd_elipsoide(P, Z(2.1 * s, 3.9, 39.2), np.array([1.5, 1.2, 0.8 * ESTIRA])), 'piel', 0.6)   # ceja
+        add(lambda P, s=s: sd_elipsoide(P, Z(2.1 * s, 3.4, 39.7), np.array([1.5, 1.2, 0.7 * ESTIRA])), 'piel', 0.6)   # ceja
         add(lambda P, s=s: sd_elipsoide(P, Z(4.3 * s, 0.2, 39.4), np.array([2.0, 0.9, 0.9 * ESTIRA])), 'piel', 0.5)   # oreja
-        add(lambda P, s=s: sd_esfera(P, Z(2.0 * s, 4.3, 38.5), 0.65), 'ojo', 0, 'ojo')
+        add(lambda P, s=s: sd_esfera(P, Z(2.3 * s, 4.6, 38.5), 0.85), 'ojo', 0, 'ojo')
         add(lambda P, s=s: sd_esfera(P, Z(1.1 * s, 7.6, 34.8), 0.5), 'pelo', 0, 'narina')
     # La anilla: un toro de oro colgando del morro.
     def anilla(P):
@@ -129,7 +129,7 @@ def escena():
             p = q; r = r2; th += 0.26
 
     # TAPARRABOS: el cinto (un aro algo mas ancho que la cadera) y las dos tiras de cuero
-    add(lambda P: sd_elipsoide(P, Z(0, -0.4, 22.0), np.array([6.5, 5.0, 1.2 * ESTIRA])), 'cuero', 0, 'ropa')
+    add(lambda P: sd_elipsoide(P, Z(0, -0.3, 22.2), np.array([5.5, 4.7, 1.2 * ESTIRA])), 'cuero', 0, 'ropa')
     for s in (1, -1):
         ejes = [np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0])]
         add(lambda P, s=s, e=ejes: sd_caja(P, Z(0, 4.9 * s, 18.2), e, [2.0, 0.35, 5.0 * ESTIRA], 0.3), 'cuero', 0, 'ropa')
@@ -144,11 +144,11 @@ def escena():
     add(lambda P, c=p: sd_elipsoide(P, c, np.array([1.3, 1.3, 2.0 * ESTIRA])), 'pelo', 0.5, 'cola')
 
     # EL HACHA en el puño derecho (x negativa): cabeza colgando bajo el puño, mango subiendo por detras del antebrazo
-    puno = Z(-11.8, 1.0, 16.6) + Z(-0.2, 0.4, -2.2)
-    abajo = np.array([0.0, 0.1, -1.0]); abajo /= np.linalg.norm(abajo)
+    puno = Z(-12.4, 1.0, 16.6) + Z(-0.2, 0.4, -2.2)
+    abajo = np.array([-0.18, 0.1, -1.0]); abajo /= np.linalg.norm(abajo)
     add(lambda P: sd_cono(P, puno - abajo * 6.0, puno + abajo * 5.5, 0.55, 0.55), 'madera', 0, 'hacha')
     cab = puno + abajo * 5.6
-    afuera = np.array([-1.0, 0.25, 0.0]); afuera /= np.linalg.norm(afuera)
+    afuera = np.array([-0.35, 1.0, 0.0]); afuera /= np.linalg.norm(afuera)
     normal = np.cross(afuera, abajo); normal /= np.linalg.norm(normal)
     for sg in (1, -1):
         def hoja(P, sg=sg):
@@ -241,7 +241,9 @@ def render(dir_i, L):
         img[hi[sel], :3] = cols
     img[hi, 3] = 1.0
     prof = np.full(H * W, np.inf); prof[hi] = t[hi]
+    matmap = np.full(H * W, -1); matmap[hi] = mats; matmap = matmap.reshape(H, W)
     img = img.reshape(H, W, 4); prof = prof.reshape(H, W)
+    OJO_I = NOMBRES.index('ojo')
     # CONTORNO de fuera y LINEAS DE DENTRO donde hay salto de profundidad (lo de delante va suelto).
     sal = img.copy()
     for y in range(H):
@@ -249,7 +251,8 @@ def render(dir_i, L):
             if img[y, x, 3] == 0: continue
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 nx, ny = x + dx, y + dy
-                if nx < 0 or ny < 0 or nx >= W or ny >= H or img[ny, nx, 3] == 0 or prof[ny, nx] - prof[y, x] > 2.6:
+                fuera = nx < 0 or ny < 0 or nx >= W or ny >= H or img[ny, nx, 3] == 0
+                if fuera or (matmap[y, x] != OJO_I and prof[ny, nx] - prof[y, x] > 2.6):
                     sal[y, x, :3] = BORDE; break
     return Image.fromarray((sal * 255).astype(np.uint8), 'RGBA')
 
