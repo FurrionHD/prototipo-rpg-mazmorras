@@ -283,6 +283,7 @@ func desmontar() -> void:
 	_quitar_raices()
 	_quitar_olor()
 	_quitar_carne()
+	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
 	var pl: Node = _jugador_local()
@@ -3532,6 +3533,8 @@ const _MODO_BASTON := {
 
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
+const _MODO_DISTANCIA := {CombatFX.Estilo.FLECHA: DistanciaAire.Modo.FLECHA,
+	CombatFX.Estilo.VIROTE: DistanciaAire.Modo.VIROTE, CombatFX.Estilo.VIROTE_PASA: DistanciaAire.Modo.VIROTE_PASA}
 const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
 	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}
@@ -3984,6 +3987,13 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+	# EL ARCO Y LA BALLESTA (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe; se queda clavada.
+	if estilo in _MODO_DISTANCIA:
+		var desde_d: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
+			else bulto_de(v).get_center() - Vector2(60.0, 0.0)
+		DistanciaAire.disparo(arena, int(_MODO_DISTANCIA[estilo]), desde_d, bulto_de(v), cuerpo_de(v),
+			bool(ev.get("evadido", false)), bool(ev.get("crit", false)), semilla, vuelo, ritmo)
+		return
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
 		return

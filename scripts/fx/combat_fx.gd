@@ -429,7 +429,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# EL MINOTAURO en el mapa (02/10, MinotauroAire): el hachazo que cae sobre quien lo recibe (o se clava en el suelo
 		# si lo esquiva), lo que le llega a cada uno con el Barrido (la sangre; el filo va por el suelo), el enganche de la
 		# Cornada y el temblor de quien le pilla el Pisoton.
-		MINO_HACHAZO = 188, MINO_BARRIDO = 189, MINO_CORNADA = 190, MINO_SISMO = 191 }
+		MINO_HACHAZO = 188, MINO_BARRIDO = 189, MINO_CORNADA = 190, MINO_SISMO = 191,
+		# EL ARCO Y LA BALLESTA (02/10, DistanciaAire): la flecha, el virote y el virote que atraviesa al primero.
+		FLECHA = 192, VIROTE = 193, VIROTE_PASA = 194 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -450,14 +452,16 @@ const FX_ARMA := {
 	8: Estilo.MARTILLO_GOLPE,    # MARTILLO_GRANDE
 	9: Estilo.BASTON_GOLPE,      # BASTON
 	0: Estilo.PUNOS_GOLPE,       # PUNOS (ir a mano limpia tambien tiene su dibujo)
-	# A DISTANCIA (02/10): PROVISIONAL, el proyectil de siempre hasta que tengan su flecha y su virote.
-	10: Estilo.PROYECTIL,        # ARCO
-	11: Estilo.PROYECTIL,        # BALLESTA
+	# A DISTANCIA (02/10): la flecha y el virote (DistanciaAire).
+	10: Estilo.FLECHA,           # ARCO
+	11: Estilo.VIROTE,           # BALLESTA
 }
 
 
 # Los que en el MAPA pintan su dibujo propio sobre el cuerpo (ver la señal dibujo_en_mapa): la daga.
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
+	# el arco y la ballesta (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe.
+	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -524,6 +528,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 # COLOR. Un bicho tiñe su golpe con su color_visual, pero un arma es de ACERO mientras no la imbuyan
 # (ver _color_golpe en combat.gd), y sin esta lista los tajos salian del rojo de bicho.
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
+	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	Estilo.IMBUIR_FILO, Estilo.DESVANECER,
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
 	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
@@ -710,6 +715,9 @@ const T_VUELO := {
 	# La PUÑALADA lleva algo mas: la hoja se arma antes de entrar, y ese instante de espera es lo que
 	# la hace leerse como un golpe apuntado y no como un corte mas.
 	Estilo.DAGA_CORTE: 0.04, Estilo.DAGA_RAFAGA: 0.05, Estilo.PUNALADA: 0.09,
+	# EL ARCO Y LA BALLESTA SI VIAJAN: es lo que tarda en cruzar (DistanciaAire se queda con lo que de su velocidad,
+	# con esto de tope). El virote, mas rapido.
+	Estilo.FLECHA: 0.20, Estilo.VIROTE: 0.15, Estilo.VIROTE_PASA: 0.15,
 	# IMBUIR_FILO no viaja (te la echas encima) y va largo: hay que ver la hoja mojarse.
 	Estilo.IMBUIR_FILO: 0.30, Estilo.DESVANECER: 0.10,
 	# EL ESTOQUE. Su vuelo es el ARMADO: la punta se echa atras antes de salir disparada, y eso es

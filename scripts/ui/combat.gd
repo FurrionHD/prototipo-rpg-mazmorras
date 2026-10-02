@@ -1740,8 +1740,11 @@ func _accion_atacar() -> void:
 			bl["escala"] = float(bl["escala"]) * (1.0 + md_t.dano_bonus)
 	var aciertos: Array = []
 	for i in blancos.size():
+		# El virote que ATRAVIESA al primero no se clava en el: asoma por su espalda y sigue al de detras.
+		var estilo_i: int = CombatFX.Estilo.VIROTE_PASA \
+			if estilo_bas == CombatFX.Estilo.VIROTE and i < blancos.size() - 1 else estilo_bas
 		aciertos.append(_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
-			estilo_bas, con_arma, arma_factor, pj_atacante))
+			estilo_i, con_arma, arma_factor, pj_atacante))
 	# DONDE SE QUEDA LA FLECHA DE MATERIAL: clavada en el ultimo al que le entra (el segundo, si el virote lo
 	# atraviesa) o, si el ultimo la esquiva, en el suelo detras de el. Se apunta para tirar al acabar si se rompe.
 	if not tiro.is_empty():
