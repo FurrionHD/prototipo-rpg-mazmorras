@@ -16,6 +16,7 @@ nombre = "Recarga rápida"
 precio = 1200
 coste_energia = 20
 cooldown = 5
+municion_por_uso = 0
 dano_mult = 0
 fx_estilo = 0
 descripcion = "Estribo, gancho y cuerda, sin mirar. Los próximos virotes salen antes de que el otro se dé cuenta de que has disparado."

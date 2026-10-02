@@ -802,6 +802,18 @@ func _toca_suelo(desde: Vector2, dir: Vector2, largo: float, e: Combatant) -> bo
 		return false
 	return (v - dir * s).length() <= radio_pisa(e)
 
+# Cuanto se puede ir por el suelo desde 'desde' hacia 'dir' antes de dar con pared (hasta 'largo').
+func _largo_hasta_pared(desde: Vector2, dir: Vector2, largo: float) -> float:
+	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("_pisable_px"):
+		return largo
+	var s: float = PASO_LINEA
+	while s < largo:
+		if not piso._pisable_px(desde + dir * s):
+			return maxf(s - PASO_LINEA, 0.0)
+		s += PASO_LINEA
+	return largo
+
 # ¿'b' esta a su alcance pero una pared corta la linea? Para el aviso del boton.
 func tapado_por_pared(a: Combatant, b: Combatant) -> bool:
 	return a != null and b != null and a.a_distancia and hueco_entre(a, b) <= alcance_de(a) \
@@ -1002,6 +1014,13 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 		pisa = maxf(pisa, frente)
 		sale = frente * FRENTE_METIDO
 	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
+	# A DISTANCIA (arco, ballesta): la linea se para en la PARED, como el disparo del basico.
+	if c.a_distancia and f.tipo == CombatFormas.Tipo.LINEA:
+		var hasta_pared: float = _largo_hasta_pared(f.origen, f.dir, f.largo)
+		if hasta_pared < f.largo:
+			f.largo = hasta_pared
+			f.radio = hasta_pared
+			f.centro = f.origen + f.dir * hasta_pared * 0.5
 	# EL PASO y EL AVANCE enseñan lo que va a pasar de verdad: el circulo donde acabas y la linea hasta
 	# donde llegas (recortados por pared, borde o un cuerpo en el sitio).
 	if ab.paso:

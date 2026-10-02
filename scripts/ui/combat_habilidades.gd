@@ -276,6 +276,50 @@ func _siguiente_vivo(muerto: Combatant) -> Combatant:
 # del barrido; 1.0 = golpe pleno). Aplica daño, imbuición, maná por golpe y —si la habilidad es
 # efectos_por_golpe— sus estados. Devuelve un dict con lo necesario para acumular y loguear.
 # 'etq' etiqueta el objetivo en el log cuando hay varios ("" en single-target).
+# LA MUNICION DE LA HABILIDAD que se esta soltando (arco y ballesta): su bonus, de que es la punta (la semilla de
+# los golpes, ver DistanciaAire.semilla_con_punta), los tiros gastados y a quien le ha entrado cada golpe (para
+# clavarlas y recogerlas al final, ver cerrar_tiros_hab).
+var _mult_mun: float = 1.0
+var _semilla_mun: int = 0
+var _tiros_hab: Array = []
+var _golpes_mun: Array = []   # [{c, evadido}]
+
+func _preparar_municion_hab(ab: AbilityData) -> void:
+	_mult_mun = 1.0
+	_semilla_mun = 0
+	_tiros_hab = []
+	_golpes_mun = []
+	var p: Combatant = _pantalla._player
+	if not p.a_distancia or ab.dano_mult <= 0.0:
+		return
+	for k in maxi(0, ab.municion_por_uso):
+		var tiro: Dictionary = p.disparar_municion()
+		if tiro.is_empty():
+			break
+		_tiros_hab.append(tiro)
+	var md: MunicionData = _tiros_hab[0]["md"] if not _tiros_hab.is_empty() else null
+	if md != null:
+		_mult_mun = 1.0 + md.dano_bonus
+	_semilla_mun = DistanciaAire.semilla_con_punta((randi() & 0x3FFFFFFF) | 1, md)
+
+# Al cerrar la accion: cada tiro gastado se apunta donde acabo (en el que le entro, o al suelo detras si lo esquivo
+# o sobran tiros), como los del basico (Combatant.municion_disparada -> combat._recoger_flechas).
+func cerrar_tiros_hab() -> void:
+	var p: Combatant = _pantalla._player
+	if p == null or _tiros_hab.is_empty():
+		_tiros_hab = []
+		return
+	for k in _tiros_hab.size():
+		var g: Dictionary = _golpes_mun[mini(k, _golpes_mun.size() - 1)] if not _golpes_mun.is_empty() else {}
+		var v: Combatant = g.get("c")
+		var clavada: Combatant = v if v != null and not bool(g.get("evadido", false)) else null
+		var al_suelo: Vector2 = _pantalla.turno_mapa.detras_de(p, v) if _pantalla.tactico and v != null else Vector2.INF
+		p.municion_disparada.append({"md": _tiros_hab[k]["md"], "cal": int(_tiros_hab[k]["cal"]), "en": clavada,
+			"pos": al_suelo})
+	_tiros_hab = []
+	_golpes_mun = []
+
+
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String, m_golpe: float) -> Dictionary:
 	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
@@ -315,9 +359,13 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	if result.evaded:
 		r.evaded = true
 		r.linea = "golpe %d%s: esquivado 💨" % [i + 1, etq]
-		_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab)
+		_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_ab,
+			1.0, false, "", AbilityData.Gesto.AUTO, &"", _semilla_mun)
+		_golpes_mun.append({"c": objetivo, "evadido": true})
 		return r
-	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala
+	_golpes_mun.append({"c": objetivo, "evadido": false})
+	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
+	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -330,7 +378,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		r.robado = dmg * ab.robo_vida
 		_pantalla._player.heal(r.robado)
 	_pantalla.efectos._fx_golpe(_pantalla._player, objetivo, dmg, result.crit, false,
-		_pantalla._player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab)
+		_pantalla._player.imbue_elemento if r.imbue > 0.0 else Elementos.Elemento.NINGUNO, estilo_ab,
+		1.0, false, "", AbilityData.Gesto.AUTO, &"", _semilla_mun)
 	# Los golpes dados CON EL ESCUDO generan mas amenaza (CombatObjetivos.AMENAZA_ESCUDO).
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player,
 		_pantalla.CombatObjetivos.AMENAZA_ESCUDO if ab.golpe_es_de_escudo(i) else 1.0)   # contador oculto de Cazador
@@ -524,6 +573,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			return
 		_pantalla._player.spend_energy(coste)
 		_pantalla._player.start_cooldown(ab)   # entra en cooldown (si la habilidad tiene)
+	# LA MUNICION: se gasta al SOLTARLA (el Disparo cargado, al soltar la carga, no al empezarla).
+	_preparar_municion_hab(ab)
 	# Maná recuperado: FIJO (mana_gain) + por CONVERSION de toda la energia (energia_a_mana).
 	# Al SOLTAR una carga la conversion NO paga otra vez: la energia se fundio al empezarla, y aqui
 	# 'coste' vale lo que tengas AHORA. Sin este guardia, una habilidad de conversion con carga te

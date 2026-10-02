@@ -1585,6 +1585,9 @@ func _hay_hechizos() -> bool:
 # Oculta la barra tras elegir y consume una "accion lenta" si entraste agotado.
 func _fin_de_eleccion() -> void:
 	_ocultar_cajas()
+	# Los tiros de municion que gasto una habilidad (arco, ballesta): a donde fue cada uno (ver cerrar_tiros_hab).
+	if not _espejo:
+		habilidades.cerrar_tiros_hab()
 	# LO QUE HA ANDADO este turno pasa por encima de algun charco (la Savia del trent)? Solo quien lleva la pelea.
 	if tactico and not _espejo:
 		turno_mapa.charcos_tras_andar(_player)

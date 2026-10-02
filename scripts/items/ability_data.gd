@@ -304,6 +304,9 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # carga hasta ESTAS. Los proximos disparos pegan con su bonus. 0 = no es Cargar. Va siempre con el arma, fuera de
 # los cuatro huecos (ver Game._aplicar_loadout), y devuelve media barra (CombatHabilidades.CARGAR_DEVUELVE).
 @export var cargar_municion: int = 0
+# CUANTA MUNICION CARGADA GASTA al soltarse (arco y ballesta, 02/10): una por proyectil. La Lluvia (3 flechas) y la
+# Andanada (3 virotes) gastan 3; las que no disparan, 0. Si quedan menos, gasta las que haya y pega con su bonus.
+@export var municion_por_uso: int = 1
 # LA CARGA (solo en el mapa, con LINEA): corres por la linea hasta el PRIMERO que pille y le pegas; sin
 # nadie, hasta el final. La Embestida del escudo (25/09).
 @export var carga: bool = false
