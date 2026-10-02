@@ -1718,7 +1718,9 @@ func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 		"prob_doble": c.imbue_prob_doble, "destreza": c.imbue_por_destreza,
 		# La VELOCIDAD viaja con lo demas: si no, el manto mitico duraria 25 ataques pero solo
 		# ligerearia en el combate donde se lanzo, y al siguiente volveria mudo sin decir por que.
-		"spd": c.imbue_spd_mult, "prisma": c.imbue_prisma}
+		"spd": c.imbue_spd_mult, "prisma": c.imbue_prisma,
+		# El TOPE de acumulaciones: si no viajara, el veneno de la daga volveria sin tope a la pelea siguiente.
+		"tope": c.imbue_tope}
 
 
 # Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
@@ -1817,7 +1819,7 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)),
 		# 1.0 por defecto: las fichas guardadas ANTES de que existiera el mitico no llevan la clave,
 		# y sin el default entrarian a velocidad 0.
-		float(d.get("spd", 1.0)), bool(d.get("prisma", false)))
+		float(d.get("spd", 1.0)), bool(d.get("prisma", false)), int(d.get("tope", -1)))
 
 
 # CIERRA la mazmorra: se olvida como quedaron los pisos y todo vuelve a nacer poblado.

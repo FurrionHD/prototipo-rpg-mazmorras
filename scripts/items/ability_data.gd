@@ -121,6 +121,16 @@ func es_toda_de_escudo() -> bool:
 @export var imbue_prob: float = 0.0       # prob. de UN stack, en igualdad de stat vs Resistencia
 @export var imbue_prob_doble: float = 0.0 # prob. de DOS stacks de golpe (se tira antes)
 @export var imbue_por_destreza: bool = false
+# TOPE de acumulaciones que puede dejar, segun el TIER del arma (03/10, su decision: "si es de t1 maximo 2,
+# si es t2 maximo 3 y asi"): tope = imbue_tope_base + (tier - 1), sin pasar del maximo del estado. Es el
+# tope del ENEMIGO en total: cuatro dagas envenenadas no lo suben. -1 = sin tope propio.
+@export var imbue_tope_base: int = -1
+
+# El tope con un arma de 'tier' (-1 = sin tope propio).
+func imbue_tope(tier: int) -> int:
+	if imbue_tope_base < 0:
+		return -1
+	return imbue_tope_base + maxi(0, tier - 1)
 
 func es_imbuicion() -> bool:
 	return imbue_estado >= 0 and imbue_usos > 0
@@ -749,6 +759,8 @@ func resumen(manos: int = 1) -> String:
 		var doble: String = "" if imbue_prob_doble <= 0.0 else 			", y un %d%% de meter dos dosis de golpe" % roundi(imbue_prob_doble * 100.0)
 		l.append("Impregna tu arma de %s durante %d ataques: cada golpe tiene un %d%% de aplicarlo%s." % [
 			nom_est, imbue_usos, roundi(imbue_prob * 100.0), doble])
+		if imbue_tope_base >= 0:
+			l.append("Como mucho deja %d dosis con un arma de tier 1, y una más por cada tier por encima." % imbue_tope(1))
 		l.append("Se gasta al ATACAR, no con los turnos, y aguanta de un combate al siguiente.")
 		if imbue_por_destreza:
 			l.append("Prende más a menudo cuanta más Destreza tengas frente a su Resistencia.")

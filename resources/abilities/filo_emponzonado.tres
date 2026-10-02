@@ -15,4 +15,6 @@ imbue_usos = 5
 imbue_prob = 0.6
 imbue_prob_doble = 0.1
 imbue_por_destreza = true
+; (03/10, su decision) tope de veneno por tier del arma: T1 2, T2 3, T3 4, T4+ 5.
+imbue_tope_base = 2
 descripcion = "Pasas el filo por un frasco turbio y esperas a que agarre. No corta más: corta peor, y eso a veces vale más que cortar hondo."

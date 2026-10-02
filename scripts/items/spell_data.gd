@@ -692,6 +692,8 @@ func _texto_imbuicion() -> String:
 	if imbue_estado >= 0 and imbue_prob > 0.0:
 		linea += " y pueden dejar %s (%s)" % [
 			String(StatusEffects.def(imbue_estado).get("nombre", "?")), _pct(imbue_prob)]
+	elif imbue_prisma and imbue_prob > 0.0:
+		linea += " y pueden dejar el estado del elemento que salga (%s)" % _pct(imbue_prob)
 	lineas.append(linea + ".")
 	if imbue_tipo == 2:
 		lineas.append("Además te da la afinidad del elemento: resistes lo que él resiste y te duele lo que le duele.")

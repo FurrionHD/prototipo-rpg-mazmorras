@@ -206,6 +206,11 @@ func _arma_activa() -> int:
 	var w: WeaponData = pj.equipped_main as WeaponData if pj != null else null
 	return int(w.tipo) if w != null else -1
 
+# El TIER del arma de la mano activa (1 si no hay ficha): el tope del veneno de la daga va por el.
+func _tier_arma_activa() -> int:
+	var pj: PersonajeData = Game.pj_de_combatant(_pantalla._player)
+	return maxi(1, Game.equip_tier("main", pj)) if pj != null else 1
+
 func _boton_cargar(ab: AbilityData) -> Button:
 	var b := TooltipButton.new()
 	var p: Combatant = _pantalla._player
@@ -927,7 +932,7 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.es_imbuicion():
 		_pantalla._player.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false,
 			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
-			ab.imbue_prob_doble, ab.imbue_por_destreza)
+			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false, ab.imbue_tope(_tier_arma_activa()))
 		estados_log.append("%s en el arma (%d ataques)" % [
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).

@@ -535,6 +535,10 @@ var imbue_prob_doble: float = 0.0
 # tu Magia; las que pone un ARMA (el veneno de la daga) son cosa de tu mano, y un picaro no tiene
 # Magia que valga. Ver Game / AbilityData.imbue_por_destreza.
 var imbue_por_destreza: bool = false
+# TOPE de acumulaciones que pueden dejar tus golpes imbuidos (-1 = el del estado). Sin el, el Filo
+# emponzoñado subia el veneno hasta el tope GLOBAL (5): con varios personajes se plantaba en 5 (48/turno).
+# Lo pone la habilidad segun el tier del arma (AbilityData.imbue_tope).
+var imbue_tope: int = -1
 # ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
 var imbue_def_gastada: bool = false
 # VELOCIDAD mientras la imbuicion siga puesta (1.0 = no la toca). Vive aqui y no como estado a
@@ -592,9 +596,10 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
 		prob_doble: float = 0.0, por_destreza: bool = false,
-		spd_mult: float = 1.0, prisma: bool = false) -> void:
+		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1) -> void:
 	imbue_elemento = elem
 	imbue_prisma = prisma
+	imbue_tope = tope
 	imbue_pct = pct
 	imbue_usos = maxi(1, usos)
 	imbue_cuerpo = cuerpo
@@ -624,6 +629,8 @@ func rodar_prisma() -> void:
 		return
 	var e: int = Elementos.TODOS[randi() % Elementos.TODOS.size()]
 	imbue_elemento = e
+	# Y deja el ESTADO de ese elemento (03/10, su decision), como los mantos de uno solo.
+	imbue_estado = int(Elementos.ESTADO_DE_IMBUIR.get(e, -1))
 	if imbue_cuerpo:
 		elemento = e
 
@@ -677,6 +684,8 @@ func imbue_resumen() -> String:
 			str(StatusEffects.def(imbue_estado).get("icono", "")), dn])
 		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
 			% [dn, roundi(imbue_prob * 100.0)])
+		if imbue_tope >= 0:
+			lineas.append("Como mucho deja %d dosis (va por el tier del arma)." % imbue_tope)
 		lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
 			imbue_usos, "" if imbue_usos == 1 else "s"])
 		return "\n".join(lineas)
@@ -688,8 +697,11 @@ func imbue_resumen() -> String:
 	if imbue_cuerpo:
 		lineas.append("Al llevarlo ENCIMA, adoptas la afinidad de %s: sus resistencias, sus debilidades y sus inmunidades." % elem)
 	if imbue_estado >= 0 and imbue_prob > 0.0:
+		# El prismatico cambia de estado con el elemento: nombrar el del ultimo golpe seria mentir.
+		var deja: String = "el estado del elemento que salga" if imbue_prisma \
+			else str(StatusEffects.def(imbue_estado).get("nombre", "?"))
 		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
-			% [str(StatusEffects.def(imbue_estado).get("nombre", "?")), roundi(imbue_prob * 100.0)])
+			% [deja, roundi(imbue_prob * 100.0)])
 	if imbue_spd_mult > 1.0:
 		lineas.append("Y mientras la lleves, te mueves un %d%% más rápido." % roundi((imbue_spd_mult - 1.0) * 100.0))
 	# Se gasta por ATAQUE, no por turno: es la diferencia que hay que entender para no
@@ -733,7 +745,8 @@ func roll_imbue(target: Combatant) -> String:
 	if stacks == 0:
 		return ""
 	for _s in stacks:
-		target.apply_status(imbue_estado)   # duracion/magnitud por defecto del catalogo
+		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
+		target.apply_status(imbue_estado, -1, -1.0, 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	return nom if stacks == 1 else "%s x%d" % [nom, stacks]
 
@@ -757,6 +770,7 @@ func consumir_imbue() -> bool:
 	imbue_prisma = false
 	imbue_estado = -1
 	imbue_prob = 0.0
+	imbue_tope = -1
 	imbue_spd_mult = 1.0   # la ligereza se va con el manto: por eso no es un estado por turnos
 	return true
 
@@ -1103,7 +1117,9 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 			if mult_override > 0.0 and absf(mult_override - 1.0) > absf(e.base_stat_mult() - 1.0):
 				e.mult_override = mult_override
 			if mode == "merge":
-				e.stacks = mini(e.stacks + stacks_add, maxs)
+				# El tope de ESTA aplicacion le impide SUBIR, pero no BAJA lo que ya hay: una daga T1
+				# (tope 2) sobre un enemigo con 3 lo dejaba en 2.
+				e.stacks = maxi(e.stacks, mini(e.stacks + stacks_add, maxs))
 			e.escala = maxf(e.escala, escala)   # re-comer: se queda el plato del mejor tier
 			_invalidar_hab()
 			print("[estado] %s: %s re-aplicado (x%d, %.2f/turno, %d turnos)" % [

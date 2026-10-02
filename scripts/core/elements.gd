@@ -35,6 +35,16 @@ const NOMBRE := {
 const TODOS: Array[int] = [Elemento.FUEGO, Elemento.AGUA, Elemento.RAYO, Elemento.LUZ,
 	Elemento.OSCURIDAD]
 
+# El ESTADO que deja un golpe imbuido de cada elemento: los mismos que llevan los mantos de uno solo
+# (brasas, marea, centellas, aureo, umbrio). Lo usa el Manto prismatico al sortear su elemento.
+const ESTADO_DE_IMBUIR := {
+	Elemento.FUEGO: StatusEffects.Id.QUEMADURA,
+	Elemento.AGUA: StatusEffects.Id.MOJADO,
+	Elemento.RAYO: StatusEffects.Id.RAYO,
+	Elemento.LUZ: StatusEffects.Id.VULNERABLE,
+	Elemento.OSCURIDAD: StatusEffects.Id.CEGUERA,
+}
+
 # Icono de cada elemento (para el log: el rastro de golpes de un hechizo multi-elemento).
 const ICONO := {
 	Elemento.NINGUNO: "✨",
