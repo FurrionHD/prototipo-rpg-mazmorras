@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://df2rgdkv4anu2"
-path="res://.godot/imported/golem_aa8e71_2.80.png-8be4f87ce4aeb10ac3b7411ba15f833c.ctex"
+uid="uid://1p4qtpfyl4ob"
+path="res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/golem_aa8e71_2.80.png"
-dest_files=["res://.godot/imported/golem_aa8e71_2.80.png-8be4f87ce4aeb10ac3b7411ba15f833c.ctex"]
+source_file="res://assets/sprites/enemigos/golem3d_aa7f55.png"
+dest_files=["res://.godot/imported/golem3d_aa7f55.png-c68ab98afb2d79b960eddefc81863719.ctex"]
 
 [params]
 
