@@ -21,6 +21,10 @@ var base_attack: float = 0.0
 var base_attack_des: float = -1.0
 # Con que escala la MANO ACTIVA (WeaponData.escala_destreza): 0 Fuerza, 1 Destreza. Lo pone _apply_hand.
 var escala_des: float = 0.0
+# La MANO ACTIVA DISPARA (arco, ballesta): en el mapa el basico necesita linea de tiro y le da al primero
+# que se cruce (CombatTactico.blancos_del_disparo). 'perfora' = la ballesta, que sigue al de detras.
+var a_distancia: bool = false
+var perfora: bool = false
 var base_defense: float = 0.0
 var base_speed: float = 0.0
 # DEFENSA MAGICA base: lo que mitiga los hechizos que RECIBES, aunque tu Magia sea 0. Es el
@@ -906,6 +910,8 @@ func _apply_hand(i: int) -> void:
 	motion_value = h["motion_value"]
 	ataque_arma = h["ataque_arma"]
 	escala_des = h.get("escala_des", 0.0)
+	a_distancia = h.get("distancia", false)
+	perfora = h.get("perfora", false)
 	penetracion = h.get("penetracion", 0.0)
 	crit_bonus = h["crit_bonus"]
 	crit_dmg = h.get("crit_dmg", 0.0)

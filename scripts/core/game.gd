@@ -8608,6 +8608,9 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"ataque_arma": float(wm["raw"]) * dur_mult,
 		# Con que stat escala (0 Fuerza, 1 Destreza): por mano, como todo lo del arma.
 		"escala_des": w.escala_destreza,
+		# Si DISPARA (arco, ballesta) y si el virote atraviesa (ballesta): ver CombatTactico.blancos_del_disparo.
+		"distancia": Forge.es_de_distancia(w),
+		"perfora": int(w.tipo) == WeaponData.Tipo.BALLESTA,
 		# Defensa que ignora. Por mano: en dual cada arma trae la suya.
 		"penetracion": Upgrades.penetracion_arma(w),
 		"crit_bonus": float(wm["crit"]),

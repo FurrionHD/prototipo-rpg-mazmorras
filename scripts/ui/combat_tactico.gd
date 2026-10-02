@@ -725,13 +725,117 @@ func alcance_de(c: Combatant) -> float:
 func llega(a: Combatant, b: Combatant) -> bool:
 	if a == null or b == null:
 		return false
-	# En el aire (la gargola cargando el Picado) no la alcanza el cuerpo a cuerpo de los tuyos.
-	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a):
+	# En el aire (la gargola cargando el Picado) no la alcanza el cuerpo a cuerpo de los tuyos. Una flecha si.
+	if b.volando() and _pantalla._enemies.has(b) and not _pantalla._enemies.has(a) and not a.a_distancia:
 		return false
 	var tope: float = alcance_de(a)
 	if not _pantalla._espejo and _pantalla._aliados.has(a) and not _es_mio(a):
 		tope += HOLGURA_ALCANCE
-	return hueco_entre(a, b) <= tope
+	if hueco_entre(a, b) > tope:
+		return false
+	# A DISTANCIA: ademas, que ninguna PARED corte la linea (decidido 02/10: no deja disparar).
+	return not a.a_distancia or linea_de_tiro_libre(a, b)
+
+
+# ------------------------------------------------------------
+#  EL DISPARO (arco y ballesta, 02/10)
+# ------------------------------------------------------------
+# A QUEMARROPA (hueco hasta lo que llega una daga) el disparo pega menos: o te separas o lo pagas.
+const QUEMARROPA_HUECO := 15.0
+const QUEMARROPA_MULT := 0.6
+# La BALLESTA atraviesa: el de detras del primero se lleva esto (decidido 02/10: 2 cuerpos, 100% y 60%).
+const PERFORA_SEGUNDO := 0.6
+# Cada cuanto se mira la linea (px). Por debajo del grosor de cualquier roca del mapa.
+const PASO_LINEA := 3.0
+
+# LA LINEA DEL DISPARO, DOS VECES, y las dos hacen falta:
+#   - POR EL AIRE: del pecho de quien tira (el centro de su cuerpo) al cuerpo de quien recibe. Es la que toca los
+#     dibujos (la hitbox es el cuerpo tal como se ve).
+#   - POR EL SUELO: de pies a pies. Es la que choca con las paredes y la que pilla a un bicho bajito que se cruza:
+#     con una rata pegada a ti, la del aire le pasaba por encima del dibujo.
+func _linea_aire(a: Combatant, b: Combatant) -> Array:
+	return [bulto_de(a).get_center(), bulto_de(b).get_center()]
+
+func _linea_suelo(a: Combatant, b: Combatant) -> Array:
+	return [pies_de(a), pies_de(b)]
+
+# ¿La linea de 'a' a 'b' pasa sin tocar pared? Por el suelo, con el suelo pisable del piso (el mismo que para
+# andar). Sin piso (pruebas sueltas), no hay paredes.
+func linea_de_tiro_libre(a: Combatant, b: Combatant) -> bool:
+	if cuerpo_de(a) == null or cuerpo_de(b) == null:
+		return true
+	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	if piso == null or not piso.has_method("_pisable_px"):
+		return true
+	var l: Array = _linea_suelo(a, b)
+	var desde: Vector2 = l[0]
+	var hasta: Vector2 = l[1]
+	var pasos: int = maxi(1, ceili(desde.distance_to(hasta) / PASO_LINEA))
+	for k in range(1, pasos):
+		if not piso._pisable_px(desde.lerp(hasta, float(k) / float(pasos))):
+			return false
+	return true
+
+# ¿La linea por el aire toca este dibujo?
+func _toca_aire(desde: Vector2, dir: Vector2, largo: float, r: Rect2) -> bool:
+	var s: float = 0.0
+	while s <= largo:
+		if r.has_point(desde + dir * s):
+			return true
+		s += PASO_LINEA
+	return false
+
+# ¿La linea por el suelo pasa por encima de sus pies (a menos de lo que pisa)? Solo hacia delante.
+func _toca_suelo(desde: Vector2, dir: Vector2, largo: float, e: Combatant) -> bool:
+	var v: Vector2 = pies_de(e) - desde
+	var s: float = v.dot(dir)
+	if s < 0.0 or s > largo:
+		return false
+	return (v - dir * s).length() <= radio_pisa(e)
+
+# ¿'b' esta a su alcance pero una pared corta la linea? Para el aviso del boton.
+func tapado_por_pared(a: Combatant, b: Combatant) -> bool:
+	return a != null and b != null and a.a_distancia and hueco_entre(a, b) <= alcance_de(a) \
+		and not linea_de_tiro_libre(a, b)
+
+# A QUIEN LE DA el disparo de 'a' apuntando a 'obj': [{c, escala, nota}]. El primer enemigo que se cruza en la
+# linea (puede no ser el elegido: si hay otro delante, se lo come el), y con la BALLESTA tambien el siguiente,
+# al PERFORA_SEGUNDO. Los tuyos no tapan (sin fuego amigo). La linea sigue mas alla de 'obj' hasta el alcance,
+# que es por donde sale el virote que atraviesa. Vacio = no hay cuerpos (quien llama pega a 'obj').
+func blancos_del_disparo(a: Combatant, obj: Combatant) -> Array:
+	var out: Array = []
+	if cuerpo_de(a) == null or cuerpo_de(obj) == null:
+		return out
+	var aire: Array = _linea_aire(a, obj)
+	var suelo: Array = _linea_suelo(a, obj)
+	var dir_aire: Vector2 = (Vector2(aire[1]) - Vector2(aire[0])).normalized()
+	var dir_suelo: Vector2 = (Vector2(suelo[1]) - Vector2(suelo[0])).normalized()
+	if dir_aire == Vector2.ZERO or dir_suelo == Vector2.ZERO:
+		return out
+	# Mas alla del elegido, hasta el alcance: por ahi sale el virote que atraviesa.
+	var largo: float = alcance_de(a) + radio_pisa(a) + bulto_de(obj).size.length()
+	# Cada enemigo vivo que el disparo toca (por el aire su dibujo, o por el suelo sus pies), con su hueco.
+	var tocados: Array = []
+	for e in _pantalla._vivos():
+		if not _pantalla._enemies.has(e) or cuerpo_de(e) == null:
+			continue
+		if hueco_entre(a, e) > largo:
+			continue
+		if _toca_aire(aire[0], dir_aire, largo, bulto_de(e)) or _toca_suelo(suelo[0], dir_suelo, largo, e):
+			tocados.append([hueco_entre(a, e), e])
+	# De cerca a lejos; a igual distancia, el orden de _enemies (el mismo en todas las maquinas).
+	tocados.sort_custom(func(x, y): return x[0] < y[0] if x[0] != y[0] \
+		else _pantalla._enemies.find(x[1]) < _pantalla._enemies.find(y[1]))
+	var cuantos: int = 2 if a.perfora else 1
+	for i in mini(cuantos, tocados.size()):
+		var c: Combatant = tocados[i][1]
+		var escala: float = 1.0 if i == 0 else PERFORA_SEGUNDO
+		var nota: String = "" if i == 0 else "atravesado"
+		if hueco_entre(a, c) <= QUEMARROPA_HUECO:
+			escala *= QUEMARROPA_MULT
+			nota = "a quemarropa" if nota == "" else nota + ", a quemarropa"
+		out.append({"c": c, "escala": escala, "nota": nota})
+	return out
 
 
 # De 'candidatos', los que 'a' alcanza desde donde esta.

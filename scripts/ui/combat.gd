@@ -1506,6 +1506,8 @@ func _motivo_bloqueo(id: int) -> String:
 	if id == Action.ATTACK and tactico and _pasa_el_turno():
 		return "Estás enraizado y no llegas a golpear"
 	if id == Action.ATTACK and _objetivo_fuera_de_alcance():
+		if turno_mapa.tapado_por_pared(_player, _objetivo()):
+			return "Sin línea de tiro: muévete"
 		if not turno_mapa.llega_a_alguno(_player):
 			return "No tienes a ningún enemigo a tu alcance: acércate andando"
 		return "Fuera de alcance: acércate o elige a otro"
@@ -1710,10 +1712,14 @@ func _accion_atacar() -> void:
 		return
 	# Objetivo capturado una vez (ver _usar_habilidad): el golpe va a quien elegiste.
 	var obj: Combatant = _objetivo()
-	# Los enemigos no defienden (de momento): defending = false.
-	var result := StatsMath.resolve_attack(_player, obj, false)
-	_aplicar_pasivas(result, _player, obj)
-	_debug_ataque(_player, obj, result)
+	# A DISTANCIA EN EL MAPA (02/10): el disparo se lo come el primer enemigo que se cruce en la linea (puede no ser
+	# el elegido), y el virote de la ballesta sigue al de detras. Cada uno con su escala (quemarropa, perforar).
+	var blancos: Array = [{"c": obj, "escala": 1.0, "nota": ""}]
+	if tactico and _player.a_distancia:
+		var b: Array = turno_mapa.blancos_del_disparo(_player, obj)
+		if not b.is_empty():
+			blancos = b
+			obj = b[0]["c"]
 	# Excelia: atacar sube Fuerza aunque el enemigo esquive (has practicado el
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
@@ -1724,6 +1730,36 @@ func _accion_atacar() -> void:
 	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
 	# en dual cada golpe se ve con su arma sin tener que preguntarlo aqui.
 	var estilo_bas: int = efectos._estilo_de_habilidad(null, _player)
+	for i in blancos.size():
+		_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
+			estilo_bas, con_arma, arma_factor, pj_atacante)
+	magia._gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
+	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
+	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
+	Game.desgastar_arma(_player.current_hand_slot(), pj_atacante)
+	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando. Las armas PESADAS reponen mas
+	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
+	_player.regen_energy(_player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN)
+	_update_hp()
+	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
+	_fin_de_eleccion()
+	_tras_accion_jugador(obj)
+
+
+# UN GOLPE DEL BASICO sobre 'obj'. Casi siempre es uno solo; con la ballesta pueden ser dos (el que atraviesa).
+# 'escala' rebaja el daño (quemarropa, el segundo del virote) y 'nota' lo cuenta en el registro. Solo el
+# 'principal' repone maná: el virote que atraviesa no es un golpe mas de tu turno.
+func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool, estilo_bas: int,
+		con_arma: String, arma_factor: float, pj_atacante: PersonajeData) -> void:
+	# Los enemigos no defienden (de momento): defending = false.
+	var result := StatsMath.resolve_attack(_player, obj, false)
+	if escala != 1.0:
+		result.damage = float(result.damage) * escala
+		if result.has("dmg_imbue"):
+			result.dmg_imbue = float(result.dmg_imbue) * escala
+	_aplicar_pasivas(result, _player, obj)
+	_debug_ataque(_player, obj, result)
+	var de_nota: String = " (%s)" % nota if nota != "" else ""
 	# EN EL MAPA, el basico del MANDOBLE es un corte SOBRE el enemigo (BarridoAire.TAJO): va por el camino
 	# del suelo que se rompe (red, instante del golpe), y ese camino apaga su dibujo viejo.
 	# Tambien si lo ESQUIVA: el corte sale al lado, al aire y tenue (con el dibujo viejo salia la raya de antes).
@@ -1732,7 +1768,7 @@ func _accion_atacar() -> void:
 		var fc: CombatFormas.Forma = turno_mapa.forma_corte(_player, obj, bool(result.evaded))
 		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, fc, (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
-		_set_log("%s esquiva tu ataque (%s). 💨" % [_etq(obj), con_arma])
+		_set_log("%s esquiva tu ataque (%s)%s. 💨" % [_etq(obj), con_arma, de_nota])
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
 		if corte_mapa:
 			efectos.soltar_suelo()
@@ -1751,7 +1787,7 @@ func _accion_atacar() -> void:
 		_dps_add("Básico (%s)" % con_arma, result.damage)
 		var txt: String
 		if result.crit:
-			txt = "¡CRITICO! %s golpea con %s por %.2f de daño. 💥" % [_player.nombre, con_arma, result.damage]
+			txt = "¡CRITICO! %s golpea con %s%s por %.2f de daño. 💥" % [_player.nombre, con_arma, de_nota, result.damage]
 			# Excelia: clavar un critico entrena Agilidad (encontraste el hueco). Escala con el
 			# PESO del arma (motion_value): un arma pesada critea poco, asi que cuando SI lo clava
 			# entrena mas Agilidad; una ligera critea a menudo y aporta menos por golpe. El factor
@@ -1761,7 +1797,7 @@ func _accion_atacar() -> void:
 			Game.ganar("agilidad", _reto(obj, pj_atacante) * agi_factor, Game.GAIN_AGILIDAD_CRITICO,
 				Game.RETO_MAX_FISICO, pj_atacante)
 		else:
-			txt = "%s golpea con %s por %.2f de daño." % [_player.nombre, con_arma, result.damage]
+			txt = "%s golpea con %s%s por %.2f de daño." % [_player.nombre, con_arma, de_nota, result.damage]
 		# Cuanto de ese daño lo ha puesto la IMBUICION, y si el objetivo era debil/resistente
 		# a ella. Sin esto el bonus elemental era invisible: el daño total no lo delata.
 		txt += magia._imbue_dmg_txt(result)
@@ -1777,21 +1813,11 @@ func _accion_atacar() -> void:
 		if imb != "":
 			txt += "  ⚡ Le infliges %s." % imb
 		# El golpe que conecta REPONE maná (no los que fallan: hay que acertar).
-		var mp: float = _ganar_mana_golpe()
-		if mp > 0.0:
-			txt += "  🔷 +%.1f MP." % mp
+		if principal:
+			var mp: float = _ganar_mana_golpe()
+			if mp > 0.0:
+				txt += "  🔷 +%.1f MP." % mp
 		_set_log(txt)
-	magia._gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
-	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
-	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
-	Game.desgastar_arma(_player.current_hand_slot(), pj_atacante)
-	# El ataque basico REGENERA energia (KAN-57): te "cargas" pegando. Las armas PESADAS reponen mas
-	# por golpe (su energia_regen propia): pegan menos veces, asi que cada golpe carga mas.
-	_player.regen_energy(_player.energia_regen if _player.energia_regen > 0.0 else ATTACK_ENERGY_REGEN)
-	_update_hp()
-	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
-	_fin_de_eleccion()
-	_tras_accion_jugador(obj)
 
 
 # EN EL MAPA, PASAR: te quedas donde has andado y cedes el turno, recuperando algo de energia. Es un

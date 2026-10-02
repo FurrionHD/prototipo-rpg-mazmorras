@@ -450,6 +450,9 @@ const FX_ARMA := {
 	8: Estilo.MARTILLO_GOLPE,    # MARTILLO_GRANDE
 	9: Estilo.BASTON_GOLPE,      # BASTON
 	0: Estilo.PUNOS_GOLPE,       # PUNOS (ir a mano limpia tambien tiene su dibujo)
+	# A DISTANCIA (02/10): PROVISIONAL, el proyectil de siempre hasta que tengan su flecha y su virote.
+	10: Estilo.PROYECTIL,        # ARCO
+	11: Estilo.PROYECTIL,        # BALLESTA
 }
 
 
