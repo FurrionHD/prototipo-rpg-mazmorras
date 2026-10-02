@@ -10915,49 +10915,62 @@ func municion_de(lingote: MaterialData, arma: int) -> MunicionData:
 			return md
 	return null
 
-# Cuantos tablones hay en el hogar para los astiles de un TIER (de cualquier banda y calidad).
-func tablones_para_municion(tier: int) -> int:
-	var n: int = 0
+# EL TABLON DE LOS ASTILES de la municion de este lingote: el de su MISMO tier y su MISMA banda (lo pidio el jefe,
+# 02/10: la flecha de cobre veteado lleva tablon de veta, no el comun). Mismo emparejamiento que tablon_de.
+func tablon_para_municion(lingote: MaterialData) -> MaterialData:
+	if lingote == null:
+		return null
 	for t in tablones_forja():
 		var md: MaterialData = t as MaterialData
-		if md != null and int(md.tier) == tier:
-			for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL,
-					MaterialItem.Calidad.DANADO]:
-				n += items_calidad_en_hogar(md, int(cal))
+		if md != null and int(md.tier) == int(lingote.tier) and int(md.mejora_min) == int(lingote.mejora_min):
+			return md
+	return null
+
+# Cuantos de esos tablones hay en el hogar (de cualquier calidad: el astil no necesita madera buena).
+func tablones_para_municion(lingote: MaterialData) -> int:
+	var md: MaterialData = tablon_para_municion(lingote)
+	if md == null:
+		return 0
+	var n: int = 0
+	for cal in [MaterialItem.Calidad.PURO, MaterialItem.Calidad.INTACTO, MaterialItem.Calidad.NORMAL,
+			MaterialItem.Calidad.DANADO]:
+		n += items_calidad_en_hogar(md, int(cal))
 	return n
 
-# Gasta UN tablon de ese tier para los astiles: el PEOR que haya (el astil no necesita madera buena), y de
-# la banda base antes que de las hondas.
-func _gastar_tablon_municion(tier: int) -> bool:
+# Gasta UNO de esos tablones: el de PEOR calidad que haya.
+func _gastar_tablon_municion(lingote: MaterialData) -> bool:
+	var md: MaterialData = tablon_para_municion(lingote)
+	if md == null:
+		return false
 	for cal in [MaterialItem.Calidad.DANADO, MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO,
 			MaterialItem.Calidad.PURO]:
-		for t in tablones_forja():
-			var md: MaterialData = t as MaterialData
-			if md != null and int(md.tier) == tier and items_calidad_en_hogar(md, int(cal)) > 0:
-				_consumir_items_calidad(md, int(cal), 1)
-				return true
+		if items_calidad_en_hogar(md, int(cal)) > 0:
+			_consumir_items_calidad(md, int(cal), 1)
+			return true
 	return false
 
-# FABRICAR MUNICION en el carpintero: cada tanda gasta 1 lingote de esta calidad y 1 tablon de su tier, y da
+# FABRICAR MUNICION en el carpintero: cada tanda gasta 1 lingote de esta calidad y 1 tablon de su banda, y da
 # Forge.MUNICION_POR_TANDA flechas (o virotes) de la calidad del lingote. La Carpinteria puede subirles un
 # escalon, como en cualquier refinado. Devuelve las TANDAS hechas.
 func fabricar_municion(lingote: MaterialData, cal: int, veces: int, arma: int) -> int:
 	var destino: MunicionData = municion_de(lingote, arma)
 	if destino == null or veces <= 0:
 		return 0
-	var n: int = mini(veces, mini(items_calidad_en_hogar(lingote, cal), tablones_para_municion(int(lingote.tier))))
+	var n: int = mini(veces, mini(items_calidad_en_hogar(lingote, cal), tablones_para_municion(lingote)))
 	var prob: float = Forge.prob_subir_calidad(carpinteria_activa())
 	var por_tanda: int = int(Forge.MUNICION_POR_TANDA.get(arma, 10))
 	for _k in range(n):
 		_consumir_items_calidad(lingote, cal, 1)
-		_gastar_tablon_municion(int(lingote.tier))
+		_gastar_tablon_municion(lingote)
 		var cal_final: int = MaterialItem.subir_calidad(cal) if randf() < prob else cal
 		for _j in range(por_tanda):
 			almacen_materiales.append(MaterialItem.crear(destino, cal_final))
 		carpinteria_exp += _puntos_oficio("carpinteria", lingote.tier)
 	if n > 0:
 		descubrir(destino)
-	print("[carpintero] %d x %s + %d tablon(es) -> %d x %s" % [n, lingote.nombre, n, n * por_tanda, destino.nombre])
+	var tab: MaterialData = tablon_para_municion(lingote)
+	print("[carpintero] %d x %s + %d x %s -> %d x %s" % [n, lingote.nombre, n, tab.nombre if tab else "?",
+		n * por_tanda, destino.nombre])
 	return n
 
 # Trenza cuerdas de ESTE curtido (cualquier banda: de un curtido +1 sale la cuerda +1).

@@ -194,7 +194,7 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 	var tengo: int = int(s["tengo"])
 	var salen: int = tengo / maxi(1, por_uno)
 	# La MUNICION gasta ademas un tablon por tanda: lo que no llegue de tablones tambien frena.
-	var tablones: int = Game.tablones_para_municion(int(origen.tier)) if _es_municion(que) else 0
+	var tablones: int = Game.tablones_para_municion(origen) if _es_municion(que) else 0
 	if _es_municion(que):
 		salen = mini(salen, tablones / Forge.TABLON_POR_TANDA)
 
@@ -206,8 +206,9 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 	t.row(vb, "Tienes", "%d  ·  dan para %d" % [tengo, salen], t.VERDE if salen > 0 else t.ROJO)
 	if _es_municion(que):
 		var mun: MunicionData = destino as MunicionData
-		t.row(vb, "Y además", "%d tablón de tier %d por tanda  ·  tienes %d" % [Forge.TABLON_POR_TANDA,
-			int(origen.tier), tablones], t.VERDE if tablones > 0 else t.ROJO)
+		var tab: MaterialData = Game.tablon_para_municion(origen)
+		t.row(vb, "Y además", "%d × %s por tanda  ·  tienes %d" % [Forge.TABLON_POR_TANDA,
+			tab.nombre.to_lower() if tab else "tablón", tablones], t.VERDE if tablones > 0 else t.ROJO)
 		t.row(vb, "Salen", "%d por tanda" % int(Forge.MUNICION_POR_TANDA.get(_arma_de(que), 1)))
 		if mun != null:
 			t.row(vb, "Daño", "+%d%% al disparo" % roundi(mun.dano_bonus * 100.0))
@@ -308,7 +309,7 @@ func _pie(que: int, s: Dictionary, salen: int) -> void:
 	vb.add_child(total)
 	# El tope de las tandas tambien lo ponen los tablones (municion).
 	if _es_municion(que):
-		salen = mini(salen, Game.tablones_para_municion(int((s["mat"] as MaterialData).tier)))
+		salen = mini(salen, Game.tablones_para_municion(s["mat"] as MaterialData))
 	MenuScaffold.pastilla(vb, _verbo(que), func() -> void: refinar(que, s), true, salen > 0)
 
 
