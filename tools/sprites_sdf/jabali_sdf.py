@@ -20,10 +20,12 @@ MAT = {
     'morro':  [(0.56, 0.38, 0.34), (0.72, 0.52, 0.46), (0.84, 0.64, 0.57)],
     'marfil': [(0.78, 0.74, 0.60), (0.93, 0.90, 0.78), (0.99, 0.97, 0.88)],
     'pezuna': [(0.10, 0.08, 0.08), (0.17, 0.14, 0.13), (0.25, 0.21, 0.19)],
-    'ojo':    [(0.10, 0.05, 0.04), (0.10, 0.05, 0.04), (0.14, 0.07, 0.05)],
+    'ojo':    [(0.95, 0.92, 0.84), (0.95, 0.92, 0.84), (0.98, 0.96, 0.90)],
+    'pupila': [(0.06, 0.03, 0.02), (0.06, 0.03, 0.02), (0.06, 0.03, 0.02)],
 }
 # El lienzo y los pies del generador viejo (88 x 88, pies a ~49): el juego lo coloca igual.
-MODELO = Modelo(1.7, (88, 88), (44, 49), MAT, (0.11, 0.07, 0.05), suaves=('cuerpo',), estira=ESTIRA)
+MODELO = Modelo(1.7, (88, 88), (44, 49), MAT, (0.11, 0.07, 0.05), suaves=('cuerpo',), brillan=('ojo', 'pupila'),
+                estira=ESTIRA)
 
 
 def huesos(pose):
@@ -46,8 +48,9 @@ def escena(pose):
     for s in (-1, 1):
         # Las orejas: puntiagudas, hacia arriba y atras.
         add(lambda P, s=s: sd_cono(P, Z(3.0 * s, 9.8, 11.2), Z(4.2 * s, 8.4, 14.2), 1.5, 0.3), 'piel', 0.4)
-        # Los ojos, pequeños y hundidos.
-        add(lambda P, s=s: sd_esfera(P, Z(2.9 * s, 12.0, 8.6), 0.65), 'ojo', 0, 'ojo')
+        # LOS OJOS: blancos con la pupila negra, ASOMANDO de la cuña (a 2,9 quedaban dentro de la cabeza y no se veian).
+        add(lambda P, s=s: sd_esfera(P, Z(3.35 * s, 11.8, 8.9), 0.85), 'ojo', 0, 'ojo')
+        add(lambda P, s=s: sd_esfera(P, Z(3.75 * s, 12.3, 9.0), 0.55), 'pupila', 0, 'ojo')
         # LOS COLMILLOS: GORDOS, salen de los lados del morro y se curvan hacia arriba y atras.
         p = Z(2.4 * s, 15.0, 4.0); d = np.array([0.55 * s, 0.4, 0.75]); r = 1.25
         for k in range(5):
