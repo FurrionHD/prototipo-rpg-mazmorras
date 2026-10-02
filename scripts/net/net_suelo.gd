@@ -60,10 +60,12 @@ func _item_de_dict(d: Dictionary) -> Resource:
 # La llama Game.soltar_item cuando hay sesion: en vez de plantar el pickup en local, se pide
 # al host (que asigna id y lo difunde a TODOS, tu incluido). El offset aleatorio ya viene
 # calculado en pos por quien suelta: asi ambas maquinas ven el drop en el MISMO sitio.
-func solicitar_soltar(item: Resource, pos: Vector2) -> void:
+func solicitar_soltar(item: Resource, pos: Vector2, n: int = 1) -> void:
 	var d := _item_a_dict(item)
 	if d.is_empty():
 		return
+	if n > 1:
+		d["n"] = n   # un MONTON de iguales en un solo drop (las flechas que se recuperan)
 	if Net.es_host:
 		_registrar_y_difundir(d, pos, Net._mi_lugar)
 	else:
@@ -122,7 +124,7 @@ func _spawn_drop(id: int, d: Dictionary, pos: Vector2, lugar: String) -> void:
 	if item == null or mundo == null:
 		return
 	var pickup: Node2D = _DROP_PICKUP.new()
-	pickup.setup(item)
+	pickup.setup(item, int(d.get("n", 1)))
 	pickup.set_meta("net_id", id)   # la clase no se toca: el id de red viaja como meta
 	mundo.add_child(pickup)
 	pickup.global_position = pos
@@ -171,6 +173,8 @@ func _despawn_drop(id: int) -> void:
 # proceso, el aviso del HUD ("Recoges X") sale solo en SU pantalla.
 @rpc("any_peer", "call_remote", "reliable")
 func _recoger_concedido(d: Dictionary) -> void:
-	var item := _item_de_dict(d)
-	if item != null:
-		Game.embolsar(item)
+	# Un monton (d["n"]) se embolsa unidad a unidad: cada MaterialItem es uno.
+	for _k in range(maxi(1, int(d.get("n", 1)))):
+		var item := _item_de_dict(d)
+		if item != null:
+			Game.embolsar(item)

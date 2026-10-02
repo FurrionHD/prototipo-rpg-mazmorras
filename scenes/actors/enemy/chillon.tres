@@ -15,6 +15,7 @@ prob = 0.25
 
 [resource]
 script = ExtResource("1")
+dureza = 2.0
 familia = 5
 enemy_name = "Chillón de las simas"
 centro_suelo = 0.52

@@ -18,8 +18,12 @@ extends Node2D
 var item: Resource = null
 
 
-func setup(i: Resource) -> void:
+# Cuantas unidades iguales hay en este monton (las flechas que se recuperan caen juntas). 1 = una.
+var cantidad: int = 1
+
+func setup(i: Resource, n: int = 1) -> void:
 	item = i
+	cantidad = maxi(1, n)
 
 
 const LADO := 16.0
@@ -29,6 +33,35 @@ func _ready() -> void:
 	add_to_group("pickup")
 	queue_redraw()
 	_crear_destellos()
+	_mirar_arquero()
+
+
+# LA MUNICION SOLO LA VE QUIEN LA USA (02/10, lo pidio el jefe): con arco o ballesta se ve y se recoge; sin, ni
+# se ve ni esta en el grupo de recogibles, para que un compañero que no la usa no se la lleve sin querer. Se mira
+# a ratos porque puedes cambiar de arma con ella en el suelo.
+var _t_arquero: float = 0.0
+
+func _es_municion() -> bool:
+	return item is MaterialItem and (item as MaterialItem).data is MunicionData
+
+func _process(delta: float) -> void:
+	if not _es_municion():
+		set_process(false)
+		return
+	_t_arquero -= delta
+	if _t_arquero <= 0.0:
+		_t_arquero = 0.5
+		_mirar_arquero()
+
+func _mirar_arquero() -> void:
+	if not _es_municion():
+		return
+	var ve: bool = Game.lleva_arma_distancia(Game.lider())
+	visible = ve
+	if ve and not is_in_group("pickup"):
+		add_to_group("pickup")
+	elif not ve and is_in_group("pickup"):
+		remove_from_group("pickup")
 
 
 # EL DIBUJO ENTERO LO PONE IconoItem, que es el MISMO que usa la cuadricula del inventario. Un item
@@ -41,6 +74,11 @@ func _ready() -> void:
 # Net.suelo.SUELO_TOPE_POR_LUGAR, eso son 240 nodos de mas para pintar lo mismo).
 func _draw() -> void:
 	IconoItem.pintar(self, Vector2.ZERO, LADO, item)
+	if cantidad > 1:
+		var f: Font = ThemeDB.fallback_font
+		draw_string_outline(f, Vector2(LADO * 0.1, LADO * 0.62), "x%d" % cantidad, HORIZONTAL_ALIGNMENT_LEFT,
+			-1, 9, 3, Color(0, 0, 0, 0.8))
+		draw_string(f, Vector2(LADO * 0.1, LADO * 0.62), "x%d" % cantidad, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color.WHITE)
 
 
 # DESTELLOS del color de su rango (ver MaterialData.rango_color): asi un nucleo de trent tirado en
@@ -69,3 +107,14 @@ func recoger() -> Resource:
 	var i := item
 	queue_free()
 	return i
+
+# Todo el monton, una unidad por elemento (para embolsarlas de una en una). La primera es el propio item.
+func recoger_todos() -> Array:
+	var out: Array = [item]
+	for _k in range(cantidad - 1):
+		if item is MaterialItem:
+			out.append(MaterialItem.crear((item as MaterialItem).data, int((item as MaterialItem).calidad)))
+		else:
+			out.append(item)
+	queue_free()
+	return out

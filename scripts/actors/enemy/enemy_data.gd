@@ -275,6 +275,12 @@ func drop_factor_piso(piso: int) -> float:
 # todo le entra por 'volteo_mult' (y sin caparazon).
 @export var caparazon_frente: float = 1.0
 @export var volteo_mult: float = 1.0
+# LO DURO QUE ES contra una FLECHA o un VIROTE de material que se le clava (02/10): cuanto mas duro que la flecha,
+# mas facil que se rompa al acabar la pelea (ver MunicionData.prob_romper). Blandos (slimes) 0.5 ... coloso 7.
+@export var dureza: float = 2.0
+# DESTROZA FLECHAS aparte de la dureza (el slime de fuego las derrite, el venenoso las corroe): esta probabilidad
+# extra de que se rompan. 0 = nada.
+@export var rompe_flechas: float = 0.0
 # OLOR A SANGRE (acechador): va siempre a por quien sangra (si nadie sangra, al de menos vida) y le pega por esto.
 @export var olor_sangre_mult: float = 1.0
 # CARNE QUE SE CIERRA (aberracion): al empezar su turno se cura esta fraccion de su vida maxima, salvo que le haya
@@ -620,6 +626,8 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.caparazon_frente = caparazon_frente
 	c.volteo_mult = volteo_mult
 	c.olor_sangre_mult = olor_sangre_mult
+	c.dureza = dureza
+	c.rompe_flechas = rompe_flechas
 	c.camada_mult = camada_mult
 	c.camada_salto = camada_salto
 	c.camada_radio = camada_radio

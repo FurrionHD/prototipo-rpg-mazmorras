@@ -16,6 +16,7 @@ prob = 0.6
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 3.0
 familia = 5
 enemy_name = "Acechador de las simas"
 centro_suelo = 0.44

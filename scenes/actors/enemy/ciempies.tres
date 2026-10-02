@@ -16,6 +16,7 @@ cap = 2
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 3.0
 familia = 3
 enemy_name = "Ciempiés carmesí"
 centro_suelo = 0.48

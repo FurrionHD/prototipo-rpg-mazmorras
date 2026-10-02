@@ -20,6 +20,7 @@ prob = 0.45
 
 [resource]
 script = ExtResource("1")
+dureza = 1.0
 enemy_name = "Chupasimas"
 centro_suelo = 0.38
 historia = "Una sanguijuela del largo de un brazo que vive en los charcos de las simas. Se deja caer del techo mojada, se pega, y para cuando la notas ya pesa el doble que al empezar."

@@ -15,6 +15,7 @@ prob = 0.5
 
 [resource]
 script = ExtResource("1")
+dureza = 4.0
 familia = 3
 enemy_name = "Segadora"
 centro_suelo = 0.4

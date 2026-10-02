@@ -1738,12 +1738,17 @@ func _accion_atacar() -> void:
 		con_arma = "%s (%s)" % [con_arma, md_t.nombre.to_lower()]
 		for bl in blancos:
 			bl["escala"] = float(bl["escala"]) * (1.0 + md_t.dano_bonus)
-		# Donde acaba: en el ultimo que se come (el segundo del virote) o, si no pilla a nadie, en el suelo. Lo de
-		# la esquiva lo afina el clavado (paso siguiente); aqui se apunta el disparo.
-		_player.municion_disparada.append({"md": md_t, "cal": int(tiro["cal"]), "en": blancos[blancos.size() - 1]["c"]})
+	var aciertos: Array = []
 	for i in blancos.size():
-		_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
-			estilo_bas, con_arma, arma_factor, pj_atacante)
+		aciertos.append(_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
+			estilo_bas, con_arma, arma_factor, pj_atacante))
+	# DONDE SE QUEDA LA FLECHA DE MATERIAL: clavada en el ultimo al que le entra (el segundo, si el virote lo
+	# atraviesa) o, si el ultimo la esquiva, en el suelo detras de el. Se apunta para tirar al acabar si se rompe.
+	if not tiro.is_empty():
+		var ultimo: int = blancos.size() - 1
+		var clavada: Combatant = blancos[ultimo]["c"] if bool(aciertos[ultimo]) else null
+		var al_suelo: Vector2 = turno_mapa.detras_de(_player, blancos[ultimo]["c"]) if tactico else Vector2.INF
+		_player.municion_disparada.append({"md": tiro["md"], "cal": int(tiro["cal"]), "en": clavada, "pos": al_suelo})
 	magia._gastar_imbue()   # blandir el arma gasta un uso, acierte o falle
 	# DURABILIDAD: blandir el arma la desgasta (acierte o falle: has dado el golpe). Los puños
 	# (main vacio) no se gastan (lo filtra Game.desgastar_arma).
@@ -1761,7 +1766,7 @@ func _accion_atacar() -> void:
 # 'escala' rebaja el daño (quemarropa, el segundo del virote) y 'nota' lo cuenta en el registro. Solo el
 # 'principal' repone maná: el virote que atraviesa no es un golpe mas de tu turno.
 func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool, estilo_bas: int,
-		con_arma: String, arma_factor: float, pj_atacante: PersonajeData) -> void:
+		con_arma: String, arma_factor: float, pj_atacante: PersonajeData) -> bool:
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, obj, false)
 	if escala != 1.0:
@@ -1783,6 +1788,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
 		if corte_mapa:
 			efectos.soltar_suelo()
+		return false
 	else:
 		obj.take_damage(result.damage)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,
@@ -1829,6 +1835,43 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			if mp > 0.0:
 				txt += "  🔷 +%.1f MP." % mp
 		_set_log(txt)
+		return true
+
+
+# LAS FLECHAS Y VIROTES DE MATERIAL QUE SE DISPARARON (02/10): cada una tira si se ROMPE contra lo que se le clavo
+# (su dureza contra la del enemigo o la del suelo del piso; el fuego y el veneno las destrozan aparte). Las que
+# aguantan se quedan en el suelo DONDE ESTAN (el cuerpo del enemigo, o donde cayo), juntas por tipo y sitio, y solo
+# las ve quien lleve arco o ballesta (ver drop_pickup). Lo hace quien lleva la pelea, que es quien sabe donde esta
+# cada cuerpo; el suelo lo reparte Net a todos.
+func _recoger_flechas() -> void:
+	var montones: Dictionary = {}   # "ruta|cal|x|y" -> {md, cal, pos, n}
+	var rotas: int = 0
+	var quedan: int = 0
+	for c in _aliados:
+		for d in c.municion_disparada:
+			var md: MunicionData = d["md"]
+			var en: Combatant = d.get("en")
+			var dur: float = en.dureza if en != null else MunicionData.dureza_suelo(Game.current_floor)
+			var rompe: float = en.rompe_flechas if en != null else 0.0
+			if randf() < md.prob_romper(int(d["cal"]), dur, rompe):
+				rotas += 1
+				continue
+			var pos: Vector2 = Vector2(d.get("pos", Vector2.INF))
+			if tactico and en != null and turno_mapa.cuerpo_de(en) != null:
+				pos = turno_mapa.pies_de(en)
+			if pos == Vector2.INF:
+				continue   # sin mapa (la fila de siempre) no hay donde dejarla: se pierde como una rota
+			var clave: String = "%s|%d|%d|%d" % [md.resource_path, int(d["cal"]), roundi(pos.x), roundi(pos.y)]
+			if not montones.has(clave):
+				montones[clave] = {"md": md, "cal": int(d["cal"]), "pos": pos, "n": 0}
+			montones[clave]["n"] = int(montones[clave]["n"]) + 1
+			quedan += 1
+		c.municion_disparada.clear()
+	for k in montones:
+		var m: Dictionary = montones[k]
+		Game.soltar_en_suelo(MaterialItem.crear(m["md"], int(m["cal"])), m["pos"], int(m["n"]))
+	if rotas + quedan > 0:
+		print("[municion] al acabar: %d rotas, %d quedan en el suelo para recoger" % [rotas, quedan])
 
 
 # EN EL MAPA, PASAR: te quedas donde has andado y cedes el turno, recuperando algo de energia. Es un
@@ -2393,6 +2436,7 @@ func _end(player_won: bool, fled: bool = false) -> void:
 		for e in _enemies:
 			if not e.is_alive():
 				Game.rodar_slayer_por_familia(int(e.familia), _ultimo_en_golpear.get(e))
+		_recoger_flechas()
 	_state = State.FINISHED
 	magia._limpiar_casteo()
 	_casteos.clear()   # y los conjuros a medias de los demas: la pelea ha terminado para todos

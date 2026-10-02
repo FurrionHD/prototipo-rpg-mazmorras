@@ -10,6 +10,7 @@
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 4.0
 familia = 6
 enemy_name = "Minotauro"
 centro_suelo = 0.83

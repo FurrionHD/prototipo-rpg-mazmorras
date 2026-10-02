@@ -776,6 +776,14 @@ func linea_de_tiro_libre(a: Combatant, b: Combatant) -> bool:
 			return false
 	return true
 
+# DONDE CAE UNA FLECHA QUE PASA DE LARGO: en el suelo, un poco por detras de 'b' en la linea de tiro.
+const DETRAS_CAE := 18.0
+func detras_de(a: Combatant, b: Combatant) -> Vector2:
+	if cuerpo_de(a) == null or cuerpo_de(b) == null:
+		return Vector2.INF
+	var dir: Vector2 = (pies_de(b) - pies_de(a)).normalized()
+	return pies_de(b) + dir * (radio_pisa(b) + DETRAS_CAE)
+
 # ¿La linea por el aire toca este dibujo?
 func _toca_aire(desde: Vector2, dir: Vector2, largo: float, r: Rect2) -> bool:
 	var s: float = 0.0

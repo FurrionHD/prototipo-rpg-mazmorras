@@ -21,6 +21,7 @@ cap = 2
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 2.0
 familia = 3
 enemy_name = "Araña de las simas"
 centro_suelo = 0.49

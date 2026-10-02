@@ -21,6 +21,7 @@ prob = 1.0
 
 [resource]
 script = ExtResource("1")
+dureza = 1.0
 enemy_name = "Miconido"
 historia = "Un hongo del tamaño de un hombre que aprendió a andar. No tiene ojos ni boca; el sombrero se orienta hacia donde nota el aire moverse, y con eso le basta."
 color = Color(0.52, 0.46, 0.3, 1)

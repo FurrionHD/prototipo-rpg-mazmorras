@@ -2092,7 +2092,8 @@ func _try_interact() -> void:
 		if Net.activo and n.has_meta("net_id"):
 			Net.suelo.solicitar_recoger(n.get_meta("net_id"))
 			return
-		Game.embolsar(n.recoger())
+		for it in n.recoger_todos():
+			Game.embolsar(it)
 	# 4) Veta, planta o, lo ultimo de todo, el estanque: abre su minijuego. El ESTANQUE va el ultimo
 	# (ver objetivo_interaccion): ocupa 5x4 celdas y mide la distancia desde su BORDE (radio_extra), asi
 	# que a igualdad de cercania le ganaria a cualquier veta de la sala.

@@ -16,6 +16,7 @@ prob = 0.35
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 1.5
 familia = 2
 enemy_name = "Rey rata"
 centro_suelo = 0.46

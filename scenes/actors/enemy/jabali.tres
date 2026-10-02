@@ -16,6 +16,7 @@ prob = 0.2
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 2.0
 familia = 5
 enemy_name = "Jabalí"
 centro_suelo = 0.58

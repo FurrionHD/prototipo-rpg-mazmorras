@@ -266,6 +266,9 @@ var al_ser_golpeado_fx: int = -1
 var caparazon_frente: float = 1.0
 var volteo_mult: float = 1.0
 var olor_sangre_mult: float = 1.0
+# Contra las flechas que se le clavan (EnemyData.dureza / rompe_flechas). Los tuyos no los usan.
+var dureza: float = 2.0
+var rompe_flechas: float = 0.0
 var regen_turno: float = 0.0
 var regen_corta_elem: int = 0
 var regen_corta_turnos: int = 2

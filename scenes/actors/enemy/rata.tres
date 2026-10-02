@@ -9,6 +9,7 @@
 
 [resource]
 script = ExtResource("1_g8nro")
+dureza = 1.0
 familia = 2
 enemy_name = "Rata de mazmorra"
 centro_suelo = 0.4
