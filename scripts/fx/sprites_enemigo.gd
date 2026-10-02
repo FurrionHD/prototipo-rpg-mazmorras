@@ -55,7 +55,8 @@ static var GENERADORES := {
 # tres el MISMO dibujo -- y una araña, un escarabajo y un ciempies no se parecen en nada. Es el
 # mismo caso del Jabali y el Acechador, pero desde dentro de una sola familia.
 static var GENERADORES_POR_NOMBRE := {
-	&"jabali": JabaliSprites,
+	# (03/10) En 3D: Jabali3DSprites carga sus hojas; JabaliSprites (el de codigo) queda de referencia.
+	&"jabali": Jabali3DSprites,
 	# Y aqui esta el Acechador, que es el ejemplo del parrafo de arriba hecho realidad: comparte la
 	# familia BESTIA con el Jabali y comparte hasta el esqueleto de cuadrupedo, pero es su lectura
 	# CONTRARIA -- alto y estrecho contra bajo y ancho, grupa alta contra cruz alta, morro largo
