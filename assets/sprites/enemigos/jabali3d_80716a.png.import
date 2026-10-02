@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://se05wi0le5jp"
-path="res://.godot/imported/jabali_80716a_1.70.png-6ac8af6158aa73f73e4df5b6a48e0d9e.ctex"
+uid="uid://cbikqt8ckyog1"
+path="res://.godot/imported/jabali3d_80716a.png-3d580462b7bac4c333b90620b75de1ff.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/jabali_80716a_1.70.png"
-dest_files=["res://.godot/imported/jabali_80716a_1.70.png-6ac8af6158aa73f73e4df5b6a48e0d9e.ctex"]
+source_file="res://assets/sprites/enemigos/jabali3d_80716a.png"
+dest_files=["res://.godot/imported/jabali3d_80716a.png-3d580462b7bac4c333b90620b75de1ff.ctex"]
 
 [params]
 
