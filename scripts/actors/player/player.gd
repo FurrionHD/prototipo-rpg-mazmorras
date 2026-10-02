@@ -1530,6 +1530,14 @@ func _try_attack(golpe_restante: float = -1.0) -> bool:
 	if golpe_restante < 0.0:
 		golpe_restante = _golpe_t
 	var candidatos: Array = _enemigos_a_tiro()
+	# CON ARCO O BALLESTA (02/10): sale un disparo hacia el mas cercano y la pelea se abre CUANDO LE LLEGA, igual
+	# que el conjuro. Empiezas lejos, que es justo la gracia.
+	if Game.lleva_arma_distancia(Game.lider()):
+		for par in candidatos:
+			if par[1].has_method("atacado_por_jugador"):
+				_disparar_en_mapa(par[1])
+				return true
+		return false
 	for par in candidatos:
 		var e = par[1]
 		if not e.has_method("atacado_por_jugador"):
@@ -1560,6 +1568,10 @@ func _try_attack(golpe_restante: float = -1.0) -> bool:
 # espadazo: el filtro (hueco + cono + pared) tiene que ser el mismo, solo cambia la distancia.
 func _enemigos_a_tiro(alcance: float = -1.0) -> Array:
 	if alcance <= 0.0:
+		# Con arco o ballesta, "a tiro" es su ALCANCE (en hueco, como en la pelea), con el mismo cono y la misma
+		# pared que el conjuro. Sin eso, el boton se encenderia a distancia de espadazo.
+		if Game.lleva_arma_distancia(Game.lider()):
+			return _enemigos_a_tiro(_rango_disparo())
 		return _enemigos_en_zona_golpe()
 	var rango: float = alcance
 	var out: Array = []
@@ -1860,6 +1872,35 @@ func _impacto_conjuro(objetivo: Node, spell: SpellData) -> void:
 		# se tira, que si no se quedaria esperando a la siguiente pelea que se abriera por lo que
 		# fuera y saldria solo de la nada.
 		Game.olvidar_hechizo_de_entrada()
+
+
+# EL DISPARO EN EL MAPA (arco y ballesta, 02/10). De centro a centro: el alcance del arma (que es HUECO, como en la
+# pelea) mas los dos medios cuerpos que _enemigos_a_tiro le vuelve a restar.
+func _rango_disparo() -> float:
+	var w: WeaponData = Game.lider().equipped_main as WeaponData
+	var alcance: float = w.alcance_real() if w != null else 0.0
+	return alcance + PoseJugador.CAJA_CUERPO.size.x * 0.5 + Cuerpos.MEDIO_BASE
+
+# Sale el disparo hacia 'objetivo' y, al llegar, abre la pelea. PROVISIONAL: vuela el proyectil de los
+# conjuros (sin hechizo, su forma de siempre) hasta que la flecha y el virote tengan su dibujo.
+const COLOR_DISPARO := Color(0.82, 0.72, 0.52)
+
+func _disparar_en_mapa(objetivo: Node) -> void:
+	var p: Node2D = PROYECTIL_HECHIZO.new()
+	p.setup(objetivo, COLOR_DISPARO, null)
+	p.global_position = global_position
+	var mundo: Node = get_parent()
+	if mundo == null:
+		return
+	mundo.add_child(p)
+	p.impacto.connect(_impacto_disparo)
+	Net.jugadores.anunciar_conjuro(objetivo, COLOR_DISPARO)   # que se vea volar en las otras pantallas
+
+func _impacto_disparo(objetivo: Node) -> void:
+	if not is_instance_valid(objetivo) or not objetivo.has_method("atacado_por_jugador"):
+		return
+	if not bool(objetivo.atacado_por_jugador(0.0)):
+		_avisar_no_puedo_entrar()
 
 
 # Algo de fuera se lleva el canto por delante (un bicho que me alcanza y abre la pelea). Lo llama

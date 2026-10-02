@@ -6760,6 +6760,11 @@ func soltar_casteo_en_vuelo() -> void:
 
 # ¿Lleva encima un arma MAGICA (bastón en la principal o varita en la secundaria)? Es lo que permite
 # recitar en el mapa. El criterio no se repite: es el mismo _es_arma_magica que usa la forja.
+# ¿Lleva un ARCO o una BALLESTA en la principal? Es lo que hace que el ataque del mapa dispare de lejos.
+func lleva_arma_distancia(pj: PersonajeData = null) -> bool:
+	var p: PersonajeData = pj if pj != null else lider()
+	return p != null and Forge.es_de_distancia(p.equipped_main)
+
 func lleva_arma_magica(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	return _es_arma_magica(p.equipped_main) or _es_arma_magica(p.equipped_off)
