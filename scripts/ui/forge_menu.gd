@@ -10,7 +10,7 @@
 #    Mejorar, Deshacer, Reparar - el mostrador de TODO el equipo (herreria_mejorar/deshacer/reparar.gd)
 #  CARPINTERIA (3 pestañas):
 #    Tablones, Carbonera       - refinar madera
-#    Forjar                    - baston y varita
+#    Forjar                    - baston y varita, arco y ballesta
 #
 #  REHECHA el 16/09/2026 con la cara del inventario, la ultima de los oficios: pestañas con icono,
 #  quien trabaja, rejilla de celdas (la celda es LO QUE SALE) y ficha con pie fijo. El montaje es la

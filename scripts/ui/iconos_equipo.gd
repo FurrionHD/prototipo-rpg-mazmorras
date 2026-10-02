@@ -182,6 +182,42 @@ const BASTON := [
 	"         ",
 ]
 
+# A DISTANCIA (02/10). El ARCO de pie: la vara curvada a la izquierda y la cuerda recta (oscura) a la
+# derecha, con el agarre oscuro en medio de la vara.
+const ARCO := [
+	"      #  ",
+	"     #.  ",
+	"    # .  ",
+	"   #  .  ",
+	"  #   .  ",
+	"  .   .  ",
+	"  .   .  ",
+	"  .   .  ",
+	"  #   .  ",
+	"   #  .  ",
+	"    # .  ",
+	"     #.  ",
+	"      #  ",
+]
+
+# La BALLESTA vista desde arriba con el virote hacia arriba: las palas cruzadas arriba, la cuerda oscura
+# tensada hasta la nuez y la culata de madera (oscura) abajo, con el gatillo.
+const BALLESTA := [
+	"    #    ",
+	"    #    ",
+	"#   #   #",
+	" ####### ",
+	" .  #  . ",
+	"  . # .  ",
+	"   .#.   ",
+	"    .    ",
+	"    .    ",
+	"   ..    ",
+	"    .    ",
+	"    .    ",
+	"   ...   ",
+]
+
 # --- ESCUDOS: uno por tamaño, y se distinguen por la FORMA, no solo por el tamaño --------------
 
 const ESCUDO_PEQ := [
@@ -365,6 +401,8 @@ static func tabla_de_mano(item: Resource) -> Array:
 			WeaponData.Tipo.MAZA_PEQ: return MAZA_PEQ
 			WeaponData.Tipo.MARTILLO_GRANDE: return MARTILLO_GRANDE
 			WeaponData.Tipo.BASTON: return BASTON
+			WeaponData.Tipo.ARCO: return ARCO
+			WeaponData.Tipo.BALLESTA: return BALLESTA
 			_: return PUNOS
 	if item is ShieldData:
 		match int((item as ShieldData).tamano):

@@ -782,6 +782,18 @@ static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 		c.draw_circle(Vector2(pos.x + lado * (0.20 + 0.11 * float(i)), cy), g * 0.55, col)
 
 
+# --- CUERDA (arco y ballesta, 02/10): la madeja enrollada con el cabo suelto ---
+# Sin hebilla: es lo que la separa de la correa de al lado en la barra de pestañas.
+static func cuerda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var centro: Vector2 = pos + Vector2(lado * 0.44, lado * 0.46)
+	c.draw_arc(centro, lado * 0.30, 0.0, TAU, 24, col, g, true)
+	c.draw_arc(centro, lado * 0.18, 0.0, TAU, 18, col, g, true)
+	# El cabo: sale del aro y cae hacia la esquina.
+	c.draw_polyline(PackedVector2Array([centro + Vector2(lado * 0.26, lado * 0.14),
+		pos + Vector2(lado * 0.80, lado * 0.72), pos + Vector2(lado * 0.84, lado * 0.88)]), col, g, true)
+
+
 # ============================================================
 #  LA BOTICARIA Y LA COCINA
 # ============================================================

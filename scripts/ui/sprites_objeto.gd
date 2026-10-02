@@ -467,6 +467,8 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 				forma = "cuero"   # cuero_curtido se llama "Cuero simple": ya esta trabajado, no es pellejo
 			elif id.begins_with("correa_"):
 				forma = "correa"
+			elif id.begins_with("cuerda_"):
+				forma = "cuerda"
 			elif PIEL_DE.has(id):
 				forma = PIEL_DE[id]
 	if forma == "":
@@ -622,6 +624,7 @@ static func _facetas(forma: String) -> Array:
 		"tablon": return _tablon()
 		"cuero": return _cuero()
 		"correa": return _correa()
+		"cuerda": return _cuerda()
 		"mochila": return _mochila()
 	return []
 
@@ -811,6 +814,28 @@ static func _correa() -> Array:
 		_pol("s", [0.60, 0.68, 0.64, 0.64, 0.84, 0.80, 0.80, 0.84]),
 		_pol("m", [0.70, 0.64, 0.80, 0.58, 0.94, 0.74, 0.84, 0.82]),
 		_pol(".", [0.75, 0.66, 0.80, 0.63, 0.88, 0.73, 0.83, 0.77]),
+	]
+
+
+# LA CUERDA (arco y ballesta, 02/10): una madeja enrollada, mas fina que la correa y sin hebilla, con las
+# vueltas marcadas en diagonal (es lo que la lee como cuerda trenzada y no como un aro) y el cabo suelto
+# deshilachado.
+static func _cuerda() -> Array:
+	return [
+		_elipse("b", 0.46, 0.44, 0.32, 0.28),
+		_elipse("s", 0.48, 0.47, 0.24, 0.20),
+		_elipse("b", 0.46, 0.44, 0.22, 0.18),
+		_elipse(".", 0.46, 0.44, 0.13, 0.10),
+		# las vueltas de la trenza, en diagonal por todo el aro
+		_lin("s", [0.20, 0.36, 0.25, 0.30]), _lin("s", [0.30, 0.22, 0.36, 0.18]),
+		_lin("s", [0.50, 0.16, 0.56, 0.18]), _lin("s", [0.68, 0.26, 0.72, 0.32]),
+		_lin("s", [0.24, 0.58, 0.28, 0.64]), _lin("s", [0.40, 0.70, 0.46, 0.72]),
+		_lin("l", [0.18, 0.44, 0.22, 0.40]), _lin("l", [0.40, 0.17, 0.44, 0.15]),
+		# el cabo suelto, que cae y se abre en hebras
+		_tira("b", [0.70, 0.58, 0.76, 0.70, 0.80, 0.82], 0.07, 0.05),
+		_lin("s", [0.73, 0.64, 0.77, 0.62]), _lin("s", [0.76, 0.74, 0.80, 0.72]),
+		_tira("l", [0.79, 0.84, 0.76, 0.92], 0.025, 0.01),
+		_tira("l", [0.81, 0.84, 0.84, 0.92], 0.025, 0.01),
 	]
 
 

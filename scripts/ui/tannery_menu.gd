@@ -30,14 +30,15 @@ const PeleteriaRefinar = preload("res://scripts/ui/peleteria/peleteria_refinar.g
 const PeleteriaMochilas = preload("res://scripts/ui/peleteria/peleteria_mochilas.gd")
 const HerreriaForjar = preload("res://scripts/ui/herreria/herreria_forjar.gd")
 
-const TABS := ["Curtir", "Correas", "Mochilas", "Armaduras"]
+const TABS := ["Curtir", "Correas", "Cuerdas", "Mochilas", "Armaduras"]
 # Los iconos, en el mismo orden. Van con icono y SIN texto, como el inventario y la tienda: el
 # nombre de la seccion se lee arriba a la izquierda, bajo "Peleteria".
-const TAB_ICONOS := ["cuero", "correa", "mochila", "coraza"]
+const TAB_ICONOS := ["cuero", "correa", "cuerda", "mochila", "coraza"]
 const TAB_CURTIR := 0
 const TAB_CORREAS := 1
-const TAB_MOCHILAS := 2
-const TAB_ARMADURAS := 3
+const TAB_CUERDAS := 2   # la cuerda del arco y la ballesta (02/10)
+const TAB_MOCHILAS := 3
+const TAB_ARMADURAS := 4
 # La armadura lleva DOS ingredientes en columnas y la tabla de rareza: el reparto de la herreria.
 const ANCHO_FICHA_ARMADURA := 780.0
 
@@ -51,7 +52,7 @@ const ANCHO_FICHA_MOCHILA := 870.0
 # de QUIEN TRABAJA salia cortado (visto en captura, igual que en la cocina).
 const ANCHO_REJILLA_MOCHILA := 330.0
 
-var refinar = null    # PeleteriaRefinar (vale para Curtir y para Correas)
+var refinar = null    # PeleteriaRefinar (vale para Curtir, Correas y Cuerdas)
 var mochilas = null   # PeleteriaMochilas
 var armaduras = null  # HerreriaForjar en modo cuero
 
@@ -100,7 +101,7 @@ func _pintar() -> void:
 	else:
 		anchos(ANCHO_REJILLA_MIN, ANCHO_FICHA)
 	# Solo MOCHILAS y ARMADURAS reservan (seleccion persistente); curtir y correas son instantaneas.
-	if Net.activo and _tab in [TAB_CURTIR, TAB_CORREAS]:
+	if Net.activo and _tab in [TAB_CURTIR, TAB_CORREAS, TAB_CUERDAS]:
 		Net.hogar.reservar({})
 
 	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el pellejo en la esquina. Estaba escrito en la
@@ -110,4 +111,6 @@ func _pintar() -> void:
 	match _tab:
 		TAB_MOCHILAS: mochilas.build()
 		TAB_ARMADURAS: armaduras.build()
-		_: refinar.build(_tab == TAB_CORREAS)
+		TAB_CORREAS: refinar.build(PeleteriaRefinar.Modo.CORREAS)
+		TAB_CUERDAS: refinar.build(PeleteriaRefinar.Modo.CUERDAS)
+		_: refinar.build(PeleteriaRefinar.Modo.CURTIR)

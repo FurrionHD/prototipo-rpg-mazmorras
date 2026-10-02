@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cuerda_placada"
+nombre = "Cuerda placada"
+descripcion = "Del cuero placado, la mas dura que sabe trenzar el peletero. Una ballesta montada con esto no la arma cualquiera."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 0.08
+valor_base = 608
+mejora_min = 9
+mejora_max = 15
+color = Color(0.44, 0.36, 0.34, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

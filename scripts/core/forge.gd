@@ -40,6 +40,7 @@ const CUERO_POR_CURTIDO := 2
 # hebillas pide (MOCHILA_COSTE), no en lo que cuesta cada una.
 const LINGOTE_POR_HEBILLAS := 1
 const CUERO_POR_CORREA := 2
+const CUERO_POR_CUERDA := 2      # dos curtidos de la misma calidad trenzan una cuerda de su banda
 
 # El ACOMPAÑANTE del metal tiene que ser de SU altura: no tiene ningun sentido coser una
 # coraza de acero con la misma piel de rata que un chaleco de cobre, ni ponerle a una espada
@@ -201,6 +202,10 @@ const METAL_MIN := 2
 const MIX_ARMA := [1.0, 0.35, 0.15]           # la hoja manda; mango de madera; agarre de cuero
 const MIX_ARMA_MAGICA := [0.25, 1.0, 0.15]    # baston/varita: casi toda madera, algo de contera
 const MIX_ESCUDO := [1.0, 0.0, 0.4]           # metal + correas de cuero, sin mango
+# A DISTANCIA (02/10): [metal, madera, CUERDA]. El arco es casi todo madera (el metal, los culatines);
+# la ballesta lleva bastante mas metal (la nuez, el estribo, el disparador).
+const MIX_ARCO := [0.25, 1.0, 0.3]
+const MIX_BALLESTA := [0.6, 1.0, 0.3]
 # Armaduras: [metal, cuero] (sin madera).
 const MIX_ARMADURA := {
 	ArmorData.Tipo.CUERO: [0.25, 2.0],             # hebillas y poco mas; todo piel
@@ -229,6 +234,9 @@ static func coste(base: Resource) -> Dictionary:
 		m_metal = MIX_ESCUDO[0]; m_madera = MIX_ESCUDO[1]; m_cuero = MIX_ESCUDO[2]
 	elif base is WandData or (base is WeaponData and (base as WeaponData).es_magica):
 		m_metal = MIX_ARMA_MAGICA[0]; m_madera = MIX_ARMA_MAGICA[1]; m_cuero = MIX_ARMA_MAGICA[2]
+	elif es_de_distancia(base):
+		var mix: Array = MIX_BALLESTA if int((base as WeaponData).tipo) == WeaponData.Tipo.BALLESTA else MIX_ARCO
+		m_metal = mix[0]; m_madera = mix[1]; m_cuero = mix[2]   # el "cuero" de estas es la CUERDA
 	else:
 		m_metal = MIX_ARMA[0]; m_madera = MIX_ARMA[1]; m_cuero = MIX_ARMA[2]
 	return {
@@ -400,7 +408,8 @@ static func material_para_mejora(mejoras_actuales: int, base: Resource = null,
 	# Cuantos escalones llevas DENTRO de esta banda, repartidos sobre su ancho.
 	var dentro: int = clampi(n - banda.x, 0, maxi(0, banda.y - 1))
 	var sube: int = roundi(float(dentro) * float(MEJORA_PASO_BANDA) / float(maxi(1, banda.y - 1)))
-	if es_arma_magica(base):
+	if es_arma_magica(base) or es_de_distancia(base):
+		# Magicas: la contera y el asta. Arco/ballesta: los herrajes y la CUERDA, que es lo que se rehace.
 		return {
 			"metal": MEJORA_FIBRA_BASE + sube,   # la contera: lo menos
 			"fibra": MEJORA_METAL_BASE + sube,   # el asta: lo que de verdad se rehace
@@ -415,6 +424,14 @@ static func material_para_mejora(mejoras_actuales: int, base: Resource = null,
 # o una varita. Vive aqui ademas de en Game porque la math de la forja no debe depender del autoload.
 static func es_arma_magica(base: Resource) -> bool:
 	return base is WandData or (base is WeaponData and (base as WeaponData).es_magica)
+
+# ARCO y BALLESTA (02/10): su tercera fibra es la CUERDA, y se mejoran con ella.
+static func es_de_distancia(base: Resource) -> bool:
+	return base is WeaponData and int((base as WeaponData).tipo) in [WeaponData.Tipo.ARCO, WeaponData.Tipo.BALLESTA]
+
+# Lo que forja el CARPINTERO y no el herrero: lo que es sobre todo MADERA.
+static func es_de_carpintero(base: Resource) -> bool:
+	return es_arma_magica(base) or es_de_distancia(base)
 
 
 # item_tier = tier de la INSTANCIA del equipo (vive en su meta, no en el .tres base). -1 = no

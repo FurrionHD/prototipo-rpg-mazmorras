@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cuerda_brunida"
+nombre = "Cuerda bruñida"
+descripcion = "Del cuero bruñido, lisa como un hilo de cera. Suena distinto al soltarla, y el que sabe lo nota."
+familia = 0
+tipo = 3
+tier = 1
+exigencia = 0.0
+peso_base = 0.06
+valor_base = 256
+mejora_min = 9
+mejora_max = 15
+color = Color(0.56, 0.44, 0.34, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

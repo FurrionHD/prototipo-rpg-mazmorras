@@ -31,6 +31,8 @@ const CAT_ARMAS: Array[String] = [
 	"res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/martillo_grande.tres",
 	"res://resources/weapons/baston.tres",
+	"res://resources/weapons/arco.tres",
+	"res://resources/weapons/ballesta.tres",
 ]
 const CAT_SECUNDARIAS: Array[String] = [
 	"res://resources/shields/escudo_pequeno.tres",
@@ -143,7 +145,7 @@ func _bases() -> Array:
 		Catalogo.CARPINTERIA:
 			for r in CAT_ARMAS + CAT_SECUNDARIAS:
 				var b: Resource = load(r)
-				if b != null and Game._es_arma_magica(b):
+				if b != null and Game.es_de_carpintero(b):
 					rutas.append(r)
 		Catalogo.CUERO:
 			for slot in Game.ARMOR_SLOT_ORDEN:
@@ -164,7 +166,7 @@ func _bases() -> Array:
 				# Las magicas se forjan en la carpinteria.
 				for r in (CAT_ARMAS if _filtro == 0 else CAT_SECUNDARIAS):
 					var b2: Resource = load(r)
-					if b2 != null and not Game._es_arma_magica(b2):
+					if b2 != null and not Game.es_de_carpintero(b2):
 						rutas.append(r)
 			t.titulo_seccion("Forjar  ·  %s" % f["nombre"])
 	var out: Array = []

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"cuerda_reforzada"
+nombre = "Cuerda reforzada"
+descripcion = "La piel de las simas retorcida en cuerda. Tira de ella con un arco de arriba y lo partes antes que a ella."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 0.07
+valor_base = 256
+mejora_min = 0
+mejora_max = 3
+color = Color(0.54, 0.42, 0.38, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

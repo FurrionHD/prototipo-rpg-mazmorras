@@ -1,8 +1,9 @@
 # ============================================================
-#  peleteria_refinar.gd  --  pestañas CURTIR y CORREAS de la peleteria (ver tannery_menu.gd, que
-#  es el armazon). Son la MISMA pantalla con otro material:
+#  peleteria_refinar.gd  --  pestañas CURTIR, CORREAS y CUERDAS de la peleteria (ver tannery_menu.gd,
+#  que es el armazon). Son la MISMA pantalla con otro material:
 #    - CURTIR:  N pieles de la misma calidad -> 1 cuero curtido de esa calidad.
 #    - CORREAS: N cueros curtidos de la misma calidad -> 1 correa de ese tier.
+#    - CUERDAS: N cueros curtidos de la misma calidad -> 1 cuerda de SU banda (arco y ballesta, 02/10).
 #
 #  LA REJILLA SON LOS MONTONES, uno por material Y CALIDAD, igual que se ven en el baul: el color
 #  de la celda dice la calidad y la banda dice cuantos hay. Antes esto era un selector de dos
@@ -16,6 +17,9 @@
 #  eso son celdas distintas y no una sola celda con un desplegable de calidad.
 # ============================================================
 extends RefCounted
+
+# Que se hace en esta pantalla (lo elige la pestaña del armazon).
+enum Modo { CURTIR, CORREAS, CUERDAS }
 
 # El lado de las celdas de "ya tienes", dentro de la ficha. Mas pequeñas que las de la rejilla (96):
 # ahi no se pulsa, solo se mira cuanto llevas.
@@ -40,8 +44,8 @@ func _init(armazon) -> void:
 #  PINTAR
 # ============================================================
 
-func build(correas: bool) -> void:
-	var todos: Array = _recoger(correas)
+func build(modo: int) -> void:
+	var todos: Array = _recoger(modo)
 	# EL FILTRO POR TIER, en su fila encima de la rejilla. Solo sale si hay mas de un tier que
 	# elegir: con una sola piel conocida, una fila de un boton no filtra nada y estorba.
 	var tiers: Array = _tiers_de(todos)
@@ -71,7 +75,7 @@ func build(correas: bool) -> void:
 	# nada, se queda ese.
 	if not t.sel_elegida:
 		t.sel = _primero_util(montones)
-	t.contador(_contador(correas, montones))
+	t.contador(_contador(modo, montones))
 	var piezas: Array = []
 	for m in montones:
 		# EL DIBUJO ES LO QUE VA A SALIR, no la piel que metes (lo pidio el usuario): esta pantalla
@@ -85,18 +89,18 @@ func build(correas: bool) -> void:
 		piezas.append(t.pieza_refino(m["sale"], int(m["cal"]), int(m["tengo"]), int(m["por_uno"]),
 			"%s (%s)  ·  de %s  ·  tienes %d" % [(m["destino"] as MaterialData).nombre,
 				t.cal_txt(int(m["cal"])), (m["mat"] as MaterialData).nombre, int(m["tengo"])]))
-	t.grid_detail(piezas, func(vb: VBoxContainer) -> void: _ficha(vb, correas), _vacio(correas))
+	t.grid_detail(piezas, func(vb: VBoxContainer) -> void: _ficha(vb, modo), _vacio(modo))
 
 
 # El contador de arriba: cuanto material de esta pestaña tienes en total. No es del monton elegido
 # (eso va en la ficha): es el estado del almacen, que es lo que decide si bajas a por mas.
-func _contador(correas: bool, montones: Array) -> String:
+func _contador(modo: int, montones: Array) -> String:
 	var total: int = 0
 	for m in montones:
 		total += int(m["tengo"])
 	if total <= 0:
 		return ""
-	return "%d %s" % [total, "cueros curtidos" if correas else "pieles"]
+	return "%d %s" % [total, "pieles" if modo == Modo.CURTIR else "cueros curtidos"]
 
 
 # El primer monton que da para al menos una pieza, o 0 si ninguno (entonces se queda el primero y la
@@ -109,8 +113,8 @@ func _primero_util(montones: Array) -> int:
 	return 0
 
 
-func _vacio(correas: bool) -> String:
-	if correas:
+func _vacio(modo: int) -> String:
+	if modo != Modo.CURTIR:
 		return "No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir."
 	return "No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver."
 
@@ -120,28 +124,38 @@ func _vacio(correas: bool) -> String:
 #  Un monton por material y calidad: {modelo, cal, tengo, destino, por_uno, tier}
 # ============================================================
 
-func _recoger(correas: bool) -> Array:
+func _recoger(modo: int) -> Array:
 	var out: Array = []
 	# CURTIR: una piel por sub-tier (las que conoces). CORREAS: el curtido BASE de cada tier, que es
 	# el que hace de tela -- cada tier de mochila pide la correa de SU tier, asi que subir de tier no
 	# sale gratis por dos de los tres ingredientes.
+	# CUERDAS: cada curtido que conoces, de cualquier banda (de cada uno sale la cuerda de su banda, que es
+	# la que piden las mejoras del arco y la ballesta).
 	var origenes: Array = []
-	if correas:
-		for c in Game.correas_forja():
-			var tier: int = int((c as MaterialData).tier)
-			var cuero: MaterialData = Game.cuero_de_tier(tier)
-			if cuero != null:
-				origenes.append(cuero)
-	else:
-		origenes = Game.cueros_crudos_conocidos()
+	match modo:
+		Modo.CORREAS:
+			for c in Game.correas_forja():
+				var tier: int = int((c as MaterialData).tier)
+				var cuero: MaterialData = Game.cuero_de_tier(tier)
+				if cuero != null:
+					origenes.append(cuero)
+		Modo.CUERDAS:
+			origenes = Game.curtidos_para_cuerda()
+		_:
+			origenes = Game.cueros_crudos_conocidos()
 
-	var por_uno: int = Forge.CUERO_POR_CORREA if correas else Forge.CUERO_POR_CURTIDO
+	var por_uno: int = Forge.CUERO_POR_CURTIDO
+	match modo:
+		Modo.CORREAS: por_uno = Forge.CUERO_POR_CORREA
+		Modo.CUERDAS: por_uno = Forge.CUERO_POR_CUERDA
 	for o in origenes:
 		var origen: MaterialData = o as MaterialData
 		if origen == null:
 			continue
-		var destino: MaterialData = Game.correa_de_tier(int(origen.tier)) if correas \
-			else Game.curtido_de(origen)
+		var destino: MaterialData = Game.curtido_de(origen)
+		match modo:
+			Modo.CORREAS: destino = Game.correa_de_tier(int(origen.tier))
+			Modo.CUERDAS: destino = Game.cuerda_de(origen)
 		if destino == null:
 			continue
 		# LO DESBLOQUEADO SALE SIEMPRE (lo pidio el usuario): sin nada de esa piel queda una celda
@@ -182,7 +196,7 @@ func _on_tier(tier: int) -> void:
 #  LA FICHA
 # ============================================================
 
-func _ficha(vb: VBoxContainer, correas: bool) -> void:
+func _ficha(vb: VBoxContainer, modo: int) -> void:
 	var s: Dictionary = t.stacks[t.sel]
 	var origen: MaterialData = s["mat"]
 	var destino: MaterialData = s["destino"]
@@ -201,12 +215,15 @@ func _ficha(vb: VBoxContainer, correas: bool) -> void:
 	t.row(vb, "Hacen falta", "%d por cada uno" % por_uno)
 	t.row(vb, "Tienes", "%d  ·  dan para %d" % [tengo, salen], t.VERDE if salen > 0 else t.ROJO)
 	_en_el_almacen(vb, destino)
-	if correas:
-		t.note(vb, "Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero. Cada tier de mochila pide la correa de SU tier.")
-	else:
-		t.note(vb, "Las calidades no se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón.")
+	match modo:
+		Modo.CORREAS:
+			t.note(vb, "Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero. Cada tier de mochila pide la correa de SU tier.")
+		Modo.CUERDAS:
+			t.note(vb, "La cuerda del arco y la ballesta. Con la del cuero base se fabrican; las de los cueros mejores son las que piden sus mejoras.")
+		_:
+			t.note(vb, "Las calidades no se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón.")
 
-	_pie(correas, s, salen)
+	_pie(modo, s, salen)
 
 
 # LO QUE YA TIENES DE ESO, en celdas y no en una linea de texto. Ocupa el hueco que quedaba entre la
@@ -232,7 +249,7 @@ func _en_el_almacen(vb: VBoxContainer, destino: MaterialData) -> void:
 
 
 # El pie fijo: cuantas tandas y el boton. Fuera del scroll de la ficha, siempre a la vista.
-func _pie(correas: bool, s: Dictionary, salen: int) -> void:
+func _pie(modo: int, s: Dictionary, salen: int) -> void:
 	var vb: VBoxContainer = t.acciones()
 	vb.add_child(HSeparator.new())
 	# Monton nuevo: se arranca en UNO, no en el maximo. Arrancaba al maximo ("es lo que se quiere casi
@@ -269,23 +286,26 @@ func _pie(correas: bool, s: Dictionary, salen: int) -> void:
 	refrescar.call(_cant)
 	vb.add_child(total)
 
-	MenuScaffold.pastilla(vb, "Hacer correas" if correas else "Curtir",
-		func() -> void: _refinar(correas, s), true, salen > 0)
+	var boton: String = ["Curtir", "Hacer correas", "Trenzar cuerdas"][modo]
+	MenuScaffold.pastilla(vb, boton, func() -> void: _refinar(modo, s), true, salen > 0)
 
 
-func _refinar(correas: bool, s: Dictionary) -> void:
+func _refinar(modo: int, s: Dictionary) -> void:
 	var veces: int = clampi(_cant, 1, maxi(1, int(s["tengo"]) / maxi(1, int(s["por_uno"]))))
 	if Net.activo and not await Net.hogar.abrir_taller():
 		t.ocupado()
 		t.rebuild()
 		return
-	var n: int = Game.hacer_correa(int(s["cal"]), veces, int(s["tier"])) if correas \
-		else Game.curtir(int(s["cal"]), veces, s["mat"] as MaterialData)
+	var n: int = 0
+	match modo:
+		Modo.CORREAS: n = Game.hacer_correa(int(s["cal"]), veces, int(s["tier"]))
+		Modo.CUERDAS: n = Game.hacer_cuerda(s["mat"] as MaterialData, int(s["cal"]), veces)
+		_: n = Game.curtir(int(s["cal"]), veces, s["mat"] as MaterialData)
 	if Net.activo:
 		Net.hogar.cerrar_taller()
 	if n > 0:
 		t.decir("Sacas %d %s de calidad %s." % [n,
-			"correa(s)" if correas else "cuero(s)", t.cal_txt(int(s["cal"])).to_lower()])
+			["cuero(s)", "correa(s)", "cuerda(s)"][modo], t.cal_txt(int(s["cal"])).to_lower()])
 	else:
 		t.decir("No te llega el material.", false)
 	# El montón se ha encogido (o ha desaparecido): la cantidad vuelve a salir del nuevo máximo.

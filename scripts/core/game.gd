@@ -6503,8 +6503,7 @@ var _dev_weapons: Array[String] = [
 	"res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/martillo_grande.tres",
 	"res://resources/weapons/baston.tres",
-	# A distancia (02/10): solo aqui y en el manifiesto hasta que esten acabadas; luego a la tienda
-	# (CatalogoEquipo.ARMAS) y al carpintero.
+	# A distancia (02/10).
 	"res://resources/weapons/arco.tres",
 	"res://resources/weapons/ballesta.tres",
 ]
@@ -9082,6 +9081,9 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/cobre.tres", "res://resources/materials/cobre_profundo.tres",
 	"res://resources/materials/cobre_veteado.tres", "res://resources/materials/correa_cuero.tres",
 	"res://resources/materials/correa_reforzada.tres", "res://resources/materials/cuero_brunido.tres",
+	"res://resources/materials/cuerda_cuero.tres", "res://resources/materials/cuerda_curada.tres",
+	"res://resources/materials/cuerda_brunida.tres", "res://resources/materials/cuerda_reforzada.tres",
+	"res://resources/materials/cuerda_endurecida.tres", "res://resources/materials/cuerda_placada.tres",
 	"res://resources/materials/cuero_curado.tres", "res://resources/materials/cuero_curtido.tres",
 	"res://resources/materials/cuero_endurecido.tres", "res://resources/materials/cuero_placado.tres",
 	"res://resources/materials/cuero_reforzado.tres", "res://resources/materials/cuero_simple.tres",
@@ -10205,6 +10207,18 @@ const _CORREAS: Array = [
 	"res://resources/materials/correa_cuero.tres",        # T1  <- cuero curtido
 	"res://resources/materials/correa_reforzada.tres",    # T2  <- cuero reforzado (el curtido T2)
 ]
+# Las CUERDAS (02/10, armas a distancia), indexadas igual que _CUEROS: cada una sale de SU curtido (mismo
+# tier y misma banda), asi que hay sub-tiers como en el cuero. Con la base se FABRICA el arco o la ballesta;
+# las de banda (+1, +2: la del rey rata, la del jabali...) son las que piden las MEJORAS. T3 entrara con
+# sus curtidos.
+const _CUERDAS: Array = [
+	"res://resources/materials/cuerda_cuero.tres",         # T1 base
+	"res://resources/materials/cuerda_curada.tres",        # T1 +1
+	"res://resources/materials/cuerda_brunida.tres",       # T1 +2
+	"res://resources/materials/cuerda_reforzada.tres",     # T2 base
+	"res://resources/materials/cuerda_endurecida.tres",    # T2 +1
+	"res://resources/materials/cuerda_placada.tres",       # T2 +2
+]
 # CUEROS de forja por TIER (la fibra que acompaña a la CHAPA en la armadura, como la madera al
 # lingote en el arma). T1 = cuero curtido (sale del peletero); T2 = cuero reforzado (viene ya
 # curtido de los bichos hondos). Sin cuero a la altura del metal, la armadura de ese tier NO se
@@ -10299,6 +10313,40 @@ func correa_de_tier(tier: int) -> MaterialData:
 # correa_de_tier, porque cada mochila pide la de SU tier.
 func correa() -> MaterialData:
 	return correa_de_tier(1)
+
+# Las CUERDAS que existen (espejo de correas_forja).
+func cuerdas_forja() -> Array:
+	var out: Array = []
+	for ruta in _CUERDAS:
+		var c: Resource = load(ruta)
+		if c != null:
+			out.append(c)
+	return out
+
+# La cuerda de un TIER (y de la banda de 'nivel' al MEJORAR; -1 = la base, para fabricar). null = no hay
+# a esa altura, y es el mismo freno que el cuero.
+func cuerda_de_tier(tier: int, nivel: int = -1) -> MaterialData:
+	return _material_de(cuerdas_forja(), tier, nivel)
+
+# La cuerda que sale de ESTE curtido: mismo tier y misma banda (espejo de curtido_de).
+func cuerda_de(curtido: MaterialData) -> MaterialData:
+	if curtido == null:
+		return null
+	for c in cuerdas_forja():
+		var md: MaterialData = c as MaterialData
+		if md != null and int(md.tier) == int(curtido.tier) and int(md.mejora_min) == int(curtido.mejora_min):
+			return md
+	return null
+
+# Los curtidos de los que el peletero te ENSEÑA a sacar cuerda: el T1 base siempre, el resto cuando has
+# visto alguno (misma regla que las pieles).
+func curtidos_para_cuerda() -> Array:
+	var out: Array = []
+	for c in cueros_forja():
+		var md: MaterialData = c as MaterialData
+		if cuerda_de(md) != null and ((int(md.tier) == 1 and int(md.mejora_min) == 0) or material_visto(md)):
+			out.append(md)
+	return out
 
 func lingotes_forja() -> Array:
 	var out: Array = []
@@ -10593,7 +10641,10 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 	if int(c["cuero"]) > 0:
 		# A la altura del metal, sea arma, escudo o armadura. null = no hay cuero a ese tier, y eso
 		# es el FRENO, no un error. Tiene que decir lo mismo que fibra_de_forja.
-		out.append({"material": cuero_de_tier(Forge.tier_de_metal(metal)), "uds": int(c["cuero"])})
+		# El ARCO y la BALLESTA no forran el mango: llevan CUERDA (del peletero) en su lugar.
+		var fibra: MaterialData = cuerda_de_tier(Forge.tier_de_metal(metal)) if Forge.es_de_distancia(base) \
+			else cuero_de_tier(Forge.tier_de_metal(metal))
+		out.append({"material": fibra, "uds": int(c["cuero"])})
 	return out
 
 
@@ -10623,6 +10674,10 @@ func fibra_de_forja(base: Resource, metal: MaterialData, nivel: int = -1) -> Mat
 		# Correas: cuero del tier del metal, igual que al forjarlo. Y con banda, como la armadura: un
 		# escudo muy reforzado no se re-ata con la piel del primer piso.
 		return cuero_de_tier(tier, nivel)
+	# El ARCO y la BALLESTA se mejoran tensando mejor: la CUERDA de la banda (lo pidio el jefe, para que
+	# las cuerdas de los cueros intermedios sirvan de algo).
+	if Forge.es_de_distancia(base):
+		return cuerda_de_tier(tier, nivel)
 	# El MANGO del arma es un TABLON (madera aserrada), IGUAL que al forjarla: la madera cruda ya no
 	# va directa a la pieza, ni al hacerla ni al reforzarla. Del mismo tier que el metal.
 	return tablon_de_tier(tier, nivel)
@@ -10751,6 +10806,13 @@ func hacer_correa(cal: int, veces: int, tier: int = 1) -> int:
 	if origen == null or destino == null:
 		return 0
 	return refinar(origen, destino, cal, veces, Forge.CUERO_POR_CORREA, "peleteria")
+
+# Trenza cuerdas de ESTE curtido (cualquier banda: de un curtido +1 sale la cuerda +1).
+func hacer_cuerda(curtido: MaterialData, cal: int, veces: int) -> int:
+	var destino: MaterialData = cuerda_de(curtido)
+	if curtido == null or destino == null:
+		return 0
+	return refinar(curtido, destino, cal, veces, Forge.CUERO_POR_CUERDA, "peleteria")
 
 func hebillas_de(lingote: MaterialData) -> MaterialData:
 	return _mismo_metal(lingote, 1, 3)
@@ -10907,10 +10969,14 @@ func score_seleccion(dicts: Array) -> float:
 func _es_arma_magica(base: Resource) -> bool:
 	return base is WandData or (base is WeaponData and (base as WeaponData).es_magica)
 
-# El FACTOR de oficio que empuja la rareza/devolucion al forjar ESTA pieza: Carpinteria si es arma
-# magica, Herreria en el resto. Asi el mismo forjar() sirve para el herrero y el carpintero.
+# ¿La forja el CARPINTERO? Las magicas y las de distancia (arco y ballesta: son de madera).
+func es_de_carpintero(base: Resource) -> bool:
+	return Forge.es_de_carpintero(base)
+
+# El FACTOR de oficio que empuja la rareza/devolucion al forjar ESTA pieza: Carpinteria si la hace el
+# carpintero, Herreria en el resto. Asi el mismo forjar() sirve para el herrero y el carpintero.
 func _oficio_forja_activo(base: Resource) -> float:
-	if _es_arma_magica(base):
+	if es_de_carpintero(base):
 		return carpinteria_activa()
 	return peleteria_activa() if es_armadura_cuero(base) else herreria_activa()
 
@@ -11151,7 +11217,7 @@ func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: in
 		print("[peletero] Coses %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Peleteria %s" % [
 			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
 			", ".join(rarezas), devueltos, snappedf(peleteria_exp, 0.1)])
-	elif _es_arma_magica(base):
+	elif es_de_carpintero(base):
 		carpinteria_exp += _puntos_oficio("carpinteria", tier) * float(piezas)
 		print("[carpintero] Forjas %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Carpinteria %s" % [
 			piezas, str(base.get("nombre")), ", ".join(nombres), tier,

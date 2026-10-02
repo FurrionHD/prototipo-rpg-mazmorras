@@ -25,6 +25,8 @@ const ARMAS: Array[String] = [
 	"res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/martillo_grande.tres",
 	"res://resources/weapons/baston.tres",
+	"res://resources/weapons/arco.tres",
+	"res://resources/weapons/ballesta.tres",
 ]
 
 const SECUNDARIAS: Array[String] = [
