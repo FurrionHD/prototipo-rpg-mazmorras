@@ -300,6 +300,10 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # son por golpe van solo a los que se comen el escudazo. El ancho lo pone el escudo (ShieldData.
 # ANCHO_ESCUDAZO). 0 = no hay. La Guardia rota (25/09): el cono del tajo y, dentro, la linea del escudo.
 @export var forma_escudo_largo: float = 0.0
+# CARGAR MUNICION (02/10, arco y ballesta): no pega; abre la lista de flechas (o virotes) que llevas en la bolsa y
+# carga hasta ESTAS. Los proximos disparos pegan con su bonus. 0 = no es Cargar. Va siempre con el arma, fuera de
+# los cuatro huecos (ver Game._aplicar_loadout), y devuelve media barra (CombatHabilidades.CARGAR_DEVUELVE).
+@export var cargar_municion: int = 0
 # LA CARGA (solo en el mapa, con LINEA): corres por la linea hasta el PRIMERO que pille y le pegas; sin
 # nadie, hasta el final. La Embestida del escudo (25/09).
 @export var carga: bool = false

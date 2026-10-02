@@ -145,6 +145,10 @@ func _accion_habilidad() -> void:
 			_pantalla._celda_submenu(vacio)
 			grid.add_child(vacio)
 			continue
+		# CARGAR (arco y ballesta): su propio boton, que abre la lista de municion de la bolsa.
+		if ab.cargar_municion > 0:
+			grid.add_child(_boton_cargar(ab))
+			continue
 		var manos: int = _pantalla._player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
 		var coste: float = _pantalla._player.current_energy if es_conv else ab.coste(manos)
@@ -188,6 +192,72 @@ func _accion_habilidad() -> void:
 		grid.add_child(b)
 	_pantalla._cerrar_submenu(_pantalla._ability_box, celdas, _pantalla._mostrar_acciones)
 	_pantalla._ocultar_log()   # el submenu ocupa el sitio del historial
+
+
+# ============================================================
+#  CARGAR (02/10): la municion de material del arco y la ballesta
+# ============================================================
+# Lo que devuelve de barra: cuesta MEDIA accion (decidido 02/10).
+const CARGAR_DEVUELVE := 0.5
+
+# El arma de la mano activa (WeaponData.Tipo), que es la que dice si son flechas o virotes.
+func _arma_activa() -> int:
+	var pj: PersonajeData = Game.pj_de_combatant(_pantalla._player)
+	var w: WeaponData = pj.equipped_main as WeaponData if pj != null else null
+	return int(w.tipo) if w != null else -1
+
+func _boton_cargar(ab: AbilityData) -> Button:
+	var b := TooltipButton.new()
+	var p: Combatant = _pantalla._player
+	var cargadas: String = "  🏹%d" % p.municion_quedan() if p.municion_quedan() > 0 else ""
+	b.text = "%s  (½ turno)%s" % [ab.nombre, cargadas]
+	b.tooltip_text = ab.descripcion
+	if p.municion_quedan() > 0:
+		b.tooltip_text = "Llevas cargadas %d × %s.\n\n%s" % [p.municion_quedan(), p.municion.nombre, b.tooltip_text]
+	if Game.municion_en_bolsa(_arma_activa()).is_empty():
+		b.disabled = true
+		b.tooltip_text = "⛔ No llevas munición para esta arma en la bolsa\n\n%s" % b.tooltip_text
+	b.pressed.connect(_elegir_municion.bind(ab))
+	_pantalla._celda_submenu(b)
+	return b
+
+# La lista: un boton por tipo de municion de la bolsa, con cuantas hay y lo que suma.
+func _elegir_municion(ab: AbilityData) -> void:
+	for c in _pantalla._ability_box.get_children():
+		c.queue_free()
+	var grid := _pantalla._rejilla_submenu(_pantalla._ability_box)
+	var lista: Array = Game.municion_en_bolsa(_arma_activa())
+	for fila in lista:
+		var md: MunicionData = fila["md"]
+		var b := TooltipButton.new()
+		b.text = "%s  x%d  (+%d%%)" % [md.nombre, int(fila["n"]), roundi(md.dano_bonus * 100.0)]
+		b.tooltip_text = "Carga hasta %d. Se cargan primero las de mejor calidad.\n\n%s" % [ab.cargar_municion, md.descripcion]
+		b.pressed.connect(_cargar.bind(ab, md))
+		_pantalla._celda_submenu(b)
+		grid.add_child(b)
+	_pantalla._cerrar_submenu(_pantalla._ability_box, lista.size(), _accion_habilidad)
+
+# Saca la municion de MI bolsa y la carga. En el espejo, la bolsa es la mia: se saca aqui y al anfitrion solo le
+# viaja que y de que calidades (como la pocion).
+func _cargar(ab: AbilityData, md: MunicionData) -> void:
+	if _pantalla._state != _pantalla.State.WAITING_PLAYER and not _pantalla._espejo:
+		return
+	var cals: Array = Game.sacar_municion_de_bolsa(md, ab.cargar_municion)
+	if cals.is_empty():
+		return
+	if _pantalla._espejo:
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "cargar", "ruta": md.resource_path, "cals": cals})
+		return
+	aplicar_carga(md, cals)
+
+# Quien lleva la pelea la pone en el combatiente y cierra la accion, devolviendo media barra.
+func aplicar_carga(md: MunicionData, cals: Array) -> void:
+	var p: Combatant = _pantalla._player
+	p.cargar_municion(md, cals)
+	_pantalla._set_log("🏹 %s carga %d × %s." % [p.nombre, cals.size(), md.nombre.to_lower()])
+	_pantalla._fin_de_eleccion()
+	_pantalla._state = _pantalla.State.ADVANCING
+	_pantalla._gauge[p] = float(_pantalla._gauge.get(p, 0.0)) + _pantalla.UMBRAL * CARGAR_DEVUELVE
 
 
 # --- EL ALCANCE, que ahora vive en combat_geometria.gd -----------------------------------------

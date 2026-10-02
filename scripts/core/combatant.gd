@@ -25,6 +25,41 @@ var escala_des: float = 0.0
 # que se cruce (CombatTactico.blancos_del_disparo). 'perfora' = la ballesta, que sigue al de detras.
 var a_distancia: bool = false
 var perfora: bool = false
+# LA MUNICION CARGADA (Cargar, 02/10): de que es y la calidad de cada una, en el orden en que se disparan.
+# Las de la bolsa se SACAN al cargar; lo que no se dispare vuelve a la bolsa de su dueño al acabar la pelea
+# (municion_sin_disparar). 'municion_disparada' apunta cada disparo hecho, para clavarlas y recogerlas.
+var municion: MunicionData = null
+var municion_cals: Array = []
+var municion_devolver: Array = []    # [[MunicionData, calidad]]: lo que se quito al cargar otra encima
+var municion_disparada: Array = []   # [{md, cal, en (Combatant o null = suelo)}]
+
+# Carga 'cals' de 'md'. Lo que quedara cargado de antes no se pierde: vuelve a la bolsa al acabar.
+func cargar_municion(md: MunicionData, cals: Array) -> void:
+	if municion != null:
+		for cal in municion_cals:
+			municion_devolver.append([municion, int(cal)])
+	municion = md if not cals.is_empty() else null
+	municion_cals = cals.duplicate()
+
+func municion_quedan() -> int:
+	return municion_cals.size() if municion != null else 0
+
+# Gasta UNA cargada (la siguiente). {} si no queda ninguna: entonces se dispara la normal.
+func disparar_municion() -> Dictionary:
+	if municion == null or municion_cals.is_empty():
+		return {}
+	var tiro: Dictionary = {"md": municion, "cal": int(municion_cals.pop_front())}
+	if municion_cals.is_empty():
+		municion = null
+	return tiro
+
+# Lo que vuelve a la bolsa al acabar: lo cargado sin disparar y lo que se quito cargando otra.
+func municion_sin_disparar() -> Array:
+	var out: Array = municion_devolver.duplicate()
+	if municion != null:
+		for cal in municion_cals:
+			out.append([municion, int(cal)])
+	return out
 var base_defense: float = 0.0
 var base_speed: float = 0.0
 # DEFENSA MAGICA base: lo que mitiga los hechizos que RECIBES, aunque tu Magia sea 0. Es el

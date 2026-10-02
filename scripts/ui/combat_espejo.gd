@@ -980,6 +980,13 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 				_pantalla._accion_atacar()   # se la interrumpieron entre medias: no se pierde el turno
 			else:
 				_pantalla.habilidades._soltar_la_carga()
+		"cargar":
+			# Cargo municion de MI bolsa (ya la saque alli): aqui solo se pone en el combatiente.
+			var md_c: MunicionData = load(String(accion.get("ruta", ""))) as MunicionData
+			if md_c != null:
+				_pantalla.habilidades.aplicar_carga(md_c, accion.get("cals", []) as Array)
+			else:
+				_pantalla._accion_atacar()
 		"objeto":
 			var cons = load(String(accion.get("ruta", "")))
 			var ia: int = int(accion.get("aliado", -1))
@@ -1007,7 +1014,7 @@ func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 		"disparo": return tipo == "disparar"
 		# Soltar una carga no admite nada mas: ese turno no tiene otra accion posible.
 		"soltar":  return tipo == "soltar"
-		"accion":  return tipo in ["atacar", "esperar", "defender", "huir", "habilidad", "magia", "objeto"]
+		"accion":  return tipo in ["atacar", "esperar", "defender", "huir", "habilidad", "magia", "objeto", "cargar"]
 		_:         return true   # peticion sin tipo conocido: no se bloquea nada
 
 

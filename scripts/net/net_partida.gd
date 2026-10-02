@@ -417,6 +417,12 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	d["dur"] = dur
 	# Y LAS PASIVAS que haya sacado dentro (una tirada de 1 entre 500.000 no puede quedarse en la copia).
 	d["pasivas_pendientes"] = (pj.pasivas_pendientes as Dictionary).duplicate()
+	# LA MUNICION que cargo y no disparo: salio de SU bolsa, asi que vuelve a ella (por ruta y calidad).
+	var mun: Array = []
+	if vivo != null:
+		for par in vivo.municion_sin_disparar():
+			mun.append([String((par[0] as Resource).resource_path), int(par[1])])
+	d["municion"] = mun
 	return d
 
 
@@ -458,6 +464,12 @@ func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 			Game._avisar_durabilidad(String(slot), pj, antes, ahora)
 	for id in (d.get("pasivas_pendientes", {}) as Dictionary):
 		pj.pasivas_pendientes[id] = true
+	var mun: Array = []
+	for par in (d.get("municion", []) as Array):
+		var md: MunicionData = load(String(par[0])) as MunicionData
+		if md != null:
+			mun.append([md, int(par[1])])
+	Game.devolver_municion_a_bolsa(mun)
 	# Los estados vuelven como datos, pero lo que el mapa lee de ellos (cuanto te frenan, sus chips)
 	# esta CACHEADO en la ficha: sin recalcularlo, el que se une a una pelea salia con el Pegajoso
 	# puesto y andando a velocidad normal, y sin chips que lo dijeran.

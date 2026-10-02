@@ -6760,6 +6760,46 @@ func soltar_casteo_en_vuelo() -> void:
 
 # ¿Lleva encima un arma MAGICA (bastón en la principal o varita en la secundaria)? Es lo que permite
 # recitar en el mapa. El criterio no se repite: es el mismo _es_arma_magica que usa la forja.
+# LA HABILIDAD CARGAR: va siempre con el arco y la ballesta, fuera de los cuatro huecos (ver _aplicar_loadout).
+const HAB_CARGAR: AbilityData = preload("res://resources/abilities/cargar.tres")
+
+# La municion de material que hay en la BOLSA para esta arma (WeaponData.Tipo): [{md, n}], de la que pega
+# mas a la que menos.
+func municion_en_bolsa(arma: int) -> Array:
+	var cuenta: Dictionary = {}
+	for it in materiales:
+		var md: MunicionData = it.data as MunicionData if it != null else null
+		if md != null and md.arma == arma:
+			cuenta[md] = int(cuenta.get(md, 0)) + 1
+	var out: Array = []
+	for md in cuenta:
+		out.append({"md": md, "n": int(cuenta[md])})
+	out.sort_custom(func(a, b): return float(a["md"].dano_bonus) > float(b["md"].dano_bonus))
+	return out
+
+# SACA de la bolsa hasta 'n' de 'md', de la MEJOR calidad a la peor, y devuelve sus calidades en ese orden.
+func sacar_municion_de_bolsa(md: MunicionData, n: int) -> Array:
+	var suyas: Array = []
+	for it in materiales:
+		if it != null and it.data == md:
+			suyas.append(it)
+	# El enum de calidad NO va en orden (INTACTO es 0 y PURO 4): se ordena por su rango de verdad.
+	var rango := {MaterialItem.Calidad.PURO: 4, MaterialItem.Calidad.INTACTO: 3, MaterialItem.Calidad.NORMAL: 2,
+		MaterialItem.Calidad.DANADO: 1, MaterialItem.Calidad.ROTO: 0}
+	suyas.sort_custom(func(a, b): return int(rango.get(int(a.calidad), 0)) > int(rango.get(int(b.calidad), 0)))
+	var cals: Array = []
+	for i in mini(n, suyas.size()):
+		materiales.erase(suyas[i])
+		cals.append(int(suyas[i].calidad))
+	return cals
+
+# Devuelve a la BOLSA municion [[MunicionData, calidad]] (lo que se cargo y no se disparo).
+func devolver_municion_a_bolsa(lista: Array) -> void:
+	for par in lista:
+		var md: MunicionData = par[0] as MunicionData
+		if md != null:
+			materiales.append(MaterialItem.crear(md, int(par[1])))
+
 # ¿Lleva un ARCO o una BALLESTA en la principal? Es lo que hace que el ataque del mapa dispare de lejos.
 func lleva_arma_distancia(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
@@ -8354,6 +8394,10 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# el submenu de combate, y eso solo se sostiene si el indice del hueco llega hasta aqui. Quien
 	# recorra abilities_combate tiene que saltarse los null.
 	var abils: Array = habilidades_con_huecos(p)
+	# CARGAR, con arco o ballesta: siempre, detras de las cuatro (no ocupa hueco).
+	if lleva_arma_distancia(p):
+		abils = abils.duplicate()
+		abils.append(HAB_CARGAR)
 	c.abilities_combate = abils
 	# Mapa habilidad -> indices de MANO (arma) que la aportan. El dual de una habilidad
 	# SOLO se activa si AMBAS armas la traen (daga+daga), no daga+estoque: cada arma tiene
@@ -15721,6 +15765,10 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if i < _active_player_cs.size():
 			ability_cooldowns_persist[_active_player_pjs[i]] = \
 				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
+			# LA MUNICION CARGADA QUE NO SE DISPARO vuelve a la bolsa. Solo la de los MIOS: la del doble de
+			# otro humano vuelve a SU bolsa con el desgaste (Net.partida.desgaste_a_dict).
+			if party.has(_active_player_pjs[i]):
+				devolver_municion_a_bolsa(_active_player_cs[i].municion_sin_disparar())
 
 	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
 	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo. A los peers DERROTADOS

@@ -1730,6 +1730,17 @@ func _accion_atacar() -> void:
 	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
 	# en dual cada golpe se ve con su arma sin tener que preguntarlo aqui.
 	var estilo_bas: int = efectos._estilo_de_habilidad(null, _player)
+	# LA MUNICION CARGADA (Cargar): este disparo gasta una y pega con su bonus (a todos los que se coma: el
+	# virote que atraviesa es el mismo virote). Sin cargadas, la normal.
+	var tiro: Dictionary = _player.disparar_municion() if _player.a_distancia else {}
+	if not tiro.is_empty():
+		var md_t: MunicionData = tiro["md"]
+		con_arma = "%s (%s)" % [con_arma, md_t.nombre.to_lower()]
+		for bl in blancos:
+			bl["escala"] = float(bl["escala"]) * (1.0 + md_t.dano_bonus)
+		# Donde acaba: en el ultimo que se come (el segundo del virote) o, si no pilla a nadie, en el suelo. Lo de
+		# la esquiva lo afina el clavado (paso siguiente); aqui se apunta el disparo.
+		_player.municion_disparada.append({"md": md_t, "cal": int(tiro["cal"]), "en": blancos[blancos.size() - 1]["c"]})
 	for i in blancos.size():
 		_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
 			estilo_bas, con_arma, arma_factor, pj_atacante)
