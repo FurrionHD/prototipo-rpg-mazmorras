@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Perno de impacto"
+precio = 1800
+coste_energia = 50
+cooldown = 4
+dano_mult = 1.6
+tiron = -70.0
+fx_estilo = 1
+fx_estilo_mapa = 193
+; EN EL MAPA: al PRIMERO de la linea, y lo EMPUJA lejos (un desplazamiento grande corta cargas y conjuros).
+forma = 3
+forma_apunte = 1
+forma_radio = 220.0
+forma_ancho = 10.0
+forma_solo_primero = true
+descripcion = "Cabeza roma y mucho peso. No atraviesa: empuja. Y lo que estuviera preparando se le olvida por el camino."

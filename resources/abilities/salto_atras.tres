@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Salto atrás"
+precio = 1200
+coste_energia = 30
+cooldown = 3
+dano_mult = 0.9
+redirige_al_morir = true
+fx_estilo = 1
+fx_estilo_mapa = 192
+; EN EL MAPA: como el Paso ligero: saltas a donde apuntes (cerca) y le disparas al mas cercano que te quede a tiro.
+forma = 1
+forma_apunte = 3
+forma_rango = 60.0
+forma_radio = 10.0
+paso = true
+descripcion = "Un salto hacia atrás y la cuerda tensa antes de tocar el suelo. Para cuando te alcanzan, ya no estás."

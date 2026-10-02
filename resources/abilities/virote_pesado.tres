@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Virote pesado"
+precio = 2000
+coste_energia = 60
+cooldown = 4
+dano_mult = 2.0
+penetracion_extra = 0.3
+fx_estilo = 1
+fx_estilo_mapa = 193
+; EN EL MAPA: una linea larga y gruesa que atraviesa a TODOS al 100%.
+forma = 3
+forma_apunte = 1
+forma_radio = 260.0
+forma_ancho = 16.0
+descripcion = "Un virote del grosor de un dedo y una cuerda que cuesta tensar con el pie. Lo que se cruce en su camino se queda con el agujero."

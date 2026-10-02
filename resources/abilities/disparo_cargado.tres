@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Disparo cargado"
+precio = 1800
+coste_energia = 55
+cooldown = 4
+dano_mult = 4.5
+crit_extra = 0.3
+penetracion_extra = 0.4
+carga_turnos = 1
+fx_estilo = 1
+fx_estilo_mapa = 192
+; EN EL MAPA: una linea larga (alcance del arco x1.5) que se queda en el PRIMERO que cruza, como el basico.
+forma = 3
+forma_apunte = 1
+forma_radio = 240.0
+forma_ancho = 8.0
+forma_solo_primero = true
+descripcion = "Tensas hasta que el arco cruje y aguantas la respiración. Lo que suelte tarda un momento en llegar, y cuando llega no deja nada en pie."

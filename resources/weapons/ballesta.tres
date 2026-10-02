@@ -1,6 +1,11 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/virote_pesado.tres" id="h0"]
+[ext_resource type="Resource" path="res://resources/abilities/perno_impacto.tres" id="h1"]
+[ext_resource type="Resource" path="res://resources/abilities/andanada.tres" id="h2"]
+[ext_resource type="Resource" path="res://resources/abilities/recarga_rapida.tres" id="h3"]
+[ext_resource type="Resource" path="res://resources/abilities/virote_clavo.tres" id="h4"]
 
 [resource]
 script = ExtResource("1")
@@ -18,3 +23,4 @@ dano_tipo = 0
 aturdir_base = 0.0
 energia_ataque = 42.0
 valor_base = 560
+habilidades = [ExtResource("h0"), ExtResource("h1"), ExtResource("h2"), ExtResource("h3"), ExtResource("h4")]

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Andanada"
+precio = 1800
+coste_energia = 50
+cooldown = 3
+dano_mult = 1.0
+area_max = 3
+fx_estilo = 1
+fx_estilo_mapa = 193
+; EN EL MAPA: un cono estrecho y largo; un virote a cada uno de los TRES primeros que pille.
+forma = 2
+forma_apunte = 1
+forma_radio = 220.0
+forma_apertura = 35.0
+descripcion = "Tres virotes montados de una vez, abiertos en abanico. No apuntas a uno: apuntas al grupo."

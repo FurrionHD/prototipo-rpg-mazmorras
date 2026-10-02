@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 31
+prob = 1.0
+turns = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Flecha clavadora"
+precio = 1200
+coste_energia = 35
+cooldown = 4
+dano_mult = 1.0
+fx_estilo = 1
+fx_estilo_mapa = 192
+; EN EL MAPA: a la linea, al PRIMERO que cruza; si entra, se queda enraizado.
+forma = 3
+forma_apunte = 1
+forma_radio = 180.0
+forma_ancho = 8.0
+forma_solo_primero = true
+descripcion = "Al pie, y a fondo. El que venía corriendo hacia ti se queda donde estaba, mirándote mal."
+efectos = [SubResource("SA_0")]

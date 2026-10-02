@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Disparo perforante"
+precio = 1500
+coste_energia = 40
+cooldown = 3
+dano_mult = 1.4
+penetracion_extra = 0.2
+fx_estilo = 1
+fx_estilo_mapa = 192
+; EN EL MAPA: una linea larga y fina que los atraviesa a TODOS; cuanto mas lejos, un poco menos (tramos).
+forma = 3
+forma_apunte = 1
+forma_radio = 220.0
+forma_ancho = 10.0
+forma_tramos = 4
+forma_tramo_baja = 0.12
+descripcion = "Una flecha de punta larga que no se para en el primero. Ponlos en fila y que hagan cola."

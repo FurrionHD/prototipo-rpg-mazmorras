@@ -1,6 +1,11 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" path="res://scripts/items/weapon_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/abilities/disparo_cargado.tres" id="h0"]
+[ext_resource type="Resource" path="res://resources/abilities/lluvia_flechas.tres" id="h1"]
+[ext_resource type="Resource" path="res://resources/abilities/disparo_perforante.tres" id="h2"]
+[ext_resource type="Resource" path="res://resources/abilities/flecha_clavadora.tres" id="h3"]
+[ext_resource type="Resource" path="res://resources/abilities/salto_atras.tres" id="h4"]
 
 [resource]
 script = ExtResource("1")
@@ -17,3 +22,4 @@ bloqueo = 0.03
 dano_tipo = 0
 aturdir_base = 0.0
 valor_base = 480
+habilidades = [ExtResource("h0"), ExtResource("h1"), ExtResource("h2"), ExtResource("h3"), ExtResource("h4")]

@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 31
+prob = 1.0
+turns = 2
+
+[sub_resource type="Resource" id="SA_1"]
+script = ExtResource("2")
+estado = 1
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+nombre = "Virote de clavo"
+precio = 1500
+coste_energia = 45
+cooldown = 4
+dano_mult = 1.3
+fx_estilo = 1
+fx_estilo_mapa = 193
+; EN EL MAPA: al PRIMERO de la linea; lo clava al suelo (enraizado) y sangra.
+forma = 3
+forma_apunte = 1
+forma_radio = 200.0
+forma_ancho = 10.0
+forma_solo_primero = true
+descripcion = "Una punta con garfios que entra por la pierna y sale por el suelo. Moverse va a doler."
+efectos = [SubResource("SA_0"), SubResource("SA_1")]

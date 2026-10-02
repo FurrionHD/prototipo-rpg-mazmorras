@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Lluvia de flechas"
+precio = 1500
+coste_energia = 45
+cooldown = 3
+golpes_min = 3
+golpes_max = 3
+dano_mult = 0.4
+fx_estilo = 1
+fx_estilo_mapa = 192
+; EN EL MAPA: un circulo que apuntas lejos; a cada uno de dentro le caen tres flechas flojas.
+forma = 1
+forma_apunte = 3
+forma_rango = 160.0
+forma_radio = 40.0
+descripcion = "Tres flechas al cielo, una detrás de otra. Lo que caiga en ese sitio no va a saber de dónde le vienen."
