@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Untura de marea"
+descripcion = "Baba de slime profundo que nunca termina de secarse. Empapa lo que toca, y lo empapado conduce."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+es_comida = false
+valor_base = 400
+tier = 2
+color_frasco = Color(0.3, 0.55, 0.95, 1)
+untura_usos = 10
+untura_elemento = 2
+untura_pct = 0.3
+untura_estado = 12
+untura_prob = 0.4
+untura_reparto = []
+untura_extra_estado = -1
+untura_extra_prob = 0.0

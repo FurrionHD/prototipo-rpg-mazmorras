@@ -490,7 +490,7 @@ func _volatil(c: Combatant) -> Dictionary:
 		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
 			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza, c.imbue_prisma,
-			c.imbue_tope, c.imbue_reparto]}
+			c.imbue_tope, c.imbue_reparto, c.imbue_extra_estado, c.imbue_extra_prob]}
 
 
 func _amenaza_por_indice(c: Combatant) -> Dictionary:
@@ -565,6 +565,8 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 		c.imbue_prisma = imb.size() >= 9 and bool(imb[8])
 		c.imbue_tope = int(imb[9]) if imb.size() >= 10 else -1
 		c.imbue_reparto = Array(imb[10]).duplicate() if imb.size() >= 11 else []
+		c.imbue_extra_estado = int(imb[11]) if imb.size() >= 13 else -1
+		c.imbue_extra_prob = float(imb[12]) if imb.size() >= 13 else 0.0
 		# Y la AFINIDAD, que es la mitad de un manto (resistencias, inmunidades, aturdimiento).
 		# Sin esto, quien llevara un Manto y sufriera un traspaso de anfitrion perdia todo el lado
 		# defensivo aunque el chip siguiera diciendo 🛡: solo le quedaba el bonus de daño.
@@ -995,6 +997,14 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 					accion.get("cals", []) as Array)
 			else:
 				_pantalla._accion_atacar()
+		"untar":
+			# La untura ya la gaste de MI bolsa: aqui solo se pone en el combatiente.
+			var cons_u: ConsumableData = load(String(accion.get("ruta", ""))) as ConsumableData
+			var ab_u: AbilityData = load(String(accion.get("hab", ""))) as AbilityData 				if String(accion.get("hab", "")) != "" else null
+			if cons_u != null and cons_u.es_untura():
+				_pantalla.habilidades.aplicar_untura(ab_u if ab_u != null else Game.HAB_UNTAR, cons_u)
+			else:
+				_pantalla._accion_atacar()
 		"objeto":
 			var cons = load(String(accion.get("ruta", "")))
 			var ia: int = int(accion.get("aliado", -1))
@@ -1022,7 +1032,7 @@ func _encaja_con_lo_pedido(tipo: String, pendiente: String) -> bool:
 		"disparo": return tipo == "disparar"
 		# Soltar una carga no admite nada mas: ese turno no tiene otra accion posible.
 		"soltar":  return tipo == "soltar"
-		"accion":  return tipo in ["atacar", "esperar", "defender", "huir", "habilidad", "magia", "objeto", "cargar"]
+		"accion":  return tipo in ["atacar", "esperar", "defender", "huir", "habilidad", "magia", "objeto", "cargar", "untar"]
 		_:         return true   # peticion sin tipo conocido: no se bloquea nada
 
 

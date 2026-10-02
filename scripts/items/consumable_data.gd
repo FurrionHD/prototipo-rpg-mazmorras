@@ -250,6 +250,44 @@ func es_vuelta_pueblo() -> bool:
 func es_cebo() -> bool:
 	return cebo_radio > 0.0
 
+# ============================================================
+#  UNTURAS (03/10): frascos de la boticaria que se le untan al ARCO o a la BALLESTA con la habilidad Untar
+#  (una preparacion, como Cargar: no acaba el turno). Se ponen como una IMBUICION de arma (Combatant.aplicar_imbue)
+#  y duran untura_usos ATAQUES. Cada una hace lo que hace el enemigo del que sale su material.
+#  - Venenos: untura_estado = Veneno y untura_reparto = la fila de la ESCALERA de su tier (lo pone el TIER DEL
+#    FRASCO, no el del arma: si no, no tendria sentido hacer venenos mejores). Ver AbilityData.imbue_escalera.
+#  - Elementales: untura_elemento + untura_pct de daño extra, y su estado con untura_prob.
+#  - untura_extra_*: un SEGUNDO estado que solo se tira si el primero ha prendido (Debil, Lento, Ceguera).
+# ============================================================
+@export var untura_usos: int = 0           # 0 = no es untura
+@export var untura_elemento: int = 0       # Elementos.Elemento (NINGUNO en los venenos)
+@export var untura_pct: float = 0.0        # daño extra del elemento (fraccion de tu golpe)
+@export var untura_estado: int = -1        # StatusEffects.Id
+@export var untura_prob: float = 0.0       # prob. de que prenda (Destreza contra su Resistencia)
+@export var untura_reparto: Array = []     # [] = una dosis; si no, la fila de la escalera de su tier
+@export var untura_extra_estado: int = -1
+@export var untura_extra_prob: float = 0.0
+
+func es_untura() -> bool:
+	return untura_usos > 0
+
+# La ficha de la untura, todo sacado de los campos.
+func resumen_untura() -> String:
+	var l: PackedStringArray = []
+	var nom_est: String = str(StatusEffects.def(untura_estado).get("nombre", "?")) if untura_estado >= 0 else ""
+	if untura_elemento != Elementos.Elemento.NINGUNO:
+		l.append("Tus disparos añaden un %d%% de daño de %s." % [roundi(untura_pct * 100.0), Elementos.nombre(untura_elemento)])
+	if untura_estado >= 0:
+		l.append("Cada golpe que acierta puede dejar %s (%d%% base, según tu Destreza contra su Resistencia)." % [
+			nom_est, roundi(untura_prob * 100.0)])
+	if not untura_reparto.is_empty():
+		l.append("Si prende, suma: %s (como mucho %d)." % [AbilityData.texto_reparto(untura_reparto), untura_reparto.size()])
+	if untura_extra_estado >= 0:
+		l.append("Y cuando prende, un %d%% de dejar también %s." % [roundi(untura_extra_prob * 100.0),
+			str(StatusEffects.def(untura_extra_estado).get("nombre", "?"))])
+	l.append("Se unta al arco o a la ballesta con Untar y dura %d ataques." % untura_usos)
+	return "\n".join(l)
+
 # ¿Esta poción cura VIDA? ¿da MANÁ? (para el menu y el uso).
 func cura_hp() -> bool: return cura_total > 0.0 or cura_pct > 0.0
 func da_mana() -> bool: return mana_total > 0.0 or mana_pct > 0.0
@@ -278,6 +316,8 @@ func resumen(max_hp: float, max_mp: float) -> String:
 		return "vuelve al pueblo (hasta el piso %d)" % piso_max_vuelta
 	if es_cebo():
 		return "atrae peces a %.0f px del corcho" % cebo_radio
+	if es_untura():
+		return resumen_untura()
 	if es_plato():
 		return resumen_plato()
 	# El tocho no dice cuanta excelia da EN NUMERO: la que recibes depende de lo lejos que estes de

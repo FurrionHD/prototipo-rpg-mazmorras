@@ -24,8 +24,10 @@ const COLUMNAS_ING_COCINA := 3
 const COLUMNAS_ING_POCIONES := 2
 
 # El filtro de las pociones: 0 = todo, y luego el tipo de Game (ver _tipo_de) + 1.
-const FILTROS := ["Todo", "Vida", "Maná", "Antídotos"]
-const FILTRO_ICONOS := ["todo", "vida", "mana", "antidoto"]
+const FILTROS := ["Todo", "Vida", "Maná", "Antídotos", "Unturas"]
+const FILTRO_ICONOS := ["todo", "vida", "mana", "antidoto", "untura"]
+# LAS UNTURAS (03/10): para el arco y la ballesta (habilidad Untar). Ni curan ni dan mana: pestaña propia.
+const TIPO_UNTURA := 3
 const TIPO_VIDA := 0
 const TIPO_MANA := 1
 # LOS ANTIDOTOS VAN APARTE: "curan" algo de vida, asi que antes caian en Vida mezclados con las pociones
@@ -101,7 +103,7 @@ func build() -> void:
 # columnas, cada fila de la rejilla es una cadena.
 func _en_orden_de_cadena(recetas: Array) -> Array:
 	var out: Array = []
-	for tipo in [TIPO_VIDA, TIPO_MANA, TIPO_ANTIDOTO]:
+	for tipo in [TIPO_VIDA, TIPO_MANA, TIPO_ANTIDOTO, TIPO_UNTURA]:
 		for r in recetas:
 			var res: ConsumableData = (r as RecipeData).resultado
 			if res != null and _tipo_de(res) == tipo:
@@ -111,19 +113,22 @@ func _en_orden_de_cadena(recetas: Array) -> Array:
 
 # El filtro de encima de la rejilla. Antídotos solo sale si el tier los tiene.
 func _filtrar(recetas: Array) -> Array:
-	var nombres: Array = FILTROS.slice(0, 3)
-	var iconos: Array = FILTRO_ICONOS.slice(0, 3)
-	var hay_antidotos: bool = recetas.any(func(r): return _tipo_de((r as RecipeData).resultado) == TIPO_ANTIDOTO)
-	if hay_antidotos:
-		nombres.append(FILTROS[3])
-		iconos.append(FILTRO_ICONOS[3])
+	# Que tipo va en cada pestaña (-1 = Todo): Antidotos y Unturas solo si el tier los tiene, y entonces las
+	# pestañas YA NO van seguidas (T1 tiene unturas y no antidotos), asi que el indice no es el tipo.
+	var tipos: Array = [-1, TIPO_VIDA, TIPO_MANA]
+	for extra in [TIPO_ANTIDOTO, TIPO_UNTURA]:
+		if recetas.any(func(r): return _tipo_de((r as RecipeData).resultado) == extra):
+			tipos.append(extra)
+	var nombres: Array = tipos.map(func(x): return FILTROS[x + 1])
+	var iconos: Array = tipos.map(func(x): return FILTRO_ICONOS[x + 1])
 	if _filtro >= nombres.size():
 		_filtro = 0
 	MenuScaffold.subpestanas(t.barra_sub, nombres, iconos, _filtro, _on_filtro)
 	if _filtro == 0:
 		return recetas
-	t.titulo_seccion("%s  ·  %s" % [t.tabs()[t.tier - 1], FILTROS[_filtro]])
-	return recetas.filter(func(r): return _tipo_de((r as RecipeData).resultado) == _filtro - 1)
+	var tipo: int = int(tipos[_filtro])
+	t.titulo_seccion("%s  ·  %s" % [t.tabs()[t.tier - 1], FILTROS[tipo + 1]])
+	return recetas.filter(func(r): return _tipo_de((r as RecipeData).resultado) == tipo)
 
 
 func _on_filtro(i: int) -> void:
@@ -136,6 +141,8 @@ func _on_filtro(i: int) -> void:
 static func _tipo_de(res: ConsumableData) -> int:
 	if res == null:
 		return -1
+	if res.es_untura():
+		return TIPO_UNTURA
 	if res.es_brebaje_de_estado():
 		return TIPO_ANTIDOTO
 	return TIPO_VIDA if res.cura_hp() else (TIPO_MANA if res.da_mana() else -1)

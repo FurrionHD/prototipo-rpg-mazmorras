@@ -1720,7 +1720,8 @@ func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 		# ligerearia en el combate donde se lanzo, y al siguiente volveria mudo sin decir por que.
 		"spd": c.imbue_spd_mult, "prisma": c.imbue_prisma,
 		# El TOPE de acumulaciones: si no viajara, el veneno de la daga volveria sin tope a la pelea siguiente.
-		"tope": c.imbue_tope, "reparto": c.imbue_reparto}
+		"tope": c.imbue_tope, "reparto": c.imbue_reparto,
+		"extra": c.imbue_extra_estado, "extra_prob": c.imbue_extra_prob}
 
 
 # Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
@@ -1820,7 +1821,7 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 		# 1.0 por defecto: las fichas guardadas ANTES de que existiera el mitico no llevan la clave,
 		# y sin el default entrarian a velocidad 0.
 		float(d.get("spd", 1.0)), bool(d.get("prisma", false)), int(d.get("tope", -1)),
-		Array(d.get("reparto", [])))
+		Array(d.get("reparto", [])), int(d.get("extra", -1)), float(d.get("extra_prob", 0.0)))
 
 
 # CIERRA la mazmorra: se olvida como quedaron los pisos y todo vuelve a nacer poblado.
@@ -6765,6 +6766,7 @@ func soltar_casteo_en_vuelo() -> void:
 # recitar en el mapa. El criterio no se repite: es el mismo _es_arma_magica que usa la forja.
 # LA HABILIDAD CARGAR: va siempre con el arco y la ballesta, fuera de los cuatro huecos (ver _aplicar_loadout).
 const HAB_CARGAR: AbilityData = preload("res://resources/abilities/cargar.tres")
+const HAB_UNTAR: AbilityData = preload("res://resources/abilities/untar.tres")
 
 # La municion de material que hay en la BOLSA para esta arma (WeaponData.Tipo): [{md, n}], de la que pega
 # mas a la que menos.
@@ -8401,6 +8403,7 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	if lleva_arma_distancia(p):
 		abils = abils.duplicate()
 		abils.append(HAB_CARGAR)
+		abils.append(HAB_UNTAR)
 	c.abilities_combate = abils
 	# Mapa habilidad -> indices de MANO (arma) que la aportan. El dual de una habilidad
 	# SOLO se activa si AMBAS armas la traen (daga+daga), no daga+estoque: cada arma tiene
@@ -12515,6 +12518,10 @@ const _RECIPE_PATHS_MENORES: Array[String] = [
 	"res://resources/recipes/pocion_mana_1.tres",
 	"res://resources/recipes/pocion_mana_2.tres",
 	"res://resources/recipes/pocion_mana_3.tres",
+	# LAS UNTURAS (03/10) del arco y la ballesta: una por enemigo, hacen lo que hace el.
+	"res://resources/recipes/untura_venenosa.tres",
+	"res://resources/recipes/untura_ignea.tres",
+	"res://resources/recipes/untura_umbria.tres",
 ]
 const _RECIPE_PATHS_MEDIANAS: Array[String] = [
 	"res://resources/recipes/pocion_vida_t2_base.tres",
@@ -12531,6 +12538,11 @@ const _RECIPE_PATHS_MEDIANAS: Array[String] = [
 	# la boticaria.
 	"res://resources/recipes/antidoto_base.tres",
 	"res://resources/recipes/antidoto_1.tres",
+	"res://resources/recipes/ponzona_ciempies.tres",
+	"res://resources/recipes/ponzona_polilla.tres",
+	"res://resources/recipes/untura_esporas.tres",
+	"res://resources/recipes/untura_marea.tres",
+	"res://resources/recipes/untura_icor.tres",
 ]
 
 # RECETAS DE COCINA (el Cocinero del pueblo), por tiers como las de la boticaria. Ocho platos, uno

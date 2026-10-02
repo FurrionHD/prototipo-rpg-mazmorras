@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/recipe_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/recipe_ingrediente.gd" id="2"]
+[ext_resource type="Resource" path="res://resources/consumables/untura_icor.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/materials/icor.tres" id="4"]
+
+[sub_resource type="Resource" id="I_mat"]
+script = ExtResource("2")
+material = ExtResource("4")
+unidades = 3
+
+[resource]
+script = ExtResource("1")
+resultado = ExtResource("3")
+ingredientes = [SubResource("I_mat")]
+metadata/_custom_type_script = "res://scripts/items/recipe_data.gd"

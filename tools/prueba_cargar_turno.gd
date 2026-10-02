@@ -1,6 +1,7 @@
 # PRUEBA: CARGAR NO ACABA EL TURNO (03/10). Con arco y flechas en la bolsa, en la arena y sin ventana:
 #   - cargar deja el turno abierto (mismo personaje, esperando su accion) y carga 10;
-#   - despues: ni magia, ni objetos, ni habilidades (Cargar ya hecha); el circulo de andar NO se reinicia;
+#   - despues: ni magia ni objetos; Habilidades solo con Untar (que tambien sigue el turno); el circulo de andar NO
+#     se reinicia; con las dos hechas, Habilidades se cierra;
 #   - al pasar el turno acaba y el siguiente vuelve a tener todo.
 #   godot --headless --path . res://tools/prueba_cargar_turno.tscn
 extends Node
@@ -52,6 +53,8 @@ func _correr() -> void:
 	var flecha: MaterialData = load("res://resources/materials/flecha_acero.tres")
 	for _i in 20:
 		Game.materiales.append(MaterialItem.crear(flecha))
+	var untura: ConsumableData = load("res://resources/consumables/ponzona_ciempies.tres")
+	Game.consumables[untura] = 2
 	get_tree().change_scene_to_file("res://scenes/levels/town.tscn")
 	await _esperar(5)
 	Game.entrar_arena_de_pruebas()
@@ -88,7 +91,17 @@ func _correr() -> void:
 	_afirmar(combat._actions_box.visible, "vuelve la barra de acciones")
 	_afirmar(not combat._accion_disponible(combat.Action.MAGIC) and not combat._accion_disponible(combat.Action.OBJETO),
 		"tras cargar: ni magia ni objetos")
-	_afirmar(not combat._accion_disponible(combat.Action.HABILIDAD), "tras cargar: Habilidades cerrado (no queda otra preparacion)")
+	_afirmar(combat._accion_disponible(combat.Action.HABILIDAD), "tras cargar: Habilidades abierto (queda Untar)")
+	combat.habilidades._untar(Game.HAB_UNTAR, untura)
+	await _esperar(3)
+	print("untada: estado %d reparto %s tope %d extra %d | %s" % [quien.imbue_estado, quien.imbue_reparto, quien.imbue_tope,
+		quien.imbue_extra_estado, quien.imbue_etiqueta()])
+	_afirmar(int(Game.consumables.get(untura, 0)) == 1, "untar gasta un frasco")
+	_afirmar(quien.imbue_estado == StatusEffects.Id.VENENO and quien.imbue_usos == 10 and quien.imbue_tope == 3
+		and quien.imbue_extra_estado == StatusEffects.Id.LENTO, "la untura queda puesta (veneno T2, tope 3, + Lento, 10 ataques)")
+	_afirmar(combat._state == combat.State.WAITING_PLAYER and combat._player == quien, "tras untar el turno sigue")
+	_afirmar(not combat._accion_disponible(combat.Action.HABILIDAD), "tras las dos: Habilidades cerrado")
+	_afirmar(combat._accion_disponible(combat.Action.FLEE), "tras las dos: Pasar sigue")
 	_afirmar(combat._accion_disponible(combat.Action.FLEE), "tras cargar: Pasar sigue")
 	_afirmar(t._fase == t.Fase.MOVIENDO and t._inicio == inicio, "el circulo de andar no se reinicia")
 	combat._on_action(combat.Action.FLEE)

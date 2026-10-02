@@ -542,6 +542,10 @@ var imbue_tope: int = -1
 # LA ESCALERA del tier del arma (AbilityData.imbue_escalera): si prende, reparto[i] = prob. de sumar i+1
 # dosis. Vacia = la tirada vieja de dos escalones (imbue_prob +1 / imbue_prob_doble +2).
 var imbue_reparto: Array = []
+# SEGUNDO ESTADO (las unturas, 03/10): solo se tira si el primero ha prendido (la ponzona de ciempies: Veneno y,
+# cuando entra, Lento). -1 = no lleva.
+var imbue_extra_estado: int = -1
+var imbue_extra_prob: float = 0.0
 # ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
 var imbue_def_gastada: bool = false
 # VELOCIDAD mientras la imbuicion siga puesta (1.0 = no la toca). Vive aqui y no como estado a
@@ -599,8 +603,11 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
 		prob_doble: float = 0.0, por_destreza: bool = false,
-		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1, reparto: Array = []) -> void:
+		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1, reparto: Array = [],
+		extra_estado: int = -1, extra_prob: float = 0.0) -> void:
 	imbue_elemento = elem
+	imbue_extra_estado = extra_estado
+	imbue_extra_prob = extra_prob
 	imbue_prisma = prisma
 	imbue_tope = tope
 	imbue_reparto = reparto.duplicate()
@@ -692,6 +699,8 @@ func imbue_resumen() -> String:
 			lineas.append("Si prende, suma (por el tier del arma): %s." % AbilityData.texto_reparto(imbue_reparto))
 		if imbue_tope >= 0:
 			lineas.append("Como mucho deja %d dosis." % imbue_tope)
+		if imbue_extra_estado >= 0:
+			lineas.append(_texto_extra())
 		lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
 			imbue_usos, "" if imbue_usos == 1 else "s"])
 		return "\n".join(lineas)
@@ -708,6 +717,8 @@ func imbue_resumen() -> String:
 			else str(StatusEffects.def(imbue_estado).get("nombre", "?"))
 		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
 			% [deja, roundi(imbue_prob * 100.0)])
+	if imbue_extra_estado >= 0:
+		lineas.append(_texto_extra())
 	if imbue_spd_mult > 1.0:
 		lineas.append("Y mientras la lleves, te mueves un %d%% más rápido." % roundi((imbue_spd_mult - 1.0) * 100.0))
 	# Se gasta por ATAQUE, no por turno: es la diferencia que hay que entender para no
@@ -715,6 +726,11 @@ func imbue_resumen() -> String:
 	lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
 		imbue_usos, "" if imbue_usos == 1 else "s"])
 	return "\n".join(lineas)
+
+
+func _texto_extra() -> String:
+	return "Y cuando prende, un %d%% de dejar también %s." % [roundi(imbue_extra_prob * 100.0),
+		str(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))]
 
 
 # Tira el ESTADO de la imbuicion tras un golpe que ACIERTA. Devuelve su nombre si prende, ""
@@ -759,7 +775,16 @@ func roll_imbue(target: Combatant) -> String:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
 		target.apply_status(imbue_estado, -1, -1.0, 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
-	return nom if stacks == 1 else "%s x%d" % [nom, stacks]
+	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
+	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
+	if imbue_extra_estado >= 0 and imbue_extra_prob > 0.0 and target.is_alive() 			and not target.es_inmune(imbue_extra_estado):
+		var pe: float = StatusEffects.prob_final(
+			StatsMath.imbue_proc_chance(imbue_extra_prob, stat, rival, imbue_por_destreza),
+			self, target, imbue_extra_estado)
+		if randf() < pe:
+			target.apply_status(imbue_extra_estado)
+			txt += ", " + String(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))
+	return txt
 
 
 # Cuantas dosis suma un golpe que prende: sortea la fila (que suma 1; si no, lo que sobre va a la ultima).
@@ -794,6 +819,8 @@ func consumir_imbue() -> bool:
 	imbue_prob = 0.0
 	imbue_tope = -1
 	imbue_reparto = []
+	imbue_extra_estado = -1
+	imbue_extra_prob = 0.0
 	imbue_spd_mult = 1.0   # la ligereza se va con el manto: por eso no es un estado por turnos
 	return true
 

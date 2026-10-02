@@ -149,6 +149,9 @@ func _accion_habilidad() -> void:
 		if ab.cargar_municion > 0:
 			grid.add_child(_boton_cargar(ab))
 			continue
+		if ab.untar:
+			grid.add_child(_boton_untar(ab))
+			continue
 		var tras_prep: bool = not _pantalla._preps_turno.is_empty()
 		var manos: int = _pantalla._player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
@@ -167,9 +170,7 @@ func _accion_habilidad() -> void:
 			b.tooltip_text += "\n\n" + ab.descripcion
 		if tras_prep:
 			b.disabled = true
-			b.tooltip_text = "⛔ Ya te has preparado este turno: solo la otra preparación
-
-%s" % b.tooltip_text
+			b.tooltip_text = "⛔ Ya te has preparado este turno: solo la otra preparación\n\n%s" % b.tooltip_text
 		elif cd_left > 0:
 			b.disabled = true
 			b.tooltip_text = "⛔ En cooldown: %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
@@ -268,6 +269,75 @@ func aplicar_carga(ab: AbilityData, md: MunicionData, cals: Array) -> void:
 	var p: Combatant = _pantalla._player
 	p.cargar_municion(md, cals)
 	_pantalla._set_log("🏹 %s carga %d × %s." % [p.nombre, cals.size(), md.nombre.to_lower()])
+	_pantalla.seguir_tras_preparacion(ab)
+
+
+# ============================================================
+#  UNTAR (03/10): las unturas de la boticaria en el arco y la ballesta
+# ============================================================
+# Las unturas que llevo en la bolsa: [{c: ConsumableData, n}], las de mas tier primero.
+func _unturas_en_bolsa() -> Array:
+	var out: Array = []
+	for c in Game.consumables:
+		if c != null and (c as ConsumableData).es_untura() and int(Game.consumables[c]) > 0:
+			out.append({"c": c, "n": int(Game.consumables[c])})
+	out.sort_custom(func(a, b): return int(a["c"].tier) > int(b["c"].tier))
+	return out
+
+func _boton_untar(ab: AbilityData) -> Button:
+	var b := TooltipButton.new()
+	b.text = "%s  (no acaba el turno)" % ab.nombre
+	b.tooltip_text = "No acaba el turno: después te quedan el básico, Defender, Pasar o la otra preparación.\n\n%s" % ab.descripcion
+	if _pantalla.prep_hecha(ab):
+		b.disabled = true
+		b.tooltip_text = "⛔ Ya has untado este turno\n\n%s" % b.tooltip_text
+	elif _unturas_en_bolsa().is_empty():
+		b.disabled = true
+		b.tooltip_text = "⛔ No llevas unturas en la bolsa (las hace la boticaria)\n\n%s" % b.tooltip_text
+	b.pressed.connect(_elegir_untura.bind(ab))
+	_pantalla._celda_submenu(b)
+	return b
+
+# La lista: un boton por untura de la bolsa, con cuantas hay y lo que hace.
+func _elegir_untura(ab: AbilityData) -> void:
+	for c in _pantalla._ability_box.get_children():
+		c.queue_free()
+	var grid := _pantalla._rejilla_submenu(_pantalla._ability_box)
+	var lista: Array = _unturas_en_bolsa()
+	for fila in lista:
+		var cons: ConsumableData = fila["c"]
+		var b := TooltipButton.new()
+		b.text = "%s  x%d" % [cons.nombre, int(fila["n"])]
+		b.tooltip_text = cons.resumen_untura()
+		if _pantalla._player.tiene_imbue():
+			b.tooltip_text += "\n\nSustituye a lo que lleves puesto en el arma."
+		b.pressed.connect(_untar.bind(ab, cons))
+		_pantalla._celda_submenu(b)
+		grid.add_child(b)
+	_pantalla._cerrar_submenu(_pantalla._ability_box, lista.size(), _accion_habilidad)
+
+# Gasta el frasco de MI bolsa y la unta. En el espejo, la bolsa es la mia: se gasta aqui y al anfitrion solo le
+# viaja cual (como la pocion).
+func _untar(ab: AbilityData, cons: ConsumableData) -> void:
+	if _pantalla._state != _pantalla.State.WAITING_PLAYER and not _pantalla._espejo:
+		return
+	if not Game.gastar_consumible(cons):
+		return
+	if _pantalla._espejo:
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "untar", "ruta": cons.resource_path, "hab": ab.resource_path})
+		return
+	aplicar_untura(ab, cons)
+
+# Quien lleva la pelea la pone en el combatiente como imbuicion del ARMA y sigue el turno (es una preparacion).
+# OJO: como todas las imbuiciones, SUSTITUYE a la que hubiera (un Filo, un Manto, otra untura).
+func aplicar_untura(ab: AbilityData, cons: ConsumableData) -> void:
+	var p: Combatant = _pantalla._player
+	var reparto: Array = cons.untura_reparto
+	p.aplicar_imbue(cons.untura_elemento, cons.untura_pct, cons.untura_usos, false,
+		cons.untura_estado, cons.untura_prob, Elementos.INTENSIDAD_IMBUIDO, 0.0, true, 1.0, false,
+		reparto.size() if not reparto.is_empty() else -1, reparto,
+		cons.untura_extra_estado, cons.untura_extra_prob)
+	_pantalla._set_log("🧪 %s unta el arma con %s (%d ataques)." % [p.nombre, cons.nombre.to_lower(), cons.untura_usos])
 	_pantalla.seguir_tras_preparacion(ab)
 
 

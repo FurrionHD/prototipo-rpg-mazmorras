@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Untura umbría"
+descripcion = "Baba abisal que se traga la luz de la punta. Donde entra, la carne se ablanda como si el abismo apretara."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+es_comida = false
+valor_base = 150
+tier = 1
+color_frasco = Color(0.35, 0.25, 0.55, 1)
+untura_usos = 10
+untura_elemento = 5
+untura_pct = 0.2
+untura_estado = 5
+untura_prob = 0.3
+untura_reparto = []
+untura_extra_estado = -1
+untura_extra_prob = 0.0

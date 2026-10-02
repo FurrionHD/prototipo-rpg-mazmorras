@@ -333,7 +333,11 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # PREPARACION (03/10, su decision): Cargar (y Untar) NO acaban el turno. Despues de una solo te deja la OTRA
 # preparacion, el basico, Defender o Pasar: nada de habilidades, magia ni objetos (ver combat._preps_turno).
 func es_preparacion() -> bool:
-	return cargar_municion > 0
+	return cargar_municion > 0 or untar
+
+# UNTAR (03/10, arco y ballesta): abre la lista de UNTURAS de la bolsa (ConsumableData.es_untura) y pone la elegida
+# como imbuicion del arma. Va siempre con el arma, fuera de los cuatro huecos, y es una PREPARACION como Cargar.
+@export var untar: bool = false
 # CUANTA MUNICION CARGADA GASTA al soltarse (arco y ballesta, 02/10): una por proyectil. La Lluvia (3 flechas) y la
 # Andanada (3 virotes) gastan 3; las que no disparan, 0. Si quedan menos, gasta las que haya y pega con su bonus.
 @export var municion_por_uso: int = 1

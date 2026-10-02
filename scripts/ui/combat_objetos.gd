@@ -27,7 +27,7 @@ func _accion_objeto() -> void:
 	var grid := _pantalla._rejilla_submenu(_pantalla._objeto_box)
 	for cons in Game.consumables:
 		var n: int = int(Game.consumables[cons])
-		if n <= 0 or cons.es_grimorio() or cons.es_cebo():
+		if n <= 0 or cons.es_grimorio() or cons.es_cebo() or cons.es_untura():
 			continue
 		var b := TooltipButton.new()
 		# El cuanto/en cuantos turnos se va al tooltip: a media anchura solo caben nombre y cantidad.

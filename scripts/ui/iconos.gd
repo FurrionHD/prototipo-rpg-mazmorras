@@ -874,6 +874,26 @@ static func antidoto(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> vo
 	c.draw_line(ctr + Vector2(0, -brazo), ctr + Vector2(0, brazo), col, g * 1.2, true)
 
 
+# --- UNTURA (la boticaria, 03/10): una flecha en diagonal con una GOTA colgando de la punta ---
+static func untura(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.09
+	var cola: Vector2 = pos + Vector2(lado * 0.16, lado * 0.84)
+	var punta: Vector2 = pos + Vector2(lado * 0.70, lado * 0.30)
+	c.draw_line(cola, punta, col, g, true)
+	var eje: Vector2 = (punta - cola).normalized()
+	var lat: Vector2 = Vector2(-eje.y, eje.x)
+	c.draw_colored_polygon(PackedVector2Array([punta + eje * lado * 0.16, punta + lat * lado * 0.09,
+		punta - lat * lado * 0.09]), col)
+	# las plumas
+	c.draw_line(cola, cola + (lat - eje) * lado * 0.12, col, g * 0.8, true)
+	c.draw_line(cola, cola + (-lat - eje) * lado * 0.12, col, g * 0.8, true)
+	# la gota: bola y pico hacia arriba
+	var gota: Vector2 = pos + Vector2(lado * 0.80, lado * 0.66)
+	c.draw_circle(gota, lado * 0.09, col)
+	c.draw_colored_polygon(PackedVector2Array([gota + Vector2(-lado * 0.08, -lado * 0.03),
+		gota + Vector2(lado * 0.08, -lado * 0.03), gota + Vector2(0, -lado * 0.18)]), col)
+
+
 # --- CUENCO (la cocina): el cuenco con el vapor saliendo ---
 # El vapor es lo que lo hace COMIDA: sin el, un semicirculo se lee como una luna.
 static func cuenco(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:

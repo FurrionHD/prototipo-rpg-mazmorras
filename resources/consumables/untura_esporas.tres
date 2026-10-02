@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/consumable_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Untura de esporas"
+descripcion = "Esporas de micónido machacadas hasta hacer pasta. Solo envenenan, pero lo hacen con muchas ganas."
+cura_total = 0.0
+turnos = 0
+segundos = 0.0
+es_comida = false
+valor_base = 400
+tier = 2
+color_frasco = Color(0.6, 0.55, 0.35, 1)
+untura_usos = 10
+untura_elemento = 0
+untura_pct = 0.0
+untura_estado = 0
+untura_prob = 0.7
+untura_reparto = [0.6, 0.3, 0.1]
+untura_extra_estado = -1
+untura_extra_prob = 0.0

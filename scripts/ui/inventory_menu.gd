@@ -903,6 +903,8 @@ func _clase_consumible(c: ConsumableData) -> String:
 		return "Plato de cocina"
 	if c.es_cebo():
 		return "Cebo de pesca"
+	if c.es_untura():
+		return "Untura"
 	if c.da_mana() and not c.cura_hp():
 		return "Poción de maná"
 	if c.cura_hp():
@@ -931,6 +933,8 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# La ficha del plato ya trae QUE hace y CUANTO dura, todo derivado de sus efectos: aqui no se
 		# escribe ni un numero (ver ConsumableData.resumen_plato).
 		_note(vb, cons.resumen_plato())
+	elif cons.es_untura():
+		_note(vb, cons.resumen_untura())
 	elif cons.es_cebo():
 		_row(vb, "Atracción", cons.resumen(0.0, 0.0))
 		_row(vb, "Puesto", "sí" if Game.cebo_activo == cons else "no")
@@ -962,6 +966,9 @@ func _preview_consumible(vb: VBoxContainer) -> void:
 		# Un cebo NO se usa desde la bolsa: se pone en el anzuelo, y eso solo significa algo con el
 		# agua delante. En vez de un boton que no haria nada, se dice donde se pone.
 		_note(vb, "Los cebos se ponen en el estanque: ponte en la orilla y pulsa [F].")
+	elif cons.es_untura():
+		# Una untura tampoco se bebe: se unta en combate con el arco o la ballesta (la habilidad Untar).
+		_note(vb, "Se unta en combate: con arco o ballesta, la habilidad Untar.")
 	# El GRIMORIO siempre por el modal, aunque solo haya uno: es donde se pregunta si estas seguro.
 	elif a_alguien and (_candidatos_uso(cons).size() > 1 or cons.es_grimorio()):
 		MenuScaffold.pastilla(vb, _verbo_usar(cons), _abrir_modal_usar.bind(cons))
@@ -1657,7 +1664,7 @@ func _valor_filtro(s: Dictionary, clave: String) -> int:
 				return 2
 			if c.es_plato():
 				return 3
-			if c.es_cebo():
+			if c.es_cebo() or c.es_untura():
 				return 4
 			if c.da_mana() and not c.cura_hp():
 				return 1

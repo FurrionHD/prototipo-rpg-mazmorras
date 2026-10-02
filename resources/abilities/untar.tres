@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1")
-nombre = "Cargar"
+nombre = "Untar"
 inicial = true
 coste_energia = 0.0
-cargar_municion = 10
-descripcion = "Pones en el arma la munición de material que llevas en la bolsa. Los próximos disparos pegan con su bonus; cuando se acaban, vuelves a la de siempre."
+untar = true
+descripcion = "Destapas un frasco de la boticaria y le pasas el trapo a las puntas. Los próximos disparos llevan lo que haya dentro."
