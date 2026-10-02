@@ -163,7 +163,9 @@ func mult_talla() -> float:
 func peso() -> float:
 	if data == null:
 		return 0.0
-	return maxf(0.1, data.peso_base * peso_mult_calidad())
+	# Sin suelo de 0.1 (02/10): los pesos son kg REALES y un polvo pesa 0.01. El suelo de 0.001 es solo
+	# para que nada que este en la bolsa cuente como si no pesara (eso solo lo hace el carbon, por tipo).
+	return maxf(0.001, data.peso_base * peso_mult_calidad())
 
 
 # Color del item (para el pickup del suelo y la UI): el del material, apagado si esta dañado.

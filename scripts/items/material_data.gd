@@ -70,7 +70,14 @@ enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
 # Los materiales que NO se recolectan (baba, cuero, nucleo) no la usan.
 @export var exigencia: float = 30.0
 
+# En KG REALES de una unidad (02/10): un polvo 0.01, un nucleo segun lo grande que sea el enemigo,
+# una mena 2-4. La capacidad (zurron 25, mochilas) ya esta en esos kilos.
 @export var peso_base: float = 1.5
+
+# Como se ESCRIBE un peso en todos los menus: con dos decimales por debajo del kilo (si no, un polvo
+# saldria "0.0") y con uno por encima.
+static func texto_peso(kg: float) -> String:
+	return ("%.2f kg" if kg < 1.0 else "%.1f kg") % kg
 @export var valor_base: int = 20
 
 # --- SOLO para la familia NUCLEO: hasta donde deja subir el equipo ---
@@ -443,7 +450,7 @@ func resumen() -> String:
 	var partes: PackedStringArray = [
 		"%s · %s · grado %d" % [familia_texto(), tipo_texto(), tier],
 		"valor base %d" % valor_base,
-		"peso %.1f" % peso_base,
+		"peso %s" % texto_peso(peso_base),
 	]
 	# La DESPENSA va con un "y ademas": la mitad se recolecta (sal, silvestres) y la otra mitad se
 	# compra hecha (verduras, pan), asi que aqui manda la exigencia y no el tipo. Los demas siguen

@@ -636,7 +636,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		MenuScaffold.banner_item(vb, c, pie, "Cristal")
 		row(vb, "Categoría", str(c.categoria))
 		row(vb, "Calidad", c.calidad_texto())
-		row(vb, "Peso", "%.1f" % c.peso())
+		row(vb, "Peso", MaterialData.texto_peso(c.peso()))
 	elif m is MaterialItem:
 		var mi := m as MaterialItem
 		if mi.data != null:
@@ -646,7 +646,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		if mi.data != null:
 			row(vb, "Material", mi.data.resumen())
 		row(vb, "Calidad", mi.calidad_texto())
-		row(vb, "Peso", "%.1f" % mi.peso())
+		row(vb, "Peso", MaterialData.texto_peso(mi.peso()))
 		if mi.data != null and mi.data.descripcion != "":
 			note(vb, mi.data.descripcion)
 	elif m is MaterialData:
@@ -654,7 +654,7 @@ func ficha_objeto(vb: VBoxContainer, m: Resource, cantidad: int = 0) -> void:
 		MenuScaffold.titulo_item(vb, md.nombre, md.color_rango(), md.rango_intensidad())
 		MenuScaffold.banner_item(vb, md, pie, "Ingrediente de cocina")
 		row(vb, "Tipo", md.tipo_texto())
-		row(vb, "Peso", "%.1f por unidad" % md.peso_base)
+		row(vb, "Peso", "%s por unidad" % MaterialData.texto_peso(md.peso_base))
 		# Cuantas llevas ENCIMA: lo que decide si hace falta comprar mas antes de bajar es la bolsa.
 		var llevas: int = 0
 		for x in Game.materiales:

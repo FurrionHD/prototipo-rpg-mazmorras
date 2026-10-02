@@ -621,14 +621,14 @@ func _preview_bolsa(vb: VBoxContainer) -> void:
 		_row(vb, "Categoría", str(c.categoria))
 		_row(vb, "Calidad", c.calidad_texto())
 		_row(vb, "Valor estimado", "%d  (total %d)" % [c.valor_estimado(), c.valor_estimado() * n])
-		_row(vb, "Peso", "%.1f  (total %.1f)" % [c.peso(), c.peso() * n])
+		_row(vb, "Peso", "%s  (total %s)" % [MaterialData.texto_peso(c.peso()), MaterialData.texto_peso(c.peso() * n)])
 	elif modelo is MaterialItem:
 		var m := modelo as MaterialItem
 		if m.data != null:
 			_row(vb, "Material", m.data.resumen())
 		_row(vb, "Calidad", m.calidad_texto())
 		_row(vb, "Valor estimado", "%d  (total %d)" % [m.valor_estimado(), m.valor_estimado() * n])
-		_row(vb, "Peso", "%.1f  (total %.1f)" % [m.peso(), m.peso() * n])
+		_row(vb, "Peso", "%s  (total %s)" % [MaterialData.texto_peso(m.peso()), MaterialData.texto_peso(m.peso() * n)])
 		if m.data != null and m.data.descripcion != "":
 			_note(vb, m.data.descripcion)
 

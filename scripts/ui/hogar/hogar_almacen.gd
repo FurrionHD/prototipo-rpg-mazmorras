@@ -689,7 +689,7 @@ func _filas(m: Resource) -> Array:
 	if m is MaterialItem:
 		var mi := m as MaterialItem
 		out.append(["Calidad", mi.calidad_texto()])
-		out.append(["Peso", "%.1f cada uno" % mi.peso()])
+		out.append(["Peso", "%s cada uno" % MaterialData.texto_peso(mi.peso())])
 		return out
 	if m is ConsumableData:
 		return out   # su descripcion va aparte, a todo lo ancho (ver _ficha)
