@@ -221,7 +221,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	for campo in ["nombre", "color", "metalico", "imagen", "color_alpha", "aspecto", "level",
 			"ability_internal", "ability_consolidado", "ability_base_nivel",
 			"fuerza", "resistencia", "destreza", "agilidad", "magia",
-			"base_hp", "base_attack", "base_defense", "base_magic", "base_speed",
+			"base_hp", "base_attack", "base_attack_des", "base_defense", "base_magic", "base_speed",
 			"base_mp", "base_magia_factor", "base_crit",
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",

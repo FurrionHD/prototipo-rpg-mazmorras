@@ -689,10 +689,9 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 						var dsp: String = _pantalla.desplazado(t, ab.tiron, _pantalla._player)
 						if dsp != "":
 							_pantalla._set_log(dsp)
-		# Excelia: como el ataque, entrena Fuerza (por impacto medio, contra el principal).
+		# Excelia: como el ataque, entrena la stat de su arma (por impacto medio, contra el principal).
 		var pj_hab: PersonajeData = Game.pj_de_combatant(_pantalla._player)
-		Game.ganar("fuerza", _pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, Game.GAIN_FUERZA_ATAQUE,
-			Game.RETO_MAX_FISICO, pj_hab)
+		Game.ganar_golpe(_pantalla._reto(obj, pj_hab) * _pantalla._player.motion_value, pj_hab, _pantalla._player)
 		# Y si en la habilidad ha entrado algun CRITICO, entrena Agilidad igual que el basico: el
 		# hueco lo encuentras igual con una habilidad que con un espadazo suelto. Antes esta rama
 		# solo pagaba Fuerza, asi que a quien juega a base de habilidades —o sea, cualquiera en

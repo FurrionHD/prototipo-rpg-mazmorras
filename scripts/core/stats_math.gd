@@ -154,6 +154,11 @@ static func _coef(base: float, growth: float, level: int) -> float:
 static func fuerza_factor(fuerza: float) -> float:
 	return 1.0 + fuerza / FUERZA_DIV
 
+# El factor del ATAQUE segun con que escale el arma (WeaponData.escala_destreza): la mezcla de Fuerza y
+# Destreza con la MISMA recta que la Fuerza sola. Con escala 0 es fuerza_factor exacto.
+static func ataque_factor(fuerza: float, destreza: float, escala_des: float) -> float:
+	return fuerza_factor(lerpf(fuerza, destreza, escala_des))
+
 # MAGIA: multiplica el dano_base del hechizo (paralelo a fuerza_factor). El
 # magic_amp del arma (bastones/varitas, KAN-95) se aplica aparte en resolve_spell.
 static func magia_factor(magia: float) -> float:

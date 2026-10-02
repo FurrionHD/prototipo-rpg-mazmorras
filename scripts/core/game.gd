@@ -6503,6 +6503,10 @@ var _dev_weapons: Array[String] = [
 	"res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/martillo_grande.tres",
 	"res://resources/weapons/baston.tres",
+	# A distancia (02/10): solo aqui y en el manifiesto hasta que esten acabadas; luego a la tienda
+	# (CatalogoEquipo.ARMAS) y al carpintero.
+	"res://resources/weapons/arco.tres",
+	"res://resources/weapons/ballesta.tres",
 ]
 var _dev_offs: Array = [
 	null,
@@ -8296,6 +8300,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
 	c.crit_flat = p.base_crit
 	c.magia_base_factor = p.base_magia_factor
+	c.base_attack_des = p.base_ataque_destreza()   # la base de las armas de Destreza (arco, ballesta)
 	# El JUGADOR usa las formulas MULTIPLICATIVAS (la stat multiplica su base): es lo que hace que
 	# el bakeo de subir de nivel se note (un punto nuevo multiplica una base mayor). Vida y maná se
 	# recalculan aqui porque el Combatant los computo en su _init con las aditivas.
@@ -8602,6 +8607,8 @@ func _hand_from(w: WeaponData, slot: String, pj: PersonajeData = null) -> Dictio
 		"slot": slot,   # para saber que arma desgastar al golpear (main/off)
 		"motion_value": w.motion_value,
 		"ataque_arma": float(wm["raw"]) * dur_mult,
+		# Con que stat escala (0 Fuerza, 1 Destreza): por mano, como todo lo del arma.
+		"escala_des": w.escala_destreza,
 		# Defensa que ignora. Por mano: en dual cada arma trae la suya.
 		"penetracion": Upgrades.penetracion_arma(w),
 		"crit_bonus": float(wm["crit"]),
@@ -8940,6 +8947,7 @@ const _MANIFIESTO_PLANTILLAS := [
 	"res://resources/weapons/estoque.tres", "res://resources/weapons/hacha_grande.tres",
 	"res://resources/weapons/mandobles.tres", "res://resources/weapons/martillo_grande.tres",
 	"res://resources/weapons/maza_peq.tres", "res://resources/weapons/punos.tres",
+	"res://resources/weapons/arco.tres", "res://resources/weapons/ballesta.tres",
 	"res://resources/shields/escudo_grande.tres", "res://resources/shields/escudo_normal.tres",
 	"res://resources/shields/escudo_pequeno.tres",
 	"res://resources/wands/varita.tres",
@@ -12647,6 +12655,16 @@ func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MA
 			p.nombre, abil, base, clampf(reto_val, 0.0, max_reto), factor,
 			desarrollo_gain_mult(abil, p), gain])
 
+# La excelia de UN GOLPE DE ARMA: entrena la stat con la que escala esa arma (WeaponData.escala_destreza).
+# Cuerpo a cuerpo, toda a la Fuerza como siempre; el arco, a la Destreza; la ballesta, mitad y mitad. Se
+# reparte la BASE y no el reto, para que el tope del reto pese igual en las dos.
+func ganar_golpe(reto_val: float, pj: PersonajeData, c: Combatant) -> void:
+	var w: float = c.escala_des if c != null else 0.0
+	if w < 1.0:
+		ganar("fuerza", reto_val, GAIN_FUERZA_ATAQUE * (1.0 - w), RETO_MAX_FISICO, pj)
+	if w > 0.0:
+		ganar("destreza", reto_val, GAIN_FUERZA_ATAQUE * w, RETO_MAX_FISICO, pj)
+
 # ¿Se imprime el desglose de cada ganancia de excelia? Lo enciende la tecla de dev del panel (y las
 # herramientas de balance). Apagado por defecto: en combate esto son varias lineas por golpe.
 var desglose_excelia: bool = false
@@ -12940,6 +12958,9 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	var spike: float = 1.0 + NIVEL_SPIKE
 	# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador),
 	# asi lo que se congela es exactamente el poder que tenias.
+	# La base de DESTREZA (armas a distancia) se congela igual con tu Destreza; se lee ANTES de tocar
+	# base_attack porque una ficha vieja (-1) la toma de ahi.
+	lider().base_attack_des = lider().base_ataque_destreza() * StatsMath.fuerza_factor(float(a.destreza)) * spike
 	player_base_attack = player_base_attack * StatsMath.fuerza_factor(float(a.fuerza)) * spike
 	player_base_hp = StatsMath.max_hp_jugador(a, player_base_hp) * spike
 	player_base_defense = StatsMath.defense_jugador(a, player_base_defense) * spike

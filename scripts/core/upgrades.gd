@@ -567,6 +567,8 @@ const PENETRACION_POR_TIPO := {
 	WeaponData.Tipo.ESPADA_CORTA: 0.25,
 	WeaponData.Tipo.ESPADA_LARGA: 0.12,
 	WeaponData.Tipo.MAZA_PEQ: 0.12,
+	# La BALLESTA: el virote atraviesa la chapa (02/10). El arco, nada: muchos disparos flojos.
+	WeaponData.Tipo.BALLESTA: 0.20,
 }
 
 static func penetracion_arma(w: WeaponData) -> float:

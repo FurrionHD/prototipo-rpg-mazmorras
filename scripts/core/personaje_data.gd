@@ -180,6 +180,11 @@ func aplicar_aspecto(d: Dictionary) -> void:
 # --- Bases que crecen al subir de nivel ---
 @export var base_hp: float = 50.0
 @export var base_attack: float = 5.0
+# La base del ataque de las armas que escalan con DESTREZA (arco; la ballesta mezcla las dos). Al subir de
+# nivel se congela con tu Destreza igual que base_attack con tu Fuerza: si no, un arquero perderia en cada
+# nivel lo que gano. -1 = partida de antes de las armas a distancia: vale lo mismo que base_attack (no
+# sabemos su historia, y quitarle lo subido seria peor). Leer SIEMPRE por base_ataque_destreza().
+@export var base_attack_des: float = -1.0
 @export var base_defense: float = 5.0
 @export var base_magic: float = 5.0
 @export var base_speed: float = 5.0
@@ -261,6 +266,10 @@ func imbue_elemento() -> int:
 	if imbue.is_empty() or int(imbue.get("usos", 0)) <= 0:
 		return Elementos.Elemento.NINGUNO
 	return int(imbue.get("elem", Elementos.Elemento.NINGUNO))
+
+# La base del ataque de Destreza que vale de verdad (ver base_attack_des).
+func base_ataque_destreza() -> float:
+	return base_attack if base_attack_des < 0.0 else base_attack_des
 
 # --- Perks ---
 @export var guardianes_vencidos: Dictionary = {}

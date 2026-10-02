@@ -1189,7 +1189,7 @@ static func dano_arma(w: WeaponData, raw: float, pj: PersonajeData,
 	if w == null or pj == null:
 		return raw
 	return raw * Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0)) \
-		* StatsMath.fuerza_factor(float(pj.fuerza)) * w.motion_value
+		* StatsMath.ataque_factor(float(pj.fuerza), float(pj.destreza), w.escala_destreza) * w.motion_value
 
 
 # EL HECHIZO CON EL QUE SE MIDE el ataque magico. Es el mas basico que hay: sin elemento, una sola

@@ -38,6 +38,11 @@ const TIPO_NOMBRE := [
 	"punos", "daga", "espada_corta", "espada_larga", "mandoble",
 	"estoque", "hacha_grande", "maza_peq", "martillo_grande", "baston",
 ]
+# El nombre del DIBUJO de un tipo de arma, o "" si aun no tiene (el arco y la ballesta, 02/10, hasta su
+# paso de animaciones): sin dibujo el muñeco va sin arma en la mano en vez de petar por el indice.
+static func nombre_de_tipo(tipo: int) -> String:
+	return String(TIPO_NOMBRE[tipo]) if tipo >= 0 and tipo < TIPO_NOMBRE.size() else ""
+
 # La varita (WandData) no es un WeaponData.Tipo, pero se dibuja igual: va aparte.
 const EXTRA := ["varita"]
 

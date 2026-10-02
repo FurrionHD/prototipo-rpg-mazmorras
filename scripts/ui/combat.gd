@@ -1718,8 +1718,7 @@ func _accion_atacar() -> void:
 	# golpe). arma_factor = motion_value de la MANO ACTIVA (KAN-82); tope fisico (5).
 	var arma_factor: float = _player.motion_value
 	var pj_atacante: PersonajeData = Game.pj_de_combatant(_player)
-	Game.ganar("fuerza", _reto(obj, pj_atacante) * arma_factor, Game.GAIN_FUERZA_ATAQUE,
-		Game.RETO_MAX_FISICO, pj_atacante)
+	Game.ganar_golpe(_reto(obj, pj_atacante) * arma_factor, pj_atacante, _player)
 	var con_arma: String = _player.current_hand_name()
 	# EL GESTO DEL ARMA. Sale por el mismo camino que el basico de un bicho: sin habilidad, manda
 	# como pega el que pega (Combatant.fx_basico), que en el jugador lo pone la MANO ACTIVA. Por eso
@@ -2258,8 +2257,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de
 			# arma que el basico (ver _accion_atacar).
 			var mv: float = esc.motion_value
-			Game.ganar("fuerza", _reto(obj, pj_esc) * mv, Game.GAIN_FUERZA_ATAQUE,
-				Game.RETO_MAX_FISICO, pj_esc)
+			Game.ganar_golpe(_reto(obj, pj_esc) * mv, pj_esc, esc)
 			var linea: String = "%s entra detrás con %s: %.2f%s" % [
 				esc.nombre, arma, dmg, " 💥" if r.crit else ""]
 			if r.crit:

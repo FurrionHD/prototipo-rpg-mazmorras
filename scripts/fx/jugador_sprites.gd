@@ -574,7 +574,9 @@ static func _arma_de(out: Array, item, lado: int, pj: PersonajeData) -> void:
 	if item is WeaponData:
 		if int(item.tipo) == WeaponData.Tipo.PUNOS:
 			return
-		tn = ArmaSprites.TIPO_NOMBRE[int(item.tipo)]
+		tn = ArmaSprites.nombre_de_tipo(int(item.tipo))
+		if tn == "":
+			return
 		dos_manos = bool(item.dos_manos)
 	elif item is WandData:
 		tn = "varita"

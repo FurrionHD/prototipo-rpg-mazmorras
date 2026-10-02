@@ -1113,10 +1113,9 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 	_pantalla._pasiva_al_golpearle(atacante, quien)
 	_pantalla._dps_add("Contraataque", dmg)
 	_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
-	# Excelia: el contraataque golpea, entrena Fuerza como un ataque normal.
+	# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).
 	var pj_contra: PersonajeData = Game.pj_de_combatant(quien)
-	Game.ganar("fuerza", _pantalla._reto(atacante, pj_contra) * quien.motion_value, Game.GAIN_FUERZA_ATAQUE,
-		Game.RETO_MAX_FISICO, pj_contra)
+	Game.ganar_golpe(_pantalla._reto(atacante, pj_contra) * quien.motion_value, pj_contra, quien)
 	var extra := "un CRITICO 💥 " if result.crit else ""
 	# EL ARMA SALE DEL COMBATIENTE, no escrita a mano. Decia "el estoque" siempre, y desde que el
 	# escudo pequeño tambien ripostea eso mentia con cualquier otra arma. set_active_hand(0) de

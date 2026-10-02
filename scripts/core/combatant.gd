@@ -16,6 +16,11 @@ var abilities: Abilities = null
 # Stats BASE del combatiente (lo que tiene "de serie", sin habilidades).
 var base_hp: float = 0.0
 var base_attack: float = 0.0
+# La base de las armas que escalan con DESTREZA (PersonajeData.base_attack_des). -1 = la misma que
+# base_attack (enemigos y fichas sin ella).
+var base_attack_des: float = -1.0
+# Con que escala la MANO ACTIVA (WeaponData.escala_destreza): 0 Fuerza, 1 Destreza. Lo pone _apply_hand.
+var escala_des: float = 0.0
 var base_defense: float = 0.0
 var base_speed: float = 0.0
 # DEFENSA MAGICA base: lo que mitiga los hechizos que RECIBES, aunque tu Magia sea 0. Es el
@@ -738,7 +743,19 @@ func _init(nombre_: String, level_: int, abilities_: Abilities,
 #   - motion_value: reparte el raw por golpe (rapidas < 1, grandes > 1).
 # spd() lleva la velocidad del arma (mas/menos turnos).
 func atk() -> float:
-	return (base_attack + ataque_arma) * StatsMath.fuerza_factor(hab("fuerza")) * motion_value * status_atk_mult()
+	return (base_ataque() + ataque_arma) * StatsMath.ataque_factor(hab("fuerza"), hab("destreza"), escala_des) \
+		* motion_value * status_atk_mult()
+
+# El factor de las stats de la MANO ACTIVA con las basicas CRUDAS (sin estados): lo que enseñan las fichas.
+func factor_ataque_crudo() -> float:
+	return StatsMath.ataque_factor(float(abilities.fuerza), float(abilities.destreza), escala_des)
+
+# La base del ataque de la mano activa: la de Fuerza, la de Destreza o la mezcla (ballesta).
+func base_ataque() -> float:
+	if escala_des <= 0.0:
+		return base_attack
+	var des: float = base_attack if base_attack_des < 0.0 else base_attack_des
+	return lerpf(base_attack, des, escala_des)
 # El "ataque" de un ESCUDAZO. No sale de tu arma sino de tu DEFENSA: la del cuerpo (armadura +
 # Resistencia, via def_value) MAS la del propio escudo (defend_defense), que es la chapa con la que
 # estas pegando. Por eso un escudo mas grande o de mejor tier pega mas, y por eso el escudazo es la
@@ -888,6 +905,7 @@ func _apply_hand(i: int) -> void:
 	var h: Dictionary = hands[i]
 	motion_value = h["motion_value"]
 	ataque_arma = h["ataque_arma"]
+	escala_des = h.get("escala_des", 0.0)
 	penetracion = h.get("penetracion", 0.0)
 	crit_bonus = h["crit_bonus"]
 	crit_dmg = h.get("crit_dmg", 0.0)

@@ -138,7 +138,9 @@ static func _datos(item: Resource) -> Dictionary:
 	elif item is WeaponData:
 		if int((item as WeaponData).tipo) == WeaponData.Tipo.PUNOS:
 			return {}
-		tn2 = ArmaSprites.TIPO_NOMBRE[int((item as WeaponData).tipo)]
+		tn2 = ArmaSprites.nombre_de_tipo(int((item as WeaponData).tipo))
+		if tn2 == "":
+			return {}
 	else:
 		return {}
 	# LAS ARMAS NO SALEN DE NINGUNA POSE DEL MUÑECO: en todas las de guardia cuelgan con la punta hacia

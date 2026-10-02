@@ -21,6 +21,7 @@ enum Tipo {
 	PUNOS, DAGA, ESPADA_CORTA, ESPADA_LARGA, MANDOBLE,
 	ESTOQUE, HACHA_GRANDE, MAZA_PEQ, MARTILLO_GRANDE,   # ESTOQUE (idx 5) sustituye al viejo HACHA_MANO
 	BASTON,   # arma de mago (KAN-95): pega poco, potencia la magia
+	ARCO, BALLESTA,   # A DISTANCIA (02/10): al final, que los .tres guardan el enum como numero
 }
 enum DanoTipo { CORTE, CONTUNDENTE }
 
@@ -49,6 +50,11 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 @export var motion_value: float = 0.5     # arma_factor para Excelia (KAN-82); contundentes algo menor
 @export var velocidad_mult: float = 1.0   # por TAMAÑO; se aplica MULTIPLICATIVO a la velocidad
 @export var crit_bonus: float = 0.0       # se SUMA a la prob. de critico (≈ "afinidad" de MH)
+# CON QUE STAT ESCALA EL DAÑO (02/10, armas a distancia): 0 = todo Fuerza (todas las de cuerpo a
+# cuerpo), 1 = todo Destreza (el arco), 0.5 = mitad y mitad (la ballesta). Escala igual de lineal que la
+# Fuerza (ver StatsMath.ataque_factor), asi ninguna se queda atras al subir. Y la base que se congela al
+# subir de nivel tambien se mezcla igual (PersonajeData.base_attack_des): un arquero no pierde lo suyo.
+@export_range(0.0, 1.0) var escala_destreza: float = 0.0
 @export var evasion_bonus: float = 0.0    # +esquiva propia (armas agiles: daga). Se aplica de la mano principal
 # Aporte al Defender si el arma es a DOS MANOS (main) o va en la mano SECUNDARIA (dual). A PROPOSITO
 # por debajo del bloqueo del escudo mas pequeno (0.10): un ESCUDO siempre bloquea mas que cualquier
@@ -82,6 +88,10 @@ const ALCANCE_POR_TIPO := {
 	Tipo.HACHA_GRANDE: 32.25,
 	Tipo.MARTILLO_GRANDE: 32.25,
 	Tipo.MANDOBLE: 34.5,
+	# A DISTANCIA (02/10, provisional hasta su paso 1 en el tactico): disparan de lejos; lo que les
+	# cuesta es el quemarropa, no el alcance.
+	Tipo.ARCO: 160.0,
+	Tipo.BALLESTA: 200.0,
 }
 
 
