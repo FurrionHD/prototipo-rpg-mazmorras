@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MunicionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/municion_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+arma = 10
+dano_bonus = 0.25
+dureza = 3.5
+id = &"flecha_hierro_templado"
+nombre = "Flecha de hierro templado"
+descripcion = "Astil de tablon, plumas y punta de hierro templado. Con la habilidad Cargar se ponen en el arco: pegan mas que la de siempre y, si no se rompen, se pueden recoger."
+familia = 0
+tipo = 12
+tier = 2
+exigencia = 0.0
+peso_base = 0.03
+valor_base = 32
+mejora_min = 3
+mejora_max = 9
+color = Color(0.58, 0.62, 0.7, 1)
+piso_min = 1
+piso_max = 0

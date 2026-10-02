@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MunicionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/municion_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+arma = 11
+dano_bonus = 0.16
+dureza = 2.0
+id = &"virote_cobre_profundo"
+nombre = "Virote de cobre profundo"
+descripcion = "Corto, gordo y con cabeza de cobre profundo. Con la habilidad Cargar se ponen en la ballesta: pegan mas que el de siempre y, si no se rompen, se pueden recoger."
+familia = 0
+tipo = 12
+tier = 1
+exigencia = 0.0
+peso_base = 0.05
+valor_base = 37
+mejora_min = 9
+mejora_max = 15
+color = Color(0.32, 0.19, 0.15, 1)
+piso_min = 1
+piso_max = 0

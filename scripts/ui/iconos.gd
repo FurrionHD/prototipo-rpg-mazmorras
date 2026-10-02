@@ -782,6 +782,32 @@ static func correa(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void
 		c.draw_circle(Vector2(pos.x + lado * (0.20 + 0.11 * float(i)), cy), g * 0.55, col)
 
 
+# --- FLECHA (pestaña Flechas del carpintero, 02/10): en diagonal, punta arriba a la derecha y plumas abajo ---
+static func flecha_tiro(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.08
+	var a: Vector2 = pos + Vector2(lado * 0.20, lado * 0.80)
+	var b: Vector2 = pos + Vector2(lado * 0.74, lado * 0.26)
+	c.draw_line(a, b, col, g, true)
+	c.draw_colored_polygon(PackedVector2Array([b + Vector2(-lado * 0.06, -lado * 0.10),
+		pos + Vector2(lado * 0.88, lado * 0.12), b + Vector2(lado * 0.10, lado * 0.06)]), col)
+	for k in 2:
+		var p: Vector2 = a.lerp(b, 0.06 + 0.12 * float(k))
+		c.draw_line(p, p + Vector2(-lado * 0.12, -lado * 0.02), col, g * 0.8, true)
+		c.draw_line(p, p + Vector2(lado * 0.02, lado * 0.12), col, g * 0.8, true)
+
+
+# --- VIROTE (pestaña Virotes): mas corto y gordo, cabeza ancha ---
+static func virote(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.13
+	var a: Vector2 = pos + Vector2(lado * 0.28, lado * 0.72)
+	var b: Vector2 = pos + Vector2(lado * 0.66, lado * 0.34)
+	c.draw_line(a, b, col, g, true)
+	c.draw_colored_polygon(PackedVector2Array([b + Vector2(-lado * 0.10, -lado * 0.10),
+		pos + Vector2(lado * 0.86, lado * 0.14), b + Vector2(lado * 0.10, lado * 0.10)]), col)
+	c.draw_line(a, a + Vector2(-lado * 0.10, -lado * 0.06), col, g * 0.7, true)
+	c.draw_line(a, a + Vector2(lado * 0.06, lado * 0.10), col, g * 0.7, true)
+
+
 # --- CUERDA (arco y ballesta, 02/10): la madeja enrollada con el cabo suelto ---
 # Sin hebilla: es lo que la separa de la correa de al lado en la barra de pestañas.
 static func cuerda(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:

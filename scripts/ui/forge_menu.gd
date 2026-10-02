@@ -8,8 +8,9 @@
 #    Forjar                    - armas, secundarias y armaduras de metal (herreria_forjar.gd)
 #    Herramientas              - pico, hoz, hacha, caña, farolillo, cuchillo (herreria_herramientas.gd)
 #    Mejorar, Deshacer, Reparar - el mostrador de TODO el equipo (herreria_mejorar/deshacer/reparar.gd)
-#  CARPINTERIA (3 pestañas):
+#  CARPINTERIA (5 pestañas):
 #    Tablones, Carbonera       - refinar madera
+#    Flechas, Virotes          - la municion del arco y la ballesta (lingote + tablon)
 #    Forjar                    - baston y varita, arco y ballesta
 #
 #  REHECHA el 16/09/2026 con la cara del inventario, la ultima de los oficios: pestañas con icono,
@@ -46,6 +47,8 @@ const TABS_HERRERO := [
 const TABS_CARPINTERO := [
 	{"id": "tablones", "nombre": "Tablones", "icono": "tablon"},
 	{"id": "carbonera", "nombre": "Carbonera", "icono": "carbon"},
+	{"id": "flechas", "nombre": "Flechas", "icono": "flecha_tiro"},
+	{"id": "virotes", "nombre": "Virotes", "icono": "virote"},
 	{"id": "forjar", "nombre": "Forjar", "icono": "baston"},
 ]
 # La ficha de forjar lleva los ingredientes en columnas y la tabla de rareza: pide el ancho. En las de
@@ -150,6 +153,8 @@ func _pintar() -> void:
 		"hebillas": refinar.build(HerreriaRefinar.Que.HEBILLAS)
 		"tablones": refinar.build(HerreriaRefinar.Que.TABLONES)
 		"carbonera": refinar.build(HerreriaRefinar.Que.CARBON)
+		"flechas": refinar.build(HerreriaRefinar.Que.FLECHAS)
+		"virotes": refinar.build(HerreriaRefinar.Que.VIROTES)
 		"forjar": forjar.build()
 		"herramientas": herramientas.build()
 		"mejorar": mejorar.build()

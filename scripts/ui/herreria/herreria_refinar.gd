@@ -6,6 +6,7 @@
 #    - HEBILLAS:  N lingotes                       -> 1 juego de hebillas (mochilas y armadura de cuero).
 #    - TABLONES:  N maderas                        -> 1 tablon (el mango de las armas).
 #    - CARBONERA: N maderas                        -> 1 carbon (el combustible del farolillo).
+#    - FLECHAS / VIROTES (02/10): 1 lingote + 1 tablon -> una tanda de municion de ese metal (carpintero).
 #
 #  LA REJILLA SON LOS MONTONES, uno por material Y CALIDAD, como en el baul, y la celda pinta LO QUE
 #  SALE. Sustituye al selector de dos niveles (gama y veta) y a la lista de filas con su boton: con una
@@ -16,7 +17,7 @@
 # ============================================================
 extends RefCounted
 
-enum Que { FUNDIR, CHAPAS, HEBILLAS, TABLONES, CARBON }
+enum Que { FUNDIR, CHAPAS, HEBILLAS, TABLONES, CARBON, FLECHAS, VIROTES }
 
 const LADO_CELDA_ALMACEN := 64.0
 
@@ -94,10 +95,19 @@ func _contador(que: int, montones: Array) -> String:
 		_: return "%d lingotes" % total
 
 
+# ¿Es una pestaña de MUNICION? Y el arma (WeaponData.Tipo) para la que es.
+static func _es_municion(que: int) -> bool:
+	return que == Que.FLECHAS or que == Que.VIROTES
+
+static func _arma_de(que: int) -> int:
+	return WeaponData.Tipo.BALLESTA if que == Que.VIROTES else WeaponData.Tipo.ARCO
+
+
 func _vacio(que: int) -> String:
 	match que:
 		Que.FUNDIR: return "No tienes mineral en el Hogar. Pica vetas en la mazmorra y guárdalo al volver."
 		Que.CHAPAS, Que.HEBILLAS: return "No tienes lingotes. Fúndelos primero en la pestaña Fundir."
+		Que.FLECHAS, Que.VIROTES: return "No tienes lingotes. Fúndelos en la herrería y tráete también tablones."
 		_: return "No tienes madera en el Hogar. Tala árboles y enredaderas en la mazmorra y guárdala al volver."
 
 
@@ -114,6 +124,11 @@ func _recoger(que: int) -> Array:
 			for md in Game.maderas_conocidas():
 				var madera: MaterialData = md as MaterialData
 				pares.append([madera, Game.carbon_de(madera) if que == Que.CARBON else Game.tablon_de(madera)])
+		Que.FLECHAS, Que.VIROTES:
+			# Todos los metales que conoces, con su banda: la flecha de cobre profundo pega mas que la de cobre.
+			for fila in Game.metales_forja_conocidos():
+				var lingote: MaterialData = fila["lingote"]
+				pares.append([lingote, Game.municion_de(lingote, _arma_de(que))])
 		_:
 			for fila in Game.metales_forja_conocidos():
 				# HEBILLAS: solo el metal BASE de cada tier. La hebilla no tiene banda de mejora, y batirla
@@ -146,6 +161,7 @@ static func _por_uno(que: int) -> int:
 		Que.HEBILLAS: return Forge.LINGOTE_POR_HEBILLAS
 		Que.TABLONES: return Forge.MADERA_POR_TABLON
 		Que.CARBON: return Forge.MADERA_POR_CARBON
+		Que.FLECHAS, Que.VIROTES: return 1
 		_: return Forge.MINERAL_POR_LINGOTE
 
 
@@ -177,6 +193,10 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 	var por_uno: int = int(s["por_uno"])
 	var tengo: int = int(s["tengo"])
 	var salen: int = tengo / maxi(1, por_uno)
+	# La MUNICION gasta ademas un tablon por tanda: lo que no llegue de tablones tambien frena.
+	var tablones: int = Game.tablones_para_municion(int(origen.tier)) if _es_municion(que) else 0
+	if _es_municion(que):
+		salen = mini(salen, tablones / Forge.TABLON_POR_TANDA)
 
 	MenuScaffold.titulo_item(vb, "%s (%s)" % [destino.nombre, t.cal_txt(cal)], IconoItem.color_escala(destino))
 	MenuScaffold.banner_item(vb, MaterialItem.crear(destino, cal), "", "Tier %d" % int(destino.tier))
@@ -184,6 +204,13 @@ func _ficha(vb: VBoxContainer, que: int) -> void:
 	t.row(vb, "De", "%s (%s)" % [origen.nombre, t.cal_txt(cal)])
 	t.row(vb, "Hacen falta", "%d por cada uno" % por_uno)
 	t.row(vb, "Tienes", "%d  ·  dan para %d" % [tengo, salen], t.VERDE if salen > 0 else t.ROJO)
+	if _es_municion(que):
+		var mun: MunicionData = destino as MunicionData
+		t.row(vb, "Y además", "%d tablón de tier %d por tanda  ·  tienes %d" % [Forge.TABLON_POR_TANDA,
+			int(origen.tier), tablones], t.VERDE if tablones > 0 else t.ROJO)
+		t.row(vb, "Salen", "%d por tanda" % int(Forge.MUNICION_POR_TANDA.get(_arma_de(que), 1)))
+		if mun != null:
+			t.row(vb, "Daño", "+%d%% al disparo" % roundi(mun.dano_bonus * 100.0))
 	if que == Que.CARBON:
 		# LA DURACION ES DE ESTA CALIDAD, no la base: el mismo carbon dura mas si es intacto.
 		t.row(vb, "Llama", "%s por carbón" % _mmss(Lampara.duracion_de(destino, cal)))
@@ -204,6 +231,8 @@ func _nota(que: int, por_uno: int) -> String:
 			return "El tablón es el mango del arma; la madera cruda no va directa a la forja. Solo la Carpintería puede regalarte un escalón."
 		Que.CARBON:
 			return "Cuanto más densa la madera, más rato aguanta la brasa. El carbón no va al almacén: va con el farolillo, y no pesa."
+		Que.FLECHAS, Que.VIROTES:
+			return "Se ponen con la habilidad Cargar. Cuanto mejor el metal, más pegan y menos se rompen al clavarse; las que no se rompen se pueden recoger tras la pelea."
 		_:
 			return "%d minerales de la MISMA calidad dan un lingote de esa calidad: juntando dañados no sale un normal. Solo la Herrería puede regalarte un escalón." % por_uno
 
@@ -256,7 +285,7 @@ func _pie(que: int, s: Dictionary, salen: int) -> void:
 	var total := Label.new()
 	total.add_theme_font_size_override("font_size", 15)
 	var refrescar := func(n: int) -> void:
-		total.text = "Salen %d  ·  gastas %d" % [n, n * int(s["por_uno"])]
+		total.text = "Salen %d  ·  gastas %d" % [n * _sale_por_tanda(que), n * int(s["por_uno"])]
 		total.add_theme_color_override("font_color", t.AMBAR)
 
 	var fila := HBoxContainer.new()
@@ -277,11 +306,21 @@ func _pie(que: int, s: Dictionary, salen: int) -> void:
 	vb.add_child(fila)
 	refrescar.call(_cant)
 	vb.add_child(total)
+	# El tope de las tandas tambien lo ponen los tablones (municion).
+	if _es_municion(que):
+		salen = mini(salen, Game.tablones_para_municion(int((s["mat"] as MaterialData).tier)))
 	MenuScaffold.pastilla(vb, _verbo(que), func() -> void: refinar(que, s), true, salen > 0)
+
+
+# Cuantas piezas salen por tanda: una en los refinados, un puñado en la municion.
+static func _sale_por_tanda(que: int) -> int:
+	return int(Forge.MUNICION_POR_TANDA.get(_arma_de(que), 1)) if _es_municion(que) else 1
 
 
 static func _verbo(que: int) -> String:
 	match que:
+		Que.FLECHAS: return "Hacer flechas"
+		Que.VIROTES: return "Hacer virotes"
 		Que.CHAPAS: return "Batir chapas"
 		Que.HEBILLAS: return "Hacer hebillas"
 		Que.TABLONES: return "Aserrar"
@@ -303,6 +342,7 @@ func refinar(que: int, s: Dictionary) -> void:
 		Que.HEBILLAS: n = Game.hacer_hebillas(origen, cal, veces)
 		Que.TABLONES: n = Game.aserrar(origen, cal, veces)
 		Que.CARBON: n = Game.carbonizar(origen, cal, veces)
+		Que.FLECHAS, Que.VIROTES: n = Game.fabricar_municion(origen, cal, veces, _arma_de(que)) * _sale_por_tanda(que)
 		_: n = Game.fundir(origen, cal, veces)
 	if Net.activo:
 		Net.hogar.cerrar_taller()

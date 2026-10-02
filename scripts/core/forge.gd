@@ -41,6 +41,10 @@ const CUERO_POR_CURTIDO := 2
 const LINGOTE_POR_HEBILLAS := 1
 const CUERO_POR_CORREA := 2
 const CUERO_POR_CUERDA := 2      # dos curtidos de la misma calidad trenzan una cuerda de su banda
+# MUNICION (02/10): una TANDA gasta 1 lingote (las puntas) y 1 tablon (los astiles) y da esto. El virote es
+# mas gordo: salen menos. Clave = WeaponData.Tipo del arma que la dispara.
+const MUNICION_POR_TANDA := {10: 10, 11: 6}   # ARCO: 10 flechas · BALLESTA: 6 virotes
+const TABLON_POR_TANDA := 1
 
 # El ACOMPAÑANTE del metal tiene que ser de SU altura: no tiene ningun sentido coser una
 # coraza de acero con la misma piel de rata que un chaleco de cobre, ni ponerle a una espada

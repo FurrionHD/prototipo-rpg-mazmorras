@@ -460,6 +460,8 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 			forma = "tronco"
 		MaterialData.Tipo.TABLON:
 			forma = "tablon"
+		MaterialData.Tipo.MUNICION:
+			forma = "virote" if id.begins_with("virote_") else "flecha"
 		MaterialData.Tipo.NUCLEO:
 			forma = "nucleo_" + id.trim_prefix("nucleo_")
 		MaterialData.Tipo.CUERO:
@@ -625,6 +627,8 @@ static func _facetas(forma: String) -> Array:
 		"cuero": return _cuero()
 		"correa": return _correa()
 		"cuerda": return _cuerda()
+		"flecha": return _flecha()
+		"virote": return _virote()
 		"mochila": return _mochila()
 	return []
 
@@ -836,6 +840,36 @@ static func _cuerda() -> Array:
 		_lin("s", [0.73, 0.64, 0.77, 0.62]), _lin("s", [0.76, 0.74, 0.80, 0.72]),
 		_tira("l", [0.79, 0.84, 0.76, 0.92], 0.025, 0.01),
 		_tira("l", [0.81, 0.84, 0.84, 0.92], 0.025, 0.01),
+	]
+
+
+# LA FLECHA (02/10): en diagonal, la punta de su METAL arriba a la derecha (el color del .tres), el astil de
+# madera y las plumas claras abajo. Es lo que se ve en la bolsa y en el carpintero.
+static func _flecha() -> Array:
+	return [
+		_tira("u", [0.20, 0.80, 0.70, 0.30], 0.05, 0.05),
+		_lin("U", [0.24, 0.78, 0.68, 0.34]),
+		# las plumas: dos aletas a cada lado del culatin
+		_pol("w", [0.14, 0.72, 0.26, 0.64, 0.30, 0.70, 0.20, 0.86]),
+		_pol("x", [0.28, 0.86, 0.36, 0.74, 0.30, 0.70, 0.20, 0.86]),
+		# la punta: un rombo de metal con su filo de luz
+		_pol("b", [0.66, 0.34, 0.74, 0.20, 0.88, 0.12, 0.80, 0.26]),
+		_pol("l", [0.74, 0.20, 0.88, 0.12, 0.78, 0.22]),
+		_pol("s", [0.66, 0.34, 0.80, 0.26, 0.72, 0.30]),
+	]
+
+
+# EL VIROTE: mas corto y mas gordo que la flecha, con la cabeza de metal ancha y unas aletas cortas y rigidas.
+static func _virote() -> Array:
+	return [
+		_tira("u", [0.28, 0.74, 0.64, 0.38], 0.09, 0.09),
+		_lin("U", [0.30, 0.70, 0.62, 0.38]),
+		_pol("x", [0.20, 0.70, 0.30, 0.62, 0.36, 0.68, 0.26, 0.80]),
+		_pol("w", [0.32, 0.78, 0.38, 0.70, 0.36, 0.68, 0.26, 0.80]),
+		# la cabeza: un bloque de metal en punta, mas gordo que la punta de la flecha
+		_pol("b", [0.58, 0.40, 0.66, 0.26, 0.86, 0.14, 0.74, 0.34]),
+		_pol("l", [0.66, 0.26, 0.86, 0.14, 0.72, 0.24]),
+		_pol("s", [0.58, 0.40, 0.74, 0.34, 0.66, 0.38]),
 	]
 
 

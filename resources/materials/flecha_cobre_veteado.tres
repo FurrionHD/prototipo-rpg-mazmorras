@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MunicionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/municion_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+arma = 10
+dano_bonus = 0.12
+dureza = 1.5
+id = &"flecha_cobre_veteado"
+nombre = "Flecha de cobre veteado"
+descripcion = "Astil de tablon, plumas y punta de cobre veteado. Con la habilidad Cargar se ponen en el arco: pegan mas que la de siempre y, si no se rompen, se pueden recoger."
+familia = 0
+tipo = 12
+tier = 1
+exigencia = 0.0
+peso_base = 0.03
+valor_base = 14
+mejora_min = 3
+mejora_max = 9
+color = Color(0.78, 0.47, 0.33, 1)
+piso_min = 1
+piso_max = 0

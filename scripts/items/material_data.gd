@@ -38,8 +38,10 @@ enum Familia { CORRIENTE, NUCLEO }
 #   equipo opcional sino el requisito para ver, asi que cobrar carga por llevar con que ver seria
 #   cobrar dos veces por lo mismo. Vive igual en la bolsa que el resto (con su calidad, su
 #   minijuego y su pila); lo unico que cambia es que la balanza no lo mira.
+#   MUNICION (02/10): las flechas y los virotes de material (ver MunicionData). No se recolectan: los
+#   hace el carpintero con lingote y tablon.
 enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO, DESPENSA,
-	COMBUSTIBLE }
+	COMBUSTIBLE, MUNICION }
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }
@@ -162,6 +164,7 @@ func tipo_texto() -> String:
 		Tipo.CARNE: return "Carne"
 		Tipo.PESCADO: return "Pescado"
 		Tipo.DESPENSA: return "Despensa"
+		Tipo.MUNICION: return "Munición"
 		_: return "Núcleo"
 
 

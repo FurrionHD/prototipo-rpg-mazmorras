@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MunicionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/municion_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+arma = 10
+dano_bonus = 0.3
+dureza = 4.0
+id = &"flecha_hierro_negro"
+nombre = "Flecha de hierro negro"
+descripcion = "Astil de tablon, plumas y punta de hierro negro. Con la habilidad Cargar se ponen en el arco: pegan mas que la de siempre y, si no se rompen, se pueden recoger."
+familia = 0
+tipo = 12
+tier = 2
+exigencia = 0.0
+peso_base = 0.03
+valor_base = 52
+mejora_min = 9
+mejora_max = 15
+color = Color(0.16, 0.17, 0.2, 1)
+piso_min = 1
+piso_max = 0
