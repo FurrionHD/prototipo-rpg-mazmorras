@@ -12,7 +12,7 @@ cooldown = 3
 dano_mult = 1.4
 penetracion_extra = 0.2
 fx_estilo = 1
-fx_estilo_mapa = 192
+fx_estilo_mapa = 196
 ; EN EL MAPA: una linea larga y fina que los atraviesa a TODOS; cuanto mas lejos, un poco menos (tramos).
 forma = 3
 forma_apunte = 1

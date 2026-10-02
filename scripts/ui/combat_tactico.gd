@@ -3553,7 +3553,16 @@ const _MODO_BASTON := {
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 const _MODO_DISTANCIA := {CombatFX.Estilo.FLECHA: DistanciaAire.Modo.FLECHA,
-	CombatFX.Estilo.VIROTE: DistanciaAire.Modo.VIROTE, CombatFX.Estilo.VIROTE_PASA: DistanciaAire.Modo.VIROTE_PASA}
+	CombatFX.Estilo.VIROTE: DistanciaAire.Modo.VIROTE, CombatFX.Estilo.VIROTE_PASA: DistanciaAire.Modo.VIROTE_PASA,
+	CombatFX.Estilo.FLECHA_CARGADA: DistanciaAire.Modo.FLECHA_GORDA,
+	CombatFX.Estilo.FLECHA_PERFORA: DistanciaAire.Modo.FLECHA_PASA,
+	CombatFX.Estilo.FLECHA_LLUVIA: DistanciaAire.Modo.LLUVIA,
+	CombatFX.Estilo.FLECHA_CLAVA: DistanciaAire.Modo.FLECHA_PIES,
+	CombatFX.Estilo.VIROTE_PESADO: DistanciaAire.Modo.VIROTE_GORDO,
+	CombatFX.Estilo.VIROTE_PERNO: DistanciaAire.Modo.PERNO,
+	CombatFX.Estilo.VIROTE_CLAVO: DistanciaAire.Modo.VIROTE_PIES,
+	CombatFX.Estilo.RECARGA_FX: DistanciaAire.Modo.RECARGA,
+	CombatFX.Estilo.TENSA_ARCO: DistanciaAire.Modo.TENSA}
 const _MODO_SLIME := {CombatFX.Estilo.SLIME_GOLPE: SlimeAire.Modo.GOLPE, CombatFX.Estilo.SLIME_ESCUPE: SlimeAire.Modo.ESCUPE,
 	CombatFX.Estilo.SLIME_TROMBA: SlimeAire.Modo.TROMBA, CombatFX.Estilo.SLIME_TROZO: SlimeAire.Modo.TROZO,
 	CombatFX.Estilo.SLIME_IGNICION: SlimeAire.Modo.IGNICION}

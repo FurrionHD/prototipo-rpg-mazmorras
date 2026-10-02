@@ -19,5 +19,6 @@ cooldown = 5
 municion_por_uso = 0
 dano_mult = 0
 fx_estilo = 0
+fx_estilo_mapa = 202
 descripcion = "Estribo, gancho y cuerda, sin mirar. Los próximos virotes salen antes de que el otro se dé cuenta de que has disparado."
 efectos = [SubResource("SA_0")]

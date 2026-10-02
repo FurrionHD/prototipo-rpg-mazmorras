@@ -476,6 +476,10 @@ func _empezar_carga_jugador(ab: AbilityData) -> void:
 	print("[habilidad] %s empieza a cargar %s (%d turno%s)" % [
 		_pantalla._player.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])
 	_pantalla._set_log("⚡ %s se prepara para %s. (si te aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	# CON ARCO O BALLESTA, en el mapa se ve TENSAR: el aire se aprieta hacia el que carga (DistanciaAire.TENSA).
+	if _pantalla.tactico and _pantalla._player.a_distancia:
+		_pantalla.efectos._fx_golpe(_pantalla._player, _pantalla._player, 0.0, false, false, Elementos.Elemento.NINGUNO,
+			CombatFX.Estilo.TENSA_ARCO, 1.3, true)
 	_pantalla._fin_de_eleccion()   # cierra la accion: oculta las cajas y repinta (aqui sale el chip ⚡)
 	_pantalla._tras_accion_jugador_varios([])   # pasa el turno sin rematar a nadie: no ha habido golpe
 

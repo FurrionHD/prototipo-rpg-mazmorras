@@ -17,7 +17,7 @@ coste_energia = 35
 cooldown = 4
 dano_mult = 1.0
 fx_estilo = 1
-fx_estilo_mapa = 192
+fx_estilo_mapa = 198
 ; EN EL MAPA: a la linea, al PRIMERO que cruza; si entra, se queda enraizado.
 forma = 3
 forma_apunte = 1

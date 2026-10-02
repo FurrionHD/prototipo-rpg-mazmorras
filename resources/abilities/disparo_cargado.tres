@@ -14,7 +14,7 @@ crit_extra = 0.3
 penetracion_extra = 0.4
 carga_turnos = 1
 fx_estilo = 1
-fx_estilo_mapa = 192
+fx_estilo_mapa = 195
 ; EN EL MAPA: una linea larga (alcance del arco x1.5) que se queda en el PRIMERO que cruza, como el basico.
 forma = 3
 forma_apunte = 1

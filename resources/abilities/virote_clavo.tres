@@ -22,7 +22,7 @@ coste_energia = 45
 cooldown = 4
 dano_mult = 1.3
 fx_estilo = 1
-fx_estilo_mapa = 193
+fx_estilo_mapa = 201
 ; EN EL MAPA: al PRIMERO de la linea; lo clava al suelo (enraizado) y sangra.
 forma = 3
 forma_apunte = 1

@@ -431,7 +431,9 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# Cornada y el temblor de quien le pilla el Pisoton.
 		MINO_HACHAZO = 188, MINO_BARRIDO = 189, MINO_CORNADA = 190, MINO_SISMO = 191,
 		# EL ARCO Y LA BALLESTA (02/10, DistanciaAire): la flecha, el virote y el virote que atraviesa al primero.
-		FLECHA = 192, VIROTE = 193, VIROTE_PASA = 194 }
+		FLECHA = 192, VIROTE = 193, VIROTE_PASA = 194,
+		# Y SUS HABILIDADES (02/10): cada una con su comportamiento de DistanciaAire.
+		FLECHA_CARGADA = 195, FLECHA_PERFORA = 196, FLECHA_LLUVIA = 197, FLECHA_CLAVA = 198, VIROTE_PESADO = 199, VIROTE_PERNO = 200, VIROTE_CLAVO = 201, RECARGA_FX = 202, TENSA_ARCO = 203 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -462,6 +464,7 @@ const FX_ARMA := {
 const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
 	# el arco y la ballesta (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe.
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
+	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -529,6 +532,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 # (ver _color_golpe en combat.gd), y sin esta lista los tajos salian del rojo de bicho.
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
+	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
 	Estilo.IMBUIR_FILO, Estilo.DESVANECER,
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
 	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
@@ -718,6 +722,10 @@ const T_VUELO := {
 	# EL ARCO Y LA BALLESTA SI VIAJAN: es lo que tarda en cruzar (DistanciaAire se queda con lo que de su velocidad,
 	# con esto de tope). El virote, mas rapido.
 	Estilo.FLECHA: 0.20, Estilo.VIROTE: 0.15, Estilo.VIROTE_PASA: 0.15,
+	Estilo.FLECHA_CARGADA: 0.22, Estilo.FLECHA_PERFORA: 0.20, Estilo.FLECHA_LLUVIA: 0.25, Estilo.FLECHA_CLAVA: 0.20,
+	Estilo.VIROTE_PESADO: 0.16, Estilo.VIROTE_PERNO: 0.15, Estilo.VIROTE_CLAVO: 0.15,
+	# Los de sobre uno mismo no viajan: su vuelo es lo que tardan en verse antes del numero (no hay numero).
+	Estilo.RECARGA_FX: 0.10, Estilo.TENSA_ARCO: 0.10,
 	# IMBUIR_FILO no viaja (te la echas encima) y va largo: hay que ver la hoja mojarse.
 	Estilo.IMBUIR_FILO: 0.30, Estilo.DESVANECER: 0.10,
 	# EL ESTOQUE. Su vuelo es el ARMADO: la punta se echa atras antes de salir disparada, y eso es
@@ -2565,6 +2573,7 @@ const _CUERPO_A_CUERPO := [Estilo.MELEE, Estilo.ARRASTRE, Estilo.MORDISCO, Estil
 # atacante y victima son el mismo y el dibujo va en SU tarjeta, no en la de enfrente. Los demas
 # estilos de una habilidad SIN DAÑO se pintan sobre los objetivos (ver combat.gd._fx_adorno).
 const SOBRE_SI_MISMO := [Estilo.AURA, Estilo.CAPARAZON, Estilo.MURALLA, Estilo.ESCUDO,
+	Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
 	Estilo.IMBUIR_FILO, Estilo.EN_GUARDIA, Estilo.VOTO_GUARDIA, Estilo.ACERO_EN_ALTO,
 	Estilo.DESVANECER, Estilo.SED_SANGRE, Estilo.MARTILLO_EN_ALTO,
 	Estilo.FOCO_ARCANO, Estilo.VELO_UMBRIO,
