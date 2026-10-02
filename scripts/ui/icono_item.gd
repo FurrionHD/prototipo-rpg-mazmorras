@@ -334,7 +334,7 @@ static func techo_pocion(cd: ConsumableData) -> int:
 # ni piedra de vuelta. Su escala es su +N, no su tier (ver escalon).
 static func es_pocion(cd: ConsumableData) -> bool:
 	return not cd.en_biblioteca() and not cd.es_plato() and not cd.es_cebo() \
-		and not cd.es_vuelta_pueblo()
+		and not cd.es_vuelta_pueblo() and not cd.es_untura()
 
 static func techo(item: Resource) -> int:
 	if item is MaterialItem or item is MaterialData:

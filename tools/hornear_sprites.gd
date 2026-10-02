@@ -29,6 +29,13 @@ func _ready() -> void:
 		_hornear_jugador()
 		get_tree().quit()
 		return
+	# HORNO_SOLO=iconos: solo los iconos de los objetos (un objeto nuevo no pide rehornear los enemigos).
+	# Estos SI se limpian solos (hornear_iconos tira los que ya no genera nadie).
+	if OS.get_environment("HORNO_SOLO") == "iconos":
+		print("  %d iconos en %s" % [IconoItem.SpritesObjeto.hornear_iconos(),
+			IconoItem.SpritesObjeto.CARPETA_ICONOS])
+		get_tree().quit()
+		return
 	var d := DirAccess.open(FICHAS)
 	if d == null:
 		push_error("[horno] no encuentro %s" % FICHAS)

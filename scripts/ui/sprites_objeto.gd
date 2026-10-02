@@ -166,6 +166,8 @@ static func _carpeta_de(item: Resource) -> String:
 			return "consumibles/platos"
 		if c.es_cebo():
 			return "consumibles/cebos"
+		if c.es_untura():
+			return "consumibles/unturas"
 		if c.es_vuelta_pueblo():
 			return "consumibles/piedras"
 		return "consumibles/pociones"
@@ -364,6 +366,10 @@ static func _encargo(item: Resource) -> Dictionary:
 		var sang: bool = String((item as ConsumableData).resource_path).contains("sanguijuela")
 		return {"forma": "cebo_sanguijuela" if sang else "cebo_gusano",
 			"color": Color(0.42, 0.22, 0.28) if sang else Color(0.86, 0.56, 0.56)}
+	if item is ConsumableData and (item as ConsumableData).es_untura():
+		# LA UNTURA: un tarro con su pincel (ver _untura), del color de lo que lleva dentro; la forma, por tier.
+		var cu := item as ConsumableData
+		return {"forma": "untura_%d" % clampi(cu.tier - 1, 0, 1), "color": cu.color_suelo()}
 	if item is ConsumableData and _se_bebe(item as ConsumableData):
 		# LA POCION: la FORMA del frasco la dice el TIER (una por tier, como la cuadricula de
 		# referencia del jefe) y el +N la hace un poco mas GRANDE dentro del mismo tier. El color, lo
@@ -408,7 +414,7 @@ static func _encargo(item: Resource) -> Dictionary:
 # Lo que se BEBE (pociones y antidotos). El mismo criterio que IconoItem.es_pocion.
 static func _se_bebe(cd: ConsumableData) -> bool:
 	return not cd.en_biblioteca() and not cd.es_plato() and not cd.es_cebo() \
-		and not cd.es_vuelta_pueblo()
+		and not cd.es_vuelta_pueblo() and not cd.es_untura()
 
 
 static func _encargo_material(d: MaterialData) -> Dictionary:
@@ -590,6 +596,8 @@ static func _facetas(forma: String) -> Array:
 	if forma.begins_with("pocion_"):
 		var pp: PackedStringArray = forma.split("_")
 		return _pocion(int(pp[1]), int(pp[2]))
+	if forma.begins_with("untura_"):
+		return _untura(int(forma.trim_prefix("untura_")))
 	match forma:
 		"tronco": return _tronco()
 		"piedra_corona": return _piedra("corona")
@@ -1392,6 +1400,62 @@ static func _pocion(forma: int, plus: int) -> Array:
 	out.append(_lin("j", [0.45, c0 + 0.02, 0.55, c0 + 0.02]))
 	# EL +N AGRANDA Y TODO SE INCLINA: se escala y se gira cada punto alrededor del centro del frasco.
 	return _transformar(out, 0.80 + 0.066 * float(plus), POCION_GIRO, Vector2(0.5, 0.56))
+
+
+# ============================================================
+#  LAS UNTURAS (03/10): un TARRO, no un frasco -- se untan, no se beben
+# ============================================================
+# Tarro de boca ancha casi lleno de la pasta, tapa ancha de corcho con el PINCEL clavado asomando, y una
+# GOTA que ha resbalado por fuera. El color, el de lo que lleva dentro. La forma la dice el tier: T1 chato
+# y redondo, T2 alto de lados rectos y con su etiqueta de papel.
+static func _untura(forma: int) -> Array:
+	var out: Array = []
+	var nivel: float = 0.48
+	var lado_izq: float = 0.30   # donde resbala la gota
+	if forma <= 0:
+		out.append(_pol("T", [0.33, 0.38, 0.67, 0.38, 0.67, 0.46, 0.33, 0.46]))
+		out.append(_elipse("T", 0.50, 0.66, 0.30, 0.23, 24))
+		lado_izq = 0.24
+	else:
+		out.append(_pol("T", [0.34, 0.32, 0.66, 0.32, 0.66, 0.40, 0.34, 0.40]))
+		out.append(_pol("T", [0.28, 0.40, 0.72, 0.40, 0.74, 0.86, 0.70, 0.90, 0.30, 0.90, 0.26, 0.86]))
+		nivel = 0.44
+		lado_izq = 0.27
+	# la pasta, casi hasta arriba: sombra abajo, superficie en luz y algun grumo
+	out.append(_sobre(_pol("b", [0.0, nivel, 1.0, nivel, 1.0, 1.0, 0.0, 1.0])))
+	out.append(_sobre(_pol("s", [0.0, nivel + 0.26, 1.0, nivel + 0.26, 1.0, 1.0, 0.0, 1.0])))
+	out.append(_sobre(_pol("l", [0.0, nivel, 1.0, nivel, 1.0, nivel + 0.03, 0.0, nivel + 0.03])))
+	out.append(_sobre(_elipse("h", 0.60, nivel + 0.14, 0.03, 0.025, 6)))
+	out.append(_sobre(_elipse("d", 0.44, nivel + 0.22, 0.03, 0.025, 6)))
+	if forma >= 1:
+		# la etiqueta de papel, atada a la panza
+		out.append(_pol("w", [0.33, 0.58, 0.67, 0.58, 0.67, 0.72, 0.33, 0.72]))
+		out.append(_lin("x", [0.33, 0.72, 0.67, 0.72]))
+		out.append(_lin("x", [0.38, 0.65, 0.60, 0.65]))
+	# el reflejo del vidrio
+	out.append(_lin("W", [lado_izq + 0.08, nivel + 0.04, lado_izq + 0.07, nivel + 0.22]))
+	# la tapa de corcho, ancha
+	var y_tapa: float = 0.38 if forma <= 0 else 0.32
+	out.append(_pol("u", [0.31, y_tapa - 0.09, 0.69, y_tapa - 0.09, 0.70, y_tapa + 0.02, 0.30, y_tapa + 0.02]))
+	out.append(_lin("U", [0.31, y_tapa + 0.01, 0.69, y_tapa + 0.01]))
+	out.append(_lin("j", [0.34, y_tapa - 0.07, 0.66, y_tapa - 0.07]))
+	# el PINCEL clavado en el corcho, inclinado: mango de madera y la virola de metal al salir
+	var p0 := Vector2(0.58, y_tapa - 0.08)
+	var p1 := Vector2(0.84, 0.04)
+	var eje: Vector2 = (p1 - p0).normalized()
+	var lat := Vector2(-eje.y, eje.x) * 0.025
+	out.append(_pol("u", [p0.x - lat.x, p0.y - lat.y, p1.x - lat.x, p1.y - lat.y, p1.x + lat.x, p1.y + lat.y,
+		p0.x + lat.x, p0.y + lat.y]))
+	out.append(_lin("U", [p0.x + lat.x, p0.y + lat.y, p1.x + lat.x, p1.y + lat.y]))
+	var v0: Vector2 = p0 + eje * 0.02
+	var v1: Vector2 = p0 + eje * 0.08
+	out.append(_pol("m", [v0.x - lat.x * 1.3, v0.y - lat.y * 1.3, v1.x - lat.x * 1.3, v1.y - lat.y * 1.3,
+		v1.x + lat.x * 1.3, v1.y + lat.y * 1.3, v0.x + lat.x * 1.3, v0.y + lat.y * 1.3]))
+	# la GOTA que resbala por fuera, desde el borde de la boca
+	out.append(_lin("b", [lado_izq + 0.10, y_tapa + 0.04, lado_izq + 0.02, nivel + 0.08]))
+	out.append(_elipse("b", lado_izq + 0.015, nivel + 0.11, 0.03, 0.035, 8))
+	out.append(_elipse("l", lado_izq + 0.005, nivel + 0.10, 0.01, 0.01, 4))
+	return out
 
 
 # Escala y gira una forma entera alrededor de 'c' (sirve para inclinar y agrandar sin redibujar).
