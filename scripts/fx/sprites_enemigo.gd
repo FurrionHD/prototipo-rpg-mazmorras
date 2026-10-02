@@ -97,7 +97,8 @@ static var GENERADORES_POR_NOMBRE := {
 	# LOS CONSTRUCTOS, IGUAL: golem, gargola y coloso son los tres familia PIEDRA -- y tambien lo es
 	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
 	# pegote de barro, una estatua con alas y una mole labrada no se parecen en nada.
-	&"golem": GolemSprites,
+	# (03/10) El golem va en 3D: Golem3DSprites carga sus hojas; GolemSprites (el de codigo) queda de referencia.
+	&"golem": Golem3DSprites,
 	&"gargola": GargolaSprites,
 	&"coloso": ColosoSprites,
 	# Y LA BESTIA ACORAZADA ES EL CASO MAS EXTREMO DE TODA ESTA LISTA: comparte la familia PIEDRA con

@@ -642,7 +642,7 @@ func _hoja_golem_basico(salida: String) -> void:
 			(pz["n"] as Node).set_process(false)
 		for c in tiempos.size():
 			var t: float = tiempos[c]
-			_mirar(g, dvec, "embestida", _marco_golpe(g, t))
+			_mirar(g, dvec, "basico", _marco_golpe(g, t, "golem_golpe", "basico"))
 			_en(piezas, t)
 			await _viñeta(hoja, c, fila, "Golem · basico (y lento: pegotes) · %s · %.2f s" % [DIRS[fila][0], t])
 		await _limpiar(piezas, [g["nodo"], fig])
@@ -698,7 +698,7 @@ func _hoja_golem_machaca(salida: String) -> void:
 			(pz["n"] as Node).set_process(false)
 		for c in tiempos.size():
 			var t: float = tiempos[c]
-			_mirar(g, dvec, "embestida", _marco_golpe(g, t))
+			_mirar(g, dvec, "golem_machaca", _marco_golpe(g, t, "golem_machaca", "golem_machaca"))
 			_en(piezas, t)
 			await _viñeta(hoja, c + 1, fila, "Golem · Machaca · %s · %.2f s" % [DIRS[fila][0], t])
 		await _limpiar(piezas, [g["nodo"]] + figs)

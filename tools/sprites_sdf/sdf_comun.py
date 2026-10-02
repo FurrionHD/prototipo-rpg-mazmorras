@@ -7,7 +7,7 @@
 #  Ejes del modelo: X a su izquierda/derecha, Y hacia DONDE MIRA, Z arriba. Unidades del modelo; 1 celda del juego =
 #  1,15 unidades del mundo (SpriteLienzo.UNIDADES_POR_CELDA), asi que PPU = escala_visual / 1,15 celdas por unidad.
 # ============================================================
-import math, json, os
+import math, json, os, importlib
 from multiprocessing import Pool
 import numpy as np
 from PIL import Image
@@ -81,7 +81,7 @@ class Modelo:
     viejo, para que lo coloque igual). 'mat' = {nombre: [sombra, base, luz]}; 'suaves' = los grupos que se funden por
     dentro (los demas se unen duro); 'brillan' = materiales que van siempre en su tono de luz (los ojos)."""
     def __init__(self, escala, lienzo, pies, mat, borde, suaves=('cuerpo',), brillan=('ojo',), estira=1.0,
-                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0):
+                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0, corta_suelo=False):
         self.ppu = escala / 1.15
         self.W, self.H = lienzo
         self.OX, self.OY = pies
@@ -94,6 +94,8 @@ class Modelo:
         self.salto_linea = salto_linea
         self.salto_grupos = salto_grupos
         self.lejos = lejos
+        # Nada por debajo del suelo (z < 0): lo que se hunde (el golem que se derrumba) queda cortado a ras.
+        self.corta_suelo = corta_suelo
 
 
 class Escena:
@@ -132,6 +134,8 @@ def evalua(mo, P, L, con_grupo=False):
     for g, dg in acc.items():
         mejor = dg < dist
         dist = np.where(mejor, dg, dist); mats = np.where(mejor, mat[g], mats); grp = np.where(mejor, gid[g], grp)
+    if mo.corta_suelo:
+        dist = np.maximum(dist, -P[:, 2])
     if con_grupo:
         return dist, mats, grp
     return dist, mats
@@ -226,3 +230,59 @@ def vistas_lado_a_lado(fotos_nuevas, nombre_viejo, salida, escala=4, anim='idle'
     v = v.resize((v.width * escala, v.height * escala), Image.NEAREST)
     v.save(salida)
     return salida
+
+
+# ------------------------------------------------------------
+#  HORNEAR: hojas (filas = direcciones, columnas = fotogramas) + hojas.json + vistas para mirarlas
+# ------------------------------------------------------------
+# El modulo del enemigo tiene MODELO, escena(pose) y ANIMS = {nombre: (fotogramas, fps, loop, dirs, fn t -> pose)}.
+def _trabajo(args):
+    modname, nombre, d, i = args
+    mod = importlib.import_module(modname)
+    n, fps, loop, dirs, fn = mod.ANIMS[nombre]
+    t = i / n if loop else (i / (n - 1) if n > 1 else 0.0)
+    return (nombre, d, i, render(mod.MODELO, mod.escena(fn(t)), d))
+
+
+def hornear(modname, nombres, salida, vistas):
+    mod = importlib.import_module(modname)
+    W, H = mod.MODELO.W, mod.MODELO.H
+    os.makedirs(salida, exist_ok=True); os.makedirs(vistas, exist_ok=True)
+    trabajos = [(modname, nm, d, i) for nm in nombres for d in range(mod.ANIMS[nm][3]) for i in range(mod.ANIMS[nm][0])]
+    with Pool() as pool:
+        hechos = pool.map(_trabajo, trabajos)
+    meta_path = salida + 'hojas.json'
+    meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
+    meta['lienzo'] = [W, H]
+    meta.setdefault('anims', {})
+    for nm in nombres:
+        n, fps, loop, dirs, fn = mod.ANIMS[nm]
+        hoja = Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0))
+        for (a, d, i, im) in hechos:
+            if a == nm:
+                hoja.paste(im, (i * W, d * H))
+        hoja.save(salida + nm + '.png')
+        meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs}
+        filas = min(dirs, 5)
+        vista = Image.new('RGB', (W * n, H * filas), (40, 42, 50))
+        recorte = hoja.crop((0, 0, W * n, H * filas))
+        vista.paste(recorte, (0, 0), recorte)
+        vista = vista.resize((vista.width * 2, vista.height * 2), Image.NEAREST)
+        vista.save(vistas + modname + '_' + nm + '.png')
+        print(nm, 'ok')
+    json.dump(meta, open(meta_path, 'w'), indent=1)
+
+
+def tramos(t, claves):
+    """Interpolacion suave entre claves [(t, valor), ...] ordenadas (fuera, el extremo)."""
+    if t <= claves[0][0]: return claves[0][1]
+    for (t0, v0), (t1, v1) in zip(claves, claves[1:]):
+        if t <= t1:
+            u = (t - t0) / max(t1 - t0, 1e-6)
+            u = u * u * (3 - 2 * u)
+            return v0 + (v1 - v0) * u
+    return claves[-1][1]
+
+
+def mover(v):
+    return (np.eye(3), np.array(v, dtype=float))

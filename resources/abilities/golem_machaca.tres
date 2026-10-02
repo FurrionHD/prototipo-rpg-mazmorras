@@ -25,4 +25,4 @@ area_secundario = 1.0
 fx_estilo_mapa = 181
 suelo_roto = 2
 ; SU GESTO: el del basico (hasta que tenga la suya con los dos puños, paso 3), con su tiempo de golpe.
-fx_anim = &"golem_golpe"
+fx_anim = &"golem_machaca"

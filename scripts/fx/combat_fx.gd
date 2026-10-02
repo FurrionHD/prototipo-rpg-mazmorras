@@ -2010,6 +2010,8 @@ const IMPACTO_ANIM_MAPA := {
 	"yugular": 0.6, "desgarrar": 0.22,
 	# El golem (30/09): sube los brazos y los deja caer; con su 'embestida' (8 marcos) el puño toca en el 6.
 	"golem_golpe": 0.5,
+	# (03/10, en 3D) su basico es un puño ('basico') y la Machaca, los dos ('golem_machaca'): los dos tocan en el 6.
+	"golem_machaca": 0.5,
 	# La gargola (30/09): el Picado cae desde el vuelo de su carga ('picar', 8 marcos) y las garras tocan en el 6.
 	"picar": 0.5,
 	# El coloso (01/10): su manotazo ('basico', 8 marcos) y el Pisoton ('sismico') tocan en el 6.
