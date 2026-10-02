@@ -47,7 +47,8 @@ LADOS = ((-1, 'd'), (1, 'i'))    # 'd' = su derecha (a la izquierda de la pantal
 def POSE(**k):
     p = dict(agacha=0.0, avance=0.0, balanceo=0.0, inclina=0.0, gira=0.0, cabeza=0.0, hunde=0.0,
              alza_d=0.0, alza_i=0.0, codo_d=0.25, codo_i=0.25, abre_d=0.0, abre_i=0.0,
-             pie_d=(0.0, 0.0), pie_i=(0.0, 0.0), hundir=0.0, vuelca=0.0, monton=0.0, tiembla=0.0)
+             pie_d=(0.0, 0.0), pie_i=(0.0, 0.0), hundir=0.0, vuelca=0.0, monton=0.0, tiembla=0.0,
+             rodillas=0.0, apaga=0.0, rompe=0.0)
     p.update(k)
     return p
 
@@ -68,6 +69,8 @@ def huesos(p):
 
 
 def escena(p):
+    if p['rompe'] > 0.0:
+        return escena_trozos(p['rompe'])
     X = huesos(p)
     e = Escena(X)
     add = e.add
@@ -86,7 +89,9 @@ def escena(p):
     add(lambda P: sd_elipsoide(P, Z(0, 4.0, 25.4), np.array([3.4, 3.2, 3.0 * ESTIRA])), 'barro', 0, 'cabeza', 'cabeza')
     add(lambda P: sd_elipsoide(P, Z(0, 6.2, 24.4), np.array([2.4, 1.4, 1.6 * ESTIRA])), 'barro', 1.0, 'cabeza', 'cabeza')
     for s in (-1, 1):
-        add(lambda P, s=s: sd_esfera(P, Z(1.4 * s, 6.6, 26.0), 0.95), 'ojo', 0, 'ojo', 'cabeza')
+        # (Al morir se le APAGAN: barro oscuro.)
+        add(lambda P, s=s: sd_esfera(P, Z(1.4 * s, 6.6, 26.0), 0.95), 'oscuro' if p['apaga'] > 0.5 else 'ojo', 0, 'ojo',
+            'cabeza')
     # LOS BRAZOS: el hombro va con el brazo (asi sale la linea entre los dos), codo oscuro y el puño enorme.
     for s, nom in LADOS:
         g = 'brazo_' + nom; hb = 'brazo_' + nom; ha = 'antebrazo_' + nom
@@ -112,6 +117,13 @@ def escena(p):
         d = np.linalg.norm(cad - pie)
         dobla = math.sqrt(max(largo * largo - d * d, 0.0)) * 0.5
         rod = (cad + pie) * 0.5 + np.array([0.0, dobla, 0.0])
+        # DE RODILLAS (al morir): la rodilla al suelo delante y la espinilla tumbada hacia atras.
+        if p['rodillas'] > 0.0:
+            r = p['rodillas']
+            rod_k = np.array([4.0 * s, 3.4, 1.6])
+            pie_k = rod_k + np.array([0.3 * s, -6.5, 0.0])
+            rod = rod + (rod_k - rod) * r
+            pie = pie + (pie_k - pie) * r
         add(lambda P, a=cad, b=rod: sd_cono(P, a, b, 3.2, 3.0), 'barro', 0, g, 'mundo')
         add(lambda P, a=rod, b=pie: sd_cono(P, a, b, 3.0, 2.8), 'barro', 1.4, g, 'mundo')
         add(lambda P, c=pie: sd_elipsoide(P, c, np.array([3.3, 3.9, 1.5 * ESTIRA])), 'oscuro', 0.8, g, 'mundo')
@@ -123,6 +135,73 @@ def escena(p):
                      (Z(0.5, 5.0, 0.0), (0.55, 0.55, 0.4))):
             add(lambda P, c=c, r=r: sd_elipsoide(P, c * np.array([m / 8.0, 1.0, 1.0]),
                 np.array([m * r[0], m * r[1], m * r[2] * ESTIRA])), 'barro', 3.0, hueso='mundo')
+    return e.L
+
+
+# ------------------------------------------------------------
+#  EL DESMORONE (al morir, despues de caer de rodillas): el cuerpo se parte en TROZOS de arcilla que caen y se amontonan.
+#  Cada trozo sale de un sitio de su cuerpo arrodillado (POSE_RODILLAS) y acaba en el monton; los de arriba, encima.
+# ------------------------------------------------------------
+_TROZOS = None
+
+def _anclas():
+    # (punto en reposo, hueso, tamaño)
+    A = [(Z(0, 0.6, 19.0), 'torso', 3.8), (Z(-4.2, 1.2, 19.4), 'torso', 3.0), (Z(4.2, 1.2, 19.4), 'torso', 3.0),
+         (Z(0, -0.2, 13.6), 'torso', 3.4), (Z(-3.4, 0.4, 14.0), 'torso', 2.4), (Z(3.4, 0.4, 14.0), 'torso', 2.4),
+         (Z(0, -2.4, 23.6), 'torso', 3.2), (Z(-3.6, -2.0, 22.8), 'torso', 2.4), (Z(3.6, -2.0, 22.8), 'torso', 2.4),
+         (Z(0, 4.2, 18.0), 'torso', 2.6), (Z(0, 4.0, 25.4), 'cabeza', 2.8)]
+    for s, nom in LADOS:
+        A += [(HOMBRO(s), 'brazo_' + nom, 3.2), ((HOMBRO(s) + CODO(s)) * 0.5, 'brazo_' + nom, 2.6),
+              (CODO(s), 'antebrazo_' + nom, 2.4), ((CODO(s) + MUNECA(s)) * 0.5, 'antebrazo_' + nom, 2.3),
+              (Z(10.6 * s, 4.0, 3.0), 'antebrazo_' + nom, 3.0)]
+    return A
+
+
+def _trozos():
+    global _TROZOS
+    if _TROZOS is not None:
+        return _TROZOS
+    rng = np.random.default_rng(7)
+    X = huesos(POSE_RODILLAS)
+    T = []
+    for ancla, hueso, tam in _anclas():
+        # GRANDES: a su tamaño de antes el cuerpo se quedaba en un esqueleto de grava con huecos.
+        T.append({'ini': aplica(X[hueso], ancla), 'tam': tam * 1.55})
+    # Las piernas (arrodilladas) tambien se parten.
+    for s in (-1, 1):
+        T.append({'ini': np.array([4.0 * s, 2.4, 3.6]), 'tam': 3.8})
+        T.append({'ini': np.array([4.0 * s, -1.8, 1.6]), 'tam': 3.2})
+    zmax = max(t['ini'][2] for t in T)
+    for i, t in enumerate(T):
+        alto = t['ini'][2] / zmax
+        a = rng.uniform(0, 2 * math.pi); r = rng.uniform(1.0, 8.5) * (1.15 - 0.6 * alto)
+        # Al monton: los de abajo, repartidos por el suelo; los de arriba, encima.
+        t['fin'] = np.array([math.cos(a) * r, 3.0 + math.sin(a) * r * 0.9, t['tam'] * 0.45 + alto * 6.0])
+        t['espera'] = 0.25 * (1.0 - alto) + rng.uniform(0.0, 0.08)
+        q, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+        t['ejes'] = q
+        t['gira'] = rng.uniform(-1.2, 1.2)
+        t['medio'] = np.array([1.0, rng.uniform(0.7, 0.95), rng.uniform(0.55, 0.8)]) * t['tam']
+        t['mat'] = 'oscuro' if rng.uniform() < 0.3 else 'barro'
+    _TROZOS = T
+    return T
+
+
+def escena_trozos(rompe):
+    e = Escena({})
+    for i, t in enumerate(_trozos()):
+        u = min(max((rompe - t['espera']) / (1.0 - t['espera']), 0.0), 1.0)
+        f = u * u                                        # caen con peso
+        c = t['ini'] + (t['fin'] - t['ini']) * f
+        # Al empezar se SEPARAN un pelin hacia fuera (se le abre el cuerpo en pedazos).
+        fuera = t['ini'] - np.array([0.0, 1.0, 10.0])
+        fuera[2] = 0.0
+        n = np.linalg.norm(fuera)
+        if n > 0.01:
+            c = c + fuera / n * 0.9 * min(rompe * 6.0, 1.0) * (1.0 - f)
+        ejes = rz(t['gira'] * u) @ t['ejes']
+        e.add(lambda P, c=c, ej=ejes, m=t['medio']: sd_caja(P, c, ej, m, m.min() * 0.45), t['mat'], 0, 'trozo%d' % i,
+              'mundo')
     return e.L
 
 
@@ -187,16 +266,21 @@ def anim_encaje(t):
                 alza_d=tramos(t, [(0, -0.25), (1, 0.0)]), alza_i=tramos(t, [(0, -0.25), (1, 0.0)]))
 
 
+# MORIR (03/10, lo pidio el: "primero caiga de rodillas y luego se desmorone" en un monton de trozos de arcilla):
+# marcos 1-4 se le doblan las piernas y CAE DE RODILLAS, apoya los puños, cuelga la cabeza y se le apagan los ojos;
+# marcos 5-8 se PARTE en trozos que caen y se amontonan. El cadaver es el monton.
+POSE_RODILLAS = POSE(rodillas=1.0, agacha=6.6, inclina=0.32, alza_d=0.35, alza_i=0.35, codo_d=0.2, codo_i=0.2,
+                     abre_d=0.1, abre_i=0.1, cabeza=0.55, apaga=1.0)
+
 def anim_muerte(t):
-    # SE DERRUMBA EN UN MONTON: se le van las piernas, se vence hacia delante y se hunde en su propio barro, que se
-    # desparrama a lo ancho. Lo que es el barro.
-    return POSE(agacha=tramos(t, [(0, 0.0), (0.29, 3.0), (1, 3.0)]),
-                hundir=tramos(t, [(0.14, 0.0), (0.43, 3.0), (0.71, 8.0), (1, 12.0)]),
-                vuelca=tramos(t, [(0, 0.0), (0.43, 0.18), (1, 0.28)]),
-                abre_d=tramos(t, [(0, 0.0), (0.57, 0.35), (1, 0.45)]), abre_i=tramos(t, [(0, 0.0), (0.57, 0.35), (1, 0.45)]),
-                alza_d=tramos(t, [(0, 0.0), (0.57, 0.25), (1, 0.2)]), alza_i=tramos(t, [(0, 0.0), (0.57, 0.25), (1, 0.2)]),
-                cabeza=tramos(t, [(0, 0.0), (0.43, 0.4), (1, 0.5)]),
-                monton=tramos(t, [(0.29, 0.0), (0.57, 6.0), (1, 9.5)]))
+    if t > 0.5:
+        return POSE(rompe=tramos(t, [(4 / 7.0, 0.12), (5 / 7.0, 0.45), (6 / 7.0, 0.8), (1, 1.0)]))
+    k = tramos(t, [(0, 0.0), (1 / 7.0, 0.45), (2 / 7.0, 1.0), (1, 1.0)])
+    p = POSE(rodillas=k, agacha=6.6 * k, inclina=tramos(t, [(0, -0.15), (1 / 7.0, 0.1), (2 / 7.0, 0.25), (3 / 7.0, 0.32)]),
+             alza_d=0.35 * k, alza_i=0.35 * k, codo_d=0.25 - 0.05 * k, codo_i=0.25 - 0.05 * k, abre_d=0.1 * k,
+             abre_i=0.1 * k, cabeza=tramos(t, [(0, -0.3), (1 / 7.0, 0.15), (2 / 7.0, 0.35), (3 / 7.0, 0.55)]),
+             apaga=1.0 if t >= 3 / 7.0 - 1e-6 else 0.0)
+    return p
 
 
 ANIMS = {
