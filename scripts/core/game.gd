@@ -1720,7 +1720,7 @@ func guardar_imbue_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 		# ligerearia en el combate donde se lanzo, y al siguiente volveria mudo sin decir por que.
 		"spd": c.imbue_spd_mult, "prisma": c.imbue_prisma,
 		# El TOPE de acumulaciones: si no viajara, el veneno de la daga volveria sin tope a la pelea siguiente.
-		"tope": c.imbue_tope}
+		"tope": c.imbue_tope, "reparto": c.imbue_reparto}
 
 
 # Y la vuelta: se la devuelve al Combatant recien creado. Va por aplicar_imbue y no asignando los
@@ -1819,7 +1819,8 @@ func restaurar_imbue_de_ficha(c: Combatant, pj: PersonajeData) -> void:
 		float(d.get("prob_doble", 0.0)), bool(d.get("destreza", false)),
 		# 1.0 por defecto: las fichas guardadas ANTES de que existiera el mitico no llevan la clave,
 		# y sin el default entrarian a velocidad 0.
-		float(d.get("spd", 1.0)), bool(d.get("prisma", false)), int(d.get("tope", -1)))
+		float(d.get("spd", 1.0)), bool(d.get("prisma", false)), int(d.get("tope", -1)),
+		Array(d.get("reparto", [])))
 
 
 # CIERRA la mazmorra: se olvida como quedaron los pisos y todo vuelve a nacer poblado.

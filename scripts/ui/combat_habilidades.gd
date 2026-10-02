@@ -932,7 +932,8 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 	if ab.es_imbuicion():
 		_pantalla._player.aplicar_imbue(ab.imbue_elemento, ab.imbue_pct, ab.imbue_usos, false,
 			ab.imbue_estado, ab.imbue_prob, Elementos.INTENSIDAD_IMBUIDO,
-			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false, ab.imbue_tope(_tier_arma_activa()))
+			ab.imbue_prob_doble, ab.imbue_por_destreza, 1.0, false,
+			ab.imbue_tope(_tier_arma_activa()), ab.imbue_reparto(_tier_arma_activa()))
 		estados_log.append("%s en el arma (%d ataques)" % [
 			str(StatusEffects.def(ab.imbue_estado).get("nombre", "?")), ab.imbue_usos])
 	# LIMPIAR DEBUFFS: a un aliado elegido (Purificar) o a todo el grupo (el area del baston).

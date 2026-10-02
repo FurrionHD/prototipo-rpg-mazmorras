@@ -539,6 +539,9 @@ var imbue_por_destreza: bool = false
 # emponzoñado subia el veneno hasta el tope GLOBAL (5): con varios personajes se plantaba en 5 (48/turno).
 # Lo pone la habilidad segun el tier del arma (AbilityData.imbue_tope).
 var imbue_tope: int = -1
+# LA ESCALERA del tier del arma (AbilityData.imbue_escalera): si prende, reparto[i] = prob. de sumar i+1
+# dosis. Vacia = la tirada vieja de dos escalones (imbue_prob +1 / imbue_prob_doble +2).
+var imbue_reparto: Array = []
 # ¿Ya se ha cobrado la carga DEFENSIVA de esta accion enemiga? (ver gastar_imbue_defensiva)
 var imbue_def_gastada: bool = false
 # VELOCIDAD mientras la imbuicion siga puesta (1.0 = no la toca). Vive aqui y no como estado a
@@ -596,10 +599,11 @@ func aplicar_imbue(elem: int, pct: float, usos: int, cuerpo: bool,
 		estado: int = -1, prob: float = 0.0,
 		intensidad: float = Elementos.INTENSIDAD_IMBUIDO,
 		prob_doble: float = 0.0, por_destreza: bool = false,
-		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1) -> void:
+		spd_mult: float = 1.0, prisma: bool = false, tope: int = -1, reparto: Array = []) -> void:
 	imbue_elemento = elem
 	imbue_prisma = prisma
 	imbue_tope = tope
+	imbue_reparto = reparto.duplicate()
 	imbue_pct = pct
 	imbue_usos = maxi(1, usos)
 	imbue_cuerpo = cuerpo
@@ -682,10 +686,12 @@ func imbue_resumen() -> String:
 		var dn: String = str(StatusEffects.def(imbue_estado).get("nombre", "?"))
 		lineas.append("%s Arma emponzoñada (%s)" % [
 			str(StatusEffects.def(imbue_estado).get("icono", "")), dn])
-		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu Magia contra su Resistencia)."
-			% [dn, roundi(imbue_prob * 100.0)])
+		lineas.append("Cada golpe que acierta puede dejar %s (%d%% base; la probabilidad real depende de tu %s contra su Resistencia)."
+			% [dn, roundi(imbue_prob * 100.0), "Destreza" if imbue_por_destreza else "Magia"])
+		if not imbue_reparto.is_empty():
+			lineas.append("Si prende, suma (por el tier del arma): %s." % AbilityData.texto_reparto(imbue_reparto))
 		if imbue_tope >= 0:
-			lineas.append("Como mucho deja %d dosis (va por el tier del arma)." % imbue_tope)
+			lineas.append("Como mucho deja %d dosis." % imbue_tope)
 		lineas.append("Le quedan %d ataque%s (se gasta al ATACAR, no con los turnos)." % [
 			imbue_usos, "" if imbue_usos == 1 else "s"])
 		return "\n".join(lineas)
@@ -738,7 +744,12 @@ func roll_imbue(target: Combatant) -> String:
 	# eso -- 10% dos, 60% uno, 30% nada -- y no dos tiradas que se pisan.
 	var r: float = randf()
 	var stacks: int = 0
-	if r < p2:
+	if not imbue_reparto.is_empty():
+		# LA ESCALERA: imbue_prob dice si PRENDE (p1, ya con su Resistencia); si prende, la fila del tier
+		# reparte cuantas dosis suma. Otra tirada aparte, para que la resistencia no toque el reparto.
+		if r < p1:
+			stacks = _tirar_reparto(imbue_reparto)
+	elif r < p2:
 		stacks = 2
 	elif r < p2 + p1:
 		stacks = 1
@@ -749,6 +760,17 @@ func roll_imbue(target: Combatant) -> String:
 		target.apply_status(imbue_estado, -1, -1.0, 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	return nom if stacks == 1 else "%s x%d" % [nom, stacks]
+
+
+# Cuantas dosis suma un golpe que prende: sortea la fila (que suma 1; si no, lo que sobre va a la ultima).
+static func _tirar_reparto(fila: Array) -> int:
+	var r: float = randf()
+	var acum: float = 0.0
+	for i in fila.size():
+		acum += float(fila[i])
+		if r < acum:
+			return i + 1
+	return fila.size()
 
 
 # Gasta UN USO de la imbuicion: lo llama cada ATAQUE que lanzas (basico o habilidad), da igual
@@ -771,6 +793,7 @@ func consumir_imbue() -> bool:
 	imbue_estado = -1
 	imbue_prob = 0.0
 	imbue_tope = -1
+	imbue_reparto = []
 	imbue_spd_mult = 1.0   # la ligereza se va con el manto: por eso no es un estado por turnos
 	return true
 

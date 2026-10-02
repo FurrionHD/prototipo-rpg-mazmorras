@@ -12,9 +12,9 @@ dano_mult = 0.0
 fx_estilo = 38
 imbue_estado = 0
 imbue_usos = 5
-imbue_prob = 0.6
-imbue_prob_doble = 0.1
+imbue_prob = 0.7
 imbue_por_destreza = true
-; (03/10, su decision) tope de veneno por tier del arma: T1 2, T2 3, T3 4, T4+ 5.
-imbue_tope_base = 2
+; (03/10, su decision) LA ESCALERA: 70% de que prenda y, si prende, las dosis que suma segun el tier del
+; arma (una fila por tier; el largo de la fila es su tope). T5: veneno superior u otro efecto, en el futuro.
+imbue_escalera = [[0.9, 0.1], [0.6, 0.3, 0.1], [0.15, 0.6, 0.2, 0.05], [0.05, 0.4, 0.35, 0.15, 0.05]]
 descripcion = "Pasas el filo por un frasco turbio y esperas a que agarre. No corta más: corta peor, y eso a veces vale más que cortar hondo."

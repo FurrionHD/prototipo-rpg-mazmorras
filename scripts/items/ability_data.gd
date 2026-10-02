@@ -121,16 +121,31 @@ func es_toda_de_escudo() -> bool:
 @export var imbue_prob: float = 0.0       # prob. de UN stack, en igualdad de stat vs Resistencia
 @export var imbue_prob_doble: float = 0.0 # prob. de DOS stacks de golpe (se tira antes)
 @export var imbue_por_destreza: bool = false
-# TOPE de acumulaciones que puede dejar, segun el TIER del arma (03/10, su decision: "si es de t1 maximo 2,
-# si es t2 maximo 3 y asi"): tope = imbue_tope_base + (tier - 1), sin pasar del maximo del estado. Es el
-# tope del ENEMIGO en total: cuatro dagas envenenadas no lo suben. -1 = sin tope propio.
-@export var imbue_tope_base: int = -1
+# LA ESCALERA POR TIER (03/10, su decision). Dos tiradas: imbue_prob dice si PRENDE (la unica que tocan
+# Destreza/Resistencia, eficacia y resistencia a estados); si prende, la fila del TIER del arma reparte
+# cuantas dosis SUMA: fila[i] = prob. de +(i+1). Ej. T2 [0.6, 0.3, 0.1] = 60% +1, 30% +2, 10% +3.
+# El TOPE del tier es el largo de su fila (T1 2, T2 3, T3 4, T4 5), y es el del ENEMIGO en total: cuatro
+# dagas envenenadas no lo suben. Un tier por encima de la ultima fila usa la ultima. Vacia = la tirada
+# vieja (imbue_prob +1 / imbue_prob_doble +2, sin tope propio).
+@export var imbue_escalera: Array = []
+
+# La fila de la escalera con un arma de 'tier' ([] = sin escalera).
+func imbue_reparto(tier: int) -> Array:
+	if imbue_escalera.is_empty():
+		return []
+	return imbue_escalera[clampi(tier, 1, imbue_escalera.size()) - 1]
 
 # El tope con un arma de 'tier' (-1 = sin tope propio).
 func imbue_tope(tier: int) -> int:
-	if imbue_tope_base < 0:
-		return -1
-	return imbue_tope_base + maxi(0, tier - 1)
+	var fila: Array = imbue_reparto(tier)
+	return fila.size() if not fila.is_empty() else -1
+
+# "+1 60% · +2 30% · +3 10%" (lo usan la ficha y el chip de la imbuicion).
+static func texto_reparto(fila: Array) -> String:
+	var partes: PackedStringArray = []
+	for i in fila.size():
+		partes.append("+%d %d%%" % [i + 1, roundi(float(fila[i]) * 100.0)])
+	return " · ".join(partes)
 
 func es_imbuicion() -> bool:
 	return imbue_estado >= 0 and imbue_usos > 0
@@ -759,8 +774,11 @@ func resumen(manos: int = 1) -> String:
 		var doble: String = "" if imbue_prob_doble <= 0.0 else 			", y un %d%% de meter dos dosis de golpe" % roundi(imbue_prob_doble * 100.0)
 		l.append("Impregna tu arma de %s durante %d ataques: cada golpe tiene un %d%% de aplicarlo%s." % [
 			nom_est, imbue_usos, roundi(imbue_prob * 100.0), doble])
-		if imbue_tope_base >= 0:
-			l.append("Como mucho deja %d dosis con un arma de tier 1, y una más por cada tier por encima." % imbue_tope(1))
+		if not imbue_escalera.is_empty():
+			l.append("Si prende, las dosis que suma van por el tier del arma (y no pasa de la última):")
+			for t in imbue_escalera.size():
+				l.append("  T%d%s: %s" % [t + 1, "+" if t == imbue_escalera.size() - 1 else "",
+					texto_reparto(imbue_escalera[t])])
 		l.append("Se gasta al ATACAR, no con los turnos, y aguanta de un combate al siguiente.")
 		if imbue_por_destreza:
 			l.append("Prende más a menudo cuanta más Destreza tengas frente a su Resistencia.")
