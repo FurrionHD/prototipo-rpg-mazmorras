@@ -408,12 +408,12 @@ static func material_para_mejora(mejoras_actuales: int, base: Resource = null,
 	# Cuantos escalones llevas DENTRO de esta banda, repartidos sobre su ancho.
 	var dentro: int = clampi(n - banda.x, 0, maxi(0, banda.y - 1))
 	var sube: int = roundi(float(dentro) * float(MEJORA_PASO_BANDA) / float(maxi(1, banda.y - 1)))
-	if es_arma_magica(base) or es_de_distancia(base):
-		# Magicas: la contera y el asta. Arco/ballesta: los herrajes y la CUERDA, que es lo que se rehace.
+	if es_arma_magica(base):
 		return {
 			"metal": MEJORA_FIBRA_BASE + sube,   # la contera: lo menos
 			"fibra": MEJORA_METAL_BASE + sube,   # el asta: lo que de verdad se rehace
 		}
+	# (En el arco y la ballesta el "metal" de aqui es el TABLON: ver Game.metales_forja_de.)
 	return {
 		"metal": MEJORA_METAL_BASE + sube,
 		"fibra": MEJORA_FIBRA_BASE + sube,
@@ -518,6 +518,12 @@ static func fundir_material(base: Resource, mejoras: int, escalera: Array = []) 
 	for k in range(maxi(0, mejoras)):
 		# El metal de la banda que cubria ESE escalon: es de donde sale su reparto.
 		var m: Dictionary = material_para_mejora(k, base, _material_de_nivel(escalera, k))
+		# El arco y la ballesta se mejoran con TABLON + CUERDA: lo de cada escalon vuelve como madera
+		# y cuerda (la cuerda va en el hueco del cuero), no como metal.
+		if es_de_distancia(base):
+			madera += int(m["metal"])
+			cuero += int(m["fibra"])
+			continue
 		metal += int(m["metal"])
 		if fibra_es_madera:
 			madera += int(m["fibra"])

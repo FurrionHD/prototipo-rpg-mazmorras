@@ -10522,6 +10522,11 @@ func metales_conocidos_de(base: Resource) -> Array:
 
 # Todos los de esa forma (no solo los conocidos), con sus bandas: lo que mira mejorar y deshacer.
 func metales_forja_de(item: Resource) -> Array:
+	# ARCO y BALLESTA (02/10, lo pidio el jefe): se mejoran con MADERA y cuerda, no con metal. El
+	# TABLON ocupa el hueco del "metal" de la mejora (el material principal, con su banda), y la cuerda
+	# el de la fibra (ver fibra_de_forja).
+	if Forge.es_de_distancia(item):
+		return tablones_forja()
 	match String(Forge.coste(item)["forma"]):
 		"chapa": return chapas_forja()
 		"hebillas": return hebillas_forja()
@@ -11834,6 +11839,9 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 	var f: Dictionary = Forge.fundir_material(item, mejoras, escalera_metal(item))
 	var tier: int = int(meta_de(item)["tier"])
 	var metal_mat: MaterialData = materiales_mejora(item)["metal"]   # el metal de SU tier
+	# En el arco y la ballesta el "metal" de la mejora es el tablon: el metal de su RECETA es el lingote.
+	if Forge.es_de_distancia(item):
+		metal_mat = _material_de(lingotes_forja(), tier, -1)
 	var materiales: Array = []
 	if int(f["metal"]) > 0 and metal_mat != null:
 		materiales.append({"material": metal_mat, "uds": int(f["metal"])})
@@ -11843,7 +11851,7 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 			materiales.append({"material": mad, "uds": int(f["madera"])})
 	if int(f["cuero"]) > 0:
 		# El curtido de SU tier, como el metal y la madera de arriba (antes salia siempre el de T1).
-		var cue: MaterialData = cuero_de_tier(tier)
+		var cue: MaterialData = cuerda_de_tier(tier) if Forge.es_de_distancia(item) else cuero_de_tier(tier)
 		if cue == null:
 			cue = cuero_forja()
 		if cue != null:
