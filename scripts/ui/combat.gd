@@ -1739,12 +1739,15 @@ func _accion_atacar() -> void:
 		for bl in blancos:
 			bl["escala"] = float(bl["escala"]) * (1.0 + md_t.dano_bonus)
 	var aciertos: Array = []
+	# DE QUE ES LA PUNTA (madera o el metal cargado): viaja en la semilla del golpe (DistanciaAire.semilla_con_punta).
+	var semilla_fx: int = DistanciaAire.semilla_con_punta((randi() & 0x3FFFFFFF) | 1, tiro.get("md")) \
+		if _player.a_distancia else 0
 	for i in blancos.size():
 		# El virote que ATRAVIESA al primero no se clava en el: asoma por su espalda y sigue al de detras.
 		var estilo_i: int = CombatFX.Estilo.VIROTE_PASA \
 			if estilo_bas == CombatFX.Estilo.VIROTE and i < blancos.size() - 1 else estilo_bas
 		aciertos.append(_golpe_basico(blancos[i]["c"], float(blancos[i]["escala"]), String(blancos[i]["nota"]), i == 0,
-			estilo_i, con_arma, arma_factor, pj_atacante))
+			estilo_i, con_arma, arma_factor, pj_atacante, semilla_fx))
 	# DONDE SE QUEDA LA FLECHA DE MATERIAL: clavada en el ultimo al que le entra (el segundo, si el virote lo
 	# atraviesa) o, si el ultimo la esquiva, en el suelo detras de el. Se apunta para tirar al acabar si se rompe.
 	if not tiro.is_empty():
@@ -1769,7 +1772,7 @@ func _accion_atacar() -> void:
 # 'escala' rebaja el daño (quemarropa, el segundo del virote) y 'nota' lo cuenta en el registro. Solo el
 # 'principal' repone maná: el virote que atraviesa no es un golpe mas de tu turno.
 func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool, estilo_bas: int,
-		con_arma: String, arma_factor: float, pj_atacante: PersonajeData) -> bool:
+		con_arma: String, arma_factor: float, pj_atacante: PersonajeData, semilla_fx: int = 0) -> bool:
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, obj, false)
 	if escala != 1.0:
@@ -1788,7 +1791,8 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		efectos.fijar_suelo(SueloRoto.Tipo.TAJO, fc, (randi() & 0x3FFFFFFF) | 1, 0.0)
 	if result.evaded:
 		_set_log("%s esquiva tu ataque (%s)%s. 💨" % [_etq(obj), con_arma, de_nota])
-		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas)
+		efectos._fx_golpe(_player, obj, 0.0, false, true, Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "",
+			AbilityData.Gesto.AUTO, &"", semilla_fx)
 		if corte_mapa:
 			efectos.soltar_suelo()
 		return false
@@ -1796,7 +1800,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 		obj.take_damage(result.damage)
 		efectos._fx_golpe(_player, obj, result.damage, result.crit, false,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
-			else Elementos.Elemento.NINGUNO, estilo_bas)
+			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, &"", semilla_fx)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
 		_pasiva_al_golpearle(obj, _player)
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).

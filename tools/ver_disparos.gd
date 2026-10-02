@@ -133,7 +133,42 @@ func _correr() -> void:
 		var ruta: String = "%s/%s.png" % [salida, nombre]
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
+	await _hoja_puntas(salida)
 	get_tree().quit(0)
+
+
+# LAS PUNTAS (02/10): una fila por material (la normal de madera y los nueve metales, de 2 en 2), disparando hacia
+# el este: en vuelo, al entrar y ya clavada.
+func _hoja_puntas(salida: String) -> void:
+	var puntas: Array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+	var tiempos: Array = [-0.05, 0.0, 0.6]
+	var hoja := Image.create(LADO * tiempos.size() * 2, LADO * 5, false, Image.FORMAT_RGBA8)
+	for i in puntas.size():
+		var idx: int = puntas[i]
+		var fila: int = i / 2
+		var col0: int = (i % 2) * tiempos.size()
+		var yo := Vector2.ZERO
+		var tu: Node2D = _figura(yo, AZUL)
+		var p1: Vector2 = yo + Vector2(LEJOS, 0)
+		var cuerpo: Node2D = _figura(p1, ROJO)
+		_cam.global_position = yo + Vector2(LEJOS * 0.5, -12)
+		var d := DistanciaAire.disparo(self, DistanciaAire.Modo.FLECHA, _caja(yo).get_center(), _caja(p1), cuerpo,
+			false, false, 77 + idx, 0.2, 1.0, idx)
+		d.set_process(false)
+		var hecho: Array = [-d._vuelo]
+		var nombre: String = "madera" if idx == 0 else String((Game.municiones()[idx - 1] as MaterialData).nombre)
+		for c in tiempos.size():
+			_llevar([d] + get_tree().get_nodes_in_group(DistanciaAire.GRUPO_CLAVADAS), float(tiempos[c]), hecho)
+			await _viñeta(hoja, col0 + c, fila, "%s · %.2f s" % [nombre, float(tiempos[c])])
+		if is_instance_valid(d):
+			d.queue_free()
+		DistanciaAire.quitar_clavadas(get_tree())
+		tu.queue_free()
+		cuerpo.queue_free()
+		await get_tree().process_frame
+	var ruta: String = "%s/puntas.png" % salida
+	hoja.save_png(ruta)
+	print("[hoja] ", ruta)
 
 
 func _viñeta(hoja: Image, col: int, fila: int, texto: String) -> void:

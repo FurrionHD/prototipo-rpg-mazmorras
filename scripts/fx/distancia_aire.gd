@@ -35,6 +35,35 @@ const MADERA_CLARA := Color(0.74, 0.55, 0.34)
 const PLUMA := Color(0.86, 0.30, 0.24)       # plumas rojas: se distinguen de la punta de acero de un vistazo
 const PLUMA_OSC := Color(0.55, 0.16, 0.14)
 const ASTILLA := Color(0.86, 0.72, 0.50)
+# LA NORMAL (la infinita) es TODA DE MADERA y rancia (02/10, lo pidio el jefe): punta de palo tostado, astil
+# gris-pardo y plumas apagadas. Las de material, con la punta de SU metal y plumas rojas.
+const MADERA_RANCIA := Color(0.42, 0.33, 0.24)
+const MADERA_RANCIA_CLARA := Color(0.55, 0.45, 0.34)
+const PUNTA_RANCIA := Color(0.33, 0.25, 0.18)
+const PLUMA_RANCIA := Color(0.52, 0.48, 0.40)
+const PLUMA_RANCIA_OSC := Color(0.36, 0.33, 0.28)
+
+# DE QUE ES LA PUNTA viaja dentro de la SEMILLA del golpe (bits 26-29), que si viaja por red con cada disparo:
+# 0 = madera (la normal), 1..9 = el metal en el orden de Game._MUNICION. Asi todas las pantallas pintan la misma.
+const BITS_PUNTA := 26
+
+static func semilla_con_punta(semilla: int, md: MunicionData) -> int:
+	var idx: int = 0
+	if md != null:
+		var lista: Array = Game.municiones()
+		var pos: int = lista.find(md)
+		idx = (pos % 9) + 1 if pos >= 0 else 0
+	return (semilla & ((1 << BITS_PUNTA) - 1)) | (idx << BITS_PUNTA) | 1
+
+static func punta_de_semilla(semilla: int) -> int:
+	return (semilla >> BITS_PUNTA) & 0xF
+
+# El color de la punta de un indice (0 = madera rancia).
+static func color_punta(idx: int) -> Color:
+	if idx <= 0:
+		return PUNTA_RANCIA
+	var lista: Array = Game.municiones()
+	return (lista[idx - 1] as MaterialData).color if idx - 1 < lista.size() else ACERO
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
 
 # Medidas de cada proyectil: largo total, largo de la punta, grueso del astil, largo de las plumas, cuanto se
@@ -62,6 +91,7 @@ var _crit: bool = false
 var _caja: Rect2 = Rect2()
 var _cuerpo: Node2D = null
 var _punta_col: Color = ACERO
+var _rancia: bool = false
 var _astillas: Array = []
 var _clavada_hecha: bool = false
 
@@ -69,7 +99,7 @@ var _clavada_hecha: bool = false
 # UN DISPARO. 'desde' = el pecho del que tira, 'caja' = el cuerpo que lo recibe tal como se ve, 'cuerpo' = su nodo
 # (para clavarse en el y seguirle), 'espera' = lo que falta para el golpe en tiempo de la pelea (su vuelo).
 static func disparo(padre: Node, m: int, desde: Vector2, caja: Rect2, cuerpo: Node2D, fallo: bool, crit: bool,
-		semilla: int, espera: float, ritmo: float, punta: Color = ACERO) -> DistanciaAire:
+		semilla: int, espera: float, ritmo: float, punta: int = 0) -> DistanciaAire:
 	if padre == null:
 		return null
 	var d := DistanciaAire.new()
@@ -80,7 +110,8 @@ static func disparo(padre: Node, m: int, desde: Vector2, caja: Rect2, cuerpo: No
 	d._cuerpo = cuerpo
 	d._fallo = fallo
 	d._crit = crit
-	d._punta_col = punta
+	d._punta_col = color_punta(punta)
+	d._rancia = punta <= 0
 	d.z_as_relative = false
 	d.z_index = Z_ENCIMA
 	d.process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
@@ -158,6 +189,8 @@ func _clavar() -> void:
 	cl.dir = _dir
 	cl.fuera = float(med["fuera"]) * (0.75 if _fallo else 1.0)
 	cl.semilla = _rng.randi()
+	cl.punta_col = _punta_col
+	cl.rancia = _rancia
 	cl.en_suelo = _fallo or _cuerpo == null or not is_instance_valid(_cuerpo)
 	cl.add_to_group(GRUPO_CLAVADAS)
 	cl.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -184,7 +217,7 @@ func _draw() -> void:
 		var cola: Vector2 = punta - _dir * largo
 		BarridoAire.cometa(self, cola - _dir * largo * 1.4 * s, cola, float(med["grueso"]) * 1.6,
 			Color(BLANCO, 0.45 * minf(s * 4.0, 1.0)))
-		proyectil(self, punta, _dir, modo, 1.0, _punta_col)
+		proyectil(self, punta, _dir, modo, 1.0, _punta_col, -1.0, _rancia)
 		return
 	var va: float = clampf(_t / T_APAGA, 0.0, 1.0)
 	# EL QUE ATRAVIESA no se sigue pintando: el siguiente virote sale de su espalda y es el que se ve seguir.
@@ -218,7 +251,7 @@ func _hasta_el_borde(d: Vector2) -> float:
 # La silueta con la PUNTA en 'punta', mirando hacia 'dir'. 'mostrar' = que parte se ve desde la cola (1 = entera;
 # clavada se ve solo lo de fuera, ver Clavada). 'alfa' la apaga entera.
 static func proyectil(ci: CanvasItem, punta: Vector2, dir: Vector2, m: int, alfa: float, punta_col: Color,
-		solo_fuera: float = -1.0) -> void:
+		solo_fuera: float = -1.0, rancia: bool = false) -> void:
 	if alfa <= 0.0:
 		return
 	var med: Dictionary = MEDIDAS[m]
@@ -233,7 +266,8 @@ static func proyectil(ci: CanvasItem, punta: Vector2, dir: Vector2, m: int, alfa
 	var corte: Vector2 = cola + dir * desde_cola
 	# El ASTIL: una banda de madera, clara arriba y oscura abajo (la luz viene de arriba).
 	var fin_astil: Vector2 = corte if solo_fuera >= 0.0 else punta - dir * lp * 0.8
-	_banda(ci, cola, fin_astil, n * g * 0.5, Color(MADERA_CLARA, alfa), Color(MADERA, alfa))
+	_banda(ci, cola, fin_astil, n * g * 0.5, Color(MADERA_RANCIA_CLARA if rancia else MADERA_CLARA, alfa),
+		Color(MADERA_RANCIA if rancia else MADERA, alfa))
 	# LAS PLUMAS: dos aletas LARGAS pegadas al astil en la cola, que bajan suaves hacia delante y se cortan en
 	# diagonal por detras (como las de verdad). Nada de triangulo en punta: se leia como otra punta.
 	var p_atras: Vector2 = cola + dir * 0.5
@@ -245,11 +279,16 @@ static func proyectil(ci: CanvasItem, punta: Vector2, dir: Vector2, m: int, alfa
 			p_delante + nn * g * 0.45,
 			p_delante - dir * lpl * 0.25 + nn * abre * 0.8,
 			p_atras + dir * 0.6 + nn * abre,
-			p_atras + nn * g * 0.45]), Color(PLUMA if lado > 0.0 else PLUMA_OSC, alfa))
+			p_atras + nn * g * 0.45]), Color((PLUMA_RANCIA if rancia else PLUMA) if lado > 0.0
+				else (PLUMA_RANCIA_OSC if rancia else PLUMA_OSC), alfa))
 	if solo_fuera >= 0.0:
 		return
-	# LA PUNTA: un rombo de metal con su filo de luz.
+	# LA PUNTA: un rombo de metal con su filo de luz. La de madera, una punta de palo sin mas (sin rombo).
 	var base: Vector2 = punta - dir * lp
+	if rancia:
+		ci.draw_colored_polygon(PackedVector2Array([base + n * g * 0.5, punta, base - n * g * 0.5]),
+			Color(PUNTA_RANCIA, alfa))
+		return
 	var ancho_p: float = g * (1.5 if m == Modo.FLECHA else 1.25)
 	ci.draw_colored_polygon(PackedVector2Array([base - dir * 1.0, base + n * ancho_p, punta, base - n * ancho_p]),
 		Color(punta_col.darkened(0.25), alfa))
@@ -276,6 +315,8 @@ class Clavada extends Node2D:
 	var fuera: float = 12.0
 	var semilla: int = 1
 	var en_suelo: bool = false
+	var punta_col: Color = ACERO
+	var rancia: bool = false
 	var _t: float = 0.0
 
 	func _process(delta: float) -> void:
@@ -294,7 +335,7 @@ class Clavada extends Node2D:
 		var largo: float = float(med["largo"])
 		# La punta queda DENTRO: se pinta la silueta con la punta metida 'largo - fuera'.
 		var punta: Vector2 = d * (largo - fuera)
-		DistanciaAire.proyectil(self, punta, d, modo, 1.0, ACERO, fuera)
+		DistanciaAire.proyectil(self, punta, d, modo, 1.0, punta_col, fuera, rancia)
 		# Una sombrita bajo lo que se clava en el suelo, para que se lea plantada.
 		if en_suelo:
 			var c: Vector2 = -d * fuera * 0.5

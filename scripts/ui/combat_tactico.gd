@@ -3992,7 +3992,8 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		var desde_d: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \
 			else bulto_de(v).get_center() - Vector2(60.0, 0.0)
 		DistanciaAire.disparo(arena, int(_MODO_DISTANCIA[estilo]), desde_d, bulto_de(v), cuerpo_de(v),
-			bool(ev.get("evadido", false)), bool(ev.get("crit", false)), semilla, vuelo, ritmo)
+			bool(ev.get("evadido", false)), bool(ev.get("crit", false)), semilla, vuelo, ritmo,
+			DistanciaAire.punta_de_semilla(int(ev.get("semilla", 0))))
 		return
 	if estilo == CombatFX.Estilo.IMBUIR_FILO:
 		DagaAire.ponzona(arena, cuerpo_de(v).get("_muneco"), semilla, vuelo, ritmo)
