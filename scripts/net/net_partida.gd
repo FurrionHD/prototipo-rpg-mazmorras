@@ -417,10 +417,11 @@ func desgaste_a_dict(pj: PersonajeData) -> Dictionary:
 	d["dur"] = dur
 	# Y LAS PASIVAS que haya sacado dentro (una tirada de 1 entre 500.000 no puede quedarse en la copia).
 	d["pasivas_pendientes"] = (pj.pasivas_pendientes as Dictionary).duplicate()
-	# LA MUNICION que cargo y no disparo: salio de SU bolsa, asi que vuelve a ella (por ruta y calidad).
+	# LA MUNICION que se QUITO cargando otra encima: salio de SU bolsa, asi que vuelve a ella (por ruta y calidad).
+	# La que quedo cargada NO: se queda puesta para la pelea siguiente (municion_cargada, en _VUELVE).
 	var mun: Array = []
 	if vivo != null:
-		for par in vivo.municion_sin_disparar():
+		for par in vivo.municion_devolver:
 			mun.append([String((par[0] as Resource).resource_path), int(par[1])])
 	d["municion"] = mun
 	return d

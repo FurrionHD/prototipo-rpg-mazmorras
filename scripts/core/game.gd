@@ -2557,6 +2557,7 @@ func exportar_partida() -> SaveData:
 	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.pasivas_rng = pasivas_rng.duplicate()
 	d.pasivas_pendientes = lider().pasivas_pendientes.duplicate()
+	d.lider_municion_cargada = lider().municion_cargada.duplicate(true)
 	d.guardianes_vencidos = guardianes_vencidos.duplicate()
 	# El GRUPO, sin el lider (ese ya va en los campos planos de aqui arriba; ver el comentario de
 	# SaveData.plantilla). Van SIN duplicar: son Resources y Godot los incrusta enteros en el .tres,
@@ -3311,6 +3312,8 @@ func importar_partida(d: SaveData) -> void:
 	pasivas_rng = (d.pasivas_rng as Dictionary).duplicate() if d.pasivas_rng != null else {}
 	lider().pasivas_pendientes = (d.pasivas_pendientes as Dictionary).duplicate() \
 		if d.pasivas_pendientes != null else {}
+	lider().municion_cargada = (d.lider_municion_cargada as Dictionary).duplicate(true) \
+		if d.lider_municion_cargada != null else {}
 	guardianes_vencidos = d.guardianes_vencidos.duplicate()
 	# Los efectos de los desarrollos se leen del RANGO en vivo (no hay interruptores que re-encender).
 	player_current_hp = d.player_current_hp
@@ -6806,6 +6809,21 @@ func devolver_municion_a_bolsa(lista: Array) -> void:
 			materiales.append(MaterialItem.crear(md, int(par[1])))
 
 # ¿Lleva un ARCO o una BALLESTA en la principal? Es lo que hace que el ataque del mapa dispare de lejos.
+# Devuelve a la bolsa la municion cargada que el arma de ahora no dispara (cambiar de arco a ballesta o a otra).
+func _soltar_municion_que_no_encaja(p: PersonajeData) -> void:
+	if p.municion_cargada.is_empty():
+		return
+	var md: MunicionData = load(String(p.municion_cargada.get("ruta", ""))) as MunicionData
+	var w: WeaponData = p.equipped_main as WeaponData
+	if md != null and w != null and int(w.tipo) == md.arma:
+		return
+	var lista: Array = []
+	if md != null:
+		for cal in (p.municion_cargada.get("cals", []) as Array):
+			lista.append([md, int(cal)])
+	devolver_municion_a_bolsa(lista)
+	p.municion_cargada = {}
+
 func lleva_arma_distancia(pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	return p != null and Forge.es_de_distancia(p.equipped_main)
@@ -8378,6 +8396,9 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
 	# (unir_aliado_al_combate pasa por esta misma funcion).
 	restaurar_imbue_de_ficha(c, p)
+	# La MUNICION que quedo cargada en la anterior (como la imbuicion), si es de esta arma.
+	if lleva_arma_distancia(p):
+		c.poner_municion_de_ficha(p.municion_cargada, int((p.equipped_main as WeaponData).tipo))
 	# Y los ESTADOS con los que salio de la anterior: el veneno sigue corriendo, el buff sigue
 	# puesto. Aqui por lo mismo que la imbuicion: es la fabrica por la que pasan los dos caminos de
 	# entrada a una pelea (start_combat y unir_aliado_al_combate).
@@ -8725,6 +8746,8 @@ func equipar_arma(w: WeaponData, pj: PersonajeData = null) -> void:
 	_quitar_a_los_demas(w, p)
 	p.equipped_main = w
 	p.equip_meta["main"] = meta_de(w)   # null -> meta por defecto: el puño no se mejora
+	# La municion que llevaba cargada, si la nueva arma no la dispara, vuelve a la bolsa.
+	_soltar_municion_que_no_encaja(p)
 	if not _secundaria_valida(w, p.equipped_off):
 		p.equipped_off = null
 		p.equip_meta["off"] = _meta_por_defecto()
@@ -15811,10 +15834,13 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 		if i < _active_player_cs.size():
 			ability_cooldowns_persist[_active_player_pjs[i]] = \
 				(_active_player_cs[i].ability_cooldowns as Dictionary).duplicate()
-			# LA MUNICION CARGADA QUE NO SE DISPARO vuelve a la bolsa. Solo la de los MIOS: la del doble de
-			# otro humano vuelve a SU bolsa con el desgaste (Net.partida.desgaste_a_dict).
+			# LA MUNICION CARGADA QUE NO SE DISPARO se QUEDA PUESTA para la siguiente (03/10, como una
+			# imbuicion): va a la ficha, tambien la del doble de otro humano (le vuelve con el desgaste,
+			# PersonajeData.municion_cargada esta en _VUELVE). A la bolsa solo vuelve lo que se QUITO cargando
+			# otra encima, y solo la de los MIOS: la del doble vuelve a SU bolsa (Net.partida.desgaste_a_dict).
+			_active_player_pjs[i].municion_cargada = _active_player_cs[i].municion_cargada_dict()
 			if party.has(_active_player_pjs[i]):
-				devolver_municion_a_bolsa(_active_player_cs[i].municion_sin_disparar())
+				devolver_municion_a_bolsa(_active_player_cs[i].municion_devolver)
 
 	# AHORA si: las fichas (incluidas las de los DOBLES de otros humanos) ya llevan el resultado,
 	# asi que se le puede devolver a cada uno lo suyo y cerrarles el espejo. A los peers DERROTADOS

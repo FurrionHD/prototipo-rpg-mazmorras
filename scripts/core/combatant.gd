@@ -53,6 +53,22 @@ func disparar_municion() -> Dictionary:
 		municion = null
 	return tiro
 
+# LO QUE SE QUEDA PUESTO para la pelea siguiente (PersonajeData.municion_cargada): {} si no queda nada.
+func municion_cargada_dict() -> Dictionary:
+	if municion == null or municion_cals.is_empty():
+		return {}
+	return {"ruta": String(municion.resource_path), "cals": municion_cals.duplicate()}
+
+# Y su vuelta al empezar la pelea (Game.crear_player_combatant), solo si es de esta arma.
+func poner_municion_de_ficha(d: Dictionary, arma: int) -> void:
+	if d.is_empty():
+		return
+	var md: MunicionData = load(String(d.get("ruta", ""))) as MunicionData
+	if md == null or md.arma != arma or (d.get("cals", []) as Array).is_empty():
+		return
+	municion = md
+	municion_cals = (d.get("cals", []) as Array).duplicate()
+
 # Lo que vuelve a la bolsa al acabar: lo cargado sin disparar y lo que se quito cargando otra.
 func municion_sin_disparar() -> Array:
 	var out: Array = municion_devolver.duplicate()

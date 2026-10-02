@@ -221,6 +221,13 @@ var mana_heal_turnos: float = 0.0
 # Game.crear_player_combatant, que se lo pasa tal cual a Combatant.aplicar_imbue.
 var imbue: Dictionary = {}
 
+# LA MUNICION CARGADA en el arco o la ballesta (03/10, su decision: "como si fuera un buff de imbuicion"): lo que
+# no se disparo se queda puesto de una pelea a la siguiente, en vez de volver a la bolsa. {"ruta": String de la
+# MunicionData, "cals": [calidades]}; vacio = nada. A diferencia de imbue, SI va en el guardado: son flechas que
+# salieron de tu bolsa, y perderlas al recargar seria perder objetos. Si cambias a un arma que no la dispara,
+# vuelve a la bolsa (Game.equipar_arma).
+@export var municion_cargada: Dictionary = {}
+
 # ESTADOS ALTERADOS que se lleva puestos FUERA del combate (veneno, Pegajoso, Fortaleza...). Antes
 # morian con el Combatant al cerrar la pantalla: escapabas envenenado y salias limpio. Ahora salen
 # de la pelea contigo y siguen corriendo por el mapa a Game.SEG_POR_TURNO_FUERA segundos por turno.

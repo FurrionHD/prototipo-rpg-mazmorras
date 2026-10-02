@@ -8,4 +8,4 @@ nombre = "Cargar"
 inicial = true
 coste_energia = 0.0
 cargar_municion = 10
-descripcion = "Pones en el arma la munición de material que llevas en la bolsa. Los próximos disparos pegan con su bonus; cuando se acaban, vuelves a la de siempre."
+descripcion = "Pones en el arma la munición de material que llevas en la bolsa. Los próximos disparos pegan con su bonus; cuando se acaban, vuelves a la de siempre. Lo que no dispares se queda cargado para la siguiente pelea."

@@ -140,6 +140,9 @@ const VERSION_MUNDO := 1
 # Las que te han tocado pero aun no te han LEIDO en el altar (ver PersonajeData.pasivas_pendientes).
 # Se guardan: la tirada es de 1 entre 500.000 y perderla al cerrar el juego seria una crueldad.
 @export var pasivas_pendientes: Dictionary = {}
+# La MUNICION que el lider lleva cargada en el arco/ballesta (ver PersonajeData.municion_cargada). Los
+# compañeros la llevan dentro de su Resource en plantilla; el lider va desmontado, asi que va aqui.
+@export var lider_municion_cargada: Dictionary = {}
 @export var guardianes_vencidos: Dictionary = {}
 # --- EL GRUPO ---
 # plantilla = TODA la gente que has contratado en la taberna; equipo = los que BAJAN contigo

@@ -2,7 +2,8 @@
 #   - cargar deja el turno abierto (mismo personaje, esperando su accion) y carga 10;
 #   - despues: ni magia ni objetos; Habilidades solo con Untar (que tambien sigue el turno); el circulo de andar NO
 #     se reinicia; con las dos hechas, Habilidades se cierra;
-#   - al pasar el turno acaba y el siguiente vuelve a tener todo.
+#   - al pasar el turno acaba y el siguiente vuelve a tener todo;
+#   - al acabar la pelea lo cargado se queda en la ficha para la siguiente.
 #   godot --headless --path . res://tools/prueba_cargar_turno.tscn
 extends Node
 
@@ -111,5 +112,16 @@ func _correr() -> void:
 	print("turno siguiente: estado %d jugador %s | llega %s | preps %s | hab %s | %s" % [combat._state, combat._player.nombre if combat._player else "-", llega, combat._preps_turno, combat._accion_disponible(combat.Action.HABILIDAD), combat._motivo_bloqueo(combat.Action.HABILIDAD)])
 	_afirmar(llega and combat._preps_turno.is_empty() and combat._accion_disponible(combat.Action.HABILIDAD),
 		"el turno siguiente (el de otro del grupo) vuelve a tener todo")
+	# AL ACABAR la pelea lo cargado y sin disparar se QUEDA PUESTO (03/10): en la ficha, no en la bolsa.
+	var pj: PersonajeData = Game.pj_de_combatant(quien)
+	var en_bolsa: int = Game.municion_en_bolsa(WeaponData.Tipo.ARCO).reduce(func(a, f): return a + int(f["n"]), 0)
+	combat._end(false, true)
+	await _esperar(2)
+	combat._on_continue_pressed()
+	await _esperar(10)
+	var en_bolsa_fin: int = Game.municion_en_bolsa(WeaponData.Tipo.ARCO).reduce(func(a, f): return a + int(f["n"]), 0)
+	print("al acabar: cargada %s | bolsa %d -> %d" % [pj.municion_cargada, en_bolsa, en_bolsa_fin])
+	_afirmar((pj.municion_cargada.get("cals", []) as Array).size() == Game.HAB_CARGAR.cargar_municion
+		and en_bolsa_fin == en_bolsa, "al acabar, la municion se queda cargada (no vuelve a la bolsa)")
 	print("[cargar-turno] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)

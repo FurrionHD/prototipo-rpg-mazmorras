@@ -1038,7 +1038,7 @@ const _COLAS_POCION := ["heal_left", "heal_rate", "heal_turnos",
 # la pelea de otro envenenado, el doble tiene que entrar envenenado, y los buffs que se eche dentro
 # tienen que volverte al salir. La imbuicion llevaba aqui un agujero desde el principio -- solo
 # viajaba su COLOR (ver anunciar_imbue), asi que el doble peleaba sin el manto puesto.
-const _LO_PUESTO := ["estados", "foco_cargas", "imbue"]
+const _LO_PUESTO := ["estados", "foco_cargas", "imbue", "municion_cargada"]
 # Lo que se le devuelve al dueño cuando acaba la pelea: su desgaste y lo que ha aprendido.
 const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"ability_internal", "ability_consolidado", "ability_base_nivel",
@@ -1047,7 +1047,7 @@ const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp",
 	"heal_left", "heal_rate", "heal_turnos",
 	"mana_heal_left", "mana_heal_rate", "mana_heal_turnos",
-	"estados", "foco_cargas", "imbue"]
+	"estados", "foco_cargas", "imbue", "municion_cargada"]
 
 
 # --- UNIRSE ---------------------------------------------------------------------------------
