@@ -171,6 +171,8 @@ func roster_para_espejo() -> Dictionary:
 	var a: Rect2i = _pantalla.arena_celdas
 	if _pantalla.tactico and a.has_area():
 		r["arena"] = [a.position.x, a.position.y, a.size.x, a.size.y]
+		if not _pantalla.arena_mascara.is_empty():
+			r["arena_m"] = _pantalla.arena_mascara
 	return r
 
 

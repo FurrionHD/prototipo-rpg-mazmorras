@@ -61,6 +61,15 @@ const TRAZO_HUECO := 10.0
 
 var rect_celdas: Rect2i = Rect2i()
 var rect: Rect2 = Rect2()          # el mismo, en pixeles y en coordenadas de mundo
+# LA FORMA (03/10, en la mazmorra): fila a fila, 1 en las celdas que son arena (ver
+# ArenaCalculo.forma_de_arena). VACIA = el rectangulo entero, como en la arena de pruebas.
+var mascara: PackedByteArray = PackedByteArray()
+# EL BORDE DE VERDAD: solo los tramos donde la arena toca SUELO de fuera. Contra la roca no hay borde --
+# ahi ya para la pared --, asi que pegado a un muro ni se propone huir ni entra nadie. Cada tramo es
+# {a, b, n, t}: sus dos puntas en px de mundo, la normal hacia DENTRO y la direccion. Juntados en tiras rectas.
+var tramos: Array[Dictionary] = []
+# ¿Es el rectangulo de siempre con borde abierto por los cuatro lados? Entonces se recorta como antes.
+var _rect_abierto: bool = false
 
 # Los cuerpos que SON de esta pelea. Lo pone quien monta la arena y lo actualiza cuando entra o sale
 # alguien. Es lo que distingue "me acerco al borde desde dentro" de "vengo de fuera".
@@ -86,12 +95,12 @@ var _entradas: Array[Vector2] = []
 
 
 # Cuelga una arena del piso. 'padre' suele ser el DungeonFloor.
-static func montar(padre: Node, rect_celdas_: Rect2i) -> ArenaCombate:
+static func montar(padre: Node, rect_celdas_: Rect2i,
+		mascara_: PackedByteArray = PackedByteArray()) -> ArenaCombate:
 	if padre == null or not is_instance_valid(padre):
 		return null
 	var a := ArenaCombate.new()
-	a.rect_celdas = rect_celdas_
-	a.rect = ArenaCalculo.rect_px(rect_celdas_)
+	a.poner_forma(rect_celdas_, mascara_, padre.get("gen") as DungeonGenerator)
 	a.z_as_relative = false
 	a.z_index = Z_SUELO
 	# TOP LEVEL: esto dibuja en coordenadas de MUNDO (el rectangulo viene en px del piso), asi que no
@@ -106,23 +115,135 @@ static func montar(padre: Node, rect_celdas_: Rect2i) -> ArenaCombate:
 #  GEOMETRIA (lo que le preguntan la pelea y el turno)
 # ------------------------------------------------------------
 
+# La forma de la arena y su borde. 'gen' es el trazado del piso (para saber que lado da a roca y cual a
+# suelo); null = todo lado de fuera es borde (las pruebas sueltas, sin piso).
+func poner_forma(rc: Rect2i, m: PackedByteArray, gen: DungeonGenerator) -> void:
+	rect_celdas = rc
+	rect = ArenaCalculo.rect_px(rc)
+	mascara = m
+	tramos = tramos_de(rc, m, gen)
+	var largo: float = 0.0
+	for tr in tramos:
+		largo += (tr["a"] as Vector2).distance_to(tr["b"])
+	_rect_abierto = m.is_empty() and is_equal_approx(largo, (rect.size.x + rect.size.y) * 2.0)
+
+
+# LOS TRAMOS DEL BORDE: cada lado de celda de arena que da a una celda que NO es arena pero SI suelo.
+# Los lados se juntan en tiras rectas: asi los trazos del dibujo corren seguidos y no vuelven a empezar
+# cada 32 px.
+static func tramos_de(rc: Rect2i, m: PackedByteArray, gen: DungeonGenerator) -> Array[Dictionary]:
+	var cel: float = float(DungeonGenerator.CELDA)
+	# Lados sueltos, agrupados por la linea en la que caen: clave [eje, linea, normal] -> posiciones.
+	var grupos: Dictionary = {}
+	for y in range(rc.position.y, rc.end.y):
+		for x in range(rc.position.x, rc.end.x):
+			var c := Vector2i(x, y)
+			if not ArenaCalculo.en_forma(rc, m, c):
+				continue
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var v: Vector2i = c + d
+				if ArenaCalculo.en_forma(rc, m, v):
+					continue
+				if gen != null and not gen.es_suelo(v):
+					continue
+				# Lado vertical (izq/dcha): linea = x del lado, posicion = y. Horizontal al reves.
+				var clave: Array
+				if d.x != 0:
+					clave = [0, x + (1 if d == Vector2i.RIGHT else 0), -d.x]
+				else:
+					clave = [1, y + (1 if d == Vector2i.DOWN else 0), -d.y]
+				if not grupos.has(clave):
+					grupos[clave] = []
+				(grupos[clave] as Array).append(y if d.x != 0 else x)
+	var out: Array[Dictionary] = []
+	for clave in grupos:
+		var pos: Array = grupos[clave]
+		pos.sort()
+		var ini: int = int(pos[0])
+		var fin: int = ini
+		for i in range(1, pos.size() + 1):
+			if i < pos.size() and int(pos[i]) == fin + 1:
+				fin = int(pos[i])
+				continue
+			var linea: float = float(clave[1]) * cel
+			if int(clave[0]) == 0:
+				out.append({"a": Vector2(linea, float(ini) * cel), "b": Vector2(linea, float(fin + 1) * cel),
+					"n": Vector2(float(clave[2]), 0.0), "t": Vector2.DOWN})
+			else:
+				out.append({"a": Vector2(float(ini) * cel, linea), "b": Vector2(float(fin + 1) * cel, linea),
+					"n": Vector2(0.0, float(clave[2])), "t": Vector2.RIGHT})
+			if i < pos.size():
+				ini = int(pos[i])
+				fin = ini
+	return out
+
+
 func contiene(p: Vector2) -> bool:
-	return rect.has_point(p)
+	if not rect.has_point(p):
+		return false
+	return mascara.is_empty() or ArenaCalculo.en_forma(rect_celdas, mascara, ArenaCalculo.celda_de_px(p))
+
+
+# ¿Se puede estar en 'p' sin salirse? Dentro, y a 'margen' o mas de un tramo de borde (los muros no
+# cuentan: ahi para la roca).
+func dentro_px(p: Vector2, margen: float = 0.0) -> bool:
+	return contiene(p) and distancia_al_borde(p) >= margen
+
+
+# El punto mas cercano del borde a 'p': {q, n, t} del tramo. Vacio si no hay tramos.
+func _tramo_cercano(p: Vector2) -> Dictionary:
+	var mejor: Dictionary = {}
+	var mejor_d: float = INF
+	for tr in tramos:
+		var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, tr["a"], tr["b"])
+		var d: float = p.distance_squared_to(q)
+		if d < mejor_d:
+			mejor_d = d
+			mejor = {"q": q, "n": tr["n"], "t": tr["t"]}
+	return mejor
 
 
 # Mete un punto dentro de la arena, pegado al borde si estaba fuera. Lo usa el movimiento del turno
 # como pared BLANDA: no te frena en seco, te devuelve.
 func recortar_dentro(p: Vector2, margen: float = ENTRADA_DENTRO) -> Vector2:
-	return Vector2(
-		clampf(p.x, rect.position.x + margen, rect.position.x + rect.size.x - margen),
-		clampf(p.y, rect.position.y + margen, rect.position.y + rect.size.y - margen))
+	if _rect_abierto:
+		# El rectangulo de siempre con borde por los cuatro lados (la arena de pruebas): igual que antes.
+		return Vector2(
+			clampf(p.x, rect.position.x + margen, rect.position.x + rect.size.x - margen),
+			clampf(p.y, rect.position.y + margen, rect.position.y + rect.size.y - margen))
+	if dentro_px(p, margen):
+		return p
+	var t: Dictionary = _tramo_cercano(p)
+	if not t.is_empty():
+		var q: Vector2 = (t["q"] as Vector2) + (t["n"] as Vector2) * maxf(margen, 1.0)
+		if contiene(q):
+			return q
+	# Sin tramo a mano (o en una esquina rara): el centro de la celda de arena mas cercana.
+	return _centro_mas_cercano(p)
 
 
-# La distancia de un punto al borde mas cercano. Negativa si esta fuera.
+func _centro_mas_cercano(p: Vector2) -> Vector2:
+	var cel: float = float(DungeonGenerator.CELDA)
+	var mejor: Vector2 = rect.get_center()
+	var mejor_d: float = INF
+	for y in range(rect_celdas.position.y, rect_celdas.end.y):
+		for x in range(rect_celdas.position.x, rect_celdas.end.x):
+			if not ArenaCalculo.en_forma(rect_celdas, mascara, Vector2i(x, y)):
+				continue
+			var c := (Vector2(x, y) + Vector2(0.5, 0.5)) * cel
+			var d: float = p.distance_squared_to(c)
+			if d < mejor_d:
+				mejor_d = d
+				mejor = c
+	return mejor
+
+
+# La distancia de un punto al BORDE (los tramos abiertos) mas cercano. Negativa si esta fuera. Sin
+# ningun tramo (una sala cerrada entera), INF dentro y -INF fuera: nunca se esta "en el borde".
 func distancia_al_borde(p: Vector2) -> float:
-	var dx: float = minf(p.x - rect.position.x, rect.position.x + rect.size.x - p.x)
-	var dy: float = minf(p.y - rect.position.y, rect.position.y + rect.size.y - p.y)
-	return minf(dx, dy)
+	var t: Dictionary = _tramo_cercano(p)
+	var d: float = INF if t.is_empty() else p.distance_to(t["q"])
+	return d if contiene(p) else -d
 
 
 # EL PUNTO POR DONDE ENTRA alguien que ha chocado desde fuera: el mismo sitio donde choco, metido
@@ -133,12 +254,13 @@ func punto_de_entrada(desde: Vector2) -> Vector2:
 	while _ocupado(p) and intentos < 12:
 		# Se corre a lo largo del muro por el que ha entrado: si toco por un lado vertical, se baja;
 		# si fue por uno horizontal, se va hacia un lado.
-		var por_vertical: bool = absf(desde.x - rect.position.x) < MARGEN \
-			or absf(desde.x - (rect.position.x + rect.size.x)) < MARGEN
+		# Se corre a lo largo del tramo de borde por el que ha entrado.
+		var tr: Dictionary = _tramo_cercano(desde)
+		var a_lo_largo: Vector2 = tr["t"] if not tr.is_empty() else Vector2.RIGHT
 		var paso: float = SEPARACION_ENTRADA * float((intentos / 2) + 1)
 		if intentos % 2 == 1:
 			paso = -paso
-		p = recortar_dentro(p + (Vector2(0.0, paso) if por_vertical else Vector2(paso, 0.0)))
+		p = recortar_dentro(p + a_lo_largo * paso)
 		intentos += 1
 	_entradas.append(p)
 	return p
@@ -258,14 +380,20 @@ func _draw() -> void:
 	draw_rect(Rect2(x0 - m, y1, rect.size.x + m * 2.0, m), col_fuera)              # abajo
 	draw_rect(Rect2(x0 - m, y0, m, rect.size.y), col_fuera)                        # izquierda
 	draw_rect(Rect2(x1, y0, m, rect.size.y), col_fuera)                            # derecha
+	# Con FORMA, tambien las celdas del rectangulo que no son arena.
+	if not mascara.is_empty():
+		var cel: float = float(DungeonGenerator.CELDA)
+		for y in range(rect_celdas.position.y, rect_celdas.end.y):
+			for x in range(rect_celdas.position.x, rect_celdas.end.x):
+				if not ArenaCalculo.en_forma(rect_celdas, mascara, Vector2i(x, y)):
+					draw_rect(Rect2(Vector2(x, y) * cel, Vector2(cel, cel)), col_fuera)
 
-	# 2) EL BORDE, a trazos y latiendo despacio: se lee como algo vivo, no como una linea pintada.
+	# 2) EL BORDE, a trazos y latiendo despacio: se lee como algo vivo, no como una linea pintada. Solo
+	# donde se puede salir: contra la roca ya esta la pared.
 	var late: float = 0.5 + 0.5 * sin(_t * 2.2)
 	var col := Color(1.0, 0.85, 0.45, 0.55 + 0.25 * late)
-	_trazos(Vector2(x0, y0), Vector2(x1, y0), col)
-	_trazos(Vector2(x1, y0), Vector2(x1, y1), col)
-	_trazos(Vector2(x1, y1), Vector2(x0, y1), col)
-	_trazos(Vector2(x0, y1), Vector2(x0, y0), col)
+	for tr in tramos:
+		_trazos(tr["a"], tr["b"], col)
 
 	# 3) EL CIRCULO DE MOVIMIENTO, sin achatar (es suelo, como el rectangulo).
 	if circulo_radio > 0.0:

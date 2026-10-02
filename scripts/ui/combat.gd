@@ -90,6 +90,9 @@ var tactico: bool = false
 # La arena de la pelea tactica, en CELDAS. La pone quien la calcula (Game._abrir_pelea) y viaja a los
 # espejos en el roster: la calcula UNA maquina, nunca cada una la suya.
 var arena_celdas: Rect2i = Rect2i()
+# Y su FORMA (03/10, en la mazmorra): fila a fila, 1 = arena (ver ArenaCalculo.forma_de_arena). Vacia = el
+# rectangulo entero. Viaja con el rectangulo.
+var arena_mascara: PackedByteArray = PackedByteArray()
 const CombatEspejo = preload("res://scripts/ui/combat_espejo.gd")
 var espejo = CombatEspejo.new(self)
 

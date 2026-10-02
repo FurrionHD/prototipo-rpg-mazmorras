@@ -3159,6 +3159,9 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 	if not _sobre_suelo(p, cuerpo):
 		return false
 	var antes: Vector2 = cuerpo.global_position
+	# LA FORMA DE LA ARENA: no se sale. El que ya esta fuera (entro por un borde) puede andar hasta meterse.
+	if not _en_arena(p) and _en_arena(antes):
+		return false
 	var soy_enemigo: bool = _quien != null and _pantalla._enemies.has(_quien)
 	var rivales: Array = _pantalla._aliados if soy_enemigo else _pantalla._enemies
 	for c in rivales:
@@ -3185,6 +3188,13 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 			if antes.distance_to(oc) >= SEPARACION and p.distance_to(oc) < SEPARACION:
 				return false
 	return true
+
+
+# ¿'p' cae dentro de la arena, a un pelo de su borde (ver DENTRO_DEL_BORDE)? Con FORMA (03/10, la
+# arena de la mazmorra) ya no basta un rectangulo: se mira celda a celda. Sin arena, todo vale.
+func _en_arena(p: Vector2) -> bool:
+	var arena: ArenaCombate = _arena()
+	return arena == null or arena.dentro_px(p, DENTRO_DEL_BORDE)
 
 
 # ¿Toda la huella de ESTE cuerpo en 'p' cae sobre suelo que se pisa?
@@ -3271,12 +3281,11 @@ func _tiron_a_otro_humano(tr: Dictionary) -> bool:
 	var desde: Vector2 = pos_de(c)
 	var hasta: Vector2 = _hasta_de_tiron(tr, desde)
 	# La pared (o el borde de la arena) lo para, igual que en _tick_tirones.
-	var dentro: Rect2 = _dentro(_arena())
 	var pasos: int = maxi(1, ceili(desde.distance_to(hasta) / 4.0))
 	var fin: Vector2 = desde
 	for k in range(1, pasos + 1):
 		var p: Vector2 = desde.lerp(hasta, float(k) / float(pasos))
-		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+		if not _sobre_suelo(p, cuerpo) or not _en_arena(p):
 			break
 		fin = p
 	if fin.distance_to(desde) > 1.0:
@@ -4373,7 +4382,6 @@ func _hasta_de_tiron(tr: Dictionary, desde: Vector2) -> Vector2:
 func _tick_tirones(delta: float) -> void:
 	if _tirones.is_empty():
 		return
-	var dentro: Rect2 = _dentro(_arena())
 	for tr in _tirones.duplicate():
 		if float(tr["t"]) < 0.0:
 			tr["espera"] = float(tr["espera"]) + delta
@@ -4391,7 +4399,7 @@ func _tick_tirones(delta: float) -> void:
 		var u: float = clampf(float(tr["t"]) / T_TIRON, 0.0, 1.0)
 		# Arranca de golpe y frena al llegar: es un tiron, no un paseo.
 		var p: Vector2 = desde.lerp(hasta, 1.0 - (1.0 - u) * (1.0 - u))
-		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+		if not _sobre_suelo(p, cuerpo) or not _en_arena(p):
 			_tirones.erase(tr)
 			continue
 		_colocar(c, cuerpo, p)
@@ -4456,7 +4464,6 @@ func sitio_a_la_espalda(c: Combatant, victima: Combatant, desde: Combatant):
 # de NADIE (enemigos incluidos): el Muro se pone entre los suyos y el enemigo, no dentro de el.
 func _sitio_en_abanico(c: Combatant, pv: Vector2, dir: Vector2, largo: float, sin_pisar: bool):
 	var cuerpo: Node2D = cuerpo_de(c)
-	var dentro: Rect2 = _dentro(_arena())
 	# VARIOS A LA ESPALDA DEL MISMO (lo vio el jefe: dos con Oportunista caian uno encima del otro). Los
 	# sitios ya cogidos -- los cuerpos de los tuyos y los saltos que aun no se han hecho -- no valen: se
 	# abre en ABANICO detras del enemigo (cada vez mas a los lados) y, si se llena, un palmo mas atras.
@@ -4472,7 +4479,7 @@ func _sitio_en_abanico(c: Combatant, pv: Vector2, dir: Vector2, largo: float, si
 		for giro in [0.0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.0, -2.0]:
 			var nodo: Vector2 = pv + dir.rotated(float(giro) * PI * 0.25) * r \
 				- Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
-			if not _sobre_suelo(nodo, cuerpo) or (dentro.has_area() and not dentro.has_point(nodo)):
+			if not _sobre_suelo(nodo, cuerpo) or not _en_arena(nodo):
 				continue
 			if sin_pisar and _hay_otro_en(c, nodo):
 				continue
@@ -4576,14 +4583,13 @@ func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
 	if cuerpo == null:
 		return ini
 	var fin: Vector2 = pies_fin - bajo
-	var dentro: Rect2 = _dentro(_arena())
 	var largo: float = ini.distance_to(fin)
 	var pasos: int = maxi(1, ceili(largo / 4.0))
 	# Por el camino: donde se acabe el suelo, se para.
 	var tope: int = 0
 	for k in range(1, pasos + 1):
 		var p: Vector2 = ini.lerp(fin, float(k) / float(pasos))
-		if not _sobre_suelo(p, cuerpo) or (dentro.has_area() and not dentro.has_point(p)):
+		if not _sobre_suelo(p, cuerpo) or not _en_arena(p):
 			break
 		tope = k
 	# Y de ahi hacia atras, hasta no pisar a nadie (se ATRAVIESA, pero no se acaba encima).
@@ -5023,13 +5029,12 @@ func sitio_para_cria(rey: Combatant) -> Vector2:
 			if c != rey and (c as Combatant).is_alive() and cuerpo_de(c) != null:
 				ocupados.append(pos_de(c))
 	var cuerpo_rey: Node2D = cuerpo_de(rey)
-	var dentro: Rect2 = _dentro(_arena())
 	var base: float = radio_pisa(rey) + 18.0
 	for anillo in 3:
 		var r: float = base + float(anillo) * 18.0
 		for giro in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8]:
 			var p: Vector2 = pr + dir.rotated(float(giro)) * r
-			if dentro.has_area() and not dentro.has_point(p):
+			if not _en_arena(p):
 				continue
 			if not _sobre_suelo(p, cuerpo_rey):
 				continue

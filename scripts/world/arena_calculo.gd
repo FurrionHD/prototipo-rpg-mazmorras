@@ -120,6 +120,95 @@ static func rect_de_arena(gen: DungeonGenerator, semilla_px: Vector2,
 	return _crecer(gen, semilla, deseado)
 
 
+# ============================================================
+#  LA ARENA EN LA MAZMORRA (03/10/2026, idea del jefe): LA MISMA SUPERFICIE, CON LA FORMA DEL SITIO
+#  La pelea mide SIEMPRE lo mismo -- las celdas que tendria ese mismo encuentro en la arena de pruebas
+#  (deseado.x * deseado.y) -- pero se adapta a donde cae:
+#    - si cabe en la SALA donde empieza, el rectangulo de siempre (lo eligio el: "como hoy");
+#    - si no (un pasillo, una sala pequeña, la boca de una puerta), se RELLENA desde la semilla por el
+#      suelo, celda a celda y siempre la mas cercana primero, hasta juntar esa superficie. En un pasillo
+#      se estira a lo largo; si llega a una sala, coge de ella lo que le falte. SIN TOPE de largo
+#      (decision suya: "lo vemos en el playtest").
+#  Devuelve {"rect": Rect2i, "mascara": PackedByteArray}: el rectangulo que la envuelve y, fila a fila,
+#  1 en las celdas que son arena. Mascara VACIA = el rectangulo entero (el caso de la sala, y el de
+#  siempre en la arena de pruebas). rect vacio = aqui no se pelea en tactico.
+# ============================================================
+static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i) -> Dictionary:
+	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
+	if gen == null or gen.ancho <= 0 or gen.alto <= 0:
+		return nada
+	var semilla: Vector2i = _suelo_cerca(gen, celda_de_px(semilla_px))
+	if semilla.x < 0:
+		return nada
+	var z: int = gen.zona_en(semilla)
+	if z >= 0 and z < gen.zonas.size() and String(gen.zonas[z]["tipo"]) == "sala":
+		var sala: Rect2i = gen.zonas[z]["rect"]
+		if sala.size.x >= deseado.x and sala.size.y >= deseado.y:
+			return {"rect": _recortar(sala, semilla, deseado), "mascara": PackedByteArray()}
+	var celdas: Array[Vector2i] = _rellenar(gen, semilla, deseado.x * deseado.y)
+	if celdas.size() < ARENA_MIN.x * ARENA_MIN.y:
+		return nada
+	return _empaquetar(celdas)
+
+
+# EL RELLENO: desde la semilla, por suelo y en cruz (sin cortar esquinas de roca), coge siempre la celda
+# de la frontera MAS CERCANA en linea recta a la semilla. Asi en una sala abierta sale redondo y en un
+# pasillo se va estirando por los dos lados a la vez.
+static func _rellenar(gen: DungeonGenerator, semilla: Vector2i, objetivo: int) -> Array[Vector2i]:
+	var vistas: Dictionary = {semilla: true}
+	var out: Array[Vector2i] = [semilla]
+	var frontera: Array[Vector2i] = []
+	var cruz: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
+	var c: Vector2i = semilla
+	while out.size() < objetivo:
+		for d in cruz:
+			var v: Vector2i = c + d
+			if vistas.has(v):
+				continue
+			vistas[v] = true
+			if gen.es_suelo(v):
+				frontera.append(v)
+		if frontera.is_empty():
+			break
+		# La mas cercana; a igual distancia, la primera que entro (determinista: la misma en todas las maquinas).
+		var mejor: int = 0
+		var mejor_d: int = (frontera[0] - semilla).length_squared()
+		for i in range(1, frontera.size()):
+			var dd: int = (frontera[i] - semilla).length_squared()
+			if dd < mejor_d:
+				mejor = i
+				mejor_d = dd
+		c = frontera[mejor]
+		frontera.remove_at(mejor)
+		out.append(c)
+	return out
+
+
+static func _empaquetar(celdas: Array[Vector2i]) -> Dictionary:
+	var lo: Vector2i = celdas[0]
+	var hi: Vector2i = celdas[0]
+	for c in celdas:
+		lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
+		hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
+	var r := Rect2i(lo, hi - lo + Vector2i.ONE)
+	var m := PackedByteArray()
+	m.resize(r.size.x * r.size.y)
+	m.fill(0)
+	for c in celdas:
+		m[(c.y - r.position.y) * r.size.x + (c.x - r.position.x)] = 1
+	return {"rect": r, "mascara": m}
+
+
+# ¿La celda 'c' es arena? Con la mascara vacia, todo el rectangulo lo es.
+static func en_forma(rect: Rect2i, mascara: PackedByteArray, c: Vector2i) -> bool:
+	if not rect.has_point(c):
+		return false
+	if mascara.is_empty():
+		return true
+	var i: int = (c.y - rect.position.y) * rect.size.x + (c.x - rect.position.x)
+	return i >= 0 and i < mascara.size() and mascara[i] != 0
+
+
 # Recorta 'sala' a 'deseado' dejando la semilla lo mas centrada que se pueda sin salirse. Si la sala
 # ya es mas pequeña que lo pedido en un eje, en ese eje se queda la sala entera.
 static func _recortar(sala: Rect2i, semilla: Vector2i, deseado: Vector2i) -> Rect2i:

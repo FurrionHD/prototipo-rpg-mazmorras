@@ -1104,28 +1104,34 @@ func es_arena() -> bool:
 #  La misma pelea de siempre -- mismo motor, mismo daño, misma red -- puesta en escena SOBRE el
 #  mapa en vez de en dos filas de tarjetas, con una arena delimitada alrededor del encuentro.
 #
-#  DE MOMENTO SOLO EN LA ARENA DE PRUEBAS. En la mazmorra se sigue abriendo la pantalla de siempre:
-#  esto se saca de aqui cuando este terminado y jugado, no antes. La bandera esta para poder
-#  apagarlo en un commit si algo se tuerce a mitad.
+#  En la arena de pruebas desde el principio; EN LA MAZMORRA desde el 03/10/2026, con la arena que
+#  coge la forma del sitio (ArenaCalculo.forma_de_arena). Las banderas estan para poder apagarlo en
+#  un commit si algo se tuerce.
 # ============================================================
 const TACTICO_EN_ARENA := true
+const TACTICO_EN_MAZMORRA := true
 
-# ¿ESTA pelea se juega en el mapa? Tres condiciones, y la tercera es la que puede decir que no en
-# cualquier momento: si el trozo de suelo que hay alrededor no da ni para la arena mas pequeña, se
-# abre la pantalla de siempre. En un pasillo de tres celdas no se pelea en tactico.
+func _tactico_aqui() -> bool:
+	return TACTICO_EN_ARENA if es_arena() else TACTICO_EN_MAZMORRA
+
+
+# ¿ESTA pelea se juega en el mapa? Si el trozo de suelo que hay alrededor no da ni para la arena mas
+# pequeña (un piso roto), se abre la pantalla de siempre.
 func combate_tactico(enemy_nodes: Array) -> bool:
-	if not TACTICO_EN_ARENA or not es_arena():
+	if not _tactico_aqui():
 		return false
-	return _rect_de_arena(enemy_nodes).has_area()
+	return (_forma_de_arena(enemy_nodes)["rect"] as Rect2i).has_area()
 
 
-# El rectangulo donde se pelearia, en CELDAS. Rect2i() vacio = aqui no cabe una arena.
+# DONDE se pelearia: {"rect": Rect2i en CELDAS, "mascara": PackedByteArray} (ver
+# ArenaCalculo.forma_de_arena; mascara vacia = el rectangulo entero). rect vacio = aqui no cabe.
 # Lo calcula SIEMPRE esta maquina y, en multi, viaja al espejo: que cada uno lo recalcule por su
 # cuenta es un desincronizado que solo se nota cuando alguien se atasca contra una pared invisible.
-func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
+func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
+	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or piso.get("gen") == null:
-		return Rect2i()
+		return nada
 	# LA SEMILLA: el centro de gravedad de los que empiezan la pelea, los suyos y los mios.
 	var puntos: Array = []
 	var hay_jefe: bool = false
@@ -1144,13 +1150,10 @@ func _rect_de_arena(enemy_nodes: Array) -> Rect2i:
 		puntos.append(q)
 		extra += 1
 	if puntos.is_empty():
-		return Rect2i()
+		return nada
 	var cuantos: int = puntos.size() + (companeros().size() if extra == 0 else 0)
 	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
-	var r: Rect2i = ArenaCalculo.rect_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado)
-	if r.size.x < ArenaCalculo.ARENA_MIN.x or r.size.y < ArenaCalculo.ARENA_MIN.y:
-		return Rect2i()
-	return r
+	return ArenaCalculo.forma_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado)
 
 
 # Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.
@@ -1223,11 +1226,11 @@ const ZOOM_ARENA_MAX := 3.0
 const CAMARA_FIJA_EN_PELEA := false
 
 # Cuelga la arena del piso y coloca la camara (ver CAMARA_FIJA_EN_PELEA).
-func _montar_arena_tactica(rect_celdas: Rect2i) -> void:
+func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = PackedByteArray()) -> void:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null:
 		return
-	_arena_nodo = ArenaCombate.montar(piso, rect_celdas)
+	_arena_nodo = ArenaCombate.montar(piso, rect_celdas, mascara)
 	if _arena_nodo != null:
 		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
 		_arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -14720,10 +14723,12 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# escena u otra segun esto, y a partir de _ready ya es tarde para cambiarlo. El rectangulo se
 	# calcula una sola vez y se guarda: preguntarlo dos veces podria dar dos arenas distintas si
 	# alguien se ha movido entre medias.
-	var rect_arena: Rect2i = _rect_de_arena(_active_enemies)
-	var es_tactico: bool = TACTICO_EN_ARENA and es_arena() and rect_arena.has_area()
+	var forma: Dictionary = _forma_de_arena(_active_enemies)
+	var rect_arena: Rect2i = forma["rect"]
+	var es_tactico: bool = _tactico_aqui() and rect_arena.has_area()
 	combat.tactico = es_tactico
 	combat.arena_celdas = rect_arena if es_tactico else Rect2i()   # viaja al espejo en el roster
+	combat.arena_mascara = forma["mascara"] if es_tactico else PackedByteArray()
 	combat.setup(player_cs, enemy_cs, enemy_initiated, exhausted, overload_speed_factor())
 	combat.combat_finished.connect(_on_combat_finished)
 	# MULTI: esta pelea pasa a EXISTIR en la red, para que un compañero pueda unirse a ella.
@@ -14732,7 +14737,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	_montar_pantalla_combate(combat)
 	# LA ARENA, despues de colgar la pantalla: se dibuja en el suelo del piso, no en la pantalla.
 	if es_tactico:
-		_montar_arena_tactica(rect_arena)
+		_montar_arena_tactica(rect_arena, combat.arena_mascara)
 	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.
@@ -14874,14 +14879,18 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 	var rect_arena := Rect2i()
 	if arena.size() == 4:
 		rect_arena = Rect2i(int(arena[0]), int(arena[1]), int(arena[2]), int(arena[3]))
+	# La FORMA (03/10): sin ella (una version vieja, o la arena de siempre), el rectangulo entero.
+	var mascara_arena: PackedByteArray = roster.get("arena_m", PackedByteArray())
 	combat.tactico = rect_arena.has_area()
+	combat.arena_celdas = rect_arena
+	combat.arena_mascara = mascara_arena
 	combat.setup_espejo(roster)
 	combat.combat_finished.connect(_on_combate_espejo_cerrado)
 	# LA MUSICA SALE DEL ROSTER, no de _active_enemies: aqui no simulo ningun bicho, asi que la
 	# deduccion de siempre daba "no hay jefe" y unirse a la pelea del Rey Slime sonaba a pelea de rata.
 	_montar_pantalla_combate(combat, 1 if _hay_jefe_en_roster(roster) else 0)
 	if combat.tactico:
-		_montar_arena_tactica(rect_arena)
+		_montar_arena_tactica(rect_arena, mascara_arena)
 	return combat
 
 
