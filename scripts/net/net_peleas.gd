@@ -1418,10 +1418,10 @@ func _pedir_velocidad(v: float) -> void:
 
 # El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no
 # corre (State.WAITING_PLAYER), asi que nadie pierde turnos por pensar.
-func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0) -> void:
+func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0, preps: Array = []) -> void:
 	if not Net.activo or peer == 0 or multiplayer.multiplayer_peer == null:
 		return
-	_tu_turno.rpc_id(peer, idx, seq, radio)
+	_tu_turno.rpc_id(peer, idx, seq, radio, preps)
 
 
 # 'seq' es el numero de peticion: viaja de ida y vuelta para que el anfitrion sepa distinguir la
@@ -1429,12 +1429,13 @@ func pedir_accion(peer: int, idx: int, seq: int = 0, radio: float = 0.0) -> void
 # 'radio' es cuanto puede ANDAR en este turno, en la pelea en el mapa (0 = nada, o pelea de fila). Lo
 # calcula el anfitrion: el maniqui del espejo no tiene la Agilidad con la que se saca.
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_turno(idx: int, seq: int = 0, radio: float = 0.0) -> void:
+# 'preps' = las preparaciones (Cargar, Untar) que ya ha hecho en ESTE turno: con alguna, es el mismo turno que sigue.
+func _tu_turno(idx: int, seq: int = 0, radio: float = 0.0, preps: Array = []) -> void:
 	if _pelea_sigo == 0 or not _lo_manda_el_anfitrion():
 		return
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("turno_mio"):
-		p.turno_mio(idx, seq, radio)
+		p.turno_mio(idx, seq, radio, preps)
 
 
 # --- EL COMBATE EN EL MAPA: los bichos se mueven -----------------------------------------------

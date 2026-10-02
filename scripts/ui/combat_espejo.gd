@@ -681,7 +681,7 @@ func marcar_dueno(c: Combatant, peer: int) -> void:
 
 
 # Corre en EL ESPEJO: me toca mover a mi personaje. Se enseña la barra de acciones de siempre.
-func turno_mio(idx: int, seq: int = 0, radio: float = 0.0) -> void:
+func turno_mio(idx: int, seq: int = 0, radio: float = 0.0, preps: Array = []) -> void:
 	if not _pantalla._espejo or idx < 0 or idx >= _pantalla._aliados.size():
 		return
 	# YA CONTESTE A ESTA MISMA PETICION. Es el reenvio del heartbeat cruzandose con mi respuesta:
@@ -709,11 +709,14 @@ func turno_mio(idx: int, seq: int = 0, radio: float = 0.0) -> void:
 	if real != null:
 		_vestir_maniqui(_pantalla._player, real)
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
+	# Las preparaciones ya hechas este turno (Cargar, Untar): recortan el menu y, en el mapa, el turno SIGUE
+	# desde donde empezo (no se vuelve a andar el radio entero desde donde lo he dejado).
+	_pantalla._preps_turno = preps.duplicate()
 	_pantalla._mostrar_acciones()
 	# EN EL MAPA: a andar, con el radio que me manda quien lleva la pelea. El cuerpo es el MIO, el de
 	# verdad; su posicion la ven los demas por el canal del jugador.
 	if _pantalla.tactico:
-		_pantalla.turno_mapa.empezar_turno(_pantalla._player, radio)
+		_pantalla.turno_mapa.empezar_turno(_pantalla._player, radio, not preps.is_empty())
 
 
 # ESPEJO: le pone al maniqui todo lo que la barra de acciones necesita para ELEGIR, copiado del
@@ -775,7 +778,7 @@ func _enviar_peticion() -> void:
 	match String(pet.get("tipo", "")):
 		"accion":
 			Net.peleas.pedir_accion(_pantalla._esperando_a, int(pet.get("idx", 0)), seq,
-				float(pet.get("radio", 0.0)))
+				float(pet.get("radio", 0.0)), pet.get("preps", []) as Array)
 		"frase":
 			Net.peleas.pedir_frase(_pantalla._esperando_a, int(pet.get("idx", 0)), pet.get("opciones", []),
 				String(pet.get("nombre", "")), int(pet.get("largo", 1)), seq)
@@ -987,7 +990,9 @@ func aplicar_accion_remota(accion: Dictionary, emisor: int = 0) -> void:
 			# Cargo municion de MI bolsa (ya la saque alli): aqui solo se pone en el combatiente.
 			var md_c: MunicionData = load(String(accion.get("ruta", ""))) as MunicionData
 			if md_c != null:
-				_pantalla.habilidades.aplicar_carga(md_c, accion.get("cals", []) as Array)
+				var ab_c: AbilityData = load(String(accion.get("hab", ""))) as AbilityData 					if String(accion.get("hab", "")) != "" else null
+				_pantalla.habilidades.aplicar_carga(ab_c if ab_c != null else Game.HAB_CARGAR, md_c,
+					accion.get("cals", []) as Array)
 			else:
 				_pantalla._accion_atacar()
 		"objeto":

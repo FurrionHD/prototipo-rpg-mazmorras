@@ -91,7 +91,8 @@ const MAX_CONEXIONES := 32
 # 22 (27/09): el paquete de impactos lleva MARCA_LANZA (el gesto de lanzar un hechizo en el tactico) y las
 #     peleas de la ARENA las ejecuta un trabajador de pelea. Un build del 26 leeria la marca como un golpe.
 # 23 (28/09): las crias del Brote nacen con cuerpo en el mapa (net_peleas.pedir_cria y su respuesta).
-const PROTOCOLO := 23
+# 24 (03/10): la peticion de turno (_tu_turno) lleva las PREPARACIONES hechas (Cargar no acaba el turno).
+const PROTOCOLO := 24
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

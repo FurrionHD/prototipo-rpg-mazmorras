@@ -327,8 +327,13 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 @export var forma_escudo_largo: float = 0.0
 # CARGAR MUNICION (02/10, arco y ballesta): no pega; abre la lista de flechas (o virotes) que llevas en la bolsa y
 # carga hasta ESTAS. Los proximos disparos pegan con su bonus. 0 = no es Cargar. Va siempre con el arma, fuera de
-# los cuatro huecos (ver Game._aplicar_loadout), y devuelve media barra (CombatHabilidades.CARGAR_DEVUELVE).
+# los cuatro huecos (ver Game._aplicar_loadout). Es una PREPARACION (ver es_preparacion): no acaba el turno.
 @export var cargar_municion: int = 0
+
+# PREPARACION (03/10, su decision): Cargar (y Untar) NO acaban el turno. Despues de una solo te deja la OTRA
+# preparacion, el basico, Defender o Pasar: nada de habilidades, magia ni objetos (ver combat._preps_turno).
+func es_preparacion() -> bool:
+	return cargar_municion > 0
 # CUANTA MUNICION CARGADA GASTA al soltarse (arco y ballesta, 02/10): una por proyectil. La Lluvia (3 flechas) y la
 # Andanada (3 virotes) gastan 3; las que no disparan, 0. Si quedan menos, gasta las que haya y pega con su bonus.
 @export var municion_por_uso: int = 1

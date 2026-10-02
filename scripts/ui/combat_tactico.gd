@@ -900,7 +900,11 @@ func _turno_enemigo_de_siempre(e: Combatant) -> void:
 #   - el ESPEJO, desde turno_mio, cuando le piden la accion de uno de los suyos. El radio le llega con
 #     la peticion ('radio'): su maniqui no tiene stats de las que sacarlo.
 # Si el personaje lo mueve OTRA maquina, aqui solo se pinta su circulo (fase AJENO).
-func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
+# 'seguir' = es el MISMO turno que continua tras una preparacion (Cargar, Untar): se anda desde donde empezo el
+# turno, no desde donde se ha quedado (si no, cargar te regalaria otro circulo entero).
+func empezar_turno(c: Combatant, radio: float = -1.0, seguir: bool = false) -> void:
+	var inicio_antes: Vector2 = _inicio
+	var mismo: bool = seguir and _inicio_de == c
 	_terminar()
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
@@ -910,7 +914,8 @@ func empezar_turno(c: Combatant, radio: float = -1.0) -> void:
 	_quien = c
 	_cuerpo = cuerpo
 	_foco = cuerpo
-	_inicio = cuerpo.global_position
+	_inicio = inicio_antes if mismo else cuerpo.global_position
+	_inicio_de = c
 	# CON DOS ARMAS cada accion empieza por la DERECHA: con golpes impares (el Doble tajo con dos espadas son 3,
 	# la Rafaga con dos dagas 5) la siguiente accion empezaba por la izquierda.
 	_mano_izq_toca.erase(cuerpo)
@@ -3029,6 +3034,9 @@ func en_el_borde() -> bool:
 # ------------------------------------------------------------
 #  AYUDANTES
 # ------------------------------------------------------------
+
+# De quien es _inicio (para seguir el mismo turno tras una preparacion, ver empezar_turno).
+var _inicio_de: Combatant = null
 
 func _terminar() -> void:
 	if _fase == Fase.MOVIENDO and is_instance_valid(_cuerpo) and _andando:

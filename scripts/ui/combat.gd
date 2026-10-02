@@ -400,6 +400,22 @@ var _cast_aliado: Combatant:
 		if _casteos.has(_player):
 			_casteos[_player]["aliado"] = v
 
+# LAS PREPARACIONES hechas en ESTE turno (rutas de AbilityData: Cargar, Untar). Con alguna dentro, el turno sigue
+# pero solo con el basico, Defender, Pasar/Huir o la otra preparacion. Se vacia al empezar cada turno; al espejo
+# se la manda quien lleva la pelea con la peticion de accion (turno_mio).
+var _preps_turno: Array = []
+
+# ¿Esta preparacion ya se ha hecho este turno?
+func prep_hecha(ab: AbilityData) -> bool:
+	return _preps_turno.has(String(ab.resource_path))
+
+# ¿Le queda alguna preparacion por hacer este turno? (para dejar abierto el boton de Habilidades)
+func _queda_preparacion() -> bool:
+	for ab in _player.abilities_combate:
+		if ab != null and (ab as AbilityData).es_preparacion() and not prep_hecha(ab):
+			return true
+	return false
+
 # Acciones lentas que le quedan al que actua (entro agotado -> sus primeras acciones van a medio
 # ritmo). Ver EXHAUSTED_SLOW_ACTIONS.
 var _slow_actions_left: int:
@@ -1275,6 +1291,7 @@ func _process(delta: float) -> void:
 
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
+	_preps_turno.clear()   # las preparaciones (Cargar, Untar) son de este turno
 	golpeados_en_la_accion.clear()   # un contraataque de antes no abre hueco para esta accion
 	if _dps_on:
 		_turnos_jugador += 1
@@ -1414,9 +1431,22 @@ func _pedir_accion_del_turno() -> void:
 		# Con el RADIO que puede andar en el mapa: lo calculo yo, que tengo su Agilidad (ver
 		# turno_mapa.empezar_turno, que ya lo ha dejado puesto). En la pelea de fila va a 0.
 		espejo._pedir_a_remoto(dueno, {"tipo": "accion", "idx": _aliados.find(_player),
-			"radio": turno_mapa.radio_del_turno() if tactico else 0.0})
+			"radio": turno_mapa.radio_del_turno() if tactico else 0.0,
+			# Las preparaciones ya hechas: con alguna, su pantalla sigue el MISMO turno (no vuelve a andar entero).
+			"preps": _preps_turno.duplicate()})
 	else:
 		_mostrar_acciones()
+
+
+# TRAS UNA PREPARACION (Cargar, Untar; 03/10): el turno NO acaba. Se apunta y se vuelve a pedir la accion, que ya
+# sale recortada (_accion_disponible). Lo llama quien lleva la pelea, sea el personaje suyo o de un espejo.
+func seguir_tras_preparacion(ab: AbilityData) -> void:
+	var ruta: String = String(ab.resource_path)
+	if not _preps_turno.has(ruta):
+		_preps_turno.append(ruta)
+	_update_hp()   # los chips (la municion cargada)
+	_state = State.WAITING_PLAYER
+	_pedir_accion_del_turno()
 
 
 # Apila en el log los eventos del tick de estados: DoT sufrido (con iconos) y
@@ -1503,6 +1533,8 @@ func _motivo_bloqueo(id: int) -> String:
 	# tengas una jugada.
 	if _player != null and _player.enraizado() and id == Action.HABILIDAD and not tactico:
 		return "Estás enraizado (puedes lanzar hechizos)"
+	if not _preps_turno.is_empty() and id in [Action.MAGIC, Action.OBJETO, Action.HABILIDAD]:
+		return "Ya te has preparado este turno: te quedan el básico, Defender, Pasar o la otra preparación"
 	if id == Action.ATTACK and tactico and _pasa_el_turno():
 		return "Estás enraizado y no llegas a golpear"
 	if id == Action.ATTACK and _objetivo_fuera_de_alcance():
@@ -1550,6 +1582,12 @@ func _accion_disponible(id: int) -> bool:
 	# ENROSCADO (el Enrosque del ciempies, 29/09): "como no puedes atacar con el que esta enroscado", solo pasar.
 	if tactico and _player != null and _player.enroscado() and id != Action.FLEE:
 		return false
+	# TRAS UNA PREPARACION (Cargar, Untar): ni magia ni objetos, y de Habilidades solo la otra preparacion.
+	if not _preps_turno.is_empty():
+		if id == Action.MAGIC or id == Action.OBJETO:
+			return false
+		if id == Action.HABILIDAD:
+			return _queda_preparacion() and not _player.silenciado()
 	match id:
 		# En la fila, SIEMPRE disponible: es el suelo del menu. Enraizado no lo desactiva, lo convierte
 		# en "Pasar" (ver _refresh_actions y _accion_atacar). En el mapa el suelo es el sexto boton
@@ -2905,5 +2943,5 @@ func roster_para_espejo() -> Dictionary:
 func setup_espejo(roster: Dictionary) -> void:
 	espejo.setup_espejo(roster)
 
-func turno_mio(idx: int, seq: int = 0, radio: float = 0.0) -> void:
-	espejo.turno_mio(idx, seq, radio)
+func turno_mio(idx: int, seq: int = 0, radio: float = 0.0, preps: Array = []) -> void:
+	espejo.turno_mio(idx, seq, radio, preps)

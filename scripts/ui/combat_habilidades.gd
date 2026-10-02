@@ -149,6 +149,7 @@ func _accion_habilidad() -> void:
 		if ab.cargar_municion > 0:
 			grid.add_child(_boton_cargar(ab))
 			continue
+		var tras_prep: bool = not _pantalla._preps_turno.is_empty()
 		var manos: int = _pantalla._player.ability_manos(ab)
 		var es_conv: bool = ab.energia_a_mana > 0.0   # Canalizar: gasta toda la energia
 		var coste: float = _pantalla._player.current_energy if es_conv else ab.coste(manos)
@@ -164,7 +165,12 @@ func _accion_habilidad() -> void:
 		b.tooltip_text = foco_txt.strip_edges() + "\n" + ab.resumen(manos) if foco_txt != "" else ab.resumen(manos)
 		if ab.descripcion != "":
 			b.tooltip_text += "\n\n" + ab.descripcion
-		if cd_left > 0:
+		if tras_prep:
+			b.disabled = true
+			b.tooltip_text = "⛔ Ya te has preparado este turno: solo la otra preparación
+
+%s" % b.tooltip_text
+		elif cd_left > 0:
 			b.disabled = true
 			b.tooltip_text = "⛔ En cooldown: %d turno%s\n\n%s" % [cd_left, "" if cd_left == 1 else "s", b.tooltip_text]
 		elif ab.foco_cargas > 0 and _pantalla._player.foco_cargas > 0:
@@ -197,9 +203,6 @@ func _accion_habilidad() -> void:
 # ============================================================
 #  CARGAR (02/10): la municion de material del arco y la ballesta
 # ============================================================
-# Lo que devuelve de barra: cuesta MEDIA accion (decidido 02/10).
-const CARGAR_DEVUELVE := 0.5
-
 # El arma de la mano activa (WeaponData.Tipo), que es la que dice si son flechas o virotes.
 func _arma_activa() -> int:
 	var pj: PersonajeData = Game.pj_de_combatant(_pantalla._player)
@@ -215,11 +218,14 @@ func _boton_cargar(ab: AbilityData) -> Button:
 	var b := TooltipButton.new()
 	var p: Combatant = _pantalla._player
 	var cargadas: String = "  🏹%d" % p.municion_quedan() if p.municion_quedan() > 0 else ""
-	b.text = "%s  (½ turno)%s" % [ab.nombre, cargadas]
-	b.tooltip_text = ab.descripcion
+	b.text = "%s  (no acaba el turno)%s" % [ab.nombre, cargadas]
+	b.tooltip_text = "No acaba el turno: después te quedan el básico, Defender, Pasar o la otra preparación.\n\n%s" % ab.descripcion
 	if p.municion_quedan() > 0:
 		b.tooltip_text = "Llevas cargadas %d × %s.\n\n%s" % [p.municion_quedan(), p.municion.nombre, b.tooltip_text]
-	if Game.municion_en_bolsa(_arma_activa()).is_empty():
+	if _pantalla.prep_hecha(ab):
+		b.disabled = true
+		b.tooltip_text = "⛔ Ya has cargado este turno\n\n%s" % b.tooltip_text
+	elif Game.municion_en_bolsa(_arma_activa()).is_empty():
 		b.disabled = true
 		b.tooltip_text = "⛔ No llevas munición para esta arma en la bolsa\n\n%s" % b.tooltip_text
 	b.pressed.connect(_elegir_municion.bind(ab))
@@ -251,18 +257,18 @@ func _cargar(ab: AbilityData, md: MunicionData) -> void:
 	if cals.is_empty():
 		return
 	if _pantalla._espejo:
-		_pantalla.espejo._responder_al_anfitrion({"tipo": "cargar", "ruta": md.resource_path, "cals": cals})
+		_pantalla.espejo._responder_al_anfitrion({"tipo": "cargar", "ruta": md.resource_path, "cals": cals,
+			"hab": ab.resource_path})
 		return
-	aplicar_carga(md, cals)
+	aplicar_carga(ab, md, cals)
 
-# Quien lleva la pelea la pone en el combatiente y cierra la accion, devolviendo media barra.
-func aplicar_carga(md: MunicionData, cals: Array) -> void:
+# Quien lleva la pelea la pone en el combatiente. NO acaba el turno (03/10): se apunta como preparacion hecha y se
+# vuelve a pedir la accion, ya recortada (ver combat._preps_turno).
+func aplicar_carga(ab: AbilityData, md: MunicionData, cals: Array) -> void:
 	var p: Combatant = _pantalla._player
 	p.cargar_municion(md, cals)
 	_pantalla._set_log("🏹 %s carga %d × %s." % [p.nombre, cals.size(), md.nombre.to_lower()])
-	_pantalla._fin_de_eleccion()
-	_pantalla._state = _pantalla.State.ADVANCING
-	_pantalla._gauge[p] = float(_pantalla._gauge.get(p, 0.0)) + _pantalla.UMBRAL * CARGAR_DEVUELVE
+	_pantalla.seguir_tras_preparacion(ab)
 
 
 # --- EL ALCANCE, que ahora vive en combat_geometria.gd -----------------------------------------
