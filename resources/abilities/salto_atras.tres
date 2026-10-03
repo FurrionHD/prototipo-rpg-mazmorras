@@ -12,7 +12,7 @@ cooldown = 3
 dano_mult = 0.9
 redirige_al_morir = true
 fx_estilo = 1
-fx_estilo_mapa = 192
+fx_estilo_mapa = 204
 ; EN EL MAPA: como el Paso ligero: saltas a donde apuntes (cerca) y le disparas al mas cercano que te quede a tiro.
 forma = 1
 forma_apunte = 3

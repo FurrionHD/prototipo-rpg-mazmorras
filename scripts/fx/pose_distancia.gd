@@ -16,7 +16,11 @@ class_name PoseDistancia
 
 const ANIMS := ["guardia_arco", "guardia_arco_and", "guardia_arco_cor", "desenvainar_arco",
 	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor", "desenvainar_ballesta",
-	"disparo_arco", "disparo_ballesta"]
+	"disparo_arco", "disparo_ballesta",
+	# Las habilidades (03/10): sus recetas, abajo.
+	"perfora_arco", "clava_arco", "lluvia_arco", "salto_arco", "tensar_arco", "suelta_arco", "tensado_arco",
+	"defensa_arco", "pesado_ballesta", "perno_ballesta", "clavo_ballesta", "andanada_ballesta", "recarga_ballesta",
+	"defensa_ballesta"]
 
 # EL ARCO: tres cuartos de lado, el hombro IZQUIERDO hacia el blanco. Con la torsion positiva es el izquierdo el
 # que se adelanta (ver PoseJugador.proyectar).
@@ -37,8 +41,15 @@ static func pose(anim: String, t: float) -> Dictionary:
 		"guardia_ballesta_and": return guardia_ballesta(t, 1)
 		"guardia_ballesta_cor": return guardia_ballesta(t, 2)
 		"desenvainar_ballesta": return _desenvainar_ballesta(t)
-		"disparo_arco": return _disparo_arco(t)
-		"disparo_ballesta": return _disparo_ballesta(t)
+		"tensado_arco": return _tensado_arco(t)
+		"defensa_arco": return _defensa_arco(t)
+		"defensa_ballesta": return _defensa_ballesta(t)
+	if anim == "lluvia_arco":
+		return _lluvia_arco(t)
+	if RECETAS_ARCO.has(anim):
+		return _tiro_arco(t, RECETAS_ARCO[anim])
+	if RECETAS_BALLESTA.has(anim):
+		return _tiro_ballesta(t, RECETAS_BALLESTA[anim])
 	return {}
 
 
@@ -206,30 +217,66 @@ static func _desenvainar_ballesta(t: float) -> Dictionary:
 
 
 # ============================================================
-#  LOS BASICOS
+#  LOS DISPAROS (el basico y las habilidades salen de las mismas dos funciones, con su receta)
 # ============================================================
-# EL DISPARO DEL ARCO (12 marcos a 18 fps): la derecha va al CARCAJ (sobre el hombro derecho) y saca una flecha,
-# la pone en la cuerda con el arco aun bajo, y se gira de lado del todo mientras sube el arco y TENSA hasta la cara;
-# aguanta un instante y SUELTA en el marco 8 (0,44 s: CombatFX.IMPACTO_ANIM_MAPA lo cuenta, con el vuelo de la
-# flecha encima). Despues la mano sale hacia atras y vuelve a la guardia.
+# EL DISPARO DEL ARCO: la derecha va al CARCAJ (sobre el hombro derecho) y saca una flecha, la pone en la cuerda con el
+# arco aun bajo, y se gira de lado del todo mientras sube el arco y TENSA hasta la cara; aguanta un instante y SUELTA
+# en t = 0,72 (CombatFX.IMPACTO_ANIM_MAPA lo cuenta, con el vuelo de la flecha encima). Despues la mano sale hacia
+# atras y vuelve a la guardia.
+# La receta ('r'):
+#   apunta   hacia donde va la flecha (marco del pecho): recto, al cielo (Lluvia) o a los pies (Clavadora)
+#   rodilla  0..1: de rodillas (el Disparo perforante)
+#   salto    altura del salto hacia atras (Salto atras): suelta en lo alto
+#   desde_tenso  empieza YA tensado (el Disparo cargado: viene de la pose de carga) y suelta enseguida
 const ARCO_MANO_REPOSO := Vector3(-8.1, -3.0, 21.5)   # donde cuelga la derecha en la guardia
 const ARCO_CARCAJ := Vector3(0.9, -8.5, 36.5)          # la boca del carcaj, a media vuelta
-const ARCO_EN_ALTO := Vector3(4.3, 19.2, 33.3)         # el brazo del arco estirado hacia el blanco
 const ARCO_CARA := Vector3(-2.5, -0.5, 36.0)           # la mano que tensa, junto a la cara
+const ARCO_HOMBRO_TIRO := Vector3(4.0, 8.95, 32.5)     # el hombro izquierdo con el tronco de lado (TOR_TIRO)
+const ARCO_GUARDIA_I := Vector3(10.5, 11.0, 24.8)      # la mano del arco en la guardia
+const APUNTA_RECTO := Vector3(0.03, 1.0, 0.08)
+const APUNTA_CIELO := Vector3(0.0, 0.62, 0.8)
+const APUNTA_PIES := Vector3(0.0, 0.85, -0.5)
 
-static func _disparo_arco(t: float) -> Dictionary:
+# Las anims que sacan sus recetas.
+const RECETAS_ARCO := {
+	"disparo_arco": {},
+	"perfora_arco": {"rodilla": 1.0},
+	"clava_arco": {"apunta": APUNTA_PIES},
+	"salto_arco": {"salto": 7.0},
+	"tensar_arco": {"solo_tensar": true},
+	"suelta_arco": {"desde_tenso": true},
+}
+
+
+static func _tiro_arco(t: float, r: Dictionary) -> Dictionary:
+	# Desde tenso, el tiempo de la receta normal empieza en la tension completa (0,62).
+	if bool(r.get("desde_tenso", false)):
+		t = lerpf(0.62, 1.0, t)
+	# Solo tensar (el gesto de empezar a cargar): de la guardia a tensado del todo, y ahi se queda.
+	elif bool(r.get("solo_tensar", false)):
+		t = lerpf(0.0, 0.66, t)
 	var g: Dictionary = guardia_arco(0.0, 0)
+	var rod: float = float(r.get("rodilla", 0.0))
+	var alto_salto: float = float(r.get("salto", 0.0))
+	var dir_tiro: Vector3 = (r.get("apunta", APUNTA_RECTO) as Vector3).normalized()
+	var en_alto: Vector3 = ARCO_HOMBRO_TIRO + dir_tiro * 10.3
 	var tor: float = _k(t, [[0.0, TOR_ARCO], [0.18, 0.5], [0.38, 0.35], [0.62, TOR_TIRO], [0.85, TOR_TIRO], [1.0, TOR_ARCO]])
-	var p: Dictionary = {"torsion": tor, "bote": 0.0,
-		"agacha": _k(t, [[0.0, float(g["agacha"])], [0.62, 0.22], [0.85, 0.22], [1.0, float(g["agacha"])]]),
-		"inclina": _k(t, [[0.0, 0.04], [0.62, -0.02], [0.8, 0.0], [1.0, 0.04]]),
-		"paso": _k(t, [[0.0, float(g["paso"])], [0.62, 0.55], [0.85, 0.55], [1.0, float(g["paso"])]])}
-	var mano_i: Vector3 = _p(t, [[0.0, Vector3(10.5, 11.0, 24.8)], [0.18, Vector3(6.0, 11.0, 27.0)],
-		[0.38, Vector3(-1.0, 9.0, 29.0)], [0.62, ARCO_EN_ALTO], [0.85, ARCO_EN_ALTO], [1.0, Vector3(10.5, 11.0, 24.8)]])
+	var p: Dictionary = {"torsion": tor,
+		"agacha": _k(t, [[0.0, float(g["agacha"])], [0.62, 0.22 + 0.4 * rod], [0.85, 0.22 + 0.4 * rod], [1.0, float(g["agacha"])]]),
+		"inclina": _k(t, [[0.0, 0.04], [0.62, -0.02 - 0.08 * dir_tiro.z], [0.8, 0.0], [1.0, 0.04]]),
+		"paso": _k(t, [[0.0, float(g["paso"])], [0.62, 0.55 + 0.35 * rod], [0.85, 0.55 + 0.35 * rod], [1.0, float(g["paso"])]]),
+		"bote": 0.0}
+	if alto_salto > 0.0:
+		# SE AGACHA, SALTA hacia atras (la pelea lo lleva por el suelo), SUELTA EN LO ALTO y cae flexionado.
+		p["bote"] = _k(t, [[0.0, 0.0], [0.3, 0.0], [0.55, alto_salto], [0.72, alto_salto * 0.85], [0.88, 0.0], [1.0, 0.0]])
+		p["agacha"] = _k(t, [[0.0, float(g["agacha"])], [0.3, 0.45], [0.45, 0.05], [0.8, 0.1], [0.9, 0.45], [1.0, float(g["agacha"])]])
+		p["paso"] = _k(t, [[0.0, float(g["paso"])], [0.45, 0.2], [0.8, 0.2], [0.9, 0.5], [1.0, float(g["paso"])]])
+	var mano_i: Vector3 = _p(t, [[0.0, ARCO_GUARDIA_I], [0.18, Vector3(6.0, 11.0, 27.0)],
+		[0.38, Vector3(-1.0, 9.0, 29.0)], [0.62, en_alto], [0.85, en_alto], [1.0, ARCO_GUARDIA_I]])
 	var mano_d: Vector3 = _p(t, [[0.0, ARCO_MANO_REPOSO], [0.18, ARCO_CARCAJ], [0.38, Vector3(-1.0, 5.5, 29.5)],
 		[0.62, ARCO_CARA], [0.71, ARCO_CARA], [0.76, Vector3(-5.0, -10.0, 35.0)], [0.85, Vector3(-5.5, -9.5, 33.0)],
 		[1.0, ARCO_MANO_REPOSO]])
-	var apunta: Vector3 = (ARCO_EN_ALTO - ARCO_CARA).normalized()
+	var apunta: Vector3 = (en_alto - ARCO_CARA).normalized()
 	var f: Vector3 = _p(t, [[0.0, Vector3(0.0, 1.0, -0.45)], [0.38, Vector3(0.0, 1.0, -0.1)], [0.62, apunta],
 		[0.85, apunta], [1.0, Vector3(0.0, 1.0, -0.45)]]).normalized()
 	_arco_en(p, mano_i, f, _k(t, [[0.0, 0.35], [0.62, 0.12], [0.85, 0.12], [1.0, 0.35]]))
@@ -240,24 +287,102 @@ static func _disparo_arco(t: float) -> Dictionary:
 	return p
 
 
-# EL DISPARO DE LA BALLESTA (14 marcos a 18 fps): se la sube al hombro y apunta, DISPARA en el marco 4 (0,22 s) con
-# un culatazo que le echa los hombros atras y la punta arriba, y RECARGA (decidido el 03/10: la recarga es lo que la
-# hace lenta y tiene que verse): baja la punta, la sujeta con la izquierda, tira de la cuerda con la derecha desde el
-# arco hasta la nuez y pone el virote. Vuelve a la guardia.
+# LA LLUVIA DE FLECHAS: TRES tiros al cielo seguidos, en una sola animacion (son tres flechas a CADA uno de los de
+# la zona: repetida por golpe salian tres por enemigo). Cada tramo es el basico apuntando arriba, recortado: el
+# primero sale de la guardia y suelta en t = 0,24; los otros dos vuelven al carcaj desde la suelta del anterior.
+static func _lluvia_arco(t: float) -> Dictionary:
+	var k: int = mini(int(t * 3.0), 2)
+	var u: float = clampf(t * 3.0 - float(k), 0.0, 1.0)
+	var tt: float = lerpf(0.0 if k == 0 else 0.15, 1.0 if k == 2 else 0.76, u)
+	return _tiro_arco(tt, {"apunta": APUNTA_CIELO})
+
+
+# TENSADO, AGUANTANDO (la pose de carga del Disparo cargado, en bucle): la cuerda a la cara y el arco temblando.
+static func _tensado_arco(t: float) -> Dictionary:
+	var p: Dictionary = _tiro_arco(0.66, {})
+	var s: float = sin(TAU * t)
+	p["bote"] = 0.12 * s
+	var f: Vector3 = p["arco_f"]
+	p["arco_e"] = _eje_arco(f, 0.12 + 0.05 * sin(TAU * t * 2.0))
+	return p
+
+
+# DEFENDER CON EL ARCO: atravesado delante del pecho, agarrado con las dos manos, el tronco recogido.
+static func _defensa_arco(t: float) -> Dictionary:
+	var s: float = sin(TAU * t)
+	var tor: float = 0.2
+	var p: Dictionary = {"torsion": tor, "agacha": 0.34, "inclina": 0.08, "paso": 0.45, "bote": 0.12 * s}
+	var mano_i := Vector3(6.0, 6.0, 30.0 + 0.2 * s)
+	p["mano_izq_en"] = _pecho(tor, mano_i)
+	p["codo_izq_hacia"] = Vector3(1.0, -0.3, -0.6)
+	p["mano_der_en"] = _pecho(tor, Vector3(-5.5, 6.0, 30.0 + 0.2 * s))
+	p["codo_der_hacia"] = Vector3(-1.0, -0.3, -0.6)
+	# El arco tumbado: las palas de lado a lado y la panza hacia fuera.
+	var fb: Vector3 = _dir(tor, Vector3(0.0, 1.0, 0.0), mano_i.z)
+	p["arco_f"] = fb
+	var e: Vector3 = _dir(tor, Vector3(-1.0, 0.0, 0.25), mano_i.z)
+	p["arco_e"] = (e - fb * e.dot(fb)).normalized()
+	return p
+
+
+# EL DISPARO DE LA BALLESTA: se la sube al hombro y apunta, DISPARA en t = 0,3 con un culatazo que le echa los hombros
+# atras y la punta arriba, y RECARGA (decidido el 03/10: la recarga es lo que la hace lenta y tiene que verse): baja la
+# punta, la sujeta con la izquierda, tira de la cuerda con la derecha desde el arco hasta la nuez y pone el virote.
+# La receta ('r'):
+#   apunta     hacia donde (recto o a los pies: el Virote clavo)
+#   rodilla    0..1 (el Virote pesado)
+#   culatazo   1 = el de siempre; el Perno de impacto, mucho mas (y da un paso atras)
+#   sin_recarga  la Andanada: tres tiros seguidos, recarga al final de la habilidad, no en cada uno
+#   solo_recarga la Recarga rapida: el gesto de recargar, entero, desde la guardia
 const BALL_HOMBRO := Vector3(-3.0, 1.5, 32.5)
 const BALL_GUARDIA := Vector3(-2.5, 3.0, 27.0)
+const BALL_RECTO := Vector3(0.05, 1.0, 0.0)
 
-static func _disparo_ballesta(t: float) -> Dictionary:
+const RECETAS_BALLESTA := {
+	"disparo_ballesta": {},
+	"pesado_ballesta": {"rodilla": 1.0, "culatazo": 1.6},
+	"perno_ballesta": {"culatazo": 2.6},
+	"clavo_ballesta": {"apunta": Vector3(0.05, 0.7, -0.8)},
+	"andanada_ballesta": {"sin_recarga": true},
+	"recarga_ballesta": {"solo_recarga": true},
+}
+
+
+static func _tiro_ballesta(t: float, r: Dictionary) -> Dictionary:
+	if bool(r.get("solo_recarga", false)):
+		t = lerpf(0.45, 1.0, t)
 	var g: Dictionary = guardia_ballesta(0.0, 0)
 	var tor: float = TOR_BALL
-	var p: Dictionary = {"torsion": tor, "bote": 0.0, "paso": float(g["paso"]),
-		"agacha": _k(t, [[0.0, float(g["agacha"])], [0.23, 0.18], [0.5, 0.26], [0.85, 0.26], [1.0, float(g["agacha"])]]),
-		"inclina": _k(t, [[0.0, 0.05], [0.23, 0.0], [0.31, 0.0], [0.38, -0.1], [0.5, 0.14], [0.85, 0.14], [1.0, 0.05]])}
+	var rod: float = float(r.get("rodilla", 0.0))
+	var cul: float = float(r.get("culatazo", 1.0))
+	var apunta: Vector3 = (r.get("apunta", BALL_RECTO) as Vector3).normalized()
+	var p: Dictionary = {"torsion": tor, "bote": 0.0,
+		"paso": _k(t, [[0.0, float(g["paso"])], [0.23, float(g["paso"]) + 0.4 * rod], [0.45, float(g["paso"]) + 0.4 * rod],
+			[0.6, float(g["paso"])]]),
+		"agacha": _k(t, [[0.0, float(g["agacha"])], [0.23, 0.18 + 0.42 * rod], [0.4, 0.18 + 0.42 * rod], [0.5, 0.26],
+			[0.85, 0.26], [1.0, float(g["agacha"])]]),
+		"inclina": _k(t, [[0.0, 0.05], [0.23, 0.0], [0.31, 0.0], [0.38, -0.1 * cul], [0.5, 0.14], [0.85, 0.14], [1.0, 0.05]]),
+		"avance": _k(t, [[0.0, 0.0], [0.31, 0.0], [0.4, -1.2 * maxf(cul - 1.0, 0.0)], [0.6, 0.0]])}
+	if bool(r.get("sin_recarga", false)):
+		# LA ANDANADA: apunta, dispara, culatazo corto y vuelve a apuntar (el siguiente sale de ahi). La ultima
+		# vuelve a la guardia: se encarga ANIM_REPITE_MAPA de que se encadenen.
+		var mano_a: Vector3 = _p(t, [[0.0, BALL_GUARDIA], [0.25, BALL_HOMBRO], [0.45, BALL_HOMBRO],
+			[0.55, Vector3(-3.3, 0.5, 33.0)], [0.75, BALL_HOMBRO], [1.0, BALL_GUARDIA]])
+		var fa: Vector3 = _p(t, [[0.0, Vector3(0.12, 1.0, -0.2)], [0.25, BALL_RECTO], [0.45, BALL_RECTO],
+			[0.55, Vector3(0.05, 1.0, 0.25)], [0.75, BALL_RECTO], [1.0, Vector3(0.12, 1.0, -0.2)]]).normalized()
+		_ballesta_en(p, mano_a, fa)
+		p["ball_cuerda"] = 1.0 if t < 0.45 else 0.0
+		p["virote"] = 1.0 if t < 0.45 else 0.0
+		p["inclina"] = _k(t, [[0.0, 0.05], [0.45, 0.0], [0.55, -0.08], [0.75, 0.0], [1.0, 0.05]])
+		p["agacha"] = 0.2
+		p["paso"] = float(g["paso"])
+		p["avance"] = 0.0
+		return p
 	if t < 0.45:
 		var mano_d: Vector3 = _p(t, [[0.0, BALL_GUARDIA], [0.23, BALL_HOMBRO], [0.31, BALL_HOMBRO],
-			[0.38, Vector3(-3.5, -0.5, 33.5)], [0.45, Vector3(-3.0, 1.0, 31.0)]])
-		var f: Vector3 = _p(t, [[0.0, Vector3(0.12, 1.0, -0.2)], [0.23, Vector3(0.05, 1.0, 0.0)], [0.31, Vector3(0.05, 1.0, 0.0)],
-			[0.38, Vector3(0.05, 1.0, 0.4)], [0.45, Vector3(0.05, 1.0, 0.1)]]).normalized()
+			[0.38, BALL_HOMBRO + Vector3(-0.5, -2.0 * cul, 1.0 * cul)], [0.45, Vector3(-3.0, 1.0, 31.0)]])
+		var f: Vector3 = _p(t, [[0.0, Vector3(0.12, 1.0, -0.2)], [0.23, apunta], [0.31, apunta],
+			[0.38, apunta + Vector3(0.0, 0.0, 0.4 * cul)], [0.45, Vector3(0.05, 1.0, 0.1)]]).normalized()
 		_ballesta_en(p, mano_d, f)
 		p["ball_cuerda"] = 1.0 if t < 0.3 else 0.0
 		p["virote"] = 1.0 if t < 0.3 else 0.0
@@ -287,4 +412,19 @@ static func _disparo_ballesta(t: float) -> Dictionary:
 	p["ball_izq"] = 1.0 if t < 0.97 else 0.0
 	p["ball_cuerda"] = tira
 	p["virote"] = 1.0 if t >= 0.84 else 0.0
+	return p
+
+
+# DEFENDER CON LA BALLESTA: atravesada delante del pecho, en horizontal, con las dos manos.
+static func _defensa_ballesta(t: float) -> Dictionary:
+	var s: float = sin(TAU * t)
+	var tor: float = 0.15
+	var p: Dictionary = {"torsion": tor, "agacha": 0.34, "inclina": 0.08, "paso": 0.45, "bote": 0.12 * s}
+	var f := Vector3(1.0, 0.25, 0.1).normalized()
+	var mano_d := Vector3(-4.5, 5.0, 30.0 + 0.2 * s)
+	p["mano_der_en"] = _pecho(tor, mano_d)
+	p["codo_der_hacia"] = Vector3(-1.0, -0.3, -0.6)
+	p["ball_f"] = _dir(tor, f, mano_d.z)
+	p["mano_izq_en"] = _pecho(tor, mano_d + f * 6.5)
+	p["codo_izq_hacia"] = Vector3(1.0, -0.3, -0.6)
 	return p

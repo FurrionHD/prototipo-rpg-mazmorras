@@ -3582,6 +3582,7 @@ const _MODO_BASTON := {
 # EL DIBUJO DE UN GOLPE DE DAGA (o de estoque), sobre el cuerpo de verdad (CombatFX.dibujo_en_mapa). En todas las
 # maquinas, esquivado o no. 'vuelo' = lo que falta para el golpe, en tiempo de la pelea.
 const _MODO_DISTANCIA := {CombatFX.Estilo.FLECHA: DistanciaAire.Modo.FLECHA,
+	CombatFX.Estilo.FLECHA_SALTO: DistanciaAire.Modo.FLECHA, CombatFX.Estilo.ANDANADA: DistanciaAire.Modo.VIROTE,
 	CombatFX.Estilo.VIROTE: DistanciaAire.Modo.VIROTE, CombatFX.Estilo.VIROTE_PASA: DistanciaAire.Modo.VIROTE_PASA,
 	CombatFX.Estilo.FLECHA_CARGADA: DistanciaAire.Modo.FLECHA_GORDA,
 	CombatFX.Estilo.FLECHA_PERFORA: DistanciaAire.Modo.FLECHA_PASA,
@@ -4831,7 +4832,9 @@ const _REPITE_POR_GOLPE := {"tajo_daga": "tajo_daga_izq", "punalada_daga": "puna
 	# por los de las dos espadas).
 	"tajo_espada": "tajo_espada_izq", "reves_espada": "reves_espada_izq", "barrido_espada": "barrido_espada_izq", "tajo_bajo_espada": "tajo_bajo_espada_izq", "tajo_paso_espada": "tajo_paso_espada_izq",
 	# La maza (26/09): igual que la espada corta. El Demoledor con dos NO: es un gesto de las dos manos a la vez.
-	"mazazo_maza": "mazazo_maza_izq", "rompe_maza": "rompe_maza_izq", "culatazo_maza": "culatazo_maza_izq"}
+	"mazazo_maza": "mazazo_maza_izq", "rompe_maza": "rompe_maza_izq", "culatazo_maza": "culatazo_maza_izq",
+	# La Andanada de la ballesta (03/10): un disparo por virote.
+	"andanada_ballesta": "andanada_ballesta"}
 var _mano_izq_toca: Dictionary = {}   # cuerpo -> el siguiente tajo lo da la izquierda
 var _gestos_mapa: Dictionary = {}   # cuerpo -> {t, dur, anim, d0, m}
 

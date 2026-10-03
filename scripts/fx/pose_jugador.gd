@@ -436,6 +436,22 @@ const ANIMS := [
 	# Los basicos: el arco suelta en el marco 8 y la ballesta dispara en el 4 y recarga (CombatFX.IMPACTO_ANIM_MAPA).
 	{"n": "disparo_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "disparo_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 14, "ultimo": true},
+	# Las habilidades (03/10). Las del arco sueltan en t = 0,72 (salvo la que suelta desde tenso); las de la ballesta
+	# disparan en t = 0,3, y la Andanada en 0,45. Sus segundos en CombatFX.IMPACTO_ANIM_MAPA.
+	{"n": "perfora_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "clava_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "lluvia_arco", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 18, "ultimo": true},
+	{"n": "salto_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "tensar_arco", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 9, "ultimo": true},
+	{"n": "suelta_arco", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "tensado_arco", "loop": true, "fps": 6.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "defensa_arco", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "pesado_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 14, "ultimo": true},
+	{"n": "perno_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 14, "ultimo": true},
+	{"n": "clavo_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 14, "ultimo": true},
+	{"n": "andanada_ballesta", "loop": false, "fps": 22.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "recarga_ballesta", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 10, "ultimo": true},
+	{"n": "defensa_ballesta", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	# LA FLORITURA DE LA VARITA (26/09, PoseBaston): la izquierda con la varita; la derecha en la guardia de lo que lleve.
 	{"n": "floritura", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "floritura_daga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},

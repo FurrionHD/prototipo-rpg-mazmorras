@@ -13,7 +13,7 @@ municion_por_uso = 3
 dano_mult = 1.0
 area_max = 3
 fx_estilo = 1
-fx_estilo_mapa = 193
+fx_estilo_mapa = 205
 ; EN EL MAPA: un cono estrecho y largo; un virote a cada uno de los TRES primeros que pille.
 forma = 2
 forma_apunte = 1

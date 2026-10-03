@@ -433,7 +433,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		# EL ARCO Y LA BALLESTA (02/10, DistanciaAire): la flecha, el virote y el virote que atraviesa al primero.
 		FLECHA = 192, VIROTE = 193, VIROTE_PASA = 194,
 		# Y SUS HABILIDADES (02/10): cada una con su comportamiento de DistanciaAire.
-		FLECHA_CARGADA = 195, FLECHA_PERFORA = 196, FLECHA_LLUVIA = 197, FLECHA_CLAVA = 198, VIROTE_PESADO = 199, VIROTE_PERNO = 200, VIROTE_CLAVO = 201, RECARGA_FX = 202, TENSA_ARCO = 203 }
+		FLECHA_CARGADA = 195, FLECHA_PERFORA = 196, FLECHA_LLUVIA = 197, FLECHA_CLAVA = 198, VIROTE_PESADO = 199, VIROTE_PERNO = 200, VIROTE_CLAVO = 201, RECARGA_FX = 202, TENSA_ARCO = 203,
+		# El Salto atras y la Andanada (03/10): el mismo dibujo que la flecha y el virote del basico, con estilo propio
+		# para que el cuerpo haga SU gesto (ANIM_CUERPO_MAPA va por estilo).
+		FLECHA_SALTO = 204, ANDANADA = 205 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -465,6 +468,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	# el arco y la ballesta (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe.
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
+	Estilo.FLECHA_SALTO, Estilo.ANDANADA,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -533,6 +537,7 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 const FX_JUGADOR := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA,
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
+	Estilo.FLECHA_SALTO, Estilo.ANDANADA,
 	Estilo.IMBUIR_FILO, Estilo.DESVANECER,
 	Estilo.ESTOQUE_PUNZADA, Estilo.ESTOCADA_PENETRANTE, Estilo.FINTAS, Estilo.EN_GUARDIA,
 	Estilo.PASO_LIGERO, Estilo.PUNZADA_NERVIO, Estilo.DANZA_ACERO,
@@ -721,7 +726,7 @@ const T_VUELO := {
 	Estilo.DAGA_CORTE: 0.04, Estilo.DAGA_RAFAGA: 0.05, Estilo.PUNALADA: 0.09,
 	# EL ARCO Y LA BALLESTA SI VIAJAN: es lo que tarda en cruzar (DistanciaAire se queda con lo que de su velocidad,
 	# con esto de tope). El virote, mas rapido.
-	Estilo.FLECHA: 0.20, Estilo.VIROTE: 0.15, Estilo.VIROTE_PASA: 0.15,
+	Estilo.FLECHA: 0.20, Estilo.VIROTE: 0.15, Estilo.VIROTE_PASA: 0.15, Estilo.FLECHA_SALTO: 0.20, Estilo.ANDANADA: 0.15,
 	Estilo.FLECHA_CARGADA: 0.22, Estilo.FLECHA_PERFORA: 0.20, Estilo.FLECHA_LLUVIA: 0.25, Estilo.FLECHA_CLAVA: 0.20,
 	Estilo.VIROTE_PESADO: 0.16, Estilo.VIROTE_PERNO: 0.15, Estilo.VIROTE_CLAVO: 0.15,
 	# Los de sobre uno mismo no viajan: su vuelo es lo que tardan en verse antes del numero (no hay numero).
@@ -1992,6 +1997,10 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.FOCO_ARCANO: "foco_baston",
 	# EL ARCO Y LA BALLESTA (03/10): el basico. Las habilidades, con las suyas (paso siguiente).
 	Estilo.FLECHA: "disparo_arco", Estilo.VIROTE: "disparo_ballesta", Estilo.VIROTE_PASA: "disparo_ballesta",
+	Estilo.FLECHA_CARGADA: "suelta_arco", Estilo.TENSA_ARCO: "tensar_arco", Estilo.FLECHA_PERFORA: "perfora_arco",
+	Estilo.FLECHA_CLAVA: "clava_arco", Estilo.FLECHA_LLUVIA: "lluvia_arco", Estilo.FLECHA_SALTO: "salto_arco",
+	Estilo.VIROTE_PESADO: "pesado_ballesta", Estilo.VIROTE_PERNO: "perno_ballesta", Estilo.VIROTE_CLAVO: "clavo_ballesta",
+	Estilo.ANDANADA: "andanada_ballesta", Estilo.RECARGA_FX: "recarga_ballesta",
 	# LA VARITA (26/09): sus habilidades, la floritura (una generica para todo, lo dijo el).
 	Estilo.PURIFICAR: "floritura", Estilo.CHISPA_VINCULADA: "floritura", Estilo.EGIDA_MENOR: "floritura",
 }
@@ -2060,6 +2069,13 @@ const IMPACTO_ANIM_MAPA := {
 	# EL ARCO Y LA BALLESTA (03/10): el golpe llega cuando suelta MAS lo que vuela (CombatFX.vuelo del estilo): el
 	# arco suelta en el 8 de 12 a 18 fps (0,44) y la flecha tarda 0,20; la ballesta dispara en el 4 (0,22) + 0,15.
 	"disparo_arco": 0.64, "disparo_ballesta": 0.37,
+	# Las habilidades: las del arco con la receta del basico sueltan igual (0,72 de 12 a 18 fps = 0,44, + vuelo); la
+	# Lluvia (tres tiros en una), la primera suelta en 0,24 x 17 / 22 = 0,19 + 0,25; desde tenso, en el marco 1 de 8 a 16 fps (0,06) + 0,22; tensar, a los 0,5
+	# (el adorno de tensar sale cuando ya tira de la cuerda). La ballesta dispara en 0,3 x 13 / 18 = 0,22 (+ vuelo);
+	# la Andanada en 0,45 x 7 / 22 = 0,14 + 0,15; la Recarga rapida engancha la cuerda a los 0,4.
+	"perfora_arco": 0.64, "clava_arco": 0.64, "salto_arco": 0.64, "lluvia_arco": 0.44, "suelta_arco": 0.28,
+	"tensar_arco": 0.5, "pesado_ballesta": 0.38, "perno_ballesta": 0.37, "clavo_ballesta": 0.37,
+	"andanada_ballesta": 0.29, "recarga_ballesta": 0.4,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;
@@ -2108,7 +2124,9 @@ const ANIM_SIGUIENTE_MAPA := {"lanzar_humo": "tajo_daga_solo", "finta_estoque": 
 # golpe se les deja lo que tardan en tocar mas este respiro (ver arrancar_cola).
 const ANIM_REPITE_MAPA := ["tajo_daga", "punalada_daga", "finta_estoque", "pinchazo_estoque", "rota_larga",
 	"tajo_espada", "reves_espada", "barrido_espada", "tajo_bajo_espada", "tajo_paso_espada",
-	"mazazo_maza", "rompe_maza", "culatazo_maza", "aplasta_maza"]
+	"mazazo_maza", "rompe_maza", "culatazo_maza", "aplasta_maza",
+	# La Andanada (03/10): un disparo por virote (uno a cada uno de los tres primeros).
+	"andanada_ballesta"]
 const T_RESPIRO_REPITE := 0.06
 const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18

@@ -96,7 +96,8 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 # del lado de la camara van delante de todo. El arco lo lleva la izquierda: medido por la mano derecha se iba detras
 # de las piernas al oeste.
 const _BASES_DISTANCIA := ["guardia_arco", "guardia_arco_and", "guardia_arco_cor", "desenvainar_arco", "disparo_arco",
-	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor", "desenvainar_ballesta", "disparo_ballesta"]
+	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor", "desenvainar_ballesta", "disparo_ballesta",
+	"perfora_arco", "clava_arco", "lluvia_arco", "salto_arco", "tensar_arco", "suelta_arco", "tensado_arco", "defensa_arco", "pesado_ballesta", "perno_ballesta", "clavo_ballesta", "andanada_ballesta", "recarga_ballesta", "defensa_ballesta"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -770,6 +771,8 @@ func _variante_defensa() -> String:
 		"guardia_maza": return "defensa_maza"
 		"guardia_maza2": return "defensa_maza2"
 		"guardia_baston": return "defensa_baston"
+		"guardia_arco": return "defensa_arco"
+		"guardia_ballesta": return "defensa_ballesta"
 	return "defensa_1m"
 
 
@@ -808,6 +811,10 @@ func _con_su_guardia_base(nombre: String) -> String:
 	# "guardia_2m" -> "desenvainar_2m", "guardia_daga" -> "desenvainar_daga".
 	if _guardia_propia == "":
 		return nombre
+	# CARGANDO CON ARCO (el Disparo cargado): la pose de carga ('en_alto', CombatTactico._animar) es tensado,
+	# aguantando la cuerda en la cara.
+	if _guardia_propia == "guardia_arco" and nombre.begins_with("en_alto_"):
+		return "tensado_arco_" + nombre.substr(8)
 	if nombre.begins_with("desenvainar"):
 		guardia_defensiva = false
 	# La DEFENSIVA solo en la quieta ("guardia_N"): andando y corriendo se mueve con la de siempre.
