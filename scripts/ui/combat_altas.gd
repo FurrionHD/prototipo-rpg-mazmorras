@@ -657,6 +657,8 @@ func _revivir_bloque(i: int, c: Combatant) -> void:
 	var b: Dictionary = _pantalla._bloques[i]
 	# El hueco se reestrena: al que entra hay que poder verle morir a EL (ver _apagar_visual).
 	b["muerte_pintada"] = false
+	b.erase("cero_desde")   # la espera del espejo a los golpes del muerto anterior (combat_espejo._toca_apagar)
+	b.erase("fx_apagar")
 	b["panel"].modulate = Color(1, 1, 1)
 	b["panel"].mouse_filter = Control.MOUSE_FILTER_STOP
 	b["panel"].add_theme_stylebox_override("panel", _pantalla.figuras._sb_bloque(false))

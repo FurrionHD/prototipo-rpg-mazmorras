@@ -1413,9 +1413,19 @@ func _volcar(lista: Array, valores: Array) -> void:
 # Alli lo hacen _apagar_bloque y _caer_aliado desde el motor; aqui no hay motor, solo numeros, asi
 # que se mira quien esta a 0 y se le apaga el bloque y se le quita del marcador de turnos. Sin esto
 # el espejo dejaba cadaveres pintados como vivos.
+#
+# LA VIDA A 0 LLEGA ANTES QUE EL GOLPE (03/10, lo vio el jefe: "en cuanto le doy a soltar la magia los enemigos
+# mueren visualmente y luego se hace la animacion y le baja la barra"). La instantanea y el paquete de impactos
+# son dos envios distintos, y la instantanea puede llegar primero: el bloque estaba a 0 SIN golpes pendientes y
+# se moria en el acto. Ahora se le ESPERA (T_ESPERA_IMPACTOS): si sus golpes llegan, se muere cuando aterriza el
+# ultimo (fx_apagar, como en la pantalla que ejecuta); si no llega ninguno, se le apaga igual pasado el margen.
+const T_ESPERA_IMPACTOS := 1.5
+
 func _apagar_caidos() -> void:
 	for i in _pantalla._bloques.size():
 		if i >= _pantalla._enemies.size() or _pantalla._enemies[i].is_alive():
+			continue
+		if not _toca_apagar(_pantalla._bloques[i], false):
 			continue
 		_pantalla.altas._apagar_bloque(_pantalla._enemies[i])
 		if _pantalla._timeline != null:
@@ -1423,9 +1433,29 @@ func _apagar_caidos() -> void:
 	for i in _pantalla._bloques_aliados.size():
 		if i >= _pantalla._aliados.size() or _pantalla._aliados[i].is_alive():
 			continue
+		if not _toca_apagar(_pantalla._bloques_aliados[i], true):
+			continue
 		_pantalla.altas._apagar_diferido(_pantalla._bloques_aliados[i], true)
 		if _pantalla._timeline != null:
 			_pantalla._timeline.quitar(_pantalla._aliados[i])
+
+
+# ¿Se le apaga ya a este bloque a 0? Si ya esta muerto en pantalla, o le quedan golpes por ver (entonces lo
+# apaga la cola al aterrizar, via _apagar_diferido), si. Si no tiene ninguno, se espera a que lleguen.
+func _toca_apagar(b: Dictionary, es_aliado: bool) -> bool:
+	if bool(b.get("muerte_pintada", false)):
+		return true
+	if _pantalla._fx != null and _pantalla._fx.golpes_pendientes(b):
+		b.erase("cero_desde")
+		return true
+	var ahora: float = Time.get_ticks_msec() / 1000.0
+	if not b.has("cero_desde"):
+		b["cero_desde"] = ahora
+		# Si su golpe llega en la espera, la cola lo apaga al aterrizar (CombatFX._soltar_apagado).
+		b["fx_apagar"] = true
+		b["fx_apagar_aliado"] = es_aliado
+		return false
+	return ahora - float(b["cero_desde"]) >= T_ESPERA_IMPACTOS
 
 
 # En el ESPEJO las acciones no se resuelven aqui: se le mandan al anfitrion, que es quien lleva la
