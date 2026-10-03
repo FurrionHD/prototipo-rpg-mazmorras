@@ -64,7 +64,17 @@ var _paleta_actual: Array = []
 func _capas(modelos: PackedStringArray) -> Array:
 	var pedidos := {}
 	var armaduras: Array = []
+	var armas: Array = []
 	for m in modelos:
+		# EL ARMA (03/10): "arma=arco" apila sus capas (la de la mano y la de la espalda), coloreadas con su tier.
+		# Van ENCIMA de todo: el orden de verdad (detras del cuerpo segun por donde caiga) se mira en
+		# ver_jugador_juego, horneado; esta es para ajustar la forma sin hornear.
+		if m.begins_with("arma="):
+			var tn: String = m.trim_prefix("arma=")
+			for clave in ArmaSprites.claves_de(tn):
+				armas.append({"z": 100000, "sf": ArmaSprites.generar(clave, 1.0),
+					"paleta": PaletaEquipo.colores_de(ArmaSprites.ROLES, ArmaSprites.familia_de(tn), 1, 0)})
+			continue
 		# LA ARMADURA NO ESTA EN EL CATALOGO, porque no es aspecto: es equipo, y sale de lo que lleves
 		# puesto. Pero sin poder pedirla aqui no hay forma de sacar una hoja de contacto con un casco,
 		# y sin hoja de contacto no se puede juzgar el dibujo. Se pide por TIPO y RANURA con un guion:
@@ -133,6 +143,7 @@ func _capas(modelos: PackedStringArray) -> Array:
 		pila.append({"z": _z_armadura(clave), "sf": ArmaduraSprites.generar(clave, 1.0),
 			"paleta": _paleta_actual})
 
+	pila.append_array(armas)
 	pila.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
 	return pila
 

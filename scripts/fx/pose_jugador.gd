@@ -424,6 +424,15 @@ const ANIMS := [
 	{"n": "foco_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "velo_baston", "loop": false, "fps": 12.0, "dirs": 8, "marcos": 10, "ultimo": true},
 	{"n": "conjuro_baston", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	# EL ARCO Y LA BALLESTA (03/10, PoseDistancia).
+	{"n": "guardia_arco", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_arco_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_arco_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	{"n": "guardia_ballesta", "loop": true, "fps": 4.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_ballesta_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "guardia_ballesta_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
+	{"n": "desenvainar_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 8, "ultimo": true},
 	# LA FLORITURA DE LA VARITA (26/09, PoseBaston): la izquierda con la varita; la derecha en la guardia de lo que lleve.
 	{"n": "floritura", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "floritura_daga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
@@ -763,6 +772,15 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 			cd.x = lerpf(cd.x, s * HOMBRO.x * 0.55, jn * 0.6)
 			p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = mn
 			p[P_CODO_IZQ if lado == 0 else P_CODO_DER] = cd
+		# 'mano_izq_en' / 'mano_der_en' (03/10, el arco y la ballesta): la mano A ESE PUNTO, doblando el codo. Tensar
+		# un arco es llevar la mano a la cara, y con el brazo rigido no llega. El codo sale hacia 'codo_*_hacia' (por
+		# defecto, hacia fuera y abajo) y los dos tramos guardan su largo. Las demas poses no lo usan.
+		var k_en: String = "mano_izq_en" if lado == 0 else "mano_der_en"
+		if pose.has(k_en):
+			var hacia: Vector3 = pose.get("codo_izq_hacia" if lado == 0 else "codo_der_hacia", Vector3(s, 0.0, -0.6))
+			var ik: Array = _codo_hacia(hombro, pose[k_en], hacia)
+			p[P_CODO_IZQ if lado == 0 else P_CODO_DER] = ik[0]
+			p[P_MANO_IZQ if lado == 0 else P_MANO_DER] = ik[1]
 
 	# LAS PIERNAS: lo mismo sobre la cadera de su lado. Y aqui la rotacion trae de regalo algo que
 	# antes habia que falsear a mano: el pie SUBE al final de la zancada, porque va por un arco y no
@@ -868,6 +886,21 @@ static func montar(pose: Dictionary, dir: int, esc: float = 1.0) -> Dictionary:
 #
 # Aqui positivo = la mano o el pie van HACIA DELANTE, que es lo unico que se quiere pensar al
 # escribir un ciclo de andar.
+# EL CODO PARA LLEGAR A UN PUNTO (ver 'mano_*_en'): los dos tramos del brazo con su largo de siempre; si el
+# punto no se alcanza, la mano se queda en la recta, lo mas cerca que llegue. Devuelve [codo, mano].
+static func _codo_hacia(hombro: Vector3, destino: Vector3, hacia: Vector3) -> Array:
+	var l1: float = (CODO - HOMBRO).length()
+	var l2: float = (MANO - CODO).length()
+	var d: Vector3 = destino - hombro
+	var largo: float = clampf(d.length(), absf(l1 - l2) + 0.05, l1 + l2 - 0.05)
+	var u: Vector3 = d.normalized() if d.length() > 0.01 else Vector3(0.0, 0.0, -1.0)
+	var a: float = (l1 * l1 - l2 * l2 + largo * largo) / (2.0 * largo)
+	var h: float = sqrt(maxf(l1 * l1 - a * a, 0.0))
+	var w: Vector3 = hacia - u * hacia.dot(u)
+	w = w.normalized() if w.length() > 0.01 else Vector3(0.0, 0.0, -1.0)
+	return [hombro + u * a + w * h, hombro + u * largo]
+
+
 static func _girar_miembro(v: Vector3, pivote: Vector3, ang: float) -> Vector3:
 	return _girar_yz(v, pivote, -ang)
 
@@ -1185,6 +1218,11 @@ static func fps_de(base: String) -> float:
 
 
 static func _pose(anim: String, t: float) -> Dictionary:
+	# EL ARCO Y LA BALLESTA (PoseDistancia, 03/10).
+	if anim.ends_with("_arco") or anim.contains("_arco_") or anim.contains("ballesta"):
+		var pd: Dictionary = PoseDistancia.pose(anim, t)
+		if not pd.is_empty():
+			return pd
 	# EL BASTON y LA FLORITURA DE LA VARITA (PoseBaston): antes que nada ('floritura_espada' lleva "espada").
 	if anim.contains("baston") or anim.begins_with("floritura"):
 		var pb: Dictionary = PoseBaston.pose(anim, t)

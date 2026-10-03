@@ -449,7 +449,8 @@ func terminada() -> bool:
 # Que guardia lleva cada una: el mandoble y el martillo, la de DELANTE (guardia_2m).
 const _GUARDIA_DE := {"arma_mandoble_": "guardia_2m", "arma_martillo_grande_": "guardia_2m",
 	"arma_hacha_grande_": "guardia_2m", "arma_daga_": "guardia_daga", "arma_estoque_": "guardia_estoque",
-	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga", "arma_maza_peq_": "guardia_maza", "arma_baston_": "guardia_baston"}
+	"arma_espada_corta_": "guardia_espada", "arma_espada_larga_": "guardia_larga", "arma_maza_peq_": "guardia_maza", "arma_baston_": "guardia_baston",
+	"arma_arco_": "guardia_arco", "arma_ballesta_": "guardia_ballesta"}
 # Las de una mano mandan solo si van en la mano PRINCIPAL (la derecha): una daga en la izquierda con una
 # espada en la derecha no te pone la guardia de la daga.
 const _GUARDIA_SOLO_DER := ["arma_daga_", "arma_estoque_", "arma_espada_corta_", "arma_espada_larga_", "arma_maza_peq_"]

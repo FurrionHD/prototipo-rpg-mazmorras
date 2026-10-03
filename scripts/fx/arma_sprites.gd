@@ -31,15 +31,18 @@ enum Tono {
 	METAL_S,   # el acero en penumbra
 	METAL,     # el acero
 	METAL_L,   # el filo / el brillo
+	# EL ARCO Y LA BALLESTA (03/10, ArcoSprites): la madera de la culata y las flechas, la cuerda y las plumas.
+	MADERA_S, MADERA, MADERA_L, CUERDA, PLUMA, PLUMA_S,
 }
 
 # Nombre de cada WeaponData.Tipo (para las claves de capa). El índice es el valor del enum.
 const TIPO_NOMBRE := [
 	"punos", "daga", "espada_corta", "espada_larga", "mandoble",
 	"estoque", "hacha_grande", "maza_peq", "martillo_grande", "baston",
+	"arco", "ballesta",
 ]
-# El nombre del DIBUJO de un tipo de arma, o "" si aun no tiene (el arco y la ballesta, 02/10, hasta su
-# paso de animaciones): sin dibujo el muñeco va sin arma en la mano en vez de petar por el indice.
+# El nombre del DIBUJO de un tipo de arma, o "" si aun no tiene: sin dibujo el muñeco va sin arma en la mano
+# en vez de petar por el indice. (El arco y la ballesta lo tienen desde el 03/10.)
 static func nombre_de_tipo(tipo: int) -> String:
 	return String(TIPO_NOMBRE[tipo]) if tipo >= 0 and tipo < TIPO_NOMBRE.size() else ""
 
@@ -47,7 +50,7 @@ static func nombre_de_tipo(tipo: int) -> String:
 const EXTRA := ["varita"]
 
 # Las de dos manos: se empuñan con las dos a la vez y se envainan a la ESPALDA.
-const DOS_MANOS := ["mandoble", "hacha_grande", "martillo_grande", "baston"]
+const DOS_MANOS := ["mandoble", "hacha_grande", "martillo_grande", "baston", "arco", "ballesta"]
 
 # GEOMETRÍA por tipo, en unidades de mundo (PoseJugador.ALTO_MUNDO = 60). 'mango' es el trozo que
 # va del puño a la guarda, 'hoja' de la guarda a la punta. Las romas (maza/martillo/hacha) no
@@ -72,6 +75,9 @@ const GEO := {
 	# El baston, de PELEA (26/09): casi tan alto como el personaje, que se agarra cruzado con las manos separadas.
 	"baston":          {"mango": 34.0, "hoja": 0.0,  "r_mango": 1.6, "cabeza": 3.0, "cabeza_forma": "orbe"},
 	# La varita, algo mas larga desde que se agita en la mano (26/09): a 8 no se veia girar.
+	# EL ARCO Y LA BALLESTA (03/10): su forma la dibuja ArcoSprites (llevan cuerda); aqui solo constan.
+	"arco":            {"mango": 0.0, "hoja": 0.0},
+	"ballesta":        {"mango": 0.0, "hoja": 0.0},
 	"varita":          {"mango": 11.0, "hoja": 0.0,  "r_mango": 1.2, "cabeza": 2.3, "cabeza_forma": "orbe"},
 	# LAS HERRAMIENTAS DE RECOLECTAR (ver HERRAMIENTA_ANIM). El pico: astil largo y la cabeza CRUZADA
 	# en el plano del golpe, con las dos puntas curvadas hacia el mango.
@@ -99,7 +105,8 @@ const _ANIM_ENVAINADA := ["idle", "walk", "correr", "sigilo", "encaje", "muerte"
 	"desenvainar_2m", "desenvainar_daga", "desenvainar_estoque", "desenvainar_estoque_esc",
 	"desenvainar_espada", "desenvainar_espada2", "desenvainar_espada_esc",
 	"desenvainar_larga", "desenvainar_larga_esc",
-	"desenvainar_maza", "desenvainar_maza2", "desenvainar_maza_esc", "desenvainar_baston"]
+	"desenvainar_maza", "desenvainar_maza2", "desenvainar_maza_esc", "desenvainar_baston",
+	"desenvainar_arco", "desenvainar_ballesta"]
 const _ANIM_MANO_1H := ["guardia", "guardia_and", "guardia_cor", "golpe", "golpe_izq",
 	"guardia_daga", "guardia_daga_and", "guardia_daga_cor",
 	"tajo_daga", "tajo_daga_izq", "tajo_daga_solo", "punalada_daga", "punalada_daga_izq", "lanzar_humo",
@@ -130,7 +137,10 @@ const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"guardia_2m", "guardia_2m_and", "guardia_2m_cor",
 	"hendedura_2m", "hachazo_2m", "carniceria_2m", "gancho_2m", "mirada", "defensa_2m",
 	# El baston (26/09). Su desenvainar NO: ahi lo pinta la capa de la espalda viajando a la mano.
-	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston"]
+	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston",
+	# El arco y la ballesta (03/10, PoseDistancia). Su desenvainar lo pinta la mano desde que la agarra.
+	"guardia_arco", "guardia_arco_and", "guardia_arco_cor",
+	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---
@@ -164,6 +174,12 @@ const ROLES := [
 	PaletaEquipo.Rol.MATERIAL_S,   # 5 METAL_S
 	PaletaEquipo.Rol.MATERIAL,     # 6 METAL
 	PaletaEquipo.Rol.MATERIAL_L,   # 7 METAL_L
+	PaletaEquipo.Rol.MADERA_S,     # 8 MADERA_S
+	PaletaEquipo.Rol.MADERA,       # 9 MADERA
+	PaletaEquipo.Rol.MADERA_L,     # 10 MADERA_L
+	PaletaEquipo.Rol.CUERDA,       # 11 CUERDA
+	PaletaEquipo.Rol.PLUMA,        # 12 PLUMA
+	PaletaEquipo.Rol.PLUMA_S,      # 13 PLUMA_S
 ]
 
 const CLAVE_ROLES := "arma"
@@ -172,7 +188,8 @@ const CLAVE_ROLES := "arma"
 # LA FAMILIA DEL MATERIAL de un arma. Un baston y una varita son de MADERA -- su "hoja" es el asta --,
 # el resto son de metal. Sin esto, un baston de tier 3 saldria de acero blanco.
 static func familia_de(tn: String) -> String:
-	return PaletaEquipo.LEÑO if tn in ["baston", "varita"] else PaletaEquipo.METAL
+	# El ARCO tambien (sus palas); la BALLESTA no: su arco es de metal y la culata va por MADERA.
+	return PaletaEquipo.LEÑO if tn in ["baston", "varita", "arco"] else PaletaEquipo.METAL
 
 
 # ============================================================
@@ -273,6 +290,23 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 	if g.is_empty():
 		return
 	var anim: String = String(esq.get("anim", ""))
+	# EL ARCO Y LA BALLESTA (ArcoSprites). El CARCAJ va en la capa de la espalda y se pinta SIEMPRE que se vea
+	# la espalda, tambien con el arco en la mano.
+	if ArcoSprites.es_suyo(tipo):
+		if estado == "mano":
+			var sac_m: float = float((esq.get("pose", {}) as Dictionary).get("sacando", -1.0))
+			if _dibuja_en(anim, tipo, estado) or sac_m >= 0.5:
+				ArcoSprites.pintar_mano(piezas, esq, tipo)
+			return
+		var enfundada: bool = _dibuja_en(anim, tipo, estado)
+		var sac2: float = float((esq.get("pose", {}) as Dictionary).get("sacando", -1.0))
+		if sac2 >= 0.0:
+			# Desenvainando: hasta que la mano lo agarra sigue en la espalda; luego lo pinta la capa de la mano.
+			enfundada = sac2 < 0.5
+		if not _visible_envainada(estado, 0, int(esq.get("dir", 0))):
+			return
+		ArcoSprites.pintar_espalda(piezas, esq, tipo, enfundada)
+		return
 	if not _dibuja_en(anim, tipo, estado, int(info["mano"])):
 		return
 
@@ -325,6 +359,9 @@ const RETRATO_DIR := Vector2(0.7071, 0.7071)   # en pantalla: x a la derecha, y 
 const RETRATO_ALTURA := 30.0                  # a que altura del lienzo se centra (media figura)
 
 static func pintar_retrato(esq: Dictionary, piezas: Array, tipo: String) -> void:
+	if ArcoSprites.es_suyo(tipo):
+		ArcoSprites.pintar_retrato(esq, piezas, tipo)
+		return
 	var g: Dictionary = GEO.get(tipo, {})
 	if g.is_empty():
 		return

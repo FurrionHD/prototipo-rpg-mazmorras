@@ -63,6 +63,11 @@ enum Rol {
 	MADERA_S,       # la madera de un asta o un escudo, en penumbra
 	MADERA,         # la madera, tono base
 	MADERA_L,       # la madera, luz
+	# EL ARCO Y LA BALLESTA (03/10): colores FIJOS, como el borde. La cuerda es lino claro en cualquier tier, y las
+	# plumas, rojas como las de sus disparos (DistanciaAire.PLUMA): son la misma flecha, en el carcaj y volando.
+	CUERDA,
+	PLUMA,
+	PLUMA_S,
 }
 
 # LAS FAMILIAS DE MATERIAL. 'MATERIAL' se resuelve con la que le toque a la pieza: una armadura de
@@ -181,6 +186,9 @@ const ACENTOS := [
 const C_BORDE := Color(0.08, 0.08, 0.10)
 const C_OSCURO := Color(0.11, 0.11, 0.14)
 const C_SOMBRA := Color(0.0, 0.0, 0.0, 0.20)
+const C_CUERDA := Color(0.86, 0.82, 0.70)
+const C_PLUMA := Color(0.86, 0.30, 0.24)
+const C_PLUMA_S := Color(0.55, 0.16, 0.14)
 
 
 # ============================================================
@@ -315,4 +323,7 @@ static func _color_de(rol: int, mat: Color, cuero: Color, madera: Color, acento:
 		Rol.MADERA_S: return _derivar(madera, 0.62, 1.12)
 		Rol.MADERA: return madera
 		Rol.MADERA_L: return _derivar(madera, 1.24, 0.68)
+		Rol.CUERDA: return C_CUERDA
+		Rol.PLUMA: return C_PLUMA
+		Rol.PLUMA_S: return C_PLUMA_S
 		_: return C_BORDE
