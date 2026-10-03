@@ -815,6 +815,9 @@ func _con_su_guardia_base(nombre: String) -> String:
 	# aguantando la cuerda en la cara.
 	if _guardia_propia == "guardia_arco" and nombre.begins_with("en_alto_"):
 		return "tensado_arco_" + nombre.substr(8)
+	# EL GOLPE DEL MAPA con arco o ballesta (Player._arrancar_golpe pide el de dos manos): su disparo.
+	if _guardia_propia in ["guardia_arco", "guardia_ballesta"] and nombre.begins_with("golpe_2m_"):
+		return ("disparo_arco_" if _guardia_propia == "guardia_arco" else "disparo_ballesta_") + nombre.substr(9)
 	if nombre.begins_with("desenvainar"):
 		guardia_defensiva = false
 	# La DEFENSIVA solo en la quieta ("guardia_N"): andando y corriendo se mueve con la de siempre.

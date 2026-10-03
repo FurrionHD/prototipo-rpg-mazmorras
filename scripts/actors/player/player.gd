@@ -1511,6 +1511,12 @@ func _tick_ataque(delta: float) -> void:
 func _arrancar_golpe() -> void:
 	_golpe_variante = _elegir_golpe()
 	_golpe_t = DUR_GOLPE_2M if _golpe_variante == 2 else DUR_GOLPE
+	# CON ARCO O BALLESTA el gesto es su disparo (MunecoJugador lo cambia) y la flecha sale cuando SUELTA: se
+	# acaba ahi, no a los 0,8 s del hachazo.
+	if Game.lleva_arma_distancia(Game.lider()):
+		var ballesta: bool = Game.equipped_main is WeaponData \
+			and int((Game.equipped_main as WeaponData).tipo) == WeaponData.Tipo.BALLESTA
+		_golpe_t = PoseDistancia.SUELTA_BALLESTA if ballesta else PoseDistancia.SUELTA_ARCO
 	_golpe_seq = (_golpe_seq + 1) & 0xFF   # que los demas vean el espadazo (ver _pose_red)
 	_golpe_sfx_t = _golpe_t * (CONTACTO_GOLPE_2M if _golpe_variante == 2 else CONTACTO_GOLPE)
 

@@ -29,6 +29,10 @@ const TOR_ARCO := 0.6
 const TOR_BALL := 0.45
 # AL TENSAR, de lado del todo: los hombros en la linea del tiro (asi cabe la flecha entre la mano y la cara).
 const TOR_TIRO := 1.15
+# CUANDO SUELTA el basico, en segundos (el marco de la suelta / fps). El disparo del MAPA sale ahi
+# (Player._arrancar_golpe), no al acabar el gesto.
+const SUELTA_ARCO := 8.0 / 18.0
+const SUELTA_BALLESTA := 4.0 / 18.0
 
 
 static func pose(anim: String, t: float) -> Dictionary:
