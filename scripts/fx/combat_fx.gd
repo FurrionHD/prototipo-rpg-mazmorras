@@ -1990,6 +1990,8 @@ const ANIM_CUERPO_MAPA := {
 	Estilo.VIENTO_LIMPIO: "viento_baston", Estilo.VELO_UMBRIO: "velo_baston",
 	# El Foco: con baston, plantarlo; con la varita, la floritura (lo cambia el muñeco: _con_su_guardia_base).
 	Estilo.FOCO_ARCANO: "foco_baston",
+	# EL ARCO Y LA BALLESTA (03/10): el basico. Las habilidades, con las suyas (paso siguiente).
+	Estilo.FLECHA: "disparo_arco", Estilo.VIROTE: "disparo_ballesta", Estilo.VIROTE_PASA: "disparo_ballesta",
 	# LA VARITA (26/09): sus habilidades, la floritura (una generica para todo, lo dijo el).
 	Estilo.PURIFICAR: "floritura", Estilo.CHISPA_VINCULADA: "floritura", Estilo.EGIDA_MENOR: "floritura",
 }
@@ -2055,6 +2057,9 @@ const IMPACTO_ANIM_MAPA := {
 	# ciempies (se cierra en el 5). (Los SALTOS -el Picado del chillon- no: el golpe llega con el cuerpo que salta, y
 	# con fx_anim puesto la pelea dejaria de moverlo.)
 	"cornada": 0.23, "enrosque": 0.23,
+	# EL ARCO Y LA BALLESTA (03/10): el golpe llega cuando suelta MAS lo que vuela (CombatFX.vuelo del estilo): el
+	# arco suelta en el 8 de 12 a 18 fps (0,44) y la flecha tarda 0,20; la ballesta dispara en el 4 (0,22) + 0,15.
+	"disparo_arco": 0.64, "disparo_ballesta": 0.37,
 	"golpe_2m": 0.55, "tajo_2m": 0.40, "clavar": 0.46, "barrido_2m": 0.16, "molinete": 0.20,
 	"grito": 0.20,
 	# El hacha: su clave del golpe / fps (hendedura 0,66x12/18; hachazo 0,45x12/18 = arranca el barrido;

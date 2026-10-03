@@ -92,6 +92,11 @@ const _BASES_REORDEN_ARMA := ["golpe", "golpe_izq", "golpe_2m", "tajo_2m", "clav
 	"golpe_escudo", "embestida_escudo", "provoca_escudo", "amparo_escudo", "rodela_escudo", "carne_escudo", "escolta_escudo",
 	"mazazo_maza", "rompe_maza", "culatazo_maza", "demoledor_maza", "aplasta_maza", "aliento_maza", "muro_maza", "mazazo_maza2", "mazazo_maza2_izq", "rompe_maza2", "rompe_maza2_izq", "culatazo_maza2", "culatazo_maza2_izq", "demoledor_maza2", "aliento_maza2", "muro_maza2", "mazazo_maza_esc", "rompe_maza_esc", "culatazo_maza_esc", "demoledor_maza_esc", "aplasta_maza_esc", "aliento_maza_esc", "muro_maza_esc",
 	"golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston", "floritura", "floritura_daga", "floritura_estoque", "floritura_espada", "floritura_larga", "floritura_maza"]
+# EL ARCO Y LA BALLESTA (03/10): se ordenan por el CENTRO DEL ARMA (ArcoSprites.centro), FOTOGRAMA A FOTOGRAMA, y
+# del lado de la camara van delante de todo. El arco lo lleva la izquierda: medido por la mano derecha se iba detras
+# de las piernas al oeste.
+const _BASES_DISTANCIA := ["guardia_arco", "guardia_arco_and", "guardia_arco_cor", "desenvainar_arco", "disparo_arco",
+	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor", "desenvainar_ballesta", "disparo_ballesta"]
 # Las de DOS MANOS (martillo, mandoble y hacha): en estas el arma del lado de la camara se pinta delante de todo.
 # Las de una mano no se tocan todavia (lo pidio el jefe: solo las armas hechas).
 const _BASES_ARMA_DELANTE := ["golpe_2m", "tajo_2m", "clavar", "barrido_2m", "grito", "en_alto",
@@ -918,7 +923,7 @@ func _escribir(i: int) -> void:
 func _reordenar_arma_mano(i: int) -> void:
 	var base: String = _base_de(_anim)
 	if _idx_arma_mano.is_empty() or not (_BASES_REORDEN_ARMA.has(base) or PoseJugador.FAENAS.has(base)
-			or _BASES_ARMA_DELANTE.has(base)):
+			or _BASES_ARMA_DELANTE.has(base) or _BASES_DISTANCIA.has(base)):
 		return
 	var esq: Dictionary = _esqueleto_de(base, i, _dir_de(_anim))
 	# EL HACHAZO A DOS MANOS, EN LA DESCARGA, SE FUERZA DELANTE. El golpe empuja la empuñadura
@@ -951,6 +956,11 @@ func _reordenar_arma_mano(i: int) -> void:
 		# al sur el tajo desaparecia). Si esta del otro lado, se queda detras: es donde esta.
 		if prof > 1.0 and _BASES_ARMA_DELANTE.has(base):
 			prof = maxf(prof, 40.0)
+		if _BASES_DISTANCIA.has(base):
+			var tipo_d: String = "arco" if String(c["clave"]).begins_with("arma_arco_") else "ballesta"
+			prof = PoseJugador.profundidad_de(esq, ArcoSprites.centro(esq, tipo_d))
+			if prof > 1.0:
+				prof = maxf(prof, 40.0)
 		if forzar:
 			# NO BASTA CON "delante del cuerpo": mirando al norte el pelo que cuelga TAMBIEN se pone
 			# delante (te tapa la espalda, JugadorSprites.Z_CUELGA_DELANTE = 2046 -- correcto, es tu

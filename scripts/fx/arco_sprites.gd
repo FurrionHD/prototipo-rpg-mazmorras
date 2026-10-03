@@ -68,6 +68,9 @@ static func pintar_mano(piezas: Array, esq: Dictionary, tipo: String) -> void:
 	else:
 		var g2: Vector3 = p[PoseJugador.P_EMPUNADURA_DER]
 		var f2: Vector3 = _vec(po, "ball_f", Vector3(0.0, 1.0, 0.0))
+		# RECARGANDO la sujeta la IZQUIERDA (la derecha tira de la cuerda): el gatillo, un palmo detras de ella.
+		if float(po.get("ball_izq", 0.0)) > 0.5:
+			g2 = (p[PoseJugador.P_EMPUNADURA_IZQ] as Vector3) - f2 * 6.5
 		_ballesta(piezas, esq, g2, f2, clampf(float(po.get("ball_cuerda", 1.0)), 0.0, 1.0),
 			float(po.get("virote", 1.0)) > 0.5, {"z_torsion": g2.z})
 
@@ -237,3 +240,16 @@ static func pintar_retrato(esq: Dictionary, piezas: Array, tipo: String) -> void
 	else:
 		var f2 := Vector3(0.82, 0.0, 0.57 * k).normalized()
 		_ballesta(piezas, esq, centro - f2 * 2.5, f2, 1.0, true, op, Vector3(0.0, -1.0, 0.0))
+
+
+# EL CENTRO DEL ARMA EN LA MANO, para ordenarla delante o detras del cuerpo (MunecoJugador._reordenar_arma_mano):
+# el arco lo lleva la IZQUIERDA y medir por la mano derecha lo mandaba detras de las piernas al oeste.
+static func centro(esq: Dictionary, tipo: String) -> Vector3:
+	var p: Dictionary = esq["puntos"]
+	var po: Dictionary = esq.get("pose", {})
+	if tipo == "arco":
+		return p[PoseJugador.P_EMPUNADURA_IZQ]
+	var f: Vector3 = _vec(po, "ball_f", Vector3(0.0, 1.0, 0.0))
+	if float(po.get("ball_izq", 0.0)) > 0.5:
+		return (p[PoseJugador.P_EMPUNADURA_IZQ] as Vector3) - f * 3.0
+	return (p[PoseJugador.P_EMPUNADURA_DER] as Vector3) + f * 3.5

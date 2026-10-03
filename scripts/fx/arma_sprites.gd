@@ -140,7 +140,7 @@ const _ANIM_MANO_2H := ["guardia", "guardia_and", "guardia_cor", "golpe_2m",
 	"guardia_baston", "guardia_baston_and", "guardia_baston_cor", "defensa_baston", "golpe_baston", "bastonazo_baston", "sello_baston", "viento_baston", "foco_baston", "velo_baston", "conjuro_baston",
 	# El arco y la ballesta (03/10, PoseDistancia). Su desenvainar lo pinta la mano desde que la agarra.
 	"guardia_arco", "guardia_arco_and", "guardia_arco_cor",
-	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor"]
+	"guardia_ballesta", "guardia_ballesta_and", "guardia_ballesta_cor", "disparo_arco", "disparo_ballesta"]
 
 
 # --- Contrato de capa (ver CapaJugador y el registro de JugadorSprites) ---

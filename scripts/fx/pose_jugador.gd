@@ -433,6 +433,9 @@ const ANIMS := [
 	{"n": "guardia_ballesta_and", "loop": true, "fps": 8.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "guardia_ballesta_cor", "loop": true, "fps": 11.0, "dirs": 8, "marcos": 8, "ultimo": false},
 	{"n": "desenvainar_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 8, "ultimo": true},
+	# Los basicos: el arco suelta en el marco 8 y la ballesta dispara en el 4 y recarga (CombatFX.IMPACTO_ANIM_MAPA).
+	{"n": "disparo_arco", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 12, "ultimo": true},
+	{"n": "disparo_ballesta", "loop": false, "fps": 18.0, "dirs": 8, "marcos": 14, "ultimo": true},
 	# LA FLORITURA DE LA VARITA (26/09, PoseBaston): la izquierda con la varita; la derecha en la guardia de lo que lleve.
 	{"n": "floritura", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},
 	{"n": "floritura_daga", "loop": false, "fps": 16.0, "dirs": 8, "marcos": 12, "ultimo": true},

@@ -202,6 +202,31 @@ func _correr() -> void:
 		print("=== FIN ===")
 		get_tree().quit(0)
 		return
+	# SUELO_BASICO=1 (03/10, el arco y la ballesta): pulsa Atacar al mas cercano y apunta cuando cambia la animacion
+	# del muñeco y cuando le baja la vida al enemigo (el golpe tiene que llegar despues de soltar, con el vuelo).
+	if OS.get_environment("SUELO_BASICO") != "":
+		var mun_b: MunecoJugador = t.cuerpo_de(combat._player).get("_muneco")
+		var vidas: Dictionary = {}
+		for e in combat._enemies:
+			vidas[e] = (e as Combatant).current_hp
+		combat._accion_atacar()
+		var t0: int = Time.get_ticks_msec()
+		var ultima: String = ""
+		while Time.get_ticks_msec() - t0 < 3500:
+			await get_tree().process_frame
+			var ms: int = Time.get_ticks_msec() - t0
+			var an: String = mun_b.anim_actual()
+			if an != ultima:
+				print("  %4d ms  muñeco: %s" % [ms, an])
+				ultima = an
+			for e in vidas:
+				if (e as Combatant).current_hp < float(vidas[e]):
+					print("  %4d ms  le baja la vida a %s (%.1f -> %.1f)" % [ms, (e as Combatant).nombre, float(vidas[e]),
+						(e as Combatant).current_hp])
+					vidas[e] = (e as Combatant).current_hp
+		print("=== FIN ===")
+		get_tree().quit(0)
+		return
 	# SUELO_DEFENSA=1: pulsa Defender y mira que el muñeco se queda en su postura de defensa.
 	if OS.get_environment("SUELO_DEFENSA") != "":
 		var mun_d: MunecoJugador = t.cuerpo_de(combat._player).get("_muneco")
