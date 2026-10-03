@@ -1153,7 +1153,8 @@ func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
 		return nada
 	var cuantos: int = puntos.size() + (companeros().size() if extra == 0 else 0)
 	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
-	return ArenaCalculo.forma_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado)
+	# En la arena de pruebas su sala (44x30) se recorta a lo pedido; en la mazmorra la sala va entera.
+	return ArenaCalculo.forma_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado, not es_arena())
 
 
 # Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.

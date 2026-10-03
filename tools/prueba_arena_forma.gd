@@ -19,6 +19,7 @@ var _fallos: int = 0
 var _casos: int = 0
 var _rellenos: int = 0
 var _largo_max: int = 0
+var _con_sala: int = 0
 
 
 func _ready() -> void:
@@ -30,8 +31,8 @@ func _ready() -> void:
 		gen.generar(80, 60, 1000 + p * 7)
 		_probar_piso(gen, rng, p)
 	_probar_determinismo()
-	print("[forma] %d casos, %d con relleno (no cabian en su sala), lado mas largo %d celdas, %d fallos"
-		% [_casos, _rellenos, _largo_max, _fallos])
+	print("[forma] %d casos, %d en pasillo (%d cogen de una sala por cortos), lado mas largo %d celdas, %d fallos"
+		% [_casos, _rellenos, _con_sala, _largo_max, _fallos])
 	print("[forma] RESULTADO: %s" % ("TODO BIEN" if _fallos == 0 else "HAY FALLOS"))
 	get_tree().quit(1 if _fallos > 0 else 0)
 
@@ -67,16 +68,23 @@ func _comprobar(gen: DungeonGenerator, f: Dictionary, semilla: Vector2i, deseado
 	# 3) La semilla, dentro.
 	_afirmar(ArenaCalculo.en_forma(r, m, semilla), "%s: la semilla %s fuera de su arena" % [donde, semilla])
 	if m.is_empty():
-		# 2a) EL RECTANGULO: lo pedido, y dentro de una sala.
-		_afirmar(r.size == deseado, "%s: rectangulo %s y se pidio %s" % [donde, r.size, deseado])
+		# 2a) EN UNA SALA: la sala entera.
 		var z: int = gen.zona_en(semilla)
-		_afirmar(z >= 0 and String(gen.zonas[z]["tipo"]) == "sala"
-			and (gen.zonas[z]["rect"] as Rect2i).encloses(r), "%s: rectangulo %s fuera de su sala" % [donde, r])
+		_afirmar(z >= 0 and String(gen.zonas[z]["tipo"]) == "sala" and gen.zonas[z]["rect"] == r,
+			"%s: el rectangulo %s no es su sala entera" % [donde, r])
 	else:
 		_rellenos += 1
-		# 2b) LA MISMA SUPERFICIE.
-		_afirmar(celdas.size() == deseado.x * deseado.y,
-			"%s: relleno de %d celdas y se pedian %d" % [donde, celdas.size(), deseado.x * deseado.y])
+		# 2b) EN UN PASILLO: nunca mas largo que el tope, y en la sala solo si el pasillo no daba el minimo.
+		_afirmar(maxi(r.size.x, r.size.y) <= ArenaCalculo.PASILLO_TOPE * 2 + 1,
+			"%s: el pasillo mide %s, se pasa del tope" % [donde, r.size])
+		var en_sala: int = 0
+		for c in celdas:
+			if ArenaCalculo._es_sala(gen, c):
+				en_sala += 1
+		_afirmar(en_sala == 0 or celdas.size() <= ArenaCalculo.PASILLO_MIN_CELDAS,
+			"%s: coge %d celdas de sala teniendo %d (minimo %d)" % [donde, en_sala, celdas.size(), ArenaCalculo.PASILLO_MIN_CELDAS])
+		if en_sala > 0:
+			_con_sala += 1
 		# 3) Todo suelo y de una pieza.
 		for c in celdas:
 			if not gen.es_suelo(c):

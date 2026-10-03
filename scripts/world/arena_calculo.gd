@@ -121,44 +121,60 @@ static func rect_de_arena(gen: DungeonGenerator, semilla_px: Vector2,
 
 
 # ============================================================
-#  LA ARENA EN LA MAZMORRA (03/10/2026, idea del jefe): LA MISMA SUPERFICIE, CON LA FORMA DEL SITIO
-#  La pelea mide SIEMPRE lo mismo -- las celdas que tendria ese mismo encuentro en la arena de pruebas
-#  (deseado.x * deseado.y) -- pero se adapta a donde cae:
-#    - si cabe en la SALA donde empieza, el rectangulo de siempre (lo eligio el: "como hoy");
-#    - si no (un pasillo, una sala pequeña, la boca de una puerta), se RELLENA desde la semilla por el
-#      suelo, celda a celda y siempre la mas cercana primero, hasta juntar esa superficie. En un pasillo
-#      se estira a lo largo; si llega a una sala, coge de ella lo que le falte. SIN TOPE de largo
-#      (decision suya: "lo vemos en el playtest").
+#  LA ARENA EN LA MAZMORRA: LA FORMA DEL SITIO (03/10/2026, ideas del jefe)
+#  Primero fue "la misma superficie que en la arena de pruebas"; jugandolo le parecio DEMASIADO GRANDE (en un
+#  pasillo largo se estiraba casi 2.000 px y metia a enemigos de muy lejos). La regla que quedo, suya:
+#    - EN UNA SALA: la arena es LA SALA ENTERA, mida lo que mida (8x6 .. 18x12, la del jefe hasta 27x18).
+#      Salvo la arena de pruebas (sala_entera = false): su sala es de 44x30 y ahi se recorta como siempre.
+#    - EN UN PASILLO: el pasillo, sin meterse en las salas, y como mucho PASILLO_TOPE celdas hacia cada lado
+#      desde donde empieza la pelea (unas 20 de largo, ~640 px: "maximo 20"). Si el tramo es tan corto que
+#      no llega a PASILLO_MIN_LARGO de largo, coge de la sala de al lado lo que le falte ("minimo 12").
 #  Devuelve {"rect": Rect2i, "mascara": PackedByteArray}: el rectangulo que la envuelve y, fila a fila,
-#  1 en las celdas que son arena. Mascara VACIA = el rectangulo entero (el caso de la sala, y el de
-#  siempre en la arena de pruebas). rect vacio = aqui no se pelea en tactico.
+#  1 en las celdas que son arena. Mascara VACIA = el rectangulo entero. rect vacio = aqui no se pelea en tactico.
 # ============================================================
-static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i) -> Dictionary:
+const PASILLO_TOPE := 10          # celdas hacia cada lado desde la semilla (unas 20 de largo)
+const PASILLO_MIN_LARGO := 12     # por debajo de este largo, se coge de la sala
+# Lo que da ese largo en un pasillo de los estrechos (3 de ancho, DungeonFloor.ancho_pasillo): el minimo de
+# celdas. En los pasillos mas anchos de los pisos hondos ese minimo se cumple antes, que es lo justo: ya hay sitio.
+const PASILLO_MIN_CELDAS := PASILLO_MIN_LARGO * 3
+
+static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i,
+		sala_entera: bool = true) -> Dictionary:
 	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
 	if gen == null or gen.ancho <= 0 or gen.alto <= 0:
 		return nada
 	var semilla: Vector2i = _suelo_cerca(gen, celda_de_px(semilla_px))
 	if semilla.x < 0:
 		return nada
-	var z: int = gen.zona_en(semilla)
-	if z >= 0 and z < gen.zonas.size() and String(gen.zonas[z]["tipo"]) == "sala":
-		var sala: Rect2i = gen.zonas[z]["rect"]
-		if sala.size.x >= deseado.x and sala.size.y >= deseado.y:
+	if _es_sala(gen, semilla):
+		var sala: Rect2i = gen.zonas[gen.zona_en(semilla)]["rect"]
+		if not sala_entera:
 			return {"rect": _recortar(sala, semilla, deseado), "mascara": PackedByteArray()}
-	var celdas: Array[Vector2i] = _rellenar(gen, semilla, deseado.x * deseado.y)
-	if celdas.size() < ARENA_MIN.x * ARENA_MIN.y:
+		return {"rect": sala, "mascara": PackedByteArray()}
+	# EL PASILLO: primero solo pasillo, hasta el tope; si no llega al minimo, sigue por la sala hasta llegar.
+	var celdas: Array[Vector2i] = _rellenar(gen, semilla, 1 << 30, PASILLO_TOPE, false)
+	if celdas.size() < PASILLO_MIN_CELDAS:
+		celdas = _rellenar(gen, semilla, PASILLO_MIN_CELDAS, PASILLO_TOPE, true)
+	if celdas.size() < 4:
 		return nada
 	return _empaquetar(celdas)
 
 
+static func _es_sala(gen: DungeonGenerator, c: Vector2i) -> bool:
+	var z: int = gen.zona_en(c)
+	return z >= 0 and z < gen.zonas.size() and String(gen.zonas[z]["tipo"]) == "sala"
+
+
 # EL RELLENO: desde la semilla, por suelo y en cruz (sin cortar esquinas de roca), coge siempre la celda
-# de la frontera MAS CERCANA en linea recta a la semilla. Asi en una sala abierta sale redondo y en un
-# pasillo se va estirando por los dos lados a la vez.
-static func _rellenar(gen: DungeonGenerator, semilla: Vector2i, objetivo: int) -> Array[Vector2i]:
+# de la frontera MAS CERCANA en linea recta a la semilla, hasta 'objetivo' celdas. 'tope' = no se pasa de
+# esa distancia (en celdas) a la semilla; 'con_salas' = false no entra en las salas (solo pasillo).
+static func _rellenar(gen: DungeonGenerator, semilla: Vector2i, objetivo: int, tope: int,
+		con_salas: bool) -> Array[Vector2i]:
 	var vistas: Dictionary = {semilla: true}
 	var out: Array[Vector2i] = [semilla]
 	var frontera: Array[Vector2i] = []
 	var cruz: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
+	var tope2: int = tope * tope
 	var c: Vector2i = semilla
 	while out.size() < objetivo:
 		for d in cruz:
@@ -166,17 +182,20 @@ static func _rellenar(gen: DungeonGenerator, semilla: Vector2i, objetivo: int) -
 			if vistas.has(v):
 				continue
 			vistas[v] = true
-			if gen.es_suelo(v):
-				frontera.append(v)
+			if not gen.es_suelo(v) or (v - semilla).length_squared() > tope2:
+				continue
+			if not con_salas and _es_sala(gen, v):
+				continue
+			frontera.append(v)
 		if frontera.is_empty():
 			break
 		# La mas cercana; a igual distancia, la primera que entro (determinista: la misma en todas las maquinas).
 		var mejor: int = 0
 		var mejor_d: int = (frontera[0] - semilla).length_squared()
-		for i in range(1, frontera.size()):
-			var dd: int = (frontera[i] - semilla).length_squared()
+		for k in range(1, frontera.size()):
+			var dd: int = (frontera[k] - semilla).length_squared()
 			if dd < mejor_d:
-				mejor = i
+				mejor = k
 				mejor_d = dd
 		c = frontera[mejor]
 		frontera.remove_at(mejor)
