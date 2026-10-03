@@ -139,6 +139,14 @@ func _ready() -> void:
 	await _esperar(3.0)   # que cargue el piso y reciba los enemigos
 	await _abrir_pelea_con_un_enemigo()
 	_ok(Game.hay_pelea_en_pantalla(), "se abre la pelea contra un enemigo del trabajador")
+	# EN LA MAZMORRA LA PELEA ES TACTICA (03/10): la arena la calcula el trabajador y me llega con su forma.
+	var pt: Node = Net.peleas._pantalla_combate()
+	_ok(pt != null and bool(pt.get("tactico")) and Game.pelea_tactica_en_curso(),
+		"la pelea del trabajador en la mazmorra es TACTICA y veo su arena")
+	var ar = Game.get("_arena_nodo")
+	if is_instance_valid(ar):
+		print("[dev] arena en mi mapa: %s, forma %s, %d tramos de borde" % [str(ar.rect_celdas),
+			"relleno" if not (ar.mascara as PackedByteArray).is_empty() else "rectangulo", ar.tramos.size()])
 	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f1,
 		"la pelea la ejecuta el de pelea y yo la espejo (anfitrion=%d, de pelea=%d, dueño=%d)" % [
 			Net.peleas._pelea_anfitrion, f1, dueno2])
@@ -186,17 +194,29 @@ func _ready() -> void:
 	# 5b) La juego desde el espejo (Atacar en cada turno mio) hasta que acabe y pulso Continuar: el
 	# trabajador tiene que cerrarla SOLO (no tiene quien pulse) y devolverme lo mio.
 	var excelia_antes: float = _excelia_grupo()
+	var stats_antes: Dictionary = (Game.lider().ability_internal as Dictionary).duplicate()
 	var dur_antes: float = Game.durabilidad_slot("main", Game.lider())
 	t = 0.0
 	var mia: Node = Net.peleas._pantalla_combate()
-	while is_instance_valid(mia) and t < 90.0 and not (mia.acabada() if mia.has_method("acabada") else true):
+	# En tactico la pelea es mas larga (se anda, y la arena del pasillo mete a los de lejos): mas plazo.
+	var plazo: float = 150.0 if is_instance_valid(mia) and bool(mia.get("tactico")) else 90.0
+	while is_instance_valid(mia) and t < plazo and not (mia.acabada() if mia.has_method("acabada") else true):
 		if int(mia.get("_state")) == 1 and not _caja_abierta(mia):
 			var b: BaseButton = (mia.get("_action_buttons") as Dictionary).get(0)
 			if b != null and not b.disabled and b.is_visible_in_tree():
 				b.pressed.emit()
+			elif bool(mia.get("tactico")):
+				# EN TACTICO, fuera de alcance: ando hacia el enemigo un rato y vuelvo a mirar.
+				await _andar_hacia_objetivo(mia)
+		if fmod(t, 5.0) < 0.26:
+			_traza_tactico(mia, t)
 		await _esperar(0.25)
 		t += 0.25
 	_ok(is_instance_valid(mia) and mia.acabada(), "la pelea del trabajador termina jugandola desde el espejo (%.1f s)" % t)
+	if is_instance_valid(mia) and not mia.acabada():
+		var tz: Array = mia.get("_traza")
+		for l in tz.slice(maxi(0, tz.size() - 80)):
+			print("[traza-espejo] ", l)
 	var cerradas_antes := _lineas_en_registros("[pelea] cierro la pelea acabada")
 	if is_instance_valid(mia):
 		mia._on_continue_pressed()
@@ -208,6 +228,15 @@ func _ready() -> void:
 	_ok(not Game.hay_pelea_en_pantalla() and not Net.peleas.espejando() and not Net.peleas._desgaste_pendiente,
 		"vuelvo al mapa con lo mio de vuelta")
 	_ok(_excelia_grupo() > excelia_antes, "la excelia de la pelea llega a mis personajes (%.2f -> %.2f)" % [excelia_antes, _excelia_grupo()])
+	# Y STAT A STAT del lider: pegando sube la Fuerza (o la Destreza, si su arma escala con ella).
+	var stats_despues: Dictionary = Game.lider().ability_internal
+	var cambio: Array = []
+	for k in stats_despues:
+		cambio.append("%s %.3f->%.3f" % [k, float(stats_antes.get(k, 0.0)), float(stats_despues[k])])
+	print("[dev] stats del lider tras la pelea tactica: ", ", ".join(cambio))
+	_ok(float(stats_despues.get("fuerza", 0.0)) > float(stats_antes.get("fuerza", 0.0))
+		or float(stats_despues.get("destreza", 0.0)) > float(stats_antes.get("destreza", 0.0)),
+		"el lider gana Fuerza/Destreza pegando en la pelea tactica del trabajador")
 	var dur_despues: float = Game.durabilidad_slot("main", Game.lider())
 	_ok(Game.lider().equipped_main == null or dur_despues < dur_antes,
 		"el arma del lider se gasta en la pelea del trabajador (%.4f -> %.4f)" % [dur_antes, dur_despues])
@@ -302,11 +331,20 @@ func _abrir_pelea_con_un_enemigo() -> void:
 	var presa = null
 	# Espejos si el piso lo simula otro; los de VERDAD si lo he heredado yo (paso 6).
 	var ids: Array = Net.enemigos._enemigos.keys() if Net._soy_dueno else Net.enemigos._enem_nodos.keys()
+	# Mejor uno que este en una SALA: en un pasillo de 3 celdas con el grupo en fila solo pelea el de delante y
+	# la pelea tactica se alarga mucho (eso se juega, pero aqui solo se quiere que acabe y devuelva lo mio).
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var gen: DungeonGenerator = piso.get("gen") if piso != null else null
 	for id in ids:
 		var n = Net.peleas.nodo_de_id(int(id))
 		if is_instance_valid(n) and not n.esta_muerto() and Net.peleas.pelea_de_enemigo(n) == 0:
-			presa = n
-			break
+			if presa == null:
+				presa = n
+			if gen != null:
+				var z: int = gen.zona_en(ArenaCalculo.celda_de_px((n as Node2D).global_position))
+				if z >= 0 and String(gen.zonas[z]["tipo"]) == "sala":
+					presa = n
+					break
 	if jugador == null or presa == null:
 		print("[dev] no hay jugador o enemigo libre para pelear")
 		return
@@ -323,6 +361,89 @@ func _abrir_pelea_con_un_enemigo() -> void:
 		while not Game.hay_pelea_en_pantalla() and t < 6.0:
 			await _esperar(0.25)
 			t += 0.25
+
+
+# EN TACTICO, mi turno con el enemigo fuera de alcance: ando hacia el con las teclas, como un jugador.
+func _andar_hacia_objetivo(p: Node) -> void:
+	var tm = p.get("turno_mapa")
+	if tm == null or tm._fase != tm.Fase.MOVIENDO or not is_instance_valid(tm._cuerpo):
+		return
+	var antes: Vector2 = tm._cuerpo.global_position
+	# Hacia el enemigo vivo mas cercano (el objetivo marcado puede ser uno que ya murio).
+	var mejor: Node2D = null
+	for e in p._enemies:
+		var ce: Node2D = tm.cuerpo_de(e) if e.is_alive() else null
+		if ce != null and (mejor == null or ce.global_position.distance_to(antes) < mejor.global_position.distance_to(antes)):
+			mejor = ce
+	# Como haria un jugador que rodea a los suyos: un hueco libre JUNTO al enemigo, dentro de mi circulo.
+	if mejor != null:
+		for r in [22.0, 30.0, 40.0]:
+			var hecho: bool = false
+			for k in 12:
+				var q: Vector2 = mejor.global_position + Vector2.RIGHT.rotated(TAU * float(k) / 12.0) * r
+				if q.distance_to(tm._inicio) <= tm._radio and tm._puede_estar(q, tm._cuerpo) and tm._en_arena(q):
+					tm._colocar(tm._quien, tm._cuerpo, q)
+					hecho = true
+					break
+			if hecho:
+				break
+		await _esperar(0.2)
+		var at: BaseButton = (p.get("_action_buttons") as Dictionary).get(0)
+		if at != null and not at.disabled:
+			return
+	if mejor != null:
+		var d: Vector2 = mejor.global_position - antes
+		var teclas: Array = []
+		if absf(d.x) > 6.0:
+			teclas.append("move_right" if d.x > 0.0 else "move_left")
+		if absf(d.y) > 6.0:
+			teclas.append("move_down" if d.y > 0.0 else "move_up")
+		for k in teclas:
+			Input.action_press(k)
+		await _esperar(0.35)
+		for k in teclas:
+			Input.action_release(k)
+	if tm._fase != tm.Fase.MOVIENDO or not is_instance_valid(tm._cuerpo):
+		return
+	# Si ya no avanzo (el circulo, la pared o un compañero delante) y sigo sin llegar: Defender, para que
+	# el turno pase. Un jugador rodearia; esto solo va en linea recta.
+	var b: BaseButton = (p.get("_action_buttons") as Dictionary).get(0)
+	var acerca: float = 0.0 if mejor == null else 		antes.distance_to(mejor.global_position) - tm._cuerpo.global_position.distance_to(mejor.global_position)
+	if b != null and b.disabled and acerca < 2.0:
+		var defender: BaseButton = (p.get("_action_buttons") as Dictionary).get(3)
+		var pasar: BaseButton = (p.get("_action_buttons") as Dictionary).get(5)
+		if defender != null and not defender.disabled:
+			defender.pressed.emit()
+		elif pasar != null and not pasar.disabled and pasar.text == "Pasar":
+			pasar.pressed.emit()   # sin energia para Defender: Pasar (en el mapa siempre esta, salvo en el borde)
+		else:
+			print("[dev] no puedo ni Defender ni Pasar")
+
+
+func _traza_tactico(p: Node, t: float) -> void:
+	var tm = p.get("turno_mapa")
+	var b: BaseButton = (p.get("_action_buttons") as Dictionary).get(0)
+	var linea := "[dev] t=%.0f state=%d" % [t, int(p.get("_state"))]
+	if tm != null:
+		linea += " fase=%d quien=%s" % [int(tm._fase), tm._quien.nombre if tm._quien != null else "-"]
+		if is_instance_valid(tm._cuerpo):
+			linea += " cuerpo=%s inicio=%s radio=%.0f" % [str(tm._cuerpo.global_position.round()), str(tm._inicio.round()), tm._radio]
+	if tm != null and is_instance_valid(tm._cuerpo):
+		var c0: Vector2 = tm._cuerpo.global_position
+		var obj = p._objetivo()
+		linea += " obj=%s" % (obj.nombre if obj != null else "-")
+		for dd in [Vector2(0, -8), Vector2(-8, 0), Vector2(8, 0), Vector2(0, 8)]:
+			var q: Vector2 = c0 + dd
+			linea += " [%s suelo=%s arena=%s puede=%s]" % [str(dd), tm._sobre_suelo(q, tm._cuerpo), tm._en_arena(q), tm._puede_estar(q, tm._cuerpo)]
+		linea += " arena_aqui=%s" % tm._en_arena(c0)
+	linea += " atacar=%s" % ("-" if b == null else ("apagado" if b.disabled else "ok") + ("" if b.is_visible_in_tree() else " oculto"))
+	for al in p._aliados:
+		var ca: Node2D = tm.cuerpo_de(al) if tm != null else null
+		linea += " | %s en %s" % [al.nombre.left(4), str(ca.global_position.round()) if ca != null else "?"]
+	for e in p._enemies:
+		var ce: Node2D = tm.cuerpo_de(e) if tm != null else null
+		linea += " | %s hp=%.0f en %s" % [e.nombre, e.current_hp, str(ce.global_position.round()) if ce != null else "?"]
+	print(linea)
 
 
 func _caja_abierta(p: Node) -> bool:

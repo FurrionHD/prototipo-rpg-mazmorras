@@ -286,6 +286,7 @@ func desmontar() -> void:
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
+	_levantar_caidos()
 	var pl: Node = _jugador_local()
 	if pl != null:
 		pl.usar_barras_de_pelea(Callable())
@@ -936,6 +937,14 @@ func empezar_turno(c: Combatant, radio: float = -1.0, seguir: bool = false) -> v
 	var arena: ArenaCombate = _arena()
 	if arena != null and _radio > 0.0:
 		arena.poner_circulo(_inicio, _radio)
+
+
+# LA CAMARA A ESTE (03/10): el turno de una frase o del disparo de un conjuro no pasa por empezar_turno en
+# el espejo, y la camara se quedaba en el ultimo que habia actuado.
+func enfocar(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c) if c != null else null
+	if cuerpo != null:
+		_foco = cuerpo
 
 
 # El radio del turno que se esta jugando, para mandarselo al dueño con la peticion de accion.
@@ -3059,8 +3068,10 @@ func _terminar() -> void:
 # EL CIRCULO QUE SE ESTA VIENDO, para que los espejos pinten el mismo: [quien, x, y, radio]. 'quien'
 # es el codigo de siempre del combatiente (aliados tal cual, enemigos desde 100; ver
 # espejo._cod_combatiente), -1 si no anda nadie. Viaja al final del paquete de la barra de turnos.
+# Radio 0 (recitando entre frases: no se anda) viaja igual: no pinta circulo, pero la camara se va con el
+# (03/10, lo vio el jefe: "cuando estoy casteando la camara se queda en el ultimo que hizo una accion").
 func estado_red() -> PackedFloat32Array:
-	if _fase == Fase.NADA or _quien == null or _radio <= 0.0:
+	if _fase == Fase.NADA or _quien == null:
 		return PackedFloat32Array([-1.0, 0.0, 0.0, 0.0])
 	return PackedFloat32Array([float(_pantalla.espejo._cod_combatiente(_quien)),
 		_inicio.x, _inicio.y, _radio])
@@ -3079,7 +3090,8 @@ func aplicar_red(d: PackedFloat32Array) -> void:
 		arena.quitar_circulo()
 	else:
 		arena.poner_circulo(Vector2(d[1], d[2]), d[3], cod >= 100)
-		# La camara, con quien anda aunque lo mueva otra maquina.
+	# La camara, con quien tiene el turno aunque lo mueva otra maquina (tambien el que recita, sin circulo).
+	if cod >= 0:
 		var c_red: Combatant = _pantalla.espejo._de_codigo(cod)
 		if c_red != null and cuerpo_de(c_red) != null:
 			_foco = cuerpo_de(c_red)
@@ -4831,6 +4843,8 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 	var m = cuerpo.get("_muneco")
 	if not (m is MunecoJugador) or not (m as MunecoJugador).hay_dibujo():
 		return false
+	if cuerpo.has_meta(MARCA_CAIDO):
+		return true   # en el suelo no se gesticula (true: que nadie le busque otro gesto)
 	if anim == "":
 		anim = _pantalla.figuras._anim_golpe_de(c)
 	var en_curso: String = String(_gestos_mapa[cuerpo]["anim"]) if _gestos_mapa.has(cuerpo) else ""
@@ -5091,6 +5105,41 @@ func _tick_crias(delta: float) -> void:
 # pantallas, tambien en los espejos.
 const T_DESVANECE_MUERTO := 0.6
 
+# LOS TUYOS QUE CAEN (03/10, lo vio el jefe: "los personajes no mueren visualmente, se quedan de pie"): en la
+# fila se moria el muñeco de la tarjeta, que en el mapa esta escondido, y el cuerpo de verdad seguia en guardia.
+# Ahora cae SU CUERPO, con la 'muerte' del muñeco (la misma de la fila), y se queda en el suelo hasta que acaba
+# la pelea (no hay forma de levantarse a media pelea). Nadie le vuelve a poner pose mientras: _animar y
+# gesto_en_mapa miran la marca. Al desmontar la pelea se le quita y vuelve a su pose de siempre.
+const MARCA_CAIDO := &"caido_en_pelea"
+# Los cuerpos tumbados, apuntados al caer: al cerrar la pantalla Game ya ha soltado a los de la pelea y
+# cuerpo_de no los encuentra.
+var _caidos: Array[Node2D] = []
+
+func caer_en_mapa(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null or cuerpo.has_meta(MARCA_CAIDO):
+		return
+	var m = cuerpo.get("_muneco")
+	if not (m is MunecoJugador) or not (m as MunecoJugador).hay_dibujo():
+		return
+	_gestos_mapa.erase(cuerpo)
+	_cargas.erase(c)
+	cuerpo.set_meta(MARCA_CAIDO, true)
+	_caidos.append(cuerpo)
+	(m as MunecoJugador).animar("muerte_4")
+
+
+func _levantar_caidos() -> void:
+	for cu in _caidos:
+		if not is_instance_valid(cu) or not cu.has_meta(MARCA_CAIDO):
+			continue
+		cu.remove_meta(MARCA_CAIDO)
+		var m = cu.get("_muneco")
+		if m is MunecoJugador:
+			(m as MunecoJugador).animar(PoseJugador.animacion(_mirada_de(cu), 1, false, false, false, 0))
+	_caidos.clear()
+
+
 func morir_en_mapa(c: Combatant) -> void:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null or cuerpo.has_meta("muerto_en_pelea"):
@@ -5242,8 +5291,9 @@ func _animar(cuerpo: Node2D, dir: Vector2, moviendose: bool, vel: Vector2 = Vect
 		cuerpo.set("_facing", dir.normalized())
 	var muneco = cuerpo.get("_muneco")
 	if muneco is MunecoJugador and (muneco as MunecoJugador).hay_dibujo():
-		# En pleno gesto (el Molinete girando, un tajo bajando) no se le pisa con la guardia.
-		if _gestos_mapa.has(cuerpo):
+		# En pleno gesto (el Molinete girando, un tajo bajando) no se le pisa con la guardia. Y el que ha
+		# caido se queda en el suelo (ver caer_en_mapa).
+		if _gestos_mapa.has(cuerpo) or cuerpo.has_meta(MARCA_CAIDO):
 			return
 		# CARGANDO, quieto: el arma en alto hasta soltarla (lo pidio el jefe: "que mantenga el martillo en
 		# alto hasta que golpea el suelo").

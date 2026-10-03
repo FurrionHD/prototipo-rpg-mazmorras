@@ -455,10 +455,13 @@ func _apagar_visual(b: Dictionary, es_aliado: bool) -> void:
 	# entra el ultimo porrazo y no antes.
 	var muriendo: bool = _pantalla.figuras._arrancar_muerte(b, nodo_muerto)
 	# EN EL MAPA, su cuerpo: se muere ahi y se desvanece hasta que acabe la pelea (CombatTactico.morir_en_mapa).
-	if _pantalla.tactico and not es_aliado:
+	if _pantalla.tactico:
 		var ce: Combatant = _pantalla.turno_mapa._de_bloque(b)
 		if ce != null:
-			_pantalla.turno_mapa.morir_en_mapa(ce)
+			if es_aliado:
+				_pantalla.turno_mapa.caer_en_mapa(ce)   # los tuyos caen al suelo y ahi se quedan
+			else:
+				_pantalla.turno_mapa.morir_en_mapa(ce)
 	# EL GRIS VA EN LA COLUMNA, no en la tarjeta: asi cae sobre la ficha Y sobre la figura del
 	# escenario de una vez. Y no puede ir en la figura misma, que es de CombatFX -- su modulate se
 	# reescribe cada frame (ver _aplicar) y se comeria el gris al instante.

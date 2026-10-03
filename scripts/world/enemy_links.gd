@@ -49,6 +49,14 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# CON EL COMBATE TACTICO (03/10, lo pidio el jefe) LAS LINEAS SOBRAN: a la pelea entra todo lo que
+	# quede dentro de su arena (combat_tactico._recoger_de_la_arena), no lo atado, asi que la promesa
+	# ya no se cumple. Se apagan, y tambien asi dejan de quedarse pintadas en su sitio durante la pelea.
+	if Game._tactico_aqui():
+		if visible:
+			visible = false
+		return
+	visible = true
 	# Con la pantalla de combate delante el mundo ni se dibuja, asi que recalcular pares (O(n^2))
 	# es trabajo tirado. En un jugador el arbol esta pausado y esto ni corre; en multi si.
 	if Game.hay_modal_de(Game.Modal.COMBATE):

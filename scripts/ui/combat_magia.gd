@@ -249,6 +249,8 @@ func recitar_frase(idx: int, opciones: Array, nombre: String, largo: int, seq: i
 		return
 	_pantalla._traza_add("ME PIDEN LA FRASE %d (#%d) de %s" % [idx + 1, seq, nombre])
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
+	if _pantalla.tactico and idx >= 0 and idx < _pantalla._aliados.size():
+		_pantalla.turno_mapa.enfocar(_pantalla._aliados[idx])   # la camara, al que recita
 	_pintar_test(idx, opciones, nombre, largo, "")
 
 
@@ -364,6 +366,8 @@ func lanzar_conjuro(nombre: String, seq: int = 0) -> void:
 		return   # repeticion del anfitrion: ya tengo el boton delante
 	_pantalla._traza_add("ME PIDEN EL DISPARO (#%d) de %s" % [seq, nombre])
 	_pantalla._state = _pantalla.State.WAITING_PLAYER
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.enfocar(_pantalla._player)   # la camara, al que lo suelta
 	_pintar_disparo(nombre)
 
 
