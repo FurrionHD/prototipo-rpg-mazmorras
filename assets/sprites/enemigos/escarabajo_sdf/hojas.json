@@ -1,0 +1,74 @@
+{
+ "lienzo": [
+  80,
+  80
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 3.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 7.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "basico": {
+   "fotogramas": 6,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "caparazon": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "hacerse_bola": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "bola": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "rodar": {
+   "fotogramas": 12,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "desenroscarse": {
+   "fotogramas": 5,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  }
+ }
+}
