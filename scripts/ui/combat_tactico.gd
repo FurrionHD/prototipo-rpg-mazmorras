@@ -239,6 +239,18 @@ func _recoger_de_la_arena(delta: float) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null or _pantalla._state == _pantalla.State.FINISHED:
 		return
+	# EL QUE LLEGA AL BORDE DESDE FUERA ENTRA, Y SE COLOCA DENTRO SOLO (05/10, lo dijo el jefe: "si que entran, pero solo
+	# desde los bordes, y se meten dentro del recuadro automaticamente"). La arena ya sabia verlo y calcular por donde
+	# entra (ArenaCombate.vigilar / enemigo_entra / punto_de_entrada), pero nadie la llamaba ni la escuchaba.
+	if not arena.enemigo_entra.is_connected(_entra_por_el_borde):
+		arena.enemigo_entra.connect(_entra_por_el_borde)
+	var de_fuera: Array = []
+	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n is Node2D and not Game.esta_en_combate(n) \
+				and not (n.has_method("esta_muerto") and n.esta_muerto()) \
+				and not arena.contiene((n as Node2D).global_position):
+			de_fuera.append(n)
+	arena.vigilar(de_fuera)
 	var ahora: int = Time.get_ticks_msec()
 	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(n) or not (n is Node2D) or not arena.contiene((n as Node2D).global_position):
@@ -267,6 +279,32 @@ func _recoger_de_la_arena(delta: float) -> void:
 			print("[arena] %s estaba dentro de la arena: entra a la pelea" % n.name)
 		else:
 			n.set("_combat_triggered", false)
+
+
+# Uno de fuera ha tocado el borde (ver _recoger_de_la_arena): se le pone DENTRO, en su punto de entrada, y entra en la
+# pelea. Un espejo se le pide a su dueño, como al recoger (al llegar, la pelea lo coloca con lo que mande su dueño).
+func _entra_por_el_borde(cuerpo: Node2D, punto: Vector2) -> void:
+	if _pantalla._espejo or not is_instance_valid(cuerpo) or Game.esta_en_combate(cuerpo):
+		return
+	if _pantalla._state == _pantalla.State.FINISHED:
+		return
+	if cuerpo.has_meta("es_espejo"):
+		if Net.activo and cuerpo.has_meta("net_id") and Net.peleas.pelea_de_enemigo(cuerpo) == 0:
+			Net.peleas.solicitar_pelea(int(cuerpo.get_meta("net_id")))
+		return
+	if bool(cuerpo.get("_combat_triggered")):
+		return
+	var antes: Vector2 = cuerpo.global_position
+	cuerpo.global_position = punto
+	cuerpo.set("_combat_triggered", true)
+	cuerpo.set("velocity", Vector2.ZERO)
+	if cuerpo.has_method("_cancelar_aviso"):
+		cuerpo.call("_cancelar_aviso")
+	if Game.unir_enemigo_al_combate(cuerpo):
+		print("[arena] %s llega al borde: entra a la pelea por %s" % [cuerpo.name, punto.round()])
+	else:
+		cuerpo.global_position = antes
+		cuerpo.set("_combat_triggered", false)
 
 
 func desmontar() -> void:

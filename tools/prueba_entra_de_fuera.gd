@@ -111,5 +111,28 @@ func _correr() -> void:
 		var borde: Vector2 = ArenaCalculo.centro_px(arena.rect_celdas)
 		lejos.global_position = borde
 		_ver(Game.unir_enemigo_al_combate(lejos), "el mismo, ya dentro de la zona, SI entra")
+	print("4) uno que llega AL BORDE desde fuera entra solo, colocado dentro")
+	var otro: Node2D = null
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and not Game.esta_en_combate(n) and not n.esta_muerto():
+			otro = n
+			break
+	var sitio := Vector2.INF
+	for tr in arena.tramos:
+		var m: Vector2 = (Vector2(tr["a"]) + Vector2(tr["b"])) * 0.5
+		var perp: Vector2 = (Vector2(tr["b"]) - Vector2(tr["a"])).normalized().orthogonal()
+		for q in [m + perp * 8.0, m - perp * 8.0]:
+			if not arena.contiene(q) and piso.gen.es_suelo(ArenaCalculo.celda_de_px(q)):
+				sitio = q
+				break
+		if sitio != Vector2.INF:
+			break
+	_ver(otro != null and sitio != Vector2.INF, "hay un enemigo libre y un borde con suelo fuera")
+	if otro != null and sitio != Vector2.INF:
+		# Si la pelea esta llena (5), se queda en la cola: se mata a uno para que haya hueco.
+		otro.global_position = sitio
+		await _segundos(1.5)
+		_ver(Game.esta_en_combate(otro) or Game._cola_combate.has(otro), "entra en la pelea (o a su cola)")
+		_ver(arena.contiene(otro.global_position), "y esta DENTRO de la zona (%s)" % otro.global_position.round())
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)
