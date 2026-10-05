@@ -255,8 +255,14 @@ def anim_dentellada(t):
                 cuello=tramos(t, [(0.0, 0.0), (0.3, -0.8), (0.5, 1.7), (0.7, 1.5), (1.0, 0.0)]))
 
 
+# El REY, estirandose como la rata (1,35), se salia del lienzo de 66 mirando al E y al O: el estiron, mas corto en el.
+ESTIRON_YUGULAR = 0.22 if os.environ.get('RATA_VAR') == 'rey' else 0.35
+
+
 def anim_yugular(t):
-    return POSE(estira=tramos(t, [(0.0, 1.0), (0.3, 0.84), (0.45, 1.35), (1.0, 1.3)]), cola=0.9 * math.sin(TAU * t),
+    k = ESTIRON_YUGULAR / 0.35
+    return POSE(estira=tramos(t, [(0.0, 1.0), (0.3, 0.84), (0.45, 1.0 + 0.35 * k), (1.0, 1.0 + 0.3 * k)]),
+                cola=0.9 * math.sin(TAU * t),
                 agacha=tramos(t, [(0.0, 0.0), (0.3, 0.9), (0.45, -0.1), (1.0, -0.05)]),
                 abre_patas=tramos(t, [(0.0, 0.0), (0.3, 0.0), (0.45, 1.0), (1.0, 1.0)]),
                 cuello=tramos(t, [(0.0, 0.0), (0.3, -0.5), (0.45, 1.3), (1.0, 1.4)]))
