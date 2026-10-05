@@ -34,8 +34,10 @@ class_name SpritesEnemigo
 # del Rey), que no es cosa del dibujo.
 # (static var y no const: una referencia a otra clase no es una expresion constante en GDScript.)
 static var GENERADORES := {
-	EnemyData.Familia.SLIME: SlimeSprites,
-	EnemyData.Familia.ROEDOR: RataSprites,
+	# (05/10) En 3D: Slime3DSprites (gel translucido) y Rata3DSprites (con el rey de corona de oro); SlimeSprites y
+	# RataSprites (los de codigo) quedan de referencia y les prestan el lienzo y la caja.
+	EnemyData.Familia.SLIME: Slime3DSprites,
+	EnemyData.Familia.ROEDOR: Rata3DSprites,
 }
 
 # Y los que NO se pueden despachar por familia, POR NOMBRE (EnemyData.sprite_gen).
