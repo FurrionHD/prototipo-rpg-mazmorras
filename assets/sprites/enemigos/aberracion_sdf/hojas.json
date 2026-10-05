@@ -1,0 +1,56 @@
+{
+ "lienzo": [
+  102,
+  102
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 4.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 6.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "basico": {
+   "fotogramas": 8,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "alarido": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "mirada": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8
+  }
+ }
+}
