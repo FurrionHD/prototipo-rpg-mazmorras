@@ -43,6 +43,20 @@ def sd_caja(P, c, ejes, medio, redondeo=0.2):
     d = np.abs(q) - (np.array(medio) - redondeo)
     return np.linalg.norm(np.maximum(d, 0.0), axis=1) + np.minimum(d.max(axis=1), 0.0) - redondeo
 
+def sd_triangulo(P, a, b, c, grosor):
+    """Una lamina triangular de 'grosor' (05/10, las membranas del chillon: un ala de murcielago es ancha en dos ejes
+    y finisima en el tercero, y con bolas sale un churro)."""
+    ba = b - a; pa = P - a; cb = c - b; pb = P - b; ac = a - c; pc = P - c
+    nor = np.cross(ba, ac)
+    lado = (np.sign(pa @ np.cross(ba, nor)) + np.sign(pb @ np.cross(cb, nor)) + np.sign(pc @ np.cross(ac, nor)))
+    def seg(pq, q):
+        h = np.clip((pq @ q) / max(q @ q, 1e-9), 0.0, 1.0)
+        return np.sum((np.outer(h, q) - pq) ** 2, axis=1)
+    fuera = np.minimum(np.minimum(seg(pa, ba), seg(pb, cb)), seg(pc, ac))
+    dentro = (pa @ nor) ** 2 / max(nor @ nor, 1e-9)
+    return np.sqrt(np.where(lado < 2.0, fuera, dentro)) - grosor
+
+
 def smin(a, b, k):
     if k <= 0: return np.minimum(a, b)
     h = np.clip(0.5 + 0.5 * (b - a) / k, 0.0, 1.0)
@@ -109,11 +123,22 @@ class Modelo:
         self.alfa = alfa
 
 
+class Piezas(list):
+    """La lista de piezas, y ademas las SOMBRAS del suelo: [(x, y, rx, ry, alfa)] en el modelo (z = 0)."""
+    sombras = ()
+
+
 class Escena:
-    """Lista de piezas: add(fn, material, k, grupo, hueso). Las de un grupo de 'suaves' se FUNDEN con su k."""
+    """Lista de piezas: add(fn, material, k, grupo, hueso). Las de un grupo de 'suaves' se FUNDEN con su k.
+    sombra(x, y, rx, ry): una mancha oscura en el SUELO (05/10, los que vuelan: el chillon y la polilla). Los demas no la
+    llevan; en uno que vuela, la separacion entre el cuerpo y su sombra es lo unico que se lee como altura."""
     def __init__(self, huesos):
         self.X = huesos
-        self.L = []
+        self.L = Piezas()
+        self.L.sombras = []
+
+    def sombra(self, x, y, rx, ry, alfa=0.26):
+        self.L.sombras.append((x, y, rx, ry, alfa))
 
     def add(self, fn, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
         self.L.append((fn, mat, grupo, k, self.X.get(hueso, IDENT), hueso))
@@ -179,7 +204,14 @@ def render(mo, L, dir_i):
         vivo &= ~(t > mo.lejos * 2.1)
     hi = np.where(toca)[0]
     img = np.zeros((H * W, 4))
+    # LA SOMBRA DEL SUELO: donde el rayo corta z = 0, si cae dentro de alguna mancha (y no hay cuerpo delante).
+    sombra = np.zeros(H * W)
+    for (sx, sy, srx, sry, sa_) in getattr(L, 'sombras', ()):
+        Ps = a_local(O + np.outer(-O[:, 2] / F_[2], F_))
+        dentro = ((Ps[:, 0] - sx) / srx) ** 2 + ((Ps[:, 1] - sy) / sry) ** 2 <= 1.0
+        sombra = np.where(dentro, np.maximum(sombra, sa_), sombra)
     if len(hi) == 0:
+        img[:, 3] = sombra
         return Image.fromarray((img.reshape(H, W, 4) * 255).astype(np.uint8), 'RGBA')
     P = a_local(O[hi] + np.outer(t[hi], F_))
     _d, mats, grupos = evalua(mo, P, L, True)
@@ -226,6 +258,9 @@ def render(mo, L, dir_i):
         borde = opaco & (~vec_op | ((~brilla) & (vec_pr - prof > mo.salto_linea)) | cruza)
         sal[borde, :3] = mo.borde
         lineas = lineas | borde
+    if sombra.any():
+        sm = sombra.reshape(H, W) * (~opaco)
+        sal[:, :, 3] = np.where(opaco, sal[:, :, 3], sm)
     if mo.translucidos:
         # LO OPACO DE DETRAS: la misma escena sin las piezas translucidas, y se mezcla bajo el gel.
         idx_t = [mo.nombres.index(m) for m in mo.translucidos if m in mo.nombres]
