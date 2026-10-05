@@ -10,8 +10,8 @@
 #  Variantes (tamaño = escala_visual de su ficha): s100 s115 s150 s170 (normal), lava160, rey280.
 #  MUTANTES (05/10): mut120 = el BROTADO (lo eligio el jefe de slime_versiones.py, "la version mas god"): yemas de slime
 #  con ojitos, un tercer cuerno torcido detras, dos ojos de mas, y dentro su nucleo y los CRISTALES que se ha comido
-#  ("pero no tiene cristales dentro"). Uno por tamaño de normal, x1.2 (la escala del mutante) y en su mismo color:
-#  mut120 (del s100), mut138 (s115), mut180 (s150), mut204 (s170).
+#  ("pero no tiene cristales dentro"). SOLO EL DEL SLIME NORMAL (slime.tres, s100), x1.2: los demas slimes tendran el
+#  suyo. Y SOLO CON LAS ANIMACIONES QUE USA EL NORMAL (ANIMS_BROTADO): "no te inventes cosas".
 #  NUCLEO (05/10, lo pidio: "de base en el slime normal se debe ver su nucleo y un cristal dentro"; SUTILES).
 #  SLIME_SALIDA=<carpeta> manda las hojas a otro sitio (para enseñarlas sin pisar las del juego).
 # ============================================================
@@ -40,9 +40,6 @@ VARIANTES = {
     'lava160': (1.60, 'lava', 'ff862b'),
     'rey280': (2.80, 'rey', '55b8ff'),
     'mut120': (1.20, 'brotado', 'ff2b2b'),
-    'mut138': (1.38, 'brotado', '47d552'),
-    'mut180': (1.80, 'brotado', '556a80'),
-    'mut204': (2.04, 'brotado', '556faa'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
@@ -379,6 +376,13 @@ ANIMS = {
     'muerte': (8, 10.0, False, 8, anim_muerte),
     'encaje': (4, 18.0, False, 8, anim_encaje),
 }
+
+
+# Las del slime NORMAL y nada mas: quieto, andar, embestida (su basico, el Placaje y el Doble embate), inflar, hinchado,
+# aplaston y deshincharse (el Reventon), encajar y morir (el cadaver es su ultimo fotograma).
+ANIMS_BROTADO = ('idle', 'walk', 'embestida', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encaje', 'muerte')
+if FORMA == 'brotado':
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_BROTADO}
 
 
 VIEJOS = {'s170': 'slime_556faa_1.70', 's115': 'slime_47d552_1.15', 's150': 'slime_556a80_1.50', 's100': 'slime_ff2b2b_1.00',

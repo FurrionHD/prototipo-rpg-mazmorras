@@ -40,39 +40,9 @@
    "loop": false,
    "dirs": 8
   },
-  "encogido": {
-   "fotogramas": 8,
-   "fps": 12.0,
-   "loop": true,
-   "dirs": 8
-  },
   "aplaston": {
    "fotogramas": 8,
    "fps": 14.0,
-   "loop": false,
-   "dirs": 8
-  },
-  "ignicion": {
-   "fotogramas": 8,
-   "fps": 12.0,
-   "loop": false,
-   "dirs": 8
-  },
-  "brote": {
-   "fotogramas": 8,
-   "fps": 10.0,
-   "loop": false,
-   "dirs": 8
-  },
-  "escupir": {
-   "fotogramas": 8,
-   "fps": 12.0,
-   "loop": false,
-   "dirs": 8
-  },
-  "nacer": {
-   "fotogramas": 8,
-   "fps": 10.0,
    "loop": false,
    "dirs": 8
   },
