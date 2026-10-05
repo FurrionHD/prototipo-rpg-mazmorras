@@ -142,7 +142,10 @@ def escena(pose):
         ra = r * (1.0 - 0.25 * rizo)
         _elip(add, (0, 0, 0), (ra * 1.15, PASO * 0.62 * ly, r * 0.85), 'cuerpo', 0.6 + 0.6 * rizo, hueso=h)
         _elip(add, (0, 0, r * 0.45), (ra * 1.2, PASO * 0.48 * ly, r * 0.45), 'placa', 0, 'placa%d' % (i % 2), h)
-        if 0 < i < N_ANILLOS - 1:
+        # UN PAR CADA DOS ANILLOS (05/10, "menos pies, que se entiende mal"): uno por anillo se pegaban en una FALDA
+        # AMARILLA que se comia el cuerpo; con hueco entre pata y pata se cuentan una a una (lo mismo que acabo haciendo
+        # el viejo).
+        if 0 < i < N_ANILLOS - 1 and i % 2 == 1:
             # LAS PATAS: una a cada lado por anillo, amarillas, de lado y abajo hasta el suelo; andan en ola.
             for s in (-1, 1):
                 g = 2 * math.pi * (pose['fase'] * 2.0 + i * 0.30) + (0.0 if s > 0 else math.pi)
