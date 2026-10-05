@@ -70,7 +70,8 @@ def _materiales(forma, color):
     orn = [cla(c, 0.05), cla(c, 0.28), cla(c, 0.5), cla(c, 0.85)]
     return {'gel': gel, 'cuerno': orn, 'lava': gel, 'ojo': [(1.0, 0.97, 0.72)] * 3, 'gema': [(1.0, 0.95, 0.72)] * 3,
             # EL NUCLEO (oscuro y denso) y EL CRISTAL (el cian de los del juego), que se ven a traves del gel.
-            'nucleo': [(0.22, 0.02, 0.06), (0.36, 0.04, 0.10), (0.62, 0.16, 0.22)],
+            # SUTILES (05/10: "se ven muy cargados, que sean mucho mas sutiles"): el nucleo, solo algo mas oscuro que el gel.
+            'nucleo': [osc(c, 0.62), osc(c, 0.48), osc(c, 0.30)],
             'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)]}
 
 
@@ -84,7 +85,7 @@ MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=(
 MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
 MODELO.claros_dentro = ('cristal', 'nucleo')
-MODELO.alfa_claro = 0.2
+MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
 # una falda ancha fundida abajo: "porque es tan ancho abajo").
@@ -201,11 +202,11 @@ def escena(pose):
         add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0, 'ojo')
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
-        add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=4.2 * en: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
+        add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=3.4 * en: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
         # Y LOS CRISTALES: uno en el normal; en el brotado, los que se ha comido.
         cris = _CRISTALES_BROTADO if FORMA == 'brotado' else [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
         for c, eje, largo, radio in cris:
-            _cristal(e, C + np.array(c) * en, eje, largo * en, radio * en)
+            _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
     return e.L
 
 
