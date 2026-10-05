@@ -62,7 +62,8 @@ static var GENERADORES_POR_NOMBRE := {
 	# CONTRARIA -- alto y estrecho contra bajo y ancho, grupa alta contra cruz alta, morro largo
 	# contra hocico romo. Por familia le habria tocado salir con forma de jabali.
 	&"acechador": AcechadorSprites,
-	&"trent": TrentSprites,
+	# (05/10) En 3D: el GUARDIAN (Trent3DSprites); TrentSprites (el de codigo) queda de referencia.
+	&"trent": Trent3DSprites,
 	# Y la Aberracion, que es el otro caso de familia NINGUNA: la comparte con el Trent, o sea con un
 	# ARBOL. Ahi ni siquiera hay una familia mal elegida que aprovechar -- NINGUNA quiere decir
 	# literalmente que no se parece a nada, asi que por fuerza va por nombre.
