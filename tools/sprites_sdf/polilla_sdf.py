@@ -20,19 +20,26 @@ SALIDA = 'assets/sprites/enemigos/polilla_sdf/'
 VISTAS = 'tools/salida/sdf/'
 V = np.array
 
-# Lila ceniza (a48eaa) en las alas; el pelo, PARDO (tono fijo, como el viejo: escalar el lila lo mandaba a verde).
+# 05/10, 2a vuelta ("parece una mariposa, no una polilla" + sus referencias: saturnias, el grabado de los ojos, su
+# boceto oscuro con ocelos blancos): ALAS OSCURAS con dibujo CLARO -- borde festoneado palido, linea en zigzag y OCELOS
+# GRANDES en las cuatro (anillo claro, iris, nucleo oscuro, brillo). El lila de la ficha (a48eaa) tiñe el conjunto.
 MAT = {
-    'ala':      [(0.47, 0.40, 0.50), (0.64, 0.56, 0.67), (0.75, 0.69, 0.78)],
-    'ala_tras': [(0.36, 0.29, 0.38), (0.49, 0.41, 0.51), (0.58, 0.50, 0.60)],
-    'ocelo':    [(0.70, 0.64, 0.52), (0.86, 0.80, 0.64), (0.93, 0.88, 0.74)],
-    'ocelo_n':  [(0.13, 0.10, 0.14), (0.18, 0.14, 0.20), (0.24, 0.20, 0.26)],
-    'pelo':     [(0.30, 0.22, 0.16), (0.43, 0.32, 0.23), (0.56, 0.44, 0.33)],
-    'anillo':   [(0.22, 0.16, 0.12), (0.31, 0.23, 0.17), (0.38, 0.29, 0.22)],
-    'antena':   [(0.58, 0.50, 0.40), (0.74, 0.66, 0.54), (0.84, 0.77, 0.65)],
+    'ala':      [(0.17, 0.14, 0.19), (0.25, 0.21, 0.27), (0.33, 0.28, 0.35)],
+    'ala_tras': [(0.14, 0.11, 0.16), (0.21, 0.17, 0.23), (0.28, 0.23, 0.30)],
+    'borde':    [(0.56, 0.50, 0.56), (0.70, 0.64, 0.68), (0.79, 0.74, 0.77)],
+    'linea':    [(0.66, 0.60, 0.62), (0.78, 0.72, 0.72), (0.84, 0.79, 0.78)],
+    'ocelo':    [(0.80, 0.76, 0.70), (0.90, 0.87, 0.80), (0.95, 0.93, 0.87)],
+    'iris':     [(0.48, 0.34, 0.40), (0.60, 0.43, 0.50), (0.68, 0.51, 0.57)],
+    'ocelo_n':  [(0.06, 0.05, 0.07)] * 3,
+    'brillo':   [(0.97, 0.96, 0.95)] * 3,
+    'pelo':     [(0.24, 0.19, 0.18), (0.35, 0.28, 0.27), (0.46, 0.38, 0.36)],
+    'gola':     [(0.52, 0.46, 0.46), (0.66, 0.59, 0.58), (0.76, 0.70, 0.68)],
+    'anillo':   [(0.55, 0.49, 0.48), (0.68, 0.62, 0.60), (0.77, 0.72, 0.69)],
+    'antena':   [(0.56, 0.50, 0.46), (0.72, 0.66, 0.60), (0.82, 0.77, 0.71)],
     'ojo':      [(0.06, 0.05, 0.07), (0.10, 0.09, 0.12), (0.20, 0.18, 0.24), (0.80, 0.78, 0.86)],
 }
 # Algo mayor que su escala (1,9), como los demas que se han pasado.
-MODELO = Modelo(2.0, (90, 90), (45, 45), MAT, (0.08, 0.06, 0.09), suaves=('cuerpo', 'cabeza'), brillan=(),
+MODELO = Modelo(2.0, (90, 90), (45, 45), MAT, (0.05, 0.04, 0.06), suaves=('cuerpo', 'cabeza'), brillan=('brillo',),
                 corta_suelo=True, especular=('ojo',), umbral_especular=0.8)
 
 VUELO_Z = 10.5
@@ -41,9 +48,17 @@ LUNGE_DIST = 9.0
 ENCAJE_RETRO = 0.62
 BATE_MAX = 0.95
 
-# LAS ALAS en su plano: (raiz, centro del ovalo a lo largo/atras, radios, cuanto se adelanta la punta, grosor).
-ALA1 = dict(raiz=V((1.35, 2.6, VUELO_Z + 0.35)), centro=(6.6, 2.6), radios=(6.4, 5.2), adelanta=0.26)
-ALA2 = dict(raiz=V((1.20, -1.4, VUELO_Z - 0.35)), centro=(5.0, 3.8), radios=(5.0, 4.7), adelanta=-0.30)
+# LAS ALAS en su plano (a lo largo, hacia atras; 1 = borde de fuera, que lleva la banda palida y los festones).
+# LA DELANTERA es un TRIANGULO: borde de ataque recto y algo adelantado hasta un APICE marcado, borde de fuera
+# casi recto bajando hacia atras. LA TRASERA, un ABANICO redondo que asoma por DEBAJO de la delantera (sin hueco: el
+# hueco entre las dos es lo que la hacia mariposa).
+ALA1 = dict(raiz=V((1.35, 2.6, VUELO_Z + 0.35)), mat='ala', ocelo=((8.4, 2.0), 2.8), zigzag=((4.4, -1.4), (3.4, 5.9)),
+            borde=[(0.0, -0.4, 0), (3.5, -1.3, 0), (7.5, -2.1, 0), (11.0, -2.8, 0), (13.4, -3.0, 1), (14.3, -1.9, 1),
+                   (13.9, 0.4, 1), (12.7, 2.8, 1), (10.9, 4.8, 1), (8.6, 6.1, 1), (6.0, 6.5, 1), (3.2, 6.1, 0),
+                   (1.0, 4.9, 0)])
+ALA2 = dict(raiz=V((1.20, -1.2, VUELO_Z - 0.35)), mat='ala_tras', ocelo=((5.3, 6.0), 2.6), zigzag=None,
+            borde=[(0.0, 0.0, 0), (3.0, 0.4, 0), (6.5, 1.4, 0), (9.0, 3.3, 1), (10.0, 5.8, 1), (9.4, 8.2, 1),
+                   (7.6, 10.0, 1), (5.0, 10.8, 1), (2.6, 10.2, 1), (0.9, 8.4, 0), (0.0, 5.0, 0)])
 
 
 def POSE(**k):
@@ -81,38 +96,65 @@ def _disco(add, c, e1, e2, r1, r2, grosor, mat, grupo):
     add(lambda P: sd_elipsoide((P - c) @ E.T, np.zeros(3), r), mat, 0, grupo, 'raiz')
 
 
-def _ala(add, p, s, A, ocelo, nombre, mat='ala'):
-    """Un ala: un ovalo en su plano, girado sobre la raiz por el BATEO (la punta va algo retrasada: se curva).
-    'abre' la estira a lo ancho (la nube). Todo en el marco de la raiz."""
+def _ala(add, p, s, A, nombre):
+    """Un ala: su contorno en abanico desde el centro, girado sobre la raiz por el BATEO (la punta va algo retrasada:
+    se curva); 'abre' la estira (la nube). Encima, por orden de grosor (lo mas gordo gana): la banda PALIDA del borde
+    de fuera con sus FESTONES, el centro OSCURO, la linea en ZIGZAG y el OCELO."""
     abre = 1.0 + 0.22 * p['abre']
     th = p['bate'] * BATE_MAX
     def punto(span, atras):
         span *= abre
-        atras = atras - span * A['adelanta']
         phi = th - 0.18 * p['bate'] * (span / 12.0)
         return A['raiz'] * V((s, 1, 1)) + V((s * span * math.cos(phi), -atras, span * math.sin(phi)))
-    cx, cy = A['centro']; rx_, ry_ = A['radios']
-    N = 16
-    borde = []
-    for i in range(N):
-        a = 2 * math.pi * i / N
-        # Un ovalo algo PICUDO en la punta de fuera (las delanteras de una polilla tienen apice).
-        r = 1.0 + (0.10 if math.cos(a) > 0.6 else 0.0) * (math.cos(a) - 0.6) / 0.4
-        borde.append(punto(cx + rx_ * r * math.cos(a), cy + ry_ * math.sin(a)))
-    cen = punto(cx, cy)
-    for i in range(N):
-        add(lambda P, a=cen, b=borde[i], c=borde[(i + 1) % N]: sd_triangulo(P, a, b, c, 0.22), mat, 0, nombre, 'raiz')
-    # La raiz pegada al cuerpo.
-    r0 = punto(0.0, 0.0); r1 = punto(0.0, cy * 1.6)
-    add(lambda P, a=r0, b=r1, c=cen: sd_triangulo(P, a, b, c, 0.22), mat, 0, nombre, 'raiz')
+    def lam(pts2, grosor, mat, cen2):
+        cen = punto(*cen2)
+        P3 = [punto(a, b) for a, b in pts2]
+        for i in range(len(P3)):
+            add(lambda P, a=cen, b=P3[i], c=P3[(i + 1) % len(P3)]: sd_triangulo(P, a, b, c, grosor), mat, 0, nombre,
+                'raiz')
+    bd = A['borde']
+    cx = sum(b[0] for b in bd) / len(bd); cy = sum(b[1] for b in bd) / len(bd)
+    # La membrana entera, en el tono PALIDO del borde.
+    lam([(a, b) for a, b, _f in bd], 0.20, 'borde', (cx, cy))
+    # Encima, el centro OSCURO: el mismo contorno con el borde de fuera metido hacia dentro (la banda palida queda).
+    dentro = []
+    for a, b, f in bd:
+        if f:
+            d = math.hypot(a - cx, b - cy)
+            k = max(0.0, (d - 1.35) / d)
+            a, b = cx + (a - cx) * k, cy + (b - cy) * k
+        dentro.append((a, b))
+    lam(dentro, 0.27, A['mat'], (cx, cy))
     # El plano del ala (para lo que va pegado encima).
     e1 = punto(1.0, cy) - punto(0.0, cy); e1 /= np.linalg.norm(e1)
     e2 = punto(cx, cy + 1.0) - punto(cx, cy); e2 /= np.linalg.norm(e2)
-    # EL OCELO: grande en las delanteras, pequeño en las traseras.
-    k = 1.0 if ocelo else 0.62
-    c = punto(cx + rx_ * 0.30, cy - ry_ * 0.05)
-    _disco(add, c, e1, e2, 1.85 * k, 1.65 * k, 0.34, 'ocelo', nombre)
-    _disco(add, c, e1, e2, 0.85 * k, 0.80 * k, 0.42, 'ocelo_n', nombre)
+    # LOS FESTONES: bultitos palidos a lo largo del borde de fuera (el borde ondulado de las saturnias).
+    fuera = [(a, b) for a, b, f in bd if f]
+    for (a0, b0), (a1, b1) in zip(fuera, fuera[1:]):
+        n = max(1, int(math.hypot(a1 - a0, b1 - b0) / 1.25))
+        for j in range(n):
+            u = (j + 0.5) / n
+            a, b = a0 + (a1 - a0) * u, b0 + (b1 - b0) * u
+            d = math.hypot(a - cx, b - cy)
+            a += (a - cx) / d * 0.25; b += (b - cy) / d * 0.25
+            _disco(add, punto(a, b), e1, e2, 0.70, 0.70, 0.20, 'borde', nombre)
+    # LA LINEA EN ZIGZAG que cruza el ala de delante a atras.
+    if A['zigzag']:
+        (a0, b0), (a1, b1) = A['zigzag']
+        pts = []
+        for j in range(9):
+            u = j / 8
+            off = 0.55 * (1 if j % 2 else -1)
+            pts.append(punto(a0 + (a1 - a0) * u + off, b0 + (b1 - b0) * u))
+        for q0, q1 in zip(pts, pts[1:]):
+            _cono(add, q0, q1, 0.33, 0.33, 'linea', 0, nombre)
+    # EL OCELO, GRANDE: anillo claro, iris, nucleo oscuro y el brillo (lo que lo hace "mirar").
+    (oa, ob), r = A['ocelo']
+    c = punto(oa, ob)
+    _disco(add, c, e1, e2, r, r * 0.92, 0.36, 'ocelo', nombre)
+    _disco(add, c, e1, e2, r * 0.68, r * 0.64, 0.42, 'iris', nombre)
+    _disco(add, c, e1, e2, r * 0.40, r * 0.38, 0.48, 'ocelo_n', nombre)
+    _disco(add, punto(oa - r * 0.18, ob - r * 0.16), e1, e2, r * 0.16, r * 0.16, 0.54, 'brillo', nombre)
 
 
 def escena(pose):
@@ -123,14 +165,14 @@ def escena(pose):
     _elip(add, (0.0, 2.4, Z), (2.8, 2.6, 2.5), 'pelo', 0.8)
     for k in range(7):
         a = 2 * math.pi * k / 7
-        _elip(add, (1.9 * math.cos(a), 4.1, Z + 1.8 * math.sin(a)), (1.1, 0.9, 1.1), 'pelo', 0.5)
-    for i in range(4):
+        _elip(add, (1.9 * math.cos(a), 4.1, Z + 1.8 * math.sin(a)), (1.15, 0.95, 1.15), 'gola', 0.5)
+    for i in range(5):
         y = 0.4 - 2.0 * i
-        r = 1.85 - 0.30 * i
+        r = 2.0 - 0.28 * i
         _elip(add, (0.0, y, Z - 0.2 - 0.15 * i), (r, 1.4, r * 0.92), 'pelo', 0.7)
-    for i in range(3):
+    for i in range(4):
         y = -0.6 - 2.0 * i
-        r = 1.75 - 0.30 * i
+        r = 1.9 - 0.28 * i
         add(lambda P, c=V((0.0, y, Z - 0.3 - 0.15 * i)), r=r: np.sqrt(
             (np.sqrt((P[:, 0] - c[0]) ** 2 + ((P[:, 2] - c[2]) / 0.92) ** 2) - r) ** 2 + (P[:, 1] - c[1]) ** 2) - 0.28,
             'anillo', 0, 'anillo')
@@ -152,13 +194,13 @@ def escena(pose):
             if i >= 1:
                 d = pts[i + 1] - pts[i]; d /= np.linalg.norm(d)
                 lat = np.cross(d, V((0, 0, 1.0))); lat /= np.linalg.norm(lat)
-                largo = 1.8 * math.sin(math.pi * (i + 0.5) / 6.5)
+                largo = 2.3 * math.sin(math.pi * (i + 0.5) / 6.5)
                 for sg in (-1, 1):
                     _cono(add, pts[i], pts[i] + lat * sg * largo - d * 0.5, 0.34, 0.26, 'antena', 0, 'antena')
-    # --- LAS ALAS: traseras primero (debajo), delanteras encima; el ocelo en las delanteras.
+    # --- LAS ALAS: traseras (debajo, asomando) y delanteras (encima), las cuatro con su ocelo.
     for s in (-1, 1):
-        _ala(add, p, s, ALA2, False, 'ala2', 'ala_tras')
-        _ala(add, p, s, ALA1, True, 'ala1')
+        _ala(add, p, s, ALA2, 'ala2')
+        _ala(add, p, s, ALA1, 'ala1')
     # --- LA SOMBRA en el suelo, menor cuanto mas alto vuela.
     alto = max(0.0, VUELO_Z + _alto(p))
     k = 1.0 - 0.22 * min(alto / VUELO_Z, 1.5)
