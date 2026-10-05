@@ -48,7 +48,8 @@ VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
 # El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
-CON_NUCLEO = FORMA in ('normal', 'brotado', 'puas')
+# SOLO EL SLIME NORMAL (s100) y sus evoluciones: lo pidio para el normal ("no te inventes cosas"); los demas, cuando toque.
+CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
 
@@ -78,6 +79,9 @@ def _materiales(forma, color):
             # SUTILES (05/10: "se ven muy cargados, que sean mucho mas sutiles"): el nucleo, solo algo mas oscuro que el gel.
             'nucleo': [osc(c, 0.62), osc(c, 0.48), osc(c, 0.30)],
             'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)],
+            # EL PARPADO (el gel que tapa el ojo al parpadear, opaco) y LA RAYA del ojo cerrado.
+            'parpado': [osc(c, 0.12), c, cla(c, 0.12)],
+            'pestana': [osc(c, 0.62)] * 3,
             # LA COSTRA (2a evolucion): gel cuajado y opaco alrededor de donde le sale una pua.
             'costra': [osc(c, 0.55), osc(c, 0.38), osc(c, 0.18)]}
 
@@ -92,6 +96,9 @@ MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=(
 MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
 MODELO.claros_dentro = ('cristal', 'nucleo')
+# PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
+# De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
+PARPADOS = VAR in ('s100', 'mut120', 'evo2')
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
@@ -111,7 +118,8 @@ def POSE(**k):
     #   yemas      0..1: cuanto asoman las yemas del brotado (al morir se le van)
     #   evo        0..1: la TRANSFORMACION de normal a brotado (0 = aun es el normal, de su tamaño; 1 = brotado entero)
     #   bocado     -1 = nada; 0..1 = el cristal que se esta COMIENDO, de delante en el suelo hasta deshacerse dentro
-    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, bocado=-1.0)
+    #   cerrados   los ojos CERRADOS (solo para sacar la hoja de los parpados, ver PARPADOS)
+    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, bocado=-1.0, cerrados=False)
     p.update(k)
     return p
 
@@ -228,7 +236,15 @@ def escena(pose):
         # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas. Y
         # aplastado con ella (derretido, se hunde en el charco).
         rad = np.array([2.3 * k * en, 3.0 * k * en, 5.0 * min(1.0, sz * 1.1) * k * en])
-        add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0, 'ojo')
+        if pose['cerrados']:
+            # CERRADO: el gel tapa el ojo (el parpado) y queda una RAYA oscura de lado a lado, por encima.
+            add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'parpado', 0,
+                'ojo')
+            raya = np.array([rad[0] * 1.05, rad[1] * 1.05, max(0.45, rad[2] * 0.14)])
+            add(lambda P, c=c, raya=raya: np.maximum(sd_elipsoide(P, c, raya), sd_elipsoide(P, C, R) - 0.42), 'pestana',
+                0, 'pestana')
+        else:
+            add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0, 'ojo')
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
         add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=3.4 * en: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
@@ -311,7 +327,14 @@ def _brotes(e, C, R, sz, pose):
             if ojo:
                 m = n + np.array([0.0, 0.6, 0.0]); m /= np.linalg.norm(m)
                 o = c + m * (r * 0.92)
-                e.add(lambda P, o=o, r=r: sd_elipsoide(P, o, np.array([1.1, 1.1, 1.5]) * (r / 4.5)), 'ojo', 0, 'ojo')
+                ro = np.array([1.1, 1.1, 1.5]) * (r / 4.5)
+                if pose['cerrados']:
+                    e.add(lambda P, o=o, ro=ro: sd_elipsoide(P, o, ro), 'parpado', 0, 'ojo')
+                    e.add(lambda P, o=o, ro=ro: sd_elipsoide(P, o + m * 0.15, np.array([ro[0] * 1.08, ro[1] * 1.08,
+                                                                                       max(0.4, ro[2] * 0.2)])),
+                          'pestana', 0, 'pestana')
+                else:
+                    e.add(lambda P, o=o, ro=ro: sd_elipsoide(P, o, ro), 'ojo', 0, 'ojo')
     base, n = _superficie((0.10, -0.45, 0.88), C, R)
     tam = 0.85 * en * _paso(pose['evo'], 0.62, 0.80)   # el tercer cuerno, al final de la transformacion
     if tam < 0.08:

@@ -100,6 +100,22 @@ static func generar_mutante_de(ed: EnemyData, t: float) -> SpriteFrames:
 		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS))
 
 
+# LOS PARPADOS (05/10): la hoja de los ojos cerrados de su variante (la del mutante si lo es), con el mismo tinte. La
+# pone encima Parpadeo a ratos. null si esa variante no la tiene.
+static func parpados_de(ed: EnemyData, t: float, mutante: bool = false) -> SpriteFrames:
+	var color: Color = SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS)
+	var v: Array = _variante_mutante(ed) if mutante else []
+	if not v.is_empty():
+		var anims := {}
+		for k in ANIMS_MUTANTE:
+			anims[k] = ANIMS[k]
+		return Sprites3D.montar(CARPETA % String(v[0]), anims, SlimeSprites._lienzo(float(v[2])), Color(String(v[1])),
+			color, "_parpado")
+	v = _variante(ed.escala_visual, ed.corona_slime, ed.lava_slime)
+	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, SlimeSprites._lienzo(float(v[2])), Color(String(v[1])),
+		color, "_parpado")
+
+
 static func escala_base() -> float:
 	return SlimeSprites.escala_base()
 

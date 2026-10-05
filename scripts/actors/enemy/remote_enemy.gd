@@ -177,6 +177,7 @@ func _montar_sprite() -> void:
 	_cuerpo.visible = false
 	_sprite.visible = true
 	_sprite.sprite_frames = frames
+	Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante))   # los mismos que en el mapa
 	# La textura generada NO es 1 pixel = 1 unidad de mundo: cada generador dice cuanto escalarla.
 	# Y NO se vuelve a estirar con escala_visual: los generadores ya dibujan al bicho grande con mas
 	# celdas, que es lo que mantiene el pixel del mismo tamaño para todos.

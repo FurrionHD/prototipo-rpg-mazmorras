@@ -172,6 +172,16 @@ static func frames_de(ed: EnemyData, t: float, mutante: bool = false) -> SpriteF
 	return g.generar_de(ed, t)
 
 
+# LOS PARPADOS de este enemigo (05/10, ver Parpadeo), o null si su generador no los tiene.
+static func parpados_de(ed: EnemyData, t: float, mutante: bool = false) -> SpriteFrames:
+	if ed == null or ed.sprite_frames != null:
+		return null
+	var g = _generador(ed)
+	if g == null or not g.has_method("parpados_de"):
+		return null
+	return g.parpados_de(ed, t, mutante and mutante_propio(ed))
+
+
 # ¿Tiene este enemigo SPRITE DE MUTANTE propio (dibujado ya a su tamaño)? Si lo tiene, NO se le estira el x1.2 del
 # mutante (mapa, espejo, combate): ya viene grande. Si no, se estira el normal como siempre.
 static func mutante_propio(ed: EnemyData) -> bool:

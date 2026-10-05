@@ -323,8 +323,19 @@ def _trabajo(args):
     n, fps, loop, dirs, fn = mod.ANIMS[nombre]
     t = i / n if loop else (i / (n - 1) if n > 1 else 0.0)
     # 'escena_dir' (05/10, el latigo del miconido): la escena que depende de hacia donde se mira (que brazo da a camara).
-    L = mod.escena_dir(fn(t), d) if hasattr(mod, 'escena_dir') else mod.escena(fn(t))
-    return (nombre, d, i, render(mod.MODELO, L, d))
+    pose = fn(t)
+    L = mod.escena_dir(pose, d) if hasattr(mod, 'escena_dir') else mod.escena(pose)
+    im = render(mod.MODELO, L, d)
+    # LOS PARPADOS (05/10, los slimes: "que parpadeen y que no sea una vez por repeticion de la animacion"): la misma pose
+    # con los ojos CERRADOS, y se guarda SOLO lo que cambia. El juego lo pone encima a ratos, a su aire.
+    par = None
+    if getattr(mod, 'PARPADOS', False):
+        cerr = render(mod.MODELO, mod.escena(dict(pose, cerrados=True)), d)
+        a = np.asarray(im).astype(int); b = np.asarray(cerr).astype(int)
+        cambia = (np.abs(a - b).max(axis=2) > 2) & (b[:, :, 3] > 0)
+        o = np.zeros_like(b); o[cambia] = b[cambia]
+        par = Image.fromarray(o.astype(np.uint8), 'RGBA')
+    return (nombre, d, i, im, par)
 
 
 def hornear(modname, nombres, salida, vistas):
@@ -341,11 +352,17 @@ def hornear(modname, nombres, salida, vistas):
     for nm in nombres:
         n, fps, loop, dirs, fn = mod.ANIMS[nm]
         hoja = Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0))
-        for (a, d, i, im) in hechos:
+        hoja_p = Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0))
+        hay_p = False
+        for (a, d, i, im, par) in hechos:
             if a == nm:
                 hoja.paste(im, (i * W, d * H))
+                if par is not None:
+                    hoja_p.paste(par, (i * W, d * H)); hay_p = True
         hoja.save(salida + nm + '.png')
-        meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs}
+        if hay_p:
+            hoja_p.save(salida + nm + '_parpado.png')
+        meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs, 'parpado': hay_p}
         filas = min(dirs, 5)
         vista = Image.new('RGB', (W * n, H * filas), (40, 42, 50))
         recorte = hoja.crop((0, 0, W * n, H * filas))

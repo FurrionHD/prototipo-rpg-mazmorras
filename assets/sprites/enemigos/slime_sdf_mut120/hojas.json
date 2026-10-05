@@ -8,67 +8,78 @@
    "fotogramas": 8,
    "fps": 4.0,
    "loop": true,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "walk": {
    "fotogramas": 8,
    "fps": 8.0,
    "loop": true,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "embestida": {
    "fotogramas": 8,
    "fps": 10.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "inflar": {
    "fotogramas": 8,
    "fps": 9.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "hinchado": {
    "fotogramas": 8,
    "fps": 8.0,
    "loop": true,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "deshincharse": {
    "fotogramas": 8,
    "fps": 10.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "aplaston": {
    "fotogramas": 8,
    "fps": 14.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "muerte": {
    "fotogramas": 8,
    "fps": 10.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "encaje": {
    "fotogramas": 4,
    "fps": 18.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "comer": {
    "fotogramas": 12,
    "fps": 10.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   },
   "evolucion": {
    "fotogramas": 18,
    "fps": 10.0,
    "loop": false,
-   "dirs": 8
+   "dirs": 8,
+   "parpado": true
   }
  }
 }

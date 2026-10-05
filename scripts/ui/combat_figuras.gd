@@ -747,6 +747,7 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 	sp.animation_finished.connect(_on_anim_sprite_terminada.bind(sp))
 	fig.add_child(sp)
 	sp.play()
+	Parpadeo.poner(sp, SpritesEnemigo.parpados_de(ed, c.sprite_t, c.mutante))   # parpadea tambien peleando
 	fig.color = Color(0, 0, 0, 0)   # manda el sprite; el rect se queda solo como caja
 
 

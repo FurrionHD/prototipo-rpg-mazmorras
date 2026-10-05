@@ -126,13 +126,18 @@ func _correr() -> void:
 	e.hp_restante = hp_max * 0.5
 	e.comer.carga = 4.9
 	e._facing = Vector2.RIGHT
-	var esc0: Vector2 = e._sprite.scale
+	# LO QUE SE VE: la escala por el alto del fotograma (con sprite de mutante propio, el que crece es el dibujo).
+	var alto_visto := func() -> float:
+		var tx: Texture2D = e._sprite.sprite_frames.get_frame_texture(e._sprite.animation, 0)
+		return e._sprite.scale.y * (tx.get_height() if tx != null else 1.0)
+	var esc0: float = alto_visto.call()
 	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(50, 0))
 	_ver(await _esperar_a(func() -> bool: return e.mutante, 8.0), "muta")
 	var hp_mut: float = float(sd.crear_combatant(e.current_t, true, false).max_hp)
 	_ver(absf(e.hp_restante - hp_mut * 0.5) < 1.0, "vida a la mitad de la de mutante (%.1f de %.1f)" % [e.hp_restante, hp_mut])
 	await _esperar_a(func() -> bool: return e._state != e.State.COMER, 4.0)
-	_ver(e._sprite.scale.x > esc0.x * 1.1, "acaba mas grande (%.2f -> %.2f)" % [esc0.x, e._sprite.scale.x])
+	var esc1: float = alto_visto.call()
+	_ver(esc1 > esc0 * 1.1, "acaba mas grande (%.1f -> %.1f de alto)" % [esc0, esc1])
 	_ver(e.radio_extra > 0.0, "colision de mutante")
 
 	print("5) el cadaver podrido deja su cristal DAÑADO")

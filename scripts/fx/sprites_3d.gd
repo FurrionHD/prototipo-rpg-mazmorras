@@ -18,8 +18,11 @@ static var _hojas: Dictionary = {}
 
 
 # 'anims' = {nombre: {hoja, dirs, marcos, fps, loop, [desde]}}; 'lienzo' = el de las hojas.
-static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, base: Color, color: Color) -> SpriteFrames:
-	var clave: String = carpeta + color.to_html(false)
+# 'sufijo' = "_parpado" monta la hoja de los PARPADOS (05/10, los slimes: solo los ojos cerrados, ver Parpadeo). Las
+# animaciones que no la tengan se saltan sin error; null si no hay ninguna.
+static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, base: Color, color: Color,
+		sufijo: String = "") -> SpriteFrames:
+	var clave: String = carpeta + color.to_html(false) + sufijo
 	if _cache.has(clave):
 		return _cache[clave]
 	var paleta: Array = [Color(0, 0, 0, 0)]       # el 0 es VACIO
@@ -27,9 +30,11 @@ static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, b
 	var anims: Array = []
 	for nombre in anims_tabla:
 		var a: Dictionary = anims_tabla[nombre]
-		var img: Image = _hoja(carpeta + String(a["hoja"]) + ".png")
+		var ruta: String = carpeta + String(a["hoja"]) + sufijo + ".png"
+		var img: Image = _hoja(ruta) if (sufijo.is_empty() or ResourceLoader.exists(ruta)) else null
 		if img == null:
-			push_error("[sprites3d] falta la hoja %s%s" % [carpeta, a["hoja"]])
+			if sufijo.is_empty():
+				push_error("[sprites3d] falta la hoja %s%s" % [carpeta, a["hoja"]])
 			continue
 		for dir in int(a["dirs"]):
 			var plantillas: Array = []
@@ -44,6 +49,9 @@ static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, b
 		if c.v > 0.85:
 			continue
 		paleta[i] = Color(clampf(c.r * k.x, 0.0, 1.0), clampf(c.g * k.y, 0.0, 1.0), clampf(c.b * k.z, 0.0, 1.0), c.a)
+	if anims.is_empty():
+		_cache[clave] = null
+		return null
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(anims, SpriteLienzo.paleta(paleta), lienzo.x, lienzo.y)
 	_cache[clave] = sf
 	return sf

@@ -293,6 +293,8 @@ func _ready() -> void:
 			_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			_anim_actual = "idle_0"
 			_sprite.play(_anim_actual)
+			# LOS PARPADOS, a su aire (ver Parpadeo). Solo los que tienen hoja de parpados (los slimes).
+			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
@@ -458,6 +460,7 @@ func mutar(dur: float = 0.0) -> void:
 			if sf.has_animation(_anim_actual):
 				_sprite.play(_anim_actual)
 			esc_antes /= _mut_escala()
+			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, true))
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
 	print("[comer] %s MUTA tras comer cristales (carga %.1f)" % [data.enemy_name, comer.carga])
