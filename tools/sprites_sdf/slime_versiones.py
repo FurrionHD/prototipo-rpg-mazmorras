@@ -202,6 +202,37 @@ def cristalizado():
     return e.L
 
 
+# B2: LA SEGUNDA EVOLUCION (05/10, idea suya al ver la C: "que aun tenga los bultos tal como tenemos hecho el otro pero
+# con lo nuevo"): el brotado de siempre, pero los cristales que llevaba dentro ya le han salido por FUERA como puas.
+def brotado_puas():
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.04])
+    _cuerpo(e, C, R)
+    yemas = [(0.85, -0.30, 0.30, 5.6, True), (-0.80, -0.45, 0.10, 4.8, True), (0.30, -0.85, 0.55, 4.2, False),
+             (-0.45, 0.10, 0.85, 3.8, True), (0.70, 0.45, -0.20, 3.6, False)]
+    for x, y, z, r, ojo in yemas:
+        base, n = S._superficie((x, y, z), C, R)
+        c = base + n * r * 0.35
+        e.add(lambda P, c=c, r=r: sd_esfera(P, c, r), 'gel', 1.6)
+        if ojo:
+            o = c + _dir(n[0], n[1] + 0.6, n[2]) * (r * 0.92)
+            e.add(lambda P, o=o, r=r: sd_elipsoide(P, o, V([1.1, 1.1, 1.5]) * (r / 4.5)), 'ojo', 0, 'ojo')
+    for s_ in (-1, 1):
+        _cuerno(e, C, R, 0.70 * s_, 0.05, 0.72)
+    _cuerno(e, C, R, 0.10, -0.45, 0.88, tam=0.85, torcido=1.0)
+    _ojos(e, C, R, extra=[(-0.55, 0.75, 0.55, 0.62), (0.08, 0.93, 0.62, 0.5)])
+    _nucleo(e, C + V([0.0, -2.5, -1.5]), 3.4)
+    # Las PUAS por donde no hay yemas: lomo, entre los cuernos y los costados de atras, con su costra.
+    puas = [((0.0, -0.20, 0.98), 11.0, 2.6), ((0.45, -0.62, 0.62), 9.0, 2.2), ((-0.20, -0.75, 0.60), 9.0, 2.2),
+            ((-0.88, 0.05, 0.40), 6.5, 1.8), ((0.55, 0.20, 0.80), 7.0, 1.9), ((-0.30, -0.95, 0.05), 7.0, 1.9)]
+    for d, largo, radio in puas:
+        base, n = S._superficie(d, C, R)
+        c = base + n * (largo * 0.32)
+        _cristal(e, c, tuple(n), largo * 1.25, radio)
+        e.add(lambda P, b=base, r=radio: sd_esfera(P, b, r * 1.25), 'costra', 0, 'costra')
+    return e.L
+
+
 FILAS = [
     ('normal hoy', ESC_NORMAL, normal_hoy),
     ('normal +nucleo', ESC_NORMAL, normal_nucleo),
@@ -209,6 +240,7 @@ FILAS = [
     ('A 3 cuernos', ESC_MUTANTE, tragon_tres),
     ('B brotado', ESC_MUTANTE, brotado),
     ('C cristal', ESC_MUTANTE, cristalizado),
+    ('B2 evolucion', ESC_MUTANTE * 1.1, brotado_puas),
 ]
 
 
