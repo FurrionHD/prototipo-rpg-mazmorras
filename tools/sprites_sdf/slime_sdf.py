@@ -40,12 +40,17 @@ VARIANTES = {
     'lava160': (1.60, 'lava', 'ff862b'),
     'rey280': (2.80, 'rey', '55b8ff'),
     'mut120': (1.20, 'brotado', 'ff2b2b'),
+    # LA 2a EVOLUCION (05/10, idea suya): el brotado con los cristales ya POR FUERA como puas. Solo en quieto hasta su
+    # visto bueno; el x1.1 sobre el brotado es del boceto (PREGUNTADO, sin decidir).
+    'evo2': (1.32, 'puas', 'ff2b2b'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
 # El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
-CON_NUCLEO = FORMA in ('normal', 'brotado')
+CON_NUCLEO = FORMA in ('normal', 'brotado', 'puas')
+# Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
+BROTADO = FORMA in ('brotado', 'puas')
 
 
 def _lienzo(escala):
@@ -72,7 +77,9 @@ def _materiales(forma, color):
             # EL NUCLEO (oscuro y denso) y EL CRISTAL (el cian de los del juego), que se ven a traves del gel.
             # SUTILES (05/10: "se ven muy cargados, que sean mucho mas sutiles"): el nucleo, solo algo mas oscuro que el gel.
             'nucleo': [osc(c, 0.62), osc(c, 0.48), osc(c, 0.30)],
-            'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)]}
+            'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)],
+            # LA COSTRA (2a evolucion): gel cuajado y opaco alrededor de donde le sale una pua.
+            'costra': [osc(c, 0.55), osc(c, 0.38), osc(c, 0.18)]}
 
 
 LIENZO, PIES = _lienzo(ESCALA)
@@ -102,7 +109,9 @@ def POSE(**k):
     #   bote       cuanto se despega del suelo (en BOTEs)      avance  hacia delante, en unidades
     #   encoge     tamaño entero (1 = el suyo): el brotado al morir se queda en menos (le salen las crias)
     #   yemas      0..1: cuanto asoman las yemas del brotado (al morir se le van)
-    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0)
+    #   evo        0..1: la TRANSFORMACION de normal a brotado (0 = aun es el normal, de su tamaño; 1 = brotado entero)
+    #   bocado     -1 = nada; 0..1 = el cristal que se esta COMIENDO, de delante en el suelo hasta deshacerse dentro
+    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, bocado=-1.0)
     p.update(k)
     return p
 
@@ -110,6 +119,20 @@ def POSE(**k):
 BOTE = 3.1
 LUNGE = 5.5          # (el viejo, 8: mi slime es algo mayor y al sur se salia del lienzo por abajo)
 ENCAJE_RETRO = 3.4
+
+
+def _paso(x, a, b):
+    """0 antes de 'a', 1 despues de 'b', suave entre medias."""
+    u = min(1.0, max(0.0, (x - a) / max(b - a, 1e-6)))
+    return u * u * (3 - 2 * u)
+
+
+def _en(p):
+    """El tamaño entero de esta pose: el 'encoge' y, transformandose, el del normal (1/1,2) creciendo al del brotado."""
+    en = p.get('encoge', 1.0)
+    if BROTADO:
+        en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
+    return en
 
 
 def huesos(p):
@@ -125,7 +148,7 @@ def _forma(p):
     # Mas ancho al aplastarse, con tope: derretido del todo se quedaba un charco que llenaba el lienzo entero.
     # (el lienzo del viejo deja poco sitio bajo el suelo: mirando al sur, un charco mas ancho se salia por abajo)
     sxy = min(1.0 / math.sqrt(max(sq, 0.2)) * (1.0 + 0.1 * de), 1.1)
-    en = p.get('encoge', 1.0)
+    en = _en(p)
     R = CUERPO_R * np.array([sxy, sxy, sz]) * en
     C = np.array([CUERPO[0], CUERPO[1], CUERPO[2] * sz * en])
     return C, R, sz
@@ -174,13 +197,15 @@ def escena(pose):
             add(lambda P, a=base, b=punta: sd_cono(P, a, b, 2.4, 1.3), 'cuerno', 0, 'corona')
             add(lambda P, c=punta + np.array([0, 0, 0.8]): sd_esfera(P, c, 1.35), 'gema', 0, 'gema')
     else:
-        if FORMA == 'brotado':
+        if BROTADO:
             _brotes(e, C, R, sz, pose)
+        if FORMA == 'puas':
+            _puas(e, C, R, pose)
         # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
             base, n = _superficie((0.70 * s, 0.05, 0.72), C, R)
             raiz = base - n * 2.0
-            en = pose['encoge']
+            en = _en(pose)
             medio = base + n * 2.6 * en + np.array([0.6 * s * en, 0.0, 3.0 * sz * en])
             punta = medio + np.array([-0.6 * s * en, 0.0, 3.6 * sz * en])
             # (derritiendose, los cuernos se funden con el charco)
@@ -189,11 +214,15 @@ def escena(pose):
             add(lambda P, a=medio, b=punta, fu=fu: sd_cono(P, a, b, 2.4 * fu, 0.9 * fu), 'gel', 1.0)
     # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara. El brotado
     # lleva dos mas, pequeños y descolocados.
-    en = pose['encoge']
+    en = _en(pose)
     ojos = [(-0.33, 0.88, 0.34, 1.0), (0.33, 0.88, 0.34, 1.0)]
-    if FORMA == 'brotado':
-        ojos += [(-0.55, 0.75, 0.55, 0.62), (0.08, 0.93, 0.62, 0.5)]
+    if BROTADO:
+        # (transformandose, se le abren al final)
+        ab = _paso(pose['evo'], 0.70, 0.85)
+        ojos += [(-0.55, 0.75, 0.55, 0.62 * ab), (0.08, 0.93, 0.62, 0.5 * ab)]
     for x, y, z, k in ojos:
+        if k < 0.05:
+            continue
         base, n = _superficie((x, y, z), C, R)
         c = base + n * 0.05
         # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas. Y
@@ -203,11 +232,46 @@ def escena(pose):
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
         add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=3.4 * en: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
-        # Y LOS CRISTALES: uno en el normal; en el brotado, los que se ha comido.
-        cris = _CRISTALES_BROTADO if FORMA == 'brotado' else [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
+        # Y LOS CRISTALES: uno en el normal; en el brotado, los que se ha comido (transformandose, el primero ya estaba y
+        # los demas aparecen); en la 2a evolucion ninguno dentro: le han salido por fuera.
+        if FORMA == 'brotado':
+            cris = [(c, eje, l, r * (1.0 if i == 0 else _paso(pose['evo'], 0.25, 0.6)))
+                    for i, (c, eje, l, r) in enumerate(_CRISTALES_BROTADO)]
+        elif FORMA == 'normal':
+            cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
+        else:
+            cris = []
         for c, eje, largo, radio in cris:
-            _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
+            if radio > 0.05:
+                _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
+    # EL BOCADO: el cristal que se come. Empieza en el SUELO delante de el (quieto en el mundo aunque el cuerpo avance),
+    # entra en el gel y se deshace hacia el nucleo.
+    b = pose['bocado']
+    if b >= 0.0:
+        Rb = CUERPO_R * en
+        fuera = np.array([0.0, Rb[1] + 2.5, 2.6]) - np.array([0.0, pose['avance'], pose['bote'] * BOTE])
+        dentro = C + np.array([0.0, 2.0, -0.5]) * en
+        u = _paso(b, 0.25, 0.55)
+        c = fuera + (dentro - fuera) * u
+        tam = 1.0 - _paso(b, 0.6, 0.92)
+        if tam > 0.05:
+            # (del tamaño de uno del suelo: se tiene que ver bien ANTES de que se lo trague)
+            _cristal(e, c, (0.3, 0.2, 1.0), 9.0 * tam, 3.0 * tam)
     return e.L
+
+
+# LAS PUAS de la 2a evolucion: los cristales que llevaba dentro le atraviesan la piel por donde no hay yemas (lomo,
+# entre los cuernos, costados de atras), cada una con una COSTRA de gel cuajado donde sale.
+_PUAS = [((0.0, -0.20, 0.98), 11.0, 2.6), ((0.45, -0.62, 0.62), 9.0, 2.2), ((-0.20, -0.75, 0.60), 9.0, 2.2),
+         ((-0.88, 0.05, 0.40), 6.5, 1.8), ((0.55, 0.20, 0.80), 7.0, 1.9), ((-0.30, -0.95, 0.05), 7.0, 1.9)]
+
+def _puas(e, C, R, pose):
+    en = _en(pose)
+    for d, largo, radio in _PUAS:
+        base, n = _superficie(d, C, R)
+        c = base + n * (largo * 0.32 * en)
+        _cristal(e, c, tuple(n), largo * 1.25 * en, radio * en)
+        e.add(lambda P, b=base, r=radio * 1.25 * en: sd_esfera(P, b, r), 'costra', 0, 'costra')
 
 
 # UN CRISTAL: bipiramide alargada (dos conos punta con punta) centrada en 'c', a lo largo de 'eje'.
@@ -233,10 +297,14 @@ _YEMAS = [(0.85, -0.30, 0.30, 5.6, True), (-0.80, -0.45, 0.10, 4.8, True), (0.30
 
 
 def _brotes(e, C, R, sz, pose):
-    en = pose['encoge']; ye = pose['yemas']; fu = 1.0 - 0.85 * pose['derretido']
+    en = _en(pose); ye = pose['yemas']; fu = 1.0 - 0.85 * pose['derretido']
     if ye > 0.05:
-        for x, y, z, r, ojo in _YEMAS:
-            r = r * en * ye
+        for i, (x, y, z, r, ojo) in enumerate(_YEMAS):
+            # Transformandose, las yemas le brotan UNA A UNA (con un pelin de rebote al salir).
+            sale = _paso(pose['evo'], 0.30 + i * 0.07, 0.42 + i * 0.07)
+            r = r * en * ye * sale * (1.0 + 0.25 * math.sin(math.pi * sale))
+            if r < 0.3:
+                continue
             base, n = _superficie((x, y, z), C, R)
             c = base + n * r * 0.35
             e.add(lambda P, c=c, r=r: sd_esfera(P, c, r), 'gel', 1.6)
@@ -245,7 +313,9 @@ def _brotes(e, C, R, sz, pose):
                 o = c + m * (r * 0.92)
                 e.add(lambda P, o=o, r=r: sd_elipsoide(P, o, np.array([1.1, 1.1, 1.5]) * (r / 4.5)), 'ojo', 0, 'ojo')
     base, n = _superficie((0.10, -0.45, 0.88), C, R)
-    tam = 0.85 * en
+    tam = 0.85 * en * _paso(pose['evo'], 0.62, 0.80)   # el tercer cuerno, al final de la transformacion
+    if tam < 0.08:
+        return
     raiz = base - n * 2.0
     medio = base + n * 2.6 * tam + np.array([0.6 * tam + 1.0 * en, 0.0, 3.0 * tam * sz])
     punta = medio + np.array([-0.6 * tam + 1.6 * en, 0.0, 3.6 * tam * sz])
@@ -347,6 +417,26 @@ def _muerte_brotado(t):
                 bote=T(t, [(0.0, 0.0), (0.12, 0.45), (0.26, 0.0), (0.40, 0.18), (0.54, 0.0), (1.0, 0.0)]))
 
 
+# COMER UN CRISTAL (05/10): se estira hacia delante y bajo, el gel se le echa encima, lo engulle de un trago y se
+# asienta; el cristal se le ve entrar y deshacerse dentro. 12 marcos a 10 = 1,2 s (ComerCristales.COMER_DUR).
+def anim_comer(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.18, 0.84), (0.32, 0.70), (0.46, 1.16), (0.60, 0.90), (0.76, 1.05),
+                             (1.0, 1.0)]),
+                avance=T(t, [(0.0, 0.0), (0.18, 1.6), (0.32, 2.6), (0.46, 0.8), (0.60, 0.2), (1.0, 0.0)]),
+                bote=T(t, [(0.0, 0.0), (0.40, 0.0), (0.46, 0.20), (0.60, 0.0), (1.0, 0.0)]),
+                bocado=t)
+
+
+# LA TRANSFORMACION de normal a brotado (05/10): tiembla, se hincha, le brotan las yemas una a una, le sale el tercer
+# cuerno, se le abren los ojos de mas y se asienta. 18 marcos a 10 = 1,8 s (ComerCristales.TRANSFORMACION_DUR).
+def anim_evolucion(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.25, 0.32))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.30, 1.0), (0.40, 1.24), (0.55, 1.08), (0.70, 1.18), (0.82, 0.84),
+                             (0.92, 1.04), (1.0, 1.0)]) + 0.06 * tiembla * (t < 0.32),
+                bote=T(t, [(0.0, 0.0), (0.38, 0.0), (0.45, 0.35), (0.55, 0.0), (0.70, 0.25), (0.82, 0.0), (1.0, 0.0)]),
+                evo=T(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -381,8 +471,14 @@ ANIMS = {
 # Las del slime NORMAL y nada mas: quieto, andar, embestida (su basico, el Placaje y el Doble embate), inflar, hinchado,
 # aplaston y deshincharse (el Reventon), encajar y morir (el cadaver es su ultimo fotograma).
 ANIMS_BROTADO = ('idle', 'walk', 'embestida', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encaje', 'muerte')
-if FORMA == 'brotado':
+if BROTADO:
     ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_BROTADO}
+# COMER: todos los enemigos comen cristales, pero de momento solo el slime NORMAL y su brotado la llevan (uno a uno).
+# EVOLUCION: la transformacion de normal a brotado vive en la hoja del BROTADO (empieza del tamaño del normal).
+if VAR in ('s100', 'mut120'):
+    ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
+if VAR == 'mut120':
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion)
 
 
 VIEJOS = {'s170': 'slime_556faa_1.70', 's115': 'slime_47d552_1.15', 's150': 'slime_556a80_1.50', 's100': 'slime_ff2b2b_1.00',
