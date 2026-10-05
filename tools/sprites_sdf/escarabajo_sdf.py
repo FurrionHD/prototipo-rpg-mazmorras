@@ -1,7 +1,7 @@
 # ============================================================
 #  escarabajo_sdf.py -- el ESCARABAJO DE HIERRO en 3D (05/10/2026), con el motor de los enemigos (sdf_comun). Lo del
 #  viejo (escarabajo_sprites.gd): LO CONTRARIO DE LA ARAÑA, un DOMO BAJO Y ANCHO (los elitros, con su raja) con la placa
-#  del cuello (pronoto), la cabeza y la PALA plana delante -- empuja, no pincha --, y seis patas cortas que casi no se
+#  del cuello (pronoto), la cabeza y (05/10, version A elegida: "parece god") un CUERNO de rinoceronte -- empuja con el --;
 #  ven. Lo de "hierro" es el BRILLO: un reflejo duro y claro sobre el lomo (el especular del motor). Lienzo y origen de
 #  su horneado (1,50 -> 80 x 80, el centro).
 #  HUESOS: solo la raiz, que lo lleva todo: se APLASTA (agacha: mas bajo y algo mas ancho), se acorta (estira), se pone
@@ -21,36 +21,42 @@ SALIDA = 'assets/sprites/enemigos/escarabajo_sdf/'
 VISTAS = 'tools/salida/sdf/'
 V = np.array
 
-# Verde oliva (5c8055); el caparazon con su cuarto tono, el reflejo de metal.
+# Verde oliva (5c8055); el caparazon y el cuerno con su cuarto tono, el reflejo de metal; la cabeza casi negra.
 MAT = {
     'caparazon': [(0.22, 0.31, 0.20), (0.36, 0.50, 0.33), (0.48, 0.63, 0.44), (0.86, 0.94, 0.82)],
-    'oscuro':    [(0.12, 0.17, 0.11), (0.18, 0.25, 0.16), (0.26, 0.34, 0.22)],
-    'pata':      [(0.14, 0.19, 0.12), (0.22, 0.29, 0.18), (0.30, 0.38, 0.25)],
+    'costura':   [(0.10, 0.14, 0.09), (0.14, 0.20, 0.13), (0.18, 0.25, 0.16)],
+    'oscuro':    [(0.12, 0.17, 0.11), (0.18, 0.25, 0.16), (0.26, 0.34, 0.22), (0.62, 0.72, 0.58)],
+    'cara':      [(0.05, 0.07, 0.05), (0.09, 0.12, 0.08), (0.15, 0.20, 0.13), (0.50, 0.58, 0.46)],
+    'cuerno':    [(0.16, 0.22, 0.14), (0.26, 0.36, 0.24), (0.38, 0.50, 0.34), (0.80, 0.90, 0.76)],
+    'pata':      [(0.11, 0.15, 0.10), (0.18, 0.25, 0.16), (0.26, 0.34, 0.22)],
     'ojo':       [(1.0, 0.80, 0.30)] * 3,
 }
 # Algo mayor que su escala (1,5): el viejo exageraba el tamaño, como el de la araña.
 MODELO = Modelo(2.1, (80, 80), (40, 40), MAT, (0.06, 0.09, 0.05), suaves=('cuerpo',), brillan=('ojo',), corta_suelo=True,
-                especular=('caparazon',), umbral_especular=0.975)
+                especular=('caparazon', 'cuerno', 'oscuro', 'cara'), umbral_especular=0.96)
 
-# Las distancias del viejo pasadas a este modelo (aquel media 23,5 de largo, este 17,6).
+# Las distancias del viejo pasadas a este modelo (aquel media 23,5 de largo, este ~20).
 K_VIEJO = 0.75
 LUNGE_DIST = 9.5
 ENCAJE_RETRO = 0.22
-PASO_LARGO = 1.8
-PASO_ALTO = 1.1
-PATAS = ((3.6, 0.6), (0.4, 0.0), (-3.2, -0.6))
+PASO_LARGO = 2.2
+PASO_ALTO = 1.4
+# Las patas (y de la coxa, abanico): las de delante hacia delante, las de atras hacia atras.
+PATAS = ((4.4, 0.75), (0.6, -0.15), (-3.0, -0.75))
+CUELLO = V((0.0, 6.6, 2.8))
 
 
 def POSE(**k):
+    # 'cuerno': cabecea la cabeza (y el cuerno) hacia arriba, la cornada.
     p = dict(avance=0.0, agacha=0.0, estira=1.0, rumbo=0.0, tumba=0.0, bola=0.0, encoge=0.0, cielo=0.0, antena=0.0,
-             fase=0.0, paso=0.0)
+             fase=0.0, paso=0.0, cuerno=0.0)
     p.update(k)
     return p
 
 
 def _domo(b):
-    """El elipsoide que envuelve el caparazon (centro, radios), con lo que lo redondea 'bola'."""
-    return V((0.0, -1.4, 3.3 + 1.9 * b)), V((6.05 - 0.5 * b, 6.0 - 1.0 * b, 3.3 + 1.9 * b))
+    """El elipsoide de los elitros (centro, radios), con lo que lo redondea 'bola'."""
+    return V((0.0, -3.4, 3.4 + 1.9 * b)), V((5.3 + 0.2 * b, 5.6 - 0.5 * b, 3.3 + 1.9 * b))
 
 
 def huesos(p):
@@ -61,14 +67,15 @@ def huesos(p):
     c = S @ c
     # RUEDA sobre su eje morro-grupa (alrededor del centro del domo) y se pone de COSTADO (gira sobre la vertical).
     X = comp(sobre(c, ry(p['tumba'] * math.pi * 0.5)), X)
-    X = comp(sobre(V((0.0, -1.4, 0.0)), rz(p['rumbo'])), X)
+    X = comp(sobre(V((0.0, c[1], 0.0)), rz(p['rumbo'])), X)
     # EL APOYO: lo que hay que subirlo para que lo mas bajo del domo quede a ras de suelo, y no dentro.
     M = X[0]
     cz = (M @ _domo(p['bola'])[0] + X[1])[2]
     medio = math.sqrt(sum((M[2, j] * r[j]) ** 2 for j in range(3)))
     apoyo = max(0.0, medio - cz)
     X = comp((np.eye(3), V((0.0, p['avance'], apoyo))), X)
-    return {'raiz': X}
+    # LA CABEZA cabecea sobre el cuello: con 'cuerno' > 0 sube el cuerno (la cornada).
+    return {'raiz': X, 'cabeza': comp(X, sobre(CUELLO, rx(-p['cuerno'] * 0.45)))}
 
 
 def _cono(add, a, b, ra, rb, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
@@ -82,55 +89,74 @@ def _elip(add, c, r, mat, k=0.0, grupo='cuerpo', hueso='raiz'):
 def escena(pose):
     e = Escena(huesos(pose)); add = e.add
     b = pose['bola']
-    sube = 1.9 * b
-    # LOS ELITROS: el domo, ANCHO y BAJO, y la RAJA del medio (dos mitades que casi se tocan: la linea oscura).
-    # Hecho bola: mas alto y mas corto, casi redondo.
-    for s in (-1, 1):
-        _elip(add, (2.75 * s - 1.5 * b * s, -1.4, 3.3 + sube), (3.3 + 1.0 * b, 6.0 - 1.0 * b, 3.3 + sube), 'caparazon', 0,
-              'elitro%d' % s)
-    _elip(add, (0, -1.4, 2.2 + 1.2 * b), (5.8 - 0.6 * b, 5.8 - 1.0 * b, 2.1 + 2.0 * b), 'oscuro', 0, 'vientre')
-    # EL PRONOTO: la placa del cuello, mas estrecha, y LA CABEZA. Hecho bola, la cabeza se mete dentro.
-    mete = V((0.0, -3.4 * b, 1.6 * b))
-    _elip(add, V((0, 4.6, 3.0)) + mete, (3.8, 2.6, 2.5 + 0.8 * b), 'caparazon', 0, 'pronoto')
-    _elip(add, V((0, 7.0, 2.2)) + mete * 1.1, (2.3, 1.8, 1.6), 'oscuro', 0, 'cabeza')
-    # LA PALA: plana y ancha, por delante de la cabeza, algo levantada.
-    cpala = V((0, 8.8, 1.8)) + mete * 1.2
-    add(lambda P, c=cpala: sd_caja(P, c, [V((1, 0, 0)), V((0, 0.94, 0.34)), V((0, -0.34, 0.94))], (3.2, 1.4, 0.35), 0.3),
-        'caparazon', 0, 'pala')
-    # Los ojos y las antenas se guardan los primeros al cerrarse.
+    # LOS ELITROS: UN ovalo liso y brillante, con la COSTURA fina por el medio (los dos bultos de antes "parecian un
+    # culo"). Hecho bola: mas alto y mas corto, casi redondo.
+    c, r = _domo(b)
+    _elip(add, c, r, 'caparazon', 0, 'elitros')
+    _elip(add, c, (0.28, r[1] + 0.12, r[2] + 0.12), 'costura', 0, 'costura')
+    _elip(add, V((0, -1.0, 2.0 + 1.0 * b)), (4.6, 6.4 - 1.2 * b, 1.8 + 1.4 * b), 'oscuro', 0, 'vientre')
+    # Hecho bola, el escudo y la cabeza se meten dentro.
+    mete = V((0.0, -5.0 * b, 1.9 * b))
+    # PIEZAS SEPARADAS: entre el escudo y los elitros, una CINTURA oscura y estrecha que se ve.
+    _elip(add, V((0, 2.2, 2.9)) + mete, (2.8, 1.4, 1.9), 'oscuro', 0, 'cintura')
+    # EL PRONOTO: el escudo, ancho y abombado, con su CUERNECILLO.
+    _elip(add, V((0, 4.7, 3.3)) + mete, (4.6, 2.5, 2.6), 'caparazon', 0, 'pronoto')
     if b < 0.6:
+        _cono(add, V((0, 5.2, 5.6)) + mete, V((0, 6.6, 7.4)) + mete, 1.3, 0.3, 'cuerno', 0, 'cuernecillo')
+        # LA CABEZA, FUERA del escudo y casi negra, con OJOS GRANDES a los lados, la BOCA y EL CUERNO, que sube curvado
+        # hacia delante (empuja con el).
+        _elip(add, V((0, 7.8, 2.7)) + mete, (2.5, 1.9, 1.7), 'cara', 0, 'cabeza', 'cabeza')
         a = pose['antena']
         for s in (-1, 1):
-            _elip(add, V((1.5 * s, 7.9, 2.7)) + mete, (0.45, 0.4, 0.4), 'ojo', 0, 'ojo')
+            _elip(add, V((2.0 * s, 8.4, 3.2)) + mete, (0.95, 0.9, 0.9), 'ojo', 0, 'ojo', 'cabeza')
+            _cono(add, V((1.1 * s, 9.3, 2.1)) + mete, V((1.5 * s, 10.4, 2.0)) + mete, 0.5, 0.35, 'cuerno', 0, 'boca%d' % s,
+                  'cabeza')
+            _cono(add, V((1.5 * s, 10.4, 2.0)) + mete, V((0.4 * s, 11.0, 2.0)) + mete, 0.35, 0.12, 'cuerno', 0, 'boca%d' % s,
+                  'cabeza')
             # las antenas, cortas y acodadas; 'antena' las mueve tanteando
-            codo = V((3.0 * s, 8.6, 3.4 + 0.5 * a)) + mete
-            punta = codo + V((0.6 * s + 0.4 * a * s, 1.2 - 0.3 * abs(a), 0.2 + 0.6 * a))
-            _cono(add, V((1.6 * s, 7.6, 2.4)) + mete, codo, 0.3, 0.25, 'pata', 0, 'antena')
-            _cono(add, codo, punta, 0.25, 0.4, 'pata', 0, 'antena')
-    # LAS SEIS PATAS: cortas, en dos tramos, que asoman por debajo del borde del caparazon.
+            codo = V((2.9 * s, 9.2, 3.0 + 0.4 * a)) + mete
+            punta = codo + V((0.7 * s + 0.4 * a * s, 1.0 - 0.3 * abs(a), 0.3 + 0.6 * a))
+            _cono(add, V((1.9 * s, 8.8, 2.6)) + mete, codo, 0.28, 0.24, 'pata', 0, 'antena', 'cabeza')
+            _cono(add, codo, punta, 0.24, 0.38, 'pata', 0, 'antena', 'cabeza')
+        pts = [V((0, 8.0, 3.6)), V((0, 9.4, 4.8)), V((0, 10.6, 6.6)), V((0, 11.2, 8.8)), V((0, 10.9, 10.8)), V((0, 10.1, 11.9))]
+        n = len(pts) - 1
+        for i in range(n):
+            _cono(add, pts[i] + mete, pts[i + 1] + mete, 1.7 - 1.4 * i / n, 1.7 - 1.4 * (i + 1) / n, 'cuerno', 0, 'cuerno',
+                  'cabeza')
+    # LAS SEIS PATAS: coxa bajo el cuerpo, FEMUR hacia fuera y arriba, TIBIA abajo con PINCHOS y el tarso hasta el suelo.
     # Andan a TRIPODE ALTERNO (L0 R1 L2 a la vez, las otras tres en contrafase).
-    centro = V((0.0, -1.4, 3.3 + sube))
+    centro = V((0.0, -1.0, 3.3 + 1.9 * b))
     en = pose['encoge']; ci = pose['cielo']
     for s in (-1, 1):
         for k, (y0, ang) in enumerate(PATAS):
-            base = V((4.6 * s, y0, 1.6 + 0.6 * b))
             d = V((math.cos(ang) * s, math.sin(ang), 0.0))
+            base = V((2.6 * s, y0, 1.8 + 0.8 * b))
             grupo = (k + (1 if s > 0 else 0)) % 2
             fi = 2 * math.pi * (pose['fase'] + 0.5 * grupo)
             paso = V((0.0, PASO_LARGO * math.sin(fi), PASO_ALTO * max(0.0, math.cos(fi)))) * pose['paso']
-            rod = base + d * 2.6 + V((0, 0, 0.9)) + paso * 0.5
-            pie = base + d * 4.6 + V((0, 0, -1.4)) + paso
+            rod = base + d * 4.6 + V((0, 0, 1.6)) + paso * 0.4
+            tob = base + d * 7.4 + V((0, 0, -0.6)) + paso * 0.8
+            pie = base + d * 9.0 + V((0, 0, -1.7)) + paso
             # PATAS AL CIELO (muerto panza arriba): tiesas y dobladas hacia lo que ahora es arriba.
             if ci > 0.0:
-                rod = rod * (1 - ci) + (base + d * 1.8 + V((0, 0, -1.6))) * ci
-                pie = pie * (1 - ci) + (base + d * 1.2 + V((0, 0, -4.2))) * ci
+                rod = rod * (1 - ci) + (base + d * 3.0 + V((0, 0, -2.0))) * ci
+                tob = tob * (1 - ci) + (base + d * 3.4 + V((0, 0, -4.4))) * ci
+                pie = pie * (1 - ci) + (base + d * 2.6 + V((0, 0, -5.6))) * ci
             # GUARDADAS (caparazon, bola): se recogen hacia dentro del domo.
             if en > 0.0:
-                rod = rod + (centro - rod) * 0.6 * en
-                pie = pie + (centro - pie) * 0.7 * en
+                rod = rod + (centro - rod) * 0.65 * en
+                tob = tob + (centro - tob) * 0.72 * en
+                pie = pie + (centro - pie) * 0.78 * en
                 base = base + (centro - base) * 0.3 * en
-            _cono(add, base, rod, 0.6, 0.5, 'pata', 0, 'pata%d%d' % (s, k))
-            _cono(add, rod, pie, 0.5, 0.3, 'pata', 0, 'pata%d%d' % (s, k))
+            g = 'pata%d%d' % (s, k)
+            _cono(add, base, rod, 0.7, 0.55, 'pata', 0, g)
+            _cono(add, rod, tob, 0.55, 0.45, 'pata', 0, g)
+            _cono(add, tob, pie, 0.35, 0.22, 'pata', 0, g)
+            # los pinchos de la tibia, hacia fuera
+            if en < 0.5:
+                for f in (0.35, 0.7):
+                    p = rod + (tob - rod) * f
+                    _cono(add, p, p + d * 0.9 + V((0, 0, 0.5)), 0.28, 0.08, 'pata', 0, g)
     return e.L
 
 
@@ -148,16 +174,18 @@ def anim_walk(t):
 
 
 def anim_embestida(t):
-    # SE APLASTA y sale ARRASTRANDO su peso con la pala: el avance arranca tarde pero no se para.
+    # SE APLASTA y sale ARRASTRANDO su peso, cuerno abajo, y al llegar CORNEA hacia arriba: el avance arranca tarde pero no se para.
     return POSE(agacha=tramos(t, [(0.0, 0.0), (0.26, 1.0), (0.46, 0.85), (0.74, 0.30), (1.0, 0.12)]),
+                cuerno=tramos(t, [(0.0, 0.0), (0.26, -0.7), (0.74, -0.3), (0.88, 1.0), (1.0, 0.3)]),
                 avance=tramos(t, [(0.0, 0.0), (0.26, -1.4), (0.46, 1.6), (0.74, 8.4), (0.88, 9.5), (1.0, 6.8)])
                 * (LUNGE_DIST / 9.5) * K_VIEJO)
 
 
 def anim_basico(t):
-    # EL PALAZO: se agacha echandose atras y empuja de golpe con la pala (en la mitad), corto y seco.
+    # EL PALAZO (ahora CORNADA): se agacha echandose atras y empuja de golpe subiendo el cuerno (en la mitad).
     return POSE(avance=tramos(t, [(0.0, 0.0), (0.3, -1.6), (0.5, 4.6), (0.7, 3.6), (1.0, 0.0)]) * K_VIEJO,
                 agacha=tramos(t, [(0.0, 0.0), (0.3, 0.7), (0.5, 0.15), (0.7, 0.25), (1.0, 0.0)]),
+                cuerno=tramos(t, [(0.0, 0.0), (0.3, -0.6), (0.5, 1.0), (0.7, 0.6), (1.0, 0.0)]),
                 estira=tramos(t, [(0.0, 1.0), (0.3, 0.96), (0.5, 1.08), (0.7, 1.04), (1.0, 1.0)]))
 
 
