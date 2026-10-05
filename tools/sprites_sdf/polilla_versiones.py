@@ -252,6 +252,15 @@ VERSIONES['D calavera'] = dict(
 )
 
 
+def modelo(vv):
+    """El Modelo de una version: sus materiales y SU tamaño (el lienzo crece con la escala; origen en el centro)."""
+    mat = dict(COMUN); mat.update(vv['mat'])
+    esc = vv.get('escala', 2.0)
+    lado = int(round(90 * esc / 2.0 / 2)) * 2
+    return Modelo(esc, (lado, lado), (lado // 2, lado // 2), mat, (0.05, 0.04, 0.05), suaves=('cuerpo', 'cabeza'),
+                  brillan=('brillo',), corta_suelo=True, especular=('ojo',), umbral_especular=0.8)
+
+
 def escena_version(vv, pose):
     pm._ala = ala_generica
     pm.ALA1 = vv['ala1']; pm.ALA2 = vv['ala2']
@@ -290,11 +299,7 @@ if __name__ == '__main__':
         c = Image.new('RGBA', (d['w'], d['h'])); c.paste(im.crop((x, y, x + w, y + h)), (ox, oy)); viejas.append(c)
     filas.append(('viejo', viejas))
     for nombre, vv in VERSIONES.items():
-        mat = dict(COMUN); mat.update(vv['mat'])
-        esc = vv.get('escala', 2.0)
-        lado = int(round(90 * esc / 2.0 / 2)) * 2
-        mo = Modelo(esc, (lado, lado), (lado // 2, lado // 2), mat, (0.05, 0.04, 0.05), suaves=('cuerpo', 'cabeza'), brillan=('brillo',),
-                    corta_suelo=True, especular=('ojo',), umbral_especular=0.8)
+        mo = modelo(vv)
         L = escena_version(vv, pm.POSE())
         filas.append((nombre, [render(mo, L, dd) for dd in range(5)]))
         print(nombre, 'ok')
