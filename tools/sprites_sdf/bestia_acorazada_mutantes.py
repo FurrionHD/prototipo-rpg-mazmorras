@@ -43,10 +43,12 @@ def _puntos_cadena(p0, d0, n, paso, r0, r1, giro):
 # ------------------------------------------------------------
 #  B MUTANTE -- blatogia, mas epica
 # ------------------------------------------------------------
-# 05/10: "el mutante que no tenga el color tan diferente del normal, es decir ROJO": la familia de colores de la E.
+# 05/10: "el mutante que no tenga el color tan diferente del normal, es decir ROJO" y luego "que cambien UN POCO de
+# color pero que mantengan la paleta mas o menos": la familia de la E, cada mutante con su matiz. Este, ROJO OXIDO
+# (tira a naranja), con el vientre palido algo mas calido.
 MAT_B = dict(bv.MAT_B)
-MAT_B['piel'] = bv.MAT_E['rojo']
-MAT_B['naranja'] = bv.MAT_E['vientre']
+MAT_B['piel'] = [(0.40, 0.11, 0.08), (0.58, 0.19, 0.13), (0.72, 0.29, 0.20)]
+MAT_B['naranja'] = [(0.58, 0.46, 0.36), (0.74, 0.62, 0.50), (0.85, 0.75, 0.63)]
 MAT_B['hueso'] = bv.MAT_E['pua']
 MAT_B['garra'] = bv.MAT_E['pua']
 MAT_B['ojo'] = [(1.00, 0.20, 0.12)] * 3
@@ -80,10 +82,11 @@ def escena_b_mutante():
 # ------------------------------------------------------------
 #  A JEFE -- behemot
 # ------------------------------------------------------------
-# El jefe, en ROJO OSCURO (granate): de la familia de la normal, pero mas hondo; la melena, del hierro de la E.
+# El jefe, en VINO OSCURO: de la familia de la normal pero mas hondo y algo morado (el granate de antes salia casi del
+# mismo rojo que la B); la melena, del hierro de la E.
 MAT_A = dict(bv.MAT_A)
-MAT_A['piel'] = [(0.24, 0.06, 0.07), (0.36, 0.10, 0.11), (0.48, 0.16, 0.16)]
-MAT_A['escama'] = [(0.32, 0.08, 0.09), (0.46, 0.13, 0.13), (0.60, 0.21, 0.20)]
+MAT_A['piel'] = [(0.17, 0.04, 0.08), (0.27, 0.07, 0.13), (0.38, 0.12, 0.19)]
+MAT_A['escama'] = [(0.25, 0.06, 0.11), (0.37, 0.10, 0.17), (0.50, 0.17, 0.25)]
 MAT_A['pelo'] = bv.MAT_E['hierro']
 MAT_A['marfil'] = bv.MAT_E['pua']
 MAT_A['ojo'] = [(1.00, 0.25, 0.10)] * 3
