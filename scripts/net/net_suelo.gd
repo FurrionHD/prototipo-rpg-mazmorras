@@ -178,3 +178,48 @@ func _recoger_concedido(d: Dictionary) -> void:
 		var item := _item_de_dict(d)
 		if item != null:
 			Game.embolsar(item)
+
+
+# --- UN ENEMIGO SE COME UN CRISTAL DEL SUELO (05/10, ver ComerCristales) ---------------------
+# El bicho lo simula el dueño del piso, pero el suelo es del HOST: el cristal se le PIDE, igual que cuando
+# lo recoge un jugador, y gana el primero que llega (otro bicho, o tu agachandote a por el). La respuesta
+# vuelve al dueño con el id del BICHO, que es quien estaba esperando.
+func solicitar_comer(id: int, bicho: Node) -> void:
+	if bicho == null or not bicho.has_meta("net_id"):
+		return
+	var bid: int = int(bicho.get_meta("net_id"))
+	if Net.es_host:
+		_resolver_comida(id, bid, 1)
+	else:
+		_pedir_comer.rpc_id(1, id, bid)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_comer(id: int, bid: int) -> void:
+	if not Net.es_host:
+		return
+	_resolver_comida(id, bid, multiplayer.get_remote_sender_id())
+
+
+# Solo host: como _resolver_recogida, pero el premio va al BICHO. d vacio = llego tarde.
+func _resolver_comida(id: int, bid: int, dueno: int) -> void:
+	var d: Dictionary = {}
+	if _suelo.has(id) and _suelo[id]["d"].get("t") == "cri":
+		d = _suelo[id]["d"]
+		_suelo.erase(id)
+		_despawn_drop.rpc(id)
+		_despawn_drop(id)
+	if dueno == 1:
+		_comida_concedida(bid, d)
+	else:
+		_comida_concedida.rpc_id(dueno, bid, d)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _comida_concedida(bid: int, d: Dictionary) -> void:
+	var reg: Dictionary = Net.enemigos._enemigos.get(bid, {})
+	var bicho = reg.get("nodo")
+	if bicho == null or not is_instance_valid(bicho) or bicho.get("comer") == null:
+		return
+	var cri: Resource = _item_de_dict(d) if not d.is_empty() else null
+	bicho.comer.concedido(cri as Cristal)

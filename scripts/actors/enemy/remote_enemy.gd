@@ -41,6 +41,9 @@ var es_boss: bool = false
 # lee con get() para montarle sus multiplicadores, asi que sin esto el invitado pelearia una rata
 # normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net.enemigos._datos_enemigo).
 var mutante: bool = false
+# Los cristales que lleva comidos (ver ComerCristales): solo para pintar su "cargado". La cuenta de verdad
+# la lleva quien simula el piso; aqui llega por red (Net.enemigos.carga_enemigo y el alta).
+var carga: float = 0.0
 
 # --- DIRECCION (hito 5.4) ---------------------------------------------------------------------
 # Mismos numeros y colores que enemy.gd: lo que ve el que simula el piso y lo que ve el que solo
@@ -216,8 +219,43 @@ func _marcar_mutante() -> void:
 # borra al primer paquete.
 func _tinte_reposo() -> Color:
 	if not mutante:
-		return Color.WHITE
+		return _ENEMY_GD.tinte_cargado(carga)
 	return EnemyData.tinte_mutante()
+
+
+# LO QUE HACE AL COMER, visto desde aqui (lo manda quien simula el piso, ver Net.enemigos):
+#   'come'  = empieza a comerse un cristal: el picoteo con esquirlas, como en enemy.gesto_comer.
+#   'carga' = se lo ha tragado: su carga nueva (el brillo de "cargado").
+#   'muta'  = muta en vivo: lo mismo que enemy.mutar, con la transformacion si dur > 0.
+func aviso_comer(tipo: String, valor: float) -> void:
+	if muerto or data == null:
+		return
+	match tipo:
+		"come":
+			if _sprite != null and _sprite.visible:
+				var base: Vector2 = _sprite.position
+				var t := create_tween()
+				for i in range(2):
+					t.tween_property(_sprite, "position", base + Vector2(0.0, 3.0), valor * 0.15)
+					t.tween_callback(func() -> void:
+						Particulas.esquirlas(self, ComerCristales.COLOR_CRISTAL, Vector2.UP, 5, 0.5))
+					t.tween_property(_sprite, "position", base, valor * 0.2)
+		"carga":
+			carga = valor
+			if _sprite == null or not _sprite.visible:
+				_cuerpo.modulate = _tinte_reposo()
+		"muta":
+			if mutante:
+				return
+			var esc_antes: Vector2 = _sprite.scale if _sprite != null else Vector2.ONE
+			mutante = true
+			# El lado que llego en el alta (radio_extra = (lado - 32) / 2), agrandado como el del mutante.
+			var lado: float = (radio_extra * 2.0 + 32.0) * float(EnemyData.mult_mutante(es_boss)["escala"])
+			radio_extra = maxf(0.0, (lado - 32.0) * 0.5)
+			_montar_sprite()     # vuelve a sacar la escala, ya con el x1.2 del mutante
+			_marcar_mutante()
+			if valor > 0.0:
+				_ENEMY_GD.animar_transformacion(_sprite, esc_antes, valor, self)
 
 
 # SU EMBESTIDA, OIDA DESDE AQUI. El sonido de embestir lo pone enemy._sonar_embestida, que solo corre
@@ -259,7 +297,7 @@ func aplicar_estado_visual(ang: float, avisando: bool, embistiendo: bool = false
 		_sprite.modulate = _AVISO_TINTE if avisando else _tinte_reposo()
 		_actualizar_animacion()
 		return
-	if mutante:
+	if mutante or carga > 0.0:
 		_cuerpo.modulate = _tinte_reposo()
 	if _linea != null:
 		_linea.rotation = ang

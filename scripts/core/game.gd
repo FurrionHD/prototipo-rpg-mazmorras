@@ -14966,14 +14966,8 @@ func start_extraction(corpse: Node) -> void:
 	var t: float = 0.5
 	if corpse.has_method("poder_normalizado"):
 		t = corpse.poder_normalizado()
-	var categoria: int = data.roll_crystal_category(t)
-	# MUTANTE (mini-jefe): su cristal sube UNA categoria por encima de lo que da su especie. Es la
-	# mitad de la recompensa (la otra es el x2 de botin en _tirar_drop), y es la que se nota de
-	# verdad: el valor de un cristal va al CUADRADO de su categoria, asi que un t3 en vez de un t2
-	# vale mas del doble. Se salta el crystal_category_max del bicho a proposito: la gracia del
-	# mini-jefe es sacarle algo que su especie normal no te va a dar nunca.
-	if bool(corpse.get("mutante")):
-		categoria += 1
+	# El +1 del MUTANTE va dentro (ver EnemyData.categoria_cristal: la comparte el cadaver podrido).
+	var categoria: int = data.categoria_cristal(t, bool(corpse.get("mutante")))
 	# Destreza CONSOLIDADA (la del ultimo altar) y con el plato puesto si lo llevas: es la stat de
 	# efecto fuera de combate. No se endurece al subir de nivel (a diferencia de la visible, que cae
 	# a 0) y no se mueve con la excelia que aun no has descansado. Ver stat_consolidado_eff.

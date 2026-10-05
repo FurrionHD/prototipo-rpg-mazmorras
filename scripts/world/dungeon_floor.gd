@@ -2588,6 +2588,9 @@ func _guardar_estado() -> void:
 				# escapaste vuelve convertido en un bicho normal (o uno normal en mini-jefe) por el
 				# mero hecho de subir y bajar la escalera.
 				"mut": bool(e.get("mutante")),
+				# Los CRISTALES QUE LLEVA COMIDOS (ver ComerCristales). Sin esto, el que iba camino de mutar
+				# volvia en blanco al subir y bajar la escalera. Un espejo no tiene 'comer' -> 0.
+				"carga": float(e.comer.carga) if "comer" in e else 0.0,
 				"muerto": grupo == "corpse",
 				# Las HERIDAS que le dejaste al huir. Sin esto, subir y bajar la escalera curaba
 				# del todo al bicho del que acababas de escapar a duras penas.
@@ -2643,6 +2646,7 @@ func _restaurar_estado() -> void:
 		e.zona_idx = int(d["zona"])
 		# Vuelve con las heridas que le dejaste (los saves viejos no lo traen -> -1 = intacto).
 		e.hp_restante = float(d.get("hp", -1.0))
+		e.comer.carga = float(d.get("carga", 0.0))   # fotos viejas -> 0, sin comer
 		if bool(d["muerto"]):
 			# El sello va ANTES de morir(): morir() solo lo pone si venia a -1, justo para que
 			# revivir un cadaver de la foto no le regale otros cinco minutos. Saves viejos -> -1, y
@@ -2951,6 +2955,11 @@ func _pudrir_cadaveres() -> void:
 		# lleva su propio reloj (Game.BOSS_RESPAWN), no este.
 		if c.get("es_boss"):
 			continue
+		# Su cristal se queda en el suelo, DAÑADO (ver Enemy.cristal_podrido). Por soltar_en_suelo y no
+		# plantado a mano: asi entra en la memoria del piso y en multi lo reparte el host como todo el suelo.
+		var cri: Cristal = c.cristal_podrido()
+		if cri != null:
+			Game.soltar_en_suelo(cri, c.global_position)
 		c.desvanecer()
 
 

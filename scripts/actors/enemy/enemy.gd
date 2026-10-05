@@ -153,8 +153,11 @@ const REBOTE_ESPERA := 3.0
 
 signal combat_started(enemy_data: EnemyData, enemy_initiated: bool)
 
-enum State { WANDER, CHASE, RETURN, EMBESTIDA }
+# COMER (05/10): va a por un cristal del suelo, se lo come y a lo mejor muta (ver ComerCristales).
+enum State { WANDER, CHASE, RETURN, EMBESTIDA, COMER }
 var _state: State = State.WANDER
+# Todo lo de comerse los cristales del suelo: la busqueda, el bocado y la CARGA que lleva comida.
+var comer: ComerCristales = ComerCristales.new(self)
 
 var _home: Vector2 = Vector2.ZERO
 var _facing: Vector2 = Vector2.RIGHT  # hacia donde mira (su cono)
@@ -392,8 +395,85 @@ func _marcar_mutante() -> void:
 # que haber una sola autoridad sobre el modulate, y es esa.
 func _tinte_reposo() -> Color:
 	if not mutante:
-		return Color.WHITE
+		return tinte_cargado(comer.carga)
 	return EnemyData.tinte_mutante()
+
+
+# "CARGADO" (05/10): el que lleva cristales comidos y aun no ha mutado late en el cian de los cristales,
+# mas fuerte y mas deprisa cuanto mas lleva. Es el aviso de que ESE va camino de mutar (y de que alguien
+# ha dejado cristales por aqui). Estatica porque el espejo de la otra maquina pinta lo mismo con la carga
+# que le llega por red.
+static func tinte_cargado(carga: float) -> Color:
+	if carga <= 0.0:
+		return Color.WHITE
+	var fuerza: float = clampf(carga / 4.0, 0.25, 1.0)
+	var seg: float = lerpf(1.6, 0.6, fuerza)
+	var f: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.001 * TAU / seg)
+	return Color.WHITE.lerp(ComerCristales.COLOR_CRISTAL * 1.35, f * 0.65 * fuerza)
+
+
+# EL PICOTEO de comer, mientras no haya animacion de comer de verdad (llegara con los sprites de mutante):
+# el dibujo baja y sube dos veces y en cada mordisco saltan esquirlas de cristal.
+func gesto_comer(dur: float) -> void:
+	Net.enemigos.aviso_comer(self, "come", dur)
+	if not _sprite.visible:
+		return
+	var base: Vector2 = _sprite.position
+	var t := create_tween()
+	for i in range(2):
+		t.tween_property(_sprite, "position", base + Vector2(0.0, 3.0), dur * 0.15)
+		t.tween_callback(func() -> void:
+			Particulas.esquirlas(self, ComerCristales.COLOR_CRISTAL, -_facing, 5, 0.5))
+		t.tween_property(_sprite, "position", base, dur * 0.2)
+
+
+# La carga ha cambiado (un bocado): que lo vean los espejos de las demas maquinas.
+func carga_cambiada() -> void:
+	print("[comer] %s lleva %.1f de carga (prob. de mutar %.0f%%)" % [data.enemy_name, comer.carga,
+		ComerCristales.prob_mutar(comer.carga) * 100.0])
+	Net.enemigos.aviso_comer(self, "carga", comer.carga)
+
+
+# MUTAR EN VIVO (05/10). Hasta ahora un mutante solo se decidia al nacer (el 1% de _ready); ahora tambien
+# se llega a fuerza de comer cristales. Hace lo mismo que el _ready de un mutante -- tamaño, colision,
+# tinte, aura -- y conserva la PROPORCION de vida que llevara (si le habias dejado a la mitad, muta a la
+# mitad de su vida nueva). 'dur' > 0 = con la transformacion a la vista: tiembla y crece hasta su tamaño.
+# Si le entras en mitad, la pelea ya es contra el mutante: la bandera se pone aqui, al empezar.
+func mutar(dur: float = 0.0) -> void:
+	if mutante or _dead or data == null:
+		return
+	if hp_restante >= 0.0:
+		var antes: float = float(data.crear_combatant(current_t, false, es_boss).max_hp)
+		var despues: float = float(data.crear_combatant(current_t, true, es_boss).max_hp)
+		hp_restante *= despues / maxf(1.0, antes)
+	var esc_antes: Vector2 = _sprite.scale
+	mutante = true
+	_aplicar_escala(data.escala_visual * _mut_escala())
+	_marcar_mutante()
+	print("[comer] %s MUTA tras comer cristales (carga %.1f)" % [data.enemy_name, comer.carga])
+	Net.enemigos.aviso_comer(self, "muta", dur)
+	if dur > 0.0:
+		animar_transformacion(_sprite, esc_antes, dur, self)
+
+
+# LA TRANSFORMACION, provisional hasta que cada enemigo tenga la suya: crece a sacudidas desde su tamaño de
+# antes hasta el de mutante, con un estallido de esquirlas al empezar y otro al acabar. Estatica porque el
+# espejo (remote_enemy) la repite igual.
+static func animar_transformacion(spr: Node2D, esc_antes: Vector2, dur: float, quien: Node2D) -> void:
+	if spr == null or not spr.visible:
+		return
+	var esc_fin: Vector2 = spr.scale
+	spr.scale = esc_antes
+	Particulas.esquirlas(quien, ComerCristales.COLOR_CRISTAL, Vector2.UP, 10, 0.9)
+	var t := quien.create_tween()
+	var pasos: int = 7
+	for i in range(pasos):
+		var f: float = float(i + 1) / float(pasos)
+		var temblor: Vector2 = Vector2(1.10, 0.92) if i % 2 == 0 else Vector2(0.94, 1.08)
+		t.tween_property(spr, "scale", esc_antes.lerp(esc_fin, f) * temblor, dur / float(pasos + 1))
+	t.tween_property(spr, "scale", esc_fin, dur / float(pasos + 1))
+	t.tween_callback(func() -> void:
+		Particulas.esquirlas(quien, EnemyData.MUT_AURA, Vector2.UP, 16, 1.3))
 
 
 # Escala el cuerpo (ColorRect) y su colision. El cuerpo base es 32x32 centrado.
@@ -602,12 +682,21 @@ func _physics_process(delta: float) -> void:
 	# entrar en combate ellos primero.
 	var pegado: Node2D = _aliado_en_contacto()
 	if pegado != null and _state != State.CHASE and _state != State.EMBESTIDA:
+		# Le pillan comiendo: deja el cristal (el bocado que masticaba se lo traga) y a por ti.
+		if _state == State.COMER:
+			comer.cortar()
 		_objetivo = pegado
 		_olvidar_orbita()   # mismo alta que _try_detect al entrar en CHASE
 		_state = State.CHASE
 
-	# Si no estamos ya persiguiendo (ni embistiendo), miramos si vemos u oimos a alguno.
-	if _state != State.CHASE and _state != State.EMBESTIDA:
+	# UN CRISTAL A LA VISTA gana a todo menos a un golpe ya comprometido (el aviso o la embestida): tambien
+	# a perseguirte. Es el CEBO que pidio: tirar un cristal delante del que te sigue para quitartelo de
+	# encima, pagandolo. Va antes de buscarte para que, viendo las dos cosas, elija el cristal.
+	if _state != State.EMBESTIDA and _state != State.COMER and not _winding and comer.mirar(delta):
+		_state = State.COMER
+
+	# Si no estamos ya persiguiendo (ni embistiendo, ni comiendo), miramos si vemos u oimos a alguno.
+	if _state != State.CHASE and _state != State.EMBESTIDA and _state != State.COMER:
 		_try_detect()
 
 	# La memoria del lado por el que viene rodeando se gasta sola. Cada frame que la sonda vuelve a
@@ -624,6 +713,10 @@ func _physics_process(delta: float) -> void:
 		State.CHASE: _chase(delta)
 		State.EMBESTIDA: _embestida(delta)
 		State.RETURN: _return()
+		State.COMER:
+			# Acabado (comido, perdido o ya mutado): vuelve a su sitio, y si de camino te ve, a por ti.
+			if not comer.paso(delta):
+				_state = State.RETURN
 
 	# BORDEAR la pared en vez de empujarla. Va DESPUES del estado (le pisa la direccion) y ANTES de
 	# la separacion, porque durante el rodeo la separacion es justo lo que lo prensaba contra la
@@ -1714,6 +1807,19 @@ func _deshacer_cria() -> void:
 	t.tween_callback(queue_free)
 
 
+# EL CRISTAL QUE DEJA AL PUDRIRSE (05/10, idea suya sacada de DanMachi): si no se lo sacas, el cuerpo se va
+# pero la piedra se queda en el suelo, y los enemigos que la vean irán a comersela (ver comer cristales).
+# SIEMPRE DAÑADO: "que el cristal sea dañado por si pasas de vuelta que no consigas un monton de dinero
+# gratis". null si ya se lo sacaste (o no lo tuvo nunca).
+func cristal_podrido() -> Cristal:
+	if extracted or data == null:
+		return null
+	var c := Cristal.new()
+	c.categoria = data.categoria_cristal(poder_normalizado(), mutante)
+	c.calidad = Cristal.Calidad.DANADO
+	return c
+
+
 func desvanecer() -> void:
 	remove_from_group("corpse")  # ya no interactuable
 	# Que deje de emanar antes del fundido: si no, sigue soltando cuadraditos mientras se va.
@@ -2013,6 +2119,7 @@ func _rebotar() -> void:
 func _start_combat(enemy_initiated: bool) -> void:
 	if _combat_triggered:
 		return
+	comer.cortar()   # si estaba comiendo, se traga lo que masticaba y a pelear
 	# Solo monta peleas quien SIMULA este piso: los bichos espejados no tienen IA ni son autoridad
 	# de nada (ver Net y remote_enemy.gd).
 	if not Net.pisos.simulo_mi_piso():
@@ -2140,6 +2247,7 @@ func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	# Sale en WANDER (no persiguiendote): la ventana de escape no serviria si al acabar te
 	# tuviera ya localizado. Si sigues cerca y te ve u oye, volvera a por ti por su cuenta.
 	_combat_triggered = false
+	comer.cortar()   # le metieron de refuerzo en mitad de un bocado: lo que masticaba ya es suyo
 	_state = State.WANDER
 	_pick_wander_target()
 
@@ -2194,7 +2302,7 @@ func _actualizar_indicadores() -> void:
 		return
 	# Sin sprite (los que aun son un ColorRect): el latido va sobre el cuerpo, que aqui no lo pisa
 	# nadie. El aviso de esos sigue siendo el palo rojo de abajo.
-	if mutante:
+	if mutante or comer.carga > 0.0:
 		_color_rect.modulate = _tinte_reposo()
 	_facing_line.rotation = _facing.angle()
 	# Rojo/naranja mientras avisa el ataque (telegrafia el golpe).

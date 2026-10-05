@@ -70,6 +70,10 @@ func _datos_enemigo(nodo: Node) -> Dictionary:
 	# dado en la otra maquina o cada uno tendria sus propios mini-jefes -- el invitado veria una rata
 	# normal donde el anfitrion pelea un mutante con el triple de vida.
 	d["mut"] = bool(nodo.get("mutante"))
+	# Los cristales que lleva comidos: el que entra tarde tambien tiene que verlo "cargado".
+	var cm = nodo.get("comer")
+	if cm != null:
+		d["carga"] = float(cm.carga)
 	# Y si es el JEFE del piso. Hace falta para el aspecto: un jefe mutante se agranda MENOS que un
 	# bicho mutante corriente (ver EnemyData.mult_mutante), asi que sin esto el espejo lo pintaria
 	# con la escala equivocada.
@@ -134,6 +138,46 @@ func enemigo_muerto(nodo: Node) -> void:
 		_marcar_cadaver.rpc(id, lugar)
 	else:
 		_rel_cadaver.rpc_id(1, id, lugar)
+
+
+# COMER CRISTALES (05/10): lo que hace el bicho al comer, para que los espejos lo vean igual. 'tipo' es
+# "come" (empieza a comer: el picoteo), "carga" (se lo trago: su carga nueva) o "muta" (muta en vivo; valor =
+# lo que dura la transformacion). Mismo camino que la muerte: el dueño difunde, o pasa por el host si es un
+# cliente. Sin esto el invitado veria a un bicho normal donde el anfitrion ya pelea un mutante.
+func aviso_comer(nodo: Node, tipo: String, valor: float) -> void:
+	if not Net.activo or not Net._soy_dueno or multiplayer.multiplayer_peer == null:
+		return
+	if nodo == null or not nodo.has_meta("net_id"):
+		return
+	var id: int = nodo.get_meta("net_id")
+	if not _enemigos.has(id):
+		return
+	var lugar: String = _enemigos[id]["lugar"]
+	if Net.es_host:
+		_aviso_comer.rpc(id, lugar, tipo, valor)
+	else:
+		_rel_aviso_comer.rpc_id(1, id, lugar, tipo, valor)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _aviso_comer(id: int, lugar: String, tipo: String, valor: float) -> void:
+	if lugar != Net._mi_lugar:
+		return
+	var n = _enem_nodos.get(id)
+	if n != null and is_instance_valid(n) and n.has_method("aviso_comer"):
+		n.aviso_comer(tipo, valor)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_aviso_comer(id: int, lugar: String, tipo: String, valor: float) -> void:
+	if not Net.es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	if Net._mi_lugar == lugar and not Net._soy_dueno:
+		_aviso_comer(id, lugar, tipo, valor)
+	for pid in Net._peers:
+		if pid != de and Net._peers[pid].get("lugar", "") == lugar:
+			_aviso_comer.rpc_id(pid, id, lugar, tipo, valor)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -225,6 +269,7 @@ func _spawn_enemigo(id: int, lugar: String, pos: Vector2, d: Dictionary) -> void
 	cuerpo.aplicar_datos(String(d.get("ruta", "")), float(d.get("t", 0.5)),
 		bool(d.get("muerto", false)), float(d.get("vis", 130.0)), float(d.get("ang", 50.0)),
 		bool(d.get("mut", false)))
+	cuerpo.carga = float(d.get("carga", 0.0))
 	_enem_nodos[id] = cuerpo
 
 

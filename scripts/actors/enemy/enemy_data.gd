@@ -691,6 +691,27 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	return c
 
 
+# LA CATEGORIA DEL CRISTAL QUE LLEVA DENTRO un cuerpo de este bicho, mutacion incluida. Un solo sitio porque
+# la usan dos caminos que no pueden discrepar: sacarlo con el minijuego (Game.start_extraction) y el que se
+# queda en el suelo cuando el cadaver se pudre (Enemy.cristal_podrido, 05/10). Si se separan, un mutante
+# podrido soltaria un cristal de su especie normal.
+#
+# MUTANTE (mini-jefe): sube UNA categoria por encima de lo que da su especie. Es la mitad de su recompensa
+# (la otra es el x2 de botin en _tirar_drop), y es la que se nota de verdad: el valor de un cristal va al
+# CUADRADO de su categoria. Se salta el crystal_category_max a proposito: la gracia del mini-jefe es
+# sacarle algo que su especie normal no te va a dar nunca.
+func categoria_cristal(t: float, mutante: bool) -> int:
+	return roll_crystal_category(t) + (1 if mutante else 0)
+
+
+# Lo MAS ALTO que suelta su especie sin mutar. Un cristal por encima de esto le "sienta mejor" al
+# comerselo (ComerCristales.peso_bocado: cuenta doble para mutar).
+func categoria_maxima_natural() -> int:
+	if not crystal_category_weights.is_empty():
+		return crystal_category_min + crystal_category_weights.size() - 1
+	return crystal_category_max
+
+
 # Tira la CATEGORIA del cristal. Si hay PESOS explicitos (crystal_category_weights), sortea con
 # ellos (distribucion fija de este bicho, empezando en crystal_category_min). Si no, cae a la
 # binomial ponderada por "t": t bajo -> categorias bajas; t alto -> altas (las altas salen menos).
