@@ -21,25 +21,66 @@ const FICHAS := "res://scenes/actors/enemy/"
 const MUESTRAS := 24
 
 
+# LAS PARTES DEL HORNO (05/10, "que te deje elegir que quieres hornear y asi no tardamos infinito"). Antes se
+# horneaba TODO cada vez, y casi todo el rato se lo comia el personaje (cientos de capas con 1.654 animaciones cada
+# una) aunque solo se hubiera tocado un enemigo. HORNO_SOLO elige que partes, separadas por comas
+# (HORNO_SOLO=enemigos, HORNO_SOLO=terreno,props); vacio = TODO, que es lo que hay que pasar cuando se toca algo
+# general (SpriteLienzo.UNIDADES_POR_CELDA). El .bat pregunta cual.
+const PARTES := ["enemigos", "terreno", "recolectables", "props", "peces", "jugador", "iconos"]
+
+
 func _ready() -> void:
 	print("=== HORNEANDO SPRITES ===")
-	# HORNO_SOLO=jugador: solo las capas del personaje (retocando poses no hace falta rehornear el mundo).
-	# No limpia huerfanos: eso necesita la lista entera.
-	if OS.get_environment("HORNO_SOLO") == "jugador":
+	var partes: PackedStringArray = OS.get_environment("HORNO_SOLO").replace(" ", "").split(",", false)
+	for parte in partes:
+		if not PARTES.has(parte):
+			push_error("[horno] HORNO_SOLO: no conozco la parte '%s' (son: %s)" % [parte, ", ".join(PARTES)])
+			get_tree().quit(1)
+			return
+	var toca := func(parte: String) -> bool: return partes.is_empty() or partes.has(parte)
+	if toca.call("enemigos"):
+		_hornear_enemigos()
+	if toca.call("terreno"):
+		_hornear_terreno()
+	if toca.call("recolectables"):
+		_hornear_recolectables()
+	if toca.call("props"):
+		_hornear_props()
+	if toca.call("peces"):
+		_hornear_peces()
+	if toca.call("jugador"):
 		_hornear_jugador()
-		get_tree().quit()
-		return
-	# HORNO_SOLO=iconos: solo los iconos de los objetos (un objeto nuevo no pide rehornear los enemigos).
-	# Estos SI se limpian solos (hornear_iconos tira los que ya no genera nadie).
-	if OS.get_environment("HORNO_SOLO") == "iconos":
+	# LOS ICONOS DE LOS OBJETOS (materiales, consumibles, cristales), como el resto: ver
+	# SpritesObjeto.hornear_iconos. Van en su carpeta y se limpian solos.
+	if toca.call("iconos"):
+		print("")
+		print("=== ICONOS DE OBJETOS ===")
 		print("  %d iconos en %s" % [IconoItem.SpritesObjeto.hornear_iconos(),
 			IconoItem.SpritesObjeto.CARPETA_ICONOS])
-		get_tree().quit()
-		return
+
+	# Y LO ULTIMO, TIRAR LO QUE YA NO SE GENERA. La clave de un horneado lleva dentro el color y la
+	# escala del bicho, asi que tocar cualquiera de los dos lo renombra y deja el anterior en disco
+	# para siempre: sin esto, cada retoque de tamaño deja basura commiteada (ver
+	# SpriteLienzo.limpiar_huerfanos).
+	# HORNEANDO POR PARTES TAMBIEN SE LIMPIA BIEN: limpiar_huerfanos solo mira las carpetas en las que se ha escrito en
+	# ESTA pasada, y cada parte escribe su carpeta entera. La unica excepcion es HORNO_CAPAS (unas pocas capas del
+	# personaje): ahi la carpeta del jugador se queda sin limpiar, o se borrarian todas las demas capas.
+	var carpetas: Array = [SpriteLienzo.CARPETA_HORNO, TerrenoSprites.CARPETA, RecolectableSprites.CARPETA,
+		PropSprites.CARPETA, PezSprites.CARPETA]
+	if OS.get_environment("HORNO_CAPAS").is_empty():
+		carpetas.append(CapaJugador.CARPETA)
+	var fuera: int = SpriteLienzo.limpiar_huerfanos(carpetas)
+	if fuera > 0:
+		print("")
+		print("  Se han borrado %d ficheros que ya no genera nadie." % fuera)
+	get_tree().quit()
+
+
+# LOS ENEMIGOS: todos los EnemyData que tengan generador, en cada variante de color que les salga.
+func _hornear_enemigos() -> void:
 	var d := DirAccess.open(FICHAS)
 	if d == null:
 		push_error("[horno] no encuentro %s" % FICHAS)
-		get_tree().quit(1)
 		return
 	var rutas: PackedStringArray = []
 	for f in d.get_files():
@@ -101,30 +142,6 @@ func _ready() -> void:
 		print("     Alguna pieza se ha quedado atras: se ve como un cacho de bicho tirado al lado.")
 	print("Estan en %s -- ABRE GODOT UNA VEZ para que los importe antes de jugar." %
 		SpriteLienzo.CARPETA_HORNO)
-
-	_hornear_terreno()
-	_hornear_recolectables()
-	_hornear_props()
-	_hornear_peces()
-	_hornear_jugador()
-	# LOS ICONOS DE LOS OBJETOS (materiales, consumibles, cristales), como el resto: ver
-	# SpritesObjeto.hornear_iconos. Van en su carpeta y se limpian solos.
-	print("")
-	print("=== ICONOS DE OBJETOS ===")
-	print("  %d iconos en %s" % [IconoItem.SpritesObjeto.hornear_iconos(),
-		IconoItem.SpritesObjeto.CARPETA_ICONOS])
-
-	# Y LO ULTIMO, TIRAR LO QUE YA NO SE GENERA. La clave de un horneado lleva dentro el color y la
-	# escala del bicho, asi que tocar cualquiera de los dos lo renombra y deja el anterior en disco
-	# para siempre: sin esto, cada retoque de tamaño deja basura commiteada (ver
-	# SpriteLienzo.limpiar_huerfanos).
-	var fuera: int = SpriteLienzo.limpiar_huerfanos([
-		SpriteLienzo.CARPETA_HORNO, CapaJugador.CARPETA, TerrenoSprites.CARPETA,
-		RecolectableSprites.CARPETA, PropSprites.CARPETA, PezSprites.CARPETA])
-	if fuera > 0:
-		print("")
-		print("  Se han borrado %d ficheros que ya no genera nadie." % fuera)
-	get_tree().quit()
 
 
 # EL PERSONAJE. Va en el mismo horno que todo lo demas y no en un .bat aparte: se toca por lo mismo
