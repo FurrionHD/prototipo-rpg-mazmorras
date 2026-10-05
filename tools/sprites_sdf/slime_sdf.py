@@ -146,9 +146,11 @@ def escena(pose):
             add(lambda P, a=medio, b=punta: sd_cono(P, a, b, 2.4, 0.9), 'gel', 1.0)
     # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara.
     for s in (-1, 1):
-        base, n = _superficie((0.33 * s, 0.93, 0.18))
-        c = base + n * 0.35
-        add(lambda P, c=c: sd_elipsoide(P, c, np.array([2.3, 1.2, 5.0])), 'ojo', 0, 'ojo')
+        base, n = _superficie((0.33 * s, 0.88, 0.34))
+        c = base + n * 0.05
+        # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas.
+        add(lambda P, c=c: np.maximum(sd_elipsoide(P, c, np.array([2.3, 3.0, 5.0])), sd_elipsoide(P, CUERPO, R) - 0.3),
+            'ojo', 0, 'ojo')
     return e.L
 
 
