@@ -111,7 +111,9 @@ def huesos(p):
         d = pts[max(i - 1, 0)] - pts[min(i + 1, N_ANILLOS - 1)]
         X['a%d' % i] = (_marco(d), pts[i])
         # Lo que hay hasta el vecino: en la helice los anillos se separan, y con el largo fijo quedaban trozos sueltos.
-        largos.append(np.linalg.norm(d) * 0.5)
+        # (Los de los EXTREMOS miden hasta su UNICO vecino, entero: a medias, en lo abierto de la espiral la cabeza
+        # quedaba suelta -- el horno la canto como isla en el cadaver.)
+        largos.append(np.linalg.norm(d) * (0.5 if 0 < i < N_ANILLOS - 1 else 1.0))
     return X, [t[1] for t in tr], largos
 
 
