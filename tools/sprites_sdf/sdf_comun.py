@@ -275,6 +275,15 @@ def render(mo, L, dir_i):
         ad = detras[:, :, 3]
         # Lo que va DENTRO del gel (los ojos) se ve mas que el suelo de detras: esta pegado a la piel, no al fondo.
         a = np.where(ad > 0, getattr(mo, 'alfa_dentro', mo.alfa), mo.alfa)
+        # LO QUE BRILLA DENTRO (05/10, los cristales del slime mutante): el gel apenas lo tapa. Mezclado al 42 % con el
+        # gel salia GRIS (el cian y el rojo se anulan). Solo donde ESO es lo que se ve detras: se compara con una pasada
+        # de solo esas piezas, y si coincide con 'detras', es que no hay otra cosa por delante (un nucleo).
+        claros = getattr(mo, 'claros_dentro', ())
+        L_cl = [x for x in L_op if x[1] in claros] if L_op else []
+        if L_cl:
+            solo = np.asarray(render(mo2, L_cl, dir_i)).astype(float) / 255.0
+            es_claro = (solo[:, :, 3] > 0) & (np.abs(solo[:, :, :3] - detras[:, :, :3]).sum(axis=2) < 0.02)
+            a = np.where(es_claro, getattr(mo, 'alfa_claro', 0.15), a)
         fuera = a + (1.0 - a) * ad
         for ch in range(3):
             mezcla = (sal[:, :, ch] * a + detras[:, :, ch] * ad * (1.0 - a)) / np.maximum(fuera, 1e-6)
