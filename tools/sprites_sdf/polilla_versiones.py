@@ -8,6 +8,8 @@
 #                traseras alargadas en COLA
 #    D calavera  la esfinge de la calavera: delanteras largas y estrechas, moteadas; traseras AMARILLAS con bandas negras,
 #                abdomen a rayas amarillas y la CALAVERA en el torax
+#  05/10: "son prime todas, nos quedamos con TODAS" (seran sus VARIANTES). B y C mas GRANDES y mas EPICAS, y la B (la
+#  de las alas negras del todo) la mayor: cada version lleva su 'escala' y su lienzo.
 #  Uso: python tools/sprites_sdf/polilla_versiones.py  -> tools/salida/sdf/polilla_versiones.png
 # ============================================================
 import sys, os, math
@@ -76,13 +78,37 @@ def ala_generica(add, p, s, A, nombre):
                 a, b = a0 + (a1 - a0) * u, b0 + (b1 - b0) * u
                 d = math.hypot(a - cen2[0], b - cen2[1])
                 if A.get('jirones'):
-                    r = rng.uniform(0.55, 1.25)
-                    sale = rng.uniform(0.2, 1.0)
+                    r = rng.uniform(*A.get('jiron_r', (0.55, 1.25)))
+                    sale = rng.uniform(*A.get('jiron_sale', (0.2, 1.0)))
                     a += (a - cen2[0]) / d * sale; b += (b - cen2[1]) / d * sale
                     disco(a, b, r, r * rng.uniform(0.7, 1.0), 0.22, A['jirones'])
                 else:
                     a += (a - cen2[0]) / d * 0.25; b += (b - cen2[1]) / d * 0.25
                     disco(a, b, 0.70, 0.70, 0.20, A['festones'])
+    # EL CONTORNO de dentro: una linea fina que sigue el borde de fuera, metida 'ancho' hacia dentro (el grabado).
+    if A.get('contorno'):
+        ancho, mat = A['contorno']
+        pts = []
+        for a, b, f in bd:
+            if f:
+                d = math.hypot(a - cen2[0], b - cen2[1])
+                k = max(0.0, (d - ancho) / d)
+                pts.append(punto(cen2[0] + (a - cen2[0]) * k, cen2[1] + (b - cen2[1]) * k))
+        for q0, q1 in zip(pts, pts[1:]):
+            pm._cono(add, q0, q1, 0.30, 0.30, mat, 0, nombre)
+    # LOS RAYOS: lineas que salen de un punto hacia el borde de fuera (las nervaduras del grabado).
+    if A.get('rayos'):
+        (ra, rb), r0, falta, mat, n = A['rayos']
+        for j in range(n):
+            u = (j + 0.5) / n
+            k = min(int(u * (len(fuera) - 1)), len(fuera) - 2)
+            w = u * (len(fuera) - 1) - k
+            ea = fuera[k][0] + (fuera[k + 1][0] - fuera[k][0]) * w
+            eb = fuera[k][1] + (fuera[k + 1][1] - fuera[k][1]) * w
+            d = math.hypot(ea - ra, eb - rb)
+            ux, uy = (ea - ra) / d, (eb - rb) / d
+            pm._cono(add, punto(ra + ux * r0, rb + uy * r0), punto(ea - ux * falta, eb - uy * falta), 0.26, 0.22, mat,
+                     0, nombre)
     # LINEAS en zigzag: [(desde, hasta, material, picos, amplitud)]
     for (a0, b0), (a1, b1), mat, n, amp in A.get('lineas', []):
         pts = []
@@ -162,11 +188,14 @@ VERSIONES['B ojos'] = dict(
          'gola': [(0.50, 0.40, 0.30), (0.62, 0.50, 0.38), (0.72, 0.59, 0.46)],
          'anillo': [(0.42, 0.33, 0.24), (0.54, 0.43, 0.32), (0.62, 0.50, 0.38)],
          'antena': [(0.56, 0.48, 0.40), (0.70, 0.62, 0.52), (0.80, 0.72, 0.62)]},
-    ala1=dict(raiz=R1, mat='ala', borde=DEL_SATURNIA, banda=('borde', 0.75), festones='ala',
-              lineas=[((12.0, -2.4), (9.6, 5.6), 'linea', 1, 0.0)],
-              ocelos=[((8.0, 1.6), 2.4, 'ojo')]),
-    ala2=dict(raiz=R2, mat='ala_tras', borde=TRA_SATURNIA, banda=('borde', 0.75), festones='ala_tras',
-              ocelos=[((5.2, 5.8), 2.2, 'ojo')]),
+    escala=3.0,
+    ala1=dict(raiz=R1, mat='ala', borde=DEL_SATURNIA, banda=('borde', 0.7), festones='ala',
+              contorno=(1.7, 'linea'),
+              lineas=[((3.6, -1.2), (2.8, 5.6), 'linea', 6, 0.35)],
+              ocelos=[((8.4, 1.4), 2.5, 'ojo')]),
+    ala2=dict(raiz=R2, mat='ala_tras', borde=TRA_SATURNIA, banda=('borde', 0.7), festones='ala_tras',
+              contorno=(1.6, 'linea'), rayos=((5.2, 6.4), 2.6, 1.9, 'linea', 9),
+              ocelos=[((3.6, 3.4), 1.5, 'ojo'), ((5.4, 7.0), 2.1, 'ojo')]),
     extra='tercer_ojo',
 )
 
@@ -181,16 +210,21 @@ VERSIONES['C boceto'] = dict(
          'anillo': [(0.30, 0.30, 0.32), (0.40, 0.40, 0.42), (0.48, 0.48, 0.50)],
          'antena': [(0.16, 0.16, 0.17), (0.24, 0.24, 0.25), (0.32, 0.32, 0.33)],
          'iris': [(0.5, 0.5, 0.5)] * 3},
-    ala1=dict(raiz=R1, mat='ala', jirones='humo', semilla=7, centro=(8.0, 1.0),
+    escala=2.35,
+    ala1=dict(raiz=R1, mat='ala', jirones='humo', semilla=7, centro=(8.0, 1.0), jiron_r=(0.8, 1.8),
+              jiron_sale=(0.4, 1.7),
               borde=[(0.0, -0.4, 0), (4.0, -2.6, 0), (9.0, -5.2, 0), (13.6, -7.8, 0), (14.4, -6.4, 1),
                      (13.6, -2.6, 1), (12.4, 1.2, 1), (10.4, 4.4, 1), (7.6, 6.2, 1), (4.6, 6.6, 1), (2.2, 6.0, 0),
                      (0.8, 4.6, 0)],
-              lineas=[((5.0, -2.0), (3.6, 5.2), 'linea', 6, 0.55)],
+              lineas=[((5.0, -2.0), (3.6, 5.2), 'linea', 6, 0.55), ((10.4, 2.4), (6.4, 5.4), 'linea', 5, 0.5)],
               ocelos=[((9.0, -1.0), 3.3, 'diana')]),
-    ala2=dict(raiz=R2, mat='ala_tras', jirones='humo', semilla=11, centro=(4.6, 6.0),
+    ala2=dict(raiz=R2, mat='ala_tras', jirones='humo', semilla=11, centro=(4.6, 6.0), jiron_r=(0.7, 1.5),
+              jiron_sale=(0.3, 1.4),
               borde=[(0.0, 0.0, 0), (3.4, 0.6, 0), (7.0, 2.0, 0), (9.0, 4.4, 1), (8.4, 7.4, 1), (6.4, 10.0, 1),
-                     (4.8, 13.2, 1), (4.4, 16.4, 1), (3.4, 16.8, 1), (2.6, 13.6, 1), (1.4, 10.4, 0), (0.0, 6.0, 0)],
-              ocelos=[((5.0, 5.8), 2.5, 'diana')]),
+                     (5.0, 13.4, 1), (5.6, 17.0, 1), (7.0, 19.6, 1), (6.0, 20.4, 1), (3.8, 17.8, 1), (2.8, 14.0, 1),
+                     (1.4, 10.4, 0), (0.0, 6.0, 0)],
+              lineas=[((2.0, 2.6), (6.0, 4.0), 'linea', 4, 0.45)],
+              ocelos=[((5.6, 5.0), 2.3, 'diana'), ((4.3, 10.6), 1.5, 'diana')]),
 )
 
 VERSIONES['D calavera'] = dict(
@@ -228,9 +262,9 @@ def escena_version(vv, pose):
     if vv.get('extra') == 'tercer_ojo':
         # EL TERCER OJO, en el lomo del torax, mirando arriba.
         c = V((0.0, 2.6, Z + 2.45))
-        add(lambda P: sd_elipsoide(P, c, V((1.25, 0.75, 0.30))), 'ocelo', 0, 'marca')
-        add(lambda P: sd_elipsoide(P, c + V((0, 0, 0.08)), V((0.55, 0.55, 0.32))), 'iris', 0, 'marca')
-        add(lambda P: sd_elipsoide(P, c + V((0, 0, 0.14)), V((0.30, 0.30, 0.32))), 'ocelo_n', 0, 'marca')
+        add(lambda P: sd_elipsoide(P, c, V((1.7, 1.0, 0.34))), 'ocelo', 0, 'marca')
+        add(lambda P: sd_elipsoide(P, c + V((0, 0, 0.08)), V((0.75, 0.75, 0.36))), 'iris', 0, 'marca')
+        add(lambda P: sd_elipsoide(P, c + V((0, 0, 0.14)), V((0.40, 0.40, 0.36))), 'ocelo_n', 0, 'marca')
     if vv.get('extra') == 'calavera':
         # LA CALAVERA en el lomo del torax: el craneo palido con dos cuencas oscuras.
         c = V((0.0, 2.2, Z + 2.35))
@@ -257,18 +291,24 @@ if __name__ == '__main__':
     filas.append(('viejo', viejas))
     for nombre, vv in VERSIONES.items():
         mat = dict(COMUN); mat.update(vv['mat'])
-        mo = Modelo(2.0, (90, 90), (45, 45), mat, (0.05, 0.04, 0.05), suaves=('cuerpo', 'cabeza'), brillan=('brillo',),
+        esc = vv.get('escala', 2.0)
+        lado = int(round(90 * esc / 2.0 / 2)) * 2
+        mo = Modelo(esc, (lado, lado), (lado // 2, lado // 2), mat, (0.05, 0.04, 0.05), suaves=('cuerpo', 'cabeza'), brillan=('brillo',),
                     corta_suelo=True, especular=('ojo',), umbral_especular=0.8)
         L = escena_version(vv, pm.POSE())
         filas.append((nombre, [render(mo, L, dd) for dd in range(5)]))
         print(nombre, 'ok')
-    W, H = 90, 90
-    lam = Image.new('RGB', (W * 5 + 70, H * len(filas)), (40, 42, 50))
+    W = max(f[1][0].size[0] for f in filas)
+    alturas = [f[1][0].size[1] for f in filas]
+    lam = Image.new('RGB', (W * 5 + 70, sum(alturas)), (40, 42, 50))
     dr = ImageDraw.Draw(lam)
+    y0 = 0
     for j, (nombre, fotos) in enumerate(filas):
-        dr.text((4, j * H + 40), nombre, fill=(220, 220, 220))
+        h = alturas[j]
+        dr.text((4, y0 + h // 2), nombre, fill=(220, 220, 220))
         for i, f in enumerate(fotos):
-            lam.paste(f, (70 + i * W, j * H), f)
+            lam.paste(f, (70 + i * W + (W - f.size[0]) // 2, y0), f)
+        y0 += h
     lam = lam.resize((lam.width * 3, lam.height * 3), Image.NEAREST)
     lam.save('tools/salida/sdf/polilla_versiones.png')
     print('tools/salida/sdf/polilla_versiones.png')
