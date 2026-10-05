@@ -1,0 +1,104 @@
+{
+ "lienzo": [
+  104,
+  104
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 4.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "enrosque": {
+   "fotogramas": 8,
+   "fps": 11.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "basico": {
+   "fotogramas": 6,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "oleada": {
+   "fotogramas": 6,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "enroscarse_detras": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "enroscado_detras": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 1
+  },
+  "apreton_detras": {
+   "fotogramas": 5,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "desenroscarse_detras": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "enroscarse_delante": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "enroscado_delante": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 1
+  },
+  "apreton_delante": {
+   "fotogramas": 5,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 1
+  },
+  "desenroscarse_delante": {
+   "fotogramas": 6,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 1
+  }
+ }
+}
