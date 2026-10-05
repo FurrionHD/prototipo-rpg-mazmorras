@@ -43,8 +43,13 @@ def _puntos_cadena(p0, d0, n, paso, r0, r1, giro):
 # ------------------------------------------------------------
 #  B MUTANTE -- blatogia, mas epica
 # ------------------------------------------------------------
+# 05/10: "el mutante que no tenga el color tan diferente del normal, es decir ROJO": la familia de colores de la E.
 MAT_B = dict(bv.MAT_B)
-MAT_B['ojo'] = [(0.70, 1.00, 0.45)] * 3
+MAT_B['piel'] = bv.MAT_E['rojo']
+MAT_B['naranja'] = bv.MAT_E['vientre']
+MAT_B['hueso'] = bv.MAT_E['pua']
+MAT_B['garra'] = bv.MAT_E['pua']
+MAT_B['ojo'] = [(1.00, 0.20, 0.12)] * 3
 
 
 def escena_b_mutante():
@@ -75,8 +80,13 @@ def escena_b_mutante():
 # ------------------------------------------------------------
 #  A JEFE -- behemot
 # ------------------------------------------------------------
+# El jefe, en ROJO OSCURO (granate): de la familia de la normal, pero mas hondo; la melena, del hierro de la E.
 MAT_A = dict(bv.MAT_A)
-MAT_A['ojo'] = [(1.00, 0.45, 0.12)] * 3
+MAT_A['piel'] = [(0.24, 0.06, 0.07), (0.36, 0.10, 0.11), (0.48, 0.16, 0.16)]
+MAT_A['escama'] = [(0.32, 0.08, 0.09), (0.46, 0.13, 0.13), (0.60, 0.21, 0.20)]
+MAT_A['pelo'] = bv.MAT_E['hierro']
+MAT_A['marfil'] = bv.MAT_E['pua']
+MAT_A['ojo'] = [(1.00, 0.25, 0.10)] * 3
 
 
 def escena_a_jefe():
@@ -118,8 +128,8 @@ def escena_a_jefe():
 
 FAMILIA = [
     ('E normal 1,95', bv.MAT_E, bv.escena_e, (0.08, 0.04, 0.04), 1.95),
-    ('B mutante 2,7', MAT_B, escena_b_mutante, (0.06, 0.06, 0.08), 2.7),
-    ('A jefe 3,6', MAT_A, escena_a_jefe, (0.06, 0.05, 0.04), 3.6),
+    ('B mutante 2,7', MAT_B, escena_b_mutante, (0.08, 0.04, 0.04), 2.7),
+    ('A jefe 3,6', MAT_A, escena_a_jefe, (0.07, 0.03, 0.03), 3.6),
 ]
 
 
