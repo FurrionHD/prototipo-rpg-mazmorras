@@ -234,14 +234,7 @@ func aviso_comer(tipo: String, valor: float) -> void:
 		return
 	match tipo:
 		"come":
-			if _sprite != null and _sprite.visible:
-				var base: Vector2 = _sprite.position
-				var t := create_tween()
-				for i in range(2):
-					t.tween_property(_sprite, "position", base + Vector2(0.0, 3.0), valor * 0.15)
-					t.tween_callback(func() -> void:
-						Particulas.esquirlas(self, ComerCristales.COLOR_CRISTAL, Vector2.UP, 5, 0.5))
-					t.tween_property(_sprite, "position", base, valor * 0.2)
+			ComerCristales.gesto(self, _sprite, Vector2.RIGHT.rotated(_mira), valor)
 		"carga":
 			carga = valor
 			if _sprite == null or not _sprite.visible:
@@ -318,8 +311,8 @@ var _embistiendo: bool = false
 func _actualizar_animacion() -> void:
 	if _sprite == null or not _sprite.visible:
 		return
-	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa): no se le pisa con andar/quieto.
-	if has_meta("gesto_pelea"):
+	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa), o COMIENDO: no se le pisa.
+	if has_meta("gesto_pelea") or has_meta("gesto_comer"):
 		return
 	var nombre: String = SpritesEnemigo.animacion(Vector2.RIGHT.rotated(_mira), _embistiendo, _mov)
 	if nombre != _anim_actual:

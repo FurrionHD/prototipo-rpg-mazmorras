@@ -207,12 +207,29 @@ func _resolver_comida(id: int, bid: int, dueno: int) -> void:
 	if _suelo.has(id) and _suelo[id]["d"].get("t") == "cri":
 		d = _suelo[id]["d"]
 		_suelo.erase(id)
-		_despawn_drop.rpc(id)
-		_despawn_drop(id)
+		# No se borra: en cada maquina ESE cristal se le mete dentro al bicho (ver ComerCristales.tragar_visual).
+		_tragar_drop.rpc(id, bid)
+		_tragar_drop(id, bid)
 	if dueno == 1:
 		_comida_concedida(bid, d)
 	else:
 		_comida_concedida.rpc_id(dueno, bid, d)
+
+
+# El cristal 'id' se lo come el bicho 'bid': el MISMO nodo del suelo se le mete dentro. El bicho es el de verdad en el
+# que simula el piso y su espejo en los demas; si aqui no esta (otro piso, aun no ha llegado), se borra sin mas.
+@rpc("any_peer", "call_remote", "reliable")
+func _tragar_drop(id: int, bid: int) -> void:
+	var n = _drops.get(id)
+	_drops.erase(id)
+	if n == null or not is_instance_valid(n):
+		return
+	var bicho = Net.enemigos._enem_nodos.get(bid)
+	if bicho == null or not is_instance_valid(bicho):
+		bicho = Net.enemigos._enemigos.get(bid, {}).get("nodo")
+	if bicho != null and not is_instance_valid(bicho):
+		bicho = null
+	ComerCristales.tragar_visual(n, bicho)
 
 
 @rpc("any_peer", "call_remote", "reliable")

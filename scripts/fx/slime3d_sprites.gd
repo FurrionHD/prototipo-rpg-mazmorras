@@ -19,7 +19,7 @@ const MUTANTE_NORMAL := ["mut120", "ff2b2b", 1.20]
 const FICHA_NORMAL := "slime.tres"
 # Solo las animaciones que usa el slime normal (las demas son de otros slimes: ignicion, brote...).
 const ANIMS_MUTANTE := ["idle", "walk", "embestida", "inflar", "hinchado", "aplaston", "deshincharse", "encaje",
-	"muerte", "cadaver"]
+	"muerte", "cadaver", "comer"]
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
 
@@ -39,6 +39,8 @@ const ANIMS := {
 	"encaje": {"hoja": "encaje", "dirs": 8, "marcos": 4, "fps": 18.0, "loop": false},
 	"muerte": {"hoja": "muerte", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": false},
 	"cadaver": {"hoja": "muerte", "dirs": 8, "marcos": 1, "desde": 7, "fps": 1.0, "loop": false},
+	# COMER UN CRISTAL (05/10): de momento solo el normal y su brotado (opcional: las demas variantes no la tienen).
+	"comer": {"hoja": "comer", "dirs": 8, "marcos": 12, "fps": 10.0, "loop": false, "opcional": true},
 }
 
 

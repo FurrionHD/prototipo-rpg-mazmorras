@@ -117,9 +117,8 @@ def POSE(**k):
     #   encoge     tamaño entero (1 = el suyo): el brotado al morir se queda en menos (le salen las crias)
     #   yemas      0..1: cuanto asoman las yemas del brotado (al morir se le van)
     #   evo        0..1: la TRANSFORMACION de normal a brotado (0 = aun es el normal, de su tamaño; 1 = brotado entero)
-    #   bocado     -1 = nada; 0..1 = el cristal que se esta COMIENDO, de delante en el suelo hasta deshacerse dentro
     #   cerrados   los ojos CERRADOS (solo para sacar la hoja de los parpados, ver PARPADOS)
-    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, bocado=-1.0, cerrados=False)
+    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False)
     p.update(k)
     return p
 
@@ -260,19 +259,6 @@ def escena(pose):
         for c, eje, largo, radio in cris:
             if radio > 0.05:
                 _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
-    # EL BOCADO: el cristal que se come. Empieza en el SUELO delante de el (quieto en el mundo aunque el cuerpo avance),
-    # entra en el gel y se deshace hacia el nucleo.
-    b = pose['bocado']
-    if b >= 0.0:
-        Rb = CUERPO_R * en
-        fuera = np.array([0.0, Rb[1] + 2.5, 2.6]) - np.array([0.0, pose['avance'], pose['bote'] * BOTE])
-        dentro = C + np.array([0.0, 2.0, -0.5]) * en
-        u = _paso(b, 0.25, 0.55)
-        c = fuera + (dentro - fuera) * u
-        tam = 1.0 - _paso(b, 0.6, 0.92)
-        if tam > 0.05:
-            # (del tamaño de uno del suelo: se tiene que ver bien ANTES de que se lo trague)
-            _cristal(e, c, (0.3, 0.2, 1.0), 9.0 * tam, 3.0 * tam)
     return e.L
 
 
@@ -309,7 +295,7 @@ _CRISTALES_BROTADO = [((5.5, 1.0, 3.5), (0.6, 0.1, 1.0), 7.0, 2.0),
 # EL BROTADO: las YEMAS (bolitas de slime a medio salir, unas con su ojito) y el TERCER CUERNO, torcido, detras. Todo
 # sale de la bola de esta pose, asi que se aplasta, bota y se encoge con ella.
 _YEMAS = [(0.85, -0.30, 0.30, 5.6, True), (-0.80, -0.45, 0.10, 4.8, True), (0.30, -0.85, 0.55, 4.2, False),
-          (-0.45, 0.10, 0.85, 3.8, True), (0.70, 0.45, -0.20, 3.6, False)]
+          (-0.45, 0.10, 0.85, 3.8, True), (0.70, 0.40, 0.05, 3.6, False)]
 
 
 def _brotes(e, C, R, sz, pose):
@@ -318,7 +304,8 @@ def _brotes(e, C, R, sz, pose):
         for i, (x, y, z, r, ojo) in enumerate(_YEMAS):
             # Transformandose, las yemas le brotan UNA A UNA (con un pelin de rebote al salir).
             sale = _paso(pose['evo'], 0.30 + i * 0.07, 0.42 + i * 0.07)
-            r = r * en * ye * sale * (1.0 + 0.25 * math.sin(math.pi * sale))
+            # (y se aplastan con el cuerpo: aplastado a lo ancho, sin esto las yemas se salian del lienzo)
+            r = r * en * ye * sale * (1.0 + 0.25 * math.sin(math.pi * sale)) * (0.55 + 0.45 * min(1.0, sz))
             if r < 0.3:
                 continue
             base, n = _superficie((x, y, z), C, R)
@@ -441,13 +428,14 @@ def _muerte_brotado(t):
 
 
 # COMER UN CRISTAL (05/10): se estira hacia delante y bajo, el gel se le echa encima, lo engulle de un trago y se
-# asienta; el cristal se le ve entrar y deshacerse dentro. 12 marcos a 10 = 1,2 s (ComerCristales.COMER_DUR).
+# asienta. 12 marcos a 10 = 1,2 s (ComerCristales.COMER_DUR). AQUI NO SE DIBUJA NINGUN CRISTAL: el que se come es el DEL
+# SUELO, el de verdad ("se tiene que comer literalmente el sprite del cristal que haya en el suelo"), y lo mueve el juego
+# (ComerCristales.tragar_visual) al ritmo de estas claves: lo engulle entre 0,25 y 0,55 y se le deshace hasta 0,9.
 def anim_comer(t):
     return POSE(squash=T(t, [(0.0, 1.0), (0.18, 0.84), (0.32, 0.70), (0.46, 1.16), (0.60, 0.90), (0.76, 1.05),
                              (1.0, 1.0)]),
                 avance=T(t, [(0.0, 0.0), (0.18, 1.6), (0.32, 2.6), (0.46, 0.8), (0.60, 0.2), (1.0, 0.0)]),
-                bote=T(t, [(0.0, 0.0), (0.40, 0.0), (0.46, 0.20), (0.60, 0.0), (1.0, 0.0)]),
-                bocado=t)
+                bote=T(t, [(0.0, 0.0), (0.40, 0.0), (0.46, 0.20), (0.60, 0.0), (1.0, 0.0)]))
 
 
 # LA TRANSFORMACION de normal a brotado (05/10): tiembla, se hincha, le brotan las yemas una a una, le sale el tercer

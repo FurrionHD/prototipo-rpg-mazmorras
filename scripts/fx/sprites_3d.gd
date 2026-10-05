@@ -31,7 +31,10 @@ static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, b
 	for nombre in anims_tabla:
 		var a: Dictionary = anims_tabla[nombre]
 		var ruta: String = carpeta + String(a["hoja"]) + sufijo + ".png"
-		var img: Image = _hoja(ruta) if (sufijo.is_empty() or ResourceLoader.exists(ruta)) else null
+		var img: Image = _hoja(ruta) if ResourceLoader.exists(ruta) else null
+		# Las OPCIONALES (comer, 05/10: solo la llevan algunas variantes) se saltan sin error si su hoja no esta.
+		if img == null and bool(a.get("opcional", false)):
+			continue
 		if img == null:
 			if sufijo.is_empty():
 				push_error("[sprites3d] falta la hoja %s%s" % [carpeta, a["hoja"]])

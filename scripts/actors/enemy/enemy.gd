@@ -419,15 +419,7 @@ static func tinte_cargado(carga: float) -> Color:
 # el dibujo baja y sube dos veces y en cada mordisco saltan esquirlas de cristal.
 func gesto_comer(dur: float) -> void:
 	Net.enemigos.aviso_comer(self, "come", dur)
-	if not _sprite.visible:
-		return
-	var base: Vector2 = _sprite.position
-	var t := create_tween()
-	for i in range(2):
-		t.tween_property(_sprite, "position", base + Vector2(0.0, 3.0), dur * 0.15)
-		t.tween_callback(func() -> void:
-			Particulas.esquirlas(self, ComerCristales.COLOR_CRISTAL, -_facing, 5, 0.5))
-		t.tween_property(_sprite, "position", base, dur * 0.2)
+	ComerCristales.gesto(self, _sprite, _facing, dur)
 
 
 # La carga ha cambiado (un bocado): que lo vean los espejos de las demas maquinas.
@@ -553,8 +545,8 @@ var _mov_anim: bool = false
 func _actualizar_animacion(vel_real: Vector2 = Vector2.ZERO) -> void:
 	if not _sprite.visible:
 		return
-	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa): no se le pisa con andar/quieto.
-	if has_meta("gesto_pelea"):
+	# EN MITAD DE UN GESTO DE PELEA en el mapa (CombatTactico.gesto_bicho_en_mapa), o COMIENDO: no se le pisa.
+	if has_meta("gesto_pelea") or has_meta("gesto_comer"):
 		return
 	var vel: float = vel_real.length()
 	if _mov_anim:

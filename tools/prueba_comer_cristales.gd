@@ -100,7 +100,7 @@ func _correr() -> void:
 		get_tree().quit(1)
 		return
 	e._facing = Vector2.RIGHT
-	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(60, 0))
+	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0))  # dentro del olfato: lo nota mire donde mire
 	await _esperar(2)
 	_ver(_cristales_en_suelo().size() == 1, "el cristal esta en el suelo")
 	_ver(await _esperar_a(func() -> bool: return e._state == e.State.COMER, 2.0), "va a por el (estado COMER)")
@@ -131,7 +131,7 @@ func _correr() -> void:
 		var tx: Texture2D = e._sprite.sprite_frames.get_frame_texture(e._sprite.animation, 0)
 		return e._sprite.scale.y * (tx.get_height() if tx != null else 1.0)
 	var esc0: float = alto_visto.call()
-	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(50, 0))
+	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0))
 	_ver(await _esperar_a(func() -> bool: return e.mutante, 8.0), "muta")
 	var hp_mut: float = float(sd.crear_combatant(e.current_t, true, false).max_hp)
 	_ver(absf(e.hp_restante - hp_mut * 0.5) < 1.0, "vida a la mitad de la de mutante (%.1f de %.1f)" % [e.hp_restante, hp_mut])

@@ -150,7 +150,9 @@ func _reclamar() -> void:
 		t_red = ESPERA_RED_MAX
 		Net.suelo.solicitar_comer(int(objetivo.get_meta("net_id")), e)
 		return
-	var item: Resource = objetivo.recoger()
+	# EL CRISTAL DEL SUELO ES EL QUE SE COME (no se borra y se dibuja otro): deja de poder recogerse y se le mete dentro.
+	var item: Resource = objetivo.item
+	tragar_visual(objetivo, e)
 	objetivo = null
 	empezar_a_comer(item as Cristal)
 
@@ -179,9 +181,58 @@ func empezar_a_comer(cri: Cristal) -> void:
 		return
 	_bocado = cri
 	t_comer = COMER_DUR
-	# A falta de su animacion de comer (va con los sprites de mutante, uno a uno), un picoteo: el cuerpo
-	# baja y sube dos veces y saltan esquirlas de cristal.
 	e.gesto_comer(COMER_DUR)
+
+
+# EL CRISTAL DEL SUELO, TRAGADO (05/10: "se tiene que comer literalmente el sprite del cristal que haya en el suelo"). El
+# mismo nodo que estaba tirado: sale del grupo de recogibles, se pone POR DETRAS del que come (asi se ve entrar a traves
+# del gel) y se desliza dentro al ritmo de su animacion de comer (lo engulle entre el 25 y el 55 % y se le deshace hasta
+# el 90 %, ver anim_comer en slime_sdf.py). Lo usan el que simula el piso y los espejos (Net.suelo._tragar_drop).
+static func tragar_visual(drop: Node2D, quien: Node2D, dur: float = COMER_DUR) -> void:
+	if drop == null or not is_instance_valid(drop):
+		return
+	drop.remove_from_group("pickup")
+	drop.set_meta("tragado", true)
+	if quien == null or not is_instance_valid(quien):
+		drop.queue_free()
+		return
+	drop.z_index = quien.z_index - 1
+	# Dentro: un poco por encima de los pies, que es donde esta el centro de la cupula.
+	var extra = quien.get("radio_extra")
+	var radio: float = 16.0 + (float(extra) if extra != null else 0.0)
+	var dentro: Vector2 = quien.global_position + Vector2(0.0, -radio * 0.45)
+	var t := drop.create_tween()
+	t.tween_interval(dur * 0.25)
+	t.tween_property(drop, "global_position", dentro, dur * 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.parallel().tween_property(drop, "scale", Vector2.ONE * 0.75, dur * 0.30)
+	t.tween_property(drop, "scale", Vector2.ONE * 0.1, dur * 0.35)
+	t.parallel().tween_property(drop, "modulate:a", 0.0, dur * 0.35)
+	t.tween_callback(drop.queue_free)
+
+
+# EL GESTO DE COMER en el cuerpo: su animacion 'comer' si la tiene (el slime normal y su brotado) o, si no, un picoteo
+# provisional. Mientras dura, la marca 'gesto_comer' no deja que andar/quieto la pisen. La comparten Enemy y su espejo.
+static func gesto(nodo: Node2D, spr: AnimatedSprite2D, mirada: Vector2, dur: float) -> void:
+	if spr == null or not spr.visible:
+		return
+	var anim := StringName("comer_%d" % SpriteLienzo.dir8(mirada))
+	if spr.sprite_frames != null and spr.sprite_frames.has_animation(anim):
+		nodo.set_meta("gesto_comer", true)
+		spr.speed_scale = 1.0
+		spr.play(anim)
+		var t := nodo.create_tween()
+		t.tween_interval(dur)
+		t.tween_callback(func() -> void:
+			if is_instance_valid(nodo):
+				nodo.remove_meta("gesto_comer"))
+		return
+	var base: Vector2 = spr.position
+	var tp := nodo.create_tween()
+	for i in range(2):
+		tp.tween_property(spr, "position", base + Vector2(0.0, 3.0), dur * 0.15)
+		tp.tween_callback(func() -> void:
+			Particulas.esquirlas(nodo, COLOR_CRISTAL, -mirada, 5, 0.5))
+		tp.tween_property(spr, "position", base, dur * 0.2)
 
 
 # EL BOCADO: suma a la carga y tira el dado con la carga nueva.
