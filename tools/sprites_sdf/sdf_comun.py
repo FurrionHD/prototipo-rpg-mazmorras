@@ -127,7 +127,9 @@ def evalua(mo, P, L, con_grupo=False):
     otros = {}
     for fn, m, g, k, Xh, nh in L:
         if nh not in cache:
-            cache[nh] = (P - Xh[1]) @ Xh[0]
+            # Al reposo: p_reposo = M^-1 (p - t). Con la TRASPUESTA solo valia para giros: un hueso que ESCALA (la rata
+            # que se estira, el slime que se aplasta) salia al reves (05/10).
+            cache[nh] = (P - Xh[1]) @ np.linalg.inv(Xh[0]).T
         d = fn(cache[nh])
         mi = mo.nombres.index(m)
         if g in gid:

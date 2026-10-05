@@ -42,33 +42,49 @@ NUCA = Z(0, 4.4, 3.0)
 
 
 def POSE(**k):
-    p = dict(avance=0.0, agacha=0.0, cabeza=0.0, gira_cabeza=0.0, estira=1.0, tumba=0.0, empina=0.0, paso=0.0,
-             muere=0.0, cola=0.0, boca=0.0)
+    # Los parametros del viejo (rata_sprites.gd), con sus mismas unidades:
+    #   agacha    + se aplasta contra el suelo, - se alza (sobre las traseras)   estira  largo del cuerpo (1 = reposo)
+    #   cuello    + la cabeza se lanza adelante (morder)                       cabeza_lado  sacude la cabeza de lado
+    #   rumbo     giro extra en planta (rad)        abre_patas  patas estiradas adelante y atras (el salto)
+    #   tumba     se vuelca de lado (2 = panza arriba)   apoyo  sube del suelo     cola  el meneo de la cola
+    p = dict(avance=0.0, agacha=0.0, estira=1.0, cuello=0.0, cabeza_lado=0.0, rumbo=0.0, abre_patas=0.0, tumba=0.0,
+             apoyo=0.0, patas=0.0, cola=0.0)
     p.update(k)
     return p
 
 
 def huesos(p):
     X = {}
-    raiz = (np.eye(3), np.array([0.0, p['avance'], -p['agacha'] * 1.0]))
-    raiz = comp(raiz, sobre(Z(0, 0, 0), ry(p['tumba'] * math.pi * 0.5)))
-    raiz = comp(raiz, sobre(Z(0, -3.0, 0), rx(-p['empina'])))
-    if p['muere'] > 0.0:
-        raiz = comp(sobre(np.array([-3.6, 0.0, 0.0]), ry(-p['muere'] * math.pi * 0.5)), raiz)
+    ag = p['agacha']
+    # El cuerpo: se estira a lo largo, se aplasta (agacha +) o se empina sobre las traseras (agacha -).
+    M = np.diag([1.0 + 0.08 * max(ag, 0.0), p['estira'], 1.0 - 0.28 * max(ag, 0.0)])
+    raiz = (M, np.array([0.0, p['avance'], p['apoyo'] * 0.4]))
+    raiz = comp(sobre(Z(0, -3.0, 0), rx(-max(-ag, 0.0) * 0.45)), raiz)
+    # VOLCARSE: rueda sobre su eje largo (la tumba del viejo: 2 = panza arriba), a la altura del lomo.
+    if p['tumba'] != 0.0:
+        raiz = comp(sobre(Z(0, 0, 2.6), ry(p['tumba'] * math.pi * 0.5)), raiz)
+    raiz = comp((rz(p['rumbo']), np.zeros(3)), raiz)
     X['raiz'] = raiz
-    cab = comp((np.eye(3), np.array([0.0, (p['estira'] - 1.0) * 5.0, 0.0])),
-               comp(sobre(NUCA, rz(p['gira_cabeza'])), sobre(NUCA, rx(-p['cabeza'] * 0.12))))
+    # LA CABEZA: 'cuello' la lanza adelante y un poco abajo (el mordisco); 'cabeza_lado' la sacude.
+    cu = p['cuello']
+    cab = comp((np.eye(3), np.array([0.0, cu * 1.3, -max(cu, 0.0) * 0.3])),
+               comp(sobre(NUCA, rz(p['cabeza_lado'] * 0.35)), sobre(NUCA, rx(cu * 0.10))))
     X['cabeza'] = comp(raiz, cab)
-    # La mandibula: se abre hacia abajo para morder.
-    X['boca'] = comp(X['cabeza'], sobre(Z(0, 7.4, 1.8), rx(p['boca'] * 0.5)))
-    for s, ld in ((-1, 'd'), (1, 'i')):
+    # La mandibula: se abre al lanzarse y se cierra al morder.
+    X['boca'] = comp(X['cabeza'], sobre(Z(0, 7.4, 1.8), rx(max(cu, 0.0) * 0.35)))
+    for s_, ld in ((-1, 'd'), (1, 'i')):
         for y0, dt in ((3.1, 'del'), (-2.8, 'tras')):
-            a = -0.7 * p['paso'] * (1 if (s > 0) == (dt == 'del') else -1)
-            if p['muere'] > 0.0:
-                a = 0.3 * p['muere'] * (1 if dt == 'del' else -1)
-            X['pata_%s_%s' % (dt, ld)] = comp(raiz, sobre(Z(3.0 * s, y0, 2.0), rx(a)))
+            a = -0.7 * p['patas'] * (1 if (s_ > 0) == (dt == 'del') else -1)
+            # El salto: las de delante se estiran hacia delante y las de detras hacia atras.
+            a += (-1.0 if dt == 'del' else 1.0) * p['abre_patas']
+            X['pata_%s_%s' % (dt, ld)] = comp(raiz, sobre(Z(3.0 * s_, y0, 2.0), rx(a)))
     X['cola'] = raiz
     return X
+
+
+def _cola_x(u, cola):
+    # El meneo: una onda que la recorre (la del viejo, 'cola' es cuanto se sacude de lado).
+    return (math.sin(u * 3.2) * 0.8 + cola * math.sin(u * 2.4)) * 1.4 * u
 
 
 def _cola(add, p, rey):
@@ -78,7 +94,7 @@ def _cola(add, p, rey):
     prev = Z(0, -5.4, 2.3)
     for k in range(1, n + 1):
         u = k / n
-        x = math.sin(u * 3.2 + p['cola']) * 1.4 * u
+        x = _cola_x(u, p['cola'])
         y = -5.4 - u * 10.5
         z = 2.3 + (0.55 - 2.3) * min(1.0, u * 1.6)
         pt = Z(x, y, z)
@@ -87,7 +103,7 @@ def _cola(add, p, rey):
         add(lambda P, a=prev, b=pt, ra=r0, rb=r1: sd_cono(P, a, b, ra, rb), 'cola', 0, 'cola', 'cola')
         prev = pt
     if rey:
-        c = Z(math.sin(0.5 * 3.2 + p['cola']) * 1.4 * 0.5, -5.4 - 0.5 * 10.5, 0.6)
+        c = Z(_cola_x(0.5, p['cola']), -5.4 - 0.5 * 10.5, 0.6)
         for k in range(8):
             a0 = k / 8 * 2 * math.pi; a1 = (k + 1) / 8 * 2 * math.pi
             q0 = c + np.array([math.cos(a0) * 1.7, math.sin(a0) * 1.4, 0.4])
@@ -163,6 +179,142 @@ def escena_rey(pose):
     return escena(pose, True)
 
 
+# ------------------------------------------------------------
+#  ANIMACIONES (las claves de tiempo, las del viejo; las mismas para la rata y el rey)
+# ------------------------------------------------------------
+TAU = 2 * math.pi
+
+
+def anim_idle(t):
+    return POSE(estira=1.0 + 0.025 * math.sin(TAU * t), cola=0.45 * math.sin(TAU * t))
+
+
+def anim_walk(t):
+    return POSE(estira=1.0 + 0.05 * math.sin(TAU * t * 2.0), cola=1.0 * math.sin(TAU * t), patas=math.sin(TAU * t))
+
+
+def anim_embestida(t):
+    return POSE(avance=tramos(t, [(0.0, 0.0), (0.25, -1.2), (0.55, 5.0), (0.75, 5.8), (1.0, 4.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.25, 0.82), (0.55, 1.2), (0.75, 0.9), (1.0, 1.0)]),
+                cola=1.4 * math.sin(TAU * t * 1.5),
+                agacha=tramos(t, [(0.0, 0.0), (0.25, 1.0), (0.55, 0.0), (0.75, 0.35), (1.0, 0.1)]))
+
+
+def anim_chillido(t):
+    # Se alza sobre las traseras y chilla con la cabeza arriba.
+    return POSE(agacha=tramos(t, [(0.0, 0.0), (0.143, 0.45), (0.286, -0.55), (0.429, -0.85), (0.571, -0.90),
+                                  (0.714, -0.80), (0.857, -0.40), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.143, 0.88), (0.286, 1.14), (0.429, 1.22), (0.571, 1.20), (0.714, 1.12),
+                                  (0.857, 1.04), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.286, -0.6), (0.571, -0.8), (1.0, 0.0)]),
+                cola=1.8 * math.sin(TAU * t * 2.0) * (1.0 - t * 0.5))
+
+
+def anim_basico(t):
+    return POSE(avance=tramos(t, [(0.0, 0.0), (0.25, -0.3), (0.45, 1.0), (0.62, 0.9), (1.0, 0.0)]),
+                estira=tramos(t, [(0.0, 1.0), (0.25, 0.92), (0.45, 1.08), (1.0, 1.0)]),
+                cola=0.8 * math.sin(TAU * t),
+                agacha=tramos(t, [(0.0, 0.0), (0.25, 0.35), (0.45, 0.05), (1.0, 0.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.25, -0.6), (0.45, 1.5), (0.62, 1.3), (1.0, 0.0)]))
+
+
+def anim_desgarro(t):
+    lado = tramos(t, [(0.0, 0.0), (0.4, 0.0), (0.5, 1.1), (0.6, -1.1), (0.7, 1.0), (0.8, -0.8), (0.9, 0.0), (1.0, 0.0)])
+    p = anim_basico(min(t * 1.2, 0.5) if t < 0.42 else 0.5)
+    p.update(cuello=tramos(t, [(0.0, 0.0), (0.22, -0.6), (0.4, 1.4), (0.85, 1.2), (1.0, 0.0)]), cabeza_lado=lado,
+             avance=tramos(t, [(0.0, 0.0), (0.4, 0.9), (0.85, 0.7), (1.0, 0.0)]), rumbo=lado * 0.12,
+             cola=1.4 * math.sin(TAU * t * 2.0))
+    return p
+
+
+def anim_agazapado(t):
+    return POSE(avance=0.25 * math.sin(TAU * t * 2.0), estira=0.86 + 0.02 * math.sin(TAU * t * 4.0),
+                cola=1.6 * math.sin(TAU * t * 2.0), agacha=0.82, cuello=-0.4, cabeza_lado=0.3 * math.sin(TAU * t * 3.0))
+
+
+def anim_salto_rata(t):
+    return POSE(estira=tramos(t, [(0.0, 0.86), (0.3, 1.3), (1.0, 1.25)]), cola=0.6 * math.sin(TAU * t),
+                agacha=tramos(t, [(0.0, 0.82), (0.3, -0.15), (1.0, -0.1)]),
+                abre_patas=tramos(t, [(0.0, 0.0), (0.3, 1.0), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, -0.4), (0.3, 0.9), (1.0, 1.0)]))
+
+
+def anim_frenesi(t):
+    lado = tramos(t, [(0.0, 0.0), (0.2, -1.0), (0.4, 1.0), (0.6, -0.6), (1.0, 0.0)])
+    return POSE(avance=tramos(t, [(0.0, 0.0), (0.4, 0.7), (1.0, 0.0)]), cola=1.8 * math.sin(TAU * t * 2.0),
+                patas=0.6 * math.sin(TAU * t * 2.0), agacha=0.3,
+                cuello=tramos(t, [(0.0, 0.2), (0.4, 1.4), (1.0, 0.2)]), cabeza_lado=lado, rumbo=lado * 0.3)
+
+
+def anim_dentellada(t):
+    return POSE(avance=tramos(t, [(0.0, 0.0), (0.3, -0.5), (0.5, 2.0), (0.7, 1.9), (1.0, 0.6)]),
+                estira=tramos(t, [(0.0, 1.0), (0.3, 0.9), (0.5, 1.15), (0.7, 1.1), (1.0, 1.0)]),
+                cola=1.2 * math.sin(TAU * t),
+                patas=0.7 * math.sin(math.pi * min(max((t - 0.3) / 0.4, 0.0), 1.0)),
+                agacha=tramos(t, [(0.0, 0.0), (0.3, 0.45), (0.5, 0.0), (1.0, 0.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.3, -0.8), (0.5, 1.7), (0.7, 1.5), (1.0, 0.0)]))
+
+
+def anim_yugular(t):
+    return POSE(estira=tramos(t, [(0.0, 1.0), (0.3, 0.84), (0.45, 1.35), (1.0, 1.3)]), cola=0.9 * math.sin(TAU * t),
+                agacha=tramos(t, [(0.0, 0.0), (0.3, 0.9), (0.45, -0.1), (1.0, -0.05)]),
+                abre_patas=tramos(t, [(0.0, 0.0), (0.3, 0.0), (0.45, 1.0), (1.0, 1.0)]),
+                cuello=tramos(t, [(0.0, 0.0), (0.3, -0.5), (0.45, 1.3), (1.0, 1.4)]))
+
+
+def anim_zarandeo(t):
+    lado = tramos(t, [(0.0, 0.0), (0.15, 1.2), (0.3, -1.2), (0.45, 1.1), (0.6, -1.0), (0.8, 0.4), (1.0, 0.0)])
+    suelta = min(max((t - 0.75) / 0.25, 0.0), 1.0)
+    return POSE(avance=0.6 * (1.0 - suelta), estira=1.12 + (1.0 - 1.12) * suelta, cola=1.5 * math.sin(TAU * t * 2.0),
+                agacha=0.15 * (1.0 - suelta), cuello=1.4 * (1.0 - suelta), cabeza_lado=lado, rumbo=lado * 0.2)
+
+
+def anim_muerte(t):
+    # Le fallan las patas, se vuelca PANZA ARRIBA (la tumba del viejo, hasta 2) girando un cuarto en planta.
+    return POSE(estira=tramos(t, [(0.0, 1.0), (0.14, 0.86), (0.28, 1.05), (1.0, 1.0)]),
+                cola=0.9 * (1.0 - min(t * 2.2, 1.0)),
+                agacha=tramos(t, [(0.0, 0.15), (0.14, 0.62), (0.28, 0.30), (0.45, 0.0), (1.0, 0.0)]),
+                tumba=tramos(t, [(0.0, 0.0), (0.14, 0.0), (0.28, 0.45), (0.45, 1.25), (0.62, 1.85), (0.78, 2.12),
+                                 (0.90, 1.94), (1.0, 2.0)]),
+                rumbo=tramos(t, [(0.0, 0.0), (0.14, 0.10), (0.28, 0.45), (0.45, 0.80), (0.62, 0.95), (1.0, 1.0)]) * math.pi * 0.5,
+                apoyo=tramos(t, [(0.0, 0.0), (0.14, 0.0), (0.28, 1.4), (0.45, 3.4), (0.62, 4.7), (0.78, 5.3), (0.90, 5.1),
+                                 (1.0, 5.2)]))
+
+
+def anim_encaje(t):
+    return POSE(avance=-tramos(t, [(0.0, 1.0), (0.34, 0.52), (0.67, 0.16), (1.0, 0.0)]) * 1.9,
+                estira=tramos(t, [(0.0, 0.80), (0.34, 1.10), (0.67, 0.96), (1.0, 1.0)]),
+                cola=tramos(t, [(0.0, 1.6), (0.34, -0.9), (0.67, 0.4), (1.0, 0.0)]),
+                agacha=tramos(t, [(0.0, 0.85), (0.34, 0.20), (0.67, 0.06), (1.0, 0.0)]))
+
+
+ANIMS = {
+    'idle': (8, 5.0, True, 8, anim_idle),
+    'walk': (8, 10.0, True, 8, anim_walk),
+    'embestida': (8, 11.0, False, 8, anim_embestida),
+    'chillido': (8, 10.0, False, 8, anim_chillido),
+    'basico': (8, 16.0, False, 8, anim_basico),
+    'desgarro': (11, 16.0, False, 8, anim_desgarro),
+    'agazapado': (8, 12.0, True, 8, anim_agazapado),
+    'salto_rata': (8, 12.0, False, 8, anim_salto_rata),
+    'frenesi': (6, 20.0, False, 8, anim_frenesi),
+    'dentellada': (8, 13.0, False, 8, anim_dentellada),
+    'yugular': (8, 12.0, False, 8, anim_yugular),
+    'zarandeo': (12, 16.0, False, 8, anim_zarandeo),
+    'encaje': (4, 18.0, False, 8, anim_encaje),
+    'muerte': (8, 10.0, False, 8, anim_muerte),
+}
+
+# RATA_VAR=rey: el mismo script hornea al REY (su modelo, su lienzo y su carpeta); hornear() lee MODELO y escena.
+_escena_base = escena
+if os.environ.get('RATA_VAR') == 'rey':
+    MODELO = MODELO_REY
+    SALIDA = SALIDA_REY
+
+    def escena(pose):
+        return _escena_base(pose, True)
+
+
 if __name__ == '__main__':
     args = sys.argv[1:]
     if args == ['vistas']:
@@ -171,3 +323,5 @@ if __name__ == '__main__':
         print(vistas_lado_a_lado(fotos, 'rata_806a55_1.20', VISTAS + 'rata_vs_viejo.png', 5))
         fotos = [render(MODELO_REY, escena_rey(POSE()), d) for d in range(5)]
         print(vistas_lado_a_lado(fotos, 'rata_aa8a55_1.70_rey', VISTAS + 'rata_rey_vs_viejo.png', 5))
+    else:
+        hornear('rata_sdf', args or list(ANIMS.keys()), SALIDA, VISTAS)

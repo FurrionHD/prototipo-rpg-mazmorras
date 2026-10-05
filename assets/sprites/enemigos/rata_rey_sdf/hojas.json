@@ -1,0 +1,92 @@
+{
+ "lienzo": [
+  66,
+  66
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 5.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 11.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "chillido": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "basico": {
+   "fotogramas": 8,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "desgarro": {
+   "fotogramas": 11,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "agazapado": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": true,
+   "dirs": 8
+  },
+  "salto_rata": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "frenesi": {
+   "fotogramas": 6,
+   "fps": 20.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "dentellada": {
+   "fotogramas": 8,
+   "fps": 13.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "yugular": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "zarandeo": {
+   "fotogramas": 12,
+   "fps": 16.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8
+  }
+ }
+}

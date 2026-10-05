@@ -80,26 +80,43 @@ CUERPO_R = np.array([16.5, 16.5, 14.0])
 
 
 def POSE(**k):
-    p = dict(aplasta=0.0, bote=0.0, avance=0.0, ladea=0.0, inclina=0.0, hincha=0.0, hunde=0.0, mira=0.0)
+    # Los parametros del viejo (slime_sprites.gd), con sus mismas unidades:
+    #   squash     alto del cuerpo (1 = reposo; < 1 aplastado y mas ancho, > 1 estirado y mas fino)
+    #   derretido  0..1: se deshace en un charco (morir) o se rehace de el (nacer)
+    #   bote       cuanto se despega del suelo (en BOTEs)      avance  hacia delante, en unidades
+    p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0)
     p.update(k)
     return p
 
 
+BOTE = 3.1
+LUNGE = 8.0
+ENCAJE_RETRO = 3.4
+
+
 def huesos(p):
-    # El cuerpo se APLASTA (+) o se ESTIRA (-) sobre el suelo: escala z y engorda en x/y. Los adornos van con el.
-    a = p['aplasta']
-    sz = 1.0 - a; sxy = 1.0 + a * 0.5
-    M = np.diag([sxy, sxy, sz])
-    M = rx(p['inclina']) @ ry(p['ladea']) @ M
-    t = np.array([0.0, p['avance'], p['bote'] - p['hunde']])
-    return {'raiz': (M, t)}
+    # Solo se MUEVE (bote y avance): la forma -- aplastarse, estirarse, derretirse -- se hace cambiando la bola en
+    # escena(), no escalando el hueso: aplastada al 15 % con una escala, el trazado de rayos atravesaba la figura.
+    return {'raiz': (np.eye(3), np.array([0.0, p['avance'], p['bote'] * BOTE]))}
 
 
-def _superficie(d):
-    """El punto del cuerpo (en reposo) en la direccion 'd' desde su centro."""
+def _forma(p):
+    """El centro y los radios de la bola en esta pose (conservando mas o menos el volumen)."""
+    sq = p['squash']; de = p['derretido']
+    sz = sq * (1.0 - 0.82 * de)
+    # Mas ancho al aplastarse, con tope: derretido del todo se quedaba un charco que llenaba el lienzo entero.
+    # (el lienzo del viejo deja poco sitio bajo el suelo: mirando al sur, un charco mas ancho se salia por abajo)
+    sxy = min(1.0 / math.sqrt(max(sq, 0.2)) * (1.0 + 0.1 * de), 1.1)
+    R = CUERPO_R * np.array([sxy, sxy, sz])
+    C = np.array([CUERPO[0], CUERPO[1], CUERPO[2] * sz])
+    return C, R, sz
+
+
+def _superficie(d, C=CUERPO, R=CUERPO_R):
+    """El punto del cuerpo en la direccion 'd' desde su centro."""
     d = np.array(d, dtype=float); d /= np.linalg.norm(d)
-    k = 1.0 / math.sqrt(((d / CUERPO_R) ** 2).sum())
-    return CUERPO + d * k, d
+    k = 1.0 / math.sqrt(((d / R) ** 2).sum())
+    return C + d * k, d
 
 
 # LAS JUNTAS DE LAVA: un mosaico de placas sobre la bola (celdas de Voronoi en la esfera unidad); 'junta' es lo que
@@ -107,8 +124,8 @@ def _superficie(d):
 _rng = np.random.default_rng(7)
 _SEMILLAS = _rng.normal(size=(26, 3)); _SEMILLAS /= np.linalg.norm(_SEMILLAS, axis=1, keepdims=True)
 
-def _junta(P):
-    q = (P - CUERPO) / CUERPO_R
+def _junta(P, C, R):
+    q = (P - C) / R
     q /= np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-6)
     d = np.linalg.norm(q[:, None, :] - _SEMILLAS[None, :, :], axis=2)
     d.sort(axis=1)
@@ -118,43 +135,157 @@ def _junta(P):
 def escena(pose):
     e = Escena(huesos(pose))
     add = e.add
-    hin = 1.0 + pose['hincha']
-    R = CUERPO_R * np.array([hin, hin, hin])
-    add(lambda P: sd_elipsoide(P, CUERPO, R), 'gel', 0)
+    C, R, sz = _forma(pose)
+    add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
     # SIN CHARCO NI GOTAS (05/10, lo dijo el jefe): la baba del suelo la deja el juego por donde pasa
-    # (Enemy._actualizar_rastro); pintada en el sprite iria pegada al slime.
+    # (Enemy._actualizar_rastro); pintada en el sprite iria pegada al slime. (Al MORIR si: el charco es el.)
     if FORMA == 'lava':
         # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava.
         def junta(P):
-            cuerpo = sd_elipsoide(P, CUERPO, R + 0.18)
-            return np.maximum(cuerpo, _junta(P) * 22.0 - 0.75)
+            cuerpo = sd_elipsoide(P, C, R + 0.18)
+            return np.maximum(cuerpo, _junta(P, C, R) * 22.0 - 0.75)
         add(junta, 'lava', 0, 'junta')
     if FORMA == 'rey':
         # LA CORONA: un aro de cinco puntas de su gel, alrededor de la coronilla, con una GEMA en cada punta.
         for k in range(5):
             a = k / 5.0 * 2 * math.pi + math.pi * 0.5
-            base, n = _superficie((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.83))
+            base, n = _superficie((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.83), C, R)
             base = base - n * 1.0
-            punta = base + np.array([math.cos(a) * 0.8, math.sin(a) * 0.8, 7.5])
+            punta = base + np.array([math.cos(a) * 0.8, math.sin(a) * 0.8, 7.5 * sz])
             add(lambda P, a=base, b=punta: sd_cono(P, a, b, 2.4, 1.3), 'cuerno', 0, 'corona')
             add(lambda P, c=punta + np.array([0, 0, 0.8]): sd_esfera(P, c, 1.35), 'gema', 0, 'gema')
     else:
         # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
-            base, n = _superficie((0.70 * s, 0.05, 0.72))
+            base, n = _superficie((0.70 * s, 0.05, 0.72), C, R)
             raiz = base - n * 2.0
-            medio = base + n * 2.6 + np.array([0.6 * s, 0.0, 3.0])
-            punta = medio + np.array([-0.6 * s, 0.0, 3.6])
-            add(lambda P, a=raiz, b=medio: sd_cono(P, a, b, 4.4, 2.4), 'gel', 1.8)
-            add(lambda P, a=medio, b=punta: sd_cono(P, a, b, 2.4, 0.9), 'gel', 1.0)
+            medio = base + n * 2.6 + np.array([0.6 * s, 0.0, 3.0 * sz])
+            punta = medio + np.array([-0.6 * s, 0.0, 3.6 * sz])
+            # (derritiendose, los cuernos se funden con el charco)
+            fu = 1.0 - 0.85 * pose['derretido']
+            add(lambda P, a=raiz, b=medio, fu=fu: sd_cono(P, a, b, 4.4 * fu, 2.4 * fu), 'gel', 1.8)
+            add(lambda P, a=medio, b=punta, fu=fu: sd_cono(P, a, b, 2.4 * fu, 0.9 * fu), 'gel', 1.0)
     # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara.
     for s in (-1, 1):
-        base, n = _superficie((0.33 * s, 0.88, 0.34))
+        base, n = _superficie((0.33 * s, 0.88, 0.34), C, R)
         c = base + n * 0.05
-        # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas.
-        add(lambda P, c=c: np.maximum(sd_elipsoide(P, c, np.array([2.3, 3.0, 5.0])), sd_elipsoide(P, CUERPO, R) - 0.3),
+        # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas. Y
+        # aplastado con ella (derretido, se hunde en el charco).
+        alto = 5.0 * min(1.0, sz * 1.1)
+        add(lambda P, c=c, alto=alto: np.maximum(sd_elipsoide(P, c, np.array([2.3, 3.0, alto])), sd_elipsoide(P, C, R) - 0.3),
             'ojo', 0, 'ojo')
     return e.L
+
+
+# ------------------------------------------------------------
+#  ANIMACIONES (las claves de tiempo, las del viejo)
+# ------------------------------------------------------------
+TAU = 2 * math.pi
+T = tramos
+
+
+def anim_idle(t):
+    return POSE(squash=1.0 + 0.03 * math.sin(TAU * t))
+
+
+def anim_walk(t):
+    return POSE(squash=1.0 - 0.17 * math.cos(TAU * t), bote=math.sin(math.pi * t))
+
+
+def anim_embestida(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.25, 0.60), (0.55, 1.25), (0.75, 0.70), (1.0, 0.95)]),
+                avance=T(t, [(0.0, 0.0), (0.25, 0.0), (0.55, 0.90), (0.75, 0.95), (1.0, 0.70)]) * LUNGE,
+                bote=T(t, [(0.0, 0.0), (0.25, 0.0), (0.55, 1.0), (0.75, 0.15), (1.0, 0.0)]) * 1.4)
+
+
+def anim_inflar(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.30, 0.68), (0.62, 1.32), (0.82, 1.16), (1.0, 1.24)]),
+                bote=T(t, [(0.0, 0.0), (0.30, -0.25), (0.62, 0.35), (0.82, 0.20), (1.0, 0.55)]))
+
+
+def anim_hinchado(t):
+    l = math.sin(TAU * t)
+    return POSE(squash=1.24 + 0.06 * l, bote=0.55 + 0.10 * l)
+
+
+def anim_deshincharse(t):
+    return POSE(squash=T(t, [(0.0, 1.24), (0.143, 1.02), (0.286, 0.74), (0.429, 0.90), (0.571, 0.80), (0.714, 0.94),
+                             (0.857, 0.96), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.55), (0.143, 0.20), (0.286, -0.20), (0.429, 0.06), (0.571, -0.08), (0.714, 0.02),
+                           (0.857, 0.0), (1.0, 0.0)]))
+
+
+def anim_encogido(t):
+    tiembla = 1.0 if int(round(t * 8)) % 2 == 0 else -1.0
+    return POSE(squash=0.68 + 0.05 * tiembla, avance=-1.2 + 0.7 * tiembla)
+
+
+def anim_aplaston(t):
+    return POSE(squash=T(t, [(0.0, 0.58), (0.143, 0.66), (0.286, 1.14), (0.429, 1.10), (0.571, 0.86), (0.714, 1.06),
+                             (0.857, 0.98), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.143, 0.0), (0.286, 0.30), (0.429, 0.20), (0.571, 0.0), (0.714, 0.06),
+                           (0.857, 0.0), (1.0, 0.0)]))
+
+
+def anim_ignicion(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.143, 0.90), (0.286, 1.14), (0.429, 0.88), (0.571, 1.20), (0.714, 0.90),
+                             (0.857, 1.16), (1.0, 1.06)]),
+                bote=T(t, [(0.0, 0.0), (0.143, -0.10), (0.286, 0.16), (0.429, -0.08), (0.571, 0.22), (0.714, 0.0),
+                           (0.857, 0.18), (1.0, 0.08)]))
+
+
+def anim_brote(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.143, 0.90), (0.286, 1.22), (0.429, 1.32), (0.571, 0.74), (0.714, 0.90),
+                             (0.857, 1.08), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.143, -0.20), (0.286, 0.24), (0.429, 0.35), (0.571, -0.15), (0.714, 0.05),
+                           (0.857, 0.12), (1.0, 0.0)]))
+
+
+def anim_escupir(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.143, 0.88), (0.286, 0.76), (0.429, 1.30), (0.571, 1.16), (0.714, 0.94),
+                             (0.857, 1.04), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.143, -0.14), (0.286, -0.22), (0.429, 0.26), (0.571, 0.12), (0.714, -0.06),
+                           (0.857, 0.04), (1.0, 0.0)]))
+
+
+def anim_muerte(t):
+    # Se DERRITE donde esta: un ultimo respingo y se deshace en un charco.
+    return POSE(squash=T(t, [(0.0, 1.0), (0.14, 1.16), (0.28, 0.92), (0.45, 0.72), (0.62, 0.58), (0.78, 0.48),
+                             (0.90, 0.43), (1.0, 0.42)]),
+                derretido=T(t, [(0.0, 0.0), (0.14, 0.0), (0.28, 0.12), (0.45, 0.38), (0.62, 0.64), (0.78, 0.86),
+                                (0.90, 0.97), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.14, 0.45), (0.28, 0.0), (1.0, 0.0)]))
+
+
+def anim_nacer(t):
+    # Al reves: del charco se levanta y se rehace (las crias del Rey).
+    return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
+                derretido=T(t, [(0.0, 1.0), (0.20, 0.90), (0.40, 0.62), (0.60, 0.28), (0.76, 0.0), (1.0, 0.0)]),
+                bote=T(t, [(0.0, 0.0), (0.60, 0.0), (0.76, 0.40), (0.88, 0.0), (1.0, 0.0)]))
+
+
+def anim_encaje(t):
+    return POSE(squash=T(t, [(0.0, 0.64), (0.34, 1.18), (0.67, 0.93), (1.0, 1.0)]),
+                avance=-T(t, [(0.0, 1.0), (0.34, 0.55), (0.67, 0.18), (1.0, 0.0)]) * ENCAJE_RETRO,
+                bote=T(t, [(0.0, 0.0), (0.34, 0.45), (0.67, 0.0), (1.0, 0.0)]))
+
+
+ANIMS = {
+    'idle': (8, 4.0, True, 8, anim_idle),
+    'walk': (8, 8.0, True, 8, anim_walk),
+    'embestida': (8, 10.0, False, 8, anim_embestida),
+    'inflar': (8, 9.0, False, 8, anim_inflar),
+    'hinchado': (8, 8.0, True, 8, anim_hinchado),
+    'deshincharse': (8, 10.0, False, 8, anim_deshincharse),
+    'encogido': (8, 12.0, True, 8, anim_encogido),
+    'aplaston': (8, 14.0, False, 8, anim_aplaston),
+    'ignicion': (8, 12.0, False, 8, anim_ignicion),
+    'brote': (8, 10.0, False, 8, anim_brote),
+    'escupir': (8, 12.0, False, 8, anim_escupir),
+    'nacer': (8, 10.0, False, 8, anim_nacer),
+    'muerte': (8, 10.0, False, 8, anim_muerte),
+    'encaje': (4, 18.0, False, 8, anim_encaje),
+}
 
 
 VIEJOS = {'s170': 'slime_556faa_1.70', 's115': 'slime_47d552_1.15', 's150': 'slime_556a80_1.50', 's100': 'slime_ff2b2b_1.00',
