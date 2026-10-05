@@ -51,14 +51,18 @@ def ALA_RAIZ(s): return V((3.0 * s, -2.0, 20.0))
 
 def POSE(**k):
     p = dict(agacha=0.0, avance=0.0, vuela=0.0, mece=0.0, balanceo=0.0, inclina=0.0, cabeza=0.0, cola=0.0,
-             alza_d=0.0, alza_i=0.0, abre=0.0)
+             alza_d=0.0, alza_i=0.0, abre=0.0, patas=0.0, recoge=0.0, tumba=0.0, apoyo=0.0, apaga=0.0)
     p.update(k)
     return p
 
 
 def huesos(p):
     X = {}
-    raiz = (np.eye(3), V((0.0, p['avance'], p['vuela'] - p['agacha'])))
+    # AL MORIR se va de lado DE UNA PIEZA, como una estatua: todo el bicho (patas incluidas) gira sobre un eje que va
+    # del morro a la grupa, un poco a su izquierda; 'apoyo' lo levanta lo justo para que ruede SOBRE el suelo.
+    muere = comp((np.eye(3), V((-6.5 * p['tumba'], 0.0, p['apoyo']))), sobre(V((1.5, 0.0, 0.0)), ry(p['tumba'] * math.pi * 0.5)))
+    base = comp(muere, (np.eye(3), V((0.0, p['avance'], p['vuela']))))
+    raiz = comp(base, (np.eye(3), V((0.0, 0.0, -p['agacha']))))
     raiz = comp(raiz, sobre(V((0.0, 0.0, 0.0)), ry(p['balanceo'] * 0.12)))
     raiz = comp(raiz, sobre(V((0.0, 0.0, 10.0)), rx(p['mece'] * 0.16)))
     X['raiz'] = raiz
@@ -67,7 +71,13 @@ def huesos(p):
     for s, nom in LADOS:
         X['brazo_' + nom] = comp(X['torso'], sobre(HOMBRO(s), rx(-p['alza_' + nom])))
         X['ala_' + nom] = X['torso']
-    X['cola'] = comp(raiz, sobre(V((0.0, -4.4, 12.0)), rz(p['cola'] * 0.35)))
+        # LAS PATAS: los pies se quedan en el suelo; al agacharse la pata se ENCOGE en altura (la cadera baja con el
+        # cuerpo), al andar oscilan sobre la cadera y en el aire se RECOGEN hacia atras.
+        enc = (CADERA(s)[2] - p['agacha']) / CADERA(s)[2]
+        aplasta = (np.diag([1.0, 1.0, enc]), np.zeros(3))
+        oscila = sobre(CADERA(s), rx(p['patas'] * 0.38 * (1 if nom == 'd' else -1) + p['recoge'] * 0.7))
+        X['pierna_' + nom] = comp(base, comp(aplasta, oscila))
+    X['cola'] = comp(raiz, sobre(V((0.0, -4.4, 12.0)), rz(p['cola'] * 0.35) @ rx(-p['recoge'] * 0.3)))
     return X
 
 
@@ -152,7 +162,8 @@ def escena(pose):
     for s in (-1, 1):
         _cono(add, (0.9 * s, 8.0, 24.2), (0.9 * s, 8.3, 22.9), 0.38, 0.12, 'diente', 0, 'diente', hc)
         # Los OJOS, vacios y claros, bajo la ceja y bien separados (pegados se leen como una mancha).
-        add(lambda P, s=s: sd_elipsoide(P, V((1.35 * s, 6.9, 26.4)), V((0.75, 0.55, 0.6))), 'ojo', 0, 'ojo', hc)
+        add(lambda P, s=s: sd_elipsoide(P, V((1.35 * s, 6.9, 26.4)), V((0.75, 0.55, 0.6))),
+            'hueso' if p['apaga'] > 0.5 else 'ojo', 0, 'ojo', hc)
         # Las OREJAS, en punta hacia atras y fuera.
         _cono(add, (2.4 * s, 3.6, 27.0), (4.2 * s, 1.6, 28.4), 0.9, 0.2, 'piedra', 0.5, hc, hc)
         # Los CUERNOS: hacia ATRAS y ARRIBA, curvados, que rompen la silueta redonda.
@@ -169,7 +180,7 @@ def escena(pose):
         _garras(add, MANO(s) + V((0.0, 0.9, -0.4)), (0.0, 1.0, -0.6), 3, 1.6, 0.45, g + '_g', g, abre=0.5)
     # --- LAS PATAS: digitigradas, dobladas (muslo hacia delante, caña hacia atras al CORVEJON, empeine a los dedos).
     for s, nom in LADOS:
-        g = 'pierna_' + nom; h = 'raiz'
+        g = 'pierna_' + nom; h = g
         _cono(add, CADERA(s), RODILLA(s), 2.6, 1.9, 'pata', 0, g, h)
         _elip(add, (CADERA(s) + RODILLA(s)) * 0.5 + V((0.4 * s, 0.0, 0.6)), (2.3, 2.8, 2.6), 'pata', 1.2, g, h)
         _cono(add, RODILLA(s), CORVEJON(s), 1.7, 1.2, 'pata', 0.8, g, h)
@@ -185,16 +196,127 @@ def escena(pose):
     # --- LAS ALAS, plegadas a la espalda.
     for s, nom in LADOS:
         _ala(add, s, p)
+    # LA SOMBRA en el suelo cuando se despega: es lo que se lee como estar EN EL AIRE (y encoge con la altura).
+    if p['vuela'] > 0.6:
+        k = 1.0 / (1.0 + p['vuela'] / 14.0)
+        e.sombra(0.0, p['avance'] + 0.5, 6.0 * k, 5.0 * k, 0.26 * min(1.0, p['vuela'] / 2.0))
     return e.L
 
 
+# ------------------------------------------------------------
+#  ANIMACIONES: nombre -> (fotogramas, fps, loop, direcciones, t -> pose). Las claves de tiempo, las del viejo.
+# ------------------------------------------------------------
+VUELO_ALTO = 9.0
+LUNGE_DIST = 11.0
+ENCAJE_RETRO = 0.42
+
+
 def anim_idle(t):
+    # Posada: respira, la cola se mueve despacio y las alas plegadas se ajustan un pelin (parada del todo seria una
+    # estatua, que es lo que quiere hacerte creer).
     r = math.sin(2 * math.pi * t)
-    return POSE(agacha=0.12 * (1 - math.cos(2 * math.pi * t)), cola=0.45 * r, abre=0.03 + 0.03 * r, cabeza=0.06 * r)
+    return POSE(agacha=0.35 * (1 - math.cos(2 * math.pi * t)), cola=0.45 * r,
+                abre=0.05 + 0.05 * math.sin(2 * math.pi * t + 1.1), cabeza=0.05 * r)
+
+
+def anim_walk(t):
+    # A SALTITOS: se impulsa y bota dos veces por ciclo (una por pata), y abre las alas a medias en cada bote.
+    f = 2 * math.pi * t
+    bote = max(0.0, math.sin(2 * f))
+    return POSE(patas=math.sin(f), alza_d=0.25 * math.sin(f), alza_i=-0.25 * math.sin(f), balanceo=0.6 * math.sin(f),
+                vuela=1.6 * bote, agacha=0.9 * max(0.0, -math.sin(2 * f)), abre=0.10 + 0.22 * bote,
+                cola=0.7 * math.sin(f), mece=0.4 * bote)
+
+
+def anim_embestida(t):
+    # EL PICADO: abre las alas del todo, se ELEVA (la ventana del jugador: arriba de 0,30 a 0,52) y se deja caer encima.
+    ab = tramos(t, [(0.0, 0.10), (0.18, 0.80), (0.30, 1.0), (0.52, 1.0), (0.68, 0.55), (0.84, 0.30), (1.0, 0.12)])
+    vu = tramos(t, [(0.0, 0.0), (0.18, 1.5), (0.30, 2.4), (0.52, 2.6), (0.68, 0.2), (0.84, 0.0), (1.0, 0.0)])
+    return POSE(abre=ab, vuela=vu * 2.6,
+                avance=tramos(t, [(0.0, 0.0), (0.18, -1.2), (0.30, -1.6), (0.52, 0.4), (0.68, 9.6), (0.84, 11.0),
+                                  (1.0, 9.4)]) * (LUNGE_DIST / 11.0),
+                agacha=1.6 * tramos(t, [(0.0, 0.0), (0.18, -0.30), (0.52, -0.35), (0.68, 1.0), (0.84, 0.55),
+                                        (1.0, 0.15)]),
+                mece=tramos(t, [(0.0, 0.0), (0.30, -0.9), (0.52, -0.7), (0.68, 1.6), (0.84, 1.0), (1.0, 0.3)]),
+                alza_d=0.8 * ab, alza_i=0.8 * ab, recoge=0.55 * ab, cola=-0.8 * vu / 2.6)
+
+
+def anim_despegar(t):
+    # Se agacha para impulsarse, abre las alas y sube: es la carga del picado en el mapa (despegar > vuelo > picar).
+    return POSE(abre=tramos(t, [(0.0, 0.10), (0.4, 0.85), (0.7, 1.0), (1.0, 0.92)]),
+                vuela=tramos(t, [(0.0, 0.0), (0.2, 0.0), (0.6, VUELO_ALTO * 0.8), (1.0, VUELO_ALTO)]),
+                agacha=1.6 * tramos(t, [(0.0, 0.0), (0.2, 0.45), (0.5, -0.30), (1.0, -0.30)]),
+                recoge=0.4 * min(t * 2.0, 1.0), alza_d=0.6 * min(t * 2.0, 1.0), alza_i=0.6 * min(t * 2.0, 1.0),
+                cola=-0.6 * t)
+
+
+def anim_vuelo(t):
+    # Suspendida: las alas baten despacio y el cuerpo sube cuando bajan.
+    bate = 0.5 + 0.5 * math.cos(2 * math.pi * t)
+    return POSE(abre=0.72 + 0.28 * bate, vuela=VUELO_ALTO + 1.0 * (1.0 - bate), agacha=-0.5, recoge=0.4,
+                alza_d=0.6, alza_i=0.6, cola=-0.6 + 0.25 * math.sin(2 * math.pi * t),
+                cabeza=0.06 * math.sin(2 * math.pi * t))
+
+
+def anim_picar(t):
+    # Arriba, se recoge un instante y cae a plomo: las garras TOCAN en el marco 6 de 8 (0,714).
+    vu = tramos(t, [(0.0, VUELO_ALTO), (0.286, VUELO_ALTO + 1.0), (0.43, VUELO_ALTO * 0.75), (0.57, VUELO_ALTO * 0.3),
+                    (0.714, 0.0), (1.0, 0.0)])
+    arriba = min(vu / VUELO_ALTO * 3, 1.0)
+    return POSE(vuela=vu,
+                abre=tramos(t, [(0.0, 1.0), (0.286, 0.75), (0.57, 0.45), (0.714, 0.60), (0.857, 0.35), (1.0, 0.12)]),
+                agacha=1.6 * tramos(t, [(0.0, -0.30), (0.286, -0.35), (0.57, -0.20), (0.714, 1.0), (0.857, 0.55),
+                                        (1.0, 0.15)]),
+                mece=tramos(t, [(0.0, 0.0), (0.286, -0.9), (0.57, 0.4), (0.714, 1.6), (0.857, 1.0), (1.0, 0.3)]),
+                recoge=0.55 * arriba, alza_d=0.6 * arriba, alza_i=0.6 * arriba,
+                cola=-0.8 * min(max(vu / VUELO_ALTO, 0.0), 1.0))
+
+
+def anim_mirada(t):
+    # LA MIRADA PETREA: lo contrario del picado -- NO se despega del suelo. Tantea con la cabeza, se agazapa, se YERGUE
+    # abriendo las alas a medias (0,70: del todo es el picado) y se QUEDA CLAVADA (0,571 a 0,714 iguales).
+    return POSE(cabeza=0.5 * tramos(t, [(0.0, 0.10), (0.143, 0.38), (0.286, 0.16), (0.429, 0.0), (0.571, 0.0),
+                                       (0.714, 0.0), (0.857, 0.05), (1.0, 0.10)]),
+                agacha=2.0 * tramos(t, [(0.0, 0.0), (0.143, 0.16), (0.286, -0.10), (0.429, -0.20), (0.571, -0.24),
+                                        (0.714, -0.22), (0.857, -0.10), (1.0, 0.0)]),
+                abre=tramos(t, [(0.0, 0.10), (0.143, 0.06), (0.286, 0.40), (0.429, 0.62), (0.571, 0.70), (0.714, 0.70),
+                                (0.857, 0.42), (1.0, 0.14)]),
+                inclina=-0.25 * tramos(t, [(0.0, 0.0), (0.286, 0.5), (0.429, 1.0), (0.714, 1.0), (1.0, 0.0)]),
+                cola=tramos(t, [(0.0, 0.30), (0.143, 0.10), (0.286, -0.45), (0.429, -0.70), (0.571, -0.75),
+                                (0.714, -0.75), (0.857, -0.40), (1.0, 0.0)]))
+
+
+def anim_encaje(t):
+    # ESTA SI SALE DESPEDIDA (es ligera) y las alas se le abren de golpe. Empieza ya golpeada.
+    retro = tramos(t, [(0.0, 1.0), (0.34, 0.45), (0.67, 0.14), (1.0, 0.0)])
+    mece = tramos(t, [(0.0, -1.7), (0.34, 0.9), (0.67, -0.35), (1.0, 0.0)])
+    return POSE(avance=-retro * LUNGE_DIST * ENCAJE_RETRO,
+                abre=tramos(t, [(0.0, 0.62), (0.34, 0.40), (0.67, 0.18), (1.0, 0.08)]),
+                mece=mece, cabeza=0.3 * mece, agacha=0.9 * retro, cola=0.5 * mece)
+
+
+def anim_muerte(t):
+    # CAE COMO UNA ESTATUA: las alas se cierran de golpe lo primero, se queda tiesa, y se va de lado DE UNA PIEZA,
+    # acelerando, sin rebotar ni asentarse. Los ojos se apagan.
+    return POSE(tumba=tramos(t, [(0.0, 0.0), (0.14, 0.05), (0.30, 0.18), (0.48, 0.48), (0.66, 0.80), (0.82, 0.97),
+                                 (1.0, 1.0)]),
+                apoyo=tramos(t, [(0.0, 0.0), (0.30, 0.3), (0.48, 1.0), (0.66, 1.8), (0.82, 2.3), (1.0, 2.4)]),
+                abre=tramos(t, [(0.0, 0.35), (0.14, 0.06), (1.0, 0.0)]),
+                agacha=1.6 * tramos(t, [(0.0, 0.0), (0.14, 0.45), (0.30, 0.62), (1.0, 0.62)]),
+                cabeza=0.5 * tramos(t, [(0.0, 0.0), (0.14, -0.5), (0.30, -0.2), (1.0, 0.0)]),
+                apaga=1.0 if t > 0.2 else 0.0)
 
 
 ANIMS = {
     'idle': (8, 4.0, True, 8, anim_idle),
+    'walk': (8, 8.0, True, 8, anim_walk),
+    'embestida': (8, 12.0, False, 8, anim_embestida),
+    'despegar': (6, 10.0, False, 8, anim_despegar),
+    'vuelo': (6, 7.0, True, 8, anim_vuelo),
+    'picar': (8, 12.0, False, 8, anim_picar),
+    'mirada': (8, 8.0, False, 8, anim_mirada),
+    'encaje': (4, 18.0, False, 8, anim_encaje),
+    'muerte': (8, 11.0, False, 8, anim_muerte),
 }
 
 
