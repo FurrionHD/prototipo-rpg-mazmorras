@@ -63,17 +63,20 @@ static var GENERADORES_POR_NOMBRE := {
 	# familia BESTIA con el Jabali y comparte hasta el esqueleto de cuadrupedo, pero es su lectura
 	# CONTRARIA -- alto y estrecho contra bajo y ancho, grupa alta contra cruz alta, morro largo
 	# contra hocico romo. Por familia le habria tocado salir con forma de jabali.
-	&"acechador": AcechadorSprites,
+	# (05/10) En 3D: Acechador3DSprites; AcechadorSprites (el de codigo) queda de referencia.
+	&"acechador": Acechador3DSprites,
 	# (05/10) En 3D: el GUARDIAN (Trent3DSprites); TrentSprites (el de codigo) queda de referencia.
 	&"trent": Trent3DSprites,
 	# Y la Aberracion, que es el otro caso de familia NINGUNA: la comparte con el Trent, o sea con un
 	# ARBOL. Ahi ni siquiera hay una familia mal elegida que aprovechar -- NINGUNA quiere decir
 	# literalmente que no se parece a nada, asi que por fuerza va por nombre.
-	&"aberracion": AberracionSprites,
+	# (05/10) En 3D: Aberracion3DSprites; AberracionSprites (el de codigo) queda de referencia.
+	&"aberracion": Aberracion3DSprites,
 	# Y LA POLILLA, que es el UNICO BICHO QUE VUELA. Se dibujaba con el de la aberracion -- o sea que
 	# salia como un pegote de tentaculos arrastrandose --, y no habia nada mejor que prestarle: es la
 	# unica del juego con alas ademas de la gargola, y aquella es de piedra y las lleva plegadas.
-	&"polilla": PolillaSprites,
+	# (05/10) En 3D: Polilla3DSprites (la version A, pavon; la D sale por profundidad en la pasada de mutantes).
+	&"polilla": Polilla3DSprites,
 	# Y EL MICONIDO, que es el tercero de familia NINGUNA -- la comparte con el Trent y la Aberracion,
 	# o sea con un ARBOL y con un pegote de tentaculos. Hasta ahora se dibujaba con el generador del
 	# trent, asi que un hongo andante salia con forma de arbol; y no era un despiste, es que sin un
@@ -86,14 +89,16 @@ static var GENERADORES_POR_NOMBRE := {
 	# era un despiste: la gargola era lo unico con alas membranosas que habia para prestarle. De ella
 	# se queda la tecnica del ala y nada mas: aquella es de piedra, bipeda y las lleva plegadas casi
 	# siempre; este no se posa nunca, bate sin parar y ademas no tiene ojos que dibujar.
-	&"chillon": ChillonSprites,
+	# (05/10) En 3D: Chillon3DSprites; ChillonSprites (el de codigo) queda de referencia.
+	&"chillon": Chillon3DSprites,
 	# (05/10) En 3D: Arana3DSprites; AranaSprites (el de codigo) queda de referencia.
 	&"arana": Arana3DSprites,
 	# Y LA SEGADORA, que SI es familia INSECTO como la araña y por eso se dibujaba con el suyo: una
 	# mantis salia con ocho patas y un racimo de ojos. Se separan por el cuerpo LARGO (cabeza, protorax
 	# y abdomen, contra las dos bolas de la araña), por las CUATRO patas mas las dos guadañas, y por
 	# que esta acecha ERGUIDA y aquella agazapada.
-	&"segadora": SegadoraSprites,
+	# (05/10) En 3D: Segadora3DSprites; SegadoraSprites (el de codigo) queda de referencia.
+	&"segadora": Segadora3DSprites,
 	# (05/10) En 3D: el del CUERNO y el ciempies (un par de patas cada dos anillos); los de codigo quedan de referencia.
 	&"escarabajo": Escarabajo3DSprites,
 	&"ciempies": Ciempies3DSprites,
@@ -108,14 +113,16 @@ static var GENERADORES_POR_NOMBRE := {
 	# pegote de barro, una estatua con alas y una mole labrada no se parecen en nada.
 	# (03/10) El golem va en 3D: Golem3DSprites carga sus hojas; GolemSprites (el de codigo) queda de referencia.
 	&"golem": Golem3DSprites,
-	&"gargola": GargolaSprites,
-	&"coloso": ColosoSprites,
+	# (05/10) La gargola y el coloso (las rocas facetadas) en 3D; los de codigo quedan de referencia.
+	&"gargola": Gargola3DSprites,
+	&"coloso": Coloso3DSprites,
 	# Y LA BESTIA ACORAZADA ES EL CASO MAS EXTREMO DE TODA ESTA LISTA: comparte la familia PIEDRA con
 	# los tres de arriba y NO ES DE PIEDRA. Lo que suelta al morir lo dice -- cuero, carne y un nucleo
 	# de BESTIA --, asi que se dibuja como un animal blindado, con el esqueleto de cuadrupedo del
 	# jabali y del acechador y con la carne a la vista bajo el caparazon. Por familia le habria tocado
 	# salir hecha de granito.
-	&"bestia_acorazada": BestiaAcorazadaSprites,
+	# (05/10) En 3D: la version E (placas rojas); BestiaAcorazadaSprites (el de codigo) queda de referencia.
+	&"bestia_acorazada": BestiaAcorazada3DSprites,
 	# EL MINOTAURO es el unico de familia HUMANOIDE, asi que podria ir por familia -- pero va por
 	# nombre igual, y a proposito: el dia que haya un segundo humanoide (un bandido, un gigante, lo
 	# que sea) no se va a parecer a el en nada, y entonces habria que mover esta linea de sitio
