@@ -26,6 +26,58 @@ def _elip(add, c, r, mat, k=0.0, grupo='cuerpo'):
     add(lambda P, c=V(c, dtype=float), r=V(r, dtype=float): sd_elipsoide(P, c, r), mat, k, grupo)
 
 
+# UNA RAMA RETORCIDA: tramo a tramo, la direccion se va girando (unas veces hacia fuera, otras hacia atras) con un
+# meneo de seno y algo de azar; en los codos un NUDO, cada pocos tramos una RAMITA (la misma funcion, mas corta) y, en
+# las gordas, la LIANA en espiral alrededor.
+def _rama_retorcida(add, base, dir0, largo, r0, r1, s, semilla, nivel):
+    rng = np.random.default_rng(semilla)
+    n = 9 if nivel >= 2 else 5
+    paso = largo / n
+    d = dir0 / np.linalg.norm(dir0)
+    p = base.copy()
+    puntos = [p.copy()]
+    for k in range(n):
+        u = k / n
+        # el giro: un vaiven a los lados, una caida hacia atras/delante y un poco de azar
+        giro = V((0.34 * math.sin(k * 1.7 + semilla) * s, 0.30 * math.cos(k * 1.3 + semilla * 0.7), 0.0))
+        giro += rng.normal(size=3) * (0.05 if nivel >= 2 else 0.12)
+        d = d + giro
+        d[2] = max(d[2], 0.45 if nivel >= 2 else 0.15)   # que no se tumbe: el cuerno siempre sube
+        d /= np.linalg.norm(d)
+        q = p + d * paso
+        ra = r0 + (r1 - r0) * u
+        rb = r0 + (r1 - r0) * (k + 1) / n
+        _cono(add, p, q, ra, rb, 'corteza', 0.5, 'cuerno')
+        if k in (2, 5) and nivel >= 1:
+            _elip(add, p, (ra * 1.35, ra * 1.35, ra * 1.25), 'corteza', 0.4, 'cuerno')
+        if nivel >= 1 and k in ((2, 4, 6) if nivel >= 2 else (2,)):
+            lado = V((-d[1], d[0], 0.0)); lado = lado / max(np.linalg.norm(lado), 1e-6)
+            sgn = 1 if k % 4 == 2 else -1
+            dr = d * 0.5 + lado * sgn * 0.9 + V((0, 0, 0.35))
+            _rama_retorcida(add, q, dr, largo * (0.32 if nivel >= 2 else 0.4), rb * 0.7, 0.3, s * sgn, semilla * 7 + k, nivel - 1)
+        puntos.append(q.copy())
+        p = q
+    # LA LIANA: una espiral alrededor del primer tramo de la rama gorda, con una hoja de vez en cuando.
+    if nivel >= 2:
+        prev = None
+        for k in range(0, 26):
+            t = k / 25 * (len(puntos) - 1) * 0.65
+            i0 = int(t); f = t - i0
+            c = puntos[i0] * (1 - f) + puntos[min(i0 + 1, len(puntos) - 1)] * f
+            dd = puntos[min(i0 + 1, len(puntos) - 1)] - puntos[i0]; dd /= max(np.linalg.norm(dd), 1e-6)
+            a1 = np.cross(dd, V((0.0, 1.0, 0.0))); a1 /= max(np.linalg.norm(a1), 1e-6)
+            a2 = np.cross(dd, a1)
+            rr = r0 + (r1 - r0) * t / n + 0.35
+            ang = k * 0.9
+            pt = c + (a1 * math.cos(ang) + a2 * math.sin(ang)) * rr
+            if prev is not None:
+                _cono(add, prev, pt, 0.42, 0.42, 'liana', 0, 'liana')
+            prev = pt
+        # y un cabo de liana que cuelga
+        mitad = puntos[len(puntos) // 2]
+        _cono(add, mitad + V((0, 0.6, -0.5)), mitad + V((0.6 * s, 1.0, -7.5)), 0.4, 0.3, 'liana', 0, 'liana')
+
+
 # ------------------------------------------------------------
 #  A. EL GUARDIAN
 # ------------------------------------------------------------
@@ -53,20 +105,10 @@ def escena_guardian():
     for k, x in enumerate((-4.0, -2.2, -0.4, 1.5, 3.4)):
         largo = (8.5, 11.0, 13.5, 10.5, 8.0)[k]
         _cono(add, (x, 8.6, 23.0), (x * 1.05, 9.6, 23.0 - largo), 1.5, 0.35, 'corteza', 0, 'barba')
-    # LOS CUERNOS-RAMA: dos ramas gordas que salen de la cabeza hacia arriba y afuera, con un brote, y la LIANA
-    # enrollada (anillos oscuros a lo largo).
+    # LOS CUERNOS-RAMA, RETORCIDOS (05/10: "no tan rectas, mas retorcidas"): cada uno es una rama que se va torciendo
+    # y doblando a tramos, con NUDOS en los codos, ramitas que salen a los lados y la LIANA enrollada en espiral.
     for s in (-1, 1):
-        a = V((3.5 * s, 0, 33.0)); b = V((11.0 * s, -0.5, 44.0)); c = V((16.0 * s, -1.0, 52.0))
-        _cono(add, a, b, 2.4, 1.8, 'corteza', 0, 'cuerno')
-        _cono(add, b, c, 1.8, 1.2, 'corteza', 0, 'cuerno')
-        _cono(add, b, b + V((-1.5 * s, 0.5, 5.0)), 0.9, 0.4, 'corteza', 0, 'cuerno')
-        for u in (0.25, 0.55, 0.85):
-            p = a + (c - a) * u
-            d = (c - a) / np.linalg.norm(c - a)
-            q = V((-d[2], 0.0, d[0])) * (2.3 - u)
-            _cono(add, p - q + V((0, 1.0, 0)), p + q + V((0, 1.0, 0)) + d * 1.2, 0.45, 0.45, 'liana', 0, 'liana')
-        _cono(add, a + (c - a) * 0.6 + V((0, 0.8, -1.0)), a + (c - a) * 0.6 + V((0.4 * s, 1.2, -7.0)), 0.4, 0.3, 'liana', 0,
-              'liana')
+        _rama_retorcida(add, V((3.5 * s, 0.0, 32.5)), V((0.55 * s, -0.05, 0.83)), 25.0, 2.8, 0.55, s, 5, 2)
     # EL MUSGO: matorrales en los dos hombros y un mechon en la coronilla.
     # MATORRAL, no hombreras: muchos bultos pequeños que se funden poco (la primera vuelta eran cuatro bolas lisas).
     rng = np.random.default_rng(11)
