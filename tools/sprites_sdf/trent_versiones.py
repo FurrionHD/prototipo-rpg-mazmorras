@@ -94,9 +94,30 @@ MOD_A = Modelo(2.5, LIENZO, PIES, MAT_A, (0.12, 0.06, 0.05), suaves=('cuerpo', '
 
 def escena_guardian():
     e = Escena({'raiz': IDENT}); add = e.add
-    # EL CUERPO: un tronco grueso y algo ancho de hombros; la cara va tallada en su parte alta (no tiene cuello).
-    _cono(add, (0, 0, 11), (0, 1.0, 31), 7.0, 8.0, 'corteza')
+    # EL CUERPO: un tronco que se tuerce un poco a tramos (no un tubo: "muy rectos y rancios"), con la base abierta y
+    # algo ancho de hombros; la cara va tallada en su parte alta (no tiene cuello).
+    eje = [V((0.0, -0.4, 10.5)), V((0.9, 0.0, 16.5)), V((-0.7, 0.7, 22.5)), V((0.2, 1.0, 29.0)), V((0.0, 0.9, 32.0))]
+    radios = [7.8, 6.8, 7.2, 8.0, 7.6]
+    for k in range(len(eje) - 1):
+        _cono(add, eje[k], eje[k + 1], radios[k], radios[k + 1], 'corteza', 2.0)
     _elip(add, (0, 0.5, 31), (8.5, 6.5, 5.0), 'corteza', 2.0)
+    _elip(add, (0, -0.3, 11.5), (8.8, 7.8, 3.2), 'corteza', 2.0)
+    # LAS VETAS: costillas de corteza en relieve, a lo largo y algo en espiral, y un par de NUDOS (agujero oscuro).
+    for k in range(13):
+        a0 = k / 13 * 2 * math.pi + 0.2
+        if abs(math.sin(a0) - 1.0) < 0.35:
+            continue                      # por delante no: ahi va la cara y la barba
+        pts = []
+        for j in range(5):
+            z = 11.0 + j * 4.6
+            r = 7.2 + 0.5 * math.sin(j * 1.3 + k)
+            a = a0 + j * 0.12
+            c = eje[min(j, len(eje) - 1)]
+            pts.append(V((c[0] + math.cos(a) * r, c[1] + math.sin(a) * r, z)))
+        for j in range(len(pts) - 1):
+            _cono(add, pts[j], pts[j + 1], 0.95, 0.85, 'corteza', 0.5)
+    for (a, z) in ((2.6, 18.0), (-0.5, 24.5), (4.0, 14.0)):
+        _elip(add, (math.cos(a) * 7.4, math.sin(a) * 7.4, z), (1.3, 1.3, 1.8), 'hueco', 0, 'nudo')
     # LA CARA: la ceja de corteza sobre unos ojos amarillos que brillan, y la BARBA de astillas colgando.
     _cono(add, (-4.5, 8.0, 29.2), (4.5, 8.0, 29.2), 1.6, 1.6, 'corteza', 1.0)
     for s in (-1, 1):
@@ -120,20 +141,41 @@ def escena_guardian():
             _elip(add, c, (r, r, r * 0.85), 'musgo', 0.5, 'musgo')
     for (dx, dz, r) in ((0, 35.5, 3.6), (-2.5, 34.5, 2.6), (2.6, 34.8, 2.8)):
         _elip(add, (dx, 0.5, dz), (r, r, r * 0.8), 'musgo', 1.2, 'musgo')
-    # LOS BRAZOS: gruesos, con liana en la muñeca y unas MANAZAS de dedos de rama.
+    # LOS BRAZOS: ramas GRUESAS que se tuercen (hombro, un codo nudoso, el antebrazo que se abre), con un muñon de rama
+    # que les sale, la liana enrollada en la muñeca y unas MANAZAS de dedos-rama doblados.
     for s in (-1, 1):
-        h = V((10.0 * s, 1.0, 27.0)); m = V((12.5 * s, 3.0, 19.0)); mano = V((13.0 * s, 5.0, 12.5))
-        _cono(add, h, m, 3.2, 2.8, 'corteza', 1.0, 'brazo%d' % s)
-        _cono(add, m, mano, 2.8, 3.0, 'corteza', 1.0, 'brazo%d' % s)
-        for u in (0.3, 0.5):
-            p = m + (mano - m) * u
-            _elip(add, p, (3.3, 3.3, 0.6), 'liana', 0, 'liana')
-        for k in (-1, 0, 1):
-            _cono(add, mano, mano + V((1.2 * k + 0.5 * s, 2.0, -3.5)), 1.1, 0.6, 'corteza', 0, 'brazo%d' % s)
-    # LAS PIERNAS: dos bloques cortos, con la base mas oscura (tierra).
+        pts = [V((9.5 * s, 0.8, 28.0)), V((12.5 * s, 0.0, 23.5)), V((13.5 * s, 2.0, 18.5)), V((12.0 * s, 3.8, 15.0)),
+               V((13.0 * s, 5.0, 12.0))]
+        rs = [3.4, 3.0, 3.3, 2.8, 3.1]
+        g = 'brazo%d' % s
+        for k in range(len(pts) - 1):
+            _cono(add, pts[k], pts[k + 1], rs[k], rs[k + 1], 'corteza', 1.2, g)
+        _elip(add, pts[2], (3.9, 3.9, 3.4), 'corteza', 1.0, g)                      # el codo, nudoso
+        _cono(add, pts[1], pts[1] + V((2.8 * s, -1.0, 3.2)), 1.2, 0.4, 'corteza', 0, g)   # un muñon de rama
+        _elip(add, pts[2] + V((1.5 * s, 2.6, 0.0)), (1.0, 1.0, 1.4), 'hueco', 0, 'nudo')
+        for u in (0.25, 0.6):
+            c = pts[3] + (pts[4] - pts[3]) * u
+            _elip(add, c, (3.4, 3.4, 0.65), 'liana', 0, 'liana')
+        mano = pts[4]
+        _elip(add, mano + V((0, 0.6, -0.8)), (3.2, 2.8, 2.4), 'corteza', 0.8, g)
+        for k in (-1.5, -0.5, 0.5, 1.5):
+            f1 = mano + V((1.0 * k + 0.3 * s, 2.0, -2.0))
+            f2 = f1 + V((0.4 * k, 1.6, -2.2))
+            _cono(add, mano + V((0.6 * k, 1.0, -1.0)), f1, 1.0, 0.75, 'corteza', 0.3, g)
+            _cono(add, f1, f2, 0.75, 0.35, 'corteza', 0, g)
+    # LAS PIERNAS: tocones cortos y gordos que se ABREN abajo en RAICES como dedos, clavadas en el suelo.
     for s in (-1, 1):
-        add(lambda P, s=s: sd_caja(P, V((4.5 * s, 0.5, 5.5)), [V((1, 0, 0)), V((0, 1, 0)), V((0, 0, 1))], (2.9, 3.2, 5.5), 1.0),
-            'corteza', 0, 'pierna%d' % s)
+        g = 'pierna%d' % s
+        cad = V((4.6 * s, 0.4, 12.5)); rod = V((5.4 * s, 1.4, 7.0)); pie = V((5.2 * s, 1.0, 2.0))
+        _cono(add, cad, rod, 3.5, 3.1, 'corteza', 1.0, g)
+        _cono(add, rod, pie, 3.1, 3.6, 'corteza', 1.0, g)
+        for k in range(6):
+            a = k / 6 * 2 * math.pi + (0.5 if s > 0 else 0.0)
+            largo = 5.5 if math.sin(a) > 0.2 else 3.8          # las de delante, mas largas
+            m = pie + V((math.cos(a) * largo * 0.55, math.sin(a) * largo * 0.55, -0.6))
+            f = pie + V((math.cos(a) * largo, math.sin(a) * largo, -1.6))
+            _cono(add, pie + V((0, 0, -0.5)), m, 1.7, 1.2, 'corteza', 0.6, g)
+            _cono(add, m, f, 1.2, 0.45, 'corteza', 0, g)
     return e.L
 
 
