@@ -14372,6 +14372,9 @@ func _cds_de_meta(pj: PersonajeData) -> Dictionary:
 # las lineas rojas y el "atacarle te une" le salen solos (esta congelado y reservado a esta pelea).
 var _cola_combate: Array = []
 
+# Lo mas lejos de la zona (por fuera de su borde) desde donde un enemigo puede entrar en una pelea tactica ya empezada.
+const ENTRAR_DESDE_FUERA := 40.0
+
 func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	if not combate_activo() or not is_instance_valid(nodo):
 		return false
@@ -14385,6 +14388,14 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 		return false
 	if combat.has_method("acabada") and combat.acabada():
 		return false   # se esta cerrando: ni entra ni se encola
+	# EN UNA PELEA TACTICA, SOLO DESDE LA ZONA (05/10, playtest: "ese salio de la nada; esta fuera del area y bastante
+	# lejos"). Ningun camino de entrada a mitad de pelea miraba donde estaba el que entraba: uno lejos, o al otro lado de
+	# una pared, quedaba metido en la pelea sin poder llegar a nadie. Dentro de la zona, o pegado a su borde (el que
+	# entra por el, ver ArenaCombate.punto_de_entrada). Si no, no entra y sigue esperando: si se acerca, entra.
+	if bool(combat.get("tactico")) and is_instance_valid(_arena_nodo) and nodo is Node2D:
+		var ar: ArenaCombate = _arena_nodo as ArenaCombate
+		if ar != null and ar.distancia_al_borde((nodo as Node2D).global_position) < -ENTRAR_DESDE_FUERA:
+			return false
 	var t: float = float(nodo.current_t) if "current_t" in nodo else 0.5
 	var hp: float = float(nodo.hp_restante) if "hp_restante" in nodo else -1.0
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
