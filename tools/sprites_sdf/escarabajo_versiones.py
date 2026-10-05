@@ -21,6 +21,7 @@ MAT = {
     'caparazon': [(0.22, 0.31, 0.20), (0.36, 0.50, 0.33), (0.48, 0.63, 0.44), (0.86, 0.94, 0.82)],
     'costura':   [(0.10, 0.14, 0.09), (0.14, 0.20, 0.13), (0.18, 0.25, 0.16)],
     'oscuro':    [(0.12, 0.17, 0.11), (0.18, 0.25, 0.16), (0.26, 0.34, 0.22), (0.62, 0.72, 0.58)],
+    'cara':      [(0.05, 0.07, 0.05), (0.09, 0.12, 0.08), (0.15, 0.20, 0.13), (0.50, 0.58, 0.46)],
     'pata':      [(0.11, 0.15, 0.10), (0.18, 0.25, 0.16), (0.26, 0.34, 0.22)],
     'cuerno':    [(0.16, 0.22, 0.14), (0.26, 0.36, 0.24), (0.38, 0.50, 0.34), (0.80, 0.90, 0.76)],
     'cristal':   [(0.30, 0.42, 0.28), (0.48, 0.64, 0.46), (0.66, 0.82, 0.62), (0.92, 0.98, 0.90)],
@@ -30,7 +31,7 @@ MAT = {
 
 def modelo(translucido=False):
     return Modelo(2.1, (80, 80), (40, 40), MAT, (0.06, 0.09, 0.05), suaves=('cuerpo',), brillan=('ojo',), corta_suelo=True,
-                  especular=('caparazon', 'cuerno', 'cristal', 'oscuro'), umbral_especular=0.96,
+                  especular=('caparazon', 'cuerno', 'cristal', 'oscuro', 'cara'), umbral_especular=0.96,
                   translucidos=('cristal',) if translucido else (), alfa=0.8)
 
 
@@ -48,10 +49,10 @@ def _curva(add, pts, r0, r1, mat, g):
         _cono(add, pts[i], pts[i + 1], r0 + (r1 - r0) * i / n, r0 + (r1 - r0) * (i + 1) / n, mat, g)
 
 
-ELI_C = V((0.0, -2.2, 3.4)); ELI_R = V((5.3, 6.2, 3.3))
+ELI_C = V((0.0, -3.4, 3.4)); ELI_R = V((5.3, 5.6, 3.3))
 
 
-def cuerpo_comun(add, elitros=True):
+def cuerpo_comun(add, elitros=True, boca=True):
     if elitros:
         # LOS ELITROS: UN ovalo, liso y brillante...
         _elip(add, ELI_C, ELI_R, 'caparazon', 'elitros')
@@ -60,12 +61,19 @@ def cuerpo_comun(add, elitros=True):
         # (Las ESTRIAS sobraban: a este tamaño, rayas de sandia.)
     # El vientre, oscuro, que asoma por debajo.
     _elip(add, (0, -1.0, 2.0), (4.6, 6.4, 1.8), 'oscuro', 'vientre')
-    # EL PRONOTO: el escudo, ancho y abombado, con el borde de delante algo levantado.
-    _elip(add, (0, 4.6, 3.4), (4.9, 3.0, 2.7), 'caparazon', 'pronoto')
-    # LA CABEZA, pequeña y metida bajo el escudo.
-    _elip(add, (0, 7.2, 2.3), (2.2, 1.6, 1.4), 'oscuro', 'cabeza')
+    # PIEZAS SEPARADAS ("parece que es una sola pieza"): entre el escudo y los elitros, una CINTURA oscura y estrecha
+    # que se ve; los dos se tocan solo por la punta.
+    _elip(add, (0, 2.2, 2.9), (2.8, 1.4, 1.9), 'oscuro', 'cintura')
+    # EL PRONOTO: el escudo, ancho y abombado.
+    _elip(add, (0, 4.7, 3.3), (4.6, 2.5, 2.6), 'caparazon', 'pronoto')
+    # LA CABEZA, FUERA del escudo y oscura ("no tiene cara"), con OJOS GRANDES que asoman a los lados...
+    _elip(add, (0, 7.8, 2.7), (2.5, 1.9, 1.7), 'cara', 'cabeza')
     for s in (-1, 1):
-        _elip(add, (1.6 * s, 7.6, 2.7), (0.42, 0.4, 0.4), 'ojo', 'ojo')
+        _elip(add, (2.0 * s, 8.4, 3.2), (0.95, 0.9, 0.9), 'ojo', 'ojo')
+        # ...y la BOCA: dos mandibulas cortas que se cierran delante.
+        if boca:
+            _cono(add, (1.1 * s, 9.3, 2.1), (1.5 * s, 10.4, 2.0), 0.5, 0.35, 'cuerno', 'boca%d' % s)
+            _cono(add, (1.5 * s, 10.4, 2.0), (0.4 * s, 11.0, 2.0), 0.35, 0.12, 'cuerno', 'boca%d' % s)
     # LAS PATAS: coxa bajo el cuerpo, FEMUR hacia fuera y arriba, TIBIA abajo con PINCHOS, y el tarso hasta el suelo.
     for s in (-1, 1):
         for k, (y0, ang) in enumerate(((4.4, 0.75), (0.6, -0.15), (-3.0, -0.75))):
@@ -88,7 +96,7 @@ def version_a():
     # RINOCERONTE: un cuerno largo que sale de la cabeza y sube curvado hacia delante; y un cuernecillo en el escudo.
     e = Escena({}); add = e.add
     cuerpo_comun(add)
-    pts = [V((0, 7.0, 2.6)), V((0, 8.8, 3.8)), V((0, 10.2, 5.8)), V((0, 10.9, 8.2)), V((0, 10.6, 10.4)), V((0, 9.8, 11.6))]
+    pts = [V((0, 8.0, 3.6)), V((0, 9.4, 4.8)), V((0, 10.6, 6.6)), V((0, 11.2, 8.8)), V((0, 10.9, 10.8)), V((0, 10.1, 11.9))]
     _curva(add, pts, 1.7, 0.3, 'cuerno', 'cuerno')
     _cono(add, (0, 5.2, 5.6), (0, 6.6, 7.4), 1.3, 0.3, 'cuerno', 'cuernecillo')
     return e.L
@@ -97,9 +105,9 @@ def version_a():
 def version_b():
     # CIERVO VOLANTE: dos mandibulas grandes que salen hacia delante y se curvan hacia dentro, con un diente.
     e = Escena({}); add = e.add
-    cuerpo_comun(add)
+    cuerpo_comun(add, boca=False)
     for s in (-1, 1):
-        pts = [V((1.3 * s, 7.8, 2.8)), V((3.0 * s, 9.6, 3.8)), V((4.0 * s, 11.8, 4.8)), V((3.6 * s, 13.8, 5.6)),
+        pts = [V((1.3 * s, 8.8, 2.8)), V((3.0 * s, 9.6, 3.8)), V((4.0 * s, 11.8, 4.8)), V((3.6 * s, 13.8, 5.6)),
                V((1.8 * s, 15.0, 5.8))]
         _curva(add, pts, 1.35, 0.3, 'cuerno', 'mandibula%d' % s)
         _cono(add, (3.7 * s, 11.0, 4.5), (2.0 * s, 11.8, 4.8), 0.6, 0.15, 'cuerno', 'mandibula%d' % s)
