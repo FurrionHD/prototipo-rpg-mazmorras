@@ -90,7 +90,7 @@ def POSE(**k):
 
 
 BOTE = 3.1
-LUNGE = 8.0
+LUNGE = 5.5          # (el viejo, 8: mi slime es algo mayor y al sur se salia del lienzo por abajo)
 ENCAJE_RETRO = 3.4
 
 
