@@ -111,6 +111,9 @@ func _recalcular() -> void:
 			var b: Node2D = cerca[j]
 			if a.global_position.distance_to(b.global_position) > Enemy.RADIO_REFUERZO:
 				continue
+			# Con roca de por medio no se juntan en la pelea (ver Enemy.vecinos): la linea no puede decir lo contrario.
+			if a.has_method("_linea_de_vision_libre") and not a._linea_de_vision_libre(b.global_position):
+				continue
 			var l: Line2D = _linea(usadas)
 			# Puntos en coordenadas de ESTE nodo (no locales a ningun bicho): una linea entre
 			# dos cuerpos no puede colgar de uno de ellos, o giraria y se movería con el.

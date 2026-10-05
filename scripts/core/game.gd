@@ -1153,8 +1153,17 @@ func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
 		return nada
 	var cuantos: int = puntos.size() + (companeros().size() if extra == 0 else 0)
 	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
+	# LA PELEA ES DONDE PEGAS (05/10, playtest: "pego a un enemigo que esta arriba y se me abre en la sala de abajo"): se
+	# ancla en el PRIMER enemigo de la pelea, que es al que se ha pegado (o el que ha embestido). El punto medio de todos
+	# solo si ese no esta en suelo: con enemigos a los dos lados de un muro, el punto medio caia en la otra sala (o en la
+	# roca, y "el suelo mas cercano" podia ser el de la sala de al lado).
+	var semilla: Vector2 = ArenaCalculo.semilla_de(puntos)
+	if not enemy_nodes.is_empty() and is_instance_valid(enemy_nodes[0]) and enemy_nodes[0] is Node2D:
+		var ancla: Vector2 = (enemy_nodes[0] as Node2D).global_position
+		if piso.gen.es_suelo(ArenaCalculo.celda_de_px(ancla)):
+			semilla = ancla
 	# En la arena de pruebas su sala (44x30) se recorta a lo pedido; en la mazmorra la sala va entera.
-	return ArenaCalculo.forma_de_arena(piso.gen, ArenaCalculo.semilla_de(puntos), deseado, not es_arena())
+	return ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena())
 
 
 # Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.

@@ -2100,7 +2100,10 @@ func vecinos() -> Array:
 		if n._combat_triggered:
 			continue
 		var d: float = global_position.distance_to(n.global_position)
-		if d <= RADIO_REFUERZO:
+		# SIN ROCA DE POR MEDIO (05/10, bug del playtest: "pego a un enemigo que esta arriba y se me abre en la sala de
+		# abajo"). Iba solo por distancia, asi que un enemigo de la sala de al lado, al otro lado del muro, entraba de
+		# refuerzo en tu pelea y se llevaba la zona de combate hacia su sala. La misma regla que su vista.
+		if d <= RADIO_REFUERZO and _linea_de_vision_libre(n.global_position):
 			cand.append([d, n])
 	cand.sort_custom(func(a, b): return a[0] < b[0])
 	for i in mini(MAX_COMBATIENTES - 1, cand.size()):
