@@ -278,7 +278,9 @@ def _trabajo(args):
     mod = importlib.import_module(modname)
     n, fps, loop, dirs, fn = mod.ANIMS[nombre]
     t = i / n if loop else (i / (n - 1) if n > 1 else 0.0)
-    return (nombre, d, i, render(mod.MODELO, mod.escena(fn(t)), d))
+    # 'escena_dir' (05/10, el latigo del miconido): la escena que depende de hacia donde se mira (que brazo da a camara).
+    L = mod.escena_dir(fn(t), d) if hasattr(mod, 'escena_dir') else mod.escena(fn(t))
+    return (nombre, d, i, render(mod.MODELO, L, d))
 
 
 def hornear(modname, nombres, salida, vistas):
