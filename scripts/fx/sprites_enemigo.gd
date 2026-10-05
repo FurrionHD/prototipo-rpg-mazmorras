@@ -78,26 +78,31 @@ static var GENERADORES_POR_NOMBRE := {
 	# o sea con un ARBOL y con un pegote de tentaculos. Hasta ahora se dibujaba con el generador del
 	# trent, asi que un hongo andante salia con forma de arbol; y no era un despiste, es que sin un
 	# generador propio no habia otra cosa que prestarle.
-	&"miconido": MiconidoSprites,
+	# (05/10) En 3D: Miconido3DSprites; MiconidoSprites (el de codigo) queda de referencia (y de el saca SimaAire la
+	# mano del latigo).
+	&"miconido": Miconido3DSprites,
 	# Y EL CHILLON, que es el SEGUNDO bicho que vuela (con la polilla) y el unico murcielago. Se
 	# dibujaba con el de la GARGOLA -- o sea que salia como una estatua de basalto agazapada --, y no
 	# era un despiste: la gargola era lo unico con alas membranosas que habia para prestarle. De ella
 	# se queda la tecnica del ala y nada mas: aquella es de piedra, bipeda y las lleva plegadas casi
 	# siempre; este no se posa nunca, bate sin parar y ademas no tiene ojos que dibujar.
 	&"chillon": ChillonSprites,
-	&"arana": AranaSprites,
+	# (05/10) En 3D: Arana3DSprites; AranaSprites (el de codigo) queda de referencia.
+	&"arana": Arana3DSprites,
 	# Y LA SEGADORA, que SI es familia INSECTO como la araña y por eso se dibujaba con el suyo: una
 	# mantis salia con ocho patas y un racimo de ojos. Se separan por el cuerpo LARGO (cabeza, protorax
 	# y abdomen, contra las dos bolas de la araña), por las CUATRO patas mas las dos guadañas, y por
 	# que esta acecha ERGUIDA y aquella agazapada.
 	&"segadora": SegadoraSprites,
-	&"escarabajo": EscarabajoSprites,
-	&"ciempies": CiempiesSprites,
+	# (05/10) En 3D: el del CUERNO y el ciempies (un par de patas cada dos anillos); los de codigo quedan de referencia.
+	&"escarabajo": Escarabajo3DSprites,
+	&"ciempies": Ciempies3DSprites,
 	# Y EL CHUPASIMAS, que NO es un insecto pero comparte con el ciempies el esqueleto de CADENA -- un
 	# tubo de anillos sin centro -- y por eso se dibujaba con el suyo: una sanguijuela salia con veinte
 	# patas amarillas. Con generador propio se separan por donde de verdad se distinguen, que es el
 	# movimiento (bucle de oruga contra onda lateral) y la boca (ventosa contra forcipulas).
-	&"chupasimas": ChupasimasSprites,
+	# (05/10) En 3D: Chupasimas3DSprites; ChupasimasSprites (el de codigo) queda de referencia.
+	&"chupasimas": Chupasimas3DSprites,
 	# LOS CONSTRUCTOS, IGUAL: golem, gargola y coloso son los tres familia PIEDRA -- y tambien lo es
 	# la Bestia acorazada --, asi que por familia les tocaria a los cuatro el MISMO dibujo. Y un
 	# pegote de barro, una estatua con alas y una mole labrada no se parecen en nada.
