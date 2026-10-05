@@ -138,8 +138,51 @@ const PASILLO_MIN_LARGO := 12     # por debajo de este largo, se coge de la sala
 # celdas. En los pasillos mas anchos de los pisos hondos ese minimo se cumple antes, que es lo justo: ya hay sitio.
 const PASILLO_MIN_CELDAS := PASILLO_MIN_LARGO * 3
 
+# 'dentro_px' (05/10, playtest: el enemigo en la boca de la sala y el grupo en fila en el pasillo -> la zona era la sala
+# y los tuyos se quedaban FUERA, sin poder andar y con Huir de golpe): los que EMPIEZAN la pelea. Al que se quede fuera
+# de la forma se le añade lo suyo: su trozo de pasillo (con el mismo tope) o su sala entera.
 static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i,
-		sala_entera: bool = true) -> Dictionary:
+		sala_entera: bool = true, dentro_px: Array = []) -> Dictionary:
+	var base: Dictionary = _forma_base(gen, semilla_px, deseado, sala_entera)
+	var rect: Rect2i = base["rect"]
+	if not rect.has_area() or dentro_px.is_empty():
+		return base
+	var fuera: Array[Vector2i] = []
+	for p in dentro_px:
+		var c: Vector2i = _suelo_cerca(gen, celda_de_px(p as Vector2))
+		if c.x >= 0 and not en_forma(rect, base["mascara"], c):
+			fuera.append(c)
+	if fuera.is_empty():
+		return base
+	# Todo a celdas sueltas y se vuelve a empaquetar con mascara.
+	var celdas: Dictionary = {}
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			var c := Vector2i(x, y)
+			if en_forma(rect, base["mascara"], c) and gen.es_suelo(c):
+				celdas[c] = true
+	for c in fuera:
+		if celdas.has(c):
+			continue
+		var suyo: Array[Vector2i] = []
+		if _es_sala(gen, c):
+			var sala: Rect2i = gen.zonas[gen.zona_en(c)]["rect"]
+			for y in range(sala.position.y, sala.end.y):
+				for x in range(sala.position.x, sala.end.x):
+					suyo.append(Vector2i(x, y))
+		else:
+			suyo = _rellenar(gen, c, 1 << 30, PASILLO_TOPE, false)
+		for v in suyo:
+			if gen.es_suelo(v):
+				celdas[v] = true
+	var lista: Array[Vector2i] = []
+	for c in celdas:
+		lista.append(c)
+	return _empaquetar(lista)
+
+
+static func _forma_base(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i,
+		sala_entera: bool) -> Dictionary:
 	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
 	if gen == null or gen.ancho <= 0 or gen.alto <= 0:
 		return nada

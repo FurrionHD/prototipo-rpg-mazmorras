@@ -94,21 +94,67 @@ func _correr() -> void:
 			var v: Array = ea.vecinos()
 			_ver(not v.has(eb), "el de la otra sala NO entra de refuerzo")
 			# Aunque entrara (por lo que sea), la zona se queda en la sala del que pegas.
-			# Y aunque entraran DOS de la otra sala (el punto medio caeria en la suya), la zona sigue donde pegas.
-			var eb2 = piso.crear_enemigo(data, pb + Vector2(C, 0), 30.0, 0.5, 0, false)
-			await _esperar(2)
-			eb2.global_position = pb + Vector2(C, 0)
-			eb2.set_physics_process(false)
-			var forma: Dictionary = Game._forma_de_arena([ea, eb, eb2])
+			# La zona de la pelea de verdad (el que pegas y sus refuerzos, que ya no cruzan muros): en su sala y no en la otra.
+			var forma: Dictionary = Game._forma_de_arena(v)
 			var r: Rect2i = forma["rect"]
 			_ver(ArenaCalculo.en_forma(r, forma["mascara"], par[0]), "la zona cubre al que pegas (rect %s)" % r)
 			_ver(not ArenaCalculo.en_forma(r, forma["mascara"], par[1]), "la zona NO se va a la otra sala")
-			var forma2: Dictionary = Game._forma_de_arena(v)
-			_ver((forma2["rect"] as Rect2i).has_point(par[0]), "con sus refuerzos de verdad, tambien en su sala")
 			hecho = true
 			break
 		if hecho:
 			break
 	_ver(hecho, "encontre dos salas pegadas para probar")
+
+	# LA CAPTURA DEL PLAYTEST: el enemigo en la BOCA de una sala y el grupo en FILA por el pasillo. La zona tenia que
+	# ser la sala Y el trozo de pasillo con los tuyos; era solo la sala y se quedaban fuera (sin andar y con Huir).
+	print("boca de sala con el grupo en el pasillo")
+	var piso2: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var gen2: DungeonGenerator = piso2.gen
+	var boca: Array = []
+	for y in gen2.alto:
+		if not boca.is_empty():
+			break
+		for x in gen2.ancho:
+			var c := Vector2i(x, y)
+			if _sala(gen2, c) < 0:
+				continue
+			for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+				var ok: bool = true
+				for k in range(1, 6):
+					var v: Vector2i = c + d * k
+					if not gen2.es_suelo(v) or _sala(gen2, v) >= 0:
+						ok = false
+						break
+				if ok:
+					boca = [c, d]
+					break
+			if not boca.is_empty():
+				break
+	_ver(not boca.is_empty(), "encontre una boca de sala con pasillo")
+	if not boca.is_empty():
+		var C2: float = float(DungeonGenerator.CELDA)
+		var cel: Vector2i = boca[0]
+		var dd: Vector2i = boca[1]
+		for e in get_tree().get_nodes_in_group("enemy"):
+			e.global_position = Vector2(-5000, -5000)
+			e.set_physics_process(false)
+		var data2: EnemyData = load("res://scenes/actors/enemy/slime_veneno.tres")
+		var pe: Vector2 = (Vector2(cel) + Vector2(0.5, 0.5)) * C2
+		var en = piso2.crear_enemigo(data2, pe, 30.0, 0.5, 0, false)
+		await _esperar(2)
+		en.global_position = pe
+		en.set_physics_process(false)
+		var aliados: Array = get_tree().get_nodes_in_group("aliado")
+		var celdas_grupo: Array = []
+		for i in aliados.size():
+			var cg: Vector2i = cel + dd * (1 + i)
+			(aliados[i] as Node2D).global_position = (Vector2(cg) + Vector2(0.5, 0.5)) * C2
+			celdas_grupo.append(cg)
+		await _esperar(1)
+		var f3: Dictionary = Game._forma_de_arena([en])
+		var r3: Rect2i = f3["rect"]
+		_ver(ArenaCalculo.en_forma(r3, f3["mascara"], cel), "la zona coge al enemigo (rect %s)" % r3)
+		for i in celdas_grupo.size():
+			_ver(ArenaCalculo.en_forma(r3, f3["mascara"], celdas_grupo[i]), "y al %do del grupo, en el pasillo %s" % [i + 1, celdas_grupo[i]])
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

@@ -1162,8 +1162,17 @@ func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
 		var ancla: Vector2 = (enemy_nodes[0] as Node2D).global_position
 		if piso.gen.es_suelo(ArenaCalculo.celda_de_px(ancla)):
 			semilla = ancla
+	# Y QUE QUEPAN TODOS LOS QUE EMPIEZAN (ver ArenaCalculo.forma_de_arena): los de la pelea y los tuyos de al lado.
+	var dentro: Array = puntos.duplicate()
+	for a in get_tree().get_nodes_in_group("aliado"):
+		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
+			dentro.append((a as Node2D).global_position)
 	# En la arena de pruebas su sala (44x30) se recorta a lo pedido; en la mazmorra la sala va entera.
-	return ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena())
+	return ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena(), [] if es_arena() else dentro)
+
+
+# Hasta donde cuentan los tuyos como "los que empiezan la pelea" (ver _forma_de_arena): el grupo que va en fila detras.
+const ALIADOS_EN_ZONA := 320.0
 
 
 # Donde estan los que pelean en una pelea de FICHAS (trabajador): lo pone abrir_pelea_de_fichas mientras abre.
