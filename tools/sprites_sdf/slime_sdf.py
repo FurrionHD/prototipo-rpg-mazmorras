@@ -49,7 +49,7 @@ def _lienzo(escala):
 def _materiales(forma, color):
     c = hexc(color)
     # EL GEL: sombra, base, luz y el BRILLO especular (casi blanco), que pone el motor donde la cupula mira a la luz.
-    gel = [osc(c, 0.30), c, cla(c, 0.28), cla(c, 0.78)]
+    gel = [osc(c, 0.30), c, cla(c, 0.28), cla(c, 0.62)]
     if forma == 'lava':
         return {
             'gel':    [(0.32, 0.06, 0.10), (0.44, 0.10, 0.12), (0.62, 0.20, 0.16), (0.80, 0.42, 0.30)],
@@ -66,13 +66,15 @@ LIENZO, PIES = _lienzo(ESCALA)
 BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.58)
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
                 brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True,
-                especular=('gel', 'cuerno'), umbral_especular=0.93)
+                especular=('gel', 'cuerno'), umbral_especular=0.955)
 
-# EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una CUPULA alta y redonda, redonda en planta, que se
-# DESPARRAMA un poco en la base (la falda y el charquito). La primera vuelta era una bola aplastada: se leia como un
-# disco, y con los ojos en la coronilla.
-CUERPO = np.array([0.0, 0.0, 11.0])
-CUERPO_R = np.array([15.5, 15.5, 15.0])
+# EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada, con un
+# charquito fino en la base. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
+# una falda ancha fundida abajo: "porque es tan ancho abajo").
+# Hundida: el suelo la corta a un tercio, asi apoya con una base ANCHA y blanda (al rozar el suelo con la panza
+# redonda se leia como una bola sobre un plato).
+CUERPO = np.array([0.0, 0.0, 9.0])
+CUERPO_R = np.array([16.5, 16.5, 14.0])
 
 
 def POSE(**k):
@@ -117,19 +119,16 @@ def escena(pose):
     hin = 1.0 + pose['hincha']
     R = CUERPO_R * np.array([hin, hin, hin])
     add(lambda P: sd_elipsoide(P, CUERPO, R), 'gel', 0)
-    # LA FALDA: mas ancha y baja, fundida con la cupula: es lo que la hace POSARSE y desparramarse, no rodar.
-    add(lambda P: sd_elipsoide(P, np.array([0.0, 0.0, 3.5]), np.array([18.0, 18.0, 6.0]) * hin), 'gel', 5.0)
     if FORMA != 'lava':
         # EL CHARQUITO: una lamina de gel por el suelo alrededor de la base, y unas GOTAS sueltas.
-        add(lambda P: sd_elipsoide(P, np.array([0.0, 0.0, 0.3]), np.array([19.2, 19.2, 0.8])), 'gel', 3.0)
-        for (x, y, r) in ((-19.5, 9.0, 1.5), (21.0, -4.0, 1.2), (14.0, 15.5, 1.0)):
+        add(lambda P: sd_elipsoide(P, np.array([0.0, 0.0, 0.3]), np.array([15.5, 15.5, 0.9])), 'gel', 3.0)
+        for (x, y, r) in ((-16.5, 7.5, 1.4), (17.5, -3.0, 1.1), (11.5, 13.5, 0.9)):
             add(lambda P, c=np.array([x, y, r * 0.6]), r=r: sd_elipsoide(P, c, np.array([r * 1.3, r * 1.3, r * 0.75])),
                 'gel', 0, 'gota', 'suelo')
     if FORMA == 'lava':
         # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava.
         def junta(P):
-            cuerpo = smin(sd_elipsoide(P, CUERPO, R + 0.18), sd_elipsoide(P, np.array([0.0, 0.0, 3.5]),
-                                                                          np.array([18.0, 18.0, 6.0]) * hin + 0.18), 5.0)
+            cuerpo = sd_elipsoide(P, CUERPO, R + 0.18)
             return np.maximum(cuerpo, _junta(P) * 22.0 - 0.75)
         add(junta, 'lava', 0, 'junta')
     if FORMA == 'rey':
@@ -152,7 +151,7 @@ def escena(pose):
             add(lambda P, a=medio, b=punta: sd_cono(P, a, b, 2.4, 0.9), 'gel', 1.0)
     # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara.
     for s in (-1, 1):
-        base, n = _superficie((0.33 * s, 0.94, 0.12))
+        base, n = _superficie((0.33 * s, 0.93, 0.18))
         c = base + n * 0.35
         add(lambda P, c=c: sd_elipsoide(P, c, np.array([2.3, 1.2, 5.0])), 'ojo', 0, 'ojo')
     return e.L
