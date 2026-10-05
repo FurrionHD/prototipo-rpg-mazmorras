@@ -278,7 +278,7 @@ func _ready() -> void:
 		# SPRITE ANIMADO: quien lo dibuja lo decide SpritesEnemigo (el arte de verdad manda; si no,
 		# el generador de su familia; si no hay ninguno, se queda el ColorRect de siempre). La regla
 		# vive alli y no aqui porque el visor de animaciones tiene que usar EXACTAMENTE la misma.
-		var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t)
+		var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante)
 		if frames != null:
 			_color_rect.visible = false
 			_sprite.visible = true
@@ -370,7 +370,8 @@ func _marcar_mutante() -> void:
 	# una version "mutante" del generador de cada uno de los veinte enemigos para decir exactamente lo
 	# mismo que ya dicen el tinte y el aura. El pixel sale un 20% mas gordo y se nota si lo buscas;
 	# a cambio, un mini-jefe se distingue de su especie a simple vista desde el otro lado de la sala.
-	if _sprite.visible and not _sprite_escala_propia:
+	# Si tiene SPRITE DE MUTANTE propio (05/10, el slime brotado) ya viene dibujado a su tamaño: no se estira.
+	if _sprite.visible and not _sprite_escala_propia and not SpritesEnemigo.mutante_propio(data):
 		_sprite.scale = Vector2.ONE * _sprite_base_scale * _mut_escala()
 	# EL AURA. Las mismas particulas ASCENDENTES que emana un bicho elemental (el slime de fuego
 	# humea naranja), aqui en rojo y a intensidad maxima: el mutante "arde" de rabia. Se usa ese
@@ -448,6 +449,15 @@ func mutar(dur: float = 0.0) -> void:
 		hp_restante *= despues / maxf(1.0, antes)
 	var esc_antes: Vector2 = _sprite.scale
 	mutante = true
+	# SU SPRITE DE MUTANTE, si lo tiene: viene dibujado x1.2, asi que para que la transformacion arranque del tamaño
+	# que tenia, se empieza encogido en esa proporcion (y crece hasta su escala de siempre).
+	if _sprite.visible and SpritesEnemigo.mutante_propio(data):
+		var sf: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, true)
+		if sf != null:
+			_sprite.sprite_frames = sf
+			if sf.has_animation(_anim_actual):
+				_sprite.play(_anim_actual)
+			esc_antes /= _mut_escala()
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
 	print("[comer] %s MUTA tras comer cristales (carga %.1f)" % [data.enemy_name, comer.carga])

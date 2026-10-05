@@ -171,7 +171,7 @@ func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130
 func _montar_sprite() -> void:
 	if data == null or _sprite == null:
 		return
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante)
 	if frames == null:
 		return
 	_cuerpo.visible = false
@@ -186,7 +186,8 @@ func _montar_sprite() -> void:
 	# El x1.2 del MUTANTE va aparte y SIEMPRE, estire o no el resto. Misma excepcion (y mismo
 	# porque) que en enemy._marcar_mutante: sin esto, el mini-jefe se veria del tamaño de siempre en
 	# la pantalla del invitado y solo el anfitrion sabria que es enorme.
-	if mutante:
+	# (Salvo el que trae SPRITE DE MUTANTE propio, ya dibujado a su tamaño: ver SpritesEnemigo.mutante_propio.)
+	if mutante and not SpritesEnemigo.mutante_propio(data):
 		esc *= float(EnemyData.mult_mutante(es_boss)["escala"])
 	_sprite.scale = Vector2.ONE * esc
 	# La linea amarilla es el apaño de los CUADRADOS: quien tiene cara no la necesita, y ademas mide
@@ -252,8 +253,10 @@ func aviso_comer(tipo: String, valor: float) -> void:
 			# El lado que llego en el alta (radio_extra = (lado - 32) / 2), agrandado como el del mutante.
 			var lado: float = (radio_extra * 2.0 + 32.0) * float(EnemyData.mult_mutante(es_boss)["escala"])
 			radio_extra = maxf(0.0, (lado - 32.0) * 0.5)
-			_montar_sprite()     # vuelve a sacar la escala, ya con el x1.2 del mutante
+			_montar_sprite()     # vuelve a sacar el sprite y la escala, ya de mutante
 			_marcar_mutante()
+			if SpritesEnemigo.mutante_propio(data):
+				esc_antes /= float(EnemyData.mult_mutante(es_boss)["escala"])   # su sprite ya viene x1.2
 			if valor > 0.0:
 				_ENEMY_GD.animar_transformacion(_sprite, esc_antes, valor, self)
 

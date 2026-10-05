@@ -10,9 +10,9 @@
 #  Variantes (tamaño = escala_visual de su ficha): s100 s115 s150 s170 (normal), lava160, rey280.
 #  MUTANTES (05/10): mut120 = el BROTADO (lo eligio el jefe de slime_versiones.py, "la version mas god"): yemas de slime
 #  con ojitos, un tercer cuerno torcido detras, dos ojos de mas, y dentro su nucleo y los CRISTALES que se ha comido
-#  ("pero no tiene cristales dentro"). x1.2 del normal.
-#  NUCLEO (05/10, lo pidio: "de base en el slime normal se debe ver su nucleo y un cristal dentro"): SLIME_NUCLEO=1 se lo
-#  pone a los normales. Apagado por defecto hasta su visto bueno (sus hojas son las que carga el juego).
+#  ("pero no tiene cristales dentro"). Uno por tamaño de normal, x1.2 (la escala del mutante) y en su mismo color:
+#  mut120 (del s100), mut138 (s115), mut180 (s150), mut204 (s170).
+#  NUCLEO (05/10, lo pidio: "de base en el slime normal se debe ver su nucleo y un cristal dentro"; SUTILES).
 #  SLIME_SALIDA=<carpeta> manda las hojas a otro sitio (para enseñarlas sin pisar las del juego).
 # ============================================================
 import sys, os, math
@@ -40,12 +40,15 @@ VARIANTES = {
     'lava160': (1.60, 'lava', 'ff862b'),
     'rey280': (2.80, 'rey', '55b8ff'),
     'mut120': (1.20, 'brotado', 'ff2b2b'),
+    'mut138': (1.38, 'brotado', '47d552'),
+    'mut180': (1.80, 'brotado', '556a80'),
+    'mut204': (2.04, 'brotado', '556faa'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
-# El nucleo (y los cristales) dentro del gel: el brotado siempre, el normal con SLIME_NUCLEO=1.
-CON_NUCLEO = FORMA == 'brotado' or (FORMA == 'normal' and os.environ.get('SLIME_NUCLEO') == '1')
+# El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
+CON_NUCLEO = FORMA in ('normal', 'brotado')
 
 
 def _lienzo(escala):

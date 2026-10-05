@@ -688,7 +688,7 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 	var ed: EnemyData = load(c.sprite_res) as EnemyData
 	if ed == null:
 		return
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante)
 	if frames == null:
 		return
 	var anim: StringName = &"idle_0"
@@ -736,7 +736,8 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 		# que en el mapa (enemy._marcar_mutante): a los generados se les estira el pixel aunque no
 		# declaren hay_que_estirar, porque la alternativa era una version mutante del generador de
 		# cada uno de los veinte enemigos para decir lo mismo que ya dicen el tinte y el aura.
-		if c.mutante:
+		# (El que trae SPRITE DE MUTANTE propio ya lo midio arriba con su tamaño: no se le suma otra vez.)
+		if c.mutante and not SpritesEnemigo.mutante_propio(ed):
 			alto_base *= float(EnemyData.mult_mutante(c.es_jefe)["escala"])
 	fig.set_meta("sprite", sp)
 	fig.set_meta("alto_base", alto_base)

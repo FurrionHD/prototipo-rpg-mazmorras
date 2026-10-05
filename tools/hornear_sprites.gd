@@ -127,6 +127,16 @@ func _hornear_enemigos() -> void:
 					bytes += n_r
 					total += 1
 					recortados += _avisar_recortes(sf_r, clave_r)
+			# Y SU SPRITE DE MUTANTE si lo tiene (05/10, el slime brotado).
+			if g.has_method("tiene_mutante") and g.tiene_mutante(ed):
+				var clave_m: String = g.clave_mutante_de(ed, t)
+				var sf_m: SpriteFrames = g.generar_mutante_de(ed, t)
+				var n_m: int = SpriteLienzo.hornear(sf_m, clave_m) if sf_m != null else 0
+				if n_m > 0:
+					bytes += n_m
+					total += 1
+					recortados += _avisar_recortes(sf_m, clave_m)
+					sueltas += _avisar_islas(sf_m, clave_m)
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,

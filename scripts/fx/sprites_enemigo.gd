@@ -143,7 +143,7 @@ static func _generador(ed: EnemyData):
 # Los frames que le tocan a este enemigo, o null si no le toca ninguno (se queda con el ColorRect
 # de siempre). EL ARTE DE VERDAD SIEMPRE GANA: el dia que un .tres traiga su sprite_frames dibujado
 # a mano, sustituye al generado sin tocar una linea de codigo.
-static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
+static func frames_de(ed: EnemyData, t: float, mutante: bool = false) -> SpriteFrames:
 	if ed == null:
 		return null
 	if ed.sprite_frames != null:
@@ -151,6 +151,15 @@ static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
 	var g = _generador(ed)
 	if g == null:
 		return null
+	# EL MUTANTE CON SPRITE PROPIO (05/10): el de su generador, horneado o al vuelo como el normal. El que no lo tenga
+	# se queda con el normal, que quien lo pinte estira (ver mutante_propio).
+	if mutante and mutante_propio(ed):
+		var clave_m: String = g.clave_mutante_de(ed, t)
+		if not _horneado.has(clave_m):
+			_horneado[clave_m] = SpriteLienzo.cargar_horneado(clave_m)
+		if _horneado[clave_m] != null:
+			return _horneado[clave_m]
+		return g.generar_mutante_de(ed, t)
 	# EL HORNEADO MANDA. Si esta variante ya esta en disco (ver herramientas/hornear_sprites.bat), se carga y listo:
 	# son milisegundos, contra los ~0,3-1,2 s que cuesta dibujarla. Y si NO esta -- porque acabas de
 	# tocar un generador y aun no has horneado --, se genera al vuelo como siempre. Esa caida es
@@ -161,6 +170,15 @@ static func frames_de(ed: EnemyData, t: float) -> SpriteFrames:
 	if _horneado[clave] != null:
 		return _horneado[clave]
 	return g.generar_de(ed, t)
+
+
+# ¿Tiene este enemigo SPRITE DE MUTANTE propio (dibujado ya a su tamaño)? Si lo tiene, NO se le estira el x1.2 del
+# mutante (mapa, espejo, combate): ya viene grande. Si no, se estira el normal como siempre.
+static func mutante_propio(ed: EnemyData) -> bool:
+	if ed == null or ed.sprite_frames != null:
+		return false
+	var g = _generador(ed)
+	return g != null and g.has_method("tiene_mutante") and bool(g.tiene_mutante(ed))
 
 
 # LA VARIANTE ROTA (01/10, el cuerno partido del Minotauro en rabia): la del generador que la tenga (generar_roto_de /

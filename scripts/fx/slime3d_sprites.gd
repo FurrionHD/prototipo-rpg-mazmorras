@@ -13,6 +13,9 @@ class_name Slime3DSprites
 const CARPETA := "res://assets/sprites/enemigos/slime_sdf_%s/"
 # Las variantes horneadas: escala -> (carpeta, color en que estan pintadas).
 const NORMALES := [[1.00, "s100", "ff2b2b"], [1.15, "s115", "47d552"], [1.50, "s150", "556a80"], [1.70, "s170", "556faa"]]
+# EL MUTANTE (05/10, el BROTADO: yemas con ojitos, tercer cuerno, su nucleo y los cristales que se ha comido), uno por
+# tamaño de normal: el mismo color y x1.2 (la escala del mutante). El Rey y el de lava no tienen: se estiran como antes.
+const MUTANTES := [[1.20, "mut120", "ff2b2b"], [1.38, "mut138", "47d552"], [1.80, "mut180", "556a80"], [2.04, "mut204", "556faa"]]
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
 
@@ -48,6 +51,19 @@ static func _variante(escala: float, corona: bool, lava: bool) -> Array:
 	return [mejor[1], mejor[2], mejor[0]]
 
 
+# El mutante que le toca (el del normal mas parecido, x1.2), o [] si no tiene (Rey, lava).
+static func _variante_mutante(ed: EnemyData) -> Array:
+	if ed.corona_slime or ed.lava_slime:
+		return []
+	var normal: Array = _variante(ed.escala_visual, false, false)
+	var i: int = 0
+	for k in NORMALES.size():
+		if String(NORMALES[k][1]) == String(normal[0]):
+			i = k
+	var m: Array = MUTANTES[i]
+	return [m[1], m[2], m[0]]
+
+
 # --- Contrato de SpritesEnemigo ---
 static func generar_de(ed: EnemyData, t: float) -> SpriteFrames:
 	return generar(ed.color_visual(t), ed.corona_slime, ed.escala_visual, ed.lava_slime)
@@ -58,6 +74,29 @@ static func clave_de(ed: EnemyData, t: float) -> String:
 	var v: Array = _variante(ed.escala_visual, ed.corona_slime, ed.lava_slime)
 	return "slime3d_%s_%s" % [String(v[0]),
 		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS).to_html(false)]
+
+
+# EL SPRITE DE MUTANTE (05/10, ver SpritesEnemigo.frames_de). Ya viene dibujado al tamaño del mutante, asi que quien lo
+# pinte no tiene que estirarlo.
+static func tiene_mutante(ed: EnemyData) -> bool:
+	return not _variante_mutante(ed).is_empty()
+
+
+static func clave_mutante_de(ed: EnemyData, t: float) -> String:
+	var v: Array = _variante_mutante(ed)
+	if v.is_empty():
+		return ""
+	return "slime3d_%s_%s" % [String(v[0]),
+		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS).to_html(false)]
+
+
+static func generar_mutante_de(ed: EnemyData, t: float) -> SpriteFrames:
+	var v: Array = _variante_mutante(ed)
+	if v.is_empty():
+		return null
+	var lienzo: Vector2i = SlimeSprites._lienzo(float(v[2]))
+	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, lienzo, Color(String(v[1])),
+		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS))
 
 
 static func escala_base() -> float:
