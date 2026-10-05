@@ -70,9 +70,10 @@ def _unit(v):
 def huesos(p):
     X = {}
     # TODO EL BICHO: avanza, se agacha (baja el cuerpo) y, al morir, VUELCA de espaldas sobre su eje largo.
-    raiz = (np.eye(3), V((0.0, p['avance'], CUERPO_Z * (1.0 - 0.35 * p['agacha']))))
+    # De espaldas del todo (en 3D se puede: el viejo se quedaba en 66 grados), y baja hasta apoyar el lomo.
+    raiz = (np.eye(3), V((0.0, p['avance'], CUERPO_Z * (1.0 - 0.35 * p['agacha']) - 1.1 * p['vuelca'])))
     if p['vuelca'] > 0.0:
-        raiz = comp(raiz, sobre(V((0.0, 0.0, 0.0)), ry(p['vuelca'] * 1.15 * 2.0 * 0.5 * math.pi / 1.15 * 0.5)))
+        raiz = comp(raiz, sobre(V((0.0, 0.0, 0.0)), ry(p['vuelca'] * math.pi * 0.92)))
     X['raiz'] = raiz
     # La CABEZA gira sola (lo unico que se le mueve en reposo).
     X['cabeza'] = comp(raiz, sobre(PROTO_B, rz(p['cabeza'] * 0.42)))
@@ -130,8 +131,8 @@ def _pata(add, p, i, s):
     sube = p['paso'] * max(0.0, math.cos(2 * math.pi * fase)) * PASO_ALTO
     pie = V((alcance * s * 0.95, y0 + abre + paso * PASO_LARGO, -CUERPO_Z * (1.0 - 0.35 * p['agacha']) + sube))
     # Al morir (de espaldas) las patas se ENCOGEN hacia el cuerpo.
-    pie = pie + (V((3.2 * s, y0, 2.2)) - pie) * p['encoge']
-    rod = cad + (pie - cad) * 0.45 + V((0.0, 0.0, 3.4 - 1.2 * p['encoge']))
+    pie = pie + (V((3.6 * s, y0 + 1.2 * abre / 3.0, -6.4)) - pie) * p['encoge']
+    rod = cad + (pie - cad) * 0.45 + V((3.2 * s * p['encoge'], 0.0, 3.4 * (1.0 - p['encoge'])))
     g = 'pata_%d_%d' % (i, s)
     _cono(add, cad, rod, 0.80, 0.68, 'pata', 0, g)
     _cono(add, rod, pie, 0.68, 0.48, 'pata', 0, g)
@@ -186,8 +187,80 @@ def anim_idle(t):
     return POSE(cabeza=math.sin(2 * math.pi * t), agacha=0.03 * (1 - math.cos(2 * math.pi * t)))
 
 
+def anim_walk(t):
+    # Anda con las guadañas RECOGIDAS (casi), patas por pares cruzados y la cabeza mirando.
+    return POSE(fase=t, paso=1.0, abre=0.10, cabeza=0.35 * math.sin(math.pi * t),
+                agacha=0.05 * (1 - math.cos(4 * math.pi * t)))
+
+
+def anim_embestida(t):
+    # ABRE LAS GUADAÑAS Y SE ECHA ENCIMA (antes se recoge todavia mas: el desplegado se ve de golpe).
+    return POSE(avance=tramos(t, [(0.0, 0.0), (0.30, -1.4), (0.44, 1.2), (0.68, 8.4), (0.86, 9.5), (1.0, 6.4)]) *
+                (LUNGE_DIST / 9.5),
+                abre=tramos(t, [(0.0, 0.0), (0.30, 0.0), (0.44, 1.0), (0.68, 0.95), (0.86, 0.45), (1.0, 0.15)]),
+                alza=tramos(t, [(0.0, 0.0), (0.30, 0.55), (0.44, 0.85), (0.68, 0.15), (1.0, 0.0)]))
+
+
+def anim_guadanas(t):
+    # DOBLE GUADAÑA: los dos brazos suben por encima de la cabeza y caen a la vez desde arriba.
+    return POSE(alza=tramos(t, [(0.0, 0.0), (0.143, 0.75), (0.286, 1.0), (0.429, 0.30), (0.571, -0.35), (0.714, -0.15),
+                                (1.0, 0.0)]),
+                abre=tramos(t, [(0.0, 0.15), (0.143, 0.55), (0.286, 0.80), (0.429, 1.0), (0.571, 1.0), (0.714, 0.60),
+                                (1.0, 0.25)]))
+
+
+_ABRE_BASICO = [(0.0, 0.0), (0.4, 0.0), (0.5, 1.0), (0.75, 0.8), (1.0, 0.1)]
+_AVANCE_BASICO = [(0.0, 0.0), (0.4, -0.5), (0.5, 2.8), (0.75, 2.4), (1.0, 0.0)]
+
+
+def anim_basico(t):
+    # EL BASICO DEL MAPA: clavada, y de pronto UN brazo ya esta fuera (el izquierdo).
+    return POSE(abre=0.05, abre_izq=tramos(t, _ABRE_BASICO), avance=tramos(t, _AVANCE_BASICO))
+
+
+def anim_basico_der(t):
+    return POSE(abre=tramos(t, _ABRE_BASICO), abre_izq=0.05, avance=tramos(t, _AVANCE_BASICO))
+
+
+def anim_ensarte(t):
+    # "Se queda quieta, muy quieta, y de pronto ya esta dentro": un brazo, y el cuerpo entero detras.
+    return POSE(abre=tramos(t, [(0.0, 0.0), (0.286, 0.0), (0.429, 1.0), (0.571, 1.0), (0.714, 0.20), (1.0, 0.05)]),
+                abre_izq=0.05,
+                avance=tramos(t, [(0.0, 0.0), (0.286, -0.6), (0.429, 3.2), (0.571, 3.6), (0.714, 1.0), (1.0, 0.0)]))
+
+
+def anim_acecho(t):
+    # AGAZAPADA esperando (en bucle): baja el cuerpo, se echa atras y solo gira la cabeza.
+    return POSE(abre=0.0, agacha=0.45, avance=-0.8, cabeza=0.6 * math.sin(2 * math.pi * t))
+
+
+def anim_encaje(t):
+    # Empieza YA golpeada: retrocede y se hunde, y vuelve.
+    return POSE(avance=-tramos(t, [(0.0, 1.0), (0.34, 0.40), (0.67, 0.10), (1.0, 0.0)]) * LUNGE_DIST * ENCAJE_RETRO,
+                agacha=tramos(t, [(0.0, 0.85), (0.34, 0.45), (0.67, 0.15), (1.0, 0.0)]))
+
+
+def anim_muerte(t):
+    # SE VUELCA DE ESPALDAS con las patas encogidas hacia arriba (un ultimo zarpazo al aire antes).
+    return POSE(abre=tramos(t, [(0.0, 0.05), (0.16, 0.90), (0.34, 0.45), (0.56, 0.10), (1.0, 0.0)]),
+                vuelca=tramos(t, [(0.0, 0.0), (0.16, 0.10), (0.34, 0.45), (0.56, 0.85), (0.78, 1.02), (0.90, 0.97),
+                                  (1.0, 1.0)]),
+                encoge=tramos(t, [(0.0, 0.0), (0.34, 0.25), (0.56, 0.70), (0.78, 0.95), (1.0, 1.0)]),
+                agacha=tramos(t, [(0.0, 0.0), (0.16, 0.20), (0.34, 0.60), (0.56, 0.90), (1.0, 1.0)]))
+
+
+# nombre: (fotogramas, fps, loop, direcciones, funcion) -- los del viejo. El cadaver sale del ultimo de 'muerte'.
 ANIMS = {
     'idle': (8, 3.0, True, 8, anim_idle),
+    'walk': (8, 9.0, True, 8, anim_walk),
+    'embestida': (8, 12.0, False, 8, anim_embestida),
+    'guadanas': (8, 13.0, False, 8, anim_guadanas),
+    'basico': (6, 16.0, False, 8, anim_basico),
+    'basico_der': (6, 16.0, False, 8, anim_basico_der),
+    'ensarte': (8, 13.0, False, 8, anim_ensarte),
+    'acecho': (8, 5.0, True, 8, anim_acecho),
+    'encaje': (4, 18.0, False, 8, anim_encaje),
+    'muerte': (8, 10.0, False, 8, anim_muerte),
 }
 
 
