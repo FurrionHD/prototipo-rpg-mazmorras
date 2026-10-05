@@ -30,11 +30,13 @@ MAT = {
     'ojo':     [(0.06, 0.04, 0.04), (0.06, 0.04, 0.04), (0.06, 0.04, 0.04)],
     'brillo':  [(0.95, 0.93, 0.90), (0.95, 0.93, 0.90), (0.98, 0.97, 0.95)],
     'cicatriz': [(0.50, 0.09, 0.09), (0.66, 0.13, 0.12), (0.78, 0.22, 0.20)],
+    'oro':     [(0.62, 0.42, 0.10), (0.86, 0.66, 0.20), (0.99, 0.88, 0.45)],
+    'rubi':    [(0.70, 0.08, 0.10), (0.70, 0.08, 0.10), (0.92, 0.30, 0.30)],
 }
 MODELO = Modelo(1.2, (48, 48), (24, 24), MAT, (0.12, 0.09, 0.07), suaves=('cuerpo',), brillan=('ojo', 'brillo', 'cicatriz'),
                 estira=ESTIRA, corta_suelo=True)
 MODELO_REY = Modelo(1.7, (66, 66), (33, 33), MAT, (0.12, 0.09, 0.07), suaves=('cuerpo',),
-                    brillan=('ojo', 'brillo', 'cicatriz'), estira=ESTIRA, corta_suelo=True)
+                    brillan=('ojo', 'brillo', 'cicatriz', 'rubi'), estira=ESTIRA, corta_suelo=True)
 
 NUCA = Z(0, 4.4, 3.0)
 
@@ -132,6 +134,18 @@ def escena(pose, rey=False):
     if rey:
         # LA CICATRIZ: una raja roja que le cruza el ojo derecho, de la frente a la mejilla.
         add(lambda P: sd_cono(P, Z(-1.2, 6.0, 4.9), Z(-2.4, 7.9, 2.3), 0.38, 0.32), 'cicatriz', 0, 'cicatriz', 'cabeza')
+        # LA CORONA DE ORO (05/10, la pidio el jefe): un aro entre las orejas, un poco ladeada, con cinco puntas y un
+        # rubi delante (rojo, como la cicatriz y la sangre de lo suyo).
+        cc = Z(0.3, 5.0, 5.9)
+        aro = lambda P, c=cc: np.maximum(np.abs(sd_elipsoide(P, c, np.array([2.4, 2.4, 1.0]))) - 0.45, np.abs(P[:, 2] - c[2]) - 0.8)
+        add(aro, 'oro', 0, 'corona', 'cabeza')
+        for k in range(5):
+            a = k / 5 * 2 * math.pi + math.pi / 2
+            b = cc + np.array([math.cos(a) * 2.2, math.sin(a) * 2.2, 0.5])
+            add(lambda P, a=b, b=b + np.array([math.cos(a) * 0.3, math.sin(a) * 0.3, 2.0]): sd_cono(P, a, b, 0.6, 0.22),
+                'oro', 0, 'corona', 'cabeza')
+            add(lambda P, c=b + np.array([0, 0, 2.2]): sd_esfera(P, c, 0.34), 'oro', 0, 'corona', 'cabeza')
+        add(lambda P: sd_esfera(P, cc + np.array([0.0, 2.5, 0.0]), 0.55), 'rubi', 0, 'corona', 'cabeza')
     # LAS PATAS: cortas y metidas bajo el cuerpo; las MANOS rosas.
     for s, ld in ((-1, 'd'), (1, 'i')):
         for y0, dt in ((3.1, 'del'), (-2.8, 'tras')):

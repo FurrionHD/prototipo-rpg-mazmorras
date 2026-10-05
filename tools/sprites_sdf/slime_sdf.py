@@ -48,30 +48,31 @@ def _lienzo(escala):
 
 def _materiales(forma, color):
     c = hexc(color)
-    gel = [osc(c, 0.28), c, cla(c, 0.30)]
+    # EL GEL: sombra, base, luz y el BRILLO especular (casi blanco), que pone el motor donde la cupula mira a la luz.
+    gel = [osc(c, 0.30), c, cla(c, 0.28), cla(c, 0.78)]
     if forma == 'lava':
         return {
-            'gel':    [(0.32, 0.06, 0.10), (0.44, 0.10, 0.12), (0.62, 0.20, 0.16)],
-            'cuerno': [(0.24, 0.05, 0.07), (0.36, 0.08, 0.10), (0.48, 0.14, 0.13)],
+            'gel':    [(0.32, 0.06, 0.10), (0.44, 0.10, 0.12), (0.62, 0.20, 0.16), (0.80, 0.42, 0.30)],
             'lava':   [c, c, (1.0, 0.86, 0.34)],
             'ojo':    [(1.0, 0.99, 0.92)] * 3,
             'gema':   [(1.0, 0.95, 0.72)] * 3,
         }
-    # Los cuernos, de su gel mas oscuro (el viejo: el ornamento apagado contra el cuerpo); la corona, mas clara.
-    orn = [osc(c, 0.55), osc(c, 0.42), osc(c, 0.25)] if forma == 'normal' else [cla(c, 0.05), cla(c, 0.28), cla(c, 0.5)]
-    return {'gel': gel, 'cuerno': orn, 'lava': gel, 'ojo': [(0.95, 0.97, 0.85)] * 3, 'gema': [(1.0, 0.95, 0.72)] * 3}
+    # La corona del Rey, de su gel mas claro.
+    orn = [cla(c, 0.05), cla(c, 0.28), cla(c, 0.5), cla(c, 0.85)]
+    return {'gel': gel, 'cuerno': orn, 'lava': gel, 'ojo': [(1.0, 0.97, 0.72)] * 3, 'gema': [(1.0, 0.95, 0.72)] * 3}
 
 
 LIENZO, PIES = _lienzo(ESCALA)
-BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.55)
+BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.58)
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
-                brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True)
+                brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True,
+                especular=('gel', 'cuerno'), umbral_especular=0.93)
 
-# EL CUERPO: una bola apoyada (lo mas ancho a media altura), REDONDA EN PLANTA: el viejo tenia menos fondo que ancho
-# porque su cuerpo no giraba; aqui gira todo, y con fondo corto de perfil salia un huevo estrecho. Algo baja, para
-# que en pantalla guarde las proporciones del viejo (34 x 25).
-CUERPO = np.array([0.0, 0.0, 10.0])
-CUERPO_R = np.array([17.0, 17.0, 10.0])
+# EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una CUPULA alta y redonda, redonda en planta, que se
+# DESPARRAMA un poco en la base (la falda y el charquito). La primera vuelta era una bola aplastada: se leia como un
+# disco, y con los ojos en la coronilla.
+CUERPO = np.array([0.0, 0.0, 11.0])
+CUERPO_R = np.array([15.5, 15.5, 15.0])
 
 
 def POSE(**k):
@@ -87,7 +88,7 @@ def huesos(p):
     M = np.diag([sxy, sxy, sz])
     M = rx(p['inclina']) @ ry(p['ladea']) @ M
     t = np.array([0.0, p['avance'], p['bote'] - p['hunde']])
-    return {'raiz': (M, t)}
+    return {'raiz': (M, t), 'suelo': (np.eye(3), np.array([0.0, p['avance'], 0.0]))}
 
 
 def _superficie(d):
@@ -116,33 +117,44 @@ def escena(pose):
     hin = 1.0 + pose['hincha']
     R = CUERPO_R * np.array([hin, hin, hin])
     add(lambda P: sd_elipsoide(P, CUERPO, R), 'gel', 0)
+    # LA FALDA: mas ancha y baja, fundida con la cupula: es lo que la hace POSARSE y desparramarse, no rodar.
+    add(lambda P: sd_elipsoide(P, np.array([0.0, 0.0, 3.5]), np.array([18.0, 18.0, 6.0]) * hin), 'gel', 5.0)
+    if FORMA != 'lava':
+        # EL CHARQUITO: una lamina de gel por el suelo alrededor de la base, y unas GOTAS sueltas.
+        add(lambda P: sd_elipsoide(P, np.array([0.0, 0.0, 0.3]), np.array([19.2, 19.2, 0.8])), 'gel', 3.0)
+        for (x, y, r) in ((-19.5, 9.0, 1.5), (21.0, -4.0, 1.2), (14.0, 15.5, 1.0)):
+            add(lambda P, c=np.array([x, y, r * 0.6]), r=r: sd_elipsoide(P, c, np.array([r * 1.3, r * 1.3, r * 0.75])),
+                'gel', 0, 'gota', 'suelo')
     if FORMA == 'lava':
         # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava.
         def junta(P):
-            return np.maximum(sd_elipsoide(P, CUERPO, R + 0.18), _junta(P) * 22.0 - 0.75)
+            cuerpo = smin(sd_elipsoide(P, CUERPO, R + 0.18), sd_elipsoide(P, np.array([0.0, 0.0, 3.5]),
+                                                                          np.array([18.0, 18.0, 6.0]) * hin + 0.18), 5.0)
+            return np.maximum(cuerpo, _junta(P) * 22.0 - 0.75)
         add(junta, 'lava', 0, 'junta')
     if FORMA == 'rey':
         # LA CORONA: un aro de cinco puntas de su gel, alrededor de la coronilla, con una GEMA en cada punta.
         for k in range(5):
             a = k / 5.0 * 2 * math.pi + math.pi * 0.5
-            base, n = _superficie((math.cos(a) * 0.72, math.sin(a) * 0.72, 0.70))
+            base, n = _superficie((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.83))
             base = base - n * 1.0
             punta = base + np.array([math.cos(a) * 0.8, math.sin(a) * 0.8, 7.5])
             add(lambda P, a=base, b=punta: sd_cono(P, a, b, 2.4, 1.3), 'cuerno', 0, 'corona')
             add(lambda P, c=punta + np.array([0, 0, 0.8]): sd_esfera(P, c, 1.35), 'gema', 0, 'gema')
     else:
-        # LOS CUERNOS: dos bultos redondos arriba y a los lados, de su gel mas oscuro, clavados en la superficie.
+        # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
-            # Hacia ATRAS y arriba, y sacados de la superficie: en el cuerpo plano, puestos encima quedaban como botones
-            # DENTRO de la silueta; asi asoman por el borde de arriba como en el viejo.
-            base, n = _superficie((0.55 * s, -0.45, 0.70))
-            c = base + n * 0.6 + np.array([0.0, 0.0, 1.8])
-            add(lambda P, c=c: sd_elipsoide(P, c, np.array([4.2, 4.2, 5.0])), 'cuerno', 0, 'cuerno')
-    # LOS OJOS: dos ovalos BLANCOS altos y juntos (a 18 grados del morro), que asoman de la cara.
+            base, n = _superficie((0.70 * s, 0.05, 0.72))
+            raiz = base - n * 2.0
+            medio = base + n * 2.6 + np.array([0.6 * s, 0.0, 3.0])
+            punta = medio + np.array([-0.6 * s, 0.0, 3.6])
+            add(lambda P, a=raiz, b=medio: sd_cono(P, a, b, 4.4, 2.4), 'gel', 1.8)
+            add(lambda P, a=medio, b=punta: sd_cono(P, a, b, 2.4, 0.9), 'gel', 1.0)
+    # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara.
     for s in (-1, 1):
-        base, n = _superficie((0.28 * s, 0.55, 0.80))
-        c = base + n * 0.5
-        add(lambda P, c=c: sd_elipsoide(P, c, np.array([2.6, 1.5, 3.6])), 'ojo', 0, 'ojo')
+        base, n = _superficie((0.33 * s, 0.94, 0.12))
+        c = base + n * 0.35
+        add(lambda P, c=c: sd_elipsoide(P, c, np.array([2.3, 1.2, 5.0])), 'ojo', 0, 'ojo')
     return e.L
 
 

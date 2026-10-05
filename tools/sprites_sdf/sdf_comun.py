@@ -81,7 +81,7 @@ class Modelo:
     viejo, para que lo coloque igual). 'mat' = {nombre: [sombra, base, luz]}; 'suaves' = los grupos que se funden por
     dentro (los demas se unen duro); 'brillan' = materiales que van siempre en su tono de luz (los ojos)."""
     def __init__(self, escala, lienzo, pies, mat, borde, suaves=('cuerpo',), brillan=('ojo',), estira=1.0,
-                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0, corta_suelo=False):
+                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0, corta_suelo=False, especular=(), umbral_especular=0.86):
         self.ppu = escala / 1.15
         self.W, self.H = lienzo
         self.OX, self.OY = pies
@@ -96,6 +96,11 @@ class Modelo:
         self.lejos = lejos
         # Nada por debajo del suelo (z < 0): lo que se hunde (el golem que se derrumba) queda cortado a ras.
         self.corta_suelo = corta_suelo
+        # BRILLO ESPECULAR (05/10, el gel de los slimes): los materiales de 'especular' llevan un CUARTO tono, el del
+        # reflejo, que se pone donde la superficie mira de lleno a la luz (la luz esta fija en pantalla, asi que el
+        # brillo cae siempre arriba a la izquierda, como en el viejo). Los demas no cambian.
+        self.especular = especular
+        self.umbral_especular = umbral_especular
 
 
 class Escena:
@@ -189,6 +194,8 @@ def render(mo, L, dir_i):
     for i, nom in enumerate(mo.nombres):
         sel = mats == i
         bb = np.full(sel.sum(), 2) if nom in mo.brillan else banda[sel]
+        if nom in mo.especular:
+            bb = np.where(ndl[sel] > mo.umbral_especular, 3, bb)
         img[hi[sel], :3] = np.array(mo.mat[nom])[bb]
     img[hi, 3] = 1.0
     prof = np.full(H * W, np.inf); prof[hi] = t[hi]
