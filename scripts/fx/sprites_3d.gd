@@ -43,7 +43,7 @@ static func montar(carpeta: String, anims_tabla: Dictionary, lienzo: Vector2i, b
 		var c: Color = paleta[i]
 		if c.v > 0.85:
 			continue
-		paleta[i] = Color(clampf(c.r * k.x, 0.0, 1.0), clampf(c.g * k.y, 0.0, 1.0), clampf(c.b * k.z, 0.0, 1.0), 1.0)
+		paleta[i] = Color(clampf(c.r * k.x, 0.0, 1.0), clampf(c.g * k.y, 0.0, 1.0), clampf(c.b * k.z, 0.0, 1.0), c.a)
 	var sf: SpriteFrames = SpriteLienzo.montar_frames(anims, SpriteLienzo.paleta(paleta), lienzo.x, lienzo.y)
 	_cache[clave] = sf
 	return sf
@@ -74,7 +74,9 @@ static func _plantilla(img: Image, lienzo: Vector2i, col: int, fila: int, paleta
 	for y in lienzo.y:
 		for x in lienzo.x:
 			var c: Color = img.get_pixel(x0 + x, y0 + y)
-			if c.a < 0.5:
+			# LO SEMITRANSPARENTE SE QUEDA (05/10, el gel de los slimes): antes, lo de menos de media opacidad se borraba y
+			# lo demas salia opaco. Solo se salta lo vacio.
+			if c.a < 0.02:
 				continue
 			var kk: int = c.to_rgba32()
 			var t: int = indice.get(kk, -1)
@@ -83,7 +85,7 @@ static func _plantilla(img: Image, lienzo: Vector2i, col: int, fila: int, paleta
 				if t > 255:
 					t = 1
 				else:
-					paleta.append(Color(c.r, c.g, c.b, 1.0))
+					paleta.append(Color(c.r, c.g, c.b, c.a))
 					indice[kk] = t
 			plant[y * lienzo.x + x] = t
 	return plant

@@ -81,7 +81,8 @@ class Modelo:
     viejo, para que lo coloque igual). 'mat' = {nombre: [sombra, base, luz]}; 'suaves' = los grupos que se funden por
     dentro (los demas se unen duro); 'brillan' = materiales que van siempre en su tono de luz (los ojos)."""
     def __init__(self, escala, lienzo, pies, mat, borde, suaves=('cuerpo',), brillan=('ojo',), estira=1.0,
-                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0, corta_suelo=False, especular=(), umbral_especular=0.86):
+                 salto_linea=2.6, salto_grupos=1.6, lejos=90.0, corta_suelo=False, especular=(), umbral_especular=0.86,
+                 translucidos=(), alfa=0.7):
         self.ppu = escala / 1.15
         self.W, self.H = lienzo
         self.OX, self.OY = pies
@@ -101,6 +102,11 @@ class Modelo:
         # brillo cae siempre arriba a la izquierda, como en el viejo). Los demas no cambian.
         self.especular = especular
         self.umbral_especular = umbral_especular
+        # TRANSLUCIDOS (05/10, el gel de los slimes: "estan hechos de baba y se ve un poco a traves"): esos materiales se
+        # pintan con opacidad 'alfa' y DEJAN VER lo opaco que tengan detras (los ojos, a traves del cuerpo, de espaldas)
+        # y el suelo. El contorno se queda opaco: la silueta se tiene que seguir leyendo.
+        self.translucidos = translucidos
+        self.alfa = alfa
 
 
 class Escena:
@@ -206,7 +212,9 @@ def render(mo, L, dir_i):
     sal = img.copy()
     opaco = img[:, :, 3] > 0
     ns = len(mo.suaves)
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+    lineas = np.zeros_like(opaco)
+    # Lo que se ve A TRAVES del gel va sin contorno: los ojos pequeños, vistos de espaldas, eran todo linea oscura.
+    for dx, dy in (() if getattr(mo, 'sin_lineas', False) else ((1, 0), (-1, 0), (0, 1), (0, -1))):
         vec_op = np.zeros_like(opaco); vec_pr = np.full_like(prof, np.inf)
         ys = slice(max(0, dy), H + min(0, dy)); yd = slice(max(0, -dy), H + min(0, -dy))
         xs = slice(max(0, dx), W + min(0, dx)); xd = slice(max(0, -dx), W + min(0, -dx))
@@ -215,6 +223,26 @@ def render(mo, L, dir_i):
         cruza = (vec_g != grpmap) & (grpmap < ns) & (vec_g >= 0) & (vec_g < ns) & (vec_pr - prof > mo.salto_grupos)
         borde = opaco & (~vec_op | ((~brilla) & (vec_pr - prof > mo.salto_linea)) | cruza)
         sal[borde, :3] = mo.borde
+        lineas = lineas | borde
+    if mo.translucidos:
+        # LO OPACO DE DETRAS: la misma escena sin las piezas translucidas, y se mezcla bajo el gel.
+        idx_t = [mo.nombres.index(m) for m in mo.translucidos if m in mo.nombres]
+        gel = np.isin(matmap, idx_t) & ~lineas
+        L_op = [x for x in L if x[1] not in mo.translucidos]
+        if L_op:
+            import copy
+            mo2 = copy.copy(mo); mo2.translucidos = (); mo2.sin_lineas = True
+            detras = np.asarray(render(mo2, L_op, dir_i)).astype(float) / 255.0
+        else:
+            detras = np.zeros((H, W, 4))
+        ad = detras[:, :, 3]
+        # Lo que va DENTRO del gel (los ojos) se ve mas que el suelo de detras: esta pegado a la piel, no al fondo.
+        a = np.where(ad > 0, getattr(mo, 'alfa_dentro', mo.alfa), mo.alfa)
+        fuera = a + (1.0 - a) * ad
+        for ch in range(3):
+            mezcla = (sal[:, :, ch] * a + detras[:, :, ch] * ad * (1.0 - a)) / np.maximum(fuera, 1e-6)
+            sal[:, :, ch] = np.where(gel, mezcla, sal[:, :, ch])
+        sal[:, :, 3] = np.where(gel, fuera, sal[:, :, 3])
     return Image.fromarray((np.clip(sal, 0, 1) * 255).astype(np.uint8), 'RGBA')
 
 

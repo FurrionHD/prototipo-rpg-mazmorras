@@ -66,7 +66,10 @@ LIENZO, PIES = _lienzo(ESCALA)
 BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.58)
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
                 brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True,
-                especular=('gel', 'cuerno'), umbral_especular=0.955)
+                especular=('gel', 'cuerno'), umbral_especular=0.955,
+                # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
+                translucidos=() if FORMA == 'lava' else ('gel', 'cuerno'), alfa=0.72)
+MODELO.alfa_dentro = 0.42
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
 # una falda ancha fundida abajo: "porque es tan ancho abajo").
