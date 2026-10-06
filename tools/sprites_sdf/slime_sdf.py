@@ -106,11 +106,20 @@ def _materiales(forma, color):
         }
     if forma == 'obsidiana':
         # LA OBSIDIANA: negra con reflejo violaceo y su BRILLO especular; la lava entre las placas, la de siempre.
-        obs = [(0.04, 0.03, 0.06), (0.10, 0.08, 0.13), (0.24, 0.20, 0.30), (0.72, 0.66, 0.82)]
+        # (su referencia, 06/10: cristal negro TALLADO, las caras que dan a la luz grises y el reflejo casi blanco)
+        obs = [(0.03, 0.02, 0.04), (0.09, 0.08, 0.11), (0.30, 0.28, 0.34), (0.86, 0.84, 0.92)]
         return {
             'gel':    obs,
             'obsidiana': [(0.04, 0.03, 0.06), (0.10, 0.08, 0.13), (0.26, 0.22, 0.32), (0.75, 0.70, 0.85)],
             'lava':   [c, c, (1.0, 0.86, 0.34)],
+            'chispa': [(1.0, 1.0, 1.0)] * 3,
+            # LAS CARAS: cada una de un tono (negra, gris humo, violacea), y LA ARISTA clara entre ellas.
+            # (el reflejo, gris claro y no blanco: una cara entera de blanco era demasiado)
+            'cara1':  [(0.02, 0.02, 0.03), (0.06, 0.05, 0.08), (0.20, 0.19, 0.24), (0.50, 0.48, 0.56)],
+            'cara2':  [(0.07, 0.06, 0.09), (0.15, 0.14, 0.18), (0.36, 0.34, 0.40), (0.58, 0.56, 0.64)],
+            'cara3':  [(0.05, 0.03, 0.08), (0.11, 0.08, 0.16), (0.28, 0.23, 0.36), (0.54, 0.50, 0.62)],
+            # (las aristas en sombra casi no se ven; solo brillan las que dan a la luz)
+            'arista': [(0.10, 0.09, 0.13), (0.26, 0.25, 0.31), (0.88, 0.86, 0.96)],
             'ojo':    [(1.0, 0.99, 0.92)] * 3,
             'gema':   [(1.0, 0.95, 0.72)] * 3,
             'parpado': obs[:3],
@@ -149,7 +158,7 @@ MODELO.claros_dentro = ('cristal', 'nucleo')
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
 PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211')
 if FORMA == 'obsidiana':
-    MODELO.especular = MODELO.especular + ('obsidiana',)
+    MODELO.especular = MODELO.especular + ('obsidiana', 'cara1', 'cara2', 'cara3')
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
@@ -253,10 +262,22 @@ def escena(pose):
     e = Escena(huesos(pose))
     add = e.add
     C, R, sz = _forma(pose)
-    add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
+    if FORMA == 'obsidiana':
+        # TALLADA (su referencia, 06/10: "full de obsidiana", sin lava): un poliedro de caras planas recortado por un
+        # elipsoide algo mayor (que no salgan picos). Cada cara sale de un tono.
+        for k in range(3):
+            add(lambda P, k=k: _sd_cara(P, C, R, k), 'cara%d' % (k + 1), 0)
+        add(lambda P: _sd_arista(P, C, R), 'arista', 0, 'arista')
+    else:
+        add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
     # SIN CHARCO NI GOTAS (05/10, lo dijo el jefe): la baba del suelo la deja el juego por donde pasa
     # (Enemy._actualizar_rastro); pintada en el sprite iria pegada al slime. (Al MORIR si: el charco es el.)
-    if ROCA:
+    if ROCA and FORMA == 'obsidiana':
+        if pose['evo'] < 0.99:
+            _costra_de_antes(e, C, R, pose)
+        _agujas(e, C, R, pose)
+        _destellos(e, C, R, pose)
+    elif ROCA:
         # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava. La ceniza,
         # con grietas mas anchas (la brasa asoma mas; transformandose, del fuego a la ceniza, se le van cerrando).
         ancho, sobra = (22.0, 0.75) if FORMA == 'lava' else ((20.0, 0.8) if FORMA == 'obsidiana' else (17.0, 0.75))
@@ -312,7 +333,7 @@ def escena(pose):
     for x, y, z, k in ojos:
         if k < 0.05:
             continue
-        base, n = _superficie((x, y, z), C, R)
+        base, n = _superficie_tallada((x, y, z), C, R) if FORMA == 'obsidiana' else _superficie((x, y, z), C, R)
         c = base + n * 0.05
         # RECORTADO CONTRA LA BOLA: alto como es, su punta de arriba asomaba por la coronilla al mirar de espaldas. Y
         # aplastado con ella (derretido, se hunde en el charco).
@@ -325,7 +346,12 @@ def escena(pose):
             add(lambda P, c=c, raya=raya: np.maximum(sd_elipsoide(P, c, raya), sd_elipsoide(P, C, R) - 0.42), 'pestana',
                 0, 'pestana')
         else:
-            add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0, 'ojo')
+            # (la obsidiana tallada sobresale de la bola: sus ojos asoman un poco mas)
+            if FORMA == 'obsidiana':
+                add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), _sd_tallado(P, C, R) - 0.3), 'ojo', 0, 'ojo')
+            else:
+                add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0,
+                    'ojo')
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
         # (el venenoso no lleva nucleo: al miasma le aparece al transformarse)
@@ -415,6 +441,64 @@ def _piel_toxica(e, C, R, sz, pose):
         e.add(lambda P, c=base + n * r * 0.35, r=r: sd_esfera(P, c, r), 'ampolla', 0.5)
 
 
+# EL CUERPO TALLADO DE LA OBSIDIANA: las normales de sus caras (fijas, repartidas por la esfera) y la distancia.
+_CARAS = (lambda n: np.array([[math.cos(2.399963 * i) * math.sqrt(1 - (1 - 2 * (i + 0.5) / n) ** 2),
+                               math.sin(2.399963 * i) * math.sqrt(1 - (1 - 2 * (i + 0.5) / n) ** 2),
+                               1 - 2 * (i + 0.5) / n] for i in range(n)]))(13)
+_CARAS = _CARAS + np.random.default_rng(5).normal(0.0, 0.10, _CARAS.shape)
+_CARAS /= np.linalg.norm(_CARAS, axis=1, keepdims=True)
+_TONO_CARA = np.random.default_rng(9).permutation(np.arange(len(_CARAS)) % 3)
+_REDONDEO = 1.22     # (con poco, el elipsoide se comia las esquinas y salia redondo)
+
+def _tallado(P, C, R):
+    q = (P - C) / R
+    pr = q @ _CARAS.T
+    d = np.maximum((pr.max(axis=1) - 1.0) * R.min(), sd_elipsoide(P, C, R * _REDONDEO))
+    return d, pr
+
+def _sd_tallado(P, C, R):
+    return _tallado(P, C, R)[0]
+
+# Cada cara de su tono: la pieza 'k' es el cuerpo donde manda una cara de ese tono (donde no, un poco mas lejos: gana
+# la de su tono y el trazado no se salta nada).
+def _sd_cara(P, C, R, k):
+    d, pr = _tallado(P, C, R)
+    mia = _TONO_CARA[np.argmax(pr, axis=1)] == k
+    return np.where(mia, d, d + 0.4)
+
+# LA ARISTA: donde dos caras casi empatan (el canto entre ellas), una raya clara un pelo por fuera.
+def _sd_arista(P, C, R):
+    d, pr = _tallado(P, C, R)
+    o = np.sort(pr, axis=1)
+    hueco = (o[:, -1] - o[:, -2]) * R.min()
+    return np.maximum(d - 0.06, hueco - 0.32)
+
+
+# Donde la superficie TALLADA corta la direccion 'd' desde el centro (los ojos van ahi, no en la bola de dentro).
+def _superficie_tallada(d, C, R):
+    d = np.array(d, dtype=float); d /= np.linalg.norm(d)
+    a, b = 0.0, float(R.max()) * 1.5
+    for _ in range(30):
+        m = (a + b) * 0.5
+        if _sd_tallado((C + d * m)[None, :], C, R)[0] < 0.0:
+            a = m
+        else:
+            b = m
+    return C + d * a, d
+
+
+# LOS DESTELLOS de la obsidiana (su referencia: chispas de estrella sobre las caras): motas blancas en unas pocas caras.
+_DESTELLOS = [((-0.55, 0.45, 0.60), 0.55), ((0.30, 0.20, 0.85), 0.45), ((0.70, 0.55, 0.15), 0.5), ((-0.20, -0.40, 0.80), 0.4)]
+
+def _destellos(e, C, R, pose):
+    fu = (1.0 - pose['derretido']) * _en(pose) * _paso(pose['evo'], 0.6, 0.9)
+    for d, r in _DESTELLOS:
+        if r * fu < 0.2:
+            continue
+        base, n = _superficie(d, C, R * 1.04)
+        e.add(lambda P, c=base, r=r * fu: sd_esfera(P, c, r), 'chispa', 0, 'destello')
+
+
 # LA TRANSFORMACION DE LOS DE ROCA: el material no puede cambiar a mitad de animacion, asi que el aspecto de ANTES (la
 # roca roja del de fuego sobre la ceniza; la ceniza gris sobre la obsidiana) va como una COSTRA un pelo por fuera, PLACA A
 # PLACA (las celdas de las juntas), y cada placa se le cae en su momento entre evo 0,25 y 0,85. Por las juntas asoma lo
@@ -425,13 +509,16 @@ _ORDEN_PLACAS = np.random.default_rng(31).permutation(len(_SEMILLAS)) / float(le
 def _costra_de_antes(e, C, R, pose):
     g = pose['evo']
     # (con un hueco en cada ojo: la costra los tapaba)
-    ojos = [_superficie((x, 0.88, 0.34), C, R)[0] for x in (-0.33, 0.33)]
+    # (un TUNEL desde el centro hacia cada ojo: la costra de la obsidiana va bastante por fuera de la bola)
+    ejes = [_superficie((x, 0.88, 0.34), C, R)[1] for x in (-0.33, 0.33)]
     r_ojo = 3.4 * _en(pose)
     def costra(P, C=C, R=R, g=g):
-        d = sd_elipsoide(P, C, R + 0.32)
+        d = sd_elipsoide(P, C, R * (_REDONDEO + 0.02 if FORMA == 'obsidiana' else 1.0) + 0.32)
         d = np.maximum(d, 0.75 - _junta(P, C, R) * 22.0)
-        for o in ojos:
-            d = np.maximum(d, r_ojo - np.linalg.norm(P - o, axis=1))
+        for ej in ejes:
+            v = P - C
+            lado = np.linalg.norm(v - np.outer(v @ ej, ej), axis=1)
+            d = np.maximum(d, np.where(v @ ej > 0.0, r_ojo - lado, -1e3))
         q = (P - C) / R
         q /= np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-6)
         celda = np.argmin(np.linalg.norm(q[:, None, :] - _SEMILLAS[None, :, :], axis=2), axis=1)
@@ -620,7 +707,9 @@ def anim_muerte(t):
     if BROTADO:
         return _muerte_brotado(t)
     if TOXICO:
-        return _muerte_revienta(t)   # la 2a tambien: mantiene la pasiva (se encoge y salen las crias)
+        return _muerte_revienta(t)
+    if FORMA == 'obsidiana':
+        return _muerte_obsidiana(t)   # la 2a tambien: mantiene la pasiva (se encoge y salen las crias)
     # Se DERRITE donde esta: un ultimo respingo y se deshace en un charco.
     return POSE(squash=T(t, [(0.0, 1.0), (0.14, 1.16), (0.28, 0.92), (0.45, 0.72), (0.62, 0.58), (0.78, 0.48),
                              (0.90, 0.43), (1.0, 0.42)]),
@@ -761,6 +850,16 @@ def anim_soltar_burbujas(t):
 
 
 # ---- LOS MUTANTES DEL SLIME DE FUEGO (06/10) ----
+# LA MUERTE DE LA OBSIDIANA: no se derrite (es cristal: derretida salia un charco blanco). Un respingo, tiembla, se le
+# PARTEN las agujas y se HUNDE, mas pequeña y algo chafada: ese es su cadaver.
+def _muerte_obsidiana(t):
+    tiembla = (1.0 if int(t * 22) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.40, 0.50))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.14, 1.10), (0.30, 0.92), (0.50, 0.86), (0.70, 0.80), (1.0, 0.78)])
+                + 0.03 * tiembla * (t < 0.5),
+                encoge=T(t, [(0.0, 1.0), (0.30, 1.0), (0.60, 0.88), (1.0, 0.84)]),
+                puas=T(t, [(0.0, 1.0), (0.30, 1.1), (0.42, 0.35), (0.60, 0.20), (1.0, 0.18)]),
+                bote=T(t, [(0.0, 0.0), (0.14, 0.40), (0.30, 0.0), (1.0, 0.0)]))
+
 # LA TRANSFORMACION del fuego a la CENIZA (las grietas se le cierran bajo la ceniza, le salen las lascas y las brasas,
 # crece) y de la ceniza a la OBSIDIANA (le salen las agujas una a una, crece): como las del slime normal.
 anim_evolucion_roca = anim_evolucion_toxica
