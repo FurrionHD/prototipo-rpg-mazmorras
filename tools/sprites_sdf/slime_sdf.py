@@ -52,6 +52,11 @@ VARIANTES = {
     # al azar las pone el juego). Solo con las anims del VENENOSO (+ comer, evolucion, aspirar/exhalar, soltar_burbujas).
     'mia138': (1.38, 'miasma', '47d552'),
     'pes152': (1.518, 'pestilente', '47d552'),
+    # LOS MUTANTES DEL SLIME DE FUEGO (06/10, lo eligio el jefe de slime_fuego_versiones.py): UNA LINEA, el fuego se va
+    # ENFRIANDO. CENIZA Y BRASA (1a, x1,2 del de fuego): costra de ceniza gris con las grietas en brasa y lascas a medio
+    # caer. OBSIDIANA (2a, x1,1 de la ceniza): cristal volcanico negro y brillante, lava entre las placas y AGUJAS.
+    'cen192': (1.92, 'ceniza', 'ff862b'),
+    'obs211': (2.112, 'obsidiana', 'ff862b'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
@@ -63,6 +68,8 @@ CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152')
 BROTADO = FORMA in ('brotado', 'puas')
 # Las dos del venenoso comparten piel (poros; la 2a, burbujas).
 TOXICO = FORMA in ('miasma', 'pestilente')
+# Los de ROCA Y LAVA (el de fuego y sus mutantes): placas con las juntas encendidas, sin gel translucido.
+ROCA = FORMA in ('lava', 'ceniza', 'obsidiana')
 
 
 def _lienzo(escala):
@@ -83,6 +90,34 @@ def _materiales(forma, color):
             'ojo':    [(1.0, 0.99, 0.92)] * 3,
             'gema':   [(1.0, 0.95, 0.72)] * 3,
         }
+    if forma == 'ceniza':
+        # LA CENIZA: costra gris; la BRASA de las grietas, mas roja y apagada que la lava.
+        brasa = [(0.62, 0.12, 0.05), (0.86, 0.28, 0.08), (1.0, 0.52, 0.18)]
+        return {
+            'gel':    [(0.26, 0.24, 0.24), (0.40, 0.38, 0.37), (0.55, 0.53, 0.51), (0.62, 0.60, 0.58)],
+            'lava':   brasa,
+            'chispa': [brasa[1], brasa[2], brasa[2]],
+            'ojo':    [(1.0, 0.99, 0.92)] * 3,
+            'gema':   [(1.0, 0.95, 0.72)] * 3,
+            'parpado': [(0.26, 0.24, 0.24), (0.40, 0.38, 0.37), (0.55, 0.53, 0.51)],
+            'pestana': [(0.12, 0.10, 0.10)] * 3,
+            # (transformandose: la roca ROJA del de fuego que se le cae a placas)
+            'antes':  [(0.32, 0.06, 0.10), (0.44, 0.10, 0.12), (0.62, 0.20, 0.16), (0.80, 0.42, 0.30)],
+        }
+    if forma == 'obsidiana':
+        # LA OBSIDIANA: negra con reflejo violaceo y su BRILLO especular; la lava entre las placas, la de siempre.
+        obs = [(0.04, 0.03, 0.06), (0.10, 0.08, 0.13), (0.24, 0.20, 0.30), (0.72, 0.66, 0.82)]
+        return {
+            'gel':    obs,
+            'obsidiana': [(0.04, 0.03, 0.06), (0.10, 0.08, 0.13), (0.26, 0.22, 0.32), (0.75, 0.70, 0.85)],
+            'lava':   [c, c, (1.0, 0.86, 0.34)],
+            'ojo':    [(1.0, 0.99, 0.92)] * 3,
+            'gema':   [(1.0, 0.95, 0.72)] * 3,
+            'parpado': obs[:3],
+            'pestana': [(0.02, 0.01, 0.03)] * 3,
+            # (transformandose: la CENIZA gris que se le cae a placas)
+            'antes':  [(0.26, 0.24, 0.24), (0.40, 0.38, 0.37), (0.55, 0.53, 0.51), (0.62, 0.60, 0.58)],
+        }
     # La corona del Rey, de su gel mas claro.
     orn = [cla(c, 0.05), cla(c, 0.28), cla(c, 0.5), cla(c, 0.85)]
     return {'gel': gel, 'cuerno': orn, 'lava': gel, 'ojo': [(1.0, 0.97, 0.72)] * 3, 'gema': [(1.0, 0.95, 0.72)] * 3,
@@ -101,18 +136,20 @@ def _materiales(forma, color):
 
 
 LIENZO, PIES = _lienzo(ESCALA)
-BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.58)
+BORDE = (0.16, 0.03, 0.05) if ROCA else osc(hexc(COLOR), 0.58)
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
-                brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True,
+                brillan=('ojo', 'gema') + (('lava', 'chispa') if ROCA else ()), corta_suelo=True,
                 especular=('gel', 'cuerno', 'cristal', 'ampolla'), umbral_especular=0.955,
                 # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
-                translucidos=() if FORMA == 'lava' else ('gel', 'cuerno'), alfa=0.72)
+                translucidos=() if ROCA else ('gel', 'cuerno'), alfa=0.72)
 MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
 MODELO.claros_dentro = ('cristal', 'nucleo')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
-PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152')
+PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211')
+if FORMA == 'obsidiana':
+    MODELO.especular = MODELO.especular + ('obsidiana',)
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
@@ -160,8 +197,10 @@ def _en(p):
     en = p.get('encoge', 1.0)
     if FORMA in ('brotado', 'punzante'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
-    elif FORMA == 'miasma':
+    elif FORMA in ('miasma', 'ceniza'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
+    elif FORMA == 'obsidiana':
+        en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'pestilente':
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'puas':
@@ -217,12 +256,22 @@ def escena(pose):
     add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
     # SIN CHARCO NI GOTAS (05/10, lo dijo el jefe): la baba del suelo la deja el juego por donde pasa
     # (Enemy._actualizar_rastro); pintada en el sprite iria pegada al slime. (Al MORIR si: el charco es el.)
-    if FORMA == 'lava':
-        # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava.
-        def junta(P):
+    if ROCA:
+        # LA JUNTA: una capa un pelo por fuera del cuerpo, solo donde la placa se acaba: por ahi asoma la lava. La ceniza,
+        # con grietas mas anchas (la brasa asoma mas; transformandose, del fuego a la ceniza, se le van cerrando).
+        ancho, sobra = (22.0, 0.75) if FORMA == 'lava' else ((20.0, 0.8) if FORMA == 'obsidiana' else (17.0, 0.75))
+        if FORMA == 'ceniza':
+            ancho = 13.0 + 4.0 * _paso(pose['evo'], 0.3, 0.8)
+        def junta(P, ancho=ancho, sobra=sobra):
             cuerpo = sd_elipsoide(P, C, R + 0.18)
-            return np.maximum(cuerpo, _junta(P, C, R) * 22.0 - 0.75)
+            return np.maximum(cuerpo, _junta(P, C, R) * ancho - sobra)
         add(junta, 'lava', 0, 'junta')
+        if FORMA in ('ceniza', 'obsidiana') and pose['evo'] < 0.99:
+            _costra_de_antes(e, C, R, pose)
+        if FORMA == 'ceniza':
+            _ceniza(e, C, R, pose)
+        if FORMA == 'obsidiana':
+            _agujas(e, C, R, pose)
     if FORMA == 'rey':
         # LA CORONA: un aro de cinco puntas de su gel, alrededor de la coronilla, con una GEMA en cada punta.
         for k in range(5):
@@ -248,8 +297,10 @@ def escena(pose):
             punta = medio + np.array([-0.6 * s * en, 0.0, 3.6 * sz * en])
             # (derritiendose, los cuernos se funden con el charco)
             fu = (1.0 - 0.85 * pose['derretido']) * en
-            add(lambda P, a=raiz, b=medio, fu=fu: sd_cono(P, a, b, 4.4 * fu, 2.4 * fu), 'gel', 1.8)
-            add(lambda P, a=medio, b=punta, fu=fu: sd_cono(P, a, b, 2.4 * fu, 0.9 * fu), 'gel', 1.0)
+            # (los de roca, transformandose: el cuerno es aun del aspecto de antes hasta media transformacion)
+            mc = 'antes' if FORMA in ('ceniza', 'obsidiana') and pose['evo'] < 0.55 else 'gel'
+            add(lambda P, a=raiz, b=medio, fu=fu: sd_cono(P, a, b, 4.4 * fu, 2.4 * fu), mc, 1.8)
+            add(lambda P, a=medio, b=punta, fu=fu: sd_cono(P, a, b, 2.4 * fu, 0.9 * fu), mc, 1.0)
     # LOS OJOS: dos OVALOS VERTICALES amarillo palido EN EL FRENTE, a media altura, que asoman de la cara. El brotado
     # lleva dos mas, pequeños y descolocados.
     en = _en(pose)
@@ -362,6 +413,79 @@ def _piel_toxica(e, C, R, sz, pose):
             continue
         base, n = _superficie(d, C, R)
         e.add(lambda P, c=base + n * r * 0.35, r=r: sd_esfera(P, c, r), 'ampolla', 0.5)
+
+
+# LA TRANSFORMACION DE LOS DE ROCA: el material no puede cambiar a mitad de animacion, asi que el aspecto de ANTES (la
+# roca roja del de fuego sobre la ceniza; la ceniza gris sobre la obsidiana) va como una COSTRA un pelo por fuera, PLACA A
+# PLACA (las celdas de las juntas), y cada placa se le cae en su momento entre evo 0,25 y 0,85. Por las juntas asoma lo
+# de dentro. (Donde la placa ya se cayo, la costra devuelve su distancia +0,5: gana el cuerpo de dentro y el trazado no
+# se salta nada.)
+_ORDEN_PLACAS = np.random.default_rng(31).permutation(len(_SEMILLAS)) / float(len(_SEMILLAS))
+
+def _costra_de_antes(e, C, R, pose):
+    g = pose['evo']
+    # (con un hueco en cada ojo: la costra los tapaba)
+    ojos = [_superficie((x, 0.88, 0.34), C, R)[0] for x in (-0.33, 0.33)]
+    r_ojo = 3.4 * _en(pose)
+    def costra(P, C=C, R=R, g=g):
+        d = sd_elipsoide(P, C, R + 0.32)
+        d = np.maximum(d, 0.75 - _junta(P, C, R) * 22.0)
+        for o in ojos:
+            d = np.maximum(d, r_ojo - np.linalg.norm(P - o, axis=1))
+        q = (P - C) / R
+        q /= np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-6)
+        celda = np.argmin(np.linalg.norm(q[:, None, :] - _SEMILLAS[None, :, :], axis=2), axis=1)
+        sigue = (0.25 + 0.6 * _ORDEN_PLACAS[celda]) > g
+        return np.where(sigue, d, d + 0.5)
+    e.add(costra, 'antes', 0, 'costra_antes')
+
+
+# LA CENIZA Y BRASA: LASCAS de costra despegadas y ladeadas (a medio caerse) y BRASAS sueltas que asoman. Transformandose
+# (del fuego a la ceniza), le salen una a una.
+_LASCAS = [((0.75, -0.40, 0.50), 5.5), ((-0.70, -0.30, 0.60), 5.0), ((0.10, -0.85, 0.50), 4.8), ((0.88, 0.20, 0.05), 4.2)]
+_BRASAS = [((0.45, -0.55, 0.70), 1.3), ((-0.55, -0.20, 0.80), 1.1), ((0.80, 0.10, 0.45), 1.0), ((-0.20, -0.85, 0.40), 1.2),
+           ((-0.80, 0.30, 0.20), 0.9)]
+
+def _ceniza(e, C, R, pose):
+    en = _en(pose)
+    fu = (1.0 - pose['derretido']) * en
+    for i, (d, tam) in enumerate(_LASCAS):
+        sale = _paso(pose['evo'], 0.40 + i * 0.08, 0.55 + i * 0.08)
+        t = tam * fu * sale
+        if t < 0.4:
+            continue
+        base, n = _superficie(d, C, R)
+        n = n + np.array([0.35, 0.0, 0.3]); n /= np.linalg.norm(n)
+        c = base + n * 2.2 * sale + np.array([0, 0, -0.6])
+        e.add(lambda P, c=c, t=t, n=n: np.maximum(sd_esfera(P, c, t), np.abs((P - c) @ n) - 0.7 * en), 'gel', 0, 'lasca')
+    for i, (d, r) in enumerate(_BRASAS):
+        r = r * fu * _paso(pose['evo'], 0.30 + i * 0.06, 0.45 + i * 0.06)
+        if r < 0.25:
+            continue
+        base, n = _superficie(d, C, R)
+        e.add(lambda P, c=base + n * 0.2, r=r: sd_esfera(P, c, r), 'chispa', 0, 'brasa')
+
+
+# LA OBSIDIANA: AGUJAS de cristal volcanico que le salen del lomo y los costados (sin tapar la cara). Transformandose
+# (de la ceniza a la obsidiana), le salen una a una; 'puas' las alarga (erizar/expandir: el Estallido de agujas; afilar).
+_AGUJAS = [((0.0, -0.30, 0.95), 13.0, 2.6), ((0.55, -0.55, 0.62), 10.0, 2.2), ((-0.50, -0.60, 0.62), 11.0, 2.3),
+           ((0.85, -0.10, 0.35), 8.0, 1.8), ((-0.88, -0.05, 0.30), 7.5, 1.8), ((0.20, -0.90, 0.30), 8.5, 2.0),
+           ((-0.30, -0.80, 0.45), 6.5, 1.6)]
+
+def _agujas(e, C, R, pose):
+    en = _en(pose)
+    fu = (1.0 - pose['derretido']) * en
+    for i, (d, largo, radio) in enumerate(_AGUJAS):
+        sale = _paso(pose['evo'], 0.35 + i * 0.07, 0.50 + i * 0.07) * pose['puas']
+        if sale < 0.05:
+            continue
+        base, n = _superficie(d, C, R)
+        eje = n + np.array([0.0, 0.0, 0.25]); eje /= np.linalg.norm(eje)
+        l = largo * fu * sale
+        rr = radio * fu * min(1.0, 0.4 + sale) * (1.0 if sale <= 1.0 else 1.0 / sale ** 0.3)
+        a = base - eje * l * 0.25; b = base + eje * l * 0.75; m = base + eje * l * 0.1
+        e.add(lambda P, a=a, m=m, b=b, rr=rr: np.minimum(sd_cono(P, a, m, 0.3, rr), sd_cono(P, m, b, rr, 0.2)),
+              'obsidiana', 0, 'aguja')
 
 
 # UN CRISTAL: bipiramide alargada (dos conos punta con punta) centrada en 'c', a lo largo de 'eje'.
@@ -636,6 +760,21 @@ def anim_soltar_burbujas(t):
                 burb=T(t, [(0.0, 1.0), (0.18, 1.35), (0.30, 1.60), (0.36, 0.0), (0.60, 0.15), (0.90, 0.85), (1.0, 1.0)]))
 
 
+# ---- LOS MUTANTES DEL SLIME DE FUEGO (06/10) ----
+# LA TRANSFORMACION del fuego a la CENIZA (las grietas se le cierran bajo la ceniza, le salen las lascas y las brasas,
+# crece) y de la ceniza a la OBSIDIANA (le salen las agujas una a una, crece): como las del slime normal.
+anim_evolucion_roca = anim_evolucion_toxica
+
+
+# AFILARSE (la obsidiana, sin carga): se frota las placas temblando, las agujas le entran y salen rascandose, y se
+# asienta con ellas un poco mas largas.
+def anim_afilar(t):
+    roce = math.sin(t * math.pi * 6.0)
+    return POSE(squash=T(t, [(0.0, 1.0), (0.15, 0.90), (0.75, 0.92), (0.88, 1.08), (1.0, 1.0)]) + 0.02 * roce,
+                avance=0.6 * roce * (1.0 - _paso(t, 0.75, 0.85)),
+                puas=T(t, [(0.0, 1.0), (0.15, 0.85), (0.75, 0.85), (0.88, 1.18), (1.0, 1.05)]) + 0.06 * roce * (t < 0.75))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -684,8 +823,22 @@ if TOXICO:
     ANIMS['exhalar'] = (10, 12.0, False, 8, anim_exhalar)
 if FORMA == 'pestilente':
     ANIMS['soltar_burbujas'] = (10, 12.0, False, 8, anim_soltar_burbujas)
+# LOS DEL DE FUEGO (06/10): la CENIZA, con las del de fuego (Escupitajo de brasas y Sacudida = escupir; Nube de ceniza =
+# ignicion de carga y aplaston; Avivar brasas = ignicion); la OBSIDIANA, sin fuego: embestida (Embestida cortante),
+# escupir (Esquirlas), erizar/expandir (Estallido de agujas) y afilar (Afilarse). Las dos, comer y su evolucion.
+ANIMS_CENIZA = ('idle', 'walk', 'embestida', 'escupir', 'ignicion', 'aplaston', 'encaje', 'muerte')
+ANIMS_OBSIDIANA = ('idle', 'walk', 'embestida', 'escupir', 'encaje', 'muerte')
+if FORMA == 'ceniza':
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_CENIZA}
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_roca)
+if FORMA == 'obsidiana':
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_OBSIDIANA}
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_roca)
+    ANIMS['erizar'] = (8, 12.0, True, 8, anim_erizar)
+    ANIMS['expandir'] = (10, 12.0, False, 8, anim_expandir)
+    ANIMS['afilar'] = (12, 12.0, False, 8, anim_afilar)
 # (el venenoso tambien come cristales: 06/10, al hacer su arbol)
-if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152'):
+if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211'):
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
 if VAR == 'pun120':
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_punzante)
