@@ -2,6 +2,24 @@
 
 ---
 
+# Próxima versión (sin número todavía)
+
+## ⏳ Las habilidades tardan en salir
+
+**Usar una habilidad te echa media barra atrás** y la habilidad sale cuando vuelves a llegar; mientras, los
+demás se mueven. Vale para ti y para los enemigos (menos el ataque básico). Se ve dónde va a caer y aturdir al
+que la prepara se la corta. Los conjuros pagan ese medio turno una sola vez, al decir la primera frase.
+
+**Los enemigos se colocan**: si una de tus áreas les va a caer y pueden seguir pegando desde fuera, se apartan.
+
+## 🌌 Los mutantes del slime abisal
+
+**Slime de cielo nocturno** y **Slime de mil ojos**: dejan estrellas al moverse y las usan en sus ataques
+(Lluvia de estrellas, Constelación, Eclipse, Agujero negro, Parpadeo cegador y Mirada estelar). El de mil
+ojos lo ve todo: ni sigilo ni emboscadas.
+
+---
+
 # v0.15.0
 
 ## ⚔️ El combate en el mapa (solo en la arena de pruebas)
