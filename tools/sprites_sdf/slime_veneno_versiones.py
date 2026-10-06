@@ -215,6 +215,95 @@ def nube_toxica():
     return e.L
 
 
+# ------------------------------------------------------------
+#  LO ELEGIDO (06/10): UNA LINEA. 1a = la NUBE TOXICA, pero el humo NO sale todo el rato: A RATOS y por SITIOS AL AZAR
+#  de su cuerpo. 2a (la fuerte) = BURBUJAS que le salen al azar por cualquier parte, revientan y sueltan el humillo.
+#  En el juego eso lo pondra una capa aparte a su aire (como el parpadeo); aqui se dibuja metido en la escena para verlo.
+# ------------------------------------------------------------
+def _paso(x, a, b):
+    return min(1.0, max(0.0, (x - a) / (b - a)))
+
+
+def _bocanada(e, base, n, u, k=1.0):
+    """Una nubecita de gas que sale de 'base' (normal 'n') y sube; u 0..1 = su vida (nace pequeña, crece, se va)."""
+    sube = V([0.0, 0.0, 1.0])
+    c0 = base + n * (1.5 + 1.5 * u) + sube * (u * 9.0) + V([math.sin(u * 4.0) * 1.2, 0.0, 0.0])
+    tam = k * (0.55 + 0.6 * math.sin(min(u, 1.0) * math.pi * 0.9))
+    for (ox, oy, oz), rr in [((0.0, 0.0, 0.0), 2.6), ((2.0, 0.4, -0.4), 2.0), ((-2.0, -0.3, -0.5), 1.9),
+                             ((0.5, 0.3, 1.6), 1.8)]:
+        e.add(lambda P, c=c0 + V([ox, oy, oz]) * tam, r=rr * tam: sd_esfera(P, c, r), 'gas', 1.0, 'gas')
+    if u > 0.35:
+        # La cola: una segunda bocanada mas pequeña que la sigue.
+        u2 = (u - 0.35) / 0.65
+        c1 = base + n * (1.0 + 1.5 * u2) + sube * (u2 * 7.0)
+        t1 = k * 0.45 * math.sin(u2 * math.pi)
+        if t1 > 0.05:
+            e.add(lambda P, c=c1, r=2.2 * t1: sd_esfera(P, c, r), 'gas', 1.0, 'gas')
+
+
+def _evento(e, C, R, d, t, con_burbuja):
+    """Lo que sale al azar en el punto 'd' de su cuerpo, en el momento t (0..1).
+    1a: un respiradero que se abre y suelta una bocanada. 2a: una BURBUJA que se hincha, REVIENTA y suelta el humo."""
+    base, n = S._superficie(d, C, R)
+    if con_burbuja and t < 0.45:
+        r = 4.6 * _paso(t, 0.0, 0.42) ** 0.7
+        if r > 0.2:
+            e.add(lambda P, c=base + n * r * 0.55, r=r: sd_esfera(P, c, r), 'ampolla', 0.6)
+        return
+    # El agujero por donde sale (la burbuja rota, o el poro de la 1a), que se cierra al final.
+    u = _paso(t, 0.45 if con_burbuja else 0.0, 1.0)
+    r = (3.0 if con_burbuja else 2.0) * (1.0 - _paso(u, 0.6, 1.0))
+    if r > 0.2:
+        def borde(P, c=base + n * 0.5, r=r, n=n):
+            dd = sd_esfera(P, c, r)
+            return np.maximum(dd, -sd_esfera(P, c + n * r * 0.9, r * 0.7))
+        e.add(borde, 'ampolla', 0.4)
+    _bocanada(e, base, n, u, 1.35 if con_burbuja else 1.1)
+
+
+def _toxico(grado, eventos=()):
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.03])
+    e.add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
+    # Las marcas de la piel: poros abiertos (por donde ha salido gas). La 2a, ademas, burbujitas a medio salir.
+    poros = [((0.80, -0.30, 0.35), 2.1), ((-0.75, -0.40, 0.30), 1.9), ((0.40, -0.75, 0.45), 1.8),
+             ((-0.30, -0.85, 0.15), 2.0)]
+    for d, r in poros:
+        base, n = S._superficie(d, C, R)
+        c = base + n * r * 0.2
+        e.add(lambda P, c=c, r=r, n=n: np.maximum(sd_esfera(P, c, r), -sd_esfera(P, c + n * r * 0.95, r * 0.55)),
+              'ampolla', 0.5)
+    if grado >= 2:
+        for d, r in [((0.88, 0.25, -0.05), 2.4), ((-0.55, -0.15, 0.80), 2.0), ((0.15, -0.95, 0.30), 2.6),
+                     ((-0.90, 0.20, 0.05), 1.8), ((0.55, -0.40, 0.72), 1.7)]:
+            base, n = S._superficie(d, C, R)
+            e.add(lambda P, c=base + n * r * 0.35, r=r: sd_esfera(P, c, r), 'ampolla', 0.5)
+    for d, t in eventos:
+        _evento(e, C, R, d, t, grado >= 2)
+    for s in (-1, 1):
+        _cuerno(e, C, R, 0.70 * s, 0.05, 0.72)
+    _ojos(e, C, R)
+    _tripas(e, C)
+    return e.L
+
+
+# Los sitios "al azar" para enseñarlo (en el juego los tirara el juego cada vez).
+EV_1 = [((0.55, -0.45, 0.70), 0.55)]
+EV_2 = [((0.80, 0.10, 0.45), 0.25), ((-0.60, -0.55, 0.55), 0.6), ((0.10, -0.70, 0.70), 0.85)]
+ESC_2 = ESC_MUTANTE * 1.1
+_TR = {'translucidos': ('gel', 'cuerno')}
+ELEGIDO = [
+    ('venenoso hoy', ESC_NORMAL, venenoso_hoy, {}),
+    ('1a quieto', ESC_MUTANTE, lambda: _toxico(1), _TR),
+    ('1a echando humo', ESC_MUTANTE, lambda: _toxico(1, EV_1), _TR),
+    ('2a quieto', ESC_2, lambda: _toxico(2), _TR),
+    ('2a burbujas', ESC_2, lambda: _toxico(2, EV_2), _TR),
+]
+# La TIRA del efecto (la 2a mirando al sur): una burbuja que se hincha, revienta y suelta el humo.
+TIRA_T = [0.0, 0.15, 0.3, 0.42, 0.5, 0.62, 0.75, 0.9]
+TIRA_D = (0.62, 0.30, 0.45)
+
+
 FILAS = [
     ('venenoso hoy', ESC_NORMAL, venenoso_hoy, {}),
     ('A pustuloso', ESC_MUTANTE, pustuloso, {'translucidos': ('gel', 'cuerno')}),
@@ -223,9 +312,27 @@ FILAS = [
 ]
 
 
+def _tira(sal):
+    mo = modelo(ESC_2, **_TR)
+    fotos = [render(mo, _toxico(2, [(TIRA_D, t)]), 0) for t in TIRA_T]
+    W, H = fotos[0].size
+    lam = Image.new('RGB', (W * len(fotos), H), (40, 42, 50))
+    for i, f in enumerate(fotos):
+        lam.paste(f, (i * W, 0), f)
+    lam.resize((lam.width * 4, lam.height * 4), Image.NEAREST).save(sal)
+    print(sal)
+
+
 if __name__ == '__main__':
+    # 'elegido' = la 1a y la 2a de la nube toxica (y la tira del efecto); sin nada, las tres propuestas.
+    ELEG = len(sys.argv) > 1 and sys.argv[1] == 'elegido'
+    if ELEG:
+        sys.argv.pop(1)
+        FILAS = ELEGIDO
     sal = sys.argv[1] if len(sys.argv) > 1 else 'tools/salida/sdf/slime_veneno_versiones.png'
     os.makedirs(os.path.dirname(sal), exist_ok=True)
+    if ELEG:
+        _tira(sal.replace('.png', '_tira.png'))
     filas = []
     for nombre, esc, fn, extra in FILAS:
         L = fn()
