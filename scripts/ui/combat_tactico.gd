@@ -2701,7 +2701,11 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 	var vivo: bool = n != null and (n is Array or is_instance_valid(n))
 	if not vivo:
 		var estilo: int = roundi(f.apertura)
-		if f.tipo == CombatFormas.Tipo.LINEA:
+		if estilo == 3 or estilo == 4:
+			# LA BABA de las mutaciones del slime (06/10: "tendria que ser un charco UNICO y que sea god"): una sola
+			# mancha, el rastro alargado o el charco redondo, con sus pinchos si los lleva (BabaSuelo).
+			n = BabaSuelo.crear(arena, f, _color_de(dueno), estilo == 4, hash(clave))
+		elif f.tipo == CombatFormas.Tipo.LINEA:
 			# EL RASTRO: una fila de charquitos a lo largo de lo que recorrio.
 			var lista: Array = []
 			# (solapados: con el ancho del slime, separados salian dos manchas gordas)
@@ -2736,12 +2740,16 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 func _vestir_charco(b: BestiaAire, estilo: int, dueno: Combatant) -> void:
 	if b == null or (estilo != 3 and estilo != 4):
 		return
-	var col: Color = Color(0.85, 0.2, 0.2)
+	b.vestir_baba(_color_de(dueno), estilo == 4)
+
+
+# El color de SU slime (el del piso), para su baba.
+func _color_de(dueno: Combatant) -> Color:
 	if dueno != null and dueno.sprite_res != "" and ResourceLoader.exists(dueno.sprite_res):
 		var ed: EnemyData = load(dueno.sprite_res) as EnemyData
 		if ed != null:
-			col = ed.color_visual(dueno.sprite_t)
-	b.vestir_baba(col, estilo == 4)
+			return ed.color_visual(dueno.sprite_t)
+	return Color(0.85, 0.2, 0.2)
 
 
 func _secar_charco_vis(clave: String) -> void:

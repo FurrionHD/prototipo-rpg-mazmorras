@@ -74,7 +74,8 @@ func _correr() -> void:
 	await _esperar(2)
 	_ver(tm._charcos.size() == 2, "el rastro y el charco a la vez (%d)" % tm._charcos.size())
 	var vis = tm._charco_vis.get("rastro_%d" % tm._cod(e))
-	_ver(vis is Array and vis.size() >= 3, "el rastro se ve como una fila de charquitos (%d)" % (vis.size() if vis is Array else 0))
+	_ver(vis is BabaSuelo and vis._linea, "el rastro es UNA sola mancha de baba (BabaSuelo)")
+	_ver(not (vis as BabaSuelo)._pinchos.is_empty(), "con pinchos (%d)" % (vis as BabaSuelo)._pinchos.size())
 	print("1) cruza el rastro andando")
 	var hp0: float = al.current_hp
 	tm.charcos_empezar_turno(al)

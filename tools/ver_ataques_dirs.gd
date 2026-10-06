@@ -1340,7 +1340,16 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				if extra > 0 and f != null:
 					var charcos: Array = []
 					var fs: Array = []
-					if ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
+					if ab.charco_estilo == 3 or ab.charco_estilo == 4:
+						# La BABA del slime: una sola mancha (BabaSuelo), como en el juego.
+						var fb = CombatFormas.linea(f.origen, f.dir, f.largo, f.ancho) if (ab.rastro and f.tipo == CombatFormas.Tipo.LINEA) 							else CombatFormas.circulo(f.centro, f.radio)
+						var bs: BabaSuelo = BabaSuelo.crear(self, fb, col, ab.charco_estilo == 4, 900 + fila * 17)
+						bs.set_process(false)
+						bs.set("_t", 1.0)
+						for hijo in ["_suelo", "_encima"]:
+							(bs.get(hijo) as Node2D).queue_redraw()
+						charcos.append(bs)
+					elif ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
 						var r_c: float = maxf(f.ancho * 0.45, 6.0)
 						var n_c: int = maxi(1, ceili(f.largo / (r_c * 0.75)))
 						for i in n_c:
