@@ -269,7 +269,10 @@ def llamas_2d(img, t, n=190, semilla=5):
 # por un ruido que SUBE con el tiempo (la fase da la vuelta entera: el ultimo fotograma casa con el primero). Se pinta
 # POR BANDAS, como el pixel art: el borde casi negro, la masa azul marino, y las VETAS (indigo y azul claro) donde el
 # campo cruza ciertos valores; mas arriba, jirones sueltos.
-def llamas_campo(img, t, alto=0.8, ladeo=0.18):
+def llamas_campo(img, t, alto=0.85, ladeo=0.14):
+    # (06/10, su diagnostico: "se ve poco natural": era una capucha pegada, con la base en raya recta, un solo bloque en
+    # triangulo y las vetas en curvas de nivel. Ahora: la BASE ondula y vive, son VARIAS LENGUAS de alturas distintas que
+    # suben a destiempo, las vetas son HEBRAS que suben y el canto que da a la luz se ilumina, como en su referencia.)
     a = np.asarray(img)[:, :, 3].astype(float) / 255.0
     H, W = a.shape
     ys, xs = np.nonzero(a > 0.5)
@@ -279,47 +282,54 @@ def llamas_campo(img, t, alto=0.8, ladeo=0.18):
     h = float(y1 - y0)
     cx = (x0 + x1) / 2.0
     rx = (x1 - x0) / 2.0
-    # la parte de arriba de cada columna del cuerpo (de donde nace el fuego), un poco hacia dentro: la cupula arde
     techo = np.full(W, np.nan)
     for x in range(int(x0), int(x1) + 1):
         col = np.nonzero(a[:, x] > 0.5)[0]
         if len(col):
             techo[x] = col[0]
-    # (fuera del cuerpo, el techo de la columna mas cercana)
     idx = np.arange(W)
     ok = ~np.isnan(techo)
     techo = np.interp(idx, idx[ok], techo[ok])
     Y, X = np.mgrid[0:H, 0:W].astype(float)
     T = 2.0 * math.pi * t
-    Hf = h * alto
-    nace = techo[None, :] + h * 0.30                 # nace en la cupula (por delante tambien arde, sin tapar los ojos)
-    v = (nace - Y) / Hf                              # 0 donde nace, 1 en lo mas alto
-    # el ancho: la llama es del ancho del cuerpo y se estrecha (y se ladea) al subir
-    u = (X - cx - ladeo * h * np.clip(v, 0, 1) ** 1.5) / (rx * (1.05 - 0.45 * np.clip(v, 0, 1)))
-    ancho = np.clip(1.0 - u * u, 0.0, 1.0)
-    # el RUIDO que sube y se retuerce (ondas que se desplazan hacia arriba, con el eje X torcido por otra)
     k = 1.0 / max(h, 1.0)
-    Xw = X + h * 0.10 * np.sin(Y * k * 9.0 + T) + h * 0.05 * np.sin(Y * k * 17.0 - X * k * 5.0 + 2 * T)
+    # LA BASE, ondulada y viva (no una raya): cada columna nace a su altura, que sube y baja
+    nace = techo[None, :] + h * (0.26 + 0.08 * np.sin(X * k * 15.0 - 2 * T) + 0.04 * np.sin(X * k * 31.0 + 3 * T))
+    # LAS LENGUAS: el alto de la llama cambia por columnas (varias puntas) y esas puntas suben y bajan a destiempo
+    lenguas = 0.45 + 0.55 * (0.5 + 0.5 * np.sin(X * k * 12.0 + T + 1.2 * np.sin(X * k * 5.0 - T)))
+    Hf = h * alto * lenguas
+    v = (nace - Y) / Hf
+    u = (X - cx - ladeo * h * np.clip(v, 0, 1) ** 1.5) / (rx * (1.08 - 0.4 * np.clip(v, 0, 1)))
+    ancho = np.clip(1.0 - u * u, 0.0, 1.0)
+    Xw = X + h * 0.08 * np.sin(Y * k * 9.0 + T) + h * 0.04 * np.sin(Y * k * 17.0 - X * k * 5.0 + 2 * T)
     ruido = (0.55 * np.sin(Xw * k * 11.0 + Y * k * 7.0 + T) +
-             0.35 * np.sin(Xw * k * 19.0 - Y * k * 4.0 + 2 * T + 1.3) +
-             0.25 * np.sin(Xw * k * 31.0 + Y * k * 13.0 + 3 * T + 0.7))
-    # (el ruido solo DENTRO de la forma de la llama: sin esto salian jirones sueltos por todo el fondo)
-    envuelve = np.clip(ancho * 3.0, 0.0, 1.0) * np.clip((1.25 - v) * 3.0, 0.0, 1.0)
-    F = ancho ** 0.55 * (1.0 - v) + 0.32 * ruido * np.clip(v + 0.3, 0.2, 1.0) * envuelve
-    # por debajo de donde nace no hay fuego (la mitad de abajo del cuerpo queda limpia)
-    F = np.where(v < 0.0, F * np.clip(1.0 + v * 5.0, 0.0, 1.0), F)
-    out = np.asarray(img).astype(float).copy()
-    def pinta(mask, col, alfa=1.0):
-        for c in range(3):
-            out[:, :, c] = np.where(mask, out[:, :, c] * (1.0 - alfa) + col[c] * alfa, out[:, :, c])
-        out[:, :, 3] = np.where(mask, np.maximum(out[:, :, 3], 255.0 * alfa), out[:, :, 3])
+             0.35 * np.sin(Xw * k * 19.0 - Y * k * 4.0 + 2 * T + 1.3))
+    envuelve = np.clip(ancho * 3.0, 0.0, 1.0) * np.clip((1.2 - v) * 3.0, 0.0, 1.0)
+    F = ancho ** 0.5 * (1.0 - v) + 0.22 * ruido * np.clip(v + 0.3, 0.2, 1.0) * envuelve
+    F = np.where(v < 0.0, F * np.clip(1.0 + v * 6.0, 0.0, 1.0), F)
     llama = F > 0.30
-    pinta(llama, (6, 5, 18))                                  # el borde, casi negro
-    pinta(F > 0.36, (20, 18, 56))                            # la masa azul marino
-    pinta((F > 0.50) & (F < 0.57), (52, 50, 150))            # la veta indigo
-    pinta((F > 0.66) & (F < 0.71), (115, 130, 236))          # la veta azul clara
-    pinta(F > 0.86, (60, 58, 165))                           # donde arde mas, otra vez indigo
-    pinta(F > 0.93, (175, 190, 255))                         # y su corazon
+    # LAS HEBRAS que suben: bandas casi verticales (torcidas por el mismo ruido, que sube), solo por dentro de la llama
+    hebra = np.sin(Xw * k * 17.0 + 0.6 * np.sin(Y * k * 6.0 + T) - Y * k * 2.0)
+    # EL CANTO DE LA LUZ (la luz viene de arriba a la izquierda): los pixeles de llama con hueco a su izquierda
+    izq = np.zeros_like(llama)
+    izq[:, 2:] = llama[:, 2:] & ~(llama[:, :-2] & llama[:, 1:-1])
+    out = np.asarray(img).astype(float).copy()
+    # (06/10, su diagnostico: "el fuego no es solido, se ve un poco a traves de el": cada capa con su opacidad, y se
+    # mezcla con lo que haya detras -el cuerpo o el suelo-; la masa deja ver, las hebras claras casi no)
+    def pinta(mask, col, alfa):
+        fa = out[:, :, 3] / 255.0
+        na = alfa + fa * (1.0 - alfa)
+        for c in range(3):
+            mezcla = (col[c] * alfa + out[:, :, c] * fa * (1.0 - alfa)) / np.maximum(na, 1e-6)
+            out[:, :, c] = np.where(mask, mezcla, out[:, :, c])
+        out[:, :, 3] = np.where(mask, na * 255.0, out[:, :, 3])
+    pinta(llama & ~(F > 0.35), (6, 5, 18), 0.7)                      # el borde, casi negro
+    pinta(F > 0.35, (20, 18, 56), 0.62)                              # la masa azul marino, translucida
+    pinta((F > 0.42) & (hebra > 0.72), (50, 48, 146), 0.75)         # las hebras indigo
+    pinta((F > 0.55) & (hebra > 0.93), (112, 128, 236), 0.9)        # y su luz
+    pinta(izq & (F > 0.35), (96, 112, 226), 0.85)                    # el canto que da a la luz
+    pinta(F > 0.9, (62, 60, 168), 0.8)                               # donde arde mas, al pie
+    pinta(F > 0.96, (175, 190, 255), 0.95)
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 
 
