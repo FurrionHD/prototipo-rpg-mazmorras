@@ -92,7 +92,9 @@ const MAX_CONEXIONES := 32
 #     peleas de la ARENA las ejecuta un trabajador de pelea. Un build del 26 leeria la marca como un golpe.
 # 23 (28/09): las crias del Brote nacen con cuerpo en el mapa (net_peleas.pedir_cria y su respuesta).
 # 24 (03/10): la peticion de turno (_tu_turno) lleva las PREPARACIONES hechas (Cargar no acaba el turno).
-const PROTOCOLO := 24
+# 25 (06/10): las HUELLAS llevan mas clases de charco (los huecos, la nube al morir y las burbujas del slime pestilente:
+#     CombatTactico.CLASES_HUELLA 13). Un build del 24 numeraria las huellas distinto y pintaria charcos donde no son.
+const PROTOCOLO := 25
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
