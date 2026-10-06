@@ -1154,7 +1154,10 @@ func _efecto_magia(sp: SpellData, f, fila: int, hoja: Image, tiempos: Array, dir
 # habilidad con su forma de la ficha (el alcance de los enemigos, 15) y su efecto del mapa (SlimeAire), del color
 # de ESE slime. Una carpeta por slime: la misma habilidad sale en cada uno que la tiene, con su color.
 const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "slime_fuego"],
-	["abisal", "slime_abisal"], ["profundo", "slime_profundo"], ["rey", "rey_slime"]]
+	["abisal", "slime_abisal"], ["profundo", "slime_profundo"], ["rey", "rey_slime"],
+	# LAS MUTACIONES del slime normal (06/10): su sprite y SUS ataques (el tercero = la mutacion).
+	["brotado", "slime", &"brotado"], ["punzante", "slime", &"punzante"],
+	["brotado_punzante", "slime", &"brotado_punzante"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1164,6 +1167,11 @@ const MOMENTOS_SLIME := {
 	"slime_placaje_corrosivo": [0.04, 0.1, 0.2, 0.3, 0.6],
 	"slime_doble_embate": [0.05, 0.12, 0.25, 0.32, 0.5],
 	"slime_reventon": [0.02, 0.08, 0.16, 0.35, 1.2],
+	"slime_reventon_pegajoso": [0.02, 0.08, 0.16, 0.35, 1.2],
+	"slime_triple_embate": [0.05, 0.12, 0.25, 0.32, 0.5],
+	"slime_placaje_baboso": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_placaje_espinoso": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_expandir_puas": [0.03, 0.09, 0.16, 0.3, 0.9],
 	"slime_rociada_corrosiva": [0.05, 0.12, 0.22, 0.35, 0.9],
 	"slime_escupitajo_toxico": [-0.18, -0.08, 0.02, 0.15, 0.5],
 	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
@@ -1190,13 +1198,14 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			continue
 		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % sl[1])
 		var col: Color = ed.color_visual(0.5)
+		var mut: StringName = sl[2] if sl.size() > 2 else &""
 		# SU DIBUJO: un cuerpo con su sprite, con los pies (su centro en el suelo) en el centro de la hoja.
 		var cuerpo := Node2D.new()
 		cuerpo.z_index = 1000
 		cuerpo.z_as_relative = false
 		add_child(cuerpo)
 		var spr := AnimatedSprite2D.new()
-		spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5)
+		spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5, mut != &"", mut)
 		spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		cuerpo.add_child(spr)
@@ -1207,7 +1216,8 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 		var pisa: float = maxf(rd.size.x * 0.33, 4.0)
 		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
 		var habs: Array = ["basico"]
-		for h in ed.habilidades:
+		var mdat: MutacionData = ed.mutacion_de(mut)
+		for h in (mdat.habilidades if mdat != null and not mdat.habilidades.is_empty() else ed.habilidades):
 			habs.append((h as AbilityData).resource_path.get_file().get_basename())
 		for nom in habs:
 			if pedidas != "" and not (String(nom) in pedidas.split(",")):
@@ -1231,7 +1241,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			medida = maxf(medida, 90.0)
 			var zoom: float = float(LADO) / (2.0 * (medida + 30.0))
 			_cam.zoom = Vector2(zoom, zoom)
-			var hoja := Image.create(LADO * (1 + tiempos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+			# (+1 columna: el CHARCO o el RASTRO que se queda, si lo deja)
+			var extra: int = 1 if ab.charco_turnos > 0 else 0
+			var hoja := Image.create(LADO * (1 + tiempos.size() + extra), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
 			for fila in DIRS.size():
 				var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
 				var dir_n: String = DIRS[fila][0]
@@ -1324,6 +1336,32 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 						(pz["n"] as Node).queue_free()
 				for ps in pasos:
 					(ps["fig"] as ColorRect).position = (ps["de"] as Vector2) - Vector2(7, 26)
+				# EL CHARCO / RASTRO que se queda (06/10): como lo pone CombatTactico.poner_charco, ya asentado.
+				if extra > 0 and f != null:
+					var charcos: Array = []
+					var fs: Array = []
+					if ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
+						var r_c: float = maxf(f.ancho * 0.55, 6.0)
+						var n_c: int = maxi(1, ceili(f.largo / (r_c * 1.3)))
+						for i in n_c:
+							fs.append(CombatFormas.circulo(f.origen + f.dir * f.largo * (float(i) + 0.5) / float(n_c), r_c))
+					else:
+						fs.append(CombatFormas.circulo(f.centro, f.radio))
+					for i in fs.size():
+						var b: BestiaAire = BestiaAire.charco(self, fs[i], 900 + fila * 17 + i, 0.0)
+						if ab.charco_estilo == 3 or ab.charco_estilo == 4:
+							b.vestir_baba(col, ab.charco_estilo == 4)
+						b.set_process(false)
+						b.set("_t", 1.0)
+						for hijo in ["_suelo", "_delante"]:
+							var su2 = b.get(hijo)
+							if su2 is Node2D:
+								(su2 as Node2D).queue_redraw()
+						charcos.append(b)
+					await _viñeta(hoja, 1 + tiempos.size(), fila, "%s · %s · %s · lo que se queda (%d turnos)"
+						% [ed.enemy_name, ab.nombre, dir_n, ab.charco_turnos])
+					for b in charcos:
+						b.queue_free()
 				await get_tree().process_frame
 			var carpeta: String = "%s/enemigos/slimes/%s" % [salida, sl[0]]
 			DirAccess.make_dir_recursive_absolute(carpeta)

@@ -45,7 +45,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	SIMA_ULTRA, SIMA_ANILLO,
 	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO,
 	CONSTRUCTO_PETREA, CONSTRUCTO_SISMO,
-	MINO_BARRIDO, MINO_PISOTON, MINO_BRAMIDO }
+	MINO_BARRIDO, MINO_PISOTON, MINO_BRAMIDO,
+	SLIME_PUAS }
+# SLIME_PUAS (06/10, Expandir puas del slime punzante y del brotado punzante): vive en SlimeAire (Modo.PUAS). Al FINAL
+# a proposito: estos numeros van guardados en las fichas y meterlo entre los SLIME_* corria todos los de detras.
 # MINO_* (el Minotauro, 02/10): el BARRIDO es el Hachazo brutal de HachaAire (barre como su sprite: de su izquierda a su
 # derecha); el PISOTON y el BRAMIDO viven en MinotauroAire. Detras de todo: se miran los primeros.
 # CONSTRUCTO_* (los constructos, 30/09): viven en ConstructoAire. Detras de todo: se miran los primeros.
@@ -125,6 +128,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return DagaAire.humo(padre, f, semilla, espera)
 	if t == Tipo.DANZA:
 		return null
+	if t == Tipo.SLIME_PUAS:
+		return SlimeAire.area(padre, f, SlimeAire.Modo.PUAS, semilla, espera)
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.lanzar(padre, f, HachaAire.Modo.HACHAZO, semilla, espera)
 	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
@@ -185,6 +190,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return DagaAire.T_HUMO_ABRE   # las puñaladas, con la nube ya hecha
 	if t == Tipo.DANZA:
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
+	if t == Tipo.SLIME_PUAS:
+		return SlimeAire.retraso(SlimeAire.Modo.PUAS, f, p)
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.retraso(HachaAire.Modo.HACHAZO, f, p)
 	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
@@ -236,6 +243,8 @@ static func t_salir_de(t: int) -> float:
 		return DagaAire.T_HUMO_ABRE
 	if t == Tipo.DANZA:
 		return 0.0
+	if t == Tipo.SLIME_PUAS:
+		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.T_BRUTAL
 	if t == Tipo.MINO_PISOTON:
