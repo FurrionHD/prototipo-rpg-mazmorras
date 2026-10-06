@@ -452,6 +452,12 @@ var mutante: bool = false
 var mutacion: StringName = &""
 # Su GRADO (0 normal, 1 mutante, 2 la siguiente): elige la tabla de multiplicadores (poder, escala).
 var grado_mut: int = 0
+# LAS PASIVAS DE SU MUTACION (06/10, ver MutacionData): espinas al recibir un golpe cuerpo a cuerpo, y dividirse al morir.
+var espinas: bool = false
+var espinas_prob: float = 0.0
+var espinas_dano: float = 0.0
+var se_divide: bool = false
+var _dividido: bool = false
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

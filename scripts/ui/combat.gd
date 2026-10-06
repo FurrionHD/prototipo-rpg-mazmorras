@@ -452,6 +452,7 @@ const HUECO_CUERPO_A_CUERPO := 30.0
 
 func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
 	_reflejo(obj, quien)
+	_espinas(obj, quien)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
 		return
@@ -468,6 +469,78 @@ func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
 		else ("polvo" if obj.al_ser_golpeado_fx == CombatFX.Estilo.SIMA_POLVO else "una bocanada")
 	_log_extra("%s suelta %s sobre %s%s" % [_etq(obj), que, quien.nombre,
 		(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
+# ESPINAS (06/10, el slime punzante y el brotado punzante, ver MutacionData): al que le pega CUERPO A CUERPO, a veces
+# (espinas_prob, 30 %), le lanza sus puas: espinas_dano de su ataque (50 %) a TODOS los tuyos que le rodean (pegados a
+# el, a un paso como el golpe que lo provoca). Con su gesto de lanzar puas y el anillo de cristales (SLIME_PUAS).
+const RADIO_ESPINAS := 46.0   # el anillo de puas que se ve (desde su centro)
+
+func _espinas(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or not obj.espinas or obj.espinas_prob <= 0.0 or not _enemies.has(obj) \
+			or not obj.is_alive() or not quien.is_alive():
+		return
+	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return   # solo cuerpo a cuerpo
+	if randf() >= obj.espinas_prob:
+		return
+	var a_quien: Array = []
+	if tactico:
+		for al in _aliados:
+			if al.is_alive() and turno_mapa.hueco_entre(al, obj) <= HUECO_CUERPO_A_CUERPO:
+				a_quien.append(al)
+	else:
+		a_quien.append(quien)
+	if a_quien.is_empty():
+		a_quien.append(quien)
+	var dano: float = obj.atk() * obj.espinas_dano
+	if _fx != null:
+		efectos._fx_tanda(_fx.ultima_tanda() + 1)
+	# EL ANILLO DE PUAS por el suelo (sin tocar el suelo de la accion en curso: es su respuesta, no tu golpe).
+	if tactico and _fx != null:
+		var arena: Node = turno_mapa._arena()
+		var anillo := CombatFormas.circulo(turno_mapa.pies_de(obj), RADIO_ESPINAS)
+		var sem: int = SlimeAire.semilla_con_color(randi(), Color(0.85, 0.2, 0.2))
+		if arena != null:
+			_fx.pedir_suelo(arena, anillo, SueloRoto.Tipo.SLIME_PUAS, sem, 0.0)
+		espejo._apuntar_suelo_red(SueloRoto.Tipo.SLIME_PUAS, anillo, sem, 0.0)
+	var nombres: Array = []
+	for i in a_quien.size():
+		var v: Combatant = a_quien[i]
+		v.take_damage(dano)
+		nombres.append(v.nombre)
+		# El primero lleva su gesto (lanzar puas); los demas, solo el numero.
+		efectos._fx_golpe(obj, v, dano, false, false, obj.elemento_ataque, CombatFX.Estilo.SLIME_GOLPE, 1.0,
+			false, "", AbilityData.Gesto.AUTO, &"lanzar_puas" if i == 0 else &"")
+	_update_hp()
+	_log_extra("🦔 %s suelta sus púas: %.2f a %s" % [_etq(obj), dano, ", ".join(nombres)])
+
+
+# DIVIDIRSE AL MORIR (06/10, el slime brotado y el brotado punzante, ver MutacionData): se encoge (su muerte) y le salen
+# DOS de su enemigo normal a su lado, como las crias del Rey; su cadaver se queda. Si la pelea ya esta llena, los que
+# quepan. Solo quien ejecuta la pelea.
+const CRIAS_AL_DIVIDIRSE := 2
+
+func _dividirse(e: Combatant) -> void:
+	if e == null or not e.se_divide or e._dividido or _espejo or e.sprite_res == "" \
+			or not ResourceLoader.exists(e.sprite_res):
+		return
+	e._dividido = true
+	var normal: EnemyData = load(e.sprite_res) as EnemyData
+	if normal == null:
+		return
+	var salen: int = 0
+	for k in CRIAS_AL_DIVIDIRSE:
+		var cria: Combatant = altas._invocar_slime(normal)
+		if cria == null:
+			break   # no cabe ninguno mas
+		salen += 1
+		if tactico:
+			turno_mapa.dar_cuerpo_a_cria(e, cria, normal)
+	if salen > 0:
+		_update_hp()
+		_log_extra("🫧 %s se encoge... ¡y de él salen %d %s!" % [_etq(e), salen, normal.enemy_name.to_lower()
+			+ ("s" if salen > 1 else "")])
 
 
 # FILO DE REFLEJO (la segadora, 30/09, EnemyData.reflejo_prob): al que le pega CUERPO A CUERPO se lo devuelve con un
@@ -2238,6 +2311,8 @@ func _morir_enemigo(e: Combatant) -> void:
 	if not _espejo:
 		var hueco: int = _enemies.find(e)
 		Game.meter_de_la_cola(hueco)
+		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
+		_dividirse(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

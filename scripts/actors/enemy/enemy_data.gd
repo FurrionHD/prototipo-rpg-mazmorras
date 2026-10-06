@@ -733,6 +733,12 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	var mdat: MutacionData = mutacion_de(mutacion) if mutante else null
 	if mdat != null and not mdat.habilidades.is_empty():
 		c.habilidades = mdat.habilidades
+	# Y SUS PASIVAS (06/10).
+	if mdat != null:
+		c.espinas = mdat.espinas
+		c.espinas_prob = mdat.espinas_prob
+		c.espinas_dano = mdat.espinas_dano
+		c.se_divide = mdat.se_divide
 	c.prob_habilidad = prob_habilidad
 	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
 	c.elemento = elemento
