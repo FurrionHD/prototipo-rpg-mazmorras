@@ -7,6 +7,17 @@
 [ext_resource type="Resource" uid="uid://bl2ak6wjc0tn7" path="res://resources/abilities/slime_escupitajo_toxico.tres" id="5_esc"]
 [ext_resource type="Resource" path="res://resources/materials/baba_venenosa.tres" id="6_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_venenoso.tres" id="7_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="8_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="9_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_miasmatico.tres" id="10_plm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_rociada_miasma.tres" id="11_rcm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_miasma.tres" id="12_esm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_exhalar_miasma.tres" id="13_exm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_rociada_pestilente.tres" id="14_rcp"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_pestilente.tres" id="15_esp"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_exhalar_pestilente.tres" id="16_exp"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_burbujas_pestilentes.tres" id="17_bur"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_nube_reventon.tres" id="18_nub"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -18,6 +29,35 @@ script = ExtResource("2_sa")
 estado = 0
 prob = 0.35
 cap = 1
+
+[sub_resource type="Resource" id="SA_acido"]
+script = ExtResource("2_sa")
+estado = 4
+turns = 2
+
+[sub_resource type="Resource" id="MUT_miasma"]
+script = ExtResource("8_mut")
+id = &"miasma"
+nombre = "Slime de miasma"
+grado = 1
+habilidades = Array[ExtResource("9_ab")]([ExtResource("10_plm"), ExtResource("11_rcm"), ExtResource("12_esm"), ExtResource("13_exm")])
+sprite = &"mia138"
+revienta_al_morir = ExtResource("18_nub")
+humo = 1
+
+[sub_resource type="Resource" id="MUT_pestilente"]
+script = ExtResource("8_mut")
+id = &"pestilente"
+nombre = "Slime pestilente"
+grado = 2
+desde = Array[StringName]([&"miasma"])
+habilidades = Array[ExtResource("9_ab")]([ExtResource("10_plm"), ExtResource("14_rcp"), ExtResource("15_esp"), ExtResource("16_exp"), ExtResource("17_bur")])
+sprite = &"pes152"
+revienta_al_morir = ExtResource("18_nub")
+acido_piel = true
+acido_prob = 0.3
+acido_efectos = [SubResource("SA_acido")]
+humo = 2
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -39,6 +79,7 @@ al_golpear = [SubResource("SA_peg"), SubResource("SA_ven")]
 inmune_estados = [0]
 fx_basico = 19
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_esc")]
+mutaciones = Array[ExtResource("8_mut")]([SubResource("MUT_miasma"), SubResource("MUT_pestilente")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_6_8"

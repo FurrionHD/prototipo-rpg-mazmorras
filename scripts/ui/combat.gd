@@ -453,6 +453,7 @@ const HUECO_CUERPO_A_CUERPO := 30.0
 func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
 	_reflejo(obj, quien)
 	_espinas(obj, quien)
+	_acido_piel(obj, quien)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
 		return
@@ -514,6 +515,36 @@ func _espinas(obj: Combatant, quien: Combatant) -> void:
 			false, "", AbilityData.Gesto.AUTO, &"lanzar_puas" if i == 0 else &"")
 	_update_hp()
 	_log_extra("🦔 %s suelta sus púas: %.2f a %s" % [_etq(obj), dano, ", ".join(nombres)])
+
+
+# ACIDO EN LA PIEL (06/10, el slime pestilente, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (acido_prob,
+# 30 %), el acido le come el arma: sus acido_efectos (Debil), con su resistencia, por la puerta comun.
+func _acido_piel(obj: Combatant, quien: Combatant) -> void:
+	if obj == null or quien == null or not obj.acido_piel or obj.acido_prob <= 0.0 or obj.acido_efectos.is_empty() \
+			or not _enemies.has(obj) or not quien.is_alive():
+		return
+	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
+		return   # solo cuerpo a cuerpo
+	if randf() >= obj.acido_prob:
+		return
+	var ab := AbilityData.new()
+	ab.efectos = obj.acido_efectos
+	# (si sale, prende: la probabilidad ya la ha tirado la pasiva; la resistencia del que pega sigue contando)
+	var puestos: Array = enemigos._enemy_tirar_efectos(obj, ab, quien, 1.0, "objetivo", 1.0)
+	efectos._fx_golpe(obj, quien, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SLIME_GOLPE, 0.8, true)
+	_log_extra("🧪 El ácido de %s le come el arma a %s%s" % [_etq(obj), quien.nombre,
+		(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
+# REVIENTA AL MORIR (06/10, el miasma y el pestilente, ver MutacionData): al caer deja en su sitio la NUBE de su
+# revienta_al_morir (un circulo con sus turnos y su veneno). Solo en el mapa (en la fila no hay suelo) y quien ejecuta.
+func _revienta(e: Combatant) -> void:
+	if e == null or e.revienta_al_morir == null or e._reventado or _espejo or not tactico:
+		return
+	e._reventado = true
+	var ab: AbilityData = e.revienta_al_morir
+	turno_mapa.poner_charco(e, ab, CombatFormas.circulo(turno_mapa.pies_de(e), ab.forma_radio), turno_mapa.CLASE_MUERTE)
+	_log_extra("💨 %s revienta y deja %s." % [_etq(e), ab.charco_texto])
 
 
 # DIVIDIRSE AL MORIR (06/10, el slime brotado y el brotado punzante, ver MutacionData): se encoge (su muerte) y le salen
@@ -2313,6 +2344,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		Game.meter_de_la_cola(hueco)
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
+		_revienta(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

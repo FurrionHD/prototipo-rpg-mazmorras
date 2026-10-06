@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ven"]
+script = ExtResource("2")
+estado = 0
+prob = 0.5
+cap = 1
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"escupir"
+fx_estilo = 10
+nombre = "Rociada pestilente"
+descripcion = "Sacude su cuerpo y te rocía de baba ácida, más lejos y más veces que un slime venenoso. Cada salpicón te deja pringado y puede envenenarte."
+coste_energia = 0.0
+golpes_min = 4
+golpes_max = 4
+dano_mult = 0.75
+reparto_por_golpe = true
+efectos = [SubResource("SA_ven"), SubResource("SA_peg")]
+efectos_por_golpe = true
+cooldown = 3
+forma = 2
+forma_apunte = 1
+forma_radio = 55.0
+forma_apertura = 90.0
+suelo_roto = 65

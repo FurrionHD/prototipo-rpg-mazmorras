@@ -458,6 +458,12 @@ var espinas_prob: float = 0.0
 var espinas_dano: float = 0.0
 var se_divide: bool = false
 var _dividido: bool = false
+# (06/10, el miasma y el pestilente) REVIENTA AL MORIR (la nube que deja) y ACIDO EN LA PIEL (Debil al que le pega).
+var revienta_al_morir: AbilityData = null
+var _reventado: bool = false
+var acido_piel: bool = false
+var acido_prob: float = 0.0
+var acido_efectos: Array = []
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

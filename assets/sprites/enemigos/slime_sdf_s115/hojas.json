@@ -87,6 +87,13 @@
    "fps": 18.0,
    "loop": false,
    "dirs": 8
+  },
+  "comer": {
+   "fotogramas": 12,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": false
   }
  }
 }

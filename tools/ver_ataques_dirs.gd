@@ -1157,7 +1157,9 @@ const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "sl
 	["abisal", "slime_abisal"], ["profundo", "slime_profundo"], ["rey", "rey_slime"],
 	# LAS MUTACIONES del slime normal (06/10): su sprite y SUS ataques (el tercero = la mutacion).
 	["brotado", "slime", &"brotado"], ["punzante", "slime", &"punzante"],
-	["brotado_punzante", "slime", &"brotado_punzante"]]
+	["brotado_punzante", "slime", &"brotado_punzante"],
+	# LOS DEL VENENOSO (06/10): el miasma y el pestilente.
+	["miasma", "slime_veneno", &"miasma"], ["pestilente", "slime_veneno", &"pestilente"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1173,6 +1175,13 @@ const MOMENTOS_SLIME := {
 	"slime_placaje_espinoso": [0.04, 0.1, 0.2, 0.3, 0.6],
 	"slime_expandir_puas": [0.03, 0.09, 0.16, 0.3, 0.9],
 	"slime_rociada_corrosiva": [0.05, 0.12, 0.22, 0.35, 0.9],
+	"slime_placaje_miasmatico": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_rociada_miasma": [0.05, 0.12, 0.22, 0.35, 0.9],
+	"slime_rociada_pestilente": [0.05, 0.12, 0.22, 0.35, 0.9],
+	"slime_escupitajo_miasma": [-0.18, -0.08, 0.02, 0.15, 0.5],
+	"slime_escupitajo_pestilente": [-0.18, -0.08, 0.02, 0.15, 0.5],
+	"slime_exhalar_miasma": [0.03, 0.09, 0.16, 0.3, 0.9],
+	"slime_exhalar_pestilente": [0.03, 0.09, 0.16, 0.3, 0.9],
 	"slime_escupitajo_toxico": [-0.18, -0.08, 0.02, 0.15, 0.5],
 	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
 	"slime_salpicadura_ardiente": [0.05, 0.12, 0.22, 0.4, 0.9],
@@ -1231,6 +1240,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				ab.forma_radio = 8.0
 			else:
 				ab = load("res://resources/abilities/%s.tres" % nom)
+			if ab.burbujas_max > 0:
+				await _hoja_burbujas(salida, sl[0], ed, ab, col, yo, bulto)
+				continue
 			if int(ab.forma) < 0 and nom != "slime_ignicion":
 				continue   # sin huella (el Brote): no hay nada que enseñar aqui
 			var tiempos: Array = MOMENTOS_SLIME.get(nom, [0.05, 0.15, 0.3, 0.5, 0.9])
@@ -1302,6 +1314,12 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 						for i in cajas.size():
 							piezas.append({"n": SlimeAire.sobre_cuerpo(self, modo_s, boca, cajas[i], col, semilla + i, vuelo, 1.0),
 								"t0": 0.0})
+				# LA NUBE DE MIASMA (06/10): en el juego nace en el momento del golpe y se abre desde su centro (el Exhalar
+				# es eso: el gas que le sale de golpe); aqui tambien, en las columnas de tiempo.
+				if ab.charco_estilo == 5 and f != null:
+					var fn2 = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
+					piezas.append({"n": SimaAire.nube(self, fn2, 800 + fila * 13, 0.0, col),
+						"t0": 0.0})
 				# EL EMPUJON de la Marea: los que pilla se apartan cuando les llega.
 				var pasos: Array = []
 				if not is_zero_approx(ab.tiron) and f != null and ab.suelo_roto >= 0:
@@ -1340,7 +1358,18 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				if extra > 0 and f != null:
 					var charcos: Array = []
 					var fs: Array = []
-					if ab.charco_estilo == 3 or ab.charco_estilo == 4:
+					if ab.charco_estilo == 5:
+						# LA NUBE DE MIASMA (06/10), de su color y con su radio (el del Escupitajo, mas grande que su golpe).
+						var fn = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
+						var nb: SimaAire = SimaAire.nube(self, fn, 900 + fila * 17, 0.0, col)
+						nb.set_process(false)
+						nb.set("_t", 1.2)
+						for hijo in ["_suelo", "_delante"]:
+							var su3 = nb.get(hijo)
+							if su3 is Node2D:
+								(su3 as Node2D).queue_redraw()
+						charcos.append(nb)
+					elif ab.charco_estilo == 3 or ab.charco_estilo == 4:
 						# La BABA del slime: una sola mancha (BabaSuelo), como en el juego.
 						var fb = CombatFormas.linea(f.origen, f.dir, f.largo, f.ancho) if (ab.rastro and f.tipo == CombatFormas.Tipo.LINEA) 							else CombatFormas.circulo(f.centro, f.radio)
 						var bs: BabaSuelo = BabaSuelo.crear(self, fb, col, ab.charco_estilo == 4, 900 + fila * 17)
@@ -1379,6 +1408,52 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			print("[hoja] ", ruta)
 		cuerpo.queue_free()
 		await get_tree().process_frame
+
+
+# LAS BURBUJAS PESTILENTES (06/10, el slime pestilente): no tienen huella; se ven salir volando de el a sus sitios al
+# azar, flotar, temblar cuando les queda poco y reventar. Una fila por direccion (el slime mirando a ella), con las
+# mismas burbujas: 3 momentos del vuelo, flotando, temblando (ultimo turno) y 2 del reventon.
+func _hoja_burbujas(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityData, col: Color, yo: Vector2,
+		_bulto: Rect2) -> void:
+	var momentos: Array = [["sale", 0.12, 1.0, -1.0], ["vuela", 0.25, 1.0, -1.0], ["llega", 0.42, 1.0, -1.0],
+		["flota", 1.5, 1.0, -1.0], ["le queda poco", 1.7, 0.1, -1.0], ["revienta", 1.9, 0.1, 0.1], ["", 1.9, 0.1, 0.35]]
+	var medida: float = ab.burbuja_lejos + 10.0
+	_cam.zoom = Vector2.ONE * float(LADO) / (2.0 * (medida + 30.0))
+	_cam.global_position = yo
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var sitios: Array = []
+	for i in ab.burbujas_max:
+		var a: float = TAU * float(i) / float(ab.burbujas_max) + rng.randf_range(-0.5, 0.5)
+		sitios.append(yo + Vector2.RIGHT.rotated(a) * rng.randf_range(ab.burbuja_cerca, ab.burbuja_lejos))
+	var hoja := Image.create(LADO * momentos.size(), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var dir_n: String = DIRS[fila][0]
+		for c in momentos.size():
+			var m: Array = momentos[c]
+			var piezas: Array = []
+			for i in sitios.size():
+				var fb := CombatFormas.circulo(sitios[i], ab.burbuja_radio)
+				fb.origen = yo
+				var b: SlimeBurbuja = SlimeBurbuja.crear(self, fb, col, 500 + i)
+				b.set_process(false)
+				b.queda = float(m[2])
+				b.set("_t", float(m[1]))
+				if float(m[3]) >= 0.0:
+					b.set("_secando", float(m[1]) - float(m[3]))
+				for hijo in ["_suelo", "_delante"]:
+					(b.get(hijo) as Node2D).queue_redraw()
+				piezas.append(b)
+			await _viñeta(hoja, c, fila, "%s · %s · %s · %s" % [ed.enemy_name, ab.nombre, dir_n, m[0]])
+			for b in piezas:
+				b.queue_free()
+			await get_tree().process_frame
+	var carpeta: String = "%s/enemigos/slimes/%s" % [salida, carpeta_s]
+	DirAccess.make_dir_recursive_absolute(carpeta)
+	var ruta: String = "%s/slime_burbujas_pestilentes.png" % carpeta
+	hoja.save_png(ruta)
+	print("[hoja] ", ruta)
 
 
 # LAS BESTIAS DE LOS PISOS BAJOS (28/09): rata, rey rata, jabali y trent. ATAQUES_BESTIA=rata (el .tres) ->

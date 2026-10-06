@@ -2417,7 +2417,14 @@ const CLASE_ESCUDAZO := 2   # la linea del escudazo de la Guardia rota, que va c
 const CLASE_SAVIA := 3      # un CHARCO que se queda (ver poner_charco): su 'nucleo' es lo que le queda (1 = recien)
 const CLASE_PISOTON := 4    # el circulo del final de una carga que atraviesa (AbilityData.pisoton_final)
 const CLASE_RASTRO := 5     # (06/10) un RASTRO que se queda: la linea recorrida (el Placaje del slime brotado)
-const CLASES_HUELLA := 6
+# (06/10, el miasma y el pestilente) MAS CHARCOS A LA VEZ por enemigo: los HUECOS de AbilityData.charco_hueco (la
+# nube del Escupitajo y la del Exhalar), la nube que deja al REVENTAR al morir y sus BURBUJAS flotantes (hasta 4).
+const CLASE_HUECO_1 := 6
+const CLASE_HUECO_2 := 7
+const CLASE_MUERTE := 8
+const CLASE_BURBUJA := 9    # 9..12
+const BURBUJAS_MAX := 4
+const CLASES_HUELLA := 13
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
 var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
@@ -2548,8 +2555,8 @@ func aplicar_huellas(d: PackedFloat32Array) -> void:
 		var x: Array = _desempaquetar(d, i)
 		i += FLOATS_HUELLA
 		# LOS CHARCOS no son una huella de aviso: se pintan como charco (y se secan con lo que les queda).
-		if int(x[1]) == CLASE_SAVIA or int(x[1]) == CLASE_RASTRO:
-			var clave_c: String = ("savia_%d" if int(x[1]) == CLASE_SAVIA else "rastro_%d") % int(x[0])
+		if es_clase_charco(int(x[1])):
+			var clave_c: String = clave_charco(int(x[1]), int(x[0]))
 			_charco_visible(clave_c, x[2], float(x[3]), _pantalla.espejo._de_codigo(int(x[0])))
 			charcos_vivos.append(clave_c)
 			continue
@@ -2582,39 +2589,140 @@ var _charco_vis: Dictionary = {}     # clave -> BestiaAire (o una lista de ellos
 var _pisado: Dictionary = {}         # Combatant -> {clave: true}: los que ya se llevo este turno (uno por charco)
 var _desde_charco: Dictionary = {}   # Combatant -> de donde parte lo que anda (sus pies)
 
-func poner_charco(e: Combatant, ab: AbilityData, f) -> void:
+static func es_clase_charco(clase: int) -> bool:
+	return clase == CLASE_SAVIA or clase == CLASE_RASTRO or (clase >= CLASE_HUECO_1 and clase < CLASES_HUELLA)
+
+
+# La clave de un charco (asi se guarda, viaja y se pinta): "savia_<cod>" y "rastro_<cod>" como siempre, y los nuevos
+# por su clase.
+static func clave_charco(clase: int, cod: int) -> String:
+	if clase == CLASE_SAVIA:
+		return "savia_%d" % cod
+	if clase == CLASE_RASTRO:
+		return "rastro_%d" % cod
+	return "charco%d_%d" % [clase, cod]
+
+
+# 'clase' = forzar el hueco (la nube de cuando revienta al morir: CLASE_MUERTE). -1 = el de la habilidad.
+func poner_charco(e: Combatant, ab: AbilityData, f, clase: int = -1, turnos: int = -1) -> void:
 	if _pantalla._espejo or ab == null or ab.charco_turnos <= 0 or f == null:
 		return
 	# COMO SE VE (la savia, la telaraña, la baba) va en la 'apertura' de una copia de la huella: el circulo y la linea no
 	# la usan, y asi viaja con ella a los espejos sin tocar el paquete.
 	var fc
-	var clase: int = CLASE_SAVIA
 	if ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
 		# EL RASTRO: la linea que ha recorrido (de donde salio a donde llega).
 		fc = CombatFormas.linea(f.origen, f.dir, f.largo, f.ancho)
-		clase = CLASE_RASTRO
+		if clase < 0:
+			clase = CLASE_RASTRO
 	else:
-		fc = CombatFormas.circulo(f.centro, f.radio)
+		fc = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
 		fc.dir = f.dir
+	if clase < 0:
+		clase = CLASE_SAVIA if ab.charco_hueco <= 0 else CLASE_HUECO_1 + mini(ab.charco_hueco, 2) - 1
 	fc.apertura = float(ab.charco_estilo)
-	var clave: String = ("savia_%d" if clase == CLASE_SAVIA else "rastro_%d") % _cod(e)
-	_charcos[clave] = {"dueno": e, "f": fc, "turnos": ab.charco_turnos, "max": ab.charco_turnos, "ab": ab,
-		"clase": clase}
+	var clave: String = clave_charco(clase, _cod(e))
+	var n_turnos: int = ab.charco_turnos if turnos <= 0 else turnos
+	_charcos[clave] = {"dueno": e, "f": fc, "turnos": n_turnos, "max": n_turnos, "ab": ab, "clase": clase}
 	_anotar_huella_red(e, clase, fc, 1.0)
 	_charco_visible(clave, fc, 1.0, e)
 
 
-# Al empezar el turno de un enemigo: SUS charcos se secan un turno (y los de los que ya cayeron, tambien).
+# LAS BURBUJAS FLOTANTES (06/10, idea del jefe para el slime pestilente, ver AbilityData.burbujas_max): entre min y max
+# burbujas a sitios al azar alrededor de sus pies (sin pasar paredes ni salirse de la arena), cada una con sus turnos
+# al azar. Son charcos de estilo BURBUJA (6): viajan y se pintan igual; las revienta _pisar_si o el secarse.
+func poner_burbujas(e: Combatant, ab: AbilityData) -> int:
+	if _pantalla._espejo or ab == null or ab.burbujas_max <= 0:
+		return 0
+	var desde: Vector2 = pies_de(e)
+	var n: int = mini(randi_range(ab.burbujas_min, ab.burbujas_max), BURBUJAS_MAX)
+	var puestas: Array = []
+	for i in n:
+		var p: Vector2 = desde
+		for _intento in 12:
+			var dir := Vector2.RIGHT.rotated(randf() * TAU)
+			var dist: float = _largo_hasta_pared(desde, dir, randf_range(ab.burbuja_cerca, ab.burbuja_lejos))
+			p = desde + dir * dist
+			# Que no se monten unas encima de otras y que caigan dentro de la arena.
+			var lejos_de_otras: bool = true
+			for q in puestas:
+				if (q as Vector2).distance_to(p) < ab.burbuja_radio * 1.6:
+					lejos_de_otras = false
+			if dist >= ab.burbuja_cerca * 0.6 and lejos_de_otras and _en_arena(p):
+				break
+		puestas.append(p)
+		var f := CombatFormas.circulo(p, ab.burbuja_radio)
+		# (de donde sale volando: sus pies; asi cada maquina la ve salir de el)
+		f.origen = desde
+		_poner_burbuja(e, ab, f, CLASE_BURBUJA + i, randi_range(ab.burbuja_turnos_min, ab.burbuja_turnos_max))
+	return puestas.size()
+
+
+func _poner_burbuja(e: Combatant, ab: AbilityData, f, clase: int, turnos: int) -> void:
+	f.apertura = 6.0   # (su estilo: la BURBUJA, ver _charco_visible)
+	var clave: String = clave_charco(clase, _cod(e))
+	_charcos[clave] = {"dueno": e, "f": f, "turnos": turnos, "max": turnos, "ab": ab, "clase": clase, "burbuja": true}
+	_anotar_huella_red(e, clase, f, 1.0)
+	_charco_visible(clave, f, 1.0, e)
+
+
+# UNA BURBUJA REVIENTA: encima del que la atraviesa ('a', solo a el) o sola al secarse (a todos los tuyos que pille su
+# circulo de burbuja_estalla). burbuja_dano de su ataque y sus estados (con la resistencia de cada uno).
+func _reventar_burbuja(clave: String, a: Combatant = null) -> void:
+	var ch: Dictionary = _charcos.get(clave, {})
+	if ch.is_empty():
+		return
+	_charcos.erase(clave)
+	var dueno: Combatant = ch["dueno"]
+	var ab: AbilityData = ch["ab"]
+	var f = ch["f"]
+	_anotar_huella_red(dueno, int(ch["clase"]), null, 0.0)
+	# Se ve reventar (la burbuja sabe hacerlo al secarse) y, sola, con su salpicon en el circulo.
+	_secar_charco_vis(clave)
+	var victimas: Array = []
+	if a != null:
+		victimas.append(a)
+	else:
+		for al in _pantalla._aliados:
+			if (al as Combatant).is_alive() and pies_de(al).distance_to(f.centro) <= ab.burbuja_estalla + radio_pisa(al) * 0.5:
+				victimas.append(al)
+	var nombres: Array = []
+	for v in victimas:
+		var c: Combatant = v
+		var dano: float = dueno.atk() * ab.burbuja_dano
+		c.take_damage(dano)
+		var puestos: Array = _pantalla.enemigos._enemy_tirar_efectos(dueno, ab, c, 1.0, "objetivo")
+		nombres.append("%s (%d%s)" % [c.nombre, roundi(dano), (": " + ", ".join(puestos)) if not puestos.is_empty() else ""])
+	if nombres.is_empty():
+		_pantalla._set_log("🫧 Una burbuja de %s revienta sin pillar a nadie." % _pantalla._etq(dueno))
+	else:
+		_pantalla._set_log("🫧 Una burbuja de %s revienta%s: %s." % [_pantalla._etq(dueno),
+			" encima de " + a.nombre if a != null else "", ", ".join(nombres)])
+	_pantalla._update_hp()
+
+
+# Al empezar el turno de un enemigo: SUS charcos se secan un turno (y los de los que ya cayeron, en el turno del primer
+# enemigo vivo: si no, con tres en pie, la nube del que revento duraba un tercio).
 func charcos_turno_enemigo(e: Combatant) -> void:
 	if _pantalla._espejo:
 		return
+	var primero_vivo: Combatant = null
+	for x in _pantalla._enemies:
+		if (x as Combatant).is_alive():
+			primero_vivo = x
+			break
 	for clave in _charcos.keys():
+		if not _charcos.has(clave):
+			continue
 		var ch: Dictionary = _charcos[clave]
 		var dueno: Combatant = ch["dueno"]
-		if dueno != e and dueno.is_alive():
+		if dueno != e and (dueno.is_alive() or e != primero_vivo):
 			continue
 		ch["turnos"] = int(ch["turnos"]) - 1
 		if int(ch["turnos"]) <= 0:
+			if ch.get("burbuja", false):
+				_reventar_burbuja(clave)
+				continue
 			_charcos.erase(clave)
 			_anotar_huella_red(dueno, int(ch["clase"]), null, 0.0)
 			_secar_charco_vis(clave)
@@ -2646,12 +2754,18 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 		return
 	# UNA VEZ POR TURNO Y POR CHARCO (06/10, el rastro de pinchos: "la primera vez que lo pisas por turno").
 	var ya: Dictionary = _pisado.get(c, {})
-	for clave in _charcos:
-		if ya.has(clave):
+	for clave in _charcos.keys():
+		if ya.has(clave) or not _charcos.has(clave):
 			continue
 		var ch: Dictionary = _charcos[clave]
 		var f = ch["f"]
 		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
+		if ch.get("burbuja", false):
+			# LA BURBUJA: si la atraviesas, te revienta encima (y ya no esta).
+			var cerca_b: Vector2 = Geometry2D.get_closest_point_to_segment(f.centro, a, b)
+			if cerca_b.distance_to(f.centro) <= f.radio + radio_pisa(c) * 0.5 and c.is_alive():
+				_reventar_burbuja(clave, c)
+			continue
 		if f.tipo == CombatFormas.Tipo.LINEA:
 			# EL RASTRO: lo que has andado (a-b) contra la linea que dejo.
 			var pq: PackedVector2Array = Geometry2D.get_closest_points_between_segments(a, b, f.origen,
@@ -2686,7 +2800,7 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 			c.take_damage(dano)
 			dano_txt = " (%d de daño)" % roundi(dano)
 		# La nube no se pisa: se respira.
-		_pantalla._set_log("🧪 %s %s %s%s%s." % [c.nombre, "respira" if ab.charco_estilo == 2 else "pisa", ab.charco_texto,
+		_pantalla._set_log("🧪 %s %s %s%s%s." % [c.nombre, "respira" if ab.charco_estilo == 2 or ab.charco_estilo == 5 else "pisa", ab.charco_texto,
 			dano_txt, (": " + ", ".join(puestos)) if not puestos.is_empty() else (" y aguanta" if dano_txt.is_empty() else "")])
 		_pantalla._update_hp()
 
@@ -2723,6 +2837,12 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 			n = InsectoAire.red(arena, f, hash(clave), InsectoAire.T_TELA_CAE)
 		elif estilo == 2:
 			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE)
+		elif estilo == 5:
+			# LA NUBE DE MIASMA (06/10, el miasma y el pestilente): la misma nube, del color de su slime.
+			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, _color_de(dueno))
+		elif estilo == 6:
+			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
+			n = SlimeBurbuja.crear(arena, f, _color_de(dueno), hash(clave))
 		else:
 			n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
 			_vestir_charco(n, estilo, dueno)

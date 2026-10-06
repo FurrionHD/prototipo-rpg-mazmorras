@@ -305,6 +305,8 @@ func _ready() -> void:
 			_sprite.play(_anim_actual)
 			# LOS PARPADOS, a su aire (ver Parpadeo). Solo los que tienen hoja de parpados (los slimes).
 			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante, mutacion))
+			# Y EL HUMO / LAS BURBUJAS que le salen al azar (el miasma y el pestilente, ver HumoToxico).
+			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, mutante, mutacion), data.color_visual(current_t))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
@@ -480,6 +482,7 @@ func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 			if sf.has_animation(_anim_actual):
 				_sprite.play(_anim_actual)
 			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, true, mutacion))
+			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, true, mutacion), data.color_visual(current_t))
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
 	# La transformacion arranca del tamaño QUE SE VEIA (con el sprite viejo) y crece hasta el de ahora.

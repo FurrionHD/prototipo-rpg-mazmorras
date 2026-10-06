@@ -90,6 +90,8 @@ var _secando: float = -1.0            # NUBE, ATADO: desde cuando se esta yendo
 var _piezas: Array = []
 # Los tonos del bicho (MiconidoSprites._colores): el latigo y el atado van con SU carne.
 var _borde: Color = Color(0.12, 0.1, 0.07)
+var _nube_c: Color = ESPORA          # el color de la nube (la del miconido, parda; la del miasma, verde)
+var _nube_clara: Color = ESPORA_CLARA
 var _carne: Color = Color(0.55, 0.5, 0.42)
 var _brillo_c: Color = Color(0.78, 0.74, 0.64)
 var forma: CombatFormas.Forma = null
@@ -240,11 +242,15 @@ static func t_salir(s: int) -> float:
 
 
 # LA NUBE QUE SE QUEDA (la Bocanada). No se va sola: la seca CombatTactico. 'espera' = lo que falta para que salga.
-static func nube(padre: Node, f, semilla: int, espera: float) -> SimaAire:
+static func nube(padre: Node, f, semilla: int, espera: float, tinte: Color = Color(0, 0, 0, 0)) -> SimaAire:
 	if padre == null or f == null:
 		return null
 	var e := SimaAire.new()
 	e.modo = Modo.NUBE
+	# (06/10) LA NUBE DE MIASMA de los mutantes del slime venenoso: la misma nube, de su color.
+	if tinte.a > 0.0:
+		e._nube_c = tinte
+		e._nube_clara = tinte.lightened(0.45)
 	e._rng.seed = hash(semilla)
 	e._t = -maxf(espera, 0.0)
 	e._o = f.centro
@@ -510,18 +516,18 @@ func _nube(capa: Node2D) -> void:
 	# El mismo radio con el que la pelea mira quien esta dentro (BestiaAire.radio_charco).
 	var r: float = _r * lerpf(0.6, 1.0, queda) * lerpf(0.3, 1.0, sale)
 	var alto: float = 12.0
-	BestiaAire._bola(capa, _o, r * 1.05, Color(ESPORA.darkened(0.3), 0.3 * va * sale))
+	BestiaAire._bola(capa, _o, r * 1.05, Color(_nube_c.darkened(0.3), 0.3 * va * sale))
 	for g in _piezas:
 		if float(g["vida"]) > queda + 0.15:
 			continue   # las que ya se fueron
 		var fase: float = float(g["fase"]) + _t * float(g["vel"])
 		var p: Vector2 = _o + (g["p"] as Vector2) * r + Vector2(sin(fase) * 3.0, cos(fase * 0.7) * 1.5 - alto)
 		var rr: float = r * float(g["tam"]) * (0.9 + 0.15 * sin(fase * 1.3))
-		BestiaAire._bola(capa, p, rr, Color(ESPORA, 0.5 * va * sale))
-		BestiaAire._bola(capa, p - Vector2(1.0, 1.5), rr * 0.55, Color(ESPORA_CLARA, 0.4 * va * sale))
+		BestiaAire._bola(capa, p, rr, Color(_nube_c, 0.5 * va * sale))
+		BestiaAire._bola(capa, p - Vector2(1.0, 1.5), rr * 0.55, Color(_nube_clara, 0.4 * va * sale))
 		# La mota que sube de cada una, en bucle.
 		var m: float = fmod(_t * 0.5 * float(g["vel"]) + float(g["vida"]), 1.0)
-		capa.draw_circle(p + Vector2(sin(fase * 2.0) * 2.0, -8.0 * m), 0.9, Color(ESPORA_CLARA, 0.7 * va * sale * (1.0 - m)))
+		capa.draw_circle(p + Vector2(sin(fase * 2.0) * 2.0, -8.0 * m), 0.9, Color(_nube_clara, 0.7 * va * sale * (1.0 - m)))
 
 
 # EL ATADO DEL MICELIO: dos o tres anillos de cordon de su carne alrededor de las piernas, un poco ladeados, que

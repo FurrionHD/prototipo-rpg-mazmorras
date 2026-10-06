@@ -739,6 +739,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.espinas_prob = mdat.espinas_prob
 		c.espinas_dano = mdat.espinas_dano
 		c.se_divide = mdat.se_divide
+		c.revienta_al_morir = mdat.revienta_al_morir
+		c.acido_piel = mdat.acido_piel
+		c.acido_prob = mdat.acido_prob
+		c.acido_efectos = mdat.acido_efectos
 	c.prob_habilidad = prob_habilidad
 	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
 	c.elemento = elemento

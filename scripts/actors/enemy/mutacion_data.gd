@@ -29,3 +29,14 @@ class_name MutacionData
 @export var espinas: bool = false
 @export var espinas_prob: float = 0.3
 @export var espinas_dano: float = 0.5
+# (06/10, los mutantes del slime venenoso: miasma y pestilente)
+# REVIENTA AL MORIR: deja en su sitio el charco/nube de esta habilidad (su forma de circulo, sus turnos, sus estados).
+@export var revienta_al_morir: AbilityData = null
+# ACIDO EN LA PIEL: al recibir un golpe CUERPO A CUERPO, 'acido_prob' de meterle 'acido_efectos' al que le pega (el
+# acido le come el arma: Debil).
+@export var acido_piel: bool = false
+@export var acido_prob: float = 0.3
+@export var acido_efectos: Array = []
+# LO QUE LE SALE AL AZAR POR EL CUERPO (HumoToxico): 0 = nada, 1 = bocanadas de humo a ratos (el miasma), 2 = burbujas
+# que se hinchan, revientan y sueltan el humo (el pestilente).
+@export var humo: int = 0

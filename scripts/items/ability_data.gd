@@ -360,6 +360,26 @@ func es_preparacion() -> bool:
 @export var charco_efectos: Array = []
 # DAÑO al pisarlo, en fraccion de su ataque (0 = nada): el rastro de pinchos del brotado punzante, 0,5.
 @export var charco_dano: float = 0.0
+# (06/10, los mutantes del slime venenoso) 5 = NUBE DE MIASMA (la nube de esporas del miconido, en verde: se respira).
+# EN QUE HUECO va el charco (0 = el de siempre). Un enemigo puede tener uno vivo por hueco: el miasma deja a la vez la
+# nube del Escupitajo (1), la del Exhalar (2) y el rastro de su Placaje (el rastro va aparte, por 'rastro').
+@export var charco_hueco: int = 0
+# El RADIO del charco/nube que se queda, si no es el de su huella (0 = el de la huella): el Escupitajo del miasma pega en
+# un circulo pequeño y deja una nube mas grande.
+@export var charco_radio: float = 0.0
+# LAS BURBUJAS FLOTANTES (06/10, idea del jefe para el slime pestilente): sin carga, suelta entre burbujas_min y
+# burbujas_max burbujas a sitios AL AZAR alrededor suyo (entre burbuja_cerca y burbuja_lejos px de sus pies). Se quedan
+# flotando: si uno de los tuyos la ATRAVIESA, revienta encima (burbuja_dano de su ataque + 'efectos'); si nadie la toca,
+# revienta SOLA al cabo de burbuja_turnos_min..max turnos suyos, en un circulo de burbuja_estalla. 0 = no suelta.
+@export var burbujas_max: int = 0
+@export var burbujas_min: int = 2
+@export var burbuja_cerca: float = 30.0
+@export var burbuja_lejos: float = 140.0
+@export var burbuja_radio: float = 22.0
+@export var burbuja_estalla: float = 35.0
+@export var burbuja_dano: float = 0.6
+@export var burbuja_turnos_min: int = 1
+@export var burbuja_turnos_max: int = 3
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

@@ -19,6 +19,7 @@ const NORMALES := [[1.00, "s100", "ff2b2b"], [1.15, "s115", "47d552"], [1.50, "s
 # se quedan con el normal estirado, como antes.
 const _COMUNES_MUT := ["idle", "walk", "embestida", "inflar", "hinchado", "aplaston", "deshincharse", "encaje",
 	"muerte", "cadaver", "comer", "evolucion"]
+const _COMUNES_TOX := ["idle", "walk", "embestida", "escupir", "encaje", "muerte", "cadaver", "comer", "evolucion"]
 const MUTANTES := {
 	# El BROTADO: yemas con ojitos, tercer cuerno, nucleo y cristales dentro. 'evolucion' = del normal al brotado.
 	&"mut120": ["ff2b2b", 1.20, _COMUNES_MUT],
@@ -26,6 +27,10 @@ const MUTANTES := {
 	&"pun120": ["ff2b2b", 1.20, _COMUNES_MUT + ["lanzar_puas", "erizar", "expandir"]],
 	# El BROTADO PUNZANTE (x1,1 del brotado). 'evolucion' = desde el brotado; 'evolucion_punzante' = desde el punzante.
 	&"evo2": ["ff2b2b", 1.32, _COMUNES_MUT + ["lanzar_puas", "erizar", "expandir", "evolucion_punzante"]],
+	# LOS DEL SLIME VENENOSO (06/10): el MIASMA (poros) y el PESTILENTE (poros + burbujas), con las anims del VENENOSO
+	# (escupir, sin inflar ni aplaston) + Exhalar miasma (aspirar = su carga) y las burbujas del pestilente.
+	&"mia138": ["47d552", 1.38, _COMUNES_TOX + ["aspirar", "exhalar"]],
+	&"pes152": ["47d552", 1.518, _COMUNES_TOX + ["aspirar", "exhalar", "soltar_burbujas"]],
 }
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
@@ -55,6 +60,10 @@ const ANIMS := {
 	"lanzar_puas": {"hoja": "lanzar_puas", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": false, "opcional": true},
 	"erizar": {"hoja": "erizar", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": true, "opcional": true},
 	"expandir": {"hoja": "expandir", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	# LAS DEL MIASMA Y EL PESTILENTE (06/10).
+	"aspirar": {"hoja": "aspirar", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": true, "opcional": true},
+	"exhalar": {"hoja": "exhalar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"soltar_burbujas": {"hoja": "soltar_burbujas", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 }
 
 

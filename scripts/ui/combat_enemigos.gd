@@ -479,6 +479,18 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null) -
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
 # resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
+	# LAS BURBUJAS FLOTANTES (06/10, el slime pestilente): no pegan a nadie al soltarlas; se quedan flotando por el suelo
+	# hasta que alguien las atraviesa o revientan solas (CombatTactico.poner_burbujas). Solo en el mapa.
+	if _pantalla.tactico and ab.burbujas_max > 0:
+		e.start_cooldown(ab)
+		var n_b: int = _pantalla.turno_mapa.poner_burbujas(e, ab)
+		# Su gesto (se sacude y se le van las burbujas de la piel), que viaja a los espejos con el golpe.
+		_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
+			true, "", AbilityData.Gesto.AUTO, ab.fx_anim)
+		_pantalla._set_log("🫧 %s suelta %d burbuja%s pestilente%s que se quedan flotando." % [_pantalla._etq(e), n_b,
+			"" if n_b == 1 else "s", "" if n_b == 1 else "s"])
+		_pantalla._pausa_lectura()
+		return
 	# EN EL MAPA, con su forma en la ficha: le cae a quien pille la huella (la de su carga, o la mejor desde
 	# donde esta), no a la fila. [{c, escala}], el principal el primero. null = como en la fila.
 	var lista_mapa = null
