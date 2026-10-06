@@ -224,8 +224,10 @@ if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == 'todos':
     sys.exit(0)
 
 if __name__ == '__main__':
-    import slime_veneno_versiones as SV
-    sal = sys.argv[1] if len(sys.argv) > 1 else 'tools/salida/sdf/slime_veneno_versiones_3d.png'
+    # VERSIONES=slime_fuego_versiones -> las de otro enemigo (por defecto, las del venenoso).
+    import importlib
+    SV = importlib.import_module(os.environ.get('VERSIONES', 'slime_veneno_versiones'))
+    sal = sys.argv[1] if len(sys.argv) > 1 else 'tools/salida/sdf/%s_3d.png' % SV.__name__
     k = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     filas = []
     for nombre, esc, fn, extra in SV.FILAS:
