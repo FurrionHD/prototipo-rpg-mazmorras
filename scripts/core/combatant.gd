@@ -1005,8 +1005,18 @@ var ability_cooldowns: Dictionary = {}
 # Vive AQUI y no en combat.gd porque con varios enemigos a la vez cada uno carga lo suyo por
 # su cuenta: es estado POR COMBATIENTE, igual que los cooldowns o el foco. Aturdirlo mientras
 # carga se la cancela. null = no esta cargando.
-var charging: AbilityData = null
+var charging: AbilityData = null:
+	set(v):
+		charging = v
+		if v == null:
+			retrasando = false   # cortada, interrumpida o soltada: el retraso se va con ella
 var charge_left: int = 0
+
+# EL RETRASO DE LAS HABILIDADES (06/10, decision suya): al elegir una habilidad (menos el basico) se te echa
+# atras en la barra (CombatPantalla.RETRASO_HABILIDAD) y la habilidad sale CUANDO VUELVES A LLEGAR. Mientras
+# espera va en 'charging' (con su huella, su chip y su interrupcion, como una carga) y esto lo distingue: al
+# llegar, si es de carga EMPIEZA la carga; si no, SE SUELTA. Ni se tira el turno entero (estados, cooldowns).
+var retrasando: bool = false
 
 # Turnos que le quedan a una habilidad para volver a estar disponible (0 = lista).
 func ability_cd_left(ab) -> int:

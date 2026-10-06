@@ -97,6 +97,12 @@ const CombatEspejo = preload("res://scripts/ui/combat_espejo.gd")
 var espejo = CombatEspejo.new(self)
 
 const UMBRAL := 100.0          # cuanto llenar la barra para actuar
+# EL RETRASO DE LAS HABILIDADES (06/10, decision suya, "para un juego mas tactico"): al elegir una habilidad (menos
+# el basico y las preparaciones) se te ECHA ATRAS esta parte de la barra, y la habilidad SALE CUANDO VUELVES A LLEGAR.
+# Mientras, los demas se mueven y actuan (salirse de la huella, ponerse delante, aturdirte). Enemigos y aliados igual.
+# Las de carga: primero el retraso y, al llegar, empieza la carga de siempre. Los conjuros: UNA vez, al elegirlos.
+# Solo en el mapa (la fila no tiene donde salirse). Ver Combatant.retrasando.
+const RETRASO_HABILIDAD := 0.5
 # EL MAS RAPIDO DE LA PELEA llena la barra en este tiempo (a x1), y los demas en proporcion a su
 # velocidad. Antes el ritmo era fijo (velocidad x 10) y en los primeros pisos, con todos lentos, una
 # barra tardaba casi 4 s: lo pidio el usuario.
@@ -1416,8 +1422,48 @@ func _process(delta: float) -> void:
 			enemigos._enemy_turn(mejor)
 
 
+# ¿Esta habilidad se retrasa? Todas en el mapa, menos las preparaciones (Cargar, Untar: no gastan el turno).
+func retrasa(ab: AbilityData) -> bool:
+	return tactico and ab != null and not ab.es_preparacion()
+
+
+# ¿Y este conjuro? Todos en el mapa (una vez, al elegirlo).
+func retrasa_hechizo(spell: SpellData) -> bool:
+	return tactico and spell != null
+
+
+# Le echa atras la barra a 'c': como si acabara de llegar y tuviera que recorrer otra vez RETRASO_HABILIDAD de ella.
+# Se suma a lo que le sobro al llegar (el turno ya le resto UMBRAL en _process).
+func echar_atras(c: Combatant) -> void:
+	if c != null and _gauge.has(c):
+		_gauge[c] = maxf(float(_gauge[c]), 0.0) + UMBRAL * (1.0 - RETRASO_HABILIDAD)
+
+
+# LLEGA LA HABILIDAD RETRASADA del que tiene el turno: si es de carga, empieza a cargar como siempre; si no, sale
+# (en el mapa al sitio que apunto al elegirla; sin sitio, se le pide el objetivo a su dueño como al soltar una carga).
+# No es un turno nuevo: ni estados ni cooldowns ni andar (eso fue en el turno en que la eligio).
+func _llega_retrasada() -> void:
+	var ab: AbilityData = _player.charging
+	_player.retrasando = false
+	if ab.carga_turnos > 0:
+		habilidades._empezar_carga_jugador(ab)
+		return
+	_player.charge_left = 0
+	if tactico and turno_mapa.tiene_carga(_player):
+		turno_mapa.recuperar_carga(_player)
+		habilidades._soltar_la_carga()
+		return
+	habilidades._pedir_soltar_carga(ab)
+
+
 func _begin_player_turn() -> void:
 	_state = State.WAITING_PLAYER
+	# LA HABILIDAD QUE ESPERABA (RETRASO_HABILIDAD): sale ahora. Aturdido no: va por el turno de siempre, que se lo
+	# come y se la interrumpe (la rama del aturdido, mas abajo).
+	if _player.retrasando and _player.charging != null and not _player.aturdido():
+		golpeados_en_la_accion.clear()
+		_llega_retrasada()
+		return
 	_preps_turno.clear()   # las preparaciones (Cargar, Untar) son de este turno
 	golpeados_en_la_accion.clear()   # un contraataque de antes no abre hueco para esta accion
 	if _dps_on:

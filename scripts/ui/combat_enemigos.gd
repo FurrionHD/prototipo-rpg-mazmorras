@@ -46,6 +46,12 @@ func _abrir_turno_enemigo() -> void:
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
 # pelea, cada uno gasta su barra, tiene sus cooldowns y carga lo suyo por separado.
 func _enemy_turn(e: Combatant) -> void:
+	# LA HABILIDAD QUE ESPERABA (CombatPantalla.RETRASO_HABILIDAD): sale ahora, sin turno nuevo (ni estados ni
+	# cooldowns). Aturdido no: va por el turno de siempre, que se la interrumpe.
+	if e.retrasando and e.charging != null and not e.aturdido():
+		_abrir_turno_enemigo()
+		_llega_retrasada(e)
+		return
 	if _pantalla._dps_on:
 		_pantalla._turnos_enemigo += 1
 	_abrir_turno_enemigo()
@@ -137,7 +143,10 @@ func _enemy_turn(e: Combatant) -> void:
 	if not _pantalla._dps_on:
 		var inv: AbilityData = _invocacion_lista(e)
 		if inv != null:
-			_enemy_begin_charge(e, inv)   # carga_turnos > 0 -> se anuncia; aturdirlo la interrumpe
+			if _pantalla.retrasa(inv):
+				_enemy_begin_retraso(e, inv)   # primero el retraso; al llegar, la carga de siempre
+			else:
+				_enemy_begin_charge(e, inv)   # carga_turnos > 0 -> se anuncia; aturdirlo la interrumpe
 			return
 
 	# Decision: usar una HABILIDAD (si tiene alguna lista y sale la tirada) o atacar normal.
@@ -183,7 +192,9 @@ func _enemy_turn(e: Combatant) -> void:
 			_pantalla.turno_mapa.sacar_tirada(e) if _pantalla.tactico else randf() < e.prob_habilidad)):
 		elegida = listas[randi() % listas.size()]
 	if elegida != null:
-		if elegida.carga_turnos > 0:
+		if _pantalla.retrasa(elegida):
+			_enemy_begin_retraso(e, elegida, obj)
+		elif elegida.carga_turnos > 0:
 			_enemy_begin_charge(e, elegida, obj)
 		else:
 			_enemy_use_ability(e, elegida, obj)
@@ -459,12 +470,51 @@ func _hay_sitio_para_invocar(e: Combatant) -> bool:
 	return escolta_viva < _pantalla.MAX_ENEMIGOS - 1 and hay_hueco
 
 
-func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null) -> void:
+# EL RETRASO del enemigo (CombatPantalla.RETRASO_HABILIDAD): elige la habilidad y el sitio YA (huella roja en el
+# suelo, como sus cargas) y se le echa atras la barra; sale al volver a llegar (_llega_retrasada). Las que no tienen
+# huella recuerdan a QUIEN iban: si al llegar ya no le alcanza (se ha ido andando), busca otro o no llega.
+var _victima_retraso: Dictionary = {}   # Combatant -> Combatant
+
+func _enemy_begin_retraso(e: Combatant, ab: AbilityData, obj: Combatant = null) -> void:
+	e.charging = ab
+	e.charge_left = 0
+	e.retrasando = true
+	e.start_cooldown(ab)
+	if _pantalla.turno_mapa.usa_huella(ab):
+		_pantalla.turno_mapa.guardar_carga_enemigo(e, ab, obj)
+	else:
+		_victima_retraso[e] = obj
+	_pantalla.echar_atras(e)
+	print("[habilidad enemigo] %s prepara %s: sale al volver a llegar a la barra" % [e.nombre, ab.nombre])
+	_pantalla._set_log("⏳ %s prepara %s. ¡Apártate! (aturdirlo lo interrumpe)" % [_pantalla._etq(e), ab.nombre])
+	_pantalla._update_hp()   # el chip ⏳ en su tarjeta
+	_pantalla._pausa_lectura()
+
+
+func _llega_retrasada(e: Combatant) -> void:
+	var ab: AbilityData = e.charging
+	e.retrasando = false
+	var victima = _victima_retraso.get(e)
+	_victima_retraso.erase(e)
+	# DE CARGA: ahora empieza la carga de siempre (con la huella que ya eligio, si la tiene).
+	if ab.carga_turnos > 0:
+		_enemy_begin_charge(e, ab, victima if victima is Combatant else null, true)
+		return
+	e.charging = null
+	e.charge_left = 0
+	if victima is Combatant and _pantalla.tactico and not _pantalla.turno_mapa.solo_a_si_mismo(ab) 			and not ((victima as Combatant).is_alive() and _pantalla.turno_mapa.llega(e, victima)):
+		victima = null   # se le ha ido: a quien tenga a tiro ahora (el sorteo ya mira el alcance)
+	_enemy_use_ability(e, ab, victima if victima is Combatant else null)
+
+
+func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, tras_retraso: bool = false) -> void:
 	e.charging = ab
 	e.charge_left = ab.carga_turnos
-	e.start_cooldown(ab)
-	# EN EL MAPA elige YA donde va a caer y lo deja pintado en rojo: tienes la carga para salirte.
-	if _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
+	if not tras_retraso:
+		e.start_cooldown(ab)   # tras el retraso ya lo arranco al elegirla
+	# EN EL MAPA elige YA donde va a caer y lo deja pintado en rojo: tienes la carga para salirte (tras el retraso,
+	# el sitio ya esta elegido y pintado desde que la eligio).
+	if _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab) 			and not (tras_retraso and _pantalla.turno_mapa.tiene_carga(e)):
 		_pantalla.turno_mapa.guardar_carga_enemigo(e, ab, obj)
 	print("[habilidad enemigo] %s empieza a cargar %s (%d turno%s)" % [
 		e.nombre, ab.nombre, ab.carga_turnos, "" if ab.carga_turnos == 1 else "s"])

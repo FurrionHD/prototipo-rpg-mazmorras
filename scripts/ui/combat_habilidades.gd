@@ -565,6 +565,19 @@ func _empezar_carga_jugador(ab: AbilityData) -> void:
 	_pantalla._tras_accion_jugador_varios([])   # pasa el turno sin rematar a nadie: no ha habido golpe
 
 
+# EL JUGADOR ELIGE UNA HABILIDAD Y SE LE ECHA ATRAS LA BARRA: sale al volver a llegar (_begin_player_turn ->
+# _llega_retrasada). Con la huella pintada en el suelo, como las cargas, para que los demas la vean venir.
+func _empezar_retraso_jugador(ab: AbilityData) -> void:
+	_pantalla._player.charging = ab
+	_pantalla._player.charge_left = 0
+	_pantalla._player.retrasando = true
+	_pantalla.echar_atras(_pantalla._player)
+	print("[habilidad] %s prepara %s: sale al volver a llegar a la barra" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._set_log("⏳ %s prepara %s. (si le aturden, se interrumpe)" % [_pantalla._player.nombre, ab.nombre])
+	_pantalla._fin_de_eleccion()   # cierra la accion: oculta las cajas y repinta (aqui sale el chip ⏳)
+	_pantalla._tras_accion_jugador_varios([])
+
+
 # 'soltando' = esta habilidad viene de una CARGA que acaba de llegar a cero (la dispara
 # _begin_player_turn). Cuando es true no se vuelve a cobrar ni a validar nada: la energia y el
 # cooldown se pagaron al EMPEZAR a cargar, hace dos turnos.
@@ -648,6 +661,18 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 		# llegar su turno (_enemy_turn), y la del JUGADOR pide la orden a su dueño con un boton
 		# "Soltar X" para que elija objetivo (ver _pedir_soltar_carga). Antes se disparaba sola con el
 		# _target_idx de la pantalla, que en multi era el ultimo clic del anfitrion.
+		# EL RETRASO (06/10, CombatPantalla.RETRASO_HABILIDAD): se paga YA (energia, cooldown) y el sitio se elige YA,
+		# pero sale cuando vuelva a llegar a la barra. Tambien las de carga: su carga empieza al llegar.
+		if _pantalla.retrasa(ab):
+			_pantalla._player.spend_energy(coste)
+			_pantalla._player.start_cooldown(ab)
+			# La conversion (Canalizar) funde la energia al comprometerse: el maná, ahora (al salir ya no hay coste).
+			if es_conversion and coste > 0.0:
+				_pantalla._player.regen_mana(coste / ab.energia_a_mana)
+			if en_mapa:
+				_pantalla.turno_mapa.guardar_carga(_pantalla._player, ab)
+			_empezar_retraso_jugador(ab)
+			return
 		if ab.carga_turnos > 0:
 			_pantalla._player.spend_energy(coste)
 			_pantalla._player.start_cooldown(ab)

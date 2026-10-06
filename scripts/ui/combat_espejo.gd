@@ -493,7 +493,7 @@ func _volatil(c: Combatant) -> Dictionary:
 		"amenaza": _amenaza_por_indice(c),
 		"cubre": [_pantalla._aliados.find(c.protegiendo_a) if c.protegiendo_a != null else -1,
 			c.proteger_turnos],
-		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left],
+		"carga": [String(c.charging.resource_path) if c.charging != null else "", c.charge_left, c.retrasando],
 		"imbue": [c.imbue_elemento, c.imbue_pct, c.imbue_usos, c.imbue_cuerpo,
 			c.imbue_estado, c.imbue_prob, c.imbue_prob_doble, c.imbue_por_destreza, c.imbue_prisma,
 			c.imbue_tope, c.imbue_reparto, c.imbue_extra_estado, c.imbue_extra_prob]}
@@ -554,6 +554,7 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	var carga: Array = v.get("carga", ["", 0])
 	c.charging = load(String(carga[0])) if String(carga[0]) != "" else null
 	c.charge_left = int(carga[1])
+	c.retrasando = c.charging != null and carga.size() > 2 and bool(carga[2])   # el retraso (06/10)
 	var imb: Array = v.get("imbue", [])
 	if imb.size() >= 6:
 		c.imbue_elemento = int(imb[0])

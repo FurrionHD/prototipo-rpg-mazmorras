@@ -161,6 +161,16 @@ func _elegir_hechizo(spell: SpellData, aliado: Combatant = null, punto: Variant 
 	_pantalla._cast_aliado = aliado if aliado != null else _pantalla._player
 	if punto is Vector2:
 		_pantalla._casteos[_pantalla._player]["punto"] = punto
+	# EL RETRASO (06/10, CombatPantalla.RETRASO_HABILIDAD): al ELEGIRLO se le echa atras la barra, UNA vez, y la
+	# primera frase se recita al volver a llegar (las demas, turno a turno como siempre). Al llegar aun puede
+	# echarse atras con "Volver": lo que ha perdido es la media barra de espera.
+	if _pantalla.retrasa_hechizo(spell):
+		_pantalla.echar_atras(_pantalla._player)
+		print("[magia] %s elige %s: recita al volver a llegar a la barra" % [_pantalla._player.nombre, spell.nombre])
+		_pantalla._set_log("⏳ %s se concentra para %s..." % [_pantalla._player.nombre, spell.nombre])
+		_pantalla._fin_de_eleccion()
+		_pantalla._state = _pantalla.State.ADVANCING
+		return
 	_mostrar_test(0)
 
 

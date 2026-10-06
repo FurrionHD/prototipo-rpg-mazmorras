@@ -435,7 +435,10 @@ func _chips_de(c: Combatant) -> Array:
 		#
 		# Y con la cuenta a 0 el chip cambia: ya no faltan turnos, esta LISTA y solo espera a que su
 		# dueño elija objetivo (ver _pedir_soltar_carga). Sin esta rama ponia "⏳0t", que no dice nada.
-		if c.charge_left <= 0:
+		if c.retrasando:
+			out.append(["⏳", "PREPARANDO: %s\nSale cuando vuelva a llegar a la barra.\nAturdirlo lo interrumpe." % \
+				c.charging.nombre])
+		elif c.charge_left <= 0:
 			out.append(["⚡!", "%s: LISTA.\nSolo falta elegir a quién." % c.charging.nombre])
 		else:
 			out.append(["⏳%dt" % c.charge_left,
