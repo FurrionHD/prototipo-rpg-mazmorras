@@ -200,10 +200,12 @@ func _correr() -> void:
 	await _esperar(3)
 
 	print("7) ECLIPSE")
-	_poner(tm, al[0], pc + Vector2(-40, 0))
-	al[0].statuses.clear()
+	# (con otro de los tuyos: al primero ya le pudo cegar la Lluvia, y repetir el mismo estado cuesta mas)
+	_poner(tm, al[1], pc + Vector2(-40, 0))
+	al[1].statuses.clear()
 	en._enemy_use_ability(cielo, _ab("slime_eclipse"))
-	_ver(al[0].has_status(StatusEffects.Id.CEGUERA), "deja ciego al que esta cerca")
+	_ver(al[1].has_status(StatusEffects.Id.CEGUERA), "deja ciego al que esta cerca")
+	_poner(tm, al[1], pc + Vector2(0, -400))
 	await _esperar(3)
 
 	print("8) AGUJERO NEGRO")

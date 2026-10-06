@@ -175,7 +175,7 @@ func _correr() -> void:
 		al.statuses.clear()
 		await _esperar(3)
 
-	print("7) JUGADOR, conjuro: una vez, al elegirlo")
+	print("7) JUGADOR, conjuro: una vez, al decir la primera frase")
 	var sp: SpellData = null
 	for s in al.spells:
 		if s != null and not tm.usa_huella_hechizo(s):
@@ -193,15 +193,69 @@ func _correr() -> void:
 		combat._gauge[al] = 0.0
 		combat.magia._elegir_hechizo(sp, null, tm.pies_de(e))
 		_ver(combat._casteos.has(al), "queda recitando")
-		_ver(is_equal_approx(float(combat._gauge[al]), 50.0), "media barra atras: %.1f" % combat._gauge[al])
-		_ver(combat._state == combat.State.ADVANCING, "sin frase todavia: el turno se acaba")
-		combat._player = al
-		combat._gauge[al] = 0.0
-		combat._begin_player_turn()
-		_ver(combat._cast_box.visible, "al llegar, la primera frase")
+		_ver(is_equal_approx(float(combat._gauge[al]), 0.0) and combat._cast_box.visible,
+			"elegirlo no cuesta nada: la primera frase, ya (barra %.1f)" % combat._gauge[al])
 		var f: String = sp.frases[0]
 		combat.magia._responder_frase(f, f)
-		_ver(is_equal_approx(float(combat._gauge[al]), 0.0), "tras la frase NO se echa atras otra vez")
+		_ver(is_equal_approx(float(combat._gauge[al]), -50.0), "al decir la primera, media barra atras: %.1f" % combat._gauge[al])
+		if sp.longitud() > 1:
+			combat._gauge[al] = 0.0
+			combat._player = al
+			combat._state = combat.State.WAITING_PLAYER
+			var f2: String = sp.frases[1]
+			combat.magia._responder_frase(f2, f2)
+			_ver(is_equal_approx(float(combat._gauge[al]), 0.0), "la segunda NO se echa atras otra vez")
+
+	print("8) LA IA: se pone fuera de tu area si desde ahi sigue pegando")
+	combat._casteos.erase(al)
+	al.charging = null
+	if ab != null and tm.usa_huella(ab):
+		for pronto in [true, false]:
+			var cu_e2: Node2D = tm.cuerpo_de(e)
+			cu_e2.global_position = cu_a.global_position + Vector2(24, 0)
+			tm._pos[e] = cu_e2.global_position
+			combat.interrumpir(e)
+			e.statuses.clear()
+			# Tu habilidad esperando, apuntada un poco por detras de el (hay sitio delante, pegado a ti, fuera de ella).
+			al.charging = ab
+			al.retrasando = true
+			var punto: Vector2 = tm.pies_de(e) + Vector2(14, 0)
+			tm._cargas[al] = [ab, punto]
+			var f_hab = tm.forma_de(ab, al, punto)
+			combat._gauge[al] = 95.0 if pronto else -400.0
+			combat._state = combat.State.ADVANCING
+			tm.turno_enemigo(e)
+			var dest = tm._destino
+			if pronto:
+				var off: Vector2 = tm.pies_de(e) - cu_e2.global_position
+				var ok: bool = dest != null
+				if ok:
+					var r_dest: Rect2 = tm.bulto_de(e)
+					r_dest.position += (dest as Vector2) - cu_e2.global_position
+					ok = not f_hab.toca(r_dest) and tm._hueco_desde(e, (dest as Vector2) + off, al) <= tm.alcance_de(e) * tm.ARRIMARSE
+				_ver(ok, "si le va a caer, va a un sitio FUERA de tu area desde el que te sigue pegando (%s)" % [dest])
+			else:
+				_ver(dest == null, "si tu habilidad tarda en salir, no se molesta en moverse")
+			tm._terminar()
+			tm._destino = null
+			tm._cargas.erase(al)
+			al.charging = null
+			combat._state = combat.State.ADVANCING
+		# Y si NO hay sitio desde el que pegarte fuera del area (centrada en el), se queda y pega.
+		al.charging = ab
+		al.retrasando = true
+		var ab_grande: AbilityData = ab.duplicate()
+		ab_grande.forma = CombatFormas.Tipo.CIRCULO
+		ab_grande.forma_radio = 120.0
+		al.charging = ab_grande
+		tm._cargas[al] = [ab_grande, tm.pies_de(e)]
+		combat._gauge[al] = 95.0
+		combat._state = combat.State.ADVANCING
+		tm.turno_enemigo(e)
+		_ver(tm._destino == null, "sin sitio desde el que pegar fuera del area, se queda y pega")
+		tm._terminar()
+		tm._cargas.erase(al)
+		al.charging = null
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

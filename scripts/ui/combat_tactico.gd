@@ -109,6 +109,7 @@ var _foco: Node2D = null
 
 # EL ACERCAMIENTO del enemigo.
 var _presa: Combatant = null
+var _destino = null   # (06/10) a donde va a apartarse de un area tuya (null = se acerca a su presa como siempre)
 var _t_acercar: float = 0.0
 var _t_atasco: float = 0.0
 
@@ -3340,11 +3341,41 @@ static func _acotar(p: Vector2, inicio: Vector2, radio: float, dentro: Rect2) ->
 # Lo llama _process en lugar de enemigos._enemy_turn. Si el bicho no tiene por que andar, actua ya.
 func turno_enemigo(e: Combatant) -> void:
 	_terminar()
+	_destino = null
 	var cuerpo: Node2D = cuerpo_de(e)
 	var radio: float = radio_de(e)
 	var presa: Combatant = _presa_de(e)
 	_tiradas.erase(e)
 	_decididas.erase(e)
+	# COLOCARSE FUERA DE TUS AREAS (06/10, lo pidio el jefe: "que los enemigos sean mas o menos inteligentes... si tienes
+	# un area delante y te puedes poner fuera de ella SIGUIENDO PUDIENDO PEGAR a tu objetivo, lo haces; no que se salgan
+	# siempre sin poder actuar"): si una huella tuya le va a caer ANTES de su proximo turno y hay un sitio a su alcance
+	# FUERA de ella desde el que pega a su presa, va ahi y pega. Si no lo hay, lo de siempre (pegar manda). Provocado, no.
+	if cuerpo != null and radio > 0.0 and presa != null and not e.aturdido() and not _provocado(e):
+		var peligro: Array = formas_peligro(e)
+		var en_area: bool = not peligro.is_empty() and _en_peligro(e, pies_de(e), peligro)
+		var llega_ya: bool = hueco_entre(e, presa) <= alcance_de(e) * ARRIMARSE
+		var sitio = null
+		if not peligro.is_empty() and (en_area or not llega_ya):
+			sitio = _sitio_seguro(e, cuerpo, radio, presa, peligro)
+		if sitio != null:
+			print("[ia] %s se coloca fuera de tu area para pegar a %s" % [e.nombre, presa.nombre])
+			_destino = sitio
+			_quien = e
+			_cuerpo = cuerpo
+			_foco = cuerpo
+			_presa = presa
+			_inicio = cuerpo.global_position
+			_radio = radio
+			_t_acercar = 0.0
+			_t_atasco = 0.0
+			_fase = Fase.ACERCANDO
+			_pantalla._state = _pantalla.State.PAUSED
+			_pantalla._pause_left = INF
+			var arena0: ArenaCombate = _arena()
+			if arena0 != null:
+				arena0.poner_circulo(_inicio, _radio, true)
+			return
 	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal. Y el
 	# que ya tiene a alguien a tiro no se mueve: pega desde donde esta.
 	if cuerpo == null or presa == null or radio <= 0.0 or e.aturdido() \
@@ -3376,6 +3407,9 @@ func turno_enemigo(e: Combatant) -> void:
 func _tick_acercando(delta: float) -> void:
 	var dt: float = delta * _pantalla._vel_pelea
 	_t_acercar += dt
+	if _destino != null:
+		_tick_apartarse(dt, delta)
+		return
 	if not is_instance_valid(_cuerpo) or _presa == null or not _presa.is_alive():
 		_actuar()
 		return
@@ -3402,6 +3436,118 @@ func _tick_acercando(delta: float) -> void:
 			_actuar()
 	else:
 		_t_atasco = 0.0
+
+
+# APARTANDOSE: anda hacia _destino (y al llegar, o atascado, hace su turno de siempre: pega si llega a alguien).
+func _tick_apartarse(dt: float, delta: float) -> void:
+	if not is_instance_valid(_cuerpo):
+		_actuar()
+		return
+	var antes: Vector2 = _cuerpo.global_position
+	var hacia: Vector2 = (_destino as Vector2) - antes
+	if hacia.length() < 1.5 or _t_acercar >= TOPE_ACERCARSE:
+		_destino = null
+		_actuar()
+		return
+	var nueva: Vector2 = paso(antes, hacia.normalized() * minf(VEL_ACERCARSE * dt, hacia.length()), _inicio, _radio,
+		_dentro(_arena()), _puede_estar.bind(_cuerpo))
+	_colocar(_quien, _cuerpo, nueva)
+	_animar(_cuerpo, hacia, true, (nueva - antes) / maxf(delta, 0.0001))
+	_apuntar_bicho(_cuerpo, true)
+	_t_envio += delta
+	if _t_envio >= ENVIO_BICHOS:
+		_t_envio = 0.0
+		_enviar_bichos()
+	if nueva.distance_to(antes) < ATASCO_PX:
+		_t_atasco += dt
+		if _t_atasco >= ATASCO_T:
+			_destino = null
+			_actuar()
+	else:
+		_t_atasco = 0.0
+
+
+# ------------------------------------------------------------
+#  LA IA QUE SE APARTA (06/10)
+# ------------------------------------------------------------
+# Lo que tus personajes van a soltar y se ve en el suelo: las cargas y habilidades retrasadas con su huella, y los
+# conjuros apuntados que ya estan para disparar. Solo lo que le cae ANTES de que vuelva a actuar (si al conjuro le
+# quedan frases, o la carga sale despues, no tiene prisa). Las que caen sobre los tuyos (buffs) no cuentan.
+
+func formas_peligro(e: Combatant) -> Array:
+	var out: Array = []
+	var t_e: float = _pantalla.UMBRAL / maxf(e.spd(), 0.01)   # lo que tarda en volver a actuar
+	for c in _pantalla._aliados_vivos():
+		var cc: Combatant = c
+		var t_c: float = maxf(_pantalla.UMBRAL - float(_pantalla._gauge.get(cc, 0.0)), 0.0) \
+			/ maxf(cc.cast_spd() if _pantalla._casteos.has(cc) else cc.spd(), 0.01)
+		if t_c > t_e:
+			continue   # vuelve a actuar el antes: ya se apartara si hace falta
+		# SU CARGA o SU HABILIDAD RETRASADA, si sale en su proximo turno.
+		var d: Array = _cargas.get(cc, [])
+		if d.size() >= 2 and cc.charging != null and not cc.charging.forma_a_aliados \
+				and (cc.retrasando and cc.charging.carga_turnos <= 0 or not cc.retrasando and cc.charge_left <= 1):
+			var f = forma_de(d[0], cc, d[1])
+			if f != null:
+				out.append(f)
+		# SU CONJURO, si ya lo tiene recitado (el proximo turno lo suelta) y apuntado.
+		if _pantalla._casteos.has(cc):
+			var k: Dictionary = _pantalla._casteos[cc]
+			var sp = k.get("spell")
+			var pt = k.get("punto")
+			if sp is SpellData and pt is Vector2 and int(k.get("idx", 0)) >= (sp as SpellData).longitud() \
+					and usa_huella_hechizo(sp) and not (sp as SpellData).forma_a_aliados:
+				var fh = forma_de(huella_hechizo(sp), cc, pt)
+				if fh != null:
+					out.append(fh)
+	return out
+
+
+func _provocado(e: Combatant) -> bool:
+	for c in _pantalla._aliados_vivos():
+		if c.provocar_turnos > 0 and e in c.provocados:
+			return true
+	return false
+
+
+# El hueco de 'a' a 'b' si 'a' tuviera los pies en 'pies' (hueco_entre, en un sitio supuesto).
+func _hueco_desde(a: Combatant, pies: Vector2, b: Combatant) -> float:
+	var r: Rect2 = bulto_de(b)
+	var cerca := Vector2(clampf(pies.x, r.position.x, r.end.x), clampf(pies.y, r.position.y, r.end.y))
+	return pies.distance_to(cerca) - radio_pisa(a)
+
+
+# ¿Le pilla alguna de 'formas' con los pies en 'pies'? (su cuerpo tal como se ve, movido alli)
+func _en_peligro(e: Combatant, pies: Vector2, formas: Array) -> bool:
+	var r: Rect2 = bulto_de(e)
+	r.position += pies - pies_de(e)
+	for f in formas:
+		if f.toca(r):
+			return true
+	return false
+
+
+# EL SITIO SEGURO: de lo que alcanza andando este turno (anillos alrededor de donde esta), los que no pisa ninguna de
+# 'formas' Y desde los que LLEGA a su presa; de esos, el que menos le hace andar. null = no hay ninguno.
+func _sitio_seguro(e: Combatant, cuerpo: Node2D, radio: float, presa: Combatant, formas: Array):
+	var desde: Vector2 = cuerpo.global_position
+	var off: Vector2 = pies_de(e) - desde
+	var dentro: Rect2 = _dentro(_arena())
+	var mejor = null
+	var nota_mejor: float = INF
+	for anillo in [0.35, 0.65, 1.0]:
+		for k in 16:
+			var p: Vector2 = desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * radio * float(anillo)
+			p = _acotar(p, desde, radio, dentro)
+			if not _puede_estar(p, cuerpo) or _en_peligro(e, p + off, formas):
+				continue
+			if presa != null and _hueco_desde(e, p + off, presa) > alcance_de(e) * ARRIMARSE:
+				continue   # desde ahi no le pega: no le vale
+			var nota: float = p.distance_to(desde)
+			if nota < nota_mejor:
+				nota_mejor = nota
+				mejor = p
+	return mejor
 
 
 func _actuar() -> void:

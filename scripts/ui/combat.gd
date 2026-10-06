@@ -100,8 +100,8 @@ const UMBRAL := 100.0          # cuanto llenar la barra para actuar
 # EL RETRASO DE LAS HABILIDADES (06/10, decision suya, "para un juego mas tactico"): al elegir una habilidad (menos
 # el basico y las preparaciones) se te ECHA ATRAS esta parte de la barra, y la habilidad SALE CUANDO VUELVES A LLEGAR.
 # Mientras, los demas se mueven y actuan (salirse de la huella, ponerse delante, aturdirte). Enemigos y aliados igual.
-# Las de carga: primero el retraso y, al llegar, empieza la carga de siempre. Los conjuros: UNA vez, al elegirlos.
-# Solo en el mapa (la fila no tiene donde salirse). Ver Combatant.retrasando.
+# Las de carga: primero el retraso y, al llegar, empieza la carga de siempre. Los conjuros: UNA vez, al decir la primera
+# frase (no al elegirlos: elegir y echarse atras no cuesta nada). Ver Combatant.retrasando.
 const RETRASO_HABILIDAD := 0.5
 # EL MAS RAPIDO DE LA PELEA llena la barra en este tiempo (a x1), y los demas en proporcion a su
 # velocidad. Antes el ritmo era fijo (velocidad x 10) y en los primeros pisos, con todos lentos, una
@@ -1424,14 +1424,22 @@ func _process(delta: float) -> void:
 			enemigos._enemy_turn(mejor)
 
 
-# ¿Esta habilidad se retrasa? Todas en el mapa, menos las preparaciones (Cargar, Untar: no gastan el turno).
+# ¿Esta habilidad se retrasa? Todas menos las preparaciones (Cargar, Untar: no gastan el turno). Tambien en la pantalla
+# de siempre (06/10: "ya solo deberia existir el tactico"; la de fila queda de reserva donde no cabe la arena).
 func retrasa(ab: AbilityData) -> bool:
-	return tactico and ab != null and not ab.es_preparacion()
+	return ab != null and not ab.es_preparacion()
 
 
-# ¿Y este conjuro? Todos en el mapa (una vez, al elegirlo).
+# ¿Y este conjuro? Todos (una vez, al decir la primera frase).
 func retrasa_hechizo(spell: SpellData) -> bool:
-	return tactico and spell != null
+	return spell != null
+
+
+# EL RETRASO DE LA MAGIA: tras decir la primera frase, media barra mas hasta la siguiente.
+func retrasar_tras_frase(c: Combatant) -> void:
+	if c != null and _gauge.has(c):
+		_gauge[c] = float(_gauge[c]) - UMBRAL * RETRASO_HABILIDAD
+		print("[magia] %s dice la primera frase: la siguiente tarda media barra mas" % c.nombre)
 
 
 # Le echa atras la barra a 'c': como si acabara de llegar y tuviera que recorrer otra vez RETRASO_HABILIDAD de ella.

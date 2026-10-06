@@ -161,16 +161,6 @@ func _elegir_hechizo(spell: SpellData, aliado: Combatant = null, punto: Variant 
 	_pantalla._cast_aliado = aliado if aliado != null else _pantalla._player
 	if punto is Vector2:
 		_pantalla._casteos[_pantalla._player]["punto"] = punto
-	# EL RETRASO (06/10, CombatPantalla.RETRASO_HABILIDAD): al ELEGIRLO se le echa atras la barra, UNA vez, y la
-	# primera frase se recita al volver a llegar (las demas, turno a turno como siempre). Al llegar aun puede
-	# echarse atras con "Volver": lo que ha perdido es la media barra de espera.
-	if _pantalla.retrasa_hechizo(spell):
-		_pantalla.echar_atras(_pantalla._player)
-		print("[magia] %s elige %s: recita al volver a llegar a la barra" % [_pantalla._player.nombre, spell.nombre])
-		_pantalla._set_log("⏳ %s se concentra para %s..." % [_pantalla._player.nombre, spell.nombre])
-		_pantalla._fin_de_eleccion()
-		_pantalla._state = _pantalla.State.ADVANCING
-		return
 	_mostrar_test(0)
 
 
@@ -301,6 +291,11 @@ func _responder_frase(elegida: String, correcta: String) -> void:
 		# atrasado, porque los chips solo se rehacen desde aqui.
 		_pantalla._update_hp()
 		_pantalla._fin_de_eleccion()
+		# EL RETRASO DE LA MAGIA (06/10, su correccion: "no al elegirla, al decir la primera frase; asi no te comes el
+		# medio turno por la cara"): elegirla y echarse atras no cuesta nada; al decir BIEN la primera frase se le echa
+		# atras media barra (la siguiente tarda turno y medio), el mismo medio turno que pagan las habilidades. Una vez.
+		if _pantalla._cast_index == 1 and _pantalla.retrasa_hechizo(_pantalla._cast_spell):
+			_pantalla.retrasar_tras_frase(_pantalla._player)
 		_pantalla._state = _pantalla.State.ADVANCING
 	else:
 		_backfire(elegida, correcta)
