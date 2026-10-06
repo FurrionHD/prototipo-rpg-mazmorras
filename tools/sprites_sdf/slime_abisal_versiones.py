@@ -259,7 +259,7 @@ def _borde_arriba(a):
     return pts, (xs.min(), xs.max(), y0, y1)
 
 
-def llamas_2d(img, t, n=150, semilla=5):
+def llamas_2d(img, t, n=190, semilla=5):
     a = np.asarray(img)[:, :, 3]
     if not a.any():
         return img
@@ -270,23 +270,27 @@ def llamas_2d(img, t, n=150, semilla=5):
     delante = Image.new('RGBA', img.size, (0, 0, 0, 0))
     parts = []
     for i in range(n):
-        frente = i < n * 0.18
+        # (06/10, su diagnostico: "menos alto, no solo atras": la CUPULA arde entera, tambien por delante)
+        frente = i < n * 0.45
         if frente:
-            # por delante de la cupula: de la mitad de arriba del cuerpo, hacia dentro del borde
-            px = rng.uniform(x0 + (x1 - x0) * 0.2, x1 - (x1 - x0) * 0.2)
-            py = y0 + h * rng.uniform(0.08, 0.3)
+            # por delante: sobre toda la mitad de arriba del cuerpo (dentro de su silueta)
+            while True:
+                px = rng.uniform(x0, x1)
+                py = y0 + h * rng.uniform(0.04, 0.48)
+                if a[int(py), int(px)] > 0:
+                    break
             lado = 0.0
         else:
             px, py, lado = pts[rng.integers(len(pts))]
         vueltas = 1 if rng.random() < 0.6 else 2
         fase = rng.random()
         u = (t * vueltas + fase) % 1.0
-        sube = h * rng.uniform(0.55, 0.95) * (u ** 0.9)
+        sube = h * (rng.uniform(0.18, 0.32) if frente else rng.uniform(0.28, 0.5)) * (u ** 0.9)
         fuera = lado * h * rng.uniform(0.05, 0.15) * u
         mece = math.sin(u * 5.0 + fase * 6.28) * h * 0.05 * u
         x = px + fuera + mece
         y = py - sube
-        r = h * rng.uniform(0.05, 0.085) * (1.0 - u) ** 0.7 + 0.6
+        r = h * (rng.uniform(0.04, 0.065) if frente else rng.uniform(0.05, 0.08)) * (1.0 - u) ** 0.7 + 0.6
         parts.append((u, x, y, r, frente))
     # las viejas (arriba, oscuras) primero; las jovenes (claras) encima
     for u, x, y, r, frente in sorted(parts, key=lambda q: -q[0]):
@@ -295,7 +299,7 @@ def llamas_2d(img, t, n=150, semilla=5):
         col = _col_fuego(u)
         # (estirada hacia arriba: se lee como lengua de llama, no como burbuja)
         dr.ellipse([round(x - r * 0.75), round(y - r * 1.45), round(x + r * 0.75), round(y + r * 0.8)],
-                   fill=col + (alfa if not frente else round(alfa * 0.85),))
+                   fill=col + (alfa,))
     out = Image.alpha_composite(detras, img)
     return Image.alpha_composite(out, delante)
 
