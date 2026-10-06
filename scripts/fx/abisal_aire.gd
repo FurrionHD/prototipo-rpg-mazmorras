@@ -11,6 +11,13 @@
 #               ENCIENDE (nucleo blanco y halo azul) y se apaga; en cada punta un destello.
 #    MIRADA     un rayo de la Mirada estelar: igual pero gordo, con los bordes cian y magenta (los iris de sus ojos).
 #    PARPADEO   el Parpadeo cegador: un FOGONAZO de luz en abanico que sale de el por el cono, con rayos y motas.
+#    ECLIPSE    el Eclipse (06/10, SUYO: "no reutilices nuestras magias"): sobre su cabeza se enciende una estrella y una
+#               LUNA NEGRA se le pone delante hasta dejar solo un anillo de luz; a la vez SU NOCHE se derrama por el suelo
+#               desde sus pies (cielo oscuro con estrellas que se van apagando y un borde de medias lunas negras con su
+#               pincelada clara rota, el lenguaje de la oscuridad). Aguanta y se le recoge dentro.
+#    AGUJERO    el Agujero negro (06/10, suyo): una bolita de noche sale de el y cae en el sitio; alli se abre un REMOLINO
+#               de cielo nocturno (brazos curvos azul noche con el filo claro) que se TRAGA las estrellas en espiral hacia
+#               un centro negro con un anillo de luz; tira dos veces y se cierra en un punto con un destello.
 #  SOBRE EL SUELO, quieta mientras dure la pelea:
 #    EstrellaSuelo (estrella()) la estrella que deja al moverse: una estrella pequeña de cuatro puntas flotando un pelo
 #               sobre el suelo, que titila, con su resplandor en el suelo. secar() = se apaga en un destello.
@@ -19,7 +26,7 @@
 extends Node2D
 class_name AbisalAire
 
-enum Modo { LLUVIA, RAYO, MIRADA, PARPADEO, ESTRELLA }
+enum Modo { LLUVIA, RAYO, MIRADA, PARPADEO, ECLIPSE, AGUJERO, ESTRELLA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -49,6 +56,24 @@ const ALTO_RAYO := 9.0          # a que altura van (de pecho a pecho)
 # EL PARPADEO
 const T_FOGONAZO := 0.22
 const T_APAGA_FOGONAZO := 0.4
+
+# EL ECLIPSE
+const T_ENCIENDE := 0.22         # la estrella sobre su cabeza
+const T_TAPA := 0.3              # la luna negra se le pone delante (a la vez se derrama la noche)
+const T_VIVE_NOCHE := 0.7
+const T_RECOGE := 0.45
+const ALTO_ECLIPSE := 64.0     # (sobre su cabeza: el slime grande mide ~45)
+const NOCHE := Color(0.05, 0.06, 0.16)
+const NOCHE_CLARA := Color(0.16, 0.2, 0.42)
+const PINCEL := Color(0.78, 0.82, 0.95)
+
+# EL AGUJERO NEGRO
+const V_BOLITA := 320.0
+const T_ABRE := 0.3
+const T_TIRON := 0.28
+const TIRONES_AGUJERO := 2
+const T_CIERRA_AGUJERO := 0.35
+const BRAZOS := 5
 
 # LA ESTRELLA DEL SUELO
 const ALTO_ESTRELLA := 6.0
@@ -170,7 +195,16 @@ static func retraso(m: int, f: CombatFormas.Forma, p: Vector2) -> float:
 			return T_TRAZA * u
 		Modo.PARPADEO:
 			return T_FOGONAZO * clampf(p.distance_to(f.origen) / maxf(f.radio, 1.0), 0.0, 1.0)
+		Modo.ECLIPSE:
+			return T_ENCIENDE + T_TAPA * clampf(p.distance_to(f.centro) / maxf(f.radio, 1.0), 0.0, 1.0)
+		Modo.AGUJERO:
+			return t_vuela(f) + T_ABRE
 	return 0.0
+
+
+# Lo que tarda la bolita del Agujero negro en llegar (su 'ancho' = lo lejos que esta quien la lanza).
+static func t_vuela(f: CombatFormas.Forma) -> float:
+	return maxf(f.ancho - 6.0, 0.0) / V_BOLITA
 
 
 static func t_salir(m: int) -> float:
@@ -178,6 +212,8 @@ static func t_salir(m: int) -> float:
 		Modo.LLUVIA: return T_MARCA + T_CAE
 		Modo.RAYO, Modo.MIRADA: return T_TRAZA
 		Modo.PARPADEO: return T_FOGONAZO
+		Modo.ECLIPSE: return T_ENCIENDE + T_TAPA
+		Modo.AGUJERO: return T_ABRE
 	return 0.2
 
 
@@ -186,6 +222,8 @@ func duracion() -> float:
 		Modo.LLUVIA: return T_MARCA + T_ENTRE * float(maxi(n_fugaces - 1, 0)) + T_CAE + T_IMPACTO + 0.2
 		Modo.RAYO, Modo.MIRADA: return T_TRAZA + T_RAYO + T_APAGA_RAYO
 		Modo.PARPADEO: return T_FOGONAZO + T_APAGA_FOGONAZO
+		Modo.ECLIPSE: return T_ENCIENDE + T_TAPA + T_VIVE_NOCHE + T_RECOGE + 0.1
+		Modo.AGUJERO: return t_vuela(forma) + T_ABRE + T_TIRON * float(TIRONES_AGUJERO) + T_CIERRA_AGUJERO + 0.2
 	return INF
 
 
@@ -211,6 +249,8 @@ func _pintar(capa: Node2D) -> void:
 		Modo.RAYO: _rayo(capa, false)
 		Modo.MIRADA: _rayo(capa, true)
 		Modo.PARPADEO: _parpadeo(capa)
+		Modo.ECLIPSE: _eclipse(capa)
+		Modo.AGUJERO: _agujero(capa)
 		Modo.ESTRELLA: _estrella(capa)
 
 
@@ -355,6 +395,160 @@ func _parpadeo(capa: Node2D) -> void:
 		var a2: float = ang + (float(m["a"]) / TAU - 0.5) * 2.0 * ab
 		var q: Vector2 = o + Vector2(cos(a2), sin(a2)) * r * float(m["d"]) - Vector2(0.0, 6.0 * apaga * float(m["v"]))
 		capa.draw_circle(q, float(m["r"]), Color(LUZ, 0.85 * (1.0 - apaga)))
+
+
+# ------------------------------------------------------------
+#  EL ECLIPSE (suyo)
+# ------------------------------------------------------------
+func _eclipse(capa: Node2D) -> void:
+	var c: Vector2 = forma.centro
+	var R: float = forma.radio
+	var t_noche: float = _t - T_ENCIENDE
+	var abre: float = clampf(t_noche / T_TAPA, 0.0, 1.0)
+	abre = 1.0 - (1.0 - abre) * (1.0 - abre)
+	var t_rec: float = _t - (T_ENCIENDE + T_TAPA + T_VIVE_NOCHE)
+	var recoge: float = clampf(t_rec / T_RECOGE, 0.0, 1.0)
+	var r: float = R * abre * (1.0 - recoge * recoge)
+	if capa == _suelo:
+		if r < 1.0:
+			return
+		# SU NOCHE por el suelo: translucida (se ve quien esta dentro), mas oscura en el centro.
+		BarridoAire.brillo(capa, c, r * 1.05, Color(NOCHE, 0.75))
+		MagiaAire._anillo(capa, c, r * 0.92, r * 0.5, Color(NOCHE, 0.45))
+		# Las estrellas de su cielo, que se van apagando mientras dura.
+		var apaga: float = clampf(t_noche / (T_TAPA + T_VIVE_NOCHE), 0.0, 1.0)
+		for i in _motas.size():
+			var m: Dictionary = _motas[i]
+			var q: Vector2 = c + Vector2(cos(float(m["a"])), sin(float(m["a"]))) * r * float(m["d"]) * 0.9
+			var vive: float = clampf(1.0 - apaga * 1.6 + float(i) / float(_motas.size()) * 0.6, 0.0, 1.0)
+			if vive > 0.05:
+				BarridoAire.destello(capa, q, 3.2 * float(m["r"]) * vive, Color(LUZ, vive), float(m["a"]))
+		# EL BORDE: medias lunas negras que van girando, con su pincelada clara rota en el filo.
+		for k in 9:
+			var a: float = TAU * float(k) / 9.0 + _t * 0.6 + _fase
+			_media_luna(capa, c, a, r, 0.42, r * 0.16, Color(NOCHE, 0.95), Color(PINCEL, 0.55 * (1.0 - recoge)))
+		return
+	# EN EL AIRE, sobre su cabeza: la estrella que se enciende y la luna negra que la tapa.
+	var o: Vector2 = c - Vector2(0.0, ALTO_ECLIPSE * K)
+	var enc: float = clampf(_t / T_ENCIENDE, 0.0, 1.0)
+	var vivo: float = enc * (1.0 - recoge)
+	if vivo <= 0.01:
+		return
+	BarridoAire.brillo(capa, o, 16.0 * vivo, Color(LUZ, 0.35 * vivo))
+	var tapa: float = abre if recoge <= 0.0 else 1.0 - recoge
+	# El anillo de luz que queda alrededor de la luna (mas fino cuanto mas la tapa).
+	MagiaAire._anillo(capa, o, 8.5, lerpf(4.0, 1.4, tapa), Color(BLANCO, vivo))
+	if tapa < 0.95:
+		BarridoAire.destello(capa, o, 12.0 * (1.0 - tapa) * vivo, Color(BLANCO, vivo), _fase)
+	# LA LUNA NEGRA, entrando de lado hasta ponerse delante; con un destello de diamante en el borde al cerrar.
+	var lado: Vector2 = Vector2(cos(_fase), sin(_fase) * 0.4).normalized() * 9.0 * (1.0 - tapa)
+	capa.draw_circle(o + lado, 7.6, Color(0.01, 0.01, 0.03, vivo))
+	if tapa > 0.9 and recoge <= 0.0:
+		var dia: Vector2 = o + Vector2(cos(_fase + 2.0), sin(_fase + 2.0)) * 8.6
+		BarridoAire.destello(capa, dia, 6.0 * clampf((t_noche - T_TAPA * 0.9) / 0.15, 0.0, 1.0), Color(BLANCO, 1.0), 0.4)
+
+
+# UNA MEDIA LUNA rellena (el lenguaje de la oscuridad): un arco grueso en el borde, afilado en las puntas, con su
+# pincelada clara rota en el filo de fuera.
+func _media_luna(capa: Node2D, c: Vector2, a: float, r: float, largo: float, grueso: float, col: Color,
+		pincel: Color) -> void:
+	if r < 2.0:
+		return
+	var n: int = 10
+	var fuera := PackedVector2Array()
+	var dentro := PackedVector2Array()
+	for i in n + 1:
+		var u: float = float(i) / float(n)
+		var ang: float = a + (u - 0.5) * largo * 2.0
+		var g: float = grueso * sin(PI * u)
+		fuera.append(c + Vector2(cos(ang), sin(ang)) * (r + g * 0.35))
+		dentro.append(c + Vector2(cos(ang), sin(ang)) * (r - g * 0.65))
+	dentro.reverse()
+	var pv := fuera.duplicate()
+	pv.append_array(dentro)
+	capa.draw_colored_polygon(pv, col)
+	# La pincelada: trocitos del filo de fuera (rota: uno si, uno no).
+	for i in range(1, n - 1, 2):
+		capa.draw_line(fuera[i], fuera[i + 1], pincel, 1.2)
+
+
+# ------------------------------------------------------------
+#  EL AGUJERO NEGRO (suyo)
+# ------------------------------------------------------------
+func _agujero(capa: Node2D) -> void:
+	var c: Vector2 = forma.centro
+	var R: float = forma.radio
+	var tv: float = t_vuela(forma)
+	var desde: Vector2 = c - forma.dir.normalized() * forma.ancho if forma.dir != Vector2.ZERO else c
+	if _t < tv:
+		# LA BOLITA de noche que sale de el (con sus brillos) y vuela en arco hasta el sitio.
+		if capa == _delante:
+			var u: float = clampf(_t / maxf(tv, 0.01), 0.0, 1.0)
+			var p: Vector2 = desde.lerp(c, u) - Vector2(0.0, (14.0 + sin(PI * u) * 18.0) * K)
+			BarridoAire.brillo(capa, p, 9.0, Color(NOCHE_CLARA, 0.6))
+			capa.draw_circle(p, 4.2, NOCHE)
+			BarridoAire.destello(capa, p + Vector2(1.5, -1.5), 3.5, Color(LUZ, 0.9), _t * 6.0)
+		return
+	var t2: float = _t - tv
+	var abre: float = clampf(t2 / T_ABRE, 0.0, 1.0)
+	abre = 1.0 - (1.0 - abre) * (1.0 - abre)
+	var t_cierra: float = t2 - T_ABRE - T_TIRON * float(TIRONES_AGUJERO)
+	var cierra: float = clampf(t_cierra / T_CIERRA_AGUJERO, 0.0, 1.0)
+	# En cada tiron se aprieta un poco y vuelve.
+	var tiron: float = 0.0
+	if t2 > T_ABRE and t_cierra < 0.0:
+		var ft: float = fmod(t2 - T_ABRE, T_TIRON) / T_TIRON
+		tiron = sin(PI * ft) * 0.12
+	var r: float = R * abre * (1.0 - tiron) * (1.0 - cierra * cierra)
+	var giro: float = _t * 3.2 + _fase
+	if capa == _suelo:
+		if r < 1.0:
+			return
+		BarridoAire.brillo(capa, c, r * 1.1, Color(NOCHE, 0.6))
+		# LOS BRAZOS del remolino: cielo de noche en espiral hacia dentro, con el filo claro.
+		for k in BRAZOS:
+			_brazo(capa, c, giro + TAU * float(k) / float(BRAZOS), r)
+		return
+	if r < 1.0:
+		if cierra >= 1.0 and t_cierra < T_CIERRA_AGUJERO + 0.2:
+			BarridoAire.destello(capa, c - Vector2(0.0, 4.0), 12.0, Color(BLANCO, 1.0 - (t_cierra - T_CIERRA_AGUJERO) / 0.2), 0.3)
+		return
+	# LAS ESTRELLAS QUE SE TRAGA: dan vueltas cada vez mas cerca del centro y se apagan al caer.
+	for i in _motas.size():
+		var m: Dictionary = _motas[i]
+		var vida: float = fmod(float(m["d"]) + t2 * 0.7 * float(m["v"]), 1.0)
+		var rr: float = r * (1.0 - vida)
+		var ang: float = float(m["a"]) + giro * 1.4 + vida * 5.0
+		var q: Vector2 = c + Vector2(cos(ang), sin(ang)) * rr
+		BarridoAire.destello(capa, q, 3.0 * float(m["r"]) * (1.0 - vida * 0.7), Color(LUZ, 0.9 * (1.0 - vida)), ang)
+	# EL CENTRO: negro, con su anillo de luz (el horizonte) que late con los tirones.
+	var rc: float = maxf(r * 0.16, 3.0)
+	BarridoAire.brillo(capa, c, rc * 2.6, Color(AZUL, 0.35))
+	MagiaAire._anillo(capa, c, rc * 1.15, 1.6 + tiron * 8.0, Color(LUZ, 0.95))
+	capa.draw_circle(c, rc, Color(0.0, 0.0, 0.02))
+
+
+# UN BRAZO del remolino: una espiral que se estrecha hacia el centro, azul noche, con el filo de fuera claro (pincel).
+func _brazo(capa: Node2D, c: Vector2, a0: float, r: float) -> void:
+	var n: int = 14
+	var fuera := PackedVector2Array()
+	var dentro := PackedVector2Array()
+	for i in n + 1:
+		var u: float = float(i) / float(n)           # 0 = fuera, 1 = centro
+		var rr: float = r * (1.0 - u * 0.86)
+		var ang: float = a0 + u * 2.6
+		var g: float = r * 0.2 * sin(PI * (0.15 + u * 0.85)) * (1.0 - u * 0.5)
+		var d := Vector2(cos(ang), sin(ang))
+		fuera.append(c + d * (rr + g * 0.5))
+		dentro.append(c + d * (rr - g * 0.5))
+	dentro.reverse()
+	var pv := fuera.duplicate()
+	pv.append_array(dentro)
+	capa.draw_colored_polygon(pv, Color(NOCHE_CLARA, 0.85))
+	# La sombra de dentro del brazo y su pincelada clara rota.
+	for i in range(0, n - 1, 2):
+		capa.draw_line(fuera[i], fuera[i + 1], Color(PINCEL, 0.6), 1.3)
+		capa.draw_line(dentro[i], dentro[i + 1], Color(NOCHE, 0.9), 2.0)
 
 
 # ------------------------------------------------------------

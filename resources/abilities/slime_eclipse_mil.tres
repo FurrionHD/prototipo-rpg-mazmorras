@@ -20,7 +20,7 @@ efectos = [SubResource("SA_ceg")]
 dano_mult = 0.0
 cooldown = 5
 fx_anim = &"eclipse"
-; (06/10, el abisal) circulo alrededor suyo; el dibujo es el Eclipse de las magias (MagiaMayor).
+; (06/10, el abisal) circulo alrededor suyo; su dibujo propio (AbisalAire.ECLIPSE: su noche por el suelo y la luna negra sobre el).
 forma = 1
 forma_apunte = 2
 forma_desde_quien_ataca = true

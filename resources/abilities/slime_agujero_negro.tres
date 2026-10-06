@@ -23,7 +23,7 @@ carga_turnos = 1
 fx_anim_carga = &"encogido"
 fx_anim = &"escupir"
 fx_anim_interrumpe = &"idle"
-; (06/10, el abisal) circulo a distancia que atrae 50 px hacia su centro; el dibujo es la Voragine (MagiaMayor).
+; (06/10, el abisal) circulo a distancia que atrae 50 px hacia su centro; su dibujo propio (AbisalAire.AGUJERO: remolino de cielo nocturno).
 forma = 1
 forma_apunte = 3
 forma_radio = 70.0
