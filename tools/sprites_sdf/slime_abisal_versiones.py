@@ -260,48 +260,67 @@ def _borde_arriba(a):
 
 
 def llamas_2d(img, t, n=190, semilla=5):
-    a = np.asarray(img)[:, :, 3]
-    if not a.any():
+    return llamas_campo(img, t)
+
+
+# EL FUEGO NEGRO COMO UNA SOLA LLAMA (06/10, su diagnostico de las particulas: "no parece fuego"; su referencia: una masa
+# azul marino que FLUYE, con vetas curvas mas claras por dentro, puntas que se rizan y el corazon blanco). Un CAMPO de
+# fuego sobre la cupula: alto donde nace (la mitad de arriba del cuerpo) y bajando hacia arriba y a los lados, retorcido
+# por un ruido que SUBE con el tiempo (la fase da la vuelta entera: el ultimo fotograma casa con el primero). Se pinta
+# POR BANDAS, como el pixel art: el borde casi negro, la masa azul marino, y las VETAS (indigo y azul claro) donde el
+# campo cruza ciertos valores; mas arriba, jirones sueltos.
+def llamas_campo(img, t, alto=0.8, ladeo=0.18):
+    a = np.asarray(img)[:, :, 3].astype(float) / 255.0
+    H, W = a.shape
+    ys, xs = np.nonzero(a > 0.5)
+    if len(xs) == 0:
         return img
-    pts, (x0, x1, y0, y1) = _borde_arriba(a)
+    x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     h = float(y1 - y0)
-    rng = np.random.default_rng(semilla)
-    detras = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    delante = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    parts = []
-    for i in range(n):
-        # (06/10, su diagnostico: "menos alto, no solo atras": la CUPULA arde entera, tambien por delante)
-        frente = i < n * 0.45
-        if frente:
-            # por delante: sobre toda la mitad de arriba del cuerpo (dentro de su silueta)
-            while True:
-                px = rng.uniform(x0, x1)
-                py = y0 + h * rng.uniform(0.04, 0.48)
-                if a[int(py), int(px)] > 0:
-                    break
-            lado = 0.0
-        else:
-            px, py, lado = pts[rng.integers(len(pts))]
-        vueltas = 1 if rng.random() < 0.6 else 2
-        fase = rng.random()
-        u = (t * vueltas + fase) % 1.0
-        sube = h * (rng.uniform(0.18, 0.32) if frente else rng.uniform(0.28, 0.5)) * (u ** 0.9)
-        fuera = lado * h * rng.uniform(0.05, 0.15) * u
-        mece = math.sin(u * 5.0 + fase * 6.28) * h * 0.05 * u
-        x = px + fuera + mece
-        y = py - sube
-        r = h * (rng.uniform(0.04, 0.065) if frente else rng.uniform(0.05, 0.08)) * (1.0 - u) ** 0.7 + 0.6
-        parts.append((u, x, y, r, frente))
-    # las viejas (arriba, oscuras) primero; las jovenes (claras) encima
-    for u, x, y, r, frente in sorted(parts, key=lambda q: -q[0]):
-        dr = ImageDraw.Draw(delante if frente else detras)
-        alfa = 255 if u < 0.65 else round(255 * (1.0 - (u - 0.65) / 0.35))
-        col = _col_fuego(u)
-        # (estirada hacia arriba: se lee como lengua de llama, no como burbuja)
-        dr.ellipse([round(x - r * 0.75), round(y - r * 1.45), round(x + r * 0.75), round(y + r * 0.8)],
-                   fill=col + (alfa,))
-    out = Image.alpha_composite(detras, img)
-    return Image.alpha_composite(out, delante)
+    cx = (x0 + x1) / 2.0
+    rx = (x1 - x0) / 2.0
+    # la parte de arriba de cada columna del cuerpo (de donde nace el fuego), un poco hacia dentro: la cupula arde
+    techo = np.full(W, np.nan)
+    for x in range(int(x0), int(x1) + 1):
+        col = np.nonzero(a[:, x] > 0.5)[0]
+        if len(col):
+            techo[x] = col[0]
+    # (fuera del cuerpo, el techo de la columna mas cercana)
+    idx = np.arange(W)
+    ok = ~np.isnan(techo)
+    techo = np.interp(idx, idx[ok], techo[ok])
+    Y, X = np.mgrid[0:H, 0:W].astype(float)
+    T = 2.0 * math.pi * t
+    Hf = h * alto
+    nace = techo[None, :] + h * 0.30                 # nace en la cupula (por delante tambien arde, sin tapar los ojos)
+    v = (nace - Y) / Hf                              # 0 donde nace, 1 en lo mas alto
+    # el ancho: la llama es del ancho del cuerpo y se estrecha (y se ladea) al subir
+    u = (X - cx - ladeo * h * np.clip(v, 0, 1) ** 1.5) / (rx * (1.05 - 0.45 * np.clip(v, 0, 1)))
+    ancho = np.clip(1.0 - u * u, 0.0, 1.0)
+    # el RUIDO que sube y se retuerce (ondas que se desplazan hacia arriba, con el eje X torcido por otra)
+    k = 1.0 / max(h, 1.0)
+    Xw = X + h * 0.10 * np.sin(Y * k * 9.0 + T) + h * 0.05 * np.sin(Y * k * 17.0 - X * k * 5.0 + 2 * T)
+    ruido = (0.55 * np.sin(Xw * k * 11.0 + Y * k * 7.0 + T) +
+             0.35 * np.sin(Xw * k * 19.0 - Y * k * 4.0 + 2 * T + 1.3) +
+             0.25 * np.sin(Xw * k * 31.0 + Y * k * 13.0 + 3 * T + 0.7))
+    # (el ruido solo DENTRO de la forma de la llama: sin esto salian jirones sueltos por todo el fondo)
+    envuelve = np.clip(ancho * 3.0, 0.0, 1.0) * np.clip((1.25 - v) * 3.0, 0.0, 1.0)
+    F = ancho ** 0.55 * (1.0 - v) + 0.32 * ruido * np.clip(v + 0.3, 0.2, 1.0) * envuelve
+    # por debajo de donde nace no hay fuego (la mitad de abajo del cuerpo queda limpia)
+    F = np.where(v < 0.0, F * np.clip(1.0 + v * 5.0, 0.0, 1.0), F)
+    out = np.asarray(img).astype(float).copy()
+    def pinta(mask, col, alfa=1.0):
+        for c in range(3):
+            out[:, :, c] = np.where(mask, out[:, :, c] * (1.0 - alfa) + col[c] * alfa, out[:, :, c])
+        out[:, :, 3] = np.where(mask, np.maximum(out[:, :, 3], 255.0 * alfa), out[:, :, 3])
+    llama = F > 0.30
+    pinta(llama, (6, 5, 18))                                  # el borde, casi negro
+    pinta(F > 0.36, (20, 18, 56))                            # la masa azul marino
+    pinta((F > 0.50) & (F < 0.57), (52, 50, 150))            # la veta indigo
+    pinta((F > 0.66) & (F < 0.71), (115, 130, 236))          # la veta azul clara
+    pinta(F > 0.86, (60, 58, 165))                           # donde arde mas, otra vez indigo
+    pinta(F > 0.93, (175, 190, 255))                         # y su corazon
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 
 
 FILAS = [
