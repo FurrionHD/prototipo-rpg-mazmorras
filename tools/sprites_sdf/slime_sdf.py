@@ -46,15 +46,23 @@ VARIANTES = {
     # EL SLIME PUNZANTE (06/10, la version C de slime_versiones: "es justo lo que queria"): el OTRO mutante de 1a categoria
     # del slime normal. Puas de cristal por fuera con su costra, sin yemas; pasiva de espinas y su ataque, EXPANDIR PUAS.
     'pun120': (1.20, 'punzante', 'ff2b2b'),
+    # LOS MUTANTES DEL SLIME VENENOSO (06/10, lo eligio el jefe de slime_veneno_versiones.py 'elegido'): UNA LINEA.
+    # SLIME DE MIASMA (1a, x1,2 del venenoso): poros abiertos por donde le sale el humo A RATOS (el humo lo pone el juego,
+    # en sitios al azar). SLIME PESTILENTE (2a, x1,1 del miasma): ademas, burbujitas por toda la piel (las que revientan
+    # al azar las pone el juego). Solo con las anims del VENENOSO (+ comer, evolucion, aspirar/exhalar, soltar_burbujas).
+    'mia138': (1.38, 'miasma', '47d552'),
+    'pes152': (1.518, 'pestilente', '47d552'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
 # El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
 # SOLO EL SLIME NORMAL (s100) y sus evoluciones: lo pidio para el normal ("no te inventes cosas"); los demas, cuando toque.
-CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120')
+CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
+# Las dos del venenoso comparten piel (poros; la 2a, burbujas).
+TOXICO = FORMA in ('miasma', 'pestilente')
 
 
 def _lienzo(escala):
@@ -86,14 +94,17 @@ def _materiales(forma, color):
             'parpado': [osc(c, 0.12), c, cla(c, 0.12)],
             'pestana': [osc(c, 0.62)] * 3,
             # LA COSTRA (2a evolucion): gel cuajado y opaco alrededor de donde le sale una pua.
-            'costra': [osc(c, 0.55), osc(c, 0.38), osc(c, 0.18)]}
+            'costra': [osc(c, 0.55), osc(c, 0.38), osc(c, 0.18)],
+            # LA AMPOLLA (mutantes del venenoso): el borde de los poros y las burbujas, verde amarillento claro y opaco.
+            'ampolla': [osc((0.74, 0.95, 0.36), 0.22), (0.74, 0.95, 0.36), cla((0.74, 0.95, 0.36), 0.35),
+                        cla((0.74, 0.95, 0.36), 0.75)]}
 
 
 LIENZO, PIES = _lienzo(ESCALA)
 BORDE = (0.16, 0.03, 0.05) if FORMA == 'lava' else osc(hexc(COLOR), 0.58)
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
                 brillan=('ojo', 'gema') + (('lava',) if FORMA == 'lava' else ()), corta_suelo=True,
-                especular=('gel', 'cuerno', 'cristal'), umbral_especular=0.955,
+                especular=('gel', 'cuerno', 'cristal', 'ampolla'), umbral_especular=0.955,
                 # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
                 translucidos=() if FORMA == 'lava' else ('gel', 'cuerno'), alfa=0.72)
 MODELO.alfa_dentro = 0.42
@@ -101,7 +112,7 @@ MODELO.alfa_dentro = 0.42
 MODELO.claros_dentro = ('cristal', 'nucleo')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
-PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120')
+PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152')
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
@@ -123,9 +134,12 @@ def POSE(**k):
     #   cerrados   los ojos CERRADOS (solo para sacar la hoja de los parpados, ver PARPADOS)
     #   evo2       0..1: la TRANSFORMACION de brotado a 2a evolucion (0 = aun es el brotado; 1 = con todas las puas)
     #   puas       largo de las puas de la 2a (1 = las suyas; al LANZARLAS se le van y le vuelven a crecer)
+    #   poros      tamaño de los poros del miasma/pestilente (aspirando se le cierran; exhalando se le abren de golpe)
+    #   burb       tamaño de las burbujas del pestilente (al SOLTARLAS se le hinchan, se le van y le vuelven a salir)
+    #   (en el MIASMA, 'evo' = le salen los poros viniendo del venenoso; en el PESTILENTE, las burbujas viniendo del miasma)
     #   (en el BROTADO PUNZANTE, 'evo' = le brotan las yemas viniendo del punzante; en el PUNZANTE, sus puas viniendo del normal)
     p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False, evo2=1.0,
-             puas=1.0)
+             puas=1.0, poros=1.0, burb=1.0)
     p.update(k)
     return p
 
@@ -146,6 +160,10 @@ def _en(p):
     en = p.get('encoge', 1.0)
     if FORMA in ('brotado', 'punzante'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
+    elif FORMA == 'miasma':
+        en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
+    elif FORMA == 'pestilente':
+        en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'puas':
         # (transformandose desde el brotado o desde el punzante, empieza del tamaño de ellos: el brotado punzante es x1,1)
         g = min(p.get('evo', 1.0), p.get('evo2', 1.0))
@@ -219,6 +237,8 @@ def escena(pose):
             _brotes(e, C, R, sz, pose)
         if FORMA in ('puas', 'punzante'):
             _puas(e, C, R, pose)
+        if TOXICO:
+            _piel_toxica(e, C, R, sz, pose)
         # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
             base, n = _superficie((0.70 * s, 0.05, 0.72), C, R)
@@ -257,7 +277,10 @@ def escena(pose):
             add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0, 'ojo')
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
-        add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=3.4 * en: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
+        # (el venenoso no lleva nucleo: al miasma le aparece al transformarse)
+        rn = 3.4 * en * (_paso(pose['evo'], 0.2, 0.55) if FORMA == 'miasma' else 1.0)
+        if rn > 0.2:
+            add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=rn: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
         # Y LOS CRISTALES: uno en el normal; en el brotado, los que se ha comido (transformandose, el primero ya estaba y
         # los demas aparecen); en la 2a evolucion ninguno dentro: le han salido por fuera.
         if FORMA == 'brotado':
@@ -269,6 +292,11 @@ def escena(pose):
             cris = [(c, eje, l, r * se_van) for (c, eje, l, r) in _CRISTALES_BROTADO]
         elif FORMA == 'normal':
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
+        elif TOXICO:
+            # Dos cristales comidos, pequeños (el venenoso no lleva: le aparecen al transformarse en el miasma).
+            sale = _paso(pose['evo'], 0.25, 0.6) if FORMA == 'miasma' else 1.0
+            cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 2.0 * sale),
+                    ((-5.0, -3.5, 0.5), (-0.4, 0.3, 1.0), 5.3, 1.7 * sale)]
         elif FORMA == 'punzante':
             # El cristal que llevaba el normal se le va al transformarse (le sale por fuera, como sus puas).
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7 * (1.0 - _paso(pose['evo'], 0.30, 0.60)))]
@@ -302,6 +330,38 @@ def _puas(e, C, R, pose):
         cs = _paso(g, 0.35 + i * 0.07, 0.45 + i * 0.07)
         if cs > 0.05:
             e.add(lambda P, b=base, r=radio * 1.25 * en * cs: sd_esfera(P, b, r), 'costra', 0, 'costra')
+
+
+# LA PIEL DE LOS MUTANTES DEL VENENOSO: POROS abiertos (un borde claro con su agujero) por donde le sale el gas, y en
+# el pestilente ademas BURBUJITAS a medio salir. Todo sale de la bola de esta pose (se aplasta y bota con ella).
+_POROS = [((0.80, -0.30, 0.35), 2.1), ((-0.75, -0.40, 0.30), 1.9), ((0.40, -0.75, 0.45), 1.8), ((-0.30, -0.85, 0.15), 2.0)]
+_BURBUJAS = [((0.88, 0.25, -0.05), 2.4), ((-0.55, -0.15, 0.80), 2.0), ((0.15, -0.95, 0.30), 2.6),
+             ((-0.90, 0.20, 0.05), 1.8), ((0.55, -0.40, 0.72), 1.7)]
+
+
+def _piel_toxica(e, C, R, sz, pose):
+    en = _en(pose)
+    fu = (1.0 - pose['derretido']) * (0.55 + 0.45 * min(1.0, sz)) * en
+    for i, (d, r) in enumerate(_POROS):
+        # (transformandose en miasma, se le abren uno a uno)
+        sale = _paso(pose['evo'], 0.30 + i * 0.08, 0.45 + i * 0.08) if FORMA == 'miasma' else 1.0
+        r = r * fu * sale * pose['poros']
+        if r < 0.25:
+            continue
+        base, n = _superficie(d, C, R)
+        c = base + n * r * 0.2
+        e.add(lambda P, c=c, r=r, n=n: np.maximum(sd_esfera(P, c, r), -sd_esfera(P, c + n * r * 0.95, r * 0.55)),
+              'ampolla', 0.5)
+    if FORMA != 'pestilente':
+        return
+    for i, (d, r) in enumerate(_BURBUJAS):
+        # (transformandose en pestilente, le brotan una a una, con un pelin de rebote)
+        sale = _paso(pose['evo'], 0.30 + i * 0.08, 0.42 + i * 0.08)
+        r = r * fu * sale * (1.0 + 0.25 * math.sin(math.pi * sale)) * pose['burb']
+        if r < 0.25:
+            continue
+        base, n = _superficie(d, C, R)
+        e.add(lambda P, c=base + n * r * 0.35, r=r: sd_esfera(P, c, r), 'ampolla', 0.5)
 
 
 # UN CRISTAL: bipiramide alargada (dos conos punta con punta) centrada en 'c', a lo largo de 'eje'.
@@ -434,7 +494,9 @@ def anim_escupir(t):
 
 def anim_muerte(t):
     if BROTADO:
-        return _muerte_brotado(t)   # la 2a tambien: mantiene la pasiva (se encoge y salen las crias)
+        return _muerte_brotado(t)
+    if TOXICO:
+        return _muerte_revienta(t)   # la 2a tambien: mantiene la pasiva (se encoge y salen las crias)
     # Se DERRITE donde esta: un ultimo respingo y se deshace en un charco.
     return POSE(squash=T(t, [(0.0, 1.0), (0.14, 1.16), (0.28, 0.92), (0.45, 0.72), (0.62, 0.58), (0.78, 0.48),
                              (0.90, 0.43), (1.0, 0.42)]),
@@ -529,6 +591,51 @@ def anim_expandir(t):
                 puas=T(t, [(0.0, 0.75), (0.20, 0.70), (0.32, 1.50), (0.55, 1.42), (0.80, 1.05), (1.0, 1.0)]))
 
 
+# ---- LOS MUTANTES DEL VENENOSO (06/10) ----
+# REVIENTA AL MORIR (su pasiva: deja una nube de veneno, la pone el juego): se hincha temblando y REVIENTA de golpe en
+# un charco (su cadaver, como el del venenoso).
+def _muerte_revienta(t):
+    tiembla = (1.0 if int(t * 20) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.40, 0.46))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.14, 1.12), (0.30, 1.26), (0.44, 1.34), (0.52, 0.62), (0.68, 0.50),
+                             (0.84, 0.44), (1.0, 0.42)]) + 0.04 * tiembla * (t < 0.46),
+                derretido=T(t, [(0.0, 0.0), (0.44, 0.0), (0.52, 0.55), (0.68, 0.85), (0.84, 0.97), (1.0, 1.0)]),
+                poros=T(t, [(0.0, 1.0), (0.30, 1.35), (0.44, 1.5), (0.50, 0.0), (1.0, 0.0)]),
+                burb=T(t, [(0.0, 1.0), (0.30, 1.3), (0.44, 1.45), (0.50, 0.0), (1.0, 0.0)]),
+                bote=T(t, [(0.0, 0.0), (0.30, 0.2), (0.44, 0.35), (0.52, 0.0), (1.0, 0.0)]))
+
+
+# LA TRANSFORMACION de venenoso a MIASMA (y de miasma a PESTILENTE): tiembla, se hincha, le salen los poros (o las
+# burbujas) uno a uno y crece. 18 marcos a 10 = 1,8 s, como las del slime normal.
+def anim_evolucion_toxica(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.25, 0.32))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.30, 1.0), (0.40, 1.22), (0.55, 1.06), (0.70, 1.16), (0.82, 0.86),
+                             (0.92, 1.04), (1.0, 1.0)]) + 0.06 * tiembla * (t < 0.32),
+                bote=T(t, [(0.0, 0.0), (0.38, 0.0), (0.45, 0.30), (0.55, 0.0), (0.70, 0.22), (0.82, 0.0), (1.0, 0.0)]),
+                evo=T(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
+# EXHALAR MIASMA (su ataque nuevo): ASPIRAR = la carga, en bucle: se llena de gas, hinchado y temblando, con los poros
+# apretados. EXHALAR = el golpe: se vacia de golpe por los poros (que se le abren de par en par) y se asienta.
+def anim_aspirar(t):
+    tiembla = 1.0 if int(round(t * 8)) % 2 == 0 else -1.0
+    return POSE(squash=1.18 + 0.04 * tiembla, bote=0.30 + 0.05 * tiembla, poros=0.45)
+
+
+def anim_exhalar(t):
+    return POSE(squash=T(t, [(0.0, 1.18), (0.15, 1.24), (0.30, 0.76), (0.50, 0.86), (0.70, 1.04), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.30), (0.15, 0.40), (0.30, -0.15), (0.50, 0.0), (1.0, 0.0)]),
+                poros=T(t, [(0.0, 0.45), (0.15, 0.40), (0.28, 1.70), (0.55, 1.45), (0.80, 1.05), (1.0, 1.0)]))
+
+
+# SOLTAR BURBUJAS (el pestilente, sin carga): se sacude, las burbujas de la piel se le hinchan y SE LE VAN (las que
+# flotan las pone el juego) y le vuelven a salir.
+def anim_soltar_burbujas(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.15, 0.86), (0.30, 1.16), (0.45, 0.92), (0.60, 1.08), (0.80, 0.97),
+                             (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.25, 0.0), (0.32, 0.30), (0.45, 0.0), (0.60, 0.12), (0.75, 0.0), (1.0, 0.0)]),
+                burb=T(t, [(0.0, 1.0), (0.18, 1.35), (0.30, 1.60), (0.36, 0.0), (0.60, 0.15), (0.90, 0.85), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -567,7 +674,18 @@ if BROTADO or FORMA == 'punzante':
     ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_BROTADO}
 # COMER: todos los enemigos comen cristales, pero de momento solo el slime NORMAL y su brotado la llevan (uno a uno).
 # EVOLUCION: la transformacion de normal a brotado vive en la hoja del BROTADO (empieza del tamaño del normal).
-if VAR in ('s100', 'mut120', 'evo2', 'pun120'):
+# Las del VENENOSO y nada mas (06/10): quieto, andar, embestida (el basico y el Placaje), escupir (Rociada y
+# Escupitajo), encajar y morir.
+ANIMS_TOXICO = ('idle', 'walk', 'embestida', 'escupir', 'encaje', 'muerte')
+if TOXICO:
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_TOXICO}
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_toxica)
+    ANIMS['aspirar'] = (8, 12.0, True, 8, anim_aspirar)
+    ANIMS['exhalar'] = (10, 12.0, False, 8, anim_exhalar)
+if FORMA == 'pestilente':
+    ANIMS['soltar_burbujas'] = (10, 12.0, False, 8, anim_soltar_burbujas)
+# (el venenoso tambien come cristales: 06/10, al hacer su arbol)
+if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152'):
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
 if VAR == 'pun120':
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_punzante)
