@@ -43,13 +43,16 @@ VARIANTES = {
     # LA 2a EVOLUCION (05/10, idea suya): el brotado con los cristales ya POR FUERA como puas. Un poco mas grande que el
     # brotado (x1.1, aprobado el 06/10: "quiero que sea un poco mas grande que el brotado").
     'evo2': (1.32, 'puas', 'ff2b2b'),
+    # EL SLIME PUNZANTE (06/10, la version C de slime_versiones: "es justo lo que queria"): el OTRO mutante de 1a categoria
+    # del slime normal. Puas de cristal por fuera con su costra, sin yemas; pasiva de espinas y su ataque, EXPANDIR PUAS.
+    'pun120': (1.20, 'punzante', 'ff2b2b'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
 # El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
 # SOLO EL SLIME NORMAL (s100) y sus evoluciones: lo pidio para el normal ("no te inventes cosas"); los demas, cuando toque.
-CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2')
+CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
 
@@ -98,7 +101,7 @@ MODELO.alfa_dentro = 0.42
 MODELO.claros_dentro = ('cristal', 'nucleo')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
-PARPADOS = VAR in ('s100', 'mut120', 'evo2')
+PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120')
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
@@ -120,6 +123,7 @@ def POSE(**k):
     #   cerrados   los ojos CERRADOS (solo para sacar la hoja de los parpados, ver PARPADOS)
     #   evo2       0..1: la TRANSFORMACION de brotado a 2a evolucion (0 = aun es el brotado; 1 = con todas las puas)
     #   puas       largo de las puas de la 2a (1 = las suyas; al LANZARLAS se le van y le vuelven a crecer)
+    #   (en el BROTADO PUNZANTE, 'evo' = le brotan las yemas viniendo del punzante; en el PUNZANTE, sus puas viniendo del normal)
     p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False, evo2=1.0,
              puas=1.0)
     p.update(k)
@@ -140,11 +144,12 @@ def _paso(x, a, b):
 def _en(p):
     """El tamaño entero de esta pose: el 'encoge' y, transformandose, el del normal (1/1,2) creciendo al del brotado."""
     en = p.get('encoge', 1.0)
-    if BROTADO:
+    if FORMA in ('brotado', 'punzante'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
-    if FORMA == 'puas':
-        # (transformandose desde el brotado, empieza del tamaño de el: la 2a es x1,1)
-        en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo2', 1.0), 0.15, 0.55)
+    elif FORMA == 'puas':
+        # (transformandose desde el brotado o desde el punzante, empieza del tamaño de ellos: el brotado punzante es x1,1)
+        g = min(p.get('evo', 1.0), p.get('evo2', 1.0))
+        en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(g, 0.15, 0.55)
     return en
 
 
@@ -212,7 +217,7 @@ def escena(pose):
     else:
         if BROTADO:
             _brotes(e, C, R, sz, pose)
-        if FORMA == 'puas':
+        if FORMA in ('puas', 'punzante'):
             _puas(e, C, R, pose)
         # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
@@ -264,6 +269,9 @@ def escena(pose):
             cris = [(c, eje, l, r * se_van) for (c, eje, l, r) in _CRISTALES_BROTADO]
         elif FORMA == 'normal':
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
+        elif FORMA == 'punzante':
+            # El cristal que llevaba el normal se le va al transformarse (le sale por fuera, como sus puas).
+            cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7 * (1.0 - _paso(pose['evo'], 0.30, 0.60)))]
         else:
             cris = []
         for c, eje, largo, radio in cris:
@@ -280,16 +288,18 @@ _PUAS = [((0.0, -0.20, 0.98), 11.0, 2.6), ((0.45, -0.62, 0.62), 9.0, 2.2), ((-0.
 def _puas(e, C, R, pose):
     en = _en(pose)
     for i, (d, largo, radio) in enumerate(_PUAS):
-        # Transformandose, le salen UNA A UNA; lanzandolas, se le van (y le vuelven a crecer).
-        sale = _paso(pose['evo2'], 0.35 + i * 0.07, 0.50 + i * 0.07) * pose['puas']
+        # Transformandose, le salen UNA A UNA (el punzante viniendo del normal, el brotado punzante viniendo del brotado);
+        # lanzandolas, se le van (y le vuelven a crecer); EXPANDIENDOLAS, se le alargan.
+        g = pose['evo'] if FORMA == 'punzante' else pose['evo2']
+        sale = _paso(g, 0.35 + i * 0.07, 0.50 + i * 0.07) * pose['puas']
         if sale < 0.05:
             continue
         base, n = _superficie(d, C, R)
         l = largo * 1.25 * en * sale
         c = base + n * (l * 0.26)
-        _cristal(e, c, tuple(n), l, radio * en * min(1.0, 0.4 + sale))
+        _cristal(e, c, tuple(n), l, radio * en * min(1.0, 0.4 + sale) * (1.0 if sale <= 1.0 else 1.0 / sale ** 0.3))
         # La costra sale con su pua (y se queda aunque la lance: es por donde le sale).
-        cs = _paso(pose['evo2'], 0.35 + i * 0.07, 0.45 + i * 0.07)
+        cs = _paso(g, 0.35 + i * 0.07, 0.45 + i * 0.07)
         if cs > 0.05:
             e.add(lambda P, b=base, r=radio * 1.25 * en * cs: sd_esfera(P, b, r), 'costra', 0, 'costra')
 
@@ -485,6 +495,39 @@ def anim_lanzar_puas(t):
                 puas=T(t, [(0.0, 1.0), (0.18, 1.15), (0.30, 1.25), (0.34, 0.0), (0.55, 0.15), (0.85, 0.85), (1.0, 1.0)]))
 
 
+# LA TRANSFORMACION de normal a PUNZANTE (06/10): tiembla, se hincha, el cristal de dentro se le va y le salen las puas
+# una a una con su costra. 18 marcos a 10 = 1,8 s, como la del brotado.
+def anim_evolucion_punzante(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.25, 0.32))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.30, 1.0), (0.40, 0.82), (0.52, 1.20), (0.66, 0.92), (0.80, 1.10),
+                             (0.90, 0.95), (1.0, 1.0)]) + 0.06 * tiembla * (t < 0.32),
+                bote=T(t, [(0.0, 0.0), (0.46, 0.0), (0.52, 0.35), (0.64, 0.0), (0.80, 0.2), (0.90, 0.0), (1.0, 0.0)]),
+                evo=T(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
+# LA TRANSFORMACION de punzante a BROTADO PUNZANTE (06/10): ya tiene las puas; se hincha, le brotan las yemas una a una,
+# el tercer cuerno y los ojos de mas, y crece un poco. Va en la hoja del brotado punzante, como la que viene del brotado.
+def anim_evolucion_desde_punzante(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.25, 0.90), (0.40, 1.24), (0.55, 1.08), (0.70, 1.18), (0.82, 0.84),
+                             (0.92, 1.04), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.38, 0.0), (0.45, 0.35), (0.55, 0.0), (0.70, 0.25), (0.82, 0.0), (1.0, 0.0)]),
+                evo=T(t, [(0.0, 0.0), (0.12, 0.0), (0.88, 1.0), (1.0, 1.0)]))
+
+
+# EXPANDIR PUAS (06/10, el ataque propio del punzante y del brotado punzante): carga de un turno y golpe en circulo
+# alrededor suyo. ERIZAR = la carga, en bucle: se encoge apretado y tiembla con las puas recogidas. EXPANDIR = el golpe:
+# se hincha de golpe y las puas le salen LARGAS hacia fuera, y se le vuelven a recoger.
+def anim_erizar(t):
+    tiembla = 1.0 if int(round(t * 8)) % 2 == 0 else -1.0
+    return POSE(squash=0.84 + 0.04 * tiembla, puas=0.75 + 0.06 * tiembla)
+
+
+def anim_expandir(t):
+    return POSE(squash=T(t, [(0.0, 0.84), (0.20, 0.78), (0.32, 1.22), (0.50, 1.10), (0.72, 0.94), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.28, 0.0), (0.34, 0.30), (0.50, 0.10), (0.65, 0.0), (1.0, 0.0)]),
+                puas=T(t, [(0.0, 0.75), (0.20, 0.70), (0.32, 1.85), (0.55, 1.75), (0.80, 1.05), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -519,18 +562,26 @@ ANIMS = {
 # Las del slime NORMAL y nada mas: quieto, andar, embestida (su basico, el Placaje y el Doble embate), inflar, hinchado,
 # aplaston y deshincharse (el Reventon), encajar y morir (el cadaver es su ultimo fotograma).
 ANIMS_BROTADO = ('idle', 'walk', 'embestida', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encaje', 'muerte')
-if BROTADO:
+if BROTADO or FORMA == 'punzante':
     ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_BROTADO}
 # COMER: todos los enemigos comen cristales, pero de momento solo el slime NORMAL y su brotado la llevan (uno a uno).
 # EVOLUCION: la transformacion de normal a brotado vive en la hoja del BROTADO (empieza del tamaño del normal).
-if VAR in ('s100', 'mut120', 'evo2'):
+if VAR in ('s100', 'mut120', 'evo2', 'pun120'):
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
+if VAR == 'pun120':
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_punzante)
+    ANIMS['lanzar_puas'] = (8, 12.0, False, 8, anim_lanzar_puas)
+if VAR in ('pun120', 'evo2'):
+    ANIMS['erizar'] = (8, 12.0, True, 8, anim_erizar)
+    ANIMS['expandir'] = (10, 12.0, False, 8, anim_expandir)
 if VAR == 'mut120':
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion)
 if VAR == 'evo2':
     # (se llama 'evolucion' igual que la del brotado: cada hoja lleva la transformacion que lleva HASTA ella)
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion2)
     ANIMS['lanzar_puas'] = (8, 12.0, False, 8, anim_lanzar_puas)
+    # (y la que viene del PUNZANTE: el brotado punzante se alcanza por los dos lados)
+    ANIMS['evolucion_punzante'] = (18, 10.0, False, 8, anim_evolucion_desde_punzante)
 
 
 VIEJOS = {'s170': 'slime_556faa_1.70', 's115': 'slime_47d552_1.15', 's150': 'slime_556a80_1.50', 's100': 'slime_ff2b2b_1.00',

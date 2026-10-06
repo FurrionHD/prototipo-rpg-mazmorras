@@ -1,7 +1,7 @@
 {
  "lienzo": [
-  66,
-  60
+  60,
+  54
  ],
  "anims": {
   "idle": {
@@ -98,13 +98,6 @@
   "expandir": {
    "fotogramas": 10,
    "fps": 12.0,
-   "loop": false,
-   "dirs": 8,
-   "parpado": true
-  },
-  "evolucion_punzante": {
-   "fotogramas": 18,
-   "fps": 10.0,
    "loop": false,
    "dirs": 8,
    "parpado": true
