@@ -7,11 +7,38 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_reventon.tres" id="5_rev"]
 [ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="6_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="7_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="8_mut"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
 prob = 0.5
+
+[sub_resource type="Resource" id="MUT_brotado"]
+script = ExtResource("8_mut")
+id = &"brotado"
+nombre = "Slime brotado"
+grado = 1
+sprite = &"mut120"
+se_divide = true
+
+[sub_resource type="Resource" id="MUT_punzante"]
+script = ExtResource("8_mut")
+id = &"punzante"
+nombre = "Slime punzante"
+grado = 1
+sprite = &"pun120"
+espinas = true
+
+[sub_resource type="Resource" id="MUT_brotado_punzante"]
+script = ExtResource("8_mut")
+id = &"brotado_punzante"
+nombre = "Slime brotado punzante"
+grado = 2
+desde = Array[StringName]([&"brotado", &"punzante"])
+sprite = &"evo2"
+se_divide = true
+espinas = true
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -26,6 +53,7 @@ drop_piso_pleno = 3
 al_golpear = [SubResource("SA_peg")]
 fx_basico = 19
 habilidades = [ExtResource("3_plc"), ExtResource("4_dbe"), ExtResource("5_rev")]
+mutaciones = Array[ExtResource("8_mut")]([SubResource("MUT_brotado"), SubResource("MUT_punzante"), SubResource("MUT_brotado_punzante")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_6_8"

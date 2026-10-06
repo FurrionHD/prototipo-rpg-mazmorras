@@ -545,13 +545,14 @@ func _invocar_slime(data: EnemyData) -> Combatant:
 # da maná al morir y su cadaver es extraible, asi que NO lleva la marca de invocado.
 # Devuelve el indice del slot, o -1 si no cabe (entonces el que llama lo pone en cola).
 func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [],
-		es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {}) -> int:
+		es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {},
+		mutacion: StringName = &"") -> int:
 	if data == null or _pantalla._state == _pantalla.State.FINISHED:
 		return -1   # la pelea ya acabo (o se esta cerrando): que se quede fuera
 	# La MUTACION viaja igual que la 't' y la bandera de jefe, y por el motivo de la nota de mas
 	# abajo: este es el SEGUNDO camino de entrada al combate. Sin pasarla aqui, un mini-jefe que
 	# llega de refuerzo entra con las stats de un bicho corriente.
-	var c: Combatant = data.crear_combatant(t, mutante, es_jefe)
+	var c: Combatant = data.crear_combatant(t, mutante, es_jefe, mutacion)
 	# Un JEFE puede entrar de refuerzo a una pelea ya empezada. Sin esto el roster salia sin bandera
 	# y los espejos seguian con la musica de rata (y esta pantalla tampoco cambiaba de pista).
 	c.es_jefe = es_jefe

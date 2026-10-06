@@ -448,6 +448,10 @@ var es_jefe: bool = false
 # stats; esto queda para lo que necesita saberlo DESPUES: cuanta excelia da (ver
 # combat._poder_enemigo) y como se presenta.
 var mutante: bool = false
+# CUAL (06/10, el arbol de mutaciones: brotado, punzante...). Vacio = el mutante generico (o ninguno).
+var mutacion: StringName = &""
+# Su GRADO (0 normal, 1 mutante, 2 la siguiente): elige la tabla de multiplicadores (poder, escala).
+var grado_mut: int = 0
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

@@ -884,7 +884,7 @@ func _foto_de_mis_espejos() -> Dictionary:
 			continue
 		out.append({"ruta": n.data.resource_path, "pos": n.global_position,
 			"t": n.current_t, "zona": -1, "muerto": n.esta_muerto(),
-			"hp": n.hp_restante, "mut": bool(n.mutante), "carga": float(n.carga)})
+			"hp": n.hp_restante, "mut": bool(n.mutante), "mutid": String(n.mutacion), "carga": float(n.carga)})
 	if not out.is_empty():
 		print("[piso] heredo sin foto (se cayo el dueño): la rehago con %d espejos mios" % out.size())
 	return {"enemigos": out}
@@ -904,6 +904,7 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 			# el piso, el mini-jefe volvia convertido en un bicho normal (la memoria en solitario si la
 			# guardaba). El 'pudre' NO viaja: va contra el reloj de expedicion de cada maquina, que no es el mismo.
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
+			"mutid": String(d.get("mutid", "")),
 		})
 	return {"enemigos": out}
 
@@ -951,6 +952,7 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 			"pos": d["pos"], "t": d["t"], "zona": d["zona"], "muerto": d["muerto"],
 			"hp": d.get("hp", -1.0),
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
+			"mutid": String(d.get("mutid", "")),
 		})
 	return {"enemigos": out, "suelo": []}
 

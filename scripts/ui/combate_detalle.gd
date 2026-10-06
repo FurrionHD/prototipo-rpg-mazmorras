@@ -522,7 +522,7 @@ func _sprite_enemigo(c: Combatant) -> AnimatedSprite2D:
 	var ed: EnemyData = load(c.sprite_res) as EnemyData
 	if ed == null:
 		return null
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante, c.mutacion)
 	if frames == null or not frames.has_animation(&"idle_0"):
 		return null
 	var sp := AnimatedSprite2D.new()

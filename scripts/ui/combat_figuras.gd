@@ -688,7 +688,7 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 	var ed: EnemyData = load(c.sprite_res) as EnemyData
 	if ed == null:
 		return
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante, c.mutacion)
 	if frames == null:
 		return
 	var anim: StringName = &"idle_0"
@@ -737,8 +737,8 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 		# declaren hay_que_estirar, porque la alternativa era una version mutante del generador de
 		# cada uno de los veinte enemigos para decir lo mismo que ya dicen el tinte y el aura.
 		# (El que trae SPRITE DE MUTANTE propio ya lo midio arriba con su tamaño: no se le suma otra vez.)
-		if c.mutante and not SpritesEnemigo.mutante_propio(ed):
-			alto_base *= float(EnemyData.mult_mutante(c.es_jefe)["escala"])
+		if c.mutante and not SpritesEnemigo.mutante_propio(ed, c.mutacion):
+			alto_base *= float(EnemyData.mult_mutante(c.es_jefe, c.grado_mut)["escala"])
 	fig.set_meta("sprite", sp)
 	fig.set_meta("alto_base", alto_base)
 	# LA VUELTA A REPOSO, enganchada UNA SOLA VEZ y aqui, que es donde nace el sprite. Conectarla
@@ -747,7 +747,7 @@ func _poner_sprite(fig: ColorRect, c: Combatant) -> void:
 	sp.animation_finished.connect(_on_anim_sprite_terminada.bind(sp))
 	fig.add_child(sp)
 	sp.play()
-	Parpadeo.poner(sp, SpritesEnemigo.parpados_de(ed, c.sprite_t, c.mutante))   # parpadea tambien peleando
+	Parpadeo.poner(sp, SpritesEnemigo.parpados_de(ed, c.sprite_t, c.mutante, c.mutacion))   # parpadea tambien peleando
 	fig.color = Color(0, 0, 0, 0)   # manda el sprite; el rect se queda solo como caja
 
 

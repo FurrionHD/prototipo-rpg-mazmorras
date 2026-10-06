@@ -52,7 +52,7 @@ static func miniatura_enemigo(c: Combatant) -> Texture2D:
 	var ed: EnemyData = load(c.sprite_res) as EnemyData
 	if ed == null:
 		return null
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(ed, c.sprite_t, c.mutante, c.mutacion)
 	if frames == null or not frames.has_animation(&"idle_0"):
 		return null
 	var tex: Texture2D = frames.get_frame_texture(&"idle_0", 0)

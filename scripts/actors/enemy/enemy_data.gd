@@ -510,7 +510,9 @@ static func eficacia_de_piso(piso: int) -> float:
 # jefe ya es el tope de su piso: aplicarle el x2.6 de vida de la morralla lo volveria imposible POR
 # SORTEO -- te tocaria un muro infranqueable o no, sin que tu hubieras hecho nada distinto. Con los
 # suaves sigue siendo el mismo jefe, una version dura, y ese es el punto.
-const MUTANTE_PROB := 0.01        # 1 de cada 100 bichos que nacen, jefes incluidos
+const MUTANTE_PROB := 0.02        # 2 de cada 100 (06/10: lo subio el jefe de 1 a 2), jefes incluidos
+# LA 2a MUTACION DE NACIMIENTO (06/10): 0,5 %, solo en los enemigos que la tengan en su arbol (ver mutaciones).
+const MUTANTE2_PROB := 0.005
 
 # Los multiplicadores, sobre lo que ese mismo bicho seria en ese mismo piso. AGUANTE muy arriba y
 # daño arriba pero menos: la gracia es que sea un muro que te obliga a sostener la pelea, no que te
@@ -554,12 +556,25 @@ const MUT_JEFE_ESCALA := 1.10
 const MUT_JEFE_BOTIN := 1.5
 const MUT_JEFE_PODER := 1.35
 
+# --- LA 2a MUTACION (06/10, el brotado punzante; tabla APROBADA por el jefe) ---
+# Sobre el enemigo NORMAL, no sobre el mutante. Cristal +2 categorias (ver categoria_cristal).
+const MUT2_HP := 3.60
+const MUT2_ATAQUE := 1.70
+const MUT2_DEFENSA := 1.90
+const MUT2_ESTADOS := 1.70
+const MUT2_ESCALA := 1.32         # x1,1 sobre el de 1a ("un poco mas grande que el brotado")
+const MUT2_BOTIN := 3.0
+const MUT2_PODER := 2.00
+
 
 # Los multiplicadores de la mutacion, segun sea un bicho corriente o el JEFE del piso. En un dict y
 # no en seis ifs sueltos porque los usan cuatro sitios distintos (las stats, el botin, el cristal y
 # la excelia) y separarlos es como se acaba con el jefe llevando el aguante del uno y el botin del
 # otro.
-static func mult_mutante(es_jefe: bool) -> Dictionary:
+static func mult_mutante(es_jefe: bool, grado: int = 1) -> Dictionary:
+	if grado >= 2 and not es_jefe:
+		return {"hp": MUT2_HP, "atk": MUT2_ATAQUE, "def": MUT2_DEFENSA, "est": MUT2_ESTADOS,
+			"escala": MUT2_ESCALA, "botin": MUT2_BOTIN, "poder": MUT2_PODER}
 	if es_jefe:
 		return {"hp": MUT_JEFE_HP, "atk": MUT_JEFE_ATAQUE, "def": MUT_JEFE_DEFENSA,
 			"est": MUT_JEFE_ESTADOS, "escala": MUT_JEFE_ESCALA, "botin": MUT_JEFE_BOTIN,
@@ -598,19 +613,82 @@ static func tinte_mutante() -> Color:
 # Como se llama en la barra de combate y en el log. "mutante" y no "mutado/a" a proposito: es
 # invariable en genero, asi que vale para la rata y para el slime sin una tabla de excepciones (y
 # el dia que haya un bicho con nombre compuesto tampoco hay que tocar nada).
-func nombre_mostrado(mutante: bool = false) -> String:
+func nombre_mostrado(mutante: bool = false, mutacion: StringName = &"") -> String:
+	# Con NOMBRE PROPIO si es una del arbol (06/10: "Slime brotado", no "Slime mutante").
+	var m: MutacionData = mutacion_de(mutacion)
+	if mutante and m != null and not m.nombre.is_empty():
+		return m.nombre
 	return ("%s mutante" % enemy_name) if mutante else enemy_name
 
 
-func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false) -> Combatant:
+# ------------------------------------------------------------
+#  EL ARBOL DE MUTACIONES (06/10)
+# ------------------------------------------------------------
+# Sus mutaciones con nombre (ver MutacionData). Vacio = el mutante generico de siempre.
+@export var mutaciones: Array[MutacionData] = []
+
+
+func mutacion_de(id: StringName) -> MutacionData:
+	if id == &"":
+		return null
+	for m in mutaciones:
+		if m != null and m.id == id:
+			return m
+	return null
+
+
+# El grado de una mutacion: 0 = no es mutante, 1 = mutante (con o sin nombre), 2 = la siguiente.
+func grado_de(mutante: bool, id: StringName) -> int:
+	if not mutante:
+		return 0
+	var m: MutacionData = mutacion_de(id)
+	return m.grado if m != null else 1
+
+
+func _de_grado(g: int, desde: StringName = &"") -> Array:
+	var out: Array = []
+	for m in mutaciones:
+		if m != null and m.grado == g and (desde == &"" or m.desde.has(desde)):
+			out.append(m.id)
+	return out
+
+
+# AL NACER: {"mut": bool, "id": StringName}. La 2a (0,5 %) solo si su arbol la tiene; el mutante (2 %) sale de una de
+# las de grado 1 al azar (50/50 el brotado y el punzante del slime), o el generico si no tiene arbol.
+func tirar_mutacion() -> Dictionary:
+	var r: float = randf()
+	var de2: Array = _de_grado(2)
+	if not de2.is_empty() and r < MUTANTE2_PROB:
+		return {"mut": true, "id": de2[randi() % de2.size()]}
+	if r < MUTANTE2_PROB + MUTANTE_PROB:
+		var de1: Array = _de_grado(1)
+		return {"mut": true, "id": de1[randi() % de1.size()] if not de1.is_empty() else &""}
+	return {"mut": false, "id": &""}
+
+
+# A LA QUE PASA COMIENDO (ver ComerCristales): del normal, una de grado 1 al azar (o el generico); de una de grado 1, una
+# de grado 2 que salga de ella. "" con mutante=false = ya no evoluciona mas.
+func siguiente_mutacion(mutante: bool, id: StringName) -> Dictionary:
+	if not mutante:
+		var de1: Array = _de_grado(1)
+		return {"mut": true, "id": de1[randi() % de1.size()] if not de1.is_empty() else &""}
+	if grado_de(mutante, id) == 1 and id != &"":
+		var de2: Array = _de_grado(2, id)
+		if not de2.is_empty():
+			return {"mut": true, "id": de2[randi() % de2.size()]}
+	return {"mut": false, "id": &""}
+
+
+func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = false,
+		mutacion: StringName = &"") -> Combatant:
 	var fstat: float = Game.enemy_floor_stat_factor()
 	# 'es_jefe' solo se usa para elegir la TABLA de multiplicadores (un jefe mutante va mucho mas
 	# suave, ver mult_mutante). Sin mutacion no cambia nada, asi que pasarlo de mas es inofensivo.
-	var mm: Dictionary = mult_mutante(es_jefe)
+	var mm: Dictionary = mult_mutante(es_jefe, grado_de(mutante, mutacion))
 	var m_hp: float = float(mm["hp"]) if mutante else 1.0
 	var m_atk: float = float(mm["atk"]) if mutante else 1.0
 	var m_def: float = float(mm["def"]) if mutante else 1.0
-	var c := Combatant.new(nombre_mostrado(mutante), level, crear_abilities(t),
+	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t),
 		base_hp * fstat * m_hp,
 		base_attack * fstat * m_atk,
 		base_defense * fstat * m_def,
@@ -651,6 +729,10 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.regen_corta_turnos = regen_corta_turnos
 	# Habilidades del enemigo (KAN-58): tecnicas que puede lanzar en combate.
 	c.habilidades = habilidades
+	# Los ataques de SU mutacion, si los trae (el brotado, el punzante...).
+	var mdat: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat != null and not mdat.habilidades.is_empty():
+		c.habilidades = mdat.habilidades
 	c.prob_habilidad = prob_habilidad
 	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
 	c.elemento = elemento
@@ -688,6 +770,8 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.anim_basico = anim_basico
 	c.alcance = alcance_real()
 	c.mutante = mutante
+	c.mutacion = mutacion if mutante else &""
+	c.grado_mut = grado_de(mutante, mutacion)
 	return c
 
 
@@ -700,8 +784,9 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 # (la otra es el x2 de botin en _tirar_drop), y es la que se nota de verdad: el valor de un cristal va al
 # CUADRADO de su categoria. Se salta el crystal_category_max a proposito: la gracia del mini-jefe es
 # sacarle algo que su especie normal no te va a dar nunca.
-func categoria_cristal(t: float, mutante: bool) -> int:
-	return roll_crystal_category(t) + (1 if mutante else 0)
+func categoria_cristal(t: float, mutante: bool, mutacion: StringName = &"") -> int:
+	# +1 el mutante, +2 la 2a mutacion (06/10, tabla aprobada).
+	return roll_crystal_category(t) + grado_de(mutante, mutacion)
 
 
 # Lo MAS ALTO que suelta su especie sin mutar. Un cristal por encima de esto le "sienta mejor" al

@@ -14401,7 +14401,8 @@ func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	# Los estados que traiga puestos entran con el (el veneno del que huiste y te ha vuelto a pillar).
 	var est: Array = nodo.estados_restantes if "estados_restantes" in nodo else []
 	var slot: int = combat.anadir_enemigo(nodo.data, t, hp, est, bool(nodo.get("es_boss")),
-		bool(nodo.get("mutante")), hueco, muneco_de(nodo))
+		bool(nodo.get("mutante")), hueco, muneco_de(nodo),
+		StringName(nodo.get("mutacion")) if nodo.get("mutacion") != null else &"")
 	if slot < 0:
 		# Pelea llena: A LA COLA, dentro de la pelea.
 		_cola_combate.append(nodo)
@@ -14691,7 +14692,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 		# La MUTACION, como la 't', es del NODO: el mismo .tres pare bichos normales y mini-jefes.
 		# La bandera de jefe va con ella porque un jefe mutante lleva multiplicadores mas suaves.
 		var ec: Combatant = n.data.crear_combatant(t, bool(n.get("mutante")),
-			bool(n.get("es_boss")))
+			bool(n.get("es_boss")), StringName(n.get("mutacion")) if n.get("mutacion") != null else &"")
 		# VIDA ARRASTRADA: si huiste de este bicho, sigue con las heridas que le dejaste. El
 		# Combatant nace siempre a tope (crear_combatant), asi que la vida guardada se aplica
 		# aqui encima. hp_restante < 0 = intacto (nunca ha peleado o ya se curo).
@@ -14996,7 +14997,8 @@ func start_extraction(corpse: Node) -> void:
 	if corpse.has_method("poder_normalizado"):
 		t = corpse.poder_normalizado()
 	# El +1 del MUTANTE va dentro (ver EnemyData.categoria_cristal: la comparte el cadaver podrido).
-	var categoria: int = data.categoria_cristal(t, bool(corpse.get("mutante")))
+	var categoria: int = data.categoria_cristal(t, bool(corpse.get("mutante")),
+		StringName(corpse.get("mutacion")) if corpse.get("mutacion") != null else &"")
 	# Destreza CONSOLIDADA (la del ultimo altar) y con el plato puesto si lo llevas: es la stat de
 	# efecto fuera de combate. No se endurece al subir de nivel (a diferencia de la visible, que cae
 	# a 0) y no se mueve con la excelia que aun no has descansado. Ver stat_consolidado_eff.
@@ -15182,7 +15184,8 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 	# MUTANTE (mini-jefe): suelta como dos. Se aplica a las dos tiradas de material y NO a la de
 	# cocina: lo que tiene que compensar de pelear un mini-jefe es su NUCLEO, que es lo que va al
 	# equipo; que un bicho enorme deje el doble de filetes no le interesa a nadie.
-	var mut: float = float(EnemyData.mult_mutante(bool(corpse.get("es_boss")))["botin"]) \
+	var mut: float = float(EnemyData.mult_mutante(bool(corpse.get("es_boss")), corpse.data.grado_de(true,
+		StringName(corpse.get("mutacion")) if corpse.get("mutacion") != null else &""))["botin"]) \
 		if bool(corpse.get("mutante")) else 1.0
 
 	# CUCHILLO DE DESOLLAR: multiplica, como la suerte, lo que ya tiene el bicho (ver

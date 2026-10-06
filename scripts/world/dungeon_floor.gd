@@ -2588,6 +2588,7 @@ func _guardar_estado() -> void:
 				# escapaste vuelve convertido en un bicho normal (o uno normal en mini-jefe) por el
 				# mero hecho de subir y bajar la escalera.
 				"mut": bool(e.get("mutante")),
+				"mutid": String(e.get("mutacion")) if e.get("mutacion") != null else "",
 				# Los CRISTALES QUE LLEVA COMIDOS (ver ComerCristales). Sin esto, el que iba camino de mutar
 				# volvia en blanco al subir y bajar la escalera. Un espejo no tiene 'comer' -> 0.
 				"carga": float(e.comer.carga) if "comer" in e else 0.0,
@@ -2640,7 +2641,7 @@ func _restaurar_estado() -> void:
 		if era_boss and _boss_radio > 0.0:
 			radio = _boss_radio
 		var e = crear_enemigo(d["data"], d["pos"], radio, float(d["t"]),
-			1 if bool(d.get("mut", false)) else 0, era_boss)
+			1 if bool(d.get("mut", false)) else 0, era_boss, {}, StringName(d.get("mutid", "")))
 		if e == null:
 			continue
 		e.zona_idx = int(d["zona"])
@@ -2817,7 +2818,7 @@ func _crear_capa_vinculos() -> void:
 # 'data' se asigna ANTES de add_child (su _ready lo usa) y se le recoloca DESPUES para
 # re-fijar su "hogar" (si no, deambula hacia el (0,0) y cruza las paredes).
 func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0, mut: int = -1,
-		boss: bool = false, muneco: Dictionary = {}):
+		boss: bool = false, muneco: Dictionary = {}, mutacion: StringName = &""):
 	if data == null:
 		return null
 	var e = _enemy_scene.instantiate()
@@ -2843,6 +2844,7 @@ func crear_enemigo(data: EnemyData, pos: Vector2, radio: float, t: float = -1.0,
 	# un piso restaurado trae la que tenia. Va antes de add_child por lo mismo, y ademas antes de
 	# Net.enemigos.registrar_enemigo, que la manda ya resuelta al otro lado.
 	e.mut_forzada = mut
+	e.mutacion_forzada = mutacion   # CUAL (06/10), con mut = 1
 	# Cuelgan del PADRE del piso (junto al jugador) y no del piso: asi no heredan su
 	# z_index de -1 y no se dibujan por debajo del suelo.
 	var mundo: Node = get_parent()

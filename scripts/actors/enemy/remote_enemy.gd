@@ -41,6 +41,13 @@ var es_boss: bool = false
 # lee con get() para montarle sus multiplicadores, asi que sin esto el invitado pelearia una rata
 # normal donde el anfitrion tiene un mutante con el triple de vida. Llega en el alta (Net.enemigos._datos_enemigo).
 var mutante: bool = false
+# CUAL de su arbol (06/10): brotado, punzante... Llega en el alta y en el aviso de 'muta'.
+var mutacion: StringName = &""
+var _aura_mut: CPUParticles2D = null
+
+
+func _grado() -> int:
+	return data.grado_de(mutante, mutacion) if data != null else (1 if mutante else 0)
 # Los cristales que lleva comidos (ver ComerCristales): solo para pintar su "cargado". La cuenta de verdad
 # la lleva quien simula el piso; aqui llega por red (Net.enemigos.carga_enemigo y el alta).
 var carga: float = 0.0
@@ -152,11 +159,12 @@ func _pintar_elemento(elem: int, einten: float, lado: float) -> void:
 # firma porque el alta que manda el dueño los sigue trayendo (ver Net.enemigos._datos_enemigo) y quitarlos de
 # aqui obligaria a tocar el mensaje — y dos maquinas con builds distintas dejarian de entenderse.
 func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130.0,
-		_medio_angulo: float = 50.0, mut: bool = false) -> void:
+		_medio_angulo: float = 50.0, mut: bool = false, mutid: String = "") -> void:
 	if not ruta.is_empty():
 		data = load(ruta) as EnemyData
 	current_t = t
 	mutante = mut
+	mutacion = StringName(mutid) if mut else &""
 	_montar_sprite()
 	_marcar_mutante()
 	if ya_muerto:
@@ -171,13 +179,13 @@ func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130
 func _montar_sprite() -> void:
 	if data == null or _sprite == null:
 		return
-	var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante)
+	var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante, mutacion)
 	if frames == null:
 		return
 	_cuerpo.visible = false
 	_sprite.visible = true
 	_sprite.sprite_frames = frames
-	Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante))   # los mismos que en el mapa
+	Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante, mutacion))   # los mismos que en el mapa
 	# La textura generada NO es 1 pixel = 1 unidad de mundo: cada generador dice cuanto escalarla.
 	# Y NO se vuelve a estirar con escala_visual: los generadores ya dibujan al bicho grande con mas
 	# celdas, que es lo que mantiene el pixel del mismo tamaño para todos.
@@ -188,8 +196,8 @@ func _montar_sprite() -> void:
 	# porque) que en enemy._marcar_mutante: sin esto, el mini-jefe se veria del tamaño de siempre en
 	# la pantalla del invitado y solo el anfitrion sabria que es enorme.
 	# (Salvo el que trae SPRITE DE MUTANTE propio, ya dibujado a su tamaño: ver SpritesEnemigo.mutante_propio.)
-	if mutante and not SpritesEnemigo.mutante_propio(data):
-		esc *= float(EnemyData.mult_mutante(es_boss)["escala"])
+	if mutante and not SpritesEnemigo.mutante_propio(data, mutacion):
+		esc *= float(EnemyData.mult_mutante(es_boss, _grado())["escala"])
 	_sprite.scale = Vector2.ONE * esc
 	# La linea amarilla es el apaño de los CUADRADOS: quien tiene cara no la necesita, y ademas mide
 	# 26 unidades fijas (un mastil en una rata, invisible dentro del Rey Slime). El aviso del golpe,
@@ -210,9 +218,11 @@ func _marcar_mutante() -> void:
 	_cuerpo.modulate = _tinte_reposo()
 	if _sprite != null:
 		_sprite.modulate = _tinte_reposo()
-	Particulas.ascendentes(self, EnemyData.MUT_AURA, 1.0,
+	if is_instance_valid(_aura_mut):
+		return   # (el que pasa a la 2a ya la lleva)
+	_aura_mut = Particulas.ascendentes(self, EnemyData.MUT_AURA, 1.0,
 		32.0 * maxf(0.1, data.escala_visual
-			* float(EnemyData.mult_mutante(es_boss)["escala"])) if data != null else 32.0)
+			* float(EnemyData.mult_mutante(es_boss, _grado())["escala"])) if data != null else 32.0)
 
 
 # El LATIDO del mutante. Sale de EnemyData, que es de donde lo sacan tambien el nodo del mapa y la
@@ -229,7 +239,14 @@ func _tinte_reposo() -> Color:
 #   'come'  = empieza a comerse un cristal: el picoteo con esquirlas, como en enemy.gesto_comer.
 #   'carga' = se lo ha tragado: su carga nueva (el brillo de "cargado").
 #   'muta'  = muta en vivo: lo mismo que enemy.mutar, con la transformacion si dur > 0.
-func aviso_comer(tipo: String, valor: float) -> void:
+func _alto_fotograma() -> float:
+	if _sprite == null or _sprite.sprite_frames == null or not _sprite.sprite_frames.has_animation(_sprite.animation):
+		return 0.0
+	var tx: Texture2D = _sprite.sprite_frames.get_frame_texture(_sprite.animation, 0)
+	return float(tx.get_height()) if tx != null else 0.0
+
+
+func aviso_comer(tipo: String, valor: float, extra: String = "") -> void:
 	if muerto or data == null:
 		return
 	match tipo:
@@ -240,17 +257,23 @@ func aviso_comer(tipo: String, valor: float) -> void:
 			if _sprite == null or not _sprite.visible:
 				_cuerpo.modulate = _tinte_reposo()
 		"muta":
-			if mutante:
+			if mutante and StringName(extra) == mutacion:
 				return
 			var esc_antes: Vector2 = _sprite.scale if _sprite != null else Vector2.ONE
+			var alto_antes: float = _alto_fotograma()
+			var mult_antes: float = float(EnemyData.mult_mutante(es_boss, _grado())["escala"]) if mutante else 1.0
 			mutante = true
-			# El lado que llego en el alta (radio_extra = (lado - 32) / 2), agrandado como el del mutante.
-			var lado: float = (radio_extra * 2.0 + 32.0) * float(EnemyData.mult_mutante(es_boss)["escala"])
+			mutacion = StringName(extra)
+			# El lado que llego en el alta (radio_extra = (lado - 32) / 2), con la escala de su mutacion nueva.
+			var lado: float = (radio_extra * 2.0 + 32.0) / mult_antes \
+				* float(EnemyData.mult_mutante(es_boss, _grado())["escala"])
 			radio_extra = maxf(0.0, (lado - 32.0) * 0.5)
 			_montar_sprite()     # vuelve a sacar el sprite y la escala, ya de mutante
 			_marcar_mutante()
-			if SpritesEnemigo.mutante_propio(data):
-				esc_antes /= float(EnemyData.mult_mutante(es_boss)["escala"])   # su sprite ya viene x1.2
+			# Que arranque del tamaño que SE VEIA (el sprite nuevo viene dibujado a otro tamaño).
+			var alto_ahora: float = _alto_fotograma()
+			if alto_antes > 0.0 and alto_ahora > 0.0:
+				esc_antes = esc_antes * (alto_antes / alto_ahora)
 			if valor > 0.0:
 				_ENEMY_GD.animar_transformacion(_sprite, esc_antes, valor, self)
 

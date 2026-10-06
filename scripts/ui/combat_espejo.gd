@@ -135,6 +135,8 @@ func _maniqui_de_fila(d: Dictionary) -> Combatant:
 	# Un roster de una version anterior no lo trae y se queda en false: el bicho se ve normal, que es
 	# exactamente lo que pasaba antes de esto.
 	c.mutante = bool(d.get("mut", false))
+	c.mutacion = StringName(d.get("mutid", ""))   # CUAL (06/10): su sprite y su nombre
+	c.grado_mut = int(d.get("mutg", 1 if c.mutante else 0))
 	# LA FICHA DE ESCAPARATE del aliado (aspecto + equipo). No es un PersonajeData de verdad -- no
 	# tiene stats ni inventario --, solo lo justo para que JugadorSprites le monte las capas. Se
 	# cuelga del maniqui porque Game.pj_de_combatant no lo puede encontrar: en un espejo
@@ -210,6 +212,8 @@ func _fila_de_roster(lista: Array) -> Array:
 			# corriente -- sin aura, sin tinte y del tamaño normal -- pegando como un mini-jefe. El
 			# nombre ya le llegaba con el "mutante" puesto, y eso hacia la mentira mas rara todavia.
 			"mut": c.mutante,
+			"mutid": String(c.mutacion),
+			"mutg": c.grado_mut,
 			# DE QUIEN ES el aliado, para colocarlo en su puesto de la formacion (ver _fila_visual_aliados).
 			"uidf": c.uid_formacion,
 			# EL EQUIPO Y EL ASPECTO del aliado, para que el espejo pueda montarle el muñeco. Los

@@ -40,6 +40,8 @@ const MARGEN_SALA_JEFE := 1.15
 # casillas se interpola, porque la carga no va de uno en uno (un dañado suma medio, uno de mas categoria
 # que la suya suma dos). 5 o mas = muta seguro.
 const PROB_POR_CARGA := [0.0, 0.10, 0.25, 0.45, 0.70, 1.0]
+# De una mutacion de 1a a la de 2a hace falta comer MAS (06/10): la misma tabla, con el doble de cristales.
+const CARGA_2A := 2.0
 
 # El color del brillo de "cargado" y de las esquirlas al morder: el cian de los cristales (IconoItem).
 const COLOR_CRISTAL := Color(0.55, 0.95, 1.0)
@@ -243,11 +245,15 @@ func _tragar() -> void:
 	carga += peso_bocado(_bocado, e.data)
 	_bocado = null
 	e.carga_cambiada()
-	if e.mutante:
-		return   # un solo nivel de mutacion por ahora: el que ya muto sigue comiendo, pero no cambia
-	if randf() < prob_mutar(carga):
+	# EL ARBOL (06/10): del normal a una de 1a con la tabla; de una de 1a a la de 2a, "comiendo MAS cantidad que los
+	# normales": la misma tabla con el DOBLE de cristales (CARGA_2A). Al mutar, la carga vuelve a 0 (lo que lleve dentro
+	# ya lo ha gastado en cambiar). El que ya no tiene a donde ir sigue comiendo, pero no cambia.
+	var grado: int = e.data.grado_de(e.mutante, e.mutacion) if e.data != null else 0
+	var p: float = prob_mutar(carga) if grado == 0 else prob_mutar(carga / CARGA_2A)
+	if randf() < p and e.mutar(TRANSFORMACION_DUR):
 		t_transformar = TRANSFORMACION_DUR
-		e.mutar(TRANSFORMACION_DUR)
+		carga = 0.0
+		e.carga_cambiada()
 
 
 # Lo que suma un cristal a la carga. Uno de MAS CATEGORIA que lo mas alto que da su especie cuenta doble

@@ -167,9 +167,10 @@ func _correr() -> void:
 		var mem: Dictionary = Game.memoria_pisos.get(piso._piso_construido, {})
 		var hay: bool = false
 		for d in (mem.get("enemigos", []) as Array):
-			if bool(d.get("mut", false)) and float(d.get("carga", 0.0)) >= 5.0:
+			# (al mutar la carga vuelve a 0: se guarda CUAL es, brotado o punzante)
+			if bool(d.get("mut", false)) and String(d.get("mutid", "")) in ["brotado", "punzante"]:
 				hay = true
-		_ver(hay, "el mutante se guarda con su carga")
+		_ver(hay, "el mutante se guarda con CUAL es")
 
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

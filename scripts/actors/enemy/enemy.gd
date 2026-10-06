@@ -37,6 +37,10 @@ var mutante: bool = false
 #     que te escapaste se convierte en un bicho normal (o al reves) por volver a bajar.
 # Se pone ANTES de add_child porque quien la lee es _ready.
 var mut_forzada: int = -1
+# CUAL de su arbol (06/10: brotado, punzante, brotado punzante; ver MutacionData). Vacio = generico o ninguna. Con
+# mut_forzada = 1, 'mutacion_forzada' dice cual (la memoria del piso y la red la traen puesta).
+var mutacion: StringName = &""
+var mutacion_forzada: StringName = &""
 
 # Zona (sala/pasillo) a la que pertenece. La fija el piso al crearlo; sirve para devolverlo
 # a SU zona al restaurar el piso.
@@ -270,7 +274,13 @@ func _ready() -> void:
 	# por piso la lleva la propia franja (EnemyData.sum_band), no un multiplicador.
 	# Si viene restaurado de la memoria del piso, se respeta la suya (mismas stats que tenia).
 	current_t = t_forzada if t_forzada >= 0.0 else randf()
-	mutante = (mut_forzada == 1) if mut_forzada >= 0 else (randf() < EnemyData.MUTANTE_PROB)
+	if mut_forzada >= 0:
+		mutante = mut_forzada == 1
+		mutacion = mutacion_forzada if mutante else &""
+	elif data != null:
+		var tirada: Dictionary = data.tirar_mutacion()
+		mutante = bool(tirada["mut"])
+		mutacion = tirada["id"]
 
 	if data != null:
 		# Color base + tinte por 't' (los mas fuertes de su franja salen mas claros).
@@ -278,7 +288,7 @@ func _ready() -> void:
 		# SPRITE ANIMADO: quien lo dibuja lo decide SpritesEnemigo (el arte de verdad manda; si no,
 		# el generador de su familia; si no hay ninguno, se queda el ColorRect de siempre). La regla
 		# vive alli y no aqui porque el visor de animaciones tiene que usar EXACTAMENTE la misma.
-		var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante)
+		var frames: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, mutante, mutacion)
 		if frames != null:
 			_color_rect.visible = false
 			_sprite.visible = true
@@ -294,7 +304,7 @@ func _ready() -> void:
 			_anim_actual = "idle_0"
 			_sprite.play(_anim_actual)
 			# LOS PARPADOS, a su aire (ver Parpadeo). Solo los que tienen hoja de parpados (los slimes).
-			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante))
+			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante, mutacion))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
@@ -356,8 +366,10 @@ const MUT_AURA := EnemyData.MUT_AURA
 func _mut_escala() -> float:
 	if not mutante:
 		return 1.0
-	return float(EnemyData.mult_mutante(es_boss)["escala"])
+	return float(EnemyData.mult_mutante(es_boss, data.grado_de(mutante, mutacion) if data != null else 1)["escala"])
 
+
+var _aura_mut: CPUParticles2D = null
 
 func _marcar_mutante() -> void:
 	if not mutante:
@@ -373,7 +385,7 @@ func _marcar_mutante() -> void:
 	# mismo que ya dicen el tinte y el aura. El pixel sale un 20% mas gordo y se nota si lo buscas;
 	# a cambio, un mini-jefe se distingue de su especie a simple vista desde el otro lado de la sala.
 	# Si tiene SPRITE DE MUTANTE propio (05/10, el slime brotado) ya viene dibujado a su tamaño: no se estira.
-	if _sprite.visible and not _sprite_escala_propia and not SpritesEnemigo.mutante_propio(data):
+	if _sprite.visible and not _sprite_escala_propia and not SpritesEnemigo.mutante_propio(data, mutacion):
 		_sprite.scale = Vector2.ONE * _sprite_base_scale * _mut_escala()
 	# EL AURA. Las mismas particulas ASCENDENTES que emana un bicho elemental (el slime de fuego
 	# humea naranja), aqui en rojo y a intensidad maxima: el mutante "arde" de rabia. Se usa ese
@@ -383,7 +395,10 @@ func _marcar_mutante() -> void:
 	# Va DESPUES de _crear_fx_elemental, asi que un slime de fuego mutante lleva las dos: su humo
 	# naranja de siempre Y el aura roja. Es correcto y se lee bien: sigue siendo de fuego, y ademas
 	# esta mutado.
-	Particulas.ascendentes(self, MUT_AURA, 1.0,
+	# (una sola vez: el que pasa a la 2a mutacion ya la lleva puesta)
+	if is_instance_valid(_aura_mut):
+		return
+	_aura_mut = Particulas.ascendentes(self, MUT_AURA, 1.0,
 		32.0 * maxf(0.1, data.escala_visual * _mut_escala()))
 
 
@@ -434,31 +449,54 @@ func carga_cambiada() -> void:
 # tinte, aura -- y conserva la PROPORCION de vida que llevara (si le habias dejado a la mitad, muta a la
 # mitad de su vida nueva). 'dur' > 0 = con la transformacion a la vista: tiembla y crece hasta su tamaño.
 # Si le entras en mitad, la pelea ya es contra el mutante: la bandera se pone aqui, al empezar.
-func mutar(dur: float = 0.0) -> void:
-	if mutante or _dead or data == null:
-		return
+# (06/10) MUTA UN PASO EN SU ARBOL: del normal a una de 1a (brotado o punzante, al 50 %), o de una de 1a a la de 2a que
+# salga de ella. Devuelve false si ya no evoluciona mas.
+func mutar(dur: float = 0.0) -> bool:
+	if _dead or data == null:
+		return false
+	var sig: Dictionary = data.siguiente_mutacion(mutante, mutacion)
+	if not bool(sig["mut"]):
+		return false
+	aplicar_mutacion(sig["id"], dur)
+	return true
+
+
+# Se convierte en la mutacion 'id' (la decide mutar() aqui, o llega por red al espejo). Conserva la PROPORCION de vida.
+func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 	if hp_restante >= 0.0:
-		var antes: float = float(data.crear_combatant(current_t, false, es_boss).max_hp)
-		var despues: float = float(data.crear_combatant(current_t, true, es_boss).max_hp)
+		var antes: float = float(data.crear_combatant(current_t, mutante, es_boss, mutacion).max_hp)
+		var despues: float = float(data.crear_combatant(current_t, true, es_boss, id).max_hp)
 		hp_restante *= despues / maxf(1.0, antes)
 	var esc_antes: Vector2 = _sprite.scale
+	var alto_antes: float = _alto_fotograma()
 	mutante = true
-	# SU SPRITE DE MUTANTE, si lo tiene: viene dibujado x1.2, asi que para que la transformacion arranque del tamaño
-	# que tenia, se empieza encogido en esa proporcion (y crece hasta su escala de siempre).
-	if _sprite.visible and SpritesEnemigo.mutante_propio(data):
-		var sf: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, true)
+	mutacion = id
+	# SU SPRITE DE MUTANTE, si lo tiene (ya viene dibujado a su tamaño).
+	if _sprite.visible and SpritesEnemigo.mutante_propio(data, mutacion):
+		var sf: SpriteFrames = SpritesEnemigo.frames_de(data, current_t, true, mutacion)
 		if sf != null:
 			_sprite.sprite_frames = sf
 			if sf.has_animation(_anim_actual):
 				_sprite.play(_anim_actual)
-			esc_antes /= _mut_escala()
-			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, true))
+			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, true, mutacion))
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
-	print("[comer] %s MUTA tras comer cristales (carga %.1f)" % [data.enemy_name, comer.carga])
-	Net.enemigos.aviso_comer(self, "muta", dur)
+	# La transformacion arranca del tamaño QUE SE VEIA (con el sprite viejo) y crece hasta el de ahora.
+	var alto_ahora: float = _alto_fotograma()
+	if alto_ahora > 0.0 and alto_antes > 0.0:
+		esc_antes = esc_antes * (alto_antes / alto_ahora)
+	print("[comer] %s MUTA en %s (carga %.1f)" % [data.enemy_name, data.nombre_mostrado(true, mutacion), comer.carga])
+	Net.enemigos.aviso_comer(self, "muta", dur, String(mutacion))
 	if dur > 0.0:
 		animar_transformacion(_sprite, esc_antes, dur, self)
+
+
+# Lo que mide el fotograma que se esta viendo (para que la transformacion arranque del tamaño que se veia).
+func _alto_fotograma() -> float:
+	if _sprite == null or _sprite.sprite_frames == null or not _sprite.sprite_frames.has_animation(_sprite.animation):
+		return 0.0
+	var tx: Texture2D = _sprite.sprite_frames.get_frame_texture(_sprite.animation, 0)
+	return float(tx.get_height()) if tx != null else 0.0
 
 
 # LA TRANSFORMACION, provisional hasta que cada enemigo tenga la suya: crece a sacudidas desde su tamaño de
@@ -1820,7 +1858,7 @@ func cristal_podrido() -> Cristal:
 	if extracted or data == null:
 		return null
 	var c := Cristal.new()
-	c.categoria = data.categoria_cristal(poder_normalizado(), mutante)
+	c.categoria = data.categoria_cristal(poder_normalizado(), mutante, mutacion)
 	c.calidad = Cristal.Calidad.DANADO
 	return c
 

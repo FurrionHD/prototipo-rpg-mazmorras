@@ -2753,7 +2753,7 @@ func _poder_enemigo(c: Combatant) -> float:
 	# veces. El factor es lo que cuesta MATARLO, no lo que dice su ficha.
 	if not c.mutante:
 		return suma
-	return suma * float(EnemyData.mult_mutante(c.es_jefe)["poder"])
+	return suma * float(EnemyData.mult_mutante(c.es_jefe, c.grado_mut)["poder"])
 
 
 # Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)
@@ -2877,8 +2877,8 @@ func acabada() -> bool:
 func anadir_aliado(c: Combatant, agotado: bool = false) -> bool:
 	return altas.anadir_aliado(c, agotado)
 
-func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [], es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {}) -> int:
-	return altas.anadir_enemigo(data, t, hp, estados, es_jefe, mutante, hueco, muneco)
+func anadir_enemigo(data: EnemyData, t: float, hp: float = -1.0, estados: Array = [], es_jefe: bool = false, mutante: bool = false, hueco: int = -1, muneco: Dictionary = {}, mutacion: StringName = &"") -> int:
+	return altas.anadir_enemigo(data, t, hp, estados, es_jefe, mutante, hueco, muneco, mutacion)
 
 func esperar_refuerzo(si: bool) -> void:
 	altas.esperar_refuerzo(si)
