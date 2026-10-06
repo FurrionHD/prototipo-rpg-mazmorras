@@ -257,6 +257,10 @@ func aviso_comer(tipo: String, valor: float, extra: String = "") -> void:
 			if _sprite == null or not _sprite.visible:
 				_cuerpo.modulate = _tinte_reposo()
 		"muta":
+			# 'extra' = "<de donde>><a donde>" (06/10; una version vieja manda solo el destino).
+			var partes: PackedStringArray = extra.split(">")
+			var desde_red: StringName = StringName(partes[0]) if partes.size() > 1 else mutacion
+			extra = partes[partes.size() - 1]
 			if mutante and StringName(extra) == mutacion:
 				return
 			var esc_antes: Vector2 = _sprite.scale if _sprite != null else Vector2.ONE
@@ -274,7 +278,7 @@ func aviso_comer(tipo: String, valor: float, extra: String = "") -> void:
 			var alto_ahora: float = _alto_fotograma()
 			if alto_antes > 0.0 and alto_ahora > 0.0:
 				esc_antes = esc_antes * (alto_antes / alto_ahora)
-			if valor > 0.0:
+			if valor > 0.0 and not _ENEMY_GD.gesto_transformacion(self, _sprite, Vector2.RIGHT.rotated(_mira), desde_red, valor):
 				_ENEMY_GD.animar_transformacion(_sprite, esc_antes, valor, self)
 
 

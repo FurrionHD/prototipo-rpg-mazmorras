@@ -469,6 +469,7 @@ func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 		hp_restante *= despues / maxf(1.0, antes)
 	var esc_antes: Vector2 = _sprite.scale
 	var alto_antes: float = _alto_fotograma()
+	var desde: StringName = mutacion
 	mutante = true
 	mutacion = id
 	# SU SPRITE DE MUTANTE, si lo tiene (ya viene dibujado a su tamaño).
@@ -486,8 +487,8 @@ func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 	if alto_ahora > 0.0 and alto_antes > 0.0:
 		esc_antes = esc_antes * (alto_antes / alto_ahora)
 	print("[comer] %s MUTA en %s (carga %.1f)" % [data.enemy_name, data.nombre_mostrado(true, mutacion), comer.carga])
-	Net.enemigos.aviso_comer(self, "muta", dur, String(mutacion))
-	if dur > 0.0:
+	Net.enemigos.aviso_comer(self, "muta", dur, String(desde) + ">" + String(mutacion))
+	if dur > 0.0 and not gesto_transformacion(self, _sprite, _facing, desde, dur):
 		animar_transformacion(_sprite, esc_antes, dur, self)
 
 
@@ -497,6 +498,30 @@ func _alto_fotograma() -> float:
 		return 0.0
 	var tx: Texture2D = _sprite.sprite_frames.get_frame_texture(_sprite.animation, 0)
 	return float(tx.get_height()) if tx != null else 0.0
+
+
+# LA TRANSFORMACION DE VERDAD (06/10): la animacion de su hoja nueva que lleva HASTA ella ('evolucion'; la del brotado
+# punzante viniendo del punzante, 'evolucion_punzante'). Empieza del tamaño de lo que era, asi que no hace falta crecerlo
+# a mano. Mientras dura, la marca 'gesto_comer' no deja que andar/quieto la pisen. false = no la tiene (la provisional).
+static func gesto_transformacion(nodo: Node2D, spr: AnimatedSprite2D, mirada: Vector2, desde: StringName,
+		dur: float) -> bool:
+	if spr == null or not spr.visible or spr.sprite_frames == null:
+		return false
+	var nombre: String = "evolucion_punzante" if desde == &"punzante" else "evolucion"
+	var anim := StringName("%s_%d" % [nombre, SpriteLienzo.dir8(mirada)])
+	if not spr.sprite_frames.has_animation(anim):
+		return false
+	nodo.set_meta("gesto_comer", true)
+	spr.speed_scale = 1.0
+	spr.play(anim)
+	Particulas.esquirlas(nodo, ComerCristales.COLOR_CRISTAL, Vector2.UP, 8, 0.8)
+	var t := nodo.create_tween()
+	t.tween_interval(dur)
+	t.tween_callback(func() -> void:
+		if is_instance_valid(nodo):
+			nodo.remove_meta("gesto_comer")
+			Particulas.esquirlas(nodo, EnemyData.MUT_AURA, Vector2.UP, 12, 1.1))
+	return true
 
 
 # LA TRANSFORMACION, provisional hasta que cada enemigo tenga la suya: crece a sacudidas desde su tamaño de

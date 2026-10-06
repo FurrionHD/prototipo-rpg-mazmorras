@@ -133,6 +133,8 @@ func _correr() -> void:
 	var esc0: float = alto_visto.call()
 	Game.soltar_en_suelo(_cristal(1, Cristal.Calidad.NORMAL), e.global_position + Vector2(40, 0))
 	_ver(await _esperar_a(func() -> bool: return e.mutante, 8.0), "muta")
+	await _esperar(2)
+	_ver(String(e._sprite.animation).begins_with("evolucion"), "con su animacion de transformacion (%s)" % e._sprite.animation)
 	var hp_mut: float = float(sd.crear_combatant(e.current_t, true, false).max_hp)
 	_ver(absf(e.hp_restante - hp_mut * 0.5) < 1.0, "vida a la mitad de la de mutante (%.1f de %.1f)" % [e.hp_restante, hp_mut])
 	await _esperar_a(func() -> bool: return e._state != e.State.COMER, 4.0)
