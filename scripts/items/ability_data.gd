@@ -383,6 +383,27 @@ func es_preparacion() -> bool:
 @export var burbuja_dano: float = 0.6
 @export var burbuja_turnos_min: int = 1
 @export var burbuja_turnos_max: int = 3
+# (06/10, los mutantes del slime ABISAL, solo en el mapa)
+# LLUVIA DE ESTRELLAS: 'estrellas_fugaces' caen AL AZAR dentro de su circulo (los puntos salen de la huella:
+# AbisalAire.puntos_lluvia); a cada uno de los tuyos le pega cada una que caiga a 'fugaz_radio' de su cuerpo.
+@export var estrellas_fugaces: int = 0
+@export var fugaz_radio: float = 20.0
+# CONSTELACION: rayos de luz que unen SUS ESTRELLAS en orden (de la mas vieja a la mas nueva) y la ultima con el; a quien
+# cruce un rayo le pega (una vez). Necesita 'min_estrellas'.
+@export var constelacion: bool = false
+@export var min_estrellas: int = 0
+# MIRADA ESTELAR: rayo de el a su PRESA (la que fijo al cargar, carga_persigue) y uno de CADA ESTRELLA a ella. La presa se
+# lleva un golpe por rayo; a los demas que crucen un rayo, 'rayo_otros' por rayo. Si alguien se pone DELANTE en el rayo
+# principal, se lo come el (y la presa no).
+@export var mirada: bool = false
+@export var rayo_ancho: float = 12.0
+@export var rayo_otros: float = 0.5
+# ATRAE hacia el centro de su huella estos px a quien le entre (el Agujero negro; como la Voragine).
+@export var atrae: float = 0.0
+# NO FALLA: sus golpes no se esquivan (la Mirada estelar).
+@export var infalible: bool = false
+# EL ELEMENTO DE SUS GOLPES si no es el de quien la lanza (-1 = el suyo): las estrellas del abisal son de LUZ.
+@export var elemento_golpe: int = -1
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

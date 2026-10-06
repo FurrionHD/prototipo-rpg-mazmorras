@@ -771,6 +771,11 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.fragil_contundente = mdat2.fragil_contundente
 		c.devuelve_corte_prob = mdat2.devuelve_corte_prob
 		c.devuelve_corte_frac = mdat2.devuelve_corte_frac
+		c.deja_estrellas = mdat2.deja_estrellas
+		c.estrellas_max = mdat2.estrellas_max
+		c.todo_lo_ve = mdat2.todo_lo_ve
+		if mdat2.todo_lo_ve:
+			c.precision += mdat2.precision_extra
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

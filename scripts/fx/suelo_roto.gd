@@ -46,7 +46,11 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	FIERA_ARROLLA, FIERA_CONO, FIERA_ALARIDO,
 	CONSTRUCTO_PETREA, CONSTRUCTO_SISMO,
 	MINO_BARRIDO, MINO_PISOTON, MINO_BRAMIDO,
-	SLIME_PUAS }
+	SLIME_PUAS,
+	ABISAL_LLUVIA, ABISAL_RAYO, ABISAL_MIRADA, ABISAL_PARPADEO, ABISAL_ECLIPSE, ABISAL_AGUJERO }
+# ABISAL_* (06/10, los mutantes del slime abisal): la Lluvia de estrellas, los rayos de la Constelacion y de la Mirada
+# estelar y el Parpadeo cegador viven en AbisalAire; el ECLIPSE y el AGUJERO negro son el Eclipse y la Voragine de las
+# magias (MagiaMayor), lanzados por el. Al final de todo y mirados ANTES que los demas (los >= de abajo los cogerian).
 # SLIME_PUAS (06/10, Expandir puas del slime punzante y del brotado punzante): vive en SlimeAire (Modo.PUAS). Al FINAL
 # a proposito: estos numeros van guardados en las fichas y meterlo entre los SLIME_* corria todos los de detras.
 # MINO_* (el Minotauro, 02/10): el BARRIDO es el Hachazo brutal de HachaAire (barre como su sprite: de su izquierda a su
@@ -130,6 +134,12 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return null
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.area(padre, f, SlimeAire.Modo.PUAS, semilla, espera)
+	if t >= Tipo.ABISAL_LLUVIA:
+		if t == Tipo.ABISAL_ECLIPSE:
+			return MagiaMayor.area(padre, f, MagiaMayor.Modo.ECLIPSE, semilla, espera)
+		if t == Tipo.ABISAL_AGUJERO:
+			return MagiaMayor.area(padre, f, MagiaMayor.Modo.VORAGINE, semilla, espera)
+		return AbisalAire.area(padre, f, t - Tipo.ABISAL_LLUVIA, semilla, espera, roundi(n_nucleo))
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.lanzar(padre, f, HachaAire.Modo.HACHAZO, semilla, espera)
 	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
@@ -192,6 +202,12 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.retraso(SlimeAire.Modo.PUAS, f, p)
+	if t >= Tipo.ABISAL_LLUVIA:
+		if t == Tipo.ABISAL_ECLIPSE:
+			return MagiaMayor.retraso(MagiaMayor.Modo.ECLIPSE, f, p)
+		if t == Tipo.ABISAL_AGUJERO:
+			return MagiaMayor.retraso(MagiaMayor.Modo.VORAGINE, f, p)
+		return AbisalAire.retraso(t - Tipo.ABISAL_LLUVIA, f, p)
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.retraso(HachaAire.Modo.HACHAZO, f, p)
 	if t == Tipo.MINO_PISOTON or t == Tipo.MINO_BRAMIDO:
@@ -245,6 +261,12 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t >= Tipo.ABISAL_LLUVIA:
+		if t == Tipo.ABISAL_ECLIPSE:
+			return MagiaMayor.t_salir(MagiaMayor.Modo.ECLIPSE)
+		if t == Tipo.ABISAL_AGUJERO:
+			return MagiaMayor.t_salir(MagiaMayor.Modo.VORAGINE)
+		return AbisalAire.t_salir(t - Tipo.ABISAL_LLUVIA)
 	if t == Tipo.MINO_BARRIDO:
 		return HachaAire.T_BRUTAL
 	if t == Tipo.MINO_PISOTON:

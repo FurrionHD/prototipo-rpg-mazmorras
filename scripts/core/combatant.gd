@@ -470,6 +470,11 @@ var pasiva_se_apaga_mojado: bool = false
 var fragil_contundente: float = 1.0
 var devuelve_corte_prob: float = 0.0
 var devuelve_corte_frac: float = 0.0
+# (06/10, los del slime ABISAL) DEJA ESTRELLAS al moverse en la pelea (las piezas de sus ataques, ver
+# CombatTactico.poner_estrella) y TODO LO VE (el de mil ojos: sin emboscada contra el, ve el sigilo, mas precision).
+var deja_estrellas: bool = false
+var estrellas_max: int = 6
+var todo_lo_ve: bool = false
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

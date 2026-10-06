@@ -328,13 +328,18 @@ def _trabajo(args):
     im = render(mod.MODELO, L, d)
     # LOS PARPADOS (05/10, los slimes: "que parpadeen y que no sea una vez por repeticion de la animacion"): la misma pose
     # con los ojos CERRADOS, y se guarda SOLO lo que cambia. El juego lo pone encima a ratos, a su aire.
+    # (06/10, el de MIL OJOS: "cada ojo parpadea por su cuenta"): con GRUPOS_PARPADO > 1, una hoja por grupo de ojos.
     par = None
     if getattr(mod, 'PARPADOS', False):
-        cerr = render(mod.MODELO, mod.escena(dict(pose, cerrados=True)), d)
-        a = np.asarray(im).astype(int); b = np.asarray(cerr).astype(int)
-        cambia = (np.abs(a - b).max(axis=2) > 2) & (b[:, :, 3] > 0)
-        o = np.zeros_like(b); o[cambia] = b[cambia]
-        par = Image.fromarray(o.astype(np.uint8), 'RGBA')
+        par = []
+        grupos = getattr(mod, 'GRUPOS_PARPADO', 1)
+        a = np.asarray(im).astype(int)
+        for g in range(1, grupos + 1):
+            cerr = render(mod.MODELO, mod.escena(dict(pose, cerrados=True if grupos == 1 else g)), d)
+            b = np.asarray(cerr).astype(int)
+            cambia = (np.abs(a - b).max(axis=2) > 2) & (b[:, :, 3] > 0)
+            o = np.zeros_like(b); o[cambia] = b[cambia]
+            par.append(Image.fromarray(o.astype(np.uint8), 'RGBA'))
     return (nombre, d, i, im, par)
 
 
@@ -352,17 +357,22 @@ def hornear(modname, nombres, salida, vistas):
     for nm in nombres:
         n, fps, loop, dirs, fn = mod.ANIMS[nm]
         hoja = Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0))
-        hoja_p = Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0))
+        grupos = getattr(mod, 'GRUPOS_PARPADO', 1)
+        hojas_p = [Image.new('RGBA', (W * n, H * dirs), (0, 0, 0, 0)) for _ in range(grupos)]
         hay_p = False
         for (a, d, i, im, par) in hechos:
             if a == nm:
                 hoja.paste(im, (i * W, d * H))
                 if par is not None:
-                    hoja_p.paste(par, (i * W, d * H)); hay_p = True
+                    for g, pg in enumerate(par):
+                        hojas_p[g].paste(pg, (i * W, d * H))
+                    hay_p = True
         hoja.save(salida + nm + '.png')
         if hay_p:
-            hoja_p.save(salida + nm + '_parpado.png')
-        meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs, 'parpado': hay_p}
+            for g, hp in enumerate(hojas_p):
+                hp.save(salida + nm + ('_parpado.png' if g == 0 else '_parpado%d.png' % (g + 1)))
+        meta['anims'][nm] = {'fotogramas': n, 'fps': fps, 'loop': loop, 'dirs': dirs, 'parpado': hay_p,
+                             'grupos_parpado': grupos if hay_p else 0}
         filas = min(dirs, 5)
         vista = Image.new('RGB', (W * n, H * filas), (40, 42, 50))
         recorte = hoja.crop((0, 0, W * n, H * filas))

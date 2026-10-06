@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Mirada estelar"
+descripcion = "Clava todos sus ojos en uno durante un turno y no lo suelta: cuando dispara, sale un rayo de él y otro de cada una de sus estrellas, y todos van a esa víctima. No falla. Se corta aturdiéndolo o poniéndose delante, que se come el rayo principal; y quien cruce cualquier rayo se lleva su parte."
+dano_mult = 0.5
+elemento_golpe = 4
+infalible = true
+cooldown = 5
+carga_turnos = 1
+fx_anim_carga = &"fijar"
+fx_anim = &"mirada"
+fx_anim_interrumpe = &"idle"
+; (06/10, el de mil ojos) marca a UNA presa al cargar (carga_persigue, la linea es solo para eso) y al soltar le tira
+; un rayo de el y uno de cada estrella (CombatTactico.reparto_rayos): un golpe por rayo; a los que crucen, uno por rayo.
+forma = 3
+forma_apunte = 1
+forma_radio = 400.0
+forma_ancho = 12.0
+carga_persigue = true
+mirada = true
+rayo_ancho = 12.0
+rayo_otros = 1.0

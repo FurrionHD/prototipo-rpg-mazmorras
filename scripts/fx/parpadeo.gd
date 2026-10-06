@@ -38,6 +38,29 @@ static func poner(sprite: AnimatedSprite2D, frames: SpriteFrames) -> void:
 	p.texture_filter = sprite.texture_filter
 
 
+# LOS DEMAS GRUPOS DE OJOS (06/10, el slime de mil ojos: "cada ojo parpadea por su cuenta"): una capa mas por grupo
+# ("Parpados2", "Parpados3"...), cada una con su hoja y su propio reloj. Lista vacia = se quitan.
+static func poner_extra(sprite: AnimatedSprite2D, lista: Array) -> void:
+	if sprite == null:
+		return
+	var g: int = 2
+	for frames in lista:
+		var nombre: String = NOMBRE + str(g)
+		var p: Parpadeo = sprite.get_node_or_null(nombre) as Parpadeo
+		if p == null:
+			p = Parpadeo.new()
+			p.name = nombre
+			sprite.add_child(p)
+		p._principal = sprite
+		p.sprite_frames = frames
+		p.texture_filter = sprite.texture_filter
+		g += 1
+	# Las que sobren (cambio a un sprite con menos grupos), fuera.
+	while sprite.get_node_or_null(NOMBRE + str(g)) != null:
+		sprite.get_node(NOMBRE + str(g)).queue_free()
+		g += 1
+
+
 func _ready() -> void:
 	visible = false
 	_espera = randf_range(0.3, ESPERA_MAX)   # que no empiecen todos a la vez

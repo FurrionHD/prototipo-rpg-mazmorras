@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ceg"]
+script = ExtResource("2")
+estado = 33
+prob = 1.0
+turns = 2
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Eclipse"
+descripcion = "Se hincha y se apaga entero: sus estrellas se van y una noche cerrada cae alrededor. Nadie que esté cerca ve nada durante un par de turnos. No hace daño."
+efectos = [SubResource("SA_ceg")]
+dano_mult = 0.0
+cooldown = 5
+fx_anim = &"eclipse"
+; (06/10, el abisal) circulo alrededor suyo; el dibujo es el Eclipse de las magias (MagiaMayor).
+forma = 1
+forma_apunte = 2
+forma_desde_quien_ataca = true
+forma_radio = 80.0
+suelo_roto = 96

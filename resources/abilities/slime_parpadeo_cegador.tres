@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ceg"]
+script = ExtResource("2")
+estado = 33
+prob = 0.75
+turns = 2
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Parpadeo cegador"
+descripcion = "Cierra todos los ojos a la vez y los abre de golpe: un fogonazo de luz en abanico delante de él. Quema un poco y, sobre todo, deja ciego."
+efectos = [SubResource("SA_ceg")]
+dano_mult = 0.5
+elemento_golpe = 4
+cooldown = 3
+fx_anim = &"cegar"
+; (06/10, el de mil ojos) cono delante, 70 de largo y 120 grados.
+forma = 2
+forma_apunte = 1
+forma_radio = 70.0
+forma_apertura = 120.0
+suelo_roto = 95

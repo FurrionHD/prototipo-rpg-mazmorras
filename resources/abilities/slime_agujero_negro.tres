@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_vul"]
+script = ExtResource("2")
+estado = 5
+prob = 1.0
+turns = 2
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Agujero negro"
+descripcion = "Se encoge sobre sí mismo un turno y abre un remolino de la Vorágine a tu lado: te traga hacia el centro y lo que sale de ahí te deja vulnerable. Aturdirlo mientras se encoge lo interrumpe."
+efectos = [SubResource("SA_vul")]
+dano_mult = 1.2
+cooldown = 5
+carga_turnos = 1
+fx_anim_carga = &"encogido"
+fx_anim = &"escupir"
+fx_anim_interrumpe = &"idle"
+; (06/10, el abisal) circulo a distancia que atrae 50 px hacia su centro; el dibujo es la Voragine (MagiaMayor).
+forma = 1
+forma_apunte = 3
+forma_radio = 70.0
+forma_rango = 90.0
+atrae = 50.0
+suelo_roto = 97

@@ -951,7 +951,9 @@ func _ready() -> void:
 		if not _enemies.is_empty():
 			_gauge[_enemies[0]] = INICIATIVA_VENTAJA
 	elif _injected:
-		_gauge[_aliados[0]] = INICIATIVA_VENTAJA
+		# TODO LO VE (el slime de mil ojos): a el no se le embosca.
+		if not _enemies.any(func(x): return (x as Combatant).todo_lo_ve):
+			_gauge[_aliados[0]] = INICIATIVA_VENTAJA
 
 	_continue_button.text = "Continuar"
 	_continue_button.visible = false

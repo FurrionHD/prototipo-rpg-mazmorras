@@ -545,8 +545,15 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	# donde esta), no a la fila. [{c, escala}], el principal el primero. null = como en la fila.
 	var lista_mapa = null
 	var obj: Combatant = null
-	if _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
+	# (06/10, el abisal) LOS RAYOS de la Constelacion y de la Mirada estelar: a quien crucen (con su dibujo).
+	if _pantalla.tactico and (ab.constelacion or ab.mirada):
+		lista_mapa = _pantalla.turno_mapa.reparto_rayos(e, ab, victima)
+		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
+	elif _pantalla.tactico and _pantalla.turno_mapa.usa_huella(ab):
 		lista_mapa = _pantalla.turno_mapa.reparto_enemigo(e, ab, victima)
+		# LA LLUVIA DE ESTRELLAS: no a todos los de la huella, a los que les cae una cerca (y una vez por estrella).
+		if ab.estrellas_fugaces > 0:
+			lista_mapa = _pantalla.turno_mapa.reparto_lluvia(e, ab)
 		obj = (lista_mapa as Array)[0]["c"] if not (lista_mapa as Array).is_empty() else null
 	else:
 		obj = victima if victima != null and victima.is_alive() else _pantalla.objetivos._elegir_objetivo_enemigo()
@@ -555,6 +562,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			obj = e
 	if obj == null:
 		e.start_cooldown(ab)   # la solto igual (contra el suelo): no vale repetirla al turno siguiente
+		# LA LLUVIA DE ESTRELLAS cae igual aunque no pille a nadie (con su gesto): se ve donde ha caido.
+		if lista_mapa != null and ab.estrellas_fugaces > 0 and ab.suelo_roto >= 0 \
+				and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo, randi(),
+				float(ab.estrellas_fugaces))
+			_pantalla.efectos.soltar_suelo()
 		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
@@ -595,7 +610,8 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 				# (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
 				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
 					SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual),
-					ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
+					ab.pisoton_final if ab.pisoton_final > 0.0 else (float(ab.estrellas_fugaces) if ab.estrellas_fugaces > 0
+						else ab.forma_nucleo))
 			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
 			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.turno_mapa.poner_charco(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)
@@ -621,8 +637,13 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 					sub = _enemy_resolver_mitades(e, ab, t, esc, contra_txt == "",
 						es_princ or ab.area_efectos_secundarios, esc_prob)
 				else:
-					sub = _enemy_resolver_golpes(e, ab, t, golpes, esc, contra_txt == "",
+					# (cada uno con SUS golpes si el reparto los dice: la Lluvia de estrellas, la Mirada estelar)
+					sub = _enemy_resolver_golpes(e, ab, t, int(o.get("golpes", golpes)), esc, contra_txt == "",
 						es_princ or ab.area_efectos_secundarios, esc_prob)
+				# EL AGUJERO NEGRO (06/10, el abisal): al que le entra, se lo traga hacia su centro.
+				if lista_mapa != null and ab.atrae > 0.0 and int(sub["conecto"]) > 0 and t.is_alive() \
+						and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+					_pantalla.turno_mapa.pedir_atraccion(t, e, _pantalla.turno_mapa.ultima_forma_enemigo.centro, ab.atrae)
 				# EL EMPUJON (la Marea corrosiva, 28/09): al que le entra, cuando se ve llegar el golpe.
 				if lista_mapa != null and not is_zero_approx(ab.tiron) and int(sub["conecto"]) > 0:
 					_pantalla.turno_mapa.pedir_tiron(t, e, ab.tiron)
@@ -709,6 +730,15 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 	else:
 		# Habilidad de PURO ESTADO (sin daño): tira sus efectos a-objetivo. Si es de area (Bramido,
 		# Alarido), el debuff cae sobre TODA la fila alcanzada; si no, solo sobre el objetivo.
+		# (06/10, el Eclipse del abisal) EN EL MAPA, con su dibujo por el suelo y su gesto (sin golpes no salian).
+		if lista_mapa != null and ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+			_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1 if _pantalla._fx != null else 0)
+			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+			_pantalla.turno_mapa.desde_quien_lanza(e, _pantalla.turno_mapa.ultima_forma_enemigo)
+			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
+				SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual), ab.forma_nucleo)
+			_pantalla.efectos.soltar_suelo()
 		if lista_area != null:
 			for o in lista_area:
 				var t: Combatant = o["c"]
@@ -818,7 +848,23 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 # aqui se siga resolviendo victima a victima (ver _fx_tanda). En el area vale 0 (cada llamada
 # recorre sus golpes desde el principio); en reparto_por_golpe, donde el que llama trae un golpe
 # suelto por vuelta, hay que pasarle el indice o los dos embates del slime caerian encima.
+# (06/10) Con el ELEMENTO de la habilidad si lo pide (las estrellas del abisal son de luz): se le cambia al que la lanza
+# mientras resuelve y se le devuelve el suyo.
 func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpes: int,
+		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
+		tanda_base: int = 0) -> Dictionary:
+	if ab == null or ab.elemento_golpe < 0:
+		return _enemy_resolver_golpes_(e, ab, t, n_golpes, escala, permitir_contra, aplicar_efectos, escala_prob,
+			tanda_base)
+	var suyo: int = e.elemento_ataque
+	e.elemento_ataque = ab.elemento_golpe
+	var r: Dictionary = _enemy_resolver_golpes_(e, ab, t, n_golpes, escala, permitir_contra, aplicar_efectos,
+		escala_prob, tanda_base)
+	e.elemento_ataque = suyo
+	return r
+
+
+func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golpes: int,
 		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
 		tanda_base: int = 0) -> Dictionary:
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
@@ -849,7 +895,8 @@ func _enemy_resolver_golpes(e: Combatant, ab: AbilityData, t: Combatant, n_golpe
 	var anim_ab: StringName = ab.fx_anim if ab != null else &""
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
-		var result := StatsMath.resolve_attack(e, t, defendiendo)
+		# (la Mirada estelar NO FALLA: AbilityData.infalible)
+		var result := StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, ab == null or not ab.infalible)
 		_pantalla._aplicar_pasivas(result, e, t)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])

@@ -20,6 +20,8 @@ const NORMALES := [[1.00, "s100", "ff2b2b"], [1.15, "s115", "47d552"], [1.50, "s
 const _COMUNES_MUT := ["idle", "walk", "embestida", "inflar", "hinchado", "aplaston", "deshincharse", "encaje",
 	"muerte", "cadaver", "comer", "evolucion"]
 const _COMUNES_TOX := ["idle", "walk", "embestida", "escupir", "encaje", "muerte", "cadaver", "comer", "evolucion"]
+const _COMUNES_ABISAL := ["idle", "walk", "embestida", "escupir", "inflar", "hinchado", "aplaston", "deshincharse",
+	"encogido", "encaje", "muerte", "cadaver", "comer", "evolucion", "estrellas", "lluvia", "eclipse"]
 const MUTANTES := {
 	# El BROTADO: yemas con ojitos, tercer cuerno, nucleo y cristales dentro. 'evolucion' = del normal al brotado.
 	&"mut120": ["ff2b2b", 1.20, _COMUNES_MUT],
@@ -37,10 +39,17 @@ const MUTANTES := {
 		"cadaver", "comer", "evolucion"]],
 	&"obs211": ["ff862b", 2.112, ["idle", "walk", "embestida", "escupir", "encaje", "muerte", "cadaver", "comer",
 		"evolucion", "erizar", "expandir", "afilar"]],
+	# LOS DEL ABISAL (06/10): el CIELO NOCTURNO y el de MIL OJOS, con las anims del abisal + las de sus ataques
+	# (estrellas/lluvia, constelar, eclipse; el de mil ojos, cegar y fijar/mirada).
+	&"cie204": ["556faa", 2.04, _COMUNES_ABISAL + ["constelar"]],
+	&"ojo224": ["556faa", 2.244, _COMUNES_ABISAL + ["cegar", "fijar", "mirada"]],
 }
+# EL DE MIL OJOS PARPADEA POR GRUPOS (06/10: "cada ojo parpadea por su cuenta"): una hoja de parpados por grupo de ojos
+# (<anim>_parpado.png, _parpado2..), y cada una la pone una capa de Parpadeo a su aire.
+const GRUPOS_PARPADO := {&"ojo224": 6}
 # LOS QUE NO SE TIÑEN CON EL PISO (06/10): la ceniza (gris) y la obsidiana (negra) no son del color de su slime; el
 # tinte del piso, que sale del naranja del de fuego, los dejaba azules.
-const SIN_TINTE := [&"cen192", &"obs211"]
+const SIN_TINTE := [&"cen192", &"obs211", &"cie204", &"ojo224"]   # (y el cielo de noche: sus estrellas, su azul)
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
 
@@ -74,6 +83,14 @@ const ANIMS := {
 	"exhalar": {"hoja": "exhalar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"soltar_burbujas": {"hoja": "soltar_burbujas", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"afilar": {"hoja": "afilar", "dirs": 8, "marcos": 12, "fps": 12.0, "loop": false, "opcional": true},
+	# LAS DEL CIELO NOCTURNO Y EL DE MIL OJOS (06/10).
+	"estrellas": {"hoja": "estrellas", "dirs": 8, "marcos": 8, "fps": 10.0, "loop": true, "opcional": true},
+	"lluvia": {"hoja": "lluvia", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"eclipse": {"hoja": "eclipse", "dirs": 8, "marcos": 12, "fps": 10.0, "loop": false, "opcional": true},
+	"constelar": {"hoja": "constelar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"cegar": {"hoja": "cegar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"fijar": {"hoja": "fijar", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": true, "opcional": true},
+	"mirada": {"hoja": "mirada", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 }
 
 
@@ -157,6 +174,20 @@ static func parpados_de(ed: EnemyData, t: float, mutante: bool = false, mutacion
 	v = _variante(ed.escala_visual, ed.corona_slime, ed.lava_slime)
 	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, SlimeSprites._lienzo(float(v[2])), Color(String(v[1])),
 		color, "_parpado")
+
+
+# LOS DEMAS GRUPOS DE PARPADOS (el de mil ojos): [SpriteFrames] de _parpado2, _parpado3... ([] si no tiene).
+static func parpados_extra_de(ed: EnemyData, t: float, mutante: bool = false, mutacion: StringName = &"") -> Array:
+	var out: Array = []
+	var v: Array = _variante_mutante(ed, mutacion) if mutante else []
+	if v.is_empty():
+		return out
+	for g in range(2, int(GRUPOS_PARPADO.get(StringName(v[0]), 1)) + 1):
+		var sf: SpriteFrames = Sprites3D.montar(CARPETA % String(v[0]), _anims_de(v[3]),
+			SlimeSprites._lienzo(float(v[2])), Color(String(v[1])), _tinte_mutante(ed, t, v), "_parpado%d" % g)
+		if sf != null:
+			out.append(sf)
+	return out
 
 
 static func escala_base() -> float:

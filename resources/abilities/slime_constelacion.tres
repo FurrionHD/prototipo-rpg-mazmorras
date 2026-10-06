@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Constelación"
+descripcion = "Une las estrellas que ha ido dejando por el suelo con rayos de luz, una tras otra y la última con él. Quien esté en medio de la figura se lleva el rayo. Cuantas más estrellas deja al moverse, más grande el dibujo."
+dano_mult = 0.7
+elemento_golpe = 4
+cooldown = 3
+fx_anim = &"constelar"
+; (06/10, el abisal) sin huella: los rayos van de estrella en estrella (CombatTactico.reparto_rayos). Minimo 2 estrellas.
+constelacion = true
+min_estrellas = 2
+rayo_ancho = 12.0

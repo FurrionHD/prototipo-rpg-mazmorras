@@ -7,11 +7,42 @@
 [ext_resource type="Resource" path="res://resources/materials/baba_abisal.tres" id="5_baba"]
 [ext_resource type="Resource" uid="uid://dt2pvptlufvtf" path="res://resources/abilities/slime_presion_abismo.tres" id="5_pre"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_slime_abisal.tres" id="6_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="7_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="8_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_lluvia_estrellas.tres" id="9_ll"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_constelacion.tres" id="10_co"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_eclipse.tres" id="11_ec"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_agujero_negro.tres" id="12_ag"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_lluvia_estrellas_mil.tres" id="13_llm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_eclipse_mil.tres" id="14_ecm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_agujero_negro_mil.tres" id="15_agm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_parpadeo_cegador.tres" id="16_pc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_mirada_estelar.tres" id="17_me"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
 prob = 0.5
+
+[sub_resource type="Resource" id="MUT_cielo"]
+script = ExtResource("7_mut")
+id = &"cielo"
+nombre = "Slime de cielo nocturno"
+grado = 1
+habilidades = Array[ExtResource("8_ab")]([ExtResource("9_ll"), ExtResource("10_co"), ExtResource("11_ec"), ExtResource("12_ag")])
+sprite = &"cie204"
+deja_estrellas = true
+
+[sub_resource type="Resource" id="MUT_ojos"]
+script = ExtResource("7_mut")
+id = &"ojos"
+nombre = "Slime de mil ojos"
+grado = 2
+desde = Array[StringName]([&"cielo"])
+habilidades = Array[ExtResource("8_ab")]([ExtResource("13_llm"), ExtResource("14_ecm"), ExtResource("15_agm"), ExtResource("16_pc"), ExtResource("17_me")])
+sprite = &"ojo224"
+deja_estrellas = true
+todo_lo_ve = true
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -39,6 +70,8 @@ al_golpear = [SubResource("SA_peg")]
 elemento = 5
 fx_basico = 19
 habilidades = [ExtResource("3_rev"), ExtResource("5_pre"), ExtResource("4_tro")]
+; (06/10) SU ARBOL DE MUTACIONES, una linea: Slime de cielo nocturno -> Slime de mil ojos (ver MutacionData).
+mutaciones = Array[ExtResource("7_mut")]([SubResource("MUT_cielo"), SubResource("MUT_ojos")])
 prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): slime mediano.

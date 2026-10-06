@@ -1726,6 +1726,11 @@ func mejor_apunte(e: Combatant, ab: AbilityData, preferido: Combatant = null) ->
 # ¿Puede usar 'ab' en el mapa este turno? Con huella, si desde aqui pilla a alguien; sin huella, si tiene a
 # quien pegar ('obj', ya filtrado por alcance) o si es de las que solo se echa encima (la Ignicion).
 func sirve_en_mapa(e: Combatant, ab: AbilityData, obj: Combatant) -> bool:
+	# (06/10, el abisal) LA CONSTELACION, si tiene estrellas y algun rayo pilla a alguien; LA MIRADA, siempre (no falla).
+	if ab.constelacion:
+		return constelacion_pilla(e, ab)
+	if ab.mirada:
+		return not _pantalla._aliados_vivos().is_empty()
 	if usa_huella(ab):
 		return int(mejor_apunte(e, ab, obj)["n"]) > 0
 	return obj != null or solo_a_si_mismo(ab)
@@ -2424,7 +2429,11 @@ const CLASE_HUECO_2 := 7
 const CLASE_MUERTE := 8
 const CLASE_BURBUJA := 9    # 9..12
 const BURBUJAS_MAX := 4
-const CLASES_HUELLA := 13
+# (06/10, los mutantes del slime abisal) LAS ESTRELLAS que deja al moverse (hasta 6 por enemigo): charcos de estilo 8 que
+# no se pisan (ver poner_estrella).
+const CLASE_ESTRELLA := 13  # 13..18
+const ESTRELLAS_MAX := 6
+const CLASES_HUELLA := 19
 const NUBE_CENIZA := Color(0.52, 0.49, 0.47)
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
@@ -2518,7 +2527,9 @@ func _tick_huellas(delta: float) -> void:
 	# La de apuntar solo vive mientras es el turno de ese: si se fue sin avisar, se borra aqui.
 	for cod in _huellas_red.keys():
 		var d: PackedFloat32Array = _huellas_red[cod]
-		if int(d[1]) != CLASE_CARGA and int(d[1]) != CLASE_SAVIA and (_pantalla._state != _pantalla.State.WAITING_PLAYER
+		# (06/10: solo la de APUNTAR (y su escudazo) es de un turno. Antes se miraba solo la savia, y los rastros, nubes y
+		# burbujas -y el pisoton de una carga- se dejaban de mandar fuera del turno de un jugador hasta que cambiaban.)
+		if (int(d[1]) == CLASE_APUNTANDO or int(d[1]) == CLASE_ESCUDAZO) and (_pantalla._state != _pantalla.State.WAITING_PLAYER
 				or _pantalla.espejo._de_codigo(int(d[0])) != _pantalla._player):
 			_huellas_red.erase(cod)
 			_huellas_cambiadas = true
@@ -2702,6 +2713,197 @@ func _reventar_burbuja(clave: String, a: Combatant = null) -> void:
 	_pantalla._update_hp()
 
 
+# ------------------------------------------------------------
+#  LAS ESTRELLAS Y LOS RAYOS (06/10, los mutantes del slime abisal)
+# ------------------------------------------------------------
+# Al MOVERSE en la pelea deja una ESTRELLA donde estaba (Combatant.deja_estrellas). No hacen nada solas: son las piezas
+# de sus ataques. Como mucho estrellas_max (la mas vieja se apaga) y duran la pelea; las de uno que cae se apagan. Viajan
+# y se pintan como los charcos (estilo 8), y no se pisan.
+const ESTRELLA_PASO_MIN := 12.0   # lo que tiene que haberse movido para dejarla
+const R_ESTRELLA := 6.0
+var _orden_estrellas: Dictionary = {}   # Combatant -> [clase...] de la mas vieja a la mas nueva
+
+func poner_estrella(e: Combatant, p: Vector2) -> void:
+	if _pantalla._espejo or e == null:
+		return
+	var orden: Array = _orden_estrellas.get(e, [])
+	var tope: int = clampi(e.estrellas_max, 1, ESTRELLAS_MAX)
+	var clase: int = -1
+	if orden.size() >= tope:
+		clase = int(orden[0])
+		_quitar_estrella(e, clase)
+		orden = _orden_estrellas.get(e, [])
+	else:
+		for k in ESTRELLAS_MAX:
+			if not orden.has(CLASE_ESTRELLA + k):
+				clase = CLASE_ESTRELLA + k
+				break
+	if clase < 0:
+		return
+	orden.append(clase)
+	_orden_estrellas[e] = orden
+	var f := CombatFormas.circulo(p, R_ESTRELLA)
+	f.apertura = 8.0   # (su estilo: la ESTRELLA, ver _charco_visible)
+	var clave: String = clave_charco(clase, _cod(e))
+	_charcos[clave] = {"dueno": e, "f": f, "turnos": 1, "max": 1, "ab": null, "clase": clase, "estrella": true}
+	_anotar_huella_red(e, clase, f, 1.0)
+	_charco_visible(clave, f, 1.0, e)
+
+
+func _quitar_estrella(e: Combatant, clase: int) -> void:
+	var clave: String = clave_charco(clase, _cod(e))
+	_charcos.erase(clave)
+	_anotar_huella_red(e, clase, null, 0.0)
+	_secar_charco_vis(clave)
+	var orden: Array = _orden_estrellas.get(e, [])
+	orden.erase(clase)
+	_orden_estrellas[e] = orden
+
+
+# Sus estrellas (los puntos del suelo), de la mas vieja a la mas nueva.
+func estrellas_de(e: Combatant) -> Array:
+	var out: Array = []
+	for clase in _orden_estrellas.get(e, []):
+		var ch: Dictionary = _charcos.get(clave_charco(int(clase), _cod(e)), {})
+		if not ch.is_empty():
+			out.append((ch["f"] as CombatFormas.Forma).centro)
+	return out
+
+
+# LA LLUVIA DE ESTRELLAS (AbilityData.estrellas_fugaces): las fugaces caen en sus puntos del circulo que solto
+# (ultima_forma_enemigo; los puntos salen de la forma, como los dibuja AbisalAire) y a cada uno de los tuyos le pega cada
+# una que le caiga cerca. [{c, escala, golpes}], el que mas se lleva el primero.
+func reparto_lluvia(e: Combatant, ab: AbilityData) -> Array:
+	var f = ultima_forma_enemigo
+	if f == null:
+		return []
+	f.tramos = ab.estrellas_fugaces   # (cuantas: el dibujo y el reparto las sacan de aqui)
+	var pts: Array = AbisalAire.puntos_lluvia(f, ab.estrellas_fugaces)
+	var out: Array = []
+	for al in _pantalla._aliados_vivos():
+		var caja: Rect2 = bulto_de(al)
+		var n: int = 0
+		for p in pts:
+			var q := Vector2(clampf(p.x, caja.position.x, caja.end.x), clampf(p.y, caja.position.y, caja.end.y))
+			if q.distance_to(p) <= ab.fugaz_radio:
+				n += 1
+		if n > 0:
+			out.append({"c": al, "escala": 1.0, "golpes": n})
+	out.sort_custom(func(a, b): return int(a["golpes"]) > int(b["golpes"]))
+	return out
+
+
+# ¿Toca el rayo de 'a' a 'b' (de 'ancho') el cuerpo de 'c'? (la misma regla que las huellas: su cuerpo tal como se ve)
+func _rayo_toca(c: Combatant, a: Vector2, b: Vector2, ancho: float) -> bool:
+	if a.distance_to(b) < 0.5:
+		return false
+	return CombatFormas.linea(a, (b - a).normalized(), a.distance_to(b), ancho).toca(bulto_de(c))
+
+
+# Los rayos de la CONSTELACION: de cada estrella a la siguiente (de la mas vieja a la mas nueva) y de la ultima a sus pies.
+# [] si no tiene estrellas bastantes.
+func rayos_constelacion(e: Combatant, ab: AbilityData) -> Array:
+	var pts: Array = estrellas_de(e)
+	if pts.size() < maxi(2, ab.min_estrellas):
+		return []
+	pts.append(pies_de(e))
+	var out: Array = []
+	for i in pts.size() - 1:
+		out.append([pts[i], pts[i + 1]])
+	return out
+
+
+# ¿Le sirve la Constelacion ahora? (tiene estrellas y algun rayo cruza a alguno de los tuyos)
+func constelacion_pilla(e: Combatant, ab: AbilityData) -> bool:
+	for r in rayos_constelacion(e, ab):
+		for al in _pantalla._aliados_vivos():
+			if _rayo_toca(al, r[0], r[1], ab.rayo_ancho):
+				return true
+	return false
+
+
+# EL REPARTO DE LOS RAYOS (la Constelacion y la Mirada estelar), con su dibujo (un AbisalAire por rayo, en todas las
+# maquinas). [{c, escala, golpes}], el principal el primero.
+#  - CONSTELACION: a quien cruce un rayo, un golpe (aunque cruce varios).
+#  - MIRADA: un rayo de el a su PRESA (la que fijo al cargar; si ya no esta, 'victima' o la mas cercana) y uno de cada
+#    estrella a ella. La presa se lleva un golpe por rayo que le llega; el primero que se ponga DELANTE en el rayo
+#    principal se lo come (golpe entero) y la presa no; los demas que crucen un rayo, rayo_otros de golpe por rayo.
+func reparto_rayos(e: Combatant, ab: AbilityData, victima: Combatant = null) -> Array:
+	var arena: ArenaCombate = _arena()
+	var rayos: Array = []   # [desde, hasta, es_principal]
+	var presa: Combatant = null
+	if ab.constelacion:
+		for r in rayos_constelacion(e, ab):
+			rayos.append([r[0], r[1], false])
+	elif ab.mirada:
+		presa = _presas_carga.get(e)
+		olvidar_carga(e)   # su marca se va con el disparo
+		if presa == null or not presa.is_alive():
+			presa = victima if victima != null and victima.is_alive() else null
+		if presa == null:
+			var mejor_d: float = INF
+			for al in _pantalla._aliados_vivos():
+				var d: float = pies_de(al).distance_to(pies_de(e))
+				if d < mejor_d:
+					mejor_d = d
+					presa = al
+		if presa == null:
+			return []
+		var meta: Vector2 = pies_de(presa)
+		rayos.append([pies_de(e), meta, true])
+		for p in estrellas_de(e):
+			rayos.append([p, meta, false])
+		_encarar(e, meta)
+	var golpes: Dictionary = {}   # Combatant -> golpes enteros
+	var escala: Dictionary = {}   # Combatant -> lo que se lleva de rayos ajenos
+	for r in rayos:
+		var a: Vector2 = r[0]
+		var b: Vector2 = r[1]
+		var hasta: Vector2 = b
+		if ab.mirada and bool(r[2]):
+			# EL RAYO PRINCIPAL se lo come el primero que se ponga en medio.
+			var tapa: Combatant = null
+			var tapa_d: float = INF
+			for al in _pantalla._aliados_vivos():
+				if al == presa:
+					continue
+				var d2: float = pies_de(al).distance_to(a)
+				if d2 < a.distance_to(b) and d2 < tapa_d and _rayo_toca(al, a, b, ab.rayo_ancho):
+					tapa = al
+					tapa_d = d2
+			var quien: Combatant = tapa if tapa != null else presa
+			golpes[quien] = int(golpes.get(quien, 0)) + 1
+			hasta = pies_de(quien)
+		else:
+			for al in _pantalla._aliados_vivos():
+				if al == presa:
+					continue
+				if _rayo_toca(al, a, b, ab.rayo_ancho):
+					if ab.constelacion:
+						golpes[al] = 1
+					else:
+						escala[al] = float(escala.get(al, 0.0)) + ab.rayo_otros
+			if presa != null:
+				golpes[presa] = int(golpes.get(presa, 0)) + 1
+		# EL DIBUJO del rayo (y a los espejos, como cualquier suelo).
+		var f := CombatFormas.linea(a, (hasta - a).normalized(), maxf(a.distance_to(hasta), 1.0), ab.rayo_ancho)
+		var tipo: int = SueloRoto.Tipo.ABISAL_MIRADA if ab.mirada else SueloRoto.Tipo.ABISAL_RAYO
+		var sem: int = randi()
+		if arena != null and _pantalla._fx != null:
+			_pantalla._fx.pedir_suelo(arena, f, tipo, sem, 0.0)
+		_pantalla.espejo._apuntar_suelo_red(tipo, f, sem, 0.0)
+	var out: Array = []
+	if presa != null and golpes.has(presa):
+		out.append({"c": presa, "escala": 1.0, "golpes": int(golpes[presa])})
+	for c in golpes:
+		if c != presa:
+			out.append({"c": c, "escala": 1.0 + float(escala.get(c, 0.0)), "golpes": int(golpes[c])})
+	for c in escala:
+		if not golpes.has(c):
+			out.append({"c": c, "escala": float(escala[c]), "golpes": 1})
+	return out
+
+
 # Al empezar el turno de un enemigo: SUS charcos se secan un turno (y los de los que ya cayeron, en el turno del primer
 # enemigo vivo: si no, con tres en pie, la nube del que revento duraba un tercio).
 func charcos_turno_enemigo(e: Combatant) -> void:
@@ -2717,6 +2919,11 @@ func charcos_turno_enemigo(e: Combatant) -> void:
 			continue
 		var ch: Dictionary = _charcos[clave]
 		var dueno: Combatant = ch["dueno"]
+		# LAS ESTRELLAS duran la pelea; las de uno que ya cayo se apagan (eran suyas).
+		if ch.get("estrella", false):
+			if not dueno.is_alive():
+				_quitar_estrella(dueno, int(ch["clase"]))
+			continue
 		if dueno != e and (dueno.is_alive() or e != primero_vivo):
 			continue
 		ch["turnos"] = int(ch["turnos"]) - 1
@@ -2760,6 +2967,8 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 			continue
 		var ch: Dictionary = _charcos[clave]
 		var f = ch["f"]
+		if ch.get("estrella", false):
+			continue   # las estrellas no se pisan: son piezas de sus ataques
 		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
 		if ch.get("burbuja", false):
 			# LA BURBUJA: si la atraviesas, te revienta encima (y ya no esta).
@@ -2847,6 +3056,9 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		elif estilo == 6:
 			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
 			n = SlimeBurbuja.crear(arena, f, _color_de(dueno), hash(clave))
+		elif estilo == 8:
+			# LA ESTRELLA del cielo nocturno y el de mil ojos (06/10): la que deja al moverse.
+			n = AbisalAire.estrella(arena, f, hash(clave))
 		else:
 			n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
 			_vestir_charco(n, estilo, dueno)
@@ -3011,6 +3223,7 @@ func olvidar_charcos() -> void:
 	for clave in _charco_vis.keys():
 		_secar_charco_vis(clave)
 	_charcos.clear()
+	_orden_estrellas.clear()
 	_pisado.clear()
 	_desde_charco.clear()
 
@@ -3193,6 +3406,10 @@ func _tick_acercando(delta: float) -> void:
 
 func _actuar() -> void:
 	var e: Combatant = _quien
+	# DEJA UNA ESTRELLA donde estaba (06/10, el cielo nocturno y el de mil ojos), si de verdad se ha movido.
+	if e != null and e.deja_estrellas and is_instance_valid(_cuerpo) \
+			and _cuerpo.global_position.distance_to(_inicio) > ESTRELLA_PASO_MIN:
+		poner_estrella(e, _inicio + (pies_de(e) - _cuerpo.global_position))
 	if is_instance_valid(_cuerpo):
 		var mira: Vector2 = pos_de(_presa) - _cuerpo.global_position \
 			if _presa != null else _mirada_de(_cuerpo)

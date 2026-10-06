@@ -1161,7 +1161,9 @@ const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "sl
 	# LOS DEL VENENOSO (06/10): el miasma y el pestilente.
 	["miasma", "slime_veneno", &"miasma"], ["pestilente", "slime_veneno", &"pestilente"],
 	# LOS DEL DE FUEGO (06/10): la ceniza y brasa y la obsidiana.
-	["ceniza", "slime_fuego", &"ceniza"], ["obsidiana", "slime_fuego", &"obsidiana"]]
+	["ceniza", "slime_fuego", &"ceniza"], ["obsidiana", "slime_fuego", &"obsidiana"],
+	# LOS DEL ABISAL (06/10): el cielo nocturno y el de mil ojos.
+	["cielo", "slime_abisal", &"cielo"], ["ojos", "slime_abisal", &"ojos"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1190,6 +1192,13 @@ const MOMENTOS_SLIME := {
 	"slime_embestida_cortante": [0.04, 0.1, 0.2, 0.3, 0.6],
 	"slime_esquirlas": [0.05, 0.12, 0.22, 0.35, 0.9],
 	"slime_estallido_agujas": [0.03, 0.09, 0.16, 0.3, 0.9],
+	"slime_lluvia_estrellas": [0.15, 0.4, 0.6, 0.8, 1.1],
+	"slime_lluvia_estrellas_mil": [0.15, 0.4, 0.6, 0.9, 1.4],
+	"slime_eclipse": [0.1, 0.3, 0.6, 1.0, 1.6],
+	"slime_eclipse_mil": [0.1, 0.3, 0.6, 1.0, 1.6],
+	"slime_agujero_negro": [0.1, 0.3, 0.6, 1.0, 1.5],
+	"slime_agujero_negro_mil": [0.1, 0.3, 0.6, 1.0, 1.5],
+	"slime_parpadeo_cegador": [0.03, 0.1, 0.2, 0.35, 0.55],
 	"slime_escupitajo_toxico": [-0.18, -0.08, 0.02, 0.15, 0.5],
 	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
 	"slime_salpicadura_ardiente": [0.05, 0.12, 0.22, 0.4, 0.9],
@@ -1253,6 +1262,9 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 			if ab.burbujas_max > 0:
 				await _hoja_burbujas(salida, sl[0], ed, ab, col, yo, bulto)
 				continue
+			if ab.constelacion or ab.mirada:
+				await _hoja_rayos(salida, sl[0], ed, ab, yo, spr)
+				continue
 			if int(ab.forma) < 0 and nom != "slime_ignicion":
 				continue   # sin huella (el Brote): no hay nada que enseñar aqui
 			var tiempos: Array = MOMENTOS_SLIME.get(nom, [0.05, 0.15, 0.3, 0.5, 0.9])
@@ -1297,7 +1309,11 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				var piezas: Array = []   # {n, t0}
 				var antes: int = get_child_count()
 				if ab.suelo_roto >= 0 and f != null:
-					SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
+					# (los que lanza desde lejos, la Voragine del Agujero negro: el orbe sale de el, como en el juego)
+					if f.tipo == CombatFormas.Tipo.CIRCULO and int(ab.forma_apunte) == CombatFormas.Apunte.LIBRE:
+						f.ancho = f.centro.distance_to(yo)
+					SueloRoto.lanzar(self, f, ab.suelo_roto, semilla, ab.pisoton_final if ab.pisoton_final > 0.0
+						else (float(ab.estrellas_fugaces) if ab.estrellas_fugaces > 0 else ab.forma_nucleo))
 					for i in range(antes, get_child_count()):
 						piezas.append({"n": get_child(i), "t0": 0.0})
 				elif nom == "slime_ignicion":
@@ -1426,6 +1442,71 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 # LAS BURBUJAS PESTILENTES (06/10, el slime pestilente): no tienen huella; se ven salir volando de el a sus sitios al
 # azar, flotar, temblar cuando les queda poco y reventar. Una fila por direccion (el slime mirando a ella), con las
 # mismas burbujas: 3 momentos del vuelo, flotando, temblando (ultimo turno) y 2 del reventon.
+# LOS RAYOS DEL ABISAL (06/10): la Constelacion y la Mirada estelar salen de SUS ESTRELLAS, asi que aqui se le ponen
+# cinco (repartidas segun la direccion) y se ven antes (columna 0) y en cada momento. La Constelacion las une en orden y
+# la ultima con el; la Mirada tira un rayo de el y de cada estrella a la figura de delante.
+func _hoja_rayos(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityData, yo: Vector2,
+		spr: AnimatedSprite2D) -> void:
+	var momentos: Array = [0.03, 0.08, 0.16, 0.3, 0.5, 0.7]
+	var medida: float = 130.0
+	_cam.zoom = Vector2.ONE * float(LADO) / (2.0 * (medida + 30.0))
+	_cam.global_position = yo
+	var hoja := Image.create(LADO * (1 + momentos.size()), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+	for fila in DIRS.size():
+		var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+		var perp: Vector2 = dvec.orthogonal()
+		var dir_n: String = DIRS[fila][0]
+		spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+		var estrellas: Array = [yo - dvec * 45.0 + perp * 55.0, yo + dvec * 25.0 + perp * 100.0,
+			yo + dvec * 100.0 + perp * 45.0, yo + dvec * 110.0 - perp * 50.0, yo + dvec * 20.0 - perp * 95.0]
+		var rayos: Array = []
+		if ab.constelacion:
+			var pts: Array = estrellas.duplicate()
+			pts.append(yo)
+			for i in pts.size() - 1:
+				rayos.append([pts[i], pts[i + 1]])
+		else:
+			var meta: Vector2 = _enemigos[0]
+			for p in _enemigos:
+				if (p as Vector2).distance_to(yo + dvec * 62.0) < meta.distance_to(yo + dvec * 62.0):
+					meta = p
+			rayos.append([yo, meta])
+			for p in estrellas:
+				rayos.append([p, meta])
+		var fijas: Array = []
+		for i in estrellas.size():
+			var st: AbisalAire = AbisalAire.estrella(self, CombatFormas.circulo(estrellas[i], 6.0), 300 + i)
+			st.set_process(false)
+			st.set("_t", 2.0 + 0.4 * float(i))
+			for hijo in ["_suelo", "_delante"]:
+				(st.get(hijo) as Node2D).queue_redraw()
+			fijas.append(st)
+		await _viñeta(hoja, 0, fila, "%s · %s · %s · sus estrellas" % [ed.enemy_name, ab.nombre, dir_n])
+		var piezas: Array = []
+		for r in rayos:
+			var a: Vector2 = r[0]
+			var b: Vector2 = r[1]
+			var fr := CombatFormas.linea(a, (b - a).normalized(), a.distance_to(b), ab.rayo_ancho)
+			var n: AbisalAire = AbisalAire.area(self, fr, AbisalAire.Modo.MIRADA if ab.mirada else AbisalAire.Modo.RAYO,
+				400 + piezas.size(), 0.0)
+			n.set_process(false)
+			piezas.append(n)
+		for c in momentos.size():
+			for n in piezas:
+				n.set("_t", float(momentos[c]))
+				for hijo in ["_suelo", "_delante"]:
+					(n.get(hijo) as Node2D).queue_redraw()
+			await _viñeta(hoja, c + 1, fila, "%s · %s · %s · %.2f s" % [ed.enemy_name, ab.nombre, dir_n, momentos[c]])
+		for n in piezas + fijas:
+			(n as Node).queue_free()
+		await get_tree().process_frame
+	var carpeta: String = "%s/enemigos/slimes/%s" % [salida, carpeta_s]
+	DirAccess.make_dir_recursive_absolute(carpeta)
+	var ruta: String = "%s/%s.png" % [carpeta, ab.resource_path.get_file().get_basename()]
+	hoja.save_png(ruta)
+	print("[hoja] ", ruta)
+
+
 func _hoja_burbujas(salida: String, carpeta_s: String, ed: EnemyData, ab: AbilityData, col: Color, yo: Vector2,
 		_bulto: Rect2) -> void:
 	var momentos: Array = [["sale", 0.12, 1.0, -1.0], ["vuela", 0.25, 1.0, -1.0], ["llega", 0.42, 1.0, -1.0],

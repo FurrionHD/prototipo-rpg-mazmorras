@@ -57,6 +57,12 @@ VARIANTES = {
     # caer. OBSIDIANA (2a, x1,1 de la ceniza): cristal volcanico negro y brillante, lava entre las placas y AGUJAS.
     'cen192': (1.92, 'ceniza', 'ff862b'),
     'obs211': (2.112, 'obsidiana', 'ff862b'),
+    # LOS MUTANTES DEL SLIME ABISAL (06/10, lo eligio el jefe de slime_abisal_versiones.py 'elegido'): UNA LINEA.
+    # SLIME DE CIELO NOCTURNO (1a, x1,2 del abisal): un trozo de cielo, azul noche translucido con las ESTRELLAS dentro.
+    # SLIME DE MIL OJOS (2a, x1,1 del cielo): el mismo cielo con sus estrellas y OJOS al azar por toda la cupula
+    # (torcidos, de tamaños y colores mezclados); cada grupo de ojos parpadea por su cuenta (GRUPOS_PARPADO).
+    'cie204': (2.04, 'cielo', '556faa'),
+    'ojo224': (2.244, 'milojos', '556faa'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
@@ -70,6 +76,8 @@ BROTADO = FORMA in ('brotado', 'puas')
 TOXICO = FORMA in ('miasma', 'pestilente')
 # Los de ROCA Y LAVA (el de fuego y sus mutantes): placas con las juntas encendidas, sin gel translucido.
 ROCA = FORMA in ('lava', 'ceniza', 'obsidiana')
+# Los dos del abisal comparten cuerpo de noche con estrellas.
+NOCHE = FORMA in ('cielo', 'milojos')
 
 
 def _lienzo(escala):
@@ -129,6 +137,23 @@ def _materiales(forma, color):
             # (transformandose: la CENIZA gris que se le cae a placas)
             'antes':  [(0.26, 0.24, 0.24), (0.40, 0.38, 0.37), (0.55, 0.53, 0.51), (0.62, 0.60, 0.58)],
         }
+    if forma in ('cielo', 'milojos'):
+        # EL CIELO DE NOCHE: el gel azul noche (translucido); LAS ESTRELLAS, blancas y azuladas (siempre en su luz); los
+        # OJOS de la 2a: el blanco encendido, los iris de siete colores y la pupila negra.
+        noche = (0.08, 0.09, 0.24)
+        gel_n = [osc(noche, 0.4), noche, cla(noche, 0.18), cla(noche, 0.55)]
+        return {'gel': gel_n, 'cuerno': gel_n, 'lava': gel_n, 'ojo': [(1.0, 0.97, 0.72)] * 3,
+                'gema': [(1.0, 0.95, 0.72)] * 3,
+                'estrella': [(0.80, 0.88, 1.0), (0.92, 0.96, 1.0), (1.0, 1.0, 1.0)],
+                'blanco': [(1.0, 1.0, 0.97)] * 3,
+                'iris_v': [(0.45, 1.0, 0.45)] * 3, 'iris_m': [(1.0, 0.35, 0.95)] * 3,
+                'iris_c': [(0.30, 0.95, 1.0)] * 3, 'iris_a': [(1.0, 0.92, 0.25)] * 3,
+                'iris_n': [(1.0, 0.55, 0.15)] * 3, 'iris_r': [(1.0, 0.25, 0.30)] * 3,
+                'iris_p': [(0.65, 0.45, 1.0)] * 3,
+                'pupila': [(0.02, 0.02, 0.04)] * 3,
+                'parpado': gel_n[:3], 'pestana': [(0.02, 0.02, 0.06)] * 3,
+                # (transformandose: el gel azul del ABISAL, que se le abre a placas)
+                'antes': gel}
     # La corona del Rey, de su gel mas claro.
     orn = [cla(c, 0.05), cla(c, 0.28), cla(c, 0.5), cla(c, 0.85)]
     return {'gel': gel, 'cuerno': orn, 'lava': gel, 'ojo': [(1.0, 0.97, 0.72)] * 3, 'gema': [(1.0, 0.95, 0.72)] * 3,
@@ -147,21 +172,26 @@ def _materiales(forma, color):
 
 
 LIENZO, PIES = _lienzo(ESCALA)
-BORDE = (0.16, 0.03, 0.05) if ROCA else osc(hexc(COLOR), 0.58)
+BORDE = (0.16, 0.03, 0.05) if ROCA else ((0.02, 0.02, 0.06) if NOCHE else osc(hexc(COLOR), 0.58))
+IRIS = ['iris_v', 'iris_m', 'iris_c', 'iris_a', 'iris_n', 'iris_r', 'iris_p']
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
-                brillan=('ojo', 'gema') + (('lava', 'chispa') if ROCA else ()), corta_suelo=True,
+                brillan=('ojo', 'gema') + (('lava', 'chispa') if ROCA else ())
+                + (('estrella', 'blanco', 'pupila') + tuple(IRIS) if NOCHE else ()), corta_suelo=True,
                 especular=('gel', 'cuerno', 'cristal', 'ampolla'), umbral_especular=0.955,
                 # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
-                translucidos=() if ROCA else ('gel', 'cuerno'), alfa=0.72)
+                translucidos=() if ROCA else (('gel', 'cuerno', 'antes') if NOCHE else ('gel', 'cuerno')), alfa=0.72)
 MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
-MODELO.claros_dentro = ('cristal', 'nucleo')
+MODELO.claros_dentro = ('cristal', 'nucleo', 'estrella')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
-PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211')
+PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211', 'cie204', 'ojo224')
+# LOS MIL OJOS PARPADEAN CADA UNO POR SU CUENTA (06/10, lo pidio el jefe): sus ojos van en GRUPOS repartidos al azar y el
+# horno saca una hoja de parpados por grupo (<anim>_parpado.png, <anim>_parpado2.png...); el juego pone cada una a su aire.
+GRUPOS_PARPADO = 6 if FORMA == 'milojos' else 1
 if FORMA == 'obsidiana':
     MODELO.especular = MODELO.especular + ('obsidiana',)
-MODELO.alfa_claro = 0.45
+MODELO.alfa_claro = 0.25 if NOCHE else 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
 # una falda ancha fundida abajo: "porque es tan ancho abajo").
@@ -186,8 +216,12 @@ def POSE(**k):
     #   burb       tamaño de las burbujas del pestilente (al SOLTARLAS se le hinchan, se le van y le vuelven a salir)
     #   (en el MIASMA, 'evo' = le salen los poros viniendo del venenoso; en el PESTILENTE, las burbujas viniendo del miasma)
     #   (en el BROTADO PUNZANTE, 'evo' = le brotan las yemas viniendo del punzante; en el PUNZANTE, sus puas viniendo del normal)
+    #   brillo     tamaño de las estrellas del cielo nocturno y el de mil ojos (0 = apagadas: el Eclipse; > 1 = encendidas)
+    #   ojos       lo abiertos que van los ojos del de mil ojos (> 1 = de par en par: el Parpadeo cegador, la Mirada)
+    #   (en el CIELO, 'evo' = el gel del abisal se le abre a placas y le salen las estrellas; en el de MIL OJOS, se le abren
+    #   los ojos uno a uno viniendo del cielo; y 'cerrados' = el GRUPO de ojos que cierra, 1..GRUPOS_PARPADO, o True = todos)
     p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False, evo2=1.0,
-             puas=1.0, poros=1.0, burb=1.0)
+             puas=1.0, poros=1.0, burb=1.0, brillo=1.0, ojos=1.0)
     p.update(k)
     return p
 
@@ -208,11 +242,11 @@ def _en(p):
     en = p.get('encoge', 1.0)
     if FORMA in ('brotado', 'punzante'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
-    elif FORMA in ('miasma', 'ceniza'):
+    elif FORMA in ('miasma', 'ceniza', 'cielo'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
     elif FORMA == 'obsidiana':
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
-    elif FORMA == 'pestilente':
+    elif FORMA in ('pestilente', 'milojos'):
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'puas':
         # (transformandose desde el brotado o desde el punzante, empieza del tamaño de ellos: el brotado punzante es x1,1)
@@ -311,6 +345,12 @@ def escena(pose):
             _puas(e, C, R, pose)
         if TOXICO:
             _piel_toxica(e, C, R, sz, pose)
+        if NOCHE:
+            _estrellas(e, C, R, pose)
+            if FORMA == 'cielo' and pose['evo'] < 0.99:
+                _costra_de_antes(e, C, R, pose)
+            if FORMA == 'milojos':
+                _mil_ojos(e, C, R, sz, pose)
         # LOS CUERNOS: cortos y PUNTIAGUDOS, arriba a los lados, del MISMO gel y fundidos con la cupula (la referencia).
         for s in (-1, 1):
             base, n = _superficie((0.70 * s, 0.05, 0.72), C, R)
@@ -328,6 +368,10 @@ def escena(pose):
     # lleva dos mas, pequeños y descolocados.
     en = _en(pose)
     ojos = [(-0.33, 0.88, 0.34, 1.0), (0.33, 0.88, 0.34, 1.0)]
+    if FORMA == 'milojos':
+        # (no lleva el par de siempre: transformandose, el del cielo se le cierra mientras se le abren los demas)
+        k0 = 1.0 - _paso(pose['evo'], 0.15, 0.45)
+        ojos = [(x, y, z, k * k0) for x, y, z, k in ojos]
     if BROTADO:
         # (transformandose, se le abren al final)
         ab = _paso(pose['evo'], 0.70, 0.85)
@@ -385,6 +429,95 @@ def escena(pose):
             if radio > 0.05:
                 _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
     return e.L
+
+
+# LAS ESTRELLAS del cielo nocturno y el de mil ojos: puntos de luz DENTRO del gel (se ven a traves), alguna grande con su
+# CRUZ de luz. Se mueven con la bola (aplastarse, botar). 'brillo' las agranda o las apaga; transformandose del abisal al
+# cielo, le salen una a una.
+_rng_e = np.random.default_rng(3)
+_ESTRELLAS = []
+for _i in range(28):
+    _d = _rng_e.normal(size=3); _d /= np.linalg.norm(_d)
+    _ESTRELLAS.append((_d, _rng_e.uniform(0.3, 0.85), _i >= 23))
+
+
+def _estrellas(e, C, R, pose):
+    fu = (1.0 - 0.7 * pose['derretido']) * _en(pose) * pose['brillo']
+    for i, (d, u, grande) in enumerate(_ESTRELLAS):
+        sale = _paso(pose['evo'], 0.35 + i * 0.018, 0.45 + i * 0.018) if FORMA == 'cielo' else 1.0
+        k = fu * sale
+        if k < 0.12:
+            continue
+        p = C + d * R * u
+        e.add(lambda P, p=p, r=(1.1 if grande else 0.6) * min(k, 1.6): sd_esfera(P, p, r), 'estrella', 0, 'estrella')
+        if grande and k > 0.4:
+            l = 2.6 * min(k, 1.8)
+            for ej in (np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])):
+                e.add(lambda P, a=p - ej * l, b=p + ej * l: sd_cono(P, a, b, 0.35, 0.35), 'estrella', 0, 'estrella')
+
+
+# LOS MIL OJOS (su diagnostico 06/10): repartidos PAREJO por toda la cupula (espiral de Fibonacci movida al azar: 'era calvo
+# de ojos por detras'), de tamaños MEZCLADOS, TORCIDOS, con iris de siete colores y algunos entornados. Cada uno va en un
+# GRUPO de parpadeo (al azar). Transformandose desde el cielo, se le abren uno a uno.
+def _lista_ojos(n=18, semilla=21):
+    rng = np.random.default_rng(semilla)
+    ojos = []
+    m = int(n / 0.78)
+    for i in range(m):
+        z = 1.0 - 2.0 * (i + 0.5) / m
+        if z < -0.15:
+            continue   # por debajo no se ve
+        rr = math.sqrt(max(0.0, 1.0 - z * z))
+        ang = 2.399963 * i
+        d = np.array([rr * math.cos(ang), rr * math.sin(ang), z]) + rng.normal(0.0, 0.12, 3)
+        d /= np.linalg.norm(d)
+        tam = rng.uniform(1.8, 4.2)
+        ojos.append((tuple(d), tam, IRIS[rng.integers(len(IRIS))], rng.uniform(-0.7, 0.7),
+                     1.0 if rng.random() > 0.25 else rng.uniform(0.45, 0.7)))
+    return ojos
+
+
+OJOS_MIL = _lista_ojos()
+_GRUPO_OJO = [int(g) for g in np.random.default_rng(13).permutation(len(OJOS_MIL)) % GRUPOS_PARPADO + 1]
+_ORDEN_OJOS = np.random.default_rng(17).permutation(len(OJOS_MIL)) / float(len(OJOS_MIL))
+
+
+def _mil_ojos(e, C, R, sz, pose):
+    fu = (1.0 - 0.85 * pose['derretido']) * _en(pose)
+    if fu < 0.2:
+        return
+    cerr = pose['cerrados']
+    for i, (d, tam, iris, giro, ab) in enumerate(OJOS_MIL):
+        sale = _paso(pose['evo'], 0.30 + 0.5 * _ORDEN_OJOS[i], 0.40 + 0.5 * _ORDEN_OJOS[i])
+        if sale < 0.05:
+            continue
+        cerrado = cerr is True or (not isinstance(cerr, bool) and cerr == _GRUPO_OJO[i])
+        abierto = 0.08 if cerrado else max(0.08, min(1.0, ab * pose['ojos']) * sale)
+        tam_k = fu * (0.5 + 0.5 * sale) * (1.0 + 0.15 * max(0.0, pose['ojos'] - 1.0))
+        _ojo_almendra(e, C, R, d, tam * tam_k, iris, abierto, giro)
+
+
+# UN OJO DE VERDAD (sus referencias): una LENTE (dos esferas cruzadas, la almendra) aplanada contra la piel, con su iris
+# y su pupila encima. 'abierto' 0..1 lo entorna; 'giro' (radianes) lo tuerce sobre la piel.
+def _ojo_almendra(e, C, R, d, tam, iris='iris_v', abierto=1.0, giro=0.0):
+    base, n = _superficie(d, C, R)
+    up = np.array([0.0, 0.0, 1.0]) - n * n[2]
+    up = up / max(np.linalg.norm(up), 1e-6)
+    up = up * math.cos(giro) + np.cross(n, up) * math.sin(giro)
+    c = base + n * 0.25
+    sep = tam * (0.55 + 0.4 * (1.0 - abierto))
+    rr = tam * 1.05
+    def lente(P, c=c, up=up, n=n, sep=sep, rr=rr):
+        d1 = np.maximum(sd_esfera(P, c + up * sep, rr), sd_esfera(P, c - up * sep, rr))
+        return np.maximum(d1, np.abs((P - c) @ n) - 0.55)
+    e.add(lente, 'blanco', 0, 'ojo_blanco')
+    if abierto > 0.2:
+        ci = c + n * 0.5
+        ri = min(tam * 0.48, (rr - sep) * 0.95)
+        e.add(lambda P, ci=ci, n=n, r=ri: np.maximum(sd_esfera(P, ci, r), np.abs((P - ci) @ n) - 0.35), iris, 0, 'iris')
+        cp = c + n * 0.85
+        e.add(lambda P, cp=cp, n=n, r=ri * 0.45: np.maximum(sd_esfera(P, cp, r), np.abs((P - cp) @ n) - 0.3),
+              'pupila', 0, 'pupila')
 
 
 # LAS PUAS de la 2a evolucion: los cristales que llevaba dentro le atraviesan la piel por donde no hay yemas (lomo,
@@ -876,6 +1009,61 @@ def anim_afilar(t):
                 puas=T(t, [(0.0, 1.0), (0.15, 0.85), (0.75, 0.85), (0.88, 1.18), (1.0, 1.05)]) + 0.06 * roce * (t < 0.75))
 
 
+# ---- LOS MUTANTES DEL SLIME ABISAL (06/10) ----
+# LA TRANSFORMACION del abisal al CIELO (el gel azul se le abre a placas y debajo esta la noche; le salen las estrellas una
+# a una) y del cielo a MIL OJOS (se le cierra el par de siempre y se le abren los ojos uno a uno): como las demas.
+anim_evolucion_noche = anim_evolucion_toxica
+
+
+# LLUVIA DE ESTRELLAS: ESTRELLAS = la carga, en bucle: flota un poco y las estrellas se le encienden y laten. LLUVIA = el
+# golpe: se aprieta, se estira hacia arriba y las estrellas SE LE VAN (las fugaces las pone el juego) y le vuelven.
+def anim_estrellas(t):
+    l = math.sin(TAU * t)
+    return POSE(squash=1.06 + 0.04 * l, bote=0.35 + 0.10 * l, brillo=1.45 + 0.2 * math.sin(TAU * 2 * t))
+
+
+def anim_lluvia(t):
+    return POSE(squash=T(t, [(0.0, 1.06), (0.18, 0.80), (0.34, 1.30), (0.52, 1.02), (0.74, 0.96), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.35), (0.18, 0.0), (0.34, 0.55), (0.52, 0.10), (1.0, 0.0)]),
+                brillo=T(t, [(0.0, 1.45), (0.18, 1.6), (0.32, 1.8), (0.38, 0.15), (0.70, 0.4), (1.0, 1.0)]))
+
+
+# CONSTELACION (sin carga): un respingo y las estrellas destellan todas a la vez (los rayos que las unen, el juego).
+def anim_constelar(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.20, 0.90), (0.40, 1.12), (0.65, 0.98), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.20, 0.0), (0.40, 0.30), (0.65, 0.0), (1.0, 0.0)]),
+                brillo=T(t, [(0.0, 1.0), (0.20, 1.0), (0.38, 1.9), (0.60, 1.6), (1.0, 1.0)]))
+
+
+# ECLIPSE: se HINCHA y se le APAGAN las estrellas (se queda negro), aguanta, y se le vuelven a encender.
+def anim_eclipse(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.15, 0.86), (0.35, 1.30), (0.65, 1.26), (0.82, 0.92), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.15, -0.15), (0.35, 0.45), (0.65, 0.40), (0.82, 0.0), (1.0, 0.0)]),
+                brillo=T(t, [(0.0, 1.0), (0.20, 1.2), (0.36, 0.0), (0.68, 0.0), (0.90, 0.9), (1.0, 1.0)]))
+
+
+# PARPADEO CEGADOR (el de mil ojos, sin carga): se aprieta y ABRE TODOS LOS OJOS de par en par de golpe.
+def anim_cegar(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.20, 0.84), (0.36, 1.16), (0.60, 1.04), (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.20, 0.0), (0.36, 0.25), (0.60, 0.0), (1.0, 0.0)]),
+                ojos=T(t, [(0.0, 1.0), (0.20, 0.35), (0.34, 1.45), (0.70, 1.30), (1.0, 1.0)]),
+                brillo=T(t, [(0.0, 1.0), (0.34, 1.6), (1.0, 1.0)]))
+
+
+# MIRADA ESTELAR (el de mil ojos): FIJAR = la carga, en bucle: los ojos muy abiertos y temblando, las estrellas latiendo.
+# MIRADA = el golpe: se echa hacia delante con los ojos de par en par y todas las estrellas encendidas.
+def anim_fijar(t):
+    tiembla = 1.0 if int(round(t * 8)) % 2 == 0 else -1.0
+    return POSE(squash=0.94 + 0.03 * tiembla, ojos=1.25 + 0.05 * tiembla, brillo=1.35 + 0.15 * tiembla)
+
+
+def anim_mirada(t):
+    return POSE(squash=T(t, [(0.0, 0.94), (0.20, 0.86), (0.36, 1.14), (0.62, 1.02), (1.0, 1.0)]),
+                avance=T(t, [(0.0, 0.0), (0.20, -0.8), (0.36, 1.8), (0.62, 0.8), (1.0, 0.0)]),
+                ojos=T(t, [(0.0, 1.25), (0.20, 1.1), (0.34, 1.5), (0.70, 1.3), (1.0, 1.0)]),
+                brillo=T(t, [(0.0, 1.35), (0.34, 2.0), (0.70, 1.5), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -938,8 +1126,27 @@ if FORMA == 'obsidiana':
     ANIMS['erizar'] = (8, 12.0, True, 8, anim_erizar)
     ANIMS['expandir'] = (10, 12.0, False, 8, anim_expandir)
     ANIMS['afilar'] = (12, 12.0, False, 8, anim_afilar)
-# (el venenoso tambien come cristales: 06/10, al hacer su arbol)
-if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211'):
+# LOS DEL ABISAL (06/10): las del abisal (Reventon y Presion: inflar, hinchado, aplaston, deshincharse, encogido; la Tromba:
+# escupir) + su transformacion, comer y las de sus ataques: estrellas/lluvia (Lluvia de estrellas), constelar
+# (Constelacion), eclipse (Eclipse; el Agujero negro carga encogido y suelta escupiendo); el de mil ojos, ademas, cegar
+# (Parpadeo cegador) y fijar/mirada (Mirada estelar).
+ANIMS_ABISAL = ('idle', 'walk', 'embestida', 'escupir', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encogido',
+                'encaje', 'muerte')
+if NOCHE:
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_ABISAL}
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_noche)
+    ANIMS['estrellas'] = (8, 10.0, True, 8, anim_estrellas)
+    ANIMS['lluvia'] = (10, 12.0, False, 8, anim_lluvia)
+    ANIMS['eclipse'] = (12, 10.0, False, 8, anim_eclipse)
+    if FORMA == 'cielo':
+        ANIMS['constelar'] = (10, 12.0, False, 8, anim_constelar)
+    else:
+        ANIMS['cegar'] = (10, 12.0, False, 8, anim_cegar)
+        ANIMS['fijar'] = (8, 12.0, True, 8, anim_fijar)
+        ANIMS['mirada'] = (10, 12.0, False, 8, anim_mirada)
+# (el venenoso tambien come cristales: 06/10, al hacer su arbol; el abisal y los suyos, al hacer el suyo)
+if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211', 's170',
+           'cie204', 'ojo224'):
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
 if VAR == 'pun120':
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_punzante)

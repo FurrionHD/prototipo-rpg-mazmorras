@@ -304,7 +304,7 @@ func _ready() -> void:
 			_anim_actual = "idle_0"
 			_sprite.play(_anim_actual)
 			# LOS PARPADOS, a su aire (ver Parpadeo). Solo los que tienen hoja de parpados (los slimes).
-			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, mutante, mutacion))
+			SpritesEnemigo.poner_parpados(_sprite, data, current_t, mutante, mutacion)
 			# Y EL HUMO / LAS BURBUJAS que le salen al azar (el miasma y el pestilente, ver HumoToxico).
 			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, mutante, mutacion), data.color_visual(current_t))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
@@ -481,7 +481,7 @@ func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 			_sprite.sprite_frames = sf
 			if sf.has_animation(_anim_actual):
 				_sprite.play(_anim_actual)
-			Parpadeo.poner(_sprite, SpritesEnemigo.parpados_de(data, current_t, true, mutacion))
+			SpritesEnemigo.poner_parpados(_sprite, data, current_t, true, mutacion)
 			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, true, mutacion), data.color_visual(current_t))
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
@@ -953,7 +953,7 @@ func _detecta_a(quien: Node2D) -> bool:
 	# Vision: alcance + angulo del cono. Los dos chequeos BARATOS van primero; el raycast
 	# (que es lo caro) solo se tira si ya has pasado los dos.
 	var en_cono: bool = dist <= vision_range \
-		and absf(_facing.angle_to(dir)) <= deg_to_rad(vision_half_angle_deg)
+		and (absf(_facing.angle_to(dir)) <= deg_to_rad(vision_half_angle_deg) or _todo_lo_ve())
 
 	# ¿Hay roca de por medio? Se calcula UNA vez y la usan la vista y el oido.
 	# Solo hace falta saberlo si estas en el cono o dentro del alcance del oido; si no, ni se
@@ -988,6 +988,14 @@ func _detecta_a(quien: Node2D) -> bool:
 		_facing = dir  # se gira hacia el
 		return true
 	return false
+
+
+# TODO LO VE (06/10, el slime de mil ojos, MutacionData.todo_lo_ve): ve en redondo, no solo delante.
+func _todo_lo_ve() -> bool:
+	if not mutante or data == null:
+		return false
+	var m: MutacionData = data.mutacion_de(mutacion)
+	return m != null and m.todo_lo_ve
 
 
 # Todo el grupo (lider + companeros), que es a quien puede cazar. Filtra invalidos de un frame

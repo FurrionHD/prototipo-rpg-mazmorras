@@ -182,6 +182,23 @@ static func parpados_de(ed: EnemyData, t: float, mutante: bool = false, mutacion
 	return g.parpados_de(ed, t, mutante and mutante_propio(ed, mutacion), mutacion)
 
 
+# Los parpados de los OTROS GRUPOS de ojos (el slime de mil ojos: cada grupo parpadea por su cuenta). [] si no tiene.
+static func parpados_extra_de(ed: EnemyData, t: float, mutante: bool = false, mutacion: StringName = &"") -> Array:
+	if ed == null or ed.sprite_frames != null:
+		return []
+	var g = _generador(ed)
+	if g == null or not g.has_method("parpados_extra_de"):
+		return []
+	return g.parpados_extra_de(ed, t, mutante and mutante_propio(ed, mutacion), mutacion)
+
+
+# Los parpados de 'sprite' (todos sus grupos): el de siempre y, si los tiene, los de los demas grupos de ojos.
+static func poner_parpados(sprite: AnimatedSprite2D, ed: EnemyData, t: float, mutante: bool = false,
+		mutacion: StringName = &"") -> void:
+	Parpadeo.poner(sprite, parpados_de(ed, t, mutante, mutacion))
+	Parpadeo.poner_extra(sprite, parpados_extra_de(ed, t, mutante, mutacion))
+
+
 # ¿Tiene este enemigo SPRITE DE MUTANTE propio (dibujado ya a su tamaño)? Si lo tiene, NO se le estira el x1.2 del
 # mutante (mapa, espejo, combate): ya viene grande. Si no, se estira el normal como siempre.
 static func mutante_propio(ed: EnemyData, mutacion: StringName = &"") -> bool:

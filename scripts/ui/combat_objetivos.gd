@@ -200,6 +200,8 @@ func _peso_aggro(c: Combatant, atacante: Combatant = null) -> float:
 		w *= 1.0 + AMENAZA_PESO * cuota * float(_pantalla._aliados_vivos().size())
 	if atacante.ecolocaliza and c.has_status(StatusEffects.Id.SIGILO):
 		w = w / maxf(c.status_aggro_mult(), 0.01) * ECO_SIGILO
+	elif atacante.todo_lo_ve and c.has_status(StatusEffects.Id.SIGILO):
+		w = w / maxf(c.status_aggro_mult(), 0.01)   # el de mil ojos: el sigilo no le esconde a nadie
 	if atacante.emboscada_mult != 1.0 and c.has_status(StatusEffects.Id.PEGAJOSO):
 		w *= EMBOSCADA_PESO
 	if atacante.evita_tanque and _pantalla._aliados_vivos().size() > 1 and atacante.primero_en_amenaza() == c:

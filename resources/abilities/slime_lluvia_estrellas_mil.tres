@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_ceg"]
+script = ExtResource("2")
+estado = 33
+prob = 0.5
+turns = 2
+
+[resource]
+script = ExtResource("1")
+coste_energia = 0.0
+fx_estilo = 0
+gesto = 0
+nombre = "Lluvia de estrellas"
+descripcion = "Mil ojos que miran al cielo y lo vacian encima de ti: seis estrellas fugaces caen en un circulo enorme. Cada una que te toca quema de luz y te puede dejar sin ver. Aturdirlo mientras brilla lo interrumpe."
+efectos = [SubResource("SA_ceg")]
+efectos_por_golpe = true
+dano_mult = 0.9
+elemento_golpe = 4
+cooldown = 4
+carga_turnos = 1
+fx_anim_carga = &"estrellas"
+fx_anim = &"lluvia"
+fx_anim_interrumpe = &"idle"
+; (06/10, el abisal) 6 estrellas fugaces al azar en un circulo a distancia; a cada uno, las que le caigan cerca.
+forma = 1
+forma_apunte = 3
+forma_radio = 90.0
+forma_rango = 110.0
+estrellas_fugaces = 6
+fugaz_radio = 20.0
+suelo_roto = 92

@@ -59,3 +59,13 @@ class_name MutacionData
 # EL COLOR DE SUS EFECTOS (el charco, las salpicaduras...), si no es el de su enemigo (alfa 0 = el suyo): la ceniza en
 # gris ceniza, la obsidiana en negro.
 @export var color_fx: Color = Color(0, 0, 0, 0)
+# (06/10, los mutantes del slime ABISAL)
+# DEJA ESTRELLAS: al moverse en la pelea deja una ESTRELLA donde estaba. No explotan ni hacen nada solas: son las piezas
+# de sus ataques (la Constelacion las une con rayos; la Mirada estelar dispara desde cada una). Como mucho
+# 'estrellas_max' (la mas vieja se apaga); duran la pelea.
+@export var deja_estrellas: bool = false
+@export var estrellas_max: int = 6
+# TODO LO VE (el de mil ojos): no se le embosca (sin iniciativa contra el), el sigilo no le engaña (ni en el mapa ni en la
+# pelea), ve en redondo y apunta mejor (+precision_extra).
+@export var todo_lo_ve: bool = false
+@export var precision_extra: float = 0.15
