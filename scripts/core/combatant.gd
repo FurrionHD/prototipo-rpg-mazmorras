@@ -805,7 +805,7 @@ func roll_imbue(target: Combatant) -> String:
 		return ""
 	for _s in stacks:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
-		target.apply_status(imbue_estado, -1, -1.0, 1, false, imbue_tope)
+		target.apply_status(imbue_estado, -1, StatusEffects.magnitud_por_golpe(imbue_estado, atk(), atk()), 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
@@ -814,7 +814,7 @@ func roll_imbue(target: Combatant) -> String:
 			StatsMath.imbue_proc_chance(imbue_extra_prob, stat, rival, imbue_por_destreza),
 			self, target, imbue_extra_estado)
 		if randf() < pe:
-			target.apply_status(imbue_extra_estado)
+			target.apply_status(imbue_extra_estado, -1, StatusEffects.magnitud_por_golpe(imbue_extra_estado, atk(), atk()))
 			txt += ", " + String(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))
 	return txt
 
@@ -1158,6 +1158,26 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 
 	var nombre_estado: String = String(d.get("nombre", "?"))
 
+	if mode == "brasas":
+		# CADA QUEMADURA POR SU CUENTA (06/10): se añade con sus turnos y su fuerza; en tick_statuses arde solo la mas
+		# fuerte. Al tope, se va la que menos haria (la mas floja y, a igualdad, la que menos dura).
+		if _count_status(id) >= maxs:
+			var floja = null
+			for e in statuses:
+				if e.id() == id and (floja == null or e.magnitude * e.turns < floja.magnitude * floja.turns):
+					floja = e
+			if floja != null and floja.magnitude * floja.turns < magnitude * turns:
+				statuses.erase(floja)
+			else:
+				return
+		var nb := StatusEffects.Instance.new(d, turns, 1)
+		nb.magnitude = magnitude
+		statuses.append(nb)
+		_invalidar_hab()
+		print("[estado] %s recibe %s: %.2f/turno, %d turnos (%d a la vez, arde la mas fuerte)" % [
+			nombre, nombre_estado, magnitude, turns, _count_status(id)])
+		return
+
 	if mode == "independent":
 		# Una habilidad puede reiniciar la duracion de TODOS los stacks existentes.
 		if refresh_all:
@@ -1310,6 +1330,11 @@ func tick_statuses() -> Dictionary:
 	var heal_labels: Array = []
 	var kept: Array = []
 	var disipados: Array = []
+	# LAS BRASAS (Quemadura, Rescoldo): de cada una, solo arde la mas fuerte (las demas se gastan igual).
+	var arde: Dictionary = {}   # id -> la instancia que arde
+	for e in statuses:
+		if String(e.d.get("stack_mode", "")) == "brasas" and (not arde.has(e.id()) or e.magnitude > arde[e.id()].magnitude):
+			arde[e.id()] = e
 	for e in statuses:
 		# DISIPACION (Miedo): te quita el turno SIEMPRE mientras lo tengas, pero al llegarte el
 		# turno se tira a ver si se te pasa. La tirada va ANTES de marcar stunned a proposito: si
@@ -1325,6 +1350,8 @@ func tick_statuses() -> Dictionary:
 		var mana: float = e.mana_amount()
 		# Buff/debuff de stat = ni DoT, ni cura, ni maná, ni stun (se salta el primer decremento).
 		var es_stat: bool = dmg <= 0.0 and cura <= 0.0 and mana <= 0.0 and not e.is_stun()
+		if arde.has(e.id()) and arde[e.id()] != e:
+			dmg = 0.0   # una brasa floja: no arde mientras haya una mas fuerte, pero se gasta igual
 		if e.is_stun():
 			stunned = true
 		if dmg > 0.0:
@@ -1549,10 +1576,21 @@ func status_evade_flat() -> float:
 # 'precision' en vez de restarse a la esquiva del otro: cegado fallo yo, no me esquivan mejor a mi.
 # Es el espejo exacto de status_evade_flat, y va aqui al lado para que se lean juntos.
 func status_precision_flat() -> float:
+	return _flat_sin_repetir_brasas("precision_flat")
+
+
+# Como sumar flat_de(clave) de todos, pero un estado "brasas" (el Rescoldo) cuenta UNA vez aunque lleve varios encima.
+func _flat_sin_repetir_brasas(clave: String) -> float:
 	var s: float = 0.0
+	var vistos: Dictionary = {}
 	for e in statuses:
-		s += e.flat_de("precision_flat")
+		if String(e.d.get("stack_mode", "")) == "brasas":
+			if vistos.has(e.id()):
+				continue
+			vistos[e.id()] = true
+		s += e.flat_de(clave)
 	return s
+
 
 # RESISTENCIA A ESTADOS de este combatiente, TODO junto: la suya de siempre (armadura + base, la
 # pone Game al montarlo) mas lo que aporten los estados (plato de Estómago).
@@ -1921,7 +1959,7 @@ func roll_on_hit(target: Combatant) -> Array:
 		var p: float = StatusEffects.prob_final(a.prob, self, target, a.estado)
 		if randf() >= p:
 			continue
-		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value)   # sangrado escala con MI ataque (mv invertido)
+		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value, atk())   # sangrado escala con MI ataque (mv invertido); el fuego, con el golpe
 		# N stacks por tirada, igual que la rama de habilidades enemigas. Antes se aplicaba
 		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
 		# tiene que hacer lo que dice el dato y no fallar en silencio.

@@ -7479,11 +7479,15 @@ func _turno_de_estados_fuera(p: PersonajeData) -> void:
 	var dot_mult: float = 1.0
 	var quedan: Array = []
 	var expirados: Array = []
+	var insts: Array = []
 	for d in p.estados:
-		var inst = StatusEffects.instancia_de_dict(d)
+		insts.append(StatusEffects.instancia_de_dict(d))
+	var arde: Dictionary = StatusEffects.brasas_que_arden(insts)
+	for inst in insts:
 		if inst == null:
 			continue   # estado retirado del catalogo: se cae solo
-		dano += inst.dot_damage()
+		if not (arde.has(inst.id()) and arde[inst.id()] != inst):   # de las quemaduras, solo arde la mas fuerte
+			dano += inst.dot_damage()
 		dot_mult *= inst.mult_de("dot_taken_mult")
 		# LOS BUFFS NO SE GASTAN ANDANDO: solo corren los estorbos, lo que te cura y los platos
 		# (ver StatusEffects.corre_fuera). Un buff se queda ENTERO para el siguiente combate.

@@ -992,7 +992,7 @@ func _resolver_golpes_hechizo(spell: SpellData, objetivo: Combatant, foco: float
 		if tira_estados:
 			# En multi-objetivo el log lo escribe _log_hechizo de una sentada: aqui callamos.
 			_aplicar_estado_hechizo(spell, objetivo, elem, not multi, anunciados,
-				spell.es_multiobjetivo(), aplicados)
+				spell.es_multiobjetivo(), aplicados, dmg)
 	return {
 		"c": objetivo, "dano": total, "mult": ultimo_mult, "crit": hubo_crit,
 		"golpes": trail.size(), "trail": trail, "estados": aplicados,
@@ -1151,7 +1151,7 @@ func _resolver_dispersa(spell: SpellData, foco: float, puntos: Array = [], dentr
 			_gastar_amplificadores(obj, elem)
 			# Estados de ESTE golpe (solo los de su elemento). Multi-objetivo: el log lo pliega
 			# _log_hechizo de una sentada, aqui solo se acumulan los que ENTRAN.
-			_aplicar_estado_hechizo(spell, obj, elem, false, anun[obj], true, a.estados)
+			_aplicar_estado_hechizo(spell, obj, elem, false, anun[obj], true, a.estados, dmg)
 	var out: Array = []
 	for obj in orden:
 		out.append(acc[obj])
@@ -1363,7 +1363,7 @@ func _gastar_imbue() -> void:
 #   aplicados  -> se rellena con los estados que ENTRAN, para que el llamador los pliegue.
 func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null,
 		elem_golpe: int = -1, verboso: bool = true, anunciados: Dictionary = {},
-		silencioso: bool = false, aplicados: Array = []) -> void:
+		silencioso: bool = false, aplicados: Array = [], golpe: float = -1.0) -> void:
 	var enemigo: Combatant = objetivo_ataque if objetivo_ataque != null else _pantalla._objetivo()
 	for a in spell.efectos:
 		if a.estado < 0:
@@ -1409,7 +1409,9 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 		for d_h in destinos_h:
 			if d_h == null or not d_h.is_alive():
 				continue
-			d_h.apply_status(a.estado, a.turns, a.magnitud, 1, false, a.cap)
+			# EL FUEGO (06/10) arde un % del daño de ESTE golpe (ver StatusEffects.QUEMADURA_FRACCION).
+			var mag_h: float = a.magnitud if a.magnitud >= 0.0 				else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe)
+			d_h.apply_status(a.estado, a.turns, mag_h, 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not aplicados.has(int(a.estado)):

@@ -1764,11 +1764,15 @@ func _tick_estados_fuera(delta: float) -> void:
 	_reloj_estados -= Game.SEG_POR_TURNO_FUERA
 	var dano: float = 0.0
 	var quedan: Array = []
+	var insts: Array = []
 	for d in estados_restantes:
-		var inst = StatusEffects.instancia_de_dict(d)
+		insts.append(StatusEffects.instancia_de_dict(d))
+	var arde: Dictionary = StatusEffects.brasas_que_arden(insts)
+	for inst in insts:
 		if inst == null:
 			continue
-		dano += inst.dot_damage()
+		if not (arde.has(inst.id()) and arde[inst.id()] != inst):   # de las quemaduras, solo arde la mas fuerte
+			dano += inst.dot_damage()
 		inst.turns -= 1
 		if inst.turns > 0:
 			quedan.append(StatusEffects.dict_de_instancia(inst))

@@ -113,10 +113,10 @@ static func escalar_intensidad(mult_puro: float, intensidad: float) -> float:
 # elemento, no un dato suelto: un ser de fuego no se quema, y uno de agua tampoco (la apaga).
 # Lo aprovechan los enemigos (slime de fuego) y el jugador al imbuirse el CUERPO.
 const INMUNIDAD_POR_AFINIDAD := {
-	Elemento.FUEGO: [StatusEffects.Id.QUEMADURA],    # eres fuego
+	Elemento.FUEGO: [StatusEffects.Id.QUEMADURA, StatusEffects.Id.RESCOLDO],    # eres fuego
 	# El agua apaga el fuego. Y NO se puede mojar: un ser de agua ya conduce de por si, su
 	# debilidad x1.5 al Rayo ES su humedad; mojarlo encima cobraria dos veces lo mismo (x2.25).
-	Elemento.AGUA: [StatusEffects.Id.QUEMADURA, StatusEffects.Id.MOJADO],
+	Elemento.AGUA: [StatusEffects.Id.QUEMADURA, StatusEffects.Id.MOJADO, StatusEffects.Id.RESCOLDO],
 	Elemento.RAYO: [StatusEffects.Id.RAYO],
 	# A la LUZ no la deslumbras: es ella la que deslumbra.
 	Elemento.LUZ: [StatusEffects.Id.CEGUERA],

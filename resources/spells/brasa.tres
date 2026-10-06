@@ -7,7 +7,6 @@
 script = ExtResource("2")
 estado = 2
 prob = 0.3
-magnitud = 4.0
 
 [resource]
 script = ExtResource("1")

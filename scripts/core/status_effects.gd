@@ -46,7 +46,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	CEGUERA,
 	OPORTUNISTA,
 	ENROSCADO,
-	PEGADO }
+	PEGADO,
+	RESCOLDO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -75,6 +76,20 @@ const SANGRADO_MAX_STACKS := 5
 #   0.5 -> la daga sangra ~1.55x el mandoble
 #   1.0 -> inversion COMPLETA: la daga sangra ~2.4x el mandoble
 const SANGRADO_MV_EXP := 0.3
+
+# EL FUEGO (06/10, criterio del jefe: "el fuego es un poco random... deberiamos poner un criterio"). Antes la Quemadura
+# hacia 6 fijos (o 4-12 fijos en las magias), la pusiera quien la pusiera. Ahora ARDE UN % DEL GOLPE QUE LA PRENDE (lo
+# que pega ese golpe sobre el papel: el ataque de quien pega por el multiplicador de la habilidad, o el daño de la magia);
+# si no hay golpe (una pasiva, un charco), del ataque de quien la pone. Una daga con fuego quema poco y un martillo mucho.
+# NO SE SUMAN (modo "brasas"): cada quemadura va por su cuenta con sus turnos y cada turno arde SOLO LA MAS FUERTE; las
+# flojas se van gastando a la vez por debajo. Su ejemplo: turno 1 un fuego de 8, turno 2 uno de 3 -> arde el 8; turno 3
+# se va el 8 y arde el 3 (le queda uno); turno 4, nada.
+const QUEMADURA_FRACCION := 0.30
+# EL RESCOLDO (06/10, la ceniza y brasa, mutante del slime de fuego): brasa y ceniza en la cara. La MITAD por turno que la
+# Quemadura pero dura 3, y ademas fallas un 8 % mas (la Ceguera, un 12 %). El agua lo apaga.
+const RESCOLDO_FRACCION := 0.15
+# Cuantas quemaduras sueltas puede llevar uno a la vez (si no, una lluvia de chispas llenaria la lista).
+const BRASAS_MAX := 6
 
 static func sangrado_magnitude(applier_atk: float, motion_value: float = 1.0) -> float:
 	var mv: float = maxf(motion_value, 0.1)
@@ -153,12 +168,33 @@ static func es_control(id: int) -> bool:
 # (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
 # (con el motion_value del arma invertido, ver sangrado_magnitude); si no, -1 (que
 # apply_status traduce al dot_default del catalogo).
-static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0) -> float:
+static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0, golpe: float = -1.0) -> float:
 	var m: float = float(app.magnitud)
 	if m >= 0.0:
 		return m
 	if int(app.estado) == Id.SANGRADO:
 		return sangrado_magnitude(applier_atk, motion_value)
+	return magnitud_por_golpe(int(app.estado), applier_atk, golpe)
+
+
+# De una lista de instancias: para cada estado "brasas" (Quemadura, Rescoldo), la que ARDE (la mas fuerte). Las demas
+# no hacen daño mientras esa siga. La usan los ticks de fuera de combate (el de dentro lo hace Combatant.tick_statuses).
+static func brasas_que_arden(insts: Array) -> Dictionary:
+	var arde: Dictionary = {}
+	for e in insts:
+		if e != null and String(e.d.get("stack_mode", "")) == "brasas" 				and (not arde.has(e.id()) or e.magnitude > arde[e.id()].magnitude):
+			arde[e.id()] = e
+	return arde
+
+
+# LA QUEMADURA Y EL RESCOLDO (06/10): un % del GOLPE que la prende ('golpe' <= 0 = no hay golpe: del ataque de quien la
+# pone). Para cualquier otro estado, -1 (el de su catalogo).
+static func magnitud_por_golpe(id: int, applier_atk: float, golpe: float = -1.0) -> float:
+	var base: float = golpe if golpe > 0.0 else applier_atk
+	if id == Id.QUEMADURA:
+		return maxf(base * QUEMADURA_FRACCION, 0.5)
+	if id == Id.RESCOLDO:
+		return maxf(base * RESCOLDO_FRACCION, 0.5)
 	return -1.0
 
 # PLATOS: 20 minutos de mapa. No es un numero suelto — son los turnos que caben en 20 min al ritmo
@@ -197,7 +233,8 @@ static var _defs: Dictionary = {
 	},
 	Id.QUEMADURA: {
 		"id": Id.QUEMADURA, "nombre": "Quemadura", "icono": "🔥", "color": Color(1.0, 0.5, 0.1),
-		"dot": true, "turns": 2, "dot_default": 6.0,   # lo afinaran los hechizos (Fase 3)
+		"dot": true, "turns": 2, "dot_default": 6.0,   # (solo si nadie da magnitud: ver QUEMADURA_FRACCION)
+		"stack_mode": "brasas", "max_stacks": BRASAS_MAX,
 		"debuff": true,
 		"descripcion": "Sigue ardiendo cuando la llama ya no está. El agua la apaga.",
 	},
@@ -266,8 +303,8 @@ static var _defs: Dictionary = {
 		# CICLO de dependencias (no compilaria).
 		"id": Id.MOJADO, "nombre": "Mojado", "icono": "💧", "color": Color(0.4, 0.7, 1.0),
 		"turns": 3,
-		"inmune": [Id.QUEMADURA],   # empapado NO puedes arder
-		"limpia": [Id.QUEMADURA],   # y te APAGA la quemadura que llevaras encima
+		"inmune": [Id.QUEMADURA, Id.RESCOLDO],   # empapado NO puedes arder
+		"limpia": [Id.QUEMADURA, Id.RESCOLDO],   # y te APAGA la quemadura (y el rescoldo) que llevaras encima
 		"descripcion": "Empapado no ardes. Pero el agua conduce, y un rayo encuentra el camino.",
 	},
 	Id.PRESTEZA: {   # buff de VELOCIDAD: no habia ninguno (los unicos spd_mult eran < 1)
@@ -390,6 +427,16 @@ static var _defs: Dictionary = {
 		"id": Id.PEGADO, "nombre": "Sanguijuela", "icono": "🩸", "color": Color(0.55, 0.2, 0.28),
 		"turns": 999, "pega": true, "debuff": true,
 		"descripcion": "Llevas una sanguijuela pegada que te chupa cada turno suyo. Quítasela a golpes o aturdiéndola.",
+	},
+	# EL RESCOLDO (06/10, ver RESCOLDO_FRACCION): arde como la Quemadura (no se suman: la mas fuerte) pero flojo y mas
+	# largo, y con la ceniza en los ojos fallas mas. El agua lo apaga (Mojado).
+	Id.RESCOLDO: {
+		"id": Id.RESCOLDO, "nombre": "Rescoldo", "icono": "♨", "color": Color(0.85, 0.45, 0.25),
+		"dot": true, "turns": 3, "dot_default": 3.0,
+		"stack_mode": "brasas", "max_stacks": BRASAS_MAX,
+		"precision_flat": -0.08,
+		"debuff": true,
+		"descripcion": "Brasas y ceniza en la cara: quema poco pero no se va, y con los ojos llenos de ceniza fallas más.",
 	},
 
 	# --- PLATOS DE COCINA (KAN-119) ---------------------------------------------------
@@ -961,6 +1008,15 @@ static func chip_de_grupo(insts: Array) -> Array:
 		stacks_tot += maxi(1, e.stacks)
 		dot_tot += e.dot_damage() + e.heal_amount() + e.mana_amount()
 		turnos.append(e.duracion_texto())
+	# LAS BRASAS (Quemadura, Rescoldo): arde solo la mas fuerte; el chip enseña esa, no la suma.
+	if String(larga.d.get("stack_mode", "")) == "brasas":
+		var fuerte: Instance = insts[0]
+		for e in insts:
+			if e.magnitude > fuerte.magnitude:
+				fuerte = e
+		return [fuerte.etiqueta(), fuerte.resumen() + "\n\n%d quemaduras a la vez (arde la más fuerte): %s" % [
+			insts.size(), ", ".join(turnos)], str(fuerte.d.get("icono", "?")), fuerte.d.get("color", Color.WHITE),
+			larga.turns == 1]
 	var ic: String = str(larga.d.get("icono", "?"))
 	var col: Color = larga.d.get("color", Color.WHITE)
 	# Se mira el que MAS le queda, igual que la etiqueta: mientras siga vivo uno, el estado sigue
