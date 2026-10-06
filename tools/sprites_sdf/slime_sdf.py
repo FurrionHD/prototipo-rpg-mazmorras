@@ -115,9 +115,11 @@ def _materiales(forma, color):
             'chispa': [(1.0, 1.0, 1.0)] * 3,
             # LAS CARAS: cada una de un tono (negra, gris humo, violacea), y LA ARISTA clara entre ellas.
             # (el reflejo, gris claro y no blanco: una cara entera de blanco era demasiado)
-            'cara1':  [(0.02, 0.02, 0.03), (0.06, 0.05, 0.08), (0.20, 0.19, 0.24), (0.50, 0.48, 0.56)],
-            'cara2':  [(0.07, 0.06, 0.09), (0.15, 0.14, 0.18), (0.36, 0.34, 0.40), (0.58, 0.56, 0.64)],
-            'cara3':  [(0.05, 0.03, 0.08), (0.11, 0.08, 0.16), (0.28, 0.23, 0.36), (0.54, 0.50, 0.62)],
+            # (06/10, su diagnostico: en Expandir, mirando a una direccion, una cara salia GRIS y parpadeaba al estirarse el
+            # cuerpo: la luz de las caras, solo un poco mas clara que su base, y SIN reflejo; el brillo, en aristas y chispas)
+            'cara1':  [(0.02, 0.02, 0.03), (0.06, 0.05, 0.08), (0.11, 0.10, 0.14)],
+            'cara2':  [(0.07, 0.06, 0.09), (0.14, 0.13, 0.17), (0.20, 0.19, 0.24)],
+            'cara3':  [(0.05, 0.03, 0.08), (0.10, 0.08, 0.15), (0.16, 0.13, 0.22)],
             # (las aristas en sombra casi no se ven; solo brillan las que dan a la luz)
             'arista': [(0.10, 0.09, 0.13), (0.26, 0.25, 0.31), (0.88, 0.86, 0.96)],
             'ojo':    [(1.0, 0.99, 0.92)] * 3,
@@ -158,7 +160,7 @@ MODELO.claros_dentro = ('cristal', 'nucleo')
 # De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
 PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211')
 if FORMA == 'obsidiana':
-    MODELO.especular = MODELO.especular + ('obsidiana', 'cara1', 'cara2', 'cara3')
+    MODELO.especular = MODELO.especular + ('obsidiana',)
 MODELO.alfa_claro = 0.45
 
 # EL CUERPO (05/10, su referencia: una GOMINOLA de gel): una BOLA REDONDITA, solo un poco aplastada, posada. Ni disco (la primera vuelta, con los ojos en la coronilla) ni campana (la segunda llevaba
