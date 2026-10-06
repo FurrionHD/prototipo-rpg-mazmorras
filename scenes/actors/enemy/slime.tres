@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://resources/abilities/slime_placaje_baboso.tres" id="12_pba"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_placaje_espinoso.tres" id="13_pes"]
 [ext_resource type="Resource" path="res://resources/abilities/slime_expandir_puas.tres" id="14_exp"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_reventon_espinoso.tres" id="15_res"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -44,7 +45,7 @@ id = &"brotado_punzante"
 nombre = "Slime brotado punzante"
 grado = 2
 desde = Array[StringName]([&"brotado", &"punzante"])
-habilidades = Array[ExtResource("9_ab")]([ExtResource("13_pes"), ExtResource("10_tri"), ExtResource("11_rpg"), ExtResource("14_exp")])
+habilidades = Array[ExtResource("9_ab")]([ExtResource("13_pes"), ExtResource("10_tri"), ExtResource("15_res"), ExtResource("14_exp")])
 sprite = &"evo2"
 se_divide = true
 espinas = true

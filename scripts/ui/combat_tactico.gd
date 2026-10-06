@@ -2704,8 +2704,9 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		if f.tipo == CombatFormas.Tipo.LINEA:
 			# EL RASTRO: una fila de charquitos a lo largo de lo que recorrio.
 			var lista: Array = []
-			var r: float = maxf(f.ancho * 0.55, 6.0)
-			var pasos: int = maxi(1, ceili(f.largo / (r * 1.3)))
+			# (solapados: con el ancho del slime, separados salian dos manchas gordas)
+			var r: float = maxf(f.ancho * 0.45, 6.0)
+			var pasos: int = maxi(1, ceili(f.largo / (r * 0.75)))
 			for i in pasos:
 				var fi := CombatFormas.circulo(f.origen + f.dir * f.largo * (float(i) + 0.5) / float(pasos), r)
 				fi.apertura = f.apertura

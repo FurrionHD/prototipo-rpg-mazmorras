@@ -1341,8 +1341,8 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 					var charcos: Array = []
 					var fs: Array = []
 					if ab.rastro and f.tipo == CombatFormas.Tipo.LINEA:
-						var r_c: float = maxf(f.ancho * 0.55, 6.0)
-						var n_c: int = maxi(1, ceili(f.largo / (r_c * 1.3)))
+						var r_c: float = maxf(f.ancho * 0.45, 6.0)
+						var n_c: int = maxi(1, ceili(f.largo / (r_c * 0.75)))
 						for i in n_c:
 							fs.append(CombatFormas.circulo(f.origen + f.dir * f.largo * (float(i) + 0.5) / float(n_c), r_c))
 					else:

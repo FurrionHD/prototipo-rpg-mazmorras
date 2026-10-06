@@ -296,15 +296,14 @@ func _preparar_area() -> void:
 			for i in 10:
 				_manchas.append({"u": _rng.randf_range(0.05, 1.0), "v": _rng.randf_range(-0.3, 0.3), "r": _rng.randf_range(0.3, 0.5) * _ancho})
 		Modo.PUAS:
-			# Las puas que salen disparadas en anillo (alguna mas larga), y las gotas de gel que salpican al salir.
-			var n4: int = 16
+			# (06/10, su diagnostico: "son un poco cutres y salen desde dentro de el, y no tiene las puas dentro sino en sus
+			# esquinas") Pocas y GRANDES, con la forma de las suyas (cristal de dos puntas), y salen de su PIEL, no del centro.
+			var n4: int = 9
+			var giro: float = _rng.randf_range(0.0, TAU)
 			for i in n4:
-				_llamas.append({"a": TAU * (float(i) + _rng.randf_range(-0.25, 0.25)) / float(n4),
-					"u": _rng.randf_range(0.82, 1.0), "l": _rng.randf_range(8.0, 13.0), "t0": _rng.randf_range(0.0, 0.04),
-					"w": _rng.randf_range(2.0, 3.0)})
-			for i in 10:
-				_gotas.append({"a": _rng.randf_range(0.0, TAU), "u": _rng.randf_range(0.25, 0.55),
-					"sube": _rng.randf_range(10.0, 22.0), "tam": _rng.randf_range(1.4, 2.4), "t0": _rng.randf_range(0.0, 0.05)})
+				_llamas.append({"a": giro + TAU * (float(i) + _rng.randf_range(-0.18, 0.18)) / float(n4),
+					"u": _rng.randf_range(0.86, 1.0), "l": _rng.randf_range(13.0, 17.0), "t0": _rng.randf_range(0.0, 0.03),
+					"w": _rng.randf_range(3.6, 4.6), "gira": _rng.randf_range(-0.25, 0.25)})
 		Modo.PLACAJE:
 			var n2: int = int(clampf(_largo / 5.0, 5.0, 16.0))
 			for i in n2:
@@ -513,54 +512,68 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.PUAS: _puas(capa)
 
 
-# EXPANDIR PUAS (06/10): del cuerpo del slime salen DISPARADAS en anillo sus puas de cristal hasta el borde del
-# circulo; se quedan clavadas un momento y se apagan. Al salir salpica un poco de gel y destella.
+# EXPANDIR PUAS (06/10): las puas de cristal le salen DISPARADAS DE LA PIEL en anillo hasta el borde del circulo, se
+# quedan clavadas un momento y se apagan. Cada una es como las de su cuerpo (ver slime_sdf.py, _cristal): un cristal de
+# dos puntas, con su cara clara y su cara en sombra, el contorno oscuro y un brillo.
+const PIEL_PUAS := 17.0          # de donde salen: la piel del slime (su radio a la altura de las puas)
+const ALTO_PUAS := 9.0           # a que altura le salen del cuerpo
+
 func _puas(capa: Node2D) -> void:
 	if _t < 0.0:
 		return
 	var seca: float = _seca(T_PUAS)
-	if capa == _suelo:
-		# La SOMBRA de cada pua en el suelo (ancla lo que vuela al plano del mapa).
-		for pu in _llamas:
-			var k: float = clampf((_t - float(pu["t0"])) / T_PUAS, 0.0, 1.0)
-			if k <= 0.0:
-				continue
-			var d := Vector2(cos(float(pu["a"])), sin(float(pu["a"])) * K)
-			var p: Vector2 = _o + d * _r * float(pu["u"]) * (0.25 + 0.75 * k)
-			capa.draw_circle(p, 2.2, Color(0, 0, 0, 0.22 * seca))
-		return
-	if capa == _delante:
-		for pu in _llamas:
-			var k2: float = clampf((_t - float(pu["t0"])) / T_PUAS, 0.0, 1.0)
-			if k2 <= 0.0:
-				continue
-			var ang: float = float(pu["a"])
-			var d2 := Vector2(cos(ang), sin(ang) * K).normalized()
-			# Sale a la altura del cuerpo y baja hasta clavarse en el suelo al llegar.
-			var alt: float = 7.0 * (1.0 - k2)
-			var punta: Vector2 = _o + d2 * _r * float(pu["u"]) * (0.25 + 0.75 * k2) + _alto(alt)
-			var cola: Vector2 = punta - d2 * float(pu["l"])
-			var lado: Vector2 = d2.orthogonal() * float(pu["w"])
-			var alfa: float = seca
-			capa.draw_colored_polygon(PackedVector2Array([cola + lado, cola - lado, punta]), Color(CRISTAL_OSCURO, alfa))
-			capa.draw_colored_polygon(PackedVector2Array([cola + lado * 0.3, cola - lado, punta]), Color(CRISTAL, alfa))
-			# La estela mientras vuela.
-			if k2 < 1.0:
-				BarridoAire.cometa(capa, cola - d2 * 6.0, cola, float(pu["w"]) * 0.9, Color(CRISTAL, 0.5 * (1.0 - k2)))
-		# Las gotas de gel que salpican al salir.
-		for g in _gotas:
-			var k3: float = clampf((_t - float(g["t0"])) / 0.4, 0.0, 1.0)
-			if k3 <= 0.0 or k3 >= 1.0:
-				continue
-			var dg := Vector2(cos(float(g["a"])), sin(float(g["a"])))
-			var suelo: Vector2 = _o + dg * _r * float(g["u"]) * k3
-			_gota(capa, suelo + _alto(float(g["sube"]) * 4.0 * k3 * (1.0 - k3)), float(g["tam"]), 1.0 - k3 * 0.5, 1.0,
-				float(g["a"]))
-		return
-	# EL DESTELLO del cristal al salir.
-	var fb: float = 1.0 - clampf(_t / 0.18, 0.0, 1.0)
-	if fb > 0.0:
-		BarridoAire.destello(capa, _o + _alto(6.0), _r * 0.4 * (1.0 - fb * 0.5), Color(CRISTAL, fb * 0.8))
+	for pu in _llamas:
+		var k: float = clampf((_t - float(pu["t0"])) / T_PUAS, 0.0, 1.0)
+		if k <= 0.0:
+			continue
+		var ang: float = float(pu["a"])
+		var d := Vector2(cos(ang), sin(ang) * K).normalized()
+		var r0: float = PIEL_PUAS
+		var r1: float = _r * float(pu["u"])
+		var en_suelo: Vector2 = _o + d * lerpf(r0, r1, k)
+		if capa == _suelo:
+			# SU SOMBRA en el suelo (ancla lo que vuela al plano del mapa), mas nitida al clavarse.
+			capa.draw_circle(en_suelo, 2.6, Color(0, 0, 0, (0.15 + 0.15 * k) * seca))
+			continue
+		if capa != _delante:
+			continue
+		# Sale a la altura de su cuerpo y BAJA hasta clavarse, inclinandose hacia delante (la punta mas baja).
+		var alt: float = ALTO_PUAS * (1.0 - k)
+		var punta: Vector2 = en_suelo + _alto(alt)
+		var eje: Vector2 = (d + Vector2(0.0, float(pu["gira"]) * 0.2 + 0.35 * k)).normalized()
+		_cristal(capa, punta, eje, float(pu["l"]), float(pu["w"]), seca)
+		# El rastro de chispas mientras vuela.
+		if k < 1.0:
+			BarridoAire.cometa(capa, punta - eje * (float(pu["l"]) + 8.0), punta - eje * float(pu["l"]) * 0.6,
+				float(pu["w"]) * 0.7, Color(CRISTAL, 0.45 * (1.0 - k)))
+	if capa == _brillo:
+		# EL DESTELLO al soltarlas: un anillo de chispas EN SU PIEL (no en el centro), que se abre y se apaga.
+		var fb: float = 1.0 - clampf(_t / 0.16, 0.0, 1.0)
+		if fb > 0.0:
+			for pu in _llamas:
+				var dd := Vector2(cos(float(pu["a"])), sin(float(pu["a"])) * K).normalized()
+				BarridoAire.destello(capa, _o + dd * PIEL_PUAS + _alto(ALTO_PUAS), 5.0 * (1.2 - fb * 0.4),
+					Color(CRISTAL, fb * 0.75))
+
+
+# UN CRISTAL como los del slime: dos puntas (la de delante larga), la mitad de arriba clara y la de abajo en sombra,
+# con el contorno oscuro y una raya de brillo.
+func _cristal(ci: CanvasItem, punta: Vector2, eje: Vector2, largo: float, ancho: float, alfa: float) -> void:
+	var cola: Vector2 = punta - eje * largo
+	var medio: Vector2 = punta - eje * largo * 0.62
+	var lado: Vector2 = eje.orthogonal() * ancho * 0.5
+	var arriba: Vector2 = medio + lado
+	var abajo: Vector2 = medio - lado
+	if lado.y > 0.0:   # la cara clara siempre la de ARRIBA (la luz viene de arriba)
+		var tmp: Vector2 = arriba
+		arriba = abajo
+		abajo = tmp
+	var borde := PackedVector2Array([punta + eje * 1.0, arriba + (arriba - medio).normalized(), cola - eje * 1.0,
+		abajo + (abajo - medio).normalized()])
+	ci.draw_colored_polygon(borde, Color(CRISTAL_OSCURO.darkened(0.35), alfa))
+	ci.draw_colored_polygon(PackedVector2Array([punta, arriba, cola, medio]), Color(CRISTAL.lightened(0.15), alfa))
+	ci.draw_colored_polygon(PackedVector2Array([punta, medio, cola, abajo]), Color(CRISTAL_OSCURO.lightened(0.2), alfa))
+	ci.draw_line(punta.lerp(arriba, 0.35), medio.lerp(arriba, 0.5).lerp(cola, 0.3), Color(1, 1, 1, 0.85 * alfa), 1.0)
 
 
 func _splat(capa: Node2D) -> void:

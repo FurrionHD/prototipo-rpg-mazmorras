@@ -423,9 +423,13 @@ func vestir_baba(col: Color, pinchos: bool) -> void:
 	_col_charco_cla = col.lightened(0.45)
 	_pinchos.clear()
 	if pinchos:
-		for i in 3:
-			_pinchos.append({"x": _rng.randf_range(-0.5, 0.5), "y": _rng.randf_range(-0.35, 0.45),
-				"a": _rng.randf_range(-0.5, 0.5), "l": _rng.randf_range(4.0, 7.0)})
+		# Tantos como quepan (06/10: en el charco grande del Reventon salian dos o tres y no se leian).
+		var n: int = clampi(roundi(_r * _r / 70.0), 3, 22)
+		for i in n:
+			var a: float = TAU * (float(i) + _rng.randf_range(0.0, 0.8)) / float(n)
+			var u: float = sqrt(_rng.randf_range(0.04, 0.6))
+			_pinchos.append({"x": cos(a) * u, "y": sin(a) * u * 0.8, "a": _rng.randf_range(-0.5, 0.5),
+				"l": _rng.randf_range(6.0, 10.0)})
 
 
 # LAS RAICES QUE ATAN a un Enraizado: se enroscan en sus piernas y se quedan hasta que CombatTactico las seca. Si
@@ -1402,7 +1406,7 @@ func _charco(capa: Node2D) -> void:
 		var base: Vector2 = _o + Vector2(float(pu["x"]), float(pu["y"])) * r
 		var ang: float = float(pu["a"])
 		var largo: float = float(pu["l"]) * lerpf(0.5, 1.0, clampf(queda, 0.0, 1.0))
-		var lado := Vector2(cos(ang), sin(ang)) * 1.6
+		var lado := Vector2(cos(ang), sin(ang)) * 2.2
 		var punta: Vector2 = base + Vector2(sin(ang) * 1.5, -largo)
 		capa.draw_colored_polygon(PackedVector2Array([base - lado, base + lado, punta]), Color(0.25, 0.55, 0.65, alfa))
 		capa.draw_colored_polygon(PackedVector2Array([base - lado * 0.4, base + lado, punta]), Color(0.6, 0.95, 1.0, alfa))
