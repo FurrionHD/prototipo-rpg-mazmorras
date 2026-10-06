@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg2"]
+script = ExtResource("2")
+estado = 9
+prob = 0.75
+stacks = 2
+
+[resource]
+script = ExtResource("1")
+nombre = "Triple embate"
+descripcion = "El slime mutado te sacude con TRES coletazos rápidos que te dejan cubierto de baba."
+coste_energia = 0.0
+golpes_min = 3
+golpes_max = 3
+dano_mult = 0.75
+reparto_por_golpe = true
+efectos = [SubResource("SA_peg2")]
+fx_estilo = 19
+cooldown = 3
+forma = 2
+forma_apunte = 1
+forma_radio = 35.0
+forma_apertura = 120.0
+suelo_roto = 69

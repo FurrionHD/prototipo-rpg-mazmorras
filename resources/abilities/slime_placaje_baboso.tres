@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+
+[sub_resource type="Resource" id="SA_lento"]
+script = ExtResource("2")
+estado = 3
+prob = 0.75
+turns = 2
+mult = 0.8
+
+[sub_resource type="Resource" id="SA_lento_ch"]
+script = ExtResource("2")
+estado = 3
+prob = 1.0
+turns = 2
+mult = 0.8
+
+[resource]
+script = ExtResource("1")
+nombre = "Placaje baboso"
+descripcion = "Se abalanza y te embiste con su masa gelatinosa, dejando un rastro de baba por donde pasa que frena al que lo pise."
+coste_energia = 0.0
+dano_mult = 1.2
+efectos = [SubResource("SA_peg"), SubResource("SA_lento")]
+fx_estilo = 19
+cooldown = 3
+forma = 3
+forma_apunte = 1
+forma_radio = 40.0
+forma_ancho = 16.0
+carga = true
+suelo_roto = 68
+charco_turnos = 3
+charco_texto = "el rastro de baba"
+charco_estilo = 3
+charco_efectos = [SubResource("SA_lento_ch")]
+rastro = true

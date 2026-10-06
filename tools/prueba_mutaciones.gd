@@ -73,5 +73,22 @@ func _correr() -> void:
 	_ver(sp != null and sp.has_animation(&"expandir_0") and sp.has_animation(&"erizar_3"), "el punzante lleva Expandir puas")
 	var sb: SpriteFrames = SpritesEnemigo.frames_de(ed, 0.5, true, &"brotado")
 	_ver(sb != null and not sb.has_animation(&"expandir_0") and sb.has_animation(&"evolucion_0"), "el brotado no; lleva su transformacion")
+	print("6) los ataques de cada una")
+	var nombres := func(c: Combatant) -> Array:
+		var out: Array = []
+		for h in c.habilidades:
+			out.append(h.nombre)
+		return out
+	var hb: Array = nombres.call(ed.crear_combatant(0.5, true, false, &"brotado"))
+	var hp: Array = nombres.call(ed.crear_combatant(0.5, true, false, &"punzante"))
+	var h2: Array = nombres.call(ed.crear_combatant(0.5, true, false, &"brotado_punzante"))
+	print("    brotado %s | punzante %s | brotado punzante %s" % [hb, hp, h2])
+	_ver(hb.has("Placaje baboso") and hb.has("Triple embate") and hb.has("Reventón pegajoso"), "brotado")
+	_ver(hp.has("Triple embate") and hp.has("Expandir púas") and not hp.has("Placaje viscoso")
+		and not hp.has("Placaje baboso"), "punzante (sin placaje)")
+	_ver(h2.has("Placaje espinoso") and h2.has("Expandir púas") and h2.size() == 4, "brotado punzante")
+	var rastro: AbilityData = load("res://resources/abilities/slime_placaje_espinoso.tres")
+	_ver(rastro.rastro and rastro.charco_dano == 0.5 and rastro.charco_turnos == 3 and not rastro.charco_efectos.is_empty(),
+		"el rastro de pinchos: 50 %% de su ataque, Lento, 3 turnos")
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

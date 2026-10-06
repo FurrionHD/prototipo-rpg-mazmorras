@@ -8,6 +8,12 @@
 [ext_resource type="Resource" path="res://resources/materials/baba_slime.tres" id="6_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_slime.tres" id="7_nuc"]
 [ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="8_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="9_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_triple_embate.tres" id="10_tri"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_reventon_pegajoso.tres" id="11_rpg"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_baboso.tres" id="12_pba"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_placaje_espinoso.tres" id="13_pes"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_expandir_puas.tres" id="14_exp"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
@@ -19,6 +25,7 @@ script = ExtResource("8_mut")
 id = &"brotado"
 nombre = "Slime brotado"
 grado = 1
+habilidades = Array[ExtResource("9_ab")]([ExtResource("12_pba"), ExtResource("10_tri"), ExtResource("11_rpg")])
 sprite = &"mut120"
 se_divide = true
 
@@ -27,6 +34,7 @@ script = ExtResource("8_mut")
 id = &"punzante"
 nombre = "Slime punzante"
 grado = 1
+habilidades = Array[ExtResource("9_ab")]([ExtResource("10_tri"), ExtResource("5_rev"), ExtResource("14_exp")])
 sprite = &"pun120"
 espinas = true
 
@@ -36,6 +44,7 @@ id = &"brotado_punzante"
 nombre = "Slime brotado punzante"
 grado = 2
 desde = Array[StringName]([&"brotado", &"punzante"])
+habilidades = Array[ExtResource("9_ab")]([ExtResource("13_pes"), ExtResource("10_tri"), ExtResource("11_rpg"), ExtResource("14_exp")])
 sprite = &"evo2"
 se_divide = true
 espinas = true

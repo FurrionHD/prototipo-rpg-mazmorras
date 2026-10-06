@@ -144,9 +144,9 @@ func _correr() -> void:
 			combat.enemigos._enemy_use_ability(e, savia, al[0])
 			combat._fx.arrancar_cola()
 			await get_tree().create_timer(1.0, true, false, true).timeout
-			_ver(t._charcos.has(e), "la Savia deja un charco en el suelo")
-			if t._charcos.has(e):
-				var fc = t._charcos[e]["f"]
+			_ver(t._charcos.has("savia_%d" % t._cod(e)), "la Savia deja un charco en el suelo")
+			if t._charcos.has("savia_%d" % t._cod(e)):
+				var fc = t._charcos["savia_%d" % t._cod(e)]["f"]
 				# Uno que empieza el turno DENTRO lo pisa; otro que pasa andando por encima, tambien.
 				t._colocar(al[1], t.cuerpo_de(al[1]), fc.centro - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
 				await _esperar(2)
@@ -160,7 +160,7 @@ func _correr() -> void:
 				# Se seca en tres turnos suyos.
 				for _k in 3:
 					t.charcos_turno_enemigo(e)
-				_ver(not t._charcos.has(e), "el charco se seca a los 3 turnos del trent")
+				_ver(not t._charcos.has("savia_%d" % t._cod(e)), "el charco se seca a los 3 turnos del trent")
 			var raices: AbilityData = load("res://resources/abilities/trent_raices_atenazantes.tres")
 			al[0].apply_status(StatusEffects.Id.ENRAIZADO, 2)
 			_ver(t.radio_de(al[0]) == 0.0, "enraizado no anda")

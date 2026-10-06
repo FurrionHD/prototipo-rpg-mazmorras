@@ -353,6 +353,13 @@ func es_preparacion() -> bool:
 # COMO SE VE lo que se queda: 0 = el charco de savia (BestiaAire.charco), 1 = la telaraña (InsectoAire.red). Viaja en la
 # 'apertura' de su huella (el circulo no la usa): ver CombatTactico.poner_charco.
 @export var charco_estilo: int = 0
+# (06/10, las mutaciones del slime normal) 3 = charco de BABA del color del slime; 4 = baba con PINCHOS de cristal.
+# EL RASTRO: lo que se queda no es un charco donde cae sino la LINEA que ha recorrido (el Placaje del slime brotado).
+@export var rastro: bool = false
+# Los estados que mete el charco/rastro al pisarlo. Vacio = los de 'efectos' (como la Savia de siempre).
+@export var charco_efectos: Array = []
+# DAÑO al pisarlo, en fraccion de su ataque (0 = nada): el rastro de pinchos del brotado punzante, 0,5.
+@export var charco_dano: float = 0.0
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).

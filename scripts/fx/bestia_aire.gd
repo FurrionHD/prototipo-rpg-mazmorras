@@ -106,6 +106,13 @@ var _base_dibujo: Vector2 = Vector2.ZERO
 var _a_colmillo: float = 0.0          # hacia donde se comba la media luna del colmillo (el lado de quien embiste)
 var _grietas: Array = []              # las del pisoton: {pts, w0, w1, t0}
 var queda: float = 1.0                # CHARCO: lo que le queda antes de secarse (1 = recien caido); se encoge con ello
+# LA BABA (06/10, las mutaciones del slime normal, ver vestir_baba): el charco de siempre con el color de SU slime, sin el
+# vaho de la savia y, el de pinchos, con puas de cristal clavadas.
+var _col_charco: Color = SAVIA
+var _col_charco_osc: Color = SAVIA_OSCURA
+var _col_charco_cla: Color = SAVIA_CLARA
+var _es_baba: bool = false
+var _pinchos: Array = []              # {x, y, a, l}: las puas de cristal del rastro de pinchos
 var _secando: float = -1.0            # CHARCO / ATADO: desde cuando se esta yendo (-1 = sigue)
 var _hojas: Array = []                # RAMAZO / RAMALAZO: hojas y astillas que salen volando
 var _raices: Array = []               # RAICES / ATADO: cada raiz {x, d, h, curva, g, fase}
@@ -406,6 +413,19 @@ static func charco(padre: Node, f: CombatFormas.Forma, semilla: int, espera: flo
 	e._suelo = e._capa(SueloRoto.Z_SUELO, false)
 	e._delante = e._capa(SueloRoto.Z_SUELO + 1, false)
 	return e
+
+
+# LA BABA de un slime (CombatTactico._vestir_charco): su color, y con 'pinchos' las puas de cristal.
+func vestir_baba(col: Color, pinchos: bool) -> void:
+	_es_baba = true
+	_col_charco = col
+	_col_charco_osc = col.darkened(0.45)
+	_col_charco_cla = col.lightened(0.45)
+	_pinchos.clear()
+	if pinchos:
+		for i in 3:
+			_pinchos.append({"x": _rng.randf_range(-0.5, 0.5), "y": _rng.randf_range(-0.35, 0.45),
+				"a": _rng.randf_range(-0.5, 0.5), "l": _rng.randf_range(4.0, 7.0)})
 
 
 # LAS RAICES QUE ATAN a un Enraizado: se enroscan en sus piernas y se quedan hasta que CombatTactico las seca. Si
@@ -1370,12 +1390,29 @@ func _charco(capa: Node2D) -> void:
 			var lob: float = float(_piedras[i])
 			borde.append(_o + Vector2(cos(a), sin(a)) * r * lob * 1.06)
 			cuerpo.append(_o + Vector2(cos(a), sin(a)) * r * lob)
-		_poligono(capa, borde, Color(SAVIA_OSCURA, 0.85 * alfa))
-		_poligono(capa, cuerpo, Color(SAVIA, 0.8 * alfa))
+		_poligono(capa, borde, Color(_col_charco_osc, 0.85 * alfa))
+		_poligono(capa, cuerpo, Color(_col_charco, (0.62 if _es_baba else 0.8) * alfa))
 		# El brillo arriba a la izquierda: es lo que lo hace liquido y espeso, no una mancha.
-		_bola(capa, _o + Vector2(-r * 0.3, -r * 0.3), r * 0.35, Color(SAVIA_CLARA, 0.55 * alfa))
+		_bola(capa, _o + Vector2(-r * 0.3, -r * 0.3), r * 0.35, Color(_col_charco_cla, 0.55 * alfa))
 		return
 	if capa != _delante:
+		return
+	# LAS PUAS de cristal del rastro de pinchos: triangulos cian clavados en la baba, con su sombrita.
+	for pu in _pinchos:
+		var base: Vector2 = _o + Vector2(float(pu["x"]), float(pu["y"])) * r
+		var ang: float = float(pu["a"])
+		var largo: float = float(pu["l"]) * lerpf(0.5, 1.0, clampf(queda, 0.0, 1.0))
+		var lado := Vector2(cos(ang), sin(ang)) * 1.6
+		var punta: Vector2 = base + Vector2(sin(ang) * 1.5, -largo)
+		capa.draw_colored_polygon(PackedVector2Array([base - lado, base + lado, punta]), Color(0.25, 0.55, 0.65, alfa))
+		capa.draw_colored_polygon(PackedVector2Array([base - lado * 0.4, base + lado, punta]), Color(0.6, 0.95, 1.0, alfa))
+	if _es_baba:
+		# La baba no echa vaho: solo un par de burbujas lentas.
+		for b in _puffs.slice(0, 2):
+			var ciclo_b: float = fposmod(_t / (float(b["per"]) * 1.6) + float(b["fase"]), 1.0)
+			if ciclo_b < 0.8:
+				capa.draw_circle(_o + Vector2(float(b["x"]), float(b["y"])) * r, float(b["r"]) * ciclo_b / 0.8,
+					Color(_col_charco_cla, 0.6 * alfa))
 		return
 	# LAS BURBUJAS: cada una crece y revienta (un anillo que se abre), a su ritmo.
 	for b in _puffs:
