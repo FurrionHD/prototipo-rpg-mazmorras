@@ -151,18 +151,22 @@ def cielo():
 # ('cerrados' = los que estan cerrados en este fotograma).
 IRIS = ['iris_v', 'iris_m', 'iris_c', 'iris_a', 'iris_n', 'iris_r', 'iris_p']
 
-def _ojos_al_azar(n=13, semilla=21):
+def _ojos_al_azar(n=18, semilla=21):
+    # (06/10, su diagnostico: "es calvo de ojos por detras": al azar sin mas dejaba huecos. Ahora un punto por zona,
+    # REPARTIDOS PAREJO por toda la cupula (espiral de Fibonacci) y movido al azar, con tamaño, giro y color al azar.)
     rng = np.random.default_rng(semilla)
-    ojos, dirs = [], []
-    while len(ojos) < n:
-        d = rng.normal(size=3); d /= np.linalg.norm(d)
-        if d[2] < -0.15:
+    ojos = []
+    m = int(n / 0.78)
+    for i in range(m):
+        z = 1.0 - 2.0 * (i + 0.5) / m
+        if z < -0.15:
             continue   # por debajo no se ve
-        tam = rng.uniform(1.8, 4.6)
-        if any(np.dot(d, q) > math.cos(0.26 + 0.05 * (tam + t2)) for q, t2 in dirs):
-            continue   # que no se monten
-        dirs.append((d, tam))
-        ojos.append((tuple(d), tam, IRIS[len(ojos) % len(IRIS)], rng.uniform(-0.7, 0.7),
+        rr = math.sqrt(max(0.0, 1.0 - z * z))
+        ang = 2.399963 * i
+        d = V([rr * math.cos(ang), rr * math.sin(ang), z]) + rng.normal(0.0, 0.12, 3)
+        d /= np.linalg.norm(d)
+        tam = rng.uniform(1.8, 4.2)
+        ojos.append((tuple(d), tam, IRIS[rng.integers(len(IRIS))], rng.uniform(-0.7, 0.7),
                      1.0 if rng.random() > 0.25 else rng.uniform(0.45, 0.7)))
     return ojos
 
@@ -333,6 +337,26 @@ def llamas_campo(img, t, alto=0.85, ladeo=0.14):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 
 
+# LO ELEGIDO (06/10, suyo): 1a = el CIELO DE NOCHE; 2a = los OJOS "pero con estrellitas tambien, y el color oscuro": el
+# mismo cuerpo de noche con sus estrellas y los ojos al azar encima (x1,1 del cielo).
+def ojos_cielo(cerrados=()):
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.03])
+    e.add(lambda P: sd_elipsoide(P, C, R), 'noche', 0)
+    _estrellas(e, C, R, 26, 3, grandes=4)
+    _cuernos(e, C, R, 'noche')
+    for i, (d, tam, iris, giro, ab) in enumerate(OJOS):
+        _ojo_almendra(e, C, R, d, tam, iris, 0.08 if i in cerrados else ab, giro)
+    return e.L
+
+
+ELEGIDO = [
+    ('abisal hoy', ESC_NORMAL, abisal_hoy, {}),
+    ('1a cielo', ESC_MUTANTE, cielo, {'translucidos': ('noche', 'cuerno'), 'noche': True}),
+    ('2a ojos', ESC_MUTANTE * 1.1, ojos_cielo, {'translucidos': ('noche', 'cuerno'), 'noche': True}),
+]
+
+
 FILAS = [
     ('abisal hoy', ESC_NORMAL, abisal_hoy, {}),
     ('A cielo de noche', ESC_MUTANTE, cielo, {'translucidos': ('noche', 'cuerno'), 'noche': True}),
@@ -363,6 +387,19 @@ def _lamina(filas, sal, esc=3):
     lam.resize((lam.width * esc, lam.height * esc), Image.NEAREST).save(sal)
     print(sal)
 
+
+if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == 'elegido':
+    sal = 'tools/salida/sdf/slime_abisal_elegido.png'
+    filas = []
+    for nombre, esc, fn, extra in ELEGIDO:
+        filas.append((nombre, [render(modelo(esc, **extra), fn(), d) for d in range(5)]))
+        print(nombre, 'ok')
+    _lamina(filas, sal)
+    mo = modelo(ESC_MUTANTE * 1.1, translucidos=('noche', 'cuerno'), noche=True)
+    rng = np.random.default_rng(2)
+    _lamina([('2a parpadeo', [render(mo, ojos_cielo(tuple(rng.choice(len(OJOS), 3, replace=False))), 0)
+                              for _ in range(8)])], sal.replace('.png', '_tira.png'))
+    sys.exit(0)
 
 if __name__ == '__main__':
     sal = sys.argv[1] if len(sys.argv) > 1 else 'tools/salida/sdf/slime_abisal_versiones.png'
