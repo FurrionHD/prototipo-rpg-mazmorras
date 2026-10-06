@@ -517,6 +517,9 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Y lo que pega DE MAS el atacante por sus estados (plato de Fuerza). Espejo del de arriba: uno
 	# es "cuanto te entra", el otro "cuanto sacas", y por eso son dos claves y no una.
 	dmg *= attacker.status_dmg_dealt_mult()
+	# FRAGIL (06/10, la obsidiana): un arma CONTUNDENTE le hace mas daño (corta mucho pero se rompe).
+	if attacker.dano_tipo == 1:
+		dmg *= defender.fragil_contundente
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p

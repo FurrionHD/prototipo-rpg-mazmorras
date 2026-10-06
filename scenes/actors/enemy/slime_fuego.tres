@@ -9,6 +9,17 @@
 [ext_resource type="Resource" path="res://resources/materials/baba_fuego.tres" id="7_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_fuego.tres" id="8_nuc"]
 
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="9_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_escupitajo_brasas.tres" id="11_eb"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_sacudida_ceniza.tres" id="12_sc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_nube_ceniza.tres" id="13_nc"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_avivar_brasas.tres" id="14_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_embestida_cortante.tres" id="15_ec"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_esquirlas.tres" id="16_es"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_estallido_agujas.tres" id="17_ea"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_afilarse.tres" id="18_af"]
+
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
@@ -23,6 +34,40 @@ prob = 1.0
 script = ExtResource("2_sa")
 estado = 2
 prob = 0.35
+
+[sub_resource type="Resource" id="SA_ceniza"]
+script = ExtResource("2_sa")
+estado = 37
+prob = 1.0
+
+[sub_resource type="Resource" id="MUT_ceniza"]
+script = ExtResource("9_mut")
+id = &"ceniza"
+nombre = "Slime de ceniza y brasa"
+grado = 1
+habilidades = Array[ExtResource("10_ab")]([ExtResource("11_eb"), ExtResource("12_sc"), ExtResource("13_nc"), ExtResource("14_ab")])
+sprite = &"cen192"
+al_ser_golpeado_propio = true
+al_ser_golpeado = [SubResource("SA_ceniza")]
+al_ser_golpeado_prob = 0.3
+al_ser_golpeado_texto = "ceniza y brasas"
+al_ser_golpeado_fx = 175
+
+[sub_resource type="Resource" id="MUT_obsidiana"]
+script = ExtResource("9_mut")
+id = &"obsidiana"
+nombre = "Slime de obsidiana"
+grado = 2
+desde = Array[StringName]([&"ceniza"])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("15_ec"), ExtResource("16_es"), ExtResource("17_ea"), ExtResource("18_af")])
+sprite = &"obs211"
+al_ser_golpeado_propio = true
+elemento = 0
+resist_elemental = {2: 0.8, 3: 0.8}
+fragil_contundente = 1.3
+devuelve_corte_prob = 0.2
+devuelve_corte_frac = 0.5
+color_fx = Color(0.14, 0.11, 0.18, 1)
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -48,6 +93,9 @@ al_golpear = [SubResource("SA_peg"), SubResource("SA_quema")]
 elemento = 1
 fx_basico = 19
 habilidades = [ExtResource("3_lla"), ExtResource("4_sal"), ExtResource("5_com"), ExtResource("6_ign")]
+mutaciones = Array[ExtResource("9_mut")]([SubResource("MUT_ceniza"), SubResource("MUT_obsidiana")])
+; (06/10, su regla) MOJADO, sus llamas no salpican (Cuerpo ardiente) y la Ignicion se le apaga.
+pasiva_se_apaga_mojado = true
 prob_habilidad = 0.55
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): slime mediano.

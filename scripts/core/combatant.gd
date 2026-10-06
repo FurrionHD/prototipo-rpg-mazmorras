@@ -464,6 +464,12 @@ var _reventado: bool = false
 var acido_piel: bool = false
 var acido_prob: float = 0.0
 var acido_efectos: Array = []
+# (06/10, los del slime de fuego) Su pasiva al ser golpeado (Cuerpo ardiente, la ceniza) se APAGA si esta MOJADO.
+var pasiva_se_apaga_mojado: bool = false
+# La OBSIDIANA: le hacen mas daño las armas CONTUNDENTES (x esto) y, a veces, te DEVUELVE un CORTE (una fraccion del daño).
+var fragil_contundente: float = 1.0
+var devuelve_corte_prob: float = 0.0
+var devuelve_corte_frac: float = 0.0
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es
@@ -1966,7 +1972,27 @@ func roll_on_hit(target: Combatant) -> Array:
 		for _s in maxi(1, a.stacks):
 			target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	aplicados.append_array(tirar_refuerzo(target, atk()))
 	return aplicados
+
+
+# LOS REFUERZOS (06/10: Avivado, Afilado): lo que añade cada golpe suyo que acierta mientras lleve ese estado. 'golpe' =
+# lo que pega ese golpe sobre el papel (el fuego arde un % de el). Devuelve los nombres que han entrado.
+func tirar_refuerzo(target: Combatant, golpe: float) -> Array:
+	var out: Array = []
+	if target == null or not target.is_alive():
+		return out
+	for e in statuses:
+		var est: int = int(e.d.get("golpe_estado", -1))
+		if est < 0 or target.es_inmune(est):
+			continue
+		if randf() >= StatusEffects.prob_final(float(e.d.get("golpe_prob", 1.0)), self, target, est):
+			continue
+		var mag: float = StatusEffects.sangrado_magnitude(atk(), motion_value) if est == StatusEffects.Id.SANGRADO \
+			else StatusEffects.magnitud_por_golpe(est, atk(), golpe)
+		target.apply_status(est, -1, mag)
+		out.append(str(StatusEffects.def(est).get("nombre", "?")))
+	return out
 
 
 # Resumen para la UI: "☠x2·3t 🔥·2t". Cadena vacia si no tiene estados.

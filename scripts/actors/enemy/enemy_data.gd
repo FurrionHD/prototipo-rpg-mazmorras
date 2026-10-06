@@ -337,6 +337,8 @@ func drop_factor_piso(piso: int) -> float:
 # Bajalo para un bicho solo "tocado" por el elemento (p.ej. 0.5 -> ×0.75 / ×1.25).
 @export var elemento_intensidad: float = 1.0
 @export var resist_elemental: Dictionary = {}
+# (06/10, su regla) Su pasiva al ser golpeado se APAGA mientras este MOJADO (el slime de fuego: el agua le apaga las llamas).
+@export var pasiva_se_apaga_mojado: bool = false
 @export var inmune_estados: Array = []
 # VULNERABILIDAD (o aguante) a UN estado concreto: {StatusEffects.Id: delta_de_resistencia}.
 # Es el hermano fino de inmune_estados, que solo sabe decir que si o que no. Aqui se puede decir
@@ -752,6 +754,24 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.resist_estado = resist_estado
 	# Rasgos de resistencia (piedra = aguanta stuns; alien = aguanta debuffs).
 	c.stun_resist = resist_aturdir
+	c.pasiva_se_apaga_mojado = pasiva_se_apaga_mojado
+	# LO QUE CAMBIA SU MUTACION (06/10, los del slime de fuego): pasiva al ser golpeado, elemento, resistencias, fragil,
+	# devolver cortes y el color de sus efectos. Va aqui, despues de lo suyo, para pisarlo.
+	var mdat2: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat2 != null:
+		if mdat2.al_ser_golpeado_propio:
+			c.al_ser_golpeado = mdat2.al_ser_golpeado
+			c.al_ser_golpeado_prob = mdat2.al_ser_golpeado_prob
+			c.al_ser_golpeado_texto = mdat2.al_ser_golpeado_texto
+			c.al_ser_golpeado_fx = mdat2.al_ser_golpeado_fx
+		if mdat2.elemento >= 0:
+			c.elemento = mdat2.elemento
+		if not mdat2.resist_elemental.is_empty():
+			c.resist_elemental = mdat2.resist_elemental
+		c.fragil_contundente = mdat2.fragil_contundente
+		c.devuelve_corte_prob = mdat2.devuelve_corte_prob
+		c.devuelve_corte_frac = mdat2.devuelve_corte_frac
+
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
 	# bien que TE mete a ti sus venenos y aturdimientos.
@@ -770,6 +790,13 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	# Con que color se le ve: viaja en el Combatant porque la UI de combate solo recibe
 	# Combatants (no el EnemyData), y necesita pintar su marcador en la barra de accion.
 	c.color_visual = color_visual(t)
+	# (06/10) El color de los efectos de SU mutacion, si lo trae (la ceniza en gris, la obsidiana en negro).
+	var mdat3: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat3 != null and mdat3.color_fx.a > 0.0:
+		c.color_visual = mdat3.color_fx
+	# Y sus golpes ya no son de fuego si su mutacion lo pierde (la obsidiana).
+	if mdat3 != null and mdat3.elemento >= 0:
+		c.elemento_ataque = mdat3.elemento
 	c.centrado_en_fila = centrado_en_fila
 	# De donde saldra su sprite en la pantalla de combate. Se guarda la RUTA y la 't', que juntas
 	# identifican la variante exacta (ver SpritesEnemigo.clave_de): la misma que se ve en el mapa.

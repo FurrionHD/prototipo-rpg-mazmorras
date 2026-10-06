@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_af"]
+script = ExtResource("2")
+estado = 40
+en_objetivo = false
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"afilar"
+fx_estilo = 11
+nombre = "Afilarse"
+descripcion = "Se frota las placas hasta dejarse las aristas como navajas: durante unos turnos cada golpe suyo abre un corte más."
+coste_energia = 0.0
+dano_mult = 0.0
+efectos = [SubResource("SA_af")]
+cooldown = 4

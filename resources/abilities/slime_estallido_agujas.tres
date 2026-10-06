@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_s"]
+script = ExtResource("2")
+estado = 1
+
+[sub_resource type="Resource" id="SA_h"]
+script = ExtResource("2")
+estado = 16
+
+[resource]
+script = ExtResource("1")
+nombre = "Estallido de agujas"
+descripcion = "Se eriza durante un turno y dispara sus agujas de obsidiana a todo lo que tenga alrededor: cortes que sangran y no cierran. Aturdirlo mientras se eriza lo interrumpe."
+coste_energia = 0.0
+cooldown = 4
+carga_turnos = 1
+golpes_min = 1
+golpes_max = 1
+dano_mult = 2.0
+area_modo = 1
+area_max = 4
+area_secundario = 1.0
+area_efectos_secundarios = true
+efectos = [SubResource("SA_s"), SubResource("SA_h")]
+fx_estilo = 9
+gesto = 4
+fx_anim = &"expandir"
+fx_anim_carga = &"erizar"
+forma = 1
+forma_apunte = 2
+forma_desde_quien_ataca = true
+forma_radio = 60.0
+suelo_roto = 91

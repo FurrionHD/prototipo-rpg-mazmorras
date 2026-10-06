@@ -570,9 +570,15 @@ func _cristal(ci: CanvasItem, punta: Vector2, eje: Vector2, largo: float, ancho:
 		abajo = tmp
 	var borde := PackedVector2Array([punta + eje * 1.0, arriba + (arriba - medio).normalized(), cola - eje * 1.0,
 		abajo + (abajo - medio).normalized()])
-	ci.draw_colored_polygon(borde, Color(CRISTAL_OSCURO.darkened(0.35), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, arriba, cola, medio]), Color(CRISTAL.lightened(0.15), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, medio, cola, abajo]), Color(CRISTAL_OSCURO.lightened(0.2), alfa))
+	# (06/10) LA OBSIDIANA, con su slime OSCURO: agujas de cristal negro, la cara clara gris humo; el brillo se queda.
+	var claro: Color = CRISTAL
+	var oscuro: Color = CRISTAL_OSCURO
+	if color.get_luminance() < 0.25:
+		claro = Color(0.30, 0.28, 0.36)
+		oscuro = Color(0.07, 0.06, 0.10)
+	ci.draw_colored_polygon(borde, Color(oscuro.darkened(0.35), alfa))
+	ci.draw_colored_polygon(PackedVector2Array([punta, arriba, cola, medio]), Color(claro.lightened(0.15), alfa))
+	ci.draw_colored_polygon(PackedVector2Array([punta, medio, cola, abajo]), Color(oscuro.lightened(0.2), alfa))
 	ci.draw_line(punta.lerp(arriba, 0.35), medio.lerp(arriba, 0.5).lerp(cola, 0.3), Color(1, 1, 1, 0.85 * alfa), 1.0)
 
 

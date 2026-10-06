@@ -464,7 +464,7 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 	# Los golpes dados CON EL ESCUDO generan mas amenaza (CombatObjetivos.AMENAZA_ESCUDO).
 	_pantalla._apuntar_dano(objetivo, dmg, _pantalla._player,
 		_pantalla.CombatObjetivos.AMENAZA_ESCUDO if ab.golpe_es_de_escudo(i) else 1.0)   # contador oculto de Cazador
-	_pantalla._pasiva_al_golpearle(objetivo, _pantalla._player)
+	_pantalla._pasiva_al_golpearle(objetivo, _pantalla._player, dmg)
 	r.mana = _pantalla._ganar_mana_golpe()       # cada golpe que conecta repone maná
 	if float(result.get("dmg_imbue", 0.0)) > 0.0:
 		_pantalla.magia._gastar_amplificadores(objetivo, _pantalla._player.imbue_elemento)

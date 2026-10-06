@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_s"]
+script = ExtResource("2")
+estado = 1
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"escupir"
+fx_estilo = 10
+nombre = "Esquirlas"
+descripcion = "Escupe un abanico de esquirlas de obsidiana afiladas como cuchillas. Cada una que te alcanza abre un corte."
+coste_energia = 0.0
+golpes_min = 3
+golpes_max = 3
+dano_mult = 0.6
+reparto_por_golpe = true
+efectos = [SubResource("SA_s")]
+efectos_por_golpe = true
+cooldown = 3
+forma = 2
+forma_apunte = 1
+forma_radio = 60.0
+forma_apertura = 70.0
+suelo_roto = 65

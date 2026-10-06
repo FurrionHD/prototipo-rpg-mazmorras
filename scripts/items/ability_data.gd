@@ -367,6 +367,9 @@ func es_preparacion() -> bool:
 # El RADIO del charco/nube que se queda, si no es el de su huella (0 = el de la huella): el Escupitajo del miasma pega en
 # un circulo pequeño y deja una nube mas grande.
 @export var charco_radio: float = 0.0
+# EL COLOR DE SU EFECTO en el mapa, si no es el de quien la lanza (alfa 0 = el suyo): la ceniza escupe brasas naranjas
+# pero su Sacudida y su Nube son de ceniza GRIS (06/10).
+@export var color_fx: Color = Color(0, 0, 0, 0)
 # LAS BURBUJAS FLOTANTES (06/10, idea del jefe para el slime pestilente): sin carga, suelta entre burbujas_min y
 # burbujas_max burbujas a sitios AL AZAR alrededor suyo (entre burbuja_cerca y burbuja_lejos px de sus pies). Se quedan
 # flotando: si uno de los tuyos la ATRAVIESA, revienta encima (burbuja_dano de su ataque + 'efectos'); si nadie la toca,

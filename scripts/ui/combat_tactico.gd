@@ -2425,6 +2425,7 @@ const CLASE_MUERTE := 8
 const CLASE_BURBUJA := 9    # 9..12
 const BURBUJAS_MAX := 4
 const CLASES_HUELLA := 13
+const NUBE_CENIZA := Color(0.52, 0.49, 0.47)
 const ENVIO_HUELLAS := 1.0 / 12.0
 const REPETIR_HUELLAS := 0.5   # aunque no cambie nada: un paquete perdido no deja una huella fantasma
 var _huellas_red: Dictionary = {}          # cod -> PackedFloat32Array (en quien lleva la pelea)
@@ -2800,7 +2801,7 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 			c.take_damage(dano)
 			dano_txt = " (%d de daño)" % roundi(dano)
 		# La nube no se pisa: se respira.
-		_pantalla._set_log("🧪 %s %s %s%s%s." % [c.nombre, "respira" if ab.charco_estilo == 2 or ab.charco_estilo == 5 else "pisa", ab.charco_texto,
+		_pantalla._set_log("🧪 %s %s %s%s%s." % [c.nombre, "respira" if ab.charco_estilo in [2, 5, 7] else "pisa", ab.charco_texto,
 			dano_txt, (": " + ", ".join(puestos)) if not puestos.is_empty() else (" y aguanta" if dano_txt.is_empty() else "")])
 		_pantalla._update_hp()
 
@@ -2840,6 +2841,9 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		elif estilo == 5:
 			# LA NUBE DE MIASMA (06/10, el miasma y el pestilente): la misma nube, del color de su slime.
 			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, _color_de(dueno))
+		elif estilo == 7:
+			# LA NUBE DE CENIZA (06/10, la ceniza y brasa): la misma nube, gris ceniza.
+			n = SimaAire.nube(arena, f, hash(clave), SimaAire.T_NUBE_SALE, NUBE_CENIZA)
 		elif estilo == 6:
 			# LA BURBUJA FLOTANTE (06/10, el pestilente): sale volando de sus pies (f.origen) y flota hasta que revienta.
 			n = SlimeBurbuja.crear(arena, f, _color_de(dueno), hash(clave))

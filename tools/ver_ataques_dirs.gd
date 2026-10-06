@@ -1159,7 +1159,9 @@ const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "sl
 	["brotado", "slime", &"brotado"], ["punzante", "slime", &"punzante"],
 	["brotado_punzante", "slime", &"brotado_punzante"],
 	# LOS DEL VENENOSO (06/10): el miasma y el pestilente.
-	["miasma", "slime_veneno", &"miasma"], ["pestilente", "slime_veneno", &"pestilente"]]
+	["miasma", "slime_veneno", &"miasma"], ["pestilente", "slime_veneno", &"pestilente"],
+	# LOS DEL DE FUEGO (06/10): la ceniza y brasa y la obsidiana.
+	["ceniza", "slime_fuego", &"ceniza"], ["obsidiana", "slime_fuego", &"obsidiana"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1182,6 +1184,12 @@ const MOMENTOS_SLIME := {
 	"slime_escupitajo_pestilente": [-0.18, -0.08, 0.02, 0.15, 0.5],
 	"slime_exhalar_miasma": [0.03, 0.09, 0.16, 0.3, 0.9],
 	"slime_exhalar_pestilente": [0.03, 0.09, 0.16, 0.3, 0.9],
+	"slime_escupitajo_brasas": [-0.18, -0.08, 0.02, 0.15, 0.5],
+	"slime_sacudida_ceniza": [0.05, 0.12, 0.22, 0.4, 0.9],
+	"slime_nube_ceniza": [0.03, 0.1, 0.2, 0.4, 0.9],
+	"slime_embestida_cortante": [0.04, 0.1, 0.2, 0.3, 0.6],
+	"slime_esquirlas": [0.05, 0.12, 0.22, 0.35, 0.9],
+	"slime_estallido_agujas": [0.03, 0.09, 0.16, 0.3, 0.9],
 	"slime_escupitajo_toxico": [-0.18, -0.08, 0.02, 0.15, 0.5],
 	"slime_llamarada": [0.1, 0.22, 0.36, 0.55, 0.85],
 	"slime_salpicadura_ardiente": [0.05, 0.12, 0.22, 0.4, 0.9],
@@ -1226,6 +1234,8 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
 		var habs: Array = ["basico"]
 		var mdat: MutacionData = ed.mutacion_de(mut)
+		if mdat != null and mdat.color_fx.a > 0.0:
+			col = mdat.color_fx   # (06/10) el color de los efectos de su mutacion (la obsidiana, negra)
 		for h in (mdat.habilidades if mdat != null and not mdat.habilidades.is_empty() else ed.habilidades):
 			habs.append((h as AbilityData).resource_path.get_file().get_basename())
 		for nom in habs:
@@ -1282,7 +1292,8 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				if nom == "basico":
 					cajas = [Rect2(yo + dvec * 26.0 - Vector2(7, 13), Vector2(14, 26))]
 				var boca: Vector2 = bulto.get_center() - Vector2(0.0, bulto.size.y * 0.15)
-				var semilla: int = SlimeAire.semilla_con_color(700 + fila * 31, col)
+				var col_ab: Color = ab.color_fx if ab.color_fx.a > 0.0 else col
+				var semilla: int = SlimeAire.semilla_con_color(700 + fila * 31, col_ab)
 				var piezas: Array = []   # {n, t0}
 				var antes: int = get_child_count()
 				if ab.suelo_roto >= 0 and f != null:
@@ -1316,9 +1327,10 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 								"t0": 0.0})
 				# LA NUBE DE MIASMA (06/10): en el juego nace en el momento del golpe y se abre desde su centro (el Exhalar
 				# es eso: el gas que le sale de golpe); aqui tambien, en las columnas de tiempo.
-				if ab.charco_estilo == 5 and f != null:
+				if (ab.charco_estilo == 5 or ab.charco_estilo == 7) and f != null:
 					var fn2 = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-					piezas.append({"n": SimaAire.nube(self, fn2, 800 + fila * 13, 0.0, col),
+					piezas.append({"n": SimaAire.nube(self, fn2, 800 + fila * 13, 0.0,
+						Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col),
 						"t0": 0.0})
 				# EL EMPUJON de la Marea: los que pilla se apartan cuando les llega.
 				var pasos: Array = []
@@ -1358,10 +1370,11 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				if extra > 0 and f != null:
 					var charcos: Array = []
 					var fs: Array = []
-					if ab.charco_estilo == 5:
+					if ab.charco_estilo == 5 or ab.charco_estilo == 7:
 						# LA NUBE DE MIASMA (06/10), de su color y con su radio (el del Escupitajo, mas grande que su golpe).
 						var fn = CombatFormas.circulo(f.centro, ab.charco_radio if ab.charco_radio > 0.0 else f.radio)
-						var nb: SimaAire = SimaAire.nube(self, fn, 900 + fila * 17, 0.0, col)
+						var nb: SimaAire = SimaAire.nube(self, fn, 900 + fila * 17, 0.0,
+							Color(0.52, 0.49, 0.47) if ab.charco_estilo == 7 else col)
 						nb.set_process(false)
 						nb.set("_t", 1.2)
 						for hijo in ["_suelo", "_delante"]:

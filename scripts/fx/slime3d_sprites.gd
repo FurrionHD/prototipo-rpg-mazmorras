@@ -31,7 +31,16 @@ const MUTANTES := {
 	# (escupir, sin inflar ni aplaston) + Exhalar miasma (aspirar = su carga) y las burbujas del pestilente.
 	&"mia138": ["47d552", 1.38, _COMUNES_TOX + ["aspirar", "exhalar"]],
 	&"pes152": ["47d552", 1.518, _COMUNES_TOX + ["aspirar", "exhalar", "soltar_burbujas"]],
+	# LOS DEL SLIME DE FUEGO (06/10): la CENIZA Y BRASA (las del de fuego: ignicion, aplaston) y la OBSIDIANA (tallada,
+	# sin fuego: erizar/expandir del Estallido de agujas y afilar).
+	&"cen192": ["ff862b", 1.92, ["idle", "walk", "embestida", "escupir", "ignicion", "aplaston", "encaje", "muerte",
+		"cadaver", "comer", "evolucion"]],
+	&"obs211": ["ff862b", 2.112, ["idle", "walk", "embestida", "escupir", "encaje", "muerte", "cadaver", "comer",
+		"evolucion", "erizar", "expandir", "afilar"]],
 }
+# LOS QUE NO SE TIÑEN CON EL PISO (06/10): la ceniza (gris) y la obsidiana (negra) no son del color de su slime; el
+# tinte del piso, que sale del naranja del de fuego, los dejaba azules.
+const SIN_TINTE := [&"cen192", &"obs211"]
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
 
@@ -64,6 +73,7 @@ const ANIMS := {
 	"aspirar": {"hoja": "aspirar", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": true, "opcional": true},
 	"exhalar": {"hoja": "exhalar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"soltar_burbujas": {"hoja": "soltar_burbujas", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"afilar": {"hoja": "afilar", "dirs": 8, "marcos": 12, "fps": 12.0, "loop": false, "opcional": true},
 }
 
 
@@ -118,8 +128,14 @@ static func clave_mutante_de(ed: EnemyData, t: float, mutacion: StringName = &""
 	var v: Array = _variante_mutante(ed, mutacion)
 	if v.is_empty():
 		return ""
-	return "slime3d_%s_%s" % [String(v[0]),
-		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS).to_html(false)]
+	return "slime3d_%s_%s" % [String(v[0]), _tinte_mutante(ed, t, v).to_html(false)]
+
+
+# El color al que se tiñe su hoja: el del piso, salvo los SIN_TINTE (su propio color, sin cambiar nada).
+static func _tinte_mutante(ed: EnemyData, t: float, v: Array) -> Color:
+	if SIN_TINTE.has(StringName(v[0])):
+		return Color(String(v[1]))
+	return SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS)
 
 
 static func generar_mutante_de(ed: EnemyData, t: float, mutacion: StringName = &"") -> SpriteFrames:
@@ -127,8 +143,7 @@ static func generar_mutante_de(ed: EnemyData, t: float, mutacion: StringName = &
 	if v.is_empty():
 		return null
 	var lienzo: Vector2i = SlimeSprites._lienzo(float(v[2]))
-	return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(v[3]), lienzo, Color(String(v[1])),
-		SpriteLienzo.cuantizar_hsv(ed.color_visual(t), SlimeSprites.COLOR_PASOS))
+	return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(v[3]), lienzo, Color(String(v[1])), _tinte_mutante(ed, t, v))
 
 
 # LOS PARPADOS (05/10): la hoja de los ojos cerrados de su variante (la del mutante si lo es), con el mismo tinte. La
@@ -138,7 +153,7 @@ static func parpados_de(ed: EnemyData, t: float, mutante: bool = false, mutacion
 	var v: Array = _variante_mutante(ed, mutacion) if mutante else []
 	if not v.is_empty():
 		return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(v[3]), SlimeSprites._lienzo(float(v[2])),
-			Color(String(v[1])), color, "_parpado")
+			Color(String(v[1])), _tinte_mutante(ed, t, v), "_parpado")
 	v = _variante(ed.escala_visual, ed.corona_slime, ed.lava_slime)
 	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, SlimeSprites._lienzo(float(v[2])), Color(String(v[1])),
 		color, "_parpado")

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_q"]
+script = ExtResource("2")
+estado = 2
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"escupir"
+fx_estilo = 10
+nombre = "Escupitajo de brasas"
+descripcion = "Te escupe un puñado de brasas encendidas a la cara: te prenden sin fallar."
+coste_energia = 0.0
+dano_mult = 1.2
+efectos = [SubResource("SA_q")]
+cooldown = 3
+forma = 1
+forma_apunte = 3
+forma_radio = 12.0
+forma_rango = 90.0
+fx_estilo_mapa = 129

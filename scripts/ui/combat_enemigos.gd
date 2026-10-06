@@ -544,7 +544,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				# (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
 				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
-					SlimeAire.semilla_con_color(randi(), e.color_visual),
+					SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual),
 					ab.pisoton_final if ab.pisoton_final > 0.0 else ab.forma_nucleo)
 			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
 			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
@@ -1017,6 +1017,9 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 			for _s in maxi(1, a.stacks):
 				d_e.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 		out.append(nom if al_jugador else "%s (a sí mismo)" % nom)
+	# SUS REFUERZOS (Avivado, Afilado): lo que añaden sus golpes mientras los lleve (06/10).
+	if victima != null and _pantalla._aliados.has(victima) and ab != null and ab.dano_mult > 0.0:
+		out.append_array(e.tirar_refuerzo(victima, e.atk() * ab.dano_mult))
 	return out
 
 
@@ -1124,7 +1127,7 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 		"elem": quien.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO})
 	_pantalla._apuntar_dano(atacante, dmg, quien)   # contador oculto de Cazador
-	_pantalla._pasiva_al_golpearle(atacante, quien)
+	_pantalla._pasiva_al_golpearle(atacante, quien, dmg)
 	_pantalla._dps_add("Contraataque", dmg)
 	_pantalla._ganar_mana_golpe()   # el riposte es un golpe de arma que conecta: repone maná como los demas
 	# Excelia: el contraataque golpea, entrena como un ataque normal (Fuerza, o Destreza si es de distancia).

@@ -450,12 +450,16 @@ var _ultimo_en_golpear: Dictionary = {}   # Combatant -> PersonajeData
 # de la pasiva y, si sale, sus estados a quien le pego (con su resistencia, por la puerta comun) y su dibujo.
 const HUECO_CUERPO_A_CUERPO := 30.0
 
-func _pasiva_al_golpearle(obj: Combatant, quien: Combatant) -> void:
+func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) -> void:
 	_reflejo(obj, quien)
 	_espinas(obj, quien)
 	_acido_piel(obj, quien)
+	_devolver_corte(obj, quien, dmg)
 	if obj == null or quien == null or obj.al_ser_golpeado.is_empty() or obj.al_ser_golpeado_prob <= 0.0 \
 			or not _enemies.has(obj) or not quien.is_alive():
+		return
+	# MOJADO, el de fuego (y la ceniza) no salpica: el agua le apaga las llamas (06/10, su regla).
+	if obj.pasiva_se_apaga_mojado and obj.has_status(StatusEffects.Id.MOJADO):
 		return
 	if tactico and turno_mapa.hueco_entre(quien, obj) > HUECO_CUERPO_A_CUERPO:
 		return
@@ -515,6 +519,22 @@ func _espinas(obj: Combatant, quien: Combatant) -> void:
 			false, "", AbilityData.Gesto.AUTO, &"lanzar_puas" if i == 0 else &"")
 	_update_hp()
 	_log_extra("🦔 %s suelta sus púas: %.2f a %s" % [_etq(obj), dano, ", ".join(nombres)])
+
+
+# DEVOLVER LOS CORTES (06/10, la obsidiana: "como es debil a contundente, tiene prob de reflejar los ataques de corte y
+# devolvertelos"): al que le pega con un arma de CORTE, a veces (20 %), le devuelve una parte del daño (la mitad).
+func _devolver_corte(obj: Combatant, quien: Combatant, dmg: float) -> void:
+	if obj == null or quien == null or obj.devuelve_corte_prob <= 0.0 or dmg <= 0.0 or not _enemies.has(obj) \
+			or not quien.is_alive() or quien.dano_tipo != 0:
+		return
+	if randf() >= obj.devuelve_corte_prob:
+		return
+	var vuelta: float = dmg * obj.devuelve_corte_frac
+	quien.take_damage(vuelta)
+	efectos._fx_golpe(obj, quien, vuelta, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.PASIVA_DESTELLO, 0.8,
+		false)
+	_update_hp()
+	_log_extra("🪞 Las aristas de %s le devuelven el corte a %s: %.2f" % [_etq(obj), quien.nombre, vuelta])
 
 
 # ACIDO EN LA PIEL (06/10, el slime pestilente, ver MutacionData): al que le pega CUERPO A CUERPO, a veces (acido_prob,
@@ -1950,7 +1970,7 @@ func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool,
 			_player.imbue_elemento if float(result.get("dmg_imbue", 0.0)) > 0.0 \
 			else Elementos.Elemento.NINGUNO, estilo_bas, 1.0, false, "", AbilityData.Gesto.AUTO, &"", semilla_fx)
 		_apuntar_dano(obj, result.damage, _player)   # contador oculto de Cazador
-		_pasiva_al_golpearle(obj, _player)
+		_pasiva_al_golpearle(obj, _player, result.damage)
 		# El filo imbuido tambien gasta lo que lo amplificaba (arma de Rayo sobre un Mojado).
 		if float(result.get("dmg_imbue", 0.0)) > 0.0:
 			magia._gastar_amplificadores(obj, _player.imbue_elemento)
@@ -2489,7 +2509,7 @@ func _disparar_seguimientos(obj: Combatant) -> void:
 			efectos._fx_golpe(esc, obj, dmg, r.crit, false,
 				esc.imbue_elemento if elem_dmg > 0.0 else Elementos.Elemento.NINGUNO, estilo)
 			_apuntar_dano(obj, dmg, esc)
-			_pasiva_al_golpearle(obj, esc)
+			_pasiva_al_golpearle(obj, esc, dmg)
 			_dps_add("Seguimiento (%s)" % arma, dmg)
 			conecto = true
 			# EXCELIA. Es un golpe de verdad y entrena como tal, con el mismo reto y el mismo peso de

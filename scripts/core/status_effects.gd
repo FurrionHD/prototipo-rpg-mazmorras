@@ -47,7 +47,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	OPORTUNISTA,
 	ENROSCADO,
 	PEGADO,
-	RESCOLDO }
+	RESCOLDO,
+	ENCENDIDO, AVIVADO, AFILADO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -303,8 +304,9 @@ static var _defs: Dictionary = {
 		# CICLO de dependencias (no compilaria).
 		"id": Id.MOJADO, "nombre": "Mojado", "icono": "💧", "color": Color(0.4, 0.7, 1.0),
 		"turns": 3,
-		"inmune": [Id.QUEMADURA, Id.RESCOLDO],   # empapado NO puedes arder
-		"limpia": [Id.QUEMADURA, Id.RESCOLDO],   # y te APAGA la quemadura (y el rescoldo) que llevaras encima
+		"inmune": [Id.QUEMADURA, Id.RESCOLDO, Id.ENCENDIDO, Id.AVIVADO],   # empapado NO puedes arder
+		# y te APAGA la quemadura (y el rescoldo) que llevaras encima; al slime de fuego, lo que se habia avivado
+		"limpia": [Id.QUEMADURA, Id.RESCOLDO, Id.ENCENDIDO, Id.AVIVADO],
 		"descripcion": "Empapado no ardes. Pero el agua conduce, y un rayo encuentra el camino.",
 	},
 	Id.PRESTEZA: {   # buff de VELOCIDAD: no habia ninguno (los unicos spd_mult eran < 1)
@@ -430,6 +432,25 @@ static var _defs: Dictionary = {
 	},
 	# EL RESCOLDO (06/10, ver RESCOLDO_FRACCION): arde como la Quemadura (no se suman: la mas fuerte) pero flojo y mas
 	# largo, y con la ceniza en los ojos fallas mas. El agua lo apaga (Mojado).
+	# LOS REFUERZOS DE LOS SLIMES DE FUEGO (06/10, su regla: "lo que hacen es avivarse y el agua los apaga"): la Ignicion
+	# del de fuego (ENCENDIDO, +25 % de ataque, como la Fortaleza) y el Avivar brasas de la ceniza (AVIVADO: sus golpes
+	# queman). El MOJADO los apaga. Y el Afilarse de la obsidiana (AFILADO: sus golpes meten un Sangrado de mas).
+	# 'golpe_estado'/'golpe_prob': lo que añade cada golpe suyo que acierta (Combatant.estados_de_refuerzo).
+	Id.ENCENDIDO: {
+		"id": Id.ENCENDIDO, "nombre": "Encendido", "icono": "🔥", "color": Color(1.0, 0.55, 0.15),
+		"turns": 3, "atk_mult": 1.25,
+		"descripcion": "Al rojo vivo: pega mucho más fuerte. El agua lo apaga.",
+	},
+	Id.AVIVADO: {
+		"id": Id.AVIVADO, "nombre": "Brasas avivadas", "icono": "♨", "color": Color(1.0, 0.45, 0.2),
+		"turns": 3, "golpe_estado": Id.QUEMADURA, "golpe_prob": 0.5,
+		"descripcion": "Ha soplado sus brasas: sus golpes te pueden quemar. El agua lo apaga.",
+	},
+	Id.AFILADO: {
+		"id": Id.AFILADO, "nombre": "Afilado", "icono": "🗡", "color": Color(0.55, 0.5, 0.7),
+		"turns": 3, "golpe_estado": Id.SANGRADO, "golpe_prob": 1.0,
+		"descripcion": "Se ha afilado las aristas: cada golpe suyo abre un corte más.",
+	},
 	Id.RESCOLDO: {
 		"id": Id.RESCOLDO, "nombre": "Rescoldo", "icono": "♨", "color": Color(0.85, 0.45, 0.25),
 		"dot": true, "turns": 3, "dot_default": 3.0,

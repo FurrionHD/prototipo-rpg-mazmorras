@@ -40,3 +40,22 @@ class_name MutacionData
 # LO QUE LE SALE AL AZAR POR EL CUERPO (HumoToxico): 0 = nada, 1 = bocanadas de humo a ratos (el miasma), 2 = burbujas
 # que se hinchan, revientan y sueltan el humo (el pestilente).
 @export var humo: int = 0
+# (06/10, los mutantes del slime de fuego)
+# SU PASIVA AL SER GOLPEADO, si cambia la de su enemigo: la ceniza suelta ceniza (Rescoldo) en vez de quemar; la
+# obsidiana no lleva ninguna (lista vacia con 'al_ser_golpeado_propio').
+@export var al_ser_golpeado_propio: bool = false
+@export var al_ser_golpeado: Array = []
+@export var al_ser_golpeado_prob: float = 0.0
+@export var al_ser_golpeado_texto: String = ""
+@export var al_ser_golpeado_fx: int = -1
+# SU ELEMENTO, si cambia (-1 = el de su enemigo): la obsidiana pierde el fuego (0 = ninguno).
+@export var elemento: int = -1
+# Sus RESISTENCIAS elementales a medida (vacio = las de su enemigo): la obsidiana, {Rayo: 0,8, Agua: 0,8}.
+@export var resist_elemental: Dictionary = {}
+# FRAGIL A CONTUNDENTES (1 = no) y DEVOLVER CORTES (la obsidiana: 1,3; 20 % de devolver la mitad).
+@export var fragil_contundente: float = 1.0
+@export var devuelve_corte_prob: float = 0.0
+@export var devuelve_corte_frac: float = 0.5
+# EL COLOR DE SUS EFECTOS (el charco, las salpicaduras...), si no es el de su enemigo (alfa 0 = el suyo): la ceniza en
+# gris ceniza, la obsidiana en negro.
+@export var color_fx: Color = Color(0, 0, 0, 0)
