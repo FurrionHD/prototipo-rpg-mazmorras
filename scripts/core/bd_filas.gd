@@ -44,6 +44,9 @@ static var _clases: Dictionary = {}   # class_name -> ruta del script
 class Ids:
 	var por_instancia: Dictionary = {}   # instance_id -> id
 	var siguiente: int = 1
+	# El texto de cada material/cristal contado, por instancia: son VALORES (nadie los cambia tras
+	# crearlos), asi que se calcula UNA vez y no en cada guardado (20.000 en su mundo).
+	var contable: Dictionary = {}   # instance_id -> texto
 
 	func nuevo() -> String:
 		var id := "o%d" % siguiente
@@ -51,24 +54,87 @@ class Ids:
 		return id
 
 
-## SaveData -> {"campos": {clave: txt}, "objetos": {id: txt}, "contables": {clave: cantidad}}.
+## SaveData -> {"campos": {clave: txt}, "objetos": {id: txt}, "contables": {clave: cantidad}}, de golpe.
+## (Para guardar sin tiron durante la partida: Volcado, que hace lo mismo a trocitos.)
 static func a_filas(s: SaveData, ids: Ids) -> Dictionary:
+	var v := Volcado.new(s, ids)
+	while not v.paso(1 << 40):
+		pass
+	return v.out
+
+
+## SACAR LAS FILAS A TROCITOS: unos ms por fotograma, para que guardar no dé tirón.
+## La FOTO es el SaveData recien exportado (exportar_partida copia las listas: lo que esta en cada
+## sitio queda fijo); los campos de cada objeto se leen al llegarles, como mucho unas decimas
+## despues (un valor un pelin mas nuevo, nunca un objeto perdido ni repetido).
+class Volcado:
+	const TROZO_LISTA := 128
+	const TROZO_CONTAR := 1000
 	var out := {"campos": {}, "objetos": {}, "contables": {}}
-	var ctx := {"ids": ids, "out": out, "vistos": {}, "por_clave": {}}
-	for n in _campos(s):
-		var v = s.get(n)
-		if n in PARTIDOS and v is Dictionary:
+	var ctx: Dictionary
+	var _s: SaveData
+	# Tareas: ["campo", nombre] | ["sub", nombre, clave] (un piso de un PARTIDO) | ["obj", Resource, id]
+	# | ["cont", ruta, Array, desde] (lista contada) | ["arr", nombre, Array, desde, partes] (lista grande)
+	var _cola: Array = []
+	var _i: int = 0
+
+	func _init(s: SaveData, ids: Ids) -> void:
+		_s = s
+		ctx = {"ids": ids, "out": out, "vistos": {}, "por_clave": {}, "contables": {}, "cola": _cola}
+		for n in BDFilas._campos(s):
+			_cola.append(["campo", n])
+
+	## Avanza hasta gastar `presupuesto_us` microsegundos. true = terminado.
+	func paso(presupuesto_us: int) -> bool:
+		var fin: int = Time.get_ticks_usec() + presupuesto_us
+		while _i < _cola.size():
+			var t: Array = _cola[_i]
+			_i += 1
+			match t[0]:
+				"campo":
+					_campo(t[1])
+				"obj":
+					out["objetos"][t[2]] = var_to_str(BDFilas._cosa(t[1], ctx, t[2]))
+				"sub":
+					var clave: String = "%s/%s" % [t[1], var_to_str(t[2])]
+					out["campos"][clave] = var_to_str(BDFilas._a_valor(_s.get(t[1])[t[2]], clave, ctx))
+				"cont":
+					if not BDFilas._contar(t[1], t[2], t[3], TROZO_CONTAR, ctx):
+						_cola.append(["cont", t[1], t[2], t[3] + TROZO_CONTAR])
+				"arr":
+					var l: Array = t[2]
+					var hasta: int = mini(l.size(), t[3] + TROZO_LISTA)
+					for i in range(t[3], hasta):
+						t[4].append(var_to_str(BDFilas._a_valor(l[i], t[1], ctx)))
+					if hasta < l.size():
+						_cola.append(["arr", t[1], l, hasta, t[4]])
+					else:
+						out["campos"][t[1]] = "[" + ", ".join(t[4]) + "]"
+			if Time.get_ticks_usec() >= fin:
+				return false
+		_terminar()
+		return true
+
+	func _campo(n: String) -> void:
+		var v = _s.get(n)
+		if n in BDFilas.PARTIDOS and v is Dictionary:
 			out["campos"][n] = var_to_str({"§partido": true})
 			for k in v:
-				out["campos"]["%s/%s" % [n, var_to_str(k)]] = var_to_str(_a_valor(v[k], "%s/%s" % [n, var_to_str(k)], ctx))
-			continue
-		out["campos"][n] = var_to_str(_a_valor(v, n, ctx))
+				_cola.append(["sub", n, k])
+			return
+		if v is Array and v.size() > TROZO_LISTA and not BDFilas._parece_contable(v):
+			_cola.append(["arr", n, v, 0, PackedStringArray()])
+			return
+		out["campos"][n] = var_to_str(BDFilas._a_valor(v, n, ctx))
+
 	# Ids de objetos que ya no salen: se olvidan (su fila la borra quien escribe, por diferencia).
-	var vivos: Dictionary = ctx["vistos"]
-	for iid in ids.por_instancia.keys():
-		if not vivos.has(iid):
-			ids.por_instancia.erase(iid)
-	return out
+	func _terminar() -> void:
+		var ids: Ids = ctx["ids"]
+		var vivos: Dictionary = ctx["vistos"]
+		for iid in ids.por_instancia.keys():
+			if not vivos.has(iid):
+				ids.por_instancia.erase(iid)
+		ids.contable = ctx["contables"]
 
 
 ## Filas -> SaveData nuevo (y los ids de sus objetos apuntados en `ids`, para que el guardado
@@ -89,6 +155,9 @@ static func de_filas(f: Dictionary, ids: Ids) -> SaveData:
 		if not listas.has(lista):
 			listas[lista] = []
 		for i in n:
+			if not (d is Dictionary and d.has("_clase")):
+				listas[lista].append(_de_valor(d, objs, listas))   # lo que no era material (ver _contar)
+				continue
 			var it: Resource = _instanciar(String(d.get("_clase", "")))
 			_rellenar(it, d, objs, listas)
 			listas[lista].append(it)
@@ -126,16 +195,38 @@ static func _a_valor(v, ruta: String, ctx: Dictionary):
 			d[k] = _a_valor(v[k], ruta, ctx)
 		return d
 	if v is Array:
-		if _solo_contables(v):
-			for it in v:
-				var clave: String = "%s|%s" % [ruta, var_to_str(_cosa(it, ctx))]
-				ctx["out"]["contables"][clave] = int(ctx["out"]["contables"].get(clave, 0)) + 1
+		if _parece_contable(v):
+			ctx["cola"].append(["cont", ruta, v, 0])
 			return {C: ruta}
 		var l: Array = []
 		for e in v:
 			l.append(_a_valor(e, ruta, ctx))
 		return l
 	return v
+
+
+# Cuenta `cuantos` de una lista contada desde `desde`. true = ya no queda nada de esa lista.
+static func _contar(ruta: String, v: Array, desde: int, cuantos: int, ctx: Dictionary) -> bool:
+	var ids: Ids = ctx["ids"]
+	var cuenta: Dictionary = ctx["out"]["contables"]
+	var nuevos: Dictionary = ctx["contables"]
+	var hasta: int = mini(v.size(), desde + cuantos)
+	for i in range(desde, hasta):
+		var it = v[i]
+		var txt: String
+		if it is MaterialItem or it is Cristal:
+			var iid: int = it.get_instance_id()
+			txt = ids.contable.get(iid, "")
+			if txt == "":
+				txt = var_to_str(_cosa(it, ctx))
+			nuevos[iid] = txt
+		else:
+			# Algo que no es un material en una lista de materiales: no se pierde, va tal cual
+			# (un objeto, su fila; un valor, el valor) y se cuenta como uno mas.
+			txt = var_to_str(_a_valor(it, ruta, ctx))
+		var clave: String = ruta + "|" + txt
+		cuenta[clave] = int(cuenta.get(clave, 0)) + 1
+	return hasta >= v.size()
 
 
 # Un Resource dentro de un valor: referencia al proyecto, o su fila de objeto.
@@ -158,8 +249,7 @@ static func _ref(r: Resource, ctx: Dictionary):
 	ctx["por_clave"][id] = true
 	ids.por_instancia[iid] = id
 	ctx["vistos"][iid] = true
-	var obj_ruta: String = id
-	ctx["out"]["objetos"][id] = var_to_str(_cosa(r, ctx, obj_ruta))
+	ctx["cola"].append(["obj", r, id])   # sus campos, cuando le toque (Volcado)
 	return {O: id}
 
 
@@ -240,14 +330,25 @@ static func _instanciar(clase: String) -> Resource:
 static func _campos(o: Object) -> Array:
 	var s = o.get_script()
 	var clave = s if s != null else o.get_class()
+	var l: Array
 	if _campos_de.has(clave):
-		return _campos_de[clave]
-	var l: Array = []
-	for p in o.get_property_list():
-		if int(p["usage"]) & PROPERTY_USAGE_STORAGE and not _NO_SON_DATOS.has(p["name"]):
-			l.append(String(p["name"]))
-	_campos_de[clave] = l
-	return l
+		l = _campos_de[clave]
+	else:
+		l = []
+		for p in o.get_property_list():
+			var n: String = p["name"]
+			if int(p["usage"]) & PROPERTY_USAGE_STORAGE and not _NO_SON_DATOS.has(n) and not n.begins_with("metadata/"):
+				l.append(n)
+		_campos_de[clave] = l
+	# Los METADATOS (set_meta) son de cada objeto, no de su clase, y Godot tambien los guarda:
+	# se añaden objeto a objeto (en su mundo habia "cds", "aguante", "cuerpo_red" en los personajes).
+	var metas: Array = o.get_meta_list()
+	if metas.is_empty():
+		return l
+	var con: Array = l.duplicate()
+	for m in metas:
+		con.append("metadata/" + String(m))
+	return con
 
 
 static func _clase(o: Object) -> String:
@@ -258,10 +359,7 @@ static func _clase(o: Object) -> String:
 	return o.get_class()
 
 
-static func _solo_contables(l: Array) -> bool:
-	if l.is_empty():
-		return false
-	for e in l:
-		if not (e is MaterialItem or e is Cristal):
-			return false
-	return true
+# Una lista se guarda CONTADA si empieza por un material o un cristal (lo que venga despues que no
+# lo sea tambien se guarda, ver _contar: esto solo decide la forma, no se pierde nada).
+static func _parece_contable(l: Array) -> bool:
+	return not l.is_empty() and (l[0] is MaterialItem or l[0] is Cristal)
