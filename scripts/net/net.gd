@@ -103,7 +103,10 @@ const MAX_CONEXIONES := 32
 #     charcos de pesca van y vienen de la sala (net_pesca.charco_a_la_sala / _charcos_del_piso).
 # 29 (07/10): fase 5 de la BD. Caidas a media pelea: _ident_caido (la sala dice quien era), _vuelve (vuelve y
 #     recupera a sus personajes), _retoma_tu_pelea (su espejo), _desgaste_de_ausente / _desgaste_suelto.
-const PROTOCOLO := 29
+# 30 (07/10): los mutantes del REY SLIME. Estado nuevo DECRETO (al final del enum), estilos de golpe CombatFX.REY_DECRETO
+#     /REY_TRIBUTO (208/209), suelo SueloRoto.REY_ESQUIRLAS (104) y piezas de charco de estilo 9/10 (esquirlas clavadas y
+#     pedazos). Un build del 29 no los conoce.
+const PROTOCOLO := 30
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

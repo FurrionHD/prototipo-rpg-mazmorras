@@ -2,9 +2,12 @@
 
 ---
 
-# Próxima versión (sin número todavía)
+# v0.15.1
 
-## ⏳ Las habilidades tardan en salir
+## ⚔️ El combate en el mapa, ya en la mazmorra
+
+**Las peleas de la mazmorra son ya sobre el propio mapa**, como en la arena: la zona de la pelea coge la forma
+de la sala en la que estás, y los enemigos que llegan tarde entran por el borde.
 
 **Usar una habilidad te echa media barra atrás** y la habilidad sale cuando vuelves a llegar; mientras, los
 demás se mueven. Vale para ti y para los enemigos (menos el ataque básico). Se ve dónde va a caer y aturdir al
@@ -12,11 +15,55 @@ que la prepara se la corta. Los conjuros pagan ese medio turno una sola vez, al 
 
 **Los enemigos se colocan**: si una de tus áreas les va a caer y pueden seguir pegando desde fuera, se apartan.
 
-## 🌌 Los mutantes del slime abisal
+## 🏹 El arco y la ballesta
 
-**Slime de cielo nocturno** y **Slime de mil ojos**: dejan estrellas al moverse y las usan en sus ataques
-(Lluvia de estrellas, Constelación, Eclipse, Agujero negro, Parpadeo cegador y Mirada estelar). El de mil
-ojos lo ve todo: ni sigilo ni emboscadas.
+**Dos armas a distancia nuevas**, con sus flechas y virotes de material: se cargan, se gastan al disparar y al
+acabar la pelea recoges las que no se han roto. Cada una trae sus habilidades (Disparo cargado, Lluvia de
+flechas, Virote pesado, Andanada...) y puedes **untar** la munición con lo que lleves en la bolsa.
+
+## 👾 Los enemigos, rehechos
+
+**Todos los enemigos normales tienen dibujo nuevo**, con todas sus animaciones: ratas, slimes (de gel que se
+transparenta, con su núcleo dentro y parpadeando), el trent, los del piso 7, las bestias y los constructos.
+
+## 💎 Los enemigos comen cristales... y mutan
+
+**Si dejas cristales en el suelo, los enemigos van a por ellos** (aunque te estén persiguiendo: sirve de cebo).
+Los cadáveres que se pudren también dejan el suyo, dañado. Cuantos más se comen, más fácil es que **muten**
+delante de ti. Los jefes también comen.
+
+**Cada slime tiene sus mutantes**, con su aspecto, sus ataques y sus pasivas:
+- **Slime**: **brotado** (se divide al morir) o **punzante** (suelta púas si le pegas de cerca), y los dos a la vez.
+- **Slime venenoso**: **de miasma** y **pestilente** (revientan en una nube, burbujas flotantes, ácido en la piel).
+- **Slime de fuego**: **de ceniza y brasa** y **de obsidiana** (le pegan más los contundentes y te devuelve cortes).
+- **Slime abisal**: **de cielo nocturno** y **de mil ojos** (estrellas, eclipse, agujero negro; el de mil ojos lo
+  ve todo).
+- **Slime profundo**: **de arrecife** y **de escarcha** (agua que empuja, hielo que congela: la Congelación te deja
+  andar la mitad).
+- **Rey Slime** (con corona nueva): **Rey tirano**, que da órdenes a sus súbditos (los invoca gratis, le cubren,
+  y con el Decreto van todos a por uno), y **Rey destronado**, sin séquito y cada vez más rabioso, que te tira los
+  trozos de su corona rota.
+
+**La quemadura arde según el golpe**: un 30 % de lo que pega quien la prende, y si llevas varias, solo arde la
+más fuerte.
+
+## 💾 Tus partidas, a salvo
+
+**Las partidas se guardan en una base de datos** y también **en la nube**: puedes seguir la misma partida en otro
+PC. Si se juega en los dos a la vez, el juego te pregunta con cuál te quedas. Ya **no hay tope de ranuras**.
+
+**Cerrar el juego ya no borra la mazmorra**: al volver siguen los pisos que habías visitado, y vuelves a donde
+estabas. **Si cierras en mitad de una pelea, la pelea sigue** al cargar.
+
+**En compañía**, si a alguien se le corta la conexión a media pelea, sus personajes se quedan un minuto
+defendiéndose; si vuelve a tiempo, los recupera. Si la sala pierde la nube, se pausa y espera a que vuelva.
+
+## 🔧 Arreglos
+
+- Los saltos de los enemigos caen justo cuando pegan (antes el golpe llegaba antes que el salto).
+- En compañía, los golpes de más de 3.000 de daño ya no se ven como 3.000.
+- La zona de la pelea ya no se abre en la sala de al lado.
+- Los materiales pesan lo que pesarían de verdad (en kg).
 
 ---
 
