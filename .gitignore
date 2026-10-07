@@ -82,3 +82,5 @@ servidor/nube/node_modules/
 
 # Copias temporales de Windows al sobrescribir una DLL en uso (GodotSteam con el editor abierto)
 ~*.TMP
+# Copias que hace Godot de las DLL de GDExtension mientras el editor las tiene cargadas (~lib...dll)
+~*.dll
