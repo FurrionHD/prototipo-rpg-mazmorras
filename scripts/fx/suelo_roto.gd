@@ -48,7 +48,10 @@ enum Tipo { GRIETAS, FRAGMENTOS, ESTALLIDO, ESTELA, CORTE, GIRO, SIEGA, GRITO, T
 	MINO_BARRIDO, MINO_PISOTON, MINO_BRAMIDO,
 	SLIME_PUAS,
 	ABISAL_LLUVIA, ABISAL_RAYO, ABISAL_MIRADA, ABISAL_PARPADEO, ABISAL_ECLIPSE, ABISAL_AGUJERO,
-	PROFUNDO_MAREA, PROFUNDO_CHORRO, PROFUNDO_CORAL, PROFUNDO_ESTALLIDO, PROFUNDO_ALIENTO, PROFUNDO_CARAMBANOS }
+	PROFUNDO_MAREA, PROFUNDO_CHORRO, PROFUNDO_CORAL, PROFUNDO_ESTALLIDO, PROFUNDO_ALIENTO, PROFUNDO_CARAMBANOS,
+	REY_ESQUIRLAS }
+# REY_* (07/10, los mutantes del Rey Slime): viven en ReyAire (su Modo = tipo - REY_ESQUIRLAS). Al final de todo (104 en
+# las fichas) y mirados ANTES que los PROFUNDO_*.
 # PROFUNDO_* (07/10, los mutantes del slime profundo: el arrecife y la escarcha): viven en ProfundoAire (su Modo = tipo -
 # PROFUNDO_MAREA). Al final de todo (los numeros van en las fichas: 98..103) y mirados ANTES que los ABISAL_*.
 # ABISAL_* (06/10, los mutantes del slime abisal): viven en AbisalAire (su Modo = tipo - ABISAL_LLUVIA), tambien el
@@ -136,6 +139,8 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		return null
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.area(padre, f, SlimeAire.Modo.PUAS, semilla, espera)
+	if t >= Tipo.REY_ESQUIRLAS:
+		return ReyAire.area(padre, f, t - Tipo.REY_ESQUIRLAS, semilla, espera)
 	if t >= Tipo.PROFUNDO_MAREA:
 		return ProfundoAire.area(padre, f, t - Tipo.PROFUNDO_MAREA, semilla, espera)
 	if t >= Tipo.ABISAL_LLUVIA:
@@ -202,6 +207,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 		return p.distance_to(origen_de(f)) / EstoqueAire.V_DANZA
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.retraso(SlimeAire.Modo.PUAS, f, p)
+	if t >= Tipo.REY_ESQUIRLAS:
+		return ReyAire.retraso(t - Tipo.REY_ESQUIRLAS, f, p)
 	if t >= Tipo.PROFUNDO_MAREA:
 		return ProfundoAire.retraso(t - Tipo.PROFUNDO_MAREA, f, p)
 	if t >= Tipo.ABISAL_LLUVIA:
@@ -259,6 +266,8 @@ static func t_salir_de(t: int) -> float:
 		return 0.0
 	if t == Tipo.SLIME_PUAS:
 		return SlimeAire.t_salir(SlimeAire.Modo.PUAS)
+	if t >= Tipo.REY_ESQUIRLAS:
+		return ReyAire.t_salir(t - Tipo.REY_ESQUIRLAS)
 	if t >= Tipo.PROFUNDO_MAREA:
 		return ProfundoAire.t_salir(t - Tipo.PROFUNDO_MAREA)
 	if t >= Tipo.ABISAL_LLUVIA:

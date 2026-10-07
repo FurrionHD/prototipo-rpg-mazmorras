@@ -480,6 +480,31 @@ var aura_fria: bool = false
 var aura_prob: float = 0.0
 var aura_efectos: Array = []
 var mojado_se_hiela: bool = false
+# (07/10, los mutantes del Rey Slime, ver MutacionData) ORDEN REAL, ESCUDO DE SUBDITOS y TRIBUTO (el tirano); RABIA POR
+# TRAMOS (el destronado). 'orden_espera' = los turnos suyos que le faltan para la siguiente Orden real (0 = ya).
+var orden_real: bool = false
+# EL REY (el de la corona, mute o no): nunca es subdito de otro rey (ni le cubre, ni le paga tributo, ni obedece el Decreto).
+var es_rey: bool = false
+var orden_cada: int = 2
+var orden_pool: Array = []
+var orden_espera: int = 0
+var escudo_subditos_prob: float = 0.0
+var tributo_cura: float = 0.0
+var rabia_tramo: float = 0.0
+var rabia_por_tramo: float = 0.0
+var rabia_tramos_max: int = 0
+# EL DECRETO (el tirano): el marcado (estado DECRETO) se lleva este extra de daño de los subditos.
+var decreto_mult: float = 1.0
+
+# Los tramos de rabia que lleva ahora (sale de la vida, que ya viaja al espejo: lo ven igual todas las maquinas).
+func rabia_tramos() -> int:
+	if rabia_tramo <= 0.0 or max_hp <= 0.0 or not is_alive():
+		return 0
+	return mini(rabia_tramos_max, floori((1.0 - current_hp / max_hp) / rabia_tramo + 0.0001))
+
+# Lo que le suma la rabia por tramos a su ataque y a su velocidad (1 = nada).
+func mult_rabia_tramos() -> float:
+	return 1.0 + rabia_por_tramo * float(rabia_tramos())
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es

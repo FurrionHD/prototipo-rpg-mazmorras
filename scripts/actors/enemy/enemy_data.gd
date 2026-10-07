@@ -568,12 +568,24 @@ const MUT2_ESCALA := 1.32         # x1,1 sobre el de 1a ("un poco mas grande que
 const MUT2_BOTIN := 3.0
 const MUT2_PODER := 2.00
 
+# --- LA 2a MUTACION DE UN JEFE (07/10, el Rey destronado; tabla APROBADA por el jefe) ---
+# La de jefe de siempre es su 1a (el tirano). Cristal +2 como toda 2a. Del mismo tamaño que su 1a.
+const MUT_JEFE2_HP := 2.30
+const MUT_JEFE2_ATAQUE := 1.35
+const MUT_JEFE2_DEFENSA := 1.40
+const MUT_JEFE2_ESTADOS := 1.35
+const MUT_JEFE2_BOTIN := 2.2
+const MUT_JEFE2_PODER := 1.60
+
 
 # Los multiplicadores de la mutacion, segun sea un bicho corriente o el JEFE del piso. En un dict y
 # no en seis ifs sueltos porque los usan cuatro sitios distintos (las stats, el botin, el cristal y
 # la excelia) y separarlos es como se acaba con el jefe llevando el aguante del uno y el botin del
 # otro.
 static func mult_mutante(es_jefe: bool, grado: int = 1) -> Dictionary:
+	if grado >= 2 and es_jefe:
+		return {"hp": MUT_JEFE2_HP, "atk": MUT_JEFE2_ATAQUE, "def": MUT_JEFE2_DEFENSA, "est": MUT_JEFE2_ESTADOS,
+			"escala": MUT_JEFE_ESCALA, "botin": MUT_JEFE2_BOTIN, "poder": MUT_JEFE2_PODER}
 	if grado >= 2 and not es_jefe:
 		return {"hp": MUT2_HP, "atk": MUT2_ATAQUE, "def": MUT2_DEFENSA, "est": MUT2_ESTADOS,
 			"escala": MUT2_ESCALA, "botin": MUT2_BOTIN, "poder": MUT2_PODER}
@@ -783,6 +795,15 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.aura_prob = mdat2.aura_prob
 		c.aura_efectos = mdat2.aura_efectos
 		c.mojado_se_hiela = mdat2.mojado_se_hiela
+		# (07/10, los del Rey Slime) Orden real, escudo de subditos, tributo y rabia por tramos.
+		c.orden_real = mdat2.orden_real
+		c.orden_cada = mdat2.orden_cada
+		c.orden_pool = mdat2.orden_pool
+		c.escudo_subditos_prob = mdat2.escudo_subditos_prob
+		c.tributo_cura = mdat2.tributo_cura
+		c.rabia_tramo = mdat2.rabia_tramo
+		c.rabia_por_tramo = mdat2.rabia_por_tramo
+		c.rabia_tramos_max = mdat2.rabia_tramos_max
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo
@@ -796,6 +817,12 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.es_slime = es_slime
 	c.sequito_reduccion_por_slime = sequito_reduccion_por_slime
 	c.sequito_reduccion_max = sequito_reduccion_max
+	c.es_rey = corona_slime
+	# (07/10) EL DESTRONADO: nadie le sigue.
+	var mdat4: MutacionData = mutacion_de(mutacion) if mutante else null
+	if mdat4 != null and mdat4.sin_sequito:
+		c.sequito_reduccion_por_slime = 0.0
+		c.sequito_reduccion_max = 0.0
 	# Sus GOLPES van de su elemento (el slime de fuego pega fuego). Ojo: un bicho que resista
 	# fuego por un override (minotauro peludo) tiene elemento NINGUNO -> sus golpes NO son de fuego.
 	c.elemento_ataque = elemento

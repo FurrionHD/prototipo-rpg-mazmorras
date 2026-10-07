@@ -403,6 +403,9 @@ func cerrar_tiros_hab() -> void:
 
 func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: int,
 		escala: float, etq: String, m_golpe: float) -> Dictionary:
+	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: un golpe a EL SOLO (sin area) puede comerselo un subdito suyo.
+	if not ab.es_area() and (ab.forma < 0 or ab.forma == CombatFormas.Tipo.PUNTO):
+		objetivo = _pantalla.escudo_subdito(objetivo, _pantalla._player)
 	# 'c' = a QUIEN fue este golpe. Lo necesita el log para decir el reparto por enemigo (mismo
 	# campo que usan los resultados de hechizo, ver _log_hechizo). 'm_golpe' = el multiplicador que
 	# le toca a ESTE golpe segun el plan (mano principal/segunda del dual, o arma/escudo).

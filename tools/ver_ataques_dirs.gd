@@ -263,6 +263,11 @@ func _correr() -> void:
 		await _hojas_aura_fria(salida)
 		get_tree().quit(0)
 		return
+	# ATAQUES_REY=1 -> el Decreto, el Tributo y las piezas que se quedan (esquirlas clavadas, pedazos) del Rey Slime.
+	if OS.get_environment("ATAQUES_REY") != "":
+		await _hojas_rey(salida)
+		get_tree().quit(0)
+		return
 	if OS.get_environment("ATAQUES_ENEMIGOS") != "":
 		await _hojas_slimes(salida, pedidas)
 		get_tree().quit(0)
@@ -1170,7 +1175,9 @@ const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "sl
 	# LOS DEL ABISAL (06/10): el cielo nocturno y el de mil ojos.
 	["cielo", "slime_abisal", &"cielo"], ["ojos", "slime_abisal", &"ojos"],
 	# LOS DEL PROFUNDO (07/10): el arrecife y la escarcha.
-	["arrecife", "slime_profundo", &"arrecife"], ["escarcha", "slime_profundo", &"escarcha"]]
+	["arrecife", "slime_profundo", &"arrecife"], ["escarcha", "slime_profundo", &"escarcha"],
+	# LOS DEL REY SLIME (07/10): el tirano y el destronado (el Decreto, el Tributo y las piezas: ATAQUES_REY=1).
+	["tirano", "rey_slime", &"tirano"], ["destronado", "rey_slime", &"destronado"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1222,6 +1229,8 @@ const MOMENTOS_SLIME := {
 	"slime_estallido_helado": [0.03, 0.1, 0.2, 0.45, 0.85],
 	"slime_aliento_gelido": [0.06, 0.15, 0.28, 0.45, 0.7],
 	"slime_carambanos": [0.15, 0.3, 0.45, 0.6, 0.85],
+	"rey_slime_esquirlas_corona": [0.04, 0.1, 0.17, 0.26, 0.45],
+	"rey_slime_escision_destronado": [-0.12, 0.02, 0.2, 0.4, 0.62],
 }
 
 func _hojas_slimes(salida: String, pedidas: String) -> void:
@@ -2256,6 +2265,128 @@ func _hojas_aura_fria(salida: String) -> void:
 		var carpeta: String = "%s/enemigos/slimes/%s" % [salida, "arrecife" if cual == "anemona" else "escarcha"]
 		DirAccess.make_dir_recursive_absolute(carpeta)
 		var ruta: String = "%s/%s.png" % [carpeta, {"neblina": "aura_neblina", "destello": "aura_destello", "anemona": "anemona"}[cual]]
+		hoja.save_png(ruta)
+		print("[hoja] ", ruta)
+		cuerpo.queue_free()
+		await get_tree().process_frame
+
+
+# ------------------------------------------------------------
+#  LOS DEL REY SLIME (07/10): ATAQUES_REY=1
+# ------------------------------------------------------------
+# Cuatro hojas, una fila por direccion (donde esta tu personaje, en azul, o hacia donde caen las piezas):
+#   tirano/decreto.png         la coronita de cristal que se le forma encima al señalado, de principio a fin.
+#   tirano/tributo.png         el cristal del subdito caido (el cadaver de slime) volando hasta el rey.
+#   destronado/clavadas.png    las esquirlas que se quedan clavadas: vuelan de su corona, se clavan, brillan y al pisarlas
+#                              se rompen.
+#   destronado/pedazos.png     los pedazos de su gel: caen y tiemblan; aplastado al pisarlo; y volviendo a el.
+const MOMENTOS_DECRETO := [0.08, 0.18, 0.3, 0.55, 0.9, 1.1]
+const MOMENTOS_TRIBUTO := [0.08, 0.2, 0.35, 0.5, 0.65, 0.8]
+
+func _hojas_rey(salida: String) -> void:
+	BarridoAire.ritmo = 1.0
+	var yo := Vector2.ZERO
+	for fg in _figs:
+		(fg as ColorRect).visible = false
+	_yo_fig.color = AZUL
+	var ed: EnemyData = load("res://scenes/actors/enemy/rey_slime.tres")
+	var ed_s: EnemyData = load("res://scenes/actors/enemy/slime.tres")
+	for cual in ["decreto", "tributo", "clavadas", "pedazos"]:
+		var mut: StringName = &"tirano" if cual in ["decreto", "tributo"] else &"destronado"
+		var cuerpo := Node2D.new()
+		cuerpo.z_index = 1000
+		cuerpo.z_as_relative = false
+		add_child(cuerpo)
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5, true, mut)
+		spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		cuerpo.add_child(spr)
+		spr.play(&"idle_0")
+		spr.pause()
+		var rd: Rect2 = _TACTICO.rect_dibujo(cuerpo)
+		spr.position = yo - Vector2(rd.get_center().x, rd.position.y + rd.size.y * ed.centro_suelo_real())
+		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
+		var zoom: float = float(LADO) / (2.0 * 130.0)
+		_cam.zoom = Vector2(zoom, zoom)
+		_cam.global_position = bulto.get_center()
+		var cols: Array = []   # [titulo, t, secando, vuelve]
+		match cual:
+			"decreto":
+				for t in MOMENTOS_DECRETO: cols.append(["%.2f s" % t, t, -1.0, -1.0])
+			"tributo":
+				for t in MOMENTOS_TRIBUTO: cols.append(["%.2f s" % t, t, -1.0, -1.0])
+			"clavadas":
+				for t in [0.55, 0.65, 0.75, 0.9, 1.6]: cols.append(["%.2f s" % t, t, -1.0, -1.0])
+				cols.append(["la pisas 0.08 s", 2.0, 0.08, -1.0])
+				cols.append(["la pisas 0.2 s", 2.0, 0.2, -1.0])
+			"pedazos":
+				for t in [0.3, 0.4, 0.5, 0.8, 1.6]: cols.append(["%.2f s" % t, t, -1.0, -1.0])
+				cols.append(["lo pisas 0.15 s", 2.0, 0.15, -1.0])
+				cols.append(["vuelve a el 0.2 s", 2.0, -1.0, 0.2])
+		var hoja := Image.create(LADO * (cols.size() + 1), LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+		var nombre: String = {"decreto": "Decreto", "tributo": "Tributo", "clavadas": "Esquirlas clavadas",
+			"pedazos": "Pedazos de la Escision"}[cual]
+		for fila in DIRS.size():
+			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+			var dir_n: String = DIRS[fila][0]
+			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+			spr.frame = 0
+			var alla: Vector2 = yo + dvec * 75.0
+			_yo_fig.visible = cual == "decreto"
+			_yo_fig.position = alla - Vector2(7, 26)
+			var caja_yo: Rect2 = Rect2(alla - Vector2(7, 26), Vector2(14, 26))
+			# (el tributo: un cadaver de slime alla)
+			var cad: AnimatedSprite2D = null
+			if cual == "tributo":
+				cad = AnimatedSprite2D.new()
+				cad.sprite_frames = SpritesEnemigo.frames_de(ed_s, 0.5, false, &"")
+				cad.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed_s)
+				cad.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				cad.z_index = 999
+				cad.z_as_relative = false
+				add_child(cad)
+				cad.play(&"cadaver_0")
+				cad.pause()
+				cad.position = alla - Vector2(0, 10)
+			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Rey tirano" if mut == &"tirano" else "Rey destronado", nombre, dir_n])
+			var nodos: Array = []
+			match cual:
+				"decreto":
+					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.DECRETO, bulto, caja_yo, 700 + fila * 31, 0.0, 1.0))
+				"tributo":
+					var caja_cad: Rect2 = Rect2(alla - Vector2(10, 20), Vector2(20, 16))
+					nodos.append(ReyAire.sobre_cuerpo(self, ReyAire.Modo.TRIBUTO, caja_cad, bulto, 700 + fila * 31, 0.0, 1.0))
+				_:
+					var col: Color = ed.color_visual(0.5)
+					for k in 3:
+						var p: Vector2 = yo + dvec.rotated(deg_to_rad(-22.0 + 22.0 * k)) * (60.0 + 15.0 * (k % 2))
+						var f := CombatFormas.circulo(p, 11.0 if cual == "clavadas" else 12.0)
+						f.origen = yo
+						nodos.append(ReyAire.pieza(self, f, ReyAire.Modo.CLAVADA if cual == "clavadas" else ReyAire.Modo.PEDAZO,
+							col, 900 + fila * 17 + k))
+			for n in nodos:
+				(n as Node).set_process(false)
+			for c in cols.size():
+				for n in nodos:
+					var ra: ReyAire = n
+					ra._t = float(cols[c][1])
+					ra._secando = float(cols[c][2])
+					if float(cols[c][3]) >= 0.0:
+						ra._vuelve_a = yo
+						ra._vuelve_t = float(cols[c][3])
+					else:
+						ra._vuelve_t = -1.0
+					for su in [ra._suelo, ra._delante]:
+						(su as Node2D).queue_redraw()
+				await _viñeta(hoja, c + 1, fila, "%s · %s · %s" % [nombre, dir_n, cols[c][0]])
+			for n in nodos:
+				(n as Node).queue_free()
+			if cad != null:
+				cad.queue_free()
+		var carpeta: String = "%s/enemigos/slimes/%s" % [salida, String(mut)]
+		DirAccess.make_dir_recursive_absolute(carpeta)
+		var ruta: String = "%s/%s.png" % [carpeta, cual]
 		hoja.save_png(ruta)
 		print("[hoja] ", ruta)
 		cuerpo.queue_free()

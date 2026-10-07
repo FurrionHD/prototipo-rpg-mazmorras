@@ -49,7 +49,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	PEGADO,
 	RESCOLDO,
 	ENCENDIDO, AVIVADO, AFILADO,
-	CONGELACION }
+	CONGELACION,
+	DECRETO }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -456,6 +457,14 @@ static var _defs: Dictionary = {
 	},
 	# LA CONGELACION (07/10, idea suya para el slime de escarcha, mutante del profundo): "te reduce la cantidad de
 	# movimiento que puedes hacer un 50 %". Solo en el mapa (CombatTactico.radio_de); en la fila no hay pasos que quitar.
+	# EL DECRETO (07/10, el Rey tirano): marcado por el rey. No hace nada por si solo: sus subditos solo van a por el y le
+	# pegan mas (Combatant.decreto_mult). Lo pone el Decreto directamente, sin tirada (es una orden, no un veneno).
+	Id.DECRETO: {
+		"id": Id.DECRETO, "nombre": "Decreto", "icono": "👑", "color": Color(0.55, 0.9, 1.0),
+		"turns": 2,
+		"debuff": true,
+		"descripcion": "El rey te ha señalado: todos sus súbditos van a por ti, y con ganas.",
+	},
 	Id.CONGELACION: {
 		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
 		"turns": 1, "mov_mult": CONGELACION_MOV,

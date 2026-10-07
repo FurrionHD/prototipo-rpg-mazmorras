@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ba7dbdyvyipmq"
-path="res://.godot/imported/ignicion.png-dca8c5d8a0480e7b8a3cf1ee8fa5546c.ctex"
+uid="uid://koyewdkytut6"
+path="res://.godot/imported/comer.png-12de1c82071f8204ffc148ba58e708ca.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/slime_sdf_rey280/ignicion.png"
-dest_files=["res://.godot/imported/ignicion.png-dca8c5d8a0480e7b8a3cf1ee8fa5546c.ctex"]
+source_file="res://assets/sprites/enemigos/slime_sdf_rey280/comer.png"
+dest_files=["res://.godot/imported/comer.png-12de1c82071f8204ffc148ba58e708ca.ctex"]
 
 [params]
 

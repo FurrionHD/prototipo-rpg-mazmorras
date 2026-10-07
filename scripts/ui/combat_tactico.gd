@@ -1736,6 +1736,9 @@ func sirve_en_mapa(e: Combatant, ab: AbilityData, obj: Combatant) -> bool:
 		return constelacion_pilla(e, ab)
 	if ab.mirada:
 		return not _pantalla._aliados_vivos().is_empty()
+	# (07/10) EL DECRETO del Rey tirano: no hace falta tener a nadie a tiro (es una orden).
+	if ab.decreto_turnos > 0:
+		return not _pantalla._aliados_vivos().is_empty()
 	if usa_huella(ab):
 		return int(mejor_apunte(e, ab, obj)["n"]) > 0
 	return obj != null or solo_a_si_mismo(ab)
@@ -2683,6 +2686,66 @@ func _poner_burbuja(e: Combatant, ab: AbilityData, f, clase: int, turnos: int) -
 	_charco_visible(clave, f, 1.0, e)
 
 
+# LAS PIEZAS QUE SE QUEDAN (07/10, el Rey destronado, ver AbilityData.pieza): 'piezas' charquitos al azar dentro de la
+# huella con la que pego (sin montarse ni salirse de la arena). PEDAZOS de la Escision (clases de burbuja, 9..12) o
+# ESQUIRLAS de su corona clavadas (clases de estrella, 13..18: el destronado no tiene ni burbujas ni estrellas).
+const PIEZA_ESTILO := {AbilityData.Pieza.PEDAZO: 10, AbilityData.Pieza.ESQUIRLA: 9}   # (ReyAire.pieza)
+
+func poner_piezas(e: Combatant, ab: AbilityData, f) -> int:
+	if _pantalla._espejo or ab == null or ab.piezas <= 0 or f == null:
+		return 0
+	var base: int = CLASE_BURBUJA if ab.pieza == AbilityData.Pieza.PEDAZO else CLASE_ESTRELLA
+	var tope: int = BURBUJAS_MAX if ab.pieza == AbilityData.Pieza.PEDAZO else ESTRELLAS_MAX
+	var r: float = ab.charco_radio if ab.charco_radio > 0.0 else 14.0
+	var puestas: Array = []
+	for i in mini(ab.piezas, tope):
+		var p: Vector2 = Vector2.INF
+		for _intento in 16:
+			var q: Vector2 = _punto_en_forma(f)
+			var libre: bool = _en_arena(q)
+			for o in puestas:
+				if (o as Vector2).distance_to(q) < r * 1.7:
+					libre = false
+			if libre:
+				p = q
+				break
+		if p == Vector2.INF:
+			continue
+		puestas.append(p)
+		var fc := CombatFormas.circulo(p, r)
+		fc.origen = pies_de(e)   # (de donde sale volando la esquirla: el; viaja con la huella)
+		fc.apertura = float(PIEZA_ESTILO.get(ab.pieza, 10))
+		var clase: int = base + i
+		var clave: String = clave_charco(clase, _cod(e))
+		_charcos[clave] = {"dueno": e, "f": fc, "turnos": ab.pieza_turnos, "max": ab.pieza_turnos, "ab": ab,
+			"clase": clase, "pieza": ab.pieza}
+		_anotar_huella_red(e, clase, fc, 1.0)
+		_charco_visible(clave, fc, 1.0, e)
+	return puestas.size()
+
+
+# Un punto al azar dentro de una forma (el circulo, el abanico o la linea con la que pego).
+func _punto_en_forma(f) -> Vector2:
+	match f.tipo:
+		CombatFormas.Tipo.CONO:
+			var a: float = deg_to_rad(randf_range(-f.apertura, f.apertura) * 0.5)
+			return f.origen + f.dir.rotated(a) * f.radio * sqrt(randf_range(0.15, 1.0))
+		CombatFormas.Tipo.LINEA:
+			return f.origen + f.dir * f.largo * randf() + f.dir.orthogonal() * randf_range(-0.5, 0.5) * f.ancho
+		_:
+			return f.centro + Vector2.RIGHT.rotated(randf() * TAU) * f.radio * sqrt(randf())
+
+
+# Quita una pieza del suelo (la has aplastado, o se le ha vuelto a juntar).
+func _quitar_pieza(clave: String) -> void:
+	var ch: Dictionary = _charcos.get(clave, {})
+	if ch.is_empty():
+		return
+	_charcos.erase(clave)
+	_anotar_huella_red(ch["dueno"], int(ch["clase"]), null, 0.0)
+	_secar_charco_vis(clave)
+
+
 # UNA BURBUJA REVIENTA: encima del que la atraviesa ('a', solo a el) o sola al secarse (a todos los tuyos que pille su
 # circulo de burbuja_estalla). burbuja_dano de su ataque y sus estados (con la resistencia de cada uno).
 func _reventar_burbuja(clave: String, a: Combatant = null) -> void:
@@ -2936,6 +2999,10 @@ func charcos_turno_enemigo(e: Combatant) -> void:
 			if ch.get("burbuja", false):
 				_reventar_burbuja(clave)
 				continue
+			# (07/10) LOS PEDAZOS del destronado que nadie ha aplastado se le vuelven a juntar: le curan.
+			if int(ch.get("pieza", 0)) == AbilityData.Pieza.PEDAZO and dueno.is_alive():
+				_reabsorber_pedazo(clave)
+				continue
 			_charcos.erase(clave)
 			_anotar_huella_red(dueno, int(ch["clase"]), null, 0.0)
 			_secar_charco_vis(clave)
@@ -2943,6 +3010,28 @@ func charcos_turno_enemigo(e: Combatant) -> void:
 		var queda: float = float(ch["turnos"]) / float(maxi(1, int(ch["max"])))
 		_anotar_huella_red(dueno, int(ch["clase"]), ch["f"], queda)
 		_charco_visible(clave, ch["f"], queda, dueno)
+
+
+# UN PEDAZO VUELVE A EL (07/10, el Rey destronado): se va del suelo y le cura pieza_cura de su vida (3 %), con su
+# destello encima.
+func _reabsorber_pedazo(clave: String) -> void:
+	var ch: Dictionary = _charcos.get(clave, {})
+	if ch.is_empty():
+		return
+	var dueno: Combatant = ch["dueno"]
+	var ab: AbilityData = ch["ab"]
+	# Se le ve volver: se desliza hasta sus pies (y no se seca donde estaba).
+	var vis = _charco_vis.get(clave)
+	if vis != null and is_instance_valid(vis) and vis.has_method("volver_a"):
+		vis.volver_a(pies_de(dueno))
+		_charco_vis.erase(clave)
+	_quitar_pieza(clave)
+	var cura: float = dueno.max_hp * ab.pieza_cura
+	dueno.heal(cura)
+	_pantalla.efectos._fx_golpe(dueno, dueno, 0.0, false, false, Elementos.Elemento.NINGUNO,
+		CombatFX.Estilo.PASIVA_DESTELLO, 0.6, true)
+	_pantalla._log_extra("🫧 Un pedazo de %s se le vuelve a juntar: +%.2f de vida" % [_pantalla._etq(dueno), cura])
+	_pantalla._update_hp()
 
 
 # Al empezar el turno de uno de los tuyos (en quien lleva la pelea): si empieza dentro, lo pisa.
@@ -3017,6 +3106,9 @@ func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 		# La nube no se pisa: se respira.
 		_pantalla._set_log("🧪 %s %s %s%s%s." % [c.nombre, "respira" if ab.charco_estilo in [2, 5, 7] else "pisa", ab.charco_texto,
 			dano_txt, (": " + ", ".join(puestos)) if not puestos.is_empty() else (" y aguanta" if dano_txt.is_empty() else "")])
+		# (07/10) LAS PIEZAS del destronado se acaban al pisarlas: lo aplastas (y ya no se le puede volver a juntar).
+		if int(ch.get("pieza", 0)) != AbilityData.Pieza.NINGUNA:
+			_quitar_pieza(clave)
 		_pantalla._update_hp()
 
 
@@ -3064,6 +3156,10 @@ func _charco_visible(clave: String, f, queda: float, dueno: Combatant = null) ->
 		elif estilo == 8:
 			# LA ESTRELLA del cielo nocturno y el de mil ojos (06/10): la que deja al moverse.
 			n = AbisalAire.estrella(arena, f, hash(clave))
+		elif estilo == 9 or estilo == 10:
+			# (07/10, el Rey destronado) LA ESQUIRLA CLAVADA de su corona y EL PEDAZO de su gel (ReyAire.pieza).
+			n = ReyAire.pieza(arena, f, ReyAire.Modo.CLAVADA if estilo == 9 else ReyAire.Modo.PEDAZO, _color_de(dueno),
+				hash(clave))
 		else:
 			n = BestiaAire.charco(arena, f, hash(clave), BestiaAire.T_SAVIA_CAE)
 			_vestir_charco(n, estilo, dueno)
@@ -3618,6 +3714,10 @@ func _presa_de(e: Combatant) -> Combatant:
 	var olor: Combatant = _pantalla.objetivos.presa_por_olor(e, _pantalla._aliados_vivos())
 	if olor != null:
 		return olor
+	# EL DECRETO (07/10, el Rey tirano): sus subditos se acercan al marcado, este donde este.
+	var marcado: Combatant = _pantalla.objetivos.presa_por_decreto(e)
+	if marcado != null:
+		return marcado
 	# LA AMENAZA Y LO QUE LE LLEGA ESTE TURNO (30/09, CombatObjetivos): el de mas peso de su tabla ENTRE LOS QUE
 	# ALCANZA andando este turno; solo persigue a uno que no le llega si pesa PERSEGUIR_X veces mas. Sin nadie a
 	# tiro este turno, el de mas peso. A igual peso, el mas cercano.
@@ -4663,6 +4763,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA or estilo == CombatFX.Estilo.PROFUNDO_HELADA:
 		var caja_p: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
 		ProfundoAire.sobre_cuerpo(arena, ProfundoAire.Modo.ANEMONA if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA 			else ProfundoAire.Modo.HELADA, caja_p, bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
+		return
+	# LOS DEL REY SLIME (07/10): la coronita del Decreto sobre el señalado (v); el Tributo, del subdito caido (a) al rey (v).
+	if estilo == CombatFX.Estilo.REY_DECRETO or estilo == CombatFX.Estilo.REY_TRIBUTO:
+		var caja_a: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
+		ReyAire.sobre_cuerpo(arena, ReyAire.Modo.DECRETO if estilo == CombatFX.Estilo.REY_DECRETO else ReyAire.Modo.TRIBUTO,
+			caja_a, bulto_de(v), semilla, vuelo, ritmo)
 		return
 	# EL ARCO Y LA BALLESTA (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe; se queda clavada.
 	if estilo in _MODO_DISTANCIA:

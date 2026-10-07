@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_0"]
+script = ExtResource("2")
+estado = 9
+prob = 0.3
+
+[sub_resource type="Resource" id="SA_peg"]
+script = ExtResource("2")
+estado = 9
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"escupir"
+fx_estilo = 10
+nombre = "Escisión"
+descripcion = "Se parte en pedazos que te vienen encima desde todos los lados. Los que se quedan por el suelo se le vuelven a juntar si nadie los aplasta."
+coste_energia = 0.0
+golpes_min = 4
+golpes_max = 6
+dano_mult = 0.55
+efectos = [SubResource("SA_0")]
+efectos_por_golpe = true
+reparto_por_golpe = true
+cooldown = 3
+forma = 1
+forma_apunte = 2
+forma_radio = 60.0
+forma_reparte = true
+fx_estilo_mapa = 131
+; (07/10, el Rey destronado) 3 PEDAZOS 2 turnos: pisarlos = 40 % de su ataque + Pegajoso (y lo aplastas); los que
+; queden se le vuelven a juntar (+3 % de su vida cada uno).
+pieza = 1
+piezas = 3
+pieza_turnos = 2
+pieza_cura = 0.03
+charco_radio = 12.0
+charco_dano = 0.4
+charco_efectos = [SubResource("SA_peg")]
+charco_texto = "un pedazo de su gel"

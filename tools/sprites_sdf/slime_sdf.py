@@ -275,12 +275,14 @@ def POSE(**k):
     #   coral      tamaño de los corales del arrecife (las Esquirlas: se le encogen al soltarlas y le vuelven a crecer)
     #   sacude     -1..1: cuanto se le ladean los corales (las Esquirlas: los agita de un lado a otro)
     #   carambanos largo de los carambanos de la escarcha (al SOLTARLOS se le van y le vuelven a crecer)
+    #   alza       cuanto se le levanta la corona al Rey tirano (el Decreto: la alza sobre la cabeza); en el destronado,
+    #              'sacude' le zarandea la corona rota (las Esquirlas: se arranca los trozos)
     #   (en el ARRECIFE, 'evo' = el gris del profundo se le cae a placas y le salen los corales uno a uno; en la
     #   ESCARCHA, el mar se le cae a placas, los corales se le van y le sale la escarcha a parches)
     #   (en el CIELO, 'evo' = el gel del abisal se le abre a placas y le salen las estrellas; en el de MIL OJOS, se le abren
     #   los ojos uno a uno viniendo del cielo; y 'cerrados' = el GRUPO de ojos que cierra, 1..GRUPOS_PARPADO, o True = todos)
     p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False, evo2=1.0,
-             puas=1.0, poros=1.0, burb=1.0, brillo=1.0, ojos=1.0, coral=1.0, carambanos=1.0, sacude=0.0)
+             puas=1.0, poros=1.0, burb=1.0, brillo=1.0, ojos=1.0, coral=1.0, carambanos=1.0, sacude=0.0, alza=0.0)
     p.update(k)
     return p
 
@@ -317,7 +319,11 @@ def _en(p):
 def huesos(p):
     # Solo se MUEVE (bote y avance): la forma -- aplastarse, estirarse, derretirse -- se hace cambiando la bola en
     # escena(), no escalando el hueso: aplastada al 15 % con una escala, el trazado de rayos atravesaba la figura.
-    return {'raiz': (np.eye(3), np.array([0.0, p['avance'], p['bote'] * BOTE]))}
+    # (07/10, el Rey y sus mutantes) su base de pudin le da mas fondo: avanzando hacia la camara (embestida, comer,
+    # encaje) se salia un pixel del lienzo por abajo. Avanza un poco menos.
+    # Y al ENCAJAR (avance hacia atras) retrocede mucho menos: pesa (y el manto de sus mutantes se salia por delante).
+    avance = p['avance'] * ((0.72 if p['avance'] >= 0.0 else 0.35) if REY else 1.0)
+    return {'raiz': (np.eye(3), np.array([0.0, avance, p['bote'] * BOTE]))}
 
 
 def _forma(p):
@@ -363,11 +369,14 @@ _CUP = np.array([1.0, 1.0, 13.2 / 14.0])
 
 def _cuerpo_rey(e, C, R, pose):
     Cc = C * (8.0 / 9.0); Rc = R * _CUP
-    peso = 1.0 - _paso(pose['bote'], 0.02, 0.35)
+    # (07/10, su aviso: "la muerte se sale del lienzo") DERRITIENDOSE tambien se le recoge: el charco ya es ancho de por
+    # si y con la base encima se salia por los lados.
+    peso = (1.0 - _paso(pose['bote'], 0.02, 0.35)) * (1.0 - _paso(pose['derretido'], 0.0, 0.5))
     k = Rc[2] / 13.2
     Cb = np.array([0.0, 0.0, 2.4 * k])
-    Rb = np.array([Rc[0] * 17.6 / 16.5 * (0.55 + 0.45 * peso), Rc[1] * 17.6 / 16.5 * (0.55 + 0.45 * peso),
-                   4.0 * k * (0.3 + 0.7 * peso)])
+    # (aplastado, la cupula ya se ensancha: la base no pasa de su ancho en reposo, o se salia del lienzo al encajar)
+    ancho_b = min(Rc[0], CUERPO_R[0] * _en(pose)) * 17.2 / 16.5 * (0.55 + 0.45 * peso)
+    Rb = np.array([ancho_b, ancho_b, 4.0 * k * (0.3 + 0.7 * peso)])
     e.add(lambda P: sd_elipsoide(P, Cc, Rc), 'gel', 0)
     e.add(lambda P: sd_elipsoide(P, Cb, Rb), 'gel', 0.5 + 2.5 * peso)
     return Cc, Rc
@@ -389,14 +398,15 @@ def _corona_rey(e, C, R, pose):
     en = _en(pose) * (1.0 - 0.85 * pose['derretido'])
     if en < 0.1:
         return
-    top = C[2] + R[2]
+    top = C[2] + R[2] + pose['alza'] * 5.0 * en
     rr = (8.6 if FORMA == 'rey' else 8.0) * R[0] / 16.5
     z0, z1 = top - 3.2 * en, top + (0.8 if FORMA == 'rey' else 0.2) * en
     evo = pose['evo']
     gel = 1.0 if FORMA == 'rey' else (1.0 - _paso(evo, 0.15, 0.45) if FORMA == 'tirano' else 0.0)
     cris = 0.0 if FORMA == 'rey' else (_paso(evo, 0.30, 0.50) if FORMA == 'tirano' else 1.0)
     rota = _paso(evo, 0.20, 0.60) if FORMA == 'destronado' else 0.0
-    G = _ladeo_rey(0.42 * rota, np.array([0.0, 0.0, top - 2.2 * en])) if rota > 0.01 else (lambda P: P)
+    giro = 0.42 * rota + 0.22 * pose['sacude']
+    G = _ladeo_rey(giro, np.array([0.0, 0.0, top - 2.2 * en])) if abs(giro) > 0.01 else (lambda P: P)
     def aro(P, rr=rr, z0=z0, z1=z1, gros=1.0 * en, hueco=rota > 0.5):
         Q = G(P)
         d = np.abs(np.linalg.norm(Q[:, :2], axis=1) - rr) - gros
@@ -454,13 +464,20 @@ def _manto_rey(e, C, R, pose):
     en = _en(pose)
     k = R[2] / 13.2
     MC = C + np.array([0.0, -0.6 * en, 0.0]); MR = R * np.array([17.6 / 16.5, 17.6 / 16.5, 14.4 / 13.2])
+    # (07/10) NO MAS ANCHO QUE EL CUERPO EN REPOSO: aplastado o derretido, el cuerpo se ensancha y el manto con el se salia
+    # del lienzo por delante; asi se queda recogido detras (lo tapa el gel).
+    tope = CUERPO_R[0] * 17.6 / 16.5 * en
+    MR = np.array([min(MR[0], tope), min(MR[1], tope), MR[2]])
     top = C[2] + R[2]
     evo = pose['evo']
     cae = _paso(evo, 0.50, 0.85) if FORMA == 'tirano' else 1.0
     if cae < 0.05:
         return
     roto = _paso(evo, 0.35, 0.80) if FORMA == 'destronado' else 0.0
-    alto = top - 7.4 * k                      # hasta donde sube (la espalda)
+    # hasta donde sube (la espalda); al DERRETIRSE se le hunde en el charco con el (si no, se salia del lienzo)
+    alto = (top - 7.4 * k) * (1.0 - _paso(pose['derretido'], 0.0, 0.7))
+    if alto < 0.6:
+        return
     bajo0 = alto * (1.0 - cae)                # hasta donde llega (cayendo)
     rng = np.random.default_rng(9)
     agujeros = [(np.array([rng.uniform(-11, 11), -17.0, rng.uniform(5, 13)]) * np.array([en, en, k]),
@@ -1474,6 +1491,22 @@ def anim_evolucion_rey(t):
                 evo=T(t, [(0.0, 0.0), (0.20, 0.0), (0.30, 0.45), (0.85, 1.0), (1.0, 1.0)]))
 
 
+# EL DECRETO (el Rey tirano, sin carga): se yergue, ALZA LA CORONA sobre la cabeza y la sostiene un instante (la orden),
+# se echa un poco hacia delante señalando y la corona le vuelve a su sitio. 1,2 s.
+def anim_decreto(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.20, 0.88), (0.38, 1.20), (0.62, 1.16), (0.78, 0.92), (1.0, 1.0)]),
+                avance=T(t, [(0.0, 0.0), (0.62, 0.0), (0.74, 1.8), (1.0, 0.0)]),
+                alza=T(t, [(0.0, 0.0), (0.20, 0.0), (0.40, 1.0), (0.66, 1.0), (0.84, 0.0), (1.0, 0.0)]))
+
+
+# LAS ESQUIRLAS DE LA CORONA (el Rey destronado, sin carga): se zarandea la corona rota de un lado a otro (se arranca los
+# trozos), se encoge y las LANZA con un respingo hacia delante (las esquirlas las pone el juego). 0,85 s.
+def anim_esquirlas(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.15, 0.90), (0.45, 0.86), (0.58, 1.16), (0.75, 0.96), (1.0, 1.0)]),
+                avance=T(t, [(0.0, 0.0), (0.50, -0.8), (0.60, 1.6), (1.0, 0.0)]),
+                sacude=T(t, [(0.0, 0.0), (0.12, 1.0), (0.24, -1.0), (0.36, 1.0), (0.48, -0.5), (0.58, 0.0), (1.0, 0.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -1576,9 +1609,12 @@ if REY:
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
     if FORMA != 'rey':
         ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_rey)
+    if FORMA == 'tirano':
+        ANIMS['decreto'] = (12, 10.0, False, 8, anim_decreto)
     if FORMA == 'destronado':
         # (nadie le sigue: ni Brote ni crias)
         ANIMS.pop('brote', None); ANIMS.pop('nacer', None)
+        ANIMS['esquirlas'] = (10, 12.0, False, 8, anim_esquirlas)
 # (el venenoso tambien come cristales: 06/10, al hacer su arbol; el abisal y los suyos, al hacer el suyo)
 if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211', 's170',
            's150', 'arr180', 'esc198',

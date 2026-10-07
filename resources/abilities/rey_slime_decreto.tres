@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Decreto"
+descripcion = "Alza la corona y señala a uno de los tuyos. Desde ese momento, todos sus súbditos van a por él, y con ganas."
+coste_energia = 0.0
+dano_mult = 0.0
+cooldown = 4
+; (07/10, el Rey tirano) marca 2 turnos (estado DECRETO, sin tirada); sus subditos solo van a por el y le hacen +20 %.
+decreto_turnos = 2
+decreto_mult = 1.2
+fx_anim = &"decreto"
+; SU DIBUJO: la coronita de cristal sobre el señalado (ReyAire.DECRETO = CombatFX.Estilo.REY_DECRETO).
+fx_estilo = 208
+gesto = 0
