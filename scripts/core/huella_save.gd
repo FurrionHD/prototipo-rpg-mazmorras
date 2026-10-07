@@ -13,7 +13,8 @@
 #      por material), y el orden de las unidades en la bolsa no es un dato.
 #    - Las claves de los diccionarios van con var_to_str (1 y "1" son claves distintas).
 #    - "_compartidos": los objetos incrustados que salen en MAS DE UN sitio (el arma equipada que
-#      es la misma del baul). Al leerlo de vuelta tienen que seguir siendo uno solo.
+#      es la misma del baul). Al leerlo de vuelta tienen que seguir siendo uno solo. Menos los
+#      MaterialItem/Cristal: son valores (nadie los modifica tras crearlos) y la BD los cuenta.
 # ============================================================
 class_name HuellaSave
 extends RefCounted
@@ -78,7 +79,9 @@ static func _de_resource(r: Resource, ruta: String, vistos: Dictionary, comparti
 	var iid: int = r.get_instance_id()
 	if pila.has(iid):
 		return "ciclo:" + String(pila[iid])
-	if vistos.has(iid):
+	if r is MaterialItem or r is Cristal:
+		pass   # son VALORES: nadie los cambia tras crearlos (mirado 07/10), compartirlos no significa nada
+	elif vistos.has(iid):
 		# Mismo objeto en otro sitio: se apunta la pareja y se recorre igual (la estructura cuenta).
 		compartidos.append("%s = %s" % [vistos[iid], ruta])
 	else:

@@ -2723,9 +2723,15 @@ func exportar_partida() -> SaveData:
 
 	# item_meta va indexado por el PROPIO objeto: se desmonta en dos arrays paralelos y se
 	# rearma al cargar (no me fio de que un Resource sobreviva como CLAVE de diccionario).
+	# Los materiales y cristales con la meta POR DEFECTO no se guardan: esa meta la crea meta_de()
+	# al pintar su color y no significa nada (meta_de la vuelve a crear igual). Habia 755 en su
+	# mundo, y en la BD (07/10) cada una ataba un material contado a una fila propia.
 	d.meta_items = []
 	d.meta_datos = []
+	var por_defecto: Dictionary = _meta_por_defecto()
 	for item in item_meta:
+		if (item is MaterialItem or item is Cristal) and item_meta[item] == por_defecto:
+			continue
 		d.meta_items.append(item)
 		d.meta_datos.append((item_meta[item] as Dictionary).duplicate(true))
 
