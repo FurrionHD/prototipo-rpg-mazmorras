@@ -52,6 +52,7 @@ al_ser_golpeado_propio = true
 al_ser_golpeado = [SubResource("SA_debil")]
 al_ser_golpeado_prob = 0.3
 al_ser_golpeado_texto = "su anémona urticante"
+al_ser_golpeado_fx = 206
 elemento = 2
 fragil_contundente = 0.8
 color_fx = Color(0.2, 0.55, 0.75, 1)

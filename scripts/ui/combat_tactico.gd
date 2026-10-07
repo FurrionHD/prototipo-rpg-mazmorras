@@ -4658,6 +4658,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+	# LOS DEL SLIME PROFUNDO (07/10): el pinchazo de la anemona, del slime (a) a quien le pega (v); el destello helado,
+	# en los pies de quien se queda congelado (v).
+	if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA or estilo == CombatFX.Estilo.PROFUNDO_HELADA:
+		var caja_p: Rect2 = bulto_de(a) if a != null and cuerpo_de(a) != null else Rect2()
+		ProfundoAire.sobre_cuerpo(arena, ProfundoAire.Modo.ANEMONA if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA 			else ProfundoAire.Modo.HELADA, caja_p, bulto_de(v), pies_de(v), semilla, vuelo, ritmo)
+		return
 	# EL ARCO Y LA BALLESTA (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe; se queda clavada.
 	if estilo in _MODO_DISTANCIA:
 		var desde_d: Vector2 = bulto_de(a).get_center() if a != null and cuerpo_de(a) != null \

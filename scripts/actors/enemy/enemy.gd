@@ -307,6 +307,8 @@ func _ready() -> void:
 			SpritesEnemigo.poner_parpados(_sprite, data, current_t, mutante, mutacion)
 			# Y EL HUMO / LAS BURBUJAS que le salen al azar (el miasma y el pestilente, ver HumoToxico).
 			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, mutante, mutacion), data.color_visual(current_t))
+			# Y LA NEBLINA del aura fria (el slime de escarcha): marca en el suelo hasta donde le cala.
+			NeblinaFria.poner(_sprite, NeblinaFria.lleva(data, mutante, mutacion))
 		# La forma de su cuerpo, para que la colision sea a su medida y no una caja de 32x32. Va
 		# ANTES de _aplicar_escala, que es quien la monta.
 		_tam_cuerpo = SpritesEnemigo.tam_cuerpo(data)
@@ -483,6 +485,7 @@ func aplicar_mutacion(id: StringName, dur: float = 0.0) -> void:
 				_sprite.play(_anim_actual)
 			SpritesEnemigo.poner_parpados(_sprite, data, current_t, true, mutacion)
 			HumoToxico.poner(_sprite, HumoToxico.modo_de(data, true, mutacion), data.color_visual(current_t))
+			NeblinaFria.poner(_sprite, NeblinaFria.lleva(data, true, mutacion))
 	_aplicar_escala(data.escala_visual * _mut_escala())
 	_marcar_mutante()
 	# La transformacion arranca del tamaño QUE SE VEIA (con el sprite viejo) y crece hasta el de ahora.

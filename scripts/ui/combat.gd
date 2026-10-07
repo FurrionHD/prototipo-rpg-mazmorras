@@ -579,8 +579,9 @@ func _aura_fria(c: Combatant) -> void:
 		var ab := AbilityData.new()
 		ab.efectos = en.aura_efectos
 		var puestos: Array = enemigos._enemy_tirar_efectos(en, ab, c, 1.0, "objetivo", 1.0)
+		# Si le congela, su DESTELLO HELADO en los pies (ProfundoAire.HELADA): el hielo le sube por las piernas.
 		if not puestos.is_empty():
-			efectos._fx_golpe(en, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SLIME_GOLPE, 0.8, true)
+			efectos._fx_golpe(en, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.PROFUNDO_HELADA, 0.8, true)
 		_log_extra("❄ El frío de %s le cala a %s%s" % [_etq(en), c.nombre,
 			(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
 

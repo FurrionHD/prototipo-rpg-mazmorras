@@ -17,12 +17,19 @@
 #               con copos que titilan y el suelo que se queda escarchado.
 #    CARAMBANOS Carambanos: en cada circulo de la fila (CombatFormas.BOLAS), uno tras otro: su sombra crece en el suelo,
 #               el carambano cae del aire y se rompe en esquirlas con un destello y una mancha de escarcha.
+#  SOBRE EL CUERPO (CombatFX.Estilo.PROFUNDO_*, ver sobre_cuerpo; 07/10, lo que le faltaba a sus pasivas):
+#    ANEMONA    El pinchazo de la anemona del arrecife: de su cuerpo salen tres tentaculos (verdes con la punta rosa, como
+#               la anemona de su sprite) que se estiran ondulando hasta quien le ha pegado, PICAN (un destello rosa) y se
+#               recogen; donde pican quedan motas urticantes que se esparcen y se apagan.
+#    HELADA     El destello helado del aura fria: en los pies de quien se queda congelado la escarcha se abre por el suelo,
+#               le crecen cristales de hielo alrededor de las piernas (los de detras, tras su cuerpo), un destello blanco
+#               le cruza el cuerpo y suben copos; luego se funde.
 #  Coordenadas de MUNDO; el suelo sin achatar; lo que va en el aire, a su altura por K. Todo sale de la forma y la semilla.
 # ============================================================
 extends Node2D
 class_name ProfundoAire
 
-enum Modo { MAREA, CHORRO, CORAL, ESTALLIDO, ALIENTO, CARAMBANOS }
+enum Modo { MAREA, CHORRO, CORAL, ESTALLIDO, ALIENTO, CARAMBANOS, ANEMONA, HELADA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -66,6 +73,20 @@ const T_ENTRE := 0.12
 const T_CAE := 0.2
 const T_ROMPE := 0.4
 const ALTO_CAIDA := 64.0
+# LA ANEMONA
+const T_ESTIRA := 0.12          # lo que tardan los tentaculos en llegar (= su vuelo en CombatFX.T_VUELO)
+const T_PICA := 0.1
+const T_RECOGE := 0.16
+const T_MOTAS := 0.55
+const TENTACULOS := 3
+const ANEMONA := Color(0.38, 0.85, 0.58)
+const ANEMONA_HONDA := Color(0.20, 0.55, 0.40)
+const ANEMONA_PUNTA := Color(0.95, 0.55, 0.80)
+# LA HELADA
+const T_HIELA := 0.12
+const T_HELADO := 0.5
+const T_DESHIELA := 0.35
+const CRISTALES := 7
 
 var modo: int = Modo.MAREA
 var forma: CombatFormas.Forma = null
@@ -79,6 +100,11 @@ var _borde: PackedFloat32Array = PackedFloat32Array()
 var _puntos: Array = []
 var _suelo: Node2D = null
 var _delante: Node2D = null
+# (los de sobre el cuerpo)
+var _o: Vector2 = Vector2.ZERO        # de donde salen los tentaculos (el borde de su cuerpo hacia quien le pega)
+var _hasta: Vector2 = Vector2.ZERO    # donde pican (el cuerpo de quien le pega)
+var _pies: Vector2 = Vector2.ZERO
+var _caja: Rect2 = Rect2()
 
 
 static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, espera: float) -> ProfundoAire:
@@ -90,6 +116,36 @@ static func area(padre: Node, f: CombatFormas.Forma, m: int, semilla: int, esper
 	e._rng.seed = hash(semilla)
 	e._ritmo = maxf(BarridoAire.ritmo, 0.05)
 	e._t = -espera * e._ritmo
+	e._preparar()
+	e._montar(padre)
+	return e
+
+
+# LOS DE SOBRE EL CUERPO (CombatFX.dibujo_en_mapa -> CombatTactico._on_dibujo_mapa). 'desde' = el cuerpo del slime,
+# 'caja' y 'pies_v' = los del que lo recibe; 'espera' = lo que falta para el golpe (su vuelo).
+static func sobre_cuerpo(padre: Node, m: int, desde: Rect2, caja: Rect2, pies_v: Vector2, semilla: int, espera: float,
+		ritmo: float) -> ProfundoAire:
+	if padre == null:
+		return null
+	var e := ProfundoAire.new()
+	e.modo = m
+	e._rng.seed = hash(semilla)
+	e._ritmo = maxf(ritmo, 0.05)
+	e._caja = caja
+	e._pies = pies_v
+	if m == Modo.ANEMONA:
+		# Pican en su cuerpo, un pelo por debajo del centro; salen del borde del slime hacia el, por abajo (donde lleva
+		# la anemona su sprite).
+		e._hasta = caja.get_center() + Vector2(0.0, caja.size.y * 0.1)
+		var c_desde: Vector2 = desde.get_center() if desde.has_area() else e._hasta - Vector2(36.0, 0.0)
+		var eje: Vector2 = (e._hasta - c_desde).normalized() if e._hasta.distance_squared_to(c_desde) > 1.0 else Vector2.RIGHT
+		var a: float = maxf(desde.size.x * 0.5, 4.0)
+		var b: float = maxf(desde.size.y * 0.5, 4.0)
+		var r: float = 1.0 / sqrt((eje.x / a) * (eje.x / a) + (eje.y / b) * (eje.y / b))
+		e._o = c_desde + eje * r * 0.8 + Vector2(0.0, desde.size.y * 0.12)
+		e._t = (T_ESTIRA - maxf(espera, 0.0)) * e._ritmo
+	else:
+		e._t = -maxf(espera, 0.0) * e._ritmo
 	e._preparar()
 	e._montar(padre)
 	return e
@@ -130,6 +186,15 @@ func _preparar() -> void:
 				"d": _rng.randf_range(0.6, 1.0), "r": _rng.randf_range(0.8, 1.3)})
 	if modo == Modo.CARAMBANOS:
 		_puntos = forma.centros_bolas()
+	if modo == Modo.ANEMONA:
+		for i in TENTACULOS:
+			_puntos.append({"lat": (float(i) - 1.0) * 6.0 + _rng.randf_range(-2.0, 2.0), "fase": _rng.randf_range(0.0, TAU),
+				"amp": _rng.randf_range(3.0, 6.0), "sale": _rng.randf_range(0.0, 0.03), "ancho": _rng.randf_range(4.5, 6.0)})
+	if modo == Modo.HELADA:
+		for i in CRISTALES:
+			var a: float = TAU * (float(i) + _rng.randf_range(-0.25, 0.25)) / float(CRISTALES)
+			_puntos.append({"a": a, "d": _rng.randf_range(0.5, 0.8), "alto": _rng.randf_range(10.0, 17.0),
+				"sale": float(i) * 0.015 + _rng.randf_range(0.0, 0.02), "w": _rng.randf_range(3.0, 4.2)})
 
 
 # CUANDO LE LLEGA a 'p' (en segundos desde que se lanza). El mismo numero manda el dibujo y el golpe.
@@ -179,6 +244,8 @@ func duracion() -> float:
 		Modo.ESTALLIDO: return T_ESTALLA + T_HELADA + T_FUNDE
 		Modo.ALIENTO: return T_SOPLO + 0.16 + T_ALIENTO_VIVE + 0.2
 		Modo.CARAMBANOS: return T_MARCA + T_ENTRE * float(maxi(_puntos.size() - 1, 0)) + T_CAE + T_ROMPE + 0.1
+		Modo.ANEMONA: return T_ESTIRA + maxf(T_PICA + T_RECOGE, T_MOTAS) + 0.05
+		Modo.HELADA: return T_HIELA + T_HELADO + T_DESHIELA
 	return 1.0
 
 
@@ -201,6 +268,8 @@ func _pintar(capa: Node2D) -> void:
 		Modo.ESTALLIDO: _estallido(capa)
 		Modo.ALIENTO: _aliento(capa)
 		Modo.CARAMBANOS: _carambanos(capa)
+		Modo.ANEMONA: _anemona(capa)
+		Modo.HELADA: _helada(capa)
 
 
 # ------------------------------------------------------------
@@ -593,3 +662,121 @@ func _carambanos(capa: Node2D) -> void:
 				var q: Vector2 = p + Vector2(cos(aj), sin(aj) * 0.6) * 20.0 * k2 * float(gd["v"]) \
 					- Vector2(0.0, (sin(PI * k2) * 10.0 * float(gd["h"])) * K)
 				_trozo(capa, q, 4.0 * (1.0 - k2 * 0.6), aj + _t * 8.0, Color(HIELO, 1.0 - k2))
+
+
+# ------------------------------------------------------------
+#  EL PINCHAZO DE LA ANEMONA (su pasiva al ser golpeado)
+# ------------------------------------------------------------
+# Lo estirado de un tentaculo (0..1) a su tiempo 'tt': sale rapido, se queda picando y se recoge.
+static func _estirado(tt: float) -> float:
+	if tt <= 0.0:
+		return 0.0
+	if tt < T_ESTIRA:
+		var k: float = tt / T_ESTIRA
+		return 1.0 - (1.0 - k) * (1.0 - k)
+	if tt < T_ESTIRA + T_PICA:
+		return 1.0
+	var k2: float = clampf((tt - T_ESTIRA - T_PICA) / T_RECOGE, 0.0, 1.0)
+	return 1.0 - k2 * k2
+
+
+func _anemona(capa: Node2D) -> void:
+	if capa != _delante:
+		return
+	var eje: Vector2 = (_hasta - _o).normalized() if _hasta.distance_squared_to(_o) > 1.0 else Vector2.RIGHT
+	var lat: Vector2 = eje.orthogonal()
+	# LOS TENTACULOS: cada uno ondula a su ritmo, ancho en la base y fino en la punta, verde con la punta rosa.
+	for td in _puntos:
+		var ext: float = _estirado(_t - float(td["sale"]))
+		if ext <= 0.02:
+			continue
+		var fin: Vector2 = _hasta + lat * float(td["lat"])
+		var pts: Array = []
+		var anchos: Array = []
+		var gruesos: Array = []
+		var n: int = 12
+		for i in n + 1:
+			var sv: float = ext * float(i) / float(n)
+			var ola: float = float(td["amp"]) * sin(PI * sv) * cos(float(td["fase"]) + sv * 5.0 - _t * 16.0)
+			pts.append(_o.lerp(fin, sv) + lat * ola)
+			var w: float = float(td["ancho"]) * (1.0 - 0.65 * float(i) / float(n))
+			anchos.append(w)
+			gruesos.append(w * 1.5)
+		_banda(capa, pts, gruesos, Color(ANEMONA_HONDA, 0.8))
+		_banda(capa, pts, anchos, ANEMONA)
+		var desde_punta: int = int(n * 0.65)
+		_banda(capa, pts.slice(desde_punta), anchos.slice(desde_punta), ANEMONA_PUNTA)
+		BarridoAire.brillo(capa, pts[n], 4.0, Color(ANEMONA_PUNTA.lightened(0.3), 0.95))
+	# EL PICOTAZO: un destello rosa donde pican.
+	var tt: float = _t - T_ESTIRA
+	if tt >= 0.0 and tt < 0.2:
+		var k: float = tt / 0.2
+		BarridoAire.destello(capa, _hasta, lerpf(15.0, 6.0, k), Color(ANEMONA_PUNTA.lightened(0.35), 1.0 - k), _fase)
+	# LAS MOTAS URTICANTES: se esparcen desde donde pican, bajan un poco y se apagan (rosas y verdes).
+	if tt >= 0.0 and tt < T_MOTAS:
+		for i in 8:
+			var gd: Dictionary = _gotas[i]
+			var k3: float = clampf((tt - float(gd["d"]) * 0.3) / (T_MOTAS - 0.08), 0.0, 1.0)
+			if k3 <= 0.0 or k3 >= 1.0:
+				continue
+			var a: float = float(gd["a"])
+			var q: Vector2 = _hasta + Vector2(cos(a), sin(a) * 0.7) * 16.0 * float(gd["v"]) * sqrt(k3) + Vector2(0.0, 5.0 * k3)
+			var col: Color = ANEMONA_PUNTA if i % 2 == 0 else ANEMONA.lightened(0.2)
+			BarridoAire.destello(capa, q, 2.6 * float(gd["r"]) * (0.7 + 0.3 * sin(_t * 11.0 + a)), Color(col, 1.0 - k3), a)
+
+
+# ------------------------------------------------------------
+#  EL DESTELLO HELADO (el aura fria congela a alguien)
+# ------------------------------------------------------------
+func _helada(capa: Node2D) -> void:
+	var c: Vector2 = _pies
+	var R: float = clampf(_caja.size.x * 0.6, 14.0, 30.0)
+	var u: float = clampf(_t / T_HIELA, 0.0, 1.0)
+	var fr: float = R * (1.0 - (1.0 - u) * (1.0 - u))
+	var funde: float = clampf((_t - T_HIELA - T_HELADO) / T_DESHIELA, 0.0, 1.0)
+	if capa == _suelo and fr > 1.0:
+		# LA ESCARCHA bajo sus pies: borde de cristal, blanca en el borde.
+		var n: int = _borde.size()
+		for i in n:
+			var j: int = (i + 1) % n
+			var a0: float = TAU * float(i) / float(n) + _fase
+			var a1: float = TAU * float(j) / float(n) + _fase
+			capa.draw_primitive(PackedVector2Array([c, c + Vector2(cos(a0), sin(a0)) * fr * float(_borde[i]),
+				c + Vector2(cos(a1), sin(a1)) * fr * float(_borde[j])]),
+				PackedColorArray([Color(ESCARCHA, 0.45 * (1.0 - funde)), Color(ESCARCHA, 0.8 * (1.0 - funde)),
+				Color(ESCARCHA, 0.8 * (1.0 - funde))]), PackedVector2Array())
+	# LOS CRISTALES alrededor de sus piernas, puntas arriba y un pelo hacia fuera: los de detras de sus pies van en el
+	# suelo (los tapa su cuerpo), los de delante encima.
+	for cd in _puntos:
+		var a2: float = float(cd["a"])
+		var detras: bool = sin(a2) < 0.0
+		if detras != (capa == _suelo):
+			continue
+		var crece: float = clampf((_t - float(cd["sale"])) / 0.14, 0.0, 1.0) * (1.0 - funde)
+		if crece <= 0.02:
+			continue
+		var base: Vector2 = c + Vector2(cos(a2), sin(a2)) * R * float(cd["d"])
+		var alto: float = float(cd["alto"]) * crece
+		var punta: Vector2 = base + Vector2(cos(a2), sin(a2) * 0.5) * alto * 0.3 - Vector2(0.0, alto * K)
+		var w: float = float(cd["w"]) * crece
+		var al: float = 1.0 - funde   # (al fundirse se van, no solo encogen: si no, quedaba un pegote gris)
+		capa.draw_primitive(PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(w, 0.0)]),
+			PackedColorArray([Color(HIELO_HONDO, 0.9 * al), Color(BLANCO, 0.95 * al), Color(HIELO, 0.9 * al)]),
+			PackedVector2Array())
+	if capa != _delante:
+		return
+	# EL DESTELLO: le cruza el cuerpo un fogonazo blanco azulado (y el cuerpo se queda un instante helado).
+	var centro: Vector2 = _caja.get_center() if _caja.has_area() else c - Vector2(0.0, 18.0)
+	if _t < 0.28:
+		var k: float = _t / 0.28
+		BarridoAire.brillo(capa, centro, maxf(_caja.size.y, 24.0) * 0.55, Color(HIELO, 0.4 * (1.0 - k)))
+		BarridoAire.destello(capa, centro, lerpf(26.0, 9.0, k), Color(ESCARCHA, 1.0 - k), _fase)
+	# LOS COPOS que le suben por delante y titilan.
+	for i in 8:
+		var gd: Dictionary = _gotas[i]
+		var vida: float = clampf((_t - float(gd["d"]) * 0.4) / (T_HIELA + T_HELADO), 0.0, 1.0)
+		if vida <= 0.0 or vida >= 1.0:
+			continue
+		var a3: float = float(gd["a"])
+		var q: Vector2 = c + Vector2(cos(a3) * R * 0.9 * float(gd["v"]), -4.0) - Vector2(0.0, (8.0 + 26.0 * vida) * float(gd["h"]))
+		BarridoAire.destello(capa, q, 2.8 * float(gd["r"]) * (0.7 + 0.3 * sin(_t * 9.0 + a3)), Color(ESCARCHA, 1.0 - vida), a3)

@@ -258,6 +258,11 @@ func _correr() -> void:
 		await _hojas_bestias(salida, pedidas, OS.get_environment("ATAQUES_BESTIA"))
 		get_tree().quit(0)
 		return
+	# ATAQUES_AURA=1 -> la neblina y el destello del aura fria (escarcha) y el pinchazo de la anemona (arrecife).
+	if OS.get_environment("ATAQUES_AURA") != "":
+		await _hojas_aura_fria(salida)
+		get_tree().quit(0)
+		return
 	if OS.get_environment("ATAQUES_ENEMIGOS") != "":
 		await _hojas_slimes(salida, pedidas)
 		get_tree().quit(0)
@@ -2151,3 +2156,107 @@ func _hojas_bestias(salida: String, pedidas: String, bestia: String) -> void:
 	cuerpo.queue_free()
 	await get_tree().process_frame
 
+
+
+# ------------------------------------------------------------
+#  EL AURA FRIA Y LA ANEMONA (07/10): ATAQUES_AURA=1
+# ------------------------------------------------------------
+# Tres hojas, una fila por direccion (de donde esta tu personaje, en azul):
+#   escarcha/aura_neblina.png   la neblina en cuatro momentos, y tu figura JUSTO DENTRO y JUSTO FUERA de la zona del aura
+#                               (con los pies a alcance -1 y +3 del dibujo: lo que mide combat._aura_fria).
+#   escarcha/aura_destello.png  el destello helado cuando el aura te congela, de principio a fin.
+#   arrecife/anemona.png        el pinchazo de la anemona al pegarle, de principio a fin.
+const MOMENTOS_NEBLINA := [0.0, 1.2, 2.4, 3.6]
+const MOMENTOS_HELADA := [0.03, 0.08, 0.15, 0.3, 0.6, 0.85]
+const MOMENTOS_ANEMONA := [0.04, 0.09, 0.14, 0.22, 0.32, 0.5]
+
+func _hojas_aura_fria(salida: String) -> void:
+	BarridoAire.ritmo = 1.0
+	var yo := Vector2.ZERO
+	for fg in _figs:
+		(fg as ColorRect).visible = false
+	_yo_fig.color = AZUL
+	var ed: EnemyData = load("res://scenes/actors/enemy/slime_profundo.tres")
+	for cual in ["neblina", "destello", "anemona"]:
+		var mut: StringName = &"arrecife" if cual == "anemona" else &"escarcha"
+		var cuerpo := Node2D.new()
+		cuerpo.z_index = 1000
+		cuerpo.z_as_relative = false
+		add_child(cuerpo)
+		var spr := AnimatedSprite2D.new()
+		spr.sprite_frames = SpritesEnemigo.frames_de(ed, 0.5, true, mut)
+		spr.scale = Vector2.ONE * SpritesEnemigo.escala_de(ed)
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		cuerpo.add_child(spr)
+		spr.play(&"idle_0")
+		spr.pause()
+		var rd: Rect2 = _TACTICO.rect_dibujo(cuerpo)
+		spr.position = yo - Vector2(rd.get_center().x, rd.position.y + rd.size.y * ed.centro_suelo_real())
+		var bulto: Rect2 = Rect2(rd.position + spr.position, rd.size)
+		NeblinaFria.poner(spr, mut == &"escarcha")
+		var zoom: float = float(LADO) / (2.0 * 120.0)
+		_cam.zoom = Vector2(zoom, zoom)
+		_cam.global_position = bulto.get_center()
+		var tiempos: Array = MOMENTOS_NEBLINA if cual == "neblina" else (MOMENTOS_HELADA if cual == "destello" else MOMENTOS_ANEMONA)
+		var cols: int = tiempos.size() + (3 if cual == "neblina" else 1)
+		var hoja := Image.create(LADO * cols, LADO * DIRS.size(), false, Image.FORMAT_RGBA8)
+		var nombre: String = {"neblina": "Neblina del aura fria", "destello": "Destello helado (te congela)",
+			"anemona": "Pinchazo de la anemona"}[cual]
+		for fila in DIRS.size():
+			var dvec: Vector2 = (DIRS[fila][1] as Vector2).normalized()
+			var dir_n: String = DIRS[fila][0]
+			spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
+			spr.frame = 0
+			# Tus pies, a 'hueco' del dibujo del slime en esa direccion (descontando lo que pisas), como mide la pelea.
+			var pies_a := func(hueco: float) -> Vector2:
+				var d_obj: float = hueco + PoseJugador.CAJA_CUERPO.size.x * 0.33
+				var lo: float = 0.0
+				var hi: float = 400.0
+				for _i in 30:
+					var m: float = (lo + hi) * 0.5
+					var p: Vector2 = bulto.get_center() + dvec * m
+					var cerca := Vector2(clampf(p.x, bulto.position.x, bulto.end.x), clampf(p.y, bulto.position.y, bulto.end.y))
+					if p.distance_to(cerca) < d_obj:
+						lo = m
+					else:
+						hi = m
+				return bulto.get_center() + dvec * lo
+			var pegado: Vector2 = pies_a.call(8.0)
+			_yo_fig.visible = cual != "neblina"
+			_yo_fig.position = pegado - Vector2(7, 26)
+			var caja: Rect2 = Rect2(pegado - Vector2(7, 26), Vector2(14, 26))
+			await _viñeta(hoja, 0, fila, "%s · %s · %s" % ["Slime de arrecife" if cual == "anemona" else "Slime de escarcha", nombre, dir_n])
+			var nodo: ProfundoAire = null
+			if cual == "destello":
+				nodo = ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.HELADA, bulto, caja, pegado, 700 + fila * 31, 0.0, 1.0)
+			elif cual == "anemona":
+				nodo = ProfundoAire.sobre_cuerpo(self, ProfundoAire.Modo.ANEMONA, bulto, caja, pegado, 700 + fila * 31,
+					ProfundoAire.T_ESTIRA, 1.0)
+			if nodo != null:
+				nodo.set_process(false)
+			var neb: NeblinaFria = spr.get_node_or_null(NeblinaFria.NOMBRE) as NeblinaFria
+			for c in tiempos.size():
+				var t: float = float(tiempos[c])
+				if neb != null:
+					neb._t = 7.0 + t + float(fila) * 0.37
+				if nodo != null:
+					nodo._t = t
+					for su in [nodo._suelo, nodo._delante]:
+						(su as Node2D).queue_redraw()
+				await _viñeta(hoja, c + 1, fila, "%s · %s · %.2f s" % [nombre, dir_n, t])
+			if nodo != null:
+				nodo.queue_free()
+			if cual == "neblina":
+				# Tu figura JUSTO DENTRO (le cala) y JUSTO FUERA (no) del aura.
+				_yo_fig.visible = true
+				_yo_fig.position = pies_a.call(29.0) - Vector2(7, 26)
+				await _viñeta(hoja, tiempos.size() + 1, fila, "%s · %s · tus pies a 29 px: LE CALA" % [nombre, dir_n])
+				_yo_fig.position = pies_a.call(33.0) - Vector2(7, 26)
+				await _viñeta(hoja, tiempos.size() + 2, fila, "%s · %s · tus pies a 33 px: no" % [nombre, dir_n])
+		var carpeta: String = "%s/enemigos/slimes/%s" % [salida, "arrecife" if cual == "anemona" else "escarcha"]
+		DirAccess.make_dir_recursive_absolute(carpeta)
+		var ruta: String = "%s/%s.png" % [carpeta, {"neblina": "aura_neblina", "destello": "aura_destello", "anemona": "anemona"}[cual]]
+		hoja.save_png(ruta)
+		print("[hoja] ", ruta)
+		cuerpo.queue_free()
+		await get_tree().process_frame

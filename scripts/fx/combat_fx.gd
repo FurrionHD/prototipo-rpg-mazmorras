@@ -436,7 +436,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		FLECHA_CARGADA = 195, FLECHA_PERFORA = 196, FLECHA_LLUVIA = 197, FLECHA_CLAVA = 198, VIROTE_PESADO = 199, VIROTE_PERNO = 200, VIROTE_CLAVO = 201, RECARGA_FX = 202, TENSA_ARCO = 203,
 		# El Salto atras y la Andanada (03/10): el mismo dibujo que la flecha y el virote del basico, con estilo propio
 		# para que el cuerpo haga SU gesto (ANIM_CUERPO_MAPA va por estilo).
-		FLECHA_SALTO = 204, ANDANADA = 205 }
+		FLECHA_SALTO = 204, ANDANADA = 205,
+		# LOS MUTANTES DEL SLIME PROFUNDO (07/10, ProfundoAire.sobre_cuerpo): el PINCHAZO de la anemona del arrecife (del slime
+		# a quien le pega) y el DESTELLO HELADO del aura fria de la escarcha (en quien se queda congelado).
+		PROFUNDO_ANEMONA = 206, PROFUNDO_HELADA = 207 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -469,6 +472,8 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
 	Estilo.FLECHA_SALTO, Estilo.ANDANADA,
+	# los mutantes del slime profundo (ProfundoAire, 07/10): el pinchazo de la anemona y el destello helado.
+	Estilo.PROFUNDO_ANEMONA, Estilo.PROFUNDO_HELADA,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -678,6 +683,8 @@ const T_VUELO := {
 	# Las pasivas y los avisos salen EN el golpe (la lengua de fuego sale del golpe y viaja por su cuenta).
 	Estilo.PASIVA_LLAMADA: 0.02, Estilo.PASIVA_ARDE: 0.02, Estilo.PASIVA_DESTELLO: 0.02,
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
+	# Los tentaculos de la anemona se estiran mientras llega el golpe (ProfundoAire.T_ESTIRA); el hielo, EN el golpe.
+	Estilo.PROFUNDO_ANEMONA: 0.12, Estilo.PROFUNDO_HELADA: 0.02,
 	# El puño lo lleva su sprite: el barro revienta EN el golpe.
 	Estilo.CONSTRUCTO_PUNO: 0.02, Estilo.CONSTRUCTO_MACHACA: 0.02,
 	# La garra la lleva su sprite y los surcos se abren EN el golpe; la losa cae EN el golpe; la piedra sube cuando le
@@ -2797,8 +2804,8 @@ func _process(delta: float) -> void:
 			# el gesto del cuerpo.)
 			if rect_en_mapa.is_valid() and estilo in DIBUJO_MAPA:
 				dibujo_en_mapa.emit(ev, vuelo)
-			elif estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE:
-				pass   # las pasivas y los avisos (PasivaAire) solo se pintan en el mapa
+			elif (estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE) 					or estilo == Estilo.PROFUNDO_ANEMONA or estilo == Estilo.PROFUNDO_HELADA:
+				pass   # las pasivas y los avisos (PasivaAire), y los del profundo (ProfundoAire), solo se pintan en el mapa
 			elif _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
 					and float(ev.get("retraso_suelo", -1.0)) < 0.0 \
 					and not (rect_en_mapa.is_valid() and estilo == Estilo.SED_SANGRE):
