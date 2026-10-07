@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_moja"]
+script = ExtResource("2")
+estado = 12
+prob = 1.0
+
+[resource]
+script = ExtResource("1")
+fx_estilo = 12
+fx_anim = &"escupir"
+coste_energia = 0.0
+nombre = "Chorro a presión"
+descripcion = "Escupe un chorro de agua de mar tan fuerte que barre todo lo que tiene delante: empapa y empuja a cada uno que pilla."
+cooldown = 3
+golpes_min = 1
+golpes_max = 1
+dano_mult = 1.0
+elemento_golpe = 2
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+efectos = [SubResource("SA_moja")]
+; (07/10, el slime de arrecife) linea de 110 px por 20 de ancho hacia delante, Mojado y empuja 30 px a todos.
+forma = 3
+forma_apunte = 1
+forma_radio = 110.0
+forma_ancho = 20.0
+tiron = -30.0
+suelo_roto = 67

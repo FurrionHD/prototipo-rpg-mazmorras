@@ -261,6 +261,7 @@ enum AreaModo { NINGUNO, SPLASH, BARRIDO }
 # a ti y afilado hasta una punta (su dibujo, 24/09). Los TRAMOS de arriba valen tambien para la linea.
 @export var forma_ancho: float = 0.0
 @export var forma_ancho_fin: float = -1.0
+# (-2 = CombatFormas.BOLAS: no una franja sino una FILA DE CIRCULOS de forma_ancho, uno cada 35 px; los Carambanos.)
 # EL SUELO SE ROMPE (solo en el mapa): -1 = no; 0 = GRIETAS (Temblor), 1 = LOSAS (Golpe sismico, Onda
 # expansiva), 2 = ESTALLIDO (Martillo de guerra: geiser de polvo y grietas), 3 = ESTELA (Rompecorazas:
 # no rompe nada, es la estela del arma; pega en el instante del golpe), 4 = CORTE (Tajo del verdugo: una

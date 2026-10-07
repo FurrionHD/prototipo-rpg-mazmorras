@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_cong"]
+script = ExtResource("2")
+estado = 41
+prob = 0.3
+
+[resource]
+script = ExtResource("1")
+fx_estilo = 9
+fx_anim = &"carambanos"
+coste_energia = 0.0
+nombre = "Carámbanos"
+descripcion = "Da un bote y los carámbanos se le desprenden y caen en fila delante de él, uno tras otro. Cada uno que te cae encima te puede congelar."
+cooldown = 4
+golpes_min = 1
+golpes_max = 1
+dano_mult = 0.9
+area_modo = 1
+area_max = 99
+area_secundario = 1.0
+area_efectos_secundarios = true
+efectos = [SubResource("SA_cong")]
+; (07/10, el slime de escarcha, su idea: "hacia delante pero no una linea recta, varios circulos") 4 circulos de r18
+; uno cada 35 px hasta 140 (CombatFormas.BOLAS), 0,9, Congelacion 30 %.
+forma = 3
+forma_apunte = 1
+forma_radio = 140.0
+forma_ancho = 36.0
+forma_ancho_fin = -2.0
+suelo_roto = 67

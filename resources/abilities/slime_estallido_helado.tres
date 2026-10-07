@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_cong"]
+script = ExtResource("2")
+estado = 41
+prob = 0.5
+
+[resource]
+script = ExtResource("1")
+fx_estilo = 9
+gesto = 4
+fx_anim = &"hinchado>aplaston>deshincharse"
+fx_anim_carga = &"inflar>hinchado"
+fx_anim_interrumpe = &"deshincharse"
+coste_energia = 0.0
+nombre = "Estallido helado"
+descripcion = "Se hincha de frío, salta y revienta en una explosión de escarcha: lo que pilla se queda helado y apenas se puede mover. Aturdirlo mientras se infla lo interrumpe."
+cooldown = 4
+carga_turnos = 1
+golpes_min = 1
+golpes_max = 1
+dano_mult = 2.5
+area_modo = 1
+area_max = 4
+area_secundario = 1.0
+area_efectos_secundarios = true
+efectos = [SubResource("SA_cong")]
+; (07/10, el slime de escarcha) circulo r45 donde cae, Congelacion 50 %.
+forma = 1
+forma_apunte = 3
+forma_radio = 45.0
+forma_rango = 90.0
+salta = true
+suelo_roto = 60
