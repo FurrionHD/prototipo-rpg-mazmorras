@@ -1127,27 +1127,31 @@ func combate_tactico(enemy_nodes: Array) -> bool:
 # ArenaCalculo.forma_de_arena; mascara vacia = el rectangulo entero). rect vacio = aqui no cabe.
 # Lo calcula SIEMPRE esta maquina y, en multi, viaja al espejo: que cada uno lo recalcule por su
 # cuenta es un desincronizado que solo se nota cuando alguien se atasca contra una pared invisible.
-func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
+func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 	var nada: Dictionary = {"rect": Rect2i(), "mascara": PackedByteArray()}
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if piso == null or piso.get("gen") == null:
 		return nada
 	# LA SEMILLA: el centro de gravedad de los que empiezan la pelea, los suyos y los mios.
 	var puntos: Array = []
+	var quien: Array = []   # para el log: quien es cada punto (mismo orden que 'dentro')
 	var hay_jefe: bool = false
 	for n in enemy_nodes:
 		if is_instance_valid(n) and n is Node2D:
 			puntos.append((n as Node2D).global_position)
+			quien.append("enemigo %s" % n.name)
 			if bool(n.get("es_boss")):
 				hay_jefe = true
 	var yo: Node = get_tree().get_first_node_in_group("player")
 	if yo != null and yo is Node2D:
 		puntos.append((yo as Node2D).global_position)
+		quien.append("jugador")
 	# EL TRABAJADOR DE PELEA (27/09) no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
 	# humanos que le mandan sus fichas (ver abrir_pelea_de_fichas), y cuentan como el grupo.
 	var extra: int = 0
 	for q in _puntos_arena_fichas:
 		puntos.append(q)
+		quien.append("ficha")
 		extra += 1
 	if puntos.is_empty():
 		return nada
@@ -1167,8 +1171,44 @@ func _forma_de_arena(enemy_nodes: Array) -> Dictionary:
 	for a in get_tree().get_nodes_in_group("aliado"):
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
 			dentro.append((a as Node2D).global_position)
+			quien.append("aliado %s" % a.name)
 	# En la arena de pruebas su sala (44x30) se recorta a lo pedido; en la mazmorra la sala va entera.
-	return ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena(), [] if es_arena() else dentro)
+	var forma: Dictionary = ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena(),
+			[] if es_arena() else dentro)
+	if con_log:
+		_log_forma_arena(piso.gen, forma, dentro, quien)
+	return forma
+
+
+# EL LOG DE LA ZONA DE PELEA (07/10, playtest: a veces salen DOS cuadrados separados, uno en la sala de arriba sin
+# pasillo entre medias). Una vez por pelea, en el godot.log: la traza de ArenaCalculo (de donde sale cada trozo,
+# quien estaba FUERA y que se añadio por el), los trozos que han salido y el dibujo con quien esta donde.
+# Buscar "[zona]" en el log; "TROZOS SEPARADOS" marca el caso malo.
+func _log_forma_arena(gen: DungeonGenerator, forma: Dictionary, dentro: Array, quien: Array) -> void:
+	var rect: Rect2i = forma["rect"]
+	var mascara: PackedByteArray = forma["mascara"]
+	var piezas: Array = ArenaCalculo.trozos(rect, mascara)
+	print("[zona] ---- pelea en el piso %d: rect %s, %d celdas, %d trozo(s)%s" % [current_floor, rect,
+			ArenaCalculo.celdas_de(rect, mascara), piezas.size(), "  <<< TROZOS SEPARADOS" if piezas.size() > 1 else ""])
+	for k in dentro.size():
+		print("[zona] punto %d = %s" % [k, quien[k] if k < quien.size() else "?"])
+	for l in ArenaCalculo.traza:
+		print("[zona] ", l)
+	for k in piezas.size():
+		print("[zona] trozo %d: %d celdas en %s" % [k, int(piezas[k]["celdas"]), piezas[k]["rect"]])
+	if not rect.has_area():
+		return
+	# Letras: E enemigo, J jugador, A aliado, F ficha (si dos caen en la misma celda, la primera: el jugador tambien
+	# esta en el grupo "aliado" y no se le tapa la J).
+	var marcas: Dictionary = {}
+	for k in dentro.size():
+		var q: String = String(quien[k]) if k < quien.size() else "?"
+		var c: Vector2i = ArenaCalculo.celda_de_px(dentro[k] as Vector2)
+		if not marcas.has(c):
+			marcas[c] = q.substr(0, 1).to_upper()
+	print("[zona] dibujo: # roca  . suelo  o zona  E enemigo  J jugador  A aliado")
+	for fila in ArenaCalculo.dibujo(gen, rect, mascara, marcas):
+		print("[zona] ", fila)
 
 
 # Hasta donde cuentan los tuyos como "los que empiezan la pelea" (ver _forma_de_arena): el grupo que va en fila detras.
@@ -14758,7 +14798,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# escena u otra segun esto, y a partir de _ready ya es tarde para cambiarlo. El rectangulo se
 	# calcula una sola vez y se guarda: preguntarlo dos veces podria dar dos arenas distintas si
 	# alguien se ha movido entre medias.
-	var forma: Dictionary = _forma_de_arena(_active_enemies)
+	var forma: Dictionary = _forma_de_arena(_active_enemies, true)
 	var rect_arena: Rect2i = forma["rect"]
 	var es_tactico: bool = _tactico_aqui() and rect_arena.has_area()
 	combat.tactico = es_tactico

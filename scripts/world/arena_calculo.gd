@@ -143,14 +143,22 @@ const PASILLO_MIN_CELDAS := PASILLO_MIN_LARGO * 3
 # de la forma se le añade lo suyo: su trozo de pasillo (con el mismo tope) o su sala entera.
 static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i,
 		sala_entera: bool = true, dentro_px: Array = []) -> Dictionary:
+	traza.clear()
 	var base: Dictionary = _forma_base(gen, semilla_px, deseado, sala_entera)
 	var rect: Rect2i = base["rect"]
+	traza.append("base: rect %s, %d celdas, %d trozo(s)" % [rect, celdas_de(rect, base["mascara"]),
+			trozos(rect, base["mascara"]).size()])
 	if not rect.has_area() or dentro_px.is_empty():
 		return base
 	var fuera: Array[Vector2i] = []
-	for p in dentro_px:
-		var c: Vector2i = _suelo_cerca(gen, celda_de_px(p as Vector2))
-		if c.x >= 0 and not en_forma(rect, base["mascara"], c):
+	for k in dentro_px.size():
+		var bruta: Vector2i = celda_de_px(dentro_px[k] as Vector2)
+		var c: Vector2i = _suelo_cerca(gen, bruta)
+		var dentro: bool = c.x >= 0 and en_forma(rect, base["mascara"], c)
+		traza.append("  punto %d: %s -> celda %s%s, %s, %s" % [k, dentro_px[k], bruta,
+				"" if c == bruta else " (roca: suelo mas cercano %s)" % c, _zona_txt(gen, c),
+				"DENTRO" if dentro else "FUERA"])
+		if c.x >= 0 and not dentro:
 			fuera.append(c)
 	if fuera.is_empty():
 		return base
@@ -170,8 +178,10 @@ static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: 
 			for y in range(sala.position.y, sala.end.y):
 				for x in range(sala.position.x, sala.end.x):
 					suyo.append(Vector2i(x, y))
+			traza.append("  + por %s: su SALA entera %s" % [c, sala])
 		else:
 			suyo = _rellenar(gen, c, 1 << 30, PASILLO_TOPE, false)
+			traza.append("  + por %s: su trozo de PASILLO (%d celdas)" % [c, suyo.size()])
 		for v in suyo:
 			if gen.es_suelo(v):
 				celdas[v] = true
@@ -189,6 +199,7 @@ static func _forma_base(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vec
 	var semilla: Vector2i = _suelo_cerca(gen, celda_de_px(semilla_px))
 	if semilla.x < 0:
 		return nada
+	traza.append("semilla: %s -> celda %s, %s, deseado %s" % [semilla_px, semilla, _zona_txt(gen, semilla), deseado])
 	if _es_sala(gen, semilla):
 		var sala: Rect2i = gen.zonas[gen.zona_en(semilla)]["rect"]
 		if not sala_entera:
@@ -201,6 +212,89 @@ static func _forma_base(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vec
 	if celdas.size() < 4:
 		return nada
 	return _empaquetar(celdas)
+
+
+# ---- EL LOG DE LA ZONA (07/10, playtest: "a veces salen dos cuadrados de combate separados, uno en la sala de
+# arriba, sin pasillo entre medias") ----------------------------------------------------------------------------
+# forma_de_arena deja aqui, paso a paso, de donde ha salido cada trozo; Game lo vuelca al log con el dibujo
+# (ver Game._log_forma_arena). Solo diagnostico: no cambia nada de la forma.
+static var traza: Array[String] = []
+
+
+static func _zona_txt(gen: DungeonGenerator, c: Vector2i) -> String:
+	if c.x < 0:
+		return "SIN SUELO cerca"
+	var z: int = gen.zona_en(c)
+	if z < 0 or z >= gen.zonas.size():
+		return "zona ?"
+	return "%s #%d %s" % [String(gen.zonas[z]["tipo"]), z, gen.zonas[z]["rect"]]
+
+
+static func celdas_de(rect: Rect2i, mascara: PackedByteArray) -> int:
+	if mascara.is_empty():
+		return rect.size.x * rect.size.y
+	var n: int = 0
+	for b in mascara:
+		if b != 0:
+			n += 1
+	return n
+
+
+# Los TROZOS de la forma: grupos de celdas que se tocan en cruz. Una pelea sana es UN trozo. Cada uno:
+# {"celdas": int, "rect": Rect2i que lo envuelve}, el mas grande primero.
+static func trozos(rect: Rect2i, mascara: PackedByteArray) -> Array:
+	var out: Array = []
+	if not rect.has_area():
+		return out
+	var visto: Dictionary = {}
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			var c0 := Vector2i(x, y)
+			if visto.has(c0) or not en_forma(rect, mascara, c0):
+				continue
+			visto[c0] = true
+			var pila: Array[Vector2i] = [c0]
+			var lo: Vector2i = c0
+			var hi: Vector2i = c0
+			var n: int = 0
+			while not pila.is_empty():
+				var c: Vector2i = pila.pop_back()
+				n += 1
+				lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
+				hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
+				for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+					var v: Vector2i = c + d
+					if not visto.has(v) and en_forma(rect, mascara, v):
+						visto[v] = true
+						pila.append(v)
+			out.append({"celdas": n, "rect": Rect2i(lo, hi - lo + Vector2i.ONE)})
+	out.sort_custom(func(a, b): return int(a["celdas"]) > int(b["celdas"]))
+	return out
+
+
+# El dibujo de la forma con 'margen' celdas alrededor: '#' roca, '.' suelo fuera, 'o' arena, y encima las
+# 'marcas' {Vector2i: "letra"} (quien esta donde).
+static func dibujo(gen: DungeonGenerator, rect: Rect2i, mascara: PackedByteArray, marcas: Dictionary,
+		margen: int = 3) -> Array[String]:
+	var out: Array[String] = []
+	var r: Rect2i = rect.grow(margen)
+	for c in marcas:
+		r = r.expand(c as Vector2i)
+	for y in range(r.position.y, r.end.y + 1):
+		var fila: String = "%4d " % y
+		for x in range(r.position.x, r.end.x + 1):
+			var c := Vector2i(x, y)
+			if marcas.has(c):
+				fila += String(marcas[c])
+			elif en_forma(rect, mascara, c):
+				fila += "o"
+			elif gen.es_suelo(c):
+				fila += "."
+			else:
+				fila += "#"
+		out.append(fila)
+	out.push_front("     x desde %d" % r.position.x)
+	return out
 
 
 static func _es_sala(gen: DungeonGenerator, c: Vector2i) -> bool:
