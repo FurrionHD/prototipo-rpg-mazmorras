@@ -96,7 +96,9 @@ const MAX_CONEXIONES := 32
 #     CombatTactico.CLASES_HUELLA 13). Un build del 24 numeraria las huellas distinto y pintaria charcos donde no son.
 # 26 (06/10): las HABILIDADES SE RETRASAN media barra (Combatant.retrasando, viaja en la "carga" del estado). Un build
 #     del 25 las soltaria al instante en la pelea que lleve y pintaria "LISTA" en las que esperan.
-const PROTOCOLO := 26
+# 27 (07/10): el ALBOROTO viaja con su CAUSANTE (net_pisos._pedir_alboroto: el de la pelea de un trabajador es del
+#     humano que la abrio) y hay estilos de golpe nuevos (CombatFX.PROFUNDO_ANEMONA/HELADA). Un build del 26 no los conoce.
+const PROTOCOLO := 27
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -1328,6 +1330,8 @@ func _olvidar_peer(peer_id: int) -> void:
 	jugadores._quitar_companeros(peer_id)
 	_peers.erase(peer_id)
 	_viajando.erase(peer_id)
+	# Si era el trabajador al que le mande mis fichas, la pelea me vuelve (ver al_olvidar_peer).
+	peleas.al_olvidar_peer(peer_id)
 
 
 # Monta el nodo visual de un peer YA registrado (solo si compartimos lugar).

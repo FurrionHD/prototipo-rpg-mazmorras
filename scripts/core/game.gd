@@ -1604,7 +1604,7 @@ func sumar_alboroto(cuanto: float, causante: int = 0) -> void:
 	# se tiraba, y con los trabajadores de piso -donde todos los humanos son espejos- el medidor no
 	# habria subido nunca y no saldria un solo brote.
 	if not Net.pisos.simulo_mi_piso():
-		Net.pisos.aportar_alboroto(cuanto)
+		Net.pisos.aportar_alboroto(cuanto, causante)
 		return
 	alboroto = clampf(alboroto + cuanto, 0.0, ALBOROTO_MAX)
 	if cuanto > 0.0:
@@ -15997,7 +15997,11 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 
 	# ALBOROTO: una pelea mete ruido, y mas cuanto mas grande. El fragor llama a la pared: pelear
 	# es la forma mas directa de provocar un brote (y de que se te acumule si encadenas combates).
-	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()))
+	# (En un trabajador de pelea el ruido es del humano que la abrio: el brote sale delante de el.)
+	var causante: int = Net.peleas.causante_alboroto()
+	if causante != 0:
+		print("[alboroto] la pelea que ejecuto es de %d: su ruido va a su nombre" % causante)
+	sumar_alboroto(ALBOROTO_COMBATE + ALBOROTO_KILL * float(muertos.size()), causante)
 
 	# Quitamos la capa del combate (con la pantalla dentro).
 	if is_instance_valid(_active_layer):
