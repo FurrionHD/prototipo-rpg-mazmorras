@@ -5348,9 +5348,22 @@ func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName, _
 			d["armado"] = true
 			d["espera"] = 0.0
 			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
-			# EL SALTO de un enemigo: se infla durante su gesto y CAE al acabarlo, que es cuando pega.
+			# EL SALTO de un enemigo: se infla durante su gesto y CAE justo cuando PEGA (07/10, su aviso: el Reventon
+			# y el salto de la rata pegaban antes de caer). Lo que falta para el golpe lo dice la cola de efectos; si el
+			# salto no cabe entero, va mas rapido para llegar a tiempo.
 			if float(d.get("arco", 0.0)) > 0.0:
-				d["tope"] = maxf(0.0, dur - _dur_desliz(d))
+				# (solo el de IDA, el que acaba en golpe: la vuelta del Picado va tras los golpes, a su ritmo de siempre)
+				var falta: float = _pantalla._fx.t_al_impacto(b) 					if _pantalla._fx != null and int(d["modo"]) == Desliz.ANTES else -1.0
+				if falta < 0.0:
+					d["tope"] = maxf(0.0, dur - _dur_desliz(d))
+					# LA VUELTA (el Picado): sale tras el ULTIMO golpe, no tras el que la ha armado.
+					if int(d["modo"]) == Desliz.TRAS and _pantalla._fx != null:
+						d["tope"] = maxf(float(d["tope"]), _pantalla._fx.t_al_ultimo_golpe(b) + 0.05)
+				else:
+					if _dur_desliz(d) > falta:
+						var ritmo: float = _pantalla._fx.escala_tiempo
+						d["dur"] = maxf(falta, 0.08) * maxf(ritmo, 0.05)
+					d["tope"] = maxf(0.0, falta - _dur_desliz(d))
 			return
 
 
