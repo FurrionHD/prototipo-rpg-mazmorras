@@ -1174,7 +1174,9 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		| (BIT_MANO_IZQ if mano == 1 else 0)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
-	_impactos_red.append(roundi(minf(dmg, 3000.0) * 100.0))   # x100: los dos decimales que se pintan (300000 cabe de sobra)
+	# x100: los dos decimales que se pintan. Tope = lo que cabe en un entero de 32 bits (antes era 3000 y
+	# un golpe de 4108 salia como 3000.00 en la pantalla de los demas; el daño de verdad nunca se toco).
+	_impactos_red.append(roundi(minf(dmg, 20000000.0) * 100.0))
 	_impactos_red.append(flags)
 	_impactos_red.append(semilla)
 
