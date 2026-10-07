@@ -20,6 +20,11 @@ trabajador, espejos, foto al subir, vuelta con los mismos enemigos, trabajador D
 piso, pelea ejecutada por el y jugada desde el espejo (se cierra sola y vuelve la excelia), otro que entra
 a esperar la siguiente, caida en plena pelea (se deshace) y cierre de procesos. Los registros de los trabajadores: `AppData/Roaming/DungeonOratoria/logs/`.
 Que el enemigo "me vea y embista solo" es aleatorio (cono + ruido): se apunta, no se exige.
+Con `PRUEBA_CABOS=1` (~1 min) hace solo el arranque y los dos cabos sueltos del 07/10: el ruido de la pelea de un
+trabajador va a nombre del humano que la abrio, y si el trabajador de pelea se cae con tus fichas en la mano la
+pelea te vuelve a tu PC. No espera a que acabe ninguna pelea: en las pruebas el grupo solo sabe ir recto y se
+atasca en fila, asi que el "termina en 150 s" de la larga puede fallar sin que el juego este mal.
+Si una pasada se corta a medias, quedan Godots vivos con el puerto 24599: cerrarlos antes de relanzar.
 
 ```sh
 "$G" --headless --path . res://tools/prueba_town_dos_jugadores.tscn   # host + jugador B + trabajadores (~2 min)

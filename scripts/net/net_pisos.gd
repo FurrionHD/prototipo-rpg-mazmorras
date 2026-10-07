@@ -964,49 +964,56 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 # ruido de los demas (correr, pelear, picar, cantar) se le MANDA: se acumula aqui y sale cada
 # ALBOROTO_ENVIO_CADA segundos, porque correr suma un poco en CADA frame y un mensaje por frame seria
 # tirar la red. Va por el host (estrella) con quien lo hizo, para que el brote salga delante de el.
+# 'causante' (07/10): de quien es el ruido si no es de quien lo manda. Un trabajador de pelea no tiene cuerpo:
+# el ruido de su pelea es del humano que la abrio (Net.peleas.causante_alboroto). Se acumula aparte por causante.
 const ALBOROTO_ENVIO_CADA := 0.5
-var _alboroto_pendiente: float = 0.0
+var _alboroto_pendiente: Dictionary = {}   # causante (0 = yo) -> ruido sin mandar
 var _t_alboroto: float = 0.0
 
 
-func aportar_alboroto(cuanto: float) -> void:
+func aportar_alboroto(cuanto: float, causante: int = 0) -> void:
 	if not Net.activo or mi_piso() < 0:
 		return
-	_alboroto_pendiente += cuanto
+	_alboroto_pendiente[causante] = float(_alboroto_pendiente.get(causante, 0.0)) + cuanto
 
 
 func _process(delta: float) -> void:
-	if _alboroto_pendiente == 0.0:
+	if _alboroto_pendiente.is_empty():
 		return
 	_t_alboroto -= delta
 	if _t_alboroto > 0.0:
 		return
 	_t_alboroto = ALBOROTO_ENVIO_CADA
-	var cuanto: float = _alboroto_pendiente
-	_alboroto_pendiente = 0.0
+	var lote: Dictionary = _alboroto_pendiente
+	_alboroto_pendiente = {}
 	if not Net.activo or multiplayer.multiplayer_peer == null or mi_piso() < 0:
 		return
-	if Net.es_host:
-		_encaminar_alboroto(1, Net._mi_lugar, cuanto)
-	else:
-		_pedir_alboroto.rpc_id(1, Net._mi_lugar, cuanto)
+	for causante in lote:
+		var cuanto: float = float(lote[causante])
+		if cuanto == 0.0:
+			continue
+		if Net.es_host:
+			_encaminar_alboroto(1, Net._mi_lugar, cuanto, int(causante))
+		else:
+			_pedir_alboroto.rpc_id(1, Net._mi_lugar, cuanto, int(causante))
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _pedir_alboroto(lugar: String, cuanto: float) -> void:
+func _pedir_alboroto(lugar: String, cuanto: float, causante: int = 0) -> void:
 	if Net.es_host:
-		_encaminar_alboroto(multiplayer.get_remote_sender_id(), lugar, cuanto)
+		_encaminar_alboroto(multiplayer.get_remote_sender_id(), lugar, cuanto, causante)
 
 
-# SOLO host: el ruido de 'de' va al dueño de ese piso (o me lo quedo, si el dueño soy yo).
-func _encaminar_alboroto(de: int, lugar: String, cuanto: float) -> void:
+# SOLO host: el ruido de 'de' (o de su 'causante') va al dueño de ese piso (o me lo quedo, si el dueño soy yo).
+func _encaminar_alboroto(de: int, lugar: String, cuanto: float, causante: int = 0) -> void:
 	var dueno: int = Net._dueno_de(lugar)
 	if dueno == 0 or dueno == de:
 		return
+	var quien: int = causante if causante != 0 else de
 	if dueno == 1:
-		_alboroto_en_dueno(de, lugar, cuanto)
+		_alboroto_en_dueno(quien, lugar, cuanto)
 	else:
-		_alboroto_a.rpc_id(dueno, de, lugar, cuanto)
+		_alboroto_a.rpc_id(dueno, quien, lugar, cuanto)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -1017,4 +1024,5 @@ func _alboroto_a(de: int, lugar: String, cuanto: float) -> void:
 func _alboroto_en_dueno(de: int, lugar: String, cuanto: float) -> void:
 	if Net._mi_lugar != lugar or not Net._soy_dueno:
 		return
-	Game.sumar_alboroto(cuanto, de)
+	# (si el ruido es MIO -el dueño humano peleando en un trabajador-, el brote sale delante de mi jugador)
+	Game.sumar_alboroto(cuanto, 0 if de == multiplayer.get_unique_id() else de)

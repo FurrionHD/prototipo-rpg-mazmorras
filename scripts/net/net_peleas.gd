@@ -269,6 +269,15 @@ func _pelea_resuelta(ids: Array, emboscada: bool = false, anfitrion: int = 0) ->
 # a la pelea de otro. Es el mismo camino que un jugador peleando en un piso que simula otro. Asi la pelea
 # pasa en UN sitio que no es de ningun jugador y nadie ve una distinta. Si algo falla, camino de siempre.
 
+# EL HUMANO QUE ABRIO LA PELEA QUE EJECUTO (solo en un trabajador de pelea): el ruido de la pelea es suyo
+# (causante_alboroto). 07/10, cabo suelto del 21/09: el trabajador no tiene cuerpo y el brote salia delante de
+# cualquiera.
+var _pelea_humano: int = 0
+
+func causante_alboroto() -> int:
+	return _pelea_humano if Net.activo and Net.soy_trabajador else 0
+
+
 # ¿Puedo ejecutar yo una pelea ahora? Solo un trabajador DE PELEA (dentro de un piso sin ser su dueño) y
 # sin otra pelea (una por maquina).
 func puedo_ejecutar_pelea() -> bool:
@@ -288,6 +297,7 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0) -> void:
 	var quien := multiplayer.get_remote_sender_id()
+	_pelea_humano = quien
 	var nodos: Array = []
 	for i in ids:
 		var n = Net.enemigos._enem_nodos.get(int(i))
@@ -340,8 +350,11 @@ func _process(delta: float) -> void:
 		p._on_continue_pressed()
 
 
-# A que trabajador le he mandado mis fichas y todavia no me ha contestado (0 = a ninguno).
+# A que trabajador le he mandado mis fichas y todavia no me ha contestado (0 = a ninguno). Y la pelea que le
+# mande (sus bichos y si era emboscada), por si se va sin contestar (ver al_olvidar_peer).
 var _fichas_mandadas_a: int = 0
+var _fichas_ids: Array = []
+var _fichas_emboscada: bool = false
 
 func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) -> void:
 	if ids.is_empty():
@@ -366,6 +379,8 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 			_devolver_bichos(ids)
 			return
 		_fichas_mandadas_a = ejecutor
+		_fichas_ids = ids.duplicate()
+		_fichas_emboscada = emboscada
 		_abre_mi_pelea.rpc_id(ejecutor, ids, emboscada, _fichas_de_mi_grupo(), Game.velocidad_combate)
 		return
 	# MANDE MIS FICHAS A UN TRABAJADOR Y NO HA PODIDO: me devuelve los bichos y la pelea va aqui. Con las
@@ -424,6 +439,19 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 	# congelados para siempre, "peleando" con nadie: el bug de las estatuas del playtest.
 	if not Game.start_combat(nodos, emboscada):
 		_devolver_bichos(ids)
+
+
+# EL TRABAJADOR SE HA IDO CON MIS FICHAS EN LA MANO (07/10, cabo suelto del 21/09): le mande mis fichas y se ha
+# caido antes de contestar. Los bichos siguen reservados A MI NOMBRE en casa del dueño (al irse el se sueltan las
+# suyas, que no hay), asi que se quedaban congelados en el mapa hasta que yo saliera de la partida, y el conjuro que
+# traia se perdia. Se hace lo mismo que cuando el trabajador contesta "no puedo" (_abre_mi_pelea ->
+# _pelea_resuelta): la pelea me vuelve y la monto aqui, como siempre.
+func al_olvidar_peer(peer_id: int) -> void:
+	if _fichas_mandadas_a == 0 or peer_id != _fichas_mandadas_a:
+		return
+	push_warning("[pelea] el trabajador %d se ha ido sin abrirme la pelea: la monto yo" % peer_id)
+	_llega_pelea(_fichas_ids, _fichas_emboscada, 0, 0)
+	_fichas_ids = []
 
 
 # --- REFUERZOS QUE ALCANZAN A UN ESPEJO (hito 5.4-C) -----------------------------------------

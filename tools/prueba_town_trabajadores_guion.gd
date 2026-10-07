@@ -127,6 +127,12 @@ func _ready() -> void:
 	_ok(_lineas_en_registros("[brote] revienta") > brotes_antes,
 		"mi ruido de espejo llega al trabajador y revienta una pared (%.1f s)" % t)
 	_ok(Game.alboroto == 0.0, "el espejo no acumula alboroto propio (%.0f)" % Game.alboroto)
+	# PRUEBA_CABOS=1 -> solo los dos cabos sueltos del 07/10 (ver _cabos_sueltos) y se acaba: sin esperar a que
+	# termine ninguna pelea (en las pruebas el grupo solo sabe ir recto y se atasca en fila: no acaban).
+	if OS.get_environment("PRUEBA_CABOS") != "":
+		await _cabos_sueltos()
+		_fin()
+		return
 
 	# 5) LA PELEA LA EJECUTA UN TRABAJADOR DE PELEA (Parte 3): en el piso espera uno dentro, que no es el
 	# dueño. Me planto al lado de un enemigo o le ataco; monta la pelea con mis fichas y yo la veo en ESPEJO.
@@ -323,6 +329,55 @@ func _ready() -> void:
 		"la reserva se repone con un trabajador NUEVO tras la caida (%.1f s)" % t)
 
 	_fin()
+
+
+# LOS DOS CABOS SUELTOS DE LOS TRABAJADORES DE PELEA (07/10; apuntados el 21/09):
+#  1) el RUIDO de la pelea que ejecuta un trabajador va a nombre del humano que la abrio (el trabajador no tiene
+#     cuerpo, y el brote salia delante de cualquiera). Abro una pelea, salgo de ella y el trabajador, sin nadie
+#     dentro, la cierra: su registro tiene que decir que el ruido es mio (soy el 1).
+#  2) el trabajador de pelea SE CAE CON MIS FICHAS EN LA MANO: lo mato y ataco enseguida. El host tarda ~5 s en
+#     darlo por caido, asi que le manda mis fichas a un proceso muerto que nunca contesta. Antes los enemigos se
+#     quedaban reservados a mi nombre y congelados; ahora la pelea me vuelve y va en mi PC.
+func _cabos_sueltos() -> void:
+	var t := 0.0
+	while Net._trab.pelea_libre_en(1) == 0 and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	await _esperar(3.0)
+	var f1: int = Net._trab.pelea_libre_en(1)
+	await _abrir_pelea_con_un_enemigo()
+	_ok(Net.peleas.espejando() and Net.peleas._pelea_anfitrion == f1, "cabo 1: la pelea la ejecuta el trabajador %d" % f1)
+	await _esperar(2.0)
+	var ruido_antes := _lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:")
+	Game._on_combate_espejo_cerrado()   # salgo de su pelea, como al cerrarla
+	t = 0.0
+	while _lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:") <= ruido_antes and t < 20.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(_lineas_en_registros("[alboroto] la pelea que ejecuto es de 1:") > ruido_antes,
+		"cabo 1: al cerrarse, el ruido de la pelea del trabajador va a MI nombre (%.1f s)" % t)
+	t = 0.0
+	while Net.peleas.ocupado_en_pelea() and t < 15.0:
+		await _esperar(0.5)
+		t += 0.5
+
+	t = 0.0
+	while (Net._trab.pelea_libre_en(1) == 0 or Net._trab.pelea_libre_en(1) == f1) and t < 30.0:
+		await _esperar(0.5)
+		t += 0.5
+	await _esperar(3.0)
+	var f_cae: int = Net._trab.pelea_libre_en(1)
+	var pid_cae: int = int(Net._trab._pid_de.get(f_cae, 0))
+	_ok(f_cae != 0 and pid_cae > 0, "cabo 2: tengo el trabajador de pelea que voy a tirar (%d, pid %d)" % [f_cae, pid_cae])
+	if pid_cae > 0:
+		OS.kill(pid_cae)
+	await _abrir_pelea_con_un_enemigo()
+	t = 0.0
+	while not Game.combate_activo() and t < 15.0:
+		await _esperar(0.5)
+		t += 0.5
+	_ok(Game.combate_activo() and not Net.peleas.espejando() and Net.peleas._fichas_mandadas_a == 0,
+		"cabo 2: al caerse el trabajador con mis fichas, la pelea me vuelve y va en mi PC (%.1f s)" % t)
 
 
 # Me planto al lado del primer enemigo vivo; si no me embiste solo, le ataco. Espera a tener pantalla.
