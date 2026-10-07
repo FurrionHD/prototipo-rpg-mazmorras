@@ -130,6 +130,14 @@ func _ready() -> void:
 	if colgado != "":
 		_aviso.text = "El mundo compartido se cerró sin guardar. Sigue reservado a tu nombre unos minutos."
 
+	# La primera vez con la BASE DE DATOS, las partidas viejas se pasan a ella (ver Perfil): con un
+	# baul grande son unos segundos, asi que con la capa de Cargando delante y no con el menu congelado.
+	if Perfil.hay_por_migrar():
+		await Cargando.mostrar("Actualizando tus partidas...
+(solo esta vez)")
+		Perfil.migrar_todas()
+		Cargando.ocultar()
+
 	_pintar()
 
 
@@ -186,7 +194,7 @@ func _pintar() -> void:
 		fila.add_theme_constant_override("separation", int(SEP_FILA))
 		_lista.add_child(fila)
 
-		var info: Dictionary = Perfil.inspeccionar(slot)
+		var info: Dictionary = Perfil.inspeccionar_ligera(slot)
 		var datos: SaveData = info["datos"] as SaveData
 		var estado: int = int(info["estado"])
 
@@ -266,7 +274,9 @@ func _boton_borrar(al_pulsar: Callable) -> Button:
 
 
 func _cargar(slot: int) -> void:
+	await Cargando.mostrar("Cargando partida...")
 	if not Perfil.cargar(slot):
+		Cargando.ocultar()
 		_aviso.text = "Esa partida no se puede cargar."
 		return
 	# Vuelves EXACTAMENTE donde guardaste: si fue dentro de la mazmorra, a tu piso y tu sitio
@@ -275,10 +285,10 @@ func _cargar(slot: int) -> void:
 	# SALVO que el piso que pisabas se rehaga con este build (ver Game._rehacer_pisos_de_otro_trazado):
 	# entonces sales al pueblo. Va por la bandera de Game y no releyendo la cabecera porque el que
 	# decide es quien acaba de importar la partida, y esa cabecera puede venir de la cache de Godot.
-	var datos: SaveData = Perfil.cabecera(slot)
+	var datos: SaveData = Perfil.cabecera_ligera(slot)
 	var al_pueblo: bool = Game.forzar_pueblo_al_cargar or not datos.en_mazmorra
 	Game.forzar_pueblo_al_cargar = false   # de un solo uso
-	get_tree().change_scene_to_file(PUEBLO if al_pueblo else MAZMORRA)
+	await Cargando.cambiar_escena(get_tree(), PUEBLO if al_pueblo else MAZMORRA, "Cargando partida...")
 
 
 func _nueva(slot: int) -> void:
@@ -322,10 +332,11 @@ const COLOR_INICIAL := Color(0.45, 0.72, 1.0)
 
 func _empezar(slot: int, nombre: String, asp: Dictionary) -> void:
 	# el nombre vacio lo resuelve Game (NOMBRE_POR_DEFECTO)
+	await Cargando.mostrar("Creando la partida...")
 	Game.nueva_partida(nombre, asp)
 	Perfil.ranura_actual = slot
 	Perfil.guardar(slot)   # la ranura queda ocupada desde el minuto uno, ya con nombre y aspecto
-	get_tree().change_scene_to_file(PUEBLO)
+	await Cargando.cambiar_escena(get_tree(), PUEBLO, "Creando la partida...")
 
 
 # ============================================================
@@ -335,7 +346,7 @@ func _empezar(slot: int, nombre: String, asp: Dictionary) -> void:
 #  por inercia, pero para teclear el nombre hay que leer cual estas borrando.
 # ------------------------------------------------------------
 func _borrar(slot: int) -> void:
-	var datos: SaveData = Perfil.cabecera(slot)
+	var datos: SaveData = Perfil.cabecera_ligera(slot)
 	if datos == null:
 		_borrar_a_ciegas(slot)
 		return

@@ -823,8 +823,7 @@ func _entrar_al_mundo_ajeno() -> void:
 	# cortaba aqui EN CADA entrada al mundo de otro y anunciar_lugar no llegaba a correr: el host no se
 	# enteraba de que estabas en el pueblo, y sin eso tu avatar no aparece para el resto.
 	var arbol := get_tree()
-	arbol.change_scene_to_file(PUEBLO)
-	await arbol.process_frame
+	await Cargando.cambiar_escena(arbol, PUEBLO, "Entrando en el mundo...")
 	Net.anunciar_lugar("pueblo")
 
 

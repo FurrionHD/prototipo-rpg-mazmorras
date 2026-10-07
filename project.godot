@@ -33,6 +33,7 @@ Sonido="*res://scripts/core/sonido.gd"
 Musica="*res://scripts/core/musica.gd"
 Ambiente="*res://scripts/core/ambiente.gd"
 Ventana="*res://scripts/core/ventana.gd"
+Cargando="*res://scripts/ui/cargando.gd"
 
 [debug]
 

@@ -41,8 +41,21 @@ func _correr() -> void:
 		fallos += 1
 		print("MAL: el .tres ha cambiado")
 	t0 = Time.get_ticks_msec()
-	Perfil.inspeccionar(SLOT)
+	var entera: SaveData = Perfil.inspeccionar(SLOT)["datos"]
 	print("Mirarla otra vez (ya con BD): %d ms" % (Time.get_ticks_msec() - t0))
+	# La cabecera ligera (la lista del menu) trae lo mismo que la partida entera en esos campos.
+	t0 = Time.get_ticks_msec()
+	var lig: Dictionary = Perfil.inspeccionar_ligera(SLOT)
+	print("Cabecera ligera: %d ms" % (Time.get_ticks_msec() - t0))
+	if int(lig["estado"]) != SaveIO.OK or lig["datos"] == null:
+		fallos += 1
+		print("MAL: la cabecera ligera no se puede leer")
+	else:
+		for n in Perfil.CAMPOS_CABECERA:
+			if var_to_str(lig["datos"].get(n)) != var_to_str(entera.get(n)):
+				fallos += 1
+				print("MAL: la cabecera ligera trae otro %s" % n)
+	# (ultima_ranura NO se prueba aqui: recorre las ranuras 1..3 DE VERDAD y las migraria.)
 
 	# 2. Cargar.
 	var original = ResourceLoader.load(fichero, "", ResourceLoader.CACHE_MODE_IGNORE)

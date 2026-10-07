@@ -120,8 +120,28 @@ func inspeccionar(slot: int) -> Dictionary:
 	return SaveIO.inspeccionar_ruta(ruta(slot))
 
 
+# Lo que pinta la lista de partidas, y nada mas: con BD se leen estos campos sueltos en vez de montar
+# la partida entera (en su mundo, 240 ms por ranura y el menu lo pedia varias veces).
+const CAMPOS_CABECERA := ["version", "version_mundo", "nombre", "color", "metalico", "imagen",
+	"color_alpha", "player_aspecto", "fecha", "cab_nivel", "cab_piso", "cab_dinero", "cab_lugar",
+	"en_mazmorra", "current_floor"]
+
+
+## Como inspeccionar(), pero "datos" solo trae la CABECERA (CAMPOS_CABECERA) si la ranura tiene BD.
+## Para pintar listas; para jugar o importar la partida, inspeccionar().
+func inspeccionar_ligera(slot: int) -> Dictionary:
+	_asegurar_migrada(slot)
+	if usa_bd(slot):
+		return _inspeccionar_bd(slot, BDFilas.Ids.new(), true)
+	return SaveIO.inspeccionar_ruta(ruta(slot))
+
+
+func cabecera_ligera(slot: int) -> SaveData:
+	return inspeccionar_ligera(slot).get("datos") as SaveData
+
+
 # Lo mismo que SaveIO.inspeccionar_ruta, pero leyendo de la BD. `ids` se queda con los objetos leidos.
-func _inspeccionar_bd(slot: int, ids: BDFilas.Ids) -> Dictionary:
+func _inspeccionar_bd(slot: int, ids: BDFilas.Ids, solo_cabecera := false) -> Dictionary:
 	var bd := _bd if (_bd != null and _bd_slot == slot) else PartidaBD.new()
 	if not bd.abierta() and not bd.abrir(ruta_bd(slot)):
 		return {"estado": SaveIO.ILEGIBLE, "version": 0, "version_mundo": 0, "datos": null}
@@ -134,7 +154,13 @@ func _inspeccionar_bd(slot: int, ids: BDFilas.Ids) -> Dictionary:
 		info["estado"] = SaveIO.MAS_VIEJA
 	elif info["version"] > SaveData.VERSION_ACTUAL or info["version_mundo"] > SaveData.VERSION_MUNDO:
 		info["estado"] = SaveIO.MAS_NUEVA
-	if info["estado"] == SaveIO.OK:
+	if info["estado"] == SaveIO.OK and solo_cabecera:
+		var cab_s := SaveData.new()
+		var campos: Dictionary = bd.leer_campos(CAMPOS_CABECERA)
+		for n in campos:
+			BDFilas._poner(cab_s, n, campos[n])
+		info["datos"] = cab_s
+	elif info["estado"] == SaveIO.OK:
 		info["datos"] = BDFilas.de_filas(bd.leer(), ids)
 	if bd != _bd:
 		bd.cerrar()
@@ -159,7 +185,7 @@ func ultima_ranura() -> int:
 	var mejor: int = 0
 	var mejor_fecha: String = ""
 	for i in range(1, RANURAS + 1):
-		var c: SaveData = cabecera(i)
+		var c: SaveData = cabecera_ligera(i)
 		if c != null and c.fecha > mejor_fecha:   # las fechas van en formato ordenable
 			mejor_fecha = c.fecha
 			mejor = i
