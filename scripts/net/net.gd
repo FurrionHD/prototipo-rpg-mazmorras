@@ -98,7 +98,10 @@ const MAX_CONEXIONES := 32
 #     del 25 las soltaria al instante en la pelea que lleve y pintaria "LISTA" en las que esperan.
 # 27 (07/10): el ALBOROTO viaja con su CAUSANTE (net_pisos._pedir_alboroto: el de la pelea de un trabajador es del
 #     humano que la abrio) y hay estilos de golpe nuevos (CombatFX.PROFUNDO_ANEMONA/HELADA). Un build del 26 no los conoce.
-const PROTOCOLO := 27
+# 28 (07/10): fase 4 de la BD. _tu_jugador lleva DONDE ESTABAS (lugar y posicion) y hay _pedir_volver/_volver_no
+#     (volver a tu piso al entrar), las fotos periodicas de los trabajadores (_dame_foto_viva/_foto_viva) y los
+#     charcos de pesca van y vienen de la sala (net_pesca.charco_a_la_sala / _charcos_del_piso).
+const PROTOCOLO := 28
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -194,6 +197,13 @@ var _peleando := false             # ¿estoy en un combate ahora mismo? (se difu
 # restaura al volver, como en solitario. Vive en la SESION (host), no en el save de nadie: asi las
 # dos maquinas no divergen y el save del cliente sigue sin tocarse.
 var _fotos_piso: Dictionary = {}   # piso:int -> {"enemigos": [...]} (SOLO host)
+# Y la de los pisos que AHORA simula un trabajador, pedida cada poco (Trabajadores, SEG_FOTOS_VIVAS): no
+# se usa para jugar (el piso esta vivo en su trabajador), solo para GUARDARLA. Si la sala se cierra de
+# golpe, el mundo vuelve con esos pisos como estaban hace unos segundos (fase 4 de la BD).
+var _fotos_vivas: Dictionary = {}  # piso:int -> foto (SOLO host)
+# Donde estaba cada jugador del mundo al guardarse (identidad -> {lugar, pos}): para devolverle a su
+# sitio al volver a entrar (Net.partida._tu_jugador / Net.pisos._pedir_volver). Lo siembra la sala.
+var _posiciones: Dictionary = {}
 
 # --- CUPO de personajes en sesion: maximo 4 EN TOTAL entre todos los humanos ---
 # 2 humanos -> principal + 1 acompanante cada uno; 3 -> host con 1 acompanante, invitados solos;
@@ -451,6 +461,9 @@ func hostear(codigo: String, puerto: int = PUERTO) -> int:
 	# Si lo que tengo abierto es un mundo compartido, esta sesion lo es (lo consulta medio net.gd).
 	mundo_compartido = Mundos.abierto != ""
 	mapa._sembrar_mapa_sesion()    # el mapa de la sesion arranca siendo el MIO: se juega en mi mundo
+	# Y la MAZMORRA VIVA del mundo, como quedo al guardarse (pisos congelados, suelo, jefes...).
+	if mundo_compartido:
+		pisos.sembrar_sesion(Game.sesion_guardada)
 	Game._refrescar_pausa()   # regimen multi: los menus dejan de pausar el arbol
 	if piso_dentro != null:
 		pisos._montar_sesion_desde_dentro(int(piso_dentro.get("_piso_construido")))
@@ -531,6 +544,8 @@ func desconectar() -> void:
 	_dueno_piso.clear()
 	_viajando.clear()
 	_fotos_piso.clear()
+	_fotos_vivas.clear()
+	_posiciones.clear()
 	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false

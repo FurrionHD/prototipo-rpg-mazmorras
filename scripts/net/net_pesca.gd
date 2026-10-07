@@ -29,6 +29,41 @@ extends Node
 var _charco: Node = null
 
 
+# ============================================================
+#  EL ESTADO DE LOS CHARCOS VA A LA SALA (fase 4 de la BD). Lo escribe el dueño del piso (casi siempre
+#  un TRABAJADOR) en SU Game, y ese Game no se guarda nunca: el banco de peces se perdia. Ahora el dueño
+#  se lo manda a la sala, que lo apunta en su mazmorra_persistente (que si va al guardado del mundo), y
+#  la sala se lo da al que pasa a simular el piso.
+# ------------------------------------------------------------
+func charco_a_la_sala(piso: int, celda: Vector2i, estado: Dictionary) -> void:
+	if Net.activo and not Net.es_host:
+		_charco_guardar.rpc_id(1, piso, celda, estado)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _charco_guardar(piso: int, celda: Vector2i, estado: Dictionary) -> void:
+	if not Net.es_host or int(Net._dueno_piso.get(piso, 0)) != multiplayer.get_remote_sender_id():
+		return
+	var per: Dictionary = Game.persistente_piso(piso)
+	if not per.has("charcos"):
+		per["charcos"] = {}
+	(per["charcos"] as Dictionary)[celda] = estado
+
+
+# Solo host: al que va a simular `piso`, los charcos que la sala tiene guardados de ese piso.
+func mandar_charcos(peer: int, piso: int) -> void:
+	if not Net.es_host or peer == 1:
+		return
+	var ch = Game.persistente_piso(piso).get("charcos", {})
+	if ch is Dictionary and not (ch as Dictionary).is_empty():
+		_charcos_del_piso.rpc_id(peer, piso, ch)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _charcos_del_piso(piso: int, charcos: Dictionary) -> void:
+	Game.persistente_piso(piso)["charcos"] = charcos.duplicate(true)
+
+
 func registrar_charco(nodo: Node) -> void:
 	_charco = nodo
 

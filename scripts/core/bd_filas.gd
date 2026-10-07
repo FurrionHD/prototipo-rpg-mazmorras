@@ -28,7 +28,8 @@ const O := "§o"
 const C := "§c"
 
 # Diccionarios de primer nivel que van una fila por clave (por piso), no enteros.
-const PARTIDOS := ["memoria_pisos", "mazmorra_persistente", "mapa_snapshot", "mapa_trabajo", "vistas_baseline"]
+const PARTIDOS := ["memoria_pisos", "mazmorra_persistente", "mapa_snapshot", "mapa_trabajo", "vistas_baseline",
+	"sesion_fotos_piso", "sesion_suelo", "posiciones"]
 
 const _NO_SON_DATOS := {
 	"script": true, "resource_path": true, "resource_name": true,

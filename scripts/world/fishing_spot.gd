@@ -584,10 +584,13 @@ func _guardar_estado() -> void:
 	var piso: Dictionary = Game.persistente_piso(Game.current_floor)
 	if not piso.has("charcos"):
 		piso["charcos"] = {}   # las partidas anteriores a la pesca no traen la clave
-	(piso["charcos"] as Dictionary)[celda] = {
+	var estado := {
 		"stock": _stock, "vuelven": _vuelven.duplicate(),
 		"aforo": _aforo, "t_aforo": _t_aforo,
 	}
+	(piso["charcos"] as Dictionary)[celda] = estado
+	# En multi el dueño suele ser un TRABAJADOR, cuyo Game no se guarda: a la sala (ver Net.pesca).
+	Net.pesca.charco_a_la_sala(Game.current_floor, celda, estado)
 
 
 func _cargar_estado() -> void:

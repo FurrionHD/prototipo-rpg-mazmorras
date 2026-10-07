@@ -821,7 +821,7 @@ func _alta_personaje(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] alta de ", pj.nombre, " (", jd.nombre_visible, ") en el mundo")
 	# Se le devuelve YA empaquetado: asi los dos lados parten de lo mismo y no hay dos verdades.
-	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo)
+	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo, _donde_estaba(quien))
 
 
 # MUDANZA: el invitado trae un jugador ENTERO de una de sus partidas (personajes + bolsa + oficios).
@@ -843,7 +843,8 @@ func _alta_jugador(d: Dictionary) -> void:
 	# mundo, y con el todo lo que hubiera hecho dentro).
 	if Game.jugadores_mundo.get(identidad) is JugadorData:
 		print("[multi] %s ya tiene personaje en este mundo: no se importa nada" % identidad)
-		_tu_jugador.rpc_id(quien, jd_a_dict(Game.jugadores_mundo[identidad]), Game.semilla_mundo)
+		_tu_jugador.rpc_id(quien, jd_a_dict(Game.jugadores_mundo[identidad]), Game.semilla_mundo,
+			_donde_estaba(quien))
 		return
 
 	var jd: JugadorData = jd_de_dict(d)
@@ -869,12 +870,23 @@ func _alta_jugador(d: Dictionary) -> void:
 	Game.jugadores_mundo[identidad] = jd
 	print("[multi] MUDANZA: entra %s con %d personajes y %d materiales" % [
 		jd.resumen(), jd.personajes.size(), jd.materiales.size()])
-	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo)
+	_tu_jugador.rpc_id(quien, jd_a_dict(jd), Game.semilla_mundo, _donde_estaba(quien))
+
+
+# Donde estaba este jugador cuando se guardo el mundo ({lugar, pos}, o vacio): se le devuelve alli al
+# entrar (fase 4 de la BD; ver multi_menu._entrar_al_mundo_ajeno y Net.pisos._pedir_volver).
+func _donde_estaba(quien: int) -> Dictionary:
+	return (Net._posiciones.get(Net._identidad_de_peer(quien), {}) as Dictionary).duplicate()
+
+
+# Lo que llego en _tu_jugador: a donde volver al entrar. Lo consume el menu al llegar al pueblo.
+var donde_volver: Dictionary = {}
 
 
 # El host le da al invitado SU jugador de este mundo. Corre en el CLIENTE.
 @rpc("any_peer", "call_remote", "reliable")
-func _tu_jugador(d: Dictionary, semilla: int) -> void:
+func _tu_jugador(d: Dictionary, semilla: int, donde: Dictionary = {}) -> void:
+	donde_volver = donde
 	Net._respondio = true
 	# LO PRIMERO, antes de reconstruir nada: fuera lo que quede de mi partida anterior. Game es un
 	# autoload y si venia de "Continuar" en una de mis ranuras, mi baul/almacen/mapa siguen puestos y

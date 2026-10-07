@@ -2258,6 +2258,15 @@ func hay_partida() -> bool:
 # Al CARGAR una partida hecha dentro de la mazmorra: donde hay que plantar al jugador. El
 # DungeonFloor lo lee al construir el piso en vez de mandarte a la entrada.
 var pos_cargada: Vector2 = Vector2.INF
+# Lo mismo en el PUEBLO (fase 4 de la BD): vuelves a la calle donde estabas, no a la plaza. Lo consume
+# town._colocar_jugador; de un solo uso.
+var pos_cargada_pueblo: Vector2 = Vector2.INF
+
+# LA MAZMORRA VIVA DE UN MUNDO COMPARTIDO tal y como venia en el guardado (SaveData.sesion_*,
+# posiciones). La sala la siembra en Net al abrir la sesion (Net.pisos.sembrar_sesion) y, mientras no
+# hay sesion (antes de hostear), un guardado la vuelve a escribir tal cual: no se pierde por guardar
+# antes de tiempo. Ver exportar_partida.
+var sesion_guardada: Dictionary = {}
 
 # Habias guardado DENTRO de un piso cuyo trazado ha cambiado con este build (ver el sello de
 # SaveData.trazado): ese piso ya no es el que dejaste, asi que se sale al pueblo en vez de
@@ -2586,6 +2595,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 
 	current_floor = 1
 	pos_cargada = Vector2.INF
+	pos_cargada_pueblo = Vector2.INF
+	sesion_guardada = {}
 	olvidar_mazmorra()
 	# Partida nueva SI reinicia lo persistente y el reloj (olvidar_mazmorra no los toca porque
 	# tienen que durar entre expediciones; una partida nueva es otra cosa).
@@ -2781,6 +2792,10 @@ func exportar_partida() -> SaveData:
 	d.recolectables = SaveData.RECOLECTABLES_ACTUAL
 	if player is Node2D:
 		d.pos_jugador = (player as Node2D).global_position
+	# Guardando desde la ARENA se guarda como si estuvieras en el pueblo: en su porton, no en las
+	# coordenadas de la arena (que en el pueblo caerian en cualquier sitio).
+	if _sin_arena_en_curso:
+		d.pos_jugador = PuebloPlano.vuelta_de_arena_px()
 	d.memoria_pisos = memoria_pisos.duplicate(true)
 	d.mazmorra_persistente = mazmorra_persistente.duplicate(true)
 	d.mapa_snapshot = mapa_snapshot.duplicate(true)
@@ -2805,6 +2820,7 @@ func exportar_partida() -> SaveData:
 	# Y los sellos de los jefes, que desde que van con el reloj de pared tienen sentido fuera de la
 	# sesion: si no se guardaran, cerrar el juego levantaria a todos los jefes al instante.
 	d.bosses_sello = bosses_sello.duplicate()
+	_exportar_sesion(d)
 
 	# Cabecera (lo que se ve en la lista de ranuras).
 	d.fecha = Time.get_datetime_string_from_system(false, true)
@@ -3602,14 +3618,10 @@ func importar_partida(d: SaveData) -> void:
 				descubrir((it as MaterialItem).data)
 
 	current_floor = d.current_floor
-	# CERRAR EL JUEGO CIERRA LA MAZMORRA. La memoria de los pisos se guarda (hace falta para poder
-	# guardar DENTRO de la mazmorra y volver al mismo sitio con los mismos bichos), pero al cargar
-	# solo se recupera el piso que estabas pisando: los demas nacen poblados otra vez. Es el limite
-	# que se le puso a la mazmorra persistente para que no deje de sentirse nueva nunca.
-	# Si guardaste en el pueblo (en_mazmorra == false), no vuelve ninguno.
-	memoria_pisos.clear()
-	if d.en_mazmorra and d.memoria_pisos.has(d.current_floor):
-		memoria_pisos[d.current_floor] = (d.memoria_pisos[d.current_floor] as Dictionary).duplicate(true)
+	# CERRAR EL JUEGO YA NO CIERRA LA MAZMORRA (fase 4 de la BD, 07/10/2026, lo decidio el): vuelven
+	# TODOS los pisos como los dejaste, con sus bichos y lo tirado, tambien si guardaste en el pueblo.
+	# Antes solo volvia el piso que pisabas. Lo unico que la reinicia es MORIR (Game.morir_jugador).
+	memoria_pisos = d.memoria_pisos.duplicate(true)
 	mazmorra_persistente = d.mazmorra_persistente.duplicate(true)
 	_migrar_sellos_a_reloj_de_pared()
 	mapa_snapshot = d.mapa_snapshot.duplicate(true)
@@ -3618,6 +3630,11 @@ func importar_partida(d: SaveData) -> void:
 	tiempo_mazmorra = d.tiempo_mazmorra
 	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
+	# En el pueblo tambien (las partidas de antes de esto traen 0,0: esas a la plaza).
+	pos_cargada_pueblo = d.pos_jugador if not d.en_mazmorra and d.pos_jugador != Vector2.ZERO else Vector2.INF
+	sesion_guardada = {"fotos": d.sesion_fotos_piso.duplicate(true), "suelo": d.sesion_suelo.duplicate(true),
+		"suelo_id": d.sesion_suelo_id, "bosses": d.sesion_bosses.duplicate(), "nonces": d.sesion_nonces.duplicate(),
+		"posiciones": d.posiciones.duplicate(true)}
 	_rehacer_pisos_de_otro_trazado(d)
 	_olvidar_marcas_de_otra_colocacion(d)
 
@@ -3700,6 +3717,20 @@ func importar_partida(d: SaveData) -> void:
 #
 # Y si habias guardado DENTRO de uno de esos pisos, sales al PUEBLO: aparecer en mitad de un mapa
 # que ya no es el que dejaste (dentro de un muro, en el peor caso) es peor que el viaje de vuelta.
+# LA MAZMORRA VIVA DEL MUNDO al guardado: con sesion abierta (la sala, o el host de un mundo) sale de
+# Net, que es donde vive; sin sesion se vuelve a escribir la que vino al cargar (sesion_guardada).
+func _exportar_sesion(d: SaveData) -> void:
+	var s: Dictionary = sesion_guardada
+	if Net.activo and Net.es_host and Net.mundo_compartido:
+		s = Net.pisos.sesion_para_guardar()
+	d.sesion_fotos_piso = (s.get("fotos", {}) as Dictionary).duplicate(true)
+	d.sesion_suelo = (s.get("suelo", {}) as Dictionary).duplicate(true)
+	d.sesion_suelo_id = int(s.get("suelo_id", 1))
+	d.sesion_bosses = (s.get("bosses", {}) as Dictionary).duplicate()
+	d.sesion_nonces = (s.get("nonces", {}) as Dictionary).duplicate()
+	d.posiciones = (s.get("posiciones", {}) as Dictionary).duplicate(true)
+
+
 func _rehacer_pisos_de_otro_trazado(d: SaveData) -> void:
 	# En limpio SIEMPRE: es un recado de ESTA carga, y una partida al dia no puede heredar el
 	# "sales al pueblo" de la que se cargo antes en la misma sesion.

@@ -201,9 +201,10 @@ func _pedir_entrar(piso: int = 1) -> void:
 # El piso pedido se CRIBA aqui: solo el 1 o un piso con jefe. Los atajos de cada cual son los suyos
 # (los del host viajan en el handshake, los tuyos estan en tu save), y el host no puede comprobar
 # los del invitado; lo que si puede es no dejar que un cliente pida el piso 500.
-func _conceder_entrada(quien: int, piso: int = 1) -> void:
+# volver = es VOLVER A TU SITIO al entrar en el mundo (ver _pedir_volver): ese piso ya se comprobo alli.
+func _conceder_entrada(quien: int, piso: int = 1, volver := false) -> void:
 	# La ARENA de pruebas tambien pasa: es un piso mas para la red (ver Game.PISO_ARENA).
-	if piso != Game.PISO_ARENA and (piso <= 1 or not Game.BOSSES.has(piso)):
+	if not volver and piso != Game.PISO_ARENA and (piso <= 1 or not Game.BOSSES.has(piso)):
 		piso = 1
 	# Alguien baja: el pueblo se recoloca (las cañas del muelle), igual para todos.
 	Net.renovar_semilla_pueblo()
@@ -233,6 +234,8 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	if dueno:
 		mem = Net._fotos_piso.get(piso, {})
 		Net._fotos_piso.erase(piso)
+		if quien != 1:
+			Net.pesca.mandar_charcos(quien, piso)
 	# Va el diccionario ENTERO, no solo las claves: el valor es el momento en que se pico, y sin el
 	# quien entra no sabria cuanto le queda a cada sitio para revivir.
 	# Los jefes viajan como SEGUNDOS QUE FALTAN, no como el instante en que cayeron: el instante esta
@@ -244,6 +247,87 @@ func _conceder_entrada(quien: int, piso: int = 1) -> void:
 	else:
 		_entrar_ok.rpc_id(quien, piso, Net.recoleccion._agotados_sesion, dueno, mem, _restantes_boss(),
 			Net.epoca_sesion, Net.recoleccion._nonces_sesion)
+
+
+# ============================================================
+#  LA MAZMORRA VIVA DEL MUNDO EN EL GUARDADO (fase 4 de la BD)
+#  La sala la llevaba solo en memoria: al cerrarse (o caerse) el mundo volvia con la mazmorra nueva. Ahora
+#  va al guardado (Game._exportar_sesion -> SaveData.sesion_*) y se siembra al abrir la sala.
+# ------------------------------------------------------------
+## Lo que hay que guardar de la sesion.
+func sesion_para_guardar() -> Dictionary:
+	var fotos: Dictionary = Net._fotos_piso.duplicate(true)
+	# Los pisos que estan vivos ahora en un trabajador, con su ultima foto periodica.
+	for p in Net._fotos_vivas:
+		if Net._dueno_piso.has(p) and not fotos.has(p):
+			fotos[p] = (Net._fotos_vivas[p] as Dictionary).duplicate(true)
+	fotos.erase(Game.PISO_ARENA)   # la arena no se congela
+	var suelo: Dictionary = {}
+	for id in Net.suelo._suelo:
+		if not str(Net.suelo._suelo[id].get("lugar", "")).begins_with("piso:%d" % Game.PISO_ARENA):
+			suelo[id] = Net.suelo._suelo[id]
+	return {"fotos": fotos, "suelo": suelo.duplicate(true), "suelo_id": Net.suelo._next_id,
+		"bosses": Net.jefes._bosses_sello.duplicate(), "nonces": Net.recoleccion._nonces_sesion.duplicate(),
+		"posiciones": posiciones_al_dia().duplicate(true)}
+
+
+## DONDE ESTA CADA JUGADOR, al dia: los conectados con lo ultimo que han mandado; los que se fueron, con
+## lo ultimo que se supo de ellos (Net._posiciones se queda con todo). Identidad -> {lugar, pos}.
+func posiciones_al_dia() -> Dictionary:
+	for peer in Net._identidades:
+		var pe: Dictionary = Net._peers.get(peer, {})
+		if pe.is_empty() or Net.es_trabajador(int(peer)):
+			continue
+		var lugar: String = String(pe.get("lugar", ""))
+		var donde = pe.get("pos", Vector2.INF)
+		if not (donde is Vector2) or donde == Vector2.INF:
+			continue
+		if lugar == "pueblo" or (lugar.begins_with("piso:") and int(lugar.substr(5)) != Game.PISO_ARENA):
+			Net._posiciones[String(Net._identidades[peer])] = {"lugar": lugar, "pos": donde}
+	return Net._posiciones
+
+
+## Al abrir la sala de un mundo: la mazmorra como quedo. Los pisos vuelven CONGELADOS (nadie dentro): el
+## primero que baje se lleva su foto, como con cualquier piso congelado.
+func sembrar_sesion(s: Dictionary) -> void:
+	if not Net.es_host or s.is_empty():
+		return
+	Net._fotos_piso = (s.get("fotos", {}) as Dictionary).duplicate(true)
+	Net.suelo._suelo = (s.get("suelo", {}) as Dictionary).duplicate(true)
+	var siguiente: int = int(s.get("suelo_id", 1))
+	for id in Net.suelo._suelo:
+		siguiente = maxi(siguiente, int(id) + 1)
+	Net.suelo._next_id = siguiente
+	Net.jefes._bosses_sello = (s.get("bosses", {}) as Dictionary).duplicate()
+	Net.recoleccion._nonces_sesion = (s.get("nonces", {}) as Dictionary).duplicate()
+	Net._posiciones = (s.get("posiciones", {}) as Dictionary).duplicate(true)
+	print("[multi] mazmorra del mundo sembrada: %d pisos congelados, %d cosas en el suelo, %d jefes caidos" % [
+		Net._fotos_piso.size(), Net.suelo._suelo.size(), Net.jefes._bosses_sello.size()])
+
+
+# VOLVER A TU SITIO al entrar en el mundo: estabas en un piso de la mazmorra y esa mazmorra sigue (el piso
+# esta congelado o alguien lo simula). Lo pide el cliente nada mas llegar al pueblo (ver multi_menu).
+func solicitar_volver(piso: int) -> void:
+	_pedir_volver.rpc_id(1, piso)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_volver(piso: int) -> void:
+	if not Net.es_host:
+		return
+	var quien: int = multiplayer.get_remote_sender_id()
+	var guardada: Dictionary = Net._posiciones.get(Net._identidad_de_peer(quien), {})
+	var sigue: bool = Net._fotos_piso.has(piso) or Net._dueno_piso.has(piso)
+	if String(guardada.get("lugar", "")) != "piso:%d" % piso or not sigue or piso == Game.PISO_ARENA:
+		_volver_no.rpc_id(quien)
+		return
+	_conceder_entrada(quien, piso, true)
+
+
+# No se puede volver (la mazmorra se olvido: habiais caido todos): te quedas en el pueblo.
+@rpc("authority", "call_remote", "reliable")
+func _volver_no() -> void:
+	Game.pos_cargada = Vector2.INF
 
 
 # ABRIR LA SALA ESTANDO YA DENTRO DE UN PISO. Es _conceder_entrada + _entrar_ok sin viajar: el piso
@@ -454,6 +538,7 @@ func _registrar_muerte(quien: int, foto: Dictionary = {}) -> void:
 # mazmorra_persistente. Su CD es su CD.
 func _olvidar_expedicion() -> void:
 	Net._fotos_piso.clear()
+	Net._fotos_vivas.clear()
 	Net._traspasos.clear()
 	Net._muertos.clear()
 	# EPOCA NUEVA, como en solitario (Game.olvidar_mazmorra): la mazmorra vuelve a nacer, asi que se
@@ -693,6 +778,8 @@ func _conceder_piso(quien: int, nuevo: int, bajando: bool, foto: Dictionary) -> 
 	if dueno_nuevo:
 		mem = Net._fotos_piso.get(nuevo, {})
 		Net._fotos_piso.erase(nuevo)   # ya no esta congelado: pasa a estar vivo en su dueño
+		if quien != 1:
+			Net.pesca.mandar_charcos(quien, nuevo)
 	if quien == 1:
 		_viaje_ok(nuevo, bajando, dueno_nuevo, mem)
 	else:

@@ -414,6 +414,11 @@ func _colocar_jugador() -> void:
 		return
 	# Vuelves de la ARENA: por su porton, no por la escalera de la plaza.
 	var donde: Vector2 = PuebloPlano.vuelta_de_arena_px() if _de_la_arena else PuebloPlano.aparicion_px()
+	# Al CARGAR la partida (o volver a un mundo): donde estabas, si cae dentro del pueblo. De un solo uso.
+	var guardada: Vector2 = Game.pos_cargada_pueblo
+	Game.pos_cargada_pueblo = Vector2.INF
+	if not _de_la_arena and guardada != Vector2.INF and Rect2(Vector2.ZERO, PuebloPlano.tam_px()).has_point(guardada):
+		donde = guardada
 	# RECOLOCAR y no mover a pelo: el sequito se sembro en el _ready del jugador, en el sitio donde lo
 	# deja la escena y antes de que existiera el pueblo. Moviendolo a pelo, la fila se quedaba alli (ver
 	# party_trail.teletransportar).

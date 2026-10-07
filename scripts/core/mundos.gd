@@ -112,6 +112,7 @@ func _process(delta: float) -> void:
 
 	if abierto == "":
 		return
+	_posiciones_cada_poco(delta)
 	_acum += delta
 	if _acum < SEG_AUTOGUARDADO:
 		return
@@ -128,6 +129,24 @@ func _process(delta: float) -> void:
 			return
 	_acum = 0.0
 	await autoguardar()
+
+
+# LAS POSICIONES de los jugadores, cada SEG_POSICIONES, al disco (solo esas filas: ver
+# PartidaBD.escribir_campos). Suben a la nube con el siguiente autoguardado. Solo la sala (o el host de un
+# mundo): es quien sabe donde esta cada uno.
+const SEG_POSICIONES := 5.0
+var _t_pos := 0.0
+
+func _posiciones_cada_poco(delta: float) -> void:
+	_t_pos += delta
+	if _t_pos < SEG_POSICIONES or _bd == null or not (Net.activo and Net.es_host):
+		return
+	_t_pos = 0.0
+	var pos: Dictionary = Net.pisos.posiciones_al_dia()
+	var filas := {"posiciones": var_to_str({"§partido": true})}
+	for ident in pos:
+		filas["posiciones/" + var_to_str(ident)] = var_to_str(pos[ident])
+	_bd.escribir_campos(filas)
 
 
 # ¿Hay una PARTIDA VIVA delante (pueblo o mazmorra) y no un menu? Publica porque la pregunta no es

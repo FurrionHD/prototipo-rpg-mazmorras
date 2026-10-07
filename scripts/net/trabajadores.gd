@@ -93,6 +93,8 @@ const PARTE_CADA := 5.0
 var _t_parte := 0.0
 
 func _process(delta: float) -> void:
+	if Net.activo and Net.es_host:
+		_fotos_periodicas(delta)
 	if not Net.soy_trabajador or not Net._soy_dueno:
 		return
 	_t_parte -= delta
@@ -171,6 +173,13 @@ func _dame_foto(piso: int) -> void:
 		_foto.rpc_id(1, piso, {})
 		return
 	_foto.rpc_id(1, piso, Net.pisos._foto_de_mi_piso())
+
+
+# El host quiere una foto de mi piso SIN que me vaya (para guardarla: ver _fotos_periodicas).
+@rpc("authority", "call_remote", "reliable")
+func _dame_foto_viva(piso: int) -> void:
+	if Net.pisos.mi_piso() == piso and Net._soy_dueno:
+		_foto_viva.rpc_id(1, piso, Net.pisos._foto_de_mi_piso())
 
 
 # El host se ha quedado la foto: a la reserva, a esperar otro piso.
@@ -354,6 +363,7 @@ func asegurar_dueno(piso: int) -> bool:
 	Net._viajando[w] = piso
 	var mem: Dictionary = Net._fotos_piso.get(piso, {})
 	Net._fotos_piso.erase(piso)
+	Net.pesca.mandar_charcos(w, piso)
 	Net.pisos._entrar_ok.rpc_id(w, piso, Net.recoleccion._agotados_sesion, true, mem, Net.pisos._restantes_boss(),
 		Net.epoca_sesion, Net.recoleccion._nonces_sesion)
 	print("[trabajadores] el piso %d lo simula el peer %d" % [piso, w])
@@ -376,10 +386,36 @@ func revisar_vacio(piso: int, salvo: int = 0) -> void:
 	_dame_foto.rpc_id(w, piso)
 
 
+# CADA SEG_FOTOS_VIVAS, la foto de cada piso que simula un trabajador: solo para el guardado del mundo
+# (Net._fotos_vivas). Asi, si la sala se cae, el mundo vuelve con esos pisos como estaban hace un momento.
+const SEG_FOTOS_VIVAS := 30.0
+var _t_fotos := 0.0
+
+func _fotos_periodicas(delta: float) -> void:
+	_t_fotos += delta
+	if _t_fotos < SEG_FOTOS_VIVAS:
+		return
+	_t_fotos = 0.0
+	for w in _estado:
+		var piso: int = int(_estado[w])
+		if piso > 0 and piso != Game.PISO_ARENA and int(Net._dueno_piso.get(piso, 0)) == int(w):
+			_dame_foto_viva.rpc_id(int(w), piso)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _foto_viva(piso: int, foto: Dictionary) -> void:
+	if not Net.es_host or foto.is_empty():
+		return
+	if int(Net._dueno_piso.get(piso, 0)) != multiplayer.get_remote_sender_id():
+		return
+	Net._fotos_vivas[piso] = foto
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _foto(piso: int, foto: Dictionary) -> void:
 	if not Net.es_host:
 		return
+	Net._fotos_vivas.erase(piso)
 	var w := multiplayer.get_remote_sender_id()
 	if int(_estado.get(w, -1)) != piso:
 		return

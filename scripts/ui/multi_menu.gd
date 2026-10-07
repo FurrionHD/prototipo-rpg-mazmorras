@@ -859,8 +859,19 @@ func _entrar_al_mundo_ajeno() -> void:
 	# cortaba aqui EN CADA entrada al mundo de otro y anunciar_lugar no llegaba a correr: el host no se
 	# enteraba de que estabas en el pueblo, y sin eso tu avatar no aparece para el resto.
 	var arbol := get_tree()
+	# DONDE ESTABAS al guardarse el mundo (fase 4 de la BD): en el pueblo, en esa calle; en la mazmorra,
+	# se pide volver a ese piso nada mas llegar (si la mazmorra sigue: si no, te quedas en el pueblo).
+	var donde: Dictionary = Net.partida.donde_volver
+	Net.partida.donde_volver = {}
+	var lugar: String = String(donde.get("lugar", ""))
+	var pos = donde.get("pos", Vector2.INF)
+	if lugar == "pueblo" and pos is Vector2:
+		Game.pos_cargada_pueblo = pos
 	await Cargando.cambiar_escena(arbol, PUEBLO, "Entrando en el mundo...")
 	Net.anunciar_lugar("pueblo")
+	if lugar.begins_with("piso:") and pos is Vector2:
+		Game.pos_cargada = pos
+		Net.pisos.solicitar_volver(int(lugar.substr(5)))
 
 
 # Borrar SOLO de tu lista, y a dos clics. Lo que hay en el almacen no se toca: si el mundo es de los

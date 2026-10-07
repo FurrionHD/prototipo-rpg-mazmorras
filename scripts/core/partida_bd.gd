@@ -131,6 +131,38 @@ func abierta() -> bool:
 	return _db != null
 
 
+## Escribe unos CAMPOS sueltos (ya en forma de fila: clave -> texto), sin montar la partida entera: lo
+## que cambia muy a menudo y pesa poco (las posiciones de los jugadores de un mundo, cada pocos segundos).
+## Solo los que han cambiado; con rastrear quedan apuntados para la nube. Devuelve las filas tocadas.
+func escribir_campos(campos: Dictionary) -> int:
+	if _db == null:
+		return -1
+	if _ultimas.is_empty():
+		leer()
+	var antes: Dictionary = _ultimas.get("campos", {})
+	var cambian: Array = []
+	for k in campos:
+		if antes.get(k) != campos[k]:
+			cambian.append(k)
+	if cambian.is_empty():
+		return 0
+	if not _db.query("BEGIN IMMEDIATE;"):
+		return -1
+	var ok: bool = true
+	for k in cambian:
+		ok = ok and _db.query_with_bindings("INSERT OR REPLACE INTO campos VALUES (?, ?);", [k, campos[k]])
+		ok = ok and _apuntar("campos", k)
+	ok = ok and _db.query_with_bindings("UPDATE bd_meta SET valor = ? WHERE clave = 'rev';", [str(rev + 1)])
+	if not ok or not _db.query("COMMIT;"):
+		_db.query("ROLLBACK;")
+		return -1
+	rev += 1
+	for k in cambian:
+		antes[k] = campos[k]
+	_ultimas["campos"] = antes
+	return cambian.size()
+
+
 ## Todas las filas, para BDFilas.de_filas. Tambien deja apuntado lo leido (para las diferencias).
 func leer() -> Dictionary:
 	var f: Dictionary = {}

@@ -378,6 +378,22 @@ const VERSION_MUNDO := 1
 # sello de tiempo para el respawn) y las zonas exploradas (niebla del mapa). Las partidas
 # viejas los rellenan a vacio/0, asi que NO hace falta subir VERSION_ACTUAL.
 @export var mazmorra_persistente: Dictionary = {}
+
+# --- LA MAZMORRA VIVA DE UN MUNDO COMPARTIDO (fase 4 de la BD, 07/10/2026) ---
+# Lo que la SALA llevaba solo en memoria y moria con ella (ver Net, net_pisos): ahora va al guardado
+# del mundo y se siembra al volver a abrirlo. Solo lo escribe la sala (o un host de mundo).
+#   sesion_fotos_piso  piso -> foto de Net._fotos_piso (los pisos congelados) y de los que estaba
+#                      simulando un trabajador al guardar (su foto periodica)
+#   sesion_suelo       id -> drop de Net.suelo._suelo ({d, pos, lugar}); y el siguiente id
+#   sesion_bosses      piso -> instante (reloj de pared) en que cayo su jefe (Net.jefes._bosses_sello)
+#   sesion_nonces      sitio (Vector3i) -> nonce con el que renacio cada veta (Net.recoleccion._nonces_sesion)
+#   posiciones         identidad -> {lugar, pos}: donde estaba cada jugador (cada pocos segundos)
+@export var sesion_fotos_piso: Dictionary = {}
+@export var sesion_suelo: Dictionary = {}
+@export var sesion_suelo_id: int = 1
+@export var sesion_bosses: Dictionary = {}
+@export var sesion_nonces: Dictionary = {}
+@export var posiciones: Dictionary = {}
 # La LIBRETA PERMANENTE del mapa (piso -> snapshot congelado). Solo se comete al volver a casa vivo.
 @export var mapa_snapshot: Dictionary = {}
 # Estado de la EXPEDICION en curso: el snapshot de TRABAJO (cartografia sin cometer) y el baseline
