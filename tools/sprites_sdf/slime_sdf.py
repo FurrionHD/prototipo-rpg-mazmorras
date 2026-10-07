@@ -67,9 +67,9 @@ VARIANTES = {
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
-# El nucleo (y los cristales) dentro del gel: el normal y el brotado (el Rey y el de lava, no).
-# SOLO EL SLIME NORMAL (s100) y sus evoluciones: lo pidio para el normal ("no te inventes cosas"); los demas, cuando toque.
-CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152')
+# El nucleo (y su cristal) dentro del gel: TODOS los de gel (07/10, su aviso: "todos menos el normal estan mal, no se les
+# ve el nucleo ni el cristal"). Los de ROCA (fuego, ceniza, obsidiana) no: no se transparentan. El Rey, con sus versiones.
+CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 's170', 'cie204', 'ojo224')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
 # Las dos del venenoso comparten piel (poros; la 2a, burbujas).
@@ -97,6 +97,9 @@ def _materiales(forma, color):
             'lava':   [c, c, (1.0, 0.86, 0.34)],
             'ojo':    [(1.0, 0.99, 0.92)] * 3,
             'gema':   [(1.0, 0.95, 0.72)] * 3,
+            # (07/10: TODOS los slimes parpadean; el parpado, de su roca)
+            'parpado': [(0.32, 0.06, 0.10), (0.44, 0.10, 0.12), (0.62, 0.20, 0.16)],
+            'pestana': [(0.12, 0.02, 0.04)] * 3,
         }
     if forma == 'ceniza':
         # LA CENIZA: costra gris; la BRASA de las grietas, mas roja y apagada que la lava.
@@ -152,6 +155,9 @@ def _materiales(forma, color):
                 'iris_p': [(0.65, 0.45, 1.0)] * 3,
                 'pupila': [(0.02, 0.02, 0.04)] * 3,
                 'parpado': gel_n[:3], 'pestana': [(0.02, 0.02, 0.06)] * 3,
+                # (07/10) EL NUCLEO, algo mas oscuro que la noche, y EL CRISTAL de siempre
+                'nucleo': [osc(noche, 0.75), osc(noche, 0.6), osc(noche, 0.4)],
+                'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)],
                 # (transformandose: el gel azul del ABISAL, que se le abre a placas)
                 'antes': gel}
     # La corona del Rey, de su gel mas claro.
@@ -184,8 +190,9 @@ MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
 MODELO.claros_dentro = ('cristal', 'nucleo', 'estrella')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
-# De momento el normal y sus evoluciones; "lo aplicaremos a los demas slimes tambien" (mas adelante).
-PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 'mia138', 'pes152', 'cen192', 'obs211', 'cie204', 'ojo224')
+# TODOS menos el Rey (07/10: el Rey, con sus versiones).
+PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 'lava160', 'cen192', 'obs211',
+                   's170', 'cie204', 'ojo224')
 # LOS MIL OJOS PARPADEAN CADA UNO POR SU CUENTA (06/10, lo pidio el jefe): sus ojos van en GRUPOS repartidos al azar y el
 # horno saca una hoja de parpados por grupo (<anim>_parpado.png, <anim>_parpado2.png...); el juego pone cada una a su aire.
 GRUPOS_PARPADO = 6 if FORMA == 'milojos' else 1
@@ -400,8 +407,7 @@ def escena(pose):
                     'ojo')
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
-        # (el venenoso no lleva nucleo: al miasma le aparece al transformarse)
-        rn = 3.4 * en * (_paso(pose['evo'], 0.2, 0.55) if FORMA == 'miasma' else 1.0)
+        rn = 3.4 * en
         if rn > 0.2:
             add(lambda P, c=C + np.array([0.0, -2.5, -1.5]) * en, r=rn: sd_esfera(P, c, r), 'nucleo', 0, 'nucleo')
         # Y LOS CRISTALES: uno en el normal; en el brotado, los que se ha comido (transformandose, el primero ya estaba y
@@ -413,13 +419,10 @@ def escena(pose):
             # Transformandose, los que llevaba DENTRO se le van (le salen por fuera como puas, ver _puas).
             se_van = 1.0 - _paso(pose['evo2'], 0.30, 0.75)
             cris = [(c, eje, l, r * se_van) for (c, eje, l, r) in _CRISTALES_BROTADO]
-        elif FORMA == 'normal':
+        elif FORMA == 'normal' or TOXICO or NOCHE:
+            # UN SOLO CRISTAL en todos (07/10, su decision: "todos 1"; solo el brotado lleva muchos, que los USA para
+            # atacar). El venenoso, el profundo y el abisal ya lo traen, asi que sus mutantes no lo estrenan al mutar.
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
-        elif TOXICO:
-            # Dos cristales comidos, pequeños (el venenoso no lleva: le aparecen al transformarse en el miasma).
-            sale = _paso(pose['evo'], 0.25, 0.6) if FORMA == 'miasma' else 1.0
-            cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 2.0 * sale),
-                    ((-5.0, -3.5, 0.5), (-0.4, 0.3, 1.0), 5.3, 1.7 * sale)]
         elif FORMA == 'punzante':
             # El cristal que llevaba el normal se le va al transformarse (le sale por fuera, como sus puas).
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7 * (1.0 - _paso(pose['evo'], 0.30, 0.60)))]
