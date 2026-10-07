@@ -6,11 +6,75 @@
 [ext_resource type="Resource" uid="uid://divj4yifpx26l" path="res://resources/abilities/slime_doble_embate.tres" id="4_emb"]
 [ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="5_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_profundo.tres" id="6_nuc"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="7_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="8_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_reventon_marea.tres" id="9_rm"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_chorro_presion.tres" id="10_ch"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_esquirlas_coral.tres" id="11_ec"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_estallido_helado.tres" id="12_eh"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_aliento_gelido.tres" id="13_ag"]
+[ext_resource type="Resource" path="res://resources/abilities/slime_carambanos.tres" id="14_ca"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
 prob = 0.5
+
+[sub_resource type="Resource" id="SA_moja"]
+script = ExtResource("2_sa")
+estado = 12
+prob = 0.5
+
+[sub_resource type="Resource" id="SA_debil"]
+script = ExtResource("2_sa")
+estado = 4
+prob = 1.0
+turns = 2
+
+[sub_resource type="Resource" id="SA_cong"]
+script = ExtResource("2_sa")
+estado = 41
+prob = 0.25
+
+[sub_resource type="Resource" id="SA_cong_aura"]
+script = ExtResource("2_sa")
+estado = 41
+prob = 1.0
+
+[sub_resource type="Resource" id="MUT_arrecife"]
+script = ExtResource("7_mut")
+id = &"arrecife"
+nombre = "Slime de arrecife"
+grado = 1
+habilidades = Array[ExtResource("8_ab")]([ExtResource("9_rm"), ExtResource("4_emb"), ExtResource("10_ch"), ExtResource("11_ec")])
+sprite = &"arr180"
+al_ser_golpeado_propio = true
+al_ser_golpeado = [SubResource("SA_debil")]
+al_ser_golpeado_prob = 0.3
+al_ser_golpeado_texto = "su anémona urticante"
+elemento = 2
+fragil_contundente = 0.8
+color_fx = Color(0.2, 0.55, 0.75, 1)
+al_golpear_propio = true
+al_golpear = [SubResource("SA_moja")]
+
+[sub_resource type="Resource" id="MUT_escarcha"]
+script = ExtResource("7_mut")
+id = &"escarcha"
+nombre = "Slime de escarcha"
+grado = 2
+desde = Array[StringName]([&"arrecife"])
+habilidades = Array[ExtResource("8_ab")]([ExtResource("12_eh"), ExtResource("13_ag"), ExtResource("14_ca")])
+sprite = &"esc198"
+al_ser_golpeado_propio = true
+resist_elemental = {1: 1.5}
+color_fx = Color(0.75, 0.9, 1.0, 1)
+al_golpear_propio = true
+al_golpear = [SubResource("SA_cong")]
+aura_fria = true
+aura_prob = 0.35
+aura_efectos = [SubResource("SA_cong_aura")]
+mojado_se_hiela = true
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -38,6 +102,7 @@ drop_piso_pleno = 9
 al_golpear = [SubResource("SA_peg")]
 fx_basico = 19
 habilidades = [ExtResource("3_rev"), ExtResource("4_emb")]
+mutaciones = Array[ExtResource("7_mut")]([SubResource("MUT_arrecife"), SubResource("MUT_escarcha")])
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): slime mediano.
 alcance = 20.0

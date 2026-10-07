@@ -115,6 +115,14 @@
    "dirs": 8,
    "parpado": true,
    "grupos_parpado": 1
+  },
+  "comer": {
+   "fotogramas": 12,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
   }
  }
 }

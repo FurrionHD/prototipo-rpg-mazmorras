@@ -776,6 +776,13 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.todo_lo_ve = mdat2.todo_lo_ve
 		if mdat2.todo_lo_ve:
 			c.precision += mdat2.precision_extra
+		# (07/10, los del profundo) su basico propio, el aura fria y 'mojado se hiela'.
+		if mdat2.al_golpear_propio:
+			c.on_hit = mdat2.al_golpear
+		c.aura_fria = mdat2.aura_fria
+		c.aura_prob = mdat2.aura_prob
+		c.aura_efectos = mdat2.aura_efectos
+		c.mojado_se_hiela = mdat2.mojado_se_hiela
 
 	# RESISTENCIA A EFECTOS Y EFICACIA: la curva del PISO por el ajuste de ESTE bicho. Los dos ejes
 	# hacen falta y hacen cosas distintas: la resistencia decide lo que TE aguanta, la eficacia lo

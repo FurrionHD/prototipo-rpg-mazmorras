@@ -43,13 +43,18 @@ const MUTANTES := {
 	# (estrellas/lluvia, constelar, eclipse; el de mil ojos, cegar y fijar/mirada).
 	&"cie204": ["556faa", 2.04, _COMUNES_ABISAL + ["constelar"]],
 	&"ojo224": ["556faa", 2.244, _COMUNES_ABISAL + ["cegar", "fijar", "mirada"]],
+	# LOS DEL PROFUNDO (07/10): el ARRECIFE y la ESCARCHA, con las anims del profundo (el Reventon) + las de sus ataques
+	# (escupir el Chorro y sacudir las Esquirlas; soplar el Aliento y soltar los carambanos).
+	&"arr180": ["556a80", 1.80, _COMUNES_MUT + ["escupir", "sacudir"]],
+	&"esc198": ["556a80", 1.98, _COMUNES_MUT + ["soplar", "carambanos"]],
 }
 # EL DE MIL OJOS PARPADEA POR GRUPOS (06/10: "cada ojo parpadea por su cuenta"): una hoja de parpados por grupo de ojos
 # (<anim>_parpado.png, _parpado2..), y cada una la pone una capa de Parpadeo a su aire.
 const GRUPOS_PARPADO := {&"ojo224": 6}
 # LOS QUE NO SE TIÑEN CON EL PISO (06/10): la ceniza (gris) y la obsidiana (negra) no son del color de su slime; el
 # tinte del piso, que sale del naranja del de fuego, los dejaba azules.
-const SIN_TINTE := [&"cen192", &"obs211", &"cie204", &"ojo224"]   # (y el cielo de noche: sus estrellas, su azul)
+const SIN_TINTE := [&"cen192", &"obs211", &"cie204", &"ojo224", &"arr180", &"esc198"]   # (y el cielo de noche: sus
+# estrellas, su azul; el arrecife, sus corales de colores; la escarcha, su blanco)
 const LAVA := ["lava160", "ff862b", 1.60]
 const REY := ["rey280", "55b8ff", 2.80]
 
@@ -91,6 +96,10 @@ const ANIMS := {
 	"cegar": {"hoja": "cegar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"fijar": {"hoja": "fijar", "dirs": 8, "marcos": 8, "fps": 12.0, "loop": true, "opcional": true},
 	"mirada": {"hoja": "mirada", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	# LAS DEL ARRECIFE Y LA ESCARCHA (07/10).
+	"sacudir": {"hoja": "sacudir", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"soplar": {"hoja": "soplar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	"carambanos": {"hoja": "carambanos", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 }
 
 

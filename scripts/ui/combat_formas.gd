@@ -47,6 +47,12 @@ const APERTURA_BARRIDO := 110.0
 const RADIO_ADYACENTE := 48.0
 # Ancho por defecto de una LINEA.
 const ANCHO_LINEA := 36.0
+# LA LINEA EN BOLAS (07/10, los Carambanos del slime de escarcha: "hacia delante, pero no una linea recta, varios circulos
+# hacia delante"): una LINEA con este ancho_fin no es una franja sino una FILA DE CIRCULOS de su ancho (de diametro), uno
+# cada PASO_BOLAS a lo largo, el ultimo en la punta. Va en ancho_fin (y no en un campo nuevo) porque ese ya viaja por la
+# red con la huella y con el suelo: el espejo la entiende sin tocar los paquetes.
+const BOLAS := -2.0
+const PASO_BOLAS := 35.0
 
 
 # ------------------------------------------------------------
@@ -69,6 +75,18 @@ class Forma extends RefCounted:
 	# CONO partido A LO ANCHO en cuñas (la Brasa, 26/09): ver cuna_de.
 	var cunas: int = 0
 
+	# ¿Es una fila de circulos? (ver CombatFormas.BOLAS)
+	func en_bolas() -> bool:
+		return tipo == CombatFormas.Tipo.LINEA and ancho_fin <= CombatFormas.BOLAS + 0.5
+
+	# Los centros de sus circulos: uno cada PASO_BOLAS, el ultimo en la punta.
+	func centros_bolas() -> Array:
+		var n: int = maxi(1, roundi(largo / CombatFormas.PASO_BOLAS))
+		var out: Array = []
+		for i in n:
+			out.append(origen + dir * (largo * float(i + 1) / float(n)))
+		return out
+
 	# El ancho de la LINEA a 't' px de su salida (a lo largo).
 	func ancho_en(t: float) -> float:
 		if ancho_fin < 0.0 or largo <= 0.0:
@@ -77,6 +95,11 @@ class Forma extends RefCounted:
 
 	# ¿Este punto esta tapado por la forma? Es la unica pregunta que le hace la pelea.
 	func contiene(p: Vector2) -> bool:
+		if en_bolas():
+			for c in centros_bolas():
+				if p.distance_to(c) <= ancho * 0.5:
+					return true
+			return false
 		match tipo:
 			CombatFormas.Tipo.PUNTO:
 				return p.distance_to(centro) <= maxf(radio, 1.0)
@@ -107,6 +130,11 @@ class Forma extends RefCounted:
 	# le toque el cuerpo, no solo el centro, asi un jefe grande cuenta por su borde (igual que el
 	# alcance, que tambien se mide borde a borde).
 	func toca(r: Rect2) -> bool:
+		if en_bolas():
+			for c in centros_bolas():
+				if _mas_cerca(r, c).distance_to(c) <= ancho * 0.5:
+					return true
+			return false
 		match tipo:
 			CombatFormas.Tipo.PUNTO, CombatFormas.Tipo.CIRCULO:
 				return _mas_cerca(r, centro).distance_to(centro) <= maxf(radio, 1.0)
@@ -188,6 +216,11 @@ class Forma extends RefCounted:
 	# ¿La forma TOCA el circulo que pisa alguien (centro en sus pies, radio lo que pisa)? Es la pregunta
 	# del mapa: le da a quien la huella le toque lo que pisa.
 	func toca_circulo(p: Vector2, r: float) -> bool:
+		if en_bolas():
+			for c in centros_bolas():
+				if p.distance_to(c) <= ancho * 0.5 + r:
+					return true
+			return false
 		match tipo:
 			CombatFormas.Tipo.PUNTO, CombatFormas.Tipo.CIRCULO:
 				return p.distance_to(centro) <= maxf(radio, 1.0) + r
@@ -465,6 +498,11 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 	if f == null or ci == null:
 		return
 	var relleno := Color(col.r, col.g, col.b, col.a * 0.22)
+	if f.en_bolas():
+		for c in f.centros_bolas():
+			ci.draw_circle(c, maxf(f.ancho * 0.5, 2.0), relleno)
+			ci.draw_arc(c, maxf(f.ancho * 0.5, 2.0), 0.0, TAU, 48, col, 2.5)
+		return
 	match f.tipo:
 		Tipo.PUNTO, Tipo.CIRCULO:
 			ci.draw_circle(f.centro, maxf(f.radio, 2.0), relleno)

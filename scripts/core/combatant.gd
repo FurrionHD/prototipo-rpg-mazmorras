@@ -475,6 +475,11 @@ var devuelve_corte_frac: float = 0.0
 var deja_estrellas: bool = false
 var estrellas_max: int = 6
 var todo_lo_ve: bool = false
+# (07/10, la escarcha, ver MutacionData) el aura fria y 'mojado se hiela'.
+var aura_fria: bool = false
+var aura_prob: float = 0.0
+var aura_efectos: Array = []
+var mojado_se_hiela: bool = false
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es
@@ -1866,6 +1871,7 @@ const PUERTA_SILENCIO := 1
 const PUERTA_ENRAIZADO := 2
 const PUERTA_ENROSCADO := 4
 const PUERTA_PEGADO := 8
+const PUERTA_CONGELADO := 16
 var puertas_remotas: int = -1
 
 
@@ -1914,6 +1920,17 @@ func pegado() -> bool:
 	return false
 
 
+# ¿Congelado? (la Congelacion del slime de escarcha, 07/10, solo en el mapa): anda la MITAD en su turno (ver
+# CombatTactico.radio_de). Viaja como puerta: el maniqui del espejo no tiene estados y su radio saldria entero.
+func congelado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_CONGELADO) != 0
+	for e in statuses:
+		if e.mult_de("mov_mult") < 1.0:
+			return true
+	return false
+
+
 # Las puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
 func puertas() -> int:
 	var v: int = 0
@@ -1925,6 +1942,8 @@ func puertas() -> int:
 		v |= PUERTA_ENROSCADO
 	if pegado():
 		v |= PUERTA_PEGADO
+	if congelado():
+		v |= PUERTA_CONGELADO
 	return v
 
 
@@ -1973,6 +1992,8 @@ func roll_on_hit(target: Combatant) -> Array:
 	var aplicados: Array = []
 	if target == null:
 		return aplicados
+	# MOJADO SE HIELA (07/10, la escarcha): mirado antes de tirar (ver combat_enemigos._enemy_tirar_efectos, la otra rama).
+	var hiela: bool = mojado_se_hiela and target.has_status(StatusEffects.Id.MOJADO)
 	for a in on_hit:
 		if a.estado < 0:
 			continue
@@ -1987,6 +2008,9 @@ func roll_on_hit(target: Combatant) -> Array:
 		for _s in maxi(1, a.stacks):
 			target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	if hiela and target.is_alive() and not target.es_inmune(StatusEffects.Id.CONGELACION):
+		target.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
+		aplicados.append("Congelación (estaba mojado)")
 	aplicados.append_array(tirar_refuerzo(target, atk()))
 	return aplicados
 
