@@ -1211,6 +1211,37 @@ func _log_forma_arena(gen: DungeonGenerator, forma: Dictionary, dentro: Array, q
 		print("[zona] ", fila)
 
 
+# LA MISMA FOTO EN EL LADO DEL JUGADOR (07/10): en multi la zona la calcula el Godot de pelea del piso (su log es el
+# trabajador_N.log) con las posiciones que EL tiene de cada uno. Aqui se escribe la zona que llega y donde estan de
+# verdad, en ESTA maquina, el jugador y los enemigos de alrededor: si no casa con el dibujo del trabajador, la zona se
+# calculo con posiciones viejas.
+func _log_zona_recibida(rect: Rect2i, mascara: PackedByteArray) -> void:
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var piezas: Array = ArenaCalculo.trozos(rect, mascara)
+	print("[zona] ---- zona RECIBIDA en el piso %d: rect %s, %d celdas, %d trozo(s)%s" % [current_floor, rect,
+			ArenaCalculo.celdas_de(rect, mascara), piezas.size(), "  <<< TROZOS SEPARADOS" if piezas.size() > 1 else ""])
+	for k in piezas.size():
+		print("[zona] trozo %d: %d celdas en %s" % [k, int(piezas[k]["celdas"]), piezas[k]["rect"]])
+	var marcas: Dictionary = {}
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo is Node2D:
+		var c: Vector2i = ArenaCalculo.celda_de_px((yo as Node2D).global_position)
+		marcas[c] = "J"
+		print("[zona] yo (aqui): %s -> celda %s" % [(yo as Node2D).global_position, c])
+	var zona_px: Rect2 = ArenaCalculo.rect_px(rect.grow(3))
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(e) and e is Node2D and zona_px.has_point((e as Node2D).global_position):
+			var c: Vector2i = ArenaCalculo.celda_de_px((e as Node2D).global_position)
+			print("[zona] enemigo (aqui) %s: %s -> celda %s" % [e.name, (e as Node2D).global_position, c])
+			if not marcas.has(c):
+				marcas[c] = "E"
+	if piso == null or piso.get("gen") == null:
+		return
+	print("[zona] dibujo: # roca  . suelo  o zona  E enemigo  J jugador")
+	for fila in ArenaCalculo.dibujo(piso.gen, rect, mascara, marcas):
+		print("[zona] ", fila)
+
+
 # Hasta donde cuentan los tuyos como "los que empiezan la pelea" (ver _forma_de_arena): el grupo que va en fila detras.
 const ALIADOS_EN_ZONA := 320.0
 
@@ -14959,6 +14990,8 @@ func abrir_combate_espejo(roster: Dictionary) -> Node:
 	combat.tactico = rect_arena.has_area()
 	combat.arena_celdas = rect_arena
 	combat.arena_mascara = mascara_arena
+	if combat.tactico:
+		_log_zona_recibida(rect_arena, mascara_arena)
 	combat.setup_espejo(roster)
 	combat.combat_finished.connect(_on_combate_espejo_cerrado)
 	# LA MUSICA SALE DEL ROSTER, no de _active_enemies: aqui no simulo ningun bicho, asi que la
