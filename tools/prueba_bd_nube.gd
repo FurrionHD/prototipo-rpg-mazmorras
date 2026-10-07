@@ -43,6 +43,7 @@ func _correr() -> void:
 	var id2: String = Nube.nuevo_id()
 	await _nuevo_y_otro_pc(id)
 	await _legado(id2)
+	_nube_vieja(id)
 	_limpiar(id)
 	_limpiar(id2)
 	print("FIN: TODO BIEN" if fallos == 0 else "FIN: %d MAL" % fallos)
@@ -171,6 +172,19 @@ func _nuevo_y_otro_pc(id: String) -> void:
 		"al reabrir esta la foto: dinero %d" % _dinero_en_disco(id))
 	Mundos.cargar(id)
 	ok((await Mundos.cerrar_y_subir()).get("ok", false), "cerrado")
+
+
+# 8. Una nube que aun no sabe de bases de datos (su abrir no trae bd_rev): el mundo sigue con su .tres, y
+# la copia de la BD de este disco vuelve a .tres sin perder nada.
+func _nube_vieja(id: String) -> void:
+	print("--- 8. nube sin base de datos (Worker sin publicar)")
+	var dinero: int = _dinero_en_disco(id)
+	var r: Dictionary = await Mundos._poner_al_dia(id, Mundos.entrada(id),
+		{"ok": true, "resultado": "host", "token": 1, "save": PackedByteArray(), "meta": {}})
+	ok(String(r.get("resultado", "")) == "host", "abre como siempre: %s" % str(r))
+	ok(not Mundos.usa_bd(id), "sin BD en este disco")
+	var d: SaveData = SaveIO.inspeccionar_ruta(Mundos.ruta(id))["datos"]
+	ok(d != null and d.money == dinero, "el .tres tiene lo de la BD (dinero %d)" % (d.money if d != null else -1))
 
 
 func _respaldos() -> int:

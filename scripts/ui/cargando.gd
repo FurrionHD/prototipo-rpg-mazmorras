@@ -44,6 +44,11 @@ func mostrar(texto: String = "Cargando...") -> void:
 	await get_tree().process_frame
 
 
+## Cambia el texto de la capa ya puesta (lo que va pasando mientras tanto).
+func poner_texto(texto: String) -> void:
+	_texto.text = texto
+
+
 func ocultar() -> void:
 	visible = false
 

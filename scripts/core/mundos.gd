@@ -380,6 +380,20 @@ func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
 	var formato: String = String(r.get("formato", ""))
 	_rev_nube = int(r.get("bd_rev", 0))
 	_cerrar_bd()
+	# UNA NUBE QUE AUN NO SABE DE BASES DE DATOS (el Worker sin publicar): el mundo sigue como siempre,
+	# en su .tres y subiendo el fichero entero. Si este disco ya lo tenia en BD, esa copia vuelve a .tres
+	# (es identica: se verifico al migrar) y la BD se quita; se migrara cuando la nube lo entienda.
+	var nube_con_bd: bool = r.has("bd_rev")
+	if not nube_con_bd and usa_bd(clave):
+		var de_bd: SaveData = inspeccionar(clave)["datos"] as SaveData
+		var en_tres: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+		var tres_fecha: String = String((en_tres["datos"] as SaveData).fecha) if en_tres["datos"] != null else ""
+		if de_bd != null and String(de_bd.fecha) >= tres_fecha:
+			if ResourceSaver.save(de_bd, ruta(clave)) != OK:
+				Nube._olvidar()
+				return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
+			push_warning("[mundos] %s: la nube no tiene base de datos aun: la copia de la BD vuelve a .tres" % clave)
+		PartidaBD.borrar(ruta_bd(clave))
 	if formato == "bd":
 		return await _al_dia_desde_bd(clave)
 
@@ -410,6 +424,8 @@ func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
 			return {"ok": false, "mensaje": SaveIO.motivo_texto(info)}
 		PartidaBD.borrar(ruta_bd(clave))   # una BD de aqui de antes de esto ya no vale
 
+	if not nube_con_bd:
+		return {"ok": true, "resultado": "host", "solo_local": manda_local}
 	# A la base de datos (si no lo estaba ya), y entera a la nube.
 	if not usa_bd(clave):
 		var m: Dictionary = MigracionBD.migrar(ruta(clave), ruta_bd(clave))

@@ -78,8 +78,10 @@ func _ready() -> void:
 	Nube.cerrojo_perdido.connect(func(m: String): MenuScaffold.decir(_piezas["aviso"], m, false))
 	# Unirse a un mundo pasa por aqui: la red avisa y la pantalla responde. Abrir el creador de
 	# personaje NO es cosa de la capa de red, y menos dentro de un RPC.
-	Net.estado_cambiado.connect(func(t: String): MenuScaffold.decir(_piezas["aviso"], t, true))
-	Net.partida.pedir_personaje.connect(_crear_mi_personaje_en_mundo_ajeno)
+	Net.estado_cambiado.connect(_al_estado_red)
+	Net.partida.pedir_personaje.connect(func(n: String):
+		Cargando.ocultar()   # toca crear el personaje: eso es contigo
+		_crear_mi_personaje_en_mundo_ajeno(n))
 	Net.partida.entrada_lista.connect(_entrar_al_mundo_ajeno)
 	# Los mundos apuntados solo para entrar invitado se van al volver aqui (ver Mundos.apuntar_invitacion).
 	Mundos.quitar_temporales()
@@ -156,6 +158,9 @@ func _volver() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and (event as InputEventKey).keycode == KEY_ESCAPE:
+		if Cargando.visible_ahora():
+			get_viewport().set_input_as_handled()   # entrando en un mundo: no se vuelve a medias
+			return
 		# PRIMERO se consume y LUEGO se cambia de escena: el cambio saca este nodo del arbol en el acto,
 		# y despues get_viewport() ya es null ("Cannot call method 'set_input_as_handled' on a null").
 		get_viewport().set_input_as_handled()
@@ -620,6 +625,10 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 	_trabajando = true
 	_decir("Entrando en el mundo...")
 	_pintar()
+	# La capa de carga TAPA el menu desde aqui hasta estar dentro (o hasta que haga falta algo de ti:
+	# crear tu personaje, o que falle). Sin ella se podia volver al menu principal a medio entrar.
+	_entrando = true
+	await Cargando.mostrar("Entrando en el mundo...")
 	var r: Dictionary
 	if token != "":
 		r = await Mundos.unirse(clave, pass_, token)
@@ -627,6 +636,8 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 		r = await Mundos.entrar(clave, pass_, forzar_build)
 	_trabajando = false
 	if not r.get("ok", false):
+		_entrando = false
+		Cargando.ocultar()
 		_decir(String(r.get("mensaje", "No se pudo abrir.")), false)
 		# BUILD DISTINTO no es una perdida de datos segura, solo un riesgo (los saves llevan rutas
 		# res:// dentro): lo normal es que dos builds tengan las mismas rutas y cargue perfecto. Si se
@@ -662,6 +673,21 @@ func _entrar(clave: String, pass_: String, forzar_build := false, token := "") -
 				_decir("Mundo abierto en %s%s. Entrando..." % [String(ips[0]), " y por Steam" if por_steam else ""])
 	else:
 		_decir("Conectando a %s..." % String(r.get("direccion", "")))
+
+
+# Lo que cuenta la red mientras entras va en la capa de carga; si la conexion se cae (o te rechazan),
+# la capa se quita para que se lea por que.
+var _entrando := false
+
+func _al_estado_red(t: String) -> void:
+	MenuScaffold.decir(_piezas["aviso"], t, true)
+	if not _entrando:
+		return
+	if Net.activo:
+		Cargando.poner_texto(t)
+	else:
+		_entrando = false
+		Cargando.ocultar()
 
 
 # ============================================================
