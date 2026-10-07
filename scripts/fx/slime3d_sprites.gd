@@ -22,6 +22,8 @@ const _COMUNES_MUT := ["idle", "walk", "embestida", "inflar", "hinchado", "aplas
 const _COMUNES_TOX := ["idle", "walk", "embestida", "escupir", "encaje", "muerte", "cadaver", "comer", "evolucion"]
 const _COMUNES_ABISAL := ["idle", "walk", "embestida", "escupir", "inflar", "hinchado", "aplaston", "deshincharse",
 	"encogido", "encaje", "muerte", "cadaver", "comer", "evolucion", "estrellas", "lluvia", "eclipse"]
+const _COMUNES_REY := ["idle", "walk", "embestida", "inflar", "hinchado", "aplaston", "deshincharse", "escupir",
+	"encaje", "muerte", "cadaver", "comer", "evolucion"]
 const MUTANTES := {
 	# El BROTADO: yemas con ojitos, tercer cuerno, nucleo y cristales dentro. 'evolucion' = del normal al brotado.
 	&"mut120": ["ff2b2b", 1.20, _COMUNES_MUT],
@@ -47,6 +49,11 @@ const MUTANTES := {
 	# (escupir el Chorro y sacudir las Esquirlas; soplar el Aliento y soltar los carambanos).
 	&"arr180": ["556a80", 1.80, _COMUNES_MUT + ["escupir", "sacudir"]],
 	&"esc198": ["556a80", 1.98, _COMUNES_MUT + ["soplar", "carambanos"]],
+	# LOS DEL REY SLIME (07/10): el REY TIRANO (corona de cristal y manto) y el REY DESTRONADO (corona rota, manto roto),
+	# con las anims del Rey + el Decreto del tirano (alza la corona) y las Esquirlas del destronado. El destronado no
+	# invoca: sin brote ni nacer.
+	&"tir308": ["55b8ff", 3.08, _COMUNES_REY + ["brote", "nacer", "decreto"]],
+	&"des308": ["55b8ff", 3.08, _COMUNES_REY + ["esquirlas"]],
 }
 # EL DE MIL OJOS PARPADEA POR GRUPOS (06/10: "cada ojo parpadea por su cuenta"): una hoja de parpados por grupo de ojos
 # (<anim>_parpado.png, _parpado2..), y cada una la pone una capa de Parpadeo a su aire.
@@ -100,7 +107,13 @@ const ANIMS := {
 	"sacudir": {"hoja": "sacudir", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"soplar": {"hoja": "soplar", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 	"carambanos": {"hoja": "carambanos", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
+	# LAS DEL REY TIRANO Y EL DESTRONADO (07/10).
+	"decreto": {"hoja": "decreto", "dirs": 8, "marcos": 12, "fps": 10.0, "loop": false, "opcional": true},
+	"esquirlas": {"hoja": "esquirlas", "dirs": 8, "marcos": 10, "fps": 12.0, "loop": false, "opcional": true},
 }
+# EL REY (07/10, retocado): SOLO SUS anims (+ comer); ignicion y encogido eran del generador comun y ya no se hornean.
+const ANIMS_REY := ["idle", "walk", "embestida", "inflar", "hinchado", "aplaston", "deshincharse", "escupir", "brote",
+	"nacer", "encaje", "muerte", "cadaver", "comer"]
 
 
 # La variante horneada que le toca: [carpeta, color base, escala].
@@ -181,8 +194,8 @@ static func parpados_de(ed: EnemyData, t: float, mutante: bool = false, mutacion
 		return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(v[3]), SlimeSprites._lienzo(float(v[2])),
 			Color(String(v[1])), _tinte_mutante(ed, t, v), "_parpado")
 	v = _variante(ed.escala_visual, ed.corona_slime, ed.lava_slime)
-	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, SlimeSprites._lienzo(float(v[2])), Color(String(v[1])),
-		color, "_parpado")
+	return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(ANIMS_REY) if ed.corona_slime else ANIMS,
+		SlimeSprites._lienzo(float(v[2])), Color(String(v[1])), color, "_parpado")
 
 
 # LOS DEMAS GRUPOS DE PARPADOS (el de mil ojos): [SpriteFrames] de _parpado2, _parpado3... ([] si no tiene).
@@ -219,5 +232,5 @@ static func generar(color: Color = Color(1.0, 0.2, 0.2), corona: bool = false, e
 		lava: bool = false) -> SpriteFrames:
 	var v: Array = _variante(escala, corona, lava)
 	var lienzo: Vector2i = SlimeSprites._lienzo(float(v[2]))
-	return Sprites3D.montar(CARPETA % String(v[0]), ANIMS, lienzo, Color(String(v[1])),
+	return Sprites3D.montar(CARPETA % String(v[0]), _anims_de(ANIMS_REY) if corona else ANIMS, lienzo, Color(String(v[1])),
 		SpriteLienzo.cuantizar_hsv(color, SlimeSprites.COLOR_PASOS))

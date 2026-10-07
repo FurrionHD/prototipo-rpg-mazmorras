@@ -136,6 +136,10 @@ func _enemy_turn(e: Combatant) -> void:
 			_pantalla.turno_mapa.gastar_turno_pegada(e)
 			return
 
+	# ORDEN REAL (07/10, el Rey tirano): al empezar su turno, si le caben subditos, saca uno GRATIS y sigue con su turno.
+	if not _pantalla._dps_on:
+		_orden_real(e)
+
 	# INVOCACION (Rey Slime): tiene PRIORIDAD sobre todo lo demas. Si el Rey trae una habilidad de
 	# invocacion lista y hay sitio para meter slimes, la lanza SIEMPRE (telegrafiada). Va antes del
 	# roll normal para que "siempre que la tenga sin cd" se cumpla, y el gate evita malgastarla con
@@ -448,6 +452,59 @@ func _fx_adorno(e: Combatant, ab: AbilityData, obj: Combatant, lista_area = null
 		_pantalla.efectos._fx_golpe(e, obj, 0.0, false, false, el, estilo, 1.0, true, sfx)
 
 
+# ORDEN REAL (07/10, el Rey tirano, ver MutacionData): cada orden_cada turnos suyos, si le caben subditos (los mismos
+# huecos que el Brote), saca UNO de su orden_pool sin gastar el turno ni cargar: lo hace y luego actua como siempre. Va
+# en su propia tanda de efectos (la gota sale de el y cae donde nace el subdito, con su gesto de brote).
+func _orden_real(e: Combatant) -> void:
+	if not e.orden_real or e.orden_pool.is_empty() or _pantalla._espejo:
+		return
+	if e.orden_espera > 0:
+		e.orden_espera -= 1
+		return
+	if not _hay_sitio_para_invocar(e):
+		return
+	var pick: EnemyData = e.orden_pool[randi() % e.orden_pool.size()]
+	var cria: Combatant = _pantalla.altas._invocar_slime(pick)
+	if cria == null:
+		return
+	e.orden_espera = maxi(0, e.orden_cada - 1)
+	if _pantalla.tactico:
+		_pantalla.turno_mapa.dar_cuerpo_a_cria(e, cria, pick)
+	if _pantalla._fx != null:
+		_pantalla.efectos._fx_tanda(_pantalla._fx.ultima_tanda() + 1)
+	_pantalla.efectos._fx_golpe(e, cria, 0.0, false, false, e.elemento_ataque,
+		CombatFX.Estilo.SLIME_ESCUPE if _pantalla.tactico else CombatFX.Estilo.ESCUPITAJO, 1.2, true,
+		"", AbilityData.Gesto.AUTO, &"brote")
+	_pantalla._update_hp()
+	_pantalla._log_extra("👑 %s da una orden: ¡un %s se le pone delante!" % [_pantalla._etq(e), pick.enemy_name.to_lower()])
+
+
+# EL DECRETO (07/10, el Rey tirano): marca a uno de los tuyos (el que mas le pesa de su tabla, este donde este) con el
+# estado DECRETO, sin tirada: es una orden a sus subditos (van solo a por el y le pegan decreto_mult). Sin daño.
+func _decreto(e: Combatant, ab: AbilityData) -> void:
+	e.start_cooldown(ab)
+	var marcado: Combatant = null
+	var w_mejor: float = -1.0
+	for c in _pantalla._aliados_vivos():
+		var w: float = _pantalla.objetivos._peso_aggro(c, e)
+		if w > w_mejor:
+			w_mejor = w
+			marcado = c
+	if marcado == null:
+		_no_llega(e, ab)
+		_pantalla._pausa_lectura()
+		return
+	marcado.apply_status(StatusEffects.Id.DECRETO, ab.decreto_turnos)
+	marcado.decreto_mult = ab.decreto_mult
+	_pantalla.efectos._fx_golpe(e, marcado, 0.0, false, false, Elementos.Elemento.NINGUNO,
+		ab.fx_estilo if ab.fx_estilo >= 0 else CombatFX.Estilo.PASIVA_DESTELLO, 1.0, true, "", AbilityData.Gesto.AUTO,
+		ab.fx_anim)
+	_pantalla._set_log("👑 %s usa %s: ¡%s queda señalado! Sus súbditos van a por él %d turnos." % [_pantalla._etq(e),
+		ab.nombre, marcado.nombre, ab.decreto_turnos])
+	_pantalla._update_hp()
+	_pantalla._pausa_lectura()
+
+
 func _invocacion_lista(e: Combatant) -> AbilityData:
 	for ab in e.habilidades:
 		if ab.invoca_cantidad > 0 and e.ability_ready(ab) and _hay_sitio_para_invocar(e):
@@ -529,6 +586,10 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, t
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
 # resuelve turnos despues de anunciarse: para entonces su presa puede haber cambiado.
 func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null) -> void:
+	# (07/10) EL DECRETO del Rey tirano: no pega, señala.
+	if ab.decreto_turnos > 0:
+		_decreto(e, ab)
+		return
 	# LAS BURBUJAS FLOTANTES (06/10, el slime pestilente): no pegan a nadie al soltarlas; se quedan flotando por el suelo
 	# hasta que alguien las atraviesa o revientan solas (CombatTactico.poner_burbujas). Solo en el mapa.
 	if _pantalla.tactico and ab.burbujas_max > 0:
@@ -615,6 +676,9 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
 			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.turno_mapa.poner_charco(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)
+			# (07/10, el Rey destronado) LAS PIEZAS que se quedan: los pedazos de la Escision, las esquirlas clavadas.
+			if ab.piezas > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
+				_pantalla.turno_mapa.poner_piezas(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)
 		# LOS GOLPES SE REPARTEN por la huella (forma_reparte: la Tromba, la Escision): uno a cada uno de
 		# los de dentro, por turnos y del mas cercano al centro al mas lejano. Va por la rama del reparto.
 		var reparte_mapa: bool = lista_mapa != null and ab.forma_reparte

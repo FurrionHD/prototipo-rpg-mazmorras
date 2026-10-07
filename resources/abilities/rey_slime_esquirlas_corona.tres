@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" uid="uid://bck3f5q1ls57g" path="res://scripts/items/ability_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmohhsi5mdtva" path="res://scripts/items/status_application.gd" id="2"]
+
+[sub_resource type="Resource" id="SA_s"]
+script = ExtResource("2")
+estado = 1
+prob = 0.4
+
+[resource]
+script = ExtResource("1")
+fx_anim = &"esquirlas"
+fx_estilo = 10
+coste_energia = 0.0
+nombre = "Esquirlas de la corona"
+descripcion = "Se arranca trozos de la corona rota y te los tira a la cara. Los que no te dan se quedan clavados en el suelo, de punta."
+cooldown = 3
+golpes_min = 4
+golpes_max = 4
+dano_mult = 0.6
+reparto_por_golpe = true
+efectos = [SubResource("SA_s")]
+efectos_por_golpe = true
+; (07/10, el Rey destronado) abanico de 60 grados y 90 de alcance, 4 esquirlas de 0,6, Sangrado 40 % cada una.
+forma = 2
+forma_apunte = 1
+forma_radio = 90.0
+forma_apertura = 60.0
+; SU DIBUJO: las esquirlas de cristal que salen de su corona (ReyAire.ESQUIRLAS = SueloRoto.REY_ESQUIRLAS).
+suelo_roto = 104
+; LAS ESQUIRLAS CLAVADAS: 4 trampas 2 turnos; pisarlas corta (30 % de su ataque) y abre Sangrado. No se recogen.
+pieza = 2
+piezas = 4
+pieza_turnos = 2
+charco_radio = 11.0
+charco_dano = 0.3
+charco_efectos = [SubResource("SA_s")]
+charco_texto = "una esquirla de su corona"

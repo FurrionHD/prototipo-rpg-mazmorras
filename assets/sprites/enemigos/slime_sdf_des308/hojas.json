@@ -1,0 +1,112 @@
+{
+ "lienzo": [
+  152,
+  140
+ ],
+ "anims": {
+  "idle": {
+   "fotogramas": 8,
+   "fps": 4.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "walk": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "embestida": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "inflar": {
+   "fotogramas": 8,
+   "fps": 9.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "hinchado": {
+   "fotogramas": 8,
+   "fps": 8.0,
+   "loop": true,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "deshincharse": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "aplaston": {
+   "fotogramas": 8,
+   "fps": 14.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "escupir": {
+   "fotogramas": 8,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "muerte": {
+   "fotogramas": 8,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "encaje": {
+   "fotogramas": 4,
+   "fps": 18.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "comer": {
+   "fotogramas": 12,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "evolucion": {
+   "fotogramas": 18,
+   "fps": 10.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  },
+  "esquirlas": {
+   "fotogramas": 10,
+   "fps": 12.0,
+   "loop": false,
+   "dirs": 8,
+   "parpado": true,
+   "grupos_parpado": 1
+  }
+ }
+}

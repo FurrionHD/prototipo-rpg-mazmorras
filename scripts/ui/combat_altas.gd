@@ -316,9 +316,14 @@ func _ordenar_fila_enemigos() -> void:
 	var orden: Array = resto.duplicate()
 	for w in jefes:
 		orden.insert(orden.size() / 2, w)
+	# (07/10) Solo las que YA estan en la fila, y sin pasarse del final: una invocacion (la Orden real del tirano) puede
+	# llegar aqui con su columna aun sin meter, y move_child a un indice que no existe daba error.
+	var box: Control = _pantalla._bloques_box
 	var idx: int = 0
 	for w in orden + ocultos:
-		_pantalla._bloques_box.move_child(w, idx)
+		if (w as Control).get_parent() != box:
+			continue
+		box.move_child(w, mini(idx, box.get_child_count() - 1))
 		idx += 1
 
 

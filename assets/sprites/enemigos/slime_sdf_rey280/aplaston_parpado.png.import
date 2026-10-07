@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5en8e1ye6kpl"
-path="res://.godot/imported/encogido.png-6896486ba81549bc35d79e37b8a12c6f.ctex"
+uid="uid://bgremx7rnuegi"
+path="res://.godot/imported/aplaston_parpado.png-95d1fca80c97f02b5bb379124448a7b1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemigos/slime_sdf_rey280/encogido.png"
-dest_files=["res://.godot/imported/encogido.png-6896486ba81549bc35d79e37b8a12c6f.ctex"]
+source_file="res://assets/sprites/enemigos/slime_sdf_rey280/aplaston_parpado.png"
+dest_files=["res://.godot/imported/aplaston_parpado.png-95d1fca80c97f02b5bb379124448a7b1.ctex"]
 
 [params]
 

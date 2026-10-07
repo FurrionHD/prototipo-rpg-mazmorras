@@ -8,11 +8,46 @@
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_escision.tres" id="6_esc"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_marea.tres" id="7_mar"]
 [ext_resource type="Resource" path="res://resources/abilities/rey_slime_invocacion.tres" id="8_inv"]
+[ext_resource type="Script" path="res://scripts/actors/enemy/mutacion_data.gd" id="9_mut"]
+[ext_resource type="Script" path="res://scripts/items/ability_data.gd" id="10_ab"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_decreto.tres" id="11_dec"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_esquirlas_corona.tres" id="12_esq"]
+[ext_resource type="Resource" path="res://resources/abilities/rey_slime_escision_destronado.tres" id="13_esd"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime.tres" id="14_s1"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_veneno.tres" id="15_s2"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_fuego.tres" id="16_s3"]
+[ext_resource type="Resource" path="res://scenes/actors/enemy/slime_abisal.tres" id="17_s4"]
 
 [sub_resource type="Resource" id="SA_peg"]
 script = ExtResource("2_sa")
 estado = 9
 prob = 0.7
+
+[sub_resource type="Resource" id="MUT_tirano"]
+script = ExtResource("9_mut")
+id = &"tirano"
+nombre = "Rey tirano"
+grado = 1
+habilidades = Array[ExtResource("10_ab")]([ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar"), ExtResource("11_dec")])
+sprite = &"tir308"
+orden_real = true
+orden_cada = 2
+orden_pool = [ExtResource("14_s1"), ExtResource("15_s2"), ExtResource("16_s3"), ExtResource("17_s4")]
+escudo_subditos_prob = 0.35
+tributo_cura = 0.05
+
+[sub_resource type="Resource" id="MUT_destronado"]
+script = ExtResource("9_mut")
+id = &"destronado"
+nombre = "Rey destronado"
+grado = 2
+desde = Array[StringName]([&"tirano"])
+habilidades = Array[ExtResource("10_ab")]([ExtResource("5_apl"), ExtResource("7_mar"), ExtResource("12_esq"), ExtResource("13_esd")])
+sprite = &"des308"
+sin_sequito = true
+rabia_tramo = 0.25
+rabia_por_tramo = 0.1
+rabia_tramos_max = 3
 
 [resource]
 script = ExtResource("1_g8nro")
@@ -55,6 +90,7 @@ drop_piso_pleno = 6
 al_golpear = [SubResource("SA_peg")]
 fx_basico = 19
 habilidades = [ExtResource("5_apl"), ExtResource("6_esc"), ExtResource("7_mar"), ExtResource("8_inv")]
+mutaciones = Array[ExtResource("9_mut")]([SubResource("MUT_tirano"), SubResource("MUT_destronado")])
 status_resist = 1.8
 eficacia = 1.5
 prob_habilidad = 0.7

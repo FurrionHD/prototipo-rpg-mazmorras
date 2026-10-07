@@ -439,7 +439,10 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		FLECHA_SALTO = 204, ANDANADA = 205,
 		# LOS MUTANTES DEL SLIME PROFUNDO (07/10, ProfundoAire.sobre_cuerpo): el PINCHAZO de la anemona del arrecife (del slime
 		# a quien le pega) y el DESTELLO HELADO del aura fria de la escarcha (en quien se queda congelado).
-		PROFUNDO_ANEMONA = 206, PROFUNDO_HELADA = 207 }
+		PROFUNDO_ANEMONA = 206, PROFUNDO_HELADA = 207,
+		# LOS MUTANTES DEL REY SLIME (07/10, ReyAire.sobre_cuerpo): la CORONITA del Decreto sobre el señalado y el TRIBUTO
+		# (el cristal del subdito caido que vuela hasta el rey).
+		REY_DECRETO = 208, REY_TRIBUTO = 209 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -474,6 +477,8 @@ const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Es
 	Estilo.FLECHA_SALTO, Estilo.ANDANADA,
 	# los mutantes del slime profundo (ProfundoAire, 07/10): el pinchazo de la anemona y el destello helado.
 	Estilo.PROFUNDO_ANEMONA, Estilo.PROFUNDO_HELADA,
+	# los mutantes del Rey Slime (ReyAire, 07/10): el Decreto y el Tributo.
+	Estilo.REY_DECRETO, Estilo.REY_TRIBUTO,
 	# los slimes (SlimeAire, 28/09): sobre el cuerpo que recibe.
 	Estilo.SLIME_GOLPE, Estilo.SLIME_ESCUPE, Estilo.SLIME_TROMBA, Estilo.SLIME_TROZO, Estilo.SLIME_IGNICION,
 	# las bestias (BestiaAire, 28/09): sobre el cuerpo que recibe.
@@ -685,6 +690,8 @@ const T_VUELO := {
 	Estilo.AVISO_INTERRUMPIDO: 0.02, Estilo.AVISO_RETRASO: 0.02, Estilo.AVISO_INMUNE: 0.02,
 	# Los tentaculos de la anemona se estiran mientras llega el golpe (ProfundoAire.T_ESTIRA); el hielo, EN el golpe.
 	Estilo.PROFUNDO_ANEMONA: 0.12, Estilo.PROFUNDO_HELADA: 0.02,
+	# (el Decreto se forma cuando alza la corona -IMPACTO_ANIM_MAPA 'decreto'-; el Tributo sale al caer el subdito)
+	Estilo.REY_DECRETO: 0.0, Estilo.REY_TRIBUTO: 0.0,
 	# El puño lo lleva su sprite: el barro revienta EN el golpe.
 	Estilo.CONSTRUCTO_PUNO: 0.02, Estilo.CONSTRUCTO_MACHACA: 0.02,
 	# La garra la lleva su sprite y los surcos se abren EN el golpe; la losa cae EN el golpe; la piedra sube cuando le
@@ -2076,6 +2083,9 @@ const IMPACTO_ANIM_MAPA := {
 	# Los mutantes del profundo (07/10): el arrecife suelta las Esquirlas al dar el respingo (0,58 de 10 marcos a 12 fps);
 	# la escarcha sopla el Aliento al vaciarse (0,5) y suelta los Carambanos al caer del bote (0,62).
 	"sacudir": 0.48, "soplar": 0.42, "carambanos": 0.52,
+	# Los mutantes del Rey Slime (07/10): el tirano alza la corona del Decreto (0,40 de 12 marcos a 10 fps); el
+	# destronado suelta las Esquirlas con el respingo (0,58 de 10 marcos a 12 fps).
+	"decreto": 0.48, "esquirlas": 0.48,
 	# EL ARCO Y LA BALLESTA (03/10): el golpe llega cuando suelta MAS lo que vuela (CombatFX.vuelo del estilo): el
 	# arco suelta en el 8 de 12 a 18 fps (0,44) y la flecha tarda 0,20; la ballesta dispara en el 4 (0,22) + 0,15.
 	"disparo_arco": 0.64, "disparo_ballesta": 0.37,
@@ -2804,7 +2814,8 @@ func _process(delta: float) -> void:
 			# el gesto del cuerpo.)
 			if rect_en_mapa.is_valid() and estilo in DIBUJO_MAPA:
 				dibujo_en_mapa.emit(ev, vuelo)
-			elif (estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE) 					or estilo == Estilo.PROFUNDO_ANEMONA or estilo == Estilo.PROFUNDO_HELADA:
+			elif (estilo >= Estilo.PASIVA_LLAMADA and estilo <= Estilo.AVISO_INMUNE) 					or estilo == Estilo.PROFUNDO_ANEMONA or estilo == Estilo.PROFUNDO_HELADA \
+					or estilo == Estilo.REY_DECRETO or estilo == Estilo.REY_TRIBUTO:
 				pass   # las pasivas y los avisos (PasivaAire), y los del profundo (ProfundoAire), solo se pintan en el mapa
 			elif _capa_fx != null and not bool(ev.get("sin_dibujo", false)) \
 					and float(ev.get("retraso_suelo", -1.0)) < 0.0 \

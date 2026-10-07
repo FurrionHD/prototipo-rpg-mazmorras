@@ -725,7 +725,52 @@ func _mult_pasivas(atacante: Combatant, defensor: Combatant) -> float:
 	# RABIA DEL GUARDIAN (el Minotauro): en rabia pega mas.
 	if atacante.en_rabia():
 		m *= atacante.rabia_mult
+	# (07/10) LA RABIA POR TRAMOS del Rey destronado: +10 % por cada cuarto de vida perdido.
+	m *= atacante.mult_rabia_tramos()
+	# EL DECRETO del Rey tirano: sus subditos le pegan mas al marcado.
+	if defensor.has_status(StatusEffects.Id.DECRETO) and es_subdito(atacante):
+		m *= defensor.decreto_mult
 	return m
+
+
+# UN SUBDITO del Rey (07/10, los mutantes del Rey Slime): un slime de su bando que no es un rey (Combatant.es_rey: el de
+# la corona, mute o no; el destronado tampoco tiene sequito pero sigue siendo rey).
+func es_subdito(c: Combatant) -> bool:
+	return c != null and c.es_slime and not c.es_rey and _enemies.has(c)
+
+
+# ESCUDO DE SUBDITOS (07/10, el Rey tirano, ver MutacionData): un golpe de arma a EL SOLO, con un subdito pegado (a un paso,
+# como cuerpo a cuerpo): a veces (35 %) el subdito se pone delante y se lo come entero. Devuelve a quien le llega el golpe.
+func escudo_subdito(obj: Combatant, quien: Combatant) -> Combatant:
+	if obj == null or obj.escudo_subditos_prob <= 0.0 or not _enemies.has(obj) or not obj.is_alive() or _espejo:
+		return obj
+	var cerca: Array = []
+	for s in _enemies:
+		var sc: Combatant = s
+		if sc != obj and sc.is_alive() and es_subdito(sc) and (not tactico or turno_mapa.hueco_entre(sc, obj) <= HUECO_CUERPO_A_CUERPO):
+			cerca.append(sc)
+	if cerca.is_empty() or randf() >= obj.escudo_subditos_prob:
+		return obj
+	var escudo: Combatant = cerca[randi() % cerca.size()]
+	_log_extra("🛡 %s se lanza delante de %s y se come el golpe de %s" % [_etq(escudo), _etq(obj),
+		quien.nombre if quien != null else "los tuyos"])
+	return escudo
+
+
+# TRIBUTO (07/10, el Rey tirano, ver MutacionData): al caer uno de sus subditos, el rey recoge su cristal y se cura una
+# parte de su vida (5 %). Solo quien ejecuta la pelea.
+func _tributo(muerto: Combatant) -> void:
+	if muerto == null or not es_subdito(muerto) or _espejo:
+		return
+	for r in _enemies:
+		var rey: Combatant = r
+		if rey == muerto or not rey.is_alive() or rey.tributo_cura <= 0.0:
+			continue
+		var cura: float = rey.max_hp * rey.tributo_cura
+		rey.heal(cura)
+		efectos._fx_golpe(muerto, rey, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.REY_TRIBUTO, 1.0, true)
+		_update_hp()
+		_log_extra("👑 %s se queda el cristal de %s: +%.2f de vida" % [_etq(rey), muerto.nombre, cura])
 
 
 # El empujon del Rey de la camada a 'atacante' (1 si no es de ninguna camada con rey vivo).
@@ -1423,7 +1468,7 @@ func _process(delta: float) -> void:
 		var cspeed: float = c.cast_spd() if casteando else c.spd()
 		_gauge[c] += cspeed * datb * rate
 	for e in _vivos():
-		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0)
+		_gauge[e] += e.spd() * datb * escala * (e.rabia_velocidad if e.en_rabia() else 1.0) * e.mult_rabia_tramos()
 
 	# Actua el que tenga la barra MAS llena por encima del umbral. Se arranca por los TUYOS y se
 	# compara con > estricto, asi los empates caen de tu lado (es lo mismo que hacia el
@@ -2026,6 +2071,8 @@ func _accion_atacar() -> void:
 # 'principal' repone maná: el virote que atraviesa no es un golpe mas de tu turno.
 func _golpe_basico(obj: Combatant, escala: float, nota: String, principal: bool, estilo_bas: int,
 		con_arma: String, arma_factor: float, pj_atacante: PersonajeData, semilla_fx: int = 0) -> bool:
+	# (07/10) EL ESCUDO DE SUBDITOS del Rey tirano: a veces un subdito suyo se pone delante.
+	obj = escudo_subdito(obj, _player)
 	# Los enemigos no defienden (de momento): defending = false.
 	var result := StatsMath.resolve_attack(_player, obj, false)
 	if escala != 1.0:
@@ -2492,6 +2539,7 @@ func _morir_enemigo(e: Combatant) -> void:
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
 		_revienta(e)
+		_tributo(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
 			figuras._seleccionar(hueco)   # el nuevo ocupa el sitio de tu objetivo: que se vea marcado

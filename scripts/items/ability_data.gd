@@ -384,6 +384,21 @@ func es_preparacion() -> bool:
 @export var burbuja_dano: float = 0.6
 @export var burbuja_turnos_min: int = 1
 @export var burbuja_turnos_max: int = 3
+# (07/10, los mutantes del REY SLIME, numeros aprobados; solo en el mapa)
+# PIEZAS QUE SE QUEDAN EN EL SUELO tras pegar: 'piezas' charquitos de charco_radio al azar dentro de su huella, durante
+# pieza_turnos turnos suyos. Al pisarlos: charco_dano de su ataque + charco_efectos (como un charco), y la pieza se
+# acaba (la aplastas). PIEZA_PEDAZO = los pedazos de la Escision del destronado: los que queden al acabarse sus turnos
+# SE LE VUELVEN A JUNTAR (le curan pieza_cura de su vida cada uno). PIEZA_ESQUIRLA = las esquirlas de su corona, que se
+# quedan clavadas (trampas: no se recogen).
+enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
+@export var pieza: int = Pieza.NINGUNA
+@export var piezas: int = 0
+@export var pieza_turnos: int = 2
+@export var pieza_cura: float = 0.0
+# EL DECRETO (el Rey tirano): sin daño; marca a uno de los tuyos 'decreto_turnos' (estado DECRETO, sin tirada): sus
+# subditos solo van a por el y le hacen decreto_mult de daño.
+@export var decreto_turnos: int = 0
+@export var decreto_mult: float = 1.2
 # (06/10, los mutantes del slime ABISAL, solo en el mapa)
 # LLUVIA DE ESTRELLAS: 'estrellas_fugaces' caen AL AZAR dentro de su circulo (los puntos salen de la huella:
 # AbisalAire.puntos_lluvia); a cada uno de los tuyos le pega cada una que caiga a 'fugaz_radio' de su cuerpo.

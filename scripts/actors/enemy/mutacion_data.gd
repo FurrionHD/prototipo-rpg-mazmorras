@@ -81,3 +81,21 @@ class_name MutacionData
 @export var aura_efectos: Array = []
 # MOJADO SE HIELA (la escarcha): si golpea a alguien MOJADO, la Congelacion le entra SEGURA.
 @export var mojado_se_hiela: bool = false
+# (07/10, los mutantes del REY SLIME: el tirano y el destronado; numeros aprobados por el jefe)
+# ORDEN REAL (el tirano): al EMPEZAR su turno, si le caben subditos, saca 1 de orden_pool GRATIS (sin carga ni gastar el
+# turno), cada orden_cada turnos suyos. Sustituye al Brote.
+@export var orden_real: bool = false
+@export var orden_cada: int = 2
+@export var orden_pool: Array = []
+# ESCUDO DE SUBDITOS (el tirano): un golpe de arma a el SOLO, con un subdito pegado: escudo_subditos_prob de que el
+# subdito se ponga delante y se lo coma entero.
+@export var escudo_subditos_prob: float = 0.0
+# TRIBUTO (el tirano): al morir un subdito, recoge su cristal y se cura tributo_cura de su vida maxima.
+@export var tributo_cura: float = 0.0
+# SIN SEQUITO (el destronado): nadie le sigue: sin la reduccion de daño por los slimes que le acompañan.
+@export var sin_sequito: bool = false
+# RABIA POR TRAMOS (el destronado): por cada rabia_tramo de vida perdida, +rabia_por_tramo de ataque y de velocidad,
+# hasta rabia_tramos_max tramos.
+@export var rabia_tramo: float = 0.0
+@export var rabia_por_tramo: float = 0.10
+@export var rabia_tramos_max: int = 3

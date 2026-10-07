@@ -67,6 +67,10 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var olor: Combatant = presa_por_olor(quien, vivos)
 	if olor != null and not atenuado:
 		return _redirigir_cobertura(olor)
+	# EL DECRETO (07/10, el Rey tirano): sus subditos SOLO van a por el marcado; si no le llegan, nada.
+	var marcado: Combatant = presa_por_decreto(quien)
+	if marcado != null:
+		return _redirigir_cobertura(marcado) if vivos.has(marcado) else null
 	var pesos: Array[float] = []
 	var total: float = 0.0
 	for c in vivos:
@@ -84,6 +88,20 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 		if r < 0.0:
 			return _redirigir_cobertura(vivos[i])
 	return _redirigir_cobertura(vivos[vivos.size() - 1])
+
+
+# EL DECRETO (07/10, el Rey tirano): el marcado (estado DECRETO), si 'quien' es un subdito del rey y no esta PROVOCADO
+# (la Provocacion del escudo le sigue pudiendo). null = sigue como siempre.
+func presa_por_decreto(quien: Combatant) -> Combatant:
+	if quien == null or not _pantalla.es_subdito(quien):
+		return null
+	var marcado: Combatant = null
+	for c in _pantalla._aliados_vivos():
+		if c.provocar_turnos > 0 and quien in c.provocados:
+			return null
+		if c.has_status(StatusEffects.Id.DECRETO):
+			marcado = c
+	return marcado
 
 
 # OLOR A SANGRE (30/09, EnemyData.olor_sangre_mult): entre 'vivos', el que sangra (el que menos vida le quede si son
