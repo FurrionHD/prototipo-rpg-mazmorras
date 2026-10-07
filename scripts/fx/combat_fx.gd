@@ -2381,6 +2381,27 @@ func _encajar(ev: Dictionary) -> void:
 	golpe_encajado.emit(ev["bv"], T_ENCAJE / maxf(escala_tiempo, 0.01))
 
 
+# LO QUE LE FALTA AL PRIMER GOLPE del gesto de 'bloque', en SEGUNDOS REALES (-1 si no tiene gesto en curso). Lo pide el
+# salto del mapa (CombatTactico._on_gesto_desliz) para CAER justo cuando pega: la duracion del aviso no le vale (en el
+# Reventon es solo el coger aire antes de despegar; en el Frenesi de la rata, toda su animacion). 07/10, su aviso: "primero
+# aparece el efecto y el daño y luego saltan".
+func t_al_impacto(bloque: Dictionary) -> float:
+	for p in _gestos:
+		if is_same(p["bloque"], bloque):
+			return maxf(float(p["t_imp"]) - _t, 0.0) / maxf(escala_tiempo, 0.01)
+	return -1.0
+
+
+# Y LO QUE LE FALTA AL ULTIMO (la vuelta del Picado tiene que esperar a su ultimo mordisco, no salir tras el segundo).
+func t_al_ultimo_golpe(bloque: Dictionary) -> float:
+	for p in _gestos:
+		if is_same(p["bloque"], bloque):
+			var golpes: Array = p.get("golpes", [])
+			var t_ult: float = float(golpes.back()) if not golpes.is_empty() else float(p["t_imp"])
+			return maxf(t_ult - _t, 0.0) / maxf(escala_tiempo, 0.01)
+	return -1.0
+
+
 func _cerrar_gestos() -> void:
 	for p in _gestos:
 		if not bool(p["fin_lanzado"]):
