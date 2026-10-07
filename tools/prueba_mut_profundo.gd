@@ -64,6 +64,8 @@ func _empuja(tm, c: Combatant) -> bool:
 	return false
 
 
+# (07/10) EL DADO FIJO: ningun estado entra seguro (StatusEffects.PROB_TECHO = 95 %), asi que se fija la semilla
+# antes de cada habilidad que se mira: misma tirada en cada pasada, la prueba no depende de la suerte.
 func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
@@ -180,6 +182,7 @@ func _correr() -> void:
 	_poner(tm, al[0], pa + Vector2(-30, 0))
 	_lejos(tm, al, pa, [al[0]])
 	arr.al_ser_golpeado_prob = 1.0
+	seed(4242)
 	combat._pasiva_al_golpearle(arr, al[0], 1.0)
 	_ver(al[0].has_status(StatusEffects.Id.DEBIL), "pegarle de cerca te deja DEBIL")
 	arr.al_ser_golpeado_prob = 0.3
@@ -188,9 +191,11 @@ func _correr() -> void:
 	print("7) MOJADO SE HIELA")
 	esc.on_hit = []   # (sin su Congelacion al 25 %: que se vea la que entra por estar mojado)
 	al[0].apply_status(StatusEffects.Id.MOJADO)
+	seed(4242)
 	esc.roll_on_hit(al[0])
 	_ver(al[0].has_status(StatusEffects.Id.CONGELACION), "su golpe a uno MOJADO lo congela seguro")
 	al[0].statuses.clear()
+	seed(4242)
 	esc.roll_on_hit(al[0])
 	_ver(not al[0].has_status(StatusEffects.Id.CONGELACION), "(seco, no)")
 	al[0].statuses.clear()
@@ -198,10 +203,12 @@ func _correr() -> void:
 	print("8) EL AURA FRIA")
 	_poner(tm, al[0], pe + Vector2(-28, 0))
 	esc.aura_prob = 1.0
+	seed(4242)
 	combat._aura_fria(al[0])
 	_ver(al[0].has_status(StatusEffects.Id.CONGELACION), "acabar pegado a el te congela")
 	al[0].statuses.clear()
 	_poner(tm, al[0], pe + Vector2(-200, 0))
+	seed(4242)
 	combat._aura_fria(al[0])
 	_ver(not al[0].has_status(StatusEffects.Id.CONGELACION), "(lejos, no)")
 	esc.aura_prob = 0.35
@@ -214,6 +221,7 @@ func _correr() -> void:
 	tm.guardar_carga_enemigo(arr, rm, al[0])
 	tm._tirones.clear()
 	var hp: float = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(arr, rm)
 	_ver(al[0].current_hp < hp, "pega (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	_ver(al[0].has_status(StatusEffects.Id.MOJADO), "y le moja")
@@ -230,6 +238,7 @@ func _correr() -> void:
 	tm._tirones.clear()
 	var h0: float = al[0].current_hp
 	var h1: float = al[1].current_hp
+	seed(4242)
 	en._enemy_use_ability(arr, _segura("slime_chorro_presion"), al[0])
 	_ver(al[0].current_hp < h0 and al[1].current_hp < h1, "barre a los dos de la linea")
 	_ver(al[0].has_status(StatusEffects.Id.MOJADO) and al[1].has_status(StatusEffects.Id.MOJADO), "y los moja")
@@ -242,6 +251,7 @@ func _correr() -> void:
 	_poner(tm, al[0], pa + Vector2(-40, 0))
 	_lejos(tm, al, pa, [al[0]])
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(arr, _segura("slime_esquirlas_coral"), al[0])
 	_ver(al[0].current_hp < hp, "le alcanzan (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	_ver(al[0].has_status(StatusEffects.Id.SANGRADO), "y le abren un corte")
@@ -255,6 +265,7 @@ func _correr() -> void:
 	var eh: AbilityData = _segura("slime_estallido_helado")
 	tm.guardar_carga_enemigo(esc, eh, al[0])
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(esc, eh)
 	print("    hp %.1f -> %.1f, estados %s" % [hp, al[0].current_hp, al[0].statuses.map(func(x): return x.id())])
 	_ver(al[0].current_hp < hp and al[0].has_status(StatusEffects.Id.CONGELACION), "pega y congela")
@@ -266,6 +277,7 @@ func _correr() -> void:
 	_poner(tm, al[0], pe + Vector2(-45, 0))
 	_lejos(tm, al, pe, [al[0]])
 	tm._animar(tm.cuerpo_de(esc), Vector2(-1, 0), false)
+	seed(4242)
 	en._enemy_use_ability(esc, _segura("slime_aliento_gelido"), al[0])
 	_ver(al[0].has_status(StatusEffects.Id.CONGELACION), "el vaho congela al de delante")
 	await _esperar(3)
@@ -277,6 +289,7 @@ func _correr() -> void:
 	_lejos(tm, al, pe, [al[0]])
 	tm._animar(tm.cuerpo_de(esc), Vector2(-1, 0), false)
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(esc, _segura("slime_carambanos"), al[0])
 	var fc = tm.ultima_forma_enemigo
 	_ver(fc != null and fc.en_bolas(), "la huella es una fila de circulos")

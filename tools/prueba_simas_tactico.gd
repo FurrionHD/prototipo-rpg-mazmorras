@@ -108,7 +108,9 @@ func _correr() -> void:
 			combat.enemigos._enemy_use_ability(e, esp, al[0])
 			combat._fx.arrancar_cola()
 			await _segundos(1.0)
-			_ver(t._charcos.has(e) and roundi(t._charcos[e]["f"].apertura) == 2, "la nube se queda (estilo 2)")
+			# (07/10: desde el 06/10 los charcos van por clave, varios por enemigo: se busca el de ESTE miconido)
+			var nubes: Array = t._charcos.values().filter(func(ch): return ch["dueno"] == e)
+			_ver(nubes.size() == 1 and roundi(nubes[0]["f"].apertura) == 2, "la nube se queda (estilo 2)")
 			for _k in 2:
 				t.charcos_turno_enemigo(e)
 			_ver(not t._charcos.has(e), "la nube se va a los 2 turnos del miconido")
@@ -214,22 +216,51 @@ func _probar_chillon(combat, t, e, al: Array) -> void:
 	var rep: Array = t._reparto_en(chi, e, t.forma_de(chi, e, t.pies_de(al[0])))
 	_ver(rep.size() == 1 and rep[0]["c"] == al[0], "el Chillido pilla al de delante y no al de detras")
 	# El Picado: baja sobre uno de lejos, muerde y vuelve.
+	# (07/10) CON LA BARRA QUIETA: la pelea seguia corriendo de fondo y a ratos le llegaba al chillon su propio turno en
+	# mitad de la prueba (se cruzaban los dos Picados y fallaba con 0 px). El mapa se mueve a mano (t.tick).
+	combat.set_process(false)
+	# (y sin lo que el chillon hubiera empezado por su cuenta antes de pararla: con una carga o una habilidad esperando
+	# media barra, el Picado salia con SU huella guardada, que apuntaba a otro sitio)
+	t._cargas.erase(e)
+	t._presas_carga.erase(e)
+	e.charging = null
+	e.retrasando = false
+	e.ability_cooldowns.clear()
+	var precision0: float = e.precision
+	e.precision = 5.0   # (que no se los esquive todos: aqui se mira que baja y muerde)
 	var pic: AbilityData = load("res://resources/abilities/chillon_picado.tres")
-	_colocar(t, al, [pe + Vector2(70, 10), pe + Vector2(-240, 60)])
+	# (07/10) La presa HACIA DENTRO de la zona de pelea: el salto se para donde se acaba el suelo, y con el chillon cerca
+	# del borde la presa caia fuera y la prueba fallaba a ratos (0-15 px). Se busca un lado con 110 px de zona por delante.
+	pe = t.pies_de(e)
+	var lado: Vector2 = Vector2.RIGHT
+	for cand in [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]:
+		if t._en_arena(pe + cand * 110.0) and t._en_arena(pe + cand * 55.0):
+			lado = cand
+			break
+	_colocar(t, al, [pe + lado * 70.0 + lado.orthogonal() * 10.0, pe - lado * 240.0])
 	await _esperar(2)
 	var antes: Vector2 = t.pos_de(e)
 	var hp0: float = al[0].current_hp
 	var lejos_max: float = 0.0
 	combat.enemigos._enemy_use_ability(e, pic, al[0])
 	combat._fx.arrancar_cola()
-	for _k in 120:
+	# (07/10) 1,2 s DE RELOJ y no 120 fotogramas: sin ventana los fotogramas van tan deprisa que a veces se acababan
+	# antes de que el chillon hubiera saltado (la prueba fallaba a ratos con 0-15 px).
+	var t_fin: int = Time.get_ticks_msec() + 1200
+	while Time.get_ticks_msec() < t_fin:
 		await get_tree().process_frame
+		t.tick(get_process_delta_time())
 		lejos_max = maxf(lejos_max, t.pos_de(e).distance_to(antes))
-	await _segundos(1.0)
+	t_fin = Time.get_ticks_msec() + 1000
+	while Time.get_ticks_msec() < t_fin:
+		await get_tree().process_frame
+		t.tick(get_process_delta_time())
 	print("  picado: se alejo %.0f px y acabo a %.0f px de donde estaba" % [lejos_max, t.pos_de(e).distance_to(antes)])
 	_ver(lejos_max > 15.0, "el Picado baja hasta su presa (cae a su lado, no encima: 26-41 px segun el apunte)")
 	_ver(t.pos_de(e).distance_to(antes) < 4.0, "y vuelve a donde estaba")
 	_ver(al[0].current_hp < hp0, "y la muerde")
+	e.precision = precision0
+	combat.set_process(true)
 
 
 func _probar_polilla(combat, t, e, al: Array) -> void:

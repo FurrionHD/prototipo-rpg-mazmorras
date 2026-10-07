@@ -43,6 +43,8 @@ func _poner(tm, c: Combatant, p: Vector2) -> void:
 	tm._pos[c] = cu.global_position
 
 
+# (07/10) EL DADO FIJO: ningun estado entra seguro (StatusEffects.PROB_TECHO = 95 %), asi que se fija la semilla
+# antes de cada habilidad que se mira: misma tirada en cada pasada, la prueba no depende de la suerte.
 func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
@@ -177,6 +179,7 @@ func _correr() -> void:
 	var cons: AbilityData = _ab("slime_constelacion")
 	_ver(tm.constelacion_pilla(cielo, cons), "con dos estrellas, el rayo pilla al que esta en medio")
 	var hp: float = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(cielo, cons)
 	_ver(al[0].current_hp < hp, "se lleva el rayo (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	_poner(tm, al[0], pc + Vector2(0, 150))
@@ -193,29 +196,40 @@ func _correr() -> void:
 	cielo.ability_cooldowns.clear()
 	tm.guardar_carga_enemigo(cielo, ll, al[0])
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(cielo, ll)
 	_ver(al[0].current_hp < hp, "le caen las estrellas (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	var f_ll = tm.ultima_forma_enemigo
 	_ver(f_ll != null and AbisalAire.puntos_lluvia(f_ll, 4).size() == 4, "4 estrellas fugaces")
 	await _esperar(3)
 
+	# (07/10) En el Eclipse y el Agujero se mira lo que hacen AL ENTRAR: nadie los esquiva (la evasion de los tuyos, a
+	# tope por abajo) y el Vulnerable del Agujero, seguro (en la ficha es un 60 %). Fallaban a ratos por la suerte. Al
+	# acabar se devuelve todo.
+	var evasion0: Array = al.map(func(x): return (x as Combatant).evasion_bonus)
+	for a_e in al:
+		(a_e as Combatant).evasion_bonus = -5.0
 	print("7) ECLIPSE")
 	# (con otro de los tuyos: al primero ya le pudo cegar la Lluvia, y repetir el mismo estado cuesta mas)
 	_poner(tm, al[1], pc + Vector2(-40, 0))
 	al[1].statuses.clear()
+	seed(4242)
 	en._enemy_use_ability(cielo, _ab("slime_eclipse"))
 	_ver(al[1].has_status(StatusEffects.Id.CEGUERA), "deja ciego al que esta cerca")
 	_poner(tm, al[1], pc + Vector2(0, -400))
 	await _esperar(3)
 
 	print("8) AGUJERO NEGRO")
-	var ag: AbilityData = _ab("slime_agujero_negro")
+	var ag: AbilityData = _ab("slime_agujero_negro").duplicate(true)
+	for ef in ag.efectos:
+		ef.prob = 1.0
 	_poner(tm, al[0], pc + Vector2(-70, 20))
 	al[0].statuses.clear()
 	tm.guardar_carga_enemigo(cielo, ag, al[0])
 	tm._tirones.clear()
 	cielo.precision = 5.0   # (que no lo esquive: aqui se mira lo que hace al entrar)
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(cielo, ag)
 	_ver(al[0].current_hp < hp, "pega (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	_ver(al[0].has_status(StatusEffects.Id.VULNERABLE), "y deja vulnerable")
@@ -225,6 +239,8 @@ func _correr() -> void:
 			atrae = true
 	_ver(atrae, "y lo atrae hacia el centro")
 	await _esperar(3)
+	for i_e in al.size():
+		(al[i_e] as Combatant).evasion_bonus = float(evasion0[i_e])
 
 	print("9) EL DE MIL OJOS: TODO LO VE")
 	var po: Vector2 = tm.pies_de(ojos)
@@ -240,6 +256,7 @@ func _correr() -> void:
 	_poner(tm, al[0], po + Vector2(-35, 0))
 	tm._animar(tm.cuerpo_de(ojos), Vector2(-1, 0), false)
 	hp = al[0].current_hp
+	seed(4242)
 	en._enemy_use_ability(ojos, _ab("slime_parpadeo_cegador"))
 	_ver(al[0].current_hp < hp, "fogonazo al de delante (%.1f -> %.1f)" % [hp, al[0].current_hp])
 	await _esperar(3)
@@ -290,6 +307,7 @@ func _correr() -> void:
 		tm._presas_carga[ojos] = presa
 		_poner(tm, otro, po + Vector2(150, 150))
 		hp = presa.current_hp
+		seed(4242)
 		en._enemy_use_ability(ojos, mi)
 		_ver(presa.current_hp < hp, "no falla aunque esquive mucho (%.1f -> %.1f)" % [hp, presa.current_hp])
 	await _esperar(3)

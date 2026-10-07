@@ -110,7 +110,8 @@ func _correr() -> void:
 			combat.enemigos._enemy_use_ability(e, tela, al[0])
 			combat._fx.arrancar_cola()
 			await _segundos(1.0)
-			_ver(t._charcos.has(e), "la Telaraña se queda en el suelo")
+			# (07/10: desde el 06/10 los charcos van por clave, varios por enemigo: se busca uno de ESTA araña)
+			_ver(t._charcos.values().any(func(ch): return ch["dueno"] == e), "la Telaraña se queda en el suelo")
 			if t._charcos.has(e):
 				var fc = t._charcos[e]["f"]
 				al[2].quitar_estado(StatusEffects.Id.PEGAJOSO)
@@ -246,8 +247,11 @@ func _probar_guadanas(combat, t, e, al: Array) -> void:
 	var gua: AbilityData = load("res://resources/abilities/segadora_guadanas.tres")
 	var pe: Vector2 = t.pies_de(e)
 	# El cono hacia ARRIBA: su izquierda es -x y su derecha +x. Uno a cada lado y el tercero en medio.
-	var alto: float = t.radio_pisa(e) + 18.0
-	_colocar(t, al, [pe + Vector2(-26, -alto), pe + Vector2(26, -alto), pe + Vector2(0, -alto - 4)])
+	# (07/10: desde el 29/09 el cono NACE EN SU FRENTE, no en sus pies: se colocan delante de donde nace; puestos desde
+	# los pies, el de en medio quedaba detras del origen y no le tocaba ninguna)
+	var f0 = t.forma_de(gua, e, pe + Vector2(0, -60))
+	var o: Vector2 = f0.origen
+	_colocar(t, al, [o + Vector2(-26, -18), o + Vector2(26, -18), o + Vector2(0, -24)])
 	await _esperar(2)
 	var f = t.forma_de(gua, e, pe + Vector2(0, -60))
 	t.ultima_forma_enemigo = f

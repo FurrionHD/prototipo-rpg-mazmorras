@@ -124,9 +124,13 @@ func _correr() -> void:
 		if clave == "jabali":
 			var emb: AbilityData = load("res://resources/abilities/jabali_embestida.tres")
 			var antes: Array = [t.pos_de(al[0]), t.pos_de(al[1])]
+			# (07/10) Con punteria: si uno la esquiva no se le aparta (bien hecho), y la prueba fallaba a ratos por eso.
+			var precision0: float = e.precision
+			e.precision = 5.0
 			combat.enemigos._enemy_use_ability(e, emb, al[0])
 			combat._fx.arrancar_cola()
 			await get_tree().create_timer(3.5, true, false, true).timeout
+			e.precision = precision0   # (y se le devuelve la suya)
 			var f_emb = t.ultima_forma_enemigo
 			var perp := Vector2(-f_emb.dir.y, f_emb.dir.x)
 			for k in 2:
