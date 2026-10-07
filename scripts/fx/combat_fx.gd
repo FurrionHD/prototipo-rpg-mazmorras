@@ -2066,6 +2066,9 @@ const IMPACTO_ANIM_MAPA := {
 	# ciempies (se cierra en el 5). (Los SALTOS -el Picado del chillon- no: el golpe llega con el cuerpo que salta, y
 	# con fx_anim puesto la pelea dejaria de moverlo.)
 	"cornada": 0.23, "enrosque": 0.23,
+	# Los mutantes del profundo (07/10): el arrecife suelta las Esquirlas al dar el respingo (0,58 de 10 marcos a 12 fps);
+	# la escarcha sopla el Aliento al vaciarse (0,5) y suelta los Carambanos al caer del bote (0,62).
+	"sacudir": 0.48, "soplar": 0.42, "carambanos": 0.52,
 	# EL ARCO Y LA BALLESTA (03/10): el golpe llega cuando suelta MAS lo que vuela (CombatFX.vuelo del estilo): el
 	# arco suelta en el 8 de 12 a 18 fps (0,44) y la flecha tarda 0,20; la ballesta dispara en el 4 (0,22) + 0,15.
 	"disparo_arco": 0.64, "disparo_ballesta": 0.37,

@@ -1163,7 +1163,9 @@ const SLIMES := [["comun", "slime"], ["venenoso", "slime_veneno"], ["fuego", "sl
 	# LOS DEL DE FUEGO (06/10): la ceniza y brasa y la obsidiana.
 	["ceniza", "slime_fuego", &"ceniza"], ["obsidiana", "slime_fuego", &"obsidiana"],
 	# LOS DEL ABISAL (06/10): el cielo nocturno y el de mil ojos.
-	["cielo", "slime_abisal", &"cielo"], ["ojos", "slime_abisal", &"ojos"]]
+	["cielo", "slime_abisal", &"cielo"], ["ojos", "slime_abisal", &"ojos"],
+	# LOS DEL PROFUNDO (07/10): el arrecife y la escarcha.
+	["arrecife", "slime_profundo", &"arrecife"], ["escarcha", "slime_profundo", &"escarcha"]]
 const ALCANCE_ENEMIGO := 15.0
 const AZUL := Color(0.35, 0.6, 1.0)
 # Los momentos de cada efecto (segundos desde el golpe; los negativos, lo que viaja antes de llegar).
@@ -1209,6 +1211,12 @@ const MOMENTOS_SLIME := {
 	"rey_slime_aplastamiento": [0.03, 0.1, 0.22, 0.45, 1.2],
 	"rey_slime_escision": [-0.12, 0.02, 0.2, 0.4, 0.62],
 	"rey_slime_marea": [0.1, 0.3, 0.5, 0.75, 1.3],
+	"slime_reventon_marea": [0.02, 0.1, 0.2, 0.35, 0.7],
+	"slime_chorro_presion": [0.04, 0.1, 0.2, 0.32, 0.5],
+	"slime_esquirlas_coral": [0.05, 0.12, 0.2, 0.3, 0.45],
+	"slime_estallido_helado": [0.03, 0.1, 0.2, 0.45, 0.85],
+	"slime_aliento_gelido": [0.06, 0.15, 0.28, 0.45, 0.7],
+	"slime_carambanos": [0.15, 0.3, 0.45, 0.6, 0.85],
 }
 
 func _hojas_slimes(salida: String, pedidas: String) -> void:
