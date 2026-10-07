@@ -46,6 +46,15 @@ def _mats(color=COLOR):
     m['cascara'] = [(0.30, 0.50, 0.70), (0.45, 0.66, 0.84), (0.66, 0.82, 0.95), (0.95, 1.0, 1.0)]
     hondo = (0.10, 0.22, 0.42)
     m['hondo'] = [S.osc(hondo, 0.35), hondo, S.cla(hondo, 0.25), S.cla(hondo, 0.55)]
+    # EL MAR (el gel de los de coral): azul verdoso translucido; Y LOS CORALES, cada uno de su color.
+    mar = (0.12, 0.38, 0.55)
+    m['mar'] = [S.osc(mar, 0.35), mar, S.cla(mar, 0.28), S.cla(mar, 0.60)]
+    m['coral_r'] = [(0.62, 0.20, 0.24), (0.92, 0.42, 0.40), (1.0, 0.66, 0.58)]
+    m['coral_n'] = [(0.66, 0.36, 0.12), (0.94, 0.62, 0.24), (1.0, 0.82, 0.48)]
+    m['coral_m'] = [(0.40, 0.20, 0.52), (0.62, 0.38, 0.78), (0.82, 0.62, 0.95)]
+    m['coral_a'] = [(0.60, 0.52, 0.20), (0.86, 0.78, 0.38), (0.98, 0.94, 0.62)]
+    m['anemona'] = [(0.20, 0.55, 0.40), (0.38, 0.85, 0.58), (0.70, 1.0, 0.78)]
+    m['punta_a'] = [(0.95, 0.55, 0.80)] * 3
     m['parpado'] = m['gel'][:3]
     return m
 
@@ -53,8 +62,8 @@ def _mats(color=COLOR):
 def modelo(escala, translucidos=('gel', 'cuerno'), borde=None):
     c = S.hexc(COLOR)
     mo = Modelo(escala, LIENZO, PIES, _mats(), borde or S.osc(c, 0.58), suaves=('cuerpo',),
-                brillan=('ojo', 'gema', 'luz', 'cebo'),
-                corta_suelo=True, especular=('gel', 'cuerno', 'fondo', 'hielo', 'cascara', 'hondo'),
+                brillan=('ojo', 'gema', 'luz', 'cebo', 'punta_a'),
+                corta_suelo=True, especular=('gel', 'cuerno', 'fondo', 'hielo', 'cascara', 'hondo', 'mar'),
                 umbral_especular=0.955, translucidos=translucidos, alfa=0.72)
     mo.alfa_dentro = 0.42
     mo.claros_dentro = ('cristal', 'nucleo', 'luz', 'cebo')
@@ -154,7 +163,7 @@ def _escarcha(e, C, R, z0=0.45, carambanos=9, semilla=5, costra=True):
         ruido = (np.sin(D[:, 0] * 7.0 + D[:, 2] * 3.0) + np.sin(D[:, 1] * 6.0 - D[:, 0] * 4.0 + 1.3) +
                  np.sin(D[:, 2] * 9.0 + D[:, 1] * 2.0 + 0.7))
         parche = (0.2 - ruido) * 3.0
-        cara = (0.35 - np.sqrt((D[:, 0] / 0.62) ** 2 + ((D[:, 2] - 0.30) / 0.42) ** 2)) * 8.0
+        cara = (0.40 - np.sqrt((D[:, 0] / 1.0) ** 2 + ((D[:, 2] - 0.32) / 0.6) ** 2)) * 8.0
         cara = np.where(D[:, 1] > 0.3, cara, -9.0)
         return np.maximum(np.maximum(np.maximum(sd_elipsoide(P, C, R + 0.45), (filo - P[:, 2]) * 0.8), parche), cara)
     if costra:
@@ -203,13 +212,131 @@ def congelado():
     return e.L
 
 
+# ------------------------------------------------------------
+#  LOS DE CORAL (07/10, su diagnostico: "de el marino no me convence ninguno; ¿podemos hacer que sea mas coraloso?")
+# ------------------------------------------------------------
+def _rama(e, a, d, largo, r, mat, nivel, rng):
+    """Un coral RAMIFICADO: un tramo y de su punta dos (o tres) mas finos que se abren hacia arriba."""
+    d = d / np.linalg.norm(d)
+    b = a + d * largo
+    e.add(lambda P, a=a, b=b, ra=r, rb=r * 0.8: sd_cono(P, a, b, ra, rb), mat, 0.5, 'coral')
+    if nivel == 0:
+        e.add(lambda P, c=b, rr=r * 0.95: sd_esfera(P, c, rr), mat, 0, 'coral')
+        return
+    for k in range(2 if rng.random() < 0.6 else 3):
+        lado = rng.normal(size=3); lado[2] = 0.0
+        nd = d + lado * 0.7 + V([0.0, 0.0, 0.35])
+        _rama(e, b, nd, largo * rng.uniform(0.65, 0.8), r * 0.75, mat, nivel - 1, rng)
+
+
+def _cerebro(e, C, R, d, rad, mat):
+    """Un coral CEREBRO: una media bola sobre la piel con surcos serpenteantes."""
+    base, n = S._superficie(d, C, R)
+    c = base - n * rad * 0.35
+    def f(P, c=c, rad=rad):
+        q = (P - c) / rad
+        surco = np.sin(q[:, 0] * 9.0 + np.sin(q[:, 1] * 7.0) * 1.6) * np.sin(q[:, 1] * 8.0 + q[:, 2] * 3.0)
+        return sd_esfera(P, c, rad) + 0.35 * np.clip(surco, 0.0, 1.0)
+    e.add(f, mat, 0, 'coral')
+
+
+def _tubos(e, C, R, d, n_tubos, mat, rng):
+    """Un racimo de corales de TUBO: cilindros cortos, huecos por arriba."""
+    base, n = S._superficie(d, C, R)
+    for i in range(n_tubos):
+        off = rng.normal(size=3) * 2.2; off -= n * (off @ n)
+        a = base + off - n * 0.8
+        b = a + (n + rng.normal(size=3) * 0.2) * rng.uniform(4.0, 6.5)
+        r = rng.uniform(1.2, 1.6)
+        def f(P, a=a, b=b, r=r):
+            tubo = sd_cono(P, a, b, r, r)
+            hueco = sd_cono(P, a + (b - a) * 0.5, b + (b - a) * 0.3, r * 0.55, r * 0.55)
+            return np.maximum(tubo, -hueco)
+        e.add(f, mat, 0, 'coral')
+
+
+def _anemona(e, C, R, d, mat, rng, n_brazos=11):
+    """Una ANEMONA: un pie corto y una corona de tentaculos finos con la punta rosa."""
+    base, n = S._superficie(d, C, R)
+    pie = base + n * 2.4
+    e.add(lambda P, a=base - n * 0.5, b=pie: sd_cono(P, a, b, 2.4, 2.0), mat, 0.4, 'coral')
+    for k in range(n_brazos):
+        lado = rng.normal(size=3); lado -= n * (lado @ n); lado /= np.linalg.norm(lado)
+        dd = n * 0.9 + lado * 0.6 + V([0.0, 0.0, 0.3])
+        dd /= np.linalg.norm(dd)
+        punta = pie + dd * rng.uniform(3.6, 5.2)
+        e.add(lambda P, a=pie, b=punta: sd_cono(P, a, b, 0.75, 0.5), mat, 0, 'coral')
+        e.add(lambda P, c=punta: sd_esfera(P, c, 0.75), 'punta_a', 0, 'coral')
+
+
+# C1) CUERNOS DE CORAL: el gel del mar, y en vez de cuernos dos CORALES RAMIFICADOS (rojo coral) que le salen de la
+# cabeza; algun brote pequeño mas por la cupula.
+def coral_cuernos():
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.03])
+    e.add(lambda P: sd_elipsoide(P, C, R), 'mar', 0)
+    rng = np.random.default_rng(4)
+    for s_ in (-1, 1):
+        base, n = S._superficie((0.62 * s_, 0.0, 0.78), C, R)
+        _rama(e, base - n * 1.2, n + V([0.3 * s_, 0.0, 0.9]), 6.0, 2.3, 'coral_r', 2, rng)
+    for d in ((-0.2, -0.6, 0.78), (0.75, -0.45, 0.45)):
+        base, n = S._superficie(d, C, R)
+        _rama(e, base - n * 0.8, n + V([0.0, 0.0, 0.6]), 3.6, 1.5, 'coral_r', 1, rng)
+    _ojos(e, C, R)
+    return e.L
+
+
+# C2) ARRECIFE: el gel del mar con un trozo de arrecife encima: un CORAL CEREBRO (amarillo), un racimo de TUBOS
+# (morado), una ANEMONA (verde con las puntas rosas) y una ramita roja. Conserva sus cuernos.
+def coral_arrecife():
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.03])
+    e.add(lambda P: sd_elipsoide(P, C, R), 'mar', 0)
+    _cuernos(e, C, R, 'mar')
+    rng = np.random.default_rng(9)
+    _cerebro(e, C, R, (-0.30, -0.20, 0.92), 5.8, 'coral_a')
+    _tubos(e, C, R, (0.55, -0.35, 0.70), 5, 'coral_m', rng)
+    _anemona(e, C, R, (0.20, 0.25, 0.94), 'anemona', rng)
+    base, n = S._superficie((-0.80, 0.10, 0.45), C, R)
+    _rama(e, base - n * 0.8, n + V([0.0, 0.0, 0.7]), 4.4, 1.7, 'coral_r', 1, rng)
+    _ojos(e, C, R)
+    return e.L
+
+
+# C3) COSTRA DE ARRECIFE: la mitad de arriba cubierta de coral a PARCHES (naranja, con bultos) por donde asoma el gel;
+# de la costra le salen ramas, tubos y una anemona. El que mas "roca de mar" parece.
+def coral_costra():
+    e, C, R = _base()
+    R = R * V([1.04, 1.04, 1.03])
+    e.add(lambda P: sd_elipsoide(P, C, R), 'mar', 0)
+    def costra(P):
+        D = (P - C) / R
+        ruido = (np.sin(D[:, 0] * 6.0 + D[:, 2] * 4.0) + np.sin(D[:, 1] * 5.0 - D[:, 0] * 3.0 + 2.1) +
+                 np.sin(D[:, 2] * 8.0 + D[:, 1] * 3.0 + 0.4))
+        bultos = 0.35 * np.sin(D[:, 0] * 14.0) * np.sin(D[:, 1] * 14.0) * np.sin(D[:, 2] * 14.0)
+        cara = (0.40 - np.sqrt((D[:, 0] / 1.0) ** 2 + ((D[:, 2] - 0.32) / 0.6) ** 2)) * 8.0
+        cara = np.where(D[:, 1] > 0.3, cara, -9.0)
+        return np.maximum(np.maximum(np.maximum(sd_elipsoide(P, C, R + 0.6) + bultos, (0.1 - D[:, 2]) * 8.0),
+                                     (0.5 - ruido) * 3.0), cara)
+    e.add(costra, 'coral_n', 0, 'coral')
+    _cuernos(e, C, R, 'coral_n')
+    rng = np.random.default_rng(6)
+    _tubos(e, C, R, (-0.55, -0.40, 0.70), 4, 'coral_m', rng)
+    base, n = S._superficie((0.45, -0.30, 0.82), C, R)
+    _rama(e, base - n * 0.8, n + V([0.2, 0.0, 0.8]), 4.6, 1.8, 'coral_r', 2, rng)
+    _anemona(e, C, R, (0.85, 0.20, 0.25), 'anemona', rng, 9)
+    _ojos(e, C, R)
+    return e.L
+
+
+_MAR = {'translucidos': ('mar',), 'borde': (0.03, 0.10, 0.16)}
+
 FILAS = [
     ('profundo hoy', ESC_NORMAL, profundo_hoy, {}),
-    ('A1 marino cebo', ESC_MUTANTE, marino_cebo, {'translucidos': ('fondo', 'cuerno'), 'borde': (0.01, 0.02, 0.05)}),
-    ('A2 marino franjas', ESC_MUTANTE, marino_franjas, {'translucidos': ('fondo', 'cuerno'),
-                                                        'borde': (0.01, 0.02, 0.05)}),
-    ('B1 escarcha', ESC_MUTANTE, escarcha, {'translucidos': ('hielo',), 'borde': (0.16, 0.26, 0.38)}),
-    ('B2 congelado', ESC_MUTANTE, congelado, {'translucidos': ('cascara', 'cuerno'), 'borde': (0.10, 0.18, 0.30)}),
+    ('C1 coral cuernos', ESC_MUTANTE, coral_cuernos, _MAR),
+    ('C2 arrecife', ESC_MUTANTE, coral_arrecife, _MAR),
+    ('C3 costra coral', ESC_MUTANTE, coral_costra, _MAR),
+    ('B1 escarcha', ESC_MUTANTE * 1.1, escarcha, {'translucidos': ('hielo',), 'borde': (0.16, 0.26, 0.38)}),
 ]
 
 
