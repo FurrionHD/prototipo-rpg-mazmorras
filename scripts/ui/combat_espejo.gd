@@ -1174,9 +1174,9 @@ func _apuntar_impacto_red(atacante: Combatant, victima: Combatant, dmg: float,
 		| (BIT_MANO_IZQ if mano == 1 else 0)
 	_impactos_red.append(ca)
 	_impactos_red.append(cv)
-	# x100: los dos decimales que se pintan. Tope = lo que cabe en un entero de 32 bits (antes era 3000 y
-	# un golpe de 4108 salia como 3000.00 en la pantalla de los demas; el daño de verdad nunca se toco).
-	_impactos_red.append(roundi(minf(dmg, 20000000.0) * 100.0))
+	# El daño va como COMA FLOTANTE (sus 32 bits en el hueco del entero): SIN TOPE (hasta ~3e38). Antes iba
+	# x100 como entero con tope 3000 y un golpe de 4108 salia 3000.00 en la pantalla de los demas.
+	_impactos_red.append(_float_a_bits(dmg))
 	_impactos_red.append(flags)
 	_impactos_red.append(semilla)
 
@@ -1258,6 +1258,21 @@ static func _leer_suelo(d: PackedInt32Array, j: int) -> Array:
 # Suelta lo apuntado. Se llama al cerrar CADA accion (la del enemigo en _pausa_lectura, la tuya en
 # _tras_accion_jugador_varios, y la que remata la pelea en _end). Nunca desde _process: es como
 # mucho un paquete por turno.
+# Un float metido en un entero de 32 bits tal cual (sus bits), para que viaje en el PackedInt32Array.
+static func _float_a_bits(v: float) -> int:
+	var b := PackedByteArray()
+	b.resize(4)
+	b.encode_float(0, v)
+	return b.decode_s32(0)
+
+
+static func _bits_a_float(i: int) -> float:
+	var b := PackedByteArray()
+	b.resize(4)
+	b.encode_s32(0, i)
+	return b.decode_float(0)
+
+
 func _soltar_impactos_red() -> void:
 	if _impactos_red.is_empty():
 		return
@@ -1306,7 +1321,7 @@ func aplicar_impactos(datos: PackedInt32Array) -> void:
 			j += 5
 			continue
 		var cv: int = datos[j + 1]
-		var dmg: float = float(datos[j + 2]) / 100.0
+		var dmg: float = _bits_a_float(datos[j + 2])
 		var flags: int = datos[j + 3]
 		var semilla: int = datos[j + 4]
 		j += 5
