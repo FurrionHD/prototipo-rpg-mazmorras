@@ -15,6 +15,7 @@ const SLOT := 97
 
 
 func _ready() -> void:
+	Perfil.nube_activa = false   # la ranura de prueba no se sube a ninguna nube
 	call_deferred("_correr")
 
 

@@ -14,6 +14,7 @@ const PUEBLO := "res://scenes/levels/town.tscn"
 
 
 func _ready() -> void:
+	Perfil.nube_activa = false   # la ranura de prueba no se sube a ninguna nube
 	call_deferred("_correr")
 
 

@@ -349,67 +349,15 @@ func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version
 	for f in filas:
 		if not (f is Array and f.size() == 3 and f[0] is String and f[1] is String):
 			return _fallo("peticion_mala", "Una fila de la partida viene mal.")
-	var parte: int = int(p.get("parte", 0))
-	var fin: bool = bool(p.get("fin", true))   # el juego no parte nada aqui: es una sola parte
-	var lote: String = String(p.get("lote", ""))
 	var db: SQLite = _bd(id)
-	var est: Dictionary = _bd_estado(id, db)
-	var en_partes: bool = not fin or parte > 0
-	if en_partes:
-		if parte == 0:
-			db.query("DELETE FROM lote;")
-			_bd_poner(db, "lote", lote)
-		elif String(est.get("lote", "")) != lote or lote == "":
-			db.close_db()
-			return _fallo("lote_roto", "Se ha perdido una parte de la subida. Se repetira entera.")
-		for f in filas:
-			db.query_with_bindings("INSERT INTO lote VALUES (?, ?, ?, ?, ?);",
-				[parte, f[0], f[1], f[2], 1 if f[2] == null else 0])
-		if not fin:
-			db.close_db()
-			_renovar(id)
-			return {"ok": true, "parte": parte}
-	var rev: int = int(est.get("rev", 0))
-	if int(p.get("base", 0)) != rev:
-		if en_partes:
-			db.query("DELETE FROM lote;")
+	var res: Dictionary = _aplicar_sync(db, p, FileAccess.file_exists(_ruta_save(id)))
+	if not res.get("ok", false) or not bool(res.get("fin", false)):
 		db.close_db()
-		var r := _fallo("rev_distinto", "La partida de la nube ha cambiado desde que la abriste.")
-		r["rev"] = rev
-		return r
-	var todas: Array = filas
-	if en_partes:
-		todas = []
-		db.query("SELECT tabla, clave, valor, borrar FROM lote ORDER BY parte, rowid;")
-		for r in db.query_result:
-			todas.append([r["tabla"], r["clave"], null if int(r["borrar"]) == 1 else r["valor"]])
-	var completa: bool = bool(p.get("completa", false))
-	var nuevo: int = rev
-	if not todas.is_empty() or completa:
-		nuevo = rev + 1
-		db.query("BEGIN IMMEDIATE;")
-		if completa:
-			db.query("DELETE FROM filas;")
-			_bd_poner(db, "purgado_hasta", nuevo)
-		for f in todas:
-			if f[2] == null:
-				if not completa:
-					db.query_with_bindings("UPDATE filas SET valor = NULL, borrada = 1, rev = ? WHERE tabla = ? AND clave = ?;",
-						[nuevo, f[0], f[1]])
-			else:
-				db.query_with_bindings("INSERT OR REPLACE INTO filas VALUES (?, ?, ?, 0, ?);", [f[0], f[1], f[2], nuevo])
-		if en_partes:
-			db.query("DELETE FROM lote;")
-		_bd_poner(db, "rev", nuevo)
-		if String(est.get("formato", "")) != "bd":
-			_bd_poner(db, "formato", "bd")
-			if FileAccess.file_exists(_ruta_save(id)):
-				_bd_poner(db, "legado_desde", _ahora())
-		db.query("COMMIT;")
-		db.query("SELECT COUNT(*) AS n FROM filas WHERE borrada = 1;")
-		if int(db.query_result[0]["n"]) > LAPIDAS_MAX:
-			db.query("DELETE FROM filas WHERE borrada = 1;")
-			_bd_poner(db, "purgado_hasta", nuevo)
+		if res.get("ok", false):
+			_renovar(id)
+			res.erase("fin")
+		return res
+	var nuevo: int = int(res["rev"])
 	var cab: Dictionary = meta.duplicate()
 	var m = cab.get("miembros", [])
 	if m is Array and not (m as Array).is_empty():
@@ -428,7 +376,180 @@ func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version
 		DirAccess.remove_absolute(_ruta_cerrojo(id))
 	else:
 		_renovar(id)
-	return {"ok": true, "rev": nuevo, "escritas": todas.size()}
+	return {"ok": true, "rev": nuevo, "escritas": int(res["escritas"])}
+
+
+# LO COMUN de subir filas (mundo y partida de un jugador), sobre una BD ya abierta: lotes en partes,
+# base = rev, aplicar todo de golpe. {ok, fin: false, parte} | {ok, fin: true, rev, escritas} | fallo.
+func _aplicar_sync(db: SQLite, p: Dictionary, hay_legado: bool) -> Dictionary:
+	var filas: Array = p.get("filas", [])
+	for f in filas:
+		if not (f is Array and f.size() == 3 and f[0] is String and f[1] is String):
+			return _fallo("peticion_mala", "Una fila de la partida viene mal.")
+	var est: Dictionary = _estado_de(db)
+	var parte: int = int(p.get("parte", 0))
+	var fin: bool = bool(p.get("fin", true))   # el juego no parte nada aqui: es una sola parte
+	var lote: String = String(p.get("lote", ""))
+	var en_partes: bool = not fin or parte > 0
+	if en_partes:
+		if parte == 0:
+			db.query("DELETE FROM lote;")
+			_bd_poner(db, "lote", lote)
+		elif String(est.get("lote", "")) != lote or lote == "":
+			return _fallo("lote_roto", "Se ha perdido una parte de la subida. Se repetira entera.")
+		for f in filas:
+			db.query_with_bindings("INSERT INTO lote VALUES (?, ?, ?, ?, ?);",
+				[parte, f[0], f[1], f[2], 1 if f[2] == null else 0])
+		if not fin:
+			return {"ok": true, "fin": false, "parte": parte}
+	var rev: int = int(est.get("rev", 0))
+	if int(p.get("base", 0)) != rev:
+		if en_partes:
+			db.query("DELETE FROM lote;")
+		var r := _fallo("rev_distinto", "La partida de la nube ha cambiado desde que la abriste.")
+		r["rev"] = rev
+		return r
+	var todas: Array = filas
+	if en_partes:
+		todas = []
+		db.query("SELECT tabla, clave, valor, borrar FROM lote ORDER BY parte, rowid;")
+		for r in db.query_result:
+			todas.append([r["tabla"], r["clave"], null if int(r["borrar"]) == 1 else r["valor"]])
+	var completa: bool = bool(p.get("completa", false))
+	var nuevo: int = rev
+	if not todas.is_empty() or completa:
+		if bool(p.get("foto_antes", false)) and rev > 0:
+			_hacer_foto(db, rev, "antes de pisarla")
+		nuevo = rev + 1
+		db.query("BEGIN IMMEDIATE;")
+		if completa:
+			db.query("DELETE FROM filas;")
+			_bd_poner(db, "purgado_hasta", nuevo)
+		for f in todas:
+			if f[2] == null:
+				if not completa:
+					db.query_with_bindings("UPDATE filas SET valor = NULL, borrada = 1, rev = ? WHERE tabla = ? AND clave = ?;",
+						[nuevo, f[0], f[1]])
+			else:
+				db.query_with_bindings("INSERT OR REPLACE INTO filas VALUES (?, ?, ?, 0, ?);", [f[0], f[1], f[2], nuevo])
+		if en_partes:
+			db.query("DELETE FROM lote;")
+		_bd_poner(db, "rev", nuevo)
+		if String(est.get("formato", "")) != "bd":
+			_bd_poner(db, "formato", "bd")
+			if hay_legado:
+				_bd_poner(db, "legado_desde", _ahora())
+		db.query("COMMIT;")
+		db.query("SELECT COUNT(*) AS n FROM filas WHERE borrada = 1;")
+		if int(db.query_result[0]["n"]) > LAPIDAS_MAX:
+			db.query("DELETE FROM filas WHERE borrada = 1;")
+			_bd_poner(db, "purgado_hasta", nuevo)
+	return {"ok": true, "fin": true, "rev": nuevo, "escritas": todas.size()}
+
+
+func _foto_si_toca(db: SQLite, rev: int, p: Dictionary) -> void:
+	if rev > 0 and (bool(p.get("foto", false)) or _ahora() - int(_estado_de(db).get("ult_foto", 0)) >= SEGUNDOS_FOTO):
+		_hacer_foto(db, rev, "cierre" if bool(p.get("soltar", false)) or bool(p.get("foto", false)) else "hora")
+
+
+# ============================================================
+#  LAS PARTIDAS DE UN JUGADOR Y SU CUENTA (las mismas reglas que servidor/nube: leer su cabecera)
+# ------------------------------------------------------------
+func cuenta_lista(cuenta: String, clave: String) -> Dictionary:
+	var c: Dictionary = _cuenta(cuenta, clave)
+	if c.has("error"):
+		return c["error"]
+	return {"ok": true, "partidas": c.get("partidas", {})}
+
+
+func p_sync(cuenta: String, clave: String, partida: String, p: Dictionary, meta: Dictionary) -> Dictionary:
+	var c: Dictionary = _cuenta(cuenta, clave)
+	if c.has("error"):
+		return c["error"]
+	var a: Dictionary = _partida(cuenta, clave, partida, true)
+	if a.has("error"):
+		return a["error"]
+	var db: SQLite = _bd("p_" + partida)
+	var res: Dictionary = _aplicar_sync(db, p, false)
+	if not res.get("ok", false) or not bool(res.get("fin", false)):
+		db.close_db()
+		res.erase("fin")
+		return res
+	_foto_si_toca(db, int(res["rev"]), p)
+	db.close_db()
+	var d: Dictionary = a["d"]
+	if not meta.is_empty():
+		d["meta"] = meta
+	_escribir_json(_ruta_partida(partida), d)
+	var partidas: Dictionary = c.get("partidas", {})
+	partidas[partida] = {"meta": d.get("meta", {}), "rev": int(res["rev"]), "fecha": _ahora()}
+	c["partidas"] = partidas
+	_escribir_json(_ruta_cuenta(cuenta), c)
+	return {"ok": true, "rev": int(res["rev"]), "escritas": int(res["escritas"])}
+
+
+func p_bajar(cuenta: String, clave: String, partida: String, desde: int) -> Dictionary:
+	var a: Dictionary = _partida(cuenta, clave, partida, false)
+	if a.has("error"):
+		return a["error"]
+	if a.has("nueva"):
+		return {"ok": true, "rev": 0, "completa": true, "filas": [], "existe": false}
+	return _bajar_de(_bd("p_" + partida), desde)
+
+
+func p_borrar(cuenta: String, clave: String, partida: String) -> Dictionary:
+	var c: Dictionary = _cuenta(cuenta, clave)
+	if c.has("error"):
+		return c["error"]
+	var a: Dictionary = _partida(cuenta, clave, partida, false)
+	if a.has("error"):
+		return a["error"]
+	DirAccess.remove_absolute(_ruta_partida(partida))
+	for extra in ["", "-wal", "-shm"]:
+		DirAccess.remove_absolute(_ruta_bd("p_" + partida) + extra)
+	var partidas: Dictionary = c.get("partidas", {})
+	partidas.erase(partida)
+	c["partidas"] = partidas
+	_escribir_json(_ruta_cuenta(cuenta), c)
+	return {"ok": true}
+
+
+# La cuenta, si la clave casa (la primera vez se queda con esta).
+func _cuenta(cuenta: String, clave: String) -> Dictionary:
+	if cuenta.length() != 24 or clave.length() < 32:
+		return {"error": _fallo("peticion_mala", "Falta tu identidad o tu clave.")}
+	var h: String = _huella("cuenta:" + cuenta, clave)
+	var c: Dictionary = _leer_json(_ruta_cuenta(cuenta))
+	if c.is_empty():
+		c = {"id": cuenta, "hash": h, "creada": _ahora(), "partidas": {}}
+		_escribir_json(_ruta_cuenta(cuenta), c)
+	elif String(c.get("hash", "")) != h:
+		return {"error": _fallo("no_autorizado", "Tu clave no es la de esta cuenta.")}
+	return c
+
+
+func _partida(cuenta: String, clave: String, partida: String, crear: bool) -> Dictionary:
+	if partida.length() != 24:
+		return {"error": _fallo("peticion_mala", "El código de la partida no es válido.")}
+	var h: String = _huella("cuenta:" + cuenta, clave)
+	var d: Dictionary = _leer_json(_ruta_partida(partida))
+	if d.is_empty():
+		if not crear:
+			return {"nueva": true}
+		d = {"cuenta": cuenta, "hash": h, "creada": _ahora(), "meta": {}}
+		_escribir_json(_ruta_partida(partida), d)
+		return {"d": d}
+	if String(d.get("cuenta", "")) != cuenta or String(d.get("hash", "")) != h:
+		return {"error": _fallo("no_autorizado", "Esa partida no es tuya.")}
+	return {"d": d}
+
+
+func _ruta_cuenta(cuenta: String) -> String:
+	return "%s/cuenta_%s.json" % [CARPETA, cuenta]
+
+
+func _ruta_partida(partida: String) -> String:
+	return "%s/partida_%s.json" % [CARPETA, partida]
 
 
 # Las filas cambiadas desde `desde` (0 = todas las vivas). Aqui de una vez (sin paginas: es un fichero).
@@ -436,8 +557,12 @@ func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
 	var c: Dictionary = _con_cerrojo(id, token)
 	if c.has("error"):
 		return c["error"]
-	var db: SQLite = _bd(id)
-	var est: Dictionary = _bd_estado(id, db)
+	return _bajar_de(_bd(id), desde)
+
+
+# LO COMUN de bajar filas: de una BD abierta (la cierra).
+func _bajar_de(db: SQLite, desde: int) -> Dictionary:
+	var est: Dictionary = _estado_de(db)
 	if desde > 0 and desde < int(est.get("purgado_hasta", 0)):
 		desde = 0
 	var filas: Array = []
@@ -585,6 +710,14 @@ func _bd_estado(id: String, db: SQLite = null) -> Dictionary:
 	return d
 
 
+func _estado_de(db: SQLite) -> Dictionary:
+	db.query("SELECT clave, valor FROM bd;")
+	var d: Dictionary = {}
+	for r in db.query_result:
+		d[String(r["clave"])] = r["valor"]
+	return d
+
+
 func _bd_poner(db: SQLite, clave: String, valor) -> void:
 	db.query_with_bindings("INSERT OR REPLACE INTO bd VALUES (?, ?);", [clave, valor])
 
@@ -596,14 +729,14 @@ func _bd_poner(db: SQLite, clave: String, valor) -> void:
 func vinculo_leer(steam_id: int, _ticket := "") -> Dictionary:
 	var v: Dictionary = _leer_json(_ruta_vinculo(steam_id))
 	return {"ok": true, "id": String(v.get("id", "")), "anterior": String(v.get("anterior", "")),
-		"desde": int(v.get("desde", 0))}
+		"desde": int(v.get("desde", 0)), "clave": String(v.get("clave", ""))}
 
 
-func vinculo_poner(steam_id: int, id: String, _ticket := "") -> Dictionary:
+func vinculo_poner(steam_id: int, id: String, _ticket := "", clave := "") -> Dictionary:
 	if id.length() != 24 or not id.is_valid_hex_number():
 		return _fallo("peticion_mala", "Esa identidad no es válida.")
 	var anterior: String = String(_leer_json(_ruta_vinculo(steam_id)).get("id", ""))
-	_escribir_json(_ruta_vinculo(steam_id), {"id": id, "anterior": anterior, "desde": _ahora()})
+	_escribir_json(_ruta_vinculo(steam_id), {"id": id, "anterior": anterior, "desde": _ahora(), "clave": clave})
 	return {"ok": true, "id": id, "anterior": anterior}
 
 

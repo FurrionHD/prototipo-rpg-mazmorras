@@ -283,6 +283,21 @@ func olvidar_nube() -> void:
 	_poner_meta("rev_nube", "-1")
 
 
+## Un dato suelto de la BD (bd_meta): el codigo de nube de la partida, si quedo un conflicto...
+func meta_leer(clave: String, por_defecto := "") -> String:
+	return _meta(clave, por_defecto)
+
+
+func meta_poner(clave: String, valor: String) -> bool:
+	return _poner_meta(clave, valor)
+
+
+## Cuantas filas quedan apuntadas sin subir (sin contar "nunca subida": eso es rev_nube() < 0).
+func contar_sin_subir() -> int:
+	_db.query("SELECT COUNT(*) AS n FROM sin_subir;")
+	return int(_db.query_result[0]["n"])
+
+
 func _poner_meta(clave: String, valor: String) -> bool:
 	return _db.query_with_bindings("INSERT OR REPLACE INTO bd_meta VALUES (?, ?);", [clave, valor])
 

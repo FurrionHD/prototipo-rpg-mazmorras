@@ -43,6 +43,19 @@
 //    bajar_bd  X-Token; JSON {desde, tras} -> {ok, rev, completa, filas, mas, tras}  (por paginas)
 //    fotos     X-Token -> {ok, fotos: [{id, fecha, rev, bytes, motivo}], legado}
 //    restaurar X-Token; JSON {foto: id | "legado"} -> {ok, rev}
+//  LAS PARTIDAS DE UN JUGADOR (fase 3 de la BD): cada una es SU objeto ("partida:<id>"), con las mismas
+//  filas que un mundo pero SIN cerrojo: la base (rev) ya impide pisar, y de un jugador no hay sala. La
+//  llave es la CLAVE SECRETA del jugador (X-Clave; el juego la crea al azar y la guarda en
+//  identidad.cfg): su id sale en pantalla, asi que el id solo no basta. Cada jugador tiene su CUENTA
+//  ("cuenta:<identidad>") con el indice de sus partidas, para verlas desde cualquier PC. La primera
+//  peticion de una cuenta (o de una partida) fija su clave; despues tiene que casar.
+//    cuenta_lista  ?cuenta=           -> {ok, partidas: {id: {meta, rev, fecha, borrada}}}
+//    p_sync        ?cuenta=&partida=  X-Meta; JSON como sync (sin token) + foto_antes -> {ok, rev, escritas}
+//    p_bajar       ?cuenta=&partida=  JSON {desde, tras} -> como bajar_bd (+ existe: false si no hay nada)
+//    p_borrar      ?cuenta=&partida=  -> {ok}  (la partida se borra entera y sale del indice)
+//  El vinculo de Steam lleva tambien la clave (vinculo_poner {id, clave}; vinculo_leer la devuelve):
+//  con tu Steam en otro PC recuperas tu identidad Y tu clave.
+//
 //  Un mundo con formato "bd" solo lo abre un juego que lo entiende (abrir lleva formato_bd >= 1): el
 //  juego viejo se lleva "version_nueva" en vez de abrir el save de antes de migrar. El save viejo se
 //  queda como LEGADO 30 dias (vuelta atras: restaurar "legado").
@@ -81,6 +94,9 @@ const TROZO_FOTO = 1536 * 1024;                // un BLOB de SQLite en un Durabl
 const LAPIDAS_MAX = 2000;                      // con mas borradas que esto, se purgan (y el que baje de antes, todo)
 const OPS_CUENTA = new Set(["vinculo_leer", "vinculo_poner"]);
 const STEAM_VALIDO = /^[0-9]{15,20}$/;
+// Las partidas de un jugador y su cuenta.
+const OPS_UNO = new Set(["cuenta_lista", "p_sync", "p_bajar", "p_borrar"]);
+const CLAVE_VALIDA = /^[0-9a-f]{32,64}$/;
 
 export default {
 	async fetch(req, env) {
@@ -98,6 +114,10 @@ export default {
 			const cuenta = env.MUNDO.get(env.MUNDO.idFromName("steam:" + steam));
 			return cuenta.fetch(req);
 		}
+		// LAS PARTIDAS DE UN JUGADOR: su objeto, y el indice en el de la cuenta.
+		if (req.method === "POST" && partes.length === 2 && partes[0] === "v1" && OPS_UNO.has(partes[1])) {
+			return await partidaDeUno(req, env, url, partes[1]);
+		}
 		if (req.method !== "POST" || partes.length !== 2 || partes[0] !== "v1" || !OPS.has(partes[1])) {
 			return json(fallo("peticion_mala", "Esa petición no existe."), 404);
 		}
@@ -114,12 +134,54 @@ export default {
 	},
 };
 
+// Reparte una peticion de las partidas de un jugador y, si cambia algo, pone al dia el indice de su cuenta.
+async function partidaDeUno(req, env, url, op) {
+	const cuenta = url.searchParams.get("cuenta") || "";
+	const partida = url.searchParams.get("partida") || "";
+	const clave = req.headers.get("x-clave") || "";
+	if (!ID_VALIDO.test(cuenta) || !CLAVE_VALIDA.test(clave)) {
+		return json(fallo("peticion_mala", "Falta tu identidad o tu clave."), 400);
+	}
+	const objCuenta = env.MUNDO.get(env.MUNDO.idFromName("cuenta:" + cuenta));
+	if (op === "cuenta_lista") {
+		return objCuenta.fetch(req);
+	}
+	if (!ID_VALIDO.test(partida)) {
+		return json(fallo("peticion_mala", "El código de la partida no es válido."), 400);
+	}
+	const talla = parseInt(req.headers.get("content-length") || "0", 10);
+	if (talla > MAX_SAVE) {
+		return json(fallo("demasiado_grande", "La partida es demasiado grande para subirla."), 413);
+	}
+	const objPartida = env.MUNDO.get(env.MUNDO.idFromName("partida:" + partida));
+	const res = await objPartida.fetch(req);
+	if (op === "p_bajar") {
+		return res;
+	}
+	const r = await res.json();
+	if (r.ok && (op === "p_borrar" || r.rev !== undefined)) {
+		// El indice de la cuenta. Si falla no se deshace lo subido: la proxima subida lo vuelve a poner.
+		await objCuenta.fetch(new Request(url.origin + "/v1/cuenta_poner?cuenta=" + cuenta, {
+			method: "POST",
+			headers: { "x-clave": clave, "content-type": "application/json" },
+			body: JSON.stringify({ partida, borrada: op === "p_borrar", rev: r.rev || 0, meta: r.meta || {} }),
+		}));
+		delete r.meta;
+	}
+	return json(r);
+}
+
 export class Mundo extends DurableObject {
 	constructor(ctx, env) {
 		super(ctx, env);
-		// Las tablas de la base de datos del mundo. CREATE IF NOT EXISTS: no cuesta nada si ya estan.
-		// (Los objetos de cuenta de Steam tambien son de esta clase: a ellos les sobran, y no pasa nada.)
-		const sql = ctx.storage.sql;
+		this.esquema();
+	}
+
+	// Las tablas de la base de datos del mundo. CREATE IF NOT EXISTS: no cuesta nada si ya estan.
+	// (Los objetos de cuenta de Steam tambien son de esta clase: a ellos les sobran, y no pasa nada.)
+	// Tambien despues de un deleteAll (borrar una partida), que se las lleva por delante.
+	esquema() {
+		const sql = this.ctx.storage.sql;
 		sql.exec(`CREATE TABLE IF NOT EXISTS filas (tabla TEXT NOT NULL, clave TEXT NOT NULL, valor,
 			borrada INTEGER NOT NULL DEFAULT 0, rev INTEGER NOT NULL, PRIMARY KEY (tabla, clave))`);
 		sql.exec("CREATE TABLE IF NOT EXISTS bd (clave TEXT PRIMARY KEY, valor)");
@@ -141,7 +203,7 @@ export class Mundo extends DurableObject {
 		let cuerpo = null;
 		if (op === "subir" || op === "cerrar") {
 			cuerpo = new Uint8Array(await req.arrayBuffer());
-		} else if (OPS_JSON.has(op) || OPS_CUENTA.has(op)) {
+		} else if (OPS_JSON.has(op) || OPS_CUENTA.has(op) || OPS_UNO.has(op) || op === "cuenta_poner") {
 			try {
 				cuerpo = await req.json();
 			} catch {
@@ -178,6 +240,16 @@ export class Mundo extends DurableObject {
 				return json(await this.fotos(id, pass, entero(req, "x-token")));
 			case "restaurar":
 				return json(await this.restaurar(id, pass, entero(req, "x-token"), cuerpo || {}));
+			case "cuenta_lista":
+				return json(await this.cuentaLista(url.searchParams.get("cuenta"), cabecera(req, "x-clave")));
+			case "cuenta_poner":
+				return json(await this.cuentaPoner(url.searchParams.get("cuenta"), cabecera(req, "x-clave"), cuerpo || {}));
+			case "p_sync":
+				return json(await this.pSync(url.searchParams.get("cuenta"), cabecera(req, "x-clave"), cuerpo || {}, meta(req)));
+			case "p_bajar":
+				return json(await this.pBajar(url.searchParams.get("cuenta"), cabecera(req, "x-clave"), cuerpo || {}));
+			case "p_borrar":
+				return json(await this.pBorrar(url.searchParams.get("cuenta"), cabecera(req, "x-clave")));
 			case "vinculo_leer":
 				return json(await this.vinculoLeer());
 			case "vinculo_poner":
@@ -190,7 +262,8 @@ export class Mundo extends DurableObject {
 	// El ticket de Steam llega en p.ticket y todavia NO se valida: ver SEGURIDAD en la cabecera.
 	async vinculoLeer() {
 		const v = await this.ctx.storage.get("vinculo");
-		return { ok: true, id: v ? v.id : "", anterior: v ? v.anterior || "" : "", desde: v ? v.desde : 0 };
+		return { ok: true, id: v ? v.id : "", anterior: v ? v.anterior || "" : "", desde: v ? v.desde : 0,
+			clave: v ? v.clave || "" : "" };
 	}
 
 	async vinculoPoner(p) {
@@ -200,8 +273,103 @@ export class Mundo extends DurableObject {
 		}
 		const v = await this.ctx.storage.get("vinculo");
 		const anterior = v ? v.id : "";
-		await this.ctx.storage.put("vinculo", { id: nuevo, anterior, desde: ahora() });
+		const clave = CLAVE_VALIDA.test(String(p.clave || "")) ? String(p.clave) : "";
+		await this.ctx.storage.put("vinculo", { id: nuevo, anterior, desde: ahora(), clave });
 		return { ok: true, id: nuevo, anterior };
+	}
+
+	// ---- LA CUENTA de un jugador (este objeto es "cuenta:<identidad>") ----
+	// La clave se fija con la primera peticion y despues tiene que casar.
+	async cuentaAuth(cuenta, clave) {
+		const h = await huella("cuenta:" + cuenta, clave);
+		const c = await this.ctx.storage.get("cuenta");
+		if (!c) {
+			await this.ctx.storage.put("cuenta", { id: cuenta, hash: h, creada: ahora() });
+			return true;
+		}
+		return c.hash === h;
+	}
+
+	async cuentaLista(cuenta, clave) {
+		if (!(await this.cuentaAuth(cuenta, clave))) {
+			return fallo("no_autorizado", "Tu clave no es la de esta cuenta.");
+		}
+		return { ok: true, partidas: (await this.ctx.storage.get("partidas")) || {} };
+	}
+
+	async cuentaPoner(cuenta, clave, p) {
+		if (!(await this.cuentaAuth(cuenta, clave)) || !ID_VALIDO.test(String(p.partida || ""))) {
+			return fallo("no_autorizado", "Tu clave no es la de esta cuenta.");
+		}
+		const partidas = (await this.ctx.storage.get("partidas")) || {};
+		if (p.borrada) {
+			delete partidas[p.partida];
+		} else {
+			const antes = partidas[p.partida] || {};
+			partidas[p.partida] = { meta: Object.keys(p.meta || {}).length > 0 ? p.meta : (antes.meta || {}),
+				rev: p.rev || 0, fecha: ahora() };
+		}
+		await this.ctx.storage.put("partidas", partidas);
+		return { ok: true };
+	}
+
+	// ---- UNA PARTIDA DE UN JUGADOR (este objeto es "partida:<id>") ----
+	// La primera subida la deja a nombre de su cuenta y su clave; despues tiene que casar.
+	async partidaAuth(cuenta, clave, crear) {
+		const h = await huella("cuenta:" + cuenta, clave);
+		const d = await this.ctx.storage.get("partida");
+		if (!d) {
+			if (!crear) {
+				return { nueva: true };
+			}
+			const nueva = { cuenta, hash: h, creada: ahora(), meta: {} };
+			await this.ctx.storage.put("partida", nueva);
+			return { d: nueva };
+		}
+		if (d.cuenta !== cuenta || d.hash !== h) {
+			return { error: fallo("no_autorizado", "Esa partida no es tuya.") };
+		}
+		return { d };
+	}
+
+	async pSync(cuenta, clave, p, cab) {
+		const a = await this.partidaAuth(cuenta, clave, true);
+		if (a.error) {
+			return a.error;
+		}
+		const res = await this.aplicarSync(p, 0);
+		if (!res.ok || !res.fin) {
+			delete res.fin;
+			return res;
+		}
+		if (Object.keys(cab).length > 0) {
+			a.d.meta = cab;
+		}
+		a.d.subida = ahora();
+		await this.ctx.storage.put("partida", a.d);
+		const escritas = res.escritas + (await this.fotoSiToca(res.rev, p));
+		return { ok: true, rev: res.rev, escritas, meta: a.d.meta };
+	}
+
+	async pBajar(cuenta, clave, p) {
+		const a = await this.partidaAuth(cuenta, clave, false);
+		if (a.error) {
+			return a.error;
+		}
+		if (a.nueva) {
+			return { ok: true, rev: 0, completa: true, filas: [], mas: false, tras: 0, existe: false };
+		}
+		return this.bajarFilas(p);
+	}
+
+	async pBorrar(cuenta, clave) {
+		const a = await this.partidaAuth(cuenta, clave, false);
+		if (a.error) {
+			return a.error;
+		}
+		await this.ctx.storage.deleteAll();
+		this.esquema();
+		return { ok: true };
 	}
 
 	// ---- ALTA ----
@@ -456,6 +624,42 @@ export class Mundo extends DurableObject {
 			return c.error;
 		}
 		const { mundo, cerrojo } = c;
+		const res = await this.aplicarSync(p, mundo.trozos || 0);
+		if (!res.ok || !res.fin) {
+			if (res.ok) {
+				cerrojo.latido = ahora();
+				await this.ctx.storage.put("cerrojo", cerrojo);
+				delete res.fin;
+			}
+			return res;
+		}
+		let escritas = res.escritas;
+		const m = cab.meta.miembros;
+		if (Array.isArray(m) && m.length > 0) {
+			mundo.miembros = m.map(String);
+		}
+		delete cab.meta.miembros;
+		if (Object.keys(cab.meta).length > 0) {
+			mundo.meta = cab.meta;
+		}
+		mundo.sello_version = cab.sello_version;
+		mundo.sello_build = cab.sello_build;
+		mundo.subido = ahora();
+		await this.ctx.storage.put("mundo", mundo);
+		escritas += await this.fotoSiToca(res.rev, p);
+		if (p.soltar) {
+			await this.ctx.storage.delete("cerrojo");
+		} else {
+			cerrojo.latido = ahora();
+			await this.ctx.storage.put("cerrojo", cerrojo);
+		}
+		return { ok: true, rev: res.rev, escritas };
+	}
+
+	// LO COMUN de subir filas (mundo y partida de un jugador): lotes en partes, base = rev, aplicar todo de
+	// golpe. {ok, fin: false, parte} en las partes de antes de la ultima; {ok, fin: true, rev, escritas} al
+	// aplicar; o un fallo. trozosLegado > 0 = habia un save entero de antes: se queda de legado.
+	async aplicarSync(p, trozosLegado) {
 		const sql = this.ctx.storage.sql;
 		const filas = Array.isArray(p.filas) ? p.filas : [];
 		for (const f of filas) {
@@ -482,9 +686,7 @@ export class Mundo extends DurableObject {
 					valor === null ? null : valor, valor === null ? 1 : 0).rowsWritten;
 			}
 			if (!fin) {
-				cerrojo.latido = ahora();
-				await this.ctx.storage.put("cerrojo", cerrojo);
-				return { ok: true, parte, escritas };
+				return { ok: true, fin: false, parte, escritas };
 			}
 		}
 
@@ -506,6 +708,10 @@ export class Mundo extends DurableObject {
 		const completa = !!p.completa;
 		let nuevo = rev;
 		if (todas.length > 0 || completa) {
+			// La que se va a pisar, al historial (un conflicto resuelto a favor de la copia de otro PC).
+			if (p.foto_antes && rev > 0) {
+				escritas += await this.hacerFoto(rev, "antes de pisarla");
+			}
 			nuevo = rev + 1;
 			const formatoAntes = this.bdGet("formato", "");
 			this.ctx.storage.transactionSync(() => {
@@ -531,7 +737,7 @@ export class Mundo extends DurableObject {
 				this.bdPut("rev", nuevo);
 				if (formatoAntes !== "bd") {
 					this.bdPut("formato", "bd");
-					if ((mundo.trozos || 0) > 0) {
+					if (trozosLegado > 0) {
 						// El save de antes se queda de LEGADO (vuelta atras) unos dias.
 						this.bdPut("legado_desde", ahora());
 					}
@@ -539,29 +745,15 @@ export class Mundo extends DurableObject {
 			});
 			escritas += this.purgarLapidas(nuevo);
 		}
+		return { ok: true, fin: true, rev: nuevo, escritas };
+	}
 
-		const m = cab.meta.miembros;
-		if (Array.isArray(m) && m.length > 0) {
-			mundo.miembros = m.map(String);
+	// Una foto para el historial si la piden (al cerrar) o si hace una hora de la ultima.
+	async fotoSiToca(rev, p) {
+		if (rev > 0 && (p.foto || ahora() - this.bdGet("ult_foto", 0) >= SEGUNDOS_FOTO)) {
+			return await this.hacerFoto(rev, p.soltar || p.foto ? "cierre" : "hora");
 		}
-		delete cab.meta.miembros;
-		if (Object.keys(cab.meta).length > 0) {
-			mundo.meta = cab.meta;
-		}
-		mundo.sello_version = cab.sello_version;
-		mundo.sello_build = cab.sello_build;
-		mundo.subido = ahora();
-		await this.ctx.storage.put("mundo", mundo);
-		if (nuevo > 0 && (p.foto || ahora() - this.bdGet("ult_foto", 0) >= SEGUNDOS_FOTO)) {
-			escritas += await this.hacerFoto(nuevo, p.soltar ? "cierre" : "hora");
-		}
-		if (p.soltar) {
-			await this.ctx.storage.delete("cerrojo");
-		} else {
-			cerrojo.latido = ahora();
-			await this.ctx.storage.put("cerrojo", cerrojo);
-		}
-		return { ok: true, rev: nuevo, escritas };
+		return 0;
 	}
 
 	// ---- BAJAR_BD: las filas cambiadas desde un rev (0 = todas), por paginas ----
@@ -570,6 +762,11 @@ export class Mundo extends DurableObject {
 		if (c.error) {
 			return c.error;
 		}
+		return this.bajarFilas(p);
+	}
+
+	// LO COMUN de bajar filas (mundo y partida de un jugador).
+	bajarFilas(p) {
 		const sql = this.ctx.storage.sql;
 		let desde = parseInt(p.desde, 10) || 0;
 		// Si lo que se borro despues de su rev ya se purgo, no se puede saber que borrar: se baja todo.

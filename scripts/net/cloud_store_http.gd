@@ -113,6 +113,21 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 # parten en partes de un mismo lote; el servidor solo aplica con la ultima.
 func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version: int,
 		sello_build: String) -> Dictionary:
+	var cab := {
+		"x-token": token,
+		"x-sello-version": sello_version,
+		"x-sello-build": sello_build,
+		"x-meta": JSON.stringify(meta),
+	}
+	var r: Dictionary = await _sync_en_partes("sync", id, String(_pass.get(id, "")), cab, p, "")
+	if r.get("ok", false) and bool(p.get("soltar", false)):
+		_pass.erase(id)
+	return r
+
+
+# Sube las filas partidas en partes de un mismo lote: el servidor solo las aplica con la ultima.
+func _sync_en_partes(op: String, id: String, contrasena: String, cab: Dictionary, p: Dictionary,
+		consulta: String) -> Dictionary:
 	var filas: Array = p.get("filas", [])
 	var partes: Array = [[]]
 	var talla: int = 0
@@ -124,33 +139,30 @@ func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version
 		partes[-1].append(f)
 		talla += t
 	var lote: String = str(Time.get_ticks_usec()).sha256_text().substr(0, 16)
-	var cab := {
-		"x-token": token,
-		"x-sello-version": sello_version,
-		"x-sello-build": sello_build,
-		"x-meta": JSON.stringify(meta),
-	}
 	var r: Dictionary = {}
 	for i in partes.size():
 		var cuerpo := {"base": int(p.get("base", 0)), "lote": lote, "parte": i, "fin": i == partes.size() - 1,
 			"completa": bool(p.get("completa", false)), "soltar": bool(p.get("soltar", false)),
-			"foto": bool(p.get("foto", false)), "filas": partes[i]}
-		r = await _peticion("sync", id, String(_pass.get(id, "")), cab, _json(cuerpo), false, PLAZO_LARGO)
+			"foto": bool(p.get("foto", false)), "foto_antes": bool(p.get("foto_antes", false)), "filas": partes[i]}
+		r = await _peticion(op, id, contrasena, cab, _json(cuerpo), false, PLAZO_LARGO, consulta)
 		if not r.get("ok", false):
 			return r
-	if bool(p.get("soltar", false)):
-		_pass.erase(id)
 	return r
 
 
 # Las filas cambiadas desde el rev `desde` (0 = todas), juntando todas las paginas.
 func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
+	return await _bajar_paginas("bajar_bd", id, String(_pass.get(id, "")), {"x-token": token}, desde, "")
+
+
+func _bajar_paginas(op: String, id: String, contrasena: String, cab: Dictionary, desde: int,
+		consulta: String) -> Dictionary:
 	var filas: Array = []
 	var tras: int = 0
 	var r: Dictionary = {}
 	while true:
-		r = await _peticion("bajar_bd", id, String(_pass.get(id, "")), {"x-token": token},
-			_json({"desde": desde, "tras": tras}), false, PLAZO_LARGO)
+		r = await _peticion(op, id, contrasena, cab, _json({"desde": desde, "tras": tras}), false,
+			PLAZO_LARGO, consulta)
 		if not r.get("ok", false):
 			return r
 		filas.append_array(r.get("filas", []))
@@ -159,6 +171,27 @@ func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
 			break
 	r["filas"] = filas
 	return r
+
+
+# LAS PARTIDAS DE UN JUGADOR Y SU CUENTA (ver servidor/nube). La llave es la clave del jugador (X-Clave).
+func cuenta_lista(cuenta: String, clave: String) -> Dictionary:
+	return await _peticion("cuenta_lista", "", "", {"x-clave": clave}, _json({}), false, PLAZO_CORTO,
+		"cuenta=" + cuenta)
+
+
+func p_sync(cuenta: String, clave: String, partida: String, p: Dictionary, meta: Dictionary) -> Dictionary:
+	return await _sync_en_partes("p_sync", "", "", {"x-clave": clave, "x-meta": JSON.stringify(meta)}, p,
+		"cuenta=%s&partida=%s" % [cuenta, partida])
+
+
+func p_bajar(cuenta: String, clave: String, partida: String, desde: int) -> Dictionary:
+	return await _bajar_paginas("p_bajar", "", "", {"x-clave": clave}, desde,
+		"cuenta=%s&partida=%s" % [cuenta, partida])
+
+
+func p_borrar(cuenta: String, clave: String, partida: String) -> Dictionary:
+	return await _peticion("p_borrar", "", "", {"x-clave": clave}, _json({}), false, PLAZO_CORTO,
+		"cuenta=%s&partida=%s" % [cuenta, partida])
 
 
 func fotos(id: String, token: int) -> Dictionary:
@@ -176,8 +209,8 @@ func vinculo_leer(steam_id: int, ticket := "") -> Dictionary:
 		"steam=%d" % steam_id)
 
 
-func vinculo_poner(steam_id: int, id: String, ticket := "") -> Dictionary:
-	return await _peticion("vinculo_poner", "", "", {}, _json({"id": id, "ticket": ticket}), false,
+func vinculo_poner(steam_id: int, id: String, ticket := "", clave := "") -> Dictionary:
+	return await _peticion("vinculo_poner", "", "", {}, _json({"id": id, "ticket": ticket, "clave": clave}), false,
 		PLAZO_CORTO, "steam=%d" % steam_id)
 
 
@@ -208,7 +241,8 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	h.use_threads = true   # subir 4 MB no puede congelar el juego
 	_padre.add_child(h)
 	var hs := PackedStringArray(["x-pass: " + contrasena.uri_encode()])
-	if op in ["abrir", "crear", "estado", "sync", "bajar_bd", "fotos", "restaurar"] or op.begins_with("vinculo_"):
+	if op in ["abrir", "crear", "estado", "sync", "bajar_bd", "fotos", "restaurar", "cuenta_lista", "p_sync",
+			"p_bajar", "p_borrar"] or op.begins_with("vinculo_"):
 		hs.append("content-type: application/json")
 	for k in cabeceras:
 		hs.append("%s: %s" % [k, str(cabeceras[k]).uri_encode()])

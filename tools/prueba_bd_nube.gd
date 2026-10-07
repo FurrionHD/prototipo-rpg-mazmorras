@@ -100,8 +100,9 @@ func _nuevo_y_otro_pc(id: String) -> void:
 	s = await Mundos._subir_bd(false)
 	ok(s.get("ok", false) and bool(s.get("nada", false)), "sin cambios no se habla con la nube")
 	var dinero: int = Game.money
-	var guardado: SaveData = Mundos._cab_en_mano
 	ok((await Mundos.cerrar_y_subir()).get("ok", false), "cerrado y subido")
+	# Lo que quedo en disco al cerrar (cerrar vuelve a guardar: la fecha puede pasar al segundo siguiente).
+	var guardado: SaveData = PartidaBD.inspeccionar_ruta(Mundos.ruta_bd(id))["datos"]
 	var est: Dictionary = await Nube.consultar(id, PASS)
 	ok(String(est.get("formato", "")) == "bd" and int(est.get("bd_rev", 0)) == 2 and not bool(est.get("abierto", true)),
 		"en la nube: formato bd, rev 2, sin cerrojo (%s, %d)" % [est.get("formato", ""), int(est.get("bd_rev", 0))])
@@ -223,8 +224,8 @@ func _legado(id: String) -> void:
 	s = await Mundos._subir_bd(false)
 	ok(s.get("ok", false) and int(s.get("subidas", 99)) <= 5, "+1 de dinero: %d filas (%d ms, la nube escribio %d)" % [
 		int(s.get("subidas", 0)), Time.get_ticks_msec() - t0, int(s.get("escritas", 0))])
-	var guardado: SaveData = Mundos._cab_en_mano
 	ok((await Mundos.cerrar_y_subir()).get("ok", false), "cerrado")
+	var guardado: SaveData = PartidaBD.inspeccionar_ruta(Mundos.ruta_bd(id))["datos"]
 	var est: Dictionary = await Nube.consultar(id, PASS)
 	ok(String(est.get("formato", "")) == "bd", "en la nube ya es formato bd")
 	var viejo: Dictionary = await Nube.almacen.abrir(id, PASS, [], Nube._sello(), Game.VERSION, false,

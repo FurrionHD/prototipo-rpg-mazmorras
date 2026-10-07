@@ -434,6 +434,8 @@ func _guardar_y_salir() -> void:
 	if not Perfil.guardar_actual():
 		_aviso.text = "No se pudo guardar (no se sale)."
 		return
+	_aviso.text = "Guardando en la nube…"
+	await Perfil.subir_al_salir()   # sin red no espera de mas: sube la proxima vez
 	# Cerrando la sesion: al invitado se le pide que guarde Y que se vuelva a su mundo con lo guardado
 	# (si no, se comeria un "el host ha cerrado" a secas). Se ESPERA a que el aviso salga de verdad:
 	# _salir() desconecta, y cortar en el mismo frame tiraria el paquete sin enviarlo.

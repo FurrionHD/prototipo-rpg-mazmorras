@@ -40,8 +40,8 @@ var _aviso: Label = null
 var _ajustes_capa: Control = null
 var _ajustes: Control = null
 
-# Ranura pendiente de confirmar sobrescritura (0 = nada pendiente).
-var _confirmar_nueva: int = 0
+# Cuantas partidas se ven sin hacer scroll (sin tope desde la fase 3 de la BD: las demas, bajando).
+const FILAS_A_LA_VISTA := 3
 # Ranura pendiente de confirmar borrado A CIEGAS (una que no se puede leer; ver _borrar_a_ciegas).
 var _confirmar_borrado: int = 0
 
@@ -139,6 +139,12 @@ func _ready() -> void:
 		Cargando.ocultar()
 
 	_pintar()
+	# Tus partidas en la nube (las de otros PCs, y si a alguna le queda algo por subir). Sin red no pasa
+	# nada: la lista ya esta pintada con lo de este PC.
+	if await Perfil.mirar_nube() and is_inside_tree():
+		_pintar()
+	elif Perfil.sin_conexion and _aviso.text == "":
+		_aviso.text = "Sin conexión: juegas con lo de este PC y se subirá luego."
 
 
 # ============================================================
@@ -182,33 +188,50 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-# Una fila por ranura: [la partida] [Borrar]. Ya NO hay "Editar" (el nombre y el aspecto se cambian
-# desde el Hogar, y alli ademas para cualquiera del grupo) ni "Nueva" sobre una ranura ocupada: para
-# empezar de cero se borra primero, que ademas cuesta mucho mas hacerlo sin querer.
+# Una fila por partida: [la partida] [Borrar], dentro de un scroll (se ven FILAS_A_LA_VISTA). Arriba,
+# "Nueva partida"; abajo, las que solo estan en la NUBE (de otro PC): tocarlas las trae a este. Ya NO hay
+# "Editar" (el nombre y el aspecto se cambian desde el Hogar) ni "Nueva" sobre una partida: sin tope de
+# partidas, una nueva siempre va a un hueco nuevo.
 func _pintar() -> void:
 	MenuScaffold.vaciar(_lista)
 
+	var nueva := Button.new()
+	nueva.custom_minimum_size = Vector2(ANCHO_TOTAL, 52.0)
+	nueva.text = "+  Nueva partida"
+	nueva.add_theme_color_override("font_color", AMBAR)
+	nueva.pressed.connect(_nueva)
+	_lista.add_child(nueva)
+
+	var ranuras: Array = Perfil.ranuras()
+	var nube: Array = Perfil.solo_en_nube()
+	if ranuras.is_empty() and nube.is_empty():
+		return
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var n_filas: int = mini(ranuras.size() + nube.size(), FILAS_A_LA_VISTA)
+	sc.custom_minimum_size = Vector2(ANCHO_TOTAL + 14.0, n_filas * (ALTO_FILA + 6.0))
+	_lista.add_child(sc)
+	var filas := VBoxContainer.new()
+	filas.add_theme_constant_override("separation", 6)
+	sc.add_child(filas)
+
 	var ultima: int = Perfil.ultima_ranura()
-	for slot in range(1, Perfil.RANURAS + 1):
+	for slot in ranuras:
 		var fila := HBoxContainer.new()
 		fila.add_theme_constant_override("separation", int(SEP_FILA))
-		_lista.add_child(fila)
+		filas.add_child(fila)
 
 		var info: Dictionary = Perfil.inspeccionar_ligera(slot)
 		var datos: SaveData = info["datos"] as SaveData
 		var estado: int = int(info["estado"])
 
 		if estado == Perfil.VACIA:
-			var vacia: Button = _boton_ranura("Ranura %d — vacía" % slot, ["Nueva partida"], GRIS)
-			vacia.pressed.connect(_nueva.bind(slot))
-			fila.add_child(vacia)
 			continue
 
 		if estado != Perfil.OK:
-			# Ranura OCUPADA que este build no puede abrir. Lo que NO se puede hacer aqui es
-			# ofrecer "Nueva partida": hay una partida dentro y el jugador la perderia por un clic
-			# creyendo que la ranura estaba libre. Se dice lo que pasa y se deja mirando.
-			var rota: Button = _boton_ranura("Ranura %d" % slot,
+			# Partida que este build no puede abrir. Lo que NO se puede hacer aqui es tratarla como un
+			# hueco: hay una partida dentro. Se dice lo que pasa y se deja mirando.
+			var rota: Button = _boton_ranura("Partida %d" % slot,
 				[Perfil.motivo_texto(info)], ROJO, ROJO)
 			rota.disabled = true
 			fila.add_child(rota)
@@ -217,16 +240,26 @@ func _pintar() -> void:
 			fila.add_child(_boton_borrar(_borrar_a_ciegas.bind(slot)))
 			continue
 
-		# Ranura con partida. La ficha va en DOS lineas porque en una sola no cabe con la fila ya
-		# estrecha: arriba lo que identifica la partida, y debajo en gris el resto.
+		# La ficha va en DOS lineas: arriba lo que identifica la partida, y debajo en gris el resto.
 		var titulo: String = "%s  ·  Nv.%d" % [datos.nombre, datos.cab_nivel]
 		if slot == ultima:
-			titulo += "   ◄"   # la mas reciente. La flecha sola basta: el texto entero ya no cabe.
+			titulo += "   ◄"   # la mas reciente
+		if Perfil.sin_subir(slot):
+			titulo += "   ↑"   # le queda algo por subir a la nube (sin conexion, o a medias)
 		var jugar: Button = _boton_ranura(titulo,
 			["%s  ·  %d monedas" % [datos.cab_lugar, datos.cab_dinero], datos.fecha], AMBAR)
 		jugar.pressed.connect(_cargar.bind(slot))
 		fila.add_child(jugar)
 		fila.add_child(_boton_borrar(_borrar.bind(slot)))
+
+	# Las que estan en tu cuenta de la nube y no en este PC (jugadas en otro).
+	for e in nube:
+		var m: Dictionary = e["meta"]
+		var b: Button = _boton_ranura("%s  ·  Nv.%d   (en la nube)" % [String(m.get("nombre", "Partida")),
+			int(m.get("cab_nivel", 0))], ["Tócala para traerla a este PC  ·  %d monedas" % int(m.get("cab_dinero", 0)),
+			String(m.get("fecha", ""))], Color(0.55, 0.75, 0.98))
+		b.pressed.connect(_traer.bind(String(e["id"])))
+		filas.add_child(b)
 
 
 # El boton alto de una ranura. Va SIN texto y con las lineas dentro: un Button no sabe pintar varias
@@ -275,6 +308,16 @@ func _boton_borrar(al_pulsar: Callable) -> Button:
 
 func _cargar(slot: int) -> void:
 	await Cargando.mostrar("Cargando partida...")
+	# Primero, al dia con la nube (si se jugo en otro PC). Sin red se carga lo de aqui.
+	var prep: Dictionary = await Perfil.preparar_carga(slot)
+	if bool(prep.get("conflicto", false)):
+		Cargando.ocultar()
+		_preguntar_conflicto(slot, prep)
+		return
+	if not prep.get("ok", false):
+		Cargando.ocultar()
+		_aviso.text = "No se pudo traer lo último de la nube. Vuelve a probar."
+		return
 	if not Perfil.cargar(slot):
 		Cargando.ocultar()
 		_aviso.text = "Esa partida no se puede cargar."
@@ -291,15 +334,78 @@ func _cargar(slot: int) -> void:
 	await Cargando.cambiar_escena(get_tree(), PUEBLO if al_pueblo else MAZMORRA, "Cargando partida...")
 
 
-func _nueva(slot: int) -> void:
-	# Si la ranura tiene una partida, se pide confirmacion: borrar el progreso de alguien por
-	# un clic de mas seria imperdonable.
-	if Perfil.existe(slot) and _confirmar_nueva != slot:
-		_confirmar_nueva = slot
-		_aviso.text = "La ranura %d YA tiene una partida. Pulsa otra vez «Nueva» para sobrescribirla." % slot
+# Una partida NUEVA va siempre a un hueco nuevo (no hay tope): nunca encima de otra.
+func _nueva() -> void:
+	_crear_personaje(Perfil.ranura_libre())
+
+
+# Traer a este PC una partida que solo esta en la nube, y jugarla.
+func _traer(pid: String) -> void:
+	await Cargando.mostrar("Trayendo tu partida de la nube...")
+	var slot: int = await Perfil.bajar_de_nube(pid)
+	if slot <= 0:
+		Cargando.ocultar()
+		_aviso.text = "No se pudo traer la partida de la nube. Mira tu conexión."
 		return
-	_confirmar_nueva = 0
-	_crear_personaje(slot)
+	_pintar()
+	_cargar(slot)
+
+
+# ============================================================
+#  CONFLICTO: la partida cambio AQUI y EN LA NUBE (se jugo en dos PCs sin subir). Se enseñan las dos y
+#  eliges; la otra no se pierde (la de la nube va a su historial, la de aqui a respaldos/conflictos).
+# ------------------------------------------------------------
+func _preguntar_conflicto(slot: int, prep: Dictionary) -> void:
+	var capa := PanelContainer.new()
+	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(capa)
+	var fondo := ColorRect.new()
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fondo.color = Color(0.04, 0.04, 0.06, 0.96)
+	capa.add_child(fondo)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	capa.add_child(center)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 10)
+	center.add_child(vb)
+
+	var tit := Label.new()
+	tit.text = "ESTA PARTIDA CAMBIÓ EN DOS SITIOS"
+	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tit.add_theme_font_size_override("font_size", 24)
+	tit.add_theme_color_override("font_color", AMBAR)
+	vb.add_child(tit)
+	var expl := Label.new()
+	expl.text = "Se jugó en este PC y en otro sin llegar a subirse. ¿Con cuál sigues?
+La otra no se pierde: queda guardada aparte."
+	expl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(expl)
+
+	var resumen := func(m: Dictionary) -> Array:
+		return ["%s  ·  Nv.%d  ·  %d monedas" % [String(m.get("nombre", "?")), int(m.get("cab_nivel", 0)),
+			int(m.get("cab_dinero", 0))], "%s  ·  %s" % [String(m.get("cab_lugar", "")), String(m.get("fecha", ""))]]
+	var aqui: Button = _boton_ranura("La de ESTE PC", resumen.call(prep.get("aqui", {})), AMBAR)
+	aqui.custom_minimum_size.x = ANCHO_TOTAL
+	vb.add_child(aqui)
+	var nube: Button = _boton_ranura("La de la NUBE", resumen.call(prep.get("nube", {})), Color(0.55, 0.75, 0.98))
+	nube.custom_minimum_size.x = ANCHO_TOTAL
+	vb.add_child(nube)
+	var cancelar := Button.new()
+	cancelar.text = "Ahora no"
+	cancelar.pressed.connect(capa.queue_free)
+	vb.add_child(cancelar)
+
+	var elegir := func(gana: String):
+		capa.queue_free()
+		await Cargando.mostrar("Poniendo tu partida al día...")
+		if await Perfil.resolver_conflicto(slot, gana, int(prep.get("rev_nube", 0))):
+			_cargar(slot)
+		else:
+			Cargando.ocultar()
+			_aviso.text = "No se pudo hablar con la nube. Vuelve a probar."
+	aqui.pressed.connect(elegir.bind("aqui"))
+	nube.pressed.connect(elegir.bind("nube"))
 
 
 # ============================================================
@@ -318,7 +424,7 @@ func _nueva(slot: int) -> void:
 # ------------------------------------------------------------
 func _crear_personaje(slot: int) -> void:
 	CreadorPersonaje.abrir(self,
-		"NUEVO PERSONAJE  ·  ranura %d" % slot,
+		"NUEVO PERSONAJE",
 		"",
 		"Empezar la aventura",
 		{"color": COLOR_INICIAL},
@@ -369,7 +475,7 @@ func _borrar(slot: int) -> void:
 	center.add_child(vb)
 
 	var tit := Label.new()
-	tit.text = "BORRAR LA RANURA %d" % slot
+	tit.text = "BORRAR LA PARTIDA"
 	tit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tit.add_theme_font_size_override("font_size", 24)
 	tit.add_theme_color_override("font_color", ROJO)
@@ -430,18 +536,16 @@ func _borrar(slot: int) -> void:
 func _borrar_a_ciegas(slot: int) -> void:
 	if _confirmar_borrado != slot:
 		_confirmar_borrado = slot
-		_aviso.text = "La ranura %d TIENE una partida que este build no puede leer. Pulsa otra vez «Borrar» para tirarla." % slot
+		_aviso.text = "Esa partida no la puede leer este build. Pulsa otra vez «Borrar» para tirarla."
 		return
 	_confirmar_borrado = 0
 	Perfil.borrar(slot)
-	_aviso.text = "Ranura %d borrada." % slot
-	_confirmar_nueva = 0
+	_aviso.text = "Partida borrada."
 	_pintar()
 
 
 func _hacer_borrado(slot: int, capa: Control) -> void:
 	Perfil.borrar(slot)
 	capa.queue_free()
-	_aviso.text = "Ranura %d borrada." % slot
-	_confirmar_nueva = 0
+	_aviso.text = "Partida borrada."
 	_pintar()

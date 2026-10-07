@@ -194,6 +194,7 @@ func guardar_al_cerrar() -> void:
 			push_warning("[ventana] al cerrar: %s" % String(r.get("mensaje", "")))
 		return
 	Perfil.guardar_actual()
+	await Perfil.subir_al_salir()   # y a la nube lo que falte (sin red, sube la proxima vez)
 	# HOST de una sala normal: guarda tambien por sus invitados, y se ESPERA a que el aviso salga
 	# de verdad (desconectar en el mismo frame tiraria el paquete sin enviarlo).
 	if Net.activo:

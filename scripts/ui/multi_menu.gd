@@ -774,8 +774,8 @@ func _crear_mi_personaje_en_mundo_ajeno(nombre_mundo: String) -> void:
 # no ofrecerla (ver Perfil.inspeccionar).
 func _ranuras_importables() -> Array:
 	var out: Array = []
-	for i in range(1, Perfil.RANURAS + 1):
-		var info: Dictionary = Perfil.inspeccionar(i)
+	for i in Perfil.ranuras():
+		var info: Dictionary = Perfil.inspeccionar_ligera(i)   # la lista solo pinta la cabecera
 		if int(info.get("estado", -1)) == Perfil.OK and info.get("datos") != null:
 			out.append({"slot": i, "datos": info["datos"]})
 	return out
@@ -808,14 +808,24 @@ func _elegir_ranura_a_importar(creador: Node, al_elegir: Callable) -> void:
 	MenuScaffold.nota(vb, "Viene con sus acompañantes, el equipo que lleven PUESTO, su dinero, sus "
 		+ "oficios y todo lo que tenga en la BOLSA.")
 
-	for e in _ranuras_importables():
+	# Con scroll: las partidas ya no tienen tope (se ven unas pocas y el resto bajando).
+	var importables: Array = _ranuras_importables()
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size = Vector2(0, mini(importables.size(), 5) * (MenuScaffold.ALTO_BOTON + 8))
+	vb.add_child(sc)
+	var filas := VBoxContainer.new()
+	filas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filas.add_theme_constant_override("separation", 8)
+	sc.add_child(filas)
+	for e in importables:
 		var d: SaveData = e["datos"]
 		var b := Button.new()
 		b.text = "%s  ·  Nv.%d  ·  %d monedas" % [d.nombre, d.cab_nivel, d.cab_dinero]
 		b.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_BOTON)
 		var s: int = int(e["slot"])
 		b.pressed.connect(func(): al_elegir.call(s, capa, creador))
-		vb.add_child(b)
+		filas.add_child(b)
 
 	MenuScaffold.nota(vb, "Tu partida NO se borra: es una copia. Lo que SÍ se queda allí es el baúl "
 		+ "de armas sueltas y el almacén de casa, porque aquí esas cosas son del mundo y son comunes. "

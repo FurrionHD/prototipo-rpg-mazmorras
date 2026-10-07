@@ -343,8 +343,37 @@ func vinculo_leer(steam_id: int) -> Dictionary:
 	return await almacen.vinculo_leer(steam_id)
 
 
-func vinculo_poner(steam_id: int, id: String) -> Dictionary:
-	return await almacen.vinculo_poner(steam_id, id)
+func vinculo_poner(steam_id: int, id: String, clave := "") -> Dictionary:
+	return await almacen.vinculo_poner(steam_id, id, "", clave)
+
+
+# ============================================================
+#  LAS PARTIDAS DE UN JUGADOR (fase 3 de la BD): sin cerrojo, con la clave de mi identidad. Ver
+#  servidor/nube y Perfil. Si esta identidad no tiene clave (una sala), no se habla con la nube.
+# ------------------------------------------------------------
+func cuenta_lista() -> Dictionary:
+	if Identidad.clave() == "":
+		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+	return await almacen.cuenta_lista(Identidad.id, Identidad.clave())
+
+
+# p = {base, completa, filas, foto, foto_antes}. r["rev"] = el rev de la nube tras subir.
+func partida_sync(partida: String, p: Dictionary, meta: Dictionary) -> Dictionary:
+	if Identidad.clave() == "":
+		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+	return await almacen.p_sync(Identidad.id, Identidad.clave(), partida, p, meta)
+
+
+func partida_bajar(partida: String, desde: int) -> Dictionary:
+	if Identidad.clave() == "":
+		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+	return await almacen.p_bajar(Identidad.id, Identidad.clave(), partida, desde)
+
+
+func partida_borrar(partida: String) -> Dictionary:
+	if Identidad.clave() == "":
+		return {"ok": false, "error": "sin_clave", "mensaje": "Sin clave no hay nube."}
+	return await almacen.p_borrar(Identidad.id, Identidad.clave(), partida)
 
 
 # ============================================================

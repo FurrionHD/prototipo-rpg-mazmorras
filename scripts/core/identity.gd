@@ -42,6 +42,12 @@ var nombre: String = ""
 # Vacia = se publican todas las detectadas y que el cliente pruebe en orden.
 var direccion_preferida: String = ""
 
+# LA CLAVE SECRETA de cada id (fase 3 de la BD): la llave de tus partidas de un jugador en la nube. Tu id
+# sale en pantalla (menu de multijugador), asi que el id solo no puede abrir nada. Una por id, porque el id
+# puede cambiar (Steam, pegar otro): {id: clave de 32 hex}. Viaja con el vinculo de Steam.
+var claves: Dictionary = {}
+const SECCION_CLAVES := "claves"
+
 # ¿Se acababa de estrenar la identidad en este arranque? Lo usa el menu para avisar de que esta
 # maquina no se reconoce (ver la nota de la cabecera sobre el fichero borrado).
 var recien_creada := false
@@ -106,6 +112,9 @@ func _cargar() -> void:
 		direccion_preferida = String(cfg.get_value(SECCION, "direccion", ""))
 		id_anterior = String(cfg.get_value(SECCION, "id_anterior", ""))
 		_steam_ignorar = String(cfg.get_value(SECCION, "steam_ignorar", ""))
+		if cfg.has_section(SECCION_CLAVES):
+			for k in cfg.get_section_keys(SECCION_CLAVES):
+				claves[k] = String(cfg.get_value(SECCION_CLAVES, k, ""))
 	elif err != ERR_FILE_NOT_FOUND:
 		# De verdad ilegible. Se avisa fuerte porque no es inocuo -- los personajes que tengas en
 		# mundos compartidos quedan a nombre del id viejo -- y se APARTA en vez de pisarlo.
@@ -140,6 +149,8 @@ func _guardar() -> void:
 		cfg.set_value(SECCION, "id_anterior", id_anterior)
 	if _steam_ignorar != "":
 		cfg.set_value(SECCION, "steam_ignorar", _steam_ignorar)
+	for k in claves:
+		cfg.set_value(SECCION_CLAVES, k, claves[k])
 	# A un temporal y luego se renombra encima: el renombrado es atomico, asi que quien lea en ese
 	# momento ve el fichero viejo entero o el nuevo entero, nunca uno a medias.
 	var tmp: String = ruta + ".tmp"
@@ -153,6 +164,18 @@ func _guardar() -> void:
 
 
 # Cambiarte el nombre visible. Devuelve el nombre que ha quedado (vacio no se acepta).
+# La clave secreta de MI id (se crea la primera vez que hace falta). Vacia en un proceso que no escribe
+# (sala, trabajador) y que no la tenga: esos no suben partidas de un jugador.
+func clave() -> String:
+	var c: String = String(claves.get(id, ""))
+	if c == "" and not _solo_leer():
+		var cr := Crypto.new()
+		c = cr.generate_random_bytes(16).hex_encode()
+		claves[id] = c
+		_guardar()
+	return c
+
+
 func poner_nombre(n: String) -> String:
 	var limpio := n.strip_edges()
 	if limpio == "":
@@ -206,6 +229,7 @@ var _steam_ignorar: String = "" # vinculo al que ya se dijo "ahora no" ("-" = a 
 var steam_id: int = 0
 var steam_nombre: String = ""
 var vinculo: String = ""        # el id al que apunta tu Steam en la nube ("" = a ninguno)
+var _clave_vinculo: String = "" # la clave que guarda tu Steam para ese id
 
 
 # steam_falso / nombre_falso: SOLO pruebas, para no necesitar Steam.
@@ -224,7 +248,15 @@ func comprobar_steam(tengo_mundos: bool, steam_falso := 0, nombre_falso := "") -
 	if not r.get("ok", false):
 		return {"caso": "sin_red", "mensaje": String(r.get("mensaje", "No se pudo mirar tu cuenta de Steam."))}
 	vinculo = String(r.get("id", ""))
+	_clave_vinculo = String(r.get("clave", ""))
 	if vinculo == id:
+		# Tu Steam ya es este id: si guardaba la clave y este PC no la tenia, se recoge; si no la guardaba
+		# (vinculo de antes de las claves), se le pone la de aqui.
+		if _clave_vinculo != "" and String(claves.get(id, "")) == "":
+			claves[id] = _clave_vinculo
+			_guardar()
+		elif _clave_vinculo == "" and steam_falso == 0:
+			await Nube.vinculo_poner(steam_id, id, clave())
 		return {"caso": "igual"}
 	if vinculo == "":
 		return {"caso": "callado" if _steam_ignorar == "-" else "sin_vinculo"}
@@ -238,7 +270,7 @@ func comprobar_steam(tengo_mundos: bool, steam_falso := 0, nombre_falso := "") -
 func vincular_este_pc() -> Dictionary:
 	if steam_id == 0:
 		return {"ok": false, "mensaje": "Steam no está abierto."}
-	var r: Dictionary = await Nube.vinculo_poner(steam_id, id)
+	var r: Dictionary = await Nube.vinculo_poner(steam_id, id, clave())
 	if r.get("ok", false):
 		var antes: String = String(r.get("anterior", ""))
 		if antes != "" and antes != id:
@@ -273,6 +305,9 @@ func volver_al_anterior() -> bool:
 func _cambiar_id(nuevo: String, por_que: String) -> void:
 	id_anterior = id
 	id = nuevo
+	# La clave de ese id, si nos la trajo el vinculo de Steam (la de un id ya conocido se queda como esta).
+	if nuevo == vinculo and _clave_vinculo != "" and String(claves.get(nuevo, "")) == "":
+		claves[nuevo] = _clave_vinculo
 	recien_creada = false
 	_steam_ignorar = ""
 	_guardar()
