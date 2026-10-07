@@ -1,0 +1,17 @@
+; godot-sqlite v4.9 (MIT, https://github.com/2shady4u/godot-sqlite), para Godot 4.7.1.
+; Solo Windows (el .exe) y Android (moviles, previsto). Como GodotSteam: no se suben las demas
+; plataformas al repo. Para otra, bajar addons.zip de esa version y añadir su linea y su binario.
+
+[configuration]
+
+entry_symbol = "sqlite_library_init"
+compatibility_minimum = "4.7"
+
+[libraries]
+
+windows.debug.x86_64 = "res://addons/godot-sqlite/bin/libgdsqlite.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/godot-sqlite/bin/libgdsqlite.windows.template_release.x86_64.dll"
+android.debug.arm64 = "res://addons/godot-sqlite/bin/libgdsqlite.android.template_debug.arm64.so"
+android.release.arm64 = "res://addons/godot-sqlite/bin/libgdsqlite.android.template_release.arm64.so"
+android.debug.x86_64 = "res://addons/godot-sqlite/bin/libgdsqlite.android.template_debug.x86_64.so"
+android.release.x86_64 = "res://addons/godot-sqlite/bin/libgdsqlite.android.template_release.x86_64.so"
