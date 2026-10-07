@@ -1291,7 +1291,11 @@ func _hojas_slimes(salida: String, pedidas: String) -> void:
 				var dir_n: String = DIRS[fila][0]
 				var hacia: Vector2 = yo + dvec * 70.0
 				spr.animation = StringName("idle_%d" % SpriteLienzo.dir8(dvec))
-				var f = CombatFormas.de_habilidad_mapa(ab, yo, pisa, ALCANCE_ENEMIGO, hacia) if int(ab.forma) >= 0 else null
+				# EL FRENTE de su cuerpo hacia alli, como en el juego (CombatTactico.forma_de; 07/10: aqui no estaba y los
+				# conos de los slimes grandes salian del centro y parecian sin alcance -el Doble embate del arrecife-).
+				var frente: float = load("res://scripts/ui/combat_tactico.gd").frente_dibujo(cuerpo, yo, dvec)
+				var f = CombatFormas.de_habilidad_mapa(ab, yo, maxf(pisa, frente), ALCANCE_ENEMIGO, hacia,
+					frente * 0.85) if int(ab.forma) >= 0 else null
 				var hacia_cam: float = 0.0 if f == null or int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR else 0.3
 				_cam.global_position = yo + dvec * medida * hacia_cam
 				# 1) La huella, en ROJO (es de enemigo).
