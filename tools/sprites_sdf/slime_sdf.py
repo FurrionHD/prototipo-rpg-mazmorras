@@ -69,6 +69,11 @@ VARIANTES = {
     # parches y carambanos (la cara libre).
     'arr180': (1.80, 'arrecife', '556a80'),
     'esc198': (1.98, 'escarcha', '556a80'),
+    # LOS MUTANTES DEL REY SLIME (07/10, lo eligio el jefe de slime_rey_versiones.py: "dios"): UNA LINEA, x1,1 (la tabla
+    # de jefe). TIRANO (1a): corona de CRISTAL (los que se ha comido) y MANTO real con armiño, cejas fruncidas.
+    # DESTRONADO (2a, del mismo tamaño): la corona ROTA y ladeada, el manto ROTO (rajas, agujeros), los ojos caidos.
+    'tir308': (3.08, 'tirano', '55b8ff'),
+    'des308': (3.08, 'destronado', '55b8ff'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
@@ -76,7 +81,7 @@ SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s
 # El nucleo (y su cristal) dentro del gel: TODOS los de gel (07/10, su aviso: "todos menos el normal estan mal, no se les
 # ve el nucleo ni el cristal"). Los de ROCA (fuego, ceniza, obsidiana) no: no se transparentan. El Rey, con sus versiones.
 CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 's170', 'cie204', 'ojo224',
-                     'arr180', 'esc198')
+                     'arr180', 'esc198', 'rey280', 'tir308', 'des308')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
 # Las dos del venenoso comparten piel (poros; la 2a, burbujas).
@@ -87,6 +92,8 @@ ROCA = FORMA in ('lava', 'ceniza', 'obsidiana')
 NOCHE = FORMA in ('cielo', 'milojos')
 # Los dos del profundo: el gel de antes se les cae a placas al transformarse (como el cielo).
 MAR = FORMA in ('arrecife', 'escarcha')
+# EL REY Y SUS MUTANTES (07/10): cuerpo de PUDIN (asienta por su peso; en el aire se hace bola) y corona.
+REY = FORMA in ('rey', 'tirano', 'destronado')
 
 
 def _lienzo(escala):
@@ -205,16 +212,25 @@ def _materiales(forma, color):
             'costra': [osc(c, 0.55), osc(c, 0.38), osc(c, 0.18)],
             # LA AMPOLLA (mutantes del venenoso): el borde de los poros y las burbujas, verde amarillento claro y opaco.
             'ampolla': [osc((0.74, 0.95, 0.36), 0.22), (0.74, 0.95, 0.36), cla((0.74, 0.95, 0.36), 0.35),
-                        cla((0.74, 0.95, 0.36), 0.75)]}
+                        cla((0.74, 0.95, 0.36), 0.75)],
+            # EL REY (07/10): la gema roja del aro; la corona de CRISTAL del tirano (opaca, va por fuera); EL MANTO
+            # (terciopelo morado; el del destronado, desvaido), EL ARMIÑO con sus motas y LAS CEJAS del tirano.
+            'gema_r': [(1.0, 0.25, 0.32)] * 3,
+            'cristal_f': [(0.22, 0.55, 0.72), (0.45, 0.88, 1.0), (0.80, 1.0, 1.0), (1.0, 1.0, 1.0)],
+            'manto': [(0.16, 0.05, 0.22), (0.32, 0.10, 0.42), (0.50, 0.22, 0.62)],
+            'manto_d': [(0.20, 0.10, 0.24), (0.34, 0.18, 0.40), (0.46, 0.30, 0.52)],
+            'armino': [(0.72, 0.74, 0.80), (0.92, 0.93, 0.96), (1.0, 1.0, 1.0)],
+            'mota': [(0.05, 0.05, 0.08)] * 3,
+            'ceja': [osc(c, 0.70)] * 3}
 
 
 LIENZO, PIES = _lienzo(ESCALA)
 BORDE = (0.16, 0.03, 0.05) if ROCA else ((0.02, 0.02, 0.06) if NOCHE else osc(hexc(COLOR), 0.58))
 IRIS = ['iris_v', 'iris_m', 'iris_c', 'iris_a', 'iris_n', 'iris_r', 'iris_p']
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
-                brillan=('ojo', 'gema', 'punta_a') + (('lava', 'chispa') if ROCA else ())
+                brillan=('ojo', 'gema', 'punta_a', 'gema_r') + (('lava', 'chispa') if ROCA else ())
                 + (('estrella', 'blanco', 'pupila') + tuple(IRIS) if NOCHE else ()), corta_suelo=True,
-                especular=('gel', 'cuerno', 'cristal', 'ampolla'), umbral_especular=0.955,
+                especular=('gel', 'cuerno', 'cristal', 'ampolla', 'cristal_f'), umbral_especular=0.955,
                 # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
                 translucidos=() if ROCA else (('gel', 'cuerno', 'antes') if NOCHE or MAR else ('gel', 'cuerno')), alfa=0.72)
 MODELO.alfa_dentro = 0.42
@@ -223,7 +239,7 @@ MODELO.claros_dentro = ('cristal', 'nucleo', 'estrella')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # TODOS menos el Rey (07/10: el Rey, con sus versiones).
 PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 'lava160', 'cen192', 'obs211',
-                   's170', 'cie204', 'ojo224', 'arr180', 'esc198')
+                   's170', 'cie204', 'ojo224', 'arr180', 'esc198', 'rey280', 'tir308', 'des308')
 # LOS MIL OJOS PARPADEAN CADA UNO POR SU CUENTA (06/10, lo pidio el jefe): sus ojos van en GRUPOS repartidos al azar y el
 # horno saca una hoja de parpados por grupo (<anim>_parpado.png, <anim>_parpado2.png...); el juego pone cada una a su aire.
 GRUPOS_PARPADO = 6 if FORMA == 'milojos' else 1
@@ -289,7 +305,7 @@ def _en(p):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
     elif FORMA == 'obsidiana':
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
-    elif FORMA in ('pestilente', 'milojos', 'escarcha'):
+    elif FORMA in ('pestilente', 'milojos', 'escarcha', 'tirano'):
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'puas':
         # (transformandose desde el brotado o desde el punzante, empieza del tamaño de ellos: el brotado punzante es x1,1)
@@ -337,6 +353,187 @@ def _junta(P, C, R):
     return (d[:, 1] - d[:, 0]) * 0.5
 
 
+# ---- EL REY SLIME Y SUS MUTANTES (07/10) ----
+# EL CUERPO DE PUDIN (su diagnostico de slime_rey_versiones.py: el de hoy era "demasiado redondo"): la cupula algo mas
+# baja, fundida con una BASE ancha y aplastada; asienta por su PESO. EN EL AIRE SE HACE BOLA (lo dijo el jefe: "cuando
+# salte al aire para caer encima se hara bola, no tendra plano abajo"): la base se le recoge segun se despega.
+# Devuelve la cupula (C, R): ahi van los ojos, la corona, el manto y el nucleo.
+_CUP = np.array([1.0, 1.0, 13.2 / 14.0])
+
+
+def _cuerpo_rey(e, C, R, pose):
+    Cc = C * (8.0 / 9.0); Rc = R * _CUP
+    peso = 1.0 - _paso(pose['bote'], 0.02, 0.35)
+    k = Rc[2] / 13.2
+    Cb = np.array([0.0, 0.0, 2.4 * k])
+    Rb = np.array([Rc[0] * 17.6 / 16.5 * (0.55 + 0.45 * peso), Rc[1] * 17.6 / 16.5 * (0.55 + 0.45 * peso),
+                   4.0 * k * (0.3 + 0.7 * peso)])
+    e.add(lambda P: sd_elipsoide(P, Cc, Rc), 'gel', 0)
+    e.add(lambda P: sd_elipsoide(P, Cb, Rb), 'gel', 0.5 + 2.5 * peso)
+    return Cc, Rc
+
+
+def _ladeo_rey(ang, centro):
+    ca, sa = math.cos(ang), math.sin(ang)
+    def g(P):
+        Q = P - centro
+        return np.stack([Q[:, 0] * ca + Q[:, 2] * sa, Q[:, 1], -Q[:, 0] * sa + Q[:, 2] * ca], axis=1) + centro
+    return g
+
+
+def _corona_rey(e, C, R, pose):
+    """LA CORONA: un ARO VERTICAL sobre la coronilla, rigido (va montado en la cupula: sube y baja con ella, no se
+    estira). El Rey, de su gel claro con cinco puntas, una gema en cada una y la roja delante (R1). El tirano, de
+    CRISTAL: siete esquirlas irregulares, la de delante la mayor (transformandose, el gel se le va y le crecen las
+    esquirlas). El destronado, la misma de cristal ROTA: ladeada, las puntas partidas y un hueco donde faltan dos."""
+    en = _en(pose) * (1.0 - 0.85 * pose['derretido'])
+    if en < 0.1:
+        return
+    top = C[2] + R[2]
+    rr = (8.6 if FORMA == 'rey' else 8.0) * R[0] / 16.5
+    z0, z1 = top - 3.2 * en, top + (0.8 if FORMA == 'rey' else 0.2) * en
+    evo = pose['evo']
+    gel = 1.0 if FORMA == 'rey' else (1.0 - _paso(evo, 0.15, 0.45) if FORMA == 'tirano' else 0.0)
+    cris = 0.0 if FORMA == 'rey' else (_paso(evo, 0.30, 0.50) if FORMA == 'tirano' else 1.0)
+    rota = _paso(evo, 0.20, 0.60) if FORMA == 'destronado' else 0.0
+    G = _ladeo_rey(0.42 * rota, np.array([0.0, 0.0, top - 2.2 * en])) if rota > 0.01 else (lambda P: P)
+    def aro(P, rr=rr, z0=z0, z1=z1, gros=1.0 * en, hueco=rota > 0.5):
+        Q = G(P)
+        d = np.abs(np.linalg.norm(Q[:, :2], axis=1) - rr) - gros
+        d = np.maximum(d, np.maximum(z0 - Q[:, 2], Q[:, 2] - z1))
+        if hueco:
+            ang = np.mod(np.arctan2(Q[:, 1], Q[:, 0]), 2 * math.pi)
+            d = np.maximum(d, np.minimum(ang - 0.95, 2.0 - ang) * 8.0)
+        return d
+    if gel > 0.05:
+        if gel > 0.5:
+            e.add(aro, 'cuerno', 0, 'corona')
+        for k in range(5):
+            a = k / 5.0 * 2 * math.pi + math.pi * 0.5
+            u = np.array([math.cos(a), math.sin(a), 0.0]); t = np.array([-math.sin(a), math.cos(a), 0.0])
+            bc = np.array([0.0, 0.0, z1 - 0.4 * en]) + u * rr
+            bl, br = bc - t * 2.6 * en * gel, bc + t * 2.6 * en * gel
+            tip = bc + u * 0.9 * en + np.array([0.0, 0.0, 5.5 * en * gel])
+            e.add(lambda P, a=bl, b=br, c=tip: sd_triangulo(P, a, b, c, 0.7 * en), 'cuerno', 0, 'corona')
+            e.add(lambda P, c=tip + np.array([0, 0, 0.6 * en]), r=1.2 * en * gel: sd_esfera(P, c, r), 'gema', 0, 'gema')
+        pf = np.array([0.0, rr + 1.0 * en, (z0 + z1) / 2])
+        e.add(lambda P, c=pf, r=1.1 * en * gel: sd_esfera(P, c, r), 'gema_r', 0, 'gema')
+    if cris > 0.05:
+        e.add(aro, 'cristal_f', 0, 'corona')
+        rng = np.random.default_rng(4)
+        for k in range(7):
+            a = k / 7.0 * 2 * math.pi + math.pi * 0.5 + rng.uniform(-0.12, 0.12)
+            alto = rng.uniform(5.0, 8.0) * (1.4 if k == 0 else 1.0)
+            ancho = rng.uniform(1.2, 1.7); abre = rng.uniform(0.15, 0.4)
+            parte = rng.uniform(0.35, 0.55)
+            if FORMA == 'tirano':
+                crece = _paso(evo, 0.30 + k * 0.05, 0.55 + k * 0.05)
+            elif k in (2, 3):
+                crece = 1.0 - _paso(rota, 0.3, 0.7)     # (las que se le caen)
+            elif k != 0:
+                crece = 1.0 - (1.0 - parte) * _paso(rota, 0.2, 0.6)
+            else:
+                crece = 1.0
+            if crece < 0.08:
+                continue
+            partida = FORMA == 'destronado' and k != 0 and rota > 0.4
+            u = np.array([math.cos(a), math.sin(a), 0.0])
+            base = np.array([0.0, 0.0, z0 + (z1 - z0) * 0.45]) + u * rr
+            dirc = u * abre + np.array([0.0, 0.0, 1.0]); dirc /= np.linalg.norm(dirc)
+            h = alto * crece * en
+            m = base + dirc * h * 0.65; b = base + dirc * h
+            ra = ancho * en * min(1.0, 0.4 + crece); rb = ra * 0.8 if partida else 0.15
+            e.add(lambda P, a=base, m=m, b=b, ra=ra, rb=rb: np.minimum(sd_cono(G(P), a, m, ra, ra * 0.9),
+                  sd_cono(G(P), m, b, ra * 0.9, rb)), 'cristal_f', 0, 'corona')
+
+
+def _manto_rey(e, C, R, pose):
+    """EL MANTO, solo por detras: cae de la espalda al suelo, con el bajo y el cuello de armiño. El tirano,
+    transformandose, le cae desde la espalda hasta el suelo; el destronado se le RASGA: bajo deshilachado, agujeros,
+    rajas y el armiño arrancado a trozos."""
+    en = _en(pose)
+    k = R[2] / 13.2
+    MC = C + np.array([0.0, -0.6 * en, 0.0]); MR = R * np.array([17.6 / 16.5, 17.6 / 16.5, 14.4 / 13.2])
+    top = C[2] + R[2]
+    evo = pose['evo']
+    cae = _paso(evo, 0.50, 0.85) if FORMA == 'tirano' else 1.0
+    if cae < 0.05:
+        return
+    roto = _paso(evo, 0.35, 0.80) if FORMA == 'destronado' else 0.0
+    alto = top - 7.4 * k                      # hasta donde sube (la espalda)
+    bajo0 = alto * (1.0 - cae)                # hasta donde llega (cayendo)
+    rng = np.random.default_rng(9)
+    agujeros = [(np.array([rng.uniform(-11, 11), -17.0, rng.uniform(5, 13)]) * np.array([en, en, k]),
+                 rng.uniform(1.5, 2.3) * en * roto) for _ in range(4)]
+    rajas = [rng.uniform(-2.6, -0.5) for _ in range(5)]
+    def concha(P, extra=0.0, gros=0.7):
+        d = np.abs(sd_elipsoide(P, MC, MR + extra)) - gros * en
+        d = np.maximum(d, P[:, 1] + 1.5 * en - P[:, 2] * 0.12)
+        return np.maximum(d, P[:, 2] - alto)
+    def tela(P):
+        d = np.maximum(concha(P), bajo0 - P[:, 2])
+        if roto > 0.02:
+            ang = np.arctan2(P[:, 1], P[:, 0])
+            bajo = roto * (1.0 + 2.6 * np.abs(np.sin(ang * 7.0)) + 1.6 * np.abs(np.sin(ang * 17.0 + 1.0))) * k
+            d = np.maximum(d, bajo - P[:, 2])
+            for c, r in agujeros:
+                if r > 0.2:
+                    d = np.maximum(d, r - np.linalg.norm(P - c, axis=1))
+            if roto > 0.3:
+                for a0 in rajas:
+                    cuna = np.abs(ang - a0) * 16.0 - (10.0 * k - P[:, 2]) * 0.16 * roto
+                    d = np.maximum(d, -np.maximum(cuna, P[:, 2] - 10.0 * k * roto))
+        return d
+    e.add(tela, 'manto_d' if roto > 0.5 else 'manto', 0, 'manto')
+    def armino(P):
+        d = concha(P, 0.4, 1.1)
+        franja_baja = np.maximum(bajo0 - P[:, 2], P[:, 2] - (bajo0 + 2.4 * k))
+        cuello = np.maximum(alto - 1.4 * k - P[:, 2], P[:, 2] - (alto + 0.6 * k))
+        if roto > 0.02:
+            ang = np.arctan2(P[:, 1], P[:, 0])
+            franja_baja = np.maximum(franja_baja, -np.sin(ang * 4.0 + 0.7) * 3.0 * roto)
+            cuello = np.maximum(cuello, -np.sin(ang * 3.0 + 2.1) * 3.0 * roto)
+        return np.maximum(d, np.minimum(franja_baja, cuello))
+    e.add(armino, 'armino', 0, 'armino')
+    for i in range(9):
+        ang = -math.pi * (0.1 + 0.8 * i / 8.0)
+        if roto > 0.5 and math.sin(ang * 4.0 + 0.7) < 0:
+            continue
+        for z in (bajo0 + 1.2 * k, alto - 0.4 * k):
+            rz = math.sqrt(max(0.0, 1.0 - ((z - MC[2]) / (MR[2] + 0.4)) ** 2))
+            p = MC + np.array([math.cos(ang) * (MR[0] + 1.9 * en) * rz, math.sin(ang) * (MR[1] + 1.9 * en) * rz,
+                               z - MC[2]])
+            e.add(lambda P, c=p, r=0.6 * en: sd_esfera(P, c, r), 'mota', 0, 'armino')
+
+
+def _cara_rey(e, C, R, c, rad, x, pose):
+    """La cara de los mutantes del Rey: el TIRANO, cejas fruncidas (bajas por dentro); el DESTRONADO, los ojos CAIDOS
+    (la mitad de arriba tapada de gel). Transformandose, el destronado pierde las cejas y se le caen los parpados."""
+    s = 1.0 if x > 0 else -1.0
+    evo = pose['evo']
+    ceja = _paso(evo, 0.80, 0.95) if FORMA == 'tirano' else 1.0 - _paso(evo, 0.25, 0.45)
+    if ceja > 0.05:
+        a, _ = _superficie((0.12 * s, 0.86, 0.58), C, R)
+        b, _ = _superficie((0.50 * s, 0.80, 0.70), C, R)
+        g = 0.9 * ceja * _en(pose)
+        e.add(lambda P, a=a, b=b, g=g: sd_cono(P, a, b, g, g * 0.78), 'ceja', 0, 'ceja')
+    caido = _paso(evo, 0.55, 0.85) if FORMA == 'destronado' else 0.0
+    if caido > 0.05 and not pose['cerrados']:
+        zc = c[2] + rad[2] * (1.0 - 0.92 * caido)
+        def lid(P, c=c, r=rad * 1.06, zc=zc):
+            return np.maximum(np.maximum(sd_elipsoide(P, c, r), sd_elipsoide(P, C, R) - 0.45), zc - P[:, 2])
+        e.add(lid, 'parpado', 0, 'parpado')
+        raya = np.array([rad[0] * 1.1, rad[1] * 1.1, 0.55])
+        cz = np.array([c[0], c[1], zc])
+        e.add(lambda P, cz=cz, raya=raya: np.maximum(sd_elipsoide(P, cz, raya), sd_elipsoide(P, C, R) - 0.55),
+              'pestana', 0, 'pestana')
+
+
+_CRISTALES_REY = [((6.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.5, 1.8), ((-7.0, -3.0, -2.0), (-0.3, 0.6, 0.8), 6.0, 1.7),
+                  ((2.0, -6.0, 4.0), (0.8, -0.2, 0.5), 5.5, 1.6), ((-4.0, -5.0, 5.5), (-0.6, -0.3, 0.7), 6.0, 1.7),
+                  ((8.0, -5.0, -3.5), (0.2, 0.9, 0.4), 5.0, 1.5)]
+
+
 def escena(pose):
     e = Escena(huesos(pose))
     add = e.add
@@ -347,6 +544,8 @@ def escena(pose):
         for k in range(3):
             add(lambda P, k=k: _sd_cara(P, C, R, k), 'cara%d' % (k + 1), 0)
         add(lambda P: _sd_arista(P, C, R), 'arista', 0, 'arista')
+    elif REY:
+        C, R = _cuerpo_rey(e, C, R, pose)
     else:
         add(lambda P: sd_elipsoide(P, C, R), 'gel', 0)
     # SIN CHARCO NI GOTAS (05/10, lo dijo el jefe): la baba del suelo la deja el juego por donde pasa
@@ -372,15 +571,10 @@ def escena(pose):
             _ceniza(e, C, R, pose)
         if FORMA == 'obsidiana':
             _agujas(e, C, R, pose)
-    if FORMA == 'rey':
-        # LA CORONA: un aro de cinco puntas de su gel, alrededor de la coronilla, con una GEMA en cada punta.
-        for k in range(5):
-            a = k / 5.0 * 2 * math.pi + math.pi * 0.5
-            base, n = _superficie((math.cos(a) * 0.55, math.sin(a) * 0.55, 0.83), C, R)
-            base = base - n * 1.0
-            punta = base + np.array([math.cos(a) * 0.8, math.sin(a) * 0.8, 7.5 * sz])
-            add(lambda P, a=base, b=punta: sd_cono(P, a, b, 2.4, 1.3), 'cuerno', 0, 'corona')
-            add(lambda P, c=punta + np.array([0, 0, 0.8]): sd_esfera(P, c, 1.35), 'gema', 0, 'gema')
+    if REY:
+        _corona_rey(e, C, R, pose)
+        if FORMA != 'rey':
+            _manto_rey(e, C, R, pose)
     else:
         if BROTADO:
             _brotes(e, C, R, sz, pose)
@@ -450,6 +644,8 @@ def escena(pose):
             else:
                 add(lambda P, c=c, rad=rad: np.maximum(sd_elipsoide(P, c, rad), sd_elipsoide(P, C, R) - 0.3), 'ojo', 0,
                     'ojo')
+            if FORMA in ('tirano', 'destronado'):
+                _cara_rey(e, C, R, c, rad, x, pose)
     if CON_NUCLEO:
         # EL NUCLEO, algo bajo y atras (que no tape los ojos de frente).
         rn = 3.4 * en
@@ -464,7 +660,11 @@ def escena(pose):
             # Transformandose, los que llevaba DENTRO se le van (le salen por fuera como puas, ver _puas).
             se_van = 1.0 - _paso(pose['evo2'], 0.30, 0.75)
             cris = [(c, eje, l, r * se_van) for (c, eje, l, r) in _CRISTALES_BROTADO]
-        elif FORMA == 'normal' or TOXICO or NOCHE:
+        elif REY and FORMA != 'rey':
+            # LOS QUE SE HA COMIDO (el tirano y el destronado): cinco, sueltos (transformandose del Rey, aparecen).
+            cris = [(c, eje, l, r * (1.0 if i == 0 or FORMA == 'destronado' else _paso(pose['evo'], 0.2 + i * 0.08,
+                     0.45 + i * 0.08))) for i, (c, eje, l, r) in enumerate(_CRISTALES_REY)]
+        elif FORMA == 'normal' or TOXICO or NOCHE or FORMA == 'rey':
             # UN SOLO CRISTAL en todos (07/10, su decision: "todos 1"; solo el brotado lleva muchos, que los USA para
             # atacar). El venenoso, el profundo y el abisal ya lo traen, asi que sus mutantes no lo estrenan al mutar.
             cris = [((5.0, -1.0, 2.5), (0.5, 0.2, 1.0), 6.0, 1.7)]
@@ -1260,6 +1460,20 @@ def anim_carambanos(t):
                 carambanos=T(t, [(0.0, 1.0), (0.50, 1.15), (0.62, 0.0), (0.80, 0.15), (1.0, 1.0)]))
 
 
+# LA TRANSFORMACION DEL REY (07/10): TIRANO = tiembla, se le va la corona de gel y le crecen las esquirlas de cristal
+# una a una, le cae el manto por la espalda hasta el suelo y frunce el ceño. DESTRONADO = un golpe seco: la corona se
+# le ladea, se le parten las puntas y se le caen dos, el manto se le rasga, y se le caen los parpados. 1,8 s.
+def anim_evolucion_rey(t):
+    tiembla = (1.0 if int(t * 14) % 2 == 0 else -1.0) * (1.0 - _paso(t, 0.25, 0.32))
+    if FORMA == 'tirano':
+        return POSE(squash=T(t, [(0.0, 1.0), (0.30, 1.0), (0.40, 1.18), (0.55, 1.04), (0.70, 1.12), (0.84, 0.88),
+                                 (0.94, 1.03), (1.0, 1.0)]) + 0.05 * tiembla * (t < 0.32),
+                    evo=T(t, [(0.0, 0.0), (0.10, 0.0), (0.90, 1.0), (1.0, 1.0)]))
+    return POSE(squash=T(t, [(0.0, 1.0), (0.18, 1.10), (0.28, 0.78), (0.40, 0.92), (0.60, 0.86), (0.80, 0.94),
+                             (1.0, 0.96)]) + 0.04 * tiembla * (t < 0.32),
+                evo=T(t, [(0.0, 0.0), (0.20, 0.0), (0.30, 0.45), (0.85, 1.0), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -1353,6 +1567,18 @@ if NOCHE:
         ANIMS['cegar'] = (10, 12.0, False, 8, anim_cegar)
         ANIMS['fijar'] = (8, 12.0, True, 8, anim_fijar)
         ANIMS['mirada'] = (10, 12.0, False, 8, anim_mirada)
+# EL REY (07/10): SOLO LAS SUYAS (Aplastamiento = inflar>aplaston>deshincharse; Escision y Marea = escupir; el Brote =
+# inflar>hinchado de carga y brote; nacer, la de sus crias) + comer. Ignicion y encogido eran del generador comun: fuera.
+ANIMS_REY = ('idle', 'walk', 'embestida', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'escupir', 'brote', 'nacer',
+             'encaje', 'muerte')
+if REY:
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_REY}
+    ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
+    if FORMA != 'rey':
+        ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_rey)
+    if FORMA == 'destronado':
+        # (nadie le sigue: ni Brote ni crias)
+        ANIMS.pop('brote', None); ANIMS.pop('nacer', None)
 # (el venenoso tambien come cristales: 06/10, al hacer su arbol; el abisal y los suyos, al hacer el suyo)
 if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211', 's170',
            's150', 'arr180', 'esc198',
