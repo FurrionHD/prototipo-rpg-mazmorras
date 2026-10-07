@@ -14,6 +14,8 @@
 #      comprobacion la hace el juego aqui, volviendo con reclamar=true si ese proceso ya no existe.
 #    - EL SAVE SE BAJA APARTE, despues de coger el cerrojo y con su token: abrir contesta JSON y los
 #      4 MB van en una peticion binaria propia.
+#    - LA BASE DE DATOS DEL MUNDO va por paginas: sync parte las filas en lotes de ~1 MB (el servidor
+#      las aparca y aplica todas con la ultima) y bajar_bd pide paginas hasta que no hay mas.
 # ============================================================
 
 extends RefCounted
@@ -22,6 +24,8 @@ class_name NubeAlmacenHttp
 # Cuanto se espera a la nube. Subir o bajar el mundo entero (varios MB) lleva mas que un latido.
 const PLAZO_CORTO := 20.0
 const PLAZO_LARGO := 120.0
+# Lo que lleva cada parte de una subida de filas (texto). Las normales caben en una.
+const PARTE_SYNC := 1024 * 1024
 
 var url: String = ""
 var _padre: Node = null
@@ -47,8 +51,9 @@ func crear(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 
 
 func abrir(id: String, contrasena: String, direcciones: Array, sello_version: int,
-		sello_build: String, forzar_build := false, quien_soy := "") -> Dictionary:
+		sello_build: String, forzar_build := false, quien_soy := "", formato_bd := 0) -> Dictionary:
 	var datos := {
+		"formato_bd": formato_bd,
 		"direcciones": direcciones,
 		"sello_version": sello_version,
 		"sello_build": sello_build,
@@ -104,6 +109,67 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 	return await _peticion("estado", id, contrasena, {}, _json({"quien_soy": quien_soy}))
 
 
+# LA BASE DE DATOS DEL MUNDO (ver servidor/nube). p = {base, completa, soltar, foto, filas}: las filas se
+# parten en partes de un mismo lote; el servidor solo aplica con la ultima.
+func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version: int,
+		sello_build: String) -> Dictionary:
+	var filas: Array = p.get("filas", [])
+	var partes: Array = [[]]
+	var talla: int = 0
+	for f in filas:
+		var t: int = String(f[1]).length() + (String(f[2]).length() if f[2] is String else 8) + 24
+		if talla + t > PARTE_SYNC and not partes[-1].is_empty():
+			partes.append([])
+			talla = 0
+		partes[-1].append(f)
+		talla += t
+	var lote: String = str(Time.get_ticks_usec()).sha256_text().substr(0, 16)
+	var cab := {
+		"x-token": token,
+		"x-sello-version": sello_version,
+		"x-sello-build": sello_build,
+		"x-meta": JSON.stringify(meta),
+	}
+	var r: Dictionary = {}
+	for i in partes.size():
+		var cuerpo := {"base": int(p.get("base", 0)), "lote": lote, "parte": i, "fin": i == partes.size() - 1,
+			"completa": bool(p.get("completa", false)), "soltar": bool(p.get("soltar", false)),
+			"foto": bool(p.get("foto", false)), "filas": partes[i]}
+		r = await _peticion("sync", id, String(_pass.get(id, "")), cab, _json(cuerpo), false, PLAZO_LARGO)
+		if not r.get("ok", false):
+			return r
+	if bool(p.get("soltar", false)):
+		_pass.erase(id)
+	return r
+
+
+# Las filas cambiadas desde el rev `desde` (0 = todas), juntando todas las paginas.
+func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
+	var filas: Array = []
+	var tras: int = 0
+	var r: Dictionary = {}
+	while true:
+		r = await _peticion("bajar_bd", id, String(_pass.get(id, "")), {"x-token": token},
+			_json({"desde": desde, "tras": tras}), false, PLAZO_LARGO)
+		if not r.get("ok", false):
+			return r
+		filas.append_array(r.get("filas", []))
+		tras = int(r.get("tras", 0))
+		if not bool(r.get("mas", false)):
+			break
+	r["filas"] = filas
+	return r
+
+
+func fotos(id: String, token: int) -> Dictionary:
+	return await _peticion("fotos", id, String(_pass.get(id, "")), {"x-token": token}, _json({}))
+
+
+func restaurar(id: String, token: int, foto) -> Dictionary:
+	return await _peticion("restaurar", id, String(_pass.get(id, "")), {"x-token": token},
+		_json({"foto": foto}), false, PLAZO_LARGO)
+
+
 # EL VINCULO DE STEAM (ver la cabecera de servidor/nube). Va por ?steam= en vez de ?id=, y sin contraseña.
 func vinculo_leer(steam_id: int, ticket := "") -> Dictionary:
 	return await _peticion("vinculo_leer", "", "", {}, _json({"ticket": ticket}), false, PLAZO_CORTO,
@@ -142,7 +208,7 @@ func _peticion(op: String, id: String, contrasena: String, cabeceras: Dictionary
 	h.use_threads = true   # subir 4 MB no puede congelar el juego
 	_padre.add_child(h)
 	var hs := PackedStringArray(["x-pass: " + contrasena.uri_encode()])
-	if op == "abrir" or op == "crear" or op == "estado" or op.begins_with("vinculo_"):
+	if op in ["abrir", "crear", "estado", "sync", "bajar_bd", "fotos", "restaurar"] or op.begins_with("vinculo_"):
 		hs.append("content-type: application/json")
 	for k in cabeceras:
 		hs.append("%s: %s" % [k, str(cabeceras[k]).uri_encode()])

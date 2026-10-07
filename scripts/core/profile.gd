@@ -122,9 +122,7 @@ func inspeccionar(slot: int) -> Dictionary:
 
 # Lo que pinta la lista de partidas, y nada mas: con BD se leen estos campos sueltos en vez de montar
 # la partida entera (en su mundo, 240 ms por ranura y el menu lo pedia varias veces).
-const CAMPOS_CABECERA := ["version", "version_mundo", "nombre", "color", "metalico", "imagen",
-	"color_alpha", "player_aspecto", "fecha", "cab_nivel", "cab_piso", "cab_dinero", "cab_lugar",
-	"en_mazmorra", "current_floor"]
+const CAMPOS_CABECERA := PartidaBD.CAMPOS_CABECERA
 
 
 ## Como inspeccionar(), pero "datos" solo trae la CABECERA (CAMPOS_CABECERA) si la ranura tiene BD.
@@ -145,23 +143,7 @@ func _inspeccionar_bd(slot: int, ids: BDFilas.Ids, solo_cabecera := false) -> Di
 	var bd := _bd if (_bd != null and _bd_slot == slot) else PartidaBD.new()
 	if not bd.abierta() and not bd.abrir(ruta_bd(slot)):
 		return {"estado": SaveIO.ILEGIBLE, "version": 0, "version_mundo": 0, "datos": null}
-	var cab: Dictionary = bd.leer_campos(["version", "version_mundo"])
-	var info := {"estado": SaveIO.OK, "version": int(cab.get("version", 0)),
-		"version_mundo": int(cab.get("version_mundo", 0)), "datos": null}
-	if not cab.has("version"):
-		info["estado"] = SaveIO.ILEGIBLE
-	elif info["version"] < SaveData.VERSION_ACTUAL:
-		info["estado"] = SaveIO.MAS_VIEJA
-	elif info["version"] > SaveData.VERSION_ACTUAL or info["version_mundo"] > SaveData.VERSION_MUNDO:
-		info["estado"] = SaveIO.MAS_NUEVA
-	if info["estado"] == SaveIO.OK and solo_cabecera:
-		var cab_s := SaveData.new()
-		var campos: Dictionary = bd.leer_campos(CAMPOS_CABECERA)
-		for n in campos:
-			BDFilas._poner(cab_s, n, campos[n])
-		info["datos"] = cab_s
-	elif info["estado"] == SaveIO.OK:
-		info["datos"] = BDFilas.de_filas(bd.leer(), ids)
+	var info: Dictionary = PartidaBD.inspeccionar(bd, ids, solo_cabecera)
 	if bd != _bd:
 		bd.cerrar()
 	return info

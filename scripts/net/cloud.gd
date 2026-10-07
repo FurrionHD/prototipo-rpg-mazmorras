@@ -35,6 +35,10 @@ const _ALMACEN_HTTP := preload("res://scripts/net/cloud_store_http.gd")
 # (NubeAlmacenLocal.SEGUNDOS_ARRENDAMIENTO): un pico de lag no te quita el mundo.
 const SEGUNDOS_LATIDO := 30.0
 
+# Este juego entiende los mundos guardados en BASE DE DATOS (filas en la nube, ver servidor/nube). Un
+# mundo ya migrado no lo abre un juego que no lo diga: se llevaria el save de antes de migrar.
+const FORMATO_BD := 1
+
 # EN QUE ANDO. Es el estado del CERROJO, no de la partida.
 enum {
 	CERRADA,          # no tengo ningun mundo abierto
@@ -157,7 +161,7 @@ func abrir(id: String, contrasena: String, direcciones: Array = [],
 	# (cerre con la X, o me colgué) y me lo devuelva en vez de ofrecerme unirme a un host que ya no
 	# existe. Ver NubeAlmacenLocal.abrir.
 	var r: Dictionary = await almacen.abrir(id, contrasena, direcciones, _sello(), Game.VERSION,
-		forzar_build, Identidad.para_cerrojo())
+		forzar_build, Identidad.para_cerrojo(), FORMATO_BD)
 	if not r.get("ok", false):
 		_cambiar(CERRADA)
 		return r
@@ -236,14 +240,61 @@ func _subir(save: PackedByteArray, meta: Dictionary, soltando: bool) -> Dictiona
 		r = await almacen.cerrar(id, token, save, meta, _sello(), Game.VERSION)
 	else:
 		r = await almacen.subir(id, token, save, meta, _sello(), Game.VERSION)
+	return _tras_subir(r, id, token, soltando, "%d bytes" % save.size())
+
+
+# ============================================================
+#  LA BASE DE DATOS DEL MUNDO (fase 2 de la BD): en vez del fichero entero, las FILAS cambiadas.
+#  p = {base, completa, filas, soltar, foto} (ver PartidaBD.pendientes y servidor/nube "sync"). Con
+#  soltar es el CIERRE: sube y suelta, y si falla el mundo sigue siendo mio (PENDIENTE_SUBIR), igual que
+#  cerrar(). r["rev"] = el rev de la nube tras subir. Error "rev_distinto" = la nube no esta en `base`.
+# ------------------------------------------------------------
+func sincronizar(p: Dictionary, meta: Dictionary = {}) -> Dictionary:
+	var soltando: bool = bool(p.get("soltar", false))
+	if estado == PERDIDO:
+		_olvidar()
+		return {"ok": false, "error": "token_viejo",
+			"mensaje": "El mundo lo tiene otro: esta partida no se puede subir."}
+	if estado != HOST and estado != PENDIENTE_SUBIR:
+		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
+	var id := mundo_id
+	var token := _token
+	_cambiar(TRABAJANDO)
+	var r: Dictionary = await almacen.sync(id, token, p, meta, _sello(), Game.VERSION)
+	return _tras_subir(r, id, token, soltando, "%d filas, rev %d" % [(p.get("filas", []) as Array).size(), int(r.get("rev", -1))])
+
+
+# Las filas de la nube cambiadas desde el rev `desde` (0 = todas): {ok, rev, completa, filas}.
+func bajar_bd(desde: int) -> Dictionary:
+	if estado != HOST and estado != PENDIENTE_SUBIR:
+		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
+	return await almacen.bajar_bd(mundo_id, _token, desde)
+
+
+# EL HISTORIAL del mundo abierto: {ok, fotos: [{id, fecha, rev, bytes, motivo}], legado}.
+func fotos() -> Dictionary:
+	if estado != HOST and estado != PENDIENTE_SUBIR:
+		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
+	return await almacen.fotos(mundo_id, _token)
+
+
+# Vuelve la nube a una foto del historial (id) o al save de antes de migrar ("legado"). Quien llama se
+# baja despues la partida entera (bajar_bd(0)), o la vieja si es el legado.
+func restaurar(foto) -> Dictionary:
+	if estado != HOST and estado != PENDIENTE_SUBIR:
+		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
+	return await almacen.restaurar(mundo_id, _token, foto)
+
+
+func _tras_subir(r: Dictionary, id: String, token: int, soltando: bool, que: String) -> Dictionary:
 	if r.get("ok", false):
 		if soltando:
-			print("[nube] mundo ", id, " CERRADO y subido (", save.size(), " bytes)")
+			print("[nube] mundo ", id, " CERRADO y subido (", que, ")")
 			_olvidar()
 		else:
 			# El cerrojo sigue siendo mio: se vuelve a HOST (y si veniamos de una subida pendiente,
 			# esta subida la ha resuelto).
-			print("[nube] mundo ", id, " al dia (", save.size(), " bytes)")
+			print("[nube] mundo ", id, " al dia (", que, ")")
 			_desde_ultimo_latido = 0.0   # la subida ya ha dicho "sigo aqui"
 			_cambiar(HOST)
 		return r

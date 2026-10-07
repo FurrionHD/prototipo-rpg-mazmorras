@@ -111,7 +111,7 @@ func _ready() -> void:
 			print("    sala: " + linea)
 	ok(txt_sala.contains("[tunel] llega"), "la sala vio llegar a Ana por el tunel")
 
-	var d: SaveData = SaveIO.inspeccionar_ruta(Mundos.ruta(clave)).get("datos") as SaveData
+	var d: SaveData = Mundos.inspeccionar(clave).get("datos") as SaveData
 	ok(d != null and d.bote_dinero == 30, "el bote se guarda con 30 (%s)" % (str(d.bote_dinero) if d else "?"))
 	Mundos.borrar(clave)
 	print("TODO BIEN" if fallos == 0 else "%d FALLOS" % fallos)

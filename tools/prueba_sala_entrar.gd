@@ -75,7 +75,7 @@ func _ready() -> void:
 	await _salir()
 	ok(await _esperar_a(func(): return not OS.is_process_running(pid1), 40.0), "sin nadie, la sala se cierra sola")
 	ok(Mundos.sala_en_este_pc(clave).is_empty(), "y ya no sale como abierta en este PC")
-	var d: SaveData = SaveIO.inspeccionar_ruta(Mundos.ruta(clave)).get("datos") as SaveData
+	var d: SaveData = Mundos.inspeccionar(clave).get("datos") as SaveData
 	var jd = d.jugadores.get(Identidad.id) if d != null else null
 	ok(jd is JugadorData and ((jd as JugadorData).personajes[0] as PersonajeData).nombre == "Estrena"
 		and d.jugadores.size() == 1, "el save guarda a Estrena a mi nombre, y a nadie mas")

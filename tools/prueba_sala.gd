@@ -84,7 +84,7 @@ func _ready() -> void:
 		"el cerrojo esta suelto y la partida subida")
 
 	# --- El save, intacto ---
-	var info: Dictionary = SaveIO.inspeccionar_ruta(Mundos.ruta(clave))
+	var info: Dictionary = Mundos.inspeccionar(clave)
 	var d: SaveData = info.get("datos") as SaveData
 	ok(d != null, "el save se puede leer")
 	if d != null:

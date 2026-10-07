@@ -116,7 +116,7 @@ func _ready() -> void:
 	# --- El save ---
 	var e: Dictionary = await Nube.consultar(clave, CLAVE_SALA)
 	ok(e.get("ok", false) and not e.get("abierto", true), "el cerrojo esta suelto")
-	var d: SaveData = SaveIO.inspeccionar_ruta(Mundos.ruta(clave)).get("datos") as SaveData
+	var d: SaveData = Mundos.inspeccionar(clave).get("datos") as SaveData
 	ok(d != null, "el save se puede leer")
 	if d != null:
 		var claves: Array = d.jugadores.keys().map(func(k): return String(k))

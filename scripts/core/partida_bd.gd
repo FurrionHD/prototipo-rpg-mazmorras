@@ -10,6 +10,11 @@
 #
 #  `rev` cuenta los guardados que han cambiado algo: es lo que usara la nube para saber que copia
 #  es mas nueva (en vez de comparar fechas).
+#
+#  LA NUBE (fase 2): con `rastrear` a true (los mundos compartidos), cada fila que cambia se apunta en
+#  `sin_subir` en la MISMA transaccion, asi que lo que falta por subir sobrevive a un cierre de golpe.
+#  `rev_nube` (en bd_meta) es el rev de la nube del que parte esta copia: -1 = nunca subida (la proxima
+#  subida es entera). Ver Mundos (abrir / autoguardar) y servidor/nube (sync, bajar_bd).
 # ============================================================
 class_name PartidaBD
 extends RefCounted
@@ -22,6 +27,8 @@ const _CLAVE := {"campos": "clave", "objetos": "id", "contables": "clave"}
 
 var ruta: String = ""
 var rev: int = 0
+# Apuntar en sin_subir cada fila que cambia (los mundos compartidos: lo que hay que subir a la nube).
+var rastrear: bool = false
 var _db: SQLite = null
 # Lo ultimo escrito (o leido), por tabla: {clave: valor}. Contra esto se calcula la diferencia.
 var _ultimas: Dictionary = {}
@@ -44,6 +51,50 @@ static func borrar(clave_o_ruta: String) -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(r + extra))
 
 
+# Lo que pinta una lista de partidas, y nada mas (leer estos campos sueltos en vez de montar la partida
+# entera: en su mundo, 240 ms por ranura).
+const CAMPOS_CABECERA := ["version", "version_mundo", "nombre", "color", "metalico", "imagen",
+	"color_alpha", "player_aspecto", "fecha", "cab_nivel", "cab_piso", "cab_dinero", "cab_lugar",
+	"en_mazmorra", "current_floor"]
+
+
+## Lo mismo que SaveIO.inspeccionar_ruta, pero de una BD ya abierta: {"estado", "version",
+## "version_mundo", "datos"}. Con solo_cabecera, "datos" solo trae CAMPOS_CABECERA. `ids` se queda con
+## los objetos leidos (para que el primer guardado reconozca los mismos y no reescriba nada).
+static func inspeccionar(bd: PartidaBD, ids: BDFilas.Ids, solo_cabecera := false) -> Dictionary:
+	var cab: Dictionary = bd.leer_campos(["version", "version_mundo"])
+	var info := {"estado": SaveIO.OK, "version": int(cab.get("version", 0)),
+		"version_mundo": int(cab.get("version_mundo", 0)), "datos": null}
+	if not cab.has("version"):
+		info["estado"] = SaveIO.ILEGIBLE
+	elif info["version"] < SaveData.VERSION_ACTUAL:
+		info["estado"] = SaveIO.MAS_VIEJA
+	elif info["version"] > SaveData.VERSION_ACTUAL or info["version_mundo"] > SaveData.VERSION_MUNDO:
+		info["estado"] = SaveIO.MAS_NUEVA
+	if info["estado"] == SaveIO.OK and solo_cabecera:
+		var cab_s := SaveData.new()
+		var campos: Dictionary = bd.leer_campos(CAMPOS_CABECERA)
+		for n in campos:
+			if n in cab_s:
+				BDFilas._poner(cab_s, n, campos[n])
+		info["datos"] = cab_s
+	elif info["estado"] == SaveIO.OK:
+		info["datos"] = BDFilas.de_filas(bd.leer(), ids)
+	return info
+
+
+## inspeccionar() de una BD por su ruta (la abre y la cierra).
+static func inspeccionar_ruta(r: String, solo_cabecera := false) -> Dictionary:
+	if not existe(r):
+		return {"estado": SaveIO.VACIA, "version": 0, "version_mundo": 0, "datos": null}
+	var bd := PartidaBD.new()
+	if not bd.abrir(r):
+		return {"estado": SaveIO.ILEGIBLE, "version": 0, "version_mundo": 0, "datos": null}
+	var info: Dictionary = inspeccionar(bd, BDFilas.Ids.new(), solo_cabecera)
+	bd.cerrar()
+	return info
+
+
 func abrir(r: String) -> bool:
 	cerrar()
 	DirAccess.make_dir_recursive_absolute(r.get_base_dir())
@@ -63,6 +114,7 @@ func abrir(r: String) -> bool:
 	_db.query("CREATE TABLE IF NOT EXISTS contables (clave TEXT PRIMARY KEY, cantidad INTEGER);")
 	_db.query("INSERT OR IGNORE INTO bd_meta VALUES ('esquema', '%d');" % ESQUEMA)
 	_db.query("INSERT OR IGNORE INTO bd_meta VALUES ('rev', '0');")
+	_db.query("CREATE TABLE IF NOT EXISTS sin_subir (tabla TEXT, clave TEXT, marca INTEGER, PRIMARY KEY (tabla, clave));")
 	rev = int(_meta("rev", "0"))
 	_ultimas = {}
 	return true
@@ -119,10 +171,12 @@ func escribir(f: Dictionary) -> int:
 		for k in ahora:
 			if antes.get(k) != ahora[k]:
 				ok = ok and _db.query_with_bindings("INSERT OR REPLACE INTO %s VALUES (?, ?);" % t, [k, ahora[k]])
+				ok = ok and _apuntar(t, k)
 				tocadas += 1
 		for k in antes:
 			if not ahora.has(k):
 				ok = ok and _db.query_with_bindings("DELETE FROM %s WHERE %s = ?;" % [t, _CLAVE[t]], [k])
+				ok = ok and _apuntar(t, k)
 				tocadas += 1
 	if tocadas > 0:
 		ok = ok and _db.query_with_bindings("UPDATE bd_meta SET valor = ? WHERE clave = 'rev';", [str(rev + 1)])
@@ -139,6 +193,98 @@ func escribir(f: Dictionary) -> int:
 	for t in TABLAS:
 		_ultimas[t] = f.get(t, {}).duplicate()
 	return tocadas
+
+
+# Con rastrear: esta fila hay que subirla. La marca es el rev de ESTE guardado: al acabar una subida
+# solo se quitan las marcas que ya iban en ella (lo que cambie mientras sube se queda apuntado).
+func _apuntar(t: String, k: String) -> bool:
+	if not rastrear:
+		return true
+	return _db.query_with_bindings("INSERT OR REPLACE INTO sin_subir VALUES (?, ?, ?);", [t, k, rev + 1])
+
+
+# ============================================================
+#  LA NUBE
+# ------------------------------------------------------------
+## El rev de la nube del que parte esta copia (-1 = nunca se ha subido: la proxima subida va entera).
+func rev_nube() -> int:
+	return int(_meta("rev_nube", "-1"))
+
+
+## ¿Queda algo por subir?
+func hay_pendientes() -> bool:
+	if rev_nube() < 0:
+		return true
+	_db.query("SELECT COUNT(*) AS n FROM sin_subir;")
+	return int(_db.query_result[0]["n"]) > 0
+
+
+## Lo que hay que subir: {"filas": [[tabla, clave, valor|null], ...], "completa": bool, "marca": int}.
+## completa = esta copia nunca se ha subido: van TODAS las filas y la nube sustituye lo que tenga.
+## La marca se le devuelve a marcar_subido cuando la nube lo haya aceptado.
+func pendientes() -> Dictionary:
+	var filas: Array = []
+	var completa: bool = rev_nube() < 0
+	for t in TABLAS:
+		if completa:
+			_db.query("SELECT %s AS k, %s AS v FROM %s;" % [_CLAVE[t], _COLUMNA[t], t])
+		else:
+			_db.query_with_bindings(("SELECT s.clave AS k, x.%s AS v FROM sin_subir s LEFT JOIN %s x "
+				+ "ON x.%s = s.clave WHERE s.tabla = ?;") % [_COLUMNA[t], t, _CLAVE[t]], [t])
+		for f in _db.query_result:
+			filas.append([t, String(f["k"]), f["v"]])
+	return {"filas": filas, "completa": completa, "marca": rev}
+
+
+## La nube ha aceptado lo de pendientes(): fuera esas marcas y esta copia ya parte de `rev_n`.
+func marcar_subido(marca: int, rev_n: int) -> bool:
+	if not _db.query("BEGIN IMMEDIATE;"):
+		return false
+	var ok: bool = _db.query_with_bindings("DELETE FROM sin_subir WHERE marca <= ?;", [marca])
+	ok = ok and _poner_meta("rev_nube", str(rev_n))
+	if not ok or not _db.query("COMMIT;"):
+		_db.query("ROLLBACK;")
+		return false
+	return true
+
+
+## Lo bajado de la nube, encima de esta copia (completa = sustituye todo). Deja la copia en `rev_n` y sin
+## nada pendiente. Una transaccion: o entra todo o nada.
+func aplicar(filas: Array, completa: bool, rev_n: int) -> bool:
+	if _db == null or not _db.query("BEGIN IMMEDIATE;"):
+		return false
+	var ok: bool = true
+	if completa:
+		for t in TABLAS:
+			ok = ok and _db.query("DELETE FROM %s;" % t)
+	for f in filas:
+		var t: String = String(f[0])
+		if not _CLAVE.has(t):
+			continue
+		if f[2] == null:
+			ok = ok and _db.query_with_bindings("DELETE FROM %s WHERE %s = ?;" % [t, _CLAVE[t]], [String(f[1])])
+		else:
+			# Por JSON los numeros llegan como float: las cantidades son enteras.
+			var v = int(f[2]) if t == "contables" else String(f[2])
+			ok = ok and _db.query_with_bindings("INSERT OR REPLACE INTO %s VALUES (?, ?);" % t, [String(f[1]), v])
+	ok = ok and _db.query("DELETE FROM sin_subir;")
+	ok = ok and _poner_meta("rev_nube", str(rev_n))
+	if not ok or not _db.query("COMMIT;"):
+		push_warning("[bd] no se pudo aplicar lo bajado de la nube: %s" % _db.error_message)
+		_db.query("ROLLBACK;")
+		return false
+	_ultimas = {}   # lo de memoria ya no es lo del fichero: la proxima diferencia, contra el fichero
+	return true
+
+
+## Para empezar de cero con la nube: todo pendiente (la proxima subida va entera).
+func olvidar_nube() -> void:
+	_db.query("DELETE FROM sin_subir;")
+	_poner_meta("rev_nube", "-1")
+
+
+func _poner_meta(clave: String, valor: String) -> bool:
+	return _db.query_with_bindings("INSERT OR REPLACE INTO bd_meta VALUES (?, ?);", [clave, valor])
 
 
 func _meta(clave: String, por_defecto: String) -> String:

@@ -20,6 +20,12 @@
 #    catalogo.cfg       una seccion por mundo con lo que hace falta para PINTAR LA LISTA sin
 #                       preguntarle nada a la nube (nombre, icono, cabecera cacheada...).
 #
+#  BASE DE DATOS (fase 2 de la BD, 07/10/2026): el mundo vive en user://bd/mundo_<clave>.sqlite (ver
+#  PartidaBD) y en la nube como FILAS (servidor/nube): al guardar se escriben y se suben SOLO las filas
+#  cambiadas, no el fichero entero. Al abrir manda la nube por REV, no por fecha (ver _poner_al_dia).
+#  Un mundo viejo (.tres en disco, o un save entero en la nube) se migra al abrirlo, verificado
+#  (MigracionBD); si no sale identico se sigue jugando con su .tres como siempre (_bd == null).
+#
 #  LA CLAVE de un mundo mio es su id de nube (24 hex). Un mundo de otra persona al que solo tienes
 #  IP y contraseña no tiene id de nube todavia, asi que se le da una clave local "dir_xxxx": el
 #  catalogo es TU libreta, no un registro global.
@@ -56,6 +62,16 @@ var _t_listo := 0.0
 const ESPERA_SALA := 1.0
 
 var _acum := 0.0
+
+# LA BASE DE DATOS del mundo abierto (null = un mundo que no se pudo migrar: va con su .tres, como antes).
+var _bd: PartidaBD = null
+var _ids := BDFilas.Ids.new()
+# El rev de la nube del que parte la copia de este disco: es la "base" de cada subida (si la nube no esta
+# ahi, la subida se rechaza en vez de machacar). Lo da abrir y lo sube cada sync.
+var _rev_nube: int = 0
+# Los que quedaron con la subida del cierre pendiente: clave -> rev de la nube (para reintentar).
+var _rev_pendiente: Dictionary = {}
+const RESPALDOS_CONFLICTO := "user://respaldos/conflictos"
 
 # El SaveData del ultimo guardado de ESTE mundo, para no tener que releer el fichero solo por su
 # cabecera (ver _meta). Se suelta al cerrar o al abandonar: si no es del mundo abierto, no vale.
@@ -128,6 +144,23 @@ func ruta(clave: String) -> String:
 	return "%s/%s.tres" % [CARPETA, clave]
 
 
+func ruta_bd(clave: String) -> String:
+	return PartidaBD.ruta_de("mundo_" + clave)
+
+
+## ¿Este mundo vive ya en su base de datos en este disco?
+func usa_bd(clave: String) -> bool:
+	return PartidaBD.existe(ruta_bd(clave))
+
+
+# Lo que se sabe de la copia de este disco (SaveIO.inspeccionar_ruta): de su BD si la tiene (solo la
+# cabecera si se pide: pintar la lista), y si no del .tres.
+func inspeccionar(clave: String, solo_cabecera := false) -> Dictionary:
+	if usa_bd(clave):
+		return PartidaBD.inspeccionar_ruta(ruta_bd(clave), solo_cabecera)
+	return SaveIO.inspeccionar_ruta(ruta(clave))
+
+
 func _cfg() -> ConfigFile:
 	var cfg := ConfigFile.new()
 	var err: int = cfg.load(CATALOGO)
@@ -152,7 +185,7 @@ func entrada(clave: String) -> Dictionary:
 	var e := {"clave": clave}
 	for k in cfg.get_section_keys(clave):
 		e[k] = cfg.get_value(clave, k)
-	var info: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+	var info: Dictionary = inspeccionar(clave, true)
 	e["estado"] = int(info["estado"])
 	e["motivo"] = SaveIO.motivo_texto(info)
 	return e
@@ -255,6 +288,7 @@ func borrar(clave: String) -> void:
 		return
 	if FileAccess.file_exists(ruta(clave)):
 		DirAccess.remove_absolute(ruta(clave))
+	PartidaBD.borrar(ruta_bd(clave))
 	var cfg := _cfg()
 	if cfg.has_section(clave):
 		cfg.erase_section(clave)
@@ -316,44 +350,127 @@ func abrir(clave: String, contrasena: String, forzar_build := false) -> Dictiona
 		return {"ok": true, "resultado": "unirse", "direcciones": r.get("direcciones", []),
 			"quien": String(r.get("quien", ""))}
 
-	# El cerrojo es mio. Los bytes que baja la nube MANDAN sobre la copia local: puede haber jugado
-	# el otro desde que yo cerre.
+	# El cerrojo es mio.
 	# Que direccion se ha publicado, para poder DECIRSELO: es lo unico que tienen que teclear los
 	# demas, y el juego no puede saber a ciencia cierta cual de las tuyas es la que ellos alcanzan.
 	_escribir_entrada(clave, {"publicada": dirs[0] if not dirs.is_empty() else ""})
+	var listo: Dictionary = await _poner_al_dia(clave, e, r)
+	if not listo.get("ok", false):
+		return listo
+	_contrasena = contrasena
+	listo["clave"] = clave
+	listo["direcciones"] = dirs
+	return listo
+
+
+# ============================================================
+#  QUE COPIA MANDA AL ABRIR (con el cerrojo ya en la mano). Deja la copia de este disco al dia y dice
+#  si hay partida ("host") o el mundo esta por estrenar ("nuevo").
+#  Con el mundo YA EN BASE DE DATOS en la nube manda el REV, no la fecha:
+#    - mi copia parte del rev de la nube           -> es la buena (lo que tenga sin subir, sube luego)
+#    - la nube va por delante y yo no tengo nada sin subir -> me bajo SOLO lo cambiado desde mi rev
+#    - la nube va por delante y yo TAMBIEN cambie (un cierre que no llego a subir mientras otro jugaba)
+#      -> manda la nube (alguien jugo encima) y mi copia va a respaldos/conflictos: no se pierde
+#    - no tengo copia -> me la bajo entera
+#  Con el mundo VIEJO en la nube (un save entero) o sin nada: el save de la nube manda salvo que la
+#  copia de aqui sea mas nueva y se quedara sin subir (como antes); la que gane se MIGRA a la BD y se
+#  sube entera. Si no se puede migrar (no sale identica), el mundo sigue con su .tres como siempre.
+# ------------------------------------------------------------
+func _poner_al_dia(clave: String, e: Dictionary, r: Dictionary) -> Dictionary:
+	var formato: String = String(r.get("formato", ""))
+	_rev_nube = int(r.get("bd_rev", 0))
+	_cerrar_bd()
+	if formato == "bd":
+		return await _al_dia_desde_bd(clave)
 
 	var bytes: PackedByteArray = r.get("save", PackedByteArray())
-	# UNA SUBIDA QUE QUEDO PENDIENTE: la copia de este disco es MAS NUEVA que la de la nube (se guardo y no
-	# llego a subir). Bajar la de la nube encima tiraria ese rato. Solo si de verdad es mas nueva: si
+	var fecha_nube: String = String((r.get("meta", {}) as Dictionary).get("fecha", ""))
+	var local: Dictionary = inspeccionar(clave, true)
+	var hay_local: bool = int(local["estado"]) == SaveIO.OK and local["datos"] != null
+	# UNA SUBIDA QUE QUEDO PENDIENTE: la copia de este disco es MAS NUEVA que la de la nube (se guardo y
+	# no llego a subir). Bajar la de la nube encima tiraria ese rato. Solo si de verdad es mas nueva: si
 	# mientras tanto otro abrio el mundo y jugo, la de la nube manda.
-	if bool(e.get("pendiente", false)) and not bytes.is_empty():
-		var local_p: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
-		var fecha_nube: String = String((r.get("meta", {}) as Dictionary).get("fecha", ""))
-		if int(local_p["estado"]) == SaveIO.OK and local_p["datos"] != null \
-				and String((local_p["datos"] as SaveData).fecha) > fecha_nube:
-			push_warning("[mundos] %s tenia la subida pendiente: manda la copia de este disco" % clave)
-			_contrasena = contrasena
-			return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs, "solo_local": true}
-	if bytes.is_empty():
-		_contrasena = contrasena
-		# La nube no tiene partida... pero puede haberla AQUI: una subida que nunca llego, o un
-		# almacen que se vacio. Si hay copia local jugable, esa MANDA. Decir "mundo nuevo" aqui seria
-		# ofrecer crear personaje, y estrenar() machacaria la partida que hay en el disco.
-		var local: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
-		if int(local["estado"]) == SaveIO.OK:
-			push_warning("[mundos] %s no esta en el almacen pero SI en el disco: manda la copia local" % clave)
-			return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs,
-				"solo_local": true}
-		return {"ok": true, "resultado": "nuevo", "clave": clave, "direcciones": dirs}
-	if not SaveIO.escribir_bytes(ruta(clave), bytes):
-		# Ojo: el cerrojo YA es mio. Se suelta para no dejar el mundo bloqueado por un fallo de disco.
-		await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), {})
+	# Y si la nube no tiene partida pero AQUI si (una subida que nunca llego, o un almacen que se vacio),
+	# manda la de aqui: decir "mundo nuevo" seria ofrecer crear personaje encima de la partida del disco.
+	var manda_local: bool = hay_local and (bytes.is_empty() or (bool(e.get("pendiente", false))
+		and String((local["datos"] as SaveData).fecha) > fecha_nube))
+	if manda_local:
+		push_warning("[mundos] %s: manda la copia de este disco (%s)" % [clave,
+			"la nube no tiene partida" if bytes.is_empty() else "tenia la subida pendiente"])
+	elif bytes.is_empty():
+		return {"ok": true, "resultado": "nuevo"}
+	else:
+		# Manda la de la nube: se escribe como .tres (como siempre) y se migra desde ahi.
+		if not SaveIO.escribir_bytes(ruta(clave), bytes):
+			Nube._olvidar()   # el cerrojo caduca solo (y a mi me lo devuelve antes)
+			return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
+		var info: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+		if int(info["estado"]) != SaveIO.OK:
+			Nube._olvidar()
+			return {"ok": false, "mensaje": SaveIO.motivo_texto(info)}
+		PartidaBD.borrar(ruta_bd(clave))   # una BD de aqui de antes de esto ya no vale
+
+	# A la base de datos (si no lo estaba ya), y entera a la nube.
+	if not usa_bd(clave):
+		var m: Dictionary = MigracionBD.migrar(ruta(clave), ruta_bd(clave))
+		if not m["ok"]:
+			push_warning("[mundos] %s NO se pasa a la base de datos (%s): sigue con su .tres" % [clave, m["motivo"]])
+			return {"ok": true, "resultado": "host", "solo_local": manda_local}
+	if not _abrir_bd(clave):
+		return {"ok": false, "mensaje": "No se pudo abrir la base de datos del mundo."}
+	_bd.olvidar_nube()   # la nube no tiene estas filas: la proxima subida va entera
+	var s: Dictionary = await _subir_bd(false, _meta_de(clave))
+	if not s.get("ok", false):
+		# No pasa nada: queda apuntado y se reintenta en el siguiente guardado.
+		push_warning("[mundos] %s: migrado aqui pero sin subir aun (%s)" % [clave, String(s.get("mensaje", ""))])
+	_cerrar_bd()
+	return {"ok": true, "resultado": "host", "solo_local": manda_local}
+
+
+func _al_dia_desde_bd(clave: String) -> Dictionary:
+	var habia: bool = usa_bd(clave)   # sin copia aqui: se baja entera, no hay nada que respaldar
+	var bd := PartidaBD.new()
+	if not bd.abrir(ruta_bd(clave)):
+		Nube._olvidar()
+		return {"ok": false, "mensaje": "No se pudo abrir la base de datos del mundo."}
+	var mia: int = bd.rev_nube()
+	var desde: int = 0
+	if mia == _rev_nube and mia >= 0:
+		bd.cerrar()
+		print("[mundos] %s: la copia de este disco esta al dia (rev %d)" % [clave, mia])
+		return {"ok": true, "resultado": "host"}
+	if mia >= 0 and mia < _rev_nube and not bd.hay_pendientes():
+		desde = mia
+	elif habia:
+		# Las dos han cambiado (o la de aqui nunca subio): manda la nube y la de aqui se guarda aparte.
+		bd.cerrar()
+		_respaldar_conflicto(clave)
+		bd.abrir(ruta_bd(clave))
+	var b: Dictionary = await Nube.bajar_bd(desde)
+	if not b.get("ok", false):
+		bd.cerrar()
+		Nube._olvidar()
+		return {"ok": false, "mensaje": String(b.get("mensaje", "No se pudo bajar el mundo."))}
+	var ok: bool = bd.aplicar(b.get("filas", []), bool(b.get("completa", desde == 0)), int(b.get("rev", _rev_nube)))
+	_rev_nube = int(b.get("rev", _rev_nube))
+	bd.cerrar()
+	if not ok:
+		Nube._olvidar()
 		return {"ok": false, "mensaje": "No se pudo escribir la copia local del mundo."}
-	var info: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
-	if int(info["estado"]) != SaveIO.OK:
-		return {"ok": false, "mensaje": SaveIO.motivo_texto(info)}
-	_contrasena = contrasena
-	return {"ok": true, "resultado": "host", "clave": clave, "direcciones": dirs}
+	print("[mundos] %s: bajado de la nube %s (%d filas, rev %d)" % [clave,
+		"entero" if bool(b.get("completa", desde == 0)) else "lo cambiado desde el rev %d" % desde, (b.get("filas", []) as Array).size(), _rev_nube])
+	if int(inspeccionar(clave, true)["estado"]) != SaveIO.OK:
+		return {"ok": false, "mensaje": SaveIO.motivo_texto(inspeccionar(clave, true))}
+	return {"ok": true, "resultado": "host"}
+
+
+# La copia de este disco que pierde un conflicto: aparte, con la fecha, para no perder nada.
+func _respaldar_conflicto(clave: String) -> void:
+	DirAccess.make_dir_recursive_absolute(RESPALDOS_CONFLICTO)
+	var destino: String = "%s/mundo_%s_%s.sqlite" % [RESPALDOS_CONFLICTO, clave,
+		Time.get_datetime_string_from_system().replace(":", "-") + "_%d" % (Time.get_ticks_msec() % 100000)]
+	DirAccess.copy_absolute(ProjectSettings.globalize_path(ruta_bd(clave)), ProjectSettings.globalize_path(destino))
+	push_warning("[mundos] %s: la nube y este disco habian cambiado los dos; manda la nube y la copia de aqui queda en %s" % [clave, destino])
 
 
 # ============================================================
@@ -625,6 +742,13 @@ func quitar_temporales() -> void:
 func estrenar(clave: String) -> bool:
 	abierto = clave
 	_cab_en_mano = null
+	# Un mundo nuevo nace ya en su base de datos (vacia: lo de una partida anterior con esta clave fuera).
+	_cerrar_bd()
+	PartidaBD.borrar(ruta_bd(clave))
+	if not _abrir_bd(clave):
+		abierto = ""
+		return false
+	_bd.olvidar_nube()
 	Perfil.ranura_actual = 0
 	_acum = 0.0
 	# A partir de aqui esta partida es un MUNDO: al guardar, mis personajes y lo mio se empaquetan a
@@ -639,7 +763,17 @@ func estrenar(clave: String) -> bool:
 
 # CARGAR en memoria un mundo ya abierto (deja a Game listo). Quien llama decide a que escena ir.
 func cargar(clave: String) -> bool:
-	var info: Dictionary = SaveIO.inspeccionar_ruta(ruta(clave))
+	var info: Dictionary
+	if usa_bd(clave):
+		if not _abrir_bd(clave):
+			push_warning("[mundos] no se puede abrir la base de datos de %s" % clave)
+			return false
+		var ids := BDFilas.Ids.new()
+		info = PartidaBD.inspeccionar(_bd, ids)
+		_ids = ids   # el primer guardado reconoce los mismos objetos y no reescribe nada
+	else:
+		_cerrar_bd()
+		info = SaveIO.inspeccionar_ruta(ruta(clave))
 	if int(info["estado"]) != SaveIO.OK:
 		push_warning("[mundos] no se puede cargar %s: %s" % [clave, SaveIO.motivo_texto(info)])
 		return false
@@ -657,7 +791,7 @@ func cargar(clave: String) -> bool:
 
 
 func datos_cabecera(clave: String) -> SaveData:
-	return SaveIO.inspeccionar_ruta(ruta(clave))["datos"] as SaveData
+	return inspeccionar(clave, true)["datos"] as SaveData
 
 
 # ============================================================
@@ -681,10 +815,16 @@ func guardar_actual() -> bool:
 	# build viejo se niegue a abrirlo en vez de comerse los jugadores de dentro.
 	datos.mundo_compartido = true
 	datos.version_mundo = SaveData.VERSION_MUNDO
-	var err: int = ResourceSaver.save(datos, ruta(abierto))
-	if err != OK:
-		push_warning("[mundos] no se pudo guardar el mundo %s (error %d)" % [abierto, err])
-		return false
+	if _bd != null:
+		# En la base de datos: solo las filas que han cambiado (y quedan apuntadas para subirlas).
+		if _bd.escribir(BDFilas.a_filas(datos, _ids)) < 0:
+			push_warning("[mundos] no se pudo guardar el mundo %s en su base de datos" % abierto)
+			return false
+	else:
+		var err: int = ResourceSaver.save(datos, ruta(abierto))
+		if err != OK:
+			push_warning("[mundos] no se pudo guardar el mundo %s (error %d)" % [abierto, err])
+			return false
 	# Lo que se acaba de escribir, para que la cabecera de la nube salga de aqui y no de releer el
 	# fichero (ver _meta). Es el MISMO objeto que ha ido al disco, asi que dice exactamente lo mismo.
 	_cab_en_mano = datos
@@ -739,7 +879,11 @@ func _autoguardar_ya() -> bool:
 	if not guardar_actual():
 		_avisar_hud("No se pudo guardar")
 		return false
-	var r: Dictionary = await Nube.subir(SaveIO.bytes_de_ruta(ruta(abierto)), _meta())
+	var r: Dictionary
+	if _bd != null:
+		r = await _subir_bd(false)
+	else:
+		r = await Nube.subir(SaveIO.bytes_de_ruta(ruta(abierto)), _meta())
 	if not r.get("ok", false):
 		aviso.emit("Autoguardado: guardado en tu disco, pero sin subir (%s)." % String(r.get("mensaje", "")))
 		_avisar_hud("Guardado sin subir")
@@ -773,9 +917,16 @@ func cerrar_y_subir() -> Dictionary:
 		await Net.partida.recoger_estados(true)
 	if not guardar_actual():
 		return {"ok": false, "mensaje": "No se pudo guardar el mundo (no se cierra)."}
-	var r: Dictionary = await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), _meta())
+	var r: Dictionary
+	if _bd != null:
+		r = await _subir_bd(true)
+		if not r.get("ok", false):
+			_rev_pendiente[clave] = _rev_nube
+		_cerrar_bd()
+	else:
+		r = await Nube.cerrar(SaveIO.bytes_de_ruta(ruta(clave)), _meta())
 	# Se suelta lo local en cualquier caso: si la subida fallo, la Nube se queda en PENDIENTE_SUBIR
-	# y el .tres sigue en disco para reintentarlo.
+	# y lo que falta por subir sigue en disco (en la BD, apuntado) para reintentarlo.
 	abierto = ""
 	_cab_en_mano = null
 	_contrasena = ""
@@ -815,6 +966,7 @@ func abandonar() -> String:
 	# antes, porque reconoce mi identidad).
 	if Nube.estado == Nube.HOST:
 		Nube._olvidar()
+	_cerrar_bd()
 	abierto = ""
 	_cab_en_mano = null
 	_contrasena = ""
@@ -827,12 +979,68 @@ func abandonar() -> String:
 
 # Reintentar una subida que quedo a medias (el mundo sigue reservado a tu nombre).
 func reintentar(clave: String) -> Dictionary:
+	if usa_bd(clave) and _rev_pendiente.has(clave):
+		if Nube.estado != Nube.PENDIENTE_SUBIR or not _abrir_bd(clave):
+			return {"ok": false, "error": "nada_pendiente", "mensaje": "No hay ninguna subida pendiente."}
+		_rev_nube = int(_rev_pendiente[clave])
+		var rb: Dictionary = await _subir_bd(true, _meta_de(clave))
+		_cerrar_bd()
+		if rb.get("ok", false):
+			_rev_pendiente.erase(clave)
+			_escribir_entrada(clave, {"pendiente": false})
+		return rb
 	var bytes: PackedByteArray = SaveIO.bytes_de_ruta(ruta(clave))
 	if bytes.is_empty():
 		return {"ok": false, "mensaje": "No hay copia local que subir."}
 	var r: Dictionary = await Nube.reintentar_subida(bytes, _meta_de(clave))
 	if r.get("ok", false):
 		_escribir_entrada(clave, {"pendiente": false})
+	return r
+
+
+# ============================================================
+#  LA BASE DE DATOS DEL MUNDO ABIERTO
+# ------------------------------------------------------------
+func _abrir_bd(clave: String) -> bool:
+	_cerrar_bd()
+	_bd = PartidaBD.new()
+	if not _bd.abrir(ruta_bd(clave)):
+		_bd = null
+		return false
+	_bd.rastrear = true   # cada fila que cambia queda apuntada para subirla
+	_ids = BDFilas.Ids.new()
+	return true
+
+
+func _cerrar_bd() -> void:
+	if _bd != null:
+		_bd.cerrar()
+	_bd = null
+
+
+# SUBIR lo que falta (las filas apuntadas, o todas si la nube no tiene esta copia) partiendo de
+# _rev_nube. Con soltar es el cierre: sube y suelta el cerrojo, con una foto para el historial.
+# Sin nada que subir y sin soltar no se habla con la nube (el latido ya dice "sigo aqui").
+func _subir_bd(soltar: bool, meta: Dictionary = {}) -> Dictionary:
+	var bd: PartidaBD = _bd
+	var pen: Dictionary = bd.pendientes()
+	if not soltar and (pen["filas"] as Array).is_empty() and not pen["completa"]:
+		return {"ok": true, "rev": _rev_nube, "nada": true}
+	var t0: int = Time.get_ticks_msec()
+	var r: Dictionary = await Nube.sincronizar({"base": _rev_nube, "completa": pen["completa"],
+		"filas": pen["filas"], "soltar": soltar, "foto": soltar}, meta if not meta.is_empty() else _meta())
+	if r.get("ok", false):
+		_rev_nube = int(r.get("rev", _rev_nube))
+		r["subidas"] = (pen["filas"] as Array).size()
+		if bd.abierta():
+			bd.marcar_subido(int(pen["marca"]), _rev_nube)
+		print("[mundos] subidas %d filas%s en %d ms (rev %d, la nube escribio %d)" % [(pen["filas"] as Array).size(),
+			" (entera)" if pen["completa"] else "", Time.get_ticks_msec() - t0, _rev_nube, int(r.get("escritas", 0))])
+	elif String(r.get("error", "")) == "rev_distinto":
+		# Con el cerrojo en la mano nadie mas escribe: la nube solo cambia sola si se restauro una
+		# foto. No se machaca: se dice, y lo de aqui sigue apuntado.
+		push_warning("[mundos] la nube esta en el rev %d y esta copia parte del %d: no se sube encima" % [
+			int(r.get("rev", -1)), _rev_nube])
 	return r
 
 

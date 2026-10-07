@@ -16,6 +16,9 @@
 #    cerrar(id, token, save, meta)        -> PUT  /cerrar    sube y LUEGO suelta
 #    estado(id, pass)                     -> GET  /estado    metadatos, sin bajarse el save
 #  Mas crear(id, pass), que en el Worker sera el alta de un mundo nuevo.
+#  Y LA BASE DE DATOS DEL MUNDO (fase 2 de la BD): sync, bajar_bd, fotos, restaurar, con las mismas
+#  reglas que servidor/nube (filas con su rev, lapidas, lotes que se aplican enteros, base que tiene que
+#  casar, formato "bd" que el juego viejo no abre, legado). Las filas viven en <id>.filas.sqlite.
 #
 #  RESPUESTAS: siempre un Dictionary con "ok": bool. Si ok es false trae "error" (un codigo
 #  estable, para que el juego decida) y "mensaje" (para el jugador). Los codigos son los que
@@ -88,10 +91,12 @@ func crear(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 #  a medias o, peor, que veria como ranura vacia.
 # ------------------------------------------------------------
 func abrir(id: String, contrasena: String, direcciones: Array, sello_version: int,
-		sello_build: String, forzar_build := false, quien_soy := "") -> Dictionary:
+		sello_build: String, forzar_build := false, quien_soy := "", formato_bd := 0) -> Dictionary:
 	var mundo: Dictionary = _leer_mundo(id, contrasena)
 	if mundo.is_empty():
 		return _no_autorizado()
+	var bd_estado: Dictionary = _bd_estado(id)
+	var formato: String = String(bd_estado.get("formato", ""))
 
 	# ¿Lo tiene alguien? El cerrojo es un fichero aparte: existir = estar cogido.
 	var cerrojo: Dictionary = _leer_json(_ruta_cerrojo(id))
@@ -130,6 +135,10 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 	if not miembros.is_empty() and not miembros.has(quien_soy):
 		return _fallo("no_miembro", "Este mundo solo lo puede abrir quien ya juega en él. Entra cuando "
 			+ "alguien de dentro lo tenga abierto: te tendrá que aceptar.")
+	# Un mundo ya pasado a base de datos no lo abre un juego que no la entiende (se bajaria el save de
+	# antes de migrar y lo subiria encima). Antes de recoger el cerrojo: un juego viejo no se lleva el de nadie.
+	if formato == "bd" and formato_bd < FORMATO_BD:
+		return _fallo("version_nueva", "Este mundo ya usa el guardado nuevo del juego. Actualiza antes de abrirlo.")
 	if not cerrojo.is_empty():
 		var es_mio: bool = quien_soy != "" and String(cerrojo.get("identidad", "")) == quien_soy
 		if es_mio:
@@ -180,13 +189,18 @@ func abrir(id: String, contrasena: String, direcciones: Array, sello_version: in
 		"direcciones": direcciones,
 	})
 
+	_limpiar_legado(id)
+	# Con formato "bd" lo que hay son filas (bajar_bd); el save viejo, si queda, es el legado: no se da.
 	var save := PackedByteArray()
-	if FileAccess.file_exists(_ruta_save(id)):
+	if formato != "bd" and FileAccess.file_exists(_ruta_save(id)):
 		var f := FileAccess.open(_ruta_save(id), FileAccess.READ)
 		if f != null:
 			save = f.get_buffer(f.get_length())
 			f.close()
-	return {"ok": true, "resultado": "host", "token": token, "save": save, "meta": mundo.get("meta", {})}
+	var hay_save: bool = FileAccess.file_exists(_ruta_save(id))
+	return {"ok": true, "resultado": "host", "token": token, "save": save, "meta": mundo.get("meta", {}),
+		"formato": formato if formato != "" else ("tres" if hay_save else ""),
+		"bd_rev": int(bd_estado.get("rev", 0))}
 
 
 # ============================================================
@@ -235,6 +249,8 @@ func subir(id: String, token: int, save: PackedByteArray, meta: Dictionary,
 		return _fallo("sin_cerrojo", "El mundo ya no está a tu nombre.")
 	if save.is_empty():
 		return _fallo("save_vacio", "No hay partida que subir.")
+	if String(_bd_estado(id).get("formato", "")) == "bd":
+		return _fallo("version_nueva", "Este mundo ya usa el guardado nuevo del juego. Actualiza.")
 
 	var f := FileAccess.open(_ruta_save(id), FileAccess.WRITE)
 	if f == null:
@@ -294,7 +310,9 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 		"meta": mundo.get("meta", {}),
 		"sello_version": int(mundo.get("sello_version", 0)),
 		"sello_build": String(mundo.get("sello_build", "")),
-		"tiene_save": FileAccess.file_exists(_ruta_save(id)),
+		"tiene_save": FileAccess.file_exists(_ruta_save(id)) or String(_bd_estado(id).get("formato", "")) == "bd",
+		"formato": String(_bd_estado(id).get("formato", "")),
+		"bd_rev": int(_bd_estado(id).get("rev", 0)),
 	}
 	var cerrojo: Dictionary = _leer_json(_ruta_cerrojo(id))
 	if not cerrojo.is_empty():
@@ -308,6 +326,267 @@ func estado(id: String, contrasena: String, quien_soy := "") -> Dictionary:
 		if not r["caducado"]:
 			r["direcciones"] = cerrojo.get("direcciones", [])
 	return r
+
+
+# ============================================================
+#  LA BASE DE DATOS DEL MUNDO (las mismas reglas que servidor/nube: leer su cabecera)
+# ------------------------------------------------------------
+const FORMATO_BD := 1
+const SEGUNDOS_FOTO := 3600
+const SEGUNDOS_FOTOS_GUARDADAS := 7 * 86400
+const FOTOS_MINIMAS := 3
+const SEGUNDOS_LEGADO := 30 * 86400
+const LAPIDAS_MAX := 2000
+
+# Filas que sube quien tiene el cerrojo. p = {base, lote, parte, fin, completa, soltar, foto, filas}.
+func sync(id: String, token: int, p: Dictionary, meta: Dictionary, sello_version: int,
+		sello_build: String) -> Dictionary:
+	var c: Dictionary = _con_cerrojo(id, token)
+	if c.has("error"):
+		return c["error"]
+	var mundo: Dictionary = c["mundo"]
+	var filas: Array = p.get("filas", [])
+	for f in filas:
+		if not (f is Array and f.size() == 3 and f[0] is String and f[1] is String):
+			return _fallo("peticion_mala", "Una fila de la partida viene mal.")
+	var parte: int = int(p.get("parte", 0))
+	var fin: bool = bool(p.get("fin", true))   # el juego no parte nada aqui: es una sola parte
+	var lote: String = String(p.get("lote", ""))
+	var db: SQLite = _bd(id)
+	var est: Dictionary = _bd_estado(id, db)
+	var en_partes: bool = not fin or parte > 0
+	if en_partes:
+		if parte == 0:
+			db.query("DELETE FROM lote;")
+			_bd_poner(db, "lote", lote)
+		elif String(est.get("lote", "")) != lote or lote == "":
+			db.close_db()
+			return _fallo("lote_roto", "Se ha perdido una parte de la subida. Se repetira entera.")
+		for f in filas:
+			db.query_with_bindings("INSERT INTO lote VALUES (?, ?, ?, ?, ?);",
+				[parte, f[0], f[1], f[2], 1 if f[2] == null else 0])
+		if not fin:
+			db.close_db()
+			_renovar(id)
+			return {"ok": true, "parte": parte}
+	var rev: int = int(est.get("rev", 0))
+	if int(p.get("base", 0)) != rev:
+		if en_partes:
+			db.query("DELETE FROM lote;")
+		db.close_db()
+		var r := _fallo("rev_distinto", "La partida de la nube ha cambiado desde que la abriste.")
+		r["rev"] = rev
+		return r
+	var todas: Array = filas
+	if en_partes:
+		todas = []
+		db.query("SELECT tabla, clave, valor, borrar FROM lote ORDER BY parte, rowid;")
+		for r in db.query_result:
+			todas.append([r["tabla"], r["clave"], null if int(r["borrar"]) == 1 else r["valor"]])
+	var completa: bool = bool(p.get("completa", false))
+	var nuevo: int = rev
+	if not todas.is_empty() or completa:
+		nuevo = rev + 1
+		db.query("BEGIN IMMEDIATE;")
+		if completa:
+			db.query("DELETE FROM filas;")
+			_bd_poner(db, "purgado_hasta", nuevo)
+		for f in todas:
+			if f[2] == null:
+				if not completa:
+					db.query_with_bindings("UPDATE filas SET valor = NULL, borrada = 1, rev = ? WHERE tabla = ? AND clave = ?;",
+						[nuevo, f[0], f[1]])
+			else:
+				db.query_with_bindings("INSERT OR REPLACE INTO filas VALUES (?, ?, ?, 0, ?);", [f[0], f[1], f[2], nuevo])
+		if en_partes:
+			db.query("DELETE FROM lote;")
+		_bd_poner(db, "rev", nuevo)
+		if String(est.get("formato", "")) != "bd":
+			_bd_poner(db, "formato", "bd")
+			if FileAccess.file_exists(_ruta_save(id)):
+				_bd_poner(db, "legado_desde", _ahora())
+		db.query("COMMIT;")
+		db.query("SELECT COUNT(*) AS n FROM filas WHERE borrada = 1;")
+		if int(db.query_result[0]["n"]) > LAPIDAS_MAX:
+			db.query("DELETE FROM filas WHERE borrada = 1;")
+			_bd_poner(db, "purgado_hasta", nuevo)
+	var cab: Dictionary = meta.duplicate()
+	var m = cab.get("miembros", [])
+	if m is Array and not (m as Array).is_empty():
+		mundo["miembros"] = m
+	cab.erase("miembros")
+	if not cab.is_empty():
+		mundo["meta"] = cab
+	mundo["sello_version"] = sello_version
+	mundo["sello_build"] = sello_build
+	mundo["subido"] = _ahora()
+	_escribir_json(_ruta_mundo(id), mundo)
+	if nuevo > 0 and (bool(p.get("foto", false)) or _ahora() - int(_bd_estado(id, db).get("ult_foto", 0)) >= SEGUNDOS_FOTO):
+		_hacer_foto(db, nuevo, "cierre" if bool(p.get("soltar", false)) else "hora")
+	db.close_db()
+	if bool(p.get("soltar", false)):
+		DirAccess.remove_absolute(_ruta_cerrojo(id))
+	else:
+		_renovar(id)
+	return {"ok": true, "rev": nuevo, "escritas": todas.size()}
+
+
+# Las filas cambiadas desde `desde` (0 = todas las vivas). Aqui de una vez (sin paginas: es un fichero).
+func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
+	var c: Dictionary = _con_cerrojo(id, token)
+	if c.has("error"):
+		return c["error"]
+	var db: SQLite = _bd(id)
+	var est: Dictionary = _bd_estado(id, db)
+	if desde > 0 and desde < int(est.get("purgado_hasta", 0)):
+		desde = 0
+	var filas: Array = []
+	if desde == 0:
+		db.query("SELECT tabla, clave, valor FROM filas WHERE borrada = 0 ORDER BY rowid;")
+	else:
+		db.query_with_bindings("SELECT tabla, clave, valor, borrada FROM filas WHERE rev > ? ORDER BY rowid;", [desde])
+	for r in db.query_result:
+		filas.append([r["tabla"], r["clave"], null if int(r.get("borrada", 0)) == 1 else r["valor"]])
+	db.close_db()
+	return {"ok": true, "rev": int(est.get("rev", 0)), "completa": desde == 0, "filas": filas}
+
+
+func fotos(id: String, token: int) -> Dictionary:
+	var c: Dictionary = _con_cerrojo(id, token)
+	if c.has("error"):
+		return c["error"]
+	var db: SQLite = _bd(id)
+	db.query("SELECT id, fecha, rev, bytes, motivo FROM fotos ORDER BY id DESC;")
+	var lista: Array = db.query_result.duplicate(true)
+	var est: Dictionary = _bd_estado(id, db)
+	db.close_db()
+	var legado: bool = int(est.get("legado_desde", 0)) > 0 and FileAccess.file_exists(_ruta_save(id))
+	return {"ok": true, "fotos": lista, "legado": legado}
+
+
+# Vuelve a una foto (o al save de antes de migrar, foto = "legado"). Sube el rev.
+func restaurar(id: String, token: int, foto) -> Dictionary:
+	var c: Dictionary = _con_cerrojo(id, token)
+	if c.has("error"):
+		return c["error"]
+	var db: SQLite = _bd(id)
+	var est: Dictionary = _bd_estado(id, db)
+	var nuevo: int = int(est.get("rev", 0)) + 1
+	if str(foto) == "legado":
+		if not (int(est.get("legado_desde", 0)) > 0 and FileAccess.file_exists(_ruta_save(id))):
+			db.close_db()
+			return _fallo("sin_foto", "Este mundo no tiene save de antes de migrar.")
+		_hacer_foto(db, nuevo - 1, "antes de restaurar")
+		db.query("BEGIN IMMEDIATE;")
+		db.query("DELETE FROM filas;")
+		_bd_poner(db, "rev", nuevo)
+		_bd_poner(db, "purgado_hasta", nuevo)
+		_bd_poner(db, "formato", "tres")
+		_bd_poner(db, "legado_desde", 0)
+		db.query("COMMIT;")
+		db.close_db()
+		return {"ok": true, "rev": nuevo, "formato": "tres"}
+	db.query_with_bindings("SELECT datos FROM fotos WHERE id = ?;", [int(foto)])
+	if db.query_result.is_empty():
+		db.close_db()
+		return _fallo("sin_foto", "Esa copia del historial no existe.")
+	var crudo: PackedByteArray = db.query_result[0]["datos"]
+	var d = JSON.parse_string(crudo.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP).get_string_from_utf8())
+	_hacer_foto(db, nuevo - 1, "antes de restaurar")
+	db.query("BEGIN IMMEDIATE;")
+	db.query("DELETE FROM filas;")
+	for f in d["filas"]:
+		db.query_with_bindings("INSERT INTO filas VALUES (?, ?, ?, 0, ?);",
+			[f[0], f[1], int(f[2]) if f[2] is float else f[2], nuevo])
+	_bd_poner(db, "rev", nuevo)
+	_bd_poner(db, "purgado_hasta", nuevo)
+	_bd_poner(db, "formato", "bd")
+	db.query("COMMIT;")
+	db.close_db()
+	return {"ok": true, "rev": nuevo, "formato": "bd"}
+
+
+func _hacer_foto(db: SQLite, rev: int, motivo: String) -> void:
+	db.query("SELECT tabla, clave, valor FROM filas WHERE borrada = 0;")
+	if db.query_result.is_empty():
+		return
+	var filas: Array = []
+	for r in db.query_result:
+		filas.append([r["tabla"], r["clave"], r["valor"]])
+	var datos: PackedByteArray = JSON.stringify({"rev": rev, "filas": filas}).to_utf8_buffer().compress(FileAccess.COMPRESSION_GZIP)
+	db.query_with_bindings("INSERT INTO fotos (fecha, rev, bytes, motivo, datos) VALUES (?, ?, ?, ?, ?);",
+		[_ahora(), rev, datos.size(), motivo, datos])
+	_bd_poner(db, "ult_foto", _ahora())
+	db.query_with_bindings("DELETE FROM fotos WHERE fecha < ? AND id NOT IN (SELECT id FROM fotos ORDER BY id DESC LIMIT ?);",
+		[_ahora() - SEGUNDOS_FOTOS_GUARDADAS, FOTOS_MINIMAS])
+
+
+func _limpiar_legado(id: String) -> void:
+	var est: Dictionary = _bd_estado(id)
+	var desde: int = int(est.get("legado_desde", 0))
+	if desde <= 0 or _ahora() - desde < SEGUNDOS_LEGADO or String(est.get("formato", "")) != "bd":
+		return
+	DirAccess.remove_absolute(_ruta_save(id))
+	var db: SQLite = _bd(id)
+	_bd_poner(db, "legado_desde", 0)
+	db.close_db()
+
+
+func _con_cerrojo(id: String, token: int) -> Dictionary:
+	var mundo: Dictionary = _leer_json(_ruta_mundo(id))
+	if mundo.is_empty():
+		return {"error": _no_autorizado()}
+	if int(mundo.get("token", 0)) != token:
+		return {"error": _fallo("token_viejo",
+			"El mundo lo ha abierto alguien después de ti: tu partida no se puede subir encima de la suya.")}
+	var cerrojo: Dictionary = _leer_json(_ruta_cerrojo(id))
+	if cerrojo.is_empty() or int(cerrojo.get("token", 0)) != token:
+		return {"error": _fallo("sin_cerrojo", "El mundo ya no está a tu nombre.")}
+	return {"mundo": mundo, "cerrojo": cerrojo}
+
+
+func _renovar(id: String) -> void:
+	var cerrojo: Dictionary = _leer_json(_ruta_cerrojo(id))
+	if not cerrojo.is_empty():
+		cerrojo["latido"] = _ahora()
+		_escribir_json(_ruta_cerrojo(id), cerrojo)
+
+
+func _ruta_bd(id: String) -> String:
+	return "%s/%s.filas.sqlite" % [CARPETA, id]
+
+
+# La base de datos de un mundo en el almacen (abierta: quien la pide la cierra).
+func _bd(id: String) -> SQLite:
+	var db := SQLite.new()
+	db.path = _ruta_bd(id)
+	db.verbosity_level = SQLite.QUIET
+	db.open_db()
+	db.query("CREATE TABLE IF NOT EXISTS filas (tabla TEXT NOT NULL, clave TEXT NOT NULL, valor, borrada INTEGER NOT NULL DEFAULT 0, rev INTEGER NOT NULL, PRIMARY KEY (tabla, clave));")
+	db.query("CREATE TABLE IF NOT EXISTS bd (clave TEXT PRIMARY KEY, valor);")
+	db.query("CREATE TABLE IF NOT EXISTS lote (parte INTEGER, tabla TEXT, clave TEXT, valor, borrar INTEGER);")
+	db.query("CREATE TABLE IF NOT EXISTS fotos (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha INTEGER, rev INTEGER, bytes INTEGER, motivo TEXT, datos BLOB);")
+	return db
+
+
+# {rev, formato, legado_desde, ...} de la tabla bd. Sin fichero = mundo sin base de datos aun.
+func _bd_estado(id: String, db: SQLite = null) -> Dictionary:
+	var propia: bool = db == null
+	if propia:
+		if not FileAccess.file_exists(_ruta_bd(id)):
+			return {}
+		db = _bd(id)
+	db.query("SELECT clave, valor FROM bd;")
+	var d: Dictionary = {}
+	for r in db.query_result:
+		d[String(r["clave"])] = r["valor"]
+	if propia:
+		db.close_db()
+	return d
+
+
+func _bd_poner(db: SQLite, clave: String, valor) -> void:
+	db.query_with_bindings("INSERT OR REPLACE INTO bd VALUES (?, ?);", [clave, valor])
 
 
 # ============================================================
