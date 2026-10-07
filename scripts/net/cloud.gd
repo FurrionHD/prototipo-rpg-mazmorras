@@ -174,6 +174,8 @@ func abrir(id: String, contrasena: String, direcciones: Array = [],
 
 	mundo_id = id
 	_contrasena = contrasena
+	_contrasena_abierta = contrasena
+	_dirs_abiertas = direcciones.duplicate()
 	_token = int(r.get("token", 0))
 	_desde_ultimo_latido = 0.0
 	union = {}
@@ -190,13 +192,51 @@ func abrir(id: String, contrasena: String, direcciones: Array = [],
 func latir() -> Dictionary:
 	if mundo_id == "" or _token == 0:
 		return {"ok": false, "error": "sin_cerrojo", "mensaje": "No tienes ningún mundo abierto."}
-	var r: Dictionary = await almacen.latido(mundo_id, _token)
-	if not r.get("ok", false):
-		var motivo: String = String(r.get("mensaje", "Se perdió el mundo."))
-		push_warning("[nube] latido rechazado: %s" % motivo)
-		_cambiar(PERDIDO)
-		cerrojo_perdido.emit(motivo)
+	var id := mundo_id
+	var r: Dictionary = await almacen.latido(id, _token)
+	if r.get("ok", false):
+		_poner_sin_red(false)
+		return r
+	var error: String = String(r.get("error", ""))
+	# SIN RED NO ES PERDER EL MUNDO (fase 5 de la BD). Antes cualquier latido fallido lo daba por perdido;
+	# un corte de internet de diez segundos te quitaba el mundo. Ahora se avisa (la sala pausa a todos:
+	# "reconectando") y se reintenta mas a menudo; el mundo sigue siendo mio mientras dure el arrendamiento.
+	if error in ["sin_red", "respuesta_mala"]:
+		_poner_sin_red(true)
+		_desde_ultimo_latido = SEGUNDOS_LATIDO - SEGUNDOS_REINTENTO_SIN_RED
+		return r
+	# CADUCADO: la red volvio pero tarde, y el arrendamiento se paso. Si nadie lo ha cogido, es MIO: se
+	# recoge (mi identidad lo reclama) y se sigue. Si lo tiene otro, ahora si se ha perdido.
+	if error == "caducado" and _contrasena_abierta != "":
+		var re: Dictionary = await almacen.abrir(id, _contrasena_abierta, _dirs_abiertas, _sello(), Game.VERSION,
+			true, Identidad.para_cerrojo(), FORMATO_BD)
+		if re.get("ok", false) and String(re.get("resultado", "")) == "host":
+			_token = int(re.get("token", _token))
+			push_warning("[nube] el arrendamiento de %s caduco sin red: recogido otra vez (token %d)" % [id, _token])
+			_poner_sin_red(false)
+			return {"ok": true, "recogido": true}
+	var motivo: String = String(r.get("mensaje", "Se perdió el mundo."))
+	push_warning("[nube] latido rechazado: %s" % motivo)
+	_poner_sin_red(false)
+	_cambiar(PERDIDO)
+	cerrojo_perdido.emit(motivo)
 	return r
+
+
+# ¿La ultima vez que se hablo con la nube no hubo red? Lo escucha la sala para pausar a todos.
+signal conexion_nube(hay_red: bool)
+var sin_red: bool = false
+const SEGUNDOS_REINTENTO_SIN_RED := 10.0
+var _contrasena_abierta: String = ""
+var _dirs_abiertas: Array = []
+
+
+func _poner_sin_red(sin: bool) -> void:
+	if sin == sin_red:
+		return
+	sin_red = sin
+	print("[nube] %s" % ("SIN RED: reintentando" if sin else "red de vuelta"))
+	conexion_nube.emit(not sin)
 
 
 # ============================================================
@@ -287,6 +327,11 @@ func restaurar(foto) -> Dictionary:
 
 
 func _tras_subir(r: Dictionary, id: String, token: int, soltando: bool, que: String) -> Dictionary:
+	# Una subida tambien dice si hay red (ver latir): sin ella la sala pausa; con ella, se reanuda.
+	if r.get("ok", false):
+		_poner_sin_red(false)
+	elif String(r.get("error", "")) in ["sin_red", "respuesta_mala"] and not soltando:
+		_poner_sin_red(true)
 	if r.get("ok", false):
 		if soltando:
 			print("[nube] mundo ", id, " CERRADO y subido (", que, ")")
@@ -452,6 +497,9 @@ func _cambiar(nuevo: int) -> void:
 func _olvidar() -> void:
 	mundo_id = ""
 	_contrasena = ""
+	_contrasena_abierta = ""
+	_dirs_abiertas = []
+	_poner_sin_red(false)
 	_token = 0
 	_desde_ultimo_latido = 0.0
 	_cambiar(CERRADA)

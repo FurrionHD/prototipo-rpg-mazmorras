@@ -101,7 +101,9 @@ const MAX_CONEXIONES := 32
 # 28 (07/10): fase 4 de la BD. _tu_jugador lleva DONDE ESTABAS (lugar y posicion) y hay _pedir_volver/_volver_no
 #     (volver a tu piso al entrar), las fotos periodicas de los trabajadores (_dame_foto_viva/_foto_viva) y los
 #     charcos de pesca van y vienen de la sala (net_pesca.charco_a_la_sala / _charcos_del_piso).
-const PROTOCOLO := 28
+# 29 (07/10): fase 5 de la BD. Caidas a media pelea: _ident_caido (la sala dice quien era), _vuelve (vuelve y
+#     recupera a sus personajes), _retoma_tu_pelea (su espejo), _desgaste_de_ausente / _desgaste_suelto.
+const PROTOCOLO := 29
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -219,6 +221,34 @@ var _dentro: Dictionary = {}       # peer_id -> true: quienes estan en la mazmor
 # borra la marca al que vuelve a entrar: ha vuelto a la pelea.
 var _muertos: Dictionary = {}
 
+# LA SALA SIN NUBE (fase 5 de la BD): si la sala no puede hablar con la nube, el mundo no se puede guardar
+# fuera de su disco y el arrendamiento corre. Se PAUSA a todos ("Sin conexión, reconectando…") hasta que
+# vuelva; lo jugado mientras tanto ya estaba en su disco y sube en cuanto hay red.
+var pausa_red := false
+const TEXTO_PAUSA_RED := "Sin conexión con la nube, reconectando…"
+
+
+func _pausa_por_nube(hay_red: bool) -> void:
+	if not (activo and es_host and mundo_compartido):
+		return
+	_pausa_red(not hay_red)
+	_pausa_red.rpc(not hay_red)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _pausa_red(on: bool) -> void:
+	if pausa_red == on:
+		return
+	pausa_red = on
+	Game._refrescar_pausa()
+	if soy_sala or soy_trabajador:
+		return
+	if on:
+		Cargando.mostrar(TEXTO_PAUSA_RED)
+	else:
+		Cargando.ocultar()
+
+
 # El panel de conexion se suscribe para pintar "Conectado / Rechazado / Host caido...".
 signal estado_cambiado(texto: String)
 # La semilla del pueblo ha cambiado (ver Game.semilla_pueblo): el pueblo vuelve a colocar sus cañas.
@@ -291,6 +321,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la red sigue sondeando aunque un menu pause mi arbol
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	Nube.conexion_nube.connect(_pausa_por_nube)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
@@ -546,6 +577,8 @@ func desconectar() -> void:
 	_fotos_piso.clear()
 	_fotos_vivas.clear()
 	_posiciones.clear()
+	if pausa_red:
+		_pausa_red(false)
 	_traspasos.clear()
 	Game.vistos_mundo.clear()   # lo descubierto por los demas era de la sesion, no mio
 	_soy_dueno = false
@@ -676,6 +709,7 @@ func _rel_lugar(lugar: String) -> void:
 		return
 	var de := multiplayer.get_remote_sender_id()
 	_viajando.erase(de)   # ya ha llegado: a partir de aqui manda su lugar de verdad
+	peleas.revisar_vuelta(de, lugar)   # ¿es uno que se cayo a media pelea y vuelve a su piso? (fase 5)
 	# Aplicar en el host PRIMERO (actualiza _peers[de]["lugar"]) y luego repartir a los demas: asi
 	# cualquier decision posterior por lugar ve ya el sitio nuevo.
 	_cambiar_lugar(de, lugar)
@@ -1386,6 +1420,10 @@ func _crear_avatar_nodo(peer_id: int) -> void:
 func _on_peer_disconnected(id: int) -> void:
 	var conocido := _peers.has(id)
 	var trabajador := es_trabajador(id)
+	# Quien era y donde estaba, ANTES de olvidarle: para devolverle su pelea si vuelve (fase 5 de la BD).
+	var ident_caido: String = _identidad_de_peer(id) if es_host else String(peleas._ident_de_ido.get(id, ""))
+	if es_host and not trabajador and ident_caido != "":
+		peleas.apuntar_caido(id, ident_caido, String(_peers.get(id, {}).get("lugar", "")))
 	var piso_viejo: int = pisos._piso_de(id) if es_host else -1   # antes de olvidarle: lo lee de _peers
 	_olvidar_peer(id)   # avatar, sequito y registro (la parte visual, comun con _quitar_ajeno)
 	# Su marcha cuenta como salir de la mazmorra: libera sus vetas y, si era el ultimo
@@ -1436,9 +1474,14 @@ func _on_peer_disconnected(id: int) -> void:
 	# sin el no llegan ni instantaneas ni turnos, y se quedaria colgada para siempre.
 	if id == peleas._pelea_anfitrion:
 		peleas._anfitrion_perdido()
+	# SE LE HA CAIDO LA CONEXION a alguien de MI pelea (fase 5 de la BD): sus personajes se quedan un
+	# rato y juegan solos (ver Net.peleas.marcar_caido). Solo si de verdad no se puede (no son suyos los
+	# dobles), salen como antes.
+	if peleas._pelea_id != 0 and peleas._pelea_participantes.has(id) and peleas.marcar_caido(id, ident_caido):
+		pass
 	# Si se ha ido alguien que estaba en MI pelea, sus personajes salen de ella (y sus reservas ya
 	# las suelta el host mas arriba). Si no, la pelea esperaria un turno que no va a llegar nunca.
-	if peleas._pelea_id != 0 and peleas._pelea_participantes.has(id):
+	elif peleas._pelea_id != 0 and peleas._pelea_participantes.has(id):
 		peleas._pelea_participantes.erase(id)
 		peleas._dobles.erase(id)
 		var mia: Node = peleas._pantalla_combate()

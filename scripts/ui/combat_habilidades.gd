@@ -25,6 +25,10 @@ func _init(pantalla: Pantalla) -> void:
 # La carga esta lista y hay que decidir a quien cae. Gemela de _pedir_accion_del_turno.
 func _pedir_soltar_carga(ab: AbilityData) -> void:
 	var dueno: int = int(_pantalla._dueno_aliado.get(_pantalla._player, 0))
+	# Caido de la red (en su rato de cortesia): la carga se suelta sola sobre el objetivo de ahora.
+	if dueno != 0 and Net.peleas.esta_caido(dueno):
+		_soltar_la_carga()
+		return
 	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		# Ya no esta en la pelea: pedirle la orden seria esperar para siempre (mismo criterio que
 		# _pedir_accion_del_turno).

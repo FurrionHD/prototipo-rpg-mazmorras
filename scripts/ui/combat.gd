@@ -1627,6 +1627,10 @@ func _begin_player_turn() -> void:
 # pierde turnos por pensar.
 func _pedir_accion_del_turno() -> void:
 	var dueno: int = int(_dueno_aliado.get(_player, 0))
+	# SE LE HA CAIDO LA CONEXION y esta en su rato de cortesia (fase 5 de la BD): juega solo.
+	if dueno != 0 and Net.peleas.esta_caido(dueno):
+		turno_automatico()
+		return
 	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		# Ya no esta en la pelea (se fue, o su pantalla dejo de espejarme): pedirle la accion
 		# seria esperar para siempre. Sus personajes salen y la pelea sigue.
@@ -2290,6 +2294,48 @@ func _huir_solo(peer: int) -> bool:
 	Net.peleas.sacar_de_la_pelea(peer)   # le devuelve lo suyo y le cierra el espejo (a el solo)
 	_update_hp()
 	return true
+
+
+# ============================================================
+#  CAIDO DE LA RED (fase 5 de la BD, 07/10/2026): al que se le corta la conexion a mitad de pelea no
+#  se le saca al momento. Sus personajes se quedan un rato (Net.peleas.CORTESIA) y en su turno
+#  DEFIENDEN si les llega la energia y si no PASAN: nunca se quedan parados (la barra sigue). Si vuelve a
+#  tiempo recupera el control (Net.peleas._vuelve); si no, salen y lo vivido se apunta en su ficha.
+# ------------------------------------------------------------
+func turno_automatico() -> void:
+	_ocultar_cajas()
+	if _player.current_energy >= DEFEND_ENERGY_COST:
+		_accion_defender()
+	else:
+		_accion_esperar()
+
+
+# Se le ha caido la conexion a 'peer' MIENTRAS le esperaba (su accion, una frase, el disparo, la carga):
+# lo que le pedia se resuelve solo, sin esperar a nadie.
+func caido_de_la_red(peer: int) -> void:
+	if _espejo or peer == 0 or _esperando_a != peer or _state != State.WAITING_PLAYER:
+		return
+	var tipo: String = String(espejo._peticion_pendiente.get("tipo", ""))
+	espejo._fin_de_espera()
+	match tipo:
+		"frase":
+			magia._mostrar_test(_cast_index)
+		"disparo":
+			magia._mostrar_disparo()
+		"soltar":
+			if _player.charging != null:
+				habilidades._pedir_soltar_carga(_player.charging)
+			else:
+				_pedir_accion_del_turno()
+		_:
+			_pedir_accion_del_turno()
+
+
+# Sus personajes vuelven a ser de 'nuevo' (el mismo jugador, con otra conexion).
+func cambiar_dueno(viejo: int, nuevo: int) -> void:
+	for c in _dueno_aliado.keys():
+		if int(_dueno_aliado[c]) == viejo:
+			_dueno_aliado[c] = nuevo
 
 
 # SE HA CAIDO un jugador que estaba en mi pelea. Sus personajes salen de ella igual que si hubieran

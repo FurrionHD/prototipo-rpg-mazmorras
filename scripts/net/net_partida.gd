@@ -440,6 +440,46 @@ const _SOLO_SUBEN := ["esquivas_exp", "hechizos_exp", "recitado_exp",
 	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp"]
 const _DICTS_HABILIDAD := ["ability_internal", "ability_consolidado", "ability_base_nivel"]
 
+# LO VIVIDO EN UNA PELEA POR UN JUGADOR QUE SE CAYO (fase 5 de la BD): se apunta en su ficha del mundo, en
+# la sala. Si ya ha vuelto con otra conexion, su partida viva es la suya: se le manda a el.
+func desgaste_de_ausente(ident: String, lote: Array) -> void:
+	if Net.es_host or not Net.activo:
+		_desgaste_de_ausente(ident, lote)
+	else:
+		_desgaste_de_ausente.rpc_id(1, ident, lote)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _desgaste_de_ausente(ident: String, lote: Array) -> void:
+	if Net.activo and not Net.es_host:
+		return
+	var vivo: int = Net.peer_de_identidad(ident) if Net.activo else 0
+	if vivo != 0:
+		_desgaste_suelto.rpc_id(vivo, lote)
+		return
+	var jd = Game.jugadores_mundo.get(ident)
+	if jd == null:
+		push_warning("[multi] lo vivido en la pelea por %s no tiene ficha en el mundo: se pierde" % ident)
+		return
+	for d_ in lote:
+		var d := d_ as Dictionary
+		for pj in (jd as JugadorData).personajes:
+			if pj != null and String((pj as PersonajeData).uid) == String(d.get("uid", "")):
+				aplicar_desgaste(pj, d)
+				break
+	print("[multi] lo vivido en la pelea por %s, apuntado en su ficha del mundo (%d personajes)" % [ident, lote.size()])
+
+
+# Corre en el jugador que ya volvio: lo de la pelea que dejo, sobre sus personajes (por uid).
+@rpc("authority", "call_remote", "reliable")
+func _desgaste_suelto(lote: Array) -> void:
+	for d_ in lote:
+		var d := d_ as Dictionary
+		var pj: PersonajeData = Net.peleas._mio_de_la_plantilla(String(d.get("uid", "")))
+		if pj != null:
+			aplicar_desgaste(pj, d)
+
+
 func aplicar_desgaste(pj: PersonajeData, d: Dictionary) -> void:
 	for campo in Net.peleas._VUELVE:
 		if not d.has(campo):

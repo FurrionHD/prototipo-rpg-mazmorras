@@ -336,6 +336,7 @@ const CIERRE_MAX := 60.0
 var _t_cierre := 0.0
 
 func _process(delta: float) -> void:
+	_vencer_cortesia()
 	if not Net.soy_trabajador or _pelea_id == 0:
 		_t_cierre = 0.0
 		return
@@ -893,6 +894,9 @@ func cerrar_pelea(derrotados: Array = []) -> void:
 	if _pelea_id != 0 and Net.soy_trabajador:
 		Net._trab.avisar_pelea_acabada()   # el host decide si sigo esperando peleas en este piso
 	if _pelea_id != 0:
+		for caido in _caidos.keys():
+			_desgaste_a_la_sala(caido, String(_caidos[caido].get("ident", "")))
+		_caidos.clear()
 		for p in _pelea_participantes:
 			if derrotados.has(p):
 				# Su grupo murio: al pueblo. morir_jugador ya le reinicia las fichas, asi que NO se
@@ -1443,6 +1447,175 @@ func _pedir_velocidad(v: float) -> void:
 
 
 # --- TURNOS (anfitrion <-> dueño del personaje) ----------------------------------------------
+
+# ============================================================
+#  CAIDAS A MEDIA PELEA (fase 5 de la BD, 07/10/2026). Decision del jefe: al que se le corta la conexion,
+#  sus personajes se quedan un rato (CORTESIA) y en su turno DEFIENDEN si tienen energia y si no PASAN
+#  (combat.turno_automatico): nunca se queda la pelea parada. Si vuelve a tiempo, recupera el control; si
+#  no, salen, y lo que vivieron (vida, mana, excelia) se apunta en su ficha del mundo en la sala.
+# ------------------------------------------------------------
+const CORTESIA := 60.0
+# EN QUIEN LLEVA LA PELEA: peer que se cayo -> {"ident", "t" (msec), "nombre"}.
+var _caidos: Dictionary = {}
+# EN QUIEN LLEVA LA PELEA: quien era cada peer que se va (lo dice la sala, que es la que sabe identidades;
+# puede llegar antes o despues de que yo note la caida).
+var _ident_de_ido: Dictionary = {}
+# EN LA SALA: identidad -> {"peer" (el viejo), "lugar", "t"}: los que se han caido hace poco, para
+# devolverles la pelea cuando vuelvan a su piso.
+var _caidos_sala: Dictionary = {}
+
+
+func esta_caido(peer: int) -> bool:
+	return _caidos.has(peer)
+
+
+## Quien lleva la pelea: 'peer' se ha caido. true = se queda en cortesia; false = no tenia nada aqui.
+func marcar_caido(peer: int, ident: String = "") -> bool:
+	if _pelea_id == 0 or not _dobles.has(peer) or _caidos.has(peer):
+		return false
+	var p: Node = _pantalla_combate()
+	if p == null or not p.has_method("caido_de_la_red") or (p.has_method("acabada") and p.acabada()):
+		return false
+	_pelea_participantes.erase(peer)   # sin pantalla: ni instantaneas ni peticiones
+	if ident == "":
+		ident = String(_ident_de_ido.get(peer, ""))
+	var nombre: String = "Tu compañero"
+	for doble in _dobles[peer]:
+		if doble != null:
+			nombre = (doble as PersonajeData).nombre
+			break
+	_caidos[peer] = {"ident": ident, "t": Time.get_ticks_msec(), "nombre": nombre}
+	print("[pelea] %s (peer %d) se ha desconectado: sus personajes siguen %.0f s jugando solos" % [nombre, peer, CORTESIA])
+	p._set_log("%s se ha desconectado: sus personajes defienden solos un rato." % nombre)
+	p.caido_de_la_red(peer)
+	return true
+
+
+# Se acabo el rato de alguien que no ha vuelto: lo vivido a su ficha (en la sala) y sus personajes fuera.
+func _vencer_cortesia() -> void:
+	if _caidos.is_empty():
+		return
+	for peer in _caidos.keys():
+		if Time.get_ticks_msec() - int(_caidos[peer]["t"]) < int(CORTESIA * 1000.0):
+			continue
+		var c: Dictionary = _caidos[peer]
+		_caidos.erase(peer)
+		_desgaste_a_la_sala(peer, String(c.get("ident", "")))
+		var p: Node = _pantalla_combate()
+		if p != null and p.has_method("sacar_a"):
+			p.sacar_a(peer, "%s no ha vuelto: sus personajes dejan la pelea." % String(c.get("nombre", "Tu compañero")))
+
+
+# Lo que vivieron los dobles de un jugador que ya no esta conectado, a la sala (que lo apunta en su ficha
+# del mundo, o se lo manda si ya ha vuelto con otra conexion).
+func _desgaste_a_la_sala(peer: int, ident: String) -> void:
+	if not _dobles.has(peer):
+		return
+	var lote: Array = []
+	for doble in _dobles[peer]:
+		Game.volcar_desgaste_en_ficha(doble)
+		lote.append(Net.partida.desgaste_a_dict(doble))
+	_dobles.erase(peer)
+	if ident == "":
+		push_warning("[pelea] lo vivido por los personajes del peer %d se pierde: no se sabe de quien era" % peer)
+		return
+	Net.partida.desgaste_de_ausente(ident, lote)
+
+
+# LA SALA dice quien era el peer que se ha ido (a todos: quien lleve su pelea lo necesita).
+@rpc("authority", "call_remote", "reliable")
+func _ident_caido(peer: int, ident: String) -> void:
+	_ident_de_ido[peer] = ident
+	if _caidos.has(peer) and String(_caidos[peer].get("ident", "")) == "":
+		_caidos[peer]["ident"] = ident
+
+
+# EN LA SALA: se ha caido un humano. Se apunta y se reparte quien era.
+func apuntar_caido(peer: int, ident: String, lugar: String) -> void:
+	_caidos_sala[ident] = {"peer": peer, "lugar": lugar, "t": Time.get_ticks_msec()}
+	_ident_de_ido[peer] = ident
+	_ident_caido.rpc(peer, ident)
+
+
+# EN LA SALA: 'peer' acaba de llegar a 'lugar'. Si es alguien que se cayo hace poco y vuelve a SU piso, se
+# le avisa a quien lleve la pelea (un trabajador, o yo) para que le devuelva a sus personajes. Con un
+# respiro: su piso se esta construyendo y el espejo de la pelea se monta encima.
+func revisar_vuelta(peer: int, lugar: String) -> void:
+	var ident: String = Net._identidad_de_peer(peer)
+	if ident == "" or not _caidos_sala.has(ident):
+		return
+	var c: Dictionary = _caidos_sala[ident]
+	if Time.get_ticks_msec() - int(c["t"]) > int((CORTESIA + 30.0) * 1000.0):
+		_caidos_sala.erase(ident)
+		return
+	if String(c.get("lugar", "")) != lugar or not lugar.begins_with("piso:"):
+		return
+	_caidos_sala.erase(ident)
+	await get_tree().create_timer(1.5).timeout
+	var viejo: int = int(c["peer"])
+	_vuelve.rpc(viejo, peer)
+	_vuelve(viejo, peer)
+
+
+# EN QUIEN LLEVA LA PELEA: 'viejo' ha vuelto como 'nuevo'. Si estaba en mi cortesia, sus personajes
+# vuelven a ser suyos y se le abre el espejo.
+@rpc("authority", "call_remote", "reliable")
+func _vuelve(viejo: int, nuevo: int) -> void:
+	if not _caidos.has(viejo):
+		return
+	var p: Node = _pantalla_combate()
+	var c: Dictionary = _caidos[viejo]
+	_caidos.erase(viejo)
+	if p == null or not _dobles.has(viejo):
+		return
+	_dobles[nuevo] = _dobles[viejo]
+	_dobles.erase(viejo)
+	p.cambiar_dueno(viejo, nuevo)
+	if not _pelea_participantes.has(nuevo):
+		_pelea_participantes.append(nuevo)
+	var pares: Array = []
+	for doble in _dobles[nuevo]:
+		pares.append([p.indice_de_aliado(Game.combatant_de_pj(doble)), String((doble as PersonajeData).uid)])
+	print("[pelea] %s ha vuelto (peer %d -> %d): recupera a sus personajes" % [String(c.get("nombre", "")), viejo, nuevo])
+	p._set_log("%s ha vuelto y recupera a sus personajes." % String(c.get("nombre", "Tu compañero")))
+	_retoma_tu_pelea.rpc_id(nuevo, _pelea_id, p.roster_para_espejo(), pares)
+
+
+# EN EL QUE VUELVE: se le abre el espejo de la pelea que dejo a medias, con sus personajes (por uid).
+@rpc("any_peer", "call_remote", "reliable")
+func _retoma_tu_pelea(id: int, roster: Dictionary, pares: Array) -> void:
+	var otro := multiplayer.get_remote_sender_id()
+	var mios: Array = []
+	var huecos: Dictionary = {}
+	for par in pares:
+		var pj: PersonajeData = _mio_de_la_plantilla(String(par[1]))
+		if pj != null:
+			mios.append(pj)
+			huecos[int(par[0])] = pj
+	if mios.is_empty() or Game.combate_activo() or ocupado_en_pelea():
+		print("[pelea] no puedo retomar la pelea de %d: que me saque" % otro)
+		_salgo_de_la_pelea.rpc_id(otro)
+		return
+	_mis_en_pelea = mios
+	if Game.abrir_combate_espejo(roster) == null:
+		_mis_en_pelea.clear()
+		_salgo_de_la_pelea.rpc_id(otro)
+		return
+	_pelea_sigo = id
+	_pelea_anfitrion = otro
+	_mis_huecos = huecos
+	print("[pelea] retomo mi pelea en %d con %d personaje(s)" % [otro, mios.size()])
+
+
+func _mio_de_la_plantilla(uid: String) -> PersonajeData:
+	var pj: PersonajeData = Game.pj_por_uid(uid)
+	if pj != null:
+		return pj
+	for x in Game.party:
+		if x != null and String((x as PersonajeData).uid) == uid:
+			return x
+	return null
+
 
 # El anfitrion pide la accion al dueño de ese personaje. Mientras, su pantalla espera: el ATB no
 # corre (State.WAITING_PLAYER), asi que nadie pierde turnos por pensar.

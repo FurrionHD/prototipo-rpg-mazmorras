@@ -175,6 +175,12 @@ func _mostrar_test(idx: int) -> void:
 	# ¿SIGUE EN LA PELEA? Mismo guardia que en _pedir_accion_del_turno: pedirle la frase a quien ya
 	# se fue es esperar para siempre. Aqui faltaba, y el que se iba A MEDIO RECITAR no entraba por
 	# aquel camino (el conjuro en curso se atiende antes), asi que colgaba la pelea igual.
+	# Caido de la red (en su rato de cortesia): no puede recitar, asi que el conjuro se deja y juega solo.
+	if dueno != 0 and Net.peleas.esta_caido(dueno):
+		_limpiar_casteo()
+		_pantalla._update_hp()
+		_pantalla.turno_automatico()
+		return
 	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		_pantalla.sacar_a(dueno)
 		return
@@ -330,6 +336,10 @@ func _mostrar_disparo() -> void:
 	# MULTI: el conjuro es de otro -> el boton va en SU pantalla (y alli puede reapuntar antes de
 	# soltarlo, que para eso tiene los mismos bloques clicables).
 	var dueno: int = int(_pantalla._dueno_aliado.get(_pantalla._player, 0))
+	# Caido de la red: el conjuro ya recitado sale solo, sobre el objetivo de ahora (no se pierde).
+	if dueno != 0 and Net.peleas.esta_caido(dueno):
+		_disparar_hechizo()
+		return
 	if dueno != 0 and not Net.peleas.esta_en_mi_pelea(dueno):
 		_pantalla.sacar_a(dueno)   # ver _mostrar_test: se fue con el conjuro ya recitado
 		return

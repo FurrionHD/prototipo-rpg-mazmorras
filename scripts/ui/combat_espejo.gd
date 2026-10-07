@@ -816,6 +816,10 @@ func _heartbeat_remoto(delta: float) -> void:
 	if _espera_acum < REENVIO_TURNO:
 		return
 	_espera_acum = 0.0
+	# ¿Se le ha caido la conexion? En su rato de cortesia lo pedido se resuelve solo (fase 5 de la BD).
+	if Net.peleas.esta_caido(_pantalla._esperando_a):
+		_pantalla.caido_de_la_red(_pantalla._esperando_a)
+		return
 	# ¿Sigue en la pelea? Si se fue, sus personajes salen y la pelea continua (no se espera a un
 	# fantasma). Si sigue, se le repite lo que le pedi.
 	if not Net.peleas.esta_en_mi_pelea(_pantalla._esperando_a):

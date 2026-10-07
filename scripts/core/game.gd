@@ -1080,7 +1080,8 @@ func escribiendo() -> bool:
 # Nota asumida: en multi las pociones/colas SI tiquean con el menu abierto — inherente a que el
 # tiempo no se pare. Net llama a esto al abrir/cerrar sesion para aplicar el regimen que toque.
 func _refrescar_pausa() -> void:
-	get_tree().paused = (not Net.activo) and (not _modal_stack.is_empty())
+	# Y en multi, si la sala se ha quedado sin nube (Net.pausa_red): todos quietos hasta que vuelva.
+	get_tree().paused = ((not Net.activo) and (not _modal_stack.is_empty())) or Net.pausa_red
 
 # Profundidad actual de la mazmorra (para escalar dificultad). Aun sin pisos: 1.
 var current_floor: int = 1
