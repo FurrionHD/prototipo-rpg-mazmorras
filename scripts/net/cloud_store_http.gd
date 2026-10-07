@@ -155,16 +155,35 @@ func bajar_bd(id: String, token: int, desde: int) -> Dictionary:
 	return await _bajar_paginas("bajar_bd", id, String(_pass.get(id, "")), {"x-token": token}, desde, "")
 
 
+# TODAS las paginas tienen que ser de la MISMA version: si entre una y otra alguien sube (una partida de un
+# jugador no tiene cerrojo: puede estar abierta en otro PC), se mezclarian filas de dos versiones. Si el
+# rev cambia por el camino, se vuelve a bajar desde el principio (unas pocas veces como mucho).
+const INTENTOS_PAGINAS := 3
+
 func _bajar_paginas(op: String, id: String, contrasena: String, cab: Dictionary, desde: int,
 		consulta: String) -> Dictionary:
 	var filas: Array = []
 	var tras: int = 0
+	var rev0: int = -1
+	var intentos: int = 0
 	var r: Dictionary = {}
 	while true:
 		r = await _peticion(op, id, contrasena, cab, _json({"desde": desde, "tras": tras}), false,
 			PLAZO_LARGO, consulta)
 		if not r.get("ok", false):
 			return r
+		var rv: int = int(r.get("rev", 0))
+		if rev0 < 0:
+			rev0 = rv
+		elif rv != rev0:
+			intentos += 1
+			if intentos > INTENTOS_PAGINAS:
+				return {"ok": false, "error": "cambiando",
+					"mensaje": "La partida está cambiando en la nube mientras se baja. Prueba otra vez."}
+			filas.clear()
+			tras = 0
+			rev0 = -1
+			continue
 		filas.append_array(r.get("filas", []))
 		tras = int(r.get("tras", 0))
 		if not bool(r.get("mas", false)):

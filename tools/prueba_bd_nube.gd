@@ -60,6 +60,7 @@ func _limpiar(id: String) -> void:
 		Mundos.abandonar()
 	Mundos.borrar(id)
 	PartidaBD.borrar(COPIA)
+	_quitar_respaldos([id + ".tres", "mundo_" + id + "_"])
 
 
 # El dinero que hay en la BD de este disco (sin cargarla en Game).
@@ -258,3 +259,17 @@ func _legado(id: String) -> void:
 		"con el dinero de antes de migrar")
 	Mundos.cargar(id)
 	ok((await Mundos.cerrar_y_subir()).get("ok", false), "cerrado")
+
+
+# Lo que la partida de prueba dejo en las carpetas de respaldos (la copia de antes de migrar, las de los
+# conflictos): son ficheros de la prueba, no del jugador, y sin esto se acumulan en cada pasada.
+func _quitar_respaldos(prefijos: Array) -> void:
+	for carpeta in [MigracionBD.RESPALDOS, "user://respaldos/conflictos"]:
+		var abs_c: String = ProjectSettings.globalize_path(carpeta)
+		if not DirAccess.dir_exists_absolute(abs_c):
+			continue
+		for f in DirAccess.get_files_at(abs_c):
+			for pre in prefijos:
+				if String(f).begins_with(String(pre)):
+					DirAccess.remove_absolute(abs_c + "/" + f)
+					break

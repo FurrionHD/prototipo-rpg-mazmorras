@@ -143,6 +143,9 @@ func _correr() -> void:
 	Perfil.borrar(SLOT)
 	await get_tree().create_timer(0.5).timeout
 	PartidaBD.borrar(copia)
+	_quitar_respaldos(["slot_%d.tres" % SLOT, "slot_%d_" % SLOT])
+	if otro > 3:   # proteccion extra: las de sus ranuras de siempre (1..3) nunca se tocan
+		_quitar_respaldos(["slot_%d_" % otro])
 	print("FIN: TODO BIEN" if fallos == 0 else "FIN: %d MAL" % fallos)
 	get_tree().quit(0 if fallos == 0 else 1)
 
@@ -152,6 +155,8 @@ func _limpiar_slot(slot: int) -> void:
 	PartidaBD.borrar(Perfil.ruta_bd(slot))
 	if FileAccess.file_exists(Perfil.ruta(slot)):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(Perfil.ruta(slot)))
+	if slot > 3:   # proteccion extra: las copias de sus ranuras de siempre (1..3) nunca se tocan
+		_quitar_respaldos(["slot_%d.tres" % slot, "slot_%d_" % slot])
 
 
 func _copiar(de: String, a: String) -> void:
@@ -162,3 +167,17 @@ func _copiar(de: String, a: String) -> void:
 func _ficheros(carpeta: String) -> int:
 	var d := DirAccess.open(carpeta)
 	return 0 if d == null else d.get_files().size()
+
+
+# Lo que la partida de prueba dejo en las carpetas de respaldos (la copia de antes de migrar, las de los
+# conflictos): son ficheros de la prueba, no del jugador, y sin esto se acumulan en cada pasada.
+func _quitar_respaldos(prefijos: Array) -> void:
+	for carpeta in [MigracionBD.RESPALDOS, "user://respaldos/conflictos"]:
+		var abs_c: String = ProjectSettings.globalize_path(carpeta)
+		if not DirAccess.dir_exists_absolute(abs_c):
+			continue
+		for f in DirAccess.get_files_at(abs_c):
+			for pre in prefijos:
+				if String(f).begins_with(String(pre)):
+					DirAccess.remove_absolute(abs_c + "/" + f)
+					break
