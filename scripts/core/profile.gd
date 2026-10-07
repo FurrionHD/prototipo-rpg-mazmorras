@@ -358,7 +358,9 @@ func _process(delta: float) -> void:
 	if Mundos.abierto != "" or Net.soy_trabajador or Net.soy_sala or (Net.activo and not Net.es_host):
 		_volcado = null
 		return
-	if Game.hay_pelea_en_pantalla() or not Mundos.en_partida():
+	# Con una pelea en pantalla SI se guarda (fase 6 de la BD): su foto va en la partida y al cargar sigue.
+	# Solo no si no se puede guardar (ya acabada, la arena...): ver Game.pelea_para_guardar.
+	if (Game.hay_pelea_en_pantalla() and Game.pelea_para_guardar().is_empty()) or not Mundos.en_partida():
 		_volcado = null   # lo que llevaba a medias se tira: el siguiente empieza de cero
 		return
 	if _volcado == null:

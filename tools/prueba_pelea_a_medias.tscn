@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/prueba_pelea_a_medias.gd" id="1"]
+
+[node name="PruebaPeleaAMedias" type="Node"]
+script = ExtResource("1")

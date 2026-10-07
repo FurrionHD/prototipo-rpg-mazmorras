@@ -2600,6 +2600,9 @@ func _guardar_estado() -> void:
 				# bajar la escalera le reiniciaba los 5 minutos y los cadaveres volvian a ser eternos
 				# para cualquiera que cambie de piso a menudo.
 				"pudre": float(e.sello_pudre) if "sello_pudre" in e else -1.0,
+				# Si esta en la PELEA que se esta guardando (fase 6 de la BD): con que numero, para
+				# reconocerlo al rehacer la pelea al cargar (Game.retomar_pelea_guardada).
+				"id_pelea": int(e.get_meta("id_pelea", -1)),
 			})
 
 	var suelo: Array = []
@@ -2647,6 +2650,8 @@ func _restaurar_estado() -> void:
 		e.zona_idx = int(d["zona"])
 		# Vuelve con las heridas que le dejaste (los saves viejos no lo traen -> -1 = intacto).
 		e.hp_restante = float(d.get("hp", -1.0))
+		if int(d.get("id_pelea", -1)) >= 0:
+			e.set_meta("id_pelea", int(d["id_pelea"]))
 		e.comer.carga = float(d.get("carga", 0.0))   # fotos viejas -> 0, sin comer
 		if bool(d["muerto"]):
 			# El sello va ANTES de morir(): morir() solo lo pone si venia a -1, justo para que
@@ -2670,6 +2675,10 @@ func _restaurar_estado() -> void:
 			mundo = self
 		mundo.add_child(pickup)
 		pickup.global_position = d["pos"]
+
+	# La partida se guardo A MEDIA PELEA (fase 6 de la BD): con los enemigos ya en su sitio, sigue.
+	if not Game.pelea_guardada.is_empty() and not Net.activo:
+		Game.retomar_pelea_guardada()
 
 
 # La zona cuyo centro cae mas cerca de 'pos' (null si no hay zonas). Solo para restaurar bichos de

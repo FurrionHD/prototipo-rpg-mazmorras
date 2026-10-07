@@ -3191,8 +3191,11 @@ func indice_de_aliado(c: Combatant) -> int:
 func marcar_dueno(c: Combatant, peer: int) -> void:
 	espejo.marcar_dueno(c, peer)
 
-func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
-	espejo.retomar(estado, cs, filas_e)
+func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
+	espejo.retomar(estado, cs, filas_e, texto)
+
+func estado_para_guardar() -> Dictionary:
+	return espejo.estado_para_guardar()
 
 func roster_para_espejo() -> Dictionary:
 	return espejo.roster_para_espejo()

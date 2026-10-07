@@ -585,6 +585,40 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 			c.elemento_intensidad = Elementos.INTENSIDAD_PURA
 
 
+# LA PELEA PARA GUARDARLA (fase 6 de la BD): la de un jugador, entera, para seguirla al volver a cargar
+# la partida. Es la foto del traspaso (mismos campos, mismo retomar) pero con TODOS los aliados (son
+# mios) y los enemigos marcados con "id_pelea", que su entrada en memoria_pisos lleva consigo: es lo que
+# los reconoce al reconstruir el piso.
+func estado_para_guardar() -> Dictionary:
+	for n in _pantalla.get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n.has_meta("id_pelea"):
+			n.remove_meta("id_pelea")   # de una pelea anterior: no puede confundirse con los de esta
+	var als: Array = []
+	for c in _pantalla._aliados:
+		if _pantalla._huidos.has(c):
+			continue
+		var pj: PersonajeData = Game.pj_de_combatant(c)
+		var fila: Dictionary = {"uid": String(pj.uid) if pj != null else "", "vol": _volatil(c),
+			"gauge": float(_pantalla._gauge.get(c, 0.0)), "lentas": int(_pantalla._lentas.get(c, 0)),
+			"defendiendo": bool(_pantalla._defendiendo.get(c, false)), "nombre": c.nombre}
+		if _pantalla._casteos.has(c):
+			var dest = _pantalla._casteos[c].get("aliado")
+			fila["casteo"] = [String((_pantalla._casteos[c]["spell"] as SpellData).resource_path),
+				int(_pantalla._casteos[c]["idx"]), _pantalla._aliados.find(dest) if dest != null else -1,
+				bool(_pantalla._casteos[c].get("pagado", false))]
+		als.append(fila)
+	var ens: Array = []
+	for i in _pantalla._enemies.size():
+		var e: Combatant = _pantalla._enemies[i]
+		var nodo = Game._active_enemies[i] if i < Game._active_enemies.size() else null
+		if not is_instance_valid(nodo):
+			continue
+		nodo.set_meta("id_pelea", i)
+		ens.append({"id": i, "vivo": e.is_alive(), "invocado": _pantalla._slots_invocados.has(i),
+			"vol": _volatil(e), "gauge": float(_pantalla._gauge.get(e, 0.0))})
+	return {"aliados": als, "enemigos": ens, "log": _pantalla._log_lines.duplicate()}
+
+
 # LA FOTO de la pelea para el que la recoge. 'nuevo' es su peer: sus personajes los pone EL de su
 # propio equipo (son suyos de verdad), asi que de esos solo viaja lo volatil, no la ficha.
 # Los personajes del que SE VA no van: se retira de la pelea, es justo lo que esta haciendo.
@@ -630,7 +664,7 @@ func estado_para_traspaso(nuevo: int) -> Dictionary:
 # encima lo volatil de la pelea vieja. 'cs' son los combatientes de esta pantalla en el MISMO orden
 # que estado.aliados; 'filas_e' las filas de los enemigos que SI han venido (los vivos), en el
 # orden en que se le pasaron a start_combat, o sea el de _enemies.
-func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
+func retomar(estado: Dictionary, cs: Array, filas_e: Array, texto := "Tomas el relevo de la pelea.") -> void:
 	var als: Array = estado.get("aliados", [])
 	for i in mini(cs.size(), als.size()):
 		var c: Combatant = cs[i]
@@ -670,7 +704,7 @@ func retomar(estado: Dictionary, cs: Array, filas_e: Array) -> void:
 	if log_viejo is Array:
 		_pantalla._rehacer_log(log_viejo)
 		_log_enviadas = (log_viejo as Array).size()
-	_pantalla._set_log("Tomas el relevo de la pelea.")
+	_pantalla._set_log(texto)
 	_pantalla._update_hp()
 	_pantalla._update_timeline()
 

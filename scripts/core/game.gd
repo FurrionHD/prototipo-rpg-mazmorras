@@ -2269,6 +2269,10 @@ var pos_cargada_pueblo: Vector2 = Vector2.INF
 # antes de tiempo. Ver exportar_partida.
 var sesion_guardada: Dictionary = {}
 
+# LA PELEA A MEDIAS que venia en la partida cargada (SaveData.pelea_a_medias): se rehace en cuanto el piso
+# esta montado (retomar_pelea_guardada, lo llama el DungeonFloor). De un solo uso.
+var pelea_guardada: Dictionary = {}
+
 # Habias guardado DENTRO de un piso cuyo trazado ha cambiado con este build (ver el sello de
 # SaveData.trazado): ese piso ya no es el que dejaste, asi que se sale al pueblo en vez de
 # aparecer en mitad de un mapa nuevo. Lo pone cargar_datos y lo lee el menu principal al elegir
@@ -2598,6 +2602,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	pos_cargada = Vector2.INF
 	pos_cargada_pueblo = Vector2.INF
 	sesion_guardada = {}
+	pelea_guardada = {}
 	olvidar_mazmorra()
 	# Partida nueva SI reinicia lo persistente y el reloj (olvidar_mazmorra no los toca porque
 	# tienen que durar entre expediciones; una partida nueva es otra cosa).
@@ -2625,6 +2630,8 @@ func exportar_partida() -> SaveData:
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	# En la arena se guarda como si estuvieras en el pueblo (ver _sin_arena).
 	var en_mazmorra: bool = piso != null and not _muriendo and not _sin_arena_en_curso
+	# LA PELEA A MEDIAS, ANTES del volcado del piso: marca a sus enemigos (id_pelea) y el volcado lo apunta.
+	var pelea: Dictionary = pelea_para_guardar() if en_mazmorra else {}
 	if en_mazmorra and piso.has_method("volcar_a_memoria"):
 		piso.volcar_a_memoria()
 
@@ -2822,6 +2829,7 @@ func exportar_partida() -> SaveData:
 	# sesion: si no se guardaran, cerrar el juego levantaria a todos los jefes al instante.
 	d.bosses_sello = bosses_sello.duplicate()
 	_exportar_sesion(d)
+	d.pelea_a_medias = pelea
 
 	# Cabecera (lo que se ve en la lista de ranuras).
 	d.fecha = Time.get_datetime_string_from_system(false, true)
@@ -3631,6 +3639,7 @@ func importar_partida(d: SaveData) -> void:
 	tiempo_mazmorra = d.tiempo_mazmorra
 	bosses_sello = d.bosses_sello.duplicate()
 	pos_cargada = d.pos_jugador if d.en_mazmorra else Vector2.INF
+	pelea_guardada = d.pelea_a_medias.duplicate(true) if d.en_mazmorra else {}
 	# En el pueblo tambien (las partidas de antes de esto traen 0,0: esas a la plaza).
 	pos_cargada_pueblo = d.pos_jugador if not d.en_mazmorra and d.pos_jugador != Vector2.ZERO else Vector2.INF
 	sesion_guardada = {"fotos": d.sesion_fotos_piso.duplicate(true), "suelo": d.sesion_suelo.duplicate(true),
@@ -3718,6 +3727,70 @@ func importar_partida(d: SaveData) -> void:
 #
 # Y si habias guardado DENTRO de uno de esos pisos, sales al PUEBLO: aparecer en mitad de un mapa
 # que ya no es el que dejaste (dentro de un muro, en el peor caso) es peor que el viaje de vuelta.
+# ============================================================
+#  LA PELEA A MEDIAS (fase 6 de la BD, 07/10/2026): en una partida de un jugador, guardar (o cerrar el
+#  juego) en mitad de una pelea ya no la pierde. Se guarda su foto (combat_espejo.estado_para_guardar, la
+#  misma del traspaso de multi) y al cargar se rehace con los mismos enemigos, por el camino de siempre
+#  (start_combat) y con lo volatil encima (combat.retomar). En multi no: alli la pelea es de la sesion.
+# ------------------------------------------------------------
+func pelea_para_guardar() -> Dictionary:
+	if Net.activo or es_arena() or _sin_arena_en_curso or _muriendo or not hay_pelea_en_pantalla():
+		return {}
+	var combat: Node = _active_layer.get_child(0) if _active_layer.get_child_count() > 0 else null
+	if combat == null or bool(combat.get("_espejo")) or not combat.has_method("estado_para_guardar"):
+		return {}
+	if combat.has_method("acabada") and combat.acabada():
+		return {}   # ya acabada: lo que queda es cerrarla, no seguirla
+	return combat.estado_para_guardar()
+
+
+## La llama el DungeonFloor al montarse: si la partida traia una pelea a medias, se rehace.
+func retomar_pelea_guardada() -> void:
+	var estado: Dictionary = pelea_guardada
+	pelea_guardada = {}
+	if estado.is_empty() or Net.activo or combate_activo():
+		return
+	# Unos fotogramas: el piso acaba de restaurar a sus enemigos y de colocar al jugador.
+	for _i in 4:
+		await get_tree().process_frame
+	var por_id: Dictionary = {}
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n.has_meta("id_pelea"):
+			por_id[int(n.get_meta("id_pelea"))] = n
+	var nodos: Array = []
+	var filas_e: Array = []
+	for e in estado.get("enemigos", []):
+		if not bool(e.get("vivo", true)):
+			continue
+		var n = por_id.get(int(e.get("id", -1)))
+		if not is_instance_valid(n):
+			continue
+		n.hp_restante = float(e["vol"].get("hp", -1.0))
+		if n.has_method("entrar_en_pelea"):
+			n.entrar_en_pelea()
+		nodos.append(n)
+		filas_e.append(e)
+	print("[pelea] la partida se guardo a media pelea: la sigo con %d de %d enemigos" % [
+		nodos.size(), (estado.get("enemigos", []) as Array).size()])
+	if nodos.is_empty() or not start_combat(nodos, false):
+		return
+	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
+		and _active_layer.get_child_count() > 0 else null
+	if combat == null:
+		return
+	# Mis personajes, por uid (el orden del equipo puede no ser el de la pelea).
+	var cs: Array = []
+	for fila in estado.get("aliados", []):
+		var c: Combatant = null
+		for x in _active_player_cs:
+			var pj: PersonajeData = pj_de_combatant(x)
+			if pj != null and String(pj.uid) == String(fila.get("uid", "")):
+				c = x
+				break
+		cs.append(c)
+	combat.retomar(estado, cs, filas_e, "La pelea sigue donde la dejaste.")
+
+
 # LA MAZMORRA VIVA DEL MUNDO al guardado: con sesion abierta (la sala, o el host de un mundo) sale de
 # Net, que es donde vive; sin sesion se vuelve a escribir la que vino al cargar (sesion_guardada).
 func _exportar_sesion(d: SaveData) -> void:
