@@ -1057,6 +1057,8 @@ func _enemy_apretar(e: Combatant, presa: Combatant) -> void:
 func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, escala_mag: float = 1.0,
 		filtro: String = "todos", escala_prob: float = 1.0) -> Array:
 	var out: Array = []
+	# MOJADO SE HIELA (07/10, la escarcha): se mira ANTES de tirar nada (si el golpe moja, no cuenta para este).
+	var hiela: bool = e != null and e.mojado_se_hiela and filtro != "self" and victima != null 		and _pantalla._aliados.has(victima) and victima.has_status(StatusEffects.Id.MOJADO)
 	for a in ab.efectos:
 		if a.estado < 0:
 			continue
@@ -1114,6 +1116,10 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 			for _s in maxi(1, a.stacks):
 				d_e.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
 		out.append(nom if al_jugador else "%s (a sí mismo)" % nom)
+	# ...y si estaba mojado, la Congelacion le entra SEGURA: sin tirada ni resistencia (su decision: "congelan seguro").
+	if hiela and victima.is_alive() and not victima.es_inmune(StatusEffects.Id.CONGELACION):
+		victima.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
+		out.append("Congelación (estaba mojado)")
 	# SUS REFUERZOS (Avivado, Afilado): lo que añaden sus golpes mientras los lleve (06/10).
 	if victima != null and _pantalla._aliados.has(victima) and ab != null and ab.dano_mult > 0.0:
 		out.append_array(e.tirar_refuerzo(victima, e.atk() * ab.dano_mult))

@@ -63,13 +63,20 @@ VARIANTES = {
     # (torcidos, de tamaños y colores mezclados); cada grupo de ojos parpadea por su cuenta (GRUPOS_PARPADO).
     'cie204': (2.04, 'cielo', '556faa'),
     'ojo224': (2.244, 'milojos', '556faa'),
+    # LOS MUTANTES DEL SLIME PROFUNDO (07/10, lo eligio el jefe de slime_profundo_versiones.py): UNA LINEA, cuanto mas
+    # hondo mas frio. SLIME DE ARRECIFE (1a, x1,2 del profundo): gel azul mar con un trozo de arrecife encima (coral
+    # cerebro, tubos, anemona y una ramita). SLIME DE ESCARCHA (2a, x1,1 del arrecife): gel azul hielo con escarcha a
+    # parches y carambanos (la cara libre).
+    'arr180': (1.80, 'arrecife', '556a80'),
+    'esc198': (1.98, 'escarcha', '556a80'),
 }
 VAR = os.environ.get('SLIME_VAR', 's170')
 ESCALA, FORMA, COLOR = VARIANTES[VAR]
 SALIDA = os.environ.get('SLIME_SALIDA') or 'assets/sprites/enemigos/slime_sdf_%s/' % VAR
 # El nucleo (y su cristal) dentro del gel: TODOS los de gel (07/10, su aviso: "todos menos el normal estan mal, no se les
 # ve el nucleo ni el cristal"). Los de ROCA (fuego, ceniza, obsidiana) no: no se transparentan. El Rey, con sus versiones.
-CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 's170', 'cie204', 'ojo224')
+CON_NUCLEO = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 's170', 'cie204', 'ojo224',
+                     'arr180', 'esc198')
 # Las dos evoluciones del slime normal comparten cuerpo (yemas, tercer cuerno, ojos de mas).
 BROTADO = FORMA in ('brotado', 'puas')
 # Las dos del venenoso comparten piel (poros; la 2a, burbujas).
@@ -78,6 +85,8 @@ TOXICO = FORMA in ('miasma', 'pestilente')
 ROCA = FORMA in ('lava', 'ceniza', 'obsidiana')
 # Los dos del abisal comparten cuerpo de noche con estrellas.
 NOCHE = FORMA in ('cielo', 'milojos')
+# Los dos del profundo: el gel de antes se les cae a placas al transformarse (como el cielo).
+MAR = FORMA in ('arrecife', 'escarcha')
 
 
 def _lienzo(escala):
@@ -140,6 +149,28 @@ def _materiales(forma, color):
             # (transformandose: la CENIZA gris que se le cae a placas)
             'antes':  [(0.26, 0.24, 0.24), (0.40, 0.38, 0.37), (0.55, 0.53, 0.51), (0.62, 0.60, 0.58)],
         }
+    if forma in ('arrecife', 'escarcha'):
+        # EL ARRECIFE: el gel azul mar y sus corales, cada uno de su color. LA ESCARCHA: el gel azul hielo, la escarcha
+        # casi blanca y los carambanos. 'antes' = el gel de lo que era (transformandose): el gris del profundo o el mar.
+        mar = (0.12, 0.38, 0.55)
+        hielo = (0.45, 0.68, 0.86)
+        g = mar if forma == 'arrecife' else hielo
+        gel_m = [osc(g, 0.35), g, cla(g, 0.28 if forma == 'arrecife' else 0.35),
+                 cla(g, 0.60) if forma == 'arrecife' else (0.97, 1.0, 1.0)]
+        antes = gel if forma == 'arrecife' else [osc(mar, 0.35), mar, cla(mar, 0.28), cla(mar, 0.60)]
+        return {'gel': gel_m, 'cuerno': gel_m, 'lava': gel_m, 'ojo': [(1.0, 0.97, 0.72)] * 3,
+                'gema': [(1.0, 0.95, 0.72)] * 3,
+                'nucleo': [osc(g, 0.62), osc(g, 0.48), osc(g, 0.30)],
+                'cristal': [(0.30, 0.72, 0.85), (0.55, 0.95, 1.0), (0.85, 1.0, 1.0), (1.0, 1.0, 1.0)],
+                'parpado': [osc(g, 0.12), g, cla(g, 0.12)], 'pestana': [osc(g, 0.62)] * 3,
+                'coral_r': [(0.62, 0.20, 0.24), (0.92, 0.42, 0.40), (1.0, 0.66, 0.58)],
+                'coral_m': [(0.40, 0.20, 0.52), (0.62, 0.38, 0.78), (0.82, 0.62, 0.95)],
+                'coral_a': [(0.60, 0.52, 0.20), (0.86, 0.78, 0.38), (0.98, 0.94, 0.62)],
+                'anemona': [(0.20, 0.55, 0.40), (0.38, 0.85, 0.58), (0.70, 1.0, 0.78)],
+                'punta_a': [(0.95, 0.55, 0.80)] * 3,
+                'escarcha': [(0.62, 0.76, 0.88), (0.80, 0.90, 0.98), (0.94, 0.98, 1.0)],
+                'carambano': [(0.55, 0.75, 0.90), (0.78, 0.90, 1.0), (0.95, 1.0, 1.0)],
+                'antes': antes}
     if forma in ('cielo', 'milojos'):
         # EL CIELO DE NOCHE: el gel azul noche (translucido); LAS ESTRELLAS, blancas y azuladas (siempre en su luz); los
         # OJOS de la 2a: el blanco encendido, los iris de siete colores y la pupila negra.
@@ -181,18 +212,18 @@ LIENZO, PIES = _lienzo(ESCALA)
 BORDE = (0.16, 0.03, 0.05) if ROCA else ((0.02, 0.02, 0.06) if NOCHE else osc(hexc(COLOR), 0.58))
 IRIS = ['iris_v', 'iris_m', 'iris_c', 'iris_a', 'iris_n', 'iris_r', 'iris_p']
 MODELO = Modelo(ESCALA, LIENZO, PIES, _materiales(FORMA, COLOR), BORDE, suaves=('cuerpo',),
-                brillan=('ojo', 'gema') + (('lava', 'chispa') if ROCA else ())
+                brillan=('ojo', 'gema', 'punta_a') + (('lava', 'chispa') if ROCA else ())
                 + (('estrella', 'blanco', 'pupila') + tuple(IRIS) if NOCHE else ()), corta_suelo=True,
                 especular=('gel', 'cuerno', 'cristal', 'ampolla'), umbral_especular=0.955,
                 # EL GEL SE TRANSPARENTA (05/10): todo menos los ojos y las gemas, que son solidos. El de LAVA no: es roca.
-                translucidos=() if ROCA else (('gel', 'cuerno', 'antes') if NOCHE else ('gel', 'cuerno')), alfa=0.72)
+                translucidos=() if ROCA else (('gel', 'cuerno', 'antes') if NOCHE or MAR else ('gel', 'cuerno')), alfa=0.72)
 MODELO.alfa_dentro = 0.42
 # Lo que brilla dentro (el cristal, el nucleo): el gel casi no lo tapa. Mezclados al 42 % salian GRISES (cian + rojo).
 MODELO.claros_dentro = ('cristal', 'nucleo', 'estrella')
 # PARPADEAN (05/10): el horno saca ademas <anim>_parpado.png, solo los ojos cerrados (el juego los pone a ratos).
 # TODOS menos el Rey (07/10: el Rey, con sus versiones).
 PARPADOS = VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 's150', 'lava160', 'cen192', 'obs211',
-                   's170', 'cie204', 'ojo224')
+                   's170', 'cie204', 'ojo224', 'arr180', 'esc198')
 # LOS MIL OJOS PARPADEAN CADA UNO POR SU CUENTA (06/10, lo pidio el jefe): sus ojos van en GRUPOS repartidos al azar y el
 # horno saca una hoja de parpados por grupo (<anim>_parpado.png, <anim>_parpado2.png...); el juego pone cada una a su aire.
 GRUPOS_PARPADO = 6 if FORMA == 'milojos' else 1
@@ -225,10 +256,15 @@ def POSE(**k):
     #   (en el BROTADO PUNZANTE, 'evo' = le brotan las yemas viniendo del punzante; en el PUNZANTE, sus puas viniendo del normal)
     #   brillo     tamaño de las estrellas del cielo nocturno y el de mil ojos (0 = apagadas: el Eclipse; > 1 = encendidas)
     #   ojos       lo abiertos que van los ojos del de mil ojos (> 1 = de par en par: el Parpadeo cegador, la Mirada)
+    #   coral      tamaño de los corales del arrecife (las Esquirlas: se le encogen al soltarlas y le vuelven a crecer)
+    #   sacude     -1..1: cuanto se le ladean los corales (las Esquirlas: los agita de un lado a otro)
+    #   carambanos largo de los carambanos de la escarcha (al SOLTARLOS se le van y le vuelven a crecer)
+    #   (en el ARRECIFE, 'evo' = el gris del profundo se le cae a placas y le salen los corales uno a uno; en la
+    #   ESCARCHA, el mar se le cae a placas, los corales se le van y le sale la escarcha a parches)
     #   (en el CIELO, 'evo' = el gel del abisal se le abre a placas y le salen las estrellas; en el de MIL OJOS, se le abren
     #   los ojos uno a uno viniendo del cielo; y 'cerrados' = el GRUPO de ojos que cierra, 1..GRUPOS_PARPADO, o True = todos)
     p = dict(squash=1.0, derretido=0.0, bote=0.0, avance=0.0, encoge=1.0, yemas=1.0, evo=1.0, cerrados=False, evo2=1.0,
-             puas=1.0, poros=1.0, burb=1.0, brillo=1.0, ojos=1.0)
+             puas=1.0, poros=1.0, burb=1.0, brillo=1.0, ojos=1.0, coral=1.0, carambanos=1.0, sacude=0.0)
     p.update(k)
     return p
 
@@ -249,11 +285,11 @@ def _en(p):
     en = p.get('encoge', 1.0)
     if FORMA in ('brotado', 'punzante'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
-    elif FORMA in ('miasma', 'ceniza', 'cielo'):
+    elif FORMA in ('miasma', 'ceniza', 'cielo', 'arrecife'):
         en *= 1.0 / 1.2 + (1.0 - 1.0 / 1.2) * _paso(p.get('evo', 1.0), 0.2, 0.6)
     elif FORMA == 'obsidiana':
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
-    elif FORMA in ('pestilente', 'milojos'):
+    elif FORMA in ('pestilente', 'milojos', 'escarcha'):
         en *= 1.0 / 1.1 + (1.0 - 1.0 / 1.1) * _paso(p.get('evo', 1.0), 0.15, 0.55)
     elif FORMA == 'puas':
         # (transformandose desde el brotado o desde el punzante, empieza del tamaño de ellos: el brotado punzante es x1,1)
@@ -352,6 +388,15 @@ def escena(pose):
             _puas(e, C, R, pose)
         if TOXICO:
             _piel_toxica(e, C, R, sz, pose)
+        if MAR:
+            if pose['evo'] < 0.99:
+                _costra_de_antes(e, C, R, pose)
+            if FORMA == 'arrecife':
+                _arrecife(e, C, R, pose)
+            else:
+                if pose['evo'] < 0.99:
+                    _arrecife(e, C, R, pose, se_va=True)
+                _escarcha(e, C, R, pose)
         if NOCHE:
             _estrellas(e, C, R, pose)
             if FORMA == 'cielo' and pose['evo'] < 0.99:
@@ -432,6 +477,120 @@ def escena(pose):
             if radio > 0.05:
                 _cristal(e, C + np.array(c) * en, eje, largo * en * 0.75, radio * en * 0.65)
     return e.L
+
+
+# ---- LOS MUTANTES DEL SLIME PROFUNDO (07/10) ----
+# EL ARRECIFE (su eleccion, la C2 de slime_profundo_versiones.py): un trozo de arrecife encima: un CORAL CEREBRO
+# (amarillo), un racimo de TUBOS (morado), una ANEMONA (verde con las puntas rosas) y una RAMITA roja. Salen de la bola de
+# esta pose (se aplastan y botan con ella). Transformandose desde el profundo, le salen uno a uno; en la escarcha
+# (se_va), se le van uno a uno. 'coral' los agranda o los recoge; 'sacude' los ladea.
+_ARRECIFE = [('cerebro', (-0.30, -0.20, 0.92)), ('tubos', (0.55, -0.35, 0.70)), ('anemona', (0.20, 0.25, 0.94)),
+             ('rama', (-0.80, 0.10, 0.45))]
+
+
+def _arrecife(e, C, R, pose, se_va=False):
+    en = _en(pose)
+    fu = (1.0 - pose['derretido']) * en * pose['coral']
+    lado = np.array([pose['sacude'] * 0.9, 0.0, 0.0])
+    for i, (tipo, d) in enumerate(_ARRECIFE):
+        if se_va:
+            sale = 1.0 - _paso(pose['evo'], 0.15 + i * 0.08, 0.30 + i * 0.08)
+        elif FORMA == 'arrecife':
+            sale = _paso(pose['evo'], 0.35 + i * 0.10, 0.50 + i * 0.10)
+        else:
+            sale = 1.0
+        k = fu * sale
+        if k < 0.12:
+            continue
+        rng = np.random.default_rng(9 + i)
+        base, n = _superficie(d, C, R)
+        if tipo == 'cerebro':
+            rad = 5.8 * k
+            c = base - n * rad * 0.35
+            def f(P, c=c, rad=rad):
+                q = (P - c) / rad
+                surco = np.sin(q[:, 0] * 9.0 + np.sin(q[:, 1] * 7.0) * 1.6) * np.sin(q[:, 1] * 8.0 + q[:, 2] * 3.0)
+                return sd_esfera(P, c, rad) + 0.35 * np.clip(surco, 0.0, 1.0)
+            e.add(f, 'coral_a', 0, 'coral')
+        elif tipo == 'tubos':
+            for j in range(5):
+                off = rng.normal(size=3) * 2.2 * k; off -= n * (off @ n)
+                a = base + off - n * 0.8
+                b = a + (n + rng.normal(size=3) * 0.2 + lado * 0.5) * rng.uniform(4.0, 6.5) * k
+                r = rng.uniform(1.2, 1.6) * min(1.0, k)
+                def f(P, a=a, b=b, r=r):
+                    return np.maximum(sd_cono(P, a, b, r, r), -sd_cono(P, a + (b - a) * 0.5, b + (b - a) * 0.3,
+                                                                      r * 0.55, r * 0.55))
+                e.add(f, 'coral_m', 0, 'coral')
+        elif tipo == 'anemona':
+            pie = base + n * 2.4 * k
+            e.add(lambda P, a=base - n * 0.5, b=pie, r=min(1.0, k): sd_cono(P, a, b, 2.4 * r, 2.0 * r), 'anemona', 0.4,
+                  'coral')
+            for j in range(11):
+                ld = rng.normal(size=3); ld -= n * (ld @ n); ld /= np.linalg.norm(ld)
+                dd = n * 0.9 + ld * 0.6 + np.array([0.0, 0.0, 0.3]) + lado
+                dd /= np.linalg.norm(dd)
+                punta = pie + dd * rng.uniform(3.6, 5.2) * k
+                e.add(lambda P, a=pie, b=punta, r=min(1.0, k): sd_cono(P, a, b, 0.75 * r, 0.5 * r), 'anemona', 0, 'coral')
+                e.add(lambda P, c=punta, r=min(1.0, k): sd_esfera(P, c, 0.75 * r), 'punta_a', 0, 'coral')
+        else:
+            _rama_coral(e, base - n * 0.8, n + np.array([0.0, 0.0, 0.7]) + lado, 4.4 * k, 1.7 * min(1.0, k), 'coral_r',
+                        1, rng, lado)
+
+
+def _rama_coral(e, a, d, largo, r, mat, nivel, rng, lado):
+    d = d / np.linalg.norm(d)
+    b = a + d * largo
+    e.add(lambda P, a=a, b=b, ra=r, rb=r * 0.8: sd_cono(P, a, b, ra, rb), mat, 0.5, 'coral')
+    if nivel == 0:
+        e.add(lambda P, c=b, rr=r * 0.95: sd_esfera(P, c, rr), mat, 0, 'coral')
+        return
+    for k in range(2 if rng.random() < 0.6 else 3):
+        ld = rng.normal(size=3); ld[2] = 0.0
+        _rama_coral(e, b, d + ld * 0.7 + np.array([0.0, 0.0, 0.35]) + lado, largo * rng.uniform(0.65, 0.8), r * 0.75,
+                    mat, nivel - 1, rng, lado)
+
+
+# LA ESCARCHA (su eleccion, la B1): una costra un pelo por fuera del cuerpo, A PARCHES (un ruido sobre la direccion), solo
+# por encima de su filo ondulado y con la CARA libre; y CARAMBANOS cortos colgando del filo. Transformandose desde el
+# arrecife, los parches le salen poco a poco y los carambanos le crecen al final. 'carambanos' los alarga o se los quita.
+def _escarcha(e, C, R, pose):
+    en = _en(pose)
+    g = pose['evo']
+    hay = _paso(g, 0.30, 0.85)
+    if hay < 0.02:
+        return
+    z0 = 0.45
+    zc = C[2] + R[2] * z0
+    umbral = 0.2 + 3.4 * (1.0 - hay)   # (sin escarcha, el umbral queda por encima de todo el ruido: ningun parche)
+    def costra(P, C=C, R=R, zc=zc, umbral=umbral):
+        ang = np.arctan2(P[:, 1] - C[1], P[:, 0] - C[0])
+        filo = zc + R[2] * 0.08 * np.sin(ang * 7.0) + R[2] * 0.05 * np.sin(ang * 13.0 + 1.0)
+        D = (P - C) / R
+        ruido = (np.sin(D[:, 0] * 7.0 + D[:, 2] * 3.0) + np.sin(D[:, 1] * 6.0 - D[:, 0] * 4.0 + 1.3) +
+                 np.sin(D[:, 2] * 9.0 + D[:, 1] * 2.0 + 0.7))
+        parche = (umbral - ruido) * 3.0
+        cara = (0.40 - np.sqrt((D[:, 0] / 1.0) ** 2 + ((D[:, 2] - 0.32) / 0.6) ** 2)) * 8.0
+        cara = np.where(D[:, 1] > 0.3, cara, -9.0)
+        return np.maximum(np.maximum(np.maximum(sd_elipsoide(P, C, R + 0.45), (filo - P[:, 2]) * 0.8), parche), cara)
+    e.add(costra, 'escarcha', 0, 'escarcha')
+    largo_k = pose['carambanos'] * _paso(g, 0.70, 0.95) * en * (1.0 - pose['derretido'])
+    if largo_k < 0.05:
+        return
+    rng = np.random.default_rng(5)
+    n_car = 9
+    for k in range(n_car):
+        a = k / n_car * 2 * math.pi + rng.uniform(-0.2, 0.2)
+        largo = rng.uniform(2.2, 3.8)
+        r = rng.uniform(0.8, 1.1)
+        if math.sin(a) > 0.75:
+            continue   # (delante de los ojos no)
+        zz = z0 + 0.08 * math.sin(a * 7.0) + 0.05 * math.sin(a * 13.0 + 1.0) - 0.02
+        rr = math.sqrt(max(0.0, 1.0 - zz * zz))
+        base, n = _superficie((math.cos(a) * rr, math.sin(a) * rr, zz), C, R)
+        punta = base + n * 0.6 + np.array([0.0, 0.0, -largo * largo_k])
+        e.add(lambda P, a=base + n * 0.3, b=punta, r=r * min(1.0, largo_k): sd_cono(P, a, b, r, 0.1), 'carambano', 0,
+              'carambano')
 
 
 # LAS ESTRELLAS del cielo nocturno y el de mil ojos: puntos de luz DENTRO del gel (se ven a traves), alguna grande con su
@@ -1067,6 +1226,40 @@ def anim_mirada(t):
                 brillo=T(t, [(0.0, 1.35), (0.34, 2.0), (0.70, 1.5), (1.0, 1.0)]))
 
 
+# ---- LOS MUTANTES DEL SLIME PROFUNDO (07/10) ----
+# LA TRANSFORMACION del profundo al ARRECIFE (el gris se le cae a placas y debajo esta el mar; le salen los corales uno a
+# uno) y del arrecife a la ESCARCHA (el mar se le cae a placas, los corales se le van y le sale la escarcha): como las demas.
+anim_evolucion_mar = anim_evolucion_toxica
+
+
+# ESQUIRLAS DE CORAL (el arrecife, sin carga): se encoge, AGITA el coral de un lado a otro y, de un respingo, los corales se
+# le encogen (los trozos que salen volando los pone el juego) y le vuelven a crecer.
+def anim_sacudir(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.15, 0.88), (0.30, 0.92), (0.45, 0.86), (0.58, 1.18), (0.75, 0.96),
+                             (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.50, 0.0), (0.58, 0.30), (0.72, 0.0), (1.0, 0.0)]),
+                sacude=T(t, [(0.0, 0.0), (0.12, 1.0), (0.24, -1.0), (0.36, 1.0), (0.48, -0.6), (0.58, 0.0), (1.0, 0.0)]),
+                coral=T(t, [(0.0, 1.0), (0.50, 1.10), (0.58, 0.70), (0.75, 0.80), (1.0, 1.0)]))
+
+
+# ALIENTO GELIDO (la escarcha, sin carga): coge aire (se hincha), y SOPLA hacia delante de golpe: se vacia echandose un poco
+# hacia delante (el vaho lo pone el juego) y se asienta.
+def anim_soplar(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.25, 1.20), (0.38, 1.24), (0.50, 0.80), (0.70, 0.88), (0.86, 1.04),
+                             (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.25, 0.25), (0.38, 0.30), (0.50, -0.10), (0.70, 0.0), (1.0, 0.0)]),
+                avance=T(t, [(0.0, 0.0), (0.38, -0.6), (0.50, 1.6), (0.75, 0.8), (1.0, 0.0)]))
+
+
+# CARAMBANOS (la escarcha, sin carga): se encoge, da un BOTE y al caer se le desprenden los carambanos (los que caen
+# delante los pone el juego); le vuelven a crecer.
+def anim_carambanos(t):
+    return POSE(squash=T(t, [(0.0, 1.0), (0.18, 0.80), (0.34, 1.20), (0.50, 1.10), (0.62, 0.74), (0.78, 1.06),
+                             (1.0, 1.0)]),
+                bote=T(t, [(0.0, 0.0), (0.18, 0.0), (0.34, 0.80), (0.50, 0.70), (0.62, 0.0), (0.78, 0.10), (1.0, 0.0)]),
+                carambanos=T(t, [(0.0, 1.0), (0.50, 1.15), (0.62, 0.0), (0.80, 0.15), (1.0, 1.0)]))
+
+
 def anim_nacer(t):
     # Al reves: del charco se levanta y se rehace (las crias del Rey).
     return POSE(squash=T(t, [(0.0, 0.42), (0.20, 0.48), (0.40, 0.66), (0.60, 0.92), (0.76, 1.16), (0.88, 0.94), (1.0, 1.0)]),
@@ -1135,6 +1328,19 @@ if FORMA == 'obsidiana':
 # (Parpadeo cegador) y fijar/mirada (Mirada estelar).
 ANIMS_ABISAL = ('idle', 'walk', 'embestida', 'escupir', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encogido',
                 'encaje', 'muerte')
+# LOS DEL PROFUNDO (07/10): las del profundo (Reventon: inflar, hinchado, aplaston, deshincharse) + su transformacion,
+# comer y las de sus ataques. ARRECIFE: Reventon de marea (el Reventon), Chorro a presion (escupir), Esquirlas de coral
+# (sacudir) y su Doble embate (embestida). ESCARCHA: Estallido helado (el Reventon), Aliento gelido (soplar) y
+# Carambanos (carambanos).
+ANIMS_PROFUNDO = ('idle', 'walk', 'embestida', 'inflar', 'hinchado', 'aplaston', 'deshincharse', 'encaje', 'muerte')
+if MAR:
+    ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_PROFUNDO + (('escupir',) if FORMA == 'arrecife' else ())}
+    ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_mar)
+    if FORMA == 'arrecife':
+        ANIMS['sacudir'] = (10, 12.0, False, 8, anim_sacudir)
+    else:
+        ANIMS['soplar'] = (10, 12.0, False, 8, anim_soplar)
+        ANIMS['carambanos'] = (10, 12.0, False, 8, anim_carambanos)
 if NOCHE:
     ANIMS = {k: v for k, v in ANIMS.items() if k in ANIMS_ABISAL}
     ANIMS['evolucion'] = (18, 10.0, False, 8, anim_evolucion_noche)
@@ -1149,6 +1355,7 @@ if NOCHE:
         ANIMS['mirada'] = (10, 12.0, False, 8, anim_mirada)
 # (el venenoso tambien come cristales: 06/10, al hacer su arbol; el abisal y los suyos, al hacer el suyo)
 if VAR in ('s100', 'mut120', 'evo2', 'pun120', 's115', 'mia138', 'pes152', 'lava160', 'cen192', 'obs211', 's170',
+           's150', 'arr180', 'esc198',
            'cie204', 'ojo224'):
     ANIMS['comer'] = (12, 10.0, False, 8, anim_comer)
 if VAR == 'pun120':

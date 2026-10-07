@@ -562,6 +562,29 @@ func _acido_piel(obj: Combatant, quien: Combatant) -> void:
 		(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
 
 
+# AURA FRIA (07/10, el slime de escarcha, ver MutacionData): quien acaba su turno PEGADO a el (a un paso, como un golpe
+# cuerpo a cuerpo) puede quedar congelado (aura_prob, 35 %; con su resistencia, por la puerta comun). Solo en el mapa (en
+# la fila no hay "pegado") y quien lleva la pelea. Uno por cada escarcha que le toque.
+func _aura_fria(c: Combatant) -> void:
+	if c == null or not c.is_alive() or not _aliados.has(c) or _espejo or not tactico:
+		return
+	for e in _enemies:
+		var en: Combatant = e
+		if not en.aura_fria or en.aura_efectos.is_empty() or not en.is_alive():
+			continue
+		if turno_mapa.hueco_entre(c, en) > HUECO_CUERPO_A_CUERPO:
+			continue
+		if randf() >= en.aura_prob:
+			continue
+		var ab := AbilityData.new()
+		ab.efectos = en.aura_efectos
+		var puestos: Array = enemigos._enemy_tirar_efectos(en, ab, c, 1.0, "objetivo", 1.0)
+		if not puestos.is_empty():
+			efectos._fx_golpe(en, c, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.SLIME_GOLPE, 0.8, true)
+		_log_extra("❄ El frío de %s le cala a %s%s" % [_etq(en), c.nombre,
+			(": " + ", ".join(puestos)) if not puestos.is_empty() else ", que aguanta"])
+
+
 # REVIENTA AL MORIR (06/10, el miasma y el pestilente, ver MutacionData): al caer deja en su sitio la NUBE de su
 # revienta_al_morir (un circulo con sus turnos y su veneno). Solo en el mapa (en la fila no hay suelo) y quien ejecuta.
 func _revienta(e: Combatant) -> void:
@@ -1812,6 +1835,7 @@ func _fin_de_eleccion() -> void:
 	# LO QUE HA ANDADO este turno pasa por encima de algun charco (la Savia del trent)? Solo quien lleva la pelea.
 	if tactico and not _espejo:
 		turno_mapa.charcos_tras_andar(_player)
+		_aura_fria(_player)
 	if _slow_actions_left > 0:
 		_slow_actions_left -= 1
 	# Los CHIPS se repintan aqui, al cerrar CUALQUIER accion, y no solo cuando cambia la vida.

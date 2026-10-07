@@ -475,6 +475,11 @@ var devuelve_corte_frac: float = 0.0
 var deja_estrellas: bool = false
 var estrellas_max: int = 6
 var todo_lo_ve: bool = false
+# (07/10, la escarcha, ver MutacionData) el aura fria y 'mojado se hiela'.
+var aura_fria: bool = false
+var aura_prob: float = 0.0
+var aura_efectos: Array = []
+var mojado_se_hiela: bool = false
 # FICHA DE ESCAPARATE para pintar el muñeco de un aliado ESPEJADO. Solo la rellena combat.gd al
 # montar un maniqui desde el roster; en la maquina que ejecuta la pelea es null y el muñeco sale de
 # Game.pj_de_combatant, como siempre. Es Resource y no PersonajeData para no atar Combatant (que es
@@ -1987,6 +1992,8 @@ func roll_on_hit(target: Combatant) -> Array:
 	var aplicados: Array = []
 	if target == null:
 		return aplicados
+	# MOJADO SE HIELA (07/10, la escarcha): mirado antes de tirar (ver combat_enemigos._enemy_tirar_efectos, la otra rama).
+	var hiela: bool = mojado_se_hiela and target.has_status(StatusEffects.Id.MOJADO)
 	for a in on_hit:
 		if a.estado < 0:
 			continue
@@ -2001,6 +2008,9 @@ func roll_on_hit(target: Combatant) -> Array:
 		for _s in maxi(1, a.stacks):
 			target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
+	if hiela and target.is_alive() and not target.es_inmune(StatusEffects.Id.CONGELACION):
+		target.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
+		aplicados.append("Congelación (estaba mojado)")
 	aplicados.append_array(tirar_refuerzo(target, atk()))
 	return aplicados
 
