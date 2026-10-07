@@ -479,7 +479,15 @@ func _probar_huella() -> void:
 	var f_red = t.forma_de(sismico, yo, t.pies_de(yo) + Vector2(1000, 0))
 	t._anotar_huella_red(yo, t.CLASE_APUNTANDO, f_red, sismico.forma_nucleo)
 	var datos: PackedFloat32Array = t.estado_huellas()
-	_afirmar(datos.size() == t.FLOATS_HUELLA, "el paquete de huellas no mide lo que tiene que medir: %d" % datos.size())
+	# (07/10) Puede ir MAS DE UNA: desde la barra del 06/10 el golpe sismico de arriba no sale al momento, espera media
+	# barra con su huella pintada (clase CARGA). Lo que se mira es que vayan enteras y que la de apuntar este.
+	var n_huellas: int = datos.size() / t.FLOATS_HUELLA
+	var va_apuntando: bool = false
+	for i_h in n_huellas:
+		if int(datos[i_h * t.FLOATS_HUELLA + 1]) == t.CLASE_APUNTANDO:
+			va_apuntando = true
+	_afirmar(datos.size() % t.FLOATS_HUELLA == 0 and va_apuntando,
+		"el paquete de huellas no mide lo que tiene que medir (%d) o no lleva la de apuntar" % datos.size())
 	var espejo: Node = escena.instantiate()
 	espejo.process_mode = Node.PROCESS_MODE_ALWAYS
 	espejo.tactico = true
@@ -494,7 +502,8 @@ func _probar_huella() -> void:
 	var antes_arena = Game._arena_nodo
 	Game._arena_nodo = arena
 	t2.aplicar_huellas(datos)
-	_afirmar(arena.huellas.size() == 1, "el espejo no pinta la huella que le llega (%d)" % arena.huellas.size())
+	_afirmar(arena.huellas.size() == n_huellas, "el espejo no pinta las huellas que le llegan (%d de %d)"
+		% [arena.huellas.size(), n_huellas])
 	for k in arena.huellas:
 		var h: Dictionary = arena.huellas[k]
 		_afirmar((h["forma"].centro as Vector2).distance_to(f_red.centro) < 0.01 and is_equal_approx(float(h["nucleo"]), sismico.forma_nucleo),
