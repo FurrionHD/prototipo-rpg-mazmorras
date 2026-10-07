@@ -1866,6 +1866,7 @@ const PUERTA_SILENCIO := 1
 const PUERTA_ENRAIZADO := 2
 const PUERTA_ENROSCADO := 4
 const PUERTA_PEGADO := 8
+const PUERTA_CONGELADO := 16
 var puertas_remotas: int = -1
 
 
@@ -1914,6 +1915,17 @@ func pegado() -> bool:
 	return false
 
 
+# ¿Congelado? (la Congelacion del slime de escarcha, 07/10, solo en el mapa): anda la MITAD en su turno (ver
+# CombatTactico.radio_de). Viaja como puerta: el maniqui del espejo no tiene estados y su radio saldria entero.
+func congelado() -> bool:
+	if puertas_remotas >= 0:
+		return (puertas_remotas & PUERTA_CONGELADO) != 0
+	for e in statuses:
+		if e.mult_de("mov_mult") < 1.0:
+			return true
+	return false
+
+
 # Las puertas en un numero, para mandarlas en la instantanea del espejo (ver puertas_remotas).
 func puertas() -> int:
 	var v: int = 0
@@ -1925,6 +1937,8 @@ func puertas() -> int:
 		v |= PUERTA_ENROSCADO
 	if pegado():
 		v |= PUERTA_PEGADO
+	if congelado():
+		v |= PUERTA_CONGELADO
 	return v
 
 

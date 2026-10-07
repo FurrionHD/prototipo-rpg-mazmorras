@@ -48,7 +48,8 @@ enum Id { VENENO, SANGRADO, QUEMADURA, LENTO, DEBIL, VULNERABLE, FORTALEZA, ATUR
 	ENROSCADO,
 	PEGADO,
 	RESCOLDO,
-	ENCENDIDO, AVIVADO, AFILADO }
+	ENCENDIDO, AVIVADO, AFILADO,
+	CONGELACION }
 
 # Veneno: base de daño (nivel 1) + tope global de stacks. Cada stack DUPLICA el daño
 # (base x 2^(stacks-1)); las habilidades/enemigos capan a que stack llegan. PROVISIONAL.
@@ -89,6 +90,8 @@ const QUEMADURA_FRACCION := 0.30
 # EL RESCOLDO (06/10, la ceniza y brasa, mutante del slime de fuego): brasa y ceniza en la cara. La MITAD por turno que la
 # Quemadura pero dura 3, y ademas fallas un 8 % mas (la Ceguera, un 12 %). El agua lo apaga.
 const RESCOLDO_FRACCION := 0.15
+# LA CONGELACION (07/10): lo que te deja andar en tu turno (la mitad).
+const CONGELACION_MOV := 0.5
 # Cuantas quemaduras sueltas puede llevar uno a la vez (si no, una lluvia de chispas llenaria la lista).
 const BRASAS_MAX := 6
 
@@ -450,6 +453,14 @@ static var _defs: Dictionary = {
 		"id": Id.AFILADO, "nombre": "Afilado", "icono": "🗡", "color": Color(0.55, 0.5, 0.7),
 		"turns": 3, "golpe_estado": Id.SANGRADO, "golpe_prob": 1.0,
 		"descripcion": "Se ha afilado las aristas: cada golpe suyo abre un corte más.",
+	},
+	# LA CONGELACION (07/10, idea suya para el slime de escarcha, mutante del profundo): "te reduce la cantidad de
+	# movimiento que puedes hacer un 50 %". Solo en el mapa (CombatTactico.radio_de); en la fila no hay pasos que quitar.
+	Id.CONGELACION: {
+		"id": Id.CONGELACION, "nombre": "Congelación", "icono": "❄", "color": Color(0.6, 0.85, 1.0),
+		"turns": 1, "mov_mult": CONGELACION_MOV,
+		"debuff": true,
+		"descripcion": "Escarcha en las piernas: este turno solo te da para la mitad del camino.",
 	},
 	Id.RESCOLDO: {
 		"id": Id.RESCOLDO, "nombre": "Rescoldo", "icono": "♨", "color": Color(0.85, 0.45, 0.25),

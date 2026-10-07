@@ -921,7 +921,7 @@ const FAMILIAS: Array = [
 	]],
 	# Algo tuyo ha BAJADO: flechas cayendo despacio.
 	["merma", "flecha", [
-		StatusEffects.Id.LENTO, StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE,
+		StatusEffects.Id.LENTO, StatusEffects.Id.DEBIL, StatusEffects.Id.VULNERABLE, StatusEffects.Id.CONGELACION,
 	]],
 	# TE HAN SEÑALADO: una diana en el centro de la tarjeta que late. Va dibujada y no con
 	# particulas porque es un MARCADOR -- tiene que estar siempre en el mismo sitio y con la misma

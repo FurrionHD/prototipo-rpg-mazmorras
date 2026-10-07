@@ -619,8 +619,12 @@ func radio_de(c: Combatant) -> float:
 	# LA SANGUIJUELA PEGADA no anda por su cuenta: va encima de su presa (_tick_pegadas). La presa si anda.
 	if c.pegado() and _pantalla._enemies.has(c):
 		return 0.0
-	return StatsMath.radio_movimiento(float(c.abilities.agilidad),
+	var r: float = StatsMath.radio_movimiento(float(c.abilities.agilidad),
 		Game.agilidad_esperada_piso(), c.overload_factor)
+	# CONGELADO (07/10, el slime de escarcha): la mitad del camino.
+	if c.congelado():
+		r *= StatusEffects.CONGELACION_MOV
+	return r
 
 
 # ------------------------------------------------------------
