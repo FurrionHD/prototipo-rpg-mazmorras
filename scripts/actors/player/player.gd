@@ -222,6 +222,11 @@ func _ready() -> void:
 		collision_mask = 0
 		process_mode = Node.PROCESS_MODE_DISABLED
 		return
+	# CHOCA CON LOS ENEMIGOS (08/10, playtest: "te metes dentro del Rey Slime"). Solo vigilaba la roca: el bicho se frenaba
+	# contra ti cuando andaba EL, pero tu le atravesabas, y con uno grande te metias medio cuerpo dentro. Ahora tambien la
+	# capa 2 (enemy.gd; en multi la caja del espejo, remote_enemy._montar_choque). Los cadaveres la sueltan al caer. Los
+	# compañeros siguen sin vigilarla a proposito (ver enemy.gd: el grupo no se atasca a si mismo).
+	collision_mask |= 2
 	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.

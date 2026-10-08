@@ -62,6 +62,13 @@ const COLOR_LINEA_AVISO := Color(1.0, 0.3, 0.1)
 
 var _linea: Line2D = null
 var _mira: float = 0.0            # ultimo angulo recibido
+# LA CAJA CON LA QUE CHOCAS (08/10, playtest: "la hitbox de colision entre mi personaje y el Rey Slime esta mal; te metes
+# dentro"). El espejo era solo dibujo y en multi se le atravesaba entero. Ahora lleva la misma caja que el bicho de
+# verdad (enemy._aplicar_colision): la forma de su generador, o 32 x escala; las alargadas giran con el. Capa 2, la de
+# los enemigos, que es la que vigila el jugador. Fuera al quedar cadaver.
+var _choque: AnimatableBody2D = null
+var _choque_forma: CollisionShape2D = null
+var _choque_gira: bool = false
 var _avisando: bool = false       # esta telegrafiando el golpe
 
 # --- SPRITE (el mismo que ve quien simula el piso) --------------------------------------------
@@ -171,6 +178,35 @@ func aplicar_datos(ruta: String, t: float, ya_muerto: bool, _vision: float = 130
 		marcar_cadaver()
 	else:
 		add_to_group("enemy")
+		_montar_choque()
+
+
+# La caja de choque (ver _choque). Se rehace si cambia el bicho (una mutacion le cambia la escala).
+func _montar_choque() -> void:
+	if data == null or muerto:
+		return
+	var tam: Vector2 = SpritesEnemigo.tam_cuerpo(data)
+	if tam == Vector2.ZERO:
+		tam = Vector2.ONE * (Cuerpos.MEDIO_BASE + radio_extra) * 2.0
+	if _choque == null:
+		_choque = AnimatableBody2D.new()
+		_choque.sync_to_physics = false
+		_choque.collision_layer = 2   # la de los enemigos (enemy.gd): la que vigila el jugador
+		_choque.collision_mask = 0
+		_choque_forma = CollisionShape2D.new()
+		_choque_forma.shape = RectangleShape2D.new()
+		_choque.add_child(_choque_forma)
+		add_child(_choque)
+	(_choque_forma.shape as RectangleShape2D).size = tam
+	_choque_gira = maxf(tam.x, tam.y) / maxf(1.0, minf(tam.x, tam.y)) >= 1.3
+	_choque_forma.rotation = (_mira - PI * 0.5) if _choque_gira else 0.0
+
+
+func _quitar_choque() -> void:
+	if _choque != null:
+		_choque.queue_free()
+	_choque = null
+	_choque_forma = null
 
 
 # El sprite, con la MISMA receta que enemy.gd: quien dibuja a quien lo decide SpritesEnemigo (el
@@ -275,6 +311,7 @@ func aviso_comer(tipo: String, valor: float, extra: String = "") -> void:
 				* float(EnemyData.mult_mutante(es_boss, _grado())["escala"])
 			radio_extra = maxf(0.0, (lado - 32.0) * 0.5)
 			_montar_sprite()     # vuelve a sacar el sprite y la escala, ya de mutante
+			_montar_choque()
 			_marcar_mutante()
 			# Que arranque del tamaño que SE VEIA (el sprite nuevo viene dibujado a otro tamaño).
 			var alto_ahora: float = _alto_fotograma()
@@ -313,6 +350,8 @@ const _RemotoJugador = preload("res://scripts/actors/player/remote_player.gd")
 # (mandaria seis campos): se ve como antes, no revienta.
 func aplicar_estado_visual(ang: float, avisando: bool, embistiendo: bool = false) -> void:
 	_mira = ang
+	if _choque_gira and _choque_forma != null:
+		_choque_forma.rotation = ang - PI * 0.5
 	_avisando = avisando
 	_embistiendo = embistiendo
 	if muerto:
@@ -506,6 +545,7 @@ func marcar_cadaver() -> void:
 	if muerto:
 		return
 	muerto = true
+	_quitar_choque()   # un cadaver no se interpone: se le pasa por encima
 	if _cuerpo != null:
 		_cuerpo.color = Color(0.4, 0.4, 0.4)
 	# EL SPRITE PASA A SU POSE DE CADAVER, mirando adonde estaba, exactamente igual que en

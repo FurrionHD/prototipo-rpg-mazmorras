@@ -1732,6 +1732,8 @@ func morir() -> void:
 		_facing_line.visible = false   # un cadaver ya no mira a ningun sitio
 	remove_from_group("enemy")  # ya no es un enemigo activo
 	add_to_group("corpse")      # ahora es un cadaver interactuable
+	# Y NO SE INTERPONE: el jugador choca con la capa de los enemigos (08/10), y un cadaver se pisa.
+	set_deferred("collision_layer", 0)
 	# Tirado en el suelo: SIEMPRE por debajo de quien le pase por encima. Sin _physics_process ya no se
 	# reordena, y si murio "delante" de alguien se quedaria tapando a todo el que lo pise.
 	z_index = Game.Z_PERSONAJES + Game.Z_DETRAS_DE_PERSONAJES
