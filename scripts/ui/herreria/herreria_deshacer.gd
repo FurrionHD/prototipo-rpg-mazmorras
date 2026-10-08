@@ -50,6 +50,11 @@ func _ficha(vb: VBoxContainer) -> void:
 	else:
 		t.row(vb, "Mejoras", "+%d" % Game.mejoras_actuales(item))
 		t.row(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
+		MenuScaffold.bloque_runas(vb, item)
+		# Fundirla se lleva sus runas por delante: que se sepa ANTES de pulsar.
+		if not Runas.runas_de(item).is_empty():
+			MenuScaffold._linea_color(vb, "⚠ Al fundirla PIERDES su set y sus sub-stats de runas (las runas no vuelven).",
+				Color(0.95, 0.55, 0.45), 12)
 
 	var d: Dictionary = Game.fundir_devuelve(item)
 	vb.add_child(HSeparator.new())

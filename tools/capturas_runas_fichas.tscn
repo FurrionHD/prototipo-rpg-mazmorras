@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/capturas_runas_fichas.gd" id="1"]
+
+[node name="CapturasRunasFichas" type="Node"]
+script = ExtResource("1")

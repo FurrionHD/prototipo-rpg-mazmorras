@@ -93,12 +93,36 @@ func _ready() -> void:
 		if not (it is WeaponData and int((it as WeaponData).tipo) == WeaponData.Tipo.DAGA):
 			solo_dagas = false
 	_ok(solo_dagas, "el subfiltro Daga deja solo dagas (%d)" % menu.stacks.size())
-	var filas: Array = MenuScaffold.filas_armadura(peto, 1, 0, {})
-	var tiene: bool = false
-	for f in filas:
-		if str(f[0]) == "Set de runas":
-			tiene = true
-	_ok(tiene, "la ficha del peto enseña su set")
+	# EL BLOQUE DE RUNAS de las fichas (personaje, inventario, tienda, hogar, herreria, combate).
+	var vb := VBoxContainer.new()
+	MenuScaffold.bloque_runas(vb, peto)
+	var textos: String = ""
+	for n in vb.find_children("*", "Label", true, false):
+		textos += (n as Label).text + "\n"
+	_ok(textos.contains("SET MASA GELATINOSA"), "la ficha del peto enseña su set")
+	_ok(textos.contains("2 piezas:") and textos.contains("5 piezas:"), "y lo que hace a 2 y a 5 piezas")
+	_ok(textos.contains("En el baúl"), "en el baul dice que no cuenta hasta que alguien se la pone")
+	vb.free()
+	# Puesta: 1/5 en GRIS (aun no da nada); con dos piezas, 2/5 y el bonus de 2 en VERDE.
+	var pj: PersonajeData = Game.lider()
+	var guardado: Array = [pj.equipped_pecho, pj.equipped_casco]
+	pj.equipped_pecho = peto
+	pj.equipped_casco = null
+	var vb2 := VBoxContainer.new()
+	MenuScaffold.resumen_sets(vb2, pj, RunaSetData.Tipo.ARMADURA, false)
+	var l1: Label = vb2.find_children("*", "Label", true, false)[0]
+	_ok(l1.text.contains("1/5") and l1.get_theme_color("font_color") == MenuScaffold.RUNA_GRIS, "puesta sola: 1/5 en gris")
+	vb2.free()
+	var casco: Resource = Game.crear_item(load("res://resources/armor/cuero_casco.tres"), 1, 0, {})
+	Game.meta_de(casco)["runas"] = {"set": "slime", "subs": []}
+	pj.equipped_casco = casco
+	var vb3 := VBoxContainer.new()
+	MenuScaffold.resumen_sets(vb3, pj, RunaSetData.Tipo.ARMADURA, false)
+	var l2: Label = vb3.find_children("*", "Label", true, false)[0]
+	_ok(l2.text.contains("2/5") and l2.get_theme_color("font_color") == MenuScaffold.RUNA_VERDE, "con dos piezas: 2/5 en verde")
+	vb3.free()
+	pj.equipped_pecho = guardado[0]
+	pj.equipped_casco = guardado[1]
 	menu._cerrar()
 	_fin()
 

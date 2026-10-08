@@ -1144,6 +1144,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 				meta["mejoras"], null, Game.durabilidad_item(w)):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(w), Game.durabilidad_color(w))
+		MenuScaffold.bloque_runas(vb, w)   # set (con sus piezas) y sub-stats de las runas
 	elif item is ShieldData:
 		var s := item as ShieldData
 		_titulo_rareza(vb, s, equipada)
@@ -1154,6 +1155,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		for fila in MenuScaffold.filas_escudo(s, int(meta_s["tier"]), int(meta_s["rareza"]), meta_s["mejoras"]):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(s), Game.durabilidad_color(s))
+		MenuScaffold.bloque_runas(vb, s)
 	elif item is WandData:
 		var wd := item as WandData
 		_titulo_rareza(vb, wd, equipada)
@@ -1172,6 +1174,7 @@ func _preview_arma(vb: VBoxContainer) -> void:
 		for fila in MenuScaffold.filas_critico_magico(mg, wd.crit_bonus):
 			_row(vb, fila[0], fila[1])
 		_row(vb, "Durabilidad", Game.durabilidad_txt_item(wd), Game.durabilidad_color(wd))
+		MenuScaffold.bloque_runas(vb, wd)
 
 
 # ============================================================
@@ -1211,6 +1214,7 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)
 	_row(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
+	MenuScaffold.bloque_runas(vb, a)
 
 
 # ============================================================

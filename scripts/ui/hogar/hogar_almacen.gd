@@ -627,6 +627,7 @@ func _ficha() -> void:
 		"En casa" if int(s["lado"]) == LADO_CASA else "Inventario")
 	for fila in _filas(m):
 		MenuScaffold.fila(vb, str(fila[0]), str(fila[1]), 150)
+	MenuScaffold.bloque_runas(vb, m)   # las runas de la pieza (nada si no es equipo)
 	# Lo que HACE un consumible es un parrafo, no un "etiqueta: valor": va a todo lo ancho.
 	if m is ConsumableData and m.get("descripcion") != null and str(m.get("descripcion")) != "":
 		MenuScaffold.nota(vb, str(m.get("descripcion")))

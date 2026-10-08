@@ -722,6 +722,7 @@ func _ficha_equipo(vb: VBoxContainer, m: Resource) -> void:
 	# La durabilidad solo dice algo de una pieza USADA; en el mostrador todo sale nuevo.
 	if not _es_vitrina(m):
 		row(vb, "Durabilidad", Game.durabilidad_txt_item(m), Game.durabilidad_color(m))
+		MenuScaffold.bloque_runas(vb, m)   # lo que vendes con sus runas (en el mostrador todo sale limpio)
 	var desc: Variant = m.get("descripcion")
 	if desc != null and str(desc) != "":
 		note(vb, str(desc))

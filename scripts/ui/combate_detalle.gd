@@ -760,6 +760,11 @@ func _rejilla_stats(c: Combatant) -> void:
 	MenuScaffold.fila(_panel, "Daño crít. mágico", _crit_dmg_txt(float(n[9])))
 	if float(n[10]) > 0.0:
 		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % float(n[10]))
+	# Sus SETS DE RUNAS (en verde los que funcionan). Solo si es uno de los MIOS: de los demas no tengo la ficha.
+	var pj_c: PersonajeData = Game.pj_de_combatant(c)
+	if pj_c != null:
+		_panel.add_child(HSeparator.new())
+		MenuScaffold.resumen_sets(_panel, pj_c)
 	# La lupa desglosa sobre el combatiente, y en el espejo ese es el maniqui: se quedaria en ceros.
 	if _combat._espejo:
 		return
@@ -999,6 +1004,7 @@ func _ficha_pieza(res: Resource, pj: PersonajeData) -> void:
 		MenuScaffold.fila(vb, "   " + str(f[0]), str(f[1]), 200)
 	MenuScaffold.fila(vb, "   Durabilidad", Game.durabilidad_txt_item(res), 200,
 		Game.durabilidad_color(res))
+	MenuScaffold.bloque_runas(vb, res)   # set (con sus piezas, en verde si funciona) y sub-stats
 	_panel.add_child(caja)
 
 

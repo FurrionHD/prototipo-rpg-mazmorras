@@ -641,6 +641,9 @@ func _pagina_atributos(c: Combatant) -> void:
 		_row("Daño crítico", _crit_dmg_txt(c.crit_dmg))
 	if c.mp_regen_turno > 0.0:
 		_row("Regen maná", "%.2f/turno" % c.mp_regen_turno)
+	# Sus SETS DE RUNAS, de arma y de armadura (en verde los que funcionan).
+	_content.add_child(HSeparator.new())
+	MenuScaffold.resumen_sets(_content, pj)
 
 	# LA LUPA. Nada puede quedar por debajo: es el final de la lista. Y sin coletilla debajo: lo que
 	# hace el boton se entiende pulsandolo, y un parrafo explicando el critico en cada apertura de la
@@ -945,6 +948,9 @@ func _sec_arma() -> void:
 		MenuScaffold.nota(_lista, "Vas a dos armas: se alternan golpe a golpe, cada una con su daño "
 			+ "y su crítico. La mejora de Rapidez de la secundaria cuenta la mitad que la de la "
 			+ "principal.")
+	# Los SETS DE RUNAS de las armas que llevas (2/2 en verde si esta activo).
+	_lista.add_child(HSeparator.new())
+	MenuScaffold.resumen_sets(_lista, pj, RunaSetData.Tipo.ARMA)
 
 	# DERECHA: la ficha de la mano elegida.
 	var es_main: bool = (_sel == 0)
@@ -958,10 +964,7 @@ func _sec_arma() -> void:
 			Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
 		MenuScaffold.banner_item(_content, item, Game.item_plus(item),
 			"Principal" if es_main else "Secundaria")
-		if es_main:
-			_weapon_stats(_content, item as WeaponData)
-		else:
-			_off_stats(_content, item)
+		_resumen_pieza(_content, item)   # lo importante + runas; lo demas en ⌕ Información
 
 	# El boton de cambiar. Con el arma principal a dos manos NO hay secundaria que cambiar: se dice y
 	# se apaga, en vez de dejar entrar a una rejilla donde nada se puede equipar.
@@ -1130,12 +1133,7 @@ func _cambiar_arma() -> void:
 		Game.color_rareza_de(item), Game.intensidad_rareza_de(item), 17)
 	MenuScaffold.banner_item(_content, item, Game.item_plus(item), rotulo)
 	_aviso_dueno(item)
-	if es_armadura:
-		_armor_stats(_content, item as ArmorData)
-	elif _sel == 0:
-		_weapon_stats(_content, item as WeaponData)
-	else:
-		_off_stats(_content, item)
+	_resumen_pieza(_content, item)   # como la puesta: lo importante + runas; lo demas en ⌕ Información
 
 	# Los avisos de "esto ya lo llevas" / "esto no encaja", que es lo que explica el boton de abajo.
 	if item == _equipado():
@@ -1675,6 +1673,9 @@ func _sec_armadura() -> void:
 		piezas.append(_celda_equipo(pieza, ARMOR_SLOT_LABELS[slot],
 			Game.item_display_name(pieza) if pieza != null else "(sin pieza)"))
 	MenuScaffold.rejilla_objetos(_lista, piezas, _sel, _pick, _columnas(), LADO_CELDA)
+	# Los SETS DE RUNAS de la armadura que llevas (x/5; en verde desde 2, que es cuando empieza a dar).
+	_lista.add_child(HSeparator.new())
+	MenuScaffold.resumen_sets(_lista, pj, RunaSetData.Tipo.ARMADURA)
 
 	# DERECHA: la pieza elegida.
 	var slot_sel: String = ARMOR_SLOTS[_sel]
@@ -1687,7 +1688,7 @@ func _sec_armadura() -> void:
 			Game.color_rareza_de(actual), Game.intensidad_rareza_de(actual), 17)
 		MenuScaffold.banner_item(_content, actual, Game.item_plus(actual),
 			ARMOR_SLOT_LABELS[slot_sel])
-		_armor_stats(_content, actual as ArmorData)
+		_resumen_pieza(_content, actual)   # lo importante + runas; lo demas en ⌕ Información
 
 	var pueblo: bool = _se_puede_tocar()
 	_content.add_child(HSeparator.new())
@@ -2044,6 +2045,74 @@ func _pie_pieza(vb: VBoxContainer, item: Resource, mejoras: Dictionary, rareza: 
 	_row_en(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
 	if not mejoras.is_empty():
 		MenuScaffold.nota(vb, _lista_mejoras(mejoras))
+
+
+# LA FICHA CORTA de una pieza (08/10/2026, lo pidio el usuario: "deja solo lo mas importante y lo otro con un boton tipo
+# el de info"): los dos o tres numeros que deciden, sus RUNAS (set con las piezas que llevas, en verde si funciona) y la
+# durabilidad. Todo lo demas, en el modal de _abrir_ficha_completa.
+func _resumen_pieza(vb: VBoxContainer, item: Resource) -> void:
+	var m: Dictionary = Game.meta_de(item)
+	var tmult: float = Game.tier_mult(int(m["tier"]))
+	var rareza: int = int(m["rareza"])
+	var mejoras: Dictionary = m["mejoras"]
+	if item is WeaponData:
+		var w := item as WeaponData
+		var mods: Dictionary = Upgrades.weapon_mods(w, tmult, rareza, mejoras)
+		var tipo: String = WEAPON_TIPO_LABELS[clampi(int(w.tipo), 0, WEAPON_TIPO_LABELS.size() - 1)]
+		_row_en(vb, "Tipo", "%s  ·  %s" % [tipo, "dos manos" if w.dos_manos else "una mano"])
+		if w.es_magica:
+			var mg: Dictionary = Upgrades.magic_mods(w.magic_amp, tmult, rareza, mejoras)
+			_row_en(vb, "Ataque mágico", "%.1f" % MenuScaffold.dano_magico(_pj(), float(mg["magic_amp"])))
+		_row_en(vb, "Ataque", "%.1f" % MenuScaffold.dano_arma(w, float(mods["raw"]), _pj(), Game.durabilidad_item(w)))
+		_row_en(vb, "Crítico", _fmt_pct(float(mods["crit"])))
+		_row_en(vb, "Daño crítico", "×%.2f" % (StatsMath.CRIT_MULT + float(mods["crit_dmg"])))
+	elif item is ShieldData:
+		var sm: Dictionary = Upgrades.shield_mods(item as ShieldData, tmult, rareza, mejoras)
+		_row_en(vb, "Defensa al bloquear", "%.1f" % float(sm["def"]))
+		_row_en(vb, "Bloqueo", _fmt_pct(float(sm["bloqueo"])))
+	elif item is WandData:
+		var wd := item as WandData
+		var mgw: Dictionary = Upgrades.magic_mods(wd.magic_amp, tmult, rareza, mejoras)
+		_row_en(vb, "Ataque mágico", "%.1f" % MenuScaffold.dano_magico(_pj(), float(mgw["magic_amp"])))
+		_row_en(vb, "Crítico mágico", _fmt_pct(float(mgw["crit_magico"])))
+	elif item is ArmorData:
+		for f in MenuScaffold.filas_armadura(item as ArmorData, int(m["tier"]), rareza, mejoras,
+				Game.durabilidad_item(item), MenuScaffold.factor_resistencia(_pj()), MenuScaffold.factor_voluntad(_pj())):
+			if str(f[0]) in ["Defensa", "Defensa mágica", "Defensa de la pieza", "Defensa mágica de la pieza"]:
+				_row_en(vb, str(f[0]), str(f[1]))
+	_row_en(vb, "Mejoras", "%d / %d" % [Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)])
+	_row_en(vb, "Durabilidad", Game.durabilidad_txt_item(item), Game.durabilidad_color(item))
+	MenuScaffold.bloque_runas(vb, item)
+	# LA LUPA de la pieza: la ficha entera en un modal.
+	var lupa := HBoxContainer.new()
+	lupa.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(lupa)
+	var b: Button = MenuScaffold.pastilla(lupa, "⌕  Información", _abrir_ficha_completa.bind(item), false)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+# La FICHA ENTERA de una pieza, en un modal con scroll (lo de antes en la columna, mas sus runas).
+func _abrir_ficha_completa(item: Resource) -> void:
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, Game.item_display_name(item), 640.0)
+	_modal = m["capa"]
+	_ver_muneco(false)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 440)
+	(m["cuerpo"] as VBoxContainer).add_child(scroll)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 3)
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vb)
+	if item is WeaponData:
+		_weapon_stats(vb, item as WeaponData)
+	elif item is ArmorData:
+		_armor_stats(vb, item as ArmorData)
+	else:
+		_off_stats(vb, item)
+	MenuScaffold.bloque_runas(vb, item)
+	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal)
 
 
 # "Agudeza 2, Precision 1": en QUE se gastaron las mejoras (dos armas con el mismo +N pueden ser

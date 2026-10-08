@@ -383,6 +383,16 @@ static func sets_activos(p: PersonajeData) -> Array:
 		out.append([s, cuenta[s]])
 	return out
 
+# Cuantas piezas del set 's' lleva 'p' (un arma a dos manos cuenta 2). 0 si ninguna.
+static func piezas_de_set(p: PersonajeData, s: RunaSetData) -> int:
+	if p == null or s == null:
+		return 0
+	for e in sets_activos(p):
+		if e[0] == s:
+			return int(e[1])
+	return 0
+
+
 # El efecto especial de un set, si llega a sus piezas: devuelve sus params o {} si no.
 static func efecto_activo(p: PersonajeData, efecto: StringName) -> Dictionary:
 	for s in sets_activos(p):

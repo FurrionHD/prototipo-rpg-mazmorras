@@ -206,6 +206,7 @@ func _ficha(vb: VBoxContainer) -> void:
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
 		delta = "+%d pts máx" % round(nuevo_max - maxd)
 	_atributo(vb, "Durabilidad", "%d / %d pts  (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+	MenuScaffold.bloque_runas(vb, item)   # sus runas: mejorar no las toca
 	t.note(vb, "El núcleo lo elige el sistema por el nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)

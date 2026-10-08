@@ -553,6 +553,90 @@ static func brillo_en(lbl: Label, color: Color, intensidad: float = 1.0) -> CPUP
 # `color_valor` (opcional) tiñe el VALOR. Se usa para el color de rareza (ver Upgrades.RAREZA_COLOR),
 # que es lo que hace que una tabla de rarezas se lea de un vistazo. Es Variant y no Color para poder
 # decir "sin tinte" con null, igual que los _row locales de inventory_menu y forge_menu.
+# ============================================================
+#  LAS RUNAS EN LAS FICHAS (08/10/2026). UN solo sitio que las pinta, para que salgan IGUAL en todas las pantallas que
+#  enseñan una pieza (personaje, inventario, tienda, hogar, herreria, combate) y en el resumen de cada personaje. Lo
+#  pidio el usuario: "si no, no tengo ni idea de que tengo equipado".
+#    - VERDE = lo que esta funcionando (el set con sus piezas, y cada bonus que se cumple); GRIS = lo que no.
+# ============================================================
+const RUNA_VERDE := Color(0.55, 0.88, 0.55)
+const RUNA_GRIS := Color(0.55, 0.58, 0.64)
+
+static func _linea_color(vb: Control, txt: String, col: Color, tam: int = 12) -> Label:
+	var l := Label.new()
+	l.text = txt
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", tam)
+	l.add_theme_color_override("font_color", col)
+	vb.add_child(l)
+	return l
+
+
+# El bloque de runas de UNA pieza: su set con las piezas que lleva quien la tiene puesta (2/2), lo que hace a 2 y a 5
+# piezas (verde si se cumple) y sus sub-stats. Nada si la pieza no admite runas.
+static func bloque_runas(vb: VBoxContainer, item: Resource) -> void:
+	if item == null or not Runas.admite_runas(item):
+		return
+	vb.add_child(HSeparator.new())
+	var s: RunaSetData = Runas.set_de(item)
+	if s == null:
+		_linea_color(vb, "Runas: sin set (se activan en el Taller de runas).", RUNA_GRIS)
+		return
+	var duenno: PersonajeData = Game.quien_lleva(item)
+	var n: int = Runas.piezas_de_set(duenno, s) if duenno != null else -1
+	var tope: int = s.piezas_efecto()
+	var cab: String = "SET %s" % s.nombre.to_upper()
+	if n >= 0:
+		cab += "   %d/%d" % [mini(n, tope), tope]
+	titulo(vb, cab, 13, RUNA_VERDE if n >= 2 else RUNA_GRIS)
+	if s.tipo == RunaSetData.Tipo.ARMA:
+		var t2: String = Runas.efecto_txt(s) if s.bonus_2p.is_empty() \
+			else "%s. %s" % [Runas.bonus_txt(s.bonus_2p), Runas.efecto_txt(s)]
+		_linea_color(vb, "2 piezas: " + t2, RUNA_VERDE if n >= 2 else RUNA_GRIS)
+	else:
+		_linea_color(vb, "2 piezas: " + Runas.bonus_txt(s.bonus_2p) + ".", RUNA_VERDE if n >= 2 else RUNA_GRIS)
+		_linea_color(vb, "5 piezas: " + Runas.efecto_txt(s), RUNA_VERDE if n >= 5 else RUNA_GRIS)
+	if n < 0:
+		_linea_color(vb, "En el baúl: el set cuenta cuando alguien se la pone.", RUNA_GRIS, 11)
+	var subs: Array = Runas.subs_de(item)
+	if subs.is_empty():
+		_linea_color(vb, "Sin sub-stats todavía.", RUNA_GRIS, 11)
+	for sub in subs:
+		fila(vb, "  " + Runas.nombre_sub(str(sub["s"])), Runas.valor_txt(str(sub["s"]), float(sub["v"])))
+
+
+# EL RESUMEN DE SETS de un personaje: "Miasma 2/2" en verde, o "Ignicion 1/2 · Miasma 1/2" en gris si van mezclados.
+# 'tipo' = RunaSetData.Tipo (solo los de arma o de armadura) o -1 para todos.
+static func resumen_sets(vb: VBoxContainer, pj: PersonajeData, tipo: int = -1, con_titulo: bool = true) -> void:
+	if pj == null:
+		return
+	var lista: Array = []
+	for e in Runas.sets_activos(pj):
+		var s: RunaSetData = e[0]
+		if tipo < 0 or int(s.tipo) == tipo:
+			lista.append(e)
+	if con_titulo:
+		titulo(vb, "SETS DE RUNAS", 13, GRIS)
+	if lista.is_empty():
+		_linea_color(vb, "Ningún set de runas puesto.", RUNA_GRIS)
+		return
+	var flujo := HFlowContainer.new()
+	flujo.add_theme_constant_override("h_separation", 14)
+	flujo.add_theme_constant_override("v_separation", 4)
+	vb.add_child(flujo)
+	for e in lista:
+		var s: RunaSetData = e[0]
+		var n: int = int(e[1])
+		var tope: int = s.piezas_efecto()
+		var l := Label.new()
+		l.text = "%s  %d/%d" % [s.nombre, mini(n, tope), tope]
+		l.add_theme_font_size_override("font_size", 14)
+		l.add_theme_color_override("font_color", RUNA_VERDE if n >= 2 else RUNA_GRIS)
+		l.tooltip_text = Runas.descripcion_set(s)
+		l.mouse_filter = Control.MOUSE_FILTER_STOP
+		flujo.add_child(l)
+
+
 static func fila(vb: VBoxContainer, etiqueta: String, valor: String, ancho: int = 170,
 		color_valor: Variant = null) -> void:
 	var row := HBoxContainer.new()
@@ -925,7 +1009,6 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		if float(mg["mana_reduccion"]) > 0.0:
 			filas.append(["Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0)])
 		filas += filas_critico_magico(mg, w.crit_bonus)
-	filas += Runas.filas(w)   # el set y las sub-stats de las runas (08/10), si lleva
 	return filas
 
 
@@ -1086,7 +1169,6 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	if float(m.get("contra_prob", 0.0)) > 0.0:
 		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [
 			roundi(float(m["contra_prob"]) * 100.0), roundi(float(m["contra_mult"]) * 100.0)]])
-	filas += Runas.filas(sh)   # las runas (08/10), si lleva
 	return filas
 
 
@@ -1172,7 +1254,6 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 		filas.append(["Resist. estados", "+%s" % _pct1(float(mods["resist_estados"]) * cob)])
 	filas.append(["Mejoras", "%d / %d" % [
 		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)]])
-	filas += Runas.filas(a)   # las runas (08/10), si lleva
 	return filas
 
 
