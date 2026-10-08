@@ -27,6 +27,7 @@ prob = 0.5
 [sub_resource type="Resource" id="MUT_cielo"]
 script = ExtResource("7_mut")
 id = &"cielo"
+pesos = {"fuerza": 15, "magia": 45, "voluntad": 30}
 nombre = "Slime de cielo nocturno"
 grado = 1
 habilidades = Array[ExtResource("8_ab")]([ExtResource("9_ll"), ExtResource("10_co"), ExtResource("11_ec"), ExtResource("12_ag")])
@@ -36,6 +37,7 @@ deja_estrellas = true
 [sub_resource type="Resource" id="MUT_ojos"]
 script = ExtResource("7_mut")
 id = &"ojos"
+pesos = {"fuerza": 10, "magia": 50, "voluntad": 35}
 nombre = "Slime de mil ojos"
 grado = 2
 desde = Array[StringName]([&"cielo"])
@@ -53,7 +55,9 @@ enemy_name = "Slime abisal"
 color = Color(0.2, 0.35, 0.7, 1)
 escala_visual = 1.7
 es_slime = true
-fuerza = 45
+fuerza = 35
+magia = 25
+voluntad = 30
 resistencia = 40
 agilidad = 25
 base_hp = 55.0

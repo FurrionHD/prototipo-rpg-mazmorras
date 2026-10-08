@@ -38,6 +38,7 @@ turns = 2
 [sub_resource type="Resource" id="MUT_miasma"]
 script = ExtResource("8_mut")
 id = &"miasma"
+pesos = {"fuerza": 35, "magia": 20, "voluntad": 15}
 nombre = "Slime de miasma"
 grado = 1
 habilidades = Array[ExtResource("9_ab")]([ExtResource("10_plm"), ExtResource("11_rcm"), ExtResource("12_esm"), ExtResource("13_exm")])
@@ -48,6 +49,7 @@ humo = 1
 [sub_resource type="Resource" id="MUT_pestilente"]
 script = ExtResource("8_mut")
 id = &"pestilente"
+pesos = {"fuerza": 30, "magia": 25, "voluntad": 15}
 nombre = "Slime pestilente"
 grado = 2
 desde = Array[StringName]([&"miasma"])

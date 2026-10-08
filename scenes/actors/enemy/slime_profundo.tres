@@ -62,6 +62,7 @@ al_golpear = [SubResource("SA_moja")]
 [sub_resource type="Resource" id="MUT_escarcha"]
 script = ExtResource("7_mut")
 id = &"escarcha"
+pesos = {"fuerza": 22, "magia": 38, "voluntad": 18}
 nombre = "Slime de escarcha"
 grado = 2
 desde = Array[StringName]([&"arrecife"])

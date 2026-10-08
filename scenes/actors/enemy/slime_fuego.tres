@@ -43,6 +43,7 @@ prob = 1.0
 [sub_resource type="Resource" id="MUT_ceniza"]
 script = ExtResource("9_mut")
 id = &"ceniza"
+pesos = {"fuerza": 30, "magia": 25, "voluntad": 15}
 nombre = "Slime de ceniza y brasa"
 grado = 1
 habilidades = Array[ExtResource("10_ab")]([ExtResource("11_eb"), ExtResource("12_sc"), ExtResource("13_nc"), ExtResource("14_ab")])
@@ -56,6 +57,7 @@ al_ser_golpeado_fx = 175
 [sub_resource type="Resource" id="MUT_obsidiana"]
 script = ExtResource("9_mut")
 id = &"obsidiana"
+pesos = {"fuerza": 45, "magia": 10, "voluntad": 10}
 nombre = "Slime de obsidiana"
 grado = 2
 desde = Array[StringName]([&"ceniza"])
@@ -80,6 +82,9 @@ color = Color(1, 0.5, 0.12, 1)
 escala_visual = 1.6
 es_slime = true
 lava_slime = true
+fuerza = 20
+magia = 35
+voluntad = 15
 base_hp = 46.0
 base_attack = 4.0
 crystal_category_min = 2

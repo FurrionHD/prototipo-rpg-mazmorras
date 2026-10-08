@@ -118,9 +118,9 @@ func _correr() -> void:
 	var c0: Vector2 = (tm._charcos[k0]["f"]).centro
 	var hp0: float = al.current_hp
 	tm._pisar_si(al, c0 - Vector2(40, 0), c0 + Vector2(40, 0))
-	print("    al atravesarla le quita %.1f (60 %% de su ataque = %.1f)" % [hp0 - al.current_hp, e.atk() * 0.6])
+	print("    al atravesarla le quita %.1f (magica desde el 08/10: su Magia x burbuja_dano contra tu defensa magica)" % (hp0 - al.current_hp))
 	_ver(not tm._charcos.has(k0), "atravesada, ya no esta")
-	_ver((hp0 - al.current_hp) >= e.atk() * 0.6 - 0.6, "y le hace el 60 % de su ataque (o mas, si pasa por dos)")
+	_ver((hp0 - al.current_hp) > 0.5, "y le hace daño (magico)")
 	# Las demas, solas al acabarse sus turnos.
 	for k in _burbujas(tm):
 		tm._charcos[k]["turnos"] = 1

@@ -33,3 +33,4 @@ forma_rango = 80.0
 forma_reparte = true
 fx_estilo_mapa = 130
 es_magico = true
+dano_mult = 1.41

@@ -30,6 +30,7 @@ func _ready() -> void:
 	_ataque()
 	_defensa()
 	_sin_guardia()
+	_pesos()
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -117,3 +118,30 @@ func _sin_guardia() -> void:
 	t.defend_block = 0.0
 	var mag_libre: float = _media(func(): return StatsMath.resolve_magico_enemigo(e, t, false))
 	_ok(is_equal_approx(mag, mag_libre), "al magico, nada (%.2f = %.2f)" % [mag, mag_libre])
+
+
+# LOS PESOS POR MUTACION (MutacionData.pesos): la obsidiana pega fisico y la escarcha magico aunque vengan del mismo slime.
+func _pesos() -> void:
+	print("=== PESOS POR MUTACION ===")
+	var fuego: EnemyData = load("res://scenes/actors/enemy/slime_fuego.tres")
+	var p0: Dictionary = fuego.pesos_de()
+	var po: Dictionary = fuego.pesos_de(&"obsidiana")
+	_ok(int(p0["magia"]) > int(p0["fuerza"]), "el de fuego es de magia (F%d M%d)" % [p0["fuerza"], p0["magia"]])
+	_ok(int(po["fuerza"]) > int(po["magia"]) and int(po["resistencia"]) == int(p0["resistencia"]),
+		"la obsidiana es de fuerza y hereda lo que no cambia (F%d M%d R%d)" % [po["fuerza"], po["magia"], po["resistencia"]])
+	var suma := func(p: Dictionary) -> int: return int(p["fuerza"] + p["resistencia"] + p["destreza"] + p["agilidad"] + p["magia"])
+	for ficha in ["slime_fuego", "slime_veneno", "slime_profundo", "slime_abisal"]:
+		var ed: EnemyData = load("res://scenes/actors/enemy/%s.tres" % ficha)
+		for m in ed.mutaciones:
+			if not m.pesos.is_empty():
+				_ok(suma.call(ed.pesos_de(m.id)) == suma.call(ed.pesos_de()),
+					"%s: la Magia sale de la Fuerza, el total igual" % m.nombre)
+	Game.current_floor = 6
+	var c_base: Combatant = fuego.crear_combatant(0.5)
+	var c_obs: Combatant = fuego.crear_combatant(0.5, true, false, &"obsidiana")
+	_ok(c_obs.abilities.fuerza > c_base.abilities.fuerza and c_obs.abilities.magia < c_base.abilities.magia,
+		"y llegan al combatiente (base F%d M%d, obsidiana F%d M%d)" % [c_base.abilities.fuerza,
+			c_base.abilities.magia, c_obs.abilities.fuerza, c_obs.abilities.magia])
+	var normal: EnemyData = load("res://scenes/actors/enemy/slime.tres")
+	_ok(normal.pesos_de()["voluntad"] == normal.magia, "sin Voluntad puesta sigue siendo la de su Magia")
+	Game.current_floor = 1
