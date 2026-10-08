@@ -256,6 +256,12 @@ func _marcar_mutante() -> void:
 	_cuerpo.modulate = _tinte_reposo()
 	if _sprite != null:
 		_sprite.modulate = _tinte_reposo()
+	# CON SPRITE PROPIO, sin aura (ver EnemyData.marca_de_mutante); la que llevara de antes, fuera.
+	if data == null or not data.marca_de_mutante(true, mutacion):
+		if is_instance_valid(_aura_mut):
+			_aura_mut.queue_free()
+		_aura_mut = null
+		return
 	if is_instance_valid(_aura_mut):
 		return   # (el que pasa a la 2a ya la lleva)
 	_aura_mut = Particulas.ascendentes(self, EnemyData.MUT_AURA, 1.0,
@@ -270,7 +276,7 @@ func _marcar_mutante() -> void:
 func _tinte_reposo() -> Color:
 	if not mutante:
 		return _ENEMY_GD.tinte_cargado(carga)
-	return EnemyData.tinte_mutante()
+	return EnemyData.tinte_mutante() if data != null and data.marca_de_mutante(true, mutacion) else Color.WHITE
 
 
 # LO QUE HACE AL COMER, visto desde aqui (lo manda quien simula el piso, ver Net.enemigos):

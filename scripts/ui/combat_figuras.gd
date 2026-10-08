@@ -324,9 +324,12 @@ func _marcar_mutante(actor: Control, fig: ColorRect, c: Combatant) -> void:
 		if vieja != null and is_instance_valid(vieja):
 			(vieja as Node).queue_free()
 		actor.remove_meta(_META_AURA_MUT)
+	# Solo el mutante SIN sprite propio lleva la marca roja (ver EnemyData.marca_de_mutante).
+	var ed: EnemyData = load(c.sprite_res) as EnemyData if c.sprite_res != "" else null
+	var marca: bool = c.mutante and (ed == null or ed.marca_de_mutante(true, c.mutacion))
 	if _pantalla._fx != null:
-		_pantalla._fx.marcar_mutante(fig, c.mutante)
-	if not c.mutante:
+		_pantalla._fx.marcar_mutante(fig, marca)
+	if not marca:
 		return
 	# El tamaño del aura sigue al del bicho, igual que en enemy._marcar_mutante: en una rata diminuta
 	# un aura de trent seria una nube que tapa la pelea.

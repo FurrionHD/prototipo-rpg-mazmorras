@@ -617,6 +617,14 @@ const MUT_AURA := Color(0.95, 0.18, 0.22)
 const MUT_LATIDO_SEG := 0.55
 const MUT_TINTE_PICO := Color(1.75, 0.80, 0.84)
 
+# ¿Lleva la MARCA ROJA (tinte que late + aura)? Solo el mutante que NO tiene sprite propio (08/10, lo pidio el: "los
+# mutantes siguen teniendo el aura roja; hay que quitarsela, ahora ya tienen sprite propio"). Con su dibujo de mutante el
+# aviso ya es el dibujo, y el carmesi encima le cambiaba los colores. Los que aun no lo tienen siguen marcados: es lo
+# unico que los distingue de su especie. Lo miran el mapa, el espejo y las dos pantallas de combate.
+func marca_de_mutante(mutante: bool, mutacion: StringName = &"") -> bool:
+	return mutante and not SpritesEnemigo.mutante_propio(self, mutacion)
+
+
 # El color de reposo de un mutante EN ESTE INSTANTE. Va contra el reloj del sistema y no contra un
 # acumulador propio, asi que todo lo que lo llame late a la vez sin tener que sincronizarse.
 static func tinte_mutante() -> Color:

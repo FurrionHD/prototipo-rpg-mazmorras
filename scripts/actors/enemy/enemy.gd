@@ -380,8 +380,16 @@ var _aura_mut: CPUParticles2D = null
 func _marcar_mutante() -> void:
 	if not mutante:
 		return
-	_color_rect.modulate = MUT_TINTE
-	_sprite.modulate = MUT_TINTE
+	var marca: bool = data.marca_de_mutante(true, mutacion)
+	if not marca:
+		# CON SPRITE PROPIO, sin marca roja (ver EnemyData.marca_de_mutante). Si venia de una mutacion sin sprite y
+		# llevaba el aura, fuera.
+		if is_instance_valid(_aura_mut):
+			_aura_mut.queue_free()
+		_aura_mut = null
+	else:
+		_color_rect.modulate = MUT_TINTE
+		_sprite.modulate = MUT_TINTE
 	# EL TAMAÑO DEL SPRITE. _aplicar_escala ya recibio la escala con el x1.2 dentro, pero solo estira
 	# el sprite de los que declaran `hay_que_estirar` (arte de verdad): a los generados NO los toca,
 	# porque su generador dibuja al bicho grande con MAS CELDAS y estirarlos deforma el pixel.
@@ -402,7 +410,7 @@ func _marcar_mutante() -> void:
 	# naranja de siempre Y el aura roja. Es correcto y se lee bien: sigue siendo de fuego, y ademas
 	# esta mutado.
 	# (una sola vez: el que pasa a la 2a mutacion ya la lleva puesta)
-	if is_instance_valid(_aura_mut):
+	if not marca or is_instance_valid(_aura_mut):
 		return
 	_aura_mut = Particulas.ascendentes(self, MUT_AURA, 1.0,
 		32.0 * maxf(0.1, data.escala_visual * _mut_escala()))
@@ -420,7 +428,7 @@ func _marcar_mutante() -> void:
 func _tinte_reposo() -> Color:
 	if not mutante:
 		return tinte_cargado(comer.carga)
-	return EnemyData.tinte_mutante()
+	return EnemyData.tinte_mutante() if data.marca_de_mutante(true, mutacion) else Color.WHITE
 
 
 # "CARGADO" (05/10): el que lleva cristales comidos y aun no ha mutado late en el cian de los cristales,
