@@ -1677,9 +1677,9 @@ func resist_estados(id: int = -1, con_afinidad: bool = true) -> float:
 	# un multiplicador aparte es justo el lio del que se saco stun_taken_mult en su dia.
 	if id >= 0 and resist_estado.has(id):
 		r += float(resist_estado[id])
-	# LA VOLUNTAD contra los MENTALES: la de este nivel (la habilidad) mas la que bakeaste al ascender.
-	if id >= 0 and StatusEffects.es_mental(id):
-		r += resist_mental_bake + StatsMath.resist_mental_de_voluntad(hab("voluntad"))
+	# LA VOLUNTAD, contra TODOS los estados por igual (decision del usuario, 08/10/2026: "la resistencia
+	# a efectos es para todos por igual"). La de este nivel (la habilidad) mas la que grabaste al ascender.
+	r += resist_voluntad_bake + StatsMath.resist_de_voluntad(hab("voluntad"))
 	return maxf(r, -0.9)
 
 
@@ -1711,7 +1711,7 @@ var eficacia: float = 0.0
 # que base_crit): el visible vuelve a 0 al subir de nivel y sin esto perderias la eficacia de golpe.
 # Los pone Game desde PersonajeData; los enemigos no ascienden y se quedan en 0.
 var eficacia_bake: float = 0.0
-var resist_mental_bake: float = 0.0
+var resist_voluntad_bake: float = 0.0
 
 # EL PODER de este combatiente visto como ENEMIGO: el numerador del reto (Game.reto). La suma de sus
 # basicas de PODER (la Voluntad no cuenta, ver Abilities.NOMBRES_PODER).

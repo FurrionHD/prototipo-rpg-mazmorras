@@ -520,9 +520,9 @@ var player_base_crit: float:
 var player_base_eficacia: float:
 	get: return lider().base_eficacia
 	set(v): lider().base_eficacia = v
-var player_base_resist_mental: float:
-	get: return lider().base_resist_mental
-	set(v): lider().base_resist_mental = v
+var player_base_resist_voluntad: float:
+	get: return lider().base_resist_voluntad
+	set(v): lider().base_resist_voluntad = v
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: float:
 	get: return lider().current_hp
@@ -951,7 +951,7 @@ const GAIN_RESISTENCIA_PESCA := 0.75
 #      recibiendo daño, asi que la Resistencia no puede subir menos que antes. (Se engancha en la
 #      fase 3, cuando los slimes peguen magico: ganar_voluntad_golpe_magico.)
 #   2) AGUANTAR ESTADOS: cada intento de un enemigo de meterte uno. Resistirlo enseña mas que
-#      comertelo, y los MENTALES (StatusEffects.MENTALES) el doble.
+#      comertelo. Todos los estados valen lo mismo.
 #   3) CADA TICK de daño en el tiempo (veneno, quemadura, sangrado...) que encajas.
 #   4) LA OSCURIDAD: andar por la mazmorra con poca luz. Cuanto menos alumbra tu farolillo, mas; con
 #      el corro al maximo, nada. Jugar sin farolillo es muy duro y esto es lo que te llevas.
@@ -960,7 +960,6 @@ const GAIN_RESISTENCIA_PESCA := 0.75
 const GAIN_VOLUNTAD_GOLPE_MAGICO := 0.345   # = GAIN_RESISTENCIA_GOLPE: un golpe es un golpe
 const GAIN_VOLUNTAD_ESTADO := 0.3           # por intento RESISTIDO
 const VOLUNTAD_ESTADO_ENTRA := 0.5          # x si te entra (aguantarlo dentro enseña menos)
-const VOLUNTAD_ESTADO_MENTAL := 2.0         # x si es mental (Ceguera, Miedo, Silencio)
 const GAIN_VOLUNTAD_DOT := 0.1              # por tick de daño en el tiempo (x el peso del tick)
 const GAIN_VOLUNTAD_OSCURIDAD := 0.12       # por tramo andado a oscuras del todo (ver player._tick_oscuridad)
 
@@ -2544,7 +2543,7 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	player_base_magia_factor = 1.0
 	player_base_crit = 0.0
 	player_base_eficacia = 0.0
-	player_base_resist_mental = 0.0
+	player_base_resist_voluntad = 0.0
 	desarrollos_rango.clear()
 	pasivas_rng.clear()
 	guardianes_vencidos = {}
@@ -2699,7 +2698,7 @@ func exportar_partida() -> SaveData:
 	d.player_base_magia_factor = player_base_magia_factor
 	d.player_base_crit = player_base_crit
 	d.player_base_eficacia = player_base_eficacia
-	d.player_base_resist_mental = player_base_resist_mental
+	d.player_base_resist_voluntad = player_base_resist_voluntad
 	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.pasivas_rng = pasivas_rng.duplicate()
 	d.pasivas_pendientes = lider().pasivas_pendientes.duplicate()
@@ -3468,7 +3467,7 @@ func importar_partida(d: SaveData) -> void:
 	player_base_magia_factor = d.player_base_magia_factor
 	player_base_crit = d.player_base_crit
 	player_base_eficacia = d.player_base_eficacia
-	player_base_resist_mental = d.player_base_resist_mental
+	player_base_resist_voluntad = d.player_base_resist_voluntad
 	desarrollos_rango = d.desarrollos_rango.duplicate()
 	pasivas_rng = (d.pasivas_rng as Dictionary).duplicate() if d.pasivas_rng != null else {}
 	lider().pasivas_pendientes = (d.pasivas_pendientes as Dictionary).duplicate() \
@@ -8619,7 +8618,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
 	c.crit_flat = p.base_crit
 	c.eficacia_bake = p.base_eficacia
-	c.resist_mental_bake = p.base_resist_mental
+	c.resist_voluntad_bake = p.base_resist_voluntad
 	c.magia_base_factor = p.base_magia_factor
 	c.base_attack_des = p.base_ataque_destreza()   # la base de las armas de Destreza (arco, ballesta)
 	# El JUGADOR usa las formulas MULTIPLICATIVAS (la stat multiplica su base): es lo que hace que
@@ -13198,8 +13197,6 @@ func ganar_voluntad_golpe_magico(reto_val: float, dmg_bruto: float, vida_max: fl
 func ganar_voluntad_estado(poder_enemigo: float, nivel_enemigo: int, id: int, entro: bool,
 		pj: PersonajeData) -> void:
 	var base: float = GAIN_VOLUNTAD_ESTADO * (VOLUNTAD_ESTADO_ENTRA if entro else 1.0)
-	if StatusEffects.es_mental(id):
-		base *= VOLUNTAD_ESTADO_MENTAL
 	ganar("voluntad", reto(poder_enemigo, nivel_enemigo, pj), base, RETO_MAX_FISICO, pj)
 
 
@@ -13567,11 +13564,11 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_base_magia_factor = player_base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
 	player_base_mp = StatsMath.max_mp_jugador(a, player_base_mp) * spike
 	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
-	# Y lo que la Destreza empuja tus estados y la Voluntad te protege de los mentales, igual: sumando
+	# Y lo que la Destreza empuja tus estados y la Voluntad te protege de ellos, igual: sumando
 	# plano que se queda (ver Combatant.eficacia_bake). La DEFENSA MAGICA de la Voluntad no va aqui:
 	# esa ya la bakea player_base_magic de arriba, con magic_jugador.
 	player_base_eficacia += StatsMath.eficacia_de_destreza(float(a.destreza)) * spike
-	player_base_resist_mental += StatsMath.resist_mental_de_voluntad(float(a.voluntad)) * spike
+	player_base_resist_voluntad += StatsMath.resist_de_voluntad(float(a.voluntad)) * spike
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
 	#
 	# Y antes de marcarla, INFLAR el total oculto por el mismo spike (x1.10). Ese total ya no toca

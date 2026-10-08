@@ -5,9 +5,9 @@
 # LA VOLUNTAD (08/10/2026, fase 1 del plan de mecanicas nuevas): la sexta basica. Mira que
 #   - existe en todos los sitios que recorren "las basicas" y una partida VIEJA (sin su clave) no peta,
 #   - la DEFENSA MAGICA la da ella y no la Magia (jugador), y al enemigo le sale IGUAL que ayer,
-#   - resiste los estados MENTALES y no los demas; la DESTREZA empuja la eficacia,
-#   - se entrena (estados resistidos/entrados, mentales doble, ticks de daño, oscuridad),
-#   - el ascenso graba lo suyo (eficacia y resistencia mental) y nada se pierde al guardar/cargar o por la red.
+#   - resiste TODOS los estados por igual (espejo de la DESTREZA, que empuja la eficacia),
+#   - se entrena (estados resistidos/entrados, ticks de daño, oscuridad),
+#   - el ascenso graba lo suyo (eficacia y resistencia a efectos) y nada se pierde al guardar/cargar o por la red.
 extends Node
 
 var _mal := 0
@@ -95,7 +95,7 @@ func _combatiente(ab: Abilities) -> Combatant:
 
 
 func _estados() -> void:
-	print("=== ESTADOS: MENTALES Y EFICACIA ===")
+	print("=== ESTADOS: RESISTENCIA Y EFICACIA ===")
 	var a := Abilities.new()
 	var c0 := _combatiente(a)
 	var a2 := Abilities.new()
@@ -105,14 +105,17 @@ func _estados() -> void:
 	var mental: int = StatusEffects.Id.CEGUERA
 	var veneno: int = StatusEffects.Id.VENENO
 	_ok(is_equal_approx(c1.resist_estados(mental) - c0.resist_estados(mental),
-		StatsMath.RESIST_MENTAL_VOLUNTAD_MAX), "Voluntad 999 = +%.1f contra la Ceguera" % StatsMath.RESIST_MENTAL_VOLUNTAD_MAX)
-	_ok(is_equal_approx(c1.resist_estados(veneno), c0.resist_estados(veneno)), "y NADA contra el veneno")
+		StatsMath.RESIST_VOLUNTAD_MAX), "Voluntad 999 = +%.1f contra la Ceguera" % StatsMath.RESIST_VOLUNTAD_MAX)
+	_ok(is_equal_approx(c1.resist_estados(veneno) - c0.resist_estados(veneno), StatsMath.RESIST_VOLUNTAD_MAX),
+		"y lo MISMO contra el veneno (todos por igual)")
+	_ok(is_equal_approx(c1.resist_estados(-1) - c0.resist_estados(-1), StatsMath.RESIST_VOLUNTAD_MAX),
+		"y en la resistencia general que pintan las fichas")
 	_ok(is_equal_approx(c1.eficacia_estados() - c0.eficacia_estados(),
 		StatsMath.EFICACIA_DESTREZA_MAX), "Destreza 999 = +%.1f de eficacia" % StatsMath.EFICACIA_DESTREZA_MAX)
-	c0.resist_mental_bake = 0.3
+	c0.resist_voluntad_bake = 0.3
 	c0.eficacia_bake = 0.2
 	_ok(is_equal_approx(c0.resist_estados(mental), _combatiente(Abilities.new()).resist_estados(mental) + 0.3),
-		"lo grabado al ascender suma contra los mentales")
+		"lo grabado al ascender suma a la resistencia")
 	_ok(is_equal_approx(c0.eficacia_estados(), 0.2), "y a la eficacia")
 
 
@@ -142,10 +145,10 @@ func _excelia() -> void:
 	var m := _ficha_limpia()
 	Game.ganar_voluntad_estado(poder, 1, StatusEffects.Id.MIEDO, false, m)
 	var mental: float = _subida(m)
-	print("    resistido %.4f · entro %.4f · mental resistido %.4f" % [resistido, entro, mental])
+	print("    resistido %.4f · entro %.4f · miedo resistido %.4f" % [resistido, entro, mental])
 	_ok(resistido > 0.0, "resistir un estado entrena")
 	_ok(is_equal_approx(entro, resistido * Game.VOLUNTAD_ESTADO_ENTRA), "comerselo entrena la mitad")
-	_ok(is_equal_approx(mental, resistido * Game.VOLUNTAD_ESTADO_MENTAL), "un mental, el doble")
+	_ok(is_equal_approx(mental, resistido), "el Miedo enseña lo mismo que el veneno (todos por igual)")
 	var d := _ficha_limpia()
 	Game.ganar_voluntad_dot(5.0, 100.0, d)
 	_ok(_subida(d) > 0.0, "un tick de veneno entrena (%.4f)" % _subida(d))
@@ -173,12 +176,12 @@ func _ascenso() -> void:
 	print("=== AL ASCENDER SE GRABA ===")
 	var lider: PersonajeData = Game.lider()
 	var guardado: Dictionary = {}
-	for k in ["level", "base_eficacia", "base_resist_mental", "base_magic", "base_crit"]:
+	for k in ["level", "base_eficacia", "base_resist_voluntad", "base_magic", "base_crit"]:
 		guardado[k] = lider.get(k)
 	Game.debug_set_abilities(600, 0, 500, 0, 0, 500)
 	_ok(lider.voluntad == 500 and lider.destreza == 500, "el debug pone la Voluntad (%d)" % lider.voluntad)
 	var ef_antes: float = lider.base_eficacia
-	var rm_antes: float = lider.base_resist_mental
+	var rm_antes: float = lider.base_resist_voluntad
 	var mdef_antes: float = lider.base_magic
 	Game.guardianes_vencidos[Game.player_level + 1] = true
 	var subio: bool = Game.subir_nivel("cazador")
@@ -186,8 +189,8 @@ func _ascenso() -> void:
 	var spike: float = 1.0 + Game.NIVEL_SPIKE
 	_ok(is_equal_approx(lider.base_eficacia - ef_antes, StatsMath.eficacia_de_destreza(500.0) * spike),
 		"graba la eficacia de la Destreza (+%.3f)" % (lider.base_eficacia - ef_antes))
-	_ok(is_equal_approx(lider.base_resist_mental - rm_antes, StatsMath.resist_mental_de_voluntad(500.0) * spike),
-		"graba la resistencia mental (+%.3f)" % (lider.base_resist_mental - rm_antes))
+	_ok(is_equal_approx(lider.base_resist_voluntad - rm_antes, StatsMath.resist_de_voluntad(500.0) * spike),
+		"graba la resistencia a efectos (+%.3f)" % (lider.base_resist_voluntad - rm_antes))
 	_ok(lider.base_magic > mdef_antes * 2.9, "y la defensa magica de la Voluntad (%.1f -> %.1f)" % [mdef_antes, lider.base_magic])
 	_ok(lider.voluntad == 0, "el visible vuelve a 0")
 	# Guardar y cargar.
@@ -203,11 +206,11 @@ func _viaje() -> void:
 	var pj := _ficha_limpia()
 	pj.voluntad = 321
 	pj.base_eficacia = 0.42
-	pj.base_resist_mental = 0.17
+	pj.base_resist_voluntad = 0.17
 	var d: Dictionary = Net.partida.ficha_a_dict(pj)
 	var vuelta: PersonajeData = Net.partida.ficha_de_dict(d)
 	_ok(vuelta.voluntad == 321, "viaja la Voluntad")
-	_ok(is_equal_approx(vuelta.base_eficacia, 0.42) and is_equal_approx(vuelta.base_resist_mental, 0.17),
+	_ok(is_equal_approx(vuelta.base_eficacia, 0.42) and is_equal_approx(vuelta.base_resist_voluntad, 0.17),
 		"viaja lo grabado")
 	# Una ficha de una version vieja (sin la clave) llega rellena.
 	var d_vieja: Dictionary = Net.partida.ficha_a_dict(_ficha_vieja())

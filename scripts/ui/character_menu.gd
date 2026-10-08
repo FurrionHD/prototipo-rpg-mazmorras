@@ -714,13 +714,13 @@ func _pagina_habilidades(c: Combatant) -> void:
 	_aporte("×%.2f a los hechizos  ·  +%.1f maná" % [
 		StatsMath.magia_factor(float(ab.magia)), mp_de_mag])
 
-	# VOLUNTAD -> defensa magica y resistencia a los estados mentales (Ceguera, Miedo, Silencio).
+	# VOLUNTAD -> defensa magica y resistencia a efectos (a todos por igual).
 	_fila_habilidad("Voluntad", "voluntad", ab)
 	var ab_sin_vol: Abilities = _sin_habilidad(ab, "voluntad")
 	var mdef_de_vol: float = StatsMath.magic_jugador(ab, c.base_magic) \
 		- StatsMath.magic_jugador(ab_sin_vol, c.base_magic)
-	_aporte("+%.1f def. mágica  ·  +%s resist. a estados mentales" % [
-		mdef_de_vol, _fmt_pct(StatsMath.resist_mental_de_voluntad(float(ab.voluntad)))])
+	_aporte("+%.1f def. mágica  ·  +%s resist. a efectos" % [
+		mdef_de_vol, _fmt_pct(StatsMath.resist_de_voluntad(float(ab.voluntad)))])
 
 
 # LO QUE ESA HABILIDAD TE ESTA DANDO AHORA MISMO, en una linea y sin explicar de donde sale. La

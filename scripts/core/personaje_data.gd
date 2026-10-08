@@ -192,10 +192,10 @@ func aplicar_aspecto(d: Dictionary) -> void:
 @export var base_mp: float = 20.0
 @export var base_magia_factor: float = 1.0
 @export var base_crit: float = 0.0
-# Eficacia (de la Destreza) y resistencia mental (de la Voluntad) que se quedan grabadas al ascender.
+# Eficacia (de la Destreza) y resistencia a efectos (de la Voluntad) que se quedan grabadas al ascender.
 # Ver Combatant.eficacia_bake.
 @export var base_eficacia: float = 0.0
-@export var base_resist_mental: float = 0.0
+@export var base_resist_voluntad: float = 0.0
 
 # --- Estado vivo (persiste entre combates; -1 = lleno / sin inicializar) ---
 @export var current_hp: float = -1.0

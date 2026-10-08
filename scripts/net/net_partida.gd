@@ -222,7 +222,7 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 			"ability_internal", "ability_consolidado", "ability_base_nivel",
 			"fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad",
 			"base_hp", "base_attack", "base_attack_des", "base_defense", "base_magic", "base_speed",
-			"base_mp", "base_magia_factor", "base_crit", "base_eficacia", "base_resist_mental",
+			"base_mp", "base_magia_factor", "base_crit", "base_eficacia", "base_resist_voluntad",
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
 			"esquivas_exp", "hechizos_exp", "recitado_exp",

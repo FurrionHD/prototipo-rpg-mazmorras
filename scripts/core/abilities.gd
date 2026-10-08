@@ -17,7 +17,7 @@ class_name Abilities
 @export_range(0, 999) var agilidad: int = 0    # 敏捷 - orden de turnos
 @export_range(0, 999) var magia: int = 0       # 魔力 - daño magico
 # VOLUNTAD (08/10/2026): la sexta, y la unica que no es de DanMachi. Es la DEFENSA MAGICA y la
-# resistencia a los estados MENTALES. Antes la defensa magica colgaba de la Magia, asi que solo el
+# RESISTENCIA A EFECTOS (a todos por igual, el espejo de la eficacia de la Destreza). Antes la defensa magica colgaba de la Magia, asi que solo el
 # mago se protegia de la magia. Va AL FINAL a proposito: los saves y la red leen por nombre, y una
 # partida vieja simplemente no la trae (vale 0).
 @export_range(0, 999) var voluntad: int = 0

@@ -136,7 +136,7 @@ const VERSION_MUNDO := 1
 @export var player_base_magia_factor: float = 1.0
 @export var player_base_crit: float = 0.0
 @export var player_base_eficacia: float = 0.0
-@export var player_base_resist_mental: float = 0.0
+@export var player_base_resist_voluntad: float = 0.0
 @export var desarrollos_rango: Dictionary = {}   # {id: rango 1..10} de las habilidades de desarrollo
 @export var pasivas_rng: Dictionary = {}         # {id: true} de las pasivas RNG conseguidas (binarias)
 # Las que te han tocado pero aun no te han LEIDO en el altar (ver PersonajeData.pasivas_pendientes).

@@ -169,14 +169,6 @@ const CONTROL := [Id.ATURDIDO, Id.MIEDO]
 static func es_control(id: int) -> bool:
 	return CONTROL.has(id)
 
-# Los MENTALES: los que se te meten en la cabeza y no en el cuerpo. Contra estos suma la VOLUNTAD
-# (ver Combatant.resist_estados). El Decreto no esta aunque sea "de cabeza": no tiene tirada, es una
-# orden del rey y entra siempre, asi que una resistencia no tendria nada que frenar.
-const MENTALES := [Id.CEGUERA, Id.MIEDO, Id.SILENCIO]
-
-static func es_mental(id: int) -> bool:
-	return MENTALES.has(id)
-
 # Magnitud EFECTIVA de un StatusApplication segun el aplicador. Si trae magnitud fija
 # (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
 # (con el motion_value del arma invertido, ver sangrado_magnitude); si no, -1 (que

@@ -229,18 +229,18 @@ static func magic_jugador(ab: Abilities, base_magic: float) -> float:
 #   - Destreza -> EFICACIA: la mano que encuentra el hueco tambien sabe donde meter el veneno. La
 #     pidio el usuario junto con la Voluntad: si solo subiera la resistencia, los estados dejarian
 #     de entrar en los dos sentidos.
-#   - Voluntad -> resistencia a los MENTALES (StatusEffects.MENTALES).
-# Lineal y a 999 da el MAX: +0,5 de eficacia es lo que da un arma cinco rarezas por encima; +1,0 de
-# resistencia mental parte por la mitad la probabilidad de que te cieguen o te asusten.
+#   - Voluntad -> RESISTENCIA a efectos, a todos por igual. Es el espejo exacto: a la misma Destreza
+#     del que lanza y Voluntad del que recibe, quedan como estaban.
+# Lineal y a 999 da el MAX, el mismo en las dos: +0,5 es lo que da un arma cinco rarezas por encima.
 # PROVISIONALES: se afinan con la tabla de antes/despues.
 const EFICACIA_DESTREZA_MAX := 0.5
-const RESIST_MENTAL_VOLUNTAD_MAX := 1.0
+const RESIST_VOLUNTAD_MAX := 0.5
 
 static func eficacia_de_destreza(destreza: float) -> float:
 	return maxf(destreza, 0.0) / 999.0 * EFICACIA_DESTREZA_MAX
 
-static func resist_mental_de_voluntad(voluntad: float) -> float:
-	return maxf(voluntad, 0.0) / 999.0 * RESIST_MENTAL_VOLUNTAD_MAX
+static func resist_de_voluntad(voluntad: float) -> float:
+	return maxf(voluntad, 0.0) / 999.0 * RESIST_VOLUNTAD_MAX
 
 static func max_mp_jugador(ab: Abilities, base_mp: float) -> float:
 	return base_mp * (1.0 + ab.magia / MAG_MP_DIV)
