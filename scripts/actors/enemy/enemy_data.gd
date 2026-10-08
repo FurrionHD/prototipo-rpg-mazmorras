@@ -105,6 +105,20 @@ func centro_suelo_real() -> float:
 func peso_voluntad() -> int:
 	return magia if voluntad < 0 else voluntad
 
+# LOS PESOS QUE MANDAN para una mutacion: los suyos (MutacionData.pesos) encima de los de este enemigo. La Voluntad sin
+# poner sigue siendo "la de su Magia", pero la de la MUTACION si la cambia.
+func pesos_de(mutacion: StringName = &"") -> Dictionary:
+	var p := {"fuerza": fuerza, "resistencia": resistencia, "destreza": destreza, "agilidad": agilidad,
+		"magia": magia, "voluntad": voluntad}
+	var m: MutacionData = mutacion_de(mutacion)
+	if m != null:
+		for k in m.pesos:
+			if p.has(k):
+				p[k] = int(m.pesos[k])
+	if int(p["voluntad"]) < 0:
+		p["voluntad"] = p["magia"]
+	return p
+
 # --- Sub-tramo de la franja del piso que ocupa ESTE arquetipo ---
 # La suma de habilidades cae en lerp(franja_del_piso, franja_low..franja_high). El
 # slime ocupa la parte BAJA (mas flojo); goblins (futuro) la parte alta. Asi en el
@@ -443,17 +457,15 @@ func _target_sum(t: float) -> float:
 # Crea las Abilities: reparte la suma objetivo (segun 't' y el piso) por los PESOS,
 # capando cada stat a 999. Encima, el panel de DEBUG puede pisar stats SUELTAS
 # (Game.debug_enemy_override): las que no toque se quedan en su valor natural.
-func crear_abilities(t: float = 0.5) -> Abilities:
+# 'mutacion' = la de este bicho, si tiene pesos propios (MutacionData.pesos); vacia = los de su enemigo.
+func crear_abilities(t: float = 0.5, mutacion: StringName = &"") -> Abilities:
 	var a := Abilities.new()
-	var wt: float = peso_total()
+	var p: Dictionary = pesos_de(mutacion)
+	var wt: float = float(p["fuerza"] + p["resistencia"] + p["destreza"] + p["agilidad"] + p["magia"])
 	if wt > 0.0:
 		var target: float = _target_sum(t)
-		a.fuerza = clampi(int(round(target * float(fuerza) / wt)), 0, 999)
-		a.resistencia = clampi(int(round(target * float(resistencia) / wt)), 0, 999)
-		a.destreza = clampi(int(round(target * float(destreza) / wt)), 0, 999)
-		a.agilidad = clampi(int(round(target * float(agilidad) / wt)), 0, 999)
-		a.magia = clampi(int(round(target * float(magia) / wt)), 0, 999)
-		a.voluntad = clampi(int(round(target * float(peso_voluntad()) / wt)), 0, 999)
+		for clave in ["fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad"]:
+			a.set(clave, clampi(int(round(target * float(p[clave]) / wt)), 0, 999))
 	# DEBUG: pisa solo las stats que el panel haya fijado.
 	for clave in Game.debug_enemy_override:
 		a.set(clave, clampi(int(Game.debug_enemy_override[clave]), 0, 999))
@@ -721,7 +733,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	var m_hp: float = float(mm["hp"]) if mutante else 1.0
 	var m_atk: float = float(mm["atk"]) if mutante else 1.0
 	var m_def: float = float(mm["def"]) if mutante else 1.0
-	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t),
+	var c := Combatant.new(nombre_mostrado(mutante, mutacion), level, crear_abilities(t, mutacion if mutante else &""),
 		base_hp * fstat * m_hp,
 		base_attack * fstat * m_atk,
 		base_defense * fstat * m_def,

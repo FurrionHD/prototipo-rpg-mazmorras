@@ -20,6 +20,11 @@ class_name MutacionData
 @export var habilidades: Array[AbilityData] = []
 # La variante de sprite que le toca (la conoce el generador de su familia; vacio = el normal estirado).
 @export var sprite: StringName = &""
+# SUS PESOS DE STATS (08/10/2026, lo eligio el usuario): solo las claves que cambia ("fuerza", "resistencia", "destreza",
+# "agilidad", "magia", "voluntad"); las demas, las de su enemigo. La obsidiana pega fisico y la escarcha magico aunque
+# vengan del mismo slime. La Magia se reparte DENTRO de la suma (lo que se le da se le quita a otra), asi que sumar lo
+# mismo que su enemigo deja el cuerpo igual. Ver EnemyData.crear_abilities.
+@export var pesos: Dictionary = {}
 
 # --- PASIVAS ---
 # Al morir se encoge y salen dos de su enemigo normal; su cadaver se queda.
