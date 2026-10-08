@@ -45,7 +45,7 @@ func _probar_piso(gen: DungeonGenerator, rng: RandomNumberGenerator, piso: int) 
 				suelo.append(Vector2i(x, y))
 	for i in PUNTOS_POR_PISO:
 		var celda: Vector2i = suelo[rng.randi_range(0, suelo.size() - 1)]
-		var deseado: Vector2i = ArenaCalculo.tam_deseado(rng.randi_range(2, 12), rng.randf() < 0.2)
+		var deseado: Vector2i = ArenaCalculo.tam_deseado(rng.randi_range(1, 12))
 		var f: Dictionary = ArenaCalculo.forma_de_arena(gen, gen.centro_px(celda), deseado)
 		_casos += 1
 		_comprobar(gen, f, celda, deseado, "piso %d punto %d" % [piso, i])
@@ -68,10 +68,12 @@ func _comprobar(gen: DungeonGenerator, f: Dictionary, semilla: Vector2i, deseado
 	# 3) La semilla, dentro.
 	_afirmar(ArenaCalculo.en_forma(r, m, semilla), "%s: la semilla %s fuera de su arena" % [donde, semilla])
 	if m.is_empty():
-		# 2a) EN UNA SALA: la sala entera.
+		# 2a) EN UNA SALA: la sala recortada a lo pedido (08/10), dentro de la sala y nunca mas grande.
 		var z: int = gen.zona_en(semilla)
-		_afirmar(z >= 0 and String(gen.zonas[z]["tipo"]) == "sala" and gen.zonas[z]["rect"] == r,
-			"%s: el rectangulo %s no es su sala entera" % [donde, r])
+		_afirmar(z >= 0 and String(gen.zonas[z]["tipo"]) == "sala" and (gen.zonas[z]["rect"] as Rect2i).encloses(r),
+			"%s: el rectangulo %s no esta dentro de su sala" % [donde, r])
+		_afirmar(r.size.x <= deseado.x and r.size.y <= deseado.y,
+			"%s: el rectangulo %s pasa de lo pedido %s" % [donde, r.size, deseado])
 	else:
 		_rellenos += 1
 		# 2b) EN UN PASILLO: nunca mas largo que el tope, y en la sala solo si el pasillo no daba el minimo.
@@ -126,7 +128,7 @@ func _probar_determinismo() -> void:
 	a.generar(80, 60, 4242)
 	var b := DungeonGenerator.new()
 	b.generar(80, 60, 4242)
-	var d: Vector2i = ArenaCalculo.tam_deseado(8, false)
+	var d: Vector2i = ArenaCalculo.tam_deseado(8)
 	for y in range(0, a.alto, 3):
 		for x in range(0, a.ancho, 3):
 			var c := Vector2i(x, y)

@@ -5,9 +5,10 @@
 #  el juego (ver tools/prueba_arena_tactica.tscn). Quien lo dibuja y le pone muros es
 #  scripts/world/arena_combate.gd.
 #
-#  EL TAMAÑO NO ES FIJO: depende de contra quien peleas. Un jefe pide sitio para moverse a su
-#  alrededor; tres ratas en un pasillo, no. Por eso `tam_deseado` mira si hay jefe y cuantos son, y
-#  una ficha de enemigo puede pedir el suyo a mano (EnemyData.arena_celdas).
+#  EL TAMAÑO ES CASI FIJO (08/10, playtest: "el area era gigante; cuando mataba un enemigo aparecia otro
+#  por el otro lado; con el rango maximo de movimiento son unos 10 turnos"): 11x9 y como mucho una celda
+#  mas por lado por cada TRES enemigos. Ni el jefe ni tu grupo la agrandan: "los jefes no son tan grandes
+#  como para necesitar mas espacio que el de base".
 #
 #  DOS CAMINOS para encontrar el rectangulo, y el orden importa:
 #    1) LA SALA. Si la pelea cae dentro de una sala, la arena es esa sala recortada a lo que se
@@ -33,12 +34,8 @@ const TAM_BASE := Vector2i(11, 9)
 # convierte en la de siempre pero con pasos: no aporta nada y se ve peor.
 const ARENA_MIN := Vector2i(7, 5)
 
-# Un jefe necesita sitio para que puedas rodearlo y para que sus areas grandes signifiquen algo.
-const JEFE_MULT := 1.6
-
-# Cada cuerpo de mas, a partir del tercero, pide una celda mas de lado. Sin cupo de enemigos esto es
-# lo que hace que una pelea de quince no se juegue en un pañuelo.
-const COMBATIENTES_GRATIS := 2
+# Cada TRES enemigos, una celda mas de lado. Solo enemigos: los tuyos no la agrandan.
+const ENEMIGOS_POR_CELDA := 3
 
 # Al crecer se tolera ESTA cantidad de roca en la fila o columna nueva. Es para las estalagmitas,
 # que son de 1x1 (ver dungeon_floor.FORMACION_CAJA): una sola no deberia partir una arena en dos.
@@ -50,16 +47,10 @@ const ROCA_TOLERADA := 1
 const BUSQUEDA_SUELO := 6
 
 
-# El tamaño que PIDE esta pelea, en celdas. 'forzado' es EnemyData.arena_celdas: (0,0) = automatico.
-static func tam_deseado(combatientes: int, hay_jefe: bool,
-		forzado: Vector2i = Vector2i.ZERO) -> Vector2i:
-	if forzado.x > 0 and forzado.y > 0:
-		return forzado
-	var t: Vector2i = TAM_BASE
-	if hay_jefe:
-		t = Vector2i(roundi(float(t.x) * JEFE_MULT), roundi(float(t.y) * JEFE_MULT))
-	var extra: int = maxi(0, combatientes - COMBATIENTES_GRATIS)
-	return t + Vector2i(extra, extra)
+# El tamaño que PIDE esta pelea, en celdas: la base y +1 por lado cada ENEMIGOS_POR_CELDA enemigos.
+static func tam_deseado(enemigos: int) -> Vector2i:
+	var extra: int = maxi(0, enemigos) / ENEMIGOS_POR_CELDA
+	return TAM_BASE + Vector2i(extra, extra)
 
 
 # La celda que contiene un punto en pixeles. Mismo criterio que DungeonFloor.celda_de_px (floor):
@@ -124,8 +115,9 @@ static func rect_de_arena(gen: DungeonGenerator, semilla_px: Vector2,
 #  LA ARENA EN LA MAZMORRA: LA FORMA DEL SITIO (03/10/2026, ideas del jefe)
 #  Primero fue "la misma superficie que en la arena de pruebas"; jugandolo le parecio DEMASIADO GRANDE (en un
 #  pasillo largo se estiraba casi 2.000 px y metia a enemigos de muy lejos). La regla que quedo, suya:
-#    - EN UNA SALA: la arena es LA SALA ENTERA, mida lo que mida (8x6 .. 18x12, la del jefe hasta 27x18).
-#      Salvo la arena de pruebas (sala_entera = false): su sala es de 44x30 y ahi se recorta como siempre.
+#    - EN UNA SALA: la sala RECORTADA a tam_deseado alrededor de donde empieza (08/10). Fue la sala entera
+#      hasta el playtest del 07/10: en el piso 6 las salas llegan a 27x18 y cruzarla eran diez turnos.
+#      (sala_entera = true sigue existiendo para quien la quiera entera; nadie la pide ya.)
 #    - EN UN PASILLO: el pasillo, sin meterse en las salas, y como mucho PASILLO_TOPE celdas hacia cada lado
 #      desde donde empieza la pelea (unas 20 de largo, ~640 px: "maximo 20"). Si el tramo es tan corto que
 #      no llega a PASILLO_MIN_LARGO de largo, coge de la sala de al lado lo que le falte ("minimo 12").
@@ -140,9 +132,9 @@ const PASILLO_MIN_CELDAS := PASILLO_MIN_LARGO * 3
 
 # 'dentro_px' (05/10, playtest: el enemigo en la boca de la sala y el grupo en fila en el pasillo -> la zona era la sala
 # y los tuyos se quedaban FUERA, sin poder andar y con Huir de golpe): los que EMPIEZAN la pelea. Al que se quede fuera
-# de la forma se le añade lo suyo: su trozo de pasillo (con el mismo tope) o su sala entera.
+# de la forma se le añade lo suyo: su trozo de pasillo (con el mismo tope) o su trozo de sala (ver abajo).
 static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: Vector2i,
-		sala_entera: bool = true, dentro_px: Array = []) -> Dictionary:
+		sala_entera: bool = false, dentro_px: Array = []) -> Dictionary:
 	traza.clear()
 	var base: Dictionary = _forma_base(gen, semilla_px, deseado, sala_entera)
 	var rect: Rect2i = base["rect"]
@@ -174,11 +166,17 @@ static func forma_de_arena(gen: DungeonGenerator, semilla_px: Vector2, deseado: 
 			continue
 		var suyo: Array[Vector2i] = []
 		if _es_sala(gen, c):
+			# YA NO SU SALA ENTERA (08/10: con la sala recortada, uno de los tuyos a dos pasos del borde metia la sala
+			# completa). Si esta en la MISMA sala que la arena, se estira la arena hasta el (sin salir de la sala); si
+			# esta en otra, un recorte del tamaño pedido alrededor de el.
 			var sala: Rect2i = gen.zonas[gen.zona_en(c)]["rect"]
-			for y in range(sala.position.y, sala.end.y):
-				for x in range(sala.position.x, sala.end.x):
+			var suyo_r: Rect2i = _recortar(sala, c, deseado)
+			if sala.encloses(rect):
+				suyo_r = rect.merge(Rect2i(c, Vector2i.ONE).grow(1)).intersection(sala)
+			for y in range(suyo_r.position.y, suyo_r.end.y):
+				for x in range(suyo_r.position.x, suyo_r.end.x):
 					suyo.append(Vector2i(x, y))
-			traza.append("  + por %s: su SALA entera %s" % [c, sala])
+			traza.append("  + por %s: su trozo de SALA %s" % [c, suyo_r])
 		else:
 			suyo = _rellenar(gen, c, 1 << 30, PASILLO_TOPE, false)
 			traza.append("  + por %s: su trozo de PASILLO (%d celdas)" % [c, suyo.size()])

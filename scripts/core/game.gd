@@ -1136,28 +1136,27 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 	# LA SEMILLA: el centro de gravedad de los que empiezan la pelea, los suyos y los mios.
 	var puntos: Array = []
 	var quien: Array = []   # para el log: quien es cada punto (mismo orden que 'dentro')
-	var hay_jefe: bool = false
+	var enemigos: int = 0
 	for n in enemy_nodes:
 		if is_instance_valid(n) and n is Node2D:
 			puntos.append((n as Node2D).global_position)
 			quien.append("enemigo %s" % n.name)
-			if bool(n.get("es_boss")):
-				hay_jefe = true
-	var yo: Node = get_tree().get_first_node_in_group("player")
+			enemigos += 1
+	# EL JUGADOR DEL TRABAJADOR NO CUENTA (08/10, log del playtest: casi todas las peleas del piso 6 salian con
+	# "TROZOS SEPARADOS"). El Godot de pelea tiene su nodo "player" de siempre, quieto donde nace el piso (la sala del
+	# baul y la vuelta al pueblo), y se le añadia esa sala entera a la zona. Alli los que pelean son las fichas.
+	var yo: Node = get_tree().get_first_node_in_group("player") if _puntos_arena_fichas.is_empty() else null
 	if yo != null and yo is Node2D:
 		puntos.append((yo as Node2D).global_position)
 		quien.append("jugador")
 	# EL TRABAJADOR DE PELEA (27/09) no tiene jugador ni grupo: los que pelean son los cuerpos de red de los
 	# humanos que le mandan sus fichas (ver abrir_pelea_de_fichas), y cuentan como el grupo.
-	var extra: int = 0
 	for q in _puntos_arena_fichas:
 		puntos.append(q)
 		quien.append("ficha")
-		extra += 1
 	if puntos.is_empty():
 		return nada
-	var cuantos: int = puntos.size() + (companeros().size() if extra == 0 else 0)
-	var deseado: Vector2i = ArenaCalculo.tam_deseado(cuantos, hay_jefe)
+	var deseado: Vector2i = ArenaCalculo.tam_deseado(enemigos)
 	# LA PELEA ES DONDE PEGAS (05/10, playtest: "pego a un enemigo que esta arriba y se me abre en la sala de abajo"): se
 	# ancla en el PRIMER enemigo de la pelea, que es al que se ha pegado (o el que ha embestido). El punto medio de todos
 	# solo si ese no esta en suelo: con enemigos a los dos lados de un muro, el punto medio caia en la otra sala (o en la
@@ -1170,11 +1169,13 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 	# Y QUE QUEPAN TODOS LOS QUE EMPIEZAN (ver ArenaCalculo.forma_de_arena): los de la pelea y los tuyos de al lado.
 	var dentro: Array = puntos.duplicate()
 	for a in get_tree().get_nodes_in_group("aliado"):
+		if not _puntos_arena_fichas.is_empty() and is_instance_valid(a) and a.is_in_group("player"):
+			continue   # el fantasma del trabajador (ver arriba): tambien esta en "aliado"
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
 			dentro.append((a as Node2D).global_position)
 			quien.append("aliado %s" % a.name)
-	# En la arena de pruebas su sala (44x30) se recorta a lo pedido; en la mazmorra la sala va entera.
-	var forma: Dictionary = ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, not es_arena(),
+	# La sala se RECORTA a lo pedido, en la arena de pruebas y en la mazmorra (08/10: la sala entera llegaba a 27x18).
+	var forma: Dictionary = ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, false,
 			[] if es_arena() else dentro)
 	if con_log:
 		_log_forma_arena(piso.gen, forma, dentro, quien)
