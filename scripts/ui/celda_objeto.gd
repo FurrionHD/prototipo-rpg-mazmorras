@@ -245,6 +245,8 @@ func _draw() -> void:
 	var n_plus: int = _plus()
 	if n_plus > 0:
 		_muesca_plus(w, h, n_plus)
+	# 5b. LAS RUNAS (08/10/2026): de que set es y cuantas sub-stats lleva, en todas las rejillas.
+	_marca_runas(w, h, y_banda)
 
 	# LA MARCA ("PUESTA", el nombre de quien lo lleva) VA SIEMPRE EN LA BANDA DE ABAJO. Antes iba
 	# arriba a la derecha en una pastilla, y solo bajaba aqui cuando el +N ocupaba esa esquina: la
@@ -414,6 +416,59 @@ func _muesca_tier(w: float, h: float) -> void:
 		else Color(1, 1, 1, 0.95)
 	draw_string(fuente, Vector2(c3 - an * 0.5, c3 + float(tam) * 0.38), txt,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, tam, tinta)
+
+
+# ------------------------------------------------------------
+#  LAS RUNAS EN LA CELDA (08/10/2026, lo pidio el usuario: "algun indicativo de que tiene el set y cuantas sub-stats
+#  tiene, en los iconos de todos lados"; eligio la version B de tres). En el lado derecho a media altura (lo unico
+#  libre: arriba el tier y el +N, abajo la escalera y la banda): un SELLO del color de la runa de su set con el SIMBOLO
+#  del set, y debajo 4 PUNTITOS, encendidos los de las sub-stats que tiene. Sin set, nada.
+# ------------------------------------------------------------
+# El simbolo de cada set, 7 x 7 (se pinta en claro sobre el sello del color de su runa).
+const GLIFO_SET := {
+	&"slime": ["...#...", "..###..", ".#####.", ".#####.", "#######", ".#####.", "..###.."],        # gota
+	&"profundo": [".##....", "#..#..#", "....##.", ".......", ".##....", "#..#..#", "....##."],  # olas
+	&"rey": ["#..#..#", "#.###.#", "#######", "#######", ".#####.", ".......", "......."],        # corona
+	&"fuego": ["...#...", "..##...", "..###..", ".####..", ".#####.", "#######", ".#####."],      # llama
+	&"venenoso": [".#####.", "#######", "#..#..#", "#######", ".##.##.", ".#.#.#.", "......."], # calavera
+	&"abisal": ["...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#."],    # estrella
+}
+
+
+func _marca_runas(w: float, h: float, y_banda: float) -> void:
+	if item == null or not Runas.admite_runas(item):
+		return
+	var s: RunaSetData = Runas.set_de(item)
+	if s == null:
+		return
+	var n: int = Runas.subs_de(item).size()
+	var col: Color = s.runa.color if s.runa != null else Color(0.6, 0.6, 0.9)
+	var m: float = minf(w, h)
+	var r: float = m * 0.105
+	var c := Vector2(w - r - m * 0.05, y_banda * 0.5)
+	# El sello: sombra, disco del color de la runa (apagado para que el blanco de dentro se lea) y aro claro.
+	draw_circle(c + Vector2(1.5, 1.5), r, Color(0, 0, 0, 0.45))
+	draw_circle(c, r, col.darkened(0.35))
+	draw_arc(c, r, 0.0, TAU, 24, col.lightened(0.45), maxf(1.5, m * 0.018), true)
+	_glifo(c, r * 1.25, GLIFO_SET.get(s.id, GLIFO_SET[&"slime"]), Color(1, 1, 1, 0.95))
+	# Los 4 puntitos bajo el sello, encendidos los que tiene (con su borde oscuro: se leen sobre cualquier rareza).
+	var paso: float = r * 0.72
+	var y: float = c.y + r + m * 0.05
+	for i in Runas.MAX_SUBS:
+		var p := Vector2(c.x + (float(i) - 1.5) * paso, y)
+		draw_circle(p, m * 0.028, Color(0, 0, 0, 0.65))
+		draw_circle(p, m * 0.020, col.lightened(0.55) if i < n else Color(1, 1, 1, 0.20))
+
+
+func _glifo(c: Vector2, lado: float, filas: Array, tinta: Color) -> void:
+	var px: float = lado / 7.0
+	var x0: float = c.x - lado * 0.5
+	var y0: float = c.y - lado * 0.5
+	for j in filas.size():
+		var f: String = filas[j]
+		for i in f.length():
+			if f[i] == "#":
+				draw_rect(Rect2(x0 + float(i) * px, y0 + float(j) * px, px, px), tinta)
 
 
 # LA MUESCA DEL +N: el triangulo de la esquina de arriba a la DERECHA, del color de su nivel y con
