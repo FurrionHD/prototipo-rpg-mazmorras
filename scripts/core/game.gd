@@ -4848,6 +4848,12 @@ func _cambiar_piso(nuevo: int, por_la_bajada: bool) -> void:
 	if piso == null or not piso.has_method("regenerar"):
 		push_warning("[mazmorra] no hay piso que regenerar (¿escalera fuera de la mazmorra?)")
 		return
+	# LA PANTALLA DE CARGA (08/10). En solitario se espera a que se vea antes del trabajo pesado; en multi se pone sin
+	# esperar: _viaje_ok anuncia el piso nuevo justo despues de llamarme y no se le cambia el orden.
+	if Net.activo:
+		Cargando.cubrir_piso("Piso %d" % nuevo)
+	else:
+		await Cargando.cubrir_piso("Piso %d" % nuevo)
 	# Cartografia el piso que ABANDONAS antes de cambiar de piso: current_floor y el gen vivo aun
 	# son los viejos aqui. Sin esto, la libreta solo se actualizaba al volver al pueblo (piso 1) y
 	# el mapa salia "sin cartografiar" del piso 2 en adelante.
@@ -14065,6 +14071,7 @@ func entrar_arena_de_pruebas() -> void:
 		comprometer_mapa()
 		cerrar_bajada()
 	fijar_piso(PISO_ARENA)
+	await Cargando.cubrir_piso("Arena de pruebas")
 	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
 
 

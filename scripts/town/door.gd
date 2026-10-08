@@ -135,4 +135,6 @@ func interact_with_player() -> void:
 		# vas a encontrar al bajar otra vez— y se apaga el alboroto. Ver Game.cerrar_bajada.
 		Game.cerrar_bajada()
 	print("[Puerta] Viajando a: %s" % _destination)
+	if _destination == dungeon_path:
+		await Cargando.cubrir_piso("Piso %d" % maxi(1, Game.current_floor))
 	get_tree().change_scene_to_file(_destination)

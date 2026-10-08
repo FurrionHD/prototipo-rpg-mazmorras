@@ -395,6 +395,7 @@ func _ready() -> void:
 		return
 
 	_construir()
+	Cargando.piso_montado()   # la pantalla de carga se va cuando el piso va fluido (ver Cargando)
 
 
 func _al_menu_principal() -> void:
@@ -407,6 +408,7 @@ func _al_menu_principal() -> void:
 func regenerar(por_la_bajada: bool = false) -> void:
 	_limpiar()
 	_construir(por_la_bajada)
+	Cargando.piso_montado()
 	var player := get_tree().get_first_node_in_group("player")
 	if player != null and player.has_method("bloquear_interaccion"):
 		player.bloquear_interaccion()  # bajar es pulsar F: que no dispare nada al aterrizar

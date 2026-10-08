@@ -103,4 +103,5 @@ func _bajar(piso: int) -> void:
 	Game.iniciar_expedicion_mapa()
 	Game.cerrar_menu(self)
 	print("[mazmorra] Entras directamente al piso %d." % Game.current_floor)
+	await Cargando.cubrir_piso("Piso %d" % Game.current_floor)
 	get_tree().change_scene_to_file(DUNGEON)
