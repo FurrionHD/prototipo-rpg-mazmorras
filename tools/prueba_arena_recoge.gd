@@ -56,9 +56,18 @@ func _correr() -> void:
 		print("MAL: no estan los dos enemigos")
 		get_tree().quit(1)
 		return
+	# (08/10) LA ZONA ES DE 11x9 (352x288 px, centrada en quien abre): el de lejos tiene que caber DENTRO y quedar FUERA del
+	# radio de refuerzo (160). Se colocan a mano y quietos hasta que empieza: andando por su cuenta se acercaban.
+	cerca.set_physics_process(false)
+	lejos.set_physics_process(false)
+	cerca.global_position = jug.global_position + Vector2(60, 0)
+	lejos.global_position = cerca.global_position + Vector2(-165, -45)
+	await get_tree().physics_frame
 	print("vecinos de quien abre: %d" % cerca.vecinos().size())
 	_afirmar(not cerca.vecinos().has(lejos), "el de lejos NO es vecino del que abre (el caso de la captura)")
 	# La pelea la abre el de cerca, como si le hubiera alcanzado: el y SUS vecinos.
+	cerca.set_physics_process(true)
+	lejos.set_physics_process(true)
 	cerca._start_combat(true)
 	await _esperar(10)
 	var combat: Node = null

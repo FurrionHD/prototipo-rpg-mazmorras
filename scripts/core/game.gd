@@ -1174,9 +1174,10 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
 			dentro.append((a as Node2D).global_position)
 			quien.append("aliado %s" % a.name)
-	# La sala se RECORTA a lo pedido, en la arena de pruebas y en la mazmorra (08/10: la sala entera llegaba a 27x18).
-	var forma: Dictionary = ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, false,
-			[] if es_arena() else dentro)
+	# La sala se RECORTA a lo pedido, en la arena de pruebas y en la mazmorra (08/10: la sala entera llegaba a 27x18). Y
+	# en las dos se estira hasta los que empiezan la pelea: en la arena no se hacia (su sala de 44x30 se habria metido
+	# entera), y con la zona de 11x9 los tuyos se quedaban fuera, sin poder ser empujados ni apartados.
+	var forma: Dictionary = ArenaCalculo.forma_de_arena(piso.gen, semilla, deseado, false, dentro)
 	if con_log:
 		_log_forma_arena(piso.gen, forma, dentro, quien)
 	return forma
