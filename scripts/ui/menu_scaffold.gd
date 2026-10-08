@@ -574,7 +574,7 @@ static func _linea_color(vb: Control, txt: String, col: Color, tam: int = 12) ->
 
 # El bloque de runas de UNA pieza: su set con las piezas que lleva quien la tiene puesta (2/2), lo que hace a 2 y a 5
 # piezas (verde si se cumple) y sus sub-stats. Nada si la pieza no admite runas.
-static func bloque_runas(vb: VBoxContainer, item: Resource) -> void:
+static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = false) -> void:
 	if item == null or not Runas.admite_runas(item):
 		return
 	vb.add_child(HSeparator.new())
@@ -601,8 +601,40 @@ static func bloque_runas(vb: VBoxContainer, item: Resource) -> void:
 	var subs: Array = Runas.subs_de(item)
 	if subs.is_empty():
 		_linea_color(vb, "Sin sub-stats todavía.", RUNA_GRIS, 11)
+		return
+	# Las sub-stats: una por fila, o en DOS COLUMNAS si la ficha es ancha ('compacto', la herreria). La etiqueta con
+	# sitio para la mas larga ("Daño a mutantes y jefes") y SIN partir: partida en dos lineas se leia fatal.
+	var cont: Container = vb
+	if compacto:
+		var g := GridContainer.new()
+		g.columns = 2
+		g.add_theme_constant_override("h_separation", 28)
+		g.add_theme_constant_override("v_separation", 2)
+		vb.add_child(g)
+		cont = g
+	# El MISMO ancho de etiqueta que las filas de las fichas (150) y el nombre CORTO: asi los valores caen en la misma
+	# columna que Ataque, Critico... de encima (lo pidio el usuario). El nombre completo, al pasar el raton.
 	for sub in subs:
-		fila(vb, "  " + Runas.nombre_sub(str(sub["s"])), Runas.valor_txt(str(sub["s"]), float(sub["v"])))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var k := Label.new()
+		k.text = Runas.nombre_corto(str(sub["s"]))
+		k.tooltip_text = Runas.nombre_sub(str(sub["s"]))
+		k.mouse_filter = Control.MOUSE_FILTER_STOP
+		k.custom_minimum_size = Vector2(150, 0)
+		k.autowrap_mode = TextServer.AUTOWRAP_OFF
+		k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
+		row.add_child(k)
+		var v := Label.new()
+		v.text = Runas.valor_txt(str(sub["s"]), float(sub["v"]))
+		v.autowrap_mode = TextServer.AUTOWRAP_OFF
+		# Con ancho: los talleres parten las etiquetas sin ancho (taller_menu._partir_lineas) y en la rejilla el valor
+		# salia letra a letra. 160 = el de los atributos de la herreria, para que caigan en su misma columna.
+		v.custom_minimum_size = Vector2(160 if compacto else 70, 0)
+		row.add_child(v)
+		if compacto:
+			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cont.add_child(row)
 
 
 # EL RESUMEN DE SETS de un personaje: "Miasma 2/2" en verde, o "Ignicion 1/2 · Miasma 1/2" en gris si van mezclados.

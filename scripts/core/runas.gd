@@ -85,6 +85,23 @@ static func subs() -> Dictionary:
 static func nombre_sub(clave: String) -> String:
 	return str(subs().get(clave, {}).get("nombre", clave))
 
+# EL NOMBRE CORTO, el de las fichas: cabe en la columna de etiquetas (150) para que el valor quede ALINEADO con los
+# de encima (lo pidio el usuario: "todo en la misma linea"). Los mismos recortes que ya usa el juego ("Resist.",
+# "crít."). El completo, en el Taller y al pasar el raton.
+const _CORTOS := {
+	"crit": "Prob. crítico", "crit_mag": "Prob. crít. mágico", "crit_dmg_mag": "Daño crít. mágico",
+	"dano_hab": "Daño habilidades", "dano_jefes": "Daño a jefes", "dano_todos": "Daño elemental",
+	"resist_estados": "Resist. estados", "resist_crit": "Resist. crítico", "menos_dot": "Menos daño estados",
+	"cura_recibida": "Cura recibida",
+}
+
+static func nombre_corto(clave: String) -> String:
+	if _CORTOS.has(clave):
+		return _CORTOS[clave]
+	if clave.begins_with("res_"):
+		return "Resist. " + clave.trim_prefix("res_")
+	return nombre_sub(clave)
+
 
 # ------------------------------------------------------------
 #  QUE PIEZA ES

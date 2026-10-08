@@ -194,8 +194,14 @@ func _ficha(vb: VBoxContainer) -> void:
 	# ATRIBUTOS de la pieza, con en verde lo que sube la categoria elegida.
 	vb.add_child(HSeparator.new())
 	var cat_sel: String = str(cats[_cat_idx])
+	# EN DOS COLUMNAS (08/10/2026, lo pidio el usuario: era un scroll largo con medio panel vacio a la derecha).
+	var rejilla := GridContainer.new()
+	rejilla.columns = 2
+	rejilla.add_theme_constant_override("h_separation", 28)
+	rejilla.add_theme_constant_override("v_separation", 2)
+	vb.add_child(rejilla)
 	for f in MenuScaffold.filas_mejora(item, int(meta["tier"]), rareza, mj, cat_sel):
-		_atributo(vb, str(f[0]), str(f[1]), "" if al_tope else str(f[2]))
+		_atributo(rejilla, str(f[0]), str(f[1]), "" if al_tope else str(f[2]))
 	# DURABILIDAD en puntos: una mejora de Durabilidad sube el MAXIMO, no el %.
 	var maxd: float = Game.max_durabilidad_item(item)
 	var frac: float = Game.durabilidad_item(item)
@@ -205,8 +211,8 @@ func _ficha(vb: VBoxContainer) -> void:
 		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
 		delta = "+%d pts máx" % round(nuevo_max - maxd)
-	_atributo(vb, "Durabilidad", "%d / %d pts  (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
-	MenuScaffold.bloque_runas(vb, item)   # sus runas: mejorar no las toca
+	_atributo(rejilla, "Durabilidad", "%d / %d pts (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+	MenuScaffold.bloque_runas(vb, item, true)   # sus runas (mejorar no las toca), compactas
 	t.note(vb, "El núcleo lo elige el sistema por el nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 
 	var puede: bool = nucleo != null and Game.puede_mejorar(item, nucleo)
@@ -244,12 +250,13 @@ func _coste(fila: Container, mat: MaterialData, pide: int, tienes: int, uds: Str
 
 
 # Fila de ATRIBUTO: nombre · valor actual · (+delta) en verde.
-func _atributo(vb: VBoxContainer, etiqueta: String, valor: String, delta: String) -> void:
+func _atributo(vb: Container, etiqueta: String, valor: String, delta: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var k := Label.new()
 	k.text = etiqueta
-	k.custom_minimum_size = Vector2(170, 0)
+	k.custom_minimum_size = Vector2(150, 0)
 	k.add_theme_color_override("font_color", Color(0.7, 0.8, 0.95))
 	row.add_child(k)
 	# Con ANCHO fijo el valor y el delta: sin eso el autowrap de la ficha los dejaba a ancho cero y salian
