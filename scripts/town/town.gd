@@ -288,8 +288,10 @@ func _crear_casas() -> void:
 		var guion: String = String(casa.get("script", ""))
 		if guion == "":
 			continue
-		# SIN ROTULO: lo que es cada casa lo dice su cartel (lo pidio el usuario).
-		nodo.add_child(_puerta(guion, PuebloPlano.puerta_de(casa), ""))
+		# SIN ROTULO: lo que es cada casa lo dice su cartel (lo pidio el usuario). Salvo la que aun lleva el dibujo de
+		# una de relleno (el Taller de runas): sin cartel propio, el rotulo es lo unico que la distingue.
+		var rotulo: String = String(casa.get("nombre", "")) if bool(casa.get("como_vacia", false)) else ""
+		nodo.add_child(_puerta(guion, PuebloPlano.puerta_de(casa), rotulo))
 
 
 # EL CARTEL DEL OFICIO, colgado de un lado de la fachada y asomando fuera de ella (CasaSprites.cartel).
