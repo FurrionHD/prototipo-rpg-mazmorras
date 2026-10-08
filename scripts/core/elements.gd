@@ -211,4 +211,6 @@ static func mult_recibido(elem: int, defender) -> float:
 		# Perfil de la afinidad, suavizado por su FRANJA de intensidad (puro vs imbuido).
 		var perfil: Dictionary = PERFIL_DEFECTO.get(defender.elemento, {})
 		base = escalar_intensidad(float(perfil.get(elem, 1.0)), defender.elemento_intensidad)
-	return base * mult_por_estados(elem, defender)
+	# RUNAS (08/10): la resistencia a un elemento de las sub-stats de armadura.
+	var runa: float = float(defender.runa_resist_elem.get(elem, 0.0)) if defender is Combatant else 0.0
+	return base * mult_por_estados(elem, defender) * (1.0 - clampf(runa, 0.0, 0.9))

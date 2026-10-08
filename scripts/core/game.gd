@@ -8629,7 +8629,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	# Combatant los congela en este momento y nunca los recalcula (por eso abilities_eff no los toca).
 	# Sin esto, comer un plato de Resistencia te subia la defensa y no un solo punto de vida.
 	var a_eff := abilities_eff_de(p)
-	c.max_hp = StatsMath.max_hp_jugador(a_eff, p.base_hp)
+	c.max_hp = StatsMath.max_hp_jugador(a_eff, p.base_hp) * Runas.vida_mult(p)   # + la Vida % de las runas
 	c.max_mp = StatsMath.max_mp_jugador(a_eff, p.base_mp)
 	if p.current_hp < 0.0:
 		p.current_hp = float(c.max_hp)  # primera vez: vida llena
@@ -8644,6 +8644,8 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	c.spells = hechizos_equipados(p)
 
 	_aplicar_loadout(c, p)
+	# El ESCUDO DE AGUA del set Marea: se monta con la pelea (esta fabrica es la de los dos caminos de entrada).
+	c.runa_escudo_agua = float(c.max_hp) * c.runa_marea
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
 	# La IMBUICION que traia puesta del combate anterior. Va aqui, en la fabrica del combatiente, y
 	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
@@ -8769,6 +8771,8 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	c.evasion_penal -= REFLEJOS_EVASION * factor_desarrollo("reflejos", p)   # esquiva como PENAL: negativo = esquivas mas
 	c.magic_amp *= 1.0 + ERUDITO_MAGIA * factor_desarrollo("erudito", p)
 	c.cast_velocidad_mult *= 1.0 + ENCANT_RAPIDO * factor_desarrollo("encantamiento_rapido", p)
+	# LAS RUNAS (08/10/2026): sub-stats y sets de lo que lleva puesto. Las ultimas, encima de todo.
+	Runas.aplicar(c, p)
 
 
 # Combina la mano principal + la secundaria en los modificadores finales de
@@ -9493,6 +9497,10 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/nucleo_segadora.tres",
 	"res://resources/materials/raiz_amarga.tres",
 	"res://resources/materials/raiz_umbria.tres", "res://resources/materials/runa_arcilla.tres",
+	# Las RUNAS de los mutantes (08/10/2026, fase 5): para el Taller de runas.
+	"res://resources/materials/runa_slime.tres", "res://resources/materials/runa_venenosa.tres",
+	"res://resources/materials/runa_fuego.tres", "res://resources/materials/runa_abisal.tres",
+	"res://resources/materials/runa_profunda.tres", "res://resources/materials/runa_real.tres",
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",
@@ -9649,6 +9657,8 @@ func serializar_equipo(item: Resource) -> Dictionary:
 		"durabilidad": float(m.get("durabilidad", 1.0)),
 		# Sub-tier del metal: hoy solo lo llevan las herramientas, el resto manda 0 y nadie lo lee.
 		"banda": int(m.get("banda", 0)),
+		# LAS RUNAS (08/10): set y sub-stats. Sin esto el doble de un compañero peleaba sin ellas.
+		"runas": (m.get("runas", {}) as Dictionary).duplicate(true),
 		"capacidad": cap,
 		"clase": clase,
 		"desc": item_display_name(item),
@@ -9678,6 +9688,8 @@ func deserializar_equipo(d: Dictionary, registrar: bool = true) -> Resource:
 	if item == null:
 		return null
 	meta_de(item)["durabilidad"] = float(d.get("durabilidad", 1.0))
+	if not (d.get("runas", {}) as Dictionary).is_empty():
+		meta_de(item)["runas"] = (d["runas"] as Dictionary).duplicate(true)
 	if item is BackpackData and int(d.get("capacidad", 0)) > 0:
 		item.set("capacidad", int(d["capacidad"]))
 	return item
@@ -15584,6 +15596,15 @@ func _tirar_drop(corpse: Node, calidad: MaterialItem.Calidad) -> void:
 		# notase en la baba, que es justo lo que menos falta te hace.
 		if doble > 0.0 and randf() < doble:
 			caidos.append(MaterialItem.crear(data.nucleo, _calidad_joyero(calidad, joyero)))
+
+	# LA RUNA (08/10/2026): casi nunca del normal, mucho de sus mutantes (Runas.DROP_RUNA por grado). Sin factor de
+	# piso, suerte ni cuchillo: es lo que se gana por PELEARSE con el mutante, no por desollar bien.
+	if data.drop_runa != null:
+		var grado: int = data.grado_de(bool(corpse.get("mutante")),
+			StringName(corpse.get("mutacion")) if corpse.get("mutacion") != null else &"")
+		var p_runa: float = 1.0 if dev_force_drop else float(Runas.DROP_RUNA[clampi(grado, 0, Runas.DROP_RUNA.size() - 1)])
+		if randf() < p_runa:
+			caidos.append(MaterialItem.crear(data.drop_runa, MaterialItem.Calidad.NORMAL))
 
 	# TERCERA tirada, la de COCINA (carne, y mañana pescado). Va aparte de las dos de arriba y no la
 	# tocan ni el factor de piso ni el Pulso de joyero, a proposito:

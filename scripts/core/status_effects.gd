@@ -148,6 +148,9 @@ static func prob_final(prob_base: float, atacante, objetivo, id: int,
 	var ef: float = 0.0
 	if atacante != null:
 		ef = atacante.eficacia_estados()
+		# RUNAS (08/10): el set Ignicion prende mas la Quemadura.
+		if id == Id.QUEMADURA and atacante is Combatant:
+			prob_base += (atacante as Combatant).runa_ignicion_prob
 	# La resistencia puede ser NEGATIVA (Rayo te hace mas facil de aturdir). Con suelo, para que no
 	# se pueda dividir por cero ni por un numero minusculo.
 	var re: float = maxf(objetivo.resist_estados(id, con_afinidad), -0.9)

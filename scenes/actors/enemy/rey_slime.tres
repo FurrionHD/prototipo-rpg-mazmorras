@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="EnemyData" format=3]
 
 [ext_resource type="Script" uid="uid://le6jfvhlcbou" path="res://scripts/actors/enemy/enemy_data.gd" id="1_g8nro"]
+[ext_resource type="Resource" path="res://resources/materials/runa_real.tres" id="99_runa"]
 [ext_resource type="Script" path="res://scripts/items/status_application.gd" id="2_sa"]
 [ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="3_baba"]
 [ext_resource type="Resource" path="res://resources/materials/nucleo_rey_slime.tres" id="4_nuc"]
@@ -51,6 +52,7 @@ rabia_tramos_max = 3
 
 [resource]
 script = ExtResource("1_g8nro")
+drop_runa = ExtResource("99_runa")
 dureza = 1.5
 familia = 1
 enemy_name = "Rey Slime"

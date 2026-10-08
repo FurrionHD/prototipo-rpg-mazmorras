@@ -453,7 +453,8 @@ func _resolver_golpe_hab(ab: AbilityData, objetivo: Combatant, i: int, manos: in
 		return r
 	_golpes_mun.append({"c": objetivo, "evadido": false})
 	# Con flecha o virote de material cargado, pega con su bonus (_mult_mun = 1 sin municion o sin arco).
-	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun
+	var dmg: float = result.damage * ab.dano_mult * m_golpe * escala * _mult_mun \
+		* (1.0 + _pantalla._player.runa_dano_hab)   # runas: Daño de habilidades
 	r.dmg = dmg
 	r.imbue = float(result.get("dmg_imbue", 0.0)) * ab.dano_mult * m_golpe * escala
 	r.mult_imbue = float(result.get("mult_imbue", 1.0))
@@ -1201,6 +1202,6 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.
 			for _s in maxi(1, a.stacks):
-				d.apply_status(a.estado, a.turns, mag, 1, false, a.cap, a.mult)
+				d.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag), 1, false, a.cap, a.mult)
 			out.append(nom if al_enemigo else "%s (%s)" % [nom, d.nombre])
 	return out

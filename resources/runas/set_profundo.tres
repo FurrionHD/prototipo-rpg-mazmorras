@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/baba_profunda.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_profundo.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_profunda.tres" id="4_runa"]
+
+[resource]
+script = ExtResource("1")
+id = &"profundo"
+nombre = "Marea"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"mdef_pct": 0.11}
+efecto = &"marea"
+params = {"escudo": 0.15}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

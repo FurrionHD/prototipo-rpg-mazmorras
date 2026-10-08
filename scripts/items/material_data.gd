@@ -41,7 +41,7 @@ enum Familia { CORRIENTE, NUCLEO }
 #   MUNICION (02/10): las flechas y los virotes de material (ver MunicionData). No se recolectan: los
 #   hace el carpintero con lingote y tablon.
 enum Tipo { BABA, PLANTA, MINERAL, CUERO, NUCLEO, LINGOTE, MADERA, TABLON, CARNE, PESCADO, DESPENSA,
-	COMBUSTIBLE, MUNICION }
+	COMBUSTIBLE, MUNICION, RUNA }   # RUNA (08/10/2026): lo que sueltan los mutantes para el Taller de runas
 # A QUE se le puede meter este nucleo. Los del slime van al ARMA; el de la rata, a la
 # ARMADURA. CUALQUIERA = comodin (no lo usa ningun nucleo hoy, pero el campo lo admite).
 enum UsoMejora { CUALQUIERA, ARMA, ARMADURA }

@@ -148,6 +148,7 @@ const CARPETA_TIPO := {
 	MaterialData.Tipo.BABA: "babas", MaterialData.Tipo.PLANTA: "plantas",
 	MaterialData.Tipo.COMBUSTIBLE: "carbon", MaterialData.Tipo.CARNE: "carne",
 	MaterialData.Tipo.PESCADO: "pescado", MaterialData.Tipo.DESPENSA: "despensa",
+	MaterialData.Tipo.RUNA: "runas",
 }
 
 static func _carpeta_de(item: Resource) -> String:
@@ -470,6 +471,8 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 			forma = "virote" if id.begins_with("virote_") else "flecha"
 		MaterialData.Tipo.NUCLEO:
 			forma = "nucleo_" + id.trim_prefix("nucleo_")
+		MaterialData.Tipo.RUNA:
+			forma = "runa"
 		MaterialData.Tipo.CUERO:
 			if id.begins_with("curtido_") or id == "cuero_curtido":
 				forma = "cuero"
@@ -640,7 +643,22 @@ static func _facetas(forma: String) -> Array:
 		"flecha": return _flecha()
 		"virote": return _virote()
 		"mochila": return _mochila()
+		"runa": return _runa()
 	return []
+
+
+# LA RUNA (08/10/2026, PROVISIONAL hasta su visto bueno): una piedra plana de canto redondeado con un glifo tallado
+# que brilla del color de su mutante (la veta).
+static func _runa() -> Array:
+	var out: Array = []
+	var piedra: Array = [0.22, 0.30, 0.42, 0.18, 0.70, 0.22, 0.84, 0.40, 0.80, 0.70, 0.60, 0.84, 0.32, 0.80, 0.16, 0.58]
+	out.append(_pol("b", piedra))
+	out.append(_pol("l", [0.22, 0.30, 0.42, 0.18, 0.70, 0.22, 0.62, 0.30, 0.40, 0.28, 0.26, 0.38]))
+	out.append(_pol("s", [0.80, 0.70, 0.60, 0.84, 0.32, 0.80, 0.36, 0.74, 0.58, 0.77, 0.75, 0.64]))
+	out.append(_lin("h", [0.50, 0.30, 0.50, 0.72]))
+	out.append(_lin("h", [0.50, 0.40, 0.66, 0.50]))
+	out.append(_lin("h", [0.50, 0.52, 0.34, 0.62]))
+	return out
 
 
 static func P(v: Array) -> PackedVector2Array:

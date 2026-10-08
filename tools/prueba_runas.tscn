@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/prueba_runas.gd" id="1"]
+
+[node name="PruebaRunas" type="Node"]
+script = ExtResource("1")

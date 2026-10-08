@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"runa_profunda"
+nombre = "Runa profunda"
+descripcion = "Pesa como el fondo del mar y, si te la acercas al oído, suena a caracola."
+familia = 0
+tipo = 13
+tier = 2
+exigencia = 0.0
+peso_base = 0.1
+valor_base = 380
+color = Color(0.2, 0.65, 0.75, 1)
+piso_min = 7
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

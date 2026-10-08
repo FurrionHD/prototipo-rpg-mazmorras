@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RunaSetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/runa_set_data.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/materials/baba_rey_slime.tres" id="2_mat"]
+[ext_resource type="Resource" path="res://resources/materials/nucleo_rey_slime.tres" id="3_nuc"]
+[ext_resource type="Resource" path="res://resources/materials/runa_real.tres" id="4_runa"]
+
+[resource]
+script = ExtResource("1")
+id = &"rey"
+nombre = "Corona"
+tipo = 1
+material = ExtResource("2_mat")
+nucleo = ExtResource("3_nuc")
+coste_material = 6
+coste_nucleo = 3
+runa = ExtResource("4_runa")
+bonus_2p = {"resist_estados": 0.15}
+efecto = &"corona"
+params = {"aliados": 0.1, "umbral": 0.3, "turnos": 1}
+metadata/_custom_type_script = "res://scripts/items/runa_set_data.gd"

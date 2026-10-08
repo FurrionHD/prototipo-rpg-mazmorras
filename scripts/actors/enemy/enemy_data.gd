@@ -249,6 +249,8 @@ func color_visual(t: float) -> Color:
 #   - es una economia aparte. La comida se gasta por TIEMPO (un plato dura 20 min), no por pieza
 #     de equipo, asi que su escasez no se calibra contra la forja.
 # El campo es GENERICO a proposito: el motor no sabe que esto es "carne".
+# LA RUNA de su set (08/10/2026, fase 5): la sueltan sobre todo sus MUTANTES (Runas.DROP_RUNA por grado). Ver Runas.
+@export var drop_runa: MaterialData = null
 @export var drop_extra: MaterialData = null
 @export var drop_extra_chance: float = 0.05
 @export var drop_extra_min: int = 1

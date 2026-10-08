@@ -255,7 +255,9 @@ func _enemy_turn(e: Combatant) -> void:
 	# El MISMO golpe sin defensa, armadura ni bloqueo (ver StatsMath 'mitig'). Se calcula AQUI y no mas
 	# abajo porque lo miran dos cosas: el contador de bloqueo (justo debajo) y la excelia de Resistencia.
 	var dmg_bruto: float = float(result.get("dmg_sin_mitigar", dmg))
+	dmg *= _runa_corona_mult(obj)
 	obj.take_damage(dmg)
+	_runas_al_encajar(e, obj, true)
 	# LO QUE PARA le sube en la tabla de este enemigo (el tanque sube aguantando).
 	_pantalla.objetivos.amenaza_por_parar(obj, e, dmg_bruto - dmg)
 	_pantalla.efectos._fx_golpe(e, obj, dmg, result.crit, false, e.elemento_ataque, estilo_bas,
@@ -982,7 +984,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# dos cosas: el contador de bloqueo de aqui y la excelia de Resistencia de mas abajo.
 			var dmg_bruto: float = float(result.get("dmg_sin_mitigar", result.damage)) \
 				* ab.dano_mult * escala * e.dummy_dmg_out_mult
+			dmg *= _runa_corona_mult(t)
 			t.take_damage(dmg)
+			_runas_al_encajar(e, t, false)
 			_pantalla.objetivos.amenaza_por_parar(t, e, dmg_bruto - dmg)
 			# ROBO DE VIDA del bicho (el Drenaje del chupasimas). Sobre el daño YA MITIGADO: contra
 			# alguien con armadura, drenar le rinde poco, y esa es la gracia -- va a por el que va
@@ -1317,3 +1321,50 @@ func _contraatacar(atacante: Combatant, quien: Combatant, mult: float = -1.0,
 		arma = "lo que tiene a mano"
 	return "%s con %s: %s%.2f de daño! %s" % [abrir, arma, extra, dmg,
 		"🛡️⚔" if al_bloquear else "🤺"]
+
+
+# ------------------------------------------------------------
+#  LAS RUNAS AL ENCAJAR UN GOLPE (08/10/2026, fase 5). La rama del enemigo es la que pega a los tuyos, asi que los
+#  efectos de los sets de ARMADURA viven aqui.
+# ------------------------------------------------------------
+# SET CORONA: lo que le entra a 't' si tiene pegado a un aliado con la Corona puesta (-10 %). Solo en el mapa: "pegado"
+# es estar cuerpo a cuerpo.
+func _runa_corona_mult(t: Combatant) -> float:
+	if not _pantalla.tactico or t == null:
+		return 1.0
+	for a in _pantalla._aliados_vivos():
+		if a != t and a.runa_corona_aliados > 0.0 \
+				and _pantalla.turno_mapa.hueco_entre(a, t) <= _pantalla.HUECO_CUERPO_A_CUERPO:
+			return 1.0 - a.runa_corona_aliados
+	return 1.0
+
+
+# Tras encajar: Pegajoso al que te pega de cerca (Masa gelatinosa), el escudo de agua roto moja a quien lo rompio
+# (Marea) y, si 't' se queda tiritando, el de la Corona se los lleva (una vez por pelea). 'basico' = su golpe a secas.
+func _runas_al_encajar(e: Combatant, t: Combatant, basico: bool) -> void:
+	if e == null or t == null:
+		return
+	var de_cerca: bool = _pantalla.turno_mapa.hueco_entre(e, t) <= _pantalla.HUECO_CUERPO_A_CUERPO \
+		if _pantalla.tactico else basico
+	if t.runa_pegajoso > 0.0 and de_cerca and e.is_alive():
+		var p: float = StatusEffects.prob_final(t.runa_pegajoso, t, e, StatusEffects.Id.PEGAJOSO)
+		if randf() < p:
+			e.apply_status(StatusEffects.Id.PEGAJOSO)
+			_pantalla._log_extra("🟢 %s se queda pegado a la masa de %s." % [_pantalla._etq(e), t.nombre])
+	if t.runa_agua_rota:
+		t.runa_agua_rota = false
+		if e.is_alive():
+			e.apply_status(StatusEffects.Id.MOJADO)
+		_pantalla._log_extra("💧 Revienta el escudo de agua de %s y empapa a %s." % [t.nombre, _pantalla._etq(e)])
+	if not t.is_alive() or float(t.current_hp) >= float(t.max_hp) * 0.999:
+		return
+	for a in _pantalla._aliados_vivos():
+		if a == t or a.runa_corona_turnos <= 0 or a.runa_corona_usada:
+			continue
+		if float(t.current_hp) < float(t.max_hp) * a.runa_corona_umbral:
+			a.runa_corona_usada = true
+			a.provocar_turnos = maxi(a.provocar_turnos, a.runa_corona_turnos)
+			a.provocados = _pantalla._vivos() if _pantalla.tactico else []
+			_pantalla.objetivos.provocar_amenaza(a, a.provocados)
+			_pantalla._log_extra("👑 %s alza la corona y se lleva las miradas de los enemigos." % a.nombre)
+			return

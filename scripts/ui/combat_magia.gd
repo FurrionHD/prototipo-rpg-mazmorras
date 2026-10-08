@@ -1426,7 +1426,7 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 				continue
 			# EL FUEGO (06/10) arde un % del daño de ESTE golpe (ver StatusEffects.QUEMADURA_FRACCION).
 			var mag_h: float = a.magnitud if a.magnitud >= 0.0 				else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe)
-			d_h.apply_status(a.estado, a.turns, mag_h, 1, false, a.cap)
+			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h), 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])
 		if not aplicados.has(int(a.estado)):

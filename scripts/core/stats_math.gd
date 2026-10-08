@@ -537,7 +537,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
 		var raw_imbue: float = atk_crudo * attacker.imbue_pct
 		var f_comun: float = variacion * ((CRIT_MULT + attacker.crit_dmg) if is_crit else 1.0) \
-			* attacker.mult_vs(defender.familia) * defender.mult_from(attacker.familia) * mult_imbue
+			* attacker.mult_vs(defender.familia) * defender.mult_from(attacker.familia) * mult_imbue \
+			* (1.0 + float(attacker.runa_dano_elem.get(attacker.imbue_elemento, 0.0)))   # runas: daño de ese elemento
 		dmg_imbue = damage(raw_imbue, defender.mdef_value()) \
 			* (1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)) * f_comun
 		bruto_imbue = raw_imbue * f_comun
@@ -556,7 +557,12 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# FRAGIL (06/10, la obsidiana): un arma CONTUNDENTE le hace mas daño (corta mucho pero se rompe).
 	if attacker.dano_tipo == 1:
 		mult_final *= defender.fragil_contundente
+	# RUNAS (08/10): contra jefes y mutantes, y por las cargas de veneno (set Miasma).
+	mult_final *= attacker.runa_mult_contra(defender)
 	dmg *= mult_final
+	# DAÑO FINAL de las runas: un % de lo que ya le haces, ENCIMA y sin mitigar (daño verdadero).
+	dmg *= 1.0 + attacker.runa_final_fis
+	_runa_crit_ciego(attacker, defender, is_crit)
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
@@ -569,6 +575,16 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		# aparte: su mitigacion es la magica, no 'mitig'.
 		"dmg_sin_mitigar": maxf(0.1, (dmg - dmg_imbue * mult_final) / maxf(0.0001, mitig)
 			+ bruto_imbue * mult_final)}
+
+
+# SET CIELO NOCTURNO (runas, 08/10): tus criticos pueden dejar CEGUERA (con la resistencia del que la recibe).
+static func _runa_crit_ciego(attacker: Combatant, defender: Combatant, is_crit: bool) -> void:
+	if not is_crit or attacker.runa_crit_ciego <= 0.0 or not defender.is_alive():
+		return
+	var p: float = StatusEffects.prob_final(attacker.runa_crit_ciego, attacker, defender, StatusEffects.Id.CEGUERA)
+	if randf() < p:
+		defender.apply_status(StatusEffects.Id.CEGUERA)
+		print("[runas] %s deja ciego a %s con el critico" % [attacker.nombre, defender.nombre])
 
 
 # GOLPE MAGICO DE UN ENEMIGO (08/10/2026, fase 3): las habilidades AbilityData.es_magico. Es resolve_attack con
@@ -698,6 +714,10 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	dmg *= mult_elem
 	# Las pasivas del que recibe (el golem blando, la gargola posada), antes de que este hechizo las cambie.
 	dmg *= defender.mult_pasiva_recibido()
+	# RUNAS (08/10): daño de ese elemento, contra jefes/mutantes y por cargas de veneno, y el daño final magico.
+	dmg *= (1.0 + float(attacker.runa_dano_elem.get(elem, 0.0))) * attacker.runa_mult_contra(defender) \
+		* (1.0 + attacker.runa_final_mag)
+	_runa_crit_ciego(attacker, defender, is_crit)
 	# La luz le corta la regeneracion a la aberracion; el agua ablanda al golem (Combatant.recibe_elemento).
 	defender.recibe_elemento(elem)
 	return {"damage": maxf(0.1, dmg), "mult_elem": mult_elem, "elemento": elem,

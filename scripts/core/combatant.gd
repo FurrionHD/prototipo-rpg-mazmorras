@@ -535,6 +535,35 @@ var fx_escudo: int = -1
 # SER de fuego que haberte echado un manto por encima. No afecta a inmunidades (son binarias).
 var elemento_intensidad: float = Elementos.INTENSIDAD_PURA
 var resist_elemental: Dictionary = {}
+# --- LAS RUNAS (08/10/2026, fase 5): las rellena Runas.aplicar con lo que lleva puesto. Cero en los enemigos. ---
+var runa_dano_elem: Dictionary = {}     # {Elemento: +%} a la porcion imbuida y a los hechizos de ese elemento
+var runa_resist_elem: Dictionary = {}   # {Elemento: -%} de lo que te entra de ese elemento
+var runa_def_pct: float = 0.0          # Defensa % y Defensa magica %, sobre la de verdad (def_value / mdef_value)
+var runa_mdef_pct: float = 0.0
+var runa_vel: float = 0.0              # Velocidad plana, sumada a la base (en _spd_base)
+var runa_dano_hab: float = 0.0          # +% a las habilidades
+var runa_dano_jefes: float = 0.0        # +% contra mutantes y jefes
+var runa_final_fis: float = 0.0         # daño final: un % del golpe ENCIMA, sin mitigar
+var runa_final_mag: float = 0.0
+var runa_cura_recibida: float = 0.0
+var runa_menos_dot: float = 0.0         # -% del daño de los estados (veneno, quemadura...)
+var runa_crit_ciego: float = 0.0        # set Cielo nocturno: prob. de cegar al critear
+var runa_ignicion_prob: float = 0.0     # set Ignicion: + prob. de prender Quemadura...
+var runa_ignicion_dano: float = 0.0     # ...y lo que arde de mas
+var runa_miasma_carga: float = 0.0      # set Miasma: +% de daño por carga de veneno del objetivo...
+var runa_miasma_max: int = 0            # ...hasta tantas cargas...
+var runa_miasma_turnos: int = 0         # ...y el veneno que pones dura mas
+var runa_gordo_umbral: float = 0.0      # set Masa gelatinosa: el primer golpe de mas de este % de tu vida...
+var runa_gordo_reduce: float = 0.0      # ...entra esto menos (una vez por pelea)
+var runa_gordo_usado: bool = false
+var runa_pegajoso: float = 0.0          # ...y a quien te pega cuerpo a cuerpo le deja Pegajoso
+var runa_marea: float = 0.0             # set Marea: escudo de agua al empezar (fraccion de tu vida)
+var runa_escudo_agua: float = 0.0       # lo que le queda al escudo
+var runa_agua_rota: bool = false        # se acaba de romper (quien lo rompio se moja: combat_enemigos)
+var runa_corona_aliados: float = 0.0    # set Corona: -% a los aliados pegados a ti...
+var runa_corona_umbral: float = 0.0     # ...y si uno baja de esta vida, provocas
+var runa_corona_turnos: int = 0
+var runa_corona_usada: bool = false
 var inmune_estados: Array = []
 # Vulnerabilidad/aguante a UN estado concreto: {StatusEffects.Id: delta_de_resistencia}.
 # Negativo = le prende mas facil. Lo rellena EnemyData; ver el comentario de resist_estados().
@@ -850,7 +879,7 @@ func roll_imbue(target: Combatant) -> String:
 		return ""
 	for _s in stacks:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
-		target.apply_status(imbue_estado, -1, StatusEffects.magnitud_por_golpe(imbue_estado, atk(), atk()), 1, false, imbue_tope)
+		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_por_golpe(imbue_estado, atk(), atk())), 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
@@ -859,7 +888,7 @@ func roll_imbue(target: Combatant) -> String:
 			StatsMath.imbue_proc_chance(imbue_extra_prob, stat, rival, imbue_por_destreza),
 			self, target, imbue_extra_estado)
 		if randf() < pe:
-			target.apply_status(imbue_extra_estado, -1, StatusEffects.magnitud_por_golpe(imbue_extra_estado, atk(), atk()))
+			target.apply_status(imbue_extra_estado, runa_turnos(imbue_extra_estado, -1), runa_mag(imbue_extra_estado, StatusEffects.magnitud_por_golpe(imbue_extra_estado, atk(), atk())))
 			txt += ", " + String(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))
 	return txt
 
@@ -976,7 +1005,7 @@ func def_value() -> float:
 	var ab: Abilities = abilities_eff()
 	var d: float = StatsMath.defense_jugador(ab, base) if stats_multiplicativas \
 		else StatsMath.defense_value(ab, level, base)
-	return d * status_def_mult()
+	return d * status_def_mult() * (1.0 + runa_def_pct)
 func spd() -> float:
 	if dummy_speed_override >= 0.0:
 		return dummy_speed_override   # modo prueba: velocidad estandar fija
@@ -994,7 +1023,7 @@ func cast_spd() -> float: return _spd_base() * cast_velocidad_mult * status_spd_
 # Velocidad "cruda" segun la Agilidad (multiplicativa en el jugador, aditiva en los enemigos).
 func _spd_base() -> float:
 	var ab: Abilities = abilities_eff()
-	return StatsMath.speed_jugador(ab, base_speed) if stats_multiplicativas \
+	return StatsMath.speed_jugador(ab, base_speed + runa_vel) if stats_multiplicativas \
 		else StatsMath.speed_value(ab, level, base_speed)
 
 # Penalizacion de velocidad de la postura de guardia (1.0 = sin postura).
@@ -1020,6 +1049,21 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 	# salvo el Rey con slimes vivos al lado.
 	if not es_dot:
 		amount *= (1.0 - _reduccion_sequito())
+		# RUNAS (08/10): el primer golpe gordo de la pelea entra menos (Masa gelatinosa)...
+		if runa_gordo_reduce > 0.0 and not runa_gordo_usado and amount >= max_hp * runa_gordo_umbral:
+			runa_gordo_usado = true
+			amount *= 1.0 - runa_gordo_reduce
+			print("[runas] %s: Masa gelatinosa le quita fuerza al golpe gordo" % nombre)
+		# ...y el escudo de agua (Marea) se lo come antes que la vida.
+		if runa_escudo_agua > 0.0 and amount > 0.0:
+			var come: float = minf(runa_escudo_agua, amount)
+			runa_escudo_agua -= come
+			amount -= come
+			if runa_escudo_agua <= 0.0:
+				runa_agua_rota = true
+				print("[runas] %s: se rompe su escudo de agua" % nombre)
+	else:
+		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
 	current_hp = maxf(0.0, current_hp - amount)
 
 # Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
@@ -1027,7 +1071,37 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 # PASO UNICO de toda la curacion (pociones, regeneracion, hechizos): por eso la Herida profunda se
 # descuenta aqui y no en cada sitio que cura.
 func heal(amount: float) -> void:
-	current_hp = minf(max_hp, current_hp + maxf(0.0, amount) * status_heal_recv_mult())
+	current_hp = minf(max_hp, current_hp + maxf(0.0, amount) * status_heal_recv_mult() * (1.0 + runa_cura_recibida))
+
+
+# LAS RUNAS sobre los estados que pone ESTE combatiente (08/10): la Quemadura arde mas con Ignicion y el veneno dura mas
+# con Miasma. Se llaman donde el jugador aplica un estado (imbuicion, on_hit, refuerzos, habilidades, hechizos).
+func runa_mag(id: int, mag: float) -> float:
+	if id == StatusEffects.Id.QUEMADURA and runa_ignicion_dano > 0.0 and mag > 0.0:
+		return mag * (1.0 + runa_ignicion_dano)
+	return mag
+
+func runa_turnos(id: int, turns: int) -> int:
+	if id == StatusEffects.Id.VENENO and runa_miasma_turnos > 0:
+		return (turns if turns >= 0 else int(StatusEffects.def(id).get("turns", 3))) + runa_miasma_turnos
+	return turns
+
+# El extra de daño de las runas contra 'defender' (jefes y mutantes, cargas de veneno con Miasma), como multiplicador.
+func runa_mult_contra(defender: Combatant) -> float:
+	var m: float = 1.0
+	if runa_dano_jefes > 0.0 and defender != null and (defender.es_jefe or defender.mutante):
+		m *= 1.0 + runa_dano_jefes
+	if runa_miasma_carga > 0.0 and defender != null:
+		m *= 1.0 + runa_miasma_carga * float(mini(defender.stacks_de(StatusEffects.Id.VENENO), runa_miasma_max))
+	return m
+
+# Cuantas cargas de 'id' lleva encima.
+func stacks_de(id: int) -> int:
+	var n: int = 0
+	for e in statuses:
+		if e.id() == id:
+			n += maxi(1, int(e.stacks))
+	return n
 
 
 # --- Energia de combate (KAN-57) ---
@@ -1181,6 +1255,10 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	# enemigas, teclas dev) porque todas pasan por aqui.
 	if es_inmune(id):
 		print("[estado] %s es INMUNE a %s" % [nombre, String(d.get("nombre", "?"))])
+		return
+	# El ESCUDO DE AGUA de las runas (set Marea): mientras dura, ni Lento ni Congelacion.
+	if runa_escudo_agua > 0.0 and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION):
+		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
 		return
 	# UN CONTROL QUE PRENDE gasta escalon del decaimiento (el siguiente costara el doble). Va aqui,
 	# en el choke point, y no en cada tirada: fallar NO gasta escalon -- si lo gastara, resistir un
@@ -1761,7 +1839,7 @@ func anotar_intento_estado(atacante: Combatant, id: int, entro: bool) -> void:
 func mdef_value() -> float:
 	var ab := abilities_eff()
 	if stats_multiplicativas:
-		return StatsMath.magic_jugador(ab, base_magic + extra_magic_def)
+		return StatsMath.magic_jugador(ab, base_magic + extra_magic_def) * (1.0 + runa_mdef_pct)
 	return StatsMath.magic_value(ab, level, base_magic)
 
 
@@ -2100,7 +2178,7 @@ func roll_on_hit(target: Combatant) -> Array:
 		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
 		# tiene que hacer lo que dice el dato y no fallar en silencio.
 		for _s in maxi(1, a.stacks):
-			target.apply_status(a.estado, a.turns, mag, 1, false, a.cap)
+			target.apply_status(a.estado, runa_turnos(a.estado, a.turns), runa_mag(a.estado, mag), 1, false, a.cap)
 		aplicados.append(str(StatusEffects.def(a.estado).get("nombre", "?")))
 	if hiela and target.is_alive() and not target.es_inmune(StatusEffects.Id.CONGELACION):
 		target.apply_status(StatusEffects.Id.CONGELACION, int(StatusEffects.def(StatusEffects.Id.CONGELACION)["turns"]))
@@ -2125,7 +2203,7 @@ func tirar_refuerzo(target: Combatant, golpe: float) -> Array:
 		target.anotar_intento_estado(self, est, true)
 		var mag: float = StatusEffects.sangrado_magnitude(atk(), motion_value) if est == StatusEffects.Id.SANGRADO \
 			else StatusEffects.magnitud_por_golpe(est, atk(), golpe)
-		target.apply_status(est, -1, mag)
+		target.apply_status(est, runa_turnos(est, -1), runa_mag(est, mag))
 		out.append(str(StatusEffects.def(est).get("nombre", "?")))
 	return out
 
