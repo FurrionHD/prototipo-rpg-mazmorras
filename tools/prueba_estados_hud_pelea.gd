@@ -74,6 +74,10 @@ func _correr() -> void:
 	if combat == null:
 		get_tree().quit(1)
 		return
+	# Y LOS BOTONES MANDAN SOBRE LOS ENEMIGOS (08/10): la capa de las fichas y sus cristales de clic va debajo de la barra
+	# de acciones; si no, un enemigo detras de "Atacar" se llevaba el clic.
+	_ver(combat.figuras_mapa._capa.get_index() < combat._panel_acciones.get_index(),
+			"los cristales de clic de los enemigos van DEBAJO de la barra de acciones")
 	var c: Combatant = Game.combatant_de_pj(Game.lider())
 	_ver(c != null, "el lider tiene combatiente")
 	c.apply_status(StatusEffects.Id.QUEMADURA, 3, 5.0)
