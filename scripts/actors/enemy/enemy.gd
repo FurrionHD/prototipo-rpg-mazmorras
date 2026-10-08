@@ -107,7 +107,9 @@ var _reloj_estados: float = 0.0
 
 # Ataque del enemigo: distancia "optima" desde la que ataca y aviso previo.
 @export var attack_range: float = 44.0
-@export var attack_windup: float = 0.15       # segundos de aviso antes de atacar
+# Aviso (el bicho se planta y carga) antes de lanzar la embestida. Era 0,15; al mirar el golpe en el porrazo y no al
+# final del gesto, la carga se alarga un poco para que siga dando tiempo a leerla (08/10, se ajusta tras probarlo).
+@export var attack_windup: float = 0.3
 
 # ============================================================
 #  EMBESTIDA: como se ENTRA en combate
@@ -853,8 +855,8 @@ const BORDEO_T := 0.3          # lo que dura un rodeo
 const BORDEOS_MAX := 3         # rodeos seguidos antes de rendirse y volverse a su sitio
 func _vigilar_atasco(delta: float, antes: Vector2, vel_pedida: Vector2) -> void:
 	# EMBISTIENDO NO. La carga es un gesto COMPROMETIDO (direccion fijada, animacion corriendo) y
-	# desviarla con un rodeo la convertiria en otra cosa; si acaba contra la roca, _resolver_embestida
-	# la da por fallada sola al terminar el dibujo. Antes daba igual porque la carga duraba 0,35 s y se
+	# desviarla con un rodeo la convertiria en otra cosa; si acaba contra la roca, el porrazo
+	# (_golpe_alcanza) no alcanza a nadie y _cerrar_embestida la da por fallada al terminar el dibujo. Antes daba igual porque la carga duraba 0,35 s y se
 	# abortaba al primer choque; ahora el gesto llega a 2 s y si no, el rodeo se lo comeria.
 	if _state == State.EMBESTIDA:
 		_stuck_time = 0.0
@@ -1431,6 +1433,11 @@ func _embestida(delta: float) -> void:
 		contacta = _embiste_sfx_t < 0.0
 		if contacta:
 			_sonar_embestida()
+			# Y AHI SE MIRA SI TE HA DADO (08/10, playtest: "si me golpea me ha golpeado; si me llega a hacer contacto no
+			# hace falta que termine la animacion"). Una sola vez, en el porrazo: si en ese fotograma no te alcanza, ha
+			# fallado y el resto del gesto es solo la recuperacion.
+			if _golpe_alcanza():
+				return
 	# EL DESPLAZAMIENTO VA DENTRO DEL GESTO, Y ANTES DEL GOLPE. Es el tramo que va del primer fotograma
 	# al de contacto: el avance es lo que LLEVA el golpe hasta ti. Estuvo un rato al final del gesto y
 	# se veia justo al reves -- el bicho atacaba al aire en el sitio y DESPUES se deslizaba hasta ti
@@ -1446,7 +1453,7 @@ func _embestida(delta: float) -> void:
 	else:
 		velocity = Vector2.ZERO
 	if _embiste_t <= 0.0:
-		_resolver_embestida()
+		_cerrar_embestida()
 
 
 # EL SONIDO de embestir, con su golpe de siempre (EnemyData.fx_basico): el minotauro embiste con su
@@ -1467,47 +1474,42 @@ func _sonar_embestida() -> void:
 		Sonido.golpe("", data.fx_basico if data.fx_basico >= 0 else CombatFX.Estilo.MELEE, peso)
 
 
-# SE ACABO EL GESTO: AHORA se mira el hitbox, UNA sola vez. Esta es la correccion del playtest del
-# 20/09: antes se miraba cada fotograma durante la carga y bastaba un roce para que la pelea
-# estuviera decidida -- te alejabas y te metia en combate igual. Ahora cuenta donde estas CUANDO EL
-# GOLPE TERMINA, asi que apartarse a tiempo sirve de verdad.
+# EL PORRAZO: se mira el hitbox UNA sola vez, en el fotograma en que el golpe contacta (CONTACTO_EMBESTIDA). Historia:
+#  - Hasta el 20/09 se miraba CADA fotograma de la carga y bastaba un roce para meterte en combate huyendo.
+#  - Del 20/09 al 08/10 se miraba al ACABAR el gesto: justo, pero tarde. Seguias andando el resto de la animacion (y
+#    lo que tardaba en llegar por la red) y entrabas fuera de la zona ("tarda mucho en detectar que me ha golpeado").
+#  - Ahora, en el porrazo: el mismo instante en que suena. Apartarse antes sigue sirviendo para esquivar.
+# true = ha dado y la pelea ya esta pedida (el gesto se cierra aqui mismo).
 #
-# Y NO hay ventana de impacto detras: el gesto ya se ha visto entero, la pantalla puede llevarse la
-# escena en este mismo fotograma sin cortar nada (era el "termina la embestida y tarda un rato mas
-# en entrarte").
-func _resolver_embestida() -> void:
-	velocity = Vector2.ZERO
-	_embiste_sfx_t = -1.0
-	_embiste_t = 0.0
-	# EL GESTO SE CIERRA PASE LO QUE PASE, y se cierra ANTES de intentar la pelea. _start_combat tiene
-	# media docena de salidas que no abren nada (la pelea esta llena, el piso es de otro, hay un
-	# minijuego delante, el trabajador la ejecuta fuera): si el bicho se quedara en EMBESTIDA con el
-	# reloj a cero, el frame siguiente volveria a caer aqui y estaria reintentando la pelea 60 veces
-	# por segundo. Las salidas que SI tienen que insistir ya se encargan solas (_esperando_hueco se
-	# atrapa arriba del _physics_process, y _rebotar pone su propio descanso, mas largo).
-	_state = State.CHASE
-	_embiste_espera = EMBESTIDA_ESPERA
-	_embiste_presa = null
-	# GOLPEA A QUIEN TENGA DELANTE AL ACABAR, sea o no el que venia fijando. Estuvo un rato mirando
-	# solo a la presa apuntada y fallaba practicamente siempre ("si no le da al que eligio al
-	# principio no entra en combate, asi que mal"): el bicho fija a uno al empezar a perseguir y para
-	# cuando el golpe cae ya tiene a otro delante. Lo que hacia falta arreglar NO era a quien alcanza,
-	# era CUANDO se mira -- y eso ya esta: se mira aqui, al terminar el gesto, y no cada fotograma
-	# durante la carga, que era lo que te metia en combate por un roce mientras huias.
-	#
-	# Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los cuerpos que colisionan nunca
-	# llegan a solaparse), o dentro de la zona de DELANTE: un golpe tiene que llegar un palmo antes
-	# que el cuerpo, o se lee como un empujon (peticion del usuario).
+# Contacto = cuerpos TOCANDOSE (con la holgura de CONTACTO, que los cuerpos que colisionan nunca llegan a solaparse), o
+# dentro de la zona de DELANTE: un golpe tiene que llegar un palmo antes que el cuerpo, o se lee como un empujon. Y
+# GOLPEA A QUIEN TENGA DELANTE, sea o no el que venia fijando ("si no le da al que eligio al principio no entra en
+# combate, asi que mal").
+func _golpe_alcanza() -> bool:
 	var zona: Rect2 = zona_embestida()
 	for n in _aliados():
 		if hueco_hasta(n) <= CONTACTO or Cuerpos.hueco_entre(zona, Cuerpos.caja_de(n)) <= 0.0:
+			_cerrar_embestida()
 			_objetivo = n
 			# Iniciativa del enemigo: te ha embestido... SALVO que tu ya tuvieras el golpe puesto y le
 			# estuvieras mirando. Entonces es un CONTRA y la media barra de ATB es tuya (ver _es_contra).
 			_start_combat(not _es_contra(n))
-			return
-	# Ha fallado: te apartaste a tiempo, o se estampo contra la roca y no llego. Ya se ha quedado en
-	# CHASE con su descanso puesto ahi arriba.
+			return true
+	return false
+
+
+# EL GESTO SE CIERRA, haya dado o no, y se cierra ANTES de intentar la pelea. _start_combat tiene media docena de
+# salidas que no abren nada (la pelea esta llena, el piso es de otro, hay un minijuego delante, el trabajador la ejecuta
+# fuera): si el bicho se quedara en EMBESTIDA, el frame siguiente volveria a mirar y estaria reintentando la pelea 60
+# veces por segundo. Las salidas que SI tienen que insistir ya se encargan solas (_esperando_hueco se atrapa arriba del
+# _physics_process, y _rebotar pone su propio descanso, mas largo). Si falló, se queda en CHASE con su descanso.
+func _cerrar_embestida() -> void:
+	velocity = Vector2.ZERO
+	_embiste_sfx_t = -1.0
+	_embiste_t = 0.0
+	_state = State.CHASE
+	_embiste_espera = EMBESTIDA_ESPERA
+	_embiste_presa = null
 
 
 # EL IMPACTO: el bicho se queda PARADO encajando el golpe 'dur' segundos antes de que la pantalla de
@@ -1515,8 +1517,8 @@ func _resolver_embestida() -> void:
 # cuando el reloj llega a 0.
 #
 # UN SOLO CLIENTE: tu espadazo (atacado_por_jugador), y 'dur' es lo que le queda de animacion. La
-# embestida del bicho ya NO pasa por aqui -- se resuelve al terminar su propio gesto
-# (_resolver_embestida), asi que la constante duplicada a mano de player.DUR_GOLPE que vivia aqui
+# embestida del bicho ya NO pasa por aqui -- se resuelve en el porrazo de su propio gesto
+# (_golpe_alcanza), asi que la constante duplicada a mano de player.DUR_GOLPE que vivia aqui
 # ha desaparecido con ella.
 #
 # Con 'dur' a 0 (el espadazo ya ha terminado, que es el caso normal desde el 20/09) se corta en el
@@ -1596,8 +1598,8 @@ func _cancelar_aviso() -> void:
 	_windup_timer = -1.0
 	_winding = false
 	# Y si le pilla EN MITAD del gesto, se sale de EMBESTIDA A MANO. Poner _embiste_t a 0 dejandolo en
-	# ese estado haria que el frame siguiente cayera en _resolver_embestida y abriera una pelea -- que
-	# es justo lo contrario de cancelar.
+	# ese estado haria que el frame siguiente siguiera con el gesto (y su porrazo podria abrir una pelea),
+	# que es justo lo contrario de cancelar.
 	if _state == State.EMBESTIDA:
 		_state = State.CHASE
 	_embiste_t = 0.0

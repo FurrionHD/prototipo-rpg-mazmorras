@@ -961,8 +961,8 @@ func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 		# enemy._iniciar_impacto) hasta que saltaba la pantalla, o sea que se sentia con retraso.
 		#
 		# Ahora _try_attack mira _enemigos_a_tiro() en el ULTIMO fotograma y corta en el acto: lo que
-		# cuenta es donde esta el bicho cuando el golpe termina. Misma regla que la embestida del
-		# enemigo (ver enemy._resolver_embestida), que es la otra mitad de este arreglo.
+		# cuenta es donde esta el bicho cuando el golpe termina. (La embestida del enemigo siguio esta
+		# misma regla hasta el 08/10; ahora se mira en su porrazo, ver enemy._golpe_alcanza.)
 		if _golpe_t <= 0.0 and _golpe_pendiente:
 			_golpe_pendiente = false
 			_try_attack(0.0)
