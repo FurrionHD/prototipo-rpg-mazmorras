@@ -327,6 +327,15 @@ static func precalentar(datas: Array) -> int:
 			continue      # sigue siendo un ColorRect: no hay nada que generar
 		for i in _MUESTRAS_T:
 			frames_de(ed, float(i) / float(_MUESTRAS_T - 1))
+		# Y SUS PARPADOS, los suyos y los de cada mutacion (08/10, el tiron al transformarse): esos no van horneados y se
+		# montaban en el mismo fotograma de la transformacion. Con un color basta: lo caro (leer las hojas) es igual para
+		# todos los colores y se queda guardado (Sprites3D._estructura); cada color nuevo despues solo repinta.
+		parpados_de(ed, 0.5)
+		parpados_extra_de(ed, 0.5)
+		for m in ed.mutaciones:
+			if mutante_propio(ed, m.id):
+				parpados_de(ed, 0.5, true, m.id)
+				parpados_extra_de(ed, 0.5, true, m.id)
 	return Time.get_ticks_msec() - t0
 
 
