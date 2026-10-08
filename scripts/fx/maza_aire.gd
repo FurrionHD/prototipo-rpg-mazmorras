@@ -460,7 +460,7 @@ func _dibujar_porrazo() -> void:
 		var poly := PackedVector2Array()
 		for q in _mancha:
 			poly.append(_imp + q * r_m)
-		draw_colored_polygon(poly, Color(HIERRO.lightened(0.3), 0.5 * am))
+		Poligono.relleno(self, poly, Color(HIERRO.lightened(0.3), 0.5 * am))
 		BarridoAire.brillo(self, _imp, r_m * 0.5, Color(BLANCO, 0.85 * am))
 	# 4) LA ONDA: sale POR DETRAS (hacia donde empuja el golpe), media luna rellena que se abre y se apaga.
 	var t_o: float = 0.2 if modo != Modo.CULATAZO else 0.12
@@ -532,7 +532,7 @@ func _dibujar_suelo_area() -> void:
 			# El suelo hundido alrededor del golpe y el crater.
 			for cr in _craters:
 				BarridoAire.brillo(self, cr["c"], nucleo * 1.4 + 6.0, Color(OSCURO, 0.25 * alfa))
-				draw_colored_polygon(cr["poly"], Color(OSCURO, 0.9 * alfa))
+				Poligono.relleno(self, cr["poly"], Color(OSCURO, 0.9 * alfa))
 			for g in _grietas:
 				_grieta(self, g, _centro, front, alfa)
 			# LA RESONANCIA: anillos escalonados que salen del golpe. El primero ES el frente del daño.

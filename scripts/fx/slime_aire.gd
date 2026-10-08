@@ -576,9 +576,9 @@ func _cristal(ci: CanvasItem, punta: Vector2, eje: Vector2, largo: float, ancho:
 	if color.get_luminance() < 0.25:
 		claro = Color(0.30, 0.28, 0.36)
 		oscuro = Color(0.07, 0.06, 0.10)
-	ci.draw_colored_polygon(borde, Color(oscuro.darkened(0.35), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, arriba, cola, medio]), Color(claro.lightened(0.15), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, medio, cola, abajo]), Color(oscuro.lightened(0.2), alfa))
+	Poligono.relleno(ci, borde, Color(oscuro.darkened(0.35), alfa))
+	Poligono.relleno(ci, PackedVector2Array([punta, arriba, cola, medio]), Color(claro.lightened(0.15), alfa))
+	Poligono.relleno(ci, PackedVector2Array([punta, medio, cola, abajo]), Color(oscuro.lightened(0.2), alfa))
 	ci.draw_line(punta.lerp(arriba, 0.35), medio.lerp(arriba, 0.5).lerp(cola, 0.3), Color(1, 1, 1, 0.85 * alfa), 1.0)
 
 

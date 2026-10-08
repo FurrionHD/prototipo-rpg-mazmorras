@@ -624,7 +624,7 @@ func _pintar_fuego(e: Dictionary) -> void:
 			var estira: float = 1.0 + 0.85 * maxf(0.0, dirp.dot(atras))
 			var ondeo: float = 1.0 + 0.22 * sin(t * 18.0 + float(i) * 1.7 + float(e["semilla"]))
 			puntas.append(p + dirp * rr * estira * ondeo)
-		draw_colored_polygon(puntas, Color(col.r, col.g, col.b, 0.55))
+		Poligono.relleno(self, puntas, Color(col.r, col.g, col.b, 0.55))
 		draw_circle(p, rr * 0.62, col)
 		draw_circle(p, rr * 0.34, Color(1.0, 0.95, 0.75))
 	else:
@@ -691,7 +691,7 @@ func _pintar_shock(e: Dictionary) -> void:
 			# Tres senos de frecuencias distintas: uno solo hace una flor, tres hacen un desgarron.
 			var ruido: float = 0.16 * sin(ang * 3.0 + t * 6.0 + sem) 				+ 0.10 * sin(ang * 7.0 - t * 4.0 + sem * 2.0) 				+ 0.06 * sin(ang * 13.0 + t * 9.0)
 			nucleo.append(p + Vector2(cos(ang), sin(ang)) * rr * (0.62 + ruido))
-		draw_colored_polygon(nucleo, Color(fuego.r, fuego.g, fuego.b, 0.95))
+		Poligono.relleno(self, nucleo, Color(fuego.r, fuego.g, fuego.b, 0.95))
 		# El corazon, mas claro y mas quieto: es lo que dice que ahi dentro hay temperatura.
 		draw_circle(p, rr * 0.30, Color(1.0, 0.88, 0.55, 0.95))
 		draw_circle(p, rr * 0.16, Color(1.0, 0.98, 0.88))
@@ -716,7 +716,7 @@ func _pintar_shock(e: Dictionary) -> void:
 				var ang3: float = base + f2 * 2.5
 				var gr2: float = rr * 0.18 * sin(PI * f2) * (0.6 + 0.5 * sin(f2 * 9.0 + sem))
 				banda.append(p + Vector2(cos(ang3), sin(ang3)) * (rb - gr2))
-			draw_colored_polygon(banda, Color(agua.r, agua.g, agua.b, 0.88))
+			Poligono.relleno(self, banda, Color(agua.r, agua.g, agua.b, 0.88))
 			# El filo claro de la cresta, fino: es lo que le da el brillo de agua.
 			draw_polyline(banda.slice(0, pasos + 1), Color(0.85, 0.95, 1.0, 0.75),
 				maxf(1.5, rr * 0.05), true)
@@ -869,7 +869,7 @@ func _pintar_ensarte(e: Dictionary) -> void:
 		var ancho: float = caja * 0.085
 		var hoja := PackedVector2Array([base + lat * ancho, base - lat * ancho, pta])
 		var acero := Color(col.r * 0.35 + 0.62, col.g * 0.35 + 0.62, col.b * 0.30 + 0.52)
-		draw_colored_polygon(hoja, Color(acero.r, acero.g, acero.b, 0.95 * alfa))
+		Poligono.relleno(self, hoja, Color(acero.r, acero.g, acero.b, 0.95 * alfa))
 
 	# EL AGUJERO, que se queda. Aparece cuando la punta llega y NO se va con ella: al final del efecto
 	# la hoja ya no esta y la herida si. Ese desfase es toda la habilidad.
@@ -949,7 +949,7 @@ func _anillo_dientes(c: Vector2, rad: float, cierra: float, alfa: float, col: Co
 		var raiz: Vector2 = c + dirp.rotated(ladeo) * desde
 		var pta: Vector2 = raiz - dirp.rotated(ladeo) * largo * var_i
 		var p := PackedVector2Array([raiz + lat * base, raiz - lat * base, pta])
-		draw_colored_polygon(p, Color(0.96, 0.94, 0.88, 0.95 * alfa))
+		Poligono.relleno(self, p, Color(0.96, 0.94, 0.88, 0.95 * alfa))
 	return rad
 
 
@@ -1311,10 +1311,10 @@ func _pintar_luz(e: Dictionary) -> void:
 		var ancho: float = rg * 0.30 * vida
 		# Dos capas: la pua ancha en un blanco calido, y un nucleo mas fino y mas claro encima, que
 		# es lo que le da temperatura (mismo truco que las lenguas del proyectil de fuego).
-		draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(self, PackedVector2Array([
 			b + lat * ancho, b + d * largo, b - lat * ancho,
 		]), Color(1.0, 0.93, 0.70, 0.85 * vida))
-		draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(self, PackedVector2Array([
 			b + lat * ancho * 0.42, b + d * largo * 0.92, b - lat * ancho * 0.42,
 		]), Color(blanco.r, blanco.g, blanco.b, vida))
 
@@ -1405,7 +1405,7 @@ func _pintar_luz_negra(b: Vector2, rg: float, w: float, sem: float) -> void:
 		var c3: float = pow(absf(cos(th)), 3.0) * signf(cos(th))
 		var s3: float = pow(absf(sin(th)), 3.0) * signf(sin(th))
 		hueco.append(b + Vector2(c3 * rh * 0.55, s3 * rv * 0.55))
-	draw_colored_polygon(hueco, Color(0.0, 0.0, 0.0, vida))
+	Poligono.relleno(self, hueco, Color(0.0, 0.0, 0.0, vida))
 
 	# LAS MOTAS. Mas densas cerca del centro y cada vez mas sueltas hacia las puntas, que es lo que
 	# hace que el borde se DESHAGA en vez de terminar en una linea.
@@ -1543,7 +1543,7 @@ func _pintar_gotas(e: Dictionary) -> void:
 			# Cae acelerando, desde el techo.
 			var p: Vector2 = Vector2(destino.x, lerpf(FUERA, destino.y, u * u))
 			var largo: float = r * 0.9
-			draw_colored_polygon(PackedVector2Array([
+			Poligono.relleno(self, PackedVector2Array([
 				p + Vector2(0.0, -largo),
 				p + Vector2(r * 0.28, 0.0),
 				p + Vector2(0.0, largo * 0.45),
@@ -1594,7 +1594,7 @@ func _pintar_ola(e: Dictionary) -> void:
 		var x2: float = lerpf(-1.0, 1.0, k2)
 		var cola: float = -fondo * (0.55 + 0.45 * (1.0 - absf(x2)))
 		pts.append(p + lado * x2 * ancho * 0.82 + dir * cola)
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.85 * alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, 0.85 * alfa))
 	# La CRESTA, mas clara y fina: es lo que la lee como agua y no como una mancha azul.
 	var cresta := PackedVector2Array()
 	for i in n:
@@ -1643,13 +1643,13 @@ func _pintar_ola_ignea(e: Dictionary) -> void:
 		var cola: float = -fondo * (0.55 + 0.45 * (1.0 - absf(x2)))
 		pts.append(p + lado * x2 * ancho * 0.82 + dir * cola)
 	var oscuro := Color(col.r * 0.85, col.g * 0.45, col.b * 0.30, 0.85 * alfa)
-	draw_colored_polygon(pts, oscuro)
+	Poligono.relleno(self, pts, oscuro)
 	# LA CAPA DE DENTRO: la misma figura encogida hacia el centro, mas clara. Encoger hacia 'p' y no
 	# escalar la figura entera la mantiene pegada al frente, que es donde tiene que estar lo caliente.
 	var dentro := PackedVector2Array()
 	for q in pts:
 		dentro.append(p + (q - p) * 0.62)
-	draw_colored_polygon(dentro, Color(minf(1.0, col.r + 0.15), minf(1.0, col.g + 0.35), 0.25, 0.8 * alfa))
+	Poligono.relleno(self, dentro, Color(minf(1.0, col.r + 0.15), minf(1.0, col.g + 0.35), 0.25, 0.8 * alfa))
 
 	# LAS LENGUAS del frente. Son TRIANGULOS y no una polilinea: una linea, por gruesa que sea, sigue
 	# leyendose como borde de ola. Tres cosas las separan de una sierra de dientes, y las tres hubo
@@ -1672,7 +1672,7 @@ func _pintar_ola_ignea(e: Dictionary) -> void:
 		var v2: float = sin(t * 7.3 + float(i) * 5.1 + g * 1.7)
 		var alto: float = fondo * (0.55 + 0.75 * absf(v1 * 0.6 + v2 * 0.4))
 		var media: float = ancho / float(nl) * 0.75
-		draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(self, PackedVector2Array([
 			q - lado * media, q + lado * media, q + dir * alto]), claro)
 
 	# RESCOLDOS por delante: lo que ya ha prendido antes de que llegue el frente. Se apagan con la
@@ -1820,7 +1820,7 @@ func _masa(apoyo: Vector2, rx: float, arriba: float, abajo: float,
 		var y: float = sin(ang)
 		# El radio vertical cambia segun se este dibujando la mitad de arriba o la de abajo.
 		pts.append(centro + Vector2(cos(ang) * rx, -y * (arriba if y > 0.0 else abajo)))
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, alfa))
 	# El brillo, arriba a la izquierda: es lo que le da volumen de gelatina.
 	draw_circle(centro + Vector2(-rx * 0.32, -arriba * 0.42),
 		maxf(1.0, minf(rx, maxf(arriba, 1.0)) * 0.3),
@@ -1834,7 +1834,7 @@ func _blob(p: Vector2, rx: float, ry: float, col: Color, claro: Color, alfa: flo
 	for i in n:
 		var k: float = TAU * float(i) / float(n)
 		pts.append(p + Vector2(cos(k) * rx, sin(k) * ry))
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, alfa))
 	# El brillo va ARRIBA A LA IZQUIERDA siempre: es lo que le da volumen y lo separa de una mancha.
 	draw_circle(p + Vector2(-rx * 0.3, -ry * 0.35), maxf(1.0, minf(rx, ry) * 0.32),
 		Color(claro.r, claro.g, claro.b, 0.55 * alfa))
@@ -1983,7 +1983,7 @@ func _pintar_arrastre(e: Dictionary) -> void:
 	for i in 14:
 		var ang: float = TAU * float(i) / 14.0
 		pts.append(p + lado * cos(ang) * media * 0.7 + dir * sin(ang) * r * 0.75)
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.7 * alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, 0.7 * alfa))
 
 
 # SIN ELEMENTO: un rombo girando dentro de un anillo. Se lee como "magia" sin tirar de ningun
@@ -2000,7 +2000,7 @@ func _pintar_arcano(e: Dictionary) -> void:
 	var r: float = float(e["r"]) * (1.0 + 0.08 * sin(t * 7.0)) * (1.0 + 1.5 * (1.0 - alfa))
 	var eje := Vector2(cos(g), sin(g))
 	var lado := Vector2(-eje.y, eje.x)
-	draw_colored_polygon(PackedVector2Array([
+	Poligono.relleno(self, PackedVector2Array([
 		p + eje * r, p + lado * r * 0.55, p - eje * r, p - lado * r * 0.55,
 	]), Color(col.r, col.g, col.b, alfa))
 	draw_arc(p, r * 1.25, 0.0, TAU, 24, Color(col.r, col.g, col.b, 0.5 * alfa), 2.0, true)
@@ -2166,7 +2166,7 @@ func _diente(centro: Vector2, eje: Vector2, lado: Vector2, media: float, largo_m
 	var pts := PackedVector2Array([
 		base - eje * w, base + eje * w, pta + eje * w2, pta - eje * w2,
 	])
-	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	Poligono.relleno(self, pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
 	# Contorno oscuro: sin el, un diente hueso sobre una tarjeta clara desaparece.
 	pts.append(pts[0])
 	draw_polyline(pts, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.75 * alfa), maxf(1.0, w * 0.22), true)
@@ -2227,7 +2227,7 @@ func _estrella(c: Vector2, rx: float, ry: float, filo: float, col: Color) -> voi
 		# la triangulacion fallaba ("Invalid polygon data"), asi que no se pintaba nada.
 		var f: float = maxf(1.0 - pow(absf(sin(a * 2.0)), filo), 0.02)
 		pts.append(c + Vector2(cos(a) * rx * f, sin(a) * ry * f))
-	draw_colored_polygon(pts, col)
+	Poligono.relleno(self, pts, col)
 
 
 # CHILLIDO: el unico de la familia que no muerde. Anillos que salen del que grita y BARREN la fila
@@ -2333,7 +2333,7 @@ func _surco(c: Vector2, dir: Vector2, largo: float, semi: float, sem: float, alf
 	pts.append_array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, alfa))
 	# La sangre va DENTRO y fina: manda el surco blanco. Con el hilo rojo gordo el corte se leia
 	# como una raya roja con reborde en vez de como algo que te han abierto.
 	draw_line(c - dir * largo * 0.34, c + dir * largo * 0.34,
@@ -2388,7 +2388,7 @@ func _pintar_placaje(e: Dictionary) -> void:
 		var bulto: float = 1.0 + (0.10 + 0.20 * chafa) \
 			* (sin(g * 1.7 + ang * 3.0) * 0.6 + sin(g + ang * 5.0) * 0.4)
 		pts.append(b + Vector2(cos(ang) * ancho * bulto, sin(ang) * alto * bulto))
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.85 * alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, 0.85 * alfa))
 	# El brillo arriba a la izquierda: es lo que le da volumen de gelatina y no de mancha.
 	draw_circle(b + Vector2(-ancho * 0.30, -alto * 0.38), maxf(1.5, minf(ancho, alto) * 0.30),
 		Color(claro.r, claro.g, claro.b, 0.5 * alfa))
@@ -2439,7 +2439,7 @@ func _pintar_cornada(e: Dictionary) -> void:
 	pts.append_array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
-	draw_colored_polygon(pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
+	Poligono.relleno(self, pts, Color(_HUESO.r, _HUESO.g, _HUESO.b, alfa))
 	pts.append(pts[0])
 	draw_polyline(pts, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.6 * alfa), maxf(1.0, caja * 0.02), true)
 	# EL DESGARRO en la punta, cuando ya ha enganchado. Se reusa el huso dentado del zarpazo.
@@ -2610,7 +2610,7 @@ func _pintar_golpetazo(e: Dictionary) -> void:
 		# afilado. Con el valle bajo salia un sol de puntas finas.
 		var med: float = ang + PI / float(n)
 		pts.append(b + Vector2(cos(med), sin(med) * 0.85) * largo * 0.52)
-	draw_colored_polygon(pts, Color(claro.r, claro.g, claro.b, 0.8 * alfa))
+	Poligono.relleno(self, pts, Color(claro.r, claro.g, claro.b, 0.8 * alfa))
 	# El anillo, APLASTADO y pegado a las puas. Redondo y ancho se leia como una burbuja alrededor
 	# del golpe en vez de como la onda del porrazo.
 	_anillo(b, r * (0.95 + 0.55 * v), r * (0.80 + 0.45 * v) * 0.85,
@@ -2711,7 +2711,7 @@ func _pintar_caparazon(e: Dictionary) -> void:
 	for i in n + 1:                       # y de vuelta por el izquierdo
 		var s2: float = 1.0 - float(i) / float(n)
 		eli.append(Vector2(c.x - _hw_elitro(s2) * rx, y0 + s2 * largo))
-	draw_colored_polygon(eli, quitina)
+	Poligono.relleno(self, eli, quitina)
 
 	# --- EL BRILLO: una mancha ANCHA por el lomo izquierdo, no una raya.
 	var luz := PackedVector2Array()
@@ -2721,7 +2721,7 @@ func _pintar_caparazon(e: Dictionary) -> void:
 	for i in 13:
 		var s4: float = 0.68 - 0.62 * float(i) / 12.0
 		luz.append(Vector2(c.x - _hw_elitro(s4) * rx * 0.16, y0 + s4 * largo))
-	draw_colored_polygon(luz, Color(0.78, 0.80, 0.86, 0.30 * alfa))
+	Poligono.relleno(self, luz, Color(0.78, 0.80, 0.86, 0.30 * alfa))
 
 	# --- LA COSTURA por el centro y un par de estrias por lado, cortas y pegadas a ella.
 	draw_line(Vector2(c.x, y0 + largo * 0.04), Vector2(c.x, y0 + largo * 0.94),
@@ -2749,7 +2749,7 @@ func _pintar_caparazon(e: Dictionary) -> void:
 		var s7: float = 1.0 - float(i) / 12.0
 		var w2: float = rx * (0.55 + 0.42 * s7) * (1.0 - 0.28 * pow(1.0 - s7, 2.6))
 		pro.append(Vector2(c.x - w2, y0 - ph + s7 * ph))
-	draw_colored_polygon(pro, Color(quitina.r * 1.25, quitina.g * 1.25, quitina.b * 1.25, quitina.a))
+	Poligono.relleno(self, pro, Color(quitina.r * 1.25, quitina.g * 1.25, quitina.b * 1.25, quitina.a))
 	draw_polyline(pro, canto, maxf(1.5, caja * 0.015), true)
 	# Su propio reflejo, arriba a la izquierda.
 	draw_circle(Vector2(c.x - rx * 0.34, y0 - ph * 0.55), maxf(1.5, caja * 0.05),
@@ -2767,7 +2767,7 @@ func _pintar_caparazon(e: Dictionary) -> void:
 		cd.append(p - Vector2(w3, 0.0))
 	for i in range(cd.size() - 1, -1, -1):
 		cu.append(cd[i])
-	draw_colored_polygon(cu, Color(quitina.r * 1.4, quitina.g * 1.4, quitina.b * 1.4, quitina.a))
+	Poligono.relleno(self, cu, Color(quitina.r * 1.4, quitina.g * 1.4, quitina.b * 1.4, quitina.a))
 	draw_polyline(cu, canto, maxf(1.0, caja * 0.012), true)
 
 
@@ -2847,7 +2847,7 @@ func _pintar_escudo(e: Dictionary) -> void:
 		var largo: float = caja * 0.30
 		var ancho2: float = caja * 0.19
 		var tono: float = 0.55 + 0.12 * sin(g * 1.7 + float(i) * 2.1)
-		draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(self, PackedVector2Array([
 			c - eje * largo * 0.35 - lado * ancho2, c - eje * largo * 0.35 + lado * ancho2,
 			c + eje * largo * 0.5 + lado * ancho2 * 0.6,
 			c + eje * largo * 0.5 - lado * ancho2 * 0.6,
@@ -3054,7 +3054,7 @@ func _pintar_mirada(e: Dictionary) -> void:
 		for i in 15:
 			var s2: float = 1.0 - float(i) / 14.0 * 2.0
 			ojo.append(a + Vector2(s2 * rx, ry * (1.0 - s2 * s2)))
-		draw_colored_polygon(ojo, Color(0.95, 0.95, 0.92, 0.9 * alfa))
+		Poligono.relleno(self, ojo, Color(0.95, 0.95, 0.92, 0.9 * alfa))
 		# El iris mira AL OBJETIVO: se desplaza hacia el, que es lo que lo hace inquietante.
 		var haz: Vector2 = (b - a).normalized()
 		var iris: Vector2 = a + haz * rx * 0.35
@@ -3186,11 +3186,11 @@ func _elemento_en_metal(contorno: PackedVector2Array, elem: int, col: Color, alf
 				var punta: Vector2 = p + nr * lg + lat * sin(fase * 1.6) * esc * 0.35 					- Vector2(0.0, lg * 0.35)
 				var med: Vector2 = p + nr * lg * 0.45 + lat * sin(fase) * esc * 0.18
 				var an: float = esc * 0.42
-				draw_colored_polygon(PackedVector2Array([p + lat * an, med + lat * an * 0.45,
+				Poligono.relleno(self, PackedVector2Array([p + lat * an, med + lat * an * 0.45,
 					punta, med - lat * an * 0.45, p - lat * an]),
 					Color(brasa.r, brasa.g, brasa.b, 0.55 * alfa))
 				# El corazon de la llama, mas corto y mas claro: es lo que le da temperatura.
-				draw_colored_polygon(PackedVector2Array([p + lat * an * 0.5,
+				Poligono.relleno(self, PackedVector2Array([p + lat * an * 0.5,
 					med.lerp(punta, 0.25), p - lat * an * 0.5]),
 					Color(1.0, 0.86, 0.45, 0.65 * alfa))
 			# Y las CHISPAS, que son lo unico que se despega de la pieza.
@@ -3203,7 +3203,7 @@ func _elemento_en_metal(contorno: PackedVector2Array, elem: int, col: Color, alf
 		Elementos.Elemento.AGUA:
 			# LA PELICULA: la misma silueta translucida. Sutil a proposito -- lo que se ve del agua es
 			# lo que CAE, no un tinte azul encima del metal.
-			draw_colored_polygon(contorno, Color(0.35, 0.68, 1.0, 0.20 * alfa))
+			Poligono.relleno(self, contorno, Color(0.35, 0.68, 1.0, 0.20 * alfa))
 			# LOS REGUEROS: hilos que resbalan por la cara hacia abajo, desde arriba. Es lo que dice
 			# que la pieza esta chorreando y no simplemente pintada de azul.
 			for i in 3:
@@ -3267,7 +3267,7 @@ func _elemento_en_metal(contorno: PackedVector2Array, elem: int, col: Color, alf
 			# LA CAPA QUE LO CUBRE. FLOJA de verdad (0.18): a 0.30 el escudo y la hoja salian verdes
 			# macizos y desaparecia el metal de debajo -- volvia a ser un tinte, que es lo que se
 			# estaba quitando. Lo que tiene que verse del veneno son los CHURRETONES.
-			draw_colored_polygon(contorno, Color(col.r, col.g, col.b, 0.18 * alfa))
+			Poligono.relleno(self, contorno, Color(col.r, col.g, col.b, 0.18 * alfa))
 			var hechas: int = 0
 			for i in n:
 				if hechas >= 4:
@@ -3351,7 +3351,7 @@ func _hoja(p: Vector2, dir: Vector2, largo: float, ancho: float, col: Color, alf
 	pts.append_array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
-	draw_colored_polygon(pts, Color(_ACERO.r, _ACERO.g, _ACERO.b, alfa))
+	Poligono.relleno(self, pts, Color(_ACERO.r, _ACERO.g, _ACERO.b, alfa))
 	# EL CONTORNO OSCURO ES LO QUE LA HACE VERSE. Sin el, la hoja es acero claro encima de una estela
 	# clara y las dos se funden en una cinta: no se distinguia el arma del rastro que deja.
 	var cerrado := PackedVector2Array(pts)
@@ -3454,7 +3454,7 @@ func _tajo(centro: Vector2, ang: float, largo: float, comba: float, k: float,
 		if es_rayo:
 			a2 *= 0.55 + 0.45 * absf(sin(sem * 9.0 + k * 22.0))
 		# El relleno va FLOJO: es aire cortado, no un objeto.
-		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.26 * a2))
+		Poligono.relleno(self, pts, Color(f.r, f.g, f.b, 0.26 * a2))
 		# El canto, mas vivo y fino: es por donde ha pasado el filo.
 		draw_polyline(izq, Color(f.r, f.g, f.b, 0.9 * a2), maxf(1.5, grosor * 0.38), true)
 		if es_rayo:
@@ -3593,7 +3593,7 @@ func _pintar_punalada(e: Dictionary) -> void:
 			var ang2: float = TAU * float(i) / 12.0
 			# Alargado en la direccion de entrada: por ahi ha metido la hoja.
 			pts.append(punta + lado * cos(ang2) * rx + dir * sin(ang2) * rx * 1.7)
-		draw_colored_polygon(pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3,
+		Poligono.relleno(self, pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3,
 			0.85 * alfa))
 		var cerrado := PackedVector2Array(pts)
 		cerrado.append(pts[0])
@@ -3659,13 +3659,13 @@ func _pintar_imbuir_filo(e: Dictionary) -> void:
 	# El cristal va TEÑIDO de lo que lleva dentro, no gris a secas: un frasco de veneno se ve verde
 	# aunque el vidrio no lo sea. Sin esto el bote se leia como un trozo de piedra al lado de la hoja.
 	var vidrio: Color = Color(0.30, 0.36, 0.34).lerp(col, 0.45)
-	draw_colored_polygon(cuerpo, Color(vidrio.r, vidrio.g, vidrio.b, 0.95 * alfa))
+	Poligono.relleno(self, cuerpo, Color(vidrio.r, vidrio.g, vidrio.b, 0.95 * alfa))
 	# El veneno que le queda dentro, por la mitad de abajo.
 	var dentro := PackedVector2Array()
 	for i in 9:
 		var a2: float = PI * float(i) / 8.0
 		dentro.append(bote + Vector2(cos(a2) * rb * 0.62, sin(a2) * rb * 0.72))
-	draw_colored_polygon(dentro, Color(col.r, col.g, col.b, 0.9 * alfa))
+	Poligono.relleno(self, dentro, Color(col.r, col.g, col.b, 0.9 * alfa))
 	draw_line(bote + Vector2(0.0, rb * 0.6), bote + Vector2(0.0, rb * 1.5),
 		Color(vidrio.r, vidrio.g, vidrio.b, 0.95 * alfa), maxf(2.0, rb * 0.5), true)
 
@@ -3707,7 +3707,7 @@ func _hoja_tumbada(base: Vector2, punta: Vector2, ancho: float, s0: float, s1: f
 	pts.append_array(arriba)
 	for i in range(abajo.size() - 1, -1, -1):
 		pts.append(abajo[i])
-	draw_colored_polygon(pts, Color(col.r, col.g, col.b, alfa))
+	Poligono.relleno(self, pts, Color(col.r, col.g, col.b, alfa))
 	if contorno:
 		var cerrado := PackedVector2Array(pts)
 		cerrado.append(pts[0])
@@ -3745,7 +3745,7 @@ func _pintar_desvanecer(e: Dictionary) -> void:
 			+ 0.08 * sin(g + float(i) * 5.3)
 		var r: float = caja * (0.26 + 0.14 * abre) * jiron * (1.0 + v * 0.5)
 		pts.append(b + Vector2(cos(ang) * r, sin(ang) * r * 0.78))
-	draw_colored_polygon(pts, Color(0.05, 0.04, 0.10, 0.6 * alfa * (1.0 - v * 0.8)))
+	Poligono.relleno(self, pts, Color(0.05, 0.04, 0.10, 0.6 * alfa * (1.0 - v * 0.8)))
 	# Y LOS JIRONES, aparte: hebras finas que salen despedidas al deshacerse. Van sueltas y no como
 	# picos del contorno, que es lo que convertia la mancha en una estrella.
 	if v > 0.0:
@@ -3816,7 +3816,7 @@ func _estela_punta(punta: Vector2, dir: Vector2, largo: float, col: Color, alfa:
 	var pts := PackedVector2Array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
-	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.30 * alfa))
+	Poligono.relleno(self, pts, Color(f.r, f.g, f.b, 0.30 * alfa))
 	draw_polyline(izq, Color(f.r, f.g, f.b, 0.75 * alfa), maxf(1.0, grosor * 0.45), true)
 	draw_polyline(der, Color(f.r, f.g, f.b, 0.55 * alfa), maxf(1.0, grosor * 0.35), true)
 	# EL ELEMENTO tambien en la estela, no solo en la hoja: es la mitad del recorrido y dejarla limpia
@@ -3887,7 +3887,7 @@ func _pinchazo(p: Vector2, dir: Vector2, r: float, col: Color, alfa: float) -> v
 		var a: float = TAU * float(i) / 12.0
 		# Muy estirado a lo largo (3.4) y estrecho a lo ancho: por ahi ha entrado algo fino y rapido.
 		destello.append(p + lado * cos(a) * r * 0.55 + dir * sin(a) * r * 3.4)
-	draw_colored_polygon(destello, Color(f.r, f.g, f.b, 0.40 * alfa))
+	Poligono.relleno(self, destello, Color(f.r, f.g, f.b, 0.40 * alfa))
 	# LA ONDA, corta y PERPENDICULAR al eje: es el unico trazo que se abre a lo ancho y por eso marca
 	# el punto exacto de la entrada.
 	draw_line(p - lado * r * 1.5, p + lado * r * 1.5, Color(f.r, f.g, f.b, 0.55 * alfa),
@@ -3897,7 +3897,7 @@ func _pinchazo(p: Vector2, dir: Vector2, r: float, col: Color, alfa: float) -> v
 	for i in 12:
 		var a2: float = TAU * float(i) / 12.0
 		pts.append(p + lado * cos(a2) * r + dir * sin(a2) * r * 1.8)
-	draw_colored_polygon(pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3, 0.85 * alfa))
+	Poligono.relleno(self, pts, Color(_SANGRE.r * 0.5, _SANGRE.g * 0.3, _SANGRE.b * 0.3, 0.85 * alfa))
 	var cerrado := PackedVector2Array(pts)
 	cerrado.append(pts[0])
 	draw_polyline(cerrado, Color(f.r, f.g, f.b, 0.9 * alfa), maxf(1.5, r * 0.30), true)
@@ -4469,7 +4469,7 @@ func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0
 	# VOLUMEN, que antes no habia: la cara era UN poligono gris plano y con el reborde teñido se
 	# quedaba en "un borde de color y ya". Ahora son dos tonos -- clara arriba, oscura abajo -- mas un
 	# bisel por dentro, que es lo que la hace leerse como una chapa con forma y no como una pegatina.
-	draw_colored_polygon(pts, Color(0.30, 0.33, 0.39, 0.95 * alfa))
+	Poligono.relleno(self, pts, Color(0.30, 0.33, 0.39, 0.95 * alfa))
 	var media_y: float = 0.0
 	for q2 in pts:
 		media_y += q2.y
@@ -4478,7 +4478,7 @@ func _escudo_cara(c: Vector2, r: float, col: Color, alfa: float, giro: float = 0
 	for q3 in pts:
 		# La mitad de arriba, aplastada contra la linea media: es el trozo que da la luz.
 		arriba.append(Vector2(q3.x, minf(q3.y, media_y)))
-	draw_colored_polygon(arriba, Color(0.52, 0.56, 0.63, 0.9 * alfa))
+	Poligono.relleno(self, arriba, Color(0.52, 0.56, 0.63, 0.9 * alfa))
 	var cerrado := PackedVector2Array(pts)
 	cerrado.append(pts[0])
 	# El CONTORNO va oscuro y grueso: es lo que despega la chapa del fondo.
@@ -4615,7 +4615,7 @@ func _pintar_voz_mando(e: Dictionary) -> void:
 		Color(f.r, f.g, f.b, 0.9 * alfa), maxf(2.0, caja * 0.032), true)
 	var tri := PackedVector2Array([punta + Vector2(0.0, -caja * 0.12),
 		punta + Vector2(caja * 0.11, caja * 0.06), punta + Vector2(-caja * 0.11, caja * 0.06)])
-	draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.95 * alfa))
+	Poligono.relleno(self, tri, Color(f.r, f.g, f.b, 0.95 * alfa))
 
 
 # ESTOCADA MARCIAL. Una punta limpia POR ENCIMA del escudo: es la unica de la espada larga que no
@@ -4815,7 +4815,7 @@ func _pintar_verdugo(e: Dictionary) -> void:
 				suelo + Vector2(-ancho * m * 0.35, -alto),
 				suelo + Vector2(ancho * m * 0.35, -alto),
 				suelo + Vector2(ancho * m, 0.0)])
-			draw_colored_polygon(pts, c)
+			Poligono.relleno(self, pts, c)
 	# Y TODO LO DEMAS -- el anillo, el crater, las esquirlas y los cascotes -- es el lenguaje de "algo
 	# enorme ha caido aqui", que no es de esta habilidad: lo comparte con el martillo entero.
 	_reventon_de_suelo(suelo, caja, f, alfa, w, g, 1.0)
@@ -4887,7 +4887,7 @@ func _reventon_de_suelo(suelo: Vector2, caja: float, f: Color, alfa: float, w: f
 			var a: float = TAU * float(j) / 5.0 + giro
 			var rad: float = tam * (0.75 + 0.35 * absf(sin(g + float(i) + float(j) * 2.3)))
 			roca.append(p + Vector2(cos(a) * rad, sin(a) * rad))
-		draw_colored_polygon(roca, Color(0.34, 0.31, 0.29, 0.95 * alfa * (1.0 - w * 0.8)))
+		Poligono.relleno(self, roca, Color(0.34, 0.31, 0.29, 0.95 * alfa * (1.0 - w * 0.8)))
 		var cerr := PackedVector2Array(roca)
 		cerr.append(roca[0])
 		draw_polyline(cerr, Color(0.10, 0.09, 0.11, 0.8 * alfa * (1.0 - w * 0.8)),
@@ -4962,7 +4962,7 @@ func _pintar_doble_tajo(e: Dictionary) -> void:
 			b - dir * largo * 0.5 - lado * ancho * 0.25,
 			b - lado * ancho,
 			b + dir * largo * 0.5 - lado * ancho * 0.25])
-		draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
+		Poligono.relleno(self, pts, Color(f.r, f.g, f.b, 0.55 * alfa * brillo))
 		draw_line(b - dir * largo * 0.5, b + dir * largo * 0.5,
 			Color(1.0, 0.99, 0.96, 0.95 * alfa * brillo), maxf(2.0, caja * 0.045 * brillo), true)
 	# El nucleo y las agujas, donde se cruzan los dos filos.
@@ -5066,7 +5066,7 @@ func _porrazo(b: Vector2, r: float, col: Color, alfa: float, v: float, g: float,
 	# Y el relleno va mas FLOJO (0.55): esto es el fogonazo del impacto, no una chapa blanca. Con 0.72
 	# tapaba lo que va encima -- la guardia del Aplastamiento y las patas del Rompepiernas quedaban
 	# detras de la mancha, que es lo unico que diferencia unos golpes de otros.
-	draw_colored_polygon(pts, Color(claro.r, claro.g, claro.b, 0.55 * alfa))
+	Poligono.relleno(self, pts, Color(claro.r, claro.g, claro.b, 0.55 * alfa))
 	draw_circle(b, maxf(1.5, r * 0.20), Color(1.0, 0.99, 0.96, 0.85 * alfa))
 	# EL ANILLO: la onda del porrazo. Muy achatado -- recorre la fila, no se infla como una burbuja.
 	var rr: float = r * (0.95 + 0.75 * v)
@@ -5298,7 +5298,7 @@ func _guardia_rompiendose(b: Vector2, rr: float, f: Color, alfa: float, abre: fl
 		var s: float = caja * 0.065 * (1.0 - w * 0.4)
 		var tri := PackedVector2Array([
 			p + Vector2(-s, s * 0.6), p + Vector2(s * 0.8, s * 0.2), p + Vector2(0.0, -s)])
-		draw_colored_polygon(tri, Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)))
+		Poligono.relleno(self, tri, Color(f.r, f.g, f.b, 0.8 * alfa * (1.0 - w)))
 
 
 # GRITO DE ALIENTO. No es un golpe ni va contra nadie: se pinta sobre CADA UNO DE LOS TUYOS (llega
@@ -5390,7 +5390,7 @@ func _pintar_muro_aliados(e: Dictionary) -> void:
 			c + Vector2(-an * 0.5, -alto * 0.5), c + Vector2(an * 0.5, -alto * 0.5),
 			c + Vector2(an * 0.5, alto * 0.42), c + Vector2(0.0, alto * 0.5),
 			c + Vector2(-an * 0.5, alto * 0.42)])
-		draw_colored_polygon(pts, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
+		Poligono.relleno(self, pts, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
 			0.80 * alfa * (0.45 + 0.55 * cerrado)))
 		var borde := PackedVector2Array(pts)
 		borde.append(pts[0])
@@ -5625,7 +5625,7 @@ func _pintar_hendedura(e: Dictionary) -> void:
 	var dentro := PackedVector2Array(izq)
 	for i in range(der.size() - 1, -1, -1):
 		dentro.append(der[i])
-	draw_colored_polygon(dentro, Color(0.07, 0.02, 0.03, 0.85 * alfa))
+	Poligono.relleno(self, dentro, Color(0.07, 0.02, 0.03, 0.85 * alfa))
 	# El borde, en dos pasadas: una gorda y floja (el resplandor) y otra fina y viva (el filo).
 	var halo: Color = Color(f.r, f.g, f.b, 0.30 * alfa)
 	draw_polyline(izq, halo, maxf(2.0, caja * 0.055), true)
@@ -5878,7 +5878,7 @@ func _cabeza_martillo(c: Vector2, dir: Vector2, tam: float, col: Color, alfa: fl
 		c - dir * tam * 0.42 + lado * tam * 0.95])
 	# Y EN ACERO MEDIO, no en el _ACERO claro de las hojas: a este tamaño una mancha casi blanca se
 	# lee como papel. Una masa de hierro es oscura y lo que brilla es el reflejo.
-	draw_colored_polygon(cuerpo, Color(0.46, 0.49, 0.55, alfa))
+	Poligono.relleno(self, cuerpo, Color(0.46, 0.49, 0.55, alfa))
 	var cerr := PackedVector2Array(cuerpo)
 	cerr.append(cuerpo[0])
 	draw_polyline(cerr, Color(_ENCIA.r, _ENCIA.g, _ENCIA.b, 0.9 * alfa), maxf(2.0, tam * 0.20), true)
@@ -6114,7 +6114,7 @@ func _pintar_rompecorazas(e: Dictionary) -> void:
 		var trozo := PackedVector2Array([
 			q + d1 * tam + d2 * tam * 0.22, q - d1 * tam + d2 * tam * 0.30,
 			q - d1 * tam - d2 * tam * 0.22, q + d1 * tam - d2 * tam * 0.30])
-		draw_colored_polygon(trozo, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
+		Poligono.relleno(self, trozo, Color(_ACERO_OSCURO.r, _ACERO_OSCURO.g, _ACERO_OSCURO.b,
 			0.9 * alfa * (1.0 - w * 0.8)))
 		draw_line(q + d1 * tam, q - d1 * tam, Color(f.r, f.g, f.b, 0.7 * alfa * (1.0 - w)),
 			maxf(1.0, tam * 0.22), true)
@@ -6261,7 +6261,7 @@ func _barrido_romo(centro: Vector2, ang: float, largo: float, comba: float, k: f
 	var f: Color = _filo_col(col)
 	# MATE: el relleno un poco mas fuerte que en un tajo (0.34) para que se vea la cinta, y el borde
 	# APAGADO en vez del canto vivo. Con el canto brillante esto era un espadazo, sin mas.
-	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.34 * alfa))
+	Poligono.relleno(self, pts, Color(f.r, f.g, f.b, 0.34 * alfa))
 	draw_polyline(izq, Color(f.r * 0.7, f.g * 0.7, f.b * 0.72, 0.45 * alfa),
 		maxf(1.0, grosor * 0.22), true)
 
@@ -6493,7 +6493,7 @@ func _pintar_velo_umbrio(e: Dictionary) -> void:
 			lerpf(techo, hasta, s3)))
 	# MENOS OPACO (0.52): un velo tapa pero tiene que dejar ver QUIEN lo lleva. A 0.62 el personaje
 	# desaparecia debajo y esto pasaba a ser un agujero en la pantalla.
-	draw_colored_polygon(pts, Color(0.05, 0.04, 0.08, 0.52 * alfa))
+	Poligono.relleno(self, pts, Color(0.05, 0.04, 0.08, 0.52 * alfa))
 	# El borde de abajo, un poco mas claro: es donde se ve que es una tela y no un agujero.
 	var borde := PackedVector2Array()
 	for i in n:
@@ -6715,7 +6715,7 @@ func _pintar_provocacion(e: Dictionary) -> void:
 		draw_line(punta + u * caja * 0.26, punta, Color(f.r, f.g, f.b, 0.7 * alfa * w),
 			maxf(1.5, caja * 0.022), true)
 		var perp := Vector2(-u.y, u.x)
-		draw_colored_polygon(PackedVector2Array([punta, punta + u * caja * 0.11 + perp * caja * 0.055,
+		Poligono.relleno(self, PackedVector2Array([punta, punta + u * caja * 0.11 + perp * caja * 0.055,
 			punta + u * caja * 0.11 - perp * caja * 0.055]),
 			Color(f.r, f.g, f.b, 0.85 * alfa * w))
 
@@ -6752,7 +6752,7 @@ func _pintar_guardia_carne(e: Dictionary) -> void:
 			suelo + Vector2(x - caja * 0.10, 0.0), suelo + Vector2(x + caja * 0.10, 0.0),
 			suelo + Vector2(x + caja * 0.055, -caja * 0.13),
 			suelo + Vector2(x - caja * 0.055, -caja * 0.13)])
-		draw_colored_polygon(pie, Color(f.r, f.g, f.b, 0.35 * alfa * abre))
+		Poligono.relleno(self, pie, Color(f.r, f.g, f.b, 0.35 * alfa * abre))
 		var cerr := PackedVector2Array(pie)
 		cerr.append(pie[0])
 		draw_polyline(cerr, Color(f.r, f.g, f.b, 0.7 * alfa * abre), maxf(1.5, caja * 0.018), true)
@@ -6814,7 +6814,7 @@ func _pintar_cobertura(e: Dictionary) -> void:
 			fig.append(b + Vector2(x + cos(a) * caja * 0.13, caja * 0.10 + sin(a) * alto * 0.55))
 		fig.append(b + Vector2(x + caja * 0.13, caja * 0.34))
 		fig.append(b + Vector2(x - caja * 0.13, caja * 0.34))
-		draw_colored_polygon(fig, Color(0.16, 0.17, 0.21, 0.85 * alfa))
+		Poligono.relleno(self, fig, Color(0.16, 0.17, 0.21, 0.85 * alfa))
 		var cerr := PackedVector2Array(fig)
 		cerr.append(fig[0])
 		draw_polyline(cerr, Color(f.r, f.g, f.b, 0.35 * alfa), maxf(1.0, caja * 0.014), true)
@@ -6879,7 +6879,7 @@ func _pintar_purificar(e: Dictionary) -> void:
 		var pts := PackedVector2Array([
 			b + Vector2(-an * m * 0.72, arriba), b + Vector2(an * m * 0.72, arriba),
 			b + Vector2(an * m, abajo), b + Vector2(-an * m, abajo)])
-		draw_colored_polygon(pts, Color(f.r, f.g, f.b, (0.10 + 0.07 * float(2 - capa)) * alfa))
+		Poligono.relleno(self, pts, Color(f.r, f.g, f.b, (0.10 + 0.07 * float(2 - capa)) * alfa))
 	# LO QUE SE LE SACA: motas oscuras que SUBEN por la columna y se apagan arriba. Suben y no caen:
 	# lo que se va, se va. (En el Viento limpio salen de lado; aqui salen por arriba, que es la otra
 	# forma de decir lo mismo sin repetir el dibujo.)
@@ -6981,7 +6981,7 @@ func _pintar_egida_menor(e: Dictionary) -> void:
 	for i in 6:
 		var ang: float = g * 0.3 + TAU * float(i) / 6.0 - PI * 0.5
 		pts.append(b + Vector2(cos(ang) * r * pulso, sin(ang) * r * 0.86 * pulso))
-	draw_colored_polygon(pts, Color(f.r, f.g, f.b, 0.16 * alfa * pulso))
+	Poligono.relleno(self, pts, Color(f.r, f.g, f.b, 0.16 * alfa * pulso))
 	var cerr := PackedVector2Array(pts)
 	cerr.append(pts[0])
 	draw_polyline(cerr, Color(f.r, f.g, f.b, 0.85 * alfa), maxf(2.0, caja * 0.024), true)
@@ -7104,7 +7104,7 @@ func _pintar_escolta(e: Dictionary) -> void:
 		draw_line(punta - u * caja * 0.26, punta,
 			Color(f.r, f.g, f.b, (0.85 if i == 0 else 0.55) * alfa), maxf(1.5, caja * 0.024), true)
 		var perp := Vector2(-u.y, u.x)
-		draw_colored_polygon(PackedVector2Array([punta,
+		Poligono.relleno(self, PackedVector2Array([punta,
 			punta - u * caja * 0.10 + perp * caja * 0.050,
 			punta - u * caja * 0.10 - perp * caja * 0.050]),
 			Color(f.r, f.g, f.b, (0.9 if i == 0 else 0.6) * alfa))

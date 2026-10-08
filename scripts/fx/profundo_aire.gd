@@ -329,8 +329,8 @@ static func _trozo(ci: CanvasItem, c: Vector2, tam: float, giro: float, col: Col
 	var n: Vector2 = d.orthogonal() * tam * 0.55
 	var a: Vector2 = c + d * tam
 	var b: Vector2 = c - d * tam * 0.8
-	ci.draw_colored_polygon(PackedVector2Array([a, c + n, b]), col.lightened(0.25))
-	ci.draw_colored_polygon(PackedVector2Array([a, b, c - n]), col.darkened(0.25))
+	Poligono.relleno(ci, PackedVector2Array([a, c + n, b]), col.lightened(0.25))
+	Poligono.relleno(ci, PackedVector2Array([a, b, c - n]), col.darkened(0.25))
 
 
 # UN CARAMBANO: un huso largo que acaba en punta hacia abajo, blanco arriba y azul hacia la punta.

@@ -147,7 +147,7 @@ func _dibujar_fuego() -> void:
 		var estira: float = 1.0 + 0.85 * maxf(0.0, dirp.dot(atras))
 		var ondeo: float = 1.0 + 0.22 * sin(_t * 18.0 + float(i) * 1.7 + _semilla)
 		puntas.append(dirp * r * estira * ondeo)
-	draw_colored_polygon(puntas, Color(_color.r, _color.g, _color.b, 0.55))
+	Poligono.relleno(self, puntas, Color(_color.r, _color.g, _color.b, 0.55))
 	draw_circle(Vector2.ZERO, r * 0.62, _color)
 	draw_circle(Vector2.ZERO, r * 0.34, Color(1.0, 0.95, 0.75))
 
@@ -177,7 +177,7 @@ func _dibujar_agua() -> void:
 		var x: float = lerpf(-1.0, 1.0, t)
 		var cola: float = -fondo * (0.55 + 0.45 * (1.0 - absf(x)))
 		pts.append(lado * x * ancho * 0.82 + _dir * cola)
-	draw_colored_polygon(pts, Color(_color.r, _color.g, _color.b, 0.85))
+	Poligono.relleno(self, pts, Color(_color.r, _color.g, _color.b, 0.85))
 	# La CRESTA: la misma linea de delante, mas clara y fina. Es lo que la lee como agua y no como
 	# una mancha azul.
 	var claro := Color(minf(1.0, _color.r + 0.45), minf(1.0, _color.g + 0.35),
@@ -223,7 +223,7 @@ func _dibujar_arcano() -> void:
 	var r: float = _radio * (1.0 + 0.08 * sin(_t * 7.0))
 	var eje := Vector2(cos(g), sin(g))
 	var lado := Vector2(-eje.y, eje.x)
-	draw_colored_polygon(PackedVector2Array([
+	Poligono.relleno(self, PackedVector2Array([
 		eje * r, lado * r * 0.55, -eje * r, -lado * r * 0.55,
 	]), _color)
 	draw_arc(Vector2.ZERO, r * 1.25, 0.0, TAU, 24, Color(_color.r, _color.g, _color.b, 0.5), 2.0, true)

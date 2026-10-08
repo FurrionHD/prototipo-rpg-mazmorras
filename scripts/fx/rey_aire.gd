@@ -358,7 +358,7 @@ func _pedazo(capa: Node2D) -> void:
 		var q: Vector2 = p + Vector2(cos(a) * rx, sin(a) * ry)
 		pts.append(q)
 		cols.append(Color(oscuro.lerp(color, clampf(0.5 - sin(a) * 0.5, 0.0, 1.0)), 0.88 * alfa))
-	capa.draw_polygon(pts, cols)
+	Poligono.colores(capa, pts, cols)
 	BarridoAire.brillo(capa, p + Vector2(-rx * 0.3, -ry * 0.35), rx * 0.45, Color(claro, 0.7 * alfa))
 	BarridoAire.brillo(capa, p + Vector2(-rx * 0.35, -ry * 0.45), rx * 0.18, Color(BLANCO, 0.8 * alfa))
 

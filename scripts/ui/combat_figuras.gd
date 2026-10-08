@@ -135,7 +135,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 		cursor.offset_bottom = 14.0
 		cursor.draw.connect(func() -> void:
 			var w: float = cursor.size.x
-			cursor.draw_colored_polygon(PackedVector2Array([
+			Poligono.relleno(cursor, PackedVector2Array([
 				Vector2(w * 0.5 - 9.0, 0.0), Vector2(w * 0.5 + 9.0, 0.0),
 				Vector2(w * 0.5, 12.0)]), Color(1, 1, 1, 0.9)))
 		actor_wrap.add_child(cursor)

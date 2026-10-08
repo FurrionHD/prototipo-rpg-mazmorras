@@ -401,7 +401,7 @@ func _dibujar_porrazo() -> void:
 		var poly := PackedVector2Array()
 		for q in _mancha:
 			poly.append(_imp + q * r_m)
-		draw_colored_polygon(poly, Color(MADERA_CLARA, 0.45 * am))
+		Poligono.relleno(self, poly, Color(MADERA_CLARA, 0.45 * am))
 		BarridoAire.brillo(self, _imp, r_m * 0.5, Color(MADERA_CLARA.lerp(BLANCO, 0.6), 0.8 * am))
 	# 4) LA ONDA por detras (hacia donde empuja): en el Bastonazo, dos.
 	for k in (2 if fuerte else 1):

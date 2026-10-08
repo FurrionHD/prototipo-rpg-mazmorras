@@ -298,8 +298,8 @@ func _piedra(ci: CanvasItem, p: Vector2, forma_p: PackedVector2Array, tam: float
 		var r: Vector2 = q.rotated(giro)
 		fuera.append(p + r * (tam + 0.8))
 		dentro.append(p + r * tam)
-	ci.draw_colored_polygon(fuera, Color(LOSA_BORDE, alfa))
-	ci.draw_colored_polygon(dentro, Color(cara, alfa))
+	Poligono.relleno(ci, fuera, Color(LOSA_BORDE, alfa))
+	Poligono.relleno(ci, dentro, Color(cara, alfa))
 
 
 # Las esquirlas de '_piezas' saltando desde 'desde' (t = desde que saltan), hasta caer a 'suelo_y'.
@@ -322,7 +322,7 @@ static func _grieta(ci: CanvasItem, o: Vector2, d: Vector2, largo: float, grueso
 	var n: Vector2 = d.orthogonal()
 	var codo: Vector2 = o + d * largo * 0.5 + n * largo * quiebro
 	var fin: Vector2 = o + d * largo
-	ci.draw_colored_polygon(PackedVector2Array([o + n * grueso, codo + n * grueso * 0.6, fin, codo - n * grueso * 0.6,
+	Poligono.relleno(ci, PackedVector2Array([o + n * grueso, codo + n * grueso * 0.6, fin, codo - n * grueso * 0.6,
 		o - n * grueso]), Color(LOSA_BORDE, alfa * 0.9))
 
 
@@ -661,11 +661,11 @@ func _dibujar_cuerno(ci: CanvasItem, p: Vector2, giro: float, alfa: float) -> vo
 		var w: float = ancho * (1.0 - u * 0.92)
 		fuera.append(p + (c - Vector2(0.0, w + 0.8)).rotated(giro))
 		dentro.append(p + (c - Vector2(0.0, w)).rotated(giro))
-	ci.draw_colored_polygon(fuera, Color(LOSA_BORDE, alfa))
-	ci.draw_colored_polygon(dentro, Color(HUESO, alfa))
+	Poligono.relleno(ci, fuera, Color(LOSA_BORDE, alfa))
+	Poligono.relleno(ci, dentro, Color(HUESO, alfa))
 	# La sombra de abajo y el muñon astillado de la base.
 	var base: Vector2 = p + Vector2(-largo * 0.5, 0.0).rotated(giro)
-	ci.draw_colored_polygon(PackedVector2Array([base + Vector2(0.0, -ancho).rotated(giro),
+	Poligono.relleno(ci, PackedVector2Array([base + Vector2(0.0, -ancho).rotated(giro),
 		base + Vector2(ancho * 0.6, -ancho * 0.3).rotated(giro), base + Vector2(ancho * 0.2, 0.1).rotated(giro),
 		base + Vector2(ancho * 0.7, ancho * 0.5).rotated(giro), base + Vector2(0.0, ancho).rotated(giro)]),
 		Color(HUESO_OSCURO, alfa))
@@ -764,9 +764,9 @@ func _losa(ci: CanvasItem, p: Vector2, forma_l: PackedVector2Array, tam: float, 
 		fuera.append(p + Vector2(r.x, r.y * 0.7) * (tam + 1.0) + Vector2(0.0, 1.5))
 		cara.append(p + Vector2(r.x, r.y * 0.7) * tam + Vector2(0.0, 1.5))
 		tapa.append(p + Vector2(r.x, r.y * 0.7) * tam * 0.85)
-	ci.draw_colored_polygon(fuera, Color(LOSA_BORDE, alfa))
-	ci.draw_colored_polygon(cara, Color(LOSA_CARA, alfa))
-	ci.draw_colored_polygon(tapa, Color(LOSA_TAPA, alfa))
+	Poligono.relleno(ci, fuera, Color(LOSA_BORDE, alfa))
+	Poligono.relleno(ci, cara, Color(LOSA_CARA, alfa))
+	Poligono.relleno(ci, tapa, Color(LOSA_TAPA, alfa))
 
 
 func _pisoton(capa: Node2D) -> void:
@@ -779,8 +779,8 @@ func _pisoton(capa: Node2D) -> void:
 		var hund := PackedVector2Array()
 		for q in _crater:
 			hund.append(_imp + (q - _imp) * 0.62)
-		capa.draw_colored_polygon(_crater, Color(LOSA_CARA, 0.9 * alfa))
-		capa.draw_colored_polygon(hund, Color(LOSA_BORDE, 0.9 * alfa))
+		Poligono.relleno(capa, _crater, Color(LOSA_CARA, 0.9 * alfa))
+		Poligono.relleno(capa, hund, Color(LOSA_BORDE, 0.9 * alfa))
 		# LAS GRIETAS corren del crater al borde en lo que tarda el frente.
 		var k: float = clampf(_t / T_PISOTON, 0.0, 1.0)
 		var r_c: float = clampf(_radio * 0.19, 9.0, 16.0)

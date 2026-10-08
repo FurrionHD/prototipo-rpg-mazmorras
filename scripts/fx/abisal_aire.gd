@@ -350,7 +350,7 @@ func _franja(capa: Node2D, a: Vector2, b: Vector2, ancho: float, col: Color) -> 
 	if ancho <= 0.1 or col.a <= 0.01 or a.distance_to(b) < 0.5:
 		return
 	var n: Vector2 = (b - a).normalized().orthogonal() * ancho * 0.5
-	capa.draw_colored_polygon(PackedVector2Array([a + n, b + n, b - n, a - n]), col)
+	Poligono.relleno(capa, PackedVector2Array([a + n, b + n, b - n, a - n]), col)
 	capa.draw_circle(a, ancho * 0.5, col)
 	capa.draw_circle(b, ancho * 0.5, col)
 
@@ -466,7 +466,7 @@ func _media_luna(capa: Node2D, c: Vector2, a: float, r: float, largo: float, gru
 	dentro.reverse()
 	var pv := fuera.duplicate()
 	pv.append_array(dentro)
-	capa.draw_colored_polygon(pv, col)
+	Poligono.relleno(capa, pv, col)
 	# La pincelada: trocitos del filo de fuera (rota: uno si, uno no).
 	for i in range(1, n - 1, 2):
 		capa.draw_line(fuera[i], fuera[i + 1], pincel, 1.2)
@@ -544,7 +544,7 @@ func _brazo(capa: Node2D, c: Vector2, a0: float, r: float) -> void:
 	dentro.reverse()
 	var pv := fuera.duplicate()
 	pv.append_array(dentro)
-	capa.draw_colored_polygon(pv, Color(NOCHE_CLARA, 0.85))
+	Poligono.relleno(capa, pv, Color(NOCHE_CLARA, 0.85))
 	# La sombra de dentro del brazo y su pincelada clara rota.
 	for i in range(0, n - 1, 2):
 		capa.draw_line(fuera[i], fuera[i + 1], Color(PINCEL, 0.6), 1.3)

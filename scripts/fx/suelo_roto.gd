@@ -478,9 +478,9 @@ func _dibujar_grietas(front: float, a: float) -> void:
 	var llega: float = front * _radio
 	# El HUNDIMIENTO: el suelo de dentro del borde algo mas oscuro, en cuanto el frente pasa el borde.
 	if llega >= _r_borde:
-		draw_colored_polygon(_borde, Color(OSCURO, 0.22 * a))
+		Poligono.relleno(self, _borde, Color(OSCURO, 0.22 * a))
 	if _crater.size() >= 3:
-		draw_colored_polygon(_crater, Color(OSCURO, 0.85 * a))
+		Poligono.relleno(self, _crater, Color(OSCURO, 0.85 * a))
 	for g in _grietas:
 		var pts: PackedVector2Array = _recortar(g["pts"], front)
 		if pts.size() < 2:
@@ -650,9 +650,9 @@ func _dibujar_fragmentos(front: float, a: float) -> void:
 		var cara := PackedVector2Array()
 		for p in poly:
 			cara.append(c + (p - c) * float(l["encoge"]))
-		draw_colored_polygon(_desplazar(cara, Vector2(0, 1.5)), Color(OSCURO, 0.7 * a))
+		Poligono.relleno(self, _desplazar(cara, Vector2(0, 1.5)), Color(OSCURO, 0.7 * a))
 		var arriba: PackedVector2Array = _desplazar(cara, Vector2(0, -h))
-		draw_colored_polygon(arriba, Color(1, 1, 1, 0.10 * a))
+		Poligono.relleno(self, arriba, Color(1, 1, 1, 0.10 * a))
 		var borde := arriba.duplicate()
 		borde.append(arriba[0])
 		draw_polyline(borde, Color(LABIO, 0.35 * a), 1.0)
@@ -670,7 +670,7 @@ func _dibujar_fragmentos(front: float, a: float) -> void:
 		draw_polyline(pts2, Color(OSCURO, 0.9 * a), 1.8)
 	# 3) El agujero del golpe.
 	if _crater.size() >= 3:
-		draw_colored_polygon(_crater, Color(OSCURO, 0.9 * a))
+		Poligono.relleno(self, _crater, Color(OSCURO, 0.9 * a))
 	# 4) Las piedrecitas que saltan de cada losa al llegarle el frente.
 	for l in _losas:
 		var d2: float = float(l["d"])
@@ -768,7 +768,7 @@ func _generar_estallido() -> void:
 
 func _dibujar_estallido(front: float, a: float) -> void:
 	if _crater.size() >= 3:
-		draw_colored_polygon(_crater, Color(OSCURO, 0.9 * a))
+		Poligono.relleno(self, _crater, Color(OSCURO, 0.9 * a))
 		var borde := _crater.duplicate()
 		borde.append(_crater[0])
 		draw_polyline(_desplazar(borde, Vector2(0.6, 1.2)), Color(LABIO, 0.4 * a), 1.2)
@@ -845,7 +845,7 @@ func _dibujar_geiser() -> void:
 		var cara := PackedVector2Array()
 		for q in pz["poly"]:
 			cara.append(c3 + (q as Vector2).rotated(rot))
-		_geiser.draw_colored_polygon(cara, PIEDRA)
+		Poligono.relleno(_geiser, cara, PIEDRA)
 		_geiser.draw_line(cara[0], cara[1], PIEDRA_LUZ, 1.0)
 
 

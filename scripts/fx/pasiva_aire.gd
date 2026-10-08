@@ -454,8 +454,8 @@ func _esquirlas(capa: Node2D) -> void:
 		var v0 := Vector2(cos(a), sin(a)) * tam * 1.3
 		var v1 := Vector2(cos(a + 2.3), sin(a + 2.3)) * tam * 0.7
 		var v2 := Vector2(cos(a - 2.3), sin(a - 2.3)) * tam * 0.7
-		capa.draw_colored_polygon(PackedVector2Array([pos + v0, pos + v1, pos + v2]), Color(_color.darkened(0.25), alfa))
-		capa.draw_colored_polygon(PackedVector2Array([pos + v0 * 0.7, pos + v1 * 0.5, pos + (v2 * 0.3)]),
+		Poligono.relleno(capa, PackedVector2Array([pos + v0, pos + v1, pos + v2]), Color(_color.darkened(0.25), alfa))
+		Poligono.relleno(capa, PackedVector2Array([pos + v0 * 0.7, pos + v1 * 0.5, pos + (v2 * 0.3)]),
 			Color(Color.WHITE.lerp(_color, 0.35), alfa))
 
 

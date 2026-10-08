@@ -380,9 +380,9 @@ func _piedra(ci: CanvasItem, p: Vector2, forma: PackedVector2Array, tam: float, 
 		var r: Vector2 = q.rotated(giro)
 		fuera.append(p + r * (tam + 0.8))
 		dentro.append(p + r * tam)
-	ci.draw_colored_polygon(fuera, Color(_borde, alfa))
-	ci.draw_colored_polygon(dentro, Color(_barro, alfa))
-	ci.draw_colored_polygon(PackedVector2Array([dentro[0], dentro[1], p]), Color(_claro, alfa))
+	Poligono.relleno(ci, fuera, Color(_borde, alfa))
+	Poligono.relleno(ci, dentro, Color(_barro, alfa))
+	Poligono.relleno(ci, PackedVector2Array([dentro[0], dentro[1], p]), Color(_claro, alfa))
 
 
 func _aplaston(capa: Node2D) -> void:
@@ -449,8 +449,8 @@ func _pegotes(capa: Node2D) -> void:
 		for q in (g["forma"] as PackedVector2Array):
 			fuera.append(p + q * (tam + 0.8))
 			dentro.append(p + q * tam)
-		capa.draw_colored_polygon(fuera, Color(_borde, alfa))
-		capa.draw_colored_polygon(dentro, Color(_barro.darkened(0.2), alfa))
+		Poligono.relleno(capa, fuera, Color(_borde, alfa))
+		Poligono.relleno(capa, dentro, Color(_barro.darkened(0.2), alfa))
 
 
 # ------------------------------------------------------------
@@ -668,7 +668,7 @@ func _petrea(capa: Node2D) -> void:
 			var c: Vector2 = _pies + Vector2(cx, -alto * 0.35)
 			var h: float = alto * 0.3
 			var w: float = mitad * 0.28
-			capa.draw_colored_polygon(PackedVector2Array([c + Vector2(-w, 0.0), c + Vector2(0.0, -h),
+			Poligono.relleno(capa, PackedVector2Array([c + Vector2(-w, 0.0), c + Vector2(0.0, -h),
 				c + Vector2(w * 1.1, 0.2), c + Vector2(0.3, h * 0.6)]), Color(_barro, 0.8 * alfa))
 		return
 	if capa == _suelo and _t > T_PETREA * 0.7:
@@ -922,7 +922,7 @@ func _grieta(capa: CanvasItem, o: Vector2, d: Vector2, largo: float, grueso: flo
 	var n: Vector2 = d.orthogonal()
 	var codo: Vector2 = o + d * largo * 0.5 + n * largo * 0.12
 	var fin: Vector2 = o + d * largo
-	capa.draw_colored_polygon(PackedVector2Array([o + n * grueso, codo + n * grueso * 0.6, fin, codo - n * grueso * 0.6,
+	Poligono.relleno(capa, PackedVector2Array([o + n * grueso, codo + n * grueso * 0.6, fin, codo - n * grueso * 0.6,
 		o - n * grueso]), Color(_borde.darkened(0.3), alfa))
 
 
@@ -1023,7 +1023,7 @@ func _losa(ci: CanvasItem, p: Vector2, forma_l: PackedVector2Array, tam: float, 
 		fuera.append(p + Vector2(r.x, r.y * 0.7) * (tam + 1.0) + Vector2(0.0, 1.5))
 		cara.append(p + Vector2(r.x, r.y * 0.7) * tam + Vector2(0.0, 1.5))
 		tapa.append(p + Vector2(r.x, r.y * 0.7) * tam * 0.85)
-	ci.draw_colored_polygon(fuera, Color(_borde, alfa))
-	ci.draw_colored_polygon(cara, Color(_barro.darkened(0.25), alfa))
+	Poligono.relleno(ci, fuera, Color(_borde, alfa))
+	Poligono.relleno(ci, cara, Color(_barro.darkened(0.25), alfa))
 	# La tapa CLARA: sobre el suelo oscuro de la mazmorra, una losa gris medio no se distinguia.
-	ci.draw_colored_polygon(tapa, Color(_claro, alfa))
+	Poligono.relleno(ci, tapa, Color(_claro, alfa))

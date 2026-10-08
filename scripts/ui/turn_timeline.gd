@@ -122,7 +122,7 @@ func anadir(c: Combatant, color: Color, material: ShaderMaterial, texto: String)
 	flecha.size = Vector2(FLECHA_LARGO, marco.size.y)
 	flecha.draw.connect(func() -> void:
 		var h: float = flecha.size.y
-		flecha.draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(flecha, PackedVector2Array([
 			Vector2(0.0, h * 0.5), Vector2(FLECHA_LARGO, h * 0.5 - 9.0),
 			Vector2(FLECHA_LARGO, h * 0.5 + 9.0)]), Color(1, 1, 1, 0.9)))
 	marco.add_child(flecha)
@@ -219,7 +219,7 @@ func _draw() -> void:
 			continue
 		var alfa: float = 1.0 - float(e["t"]) / T_ESTELA
 		var n: Vector2 = (p1 - p0).normalized().orthogonal() * RADIO * 0.7
-		draw_polygon(PackedVector2Array([p0, p1 + n, p1 - n]),
+		Poligono.colores(self, PackedVector2Array([p0, p1 + n, p1 - n]),
 			PackedColorArray([Color(ESTELA_C, 0.0), Color(ESTELA_C, 0.75 * alfa), Color(ESTELA_C, 0.75 * alfa)]))
 	# Punto de accion: una marca ATRAVESADA en el extremo de llegada, y su etiqueta al lado de
 	# fuera (en vertical, encima; tumbada, por encima de la linea como siempre).
