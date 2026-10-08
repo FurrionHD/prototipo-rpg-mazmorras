@@ -106,7 +106,10 @@ const MAX_CONEXIONES := 32
 # 30 (07/10): los mutantes del REY SLIME. Estado nuevo DECRETO (al final del enum), estilos de golpe CombatFX.REY_DECRETO
 #     /REY_TRIBUTO (208/209), suelo SueloRoto.REY_ESQUIRLAS (104) y piezas de charco de estilo 9/10 (esquirlas clavadas y
 #     pedazos). Un build del 29 no los conoce.
-const PROTOCOLO := 30
+# 31 (08/10): el TALLER AL INSTANTE. El baul compartido ya no se presta entero con candado: viajan DELTAS
+#     (_delta_al_host / _aplicar_delta / _avisar_tarde; fuera _pedir_taller, _taller_ok, _taller_no, _soltar_taller).
+#     Tambien: las RUNAS en serializar_equipo, materiales de tipo RUNA y la Voluntad / ataques magicos de las fases 1-4.
+const PROTOCOLO := 31
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -624,7 +627,8 @@ func desconectar() -> void:
 	hogar._roster_mirror = []
 	hogar._cofre_consum_mirror = {}
 	hogar._taller_dueno = 0
-	hogar._taller_resp = 0
+	hogar._foto_activa = false
+	hogar._foto_taller = {}
 	hogar._reservas.clear()
 	hogar._mi_reserva_local.clear()
 	_mi_lugar = "pueblo"

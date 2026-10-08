@@ -57,14 +57,11 @@ var _hogar_sucio: bool = false
 var _almacen_solo: Array = []
 var _almacen_guardado := false
 
-# --- BAUL de materiales COMPARTIDO (hito 4): con CANDADO de taller (uno craftea a la vez) ---
-# El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR
-# (solo para mostrar/validar). Para craftear/depositar hay que COGER el candado: mientras lo
-# tienes, el host te PRESTA el baul autoritativo en tu Game.almacen_materiales local y crafteas
-# con el codigo de siempre; al soltarlo, tu baul vuelve al host y se difunde a los mirrors. Solo
-# uno a la vez -> cero doble-gasto, cero refactor del crafteo. Igual que el "esta ocupado" de las vetas.
-var _taller_dueno: int = 0     # peer que tiene el candado (host lo arbitra); 0 = libre
-var _taller_resp: int = 0      # cliente: respuesta pendiente (0 esperando, 1 concedido, -1 ocupado)
+# --- BAUL de materiales COMPARTIDO (hito 4) ---
+# El baul "de verdad" es el del host (Game.almacen_materiales). Los clientes tienen un MIRROR en el suyo. Desde el
+# 08/10/2026 cada uno craftea sobre su copia AL INSTANTE y solo viaja lo que cambia (ver "EL TALLER, AL INSTANTE",
+# abrir_taller / cerrar_taller). Antes habia un candado que prestaba el baul ENTERO y tardaba segundos.
+var _taller_dueno: int = 0     # mi id mientras dura una accion de taller (tengo_taller); 0 = ninguna
 
 # --- RESERVA de materiales EN VIVO (profesiones concurrentes) --------------------------------
 # Los dos entran a la vez en el herrero/peletero/boticaria. Mientras uno tiene material SELECCIONADO
@@ -1052,84 +1049,186 @@ func _cargar_almacen(arr: Array) -> void:
 	Game.almacen_materiales = lista
 
 
-# La llama un menu de taller (herrero/carpintero/boticaria/peletero) al abrir, o una accion
-# suelta (depositar/vender del hogar) antes de tocar el baul. true = tienes el taller y tu
-# Game.almacen_materiales YA es el baul autoritativo; false = esta ocupado por tu companero.
-# ¿Lo tiene prestado OTRO? Solo el host puede preguntarlo con sentido (es quien arbitra el candado).
-# Lo usa el cobro de un encargo para no pisar el almacen comun mientras alguien craftea.
+# ------------------------------------------------------------
+#  EL TALLER, AL INSTANTE (08/10/2026, lo pidio el usuario: "tiene que ser instant incluso por red").
+#  Antes, cada accion de un CLIENTE pedia el candado al host y ESPERABA a que le prestara el baul ENTERO; al soltarlo lo
+#  devolvia entero y el host lo repartia entero a todos: tres viajes de ~19.000 materiales por gastar 6 babas (unos 5 s).
+#
+#  Ahora cada uno toca SU copia del baul (el cliente ya tiene el espejo del host en Game.almacen_materiales) sin esperar
+#  a nadie, y al acabar se manda SOLO LO QUE HA CAMBIADO: abrir_taller saca una FOTO (cuantos hay de cada material y
+#  calidad) y cerrar_taller compara y manda el DELTA (lo que se fue y lo que llego). El host lo aplica a su baul (que es
+#  el bueno) y lo reparte a los demas, tambien en delta.
+#
+#  Si dos gastan a la vez lo ULTIMO de algo y no llega para los dos (raro, y solo entre compañeros), el host gasta lo que
+#  hay, avisa al que llego tarde y le manda el baul bueno entero para que se recoloque.
+#
+#  Lo de los menus no cambia: siguen llamando abrir_taller / cerrar_taller como siempre (y con 'await', que ahora no
+#  espera nada).
+# ------------------------------------------------------------
+var _foto_taller: Dictionary = {}   # clave -> [cuantos, un MaterialItem de muestra] al abrir el taller
+var _foto_activa := false
+# Los menus que dejan el baul ABIERTO mientras estan abiertos (la pestaña de materiales del hogar, vender en la tienda)
+# publican lo pendiente cada PUBLICAR_CADA s, para que el compañero lo vea al momento y no al cerrar.
+const PUBLICAR_CADA := 0.5
+var _desde_publicar: float = 0.0
+
+
+# (lo llama el _process de abajo, el del hogar sucio: un nodo solo tiene uno)
+func _tick_publicar(delta: float) -> void:
+	if not _foto_activa or not Net.activo:
+		return
+	_desde_publicar += delta
+	if _desde_publicar < PUBLICAR_CADA:
+		return
+	_desde_publicar = 0.0
+	_publicar_pendiente()
+
+
+# Manda lo que ha cambiado desde la foto y saca una nueva, SIN cerrar la accion.
+func _publicar_pendiente() -> void:
+	var ahora: Dictionary = _conteo_almacen()
+	var delta: Dictionary = _delta(_foto_taller, ahora)
+	_foto_taller = ahora
+	_mandar_delta(delta)
+
+
+func _mandar_delta(delta: Dictionary) -> void:
+	if (delta["quitar"] as Array).is_empty() and (delta["poner"] as Array).is_empty():
+		return
+	if Net.es_host:
+		_aplicar_delta.rpc(delta["quitar"], delta["poner"])   # a todos los espejos
+		Net.hogar_cambiado.emit()
+	else:
+		_delta_al_host.rpc_id(1, delta["quitar"], delta["poner"])
+
+
+# (Ya no hay candado que coger: nadie esta "ocupado". Se queda por quien lo pregunta, el cobro de encargos.)
 func taller_ocupado() -> bool:
-	return Net.activo and Net.es_host and _taller_dueno != 0 and _taller_dueno != 1
+	return false
 
 
 func abrir_taller() -> bool:
 	if not Net.activo:
 		return true   # solitario: el baul es tuyo y punto
-	if Net.es_host:
-		if _taller_dueno != 0 and _taller_dueno != 1:
-			return false
-		_taller_dueno = 1
-		return true
-	# Cliente: pedir al host y esperar respuesta.
-	_taller_resp = 0
-	_pedir_taller.rpc_id(1)
-	var t := 0.0
-	while _taller_resp == 0 and t < 5.0:
-		await get_tree().process_frame
-		t += get_process_delta_time()
-	return _taller_resp == 1
+	if _foto_activa:
+		cerrar_taller()   # una accion anterior que no cerro: lo suyo se manda antes de empezar otra
+	_foto_taller = _conteo_almacen()
+	_foto_activa = true
+	_desde_publicar = 0.0
+	_taller_dueno = multiplayer.get_unique_id()   # tengo_taller() -> true mientras dura la accion
+	return true
 
 
-@rpc("any_peer", "call_remote", "reliable")
-func _pedir_taller() -> void:
-	if not Net.es_host:
-		return
-	var quien := multiplayer.get_remote_sender_id()
-	if _taller_dueno != 0 and _taller_dueno != quien:
-		_taller_no.rpc_id(quien)
-		return
-	_taller_dueno = quien
-	_taller_ok.rpc_id(quien, _almacen_dicts())   # le PRESTO el baul autoritativo
-
-
-@rpc("authority", "call_remote", "reliable")
-func _taller_ok(bag: Array) -> void:
-	_cargar_almacen(bag)   # mi Game.almacen_materiales pasa a ser el baul de verdad
-	# Marco que el candado es MIO: _taller_dueno hace de "¿lo tengo yo?" local (lo lee tengo_taller,
-	# que gatea depositar/vender/craftear del baul compartido) Y de escudo contra que un _set_almacen
-	# me pise el baul a media edicion. Sin esto, en el cliente se quedaba en 0 y tengo_taller devolvia
-	# false aunque tuviera el baul prestado: guardar materiales decia "0" y no depositaba nada.
-	_taller_dueno = multiplayer.get_unique_id()
-	_taller_resp = 1
-
-
-@rpc("authority", "call_remote", "reliable")
-func _taller_no() -> void:
-	_taller_resp = -1
-
-
-# La llama el menu al cerrar (o la accion suelta al terminar): devuelve el baul y suelta el candado.
+# Al acabar la accion: manda lo que ha cambiado (nada si no ha cambiado nada).
 func cerrar_taller() -> void:
 	if not Net.activo:
 		return
-	if Net.es_host:
-		if _taller_dueno == 1:
-			_taller_dueno = 0
-			_difundir_almacen()   # mi baul (ya modificado) va a los mirrors
-	else:
-		_soltar_taller.rpc_id(1, _almacen_dicts())
-		_taller_dueno = 0   # ya lo solte: dejo de "tenerlo" y el _set_almacen del host vuelve a valer
+	_taller_dueno = 0
+	if not _foto_activa:
+		return
+	_foto_activa = false
+	var delta: Dictionary = _delta(_foto_taller, _conteo_almacen())
+	_foto_taller = {}
+	_mandar_delta(delta)
 
 
+# La CLAVE de un material en el baul: lo que lo distingue de otro (su ficha, su calidad y su talla si es un pez).
+static func _clave(m: MaterialItem) -> String:
+	return "%s|%d|%.2f" % [m.data.resource_path if m.data != null else "", int(m.calidad), m.cm]
+
+
+func _conteo_almacen() -> Dictionary:
+	var out: Dictionary = {}
+	for m in Game.almacen_materiales:
+		if m == null:
+			continue
+		var k: String = _clave(m)
+		var e: Array = out.get(k, [0, m])
+		e[0] = int(e[0]) + 1
+		out[k] = e
+	return out
+
+
+# {quitar: [[dict, n]], poner: [[dict, n]]} de 'antes' a 'despues'.
+func _delta(antes: Dictionary, despues: Dictionary) -> Dictionary:
+	var quitar: Array = []
+	var poner: Array = []
+	for k in antes:
+		var n: int = int(antes[k][0]) - int(despues.get(k, [0])[0])
+		if n > 0:
+			quitar.append([Net.suelo._item_a_dict(antes[k][1]), n])
+	for k in despues:
+		var n: int = int(despues[k][0]) - int(antes.get(k, [0])[0])
+		if n > 0:
+			poner.append([Net.suelo._item_a_dict(despues[k][1]), n])
+	return {"quitar": quitar, "poner": poner}
+
+
+# Aplica un delta a MI baul. Devuelve cuantas unidades no se pudieron quitar (no habia).
+func _aplicar_delta_local(quitar: Array, poner: Array) -> int:
+	var faltan: int = 0
+	for q in quitar:
+		var it: MaterialItem = Net.suelo._item_de_dict(q[0]) as MaterialItem
+		if it == null:
+			continue
+		var k: String = _clave(it)
+		var restan: int = int(q[1])
+		var i: int = Game.almacen_materiales.size() - 1
+		while i >= 0 and restan > 0:
+			var m: MaterialItem = Game.almacen_materiales[i]
+			if m != null and _clave(m) == k:
+				Game.almacen_materiales.remove_at(i)
+				restan -= 1
+			i -= 1
+		faltan += restan
+		# Si estoy a media accion, lo que me cambia OTRO no es mio: se descuenta tambien de la foto, o lo
+		# reenviaria como si lo hubiera gastado yo.
+		if _foto_activa and _foto_taller.has(k):
+			_foto_taller[k][0] = maxi(0, int(_foto_taller[k][0]) - (int(q[1]) - restan))
+	for p in poner:
+		for _n in int(p[1]):
+			var it: MaterialItem = Net.suelo._item_de_dict(p[0]) as MaterialItem
+			if it == null:
+				break
+			Game.almacen_materiales.append(it)
+			if _foto_activa:
+				var k2: String = _clave(it)
+				var e: Array = _foto_taller.get(k2, [0, it])
+				e[0] = int(e[0]) + 1
+				_foto_taller[k2] = e
+	return faltan
+
+
+# HOST: lo que ha gastado/añadido un cliente. Se aplica al baul bueno y se reparte a los DEMAS (el que lo manda ya lo
+# tiene). Si no llegaba (gasto a la vez que otro), se le corrige entero.
 @rpc("any_peer", "call_remote", "reliable")
-func _soltar_taller(bag: Array) -> void:
+func _delta_al_host(quitar: Array, poner: Array) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
-	if _taller_dueno != quien:
-		return
-	_cargar_almacen(bag)   # el host adopta el baul que devuelve el cliente
-	_taller_dueno = 0
-	_difundir_almacen()
+	var faltan: int = _aplicar_delta_local(quitar, poner)
+	for p in multiplayer.get_peers():
+		if p != quien:
+			_aplicar_delta.rpc_id(p, quitar, poner)
+	if faltan > 0:
+		print("[hogar] %d unidades que gasto %d ya no estaban (se gastaron a la vez): le corrijo el baul" % [faltan, quien])
+		_set_almacen.rpc_id(quien, _almacen_dicts())
+		_avisar_tarde.rpc_id(quien)
+	Net.hogar_cambiado.emit()
+
+
+# CLIENTE: un delta del host (lo que ha hecho otro).
+@rpc("authority", "call_remote", "reliable")
+func _aplicar_delta(quitar: Array, poner: Array) -> void:
+	_aplicar_delta_local(quitar, poner)
+	Net.hogar_cambiado.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _avisar_tarde() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud != null and hud.has_method("mostrar_toast"):
+		hud.mostrar_toast("Tu compañero gastó a la vez parte de ese material: el baúl se ha recolocado.")
 
 
 # ¿Tengo YO el candado del taller ahora mismo? (o estoy en solitario). Lo consulta Game antes de
@@ -1278,7 +1377,8 @@ func _mismas_reservas(a: Dictionary, b: Dictionary) -> bool:
 
 # EL HOGAR, agrupado por frame (ver _hogar_sucio): publicar tu equipo no tiene nada que ver con estar en
 # la mazmorra, asi que no mira ni si soy host ni si hay expedicion.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_tick_publicar(delta)   # el baul abierto publica lo pendiente (ver EL TALLER, AL INSTANTE)
 	if not _hogar_sucio:
 		return
 	_hogar_sucio = false

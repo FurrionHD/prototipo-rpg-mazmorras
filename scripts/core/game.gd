@@ -5525,6 +5525,8 @@ func recoger_encargo(id: int) -> Dictionary:
 		return {"ocupado": true}
 
 	var n_mat: int = 0
+	# El material entra en el baul COMUN: en multi, como una accion de taller mas (solo viaja lo que llega).
+	var en_red: bool = Net.activo and Net.hogar.abrir_taller()
 	for b in (e.get("botin", []) as Array):
 		var data: MaterialData = load(String((b as Dictionary)["ruta"])) as MaterialData
 		if data == null:
@@ -5536,6 +5538,8 @@ func recoger_encargo(id: int) -> Dictionary:
 			almacen_materiales.append(it)
 			n_mat += 1
 		descubrir(data)
+	if en_red:
+		Net.hogar.cerrar_taller()
 
 	# LOS CRISTALES SE VENDEN AL RECOGER, al precio de la tienda, y el dinero va a la HUCHA del hogar:
 	# es de la casa, no de ningun jugador (asi no hay que repartir por quien mando a quien). Solo lo
