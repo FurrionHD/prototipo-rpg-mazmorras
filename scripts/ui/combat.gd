@@ -1050,15 +1050,16 @@ func _ready() -> void:
 		intro += "  (Agotados: %s empiezan más lentos)" % ", ".join(cansados)
 	_set_log(intro)
 
-	# Marca de INICIO en consola (para separar combates al montar los Excel).
+	# Marca de INICIO en consola (para separar combates al montar los Excel). La vida y el mana con los que EMPIEZA cada
+	# uno, sobre su maximo (08/10: solo salia el maximo, y en el log parecia que cada pelea empezaba a tope).
 	var quien: String = "enemigo" if _enemy_initiated else "jugador"
 	var rivales: PackedStringArray = []
 	for e in _enemies:
-		rivales.append("%s (Nv.%d) HP %.2f" % [e.nombre, e.level, e.max_hp])
+		rivales.append("%s (Nv.%d) HP %.2f/%.2f" % [e.nombre, e.level, e.current_hp, e.max_hp])
 	var mios: PackedStringArray = []
 	for c in _aliados:
-		mios.append("%s HP %.2f%s" % [c.nombre, c.max_hp,
-			("" if c.max_mp <= 0.0 else " MP %.2f" % c.max_mp)])
+		mios.append("%s HP %.2f/%.2f%s" % [c.nombre, c.current_hp, c.max_hp,
+			("" if c.max_mp <= 0.0 else " MP %.2f/%.2f" % [c.current_mp, c.max_mp])])
 	print("[combate] ===== INICIO vs %s | %s | iniciativa: %s =====" % [
 		" + ".join(rivales), " + ".join(mios), quien])
 
