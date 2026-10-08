@@ -615,10 +615,10 @@ static func resolve_spell(attacker: Combatant, defender: Combatant, spell: Spell
 	# lo que aporte su Magia. Antes se pasaba 0.0 a pelo, y como ademas ningun enemigo tenia
 	# Magia, la defensa magica era CERO: los hechizos entraban a raw limpio mientras los
 	# golpes fisicos si se mitigaban. Por eso la magia parecia rota (lo estaba).
-	var def_ab := defender.abilities_eff()
-	var magic_def := magic_jugador(def_ab, defender.base_magic) if defender.stats_multiplicativas \
-		else magic_value(def_ab, defender.level, defender.base_magic)
+	var magic_def := defender.mdef_value()
 	var dmg := damage(magic_atk, magic_def)
+	# Y el % de la armadura CONTRA LA MAGIA (08/10/2026), con el mismo techo que el fisico.
+	dmg *= 1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)
 	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
 	# CRITICO MAGICO. Mismo CONTEST que el fisico (tu Destreza contra la Agilidad del que lo recibe):
 	# el critico es "encontrar el hueco", y eso no cambia porque lo que lances sea una bola de fuego.

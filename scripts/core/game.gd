@@ -8728,7 +8728,9 @@ func _aplicar_loadout(c: Combatant, pj: PersonajeData = null) -> void:
 	# velocidad + esquiva (Evasion) + resist. criticos (ResistCrit).
 	var am := armor_mods(p)
 	c.extra_defense = am["def_bonus"]
+	c.extra_magic_def = am["mdef_bonus"]
 	c.armor_reduction = am["reduction"]
+	c.armor_reduction_magica = am["reduction_magica"]
 	c.velocidad_mult = float(m["velocidad_mult"]) * float(am["velocidad_mult"])
 	c.crit_resist = float(am["crit_resist"])
 	# Resist. a estados: un SUELO propio de la carne (RESIST_ESTADOS_BASE) mas la de la armadura
@@ -9069,7 +9071,9 @@ func _quitar_a_los_demas(item: Resource, dueno: PersonajeData) -> void:
 func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	var p: PersonajeData = pj if pj != null else lider()
 	var def_bonus := 0.0
+	var mdef_bonus := 0.0    # DEF MAGICA de la armadura (08/10/2026), como la fisica
 	var reduction := 0.0
+	var reduction_magica := 0.0   # % contra la magia, al reves que la fisica (ver ArmorData)
 	var vel_delta := 0.0     # suma ponderada de (velocidad_mult - 1)
 	var evasion := 0.0       # esquiva de armadura (mejora Evasion, ligeras/medias)
 	var crit_resist := 0.0   # resist. criticos (mejora ResistCrit, pesadas)
@@ -9099,7 +9103,9 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 		# Solo toca lo defensivo (DEF y reduccion), no la esquiva/velocidad/identidad.
 		var dur_mult: float = durabilidad_mult(durabilidad_slot(slot, p))
 		def_bonus += float(pm["def"]) * dur_mult             # DEF (tier×rareza×mejoras), sin techo
+		mdef_bonus += float(pm["mdef"]) * dur_mult           # DEF magica, igual
 		reduction += cob * float(pm["reduccion"]) * dur_mult # media ponderada (cobertura suma 1.0)
+		reduction_magica += cob * float(pm["reduccion_magica"]) * dur_mult
 		vel_delta += cob * (float(pm["vel_mult"]) - 1.0)     # velocidad ponderada
 		evasion += float(pm["evasion"])
 		cap_evasion += cob * Upgrades.cap_evasion_tipo(int(pieza.tipo))
@@ -9111,6 +9117,7 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	# Los topes agregados suben con la MEJOR rareza equipada (la reduccion NO: es de tipo, y su
 	# techo es de balance, no de calidad).
 	reduction = clampf(reduction, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
+	reduction_magica = clampf(reduction_magica, 0.0, StatsMath.ARMOR_REDUCTION_MAX)
 	# El tope de esquiva depende de la CLASE de lo que llevas puesto (ver Upgrades.EVASION_CAP_TIPO),
 	# ponderado por cobertura: mezclar cuero y hierro da un tope intermedio en vez de regalarte el de
 	# la ligera por llevar un guantelete.
@@ -9121,7 +9128,8 @@ func armor_mods(pj: PersonajeData = null) -> Dictionary:
 	# para que a partir de cierto punto mejorar la armadura dejara de hacer nada. Cada punto rinde
 	# menos que el anterior por la propia formula (1/(1+r)), que es el freno bueno.
 	resist_estados = maxf(resist_estados, 0.0)
-	return {"def_bonus": def_bonus, "reduction": reduction, "velocidad_mult": 1.0 + vel_delta,
+	return {"def_bonus": def_bonus, "mdef_bonus": mdef_bonus, "reduction": reduction,
+		"reduction_magica": reduction_magica, "velocidad_mult": 1.0 + vel_delta,
 		"evasion_bonus": evasion, "crit_resist": crit_resist, "resist_estados": resist_estados}
 
 

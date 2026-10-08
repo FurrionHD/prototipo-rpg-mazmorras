@@ -780,7 +780,7 @@ const NUMEROS_TAM := 11
 static func numeros_aliado(c: Combatant) -> Array:
 	var pj: PersonajeData = Game.pj_de_combatant(c)
 	return [_atk_total(c), MenuScaffold.dano_magico(pj) if pj != null else -1.0, c.def_value(),
-		StatsMath.magic_jugador(c.abilities_eff(), c.base_magic), c.spd(), c.cast_spd(),
+		c.mdef_value(), c.spd(), c.cast_spd(),
 		_crit_fisico(c), c.crit_dmg, _crit_magico(c), c.crit_dmg_magico, c.mp_regen_turno]
 
 
@@ -980,7 +980,7 @@ func _ficha_pieza(res: Resource, pj: PersonajeData) -> void:
 	var filas: Array = []
 	if res is ArmorData:
 		filas = MenuScaffold.filas_armadura(res as ArmorData, tier, rareza, mejoras,
-			Game.durabilidad_item(res), MenuScaffold.factor_resistencia(pj))
+			Game.durabilidad_item(res), MenuScaffold.factor_resistencia(pj), MenuScaffold.factor_voluntad(pj))
 	elif res is WeaponData:
 		filas = MenuScaffold.filas_arma(res as WeaponData, tier, rareza, mejoras, pj,
 			Game.durabilidad_item(res))
@@ -1079,9 +1079,8 @@ func _abrir_modal_atributos(c: Combatant) -> void:
 	# crudo: la Resistencia multiplica tambien la defensa de la armadura. Ver _def_del_equipo.
 	_fila_modal(vb, "DEF", "%d" % roundi(c.def_value()), _def_del_equipo(c),
 		"Tu Resistencia multiplica TODA la defensa, la de la armadura incluida.")
-	_fila_modal(vb, "DEF mágica", "%d" % roundi(StatsMath.magic_jugador(
-		c.abilities_eff(), c.base_magic)), 0.0,
-		"Lo que te protege cuando el que lanza el hechizo es el otro.")
+	_fila_modal(vb, "DEF mágica", "%d" % roundi(c.mdef_value()), 0.0,
+		"Tu Voluntad multiplica TODA la defensa mágica, la de la armadura incluida.")
 	_fila_modal(vb, "VEL", "%d" % roundi(c.spd()), 0.0)
 	_fila_modal(vb, "VEL recitado", "%.1f" % c.cast_spd(), 0.0,
 		"Lo rápido que recitas, que no es lo rápido que blandes.")

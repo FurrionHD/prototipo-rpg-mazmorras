@@ -630,7 +630,7 @@ func _pagina_atributos(c: Combatant) -> void:
 	else:
 		_row("Ataque", "%.0f" % _ataque_total(c))
 	_row("Defensa", "%.0f" % c.def_value())
-	_row("Defensa mágica", "%.0f" % StatsMath.magic_jugador(c.abilities_eff(), c.base_magic))
+	_row("Defensa mágica", "%.0f" % c.mdef_value())
 	if magico:
 		_row("Vel. recitado", "%.1f" % c.cast_spd())
 		_row("Prob. crít. mágico", _fmt_pct(_crit_magico(c)))
@@ -717,8 +717,9 @@ func _pagina_habilidades(c: Combatant) -> void:
 	# VOLUNTAD -> defensa magica y resistencia a efectos (a todos por igual).
 	_fila_habilidad("Voluntad", "voluntad", ab)
 	var ab_sin_vol: Abilities = _sin_habilidad(ab, "voluntad")
-	var mdef_de_vol: float = StatsMath.magic_jugador(ab, c.base_magic) \
-		- StatsMath.magic_jugador(ab_sin_vol, c.base_magic)
+	var mdef_base: float = c.base_magic + c.extra_magic_def   # la armadura tambien la multiplica
+	var mdef_de_vol: float = StatsMath.magic_jugador(ab, mdef_base) \
+		- StatsMath.magic_jugador(ab_sin_vol, mdef_base)
 	_aporte("+%.1f def. mágica  ·  +%s resist. a efectos" % [
 		mdef_de_vol, _fmt_pct(StatsMath.resist_de_voluntad(float(ab.voluntad)))])
 
@@ -848,7 +849,7 @@ func _abrir_modal_atributos() -> void:
 	MenuScaffold.fila(vb, "  Ataque mágico", "%.0f" % MenuScaffold.dano_magico(pj), 200)
 	MenuScaffold.fila(vb, "  Defensa", "%.0f" % c.def_value(), 200)
 	MenuScaffold.fila(vb, "  Defensa mágica",
-		"%.0f" % StatsMath.magic_jugador(c.abilities_eff(), c.base_magic), 200)
+		"%.0f" % c.mdef_value(), 200)
 	MenuScaffold.fila(vb, "  Velocidad", "%.0f" % c.spd(), 200)
 	MenuScaffold.fila(vb, "  Vel. recitado", "%.1f" % c.cast_spd(), 200)
 	if c.max_mp > 0.0:
@@ -2025,7 +2026,8 @@ func _armor_stats(vb: VBoxContainer, a: ArmorData) -> void:
 	var am: Dictionary = Game.meta_de(a)
 	var mejoras: Dictionary = am["mejoras"]
 	for f in MenuScaffold.filas_armadura(a, int(am["tier"]), int(am["rareza"]), mejoras,
-			Game.durabilidad_item(a), MenuScaffold.factor_resistencia(_pj())):
+			Game.durabilidad_item(a), MenuScaffold.factor_resistencia(_pj()),
+			MenuScaffold.factor_voluntad(_pj())):
 		_row_en(vb, str(f[0]), str(f[1]))
 	_row_en(vb, "Durabilidad", Game.durabilidad_txt_item(a), Game.durabilidad_color(a))
 	if not mejoras.is_empty():

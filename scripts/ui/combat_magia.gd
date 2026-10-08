@@ -666,7 +666,7 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
 	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 		_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
-		StatsMath.magic_value(obj.abilities, obj.level, obj.base_magic)])
+		obj.mdef_value()])
 	return tocados
 
 

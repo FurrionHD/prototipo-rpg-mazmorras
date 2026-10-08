@@ -27,7 +27,9 @@
 extends Resource
 class_name ArmorData
 
-enum Tipo { CUERO, HIERRO, HIERRO_COMPLETO, PLACAS }
+# TELA va AL FINAL a proposito (08/10/2026): el tipo se guarda como entero en los .tres y en las
+# partidas, y meterla delante cambiaria lo que es cada pieza que ya existe.
+enum Tipo { CUERO, HIERRO, HIERRO_COMPLETO, PLACAS, TELA }
 enum Slot { CASCO, PECHO, MANOS, PANTALONES, BOTAS }
 
 @export var nombre: String = "Armadura"
@@ -43,6 +45,38 @@ enum Slot { CASCO, PECHO, MANOS, PANTALONES, BOTAS }
 # motion_def = el "motion value" traducido a armadura: diferencia la CATEGORIA.
 # cuero 0.5, hierro 1.0, hierro completo 1.6, placas 2.2. DEF = defensa_base x motion_def.
 @export var motion_def: float = 1.0
+
+# --- DEFENSA MAGICA (08/10/2026, fase 2 del plan de mecanicas): AL REVES que la fisica ---
+# Lo que la categoria pierde en fisica lo gana en magica: la suma fisica + magica es 3,2 en todas
+# (decision del usuario). Elegir armadura es elegir contra que te proteges.
+#            motion_def  motion_mdef   reduccion  reduccion_magica
+#   TELA        0,6         2,6          0,04         0,11
+#   CUERO       1,0         2,2          0,05         0,09
+#   HIERRO      1,4         1,8          0,075        0,075
+#   H.COMPLETO  1,8         1,4          0,09         0,05
+#   PLACAS      2,2         1,0          0,11         0,04
+# -1 = "lo de su categoria" (MOTION_MDEF_TIPO / REDUCCION_MAGICA_TIPO): asi las 20 piezas de antes
+# no hay que tocarlas y la tabla vive en UN sitio. Una pieza con un valor propio lo pone a mano.
+@export var motion_mdef: float = -1.0
+@export var reduccion_magica: float = -1.0
+
+const MOTION_MDEF_TIPO := [2.2, 1.8, 1.4, 1.0, 2.6]          # indices = Tipo
+const REDUCCION_MAGICA_TIPO := [0.09, 0.075, 0.05, 0.04, 0.11]
+
+func mdef_motion() -> float:
+	if motion_mdef >= 0.0:
+		return motion_mdef
+	return float(MOTION_MDEF_TIPO[clampi(int(tipo), 0, MOTION_MDEF_TIPO.size() - 1)])
+
+func reduccion_magia() -> float:
+	if reduccion_magica >= 0.0:
+		return reduccion_magica
+	return float(REDUCCION_MAGICA_TIPO[clampi(int(tipo), 0, REDUCCION_MAGICA_TIPO.size() - 1)])
+
+# LIGERAS: las que mejoran Evasion (tela, cuero y hierro); las pesadas van por Resist. criticos.
+# Antes se miraba "tipo <= 1" y la TELA (indice 4) habria caido en las pesadas.
+static func es_ligera(t: int) -> bool:
+	return t == Tipo.CUERO or t == Tipo.HIERRO or t == Tipo.TELA
 
 # --- Durabilidad por CATEGORIA ---
 # Cuanto mas pesada, mas aguanta: multiplica el maximo de durabilidad (ver Game.max_durabilidad).

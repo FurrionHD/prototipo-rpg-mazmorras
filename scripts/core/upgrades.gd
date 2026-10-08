@@ -150,7 +150,7 @@ const EVASION_STEP := 0.02        # +esquiva (ligeras/medias)
 # Con un tope por clase, la esquiva vuelve a ser la identidad de la ligera: el cuero llega al 30% y
 # el hierro se queda en la mitad. Indices = ArmorData.tipo (0 cuero, 1 hierro, 2 hierro completo,
 # 3 placas); las dos pesadas no tienen Evasion (su eje es Resist. criticos), por eso van a 0.
-const EVASION_CAP_TIPO := [0.20, 0.10, 0.0, 0.0]
+const EVASION_CAP_TIPO := [0.20, 0.10, 0.0, 0.0, 0.20]   # la TELA (4), como el cuero
 # Respaldo para quien pregunte el tope "en general" (la ficha de una pieza suelta).
 const EVASION_CAP := 0.20
 
@@ -539,7 +539,7 @@ static func wand_categories() -> Array:
 static func armor_categories(a: ArmorData) -> Array:
 	var cats: Array = [DUREZA]
 	if a != null:
-		if int(a.tipo) <= 1:
+		if ArmorData.es_ligera(int(a.tipo)):
 			cats.append(EVASION)
 		else:
 			cats.append(RESIST_CRIT)
@@ -713,11 +713,14 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 	var rmult := rareza_mult(rareza)
 	var subida := UPGRADE_PCT * float(n) + dim_sum(DUREZA_STEP, _count(mejoras, DUREZA))
 	var deff := a.defensa_base * a.motion_def * rmult * (1.0 + subida) * tmult
+	# La DEFENSA MAGICA sube exactamente igual que la fisica (tier, rareza, +N y Dureza): solo cambia el
+	# motion de su categoria (ver ArmorData.MOTION_MDEF_TIPO).
+	var mdef := a.defensa_base * a.mdef_motion() * rmult * (1.0 + subida) * tmult
 	# La rareza tambien empuja la evasion / resist. criticos / resist. estados (como en las armas).
 	# La reduccion y la velocidad de la pieza NO: son de tipo/tamaño, no de calidad.
 	var evasion := 0.0
 	var crit_resist := 0.0
-	if int(a.tipo) <= 1:
+	if ArmorData.es_ligera(int(a.tipo)):
 		evasion = dim_sum(EVASION_STEP, _count(mejoras, EVASION)) * rmult
 	else:
 		crit_resist = dim_sum(RESIST_CRIT_STEP, _count(mejoras, RESIST_CRIT)) * rmult
@@ -727,7 +730,9 @@ static func armor_piece_mods(a: ArmorData, tmult: float, rareza: int, mejoras: D
 	var resist_estados := resist_de_armadura(rareza, mejoras, tier)
 	return {
 		"def": deff,
+		"mdef": mdef,
 		"reduccion": a.reduccion,
+		"reduccion_magica": a.reduccion_magia(),
 		"vel_mult": a.velocidad_mult,
 		"evasion": evasion,
 		"crit_resist": crit_resist,

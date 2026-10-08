@@ -237,6 +237,10 @@ func consumir_foco() -> float:
 # asi un combatiente SIN armadura (enemigos) se comporta igual que antes. ---
 var extra_defense: float = 0.0   # DEF plana ADITIVA de la armadura (sube la mitigacion)
 var armor_reduction: float = 0.0 # % de reduccion de dano (SIEMPRE activo, acotado)
+# Lo MISMO contra la MAGIA (08/10/2026): DEF magica plana de la armadura (entra en la base que
+# multiplica la Voluntad, como extra_defense con la Resistencia) y su % propio, al reves que el fisico.
+var extra_magic_def: float = 0.0
+var armor_reduction_magica: float = 0.0
 var crit_resist: float = 0.0     # RESIST. CRITICOS (armadura pesada): baja el crit del atacante
 
 # MANOS del loadout: 1 (arma sola / 2 manos / con escudo) o 2 (dual-wield). Cada
@@ -1742,6 +1746,17 @@ func anotar_intento_estado(atacante: Combatant, id: int, entro: bool) -> void:
 	var pj: PersonajeData = Game.pj_de_combatant(self)
 	if pj != null:
 		Game.ganar_voluntad_estado(atacante.poder_como_enemigo(), atacante.level, id, entro, pj)
+
+
+# LA DEFENSA MAGICA de este combatiente, en UN sitio: el jugador por la formula multiplicativa (base
+# + armadura, por la Voluntad) y el enemigo por la aditiva. La usan los hechizos que recibe, los golpes
+# magicos de los enemigos (fase 3) y las fichas: si cada uno la calculara, la armadura se le olvidaria
+# a alguno.
+func mdef_value() -> float:
+	var ab := abilities_eff()
+	if stats_multiplicativas:
+		return StatsMath.magic_jugador(ab, base_magic + extra_magic_def)
+	return StatsMath.magic_value(ab, level, base_magic)
 
 
 func eficacia_estados() -> float:

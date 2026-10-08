@@ -1120,8 +1120,9 @@ const ARMOR_SLOT_LABELS := {
 	ArmorData.Slot.BOTAS: "Botas",
 }
 
+# 'factor_vol' = lo mismo para la DEFENSA MAGICA: el multiplicador de la Voluntad de quien la lleva.
 static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictionary,
-		durabilidad: float = 1.0, factor_res: float = 0.0) -> Array:
+		durabilidad: float = 1.0, factor_res: float = 0.0, factor_vol: float = 0.0) -> Array:
 	if a == null:
 		return []
 	var tm: float = Game.tier_mult(tier)
@@ -1131,6 +1132,8 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 	var dur: float = Game.durabilidad_mult(clampf(durabilidad, 0.0, 1.0))
 	var def_estreno: float = float(mods["def"])
 	var def_real: float = def_estreno * dur
+	var mdef_estreno: float = float(mods["mdef"])
+	var red_mag: float = float(mods["reduccion_magica"])
 
 	var filas: Array = [["Ranura", str(ARMOR_SLOT_LABELS.get(int(a.slot), "?"))]]
 	var red_estreno: float = float(mods["reduccion"])
@@ -1140,15 +1143,20 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 		# reduccion ya ponderada por la cobertura del slot -- que es lo que esta pieza le suma al
 		# conjunto, y no el 11% suyo, que a solas no se lo lleva nadie.
 		filas.append(["Defensa", "%.1f" % (def_real * factor_res)])
+		filas.append(["Defensa mágica", "%.1f" % (mdef_estreno * dur * maxf(factor_vol, 1.0))])
 		filas.append(["Reducción de daño", "+%s" % _pct1(red_estreno * dur * cob)])
+		filas.append(["Reducción mágica", "+%s" % _pct1(red_mag * dur * cob)])
 	else:
 		# SIN DUEÑO (tienda, baul): no hay un "para ti" que calcular, asi que se enseña lo que la
 		# pieza vale por si misma. DOS decimales: la DEF de una pieza es un numero pequeño (un peto
 		# de cuero son 0.25) y con uno solo se redondea a "0.3" y parece otra cosa.
 		filas.append(["Defensa de la pieza",
 			_con_mejoras("%.2f", float(base["def"]), def_estreno)])
+		filas.append(["Defensa mágica de la pieza",
+			_con_mejoras("%.2f", float(base["mdef"]), mdef_estreno)])
 		# Con UN decimal: al redondear a entero, un 9.9% se lee "10%" y no hay quien lo cuadre.
 		filas.append(["Reducción de la pieza", _pct1(red_estreno)])
+		filas.append(["Reducción mágica de la pieza", _pct1(red_mag)])
 
 	filas.append(["Velocidad", "×%.2f" % float(mods["vel_mult"])])
 	if float(mods["evasion"]) > 0.0:
@@ -1227,6 +1235,15 @@ static func factor_resistencia(pj: PersonajeData) -> float:
 	var ab := Abilities.new()
 	ab.resistencia = int(pj.resistencia)
 	return StatsMath.defense_jugador(ab, 1.0)
+
+
+# Su gemelo para la DEFENSA MAGICA: lo que la Voluntad de 'pj' multiplica (la suya y la de la armadura).
+static func factor_voluntad(pj: PersonajeData) -> float:
+	if pj == null:
+		return 0.0
+	var ab := Abilities.new()
+	ab.voluntad = int(pj.voluntad)
+	return StatsMath.magic_jugador(ab, 1.0)
 
 
 # "14.5 + (6.1) = 20.6". El BASE ya lleva dentro el tier y la rareza de ESTE objeto (no es el
