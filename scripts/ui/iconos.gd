@@ -763,6 +763,65 @@ static func cuero(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
 		c.draw_line(borde, borde + fuera, col, g, true)
 
 
+# --- HUSO (la pestaña Hilar de la peleteria; 08/10/2026) ---
+# Lo pidio el usuario dibujandolo: el palo vertical, el CONTRAPESO abajo (el disco que hace girar el
+# huso) y el HILO que sale de arriba y hace una vuelta grande. La flor que habia antes no decia hilar.
+static func huso(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.07
+	var x: float = pos.x + lado * 0.44
+	var arriba: float = pos.y + lado * 0.30
+	var abajo: float = pos.y + lado * 0.92
+	# El palo.
+	c.draw_line(Vector2(x, arriba), Vector2(x, abajo), col, g, true)
+	# El contrapeso: un rombo achatado cerca de abajo, macizo.
+	var cy: float = pos.y + lado * 0.78
+	var w: float = lado * 0.16
+	var h: float = lado * 0.08
+	c.draw_colored_polygon(PackedVector2Array([Vector2(x - w, cy), Vector2(x, cy - h),
+		Vector2(x + w, cy), Vector2(x, cy + h)]), col)
+	# El hilo ya enrollado: un huso gordito a media altura.
+	var my: float = pos.y + lado * 0.52
+	c.draw_colored_polygon(PackedVector2Array([Vector2(x, my - lado * 0.14), Vector2(x + lado * 0.07, my),
+		Vector2(x, my + lado * 0.14), Vector2(x - lado * 0.07, my)]), col)
+	# El hilo suelto: sale de la punta de arriba y da una vuelta grande hacia la derecha.
+	var hilo := PackedVector2Array()
+	for i in 17:
+		var t: float = float(i) / 16.0
+		var a: float = PI * (1.0 + 1.6 * t)
+		hilo.append(Vector2(x + lado * 0.20, pos.y + lado * 0.24)
+			+ Vector2(cos(a) * lado * 0.20, sin(a) * lado * 0.16))
+	c.draw_polyline(hilo, col, g * 0.8, true)
+
+
+# --- ROLLO DE TELA (la armadura de tela, en la peleteria; 08/10/2026) ---
+# El rollo de canto (un ovalo macizo con la espiral marcada en hueco) y un pico de tela que se le sale
+# por abajo y se ondula. Macizo y no en contorno por lo mismo que el cuero: a tamaño de pestaña el
+# hueco pesa mas que la silueta.
+static func rollo(c: CanvasItem, pos: Vector2, lado: float, col: Color) -> void:
+	var g: float = lado * 0.07
+	var centro: Vector2 = pos + Vector2(lado * 0.36, lado * 0.38)
+	var r: float = lado * 0.24
+	# Lo desenrollado: una tira que sale por debajo del rollo hacia la derecha, con una onda.
+	var tira := PackedVector2Array()
+	var y0: float = centro.y + r * 0.35
+	var y1: float = centro.y + r * 1.0
+	var x0: float = centro.x
+	var x1: float = pos.x + lado * 0.90
+	for i in 9:
+		var t: float = float(i) / 8.0
+		tira.append(Vector2(lerpf(x0, x1, t), y0 + sin(t * PI * 2.0) * lado * 0.04))
+	for i in 9:
+		var t: float = 1.0 - float(i) / 8.0
+		tira.append(Vector2(lerpf(x0, x1, t), y1 + sin(t * PI * 2.0) * lado * 0.04))
+	c.draw_colored_polygon(tira, col)
+	# El rollo, macizo, encima de la tira.
+	c.draw_circle(centro, r, col)
+	# La espiral, en el color del fondo: dos arcos que se meten hacia dentro.
+	var hueco := Color(0.0, 0.0, 0.0, 0.55)
+	c.draw_arc(centro, r * 0.62, PI * 0.2, PI * 1.9, 16, hueco, g, true)
+	c.draw_arc(centro, r * 0.28, PI * 1.1, PI * 2.8, 12, hueco, g, true)
+
+
 # --- CORREA (los tirantes de la mochila): la tira con su hebilla ---
 # La hebilla va a un lado y no en el centro a proposito: centrada, el icono se lee como un cinturon
 # abrochado (una cosa que llevas puesta) en vez de como una tira suelta (un material).

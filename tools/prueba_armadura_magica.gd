@@ -133,7 +133,7 @@ func _tela() -> void:
 	var mc := Upgrades.armor_piece_mods(peto, 1.0, 0, {}, 1)
 	_ok(float(mt["mdef"]) > float(mc["mdef"]) and float(mt["def"]) < float(mc["def"]),
 		"la tunica: mas DEF magica y menos fisica que el peto de cuero")
-	_ok(ArmaduraSprites.nombre_tipo(ArmorData.Tipo.TELA) == "cuero", "se pinta como el cuero (provisional), no como placas")
+	_ok(ArmaduraSprites.nombre_tipo(ArmorData.Tipo.TELA) == "tela", "se pinta con su dibujo de tela (horneado), no como cuero ni placas")
 	# HILAR de verdad: 9 hierbas normales dan 2 telas (4 por tela) y sobra 1.
 	var hierba: MaterialData = _mat("hierba_palida")
 	var cal: int = MaterialItem.Calidad.NORMAL

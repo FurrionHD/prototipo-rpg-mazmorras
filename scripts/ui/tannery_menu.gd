@@ -34,7 +34,7 @@ const HerreriaForjar = preload("res://scripts/ui/herreria/herreria_forjar.gd")
 const TABS := ["Curtir", "Correas", "Cuerdas", "Hilar", "Mochilas", "Armaduras"]
 # Los iconos, en el mismo orden. Van con icono y SIN texto, como el inventario y la tienda: el
 # nombre de la seccion se lee arriba a la izquierda, bajo "Peleteria".
-const TAB_ICONOS := ["cuero", "correa", "cuerda", "flor", "mochila", "coraza"]
+const TAB_ICONOS := ["cuero", "correa", "cuerda", "huso", "mochila", "coraza"]
 const TAB_CURTIR := 0
 const TAB_CORREAS := 1
 const TAB_CUERDAS := 2   # la cuerda del arco y la ballesta (02/10)

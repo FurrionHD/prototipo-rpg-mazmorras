@@ -49,11 +49,10 @@ const FILTROS_HERRERIA := [
 	{"nombre": "Armadura de hierro completo", "icono": "coraza_2", "juego": "hierro_completo"},
 	{"nombre": "Armadura de placas", "icono": "coraza_3", "juego": "placas"},
 ]
-# Los juegos que cose la PELETERIA. El icono de la tela es la varita hasta que tenga el suyo: es la
-# armadura de los magos (PROVISIONAL, 08/10/2026).
+# Los juegos que cose la PELETERIA (la tela, 08/10/2026, con su rollo).
 const FILTROS_PELETERIA := [
 	{"nombre": "Armadura de cuero", "icono": "coraza", "juego": "cuero"},
-	{"nombre": "Armadura de tela", "icono": "varita", "juego": "tela"},
+	{"nombre": "Armadura de tela", "icono": "rollo", "juego": "tela"},
 ]
 const NOMBRE_RANURA := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
 	"pantalones": "Pantalones", "botas": "Botas"}

@@ -174,6 +174,37 @@ func _ready() -> void:
 		_ok("y no Herrería", is_equal_approx(cosedor.herreria_exp, herr_antes))
 	men._on_artesano(men._gente().find(Game.lider()))
 
+	print("\n=== HILAR: las plantas en tela (08/10) ===")
+	await _ir(men, men.TAB_HILAR)
+	_ok("salen las plantas que conoces", men.stacks.size() >= 2
+		and men.stacks.all(func(s): return int((s["mat"] as MaterialData).tipo) == MaterialData.Tipo.PLANTA))
+	_ok("y cada una hila SU tela", not _hay(men.stacks, func(s): return s["destino"] != Game.tela_de(s["mat"])))
+	await _captura(men, "hilar")
+	var hierba: MaterialData = load("res://resources/materials/hierba_palida.tres")
+	var tela: MaterialData = load("res://resources/materials/tela_hierba.tres")
+	var hierba_n: int = Game.items_calidad_en_hogar(hierba, MaterialItem.Calidad.NORMAL)
+	var tela_n: int = Game.items_calidad_en_hogar(tela, MaterialItem.Calidad.NORMAL) \
+		+ Game.items_calidad_en_hogar(tela, MaterialItem.Calidad.INTACTO)
+	var hechas: int = Game.hilar(MaterialItem.Calidad.NORMAL, 1, hierba)
+	_ok("hilar una tela gasta las hierbas", hechas == 1
+		and hierba_n - Game.items_calidad_en_hogar(hierba, MaterialItem.Calidad.NORMAL) >= Forge.PLANTA_POR_TELA - 1)
+	_ok("y deja la tela en el hogar", Game.items_calidad_en_hogar(tela, MaterialItem.Calidad.NORMAL)
+		+ Game.items_calidad_en_hogar(tela, MaterialItem.Calidad.INTACTO) > tela_n)
+
+	print("\n=== ARMADURAS DE TELA (08/10) ===")
+	await _ir(men, men.TAB_ARMADURAS)
+	A._on_filtro(1)
+	await get_tree().process_frame
+	_ok("son las cinco piezas de tela", men.stacks.size() == 5
+		and men.stacks.all(func(b): return Game.es_armadura_tela(b)))
+	var tunica: Resource = men.stacks[1]
+	var heb_t: MaterialData = A._metal(tunica)
+	A._on_auto(tunica, heb_t, true)
+	await get_tree().process_frame
+	_ok("el Auto llena una tunica con hebillas y tela", Game.piezas_de_seleccion_forja(tunica, heb_t, A._sel) >= 1)
+	await _captura(men, "armaduras_tela")
+	A._on_filtro(0)
+
 	print("\n=== LA CANTIDAD ARRANCA EN 1 ===")
 	await _ir(men, men.TAB_CURTIR)
 	# Arrancaba en el maximo y el usuario lo corto: entras, das al boton y te has fundido las
@@ -255,8 +286,10 @@ func _llenar_hogar() -> void:
 			# que el montón siga ahí después (así se ve que se encoge, no que desaparece).
 			for i in 7:
 				Game.almacen_materiales.append(MaterialItem.crear(md, int(cal)))
-	# Cuero curtido (para Correas) y sus correas, y metal para las hebillas.
-	for id2 in ["cuero_curtido", "cuero_reforzado", "correa_cuero"]:
+	# Cuero curtido (para Correas) y sus correas, y metal para las hebillas. Y las PLANTAS para Hilar y
+	# la tela ya hilada para coser (la tela, 08/10/2026).
+	for id2 in ["cuero_curtido", "cuero_reforzado", "correa_cuero", "hierba_palida", "raiz_amarga",
+			"tela_hierba"]:
 		var md2: MaterialData = load("res://resources/materials/%s.tres" % id2) as MaterialData
 		if md2 == null:
 			continue

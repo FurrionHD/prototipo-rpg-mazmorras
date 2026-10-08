@@ -50,14 +50,18 @@ enum Tono {
 
 # Nombre de cada ArmorData.Tipo y de cada ArmorData.Slot, para las claves de capa. El indice es el
 # valor del enum, igual que ArmaSprites.TIPO_NOMBRE.
-const TIPO_NOMBRE := ["cuero", "hierro", "hierro_completo", "placas"]
+const TIPO_NOMBRE := ["cuero", "hierro", "hierro_completo", "placas", "tela"]
 const SLOT_NOMBRE := ["casco", "pecho", "manos", "pantalones", "botas"]
 
-# El nombre de capa de un ArmorData.Tipo. La TELA (08/10/2026) todavia no tiene dibujo propio y se
-# pinta como el CUERO (lo acordado: primero la mecanica, los dibujos despues con su visto bueno). Sin
-# esto, el clamp de los que leian TIPO_NOMBRE la mandaba a "placas": una tunica de mago con visera.
+# El nombre de capa de un ArmorData.Tipo.
+#
+# LA TELA SE PINTA COMO EL CUERO HASTA QUE SU DIBUJO ESTE HORNEADO (TELA_HORNEADA). Su dibujo ya existe
+# (las ramas "tela" de abajo) y las herramientas lo ven, pero el juego tira de las capas HORNEADAS, y no
+# se hornea nada antes del visto bueno del usuario. Cuando lo de: horno y TELA_HORNEADA = true.
+const TELA_HORNEADA := true   # horneada el 08/10/2026 con su visto bueno
+
 static func nombre_tipo(t: int) -> String:
-	if t == ArmorData.Tipo.TELA:
+	if t == ArmorData.Tipo.TELA and not TELA_HORNEADA:
 		return "cuero"
 	return String(TIPO_NOMBRE[clampi(t, 0, TIPO_NOMBRE.size() - 1)])
 
@@ -188,6 +192,8 @@ const CLAVE_ROLES := "armadura"
 # DE QUE FAMILIA ES EL MATERIAL de esta pieza. Es lo unico que sobrevive de las cuatro paletas viejas,
 # y es lo que hace que un peto de cuero y uno de placas del mismo tier NO salgan del mismo color.
 static func familia_de(tipo: String) -> String:
+	if tipo == "tela":
+		return PaletaEquipo.TELA
 	return PaletaEquipo.FIBRA if tipo == "cuero" else PaletaEquipo.METAL
 
 
@@ -269,6 +275,9 @@ static func pintar(esq: Dictionary, piezas: Array, clave: String) -> void:
 # ============================================================
 static func _casco(piezas: Array, esq: Dictionary, tipo: String, dir: int) -> void:
 	var cab: Vector3 = esq["puntos"][PoseJugador.P_CABEZA]
+	if tipo == "tela":
+		_capucha(piezas, esq, cab)
+		return
 	if cerrado(tipo):
 		_casco_cerrado(piezas, esq, cab, tipo, dir)
 	else:
@@ -421,6 +430,9 @@ static func _casco_cerrado(piezas: Array, esq: Dictionary, cab: Vector3, tipo: S
 # torso. Por eso el peto tiene que resolverse solo el hueco del brazo y el de la cabeza -- no hay una
 # camisa debajo que los tenga hechos.
 static func _peto(piezas: Array, esq: Dictionary, tipo: String) -> void:
+	if tipo == "tela":
+		_tunica(piezas, esq)
+		return
 	var p: Dictionary = esq["puntos"]
 	var izq_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_IZQ)
 	var der_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_DER)
@@ -509,6 +521,9 @@ static func _hombrera(piezas: Array, esq: Dictionary, izq: bool, grande: float, 
 # cuando la mano esta detras del cuerpo, la capa entera se va detras. Es la ventaja de no llevar z
 # fijo, y por eso son dos capas y no una.
 static func _guantelete(piezas: Array, esq: Dictionary, tipo: String, izq: bool) -> void:
+	if tipo == "tela":
+		_miton(piezas, esq, izq)
+		return
 	var p: Dictionary = esq["puntos"]
 	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
 	var mano: Vector3 = p[PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER]
@@ -541,8 +556,9 @@ static func _grebas(piezas: Array, esq: Dictionary, tipo: String) -> void:
 	var brazo_izq: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_IZQ)
 	var brazo_der: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_DER)
 	var de_lado: bool = absf(brazo_izq - brazo_der) > CuerpoSprites.SEPARACION_BRAZOS
-	_pernera(piezas, esq, izq_al_fondo, Tono.MAT_S if de_lado else Tono.MAT)
-	_pernera(piezas, esq, not izq_al_fondo, Tono.MAT)
+	var tela: bool = tipo == "tela"
+	_pernera(piezas, esq, izq_al_fondo, Tono.MAT_S if de_lado else Tono.MAT, tela)
+	_pernera(piezas, esq, not izq_al_fondo, Tono.MAT, tela)
 
 	# La cintura, y su corte de arriba: las dos elipses del pantalon, con los mismos numeros.
 	var cadera: Vector3 = p[PoseJugador.P_CADERA]
@@ -553,17 +569,19 @@ static func _grebas(piezas: Array, esq: Dictionary, tipo: String) -> void:
 		Vector3(CINTURA_R_CORTE, CINTURA_R_CORTE, CINTURA_ALTO_CORTE), Tono.VACIO,
 		{"solo_sobre": [Tono.MAT, Tono.MAT_L, Tono.MAT_S]})
 	# El cinturon: un canto claro en el borde de arriba, que es lo que dice que eso es una pieza y no
-	# la pierna pintada. Solo sobre si mismo, o se sale.
-	PoseJugador.poner(piezas, esq, cadera + Vector3(0.0, 0.0, sube - 1.6),
-		Vector3(CINTURA_R_CORTE, CINTURA_R_CORTE, CINTURA_ALTO_CORTE), Tono.MAT_L,
-		{"solo_sobre": [Tono.MAT, Tono.MAT_S]})
+	# la pierna pintada. Solo sobre si mismo, o se sale. Las CALZAS de tela no llevan: son blandas, y
+	# lo que las separa de unas grebas es justo que no tienen ni cinturon ni rodillera.
+	if not tela:
+		PoseJugador.poner(piezas, esq, cadera + Vector3(0.0, 0.0, sube - 1.6),
+			Vector3(CINTURA_R_CORTE, CINTURA_R_CORTE, CINTURA_ALTO_CORTE), Tono.MAT_L,
+			{"solo_sobre": [Tono.MAT, Tono.MAT_S]})
 	# Y las manos, que caen a la altura de la cinturilla: el mismo recorte que necesita el pantalon.
 	var tonos := [Tono.MAT, Tono.MAT_L, Tono.MAT_S]
 	CapaJugador.hueco_brazo(piezas, esq, true, tonos, 1.3)
 	CapaJugador.hueco_brazo(piezas, esq, false, tonos, 1.3)
 
 
-static func _pernera(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> void:
+static func _pernera(piezas: Array, esq: Dictionary, izq: bool, tono: int, tela: bool = false) -> void:
 	var p: Dictionary = esq["puntos"]
 	var cadera: Vector3 = p[PoseJugador.P_CADERA]
 	var rodilla: Vector3 = p[PoseJugador.P_RODILLA_IZQ if izq else PoseJugador.P_RODILLA_DER]
@@ -575,7 +593,9 @@ static func _pernera(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> vo
 		CuerpoSprites.R_MUSLO, CuerpoSprites.R_PANTORRILLA, tono)
 	PoseJugador.cadena(piezas, esq, rodilla, tobillo,
 		CuerpoSprites.R_PANTORRILLA, CuerpoSprites.R_PANTORRILLA * 0.85, tono)
-	# La rodillera: lo unico que distingue unas grebas de un pantalon a este tamaño.
+	# La rodillera: lo unico que distingue unas grebas de un pantalon a este tamaño. La tela, sin.
+	if tela:
+		return
 	PoseJugador.poner(piezas, esq, rodilla,
 		Vector3(CuerpoSprites.R_PANTORRILLA * 1.12, CuerpoSprites.R_PANTORRILLA * 1.02,
 			CuerpoSprites.R_PANTORRILLA * 0.72), Tono.MAT_L, {"solo_sobre": [tono]})
@@ -584,6 +604,9 @@ static func _pernera(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> vo
 # LAS BOTAS: el pie y la caña. El pie del cuerpo ya va oscuro (Tono.CALZADO), asi que lo que aporta
 # la bota es la CAÑA y el material -- por eso sube por la pantorrilla en vez de quedarse en el pie.
 static func _botas(piezas: Array, esq: Dictionary, tipo: String) -> void:
+	if tipo == "tela":
+		_zapatillas(piezas, esq)
+		return
 	var p: Dictionary = esq["puntos"]
 	var alto: float = float(BOTA_ALTO.get(tipo, 0.45))
 	for izq in [true, false]:
@@ -625,3 +648,138 @@ static func _chapa(piezas: Array, esq: Dictionary, centro: Vector3, r: Vector3,
 	# plastico; apretada arriba se lee como metal. Mismo criterio que el realce del pecho del cuerpo.
 	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -r.y * 0.10, r.z * 0.46),
 		Vector3(r.x * 0.58, r.y * 0.52, r.z * 0.28), Tono.MAT_L, {"solo_sobre": [Tono.MAT]})
+
+
+# ============================================================
+#  LA TELA (08/10/2026): la armadura de los magos
+# ============================================================
+# LO QUE LA SEPARA DEL CUERO ES LA SILUETA, no el color (decision del usuario): capucha con pico,
+# tunica LARGA con mangas de campana y fajin, mitones, calzas lisas y zapatillas. Y LA LUZ ES BLANDA:
+# la chapa (_chapa) aprieta la luz arriba para que se lea dura; la tela la reparte ancha y baja, que es
+# como se lee algo que cae y no que brilla.
+
+# La masa blanda: la misma idea que _chapa (sombra entera y el tono base un poco mas arriba), pero con
+# el canto FINO y la luz ancha.
+static func _tela_masa(piezas: Array, esq: Dictionary, centro: Vector3, r: Vector3) -> void:
+	PoseJugador.poner(piezas, esq, centro, r, Tono.MAT_S)
+	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, 0.0, 1.3), r, Tono.MAT,
+		{"solo_sobre": [Tono.MAT_S]})
+	PoseJugador.poner(piezas, esq, centro + Vector3(0.0, -r.y * 0.05, r.z * 0.30),
+		Vector3(r.x * 0.70, r.y * 0.62, r.z * 0.34), Tono.MAT_L, {"solo_sobre": [Tono.MAT]})
+
+
+# LA CAPUCHA: abierta (la cara se ve, como el casco de cuero), pero cae por la NUCA hasta los hombros
+# y acaba en un PICO atras. Las carrilleras bajan mas que las del cuero: es tela que enmarca la cara.
+const CAPUCHA_PICO := 0.30     # lo que asoma el pico por encima de la nuca
+
+static func _capucha(piezas: Array, esq: Dictionary, cab: Vector3) -> void:
+	var g := GROSOR
+	# (Aqui iba lo que CAE POR LA NUCA, y en la primera hoja se comia la cabeza entera: en esta camara lo
+	# que va hacia atras SUBE por la pantalla, asi que en vez de caer por la espalda se apilaba encima del
+	# craneo y la capucha parecia una seta. Lo que dice "capucha" es el pico y las carrilleras.)
+	# 2. Las carrilleras largas, que enmarcan la cara.
+	for lado in [-1.0, 1.0]:
+		PoseJugador.poner(piezas, esq, cab + Vector3(lado * R * 0.86, -0.6, -R * 0.30),
+			Vector3(R * 0.26, R * 0.60, R * 0.62), Tono.MAT_S)
+	# 3. El casquete, blando.
+	var centro: Vector3 = cab + Vector3(0.0, -ABIERTO_ATRAS, ABIERTO_ARRIBA)
+	_tela_masa(piezas, esq, centro, Vector3(R + g, R * 0.90 + g, R * ABIERTO_ALTO + g * 0.5))
+	# 4. El PICO: una bolita que sale por detras y por encima de la nuca. Es lo que la lee como capucha
+	#    y no como un gorro.
+	#    EN EL TONO DE LA CAPUCHA y pequeño: en sombra (MAT_S) se leia como una MANCHA oscura en lo
+	#    alto -- de frente una cresta, en diagonal un borron (lo vio el usuario en la hoja del 08/10).
+	PoseJugador.poner(piezas, esq, cab + Vector3(0.0, -R * 0.98, R * CAPUCHA_PICO),
+		Vector3(R * 0.16, R * 0.20, R * 0.22), Tono.MAT)
+
+
+# LA TUNICA: larga hasta casi la rodilla, mangas de campana y fajin. Sustituye a la camisa como el peto.
+const TUNICA_BAJO := 0.85      # hasta donde cae, en fraccion del tramo cadera->rodilla
+const MANGA_CAMPANA := 1.45    # lo que se abre la manga en la muñeca, sobre el antebrazo
+
+static func _tunica(piezas: Array, esq: Dictionary) -> void:
+	var p: Dictionary = esq["puntos"]
+	var izq_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_IZQ)
+	var der_prof: float = PoseJugador.profundidad(esq, PoseJugador.P_HOMBRO_DER)
+	var de_lado: bool = absf(izq_prof - der_prof) > CuerpoSprites.SEPARACION_BRAZOS
+	var izq_al_fondo: bool = izq_prof < der_prof
+	# 1. La manga del fondo, que la tapa el propio tronco.
+	if de_lado:
+		_manga_campana(piezas, esq, izq_al_fondo, Tono.MAT_S)
+	# 2. El faldon largo, que se abre hacia abajo. Antes que el pecho: el pecho tapa la juntura.
+	var cadera: Vector3 = p[PoseJugador.P_CADERA]
+	var rod: Vector3 = p[PoseJugador.P_RODILLA_IZQ].lerp(p[PoseJugador.P_RODILLA_DER], 0.5)
+	#    EN TONO BASE, con el bajo en sombra: la primera hoja lo llevaba entero en sombra y como la cabeza
+	#    tapa casi todo el pecho, la tunica entera se leia oscura. El bajo sale con el truco de _chapa:
+	#    la misma cadena en sombra y otra igual un poco mas arriba en tono base.
+	var bajo: Vector3 = cadera.lerp(rod, TUNICA_BAJO)
+	var r0: float = CuerpoSprites.R_CADERA.x * 0.94
+	var r1: float = CuerpoSprites.R_CADERA.x * 1.22
+	PoseJugador.cadena(piezas, esq, cadera, bajo, r0, r1, Tono.MAT_S)
+	PoseJugador.cadena(piezas, esq, cadera + Vector3(0.0, 0.0, 1.6), bajo + Vector3(0.0, 0.0, 1.6),
+		r0, r1, Tono.MAT, {"solo_sobre": [Tono.MAT_S]})
+	# 3. El tronco, con los radios del cuerpo y la luz blanda.
+	PoseJugador.poner(piezas, esq, cadera, CuerpoSprites.R_CADERA, Tono.MAT)
+	_tela_masa(piezas, esq, p[PoseJugador.P_TORSO], CuerpoSprites.R_TORSO)
+	# 4. EL FAJIN, en el color de acento. NO VA COMO UNA ELIPSE PLANA: en esta camara lo ancho de FONDO
+	#    sube por la pantalla (ver _chapa) y la primera hoja lo pinto como un babero dorado en el pecho.
+	#    Va con el truco de las dos elipses: la cadera entera en acento y la misma un poco mas arriba en
+	#    tono base, y lo que asoma por debajo es una franja fina justo en la cintura.
+	var cintura: Vector3 = cadera + Vector3(0.0, 0.0, 2.0)
+	PoseJugador.poner(piezas, esq, cintura, CuerpoSprites.R_CADERA * 1.02, Tono.ACENTO,
+		{"solo_sobre": [Tono.MAT, Tono.MAT_S, Tono.MAT_L]})
+	PoseJugador.poner(piezas, esq, cintura + Vector3(0.0, 0.0, 2.6), CuerpoSprites.R_CADERA * 1.02,
+		Tono.MAT, {"solo_sobre": [Tono.ACENTO]})
+	_tela_masa(piezas, esq, p[PoseJugador.P_TORSO], CuerpoSprites.R_TORSO)
+	# 5. Las mangas de delante, encima del tronco.
+	if de_lado:
+		_manga_campana(piezas, esq, not izq_al_fondo, Tono.MAT)
+	else:
+		_manga_campana(piezas, esq, true, Tono.MAT)
+		_manga_campana(piezas, esq, false, Tono.MAT)
+	# 6. La cabeza la ultima (ver el paso 6 del peto).
+	CapaJugador.hueco_cabeza(piezas, esq, [Tono.MAT, Tono.MAT_L, Tono.MAT_S])
+
+
+# UNA MANGA DE CAMPANA: el brazo entero con el arranque del cuerpo (como la manga de la camisa) y,
+# del codo a la muñeca, una boca que se abre. La boca acaba ANTES de la mano: la mano asoma.
+static func _manga_campana(piezas: Array, esq: Dictionary, izq: bool, tono: int) -> void:
+	var p: Dictionary = esq["puntos"]
+	var hombro: Vector3 = p[PoseJugador.P_HOMBRO_IZQ if izq else PoseJugador.P_HOMBRO_DER]
+	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
+	var mano: Vector3 = p[PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER]
+	var arranque := Vector3(hombro.x * 0.88, hombro.y, hombro.z - 2.0)
+	PoseJugador.cadena(piezas, esq, arranque, codo,
+		CuerpoSprites.R_BRAZO * 1.04, CuerpoSprites.R_ANTEBRAZO * 1.08, tono)
+	PoseJugador.cadena(piezas, esq, codo, codo.lerp(mano, 0.82),
+		CuerpoSprites.R_ANTEBRAZO * 1.08, CuerpoSprites.R_ANTEBRAZO * MANGA_CAMPANA, tono)
+	# (Aqui iba un PUÑO oscuro en la boca. De lado, con el miton claro dentro, hacia una DIANA pegada al
+	# costado -- lo vio el usuario el 08/10 --, asi que se quito.)
+
+
+# LOS MITONES: solo la mano y una vuelta en la muñeca. Lo mas corto de todos los juegos.
+static func _miton(piezas: Array, esq: Dictionary, izq: bool) -> void:
+	var p: Dictionary = esq["puntos"]
+	var codo: Vector3 = p[PoseJugador.P_CODO_IZQ if izq else PoseJugador.P_CODO_DER]
+	var mano: Vector3 = p[PoseJugador.P_MANO_IZQ if izq else PoseJugador.P_MANO_DER]
+	var m: float = CuerpoSprites.R_MANO
+	PoseJugador.poner(piezas, esq, mano, Vector3(m, m, m) * 1.02, Tono.MAT_S)
+	# La vuelta de la muñeca: un anillo claro un poco hacia el codo.
+	var mun: Vector3 = mano.lerp(codo, 0.20)
+	var ra: float = CuerpoSprites.R_ANTEBRAZO
+	# En tono BASE y no en el de luz: con el beige de la tela de hierba el de luz es casi blanco y los
+	# mitones parecian calcetines (08/10).
+	PoseJugador.cadena(piezas, esq, mun, mano.lerp(codo, 0.08), ra * 1.06, ra * 1.02, Tono.MAT)
+
+
+# LAS ZAPATILLAS: el pie con una vuelta en el tobillo, sin caña. Las mas bajas de todos los juegos.
+static func _zapatillas(piezas: Array, esq: Dictionary) -> void:
+	var p: Dictionary = esq["puntos"]
+	for izq in [true, false]:
+		var pie: Vector3 = p[PoseJugador.P_PIE_IZQ if izq else PoseJugador.P_PIE_DER]
+		var rodilla: Vector3 = p[PoseJugador.P_RODILLA_IZQ if izq else PoseJugador.P_RODILLA_DER]
+		var tobillo: Vector3 = pie + Vector3(0.0, 0.0, CuerpoSprites.R_PIE.z)
+		# El pie en SOMBRA y la vuelta en tono base: con la luz salian casi blancas (08/10).
+		PoseJugador.poner(piezas, esq, pie, CuerpoSprites.R_PIE * 1.03, Tono.MAT_S)
+		var vuelta: Vector3 = tobillo.lerp(rodilla, 0.10)
+		PoseJugador.cadena(piezas, esq, tobillo, vuelta,
+			CuerpoSprites.R_PANTORRILLA * 0.92, CuerpoSprites.R_PANTORRILLA * 0.90, Tono.MAT)

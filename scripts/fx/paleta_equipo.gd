@@ -75,6 +75,8 @@ enum Rol {
 const METAL := "metal"
 const FIBRA := "cuero"
 const LEÑO := "madera"
+# LA TELA (08/10/2026): la armadura de los magos. Mate como el cuero (ver metal_de).
+const TELA := "tela"
 
 # DONDE SALTA LA BANDA, en niveles de mejora. Son las MISMAS que declaran los materiales en su .tres
 # (mejora_min / mejora_max): 0..3, 3..9, 9..15.
@@ -157,6 +159,21 @@ const TABLA := {
 		[Color(0.52, 0.30, 0.30),   # cuero de minotauro
 		 Color(0.60, 0.34, 0.36),   # cuero sellado     (INVENTADO: cuero_t3 no tiene bandas)
 		 Color(0.70, 0.44, 0.44)],  # cuero de escama   (INVENTADO: cuero_t3 no tiene bandas)
+	],
+	# LA TELA: cada peldaño es el color de la TELA que pide esa banda (lo eligio el usuario, 08/10/2026),
+	# igual que el metal lleva el de su lingote: una tunica mejorada cambia de color al subir de banda.
+	# Son los colores de los .tres de las telas, un poco bajados de brillo para que la luz tenga sitio.
+	TELA: [
+		[Color(0.74, 0.73, 0.58),   # tela de hierba (beige)
+		 Color(0.46, 0.57, 0.42),   # tela de raiz (verde)
+		 Color(0.58, 0.28, 0.32)],  # tela sanguina (rojo)
+		[Color(0.76, 0.74, 0.63),   # tela de moho (crema)
+		 Color(0.54, 0.42, 0.66),   # tela umbria (morado)
+		 Color(0.84, 0.60, 0.50)],  # tela de liquen (salmon)
+		# T3: todavia NO HAY TELAS de T3. Tonos oscuros provisionales, inalcanzables hasta que existan.
+		[Color(0.30, 0.30, 0.38),   # (INVENTADO: no hay tela T3)
+		 Color(0.26, 0.26, 0.36),   # (INVENTADO)
+		 Color(0.22, 0.22, 0.32)],  # (INVENTADO)
 	],
 	LEÑO: [
 		[Color(0.55, 0.42, 0.26),   # madera comun
