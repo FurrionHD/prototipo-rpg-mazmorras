@@ -220,9 +220,9 @@ func ficha_a_dict(pj: PersonajeData) -> Dictionary:
 	var d := {}
 	for campo in ["nombre", "color", "metalico", "imagen", "color_alpha", "aspecto", "level",
 			"ability_internal", "ability_consolidado", "ability_base_nivel",
-			"fuerza", "resistencia", "destreza", "agilidad", "magia",
+			"fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad",
 			"base_hp", "base_attack", "base_attack_des", "base_defense", "base_magic", "base_speed",
-			"base_mp", "base_magia_factor", "base_crit",
+			"base_mp", "base_magia_factor", "base_crit", "base_eficacia", "base_resist_mental",
 			"current_hp", "current_mp", "stamina",
 			"desarrollos_rango", "pasivas_rng", "guardianes_vencidos",
 			"esquivas_exp", "hechizos_exp", "recitado_exp",
@@ -379,6 +379,7 @@ func ficha_de_dict(d: Dictionary, registrar := false) -> PersonajeData:
 	if d.has("aguante"):
 		pj.set_meta("aguante", d["aguante"])   # lo lee Game.aguante_para_combate
 	pj.set_meta("cuerpo_red", int(d.get("cuerpo", -1)))   # que cuerpo de su dueño es (ver ficha_a_dict)
+	pj.asegurar_stats()   # una ficha de una version de antes de la Voluntad no trae su clave
 	return pj
 
 

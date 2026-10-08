@@ -14,7 +14,7 @@ extends RefCounted
 # Es de DIAGNOSTICO, asi que enseña a proposito cosas que el juego oculta (los contadores de los
 # desarrollos, las pasivas pendientes). No se le enseña al jugador: se pulsa la tecla y se lee.
 
-const STATS := ["fuerza", "resistencia", "destreza", "agilidad", "magia"]
+const STATS := Abilities.NOMBRES
 const SLOTS := ["main", "off", "casco", "pecho", "manos", "pantalones", "botas"]
 
 

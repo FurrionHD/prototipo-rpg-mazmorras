@@ -663,7 +663,7 @@ func _energia_max(pj: PersonajeData) -> float:
 	return maxf(0.0, (pl.aguante_de_grupo(pj) as Vector2).y)
 
 
-# LAS 5 HABILIDADES, con su rango por letra y lo que aporta cada una AHORA MISMO.
+# LAS 6 HABILIDADES, con su rango por letra y lo que aporta cada una AHORA MISMO.
 #
 # Los aportes salen por DIFERENCIA (ver _sin_habilidad) y no reescribiendo formulas, que es de donde
 # venia el desfase viejo: la pagina calculaba con las formulas ADITIVAS (las de los enemigos) y el
@@ -691,9 +691,10 @@ func _pagina_habilidades(c: Combatant) -> void:
 
 	# DESTREZA -> critico. Es un DUELO (tu Destreza contra la Agilidad del que recibe el golpe), asi
 	# que sin rival delante se mide contra un maniqui con tus mismas stats.
+	# Y la EFICACIA (que prendan tus estados): la de este nivel, sin la grabada al ascender.
 	_fila_habilidad("Destreza", "destreza", ab)
-	_aporte("~%s de crítico" % _fmt_pct(StatsMath.crit_chance(float(ab.destreza),
-		float(ab.agilidad))))
+	_aporte("~%s de crítico  ·  +%s de eficacia" % [_fmt_pct(StatsMath.crit_chance(float(ab.destreza),
+		float(ab.agilidad))), _fmt_pct(StatsMath.eficacia_de_destreza(float(ab.destreza)))])
 
 	# AGILIDAD -> esquiva (el duelo espejo del critico) y velocidad de turno.
 	_fila_habilidad("Agilidad", "agilidad", ab)
@@ -706,14 +707,20 @@ func _pagina_habilidades(c: Combatant) -> void:
 	var vel_de_agi: float = c.spd() * (1.0 - (spd_sin / spd_con if spd_con > 0.0 else 1.0))
 	_aporte("~%s de esquiva  ·  +%.1f velocidad" % [_fmt_pct(evade_espejo), vel_de_agi])
 
-	# MAGIA -> daño de hechizos, maná y defensa magica.
+	# MAGIA -> daño de hechizos y maná. La defensa magica ya no es suya: es de la Voluntad.
 	_fila_habilidad("Magia", "magia", ab)
 	var ab_sin_mag: Abilities = _sin_habilidad(ab, "magia")
 	var mp_de_mag: float = c.max_mp - StatsMath.max_mp_jugador(ab_sin_mag, _pj().base_mp)
-	var mdef_de_mag: float = StatsMath.magic_jugador(ab, c.base_magic) \
-		- StatsMath.magic_jugador(ab_sin_mag, c.base_magic)
-	_aporte("×%.2f a los hechizos  ·  +%.1f maná  ·  +%.1f def. mágica" % [
-		StatsMath.magia_factor(float(ab.magia)), mp_de_mag, mdef_de_mag])
+	_aporte("×%.2f a los hechizos  ·  +%.1f maná" % [
+		StatsMath.magia_factor(float(ab.magia)), mp_de_mag])
+
+	# VOLUNTAD -> defensa magica y resistencia a los estados mentales (Ceguera, Miedo, Silencio).
+	_fila_habilidad("Voluntad", "voluntad", ab)
+	var ab_sin_vol: Abilities = _sin_habilidad(ab, "voluntad")
+	var mdef_de_vol: float = StatsMath.magic_jugador(ab, c.base_magic) \
+		- StatsMath.magic_jugador(ab_sin_vol, c.base_magic)
+	_aporte("+%.1f def. mágica  ·  +%s resist. a estados mentales" % [
+		mdef_de_vol, _fmt_pct(StatsMath.resist_mental_de_voluntad(float(ab.voluntad)))])
 
 
 # LO QUE ESA HABILIDAD TE ESTA DANDO AHORA MISMO, en una linea y sin explicar de donde sale. La
@@ -2130,6 +2137,7 @@ func _sin_habilidad(ab: Abilities, cual: String) -> Abilities:
 	z.destreza = ab.destreza
 	z.agilidad = ab.agilidad
 	z.magia = ab.magia
+	z.voluntad = ab.voluntad
 	z.set(cual, 0)
 	return z
 

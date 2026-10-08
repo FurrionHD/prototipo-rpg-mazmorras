@@ -507,7 +507,7 @@ func _build_stats(vb: VBoxContainer) -> void:
 	row.add_theme_constant_override("separation", 4)
 	vb.add_child(row)
 	var keys := [["F", "fuerza"], ["R", "resistencia"], ["D", "destreza"],
-		["A", "agilidad"], ["M", "magia"]]
+		["A", "agilidad"], ["M", "magia"], ["V", "voluntad"]]
 	for k in keys:
 		var lbl := Label.new()
 		lbl.text = k[0]
@@ -532,7 +532,7 @@ func _build_enemy(vb: VBoxContainer) -> void:
 	erow.add_theme_constant_override("separation", 4)
 	vb.add_child(erow)
 	for k in [["F", "fuerza"], ["R", "resistencia"], ["D", "destreza"],
-			["A", "agilidad"], ["M", "magia"]]:
+			["A", "agilidad"], ["M", "magia"], ["V", "voluntad"]]:
 		var l := Label.new()
 		l.text = k[0]
 		erow.add_child(l)
@@ -1282,7 +1282,8 @@ func _apply_stats() -> void:
 		_stat_edits["resistencia"].text.to_int(),
 		_stat_edits["destreza"].text.to_int(),
 		_stat_edits["agilidad"].text.to_int(),
-		_stat_edits["magia"].text.to_int())
+		_stat_edits["magia"].text.to_int(),
+		_stat_edits["voluntad"].text.to_int())
 	_sync_stats()
 
 
@@ -1341,6 +1342,7 @@ func _sync_stats() -> void:
 	_stat_edits["destreza"].text = str(Game.player_destreza)
 	_stat_edits["agilidad"].text = str(Game.player_agilidad)
 	_stat_edits["magia"].text = str(Game.player_magia)
+	_stat_edits["voluntad"].text = str(Game.player_voluntad)
 
 func _sync_enemy() -> void:
 	var ov: Dictionary = Game.debug_enemy_override

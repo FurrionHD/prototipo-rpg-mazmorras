@@ -200,6 +200,11 @@ var _huida_acum: float = 0.0
 # fuga), asi que vuelve a 55: con lose_range en 300 la ventana ya da para 2-3 ticks por fuga, que es
 # el ritmo que se busca. Ver tambien Enemy.lose_range, que es lo que abre la ventana.
 const _HUIDA_TICK := 55.0
+# LA OSCURIDAD ENSEÑA VOLUNTAD: px andados (ya pesados por lo oscuro que esta, ver _tick_oscuridad)
+# por cada tick de ganancia. Va por DISTANCIA y no por tiempo para que quedarse quieto a oscuras con
+# el juego abierto no pague nada: lo que enseña es atreverse a avanzar sin ver.
+const _OSCURIDAD_TICK := 160.0
+var _oscuridad_acum: float = 0.0
 const _AGILIDAD_RANGE := 220.0  # correr solo cuenta con un enemigo a este rango
 
 # Radio de PELIGRO: correr solo cuesta aguante si hay un bicho a menos de esto. Correr por el
@@ -487,6 +492,8 @@ func _physics_process(delta: float) -> void:
 	# Agilidad: HUIR de verdad. Ver _tick_huida. No le pasamos la velocidad del grupo: cada
 	# personaje se mide con la SUYA (_vel_carrera_de), que es lo que de verdad le cuesta la fuga.
 	_tick_huida()
+	# Voluntad: andar a OSCURAS (08/10/2026). Ver _tick_oscuridad.
+	_tick_oscuridad(delta)
 
 	# DOS teclas, y no una: ATACAR y TOCAR COSAS son intenciones distintas y no se pueden
 	# confundir. Con una sola tecla, ir a extraer un cristal con un bicho cerca podia
@@ -1110,6 +1117,25 @@ func aguante_de_grupo(pj: PersonajeData) -> Vector2:
 #  Y lo cobra el GRUPO ENTERO, cada uno con SU reto: corriendo va todo el mundo y el aguante lo
 #  pagan todos, asi que la Agilidad no puede quedarsela el que va en cabeza.
 # ============================================================
+
+# Solo en la MAZMORRA (en el pueblo no hay farolillo que valga), fuera de pelea, y lo cobra el GRUPO
+# entero: a oscuras va todo el mundo. Cuanto menos alumbre tu luz, mas pesa cada paso
+# (Game.oscuridad_actual: 0 con el corro al maximo, 1 sin luz).
+func _tick_oscuridad(delta: float) -> void:
+	if Game.current_floor <= 0 or Game.combate_activo():
+		return
+	var paso: float = velocity.length() * delta
+	if paso <= 0.0:
+		return
+	var osc: float = Game.oscuridad_actual()
+	if osc <= 0.0:
+		return
+	_oscuridad_acum += paso * osc
+	while _oscuridad_acum >= _OSCURIDAD_TICK:
+		_oscuridad_acum -= _OSCURIDAD_TICK
+		for pj in Game.party:
+			Game.ganar_voluntad_oscuridad(1.0, pj)
+
 
 func _tick_huida() -> void:
 	# ¿Nos sigue persiguiendo el mismo? (O(1): no hace falta barrer el grupo entero.)

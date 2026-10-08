@@ -20,9 +20,8 @@
 
 extends CanvasLayer
 
-const STATS := ["fuerza", "resistencia", "destreza", "agilidad", "magia"]
-const NOMBRES := {"fuerza": "Fuerza", "resistencia": "Resistencia", "destreza": "Destreza",
-	"agilidad": "Agilidad", "magia": "Magia"}
+const STATS := Abilities.NOMBRES
+const NOMBRES := StatusEffects.NOMBRE_HABILIDAD
 
 const AMBAR := Color(0.95, 0.72, 0.36)
 const GRIS := Color(0.6, 0.63, 0.7)

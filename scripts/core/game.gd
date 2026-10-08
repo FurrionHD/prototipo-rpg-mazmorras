@@ -484,6 +484,9 @@ var player_agilidad: int:
 var player_magia: int:
 	get: return lider().magia
 	set(v): lider().magia = v
+var player_voluntad: int:
+	get: return lider().voluntad
+	set(v): lider().voluntad = v
 var player_base_hp: float:
 	get: return lider().base_hp
 	set(v): lider().base_hp = v
@@ -514,6 +517,12 @@ var player_base_magia_factor: float:
 var player_base_crit: float:
 	get: return lider().base_crit
 	set(v): lider().base_crit = v
+var player_base_eficacia: float:
+	get: return lider().base_eficacia
+	set(v): lider().base_eficacia = v
+var player_base_resist_mental: float:
+	get: return lider().base_resist_mental
+	set(v): lider().base_resist_mental = v
 # Vida actual (persiste entre combates). -1 = aun no inicializada (= llena).
 var player_current_hp: float:
 	get: return lider().current_hp
@@ -935,6 +944,25 @@ const PESCA_RETO_MAX := 5.0             # tope FISICO (la Resistencia es fisica)
 # entrenaba mas echando el sedal que haciendo de tanque. Con 0.75 esos dos peces dan ~0,8 y el
 # combate (ya con el daño sin mitigar) ~1,7: pelear pasa a rendir mas que pescar, que es lo suyo.
 const GAIN_RESISTENCIA_PESCA := 0.75
+
+# ============================================================
+#  VOLUNTAD (08/10/2026): de donde sale su excelia. Las cuatro fuentes las eligio el usuario:
+#   1) ENCAJAR DAÑO MAGICO. Sube la Resistencia como cualquier golpe Y ADEMAS la Voluntad: estas
+#      recibiendo daño, asi que la Resistencia no puede subir menos que antes. (Se engancha en la
+#      fase 3, cuando los slimes peguen magico: ganar_voluntad_golpe_magico.)
+#   2) AGUANTAR ESTADOS: cada intento de un enemigo de meterte uno. Resistirlo enseña mas que
+#      comertelo, y los MENTALES (StatusEffects.MENTALES) el doble.
+#   3) CADA TICK de daño en el tiempo (veneno, quemadura, sangrado...) que encajas.
+#   4) LA OSCURIDAD: andar por la mazmorra con poca luz. Cuanto menos alumbra tu farolillo, mas; con
+#      el corro al maximo, nada. Jugar sin farolillo es muy duro y esto es lo que te llevas.
+# TODOS PROVISIONALES: se afinan con la tabla de antes/despues y el playtest.
+# ============================================================
+const GAIN_VOLUNTAD_GOLPE_MAGICO := 0.345   # = GAIN_RESISTENCIA_GOLPE: un golpe es un golpe
+const GAIN_VOLUNTAD_ESTADO := 0.3           # por intento RESISTIDO
+const VOLUNTAD_ESTADO_ENTRA := 0.5          # x si te entra (aguantarlo dentro enseña menos)
+const VOLUNTAD_ESTADO_MENTAL := 2.0         # x si es mental (Ceguera, Miedo, Silencio)
+const GAIN_VOLUNTAD_DOT := 0.1              # por tick de daño en el tiempo (x el peso del tick)
+const GAIN_VOLUNTAD_OSCURIDAD := 0.12       # por tramo andado a oscuras del todo (ver player._tick_oscuridad)
 
 # Dificultad CRUDA del ultimo minijuego de extraccion (para la ganancia de Destreza). Es el mismo
 # numero que _last_reco_reto en las otras tres profesiones: exigencia / (stat*peso + suelo).
@@ -2503,10 +2531,10 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	yo.aplicar_aspecto(asp)
 
 	player_level = 1
-	ability_internal = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
-	ability_consolidado = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	ability_internal = PersonajeData._cero_abilities()
+	ability_consolidado = PersonajeData._cero_abilities()
 	# Estado de subida de nivel a cero (por si venias de otra partida en la misma sesion).
-	ability_base_nivel = {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	ability_base_nivel = PersonajeData._cero_abilities()
 	player_base_hp = 50.0
 	player_base_attack = 5.0
 	player_base_defense = 5.0
@@ -2515,6 +2543,8 @@ func nueva_partida(nombre_: String = NOMBRE_POR_DEFECTO, asp: Dictionary = {}) -
 	player_base_mp = 20.0
 	player_base_magia_factor = 1.0
 	player_base_crit = 0.0
+	player_base_eficacia = 0.0
+	player_base_resist_mental = 0.0
 	desarrollos_rango.clear()
 	pasivas_rng.clear()
 	guardianes_vencidos = {}
@@ -2668,6 +2698,8 @@ func exportar_partida() -> SaveData:
 	d.player_base_mp = player_base_mp
 	d.player_base_magia_factor = player_base_magia_factor
 	d.player_base_crit = player_base_crit
+	d.player_base_eficacia = player_base_eficacia
+	d.player_base_resist_mental = player_base_resist_mental
 	d.desarrollos_rango = desarrollos_rango.duplicate()
 	d.pasivas_rng = pasivas_rng.duplicate()
 	d.pasivas_pendientes = lider().pasivas_pendientes.duplicate()
@@ -3424,8 +3456,9 @@ func importar_partida(d: SaveData) -> void:
 	# carga con todo consolidado, que es exactamente como se comportaba. No pierde nada.
 	ability_consolidado = d.ability_consolidado.duplicate() if d.ability_consolidado else ability_internal.duplicate()
 	player_level = d.player_level
-	ability_base_nivel = d.ability_base_nivel.duplicate() if d.ability_base_nivel else {
-		"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	ability_base_nivel = d.ability_base_nivel.duplicate() if d.ability_base_nivel \
+		else PersonajeData._cero_abilities()
+	lider().asegurar_stats()   # una partida de antes de la Voluntad no trae su clave
 	player_base_hp = d.player_base_hp
 	player_base_attack = d.player_base_attack
 	player_base_defense = d.player_base_defense
@@ -3434,6 +3467,8 @@ func importar_partida(d: SaveData) -> void:
 	player_base_mp = d.player_base_mp
 	player_base_magia_factor = d.player_base_magia_factor
 	player_base_crit = d.player_base_crit
+	player_base_eficacia = d.player_base_eficacia
+	player_base_resist_mental = d.player_base_resist_mental
 	desarrollos_rango = d.desarrollos_rango.duplicate()
 	pasivas_rng = (d.pasivas_rng as Dictionary).duplicate() if d.pasivas_rng != null else {}
 	lider().pasivas_pendientes = (d.pasivas_pendientes as Dictionary).duplicate() \
@@ -8548,6 +8583,7 @@ func abilities_de(p: PersonajeData) -> Abilities:
 	a.destreza = p.destreza
 	a.agilidad = p.agilidad
 	a.magia = p.magia
+	a.voluntad = p.voluntad
 	return a
 
 
@@ -8582,6 +8618,8 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	c.base_magic = p.base_magic
 	# Bakeos de nivel: crítico plano (Destreza), factor de daño mágico y maná base (Magia).
 	c.crit_flat = p.base_crit
+	c.eficacia_bake = p.base_eficacia
+	c.resist_mental_bake = p.base_resist_mental
 	c.magia_base_factor = p.base_magia_factor
 	c.base_attack_des = p.base_ataque_destreza()   # la base de las armas de Destreza (arco, ballesta)
 	# El JUGADOR usa las formulas MULTIPLICATIVAS (la stat multiplica su base): es lo que hace que
@@ -13142,9 +13180,54 @@ func diminish_factor(del_nivel: float) -> float:
 	return lerpf(DIMINISH_FLOOR, DIMINISH_FIN, (x - x_suelo) / maxf(1.0 - x_suelo, 0.0001))
 
 
+# EL PODER DEL PISO: la mitad de la franja de habilidades de sus enemigos. Es el "contra que" de lo que
+# no tiene un enemigo delante (la oscuridad, un veneno que sigue mordiendo): un piso hondo enseña mas.
+func poder_piso(piso: int = -1) -> float:
+	var b: Vector2 = enemy_ability_sum_band(current_floor if piso < 0 else piso)
+	return (b.x + b.y) * 0.5
+
+
+# (1) Un golpe MAGICO encajado. dmg_bruto = SIN mitigar, como la Resistencia: lo que enseña es la
+# fuerza de lo que paras. Mismo peso del golpe que ella (dmg_mult entre x0,5 y x2).
+func ganar_voluntad_golpe_magico(reto_val: float, dmg_bruto: float, vida_max: float, pj: PersonajeData) -> void:
+	var dmg_mult: float = clampf(dmg_bruto / maxf(1.0, vida_max * 0.1), 0.5, 2.0)
+	ganar("voluntad", reto_val * dmg_mult, GAIN_VOLUNTAD_GOLPE_MAGICO, RETO_MAX_FISICO, pj)
+
+
+# (2) Un estado que un enemigo intenta meterte (ver Combatant.anotar_intento_estado).
+func ganar_voluntad_estado(poder_enemigo: float, nivel_enemigo: int, id: int, entro: bool,
+		pj: PersonajeData) -> void:
+	var base: float = GAIN_VOLUNTAD_ESTADO * (VOLUNTAD_ESTADO_ENTRA if entro else 1.0)
+	if StatusEffects.es_mental(id):
+		base *= VOLUNTAD_ESTADO_MENTAL
+	ganar("voluntad", reto(poder_enemigo, nivel_enemigo, pj), base, RETO_MAX_FISICO, pj)
+
+
+# (3) Un tick de daño en el tiempo. Pesa como un golpe (x0,5 a x2 segun lo que muerde contra tu vida)
+# y el reto es el del PISO: el veneno ya no sabe quien te lo puso.
+func ganar_voluntad_dot(dmg: float, vida_max: float, pj: PersonajeData) -> void:
+	var peso: float = clampf(dmg / maxf(1.0, vida_max * 0.1), 0.5, 2.0)
+	ganar("voluntad", reto(poder_piso(), 1, pj) * peso, GAIN_VOLUNTAD_DOT, RETO_MAX_FISICO, pj)
+
+
+# (4) Un tramo andado a oscuras. 'oscuridad' 0..1 = lo que le falta a tu luz para el corro maximo.
+func ganar_voluntad_oscuridad(oscuridad: float, pj: PersonajeData) -> void:
+	if oscuridad <= 0.0:
+		return
+	ganar("voluntad", reto(poder_piso(), 1, pj), GAIN_VOLUNTAD_OSCURIDAD * oscuridad, RETO_MAX_FISICO, pj)
+
+
+# Lo que te falta de luz, de 0 (corro al maximo) a 1 (el suelo duro: sin farolillo o sin llama).
+func oscuridad_actual() -> float:
+	var minimo: float = Vision.RADIO_MINIMO
+	var tope: float = Lampara.RADIO_TOPE
+	return clampf(1.0 - (radio_lampara() - minimo) / maxf(tope - minimo, 0.001), 0.0, 1.0)
+
+
 func ganar(abil: String, reto_val: float, base: float, max_reto: float = RETO_MAX,
 		pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
+	p.asegurar_stats()
 	if not p.ability_internal.has(abil):
 		return
 	var interno: float = p.ability_internal[abil]
@@ -13248,8 +13331,8 @@ func poder_jugador_puesto(pj: PersonajeData = null) -> float:
 func poder_jugador_nivel(pj: PersonajeData = null) -> float:
 	var p: PersonajeData = pj if pj != null else lider()
 	var suma: float = 0.0
-	for s in p.ability_internal:
-		suma += maxf(0.0, float(p.ability_internal[s]) - float(p.ability_base_nivel[s]))
+	for s in Abilities.NOMBRES_PODER:
+		suma += maxf(0.0, float(p.ability_internal.get(s, 0.0)) - float(p.ability_base_nivel.get(s, 0.0)))
 	return maxf(suma, PODER_JUGADOR_SUELO)
 
 # Dificultad relativa: enemigo/accion facil respecto a ti = poco.
@@ -13277,6 +13360,7 @@ func reto(poder_enemigo: float, nivel_enemigo: int = 1, pj: PersonajeData = null
 func reto_stat(poder_enemigo: float, stat: String, nivel_enemigo: int = 1,
 		pj: PersonajeData = null) -> float:
 	var p: PersonajeData = pj if pj != null else lider()
+	p.asegurar_stats()
 	var s: float = float(stat_total(stat, p))
 	if nivel_enemigo >= p.level:
 		s = maxf(0.0, float(p.ability_internal[stat]) - float(p.ability_base_nivel[stat]))
@@ -13312,12 +13396,13 @@ func curva_reto(reto_bruto: float, pivote: float, slope: float, tope: float) -> 
 func actualizar_estado(pj: PersonajeData = null) -> Dictionary:
 	var p: PersonajeData = pj if pj != null else lider()
 	var rangos_antes: Dictionary = p.desarrollos_rango.duplicate()
+	p.asegurar_stats()
 	for s in p.ability_internal:
 		p.ability_consolidado[s] = p.ability_internal[s]
 	_derivar_visible(p)   # de paso sube el rango de los desarrollos cuyo contador ya llega
 	var pasivas: Array = consolidar_pasivas(p)
 	print("=== ESTADO ACTUALIZADO: ", p.nombre, " (Nv ", p.level, ") ===  F:", p.fuerza,
-		" R:", p.resistencia, " D:", p.destreza, " A:", p.agilidad, " M:", p.magia)
+		" R:", p.resistencia, " D:", p.destreza, " A:", p.agilidad, " M:", p.magia, " V:", p.voluntad)
 	return {"pasivas": pasivas, "desarrollos": _desarrollos_subidos(p, rangos_antes)}
 
 
@@ -13360,11 +13445,13 @@ func tiene_pendiente(pj: PersonajeData) -> bool:
 # Pone las stats visibles a partir de lo CONSOLIDADO. No consolida nada: es solo la lectura.
 func _derivar_visible(pj: PersonajeData = null) -> void:
 	var p: PersonajeData = pj if pj != null else lider()
+	p.asegurar_stats()
 	p.fuerza = _visible_nivel("fuerza", p)
 	p.resistencia = _visible_nivel("resistencia", p)
 	p.destreza = _visible_nivel("destreza", p)
 	p.agilidad = _visible_nivel("agilidad", p)
 	p.magia = _visible_nivel("magia", p)
+	p.voluntad = _visible_nivel("voluntad", p)
 	_subir_rangos_desarrollo(p)   # los desarrollos elegidos suben de rango si su contador ya llega
 
 # Progreso VISIBLE de este nivel para una habilidad (consolidado - base del nivel, minimo 0).
@@ -13391,7 +13478,7 @@ func _visible_nivel(s: String, pj: PersonajeData = null) -> int:
 # Para armar un minijuego o cualquier otro EFECTO, la que toca es stat_consolidado_eff.
 func stat_total(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
-	return floori(float(p.ability_internal[s]))
+	return floori(float(p.ability_internal.get(s, 0.0)))
 
 # CONSOLIDADO de una habilidad: lo que quedo fijado en el ULTIMO altar. A diferencia de
 # stat_total (el interno oculto, que crece con cada golpe), esto solo cambia al descansar. Y a
@@ -13399,7 +13486,7 @@ func stat_total(s: String, pj: PersonajeData = null) -> int:
 # por eso sirve para magnitudes que deben crecer solo al consolidar pero sin desplomarse al ascender.
 func stat_consolidado(s: String, pj: PersonajeData = null) -> int:
 	var p: PersonajeData = pj if pj != null else lider()
-	return floori(float(p.ability_consolidado[s]))
+	return floori(float(p.ability_consolidado.get(s, 0.0)))
 
 # LA STAT DE EFECTO FUERA DE COMBATE: el consolidado con los estados encima (el 10% del plato).
 # Es la que arma los minijuegos, los oficios, cuanto cargas, cuanto aguantas y como de rapido andas
@@ -13443,7 +13530,7 @@ func puede_subir_nivel() -> bool:
 # ¿Alguna basica VISIBLE en rango C? La comparten la regla de arriba y la lista del altar, para que
 # el ✓ y el boton no puedan decir cosas distintas.
 func tiene_rango_c(pj: PersonajeData) -> bool:
-	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
+	for s in Abilities.NOMBRES:
 		if int(pj.get(s)) >= RANGO_C_MIN:
 			return true
 	return false
@@ -13461,6 +13548,7 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	a.destreza = player_destreza
 	a.agilidad = player_agilidad
 	a.magia = player_magia
+	a.voluntad = player_voluntad
 	# BAKEAR ×(1+NIVEL_SPIKE): el efecto de tus basicas se congela en la base del nivel nuevo.
 	var spike: float = 1.0 + NIVEL_SPIKE
 	# Se bakea con las MISMAS formulas multiplicativas que usa el jugador en combate (*_jugador),
@@ -13479,6 +13567,11 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	player_base_magia_factor = player_base_magia_factor * StatsMath.magia_factor(float(a.magia)) * spike
 	player_base_mp = StatsMath.max_mp_jugador(a, player_base_mp) * spike
 	player_base_crit += (float(a.destreza) / 999.0) * CRIT_BAKE_MAX * spike
+	# Y lo que la Destreza empuja tus estados y la Voluntad te protege de los mentales, igual: sumando
+	# plano que se queda (ver Combatant.eficacia_bake). La DEFENSA MAGICA de la Voluntad no va aqui:
+	# esa ya la bakea player_base_magic de arriba, con magic_jugador.
+	player_base_eficacia += StatsMath.eficacia_de_destreza(float(a.destreza)) * spike
+	player_base_resist_mental += StatsMath.resist_mental_de_voluntad(float(a.voluntad)) * spike
 	# Resetear el VISIBLE sin borrar el total oculto: la marca del nivel sube al total actual.
 	#
 	# Y antes de marcarla, INFLAR el total oculto por el mismo spike (x1.10). Ese total ya no toca
@@ -13495,11 +13588,13 @@ func subir_nivel(desarrollo_id: String) -> bool:
 	#
 	# El consolidado se sincroniza tambien porque _visible_nivel() calcula consolidado - base_nivel:
 	# si se quedara sin inflar, esa resta saldria negativa hasta la siguiente visita al altar.
-	for s in ["fuerza", "resistencia", "destreza", "agilidad", "magia"]:
+	lider().asegurar_stats()
+	for s in Abilities.NOMBRES:
 		ability_internal[s] = float(ability_internal[s]) * spike
 		ability_consolidado[s] = ability_internal[s]
 		ability_base_nivel[s] = ability_internal[s]
 	player_fuerza = 0; player_resistencia = 0; player_destreza = 0; player_agilidad = 0; player_magia = 0
+	player_voluntad = 0
 	player_level += 1
 	aplicar_desarrollo(desarrollo_id)
 	# RESET selectivo: los contadores de los desarrollos que NO tienes vuelven a 0 (hay que ganarse
@@ -13973,7 +14068,11 @@ func _reset_contadores_no_elegidos(pj: PersonajeData = null) -> void:
 # un interno POR DEBAJO de la base del nivel, y _visible_nivel lo cortaba a 0 (de ahi que las
 # stats "volvieran a cero"); encima se cargaba el total acumulado, que es lo que alimenta la
 # recoleccion y el reto.
-func debug_set_abilities(f: int, r: int, d: int, a: int, m: int) -> void:
+# 'v' (Voluntad) es opcional y va al final: -1 = no la toques (los botones viejos pasan cinco).
+func debug_set_abilities(f: int, r: int, d: int, a: int, m: int, v: int = -1) -> void:
+	lider().asegurar_stats()
+	if v >= 0:
+		_debug_set_visible("voluntad", v)
 	_debug_set_visible("fuerza", f)
 	_debug_set_visible("resistencia", r)
 	_debug_set_visible("destreza", d)

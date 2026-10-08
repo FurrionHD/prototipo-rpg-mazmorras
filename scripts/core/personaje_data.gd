@@ -176,6 +176,7 @@ func aplicar_aspecto(d: Dictionary) -> void:
 @export var destreza: int = 0
 @export var agilidad: int = 0
 @export var magia: int = 0
+@export var voluntad: int = 0
 
 # --- Bases que crecen al subir de nivel ---
 @export var base_hp: float = 50.0
@@ -191,6 +192,10 @@ func aplicar_aspecto(d: Dictionary) -> void:
 @export var base_mp: float = 20.0
 @export var base_magia_factor: float = 1.0
 @export var base_crit: float = 0.0
+# Eficacia (de la Destreza) y resistencia mental (de la Voluntad) que se quedan grabadas al ascender.
+# Ver Combatant.eficacia_bake.
+@export var base_eficacia: float = 0.0
+@export var base_resist_mental: float = 0.0
 
 # --- Estado vivo (persiste entre combates; -1 = lleno / sin inicializar) ---
 @export var current_hp: float = -1.0
@@ -398,7 +403,21 @@ func _init() -> void:
 
 
 static func _cero_abilities() -> Dictionary:
-	return {"fuerza": 0.0, "resistencia": 0.0, "destreza": 0.0, "agilidad": 0.0, "magia": 0.0}
+	var d: Dictionary = {}
+	for s in Abilities.NOMBRES:
+		d[s] = 0.0
+	return d
+
+
+# Rellena a 0 las basicas que falten en los tres diccionarios de progreso. Una partida de antes de
+# la Voluntad (08/10/2026) llega sin la clave, y todo lo que lee por nombre (el visible, el reto de
+# una stat, ganar) reventaria o, peor, se la saltaria sin decir nada. Barato e idempotente: se puede
+# llamar en cada lectura sin miedo.
+func asegurar_stats() -> void:
+	for d in [ability_internal, ability_consolidado, ability_base_nivel]:
+		for s in Abilities.NOMBRES:
+			if not (d as Dictionary).has(s):
+				d[s] = 0.0
 
 
 # Los 7 slots con su meta por defecto (T1 / comun / sin mejoras / entera).

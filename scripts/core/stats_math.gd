@@ -173,8 +173,11 @@ static func max_mp_value(ab: Abilities, _level: int, base_mp: float = BASE_MP) -
 static func defense_value(ab: Abilities, level: int, base_defense: float) -> float:
 	return base_defense + ab.resistencia * _coef(DEF_COEF_BASE, DEF_COEF_GROWTH, level)
 
+# DEFENSA MAGICA (enemigos, aditiva). Desde el 08/10/2026 la da la VOLUNTAD, no la Magia: la Magia es
+# para pegar. Al bicho no le cambia nada: su Voluntad sale del mismo peso que tenia su Magia (ver
+# EnemyData.peso_voluntad), asi que tus hechizos le entran igual que ayer.
 static func magic_value(ab: Abilities, level: int, base_magic: float) -> float:
-	return base_magic + ab.magia * _coef(MAG_COEF_BASE, MAG_COEF_GROWTH, level)
+	return base_magic + ab.voluntad * _coef(MAG_COEF_BASE, MAG_COEF_GROWTH, level)
 
 static func speed_value(ab: Abilities, level: int, base_speed: float) -> float:
 	return base_speed + ab.agilidad * _coef(SPD_COEF_BASE, SPD_COEF_GROWTH, level)
@@ -203,7 +206,7 @@ static func max_hp_value(ab: Abilities, _level: int, base_hp: float) -> float:
 const RES_HP_DIV := 333.33    # 50 (base_hp)      / 0.15  (HP_FROM_RES)
 const RES_DEF_DIV := 250.0    # 5  (base_defense) / 0.02  (DEF_COEF_BASE)
 const AGI_SPD_DIV := 250.0    # 5  (base_speed)   / 0.02  (SPD_COEF_BASE)
-const MAG_DEF_DIV := 250.0    # 5  (base_magic)   / 0.02  (MAG_COEF_BASE)
+const MAG_DEF_DIV := 250.0    # 5  (base_magic)   / 0.02  (MAG_COEF_BASE); la multiplica la VOLUNTAD
 const MAG_MP_DIV := 606.06    # 20 (BASE_MP)      / 0.033 (MP_FROM_MAGIA)
 
 static func max_hp_jugador(ab: Abilities, base_hp: float) -> float:
@@ -215,8 +218,29 @@ static func defense_jugador(ab: Abilities, base_defense: float) -> float:
 static func speed_jugador(ab: Abilities, base_speed: float) -> float:
 	return base_speed * (1.0 + ab.agilidad / AGI_SPD_DIV)
 
+# DEFENSA MAGICA del jugador: la base (que bakea cada nivel) por la VOLUNTAD. Antes la multiplicaba la
+# Magia y por eso solo el mago se protegia de la magia (decision del usuario, 08/10/2026).
 static func magic_jugador(ab: Abilities, base_magic: float) -> float:
-	return base_magic * (1.0 + ab.magia / MAG_DEF_DIV)
+	return base_magic * (1.0 + ab.voluntad / MAG_DEF_DIV)
+
+# LO QUE EMPUJAN LOS ESTADOS LA DESTREZA Y LA VOLUNTAD (08/10/2026). Las dos son SUMANDOS al carril de
+# la formula de StatusEffects.prob_final (eficacia arriba, resistencia abajo), sin tope, como el
+# resto de ese carril. Valen para jugador Y enemigo: el bicho mañoso te pega estados con mas tino.
+#   - Destreza -> EFICACIA: la mano que encuentra el hueco tambien sabe donde meter el veneno. La
+#     pidio el usuario junto con la Voluntad: si solo subiera la resistencia, los estados dejarian
+#     de entrar en los dos sentidos.
+#   - Voluntad -> resistencia a los MENTALES (StatusEffects.MENTALES).
+# Lineal y a 999 da el MAX: +0,5 de eficacia es lo que da un arma cinco rarezas por encima; +1,0 de
+# resistencia mental parte por la mitad la probabilidad de que te cieguen o te asusten.
+# PROVISIONALES: se afinan con la tabla de antes/despues.
+const EFICACIA_DESTREZA_MAX := 0.5
+const RESIST_MENTAL_VOLUNTAD_MAX := 1.0
+
+static func eficacia_de_destreza(destreza: float) -> float:
+	return maxf(destreza, 0.0) / 999.0 * EFICACIA_DESTREZA_MAX
+
+static func resist_mental_de_voluntad(voluntad: float) -> float:
+	return maxf(voluntad, 0.0) / 999.0 * RESIST_MENTAL_VOLUNTAD_MAX
 
 static func max_mp_jugador(ab: Abilities, base_mp: float) -> float:
 	return base_mp * (1.0 + ab.magia / MAG_MP_DIV)

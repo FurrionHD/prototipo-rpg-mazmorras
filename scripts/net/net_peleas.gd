@@ -1074,7 +1074,7 @@ const _LO_PUESTO := ["estados", "foco_cargas", "imbue", "municion_cargada"]
 # Lo que se le devuelve al dueño cuando acaba la pelea: su desgaste y lo que ha aprendido.
 const _VUELVE := ["current_hp", "current_mp", "stamina", "level",
 	"ability_internal", "ability_consolidado", "ability_base_nivel",
-	"fuerza", "resistencia", "destreza", "agilidad", "magia",
+	"fuerza", "resistencia", "destreza", "agilidad", "magia", "voluntad",
 	"guardianes_vencidos", "esquivas_exp", "hechizos_exp", "recitado_exp",
 	"dano_recibido_exp", "dano_infligido_exp", "dano_bloqueado_exp",
 	"heal_left", "heal_rate", "heal_turnos",

@@ -1163,6 +1163,8 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 			p = StatusEffects.prob_final(a.prob * escala_prob, e, victima, a.estado)
 			p_pelada = StatusEffects.prob_final(a.prob * escala_prob, e, victima, a.estado, false)
 		var tirada: float = randf()
+		if al_jugador:
+			victima.anotar_intento_estado(e, a.estado, tirada < p)   # entrena Voluntad, entre o no
 		if tirada >= p:
 			# ¿Te ha salvado el manto? Solo si esta tirada HABRIA entrado sin su descuento.
 			if al_jugador and tirada < p_pelada:

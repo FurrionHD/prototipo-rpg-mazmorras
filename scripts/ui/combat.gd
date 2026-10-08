@@ -3045,18 +3045,9 @@ func _debug_ataque(atacante: Combatant, defensor: Combatant, r: Dictionary, bloq
 # uno solo, y quien entrena la stat es el bicho CONCRETO con el que acabas de medirte (al que
 # has pegado, o el que te ha pegado a ti). Sin esto, entrenarias con el reto del que no era.
 func _poder_enemigo(c: Combatant) -> float:
-	if c == null or c.abilities == null:
-		return 0.0
-	var a: Abilities = c.abilities
-	var suma: float = float(a.fuerza + a.resistencia + a.destreza + a.agilidad + a.magia)
-	# UN MUTANTE entrena mas, y hay que decirlo aqui porque sus habilidades son las MISMAS que las
-	# del bicho corriente: sus multiplicadores viven en la vida, el ataque y la defensa (ver
-	# EnemyData.MUT_*), asi que la suma de stats no se entera de que acabas de tumbar a un mini-jefe.
-	# Subirle las habilidades en su lugar no vale: el daño ya se calcula con ellas y se cobraria dos
-	# veces. El factor es lo que cuesta MATARLO, no lo que dice su ficha.
-	if not c.mutante:
-		return suma
-	return suma * float(EnemyData.mult_mutante(c.es_jefe, c.grado_mut)["poder"])
+	# La cuenta vive en Combatant (poder_como_enemigo) para que la Voluntad, que se entrena dentro del
+	# propio Combatant al resistir un estado, mida el reto con la MISMA vara que todo lo demas.
+	return 0.0 if c == null else c.poder_como_enemigo()
 
 
 # Dificultad relativa contra ESTE bicho. Pasa su NIVEL (el tier del contenido, de EnemyData.level)

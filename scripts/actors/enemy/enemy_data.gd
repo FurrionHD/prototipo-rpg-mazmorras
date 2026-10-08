@@ -94,6 +94,16 @@ func centro_suelo_real() -> float:
 # MAGICA. Con peso 0 todos los bichos recibian los hechizos a raw limpio y la magia no podia
 # perder nunca. Peso bajo (un slime es tonto), pero que exista y escale con el piso.
 @export_range(0, 999) var magia: int = 15
+# VOLUNTAD (08/10/2026): desde que existe, la DEFENSA MAGICA es suya y no de la Magia. -1 = "la misma
+# que su Magia", que es exactamente la defensa que tenia ayer: asi ningun .tres cambia de golpe y el
+# que quiera un bicho antimagico (o uno que castee mucho y se proteja poco) la pone a mano.
+#
+# OJO: NO entra en el reparto de la suma del piso (peso_total). Va APARTE, calculada con la misma
+# proporcion: si entrara, le robaria puntos a la Fuerza y la Resistencia de todos los enemigos.
+@export_range(-1, 999) var voluntad: int = -1
+
+func peso_voluntad() -> int:
+	return magia if voluntad < 0 else voluntad
 
 # --- Sub-tramo de la franja del piso que ocupa ESTE arquetipo ---
 # La suma de habilidades cae en lerp(franja_del_piso, franja_low..franja_high). El
@@ -443,6 +453,7 @@ func crear_abilities(t: float = 0.5) -> Abilities:
 		a.destreza = clampi(int(round(target * float(destreza) / wt)), 0, 999)
 		a.agilidad = clampi(int(round(target * float(agilidad) / wt)), 0, 999)
 		a.magia = clampi(int(round(target * float(magia) / wt)), 0, 999)
+		a.voluntad = clampi(int(round(target * float(peso_voluntad()) / wt)), 0, 999)
 	# DEBUG: pisa solo las stats que el panel haya fijado.
 	for clave in Game.debug_enemy_override:
 		a.set(clave, clampi(int(Game.debug_enemy_override[clave]), 0, 999))

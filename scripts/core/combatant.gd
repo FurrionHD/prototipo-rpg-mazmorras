@@ -1444,6 +1444,12 @@ func tick_statuses() -> Dictionary:
 	total_dmg *= status_dot_taken_mult()
 	if total_dmg > 0.0:
 		take_damage(total_dmg, true)   # DoT: NO lo tapa el escudo del sequito (pega limpio)
+		# Y cada tick que AGUANTAS enseña Voluntad (08/10/2026). Solo a los personajes en pelea: fuera
+		# de ella no hay ficha a la que apuntarlo (pj_de_combatant devuelve null).
+		if stats_multiplicativas:
+			var pj_dot: PersonajeData = Game.pj_de_combatant(self)
+			if pj_dot != null:
+				Game.ganar_voluntad_dot(total_dmg, max_hp, pj_dot)
 	if total_heal > 0.0:
 		heal(total_heal)
 	if total_mana > 0.0:
@@ -1671,6 +1677,9 @@ func resist_estados(id: int = -1, con_afinidad: bool = true) -> float:
 	# un multiplicador aparte es justo el lio del que se saco stun_taken_mult en su dia.
 	if id >= 0 and resist_estado.has(id):
 		r += float(resist_estado[id])
+	# LA VOLUNTAD contra los MENTALES: la de este nivel (la habilidad) mas la que bakeaste al ascender.
+	if id >= 0 and StatusEffects.es_mental(id):
+		r += resist_mental_bake + StatsMath.resist_mental_de_voluntad(hab("voluntad"))
 	return maxf(r, -0.9)
 
 
@@ -1698,9 +1707,46 @@ func _resist_control_extra(con_afinidad: bool = true) -> float:
 # cuando el equipo llegue a tiers altos. Lo rellena Game al montar el combatiente (equipo) y
 # EnemyData (rasgo del bicho + curva del piso).
 var eficacia: float = 0.0
+# Lo que la DESTREZA y la VOLUNTAD de niveles anteriores dejaron grabado al ascender (el mismo truco
+# que base_crit): el visible vuelve a 0 al subir de nivel y sin esto perderias la eficacia de golpe.
+# Los pone Game desde PersonajeData; los enemigos no ascienden y se quedan en 0.
+var eficacia_bake: float = 0.0
+var resist_mental_bake: float = 0.0
+
+# EL PODER de este combatiente visto como ENEMIGO: el numerador del reto (Game.reto). La suma de sus
+# basicas de PODER (la Voluntad no cuenta, ver Abilities.NOMBRES_PODER).
+#
+# UN MUTANTE entrena mas, y hay que decirlo aqui porque sus habilidades son las MISMAS que las del
+# bicho corriente: sus multiplicadores viven en la vida, el ataque y la defensa (ver EnemyData.MUT_*),
+# asi que la suma de stats no se entera de que acabas de tumbar a un mini-jefe. Subirle las
+# habilidades en su lugar no vale: el daño ya se calcula con ellas y se cobraria dos veces. El factor
+# es lo que cuesta MATARLO, no lo que dice su ficha.
+func poder_como_enemigo() -> float:
+	if abilities == null:
+		return 0.0
+	var suma: float = 0.0
+	for s in Abilities.NOMBRES_PODER:
+		suma += float(abilities.get(s))
+	if not mutante:
+		return suma
+	return suma * float(EnemyData.mult_mutante(es_jefe, grado_mut)["poder"])
+
+
+# LA VOLUNTAD SE ENTRENA AGUANTANDO ESTADOS (08/10/2026): cada vez que un ENEMIGO intenta meterle uno a
+# un PERSONAJE, entre o no. Lo llaman las tiradas de estado contra el jugador (roll_on_hit,
+# tirar_refuerzo y combat_enemigos._enemy_tirar_efectos). Solo jugador <- enemigo: los buffs propios y
+# lo que tu le echas al bicho no enseñan nada.
+func anotar_intento_estado(atacante: Combatant, id: int, entro: bool) -> void:
+	if atacante == null or not stats_multiplicativas or atacante.stats_multiplicativas:
+		return
+	var pj: PersonajeData = Game.pj_de_combatant(self)
+	if pj != null:
+		Game.ganar_voluntad_estado(atacante.poder_como_enemigo(), atacante.level, id, entro, pj)
+
 
 func eficacia_estados() -> float:
-	return maxf(eficacia + _eficacia_flat(), 0.0)
+	return maxf(eficacia + _eficacia_flat() + eficacia_bake
+		+ StatsMath.eficacia_de_destreza(hab("destreza")), 0.0)
 
 func _eficacia_flat() -> float:
 	var s: float = 0.0
@@ -2025,7 +2071,9 @@ func roll_on_hit(target: Combatant) -> Array:
 		# Mi eficacia contra su resistencia, por la puerta comun (ver StatusEffects.prob_final).
 		var p: float = StatusEffects.prob_final(a.prob, self, target, a.estado)
 		if randf() >= p:
+			target.anotar_intento_estado(self, a.estado, false)
 			continue
+		target.anotar_intento_estado(self, a.estado, true)
 		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value, atk())   # sangrado escala con MI ataque (mv invertido); el fuego, con el golpe
 		# N stacks por tirada, igual que la rama de habilidades enemigas. Antes se aplicaba
 		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
@@ -2051,7 +2099,9 @@ func tirar_refuerzo(target: Combatant, golpe: float) -> Array:
 		if est < 0 or target.es_inmune(est):
 			continue
 		if randf() >= StatusEffects.prob_final(float(e.d.get("golpe_prob", 1.0)), self, target, est):
+			target.anotar_intento_estado(self, est, false)
 			continue
+		target.anotar_intento_estado(self, est, true)
 		var mag: float = StatusEffects.sangrado_magnitude(atk(), motion_value) if est == StatusEffects.Id.SANGRADO \
 			else StatusEffects.magnitud_por_golpe(est, atk(), golpe)
 		target.apply_status(est, -1, mag)
