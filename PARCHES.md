@@ -2,6 +2,57 @@
 
 ---
 
+# v0.15.2
+
+## 🧠 La Voluntad, la sexta habilidad
+
+**Nueva habilidad básica: la Voluntad.** Es tu **defensa mágica** (antes la daba la Magia, así que solo el mago
+se protegía de la magia) y tu **resistencia a todos los estados**. Se entrena encajando golpes mágicos,
+aguantando estados, con cada tick de veneno o quemadura y andando por la mazmorra con poca luz.
+
+**La Destreza ahora empuja tu eficacia**: la mano que encuentra el hueco también sabe dónde meter el veneno.
+
+## 🛡️ Armaduras contra la magia, y armadura de tela
+
+**Cada armadura protege de la magia al revés que de los golpes**: la de placas para mucho un espadazo y poco un
+hechizo; la tela, al contrario. Cuero y hierro, en medio.
+
+**Armadura de tela nueva** (la de los magos): las plantas se **hilan** en la peletería y se cose con hebillas.
+Capucha, túnica, mitones, calzas y zapatillas.
+
+## 🔥 Los slimes lanzan magia
+
+**Las habilidades mágicas de los slimes** (Llamarada, alientos, nubes, estrellas, Mirada estelar...) pegan con
+su Magia contra tu **Voluntad y tu armadura**, y **ni la guardia ni el escudo las paran**. Cada slime y cada
+mutante tiene ahora su propio reparto de Magia y Voluntad: el de mil ojos es todo magia; el de obsidiana, todo
+músculo y poca cabeza.
+
+## ✨ Los Filos y las unturas, mágicos
+
+**La parte elemental de tus Filos y unturas es daño mágico**: va contra la defensa mágica del enemigo y no contra
+su armadura. Contra los acorazados (gólem, coloso, escarabajo...) entra bastante más.
+
+## 🪨 Las runas y el Taller de runas
+
+**Los mutantes sueltan runas** (a menudo, y más cuanto más han mutado; los normales, rarísimo). Con ellas, en el **Taller de runas** (la
+casa de piedra oscura del barrio sur, la de los glifos que brillan de noche):
+- **Activas un set** en un arma o una pieza de armadura (con la baba y los núcleos de su slime).
+- **Cada runa** le pone una sub-stat al azar (hasta 4), cambia una por otra o re-tira su valor. Los valores
+  altos salen poco. Desencantar la deja limpia (las runas no vuelven).
+- **Sets de armadura** (2 y 5 piezas): Masa gelatinosa, Marea y Corona. **Sets de arma** (2 piezas; a dos
+  manos cuenta doble): Ignición, Miasma y Cielo nocturno.
+
+## 🤝 Multijugador
+
+**Los talleres son instantáneos también con tu compañero**: craftear, mejorar, guardar o vender del baúl común
+ya no tarda segundos, y nadie puede gastar a la vez lo mismo que otro.
+
+## 🔧 Arreglos
+
+- Las telas no habrían salido en el juego exportado.
+
+---
+
 # v0.15.1
 
 ## ⚔️ El combate en el mapa, ya en la mazmorra
