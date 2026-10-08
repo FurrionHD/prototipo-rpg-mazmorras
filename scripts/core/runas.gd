@@ -285,6 +285,15 @@ static func valor_txt(clave: String, v: float) -> String:
 static func sub_txt(s: Dictionary) -> String:
 	return "%s %s" % [nombre_sub(str(s["s"])), valor_txt(str(s["s"]), float(s["v"]))]
 
+# DE CUANTO A CUANTO puede salir 'clave' en esta pieza (su tier y si es a dos manos): "3,0 – 6,0 %". Lo enseña el
+# Taller junto a cada sub-stat, para saber si merece la pena re-tirarla.
+static func rango_txt(clave: String, item: Resource) -> String:
+	var lo: float = tirar_valor(clave, _tier(item), dos_manos(item), 0.0)
+	var hi: float = tirar_valor(clave, _tier(item), dos_manos(item), 1.0)
+	if clave == "velocidad":
+		return "%.2f – %.2f" % [lo, hi]
+	return "%.1f – %.1f %%" % [lo * 100.0, hi * 100.0]
+
 static func bonus_txt(b: Dictionary) -> String:
 	var partes: PackedStringArray = []
 	for k in b:

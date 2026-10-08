@@ -194,10 +194,18 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 		note(vb, "Aún ninguna: cada runa le pone una al azar.")
 	else:
 		_sub_idx = clampi(_sub_idx, 0, subs.size() - 1)
+		# En DOS columnas (lo pidio el usuario: que entre todo sin bajar) y con su RANGO debajo: de cuanto a cuanto
+		# puede salir en esta pieza.
 		var opciones: Array = []
 		for sub in subs:
-			opciones.append({"nombre": Runas.sub_txt(sub)})
-		MenuScaffold.chips(vb, "ELIGE UNA PARA CAMBIARLA O RE-TIRARLA", opciones, [_sub_idx], _on_sub, 1)
+			opciones.append({"nombre": "%s\n%s" % [Runas.sub_txt(sub), Runas.rango_txt(str(sub["s"]), item)]})
+		MenuScaffold.chips(vb, "ELIGE UNA PARA CAMBIARLA O RE-TIRARLA  ·  debajo, de cuánto a cuánto puede salir",
+			opciones, [_sub_idx], _on_sub, 2)
+		# Las dos columnas al mismo ancho (chips las deja a lo que mida su texto).
+		var rejilla: Node = vb.get_child(vb.get_child_count() - 1)
+		if rejilla is GridContainer:
+			for b in rejilla.get_children():
+				(b as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_child(HSeparator.new())
 	var tienes: int = Runas.runas_en_hogar(s)
 	var fila := HFlowContainer.new()
