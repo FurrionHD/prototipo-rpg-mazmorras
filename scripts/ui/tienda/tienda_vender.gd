@@ -676,31 +676,10 @@ func _cobrar_cesta() -> void:
 # ============================================================
 
 func _taller_listo() -> void:
-	match _taller:
-		0:
-			_taller = 2
-			_pedir_taller()
-			t.decir("Abriendo el baúl de materiales…")
-		2:
-			t.decir("Abriendo el baúl de materiales…")
-		-1:
-			t.decir("Tu compañero está usando el baúl de materiales en el taller. Prueba en un rato, o vende lo del cofre.", false)
-
-
-func _pedir_taller() -> void:
-	var ok: bool = await Net.hogar.abrir_taller()
-	if not _pide_taller() or not t._root.visible:
-		if ok:
-			Net.hogar.cerrar_taller()
-		_taller = 0
-		return
-	_taller = 1 if ok else -1
-	if ok:
-		t.decir("")   # fuera el "Abriendo el baúl…"
-	t.rebuild()
+	# Desde el 08/10/2026 (el taller al instante) el espejo del baul esta siempre al dia: se ve al momento y el
+	# permiso se pide POR VENTA (ver las ventas de mas arriba), sin dejar el baul cogido mientras miras.
+	_taller = 1
 
 
 func _soltar_taller() -> void:
-	if _taller == 1 and Net.activo:
-		Net.hogar.cerrar_taller()
-	_taller = 0
+	_taller = 0   # (ya no se coge nada al entrar: cada venta pide y suelta su permiso)

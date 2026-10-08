@@ -41,13 +41,25 @@ func _ready() -> void:
 		t += 0.1
 	print("[B] dato visto_host=%d" % _cuantos(runa))
 
-	# 3) Baul ABIERTO (como la pestaña de materiales del hogar): meto 5 babas y NO cierro.
+	# 3) Voy a por la ULTIMA runa real a la vez que el host (que tiene el permiso cogido): espero y, si ya no esta, nada.
 	await esperar_fase(3, 30.0)
-	Net.hogar.abrir_taller()
-	for k in 5:
-		Game.almacen_materiales.append(MaterialItem.crear(baba, MaterialItem.Calidad.NORMAL))
-	await esperar_fase(9, 30.0)
+	var real: MaterialData = load("res://resources/materials/runa_real.tres")
+	var t1 := Time.get_ticks_msec()
+	var ok3: bool = await Net.hogar.abrir_taller()
+	print("[B] dato ms_espera_real=%d" % (Time.get_ticks_msec() - t1))
+	var gasto := 0
+	if ok3 and _cuantos(real) > 0:
+		for j in range(Game.almacen_materiales.size() - 1, -1, -1):
+			if Game.almacen_materiales[j].data == real:
+				Game.almacen_materiales.remove_at(j)
+				gasto = 1
+				break
 	Net.hogar.cerrar_taller()
+	_ok(ok3, "me dan el permiso en cuanto lo suelta el host")
+	print("[B] dato gasto_real=%d" % gasto)
+	await _esperar(1.5)
+	print("[B] dato baul_b=%d" % Game.almacen_materiales.size())
+	await esperar_fase(9, 30.0)
 	print("[B] RESULTADO: ", "TODO PASA" if fallos.is_empty() else "FALLAN %d" % fallos.size())
 	get_tree().quit()
 

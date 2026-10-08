@@ -4,7 +4,7 @@
 # Con un baul GORDO (19.000 materiales, como el del usuario):
 #   1) B gasta 6 unidades de baba (3 normales) y añade una runa: en B es instantaneo y al host le llega solo el cambio, en menos de 2 s;
 #   2) el host gasta 2 runas: B lo ve;
-#   3) un menu que deja el baul ABIERTO (hogar/tienda) publica lo pendiente sin cerrar.
+#   3) los dos van a por la ULTIMA runa a la vez: uno espera al otro y se gasta una sola (sin duplicados).
 extends "res://tools/prueba_town_dos_comun.gd"
 
 const PUERTO := 24611
@@ -60,14 +60,27 @@ func _ready() -> void:
 	escribir_fase(2)
 	_ok(await _dato_de_b("visto_host", 10.0) == 9, "B ve las 2 runas que gasto el host")
 
-	# 3) Baul ABIERTO en B (hogar/tienda): mete 5 babas sin cerrar; al host le llega solo.
+	# 3) LOS DOS A POR LA ULTIMA RUNA REAL A LA VEZ. Solo hay una. El host coge el permiso y lo retiene 1 s (como quien
+	#    tarda); B lo intenta en ese momento: tiene que ESPERAR, y cuando le toca la runa ya no esta. Se gasta UNA.
+	var real: MaterialData = load("res://resources/materials/runa_real.tres")
+	Net.hogar.abrir_taller()
+	Game.almacen_materiales.append(MaterialItem.crear(real, MaterialItem.Calidad.NORMAL))
+	Net.hogar.cerrar_taller()
+	await _esperar(1.0)
+	_ok(await Net.hogar.abrir_taller(), "el host coge el permiso")
 	escribir_fase(3)
-	t = 0.0
-	while _cuantos(baba) != 32 and t < 10.0:
-		await _esperar(0.1)
-		t += 0.1
-	_ok(_cuantos(baba) == 32, "con el baul abierto en B, lo pendiente llega solo (%.1f s)" % t)
-	_ok(Game.almacen_materiales.size() == RELLENO + 32 + 9, "el baul del host cuadra (%d)" % Game.almacen_materiales.size())
+	await _esperar(1.0)   # B lo esta pidiendo ahora mismo
+	_ok(_cuantos(real) == 1, "mientras lo tengo, nadie me toca la runa")
+	_quitar(real)
+	Net.hogar.cerrar_taller()
+	var la_tuvo_b: int = await _dato_de_b("gasto_real", 10.0)
+	_ok(la_tuvo_b == 0, "B esperó y, al tocarle, ya no estaba: no la gasta")
+	var espera_b: int = await _dato_de_b("ms_espera_real", 10.0)
+	_ok(espera_b >= 500 and espera_b < 3000, "B esperó a que soltara (%d ms)" % espera_b)
+	await _esperar(1.0)
+	_ok(_cuantos(real) == 0, "se gasto UNA runa, no dos ni ninguna de mas")
+	_ok(Game.almacen_materiales.size() == RELLENO + 27 + 9, "el baul del host cuadra (%d)" % Game.almacen_materiales.size())
+	_ok(await _dato_de_b("baul_b", 10.0) == Game.almacen_materiales.size(), "y el de B es igual")
 	await _fin()
 
 

@@ -1047,64 +1047,35 @@ func _cargar_almacen(arr: Array) -> void:
 		if it is MaterialItem:
 			lista.append(it)
 	Game.almacen_materiales = lista
-
-
 # ------------------------------------------------------------
-#  EL TALLER, AL INSTANTE (08/10/2026, lo pidio el usuario: "tiene que ser instant incluso por red").
-#  Antes, cada accion de un CLIENTE pedia el candado al host y ESPERABA a que le prestara el baul ENTERO; al soltarlo lo
-#  devolvia entero y el host lo repartia entero a todos: tres viajes de ~19.000 materiales por gastar 6 babas (unos 5 s).
+#  EL TALLER, AL INSTANTE Y SIN DUPLICADOS (08/10/2026, lo pidio el usuario: "tiene que ser instant incluso por red", y
+#  luego: "¿eso no hace que se pueda duplicar?").
+#  Antes, cada accion de un CLIENTE cogia el candado y ESPERABA a que el host le prestara el baul ENTERO; al soltarlo lo
+#  devolvia entero y el host lo repartia entero a todos: tres viajes de ~19.000 materiales por gastar 6 babas (~5 s).
 #
-#  Ahora cada uno toca SU copia del baul (el cliente ya tiene el espejo del host en Game.almacen_materiales) sin esperar
-#  a nadie, y al acabar se manda SOLO LO QUE HA CAMBIADO: abrir_taller saca una FOTO (cuantos hay de cada material y
-#  calidad) y cerrar_taller compara y manda el DELTA (lo que se fue y lo que llego). El host lo aplica a su baul (que es
-#  el bueno) y lo reparte a los demas, tambien en delta.
+#  Ahora el cliente tiene SIEMPRE el espejo al dia (le llegan los cambios en delta) y por cada accion:
+#    1) pide PERMISO al host: un mensaje diminuto; el host lo da si nadie mas esta a mitad de una accion (si lo esta, se
+#       reintenta solo un rato). Solo uno toca el baul a la vez -> nadie gasta lo mismo que otro, cero duplicados;
+#    2) hace la accion sobre SU copia, al momento;
+#    3) al soltar, manda SOLO LO QUE HA CAMBIADO (foto al abrir, diferencia al cerrar) y el host lo aplica y lo reparte.
+#  La espera es un ping (~0,05-0,1 s) en vez de ~5 s. Los mensajes van por el mismo canal fiable y ORDENADO, asi que el
+#  permiso llega siempre detras de los cambios que hubiera pendientes: con el permiso en la mano, el espejo esta al dia.
 #
-#  Si dos gastan a la vez lo ULTIMO de algo y no llega para los dos (raro, y solo entre compañeros), el host gasta lo que
-#  hay, avisa al que llego tarde y le manda el baul bueno entero para que se recoloque.
-#
-#  Lo de los menus no cambia: siguen llamando abrir_taller / cerrar_taller como siempre (y con 'await', que ahora no
-#  espera nada).
+#  Los menus no cambian: siguen con 'await abrir_taller()' / cerrar_taller(). Lo que NO se puede es tener el permiso
+#  cogido mientras un menu esta abierto (bloquearia al compañero): el hogar y la tienda lo piden por accion.
+#  Si alguien se cae con el permiso en la mano, el host lo suelta solo a los PERMISO_MAX s.
 # ------------------------------------------------------------
 var _foto_taller: Dictionary = {}   # clave -> [cuantos, un MaterialItem de muestra] al abrir el taller
 var _foto_activa := false
-# Los menus que dejan el baul ABIERTO mientras estan abiertos (la pestaña de materiales del hogar, vender en la tienda)
-# publican lo pendiente cada PUBLICAR_CADA s, para que el compañero lo vea al momento y no al cerrar.
-const PUBLICAR_CADA := 0.5
-var _desde_publicar: float = 0.0
+var _permiso_resp: int = 0          # cliente: 0 esperando, 1 concedido, -1 ocupado
+var _permiso_desde: float = 0.0     # host: cuando se dio el permiso que esta en curso
+const PERMISO_MAX := 5.0            # s que aguanta el host un permiso sin soltar (alguien que se cayo)
+const PERMISO_ESPERA := 3.0         # s que reintenta un cliente (o el host) si esta ocupado
 
 
-# (lo llama el _process de abajo, el del hogar sucio: un nodo solo tiene uno)
-func _tick_publicar(delta: float) -> void:
-	if not _foto_activa or not Net.activo:
-		return
-	_desde_publicar += delta
-	if _desde_publicar < PUBLICAR_CADA:
-		return
-	_desde_publicar = 0.0
-	_publicar_pendiente()
-
-
-# Manda lo que ha cambiado desde la foto y saca una nueva, SIN cerrar la accion.
-func _publicar_pendiente() -> void:
-	var ahora: Dictionary = _conteo_almacen()
-	var delta: Dictionary = _delta(_foto_taller, ahora)
-	_foto_taller = ahora
-	_mandar_delta(delta)
-
-
-func _mandar_delta(delta: Dictionary) -> void:
-	if (delta["quitar"] as Array).is_empty() and (delta["poner"] as Array).is_empty():
-		return
-	if Net.es_host:
-		_aplicar_delta.rpc(delta["quitar"], delta["poner"])   # a todos los espejos
-		Net.hogar_cambiado.emit()
-	else:
-		_delta_al_host.rpc_id(1, delta["quitar"], delta["poner"])
-
-
-# (Ya no hay candado que coger: nadie esta "ocupado". Se queda por quien lo pregunta, el cobro de encargos.)
+# ¿Lo tiene OTRO ahora mismo? (solo tiene sentido en el host). Lo usa el cobro de encargos para no meterse en medio.
 func taller_ocupado() -> bool:
-	return false
+	return Net.activo and Net.es_host and _taller_dueno != 0 and _taller_dueno != 1
 
 
 func abrir_taller() -> bool:
@@ -1112,24 +1083,101 @@ func abrir_taller() -> bool:
 		return true   # solitario: el baul es tuyo y punto
 	if _foto_activa:
 		cerrar_taller()   # una accion anterior que no cerro: lo suyo se manda antes de empezar otra
+	var t := 0.0
+	if Net.es_host:
+		# Si un cliente esta a mitad de una accion, el host espera a que suelte (un ping, normalmente).
+		while taller_ocupado() and t < PERMISO_ESPERA:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+		if taller_ocupado():
+			return false
+		_taller_dueno = 1
+	else:
+		var concedido := false
+		while not concedido and t < PERMISO_ESPERA:
+			_permiso_resp = 0
+			_pedir_permiso.rpc_id(1)
+			while _permiso_resp == 0 and t < PERMISO_ESPERA:
+				await get_tree().process_frame
+				t += get_process_delta_time()
+			concedido = _permiso_resp == 1
+			if not concedido and _permiso_resp == -1:
+				await get_tree().create_timer(0.05).timeout   # ocupado: reintenta en un momento
+				t += 0.05
+		if not concedido:
+			return false
+		_taller_dueno = multiplayer.get_unique_id()
 	_foto_taller = _conteo_almacen()
 	_foto_activa = true
-	_desde_publicar = 0.0
-	_taller_dueno = multiplayer.get_unique_id()   # tengo_taller() -> true mientras dura la accion
 	return true
 
 
-# Al acabar la accion: manda lo que ha cambiado (nada si no ha cambiado nada).
+# El permiso del HOST sin esperar (para quien no puede hacer 'await', como el cobro de encargos): false si un cliente
+# esta a mitad de una accion.
+func abrir_taller_host_ya() -> bool:
+	if not Net.activo or not Net.es_host or taller_ocupado():
+		return false
+	if _foto_activa:
+		cerrar_taller()
+	_taller_dueno = 1
+	_foto_taller = _conteo_almacen()
+	_foto_activa = true
+	return true
+
+
+# Al acabar la accion: manda lo que ha cambiado y suelta el permiso (en el mismo mensaje).
 func cerrar_taller() -> void:
 	if not Net.activo:
 		return
-	_taller_dueno = 0
 	if not _foto_activa:
+		# Sin accion en curso no hay nada que soltar. OJO: no tocar _taller_dueno si es de OTRO (el host que cierra su
+		# hogar mientras un cliente gasta le quitaria el permiso a media accion).
+		if _taller_dueno == (1 if Net.es_host else multiplayer.get_unique_id()):
+			_taller_dueno = 0
 		return
 	_foto_activa = false
 	var delta: Dictionary = _delta(_foto_taller, _conteo_almacen())
 	_foto_taller = {}
-	_mandar_delta(delta)
+	if Net.es_host:
+		_taller_dueno = 0
+		if not ((delta["quitar"] as Array).is_empty() and (delta["poner"] as Array).is_empty()):
+			_aplicar_delta.rpc(delta["quitar"], delta["poner"])   # a todos los espejos
+			Net.hogar_cambiado.emit()
+	else:
+		_taller_dueno = 0
+		_delta_al_host.rpc_id(1, delta["quitar"], delta["poner"])   # (vacio = solo soltar el permiso)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_permiso() -> void:
+	if not Net.es_host:
+		return
+	var quien := multiplayer.get_remote_sender_id()
+	if _taller_dueno != 0 and _taller_dueno != quien:
+		_permiso_no.rpc_id(quien)
+		return
+	_taller_dueno = quien
+	_permiso_desde = Time.get_ticks_msec() / 1000.0
+	_permiso_ok.rpc_id(quien)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _permiso_ok() -> void:
+	_permiso_resp = 1
+
+
+@rpc("authority", "call_remote", "reliable")
+func _permiso_no() -> void:
+	_permiso_resp = -1
+
+
+# HOST: si alguien se queda con el permiso (se cayo a media accion), se suelta solo.
+func _vigilar_permiso() -> void:
+	if not Net.activo or not Net.es_host or not taller_ocupado():
+		return
+	if Time.get_ticks_msec() / 1000.0 - _permiso_desde > PERMISO_MAX:
+		print("[hogar] %d no ha soltado el permiso del baul en %.0f s: lo suelto" % [_taller_dueno, PERMISO_MAX])
+		_taller_dueno = 0
 
 
 # La CLAVE de un material en el baul: lo que lo distingue de otro (su ficha, su calidad y su talla si es un pez).
@@ -1164,7 +1212,7 @@ func _delta(antes: Dictionary, despues: Dictionary) -> Dictionary:
 	return {"quitar": quitar, "poner": poner}
 
 
-# Aplica un delta a MI baul. Devuelve cuantas unidades no se pudieron quitar (no habia).
+# Aplica un delta a MI baul. Devuelve cuantas unidades no se pudieron quitar (no habia; con el permiso no deberia pasar).
 func _aplicar_delta_local(quitar: Array, poner: Array) -> int:
 	var faltan: int = 0
 	for q in quitar:
@@ -1181,39 +1229,33 @@ func _aplicar_delta_local(quitar: Array, poner: Array) -> int:
 				restan -= 1
 			i -= 1
 		faltan += restan
-		# Si estoy a media accion, lo que me cambia OTRO no es mio: se descuenta tambien de la foto, o lo
-		# reenviaria como si lo hubiera gastado yo.
-		if _foto_activa and _foto_taller.has(k):
-			_foto_taller[k][0] = maxi(0, int(_foto_taller[k][0]) - (int(q[1]) - restan))
 	for p in poner:
 		for _n in int(p[1]):
 			var it: MaterialItem = Net.suelo._item_de_dict(p[0]) as MaterialItem
 			if it == null:
 				break
 			Game.almacen_materiales.append(it)
-			if _foto_activa:
-				var k2: String = _clave(it)
-				var e: Array = _foto_taller.get(k2, [0, it])
-				e[0] = int(e[0]) + 1
-				_foto_taller[k2] = e
 	return faltan
 
 
-# HOST: lo que ha gastado/añadido un cliente. Se aplica al baul bueno y se reparte a los DEMAS (el que lo manda ya lo
-# tiene). Si no llegaba (gasto a la vez que otro), se le corrige entero.
+# HOST: lo que ha gastado/añadido el cliente que tenia el permiso. Se aplica al baul bueno, se reparte a los DEMAS (el
+# que lo manda ya lo tiene) y se suelta el permiso. Si algo no cuadra (no deberia, con el permiso), se le corrige entero.
 @rpc("any_peer", "call_remote", "reliable")
 func _delta_al_host(quitar: Array, poner: Array) -> void:
 	if not Net.es_host:
 		return
 	var quien := multiplayer.get_remote_sender_id()
+	if _taller_dueno == quien:
+		_taller_dueno = 0
+	if quitar.is_empty() and poner.is_empty():
+		return
 	var faltan: int = _aplicar_delta_local(quitar, poner)
 	for p in multiplayer.get_peers():
 		if p != quien:
 			_aplicar_delta.rpc_id(p, quitar, poner)
 	if faltan > 0:
-		print("[hogar] %d unidades que gasto %d ya no estaban (se gastaron a la vez): le corrijo el baul" % [faltan, quien])
+		push_warning("[hogar] %d unidades que gasto %d ya no estaban: le corrijo el baul" % [faltan, quien])
 		_set_almacen.rpc_id(quien, _almacen_dicts())
-		_avisar_tarde.rpc_id(quien)
 	Net.hogar_cambiado.emit()
 
 
@@ -1222,13 +1264,6 @@ func _delta_al_host(quitar: Array, poner: Array) -> void:
 func _aplicar_delta(quitar: Array, poner: Array) -> void:
 	_aplicar_delta_local(quitar, poner)
 	Net.hogar_cambiado.emit()
-
-
-@rpc("authority", "call_remote", "reliable")
-func _avisar_tarde() -> void:
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud != null and hud.has_method("mostrar_toast"):
-		hud.mostrar_toast("Tu compañero gastó a la vez parte de ese material: el baúl se ha recolocado.")
 
 
 # ¿Tengo YO el candado del taller ahora mismo? (o estoy en solitario). Lo consulta Game antes de
@@ -1378,7 +1413,7 @@ func _mismas_reservas(a: Dictionary, b: Dictionary) -> bool:
 # EL HOGAR, agrupado por frame (ver _hogar_sucio): publicar tu equipo no tiene nada que ver con estar en
 # la mazmorra, asi que no mira ni si soy host ni si hay expedicion.
 func _process(delta: float) -> void:
-	_tick_publicar(delta)   # el baul abierto publica lo pendiente (ver EL TALLER, AL INSTANTE)
+	_vigilar_permiso()   # el permiso del baul que nadie suelta (ver EL TALLER, AL INSTANTE)
 	if not _hogar_sucio:
 		return
 	_hogar_sucio = false

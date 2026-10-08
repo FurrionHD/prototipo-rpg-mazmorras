@@ -168,35 +168,9 @@ func _pintar_subcategorias() -> void:
 # ============================================================
 
 func _taller_listo() -> bool:
-	if not Net.activo:
-		return true
-	match _taller:
-		1:
-			return true
-		0:
-			_taller = 2
-			_pedir_taller()
-			MenuScaffold.nota(hogar._lista, "Abriendo el baúl…")
-		2:
-			MenuScaffold.nota(hogar._lista, "Abriendo el baúl…")
-		-1:
-			MenuScaffold.nota(hogar._lista, "Tu compañero está usando el baúl de materiales en el taller.")
-			MenuScaffold.pastilla(hogar._lista, "Volver a intentarlo", func():
-				_taller = 0
-				hogar._rebuild(), false)
-	return false
-
-
-func _pedir_taller() -> void:
-	var ok: bool = await Net.hogar.abrir_taller()
-	# Si mientras tanto se ha ido de materiales (o ha cerrado el hogar), el candado no le sirve: fuera.
-	if _cat != CAT_MATERIALES or not hogar._root.visible:
-		if ok:
-			Net.hogar.cerrar_taller()
-		_taller = 0
-		return
-	_taller = 1 if ok else -1
-	hogar._rebuild()
+	# Desde el 08/10/2026 (el taller al instante) el espejo del baul esta SIEMPRE al dia y el permiso se pide POR
+	# ACCION (ver _con_permiso y _mover): ya no se "abre el baul" al entrar ni se bloquea al compañero mientras miras.
+	return true
 
 
 # ============================================================
@@ -418,7 +392,7 @@ func _confirmar_bloque(que: String) -> void:
 	MenuScaffold.pastilla(m["acciones"], "Cancelar", cerrar_modal, false)
 	MenuScaffold.pastilla(m["acciones"], "Confirmar", func():
 		cerrar_modal()
-		accion.call())
+		_con_permiso(accion))
 
 
 # true si habia un modal abierto (el armazon lo pregunta antes de cerrar el hogar con Esc).
@@ -724,7 +698,13 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 	var nombre: String = _nombre(m)
 	match _cat:
 		CAT_MATERIALES:
-			var movidos: int = Game.mover_monton_material(m, a_casa, cuantos)
+			var movidos: int = 0
+			if Net.activo and not await Net.hogar.abrir_taller():
+				_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
+				return
+			movidos = Game.mover_monton_material(m, a_casa, cuantos)
+			if Net.activo:
+				Net.hogar.cerrar_taller()
 			if movidos <= 0:
 				_decir("No se ha podido mover.", false)
 				return
@@ -748,6 +728,16 @@ func _mover(s: Dictionary, cuantos: int) -> void:
 				Net.hogar.sacar_de_cofre(int(s["id"]))
 				_cache_cofre.erase(int(s["id"]))
 				_decir("Sacas %s al inventario." % nombre, true)
+
+
+# Una accion sobre el baul de materiales con el PERMISO del host alrededor (en multi; en solitario, a secas).
+func _con_permiso(accion: Callable) -> void:
+	if Net.activo and not await Net.hogar.abrir_taller():
+		_decir("Tu compañero está usando el baúl justo ahora: prueba otra vez.", false)
+		return
+	accion.call()
+	if Net.activo:
+		Net.hogar.cerrar_taller()
 
 
 func _decir(txt: String, ok: bool) -> void:

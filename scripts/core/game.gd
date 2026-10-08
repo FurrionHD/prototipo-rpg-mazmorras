@@ -5526,7 +5526,7 @@ func recoger_encargo(id: int) -> Dictionary:
 
 	var n_mat: int = 0
 	# El material entra en el baul COMUN: en multi, como una accion de taller mas (solo viaja lo que llega).
-	var en_red: bool = Net.activo and Net.hogar.abrir_taller()
+	var en_red: bool = Net.hogar.abrir_taller_host_ya()
 	for b in (e.get("botin", []) as Array):
 		var data: MaterialData = load(String((b as Dictionary)["ruta"])) as MaterialData
 		if data == null:

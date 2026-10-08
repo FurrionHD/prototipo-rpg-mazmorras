@@ -107,7 +107,8 @@ const MAX_CONEXIONES := 32
 #     /REY_TRIBUTO (208/209), suelo SueloRoto.REY_ESQUIRLAS (104) y piezas de charco de estilo 9/10 (esquirlas clavadas y
 #     pedazos). Un build del 29 no los conoce.
 # 31 (08/10): el TALLER AL INSTANTE. El baul compartido ya no se presta entero con candado: viajan DELTAS
-#     (_delta_al_host / _aplicar_delta / _avisar_tarde; fuera _pedir_taller, _taller_ok, _taller_no, _soltar_taller).
+#     con PERMISO por accion (_pedir_permiso / _permiso_ok / _permiso_no) y _delta_al_host / _aplicar_delta; fuera
+#     _pedir_taller, _taller_ok, _taller_no, _soltar_taller.
 #     Tambien: las RUNAS en serializar_equipo, materiales de tipo RUNA y la Voluntad / ataques magicos de las fases 1-4.
 const PROTOCOLO := 31
 
