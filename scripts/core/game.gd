@@ -9504,6 +9504,10 @@ const _MANIFIESTO_MATERIALES := [
 	"res://resources/materials/sanguinaria.tres", "res://resources/materials/seta_simas.tres",
 	"res://resources/materials/tablon_anillada.tres",
 	"res://resources/materials/tablon_calcinada.tres",
+	# Las TELAS (08/10/2026, fase 2): se hilan en la peleteria. Faltaban aqui y no habrian salido en el .exe.
+	"res://resources/materials/tela_hierba.tres", "res://resources/materials/tela_liquen.tres",
+	"res://resources/materials/tela_moho.tres", "res://resources/materials/tela_raiz.tres",
+	"res://resources/materials/tela_sanguina.tres", "res://resources/materials/tela_umbria.tres",
 	"res://resources/materials/tablon_comun.tres", "res://resources/materials/tablon_de_veta.tres",
 	"res://resources/materials/tablon_duro.tres", "res://resources/materials/tablon_ferrea.tres",
 	"res://resources/materials/tablon_latente.tres",

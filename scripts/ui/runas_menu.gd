@@ -44,6 +44,9 @@ func _al_elegir_otra() -> void:
 func _pintar() -> void:
 	_titulo_seccion.text = TABS[_tab]
 	anchos(ANCHO_REJILLA_MIN, ANCHO_FICHA_RUNAS)
+	# Aqui no trabaja nadie con oficio: fuera la fila de retratos de los otros talleres (salia vacia).
+	_fila_artesano_rotulo.visible = false
+	(_fila_artesano.get_parent().get_parent() as Control).visible = false
 	if Net.activo:
 		Net.hogar.reservar({})   # todo es instantaneo: no se aparta nada mientras miras
 	var items: Array = []
