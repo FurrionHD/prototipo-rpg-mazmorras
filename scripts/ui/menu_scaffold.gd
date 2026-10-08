@@ -629,10 +629,14 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 		v.text = Runas.valor_txt(str(sub["s"]), float(sub["v"]))
 		v.autowrap_mode = TextServer.AUTOWRAP_OFF
 		# Con ancho: los talleres parten las etiquetas sin ancho (taller_menu._partir_lineas) y en la rejilla el valor
-		# salia letra a letra. 160 = el de los atributos de la herreria, para que caigan en su misma columna.
-		v.custom_minimum_size = Vector2(160 if compacto else 70, 0)
+		# salia letra a letra. 120 = el de los atributos de la herreria, para que caigan en su misma columna.
+		v.custom_minimum_size = Vector2(120 if compacto else 70, 0)
 		row.add_child(v)
 		if compacto:
+			# El mismo hueco que el "lo que sube" de los atributos de la herreria: asi las columnas caen alineadas.
+			var hueco := Control.new()
+			hueco.custom_minimum_size = Vector2(70, 0)
+			row.add_child(hueco)
 			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cont.add_child(row)
 
@@ -1451,11 +1455,20 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		if float(a["aturdir"]) > 0.0 or float(b["aturdir"]) > 0.0:
 			_attr(filas, "Aturdir", "%.0f%%" % (float(a["aturdir"]) * 100.0),
 				_d(float(a["aturdir"]) * 100.0, float(b["aturdir"]) * 100.0, "+%.0f%%"))
+		# TODO LO QUE TIENE, no solo lo que sube (08/10/2026, lo pidio el usuario: "¿que eficacia tiene si la quiero
+		# poner?"): la Eficacia siempre (es una mejora), y la Evasion y la Penetracion si las lleva.
+		if float(a.get("evasion", 0.0)) > 0.0:
+			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
+				_d(float(a["evasion"]) * 100.0, float(b["evasion"]) * 100.0, "+%.0f%%"))
+		if Upgrades.penetracion_arma(w) > 0.0:
+			_attr(filas, "Ignora defensa", "%.0f%%" % (Upgrades.penetracion_arma(w) * 100.0), "")
 		if w.es_magica:
 			_filas_mejora_magia(filas, w.magic_amp, w.mp_regen_turno, w.cast_vel_mult, tm, rareza, mejoras, despues)
+		_fila_eficacia(filas, rareza, mejoras, despues)
 	elif item is WandData:
 		var wd := item as WandData
 		_filas_mejora_magia(filas, wd.magic_amp, wd.mp_regen_turno, wd.cast_vel_mult, tm, rareza, mejoras, despues)
+		_fila_eficacia(filas, rareza, mejoras, despues)
 	elif item is ShieldData:
 		var sh := item as ShieldData
 		var a := Upgrades.shield_mods(sh, tm, rareza, mejoras)
@@ -1466,11 +1479,19 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 		if float(a["resist_estados"]) > 0.0 or float(b["resist_estados"]) > 0.0:
 			_attr(filas, "Resist. estados", "+%.0f%%" % (float(a["resist_estados"]) * 100.0),
 				_d(float(a["resist_estados"]) * 100.0, float(b["resist_estados"]) * 100.0, "+%.0f%%"))
+		_attr(filas, "Velocidad", "×%.2f" % float(a["vel_mult"]), "")
+		if float(a.get("evasion_penal", 0.0)) > 0.0:
+			_attr(filas, "Penal. esquiva", "-%.0f%%" % (float(a["evasion_penal"]) * 100.0), "")
 	elif item is ArmorData:
 		var ar := item as ArmorData
 		var a := Upgrades.armor_piece_mods(ar, tm, rareza, mejoras, tier)
 		var b := Upgrades.armor_piece_mods(ar, tm, rareza, despues, tier)
 		_attr(filas, "Defensa", "%.1f" % float(a["def"]), _d(float(a["def"]), float(b["def"]), "+%.1f"))
+		# La defensa MAGICA (la sube la misma Dureza) y las reducciones y la velocidad de su clase: todo lo que tiene.
+		_attr(filas, "Defensa mágica", "%.1f" % float(a["mdef"]), _d(float(a["mdef"]), float(b["mdef"]), "+%.1f"))
+		_attr(filas, "Reducción", "%.1f%%" % (float(a["reduccion"]) * 100.0), "")
+		_attr(filas, "Reducción mágica", "%.1f%%" % (float(a["reduccion_magica"]) * 100.0), "")
+		_attr(filas, "Velocidad", "×%.2f" % float(a["vel_mult"]), "")
 		if float(a["evasion"]) > 0.0 or float(b["evasion"]) > 0.0:
 			_attr(filas, "Evasión", "+%.0f%%" % (float(a["evasion"]) * 100.0),
 				_d(float(a["evasion"]) * 100.0, float(b["evasion"]) * 100.0, "+%.0f%%"))
@@ -1485,6 +1506,12 @@ static func filas_mejora(item: Resource, tier: int, rareza: int, mejoras: Dictio
 				_d(float(a["resist_estados"]) * cob_r * 100.0,
 					float(b["resist_estados"]) * cob_r * 100.0, "+%.1f%%"))
 	return filas
+
+# La EFICACIA del arma (con lo que empuja los estados que metes): la de su rareza y mejoras, y lo que sube la mejora.
+static func _fila_eficacia(filas: Array, rareza: int, mejoras: Dictionary, despues: Dictionary) -> void:
+	var e0: float = Upgrades.eficacia_de_arma(rareza, mejoras)
+	var e1: float = Upgrades.eficacia_de_arma(rareza, despues)
+	_attr(filas, "Eficacia", "+%.0f%%" % (e0 * 100.0), _d(e0 * 100.0, e1 * 100.0, "+%.0f%%"))
 
 # La parte magica (baston y varita comparten): amplificacion, regen, casteo y coste de maná.
 static func _filas_mejora_magia(filas: Array, base_amp: float, mp_regen: float, cast_base: float,

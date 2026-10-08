@@ -211,7 +211,7 @@ func _ficha(vb: VBoxContainer) -> void:
 		var nuevo_max: float = maxd / (1.0 + float(n_dur) * Game.DURABILIDAD_MEJORA_PCT) \
 			* (1.0 + float(n_dur + 1) * Game.DURABILIDAD_MEJORA_PCT)
 		delta = "+%d pts máx" % round(nuevo_max - maxd)
-	_atributo(rejilla, "Durabilidad", "%d / %d pts (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
+	_atributo(rejilla, "Durabilidad", "%d/%d (%d%%)" % [round(frac * maxd), round(maxd), round(frac * 100.0)], delta)
 	MenuScaffold.bloque_runas(vb, item, true)   # sus runas (mejorar no las toca), compactas
 	t.note(vb, "El núcleo lo elige el sistema por el nivel de la pieza, y dentro de su tramo cada mejora cuesta uno más. Gasta también material de su tier, del peor que tengas: la rareza ya está echada.")
 
@@ -263,14 +263,15 @@ func _atributo(vb: Container, etiqueta: String, valor: String, delta: String) ->
 	# letra a letra (visto en captura). El delta va pegado al valor, no al otro extremo de la fila.
 	var v := Label.new()
 	v.text = valor
-	v.custom_minimum_size = Vector2(160, 0)
+	v.custom_minimum_size = Vector2(120, 0)
 	row.add_child(v)
-	if delta != "":
-		var d := Label.new()
-		d.text = delta
-		d.custom_minimum_size = Vector2(160, 0)
-		d.add_theme_color_override("font_color", t.VERDE)
-		row.add_child(d)
+	# El hueco del delta SIEMPRE (vacio si no sube): asi las dos columnas de la rejilla no bailan segun la mejora
+	# elegida, y las runas de debajo (MenuScaffold.bloque_runas compacto, que deja el mismo hueco) caen alineadas.
+	var d := Label.new()
+	d.text = delta
+	d.custom_minimum_size = Vector2(70, 0)
+	d.add_theme_color_override("font_color", t.VERDE)
+	row.add_child(d)
 	vb.add_child(row)
 
 

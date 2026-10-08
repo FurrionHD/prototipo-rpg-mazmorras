@@ -16,7 +16,7 @@ func _ready() -> void:
 	for i in 10:
 		await get_tree().process_frame
 	var pj: PersonajeData = Game.lider()
-	var d1: Resource = Game.crear_item(load("res://resources/weapons/daga.tres"), 3, 7, {"precision": 15})
+	var d1: Resource = Game.crear_item(load("res://resources/weapons/daga.tres"), 1, 3, {"precision": 1})
 	Game.meta_de(d1)["runas"] = {"set": "venenoso", "subs": [{"s": "crit", "v": 0.036}, {"s": "penetracion", "v": 0.084},
 		{"s": "dano_jefes", "v": 0.197}, {"s": "crit_dmg", "v": 0.179}]}
 	pj.equipped_main = d1
@@ -26,6 +26,8 @@ func _ready() -> void:
 	menu._on_tab(5)   # Mejorar
 	await _esperar()
 	menu._pick(maxi(0, menu.stacks.find(d1)))
+	await _esperar()
+	menu.mejorar._on_cat(3)   # Eficacia: tiene que verse cuanta tiene y lo que sube
 	await _esperar()
 	get_viewport().get_texture().get_image().save_png("%s/10_herreria_mejorar.png" % CARPETA)
 	print("[capturas] en ", CARPETA)
