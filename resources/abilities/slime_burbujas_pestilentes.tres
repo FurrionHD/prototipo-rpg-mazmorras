@@ -26,3 +26,4 @@ burbuja_estalla = 35.0
 burbuja_dano = 0.6
 burbuja_turnos_min = 1
 burbuja_turnos_max = 3
+es_magico = true

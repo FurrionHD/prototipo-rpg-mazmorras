@@ -37,3 +37,4 @@ charco_texto = "la nube de miasma"
 charco_estilo = 5
 charco_hueco = 2
 charco_efectos = [SubResource("SA_ven")]
+es_magico = true

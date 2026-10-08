@@ -30,3 +30,4 @@ forma_radio = 70.0
 forma_rango = 90.0
 atrae = 50.0
 suelo_roto = 97
+es_magico = true

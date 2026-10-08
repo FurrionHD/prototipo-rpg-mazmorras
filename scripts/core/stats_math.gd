@@ -556,6 +556,49 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		"dmg_sin_mitigar": maxf(0.1, dmg / maxf(0.0001, mitig))}
 
 
+# GOLPE MAGICO DE UN ENEMIGO (08/10/2026, fase 3): las habilidades AbilityData.es_magico. Es resolve_attack con
+# tres cambios y nada mas, para que todo lo demas (esquiva, critico, elementos, pasivas, estados) siga igual:
+#   - el ataque sale de su MAGIA (Combatant.atk_magico) y no de su Fuerza;
+#   - contra tu DEFENSA MAGICA (mdef_value: Voluntad + armadura) y la reduccion MAGICA de la armadura;
+#   - la guardia y el escudo NO lo paran (no hay 'defending': ni su defensa, ni su bloqueo, ni el critico a la mitad).
+# Tampoco lleva penetracion (es del arma) ni imbuicion (los enemigos no imbuyen). Devuelve lo mismo que resolve_attack.
+static func resolve_magico_enemigo(attacker: Combatant, defender: Combatant, puede_esquivar: bool = true) -> Dictionary:
+	var atk_dex := attacker.hab("destreza")
+	var def_agi := defender.hab("agilidad")
+	var evasion_extra := defender.evasion_bonus + defender.status_evade_flat()
+	var evade_cap := EVADE_MAX_BUFF if evasion_extra > 0.0 else EVADE_MAX
+	var acierto := attacker.precision + attacker.status_precision_flat()
+	var evade_p := clampf(evade_chance(def_agi, atk_dex) - defender.evasion_penal - acierto + evasion_extra, 0.0, evade_cap)
+	var crit_p := clampf(crit_chance(atk_dex, def_agi) + attacker.crit_bonus + attacker.crit_flat
+		+ attacker.status_crit_flat() - defender.crit_resist, 0.0, 1.0)
+	if puede_esquivar and randf() < evade_p:
+		return {"damage": 0.0, "evaded": true, "crit": false, "aturde": false,
+			"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0, "magico": true}
+	var mdef := defender.mdef_value()
+	var dmg := damage(attacker.atk_magico(), mdef)
+	var mitig := MITIGATION_K / (MITIGATION_K + mdef)
+	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+	var is_crit := false
+	if crit_p > 0.0 and randf() < crit_p:
+		is_crit = true
+		dmg *= CRIT_MULT + attacker.crit_dmg
+	var f_armadura := 1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)
+	dmg *= f_armadura
+	mitig *= f_armadura
+	dmg *= attacker.mult_vs(defender.familia)
+	dmg *= defender.mult_from(attacker.familia)
+	var mult_elem := Elementos.mult_recibido(attacker.elemento_ataque, defender)
+	dmg *= mult_elem
+	var mult_pasiva := defender.mult_pasiva_recibido()
+	defender.recibe_elemento(attacker.elemento_ataque)
+	dmg *= defender.status_dmg_taken_mult() * mult_pasiva
+	dmg *= attacker.status_dmg_dealt_mult()
+	return {"damage": maxf(0.1, dmg), "evaded": false, "crit": is_crit, "aturde": false,
+		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": 0.0,
+		"mult_elem": mult_elem, "mult_imbue": 1.0, "dmg_imbue": 0.0, "magico": true,
+		"dmg_sin_mitigar": maxf(0.1, dmg / maxf(0.0001, mitig))}
+
+
 # ============================================================
 #  MAGIA (KAN-56): hechizos por encantamientos
 #  El "acierto" del hechizo NO es RNG: depende de recitar bien las frases (test

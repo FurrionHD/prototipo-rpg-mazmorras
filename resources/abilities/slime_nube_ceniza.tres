@@ -37,3 +37,4 @@ charco_texto = "la nube de ceniza"
 charco_estilo = 7
 charco_hueco = 2
 charco_efectos = [SubResource("SA_r")]
+es_magico = true

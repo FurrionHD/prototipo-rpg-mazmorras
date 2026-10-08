@@ -932,7 +932,9 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		escala: float, permitir_contra: bool, aplicar_efectos: bool, escala_prob: float = 1.0,
 		tanda_base: int = 0) -> Dictionary:
 	var pj_t: PersonajeData = Game.pj_de_combatant(t)
-	var defendiendo: bool = (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
+	# LO MAGICO no se para con la guardia ni el escudo (AbilityData.es_magico): para el, nadie esta defendiendo.
+	var magico: bool = ab != null and ab.es_magico
+	var defendiendo: bool = not magico and (bool(_pantalla._defendiendo.get(t, false)) or t.en_guardia) \
 		and _pantalla.turno_mapa.cubre_de_frente(t, e)
 	var total: float = 0.0
 	var total_bruto: float = 0.0   # el mismo daño SIN mitigar, para la excelia de Resistencia
@@ -960,7 +962,8 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 	for i in n_golpes:
 		_pantalla.efectos._fx_tanda(tanda_base + i)
 		# (la Mirada estelar NO FALLA: AbilityData.infalible)
-		var result := StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, ab == null or not ab.infalible)
+		var result := StatsMath.resolve_magico_enemigo(e, t, not ab.infalible) if magico \
+			else StatsMath.resolve_attack(e, t, defendiendo, -1.0, 0.0, 0.0, ab == null or not ab.infalible)
 		_pantalla._aplicar_pasivas(result, e, t)
 		if result.evaded:
 			print("        [%s] golpe %d: esquivado 💨" % [t.nombre, i + 1])
@@ -1043,7 +1046,10 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 		var dmg_mult: float = clampf(total_bruto / maxf(1.0, float(t.max_hp) * 0.1), 0.5, 2.0)
 		Game.ganar("resistencia", _pantalla._reto(e, pj_t) * dmg_mult,
 			Game.GAIN_RESISTENCIA_GOLPE * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
-		if bool(_pantalla._defendiendo.get(t, false)):
+		# Y si era MAGICO, ademas la Voluntad (lo dijo el usuario: la Resistencia no puede subir menos que antes).
+		if magico:
+			Game.ganar_voluntad_golpe_magico(_pantalla._reto(e, pj_t), total_bruto, float(t.max_hp), pj_t)
+		if not magico and bool(_pantalla._defendiendo.get(t, false)):
 			Game.ganar("resistencia", _pantalla._reto(e, pj_t) * t.defend_block,
 				Game.GAIN_RESISTENCIA_BLOQUEO * aggro_mult, Game.RETO_MAX_FISICO, pj_t)
 	# Y esquivar entrena Agilidad, igual que en el basico. Se paga UNA sola vez por habilidad y no

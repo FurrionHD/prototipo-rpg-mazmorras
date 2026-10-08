@@ -35,3 +35,4 @@ forma_radio = 45.0
 forma_rango = 90.0
 salta = true
 suelo_roto = 101
+es_magico = true

@@ -33,3 +33,4 @@ forma_rango = 100.0
 estrellas_fugaces = 4
 fugaz_radio = 20.0
 suelo_roto = 92
+es_magico = true

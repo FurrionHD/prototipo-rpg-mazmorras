@@ -420,6 +420,9 @@ enum Pieza { NINGUNA, PEDAZO, ESQUIRLA }
 @export var infalible: bool = false
 # EL ELEMENTO DE SUS GOLPES si no es el de quien la lanza (-1 = el suyo): las estrellas del abisal son de LUZ.
 @export var elemento_golpe: int = -1
+# MAGICA (08/10/2026, de momento solo las de los slimes): pega con la MAGIA del que la lanza contra tu DEFENSA MAGICA y
+# la reduccion magica de tu armadura; ni la guardia ni el escudo la paran. Ver StatsMath.resolve_magico_enemigo.
+@export var es_magico: bool = false
 # ATRAVIESA (solo en el mapa, con LINEA y 'carga'): no se para en el primero, rueda hasta el final de la linea
 # arrollando a todos por el camino; el primero se lleva el golpe entero y los demas area_secundario, hasta
 # area_max. La Embestida rodante del escarabajo (29/09).
@@ -806,10 +809,13 @@ func resumen(manos: int = 1) -> String:
 		# "del daño de un golpe normal" se repetia en TODAS y no aporta: el % ya se entiende solo.
 		var g: String = _golpes_txt(manos)
 		var pct: int = roundi(dano_mult * 100.0)
+		var tipo: String = " mágico" if es_magico else ""
 		if g == "1":
-			l.append("Golpea al objetivo haciendo un %d%% de daño." % pct)
+			l.append("Golpea al objetivo haciendo un %d%% de daño%s." % [pct, tipo])
 		else:
-			l.append("Golpea %s veces al objetivo haciendo un %d%% de daño por golpe." % [g, pct])
+			l.append("Golpea %s veces al objetivo haciendo un %d%% de daño%s por golpe." % [g, pct, tipo])
+		if es_magico:
+			l.append("Va contra la Defensa mágica: ni la guardia ni el escudo lo paran.")
 		if manos >= 2 and golpes_dual_max > golpes_max:
 			l.append("Los golpes que pone la segunda arma (del %dº) pegan al %d%%." % [
 				golpes_max + 1, roundi(dual_golpe_mult * 100.0)])

@@ -2778,6 +2778,12 @@ func _reventar_burbuja(clave: String, a: Combatant = null) -> void:
 	for v in victimas:
 		var c: Combatant = v
 		var dano: float = dueno.atk() * ab.burbuja_dano
+		# MAGICA (08/10): contra su defensa magica, sin esquiva (revienta encima), y entrena la Voluntad.
+		if ab.es_magico:
+			var r_m: Dictionary = StatsMath.resolve_magico_enemigo(dueno, c, false)
+			dano = float(r_m["damage"]) * ab.burbuja_dano
+			Game.ganar_voluntad_golpe_magico(_pantalla._reto(dueno, Game.pj_de_combatant(c)),
+				float(r_m["dmg_sin_mitigar"]) * ab.burbuja_dano, float(c.max_hp), Game.pj_de_combatant(c))
 		c.take_damage(dano)
 		var puestos: Array = _pantalla.enemigos._enemy_tirar_efectos(dueno, ab, c, 1.0, "objetivo")
 		nombres.append("%s (%d%s)" % [c.nombre, roundi(dano), (": " + ", ".join(puestos)) if not puestos.is_empty() else ""])

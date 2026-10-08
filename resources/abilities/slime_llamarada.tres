@@ -21,3 +21,4 @@ forma_apunte = 1
 forma_radio = 70.0
 forma_ancho = 12.0
 suelo_roto = 66
+es_magico = true

@@ -929,6 +929,12 @@ func atk() -> float:
 	return (base_ataque() + ataque_arma) * StatsMath.ataque_factor(hab("fuerza"), hab("destreza"), escala_des) \
 		* motion_value * status_atk_mult()
 
+# EL ATAQUE MAGICO de un ENEMIGO (08/10/2026): su mismo ataque, pero con la MAGIA donde va la Fuerza y la misma curva.
+# Asi los dos pesos se comparan 1:1: un slime con tanta Magia como Fuerza pega igual de fuerte con una cosa que con la
+# otra, y lo que cambia es contra que defensa entra. El jugador NO lo usa: sus hechizos van por resolve_spell.
+func atk_magico() -> float:
+	return base_ataque() * StatsMath.fuerza_factor(hab("magia")) * motion_value * status_atk_mult()
+
 # El factor de las stats de la MANO ACTIVA con las basicas CRUDAS (sin estados): lo que enseñan las fichas.
 func factor_ataque_crudo() -> float:
 	return StatsMath.ataque_factor(float(abilities.fuerza), float(abilities.destreza), escala_des)

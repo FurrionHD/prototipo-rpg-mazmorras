@@ -30,3 +30,4 @@ forma_apunte = 1
 forma_radio = 70.0
 forma_apertura = 70.0
 suelo_roto = 102
+es_magico = true

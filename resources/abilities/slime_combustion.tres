@@ -27,3 +27,4 @@ forma_apunte = 2
 forma_radio = 45.0
 forma_nucleo = 20.0
 suelo_roto = 63
+es_magico = true

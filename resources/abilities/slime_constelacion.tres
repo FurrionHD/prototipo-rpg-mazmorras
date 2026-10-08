@@ -18,3 +18,4 @@ fx_anim = &"constelar"
 constelacion = true
 min_estrellas = 2
 rayo_ancho = 12.0
+es_magico = true

@@ -28,3 +28,4 @@ carga_persigue = true
 mirada = true
 rayo_ancho = 12.0
 rayo_otros = 1.0
+es_magico = true
