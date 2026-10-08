@@ -98,6 +98,11 @@ const CASAS := {
 	"cuartel": {"huella": Vector2i(7, 5), "pared": "piedra", "tejado": "pizarra", "alto": 56,
 		"chimeneas": [40, 184], "humo": true, "cartel": "", "luz": "calida",
 		"extras": ["estandarte"]},
+	# EL TALLER DE RUNAS (08/10/2026, version A elegida por el usuario): piedra oscura y pizarra azul, el cartel con la
+	# piedra runica y GLIFOS tallados bajo las ventanas que de noche se encienden en azul violeta (como las ventanas:
+	# van con los tonos del vidrio de su luz, ver ventanas()). Algo mas alta que las vacias.
+	"runas": {"huella": Vector2i(3, 3), "pared": "piedra_osc", "tejado": "pizarra_azul", "alto": 46,
+		"chimeneas": [], "cartel": "runa", "luz": "runica", "extras": ["glifos"]},
 	"vacia_0": {"huella": Vector2i(3, 3), "pared": "enlucido", "tejado": "teja", "alto": 40,
 		"chimeneas": [74], "cartel": "", "luz": "", "extras": ["postigos"]},
 	"vacia_1": {"huella": Vector2i(3, 3), "pared": "madera", "tejado": "paja", "alto": 38,
@@ -317,6 +322,23 @@ static func _esquinas_ventanas(e: Dictionary, h: int, alero: int, puerta_x: int,
 	return out
 
 
+# LOS GLIFOS del taller de runas: un recuadro de 14 x 14 debajo de cada ventana (como una ventana, para encenderse
+# igual de noche). En su funcion por lo mismo que las ventanas: lo usan el dibujo y el encendido.
+static func _esquinas_glifos(e: Dictionary, h: int, alero: int, puerta_x: int, hu: Vector2i) -> Array:
+	var out: Array = []
+	for esq in _esquinas_ventanas(e, h, alero, puerta_x, hu):
+		out.append(Vector2i((esq as Vector2i).x, alero + 27))
+	return out
+
+# Dos runas de 12 x 12 que se alternan (una bajo cada ventana).
+const GLIFOS := [
+	["....##......", "....##......", "....##...##.", "....##..##..", "....##.##...", "....####....",
+		"....####....", "....##.##...", "....##..##..", "....##...##.", "....##......", "....##......"],
+	["....####....", "...##..##...", "..##....##..", "...##..##...", "....####....", ".....##.....",
+		".....##.....", "..########..", ".....##.....", ".....##.....", "....#..#....", "...#....#..."],
+]
+
+
 # ------------------------------------------------------------
 #  LAS VENTANAS DE NOCHE (ver LuzPueblo). Encima de cada ventana se pone su VIDRIO ENCENDIDO, que aparece
 #  al anochecer. Los oficios sin luz de dia (carpinteria, peleteria...) de noche SI la encienden, calida:
@@ -339,6 +361,10 @@ static func ventanas(clave: String) -> Array:
 	var out: Array = []
 	for esq in _esquinas_ventanas(e, h, alero, puerta_x, hu):
 		out.append([esq, luz])
+	# LOS GLIFOS del taller de runas se encienden como una ventana mas (sus pixeles son del tono del vidrio).
+	if "glifos" in e["extras"]:
+		for esq in _esquinas_glifos(e, h, alero, puerta_x, hu):
+			out.append([esq, luz])
 	return out
 
 
@@ -349,6 +375,8 @@ static func color_luz(luz: String) -> Color:
 			return Color(1.0, 0.72, 0.45)
 		"verde":
 			return Color(0.80, 1.0, 0.78)
+		"runica":
+			return Color(0.66, 0.64, 1.0)
 	return Color(1.0, 0.88, 0.62)
 
 
@@ -402,6 +430,9 @@ static func _vidrio_entero(luz: String) -> Image:
 		"verde":
 			a = Color(0.50, 0.85, 0.50)
 			b = Color(0.85, 1.0, 0.78)
+		"runica":
+			a = Color(0.48, 0.44, 1.0)
+			b = Color(0.82, 0.80, 1.0)
 	var img := Image.create(TAM_VENTANA, TAM_VENTANA, false, Image.FORMAT_RGBA8)
 	var mad: Array = RAMPAS["madera_osc"]
 	for y in TAM_VENTANA:
@@ -409,7 +440,8 @@ static func _vidrio_entero(luz: String) -> Image:
 			if x == 0 or y == 0 or x == TAM_VENTANA - 1 or y == TAM_VENTANA - 1:
 				continue
 			var col: Color = a if (x + y) > 13 else b
-			if x == 7 or y == 7:
+			# (sin parteluz en la runica: tambien enciende los glifos, que no lo tienen)
+			if (x == 7 or y == 7) and luz != "runica":
 				col = mad[2]
 			img.set_pixel(x, y, col)
 	_vidrios[luz] = img
@@ -426,6 +458,8 @@ static func _vidrio_de_dia(luz: String) -> Array:
 			return [Color(0.80, 0.30, 0.08), Color(1.00, 0.65, 0.20)]
 		"verde":
 			return [Color(0.35, 0.60, 0.40), Color(0.65, 0.88, 0.60)]
+		"runica":
+			return [Color(0.22, 0.20, 0.48), Color(0.40, 0.37, 0.72)]
 	return [Color(0.16, 0.22, 0.30), Color(0.30, 0.42, 0.52)]
 
 
@@ -627,6 +661,9 @@ const ICONOS := {
 		".########..#", ".########.##", ".########...", ".########...", "..######...."],
 	"espadas": ["#..........#", ".#........#.", "..#......#..", "...#....#...", "....#..#....",
 		".....##.....", "....#..#....", "..##....##..", ".##......##.", "#..........#"],
+	# La piedra runica (taller de runas): una piedra redondeada con su runa en hueco.
+	"runa": ["...######...", "..########..", ".####.#####.", ".####.##.##.", ".####.#.###.",
+		".####..####.", ".####.#.###.", ".####.##.##.", "..###.####..", "...######..."],
 	"pez": ["............", ".....####...", "...#######.#", "..########.#", ".##########.",
 		"..########.#", "...#######.#", ".....####...", "............", "............"],
 }
@@ -737,6 +774,23 @@ static func posicion_cartel(clave: String) -> Vector2i:
 # ------------------------------------------------------------
 static func _extra(d: PackedByteArray, w: int, h: int, que: String, e: Dictionary, alero: int, puerta_x: int, hu: Vector2i) -> void:
 	match que:
+		"glifos":
+			# Tallados en la piedra: el surco oscuro y dentro el tono del VIDRIO de su luz (de dia apagado; de noche
+			# lo enciende el vidrio, ver ventanas()). Uno de cada runa.
+			var tonos: Array = _vidrio_de_dia(String(e["luz"]))
+			var k: int = 0
+			for esq in _esquinas_glifos(e, h, alero, puerta_x, hu):
+				var g: Array = GLIFOS[k % GLIFOS.size()]
+				k += 1
+				for j in g.size():
+					var fila: String = g[j]
+					for i in fila.length():
+						if fila[i] != "#":
+							continue
+						var x: int = (esq as Vector2i).x + 1 + i
+						var y: int = (esq as Vector2i).y + 1 + j
+						_px(d, w, h, x, y, tonos[0] if (i + j) > 11 else tonos[1])
+						_px(d, w, h, x + 1, y + 1, Color(0, 0, 0, 0.45))   # la sombra del surco
 		"pieles":
 			# Dos pieles tendidas en la pared, estiradas con cuerdas.
 			for k in 2:

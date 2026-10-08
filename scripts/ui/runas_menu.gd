@@ -20,10 +20,59 @@ const ANCHO_FICHA_RUNAS := 520.0
 var _set_idx: int = 0   # el set elegido en la ficha de una pieza sin set
 var _sub_idx: int = 0   # la sub-stat elegida para cambiar / re-tirar
 
+# LA FILA DE TIPOS (como el inventario y la herreria): "Todas" y cada tipo. 'clave' = Runas-agnostica, ver _tipo_de.
+# (Arco y ballesta van con el icono generico de espada: aun no tienen el suyo en la barra.)
+const SUBS_ARMAS := [
+	{"clave": "", "nombre": "Todas", "icono": "todo"},
+	{"clave": "w1", "nombre": "Daga", "icono": "daga"},
+	{"clave": "w2", "nombre": "Espada corta", "icono": "espada_corta"},
+	{"clave": "w3", "nombre": "Espada larga", "icono": "espada_larga"},
+	{"clave": "w4", "nombre": "Mandoble", "icono": "mandoble"},
+	{"clave": "w5", "nombre": "Estoque", "icono": "estoque"},
+	{"clave": "w6", "nombre": "Hacha grande", "icono": "hacha"},
+	{"clave": "w7", "nombre": "Maza pequeña", "icono": "maza"},
+	{"clave": "w8", "nombre": "Martillo grande", "icono": "martillo"},
+	{"clave": "w9", "nombre": "Bastón", "icono": "baston"},
+	{"clave": "w10", "nombre": "Arco", "icono": "espada"},
+	{"clave": "w11", "nombre": "Ballesta", "icono": "espada"},
+	{"clave": "escudo", "nombre": "Escudos", "icono": "escudo_med"},
+	{"clave": "varita", "nombre": "Varitas", "icono": "varita"},
+]
+const CORTE_ARMAS := 7
+const SUBS_ARMADURAS := [
+	{"clave": "", "nombre": "Todas", "icono": "todo"},
+	{"clave": "a0", "nombre": "Casco", "icono": "casco"},
+	{"clave": "a1", "nombre": "Pecho", "icono": "coraza"},
+	{"clave": "a2", "nombre": "Manos", "icono": "mano"},
+	{"clave": "a3", "nombre": "Pantalones", "icono": "pantalon"},
+	{"clave": "a4", "nombre": "Botas", "icono": "botas"},
+]
+var _sub: Array = [0, 0]   # el tipo elegido en cada pestaña
+
+# LA BARRA DE ABAJO: Filtros y Orden, con la mecanica de la tienda (dentro de un grupo "o", entre grupos "y"; volver a
+# pulsar el mismo orden le da la vuelta). Por pestaña.
+const ORDENES := [
+	{"campo": "", "nombre": "Predeterminado"},
+	{"campo": "rareza", "nombre": "Rareza"},
+	{"campo": "tier", "nombre": "Tier"},
+	{"campo": "subs", "nombre": "Sub-stats"},
+	{"campo": "nombre", "nombre": "Nombre"},
+]
+var _orden: Array = [{"campo": "", "desc": true}, {"campo": "", "desc": true}]
+var _filtros: Array = [{}, {}]   # por pestaña: {grupo: [valores]}
+var _barra_pie: HBoxContainer = null
+var _modal_capa: Control = null
+var _modal_cuerpo: VBoxContainer = null
+var _sin_filtrar: Array = []
+
 
 func _ready() -> void:
 	add_to_group("runas_menu")
 	montar("Taller de runas", TABS, TAB_ICONOS)
+	# La barra de abajo, debajo de la rejilla (en su columna, fuera del scroll).
+	_barra_pie = HBoxContainer.new()
+	_barra_pie.add_theme_constant_override("separation", 10)
+	_scroll_lista.get_parent().add_child(_barra_pie)
 
 
 func abrir() -> void:
@@ -49,11 +98,25 @@ func _pintar() -> void:
 	(_fila_artesano.get_parent().get_parent() as Control).visible = false
 	if Net.activo:
 		Net.hogar.reservar({})   # todo es instantaneo: no se aparta nada mientras miras
+	# La fila de tipos.
+	var subs: Array = SUBS_ARMADURAS if _tab == TAB_ARMADURAS else SUBS_ARMAS
+	var nombres: Array = []
+	var iconos: Array = []
+	for s in subs:
+		nombres.append(s["nombre"])
+		iconos.append(s["icono"])
+	_sub[_tab] = clampi(int(_sub[_tab]), 0, subs.size() - 1)
+	filtros_dos_filas(nombres, iconos, int(_sub[_tab]), _on_sub_tipo,
+		subs.size() if _tab == TAB_ARMADURAS else CORTE_ARMAS)
+	var tipo: String = String(subs[int(_sub[_tab])]["clave"])
 	var items: Array = []
 	var fuente: Array = Game.owned_armor if _tab == TAB_ARMADURAS else Game.owned_weapons
 	for it in fuente:
-		if Runas.admite_runas(it):
+		if Runas.admite_runas(it) and (tipo == "" or _tipo_de(it) == tipo):
 			items.append(it)
+	_sin_filtrar = items
+	items = _ordenar(_filtrar(items))
+	_pintar_barra_pie()
 	stacks = items
 	contador("%d piezas" % items.size())
 	var celdas: Array = []
@@ -154,6 +217,207 @@ func _ficha_con_set(vb: VBoxContainer, item: Resource, s: RunaSetData) -> void:
 			func() -> void: _hacer(func() -> String: return Runas.retirar(item, i), "Valor re-tirado."), false, hay)
 	MenuScaffold.pastilla(pie, "Desencantar (las runas no vuelven)",
 		func() -> void: _hacer(func() -> String: return Runas.desencantar(item), "La pieza queda limpia."), false, true)
+
+
+# ============================================================
+#  TIPOS, FILTROS Y ORDEN
+# ============================================================
+static func _tipo_de(it: Resource) -> String:
+	if it is ArmorData:
+		return "a%d" % int((it as ArmorData).slot)
+	if it is ShieldData:
+		return "escudo"
+	if it is WandData:
+		return "varita"
+	if it is WeaponData:
+		return "w%d" % int((it as WeaponData).tipo)
+	return ""
+
+
+func _on_sub_tipo(i: int) -> void:
+	if i == int(_sub[_tab]):
+		return
+	_sub[_tab] = i
+	cambiar_pantalla()
+
+
+# Los grupos del modal de filtros: {clave, titulo, opciones: [{nombre, valor}]}.
+func _grupos() -> Array:
+	var sets: Array = [{"nombre": "Sin set", "valor": 0}]
+	var i: int = 1
+	for s in Runas.sets():
+		if int((s as RunaSetData).tipo) == (RunaSetData.Tipo.ARMADURA if _tab == TAB_ARMADURAS else RunaSetData.Tipo.ARMA):
+			sets.append({"nombre": (s as RunaSetData).nombre, "valor": i})
+		i += 1
+	var rarezas: Array = []
+	for r in Upgrades.RAREZA_NOMBRE.size():
+		rarezas.append({"nombre": Upgrades.RAREZA_NOMBRE[r], "valor": r})
+	return [
+		{"clave": "set", "titulo": "SET", "opciones": sets},
+		{"clave": "subs", "titulo": "SUB-STATS", "opciones": [{"nombre": "Ninguna", "valor": 0}, {"nombre": "Una", "valor": 1},
+			{"nombre": "Dos", "valor": 2}, {"nombre": "Tres", "valor": 3}, {"nombre": "Cuatro", "valor": 4}]},
+		{"clave": "rareza", "titulo": "RAREZA", "opciones": rarezas},
+		{"clave": "tier", "titulo": "TIER", "opciones": [{"nombre": "T1", "valor": 1}, {"nombre": "T2", "valor": 2},
+			{"nombre": "T3", "valor": 3}]},
+		{"clave": "puesta", "titulo": "DÓNDE", "opciones": [{"nombre": "En el baúl", "valor": 0},
+			{"nombre": "Puesta", "valor": 1}]},
+	]
+
+
+func _valor(it: Resource, grupo: String) -> int:
+	var m: Dictionary = Game.meta_de(it)
+	match grupo:
+		"set":
+			var s: RunaSetData = Runas.set_de(it)
+			return 0 if s == null else Runas.sets().find(s) + 1
+		"subs":
+			return Runas.subs_de(it).size()
+		"rareza":
+			return int(m.get("rareza", 0))
+		"tier":
+			return int(m.get("tier", 1))
+		"puesta":
+			return 1 if Game.quien_lleva(it) != null else 0
+	return -9999
+
+
+func _filtrar(items: Array) -> Array:
+	var f: Dictionary = _filtros[_tab]
+	var out: Array = []
+	for it in items:
+		var pasa: bool = true
+		for g in f:
+			var marcados: Array = f[g]
+			if not marcados.is_empty() and not marcados.has(_valor(it, String(g))):
+				pasa = false
+				break
+		if pasa:
+			out.append(it)
+	return out
+
+
+func _ordenar(items: Array) -> Array:
+	var o: Dictionary = _orden[_tab]
+	var campo: String = String(o["campo"])
+	if campo == "":
+		return items
+	var desc: bool = bool(o["desc"])
+	var claves: Array = []
+	for i in items.size():
+		var it: Resource = items[i]
+		var v: Variant = Game.item_display_name(it) if campo == "nombre" else float(_valor(it, campo))
+		claves.append({"i": i, "v": v})
+	claves.sort_custom(func(a, b):
+		if a["v"] == b["v"]:
+			return int(a["i"]) < int(b["i"])
+		return (a["v"] > b["v"]) if desc else (a["v"] < b["v"]))
+	var out: Array = []
+	for k in claves:
+		out.append(items[int(k["i"])])
+	return out
+
+
+func _hay_filtro() -> bool:
+	for g in (_filtros[_tab] as Dictionary).values():
+		if not (g as Array).is_empty():
+			return true
+	return false
+
+
+func _pintar_barra_pie() -> void:
+	MenuScaffold.vaciar(_barra_pie)
+	var embudo: Button = MenuScaffold.pastilla(_barra_pie, "Filtros", _abrir_filtros, false)
+	if _hay_filtro():
+		MenuScaffold.estilo_chip(embudo, true)
+		embudo.custom_minimum_size = Vector2(0, MenuScaffold.ALTO_PASTILLA)
+	var o: Dictionary = _orden[_tab]
+	var nom: String = "Predeterminado"
+	for c in ORDENES:
+		if String(c["campo"]) == String(o["campo"]):
+			nom = String(c["nombre"])
+	var flecha: String = "" if String(o["campo"]) == "" else ("  ↓" if bool(o["desc"]) else "  ↑")
+	MenuScaffold.pastilla(_barra_pie, "Orden: %s%s" % [nom, flecha], _abrir_orden, false)
+
+
+func _abrir_orden() -> void:
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	_modal_capa = m["capa"]
+	var o: Dictionary = _orden[_tab]
+	var marcadas: Array = []
+	for i in ORDENES.size():
+		if String(ORDENES[i]["campo"]) == String(o["campo"]):
+			marcadas.append(i)
+	MenuScaffold.chips(m["cuerpo"], "", ORDENES, marcadas, func(i: int):
+		var campo: String = String(ORDENES[i]["campo"])
+		if String(o["campo"]) == campo and campo != "":
+			o["desc"] = not bool(o["desc"])
+		else:
+			o["campo"] = campo
+			o["desc"] = true
+		_cerrar_modal()
+		sel = 0
+		rebuild(), 3)
+	MenuScaffold.nota(m["cuerpo"], "Vuelve a pulsar el mismo criterio para invertirlo.")
+	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal, false)
+
+
+func _abrir_filtros() -> void:
+	_cerrar_modal()
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	_modal_capa = m["capa"]
+	_modal_cuerpo = m["cuerpo"]
+	_refrescar_filtros()
+	MenuScaffold.pastilla(m["acciones"], "Quitar todo", func():
+		_filtros[_tab] = {}
+		sel = 0
+		_refrescar_filtros()
+		rebuild(), false)
+	MenuScaffold.pastilla(m["acciones"], "Listo", _cerrar_modal)
+
+
+func _refrescar_filtros() -> void:
+	if _modal_cuerpo == null or not is_instance_valid(_modal_cuerpo):
+		return
+	MenuScaffold.vaciar(_modal_cuerpo)
+	var f: Dictionary = _filtros[_tab]
+	for g in _grupos():
+		var grupo: String = String(g["clave"])
+		var marcados: Array = f.get(grupo, [])
+		var vals: Array = g["opciones"]
+		var opciones: Array = []
+		var marcadas: Array = []
+		for i in vals.size():
+			var valor: int = int(vals[i]["valor"])
+			var n: int = 0
+			for it in _sin_filtrar:
+				if _valor(it, grupo) == valor:
+					n += 1
+			opciones.append({"nombre": String(vals[i]["nombre"]), "cuantos": n})
+			if marcados.has(valor):
+				marcadas.append(i)
+		MenuScaffold.chips(_modal_cuerpo, String(g["titulo"]), opciones, marcadas, func(idx: int):
+			var lista: Array = f.get(grupo, [])
+			var v: int = int(vals[idx]["valor"])
+			if lista.has(v):
+				lista.erase(v)
+			else:
+				lista.append(v)
+			f[grupo] = lista
+			sel = 0
+			_refrescar_filtros()
+			rebuild(), 4)
+
+
+func _cerrar_modal() -> void:
+	if _modal_capa != null and is_instance_valid(_modal_capa):
+		_modal_capa.queue_free()
+	_modal_capa = null
+	_modal_cuerpo = null
+
+
+func _al_cerrar() -> void:
+	_cerrar_modal()
 
 
 func _on_set(i: int) -> void:

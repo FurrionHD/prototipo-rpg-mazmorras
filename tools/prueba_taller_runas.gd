@@ -58,9 +58,41 @@ func _ready() -> void:
 	menu._on_sub(1)
 	await menu._hacer(func() -> String: return Runas.cambiar(peto, 1), "ok")
 	await menu._hacer(func() -> String: return Runas.retirar(peto, 1), "ok")
+	# La fila de tipos: en Armaduras, "Pecho" deja solo petos.
+	menu._on_sub_tipo(2)
+	await get_tree().process_frame
+	var solo_pechos: bool = not menu.stacks.is_empty()
+	for it in menu.stacks:
+		if not (it is ArmorData and int((it as ArmorData).slot) == ArmorData.Slot.PECHO):
+			solo_pechos = false
+	_ok(solo_pechos, "el subfiltro Pecho deja solo petos (%d)" % menu.stacks.size())
+	# Filtro de set: "Sin set" quita el peto encantado.
+	menu._filtros[menu._tab] = {"set": [0]}
+	menu.rebuild()
+	await get_tree().process_frame
+	_ok(not menu.stacks.has(peto), "el filtro Sin set quita el peto con Masa gelatinosa")
+	menu._filtros[menu._tab] = {}
+	menu._orden[menu._tab] = {"campo": "subs", "desc": true}
+	menu.rebuild()
+	await get_tree().process_frame
+	_ok(not menu.stacks.is_empty() and menu.stacks[0] == peto, "ordenar por sub-stats lo pone el primero")
+	menu._abrir_filtros()
+	await get_tree().process_frame
+	_ok(menu._modal_capa != null, "el modal de filtros se abre")
+	menu._cerrar_modal()
+	menu._abrir_orden()
+	await get_tree().process_frame
+	menu._cerrar_modal()
 	menu._on_tab(menu.TAB_ARMAS)
 	await get_tree().process_frame
 	_ok(true, "la pestaña de armas se pinta")
+	menu._on_sub_tipo(1)
+	await get_tree().process_frame
+	var solo_dagas: bool = true
+	for it in menu.stacks:
+		if not (it is WeaponData and int((it as WeaponData).tipo) == WeaponData.Tipo.DAGA):
+			solo_dagas = false
+	_ok(solo_dagas, "el subfiltro Daga deja solo dagas (%d)" % menu.stacks.size())
 	var filas: Array = MenuScaffold.filas_armadura(peto, 1, 0, {})
 	var tiene: bool = false
 	for f in filas:

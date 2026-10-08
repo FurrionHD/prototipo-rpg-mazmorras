@@ -152,10 +152,9 @@ const CASAS := [
 	{"clave": "vacia", "rect": Rect2i(25, 42, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(17, 48, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(25, 48, 3, 3)},
-	# EL TALLER DE RUNAS (08/10/2026): de momento con el DIBUJO de una de relleno ('como_vacia'; su casa y su cartel
-	# propios esperan al pase visual), en la que era la casa vacia del barrio sur junto a la peleteria.
-	{"clave": "runas", "nombre": "TALLER DE RUNAS", "rect": Rect2i(43, 48, 3, 3), "script": "res://scripts/town/runista.gd",
-		"como_vacia": true},
+	# EL TALLER DE RUNAS (08/10/2026): en la que era la casa vacia del barrio sur junto a la peleteria, con su casa
+	# propia (CasaSprites "runas": piedra oscura, glifos que brillan de noche y su cartel).
+	{"clave": "runas", "nombre": "TALLER DE RUNAS", "rect": Rect2i(43, 48, 3, 3), "script": "res://scripts/town/runista.gd"},
 	# EL BARRIO NORTE: una fila pegada a la calle norte, a los dos lados del cuartel y del camino de la arena.
 	{"clave": "vacia", "rect": Rect2i(4, 6, 3, 3)},
 	{"clave": "vacia", "rect": Rect2i(9, 6, 3, 3)},
