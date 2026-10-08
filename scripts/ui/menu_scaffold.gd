@@ -925,6 +925,7 @@ static func filas_arma(w: WeaponData, tier: int, rareza: int, mejoras: Dictionar
 		if float(mg["mana_reduccion"]) > 0.0:
 			filas.append(["Coste de maná", "-%.0f%%" % (float(mg["mana_reduccion"]) * 100.0)])
 		filas += filas_critico_magico(mg, w.crit_bonus)
+	filas += Runas.filas(w)   # el set y las sub-stats de las runas (08/10), si lleva
 	return filas
 
 
@@ -1085,6 +1086,7 @@ static func filas_escudo(sh: ShieldData, tier: int, rareza: int, mejoras: Dictio
 	if float(m.get("contra_prob", 0.0)) > 0.0:
 		filas.append(["Respuesta al bloquear", "%d%% de devolver el golpe, al %d%% de daño" % [
 			roundi(float(m["contra_prob"]) * 100.0), roundi(float(m["contra_mult"]) * 100.0)]])
+	filas += Runas.filas(sh)   # las runas (08/10), si lleva
 	return filas
 
 
@@ -1170,6 +1172,7 @@ static func filas_armadura(a: ArmorData, tier: int, rareza: int, mejoras: Dictio
 		filas.append(["Resist. estados", "+%s" % _pct1(float(mods["resist_estados"]) * cob)])
 	filas.append(["Mejoras", "%d / %d" % [
 		Upgrades.total_mejoras(mejoras), Upgrades.rareza_slots(rareza)]])
+	filas += Runas.filas(a)   # las runas (08/10), si lleva
 	return filas
 
 

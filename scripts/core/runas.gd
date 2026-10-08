@@ -137,7 +137,9 @@ static func set_por_id(id: StringName) -> RunaSetData:
 static func runas_de(item: Resource) -> Dictionary:
 	if item == null:
 		return {}
-	return Game.meta_de(item).get("runas", {})
+	# Solo LEER: meta_de fabrica una meta por defecto si no la hay, y las fichas preguntan tambien por copias de
+	# escaparate (tienda, vitrinas) que no deben dejar meta colgando.
+	return (Game.item_meta.get(item, {}) as Dictionary).get("runas", {})
 
 static func set_de(item: Resource) -> RunaSetData:
 	var r: Dictionary = runas_de(item)

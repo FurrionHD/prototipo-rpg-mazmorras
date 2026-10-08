@@ -270,7 +270,7 @@ func _crear_casas() -> void:
 		add_child(nodo)
 		# Cada oficio con SU casa (CasaSprites). Las de relleno van turnandose entre sus variantes.
 		var dibujo: String = clave
-		if clave == "vacia":
+		if clave == "vacia" or bool(casa.get("como_vacia", false)):
 			dibujo = "vacia_%d" % (n_vacia % CasaSprites.VARIANTES_VACIA)
 			n_vacia += 1
 		var pieza: PiezaPueblo = PiezaPueblo.crear("casa_" + dibujo, r)

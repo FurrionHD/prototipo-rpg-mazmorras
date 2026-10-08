@@ -259,6 +259,7 @@ func _ready() -> void:
 	_carpinteria_menu.modo = "carpintero"                          # fijar ANTES de add_child: _ready ya lo lee
 	add_child(_carpinteria_menu)                                   # carpintero (F sobre el NPC)
 	add_child(preload("res://scripts/ui/tannery_menu.gd").new())    # peletero (F sobre el NPC)
+	add_child(preload("res://scripts/ui/runas_menu.gd").new())      # taller de runas (F sobre su puerta)
 	add_child(preload("res://scripts/ui/tavern_menu.gd").new())     # taberna: contratar (F sobre el NPC)
 	add_child(preload("res://scripts/ui/maestro_menu.gd").new())    # maestro: habilidades de arma (F sobre el NPC)
 	add_child(preload("res://scripts/ui/fishing_book_menu.gd").new())  # pescador: libro + cebos (F sobre el NPC)
