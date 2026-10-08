@@ -1226,7 +1226,7 @@ func _abrir_modal_cantidad(maximo: int) -> void:
 	# Por el MISMO armazon que orden y filtros (MenuScaffold.modal). Antes se montaba su propia caja
 	# a mano, con otro borde y otras esquinas, asi que en la misma pantalla habia dos clases de
 	# modal segun el boton que pulsaras.
-	var m: Dictionary = MenuScaffold.modal(_root, "¿Cuántas sueltas?", 420.0)
+	var m: Dictionary = MenuScaffold.modal(_root, "¿Cuántas sueltas?", 420.0, _cerrar_modal)
 	_modal = m["capa"]
 	var vb: VBoxContainer = m["cuerpo"]
 
@@ -1784,7 +1784,7 @@ func _pintar_barra_pie() -> void:
 
 func _abrir_modal_orden() -> void:
 	_cerrar_modal_barra()
-	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden", MenuScaffold.ANCHO_MODAL, _cerrar_modal_barra)
 	_modal_capa = m["capa"]
 	var crit: Array = _criterios_orden()
 	var o: Dictionary = _orden_actual()
@@ -1803,7 +1803,7 @@ func _abrir_modal_orden() -> void:
 
 func _abrir_modal_filtros() -> void:
 	_cerrar_modal_barra()
-	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros", MenuScaffold.ANCHO_MODAL, _cerrar_modal_barra)
 	_modal_capa = m["capa"]
 	_modal_cuerpo = m["cuerpo"]
 	_refrescar_modal_filtros()
@@ -2000,7 +2000,7 @@ func _pintar_modal_usar() -> void:
 	if c == null:
 		return
 	var quedan: int = int(Game.consumables.get(c, 0))
-	var m: Dictionary = MenuScaffold.modal(_root, c.nombre, 640.0)
+	var m: Dictionary = MenuScaffold.modal(_root, c.nombre, 640.0, _cerrar_modal)
 	_modal_capa = m["capa"]
 	var vb: VBoxContainer = m["cuerpo"]
 
@@ -2058,7 +2058,7 @@ func _pintar_modal_usar() -> void:
 # ¿Seguro? Solo para los grimorios: dice QUIEN va a aprender QUE, que es justo lo que fallo.
 func _confirmar_grimorio(c: ConsumableData, pj: PersonajeData, al_aceptar: Callable) -> void:
 	_cerrar_modal_barra()
-	var m: Dictionary = MenuScaffold.modal(_root, "¿Estudiar %s?" % c.spell.nombre, 520.0)
+	var m: Dictionary = MenuScaffold.modal(_root, "¿Estudiar %s?" % c.spell.nombre, 520.0, _cerrar_modal)
 	_modal_capa = m["capa"]
 	var vb: VBoxContainer = m["cuerpo"]
 	var l := Label.new()

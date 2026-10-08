@@ -2380,21 +2380,37 @@ static func pastilla(parent: Node, texto: String, al_pulsar: Callable,
 
 const ANCHO_MODAL := 620.0
 
-static func modal(root: Control, titulo: String, ancho: float = ANCHO_MODAL) -> Dictionary:
+# 'al_cerrar' = lo que hace la pantalla para cerrarlo (su _cerrar_modal: suelta su referencia, vuelve a enseñar los
+# muñecos...). PULSAR FUERA DEL RECUADRO lo cierra (08/10/2026, lo pidio el usuario: "tengo que darle a Cerrar, no me
+# deja darle fuera"): con 'al_cerrar' si lo hay, y si no, quitando la capa sin mas.
+static func modal(root: Control, titulo: String, ancho: float = ANCHO_MODAL,
+		al_cerrar: Callable = Callable()) -> Dictionary:
 	var capa := Control.new()
 	capa.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(capa)
 
 	# El velo. STOP y no IGNORE: mientras el modal esta abierto, lo de debajo NO se pulsa -- que es
-	# justo lo que lo hace modal.
+	# justo lo que lo hace modal. Y pulsarlo (fuera del recuadro) lo cierra.
 	var velo := ColorRect.new()
 	velo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	velo.color = Color(0, 0, 0, 0.62)
 	velo.mouse_filter = Control.MOUSE_FILTER_STOP
 	capa.add_child(velo)
+	velo.gui_input.connect(func(ev: InputEvent) -> void:
+		var pulsa: bool = (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) \
+			or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed)
+		if not pulsa or not is_instance_valid(capa):
+			return
+		velo.accept_event()
+		if al_cerrar.is_valid():
+			al_cerrar.call_deferred()
+		else:
+			capa.queue_free())
 
+	# IGNORE: el centrador cubre toda la pantalla, y con STOP se comia los clics de fuera antes de llegar al velo.
 	var centro := CenterContainer.new()
 	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	capa.add_child(centro)
 
 	var panel := PanelContainer.new()

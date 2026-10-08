@@ -47,12 +47,12 @@ const RetratoPieza = preload("res://scripts/ui/retrato_pieza.gd")
 # —Fuerza, Resistencia, Destreza, Agilidad, Magia— se llaman en todo el juego "habilidades BASICAS",
 # y asi se llama tambien su pagina dentro de Ficha. Dos cosas parecidas con el mismo nombre a secas
 # no las distingue nadie.
-const SECCIONES := ["Ficha", "Armas", "Habilidades", "Armadura", "Desarrollo"]
-const SECCION_ICONOS := ["persona", "espada", "habilidades", "coraza", "flor"]
+const SECCIONES := ["Ficha", "Armas", "Armadura", "Habilidades", "Desarrollo"]   # Armadura antes que Habilidades (08/10, lo pidio el usuario)
+const SECCION_ICONOS := ["persona", "espada", "coraza", "habilidades", "flor"]
 const SEC_FICHA := 0
 const SEC_ARMAS := 1
-const SEC_HABILIDADES := 2
-const SEC_ARMADURA := 3
+const SEC_HABILIDADES := 3
+const SEC_ARMADURA := 2
 const SEC_DESARROLLO := 4
 
 const ARMOR_SLOTS := ["casco", "pecho", "manos", "pantalones", "botas"]
@@ -831,7 +831,7 @@ func _abrir_modal_atributos() -> void:
 	_cerrar_modal()
 	var pj: PersonajeData = _pj()
 	var c: Combatant = _combatiente()
-	var m: Dictionary = MenuScaffold.modal(_root, "Información de los atributos", 640.0)
+	var m: Dictionary = MenuScaffold.modal(_root, "Información de los atributos", 640.0, _cerrar_modal)
 	_modal = m["capa"]
 	_ver_muneco(false)
 
@@ -1871,7 +1871,7 @@ func _confirmar_robo(item: Resource, al_aceptar: Callable) -> void:
 		al_aceptar.call()   # no lo lleva nadie: no hay nada que preguntar
 		return
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "Lo lleva puesto %s" % otro.nombre)
+	var m: Dictionary = MenuScaffold.modal(_root, "Lo lleva puesto %s" % otro.nombre, MenuScaffold.ANCHO_MODAL, _cerrar_modal)
 	_modal = m["capa"]
 	_ver_muneco(false)
 	var cuerpo: VBoxContainer = m["cuerpo"]
@@ -2094,7 +2094,7 @@ func _resumen_pieza(vb: VBoxContainer, item: Resource) -> void:
 # La FICHA ENTERA de una pieza, en un modal con scroll (lo de antes en la columna, mas sus runas).
 func _abrir_ficha_completa(item: Resource) -> void:
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, Game.item_display_name(item), 640.0)
+	var m: Dictionary = MenuScaffold.modal(_root, Game.item_display_name(item), 640.0, _cerrar_modal)
 	_modal = m["capa"]
 	_ver_muneco(false)
 	var scroll := ScrollContainer.new()

@@ -385,7 +385,7 @@ func _confirmar_bloque(que: String) -> void:
 				if n > 0 and Game.esta_sobrecargado():
 					txt += "  Vas sobrecargado: te moverás lento."
 				_decir(txt, n > 0)
-	var m: Dictionary = MenuScaffold.modal(hogar._root, titulo, 460.0)
+	var m: Dictionary = MenuScaffold.modal(hogar._root, titulo, 460.0, cerrar_modal)
 	_modal = m["capa"]
 	_modal.z_index = 4096   # por encima de cualquier muñeco (ver retratos-pisan-los-modales)
 	MenuScaffold.nota(m["cuerpo"], texto)

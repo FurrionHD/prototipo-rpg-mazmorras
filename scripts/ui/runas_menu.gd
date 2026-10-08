@@ -349,7 +349,7 @@ func _pintar_barra_pie() -> void:
 
 func _abrir_orden() -> void:
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden", MenuScaffold.ANCHO_MODAL, _cerrar_modal)
 	_modal_capa = m["capa"]
 	var o: Dictionary = _orden[_tab]
 	var marcadas: Array = []
@@ -372,7 +372,7 @@ func _abrir_orden() -> void:
 
 func _abrir_filtros() -> void:
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros", MenuScaffold.ANCHO_MODAL, _cerrar_modal)
 	_modal_capa = m["capa"]
 	_modal_cuerpo = m["cuerpo"]
 	_refrescar_filtros()

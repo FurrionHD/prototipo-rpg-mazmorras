@@ -34,6 +34,17 @@ func _ready() -> void:
 	await _foto("6_personaje_armas")
 	menu._abrir_ficha_completa(d1)
 	await _foto("7_personaje_info_arma")
+	# PULSAR FUERA del recuadro lo tiene que cerrar (un clic de verdad en la esquina, sobre el velo).
+	for pulsado in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = pulsado
+		ev.position = Vector2(30, 690)
+		ev.global_position = ev.position
+		Input.parse_input_event(ev)
+		await get_tree().process_frame
+	await _esperar()
+	print("[capturas] clic fuera cierra la ficha: ", "SI" if menu._modal == null else "NO")
 	menu._cerrar_modal()
 	menu._on_seccion(menu.SEC_ARMADURA)
 	menu._pick(1)

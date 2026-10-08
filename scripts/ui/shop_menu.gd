@@ -485,7 +485,7 @@ func _pintar_barra_pie() -> void:
 func _abrir_modal_orden() -> void:
 	var seccion = _seccion()
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "Orden")
+	var m: Dictionary = MenuScaffold.modal(_root, "Orden", MenuScaffold.ANCHO_MODAL, _cerrar_modal)
 	_modal_capa = m["capa"]
 	var crit: Array = seccion.criterios()
 	var o: Dictionary = orden.orden_de(seccion.clave(), seccion.por_defecto())
@@ -504,7 +504,7 @@ func _abrir_modal_orden() -> void:
 
 func _abrir_modal_filtros() -> void:
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, "Filtros")
+	var m: Dictionary = MenuScaffold.modal(_root, "Filtros", MenuScaffold.ANCHO_MODAL, _cerrar_modal)
 	_modal_capa = m["capa"]
 	_modal_cuerpo = m["cuerpo"]
 	_refrescar_modal_filtros()
@@ -553,7 +553,7 @@ func _cerrar_modal() -> void:
 # Un modal suelto para las secciones (confirmar la cesta). Devuelve lo de MenuScaffold.modal.
 func abrir_modal(titulo: String, ancho: float = 520.0) -> Dictionary:
 	_cerrar_modal()
-	var m: Dictionary = MenuScaffold.modal(_root, titulo, ancho)
+	var m: Dictionary = MenuScaffold.modal(_root, titulo, ancho, _cerrar_modal)
 	_modal_capa = m["capa"]
 	return m
 
