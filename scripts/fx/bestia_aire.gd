@@ -1408,8 +1408,8 @@ func _charco(capa: Node2D) -> void:
 		var largo: float = float(pu["l"]) * lerpf(0.5, 1.0, clampf(queda, 0.0, 1.0))
 		var lado := Vector2(cos(ang), sin(ang)) * 2.2
 		var punta: Vector2 = base + Vector2(sin(ang) * 1.5, -largo)
-		capa.draw_colored_polygon(PackedVector2Array([base - lado, base + lado, punta]), Color(0.25, 0.55, 0.65, alfa))
-		capa.draw_colored_polygon(PackedVector2Array([base - lado * 0.4, base + lado, punta]), Color(0.6, 0.95, 1.0, alfa))
+		Poligono.relleno(capa, PackedVector2Array([base - lado, base + lado, punta]), Color(0.25, 0.55, 0.65, alfa))
+		Poligono.relleno(capa, PackedVector2Array([base - lado * 0.4, base + lado, punta]), Color(0.6, 0.95, 1.0, alfa))
 	if _es_baba:
 		# La baba no echa vaho: solo un par de burbujas lentas.
 		for b in _puffs.slice(0, 2):

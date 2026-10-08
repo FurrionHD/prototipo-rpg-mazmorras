@@ -72,6 +72,11 @@ func montar() -> void:
 	_capa.clip_contents = false
 	_capa.process_mode = Node.PROCESS_MODE_ALWAYS
 	_pantalla.add_child(_capa)
+	# AL FONDO, DEBAJO DEL HUD (08/10, playtest: "si hay un enemigo bajo los botones de accion, pulsa al enemigo en vez de
+	# hacerse la accion"). Se montaba la ultima, encima de la barra de acciones, la linea de tiempo y el registro, y el
+	# cristal de clic de un bicho que quedara detras de un boton se llevaba el clic. Las fichas sobre los cuerpos son
+	# MUNDO: lo que esta pegado a los bordes de la pantalla manda.
+	_pantalla.move_child(_capa, 0)
 
 	for i in _pantalla._bloques.size():
 		_mudar(_pantalla._bloques[i], _cuerpo_enemigo(i))

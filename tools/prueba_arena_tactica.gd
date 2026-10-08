@@ -57,33 +57,16 @@ func _probar_piso(gen: DungeonGenerator, rng: RandomNumberGenerator, piso: int) 
 	for i in PUNTOS_POR_PISO:
 		var celda: Vector2i = suelo[rng.randi_range(0, suelo.size() - 1)]
 		var px: Vector2 = gen.centro_px(celda)
-		var combatientes: int = rng.randi_range(2, 12)
-		var hay_jefe: bool = rng.randf() < 0.2
-		var deseado: Vector2i = ArenaCalculo.tam_deseado(combatientes, hay_jefe)
+		var deseado: Vector2i = ArenaCalculo.tam_deseado(rng.randi_range(1, 12))
 		var r: Rect2i = ArenaCalculo.rect_de_arena(gen, px, deseado)
 		_casos += 1
 		_comprobar(gen, r, celda, deseado, "piso %d punto %d" % [piso, i])
 
-	# 6) EL JEFE SACA MAS SITIO. Se mide en la sala mas grande, que es donde hay margen de sobra para
-	#    que la diferencia se note (en un pasillo los dos chocan con la misma pared y empatan).
-	var mejor := Rect2i()
-	for z in gen.zonas:
-		if String(z["tipo"]) == "sala":
-			var r2: Rect2i = z["rect"]
-			if r2.size.x * r2.size.y > mejor.size.x * mejor.size.y:
-				mejor = r2
-	if mejor.size.x > 0:
-		var centro: Vector2 = gen.centro_px(mejor.position + mejor.size / 2)
-		var normal: Rect2i = ArenaCalculo.rect_de_arena(gen, centro,
-			ArenaCalculo.tam_deseado(3, false))
-		var jefe: Rect2i = ArenaCalculo.rect_de_arena(gen, centro,
-			ArenaCalculo.tam_deseado(3, true))
-		var area_n: int = normal.size.x * normal.size.y
-		var area_j: int = jefe.size.x * jefe.size.y
-		# >= y no >: en una sala justa los dos se comen la sala entera, y eso es correcto.
-		_afirmar(area_j >= area_n,
-			"piso %d: el jefe (%d celdas) no saca menos sitio que un normal (%d)"
-			% [piso, area_j, area_n])
+	# 6) EL TAMAÑO (08/10): 11x9 de base, el jefe no la agranda, +1 por lado cada 3 enemigos.
+	_afirmar(ArenaCalculo.tam_deseado(1) == ArenaCalculo.TAM_BASE, "1 enemigo no da la base")
+	_afirmar(ArenaCalculo.tam_deseado(2) == ArenaCalculo.TAM_BASE, "2 enemigos no dan la base")
+	_afirmar(ArenaCalculo.tam_deseado(3) == ArenaCalculo.TAM_BASE + Vector2i.ONE, "3 enemigos no dan +1")
+	_afirmar(ArenaCalculo.tam_deseado(6) == ArenaCalculo.TAM_BASE + Vector2i(2, 2), "6 enemigos no dan +2")
 
 
 func _comprobar(gen: DungeonGenerator, r: Rect2i, semilla: Vector2i,
@@ -142,7 +125,7 @@ func _probar_determinismo() -> void:
 			if not a.es_suelo(c):
 				continue
 			vistos += 1
-			var d: Vector2i = ArenaCalculo.tam_deseado(5, false)
+			var d: Vector2i = ArenaCalculo.tam_deseado(5)
 			if ArenaCalculo.rect_de_arena(a, a.centro_px(c), d) \
 					!= ArenaCalculo.rect_de_arena(b, b.centro_px(c), d):
 				iguales = false

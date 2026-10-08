@@ -173,23 +173,63 @@ static func frames_de(ed: EnemyData, t: float, mutante: bool = false, mutacion: 
 
 
 # LOS PARPADOS de este enemigo (05/10, ver Parpadeo), o null si su generador no los tiene.
+# HORNEADOS (08/10): se buscan primero en disco con la clave de su variante + SUFIJO_PARPADO (los deja el horno, ver
+# tools/hornear_sprites). Montarlos al vuelo costaba 0,1-1,4 s y era el tiron al transformarse; si no estan (acabas de
+# tocar un generador y aun no has horneado), se montan como siempre.
+const SUFIJO_PARPADO := "_parpado"
+
 static func parpados_de(ed: EnemyData, t: float, mutante: bool = false, mutacion: StringName = &"") -> SpriteFrames:
 	if ed == null or ed.sprite_frames != null:
 		return null
 	var g = _generador(ed)
 	if g == null or not g.has_method("parpados_de"):
 		return null
-	return g.parpados_de(ed, t, mutante and mutante_propio(ed, mutacion), mutacion)
+	var mut: bool = mutante and mutante_propio(ed, mutacion)
+	var h: SpriteFrames = _horneado_de(clave_parpado(ed, t, mut, mutacion))
+	if h != null:
+		return h
+	return g.parpados_de(ed, t, mut, mutacion)
 
 
 # Los parpados de los OTROS GRUPOS de ojos (el slime de mil ojos: cada grupo parpadea por su cuenta). [] si no tiene.
+# Horneados como los de arriba, con el numero del grupo detras (_parpado2, _parpado3...).
 static func parpados_extra_de(ed: EnemyData, t: float, mutante: bool = false, mutacion: StringName = &"") -> Array:
 	if ed == null or ed.sprite_frames != null:
 		return []
 	var g = _generador(ed)
 	if g == null or not g.has_method("parpados_extra_de"):
 		return []
-	return g.parpados_extra_de(ed, t, mutante and mutante_propio(ed, mutacion), mutacion)
+	var mut: bool = mutante and mutante_propio(ed, mutacion)
+	var base: String = clave_parpado(ed, t, mut, mutacion)
+	var out: Array = []
+	var k: int = 2
+	while true:
+		var h: SpriteFrames = _horneado_de(base + str(k))
+		if h == null:
+			break
+		out.append(h)
+		k += 1
+	if not out.is_empty():
+		return out
+	return g.parpados_extra_de(ed, t, mut, mutacion)
+
+
+# La clave de los parpados: la de su variante (la del mutante si lo es) + SUFIJO_PARPADO. La usan el horno y el juego.
+static func clave_parpado(ed: EnemyData, t: float, mutante: bool = false, mutacion: StringName = &"") -> String:
+	var g = _generador(ed)
+	if g == null:
+		return ""
+	var clave: String = String(g.clave_mutante_de(ed, t, mutacion)) if mutante else String(g.clave_de(ed, t))
+	return clave + SUFIJO_PARPADO
+
+
+# Lo horneado con esa clave (leido una vez y guardado en _horneado), o null.
+static func _horneado_de(clave: String) -> SpriteFrames:
+	if clave.is_empty():
+		return null
+	if not _horneado.has(clave):
+		_horneado[clave] = SpriteLienzo.cargar_horneado(clave)
+	return _horneado[clave]
 
 
 # Los parpados de 'sprite' (todos sus grupos): el de siempre y, si los tiene, los de los demas grupos de ojos.
@@ -327,6 +367,15 @@ static func precalentar(datas: Array) -> int:
 			continue      # sigue siendo un ColorRect: no hay nada que generar
 		for i in _MUESTRAS_T:
 			frames_de(ed, float(i) / float(_MUESTRAS_T - 1))
+		# Y SUS PARPADOS, los suyos y los de cada mutacion (08/10, el tiron al transformarse): esos no van horneados y se
+		# montaban en el mismo fotograma de la transformacion. Con un color basta: lo caro (leer las hojas) es igual para
+		# todos los colores y se queda guardado (Sprites3D._estructura); cada color nuevo despues solo repinta.
+		parpados_de(ed, 0.5)
+		parpados_extra_de(ed, 0.5)
+		for m in ed.mutaciones:
+			if mutante_propio(ed, m.id):
+				parpados_de(ed, 0.5, true, m.id)
+				parpados_extra_de(ed, 0.5, true, m.id)
 	return Time.get_ticks_msec() - t0
 
 

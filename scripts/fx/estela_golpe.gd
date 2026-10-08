@@ -106,7 +106,7 @@ func _draw() -> void:
 		var quad := PackedVector2Array([fuera[i], fuera[i + 1], dentro[i + 1], dentro[i]])
 		# Blanco hacia fuera y hacia la cabeza, gris y transparente hacia la cola.
 		var col: Color = GRIS.lerp(BLANCO, s2)
-		draw_colored_polygon(quad, Color(col, (0.25 + 0.65 * s2) * a))
+		Poligono.relleno(self, quad, Color(col, (0.25 + 0.65 * s2) * a))
 	draw_polyline(fuera, Color(BLANCO, 0.95 * a), 2.2)
 	# El DESTELLO del golpe, en la cabeza, justo al llegar.
 	if _t >= T_BALANCEO * 0.9 and apaga < 0.6:

@@ -226,7 +226,7 @@ func _dibujar_aire() -> void:
 		var cara := PackedVector2Array()
 		for q in pz["poly"]:
 			cara.append(c + (q as Vector2).rotated(rot))
-		_aire.draw_colored_polygon(cara, PIEDRA)
+		Poligono.relleno(_aire, cara, PIEDRA)
 
 
 # Una media luna de aire puesta a 's': el filo de delante (el suelo combado) y el lomo por detras, con

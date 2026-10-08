@@ -140,7 +140,7 @@ func montar() -> void:
 	# LAS BARRAS DE ARRIBA pasan a leer la pelea (vida, energia de combate y mana en vivo).
 	var pl: Node = _jugador_local()
 	if pl != null:
-		pl.usar_barras_de_pelea(combatiente_de_mi_pj)
+		pl.usar_barras_de_pelea(combatiente_de_mi_pj, chips_de_mi_pj)
 
 
 func _jugador_local() -> Node:
@@ -183,6 +183,14 @@ func combatiente_de_mi_pj(pj: PersonajeData) -> Combatant:
 		if int(d.get("peer", -1)) == _mi_id() and int(d.get("cuerpo", -2)) == k:
 			return _pantalla._aliados[i]
 	return null
+
+
+# LOS ESTADOS de uno de MIS personajes, para debajo de su barra de arriba (08/10, playtest: "durante el combate no se
+# ven los efectos; no se si me han quemado, envenenado o sangrado"). Los mismos chips que monta la pantalla de combate
+# (combat_efectos._chips_de), que en el espejo llegan ya resueltos por la red.
+func chips_de_mi_pj(pj: PersonajeData) -> Array:
+	var c: Combatant = combatiente_de_mi_pj(pj)
+	return _pantalla.efectos._chips_de(c) if c != null else []
 
 
 # Deja listo el cuerpo de UN combatiente (su sitio y sus dibujos animandose en pausa). Vale tambien

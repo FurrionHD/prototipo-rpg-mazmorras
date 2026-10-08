@@ -202,8 +202,8 @@ func _pintar(capa: Node2D) -> void:
 		var oscuro: Color = _col.darkened(0.55)
 		var cuerpo: Color = _col
 		var claro: Color = _col.lightened(0.35)
-		capa.draw_colored_polygon(pts_borde, Color(oscuro, 0.85 * alfa))
-		capa.draw_colored_polygon(pts, Color(cuerpo.darkened(0.12), 0.72 * alfa))
+		Poligono.relleno(capa, pts_borde, Color(oscuro, 0.85 * alfa))
+		Poligono.relleno(capa, pts, Color(cuerpo.darkened(0.12), 0.72 * alfa))
 		for g in _gotas:
 			var pg: Vector2 = c + (g["p"] as Vector2) * esc
 			capa.draw_circle(pg, float(g["r"]) * esc + 0.8, Color(oscuro, 0.85 * alfa))
@@ -242,7 +242,7 @@ func _pincho(ci: CanvasItem, base: Vector2, pu: Dictionary, alfa: float, tam: fl
 	else:
 		eje = Vector2(sin(float(pu["a"])), -1.0).normalized()   # de pie, algo inclinado
 	# Su SOMBRA, tumbada hacia abajo a la derecha.
-	ci.draw_colored_polygon(PackedVector2Array([base + Vector2(-ancho * 0.4, 0.0), base + Vector2(ancho * 0.4, 0.0),
+	Poligono.relleno(ci, PackedVector2Array([base + Vector2(-ancho * 0.4, 0.0), base + Vector2(ancho * 0.4, 0.0),
 		base + Vector2(largo * 0.5, largo * 0.25)]), Color(0, 0, 0, 0.25 * alfa))
 	# Donde atraviesa la baba: un anillo oscuro.
 	ci.draw_circle(base, ancho * 0.6, Color(_col.darkened(0.6), 0.6 * alfa))
@@ -258,7 +258,7 @@ func _pincho(ci: CanvasItem, base: Vector2, pu: Dictionary, alfa: float, tam: fl
 		der = tmp
 	var borde := PackedVector2Array([punta + eje * 1.0, izq + (izq - medio).normalized(), cola - eje * 0.8,
 		der + (der - medio).normalized()])
-	ci.draw_colored_polygon(borde, Color(CRISTAL_OSCURO.darkened(0.4), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, izq, cola, medio]), Color(CRISTAL.lightened(0.2), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([punta, medio, cola, der]), Color(CRISTAL_OSCURO.lightened(0.25), alfa))
+	Poligono.relleno(ci, borde, Color(CRISTAL_OSCURO.darkened(0.4), alfa))
+	Poligono.relleno(ci, PackedVector2Array([punta, izq, cola, medio]), Color(CRISTAL.lightened(0.2), alfa))
+	Poligono.relleno(ci, PackedVector2Array([punta, medio, cola, der]), Color(CRISTAL_OSCURO.lightened(0.25), alfa))
 	ci.draw_line(punta.lerp(izq, 0.3), medio.lerp(izq, 0.45), Color(1, 1, 1, 0.9 * alfa), 1.0)

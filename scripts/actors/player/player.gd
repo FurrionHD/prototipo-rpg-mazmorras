@@ -222,6 +222,11 @@ func _ready() -> void:
 		collision_mask = 0
 		process_mode = Node.PROCESS_MODE_DISABLED
 		return
+	# CHOCA CON LOS ENEMIGOS (08/10, playtest: "te metes dentro del Rey Slime"). Solo vigilaba la roca: el bicho se frenaba
+	# contra ti cuando andaba EL, pero tu le atravesabas, y con uno grande te metias medio cuerpo dentro. Ahora tambien la
+	# capa 2 (enemy.gd; en multi la caja del espejo, remote_enemy._montar_choque). Los cadaveres la sueltan al caer. Los
+	# compañeros siguen sin vigilarla a proposito (ver enemy.gd: el grupo no se atasca a si mismo).
+	collision_mask |= 2
 	# "aliado" = la lista de objetivos que mira el enemigo. El lider entra en ella igual que los
 	# companeros (companion.gd), asi que el bicho no tiene que distinguir quien lleva la corona:
 	# va a por el que tenga mas a mano.
@@ -961,8 +966,8 @@ func _actualizar_animacion(moviendose: bool, delta: float) -> void:
 		# enemy._iniciar_impacto) hasta que saltaba la pantalla, o sea que se sentia con retraso.
 		#
 		# Ahora _try_attack mira _enemigos_a_tiro() en el ULTIMO fotograma y corta en el acto: lo que
-		# cuenta es donde esta el bicho cuando el golpe termina. Misma regla que la embestida del
-		# enemigo (ver enemy._resolver_embestida), que es la otra mitad de este arreglo.
+		# cuenta es donde esta el bicho cuando el golpe termina. (La embestida del enemigo siguio esta
+		# misma regla hasta el 08/10; ahora se mira en su porrazo, ver enemy._golpe_alcanza.)
 		if _golpe_t <= 0.0 and _golpe_pendiente:
 			_golpe_pendiente = false
 			_try_attack(0.0)
@@ -2248,9 +2253,13 @@ func _crear_label_barra(bar: ProgressBar, tam: int = 11) -> Label:
 # La pelea lo engancha al montarse y lo suelta (Callable vacio) al desmontarse, y las repinta ella
 # tras cada cambio: en solitario el arbol esta en pausa y este _process no corre.
 var _combatiente_de: Callable = Callable()
+# Y SUS ESTADOS (08/10): en pelea viven en el combatiente, no en la ficha, asi que los chips de debajo de cada barra
+# tambien se le piden a la pelea (combat_tactico.chips_de_mi_pj). Sin esto la caja salia vacia toda la pelea.
+var _chips_de_pelea: Callable = Callable()
 
-func usar_barras_de_pelea(f: Callable) -> void:
+func usar_barras_de_pelea(f: Callable, chips: Callable = Callable()) -> void:
 	_combatiente_de = f
+	_chips_de_pelea = chips if f.is_valid() else Callable()
 	_refrescar_barras()
 
 
@@ -2322,6 +2331,9 @@ func _refrescar_barras() -> void:
 		if eq != null and is_instance_valid(eq):
 			eq.refrescar()
 		var caja: HBoxContainer = fila["estados"]
+		if c != null and _chips_de_pelea.is_valid():
+			_pintar_chips_pelea(fila, caja, _chips_de_pelea.call(pj))
+			continue
 		var firma: String = Game.etiqueta_estados(pj)
 		if firma != String(fila["estados_firma"]):
 			fila["estados_firma"] = firma
@@ -2329,6 +2341,25 @@ func _refrescar_barras() -> void:
 				viejo.queue_free()
 			for chip in Game.chips_estados(pj):
 				caja.add_child(StatusChip.crear(String(chip[0]), chip[3] as Color, String(chip[1])))
+
+
+# Los chips de la PELEA bajo la barra de uno de los tuyos. Mismo formato que los pinta la pantalla de combate
+# (combat_efectos._refrescar_chips): los de estado traen [texto, tooltip, icono, color, ultimo turno]; los de mecanica
+# (cargando, recitando...) solo [texto, tooltip] y van en gris. Misma firma que los de fuera: solo se rehacen si cambian.
+const _CHIP_NEUTRO := Color(0.78, 0.80, 0.86)
+
+func _pintar_chips_pelea(fila: Dictionary, caja: HBoxContainer, pares: Array) -> void:
+	var firma: String = "pelea|" + str(pares)
+	if firma == String(fila["estados_firma"]):
+		return
+	fila["estados_firma"] = firma
+	for viejo in caja.get_children():
+		viejo.queue_free()
+	for par in pares:
+		var txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" else String(par[0])
+		var col: Color = (par[3] as Color) if par.size() > 3 else _CHIP_NEUTRO
+		caja.add_child(StatusChip.crear(txt, col, String(par[1]) if par.size() > 1 else "",
+				Callable(), par.size() > 4 and bool(par[4])))
 
 
 # Bebe la PRIMERA poción del inventario (tecla Q, fuera de combate). Arranca la

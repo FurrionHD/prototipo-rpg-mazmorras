@@ -164,4 +164,4 @@ static func _elipse(ci: CanvasItem, c: Vector2, rx: float, ry: float, col: Color
 	for i in n:
 		var a: float = TAU * float(i) / float(n)
 		pv.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-	ci.draw_colored_polygon(pv, col)
+	Poligono.relleno(ci, pv, col)

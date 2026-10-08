@@ -435,7 +435,7 @@ static func proyectil(ci: CanvasItem, punta: Vector2, dir: Vector2, m: int, alfa
 	var abre: float = g * (1.15 if es_virote(m) else 1.5) + 0.9
 	for lado in [1.0, -1.0]:
 		var nn: Vector2 = n * lado
-		ci.draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(ci, PackedVector2Array([
 			p_delante + nn * g * 0.45,
 			p_delante - dir * lpl * 0.25 + nn * abre * 0.8,
 			p_atras + dir * 0.6 + nn * abre,
@@ -447,20 +447,20 @@ static func proyectil(ci: CanvasItem, punta: Vector2, dir: Vector2, m: int, alfa
 	# EL PERNO es ROMO: una cabeza de metal cuadrada, sin punta.
 	if m == Modo.PERNO:
 		var a: float = g * 1.1
-		ci.draw_colored_polygon(PackedVector2Array([base + n * a, punta + n * a, punta - n * a, base - n * a]),
+		Poligono.relleno(ci, PackedVector2Array([base + n * a, punta + n * a, punta - n * a, base - n * a]),
 			Color((PUNTA_RANCIA if rancia else punta_col).darkened(0.2), alfa))
-		ci.draw_colored_polygon(PackedVector2Array([base + n * a, punta + n * a, punta + n * a * 0.3, base + n * a * 0.3]),
+		Poligono.relleno(ci, PackedVector2Array([base + n * a, punta + n * a, punta + n * a * 0.3, base + n * a * 0.3]),
 			Color((PUNTA_RANCIA if rancia else punta_col).lightened(0.3), alfa))
 		return
 	# LA PUNTA: un rombo de metal con su filo de luz. La de madera, una punta de palo sin mas (sin rombo).
 	if rancia:
-		ci.draw_colored_polygon(PackedVector2Array([base + n * g * 0.5, punta, base - n * g * 0.5]),
+		Poligono.relleno(ci, PackedVector2Array([base + n * g * 0.5, punta, base - n * g * 0.5]),
 			Color(PUNTA_RANCIA, alfa))
 		return
 	var ancho_p: float = g * (1.25 if es_virote(m) else 1.5)
-	ci.draw_colored_polygon(PackedVector2Array([base - dir * 1.0, base + n * ancho_p, punta, base - n * ancho_p]),
+	Poligono.relleno(ci, PackedVector2Array([base - dir * 1.0, base + n * ancho_p, punta, base - n * ancho_p]),
 		Color(punta_col.darkened(0.25), alfa))
-	ci.draw_colored_polygon(PackedVector2Array([base + n * ancho_p * 0.2, punta, base + n * ancho_p]),
+	Poligono.relleno(ci, PackedVector2Array([base + n * ancho_p * 0.2, punta, base + n * ancho_p]),
 		Color(punta_col.lightened(0.35), alfa))
 
 
@@ -507,7 +507,7 @@ class Clavada extends Node2D:
 		# Una sombrita bajo lo que se clava en el suelo, para que se lea plantada.
 		if en_suelo:
 			var c: Vector2 = -d * fuera * 0.5
-			draw_colored_polygon(PackedVector2Array([Vector2(-3, 0), c + Vector2(0, 1), Vector2(3, 0.5)]),
+			Poligono.relleno(self, PackedVector2Array([Vector2(-3, 0), c + Vector2(0, 1), Vector2(3, 0.5)]),
 				Color(0, 0, 0, 0.25))
 
 
@@ -518,7 +518,7 @@ class Grietas extends Node2D:
 	func _draw() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = semilla
-		draw_colored_polygon(PackedVector2Array([Vector2(-6, -1), Vector2(-2, -3), Vector2(4, -2), Vector2(7, 1),
+		Poligono.relleno(self, PackedVector2Array([Vector2(-6, -1), Vector2(-2, -3), Vector2(4, -2), Vector2(7, 1),
 			Vector2(2, 3), Vector2(-5, 2)]), Color(TIERRA, 0.45))
 		for i in 5:
 			var a: float = TAU * float(i) / 5.0 + rng.randf_range(-0.3, 0.3)

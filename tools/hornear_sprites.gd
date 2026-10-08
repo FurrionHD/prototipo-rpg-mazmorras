@@ -118,6 +118,10 @@ func _hornear_enemigos() -> void:
 			total += 1
 			recortados += _avisar_recortes(sf, clave)
 			sueltas += _avisar_islas(sf, clave)
+			# Y SUS PARPADOS (08/10): montarlos al vuelo era el tiron al transformarse (ver SpritesEnemigo.parpados_de).
+			var r_p: Array = _hornear_parpados(g, ed, t, false, &"")
+			bytes += int(r_p[0])
+			total += int(r_p[1])
 			# Y SU VARIANTE ROTA si la tiene (el cuerno partido del Minotauro, 01/10).
 			if g.has_method("generar_roto_de"):
 				var clave_r: String = g.clave_roto_de(ed, t)
@@ -139,6 +143,9 @@ func _hornear_enemigos() -> void:
 					total += 1
 					recortados += _avisar_recortes(sf_m, clave_m)
 					sueltas += _avisar_islas(sf_m, clave_m)
+				var r_pm: Array = _hornear_parpados(g, ed, t, true, mdat.id)
+				bytes += int(r_pm[0])
+				total += int(r_pm[1])
 		print("  %-24s %d variantes" % [ruta.get_file(), hechas.size()])
 	print("")
 	print("%d ficheros, %.2f MB, en %.1f s" % [total, bytes / 1048576.0,
@@ -154,6 +161,30 @@ func _hornear_enemigos() -> void:
 		print("     Alguna pieza se ha quedado atras: se ve como un cacho de bicho tirado al lado.")
 	print("Estan en %s -- ABRE GODOT UNA VEZ para que los importe antes de jugar." %
 		SpriteLienzo.CARPETA_HORNO)
+
+
+# Los PARPADOS de una variante (el grupo de siempre y los demas grupos de ojos, _parpado2...), si su generador los tiene.
+# Se dibujan con el generador (no con SpritesEnemigo.parpados_de, que cogeria el horneado viejo). [bytes, ficheros].
+func _hornear_parpados(g, ed: EnemyData, t: float, mutante: bool, mutacion: StringName) -> Array:
+	if not g.has_method("parpados_de"):
+		return [0, 0]
+	var clave: String = SpritesEnemigo.clave_parpado(ed, t, mutante, mutacion)
+	var bytes: int = 0
+	var n: int = 0
+	var sf: SpriteFrames = g.parpados_de(ed, t, mutante, mutacion)
+	if sf != null:
+		var b: int = SpriteLienzo.hornear(sf, clave)
+		if b > 0:
+			bytes += b
+			n += 1
+	if g.has_method("parpados_extra_de"):
+		var extra: Array = g.parpados_extra_de(ed, t, mutante, mutacion)
+		for k in extra.size():
+			var b2: int = SpriteLienzo.hornear(extra[k], clave + str(k + 2))
+			if b2 > 0:
+				bytes += b2
+				n += 1
+	return [bytes, n]
 
 
 # EL PERSONAJE. Va en el mismo horno que todo lo demas y no en un .bat aparte: se toca por lo mismo

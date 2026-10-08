@@ -438,6 +438,7 @@ func _entrar_ok(piso: int, agotados: Dictionary, dueno: bool, mem: Dictionary,
 	# mismo recado que pone floor_select_menu en solitario (lo consume DungeonFloor al construirse).
 	Game.entrada_por_atajo = piso > 1 and piso != Game.PISO_ARENA
 	Game.iniciar_expedicion_mapa()
+	Cargando.cubrir_piso("Piso %d" % piso)   # sin esperar: no se cambia el orden de la red (ver Cargando)
 	get_tree().change_scene_to_file("res://scenes/levels/main.tscn")
 	Net.anunciar_lugar("piso:%d" % piso)
 

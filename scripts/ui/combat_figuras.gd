@@ -135,7 +135,7 @@ func _crear_bloque(c: Combatant, numero: int, idx: int) -> Dictionary:
 		cursor.offset_bottom = 14.0
 		cursor.draw.connect(func() -> void:
 			var w: float = cursor.size.x
-			cursor.draw_colored_polygon(PackedVector2Array([
+			Poligono.relleno(cursor, PackedVector2Array([
 				Vector2(w * 0.5 - 9.0, 0.0), Vector2(w * 0.5 + 9.0, 0.0),
 				Vector2(w * 0.5, 12.0)]), Color(1, 1, 1, 0.9)))
 		actor_wrap.add_child(cursor)
@@ -324,9 +324,12 @@ func _marcar_mutante(actor: Control, fig: ColorRect, c: Combatant) -> void:
 		if vieja != null and is_instance_valid(vieja):
 			(vieja as Node).queue_free()
 		actor.remove_meta(_META_AURA_MUT)
+	# Solo el mutante SIN sprite propio lleva la marca roja (ver EnemyData.marca_de_mutante).
+	var ed: EnemyData = load(c.sprite_res) as EnemyData if c.sprite_res != "" else null
+	var marca: bool = c.mutante and (ed == null or ed.marca_de_mutante(true, c.mutacion))
 	if _pantalla._fx != null:
-		_pantalla._fx.marcar_mutante(fig, c.mutante)
-	if not c.mutante:
+		_pantalla._fx.marcar_mutante(fig, marca)
+	if not marca:
 		return
 	# El tamaño del aura sigue al del bicho, igual que en enemy._marcar_mutante: en una rata diminuta
 	# un aura de trent seria una nube que tapa la pelea.

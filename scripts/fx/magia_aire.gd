@@ -1531,7 +1531,7 @@ func _galon(ci: CanvasItem, c: Vector2, w: float, dir: float, col: Color) -> voi
 	var pts := PackedVector2Array([c + Vector2(-w * 0.5, -dir * w * 0.35), c + Vector2(0.0, dir * w * 0.15),
 		c + Vector2(w * 0.5, -dir * w * 0.35), c + Vector2(w * 0.5, -dir * w * 0.35 + -dir * g),
 		c + Vector2(0.0, dir * w * 0.15 - dir * g), c + Vector2(-w * 0.5, -dir * w * 0.35 - dir * g)])
-	ci.draw_colored_polygon(pts, col)
+	Poligono.relleno(ci, pts, col)
 
 
 func _sobre(capa: Node2D) -> void:

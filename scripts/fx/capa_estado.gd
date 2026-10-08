@@ -234,14 +234,14 @@ func _lengua(cx: float, ancho: float, alto: float, vaiven: float, col: Color) ->
 			# La punta bambolea mas que la base (v*v): abajo la llama esta anclada.
 			pts.append(Vector2(cx + vaiven * v * v + w * lado, size.y - alto * v))
 			cols.append(col.lerp(punta, v * v))
-	draw_polygon(pts, cols)
+	Poligono.colores(self, pts, cols)
 
 
 # El rescoldo del borde inferior: una franja que va del color del fuego (abajo) a nada (arriba).
 func _resplandor_fuego(alto: float) -> void:
 	var abajo := Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.30 * fuego)
 	var arriba := Color(color_fuego.r, color_fuego.g, color_fuego.b, 0.0)
-	draw_polygon(
+	Poligono.colores(self, 
 		PackedVector2Array([
 			Vector2(0.0, size.y), Vector2(0.0, size.y - alto),
 			Vector2(size.x, size.y - alto), Vector2(size.x, size.y)]),
@@ -284,7 +284,7 @@ func _dibujar_niebla() -> void:
 	# El manto sigue la forma de la TARJETA (esquinas redondeadas como su marco): un rectangulo a
 	# escuadra encima de una caja redondeada canta muchisimo, y ademas se derramaba por los bordes.
 	var base := Color(color_niebla.r, color_niebla.g, color_niebla.b, 0.20 * niebla)
-	draw_colored_polygon(_contorno(RADIO_ESQ), base)
+	Poligono.relleno(self, _contorno(RADIO_ESQ), base)
 	# Y las vedijas son bandas con las dos orillas ONDULADAS, no rectangulos: es lo mismo que hace
 	# la superficie de la baba, que es justo lo que se lee bien.
 	for k in VEDIJAS:
@@ -335,7 +335,7 @@ func _dibujar_raja() -> void:
 		var u2: float = lerpf(1.0, -1.0, float(i) / float(n))
 		pts.append(c + eje * u2 * largo * 0.5 - lado * (1.0 - u2 * u2) * ancho)
 	# Con transparencia como todo lo demas: esto se pinta encima de la tarjeta y no puede taparla.
-	draw_colored_polygon(pts, Color(color_raja.r * 0.35, color_raja.g * 0.15,
+	Poligono.relleno(self, pts, Color(color_raja.r * 0.35, color_raja.g * 0.15,
 		color_raja.b * 0.15, 0.42 * raja))
 	# Los LABIOS, mas claros: es lo que la lee como una herida abierta y no como una mancha.
 	draw_polyline(pts, Color(minf(1.0, color_raja.r + 0.2), color_raja.g * 0.55,
@@ -413,7 +413,7 @@ static func _raiz_en(ci: CanvasItem, base: Vector2, dir: Vector2, largo: float, 
 	for i in range(der.size() - 1, -1, -1):
 		pts.append(der[i])
 	# Corteza translucida: esto va ENCIMA de la tarjeta y no puede tapar ni el nombre ni la barra.
-	ci.draw_colored_polygon(pts, Color(col.r * 0.55, col.g * 0.45, col.b * 0.30, alfa))
+	Poligono.relleno(ci, pts, Color(col.r * 0.55, col.g * 0.45, col.b * 0.30, alfa))
 	# Las HIJAS, desde la punta y abriendose a los dos lados.
 	var giro: float = 0.42 + 0.18 * sin(sem * 2.3)
 	var dir2: Vector2 = (dir + lado * comba * 0.9).normalized()

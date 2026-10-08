@@ -225,7 +225,7 @@ func _pintar_icono_velocidad(c: Control) -> void:
 	var cx: float = c.size.x * 0.5 - (ancho * 0.42 if doble else 0.0)
 	for i in (2 if doble else 1):
 		var x: float = cx + float(i) * ancho * 0.84
-		c.draw_colored_polygon(PackedVector2Array([
+		Poligono.relleno(c, PackedVector2Array([
 			Vector2(x - ancho * 0.5, cy - alto * 0.5),
 			Vector2(x + ancho * 0.5, cy),
 			Vector2(x - ancho * 0.5, cy + alto * 0.5),

@@ -194,19 +194,23 @@ static func _caja_usada(celdas: PackedByteArray, w: int, h: int) -> Rect2i:
 	var y0: int = h
 	var x1: int = -1
 	var y1: int = -1
+	# LAS FILAS VACIAS SE SALTAN ENTERAS (08/10, el tiron al transformarse): contar los vacios de una fila es nativo, y en
+	# un lienzo de rey casi todo es aire. De las que tienen algo solo se miran las puntas: lo de dentro no mueve la caja.
 	for y in h:
 		var fila: int = y * w
-		for x in w:
-			if celdas[fila + x] == VACIO:
-				continue
-			if x < x0:
-				x0 = x
-			if x > x1:
-				x1 = x
-			if y < y0:
-				y0 = y
-			if y > y1:
-				y1 = y
+		if celdas.slice(fila, fila + w).count(VACIO) == w:
+			continue
+		if y0 == h:
+			y0 = y
+		y1 = y
+		var x: int = 0
+		while x < x0 and celdas[fila + x] == VACIO:
+			x += 1
+		x0 = mini(x0, x)
+		x = w - 1
+		while x > x1 and celdas[fila + x] == VACIO:
+			x -= 1
+		x1 = maxi(x1, x)
 	if x1 < 0:
 		return Rect2i(0, 0, 0, 0)     # frame entero vacio (no deberia pasar, pero no revienta)
 	return Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
@@ -216,7 +220,8 @@ static func _caja_usada(celdas: PackedByteArray, w: int, h: int) -> Rect2i:
 #
 # 'anims' = [{"nombre": String, "loop": bool, "fps": float, "plantillas": Array[PackedByteArray]}]
 # Todas las plantillas son del mismo lienzo (w x h), que es el tamaño que el sprite debe APARENTAR.
-static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) -> SpriteFrames:
+# Pasos 1 y 2 de montar_frames: medir cada fotograma y colocarlo en la hoja.
+static func _plan_hoja(anims: Array, w: int, h: int) -> Dictionary:
 	# 1. Medir cada frame y ordenarlos por alto: empaquetar por ESTANTES (una fila tras otra) deja
 	#    mucho menos hueco si los de altura parecida van juntos.
 	var trozos: Array = []
@@ -255,6 +260,23 @@ static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) ->
 		cx += c.size.x + SEP
 		alto_estante = maxi(alto_estante, c.size.y)
 	var alto_hoja: int = maxi(1, cy + alto_estante + SEP)
+	return {"trozos": trozos, "orden": orden, "ancho": ancho_hoja, "alto": alto_hoja}
+
+
+static func montar_frames(anims: Array, pal: PackedByteArray, w: int, h: int) -> SpriteFrames:
+	return montar_frames_con_plan(anims, pal, w, h, {})
+
+
+# Lo mismo con un 'plan' (08/10): lo que NO depende de la paleta -- la caja de cada fotograma y donde cae en la hoja --.
+# Si llega vacio se rellena aqui; si llega lleno se reutiliza. Lo usa Sprites3D para que un color nuevo de la misma hoja
+# solo repinte (ver Sprites3D._estructura): medir y empaquetar era la mitad de lo que costaba.
+static func montar_frames_con_plan(anims: Array, pal: PackedByteArray, w: int, h: int, plan: Dictionary) -> SpriteFrames:
+	if not plan.has("trozos"):
+		plan.merge(_plan_hoja(anims, w, h))
+	var trozos: Array = plan["trozos"]
+	var orden: Array = plan["orden"]
+	var ancho_hoja: int = plan["ancho"]
+	var alto_hoja: int = plan["alto"]
 
 	# 3. Pintar. Se escribe DIRECTO sobre los bytes de la hoja, sin crear una imagen por frame.
 	var datos := PackedByteArray()

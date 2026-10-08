@@ -833,7 +833,7 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 		elif i == pts.size() - 1:
 			poly.append(_ojo_p(c, eje, nor, gancho if cola > 0.0 else punta))
 	if Geometry2D.triangulate_polygon(poly).size() > 0:
-		ci.draw_colored_polygon(poly, Color(NEGRO, alfa))
+		Poligono.relleno(ci, poly, Color(NEGRO, alfa))
 	# (26/09, su referencia del ojo: "intenta que sean asi" y "en vez de rojo usa blanco") dentro, una MEDIA LUNA
 	# blanca que sigue el parpado de arriba; el IRIS de anillos blancos rotos hacia la punta; y por fuera PINCELADAS
 	# blancas rotas.
@@ -853,7 +853,7 @@ func _ojo_muerte(ci: CanvasItem, c: Vector2, largo: float, giro: float, abre: fl
 			var g2: float = alto * 0.22 * sin(float(k) / float(n_l) * PI)
 			luna.append(_ojo_p(c, eje, nor, Vector2(x2, -alto * cur2 * 0.42 + g2)))
 		if Geometry2D.triangulate_polygon(luna).size() > 0:
-			ci.draw_colored_polygon(luna, Color(BLANCO_OJO, alfa))
+			Poligono.relleno(ci, luna, Color(BLANCO_OJO, alfa))
 		# El iris: anillos blancos rotos que giran, hacia la punta del ojo.
 		var iris: Vector2 = _ojo_p(c, eje, nor, Vector2(largo * (0.16 + 0.05 * mira), alto * 0.18))
 		_anillos_rotos(ci, iris, alto * 0.72, _t * 3.0 + sem, alfa)
@@ -1096,7 +1096,7 @@ func _llama(ci: CanvasItem, base: Vector2, tam: float, sem: float, paso: float) 
 			var a: float = PI * float(k + 1) / 6.0
 			pts.append(b + Vector2(cos(a) * w * 0.85, sin(a) * w * 0.45))
 		if Geometry2D.triangulate_polygon(pts).size() > 0:
-			ci.draw_colored_polygon(pts, cp[1])
+			Poligono.relleno(ci, pts, cp[1])
 
 
 # UNA GOTA/ESFERA DE AGUA de contorno que tiembla, estirada en vertical 'estira' veces.
@@ -1109,7 +1109,7 @@ func _gota_agua(ci: CanvasItem, c: Vector2, r: float, estira: float, col: Color)
 		var a: float = TAU * float(k) / float(n)
 		var rr: float = r * (1.0 + 0.07 * sin(a * 3.0 + _t * 18.0) + 0.04 * sin(a * 5.0 - _t * 11.0))
 		pts.append(c + Vector2(cos(a) * rr / sqrt(estira), sin(a) * rr * estira))
-	ci.draw_colored_polygon(pts, col)
+	Poligono.relleno(ci, pts, col)
 
 
 static func _esquirla(ci: CanvasItem, p: Vector2, tam: float, giro: float, lados: int, sem: float, alfa: float,
@@ -1123,13 +1123,13 @@ static func _esquirla(ci: CanvasItem, p: Vector2, tam: float, giro: float, lados
 		if k == 0:
 			rr = tam * 1.5   # una punta larga
 		pts.append(p + Vector2(cos(a), sin(a)) * rr)
-	ci.draw_colored_polygon(pts, Color(OBSIDIANA, alfa))
+	Poligono.relleno(ci, pts, Color(OBSIDIANA, alfa))
 	# La cara que brilla: el triangulo entre el centro y las dos primeras puntas.
-	ci.draw_colored_polygon(PackedVector2Array([p, pts[0], pts[1]]), Color(OBSIDIANA_BRILLO, 0.85 * alfa))
+	Poligono.relleno(ci, PackedVector2Array([p, pts[0], pts[1]]), Color(OBSIDIANA_BRILLO, 0.85 * alfa))
 	# La veta de lava que aun queda dentro, apagandose.
 	if brasa > 0.0:
 		var m: Vector2 = p.lerp(pts[lados - 1], 0.5)
-		ci.draw_colored_polygon(PackedVector2Array([p, m + (pts[lados - 1] - p).orthogonal().normalized() * tam * 0.18,
+		Poligono.relleno(ci, PackedVector2Array([p, m + (pts[lados - 1] - p).orthogonal().normalized() * tam * 0.18,
 			m.lerp(pts[lados - 1], 0.6)]), Color(MagiaAire.LAVA_CLARA, brasa * alfa))
 
 
@@ -1189,11 +1189,11 @@ func _losa(ci: CanvasItem, lo: Dictionary, col: Color, brillo: Color) -> void:
 		pv.append(_c + q)
 	if Geometry2D.triangulate_polygon(pv).size() == 0:
 		return
-	ci.draw_colored_polygon(pv, col)
+	Poligono.relleno(ci, pv, col)
 	# La cara que brilla (de obsidiana, o la parte mas caliente de la losa al rojo).
 	if brillo.a > 0.0 and pv.size() >= 3:
 		var cen: Vector2 = _c + (lo["cen"] as Vector2)
-		ci.draw_colored_polygon(PackedVector2Array([cen, pv[0], pv[1]]), brillo)
+		Poligono.relleno(ci, PackedVector2Array([cen, pv[0], pv[1]]), brillo)
 
 
 # Lo que queda de lo que esta a 'u' del centro (1 entero .. 0 ya se ha ido).
@@ -1321,7 +1321,7 @@ func _shock(capa: Node2D) -> void:
 					var w1: float = r_e * 0.1 * sin(u1 * PI)
 					pts_e.append(pe + Vector2(cos(ang1) / sqrt(estira), sin(ang1) * estira) * (r_e * 0.66 - w1))
 				if Geometry2D.triangulate_polygon(pts_e).size() > 0:
-					capa.draw_colored_polygon(pts_e, Color(MagiaAire.ESPUMA, 0.85))
+					Poligono.relleno(capa, pts_e, Color(MagiaAire.ESPUMA, 0.85))
 			_gota_agua(capa, pe + Vector2(-r_e * 0.32, -r_e * 0.34 * estira), r_e * 0.26, estira, Color(MagiaAire.AGUA_CLARA, 0.9))
 			_disco(capa, pe + Vector2(-r_e * 0.38, -r_e * 0.44 * estira), r_e * 0.1, Color.WHITE, Color.WHITE)
 			if kc > 0.0:
@@ -1355,13 +1355,13 @@ func _shock(capa: Node2D) -> void:
 					var w: float = float(pz["tam"]) * 0.7
 					var incl: Vector2 = (pz["dir"] as Vector2) * alto_p * 0.35
 					var punta: Vector2 = base + _alto(alto_p) + incl
-					capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(w, 0.0),
+					Poligono.relleno(capa, PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(w, 0.0),
 						base + Vector2(0.0, w * 0.4)]), Color(OBSIDIANA, fin))
-					capa.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(-w * 0.1, 0.0)]),
+					Poligono.relleno(capa, PackedVector2Array([base + Vector2(-w, 0.0), punta, base + Vector2(-w * 0.1, 0.0)]),
 						Color(OBSIDIANA_CARA, fin))
 					var brasa_p: float = 1.0 - clampf(t_rompe / 0.7, 0.0, 1.0)
 					if brasa_p > 0.0:
-						capa.draw_colored_polygon(PackedVector2Array([base + Vector2(w * 0.15, 0.0), base.lerp(punta, 0.55),
+						Poligono.relleno(capa, PackedVector2Array([base + Vector2(w * 0.15, 0.0), base.lerp(punta, 0.55),
 							base + Vector2(w * 0.45, 0.0)]), Color(MagiaAire.LAVA_CLARA, brasa_p * fin))
 				else:
 					var ke: float = (t_rompe - float(pz["t0"])) / 0.75
@@ -1668,8 +1668,8 @@ static func _pluma(ci: CanvasItem, p: Vector2, largo: float, giro: float, alfa: 
 	for k in range(n - 1, 0, -1):
 		var u2: float = float(k) / float(n)
 		pts.append(p + eje * (u2 - 0.5) * largo - nor * largo * 0.16 * sin(u2 * PI) * (1.0 - 0.3 * u2))
-	ci.draw_colored_polygon(pts, Color(LUZ_DORADA, alfa))
-	ci.draw_colored_polygon(PackedVector2Array([p - eje * largo * 0.5, p + eje * largo * 0.45 + nor * largo * 0.03,
+	Poligono.relleno(ci, pts, Color(LUZ_DORADA, alfa))
+	Poligono.relleno(ci, PackedVector2Array([p - eje * largo * 0.5, p + eje * largo * 0.45 + nor * largo * 0.03,
 		p + eje * largo * 0.45 - nor * largo * 0.03]), Color(LUZ_BLANCA, alfa))
 
 
@@ -1834,8 +1834,8 @@ static func _esquirla_glitch(ci: CanvasItem, pts: PackedVector2Array, off: float
 		var q := PackedVector2Array()
 		for p in pts:
 			q.append(p + (cp[0] as Vector2))
-		ci.draw_colored_polygon(q, Color(cp[1] as Color, 0.9 * alfa))
-	ci.draw_colored_polygon(pts, Color(NEGRO, alfa))
+		Poligono.relleno(ci, q, Color(cp[1] as Color, 0.9 * alfa))
+	Poligono.relleno(ci, pts, Color(NEGRO, alfa))
 
 
 # EL CAMINO de una llama de la corona: sale del borde en 'a', sube 'largo' y hace una S (y la punta se riza). 'u' de 0
@@ -1920,7 +1920,7 @@ func _corona_esquirlas(ci: CanvasItem, c: Vector2, r: float, estalla: float, alf
 			var q := PackedVector2Array()
 			for p in pts:
 				q.append(p + (p - c).normalized() * 2.5)
-			ci.draw_colored_polygon(q, Color(ECLIPSE_LUZ, 0.9 * estalla * alfa))
+			Poligono.relleno(ci, q, Color(ECLIPSE_LUZ, 0.9 * estalla * alfa))
 		_esquirla_glitch(ci, pts, 2.5, alfa)
 	MagiaAire._anillo(ci, c, r * 1.02, r * 0.12, Color(1.0, 1.0, 1.0, 0.8 * alfa))
 
@@ -2055,7 +2055,7 @@ static func _petalo_prisma(ci: CanvasItem, p: Vector2, eje: Vector2, largo: floa
 		pts.append(p + eje * (u2 - 0.5) * largo - nor * largo * 0.26 * sin(u2 * PI) * (1.0 - 0.25 * u2))
 	var fondo: Color = Color(1.0, 1.0, 1.0, alfa) if blanco else Color(col, alfa)
 	if Geometry2D.triangulate_polygon(pts).size() > 0:
-		ci.draw_colored_polygon(pts, fondo)
+		Poligono.relleno(ci, pts, fondo)
 	# El anillo de dentro (un "ojo"): circulo claro con el nucleo del color.
 	var ojo: Vector2 = p + eje * largo * 0.05
 	var r_o: float = largo * 0.16
@@ -2283,8 +2283,8 @@ func _mandibula(ci: CanvasItem, lado: float, alto: float, cierre: float, alfa: f
 		var h: float = w * 1.9
 		var rombo := PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)])
 		var rombo2 := PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)])
-		ci.draw_colored_polygon(rombo2, Color(BOCA_CIAN, alfa))
-		ci.draw_colored_polygon(rombo, Color(0.02, 0.0, 0.05, alfa))
+		Poligono.relleno(ci, rombo2, Color(BOCA_CIAN, alfa))
+		Poligono.relleno(ci, rombo, Color(0.02, 0.0, 0.05, alfa))
 		ci.draw_circle(p + Vector2(-w * 0.2, -h * 0.55), w * 0.28, Color(1, 1, 1, alfa))
 
 
@@ -2477,8 +2477,8 @@ func _cuerpo_gusano(ci: CanvasItem, base: Vector2, ctrl: Vector2, cabeza: Vector
 		var p: Vector2 = pts[k2]
 		var w: float = float(anchos[k2]) * 0.3 + 1.0
 		var h: float = w * 1.9
-		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)]), Color(BOCA_CIAN, alfa))
-		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)]), Color(0.02, 0.0, 0.05, alfa))
+		Poligono.relleno(ci, PackedVector2Array([p + Vector2(0, -h * 1.35), p + Vector2(w * 1.4, 0), p + Vector2(0, h * 1.35), p + Vector2(-w * 1.4, 0)]), Color(BOCA_CIAN, alfa))
+		Poligono.relleno(ci, PackedVector2Array([p + Vector2(0, -h), p + Vector2(w, 0), p + Vector2(0, h), p + Vector2(-w, 0)]), Color(0.02, 0.0, 0.05, alfa))
 		ci.draw_circle(p + Vector2(-w * 0.2, -h * 0.55), w * 0.3, Color(1, 1, 1, alfa))
 
 
@@ -2492,7 +2492,7 @@ func _cabeza_gusano(ci: CanvasItem, p: Vector2, dir: Vector2, tam: float, abre: 
 	var magenta := Color(BOCA_MAGENTA, alfa)
 	var cuerpo := Color(BOCA_CUERPO, alfa)
 	# La garganta negra.
-	ci.draw_colored_polygon(PackedVector2Array([p - dir * tam * 0.2, p + dir.rotated(ang) * tam * 1.3, p + dir * tam * 1.1, p + dir.rotated(-ang) * tam * 1.3]),
+	Poligono.relleno(ci, PackedVector2Array([p - dir * tam * 0.2, p + dir.rotated(ang) * tam * 1.3, p + dir * tam * 1.1, p + dir.rotated(-ang) * tam * 1.3]),
 		Color(0.0, 0.0, 0.0, alfa))
 	for lado in [-1.0, 1.0]:
 		var eje: Vector2 = dir.rotated(ang * float(lado))
@@ -2502,20 +2502,20 @@ func _cabeza_gusano(ci: CanvasItem, p: Vector2, dir: Vector2, tam: float, abre: 
 		var lomo: Vector2 = p + eje * tam * 0.6 + fuera * tam * 0.55
 		var dentro: Vector2 = p + eje * tam * 0.7 - fuera * tam * 0.05
 		var cen: Vector2 = (raiz + punta + lomo) / 3.0
-		ci.draw_colored_polygon(PackedVector2Array([cen + (raiz - cen) * 1.15, cen + (lomo - cen) * 1.15, cen + (punta - cen) * 1.15, cen + (dentro - cen) * 1.15]), magenta)
-		ci.draw_colored_polygon(PackedVector2Array([raiz, lomo, punta, dentro]), cuerpo)
+		Poligono.relleno(ci, PackedVector2Array([cen + (raiz - cen) * 1.15, cen + (lomo - cen) * 1.15, cen + (punta - cen) * 1.15, cen + (dentro - cen) * 1.15]), magenta)
+		Poligono.relleno(ci, PackedVector2Array([raiz, lomo, punta, dentro]), cuerpo)
 		# Los DIENTES por dentro de la mandibula (hacia la garganta).
 		for k in 4:
 			var u: float = 0.25 + 0.2 * float(k)
 			var b0: Vector2 = raiz.lerp(punta, u) - fuera * tam * 0.05
 			var b1: Vector2 = raiz.lerp(punta, u + 0.12) - fuera * tam * 0.05
 			var pt: Vector2 = b0.lerp(b1, 0.5) - fuera * tam * 0.28
-			ci.draw_colored_polygon(PackedVector2Array([b0, pt, b1]), Color(0.96, 0.9, 1.0, alfa))
+			Poligono.relleno(ci, PackedVector2Array([b0, pt, b1]), Color(0.96, 0.9, 1.0, alfa))
 		# El ojo de cristal en el lomo.
 		var po: Vector2 = raiz.lerp(lomo, 0.55)
 		var w: float = tam * 0.12
-		ci.draw_colored_polygon(PackedVector2Array([po + eje * w * 2.4, po + fuera * w, po - eje * w * 2.4, po - fuera * w]), Color(BOCA_CIAN, alfa))
-		ci.draw_colored_polygon(PackedVector2Array([po + eje * w * 1.7, po + fuera * w * 0.6, po - eje * w * 1.7, po - fuera * w * 0.6]), Color(0.02, 0.0, 0.05, alfa))
+		Poligono.relleno(ci, PackedVector2Array([po + eje * w * 2.4, po + fuera * w, po - eje * w * 2.4, po - fuera * w]), Color(BOCA_CIAN, alfa))
+		Poligono.relleno(ci, PackedVector2Array([po + eje * w * 1.7, po + fuera * w * 0.6, po - eje * w * 1.7, po - fuera * w * 0.6]), Color(0.02, 0.0, 0.05, alfa))
 
 
 func _eclipse_gusano(capa: Node2D, tn: float, t_osc: float, t_luz: float, cierra: float) -> void:

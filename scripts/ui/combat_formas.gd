@@ -532,7 +532,7 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 						var a2: float = a0 + (a1 - a0) * float(i) / 32.0
 						pts.append(f.origen + Vector2(cos(a2), sin(a2)) * r0)
 				var alfa: float = 1.0 - 0.6 * float(k) / float(maxi(1, n_tr - 1)) if n_tr > 1 else 1.0
-				ci.draw_colored_polygon(pts, Color(relleno, relleno.a * alfa * (1.5 if n_tr > 1 else 1.0)))
+				Poligono.relleno(ci, pts, Color(relleno, relleno.a * alfa * (1.5 if n_tr > 1 else 1.0)))
 				if k > 0:
 					ci.draw_arc(f.origen, r0, a0, a1, 32, Color(col, col.a * 0.7), 1.5)
 			# Con CUÑAS (la Brasa), la del centro mas llena y cada una hacia el borde mas tenue, con una raya
@@ -545,7 +545,7 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 					for i in 9:
 						var ac: float = a0 + paso * (float(j) + float(i) / 8.0)
 						pc.append(f.origen + Vector2(cos(ac), sin(ac)) * f.radio)
-					ci.draw_colored_polygon(pc, Color(relleno, relleno.a * maxf(0.0, 1.2 - 0.5 * float(banda))))
+					Poligono.relleno(ci, pc, Color(relleno, relleno.a * maxf(0.0, 1.2 - 0.5 * float(banda))))
 					if j > 0:
 						var aj: float = a0 + paso * float(j)
 						ci.draw_line(f.origen, f.origen + Vector2(cos(aj), sin(aj)) * f.radio, Color(col, col.a * 0.6), 1.5)
@@ -565,7 +565,7 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 				var h0: Vector2 = nor * f.ancho_en(t0) * 0.5
 				var h1: Vector2 = nor * maxf(f.ancho_en(t1), 0.5) * 0.5
 				var alfa_l: float = 1.0 - 0.6 * float(k) / float(maxi(1, n_tl - 1)) if n_tl > 1 else 1.0
-				ci.draw_colored_polygon(PackedVector2Array([q0 - h0, q1 - h1, q1 + h1, q0 + h0]),
+				Poligono.relleno(ci, PackedVector2Array([q0 - h0, q1 - h1, q1 + h1, q0 + h0]),
 					Color(relleno, relleno.a * alfa_l * (1.5 if n_tl > 1 else 1.0)))
 				if k > 0:
 					ci.draw_line(q0 - h0, q0 + h0, Color(col, col.a * 0.7), 1.5)
@@ -580,6 +580,6 @@ static func dibujar(f: Forma, ci: CanvasItem, col: Color) -> void:
 			var esq := PackedVector2Array()
 			for e in [Vector2(-h.x, -h.y), Vector2(h.x, -h.y), Vector2(h.x, h.y), Vector2(-h.x, h.y)]:
 				esq.append(f.centro + (e as Vector2).rotated(ang))
-			ci.draw_colored_polygon(esq, relleno)
+			Poligono.relleno(ci, esq, relleno)
 			esq.append(esq[0])
 			ci.draw_polyline(esq, col, 2.5)
