@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tela_moho"
+nombre = "Tela de moho"
+descripcion = "El moho de las simas, hilado en seco. Mejor no preguntar cómo se consigue que no se deshaga."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 0.6
+valor_base = 135
+mejora_min = 0
+mejora_max = 3
+color = Color(0.82, 0.8, 0.68, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

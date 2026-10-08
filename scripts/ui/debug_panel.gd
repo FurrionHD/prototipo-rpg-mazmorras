@@ -11,8 +11,8 @@
 
 extends CanvasLayer
 
-const ARMOR_PREFIX := ["cuero", "hierro", "hierro_completo", "placas"]  # idx -> material
-const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro compl.", "Placas"]
+const ARMOR_PREFIX := ["cuero", "hierro", "hierro_completo", "placas", "tela"]  # idx -> material
+const ARMOR_LABELS := ["Cuero", "Hierro", "Hierro compl.", "Placas", "Tela"]
 # FORJA: que se puede crear. [etiqueta, clave]. Las claves de armadura son el slot.
 const FORJA_CATS := [["Arma", "arma"], ["Escudo", "escudo"], ["Varita", "varita"],
 	["Herramienta", "herramienta"], ["Mochila", "mochila"],

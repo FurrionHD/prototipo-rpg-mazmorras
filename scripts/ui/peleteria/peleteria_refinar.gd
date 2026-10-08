@@ -4,6 +4,7 @@
 #    - CURTIR:  N pieles de la misma calidad -> 1 cuero curtido de esa calidad.
 #    - CORREAS: N cueros curtidos de la misma calidad -> 1 correa de ese tier.
 #    - CUERDAS: N cueros curtidos de la misma calidad -> 1 cuerda de SU banda (arco y ballesta, 02/10).
+#    - HILAR:   N plantas de la misma calidad -> 1 tela de SU banda (armadura de tela, 08/10).
 #
 #  LA REJILLA SON LOS MONTONES, uno por material Y CALIDAD, igual que se ven en el baul: el color
 #  de la celda dice la calidad y la banda dice cuantos hay. Antes esto era un selector de dos
@@ -19,7 +20,7 @@
 extends RefCounted
 
 # Que se hace en esta pantalla (lo elige la pestaña del armazon).
-enum Modo { CURTIR, CORREAS, CUERDAS }
+enum Modo { CURTIR, CORREAS, CUERDAS, HILAR }
 
 # El lado de las celdas de "ya tienes", dentro de la ficha. Mas pequeñas que las de la rejilla (96):
 # ahi no se pulsa, solo se mira cuanto llevas.
@@ -100,7 +101,11 @@ func _contador(modo: int, montones: Array) -> String:
 		total += int(m["tengo"])
 	if total <= 0:
 		return ""
-	return "%d %s" % [total, "pieles" if modo == Modo.CURTIR else "cueros curtidos"]
+	var que: String = "cueros curtidos"
+	match modo:
+		Modo.CURTIR: que = "pieles"
+		Modo.HILAR: que = "plantas"
+	return "%d %s" % [total, que]
 
 
 # El primer monton que da para al menos una pieza, o 0 si ninguno (entonces se queda el primero y la
@@ -114,6 +119,8 @@ func _primero_util(montones: Array) -> int:
 
 
 func _vacio(modo: int) -> String:
+	if modo == Modo.HILAR:
+		return "No tienes plantas guardadas en el Hogar. Se recogen con la hoz en la mazmorra."
 	if modo != Modo.CURTIR:
 		return "No tienes cuero curtido. Cúrtelo primero en la pestaña Curtir."
 	return "No tienes pieles guardadas en el Hogar. Las sueltan los bichos con pelo; guárdalas al volver."
@@ -141,6 +148,8 @@ func _recoger(modo: int) -> Array:
 					origenes.append(cuero)
 		Modo.CUERDAS:
 			origenes = Game.curtidos_para_cuerda()
+		Modo.HILAR:
+			origenes = Game.plantas_hilables_conocidas()
 		_:
 			origenes = Game.cueros_crudos_conocidos()
 
@@ -148,6 +157,7 @@ func _recoger(modo: int) -> Array:
 	match modo:
 		Modo.CORREAS: por_uno = Forge.CUERO_POR_CORREA
 		Modo.CUERDAS: por_uno = Forge.CUERO_POR_CUERDA
+		Modo.HILAR: por_uno = Forge.PLANTA_POR_TELA
 	for o in origenes:
 		var origen: MaterialData = o as MaterialData
 		if origen == null:
@@ -156,6 +166,7 @@ func _recoger(modo: int) -> Array:
 		match modo:
 			Modo.CORREAS: destino = Game.correa_de_tier(int(origen.tier))
 			Modo.CUERDAS: destino = Game.cuerda_de(origen)
+			Modo.HILAR: destino = Game.tela_de(origen)
 		if destino == null:
 			continue
 		# LO DESBLOQUEADO SALE SIEMPRE (lo pidio el usuario): sin nada de esa piel queda una celda
@@ -220,6 +231,8 @@ func _ficha(vb: VBoxContainer, modo: int) -> void:
 			t.note(vb, "Son los tirantes de la mochila: sin ellas, un fardo de cuero es un fardo de cuero. Cada tier de mochila pide la correa de SU tier.")
 		Modo.CUERDAS:
 			t.note(vb, "La cuerda del arco y la ballesta. Con la del cuero base se fabrican; las de los cueros mejores son las que piden sus mejoras.")
+		Modo.HILAR:
+			t.note(vb, "La tela de la armadura de los magos: poca defensa contra golpes y mucha contra la magia. Con la tela base se cose; las de las plantas mejores son las que piden sus mejoras.")
 		_:
 			t.note(vb, "Las calidades no se mezclan: juntando pieles rotas no sale una buena. Solo la Peletería puede regalarte un escalón.")
 
@@ -286,7 +299,7 @@ func _pie(modo: int, s: Dictionary, salen: int) -> void:
 	refrescar.call(_cant)
 	vb.add_child(total)
 
-	var boton: String = ["Curtir", "Hacer correas", "Trenzar cuerdas"][modo]
+	var boton: String = ["Curtir", "Hacer correas", "Trenzar cuerdas", "Hilar"][modo]
 	MenuScaffold.pastilla(vb, boton, func() -> void: _refinar(modo, s), true, salen > 0)
 
 
@@ -300,12 +313,13 @@ func _refinar(modo: int, s: Dictionary) -> void:
 	match modo:
 		Modo.CORREAS: n = Game.hacer_correa(int(s["cal"]), veces, int(s["tier"]))
 		Modo.CUERDAS: n = Game.hacer_cuerda(s["mat"] as MaterialData, int(s["cal"]), veces)
+		Modo.HILAR: n = Game.hilar(int(s["cal"]), veces, s["mat"] as MaterialData)
 		_: n = Game.curtir(int(s["cal"]), veces, s["mat"] as MaterialData)
 	if Net.activo:
 		Net.hogar.cerrar_taller()
 	if n > 0:
 		t.decir("Sacas %d %s de calidad %s." % [n,
-			["cuero(s)", "correa(s)", "cuerda(s)"][modo], t.cal_txt(int(s["cal"])).to_lower()])
+			["cuero(s)", "correa(s)", "cuerda(s)", "tela(s)"][modo], t.cal_txt(int(s["cal"])).to_lower()])
 	else:
 		t.decir("No te llega el material.", false)
 	# El montón se ha encogido (o ha desaparecido): la cantidad vuelve a salir del nuevo máximo.

@@ -10607,6 +10607,28 @@ const _CUEROS: Array = [
 	"res://resources/materials/curtido_endurecido.tres",    # T2 +1
 	"res://resources/materials/curtido_placado.tres",       # T2 +2
 ]
+# LA TELA (08/10/2026, fase 2 del plan de mecanicas): las PLANTAS de herboristeria se HILAN en la
+# peleteria y salen telas, que es la fibra de la armadura de TELA (la de los magos: poca defensa
+# fisica y mucha magica). Mismo molde que _CUEROS_CRUDOS -> _CUEROS: se empareja por TIER y BANDA
+# (tela_de), asi que dos plantas de la misma casilla hilan la MISMA tela. T3 entrara con sus telas.
+const _TELAS_CRUDAS: Array = [
+	"res://resources/materials/hierba_palida.tres",     # T1 base
+	"res://resources/materials/raiz_amarga.tres",       # T1 +1
+	"res://resources/materials/sanguinaria.tres",       # T1 +2
+	"res://resources/materials/moho_simas.tres",        # T2 base
+	"res://resources/materials/esporas_densas.tres",    # T2 base (equivalente)
+	"res://resources/materials/raiz_umbria.tres",       # T2 +1
+	"res://resources/materials/polvo_de_alas.tres",     # T2 +1 (equivalente)
+	"res://resources/materials/liquen_abisal.tres",     # T2 +2
+]
+const _TELAS: Array = [
+	"res://resources/materials/tela_hierba.tres",       # T1 base
+	"res://resources/materials/tela_raiz.tres",         # T1 +1
+	"res://resources/materials/tela_sanguina.tres",     # T1 +2
+	"res://resources/materials/tela_moho.tres",         # T2 base
+	"res://resources/materials/tela_umbria.tres",       # T2 +1
+	"res://resources/materials/tela_liquen.tres",       # T2 +2
+]
 # Las MADERAS, por tier. Son el MANGO del arma, y van indexadas igual que _FORJA_METALES: el
 # mango tiene que estar a la altura del metal (ver Forge.madera_vale_para).
 const _MADERAS: Array = [
@@ -10804,6 +10826,48 @@ func _material_de(lista: Array, tier: int, nivel: int) -> MaterialData:
 # madera_de_tier.
 func cuero_de_tier(tier: int, nivel: int = -1) -> MaterialData:
 	return _material_de(cueros_forja(), tier, nivel)
+
+
+# --- LA TELA (ver _TELAS) ---
+func telas_forja() -> Array:
+	var out: Array = []
+	for ruta in _TELAS:
+		var c: Resource = load(ruta)
+		if c != null:
+			out.append(c)
+	return out
+
+func tela_de_tier(tier: int, nivel: int = -1) -> MaterialData:
+	return _material_de(telas_forja(), tier, nivel)
+
+# La tela que sale de esta planta: mismo tier Y misma banda (espejo de curtido_de).
+func tela_de(planta: MaterialData) -> MaterialData:
+	if planta == null:
+		return null
+	for c in telas_forja():
+		var md: MaterialData = c as MaterialData
+		if md != null and int(md.tier) == int(planta.tier) and int(md.mejora_min) == int(planta.mejora_min):
+			return md
+	return null
+
+# Las plantas que el peletero te deja HILAR: la T1 base siempre, el resto cuando has traido alguna
+# (misma regla que las pieles en cueros_crudos_conocidos).
+func plantas_hilables_conocidas() -> Array:
+	var out: Array = []
+	for ruta in _TELAS_CRUDAS:
+		var md: MaterialData = load(ruta) as MaterialData
+		if md == null:
+			continue
+		if (int(md.tier) == 1 and int(md.mejora_min) == 0) or material_visto(md):
+			out.append(md)
+	return out
+
+# LA FIBRA de una armadura: TELA si es de tela, CUERO si es cualquier otra. Es la que piden forjarla,
+# mejorarla y lo que devuelve deshacerla: las tres tienen que decir lo mismo (ver fibra_de_forja).
+func fibra_armadura_de_tier(base: Resource, tier: int, nivel: int = -1) -> MaterialData:
+	if es_armadura_tela(base):
+		return tela_de_tier(tier, nivel)
+	return cuero_de_tier(tier, nivel)
 
 # --- LO QUE YA HAS VISTO (id -> true) ---
 # El menu del herrero listaba los tres metales desde el minuto uno. Eso es abrumador y ademas
@@ -11021,7 +11085,7 @@ func ingredientes_forja(base: Resource, metal: MaterialData) -> Array:
 		# es el FRENO, no un error. Tiene que decir lo mismo que fibra_de_forja.
 		# El ARCO y la BALLESTA no forran el mango: llevan CUERDA (del peletero) en su lugar.
 		var fibra: MaterialData = cuerda_de_tier(Forge.tier_de_metal(metal)) if Forge.es_de_distancia(base) \
-			else cuero_de_tier(Forge.tier_de_metal(metal))
+			else fibra_armadura_de_tier(base, Forge.tier_de_metal(metal))
 		out.append({"material": fibra, "uds": int(c["cuero"])})
 	return out
 
@@ -11047,7 +11111,8 @@ func fibra_de_forja(base: Resource, metal: MaterialData, nivel: int = -1) -> Mat
 		return null
 	var tier: int = Forge.tier_de_metal(metal)
 	if base is ArmorData:
-		return cuero_de_tier(tier, nivel)   # cuero del tier del metal; null = no hay a esa altura (freno)
+		# Cuero (o TELA, la de los magos) del tier del metal; null = no hay a esa altura (freno).
+		return fibra_armadura_de_tier(base, tier, nivel)
 	if base is ShieldData:
 		# Correas: cuero del tier del metal, igual que al forjarlo. Y con banda, como la armadura: un
 		# escudo muy reforzado no se re-ata con la piel del primer piso.
@@ -11125,6 +11190,12 @@ func batir_chapa(lingote: MaterialData, cal: int, veces: int) -> int:
 
 # `crudo` = que piel se curte. null = la base (T1), que es como se llamaba antes de que hubiera
 # sub-tiers de cuero.
+# HILAR: N plantas de la misma calidad -> 1 tela de esa calidad (y de su tier y banda). Lo entrena la
+# Peleteria, como curtir.
+func hilar(cal: int, veces: int, planta: MaterialData) -> int:
+	return refinar(planta, tela_de(planta), cal, veces, Forge.PLANTA_POR_TELA, "peleteria")
+
+
 func curtir(cal: int, veces: int, crudo: MaterialData = null) -> int:
 	var origen: MaterialData = crudo if crudo != null else cuero_crudo()
 	return refinar(origen, curtido_de(origen), cal, veces, Forge.CUERO_POR_CURTIDO, "peleteria")
@@ -11434,12 +11505,16 @@ func es_de_carpintero(base: Resource) -> bool:
 func _oficio_forja_activo(base: Resource) -> float:
 	if es_de_carpintero(base):
 		return carpinteria_activa()
-	return peleteria_activa() if es_armadura_cuero(base) else herreria_activa()
+	return peleteria_activa() if es_armadura_cosida(base) else herreria_activa()
 
 # LA ARMADURA DE CUERO se cose en la PELETERIA y la empuja la Peleteria, no la Herreria (decision del
 # usuario, 16/09/2026): no se golpea metal, se cose piel. Lleva hebillas en vez de chapa (Forge.coste).
-func es_armadura_cuero(base: Resource) -> bool:
-	return base is ArmorData and int((base as ArmorData).tipo) == ArmorData.Tipo.CUERO
+# La de TELA (08/10/2026) igual: se cose en la peleteria, con hebillas y tela.
+func es_armadura_cosida(base: Resource) -> bool:
+	return base is ArmorData and int((base as ArmorData).tipo) in [ArmorData.Tipo.CUERO, ArmorData.Tipo.TELA]
+
+func es_armadura_tela(base: Resource) -> bool:
+	return base is ArmorData and int((base as ArmorData).tipo) == ArmorData.Tipo.TELA
 
 func score_forja(base: Resource, metal: MaterialData, selecciones: Array) -> float:
 	return Forge.score_final(score_material_forja(base, metal, selecciones),
@@ -11668,7 +11743,7 @@ func forjar_tanda(base: Resource, metal: MaterialData, selecciones: Array, n: in
 					devueltos += 1
 	# El arma magica entrena CARPINTERIA; el resto, Herreria (misma tirada, distinto oficio). Los
 	# puntos van POR PIEZA: forjar tres de golpe entrena como forjarlas de una en una.
-	if es_armadura_cuero(base):
+	if es_armadura_cosida(base):
 		peleteria_exp += _puntos_oficio("peleteria", tier) * float(piezas)
 		print("[peletero] Coses %d x %s con %s -> T%d %s.  (%d pieza(s) recuperadas)  Peleteria %s" % [
 			piezas, str(base.get("nombre")), ", ".join(nombres), tier,
@@ -12302,7 +12377,8 @@ func fundir_devuelve(item: Resource) -> Dictionary:
 			materiales.append({"material": mad, "uds": int(f["madera"])})
 	if int(f["cuero"]) > 0:
 		# El curtido de SU tier, como el metal y la madera de arriba (antes salia siempre el de T1).
-		var cue: MaterialData = cuerda_de_tier(tier) if Forge.es_de_distancia(item) else cuero_de_tier(tier)
+		var cue: MaterialData = cuerda_de_tier(tier) if Forge.es_de_distancia(item) \
+			else fibra_armadura_de_tier(item, tier)
 		if cue == null:
 			cue = cuero_forja()
 		if cue != null:

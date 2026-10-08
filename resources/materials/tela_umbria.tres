@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tela_umbria"
+nombre = "Tela umbría"
+descripcion = "Hilo de raíz umbría: de lejos parece negra y de cerca, morada."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 0.7
+valor_base = 209
+mejora_min = 3
+mejora_max = 9
+color = Color(0.6, 0.48, 0.72, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

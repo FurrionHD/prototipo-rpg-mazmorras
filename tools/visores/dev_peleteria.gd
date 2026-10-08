@@ -152,7 +152,7 @@ func _ready() -> void:
 	await _ir(men, men.TAB_ARMADURAS)
 	var A = men.armaduras
 	_ok("son las cinco piezas de cuero", men.stacks.size() == 5
-		and men.stacks.all(func(b): return Game.es_armadura_cuero(b)))
+		and men.stacks.all(func(b): return Game.es_armadura_cosida(b)))
 	var casco: Resource = men.stacks[0]
 	var heb_c: MaterialData = A._metal(casco)
 	_ok("el metal son hebillas, no chapa", heb_c != null and String(heb_c.id).begins_with("hebillas"))

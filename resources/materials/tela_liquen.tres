@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="MaterialData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/material_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tela_liquen"
+nombre = "Tela de liquen"
+descripcion = "Liquen abisal tejido tan fino que casi transparenta. Los hechizos se la encuentran y se dan la vuelta."
+familia = 0
+tipo = 3
+tier = 2
+exigencia = 0.0
+peso_base = 0.8
+valor_base = 320
+mejora_min = 9
+mejora_max = 15
+color = Color(0.9, 0.66, 0.54, 1)
+piso_min = 1
+piso_max = 0
+metadata/_custom_type_script = "res://scripts/items/material_data.gd"

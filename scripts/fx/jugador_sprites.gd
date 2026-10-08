@@ -403,8 +403,7 @@ static func _capas_armadura(pj: PersonajeData) -> Array:
 		var pieza = pj.get("equipped_" + slot)
 		if pieza == null or not (pieza is ArmorData):
 			continue
-		var ti: int = clampi(int(pieza.tipo), 0, ArmaduraSprites.TIPO_NOMBRE.size() - 1)
-		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[ti]
+		var tipo: String = ArmaduraSprites.nombre_tipo(int(pieza.tipo))
 		var base: String = ArmaduraSprites.clave(tipo, slot)
 		# El color de ESTA pieza: su familia la decide el tipo (un peto de cuero va de cuero), y el
 		# peldaño dentro de la familia lo deciden su tier y su +N.

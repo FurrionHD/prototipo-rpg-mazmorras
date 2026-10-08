@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" path="res://scripts/items/armor_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+nombre = "Guantes de tela"
+tipo = 4
+slot = 2
+tier = 1
+defensa_base = 1.1
+motion_def = 0.6
+durabilidad_mult = 0.8
+reduccion = 0.04
+velocidad_mult = 1.06
+valor_base = 170

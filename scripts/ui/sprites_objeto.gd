@@ -472,7 +472,9 @@ static func _encargo_material(d: MaterialData) -> Dictionary:
 			forma = "nucleo_" + id.trim_prefix("nucleo_")
 		MaterialData.Tipo.CUERO:
 			if id.begins_with("curtido_") or id == "cuero_curtido":
-				forma = "cuero"   # cuero_curtido se llama "Cuero simple": ya esta trabajado, no es pellejo
+				forma = "cuero"
+			elif id.begins_with("tela_"):
+				forma = "cuero"   # PROVISIONAL (08/10/2026): la tela usa el dibujo del cuero en su color   # cuero_curtido se llama "Cuero simple": ya esta trabajado, no es pellejo
 			elif id.begins_with("correa_"):
 				forma = "correa"
 			elif id.begins_with("cuerda_"):

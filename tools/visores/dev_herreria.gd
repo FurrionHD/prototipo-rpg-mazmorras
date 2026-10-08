@@ -122,7 +122,7 @@ func _herreria() -> void:
 	for f in F.FILTROS_HERRERIA.size():
 		F._on_filtro(f)
 		await get_tree().process_frame
-		if men.stacks.any(func(b): return Game.es_armadura_cuero(b)):
+		if men.stacks.any(func(b): return Game.es_armadura_cosida(b)):
 			hay_cuero = true
 		if f == 2:
 			await _captura(men, "forjar_armaduras")

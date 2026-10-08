@@ -38,7 +38,7 @@ const ANCHO_FICHA := 360.0
 const ANCHO_REJILLA_MIN := 420.0
 const WEAPON_TIPO_LABELS := ["Puños", "Daga", "Espada corta", "Espada larga", "Mandoble",
 	"Estoque", "Hacha grande", "Maza pequeña", "Martillo grande", "Bastón"]
-const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
+const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas", "Tela"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 
 var _root: Control = null
@@ -1206,7 +1206,7 @@ func _preview_armadura(vb: VBoxContainer) -> void:
 	_titulo_rareza(vb, a, _marca_dueno(a))
 	_banner(vb, a, 0, ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
 	_row(vb, "Slot", ARMOR_SLOT_LABELS[clampi(int(a.slot), 0, 4)])
-	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, 3)])
+	_row(vb, "Tipo", ARMOR_TIPO_LABELS[clampi(int(a.tipo), 0, ARMOR_TIPO_LABELS.size() - 1)])
 	_row(vb, "Defensa base", "%.2f" % (a.defensa_base * a.motion_def))
 	_row(vb, "Reducción", "%.0f%%" % (a.reduccion * 100.0))
 	_row(vb, "Velocidad", "×%.2f" % a.velocidad_mult)

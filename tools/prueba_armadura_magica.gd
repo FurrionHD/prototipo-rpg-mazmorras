@@ -22,6 +22,7 @@ func _ready() -> void:
 	_tabla()
 	_al_combatiente()
 	_hechizo()
+	_tela()
 	print("")
 	print("FIN: TODO BIEN" if _mal == 0 else "FIN: %d MAL" % _mal)
 	get_tree().quit(1 if _mal > 0 else 0)
@@ -107,3 +108,44 @@ func _hechizo() -> void:
 		s1 += float(StatsMath.resolve_spell(at, d1, sp)["damage"])
 	print("    sin armadura %.2f · con armadura %.2f (media de 200)" % [s0 / 200.0, s1 / 200.0])
 	_ok(s1 < s0 * 0.9, "la armadura frena el hechizo")
+
+
+func _mat(id: String) -> MaterialData:
+	return load("res://resources/materials/%s.tres" % id) as MaterialData
+
+
+func _tela() -> void:
+	print("=== LA TELA: HILAR Y COSER ===")
+	_ok(Game.tela_de(_mat("hierba_palida")) == _mat("tela_hierba"), "hierba palida -> tela de hierba")
+	_ok(Game.tela_de(_mat("sanguinaria")) == _mat("tela_sanguina"), "sanguinaria -> tela sanguina (T1 +2)")
+	_ok(Game.tela_de(_mat("esporas_densas")) == _mat("tela_moho"), "esporas densas -> tela de moho (equivalente)")
+	_ok(Game.tela_de(_mat("polvo_de_alas")) == _mat("tela_umbria"), "polvo de alas -> tela umbria (equivalente)")
+	var tunica: ArmorData = load("res://resources/armor/tela_pecho.tres")
+	var peto: ArmorData = load("res://resources/armor/cuero_pecho.tres")
+	_ok(Game.es_armadura_cosida(tunica) and Game.es_armadura_tela(tunica), "la tunica se cose en la peleteria")
+	_ok(String(Forge.coste(tunica)["forma"]) == "hebillas", "y lleva hebillas, como el cuero")
+	var heb: MaterialData = _mat("hebillas_cobre")
+	var ings: Array = Game.ingredientes_forja(tunica, heb)
+	_ok(ings.size() == 2 and ings[1]["material"] == _mat("tela_hierba"), "coserla pide tela de hierba (T1)")
+	_ok(Game.ingredientes_forja(peto, heb)[1]["material"] == Game.cuero_de_tier(1), "el peto sigue pidiendo cuero")
+	_ok(Game.fibra_de_forja(tunica, heb, 4) == _mat("tela_raiz"), "mejorarla del +4 pide tela de raiz (su banda)")
+	var mt := Upgrades.armor_piece_mods(tunica, 1.0, 0, {}, 1)
+	var mc := Upgrades.armor_piece_mods(peto, 1.0, 0, {}, 1)
+	_ok(float(mt["mdef"]) > float(mc["mdef"]) and float(mt["def"]) < float(mc["def"]),
+		"la tunica: mas DEF magica y menos fisica que el peto de cuero")
+	_ok(ArmaduraSprites.nombre_tipo(ArmorData.Tipo.TELA) == "cuero", "se pinta como el cuero (provisional), no como placas")
+	# HILAR de verdad: 9 hierbas normales dan 2 telas (4 por tela) y sobra 1.
+	var hierba: MaterialData = _mat("hierba_palida")
+	var cal: int = MaterialItem.Calidad.NORMAL
+	var antes_h: int = Game.items_calidad_en_hogar(hierba, cal)
+	var antes_t: int = 0
+	for c in [MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]:
+		antes_t += Game.items_calidad_en_hogar(_mat("tela_hierba"), c)
+	for i in 9:
+		Game.almacen_materiales.append(MaterialItem.crear(hierba, cal))
+	var n: int = Game.hilar(cal, 5, hierba)
+	var despues_t: int = 0
+	for c in [MaterialItem.Calidad.NORMAL, MaterialItem.Calidad.INTACTO]:
+		despues_t += Game.items_calidad_en_hogar(_mat("tela_hierba"), c)
+	_ok(n == 2 and despues_t - antes_t >= 2, "hilar 9 hierbas da 2 telas (%d)" % n)
+	_ok(Game.items_calidad_en_hogar(hierba, cal) - antes_h <= 1, "y gasta 4 por tela")

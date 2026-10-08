@@ -53,6 +53,14 @@ enum Tono {
 const TIPO_NOMBRE := ["cuero", "hierro", "hierro_completo", "placas"]
 const SLOT_NOMBRE := ["casco", "pecho", "manos", "pantalones", "botas"]
 
+# El nombre de capa de un ArmorData.Tipo. La TELA (08/10/2026) todavia no tiene dibujo propio y se
+# pinta como el CUERO (lo acordado: primero la mecanica, los dibujos despues con su visto bueno). Sin
+# esto, el clamp de los que leian TIPO_NOMBRE la mandaba a "placas": una tunica de mago con visera.
+static func nombre_tipo(t: int) -> String:
+	if t == ArmorData.Tipo.TELA:
+		return "cuero"
+	return String(TIPO_NOMBRE[clampi(t, 0, TIPO_NOMBRE.size() - 1)])
+
 # QUE TIPOS BAJAN VISERA. Es lo que decide si la cara se ve, y lo consulta tambien JugadorSprites
 # para elegir el z -- por eso vive aqui y no alla: el dato es del material, no del registro.
 const CERRADOS := ["hierro_completo", "placas"]

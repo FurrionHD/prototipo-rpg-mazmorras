@@ -113,8 +113,7 @@ static func _datos(item: Resource) -> Dictionary:
 		var slot: String = ArmaduraSprites.SLOT_NOMBRE[clampi(int(a.slot), 0, 4)]
 		if not ArmaduraSprites.SLOTS_HECHOS.has(slot):
 			return {}
-		var tipo: String = ArmaduraSprites.TIPO_NOMBRE[clampi(int(a.tipo), 0,
-			ArmaduraSprites.TIPO_NOMBRE.size() - 1)]
+		var tipo: String = ArmaduraSprites.nombre_tipo(int(a.tipo))
 		var base: String = ArmaduraSprites.clave(tipo, slot)
 		# Los guanteletes son dos capas, una por mano: se pintan las dos en el mismo lienzo.
 		var claves: Array = [base + "_der", base + "_izq"] \

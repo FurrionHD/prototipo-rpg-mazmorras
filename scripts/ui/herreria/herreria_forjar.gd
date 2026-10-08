@@ -49,6 +49,12 @@ const FILTROS_HERRERIA := [
 	{"nombre": "Armadura de hierro completo", "icono": "coraza_2", "juego": "hierro_completo"},
 	{"nombre": "Armadura de placas", "icono": "coraza_3", "juego": "placas"},
 ]
+# Los juegos que cose la PELETERIA. El icono de la tela es la varita hasta que tenga el suyo: es la
+# armadura de los magos (PROVISIONAL, 08/10/2026).
+const FILTROS_PELETERIA := [
+	{"nombre": "Armadura de cuero", "icono": "coraza", "juego": "cuero"},
+	{"nombre": "Armadura de tela", "icono": "varita", "juego": "tela"},
+]
 const NOMBRE_RANURA := {"casco": "Casco", "pecho": "Pecho", "manos": "Manos",
 	"pantalones": "Pantalones", "botas": "Botas"}
 
@@ -148,8 +154,19 @@ func _bases() -> Array:
 				if b != null and Game.es_de_carpintero(b):
 					rutas.append(r)
 		Catalogo.CUERO:
+			# Dos juegos que se cosen en la peleteria: el de CUERO y el de TELA (08/10/2026, el de los
+			# magos). Una subpestaña por juego, como los juegos de metal de la herreria.
+			_filtro = clampi(_filtro, 0, FILTROS_PELETERIA.size() - 1)
+			var nombres_p: Array = []
+			var iconos_p: Array = []
+			for f in FILTROS_PELETERIA:
+				nombres_p.append(f["nombre"])
+				iconos_p.append(f["icono"])
+			MenuScaffold.subpestanas(t.barra_sub, nombres_p, iconos_p, _filtro, _on_filtro)
+			var juego: String = FILTROS_PELETERIA[_filtro]["juego"]
 			for slot in Game.ARMOR_SLOT_ORDEN:
-				rutas.append("res://resources/armor/cuero_%s.tres" % slot)
+				rutas.append("res://resources/armor/%s_%s.tres" % [juego, slot])
+			t.titulo_seccion("Armaduras  ·  %s" % FILTROS_PELETERIA[_filtro]["nombre"])
 		_:
 			var nombres: Array = []
 			var iconos: Array = []

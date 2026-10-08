@@ -41,8 +41,8 @@ const CAT_POCIONES_T2: Array[String] = [
 	"res://resources/consumables/piedra_retorno_t2.tres",
 ]
 # Armaduras: los 4 tipos x los 5 slots, de la mas ligera a la mas pesada.
-const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas"]
-const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas"]
+const ARMOR_TIPOS: Array[String] = ["cuero", "hierro", "hierro_completo", "placas", "tela"]
+const ARMOR_TIPO_LABELS := ["Cuero", "Hierro", "Hierro completo", "Placas", "Tela"]
 const ARMOR_SLOT_LABELS := ["Casco", "Pecho", "Manos", "Pantalones", "Botas"]
 # Tope de unidades por compra: el equipo de uno en uno cansa, pero cien espadas no las quiere nadie.
 const TOPE_EQUIPO := 10

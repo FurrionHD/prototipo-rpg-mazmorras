@@ -34,6 +34,9 @@ const MADERA_POR_TABLON := 3     # tres maderas aserradas dan un tablon (mismo t
 # carbon es el destino BARATO de la madera; lo caro es el tablon.
 const MADERA_POR_CARBON := 2
 const CUERO_POR_CURTIDO := 2
+# Las plantas pesan y valen mucho menos que una piel (una hierba palida son 12 monedas contra las 45 de
+# un cuero curtido), asi que hilar pide mas: cuatro de la misma calidad por cada tela.
+const PLANTA_POR_TELA := 4
 # Piezas de la MOCHILA (y de la armadura de cuero y el farolillo). Un lingote da un juego de
 # hebillas, como la chapa: a 3 lingotes la armadura de cuero y sus mejoras se disparaban de metal
 # (pedian las mismas unidades que chapa pedia la de metal). Lo caro de la mochila va en CUANTAS
@@ -216,6 +219,7 @@ const MIX_ARMADURA := {
 	ArmorData.Tipo.HIERRO: [0.7, 1.2],             # ligera: mas cuero que metal
 	ArmorData.Tipo.HIERRO_COMPLETO: [1.2, 0.5],    # pesada: mas metal que cuero
 	ArmorData.Tipo.PLACAS: [1.5, 0.25],            # casi todo chapa
+	ArmorData.Tipo.TELA: [0.25, 2.0],              # como el cuero: hebillas y todo tela
 }
 
 # Coste de forjar `base`, en UNIDADES: {"metal": n, "madera": n, "cuero": n, "forma": String}.
@@ -231,7 +235,8 @@ static func coste(base: Resource) -> Dictionary:
 	var m_cuero: float = 0.0
 	var forma: String = "lingote"
 	if base is ArmorData:
-		forma = "hebillas" if int((base as ArmorData).tipo) == ArmorData.Tipo.CUERO else "chapa"
+		var cosida: bool = int((base as ArmorData).tipo) in [ArmorData.Tipo.CUERO, ArmorData.Tipo.TELA]
+		forma = "hebillas" if cosida else "chapa"
 		var mix: Array = MIX_ARMADURA.get(int((base as ArmorData).tipo), [1.0, 1.0])
 		m_metal = mix[0]; m_cuero = mix[1]
 	elif base is ShieldData:

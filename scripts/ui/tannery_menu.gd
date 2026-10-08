@@ -3,8 +3,9 @@
 #  Menu de la PELETERIA. Tres pestañas:
 #    1) CURTIR   - cuero crudo -> CUERO CURTIDO (lo unico que admite la forja).
 #    2) CORREAS  - cuero curtido -> CORREAS (los tirantes de la mochila).
-#    3) MOCHILAS - hebillas (del herrero) + correas + cuero curtido -> MOCHILA.
-#    4) ARMADURAS - hebillas + cuero curtido -> ARMADURA DE CUERO. Se forjaba en la herreria y se
+#    3) HILAR    - plantas de herboristeria -> TELA (la fibra de la armadura de tela, 08/10/2026).
+#    4) MOCHILAS - hebillas (del herrero) + correas + cuero curtido -> MOCHILA.
+#    5) ARMADURAS - hebillas + cuero curtido (o tela) -> ARMADURA DE CUERO. Se forjaba en la herreria y se
 #       mudo aqui el 16/09/2026 (decision del usuario): no se golpea metal, se cose piel, y la empuja
 #       la Peleteria. Es la pantalla de forjar de la herreria (herreria_forjar.gd) en modo cuero.
 #
@@ -30,15 +31,16 @@ const PeleteriaRefinar = preload("res://scripts/ui/peleteria/peleteria_refinar.g
 const PeleteriaMochilas = preload("res://scripts/ui/peleteria/peleteria_mochilas.gd")
 const HerreriaForjar = preload("res://scripts/ui/herreria/herreria_forjar.gd")
 
-const TABS := ["Curtir", "Correas", "Cuerdas", "Mochilas", "Armaduras"]
+const TABS := ["Curtir", "Correas", "Cuerdas", "Hilar", "Mochilas", "Armaduras"]
 # Los iconos, en el mismo orden. Van con icono y SIN texto, como el inventario y la tienda: el
 # nombre de la seccion se lee arriba a la izquierda, bajo "Peleteria".
-const TAB_ICONOS := ["cuero", "correa", "cuerda", "mochila", "coraza"]
+const TAB_ICONOS := ["cuero", "correa", "cuerda", "flor", "mochila", "coraza"]
 const TAB_CURTIR := 0
 const TAB_CORREAS := 1
 const TAB_CUERDAS := 2   # la cuerda del arco y la ballesta (02/10)
-const TAB_MOCHILAS := 3
-const TAB_ARMADURAS := 4
+const TAB_HILAR := 3     # las plantas en tela (08/10)
+const TAB_MOCHILAS := 4
+const TAB_ARMADURAS := 5
 # La armadura lleva DOS ingredientes en columnas y la tabla de rareza: el reparto de la herreria.
 const ANCHO_FICHA_ARMADURA := 780.0
 
@@ -101,7 +103,7 @@ func _pintar() -> void:
 	else:
 		anchos(ANCHO_REJILLA_MIN, ANCHO_FICHA)
 	# Solo MOCHILAS y ARMADURAS reservan (seleccion persistente); curtir y correas son instantaneas.
-	if Net.activo and _tab in [TAB_CURTIR, TAB_CORREAS, TAB_CUERDAS]:
+	if Net.activo and _tab in [TAB_CURTIR, TAB_CORREAS, TAB_CUERDAS, TAB_HILAR]:
 		Net.hogar.reservar({})
 
 	# QUIEN TIENE EL OFICIO se marca EN SU RETRATO, con el pellejo en la esquina. Estaba escrito en la
@@ -113,4 +115,5 @@ func _pintar() -> void:
 		TAB_ARMADURAS: armaduras.build()
 		TAB_CORREAS: refinar.build(PeleteriaRefinar.Modo.CORREAS)
 		TAB_CUERDAS: refinar.build(PeleteriaRefinar.Modo.CUERDAS)
+		TAB_HILAR: refinar.build(PeleteriaRefinar.Modo.HILAR)
 		_: refinar.build(PeleteriaRefinar.Modo.CURTIR)
