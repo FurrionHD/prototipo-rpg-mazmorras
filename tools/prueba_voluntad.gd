@@ -79,7 +79,8 @@ func _defensa_magica() -> void:
 # Al enemigo su defensa magica le tiene que salir IGUAL que con la Magia de ayer.
 func _enemigo_igual() -> void:
 	print("=== ENEMIGOS: MISMA DEFENSA MAGICA QUE AYER ===")
-	for ruta in ["res://scenes/actors/enemy/slime.tres", "res://scenes/actors/enemy/slime_abisal.tres",
+	# (08/10 tarde) Solo los que NO tienen Voluntad propia: desde la fase 3 el abisal lleva la suya a proposito.
+	for ruta in ["res://scenes/actors/enemy/slime.tres", "res://scenes/actors/enemy/slime_veneno.tres",
 			"res://scenes/actors/enemy/rey_slime.tres"]:
 		var ed: EnemyData = load(ruta)
 		var ab: Abilities = ed.crear_abilities(0.5)

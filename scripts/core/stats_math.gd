@@ -477,7 +477,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# 'penetra_extra' = la que pone la habilidad encima (AbilityData.penetracion_extra).
 	var penetra := clampf(attacker.penetracion + penetra_extra, 0.0, 1.0) if atk_override < 0.0 else 0.0
 	var def_val := defender.def_value() * (1.0 - penetra) + (defender.defend_defense if defending else 0.0)
-	var dmg := damage(atk_override if atk_override >= 0.0 else attacker.atk(), def_val)
+	var atk_crudo: float = atk_override if atk_override >= 0.0 else attacker.atk()
+	var dmg := damage(atk_crudo, def_val)
 	# CUANTO SE HA COMIDO LA MITIGACION, como un solo factor. Se va acumulando en los TRES sitios
 	# que mitigan (defensa, armadura, bloqueo) y sale por 'dmg_sin_mitigar': el golpe que te habrian
 	# metido a pelo. Lo usa la excelia de Resistencia — lo que te enseña es la fuerza del golpe que
@@ -486,7 +487,8 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# Va como factor acumulado y NO repitiendo el pipeline aparte: dos copias se desincronizan.
 	var mitig := MITIGATION_K / (MITIGATION_K + def_val)
 	# Variacion aleatoria por golpe (±DAMAGE_VARIANCE), estilo Terraria.
-	dmg *= randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+	var variacion: float = randf_range(1.0 - DAMAGE_VARIANCE, 1.0 + DAMAGE_VARIANCE)
+	dmg *= variacion
 
 	# 3) Critico (Defender lo ANULA). El multiplicador = base + el crit_dmg del arma del atacante
 	# (base × rareza + Precision). Sin arma con rareza (enemigos) se queda en el CRIT_MULT pelado.
@@ -526,9 +528,19 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# El PRISMATICO sortea su elemento en cada golpe (lo que se enseña despues lee el que ha salido).
 	if attacker.imbue_prisma:
 		attacker.rodar_prisma()
+	# LA PORCION IMBUIDA ES MAGICA (08/10/2026, fase 4): sale del golpe CRUDO (antes de la defensa fisica) y va contra
+	# la DEFENSA MAGICA y la reduccion magica del que la recibe. Comparte con el golpe la variacion, el critico y los
+	# slayer; la guardia no la para (como lo magico de los enemigos). Asi rinde contra los acorazados (golem, coloso) y
+	# poco contra quien tiene mucha Voluntad. Antes era un % del golpe YA mitigado: la armadura fisica la frenaba.
+	var bruto_imbue := 0.0   # la misma porcion sin mitigar, para 'dmg_sin_mitigar'
 	if attacker.imbue_pct > 0.0 and attacker.imbue_elemento != Elementos.Elemento.NINGUNO:
 		mult_imbue = Elementos.mult_recibido(attacker.imbue_elemento, defender)
-		dmg_imbue = dmg * attacker.imbue_pct * mult_imbue
+		var raw_imbue: float = atk_crudo * attacker.imbue_pct
+		var f_comun: float = variacion * ((CRIT_MULT + attacker.crit_dmg) if is_crit else 1.0) \
+			* attacker.mult_vs(defender.familia) * defender.mult_from(attacker.familia) * mult_imbue
+		dmg_imbue = damage(raw_imbue, defender.mdef_value()) \
+			* (1.0 - clampf(defender.armor_reduction_magica, 0.0, ARMOR_REDUCTION_MAX)) * f_comun
+		bruto_imbue = raw_imbue * f_comun
 		dmg += dmg_imbue
 		defender.recibe_elemento(attacker.imbue_elemento)
 	# El golpe entero de un elemento (o la porcion imbuida, arriba) le corta la regeneracion a quien la tenga.
@@ -537,13 +549,14 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 	# 4.5) DAÑO QUE RECIBE el defensor por sus estados: Marca (se la ha puesto alguien para que
 	# TODO el grupo le pegue mas) y Guardia de carne (el doble de vida a cambio del doble de daño).
 	# Va al FINAL, sobre el daño ya mitigado, para que multiplique lo que de verdad le entra.
-	dmg *= defender.status_dmg_taken_mult() * mult_pasiva
+	var mult_final: float = defender.status_dmg_taken_mult() * mult_pasiva
 	# Y lo que pega DE MAS el atacante por sus estados (plato de Fuerza). Espejo del de arriba: uno
 	# es "cuanto te entra", el otro "cuanto sacas", y por eso son dos claves y no una.
-	dmg *= attacker.status_dmg_dealt_mult()
+	mult_final *= attacker.status_dmg_dealt_mult()
 	# FRAGIL (06/10, la obsidiana): un arma CONTUNDENTE le hace mas daño (corta mucho pero se rompe).
 	if attacker.dano_tipo == 1:
-		dmg *= defender.fragil_contundente
+		mult_final *= defender.fragil_contundente
+	dmg *= mult_final
 
 	# 5) Aturdir/retrasar (solo armas CONTUNDENTES).
 	var aturde := aturde_p > 0.0 and randf() < aturde_p
@@ -552,8 +565,10 @@ static func resolve_attack(attacker: Combatant, defender: Combatant,
 		"evade_p": evade_p, "crit_p": crit_p, "aturde_p": aturde_p,
 		"mult_elem": mult_elem, "mult_imbue": mult_imbue, "dmg_imbue": dmg_imbue,
 		# El mismo golpe SIN defensa, armadura ni bloqueo (ver 'mitig' arriba). Solo lo mira la
-		# excelia de Resistencia; el daño que se aplica sigue siendo 'damage'.
-		"dmg_sin_mitigar": maxf(0.1, dmg / maxf(0.0001, mitig))}
+		# excelia de Resistencia; el daño que se aplica sigue siendo 'damage'. La porcion imbuida va
+		# aparte: su mitigacion es la magica, no 'mitig'.
+		"dmg_sin_mitigar": maxf(0.1, (dmg - dmg_imbue * mult_final) / maxf(0.0001, mitig)
+			+ bruto_imbue * mult_final)}
 
 
 # GOLPE MAGICO DE UN ENEMIGO (08/10/2026, fase 3): las habilidades AbilityData.es_magico. Es resolve_attack con
