@@ -42,6 +42,16 @@ casa de piedra oscura del barrio sur, la de los glifos que brillan de noche):
 - **Sets de armadura** (2 y 5 piezas): Masa gelatinosa, Marea y Corona. **Sets de arma** (2 piezas; a dos
   manos cuenta doble): Ignición, Miasma y Cielo nocturno.
 
+**Se ve en todas partes**: cada pieza dice su set y cuántas piezas llevas (**2/2 en verde** si funciona, en gris si
+no), y en las rejillas las piezas con runas llevan el **sello de su set** y unos puntitos con sus sub-stats. El menú del
+personaje enseña tus sets y la ficha corta de cada pieza (el resto, en ⌕ Información).
+
+## 🖱️ Interfaz
+
+- **Las ventanitas se cierran pulsando fuera.**
+- **Mejorar** en la herrería enseña todos los datos de la pieza (con lo que sube la mejora elegida) en dos columnas.
+- En el menú del personaje, **Armadura** va antes que Habilidades.
+
 ## 🤝 Multijugador
 
 **Los talleres son instantáneos también con tu compañero**: craftear, mejorar, guardar o vender del baúl común
