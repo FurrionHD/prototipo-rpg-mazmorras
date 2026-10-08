@@ -305,14 +305,14 @@ static func efecto_txt(s: RunaSetData) -> String:
 	var p: Dictionary = s.params
 	match s.efecto:
 		&"masa":
-			return "El primer golpe gordo de la pelea (más del %d %% de tu vida) entra un %d %% menos, y a quien te pega cuerpo a cuerpo le deja Pegajoso (%d %%)." % [
+			return "El primer golpe de la pelea que te haga más del %d %% de tu vida máxima de daño te hace un %d %% menos (una vez por pelea). Y a quien te pega cuerpo a cuerpo le deja Pegajoso (%d %% de probabilidad)." % [
 				roundi(float(p.get("umbral", 0.2)) * 100.0), roundi(float(p.get("reduce", 0.4)) * 100.0),
 				roundi(float(p.get("pegajoso", 0.25)) * 100.0)]
 		&"marea":
-			return "Empiezas la pelea con un escudo de agua (%d %% de tu vida). Mientras dura no te dejan Lento ni Congelado, y al romperse moja a quien lo rompió." % [
+			return "Empiezas la pelea con un escudo de agua que aguanta el %d %% de tu vida máxima en daño. Mientras dura no te pueden dejar Lento ni Congelado, y al romperse empapa (Mojado) a quien lo rompió." % [
 				roundi(float(p.get("escudo", 0.15)) * 100.0)]
 		&"corona":
-			return "Los aliados pegados a ti reciben un %d %% menos de daño; si uno baja del %d %% de vida, los enemigos van a por ti %d turno (una vez por pelea)." % [
+			return "Los aliados pegados a ti reciben un %d %% menos de daño; si uno baja del %d %% de su vida máxima, provocas a los enemigos durante %d turno para que vayan a por ti (una vez por pelea)." % [
 				roundi(float(p.get("aliados", 0.1)) * 100.0), roundi(float(p.get("umbral", 0.3)) * 100.0),
 				int(p.get("turnos", 1))]
 		&"ignicion":
