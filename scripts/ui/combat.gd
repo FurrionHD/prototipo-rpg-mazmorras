@@ -857,6 +857,9 @@ func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant, mult_amena
 # los de todo lo que pueden sacar sus enemigos (Brote, Orden real, dividirse), con sus parpados; quedan en la cache
 # de SpritesEnemigo.
 const T_CRIA := 0.2   # el de Game.dar_cuerpo_a_cria
+# Lo precalentado se queda AQUI mientras dure la pelea: si no, la limpieza de hojas sin usar lo soltaria
+# (SpriteLienzo.soltar_sin_usar) antes de que salga la primera cria.
+var _precalentado: Array = []
 
 func _precalentar_crias() -> void:
 	var datos: Array = []
@@ -871,9 +874,23 @@ func _precalentar_crias() -> void:
 	for d in datos:
 		if d is EnemyData and not hechos.has(d):
 			hechos[d] = true
-			SpritesEnemigo.frames_de(d, T_CRIA)
-			SpritesEnemigo.parpados_de(d, T_CRIA)          # y sus parpados (otras dos hojas)
-			SpritesEnemigo.parpados_extra_de(d, T_CRIA)
+			_precalentado.append(SpritesEnemigo.frames_de(d, T_CRIA))
+			_precalentado.append(SpritesEnemigo.parpados_de(d, T_CRIA))          # y sus parpados (otras dos hojas)
+			_precalentado.append_array(SpritesEnemigo.parpados_extra_de(d, T_CRIA))
+
+
+# LOS SONIDOS DE LAS HABILIDADES, YA (09/10): era lo unico que aun se cargaba la primera vez que salia cada habilidad
+# (medido con --verbose). Los de todas las de los que estan en la pelea, y el de su basico; Sonido los guarda.
+func _precalentar_sonidos() -> void:
+	if efectos == null:
+		return
+	for c in _aliados + _enemies:
+		if c == null:
+			continue
+		Sonido._resolver("", efectos._estilo_de_habilidad(null, c))
+		for ab in c.habilidades:
+			if ab is AbilityData:
+				Sonido._resolver(efectos._clave_sfx(ab), efectos._estilo_de_habilidad(ab, c))
 
 
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
@@ -894,6 +911,7 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	for e in _enemies:
 		e.battle_enemies = _enemies
 	_precalentar_crias()
+	call_deferred("_precalentar_sonidos")   # diferido: los ayudantes (efectos) y 'tactico' ya puestos
 	_enemy_initiated = enemy_initiated
 	# Las acciones lentas se apuntan YA, una ficha por aliado: quien llego agotado las arrastra.
 	for i in _aliados.size():

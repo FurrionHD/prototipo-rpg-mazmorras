@@ -474,14 +474,28 @@ static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_H
 	return n
 
 
+# SOLTAR LO QUE NADIE USA (09/10, "~730 MB de texturas, que locura"): las caches de lo horneado (CapaJugador,
+# SpritesEnemigo) guardaban PARA SIEMPRE cada hoja leida de disco: pelos y armaduras que ya nadie llevaba, enemigos de
+# otro piso... (medido: 220-250 MB de hojas que ningun muñeco tenia puestas). Quita de 'cache' las que solo tiene ella:
+# Godot libera su textura y, si vuelven a hacer falta, se leen otra vez del disco (milisegundos, ya estan horneadas).
+# Los null ("no estaba en disco") se quedan: son la marca de que ya se miro. Devuelve cuantas ha soltado.
+static func soltar_sin_usar(cache: Dictionary) -> int:
+	var fuera: Array = []
+	for k in cache:
+		var v = cache[k]
+		# 3 = la cache + 'v' + el argumento de la llamada: nadie mas la tiene.
+		if v is SpriteFrames and (v as SpriteFrames).get_reference_count() <= 3:
+			fuera.append(k)
+	for k in fuera:
+		cache.erase(k)
+	return fuera.size()
+
+
 # Reconstruye el SpriteFrames desde el horneado, o null si esa variante no esta en disco.
 static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> SpriteFrames:
 	var png: String = carpeta + clave + ".png"
 	var js: String = carpeta + clave + ".json"
-	if not ResourceLoader.exists(png) or not FileAccess.file_exists(js):
-		return null
-	var hoja: Texture2D = load(png) as Texture2D
-	if hoja == null:
+	if not FileAccess.file_exists(js):
 		return null
 	var f := FileAccess.open(js, FileAccess.READ)
 	if f == null:
@@ -490,8 +504,14 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> S
 	f.close()
 	if typeof(d) != TYPE_DICTIONARY:
 		return null
+	var hoja: Texture2D = _hoja_gris(png) if bool(d.get("gris", false)) else 		(load(png) as Texture2D if ResourceLoader.exists(png) else null)
+	if hoja == null:
+		return null
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
+	# Los fotogramas REPETIDOS (tools/compactar_hojas.py los deja apuntando al mismo recorte) comparten tambien el
+	# mismo AtlasTexture: la hoja del cuerpo creaba 14.596 y la mitad eran iguales.
+	var recortes: Dictionary = {}
 	for a in d["anims"]:
 		sf.add_animation(a["n"])
 		sf.set_animation_loop(a["n"], bool(a["loop"]))
@@ -501,13 +521,32 @@ static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> S
 			if int(m[2]) <= 0 or int(m[3]) <= 0:
 				sf.add_frame(a["n"], vacia())
 				continue
-			var at := AtlasTexture.new()
-			at.atlas = hoja
-			at.region = Rect2(m[0], m[1], m[2], m[3])
-			at.margin = Rect2(m[4], m[5], int(d["w"]) - int(m[2]), int(d["h"]) - int(m[3]))
-			at.filter_clip = true
+			var k := Vector4i(int(m[0]), int(m[1]), int(m[2]) * 4096 + int(m[3]), int(m[4]) * 4096 + int(m[5]))
+			var at: AtlasTexture = recortes.get(k)
+			if at == null:
+				at = AtlasTexture.new()
+				at.atlas = hoja
+				at.region = Rect2(m[0], m[1], m[2], m[3])
+				at.margin = Rect2(m[4], m[5], int(d["w"]) - int(m[2]), int(d["h"]) - int(m[3]))
+				at.filter_clip = true
+				recortes[k] = at
 			sf.add_frame(a["n"], at)
 	return sf
+
+
+# LA HOJA GRIS (tools/compactar_hojas.py): un PNG de gris + alfa que Godot exporta TAL CUAL (su .import es "keep"; con
+# "Lossless" lo guardaria en WebP y volveria a ser de 4 bytes por pixel). Se sube a la grafica como LA8, 2 bytes por
+# pixel: la mitad. Los shaders lo leen igual (el gris sale en r, g y b).
+static func _hoja_gris(png: String) -> Texture2D:
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes(png)
+	if bytes.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_png_from_buffer(bytes) != OK:
+		return null
+	if img.get_format() != Image.FORMAT_LA8:
+		img.convert(Image.FORMAT_LA8)
+	return ImageTexture.create_from_image(img)
 
 
 # ------------------------------------------------------------
