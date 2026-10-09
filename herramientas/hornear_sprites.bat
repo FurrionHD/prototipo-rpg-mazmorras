@@ -38,6 +38,12 @@ set HORNO_SOLO=enemigos
 if "%HORNO_SOLO%"=="" (echo Horneando TODO...) else (echo Horneando: %HORNO_SOLO%)
 "%GODOT%" --headless --path "%~dp0.." res://tools/hornear_sprites.tscn
 echo.
+REM COMPACTAR (09/10): fotogramas repetidos una sola vez y las capas grises del personaje en gris+alfa (la mitad de
+REM memoria en la grafica). Deja el dibujo igual. Ver tools/compactar_hojas.py.
+echo Compactando las hojas...
+python "%~dp0..\tools\compactar_hojas.py" --todas "%~dp0..\assets\sprites\player"
+python "%~dp0..\tools\compactar_hojas.py" --sin-gris --todas "%~dp0..\assets\sprites\enemigos"
+echo.
 echo Ahora se importan los PNG nuevos...
 "%GODOT%" --headless --path "%~dp0.." --import
 echo.
