@@ -35,6 +35,8 @@ const ALCANCE_BASE := 15.0   # como la daga, el arma mas corta. DEFINITIVO (23/0
 
 
 func alcance_real() -> float:
+	if alcance_marcado > 0.0:
+		return alcance_marcado * maxf(0.1, escala_visual)   # el marcado a mano manda (09/10)
 	return alcance if alcance > 0.0 else ALCANCE_BASE
 
 
@@ -49,6 +51,47 @@ const CENTRO_SUELO_BASE := 0.9
 
 func centro_suelo_real() -> float:
 	return centro_suelo if centro_suelo > 0.0 else CENTRO_SUELO_BASE
+
+
+# SU CUERPO, MARCADO A MANO (09/10, el jefe sobre la lamina de los 25 de frente: tools/lamina_cuerpos_enemigos +
+# tools/cuerpos/sacar_cuerpos.py). Un RECTANGULO en el suelo, respecto a su nodo y mirando al sur, en unidades de
+# escala (px de mundo / escala_visual: si se le cambia el tamaño, el cuerpo le sigue). Es a la vez con lo que CHOCA
+# (el jugador no se le mete dentro, en el mapa ni en la pelea) y lo que RECIBE los golpes: en los grandes solo las
+# piernas, que es lo que pisa ("no tiene sentido que golpeemos al minotauro en la cabeza"). Vacio = sin marcar: se
+# queda lo de antes (la forma de su generador y la caja del dibujo).
+@export var cuerpo: Rect2 = Rect2()
+# Desde donde mide su ALCANCE (el puntito azul de la lamina), en las mismas unidades. Y el alcance marcado: de ese
+# punto a donde llega su golpe normal (la raya azul). 0 = sin marcar (vale 'alcance' de siempre).
+@export var centro_golpe: Vector2 = Vector2.ZERO
+@export var alcance_marcado: float = 0.0
+# Sus golpes en LINEA (embestidas...) miden por lo menos lo que su DIBUJO de ancho, no su cuerpo (09/10, el jefe: el
+# minotauro, que agachado para embestir es mas ancho que lo que pisa). Sin esto, el ancho de su cuerpo.
+@export var golpe_ancho_dibujo: bool = false
+
+
+func tiene_cuerpo() -> bool:
+	return cuerpo.has_area()
+
+
+# El cuerpo en px de mundo respecto al nodo, a escala 'mult' (la del mutante) y mirando a 'mira'. Los ALARGADOS (lado
+# largo >= 1,3 veces el corto) giran: de lado ocupan a lo ancho (el rectangulo no rota, se tumba).
+func cuerpo_en(mult: float = 1.0, mira: Vector2 = Vector2.DOWN) -> Rect2:
+	var e: float = maxf(0.1, escala_visual) * maxf(0.1, mult)
+	var r := Rect2(cuerpo.position * e, cuerpo.size * e)
+	if maxf(r.size.x, r.size.y) / maxf(1.0, minf(r.size.x, r.size.y)) >= 1.3 and absf(mira.x) > absf(mira.y):
+		var c: Vector2 = r.get_center()
+		r = Rect2(c - Vector2(r.size.y, r.size.x) * 0.5, Vector2(r.size.y, r.size.x))
+	return r
+
+
+# Desde donde mide su golpe, en px de mundo respecto al nodo (el centro del cuerpo si no se marco).
+func centro_golpe_en(mult: float = 1.0, mira: Vector2 = Vector2.DOWN) -> Vector2:
+	if centro_golpe == Vector2.ZERO:
+		return cuerpo_en(mult, mira).get_center()
+	var e: float = maxf(0.1, escala_visual) * maxf(0.1, mult)
+	var p: Vector2 = centro_golpe * e
+	var r: Rect2 = cuerpo_en(mult, mira)
+	return Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
 
 # SPRITE ANIMADO real (arte de verdad, aun por hacer para casi todos los bichos). Si esta vacio,
 # enemy.gd cae al ColorRect de siempre -- salvo los slimes, que mientras tanto usan un sprite

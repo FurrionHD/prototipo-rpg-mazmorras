@@ -46,6 +46,24 @@ var mutacion: StringName = &""
 var _aura_mut: CPUParticles2D = null
 
 
+# Lo que crece su cuerpo por ser mutante (el mismo x de su dibujo).
+func _mult_cuerpo() -> float:
+	return float(EnemyData.mult_mutante(es_boss, _grado())["escala"]) if mutante else 1.0
+
+
+# Desde donde mide su golpe (el puntito azul de la lamina), respecto al nodo. Solo si tiene el cuerpo marcado.
+func centro_golpe() -> Vector2:
+	return data.centro_golpe_en(_mult_cuerpo(), Vector2.from_angle(_mira)) if data != null and data.tiene_cuerpo() else Vector2.ZERO
+
+
+# SU CAJA para Cuerpos.caja_de, la misma que en enemy.caja_cuerpo: el cuerpo marcado si lo tiene, girado hacia donde mira.
+func caja_cuerpo() -> Rect2:
+	if data != null and data.tiene_cuerpo():
+		return data.cuerpo_en(_mult_cuerpo(), Vector2.from_angle(_mira))
+	var m: float = Cuerpos.MEDIO_BASE + float(radio_extra)
+	return Rect2(-m, -m, m * 2.0, m * 2.0)
+
+
 func _grado() -> int:
 	return data.grado_de(mutante, mutacion) if data != null else (1 if mutante else 0)
 # Los cristales que lleva comidos (ver ComerCristales): solo para pintar su "cargado". La cuenta de verdad
@@ -188,6 +206,11 @@ func _montar_choque() -> void:
 	var tam: Vector2 = SpritesEnemigo.tam_cuerpo(data)
 	if tam == Vector2.ZERO:
 		tam = Vector2.ONE * (Cuerpos.MEDIO_BASE + radio_extra) * 2.0
+	var centro := Vector2.ZERO
+	if data.tiene_cuerpo():   # el marcado a mano manda (09/10), igual que en enemy._aplicar_colision
+		var rc: Rect2 = data.cuerpo_en(_mult_cuerpo())
+		tam = rc.size
+		centro = rc.get_center()
 	if _choque == null:
 		_choque = AnimatableBody2D.new()
 		_choque.sync_to_physics = false
@@ -198,6 +221,7 @@ func _montar_choque() -> void:
 		_choque.add_child(_choque_forma)
 		add_child(_choque)
 	(_choque_forma.shape as RectangleShape2D).size = tam
+	_choque_forma.position = centro
 	_choque_gira = maxf(tam.x, tam.y) / maxf(1.0, minf(tam.x, tam.y)) >= 1.3
 	_choque_forma.rotation = (_mira - PI * 0.5) if _choque_gira else 0.0
 

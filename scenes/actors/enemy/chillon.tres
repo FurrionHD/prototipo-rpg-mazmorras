@@ -58,3 +58,6 @@ inmune_estados = [33]
 ecolocaliza = true
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_5_8"
+cuerpo = Rect2(-17.14, -13, 37.14, 17.14)
+centro_golpe = Vector2(-0.21, -3.21)
+alcance_marcado = 26.93

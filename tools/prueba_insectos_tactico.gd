@@ -97,7 +97,7 @@ func _correr() -> void:
 		if not ALCANCES.has(clave):
 			continue
 		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
-		_ver(is_equal_approx(t.alcance_de(e), float(ALCANCES[clave])), "alcance del basico %.0f" % ALCANCES[clave])
+		_ver(is_equal_approx(t.alcance_de(e), _alcance_esperado(ed, clave)), "alcance del basico %.0f" % _alcance_esperado(ed, clave))
 		var pe: Vector2 = t.pies_de(e)
 		var hueco: float = t.radio_pisa(e) + t.alcance_de(e) * 0.7
 
@@ -313,3 +313,8 @@ func _probar_ensarte(combat, t, e, al: Array) -> void:
 	_ver(rep.size() == 1 and rep[0]["c"] == medio, "con otro en medio, se lo come el de en medio")
 	for i in al.size():
 		al[i].aggro_base = aggro_antes[i]
+
+
+# El MARCADO A MANO por el jefe (09/10, EnemyData.alcance_marcado) manda sobre la tabla de antes.
+func _alcance_esperado(ed: EnemyData, clave: String) -> float:
+	return ed.alcance_real() if ed.alcance_marcado > 0.0 else float(ALCANCES[clave])

@@ -87,3 +87,6 @@ mutaciones = Array[ExtResource("8_mut")]([SubResource("MUT_miasma"), SubResource
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_6_8"
+cuerpo = Rect2(-18.52, -10.61, 36.52, 31.3)
+centro_golpe = Vector2(0, 6.17)
+alcance_marcado = 31.91

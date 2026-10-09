@@ -58,3 +58,6 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 15.0
 ; EL BASICO EN EL MAPA (30/09): se echa encima con la boca abierta ('embestida') y en ti, su ventosa (SIMA_VENTOSA).
 fx_basico_mapa = 159
+cuerpo = Rect2(-7.5, -16.81, 13.31, 29.56)
+centro_golpe = Vector2(-0.44, -2)
+alcance_marcado = 25.19

@@ -120,7 +120,10 @@ func _correr() -> void:
 	# La Marea (r120) llega al de lejos? No: esta a 150. Y los dos de dentro, en el anillo de dentro.
 	var marea: AbilityData = load("res://resources/abilities/rey_slime_marea.tres")
 	var rep_m: Array = t._reparto_en(marea, e, t.forma_de(marea, e, t.pies_de(e)))
-	_ver(rep_m.size() == 2 and is_equal_approx(float(rep_m[0]["escala"]), 1.0), "la Marea pilla a los 2 de cerca al 100%")
+	# (09/10) La Marea cuenta desde el BORDE del slime: los dos de cerca, en el anillo fuerte; el de lejos ya puede caer en
+	# el de fuera (antes no llegaba: contaba desde su centro).
+	var fuertes: int = rep_m.filter(func(d): return is_equal_approx(float(d["escala"]), 1.0) and (d["c"] == al[0] or d["c"] == al[1])).size()
+	_ver(fuertes == 2, "la Marea pilla a los 2 de cerca al 100%")
 
 	# 2) DESDE LEJOS: el escupitajo llega sin andar al que esta a ~40 px, y no hace falta acercarse.
 	print("--- desde lejos ---")

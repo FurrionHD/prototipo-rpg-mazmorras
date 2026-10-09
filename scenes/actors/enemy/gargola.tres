@@ -53,3 +53,6 @@ fx_basico_mapa = 182
 ; SU GESTO: la embestida, que toca en el 6o de 8 marcos (CombatFX.IMPACTO_ANIM_MAPA: el efecto sale cuando la garra toca).
 anim_basico = &"golpe_6_8"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-7.79, -7.04, 17.5, 13.33)
+centro_golpe = Vector2(0.71, -1.46)
+alcance_marcado = 17.5

@@ -60,3 +60,6 @@ metadata/_custom_type_script = "uid://le6jfvhlcbou"
 alcance = 35.0
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_6_8"
+cuerpo = Rect2(-9.6, -4.2, 20, 13.32)
+centro_golpe = Vector2(0.68, 2.32)
+alcance_marcado = 10.4

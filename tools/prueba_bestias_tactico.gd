@@ -97,7 +97,7 @@ func _correr() -> void:
 		if not ALCANCES.has(clave):
 			continue
 		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
-		_ver(is_equal_approx(t.alcance_de(e), float(ALCANCES[clave])), "alcance del basico %.0f" % ALCANCES[clave])
+		_ver(is_equal_approx(t.alcance_de(e), _alcance_esperado(ed, clave)), "alcance del basico %.0f" % _alcance_esperado(ed, clave))
 		if clave == "bestia_acorazada":
 			await _probar_acorazada(combat, t, e, al)
 		if clave == "acechador":
@@ -266,3 +266,8 @@ func _colocar(t, al: Array, sitios: Array) -> void:
 	for i in al.size():
 		var s: Vector2 = sitios[i] if i < sitios.size() else sitios[0] + Vector2(-260 - 40 * i, 90)
 		t._colocar(al[i], t.cuerpo_de(al[i]), s - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+
+
+# El MARCADO A MANO por el jefe (09/10, EnemyData.alcance_marcado) manda sobre la tabla de antes.
+func _alcance_esperado(ed: EnemyData, clave: String) -> float:
+	return ed.alcance_real() if ed.alcance_marcado > 0.0 else float(ALCANCES[clave])

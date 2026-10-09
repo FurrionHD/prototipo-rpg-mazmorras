@@ -76,18 +76,21 @@ enum DanoTipo { CORTE, CONTUNDENTE }
 # de mundo, ocupa ~125). La primera vez lo medi a x1,6 y todo salio un 45% largo.
 # Y luego, jugandolo, lo quiso A LA MITAD en todas las armas (23/09): "me sigue pareciendo mucho".
 # Y despues un 50% mas sobre eso, y ESTE ES EL PUNTO DEFINITIVO (23/09): no tocar sin que lo pida.
+# 09/10 (el jefe y su hermano: "el rango de golpear del personaje es muy corto"): MINIMO 34 desde el CENTRO de tu
+# caja (los puños y la daga) y a las demas se les SUMA lo mismo (+19), no se multiplica: "ha sumado mucho rango a las
+# armas de 2 manos". Ahora se mide desde el centro de tu caja, no desde el borde de lo que pisas.
 const ALCANCE_POR_TIPO := {
-	Tipo.PUNOS: 15.0,
-	Tipo.DAGA: 15.0,
-	Tipo.ESPADA_CORTA: 18.75,
-	Tipo.MAZA_PEQ: 18.75,
-	Tipo.BASTON: 21.0,
-	Tipo.ESPADA_LARGA: 23.25,
+	Tipo.PUNOS: 34.0,
+	Tipo.DAGA: 34.0,
+	Tipo.ESPADA_CORTA: 37.75,
+	Tipo.MAZA_PEQ: 37.75,
+	Tipo.BASTON: 40.0,
+	Tipo.ESPADA_LARGA: 42.25,
 	# El estoque, casi como el mandoble (24/09, lo pidio el): "estiras el brazo para las estocadas".
-	Tipo.ESTOQUE: 32.25,
-	Tipo.HACHA_GRANDE: 32.25,
-	Tipo.MARTILLO_GRANDE: 32.25,
-	Tipo.MANDOBLE: 34.5,
+	Tipo.ESTOQUE: 51.25,
+	Tipo.HACHA_GRANDE: 51.25,
+	Tipo.MARTILLO_GRANDE: 51.25,
+	Tipo.MANDOBLE: 53.5,
 	# A DISTANCIA (02/10, provisional hasta su paso 1 en el tactico): disparan de lejos; lo que les
 	# cuesta es el quemarropa, no el alcance.
 	Tipo.ARCO: 160.0,

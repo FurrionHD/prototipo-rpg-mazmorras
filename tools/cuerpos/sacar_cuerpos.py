@@ -9,7 +9,9 @@ import json, os, sys
 from PIL import Image
 
 def es_rojo(c): return c[0] > 170 and c[1] < 90 and c[2] < 90
-def es_azul(c): return c[2] > 150 and c[0] < 110 and c[1] < 130 and c[2] - c[0] > 80
+def es_azul(c):
+    # El VERDE vale igual (en el Rey Slime, que es azul, no se veia el azul).
+    return (c[2] > 150 and c[0] < 110 and c[2] - c[0] > 80) or (c[1] > 150 and c[0] < 110 and c[2] < 110)
 
 def componentes(pts):
     pts = set(pts); out = []
