@@ -4962,6 +4962,8 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var estilo: int = int(ev.get("estilo", 0))
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
+	if estilo == CombatFX.Estilo.CRIA_LANZADA:
+		return   # lo que vuela es la propia cria (lanzar_cria)
 	# LOS DEL SLIME PROFUNDO (07/10): el pinchazo de la anemona, del slime (a) a quien le pega (v); el destello helado,
 	# en los pies de quien se queda congelado (v).
 	if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA or estilo == CombatFX.Estilo.PROFUNDO_HELADA:
@@ -5634,9 +5636,19 @@ func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: flo
 		return
 	if not _es_mio(c):
 		_pos[c] = hasta
-	_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes)
+	_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes, dur, arco)
 	anotar_desliz(c, hasta, modo, golpes)
-	(_deslices.back() as Dictionary)["dur"] = dur
+	(_deslices.back() as Dictionary)["dur"] = dur   # (como siempre: aqui manda lo pedido, tambien en el empujon)
+	(_deslices.back() as Dictionary)["arco"] = arco
+
+
+# EN EL ESPEJO: lo que tarda y lo alto que va por el aire el ultimo desliz que ha llegado por red. Sin duracion en el
+# paquete se queda la suya (la del empujon, T_TIRON, la pone anotar_desliz).
+func ajustar_ultimo_desliz(dur: float, arco: float) -> void:
+	if _deslices.is_empty():
+		return
+	if dur > 0.0 or int((_deslices.back() as Dictionary)["modo"]) != Desliz.EMPUJON:
+		(_deslices.back() as Dictionary)["dur"] = dur
 	(_deslices.back() as Dictionary)["arco"] = arco
 
 
@@ -5955,17 +5967,6 @@ const T_NACER_MAX := 1.5              # si la gota no llega (o llego antes que s
 var _por_nacer: Dictionary = {}       # Combatant -> segundos esperando la gota
 var _sitios_cria: Array = []          # [[pos, t_msec]]: los ya pedidos, cuyo cuerpo aun puede no estar
 
-func dar_cuerpo_a_cria(rey: Combatant, cria: Combatant, data: EnemyData) -> void:
-	if _pantalla._espejo or cuerpo_de(rey) == null:
-		return
-	var slot: int = _pantalla._enemies.find(cria)
-	if slot < 0:
-		return
-	var p: Vector2 = sitio_para_cria(rey)
-	_sitios_cria.append([p, Time.get_ticks_msec()])
-	Game.dar_cuerpo_a_cria(slot, data, p, 0.2)   # la 't' con la que nace en la pelea (altas._invocar_slime)
-
-
 # LAS CRIAS LANZADAS (09/10, el 14 del playtest 08/10: las del slime brotado salian invisibles o pegadas). Nacen en
 # 'origen' (los pies de quien las suelta: el brotado que se divide, guardados ANTES de que su hueco cambie de dueño) y
 # salen VOLANDO EN ARCO hasta 'hasta' (cria_con_cuerpo); al caer se levantan ('nacer'). No pregunta por el cuerpo del
@@ -5974,14 +5975,16 @@ const T_VUELO_CRIA := 0.45
 const ALTO_VUELO_CRIA := 30.0
 var _vuelo_cria: Dictionary = {}   # slot -> destino
 
-func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vector2) -> void:
+# 'con_gota' = quien la lanza manda tambien su CombatFX.Estilo.CRIA_LANZADA (el Rey): se levanta con ese impacto, al caer,
+# en todas las maquinas. Sin el (el brotado, que ya esta muerto), por tiempo: al acabar el vuelo.
+func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vector2, con_gota: bool = false) -> void:
 	if _pantalla._espejo:
 		return
 	var slot: int = _pantalla._enemies.find(cria)
 	if slot < 0:
 		return
 	_sitios_cria.append([hasta, Time.get_ticks_msec()])
-	_vuelo_cria[slot] = hasta
+	_vuelo_cria[slot] = [hasta, con_gota]
 	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2)
 
 
@@ -6012,6 +6015,40 @@ func cabe_cria(p: Vector2, data: EnemyData, holgura: float = 4.0) -> bool:
 	return true
 
 
+# EL SITIO DE UNA CRIA DEL REY (09/10, el 16 del playtest 08/10; lo eligio el: "detras de los jugadores, para
+# acorralarlos"): DETRAS del de los tuyos mas cercano al Rey, a 40-70 px del borde de su cuerpo en la linea Rey -> el,
+# abriendose en abanico a los lados; si no cabe, alrededor de el; y si tampoco, junto al BORDE del Rey (nunca dentro).
+const ACORRALA_MIN := 40.0
+const ACORRALA_MAX := 70.0
+
+func sitio_cria_acorrala(rey: Combatant, data: EnemyData) -> Vector2:
+	var pr: Vector2 = pies_de(rey)
+	var mejor: Combatant = null
+	for al in _pantalla._aliados:
+		if al.is_alive() and cuerpo_de(al) != null and (mejor == null or pies_de(al).distance_to(pr) < pies_de(mejor).distance_to(pr)):
+			mejor = al
+	if mejor != null:
+		var caja: Rect2 = bulto_de(mejor)
+		var dir: Vector2 = pies_de(mejor) - pr
+		if dir.length_squared() < 0.01:
+			dir = Vector2.DOWN
+		dir = dir.normalized()
+		var cc: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
+		for giros in [[0.0, 0.4, -0.4, 0.8, -0.8], [1.2, -1.2, 1.6, -1.6, 2.0, -2.0, 2.5, -2.5, PI]]:
+			for lejos in [(ACORRALA_MIN + ACORRALA_MAX) * 0.5, ACORRALA_MIN, ACORRALA_MAX]:
+				for giro in giros:
+					var d: Vector2 = dir.rotated(float(giro))
+					var a: float = caja.size.x * 0.5
+					var b: float = caja.size.y * 0.5
+					var borde: float = sqrt(a * d.x * a * d.x + b * d.y * b * d.y)
+					var su: float = sqrt(cc.size.x * 0.5 * d.x * cc.size.x * 0.5 * d.x + cc.size.y * 0.5 * d.y * cc.size.y * 0.5 * d.y)
+					var p: Vector2 = caja.get_center() + d * (borde + float(lejos) + su) - cc.get_center()
+					if cabe_cria(p, data):
+						return p
+	var hacia: Vector2 = (pies_de(mejor) - pr) if mejor != null else Vector2.DOWN
+	return sitio_cria_lanzada(bulto_de(rey), data, hacia)
+
+
 # EL SITIO DE UNA CRIA DEL BROTADO: a 50-80 px del BORDE de su cuerpo ('caja', en el mundo), hacia 'dir' (abriendose en
 # abanico si no cabe) y, si no hay nada, mas lejos. 'lado' (+1/-1) = a que lado: las dos salen a lados opuestos.
 const CRIA_LEJOS_MIN := 50.0
@@ -6036,48 +6073,6 @@ func sitio_cria_lanzada(caja: Rect2, data: EnemyData, dir: Vector2) -> Vector2:
 	return c + d0 * (maxf(caja.size.x, caja.size.y) * 0.5 + CRIA_LEJOS_MIN)
 
 
-func sitio_para_cria(rey: Combatant) -> Vector2:
-	var pr: Vector2 = pos_de(rey)
-	var suma := Vector2.ZERO
-	var n: int = 0
-	for al in _pantalla._aliados:
-		if al.is_alive() and cuerpo_de(al) != null:
-			suma += pos_de(al)
-			n += 1
-	var dir: Vector2 = (suma / float(n) - pr).normalized() if n > 0 else Vector2.DOWN
-	if dir == Vector2.ZERO:
-		dir = Vector2.DOWN
-	var ocupados: Array = []
-	var ahora: int = Time.get_ticks_msec()
-	for s in _sitios_cria.duplicate():
-		if ahora - int(s[1]) > 4000:
-			_sitios_cria.erase(s)
-		else:
-			ocupados.append(s[0])
-	for grupo in [_pantalla._enemies, _pantalla._aliados]:
-		for c in grupo:
-			if c != rey and (c as Combatant).is_alive() and cuerpo_de(c) != null:
-				ocupados.append(pos_de(c))
-	var cuerpo_rey: Node2D = cuerpo_de(rey)
-	var base: float = radio_pisa(rey) + 18.0
-	for anillo in 3:
-		var r: float = base + float(anillo) * 18.0
-		for giro in [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8]:
-			var p: Vector2 = pr + dir.rotated(float(giro)) * r
-			if not _en_arena(p):
-				continue
-			if not _sobre_suelo(p, cuerpo_rey):
-				continue
-			var libre: bool = true
-			for o in ocupados:
-				if p.distance_to(o) < SEPARA_CRIA:
-					libre = false
-					break
-			if libre:
-				return p
-	return pr + dir * base
-
-
 # Game le acaba de poner cuerpo (el suyo, o el espejo que llego por red): charco quieto hasta la gota.
 func cria_con_cuerpo(slot: int) -> void:
 	if slot < 0 or slot >= _pantalla._enemies.size():
@@ -6088,8 +6083,10 @@ func cria_con_cuerpo(slot: int) -> void:
 		return
 	# LANZADA (ver lanzar_cria): sale volando en arco hasta su sitio y se levanta justo al caer.
 	var vuela: bool = _vuelo_cria.has(slot)
+	var con_gota: bool = false
 	if vuela:
-		var hasta: Vector2 = _vuelo_cria[slot]
+		var hasta: Vector2 = _vuelo_cria[slot][0]
+		con_gota = bool(_vuelo_cria[slot][1])
 		_vuelo_cria.erase(slot)
 		_pos[c] = cuerpo.global_position
 		pedir_desliz(c, hasta, Desliz.YA, 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
@@ -6107,7 +6104,7 @@ func cria_con_cuerpo(slot: int) -> void:
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": INF, "encaje": false, "cola": PackedStringArray(),
 		"sostener": false}
 	# La lanzada nace al caer (T_NACER_MAX - lo que vuela); la del Brote, cuando le cae la gota del Rey.
-	_por_nacer[c] = maxf(T_NACER_MAX - T_VUELO_CRIA - 0.05, 0.0) if vuela else 0.0
+	_por_nacer[c] = maxf(T_NACER_MAX - T_VUELO_CRIA - 0.05, 0.0) if vuela and not con_gota else 0.0
 
 
 func _nacer_cria(c: Combatant) -> void:

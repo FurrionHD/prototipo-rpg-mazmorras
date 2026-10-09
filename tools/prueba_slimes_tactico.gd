@@ -247,7 +247,7 @@ func _correr() -> void:
 	_ver(vistas.keys().any(func(k): return String(k).begins_with("deshincharse")), "interrumpida, se deshincha")
 	_ver(not cu.has_meta("gesto_pelea"), "y vuelve a lo suyo")
 
-	# 7) EL BROTE: las crias nacen con CUERPO, entre el que las suelta y los tuyos, sin pisarse, y se levantan.
+	# 7) EL BROTE: las crias nacen con CUERPO, salen VOLANDO del Rey y caen DETRAS de los tuyos, sin pisarse, y se levantan.
 	print("--- brote ---")
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	var inv: AbilityData = load("res://resources/abilities/rey_slime_invocacion.tres")
@@ -267,18 +267,24 @@ func _correr() -> void:
 			if cc != null and cc.get("_sprite") is AnimatedSprite2D:
 				anims_cria[String((cc.get("_sprite") as AnimatedSprite2D).animation).get_slice("_", 0)] = true
 	_ver(crias.size() == 2, "el Brote mete 2 crias (hay %d)" % crias.size())
-	var centro_tuyos := Vector2.ZERO
+	# (09/10, el 16 del playtest 08/10) DETRAS del tuyo mas cercano al Rey, para acorralaros, y NUNCA dentro del Rey.
+	var cerca: Combatant = null
 	for a in al:
-		centro_tuyos += t.pos_de(a)
-	centro_tuyos /= float(al.size())
-	var hacia: Vector2 = (centro_tuyos - t.pos_de(e)).normalized()
+		if a.is_alive() and (cerca == null or t.pies_de(a).distance_to(t.pies_de(e)) < t.pies_de(cerca).distance_to(t.pies_de(e))):
+			cerca = a
+	var hacia: Vector2 = (t.pies_de(cerca) - t.pies_de(e)).normalized()
+	var caja_rey: Rect2 = t.bulto_de(e)
 	for c in crias:
 		var cc: Node2D = t.cuerpo_de(c)
 		_ver(cc != null, "la cria %s tiene cuerpo en el mapa" % c.nombre)
 		if cc == null:
 			continue
-		print("  cria %s en %s (rey en %s)" % [c.nombre, str(cc.global_position.round()), str(t.pos_de(e).round())])
-		_ver((cc.global_position - t.pos_de(e)).dot(hacia) > 0.0, "y nace del lado de los tuyos")
+		var caja_c: Rect2 = t.bulto_de(c)
+		print("  cria %s en %s (rey en %s, %s el mas cercano en %s), %.0f px del borde del Rey" % [c.nombre,
+			str(cc.global_position.round()), str(t.pos_de(e).round()), cerca.nombre, str(t.pos_de(cerca).round()),
+			Cuerpos.hueco_entre(caja_c, caja_rey)])
+		_ver(Cuerpos.hueco_entre(caja_c, caja_rey) > 0.0, "y no esta DENTRO del Rey")
+		_ver((t.pies_de(c) - t.pies_de(cerca)).dot(hacia) > 0.0, "y cae DETRAS del tuyo mas cercano")
 		_ver(not cc.has_meta("gesto_pelea"), "y ya ha acabado de nacer")
 	if crias.size() == 2 and t.cuerpo_de(crias[0]) != null and t.cuerpo_de(crias[1]) != null:
 		_ver(t.pos_de(crias[0]).distance_to(t.pos_de(crias[1])) >= t.SEPARA_CRIA - 0.5, "las dos no se pisan")
