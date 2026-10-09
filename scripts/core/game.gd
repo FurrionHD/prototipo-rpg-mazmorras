@@ -9344,6 +9344,8 @@ const _MANIFIESTO_PLANTILLAS := [
 	"res://resources/backpacks/mochila_basica.tres",
 	"res://resources/tools/pico_basico.tres", "res://resources/tools/hoz_basica.tres",
 	"res://resources/tools/hacha_basica.tres",
+	"res://resources/tools/cana_basica.tres", "res://resources/tools/cuchillo_basico.tres",
+	"res://resources/tools/farolillo_basico.tres",
 	"res://resources/armor/cuero_botas.tres", "res://resources/armor/cuero_casco.tres",
 	"res://resources/armor/cuero_manos.tres", "res://resources/armor/cuero_pantalones.tres",
 	"res://resources/armor/cuero_pecho.tres",
@@ -9356,6 +9358,10 @@ const _MANIFIESTO_PLANTILLAS := [
 	"res://resources/armor/placas_botas.tres", "res://resources/armor/placas_casco.tres",
 	"res://resources/armor/placas_manos.tres", "res://resources/armor/placas_pantalones.tres",
 	"res://resources/armor/placas_pecho.tres",
+	# La TELA (08/10, fase 2 de los planes tras el playtest): sin apuntar no viajaba en el .exe.
+	"res://resources/armor/tela_botas.tres", "res://resources/armor/tela_casco.tres",
+	"res://resources/armor/tela_manos.tres", "res://resources/armor/tela_pantalones.tres",
+	"res://resources/armor/tela_pecho.tres",
 ]
 var _indice_plantillas: Dictionary = {}   # "clase|nombre" -> ruta (perezoso, ver _plantillas)
 
