@@ -96,6 +96,10 @@ func _es_cristal(p: Node) -> bool:
 
 # Hasta donde huele, desde su CENTRO: su medio cuerpo y OLFATO_PX mas (ver arriba).
 func olfato() -> float:
+	# El borde es el de su CUERPO MARCADO (09/10, EnemyData.cuerpo): lo mas lejos que llega su caja desde el nodo.
+	if e.has_method("caja_cuerpo"):
+		var r: Rect2 = e.caja_cuerpo()
+		return maxf(maxf(absf(r.position.x), absf(r.end.x)), maxf(absf(r.position.y), absf(r.end.y))) + OLFATO_PX
 	return Cuerpos.MEDIO_BASE + float(e.radio_extra) + OLFATO_PX
 
 

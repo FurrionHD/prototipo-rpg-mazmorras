@@ -113,7 +113,10 @@ const MAX_CONEXIONES := 32
 # 32 (09/10): unirse a una pelea que lleva un trabajador: _union_redirigida (el que solo la espeja te manda al que la
 #     ejecuta) y _union_reintenta (aun se esta montando). Y _devuelve_sobrantes (los bichos que el trabajador no tenia).
 #     Y _impactos pasa a FIABLE (iba unreliable_ordered y se tiraba detras del ATB).
-const PROTOCOLO := 32
+# 33 (09/10): pasillos un bloque mas anchos (TRAZADO 2: otra generacion de pisos) y los CUERPOS marcados de los enemigos
+#     (EnemyData.cuerpo / centro_golpe / alcance_marcado: otra colision, otro alcance y otras huellas). Un build del 32
+#     generaria otro piso y resolveria otros golpes.
+const PROTOCOLO := 33
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
