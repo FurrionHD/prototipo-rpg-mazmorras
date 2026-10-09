@@ -455,8 +455,16 @@ var _ultimo_en_golpear: Dictionary = {}   # Combatant -> PersonajeData
 # entrado en 'obj'. En el mapa solo si le ha pegado de cerca (el hueco entre los dos, a un paso). Tira la probabilidad
 # de la pasiva y, si sale, sus estados a quien le pego (con su resistencia, por la puerta comun) y su dibujo.
 const HUECO_CUERPO_A_CUERPO := 30.0
+# UNA TIRADA POR ACCION Y POR ENEMIGO (09/10, playtest 08/10: "la Rafaga me devolvio 4"): las pasivas de al recibir un
+# golpe (espinas, devolver corte, acido, filo de reflejo, al_ser_golpeado) se tiran con el PRIMER golpe que le entra en
+# cada accion, no con cada golpe de una habilidad de varios. Se vacia donde golpeados_en_la_accion y al abrir el turno
+# de un enemigo (_abrir_turno_enemigo).
+var _pasiva_hecha: Dictionary = {}   # Combatant -> true
 
 func _pasiva_al_golpearle(obj: Combatant, quien: Combatant, dmg: float = 0.0) -> void:
+	if obj == null or _pasiva_hecha.has(obj):
+		return
+	_pasiva_hecha[obj] = true
 	_reflejo(obj, quien)
 	_espinas(obj, quien)
 	_acido_piel(obj, quien)
@@ -1542,10 +1550,12 @@ func _begin_player_turn() -> void:
 	# come y se la interrumpe (la rama del aturdido, mas abajo).
 	if _player.retrasando and _player.charging != null and not _player.aturdido():
 		golpeados_en_la_accion.clear()
+		_pasiva_hecha.clear()
 		_llega_retrasada()
 		return
 	_preps_turno.clear()   # las preparaciones (Cargar, Untar) son de este turno
 	golpeados_en_la_accion.clear()   # un contraataque de antes no abre hueco para esta accion
+	_pasiva_hecha.clear()
 	if _dps_on:
 		_turnos_jugador += 1
 	_player_defending = false  # la guardia solo dura hasta tu proximo turno
@@ -2739,6 +2749,7 @@ func _tras_accion_jugador_varios(objs: Array) -> void:
 			_disparar_seguimientos(o)
 			break
 	golpeados_en_la_accion.clear()
+	_pasiva_hecha.clear()
 	var vistos: Dictionary = {}   # el mismo enemigo puede venir por el area Y por un rebote
 	for o in objs:
 		if o != null and not o.is_alive() and not vistos.has(o):

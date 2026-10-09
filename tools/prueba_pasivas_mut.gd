@@ -74,6 +74,36 @@ func _correr() -> void:
 	var quito: float = hp0 - al.current_hp
 	print("    hueco %.1f px, le quita %.1f (50 %% de su ataque = %.1f)" % [tm.hueco_entre(al, e), quito, e.atk() * 0.5])
 	_ver(absf(quito - e.atk() * 0.5) < 0.6, "las puas le hacen el 50 % de su ataque")
+	print("1b) una RAFAGA (4 golpes en la misma accion): UNA tirada, no cuatro (playtest 08/10)")
+	var hp_r: float = al.current_hp
+	for _g in 3:
+		combat._pasiva_al_golpearle(e, al, 10.0)
+	_ver(is_equal_approx(hp_r, al.current_hp), "los golpes 2..4 de la misma accion no vuelven a soltar puas")
+	combat.enemigos._abrir_turno_enemigo()
+	_ver(combat._pasiva_hecha.is_empty(), "el turno de un enemigo abre otra accion")
+	combat._pasiva_al_golpearle(e, al, 10.0)
+	_ver(al.current_hp < hp_r - 0.5, "en la accion siguiente vuelve a tirar")
+	combat._pasiva_hecha.clear()
+	print("1c) obsidiana: devolver corte, una vez por accion")
+	var e_dev: float = e.devuelve_corte_prob
+	var esp: bool = e.espinas
+	e.espinas = false
+	e.devuelve_corte_prob = 1.0
+	var e_frac: float = e.devuelve_corte_frac
+	e.devuelve_corte_frac = 0.5   # el de la obsidiana (este es un punzante)
+	var tipo0: int = al.dano_tipo
+	al.dano_tipo = 0
+	var hp_d: float = al.current_hp
+	for _g in 4:
+		combat._pasiva_al_golpearle(e, al, 20.0)
+	var vuelto: float = hp_d - al.current_hp
+	print("    devuelto %.2f (la mitad de UN golpe de 20 = %.2f)" % [vuelto, 20.0 * e.devuelve_corte_frac])
+	_ver(absf(vuelto - 20.0 * e.devuelve_corte_frac) < 0.01, "devuelve la mitad de un solo golpe")
+	e.devuelve_corte_prob = e_dev
+	e.devuelve_corte_frac = e_frac
+	e.espinas = esp
+	al.dano_tipo = tipo0
+	combat._pasiva_hecha.clear()
 	print("2) de lejos no (magia o arco)")
 	cu_a.global_position = cu_e.global_position + Vector2(-200, 0)
 	tm._pos[al] = cu_a.global_position
