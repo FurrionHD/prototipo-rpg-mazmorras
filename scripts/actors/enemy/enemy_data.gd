@@ -34,9 +34,12 @@ enum Familia { NINGUNA, SLIME, ROEDOR, INSECTO, PIEDRA, BESTIA, HUMANOIDE }
 const ALCANCE_BASE := 15.0   # como la daga, el arma mas corta. DEFINITIVO (23/09)
 
 
-func alcance_real() -> float:
+# 'mult' = lo que se agranda el MUTANTE (mult_mutante()["escala"]): su alcance marcado crece con el, en la misma
+# proporcion que su cuerpo (09/10: un mutante 1,3 veces mas grande pegaba con el alcance de su base y el basico apenas le
+# asomaba del cuerpo; sus habilidades, que nunca son mas cortas que su basico, se quedaban cortas con el).
+func alcance_real(mult: float = 1.0) -> float:
 	if alcance_marcado > 0.0:
-		return alcance_marcado * maxf(0.1, escala_visual)   # el marcado a mano manda (09/10)
+		return alcance_marcado * maxf(0.1, escala_visual) * maxf(0.1, mult)   # el marcado a mano manda (09/10)
 	return alcance if alcance > 0.0 else ALCANCE_BASE
 
 
@@ -925,7 +928,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 	c.fx_basico = fx_basico
 	c.fx_basico_mapa = fx_basico_mapa
 	c.anim_basico = anim_basico
-	c.alcance = alcance_real()
+	c.alcance = alcance_real(float(mm.get("escala", 1.0)) if mutante else 1.0)
 	c.mutante = mutante
 	c.mutacion = mutacion if mutante else &""
 	c.grado_mut = grado_de(mutante, mutacion)

@@ -3,6 +3,9 @@
 # habilidad suya (las de su ficha que tienen huella en el mapa) y una para su basico: el enemigo quieto MIRANDO AL ESTE,
 # su CUERPO marcado en rojo, su centro, la raya de su alcance en azul y la HUELLA de la habilidad hacia el este en
 # naranja, calculada con la MISMA cuenta que la pelea (CombatTactico.forma_enemigo). Tu personaje al lado, de escala.
+# Y LOS MUTANTES (09/10, el jefe: "dame todas las habilidades, mutantes incluidos"): uno de cada mutacion de cada arbol
+# (EnemyData.mutaciones), a su tamaño, con su alcance (crece con el) y SUS habilidades (las de su mutacion, o las de su
+# base si no trae propias) y lo que suelta al morir si tiene huella. Su hoja: <enemigo>__<mutacion>.png.
 #
 # CON VENTANA.
 #   GOLPES_SALIDA=C:/Users/dasui/Desktop/ataques_mapa/golpes_enemigos godot --path . res://tools/lamina_golpes_enemigos.tscn
@@ -98,11 +101,22 @@ func _correr() -> void:
 		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % n, lejos, {})
 		await _esperar(1)
 		_congelar_todos()
+	# Los MUTANTES de cada arbol, con el generador del piso (como las crias: Game.nacer_cria_aqui).
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	for n in nombres:
+		var edm: EnemyData = load("res://scenes/actors/enemy/%s.tres" % n) as EnemyData
+		if edm == null or piso == null:
+			continue
+		for mu in edm.mutaciones:
+			if mu != null and String(mu.id) != "":
+				piso.crear_enemigo(edm, lejos, 0.0, -1.0, 1, false, {}, mu.id)
+				await _esperar(1)
+				_congelar_todos()
 	for _i in 20:
 		await _esperar(1)
 		_congelar_todos()
 	var enemigos: Array = get_tree().get_nodes_in_group("enemy")
-	enemigos.sort_custom(func(a, b): return String(a.data.enemy_name) < String(b.data.enemy_name))
+	enemigos.sort_custom(func(a, b): return String(a.data.enemy_name) + "|" + String(a.mutacion) < String(b.data.enemy_name) + "|" + String(b.mutacion))
 	var sitio: Vector2 = jug.global_position + Vector2(2000, 0)
 	jug.visible = false
 	var cam: Camera2D = jug.get_node_or_null("Camera2D") as Camera2D
@@ -149,7 +163,8 @@ func _correr() -> void:
 		var caja: Rect2 = Cuerpos.caja_de(e)
 		var pies: Vector2 = e.global_position + (e.centro_golpe() if e.has_method("centro_golpe") else Vector2.ZERO)
 		var refr: Rect2 = Tactico.ancho_de_dibujo(e) if ed.golpe_ancho_dibujo else caja
-		var alcance: float = ed.alcance_real()
+		var mu: MutacionData = ed.mutacion_de(e.mutacion) if bool(e.mutante) else null
+		var alcance: float = ed.alcance_real(e._mut_escala())
 		muneco.global_position = Vector2(caja.position.x - 30.0, caja.end.y - PoseJugador.CAJA_CUERPO.end.y)
 		cam.global_position = e.global_position + Vector2(60, 0)
 		capa.e = e
@@ -158,9 +173,15 @@ func _correr() -> void:
 		capa.alcance = alcance
 		# Las casillas: el basico y cada habilidad con huella.
 		var casillas: Array = [["Basico (alcance %.0f)" % alcance, null]]
-		for ab in ed.habilidades:
+		var habs: Array = mu.habilidades if mu != null and not mu.habilidades.is_empty() else ed.habilidades
+		for ab in habs:
 			if ab is AbilityData and int((ab as AbilityData).forma) >= 0:
 				casillas.append([String((ab as AbilityData).nombre), ab])
+		if mu != null and mu.revienta_al_morir != null and int(mu.revienta_al_morir.forma) >= 0:
+			casillas.append(["Al morir: %s" % mu.revienta_al_morir.nombre, mu.revienta_al_morir])
+		var quien: String = String(mu.nombre) if mu != null and mu.nombre != "" else String(ed.enemy_name)
+		if mu != null and mu.habilidades.is_empty():
+			quien += " (las de su base)"
 		var paginas: int = ceili(float(casillas.size()) / float(COLUMNAS * FILAS))
 		for pg in paginas:
 			var hoja := Image.create(CELDA.x * COLUMNAS, CELDA.y * FILAS, false, Image.FORMAT_RGBA8)
@@ -171,7 +192,7 @@ func _correr() -> void:
 					break
 				var ab = casillas[idx][1]
 				capa.formas = []
-				capa.titulo = "%s - %s" % [ed.enemy_name, String(casillas[idx][0])]
+				capa.titulo = "%s - %s" % [quien, String(casillas[idx][0])]
 				if ab != null:
 					var hacia: Vector2 = pies + Vector2(maxf(alcance, 40.0) + 30.0, 0)
 					capa.formas = [[Tactico.forma_enemigo(ab, pies, caja, refr, alcance, hacia), Color(1.0, 0.6, 0.15)]]
@@ -185,8 +206,8 @@ func _correr() -> void:
 				rec = rec.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 				var dst := Vector2i((k % COLUMNAS) * CELDA.x, (k / COLUMNAS) * CELDA.y)
 				hoja.blit_rect(img, rec, dst)
-			var nombre: String = String(ed.resource_path).get_file().get_basename()
+			var nombre: String = String(ed.resource_path).get_file().get_basename() + ("__" + String(mu.id) if mu != null else "")
 			var ruta: String = "%s/%s%s.png" % [_salida, nombre, "" if paginas == 1 else "_%d" % (pg + 1)]
 			hoja.save_png(ruta)
-			print("[foto] ", ruta, "  (", ed.enemy_name, ")")
+			print("[foto] ", ruta, "  (", quien, ")")
 	get_tree().quit(0)
