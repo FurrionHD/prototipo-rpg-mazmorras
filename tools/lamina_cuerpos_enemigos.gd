@@ -44,6 +44,10 @@ class Capa extends Node2D:
 			draw_string(f, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 0.85, 0.4))
 
 
+func _v(p: Vector2) -> Array:
+	return [snappedf(p.x, 0.1), snappedf(p.y, 0.1)]
+
+
 func _congelar_todos() -> void:
 	for e in get_tree().get_nodes_in_group("enemy"):
 		(e as Node).process_mode = Node.PROCESS_MODE_DISABLED
@@ -58,6 +62,7 @@ func _personaje_al_lado(e: Node2D) -> void:
 	var n := Node2D.new()
 	n.global_position = Vector2(r.position.x - 26.0, pies_y - PoseJugador.PIES_BAJO_NODO)
 	get_tree().current_scene.add_child(n)
+	e.set_meta("pj_al_lado", n)
 	var m := MunecoJugador.new()
 	n.add_child(m)
 	m.montar(Game.lider())
@@ -166,6 +171,19 @@ func _correr() -> void:
 		await _esperar(4)
 		await RenderingServer.frame_post_draw
 		get_tree().root.get_viewport().get_texture().get_image().save_png("%s_%d.png" % [_salida, pag + 1])
+		# DONDE CAE CADA UNO EN LA IMAGEN (para pasar las marcas del jefe a medidas del juego): el nodo del enemigo, su
+		# dibujo y el nodo del personaje de al lado, en pixeles de la foto.
+		var xf: Transform2D = get_tree().root.get_viewport().get_canvas_transform()
+		var datos: Array = []
+		for e in capa.enemigos:
+			var r: Rect2 = Tactico.rect_dibujo(e)
+			datos.append({"res": String(e.data.resource_path), "nombre": String(e.data.enemy_name),
+				"escala": e.data.escala_visual, "nodo": _v(xf * e.global_position),
+				"dibujo": [_v(xf * r.position), _v(xf * r.end)], "pj": _v(xf * (e.get_meta("pj_al_lado") as Node2D).global_position),
+				"zoom": cam.zoom.x})
+		var fa := FileAccess.open("%s_%d.json" % [_salida, pag + 1], FileAccess.WRITE)
+		fa.store_string(JSON.stringify(datos, "  "))
+		fa.close()
 		print("[foto] %s_%d.png" % [_salida, pag + 1])
 		capa.queue_free()
 	# EL PERSONAJE AL LADO DEL MINOTAURO, en una foto aparte y sin cuadricula, para medir los dos en pixeles.
