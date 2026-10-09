@@ -31,6 +31,15 @@ func _ver(ok: bool, que: String) -> void:
 		_mal += 1
 
 
+func _barra_se_ve(combat: Node, c: Combatant) -> bool:
+	var idx: int = combat._enemies.find(c)
+	for b in combat._bloques:
+		if int((b as Dictionary).get("idx", -99)) == idx:
+			var col = (b as Dictionary).get("columna")
+			return col is Control and (col as Control).is_visible_in_tree()
+	return false
+
+
 func _correr() -> void:
 	var ref = ResourceLoader.load("res://tools/huellas/mundo_ref.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if ref is SaveData:
@@ -88,8 +97,19 @@ func _correr() -> void:
 			if not rastro.has(c):
 				rastro[c] = []
 			(rastro[c] as Array).append([Time.get_ticks_msec() - t0, cu.global_position,
-				(sp as Node2D).position.y if sp is Node2D else 0.0, cu.is_visible_in_tree()])
+				(sp as Node2D).position.y if sp is Node2D else 0.0, cu.is_visible_in_tree(), _barra_se_ve(combat, c),
+				"%s/%s" % [(sp as AnimatedSprite2D).animation, str(tm._gestos_bicho.get(cu, {}).get("dur", "-"))]])
 		await get_tree().process_frame
+	for c in crias:
+		var cux: Node2D = tm.cuerpo_de(c)
+		var spx = cux.get("_sprite")
+		var idx: int = combat._enemies.find(c)
+		var hay_bloque: bool = false
+		for b in combat._bloques:
+			if int((b as Dictionary).get("idx", -99)) == idx:
+				hay_bloque = true
+		print("    [diag] gesto %s sin_formar %s, anim %s jugando %s, por_nacer %s, bloque %s idx %d" % [str(tm._gestos_bicho.get(cux, {})), tm.cria_sin_formar(cux),
+			(spx as AnimatedSprite2D).animation, (spx as AnimatedSprite2D).is_playing(), tm._por_nacer.has(c), hay_bloque, idx])
 	for c in crias:
 		var r: Array = rastro.get(c, [])
 		_ver(r.size() > 10, "la cria %s tiene cuerpo (%d fotogramas)" % [c.nombre, r.size()])
@@ -131,6 +151,17 @@ func _correr() -> void:
 		_ver(not vista_dentro, "no se ve dentro del Rey antes de salir")
 		_ver(t_llega - t_sale >= 250, "y el vuelo se ve (%d ms)" % (t_llega - t_sale))
 		_ver(bool(r[-1][3]), "y al final se ve")
+		var barra_en_aire: bool = false
+		for i in r.size():
+			if int(r[i][0]) <= t_llega and bool(r[i][4]):
+				barra_en_aire = true
+		_ver(not barra_en_aire, "su barra de vida no sale mientras vuela")
+		_ver(bool(r[-1][4]), "y sale cuando ya se ha formado en el suelo")
+		var cambios: Array = []
+		for i in r.size():
+			if i == 0 or str(r[i][5]) != str(r[i - 1][5]):
+				cambios.append("%dms %s" % [int(r[i][0]), str(r[i][5])])
+		print("      anim: ", " | ".join(cambios))
 		var muestra: Array = []
 		for i in range(0, r.size(), maxi(1, r.size() / 12)):
 			muestra.append("%dms %s %.0f" % [int(r[i][0]), str((r[i][1] as Vector2).round()), float(r[i][2])])

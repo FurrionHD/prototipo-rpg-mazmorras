@@ -5761,6 +5761,10 @@ func _tick_deslices(delta: float) -> void:
 			(sp as Node2D).position = Vector2(d["sp0"]) - Vector2(0.0, sin(PI * u) * arco)
 		if u >= 1.0:
 			_deslices.erase(d)
+			# LA CRIA SE LEVANTA AL CAER (09/10): el escupitajo del Rey es solo dibujo y no tiene impacto, asi que la
+			# cria se quedaba de charco hasta T_NACER_MAX.
+			if bool(d.get("cria", false)) and _por_nacer.has(c):
+				_nacer_cria(c)
 			_enviar_bichos()
 			if _es_mio(c) and _quien == c and _fase == Fase.MOVIENDO:
 				_inicio = cuerpo.global_position
@@ -6124,6 +6128,25 @@ func _nacer_cria(c: Combatant) -> void:
 	_por_nacer.erase(c)
 	_soltar_cria(c, -1.0)
 	gesto_bicho_en_mapa(c, &"nacer", -1.0)
+
+
+# ¿Es una cria que aun no se ha formado en el suelo? Escondida, volando, en charco esperando o levantandose ('nacer').
+# Lo pregunta su barra de vida (combat_figuras_mapa.seguir), que no sale hasta que esta formada.
+func cria_sin_formar(cuerpo: Node2D) -> bool:
+	if cuerpo == null or not cuerpo.has_meta("cria_brote"):
+		return false
+	if not cuerpo.visible:
+		return true
+	for c in _por_nacer.keys():
+		if cuerpo_de(c) == cuerpo:
+			return true
+	for d in _deslices:
+		if bool(d.get("cria", false)) and cuerpo_de(d["c"]) == cuerpo:
+			return true
+	var sp = cuerpo.get("_sprite")
+	# Levantandose: su gesto 'nacer' aun no ha acabado (el reloj del gesto, no el sprite, que puede seguir sonando).
+	return _gestos_bicho.has(cuerpo) and sp is AnimatedSprite2D \
+		and String((sp as AnimatedSprite2D).animation).begins_with("nacer")
 
 
 # La cria del Rey que esperaba escondida sale volando: 'vuelo' = lo que tarda en caer, en tiempo de la pelea (-1 = el
