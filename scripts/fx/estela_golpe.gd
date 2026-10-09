@@ -48,7 +48,7 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, semilla: int, espera: flo
 	e._rng.seed = semilla
 	e._t = -maxf(espera - T_BALANCEO, 0.0)
 	e.z_as_relative = false
-	e.z_index = Game.Z_PERSONAJES + 80
+	e.z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	e.process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(e)
 	return e

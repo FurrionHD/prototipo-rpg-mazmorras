@@ -56,7 +56,7 @@ enum Suelo { TELARANA, RODADA, OLEADA }
 const _MODO_DE_SUELO := [Modo.TELARANA, Modo.RODADA, Modo.OLEADA]
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const T_CLAVADO := 0.2            # lo que se quedan los colmillos clavados antes de salir
 const T_IRSE := 0.16
 const T_TELA_CAE := 0.4           # lo que vuela el ovillo hasta el suelo

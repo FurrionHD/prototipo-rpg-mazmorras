@@ -42,7 +42,7 @@ const ACERO := Color(0.80, 0.84, 0.90)
 const AIRE := Color(0.86, 0.90, 0.96)
 const NERVIO := Color(1.0, 0.93, 0.5)
 const POLVO := Color(0.55, 0.51, 0.45)
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 var modo: int = Modo.PUNZADA
 var _t: float = 0.0

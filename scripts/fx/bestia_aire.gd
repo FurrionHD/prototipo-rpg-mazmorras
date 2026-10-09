@@ -51,7 +51,7 @@ enum Modo { POLVO, CHILLIDO, ESTELA, SURCO, PISOTON, SAVIA, RAICES, RAMAZO,
 	RAMALAZO, PEGOTE, CHARCO, ATADO }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const T_POLVO := 0.28             # lo que tarda el anillo de polvo en llegar al borde
 const T_CERRADO := 0.22           # lo que se quedan las mandibulas cerradas antes de irse
 const T_IRSE := 0.18

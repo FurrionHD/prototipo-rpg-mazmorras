@@ -31,7 +31,7 @@ class_name MinotauroAire
 enum Modo { HACHAZO, CORNADA, SISMO, ESCARBA, PISOTON, BRAMIDO, RABIA, RABIOSO }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const GRAVEDAD := 320.0
 
 # Los colores. El acero y la sangre, los del hacha grande; el suelo, el de la mazmorra.

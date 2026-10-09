@@ -978,7 +978,8 @@ func _reordenar_arma_mano(i: int) -> void:
 			# arma detras del pelo igual. 40 da z ~2560: por delante de TODO menos la cara (2048, que
 			# aqui no se dibuja -- de espaldas no hay cara), y lejos del tope de Godot (+-4096).
 			prof = maxf(prof, 40.0)
-		c["nodo"].z_index = int(round(prof * 4.0)) * 16 + k
+		c["zp"] = int(round(prof * 4.0)) * 16 + k
+	_compactar_z()
 
 
 # ============================================================
@@ -1022,13 +1023,13 @@ func _ordenar() -> void:
 			var z: int = int(c["z"])
 			if c.has("z_atras"):
 				z = z if PoseJugador.profundidad(esq, c["ancla"]) > 0.0 else int(c["z_atras"])
-			c["nodo"].z_index = z
+			c["zp"] = z
 			continue
 		var prof: float = PoseJugador.profundidad(esq, c["ancla"])
 		# El orden de la lista (JugadorSprites.CAPAS) sigue mandando entre capas que estan a la
 		# misma profundidad: el peto va SIEMPRE por encima del torso, este donde este. La
 		# profundidad solo desempata delante/detras del cuerpo, que es lo que cambia al girar.
-		c["nodo"].z_index = int(round(prof * 4.0)) * 16 + i
+		c["zp"] = int(round(prof * 4.0)) * 16 + i
 	# La cara va por encima de TODO el cuerpo y no entra en el reparto por profundidad. No es un
 	# atajo: la cabeza esta casi en el eje del personaje, asi que su profundidad es casi cero y el
 	# orden lo decidiria el redondeo -- se te veria la cara por detras de tu propia cabeza en unas
@@ -1038,15 +1039,35 @@ func _ordenar() -> void:
 	# recorta -- lo rechaza con un error y deja el z_index ANTERIOR, o sea que la cara acaba
 	# ordenandose por donde estuviera. Las capas del cuerpo se reparten en unos pocos cientos
 	# (profundidad x 4 x 16), asi que esto queda muy por encima de todas con sitio de sobra.
+	# LA CARA entra en el reparto de _compactar_z con z = Z_CUELGA_DELANTE - 1: por encima de los rasgos dibujados
+	# (JugadorSprites.Z_CARA; si llevas foto los rasgos ni se montan, pero el orden tiene que ser correcto igualmente) y
+	# POR DEBAJO DEL PELO (18/09/2026, pedido por el usuario). Antes iba por ENCIMA de todo (Z_CARA + 1) y por eso se
+	# leia como una pegatina: un disco con tu foto pegado sobre la cabeza, tapando el flequillo. Ahora va por debajo del
+	# casquete (2047) y del pelo que cuelga por delante (2046), asi que lo que queda a la vista es EXACTAMENTE la piel de
+	# la cara -- la misma franja donde se dibujan los ojos y la boca cuando no llevas foto.
+	_compactar_z()
+
+
+# LAS CAPAS NUMERADAS DE 2 EN ADELANTE (09/10, el 22: personajes que se pisan). Lo de arriba calcula el z de cada capa
+# como siempre ('zp': profundidad x 4 x 16, o el suyo escrito, hasta ~2560) y aqui se ORDENAN y se numeran seguidas,
+# respetando empates (mismo zp = mismo z, y manda el orden del arbol, como antes). Asi el muñeco entero cabe en su
+# BANDA (Game.BANDA_MUNECO) y Game lo ordena por altura con los demas. El 0 y el 1 quedan para el aura (_z_auras).
+const Z_PRIMERA_CAPA := 2
+
+func _compactar_z() -> void:
+	var orden: Array = []
+	for i in _capas.size():
+		orden.append([int(_capas[i].get("zp", 0)), i, _capas[i]["nodo"]])
 	if _cara != null:
-		# Por encima de los rasgos dibujados (JugadorSprites.Z_CARA): si llevas foto, los rasgos ni
-		# se montan, pero el orden tiene que ser correcto igualmente.
-		# POR DEBAJO DEL PELO (18/09/2026, pedido por el usuario). Antes iba por ENCIMA de todo
-		# (Z_CARA + 1) y por eso se leia como una pegatina: un disco con tu foto pegado sobre la
-		# cabeza, tapando el flequillo. Ahora va por debajo del casquete (2047) y del pelo que cuelga
-		# por delante (2046), asi que lo que queda a la vista es EXACTAMENTE la piel de la cara --
-		# la misma franja donde se dibujan los ojos y la boca cuando no llevas foto.
-		_cara.z_index = JugadorSprites.Z_CUELGA_DELANTE - 1
+		orden.append([JugadorSprites.Z_CUELGA_DELANTE - 1, _capas.size(), _cara])
+	orden.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+	var z: int = Z_PRIMERA_CAPA
+	for j in orden.size():
+		if j > 0 and int(orden[j][0]) != int(orden[j - 1][0]):
+			z += 1
+		var n: CanvasItem = orden[j][2]
+		if is_instance_valid(n) and n.z_index != z:
+			n.z_index = z
 
 
 func _base_de(nombre: String) -> String:

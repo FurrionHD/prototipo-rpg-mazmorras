@@ -203,7 +203,9 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 					# Detras = por debajo de todos los muñecos; delante = por encima de cualquier capa de muñeco (el arma
 					# de un compañero se empuja a ~2570 + 1024 y asomaba por encima de la burbuja; lo vio el, 09/10).
 					var base_z: int = (m as CanvasItem).z_index
-					EscudoAgua.poner(cu, c, r, base_z + mini(zmin, 0) - 1,
+					# (09/10) Detras = por debajo de TODAS las bandas de los muñecos (Game.BANDA_MUNECO): la banda de
+					# quien la lleva cambia al moverse, asi que no se ata a la de ahora.
+					EscudoAgua.poner(cu, c, r, Game.Z_PERSONAJES - 1,
 						mini(maxi(base_z + zmax + 1, EscudoAgua.Z_DELANTE), RenderingServer.CANVAS_ITEM_Z_MAX), true)
 					continue
 			EscudoAgua.poner(cu, c, r)

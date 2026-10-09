@@ -29,7 +29,7 @@ class_name AbisalAire
 enum Modo { LLUVIA, RAYO, MIRADA, PARPADEO, ECLIPSE, AGUJERO, ESTRELLA }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 const BLANCO := Color(1.0, 1.0, 1.0)
 const LUZ := Color(0.86, 0.92, 1.0)

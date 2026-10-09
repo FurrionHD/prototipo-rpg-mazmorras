@@ -36,7 +36,7 @@ const ORO_CLARO := Color(1.0, 0.95, 0.75)
 const ROJO := Color(0.95, 0.25, 0.2)
 const ROJO_CLARO := Color(1.0, 0.6, 0.5)
 const POLVO := SueloRoto.POLVO
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const ALTO_TORSO := 14.0
 const ALTO_CABEZA := 26.0
 const T_MURO_LLEGA := 0.16   # = CombatTactico.T_PASO: lo que tarda en deslizarse hasta su sitio

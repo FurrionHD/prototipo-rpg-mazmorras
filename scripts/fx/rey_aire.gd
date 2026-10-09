@@ -23,7 +23,7 @@ class_name ReyAire
 enum Modo { ESQUIRLAS, CLAVADA, PEDAZO, DECRETO, TRIBUTO }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 const BLANCO := Color(1.0, 1.0, 1.0)
 const CRISTAL := Color(0.45, 0.88, 1.0)

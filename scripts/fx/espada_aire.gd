@@ -69,7 +69,7 @@ const DIANA := Color(1.0, 0.36, 0.26)
 const DIANA_CLARA := Color(1.0, 0.82, 0.55)
 const POLVO := SueloRoto.POLVO
 const TIERRA := Color(0.45, 0.40, 0.33)
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 var modo: int = Modo.TAJO
 var _t: float = 0.0
@@ -196,7 +196,7 @@ func _ready() -> void:
 	_centro = forma.origen
 	_dir = forma.dir.normalized() if forma.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	_atras = _capa(Game.Z_PERSONAJES - 1)
-	_delante = _capa(Game.Z_PERSONAJES + 80)
+	_delante = _capa(Game.Z_ENCIMA_PERSONAJES + 80)
 	for i in 18:
 		_chispas.append({"t0": _rng.randf_range(0.0, T_BARRE * (2.0 if modo == Modo.CRUZ else 1.0)
 			+ (T_ENTRE - T_BARRE if modo == Modo.CRUZ else 0.0)),

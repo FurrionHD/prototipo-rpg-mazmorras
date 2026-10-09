@@ -33,7 +33,7 @@ const AIRE := BarridoAire.AIRE
 const ACERO := Color(0.80, 0.84, 0.90)
 const CHAPA := Color(0.62, 0.68, 0.78)
 const POLVO := SueloRoto.POLVO
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 var modo: int = Modo.ESCUDAZO
 var _t: float = 0.0
@@ -179,7 +179,7 @@ func _ready() -> void:
 	_giro = _rng.randf_range(-0.2, 0.2)
 	_chapa_en = _origen + _dir * 9.0 + Vector2(0.0, -ALTO_TORSO)
 	_atras = _capa(Game.Z_PERSONAJES - 1)
-	_delante = _capa(Game.Z_PERSONAJES + 80)
+	_delante = _capa(Game.Z_ENCIMA_PERSONAJES + 80)
 	for i in 12:
 		_polvo.append({"u": (float(i) + _rng.randf_range(0.0, 1.0)) / 12.0, "sale": _rng.randf_range(4.0, 10.0),
 			"tam": _rng.randf_range(4.0, 7.0)})

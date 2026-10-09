@@ -46,7 +46,7 @@ enum Modo { PORRAZO, TOS, LATIGO, NUBE, ATADO, VENTOSA, CHUPADA, ULTRA, OIDOS, P
 enum Suelo { ULTRA, ANILLO }
 const _MODO_DE_SUELO := [Modo.ULTRA, Modo.ANILLO]
 
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const ESPORA := Color(0.5, 0.4, 0.24)
 const ESPORA_CLARA := Color(0.74, 0.64, 0.42)
 const T_PORRAZO := 0.45

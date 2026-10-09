@@ -39,8 +39,8 @@ const T_SUELO_APAGAR := 0.5
 const COLA := deg_to_rad(95.0)   # la cola de la media luna: corta, es un hacha
 const ALTO_BRUTAL := 7.0
 # Los OJOS de la mirada van sobre los de verdad (MunecoJugador.ojos_en_mundo), en una capa por encima de
-# la cara (que va a Z_PERSONAJES + ~2045).
-const Z_OJOS := Game.Z_PERSONAJES + 2100
+# la cara: por encima de todos los personajes y de los demas efectos (Game.Z_ENCIMA_PERSONAJES).
+const Z_OJOS := Game.Z_ENCIMA_PERSONAJES + 100
 
 const BLANCO := BarridoAire.BLANCO
 const ACERO := Color(0.80, 0.84, 0.90)
@@ -136,7 +136,7 @@ func _ready() -> void:
 	_centro = forma.origen
 	_dir = forma.dir.normalized() if forma.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	_atras = _capa(Game.Z_PERSONAJES - 1)
-	_delante = _capa(Game.Z_PERSONAJES + 80)
+	_delante = _capa(Game.Z_ENCIMA_PERSONAJES + 80)
 	var mitad: float = deg_to_rad(forma.apertura * 0.5)
 	if modo == Modo.MIRADA:
 		_capa_ojos = _capa(Z_OJOS)

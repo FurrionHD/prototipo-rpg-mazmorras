@@ -761,7 +761,7 @@ func _generar_estallido() -> void:
 			"t0": _rng.randf_range(0.0, 0.06)})
 	_geiser = Node2D.new()
 	_geiser.z_as_relative = false
-	_geiser.z_index = Game.Z_PERSONAJES + 80
+	_geiser.z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	add_child(_geiser)
 	_geiser.draw.connect(_dibujar_geiser)
 

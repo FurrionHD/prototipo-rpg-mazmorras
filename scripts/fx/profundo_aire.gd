@@ -32,7 +32,7 @@ class_name ProfundoAire
 enum Modo { MAREA, CHORRO, CORAL, ESTALLIDO, ALIENTO, CARAMBANOS, ANEMONA, HELADA }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 const BLANCO := Color(1.0, 1.0, 1.0)
 const AGUA := Color(0.18, 0.55, 0.78)

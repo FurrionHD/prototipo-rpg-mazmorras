@@ -92,7 +92,7 @@ func _ready() -> void:
 	_centro = forma.origen if modo != Modo.GIRO else forma.centro
 	_dir = forma.dir.normalized() if forma.dir.length_squared() > 0.0001 else Vector2.RIGHT
 	_atras = _capa(Game.Z_PERSONAJES - 1)
-	_delante = _capa(Game.Z_PERSONAJES + 80)
+	_delante = _capa(Game.Z_ENCIMA_PERSONAJES + 80)
 	if modo == Modo.TAJO:
 		_centro = forma.origen
 	elif modo != Modo.GRITO:

@@ -501,7 +501,7 @@ func _crear_aspecto() -> void:
 func _crear_mira() -> void:
 	_mira = Node2D.new()
 	_mira.z_as_relative = false
-	_mira.z_index = Game.Z_PERSONAJES + 10
+	_mira.z_index = Game.Z_ENCIMA_PERSONAJES + 10
 	_mira.visible = false
 	add_child(_mira)
 
