@@ -418,6 +418,7 @@ func _disparar_hechizo() -> void:
 	# El area y los rebotes salen de el; y el sigue siendo el que cuenta para la Excelia y el DPS.
 	var obj: Combatant = _pantalla._objetivo()
 	var tocados: Array = _resolver_hechizo(spell, obj)
+	Game.desgastar_por_magia(Game.pj_de_combatant(_pantalla._player))   # DURABILIDAD: la varita / el baston
 	_pantalla._player.regen_energy(_pantalla.ATTACK_ENERGY_REGEN)   # lanzar es un turno basico: regenera energia (KAN-57)
 	if _pantalla.tactico:
 		_pantalla.turno_mapa.circulo_acaba(_pantalla._player, true)   # el circulo se cierra en un fogonazo
@@ -804,6 +805,7 @@ func hechizo_de_entrada(spell: SpellData, idx_enemigo: int, idx_lanzador: int) -
 	_pantalla._player = _pantalla._aliados[idx_lanzador]
 	_pantalla._set_log("✨ %s abre la pelea con %s." % [_pantalla._player.nombre, spell.nombre])
 	var tocados: Array = _resolver_hechizo(spell, obj)
+	Game.desgastar_por_magia(Game.pj_de_combatant(_pantalla._player))   # DURABILIDAD: la varita / el baston
 	_pantalla._player = previo
 	_pantalla._update_hp()
 	# Si el conjuro se los ha llevado a todos, esto cierra la pelea con victoria (y su loot y su

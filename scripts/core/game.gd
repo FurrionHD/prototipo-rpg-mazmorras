@@ -5695,10 +5695,9 @@ func aplicar_parte_encargo(parte: Dictionary, piso: int, pj: PersonajeData) -> v
 		_desgastar_slot("main", DESGASTE_ARMA * dados, pj)
 	# Y LA SECUNDARIA, que no estaba en ninguna de las dos listas y volvia INTACTA del encargo.
 	#
-	# Aqui se gasta tambien SI ES UN ESCUDO (decision del usuario, 20/09), y eso es distinto de lo que
-	# pasa peleando tu: en combate un escudo no se desgasta nunca (ver desgastar_arma, que filtra el
-	# ShieldData, y desgastar_armadura, que no lleva "off" en su lista). Se deja dicho para que no
-	# parezca un despiste de este lado.
+	# Aqui se gasta tambien SI ES UN ESCUDO o una VARITA (decision del usuario, 20/09). Peleando tu, desde
+	# el 09/10, tambien: el escudo al parar un golpe (desgastar_escudo) y la varita al soltar un conjuro
+	# (desgastar_por_magia); y los dos se reparan en el herrero.
 	if dados > 0.0 and pj.equipped_off != null:
 		_desgastar_slot("off", DESGASTE_ARMA * dados, pj)
 	var recibidos: float = float(parte.get("golpes_recibidos", 0.0))
@@ -6615,6 +6614,24 @@ func desgastar_arma(slot: String, pj: PersonajeData = null) -> void:
 		return
 	_desgastar_slot(slot, DESGASTE_ARMA, p)
 
+# EL ESCUDO se gasta al PARAR un golpe con la guardia levantada (Defender), como el arma al darlo (09/10, el
+# jefe: "cuando te defiendes y paras el golpe se gasta el escudo"). Sin guardia no lo toca: no lo has usado.
+func desgastar_escudo(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if p != null and p.equipped_off is ShieldData:
+		_desgastar_slot("off", DESGASTE_ARMA, p)
+
+# LA MAGIA gasta lo que la canaliza: la VARITA de la secundaria y el arma magica de la principal (baston),
+# un golpe de arma por conjuro soltado (09/10, el jefe: "cuando tiras magias con una varita se gasta").
+func desgastar_por_magia(pj: PersonajeData = null) -> void:
+	var p: PersonajeData = pj if pj != null else lider()
+	if p == null:
+		return
+	if p.equipped_off is WandData:
+		_desgastar_slot("off", DESGASTE_ARMA, p)
+	if p.equipped_main is WeaponData and (p.equipped_main as WeaponData).es_magica:
+		_desgastar_slot("main", DESGASTE_ARMA, p)
+
 # Desgasta TODAS las piezas de armadura equipadas por un golpe recibido (un poco cada una).
 func desgastar_armadura(pj: PersonajeData = null) -> void:
 	for slot in ["casco", "pecho", "manos", "pantalones", "botas"]:
@@ -6660,12 +6677,14 @@ func _slots_reparables(pj: PersonajeData = null) -> Array:
 			out.append(slot)
 	return out
 
-# True si el slot tiene una pieza reparable equipada (arma/armadura de verdad, no puños/escudo/varita).
+# True si el slot tiene una pieza reparable equipada: arma, ESCUDO, VARITA o armadura (los puños no).
+# Escudo y varita entran el 09/10 (playtest: "la reparacion no detecta los escudos"): los encargos ya los
+# gastaban desde el 20/09 y no habia donde arreglarlos; y desde el 09/10 se gastan tambien peleando.
 func _slot_es_equipo(slot: String, pj: PersonajeData = null) -> bool:
 	var p: PersonajeData = pj if pj != null else lider()
 	match slot:
 		"main": return p.equipped_main != null
-		"off": return p.equipped_off is WeaponData
+		"off": return p.equipped_off != null
 		_: return _pieza_equipada(slot, p) != null
 
 # Coste total de reparar todo el equipo dañado. Sin argumento, el del GRUPO ENTERO: el herrero
