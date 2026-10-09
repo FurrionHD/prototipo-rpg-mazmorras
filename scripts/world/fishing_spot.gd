@@ -1267,10 +1267,7 @@ func _espacio_nuevo() -> bool:
 # hace el ESC y lo que hace el boton "Salir" de la capa tactil.
 func _guardar_cana() -> void:
 	_decir("Guardas la caña.")
-	# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO que esta
-	# dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar` petaba al
-	# buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez sigue vivo.
-	_pez = {}
+	_soltar_el_pez()
 	_soltar()
 
 
@@ -1279,11 +1276,29 @@ func _guardar_cana() -> void:
 # por sorpresa. Es la F, y el boton "Recoger" de la capa tactil.
 func _recoger_sedal() -> void:
 	_decir("Guardas la caña." if _estado == APUNTANDO else "Recoges el sedal.")
-	_pez = {}
+	_soltar_el_pez()
 	if _estado == APUNTANDO:
 		_soltar()
 	else:
 		_volver_a_apuntar()
+
+
+# EL PEZ QUE ESTABA PICANDO SE VA, como cuando tiras tarde (playtest 09/10: "si al enganchar un pez pulsas F en vez de
+# espacio, se queda marcado como cuando esta picando, bugueado para siempre, sin que lo puedas pescar ni nada"). Antes
+# solo se olvidaba la referencia: el pez seguia en el agua enganchado a un corcho que ya no existia y, en multi, el
+# dueño no se enteraba. Ahora sale del agua y vuelve a la cola, igual que en _escapar.
+func _soltar_el_pez() -> void:
+	if _pez.is_empty():
+		return
+	if _estado in [PICANDO, TIRON]:
+		_escapados.append({"data": _pez["data"], "cm": float(_pez["cm"]), "nonce": int(_pez.get("nonce", 0))})
+		_quitar_pez(false)
+		return
+	# `_pez = {}` y NO `_pez.clear()`: los Dictionary van por REFERENCIA, y este es el MISMO que esta
+	# dentro de `_peces`. Vaciarlo le borraba los datos al pez de la lista y `_nadar` petaba al
+	# buscarle el 't_giro' en el frame siguiente. Aqui solo hay que soltarlo: el pez sigue vivo.
+	_pez = {}
+	_idx_enganchado = -1
 
 
 func _pelear() -> void:
