@@ -28,7 +28,7 @@ class_name DungeonFloor
 @export var sala_max: Vector2i = Vector2i(18, 12)
 # Pasillo de 3 celdas (96 px) = cabeis tu y un bicho, y puedes esquivarlo. A 1 celda el
 # pasillo mide justo lo que tu, y solo se avanza rozando la pared.
-@export var ancho_pasillo: int = 3
+@export var ancho_pasillo: int = 4   # 09/10, el jefe: "de base los pasillos un bloque mas anchos" (era 3)
 
 # Semilla del piso 1. Los siguientes la derivan de esta (ver _semilla_del_piso).
 @export var semilla_base: int = 20260712
@@ -229,11 +229,12 @@ func _factor_lineal_piso() -> float:
 #  es justo el mapa que no queremos, uno donde no se distingue un tunel de una habitacion. Asi el
 #  ensanche se nota pronto (donde hace falta) y se va calmando solo:
 #
-#      pasillo 3 -> pisos 1-6      pasillo 5 -> pisos 16-30
-#      pasillo 4 -> pisos 7-15     pasillo 6 -> pisos 31-55     pasillo 7 -> del 56 en adelante
+#      pasillo 4 -> pisos 1-6      pasillo 6 -> pisos 16-30
+#      pasillo 5 -> pisos 7-15     pasillo 7 -> pisos 31-55     pasillo 8 -> del 56 en adelante
+#  (09/10: todo un bloque mas ancho de base, lo pidio el jefe; la escalera y el tope suben con el.)
 const PASILLO_PRIMER_ESCALON := 6.0    # pisos hasta el primer ensanche
 const PASILLO_ESCALON_CRECE := 1.6     # cada ensanche cuesta un 60% mas de pisos que el anterior
-const PASILLO_ANCHO_MAX := 7
+const PASILLO_ANCHO_MAX := 8
 # Cuanto mas ancha que un pasillo tiene que ser, como minimo, una sala. Si no, en cuanto el pasillo
 # alcanza el lado corto de la sala mas pequeña el mapa deja de leerse como "salas unidas por
 # pasillos" y se convierte en una cueva sin forma: las salas dejan de distinguirse de los tuneles.

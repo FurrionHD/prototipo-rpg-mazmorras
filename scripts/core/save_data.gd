@@ -429,10 +429,11 @@ const VERSION_MUNDO := 1
 #  guardado de los pisos afectados y los rehace de cero (ver Game.cargar_datos). Se sube A MANO
 #  cada vez que se toque la generacion de una forma que mueva las celdas.
 #    1 = la sala del jefe pasa a ser reservada, grande y con los accesos mas anchos.
+#    2 = (09/10) los pasillos, un bloque mas anchos de base: cambia el trazado de TODOS los pisos.
 #  Con default 0 (= "de antes de que esto existiera") las partidas viejas cargan solas y se rehacen
 #  la primera vez, asi que NO sube VERSION_ACTUAL.
 # ============================================================
-const TRAZADO_ACTUAL := 1
+const TRAZADO_ACTUAL := 2
 @export var trazado: int = 0
 
 # ============================================================
