@@ -20,6 +20,7 @@ func _initialize() -> void:
 	var fallos: int = 0
 	fallos += _caso_muro()
 	fallos += _caso_radio_minimo()
+	fallos += _caso_companero()
 	medir()
 	print("")
 	if fallos == 0:
@@ -88,6 +89,26 @@ func _caso_muro() -> int:
 	# La roca corta: la celda del propio tabique se ve (es la cara del muro) pero lo de detras no
 	fallos += _esperar("no se ve a traves del tabique",
 		v.luz_en(_px(Vector2i(25, 4))) > 0.05, false)
+	return fallos
+
+
+# MIS COMPAÑEROS TAMBIEN SON OJOS (09/10, playtest: "en combate, si habia una esquina, no ves nada"). El mismo muro: mi
+# compañero al otro lado con su luz. Antes eso era negro (yo no le veo); siendo de MI grupo, lo que ve el, lo veo yo.
+func _caso_companero() -> int:
+	print("")
+	print("=== MI COMPAÑERO TRAS EL MURO: sus ojos cuentan ===")
+	var gen: DungeonGenerator = _mapa()
+	var v := Vision.new()
+	v.preparar(gen)
+	var yo := Vector2i(10, 13)
+	var comp := Vector2i(30, 4)
+	v.calcular([{"pos": _px(yo), "radio": 5.0}, {"pos": _px(comp), "radio": 5.0}], _px(yo), Rect2(), [_px(comp)])
+	_pintar(gen, v, {yo: "T", comp: "C"})
+	var fallos: int = 0
+	fallos += _esperar("veo a mi compañero tras el muro", v.luz_en(_px(comp)) > 0.5, true)
+	fallos += _esperar("y su entorno iluminado", v.luz_en(_px(comp + Vector2i(2, 0))) > 0.3, true)
+	fallos += _esperar("sigo viendo lo mio", v.luz_en(_px(yo)) > 0.5, true)
+	fallos += _esperar("lo que nadie alumbra sigue negro", v.luz_en(_px(Vector2i(38, 15))) > 0.05, false)
 	return fallos
 
 

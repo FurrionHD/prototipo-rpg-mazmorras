@@ -1008,6 +1008,11 @@ func radio_del_turno() -> float:
 func tick(delta: float) -> bool:
 	if is_instance_valid(_foco):
 		Game.camara_tactica_sigue(_foco.global_position)
+	# LA OSCURIDAD SIGUE A LA PELEA aunque el arbol este en pausa (jugando solo): con la niebla congelada, la luz y lo
+	# que se ve se quedaban como al empezar, y el compañero que andaba en su turno se metia en lo negro.
+	var niebla: Node = Game.get_tree().get_first_node_in_group("niebla")
+	if niebla != null and niebla.has_method("seguir_en_pausa"):
+		niebla.seguir_en_pausa(delta)
 	_sigilo_visible(false)
 	_tick_circulos()
 	_tick_huellas(delta)

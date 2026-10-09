@@ -136,7 +136,9 @@ func preparar(gen: DungeonGenerator) -> void:
 #            entero (y cada una de sus subceldas tira un rayo largo hasta tu ojo) para acabar en
 #            un trozo de mascara que nadie mira. Medido: de 4-6 ms por pasada a menos de 1.
 #            Un rectangulo vacio = sin recorte (lo que quieren las pruebas).
-func calcular(focos: Array, ojo: Vector2, vista: Rect2 = Rect2()) -> void:
+# 'ojos_extra': mas sitios desde los que se VE, ademas de 'ojo' (los compañeros de TU grupo, 09/10). Lo visible es lo
+# que ve CUALQUIERA de ellos.
+func calcular(focos: Array, ojo: Vector2, vista: Rect2 = Rect2(), ojos_extra: Array = []) -> void:
 	if ancho <= 0:
 		return
 	# Empezar a cero: lo que no toque nadie se queda a oscuras. Y olvidar los rayos de la pasada
@@ -173,6 +175,15 @@ func calcular(focos: Array, ojo: Vector2, vista: Rect2 = Rect2()) -> void:
 		maxf(absf(ojo_s.x - float(vx0)), absf(ojo_s.x - float(vx1))),
 		maxf(absf(ojo_s.y - float(vy0)), absf(ojo_s.y - float(vy1)))) * 1.5)) + 2
 	_campo_del_ojo(int(ojo_s.x), int(ojo_s.y), alcance, vx0, vy0, vx1, vy1)
+	# LOS OJOS DE TUS COMPAÑEROS (playtest 08/10: "la luz del farolillo solo la tiene el principal; en combate, si
+	# habia una esquina, no ves absolutamente nada"). Su farolillo ya alumbraba, pero lo que alumbraba detras de una
+	# esquina que TU no ves se quedaba negro. Son tus personajes: lo que ven ellos lo ves tu.
+	for o in ojos_extra:
+		var os := Vector2((o as Vector2).x / px_sub, (o as Vector2).y / px_sub)
+		var alc: int = int(ceil(maxf(
+			maxf(absf(os.x - float(vx0)), absf(os.x - float(vx1))),
+			maxf(absf(os.y - float(vy0)), absf(os.y - float(vy1)))) * 1.5)) + 2
+		_campo_del_ojo(int(os.x), int(os.y), alc, vx0, vy0, vx1, vy1, true)
 
 	# 2) LA LUZ de cada farolillo, con su propio barrido. Una subcelda se ilumina si le llega la luz
 	#    Y la ves tu: las dos condiciones de la regla, ahora sin un solo rayo suelto.
@@ -312,13 +323,14 @@ func _campo_de_vision(cx: int, cy: int, radio: int,
 # array de verdad y el ojo se quedaria a cero (todo negro) sin dar ningun error. Se copia solo la
 # ventana, no el piso entero.
 func _campo_del_ojo(cx: int, cy: int, radio: int,
-		vx0: int, vy0: int, vx1: int, vy1: int) -> void:
+		vx0: int, vy0: int, vx1: int, vy1: int, sumar: bool = false) -> void:
 	_campo_de_vision(cx, cy, radio, vx0, vy0, vx1, vy1)
 	for y in range(vy0, vy1):
 		var fila: int = y * ancho
 		for x in range(vx0, vx1):
 			var idx: int = fila + x
-			_visto[idx] = _campo[idx]
+			# 'sumar': un ojo mas (un compañero). Lo que ya veia otro se queda visto.
+			_visto[idx] = maxi(_visto[idx], _campo[idx]) if sumar else _campo[idx]
 			_campo[idx] = 0
 
 
