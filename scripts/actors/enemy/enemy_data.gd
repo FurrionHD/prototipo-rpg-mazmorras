@@ -75,10 +75,15 @@ func tiene_cuerpo() -> bool:
 
 # El cuerpo en px de mundo respecto al nodo, a escala 'mult' (la del mutante) y mirando a 'mira'. Los ALARGADOS (lado
 # largo >= 1,3 veces el corto) giran: de lado ocupan a lo ancho (el rectangulo no rota, se tumba).
+# LOS SLIMES NO GIRAN (09/10, decision suya, con su idea: "los redonditos se ven igual desde todas las direcciones"): su
+# caja es la de su base vista desde arriba, y tumbada dejaba meterse por los lados en el dibujo del Rey (35,71x21,18 x2,8
+# = 100x59 -> de lado 59x100). Todos los slimes, Rey y mutantes incluidos; el escarabajo, algo redondo pero mas largo
+# que ancho, si gira.
 func cuerpo_en(mult: float = 1.0, mira: Vector2 = Vector2.DOWN) -> Rect2:
 	var e: float = maxf(0.1, escala_visual) * maxf(0.1, mult)
 	var r := Rect2(cuerpo.position * e, cuerpo.size * e)
-	if maxf(r.size.x, r.size.y) / maxf(1.0, minf(r.size.x, r.size.y)) >= 1.3 and absf(mira.x) > absf(mira.y):
+	if familia != Familia.SLIME and maxf(r.size.x, r.size.y) / maxf(1.0, minf(r.size.x, r.size.y)) >= 1.3 \
+			and absf(mira.x) > absf(mira.y):
 		var c: Vector2 = r.get_center()
 		r = Rect2(c - Vector2(r.size.y, r.size.x) * 0.5, Vector2(r.size.y, r.size.x))
 	return r
