@@ -1104,44 +1104,21 @@ func usa_huella(ab: AbilityData) -> bool:
 
 # La forma de 'ab' lanzada por 'c' hacia 'hacia', desde SUS PIES y con 'c' donde la PELEA dice.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	var pisa: float = radio_pisa(c)
-	var sale: float = 0.0
-	# UN ENEMIGO golpea desde el FRENTE de su cuerpo hacia alli (frente_dibujo): de ahi salen sus conos y lineas
-	# (un pelo metidos bajo el morro, que el pico no quede suelto) y de ahi se cuenta su alcance. Nunca menos que lo
-	# de siempre: la IA mide si llega con radio_pisa, y quedarse corto la haria pegar desde donde no alcanza.
-	var ancho_cuerpo: float = 0.0
-	var borde: float = 0.0
-	if _pantalla._enemies.has(c):
-		# EL ANCHO DE SU GOLPE Y SU BORDE (09/10, el jefe): una embestida suya mide por lo menos lo que el de ancho (el
-		# minotauro, lo que su dibujo: agachado es mas ancho que lo que pisa), y lo que lanza ALREDEDOR de si empieza en
-		# el borde de su cuerpo ("si no, nunca va a golpear").
-		var pc0: Vector2 = pies_de(c)
-		var dd: Vector2 = (hacia - pc0).normalized() if hacia.distance_squared_to(pc0) > 0.0001 else Vector2.DOWN
-		var caja0: Rect2 = bulto_de(c)
-		var cu0: Node2D = cuerpo_de(c)
-		var d_ed = cu0.get("data") if cu0 != null else null
-		var ref: Rect2 = bulto_visual(c) if d_ed is EnemyData and (d_ed as EnemyData).golpe_ancho_dibujo else caja0
-		ancho_cuerpo = absf(dd.y) * ref.size.x + absf(dd.x) * ref.size.y
-		borde = maxf(caja0.size.x, caja0.size.y) * 0.5
+	var f
 	if _pantalla._enemies.has(c) and _marcado(c):
-		# DEL BORDE DE SU CUERPO, CON SU ANCHO (09/10, el jefe sobre la Cornada del minotauro: "empieza desde su
-		# cabeza, ninguna logica, y no cubre la anchura de su cuerpo"): sale de donde acaba su rectangulo hacia alli,
-		# y una linea suya es por lo menos tan ancha como el.
-		var pc: Vector2 = pies_de(c)
-		var d0: Vector2 = (hacia - pc).normalized() if hacia.distance_squared_to(pc) > 0.0001 else Vector2.DOWN
-		var caja: Rect2 = bulto_de(c)
-		sale = _hasta_el_borde(pc, d0, caja)
-		pisa = 0.0   # el alcance marcado ya va de su centro a la raya
-	elif _pantalla._enemies.has(c):
-		var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
-		pisa = maxf(pisa, frente)
-		sale = frente * FRENTE_METIDO
-	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
-	if ancho_cuerpo > 0.0 and f.tipo == CombatFormas.Tipo.LINEA:
-		f.ancho = maxf(f.ancho, ancho_cuerpo)
-	if borde > 0.0 and f.tipo == CombatFormas.Tipo.CIRCULO and int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
-		f.radio += borde
-		f.dentro = borde
+		var cu0: Node2D = cuerpo_de(c)
+		var ref: Rect2 = ancho_de_dibujo(cu0) if (cu0.get("data") as EnemyData).golpe_ancho_dibujo else bulto_de(c)
+		f = forma_enemigo(ab, pies_de(c), bulto_de(c), ref, alcance_de(c), hacia)
+	else:
+		var pisa: float = radio_pisa(c)
+		var sale: float = 0.0
+		# UN ENEMIGO SIN MARCAR golpea desde el FRENTE de su dibujo hacia alli (frente_dibujo): de ahi salen sus conos y
+		# lineas (un pelo metidos bajo el morro) y de ahi se cuenta su alcance.
+		if _pantalla._enemies.has(c):
+			var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
+			pisa = maxf(pisa, frente)
+			sale = frente * FRENTE_METIDO
+		f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
 	# A DISTANCIA (arco, ballesta): la linea se para en la PARED, como el disparo del basico.
 	if c.a_distancia and f.tipo == CombatFormas.Tipo.LINEA:
 		var hasta_pared: float = _largo_hasta_pared(f.origen, f.dir, f.largo)
@@ -1159,6 +1136,32 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 		f.largo = maxf(0.0, (fin - f.origen).dot(f.dir))
 		f.radio = f.largo   # lo que leen la red y el compas (SueloRoto)
 		f.centro = f.origen + f.dir * f.largo * 0.5
+	return f
+
+
+# EL ANCHO DE SU DIBUJO DE FRENTE (el minotauro): un cuadrado de ese lado, para que su golpe mida eso hacia donde vaya. El
+# alto del dibujo no vale: mirando de lado es profundidad de pantalla, no anchura en el suelo.
+static func ancho_de_dibujo(cuerpo: Node2D) -> Rect2:
+	var w: float = rect_dibujo(cuerpo, &"idle_0").size.x
+	return Rect2(0, 0, w, w)
+
+
+# LA HUELLA DE UN ENEMIGO CON SU CUERPO MARCADO (09/10, el jefe), en UN sitio: la usan la pelea (forma_de) y la lamina
+# de golpes (tools/lamina_golpes_enemigos). 'pies' = su centro (el puntito azul), 'caja' = su cuerpo, 'ref' = lo que
+# mide de ancho su golpe (su cuerpo; el dibujo en el minotauro), 'alcance' = el marcado.
+#   - Sale del BORDE de su cuerpo hacia alli ("empieza desde su cabeza, ninguna logica").
+#   - Una LINEA suya (embestidas) mide por lo menos su ancho ("no cubre la anchura de su cuerpo").
+#   - Lo que lanza ALREDEDOR de si empieza en su borde y los anillos se cuentan desde ahi ("si no, nunca va a golpear").
+#   - El alcance ya va de su centro a la raya: no se le suma lo que pisa.
+static func forma_enemigo(ab: AbilityData, pies: Vector2, caja: Rect2, ref: Rect2, alcance: float, hacia: Vector2):
+	var d0: Vector2 = (hacia - pies).normalized() if hacia.distance_squared_to(pies) > 0.0001 else Vector2.DOWN
+	var f = CombatFormas.de_habilidad_mapa(ab, pies, 0.0, alcance, hacia, _hasta_el_borde(pies, d0, caja))
+	if f.tipo == CombatFormas.Tipo.LINEA:
+		f.ancho = maxf(f.ancho, absf(d0.y) * ref.size.x + absf(d0.x) * ref.size.y)
+	if f.tipo == CombatFormas.Tipo.CIRCULO and int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
+		var borde: float = maxf(caja.size.x, caja.size.y) * 0.5
+		f.radio += borde
+		f.dentro = borde
 	return f
 
 
