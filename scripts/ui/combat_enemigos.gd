@@ -272,6 +272,7 @@ func _enemy_turn(e: Combatant) -> void:
 	# multiplicara se estaria regalando el bloqueo del golpe entero por cada porrazo de mentira.
 	if defendiendo:
 		Game.contar_dano_bloqueado(dmg_bruto * e.dummy_dmg_out_mult, dmg, pj_obj)
+		Game.desgastar_escudo(pj_obj)   # DURABILIDAD: parar el golpe gasta el escudo
 	if _pantalla._dps_on:
 		_pantalla._dmg_taken_total += dmg
 		_pantalla._dmg_taken_hits += 1
@@ -1006,6 +1007,7 @@ func _enemy_resolver_golpes_(e: Combatant, ab: AbilityData, t: Combatant, n_golp
 			# AUTORREGENERACION: solo lo que paras con la guardia arriba, igual que en el golpe basico.
 			if defendiendo:
 				Game.contar_dano_bloqueado(dmg_bruto, dmg, pj_t)
+				Game.desgastar_escudo(pj_t)   # DURABILIDAD: cada golpe parado gasta el escudo
 			total += dmg
 			# El bruto se acumula golpe a golpe: es con lo que se mide la Resistencia (abajo), igual
 			# que en el golpe basico.

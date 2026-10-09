@@ -56,8 +56,8 @@ func _reparables(pj: PersonajeData) -> Array:
 	var out: Array = []
 	for slot in Game.EQUIP_SLOTS:
 		var item = pj.get("equipped_" + slot)
-		if item == null or (slot == "off" and not (item is WeaponData)):
-			continue   # la off puede llevar escudo/varita: eso no se repara aqui
+		if item == null:
+			continue   # la secundaria, sea arma, escudo o varita, se repara aqui (desde el 09/10)
 		out.append({"slot": slot, "item": item})
 	return out
 
