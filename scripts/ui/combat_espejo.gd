@@ -288,6 +288,10 @@ func aplicar_roster(roster: Dictionary) -> void:
 			if _pantalla._timeline != null:
 				_pantalla._timeline.quitar(_pantalla._enemies[i])
 			_pantalla._gauge.erase(_pantalla._enemies[i])
+			# (09/10) Su cuerpo se muere y se desvanece YA: si el hueco se reestrena antes de que llegue su apagado
+			# (combat_espejo._toca_apagar espera a los impactos), el cadaver se quedaba de pie el resto de la pelea.
+			if _pantalla.tactico:
+				_pantalla.turno_mapa.morir_en_mapa(_pantalla._enemies[i])
 			_pantalla._enemies[i] = c
 			_pantalla.altas._revivir_bloque(i, c)
 		else:

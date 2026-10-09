@@ -49,6 +49,13 @@ func _ready() -> void:
 	# FASE 2-3: jugar mis turnos (andar y Defender) y mirar como se mueven los demas.
 	var host: Node2D = Game.cuerpo_de_red(1, 0)
 	var host_desde: Vector2 = host.global_position if host != null else Vector2.ZERO
+	# TODOS los personajes del host, no solo el primero (09/10): con los cuerpos marcados el primero empieza pegado a un
+	# slime y con uno de los mios encima, y la regla de choque no le deja meterse mas; el que anda es el otro.
+	var hosts: Dictionary = {}
+	for k in 4:
+		var hk: Node2D = Game.cuerpo_de_red(1, k)
+		if hk != null:
+			hosts[hk] = hk.global_position
 	# TODOS los bichos de la pelea, no solo por el que entre: el que anda en su turno puede ser otro.
 	var bichos_desde: Dictionary = {}
 	for e in p._enemies:
@@ -65,6 +72,9 @@ func _ready() -> void:
 	while int(leer_fase()[0]) < 3 and (Time.get_ticks_msec() - t0) < 150000:
 		if is_instance_valid(host):
 			host_max = maxf(host_max, host.global_position.distance_to(host_desde))
+		for hk in hosts:
+			if is_instance_valid(hk):
+				host_max = maxf(host_max, (hk as Node2D).global_position.distance_to(hosts[hk]))
 		# Y los que entren DESPUES (el host mete uno que aparece dentro de la arena): desde donde entran.
 		if is_instance_valid(p):
 			for e in p._enemies:

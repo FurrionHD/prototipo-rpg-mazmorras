@@ -298,9 +298,11 @@ func _correr() -> void:
 				vio_muerte = true
 		_ver(vio_muerte, "el que cae se muere en el mapa ('muerte')")
 		_ver(cuerpo_m.modulate.a < 0.05, "y se desvanece (alfa %.2f)" % cuerpo_m.modulate.a)
-		Game.matar_enemigo_de_combate(cuerpo_m)   # lo que hace el cierre de la pelea
-		_ver(is_equal_approx(cuerpo_m.modulate.a, 1.0) and cuerpo_m.esta_muerto(),
-			"al acabar, vuelve al suelo como cadaver")
+		# Su muerte de verdad (la que hace el cierre, o el relevo de su hueco, o el aviso por red). A MITAD de pelea
+		# (09/10) se queda OCULTO y apuntado: vuelve al suelo como cadaver cuando la pelea se cierra.
+		Game.matar_enemigo_de_combate(cuerpo_m)
+		_ver(cuerpo_m.esta_muerto() and cuerpo_m.modulate.a < 0.05 and Game._cadaveres_ocultos.has(cuerpo_m),
+			"muerto a mitad de pelea: sigue oculto y apuntado para verse al acabar")
 		print("  cadaver: anim %s" % (cuerpo_m.get("_sprite") as AnimatedSprite2D).animation)
 
 	# 9) LA MAREA EMPUJA A UN PERSONAJE DE OTRO HUMANO: quien lleva la pelea NO mueve su cuerpo (lo mueve su

@@ -14691,6 +14691,34 @@ func hay_pelea_en_pantalla() -> bool:
 # OJO con el parametro SIN TIPAR: a esto le pueden llegar nodos YA LIBERADOS (un bicho reciclado o
 # desvanecido a mitad de pelea), y pasar una instancia liberada a un parametro TIPADO lanza error en
 # Godot 4. Misma trampa que en los diccionarios de red (ver la cabecera de net.gd).
+# LOS CADAVERES QUE SE DESVANECEN EN LA PELEA NO VUELVEN A VERSE HASTA QUE ACABA (09/10, playtest 08/10: "en combate a
+# veces los cadaveres no desaparecen"). Un muerto se desvanece en el mapa (CombatTactico.morir_en_mapa) y al volverse
+# cadaver de verdad (morir / marcar_cadaver) se le volvia a enseñar para recogerlo... pero eso pasa tambien A MITAD de
+# pelea: cuando un refuerzo o una cria reestrena su hueco (unir_enemigo_al_combate / dar_cuerpo_a_cria lo rematan) y,
+# en las demas maquinas, cuando llega su aviso de muerte por red. Ahora, si hay pelea, se apunta y se enseña al acabar.
+var _cadaveres_ocultos: Array = []
+
+func quitar_muerto_o_aplazar(n) -> void:
+	if not is_instance_valid(n):
+		return
+	if n.has_meta("muerto_en_pelea") and (combate_activo() or hay_pelea_en_pantalla()):
+		if not _cadaveres_ocultos.has(n):
+			_cadaveres_ocultos.append(n)
+			if _cadaveres_ocultos.size() == 1:
+				_soltar_cadaveres_al_acabar()
+		return
+	n.quitar_muerto_en_pelea()
+
+
+func _soltar_cadaveres_al_acabar() -> void:
+	while combate_activo() or hay_pelea_en_pantalla():
+		await get_tree().process_frame   # la señal del arbol salta cada fotograma, tambien en pausa
+	for n in _cadaveres_ocultos:
+		if is_instance_valid(n) and n.has_method("quitar_muerto_en_pelea"):
+			n.quitar_muerto_en_pelea()
+	_cadaveres_ocultos.clear()
+
+
 func matar_enemigo_de_combate(n) -> void:
 	if not is_instance_valid(n):
 		return

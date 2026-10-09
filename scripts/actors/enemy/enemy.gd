@@ -1744,7 +1744,7 @@ var sello_pudre: float = -1.0
 # Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se
 # borra), apagado e interactuable para extraerle el cristal (minijuego).
 func morir() -> void:
-	quitar_muerto_en_pelea()
+	Game.quitar_muerto_o_aplazar(self)   # a mitad de pelea sigue oculto (09/10)
 	_dead = true
 	_winding = false
 	set_physics_process(false)  # detiene la IA
