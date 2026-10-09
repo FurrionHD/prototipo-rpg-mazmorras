@@ -155,6 +155,7 @@ func refrescar_barras_grupo() -> void:
 	if pl != null:
 		pl.refrescar_barras()
 	pintar_imbuiciones()
+	pintar_escudos_agua()
 
 
 # LA IMBUICION DE CADA UNO DE LOS TUYOS, EN SU CUERPO (aura del Manto, efecto del Filo en el arma). En
@@ -169,6 +170,22 @@ func pintar_imbuiciones(soltar: bool = false) -> void:
 		var m = cu.get("_muneco")
 		if m is MunecoJugador:
 			(m as MunecoJugador).poner_imbue_pelea(-1 if soltar else ImbueVisual.de_combatiente(c))
+
+
+# EL ESCUDO DE AGUA del set Marea, en el cuerpo de cada uno de los tuyos que lo lleve (09/10, EscudoAgua): la burbuja se
+# pone cuando hay escudo y se va sola al romperse (revienta). Mira al combatiente, asi que en el espejo sale de lo que
+# llega en la instantanea. 'soltar' = se acaba la pelea: fuera todas (son hijas de los cuerpos del mapa).
+func pintar_escudos_agua(soltar: bool = false) -> void:
+	for c in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(c)
+		if cu == null:
+			continue
+		if soltar:
+			EscudoAgua.quitar(cu)
+		elif c.runa_escudo_max > 0.0 and c.runa_escudo_agua > 0.0 and c.is_alive():
+			var r: Rect2 = bulto_visual(c)
+			r.position -= pos_de(c) - cu.global_position   # el dibujo donde esta el NODO (lo que sigue la burbuja)
+			EscudoAgua.poner(cu, c, r)
 
 
 # El combatiente de uno de MIS personajes, para sus barras de arriba. En quien lleva la pelea sale de
@@ -358,6 +375,7 @@ func desmontar() -> void:
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
+	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
 		_quitar_gesto(cu)
 	_levantar_caidos()

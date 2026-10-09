@@ -559,6 +559,8 @@ var runa_gordo_usado: bool = false
 var runa_pegajoso: float = 0.0          # ...y a quien te pega cuerpo a cuerpo le deja Pegajoso
 var runa_marea: float = 0.0             # set Marea: escudo de agua al empezar (fraccion de tu vida)
 var runa_escudo_agua: float = 0.0       # lo que le queda al escudo
+var runa_escudo_max: float = 0.0        # con lo que empezo (para la burbuja y el tramo azul de su barra, 09/10)
+var runa_agua_paradas: int = 0          # cuantos Lento/Congelacion ha parado (la burbuja destella al subir)
 var runa_agua_rota: bool = false        # se acaba de romper (quien lo rompio se moja: combat_enemigos)
 var runa_corona_aliados: float = 0.0    # set Corona: -% a los aliados pegados a ti...
 var runa_corona_umbral: float = 0.0     # ...y si uno baja de esta vida, provocas
@@ -1259,6 +1261,7 @@ func apply_status(id: int, turns: int = -1, magnitude: float = -1.0,
 	# El ESCUDO DE AGUA de las runas (set Marea): mientras dura, ni Lento ni Congelacion.
 	if runa_escudo_agua > 0.0 and (id == StatusEffects.Id.LENTO or id == StatusEffects.Id.CONGELACION):
 		print("[runas] %s: el escudo de agua para el %s" % [nombre, String(d.get("nombre", "?"))])
+		runa_agua_paradas += 1
 		return
 	# UN CONTROL QUE PRENDE gasta escalon del decaimiento (el siguiente costara el doble). Va aqui,
 	# en el choke point, y no en cada tirada: fallar NO gasta escalon -- si lo gastara, resistir un

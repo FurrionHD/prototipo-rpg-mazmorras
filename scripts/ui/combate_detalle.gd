@@ -686,7 +686,13 @@ func _tab_detalles(c: Combatant) -> void:
 # Energia y mana solo si las tiene, igual que combat._crear_barras_aliado: un enemigo va a cero en
 # las dos y pintarselas seria enseñar dos barras vacias que no significan nada.
 func _barras(c: Combatant) -> void:
-	MenuScaffold.barra(_panel, MenuScaffold.COLOR_VIDA, c.current_hp, c.max_hp, "%.0f / %.0f", 22, 14)
+	var bv: ProgressBar = MenuScaffold.barra(_panel, MenuScaffold.COLOR_VIDA, c.current_hp, c.max_hp, "%.0f / %.0f", 22, 14)
+	# EL ESCUDO DE AGUA (set Marea, 09/10): su tramo azul encima de la vida y lo que le queda junto al numero.
+	var extra: String = TramoEscudo.poner(bv, c.current_hp, c.max_hp, c.runa_escudo_agua)
+	if extra != "" and bv.get_child_count() > 0:
+		var lbl: Label = bv.get_child(bv.get_child_count() - 1) as Label
+		if lbl != null:
+			lbl.text += extra
 	if c.max_energy > 0.0:
 		MenuScaffold.barra(_panel, MenuScaffold.COLOR_ENERGIA, c.current_energy, c.max_energy,
 			"EN  %.0f / %.0f", 15, 11)
