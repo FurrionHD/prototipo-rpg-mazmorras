@@ -1152,10 +1152,19 @@ static func ancho_de_dibujo(cuerpo: Node2D) -> Rect2:
 #   - Sale del BORDE de su cuerpo hacia alli ("empieza desde su cabeza, ninguna logica").
 #   - Una LINEA suya (embestidas) mide por lo menos su ancho ("no cubre la anchura de su cuerpo").
 #   - Lo que lanza ALREDEDOR de si empieza en su borde y los anillos se cuentan desde ahi ("si no, nunca va a golpear").
-#   - El alcance ya va de su centro a la raya: no se le suma lo que pisa.
+#   - El alcance ya va de su centro a la raya: no se le suma lo que pisa. Y ninguna llega menos que el basico.
 static func forma_enemigo(ab: AbilityData, pies: Vector2, caja: Rect2, ref: Rect2, alcance: float, hacia: Vector2):
 	var d0: Vector2 = (hacia - pies).normalized() if hacia.distance_squared_to(pies) > 0.0001 else Vector2.DOWN
-	var f = CombatFormas.de_habilidad_mapa(ab, pies, 0.0, alcance, hacia, _hasta_el_borde(pies, d0, caja))
+	var sale: float = _hasta_el_borde(pies, d0, caja)
+	var f = CombatFormas.de_habilidad_mapa(ab, pies, 0.0, alcance, hacia, sale)
+	# NUNCA MAS CORTA QUE SU BASICO (09/10, el jefe sobre el Barrido de hacha del minotauro): un cono o una linea suya
+	# llega por lo menos hasta donde llega su golpe normal (la raya azul, su alcance desde el centro).
+	if f.tipo == CombatFormas.Tipo.CONO and sale + f.radio < alcance:
+		f.radio = alcance - sale
+	elif f.tipo == CombatFormas.Tipo.LINEA and sale + f.largo < alcance:
+		f.largo = alcance - sale
+		f.radio = f.largo
+		f.centro = f.origen + f.dir * f.largo * 0.5
 	if f.tipo == CombatFormas.Tipo.LINEA:
 		f.ancho = maxf(f.ancho, absf(d0.y) * ref.size.x + absf(d0.x) * ref.size.y)
 	if f.tipo == CombatFormas.Tipo.CIRCULO and int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
@@ -1898,10 +1907,16 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		if v != null and not ab.atraviesa and not ab.recorre:
 			# EL ENSARTE se para con la CABEZA delante de su presa, no con los pies: la segadora es larga y con su
 			# radio de pisada acababa con los brazos encima de ella (30/09). Su frente real, como los conos.
-			var delante: float = radio_pisa(e)
-			if ab.carga_persigue:
-				delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
-			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
+			if _marcado(e):
+				# CON LOS CUERPOS MARCADOS (09/10): se para cuando SU caja toca la de su presa (los dos bordes en esa direccion).
+				var mio: float = _hasta_el_borde(pies_de(e), f.dir, bulto_de(e))
+				var suyo: float = _hasta_el_borde(pies_de(v), -f.dir, bulto_de(v))
+				fin = pies_de(v) - f.dir * (suyo + mio + 2.0)
+			else:
+				var delante: float = radio_pisa(e)
+				if ab.carga_persigue:
+					delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
+				fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
 		if ab.atraviesa:
 			dur = InsectoAire.T_RODADA
 		# LA QUE RECORRE (la Oleada de patas): hasta el final, a lo que tarda en cruzar (InsectoAire.T_OLEADA).

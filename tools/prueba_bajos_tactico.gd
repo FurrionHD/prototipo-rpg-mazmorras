@@ -102,7 +102,10 @@ func _correr() -> void:
 		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
 		# Dos delante, a su alcance (uno un poco arriba y otro abajo), el tercero lejos; el resto, mas lejos.
 		var pe: Vector2 = t.pies_de(e)
-		var hueco: float = t.radio_pisa(e) + t.alcance_de(e) * 0.7
+		# (09/10) Desde su centro, como el juego, y siempre FUERA de su cuerpo (con los cuerpos marcados, el 70 % del alcance
+		# del trent caia dentro de el).
+		var borde_x: float = t.bulto_de(e).end.x - pe.x
+		var hueco: float = maxf(t._resta_al_hueco(e) + t.alcance_de(e) * 0.7, borde_x + 8.0)
 		var sitios: Array = [pe + Vector2(hueco, -8), pe + Vector2(hueco + 2, 10), pe + Vector2(-190, 0)]
 		for i in al.size():
 			var s: Vector2 = sitios[i] if i < sitios.size() else pe + Vector2(-200 - 40 * i, 70)
