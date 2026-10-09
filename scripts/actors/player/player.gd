@@ -248,6 +248,7 @@ func _ready() -> void:
 		# manera. Ver ficha_tactil.gd.
 		add_child(preload("res://scripts/ui/ficha_tactil.gd").new())
 	add_child(preload("res://scripts/ui/inventory_menu.gd").new())  # inventario (I)
+	add_child(preload("res://scripts/ui/rueda_cristales.gd").new())  # soltar cristales (G)
 	add_child(preload("res://scripts/ui/craft_menu.gd").new())      # boticaria (F sobre el NPC)
 	var _cocina_menu := preload("res://scripts/ui/craft_menu.gd").new()  # cocinero: mismo menu, modo distinto
 	_cocina_menu.modo = _cocina_menu.Modo.COCINA                   # fijar ANTES de add_child: _ready ya lo lee

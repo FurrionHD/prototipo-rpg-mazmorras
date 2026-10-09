@@ -13008,7 +13008,9 @@ func medianas_desbloqueadas() -> bool:
 
 # Suelta `cantidad` unidades EQUIVALENTES a `modelo` (mismo tipo/categoria/calidad) de la
 # bolsa, dejandolas en el suelo junto al jugador. Devuelve cuantas solto.
-func soltar_item(modelo: Resource, cantidad: int) -> int:
+const SOLTAR_DELANTE := 30.0   # px por delante de los pies
+# delante = true: cae DELANTE de ti, a donde miras (la ruedita de cristales: es para cebar a un enemigo).
+func soltar_item(modelo: Resource, cantidad: int, delante: bool = false) -> int:
 	if modelo == null or cantidad <= 0:
 		return 0
 	var pnode := get_tree().get_first_node_in_group("player")
@@ -13028,6 +13030,10 @@ func soltar_item(modelo: Resource, cantidad: int) -> int:
 		# maquinas ven el drop en el MISMO sitio.
 		var pos: Vector2 = pnode.global_position + Vector2(
 			randf_range(-18.0, 18.0), randf_range(-18.0, 18.0))
+		if delante:
+			var mira: Vector2 = pnode.get("_facing") if pnode.get("_facing") is Vector2 else Vector2.DOWN
+			pos = pnode.global_position + mira.normalized() * SOLTAR_DELANTE + Vector2(
+				randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
 		if Net.activo:
 			# MULTIJUGADOR: el suelo es del host. El drop lo planta Net en TODOS los mundos
 			# (el mio incluido) con su id de red; aqui solo se saca de la bolsa.

@@ -22,12 +22,12 @@ extends RefCounted
 # Cada cuanto mira si hay cristales a la vista. No cada fotograma: con veinte bichos y sesenta cosas en
 # el suelo serian mil comprobaciones por fotograma para algo que no corre ninguna prisa.
 const MIRAR_CADA := 0.3
-# Lo que HUELE: un cristal a esta distancia lo nota mire hacia donde mire (la vista es su cono). EN CUERPOS, desde el
-# BORDE del suyo (08/10, playtest: "el rango para los cristales hay que subirlo y tiene que ser proporcional al tamaño
-# del enemigo; el Rey Slime no come a no ser que este literal dentro de los cristales"). Eran 48 px desde el CENTRO para
-# todos: el Rey mide 90, asi que el cristal tenia que estar debajo de el. Luego 2 cuerpos, y el 09/10 TRES
-# (playtest: "lo pusimos a x2, pues a x3"): el slime (32) a 96 px de su borde, el Rey (90) a 270.
-const OLFATO_CUERPOS := 3.0
+# Lo que HUELE: un cristal a esta distancia lo nota mire hacia donde mire (la vista es su cono). Medido desde el BORDE
+# de su cuerpo. Historia: eran 48 px desde el CENTRO para todos (el Rey, de 90, solo comia si el cristal estaba debajo);
+# el 08/10 pasaron a 2 cuerpos (proporcional al tamaño) y el 09/10 el jefe lo cambio: "no por tamaño de su cuerpo, que
+# sea siempre 300 px desde la esquina de su cuerpo". El borde sale hoy de radio_extra; cuando esten los cuerpos marcados
+# a mano (EnemyData), sale de ahi.
+const OLFATO_PX := 300.0
 # Lo que tarda en zamparselo, ya pegado a el. Es lo que te regala el cebo.
 const COMER_DUR := 1.2
 # Lo que se espera a que el anfitrion le diga si el cristal sigue ahi (multi). Pasado esto, se rinde.
@@ -94,10 +94,9 @@ func _es_cristal(p: Node) -> bool:
 	return is_instance_valid(p) and p is Node2D and ("item" in p) and p.item is Cristal
 
 
-# Hasta donde huele, desde su CENTRO: su medio cuerpo y OLFATO_CUERPOS cuerpos mas (ver arriba).
+# Hasta donde huele, desde su CENTRO: su medio cuerpo y OLFATO_PX mas (ver arriba).
 func olfato() -> float:
-	var lado: float = (Cuerpos.MEDIO_BASE + float(e.radio_extra)) * 2.0
-	return lado * 0.5 + lado * OLFATO_CUERPOS
+	return Cuerpos.MEDIO_BASE + float(e.radio_extra) + OLFATO_PX
 
 
 func _lo_ve(p: Node2D, d: float) -> bool:

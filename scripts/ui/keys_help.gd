@@ -24,6 +24,7 @@ const CONTROLS := [
 	["F3", "Contador de FPS y frame time (dev)"],
 	["ESC", "Pausa: guardar / guardar y salir"],
 	["I / B", "Inventario"],
+	["G", "Soltar cristales: ruedita, clic suelta 1 delante de ti (mayús+clic: 5). Para cebar enemigos"],
 	["C", "Menú de personaje (stats / armas / armadura)"],
 	["M", "Mapa del piso (zonas exploradas + nodos de recolección)"],
 	["P", "EN COMBATE: desatascar. Escribe en el log qué está pasando e intenta"],

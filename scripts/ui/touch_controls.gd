@@ -66,6 +66,7 @@ var _dedo_joystick: int = -1
 var _actuar: Control = null
 var _atacar: Control = null
 var _curar: Control = null
+var _soltar: Control = null
 var _correr: Control = null
 var _sigilo: Control = null
 
@@ -223,6 +224,11 @@ func _montar_botones() -> void:
 	_colocar(_curar, MARGEN + R_ACTUAR * 2.0 + 14.0 + R_ATACAR * 2.0 + 14.0, MARGEN)
 	add_child(_curar)
 
+	# SOLTAR CRISTALES (la ruedita de la G), encima del de curar.
+	_soltar = _crear_boton(R_PEQUENO, Callable(Iconos, "mineral"))
+	_colocar(_soltar, MARGEN + R_ACTUAR * 2.0 + 14.0 + R_ATACAR * 2.0 + 14.0, MARGEN + R_PEQUENO * 2.0 + 16.0)
+	add_child(_soltar)
+
 	# Los dos de FIJAR, encima y mas pequeños: no son de pulsar a cada paso.
 	_correr = _crear_boton(R_PEQUENO, Callable(Iconos, "correr"))
 	_colocar(_correr, MARGEN + R_ACTUAR - R_PEQUENO, MARGEN + R_ACTUAR * 2.0 + 16.0)
@@ -239,6 +245,7 @@ func _montar_botones() -> void:
 	# mantener el dedo era imposible en el movil: siempre se leia como un toque corto.
 	_conectar_mantener(_atacar, &"atacar")
 	_conectar_pulso(_curar, _on_curar)
+	_conectar_pulso(_soltar, _on_soltar)
 	_conectar_pulso(_correr, _on_correr)
 	_conectar_pulso(_sigilo, _on_sigilo)
 
@@ -385,6 +392,13 @@ func _on_actuar() -> void:
 
 func _on_curar() -> void:
 	Tactil.toque(&"curar")
+
+
+# La ruedita no lee la accion por sondeo (se abre con un evento), asi que el boton la abre a mano.
+func _on_soltar() -> void:
+	var r: Node = get_tree().get_first_node_in_group("rueda_cristales")
+	if r != null:
+		r.alternar()
 
 
 # Correr y sigilo son de FIJAR: se quedan puestos hasta que los vuelvas a pulsar. Correr con el
