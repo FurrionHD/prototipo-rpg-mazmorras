@@ -89,6 +89,8 @@ func _correr() -> void:
 	tm._pos[al] = cu_a.global_position
 	e.acido_prob = 1.0
 	al.status_resist = 0.0
+	print("    (ya tirada en esta accion: %s)" % combat._pasiva_hecha.has(e))
+	combat._pasiva_hecha.clear()   # un golpe nuevo: la pelea sigue corriendo y pudo pegarle alguien antes
 	combat._pasiva_al_golpearle(e, al)
 	_ver(al.has_status(StatusEffects.Id.DEBIL), "le deja Debil")
 
@@ -127,14 +129,28 @@ func _correr() -> void:
 	tm.charcos_turno_enemigo(e)
 	_ver(_burbujas(tm).is_empty(), "las que nadie toca revientan solas")
 
-	print("4) revienta al morir")
+	print("4) revienta al morir (playtest 08/10: la nube no envenenaba a quien lo mata cuerpo a cuerpo)")
+	# Pegado a el, como quien le acaba de pegar con la espada: a un paso de su borde.
+	for dx in range(10, 200, 2):
+		cu_a.global_position = cu_e.global_position + Vector2(-dx, 0)
+		tm._pos[al] = cu_a.global_position
+		if tm.hueco_entre(al, e) >= 20.0:
+			break
+	print("    hueco %.1f px, centro a centro %.1f px" % [tm.hueco_entre(al, e), tm.pies_de(al).distance_to(tm.pies_de(e))])
+	al.statuses.clear()
+	tm._pisado.clear()
+	var caja: Rect2 = tm.bulto_de(e)
+	var r_esperado: float = 45.0 + maxf(caja.size.x, caja.size.y) * 0.5
 	e.current_hp = 0.0
 	combat._morir_enemigo(e)
 	await _esperar(5)
 	var muerte: String = "charco8_%d" % cod
-	_ver(tm._charcos.has(muerte), "deja su nube en el suelo")
+	_ver(tm._charcos.has(muerte), "deja su nube en el suelo, con SU codigo")
 	if tm._charcos.has(muerte):
-		_ver(is_equal_approx((tm._charcos[muerte]["f"]).radio, 45.0) and int(tm._charcos[muerte]["turnos"]) == 3,
-			"de radio 45 y 3 turnos")
+		var rr: float = (tm._charcos[muerte]["f"]).radio
+		print("    radio de la nube %.1f (45 desde el borde = %.1f)" % [rr, r_esperado])
+		_ver(is_equal_approx(rr, r_esperado) and int(tm._charcos[muerte]["turnos"]) == 3,
+			"de radio 45 desde el borde de su cuerpo y 3 turnos")
+	_ver(al.has_status(StatusEffects.Id.VENENO), "quien lo mata cuerpo a cuerpo respira la nube al momento: Veneno")
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

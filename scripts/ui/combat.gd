@@ -596,13 +596,20 @@ func _aura_fria(c: Combatant) -> void:
 
 # REVIENTA AL MORIR (06/10, el miasma y el pestilente, ver MutacionData): al caer deja en su sitio la NUBE de su
 # revienta_al_morir (un circulo con sus turnos y su veneno). Solo en el mapa (en la fila no hay suelo) y quien ejecuta.
+# (09/10, playtest 08/10: "la nube no envenena") Su radio se cuenta desde el BORDE de su cuerpo (la mitad de su caja
+# marcada, mutacion incluida), no desde el centro: con 45 desde el centro no llegaba ni a quien le mata cuerpo a cuerpo.
+# Y al aparecer ya respira el que este dentro (antes solo al empezar tu turno o al andar por ella). Va ANTES de la cola
+# de _morir_enemigo: con su hueco ya ocupado su codigo era -1 y sus pies los de otro.
 func _revienta(e: Combatant) -> void:
 	if e == null or e.revienta_al_morir == null or e._reventado or _espejo or not tactico:
 		return
 	e._reventado = true
 	var ab: AbilityData = e.revienta_al_morir
-	turno_mapa.poner_charco(e, ab, CombatFormas.circulo(turno_mapa.pies_de(e), ab.forma_radio), turno_mapa.CLASE_MUERTE)
+	var caja: Rect2 = turno_mapa.bulto_de(e)
+	var radio: float = ab.forma_radio + maxf(caja.size.x, caja.size.y) * 0.5
+	turno_mapa.poner_charco(e, ab, CombatFormas.circulo(turno_mapa.pies_de(e), radio), turno_mapa.CLASE_MUERTE)
 	_log_extra("💨 %s revienta y deja %s." % [_etq(e), ab.charco_texto])
+	turno_mapa.charcos_al_nacer()
 
 
 # DIVIDIRSE AL MORIR (06/10, el slime brotado y el brotado punzante, ver MutacionData): se encoge (su muerte) y le salen
@@ -2546,10 +2553,10 @@ func _morir_enemigo(e: Combatant) -> void:
 	# se da por ganada con gente esperando. El espejo no simula: lo hace quien ejecuta la pelea.
 	if not _espejo:
 		var hueco: int = _enemies.find(e)
+		_revienta(e)   # antes de la cola: su nube con su codigo y sus pies
 		Game.meter_de_la_cola(hueco)
 		# DIVIDIRSE (06/10): el que se divide suelta a los suyos al caer (despues de la cola: si entra uno, ocupa el hueco).
 		_dividirse(e)
-		_revienta(e)
 		_tributo(e)
 		if hueco >= 0 and hueco < _enemies.size() and _enemies[hueco] != e \
 				and _target_idx == hueco:
