@@ -665,9 +665,16 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	Game.ganar("magia", Game.reto_stat(_pantalla._poder_enemigo(obj), "magia", obj.level, pj_lanza),
 		Game.GAIN_MAGIA_CAST * mana_factor, Game.RETO_MAX_FISICO, pj_lanza)
 	Game.contar_hechizo(pj_lanza)   # contador oculto de Erudito
-	print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
-		_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
-		obj.mdef_value()])
+	# (09/10, logs del 08/10) Solo la de ATAQUE lleva daño y defensa magica del enemigo: una cura salia como
+	# "lanza Luz restauradora | dano:0.00 | def. magica de Rey Slime". Las demas dicen que son (la cura, a quien y cuanto,
+	# lo escribe _curar_con_hechizo).
+	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
+		print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
+			_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
+			obj.mdef_value()])
+	else:
+		print("[magia] %s lanza %s (%s, Magia %d)" % [_pantalla._player.nombre, spell.nombre,
+			String(SpellData.TipoEfecto.keys()[spell.tipo]).to_lower(), _pantalla._player.abilities.magia])
 	return tocados
 
 
@@ -870,6 +877,7 @@ func _curar_con_hechizo(spell: SpellData) -> void:
 		partes.append("%s +%.0f%s" % [c.nombre, pedida,
 			"" if absf(real - pedida) < 0.5 else " (le suben %.0f)" % real])
 	_pantalla._set_log("✨ %s lanza %s.  %s" % [_pantalla._player.nombre, spell.nombre, "  ·  ".join(partes)])
+	print("[magia] %s cura con %s: %s" % [_pantalla._player.nombre, spell.nombre, ", ".join(partes)])
 
 
 # IMBUICION (KAN-58): tiñe tus golpes de arma con el elemento del hechizo.
