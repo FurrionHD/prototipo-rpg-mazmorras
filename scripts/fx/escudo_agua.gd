@@ -20,6 +20,7 @@ const AGUA := Color(0.18, 0.55, 0.78)
 const AGUA_CLARA := Color(0.5, 0.85, 1.0)
 const AGUA_HONDA := Color(0.07, 0.28, 0.48)
 const ESPUMA := Color(0.92, 0.98, 1.0)
+const Z_DELANTE := 3000   # por encima de toda capa de muñeco (llegan a ~2560) y lejos del tope de Godot (4096)
 const HOLGURA := Vector2(8.0, 7.0)   # lo que la burbuja sobresale del dibujo del cuerpo, por cada lado
 const LADOS := 48
 const T_ONDA := 0.4
