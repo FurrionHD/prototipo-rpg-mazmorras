@@ -5952,6 +5952,9 @@ func _ready() -> void:
 	# combate y la extraccion pausan el arbol, y ese tiempo SI cuenta. Sin esto, un autoload
 	# hereda "pausable" y se congelaria igual que el resto.
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Al cambiar de escena se sueltan las hojas que nadie lleva (ver _soltar_hojas_sin_usar). Diferido: que la escena
+	# nueva haya montado ya sus muñecos y se quede con las suyas.
+	get_tree().scene_changed.connect(func() -> void: call_deferred("_soltar_hojas_sin_usar"))
 
 	# EL TEMA DE LA INTERFAZ (el borde de los botones, ver MenuScaffold.tema).
 	#
@@ -6018,6 +6021,15 @@ func _tema_de_capa(n: Node) -> void:
 #     casi 10 de reloj de pared (todo el rato de pelea no contaba).
 #   - No se puede trampear cerrando el juego (se congela) ni tocando el reloj del PC (no mira la
 #     hora real). Persiste en el save.
+# LAS HOJAS HORNEADAS QUE YA NO LLEVA NADIE se sueltan AL CAMBIAR DE ESCENA (SpriteLienzo.soltar_sin_usar): es un
+# momento de carga, asi que recargar una si vuelve a hacer falta no se nota. No a mitad de juego: recargar la del
+# cuerpo cuesta ~125 ms, y empezar una faena tras soltar su herramienta daria un tiron.
+func _soltar_hojas_sin_usar() -> void:
+	var n: int = SpriteLienzo.soltar_sin_usar(CapaJugador._horneado) + SpriteLienzo.soltar_sin_usar(SpritesEnemigo._horneado)
+	if n > 0:
+		print("[hojas] sueltas %d hojas que no llevaba nadie" % n)
+
+
 func _process(delta: float) -> void:
 	# El tick de los ENCARGOS va ANTES del return por menu abierto, a proposito: corren por RELOJ
 	# REAL y tienen que vencer aunque estes con el Hogar abierto, que es justo cuando los miras.

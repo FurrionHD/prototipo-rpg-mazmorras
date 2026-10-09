@@ -857,6 +857,9 @@ func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant, mult_amena
 # los de todo lo que pueden sacar sus enemigos (Brote, Orden real, dividirse), con sus parpados; quedan en la cache
 # de SpritesEnemigo.
 const T_CRIA := 0.2   # el de Game.dar_cuerpo_a_cria
+# Lo precalentado se queda AQUI mientras dure la pelea: si no, la limpieza de hojas sin usar lo soltaria
+# (SpriteLienzo.soltar_sin_usar) antes de que salga la primera cria.
+var _precalentado: Array = []
 
 func _precalentar_crias() -> void:
 	var datos: Array = []
@@ -871,9 +874,9 @@ func _precalentar_crias() -> void:
 	for d in datos:
 		if d is EnemyData and not hechos.has(d):
 			hechos[d] = true
-			SpritesEnemigo.frames_de(d, T_CRIA)
-			SpritesEnemigo.parpados_de(d, T_CRIA)          # y sus parpados (otras dos hojas)
-			SpritesEnemigo.parpados_extra_de(d, T_CRIA)
+			_precalentado.append(SpritesEnemigo.frames_de(d, T_CRIA))
+			_precalentado.append(SpritesEnemigo.parpados_de(d, T_CRIA))          # y sus parpados (otras dos hojas)
+			_precalentado.append_array(SpritesEnemigo.parpados_extra_de(d, T_CRIA))
 
 
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,

@@ -475,6 +475,23 @@ static func hornear(sf: SpriteFrames, clave: String, carpeta: String = CARPETA_H
 
 
 # Reconstruye el SpriteFrames desde el horneado, o null si esa variante no esta en disco.
+# SOLTAR LO QUE NADIE USA (09/10, "~730 MB de texturas, que locura"): las caches de lo horneado (CapaJugador,
+# SpritesEnemigo) guardaban PARA SIEMPRE cada hoja leida de disco: pelos y armaduras que ya nadie llevaba, enemigos de
+# otro piso... (medido: 220-250 MB de hojas que ningun muñeco tenia puestas). Quita de 'cache' las que solo tiene ella:
+# Godot libera su textura y, si vuelven a hacer falta, se leen otra vez del disco (milisegundos, ya estan horneadas).
+# Los null ("no estaba en disco") se quedan: son la marca de que ya se miro. Devuelve cuantas ha soltado.
+static func soltar_sin_usar(cache: Dictionary) -> int:
+	var fuera: Array = []
+	for k in cache:
+		var v = cache[k]
+		# 3 = la cache + 'v' + el argumento de la llamada: nadie mas la tiene.
+		if v is SpriteFrames and (v as SpriteFrames).get_reference_count() <= 3:
+			fuera.append(k)
+	for k in fuera:
+		cache.erase(k)
+	return fuera.size()
+
+
 static func cargar_horneado(clave: String, carpeta: String = CARPETA_HORNO) -> SpriteFrames:
 	var png: String = carpeta + clave + ".png"
 	var js: String = carpeta + clave + ".json"
