@@ -47,9 +47,37 @@ func _pintar_brote(paredes_px: Array, dur: float, amp: float, col: Color) -> voi
 		piso.pintar_aviso_pared(paredes_px, dur, amp, col)
 
 
+# LOS TIRONES DEL OTRO JUGADOR, MEDIDOS (09/10, playtest: "a veces veo el personaje de mi hermano a tirones"). Antes de
+# tocar canales o el suavizado, se apunta como llegan sus posiciones: deberian llegar cada ~50 ms (net_jugadores._POS_TICK_MS).
+# Cada 10 s, por jugador: cuantas, el hueco medio y el mayor entre dos, y cuantas tardaron mas de 150 ms (un tiron se ve).
+const MEDIR_CADA_MS := 10000
+const HUECO_TIRON_MS := 150
+var _med_pos: Dictionary = {}   # emisor -> {n, suma, max, lentos, ult, desde}
+
+func _medir_llegada(emisor: int) -> void:
+	var ahora: int = Time.get_ticks_msec()
+	var m: Dictionary = _med_pos.get(emisor, {})
+	if m.is_empty():
+		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora}
+		return
+	var hueco: int = ahora - int(m["ult"])
+	m["ult"] = ahora
+	m["n"] = int(m["n"]) + 1
+	m["suma"] = int(m["suma"]) + hueco
+	m["max"] = maxi(int(m["max"]), hueco)
+	if hueco > HUECO_TIRON_MS:
+		m["lentos"] = int(m["lentos"]) + 1
+	if ahora - int(m["desde"]) >= MEDIR_CADA_MS:
+		print("[red] posiciones de %d: %d en %.0f s, hueco medio %d ms, mayor %d ms, %d de mas de %d ms (fps %d)" % [
+			emisor, int(m["n"]), float(ahora - int(m["desde"])) / 1000.0, int(m["suma"]) / maxi(1, int(m["n"])),
+			int(m["max"]), int(m["lentos"]), HUECO_TIRON_MS, Engine.get_frames_per_second()])
+		_med_pos[emisor] = {"n": 0, "suma": 0, "max": 0, "lentos": 0, "ult": ahora, "desde": ahora}
+
+
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array = [],
 		pose: int = 0) -> void:
+	_medir_llegada(emisor)
 	if Net._peers.has(emisor):
 		Net._peers[emisor]["pos"] = pos   # se recuerda: al reconstruir su avatar aparece donde iba
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
