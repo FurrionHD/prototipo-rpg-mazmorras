@@ -20,7 +20,7 @@ const AGUA := Color(0.18, 0.55, 0.78)
 const AGUA_CLARA := Color(0.5, 0.85, 1.0)
 const AGUA_HONDA := Color(0.07, 0.28, 0.48)
 const ESPUMA := Color(0.92, 0.98, 1.0)
-const Z_DELANTE := 3000   # por encima de toda capa de muñeco (llegan a ~2560) y lejos del tope de Godot (4096)
+const Z_DELANTE := 3700   # por encima de toda capa de muñeco (1024 + hasta ~2570) y dentro del tope de Godot (4096)
 const HOLGURA := Vector2(8.0, 7.0)   # lo que la burbuja sobresale del dibujo del cuerpo, por cada lado
 const LADOS := 48
 const T_ONDA := 0.4
@@ -33,7 +33,8 @@ const BURBUJITAS := 6
 var _c: Combatant
 var _caja: Rect2              # el dibujo del cuerpo, en coordenadas del cuerpo (el padre)
 var _detras: Node2D
-var _delante: Node2D
+var _delante: Node2D          # la mitad de ARRIBA de lo de delante (encima de todos los muñecos)
+var _delante_bajo: Node2D     # la mitad de ABAJO (debajo de todos los muñecos; ver poner)
 var _t: float = 0.0
 var _visto: float = -1.0      # lo que tenia en el fotograma anterior
 var _paradas: int = 0
@@ -48,9 +49,11 @@ var _z: Array = [-10, 30, false]
 
 
 # La pone (o la deja si ya esta) en 'cuerpo' para 'c'. 'caja' = el dibujo del cuerpo en coordenadas del MUNDO.
-# 'z_detras' / 'z_delante' = z ABSOLUTOS justo por debajo y por encima de las capas de su muñeco (09/10: con z relativos
-# el compañero de detras salia POR ENCIMA de la burbuja). En el mismo rango que los muñecos, Godot ordena por la Y de
-# cada cuerpo como a un personaje mas: tapa al que esta detras y la tapa el que esta delante.
+# 'z_detras' / 'z_delante' = z ABSOLUTOS justo por debajo y por encima de TODAS las capas de los muñecos (09/10).
+# Los personajes NO se ordenan entre si por la Y (todos sus muñecos van en el mismo rango de z y manda el orden del
+# arbol), asi que la membrana se PARTE: la mitad de ARRIBA -la que pisa al que esta detras- va encima de todos, y la de
+# ABAJO -la que pisa al que esta delante- debajo de todos, al ras del suelo. Como la membrana va por fuera del cuerpo,
+# a quien la lleva apenas le tapa. (Primero con z relativos el compañero de detras salia encima; lo vio el.)
 static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2, z_detras: int = -10, z_delante: int = 30,
 		absolutos: bool = false) -> EscudoAgua:
 	var ya: EscudoAgua = de(cuerpo)
@@ -81,6 +84,7 @@ static func quitar(cuerpo: Node2D) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
 	_detras = _capa(int(_z[0]))
+	_delante_bajo = _capa(int(_z[0]))   # mismo z que el agua honda y despues en el arbol: encima de ella
 	_delante = _capa(int(_z[1]))
 	for i in GOTAS:
 		_gotas.append({"a": TAU * (float(i) + _rng.randf_range(-0.3, 0.3)) / float(GOTAS),
@@ -128,6 +132,7 @@ func _process(delta: float) -> void:
 	visible = v > 0.0 or _rota >= 0.0
 	_detras.queue_redraw()
 	_delante.queue_redraw()
+	_delante_bajo.queue_redraw()
 
 
 # Cuanto se nota el golpe en el angulo 'a' de la membrana (0..1): un abanico alrededor de donde pego que se abre y se
@@ -140,6 +145,12 @@ func _golpe_en(a: float) -> float:
 		var ancho: float = lerpf(0.25, 0.8, u)
 		g = maxf(g, (1.0 - u) * exp(-(d / ancho) * (d / ancho)))
 	return g
+
+
+# ¿Se pinta en esta capa lo que cae a la altura 'y'? La de arriba, lo que queda por encima del centro de la burbuja; la de
+# abajo, el resto (ver poner).
+func _mitad(capa: Node2D, y: float) -> bool:
+	return (y < _centro().y) == (capa == _delante)
 
 
 # Lo que le queda (0..1).
@@ -190,6 +201,8 @@ func _pintar(capa: Node2D) -> void:
 		var a0: float = TAU * float(i) / float(LADOS)
 		var a1: float = TAU * float(i + 1) / float(LADOS)
 		var abajo: float = 0.5 + 0.5 * sin((a0 + a1) * 0.5)
+		if not _mitad(capa, _borde((a0 + a1) * 0.5).y):
+			continue
 		var golpe: float = _golpe_en((a0 + a1) * 0.5)
 		var col_m := Color(AGUA_CLARA.lerp(ESPUMA, minf(blanco + golpe, 1.0)),
 			minf((0.45 + 0.2 * abajo + 0.4 * blanco + 0.6 * golpe) * k, 1.0))
@@ -207,15 +220,19 @@ func _pintar(capa: Node2D) -> void:
 	# EL BRILLO de arriba a la izquierda (la luz en el agua) y uno chiquito abajo a la derecha.
 	var R: Vector2 = _radios()
 	var c: Vector2 = _centro()
-	BarridoAire.brillo(capa, c + Vector2(-R.x * 0.42, -R.y * 0.58), R.x * 0.3, Color(ESPUMA, 0.45 * k))
-	BarridoAire.brillo(capa, c + Vector2(-R.x * 0.46, -R.y * 0.62), R.x * 0.11, Color(ESPUMA, 0.9 * k))
-	BarridoAire.brillo(capa, c + Vector2(R.x * 0.5, R.y * 0.55), R.x * 0.1, Color(ESPUMA, 0.4 * k))
+	if capa == _delante:
+		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.42, -R.y * 0.58), R.x * 0.3, Color(ESPUMA, 0.45 * k))
+		BarridoAire.brillo(capa, c + Vector2(-R.x * 0.46, -R.y * 0.62), R.x * 0.11, Color(ESPUMA, 0.9 * k))
+	else:
+		BarridoAire.brillo(capa, c + Vector2(R.x * 0.5, R.y * 0.55), R.x * 0.1, Color(ESPUMA, 0.4 * k))
 	# LAS BURBUJITAS que suben por dentro.
 	for b in _burbujitas:
 		var u: float = fmod(_t + float(b["d"]), float(b["p"])) / float(b["p"])
 		var p := Vector2(c.x + float(b["x"]) * R.x * (0.9 - 0.3 * u) + sin(_t * 3.0 + float(b["d"])) * 1.5,
 			lerpf(c.y + R.y * 0.7, c.y - R.y * 0.75, u))
 		var vive: float = sin(PI * u)
+		if not _mitad(capa, p.y):
+			continue
 		BarridoAire.brillo(capa, p, float(b["r"]) * 1.8, Color(AGUA_CLARA, 0.35 * vive * k))
 		BarridoAire.brillo(capa, p, float(b["r"]), Color(ESPUMA, 0.85 * vive * k))
 	# DONDE LE HAN PEGADO: la propia membrana se ilumina y se hunde (ver _golpe_en) y suelta unas gotitas de espuma.
@@ -226,9 +243,11 @@ func _pintar(capa: Node2D) -> void:
 			var aj: float = a2 + (float(j) - 1.0) * 0.18
 			var pj: Vector2 = _borde(aj)
 			var fuera := (pj - c).normalized()
+			if not _mitad(capa, pj.y):
+				continue
 			BarridoAire.brillo(capa, pj + fuera * 7.0 * u2 - Vector2(0.0, 5.0 * u2), 2.2 * (1.0 - u2), Color(ESPUMA, 1.0 - u2))
 	# EL DESTELLO al parar un estado: una estrella de espuma arriba.
-	if blanco > 0.0:
+	if blanco > 0.0 and capa == _delante:
 		BarridoAire.destello(capa, c + Vector2(0.0, -R.y * 0.85), 14.0 * blanco + 4.0, Color(ESPUMA, blanco), _t)
 
 
@@ -257,11 +276,14 @@ func _reventar(capa: Node2D) -> void:
 			var a0: float = TAU * float(i) / float(LADOS)
 			var a1: float = TAU * float(i + 1) / float(LADOS)
 			var e: float = 1.0 + 0.25 * hincha
+			if not _mitad(capa, _borde((a0 + a1) * 0.5, e).y):
+				continue
 			capa.draw_primitive(PackedVector2Array([_borde(a0, e * 0.88), _borde(a0, e), _borde(a1, e)]),
 				PackedColorArray([col_0, col, col]), PackedVector2Array())
 			capa.draw_primitive(PackedVector2Array([_borde(a0, e * 0.88), _borde(a1, e), _borde(a1, e * 0.88)]),
 				PackedColorArray([col_0, col, col_0]), PackedVector2Array())
-		BarridoAire.destello(capa, c, R.x * 0.9 * (1.0 - hincha) + 6.0, Color(ESPUMA, 1.0 - hincha), 0.4)
+		if capa == _delante:
+			BarridoAire.destello(capa, c, R.x * 0.9 * (1.0 - hincha) + 6.0, Color(ESPUMA, 1.0 - hincha), 0.4)
 	# LAS GOTAS: salen del borde hacia fuera, suben un poco y caen, cada una con su estela.
 	for g in _gotas:
 		var a: float = float(g["a"])
@@ -277,5 +299,7 @@ func _reventar(capa: Node2D) -> void:
 		var alto_a: float = (sin(PI * minf(vida_a * 1.2, 1.0)) * 14.0 * float(g["h"]) - vida_a * vida_a * 22.0) * K
 		var p_a: Vector2 = sale + fuera * 26.0 * float(g["v"]) * vida_a - Vector2(0.0, alto_a)
 		var al: float = 1.0 - vida * 0.7
+		if not _mitad(capa, p.y):
+			continue
 		BarridoAire.cometa(capa, p_a, p, float(g["r"]), Color(AGUA_CLARA, 0.9 * al))
 		BarridoAire.brillo(capa, p, float(g["r"]) * 0.6, Color(ESPUMA, al))

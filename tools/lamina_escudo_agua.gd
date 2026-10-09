@@ -24,7 +24,7 @@ func _esperar(n: int) -> void:
 		await get_tree().process_frame
 
 
-const CELDA := Vector2i(200, 200)
+const CELDA := Vector2i(200, 240)
 const AMPLIA := 2
 var _salida: String = ""
 var _fotos: Array = []
@@ -75,6 +75,20 @@ func _correr() -> void:
 	al.runa_escudo_max = 40.0
 	al.runa_escudo_agua = 40.0
 	al.invulnerable = true   # que el golpe de prueba no le baje la vida (el escudo se gasta igual: va antes)
+	# EL DEL ESCUDO EN MEDIO (09/10, su peticion): uno de los suyos justo DETRAS (arriba en pantalla) y otro DELANTE
+	# (abajo), pegados, para ver que la burbuja tapa al de detras y la tapa el de delante.
+	var cu0: Node2D = tm.cuerpo_de(al)
+	var otros: Array = []
+	for k in range(1, combat._aliados.size()):
+		var cuk: Node2D = tm.cuerpo_de(combat._aliados[k])
+		if cuk != null:
+			otros.append([combat._aliados[k], cuk])
+	if otros.size() >= 2:
+		for par in [[otros[0], Vector2(6, -26)], [otros[1], Vector2(-6, 26)]]:
+			var cuo: Node2D = par[0][1]
+			cuo.global_position = cu0.global_position + par[1]
+			tm._pos[par[0][0]] = cuo.global_position
+		await _esperar(5)
 	tm.pintar_escudos_agua()
 	var cu: Node2D = tm.cuerpo_de(al)
 	var b: EscudoAgua = EscudoAgua.de(cu)

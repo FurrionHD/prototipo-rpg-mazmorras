@@ -199,9 +199,12 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 						zmin = mini(zmin, (capa as CanvasItem).z_index)
 						zmax = maxi(zmax, (capa as CanvasItem).z_index)
 				if zmin <= zmax:
-					# DELANTE, por encima de CUALQUIER capa de muñeco (el arma de un compañero se empuja hasta z ~2560 para
-					# salir por delante de todo y asomaba por encima de la burbuja; lo vio el, 09/10).
-					EscudoAgua.poner(cu, c, r, maxi(0, zmin - 1), maxi(zmax + 1, EscudoAgua.Z_DELANTE), true)
+					# Las capas van RELATIVAS al muñeco, que va en z absoluto (Game.Z_PERSONAJES): lo real es la suma.
+					# Detras = por debajo de todos los muñecos; delante = por encima de cualquier capa de muñeco (el arma
+					# de un compañero se empuja a ~2570 + 1024 y asomaba por encima de la burbuja; lo vio el, 09/10).
+					var base_z: int = (m as CanvasItem).z_index
+					EscudoAgua.poner(cu, c, r, base_z + mini(zmin, 0) - 1,
+						mini(maxi(base_z + zmax + 1, EscudoAgua.Z_DELANTE), RenderingServer.CANVAS_ITEM_Z_MAX), true)
 					continue
 			EscudoAgua.poner(cu, c, r)
 
