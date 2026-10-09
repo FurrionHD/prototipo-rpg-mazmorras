@@ -4,9 +4,9 @@
 #   VER_SALIDA=C:/Users/dasui/Desktop/ataques_mapa/brote_rey_pelea godot --path . res://tools/ver_brote_rey_ventana.tscn
 extends Node
 
-const CELDA := Vector2i(560, 360)
-const ANTES := 6        # fotogramas guardados de antes del escupitajo (cada 2)
-const DESPUES := 18     # y de despues
+const CELDA := Vector2i(600, 420)
+const ANTES := 4        # fotogramas guardados de antes del escupitajo (cada 3)
+const DESPUES := 26     # y de despues (~1,6 s: vuelo, caida y crecer)
 const MAX_BROTES := 2
 const T_MAX_MS := 40000
 
@@ -90,9 +90,13 @@ func _correr() -> void:
 	get_tree().quit(0)
 
 
+var _centro_fijo = null   # al escupir: entre el Rey y donde caen sus crias
+
 func _centro() -> Vector2:
 	if _combat == null or _combat._aliados.is_empty():
 		return Vector2.ZERO
+	if _centro_fijo != null:
+		return _centro_fijo
 	return (_tm.pies_de(_rey) + _tm.pies_de(_combat._aliados[0])) * 0.5 + Vector2(0, -20)
 
 
@@ -111,10 +115,10 @@ func _grabar() -> void:
 			_crias_rastro[c] = []
 		var sp = cu.get("_sprite")
 		var l: Array = _crias_rastro[c]
-		if l.size() < 60 and _par % 2 == 0:
+		if l.size() < 60 and _par % 3 == 0:
 			l.append("%dms %s h%.0f %s" % [Time.get_ticks_msec() - _t0, str(cu.global_position.round()),
 				-(sp as Node2D).position.y if sp is Node2D else 0.0, "V" if cu.is_visible_in_tree() else "oculta"])
-	if _par % 2 != 0:
+	if _par % 3 != 0:
 		return
 	var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 	var xf: Transform2D = get_tree().root.get_viewport().get_canvas_transform()
@@ -139,6 +143,13 @@ func _on_dibujo(ev: Dictionary, vuelo: float) -> void:
 	if int(ev.get("estilo", 0)) != CombatFX.Estilo.CRIA_LANZADA or _grabando > 0:
 		return
 	print("[ver] el Rey escupe a los %d ms (vuelo %.2f)" % [Time.get_ticks_msec() - _t0, vuelo])
+	var suma: Vector2 = _tm.pies_de(_rey)
+	var n: int = 1
+	for d in _tm._deslices:
+		if bool(d.get("cria", false)):
+			suma += Vector2(d["hasta"])
+			n += 1
+	_centro_fijo = suma / float(n) + Vector2(0, -20)
 	_fotos = _anillo.duplicate()
 	_anillo.clear()
 	_grabando = DESPUES
@@ -150,12 +161,13 @@ func _cerrar_hoja() -> void:
 	_brotes += 1
 	var w: int = CELDA.x
 	var h: int = CELDA.y
-	var hoja := Image.create(w * 4, h * 6, false, Image.FORMAT_RGBA8)
+	var hoja := Image.create(w * 5, h * 6, false, Image.FORMAT_RGBA8)
 	hoja.fill(Color(0.1, 0.1, 0.12))
-	for k in mini(_fotos.size(), 24):
+	for k in mini(_fotos.size(), 30):
 		var f: Image = _fotos[k]
 		f.convert(Image.FORMAT_RGBA8)
-		hoja.blit_rect(f, Rect2i(Vector2i.ZERO, f.get_size()), Vector2i((k % 4) * w, (k / 4) * h))
+		hoja.blit_rect(f, Rect2i(Vector2i.ZERO, f.get_size()), Vector2i((k % 5) * w, (k / 5) * h))
 	hoja.save_png("%s/hoja_%d.png" % [_salida, _brotes])
 	print("[foto] hoja_%d.png (%d fotos, la %d es el escupitajo)" % [_brotes, _fotos.size(), ANTES + 1])
 	_fotos.clear()
+	_centro_fijo = null

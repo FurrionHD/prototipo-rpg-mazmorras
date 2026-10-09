@@ -651,7 +651,7 @@ func _dividirse(e: Combatant) -> void:
 		if tactico:
 			var lado: float = 1.0 if k % 2 == 0 else -1.0
 			var hasta: Vector2 = turno_mapa.sitio_cria_lanzada(caja, normal, hacia.rotated(lado * PI * 0.5))
-			turno_mapa.lanzar_cria(cria, normal, origen, hasta)
+			turno_mapa.lanzar_cria(cria, normal, origen, hasta, false, e.color_visual)
 	if salen > 0:
 		_update_hp()
 		_log_extra("🫧 %s se encoge... ¡y de él salen %d %s!" % [_etq(e), salen, normal.enemy_name.to_lower()

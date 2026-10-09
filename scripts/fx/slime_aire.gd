@@ -33,7 +33,7 @@ class_name SlimeAire
 
 # Los del suelo van en el orden de SueloRoto.Tipo.SLIME_*: no reordenar.
 enum Modo { SPLAT, APLASTA, MAREA, COMBUSTION, SALPICA, ROCIADA, LLAMARADA, PRESION, PLACAJE, EMBATE,
-	GOLPE, ESCUPE, TROMBA, TROZO, IGNICION, PUAS }
+	GOLPE, ESCUPE, TROMBA, TROZO, IGNICION, PUAS, CRIA }
 
 const K := 0.7071
 const Z_ENCIMA := Game.Z_PERSONAJES + 80
@@ -248,6 +248,7 @@ func duracion() -> float:
 		Modo.PRESION: return T_OSCURO + 1.2
 		Modo.TROZO: return 0.75
 		Modo.PUAS: return T_PUAS + T_QUEDA + T_SECA
+		Modo.CRIA: return T_CRECE + 0.3
 	return 1.0
 
 
@@ -510,6 +511,7 @@ func _dibujar_capa(capa: Node2D) -> void:
 		Modo.IGNICION: _ignicion(capa)
 		Modo.TROZO: _trozo(capa)
 		Modo.PUAS: _puas(capa)
+		Modo.CRIA: _cria(capa)
 
 
 # EXPANDIR PUAS (06/10): las puas de cristal le salen DISPARADAS DE LA PIEL en anillo hasta el borde del circulo, se
@@ -805,6 +807,40 @@ func _escupe(capa: Node2D) -> void:
 		_charco(capa, _pies, maxf(_ancho * 0.8, 10.0) * clampf(_t / 0.12, 0.0, 1.0), _seca(0.1) * 0.9, 5.0)
 		return
 	_golpe(capa)
+
+
+# LA CRIA ESCUPIDA (09/10, el jefe: "lanza una bola de baba y de ahi crece hasta convertirse en un slime; la lanza de su
+# color primero y luego se convierte en el color del slime que corresponda"). Mientras vuela (t < 0) es una bola de gel
+# del color de quien la lanza, en parabola de 'desde' a los pies de la cria (_pies), con su estela como el escupitajo. Al
+# caer se aplasta y CRECE hasta la medida de la cria mientras se desvanece: la cria (CombatTactico) aparece a la vez
+# desde dentro con su 'nacer', asi que se ve pasar del color del que la lanza al suyo. Por codigo, sin hornear nada.
+const T_CRECE := 0.4
+
+func _cria(capa: Node2D) -> void:
+	var r_bola: float = clampf(_ancho * 0.3, 5.0, 9.0)
+	if _t < 0.0:
+		if capa != _delante:
+			return
+		var u: float = clampf(1.0 + _t / _viaje, 0.0, 1.0)
+		var alto: float = maxf(24.0, _desde.distance_to(_pies) * 0.3)
+		for i in 5:
+			var ui: float = maxf(u - 0.05 * float(i + 1), 0.0)
+			var pi: Vector2 = _desde.lerp(_pies, ui) + _alto(alto * 4.0 * ui * (1.0 - ui)) + Vector2(0.0, float(i) * 1.5)
+			_gota(capa, pi, r_bola * (0.5 - float(i) * 0.07), 0.9 - float(i) * 0.15, 1.0, float(i))
+		_gota(capa, _desde.lerp(_pies, u) + _alto(alto * 4.0 * u * (1.0 - u)), r_bola, 1.0, 1.0, 2.0)
+		return
+	var k: float = clampf(_t / T_CRECE, 0.0, 1.0)
+	if capa == _suelo:
+		_charco(capa, _pies, maxf(_ancho * 0.6, 8.0) * clampf(_t / 0.1, 0.0, 1.0), (1.0 - k) * 0.8, 5.0)
+		return
+	if capa != _delante:
+		return
+	# El montoncito: de la bola aplastada a la medida de la cria, levantandose, y se desvanece en la segunda mitad.
+	var e: float = 1.0 - (1.0 - k) * (1.0 - k)
+	var r: float = lerpf(r_bola * 1.2, _ancho * 0.5, e)
+	var achata: float = lerpf(0.4, 0.75, e)
+	var alfa: float = 1.0 - smoothstep(0.35, 1.0, k)
+	_gota(capa, _pies - Vector2(0.0, r * achata * 0.9), r, alfa, achata, 3.0)
 
 
 func _tromba(capa: Node2D) -> void:
