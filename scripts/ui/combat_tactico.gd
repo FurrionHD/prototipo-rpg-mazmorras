@@ -5966,6 +5966,76 @@ func dar_cuerpo_a_cria(rey: Combatant, cria: Combatant, data: EnemyData) -> void
 	Game.dar_cuerpo_a_cria(slot, data, p, 0.2)   # la 't' con la que nace en la pelea (altas._invocar_slime)
 
 
+# LAS CRIAS LANZADAS (09/10, el 14 del playtest 08/10: las del slime brotado salian invisibles o pegadas). Nacen en
+# 'origen' (los pies de quien las suelta: el brotado que se divide, guardados ANTES de que su hueco cambie de dueño) y
+# salen VOLANDO EN ARCO hasta 'hasta' (cria_con_cuerpo); al caer se levantan ('nacer'). No pregunta por el cuerpo del
+# que las suelta: el brotado ya esta muerto y fuera de la lista (por eso antes no salia cuerpo y la cria era invisible).
+const T_VUELO_CRIA := 0.45
+const ALTO_VUELO_CRIA := 30.0
+var _vuelo_cria: Dictionary = {}   # slot -> destino
+
+func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vector2) -> void:
+	if _pantalla._espejo:
+		return
+	var slot: int = _pantalla._enemies.find(cria)
+	if slot < 0:
+		return
+	_sitios_cria.append([hasta, Time.get_ticks_msec()])
+	_vuelo_cria[slot] = hasta
+	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2)
+
+
+# ¿Cabe una cria de 'data' con su nodo en 'p'? Su caja MARCADA (EnemyData.cuerpo) sobre suelo pisable, dentro de la
+# arena, sin meterse en ningun cuerpo vivo (por sus cajas) ni en los sitios ya pedidos para otras crias.
+func cabe_cria(p: Vector2, data: EnemyData, holgura: float = 4.0) -> bool:
+	if not _en_arena(p):
+		return false
+	var caja: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
+	caja.position += p
+	var piso: Node = Game.get_tree().get_first_node_in_group("dungeon_floor")
+	if piso != null and piso.has_method("_pisable_px"):
+		for esquina in [caja.position, Vector2(caja.end.x, caja.position.y), Vector2(caja.position.x, caja.end.y), caja.end]:
+			if not piso._pisable_px(esquina):
+				return false
+	for grupo in [_pantalla._enemies, _pantalla._aliados]:
+		for c in grupo:
+			var otro: Node2D = cuerpo_de(c)
+			if (c as Combatant).is_alive() and otro != null:
+				var co: Rect2 = Cuerpos.caja_de(otro)
+				co.position += pos_de(c) - otro.global_position
+				if Cuerpos.hueco_entre(caja, co) < holgura:
+					return false
+	var ahora: int = Time.get_ticks_msec()
+	for sc in _sitios_cria:
+		if ahora - int(sc[1]) <= 4000 and (sc[0] as Vector2).distance_to(p) < SEPARA_CRIA:
+			return false
+	return true
+
+
+# EL SITIO DE UNA CRIA DEL BROTADO: a 50-80 px del BORDE de su cuerpo ('caja', en el mundo), hacia 'dir' (abriendose en
+# abanico si no cabe) y, si no hay nada, mas lejos. 'lado' (+1/-1) = a que lado: las dos salen a lados opuestos.
+const CRIA_LEJOS_MIN := 50.0
+const CRIA_LEJOS_MAX := 80.0
+
+func sitio_cria_lanzada(caja: Rect2, data: EnemyData, dir: Vector2) -> Vector2:
+	var c: Vector2 = caja.get_center()
+	var d0: Vector2 = dir.normalized() if dir.length_squared() > 0.0001 else Vector2.DOWN
+	for lejos in [CRIA_LEJOS_MIN + 10.0, CRIA_LEJOS_MAX, CRIA_LEJOS_MIN, CRIA_LEJOS_MAX + 30.0]:
+		for giro in [0.0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]:
+			var d: Vector2 = d0.rotated(float(giro))
+			# Del centro al BORDE de su caja hacia ahi (la elipse de la caja), y desde el borde, 'lejos'.
+			var a: float = caja.size.x * 0.5
+			var b: float = caja.size.y * 0.5
+			var borde: float = sqrt(a * d.x * a * d.x + b * d.y * b * d.y)
+			# ...y lo que hay del centro de la cria a SU borde: los 50-80 son de borde a borde.
+			var cc: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
+			var su_borde: float = sqrt(cc.size.x * 0.5 * d.x * cc.size.x * 0.5 * d.x + cc.size.y * 0.5 * d.y * cc.size.y * 0.5 * d.y)
+			var p: Vector2 = c + d * (borde + float(lejos) + su_borde) - (cc.get_center())
+			if cabe_cria(p, data):
+				return p
+	return c + d0 * (maxf(caja.size.x, caja.size.y) * 0.5 + CRIA_LEJOS_MIN)
+
+
 func sitio_para_cria(rey: Combatant) -> Vector2:
 	var pr: Vector2 = pos_de(rey)
 	var suma := Vector2.ZERO
@@ -6016,6 +6086,13 @@ func cria_con_cuerpo(slot: int) -> void:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return
+	# LANZADA (ver lanzar_cria): sale volando en arco hasta su sitio y se levanta justo al caer.
+	var vuela: bool = _vuelo_cria.has(slot)
+	if vuela:
+		var hasta: Vector2 = _vuelo_cria[slot]
+		_vuelo_cria.erase(slot)
+		_pos[c] = cuerpo.global_position
+		pedir_desliz(c, hasta, Desliz.YA, 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
 	var rey_hacia := Vector2.DOWN
 	for al in _pantalla._aliados:
 		if al.is_alive() and cuerpo_de(al) != null:
@@ -6029,7 +6106,8 @@ func cria_con_cuerpo(slot: int) -> void:
 	cuerpo.set_meta("gesto_pelea", true)
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": INF, "encaje": false, "cola": PackedStringArray(),
 		"sostener": false}
-	_por_nacer[c] = 0.0
+	# La lanzada nace al caer (T_NACER_MAX - lo que vuela); la del Brote, cuando le cae la gota del Rey.
+	_por_nacer[c] = maxf(T_NACER_MAX - T_VUELO_CRIA - 0.05, 0.0) if vuela else 0.0
 
 
 func _nacer_cria(c: Combatant) -> void:

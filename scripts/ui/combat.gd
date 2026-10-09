@@ -626,13 +626,32 @@ func _dividirse(e: Combatant) -> void:
 	if normal == null:
 		return
 	var salen: int = 0
+	# (09/10, el 14 del playtest 08/10) De donde salen y hacia donde, ANTES de meterlas: la primera puede estrenar el
+	# hueco del propio brotado y desde ahi ya no se le encuentra el cuerpo. Salen a LADOS OPUESTOS, de lado respecto a
+	# los tuyos, lanzadas en arco a 50-80 px del borde de su cuerpo (CombatTactico.lanzar_cria).
+	var origen := Vector2.ZERO
+	var caja := Rect2()
+	var hacia := Vector2.DOWN
+	if tactico:
+		origen = turno_mapa.pies_de(e)
+		caja = turno_mapa.bulto_de(e)
+		var suma := Vector2.ZERO
+		var n_al: int = 0
+		for al in _aliados:
+			if al.is_alive() and turno_mapa.cuerpo_de(al) != null:
+				suma += turno_mapa.pies_de(al)
+				n_al += 1
+		if n_al > 0 and (suma / float(n_al)).distance_to(origen) > 1.0:
+			hacia = (suma / float(n_al) - origen).normalized()
 	for k in CRIAS_AL_DIVIDIRSE:
 		var cria: Combatant = altas._invocar_slime(normal)
 		if cria == null:
 			break   # no cabe ninguno mas
 		salen += 1
 		if tactico:
-			turno_mapa.dar_cuerpo_a_cria(e, cria, normal)
+			var lado: float = 1.0 if k % 2 == 0 else -1.0
+			var hasta: Vector2 = turno_mapa.sitio_cria_lanzada(caja, normal, hacia.rotated(lado * PI * 0.5))
+			turno_mapa.lanzar_cria(cria, normal, origen, hasta)
 	if salen > 0:
 		_update_hp()
 		_log_extra("🫧 %s se encoge... ¡y de él salen %d %s!" % [_etq(e), salen, normal.enemy_name.to_lower()

@@ -115,9 +115,14 @@ func _correr() -> void:
 	for x in combat._enemies:
 		if x.is_alive():
 			antes += 1
+	var caja_b: Rect2 = tm.bulto_de(e)
+	var cuerpo_b: Node2D = tm.cuerpo_de(e)
 	e.current_hp = 0.0
 	combat._morir_enemigo(e)
-	await _esperar(10)
+	# Que vuelen y caigan (T_VUELO_CRIA) y se levanten.
+	var t_v: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t_v < 2000:
+		await get_tree().process_frame
 	var vivos: Array = []
 	for x in combat._enemies:
 		if x.is_alive():
@@ -125,5 +130,29 @@ func _correr() -> void:
 	print("    vivos: %s" % [vivos])
 	_ver(vivos.size() == antes - 1 + 2, "salen dos (%d vivos)" % vivos.size())
 	_ver(vivos.count("Slime") == 2, "y son slimes NORMALES")
+	print("4) las crias se VEN y salen LANZADAS (playtest 08/10: invisibles o pegadas)")
+	var crias: Array = []
+	for x in combat._enemies:
+		if x.is_alive():
+			crias.append(x)
+	var cajas: Array = []
+	for cr in crias:
+		var cc: Node2D = tm.cuerpo_de(cr)
+		_ver(cc != null and cc != cuerpo_b, "la cria tiene SU cuerpo (no el del brotado)")
+		if cc == null:
+			continue
+		var cr_caja: Rect2 = tm.bulto_de(cr)
+		cajas.append(cr_caja)
+		var hueco: float = Cuerpos.hueco_entre(cr_caja, caja_b)
+		print("    cria en %s: alfa %.2f, visible %s, %.1f px del borde del brotado" % [str(cc.global_position.round()),
+			cc.modulate.a, cc.is_visible_in_tree(), hueco])
+		_ver(cc.modulate.a > 0.95 and cc.is_visible_in_tree(), "y se ve")
+		_ver(hueco >= 42.0 and hueco <= 115.0, "cae a 50-80 px del borde del brotado (%.0f px)" % hueco)
+		_ver(not cc.has_meta("gesto_pelea") or String((cc.get("_sprite") as AnimatedSprite2D).animation).begins_with("nacer"),
+			"y se ha levantado (o se esta levantando)")
+	if cajas.size() == 2:
+		_ver(Cuerpos.hueco_entre(cajas[0], cajas[1]) > 0.0, "las dos no se pisan")
+		_ver(((cajas[0] as Rect2).get_center() - caja_b.get_center()).dot((cajas[1] as Rect2).get_center() - caja_b.get_center()) < 0.0,
+			"y salen a lados opuestos")
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)
