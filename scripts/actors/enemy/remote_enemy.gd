@@ -471,6 +471,7 @@ func _lanzar_peticion() -> void:
 	if _combat_triggered or pelea_de != 0:
 		Net.peleas.unirme_a_la_pelea_de(get_meta("net_id"))
 		return
+	Game.marcar_entrando_en_pelea()   # le he pegado: quieto hasta que se abra (o me digan que no)
 	Net.peleas.solicitar_pelea(get_meta("net_id"))
 
 

@@ -208,8 +208,33 @@ func _preparar(c: Combatant) -> bool:
 			if (hijo as Node).process_mode != Node.PROCESS_MODE_ALWAYS:
 				_modos_guardados.append([hijo, (hijo as Node).process_mode])
 				(hijo as Node).process_mode = Node.PROCESS_MODE_ALWAYS
+	# QUIETOS, EN GUARDIA (playtest 08/10: "si te meten en combate mientras corres, se quedan con la animacion de
+	# correr hasta que les toca y se mueven"): el cuerpo se para con la pantalla y nadie le cambiaba la pose.
+	if _pantalla._aliados.has(c):
+		_animar(cuerpo, _mirada_de(cuerpo), false)
+		_entrar_andando(c, cuerpo)
 	_preparados[c] = true
 	return true
+
+
+# EL QUE SE HA QUEDADO FUERA DE LA ZONA entra ANDANDO hasta su borde (playtest 08/10: "hay veces que personajes se
+# quedan fuera del combate y luego al moverse se teletransportan hacia dentro"). Antes nadie le movia al empezar y
+# el primer paso le recortaba de golpe al borde. Lo decide quien lleva la pelea (pedir_desliz ya lo manda al espejo).
+const ENTRADA_VEL := 160.0   # px/s, un trote
+
+func _entrar_andando(c: Combatant, cuerpo: Node2D) -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null or _pantalla._espejo:
+		return
+	var p: Vector2 = cuerpo.global_position + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	if arena.dentro_px(p, DENTRO_DEL_BORDE):
+		return
+	var q: Vector2 = arena.recortar_dentro(p, DENTRO_DEL_BORDE * 2.0) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	var d: float = q.distance_to(cuerpo.global_position)
+	if d < 1.0:
+		return
+	print("[tactico] %s empieza fuera de la zona: entra andando %.0f px" % [c.nombre, d])
+	pedir_desliz(c, q, Desliz.YA, 0, clampf(d / ENTRADA_VEL, 0.2, 1.5))
 
 
 func _preparar_altas() -> void:
