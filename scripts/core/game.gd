@@ -9801,6 +9801,10 @@ func item_plus(item: Resource) -> String:
 func item_display_name(item: Resource) -> String:
 	if item == null:
 		return "(nada)"
+	# Lo de bolsa (cristal, material, consumible) no tiene mejoras, tier de pieza ni rareza: su nombre
+	# de siempre. Antes un cristal en el suelo decia "Recoger Resource(MaterialItem)::nombre · T1 Comun".
+	if item is Cristal or item is MaterialItem or item is ConsumableData:
+		return _nombre_item(item)
 	var m: Dictionary = meta_de(item)
 	var n: int = Upgrades.total_mejoras(m["mejoras"])
 	var txt: String = str(item.get("nombre"))

@@ -25,9 +25,9 @@ const MIRAR_CADA := 0.3
 # Lo que HUELE: un cristal a esta distancia lo nota mire hacia donde mire (la vista es su cono). EN CUERPOS, desde el
 # BORDE del suyo (08/10, playtest: "el rango para los cristales hay que subirlo y tiene que ser proporcional al tamaño
 # del enemigo; el Rey Slime no come a no ser que este literal dentro de los cristales"). Eran 48 px desde el CENTRO para
-# todos: el Rey mide 90, asi que el cristal tenia que estar debajo de el. Ahora 2 cuerpos: el slime (32) a 64 px de su
-# borde, el Rey (90) a 180.
-const OLFATO_CUERPOS := 2.0
+# todos: el Rey mide 90, asi que el cristal tenia que estar debajo de el. Luego 2 cuerpos, y el 09/10 TRES
+# (playtest: "lo pusimos a x2, pues a x3"): el slime (32) a 96 px de su borde, el Rey (90) a 270.
+const OLFATO_CUERPOS := 3.0
 # Lo que tarda en zamparselo, ya pegado a el. Es lo que te regala el cebo.
 const COMER_DUR := 1.2
 # Lo que se espera a que el anfitrion le diga si el cristal sigue ahi (multi). Pasado esto, se rinde.
