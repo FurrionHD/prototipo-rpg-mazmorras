@@ -59,3 +59,6 @@ alcance = 20.0
 camada_mult = 1.05
 camada_salto = 0.5
 camada_radio = 80.0
+cuerpo = Rect2(-5.18, -13.21, 11.49, 18.63)
+centro_golpe = Vector2(0, -2.5)
+alcance_marcado = 20.06

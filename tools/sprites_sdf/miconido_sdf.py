@@ -30,9 +30,12 @@ MAT = {
     'mota':     [(0.70, 0.64, 0.46), (0.80, 0.74, 0.55), (0.88, 0.82, 0.64)],
     'espora':   [(0.80, 0.82, 0.56), (0.90, 0.92, 0.66), (0.97, 0.98, 0.78)],
 }
-LIENZO = (90, 106)
-PIES = (45.0, 106 * 1.55 / 2.75)
-MODELO = Modelo(2.0, LIENZO, PIES, MAT, (0.12, 0.10, 0.07), suaves=('cuerpo',), brillan=(), corta_suelo=True)
+# MAS GRANDE (09/10, el jefe sobre la lamina de cuerpos: "el miconido tiene que ser mas grande", su caja ~2,1 veces):
+# se RENDERIZA a ese tamaño (escala y lienzo x2,1), no se estira en el juego, que el pixel saldria deforme.
+GRANDE = 2.1
+LIENZO = (round(90 * GRANDE), round(106 * GRANDE))
+PIES = (LIENZO[0] / 2.0, LIENZO[1] * 1.55 / 2.75)
+MODELO = Modelo(2.0 * GRANDE, LIENZO, PIES, MAT, (0.12, 0.10, 0.07), suaves=('cuerpo',), brillan=(), corta_suelo=True)
 
 LADEO = 0.22     # cuanto cae el sombrero hacia delante (su "cara")
 # Las medidas del viejo pasadas a este dibujo: aquel media 23 hasta lo alto del cuerpo, este 16,7.

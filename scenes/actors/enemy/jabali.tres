@@ -58,3 +58,6 @@ prob_habilidad = 0.6
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
 ; ALCANCE del basico en el mapa (28/09): es grande.
 alcance = 30.0
+cuerpo = Rect2(-9.82, -14.24, 19.24, 26.65)
+centro_golpe = Vector2(-0.18, -1.88)
+alcance_marcado = 20.76

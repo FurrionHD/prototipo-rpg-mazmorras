@@ -56,3 +56,6 @@ fx_basico_mapa = 180
 ; SU GESTO: sube los brazos y los deja caer (CombatFX.IMPACTO_ANIM_MAPA "golem_golpe": el efecto sale cuando el puño toca).
 anim_basico = &"golem_golpe"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-15.25, 8.75, 32.14, 14.54)
+centro_golpe = Vector2(0.46, 16)
+alcance_marcado = 25

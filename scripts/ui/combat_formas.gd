@@ -74,6 +74,9 @@ class Forma extends RefCounted:
 	var ancho_fin: float = -1.0
 	# CONO partido A LO ANCHO en cuñas (la Brasa, 26/09): ver cuna_de.
 	var cunas: int = 0
+	# CIRCULO alrededor de quien lo lanza: lo que ocupa su CUERPO (09/10). Los anillos se reparten de aqui hacia fuera,
+	# asi el mas fuerte cae justo fuera de el y no debajo, donde nunca hay nadie.
+	var dentro: float = 0.0
 
 	# ¿Es una fila de circulos? (ver CombatFormas.BOLAS)
 	func en_bolas() -> bool:
@@ -179,6 +182,8 @@ class Forma extends RefCounted:
 			d = _mas_cerca(r, centro).distance_to(centro)
 			if d > radio:
 				return 0
+			if dentro > 0.0:
+				return clampi(int(maxf(0.0, d - dentro) / (maxf(1.0, radio - dentro) / float(tramos))), 0, tramos - 1)
 		elif tipo == CombatFormas.Tipo.CONO:
 			for p in [_mas_cerca(r, origen), r.get_center(), r.position, r.end,
 					Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:

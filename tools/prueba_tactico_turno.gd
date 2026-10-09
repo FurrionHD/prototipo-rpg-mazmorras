@@ -256,7 +256,7 @@ func _probar_alcance() -> void:
 	var t: TacticoDePrueba = TacticoDePrueba.new(pelea)
 	pelea.turno_mapa = t
 	var yo: Combatant = pelea._aliados[0]
-	yo.alcance = 20.0
+	yo.alcance = 34.0   # (09/10) el minimo nuevo, medido desde el centro de tu caja
 	# Cuerpos de prueba (cajas base de 32 centradas en el nodo). El hueco para golpear va de los PIES del
 	# que golpea (menos lo que pisa) al CUERPO del que recibe: a 40 px de nodo a nodo, ~13.
 	t.cuerpos[yo] = _cuerpo(Vector2(0, 0))
@@ -271,8 +271,8 @@ func _probar_alcance() -> void:
 		t.cuerpos[pelea._enemies[i]] = _cuerpo(Vector2(600, i * 40))
 	var bc: Rect2 = t.bulto_de(cerca)
 	var pp: Vector2 = t.pies_de(yo)
-	var esperado: float = pp.distance_to(Vector2(clampf(pp.x, bc.position.x, bc.end.x), clampf(pp.y, bc.position.y, bc.end.y))) - t.radio_pisa(yo)
-	_afirmar(is_equal_approx(t.hueco_entre(yo, cerca), esperado) and esperado < 20.0 and esperado > 10.0,
+	var esperado: float = pp.distance_to(Vector2(clampf(pp.x, bc.position.x, bc.end.x), clampf(pp.y, bc.position.y, bc.end.y))) - t._resta_al_hueco(yo)   # (09/10) los tuyos ya no restan lo que pisan
+	_afirmar(is_equal_approx(t.hueco_entre(yo, cerca), esperado) and esperado < 30.0 and esperado > 10.0,
 		"el hueco no va de los pies al cuerpo: %.1f (esperado %.1f)" % [t.hueco_entre(yo, cerca), esperado])
 	_afirmar(is_equal_approx(t.pies_de(yo).y, PoseJugador.PIES_BAJO_NODO), "los pies de los tuyos no estan bajo el nodo")
 	_afirmar(t.llega(yo, cerca) and not t.llega(yo, lejos), "el alcance no separa al de cerca del de lejos")
@@ -341,7 +341,7 @@ func _probar_alcance() -> void:
 	t._pos[otro] = Vector2(0, 55)
 	# Un enemigo en (0, 110): de 55 a 110 son 55 px de centro a centro, 23 de hueco. Alcance 20 + holgura.
 	# Pies del tuyo en y 55+14; el cuerpo del enemigo empieza 16 por encima de su nodo: 23 de hueco.
-	var y_ene: float = 55.0 + PoseJugador.PIES_BAJO_NODO + t.radio_pisa(otro) + 23.0 + 16.0
+	var y_ene: float = 55.0 + PoseJugador.PIES_BAJO_NODO + t._resta_al_hueco(otro) + 23.0 + 16.0   # (09/10) sin restar lo que pisa
 	t.cuerpos[pelea._enemies[2]].global_position = Vector2(0, y_ene)
 	_afirmar(absf(t.hueco_entre(otro, pelea._enemies[2]) - 23.0) < 0.01, "el hueco no sale de la posicion SELLADA: %.1f" % t.hueco_entre(otro, pelea._enemies[2]))
 	_afirmar(t.llega(otro, pelea._enemies[2]), "a otro humano no se le da holgura")

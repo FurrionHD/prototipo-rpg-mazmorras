@@ -11,7 +11,8 @@ class_name Miconido3DSprites
 
 const CARPETA := "res://assets/sprites/enemigos/miconido_sdf/"
 # El lienzo del generador viejo a su escala (y el del script de python): el juego lo coloca igual.
-const LIENZO := Vector2i(90, 106)
+# x2,1 (09/10, el jefe: "el miconido tiene que ser mas grande"): renderizado a ese tamaño en miconido_sdf.py (GRANDE).
+const LIENZO := Vector2i(189, 223)
 # El color en que estan pintadas las hojas (el de su ficha).
 const BASE := Color("806e40")
 

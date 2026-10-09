@@ -114,3 +114,6 @@ al_ser_golpeado_texto = "sus llamas"
 al_ser_golpeado_fx = 175
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_6_8"
+cuerpo = Rect2(-18.75, -6.37, 37.06, 28.31)
+centro_golpe = Vector2(-1.25, 6.56)
+alcance_marcado = 32.06

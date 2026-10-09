@@ -699,6 +699,9 @@ func pies_de(c: Combatant) -> Vector2:
 	var p: Vector2 = pos_de(c)
 	if not _pantalla._enemies.has(c):
 		return p + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	# CON EL CUERPO MARCADO A MANO (09/10): desde su puntito azul, el centro de su cuerpo en el suelo.
+	if _marcado(c):
+		return p + cuerpo_de(c).centro_golpe()
 	var r: Rect2 = bulto_de(c)
 	return Vector2(r.get_center().x, r.position.y + r.size.y * centro_suelo_de(cuerpo_de(c)))
 
@@ -711,6 +714,23 @@ static func centro_suelo_de(cuerpo: Node2D) -> float:
 	if d is EnemyData:
 		return (d as EnemyData).centro_suelo_real()
 	return 1.0 - PIES_SOBRE_EL_BORDE
+
+
+# ¿Tiene este enemigo su cuerpo marcado a mano (EnemyData.cuerpo, 09/10)? Entonces manda ese rectangulo para todo:
+# a quien choca, donde recibe y desde donde mide su golpe (su centro, sin restar lo que pisa: el alcance marcado ya va
+# de ese centro a la raya).
+func _marcado(c: Combatant) -> bool:
+	var cu: Node2D = cuerpo_de(c)
+	var d = cu.get("data") if cu != null else null
+	return d is EnemyData and (d as EnemyData).tiene_cuerpo() and cu.has_method("centro_golpe")
+
+
+# Lo que se le RESTA al hueco al medir si llega. Los tuyos miden desde el centro de su caja (09/10: el alcance de las
+# armas ya se subio para eso, ver WeaponData.ALCANCE_POR_TIPO) y los enemigos marcados desde su centro tambien.
+func _resta_al_hueco(a: Combatant) -> float:
+	if not _pantalla._enemies.has(a) or _marcado(a):
+		return 0.0
+	return radio_pisa(a)
 
 
 # El radio de lo que PISA quien golpea: la punta de su arma se cuenta desde el borde de esto.
@@ -732,6 +752,21 @@ func radio_pisa(c: Combatant) -> float:
 #   Los tuyos: la caja de su cuerpo (PoseJugador.CAJA_CUERPO), la misma contra la que te pegan por el mapa.
 # Con el cuerpo donde la PELEA dice que esta (pos_de).
 func bulto_de(c: Combatant) -> Rect2:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
+	# EL CUERPO MARCADO A MANO (09/10): lo que recibe es lo que pisa, no el dibujo entero ("no tiene sentido que
+	# golpeemos al minotauro desde la cabeza"). Los que aun no esten marcados siguen con la caja de su dibujo.
+	if _marcado(c):
+		var rm: Rect2 = Cuerpos.caja_de(cuerpo)
+		rm.position += pos_de(c) - cuerpo.global_position
+		return rm
+	return bulto_visual(c)
+
+
+# LO QUE SE VE de un cuerpo (su dibujo entero): donde salen los numeros y los dibujos de los golpes y donde se
+# pulsa para abrir su ficha. No es lo que recibe los golpes (bulto_de) en los marcados.
+func bulto_visual(c: Combatant) -> Rect2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	if cuerpo == null:
 		return Rect2(pos_de(c) - Vector2(16, 16), Vector2(32, 32))
@@ -758,7 +793,7 @@ func rect_pantalla_de_bloque(bloque: Dictionary) -> Rect2:
 			break
 	if c == null or cuerpo_de(c) == null:
 		return Rect2()
-	var r: Rect2 = bulto_de(c)
+	var r: Rect2 = bulto_visual(c)
 	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
 	return Rect2(xf * r.position, r.size * xf.get_scale().abs())
 
@@ -772,7 +807,7 @@ func combatiente_en_pantalla(pos: Vector2) -> Combatant:
 		for c in lista:
 			if not (c as Combatant).is_alive() or cuerpo_de(c) == null:
 				continue
-			var r: Rect2 = bulto_de(c)
+			var r: Rect2 = bulto_visual(c)
 			if Rect2(xf * r.position, r.size * xf.get_scale().abs()).has_point(pos):
 				return c
 	var pl: Node = _jugador_local()
@@ -792,7 +827,7 @@ func hueco_entre(a: Combatant, b: Combatant) -> float:
 	var p: Vector2 = pies_de(a)
 	var r: Rect2 = bulto_de(b)
 	var cerca := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
-	return p.distance_to(cerca) - radio_pisa(a)
+	return p.distance_to(cerca) - _resta_al_hueco(a)
 
 
 func alcance_de(c: Combatant) -> float:
@@ -1147,16 +1182,21 @@ func usa_huella(ab: AbilityData) -> bool:
 
 # La forma de 'ab' lanzada por 'c' hacia 'hacia', desde SUS PIES y con 'c' donde la PELEA dice.
 func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
-	var pisa: float = radio_pisa(c)
-	var sale: float = 0.0
-	# UN ENEMIGO golpea desde el FRENTE de su cuerpo hacia alli (frente_dibujo): de ahi salen sus conos y lineas
-	# (un pelo metidos bajo el morro, que el pico no quede suelto) y de ahi se cuenta su alcance. Nunca menos que lo
-	# de siempre: la IA mide si llega con radio_pisa, y quedarse corto la haria pegar desde donde no alcanza.
-	if _pantalla._enemies.has(c):
-		var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
-		pisa = maxf(pisa, frente)
-		sale = frente * FRENTE_METIDO
-	var f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
+	var f
+	if _pantalla._enemies.has(c) and _marcado(c):
+		var cu0: Node2D = cuerpo_de(c)
+		var ref: Rect2 = ancho_de_dibujo(cu0) if (cu0.get("data") as EnemyData).golpe_ancho_dibujo else bulto_de(c)
+		f = forma_enemigo(ab, pies_de(c), bulto_de(c), ref, alcance_de(c), hacia)
+	else:
+		var pisa: float = radio_pisa(c)
+		var sale: float = 0.0
+		# UN ENEMIGO SIN MARCAR golpea desde el FRENTE de su dibujo hacia alli (frente_dibujo): de ahi salen sus conos y
+		# lineas (un pelo metidos bajo el morro) y de ahi se cuenta su alcance.
+		if _pantalla._enemies.has(c):
+			var frente: float = frente_dibujo(cuerpo_de(c), pies_de(c), hacia - pies_de(c))
+			pisa = maxf(pisa, frente)
+			sale = frente * FRENTE_METIDO
+		f = CombatFormas.de_habilidad_mapa(ab, pies_de(c), pisa, alcance_de(c), hacia, sale)
 	# A DISTANCIA (arco, ballesta): la linea se para en la PARED, como el disparo del basico.
 	if c.a_distancia and f.tipo == CombatFormas.Tipo.LINEA:
 		var hasta_pared: float = _largo_hasta_pared(f.origen, f.dir, f.largo)
@@ -1175,6 +1215,52 @@ func forma_de(ab: AbilityData, c: Combatant, hacia: Vector2) -> RefCounted:
 		f.radio = f.largo   # lo que leen la red y el compas (SueloRoto)
 		f.centro = f.origen + f.dir * f.largo * 0.5
 	return f
+
+
+# EL ANCHO DE SU DIBUJO DE FRENTE (el minotauro): un cuadrado de ese lado, para que su golpe mida eso hacia donde vaya. El
+# alto del dibujo no vale: mirando de lado es profundidad de pantalla, no anchura en el suelo.
+static func ancho_de_dibujo(cuerpo: Node2D) -> Rect2:
+	var w: float = rect_dibujo(cuerpo, &"idle_0").size.x
+	return Rect2(0, 0, w, w)
+
+
+# LA HUELLA DE UN ENEMIGO CON SU CUERPO MARCADO (09/10, el jefe), en UN sitio: la usan la pelea (forma_de) y la lamina
+# de golpes (tools/lamina_golpes_enemigos). 'pies' = su centro (el puntito azul), 'caja' = su cuerpo, 'ref' = lo que
+# mide de ancho su golpe (su cuerpo; el dibujo en el minotauro), 'alcance' = el marcado.
+#   - Sale del BORDE de su cuerpo hacia alli ("empieza desde su cabeza, ninguna logica").
+#   - Una LINEA suya (embestidas) mide por lo menos su ancho ("no cubre la anchura de su cuerpo").
+#   - Lo que lanza ALREDEDOR de si empieza en su borde y los anillos se cuentan desde ahi ("si no, nunca va a golpear").
+#   - El alcance ya va de su centro a la raya: no se le suma lo que pisa. Y ninguna llega menos que el basico.
+static func forma_enemigo(ab: AbilityData, pies: Vector2, caja: Rect2, ref: Rect2, alcance: float, hacia: Vector2):
+	var d0: Vector2 = (hacia - pies).normalized() if hacia.distance_squared_to(pies) > 0.0001 else Vector2.DOWN
+	var sale: float = _hasta_el_borde(pies, d0, caja)
+	var f = CombatFormas.de_habilidad_mapa(ab, pies, 0.0, alcance, hacia, sale)
+	# NUNCA MAS CORTA QUE SU BASICO (09/10, el jefe sobre el Barrido de hacha del minotauro): un cono o una linea suya
+	# llega por lo menos hasta donde llega su golpe normal (la raya azul, su alcance desde el centro).
+	if f.tipo == CombatFormas.Tipo.CONO and sale + f.radio < alcance:
+		f.radio = alcance - sale
+	elif f.tipo == CombatFormas.Tipo.LINEA and sale + f.largo < alcance:
+		f.largo = alcance - sale
+		f.radio = f.largo
+		f.centro = f.origen + f.dir * f.largo * 0.5
+	if f.tipo == CombatFormas.Tipo.LINEA:
+		f.ancho = maxf(f.ancho, absf(d0.y) * ref.size.x + absf(d0.x) * ref.size.y)
+	if f.tipo == CombatFormas.Tipo.CIRCULO and int(ab.forma_apunte) == CombatFormas.Apunte.ALREDEDOR:
+		var borde: float = maxf(caja.size.x, caja.size.y) * 0.5
+		f.radio += borde
+		f.dentro = borde
+	return f
+
+
+# De 'p' (dentro de 'r') hasta el borde de 'r' en la direccion 'd'.
+static func _hasta_el_borde(p: Vector2, d: Vector2, r: Rect2) -> float:
+	var tx: float = INF
+	var ty: float = INF
+	if absf(d.x) > 0.0001:
+		tx = ((r.end.x if d.x > 0.0 else r.position.x) - p.x) / d.x
+	if absf(d.y) > 0.0001:
+		ty = ((r.end.y if d.y > 0.0 else r.position.y) - p.y) / d.y
+	return maxf(0.0, minf(tx, ty))
 
 
 # A QUIEN PEGA y con cuanto: [{c, escala}], sin tope (en el mapa le da a todo lo que la huella toque:
@@ -1899,10 +1985,16 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		if v != null and not ab.atraviesa and not ab.recorre:
 			# EL ENSARTE se para con la CABEZA delante de su presa, no con los pies: la segadora es larga y con su
 			# radio de pisada acababa con los brazos encima de ella (30/09). Su frente real, como los conos.
-			var delante: float = radio_pisa(e)
-			if ab.carga_persigue:
-				delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
-			fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
+			if _marcado(e):
+				# CON LOS CUERPOS MARCADOS (09/10): se para cuando SU caja toca la de su presa (los dos bordes en esa direccion).
+				var mio: float = _hasta_el_borde(pies_de(e), f.dir, bulto_de(e))
+				var suyo: float = _hasta_el_borde(pies_de(v), -f.dir, bulto_de(v))
+				fin = pies_de(v) - f.dir * (suyo + mio + 2.0)
+			else:
+				var delante: float = radio_pisa(e)
+				if ab.carga_persigue:
+					delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
+				fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
 		if ab.atraviesa:
 			dur = InsectoAire.T_RODADA
 		# LA QUE RECORRE (la Oleada de patas): hasta el final, a lo que tarda en cruzar (InsectoAire.T_OLEADA).
@@ -3988,8 +4080,10 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 		var otro: Node2D = cuerpo_de(c)
 		if not is_instance_valid(otro) or otro == cuerpo:
 			continue
-		var o: Vector2 = otro.global_position
-		if p.distance_to(o) < SEPARACION and p.distance_to(o) < antes.distance_to(o):
+		# POR SUS CUERPOS, no a 22 px de su centro (09/10, playtest: "estoy dentro del Rey Slime en plena pelea"): no
+		# puedes meter tu caja en la suya. Solo se prohibe ACERCARSE: el que ya esta solapado puede salir.
+		var h_p: float = Cuerpos.hueco_entre(_caja_en(cuerpo, p), Cuerpos.caja_de(otro))
+		if h_p < 0.0 and h_p < Cuerpos.hueco_entre(Cuerpos.caja_de(cuerpo), Cuerpos.caja_de(otro)):
 			return false
 	# LOS TUYOS TAMBIEN CHOCAN ENTRE SI (lo pidio el usuario: se le montaban uno encima de otro), pero
 	# con una excepcion: el que ya ESTA encima de un compañero lo atraviesa hasta despegarse. El grupo
@@ -4006,6 +4100,13 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 			if antes.distance_to(oc) >= SEPARACION and p.distance_to(oc) < SEPARACION:
 				return false
 	return true
+
+
+# La caja de 'cuerpo' si estuviera en 'p'.
+func _caja_en(cuerpo: Node2D, p: Vector2) -> Rect2:
+	var r: Rect2 = Cuerpos.caja_de(cuerpo)
+	r.position += p - cuerpo.global_position
+	return r
 
 
 # ¿'p' cae dentro de la arena, a un pelo de su borde (ver DENTRO_DEL_BORDE)? Con FORMA (03/10, la

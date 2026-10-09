@@ -69,3 +69,7 @@ rabia_umbral = 0.3
 rabia_mult = 1.3
 rabia_velocidad = 1.25
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-7.97, 8.87, 16.55, 11.84)
+centro_golpe = Vector2(-0.55, 14.23)
+alcance_marcado = 29.77
+golpe_ancho_dibujo = true

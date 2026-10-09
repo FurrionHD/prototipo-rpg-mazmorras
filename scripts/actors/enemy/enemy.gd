@@ -609,6 +609,13 @@ func _aplicar_colision(s: float) -> void:
 		return
 	col.shape = col.shape.duplicate()   # instancia propia: no tocar la de los demas
 	var tam: Vector2 = _tam_cuerpo if _tam_cuerpo != Vector2.ZERO else Vector2(32.0 * s, 32.0 * s)
+	col.position = Vector2.ZERO
+	# EL CUERPO MARCADO A MANO manda (09/10, ver EnemyData.cuerpo): su tamaño y su sitio respecto al nodo (en los
+	# grandes, las piernas). Mirando al sur; los alargados giran abajo, como siempre.
+	if data != null and data.tiene_cuerpo():
+		var rc: Rect2 = data.cuerpo_en(_mut_escala())
+		tam = rc.size
+		col.position = rc.get_center()
 	(col.shape as RectangleShape2D).size = tam
 	# ALARGADO = la colision GIRA con el bicho. Una rata de lado ocupa el triple que de frente, y sin
 	# esto un cuerpo largo y fijo la haria chocar de costado por donde de verdad cabe. Los redondos
@@ -1606,6 +1613,20 @@ const _MEDIO_CUERPO := 16.0   # el cuerpo base es 32x32 (bicho normal)
 # sirve para chocar con las paredes.
 func hueco_hasta(otro: Node2D) -> float:
 	return Cuerpos.hueco(self, otro)
+
+
+# Desde donde mide su golpe (el puntito azul de la lamina), respecto al nodo. Solo si tiene el cuerpo marcado.
+func centro_golpe() -> Vector2:
+	return data.centro_golpe_en(_mut_escala(), _facing) if data != null and data.tiene_cuerpo() else Vector2.ZERO
+
+
+# SU CAJA para Cuerpos.caja_de (respecto al nodo): el cuerpo marcado a mano si lo tiene (09/10, ver
+# EnemyData.cuerpo), girado hacia donde mira; si no, el cuadrado de siempre (cuerpo base + lo que sobresale).
+func caja_cuerpo() -> Rect2:
+	if data != null and data.tiene_cuerpo():
+		return data.cuerpo_en(_mut_escala(), _facing)
+	var m: float = Cuerpos.MEDIO_BASE + float(radio_extra)
+	return Rect2(-m, -m, m * 2.0, m * 2.0)
 
 
 # Margen de alcance REAL: el attack_range de siempre era "32 px de cuerpos + margen", asi que

@@ -1,0 +1,146 @@
+[
+  {
+    "dibujo": [
+      [
+        214.3,
+        217.4
+      ],
+      [
+        254.0,
+        295.0
+      ]
+    ],
+    "escala": 2.05,
+    "nodo": [
+      235.0,
+      258.8
+    ],
+    "nombre": "Ciempiés carmesí",
+    "pj": [
+      175.3,
+      233.6
+    ],
+    "res": "res://scenes/actors/enemy/ciempies.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        539.9,
+        141.4
+      ],
+      [
+        738.3,
+        353.6
+      ]
+    ],
+    "escala": 4.0,
+    "nodo": [
+      640.0,
+      258.8
+    ],
+    "nombre": "Coloso",
+    "pj": [
+      500.9,
+      311.4
+    ],
+    "res": "res://scenes/actors/enemy/coloso.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        1008.8,
+        229.4
+      ],
+      [
+        1081.2,
+        282.9
+      ]
+    ],
+    "escala": 1.5,
+    "nodo": [
+      1045.0,
+      258.8
+    ],
+    "nombre": "Escarabajo de hierro",
+    "pj": [
+      969.8,
+      228.7
+    ],
+    "res": "res://scenes/actors/enemy/escarabajo.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        195.3,
+        510.5
+      ],
+      [
+        274.7,
+        603.7
+      ]
+    ],
+    "escala": 2.4,
+    "nodo": [
+      235.0,
+      581.3
+    ],
+    "nombre": "Gárgola",
+    "pj": [
+      156.3,
+      557.5
+    ],
+    "res": "res://scenes/actors/enemy/gargola.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        579.6,
+        545.0
+      ],
+      [
+        700.4,
+        672.7
+      ]
+    ],
+    "escala": 2.8,
+    "nodo": [
+      640.0,
+      581.3
+    ],
+    "nombre": "Gólem de arcilla",
+    "pj": [
+      540.6,
+      624.9
+    ],
+    "res": "res://scenes/actors/enemy/golem_arcilla.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        1027.8,
+        545.0
+      ],
+      [
+        1062.3,
+        615.8
+      ]
+    ],
+    "escala": 1.7,
+    "nodo": [
+      1045.0,
+      581.3
+    ],
+    "nombre": "Jabalí",
+    "pj": [
+      988.8,
+      565.0
+    ],
+    "res": "res://scenes/actors/enemy/jabali.tres",
+    "zoom": 1.5
+  }
+]

@@ -59,3 +59,6 @@ reflejo_prob = 0.25
 evita_tanque = true
 ; SU TIEMPO DE GOLPE en el mapa (30/09, revision de sincronia): su basico toca en ese marco (CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"golpe_4_6"
+cuerpo = Rect2(-9.68, -18.41, 20, 27.59)
+centro_golpe = Vector2(0.91, -5.41)
+alcance_marcado = 28.95

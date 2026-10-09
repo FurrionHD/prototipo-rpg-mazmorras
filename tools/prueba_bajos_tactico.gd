@@ -102,7 +102,10 @@ func _correr() -> void:
 		print("--- %s (alcance %.0f) ---" % [clave, t.alcance_de(e)])
 		# Dos delante, a su alcance (uno un poco arriba y otro abajo), el tercero lejos; el resto, mas lejos.
 		var pe: Vector2 = t.pies_de(e)
-		var hueco: float = t.radio_pisa(e) + t.alcance_de(e) * 0.7
+		# (09/10) Desde su centro, como el juego, y siempre FUERA de su cuerpo (con los cuerpos marcados, el 70 % del alcance
+		# del trent caia dentro de el).
+		var borde_x: float = t.bulto_de(e).end.x - pe.x
+		var hueco: float = maxf(t._resta_al_hueco(e) + t.alcance_de(e) * 0.7, borde_x + 8.0)
 		var sitios: Array = [pe + Vector2(hueco, -8), pe + Vector2(hueco + 2, 10), pe + Vector2(-190, 0)]
 		for i in al.size():
 			var s: Vector2 = sitios[i] if i < sitios.size() else pe + Vector2(-200 - 40 * i, 70)
@@ -123,7 +126,7 @@ func _correr() -> void:
 		# LA EMBESTIDA: los aparta a los lados de su linea.
 		if clave == "jabali":
 			var emb: AbilityData = load("res://resources/abilities/jabali_embestida.tres")
-			var antes: Array = [t.pos_de(al[0]), t.pos_de(al[1])]
+			var antes: Array = [t.pies_de(al[0]), t.pies_de(al[1])]   # (09/10) con los PIES, que es con lo que decide el lado
 			# (07/10) Con punteria: si uno la esquiva no se le aparta (bien hecho), y la prueba fallaba a ratos por eso.
 			var precision0: float = e.precision
 			e.precision = 5.0
@@ -134,10 +137,10 @@ func _correr() -> void:
 			var f_emb = t.ultima_forma_enemigo
 			var perp := Vector2(-f_emb.dir.y, f_emb.dir.x)
 			for k in 2:
-				var mov: Vector2 = t.pos_de(al[k]) - Vector2(antes[k])
+				var mov: Vector2 = t.pies_de(al[k]) - Vector2(antes[k])
 				# Lo lejos que esta del eje de la embestida, antes y despues: tiene que haberse alejado.
 				var eje_antes: float = absf((Vector2(antes[k]) - f_emb.origen).dot(perp))
-				var eje_despues: float = absf((t.pos_de(al[k]) - f_emb.origen).dot(perp))
+				var eje_despues: float = absf((t.pies_de(al[k]) - f_emb.origen).dot(perp))
 				print("  %s: se movio %s; del eje %.1f -> %.1f" % [al[k].nombre, str(mov.round()), eje_antes, eje_despues])
 				_ver(eje_despues > eje_antes + 10.0 and absf(mov.dot(f_emb.dir)) < 3.0,
 					"la Embestida aparta a %s hacia SU lado (de lado, no hacia delante)" % al[k].nombre)

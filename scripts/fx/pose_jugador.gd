@@ -661,7 +661,9 @@ const HUELLA_Y := 11.0
 # CENTRO A CENTRO y el filtro lo convierte a hueco restando los dos medios cuerpos, asi que al
 # estrechar la caja el hueco permitido crece lo mismo y llegas igual de lejos. Ver
 # Player._enemigos_a_tiro.
-const CAJA_CUERPO := Rect2(-11.0, -24.0, 22.0, 42.0)
+# 09/10: la marco el jefe sobre la lamina de cuerpos: la parte de ABAJO (cadera y piernas), lo que pisa, y no el
+# cuerpo entero (era Rect2(-11, -24, 22, 42)). Es donde te pegan, en el mapa y en la pelea.
+const CAJA_CUERPO := Rect2(-12.0, 6.0, 24.0, 13.0)
 
 
 # Lo que hay que ponerle de 'offset' al nodo del sprite (con centered = false) para que los pies

@@ -54,3 +54,6 @@ fx_basico_mapa = 185
 ; SU GESTO: alza el brazo y lo deja caer como un mazo ('basico', toca en el 6o de 8; CombatFX.IMPACTO_ANIM_MAPA).
 anim_basico = &"coloso_golpe"
 metadata/_custom_type_script = "uid://le6jfvhlcbou"
+cuerpo = Rect2(-11, 5.88, 21.82, 10.68)
+centro_golpe = Vector2(-0.17, 10.95)
+alcance_marcado = 27.32
