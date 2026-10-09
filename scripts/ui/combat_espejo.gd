@@ -32,6 +32,7 @@ var _chips_espejo: Dictionary = {}
 # esta congelado esperandole. Con el reenvio, el turno se recupera solo.
 var _peticion_pendiente: Dictionary = {}
 var _espera_acum: float = 0.0
+var _reenvios: int = 0   # cuantas veces le he repetido la peticion pendiente (solo para el log)
 # NUMERO DE PETICION. Sube con CADA cosa que se le pide a un remoto (su turno, una frase, el
 # disparo) y viaja con ella; el remoto lo devuelve en su respuesta. Es lo que distingue "me
 # contesta a lo que le acabo de pedir" de "me llega, tarde, la respuesta a lo de hace dos turnos".
@@ -50,6 +51,7 @@ var _seq_contestada: int = 0
 # Cada cuanto se le repite la peticion a un remoto que no contesta. Generoso a proposito: un humano
 # tarda en decidir, y el reenvio NO le molesta (ver turno_mio, que lo ignora si ya esta eligiendo).
 const REENVIO_TURNO := 4.0
+const REENVIOS_POR_LINEA := 4   # en el log, una linea cada 16 s de espera
 # REVISION del roster: sube con cada ALTA de combatiente (un refuerzo enemigo, un aliado que se
 # une, una invocacion). Viaja en la instantanea para que un espejo sepa si se ha perdido un alta:
 # si la revision no le cuadra, pide el roster entero y se recompone (ver aplicar_roster).
@@ -807,6 +809,7 @@ func _pedir_a_remoto(dueno: int, pet: Dictionary) -> void:
 	pet["seq"] = _pet_seq
 	_peticion_pendiente = pet
 	_espera_acum = 0.0
+	_reenvios = 0
 	_pantalla._traza_add("PIDO #%d '%s' al peer %d (para %s)" % [
 		_pet_seq, String(pet.get("tipo", "?")), dueno,
 		_pantalla._player.nombre if _pantalla._player != null else "?"])
@@ -836,6 +839,7 @@ func _fin_de_espera() -> void:
 	_pantalla._esperando_a = 0
 	_peticion_pendiente = {}
 	_espera_acum = 0.0
+	_reenvios = 0
 
 
 # HEARTBEAT: mientras espero a un remoto, le repito la peticion cada REENVIO_TURNO. Si su pantalla
@@ -861,9 +865,14 @@ func _heartbeat_remoto(delta: float) -> void:
 		_fin_de_espera()
 		_pantalla.sacar_a(quien)
 		return
-	print("[combate] repito la peticion a %d (%s #%d): no ha contestado en %.0f s" % [
-		_pantalla._esperando_a, String(_peticion_pendiente.get("tipo", "?")),
-		int(_peticion_pendiente.get("seq", 0)), REENVIO_TURNO])
+	# EL LOG, SIN RUIDO (09/10, logs del 08/10: 254 lineas en los trabajadores, y todas eran gente pensando: ninguna
+	# peticion se perdio). Se repite igual cada REENVIO_TURNO, pero se escribe la primera vez y luego cada
+	# REENVIOS_POR_LINEA, con lo que lleva esperando.
+	_reenvios += 1
+	if _reenvios == 1 or _reenvios % REENVIOS_POR_LINEA == 0:
+		print("[combate] repito la peticion a %d (%s #%d): lleva %.0f s sin contestar" % [
+			_pantalla._esperando_a, String(_peticion_pendiente.get("tipo", "?")),
+			int(_peticion_pendiente.get("seq", 0)), REENVIO_TURNO * _reenvios])
 	_pantalla._traza_add("REENVIO #%d '%s' al peer %d (sin respuesta en %.0fs)" % [
 		int(_peticion_pendiente.get("seq", 0)), String(_peticion_pendiente.get("tipo", "?")),
 		_pantalla._esperando_a, REENVIO_TURNO])
