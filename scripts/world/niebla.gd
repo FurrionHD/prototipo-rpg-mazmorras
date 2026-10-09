@@ -208,7 +208,7 @@ func _seguir(delta: float) -> void:
 	_ojo_previo = jugador.global_position
 	_focos_previos = focos.duplicate(true)
 	_vista_previa = vista
-	vision.calcular(focos, jugador.global_position, vista)
+	vision.calcular(focos, jugador.global_position, vista, _ojos_de_mi_grupo(jugador))
 	_tex = vision.volcar(_tex)
 	_mat.set_shader_parameter("mascara", _tex)
 	_tex_tinte = vision.volcar_tinte(_tex_tinte)
@@ -269,6 +269,17 @@ func _focos(jugador: Node2D) -> Array:
 		if n == jugador:
 			continue
 		out.append({"pos": n.global_position, "radio": _radio_de(n, r)})
+	return out
+
+
+# LOS OJOS DE MI GRUPO: mis compañeros (no los jugadores de otra maquina: esos ven lo suyo en su pantalla).
+func _ojos_de_mi_grupo(jugador: Node2D) -> Array:
+	var out: Array = []
+	for a in get_tree().get_nodes_in_group("aliado"):
+		var n := a as Node2D
+		if n == null or not is_instance_valid(n) or n == jugador or ("radio_luz" in n):
+			continue
+		out.append(n.global_position)
 	return out
 
 
