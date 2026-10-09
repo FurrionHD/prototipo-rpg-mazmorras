@@ -3235,6 +3235,16 @@ func charcos_tras_andar(c: Combatant) -> void:
 	_desde_charco[c] = pies_de(c)
 
 
+# Un charco que acaba de aparecer (la nube de quien revienta al morir): lo respira ya quien este dentro, con la misma
+# regla de una vez por turno y por charco. Desde donde esta: no lo cuenta como andado.
+func charcos_al_nacer() -> void:
+	if _pantalla._espejo:
+		return
+	for c in _pantalla._aliados:
+		if c.is_alive():
+			_pisar_si(c, pies_de(c), pies_de(c))
+
+
 func _pisar_si(c: Combatant, a: Vector2, b: Vector2) -> void:
 	if not c.is_alive() or not _pantalla._aliados.has(c):
 		return
