@@ -1,0 +1,146 @@
+[
+  {
+    "dibujo": [
+      [
+        190.1,
+        201.8
+      ],
+      [
+        279.8,
+        289.8
+      ]
+    ],
+    "escala": 2.2,
+    "nodo": [
+      235.0,
+      258.8
+    ],
+    "nombre": "Segadora",
+    "pj": [
+      151.1,
+      216.0
+    ],
+    "res": "res://scenes/actors/enemy/segadora.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        615.8,
+        244.9
+      ],
+      [
+        664.1,
+        291.5
+      ]
+    ],
+    "escala": 1.0,
+    "nodo": [
+      640.0,
+      258.8
+    ],
+    "nombre": "Slime",
+    "pj": [
+      576.8,
+      250.5
+    ],
+    "res": "res://scenes/actors/enemy/slime.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        1003.6,
+        234.6
+      ],
+      [
+        1086.4,
+        314.0
+      ]
+    ],
+    "escala": 1.7,
+    "nodo": [
+      1045.0,
+      258.8
+    ],
+    "nombre": "Slime abisal",
+    "pj": [
+      964.6,
+      258.8
+    ],
+    "res": "res://scenes/actors/enemy/slime_abisal.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        195.3,
+        558.8
+      ],
+      [
+        274.7,
+        633.0
+      ]
+    ],
+    "escala": 1.6,
+    "nodo": [
+      235.0,
+      581.3
+    ],
+    "nombre": "Slime de fuego",
+    "pj": [
+      156.3,
+      577.9
+    ],
+    "res": "res://scenes/actors/enemy/slime_fuego.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        602.0,
+        560.5
+      ],
+      [
+        677.9,
+        629.5
+      ]
+    ],
+    "escala": 1.5,
+    "nodo": [
+      640.0,
+      581.3
+    ],
+    "nombre": "Slime profundo",
+    "pj": [
+      563.0,
+      578.9
+    ],
+    "res": "res://scenes/actors/enemy/slime_profundo.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        1015.7,
+        565.7
+      ],
+      [
+        1074.3,
+        617.5
+      ]
+    ],
+    "escala": 1.15,
+    "nodo": [
+      1045.0,
+      581.3
+    ],
+    "nombre": "Slime venenoso",
+    "pj": [
+      976.7,
+      575.3
+    ],
+    "res": "res://scenes/actors/enemy/slime_veneno.tres",
+    "zoom": 1.5
+  }
+]

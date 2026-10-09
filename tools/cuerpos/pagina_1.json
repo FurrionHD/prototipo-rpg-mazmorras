@@ -1,0 +1,146 @@
+[
+  {
+    "dibujo": [
+      [
+        190.2,
+        220.8
+      ],
+      [
+        281.6,
+        279.4
+      ]
+    ],
+    "escala": 1.8,
+    "nodo": [
+      235.0,
+      258.8
+    ],
+    "nombre": "Aberración de la sima",
+    "pj": [
+      151.2,
+      222.7
+    ],
+    "res": "res://scenes/actors/enemy/aberracion.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        626.2,
+        196.7
+      ],
+      [
+        653.8,
+        295.0
+      ]
+    ],
+    "escala": 1.8,
+    "nodo": [
+      640.0,
+      258.8
+    ],
+    "nombre": "Acechador de las simas",
+    "pj": [
+      587.2,
+      218.9
+    ],
+    "res": "res://scenes/actors/enemy/acechador.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        998.4,
+        219.1
+      ],
+      [
+        1091.6,
+        282.9
+      ]
+    ],
+    "escala": 1.5,
+    "nodo": [
+      1045.0,
+      258.8
+    ],
+    "nombre": "Araña de las simas",
+    "pj": [
+      959.4,
+      229.3
+    ],
+    "res": "res://scenes/actors/enemy/arana.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        204.0,
+        514.0
+      ],
+      [
+        266.1,
+        612.3
+      ]
+    ],
+    "escala": 1.95,
+    "nodo": [
+      235.0,
+      581.3
+    ],
+    "nombre": "Bestia acorazada",
+    "pj": [
+      165.0,
+      542.1
+    ],
+    "res": "res://scenes/actors/enemy/bestia_acorazada.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        603.8,
+        558.8
+      ],
+      [
+        676.2,
+        591.6
+      ]
+    ],
+    "escala": 1.4,
+    "nodo": [
+      640.0,
+      581.3
+    ],
+    "nombre": "Chillón de las simas",
+    "pj": [
+      564.8,
+      554.9
+    ],
+    "res": "res://scenes/actors/enemy/chillon.tres",
+    "zoom": 1.5
+  },
+  {
+    "dibujo": [
+      [
+        1036.4,
+        545.0
+      ],
+      [
+        1057.1,
+        614.0
+      ]
+    ],
+    "escala": 1.6,
+    "nodo": [
+      1045.0,
+      581.3
+    ],
+    "nombre": "Chupasimas",
+    "pj": [
+      997.4,
+      550.2
+    ],
+    "res": "res://scenes/actors/enemy/chupasimas.tres",
+    "zoom": 1.5
+  }
+]

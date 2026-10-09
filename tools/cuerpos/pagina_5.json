@@ -1,0 +1,26 @@
+[
+  {
+    "dibujo": [
+      [
+        169.5,
+        110.4
+      ],
+      [
+        300.5,
+        296.7
+      ]
+    ],
+    "escala": 2.5,
+    "nodo": [
+      235.0,
+      258.8
+    ],
+    "nombre": "Trent",
+    "pj": [
+      130.5,
+      244.0
+    ],
+    "res": "res://scenes/actors/enemy/trent.tres",
+    "zoom": 1.5
+  }
+]
