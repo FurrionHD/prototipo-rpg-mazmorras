@@ -41,6 +41,7 @@ func _abrir_turno_enemigo() -> void:
 	for c in _pantalla._aliados:
 		c.imbue_def_gastada = false
 	_pantalla._camada_hecha = false   # la camada salta una vez por accion del rey
+	_pantalla._pasiva_hecha.clear()   # sus pasivas de al recibir golpe: una tirada por accion
 
 
 # Turno de UN enemigo. 'e' es el que ACTUA (no "el enemigo" a secas): con varios en la
