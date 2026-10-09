@@ -6856,7 +6856,9 @@ func player_max_mp(pj: PersonajeData = null) -> float:
 # de Resistencia sube la vida maxima, y al caducar la vida se recorta (ver recortar_a_los_maximos).
 func player_max_hp(pj: PersonajeData = null) -> float:
 	var p: PersonajeData = pj if pj != null else lider()
-	return StatsMath.max_hp_jugador(abilities_eff_de(p), p.base_hp)   # misma formula que en combate
+	# + la Vida % de las runas (09/10: en la pelea si estaba y aqui no; la barra del mapa y el tope de las curas se
+	# quedaban en la vida sin runas).
+	return StatsMath.max_hp_jugador(abilities_eff_de(p), p.base_hp) * Runas.vida_mult(p)   # misma formula que en combate
 
 # Vida ACTUAL concreta (current_hp puede ser -1 = "llena"). La usan las barras.
 func player_hp(pj: PersonajeData = null) -> float:
@@ -8964,8 +8966,9 @@ func loadout_mods(pj: PersonajeData = null) -> Dictionary:
 # Estadisticas y la de cada hechizo. Con la cuenta duplicada, tarde o temprano dirian cosas distintas.
 func poder_magico(pj: PersonajeData = null) -> float:
 	var p: PersonajeData = pj if pj != null else lider()
+	# + el Daño magico % de las runas (09/10): en la pelea va en magic_amp (Runas.aplicar) y aqui no salia.
 	return StatsMath.magia_factor(float(p.magia)) * p.base_magia_factor \
-		* float(loadout_mods(p)["magic_amp"])
+		* float(loadout_mods(p)["magic_amp"]) * (1.0 + float(Runas.totales(p).get("dano_magico_pct", 0.0)))
 
 
 # Extrae los datos POR MANO de un arma (lo que cambia golpe a golpe en dual). Todo sale ya

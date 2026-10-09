@@ -895,6 +895,8 @@ func _abrir_modal_atributos() -> void:
 	if float(lm["mana_reduccion"]) > 0.0:
 		MenuScaffold.fila(vb, "  Coste de maná",
 			"-%.0f%%" % (float(lm["mana_reduccion"]) * 100.0), 200)
+	# Lo de las runas que no tiene fila propia (solo si lo llevas; lo demas ya va sumado arriba).
+	MenuScaffold.filas_runas(vb, pj, 200, "  ")
 
 	MenuScaffold.pastilla(m["acciones"], "Cerrar", _cerrar_modal)
 

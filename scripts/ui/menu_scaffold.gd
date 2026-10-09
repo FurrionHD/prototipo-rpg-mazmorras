@@ -643,6 +643,42 @@ static func bloque_runas(vb: VBoxContainer, item: Resource, compacto: bool = fal
 
 # EL RESUMEN DE SETS de un personaje: "Miasma 2/2" en verde, o "Ignicion 1/2 · Miasma 1/2" en gris si van mezclados.
 # 'tipo' = RunaSetData.Tipo (solo los de arma o de armadura) o -1 para todos.
+# LAS LINEAS DE MAS DE LAS RUNAS (09/10, su peticion: "apareceran lineas adicionales, por ejemplo daño de habilidad, en
+# caso de que algun equipo lo tenga; si no, se queda como siempre"). Las sub-stats que no tienen fila propia en los
+# atributos (las que si la tienen -critico, defensa, vida...- ya van sumadas en su numero). Solo las que tengas, de lo
+# que llevas puesto (Runas.totales + el Cielo nocturno), asi sale igual en el menu, en la ficha de la pelea y en el
+# espejo de multi (lee la ficha del personaje, no el maniqui). Devuelve cuantas ha puesto.
+static func filas_runas(vb: VBoxContainer, pj: PersonajeData, ancho: int = 170, sangria: String = "") -> int:
+	if pj == null:
+		return 0
+	var t: Dictionary = Runas.totales(pj)
+	var lineas: Array = []
+	for par in [["dano_hab", "Daño de habilidades"], ["penetracion", "Penetración"],
+			["dano_jefes", "Daño a mutantes y jefes"], ["final_fis", "Daño final físico"],
+			["final_mag", "Daño final mágico"]]:
+		lineas.append([par[1], float(t.get(par[0], 0.0))])
+	var cielo: Dictionary = Runas.efecto_activo(pj, &"cielo")
+	for e in Runas.ELEMENTOS:
+		var d: float = float(t.get("dano_" + e, 0.0)) + float(t.get("dano_todos", 0.0))
+		if not cielo.is_empty() and e in ["luz", "oscuridad"]:
+			d += float(cielo.get("dano", 0.2))
+		lineas.append(["Daño de " + e, d])
+	for e in Runas.ELEMENTOS:
+		lineas.append(["Resistencia a " + e, float(t.get("res_" + e, 0.0))])
+	lineas.append(["Curación recibida", float(t.get("cura_recibida", 0.0))])
+	lineas.append(["Menos daño de estados", float(t.get("menos_dot", 0.0))])
+	var n: int = 0
+	for l in lineas:
+		if float(l[1]) > 0.0001:
+			fila(vb, sangria + str(l[0]), "+%s%%" % _pct_corto(float(l[1]) * 100.0), ancho)
+			n += 1
+	return n
+
+
+static func _pct_corto(v: float) -> String:
+	return ("%.0f" % v) if absf(v - roundf(v)) < 0.05 else ("%.1f" % v)
+
+
 static func resumen_sets(vb: VBoxContainer, pj: PersonajeData, tipo: int = -1, con_titulo: bool = true) -> void:
 	if pj == null:
 		return
