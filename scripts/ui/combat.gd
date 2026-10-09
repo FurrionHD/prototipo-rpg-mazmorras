@@ -879,6 +879,20 @@ func _precalentar_crias() -> void:
 			_precalentado.append_array(SpritesEnemigo.parpados_extra_de(d, T_CRIA))
 
 
+# LOS SONIDOS DE LAS HABILIDADES, YA (09/10): era lo unico que aun se cargaba la primera vez que salia cada habilidad
+# (medido con --verbose). Los de todas las de los que estan en la pelea, y el de su basico; Sonido los guarda.
+func _precalentar_sonidos() -> void:
+	if efectos == null:
+		return
+	for c in _aliados + _enemies:
+		if c == null:
+			continue
+		Sonido._resolver("", efectos._estilo_de_habilidad(null, c))
+		for ab in c.habilidades:
+			if ab is AbilityData:
+				Sonido._resolver(efectos._clave_sfx(ab), efectos._estilo_de_habilidad(ab, c))
+
+
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
 	# El sobrepeso es POR COMBATIENTE (ver Combatant.overload_factor): estos son los del anfitrion,
@@ -897,6 +911,7 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	for e in _enemies:
 		e.battle_enemies = _enemies
 	_precalentar_crias()
+	call_deferred("_precalentar_sonidos")   # diferido: los ayudantes (efectos) y 'tactico' ya puestos
 	_enemy_initiated = enemy_initiated
 	# Las acciones lentas se apuntan YA, una ficha por aliado: quien llego agotado las arrastra.
 	for i in _aliados.size():
