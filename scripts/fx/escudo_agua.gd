@@ -43,10 +43,15 @@ var _rota: float = -1.0       # >= 0: reventando (segundos)
 var _gotas: Array = []
 var _burbujitas: Array = []
 var _rng := RandomNumberGenerator.new()
+var _z: Array = [-10, 30, false]
 
 
 # La pone (o la deja si ya esta) en 'cuerpo' para 'c'. 'caja' = el dibujo del cuerpo en coordenadas del MUNDO.
-static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2) -> EscudoAgua:
+# 'z_detras' / 'z_delante' = z ABSOLUTOS justo por debajo y por encima de las capas de su muñeco (09/10: con z relativos
+# el compañero de detras salia POR ENCIMA de la burbuja). En el mismo rango que los muñecos, Godot ordena por la Y de
+# cada cuerpo como a un personaje mas: tapa al que esta detras y la tapa el que esta delante.
+static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2, z_detras: int = -10, z_delante: int = 30,
+		absolutos: bool = false) -> EscudoAgua:
 	var ya: EscudoAgua = de(cuerpo)
 	if ya != null:
 		ya._c = c
@@ -57,6 +62,7 @@ static func poner(cuerpo: Node2D, c: Combatant, caja: Rect2) -> EscudoAgua:
 	e._caja = Rect2(caja.position - cuerpo.global_position, caja.size)
 	e._rng.seed = hash(c.nombre)
 	e._paradas = c.runa_agua_paradas
+	e._z = [z_detras, z_delante, absolutos]
 	cuerpo.add_child(e)
 	return e
 
@@ -73,8 +79,8 @@ static func quitar(cuerpo: Node2D) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS   # la pelea tactica pausa el arbol
-	_detras = _capa(-10)
-	_delante = _capa(30)
+	_detras = _capa(int(_z[0]))
+	_delante = _capa(int(_z[1]))
 	for i in GOTAS:
 		_gotas.append({"a": TAU * (float(i) + _rng.randf_range(-0.3, 0.3)) / float(GOTAS),
 			"v": _rng.randf_range(0.7, 1.25), "h": _rng.randf_range(0.6, 1.2), "r": _rng.randf_range(2.6, 4.2)})
@@ -85,6 +91,7 @@ func _ready() -> void:
 
 func _capa(z: int) -> Node2D:
 	var n := Node2D.new()
+	n.z_as_relative = not bool(_z[2])
 	n.z_index = z
 	n.draw.connect(_pintar.bind(n))
 	add_child(n)

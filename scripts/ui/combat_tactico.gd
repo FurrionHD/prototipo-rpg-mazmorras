@@ -190,6 +190,17 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 			if not r.has_area():
 				r = bulto_visual(c)
 				r.position -= pos_de(c) - cu.global_position
+			# Sus z, los de las capas del muñeco (absolutos): justo debajo de la mas baja y encima de la mas alta.
+			if m is Node2D:
+				var zmin: int = 4096
+				var zmax: int = -4096
+				for capa in (m as Node2D).get_children():
+					if capa is CanvasItem and (capa as CanvasItem).visible:
+						zmin = mini(zmin, (capa as CanvasItem).z_index)
+						zmax = maxi(zmax, (capa as CanvasItem).z_index)
+				if zmin <= zmax:
+					EscudoAgua.poner(cu, c, r, maxi(0, zmin - 1), zmax + 1, true)
+					continue
 			EscudoAgua.poner(cu, c, r)
 
 
