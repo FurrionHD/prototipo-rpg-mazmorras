@@ -401,7 +401,10 @@ func _valores(lista: Array, aliados: bool = false) -> Array:
 		out.append([c.current_hp, c.current_mp, c.current_energy, _pantalla.efectos._chips_de(c),
 			c.max_hp, c.max_mp, c.max_energy, c.foco_cargas, _cds_activos(c),
 			CombateDetalle.numeros_aliado(c) if aliados and not _pantalla._espejo else [],
-			c.puertas()])
+			c.puertas(),
+			# El campo 11, EL ESCUDO DE AGUA (set Marea, 09/10): lo que le queda, con lo que empezo y los estados que
+			# ha parado. La burbuja y el tramo azul de la barra salen de aqui en el espejo (y sus ondas, de que baje).
+			[c.runa_escudo_agua, c.runa_escudo_max, c.runa_agua_paradas]])
 	return out
 
 
@@ -1517,6 +1520,10 @@ func _volcar(lista: Array, valores: Array) -> void:
 		# siempre: sus estados, que estan vacios. Es lo mismo que hacia antes, no peor.
 		if v.size() > 10:
 			lista[i].puertas_remotas = int(v[10])
+		if v.size() > 11 and (v[11] as Array).size() >= 3:
+			lista[i].runa_escudo_agua = float(v[11][0])
+			lista[i].runa_escudo_max = float(v[11][1])
+			lista[i].runa_agua_paradas = int(v[11][2])
 		if v.size() > 8:
 			lista[i].ability_cooldowns.clear()
 			for ruta in (v[8] as Dictionary):

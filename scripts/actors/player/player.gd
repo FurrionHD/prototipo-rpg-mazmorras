@@ -2333,7 +2333,9 @@ func _refrescar_barras() -> void:
 		var hp_c: float = c.current_hp if c != null else Game.player_hp(pj)
 		(fila["hp"] as ProgressBar).max_value = maxf(1.0, maxhp_c)
 		(fila["hp"] as ProgressBar).value = hp_c
-		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c]
+		# EL ESCUDO DE AGUA (set Marea, 09/10): su tramo azul encima de la vida, solo en la pelea.
+		var escudo_c: float = c.runa_escudo_agua if c != null else 0.0
+		(fila["hp_lbl"] as Label).text = "%.1f/%.1f" % [hp_c, maxhp_c] 			+ TramoEscudo.poner(fila["hp"] as ProgressBar, hp_c, maxhp_c, escudo_c)
 		var en_bar: ProgressBar = fila["en"]
 		var maxen_c: float = c.max_energy if c != null else _calc_max_aguante(pj)
 		var en_c: float = c.current_energy if c != null else _aguante_de(pj)

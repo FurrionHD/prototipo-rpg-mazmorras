@@ -155,6 +155,7 @@ func refrescar_barras_grupo() -> void:
 	if pl != null:
 		pl.refrescar_barras()
 	pintar_imbuiciones()
+	pintar_escudos_agua()
 
 
 # LA IMBUICION DE CADA UNO DE LOS TUYOS, EN SU CUERPO (aura del Manto, efecto del Filo en el arma). En
@@ -169,6 +170,43 @@ func pintar_imbuiciones(soltar: bool = false) -> void:
 		var m = cu.get("_muneco")
 		if m is MunecoJugador:
 			(m as MunecoJugador).poner_imbue_pelea(-1 if soltar else ImbueVisual.de_combatiente(c))
+
+
+# EL ESCUDO DE AGUA del set Marea, en el cuerpo de cada uno de los tuyos que lo lleve (09/10, EscudoAgua): la burbuja se
+# pone cuando hay escudo y se va sola al romperse (revienta). Mira al combatiente, asi que en el espejo sale de lo que
+# llega en la instantanea. 'soltar' = se acaba la pelea: fuera todas (son hijas de los cuerpos del mapa).
+func pintar_escudos_agua(soltar: bool = false) -> void:
+	for c in _pantalla._aliados:
+		var cu: Node2D = cuerpo_de(c)
+		if cu == null:
+			continue
+		if soltar:
+			EscudoAgua.quitar(cu)
+		elif c.runa_escudo_max > 0.0 and c.runa_escudo_agua > 0.0 and c.is_alive():
+			# EL DIBUJO ENTERO del muñeco (no su caja de choque, que es solo la parte de abajo: la primera lamina salio
+			# con la burbuja en los pies). Ya esta donde esta el nodo, que es lo que sigue la burbuja.
+			var m = cu.get("_muneco")
+			var r: Rect2 = rect_dibujo_entero(m) if m is Node2D else Rect2()
+			if not r.has_area():
+				r = bulto_visual(c)
+				r.position -= pos_de(c) - cu.global_position
+			# Sus z, los de las capas del muñeco (absolutos): justo debajo de la mas baja y encima de la mas alta.
+			if m is Node2D:
+				var zmin: int = 4096
+				var zmax: int = -4096
+				for capa in (m as Node2D).get_children():
+					if capa is CanvasItem and (capa as CanvasItem).visible:
+						zmin = mini(zmin, (capa as CanvasItem).z_index)
+						zmax = maxi(zmax, (capa as CanvasItem).z_index)
+				if zmin <= zmax:
+					# Las capas van RELATIVAS al muñeco, que va en z absoluto (Game.Z_PERSONAJES): lo real es la suma.
+					# Detras = por debajo de todos los muñecos; delante = por encima de cualquier capa de muñeco (el arma
+					# de un compañero se empuja a ~2570 + 1024 y asomaba por encima de la burbuja; lo vio el, 09/10).
+					var base_z: int = (m as CanvasItem).z_index
+					EscudoAgua.poner(cu, c, r, base_z + mini(zmin, 0) - 1,
+						mini(maxi(base_z + zmax + 1, EscudoAgua.Z_DELANTE), RenderingServer.CANVAS_ITEM_Z_MAX), true)
+					continue
+			EscudoAgua.poner(cu, c, r)
 
 
 # El combatiente de uno de MIS personajes, para sus barras de arriba. En quien lleva la pelea sale de
@@ -358,6 +396,7 @@ func desmontar() -> void:
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
+	pintar_escudos_agua(true)
 	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
 		_quitar_gesto(cu)
 	_levantar_caidos()
@@ -1539,6 +1578,26 @@ func _clave_pisoton(c: Combatant) -> String:
 #   - cada fotograma es un AtlasTexture RECORTADO: lo pintado (su region) va dentro de un lienzo mas
 #     grande, y su sitio dentro de el lo dice su MARGIN.
 static var _cache_dibujo := {}
+
+# LO PINTADO DE TODAS LAS CAPAS de un muñeco (cuerpo, cabeza, pelo, ropa, arma...), juntas: rect_dibujo se queda en la
+# primera. Lo usa la burbuja del escudo de agua (09/10), que tiene que envolver al personaje entero.
+static func rect_dibujo_entero(nodo: Node2D) -> Rect2:
+	var r := Rect2()
+	if nodo == null:
+		return r
+	for hijo in nodo.get_children():
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and (hijo as AnimatedSprite2D).sprite_frames != null:
+			var spr: AnimatedSprite2D = hijo
+			var local: Rect2 = _pintado_local(spr, spr.animation, spr.frame)
+			# (una capa casi vacia trae a veces UN pixel suelto lejos del cuerpo: estiraba la burbuja hasta fuera)
+			if local.get_area() < 12.0:
+				continue
+			var t: Transform2D = spr.get_global_transform()
+			var esc: Vector2 = t.get_scale().abs()
+			var ri := Rect2(t.origin + local.position * esc, local.size * esc)
+			r = ri if not r.has_area() else r.merge(ri)
+	return r
+
 
 static func rect_dibujo(cuerpo: Node2D, anim: StringName = &"") -> Rect2:
 	if cuerpo == null:

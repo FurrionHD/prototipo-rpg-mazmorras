@@ -8702,6 +8702,7 @@ func crear_player_combatant(pj: PersonajeData = null) -> Combatant:
 	_aplicar_loadout(c, p)
 	# El ESCUDO DE AGUA del set Marea: se monta con la pelea (esta fabrica es la de los dos caminos de entrada).
 	c.runa_escudo_agua = float(c.max_hp) * c.runa_marea
+	c.runa_escudo_max = c.runa_escudo_agua
 	_aplicar_pasivas_slayer(c, p)   # multiplicadores de daño por familia (pasivas RNG)
 	# La IMBUICION que traia puesta del combate anterior. Va aqui, en la fabrica del combatiente, y
 	# no en start_combat, porque asi la recuperan TAMBIEN los que se unen a mitad de pelea
