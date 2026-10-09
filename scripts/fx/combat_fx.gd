@@ -442,7 +442,11 @@ enum Estilo { MELEE = 0, PROYECTIL = 1, ARCANO = 2, RAYO = 3, CAIDA_RAYO = 4,
 		PROFUNDO_ANEMONA = 206, PROFUNDO_HELADA = 207,
 		# LOS MUTANTES DEL REY SLIME (07/10, ReyAire.sobre_cuerpo): la CORONITA del Decreto sobre el señalado y el TRIBUTO
 		# (el cristal del subdito caido que vuela hasta el rey).
-		REY_DECRETO = 208, REY_TRIBUTO = 209 }
+		REY_DECRETO = 208, REY_TRIBUTO = 209,
+		# LA CRIA LANZADA (09/10, el Brote y la Orden real del Rey): no pinta nada (lo que vuela es la propia cria, en arco:
+		# CombatTactico.lanzar_cria); su gesto es el brote del Rey y su impacto, al CAER, la hace levantarse en todas las
+		# maquinas. Su vuelo = CombatTactico.T_VUELO_CRIA.
+		CRIA_LANZADA = 210 }
 
 
 # QUE GESTO hace cada arma con su golpe basico. La clave es WeaponData.Tipo.
@@ -470,7 +474,7 @@ const FX_ARMA := {
 
 
 # Los que en el MAPA pintan su dibujo propio sobre el cuerpo (ver la señal dibujo_en_mapa): la daga.
-const DIBUJO_MAPA := [Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
+const DIBUJO_MAPA := [Estilo.CRIA_LANZADA, Estilo.DAGA_CORTE, Estilo.DAGA_RAFAGA, Estilo.PUNALADA, Estilo.IMBUIR_FILO,
 	# el arco y la ballesta (DistanciaAire, 02/10): del pecho del que tira al cuerpo que recibe.
 	Estilo.FLECHA, Estilo.VIROTE, Estilo.VIROTE_PASA,
 	Estilo.FLECHA_CARGADA, Estilo.FLECHA_PERFORA, Estilo.FLECHA_LLUVIA, Estilo.FLECHA_CLAVA, Estilo.VIROTE_PESADO, Estilo.VIROTE_PERNO, Estilo.VIROTE_CLAVO, Estilo.RECARGA_FX, Estilo.TENSA_ARCO,
@@ -655,6 +659,7 @@ const T_VUELO := {
 	# El SPLAT cae de MAS ARRIBA que un rayo y pesa mas: se ve venir, que es media gracia.
 	Estilo.SPLAT: 0.34, Estilo.ESCUPITAJO: 0.26, Estilo.AURA: 0.10,
 	# Los del slime en el mapa: el escupitajo y el trozo VIAJAN (su vuelo es el viaje), la columna cae.
+	Estilo.CRIA_LANZADA: 0.45,
 	Estilo.SLIME_GOLPE: 0.05, Estilo.SLIME_ESCUPE: 0.26, Estilo.SLIME_TROMBA: 0.16, Estilo.SLIME_TROZO: 0.22, Estilo.SLIME_IGNICION: 0.10,
 	# Las mandibulas se cierran en ese tiempo: se juntan justo en el golpe.
 	Estilo.BESTIA_MORDISCO: 0.14, Estilo.BESTIA_MORDISCO_SANGRA: 0.14, Estilo.BESTIA_FRENESI: 0.08,

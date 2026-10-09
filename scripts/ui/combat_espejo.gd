@@ -1271,11 +1271,15 @@ func _apuntar_salto_red(c: Combatant, p: Vector2, victima: Combatant) -> void:
 # (x, y = donde acaba su nodo). Ver turno_mapa.pedir_desliz.
 const MARCA_DESLIZ := -9
 
-func _apuntar_desliz_red(c: Combatant, p: Vector2, modo: int, golpes: int) -> void:
+# El quinto numero lleva (09/10, PROTOCOLO 34) el modo (3 bits), los golpes (5), la ALTURA del arco en px (8) y la
+# DURACION en centesimas (8; 0 = la de siempre): sin ellos, en el espejo un salto o una cria lanzada se arrastraban
+# por el suelo.
+func _apuntar_desliz_red(c: Combatant, p: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
 	if _pantalla._espejo or not Net.activo:
 		return
+	var v: int = (modo & 7) + clampi(golpes, 0, 31) * 8 + clampi(roundi(arco), 0, 255) * 256 		+ (clampi(roundi(dur * 100.0), 1, 255) if dur > 0.0 else 0) * 65536
 	_impactos_red.append_array(PackedInt32Array([MARCA_DESLIZ, _cod_combatiente(c),
-		roundi(p.x * 16.0), roundi(p.y * 16.0), modo + golpes * 8]))
+		roundi(p.x * 16.0), roundi(p.y * 16.0), v]))
 
 
 # EL GESTO DE LANZAR UN HECHIZO (27/09) viaja igual, DELANTE de los golpes del conjuro: [M, quien, 0, 0, 0].
@@ -1401,9 +1405,13 @@ func _aplicar_impactos_ya(datos: PackedInt32Array) -> void:
 		if ca == MARCA_DESLIZ:
 			var quien_d: Combatant = _de_codigo(datos[j + 1])
 			if quien_d != null:
+				var vd: int = datos[j + 4]
 				_pantalla.turno_mapa.anotar_desliz(quien_d,
 					Vector2(float(datos[j + 2]) / 16.0, float(datos[j + 3]) / 16.0),
-					datos[j + 4] & 7, datos[j + 4] >> 3)
+					vd & 7, (vd >> 3) & 31)
+				var dur_d: int = (vd >> 16) & 255
+				_pantalla.turno_mapa.ajustar_ultimo_desliz(float(dur_d) / 100.0 if dur_d > 0 else -1.0,
+					float((vd >> 8) & 255))
 			j += 5
 			continue
 		var cv: int = datos[j + 1]

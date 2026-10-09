@@ -109,6 +109,17 @@ func seguir() -> void:
 			# Un cuerpo que ya no esta (murio y se lo llevaron): la ficha se queda donde estaba en vez
 			# de saltar a la esquina. Ya se apagara sola por el camino de siempre.
 			continue
+		# LA CRIA QUE AUN NO SE HA FORMADO (09/10, el jefe: "que la barra de vida salga cuando ya se han formado en el
+		# suelo, no en el aire") no lleva barra: ni escondida en el Rey, ni volando, ni mientras se levanta del charco.
+		# Solo se la quita y se la devuelve esto (la marca), para no pisar a quien apaga la de un muerto.
+		if _pantalla.turno_mapa.cria_sin_formar(cuerpo):
+			if col.visible:
+				col.visible = false
+				col.set_meta(&"oculta_cria", true)
+			continue
+		if col.has_meta(&"oculta_cria"):
+			col.remove_meta(&"oculta_cria")
+			col.visible = true
 		# De MUNDO a PANTALLA. La pelea vive en un CanvasLayer, al que la camara de la mazmorra no le
 		# afecta; el cuerpo si esta bajo la camara. Esta transformada es la que cruza los dos mundos.
 		var cuerpo_px: Rect2 = _rect_cuerpo_px(cuerpo)
