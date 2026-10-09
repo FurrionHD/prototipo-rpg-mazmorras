@@ -1413,6 +1413,17 @@ func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = Packe
 # LA CAMARA VA CON EL QUE TIENE EL TURNO (24/09, lo pidio el jefe: "tenia que estar sobre este y seguirle
 # a el"). Lo llama CombatTactico cada fotograma con el cuerpo que anda; el suavizado de la camara hace el
 # viaje de uno a otro al cambiar de turno.
+# ¿La camara ya enseña 'p' (casi en el centro del hueco libre)? La pelea espera a que llegue antes de un golpe (ver
+# CombatTactico._tras_camara). Sin camara o con la camara fija, si.
+func camara_tactica_cerca(p: Vector2, umbral: float = 40.0) -> bool:
+	if CAMARA_FIJA_EN_PELEA:
+		return true
+	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	if not is_instance_valid(cam) or not cam.top_level:
+		return true
+	return cam.get_screen_center_position().distance_to(p + cam.offset) <= umbral
+
+
 func camara_tactica_sigue(p: Vector2) -> void:
 	if CAMARA_FIJA_EN_PELEA:
 		return
@@ -14534,6 +14545,26 @@ func _dev_print_armor() -> void:
 # y _active_player_cs son singulares). Lo consulta el enemigo ANTES de congelar a su grupo: sin la
 # pausa global (multi) el mundo sigue vivo y otro bicho puede alcanzarte a mitad de pelea; si se
 # congelara sin que la pelea llegue a arrancar, se quedaria de estatua para siempre.
+# ENTRANDO EN UNA PELEA (playtest 08/10): desde que te pegan (o pegas) hasta que la pantalla se abre pasan varios
+# saltos de red en multi, y mientras tanto podias seguir andando; la pelea te pillaba luego fuera de su zona. En ese
+# rato el jugador se queda QUIETO (player._physics_process). Con tope por si la respuesta no llega nunca.
+const ENTRANDO_EN_PELEA_MAX_MS := 4000
+var _entrando_pelea_hasta_ms: int = 0
+
+func marcar_entrando_en_pelea() -> void:
+	_entrando_pelea_hasta_ms = Time.get_ticks_msec() + ENTRANDO_EN_PELEA_MAX_MS
+
+func soltar_entrando_en_pelea() -> void:
+	_entrando_pelea_hasta_ms = 0
+
+func entrando_en_pelea() -> bool:
+	if _entrando_pelea_hasta_ms == 0:
+		return false
+	if not _active_enemies.is_empty() or Time.get_ticks_msec() >= _entrando_pelea_hasta_ms:
+		_entrando_pelea_hasta_ms = 0
+		return false
+	return true
+
 func combate_activo() -> bool:
 	_destrabar_combate()
 	return not _active_enemies.is_empty()

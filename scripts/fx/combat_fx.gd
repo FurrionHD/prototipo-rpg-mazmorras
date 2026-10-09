@@ -1776,6 +1776,15 @@ func _anim_mapa(estilo: int) -> StringName:
 # Cierra la racha y la echa a andar. Devuelve LO QUE VA A DURAR: ese numero es el que se convierte
 # en la duracion del turno (ver _pausa_lectura en combat.gd). 0.0 = no habia nada que animar, y
 # entonces manda quien llama (un turno aturdido se queda su pausa corta de lectura).
+# ¿Hay una racha a medias? Y lo que le queda, en segundos de verdad. Lo pregunta el espejo de multi antes de arrancar
+# la siguiente: arrancar encima reiniciaba el reloj y volvia a lanzar lo que ya habia salido (o lo cortaba).
+func ocupada() -> bool:
+	return _activa and _t < _dur
+
+func restante_real() -> float:
+	return maxf(0.0, (_dur - _t) / maxf(escala_tiempo, 0.05)) if ocupada() else 0.0
+
+
 func arrancar_cola() -> float:
 	# El gesto de lanzar ya va apuntado en cada golpe (encolar): la marca no pasa a la accion siguiente.
 	_lanza_bloque = null

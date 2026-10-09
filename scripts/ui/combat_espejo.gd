@@ -1322,9 +1322,44 @@ func _soltar_impactos_red() -> void:
 
 # Corre en el ESPEJO: reproduce los golpes que acaba de resolver el anfitrion. Solo pinta -- no
 # toca _state ni _pause_left, que aqui no existen (el espejo retorna al principio de _process).
+# LOS GOLPES QUE LLEGAN MIENTRAS AUN SE VE EL ANTERIOR esperan su turno (playtest 08/10: "un monton de animaciones no
+# se hacen y no suenan"). Arrancar la cola encima de una racha viva reiniciaba su reloj: lo ya lanzado se relanzaba o
+# se cortaba a medias. Con tope, por si se amontonan (una pelea a x4).
+var _impactos_en_espera: Array = []
+var _esperando_racha: bool = false
+const MAX_EN_ESPERA := 6
+
 func aplicar_impactos(datos: PackedInt32Array) -> void:
 	if not _pantalla._espejo or _pantalla._fx == null:
 		return
+	if _pantalla._fx.ocupada() or not _impactos_en_espera.is_empty():
+		_impactos_en_espera.append(datos)
+		if _impactos_en_espera.size() > MAX_EN_ESPERA:
+			_impactos_en_espera.pop_front()
+		_esperar_racha()
+		return
+	_aplicar_impactos_ya(datos)
+
+
+func _esperar_racha() -> void:
+	if _esperando_racha or not _pantalla.is_inside_tree():
+		return
+	_esperando_racha = true
+	await _pantalla.get_tree().create_timer(_pantalla._fx.restante_real() + 0.02).timeout
+	_esperando_racha = false
+	if not is_instance_valid(_pantalla) or not _pantalla._espejo or _pantalla._fx == null:
+		_impactos_en_espera.clear()
+		return
+	if _pantalla._fx.ocupada():
+		_esperar_racha()
+		return
+	if not _impactos_en_espera.is_empty():
+		_aplicar_impactos_ya(_impactos_en_espera.pop_front())
+		if not _impactos_en_espera.is_empty():
+			_esperar_racha()
+
+
+func _aplicar_impactos_ya(datos: PackedInt32Array) -> void:
 	var j: int = 0
 	var tanda: int = -1
 	while j + 4 < datos.size():
@@ -1508,6 +1543,12 @@ func _toca_apagar(b: Dictionary, es_aliado: bool) -> bool:
 	if _pantalla._fx != null and _pantalla._fx.golpes_pendientes(b):
 		b.erase("cero_desde")
 		return true
+	# Golpes en espera de turno (ver aplicar_impactos): su muerte viene en ellos, no se le apaga antes.
+	if not _impactos_en_espera.is_empty():
+		b.erase("cero_desde")
+		b["fx_apagar"] = true   # y cuando aterricen, la cola lo apaga (CombatFX._soltar_apagado)
+		b["fx_apagar_aliado"] = es_aliado
+		return false
 	var ahora: float = Time.get_ticks_msec() / 1000.0
 	if not b.has("cero_desde"):
 		b["cero_desde"] = ahora

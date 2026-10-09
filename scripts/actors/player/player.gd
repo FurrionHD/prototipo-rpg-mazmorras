@@ -342,8 +342,11 @@ func _physics_process(delta: float) -> void:
 	# no solo el inventario. En solitario esta rama casi no corria (la pausa congelaba el arbol
 	# entero); en MULTI el arbol sigue vivo con menus abiertos y esta rama es la que evita que
 	# camines o ataques mientras compras. Solo te corta A TI: tu companero sigue a lo suyo.
-	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal():
+	var entrando: bool = Game.entrando_en_pelea()
+	if Game.inventory_open or Game.debug_panel_open or Game.hay_modal() or entrando:
 		velocity = Vector2.ZERO
+		if entrando:
+			_actualizar_animacion(false, delta)   # quieto de verdad, no congelado a media zancada
 		_atk_buffer = 0.0   # el golpe pendiente no sobrevive a una pantalla: se pulso para OTRO momento
 		_golpe_pendiente = false
 		_golpe_diferido = false

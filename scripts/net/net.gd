@@ -110,7 +110,10 @@ const MAX_CONEXIONES := 32
 #     con PERMISO por accion (_pedir_permiso / _permiso_ok / _permiso_no) y _delta_al_host / _aplicar_delta; fuera
 #     _pedir_taller, _taller_ok, _taller_no, _soltar_taller.
 #     Tambien: las RUNAS en serializar_equipo, materiales de tipo RUNA y la Voluntad / ataques magicos de las fases 1-4.
-const PROTOCOLO := 31
+# 32 (09/10): unirse a una pelea que lleva un trabajador: _union_redirigida (el que solo la espeja te manda al que la
+#     ejecuta) y _union_reintenta (aun se esta montando). Y _devuelve_sobrantes (los bichos que el trabajador no tenia).
+#     Y _impactos pasa a FIABLE (iba unreliable_ordered y se tiraba detras del ATB).
+const PROTOCOLO := 32
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

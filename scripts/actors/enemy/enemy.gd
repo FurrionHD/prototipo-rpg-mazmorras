@@ -91,6 +91,18 @@ const RADIO_REFUERZO := 160.0
 const MAX_COMBATIENTES := 5
 # Segundos que los supervivientes se quedan quietos al acabar el combate: la ventana para huir.
 const CONGELADO_TRAS_COMBATE := 3.0
+# En esos 3 s esta quieto (_combat_triggered) pero NO en ninguna pelea: el que le pegue lo vuelve a pelear.
+var _congelado_tras: bool = false
+var _gen_congelado: int = 0
+
+# Le sacan de su rato quieto tras una pelea porque le vuelven a pelear. false = no estaba en ese rato.
+func soltar_congelado() -> bool:
+	if not _congelado_tras:
+		return false
+	_congelado_tras = false
+	_gen_congelado += 1   # el temporizador que esperaba ya no le toca
+	_combat_triggered = false
+	return true
 
 # VIDA con la que quedo de un combate anterior (huiste y lo dejaste herido). -1 = intacto.
 # Vive en el NODO y no en el EnemyData (que es un recurso COMPARTIDO por todos los slimes:
@@ -2218,7 +2230,7 @@ func _rebotar() -> void:
 
 
 func _start_combat(enemy_initiated: bool) -> void:
-	if _combat_triggered:
+	if _combat_triggered and not soltar_congelado():
 		return
 	comer.cortar()   # si estaba comiendo, se traga lo que masticaba y a pelear
 	# Solo monta peleas quien SIMULA este piso: los bichos espejados no tienen IA ni son autoridad
@@ -2342,9 +2354,13 @@ func reanudar_tras_combate(hp: float = -1.0, estados: Array = []) -> void:
 	hp_restante = hp
 	estados_restantes = estados.duplicate()
 	_reloj_estados = 0.0
+	_congelado_tras = true
+	_gen_congelado += 1
+	var gen: int = _gen_congelado
 	await get_tree().create_timer(CONGELADO_TRAS_COMBATE).timeout
-	if not is_instance_valid(self) or _dead:
-		return
+	if not is_instance_valid(self) or _dead or gen != _gen_congelado:
+		return   # muerto, o le han vuelto a meter en una pelea mientras esperaba: esa manda
+	_congelado_tras = false
 	# Sale en WANDER (no persiguiendote): la ventana de escape no serviria si al acabar te
 	# tuviera ya localizado. Si sigues cerca y te ve u oye, volvera a por ti por su cuenta.
 	_combat_triggered = false

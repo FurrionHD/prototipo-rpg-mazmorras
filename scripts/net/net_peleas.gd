@@ -20,6 +20,12 @@ var _pelea_next: int = 1           # contador de ids de pelea (por maquina; el i
 var _dobles: Dictionary = {}
 # ESPEJO: los personajes MIOS que estan en la pelea que sigo.
 var _mis_en_pelea: Array = []      # los que ofreci al unirme, en orden de formacion
+# LA ULTIMA PETICION DE UNIRME, para reenviarla tal cual si me mandan a otro sitio (_union_redirigida) o me
+# piden esperar (_union_reintenta): rehacer las fichas soltaria el conjuro que viaja dentro.
+var _ultimas_fichas_union: Array = []
+var _saltos_union: int = 0
+const SALTOS_UNION_MAX := 5
+const ESPERA_REINTENTO_UNION := 0.6
 var _mis_huecos: Dictionary = {}   # hueco en la fila de aliados -> mi PersonajeData
 # ME HE SALIDO del espejo por mi cuenta y el anfitrion todavia no me ha devuelto lo que vivieron
 # mis personajes (ver salir_del_espejo). Mientras esto este en pie NO puedo meterme en otra pelea:
@@ -126,6 +132,9 @@ func _anfitrion_de_enemigo(id: int, nodo) -> int:
 		return 0
 	if nodo.has_method("esta_muerto") and nodo.esta_muerto():
 		return 0
+	# Recien salido de una pelea (sus 3 s quieto): no esta en la de nadie, esta LIBRE para quien le pegue.
+	if nodo.get("_congelado_tras"):
+		return 0
 	if espejando() and _pelea_anfitrion != 0:
 		return _pelea_anfitrion
 	return multiplayer.get_unique_id()
@@ -150,6 +159,10 @@ func _reservar_grupo(nodo, id: int, quien: int) -> Array:
 	var ids: Array = []
 	if nodo == null or not is_instance_valid(nodo) or _enem_ocupados.has(id):
 		return ids
+	# El que acaba de salir de una pelea y esta en sus 3 s quieto se puede volver a pelear (antes contestaba
+	# "ese enemigo ya esta peleando con otro" a quien le pegaba, playtest 08/10).
+	if nodo.has_method("soltar_congelado"):
+		nodo.soltar_congelado()
 	if nodo.esta_muerto() or nodo.get("_combat_triggered"):
 		return ids
 	for n in nodo.vecinos():
@@ -323,6 +336,15 @@ func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0
 	for n in nodos:
 		mis_ids.append(int(n.get_meta("net_id")))
 	reasignar_reservas(mis_ids)
+	# LOS QUE NO TENGO (aun no me ha llegado su espejo): se quedaban reservados a nombre del jugador para siempre,
+	# quietos como estatuas y contestando "ya esta peleando con otro". Que el jugador los devuelva al piso.
+	var sobran: Array = []
+	for i in ids:
+		if not mis_ids.has(int(i)):
+			sobran.append(int(i))
+	if not sobran.is_empty():
+		print("[pelea] %d bichos de la pelea de %d no los tengo: se los devuelvo" % [sobran.size(), quien])
+		_devuelve_sobrantes.rpc_id(quien, sobran)
 	Net._trab.avisar_pelea_empezada()
 	# LA VELOCIDAD ES LA SUYA: yo no tengo preferencia (soy un Godot invisible) y arrancaba siempre a x1.
 	p._aplicar_velocidad(vel)
@@ -364,6 +386,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		if anfitrion != 0:
 			solicitar_unirse(anfitrion)
 		else:
+			Game.soltar_entrando_en_pelea()
 			Net._toast("Ese enemigo ya está peleando con otro.")
 		return
 	# ESTOY ESPEJANDO la pelea de otro: estos bichos me han alcanzado a MI, pero la pelea la ejecuta
@@ -379,6 +402,9 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		if Game._active_layer != null or ocupado_en_pelea():
 			_devolver_bichos(ids)
 			return
+		# QUIETO YA (playtest 08/10): hasta que el trabajador conteste pasan varios saltos de red, y te daba tiempo a
+		# irte andando; luego la pelea te pillaba fuera de la zona. Se suelta solo al abrirse la pantalla.
+		Game.marcar_entrando_en_pelea()
 		_fichas_mandadas_a = ejecutor
 		_fichas_ids = ids.duplicate()
 		_fichas_emboscada = emboscada
@@ -502,6 +528,12 @@ func devolver_bichos(ids: Array) -> void:
 
 # Devolver bichos reservados que al final no entran en ninguna pelea (si no, se quedan congelados
 # para siempre: el bug de las estatuas por red).
+# Corre en EL JUGADOR: el trabajador no tenia a estos bichos de mi pelea; vuelven al piso.
+@rpc("any_peer", "call_remote", "reliable")
+func _devuelve_sobrantes(ids: Array) -> void:
+	_devolver_bichos(ids)
+
+
 func _devolver_bichos(ids: Array) -> void:
 	for i in ids:
 		var n = _nodo_de_id(int(i))
@@ -1090,7 +1122,10 @@ func solicitar_unirse(anfitrion: int) -> void:
 		return
 	if anfitrion == multiplayer.get_unique_id():
 		return
-	_pedir_unirme.rpc_id(anfitrion, _fichas_de_mi_grupo())
+	Game.marcar_entrando_en_pelea()   # quieto mientras me contestan (ver _llega_pelea)
+	_ultimas_fichas_union = _fichas_de_mi_grupo()
+	_saltos_union = 0
+	_pedir_unirme.rpc_id(anfitrion, _ultimas_fichas_union)
 
 
 # LAS FICHAS DE MI GRUPO para una pelea que se ejecuta en OTRA maquina (unirme a la de otro, o la que me
@@ -1133,6 +1168,18 @@ func _mi_formacion() -> Array:
 func _pedir_unirme(fichas: Array) -> void:
 	var quien := multiplayer.get_remote_sender_id()
 	var p: Node = _pantalla_combate()
+	# NO LA EJECUTO YO, SOLO LA VEO (playtest 08/10, "le doy a atacar y me dice esta pelea no esta disponible"): la
+	# pelea me la lleva un trabajador y yo tengo su espejo. El dueño del piso apunta las reservas a MI nombre hasta
+	# que el trabajador la abre, asi que el que viene a ayudar llama a mi puerta: se le manda a la buena.
+	if _pelea_id == 0 and espejando() and _pelea_anfitrion != 0 and _pelea_anfitrion != quien and not fichas.is_empty():
+		print("[Net.unirse] ", quien, " llama a mi puerta, pero mi pelea la lleva ", _pelea_anfitrion, ": le reenvio")
+		_union_redirigida.rpc_id(quien, _pelea_anfitrion)
+		return
+	# AUN SE ESTA MONTANDO (me han emboscado y el trabajador todavia no me ha contestado): que espere un momento.
+	if _pelea_id == 0 and not espejando() and _fichas_mandadas_a != 0 and not fichas.is_empty():
+		print("[Net.unirse] ", quien, " quiere entrar, pero mi pelea aun se esta montando: que lo reintente")
+		_union_reintenta.rpc_id(quien)
+		return
 	if _pelea_id == 0 or p == null or not p.has_method("roster_para_espejo") or fichas.is_empty():
 		print("[Net.unirse] DENIEGO a ", quien, ": pelea_id=", _pelea_id, " pantalla=", p != null)
 		_union_denegada.rpc_id(quien, "Esa pelea ya no está disponible.")
@@ -1205,8 +1252,41 @@ func adoptar_pelea(dobles_por_peer: Dictionary) -> void:
 			_pelea_participantes.append(peer)
 
 
+# Corre en EL QUE SE UNE: el que he pillado solo espeja esa pelea; la ejecuta 'anfitrion'. Se le pide a el con las
+# MISMAS fichas (el conjuro que viaja dentro sigue ahi). Con tope de saltos, por si se persiguen la cola.
+@rpc("any_peer", "call_remote", "reliable")
+func _union_redirigida(anfitrion: int) -> void:
+	if not _reintentar_union():
+		return
+	_pedir_unirme.rpc_id(anfitrion, _ultimas_fichas_union)
+
+
+# Corre en EL QUE SE UNE: la pelea aun se esta montando en la maquina de quien he pillado; se vuelve a pedir en un rato.
+@rpc("any_peer", "call_remote", "reliable")
+func _union_reintenta() -> void:
+	var a: int = multiplayer.get_remote_sender_id()
+	if not _reintentar_union():
+		return
+	await get_tree().create_timer(ESPERA_REINTENTO_UNION).timeout
+	if Game.combate_activo() or espejando() or _ultimas_fichas_union.is_empty():
+		return
+	_pedir_unirme.rpc_id(a, _ultimas_fichas_union)
+
+
+func _reintentar_union() -> bool:
+	if _ultimas_fichas_union.is_empty() or Game.combate_activo() or espejando():
+		return false
+	_saltos_union += 1
+	if _saltos_union > SALTOS_UNION_MAX:
+		_union_denegada("Esa pelea ya no está disponible.")
+		return false
+	return true
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> void:
+	_ultimas_fichas_union.clear()
+	Game.soltar_entrando_en_pelea()
 	# El conjuro que mande con la ficha vuelve a su sitio. NO es opcional: para mandarlo ya le corte
 	# el canto al jugador (ver solicitar_unirse), asi que sin esto el hechizo —y su maná— se pierden
 	# en silencio. Con la nota de vuelta, el camino de siempre le devuelve el maná a los 5 s.
@@ -1326,9 +1406,10 @@ func _mi_huella(datos: PackedFloat32Array) -> void:
 # daño). Sin esto el compañero veria las vidas bajar de golpe: los combatientes de su pantalla son
 # maniquis y no resuelven nada. Sale UN paquete por accion, con 4 enteros por golpe.
 #
-# Va unreliable_ordered como el ATB, y a proposito: es puramente cosmetico. Perder uno significa
-# ver un turno sin animacion, mientras que mandarlo fiable lo pondria a competir con la instantanea
-# -que es la que lleva los numeros de verdad- por el mismo ancho de banda.
+# Va FIABLE desde el 09/10 (playtest 08/10: "un monton de animaciones no se hacen y no suenan"). Iba unreliable_ordered en
+# el mismo canal que el ATB y las huellas, que salen 20 veces por segundo: con 'ordered', un paquete de golpes que
+# llegaba detras de uno de ATB mas nuevo SE TIRABA entero, y se perdia el turno visto y oido. Es uno por accion y
+# pequeño (5 enteros por golpe, tope 40): garantizarlo cuesta poco.
 func difundir_impactos(datos: PackedInt32Array) -> void:
 	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
 		return
@@ -1336,7 +1417,7 @@ func difundir_impactos(datos: PackedInt32Array) -> void:
 		_impactos.rpc_id(p, datos)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
+@rpc("any_peer", "call_remote", "reliable")
 func _impactos(datos: PackedInt32Array) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion():
 		return
