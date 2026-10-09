@@ -526,5 +526,27 @@
    13.32
   ],
   "alcance_u": 10.4
+ },
+ "res://scenes/actors/enemy/miconido.tres": {
+  "nombre": "Miconido",
+  "escala": 2.0,
+  "cuerpo": [
+   -26.7,
+   -3.9,
+   51.3,
+   29.3
+  ],
+  "centro": [
+   -1.0,
+   9.8
+  ],
+  "alcance": 63.3,
+  "cuerpo_u": [
+   -13.35,
+   -1.95,
+   25.65,
+   14.65
+  ],
+  "alcance_u": 31.65
  }
 }

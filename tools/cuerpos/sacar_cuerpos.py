@@ -33,16 +33,18 @@ def caja(comp):
 
 def main(carpeta):
     res = {}
-    for n in range(1, 10):
-        png = os.path.join(carpeta, "pagina_%d.png" % n)
-        js = os.path.join(os.path.dirname(__file__), "pagina_%d.json" % n)
+    # Las 5 paginas y las que se rehagan sueltas (el miconido, 09/10, al crecer): 'miconido_nuevo.png' con su
+    # pagina_miconido.json y original_miconido.png. Un enemigo sin marcar en una pagina no pisa lo de otra.
+    for n in list(range(1, 10)) + ["miconido"]:
+        png = os.path.join(carpeta, ("pagina_%d.png" % n) if isinstance(n, int) else ("%s_nuevo.png" % n))
+        js = os.path.join(os.path.dirname(__file__), "pagina_%s.json" % n)
         if not os.path.exists(png) or not os.path.exists(js):
             continue
         datos = json.load(open(js, encoding="utf-8"))
         im = Image.open(png).convert("RGB"); px = im.load(); w, h = im.size
         # Solo lo que ha PINTADO el jefe: comparado con la lamina sin tocar (original_N.png), que si no el minotauro, que
         # es rojo, o la gema del Rey Slime contaban como trazo.
-        orig = Image.open(os.path.join(os.path.dirname(__file__), "original_%d.png" % n)).convert("RGB").load()
+        orig = Image.open(os.path.join(os.path.dirname(__file__), "original_%s.png" % n)).convert("RGB").load()
         rojos = []; azules = []
         for y in range(h):
             for x in range(w):
@@ -66,7 +68,9 @@ def main(carpeta):
         for d in datos:
             m = por[d["res"]]; z = d["zoom"]; nx, ny = d["nodo"]
             if not m["rojo"]:
-                print("  (sin marcar) %s" % d["nombre"]); continue
+                if d["res"] not in res:
+                    print("  (sin marcar) %s" % d["nombre"])
+                continue
             x0 = min(r[0] for r in m["rojo"]); y0 = min(r[1] for r in m["rojo"])
             x1 = max(r[2] for r in m["rojo"]); y1 = max(r[3] for r in m["rojo"])
             centro = ((x0 + x1) / 2, (y0 + y1) / 2)
