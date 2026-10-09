@@ -14838,11 +14838,18 @@ var _cola_combate: Array = []
 # Lo mas lejos de la zona (por fuera de su borde) desde donde un enemigo puede entrar en una pelea tactica ya empezada.
 const ENTRAR_DESDE_FUERA := 40.0
 
+# ¿Es ya un cadaver? (el bicho de esta maquina o su espejo de red; las fichas de un trabajador no tienen el metodo)
+func _muerto(nodo: Node) -> bool:
+	return is_instance_valid(nodo) and nodo.has_method("esta_muerto") and bool(nodo.esta_muerto())
+
+
 func unir_enemigo_al_combate(nodo: Node, hueco: int = -1) -> bool:
 	if not combate_activo() or not is_instance_valid(nodo):
 		return false
 	if not ("data" in nodo) or nodo.data == null or _active_enemies.has(nodo):
 		return false
+	if _muerto(nodo):
+		return false   # (09/10) un cadaver no entra en ninguna pelea (rutas de red con el aviso de muerte en camino)
 	if _cola_combate.has(nodo):
 		return true   # ya esta dentro, esperando turno
 	var combat: Node = _active_layer.get_child(0) if is_instance_valid(_active_layer) \
@@ -15120,7 +15127,7 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	_montaje_ms = Time.get_ticks_msec()
 	_active_enemies.clear()
 	for n in enemy_nodes:
-		if is_instance_valid(n) and "data" in n and n.data != null:
+		if is_instance_valid(n) and "data" in n and n.data != null and not _muerto(n):
 			_active_enemies.append(n)
 	if _active_enemies.is_empty():
 		_montaje_ms = 0
