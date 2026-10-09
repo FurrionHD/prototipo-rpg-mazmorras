@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/prueba_pelea_con_muertos.gd" id="1"]
+
+[node name="PruebaPeleaConMuertos" type="Node"]
+script = ExtResource("1")

@@ -442,11 +442,18 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 					nr.reanudar_tras_combate(-1.0)
 		return
 	var nodos: Array = []
+	var caidos: Array = []
 	for i in ids:
 		var n = Net.enemigos._enem_nodos.get(i)
 		if n != null and is_instance_valid(n):
+			# (09/10) Un cadaver no entra (el dueño lo mato y su aviso viene detras): se le devuelve, como al que no cabe.
+			if n.has_method("esta_muerto") and n.esta_muerto():
+				caidos.append(i)
+				continue
 			n.entrar_en_pelea()
 			nodos.append(n)
+	if not caidos.is_empty():
+		_devolver_bichos(caidos)
 	if nodos.is_empty():
 		# Ya no tengo espejos de esos ids (culling, cambio de piso...), pero SIGUEN reservados y
 		# congelados en casa del dueño. Hay que soltarlos o se quedan de estatua.
@@ -634,8 +641,8 @@ func _aplicar_resultado(id: int, ha_muerto: bool, hp: float) -> void:
 		return
 	if ha_muerto:
 		nodo.morir()
-	else:
-		nodo.reanudar_tras_combate(hp)
+	elif not (nodo.has_method("esta_muerto") and nodo.esta_muerto()):
+		nodo.reanudar_tras_combate(hp)   # (09/10) a un cadaver devuelto no se le reanuda
 
 
 # Quien simula ese lugar (0 = nadie). Solo el host lo sabe.

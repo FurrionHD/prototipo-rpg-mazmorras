@@ -1067,10 +1067,15 @@ func _ready() -> void:
 
 	# Marca de INICIO en consola (para separar combates al montar los Excel). La vida y el mana con los que EMPIEZA cada
 	# uno, sobre su maximo (08/10: solo salia el maximo, y en el log parecia que cada pelea empezaba a tope).
+	# (09/10) El ESPEJO que entra en una pelea ya empezada trae a los caidos en su hueco (el roster del que la lleva): se
+	# marcan, que en el log del hermano parecia una pelea que empezaba contra un Slime venenoso con 0 de vida.
 	var quien: String = "enemigo" if _enemy_initiated else "jugador"
+	if _espejo:
+		quien += " (espejo de una pelea ya empezada)"
 	var rivales: PackedStringArray = []
 	for e in _enemies:
-		rivales.append("%s (Nv.%d) HP %.2f/%.2f" % [e.nombre, e.level, e.current_hp, e.max_hp])
+		rivales.append("%s (Nv.%d) HP %.2f/%.2f%s" % [e.nombre, e.level, e.current_hp, e.max_hp,
+			"" if e.is_alive() else " ☠ ya caido"])
 	var mios: PackedStringArray = []
 	for c in _aliados:
 		mios.append("%s HP %.2f/%.2f%s" % [c.nombre, c.current_hp, c.max_hp,
