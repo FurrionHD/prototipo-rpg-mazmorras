@@ -119,7 +119,9 @@ const MAX_CONEXIONES := 32
 # 34 (09/10): la instantanea de la pelea lleva el campo 11 (el ESCUDO DE AGUA del set Marea: lo que queda, su maximo y
 #     los estados que ha parado), y quien lleva la pelea resuelve distinto la nube al morir (radio desde el borde) y las
 #     pasivas de al recibir golpe (una tirada por accion).
-const PROTOCOLO := 34
+# 35 (09/10): el desliz de una CRIA lanzada (Desliz.CRIA, el espejo la esconde y le pone su bola de baba), el piso que
+#     simula la arena (_pedir_piso_arena / _piso_arena) y el alcance de los mutantes (crece con ellos).
+const PROTOCOLO := 35
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

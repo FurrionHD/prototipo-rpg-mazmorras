@@ -2,6 +2,58 @@
 
 ---
 
+# v0.15.3
+
+## 👑 El Rey Slime escupe a sus crías
+
+**El Brote y la Orden real lanzan las crías por el aire**, como una bola de baba del color del Rey, y caen
+**detrás de vosotros** para acorralaros. Al caer, la bola crece hasta convertirse en el slime que toca. Su barra de
+vida sale cuando ya se han formado. Las del **slime brotado** también salen lanzadas, a lados opuestos.
+
+## 📏 Cuerpos y alcances de verdad
+
+- **Cada enemigo tiene su cuerpo marcado a mano**: chocas con él, le pegas en él (en los grandes, en las piernas) y
+  mide su golpe desde él. Se acabó meterse dentro del Rey Slime. El **micónido es más grande**.
+- **Los slimes ya no cambian de forma al mirar de lado**: son redondos desde todas las direcciones.
+- **Las habilidades de los enemigos nunca llegan menos que su golpe normal**, y **el alcance de un mutante crece con él**.
+- **Tus armas llegan más lejos** (mínimo de puños y daga, y un extra para todas), y **las habilidades de tus armas
+  también**: ninguna se queda más corta que tu golpe normal.
+
+## 🧍 Los personajes ya no se pisan
+
+**El de delante se pinta entero por delante del de detrás**: se acabó ver el arma o el casco de tu compañero de atrás
+encima de tu cara. Los efectos de golpe se ven por encima de todos.
+
+## 🌊 El escudo de agua se ve
+
+El escudo del **set Marea** es una burbuja alrededor del personaje y un tramo azul en su barra; se ilumina al parar.
+
+## ⚔️ Arreglos del playtest
+
+- **Entrar en peleas** ya no falla ("esa pelea no está disponible"), y las animaciones y sonidos de los demás salen
+  en todas las pantallas.
+- **La cámara llega primero** y luego se ve el golpe.
+- **La luz de tus compañeros** también ilumina, y la niebla no se congela en pelea.
+- **Los cadáveres desaparecen** en la pelea, y ninguna pelea empieza contra un enemigo muerto.
+- **La nube del slime de miasma y del pestilente** al morir sí envenena.
+- **Las pasivas de "al recibir un golpe"** (espinas, cristales...) saltan una vez por acción, no una por golpe.
+- **El escudo y la varita** se gastan y se pueden reparar.
+- **Rueda para soltar cristales** (tecla **G**), y lo que hay en el suelo dice su nombre.
+- **Pesca**: la **F** o **Esc** con un pez picando lo hacen huir de verdad.
+- **Pasillos más anchos** en los primeros pisos.
+- **Las runas se ven en todas las fichas** (vida, ataque mágico...); el set Marea a 2 piezas da un 12 %.
+
+## 🚀 Más fluido
+
+- **El juego usa bastante menos memoria de vídeo** (en pelea, de unos 730 MB a unos 220 MB) con los mismos dibujos.
+- Los dibujos y sonidos de una pelea se **cargan al empezar**, no a mitad de un ataque.
+
+## 🧪 Arena de pruebas
+
+- **Botón Aplicar en el selector de piso**: confirma el número y lo manda a todos los que estén en la arena.
+
+---
+
 # v0.15.2
 
 ## 🧠 La Voluntad, la sexta habilidad
