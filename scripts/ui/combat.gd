@@ -2086,7 +2086,17 @@ func _accion_atacar() -> void:
 	_update_hp()
 	_player.advance_hand()  # dual-wield: el proximo golpe sera con la otra mano
 	_fin_de_eleccion()
-	_tras_accion_jugador(obj)
+	# (09/10, playtest 08/10: cadaveres que no desaparecian) Se rematan TODOS los que ha tocado el basico, no solo el
+	# primero: el que atraviesa el virote y el SUBDITO que se pone delante (escudo_subdito cambia el objetivo dentro de
+	# _golpe_basico) se morian sin pasar por _morir_enemigo y su cuerpo se quedaba de pie.
+	var tocados: Array = [obj]
+	for bl in blancos:
+		if not tocados.has(bl["c"]):
+			tocados.append(bl["c"])
+	for v in golpeados_en_la_accion:
+		if not tocados.has(v):
+			tocados.append(v)
+	_tras_accion_jugador_varios(tocados)
 
 
 # UN GOLPE DEL BASICO sobre 'obj'. Casi siempre es uno solo; con la ballesta pueden ser dos (el que atraviesa).

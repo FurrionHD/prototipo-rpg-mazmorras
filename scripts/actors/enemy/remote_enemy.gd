@@ -572,7 +572,7 @@ func reanudar_tras_combate(hp: float = -1.0, _estados: Array = []) -> void:
 # Ha caido en la maquina que simula el piso: aqui pasa a verse como cadaver. Mismo gris apagado
 # que enemy.morir(), para que los dos jugadores vean lo mismo.
 func marcar_cadaver() -> void:
-	quitar_muerto_en_pelea()
+	Game.quitar_muerto_o_aplazar(self)   # a mitad de pelea sigue oculto (09/10)
 	if muerto:
 		return
 	muerto = true

@@ -623,6 +623,10 @@ func _meter_enemigo(c: Combatant, es_invocado: bool, hueco: int = -1) -> int:
 	if idx < 0 and _pantalla._enemies.size() >= _pantalla.MAX_ENEMIGOS:
 		return -1   # ni cadaver ni sitio: no cabe
 	if idx >= 0:
+		# (09/10) EL CADAVER QUE CEDE EL HUECO se muere y se desvanece YA en el mapa: si su apagado estaba esperando a
+		# los golpes (_apagar_diferido), _revivir_bloque se lo cancela y su cuerpo se quedaba de pie toda la pelea.
+		if _pantalla.tactico and not _pantalla._espejo:
+			_pantalla.turno_mapa.morir_en_mapa(_pantalla._enemies[idx])
 		_pantalla._enemies[idx] = c            # reemplaza al cadaver en su slot
 		_revivir_bloque(idx, c)
 		_pantalla._slots_invocados.erase(idx)  # el slot se reestrena: hereda la marca del anterior si no
