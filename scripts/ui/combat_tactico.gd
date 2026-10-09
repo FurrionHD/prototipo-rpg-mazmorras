@@ -183,8 +183,13 @@ func pintar_escudos_agua(soltar: bool = false) -> void:
 		if soltar:
 			EscudoAgua.quitar(cu)
 		elif c.runa_escudo_max > 0.0 and c.runa_escudo_agua > 0.0 and c.is_alive():
-			var r: Rect2 = bulto_visual(c)
-			r.position -= pos_de(c) - cu.global_position   # el dibujo donde esta el NODO (lo que sigue la burbuja)
+			# EL DIBUJO ENTERO del muñeco (no su caja de choque, que es solo la parte de abajo: la primera lamina salio
+			# con la burbuja en los pies). Ya esta donde esta el nodo, que es lo que sigue la burbuja.
+			var m = cu.get("_muneco")
+			var r: Rect2 = rect_dibujo_entero(m) if m is Node2D else Rect2()
+			if not r.has_area():
+				r = bulto_visual(c)
+				r.position -= pos_de(c) - cu.global_position
 			EscudoAgua.poner(cu, c, r)
 
 
@@ -1557,6 +1562,26 @@ func _clave_pisoton(c: Combatant) -> String:
 #   - cada fotograma es un AtlasTexture RECORTADO: lo pintado (su region) va dentro de un lienzo mas
 #     grande, y su sitio dentro de el lo dice su MARGIN.
 static var _cache_dibujo := {}
+
+# LO PINTADO DE TODAS LAS CAPAS de un muñeco (cuerpo, cabeza, pelo, ropa, arma...), juntas: rect_dibujo se queda en la
+# primera. Lo usa la burbuja del escudo de agua (09/10), que tiene que envolver al personaje entero.
+static func rect_dibujo_entero(nodo: Node2D) -> Rect2:
+	var r := Rect2()
+	if nodo == null:
+		return r
+	for hijo in nodo.get_children():
+		if hijo is AnimatedSprite2D and (hijo as CanvasItem).visible and (hijo as AnimatedSprite2D).sprite_frames != null:
+			var spr: AnimatedSprite2D = hijo
+			var local: Rect2 = _pintado_local(spr, spr.animation, spr.frame)
+			# (una capa casi vacia trae a veces UN pixel suelto lejos del cuerpo: estiraba la burbuja hasta fuera)
+			if local.get_area() < 12.0:
+				continue
+			var t: Transform2D = spr.get_global_transform()
+			var esc: Vector2 = t.get_scale().abs()
+			var ri := Rect2(t.origin + local.position * esc, local.size * esc)
+			r = ri if not r.has_area() else r.merge(ri)
+	return r
+
 
 static func rect_dibujo(cuerpo: Node2D, anim: StringName = &"") -> Rect2:
 	if cuerpo == null:

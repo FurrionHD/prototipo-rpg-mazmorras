@@ -122,6 +122,18 @@ func _process(delta: float) -> void:
 	_delante.queue_redraw()
 
 
+# Cuanto se nota el golpe en el angulo 'a' de la membrana (0..1): un abanico alrededor de donde pego que se abre y se
+# apaga en T_ONDA.
+func _golpe_en(a: float) -> float:
+	var g: float = 0.0
+	for o in _ondas:
+		var u: float = float(o["t"]) / T_ONDA
+		var d: float = absf(wrapf(a - float(o["a"]), -PI, PI))
+		var ancho: float = lerpf(0.25, 0.8, u)
+		g = maxf(g, (1.0 - u) * exp(-(d / ancho) * (d / ancho)))
+	return g
+
+
 # Lo que le queda (0..1).
 func _frac() -> float:
 	return clampf(_c.runa_escudo_agua / maxf(_c.runa_escudo_max, 0.001), 0.0, 1.0) if _c != null else 0.0
@@ -138,7 +150,7 @@ func _radios() -> Vector2:
 # El borde de la burbuja en el angulo 'a', con su temblor (mas cuanto menos le queda y al sacudirse).
 func _borde(a: float, escala: float = 1.0) -> Vector2:
 	var tiembla: float = 0.025 + 0.04 * (1.0 - _frac()) + 0.07 * _sacudida * sin(_t * 38.0)
-	var r: float = 1.0 + tiembla * (sin(3.0 * a + _t * 2.1) * 0.6 + sin(5.0 * a - _t * 3.3) * 0.4)
+	var r: float = 1.0 + tiembla * (sin(3.0 * a + _t * 2.1) * 0.6 + sin(5.0 * a - _t * 3.3) * 0.4) 		- 0.06 * _golpe_en(a)   # donde pega, la membrana se hunde un poco
 	var R: Vector2 = _radios() * escala * r
 	return _centro() + Vector2(cos(a) * R.x, sin(a) * R.y)
 
@@ -170,7 +182,9 @@ func _pintar(capa: Node2D) -> void:
 		var a0: float = TAU * float(i) / float(LADOS)
 		var a1: float = TAU * float(i + 1) / float(LADOS)
 		var abajo: float = 0.5 + 0.5 * sin((a0 + a1) * 0.5)
-		var col_m := Color(AGUA_CLARA.lerp(ESPUMA, blanco), (0.45 + 0.2 * abajo + 0.4 * blanco) * k)
+		var golpe: float = _golpe_en((a0 + a1) * 0.5)
+		var col_m := Color(AGUA_CLARA.lerp(ESPUMA, minf(blanco + golpe, 1.0)),
+			minf((0.45 + 0.2 * abajo + 0.4 * blanco + 0.6 * golpe) * k, 1.0))
 		var col_0 := Color(col_m, 0.0)
 		var i0: Vector2 = _borde(a0, 1.0 - grosor)
 		var i1: Vector2 = _borde(a1, 1.0 - grosor)
@@ -196,14 +210,15 @@ func _pintar(capa: Node2D) -> void:
 		var vive: float = sin(PI * u)
 		BarridoAire.brillo(capa, p, float(b["r"]) * 1.8, Color(AGUA_CLARA, 0.35 * vive * k))
 		BarridoAire.brillo(capa, p, float(b["r"]), Color(ESPUMA, 0.85 * vive * k))
-	# LAS ONDAS donde le han pegado: espuma que se abre desde el punto y se apaga.
+	# DONDE LE HAN PEGADO: la propia membrana se ilumina y se hunde (ver _golpe_en) y suelta unas gotitas de espuma.
 	for o in _ondas:
 		var u2: float = float(o["t"]) / T_ONDA
-		var p2: Vector2 = _borde(float(o["a"]))
-		var r2: float = lerpf(3.0, 16.0, 1.0 - (1.0 - u2) * (1.0 - u2))
-		ProfundoAire._anillo_relleno(capa, p2, r2 * 0.4, r2 * 0.8, r2, Color(ESPUMA, 0.0), Color(ESPUMA, 0.9 * (1.0 - u2)),
-			Color(AGUA_CLARA, 0.0), 20)
-		BarridoAire.brillo(capa, p2, 6.0 * (1.0 - u2), Color(ESPUMA, 1.0 - u2))
+		var a2: float = float(o["a"])
+		for j in 3:
+			var aj: float = a2 + (float(j) - 1.0) * 0.18
+			var pj: Vector2 = _borde(aj)
+			var fuera := (pj - c).normalized()
+			BarridoAire.brillo(capa, pj + fuera * 7.0 * u2 - Vector2(0.0, 5.0 * u2), 2.2 * (1.0 - u2), Color(ESPUMA, 1.0 - u2))
 	# EL DESTELLO al parar un estado: una estrella de espuma arriba.
 	if blanco > 0.0:
 		BarridoAire.destello(capa, c + Vector2(0.0, -R.y * 0.85), 14.0 * blanco + 4.0, Color(ESPUMA, blanco), _t)
