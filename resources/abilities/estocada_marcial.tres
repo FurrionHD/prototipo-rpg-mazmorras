@@ -13,7 +13,7 @@ turns = 3
 [resource]
 script = ExtResource("1")
 forma_ancho = 10.0
-forma_radio = 75.0
+forma_radio = 94.0
 forma_apunte = 1
 forma = 3
 nombre = "Estocada marcial"
