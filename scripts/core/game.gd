@@ -3859,6 +3859,14 @@ func _rehacer_pisos_de_otro_trazado(d: SaveData) -> void:
 	if d.trazado == SaveData.TRAZADO_ACTUAL:
 		return
 	var afectados: Array = BOSSES.keys()
+	# v2 (pasillos mas anchos, 09/10) cambia la forma de TODOS los pisos, no solo los de jefe.
+	if d.trazado < 2:
+		for dic in [memoria_pisos, mazmorra_persistente, mapa_snapshot, mapa_trabajo, _vistas_baseline]:
+			for piso in (dic as Dictionary).keys():
+				if not afectados.has(piso):
+					afectados.append(piso)
+		if d.en_mazmorra and not afectados.has(current_floor):
+			afectados.append(current_floor)
 	for piso in afectados:
 		memoria_pisos.erase(piso)
 		mazmorra_persistente.erase(piso)
