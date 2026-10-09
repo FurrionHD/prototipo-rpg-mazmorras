@@ -85,7 +85,7 @@ const HUELLA_POR_DEFECTO := Vector2(16.0, 12.0)
 # ACERCANDO se acerca un bicho (solo en la maquina que lleva la pelea).
 # AJENO     tiene el turno uno que se mueve en OTRA maquina: aqui solo se pinta su circulo; su cuerpo
 #           lo trae la red.
-enum Fase { NADA, MOVIENDO, ACERCANDO, AJENO }
+enum Fase { NADA, MOVIENDO, ACERCANDO, AJENO, ENFOCANDO }
 var _fase: int = Fase.NADA
 
 # EN EL ESPEJO: el roster que mando quien lleva la pelea. De ahi sale la direccion de cada cuerpo.
@@ -963,6 +963,49 @@ var atacante: Combatant = null
 
 # El turno de siempre del enemigo, pero sabiendo quien pega para que su sorteo se quede con los que
 # alcanza. Si no alcanza a nadie, el sorteo sale vacio y _enemy_turn lo cuenta como que no llega.
+# PRIMERO LA CAMARA, LUEGO EL GOLPE (playtest 08/10: "si esta fuera de la vision la camara no va al que termina la
+# pelea; se hace la animacion fuera de vision; tiene que ser primero va la camara y luego se hace el ataque"). El
+# enemigo que pegaba sin moverse ni siquiera recibia la camara. Ahora se le enfoca y, si la camara esta lejos, su
+# accion espera a que llegue (con tope). Mientras, el foco viaja a los espejos (estado_red, Fase.ENFOCANDO), asi que
+# en la otra maquina la camara tambien va antes de que lleguen sus golpes.
+const ESPERA_CAMARA_MAX := 0.9
+var _tras_cam: Callable = Callable()
+var _t_cam: float = 0.0
+
+func _tras_camara(e: Combatant, cuerpo: Node2D, f: Callable) -> void:
+	if cuerpo == null or not is_instance_valid(cuerpo) or Game.CAMARA_FIJA_EN_PELEA:
+		f.call()
+		return
+	_foco = cuerpo
+	if Game.camara_tactica_cerca(cuerpo.global_position):
+		f.call()
+		return
+	_quien = e
+	_cuerpo = cuerpo
+	_inicio = cuerpo.global_position
+	_radio = 0.0
+	_fase = Fase.ENFOCANDO
+	print("[camara] %s va a actuar lejos de la camara: espero a que llegue" % e.nombre)
+	_tras_cam = f
+	_t_cam = 0.0
+	_pantalla._state = _pantalla.State.PAUSED
+	_pantalla._pause_left = INF
+
+
+func _tick_enfocando(delta: float) -> void:
+	_t_cam += delta
+	if is_instance_valid(_foco) and not Game.camara_tactica_cerca(_foco.global_position)			 and _t_cam < ESPERA_CAMARA_MAX:
+		return
+	var f: Callable = _tras_cam
+	_tras_cam = Callable()
+	_fase = Fase.NADA
+	_quien = null
+	_cuerpo = null
+	_pantalla._pause_left = 0.0
+	if f.is_valid() and _pantalla._state != _pantalla.State.FINISHED:
+		f.call()
+
+
 func _turno_enemigo_de_siempre(e: Combatant) -> void:
 	atacante = e
 	_pantalla.enemigos._enemy_turn(e)
@@ -1066,6 +1109,9 @@ func tick(delta: float) -> bool:
 			return false
 		Fase.ACERCANDO:
 			_tick_acercando(delta)
+			return true
+		Fase.ENFOCANDO:
+			_tick_enfocando(delta)
 			return true
 	return false
 
@@ -3518,14 +3564,14 @@ func turno_enemigo(e: Combatant) -> void:
 				arena0.poner_circulo(_inicio, _radio, true)
 			return
 	# Aturdido pierde el turno de todas formas: andar y luego no hacer nada seria contarlo mal. Y el
-	# que ya tiene a alguien a tiro no se mueve: pega desde donde esta.
+	# que ya tiene a alguien a tiro no se mueve: pega desde donde esta (con la camara encima PRIMERO).
 	if cuerpo == null or presa == null or radio <= 0.0 or e.aturdido() \
 			or hueco_entre(e, presa) <= alcance_de(e) * ARRIMARSE:
-		_turno_enemigo_de_siempre(e)
+		_tras_camara(e, cuerpo, _turno_enemigo_de_siempre.bind(e))
 		return
 	# Lo que ya llega desde aqui (un escupitajo) se suelta sin andar, si le sale la tirada.
 	if _decidir_de_lejos(e):
-		_turno_enemigo_de_siempre(e)
+		_tras_camara(e, cuerpo, _turno_enemigo_de_siempre.bind(e))
 		return
 	_quien = e
 	_cuerpo = cuerpo
@@ -3710,7 +3756,7 @@ func _actuar() -> void:
 	# si), el siguiente fotograma la pelea sigue sola en vez de quedarse en pausa para siempre.
 	_pantalla._pause_left = 0.0
 	if e != null and e.is_alive() and _pantalla._state != _pantalla.State.FINISHED:
-		_turno_enemigo_de_siempre(e)
+		_tras_camara(e, cuerpo_de(e), _turno_enemigo_de_siempre.bind(e))
 
 
 # Apunta donde esta un bicho para contarselo a su dueño. Solo si su dueño es OTRA maquina (lo que
@@ -3802,6 +3848,7 @@ func en_el_borde() -> bool:
 var _inicio_de: Combatant = null
 
 func _terminar() -> void:
+	_tras_cam = Callable()
 	if _fase == Fase.MOVIENDO and is_instance_valid(_cuerpo) and _andando:
 		_animar(_cuerpo, _mirada_de(_cuerpo), false)
 	_fase = Fase.NADA

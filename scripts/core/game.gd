@@ -1413,6 +1413,17 @@ func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = Packe
 # LA CAMARA VA CON EL QUE TIENE EL TURNO (24/09, lo pidio el jefe: "tenia que estar sobre este y seguirle
 # a el"). Lo llama CombatTactico cada fotograma con el cuerpo que anda; el suavizado de la camara hace el
 # viaje de uno a otro al cambiar de turno.
+# ¿La camara ya enseña 'p' (casi en el centro del hueco libre)? La pelea espera a que llegue antes de un golpe (ver
+# CombatTactico._tras_camara). Sin camara o con la camara fija, si.
+func camara_tactica_cerca(p: Vector2, umbral: float = 40.0) -> bool:
+	if CAMARA_FIJA_EN_PELEA:
+		return true
+	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
+	if not is_instance_valid(cam) or not cam.top_level:
+		return true
+	return cam.get_screen_center_position().distance_to(p + cam.offset) <= umbral
+
+
 func camara_tactica_sigue(p: Vector2) -> void:
 	if CAMARA_FIJA_EN_PELEA:
 		return
