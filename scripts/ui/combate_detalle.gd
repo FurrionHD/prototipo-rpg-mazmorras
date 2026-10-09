@@ -762,6 +762,8 @@ func _rejilla_stats(c: Combatant) -> void:
 		MenuScaffold.fila(_panel, "Regen maná", "%.2f/turno" % float(n[10]))
 	# Sus SETS DE RUNAS (en verde los que funcionan). Solo si es uno de los MIOS: de los demas no tengo la ficha.
 	var pj_c: PersonajeData = Game.pj_de_combatant(c)
+	# Y lo de las runas que no tiene fila propia (daño de habilidades, de un elemento...), solo si lo lleva.
+	MenuScaffold.filas_runas(_panel, pj_c)
 	if pj_c != null:
 		_panel.add_child(HSeparator.new())
 		MenuScaffold.resumen_sets(_panel, pj_c)
