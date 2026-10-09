@@ -680,6 +680,45 @@ func pedir_spawn_arena(ruta: String, pos: Vector2, muneco: Dictionary) -> void:
 		_pedir_arena.rpc_id(1, Net._mi_lugar, "spawn", [ruta, pos, muneco])
 
 
+# EL PISO QUE SIMULA LA ARENA (09/10, boton Aplicar del panel de materiales): a TODOS los de la arena, tambien al
+# trabajador que la lleva (los enemigos que salgan nacen con las stats de ese piso). Pasa por el host, que lo reparte.
+func pedir_piso_arena(piso: int) -> void:
+	if not Net.activo:
+		_piso_arena_aqui(piso)
+	elif Net.es_host:
+		_difundir_piso_arena(Net._mi_lugar, piso)
+	else:
+		_pedir_piso_arena.rpc_id(1, Net._mi_lugar, piso)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pedir_piso_arena(lugar: String, piso: int) -> void:
+	if Net.es_host:
+		_difundir_piso_arena(lugar, piso)
+
+
+func _difundir_piso_arena(lugar: String, piso: int) -> void:
+	if lugar != "piso:%d" % Game.PISO_ARENA:
+		return
+	_piso_arena.rpc(lugar, piso)
+	_piso_arena(lugar, piso)
+
+
+# En CADA maquina: si estoy en esa arena, ese es el piso que simulo.
+@rpc("authority", "call_remote", "reliable")
+func _piso_arena(lugar: String, piso: int) -> void:
+	if Net._mi_lugar == lugar:
+		_piso_arena_aqui(piso)
+
+
+func _piso_arena_aqui(piso: int) -> void:
+	Game.current_floor = clampi(piso, 1, 30)
+	print("[arena] simulo el piso %d" % Game.current_floor)
+	for n in get_tree().get_nodes_in_group("panel_dev"):
+		if n.has_method("piso_cambiado"):
+			n.piso_cambiado(Game.current_floor)
+
+
 func pedir_limpiar_arena() -> void:
 	if not Net.activo:
 		_limpiar_arena_aqui()
