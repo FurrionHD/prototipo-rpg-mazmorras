@@ -4963,9 +4963,12 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	if estilo == CombatFX.Estilo.CRIA_LANZADA:
-		# La cria sale AHORA, cuando la escupe: vuela una bola de baba del color del Rey (lanzar_cria, _bola_cria).
-		if _soltar_cria(v, vuelo) and a != null and cuerpo_de(a) != null:
-			_bola_cria(v, bulto_de(a).get_center(), a.color_visual, vuelo)
+		# La cria sale AHORA, cuando la escupe: vuela una bola de baba del color del Rey, desde su cuerpo (lanzar_cria,
+		# _tick_deslices). Aqui y en el espejo, que tambien recibe el escupitajo.
+		if a != null and cuerpo_de(a) != null:
+			_soltar_cria(v, vuelo, bulto_de(a).get_center(), a.color_visual)
+		else:
+			_soltar_cria(v, vuelo)
 		return
 	# LOS DEL SLIME PROFUNDO (07/10): el pinchazo de la anemona, del slime (a) a quien le pega (v); el destello helado,
 	# en los pies de quien se queda congelado (v).
@@ -5490,7 +5493,10 @@ func _tick_saltos(delta: float) -> void:
 #   AVANCE  al empezar su gesto, y dura lo que sus golpes: cruzas la linea (Danza de acero)
 #   EMPUJON al encajar ESE el golpe: el tiron/empujon a un personaje de OTRO humano (la Marea, 28/09), que
 #           solo puede mover su maquina (ver pedir_tiron)
-enum Desliz { ANTES, TRAS, YA, AVANCE, EMPUJON }
+# CRIA (09/10): una cria lanzada (lanzar_cria). Viaja por red como las demas, asi que el espejo la reconoce: la esconde
+# mientras no ha caido, le pone su bola de baba y la hace salir del gel. Sus 'golpes' dicen si espera al escupitajo del
+# Rey (1, sale con su CRIA_LANZADA) o sale ya (0, las del brotado).
+enum Desliz { ANTES, TRAS, YA, AVANCE, EMPUJON, CRIA }
 const T_PASO := 0.16           # lo que tarda el paso de lado, en tiempo de la pelea
 # (el avance va a EstoqueAire.V_DANZA, el compas de sus golpes)
 var _deslices: Array = []   # {c, hasta (el nodo), modo, golpes, espera, tope, armado, t (-1 sin arrancar), desde}
@@ -5666,6 +5672,14 @@ func anotar_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int) -> void
 	# El empujon va al ritmo del tiron (el paquete de red no lleva la duracion).
 	if modo == Desliz.EMPUJON:
 		(_deslices.back() as Dictionary)["dur"] = T_TIRON
+	# LA CRIA: no la mueve ningun gesto suyo. La del Rey espera a su escupitajo (_soltar_cria); la del brotado sale ya.
+	# Mientras no cae va escondida (_tick_deslices), aqui y en el espejo.
+	if modo == Desliz.CRIA:
+		var d: Dictionary = _deslices.back()
+		d["cria"] = true
+		d["armado"] = true
+		d["tope"] = INF if golpes > 0 else 0.0
+		d["nace"] = Time.get_ticks_msec()
 
 
 # Su gesto ha arrancado: el paso de ANTES y el avance salen ya; el de TRAS espera a que acaben los golpes.
@@ -5723,12 +5737,19 @@ func _tick_deslices(delta: float) -> void:
 	for d in _deslices.duplicate():
 		var c: Combatant = d["c"]
 		var cuerpo: Node2D = cuerpo_de(c)
+		var cria: bool = bool(d.get("cria", false))
+		# EN EL ESPEJO el cuerpo de la cria puede llegar un pelin despues que su vuelo: se le espera (un rato).
+		if cria and cuerpo == null and c.is_alive() and Time.get_ticks_msec() - int(d.get("nace", 0)) < 3000:
+			continue
 		if cuerpo == null or not c.is_alive():
 			_deslices.erase(d)
 			# Si cae en pleno salto, el dibujo vuelve al suelo.
 			if cuerpo != null and d.has("sp0") and cuerpo.get("_sprite") is Node2D:
 				(cuerpo.get("_sprite") as Node2D).position = Vector2(d["sp0"])
 			continue
+		# LA CRIA NO SE VE hasta caer: lo que vuela es su bola de baba (aqui y en el espejo, aunque su cuerpo llegue tarde).
+		if cria and cuerpo.visible:
+			cuerpo.visible = false
 		if float(d["t"]) < 0.0:
 			d["espera"] = float(d["espera"]) + delta
 			if float(d["espera"]) < float(d["tope"]):
@@ -5738,6 +5759,10 @@ func _tick_deslices(delta: float) -> void:
 			var sp0 = cuerpo.get("_sprite")
 			if sp0 is Node2D:
 				d["sp0"] = (sp0 as Node2D).position
+			# Su BOLA DE BABA sale ahora: de la boca del Rey y de su color si la escupe el (_soltar_cria), si no de donde
+			# esta ella y del suyo (las del brotado).
+			if cria:
+				_bola_cria(c, d, Vector2(d.get("desde_bola", cuerpo.global_position)), d.get("col", c.color_visual))
 			# EL RASTRO (polvo y aire) se ve en todas las pantallas, lo mueva quien lo mueva. Por el aire no deja.
 			var arena: ArenaCombate = _arena()
 			if arena != null and float(d.get("arco", 0.0)) <= 0.0:
@@ -5746,7 +5771,7 @@ func _tick_deslices(delta: float) -> void:
 					int(Vector2(d["hasta"]).x * 31.0) | 1)
 		var dur: float = _dur_desliz(d)
 		# A una cria por el aire, un tiron de fotograma (el de crear su cuerpo) no le come el vuelo: se veria aparecer.
-		d["t"] = float(d["t"]) + (minf(delta, 1.0 / 30.0) if bool(d.get("cria", false)) else delta)
+		d["t"] = float(d["t"]) + (minf(delta, 1.0 / 30.0) if cria else delta)
 		var u: float = clampf(float(d["t"]) / dur, 0.0, 1.0)
 		# El paso arranca rapido y frena; el avance va parejo, que es donde caen los golpes.
 		var k: float = u if int(d["modo"]) == Desliz.AVANCE else 1.0 - (1.0 - u) * (1.0 - u)
@@ -5765,9 +5790,10 @@ func _tick_deslices(delta: float) -> void:
 			_deslices.erase(d)
 			# LA CRIA SE LEVANTA AL CAER (09/10): el escupitajo del Rey es solo dibujo y no tiene impacto, asi que la
 			# cria se quedaba de charco hasta T_NACER_MAX.
-			if bool(d.get("cria", false)):
+			# (En el espejo no hay _por_nacer: se levanta igual, al caer.)
+			if cria:
 				_cria_cae(c)
-				if _por_nacer.has(c):
+				if _por_nacer.has(c) or _pantalla._espejo:
 					_nacer_cria(c)
 			_enviar_bichos()
 			if _es_mio(c) and _quien == c and _fase == Fase.MOVIENDO:
@@ -6049,12 +6075,7 @@ func sitio_cria_acorrala(rey: Combatant, data: EnemyData) -> Vector2:
 		for giros in [[0.0, 0.4, -0.4, 0.8, -0.8], [1.2, -1.2, 1.6, -1.6, 2.0, -2.0, 2.5, -2.5, PI]]:
 			for lejos in [(ACORRALA_MIN + ACORRALA_MAX) * 0.5, ACORRALA_MIN, ACORRALA_MAX]:
 				for giro in giros:
-					var d: Vector2 = dir.rotated(float(giro))
-					var a: float = caja.size.x * 0.5
-					var b: float = caja.size.y * 0.5
-					var borde: float = sqrt(a * d.x * a * d.x + b * d.y * b * d.y)
-					var su: float = sqrt(cc.size.x * 0.5 * d.x * cc.size.x * 0.5 * d.x + cc.size.y * 0.5 * d.y * cc.size.y * 0.5 * d.y)
-					var p: Vector2 = caja.get_center() + d * (borde + float(lejos) + su) - cc.get_center()
+					var p: Vector2 = _a_hueco(caja, cc, dir.rotated(float(giro)), float(lejos))
 					if cabe_cria(p, data):
 						return p
 	var hacia: Vector2 = (pies_de(mejor) - pr) if mejor != null else Vector2.DOWN
@@ -6071,18 +6092,31 @@ func sitio_cria_lanzada(caja: Rect2, data: EnemyData, dir: Vector2) -> Vector2:
 	var d0: Vector2 = dir.normalized() if dir.length_squared() > 0.0001 else Vector2.DOWN
 	for lejos in [CRIA_LEJOS_MIN + 10.0, CRIA_LEJOS_MAX, CRIA_LEJOS_MIN, CRIA_LEJOS_MAX + 30.0]:
 		for giro in [0.0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]:
-			var d: Vector2 = d0.rotated(float(giro))
-			# Del centro al BORDE de su caja hacia ahi (la elipse de la caja), y desde el borde, 'lejos'.
-			var a: float = caja.size.x * 0.5
-			var b: float = caja.size.y * 0.5
-			var borde: float = sqrt(a * d.x * a * d.x + b * d.y * b * d.y)
-			# ...y lo que hay del centro de la cria a SU borde: los 50-80 son de borde a borde.
 			var cc: Rect2 = data.cuerpo_en() if data != null and data.tiene_cuerpo() else Rect2(-12, -8, 24, 16)
-			var su_borde: float = sqrt(cc.size.x * 0.5 * d.x * cc.size.x * 0.5 * d.x + cc.size.y * 0.5 * d.y * cc.size.y * 0.5 * d.y)
-			var p: Vector2 = c + d * (borde + float(lejos) + su_borde) - (cc.get_center())
+			var p: Vector2 = _a_hueco(caja, cc, d0.rotated(float(giro)), float(lejos))
 			if cabe_cria(p, data):
 				return p
 	return c + d0 * (maxf(caja.size.x, caja.size.y) * 0.5 + CRIA_LEJOS_MIN)
+
+
+# EL SITIO A 'lejos' PX DEL BORDE de 'caja' (en el mundo) hacia 'd', para una cria cuya caja respecto a su nodo es 'cc'.
+# Medido COMO LO MIDE EL JUEGO, de rectangulo a rectangulo (Cuerpos.hueco_entre: el mayor de los huecos por ejes), no con
+# una elipse: en diagonal la elipse se quedaba corta y "a 50 px" salian 35 (09/10, prueba_pasivas_mut). Se arranca de la
+# elipse y se corrige hasta clavarlo.
+func _a_hueco(caja: Rect2, cc: Rect2, d: Vector2, lejos: float) -> Vector2:
+	var a: float = caja.size.x * 0.5
+	var b: float = caja.size.y * 0.5
+	var borde: float = sqrt(a * d.x * a * d.x + b * d.y * b * d.y)
+	var su: float = sqrt(cc.size.x * 0.5 * d.x * cc.size.x * 0.5 * d.x + cc.size.y * 0.5 * d.y * cc.size.y * 0.5 * d.y)
+	var p: Vector2 = caja.get_center() + d * (borde + lejos + su) - cc.get_center()
+	# Andando por 'd', el hueco por ejes crece al ritmo del eje que manda: max(|dx|, |dy|) por px.
+	var paso: float = maxf(maxf(absf(d.x), absf(d.y)), 0.1)
+	for _i in 4:
+		var h: float = Cuerpos.hueco_entre(Rect2(cc.position + p, cc.size), caja)
+		if absf(h - lejos) < 0.5:
+			break
+		p += d * (lejos - h) / paso
+	return p
 
 
 # Game le acaba de poner cuerpo (el suyo, o el espejo que llego por red): charco quieto hasta la gota.
@@ -6102,21 +6136,18 @@ func cria_con_cuerpo(slot: int) -> void:
 		var col_bola: Color = _vuelo_cria[slot][2]
 		_vuelo_cria.erase(slot)
 		_pos[c] = cuerpo.global_position
-		pedir_desliz(c, hasta, Desliz.YA, 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
 		# LA DEL REY ESPERA A QUE LA ESCUPA (09/10, su prueba de la 16: "estaban dentro del Rey y de repente aparecieron
 		# detras mio, como un teletransporte"). Salia volando al nacer, antes del gesto del Rey, y el tiron de crear su
 		# cuerpo se comia el vuelo. Ahora espera ESCONDIDA dentro de el y sale con su CRIA_LANZADA (_on_dibujo_mapa),
-		# volando lo que tarda ese efecto en caer.
-		for d in _deslices:
-			if d["c"] == c and float(d["t"]) < 0.0:
-				d["cria"] = true
-				if con_gota:
-					d["tope"] = INF
-		# Lo que vuela es una BOLA DE BABA (SlimeAire.Modo.CRIA), no ella: va escondida hasta caer. La del Rey sale
-		# con su escupitajo (_on_dibujo_mapa); la del brotado, ya, de su color.
+		# volando lo que tarda ese efecto en caer. Lo que vuela es una BOLA DE BABA (SlimeAire.Modo.CRIA), no ella. El
+		# desliz CRIA viaja al espejo, que hace lo mismo (anotar_desliz, _tick_deslices).
+		pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
 		cuerpo.visible = false
-		if not con_gota:
-			_bola_cria(c, cuerpo.global_position, col_bola if col_bola.a > 0.0 else Color(0.35, 0.7, 0.95), T_VUELO_CRIA)
+		# La del brotado, de su color (aqui: el espejo no lo sabe y la pinta del de la cria, que es casi el mismo).
+		if not con_gota and col_bola.a > 0.0:
+			for d in _deslices:
+				if d["c"] == c and bool(d.get("cria", false)):
+					d["col"] = col_bola
 	var rey_hacia := Vector2.DOWN
 	for al in _pantalla._aliados:
 		if al.is_alive() and cuerpo_de(al) != null:
@@ -6166,30 +6197,32 @@ func cria_sin_formar(cuerpo: Node2D) -> bool:
 
 
 # La cria del Rey que esperaba escondida sale volando: 'vuelo' = lo que tarda en caer, en tiempo de la pelea (-1 = el
-# suyo, T_VUELO_CRIA). Si ya salio, no hace nada.
-func _soltar_cria(c: Combatant, vuelo: float) -> bool:
+# suyo, T_VUELO_CRIA); 'desde' y 'col', de donde sale su bola y de que color (los del Rey). Si ya salio, no hace nada.
+func _soltar_cria(c: Combatant, vuelo: float, desde: Vector2 = Vector2.INF, col: Color = Color(0, 0, 0, 0)) -> bool:
 	for d in _deslices:
 		if d["c"] == c and bool(d.get("cria", false)) and float(d["t"]) < 0.0 and float(d["tope"]) > 0.0:
 			d["tope"] = 0.0
 			if vuelo > 0.0:
 				d["dur"] = vuelo
+			if desde != Vector2.INF:
+				d["desde_bola"] = desde
+			if col.a > 0.0:
+				d["col"] = col
 			return true
 	return false
 
 
-# LA BOLA DE BABA que vuela en vez de la cria: de 'desde' a sus pies de llegada (el 'hasta' de su vuelo), del color 'col'.
-func _bola_cria(c: Combatant, desde: Vector2, col: Color, vuelo: float) -> void:
+# LA BOLA DE BABA que vuela en vez de la cria (su desliz 'd'): de 'desde' a sus pies de llegada, del color 'col', lo que
+# dure su vuelo. La lanza _tick_deslices al arrancar el vuelo, en todas las pantallas.
+func _bola_cria(c: Combatant, d: Dictionary, desde: Vector2, col: Color) -> void:
 	var arena: ArenaCombate = _arena()
 	if arena == null or cuerpo_de(c) == null:
 		return
-	for d in _deslices:
-		if d["c"] == c and bool(d.get("cria", false)):
-			var caja: Rect2 = bulto_de(c)
-			caja.position += Vector2(d["hasta"]) - pos_de(c)
-			SlimeAire.sobre_cuerpo(arena, SlimeAire.Modo.CRIA, desde, caja, col, int(Vector2(d["hasta"]).x * 13.0) | 1,
-				vuelo, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
-			d["bola"] = true
-			return
+	var caja: Rect2 = bulto_de(c)
+	caja.position += Vector2(d["hasta"]) - pos_de(c)
+	var dur: float = float(d.get("dur", T_VUELO_CRIA))
+	SlimeAire.sobre_cuerpo(arena, SlimeAire.Modo.CRIA, desde, caja, col, int(Vector2(d["hasta"]).x * 13.0) | 1,
+		dur if dur > 0.0 else T_VUELO_CRIA, _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0)
 
 
 # AL CAER sale de su gel: se enseña transparente y se hace opaca mientras el gel crece y se va (SlimeAire.T_CRECE).
