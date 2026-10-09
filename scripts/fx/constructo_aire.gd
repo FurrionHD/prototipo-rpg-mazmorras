@@ -49,7 +49,7 @@ const _DE_PIEDRA := [Modo.SURCOS, Modo.POLVO, Modo.PICADO, Modo.PETREA, Modo.CON
 	Modo.MAZO, Modo.SISMO, Modo.SISMO_SUELO, Modo.MURALLA, Modo.CLAVADO]
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const ARCILLA := Color(0.6, 0.45, 0.3)
 const T_APLASTON := 0.55
 const T_PEGOTES := 0.9

@@ -46,7 +46,7 @@ enum Suelo { ARROLLA, CONO, ALARIDO }
 const _MODO_DE_SUELO := [Modo.ARROLLA, Modo.CONO, Modo.ALARIDO]
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const T_TESTARAZO := 0.5
 const T_ZARPA := 0.34
 const T_PLACA := 0.4

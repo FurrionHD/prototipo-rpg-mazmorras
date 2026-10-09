@@ -36,7 +36,7 @@ enum Modo { SPLAT, APLASTA, MAREA, COMBUSTION, SALPICA, ROCIADA, LLAMARADA, PRES
 	GOLPE, ESCUPE, TROMBA, TROZO, IGNICION, PUAS, CRIA }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 const T_SPLAT := 0.16            # lo que tarda el charco en abrirse hasta el borde
 const T_APLASTA := 0.3           # la onda del Aplastamiento hasta el borde

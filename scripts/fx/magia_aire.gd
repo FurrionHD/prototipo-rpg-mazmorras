@@ -51,7 +51,7 @@ enum Modo { ALIENTO, LLUVIA, ORBE, BOLA, ORBE_FALLA, BOLA_FALLA, ANDANADA, OLA, 
 	ARCO, CURA, MALDICION, FORTALECER, FILO }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 const ALTO_MANO := 12.0          # a que altura sale lo que lanzas (la mano)
 const ALTO_PECHO := 13.0
 

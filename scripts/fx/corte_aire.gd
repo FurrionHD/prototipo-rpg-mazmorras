@@ -110,7 +110,7 @@ func _ready() -> void:
 			"rot": _rng.randf_range(0.0, TAU), "vrot": _rng.randf_range(-14.0, 14.0)})
 	_aire = Node2D.new()
 	_aire.z_as_relative = false
-	_aire.z_index = Game.Z_PERSONAJES + 80
+	_aire.z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	add_child(_aire)
 	_aire.draw.connect(_dibujar_aire)
 

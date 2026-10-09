@@ -56,6 +56,17 @@ const PARTY_MAX := 4
 # Godot (4096).
 const Z_PERSONAJES := 1024
 
+# LOS PERSONAJES SE ORDENAN POR SU ALTURA (09/10, el 22 del playtest 08/10: "el arma y el casco del de detras se pintan
+# encima del de delante"). Antes todas las capas de todos los muñecos compartian el mismo abanico de z (de -600 a 2560),
+# asi que entre dos personajes se mezclaban capa a capa. Ahora cada muñeco numera sus capas de 2 en adelante (en el
+# orden de siempre, ver MunecoJugador._compactar_z) y cada uno tiene SU BANDA: el de mas arriba en pantalla la mas baja.
+# El de delante queda entero por delante. Lo reparte _ordenar_munecos cada fotograma.
+const BANDA_MUNECO := 48
+const MAX_BANDAS := 50
+# Lo que va ENCIMA DE LOS PERSONAJES (los efectos de golpe, la sangre, los proyectiles): por encima de todas las bandas.
+# Antes era 'Z_PERSONAJES + 80', que caia ENTRE capas: encima del torso pero debajo del pelo y la cara de todos.
+const Z_ENCIMA_PERSONAJES := Z_PERSONAJES + BANDA_MUNECO * MAX_BANDAS
+
 # UN ENEMIGO PEGADO A UN PERSONAJE. Con los dos a la misma base, el bicho empataba con la PIEL de la cabeza
 # (z ~0 del muñeco) y un slime que estaba DETRAS se pintaba dentro de la cara (captura del usuario, 16/09).
 # Asi que cuando esta cerca de alguien se aparta del abanico entero de capas del muñeco (-600..2560): por
@@ -6030,7 +6041,35 @@ func _soltar_hojas_sin_usar() -> void:
 		print("[hojas] sueltas %d hojas que no llevaba nadie" % n)
 
 
+# Cada fotograma (tambien con menus y peleas, que pausan el arbol): la banda de cada muñeco de ESTA pantalla, por su
+# altura. Solo los que estan a la vista (y un margen): fuera de pantalla da igual quien tape a quien, y asi caben en las
+# MAX_BANDAS aunque el pueblo tenga cien vecinos. Los de otras ventanas (el creador, el menu de personaje) ni se tocan.
+const MARGEN_BANDAS := 200.0
+
+func _ordenar_munecos() -> void:
+	var vp: Viewport = get_viewport()
+	var vista: Rect2 = vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
+	vista = vista.grow(MARGEN_BANDAS)
+	var lista: Array = []
+	for n in get_tree().get_nodes_in_group(&"munecos_jugador"):
+		var m := n as Node2D
+		# Solo los del MUNDO: los de los menus (personaje, hogar) viven en su capa de interfaz con sus propias z.
+		if m == null or not m.is_visible_in_tree() or m.get_viewport() != vp or m.get_canvas_layer_node() != null:
+			continue
+		if vista.has_point(m.global_position):
+			lista.append(m)
+	# A la misma altura desempata algo fijo (si no, el orden bailaria de un fotograma a otro y parpadearian).
+	lista.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.global_position.y < b.global_position.y or (a.global_position.y == b.global_position.y
+			and a.get_instance_id() < b.get_instance_id()))
+	for k in lista.size():
+		var z: int = Z_PERSONAJES + mini(k, MAX_BANDAS - 1) * BANDA_MUNECO
+		if (lista[k] as Node2D).z_index != z:
+			(lista[k] as Node2D).z_index = z
+
+
 func _process(delta: float) -> void:
+	_ordenar_munecos()
 	# El tick de los ENCARGOS va ANTES del return por menu abierto, a proposito: corren por RELOJ
 	# REAL y tienen que vencer aunque estes con el Hogar abierto, que es justo cuando los miras.
 	_tick_encargos(delta)

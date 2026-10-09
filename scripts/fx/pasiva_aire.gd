@@ -29,7 +29,7 @@ class_name PasivaAire
 enum Modo { LLAMADA, ARDE, LATIDO, DESTELLO, ECO, ESQUIRLAS, ARRASTRE }
 
 const K := 0.7071
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 const T_LLAMADA := 0.55
 const T_ENTRE_LLAMADA := 0.08

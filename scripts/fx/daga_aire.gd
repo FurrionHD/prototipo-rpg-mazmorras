@@ -42,8 +42,8 @@ const SOMBRA := Color(0.07, 0.04, 0.11)
 const VIOLETA := Color(0.40, 0.24, 0.58)
 const VENENO := Color(0.42, 0.9, 0.3)
 const VENENO_OSC := Color(0.14, 0.45, 0.1)
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
-const Z_HUMO := Game.Z_PERSONAJES + 60
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
+const Z_HUMO := Game.Z_ENCIMA_PERSONAJES + 60
 
 var modo: int = Modo.TAJO
 var _t: float = 0.0

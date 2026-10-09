@@ -58,7 +58,7 @@ static func surco(padre: Node, cuerpo: Node2D, pies_off: Vector2) -> void:
 
 func _montar(padre: Node) -> void:
 	z_as_relative = false
-	z_index = Game.Z_PERSONAJES + 80
+	z_index = Game.Z_ENCIMA_PERSONAJES + 80
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	padre.add_child(self)
 	_suelo = Node2D.new()

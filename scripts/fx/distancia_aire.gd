@@ -79,7 +79,7 @@ static func color_punta(idx: int) -> Color:
 		return PUNTA_RANCIA
 	var lista: Array = Game.municiones()
 	return (lista[idx - 1] as MaterialData).color if idx - 1 < lista.size() else ACERO
-const Z_ENCIMA := Game.Z_PERSONAJES + 80
+const Z_ENCIMA := Game.Z_ENCIMA_PERSONAJES + 80
 
 # --- LOS COMPORTAMIENTOS de cada modo ---
 static func es_virote(m: int) -> bool:
