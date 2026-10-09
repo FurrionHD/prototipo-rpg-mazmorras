@@ -852,6 +852,30 @@ func _apuntar_dano(objetivo: Combatant, dmg: float, quien: Combatant, mult_amena
 		_ultimo_en_golpear[objetivo] = pj
 
 
+# LOS DIBUJOS DE LAS CRIAS, YA (09/10, "parece que se laguea un poco"): cargar los de un tipo de slime por primera vez
+# (su hoja horneada y miles de recortes, ~11 MB) costaba ~150 ms justo en mitad del Brote. Se cargan al montar la pelea
+# los de todo lo que pueden sacar sus enemigos (Brote, Orden real, dividirse), con sus parpados; quedan en la cache
+# de SpritesEnemigo.
+const T_CRIA := 0.2   # el de Game.dar_cuerpo_a_cria
+
+func _precalentar_crias() -> void:
+	var datos: Array = []
+	for e in _enemies:
+		for ab in e.habilidades:
+			if ab is AbilityData and ab.invoca_cantidad > 0:
+				datos.append_array(ab.invoca_pool)
+		datos.append_array(e.orden_pool)
+		if e.se_divide and e.sprite_res != "":
+			datos.append(load(e.sprite_res))
+	var hechos: Dictionary = {}
+	for d in datos:
+		if d is EnemyData and not hechos.has(d):
+			hechos[d] = true
+			SpritesEnemigo.frames_de(d, T_CRIA)
+			SpritesEnemigo.parpados_de(d, T_CRIA)          # y sus parpados (otras dos hojas)
+			SpritesEnemigo.parpados_extra_de(d, T_CRIA)
+
+
 func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 		exhausted: Array = [], player_overload_factor: float = 1.0) -> void:
 	# El sobrepeso es POR COMBATIENTE (ver Combatant.overload_factor): estos son los del anfitrion,
@@ -869,6 +893,7 @@ func setup(player_cs: Array, enemy_cs: Array, enemy_initiated: bool,
 	# demas. Les paso la MISMA lista (vivos y muertos); is_alive() filtra en el instante del golpe.
 	for e in _enemies:
 		e.battle_enemies = _enemies
+	_precalentar_crias()
 	_enemy_initiated = enemy_initiated
 	# Las acciones lentas se apuntan YA, una ficha por aliado: quien llego agotado las arrastra.
 	for i in _aliados.size():

@@ -73,8 +73,10 @@ func _correr() -> void:
 		al.max_hp = 999999.0
 		al.current_hp = 999999.0
 	_combat._fx.dibujo_en_mapa.connect(_on_dibujo)
+	RenderingServer.viewport_set_measure_render_time(get_tree().root.get_viewport_rid(), true)
 	_t0 = Time.get_ticks_msec()
-	print("[ver] pelea abierta: Rey rapido, tu lento. Esperando Brotes...")
+	print("[ver] pelea abierta: Rey rapido, tu lento. Esperando Brotes... cache %d: %s" % [SpritesEnemigo._horneado.size(),
+		str(SpritesEnemigo._horneado.keys())])
 	while Time.get_ticks_msec() - _t0 < T_MAX_MS and _brotes < MAX_BROTES:
 		await RenderingServer.frame_post_draw
 		_grabar()
@@ -101,9 +103,24 @@ func _centro() -> Vector2:
 
 
 var _par: int = 0
+var _t_ant: int = 0
+var _sin_fotos: bool = OS.get_environment("VER_SIN_FOTOS") != ""
 
 func _grabar() -> void:
 	_par += 1
+	# LOS TIRONES: cada fotograma que tarda mas de 40 ms, con lo que estaba pasando.
+	var ahora: int = Time.get_ticks_msec()
+	if _t_ant > 0 and ahora - _t_ant > 40:
+		print("[tiron] %d ms a los %d ms (crias: %d) | process %.0f ms, fisica %.0f ms, objetos %d, texturas %.1f MB" % [
+			ahora - _t_ant, ahora - _t0, _combat._enemies.size() - 1,
+			Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0])
+		var vp: RID = get_tree().root.get_viewport_rid()
+		print("        render cpu %.1f ms, gpu %.1f ms, preparar %.1f ms, objetos dibujados %d, llamadas %d" % [
+			RenderingServer.viewport_get_measured_render_time_cpu(vp), RenderingServer.viewport_get_measured_render_time_gpu(vp),
+			RenderingServer.get_frame_setup_time_cpu(), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
+	_t_ant = ahora
 	# El rastro de las crias, cada fotograma: pies, cuanto sube el dibujo, si se ve.
 	for c in _combat._enemies:
 		if c == _rey or not (c as Combatant).is_alive():
@@ -118,7 +135,7 @@ func _grabar() -> void:
 		if l.size() < 60 and _par % 3 == 0:
 			l.append("%dms %s h%.0f %s" % [Time.get_ticks_msec() - _t0, str(cu.global_position.round()),
 				-(sp as Node2D).position.y if sp is Node2D else 0.0, "V" if cu.is_visible_in_tree() else "oculta"])
-	if _par % 3 != 0:
+	if _par % 3 != 0 or _sin_fotos:
 		return
 	var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 	var xf: Transform2D = get_tree().root.get_viewport().get_canvas_transform()
@@ -141,6 +158,11 @@ func _grabar() -> void:
 
 func _on_dibujo(ev: Dictionary, vuelo: float) -> void:
 	if int(ev.get("estilo", 0)) != CombatFX.Estilo.CRIA_LANZADA or _grabando > 0:
+		return
+	if _sin_fotos:
+		print("[ver] el Rey escupe a los %d ms; horneados en cache %d: %s" % [Time.get_ticks_msec() - _t0,
+			SpritesEnemigo._horneado.size(), str(SpritesEnemigo._horneado.keys())])
+		_brotes += 1
 		return
 	print("[ver] el Rey escupe a los %d ms (vuelo %.2f)" % [Time.get_ticks_msec() - _t0, vuelo])
 	var suma: Vector2 = _tm.pies_de(_rey)
