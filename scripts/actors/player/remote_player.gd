@@ -341,6 +341,10 @@ func _physics_process(delta: float) -> void:
 		if _faena > 0:
 			_animar_faena()
 			return
+		# EN LA PELEA MANDA LA PELEA: su gesto (un tajo, un conjuro) o tirado en el suelo. Antes se los pisaba aqui
+		# al frame siguiente y en las otras maquinas no se veian (ver combat_tactico.MARCA_GESTO y MARCA_CAIDO).
+		if has_meta(&"gesto_en_pelea") or has_meta(&"caido_en_pelea"):
+			return
 		_muneco.animar(PoseJugador.animacion(_facing, _modo, andando,
 			_golpe_t > 0.0, _desenvainado, _golpe_variante))
 

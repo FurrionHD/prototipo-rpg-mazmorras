@@ -1406,9 +1406,10 @@ func _mi_huella(datos: PackedFloat32Array) -> void:
 # daño). Sin esto el compañero veria las vidas bajar de golpe: los combatientes de su pantalla son
 # maniquis y no resuelven nada. Sale UN paquete por accion, con 4 enteros por golpe.
 #
-# Va unreliable_ordered como el ATB, y a proposito: es puramente cosmetico. Perder uno significa
-# ver un turno sin animacion, mientras que mandarlo fiable lo pondria a competir con la instantanea
-# -que es la que lleva los numeros de verdad- por el mismo ancho de banda.
+# Va FIABLE desde el 09/10 (playtest 08/10: "un monton de animaciones no se hacen y no suenan"). Iba unreliable_ordered en
+# el mismo canal que el ATB y las huellas, que salen 20 veces por segundo: con 'ordered', un paquete de golpes que
+# llegaba detras de uno de ATB mas nuevo SE TIRABA entero, y se perdia el turno visto y oido. Es uno por accion y
+# pequeño (5 enteros por golpe, tope 40): garantizarlo cuesta poco.
 func difundir_impactos(datos: PackedInt32Array) -> void:
 	if not Net.activo or _pelea_id == 0 or _pelea_participantes.is_empty():
 		return
@@ -1416,7 +1417,7 @@ func difundir_impactos(datos: PackedInt32Array) -> void:
 		_impactos.rpc_id(p, datos)
 
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
+@rpc("any_peer", "call_remote", "reliable")
 func _impactos(datos: PackedInt32Array) -> void:
 	if _pelea_sigo == 0 or not _de_mi_anfitrion():
 		return

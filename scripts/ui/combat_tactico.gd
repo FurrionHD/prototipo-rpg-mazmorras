@@ -358,6 +358,8 @@ func desmontar() -> void:
 	DistanciaAire.quitar_clavadas(Game.get_tree())   # lo clavado se va con la pelea (lo que aguanta cae al suelo)
 	_sigilo_visible(true)
 	pintar_imbuiciones(true)
+	for cu in _gestos_mapa.keys():   # un gesto a medias no puede dejar la marca puesta: no se volveria a animar
+		_quitar_gesto(cu)
 	_levantar_caidos()
 	var pl: Node = _jugador_local()
 	if pl != null:
@@ -5657,6 +5659,7 @@ func gesto_en_mapa(c: Combatant, anim: String, dur: float, mano: int = -1) -> bo
 	if anim in _GESTOS_QUE_DEFIENDEN:
 		(m as MunecoJugador).postura_defensa = true
 	(m as MunecoJugador).animar("%s_%d" % [anim, d])
+	cuerpo.set_meta(MARCA_GESTO, true)   # que su propio _physics_process (jugador remoto) no se lo pise
 	_gestos_mapa[cuerpo] = {"t": 0.0, "dur": maxf(dur, 0.3), "anim": anim, "d0": d, "m": m,
 		"escala": escala}
 	return true
@@ -5902,7 +5905,7 @@ func caer_en_mapa(c: Combatant) -> void:
 	var m = cuerpo.get("_muneco")
 	if not (m is MunecoJugador) or not (m as MunecoJugador).hay_dibujo():
 		return
-	_gestos_mapa.erase(cuerpo)
+	_quitar_gesto(cuerpo)
 	_cargas.erase(c)
 	cuerpo.set_meta(MARCA_CAIDO, true)
 	_caidos.append(cuerpo)
@@ -6005,6 +6008,17 @@ func _soltar_gesto_bicho(cuerpo: Node2D) -> void:
 	_animar(cuerpo, _mirada_de(cuerpo), false)
 
 
+# EL CUERPO ESTA GESTICULANDO PARA LA PELEA (playtest 08/10: "un monton de animaciones no se hacen"). El jugador de
+# OTRA maquina se anima solo cada frame (remote_player._physics_process, andar/quieto) y en multi el arbol no se pausa:
+# le pisaba el gesto al frame siguiente. Con esta marca se aparta mientras dura (remote_player la lee por su nombre).
+const MARCA_GESTO := &"gesto_en_pelea"
+
+func _quitar_gesto(cuerpo) -> void:
+	_gestos_mapa.erase(cuerpo)
+	if is_instance_valid(cuerpo):
+		(cuerpo as Node).remove_meta(MARCA_GESTO)
+
+
 func _tick_gestos(delta: float) -> void:
 	_tick_gestos_bicho(delta)
 	for cuerpo in _gestos_mapa.keys():
@@ -6012,7 +6026,7 @@ func _tick_gestos(delta: float) -> void:
 		# El reloj del gesto va en tiempo REAL (su 'dur' viene asi); el giro del Molinete, en el de la pelea.
 		g["t"] = float(g["t"]) + delta
 		if not is_instance_valid(cuerpo) or not is_instance_valid(g["m"]):
-			_gestos_mapa.erase(cuerpo)
+			_quitar_gesto(cuerpo)
 			continue
 		var t: float = float(g["t"])
 		if String(g["anim"]) == "molinete":
@@ -6022,7 +6036,7 @@ func _tick_gestos(delta: float) -> void:
 			(g["m"] as MunecoJugador).animar("molinete_%d" % posmod(int(g["d0"]) - paso, 8))
 		if t >= float(g["dur"]) and (String(g["anim"]) != "molinete"
 				or t * float(g["escala"]) >= 2.0 * T_VUELTA_MOLINETE):
-			_gestos_mapa.erase(cuerpo)
+			_quitar_gesto(cuerpo)
 			(g["m"] as MunecoJugador).velocidad = 1.0
 			_animar(cuerpo, _mirada_de(cuerpo), false)
 
