@@ -101,8 +101,14 @@ func _ready() -> void:
 	_piso_spin.min_value = 1
 	_piso_spin.max_value = 30
 	_piso_spin.value = maxi(1, Game.current_floor)
-	_piso_spin.value_changed.connect(func(v): Game.current_floor = int(v); _refrescar())
 	prow.add_child(_piso_spin)
+	# APLICAR (09/10, lo pidio el jefe): confirma lo tecleado, sale del modo escribir y lo manda por red a todos los de
+	# la arena (y al trabajador que la lleva: los enemigos que salgan nacen con las stats de ese piso). Cambiar el
+	# numero solo no aplica nada: con la red de por medio, que cada uno fuera en un piso distinto era peor.
+	var aplicar := Button.new()
+	aplicar.text = "Aplicar"
+	aplicar.pressed.connect(_aplicar_piso)
+	prow.add_child(aplicar)
 
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 4)
@@ -192,6 +198,20 @@ func _on_material(idx: int) -> void:
 
 func _on_toggle() -> void:
 	_armed = _toggle_btn.button_pressed
+	_refrescar()
+
+
+func _aplicar_piso() -> void:
+	# Lo TECLEADO no llega a .value hasta que se confirma (ver la memoria spinbox-texto-no-confirmado).
+	_piso_spin.apply()
+	_piso_spin.get_line_edit().release_focus()
+	Net.pisos.pedir_piso_arena(int(_piso_spin.value))
+
+
+# Ha llegado (o lo he puesto yo) el piso que simula la arena: el numero, al dia, sin volver a mandarlo.
+func piso_cambiado(piso: int) -> void:
+	if _piso_spin != null:
+		_piso_spin.set_value_no_signal(piso)
 	_refrescar()
 
 
