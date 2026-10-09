@@ -283,8 +283,10 @@ func _refrescar_interaccion() -> void:
 		return
 	var jugador: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var objetivo: Node = null
-	# Nada que enseñar con un menu, un minijuego o una pelea delante (todos pausan el arbol o abren capa).
-	if jugador != null and jugador.has_method("objetivo_interaccion") and not get_tree().paused 			and Game._active_layer == null and not Game.combate_activo():
+	# Nada que enseñar con un menu, un minijuego o una pelea delante. En MULTI (o en un mundo compartido) el arbol NO se
+	# pausa: pescando o picando una veta el cartel seguia diciendo "F Pescar" y la F ya era otra cosa (playtest 09/10).
+	# Por eso tambien hay_modal(): la pesca y las faenas ponen el suyo.
+	if jugador != null and jugador.has_method("objetivo_interaccion") and not get_tree().paused 			and Game._active_layer == null and not Game.combate_activo() and not Game.hay_modal():
 		objetivo = jugador.objetivo_interaccion()
 	if objetivo == null:
 		_inter.visible = false
