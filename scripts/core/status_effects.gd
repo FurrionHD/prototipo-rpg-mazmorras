@@ -677,6 +677,10 @@ class Instance extends RefCounted:
 	func dot_damage() -> float:
 		if is_heal() or is_mana_heal():
 			return 0.0   # Regeneración: la magnitud es CURA/MANÁ, no daño (ver heal/mana_amount)
+		# Solo los que SON DoT ('dot' en el catalogo). (10/10, logs del 09/10) El Vulnerable del Estallido solar y el Débil de
+		# la Vorágine llevan magnitud 0,2 en su ficha y quitaban 0,2 por turno como si sangraran.
+		if not bool(d.get("dot", false)):
+			return 0.0
 		var mult: float = float(d.get("dot_stack_mult", 1.0))
 		return magnitude * pow(mult, float(maxi(stacks, 1) - 1))
 

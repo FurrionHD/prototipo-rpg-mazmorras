@@ -3779,7 +3779,8 @@ func turno_enemigo(e: Combatant) -> void:
 		if not peligro.is_empty() and (en_area or not llega_ya) and randf() < e.prob_apartarse:
 			sitio = _sitio_seguro(e, cuerpo, radio, presa, peligro)
 		if sitio != null:
-			print("[ia] %s se coloca fuera de tu area para pegar a %s" % [e.nombre, presa.nombre])
+			# (No es a quien pega: al llegar pega por amenaza entre los que alcance, ver _turno_enemigo_de_siempre.)
+			print("[ia] %s se coloca fuera de tu area, a tiro de %s" % [e.nombre, presa.nombre])
 			_destino = sitio
 			_ruta = _ruta_sitio.duplicate()
 			_replanteado = false

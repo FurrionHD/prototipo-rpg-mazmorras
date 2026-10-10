@@ -523,6 +523,7 @@ func _caer_aliado(c: Combatant) -> void:
 	var i: int = _pantalla._aliados.find(c)
 	if i >= 0 and i < _pantalla._bloques_aliados.size():
 		_apagar_diferido(_pantalla._bloques_aliados[i], true)   # espera a que se vea el golpe que lo tumba
+	print("[combate] %s (de los tuyos) cae derrotado" % c.nombre)   # (10/10) en godot.log tambien, no solo en pantalla
 	_pantalla._set_log("%s cae derrotado. 💀" % c.nombre)
 	# El que actuaba era el: el puntero pasa a alguien en pie, o las acciones (y el log de "tu
 	# turno") se quedarian colgadas de un KO.

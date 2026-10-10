@@ -31,6 +31,8 @@ const ESQUIVA_HAB_MAX := 2.0
 func _no_llega(e: Combatant, ab: AbilityData = null) -> void:
 	if not _pantalla.tactico or _pantalla._aliados_vivos().is_empty():
 		return
+	# (10/10, logs del 09/10: la Cornada cargada "se perdia" sin dejar rastro en godot.log) Tambien al registro.
+	print("[habilidad enemigo] %s suelta %s y no llega a nadie" % [e.nombre, ab.nombre if ab != null else "su turno"])
 	if ab != null:
 		_pantalla._set_log("%s suelta %s, pero no llega a nadie. 💨" % [_pantalla._etq(e), ab.nombre])
 	else:

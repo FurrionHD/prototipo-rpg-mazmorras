@@ -941,8 +941,10 @@ func _usar_habilidad(ab: AbilityData, soltando: bool = false) -> void:
 			Game.ganar("agilidad", _pantalla._reto(obj, pj_hab)
 				* minf(_pantalla._player.motion_value, Game.GAIN_AGILIDAD_CRIT_MV_MAX),
 				Game.GAIN_AGILIDAD_CRITICO, Game.RETO_MAX_FISICO, pj_hab)
-		print("        total: %.2f de daño en %d golpe%s%s | EN -%.0f -> %.1f/%.1f%s" % [
+		# (10/10, logs del 09/10: "0.00 de daño" justo cuando el enemigo se apartaba) Sin nadie en la huella, que lo diga.
+		print("        total: %.2f de daño en %d golpe%s%s%s | EN -%.0f -> %.1f/%.1f%s" % [
 			total, golpes, "" if golpes == 1 else "s",
+			" | NO PILLA A NADIE (no queda nadie en su huella)" if tocados.is_empty() else "",
 			_pantalla.magia._desglose_imbue(total, total_imbue, mult_imbue),
 			0.0 if soltando else coste, _pantalla._player.current_energy, _pantalla._player.max_energy,
 			"" if mana_ganado_golpes <= 0.0 else " | MP +%.1f -> %.1f/%.1f" % [

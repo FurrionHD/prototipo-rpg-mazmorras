@@ -1351,6 +1351,8 @@ func _registrar_peer(peer_id: int, color: Color, metal: float, nombre: String, l
 		"imagen": imagen, "alpha": alpha, "piezas": piezas}
 	if lugar == _mi_lugar:
 		_crear_avatar_nodo(peer_id)
+	if es_host:
+		pisos.contar_piso_arena(peer_id)
 	if avisar:
 		# Acabamos de conocernos: le digo como es MI sequito (el suyo me llegara igual). Sin esto, los
 		# acompañantes del que ya estaba saldrian sin cara hasta que tocara su equipo. La SALA no tiene.

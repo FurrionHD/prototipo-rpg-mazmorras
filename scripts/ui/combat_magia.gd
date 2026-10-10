@@ -668,7 +668,9 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 	# (09/10, logs del 08/10) Solo la de ATAQUE lleva daño y defensa magica del enemigo: una cura salia como
 	# "lanza Luz restauradora | dano:0.00 | def. magica de Rey Slime". Las demas dicen que son (la cura, a quien y cuanto,
 	# lo escribe _curar_con_hechizo).
-	if spell.tipo == SpellData.TipoEfecto.ATAQUE:
+	if spell.tipo == SpellData.TipoEfecto.ATAQUE and tocados.is_empty():
+		print("[magia] %s lanza %s | NO PILLA A NADIE (no queda nadie en su huella)" % [_pantalla._player.nombre, spell.nombre])
+	elif spell.tipo == SpellData.TipoEfecto.ATAQUE:
 		print("[magia] %s lanza %s | dano:%.2f (Magia %d) | def. magica de %s: %.2f" % [
 			_pantalla._player.nombre, spell.nombre, dano, _pantalla._player.abilities.magia, obj.nombre,
 			obj.mdef_value()])

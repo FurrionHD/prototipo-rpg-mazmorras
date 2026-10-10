@@ -2620,7 +2620,10 @@ func _morir_enemigo(e: Combatant) -> void:
 	if tactico:
 		turno_mapa.olvidar_carga(e)   # si cae cargando, su huella roja se va con el
 	altas._apagar_bloque(e)
-	print("[combate] %s cae (quedan %d en pie)" % [e.nombre, _vivos().size()])
+	# (10/10, logs del 09/10: "quedan 0 en pie" cinco veces) Los que caen en el MISMO golpe ya estan a 0 todos cuando se
+	# cuenta el primero: tambien cuentan los que aun no se han dado por caidos (siguen en la barra).
+	var quedan: int = _enemies.filter(func(o: Combatant) -> bool: return o.is_alive() or _gauge.has(o)).size()
+	print("[combate] %s cae (quedan %d en pie)" % [e.nombre, quedan])
 	# Si el que ha caido era tu objetivo, salta al siguiente vivo. _objetivo() ya lo haria
 	# solo, pero hay que mover _target_idx para que el borde blanco se pinte donde toca.
 	if _target_idx >= 0 and _target_idx < _enemies.size() and _enemies[_target_idx] == e:
