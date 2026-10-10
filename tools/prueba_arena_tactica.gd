@@ -189,7 +189,8 @@ func _probar_borde() -> void:
 			"borde: dos enemigos entraron encima (a %.1f px, minimo %.1f)"
 			% [d, ArenaCombate.SEPARACION_ENTRADA])
 
-	# --- 3) DE FUERA, JUGADOR: se le pregunta; si dice que NO, atraviesa sin mas preguntas.
+	# --- 3) DE FUERA, JUGADOR: se le pregunta; si dice que NO, LA LINEA LE FRENA (11/10) y no se le vuelve
+	# a preguntar mientras siga pegado. Si se despega y vuelve a chocar, se le pregunta otra vez.
 	var otro := Node2D.new()
 	otro.add_to_group("aliado")
 	add_child(otro)
@@ -198,24 +199,28 @@ func _probar_borde() -> void:
 	_afirmar(preguntas.size() == 1, "borde: al jugador de fuera no se le pregunto")
 	_afirmar(entradas.size() == 2, "borde: el jugador entro como si fuera un bicho")
 
-	arena.dijo_que_no(otro)
+	# Dice que no y empuja contra la linea: el freno no le deja entrar y no se le pregunta mas.
 	var antes: int = preguntas.size()
-	# Lo cruza de lado a lado: ni una pregunta mas. El recorrido acaba DENTRO a proposito -- pasarse
-	# de largo le soltaria el pestillo, que es justo lo que se comprueba despues.
-	for k in 9:
-		otro.global_position = Vector2(r.get_center().x,
-			r.position.y - 4.0 + r.size.y * (float(k) / 9.0))
+	for k in 6:
+		var desde: Vector2 = otro.global_position
+		otro.global_position = arena.frenar(desde, desde + Vector2(0.0, 6.0))
 		arena.vigilar([otro])
+	_afirmar(not arena.contiene(otro.global_position),
+		"borde: el que dijo que no se ha metido dentro (la linea tenia que frenarle)")
 	_afirmar(preguntas.size() == antes,
-		"borde: al que dijo que no se le volvio a preguntar mientras cruzaba")
-	_afirmar(arena.esta_de_paso(otro),
-		"borde: el que dijo que no tendria que contar como 'de paso' (no se le pinta)")
+		"borde: al que sigue pegado a la linea se le volvio a preguntar")
+	# En diagonal contra la linea resbala a lo largo, no se queda clavado.
+	var antes_x: float = otro.global_position.x
+	otro.global_position = arena.frenar(otro.global_position, otro.global_position + Vector2(5.0, 5.0))
+	_afirmar(otro.global_position.x > antes_x + 4.0 and not arena.contiene(otro.global_position),
+		"borde: en diagonal contra la linea no resbalo a lo largo")
+	# El que ya esta DENTRO (se acaba de salir de la pelea) anda libre.
+	_afirmar(arena.frenar(r.get_center(), r.get_center() + Vector2(8.0, 0.0)) == r.get_center() + Vector2(8.0, 0.0),
+		"borde: el freno paro a uno que ya estaba dentro")
 
-	# Se va lejos y vuelve: ahora SI se le pregunta otra vez (lo pidio el usuario).
-	otro.global_position = r.get_center() + Vector2(0.0, -r.size.y * 3.0)
+	# Se despega y vuelve a chocar: ahora SI se le pregunta otra vez (lo pidio el usuario).
+	otro.global_position = Vector2(r.get_center().x, r.position.y - ArenaCombate.SOLTAR - 10.0)
 	arena.vigilar([otro])
-	_afirmar(not arena.esta_de_paso(otro),
-		"borde: al alejarse tendria que soltarse el pestillo del 'no'")
 	otro.global_position = Vector2(r.get_center().x, r.position.y - 4.0)
 	arena.vigilar([otro])
 	_afirmar(preguntas.size() == antes + 1,

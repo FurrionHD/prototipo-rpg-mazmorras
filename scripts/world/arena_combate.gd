@@ -12,8 +12,10 @@
 #    DE FUERA, ENEMIGO  se mete en la pelea y aparece JUSTO POR DENTRO, en el punto donde choco --
 #               no por una puerta comun. Varios que lleguen por el mismo lado quedan escalonados.
 #               Se queda ahi quieto hasta que le toque su turno.
-#    DE FUERA, JUGADOR  se le pregunta Si/No. Con Si entra como el enemigo. Con No ATRAVIESA la zona
-#               como si no existiera, y no se le vuelve a preguntar hasta que salga y vuelva.
+#    DE FUERA, JUGADOR  se le pregunta Si/No. Con Si entra como el enemigo. Con No LA LINEA LE FRENA
+#               (decision del usuario 11/10, antes atravesaba): no se le vuelve a preguntar mientras siga
+#               pegado, y si se despega y vuelve a chocar, se le pregunta otra vez. El freno es frenar():
+#               lo aplica el jugador de fuera a su propio movimiento (ver Game.frenar_en_zonas_ajenas).
 #
 #  Por eso no hay colision de ninguna clase: es vigilancia por posicion y tres señales. Quien decide
 #  que hacer con ellas es la pelea, no esto. Asi esta pieza se puede probar sola, sin combate.
@@ -87,9 +89,9 @@ var circulo_enemigo: bool = false
 
 # Cuerpos ya avisados, para no repetir la señal cada frame. Se sueltan al despegarse del borde.
 var _avisados: Dictionary = {}
-# Los que dijeron que NO: atraviesan libremente y no se les vuelve a preguntar. Se suelta cuando se
-# alejan del todo (asi, si vuelven, se les pregunta otra vez -- lo pidio el usuario).
-var _dijeron_que_no: Dictionary = {}
+# LA ZONA DE UNA PELEA AJENA (11/10): la que ve un jugador que NO esta en ella. Se pintan las lineas y un
+# tinte suave dentro, pero NO se oscurece lo de fuera: seria oscurecerle su mundo por una pelea que no es suya.
+var ajena: bool = false
 # Puntos de entrada ya usados, para escalonar a los que llegan por el mismo sitio.
 var _entradas: Array[Vector2] = []
 
@@ -278,15 +280,17 @@ func olvidar_entradas() -> void:
 	_entradas.clear()
 
 
-# ¿Este cuerpo esta atravesando la arena tras decir que NO? Lo pregunta el dibujo de los demas para
-# no pintarlo: el que cruza no se le ve a los que estan peleando, para no molestarles.
-func esta_de_paso(cuerpo: Node2D) -> bool:
-	return _dijeron_que_no.has(cuerpo)
-
-
-func dijo_que_no(cuerpo: Node2D) -> void:
-	if cuerpo != null:
-		_dijeron_que_no[cuerpo] = true
+# EL FRENO DE LA LINEA para el que esta FUERA (11/10): si el paso de 'antes' a 'ahora' le mete dentro, no
+# entra. Se prueba a dejarle resbalar a lo largo del borde (solo en x o solo en y) para que no se quede
+# pegado como una lapa al rozarla en diagonal; si ni asi, se queda donde estaba. El que YA estaba dentro
+# (se acaba de salir de la pelea) anda libre: la linea solo frena al que entra.
+func frenar(antes: Vector2, ahora: Vector2) -> Vector2:
+	if contiene(antes) or not contiene(ahora):
+		return ahora
+	for p in [Vector2(ahora.x, antes.y), Vector2(antes.x, ahora.y)]:
+		if not contiene(p):
+			return p
+	return antes
 
 
 # ------------------------------------------------------------
@@ -322,14 +326,8 @@ func _mirar_desde_fuera(c: Node2D) -> void:
 	var dentro: bool = contiene(p)
 	var d: float = distancia_al_borde(p)
 
-	# El que dijo que no atraviesa tranquilo. Se le suelta el pestillo cuando se ha ido del todo, y
-	# entonces volveria a preguntarsele si choca otra vez.
-	if _dijeron_que_no.has(c):
-		if not dentro and d < -SOLTAR:
-			_dijeron_que_no.erase(c)
-			_avisados.erase(c)
-		return
-
+	# Se despega del borde: se le suelta el pestillo, y si vuelve a chocar se le pregunta otra vez (al
+	# jugador que dijo que NO tambien: la linea le ha frenado y sigue fuera).
 	if not dentro and d < -SOLTAR:
 		_avisados.erase(c)
 		return
@@ -353,10 +351,9 @@ func _es_jugador(c: Node2D) -> bool:
 # Se sueltan las fichas de cuerpos que ya no existen: una pelea larga con bichos muriendose deja el
 # diccionario lleno de punteros colgados.
 func _limpiar() -> void:
-	for d in [_avisados, _dijeron_que_no]:
-		for c in d.keys():
-			if not is_instance_valid(c):
-				d.erase(c)
+	for c in _avisados.keys():
+		if not is_instance_valid(c):
+			_avisados.erase(c)
 
 
 # ------------------------------------------------------------
@@ -369,6 +366,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if ajena:
+		_dibujar_ajena()
+		return
 	# 1) LO DE FUERA, oscurecido. Cuatro rectangulos alrededor: se ve de un vistazo donde se pelea.
 	var m: float = FUERA_MARGEN
 	var col_fuera := Color(0.0, 0.0, 0.02, FUERA_ALFA)
@@ -413,6 +413,21 @@ func _draw() -> void:
 		if n > 0.0:
 			draw_circle(f.centro, n, Color(c, 0.30))
 			draw_arc(f.centro, n, 0.0, TAU, 48, Color(c, 0.9), 2.0)
+
+
+# La pelea de OTRO vista desde fuera: un tinte suave en las celdas de la pelea y el mismo borde a trazos.
+# Ni circulo ni huellas: eso es de quien juega la pelea.
+func _dibujar_ajena() -> void:
+	var cel: float = float(DungeonGenerator.CELDA)
+	var tinte := Color(1.0, 0.55, 0.35, 0.07)
+	for y in range(rect_celdas.position.y, rect_celdas.end.y):
+		for x in range(rect_celdas.position.x, rect_celdas.end.x):
+			if ArenaCalculo.en_forma(rect_celdas, mascara, Vector2i(x, y)):
+				draw_rect(Rect2(Vector2(x, y) * cel, Vector2(cel, cel)), tinte)
+	var late: float = 0.5 + 0.5 * sin(_t * 2.2)
+	var col := Color(1.0, 0.85, 0.45, 0.55 + 0.25 * late)
+	for tr in tramos:
+		_trazos(tr["a"], tr["b"], col)
 
 
 # LAS HUELLAS PINTADAS, por clave (quien la lanza): {forma, nucleo, color}.
