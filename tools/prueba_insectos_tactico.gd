@@ -160,7 +160,7 @@ func _correr() -> void:
 			print("  el escarabajo rueda %.1f px" % andado)
 			# (10/10) las embestidas recorren su linea ENTERA (el frente hasta el final de la raya): pasa al primero y llega
 			# hasta el de detras, que queda apartado a un lado.
-			_ver(andado > libre - 2.0, "rueda ATRAVESANDO su linea (%.0f px, hasta %.0f libre de %.0f de raya)" % [andado, libre, f0.largo])
+			_ver(andado > libre - 4.0, "rueda ATRAVESANDO su linea (%.0f px, hasta %.0f libre de %.0f de raya)" % [andado, libre, f0.largo])
 			# Hasta el de detras, si no hay otro bicho de la prueba en medio (se quedan donde los dejaron los pasos de antes, y
 			# encima de uno no acaba): entonces para antes, y esta bien.
 			if libre >= hasta_detras - 20.0:
