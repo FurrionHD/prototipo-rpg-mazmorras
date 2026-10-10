@@ -4,6 +4,8 @@
 # linea; para la 2a se apartan mientras carga (asi se ve que embiste igual sin nadie). Cada Cornada se guarda en una
 # hoja (hoja_N.png, 5 por fila, de que empieza a cargar a que se levanta), y la ventana se queda abierta para mirarla.
 #   VER_SALIDA=C:/Users/dasui/Desktop/ataques_mapa/enemigos/minotauro/cornada_recorre godot --path . res://tools/ver_cornada_ventana.tscn
+# EN VIDEO (10/10, lo pidio el: "verlo en tiempo real"): VER_SALIR=1 VER_SIN_FOTOS=1 godot --path . --write-movie X.avi
+#   --fixed-fps 30 res://tools/ver_cornada_ventana.tscn (y luego ffmpeg a .mp4).
 extends Node
 
 const CELDA := Vector2i(520, 400)
@@ -58,7 +60,8 @@ func _correr() -> void:
 	Game.entrar_arena_de_pruebas()
 	await _esperar(15)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
-	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(-220, 70), {})
+	# En sitio abierto, a la vista de los tuyos (a -220,70 salia metido en la pared de la arena y no llegaba a nadie).
+	Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/guardian_rango.tres", jug.global_position + Vector2(40, 150), {})
 	await _esperar(25)
 	Game.start_combat(get_tree().get_nodes_in_group("enemy"), false)
 	await _esperar(20)
@@ -69,6 +72,27 @@ func _correr() -> void:
 					_combat = h
 	_tm = _combat.turno_mapa
 	_mino = _combat._enemies[0]
+	# Sin la cortina de "Arena de pruebas" (en el video se quedaba oscureciendo la pelea un buen rato).
+	Cargando.ocultar()
+	# EN UN HUECO LIBRE, lejos de las paredes: a 150 px del primero de los tuyos, donde quepa su cuerpo con holgura.
+	var cu_m: Node2D = _tm.cuerpo_de(_mino)
+	var bajo_m: Vector2 = _tm._bajo_de(_mino)
+	var caja_m: Rect2 = _tm.bulto_de(_mino)
+	var p_al: Vector2 = _tm.pies_de(_combat._aliados[0])
+	for k in 16:
+		var cand: Vector2 = p_al + Vector2.from_angle(PI * 0.5 + TAU * float(k) / 16.0) * 150.0
+		var ok: bool = true
+		for esq in [Vector2.ZERO, Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+			var q: Vector2 = cand - bajo_m + esq * (caja_m.size * 0.5 + Vector2(40, 40))
+			if not _tm._sobre_suelo(q, cu_m) or not _tm._en_arena(q):
+				ok = false
+		# y con sitio para cruzar su linea entera hacia los tuyos
+		var ida: Vector2 = cand + (p_al - cand).normalized() * 200.0 - bajo_m
+		if ok and _tm._sobre_suelo(ida, cu_m) and _tm._en_arena(ida):
+			_tm._colocar(_mino, cu_m, cand - bajo_m)
+			print("[ver] el Minotauro, en %s (a 150 px de los tuyos)" % cand)
+			break
+	print("[ver] fotograma del video en que empieza la pelea: %d" % Engine.get_frames_drawn())
 	_cor = load("res://resources/abilities/minotauro_cornada.tres")
 	# SOLO LA CORNADA, siempre lista y siempre la elige. Rapido el, lentos y duros los tuyos.
 	_mino.habilidades = [_cor]
@@ -84,11 +108,18 @@ func _correr() -> void:
 	print("[ver] pelea abierta: el Minotauro solo hace la Cornada. Esperando %d..." % MAX_CORNADAS)
 	while Time.get_ticks_msec() - _t0 < T_MAX_MS and _cornadas < MAX_CORNADAS:
 		_mino.ability_cooldowns.clear()
+		# TUS TURNOS PASAN SOLOS (si no, la pelea se queda esperando a que elijas).
+		if int(_combat._state) == 1 and _tm._fase == _tm.Fase.MOVIENDO and Engine.get_process_frames() % 20 == 0:
+			_combat._accion_esperar()
 		await RenderingServer.frame_post_draw
 		_grabar()
 		await get_tree().process_frame
 	print("[ver] FIN: %d Cornadas -> %s (la ventana sigue abierta: cierrala cuando quieras)" % [_cornadas,
 		ProjectSettings.globalize_path(_salida)])
+	# GRABANDO VIDEO (godot --write-movie): se cierra sola al acabar, que si no el video no se termina de escribir.
+	if OS.get_environment("VER_SALIR") != "":
+		await get_tree().create_timer(1.0).timeout
+		get_tree().quit(0)
 
 
 func _grabar() -> void:
@@ -117,7 +148,7 @@ func _grabar() -> void:
 			and _fotos.size() > 6:
 		_fin_ms = Time.get_ticks_msec()
 	_par += 1
-	if _par % 2 == 0:
+	if _par % 2 == 0 and OS.get_environment("VER_SIN_FOTOS") == "":
 		var img: Image = get_tree().root.get_viewport().get_texture().get_image()
 		var xf: Transform2D = get_tree().root.get_viewport().get_canvas_transform()
 		var c: Vector2 = xf * _centro_fijo
