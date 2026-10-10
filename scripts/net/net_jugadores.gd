@@ -506,6 +506,66 @@ func _rel_imbue(elems: PackedInt32Array) -> void:
 			_set_imbue.rpc_id(pid, de, elems)
 
 
+# --- LAS BARRAS DE MI GRUPO (10/10, playtest 09/10) --------------------------------------------
+# Lo que pone en la barra de arriba de cada uno de los mios (vida, aguante, mana), para que el otro jugador vea a mi
+# grupo detras del suyo (BarrasOtros). Canal propio, como el de las imbuiciones: son numeros que cambian todo el rato.
+# Va lo que ve MI barra (en pelea, lo de su combatiente), ya calculado: el otro no tiene mis fichas para sacarlo.
+# Fila: [uid, nombre, color, hp, max_hp, aguante, max_aguante, mana, max_mana, es_lider].
+# Al cambiar algo, como mucho cada BARRAS_CADA; sin cambios, cada BARRAS_LATIDO (al que entra despues tambien le llega).
+const BARRAS_CADA := 0.25
+const BARRAS_LATIDO := 2.0
+var _barras_t: int = 0
+var _barras_firma: String = ""
+
+func mis_barras(filas: Array) -> void:
+	if not Net.activo or Net.soy_trabajador or Net.soy_sala or multiplayer.multiplayer_peer == null:
+		return
+	var ahora: int = Time.get_ticks_msec()
+	var firma: String = var_to_str(filas)
+	var pasado: float = float(ahora - _barras_t) / 1000.0
+	if pasado < BARRAS_CADA or (firma == _barras_firma and pasado < BARRAS_LATIDO):
+		return
+	_barras_t = ahora
+	_barras_firma = firma
+	if Net.es_host:
+		for pid in Net._peers:
+			if not Net.es_trabajador(pid):
+				_set_barras.rpc_id(pid, Net._mi_id(), filas)
+	else:
+		_rel_barras.rpc_id(1, filas)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _rel_barras(filas: Array) -> void:
+	if not Net.es_host:
+		return
+	var de := multiplayer.get_remote_sender_id()
+	_set_barras(de, filas)
+	for pid in Net._peers:
+		if pid != de and not Net.es_trabajador(pid):
+			_set_barras.rpc_id(pid, de, filas)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _set_barras(emisor: int, filas: Array) -> void:
+	# Solo del host (o del propio host, que la llama dentro del RPC del que la manda: ahi el remitente es el otro).
+	if (not Net.es_host and multiplayer.get_remote_sender_id() != 1) or not Net._peers.has(emisor):
+		return
+	Net._peers[emisor]["barras"] = filas
+
+
+# Las barras de los DEMAS jugadores, en orden de peer: [[nombre del jugador, filas], ...]. Las lee BarrasOtros.
+func barras_de_otros() -> Array:
+	var out: Array = []
+	var ids: Array = Net._peers.keys()
+	ids.sort()
+	for pid in ids:
+		var filas = Net._peers[pid].get("barras")
+		if filas is Array and not (filas as Array).is_empty():
+			out.append([String(Net._peers[pid].get("nombre", "?")), filas])
+	return out
+
+
 # --- EL FAROLILLO DE CADA UNO ------------------------------------------------------------------
 # Cuanto alumbra su lampara, en celdas. Canal propio y calcado del de las imbuiciones, por lo mismo:
 # es un numero minusculo que cambia a su ritmo (enciendes, se gasta el carbon, cambias de farolillo)
