@@ -639,8 +639,9 @@ var _t_sin_avanzar: float = INF
 var _cadaver_z: bool = false
 
 func _physics_process(delta: float) -> void:
-	# Detras o delante de quien tenga pegado (ver Game); de cadaver, siempre en el suelo, debajo.
-	z_index = Game.Z_PERSONAJES + Game.Z_DETRAS_DE_PERSONAJES if _cadaver_z else Game.z_frente_a_personajes(self)
+	# Su z la reparte Game._ordenar_munecos por altura, con los personajes; de cadaver, siempre en el suelo, debajo.
+	if _cadaver_z:
+		z_index = Game.Z_PERSONAJES + Game.Z_DETRAS_DE_PERSONAJES
 	_tick_peticion(delta)
 	if _objetivo == Vector2.INF:
 		return

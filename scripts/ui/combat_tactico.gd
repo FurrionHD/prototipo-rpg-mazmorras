@@ -4299,11 +4299,7 @@ func _colocar(c: Combatant, cuerpo: Node2D, p: Vector2) -> void:
 		# daba por quieto y le quitaba la pose de andar en cada fotograma.
 		if cuerpo.get("_t_sin_avanzar") != null:
 			cuerpo.set("_t_sin_avanzar", 0.0)
-	# El orden de dibujo de los bichos lo recalcula su _physics_process, que con el arbol en pausa no
-	# corre: sin esto, uno que pasa por delante de otro se quedaria pintado detras.
-	# (Solo los bichos: son los que llevan _sprite y se lo recalculan asi, ver enemy._physics_process.)
-	if cuerpo.get("_sprite") != null:
-		cuerpo.z_index = Game.z_frente_a_personajes(cuerpo)
+	# (El orden de dibujo lo reparte Game._ordenar_munecos cada fotograma, tambien en pausa: por altura, con todos.)
 
 
 # ¿Puede estar ESTE cuerpo en 'p'? Toda su huella sobre suelo, y sin meterse encima de otro.

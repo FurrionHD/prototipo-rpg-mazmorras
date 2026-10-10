@@ -6050,6 +6050,7 @@ func _ordenar_munecos() -> void:
 	var vp: Viewport = get_viewport()
 	var vista: Rect2 = vp.get_canvas_transform().affine_inverse() * vp.get_visible_rect()
 	vista = vista.grow(MARGEN_BANDAS)
+	# Cada uno con su ALTURA EN EL SUELO: los muñecos, sus pies; los enemigos, el centro de lo que pisan.
 	var lista: Array = []
 	for n in get_tree().get_nodes_in_group(&"munecos_jugador"):
 		var m := n as Node2D
@@ -6057,15 +6058,25 @@ func _ordenar_munecos() -> void:
 		if m == null or not m.is_visible_in_tree() or m.get_viewport() != vp or m.get_canvas_layer_node() != null:
 			continue
 		if vista.has_point(m.global_position):
-			lista.append(m)
+			lista.append([m.global_position.y + PoseJugador.PIES_BAJO_NODO, m])
+	# LOS ENEMIGOS EN LAS MISMAS BANDAS (10/10, el 5 del playtest 09/10): antes iban ENTEROS delante o detras de todos
+	# los personajes segun el aliado mas cercano (z_frente_a_personajes), y como cada maquina tiene sus aliados, en una
+	# el minotauro tapaba a todos y en la otra todos a el. Ahora cada uno en su sitio por su altura, igual en todas.
+	# Los cadaveres no: ya no estan en el grupo y se quedan en el suelo, por debajo.
+	for n in get_tree().get_nodes_in_group(&"enemy"):
+		var e := n as Node2D
+		if e == null or not e.is_visible_in_tree() or e.get_viewport() != vp or e.get_canvas_layer_node() != null:
+			continue
+		if vista.has_point(e.global_position):
+			lista.append([Cuerpos.caja_de(e).get_center().y, e])
 	# A la misma altura desempata algo fijo (si no, el orden bailaria de un fotograma a otro y parpadearian).
-	lista.sort_custom(func(a: Node2D, b: Node2D) -> bool:
-		return a.global_position.y < b.global_position.y or (a.global_position.y == b.global_position.y
-			and a.get_instance_id() < b.get_instance_id()))
+	lista.sort_custom(func(a: Array, b: Array) -> bool:
+		return a[0] < b[0] or (a[0] == b[0] and (a[1] as Node2D).get_instance_id() < (b[1] as Node2D).get_instance_id()))
 	for k in lista.size():
 		var z: int = Z_PERSONAJES + mini(k, MAX_BANDAS - 1) * BANDA_MUNECO
-		if (lista[k] as Node2D).z_index != z:
-			(lista[k] as Node2D).z_index = z
+		var nodo: Node2D = lista[k][1]
+		if nodo.z_index != z:
+			nodo.z_index = z
 
 
 func _process(delta: float) -> void:
