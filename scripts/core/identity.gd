@@ -134,6 +134,9 @@ func _cargar() -> void:
 		cambiado = true
 	if cambiado and not solo_leer:
 		_guardar()
+	# (10/10) LA VERSION, lo primero de cada log (el juego, la sala y cada trabajador): para mirar que todos son el mismo
+	# build antes de leer nada (ver la memoria logs-multi-mirar-la-version).
+	print("[version] %s" % ProjectSettings.get_setting("application/config/version", "?"))
 	print("[identidad] ", nombre, " (", id, ")", "  [NUEVA]" if recien_creada else "",
 		"  [solo lectura]" if solo_leer else "")
 

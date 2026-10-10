@@ -1132,6 +1132,10 @@ var current_floor: int = 1
 # (ver entrar_en_arena / salir_de_arena).
 const PISO_ARENA := 1000
 const ARENA_PISO_JUEGO := 1
+# EL PISO QUE SIMULA LA ARENA AHORA (el del boton Aplicar del panel, Net.pisos.pedir_piso_arena). Se guarda aunque no
+# estes dentro: al volver a entrar (o un trabajador nuevo que la lleve) sigue siendo ese, no el 1 (playtest 09/10: el
+# Minotauro del piso 12 volvio con stats del piso 1 al salir y entrar uno de los dos).
+var arena_piso_juego: int = ARENA_PISO_JUEGO
 var arena_activa := false
 
 func es_arena() -> bool:
@@ -1523,7 +1527,7 @@ func _desmontar_arena_tactica() -> void:
 # El UNICO sitio que traduce "voy al piso N" a current_floor (y enciende o apaga la arena).
 func fijar_piso(p: int) -> void:
 	arena_activa = p == PISO_ARENA
-	current_floor = ARENA_PISO_JUEGO if arena_activa else maxi(1, p)
+	current_floor = arena_piso_juego if arena_activa else maxi(1, p)
 
 # El numero de piso PARA LA RED y la memoria del piso: 1000 en la arena, current_floor fuera.
 func piso_de_red() -> int:
@@ -1918,7 +1922,9 @@ func guardar_estados_en_ficha(c: Combatant, pj: PersonajeData) -> void:
 	pj.estados = out
 	pj.foco_cargas = c.foco_cargas
 	refrescar_cache_estados(pj)
-	if not out.is_empty():
+	# (Se guarda en el cierre y otra vez al cerrar la pelea quien la lleva: se dice una vez por combatiente.)
+	if not out.is_empty() and not c.has_meta(&"estados_dichos"):
+		c.set_meta(&"estados_dichos", true)
 		print("[estado] %s sale de la pelea con %d estado(s) encima" % [pj.nombre, out.size()])
 
 

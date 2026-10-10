@@ -704,15 +704,23 @@ func _difundir_piso_arena(lugar: String, piso: int) -> void:
 	_piso_arena(lugar, piso)
 
 
-# En CADA maquina: si estoy en esa arena, ese es el piso que simulo.
+# En CADA maquina: me lo apunto (para cuando entre) y, si estoy en esa arena, ese es el piso que simulo.
 @rpc("authority", "call_remote", "reliable")
 func _piso_arena(lugar: String, piso: int) -> void:
+	Game.arena_piso_juego = clampi(piso, 1, 30)
 	if Net._mi_lugar == lugar:
 		_piso_arena_aqui(piso)
 
 
+# El HOST se lo cuenta al que llega despues (un trabajador nuevo, el que entra a la sala): sin esto arrancaba en el 1.
+func contar_piso_arena(pid: int) -> void:
+	if Net.es_host and Game.arena_piso_juego != Game.ARENA_PISO_JUEGO:
+		_piso_arena.rpc_id(pid, "piso:%d" % Game.PISO_ARENA, Game.arena_piso_juego)
+
+
 func _piso_arena_aqui(piso: int) -> void:
-	Game.current_floor = clampi(piso, 1, 30)
+	Game.arena_piso_juego = clampi(piso, 1, 30)
+	Game.current_floor = Game.arena_piso_juego
 	print("[arena] simulo el piso %d" % Game.current_floor)
 	for n in get_tree().get_nodes_in_group("panel_dev"):
 		if n.has_method("piso_cambiado"):
