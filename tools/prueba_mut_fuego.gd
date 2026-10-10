@@ -94,6 +94,7 @@ func _correr() -> void:
 	var ed: EnemyData = load("res://scenes/actors/enemy/slime_fuego.tres")
 	var o: Combatant = ed.crear_combatant(0.5, true, false, &"obsidiana")
 	combat._enemies.append(o)   # (para que las pasivas la cuenten como enemiga)
+	combat._gauge[o] = 0.0      # (y con su barra: sin ella el ATB petaba en combat.gd al sumarle, ya al cerrar)
 	print("    %s (elemento %d, resist %s)" % [o.nombre, o.elemento, o.resist_elemental])
 	_ver(o.nombre == "Slime de obsidiana", "es la obsidiana")
 	_ver(o.elemento == Elementos.Elemento.NINGUNO and o.elemento_ataque == Elementos.Elemento.NINGUNO, "pierde el fuego")

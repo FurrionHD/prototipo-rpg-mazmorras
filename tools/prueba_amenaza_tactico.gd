@@ -249,6 +249,7 @@ func _probar_pasivas(combat, t, al: Array) -> void:
 		_colocar(t, al, [_al_lado(t, sf), t.pies_de(sf) + Vector2(-300, 100)])
 		await _esperar(2)
 		for _k in 20:
+			combat._pasiva_hecha.clear()   # una tirada por accion (09/10): cada vuelta, otra accion
 			combat._pasiva_al_golpearle(sf, al[0])
 			if al[0].has_status(StatusEffects.Id.QUEMADURA):
 				break
