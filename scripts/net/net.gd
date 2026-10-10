@@ -121,7 +121,9 @@ const MAX_CONEXIONES := 32
 #     pasivas de al recibir golpe (una tirada por accion).
 # 35 (09/10): el desliz de una CRIA lanzada (Desliz.CRIA, el espejo la esconde y le pone su bola de baba), el piso que
 #     simula la arena (_pedir_piso_arena / _piso_arena) y el alcance de los mutantes (crece con ellos).
-const PROTOCOLO := 35
+# 36 (10/10): embestidas que recorren su linea entera (Desliz.EMBISTE = 6), los provocados en la instantanea y el
+#     traspaso, sangrado/fuego del golpe real, y el enemigo que se aparta acaba fuera del area (otra resolucion).
+const PROTOCOLO := 36
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
