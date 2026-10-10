@@ -464,8 +464,17 @@ func _chips_de(c: Combatant) -> Array:
 	# Va en los chips como todo lo demas, asi que sirve igual para ti y para un companero.
 	if c.provocar_turnos > 0:
 		out.append(["🎯%dt" % c.provocar_turnos,
-			"Provocación (%d turno%s)\nLos enemigos centran su atención en ti: te atacan más." % [
+			"Provocación (%d turno%s)\nLos enemigos que pillaste van a por ti con todo, si te alcanzan." % [
 				c.provocar_turnos, "" if c.provocar_turnos == 1 else "s"]])
+	# PROVOCADO (10/10, el jefe: "no tiene un icono de provocado, no se puede saber si esta haciendo efecto"): en el
+	# ENEMIGO, con los turnos que le quedan y quien le tiene provocado. Viaja a los espejos con el resto de chips.
+	var prov: Combatant = _pantalla.objetivos.provocador_de(c)
+	if prov != null:
+		out.append(["💢%dt" % prov.provocar_turnos,
+			"Provocado por %s (%d turno%s)
+Solo tiene ojos para él: todo lo que haga va a por él, si le alcanza." % [
+				prov.nombre, prov.provocar_turnos, "" if prov.provocar_turnos == 1 else "s"],
+			"💢", Color(1.0, 0.45, 0.35)])
 	# COBERTURA (escudo grande). Va en los DOS: quien cubre y a quien cubren. Sin el segundo chip,
 	# el que esta tapado no tiene forma de saber por que de pronto no le pega nadie -- y cuando se
 	# le acabe, tampoco sabra por que ha vuelto a llover. La flecha dice el sentido.

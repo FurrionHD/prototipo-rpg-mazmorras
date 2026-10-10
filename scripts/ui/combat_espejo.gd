@@ -495,6 +495,9 @@ func _volatil(c: Combatant) -> Dictionary:
 	# todavia. Lo cierra _reenlazar_coberturas, en una segunda pasada. Ver retomar().
 	return {"hp": c.current_hp, "mp": c.current_mp, "en": c.current_energy, "foco": c.foco_cargas,
 		"provocar": c.provocar_turnos, "estados": estados, "cd": cds,
+		# A QUIEN tiene provocado (10/10): por INDICE de enemigo, como la cobertura. Sin esto, al traspasar la pelea el que
+		# la recoge veia la Provocacion pero sin nadie provocado.
+		"provocados": c.provocados.map(func(x): return _pantalla._enemies.find(x)),
 		# La cura cortada por la luz (la aberracion, 30/09): sus grietas se ven en todas las maquinas.
 		"regen_cortada": c.regen_cortada,
 		"ablandado": c.ablandado, "cocido": c.cocido,
@@ -525,6 +528,12 @@ func _aplicar_volatil(c: Combatant, v: Dictionary) -> void:
 	c.current_energy = float(v.get("en", c.current_energy))
 	c.foco_cargas = int(v.get("foco", c.foco_cargas))
 	c.provocar_turnos = int(v.get("provocar", 0))
+	var pv = v.get("provocados", [])
+	if pv is Array and _pantalla._aliados.has(c):
+		c.provocados.clear()
+		for idx in pv:
+			if int(idx) >= 0 and int(idx) < _pantalla._enemies.size():
+				c.provocados.append(_pantalla._enemies[int(idx)])
 	c.regen_cortada = int(v.get("regen_cortada", c.regen_cortada))
 	c.ablandado = int(v.get("ablandado", c.ablandado))
 	c.cocido = int(v.get("cocido", c.cocido))

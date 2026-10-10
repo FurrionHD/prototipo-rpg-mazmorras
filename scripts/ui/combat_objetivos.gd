@@ -71,6 +71,13 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 	var marcado: Combatant = presa_por_decreto(quien)
 	if marcado != null:
 		return _redirigir_cobertura(marcado) if vivos.has(marcado) else null
+	# PROVOCADO (10/10, el jefe tras el playtest del 09/10: "la provocacion funciona regulin, no le pega casi nada al
+	# tanque"): mientras dure, TODO lo que haga (el basico, sus habilidades, cada golpe de una racha) va a por quien le
+	# provoca, si le alcanza. Antes solo pesaba x4 en el sorteo y la Cornada se iba al mago igual. Sus areas pillan a
+	# quien pillen (si estas pegado al tanque, el Pisoton te cae igual).
+	var prov: Combatant = provocador_de(quien)
+	if prov != null and vivos.has(prov):
+		return _redirigir_cobertura(prov)
 	var pesos: Array[float] = []
 	var total: float = 0.0
 	for c in vivos:
@@ -88,6 +95,17 @@ func _elegir_objetivo_enemigo(atenuado: bool = false) -> Combatant:
 		if r < 0.0:
 			return _redirigir_cobertura(vivos[i])
 	return _redirigir_cobertura(vivos[vivos.size() - 1])
+
+
+# QUIEN PROVOCA A 'e' (la Provocacion del escudo): el de los tuyos en pie que le tiene provocado (le pillo su huella; o
+# a todos, sin lista), o null. Se acaba solo: cuando al provocador se le acaban los turnos o cae.
+func provocador_de(e: Combatant) -> Combatant:
+	if e == null or not _pantalla._enemies.has(e):
+		return null
+	for c in _pantalla._aliados_vivos():
+		if c.provocar_turnos > 0 and (c.provocados.is_empty() or e in c.provocados):
+			return c
+	return null
 
 
 # EL DECRETO (07/10, el Rey tirano): el marcado (estado DECRETO), si 'quien' es un subdito del rey y no esta PROVOCADO
@@ -197,7 +215,8 @@ func _romper_cobertura(c: Combatant) -> void:
 # Resistencia (_mult_resistencia_aggro). Si cada uno tuviera su copia, se desincronizarian.
 # El SIGILO entra aqui como el espejo exacto de la Provocacion: un multiplicador mas sobre el mismo
 # peso. Por eso INCLINA la balanza y no obliga -- al sigiloso le siguen pudiendo pegar, igual que
-# provocar no garantiza que te peguen a ti.
+# (Desde el 10/10 la Provocacion SI fuerza: ver provocador_de en _elegir_objetivo_enemigo. Aqui sigue pesando para el
+# reparto de la excelia y para lo que no pasa por ahi.)
 #
 # 'atacante': EN EL MAPA la Provocacion solo pesa para los enemigos que pillo su huella (Combatant.provocados).
 # Sin atacante (el reparto de la excelia) o sin lista (la fila), pesa para todos.
