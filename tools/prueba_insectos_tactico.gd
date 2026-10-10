@@ -135,12 +135,17 @@ func _correr() -> void:
 				and is_equal_approx(float(rep[1]["escala"]), rodar.area_secundario),
 				"la Embestida rodante pilla a los dos en fila: el primero entero, el de detras a %.1f" % rodar.area_secundario)
 			var antes: Vector2 = t.pos_de(e)
+			# Hasta donde puede llegar sin acabar encima de nadie que NO aparta (los otros bichos de la prueba).
+			var libre: float = (t._sitio_libre_hacia(e, t.pies_de(e) + f.dir * f.largo, [al[0], al[1]]) - antes).dot(f.dir)
 			combat.enemigos._enemy_use_ability(e, rodar, al[0])
 			combat._fx.arrancar_cola()
 			await _segundos(3.0)
 			var andado: float = (t.pos_de(e) - antes).dot(f.dir)
 			print("  el escarabajo rueda %.1f px" % andado)
-			_ver(andado > (t.pies_de(al[1]) - pe).dot(f.dir), "rueda ATRAVESANDO hasta pasar al de detras")
+			# (10/10) las embestidas recorren su linea ENTERA (el frente hasta el final de la raya): pasa al primero y llega
+			# hasta el de detras, que queda apartado a un lado.
+			_ver(andado > libre - 2.0 and andado > (t.pies_de(al[1]) - pe).dot(f.dir) - 20.0,
+				"rueda ATRAVESANDO su linea (%.0f px, hasta %.0f libre de %.0f de raya)" % [andado, libre, f.largo])
 
 		if clave == "ciempies":
 			_colocar(t, al, [pe + Vector2(hueco, -4), pe + Vector2(hueco + 20, 4), pe + Vector2(-190, 0)])

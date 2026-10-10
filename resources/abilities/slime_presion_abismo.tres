@@ -24,4 +24,6 @@ forma_apunte = 1
 forma_radio = 60.0
 forma_ancho = 20.0
 carga = true
+; (10/10) la embestida aparta a un lado a los que cruza.
+aparta_lados = 14.0
 suelo_roto = 67

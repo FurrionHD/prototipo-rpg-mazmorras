@@ -26,6 +26,8 @@ forma_radio = 120.0
 forma_ancho = 12.0
 forma_solo_primero = true
 carga = true
+; (10/10) no pinta nada en el suelo, pero pega a su paso (SueloRoto.EMBESTIDA_MUDA: va a V_EMBESTIDA).
+suelo_roto = 990
 carga_turnos = 1
 carga_persigue = true
 ; EFECTO Y CUERPO EN EL MAPA (30/09): cargando, AGAZAPADA ('acecho') y girandose con su presa; al soltar se lanza

@@ -134,8 +134,9 @@ func _probar_minotauro(combat, t, e, al: Array) -> void:
 	_ver(_escala_de(rep_c, al[0]) > 0.0 and _escala_de(rep_c, al[1]) < 0.0, "le pilla al de la linea y no al de fuera (%s)" % _txt(rep_c))
 	al[0].charging = cor
 	al[0].charge_left = 1
-	var txt: String = combat.desplazado(al[0], cor.tiron, e)
-	_ver(absf(cor.tiron) >= combat.DESPLAZA_CORTA and txt != "" and al[0].charging == null, "el empujon de la Cornada (%.0f px) es grande: le corta la carga" % absf(cor.tiron))
+	# (10/10) ya no empuja: recorre su linea y APARTA a un lado a los que cruza (prueba_embestidas_recorren).
+	var txt: String = combat.desplazado(al[0], cor.aparta_lados, e)
+	_ver(absf(cor.aparta_lados) >= combat.DESPLAZA_CORTA and txt != "" and al[0].charging == null, "el apartado de la Cornada (%.0f px) es grande: le corta la carga" % absf(cor.aparta_lados))
 	al[0].charging = null
 	al[0].charge_left = 0
 	# EL PISOTON: alrededor, a tramos, sin carga.

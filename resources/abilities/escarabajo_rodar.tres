@@ -28,6 +28,8 @@ forma_apunte = 1
 forma_radio = 100.0
 forma_ancho = 24.0
 carga = true
+; (10/10) la embestida aparta a un lado a los que cruza.
+aparta_lados = 24.0
 atraviesa = true
 ; EN EL MAPA (29/09): se hace BOLA mientras carga (y se mece cogiendo impulso), rueda de verdad por la linea (la pelea
 ; lo lleva en InsectoAire.T_RODADA) y deja detras la banda de tierra aplastada (INSECTO_RODADA); a cada uno que
