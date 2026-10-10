@@ -207,6 +207,7 @@ func _correr() -> void:
 			_ver(is_equal_approx(float(combat._gauge[al]), 0.0), "la segunda NO se echa atras otra vez")
 
 	print("8) LA IA: se pone fuera de tu area si desde ahi sigue pegando")
+	e.prob_apartarse = 1.0   # (10/10: normalmente el 33 %; aqui se mira el sitio que elige)
 	combat._casteos.erase(al)
 	al.charging = null
 	if ab != null and tm.usa_huella(ab):

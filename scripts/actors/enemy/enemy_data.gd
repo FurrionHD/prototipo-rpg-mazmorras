@@ -449,6 +449,10 @@ func drop_factor_piso(piso: int) -> float:
 # evitan que encadene todas las tecnicas seguidas. Vacio = solo ataque basico (como antes).
 @export var habilidades: Array = []
 @export_range(0.0, 1.0) var prob_habilidad: float = 0.5
+# (10/10, el jefe) LO QUE SE APARTA DE TUS AREAS: si una huella tuya le va a caer y tiene un sitio fuera al que llegar
+# (rodeando si hace falta) desde el que te sigue pegando, se va ahi con esta probabilidad ("no siempre, el 33 % de las
+# veces o asi, si no nunca vamos a golpear a los enemigos"). Ver CombatTactico.turno_enemigo.
+@export_range(0.0, 1.0) var prob_apartarse: float = 0.33
 
 # --- SUBIR DE NIVEL ---
 # Si es > 0, este enemigo es el "guardián del rango" de ESE nivel: vencerlo desbloquea poder subir
@@ -842,6 +846,7 @@ func crear_combatant(t: float = 0.5, mutante: bool = false, es_jefe: bool = fals
 		c.acido_prob = mdat.acido_prob
 		c.acido_efectos = mdat.acido_efectos
 	c.prob_habilidad = prob_habilidad
+	c.prob_apartarse = prob_apartarse
 	# Sistema elemental (KAN-58): afinidad, overrides de resistencia e inmunidad a estados.
 	c.elemento = elemento
 	c.elemento_intensidad = elemento_intensidad
