@@ -3756,6 +3756,7 @@ static func _acotar(p: Vector2, inicio: Vector2, radio: float, dentro: Rect2) ->
 func turno_enemigo(e: Combatant) -> void:
 	_terminar()
 	_destino = null
+	_ruta.clear()
 	var cuerpo: Node2D = cuerpo_de(e)
 	var radio: float = radio_de(e)
 	var presa: Combatant = _presa_de(e)
@@ -3766,15 +3767,22 @@ func turno_enemigo(e: Combatant) -> void:
 	# siempre sin poder actuar"): si una huella tuya le va a caer ANTES de su proximo turno y hay un sitio a su alcance
 	# FUERA de ella desde el que pega a su presa, va ahi y pega. Si no lo hay, lo de siempre (pegar manda). Provocado, no.
 	if cuerpo != null and radio > 0.0 and presa != null and not e.aturdido() and not _provocado(e):
+		# (10/10) EL TURNO YA ES SUYO al buscar sitio: _puede_estar mira contra quien choca por _quien, y con el del turno
+		# anterior (uno de los tuyos) no veia a los tuyos como estorbo -- elegia sitios detras de ellos, se atascaba al
+		# primer paso y pegaba desde dentro de tu area (playtest del 09/10).
+		_quien = e
 		var peligro: Array = formas_peligro(e)
 		var en_area: bool = not peligro.is_empty() and _en_peligro(e, pies_de(e), peligro)
 		var llega_ya: bool = hueco_entre(e, presa) <= alcance_de(e) * ARRIMARSE
 		var sitio = null
-		if not peligro.is_empty() and (en_area or not llega_ya):
+		# NO SIEMPRE (10/10, el jefe): con su probabilidad (EnemyData.prob_apartarse, 33 %); si no, a lo suyo.
+		if not peligro.is_empty() and (en_area or not llega_ya) and randf() < e.prob_apartarse:
 			sitio = _sitio_seguro(e, cuerpo, radio, presa, peligro)
 		if sitio != null:
 			print("[ia] %s se coloca fuera de tu area para pegar a %s" % [e.nombre, presa.nombre])
 			_destino = sitio
+			_ruta = _ruta_sitio.duplicate()
+			_replanteado = false
 			_quien = e
 			_cuerpo = cuerpo
 			_foco = cuerpo
@@ -3853,14 +3861,25 @@ func _tick_acercando(delta: float) -> void:
 
 
 # APARTANDOSE: anda hacia _destino (y al llegar, o atascado, hace su turno de siempre: pega si llega a alguien).
+var _replanteado: bool = false
+var _ruta: Array = []         # los puntos de paso que le quedan (el ultimo es el sitio): rodea a los que estorban
+var _ruta_sitio: Array = []   # la ruta del ultimo sitio que ha encontrado _sitio_seguro
+
 func _tick_apartarse(dt: float, delta: float) -> void:
 	if not is_instance_valid(_cuerpo):
 		_actuar()
 		return
 	var antes: Vector2 = _cuerpo.global_position
-	var hacia: Vector2 = (_destino as Vector2) - antes
+	# RODEANDO (10/10, el jefe: "si puede rodear a las personas lo hace... si esta dentro de su alcance y lo puede hacer,
+	# por que no hacerlo?"): primero al punto de paso, luego al sitio.
+	var meta: Vector2 = _ruta[0] if not _ruta.is_empty() else (_destino as Vector2)
+	var hacia: Vector2 = meta - antes
+	if hacia.length() < 1.5 and not _ruta.is_empty():
+		_ruta.pop_front()
+		return
 	if hacia.length() < 1.5 or _t_acercar >= TOPE_ACERCARSE:
 		_destino = null
+		_ruta.clear()
 		_actuar()
 		return
 	var nueva: Vector2 = paso(antes, hacia.normalized() * minf(VEL_ACERCARSE * dt, hacia.length()), _inicio, _radio,
@@ -3875,7 +3894,20 @@ func _tick_apartarse(dt: float, delta: float) -> void:
 	if nueva.distance_to(antes) < ATASCO_PX:
 		_t_atasco += dt
 		if _t_atasco >= ATASCO_T:
+			# ATASCADO A MEDIO CAMINO y aun dentro (alguien se le ha puesto en medio): otro sitio desde aqui, una vez.
+			if not _replanteado and _quien != null:
+				_replanteado = true
+				var peligro: Array = formas_peligro(_quien)
+				if not peligro.is_empty() and _en_peligro(_quien, pies_de(_quien), peligro):
+					var otro = _sitio_seguro(_quien, _cuerpo, maxf(_radio - _inicio.distance_to(_cuerpo.global_position), 0.0),
+						_presa, peligro)
+					if otro != null:
+						_destino = otro
+						_ruta = _ruta_sitio.duplicate()
+						_t_atasco = 0.0
+						return
 			_destino = null
+			_ruta.clear()
 			_actuar()
 	else:
 		_t_atasco = 0.0
@@ -3932,9 +3964,15 @@ func _hueco_desde(a: Combatant, pies: Vector2, b: Combatant) -> float:
 
 
 # ¿Le pilla alguna de 'formas' con los pies en 'pies'? (su cuerpo tal como se ve, movido alli)
-func _en_peligro(e: Combatant, pies: Vector2, formas: Array) -> bool:
+# 'holgado' (10/10): con su caja en CUALQUIER orientacion (un cuadrado del lado mas largo, y un poco de margen). Para el
+# sitio al que va: llega mirando hacia donde ha andado, y la caja de los alargados gira con la mirada (EnemyData.cuerpo_en);
+# medido con la de antes de andar, el Minotauro llegaba "fuera" con la caja tumbada dentro de tu area.
+func _en_peligro(e: Combatant, pies: Vector2, formas: Array, holgado: bool = false) -> bool:
 	var r: Rect2 = bulto_de(e)
 	r.position += pies - pies_de(e)
+	if holgado:
+		var lado: float = maxf(r.size.x, r.size.y) + 12.0
+		r = Rect2(r.get_center() - Vector2(lado, lado) * 0.5, Vector2(lado, lado))
 	for f in formas:
 		if f.toca(r):
 			return true
@@ -3953,15 +3991,89 @@ func _sitio_seguro(e: Combatant, cuerpo: Node2D, radio: float, presa: Combatant,
 		for k in 16:
 			var p: Vector2 = desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * radio * float(anillo)
 			p = _acotar(p, desde, radio, dentro)
-			if not _puede_estar(p, cuerpo) or _en_peligro(e, p + off, formas):
+			if not _puede_estar(p, cuerpo) or _en_peligro(e, p + off, formas, true):
 				continue
 			if presa != null and _hueco_desde(e, p + off, presa) > alcance_de(e) * ARRIMARSE:
 				continue   # desde ahi no le pega: no le vale
-			var nota: float = p.distance_to(desde)
+			# Y QUE SE PUEDA LLEGAR ANDANDO (10/10, playtest del 09/10: el Minotauro "se colocaba fuera" y se quedaba
+			# dentro: el sitio estaba libre, pero para llegar tenia que pasar a traves de uno de los tuyos y se atascaba al
+			# primer paso). En recto o RODEANDO por un punto de paso (a la espalda de su presa, si es lo que queda libre),
+			# sin pasarse de lo que anda en su turno. La nota es lo que anda.
+			var ruta: Array = _ruta_hasta(desde, p, cuerpo, radio, dentro, nota_mejor)
+			if ruta.is_empty():
+				continue
+			var nota: float = _largo_ruta(desde, ruta)
 			if nota < nota_mejor:
 				nota_mejor = nota
 				mejor = p
+				_ruta_sitio = ruta
 	return mejor
+
+
+# LA RUTA de 'desde' a 'hasta' (su nodo): [hasta] si va en recto, [paso, hasta] si tiene que rodear por un punto de paso
+# (de los de su circulo), o [] si no llega (o le cuesta mas de 'tope', o mas de lo que anda en su turno).
+func _ruta_hasta(desde: Vector2, hasta: Vector2, cuerpo: Node2D, radio: float, dentro: Rect2, tope: float) -> Array:
+	# (con holgura: rozando con los demas anda algo menos de lo que dice VEL_ACERCARSE, y si no le llega se queda dentro)
+	var anda: float = minf(VEL_ACERCARSE * TOPE_ACERCARSE * 0.75, tope)
+	if desde.distance_to(hasta) > anda:
+		return []
+	if _camino_libre(desde, hasta, cuerpo):
+		return [hasta]
+	var mejor: Array = []
+	var largo_mejor: float = anda
+	for anillo in [0.5, 0.8, 1.0]:
+		for k in 16:
+			var w: Vector2 = _acotar(desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * radio * float(anillo),
+				desde, radio, dentro)
+			var largo: float = desde.distance_to(w) + w.distance_to(hasta)
+			if largo >= largo_mejor or not _puede_estar(w, cuerpo):
+				continue
+			if _camino_libre(desde, w, cuerpo) and _camino_libre(w, hasta, cuerpo):
+				largo_mejor = largo
+				mejor = [w, hasta]
+	return mejor
+
+
+func _largo_ruta(desde: Vector2, ruta: Array) -> float:
+	var largo: float = 0.0
+	var a: Vector2 = desde
+	for q in ruta:
+		largo += a.distance_to(q)
+		a = q
+	return largo
+
+
+# ¿Llega de 'desde' a 'hasta' (su nodo) en recto sin toparse con nadie ni con la pared? Como lo anda (paso/_puede_estar),
+# y ademas con su caja en CUALQUIER orientacion (_cabe_girado): al echar a andar se gira, la caja de los alargados gira
+# con el (tumbada es mas ancha) y se quedaba trabado contra el que tenia a un palmo, sin poder ni seguir ni salir.
+func _camino_libre(desde: Vector2, hasta: Vector2, cuerpo: Node2D) -> bool:
+	var pasos: int = maxi(1, ceili(desde.distance_to(hasta) / 4.0))
+	for k in range(1, pasos + 1):
+		var q: Vector2 = desde.lerp(hasta, float(k) / float(pasos))
+		if not _puede_estar(q, cuerpo) or not _cabe_girado(q, cuerpo):
+			return false
+	return true
+
+
+# Su caja como un cuadrado del lado mas largo (gire hacia donde gire) en 'p' no se mete en la de ninguno de los tuyos mas de
+# lo que ya lo este ahora (el que ya esta pegado puede salir).
+func _cabe_girado(p: Vector2, cuerpo: Node2D) -> bool:
+	var r: Rect2 = _caja_en(cuerpo, p)
+	var lado: float = maxf(r.size.x, r.size.y)
+	var cuadrado := Rect2(r.get_center() - Vector2(lado, lado) * 0.5, Vector2(lado, lado))
+	var r0: Rect2 = Cuerpos.caja_de(cuerpo)
+	var cuadrado0 := Rect2(r0.get_center() - Vector2(lado, lado) * 0.5, Vector2(lado, lado))
+	for c in _pantalla._aliados:
+		if not c.is_alive():
+			continue
+		var otro: Node2D = cuerpo_de(c)
+		if not is_instance_valid(otro) or otro == cuerpo:
+			continue
+		var caja_o: Rect2 = Cuerpos.caja_de(otro)
+		var h: float = Cuerpos.hueco_entre(cuadrado, caja_o)
+		if h < 0.0 and h < Cuerpos.hueco_entre(cuadrado0, caja_o):
+			return false
+	return true
 
 
 func _actuar() -> void:

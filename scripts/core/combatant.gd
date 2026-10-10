@@ -400,6 +400,7 @@ func marcar_regen_cortada(elem: int) -> void:
 # OJO: se llama 'habilidades' (no 'abilities') para no chocar con 'abilities' (las 5 stats).
 var habilidades: Array = []
 var prob_habilidad: float = 0.5
+var prob_apartarse: float = 0.33   # (enemigos) ver EnemyData.prob_apartarse
 
 # Resistencia a ESTADOS alterados (0..1): MULTIPLICA a la baja la probabilidad de que
 # te apliquen un estado negativo. La aporta la mejora Resistencia de la armadura (KAN-58).
