@@ -123,7 +123,8 @@ const MAX_CONEXIONES := 32
 #     simula la arena (_pedir_piso_arena / _piso_arena) y el alcance de los mutantes (crece con ellos).
 # 36 (10/10): embestidas que recorren su linea entera (Desliz.EMBISTE = 6), los provocados en la instantanea y el
 #     traspaso, sangrado/fuego del golpe real, y el enemigo que se aparta acaba fuera del area (otra resolucion).
-const PROTOCOLO := 36
+# 37 (10/10): las BARRAS de cada grupo para el otro jugador (Net.jugadores _rel_barras / _set_barras).
+const PROTOCOLO := 37
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -1306,6 +1307,10 @@ func _presentarse(color: Color, metal: float, nombre: String, lugar: String, sem
 	tienda_t2_host = t2
 	pisos_host = Array(atajos)
 	_registrar_peer(quien, color, metal, nombre, lugar, imagen, alpha, true, piezas)
+	# MI HOGAR AL ENTRAR (10/10, playtest 09/10: "los personajes de Arian no salen en el Hogar"). Solo se mandaba al
+	# CAMBIAR algo; con la sala de host, ninguno de los dos lo habia mandado y salian los de la foto guardada.
+	if not soy_trabajador:
+		hogar.marcar_hogar_sucio()
 	estado_cambiado.emit("Conectado con %s." % nombre)
 
 

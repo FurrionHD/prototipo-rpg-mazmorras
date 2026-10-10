@@ -818,15 +818,31 @@ static func x_columna(i: int) -> float:
 	return X_COL_BARRAS + Tactil.borde.x + float(i) * (ANCHO_COL + SEP_COL)
 
 
+# Donde empiezan las columnas del OTRO jugador (BarrasOtros): detras de la mochila y el farol del HUD (hud.recolocar,
+# que los pone a partir de x_columna(party) con el lado de ALTO_EQUIPO) y un poco de aire.
+func x_otros() -> float:
+	return x_columna(Game.party.size()) + 4.0 + ALTO_EQUIPO * 2.0 + Hud.SEPARACION_FAROL + 5.0 + Hud.ANCHO_TEXTO_FAROL + 14.0
+
+
 # Rehace TODAS las columnas de barras: una por miembro del grupo, en su ORDEN FIJO de party (el
 # hueco 0 es siempre el primero del equipo, no "el lider"). La columna del que va en cabeza lleva
 # una coronita en el nombre. Se llama al cambiar el grupo o el lider (refrescar_grupo).
+var _barras_otros: BarrasOtros = null
+
 func _rehacer_barras() -> void:
 	for fila in _barras:
 		(fila["raiz"] as Node).queue_free()
 	_barras.clear()
 	if _barras_layer == null:
 		return
+	# LOS DEL OTRO JUGADOR (10/10, playtest 09/10): detras de la mochila y el farol, mas pequeños y de solo mirar.
+	if _barras_otros == null:
+		_barras_otros = BarrasOtros.new()
+		_barras_otros.medidas = {"Y_NOMBRE": Y_NOMBRE, "Y_HP": Y_HP, "ALTO_HP": ALTO_HP, "Y_EN": Y_EN,
+			"ALTO_EN": ALTO_EN, "Y_MP": Y_MP, "ALTO_MP": ALTO_MP}
+		_barras_otros.ancho_cambiado.connect(_ajustar_escala_fila)
+		_barras_layer.add_child(_barras_otros)
+	_barras_otros.position = Vector2(x_otros(), Tactil.borde.y)
 	var lider: PersonajeData = Game.lider()
 	for i in Game.party.size():
 		var pj: PersonajeData = Game.party[i]
@@ -2247,6 +2263,9 @@ func escala_fila() -> float:
 	var necesario: float = x_columna(maxi(Game.party.size(), 1)) \
 		+ Hud.LADO_MOCHILA + Hud.SEPARACION_FAROL + Hud.LADO_MOCHILA \
 		+ Hud.ANCHO_TEXTO_FAROL + 8.0
+	# Y las del otro jugador, si las hay (BarrasOtros, detras del farol).
+	if _barras_otros != null and _barras_otros.ancho() > 0.0:
+		necesario = x_otros() + _barras_otros.ancho() + 8.0
 	if necesario <= 0.0:
 		return 1.0
 	return clampf(disponible / necesario, ESCALA_FILA_MIN, 1.0)
@@ -2320,6 +2339,8 @@ func _refrescar_barras() -> void:
 	if _pj_actual != null:
 		_pj_actual.stamina = current_stamina
 		_pj_actual.set_meta("sin_fuelle", _exhausted)
+	var para_red: Array = []   # lo que ve esta barra, para el otro jugador (Net.jugadores.mis_barras)
+	var lider_red: PersonajeData = Game.lider()
 	for fila in _barras:
 		var pj: PersonajeData = fila["pj"]
 		# EN PELEA, LO VIVO ESTA EN SU COMBATIENTE: la ficha solo se pone al dia al cerrar la pelea
@@ -2351,6 +2372,8 @@ func _refrescar_barras() -> void:
 		mp_bar.max_value = maxf(1.0, maxmp_c)
 		mp_bar.value = mp_c
 		(fila["mp_lbl"] as Label).text = "%.2f/%.2f" % [mp_c, maxmp_c]
+		para_red.append([String(pj.uid), pj.nombre, pj.color, snappedf(hp_c, 0.1), snappedf(maxhp_c, 0.1),
+			snappedf(en_c, 1.0), snappedf(maxen_c, 1.0), snappedf(mp_c, 0.01), snappedf(maxmp_c, 0.01), pj == lider_red])
 		# Los estados que lleva encima fuera del combate (y las cargas de Foco), como chips.
 		#
 		# Esto corre en CADA FRAME y los chips son nodos, asi que se comparan primero por su FIRMA
@@ -2374,6 +2397,9 @@ func _refrescar_barras() -> void:
 				viejo.queue_free()
 			for chip in Game.chips_estados(pj):
 				caja.add_child(StatusChip.crear(String(chip[0]), chip[3] as Color, String(chip[1])))
+	Net.jugadores.mis_barras(para_red)
+	if _barras_otros != null:
+		_barras_otros.refrescar()
 
 
 # Los chips de la PELEA bajo la barra de uno de los tuyos. Mismo formato que los pinta la pantalla de combate

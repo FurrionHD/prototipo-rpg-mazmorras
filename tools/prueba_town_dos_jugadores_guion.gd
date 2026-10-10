@@ -45,6 +45,17 @@ func _ready() -> void:
 	_ok(Net.hogar._fotos_mandadas.get(_b(), {}) == ya and ya.has(String(de_casa.uid)),
 		"una segunda difusion no le reenvia la foto")
 
+	# 0b) EL EQUIPO DE B (10/10, playtest 09/10): su hogar me llega al entrar SIN que toque nada, con sus dos del equipo
+	# marcados. (Sus barras, abajo: en esta prueba B no tiene personaje hasta que baja al piso.)
+	var ident_b: String = Net._identidad_de_peer(_b())
+	t = 0.0
+	while not Net.hogar._roster_ajeno.has(ident_b) and t < 10.0:
+		await _esperar(0.5)
+		t += 0.5
+	var van_b: int = (Net.hogar._roster_ajeno.get(ident_b, []) as Array).filter(
+		func(f): return bool(f.get("en_equipo", false))).size()
+	_ok(van_b == 2, "B me manda su hogar al entrar, con sus 2 del equipo (%d, %.1f s)" % [van_b, t])
+
 	# 1) Los dos al piso 1.
 	Net.pisos.solicitar_entrar(1)
 	escribir_fase(1)
@@ -54,6 +65,18 @@ func _ready() -> void:
 		await _esperar(0.5)
 		t += 0.5
 	_ok(Net.pisos._piso_de(_b()) == 1, "B esta en el piso 1")
+	# Y SU GRUPO EN MI BARRA DE ARRIBA (BarrasOtros, 10/10), con sus numeros.
+	t = 0.0
+	while Net.jugadores.barras_de_otros().is_empty() and t < 10.0:
+		await _esperar(0.5)
+		t += 0.5
+	var grupos_b: Array = Net.jugadores.barras_de_otros()
+	_ok(grupos_b.size() == 1 and (grupos_b[0][1] as Array).size() == 2 and float(grupos_b[0][1][0][4]) > 0.0,
+		"me llegan las barras del grupo de B (%s)" % str(grupos_b).left(160))
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	var bo = yo.get("_barras_otros") if yo != null else null
+	await _esperar(0.5)
+	_ok(bo != null and bo.ancho() > 0.0, "y salen en mi barra de arriba, detras de las mias")
 	t = 0.0
 	while Net._trab.pelea_libre_en(1) == 0 and t < 40.0:
 		await _esperar(0.5)

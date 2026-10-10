@@ -729,7 +729,9 @@ func _fila_roster(pj: PersonajeData, dueno: String, dueno_nombre: String) -> Dic
 	var en_equipo: bool = Game.party.has(pj)
 	if dueno != Identidad.id:
 		var jd: JugadorData = Game.jugadores_mundo.get(dueno)
-		en_equipo = jd != null and jd.equipo.has(pj)
+		# POR UID, no por instancia (10/10): el pj de la foto y los de su 'equipo' no son el mismo objeto al cargar.
+		en_equipo = jd != null and jd.equipo.any(func(o) -> bool:
+			return o is PersonajeData and String((o as PersonajeData).uid) == String(pj.uid))
 	return {
 		"uid": String(pj.uid), "nombre": pj.nombre, "level": pj.level,
 		"dueno": dueno, "dueno_nombre": dueno_nombre,
