@@ -136,16 +136,35 @@ func _correr() -> void:
 				"la Embestida rodante pilla a los dos en fila: el primero entero, el de detras a %.1f" % rodar.area_secundario)
 			var antes: Vector2 = t.pos_de(e)
 			# Hasta donde puede llegar sin acabar encima de nadie que NO aparta (los otros bichos de la prueba).
-			var libre: float = (t._sitio_libre_hacia(e, t.pies_de(e) + f.dir * f.largo, [al[0], al[1]]) - antes).dot(f.dir)
+			# (con la MISMA raya que va a lanzar: apuntada al primero, como _enemy_use_ability; la de arriba apunta al de detras
+			# y sale un pelo torcida, unos px menos de sitio libre)
+			var f0 = t.forma_de(rodar, e, t.pies_de(al[0]))
+			var hasta_detras: float = (t.pies_de(al[1]) - pe).dot(f0.dir)
+			# Sin contar a los que aparta a un lado; al que no cabe apartado (pared al lado) si le para, como en el juego.
+			var apartables: Array = []
+			for o in [al[0], al[1]]:
+				if t._cabe_apartado(o, t._apartado_de(o, e, rodar.aparta_lados, true)):
+					apartables.append(o)
+			var libre: float = (t._sitio_libre_hacia(e, t.pies_de(e) + f0.dir * f0.largo, apartables) - antes).dot(f0.dir)
+			# LA PELEA PARADA mientras rueda (LEEME_pruebas: "la pelea sigue corriendo"): si no, a veces le llegaba el turno
+			# a otro bicho a media embestida, se le cruzaba y rodaba menos de lo que la prueba habia medido libre.
+			combat.set_process(false)
 			combat.enemigos._enemy_use_ability(e, rodar, al[0])
 			combat._fx.arrancar_cola()
-			await _segundos(3.0)
-			var andado: float = (t.pos_de(e) - antes).dot(f.dir)
+			var t_fin: int = Time.get_ticks_msec() + 3000
+			while Time.get_ticks_msec() < t_fin:
+				t.tick(get_process_delta_time())
+				await get_tree().process_frame
+			combat.set_process(true)
+			var andado: float = (t.pos_de(e) - antes).dot(f0.dir)
 			print("  el escarabajo rueda %.1f px" % andado)
 			# (10/10) las embestidas recorren su linea ENTERA (el frente hasta el final de la raya): pasa al primero y llega
 			# hasta el de detras, que queda apartado a un lado.
-			_ver(andado > libre - 2.0 and andado > (t.pies_de(al[1]) - pe).dot(f.dir) - 20.0,
-				"rueda ATRAVESANDO su linea (%.0f px, hasta %.0f libre de %.0f de raya)" % [andado, libre, f.largo])
+			_ver(andado > libre - 2.0, "rueda ATRAVESANDO su linea (%.0f px, hasta %.0f libre de %.0f de raya)" % [andado, libre, f0.largo])
+			# Hasta el de detras, si no hay otro bicho de la prueba en medio (se quedan donde los dejaron los pasos de antes, y
+			# encima de uno no acaba): entonces para antes, y esta bien.
+			if libre >= hasta_detras - 20.0:
+				_ver(andado > hasta_detras - 20.0, "llega hasta el de detras (%.0f de %.0f)" % [andado, hasta_detras])
 
 		if clave == "ciempies":
 			_colocar(t, al, [pe + Vector2(hueco, -4), pe + Vector2(hueco + 20, 4), pe + Vector2(-190, 0)])
