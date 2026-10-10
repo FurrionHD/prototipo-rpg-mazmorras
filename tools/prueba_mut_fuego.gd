@@ -76,6 +76,7 @@ func _correr() -> void:
 	tm._pos[al] = cu_a.global_position
 	al.status_resist = 0.0
 	e.al_ser_golpeado_prob = 1.0
+	seed(4242)   # la tirada del estado: la misma en cada pasada (si no, a veces "aguanta")
 	combat._pasiva_al_golpearle(e, al, 10.0)
 	_ver(al.has_status(StatusEffects.Id.RESCOLDO), "al pegarle te suelta ceniza (Rescoldo)")
 	al.statuses.clear()

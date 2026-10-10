@@ -77,6 +77,9 @@ func _correr() -> void:
 	_ver(vis is BabaSuelo and vis._linea, "el rastro es UNA sola mancha de baba (BabaSuelo)")
 	_ver(not (vis as BabaSuelo)._pinchos.is_empty(), "con pinchos (%d)" % (vis as BabaSuelo)._pinchos.size())
 	print("1) cruza el rastro andando")
+	# El personaje del mundo de referencia resiste el 64 % de los estados: sin esto el Lento entra solo a veces.
+	al.status_resist = 0.0
+	seed(4242)
 	var hp0: float = al.current_hp
 	tm.charcos_empezar_turno(al)
 	var cu: Node2D = tm.cuerpo_de(al)
