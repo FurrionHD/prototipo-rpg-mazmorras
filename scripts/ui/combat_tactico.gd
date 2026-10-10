@@ -3997,13 +3997,16 @@ func formas_peligro(e: Combatant) -> Array:
 #  RODEAR Y ESPERAR ATRAS (11/10)
 # ------------------------------------------------------------
 
-# Cuantos enemigos (sin contar a 'sin') tiene ya PEGADOS 'presa': los que le llegan desde donde estan.
+# Cuantos enemigos (sin contar a 'sin') tiene ya ENCIMA 'presa': los que le llegan y los que estan a punto (a menos de
+# PEGADO_LLEGANDO mas): el que va de camino a su hueco ya ocupa plaza, o el siguiente se metia de cuarto.
+const PEGADO_LLEGANDO := 40.0
+
 func _pegados(presa: Combatant, sin: Combatant = null) -> int:
 	var n: int = 0
 	for o in _pantalla._enemies:
 		if o == sin or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
 			continue
-		if hueco_entre(o, presa) <= alcance_de(o) * ARRIMARSE + 6.0:
+		if hueco_entre(o, presa) <= alcance_de(o) * ARRIMARSE + PEGADO_LLEGANDO:
 			n += 1
 	return n
 

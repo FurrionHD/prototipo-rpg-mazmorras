@@ -139,7 +139,7 @@ func _correr() -> void:
 		print("     sitios: %s (peligros %d, radio %.0f, alcance %.0f)" % [str(razones), peligro0.size(), t.radio_de(e), t.alcance_de(e)])
 		# Su turno: se aparta (o no) y pega.
 		t.turno_enemigo(e)
-		var se_aparta: bool = t._destino != null
+		var se_aparta: bool = t._destino != null and not t._rodeando   # (11/10) el rodeo no es apartarse
 		var destino = t._destino
 		var ruta_dec: Array = t._ruta.duplicate()
 		var primer_paso: bool = true
