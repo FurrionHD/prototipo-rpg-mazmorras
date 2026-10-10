@@ -75,6 +75,22 @@ const HOLGURA_ALCANCE := 6.0
 # Un cuerpo no se monta encima de uno del OTRO bando: no puede meterse a menos de esto. Solo frena al
 # que se ACERCA, asi que dos que empiezan solapados se pueden separar.
 const SEPARACION := 22.0
+# LOS ENEMIGOS SE REPARTEN (11/10, lo pidio el usuario: "si entran muchos, de un brote, todos van a por ti y se quedan
+# siempre demasiado juntos; una habilidad en area termina el combate"). Cuatro reglas:
+#   NO SE PISAN     entre ellos guardan HUECO_ENEMIGOS de caja a caja (solo se prohibe ACERCARSE, como entre los tuyos).
+#   RODEAN          en vez de ir en recto a tu centro, cada uno busca un HUECO LIBRE alrededor de su presa: el primero
+#                   llega de frente y los siguientes por los lados o la espalda (_hueco_alrededor).
+#   ESPERAN ATRAS   con MAX_PEGADOS ya pegados a la presa, el siguiente no se arrima: se queda a RADIO_ESPERA, repartido,
+#                   fuera de un area tipica (50-70 px), y entra cuando caiga uno.
+#   SE REPARTEN     entre tus personajes: la presa que ya tiene MAX_PEGADOS pesa menos (ver _presa_de).
+# (El hueco es de caja a caja y por ejes, Cuerpos.hueco_entre: dos slimes, de caja 32, quedan a 44 px de centro a centro.)
+const HUECO_ENEMIGOS := 12.0
+const MAX_PEGADOS := 3
+const RADIO_ESPERA := 128.0
+const HUECO_ESPERA := 30.0
+# Cuantos huecos se prueban alrededor de la presa.
+const HUECOS_ANGULOS := 24
+
 # Cuanto se deja el paso por dentro del borde de la arena. Por DEBAJO del margen con el que el borde
 # avisa (ArenaCombate.MARGEN): si no, nunca llegarias a tocarlo y no se te podria preguntar si huyes.
 const DENTRO_DEL_BORDE := 4.0
@@ -349,6 +365,8 @@ func _recoger_de_la_arena(delta: float) -> void:
 		n.set("velocity", Vector2.ZERO)
 		if n.has_method("_cancelar_aviso"):
 			n.call("_cancelar_aviso")
+		# (11/10) Los de un brote que caen dentro, pegados entre ellos: se separan un poco antes de entrar.
+		(n as Node2D).global_position = _sitio_sin_pisar(n, (n as Node2D).global_position)
 		if Game.unir_enemigo_al_combate(n):
 			print("[arena] %s estaba dentro de la arena: entra a la pelea" % n.name)
 		else:
@@ -369,7 +387,7 @@ func _entra_por_el_borde(cuerpo: Node2D, punto: Vector2) -> void:
 	if bool(cuerpo.get("_combat_triggered")):
 		return
 	var antes: Vector2 = cuerpo.global_position
-	cuerpo.global_position = punto
+	cuerpo.global_position = _sitio_sin_pisar(cuerpo, punto)
 	cuerpo.set("_combat_triggered", true)
 	cuerpo.set("velocity", Vector2.ZERO)
 	if cuerpo.has_method("_cancelar_aviso"):
@@ -379,6 +397,18 @@ func _entra_por_el_borde(cuerpo: Node2D, punto: Vector2) -> void:
 	else:
 		cuerpo.global_position = antes
 		cuerpo.set("_combat_triggered", false)
+
+
+# EL QUE ENTRA A MEDIA PELEA NO CAE ENCIMA DE OTRO ENEMIGO (11/10): de 'punto', el primer sitio a su alrededor (en
+# anillos de media celda) dentro de la arena, sobre suelo y a HUECO_ENEMIGOS de los enemigos de la pelea. Si no hay, 'punto'.
+func _sitio_sin_pisar(cuerpo: Node2D, punto: Vector2) -> Vector2:
+	for anillo in [0.0, 16.0, 32.0, 48.0, 64.0]:
+		var n: int = 1 if anillo == 0.0 else 12
+		for k in n:
+			var q: Vector2 = punto + Vector2.RIGHT.rotated(TAU * float(k) / float(n)) * anillo
+			if _en_arena(q) and _sobre_suelo(q, cuerpo) and _lejos_de_los_suyos(cuerpo, q, HUECO_ENEMIGOS):
+				return q
+	return punto
 
 
 func desmontar() -> void:
@@ -3757,6 +3787,7 @@ func turno_enemigo(e: Combatant) -> void:
 	_terminar()
 	_destino = null
 	_ruta.clear()
+	_rodeando = false
 	var cuerpo: Node2D = cuerpo_de(e)
 	var radio: float = radio_de(e)
 	var presa: Combatant = _presa_de(e)
@@ -3809,6 +3840,17 @@ func turno_enemigo(e: Combatant) -> void:
 	if _decidir_de_lejos(e):
 		_tras_camara(e, cuerpo, _turno_enemigo_de_siempre.bind(e))
 		return
+	# RODEAR O ESPERAR (11/10): a un hueco libre alrededor de su presa, o a esperar atras si ya hay MAX_PEGADOS. Va por
+	# el mismo camino que el que se aparta de tu area (_destino + _ruta, rodeando a los que estorban). Provocado, no:
+	# va derecho a por quien le provoca.
+	if not _provocado(e):
+		_quien = e
+		var hueco = _hueco_alrededor(e, cuerpo, radio, presa)
+		if hueco != null:
+			_destino = hueco
+			_ruta = _ruta_sitio.duplicate()
+			_rodeando = true
+			_replanteado = true   # no es huir de un area: si se atasca, actua desde donde este
 	_quien = e
 	_cuerpo = cuerpo
 	_foco = cuerpo
@@ -3863,6 +3905,7 @@ func _tick_acercando(delta: float) -> void:
 
 # APARTANDOSE: anda hacia _destino (y al llegar, o atascado, hace su turno de siempre: pega si llega a alguien).
 var _replanteado: bool = false
+var _rodeando: bool = false   # (11/10) el _destino es un hueco alrededor de su presa, no un sitio fuera de tu area
 var _ruta: Array = []         # los puntos de paso que le quedan (el ultimo es el sitio): rodea a los que estorban
 var _ruta_sitio: Array = []   # la ruta del ultimo sitio que ha encontrado _sitio_seguro
 
@@ -3948,6 +3991,112 @@ func formas_peligro(e: Combatant) -> Array:
 				if fh != null:
 					out.append(fh)
 	return out
+
+
+# ------------------------------------------------------------
+#  RODEAR Y ESPERAR ATRAS (11/10)
+# ------------------------------------------------------------
+
+# Cuantos enemigos (sin contar a 'sin') tiene ya PEGADOS 'presa': los que le llegan desde donde estan.
+func _pegados(presa: Combatant, sin: Combatant = null) -> int:
+	var n: int = 0
+	for o in _pantalla._enemies:
+		if o == sin or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
+			continue
+		if hueco_entre(o, presa) <= alcance_de(o) * ARRIMARSE + 6.0:
+			n += 1
+	return n
+
+
+# ¿Cabe la caja de 'cuerpo' con su nodo en 'p' a 'hueco' o mas de la de cualquier otro enemigo vivo?
+func _lejos_de_los_suyos(cuerpo: Node2D, p: Vector2, hueco: float) -> bool:
+	var caja: Rect2 = _caja_en(cuerpo, p)
+	for o in _pantalla._enemies:
+		if not (o as Combatant).is_alive():
+			continue
+		var otro: Node2D = cuerpo_de(o)
+		if not is_instance_valid(otro) or otro == cuerpo:
+			continue
+		if Cuerpos.hueco_entre(caja, Cuerpos.caja_de(otro)) < hueco:
+			return false
+	return true
+
+
+# EL HUECO A DONDE VA (el NODO, no los pies), o null si lo mejor es ir en recto como siempre. Con menos de MAX_PEGADOS
+# pegados a la presa: un sitio desde el que le pega, alrededor de ella y apartado de los suyos. Con MAX_PEGADOS: uno a
+# RADIO_ESPERA, mas apartado aun. De los que llega andando este turno, el que menos le hace andar; si no llega a
+# ninguno, el mas cercano (anda hacia el lo que pueda y se queda a medio camino).
+func _hueco_alrededor(e: Combatant, cuerpo: Node2D, radio: float, presa: Combatant):
+	if presa == null or cuerpo == null or radio <= 0.0:
+		return null
+	var esperar: bool = _pegados(presa, e) >= MAX_PEGADOS
+	var desde: Vector2 = cuerpo.global_position
+	var off: Vector2 = pies_de(e) - desde
+	var dentro: Rect2 = _dentro(_arena())
+	var caja_p: Rect2 = bulto_de(presa)
+	var centro: Vector2 = caja_p.get_center()
+	var media: Vector2 = caja_p.size * 0.5
+	var arrimo: float = alcance_de(e) * ARRIMARSE
+	var hueco_min: float = HUECO_ESPERA if esperar else HUECO_ENEMIGOS
+	# Los huecos libres alrededor de la presa.
+	var huecos: Array = []
+	for k in HUECOS_ANGULOS:
+		var u: Vector2 = Vector2.RIGHT.rotated(TAU * float(k) / float(HUECOS_ANGULOS))
+		var pies: Vector2
+		if esperar:
+			pies = centro + u * RADIO_ESPERA
+		else:
+			# Del centro de la presa al borde de su caja en esa direccion, y de ahi lo que pisa y medio alcance.
+			var al_borde: float = minf(media.x / maxf(absf(u.x), 0.001), media.y / maxf(absf(u.y), 0.001))
+			pies = centro + u * (al_borde + radio_pisa(e) + arrimo * 0.5)
+			if _hueco_desde(e, pies, presa) > arrimo:
+				continue
+		var p: Vector2 = pies - off
+		if _puede_estar(p, cuerpo) and _lejos_de_los_suyos(cuerpo, p, hueco_min):
+			huecos.append(p)
+	if huecos.is_empty():
+		return null
+	# El que LLEGA este turno y menos le hace andar.
+	var mejor = null
+	var nota_mejor: float = INF
+	var lejano: Vector2 = huecos[0]
+	for p in huecos:
+		if desde.distance_to(p) < desde.distance_to(lejano):
+			lejano = p
+		if desde.distance_to(p) > radio:
+			continue
+		var ruta: Array = _ruta_hasta(desde, p, cuerpo, radio, dentro, nota_mejor)
+		if ruta.is_empty():
+			continue
+		var nota: float = _largo_ruta(desde, ruta)
+		if nota < nota_mejor:
+			nota_mejor = nota
+			mejor = p
+			_ruta_sitio = ruta
+	# NO LLEGA A NINGUNO este turno: el sitio de su circulo mas cerca del hueco libre mas cercano (rodeando a los que
+	# estorban). En recto se quedaba clavado detras del primero de los suyos que tuviera delante.
+	if mejor == null:
+		var d_mejor: float = desde.distance_to(lejano) - 4.0   # tiene que acercarle algo
+		for anillo in [0.4, 0.7, 1.0]:
+			for k in 16:
+				var q: Vector2 = _acotar(desde + Vector2.RIGHT.rotated(TAU * float(k) / 16.0) * radio * float(anillo),
+					desde, radio, dentro)
+				var d: float = q.distance_to(lejano)
+				# (Solo _puede_estar: el paso intermedio puede quedar cerca de uno de los suyos si no se le ACERCA; con la
+				# exigencia del hueco final, el que empieza en fila con los suyos no encontraba ni un sitio a donde ir.)
+				if d >= d_mejor or not _puede_estar(q, cuerpo):
+					continue
+				var ruta2: Array = _ruta_hasta(desde, q, cuerpo, radio, dentro, INF)
+				if ruta2.is_empty():
+					continue
+				d_mejor = d
+				mejor = q
+				_ruta_sitio = ruta2
+	if mejor == null:
+		return null
+	if esperar:
+		print("[ia] %s espera atras: %s ya tiene %d encima" % [e.nombre, presa.nombre, MAX_PEGADOS])
+	return mejor
 
 
 func _provocado(e: Combatant) -> bool:
@@ -4156,6 +4305,9 @@ func _presa_de(e: Combatant) -> Combatant:
 	for c in _pantalla._aliados_vivos():
 		var hueco: float = hueco_entre(e, c)
 		var w: float = _pantalla.objetivos._peso_aggro(c, e) / (1.0 + hueco * 0.002)
+		# YA TIENE MAX_PEGADOS ENCIMA (11/10) y yo no soy uno de ellos: mejor otro de los tuyos con sitio.
+		if hueco > alcance_de(e) * ARRIMARSE + 6.0 and _pegados(c, e) >= MAX_PEGADOS:
+			w *= 0.3
 		if w > w_todo:
 			w_todo = w
 			mejor_todo = c
@@ -4327,7 +4479,21 @@ func _puede_estar(p: Vector2, cuerpo: Node2D) -> bool:
 	# LOS TUYOS TAMBIEN CHOCAN ENTRE SI (lo pidio el usuario: se le montaban uno encima de otro), pero
 	# con una excepcion: el que ya ESTA encima de un compañero lo atraviesa hasta despegarse. El grupo
 	# entra a la pelea en fila, y sin esto el que va el ultimo no podia ni salir de detras de los suyos.
-	# Los enemigos entre ellos siguen sin chocar: su acercamiento no sabe rodear a los suyos.
+	# LOS ENEMIGOS ENTRE ELLOS (11/10): guardan HUECO_ENEMIGOS de caja a caja, con la misma excepcion (el que ya esta
+	# pegado a otro puede despegarse). Ahora saben rodear (_hueco_alrededor), asi que ya no se quedan atascados detras.
+	if soy_enemigo:
+		var caja_p: Rect2 = _caja_en(cuerpo, p)
+		var caja_a: Rect2 = Cuerpos.caja_de(cuerpo)
+		for c in _pantalla._enemies:
+			if c == _quien or not c.is_alive():
+				continue
+			var otro_e: Node2D = cuerpo_de(c)
+			if not is_instance_valid(otro_e) or otro_e == cuerpo:
+				continue
+			var caja_o: Rect2 = Cuerpos.caja_de(otro_e)
+			var h_e: float = Cuerpos.hueco_entre(caja_p, caja_o)
+			if h_e < HUECO_ENEMIGOS and h_e < Cuerpos.hueco_entre(caja_a, caja_o):
+				return false
 	if not soy_enemigo:
 		for c in _pantalla._aliados:
 			if not c.is_alive():

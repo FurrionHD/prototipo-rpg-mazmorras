@@ -217,7 +217,7 @@ func _correr() -> void:
 		combat._gauge[c2] = combat.UMBRAL * 0.97
 		t.guardar_carga(c2, ab2)
 		t.turno_enemigo(e)
-		if t._destino != null:
+		if t._destino != null and not t._rodeando:   # (11/10) el rodeo tambien pone _destino: ese no es apartarse
 			veces += 1
 		t._terminar()
 		t._destino = null

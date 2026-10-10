@@ -47,7 +47,7 @@ const MARGEN := 12.0
 const ENTRADA_DENTRO := 14.0
 
 # Dos que entran por el mismo sitio no se pisan: al segundo se le corre esto a lo largo del muro.
-const SEPARACION_ENTRADA := 26.0
+const SEPARACION_ENTRADA := 48.0   # (11/10: era 26; los de un brote entraban en fila, pegados)
 
 # El latigazo de las señales: una vez avisado de un cuerpo, no se vuelve a avisar hasta que se
 # despega del borde. Sin esto, la pregunta saldria cada frame.
