@@ -145,6 +145,10 @@ func _probar_pegada(combat, t, e, al: Array) -> void:
 		return
 	_ver(presa.pegado() and e.pegado(), "los dos llevan la Sanguijuela")
 	_ver(t.radio_de(e) == 0.0 and t.radio_de(presa) > 0.0, "la sanguijuela no anda y la presa si")
+	# (11/10) LA PELEA SIGUE CORRIENDO y los demas enemigos rodean (andan mas que antes, con la pelea en pausa mientras):
+	# se espera a un turno de los tuyos, que es cuando no se mueve nadie mas, para que su pose y su turno no caigan a
+	# mitad del paseo de otro.
+	await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0)
 	await _segundos(0.8)
 	_ver(t.pies_de(presa).distance_to(t.pos_de(e) + t._pegadas[e]["bajo"]) < 4.0, "va a los pies de su presa")
 	# La presa anda: la lleva encima.
@@ -161,6 +165,7 @@ func _probar_pegada(combat, t, e, al: Array) -> void:
 	_ver(not tiene or String((sp as AnimatedSprite2D).animation).begins_with("adherido"),
 		"en su pose de pegada ('adherido')")
 	# Su turno: chupa a su presa.
+	await _esperar_a(func() -> bool: return t._fase == t.Fase.MOVIENDO, 20.0)
 	var hp0: float = presa.current_hp
 	var hp_e0: float = e.current_hp
 	e.current_hp = e.max_hp * 0.8
