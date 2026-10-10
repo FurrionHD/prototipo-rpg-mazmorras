@@ -703,7 +703,7 @@ func _actualizar_rastro(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	z_index = Game.z_frente_a_personajes(self)   # detras o delante de quien tenga pegado
+	# (Su z la reparte Game._ordenar_munecos por altura, con los personajes.)
 	if _combat_triggered or data == null:
 		return
 
