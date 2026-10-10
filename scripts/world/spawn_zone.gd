@@ -174,8 +174,8 @@ func _intentar_parto() -> void:
 
 # Arranca un parto en una celda concreta. Publico para poder forzarlo (brote de prueba
 # desde una tecla de dev).
-# Un parto NORMAL abre una celda y pare uno. Un BROTE abre un TRAMO GORDO de pared (varias celdas
-# contiguas) y pare uno por celda, todos EMBISTIENDO: ese es el momento de "esto se ha torcido".
+# Un parto NORMAL abre una celda y pare uno. Un BROTE abre VARIOS BOQUETES SEPARADOS en la pared (ver
+# _tramo_de_pared) y pare uno por boquete, todos EMBISTIENDO: ese es el momento de "esto se ha torcido".
 func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_reciclado: bool = false) -> void:
 	if _fx != null or piso == null:
 		return
@@ -218,27 +218,36 @@ func engendrar(sitio: Dictionary, cantidad: int, brote: bool = false, forzar_rec
 	_fx_forzar = brote or forzar_reciclado
 
 
-# El TRAMO de pared que revienta un brote: a partir de una celda de parto, se extiende por las
-# celdas de parto CONTIGUAS (pegadas de lado) hasta juntar 'n'. Es un cacho conexo de muro, no
-# celdas sueltas por la sala. Si la pared no da para tanto (una esquina), se para donde pueda: el
-# brote sale igual, solo que mas apretado.
+# LOS BOQUETES de un brote (11/10, lo pidio el usuario: era un tramo de celdas CONTIGUAS y los bichos salian juntos,
+# llegaban juntos y una sola area se los llevaba a todos). Ahora, a partir de una celda de parto, otras de la MISMA zona
+# a BROTE_SEPARACION celdas o mas de cualquier boquete ya elegido (dos de pared en medio), de la mas cercana a la mas
+# lejana y sin pasar de BROTE_BUSCAR: se reparten por la pared (y por la de enfrente, si en esta no caben). Si no hay
+# para tantos, se para donde pueda: el brote sale igual, con menos.
+const BROTE_SEPARACION := 3
+const BROTE_BUSCAR := 10
+
 func _tramo_de_pared(inicio: Dictionary, n: int) -> Array:
-	var por_pared: Dictionary = {}   # Vector2i de roca -> su parto {pared, suelo}
-	for p in partos:
-		por_pared[p["pared"]] = p
 	var out: Array = [inicio]
-	var usados: Dictionary = {inicio["pared"]: true}
-	var frontera: Array = [inicio["pared"]]
-	while out.size() < n and not frontera.is_empty():
-		var actual: Vector2i = frontera.pop_front()
-		for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-			var vec: Vector2i = actual + d
-			if por_pared.has(vec) and not usados.has(vec):
-				usados[vec] = true
-				out.append(por_pared[vec])
-				frontera.append(vec)
-				if out.size() >= n:
-					break
+	var a: Vector2i = inicio["pared"]
+	var cerca: Array = []
+	for p in partos:
+		var d: Vector2i = (p["pared"] as Vector2i) - a
+		var lejos: int = maxi(absi(d.x), absi(d.y))
+		if lejos >= BROTE_SEPARACION and lejos <= BROTE_BUSCAR:
+			cerca.append([lejos, p])
+	cerca.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
+	for par in cerca:
+		if out.size() >= n:
+			break
+		var cand: Vector2i = par[1]["pared"]
+		var libre := true
+		for q in out:
+			var dq: Vector2i = cand - (q["pared"] as Vector2i)
+			if maxi(absi(dq.x), absi(dq.y)) < BROTE_SEPARACION:
+				libre = false
+				break
+		if libre:
+			out.append(par[1])
 	return out
 
 
