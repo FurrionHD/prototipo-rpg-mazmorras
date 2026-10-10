@@ -3134,8 +3134,13 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 	# El sitio: SOBRE LA FIGURA que lo come, en su tercio alto, no pegado a su borde de arriba
 	# (naciendo en el borde y subiendo 26 px, los de la fila de arriba se salian de la pantalla).
 	var r: Rect2 = _rect_mapa(ev["bv"])
-	if not r.has_area():
+	var de_tarjeta: bool = not r.has_area()
+	if de_tarjeta:
 		r = pv.get_global_rect()
+	# EL SITIO DEL NUMERO, al log (10/10, para cazar el "se llevaba el golpe Daniel y salia en Agirato"): lo apunta la
+	# pantalla (CombatTactico.anotar_numero), que sabe de quien es cada bloque y donde esta su cuerpo.
+	if al_soltar_numero.is_valid():
+		al_soltar_numero.call(ev["bv"], r, de_tarjeta, lbl.text)
 	var base: Vector2 = r.get_center() - capa_numeros.global_position
 	base.y = (r.position.y + r.size.y * 0.34) - capa_numeros.global_position.y
 
@@ -3162,6 +3167,8 @@ func _soltar_numero_de(ev: Dictionary) -> void:
 
 # LA MARCA de un golpe (ev -> " ✱" o ""). La pone la pantalla del combate.
 var marca_numero: Callable = Callable()
+# (bloque, rect en pantalla donde sale el numero, si salio de la TARJETA por no encontrar el cuerpo, texto). Ver arriba.
+var al_soltar_numero: Callable = Callable()
 
 
 # UN AVISO que sube sobre la figura como un numero ("¡INTERRUMPIDO!", "RETRASADO", "INMUNE"), en el mismo pool.

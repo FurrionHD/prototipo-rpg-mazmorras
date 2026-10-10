@@ -76,6 +76,7 @@ func _ready() -> void:
 	_ok(id_bicho != 0, "encuentro el cuerpo del bicho de la pelea en mi mapa")
 	escribir_fase(2, [id_bicho])
 	var aliados_antes: int = p._aliados.size()
+	_vigilar_cuerpos_b(p)
 	var tm = p.turno_mapa
 	var sentido := ["move_left", "move_up", "move_right"]
 	# (En un diccionario: las lambdas capturan por valor.)
@@ -181,6 +182,23 @@ func _ready() -> void:
 	_ok(await _dato_de_b("bicho_se_movio", 5.0) > 5, "B ve moverse al bicho (lo mueve el trabajador)")
 	_ok(await _dato_de_b("b_radio", 5.0) > 0, "a B le llega el radio de su turno")
 	await _fin()
+
+
+# (10/10) CUANDO SE QUEDA SIN CUERPO un personaje de B en mi pantalla (el numero salia en su tarjeta): cada cambio, al log.
+func _vigilar_cuerpos_b(p: Node) -> void:
+	var antes: Dictionary = {}
+	var t0: int = Time.get_ticks_msec()
+	while is_instance_valid(p) and Time.get_ticks_msec() - t0 < 200000:
+		var comps: Array = Net._avatares_comp.get(_b(), [])
+		for c in p._aliados:
+			var cb: Node2D = p.turno_mapa.cuerpo_de(c)
+			var ahora: String = "SIN CUERPO" if cb == null else "con cuerpo"
+			if String(antes.get(c, "")) != ahora:
+				antes[c] = ahora
+				print("[dev] [cuerpos] a los %d ms %s: %s (compañeros de B en mi pantalla: %d, aspectos: %d)" % [
+					Time.get_ticks_msec() - t0, c.nombre, ahora, comps.size(),
+					int(Net._peers.get(_b(), {}).get("comps", []).size())])
+		await get_tree().process_frame
 
 
 func _b() -> int:
