@@ -26,6 +26,9 @@ class_name StatusApplication
 @export var turns: int = -1
 # Magnitud del DoT (quemadura...). -1 = la del catalogo (dot_default).
 @export var magnitud: float = -1.0
+# (10/10) El SANGRADO y el FUEGO arden un % del GOLPE REAL que los prende (StatusEffects.magnitud_del_golpe). -1 = el
+# del catalogo (SANGRADO_FRACCION_GOLPE, QUEMADURA_FRACCION); aqui se afina por habilidad, EN LA FICHA.
+@export var fraccion_golpe: float = -1.0
 # Tope de stack por aplicacion (veneno tier: cap 1 = tier 1). -1 = sin tope propio.
 @export var cap: int = -1
 # true = SOLO se tira si el golpe fue CRITICO (premio al crit: p.ej. la Punalada de la

@@ -1197,7 +1197,11 @@ func _tirar_efectos_habilidad(ab: AbilityData, objetivo: Combatant, fue_critico:
 				p = StatusEffects.prob_final(base * escala_prob, _pantalla._player, d, a.estado)
 			if randf() >= p:
 				continue
-			var mag: float = StatusEffects.app_magnitude(a, _pantalla._player.atk(), _pantalla._player.motion_value,
+			# (10/10) del golpe REAL que le acaba de entrar (ya lleva su escala); si no viene de un golpe, como siempre
+			var mag_real: float = StatusEffects.magnitud_del_golpe(int(a.estado), d if al_enemigo else null,
+				float(a.fraccion_golpe)) if a.magnitud < 0.0 else -1.0
+			var mag: float = mag_real if mag_real >= 0.0 else StatusEffects.app_magnitude(a, _pantalla._player.atk(),
+				_pantalla._player.motion_value,
 				_pantalla._player.atk() * (ab.dano_mult if ab != null and ab.dano_mult > 0.0 else 1.0)) * escala_mag
 			# N stacks por tirada, igual que la rama enemiga. Antes se aplicaba siempre 1 e
 			# ignoraba a.stacks: la primera habilidad que lo use tiene que funcionar sin acordarse.

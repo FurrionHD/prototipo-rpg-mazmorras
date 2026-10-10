@@ -1435,7 +1435,11 @@ func _aplicar_estado_hechizo(spell: SpellData, objetivo_ataque: Combatant = null
 			if d_h == null or not d_h.is_alive():
 				continue
 			# EL FUEGO (06/10) arde un % del daño de ESTE golpe (ver StatusEffects.QUEMADURA_FRACCION).
-			var mag_h: float = a.magnitud if a.magnitud >= 0.0 				else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe)
+			# (10/10) del golpe REAL que le acaba de entrar al que lo encaja (d_h); si no, el de sobre el papel
+			var mag_real_h: float = StatusEffects.magnitud_del_golpe(int(a.estado), d_h, float(a.fraccion_golpe)) \
+				if a.magnitud < 0.0 else -1.0
+			var mag_h: float = a.magnitud if a.magnitud >= 0.0 \
+				else (mag_real_h if mag_real_h >= 0.0 else StatusEffects.magnitud_por_golpe(int(a.estado), _pantalla._player.atk(), golpe))
 			d_h.apply_status(a.estado, _pantalla._player.runa_turnos(a.estado, a.turns), _pantalla._player.runa_mag(a.estado, mag_h), 1, false, a.cap)
 			print("[estado] %s recibe %s del hechizo %s (prob %.0f%%)" % [
 				_pantalla._etq(d_h), nom, spell.nombre, spell.efecto_prob(a) * 100.0])

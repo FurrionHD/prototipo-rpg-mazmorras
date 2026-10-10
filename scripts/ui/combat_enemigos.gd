@@ -1190,7 +1190,11 @@ func _enemy_tirar_efectos(e: Combatant, ab: AbilityData, victima: Combatant, esc
 		# escala_mag < 1.0 en los SECUNDARIOS del area: el fuego/veneno que salpica a los lados es
 		# de la mitad (misma prob). 1.0 en el principal y en single/reparto.
 		# (el fuego arde un % del golpe: su ataque por lo que pega la habilidad)
-		var mag: float = StatusEffects.app_magnitude(a, e.atk(), e.motion_value,
+		# (10/10) del golpe REAL que le acaba de entrar a la victima, si viene de uno (ya lleva su escala: el de los lados pega
+		# menos); si no (una pasiva, un charco), como siempre
+		var mag_real: float = StatusEffects.magnitud_del_golpe(int(a.estado), victima if al_jugador else null,
+			float(a.fraccion_golpe)) if a.magnitud < 0.0 else -1.0
+		var mag: float = mag_real if mag_real >= 0.0 else StatusEffects.app_magnitude(a, e.atk(), e.motion_value,
 			e.atk() * (ab.dano_mult if ab != null and ab.dano_mult > 0.0 else 1.0)) * escala_mag
 		# Aplica los stacks de uno en uno (los independientes/merge suben stack por llamada).
 		for d_e in destinos_e:
