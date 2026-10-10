@@ -834,9 +834,56 @@ func rect_pantalla_de_bloque(bloque: Dictionary) -> Rect2:
 			break
 	if c == null or cuerpo_de(c) == null:
 		return Rect2()
+	_vigilar_cuerpo_de_golpe(c)
 	var r: Rect2 = bulto_visual(c)
 	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
 	return Rect2(xf * r.position, r.size * xf.get_scale().abs())
+
+
+# DONDE SALE EL NUMERO DE UN GOLPE A UNO DE LOS TUYOS (10/10, lo pidio el: "añadir en el log donde sale el numero y el
+# corte y donde esta el personaje que ha recibido el golpe"). Solo en multi. El numero y el efecto salen del mismo sitio
+# (rect_pantalla_de_bloque), asi que con este basta. Una linea por golpe: "[golpe-sitio] Daniel 12.34: numero en (x, y)
+# de su cuerpo 'Daniel'; Daniel esta en (x, y), a N px". "DE LA TARJETA" = no encontro su cuerpo y salio en su tarjeta.
+func anotar_numero(bloque: Dictionary, r: Rect2, de_tarjeta: bool, texto: String) -> void:
+	if not Net.activo:
+		return
+	var c: Combatant = _de_bloque(bloque)
+	if c == null or not _pantalla._aliados.has(c):
+		return
+	var cuerpo: Node2D = cuerpo_de(c)
+	var etq = cuerpo.get("_nombre") if cuerpo != null else null
+	var de_quien: String = (etq as Label).text if etq is Label else (c.nombre if cuerpo != null else "-")
+	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
+	var donde: String = "-"
+	var lejos: float = -1.0
+	if cuerpo != null:
+		var p_suyo: Vector2 = xf * bulto_visual(c).get_center()
+		donde = str(p_suyo.round())
+		lejos = p_suyo.distance_to(r.get_center())
+	print("[golpe-sitio] %s %s: numero en %s %s; %s esta en %s, a %.0f px (aliado %d, espejo %s)" % [c.nombre, texto,
+		str(r.get_center().round()), "DE LA TARJETA (no encontro su cuerpo)" if de_tarjeta else "de su cuerpo '%s'" % de_quien,
+		c.nombre, donde, lejos, _pantalla._aliados.find(c), str(_pantalla._espejo)])
+
+
+# EL CHIVATO DEL 09/10 (su playtest: "se llevaba el golpe Daniel y salia en o cerca de Agirato", en su pantalla, toda la
+# pelea del minotauro; la prueba de dos jugadores no lo reproduce): si el cuerpo donde se va a pintar el golpe de 'c'
+# lleva el NOMBRE de otro, lo dice en el log (una vez por pareja), con lo que hace falta para encontrarlo.
+var _chivatos_cuerpo: Dictionary = {}
+
+func _vigilar_cuerpo_de_golpe(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	var etq = cuerpo.get("_nombre") if cuerpo != null else null
+	if not (etq is Label) or (etq as Label).text == "" or (etq as Label).text == c.nombre:
+		return
+	var clave: String = "%s>%s" % [c.nombre, (etq as Label).text]
+	if _chivatos_cuerpo.has(clave):
+		return
+	_chivatos_cuerpo[clave] = true
+	var i: int = _pantalla._aliados.find(c)
+	var filas: Array = roster_red.get("aliados", [])
+	print("[golpe-red] el golpe a %s se pinta en el cuerpo de '%s' (aliado %d, fila %s, espejo %s, dueno %s, cuerpo_red %s)" % [
+		c.nombre, (etq as Label).text, i, str(filas[i]) if i >= 0 and i < filas.size() else "-", str(_pantalla._espejo),
+		str(_pantalla._dueno_aliado.get(c, 0)), str(Game.pj_de_combatant(c).get_meta("cuerpo_red", -1)) 			if Game.pj_de_combatant(c) != null else "-"])
 
 
 # QUIEN ESTA BAJO UN PUNTO DE LA PANTALLA, para el mantener pulsado que abre la ficha de detalle: su
