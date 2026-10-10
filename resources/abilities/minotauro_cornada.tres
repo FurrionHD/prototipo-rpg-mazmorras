@@ -23,17 +23,18 @@ fx_anim = &"mino_cornada"
 fx_anim_carga = &"mino_agacharse>mino_agazapado"
 fx_estilo = 20
 cooldown = 4
-; EN EL MAPA (01/10, Minotauro paso 1): embiste por una LINEA de 120 cargada 1 turno (la huella roja avisa), se para en
-; el primero que pilla y lo DESPLAZA lejos (40 px: un desplazamiento grande, le corta lo que estuviera cargando).
+; EN EL MAPA (01/10, Minotauro paso 1): embiste por una LINEA de 120 cargada 1 turno (la huella roja avisa).
+; (10/10, el jefe) RECORRE LA LINEA ENTERA aunque no haya nadie, a SueloRoto.V_EMBESTIDA, pega a todos los que cruza y
+; los APARTA a un lado 40 px (un desplazamiento grande: le corta lo que estuviera cargando).
 forma = 3
 forma_apunte = 1
 forma_radio = 120.0
 forma_ancho = 28.0
 carga = true
 carga_turnos = 1
-tiron = -40.0
+aparta_lados = 40.0
 ; EFECTO EN EL MAPA (02/10, paso 2): mientras carga escarba (CombatTactico._tick_minotauro); el desliz deja el surco de la
-; Embestida del jabali (SueloRoto.Tipo.BESTIA_SURCO: va al tiempo del desliz y se para en el primero, como esta; la banda
+; Embestida del jabali (SueloRoto.Tipo.BESTIA_SURCO: va al tiempo del desliz, que recorre la linea entera; la banda
 ; de la acorazada va al ritmo de ATRAVESAR) y el enganche es el fogonazo romo en los cuernos (MINO_CORNADA), con la
 ; sangre y el temblor de quien lo recibe.
 fx_estilo_mapa = 190

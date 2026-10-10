@@ -23,6 +23,8 @@ forma_apunte = 1
 forma_radio = 120.0
 forma_ancho = 32.0
 carga = true
+; (10/10) la embestida aparta a un lado a los que cruza.
+aparta_lados = 32.0
 atraviesa = true
 pisoton_final = 30.0
 ; EFECTO EN EL MAPA (30/09): la banda raspada por su tripa con las pisadas y las lajas (FIERA_ARROLLA) y, al final, las

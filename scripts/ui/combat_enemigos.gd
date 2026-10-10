@@ -587,6 +587,23 @@ func _enemy_begin_charge(e: Combatant, ab: AbilityData, obj: Combatant = null, t
 
 
 # Ejecuta una habilidad del enemigo: multi-golpe con dano_mult + sus estados (StatusApplication).
+# UNA EMBESTIDA EN EL MAPA (la carga por su linea: la Cornada, el Placaje, la Rodada...). Ver CombatTactico.mover_enemigo.
+func _es_embestida_mapa(ab: AbilityData, lista_mapa) -> bool:
+	var f = _pantalla.turno_mapa.ultima_forma_enemigo if _pantalla.tactico else null
+	return lista_mapa != null and ab.carga and not ab.salta and f != null and f.tipo == CombatFormas.Tipo.LINEA
+
+
+# SU EFECTO POR EL SUELO (el surco, el charco, la Marea...), con el COLOR del slime en la semilla (SlimeAire).
+# (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
+func _suelo_de_habilidad(e: Combatant, ab: AbilityData) -> void:
+	if ab.suelo_roto < 0 or _pantalla.turno_mapa.ultima_forma_enemigo == null:
+		return
+	_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
+		SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual),
+		ab.pisoton_final if ab.pisoton_final > 0.0 else (float(ab.estrellas_fugaces) if ab.estrellas_fugaces > 0
+			else ab.forma_nucleo))
+
+
 # Espejo compacto de _usar_habilidad del jugador (sin energia/dual/excelia de ataque).
 # 'victima' = el aliado que se la come. Viene por parametro (no se lee de un global) porque con
 # varios de los tuyos en pie cada accion enemiga elige a quien va, y una habilidad CARGADA se
@@ -637,6 +654,14 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo, randi(),
 				float(ab.estrellas_fugaces))
 			_pantalla.efectos.soltar_suelo()
+		# LA EMBESTIDA SALE AUNQUE NO HAYA NADIE (10/10, el jefe: "se desplazara de todas formas aunque no haya nadie
+		# dentro"): recorre su linea con su gesto y su rastro por el suelo, y no pega a nadie.
+		elif _es_embestida_mapa(ab, lista_mapa):
+			_pantalla.turno_mapa.mover_enemigo(e, ab, [], 1)
+			_suelo_de_habilidad(e, ab)
+			_pantalla.efectos._fx_golpe(e, e, 0.0, false, false, Elementos.Elemento.NINGUNO, CombatFX.Estilo.MELEE, 1.0,
+				true, _pantalla.efectos._clave_sfx(ab), AbilityData.Gesto.AUTO, ab.fx_anim)
+			_pantalla.efectos.soltar_suelo()
 		_no_llega(e, ab)
 		_pantalla._pausa_lectura()   # mismo motivo que en _enemy_turn: su barra ya se gasto, hay que reanudar
 		return
@@ -673,12 +698,7 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 			# el golpe le llega cuando el frente le alcanza. Con el COLOR del slime en la semilla (SlimeAire).
 			if ab.suelo_roto >= SueloRoto.Tipo.INSECTO_TELARANA:
 				_pantalla.turno_mapa.desde_quien_lanza(e, _pantalla.turno_mapa.ultima_forma_enemigo)
-			if ab.suelo_roto >= 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
-				# (La Carga acorazada lleva en el nucleo el radio de su PISOTON: la linea no usa nucleo. FieraAire.area.)
-				_pantalla.efectos.fijar_suelo(ab.suelo_roto, _pantalla.turno_mapa.ultima_forma_enemigo,
-					SlimeAire.semilla_con_color(randi(), ab.color_fx if ab.color_fx.a > 0.0 else e.color_visual),
-					ab.pisoton_final if ab.pisoton_final > 0.0 else (float(ab.estrellas_fugaces) if ab.estrellas_fugaces > 0
-						else ab.forma_nucleo))
+			_suelo_de_habilidad(e, ab)
 			# Y EL CHARCO QUE SE QUEDA (la Savia): varios turnos suyos en el suelo, envenenando al que lo pise.
 			if ab.charco_turnos > 0 and _pantalla.turno_mapa.ultima_forma_enemigo != null:
 				_pantalla.turno_mapa.poner_charco(e, ab, _pantalla.turno_mapa.ultima_forma_enemigo)
@@ -731,8 +751,17 @@ func _enemy_use_ability(e: Combatant, ab: AbilityData, victima: Combatant = null
 						and _pantalla.turno_mapa.empezar_pegada(e, t):
 					sub["estados"].append(str(StatusEffects.def(StatusEffects.Id.PEGADO).get("nombre", "?")))
 				# Y EL QUE LOS APARTA A LOS LADOS (la Embestida del jabali, 28/09).
-				if lista_mapa != null and ab.aparta_lados > 0.0 and int(sub["conecto"]) > 0 and t.is_alive():
-					_pantalla.turno_mapa.pedir_apartar(t, e, ab.aparta_lados)
+				# La embestida que te cruza te quita de en medio (10/10): eso es un desplazamiento, con lo que te corta o te
+				# retrasa (la Cornada aparta 40 px: grande, te corta).
+				# Y al que la ESQUIVA tambien se le quita de en medio (se aparta de un salto), sin el desplazamiento: el bicho
+				# ya cuenta con que no estara ahi al llegar al final (CombatTactico.mover_enemigo).
+				var cruzado: bool = ab.carga and not ab.forma_solo_primero
+				if lista_mapa != null and ab.aparta_lados > 0.0 and (int(sub["conecto"]) > 0 or cruzado) and t.is_alive():
+					_pantalla.turno_mapa.pedir_apartar(t, e, ab.aparta_lados, ab.carga)
+					if ab.carga and not ab.atraviesa and int(sub["conecto"]) > 0:
+						var dsp3: String = _pantalla.desplazado(t, ab.aparta_lados, e)
+						if dsp3 != "":
+							_pantalla._set_log(dsp3)
 				total += float(sub["total"]); estados_log += sub["estados"]
 				rastro += sub["rastro"]; dano_por_obj[t] = float(dano_por_obj.get(t, 0.0)) + float(sub["total"])
 				mult_por_obj[t] = float(sub["mult_elem"]); robado_total += float(sub["robado"])

@@ -1859,6 +1859,7 @@ func arrancar_cola() -> float:
 	# sea en el que se sabe a quienes alcanza la accion entera. Un salto que tiene que caer sobre
 	# cuatro necesita saberlo para elegir adonde va y cuanto se infla.
 	_marcar_gestos()
+	_embisten.clear()
 	# Los encajes del turno anterior no cuentan: _t vuelve a cero aqui abajo, asi que una marca vieja
 	# de 0,9 s contra un _t nuevo de 0,05 daria un hueco NEGATIVO y se tragaria el primer golpe.
 	_ult_encaje.clear()
@@ -2166,9 +2167,28 @@ const T_ANIM_ADELANTO := 0.16
 const T_ANIM_COLA := 0.18
 
 
+# LAS EMBESTIDAS DE LA ACCION (10/10): [bloque, segundos REALES que tarda en cruzar su linea]. Las apunta CombatTactico al
+# pedir el desliz (Desliz.EMBISTE, aqui y en el espejo al leerlo) y su gesto dura hasta que llega: el desliz arranca
+# en el golpe y el turno no se cierra con el bicho a medio camino. Se gastan al montar los gestos.
+var _embisten: Array = []
+
+func alargar_embestida(bloque: Dictionary, dur_real: float) -> void:
+	if not bloque.is_empty():
+		_embisten.append([bloque, dur_real])
+
+
+# Lo que tarda en cruzar la embestida de 'bloque' (en tiempo de animacion), o -1 si no embiste.
+func _embestida_de(bloque) -> float:
+	for x in _embisten:
+		if is_same(x[0], bloque):
+			return float(x[1]) * maxf(escala_tiempo, 0.01)
+	return -1.0
+
+
 func _marcar_gestos() -> void:
 	_gestos.clear()
 	if _cola.is_empty():
+		_embisten.clear()
 		return
 	# UN PLAN POR ATACANTE, no uno por impacto: con reparto_por_golpe hay seis impactos con seis
 	# victimas, y un plan por cada uno mandaria al bicho de una punta a otra de la fila.
@@ -2230,7 +2250,8 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 	# Un ataque a uno mismo (un aura, un buff) no es un golpe: ahi no hay gesto de atacar. SALVO en el mapa
 	# si su estilo tiene cuerpo propio (ANIM_CUERPO_MAPA): la Sed de sangre no pega, y su mirada es todo
 	# lo que hace el personaje.
-	var propio: bool = rect_en_mapa.is_valid() and String(ev.get("anim", "")) != ""
+	var embiste: float = _embestida_de(ev["ba"])
+	var propio: bool = rect_en_mapa.is_valid() and (String(ev.get("anim", "")) != "" or embiste > 0.0)
 	if pa == _visual(ev["bv"]) and not propio:
 		return
 	var cuando: Array[float] = []
@@ -2266,7 +2287,9 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		# retrasa toda la cola (el recorte se hace despues, al desplazar).
 		"t_ini": cuando[0] - _adelanto_anim(ev),
 		"t_imp": cuando[0],
-		"t_fin": cuando[cuando.size() - 1] + T_ANIM_COLA,
+		# LA EMBESTIDA: el gesto le dura hasta que acaba de cruzar su linea (y recogerse).
+		"t_fin": maxf(cuando[cuando.size() - 1], cuando[0] + maxf(embiste, 0.0)) + T_ANIM_COLA,
+		"embiste": embiste,
 		"golpes": cuando,
 		"manos": manos,
 		"sig": 0,

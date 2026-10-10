@@ -228,6 +228,10 @@ func _correr() -> void:
 	print("--- pose de carga ---")
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	vistas.clear()
+	# (10/10) El placaje de antes ahora APARTA y retrasa a los tuyos (las embestidas recorren su linea): que su turno no
+	# llegue a mitad de la prueba y suelte el Reventon.
+	if combat._gauge.has(e):
+		combat._gauge[e] = 0.0
 	combat.enemigos._enemy_begin_charge(e, rev, al[1])
 	var t2: int = Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t2 < 2000:
@@ -251,6 +255,21 @@ func _correr() -> void:
 	print("--- brote ---")
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	var inv: AbilityData = load("res://resources/abilities/rey_slime_invocacion.tres")
+	# Los tuyos FUERA de su cuerpo, a un lado (el placaje de antes le ha hecho cruzar entre ellos).
+	var vuelta_al: Array = [t.pos_de(al[0]), t.pos_de(al[1])]
+	# Hacia donde haya sitio detras de ellos (las crias caen a su espalda).
+	var lado_r: Vector2 = Vector2.RIGHT
+	for cand in [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]:
+		# (con sitio para una cria a la espalda del de delante: si no, las crias se van a los lados, con razon)
+		var b_c: float = t._hasta_el_borde(t.pies_de(e), cand, t.bulto_de(e))
+		if t.cabe_cria(t.pies_de(e) + cand * (b_c + 40.0 + 70.0), null) and t._en_arena(t.pos_de(e) + cand * (b_c + 150.0)):
+			lado_r = cand
+			break
+	var borde_r: float = t._hasta_el_borde(t.pies_de(e), lado_r, t.bulto_de(e))
+	var de_lado: Vector2 = lado_r.orthogonal()
+	t._colocar(al[0], t.cuerpo_de(al[0]), t.pies_de(e) + lado_r * (borde_r + 40) - de_lado * 10 - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+	t._colocar(al[1], t.cuerpo_de(al[1]), t.pies_de(e) + lado_r * (borde_r + 40) + de_lado * 70 - Vector2(0.0, PoseJugador.PIES_BAJO_NODO))
+	await _esperar(2)
 	var antes: Array = combat._enemies.duplicate()
 	combat.enemigos._enemy_use_ability(e, inv)
 	combat._fx.arrancar_cola()
@@ -290,6 +309,12 @@ func _correr() -> void:
 		_ver(t.pos_de(crias[0]).distance_to(t.pos_de(crias[1])) >= t.SEPARA_CRIA - 0.5, "las dos no se pisan")
 	print("  anims de las crias: %s" % str(anims_cria.keys()))
 	_ver(anims_cria.has("nacer"), "se levantan del charco ('nacer')")
+	# (y vuelven a donde estaban, que las pruebas de abajo cuentan con ese sitio)
+	for k in 2:
+		if al[k].is_alive():
+			t._colocar(al[k], t.cuerpo_de(al[k]), vuelta_al[k])
+	await _esperar(2)
+
 	# 8) CAE A MEDIA PELEA: se muere en su sitio y se desvanece; al cerrar la pelea vuelve como cadaver.
 	if crias.size() >= 2 and t.cuerpo_de(crias[1]) != null:
 		var cm: Combatant = crias[1]

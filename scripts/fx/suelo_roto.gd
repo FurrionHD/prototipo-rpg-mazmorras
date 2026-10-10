@@ -123,12 +123,46 @@ var _anillos: Array = []      # por anillo: {r, pts: PackedVector2Array por los 
 var _losas: Array = []        # {poly, d, alza, piedras: [{v, t0}]}
 
 
+# LAS EMBESTIDAS (10/10, el jefe tras el playtest del 09/10: "se desplaza en linea recta por dentro de su linea y si
+# hay alguien dentro le hace daño"): el bicho recorre su linea ENTERA a V_EMBESTIDA ("yo haria 200 px/s"), y a cada uno
+# le llega el golpe cuando su frente le pasa por encima. Sus efectos de suelo (el surco, la rodada, la arrollada, el
+# placaje...) tenian cada uno su tiempo fijo (0,2-0,5 s para cualquier largo): ahora todos van al de su linea, en
+# el daño (retraso) y en el dibujo (el _ritmo del efecto). Es una regla, no viaja: el espejo saca lo mismo de la forma.
+# EMBESTIDA_MUDA = la que no pinta nada en el suelo (el Ensarte de la segadora) pero pega a su paso igual. Numero
+# fuera del enum a proposito: los tipos van guardados en las fichas y los REY_* van detras de REY_ESQUIRLAS.
+const V_EMBESTIDA := 200.0
+const T_EMBESTIDA_MIN := 0.15
+const EMBESTIDA_MUDA := 990
+const EMBESTIDAS := [Tipo.SLIME_PRESION, Tipo.SLIME_PLACAJE, Tipo.BESTIA_ESTELA, Tipo.BESTIA_SURCO,
+	Tipo.INSECTO_RODADA, Tipo.FIERA_ARROLLA]
+
+static func es_embestida(t: int, f: CombatFormas.Forma) -> bool:
+	return f != null and f.tipo == CombatFormas.Tipo.LINEA and (t == EMBESTIDA_MUDA or EMBESTIDAS.has(t))
+
+# Lo que tarda el bicho en recorrer la linea 'f' entera, en tiempo de la pelea.
+static func t_embestida(f: CombatFormas.Forma) -> float:
+	return maxf(f.largo / V_EMBESTIDA, T_EMBESTIDA_MIN) if f != null else T_EMBESTIDA_MIN
+
+
 # Lo pone en el suelo. 'padre' = algo en coordenadas de mundo (la arena).
 # 'espera' = segundos hasta que el martillo toca el suelo (hasta entonces no se pinta nada).
 static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 		n_nucleo: float = 0.0, espera: float = 0.0) -> Node2D:
-	if padre == null or f == null:
+	if padre == null or f == null or t == EMBESTIDA_MUDA:
 		return null
+	var n: Node2D = _lanzar_tipo(padre, f, t, semilla, n_nucleo, espera)
+	# LA EMBESTIDA: su efecto se estira (o encoge) a lo que tarda el bicho en cruzar SU linea (ver V_EMBESTIDA). Todos
+	# llevan _ritmo (el de la pelea) y _t arranca en -espera * _ritmo: se escalan los dos, la espera no cambia.
+	if n != null and es_embestida(t, f) and n.get("_ritmo") is float and n.get("_t") is float:
+		var k: float = t_salir_de(t) / t_embestida(f)
+		n.set("_ritmo", float(n.get("_ritmo")) * k)
+		if float(n.get("_t")) < 0.0:
+			n.set("_t", float(n.get("_t")) * k)
+	return n
+
+
+static func _lanzar_tipo(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
+		n_nucleo: float, espera: float) -> Node2D:
 	if t == Tipo.ESTELA:
 		return EstelaGolpe.lanzar(padre, f, semilla, espera)
 	if t == Tipo.CORTE:
@@ -199,6 +233,9 @@ static func lanzar(padre: Node, f: CombatFormas.Forma, t: int, semilla: int,
 static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) -> float:
 	if f == null or f.radio <= 0.0 or t == Tipo.ESTELA:
 		return 0.0   # la estela no se propaga: pega en el instante del golpe
+	# LA EMBESTIDA: cuando el frente del bicho (que sale del origen de la linea) llega a 'p' (ver V_EMBESTIDA).
+	if es_embestida(t, f):
+		return clampf((p - f.origen).dot(f.dir.normalized()) / maxf(f.largo, 1.0), 0.0, 1.0) * t_embestida(f)
 	if t == Tipo.CORTE:
 		return CorteAire.retraso_px(p.distance_to(origen_de(f)), f.radio)
 	if t == Tipo.HUMO:
@@ -256,6 +293,8 @@ static func retraso(f: CombatFormas.Forma, p: Vector2, t: int = Tipo.GRIETAS) ->
 
 # Lo que tarda el frente de cada tipo en llegar a su borde.
 static func t_salir_de(t: int) -> float:
+	if t == EMBESTIDA_MUDA:
+		return T_EMBESTIDA_MIN
 	if t == Tipo.CORTE:
 		return CorteAire.T_VIAJE
 	if t == Tipo.GRITO:

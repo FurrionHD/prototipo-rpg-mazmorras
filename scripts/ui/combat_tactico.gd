@@ -1521,7 +1521,7 @@ func _reparto_en(ab: AbilityData, c: Combatant, f) -> Array:
 			esc = maxf(0.0, ab.forma_escala - ab.forma_tramo_baja * float(f.tramo_de(r)))
 		# SOLO AL PRIMERO: manda lo cerca que este de quien pega, no del centro de la huella. Y en el
 		# AVANCE tambien: los golpes caen en el orden en que te los cruzas.
-		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance or ab.atraviesa else f.centro_util()
+		var ref: Vector2 = pies_de(c) if ab.forma_solo_primero or ab.avance or ab.atraviesa or ab.carga 			else f.centro_util()
 		lista.append({"c": e, "escala": esc, "d": r.get_center().distance_squared_to(ref),
 			"i": bando.find(e)})
 	lista.sort_custom(func(x, y):
@@ -2035,15 +2035,18 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 		dur = T_SALTO_BICHO
 		arco = ALTO_SALTO_BICHO * clampf(radio_pisa(e) / 10.0, 1.0, 2.5)   # el Rey salta mas alto
 	elif (ab.carga or ab.recorre) and f.tipo == CombatFormas.Tipo.LINEA:
-		var fin: Vector2 = f.origen + f.dir * f.largo
+		# LAS EMBESTIDAS RECORREN SU LINEA ENTERA (10/10, el jefe: "se desplazara de todas formas aunque no haya nadie
+		# dentro"): con el frente hasta el final de la raya (la linea sale del borde de su cuerpo: sus pies + el largo),
+		# sin acabar encima de nadie. A los que cruza les llega el golpe cuando su frente les pasa (SueloRoto.V_EMBESTIDA).
+		var fin: Vector2 = pies_de(e) + f.dir * f.largo if ab.carga else f.origen + f.dir * f.largo
 		# El primero que se cruza (el mas cercano a sus pies).
 		var v: Combatant = null
 		for d in lista:
 			if v == null or pies_de(d["c"]).distance_squared_to(f.origen) < pies_de(v).distance_squared_to(f.origen):
 				v = d["c"]
-		# La que ATRAVIESA no se para en nadie: rueda hasta el final (sin acabar encima de nadie), y a lo que tarda la
-		# bola en cruzar (a cada uno le llega el golpe cuando le pasa por encima: InsectoAire.retraso).
-		if v != null and not ab.atraviesa and not ab.recorre:
+		# Solo se para en alguien la de UN objetivo (forma_solo_primero: el Ensarte de la segadora, la Yugular del rey rata;
+		# "las de enemigos pequeños si que se pueden quedar para 1 objetivo").
+		if v != null and ab.forma_solo_primero and not ab.atraviesa and not ab.recorre:
 			# EL ENSARTE se para con la CABEZA delante de su presa, no con los pies: la segadora es larga y con su
 			# radio de pisada acababa con los brazos encima de ella (30/09). Su frente real, como los conos.
 			if _marcado(e):
@@ -2056,19 +2059,28 @@ func mover_enemigo(e: Combatant, ab: AbilityData, lista: Array, golpes: int) -> 
 				if ab.carga_persigue:
 					delante = maxf(delante, frente_dibujo(cuerpo_de(e), pies_de(e), f.dir))
 				fin = pies_de(v) - f.dir * (maxf(radio_pisa(v), 8.0) + delante)
-		if ab.atraviesa:
-			dur = InsectoAire.T_RODADA
 		# LA QUE RECORRE (la Oleada de patas): hasta el final, a lo que tarda en cruzar (InsectoAire.T_OLEADA).
 		if ab.recorre:
 			dur = InsectoAire.T_OLEADA
-		hasta = _sitio_libre_hacia(e, fin)
+		# Los que cruza y aparta de su raya no le paran: para cuando llega al final ya no estan ahi.
+		var apartados: Array = []
+		if ab.carga and ab.aparta_lados > 0.0 and not ab.forma_solo_primero:
+			for d2 in lista:
+				var o: Combatant = d2["c"]
+				# (al que no se le puede mover, si: el imparable, el enraizado, y el que tiene pared a los dos lados)
+				if not o.imparable and not o.enraizado() and not o.enroscado() 						and _cabe_apartado(o, _apartado_de(o, e, ab.aparta_lados, true)):
+					apartados.append(o)
+		hasta = _sitio_libre_hacia(e, fin, apartados)
+		# LA EMBESTIDA va a SueloRoto.V_EMBESTIDA, pareja, y arranca cuando pega (Desliz.EMBISTE).
+		if ab.carga:
+			dur = maxf(hasta.distance_to(pos_de(e)) / SueloRoto.V_EMBESTIDA, SueloRoto.T_EMBESTIDA_MIN)
 	else:
 		return
 	# El salto se ve aunque caiga casi en el sitio (los tuyos le tapan el hueco): bota en el aire.
 	if hasta.distance_to(pos_de(e)) < 2.0 and not ab.salta:
 		return
 	var desde: Vector2 = pos_de(e)
-	pedir_desliz(e, hasta, Desliz.ANTES, maxi(1, golpes), dur, arco)
+	pedir_desliz(e, hasta, Desliz.EMBISTE if ab.carga and not ab.salta else Desliz.ANTES, maxi(1, golpes), dur, arco)
 	# PICA Y SE VA (el Picado del chillon, 30/09): acabados los golpes, de otro salto a donde estaba.
 	if ab.vuelve:
 		pedir_desliz(e, desde, Desliz.TRAS, maxi(1, golpes), dur, arco)
@@ -4241,9 +4253,17 @@ func pedir_atraccion(c: Combatant, de: Combatant, hacia: Vector2, px: float) -> 
 
 # APARTAR A UN LADO de la linea del que embiste (la Embestida del jabali, 28/09): cada uno sale hacia SU lado
 # de la linea (el de la ultima huella que solto el enemigo); el que va justo por el medio, a uno por su codigo.
-func pedir_apartar(c: Combatant, de: Combatant, px: float) -> void:
+# 'fuera' (10/10, las embestidas): por lo menos hasta quedar FUERA de la raya, que el bicho sigue de largo por ella.
+func pedir_apartar(c: Combatant, de: Combatant, px: float, fuera: bool = false) -> void:
 	if _pantalla._espejo or c == null or de == null or px <= 0.0:
 		return
+	var tr := {"c": c, "de": de, "px": px, "desplaza": _apartado_de(c, de, px, fuera), "espera": 0.0, "t": -1.0}
+	if not _tiron_a_otro_humano(tr):
+		_tirones.append(tr)
+
+
+# HACIA DONDE Y CUANTO aparta a 'c' la habilidad de 'de' (con su huella, ultima_forma_enemigo): a un lado de la raya.
+func _apartado_de(c: Combatant, de: Combatant, px: float, fuera: bool) -> Vector2:
 	var f = ultima_forma_enemigo
 	var eje: Vector2 = f.dir if f != null and f.dir != Vector2.ZERO else (pos_de(c) - pos_de(de)).normalized()
 	var perp := Vector2(-eje.y, eje.x)
@@ -4251,9 +4271,36 @@ func pedir_apartar(c: Combatant, de: Combatant, px: float) -> void:
 	var lado: float = signf(perp.dot(pies_de(c) - origen))
 	if is_zero_approx(lado):
 		lado = 1.0 if _cod(c) % 2 == 0 else -1.0
-	var tr := {"c": c, "de": de, "px": px, "desplaza": perp * lado * px, "espera": 0.0, "t": -1.0}
-	if not _tiron_a_otro_humano(tr):
-		_tirones.append(tr)
+	if fuera and f != null and f.tipo == CombatFormas.Tipo.LINEA:
+		# Medido con SU CAJA (la que pilla la raya), y hacia el lado en que esta su caja: con los pies, si la raya le
+		# pasaba entre los pies y el centro de la caja, se le sacaba hacia el lado corto y se quedaba dentro.
+		var r: Rect2 = bulto_de(c)
+		var medio: float = absf(perp.x) * r.size.x * 0.5 + absf(perp.y) * r.size.y * 0.5
+		var al_eje: float = perp.dot(r.get_center() - origen)
+		if not is_zero_approx(al_eje):
+			lado = signf(al_eje)
+		px = maxf(px, f.ancho * 0.5 + medio - absf(al_eje) + 3.0)
+		# Si por ese lado hay pared (o se sale de la arena), por el otro: si no, se queda en medio y le pasa por encima.
+		if not _cabe_apartado(c, perp * lado * px):
+			var px2: float = f.ancho * 0.5 + medio + absf(al_eje) + 3.0
+			if _cabe_apartado(c, -perp * lado * px2):
+				lado = -lado
+				px = px2
+	return perp * lado * px
+
+
+# Si 'c' puede hacer ese apartado entero sin toparse con pared ni salirse de la arena (como lo para _tick_tirones).
+func _cabe_apartado(c: Combatant, desplaza: Vector2) -> bool:
+	var cuerpo: Node2D = cuerpo_de(c)
+	if cuerpo == null:
+		return false
+	var desde: Vector2 = pos_de(c)
+	var pasos: int = maxi(1, ceili(desplaza.length() / 4.0))
+	for k in range(1, pasos + 1):
+		var p: Vector2 = desde + desplaza * (float(k) / float(pasos))
+		if not _sobre_suelo(p, cuerpo) or not _en_arena(p):
+			return false
+	return true
 
 
 # EL PERSONAJE DE OTRO HUMANO no se puede arrastrar desde aqui: su cuerpo lo mueve SU maquina (y con un
@@ -4461,6 +4508,8 @@ func _on_impacto(ev: Dictionary) -> void:
 # un enemigo), no su sitio en la pelea. Si esquivaba En guardia, ademas la parada en la hoja. En todas las
 # maquinas: el espejo recibe los mismos golpes (y la marca de guardia, ver efectos._fx_golpe).
 func _on_esquiva(ev: Dictionary) -> void:
+	# EL QUE ESQUIVA UNA EMBESTIDA se aparta de un salto en ese instante (pedir_apartar), como el que la encaja.
+	_on_golpe_encajado(ev["bv"], 0.0)
 	var arena: ArenaCombate = _arena()
 	if arena == null or not _pantalla.tactico:
 		return
@@ -5557,7 +5606,9 @@ func _tick_saltos(delta: float) -> void:
 # CRIA (09/10): una cria lanzada (lanzar_cria). Viaja por red como las demas, asi que el espejo la reconoce: la esconde
 # mientras no ha caido, le pone su bola de baba y la hace salir del gel. Sus 'golpes' dicen si espera al escupitajo del
 # Rey (1, sale con su CRIA_LANZADA) o sale ya (0, las del brotado).
-enum Desliz { ANTES, TRAS, YA, AVANCE, EMPUJON, CRIA }
+# EMBISTE (10/10): la embestida de un enemigo. Como ANTES (sale con su gesto) pero arranca JUSTO cuando pega (el golpe
+# es cuando su frente sale del borde) y va PAREJA, a SueloRoto.V_EMBESTIDA: a cada uno le llega cuando le pasa.
+enum Desliz { ANTES, TRAS, YA, AVANCE, EMPUJON, CRIA, EMBISTE }
 const T_PASO := 0.16           # lo que tarda el paso de lado, en tiempo de la pelea
 # (el avance va a EstoqueAire.V_DANZA, el compas de sus golpes)
 var _deslices: Array = []   # {c, hasta (el nodo), modo, golpes, espera, tope, armado, t (-1 sin arrancar), desde}
@@ -5590,7 +5641,8 @@ func _mas_cercano_al_alcance(c: Combatant, pies: Vector2) -> Combatant:
 # HASTA DONDE LLEGA 'c' yendo en recto hacia 'pies_fin' (los pies): el ultimo sitio del camino que pisa
 # suelo y no se sale de la arena, y de ahi hacia atras hasta uno donde no quede encima de nadie. Devuelve
 # el NODO. Sin sitio, donde esta.
-func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
+# 'excluir' = los que no cuentan para no acabar encima (los que la embestida aparta de su raya al cruzarlos).
+func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2, excluir: Array = []) -> Vector2:
 	var cuerpo: Node2D = cuerpo_de(c)
 	var bajo: Vector2 = _bajo_de(c)
 	var ini: Vector2 = pos_de(c)
@@ -5609,7 +5661,7 @@ func _sitio_libre_hacia(c: Combatant, pies_fin: Vector2) -> Vector2:
 	# Y de ahi hacia atras, hasta no pisar a nadie (se ATRAVIESA, pero no se acaba encima).
 	for k in range(tope, 0, -1):
 		var p2: Vector2 = ini.lerp(fin, float(k) / float(pasos))
-		if not _hay_otro_en(c, p2):
+		if not _hay_otro_en(c, p2, excluir):
 			return p2
 	return ini
 
@@ -5622,10 +5674,10 @@ func _bajo_de(c: Combatant) -> Vector2:
 
 
 # ¿Queda el nodo 'p' encima de alguien vivo que no sea 'c' (enemigo o de los tuyos)?
-func _hay_otro_en(c: Combatant, p: Vector2) -> bool:
+func _hay_otro_en(c: Combatant, p: Vector2, excluir: Array = []) -> bool:
 	for grupo in [_pantalla._enemies, _pantalla._aliados]:
 		for o in grupo:
-			if o == c or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
+			if o == c or excluir.has(o) or not (o as Combatant).is_alive() or cuerpo_de(o) == null:
 				continue
 			if p.distance_to(pos_de(o)) < SEPARACION:
 				return true
@@ -5710,6 +5762,13 @@ func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: flo
 	anotar_desliz(c, hasta, modo, golpes)
 	(_deslices.back() as Dictionary)["dur"] = dur   # (como siempre: aqui manda lo pedido, tambien en el empujon)
 	(_deslices.back() as Dictionary)["arco"] = arco
+	_apuntar_embestida(_deslices.back())
+
+
+# LA EMBESTIDA (Desliz.EMBISTE): su gesto tiene que durar lo que tarda en cruzar (CombatFX.alargar_embestida).
+func _apuntar_embestida(d: Dictionary) -> void:
+	if int(d["modo"]) == Desliz.EMBISTE and _pantalla._fx != null:
+		_pantalla._fx.alargar_embestida(_pantalla._bloque_de(d["c"]), _dur_desliz(d))
 
 
 # EN EL ESPEJO: lo que tarda y lo alto que va por el aire el ultimo desliz que ha llegado por red. Sin duracion en el
@@ -5720,6 +5779,7 @@ func ajustar_ultimo_desliz(dur: float, arco: float) -> void:
 	if dur > 0.0 or int((_deslices.back() as Dictionary)["modo"]) != Desliz.EMPUJON:
 		(_deslices.back() as Dictionary)["dur"] = dur
 	(_deslices.back() as Dictionary)["arco"] = arco
+	_apuntar_embestida(_deslices.back())
 
 
 # Tambien en el espejo, al leer el paquete de impactos.
@@ -5754,6 +5814,9 @@ func _on_gesto_desliz(b: Dictionary, _dir: int, dur: float, _anim: StringName, _
 			d["armado"] = true
 			d["espera"] = 0.0
 			d["tope"] = dur * float(d["golpes"]) if int(d["modo"]) == Desliz.TRAS else 0.0
+			# LA EMBESTIDA arranca cuando pega: lo que falta para el golpe lo dice la cola de efectos.
+			if int(d["modo"]) == Desliz.EMBISTE and _pantalla._fx != null:
+				d["tope"] = maxf(0.0, _pantalla._fx.t_al_impacto(b))
 			# EL SALTO de un enemigo: se infla durante su gesto y CAE justo cuando PEGA (07/10, su aviso: el Reventon
 			# y el salto de la rata pegaban antes de caer). Lo que falta para el golpe lo dice la cola de efectos; si el
 			# salto no cabe entero, va mas rapido para llegar a tiempo.
@@ -5835,7 +5898,7 @@ func _tick_deslices(delta: float) -> void:
 		d["t"] = float(d["t"]) + (minf(delta, 1.0 / 30.0) if cria else delta)
 		var u: float = clampf(float(d["t"]) / dur, 0.0, 1.0)
 		# El paso arranca rapido y frena; el avance va parejo, que es donde caen los golpes.
-		var k: float = u if int(d["modo"]) == Desliz.AVANCE else 1.0 - (1.0 - u) * (1.0 - u)
+		var k: float = u if int(d["modo"]) in [Desliz.AVANCE, Desliz.EMBISTE] else 1.0 - (1.0 - u) * (1.0 - u)
 		# El cuerpo solo lo mueve quien lo mueve siempre (como el salto); quien lleva la pelea ya lo
 		# apunto en _pos al pedirlo.
 		if _es_mio(c):
@@ -5953,6 +6016,11 @@ var _gestos_bicho: Dictionary = {}   # cuerpo -> {t, dur, encaje, cola, sostener
 # propio reloj. La rodada del escarabajo cruza la linea en InsectoAire.T_RODADA (los golpes le van llegando por el
 # camino) y luego se desenrosca; el Caparazon se aplasta a 0,44 s, que es cuando sale el reflejo.
 const _GESTO_A_SU_RITMO := ["rodar", "caparazon", "arremeter"]
+# LAS EMBESTIDAS CON SU HOJA EN TRES TRAMOS (10/10, el jefe: "primero se agacha que de tiempo a verlo... y luego embiste
+# y cuando termina ya se levanta"): hasta que pega, quieto en el primer marco; mientras cruza su linea (Desliz.EMBISTE),
+# los marcos de 'bucle' en bucle; al llegar, de 'levanta' al final a su ritmo. La hoja de la Cornada ya los trae: 0-1
+# a cuatro patas con los cuernos al frente, 2-7 se levanta y saca el hacha (el jefe: "la animacion de levantarse existe").
+const _EMBESTIDA_MARCOS := {"mino_cornada": {"bucle": [0, 1], "levanta": 2}}
 
 func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: bool = false,
 		sostener: bool = false) -> void:
@@ -5977,8 +6045,13 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 		cuerpo.set_meta("lado_basico", 1.0 if der else -1.0)
 		if der:
 			base = "basico_der"
-	# Las que van A SU RITMO digan lo que digan los golpes (_GESTO_A_SU_RITMO).
-	if base in _GESTO_A_SU_RITMO:
+	# LA EMBESTIDA con su hoja en tramos (_EMBESTIDA_MARCOS): la lleva _tick_gestos_bicho marco a marco.
+	var emb: Dictionary = {} if encaje else _embestida_en_curso(c)
+	if not emb.is_empty() and _EMBESTIDA_MARCOS.has(base) and _gesto_embestida(c, cuerpo, base, emb, partes, sostener):
+		return
+	# Las que van A SU RITMO digan lo que digan los golpes (_GESTO_A_SU_RITMO). Salvo embistiendo: entonces su gesto
+	# dura lo que tarda en cruzar (CombatFX.alargar_embestida).
+	if base in _GESTO_A_SU_RITMO and emb.is_empty():
 		dur = -1.0
 	var natural: float = _poner_anim_bicho(cuerpo, base, dur, not encaje)
 	if natural < 0.0:
@@ -5986,6 +6059,52 @@ func gesto_bicho_en_mapa(c: Combatant, pide: StringName, dur: float, encaje: boo
 	cuerpo.set_meta("gesto_pelea", true)
 	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(dur if dur > 0.0 else natural, 0.2), "encaje": encaje,
 		"cola": partes.slice(1) if not encaje else PackedStringArray(), "sostener": sostener}
+
+
+# Su embestida pendiente o en curso (el desliz EMBISTE que acaba de pedir, aqui o leido por red), o {}.
+func _embestida_en_curso(c: Combatant) -> Dictionary:
+	for d in _deslices:
+		if d["c"] == c and int(d["modo"]) == Desliz.EMBISTE:
+			return d
+	return {}
+
+
+# Arranca la embestida en tres tramos (ver _EMBESTIDA_MARCOS). false = no tiene la hoja (hace la de siempre).
+func _gesto_embestida(c: Combatant, cuerpo: Node2D, base: String, emb: Dictionary, partes: PackedStringArray,
+		sostener: bool) -> bool:
+	if _poner_anim_bicho(cuerpo, base, -1.0, false) < 0.0:
+		return false
+	var sp: AnimatedSprite2D = cuerpo.get("_sprite")
+	var escala: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	var fps: float = maxf(sp.sprite_frames.get_animation_speed(sp.animation), 0.1) * maxf(escala, 0.05)
+	var n: int = sp.sprite_frames.get_frame_count(sp.animation)
+	var m: Dictionary = _EMBESTIDA_MARCOS[base]
+	var imp: float = _pantalla._fx.t_al_impacto(_pantalla._bloque_de(c)) if _pantalla._fx != null else 0.0
+	var cruza: float = _dur_desliz(emb)
+	var levanta: float = float(n - int(m["levanta"])) / fps
+	sp.speed_scale = 0.0
+	sp.frame = int(m["bucle"][0])
+	cuerpo.set_meta("gesto_pelea", true)
+	_gestos_bicho[cuerpo] = {"t": 0.0, "dur": maxf(imp, 0.0) + cruza + levanta, "encaje": false,
+		"cola": partes.slice(1), "sostener": sostener,
+		"marcos": {"imp": maxf(imp, 0.0), "cruza": cruza, "fps": fps, "n": n, "bucle": m["bucle"],
+			"levanta": int(m["levanta"])}}
+	return true
+
+
+# El marco de la embestida en tramos a los 't' segundos de su gesto.
+func _marco_embestida(sp: AnimatedSprite2D, m: Dictionary, t: float) -> void:
+	var a: int = int(m["bucle"][0])
+	var b: int = int(m["bucle"][1])
+	var fps: float = float(m["fps"])
+	var f: int = a
+	if t >= float(m["imp"]) + float(m["cruza"]):
+		f = mini(int(m["levanta"]) + int((t - float(m["imp"]) - float(m["cruza"])) * fps), int(m["n"]) - 1)
+	elif t >= float(m["imp"]):
+		f = a + int((t - float(m["imp"])) * fps) % (b - a + 1)
+	sp.speed_scale = 0.0
+	if sp.frame != f:
+		sp.frame = f
 
 
 func _tiene_anim_bicho(cuerpo: Node2D, base: String) -> bool:
@@ -6031,6 +6150,8 @@ func _tick_gestos_bicho(delta: float) -> void:
 			continue
 		var g: Dictionary = _gestos_bicho[cuerpo]
 		g["t"] = float(g["t"]) + delta
+		if g.has("marcos") and cuerpo.get("_sprite") is AnimatedSprite2D:
+			_marco_embestida(cuerpo.get("_sprite"), g["marcos"], float(g["t"]))
 		if float(g["t"]) < float(g["dur"]):
 			continue
 		# La siguiente de la cadena, a su ritmo.
