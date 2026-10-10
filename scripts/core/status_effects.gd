@@ -61,6 +61,12 @@ const VENENO_MAX_STACKS := 5
 # Sangrado: APILABLE. Cada stack = fraccion BAJA del ATAQUE del aplicador (no 1:1);
 # machacar con armas cortantes sube el daño total (dot = magnitud x stacks). PROVISIONAL.
 const SANGRADO_FRACCION_ATK := 0.30
+# (10/10, el jefe tras el playtest del 09/10: "aunque la armadura reduzca el daño que recibo los sangrados hacen daño fijo
+# de el ataque de el enemigo; en el minotauro mete un daño que no tiene ningun puto sentido"). Ahora el sangrado, como el
+# fuego, sale del GOLPE REAL que lo abre (lo que de verdad te ha quitado, ya con defensa, armadura y bloqueo): un golpe
+# flojo, sangrado flojo. Por turno, el 15 % (el fuego, el 30 %): uno solo hace menos que el fuego, pero dura 3 turnos y
+# se APILA hasta 5 ("si uno dura mas ya son diferentes a su manera"). SANGRADO_FRACCION_ATK queda para cuando no hay golpe.
+const SANGRADO_FRACCION_GOLPE := 0.15
 const SANGRADO_TURNS := 3
 const SANGRADO_MAX_STACKS := 5
 
@@ -81,9 +87,9 @@ const SANGRADO_MAX_STACKS := 5
 const SANGRADO_MV_EXP := 0.3
 
 # EL FUEGO (06/10, criterio del jefe: "el fuego es un poco random... deberiamos poner un criterio"). Antes la Quemadura
-# hacia 6 fijos (o 4-12 fijos en las magias), la pusiera quien la pusiera. Ahora ARDE UN % DEL GOLPE QUE LA PRENDE (lo
-# que pega ese golpe sobre el papel: el ataque de quien pega por el multiplicador de la habilidad, o el daño de la magia);
-# si no hay golpe (una pasiva, un charco), del ataque de quien la pone. Una daga con fuego quema poco y un martillo mucho.
+# hacia 6 fijos (o 4-12 fijos en las magias), la pusiera quien la pusiera. Ahora ARDE UN % DEL GOLPE QUE LA PRENDE: desde
+# el 10/10 el golpe REAL (lo que de verdad le quita, ver Combatant.golpe_de_ahora; antes, el de sobre el papel); sin golpe
+# real a mano, el de sobre el papel; y si no hay golpe (una pasiva, un charco), del ataque de quien la pone. Una daga con fuego quema poco y un martillo mucho.
 # NO SE SUMAN (modo "brasas"): cada quemadura va por su cuenta con sus turnos y cada turno arde SOLO LA MAS FUERTE; las
 # flojas se van gastando a la vez por debajo. Su ejemplo: turno 1 un fuego de 8, turno 2 uno de 3 -> arde el 8; turno 3
 # se va el 8 y arde el 3 (le queda uno); turno 4, nada.
@@ -176,13 +182,44 @@ static func es_control(id: int) -> bool:
 # (>=0) se usa esa; si es Sangrado sin magnitud, escala con el ataque del aplicador
 # (con el motion_value del arma invertido, ver sangrado_magnitude); si no, -1 (que
 # apply_status traduce al dot_default del catalogo).
-static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0, golpe: float = -1.0) -> float:
+# 'objetivo' = a quien se le pone: si acaba de encajar un golpe (Combatant.golpe_de_ahora), el sangrado y el fuego salen
+# de ESE golpe, el real (magnitud_del_golpe).
+static func app_magnitude(app, applier_atk: float, motion_value: float = 1.0, golpe: float = -1.0, objetivo = null) -> float:
 	var m: float = float(app.magnitud)
 	if m >= 0.0:
 		return m
+	var frac: float = float(app.get("fraccion_golpe")) if app.get("fraccion_golpe") != null else -1.0
+	var real: float = magnitud_del_golpe(int(app.estado), objetivo, frac)
+	if real >= 0.0:
+		return real
 	if int(app.estado) == Id.SANGRADO:
 		return sangrado_magnitude(applier_atk, motion_value)
 	return magnitud_por_golpe(int(app.estado), applier_atk, golpe)
+
+
+# EL SANGRADO Y EL FUEGO DEL GOLPE REAL (10/10): el % (el de la ficha, 'frac' >= 0, o el del catalogo) de lo que el golpe
+# que los prende le acaba de quitar a 'objetivo'. -1 si no es de esos o si no viene de un golpe (una pasiva, un charco).
+static func magnitud_del_golpe(id: int, objetivo, frac: float = -1.0) -> float:
+	if objetivo == null or not objetivo.has_method("golpe_de_ahora"):
+		return -1.0
+	var base: float = float(objetivo.golpe_de_ahora())
+	if base < 0.0:
+		return -1.0
+	match id:
+		Id.SANGRADO: return maxf(base * (frac if frac >= 0.0 else SANGRADO_FRACCION_GOLPE), 0.5)
+		Id.QUEMADURA: return maxf(base * (frac if frac >= 0.0 else QUEMADURA_FRACCION), 0.5)
+		Id.RESCOLDO: return maxf(base * (frac if frac >= 0.0 else RESCOLDO_FRACCION), 0.5)
+	return -1.0
+
+
+# Para los que no traen StatusApplication (la imbuicion, los refuerzos): del golpe real si lo hay; si no, como siempre.
+static func magnitud_de(id: int, applier_atk: float, golpe: float, objetivo, motion_value: float = 1.0) -> float:
+	var real: float = magnitud_del_golpe(id, objetivo)
+	if real >= 0.0:
+		return real
+	if id == Id.SANGRADO:
+		return sangrado_magnitude(applier_atk, motion_value)
+	return magnitud_por_golpe(id, applier_atk, golpe)
 
 
 # De una lista de instancias: para cada estado "brasas" (Quemadura, Rescoldo), la que ARDE (la mas fuerte). Las demas
@@ -237,7 +274,7 @@ static var _defs: Dictionary = {
 		"dot": true, "turns": SANGRADO_TURNS,   # magnitud/stack = escala con el aplicador
 		"stack_mode": "independent", "max_stacks": SANGRADO_MAX_STACKS,
 		"debuff": true,
-		"descripcion": "Una herida abierta que no espera. Cuanto más fuerte el que corta, más se abre; y cada corte sangra por su cuenta.",
+		"descripcion": "Una herida abierta que no espera. Cuanto más hondo entra el corte, más sangra; y cada corte sangra por su cuenta.",
 	},
 	Id.QUEMADURA: {
 		"id": Id.QUEMADURA, "nombre": "Quemadura", "icono": "🔥", "color": Color(1.0, 0.5, 0.1),

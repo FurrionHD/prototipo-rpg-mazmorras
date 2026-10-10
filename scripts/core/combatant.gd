@@ -881,7 +881,7 @@ func roll_imbue(target: Combatant) -> String:
 		return ""
 	for _s in stacks:
 		# duracion/magnitud por defecto del catalogo; el tope, el de la imbuicion
-		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_por_golpe(imbue_estado, atk(), atk())), 1, false, imbue_tope)
+		target.apply_status(imbue_estado, runa_turnos(imbue_estado, -1), runa_mag(imbue_estado, StatusEffects.magnitud_de(imbue_estado, atk(), atk(), target, motion_value)), 1, false, imbue_tope)
 	var nom: String = String(StatusEffects.def(imbue_estado).get("nombre", "?"))
 	var txt: String = nom if stacks == 1 else "%s x%d" % [nom, stacks]
 	# EL SEGUNDO ESTADO (unturas): solo si el primero ha entrado, y con su propia tirada contra su Resistencia.
@@ -890,7 +890,7 @@ func roll_imbue(target: Combatant) -> String:
 			StatsMath.imbue_proc_chance(imbue_extra_prob, stat, rival, imbue_por_destreza),
 			self, target, imbue_extra_estado)
 		if randf() < pe:
-			target.apply_status(imbue_extra_estado, runa_turnos(imbue_extra_estado, -1), runa_mag(imbue_extra_estado, StatusEffects.magnitud_por_golpe(imbue_extra_estado, atk(), atk())))
+			target.apply_status(imbue_extra_estado, runa_turnos(imbue_extra_estado, -1), runa_mag(imbue_extra_estado, StatusEffects.magnitud_de(imbue_extra_estado, atk(), atk(), target, motion_value)))
 			txt += ", " + String(StatusEffects.def(imbue_extra_estado).get("nombre", "?"))
 	return txt
 
@@ -1043,8 +1043,21 @@ func salir_de_guardia() -> void:
 func is_alive() -> bool:
 	return current_hp > 0.0
 
+# EL GOLPE QUE ACABA DE ENCAJAR (10/10): lo que de verdad le ha quitado el ultimo golpe directo (ya con defensa, armadura,
+# bloqueo, escudos), y en que fotograma. El sangrado y el fuego que entran CON ese golpe arden un % de el
+# (StatusEffects.magnitud_del_golpe): todo golpe pasa por aqui y sus estados se tiran en el mismo fotograma, justo despues.
+var _golpe_recibido: float = -1.0
+var _golpe_frame: int = -1
+
+func golpe_de_ahora() -> float:
+	return _golpe_recibido if _golpe_frame == Engine.get_process_frames() else -1.0
+
+
 func take_damage(amount: float, es_dot: bool = false) -> void:
 	if invulnerable:
+		if not es_dot:
+			_golpe_recibido = maxf(amount, 0.0)
+			_golpe_frame = Engine.get_process_frames()
 		return   # modo prueba: no pierde vida (el daño recibido se loguea igual)
 	# Escudo del sequito (Rey Slime): solo tapa el daño DIRECTO (magia/golpes). El DoT (veneno,
 	# quemadura) pega limpio -> los estados son la via para saltarse el escudo. Cero para todos
@@ -1066,6 +1079,9 @@ func take_damage(amount: float, es_dot: bool = false) -> void:
 				print("[runas] %s: se rompe su escudo de agua" % nombre)
 	else:
 		amount *= 1.0 - clampf(runa_menos_dot, 0.0, 0.9)
+	if not es_dot:
+		_golpe_recibido = maxf(amount, 0.0)
+		_golpe_frame = Engine.get_process_frames()
 	current_hp = maxf(0.0, current_hp - amount)
 
 # Cura vida SIN pasarse del maximo (pociones / Regeneración). No revive (si estas a 0
@@ -2176,7 +2192,7 @@ func roll_on_hit(target: Combatant) -> Array:
 			target.anotar_intento_estado(self, a.estado, false)
 			continue
 		target.anotar_intento_estado(self, a.estado, true)
-		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value, atk())   # sangrado escala con MI ataque (mv invertido); el fuego, con el golpe
+		var mag: float = StatusEffects.app_magnitude(a, atk(), motion_value, atk(), target)   # del golpe real que acaba de encajar
 		# N stacks por tirada, igual que la rama de habilidades enemigas. Antes se aplicaba
 		# siempre 1 e ignoraba a.stacks: hoy ningun on_hit lo usa, pero el dia que se ponga
 		# tiene que hacer lo que dice el dato y no fallar en silencio.
@@ -2204,8 +2220,7 @@ func tirar_refuerzo(target: Combatant, golpe: float) -> Array:
 			target.anotar_intento_estado(self, est, false)
 			continue
 		target.anotar_intento_estado(self, est, true)
-		var mag: float = StatusEffects.sangrado_magnitude(atk(), motion_value) if est == StatusEffects.Id.SANGRADO \
-			else StatusEffects.magnitud_por_golpe(est, atk(), golpe)
+		var mag: float = StatusEffects.magnitud_de(est, atk(), golpe, target, motion_value)
 		target.apply_status(est, runa_turnos(est, -1), runa_mag(est, mag))
 		out.append(str(StatusEffects.def(est).get("nombre", "?")))
 	return out
