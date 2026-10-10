@@ -117,6 +117,9 @@ func avisar_combate(peleando: bool) -> void:
 func _set_peleando(emisor: int, peleando: bool) -> void:
 	if Net._peers.has(emisor):
 		Net._peers[emisor]["peleando"] = peleando
+	# Deja de pelear: su zona deja de pintarse en mi suelo (ver Game.zona_ajena).
+	if not peleando:
+		Game.zona_ajena_cerrada(emisor)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -128,6 +131,82 @@ func _rel_peleando(peleando: bool) -> void:
 	for pid in Net._peers:
 		if pid != de:
 			_set_peleando.rpc_id(pid, de, peleando)
+
+
+# --- LA PELEA DE UN COMPAÑERO, VISTA DESDE FUERA (11/10, lo pidio el usuario) ------------------
+# Dos avisos, con el mismo molde que avisar_combate (el cliente pasa por el host y el host reparte a
+# los de SU MISMO LUGAR; a los trabajadores no, que no tienen jugador):
+#   IMPACTO  me acaban de pegar (o he pegado): el que este cerca se queda QUIETO en ese momento, a la
+#            espera de saber si la zona le pilla dentro (ver Game.impacto_ajeno).
+#   ZONA     la forma de la pelea, en celdas: se pinta en su suelo, le frena en la linea y, si estaba
+#            quieto por el impacto y le pilla dentro, entra solo (ver Game.zona_ajena).
+func avisar_impacto(pos: Vector2) -> void:
+	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+		return
+	if Net.es_host:
+		_repartir_impacto(Net._mi_id(), pos)
+	else:
+		_rel_impacto.rpc_id(1, pos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_impacto(pos: Vector2) -> void:
+	if Net.es_host:
+		_repartir_impacto(multiplayer.get_remote_sender_id(), pos)
+
+
+func _repartir_impacto(de: int, pos: Vector2) -> void:
+	var lugar: String = _lugar_de(de)
+	if de != Net._mi_id() and Net._mi_lugar == lugar:
+		Game.impacto_ajeno(de, pos)
+	for pid in Net._peers:
+		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
+			_impacto.rpc_id(pid, de, pos)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _impacto(de: int, pos: Vector2) -> void:
+	Game.impacto_ajeno(de, pos)
+
+
+# 'anfitrion' = quien EJECUTA la pelea (yo, o el trabajador/compañero cuyo espejo veo): es a quien se
+# le pide entrar. La forma va como el roster: [x, y, ancho, alto] en celdas y la mascara.
+func anunciar_zona(anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
+	if not Net.activo or Net.soy_trabajador or multiplayer.multiplayer_peer == null:
+		return
+	var r: Array = [rect.position.x, rect.position.y, rect.size.x, rect.size.y]
+	if Net.es_host:
+		_repartir_zona(Net._mi_id(), anfitrion, r, mascara)
+	else:
+		_rel_zona.rpc_id(1, anfitrion, r, mascara)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rel_zona(anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
+	if Net.es_host:
+		_repartir_zona(multiplayer.get_remote_sender_id(), anfitrion, r, mascara)
+
+
+func _repartir_zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
+	var lugar: String = _lugar_de(de)
+	if de != Net._mi_id() and Net._mi_lugar == lugar:
+		_zona(de, anfitrion, r, mascara)
+	for pid in Net._peers:
+		if pid != de and not Net.es_trabajador(pid) and Net._peers[pid].get("lugar", "") == lugar:
+			_zona.rpc_id(pid, de, anfitrion, r, mascara)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _zona(de: int, anfitrion: int, r: Array, mascara: PackedByteArray) -> void:
+	if r.size() != 4:
+		return
+	Game.zona_ajena(de, anfitrion, Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])), mascara)
+
+
+func _lugar_de(peer: int) -> String:
+	if peer == Net._mi_id():
+		return Net._mi_lugar
+	return str(Net._peers.get(peer, {}).get("lugar", ""))
 
 
 # --- PIEDRA DE RETORNO: el viaje es COMPARTIDO ----------------------------------------------

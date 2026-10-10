@@ -481,7 +481,10 @@ func _physics_process(delta: float) -> void:
 		direction = Vector2.ZERO
 
 	velocity = direction * speed
+	var antes_de_andar: Vector2 = global_position
 	move_and_slide()
+	# LA LINEA DE LA PELEA DE OTRO te frena (y al tocarla te pregunta si entras): ver Game.frenar_en_zonas_ajenas.
+	Game.frenar_en_zonas_ajenas(self, antes_de_andar)
 
 	# La animacion va DESPUES de mover, con lo que de verdad ha pasado. Puesta antes, un personaje
 	# empotrado contra una pared seguiria haciendo el paso: se mueve el que EMPUJA, no el que avanza.

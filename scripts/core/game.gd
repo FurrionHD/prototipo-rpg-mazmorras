@@ -1214,6 +1214,11 @@ func _forma_de_arena(enemy_nodes: Array, con_log: bool = false) -> Dictionary:
 		if not _puntos_arena_fichas.is_empty() and is_instance_valid(a) and a.is_in_group("player"):
 			continue   # el fantasma del trabajador (ver arriba): tambien esta en "aliado"
 		if is_instance_valid(a) and a is Node2D and (a as Node2D).global_position.distance_to(semilla) <= ALIADOS_EN_ZONA:
+			# EL DE OTRO JUGADOR (su avatar o sus compañeros, con 'peer_id'), SOLO SI SE LE VE desde donde empieza
+			# la pelea (11/10): ahora estar dentro de la zona le mete en la pelea, y el de la sala de al lado,
+			# tras el muro, no puede acabar dentro por estar a menos de 320 px.
+			if a.has_meta("peer_id") and not ArenaCalculo.linea_por_suelo(piso.gen, semilla, (a as Node2D).global_position):
+				continue
 			dentro.append((a as Node2D).global_position)
 			quien.append("aliado %s" % a.name)
 	# La sala se RECORTA a lo pedido, en la arena de pruebas y en la mazmorra (08/10: la sala entera llegaba a 27x18). Y
@@ -1306,6 +1311,192 @@ func pelea_tactica_en_curso() -> bool:
 	return is_instance_valid(_arena_nodo)
 
 
+# ============================================================
+#  LAS PELEAS DE LOS DEMAS, VISTAS DESDE FUERA (multi, 11/10/2026, lo pidio el usuario)
+#
+#  1) AL IMPACTO: cuando a un compañero le pega un enemigo (o pega el), el que este cerca y a la vista se
+#     queda QUIETO en ese mismo momento (impacto_ajeno). Cuando llega la zona de esa pelea: si le pilla
+#     DENTRO, entra solo, con su grupo (Net.peleas.solicitar_unirse, el camino de unirse de siempre); si
+#     no, se le suelta.
+#  2) DESDE FUERA: la zona se pinta en su suelo (ArenaCombate.ajena) y la linea le FRENA. Al chocar se le
+#     pregunta si entra: con Si entra por ahi; con No sigue frenado, y se le vuelve a preguntar si se
+#     despega y vuelve a chocar.
+#  Es una EXCEPCION a "a una pelea ajena se entra pulsando" (14/09), pedida por el: entrar sin querer
+#  sigue sin pasar -- o te pilla dentro al empezar, o dices que si.
+# ============================================================
+
+# {anfitrion: {"rect": Rect2i, "mascara": PackedByteArray, "de": {emisor: true}, "nodo": ArenaCombate}}.
+# 'anfitrion' es quien EJECUTA la pelea (a quien se le pide entrar) y 'de' los jugadores que la anuncian:
+# se borra cuando ya no la anuncia ninguno. El nodo se monta cuando hay piso (puede llegar antes que el).
+var _zonas_ajenas: Dictionary = {}
+# El jugador cuyo IMPACTO me ha dejado quieto (0 = ninguno): su zona dira si entro o me suelto.
+var _impacto_de: int = 0
+# MI zona, para volver a anunciarla al que llegue a mi piso con la pelea ya empezada.
+var _mi_zona: Dictionary = {}
+var _pregunta_pelea: Node = null
+
+
+func avisar_impacto(pos: Vector2) -> void:
+	if Net.activo:
+		Net.jugadores.avisar_impacto(pos)
+
+
+func impacto_ajeno(emisor: int, pos: Vector2) -> void:
+	if _active_layer != null or combate_activo() or Net.peleas.ocupado_en_pelea() or entrando_en_pelea():
+		return
+	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	if yo == null or piso == null or piso.get("gen") == null:
+		return
+	# La misma vara que estira la zona hasta los que empiezan la pelea (ver _forma_de_arena).
+	if yo.global_position.distance_to(pos) > ALIADOS_EN_ZONA \
+			or not ArenaCalculo.linea_por_suelo(piso.gen, yo.global_position, pos):
+		return
+	marcar_entrando_en_pelea()
+	_impacto_de = emisor
+	print("[zona ajena] el golpe de %d me deja quieto: espero su zona" % emisor)
+
+
+func zona_ajena(emisor: int, anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
+	if anfitrion == Net._mi_id() or not rect.has_area():
+		return
+	# Cada jugador esta en UNA pelea: si antes anunciaba otra, ya no.
+	_quitar_de_zonas(emisor, anfitrion)
+	var z: Dictionary = _zonas_ajenas.get(anfitrion, {})
+	if z.is_empty() or z["rect"] != rect or z["mascara"] != mascara:
+		if not z.is_empty():
+			_quitar_nodo_zona(z)
+		z = {"rect": rect, "mascara": mascara, "de": z.get("de", {}), "nodo": null}
+		_zonas_ajenas[anfitrion] = z
+	(z["de"] as Dictionary)[emisor] = true
+	_montar_zonas_ajenas()
+	if _impacto_de != emisor:
+		return
+	_impacto_de = 0
+	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	if yo != null and entrando_en_pelea() \
+			and ArenaCalculo.en_forma(rect, mascara, ArenaCalculo.celda_de_px(yo.global_position)):
+		print("[zona ajena] me pilla dentro de la pelea de %d: entro con mi grupo" % anfitrion)
+		Net.peleas.solicitar_unirse(anfitrion)
+	elif _active_layer == null:
+		soltar_entrando_en_pelea()
+
+
+func zona_ajena_cerrada(emisor: int) -> void:
+	_quitar_de_zonas(emisor, 0)
+	if _impacto_de == emisor:
+		_impacto_de = 0
+		if _active_layer == null:
+			soltar_entrando_en_pelea()
+
+
+func _quitar_de_zonas(emisor: int, salvo: int) -> void:
+	for a in _zonas_ajenas.keys():
+		if a == salvo:
+			continue
+		var z: Dictionary = _zonas_ajenas[a]
+		(z["de"] as Dictionary).erase(emisor)
+		if (z["de"] as Dictionary).is_empty():
+			_quitar_nodo_zona(z)
+			_zonas_ajenas.erase(a)
+
+
+func _quitar_nodo_zona(z: Dictionary) -> void:
+	var n = z.get("nodo")   # SIN tipar: puede estar ya liberado (cambio de piso)
+	if n != null and is_instance_valid(n):
+		n.queue_free()
+	z["nodo"] = null
+
+
+# Al viajar: las zonas eran del piso de antes. Las del piso nuevo me las vuelven a anunciar al llegar
+# (ver reanunciar_mi_zona, desde Net._cambiar_lugar).
+func olvidar_zonas_ajenas() -> void:
+	for a in _zonas_ajenas:
+		_quitar_nodo_zona(_zonas_ajenas[a])
+	_zonas_ajenas.clear()
+	_impacto_de = 0
+
+
+# Cuelga del piso las zonas que aun no tengan nodo, y las esconde mientras peleo yo (ya tengo la mia).
+func _montar_zonas_ajenas() -> void:
+	if _zonas_ajenas.is_empty():
+		return
+	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
+	var mia: bool = pelea_tactica_en_curso()
+	for a in _zonas_ajenas:
+		var z: Dictionary = _zonas_ajenas[a]
+		var n = z.get("nodo")
+		if n == null or not is_instance_valid(n):
+			if piso == null:
+				continue
+			var arena: ArenaCombate = ArenaCombate.montar(piso, z["rect"], z["mascara"])
+			if arena == null:
+				continue
+			arena.ajena = true
+			arena.jugador_pregunta.connect(_preguntar_entrar.bind(int(a)))
+			z["nodo"] = arena
+			n = arena
+		n.visible = not mia
+
+
+# EL FRENO DE LA LINEA, cada paso del jugador (player._physics_process, despues de moverse): si el paso
+# le ha metido en la zona de una pelea ajena, vuelve atras (o resbala a lo largo); y si toca el borde,
+# la zona emite la pregunta.
+func frenar_en_zonas_ajenas(cuerpo: Node2D, antes: Vector2) -> void:
+	if _zonas_ajenas.is_empty() or cuerpo == null or _active_layer != null:
+		return
+	_montar_zonas_ajenas()
+	for a in _zonas_ajenas:
+		var n = _zonas_ajenas[a].get("nodo")
+		if n == null or not is_instance_valid(n):
+			continue
+		cuerpo.global_position = (n as ArenaCombate).frenar(antes, cuerpo.global_position)
+		(n as ArenaCombate).vigilar([cuerpo])
+
+
+func hay_zona_ajena(anfitrion: int) -> bool:
+	return _zonas_ajenas.has(anfitrion)
+
+
+func _preguntar_entrar(_cuerpo: Node2D, anfitrion: int) -> void:
+	if (_pregunta_pelea != null and is_instance_valid(_pregunta_pelea)) or _active_layer != null or hay_modal():
+		return
+	var quien: String = "un compañero"
+	for e in (_zonas_ajenas.get(anfitrion, {}).get("de", {}) as Dictionary):
+		quien = str(Net._peers.get(e, {}).get("nombre", quien))
+		break
+	_pregunta_pelea = preload("res://scripts/ui/pregunta_pelea.gd").new()
+	_pregunta_pelea.preparar(quien, anfitrion)
+	get_tree().root.add_child(_pregunta_pelea)
+
+
+# Dijo que SI: quieto mientras le contestan y por el camino de unirse de siempre. Entra por donde esta (al
+# borde): la pelea mete andando hasta dentro a los que empiezan fuera (combat_tactico._entrar_andando).
+func entrar_en_pelea_ajena(anfitrion: int) -> void:
+	if not _zonas_ajenas.has(anfitrion):
+		return
+	marcar_entrando_en_pelea()
+	Net.peleas.solicitar_unirse(anfitrion)
+
+
+# MI zona, a los de mi piso. 'anfitrion' = quien ejecuta mi pelea (yo, o el trabajador/compañero cuyo
+# espejo veo): es a quien le pediran entrar.
+func anunciar_mi_zona(anfitrion: int) -> void:
+	if not Net.activo or not pelea_tactica_en_curso() or _active_layer == null or _active_layer.get_child_count() == 0:
+		return
+	var combat: Node = _active_layer.get_child(0)
+	var rect: Rect2i = combat.get("arena_celdas")
+	if not rect.has_area():
+		return
+	_mi_zona = {"anfitrion": anfitrion, "rect": rect, "mascara": combat.get("arena_mascara")}
+	Net.jugadores.anunciar_zona(anfitrion, rect, _mi_zona["mascara"])
+
+
+func reanunciar_mi_zona() -> void:
+	if not _mi_zona.is_empty() and pelea_tactica_en_curso():
+		Net.jugadores.anunciar_zona(int(_mi_zona["anfitrion"]), _mi_zona["rect"], _mi_zona["mascara"])
+
+
 # QUE CUERPO DEL MAPA LLEVA A ESTE PERSONAJE MIO: 0 = el lider (el jugador), k = el compañero k-1 en
 # el orden de companeros(), que es el orden en que viajan las posiciones del sequito por la red.
 # -1 = no va en el grupo. Es la "direccion" con la que los demas encuentran su cuerpo (ver
@@ -1369,6 +1560,7 @@ func _montar_arena_tactica(rect_celdas: Rect2i, mascara: PackedByteArray = Packe
 	if _arena_nodo != null:
 		# La arena tiene que seguir viva y pintando con el arbol en pausa, igual que la pantalla.
 		_arena_nodo.process_mode = Node.PROCESS_MODE_ALWAYS
+	_montar_zonas_ajenas()   # las de los demas se esconden mientras peleo
 
 	# Y SE DESPEJA LA MESA: mientras peleas en el mapa, lo unico que se mira es el tablero.
 	_despejar_para_tactico(true)
@@ -1510,6 +1702,8 @@ func _desmontar_arena_tactica() -> void:
 	if is_instance_valid(_arena_nodo):
 		_arena_nodo.queue_free()
 	_arena_nodo = null
+	_mi_zona = {}
+	_montar_zonas_ajenas()   # y vuelven a verse (si me he ido de una que sigue, la veo desde fuera)
 	_despejar_para_tactico(false)
 	var cam: Camera2D = _camara_guardada.get("cam") as Camera2D
 	if is_instance_valid(cam):
@@ -15345,6 +15539,9 @@ func _abrir_pelea(enemy_nodes: Array, enemy_initiated: bool, pjs: Array) -> bool
 	# LA ARENA, despues de colgar la pantalla: se dibuja en el suelo del piso, no en la pantalla.
 	if es_tactico:
 		_montar_arena_tactica(rect_arena, combat.arena_mascara)
+		# Y a los de mi piso: la ven desde fuera, y el que se quedo quieto al impacto entra si le pilla dentro.
+		if Net.activo and not Net.soy_trabajador:
+			anunciar_mi_zona(Net._mi_id())
 	_montaje_ms = 0   # ya hay pantalla: el destrabe puede volver a vigilar
 	# El hechizo con el que has ABIERTO la pelea desde el mapa (ver player._impacto_conjuro): se
 	# resuelve dentro, contra el bicho al que le diste, antes del primer turno.

@@ -95,12 +95,14 @@ func _ready() -> void:
 			print("[dev] mi turno (%s): ando %.1f px (radio %.1f)" % [tm._quien.nombre, d, tm._radio])
 			st["yo"] = maxf(float(st["yo"]), d)
 			pulsar(3)
+	# (11/10) B esta a mi lado: la zona le pilla dentro y entra SOLO al empezar (Game.zona_ajena), asi que puede
+	# estar ya dentro antes de contar. Se mira que este, no que entre despues.
 	t = 0.0
-	while p._aliados.size() <= aliados_antes and t < 40.0:
+	while not _b_en_pelea(p) and t < 40.0:
 		await turno_mio.call()
 		await _esperar(0.25)
 		t += 0.25
-	_ok(p._aliados.size() > aliados_antes, "B se une a la pelea (%.1f s)" % t)
+	_ok(_b_en_pelea(p), "B se une a la pelea (%.1f s; aliados al abrir %d)" % [t, aliados_antes])
 	_ok(await _dato_de_b("espejo_tactico", 20.0) == 1, "B ve la pelea EN EL MAPA (su espejo es tactico)")
 
 	# 2b) LO QUE ESTA DENTRO DE LA ARENA, PELEA: aparece un slime en una esquina de la arena, lejos de todos.
@@ -199,6 +201,15 @@ func _vigilar_cuerpos_b(p: Node) -> void:
 					Time.get_ticks_msec() - t0, c.nombre, ahora, comps.size(),
 					int(Net._peers.get(_b(), {}).get("comps", []).size())])
 		await get_tree().process_frame
+
+
+func _b_en_pelea(p: Node) -> bool:
+	if not is_instance_valid(p):
+		return false
+	for fila in p.turno_mapa.roster_red.get("aliados", []):
+		if int((fila as Dictionary).get("peer", 0)) == _b():
+			return true
+	return false
 
 
 func _b() -> int:

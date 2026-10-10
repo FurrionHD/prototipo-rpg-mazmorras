@@ -496,6 +496,7 @@ func _lanzar_peticion() -> void:
 		Net.peleas.unirme_a_la_pelea_de(get_meta("net_id"))
 		return
 	Game.marcar_entrando_en_pelea()   # le he pegado: quieto hasta que se abra (o me digan que no)
+	Game.avisar_impacto(global_position)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 	Net.peleas.solicitar_pelea(get_meta("net_id"))
 
 
