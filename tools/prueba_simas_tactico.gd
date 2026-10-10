@@ -295,6 +295,8 @@ func _probar_pasiva(combat, t, e, al: Array, estado: int, que: String) -> void:
 	quien.quitar_estado(estado)
 	var veces: int = 0
 	for _k in 80:
+		# UNA TIRADA POR ACCION (09/10, Combat._pasiva_hecha): cada vuelta es un golpe de otra accion.
+		combat._pasiva_hecha.clear()
 		combat._pasiva_al_golpearle(e, quien)
 		veces += 1
 		if quien.has_status(estado):
@@ -304,6 +306,7 @@ func _probar_pasiva(combat, t, e, al: Array, estado: int, que: String) -> void:
 	_colocar(t, al, [pe + Vector2(160, 0), pe + Vector2(-240, 60)])
 	await _esperar(2)
 	for _k in 80:
+		combat._pasiva_hecha.clear()
 		combat._pasiva_al_golpearle(e, quien)
 	_ver(not quien.has_status(estado), "y de lejos nunca")
 	quien.quitar_estado(estado)
