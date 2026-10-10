@@ -405,6 +405,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 		# QUIETO YA (playtest 08/10): hasta que el trabajador conteste pasan varios saltos de red, y te daba tiempo a
 		# irte andando; luego la pelea te pillaba fuera de la zona. Se suelta solo al abrirse la pantalla.
 		Game.marcar_entrando_en_pelea()
+		_avisar_impacto_de(ids)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 		_fichas_mandadas_a = ejecutor
 		_fichas_ids = ids.duplicate()
 		_fichas_emboscada = emboscada
@@ -435,6 +436,7 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 					nr.reanudar_tras_combate(-1.0)
 			return
 		if not reales.is_empty():
+			_avisar_impacto_de(ids)
 			dentro = Game.start_combat(reales, emboscada)
 		if not dentro:
 			for nr in reales:
@@ -471,8 +473,27 @@ func _llega_pelea(ids: Array, emboscada: bool, anfitrion: int, ejecutor: int) ->
 	# _active_layer delante y start_combat rechaza la pelea. En multi el mundo no se pausa, asi que
 	# esto pasa a menudo. Antes se ignoraba el rechazo y los bichos se quedaban reservados y
 	# congelados para siempre, "peleando" con nadie: el bug de las estatuas del playtest.
+	_avisar_impacto_de(ids)
 	if not Game.start_combat(nodos, emboscada):
 		_devolver_bichos(ids)
+
+
+# EL IMPACTO, a los de mi piso (11/10): donde esta el primer bicho de la pelea, o yo si no lo tengo aqui.
+func _avisar_impacto_de(ids: Array) -> void:
+	var pos := Vector2.INF
+	for i in ids:
+		var n = _nodo_de_id(int(i))
+		if n == null or not is_instance_valid(n):
+			n = Net.enemigos._enem_nodos.get(int(i))
+		if n != null and is_instance_valid(n) and n is Node2D:
+			pos = (n as Node2D).global_position
+			break
+	if pos == Vector2.INF:
+		var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+		if yo == null:
+			return
+		pos = yo.global_position
+	Game.avisar_impacto(pos)
 
 
 # EL TRABAJADOR SE HA IDO CON MIS FICHAS EN LA MANO (07/10, cabo suelto del 21/09): le mande mis fichas y se ha
@@ -819,6 +840,7 @@ func _anfitrion_perdido() -> void:
 func _cambio_de_anfitrion(id: int, roster: Dictionary) -> void:
 	_pelea_sigo = id
 	_pelea_anfitrion = multiplayer.get_remote_sender_id()
+	Game.anunciar_mi_zona(_pelea_anfitrion)   # a quien se le pide entrar ha cambiado
 	var p: Node = _pantalla_combate()
 	if p != null and p.has_method("aplicar_roster"):
 		p.aplicar_roster(roster)
@@ -1330,6 +1352,7 @@ func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
 	Game.soltar_casteo_en_vuelo()
 	_pelea_sigo = id
 	_pelea_anfitrion = multiplayer.get_remote_sender_id()
+	Game.anunciar_mi_zona(_pelea_anfitrion)   # los de mi piso la ven desde fuera (y entra el que pille dentro)
 	_mis_huecos.clear()
 	for i in mini(idxs.size(), _mis_en_pelea.size()):
 		_mis_huecos[int(idxs[i])] = _mis_en_pelea[i]

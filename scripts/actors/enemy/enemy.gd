@@ -2326,6 +2326,8 @@ func _start_combat(enemy_initiated: bool) -> void:
 		n.velocity = Vector2.ZERO
 		n._cancelar_aviso()
 	combat_started.emit(data, enemy_initiated)
+	# El compañero que este cerca se queda quieto en este mismo momento (ver Game.impacto_ajeno).
+	Game.avisar_impacto(global_position)
 	# RED DE SEGURIDAD: el grupo ya esta congelado, asi que si start_combat rechaza (aforo, nodos
 	# sin data, una carrera con otra pelea que se abrio en el mismo frame) hay que DESCONGELARLO.
 	# La guarda de hay_pelea_en_pantalla de arriba tapa el caso conocido, pero no los demas, y sin

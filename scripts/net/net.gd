@@ -124,7 +124,9 @@ const MAX_CONEXIONES := 32
 # 36 (10/10): embestidas que recorren su linea entera (Desliz.EMBISTE = 6), los provocados en la instantanea y el
 #     traspaso, sangrado/fuego del golpe real, y el enemigo que se aparta acaba fuera del area (otra resolucion).
 # 37 (10/10): las BARRAS de cada grupo para el otro jugador (Net.jugadores _rel_barras / _set_barras).
-const PROTOCOLO := 37
+# 38 (11/10): la pelea de otro vista desde fuera: el IMPACTO (quieto al golpe) y la ZONA (Net.jugadores _rel_impacto,
+#     _impacto, _rel_zona, _zona).
+const PROTOCOLO := 38
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0
@@ -699,6 +701,7 @@ func _mi_id() -> int:
 # (avatares y drops del lugar nuevo) cuando la escena nueva ya esta montada.
 func anunciar_lugar(lugar: String) -> void:
 	_mi_lugar = lugar
+	Game.olvidar_zonas_ajenas()   # las zonas de pelea de los demas eran del sitio de antes
 	if activo:
 		if es_host:
 			for pid in _peers:
@@ -718,6 +721,7 @@ func _cambiar_lugar(emisor: int, lugar: String) -> void:
 	if lugar == _mi_lugar:
 		if a == null or not is_instance_valid(a):
 			_crear_avatar_nodo(emisor)
+		Game.reanunciar_mi_zona()   # llega con mi pelea empezada: que la vea desde fuera
 	else:
 		if a != null and is_instance_valid(a):
 			a.queue_free()
