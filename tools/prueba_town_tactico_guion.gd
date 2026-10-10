@@ -138,6 +138,44 @@ func _ready() -> void:
 	_ok(bicho_max > 5.0, "veo andar a los bichos que mueve el trabajador (%.1f px)" % bicho_max)
 	_ok(b_max > 10.0, "veo andar a B (%.1f px)" % b_max)
 
+	# 3b) (10/10, el playtest del 09/10: "se llevaba el golpe Daniel y salia en o cerca de Agirato") CADA PERSONAJE DE B
+	#     tiene SU cuerpo en mi pantalla (el lider el avatar, el compañero el suyo) y esta donde B dice que esta.
+	if is_instance_valid(p):
+		var lider_b = Net._avatares.get(_b())
+		var comps_b: Array = Net._avatares_comp.get(_b(), [])
+		for c in p._aliados:
+			var fila: Dictionary = {}
+			var idx: int = p._aliados.find(c)
+			var filas: Array = tm.roster_red.get("aliados", [])
+			if idx < filas.size():
+				fila = filas[idx]
+			if int(fila.get("peer", 0)) != _b():
+				continue
+			var cb: Node2D = tm.cuerpo_de(c)
+			var k: int = int(fila.get("cuerpo", -1))
+			var que: String = "el avatar" if cb == lider_b else ("el compañero %d" % comps_b.find(cb) if comps_b.has(cb) else str(cb))
+			var bx: int = await _ultimo_de_b("b_pos_x_" + c.nombre, 2.0)
+			var by: int = await _ultimo_de_b("b_pos_y_" + c.nombre, 2.0)
+			var lejos: float = cb.global_position.distance_to(Vector2(bx, by)) if cb != null and (bx != 0 or by != 0) else -1.0
+			print("[dev] %s (de B, cuerpo %d): en mi pantalla es %s, en %s; B lo tiene en (%d, %d): a %.1f px" % [
+				c.nombre, k, que, str(cb.global_position.round()) if cb != null else "-", bx, by, lejos])
+			_ok(cb != null and (cb == lider_b) == (k == 0) and (k <= 0 or comps_b.find(cb) == k - 1),
+				"%s de B tiene SU cuerpo en mi pantalla (%s)" % [c.nombre, que])
+			# Y DONDE SE PINTAN SUS GOLPES (el numero y el efecto): el sitio que da su bloque tiene que ser SU cuerpo.
+			var bq: Dictionary = p._bloque_de(c)
+			var r_golpe: Rect2 = tm.rect_pantalla_de_bloque(bq)
+			var xf: Transform2D = p.get_viewport().get_canvas_transform()
+			var r_suyo: Rect2 = tm.bulto_visual(c)
+			r_suyo = Rect2(xf * r_suyo.position, r_suyo.size * xf.get_scale().abs())
+			var de_quien: Combatant = tm._de_bloque(bq)
+			print("[dev] %s: su golpe se pinta en %s (su cuerpo %s); su bloque es de %s; bloques %d / aliados %d" % [
+				c.nombre, str(r_golpe.get_center().round()), str(r_suyo.get_center().round()),
+				de_quien.nombre if de_quien != null else "nadie", p._bloques_aliados.size(), p._aliados.size()])
+			_ok(de_quien == c and r_golpe.get_center().distance_to(r_suyo.get_center()) < 2.0,
+				"los golpes a %s de B se pintan en SU cuerpo" % c.nombre)
+			if lejos >= 0.0:
+				_ok(lejos < 30.0, "%s de B esta donde B dice (a %.1f px)" % [c.nombre, lejos])
+
 	escribir_fase(3)
 	_ok(await _dato_de_b("host_se_movio", 20.0) > 10, "B ve moverse a mi personaje")
 	_ok(await _dato_de_b("bicho_se_movio", 5.0) > 5, "B ve moverse al bicho (lo mueve el trabajador)")

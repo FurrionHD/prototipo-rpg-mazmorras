@@ -834,9 +834,31 @@ func rect_pantalla_de_bloque(bloque: Dictionary) -> Rect2:
 			break
 	if c == null or cuerpo_de(c) == null:
 		return Rect2()
+	_vigilar_cuerpo_de_golpe(c)
 	var r: Rect2 = bulto_visual(c)
 	var xf: Transform2D = _pantalla.get_viewport().get_canvas_transform()
 	return Rect2(xf * r.position, r.size * xf.get_scale().abs())
+
+
+# EL CHIVATO DEL 09/10 (su playtest: "se llevaba el golpe Daniel y salia en o cerca de Agirato", en su pantalla, toda la
+# pelea del minotauro; la prueba de dos jugadores no lo reproduce): si el cuerpo donde se va a pintar el golpe de 'c'
+# lleva el NOMBRE de otro, lo dice en el log (una vez por pareja), con lo que hace falta para encontrarlo.
+var _chivatos_cuerpo: Dictionary = {}
+
+func _vigilar_cuerpo_de_golpe(c: Combatant) -> void:
+	var cuerpo: Node2D = cuerpo_de(c)
+	var etq = cuerpo.get("_nombre") if cuerpo != null else null
+	if not (etq is Label) or (etq as Label).text == "" or (etq as Label).text == c.nombre:
+		return
+	var clave: String = "%s>%s" % [c.nombre, (etq as Label).text]
+	if _chivatos_cuerpo.has(clave):
+		return
+	_chivatos_cuerpo[clave] = true
+	var i: int = _pantalla._aliados.find(c)
+	var filas: Array = roster_red.get("aliados", [])
+	print("[golpe-red] el golpe a %s se pinta en el cuerpo de '%s' (aliado %d, fila %s, espejo %s, dueno %s, cuerpo_red %s)" % [
+		c.nombre, (etq as Label).text, i, str(filas[i]) if i >= 0 and i < filas.size() else "-", str(_pantalla._espejo),
+		str(_pantalla._dueno_aliado.get(c, 0)), str(Game.pj_de_combatant(c).get_meta("cuerpo_red", -1)) 			if Game.pj_de_combatant(c) != null else "-"])
 
 
 # QUIEN ESTA BAJO UN PUNTO DE LA PANTALLA, para el mantener pulsado que abre la ficha de detalle: su
