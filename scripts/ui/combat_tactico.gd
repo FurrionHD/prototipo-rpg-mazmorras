@@ -285,12 +285,22 @@ func _entrar_andando(c: Combatant, cuerpo: Node2D) -> void:
 	var p: Vector2 = cuerpo.global_position + Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 	if arena.dentro_px(p, DENTRO_DEL_BORDE):
 		return
-	var q: Vector2 = arena.recortar_dentro(p, DENTRO_DEL_BORDE * 2.0) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+	# UNO AL LADO DEL OTRO (11/10, lo dibujo el usuario): el grupo llega en fila, y cada uno entraba al punto del borde
+	# mas cercano a el -- el mismo para todos --, asi que quedaban uno encima del otro. Por el reparto de las entradas
+	# (ArenaCombate.punto_de_entrada, el de los enemigos): el primero por donde llega y los demas corridos A LO LARGO
+	# de la linea.
+	var q: Vector2 = arena.punto_de_entrada(p) - Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
 	var d: float = q.distance_to(cuerpo.global_position)
 	if d < 1.0:
 		return
 	print("[tactico] %s empieza fuera de la zona: entra andando %.0f px" % [c.nombre, d])
+	# Y A LOS ESPEJOS YA (11/10): el desliz viaja en el paquete de golpes, que sale al acabar la PROXIMA accion. Hasta
+	# entonces, en la pantalla de su dueño seguia fuera, en fila, y luego saltaba dentro de golpe. Se manda ahora si no
+	# habia nada a medias en el paquete (no se parte el de una accion).
+	var nada_a_medias: bool = _pantalla.espejo._impactos_red.is_empty()
 	pedir_desliz(c, q, Desliz.YA, 0, clampf(d / ENTRADA_VEL, 0.2, 1.5))
+	if nada_a_medias:
+		_pantalla.espejo._soltar_impactos_red()
 
 
 func _preparar_altas() -> void:
