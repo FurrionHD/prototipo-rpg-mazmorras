@@ -2,6 +2,38 @@
 
 ---
 
+# v0.15.4
+
+## 🤝 La pelea de tu compañero, vista desde fuera
+
+- **Si estás dentro del área cuando a tu compañero le pega un enemigo** (o pega él), te quedas quieto en ese mismo
+  momento y **entras en la pelea con todo tu grupo**, sin tener que pulsar nada.
+- **Desde fuera ves su zona** en el suelo, con sus líneas. **La línea te frena**, y al chocar te pregunta si quieres
+  entrar: con **Sí** entras por ahí; con **No** sigues fuera, y si te alejas y vuelves a chocar, te lo vuelve a preguntar.
+- **Tus personajes entran uno al lado del otro**, a lo largo de la línea, y se les ve entrar andando (ya no aparecen
+  dentro de golpe).
+
+## 🐺 Los enemigos se reparten
+
+- **Ya no se apelotonan**: no se pisan entre ellos y **te rodean** por los lados y la espalda en vez de ir todos al
+  mismo sitio.
+- **Como mucho tres encima de un mismo personaje**; los demás **esperan atrás**, separados, y entran cuando cae uno.
+  Si llevas varios personajes, se reparten entre ellos.
+- **Los brotes revientan la pared en varios boquetes separados**, y los que entran a media pelea no caen encima de otro.
+  Una sola habilidad de área ya no se los lleva a todos.
+
+## ⚔️ Arreglos del playtest
+
+- **Las embestidas recorren su línea entera**, dañan a todos los que cruzan y los apartan.
+- **El sangrado y el fuego salen del golpe que de verdad entra** (después de armadura y defensa).
+- **La Provocación funciona de verdad**: el enemigo provocado te pega siempre a ti, y lleva su icono.
+- **El enemigo que se aparta de tu área acaba fuera de ella** (y rodea si hace falta), pero solo a veces: si no, nunca le
+  pegarías.
+- **Los enemigos se pintan por altura junto a los personajes**, igual en todas las pantallas.
+- **En multijugador**, tu equipo del Hogar viaja al entrar y ves el grupo del otro jugador en la barra de arriba.
+
+---
+
 # v0.15.3
 
 ## 👑 El Rey Slime escupe a sus crías
