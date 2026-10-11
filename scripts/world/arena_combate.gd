@@ -252,27 +252,31 @@ func distancia_al_borde(p: Vector2) -> float:
 # hacia dentro, y corrido a lo largo del muro si ya hay otro ahi. Se apunta para el siguiente.
 func punto_de_entrada(desde: Vector2) -> Vector2:
 	var p: Vector2 = recortar_dentro(desde)
-	var intentos: int = 0
-	while _ocupado(p) and intentos < 12:
-		# Se corre a lo largo del muro por el que ha entrado: si toco por un lado vertical, se baja;
-		# si fue por uno horizontal, se va hacia un lado.
-		# Se corre a lo largo del tramo de borde por el que ha entrado.
-		var tr: Dictionary = _tramo_cercano(desde)
-		var a_lo_largo: Vector2 = tr["t"] if not tr.is_empty() else Vector2.RIGHT
-		var paso: float = SEPARACION_ENTRADA * float((intentos / 2) + 1)
-		if intentos % 2 == 1:
-			paso = -paso
-		p = recortar_dentro(p + a_lo_largo * paso)
-		intentos += 1
+	# Se corre a lo largo del tramo de borde por el que ha entrado, AL LADO del que ya estaba (11/10: antes se corria a
+	# saltos desde donde venia y dos del mismo grupo acababan a tres celdas): pegado a el por el lado que le quede mas cerca.
+	var tr: Dictionary = _tramo_cercano(desde)
+	var a_lo_largo: Vector2 = tr["t"] if not tr.is_empty() else Vector2.RIGHT
+	for _i in 12:
+		var otro = _entrada_cerca(p)
+		if otro == null:
+			break
+		var a: Vector2 = recortar_dentro((otro as Vector2) + a_lo_largo * SEPARACION_ENTRADA)
+		var b: Vector2 = recortar_dentro((otro as Vector2) - a_lo_largo * SEPARACION_ENTRADA)
+		var sig: Vector2 = a if a.distance_to(p) <= b.distance_to(p) else b
+		# Si el lado que toca tambien esta cogido (o el borde lo devuelve encima), el otro.
+		if _entrada_cerca(sig) != null:
+			sig = b if sig == a else a
+		p = sig
 	_entradas.append(p)
 	return p
 
 
-func _ocupado(p: Vector2) -> bool:
+# La entrada ya usada que pisa 'p' (a menos de SEPARACION_ENTRADA), o null.
+func _entrada_cerca(p: Vector2):
 	for q in _entradas:
-		if p.distance_to(q) < SEPARACION_ENTRADA:
-			return true
-	return false
+		if p.distance_to(q) < SEPARACION_ENTRADA - 0.01:
+			return q
+	return null
 
 
 # Al acabar la pelea se sueltan los sitios de entrada: la arena siguiente empieza limpia.

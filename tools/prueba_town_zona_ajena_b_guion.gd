@@ -94,6 +94,28 @@ func _ready() -> void:
 		t += 0.25
 	print("[B] dato espejo=%d" % (1 if Net.peleas.espejando() and pantalla() != null else 0))
 	_ok(Net.peleas.espejando(), "con el Si entro en la pelea del host (%.1f s)" % t)
+	# (11/10, su dibujo) MIS DOS PERSONAJES ENTRAN UNO AL LADO DEL OTRO a lo largo de la linea, no uno encima del otro.
+	for _k in 8:
+		var am: ArenaCombate = Game._arena_nodo as ArenaCombate
+		var k0: Node2D = Game.cuerpo_de_red(0, 0)
+		var k1: Node2D = Game.cuerpo_de_red(0, 1)
+		if am != null and k0 != null and k1 != null:
+			print("[B] [dev] t: %s %s  borde %.1f %.1f" % [k0.global_position.round(), k1.global_position.round(),
+				am.distancia_al_borde(k0.global_position), am.distancia_al_borde(k1.global_position)])
+		await _esperar(0.5)
+	var arena_m: ArenaCombate = Game._arena_nodo as ArenaCombate
+	var c0: Node2D = Game.cuerpo_de_red(0, 0)
+	var c1: Node2D = Game.cuerpo_de_red(0, 1)
+	if arena_m != null and c0 != null and c1 != null:
+		var pie := Vector2(0.0, PoseJugador.PIES_BAJO_NODO)
+		var d01: float = c0.global_position.distance_to(c1.global_position)
+		var b0: float = arena_m.distancia_al_borde(c0.global_position + pie)
+		var b1: float = arena_m.distancia_al_borde(c1.global_position + pie)
+		print("[B] [dev] mis dos al entrar: a %.1f px uno del otro; al borde %.1f y %.1f" % [d01, b0, b1])
+		_ok(d01 >= 36.0, "mis dos personajes no entran uno encima del otro (a %.1f px)" % d01)
+		_ok(absf(b0) < 30.0 and absf(b1) < 30.0, "los dos quedan junto a la linea, uno al lado del otro")
+	else:
+		_ok(false, "veo mi arena y mis dos cuerpos al entrar")
 	# Mis turnos, para que la pelea no se pare en el mio mientras el host acaba.
 	while int(leer_fase()[0]) < 9:
 		pulsar(3)
