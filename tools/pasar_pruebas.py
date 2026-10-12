@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+pasar_pruebas.py -- pasa la bateria de pruebas sin ventana (tools/prueba_*.tscn) y dice cuales fallan.
+
+REGLA (12/10/2026, la pidio el jefe): ANTES DE CADA COMMIT O SUBIDA se pasan las pruebas y tienen que
+salir todas bien. Cada mecanica nueva entra con su prueba (y se apunta aqui si necesita algo especial).
+
+  python tools/pasar_pruebas.py              # TODAS (las de red de una en una) -> antes de juntar a main / .exe
+  python tools/pasar_pruebas.py --rapidas    # sin las de red -> antes de cada commit
+  python tools/pasar_pruebas.py arena magias # solo las que contengan esas palabras en el nombre
+  python tools/pasar_pruebas.py --lista      # ensena que pasaria y con que tope, sin lanzar nada
+
+Cada prueba deja su salida en tools/resultados_pruebas/<nombre>.log (ignorada en git) y al final sale
+un resumen: BIEN / MAL / COLGADA (paso su tope) / SIN MARCA (acabo sin decir ni bien ni mal).
+Devuelve 0 solo si todas salen BIEN.
+
+Como decide si una prueba ha ido bien (las hay de varias epocas y cada una lo dice a su manera):
+  - MAL si: codigo de salida distinto de 0, o una linea de fallo (MAL / FALLA / FALLAN n / "n fallos" con
+    n > 0), o un SCRIPT ERROR / Parse Error (el juego peto por dentro aunque la prueba no lo viera).
+  - BIEN si no hay nada de eso y aparece su marca de exito (TODO BIEN, TODO PASA, OK:, "0 fallos"...).
+  - SIN MARCA si acaba limpia pero sin marca: hay que mirarla y ponerle su "FIN: TODO BIEN".
+"""
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent
+TOOLS = RAIZ / "tools"
+SALIDA = TOOLS / "resultados_pruebas"
+
+GODOT_CANDIDATOS = [
+    os.environ.get("GODOT", ""),
+    str(Path.home() / "AppData/Local/Microsoft/WinGet/Packages/"
+        "GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.7-stable_win64_console.exe"),
+]
+
+# Escenas que NO son una prueba por si solas: las lanza otra prueba como segundo proceso.
+AYUDANTES = {
+    "prueba_town_dos_cliente",
+    "prueba_town_tactico_b",
+    "prueba_town_zona_ajena_b",
+    "prueba_town_baul_cliente",
+    "prueba_sala_cliente",
+}
+
+# Las de RED: lanzan procesos (sala, trabajadores, otro jugador) y usan puertos fijos -> de una en una.
+def es_de_red(nombre: str) -> bool:
+    return (nombre.startswith("prueba_town_") or nombre.startswith("prueba_sala")
+            or nombre in {"prueba_tunel", "prueba_baul_sala", "prueba_zona_otra_sala",
+                          "prueba_vinculo_steam", "prueba_bd_nube"})
+
+# Las que NO son una prueba sin ventana (necesitan pantalla de verdad): no se pasan.
+NO_SIN_VENTANA = {"prueba_rueda_cristales"}
+
+# COMO SE LANZA cada una que no va "a pelo" (lo dice la cabecera de cada prueba). Cada entrada es una lista de
+# PASADAS en orden (las de dos fases son dos procesos): {"antes": args de godot, "despues": args tras "--",
+# "env": variables}. Cuenta como BIEN solo si salen bien TODAS sus pasadas.
+NUBE_LOCAL = [{"despues": ["nube_local"]}]
+COMO_SE_LANZA = {
+    "prueba_bd_nube": NUBE_LOCAL,
+    "prueba_bd_un_jugador": NUBE_LOCAL,
+    "prueba_nube_sin_red": NUBE_LOCAL,
+    "prueba_sala": NUBE_LOCAL,
+    "prueba_sala_dos_jugadores": NUBE_LOCAL,
+    "prueba_sala_steam": NUBE_LOCAL,
+    "prueba_vinculo_steam": NUBE_LOCAL,
+    "prueba_sala_entrar": [{"despues": ["nube_local", "sala_vacia=4"]}],
+    "prueba_huella_combate": [{"antes": ["--fixed-fps", "60"], "despues": ["comparar"]}],
+    "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}}, {"env": {"ALTF4_FASE": "2"}}],
+    "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}}, {"env": {"PELEA_FASE": "2"}}],
+}
+
+TOPE_NORMAL = 120     # s. Regla del jefe: topes de 3-5 veces lo que tarda, nada de 500 s.
+TOPE_RED = 240
+TOPES = {             # las que tardan mas de lo normal cuando van bien
+    "prueba_cargar_todo": 180,
+    "prueba_huella_combate": 180,
+    "prueba_companeros_pueblo": 300,   # ~105 s: recorre el pueblo andando y corriendo
+}
+
+R_FALLO = re.compile(
+    r"(^\s*MAL\b|\bMAL:|\bFALLA\b|\bFALLAN \d+|\bFALLO\b|\b[1-9]\d* fallos?\b|\b[1-9]\d* fallo\(s\))",
+    re.MULTILINE)
+# Errores del MOTOR: el juego peto por dentro. Cuentan como MAL salvo que la prueba diga claramente que ha ido
+# bien (hay pruebas que provocan un error a proposito, p. ej. prueba_bd_partida lee un .tres roto).
+R_MOTOR = re.compile(r"(SCRIPT ERROR|Parse Error|Failed to load script)")
+R_EXITO = re.compile(
+    r"(TODO BIEN|TODO PASA|TODO CUADRA|TODO IGUAL|TODO VIAJA|^OK:|\b0 fallos?\b|\b0 fallo\(s\)|RESULTADO: OK|RESULTADO: 0 fallos)",
+    re.MULTILINE)
+# Lo que Godot escupe siempre al cerrar y no significa nada (ver LEEME_pruebas.md).
+R_RUIDO = re.compile(r"(ObjectDB instances leaked|resources still in use|RID allocations? .*leaked)")
+
+
+def buscar_godot() -> str:
+    for c in GODOT_CANDIDATOS:
+        if c and Path(c).exists():
+            return c
+    sys.exit("No encuentro Godot: pon la ruta en la variable GODOT.")
+
+
+def todas_las_pruebas() -> list:
+    return sorted(p.stem for p in TOOLS.glob("prueba_*.tscn")
+                  if p.stem not in AYUDANTES and p.stem not in NO_SIN_VENTANA)
+
+
+def matar_restos() -> None:
+    """Las de red dejan Godots vivos si se cortan: los que sigan con el puerto 24599/24567 se cierran."""
+    if os.name != "nt":
+        return
+    try:
+        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return
+    pids = set()
+    for linea in out.splitlines():
+        if ":24599" in linea or ":24567" in linea:
+            partes = linea.split()
+            if partes and partes[-1].isdigit() and partes[-1] != "0":
+                pids.add(partes[-1])
+    for pid in pids:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", pid], capture_output=True)
+
+
+def _una_pasada(godot: str, nombre: str, pasada: dict, tope: float):
+    cmd = [godot, "--headless"] + pasada.get("antes", []) + ["--path", str(RAIZ), "res://tools/%s.tscn" % nombre]
+    if pasada.get("despues"):
+        cmd += ["--"] + pasada["despues"]
+    env = dict(os.environ)
+    env.update(pasada.get("env", {}))
+    try:
+        p = subprocess.run(cmd, capture_output=True, timeout=tope, cwd=str(RAIZ), env=env)
+        return (p.stdout + p.stderr).decode("utf-8", "replace"), p.returncode, False
+    except subprocess.TimeoutExpired as e:
+        return ((e.stdout or b"") + (e.stderr or b"")).decode("utf-8", "replace"), None, True
+
+
+def pasar(godot: str, nombre: str) -> dict:
+    tope = TOPES.get(nombre, TOPE_RED if es_de_red(nombre) else TOPE_NORMAL)
+    pasadas = COMO_SE_LANZA.get(nombre, [{}])
+    t0 = time.time()
+    textos = []
+    texto, codigo, colgada = "", 0, False
+    for i, pasada in enumerate(pasadas):
+        texto, codigo, colgada = _una_pasada(godot, nombre, pasada, tope)
+        textos.append("===== pasada %d %s =====\n%s" % (i + 1, pasada, texto))
+        if colgada:
+            break
+        # Las pasadas de antes (fase 1 de las de dos procesos) solo PREPARAN: lo que cuenta es la ultima.
+    if colgada and es_de_red(nombre):
+        matar_restos()
+    dur = time.time() - t0
+    (SALIDA / (nombre + ".log")).write_text("\n".join(textos), encoding="utf-8")
+    lineas = [l for l in texto.splitlines() if not R_RUIDO.search(l)]
+    fallos = [l.strip() for l in lineas if R_FALLO.search(l)]
+    motor = [l.strip() for l in lineas if R_MOTOR.search(l)]
+    exito = bool(R_EXITO.search(texto))
+    if colgada:
+        estado = "COLGADA"
+    elif codigo != 0 or fallos or (motor and not exito):
+        estado = "MAL"
+    elif exito:
+        estado = "BIEN"
+    else:
+        estado = "SIN MARCA"
+    return {"nombre": nombre, "estado": estado, "dur": dur, "tope": tope, "codigo": codigo,
+            "fallos": (fallos + motor)[:6]}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Pasa las pruebas sin ventana de tools/.")
+    ap.add_argument("filtros", nargs="*", help="solo las que contengan alguna de estas palabras")
+    ap.add_argument("--rapidas", action="store_true", help="sin las de red (para antes de cada commit)")
+    ap.add_argument("--hilos", type=int, default=4, help="cuantas sin red a la vez (por defecto 4)")
+    ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
+    a = ap.parse_args()
+
+    nombres = todas_las_pruebas()
+    if a.filtros:
+        nombres = [n for n in nombres if any(f in n for f in a.filtros)]
+    if a.rapidas:
+        nombres = [n for n in nombres if not es_de_red(n)]
+    sin_red = [n for n in nombres if not es_de_red(n)]
+    con_red = [n for n in nombres if es_de_red(n)]
+    if a.lista:
+        for n in nombres:
+            print("%-34s %s  tope %d s" % (n, "RED " if es_de_red(n) else "    ",
+                                            TOPES.get(n, TOPE_RED if es_de_red(n) else TOPE_NORMAL)))
+        print("%d pruebas (%d de red)" % (len(nombres), len(con_red)))
+        return 0
+
+    godot = buscar_godot()
+    SALIDA.mkdir(exist_ok=True)
+    print("Importando el proyecto (registra los class_name nuevos)...", flush=True)
+    subprocess.run([godot, "--headless", "--path", str(RAIZ), "--import"], capture_output=True, timeout=600)
+
+    res = []
+    t0 = time.time()
+    def apuntar(r):
+        res.append(r)
+        print("[%3d/%d] %-9s %-34s %5.1f s" % (len(res), len(nombres), r["estado"], r["nombre"], r["dur"]),
+              flush=True)
+
+    with ThreadPoolExecutor(max_workers=max(1, a.hilos)) as ex:
+        for fut in as_completed([ex.submit(pasar, godot, n) for n in sin_red]):
+            apuntar(fut.result())
+    if con_red:
+        matar_restos()
+    for n in con_red:
+        apuntar(pasar(godot, n))
+
+    malas = [r for r in res if r["estado"] != "BIEN"]
+    print("\n================ RESUMEN (%.0f s) ================" % (time.time() - t0))
+    for estado in ("BIEN", "MAL", "COLGADA", "SIN MARCA"):
+        print("%-9s %d" % (estado, sum(1 for r in res if r["estado"] == estado)))
+    for r in sorted(malas, key=lambda r: (r["estado"], r["nombre"])):
+        print("\n-- %s  %s  (codigo %s, %.0f s de %d)" % (r["estado"], r["nombre"], r["codigo"], r["dur"], r["tope"]))
+        for f in r["fallos"]:
+            print("     " + f[:160])
+    print("\nSalidas en %s" % SALIDA)
+    print("TODO BIEN" if not malas else "HAY %d QUE NO SALEN BIEN" % len(malas))
+    return 0 if not malas else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

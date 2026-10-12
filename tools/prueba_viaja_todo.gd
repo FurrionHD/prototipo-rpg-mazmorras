@@ -171,6 +171,10 @@ func _norm(v, hondo: int = 0):
 	if v is Dictionary:
 		var claves: Array = []
 		for k in v:
+			# UN CERO ES COMO NO TENERLO (12/10): una stat nueva (la Voluntad) sale a 0 en la ficha que ha viajado y la
+			# partida de referencia, mas vieja, ni la tenia. Eso no es un dato que se pierda.
+			if (v[k] is float or v[k] is int) and is_zero_approx(float(v[k])):
+				continue
 			claves.append([str(_norm(k, hondo + 1)), str(_norm(v[k], hondo + 1))])
 		claves.sort()
 		return claves

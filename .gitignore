@@ -84,3 +84,6 @@ servidor/nube/node_modules/
 ~*.TMP
 # Copias que hace Godot de las DLL de GDExtension mientras el editor las tiene cargadas (~lib...dll)
 ~*.dll
+
+# Salidas del lanzador de pruebas (tools/pasar_pruebas.py)
+tools/resultados_pruebas/

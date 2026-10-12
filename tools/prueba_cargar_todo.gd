@@ -17,4 +17,5 @@ func _ready() -> void:
 					malos += 1
 					print("[cargar] ROTO: ", dir.path_join(f))
 	print("[cargar] %d scripts, %d rotos" % [n, malos])
-	get_tree().quit()
+	print("FIN: TODO BIEN" if malos == 0 else "MAL: %d scripts rotos" % malos)
+	get_tree().quit(0 if malos == 0 else 1)

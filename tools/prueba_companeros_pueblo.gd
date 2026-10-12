@@ -59,7 +59,9 @@ func _ready() -> void:
 		for nombre in rutas:
 			await _recorrer("%s %s" % [nombre, "CORRIENDO" if correr else "andando"], rutas[nombre], correr)
 	print("\nframes: %d   PISA: %d   SALTOS: %d" % [_frames, _pisa, _saltos])
-	get_tree().quit(0)
+	var bien: bool = _pisa == 0 and _saltos == 0
+	print("FIN: TODO BIEN" if bien else "MAL: los compañeros pisan o saltan")
+	get_tree().quit(0 if bien else 1)
 
 
 func _companeros() -> Array:

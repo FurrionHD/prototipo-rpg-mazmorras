@@ -1,5 +1,31 @@
 # Pruebas sin ventana (`tools/prueba_*.tscn`): cómo escribirlas para que no den falsas alarmas
 
+## LA REGLA (12/10/2026): antes de cada commit, las pruebas
+
+**Antes de cada commit o subida se pasan las pruebas y tienen que salir todas bien.** Y cada mecánica nueva entra
+con su prueba (los mutantes nuevos, lo que venga): a partir de ahora, siempre.
+
+```
+python tools/pasar_pruebas.py --rapidas   # antes de CADA commit (sin las de red, ~6 min con 4 a la vez)
+python tools/pasar_pruebas.py             # TODAS, también las de red de una en una: antes de juntar a main o hacer .exe
+python tools/pasar_pruebas.py arena magia # solo las que lleven esas palabras en el nombre
+python tools/pasar_pruebas.py --lista     # qué pasaría, con qué tope, sin lanzar nada
+```
+
+El lanzador busca solo todas las `prueba_*.tscn` (una prueba nueva no hay que apuntarla en ningún sitio), deja la
+salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL / COLGADA / SIN MARCA.
+
+- **Toda prueba nueva termina diciendo `FIN: TODO BIEN`** (o líneas `MAL: ...`) y sale con `quit(0)` / `quit(1)`.
+  Sin marca sale como "SIN MARCA" y cuenta como no hecha.
+- Si una prueba se lanza con algo especial (`-- nube_local`, dos fases con una variable de entorno, `--fixed-fps`),
+  se apunta en `COMO_SE_LANZA` dentro de `pasar_pruebas.py`. Las que lanzan procesos (sala, trabajadores, otro
+  jugador) van en `es_de_red`: se pasan de una en una.
+- La **huella del combate** (`prueba_huella_combate`) compara con `tools/huellas/*.txt`. Si se cambia el combate a
+  propósito, se vuelve a grabar (`-- grabar`) en el mismo commit; se regrabó el 12/10 (llevaba sin tocarse desde el
+  15/09 y comparaba contra un combate de hace un mes).
+- Inestable conocida (falla a veces sin que el juego cambie): `prueba_bd_un_jugador` (el fichero de la ranura a veces sigue cogido al borrarlo).
+  Si fallan, se repiten antes de dar nada por roto.
+
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
 
 ```

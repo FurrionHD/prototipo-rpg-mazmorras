@@ -55,7 +55,8 @@ func _correr() -> void:
 		Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/%s.tres" % ENEMIGOS[i],
 			jug.global_position + Vector2(-300 + 110 * i, 60 + 70 * (i % 2)), {})
 	await _esperar(25)
-	if not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
+	# Si algun enemigo ya ha llegado al grupo y la ha abierto el (pasa a veces: nacen a 60-120 px), tambien vale.
+	if not Game.combate_activo() and not Game.start_combat(get_tree().get_nodes_in_group("enemy"), false):
 		print("MAL: no se abre la pelea")
 		get_tree().quit(1)
 		return

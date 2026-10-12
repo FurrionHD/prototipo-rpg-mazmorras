@@ -8,173 +8,193 @@ f1 Rata de mazmorra hp=24.400 mp=20.396 en=0.000
 f1 Jabalí hp=55.350 mp=20.330 en=0.000
 f1 Trent hp=69.950 mp=20.627 en=0.000
 f1 Slime venenoso hp=38.950 mp=20.462 en=0.000
-f77 LOG ¡Turno de Heroe! Elige una acción.
-f80 LOG Heroe golpea con  por 7.10 de daño.
-f80 Slime hp=25.849 mp=20.462 en=0.000
-f134 LOG ¡Turno de Bibi! Elige una acción.
-f137 LOG Bibi golpea con  por 6.47 de daño.
-f137 Slime hp=19.382 mp=20.462 en=0.000
-f188 LOG ⚡ 2. Rata de mazmorra se prepara para Frenesí de dentelladas. ¡Prepárate! (aturdirlo lo interrumpe)
-f223 LOG ¡Turno de Coco! Elige una acción.
-f226 LOG Coco golpea con  por 5.71 de daño.
-f226 Slime hp=13.676 mp=20.462 en=0.000
-f279 LOG 5. Slime venenoso ataca a Bibi por 3.16 de daño.  Le inflige Pegajoso.  Le inflige Veneno.
-f279 Bibi hp=60.340 mp=20.660 en=100.000
-f332 LOG … 5.70 de daño (1 de 1 golpes).
-f332 Dado hp=57.803 mp=20.660 en=100.000
-f384 LOG ¡Turno de Dado! Elige una acción.
-f387 LOG Dado golpea con  por 6.00 de daño.
-f387 Slime hp=7.675 mp=20.462 en=0.000
-f454 LOG … 6.02 de daño (2 de 2 golpes).
-f454 Coco hp=57.485 mp=20.660 en=100.000
-f514 LOG 1. Slime ataca a Heroe por 2.73 de daño.
-f514 Heroe hp=60.775 mp=20.660 en=100.000
-f613 LOG ¡Turno de Heroe! Elige una acción.
-f616 LOG Heroe golpea con  por 6.71 de daño.
-f616 Slime hp=0.961 mp=20.462 en=0.000
-f672 LOG … 7.41 de daño: Dado (3.05), Heroe (3.01), Coco (1.35)  Aplica: Sangrado.
-f672 Heroe hp=57.761 mp=20.660 en=100.000
-f672 Coco hp=56.135 mp=20.660 en=100.000
-f672 Dado hp=54.754 mp=20.660 en=100.000
-f762 LOG ¡Turno de Bibi! Elige una acción.
-f762 Bibi hp=57.340 mp=20.660 en=100.000
-f765 LOG Bibi golpea con  por 6.32 de daño.
-f765 Slime hp=0.000 mp=20.462 en=0.000
+f56 LOG ¡Turno de Heroe! Elige una acción.
+f59 LOG Heroe golpea con  por 7.11 de daño.
+f59 Slime hp=25.843 mp=20.462 en=0.000
+f112 LOG ¡Turno de Bibi! Elige una acción.
+f115 LOG Bibi golpea con  por 5.86 de daño.
+f115 Slime hp=19.984 mp=20.462 en=0.000
+f166 LOG 2. Rata de mazmorra ataca a Coco por 3.24 de daño.
+f166 Coco hp=60.259 mp=20.660 en=100.000
+f219 LOG ¡Turno de Coco! Elige una acción.
+f222 LOG ¡CRITICO! Coco golpea con  por 7.52 de daño. 💥
+f222 Slime hp=12.463 mp=20.462 en=0.000
+f274 LOG 5. Slime venenoso ataca a Bibi por 2.88 de daño.  Le inflige Pegajoso.
+f274 Bibi hp=60.620 mp=20.660 en=100.000
+f327 LOG ⏳ 3. Jabalí prepara Pisotón. ¡Apártate! (aturdirlo lo interrumpe)
+f359 LOG ¡Turno de Dado! Elige una acción.
+f362 LOG Dado golpea con  por 6.98 de daño.
+f362 Slime hp=5.483 mp=20.462 en=0.000
+f424 LOG ⏳ 4. Trent prepara Savia corrosiva. ¡Apártate! (aturdirlo lo interrumpe)
+f457 LOG 1. Slime ataca a Coco por 2.68 de daño.
+f457 Coco hp=57.580 mp=20.660 en=100.000
+f528 LOG … 6.96 de daño (2 de 2 golpes).
+f528 Bibi hp=53.665 mp=20.660 en=100.000
+f600 LOG ¡Turno de Heroe! Elige una acción.
+f603 LOG ¡CRITICO! Heroe golpea con  por 7.22 de daño. 💥
+f603 Slime hp=0.000 mp=20.462 en=0.000
+f655 LOG … no te ha dado con ninguno de los 1 golpe.
+f708 LOG 2. Rata de mazmorra ataca a Coco por 2.97 de daño.
+f708 Coco hp=54.610 mp=20.660 en=100.000
+f764 LOG ¡Turno de Bibi! Elige una acción.
+f767 LOG Bibi golpea con  por 6.79 de daño.
+f767 Rata de mazmorra hp=17.608 mp=20.396 en=0.000
 f822 LOG ¡Turno de Coco! Elige una acción.
-f825 LOG Coco golpea con  por 7.17 de daño.
-f825 Rata de mazmorra hp=17.235 mp=20.396 en=0.000
-f877 LOG 5. Slime venenoso ataca a Coco por 2.80 de daño.  Le inflige Pegajoso.
-f877 Coco hp=53.337 mp=20.660 en=100.000
-f935 LOG … 7.97 de daño (2 de 2 golpes).
-f935 Dado hp=46.783 mp=20.660 en=100.000
-f995 LOG ¡Turno de Dado! Elige una acción.
-f995 Dado hp=45.636 mp=20.660 en=100.000
-f998 LOG Dado golpea con  por 5.94 de daño.
-f998 Rata de mazmorra hp=11.294 mp=20.396 en=0.000
-f1074 LOG 4. Trent ataca a Dado por 3.30 de daño.  Le inflige Veneno.  Le inflige Pegajoso.
-f1074 Dado hp=42.332 mp=20.660 en=100.000
-f1150 LOG ¡Turno de Heroe! Elige una acción.
-f1153 LOG Heroe golpea con  por 6.38 de daño.
-f1153 Rata de mazmorra hp=4.916 mp=20.396 en=0.000
-f1209 LOG 2. Rata de mazmorra ataca a Bibi por 2.66 de daño.
-f1209 Bibi hp=54.679 mp=20.660 en=100.000
-f1277 LOG ¡Turno de Bibi! Elige una acción.
-f1277 Bibi hp=51.679 mp=20.660 en=100.000
-f1280 LOG Bibi golpea con  por 6.92 de daño.
-f1280 Rata de mazmorra hp=0.000 mp=20.396 en=0.000
-f1340 LOG Bibi esquiva el ataque de 5. Slime venenoso. 💨
-f1393 LOG ¡Turno de Coco! Elige una acción.
-f1396 LOG Coco golpea con  por 5.75 de daño.
-f1396 Jabalí hp=49.604 mp=20.330 en=0.000
-f1456 LOG 3. Jabalí ataca a Bibi por 3.91 de daño.
-f1456 Bibi hp=47.772 mp=20.660 en=100.000
-f1515 LOG ¡Turno de Dado! Elige una acción.
-f1515 Dado hp=38.185 mp=20.660 en=100.000
-f1518 LOG Dado golpea con  por 5.92 de daño.
-f1518 Jabalí hp=43.681 mp=20.330 en=0.000
-f1599 LOG ¡Turno de Heroe! Elige una acción.
-f1602 LOG Heroe golpea con  por 6.62 de daño.
-f1602 Jabalí hp=37.058 mp=20.330 en=0.000
-f1653 LOG … 6.70 de daño (2 de 2 golpes).
-f1653 Dado hp=31.481 mp=20.660 en=100.000
-f1741 LOG ¡Turno de Bibi! Elige una acción.
-f1741 Bibi hp=44.772 mp=20.660 en=100.000
-f1744 LOG Bibi golpea con  por 6.45 de daño.
-f1744 Jabalí hp=30.606 mp=20.330 en=0.000
-f1805 LOG … 4.57 de daño: Bibi (2.44), Coco (2.13)  Aplica: Pegajoso, Veneno, Pegajoso.
-f1805 Bibi hp=42.335 mp=20.660 en=100.000
-f1805 Coco hp=51.208 mp=20.660 en=100.000
-f1869 LOG ¡Turno de Coco! Elige una acción.
-f1869 Coco hp=48.208 mp=20.660 en=100.000
-f1872 LOG Coco golpea con  por 5.59 de daño.
-f1872 Jabalí hp=25.017 mp=20.330 en=0.000
-f1931 LOG … 7.77 de daño (2 de 2 golpes).
-f1931 Coco hp=40.437 mp=20.660 en=100.000
-f2004 LOG ¡Turno de Dado! Elige una acción.
-f2004 Dado hp=27.335 mp=20.660 en=100.000
-f2007 LOG Dado golpea con  por 6.05 de daño.
-f2007 Jabalí hp=18.962 mp=20.330 en=0.000
-f2065 LOG ¡Turno de Heroe! Elige una acción.
-f2068 LOG Heroe golpea con  por 6.73 de daño.
-f2068 Jabalí hp=12.228 mp=20.330 en=0.000
-f2144 LOG … 3.48 de daño (1 de 1 golpes).
-f2144 Dado hp=23.850 mp=20.660 en=100.000
-f2215 LOG ¡Turno de Bibi! Elige una acción.
-f2215 Bibi hp=39.335 mp=20.660 en=100.000
-f2218 LOG Bibi golpea con  por 6.08 de daño.
-f2218 Jabalí hp=6.145 mp=20.330 en=0.000
-f2276 LOG … no te ha dado con ninguno de los 1 golpe.
-f2344 LOG ¡Turno de Coco! Elige una acción.
-f2344 Coco hp=37.437 mp=20.660 en=100.000
-f2347 LOG ¡CRITICO! Coco golpea con  por 8.12 de daño. 💥
-f2347 Jabalí hp=0.000 mp=20.330 en=0.000
-f2409 LOG ¡Turno de Heroe! Elige una acción.
-f2412 LOG Heroe golpea con  por 6.05 de daño.
-f2412 Trent hp=63.900 mp=20.627 en=0.000
-f2476 LOG ¡Turno de Dado! Elige una acción.
-f2476 Dado hp=20.850 mp=20.660 en=100.000
-f2479 LOG Dado golpea con  por 5.78 de daño.
-f2479 Trent hp=58.122 mp=20.627 en=0.000
-f2567 LOG … 6.22 de daño (2 de 2 golpes).
-f2567 Coco hp=31.212 mp=20.660 en=100.000
-f2628 LOG ¡Turno de Bibi! Elige una acción.
-f2631 LOG Bibi golpea con  por 6.00 de daño.
-f2631 Trent hp=52.124 mp=20.627 en=0.000
-f2689 LOG 5. Slime venenoso ataca a Bibi por 2.74 de daño.
-f2689 Bibi hp=36.592 mp=20.660 en=100.000
-f2760 LOG ¡Turno de Heroe! Elige una acción.
-f2763 LOG Heroe golpea con  por 6.32 de daño.
-f2763 Trent hp=45.800 mp=20.627 en=0.000
-f2821 LOG ¡Turno de Coco! Elige una acción.
-f2821 Coco hp=28.212 mp=20.660 en=100.000
-f2824 LOG ¡CRITICO! Coco golpea con  por 7.38 de daño. 💥
-f2824 Trent hp=38.416 mp=20.627 en=0.000
-f2901 LOG ¡Turno de Dado! Elige una acción.
-f2901 Dado hp=17.850 mp=20.660 en=100.000
-f2904 LOG Dado golpea con  por 5.63 de daño.
-f2904 Trent hp=32.786 mp=20.627 en=0.000
-f2984 LOG ¡Turno de Bibi! Elige una acción.
-f2987 LOG Bibi golpea con  por 6.48 de daño.
-f2987 Trent hp=26.304 mp=20.627 en=0.000
-f3046 LOG 5. Slime venenoso ataca a Dado por 3.06 de daño.
-f3046 Dado hp=14.788 mp=20.660 en=100.000
-f3100 LOG … no te ha dado con ninguno de los 1 golpe.
-f3157 LOG ¡Turno de Heroe! Elige una acción.
-f3160 LOG Heroe golpea con  por 5.51 de daño.
-f3160 Trent hp=20.792 mp=20.627 en=0.000
-f3234 LOG ¡Turno de Coco! Elige una acción.
-f3234 Coco hp=25.212 mp=20.660 en=100.000
-f3237 LOG Coco golpea con  por 6.20 de daño.
-f3237 Trent hp=14.588 mp=20.627 en=0.000
-f3315 LOG ¡Turno de Dado! Elige una acción.
-f3318 LOG Dado golpea con  por 5.49 de daño.
-f3318 Trent hp=9.100 mp=20.627 en=0.000
-f3391 LOG ¡Turno de Bibi! Elige una acción.
-f3394 LOG Bibi golpea con  por 6.33 de daño.
-f3394 Trent hp=2.774 mp=20.627 en=0.000
-f3452 LOG ¡Turno de Heroe! Elige una acción.
-f3455 LOG Heroe golpea con  por 5.81 de daño.
-f3455 Trent hp=0.000 mp=20.627 en=0.000
-f3507 LOG 5. Slime venenoso ataca a Bibi por 3.23 de daño.
-f3507 Bibi hp=33.360 mp=20.660 en=100.000
-f3590 LOG ¡Turno de Coco! Elige una acción.
-f3593 LOG Coco golpea con  por 7.06 de daño.
-f3593 Slime venenoso hp=31.888 mp=20.462 en=0.000
-f3678 LOG ¡Turno de Dado! Elige una acción.
-f3681 LOG Dado golpea con  por 6.97 de daño.
-f3681 Slime venenoso hp=24.920 mp=20.462 en=0.000
-f3742 LOG ¡Turno de Bibi! Elige una acción.
-f3745 LOG Bibi golpea con  por 6.83 de daño.
-f3745 Slime venenoso hp=18.089 mp=20.462 en=0.000
-f3799 LOG ¡Turno de Heroe! Elige una acción.
-f3802 LOG Heroe golpea con  por 6.53 de daño.
-f3802 Slime venenoso hp=11.563 mp=20.462 en=0.000
-f3864 LOG 5. Slime venenoso ataca a Dado por 2.99 de daño.  Le inflige Veneno.
-f3864 Dado hp=11.802 mp=20.660 en=100.000
-f3947 LOG ¡Turno de Coco! Elige una acción.
-f3950 LOG Coco golpea con  por 6.10 de daño.
-f3950 Slime venenoso hp=5.459 mp=20.462 en=0.000
-f4039 LOG ¡Turno de Heroe! Elige una acción.
-f4042 LOG ¡GANASTE el combate contra 5 enemigos! 🎉
-f4042 Slime venenoso hp=0.000 mp=20.462 en=0.000
-FIN f4042 estado=3
+f825 LOG Coco golpea con  por 6.02 de daño.
+f825 Rata de mazmorra hp=11.591 mp=20.396 en=0.000
+f877 LOG ⏳ 5. Slime venenoso prepara Escupitajo tóxico. ¡Apártate! (aturdirlo lo interrumpe)
+f915 LOG ¡Turno de Dado! Elige una acción.
+f918 LOG Dado golpea con  por 7.18 de daño.
+f918 Rata de mazmorra hp=4.414 mp=20.396 en=0.000
+f995 LOG … 3.52 de daño (1 de 1 golpes).  Aplica: Veneno.
+f995 Heroe hp=59.981 mp=20.660 en=100.000
+f1052 LOG Dado esquiva el ataque de 3. Jabalí. 💨
+f1107 LOG ¡Turno de Heroe! Elige una acción.
+f1107 Heroe hp=56.981 mp=20.660 en=100.000
+f1110 LOG Heroe golpea con  por 7.23 de daño.
+f1110 Rata de mazmorra hp=0.000 mp=20.396 en=0.000
+f1176 LOG ¡Turno de Bibi! Elige una acción.
+f1179 LOG Bibi golpea con  por 5.61 de daño.
+f1179 Jabalí hp=49.736 mp=20.330 en=0.000
+f1234 LOG 4. Trent ataca a Heroe por 3.96 de daño.  Le inflige Veneno.
+f1234 Heroe hp=53.019 mp=20.660 en=100.000
+f1286 LOG ¡Turno de Coco! Elige una acción.
+f1289 LOG Coco golpea con  por 5.48 de daño.
+f1289 Jabalí hp=44.255 mp=20.330 en=0.000
+f1352 LOG ¡Turno de Dado! Elige una acción.
+f1355 LOG Dado golpea con  por 6.60 de daño.
+f1355 Jabalí hp=37.651 mp=20.330 en=0.000
+f1427 LOG ⏳ 5. Slime venenoso prepara Rociada corrosiva. ¡Apártate! (aturdirlo lo interrumpe)
+f1461 LOG ¡Turno de Heroe! Elige una acción.
+f1461 Heroe hp=47.019 mp=20.660 en=100.000
+f1464 LOG Heroe golpea con  por 5.96 de daño.
+f1464 Jabalí hp=31.687 mp=20.330 en=0.000
+f1521 LOG 3. Jabalí ataca a Bibi por 3.89 de daño.
+f1521 Bibi hp=49.772 mp=20.660 en=100.000
+f1588 LOG ¡Turno de Bibi! Elige una acción.
+f1591 LOG Bibi golpea con  por 5.75 de daño.
+f1591 Jabalí hp=25.939 mp=20.330 en=0.000
+f1647 LOG ¡Turno de Coco! Elige una acción.
+f1650 LOG Coco golpea con  por 5.51 de daño.
+f1650 Jabalí hp=20.425 mp=20.330 en=0.000
+f1702 LOG … 4.50 de daño: Heroe (2.16), Dado (2.35)  Aplica: Veneno, Pegajoso, Veneno, Pegajoso.
+f1702 Heroe hp=44.862 mp=20.660 en=100.000
+f1702 Dado hp=61.152 mp=20.660 en=100.000
+f1767 LOG ⏳ 4. Trent prepara Raíces atenazantes. ¡Apártate! (aturdirlo lo interrumpe)
+f1807 LOG ¡Turno de Dado! Elige una acción.
+f1807 Dado hp=58.152 mp=20.660 en=100.000
+f1810 LOG 3. Jabalí esquiva tu ataque (). 💨
+f1873 LOG ¡Turno de Heroe! Elige una acción.
+f1873 Heroe hp=38.862 mp=20.660 en=100.000
+f1876 LOG Heroe golpea con  por 5.96 de daño.
+f1876 Jabalí hp=14.461 mp=20.330 en=0.000
+f1943 LOG 3. Jabalí ataca a Coco por 4.59 de daño.
+f1943 Coco hp=50.015 mp=20.660 en=100.000
+f1995 LOG … 2.97 de daño (1 de 1 golpes).  Aplica: Enraizado.
+f1995 Bibi hp=46.797 mp=20.660 en=100.000
+f2057 LOG ¡Turno de Bibi! Elige una acción.
+f2060 LOG 🌱 Bibi está enraizado y no llega a golpear: cede el turno.
+f2065 LOG ¡Turno de Coco! Elige una acción.
+f2068 LOG Coco golpea con  por 6.81 de daño.
+f2068 Jabalí hp=7.649 mp=20.330 en=0.000
+f2120 LOG ⏳ 5. Slime venenoso prepara Placaje corrosivo. ¡Apártate! (aturdirlo lo interrumpe)
+f2177 LOG ¡Turno de Dado! Elige una acción.
+f2177 Dado hp=55.152 mp=20.660 en=100.000
+f2180 LOG 3. Jabalí esquiva tu ataque (). 💨
+f2231 LOG ¡Turno de Heroe! Elige una acción.
+f2231 Heroe hp=32.862 mp=20.660 en=100.000
+f2234 LOG Heroe golpea con  por 6.48 de daño.
+f2234 Jabalí hp=1.172 mp=20.330 en=0.000
+f2291 LOG … 3.50 de daño (1 de 1 golpes).
+f2291 Bibi hp=43.293 mp=20.660 en=100.000
+f2359 LOG 3. Jabalí ataca a Coco por 4.41 de daño.  Le inflige Aturdido.
+f2359 Coco hp=45.600 mp=20.660 en=100.000
+f2414 LOG ¡Turno de Bibi! Elige una acción.
+f2417 LOG 🌱 Bibi está enraizado y no llega a golpear: cede el turno.
+f2420 LOG ⏳ 4. Trent prepara Ramazo. ¡Apártate! (aturdirlo lo interrumpe)
+f2458 LOG Coco está aturdido y pierde el turno. 💫
+f2512 LOG ¡Turno de Heroe! Elige una acción.
+f2512 Heroe hp=26.862 mp=20.660 en=100.000
+f2515 LOG Heroe golpea con  por 5.99 de daño.
+f2515 Jabalí hp=0.000 mp=20.330 en=0.000
+f2574 LOG … 6.52 de daño (2 de 2 golpes).  Aplica: Pegajoso, Pegajoso.
+f2574 Bibi hp=36.773 mp=20.660 en=100.000
+f2634 LOG ¡Turno de Dado! Elige una acción.
+f2634 Dado hp=52.152 mp=20.660 en=100.000
+f2637 LOG Dado golpea con  por 5.90 de daño.
+f2637 Trent hp=64.046 mp=20.627 en=0.000
+f2688 LOG ⏳ 5. Slime venenoso prepara Escupitajo tóxico. ¡Apártate! (aturdirlo lo interrumpe)
+f2738 LOG ¡Turno de Bibi! Elige una acción.
+f2741 LOG Bibi golpea con  por 6.30 de daño.
+f2741 Trent hp=57.742 mp=20.627 en=0.000
+f2803 LOG ¡Turno de Coco! Elige una acción.
+f2806 LOG Coco golpea con  por 6.05 de daño.
+f2806 Trent hp=51.692 mp=20.627 en=0.000
+f2858 LOG … no te ha dado con ninguno de los 1 golpe.
+f2927 LOG ¡Turno de Heroe! Elige una acción.
+f2927 Heroe hp=20.862 mp=20.660 en=100.000
+f2930 LOG Heroe golpea con  por 6.60 de daño.
+f2930 Trent hp=45.094 mp=20.627 en=0.000
+f3004 LOG 4. Trent ataca a Coco por 3.90 de daño.  Le inflige Veneno.
+f3004 Coco hp=41.703 mp=20.660 en=100.000
+f3056 LOG ¡Turno de Dado! Elige una acción.
+f3056 Dado hp=49.152 mp=20.660 en=100.000
+f3059 LOG Dado golpea con  por 5.66 de daño.
+f3059 Trent hp=39.430 mp=20.627 en=0.000
+f3122 LOG ¡Turno de Bibi! Elige una acción.
+f3125 LOG Bibi golpea con  por 5.78 de daño.
+f3125 Trent hp=33.650 mp=20.627 en=0.000
+f3185 LOG ¡Turno de Coco! Elige una acción.
+f3185 Coco hp=38.703 mp=20.660 en=100.000
+f3188 LOG Coco golpea con  por 5.65 de daño.
+f3188 Trent hp=27.997 mp=20.627 en=0.000
+f3240 LOG ⏳ 5. Slime venenoso prepara Rociada corrosiva. ¡Apártate! (aturdirlo lo interrumpe)
+f3281 LOG ¡Turno de Heroe! Elige una acción.
+f3284 LOG ¡CRITICO! Heroe golpea con  por 7.38 de daño. 💥
+f3284 Trent hp=20.613 mp=20.627 en=0.000
+f3358 LOG … 4.68 de daño: Coco (2.36), Dado (2.32)  Aplica: Pegajoso, Veneno, Pegajoso.
+f3358 Coco hp=36.343 mp=20.660 en=100.000
+f3358 Dado hp=46.828 mp=20.660 en=100.000
+f3428 LOG ¡Turno de Dado! Elige una acción.
+f3428 Dado hp=43.828 mp=20.660 en=100.000
+f3431 LOG Dado golpea con  por 6.16 de daño.
+f3431 Trent hp=14.449 mp=20.627 en=0.000
+f3486 LOG Bibi esquiva el ataque de 4. Trent. 💨
+f3544 LOG ¡Turno de Bibi! Elige una acción.
+f3547 LOG Bibi golpea con  por 6.20 de daño.
+f3547 Trent hp=8.245 mp=20.627 en=0.000
+f3605 LOG ¡Turno de Coco! Elige una acción.
+f3605 Coco hp=33.343 mp=20.660 en=100.000
+f3608 LOG Coco golpea con  por 5.49 de daño.
+f3608 Trent hp=2.757 mp=20.627 en=0.000
+f3661 LOG ¡Turno de Heroe! Elige una acción.
+f3664 LOG Heroe golpea con  por 6.33 de daño.
+f3664 Trent hp=0.000 mp=20.627 en=0.000
+f3745 LOG ⏳ 5. Slime venenoso prepara Placaje corrosivo. ¡Apártate! (aturdirlo lo interrumpe)
+f3798 LOG ¡Turno de Dado! Elige una acción.
+f3798 Dado hp=40.828 mp=20.660 en=100.000
+f3801 LOG Dado golpea con  por 6.47 de daño.
+f3801 Slime venenoso hp=32.482 mp=20.462 en=0.000
+f3857 LOG ¡Turno de Bibi! Elige una acción.
+f3860 LOG Bibi golpea con  por 6.55 de daño.
+f3860 Slime venenoso hp=25.933 mp=20.462 en=0.000
+f3911 LOG ¡Turno de Heroe! Elige una acción.
+f3914 LOG Heroe golpea con  por 7.19 de daño.
+f3914 Slime venenoso hp=18.747 mp=20.462 en=0.000
+f3969 LOG … 3.68 de daño (1 de 1 golpes).  Aplica: Débil.
+f3969 Coco hp=29.662 mp=20.660 en=100.000
+f4023 LOG ¡Turno de Coco! Elige una acción.
+f4023 Coco hp=26.662 mp=20.660 en=100.000
+f4026 LOG Coco golpea con  por 5.11 de daño.
+f4026 Slime venenoso hp=13.634 mp=20.462 en=0.000
+f4128 LOG ¡Turno de Heroe! Elige una acción.
+f4131 LOG Heroe golpea con  por 6.32 de daño.
+f4131 Slime venenoso hp=7.318 mp=20.462 en=0.000
+f4184 LOG ¡Turno de Bibi! Elige una acción.
+f4187 LOG Bibi golpea con  por 5.97 de daño.
+f4187 Slime venenoso hp=1.352 mp=20.462 en=0.000
+f4242 LOG ¡Turno de Dado! Elige una acción.
+f4242 Dado hp=37.828 mp=20.660 en=100.000
+f4245 LOG ¡GANASTE el combate contra 5 enemigos! 🎉
+f4245 Slime venenoso hp=0.000 mp=20.462 en=0.000
+FIN f4245 estado=3
