@@ -1665,11 +1665,20 @@ func _despejar_para_tactico(despejar: bool) -> void:
 			if n is CanvasLayer and (n as CanvasLayer).visible:
 				_despejado.append(n)
 				(n as CanvasLayer).visible = false
+		_refila_barras()
 		return
 	for n in _despejado:
 		if is_instance_valid(n) and n is CanvasLayer:
 			(n as CanvasLayer).visible = true
 	_despejado.clear()
+	_refila_barras()
+
+
+# La fila de barras deja sitio a la columna del registro mientras dura la pelea tactica (player.escala_fila).
+func _refila_barras() -> void:
+	var yo: Node = get_tree().get_first_node_in_group("player")
+	if yo != null and yo.has_method("_ajustar_escala_fila"):
+		yo._ajustar_escala_fila()
 
 
 # EL HUECO QUE LE QUEDA A LA PELEA: la pantalla menos lo que tapa el HUD. En pixeles de PANTALLA.

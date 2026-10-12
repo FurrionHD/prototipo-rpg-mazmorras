@@ -824,6 +824,9 @@ static func x_columna(i: int) -> float:
 # Donde empiezan las columnas del OTRO jugador (BarrasOtros): detras de la mochila y el farol del HUD (hud.recolocar,
 # que los pone a partir de x_columna(party) con el lado de ALTO_EQUIPO) y un poco de aire.
 func x_otros() -> float:
+	# En la pelea tactica no hay mochila ni farol que saltar: pegadas a las tuyas.
+	if Game.pelea_tactica_en_curso():
+		return x_columna(Game.party.size()) + 14.0
 	return x_columna(Game.party.size()) + 4.0 + ALTO_EQUIPO * 2.0 + Hud.SEPARACION_FAROL + 5.0 + Hud.ANCHO_TEXTO_FAROL + 14.0
 
 
@@ -2255,7 +2258,13 @@ func escala_fila() -> float:
 	var vp: Viewport = get_viewport()
 	if vp == null:
 		return 1.0
-	var disponible: float = float(vp.get_visible_rect().size.x) - Hud.ancho_botonera() - X_COL_BARRAS
+	# A la derecha, la botonera del HUD; EN LA PELEA TACTICA, la columna del registro y los botones, que es mas ancha
+	# (B5, playtest 11/10: las barras del otro grupo se metian debajo del Registro). Lo mismo que descuenta la camara
+	# (Game._rect_util_tactico).
+	var derecha: float = Hud.ancho_botonera()
+	if Game.pelea_tactica_en_curso():
+		derecha = maxf(derecha, Game._combat_montaje_script.ANCHO_COL_DER + Game._combat_script.MARGEN_UI * 2.0 + Tactil.borde.x)
+	var disponible: float = float(vp.get_visible_rect().size.x) - derecha - X_COL_BARRAS
 	# Lo que ocupa TODO: una columna por miembro del grupo, mas la mochila del HUD detras, mas el
 	# FAROLILLO detras de ella.
 	#
@@ -2266,6 +2275,9 @@ func escala_fila() -> float:
 	var necesario: float = x_columna(maxi(Game.party.size(), 1)) \
 		+ Hud.LADO_MOCHILA + Hud.SEPARACION_FAROL + Hud.LADO_MOCHILA \
 		+ Hud.ANCHO_TEXTO_FAROL + 8.0
+	# En la pelea tactica la mochila y el farol no estan (el HUD se esconde, Game._despejar_para_tactico).
+	if Game.pelea_tactica_en_curso():
+		necesario = x_columna(maxi(Game.party.size(), 1)) + 8.0
 	# Y las del otro jugador, si las hay (BarrasOtros, detras del farol).
 	if _barras_otros != null and _barras_otros.ancho() > 0.0:
 		necesario = x_otros() + _barras_otros.ancho() + 8.0
@@ -2281,6 +2293,8 @@ func _ajustar_escala_fila() -> void:
 		return
 	var f: float = escala_fila()
 	_barras_layer.scale = Vector2(f, f)
+	if _barras_otros != null:
+		_barras_otros.position.x = x_otros()   # (cambia al entrar y salir de la pelea tactica)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud != null and hud.has_method("recolocar"):
 		hud.recolocar()
