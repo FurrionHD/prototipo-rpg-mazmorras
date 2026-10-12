@@ -621,7 +621,7 @@ func _meter_enemigo(c: Combatant, es_invocado: bool, hueco: int = -1) -> int:
 		if not _pantalla._enemies[i].is_alive():
 			idx = i   # hueco de cadaver: se reutiliza
 			break
-	if idx < 0 and _pantalla._enemies.size() >= _pantalla.MAX_ENEMIGOS:
+	if idx < 0 and _pantalla._enemies.size() >= _pantalla.tope_enemigos():
 		return -1   # ni cadaver ni sitio: no cabe
 	if idx >= 0:
 		# (09/10) EL CADAVER QUE CEDE EL HUECO se muere y se desvanece YA en el mapa: si su apagado estaba esperando a

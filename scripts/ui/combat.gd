@@ -254,6 +254,12 @@ var _slots_invocados: Dictionary = {}
 # Tope de enemigos en una pelea. Lo aplica enemy.gd al reclutar vecinos (MAX_COMBATIENTES);
 # aqui sirve de contrato para la UI (bloques y numeracion).
 const MAX_ENEMIGOS := 5
+# EN EL MAPA NO HAY TOPE (12/10, lo decidio el jefe tras el playtest 11/10: "estos pensaba que estaban dentro, les
+# golpee pero entraron mas tarde y malgaste una habilidad"). Lo que esta DENTRO de la zona pelea: con el tope de 5 el
+# sexto se quedaba en la cola, de pie dentro de la arena y sin poder recibir golpes. MAX_ENEMIGOS sigue valiendo para
+# la pelea de fila y para el escudo de invocaciones del Rey (combat_enemigos._hay_sitio_para_invocar).
+func tope_enemigos() -> int:
+	return 1 << 20 if tactico else MAX_ENEMIGOS
 # Tope de ALIADOS en pantalla (hito 5.4-C, peleas compartidas). 4 es el techo real por dos motivos
 # que coinciden: el cupo de personajes en sesion ya topa a 4 EN TOTAL (Net.cupo_party), y la fila
 # de bloques NO hace wrap -216 px cada uno en un viewport de 1152-, asi que un quinto se saldria.

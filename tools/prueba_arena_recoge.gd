@@ -93,5 +93,28 @@ func _correr() -> void:
 	_afirmar(fichas == combat._bloques.size(), "su ficha se ha mudado sobre su cuerpo (%d de %d)" % [fichas, combat._bloques.size()])
 	_afirmar(combat.turno_mapa._preparados.has(combat._enemies[combat._enemies.size() - 1]),
 		"su cuerpo esta preparado para la pelea")
+	# (12/10) SIN TOPE EN EL MAPA: seis mas DENTRO de la zona (ocho en total, el tope de antes era cinco). Entran todos;
+	# ninguno se queda en la cola de pie dentro de la arena sin poder recibir golpes.
+	var dentro: Array = []
+	var c0: Vector2 = Vector2(arena.rect.get_center())
+	for i in 6:
+		var p: Vector2 = c0 + Vector2(-70 + 28 * i, 50 if i % 2 == 0 else -50)
+		if arena.contiene(p):
+			dentro.append(p)
+			Net.pisos.pedir_spawn_arena("res://scenes/actors/enemy/slime.tres", p, {})
+	var t1: int = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t1 < 4000:
+		await get_tree().process_frame
+	var en_zona: int = 0
+	var fuera_de_pelea: int = 0
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if arena.contiene((e as Node2D).global_position):
+			en_zona += 1
+			if not Game.esta_en_combate(e):
+				fuera_de_pelea += 1
+	_afirmar(dentro.size() == 6, "los seis nuevos caen dentro de la zona (%d)" % dentro.size())
+	_afirmar(combat._enemies.size() >= 8, "la pelea tiene mas de cinco: %d" % combat._enemies.size())
+	_afirmar(Game._cola_combate.is_empty(), "nadie se queda en la cola (%d)" % Game._cola_combate.size())
+	_afirmar(fuera_de_pelea == 0, "todo lo que esta dentro de la zona pelea (%d de %d fuera)" % [fuera_de_pelea, en_zona])
 	print("[arena-recoge] RESULTADO: %s (%d fallos)" % ["TODO BIEN" if _fallos == 0 else "HAY FALLOS", _fallos])
 	get_tree().quit(1 if _fallos > 0 else 0)

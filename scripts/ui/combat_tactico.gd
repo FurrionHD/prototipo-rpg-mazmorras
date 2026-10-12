@@ -326,7 +326,7 @@ func _preparar_altas() -> void:
 #     repite la peticion mientras se espera la respuesta (PEDIDO_OTRA_VEZ).
 const RECOGER_CADA := 0.5
 const PEDIDO_OTRA_VEZ := 3000   # ms
-var _t_recoger: float = 0.0
+var _t_recoger: float = RECOGER_CADA   # la primera barrida, nada mas empezar (12/10: los de dentro, cuanto antes)
 var _pedidos: Dictionary = {}   # net_id -> ms en que se pidio
 
 func _recoger_de_la_arena(delta: float) -> void:
