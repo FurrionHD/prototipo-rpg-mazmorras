@@ -79,6 +79,13 @@ COMO_SE_LANZA = {
     "prueba_town_trabajadores": [{}, {"env": {"PRUEBA_CABOS": "1"}}],
 }
 
+# LAS QUE VAN DE UNA EN UNA aunque no sean de red: tocan las mismas ranuras de guardado (user://, la ranura 97...) y
+# a la vez se pisan (12/10: con 6 a la vez fallaron bd_altf4 y bd_ranura, y solas pasan).
+def va_sola(nombre: str) -> bool:
+    return es_de_red(nombre) or nombre.startswith("prueba_bd_") or nombre in {
+        "prueba_pelea_a_medias", "prueba_huella_save", "prueba_nube_sin_red"}
+
+
 TOPE_NORMAL = 120     # s. Regla del jefe: topes de 3-5 veces lo que tarda, nada de 500 s.
 TOPE_RED = 240
 TOPES = {             # las que tardan mas de lo normal cuando van bien
@@ -189,7 +196,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Pasa las pruebas sin ventana de tools/.")
     ap.add_argument("filtros", nargs="*", help="solo las que contengan alguna de estas palabras")
     ap.add_argument("--rapidas", action="store_true", help="sin las de red (para antes de cada commit)")
-    ap.add_argument("--hilos", type=int, default=6, help="cuantas sin red a la vez (por defecto 6)")
+    ap.add_argument("--hilos", type=int, default=4, help="cuantas a la vez (por defecto 4; con 6 fallan las que miden tiempos)")
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
     a = ap.parse_args()
 
@@ -198,8 +205,8 @@ def main() -> int:
         nombres = [n for n in nombres if any(f in n for f in a.filtros)]
     if a.rapidas:
         nombres = [n for n in nombres if not es_de_red(n)]
-    sin_red = [n for n in nombres if not es_de_red(n)]
-    con_red = [n for n in nombres if es_de_red(n)]
+    sin_red = [n for n in nombres if not va_sola(n)]
+    con_red = [n for n in nombres if va_sola(n)]   # las de red y las que comparten ranura: de una en una
     if a.lista:
         for n in nombres:
             print("%-34s %s  tope %d s" % (n, "RED " if es_de_red(n) else "    ",
@@ -222,7 +229,7 @@ def main() -> int:
     with ThreadPoolExecutor(max_workers=max(1, a.hilos)) as ex:
         for fut in as_completed([ex.submit(pasar, godot, n) for n in sin_red]):
             apuntar(fut.result())
-    if con_red:
+    if any(es_de_red(n) for n in con_red):
         matar_restos()
     for n in con_red:
         apuntar(pasar(godot, n))
