@@ -1334,6 +1334,14 @@ var _impacto_de: int = 0
 # MI zona, para volver a anunciarla al que llegue a mi piso con la pelea ya empezada.
 var _mi_zona: Dictionary = {}
 var _pregunta_pelea: Node = null
+# LAS PELEAS EN LAS QUE YO ESTABA Y YA HAN ACABADO (12/10, playtest 11/10: "aun habiendo iniciado yo la pelea me sale
+# luego el ¿quieres entrar? al terminarla"). Mi compañero sigue anunciando esa zona hasta que pulsa Continuar, y aqui
+# se volvia a pintar como AJENA: me frenaba y me preguntaba si entraba en la pelea de la que acababa de salir.
+# {anfitrion: {"rect": Rect2i, "hasta": msec}}: sus anuncios rezagados (la misma zona, o una que la pise) no cuentan.
+var _zonas_acabadas: Dictionary = {}
+# A que pelea he entrado SOLO por pillarme dentro su zona (0 = ninguna). Lo mira prueba_zona_ajena (sin red no hay union).
+var _entrada_por_zona: int = 0
+const ZONA_ACABADA_MS := 30000
 
 
 func avisar_impacto(pos: Vector2) -> void:
@@ -1360,9 +1368,12 @@ func impacto_ajeno(emisor: int, pos: Vector2) -> void:
 func zona_ajena(emisor: int, anfitrion: int, rect: Rect2i, mascara: PackedByteArray) -> void:
 	if anfitrion == Net._mi_id() or not rect.has_area():
 		return
+	if _zona_ya_acabada(anfitrion, rect):
+		return
 	# Cada jugador esta en UNA pelea: si antes anunciaba otra, ya no.
 	_quitar_de_zonas(emisor, anfitrion)
 	var z: Dictionary = _zonas_ajenas.get(anfitrion, {})
+	var nueva: bool = z.is_empty()
 	if z.is_empty() or z["rect"] != rect or z["mascara"] != mascara:
 		if not z.is_empty():
 			_quitar_nodo_zona(z)
@@ -1371,6 +1382,17 @@ func zona_ajena(emisor: int, anfitrion: int, rect: Rect2i, mascara: PackedByteAr
 	(z["de"] as Dictionary)[emisor] = true
 	_montar_zonas_ajenas()
 	if _impacto_de != emisor:
+		# ME PILLA DENTRO AUNQUE NO ME HAYA QUEDADO QUIETO (12/10, a mi hermano "a veces no le entraba directo, le
+		# proponia entrar"): el aviso del impacto no siempre llega (lejos, sin linea de vista, o tarde por la red), y
+		# entonces una zona que le caia ENCIMA solo se apuntaba y luego le frenaba y le preguntaba. La regla es "o te
+		# pilla dentro al empezar, o dices que si": si la zona es NUEVA y estoy dentro, entro con mi grupo.
+		if nueva and _active_layer == null and not combate_activo() and not entrando_en_pelea() \
+				and not Net.peleas.ocupado_en_pelea():
+			var yo2: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+			if yo2 != null and ArenaCalculo.en_forma(rect, mascara, ArenaCalculo.celda_de_px(yo2.global_position)):
+				print("[zona ajena] la pelea de %d empieza conmigo dentro: entro con mi grupo" % anfitrion)
+				_entrada_por_zona = anfitrion
+				Net.peleas.solicitar_unirse(anfitrion)
 		return
 	_impacto_de = 0
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
@@ -1380,6 +1402,38 @@ func zona_ajena(emisor: int, anfitrion: int, rect: Rect2i, mascara: PackedByteAr
 		Net.peleas.solicitar_unirse(anfitrion)
 	elif _active_layer == null:
 		soltar_entrando_en_pelea()
+
+
+func _zona_ya_acabada(anfitrion: int, rect: Rect2i) -> bool:
+	var a: Dictionary = _zonas_acabadas.get(anfitrion, {})
+	if a.is_empty():
+		return false
+	if Time.get_ticks_msec() >= int(a["hasta"]) or not (a["rect"] as Rect2i).intersects(rect):
+		_zonas_acabadas.erase(anfitrion)   # ya es otra pelea de ese anfitrion
+		return false
+	return true
+
+
+# Se cierra MI pantalla de pelea. Si la pelea ha ACABADO (no me he ido huyendo de una que sigue), su zona deja de
+# ser algo a lo que entrar: fuera la que me anunciaba el compañero y sus anuncios rezagados (ver _zonas_acabadas).
+func _olvidar_zona_de_mi_pelea(acabada: bool) -> void:
+	if not acabada or _mi_zona.is_empty():
+		return
+	var a: int = int(_mi_zona.get("anfitrion", 0))
+	if a == 0:
+		return
+	_zonas_acabadas[a] = {"rect": _mi_zona["rect"], "hasta": Time.get_ticks_msec() + ZONA_ACABADA_MS}
+	if _zonas_ajenas.has(a):
+		_quitar_nodo_zona(_zonas_ajenas[a])
+		_zonas_ajenas.erase(a)
+
+
+# ¿La pelea que tengo en pantalla ha acabado? (false si no hay, o si sigue: me estoy yendo huyendo)
+func _pelea_en_pantalla_acabada() -> bool:
+	if _active_layer == null or _active_layer.get_child_count() == 0:
+		return false
+	var c: Node = _active_layer.get_child(0)
+	return c.has_method("acabada") and bool(c.acabada())
 
 
 func zona_ajena_cerrada(emisor: int) -> void:
@@ -1414,6 +1468,7 @@ func olvidar_zonas_ajenas() -> void:
 	for a in _zonas_ajenas:
 		_quitar_nodo_zona(_zonas_ajenas[a])
 	_zonas_ajenas.clear()
+	_zonas_acabadas.clear()
 	_impacto_de = 0
 
 
@@ -1698,10 +1753,11 @@ func _rect_util_tactico() -> Rect2:
 
 # Deshace lo anterior. Se llama SIEMPRE que se cierra una pelea, sea como sea que acabe: si la
 # camara se quedara con el encuadre de la arena, seguirias jugando la mazmorra desde lejos.
-func _desmontar_arena_tactica() -> void:
+func _desmontar_arena_tactica(acabada: bool = false) -> void:
 	if is_instance_valid(_arena_nodo):
 		_arena_nodo.queue_free()
 	_arena_nodo = null
+	_olvidar_zona_de_mi_pelea(acabada)
 	_mi_zona = {}
 	_montar_zonas_ajenas()   # y vuelven a verse (si me he ido de una que sigue, la veo desde fuera)
 	_despejar_para_tactico(false)
@@ -15719,9 +15775,10 @@ func _hay_jefe_en_roster(roster: Dictionary) -> bool:
 # por su cuenta, y para ellos salir_del_espejo no hace nada.
 func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en := [],
 		_muertos := [], _ehp := [], _duenos := [], _eest := []) -> void:
+	var acabada: bool = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
 	salir_modal(_active_layer)
 	esconder_mundo(false)
-	_desmontar_arena_tactica()   # la arena y el encuadre de la camara, a su sitio
+	_desmontar_arena_tactica(acabada)   # la arena y el encuadre de la camara, a su sitio
 	# ⚠️ LO QUE APILO _montar_pantalla_combate HAY QUE DESAPILARLO AQUI TAMBIEN. El espejo monta la
 	# pantalla por el mismo sitio que una pelea de verdad, pero se cierra por OTRA funcion: como esto
 	# faltaba, al pulsar Continuar en el espejo la musica de combate (o la de jefe) se quedaba en lo
@@ -16587,11 +16644,12 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# ya sono al aparecer el boton, no aqui (ver combat._end).
 	Musica.desapilar()
 	Ambiente.pausar(false)
+	var acabada: bool = _pelea_en_pantalla_acabada()   # antes de soltar la pantalla (ver _olvidar_zona_de_mi_pelea)
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	# La arena se va y la camara vuelve a su sitio. VA EN LOS DOS CIERRES (este y el del espejo):
 	# si se quedara puesta, seguirias jugando la mazmorra desde lejos y con un rectangulo pintado.
-	_desmontar_arena_tactica()
+	_desmontar_arena_tactica(acabada)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.jugadores.avisar_combate(false)
 	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su

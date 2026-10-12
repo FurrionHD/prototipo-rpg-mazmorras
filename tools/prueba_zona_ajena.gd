@@ -151,5 +151,38 @@ func _correr() -> void:
 	_ver(jug.global_position.is_equal_approx(antes4 + Vector2(40.0, 0.0)), "y ya no me frena")
 	_ver(not Game.hay_modal(), "no se queda ningun menu abierto")
 
+	print("5) (12/10) una zona NUEVA que me pilla dentro, sin que me llegara su impacto: entro solo")
+	Game._entrada_por_zona = 0
+	jug.global_position = centro
+	await _esperar(2)
+	Game.zona_ajena(EMISOR, ANFITRION + 1, dentro_rect, PackedByteArray())
+	_ver(Game._entrada_por_zona == ANFITRION + 1, "me pilla dentro: entro con mi grupo sin preguntar")
+	Game.zona_ajena_cerrada(EMISOR)
+	Game._entrada_por_zona = 0
+	Game.zona_ajena(EMISOR, ANFITRION + 2, fuera_rect, PackedByteArray())
+	_ver(Game._entrada_por_zona == 0, "una que no me pilla: no entro")
+	Game.zona_ajena_cerrada(EMISOR)
+
+	print("6) (12/10) MI pelea acaba y mi compañero aun la anuncia: ni zona ni pregunta")
+	var mia := ANFITRION + 3
+	Game.zona_ajena(EMISOR, mia, dentro_rect, PackedByteArray())   # la anunciaba mientras peleabamos juntos
+	Game._mi_zona = {"anfitrion": mia, "rect": dentro_rect, "mascara": PackedByteArray()}
+	Game._olvidar_zona_de_mi_pelea(true)
+	Game._mi_zona = {}
+	_ver(not Game.hay_zona_ajena(mia), "al acabar mi pelea su zona deja de ser ajena")
+	Game._entrada_por_zona = 0
+	Game.zona_ajena(EMISOR, mia, dentro_rect, PackedByteArray())   # su anuncio rezagado
+	_ver(not Game.hay_zona_ajena(mia) and Game._entrada_por_zona == 0, "su anuncio rezagado no la vuelve a poner")
+	Game.zona_ajena(EMISOR, mia, Rect2i(dentro_rect.position + Vector2i(40, 40), dentro_rect.size), PackedByteArray())
+	_ver(Game.hay_zona_ajena(mia), "una pelea NUEVA de ese mismo (en otro sitio) si se ve")
+	Game.zona_ajena_cerrada(EMISOR)
+	var huyo := ANFITRION + 4
+	Game.zona_ajena(EMISOR, huyo, dentro_rect, PackedByteArray())
+	Game._mi_zona = {"anfitrion": huyo, "rect": dentro_rect, "mascara": PackedByteArray()}
+	Game._olvidar_zona_de_mi_pelea(false)   # me voy huyendo y la pelea sigue
+	Game._mi_zona = {}
+	_ver(Game.hay_zona_ajena(huyo), "si me voy huyendo de una que sigue, la veo desde fuera")
+	Game.zona_ajena_cerrada(EMISOR)
+
 	print("FIN: %s (%d MAL)" % ["TODO BIEN" if _mal == 0 else "HAY FALLOS", _mal])
 	get_tree().quit(1 if _mal > 0 else 0)

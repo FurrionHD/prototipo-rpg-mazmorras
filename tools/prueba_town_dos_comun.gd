@@ -73,7 +73,10 @@ func pelear_hasta_el_final(plazo: float) -> bool:
 	var t := 0.0
 	var p: Node = pantalla()
 	while p != null and is_instance_valid(p) and not p.acabada() and t < plazo:
-		pulsar(0)
+		# (12/10) Si el enemigo esta lejos, Atacar esta apagado y el guion no sabe andar: se pasa el turno (Huir es
+		# "Pasar" lejos del borde) para que el bicho venga. Antes se quedaba esperando y la pelea no acababa nunca.
+		if not pulsar(0):
+			pulsar(5)
 		await _esperar(0.25)
 		t += 0.25
 		p = pantalla()

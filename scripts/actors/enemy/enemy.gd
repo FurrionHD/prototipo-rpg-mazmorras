@@ -2264,7 +2264,7 @@ func _start_combat(enemy_initiated: bool) -> void:
 	if _objetivo != null and is_instance_valid(_objetivo) and _objetivo.has_meta("peer_id"):
 		# OJO: el congelado lo pone la RESERVA (Net.peleas._reservar_grupo), que ademas rechaza a los que
 		# ya lo tengan puesto. Marcarlo aqui antes haria que la reserva se rechazara a si misma.
-		if not Net.peleas.empujar_pelea(self, _objetivo.get_meta("peer_id")):
+		if not Net.peleas.empujar_pelea(self, _objetivo.get_meta("peer_id"), enemy_initiated):
 			_rebotar()   # no ha colado (ya lo pelea alguien, o el otro esta ocupado): no insistir
 		return
 	# Ya hay una pelea en marcha: en vez de rebotar, ME UNO a ella (hito 5.4). Si no cabe (tope de

@@ -75,7 +75,7 @@ func _medir_llegada(emisor: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array = [],
+func _recibir_estado(emisor: int, pos: Vector2, facing: Vector2, comps: Array = [],
 		pose: int = 0) -> void:
 	_medir_llegada(emisor)
 	if Net._peers.has(emisor):
@@ -83,6 +83,7 @@ func _recibir_estado(emisor: int, pos: Vector2, _facing: Vector2, comps: Array =
 	var a = Net._avatares.get(emisor)   # SIN tipar: puede ser una instancia ya liberada (ver nota abajo)
 	if a != null and is_instance_valid(a):
 		a.ir_a(pos)
+		a.fijar_mirada_red(facing)   # hacia donde pega (12/10, ver remote_player._facing_red)
 		a.aplicar_pose(pose)   # su modo de andar, el arma fuera y el espadazo (ver empaquetar_pose)
 	# Y sus acompañantes. Si aun no tengo tantos cuerpos como manda, se crean sobre la marcha (su
 	# aspecto llega aparte, por _set_grupo).
@@ -914,6 +915,9 @@ func _asignar_dueno(piso: int, quien: int) -> bool:
 	var actual: int = Net._dueno_piso.get(piso, 0)
 	if actual == 0 or actual == quien or not _sigue_en(actual, piso):
 		Net._dueno_piso[piso] = quien
+		# Un HUMANO simula el piso (no habia trabajador libre): que se vea en el registro (12/10).
+		if quien != actual and not Net.es_trabajador(quien) and Net._trab.hay_trabajadores():
+			print("[autoridad] el piso %d lo simula el PC del jugador %d: no habia trabajador libre" % [piso, quien])
 		return true
 	return false
 
