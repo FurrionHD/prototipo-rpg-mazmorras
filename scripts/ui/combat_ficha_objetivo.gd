@@ -17,6 +17,10 @@
 #  reusarlo: no se puede: el bloque solo hay uno y tiene que seguir siendo la barrita de encima del
 #  bicho. Lo que si se reusa es todo lo que hay debajo -- _chips_de para saber que estados lleva
 #  (que es lo que ademas hace que en el espejo salga lo mismo) y StatusChip para dibujarlos.
+#
+#  DEBAJO, LOS DEMAS (B6, playtest 11/10: "solo veo al que apunto"): una fila corta por cada enemigo
+#  vivo que no es el apuntado, con su numero, nombre y una barrita de vida. Pulsar una = apuntarle.
+#  Cabe lo que deja libre la barra de acciones; si no caben todos, se desplaza.
 # ============================================================
 extends RefCounted
 
@@ -35,6 +39,12 @@ var _nombre: Label = null
 var _hp: ProgressBar = null
 var _hp_lbl: Label = null
 var _chips: HFlowContainer = null
+var _lista_scroll: ScrollContainer = null
+var _lista: VBoxContainer = null
+var _filas: Array = []          # [{c, hp, nombre}] en el orden de la lista
+var _ultima_lista: Array = []   # los Combatant que se pintaron, para rehacer solo cuando cambian
+const ALTO_FILA := 20.0
+const SEP_ACCIONES := 8.0       # el aire entre la lista y la barra de acciones
 
 # Lo ultimo que se pinto, para no rehacer los chips (que se borran y se recrean) en cada fotograma.
 var _ultimo_c: Combatant = null
@@ -94,6 +104,16 @@ func montar() -> void:
 	_chips.mouse_filter = Control.MOUSE_FILTER_PASS
 	chips_wrap.add_child(_chips)
 
+	_lista_scroll = ScrollContainer.new()
+	_lista_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_lista_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	vb.add_child(_lista_scroll)
+	_lista = VBoxContainer.new()
+	_lista.add_theme_constant_override("separation", 2)
+	_lista.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lista.mouse_filter = Control.MOUSE_FILTER_PASS
+	_lista_scroll.add_child(_lista)
+
 
 # Cada fotograma, desde la pantalla. Barato: lo unico que se rehace son los chips, y solo cuando de
 # verdad cambian.
@@ -134,6 +154,65 @@ func refrescar() -> void:
 			var txt: String = String(par[2]) if par.size() > 2 and String(par[2]) != "" \
 				else String(par[0])
 			_chips.add_child(StatusChip.crear(txt, col, String(par[1])))
+	_refrescar_lista(c, y)
+
+
+# LOS DEMAS ENEMIGOS VIVOS, debajo de la ficha. Las filas se rehacen solo si cambia quien sale; la vida, siempre.
+func _refrescar_lista(apuntado: Combatant, y: float) -> void:
+	var otros: Array = []
+	for e in _pantalla._enemies:
+		if e != apuntado and e.is_alive():
+			otros.append(e)
+	if otros != _ultima_lista:
+		_ultima_lista = otros.duplicate()
+		for hijo in _lista.get_children():
+			hijo.queue_free()
+		_filas.clear()
+		for e in otros:
+			_filas.append(_crear_fila(e))
+	for f in _filas:
+		var e: Combatant = f["c"]
+		(f["hp"] as ProgressBar).max_value = maxf(e.max_hp, 1.0)
+		(f["hp"] as ProgressBar).value = e.current_hp
+		(f["nombre"] as Label).text = "%d. %s" % [_pantalla._enemies.find(e) + 1, e.nombre]
+	_lista_scroll.visible = not otros.is_empty()
+	# El alto: el de todas las filas, sin pasar de lo que deja libre la barra de acciones.
+	var alto: float = otros.size() * (ALTO_FILA + 2.0)
+	var acciones: Control = _pantalla._panel_acciones
+	if is_instance_valid(acciones) and acciones.visible:
+		var libre: float = acciones.global_position.y - SEP_ACCIONES - (y + _caja.size.y - _lista_scroll.size.y)
+		alto = minf(alto, maxf(libre, ALTO_FILA))
+	_lista_scroll.custom_minimum_size.y = alto
+
+
+func _crear_fila(e: Combatant) -> Dictionary:
+	var fila := HBoxContainer.new()
+	fila.custom_minimum_size = Vector2(0, ALTO_FILA)
+	fila.add_theme_constant_override("separation", 6)
+	fila.mouse_filter = Control.MOUSE_FILTER_STOP
+	fila.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	fila.tooltip_text = "Apuntar a %s" % e.nombre
+	fila.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_pantalla.figuras._seleccionar(_pantalla._enemies.find(e)))
+	_lista.add_child(fila)
+	var nombre := Label.new()
+	nombre.clip_text = true
+	nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nombre.size_flags_stretch_ratio = 1.4
+	nombre.add_theme_font_size_override("font_size", 13)
+	nombre.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila.add_child(nombre)
+	var hp := ProgressBar.new()
+	hp.show_percentage = false
+	hp.custom_minimum_size = Vector2(0, 8)
+	hp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hp.self_modulate = Color(1.0, 0.4, 0.4)
+	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila.add_child(hp)
+	return {"c": e, "hp": hp, "nombre": nombre}
 
 
 # El enemigo apuntado, o null. VIVO: mismo criterio que el recuadro de seleccion; a un cadaver no se
