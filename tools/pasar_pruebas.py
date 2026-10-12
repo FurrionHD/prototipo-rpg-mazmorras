@@ -72,8 +72,11 @@ COMO_SE_LANZA = {
     "prueba_vinculo_steam": NUBE_LOCAL,
     "prueba_sala_entrar": [{"despues": ["nube_local", "sala_vacia=4"]}],
     "prueba_huella_combate": [{"antes": ["--fixed-fps", "60"], "despues": ["comparar"]}],
-    "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}}, {"env": {"ALTF4_FASE": "2"}}],
-    "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}}, {"env": {"PELEA_FASE": "2"}}],
+    # "prepara": esa pasada solo deja las cosas listas para la siguiente (p. ej. se mata a si misma): no cuenta.
+    "prueba_bd_altf4": [{"env": {"ALTF4_FASE": "1"}, "prepara": True}, {"env": {"ALTF4_FASE": "2"}}],
+    "prueba_pelea_a_medias": [{"env": {"PELEA_FASE": "1"}, "prepara": True}, {"env": {"PELEA_FASE": "2"}}],
+    # La larga y, aparte, los dos "cabos sueltos" (el trabajador de pelea se cae con tus fichas, etc.).
+    "prueba_town_trabajadores": [{}, {"env": {"PRUEBA_CABOS": "1"}}],
 }
 
 TOPE_NORMAL = 120     # s. Regla del jefe: topes de 3-5 veces lo que tarda, nada de 500 s.
@@ -81,11 +84,12 @@ TOPE_RED = 240
 TOPES = {             # las que tardan mas de lo normal cuando van bien
     "prueba_cargar_todo": 180,
     "prueba_huella_combate": 180,
-    "prueba_companeros_pueblo": 300,   # ~105 s: recorre el pueblo andando y corriendo
+    "prueba_companeros_pueblo": 300,
+    "prueba_town_dos_jugadores": 360,   # ~3-4 min: dos jugadores, cuatro peleas y la arena   # ~105 s: recorre el pueblo andando y corriendo
 }
 
 R_FALLO = re.compile(
-    r"(^\s*MAL\b|\bMAL:|\bFALLA\b|\bFALLAN \d+|\bFALLO\b|\b[1-9]\d* fallos?\b|\b[1-9]\d* fallo\(s\))",
+    r"(^\s*MAL\b|\b[1-9]\d* MAL\b|\bMAL:|\[FALLA\]|^FALLA\b|\bFALLAN \d+|\[FALLO\]|^FALLO\b|\b[1-9]\d* fallos?\b|\b[1-9]\d* fallo\(s\))",
     re.MULTILINE)
 # Errores del MOTOR: el juego peto por dentro. Cuentan como MAL salvo que la prueba diga claramente que ha ido
 # bien (hay pruebas que provocan un error a proposito, p. ej. prueba_bd_partida lee un .tres roto).
@@ -140,43 +144,52 @@ def _una_pasada(godot: str, nombre: str, pasada: dict, tope: float):
         return ((e.stdout or b"") + (e.stderr or b"")).decode("utf-8", "replace"), None, True
 
 
-def pasar(godot: str, nombre: str) -> dict:
-    tope = TOPES.get(nombre, TOPE_RED if es_de_red(nombre) else TOPE_NORMAL)
-    pasadas = COMO_SE_LANZA.get(nombre, [{}])
-    t0 = time.time()
-    textos = []
-    texto, codigo, colgada = "", 0, False
-    for i, pasada in enumerate(pasadas):
-        texto, codigo, colgada = _una_pasada(godot, nombre, pasada, tope)
-        textos.append("===== pasada %d %s =====\n%s" % (i + 1, pasada, texto))
-        if colgada:
-            break
-        # Las pasadas de antes (fase 1 de las de dos procesos) solo PREPARAN: lo que cuenta es la ultima.
-    if colgada and es_de_red(nombre):
-        matar_restos()
-    dur = time.time() - t0
-    (SALIDA / (nombre + ".log")).write_text("\n".join(textos), encoding="utf-8")
+def _juzgar(texto: str, codigo, colgada: bool):
     lineas = [l for l in texto.splitlines() if not R_RUIDO.search(l)]
     fallos = [l.strip() for l in lineas if R_FALLO.search(l)]
     motor = [l.strip() for l in lineas if R_MOTOR.search(l)]
     exito = bool(R_EXITO.search(texto))
     if colgada:
-        estado = "COLGADA"
-    elif codigo != 0 or fallos or (motor and not exito):
-        estado = "MAL"
-    elif exito:
-        estado = "BIEN"
-    else:
-        estado = "SIN MARCA"
-    return {"nombre": nombre, "estado": estado, "dur": dur, "tope": tope, "codigo": codigo,
-            "fallos": (fallos + motor)[:6]}
+        return "COLGADA", fallos + motor
+    if codigo != 0 or fallos or (motor and not exito):
+        return "MAL", fallos + motor
+    if exito:
+        return "BIEN", []
+    return "SIN MARCA", []
+
+
+ORDEN_MALO = {"BIEN": 0, "SIN MARCA": 1, "MAL": 2, "COLGADA": 3}
+
+
+def pasar(godot: str, nombre: str) -> dict:
+    tope = TOPES.get(nombre, TOPE_RED if es_de_red(nombre) else TOPE_NORMAL)
+    pasadas = COMO_SE_LANZA.get(nombre, [{}])
+    t0 = time.time()
+    textos = []
+    estado, fallos, codigo = "BIEN", [], 0
+    for i, pasada in enumerate(pasadas):
+        texto, cod, colgada = _una_pasada(godot, nombre, pasada, tope)
+        textos.append("===== pasada %d %s =====\n%s" % (i + 1, pasada, texto))
+        if colgada and es_de_red(nombre):
+            matar_restos()
+        if pasada.get("prepara") and not colgada:
+            continue   # solo deja listo lo de la siguiente pasada
+        e, f = _juzgar(texto, cod, colgada)
+        if ORDEN_MALO[e] > ORDEN_MALO[estado]:
+            estado, codigo = e, cod
+        fallos += ["(pasada %d) %s" % (i + 1, x) for x in f] if len(pasadas) > 1 else f
+        if colgada:
+            break
+    dur = time.time() - t0
+    (SALIDA / (nombre + ".log")).write_text("\n".join(textos), encoding="utf-8")
+    return {"nombre": nombre, "estado": estado, "dur": dur, "tope": tope, "codigo": codigo, "fallos": fallos[:6]}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Pasa las pruebas sin ventana de tools/.")
     ap.add_argument("filtros", nargs="*", help="solo las que contengan alguna de estas palabras")
     ap.add_argument("--rapidas", action="store_true", help="sin las de red (para antes de cada commit)")
-    ap.add_argument("--hilos", type=int, default=4, help="cuantas sin red a la vez (por defecto 4)")
+    ap.add_argument("--hilos", type=int, default=6, help="cuantas sin red a la vez (por defecto 6)")
     ap.add_argument("--lista", action="store_true", help="ensena la lista y sale")
     a = ap.parse_args()
 
