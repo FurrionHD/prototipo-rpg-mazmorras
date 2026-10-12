@@ -24,6 +24,7 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
   propósito, se vuelve a grabar (`-- grabar`) en el mismo commit; se regrabó el 12/10 (llevaba sin tocarse desde el
   15/09 y comparaba contra un combate de hace un mes).
 - Inestable conocida (falla a veces sin que el juego cambie): `prueba_bd_un_jugador` (el fichero de la ranura a veces sigue cogido al borrarlo).
+  `prueba_insectos_tactico` (con 4 a la vez a veces la rueda del escarabajo atraviesa su linea; sola pasa).
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):
