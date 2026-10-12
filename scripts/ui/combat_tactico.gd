@@ -2199,6 +2199,18 @@ func guardar_carga_enemigo(e: Combatant, ab: AbilityData, preferido: Combatant =
 
 
 # Se gira hacia donde va a soltar, y se lo cuenta al dueño del bicho si es de otra maquina.
+# SE GIRA A MIRAR HACIA 'dir' justo antes de su gesto (12/10, ver combat_figuras._on_gesto_iniciado). En CADA maquina,
+# con la direccion que saca su propio CombatFX: no hace falta mandar nada por red. Sin direccion (gestos sin victima,
+# como un grito al aire), no se toca.
+func encarar_hacia(c: Combatant, dir: Vector2) -> void:
+	if c == null or dir.length() < 0.5:
+		return
+	var cu: Node2D = cuerpo_de(c)
+	if cu == null or cu.has_meta(MARCA_CAIDO):
+		return
+	_animar(cu, dir, false)
+
+
 func _encarar(e: Combatant, p: Vector2) -> void:
 	var cu: Node2D = cuerpo_de(e)
 	if cu == null or p.distance_squared_to(cu.global_position) < 1.0:

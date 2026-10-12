@@ -50,6 +50,12 @@ signal apagar_ahora(bloque: Dictionary)
 # que dura el gesto EN SEGUNDOS REALES, para que la animacion se ajuste a el y no al reves.
 # 'mano': la del golpe que se avisa (0 derecha, 1 izquierda; -1 = no se sabe). Ver efectos._fx_golpe.
 signal gesto_iniciado(bloque: Dictionary, dir: int, dur: float, anim: StringName, mano: int)
+# La direccion de verdad (sin redondear a 8) del ultimo gesto de cada bloque: el que se gira a mirar a su victima en el
+# mapa la lee al empezar el gesto (combat_figuras._on_gesto_iniciado). Va aparte de la señal para no cambiar su firma.
+var _dir_gesto: Dictionary = {}
+
+func dir_del_gesto(bloque: Dictionary) -> Vector2:
+	return _dir_gesto.get(bloque, Vector2.ZERO)
 signal gesto_terminado(bloque: Dictionary)
 
 # LA OTRA MITAD DEL GOLPE: al que se lo comen tambien se le mueve el cuerpo. Va APARTE de los
@@ -2227,6 +2233,7 @@ func _marcar_gestos() -> void:
 			# que un gesto vaya de lado (barrer la fila), el bicho mirara hacia donde va sin tocar
 			# nada mas. Hacia abajo en pantalla = sur = mirando a camara.
 			"dir8": SpritesEnemigo.dir8(d),
+			"dir_v": d,
 			"anim": ev.get("anim", &""),
 			"ini_lanzado": false,
 			"fin_lanzado": false,
@@ -2294,6 +2301,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 		"manos": manos,
 		"sig": 0,
 		"dir8": SpritesEnemigo.dir8(dir),
+		"dir_v": dir if ev["bv"] != ev["ba"] else Vector2.ZERO,
 		"anim": ev.get("anim", &""),
 		"ini_lanzado": false,
 		"fin_lanzado": false,
@@ -2392,6 +2400,8 @@ func _avisar_gesto(p: Dictionary, dur_anim: float, siguiente: bool = false, golp
 		anim = String(ANIM_SIGUIENTE_MAPA.get(anim, anim))
 	var manos: Array = p.get("manos", [])
 	var mano: int = int(manos[golpe]) if golpe >= 0 and golpe < manos.size() else -1
+	# HACIA DONDE PEGA, para que el cuerpo se gire antes (12/10, ver dir_del_gesto). ZERO = no se sabe (sin victima).
+	_dir_gesto[p["bloque"]] = p.get("dir_v", Vector2.ZERO)
 	gesto_iniciado.emit(p["bloque"], int(p["dir8"]),
 		dur_anim / maxf(escala_tiempo, 0.01), StringName(anim), mano)
 

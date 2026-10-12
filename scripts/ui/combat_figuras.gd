@@ -612,7 +612,15 @@ func _pose_ajustar(sp: AnimatedSprite2D, anim: StringName, dur: float) -> void:
 # al doble y el dibujo a ritmo normal, cada uno por su lado.
 func _on_gesto_iniciado(b: Dictionary, dir: int, dur: float, pide: StringName = &"", mano: int = -1) -> void:
 	# EN EL MAPA el gesto del bicho lo hace su cuerpo, hacia donde mira (CombatTactico.gesto_bicho_en_mapa).
+	# ANTES SE GIRA HACIA SU VICTIMA (12/10, playtest 11/10: "el mino pego el basico a quien te he marcado y no se ha
+	# girado primero a mirarlo; los personajes igual, deben quedar mirando hacia donde han pegado"). El gesto salia hacia
+	# donde miraba de antes; ahora mira a quien pega y se queda asi.
 	if _pantalla.tactico:
+		var quien: Combatant = _pantalla.turno_mapa._de_bloque(b)
+		if quien == null:
+			quien = _combatant_de_bloque_aliado(b)
+		if quien != null and _pantalla._fx != null:
+			_pantalla.turno_mapa.encarar_hacia(quien, _pantalla._fx.dir_del_gesto(b))
 		var ce: Combatant = _pantalla.turno_mapa._de_bloque(b)
 		if ce != null and _pantalla._enemies.has(ce):
 			_pantalla.turno_mapa.gesto_bicho_en_mapa(ce, pide, dur)

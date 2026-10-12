@@ -564,8 +564,18 @@ func _resolver_hechizo(spell: SpellData, obj: Combatant) -> Array:
 			var victima: Combatant = null
 			if cadena:
 				victima = _pantalla.turno_mapa.siguiente_en_cadena(desde, ya, spell.forma_cadena)
+				# NADIE NUEVO A TIRO: el rebote vuelve sobre uno que ya ha recibido (12/10, playtest 11/10: "Descarga no
+				# hace los rebotes en el enemigo; los rebotes tienen que ser si o si a otros"). Su descripcion lo dice
+				# ("a veces se ensaña con el mismo"): con un solo enemigo, los rebotes le caen a el. Se elige al azar
+				# entre los vivos a tiro del ultimo, incluido el propio ultimo.
 				if victima == null:
-					break   # nadie a tiro del ultimo: la cadena se corta
+					var a_tiro: Array = []
+					for v in vivos:
+						if v == desde or _pantalla.turno_mapa.hueco_entre(desde, v) <= spell.forma_cadena:
+							a_tiro.append(v)
+					if a_tiro.is_empty():
+						break   # el ultimo ha caido y no queda nadie cerca: la cadena se corta
+					victima = a_tiro.pick_random()
 				ya.append(victima)
 				desde = victima
 				if anterior == null:
