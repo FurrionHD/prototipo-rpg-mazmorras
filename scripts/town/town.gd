@@ -67,7 +67,7 @@ func _crear_luces() -> void:
 		var clave: String = l[0]
 		var c: Vector2i = l[1]
 		var brasero: bool = clave == "brasero"
-		var pieza: PiezaPueblo = PiezaPueblo.crear(clave, Rect2i(c, Vector2i.ONE), true)
+		var pieza: PiezaPueblo = PiezaPueblo.crear(clave, Rect2i(c, Vector2i.ONE))
 		add_child(pieza)
 		var lista: Array = FuegoSprites.BRASEROS if brasero else FuegoSprites.ANTORCHAS
 		var perfil: int = lista[int(PuebloSprites._rnd(c.x, c.y, 401) * float(lista.size())) % lista.size()]
@@ -89,7 +89,7 @@ func _crear_luces() -> void:
 func _crear_carteles() -> void:
 	for c in PuebloPlano.CARTELES:
 		var casilla: Vector2i = c["casilla"]
-		add_child(PiezaPueblo.crear("cartel_indicador", Rect2i(casilla, Vector2i.ONE), true))
+		add_child(PiezaPueblo.crear("cartel_indicador", Rect2i(casilla, Vector2i.ONE)))
 		var p: Node2D = _puerta("res://scripts/town/cartel_indicador.gd", casilla, "")
 		p.name = "Cartel"
 		p.destinos = c["destinos"]
@@ -98,28 +98,24 @@ func _crear_carteles() -> void:
 
 # ------------------------------------------------------------
 #  LA PLAZA DE LA FUENTE Y EL MERCADILLO (PuebloPlano.PARQUE / MERCADO): la fuente con su agua animada
-#  encima, y los muebles. Todos 'dinamicos' salvo la fuente: son de una casilla de fondo, y quien se
-#  arrima por delante mete la cabeza en lo que sobresale (el toldo, la copa del arbol).
+#  encima, y los muebles.
 # ------------------------------------------------------------
 func _crear_plaza_y_mercado() -> void:
 	var fuente: PiezaPueblo = PiezaPueblo.crear("fuente", PuebloPlano.FUENTE)
 	add_child(fuente)
-	# El agua va con el pilon (por debajo de quien este delante), pintada despues de el.
-	var agua: AguaFuente = AguaFuente.crear()
-	agua.z_as_relative = false
-	agua.z_index = PiezaPueblo.Z_DEBAJO
-	fuente.add_child(agua)
+	# El agua va con el pilon, pintada despues de el.
+	fuente.encima(AguaFuente.crear())
 	for m in PuebloPlano.MUEBLES:
 		var clave: String = m[0]
-		add_child(PiezaPueblo.crear(clave, m[1], clave != "parterre"))
+		add_child(PiezaPueblo.crear(clave, m[1]))
 		# Cada puesto con su vendedor (VendedorMercadillo, que va y viene segun VendedoresPlan): el puesto
-		# entero, el vendedor y encima el frente del puesto, que le tapa las piernas. En ESTE orden: a la
-		# misma z manda el del arbol.
+		# entero, el vendedor y encima el frente del puesto, que le tapa las piernas. En ESTE orden: con la
+		# misma huella, PiezaPueblo pone encima la que se crea despues.
 		if clave.begins_with("puesto_"):
 			for v in VendedoresPlan.VENDEDORES.size():
 				if String(VendedoresPlan.VENDEDORES[v]["puesto"]) == clave:
 					add_child(VendedorMercadillo.crear(v))
-			add_child(PiezaPueblo.crear(clave + PlazaSprites.SUFIJO_FRENTE, m[1], true))
+			add_child(PiezaPueblo.crear(clave + PlazaSprites.SUFIJO_FRENTE, m[1]))
 
 
 # ------------------------------------------------------------
@@ -284,7 +280,7 @@ func _crear_casas() -> void:
 		_colgar_cartel(pieza, dibujo)
 		for a in PuebloPlano.ADORNOS.get(clave, []):
 			var celda_a: Vector2i = PuebloPlano.puerta_de(casa) + Vector2i(int(a[1]), 0)
-			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE), true))
+			nodo.add_child(PiezaPueblo.crear(String(a[0]), Rect2i(celda_a, Vector2i.ONE)))
 		var guion: String = String(casa.get("script", ""))
 		if guion == "":
 			continue
@@ -308,7 +304,7 @@ func _colgar_cartel(pieza: PiezaPueblo, dibujo: String) -> void:
 	pieza.colgar(s, Vector2(CasaSprites.posicion_cartel(dibujo)))
 
 
-# LAS VENTANAS DE NOCHE: el vidrio encendido encima de cada una (con la fachada, z de la parte de abajo)
+# LAS VENTANAS DE NOCHE: el vidrio encendido encima de cada una (con la fachada, a su misma z)
 # y un corro de luz pequeño delante. Cada casa se enciende con su retraso, y sus ventanas casi a la vez.
 func _encender_ventanas(pieza: PiezaPueblo, dibujo: String) -> void:
 	var retraso_casa: float = PuebloSprites._rnd(int(pieza.position.x), int(pieza.position.y), 311)
@@ -327,10 +323,8 @@ func _encender_ventanas(pieza: PiezaPueblo, dibujo: String) -> void:
 		vidrio.texture = CasaSprites.textura_vidrio(dibujo, esq, luz_v, casa_img)
 		vidrio.centered = false
 		vidrio.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		vidrio.z_as_relative = false
-		vidrio.z_index = PiezaPueblo.Z_DEBAJO
 		vidrio.position = Vector2(esq)
-		pieza.add_child(vidrio)
+		pieza.encima(vidrio)
 		var retraso: float = clampf(retraso_casa + 0.05 * float(i), 0.0, 1.0)
 		luz.poner_encendible(vidrio, retraso)
 		var centro: Vector2 = pieza.position + Vector2(esq) + Vector2.ONE * float(CasaSprites.TAM_VENTANA) * 0.5
@@ -379,8 +373,7 @@ func _crear_escalera() -> void:
 
 
 # ------------------------------------------------------------
-#  EL JARDIN DEL HOGAR: verjas y la columna del altar. Las dos son piezas ESTRECHAS, asi que van
-#  'dinamicas' (ver PiezaPueblo): su parte alta solo tapa a quien pasa por detras.
+#  EL JARDIN DEL HOGAR: verjas y la columna del altar.
 # ------------------------------------------------------------
 func _crear_jardin() -> void:
 	var j: Rect2i = PuebloPlano.JARDIN
@@ -393,9 +386,9 @@ func _crear_jardin() -> void:
 			# BORDES, la del autotile), y el dibujo de la verja quiere los lados hacia donde SIGUE. Sin el
 			# 15 - m salian las verjas del reves: tramos de frente en los laterales y postes sueltos abajo.
 			var m: int = 15 - TerrenoSprites.mascara(c, func(v: Vector2i) -> bool: return PuebloPlano.se_une_la_verja(v))
-			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE), true))
+			add_child(PiezaPueblo.crear("verja_%d" % m, Rect2i(c, Vector2i.ONE)))
 	var a: Vector2i = PuebloPlano.ALTAR
-	var columna: PiezaPueblo = PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE), true)
+	var columna: PiezaPueblo = PiezaPueblo.crear("altar_columna", Rect2i(a, Vector2i.ONE))
 	add_child(columna)
 	# El fuego blanco del altar, de verdad (LlamaAltar), en la boca del cuenco.
 	columna.acompanar(LlamaAltar.crear(), PuebloSprites.boca_altar())
