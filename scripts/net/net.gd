@@ -126,7 +126,8 @@ const MAX_CONEXIONES := 32
 # 37 (10/10): las BARRAS de cada grupo para el otro jugador (Net.jugadores _rel_barras / _set_barras).
 # 38 (11/10): la pelea de otro vista desde fuera: el IMPACTO (quieto al golpe) y la ZONA (Net.jugadores _rel_impacto,
 #     _impacto, _rel_zona, _zona).
-const PROTOCOLO := 38
+# 39 (12/10): la ANIMACION y el GESTO de la habilidad viajan en el paquete de impactos (combat_espejo MARCA_ANIM).
+const PROTOCOLO := 39
 
 # Cuanto espera el cliente una respuesta al saludo antes de dar por hecho que no se entienden.
 const _PLAZO_SALUDO := 5.0

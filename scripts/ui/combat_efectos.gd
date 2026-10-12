@@ -211,7 +211,7 @@ func _fx_golpe(atacante: Combatant, victima: Combatant, dmg: float, crit: bool,
 	# exactamente los mismos que tu, sin tener que acordarse de nada en cada punto de daño.
 	# (La esquiva en guardia va en el daño, que en un esquivado es siempre 0: -1 = "en guardia".)
 	_pantalla.espejo._apuntar_impacto_red(atacante, victima, -1.0 if en_guardia else dmg, crit, evadido, elem,
-		estilo, peso, solo_dibujo, sfx, semilla, mano)
+		estilo, peso, solo_dibujo, sfx, semilla, mano, gesto, anim)
 
 
 # DE QUE COLOR sale un golpe. Manda el ELEMENTO cuando lo tiene (un rayo es amarillo lo lance quien
