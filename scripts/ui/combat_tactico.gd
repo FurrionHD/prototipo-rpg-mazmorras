@@ -1248,6 +1248,7 @@ func tick(delta: float) -> bool:
 		niebla.seguir_en_pausa(delta)
 	_sigilo_visible(false)
 	_tick_circulos()
+	_tick_alcances()
 	_tick_huellas(delta)
 	_tick_gestos(delta)
 	_tick_raices()
@@ -4449,6 +4450,24 @@ func _quitar_circulo() -> void:
 	var arena: ArenaCombate = _arena()
 	if arena != null:
 		arena.quitar_circulo()
+		arena.alcances.clear()
+
+
+# LOS ALCANCES DE TODOS en el suelo (B4, playtest 11/10: "no se ve hasta donde llega cada uno"). El radio es el
+# mismo que mira llega(): su alcance mas lo que se resta al hueco, desde sus pies. El del turno y el apuntado, fuertes.
+func _tick_alcances() -> void:
+	var arena: ArenaCombate = _arena()
+	if arena == null:
+		return
+	var objetivo: Combatant = _pantalla._objetivo()
+	var out: Array = []
+	for c in _pantalla._aliados + _pantalla._enemies:
+		# (el que no se ve -sigilo, oscuridad- tampoco enseña su anillo: lo delataria)
+		if c == null or not c.is_alive() or cuerpo_de(c) == null or not cuerpo_de(c).is_visible_in_tree():
+			continue
+		out.append([pies_de(c), alcance_de(c) + _resta_al_hueco(c), _pantalla._enemies.has(c),
+			c == _quien or c == objetivo])
+	arena.alcances = out
 
 
 func _arena() -> ArenaCombate:

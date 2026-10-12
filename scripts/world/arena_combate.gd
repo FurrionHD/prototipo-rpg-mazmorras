@@ -364,6 +364,13 @@ func _limpiar() -> void:
 #  DIBUJO
 # ------------------------------------------------------------
 
+# LOS ALCANCES (los pone CombatTactico._tick_alcances cada fotograma): [centro, radio, es_enemigo, fuerte].
+var alcances: Array = []
+const COLOR_ALCANCE_TUYO := Color(0.45, 0.75, 1.0)
+const COLOR_ALCANCE_ENEMIGO := Color(1.0, 0.4, 0.35)
+const ALFA_ALCANCE := 0.22
+const ALFA_ALCANCE_FUERTE := 0.6
+
 func _process(delta: float) -> void:
 	_t += delta
 	queue_redraw()
@@ -405,6 +412,14 @@ func _draw() -> void:
 		draw_circle(circulo_centro, circulo_radio, Color(base, 0.10))
 		draw_arc(circulo_centro, circulo_radio, 0.0, TAU, 72, Color(base, 0.55 + 0.2 * late), 2.0)
 		draw_circle(circulo_centro, 3.0, Color(base, 0.8))   # de donde salio: su sitio al empezar
+
+	# 3b) LOS ALCANCES de todos (B4, playtest 11/10): un anillo fino a los pies de cada uno, azul los tuyos y rojo
+	# los de enfrente. Suaves, que se lean sin tapar la pelea; el del turno y el apuntado, marcados.
+	for al in alcances:
+		var col_al: Color = COLOR_ALCANCE_ENEMIGO if bool(al[2]) else COLOR_ALCANCE_TUYO
+		var fuerte: bool = bool(al[3])
+		draw_arc(al[0], float(al[1]), 0.0, TAU, 64, Color(col_al, ALFA_ALCANCE_FUERTE if fuerte else ALFA_ALCANCE),
+			2.0 if fuerte else 1.5)
 
 	# 4) LAS HUELLAS: lo que tapa una habilidad mientras se apunta (y, las cargadas, mientras cargan).
 	# Tambien sin achatar. El NUCLEO (la zona de impacto, con el daño entero) va mas marcado.
