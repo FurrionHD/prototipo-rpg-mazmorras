@@ -342,6 +342,11 @@ func _saludar_trabajador(token: String, protocolo: int, pid: int = 0) -> void:
 		Net._presentar_ajeno.rpc_id(quien, otro, p["color"], p["metal"], p["nombre"], p["lugar"],
 			p.get("imagen", PackedByteArray()), float(p.get("alpha", 1.0)), p.get("comps", []),
 			p.get("piezas", {}))
+	# ...y EN QUE PISO SE JUEGA LA ARENA (12/10, playtest 11/10: el Minotauro de la arena salia con 3553 de vida, al
+	# volver tras huir con 1208 y luego otra vez con 3551). A los humanos se lo cuenta Net._registrar_peer; a un
+	# trabajador que se presentaba DESPUES de cambiarlo no se lo decia nadie, y al montar la pelea de la arena sacaba
+	# los numeros del piso 1.
+	Net.pisos.contar_piso_arena(quien)
 	print("[trabajadores] se presenta el peer %d (reserva: %d)" % [quien, _libres()])
 	# ¿Hay algun piso con gente esperando a su trabajador de pelea? (el que salio de la reserva hacia falta.)
 	for piso in Net._dueno_piso.keys():

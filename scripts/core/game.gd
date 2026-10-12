@@ -186,6 +186,45 @@ func cambiar_lider(i: int) -> bool:
 	return true
 
 
+# AL HUIR, EL QUE HUYE VA EN CABEZA (12/10). La pantalla de pelea lo apunta (combat._accion_huir) y se aplica al
+# cerrarla (_aplicar_huida): el grupo sale de donde estaba el que huyo, no salta a donde estaba el lider de antes.
+# 'espejo': se pidio desde un espejo, donde el dado lo tira otro: solo cuenta si la pantalla se cierra sin que la pelea
+# haya acabado (me he ido). Cada jugador, solo con SU grupo.
+var _huida_pj: PersonajeData = null
+var _huida_espejo := false
+
+func apuntar_huida(pj: PersonajeData, espejo: bool) -> void:
+	if pj == null or not party.has(pj):
+		return
+	_huida_pj = pj
+	_huida_espejo = espejo
+
+
+func _aplicar_huida(acabada: bool) -> void:
+	var pj: PersonajeData = _huida_pj
+	var de_espejo: bool = _huida_espejo
+	_huida_pj = null
+	if pj == null or (de_espejo and acabada) or not party.has(pj):
+		return
+	if cambiar_lider(party.find(pj)):
+		var yo: Node = get_tree().get_first_node_in_group("player")
+		if yo != null and yo.has_method("refrescar_lider"):
+			yo.refrescar_lider()
+
+
+# Mi personaje (de MI grupo) detras de un combatiente de la pelea, tambien en un espejo (alli las fichas son de
+# quien ejecuta la pelea y se reconocen por el nombre).
+func pj_mio_de(c) -> PersonajeData:
+	var pj: PersonajeData = pj_de_combatant(c)
+	if pj != null and party.has(pj):
+		return pj
+	if c != null and c is Combatant:
+		for p in party:
+			if p.nombre == (c as Combatant).nombre:
+				return p
+	return null
+
+
 # --- Gestion de la plantilla (taberna y Hogar) ---
 
 # Alguien NUEVO. Entra en la plantilla y, si hay hueco, tambien al equipo que baja hoy.
@@ -15779,6 +15818,7 @@ func _on_combate_espejo_cerrado(_won: bool = false, _hp := [], _mp := [], _en :=
 	salir_modal(_active_layer)
 	esconder_mundo(false)
 	_desmontar_arena_tactica(acabada)   # la arena y el encuadre de la camara, a su sitio
+	_aplicar_huida(acabada)
 	# ⚠️ LO QUE APILO _montar_pantalla_combate HAY QUE DESAPILARLO AQUI TAMBIEN. El espejo monta la
 	# pantalla por el mismo sitio que una pelea de verdad, pero se cierra por OTRA funcion: como esto
 	# faltaba, al pulsar Continuar en el espejo la musica de combate (o la de jefe) se quedaba en lo
@@ -16650,6 +16690,7 @@ func _on_combat_finished(player_won: bool, hp_left: Array = [], mp_left: Array =
 	# La arena se va y la camara vuelve a su sitio. VA EN LOS DOS CIERRES (este y el del espejo):
 	# si se quedara puesta, seguirias jugando la mazmorra desde lejos y con un rectangulo pintado.
 	_desmontar_arena_tactica(acabada)
+	_aplicar_huida(acabada)
 	_bloquear_interaccion_jugador()  # que la tecla que cerro el combate no ataque otra vez al salir
 	Net.jugadores.avisar_combate(false)
 	# OJO: Net.peleas.cerrar_pelea() NO va aqui. Es la que le devuelve a cada humano lo que vivio su

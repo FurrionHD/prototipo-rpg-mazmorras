@@ -2348,7 +2348,11 @@ func _mas_rapido() -> Combatant:
 # media: de un grupo escapas tanto como te deje el que mejor te alcanza. Promediar haria que
 # sumarle tres slimes lentos a un lobo veloz te FACILITARA huir, que es absurdo.
 func _accion_huir() -> void:
+	# EL QUE HUYE PASA A IR EN CABEZA DE SU GRUPO (12/10, lo pidio el jefe: "que se quede en la posicion desde la que
+	# sales"). Se apunta aqui y lo aplica Game al cerrar la pantalla, en la maquina de ese jugador y solo con SU grupo.
+	var pj_huye: PersonajeData = Game.pj_mio_de(_player)
 	if espejo._enviar_si_espejo("huir"):
+		Game.apuntar_huida(pj_huye, true)   # en un espejo: solo cuenta si de verdad me voy (ver Game)
 		return
 	var perseguidor: Combatant = _mas_rapido()
 	var chance := StatsMath.flee_chance(
@@ -2381,6 +2385,8 @@ func _accion_huir() -> void:
 			Game.ganar("agilidad", _reto(perseguidor, pj), Game.GAIN_AGILIDAD_HUIDA_COMBATE,
 				Game.RETO_MAX_FISICO, pj)
 	if ok:
+		if dueno == 0:
+			Game.apuntar_huida(pj_huye, false)
 		# HUIR ES INDIVIDUAL (regla del usuario): si el que escapa es el personaje de OTRO humano,
 		# se va EL con los suyos y la pelea sigue para los que quedan. Solo se acaba para todos si
 		# con eso no queda nadie en pie.
