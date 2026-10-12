@@ -1739,6 +1739,28 @@ const CADAVER_SEGUNDOS := 300.0
 
 # Momento (en Game.tiempo_mazmorra) en el que este cuerpo se desvanece. -1 = no es un cadaver todavia.
 var sello_pudre: float = -1.0
+const _TintePodrido = preload("res://scripts/fx/tinte_podrido.gd")
+
+
+# Lo que LE QUEDA para pudrirse, en segundos (-1 = no es un cadaver o no lo sabe). Es lo que viaja en las fotos del
+# piso con el reloj de verdad al lado (ver Net.pisos._mem_a_red): el sello es del reloj de expedicion de ESTA
+# maquina, que en otra no significa nada.
+func pudre_quedan() -> float:
+	if sello_pudre < 0.0:
+		return -1.0
+	return maxf(0.0, sello_pudre - Game.tiempo_mazmorra)
+
+
+# 0 recien caido -> 1 a punto de desvanecerse. Lo pinta pintar_podrido.
+func fraccion_podrida() -> float:
+	if sello_pudre < 0.0 or es_boss:
+		return 0.0
+	return clampf(1.0 - pudre_quedan() / CADAVER_SEGUNDOS, 0.0, 1.0)
+
+
+func pintar_podrido() -> void:
+	if _sprite != null:
+		_sprite.self_modulate = _TintePodrido.tinte(fraccion_podrida())
 
 
 # Lo llama Game al GANAR el combate: el enemigo queda como CADAVER (no se

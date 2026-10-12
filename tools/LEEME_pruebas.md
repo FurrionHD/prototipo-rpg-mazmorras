@@ -23,7 +23,11 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
 - La **huella del combate** (`prueba_huella_combate`) compara con `tools/huellas/*.txt`. Si se cambia el combate a
   propósito, se vuelve a grabar (`-- grabar`) en el mismo commit; se regrabó el 12/10 (llevaba sin tocarse desde el
   15/09 y comparaba contra un combate de hace un mes).
-- Inestable conocida (falla a veces sin que el juego cambie): `prueba_bd_un_jugador` (el fichero de la ranura a veces sigue cogido al borrarlo).
+- Inestables conocidas (fallan a veces sin que el juego cambie):
+  - `prueba_bd_un_jugador`: el fichero de la ranura a veces sigue cogido al borrarlo.
+  - `prueba_comer_cristales`: comprobaciones de animacion distintas cada vez.
+  - `prueba_retraso_barra` (paso 8): a veces la IA no encuentra sitio fuera de tu area; no es el dado (con seed fijo
+    tambien). Pendiente de mirar: puede ser de verdad.
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):

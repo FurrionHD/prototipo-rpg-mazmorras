@@ -1047,7 +1047,10 @@ func _foto_de_mis_espejos() -> Dictionary:
 			continue
 		out.append({"ruta": n.data.resource_path, "pos": n.global_position,
 			"t": n.current_t, "zona": -1, "muerto": n.esta_muerto(),
-			"hp": n.hp_restante, "mut": bool(n.mutante), "mutid": String(n.mutacion), "carga": float(n.carga)})
+			"hp": n.hp_restante, "mut": bool(n.mutante), "mutid": String(n.mutacion), "carga": float(n.carga),
+			# Lo que le queda al cadaver, como lo veia yo (12/10, ver _mem_a_red).
+			"pudre_q": float(n.pudre_quedan()) if n.esta_muerto() else -1.0,
+			"pudre_reloj": Time.get_unix_time_from_system()})
 	if not out.is_empty():
 		print("[piso] heredo sin foto (se cayo el dueño): la rehago con %d espejos mios" % out.size())
 	return {"enemigos": out}
@@ -1065,9 +1068,17 @@ func _mem_a_red(mem: Dictionary) -> Dictionary:
 			"hp": d.get("hp", -1.0),   # las heridas viajan con el piso, como en solitario
 			# Si era MUTANTE y lo que lleva comido (05/10). La mutacion no viajaba: al cambiar de dueño
 			# el piso, el mini-jefe volvia convertido en un bicho normal (la memoria en solitario si la
-			# guardaba). El 'pudre' NO viaja: va contra el reloj de expedicion de cada maquina, que no es el mismo.
+			# guardaba).
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
 			"mutid": String(d.get("mutid", "")),
+			# LO QUE LE QUEDA PARA PUDRIRSE, con la HORA DE VERDAD de la foto (12/10, playtest 11/10: "los cadaveres no
+			# se descomponen; sigue habiendo cadaveres de hace 2 dias"). El 'pudre' de la memoria va contra el reloj de
+			# expedicion de ESTA maquina, que en otra no significa nada; por eso no viajaba, y cada traspaso o
+			# congelado le regalaba al cadaver otros 5 minutos para siempre. Ahora viaja lo que le queda y cuando se
+			# hizo la foto: al restaurar se descuenta lo que haya pasado de verdad, tambien con el piso congelado.
+			"pudre_q": (maxf(0.0, float(d.get("pudre", -1.0)) - Game.tiempo_mazmorra)
+				if float(d.get("pudre", -1.0)) >= 0.0 else -1.0),
+			"pudre_reloj": Time.get_unix_time_from_system(),
 		})
 	return {"enemigos": out}
 
@@ -1116,8 +1127,20 @@ func _mem_de_red(mem: Dictionary) -> Dictionary:
 			"hp": d.get("hp", -1.0),
 			"mut": bool(d.get("mut", false)), "carga": float(d.get("carga", 0.0)),
 			"mutid": String(d.get("mutid", "")),
+			"pudre": _pudre_de_red(d),
 		})
 	return {"enemigos": out, "suelo": []}
+
+
+# El sello de pudrirse en MI reloj de expedicion a partir de lo que le quedaba en la foto, descontando el tiempo
+# REAL que ha pasado desde entonces (ver _mem_a_red). -1 = la foto no lo traia (fotos viejas): morir() le pondra
+# los 5 minutos al revivirlo, como antes. Si ya se le paso, el sello queda atras y el barrido lo pudre al momento.
+static func _pudre_de_red(d: Dictionary) -> float:
+	var q: float = float(d.get("pudre_q", -1.0))
+	if q < 0.0:
+		return -1.0
+	var pasado: float = maxf(0.0, Time.get_unix_time_from_system() - float(d.get("pudre_reloj", 0.0)))
+	return Game.tiempo_mazmorra + (q - pasado)
 
 
 # ============================================================

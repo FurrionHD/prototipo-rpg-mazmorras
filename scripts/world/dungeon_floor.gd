@@ -2885,6 +2885,7 @@ func _process(delta: float) -> void:
 	_t_barrido = BARRIDO_CADA
 
 	_pudrir_cadaveres()
+	_tintar_cadaveres()
 
 	var player := get_tree().get_first_node_in_group("player")
 	if not (player is Node2D):
@@ -2954,6 +2955,16 @@ func _congelar_lejanos(referencias: Array[Vector2]) -> void:
 # MULTIJUGADOR: lo decide el DUEÑO del piso y punto. El espejo no cuenta cadaveres por su cuenta —su
 # reloj de expedicion es otro y se irian en momentos distintos—; se entera porque desvanecer() acaba
 # en queue_free() y el _exit_tree del bicho ya llama a Net.enemigos.baja_enemigo, que difunde el despawn.
+# EL TINTE RANCIO (12/10): en TODAS las maquinas que lo ven (tambien los espejos), segun lo que le queda a cada cuerpo.
+# Un trabajador no tiene pantalla: no pinta nada.
+func _tintar_cadaveres() -> void:
+	if Net.soy_trabajador:
+		return
+	for c in get_tree().get_nodes_in_group("corpse"):
+		if is_instance_valid(c) and c.has_method("pintar_podrido"):
+			c.pintar_podrido()
+
+
 func _pudrir_cadaveres() -> void:
 	if not Net.pisos.simulo_mi_piso():
 		return
