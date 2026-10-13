@@ -25,6 +25,7 @@ salida de cada una en `tools/resultados_pruebas/<nombre>.log` y dice BIEN / MAL 
   15/09 y comparaba contra un combate de hace un mes).
 - Inestable conocida (falla a veces sin que el juego cambie): `prueba_bd_un_jugador` (el fichero de la ranura a veces sigue cogido al borrarlo).
 - Inestable conocida: `prueba_comer_cristales` (1 de cada 3-5 pasadas: "se lo come" o "animacion de transformacion"; visto el 12/10 tambien sin cambios).
+- Inestable conocida: `prueba_bd_ranura` (13/10: "un paso del guardado ha tardado 11448 us" con 4 a la vez; sola, bien).
   Si fallan, se repiten antes de dar nada por roto.
 
 Se lanzan así (sin ventana, cada una dice `FIN: TODO BIEN` o lista sus `MAL:`):

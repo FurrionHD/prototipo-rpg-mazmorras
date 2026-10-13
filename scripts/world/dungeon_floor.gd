@@ -597,7 +597,13 @@ func colocar_en_arena(data: EnemyData, pos: Vector2, muneco: Dictionary = {}):
 	var sala: Rect2i = gen.salas[0]
 	pos = pos.clamp(Vector2(sala.position) * celda + Vector2(celda, celda),
 		Vector2(sala.end) * celda - Vector2(celda, celda))
-	return crear_enemigo(data, pos, 90.0, -1.0, 0, false, muneco)
+	# (13/10) Un MUTANTE CONCRETO de su arbol ("mutacion": "brotado"...), para las pruebas de la arena. Viaja dentro del
+	# diccionario del muñeco hasta el que la lleve, pero no es del muñeco: se saca antes.
+	var mutacion := StringName(muneco.get("mutacion", ""))
+	if mutacion != &"":
+		muneco = muneco.duplicate()
+		muneco.erase("mutacion")
+	return crear_enemigo(data, pos, 90.0, -1.0, 1 if mutacion != &"" else 0, false, muneco, mutacion)
 
 
 # Borra lo que hay en la arena (enemigos vivos y cadaveres). Mismo cuidado que el spawner de siempre:
