@@ -6263,6 +6263,9 @@ func _tick_deslices(delta: float) -> void:
 			# esta ella y del suyo (las del brotado).
 			if cria:
 				_bola_cria(c, d, Vector2(d.get("desde_bola", cuerpo.global_position)), d.get("col", c.color_visual))
+				# EN EL ESPEJO, ya en su sitio (escondida): su posicion por red llega tarde (ver remote_enemy.fijar_en).
+				if not _es_mio(c) and cuerpo.has_method("fijar_en"):
+					cuerpo.fijar_en(Vector2(d["hasta"]))
 			# EL RASTRO (polvo y aire) se ve en todas las pantallas, lo mueva quien lo mueva. Por el aire no deja.
 			var arena: ArenaCombate = _arena()
 			if arena != null and float(d.get("arco", 0.0)) <= 0.0:

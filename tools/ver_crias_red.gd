@@ -48,12 +48,14 @@ func _vigilar(p: Node) -> void:
 	var tm = p.turno_mapa
 	var ahora: float = Time.get_ticks_msec() / 1000.0
 	if not _al_empezar.has(p):
-		_al_empezar[p] = p._enemies.duplicate()
+		# Los de al empezar y SUS CUERPOS: la cria que estrena el hueco del brotado apunta un instante a su cuerpo
+		# (muriendose), y eso no es la cria.
+		_al_empezar[p] = p._enemies.duplicate() + p._enemies.map(func(e): return tm.cuerpo_de(e))
 	for e in p._enemies:
 		if e == null or e in _al_empezar[p]:
 			continue
 		var cu: Node2D = tm.cuerpo_de(e)
-		if cu == null:
+		if cu == null or cu in _al_empezar[p]:
 			continue
 		if _comprobadas.has(e) or (not _crias.has(e) and not e.is_alive()):
 			continue
@@ -62,9 +64,13 @@ func _vigilar(p: Node) -> void:
 		var r: Dictionary = _crias[e]
 		if float(r["nacida"]) >= 0.0:
 			continue
+		for d in tm._deslices:
+			if d["c"] == e and bool(d.get("cria", false)):
+				r["hasta"] = Vector2(d["hasta"])
 		var sp = cu.get("_sprite")
 		if sp is AnimatedSprite2D and String(sp.animation).begins_with("nacer"):
 			r["nacida"] = ahora - float(r["t0"])
+			r["donde"] = cu.global_position
 		elif cu.visible and cu.modulate.a > 0.01 and e.is_alive() and String(r["vista_antes"]) == "":
 			r["vista_antes"] = "a los %.2f s, %s en %s, a=%.2f" % [ahora - float(r["t0"]),
 				String(sp.animation) if sp is AnimatedSprite2D else "-", str(cu.global_position.round()), cu.modulate.a]
@@ -81,6 +87,11 @@ func _comprobar_crias(titulo: String) -> void:
 			continue
 		_ver(String(r["vista_antes"]) == "", "%s: %s no se ve antes de caer de su vuelo%s" % [titulo, r["nombre"],
 			"" if String(r["vista_antes"]) == "" else " (se vio %s)" % r["vista_antes"]])
+		if r.has("hasta") and r.has("donde"):
+			var lejos: float = Vector2(r["donde"]).distance_to(Vector2(r["hasta"]))
+			_ver(lejos < 6.0, "%s: %s se levanta donde cae su bola (a %.0f px)" % [titulo, r["nombre"], lejos])
+		else:
+			_ver(false, "%s: %s sin vuelo o sin levantarse" % [titulo, r["nombre"]])
 		_ver(float(r["nacida"]) >= 0.0 and float(r["nacida"]) <= T_NACER_PRUEBA,
 			"%s: %s se levanta a tiempo (%.2f s desde que llega su cuerpo; llego hace %.1f s)" % [titulo, r["nombre"],
 			float(r["nacida"]), ahora - float(r["t0"])])
@@ -165,7 +176,18 @@ func _trabajador_libre() -> int:
 	return 0
 
 
+# En la prueba la pelea TIENE que ir por el trabajador (lo que se mira es el espejo): si cae en mi PC, otra vez.
 func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) -> void:
+	for intento in 3:
+		if await _escena_una(titulo, ruta, muneco, pegarle) or not prueba:
+			return
+		print("[ver] la pelea no fue por el trabajador: otra vez")
+		await _vaciar_arena()
+	_ver(false, "%s: la pelea va por el trabajador" % titulo)
+
+
+# Devuelve false si la pelea se monto en mi PC (no hay espejo que mirar).
+func _escena_una(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) -> bool:
 	print("[ver] ===== %s =====" % titulo)
 	var tc := 0.0
 	while (Game.hay_pelea_en_pantalla() or Net.peleas._desgaste_pendiente) and tc < 10.0:
@@ -177,6 +199,9 @@ func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) ->
 		await _esperar(0.5)
 		tw += 0.5
 	print("[ver] trabajador de pelea esperando en la arena: %d (%.1f s)" % [Net._trab.pelea_libre_en(Game.PISO_ARENA), tw])
+	# Recien llegado aun no conoce los enemigos del piso: rechazaria la pelea ("0 de 1 bichos") y la montaria yo.
+	if tw > 0.0:
+		await _esperar(3.0)
 	var jug: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var antes: Array = Net.enemigos._enem_nodos.keys()
 	# Lejos de mi (que no me vea y me embista mientras el trabajador de pelea se entera de que existe).
@@ -200,7 +225,7 @@ func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) ->
 	if presa == null:
 		print("[ver] MAL: no aparece el enemigo pedido")
 		_mal += 1
-		return
+		return true
 	print("[ver] aparece %s (mutacion '%s')" % [presa.name, str(presa.get("mutacion"))])
 	# Que el trabajador de pelea ya lo tenga apuntado (recien nacido, con 1 s decia "0 de 1 bichos" y la montaba yo).
 	await _esperar(4.0)
@@ -216,11 +241,14 @@ func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) ->
 	if p == null:
 		print("[ver] MAL: no se abre la pelea")
 		_mal += 1
-		return
+		return true
 	print("[ver] pelea abierta (la ejecuta el trabajador %d; aqui, espejo: %s)" % [Net.peleas._pelea_anfitrion,
 		str(Net.peleas.espejando())])
 	await _esperar(1.0)
 	Cargando.ocultar()
+	if prueba and not Net.peleas.espejando():
+		await _huir(p)
+		return false
 	# A JUGAR: le pego al brotado hasta que cae; despues (y con el Rey, desde el principio) solo paso turnos.
 	var pasados: int = 0
 	var vistas: int = 1
@@ -263,6 +291,7 @@ func _escena(titulo: String, ruta: String, muneco: Dictionary, pegarle: bool) ->
 		await _esperar(0.25)
 		t += 0.25
 	Net.pisos.pedir_limpiar_arena()
+	return true
 
 
 # LA ARENA VACIA para la siguiente escena: si no, lo que quede vivo se mete en la pelea de la otra.

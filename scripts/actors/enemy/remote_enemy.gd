@@ -614,8 +614,28 @@ func _redimensionar(lado: float) -> void:
 	_cuerpo.offset_bottom = medio
 
 
+# PUESTO POR LA PELEA (13/10, C3 del playtest 11/10): la cria lanzada se planta donde cae su bola en cuanto empieza a
+# volar. Su posicion por red da tres saltos (trabajador de pelea -> host -> dueño del piso -> aqui) y la del Rey llegaba
+# DESPUES de que cayera: se levantaba dentro del Rey y luego salia arrastrada hasta su sitio. Mientras no llegue un
+# paquete que la confirme (o pase FIJADA_MS), los paquetes viejos no la mueven.
+const FIJADA_MS := 3000
+const FIJADA_CERCA := 4.0
+var _pos_fijada := Vector2.INF
+var _fijada_ms: int = 0
+
+func fijar_en(pos: Vector2) -> void:
+	global_position = pos
+	_objetivo = pos
+	_pos_fijada = pos
+	_fijada_ms = Time.get_ticks_msec()
+
+
 # Nuevo destino recibido de la red (lo llama Net al llegar cada paquete de posicion).
 func ir_a(pos: Vector2) -> void:
+	if _pos_fijada != Vector2.INF:
+		if pos.distance_to(_pos_fijada) > FIJADA_CERCA and Time.get_ticks_msec() - _fijada_ms < FIJADA_MS:
+			return
+		_pos_fijada = Vector2.INF
 	# (Si estoy en la pelea en el mapa que lleva ESTA maquina, ni se me llama: ver
 	# net_enemigos._tick_enemigos. Ahi de mi sitio manda el turno, no mi dueño.)
 	if _objetivo == Vector2.INF or global_position.distance_to(pos) > SALTO:
