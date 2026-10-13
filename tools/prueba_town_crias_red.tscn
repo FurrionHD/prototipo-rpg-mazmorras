@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/ver_crias_red.gd" id="1"]
+
+[node name="PruebaCriasRed" type="Node"]
+script = ExtResource("1")
+prueba = true

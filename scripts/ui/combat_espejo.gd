@@ -180,6 +180,14 @@ func roster_para_espejo() -> Dictionary:
 	return r
 
 
+func _cria_sin_formar(c: Combatant) -> bool:
+	var i: int = _pantalla._enemies.find(c)
+	if not _pantalla.tactico or i < 0 or not _pantalla._slots_invocados.has(i):
+		return false
+	var cu: Node2D = _pantalla.turno_mapa.cuerpo_de(c)
+	return cu == null or _pantalla.turno_mapa.cria_sin_formar(cu)
+
+
 func _fila_de_roster(lista: Array) -> Array:
 	var out: Array = []
 	for c in lista:
@@ -209,6 +217,10 @@ func _fila_de_roster(lista: Array) -> Array:
 			# de sus propios _active_enemies, que estando de espejo estan vacios (los bichos los lleva
 			# la maquina que ejecuta), asi que unirse a la pelea de un jefe sonaba a pelea de rata.
 			"jefe": c.es_jefe,
+			# UNA CRIA QUE AUN NO SE HA FORMADO (13/10, C3): el espejo la esconde desde que llega hasta que le llega su
+			# vuelo (si no, salia formada en el sitio de quien la suelta y se iba andando). Las ya formadas no: al que se
+			# une a media pelea se le enseñan.
+			"cria": _cria_sin_formar(c),
 			# SI ES UN MUTANTE. Va por la misma razon que "jefe": el espejo no tiene el nodo del mundo
 			# del que sale esta bandera, asi que sin mandarla el que se une a la pelea veia un bicho
 			# corriente -- sin aura, sin tinte y del tamaño normal -- pegando como un mini-jefe. El
@@ -302,6 +314,8 @@ func aplicar_roster(roster: Dictionary) -> void:
 		_pantalla._gauge[c] = 0.0
 		if _pantalla._timeline != null:
 			_pantalla._timeline.anadir(c, c.color_visual, null, str(i + 1))
+		if bool(d.get("cria", false)) and _pantalla.tactico:
+			_pantalla.turno_mapa.cria_por_llegar(c)
 	# battle_enemies es una referencia COMPARTIDA (la usa el escudo del Rey Slime para contar
 	# slimes vivos): al cambiar la lista hay que repartirla otra vez.
 	for e in _pantalla._enemies:

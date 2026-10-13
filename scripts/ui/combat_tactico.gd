@@ -5433,12 +5433,11 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		return
 	var v: Combatant = _de_bloque(ev["bv"])
 	var a: Combatant = _de_bloque(ev["ba"])
-	if v == null or cuerpo_de(v) == null:
-		return
 	var estilo: int = int(ev.get("estilo", 0))
-	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
-	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
-	if estilo == CombatFX.Estilo.CRIA_LANZADA:
+	# LA CRIA, AUNQUE AUN NO TENGA CUERPO (13/10, C3): en el espejo el escupitajo llega antes que su cuerpo (lo crea
+	# el dueño del piso, otro proceso). Su vuelo ya esta apuntado y espera al cuerpo (_tick_deslices); si aqui se
+	# exigia el cuerpo, el escupitajo se perdia y la cria se quedaba escondida esperandolo.
+	if v != null and estilo == CombatFX.Estilo.CRIA_LANZADA:
 		# La cria sale AHORA, cuando la escupe: vuela una bola de baba del color del Rey, desde su cuerpo (lanzar_cria,
 		# _tick_deslices). Aqui y en el espejo, que tambien recibe el escupitajo.
 		if a != null and cuerpo_de(a) != null:
@@ -5446,6 +5445,10 @@ func _on_dibujo_mapa(ev: Dictionary, vuelo: float) -> void:
 		else:
 			_soltar_cria(v, vuelo)
 		return
+	if v == null or cuerpo_de(v) == null:
+		return
+	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
+	var semilla: int = (int(ev.get("semilla", 1)) ^ (int(ev.get("pos_tanda", 0)) * 7919)) | 1
 	# LOS DEL SLIME PROFUNDO (07/10): el pinchazo de la anemona, del slime (a) a quien le pega (v); el destello helado,
 	# en los pies de quien se queda congelado (v).
 	if estilo == CombatFX.Estilo.PROFUNDO_ANEMONA or estilo == CombatFX.Estilo.PROFUNDO_HELADA:
@@ -6115,7 +6118,9 @@ func pedir_juntar(c: Combatant, hacia: Combatant, px: float) -> void:
 
 # 'dur' (> 0) = lo que tarda, en tiempo de la pelea (si no, el paso de siempre); 'arco' = lo alto que va por el aire
 # (el salto de un enemigo: su dibujo sube y baja, sus pies van por el suelo).
-func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0) -> void:
+# 'red' = false: ya viajo antes por su cuenta (la cria, ver lanzar_cria).
+func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: float = -1.0, arco: float = 0.0,
+		red: bool = true) -> void:
 	# ENRAIZADO NO SE MUEVE DEL SITIO (29/09): ni por sus habilidades (el paso, la carga, el salto) ni porque le
 	# empujen o le tiren. Las raices le sujetan; el golpe entra igual.
 	if c != null and (c.enraizado() or c.enroscado() or (c.pegado() and _pantalla._enemies.has(c))):
@@ -6124,7 +6129,8 @@ func pedir_desliz(c: Combatant, hasta: Vector2, modo: int, golpes: int, dur: flo
 		return
 	if not _es_mio(c):
 		_pos[c] = hasta
-	_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes, dur, arco)
+	if red:
+		_pantalla.espejo._apuntar_desliz_red(c, hasta, modo, golpes, dur, arco)
 	anotar_desliz(c, hasta, modo, golpes)
 	(_deslices.back() as Dictionary)["dur"] = dur   # (como siempre: aqui manda lo pedido, tambien en el empujon)
 	(_deslices.back() as Dictionary)["arco"] = arco
@@ -6242,6 +6248,10 @@ func _tick_deslices(delta: float) -> void:
 			cuerpo.visible = false
 		if float(d["t"]) < 0.0:
 			d["espera"] = float(d["espera"]) + delta
+			# EN EL ESPEJO la del Rey espera a su escupitajo; si ese ya paso (o no llega), sale igual (13/10, C3: se
+			# quedaba escondida toda la pelea). Quien lleva la pelea ya tiene lo suyo (_por_nacer).
+			if cria and _pantalla._espejo and is_inf(float(d["tope"])) and float(d["espera"]) >= T_ESPERA_GOTA_RED:
+				d["tope"] = 0.0
 			if float(d["espera"]) < float(d["tope"]):
 				continue
 			d["t"] = 0.0
@@ -6571,6 +6581,12 @@ func lanzar_cria(cria: Combatant, data: EnemyData, origen: Vector2, hasta: Vecto
 		return
 	_sitios_cria.append([hasta, Time.get_ticks_msec()])
 	_vuelo_cria[slot] = [hasta, con_gota, col]
+	# EL VUELO VIAJA YA (13/10, C3 del playtest 11/10), en el paquete de ESTA accion, delante del escupitajo del Rey.
+	# Antes salia al ponerle cuerpo (cria_con_cuerpo), y en red el cuerpo lo crea el dueño del piso, que es otro
+	# proceso: llegaba tras un viaje de ida y vuelta, con la accion ya enviada, y se iba en el paquete de la SIGUIENTE.
+	# En el espejo la cria salia formada y andando y "caia" turnos despues; la del Rey se quedaba esperando un
+	# escupitajo que ya habia pasado, escondida para siempre.
+	_pantalla.espejo._apuntar_desliz_red(cria, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
 	Game.dar_cuerpo_a_cria(slot, data, origen, 0.2)
 
 
@@ -6689,7 +6705,7 @@ func cria_con_cuerpo(slot: int) -> void:
 		# cuerpo se comia el vuelo. Ahora espera ESCONDIDA dentro de el y sale con su CRIA_LANZADA (_on_dibujo_mapa),
 		# volando lo que tarda ese efecto en caer. Lo que vuela es una BOLA DE BABA (SlimeAire.Modo.CRIA), no ella. El
 		# desliz CRIA viaja al espejo, que hace lo mismo (anotar_desliz, _tick_deslices).
-		pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA)
+		pedir_desliz(c, hasta, Desliz.CRIA, 1 if con_gota else 0, T_VUELO_CRIA, ALTO_VUELO_CRIA, false)
 		cuerpo.visible = false
 		# La del brotado, de su color (aqui: el espejo no lo sabe y la pinta del de la cria, que es casi el mismo).
 		if not con_gota and col_bola.a > 0.0:
@@ -6732,6 +6748,9 @@ func cria_sin_formar(cuerpo: Node2D) -> bool:
 		return false
 	if not cuerpo.visible:
 		return true
+	for c in _cria_red.keys():
+		if cuerpo_de(c) == cuerpo:
+			return true
 	for c in _por_nacer.keys():
 		if cuerpo_de(c) == cuerpo:
 			return true
@@ -6786,7 +6805,35 @@ func _cria_cae(c: Combatant) -> void:
 		_aparece_cria[cuerpo] = 0.0
 
 
+# EN EL ESPEJO, LA CRIA QUE AUN NO TIENE SU VUELO (13/10, C3 del playtest 11/10): el alta llega al momento y su
+# cuerpo enseguida (lo crea el dueño del piso), pero el vuelo va en el paquete de la accion, que sale al cerrarla. Hasta
+# entonces va escondida; si el vuelo no llegara nunca, sale igual a los T_CRIA_RED.
+const T_CRIA_RED := 4.0
+const T_ESPERA_GOTA_RED := 6.0
+var _cria_red: Dictionary = {}   # Combatant -> segundos esperando su vuelo
+
+func cria_por_llegar(c: Combatant) -> void:
+	_cria_red[c] = 0.0
+
+
+func _tick_cria_red(delta: float) -> void:
+	for c in _cria_red.keys():
+		_cria_red[c] = float(_cria_red[c]) + delta
+		var tiene: bool = false
+		for d in _deslices:
+			tiene = tiene or (d["c"] == c and bool(d.get("cria", false)))
+		var cu: Node2D = cuerpo_de(c)
+		if tiene or not c.is_alive() or float(_cria_red[c]) >= T_CRIA_RED:
+			_cria_red.erase(c)
+			if not tiene and cu != null:
+				cu.visible = true
+			continue
+		if cu != null:
+			cu.visible = false
+
+
 func _tick_crias(delta: float) -> void:
+	_tick_cria_red(delta)
 	var ritmo: float = _pantalla._fx.escala_tiempo if _pantalla._fx != null else 1.0
 	for cu in _aparece_cria.keys():
 		if not is_instance_valid(cu):
