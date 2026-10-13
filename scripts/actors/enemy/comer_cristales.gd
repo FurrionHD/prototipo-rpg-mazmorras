@@ -224,6 +224,23 @@ static func tragar_visual(drop: Node2D, quien: Node2D, dur: float = COMER_DUR) -
 	t.tween_callback(drop.queue_free)
 
 
+# LA MARCA 'gesto_comer' (que andar/quieto no pisen la animacion) LLEVA EL NUMERO DE SU GESTO, y cada gesto solo quita
+# la suya (13/10). Comer y transformarse la comparten, y el slime muta justo al tragar, que es cuando acaba el gesto de
+# comer: si su final caia un fotograma despues, quitaba la marca de la transformacion recien puesta y el slime salia
+# ya transformado, sin su animacion ("a veces aparece directo transformado"; prueba_comer_cristales fallaba 1 de 2).
+static var _n_marca: int = 0
+
+static func poner_marca_gesto(nodo: Node) -> int:
+	_n_marca += 1
+	nodo.set_meta("gesto_comer", _n_marca)
+	return _n_marca
+
+
+static func quitar_marca_gesto(nodo: Node, marca: int) -> void:
+	if is_instance_valid(nodo) and nodo.has_meta("gesto_comer") and int(nodo.get_meta("gesto_comer")) == marca:
+		nodo.remove_meta("gesto_comer")
+
+
 # EL GESTO DE COMER en el cuerpo: su animacion 'comer' si la tiene (el slime normal y su brotado) o, si no, un picoteo
 # provisional. Mientras dura, la marca 'gesto_comer' no deja que andar/quieto la pisen. La comparten Enemy y su espejo.
 static func gesto(nodo: Node2D, spr: AnimatedSprite2D, mirada: Vector2, dur: float) -> void:
@@ -231,14 +248,13 @@ static func gesto(nodo: Node2D, spr: AnimatedSprite2D, mirada: Vector2, dur: flo
 		return
 	var anim := StringName("comer_%d" % SpriteLienzo.dir8(mirada))
 	if spr.sprite_frames != null and spr.sprite_frames.has_animation(anim):
-		nodo.set_meta("gesto_comer", true)
+		var marca: int = poner_marca_gesto(nodo)
 		spr.speed_scale = 1.0
 		spr.play(anim)
 		var t := nodo.create_tween()
 		t.tween_interval(dur)
 		t.tween_callback(func() -> void:
-			if is_instance_valid(nodo):
-				nodo.remove_meta("gesto_comer"))
+			quitar_marca_gesto(nodo, marca))
 		return
 	var base: Vector2 = spr.position
 	var tp := nodo.create_tween()

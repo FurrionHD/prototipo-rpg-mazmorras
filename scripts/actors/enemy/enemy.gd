@@ -539,7 +539,7 @@ static func gesto_transformacion(nodo: Node2D, spr: AnimatedSprite2D, mirada: Ve
 	var anim := StringName("%s_%d" % [nombre, SpriteLienzo.dir8(mirada)])
 	if not spr.sprite_frames.has_animation(anim):
 		return false
-	nodo.set_meta("gesto_comer", true)
+	var marca: int = ComerCristales.poner_marca_gesto(nodo)
 	spr.speed_scale = 1.0
 	spr.play(anim)
 	Particulas.esquirlas(nodo, ComerCristales.COLOR_CRISTAL, Vector2.UP, 8, 0.8)
@@ -547,7 +547,7 @@ static func gesto_transformacion(nodo: Node2D, spr: AnimatedSprite2D, mirada: Ve
 	t.tween_interval(dur)
 	t.tween_callback(func() -> void:
 		if is_instance_valid(nodo):
-			nodo.remove_meta("gesto_comer")
+			ComerCristales.quitar_marca_gesto(nodo, marca)
 			Particulas.esquirlas(nodo, EnemyData.MUT_AURA, Vector2.UP, 12, 1.1))
 	return true
 
