@@ -87,12 +87,35 @@ func _correr() -> void:
 	e.habilidades = []   # solo el basico: aqui se mira hacia donde pega, no que habilidad elige
 	combat._player = e
 	combat._state = combat.State.ADVANCING
+	var n_log: int = combat._log_lines.size()
 	combat.enemigos._enemy_turn(e)
 	combat.set_process(true)
 	await _segundos(3.0)
 	combat.set_process(false)
+	# A QUIEN HA PEGADO DE VERDAD (13/10): los otros, apartados, a veces quedan a tiro y se lo lleva uno de ellos; antes
+	# esto exigia "a la izquierda" y pasaba de casualidad (el giro salia de las tarjetas). Lo dice el registro (tambien
+	# si lo esquiva).
+	var nuevas: String = " ".join(combat._log_lines.slice(n_log).map(func(l): return str(l)))
+	for o in combat._aliados:
+		nuevas = nuevas.replace("Turno de %s" % o.nombre, "")
+	var victima: Combatant = al
+	for o in combat._aliados:
+		if nuevas.contains(o.nombre):
+			victima = o
+	var hacia: Vector2 = (tm.cuerpo_de(victima).global_position - cu_e.global_position).normalized()
 	var m_e: Vector2 = tm._mirada_de(cu_e)
-	_ver(m_e.x < -0.3, "mira a la izquierda, donde pego (%s)" % str(m_e.snapped(Vector2(0.01, 0.01))))
+	_ver(m_e.dot(hacia) > 0.5, "mira hacia %s, a quien pego (mira %s, esta hacia %s)" % [victima.nombre,
+		str(m_e.snapped(Vector2(0.01, 0.01))), str(hacia.snapped(Vector2(0.01, 0.01)))])
+
+	print("1b) la direccion del gesto sale de los CUERPOS del mapa, no de las tarjetas (13/10)")
+	# En el espejo es lo unico que gira al bicho antes de pegar: las crias del playtest 11/10 pegaban hacia el otro lado.
+	var ev := {"ba": combat._bloque_de(e), "bv": combat._bloque_de(al)}
+	for lado in [-1.0, 1.0]:
+		cu_a.global_position = cu_e.global_position + Vector2(40.0 * lado, 0)
+		tm._pos[al] = cu_a.global_position
+		var d_e: Vector2 = combat._fx._direccion_golpe(ev, null, null)
+		_ver(signf(d_e.x) == lado and absf(d_e.x) > 0.6, "con su victima a la %s, el gesto sale hacia alli (%s)" % [
+			"izquierda" if lado < 0.0 else "derecha", str(d_e.snapped(Vector2(0.01, 0.01)))])
 
 	print("2) uno de los tuyos pega al enemigo que tiene al norte")
 	cu_a.global_position = cu_e.global_position + Vector2(0, 34)

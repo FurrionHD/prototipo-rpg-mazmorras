@@ -2285,7 +2285,7 @@ func _plan_animar(ev: Dictionary, vistos: Dictionary) -> void:
 	vistos[pa] = true
 	# Empieza un poco ANTES del golpe: es el brazo que se echa atras. Y termina al ultimo impacto
 	# mas lo que dure recogerse.
-	var dir: Vector2 = _direccion(pa, _visual(ev["bv"]))
+	var dir: Vector2 = _direccion_golpe(ev, pa, _visual(ev["bv"]))
 	_gestos.append({
 		"actor": pa,
 		"bloque": ev["ba"],
@@ -3109,6 +3109,19 @@ func _ancho_tarjeta(bloque: Dictionary) -> float:
 # Hacia donde se lanza el que pega. La horizontal sale de los centros reales de las dos tarjetas;
 # la vertical es fija por bando (los enemigos van arriba y tu abajo), porque dos tarjetas de la
 # MISMA fila estan a la misma altura y sin esto un golpe entre vecinos no se veria ir a ningun sitio.
+# HACIA DONDE PEGA, para el giro de antes del gesto (dir_del_gesto). EN EL MAPA, de cuerpo a cuerpo (13/10, playtest
+# 11/10: las crias pegaban mirando al lado contrario y luego se quedaban bien). Con las tarjetas, que en el mapa estan
+# escondidas o en su fila de siempre, salia una direccion que no tenia nada que ver con donde estaba la victima, y en el
+# espejo era lo unico que lo giraba; la orientacion buena llegaba despues, por red. Sin mapa, la de las tarjetas.
+func _direccion_golpe(ev: Dictionary, pa: Control, pv: Control) -> Vector2:
+	var ra: Rect2 = _rect_mapa(ev["ba"])
+	var rv: Rect2 = _rect_mapa(ev["bv"])
+	if ra.has_area() and rv.has_area():
+		var d: Vector2 = rv.get_center() - ra.get_center()
+		return d.normalized() if d.length() >= 1.0 else Vector2.DOWN
+	return _direccion(pa, pv)
+
+
 func _direccion(pa: Control, pv: Control) -> Vector2:
 	var ca: Vector2 = pa.get_global_rect().get_center()
 	var cv: Vector2 = pv.get_global_rect().get_center()
