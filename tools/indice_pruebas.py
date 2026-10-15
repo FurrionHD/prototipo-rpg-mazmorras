@@ -95,7 +95,7 @@ def main() -> int:
             ps = nombra[s]
             muestra = ", ".join("`%s`" % p for p in ps[:6]) + (" y %d más" % (len(ps) - 6) if len(ps) > 6 else "")
             lineas.append("- `%s`: %s" % (s.relative_to(RAIZ).as_posix(), muestra))
-    SALIDA.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    SALIDA.write_text("\n".join(lineas) + "\n", encoding="utf-8", newline="\n")   # LF como el resto del repo
     print("Escrito %s: %d scripts, %d sin prueba" % (SALIDA.relative_to(RAIZ), len(scripts), len(huecos)))
     return 0
 

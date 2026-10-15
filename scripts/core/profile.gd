@@ -368,11 +368,16 @@ func _process(delta: float) -> void:
 		if _t < SEG_GUARDADO:
 			return
 		_t = 0.0
+		var t_exp: int = Time.get_ticks_usec()
 		_volcado = BDFilas.Volcado.new(Game.exportar_partida(), _ids)
+		Medidor.medida("guardado_exportar", (Time.get_ticks_usec() - t_exp) / 1000.0)   # va en UN fotograma
 	if _volcado.paso(PRESUPUESTO_US):
 		var filas: Dictionary = _volcado.out
 		_volcado = null
-		if _bd.escribir(filas) < 0:
+		var t_esc: int = Time.get_ticks_usec()
+		var escrito: int = _bd.escribir(filas)
+		Medidor.medida("guardado_escribir", (Time.get_ticks_usec() - t_esc) / 1000.0)   # tambien en UN fotograma
+		if escrito < 0:
 			push_warning("[perfil] el guardado continuo de la ranura %d ha fallado" % _bd_slot)
 		# Y a la nube, cada SEG_NUBE (solo lo cambiado; sin red, queda apuntado).
 		_t_nube += SEG_GUARDADO

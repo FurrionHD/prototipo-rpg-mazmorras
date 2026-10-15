@@ -163,6 +163,17 @@ static func _cabecera(L: Array[String]) -> void:
 		L.append("  %s" % Net.tunel.resumen())
 		L.append("  epoca_sesion ..... %d" % Net.epoca_sesion)
 		L.append("  semilla_host ..... %d" % Net.semilla_host)
+	# RENDIMIENTO (plan de optimizacion, fase 0): lo que tardan las cosas en este PC, para comparar antes/despues.
+	L.append("")
+	L.append("[RENDIMIENTO]")
+	L.append("  fps .............. %d" % Engine.get_frames_per_second())
+	L.append("  draw calls ....... %d" % int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	L.append("  objetos/nodos .... %d / %d" % [int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))])
+	L.append("  memoria estatica . %.0f MB" % (Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0))
+	L.append("  item_meta ........ %d entradas" % Game.item_meta.size())
+	for linea in Medidor.resumen().split("\n", false):
+		L.append("  " + linea)
 	_oficios(L)
 
 

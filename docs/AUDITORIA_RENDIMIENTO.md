@@ -104,6 +104,11 @@ por la sala cuesta 50-100 ms.
 8 viajes en serie para el que ataca y ~14 para el compañero (la zona solo se anuncia cuando el atacante ya tiene su
 pantalla: `net_peleas.gd:1355`). Estimado: 1,2-2,5 s el que ataca, 1,8-3,5 s el compañero.
 
+**Medido el 15/10** (medidor de la fase 0, `prueba_town_tactico`, todo en un PC y sin Steam): cada salto por la sala o un
+trabajador cuesta 5-30 ms, menos de lo estimado. Lo que más pesa es MONTAR LA PANTALLA: el trabajador tarda ~100 ms en
+montar la pelea y el compañero **~245 ms en abrir su espejo** (`Game.abrir_combate_espejo`); en total el compañero
+ve su pantalla ~505 ms después del impacto. Por Steam se sumará la latencia de cada salto.
+
 | Clase | Qué | Dónde |
 |---|---|---|
 | Fotos | Roster de combate: la foto PNG va **dos veces** por aliado (`imagen` y `pj`) | `combat_espejo.gd:191-241` |

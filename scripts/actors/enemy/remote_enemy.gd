@@ -473,6 +473,7 @@ func atacado_por_jugador(golpe_dur: float = -1.0) -> bool:
 	if _pidiendo_pelea:
 		return true
 	_pidiendo_pelea = true
+	Medidor.empezar("pelea", "golpe")   # cuanto tarda en abrirse (fase 0 del plan de optimizacion)
 	# EL ESPADAZO SE VE ENTERO, tambien contra un espejo. La pelea se pide cuando el golpe termina,
 	# no en el mismo fotograma de la pulsacion: es el mismo respiro que se da el bicho de verdad en
 	# enemy._iniciar_impacto (_impacto_t), y sin el la pantalla de combate se llevaba la escena a
@@ -495,6 +496,7 @@ func _lanzar_peticion() -> void:
 	if _combat_triggered or pelea_de != 0:
 		Net.peleas.unirme_a_la_pelea_de(get_meta("net_id"))
 		return
+	Medidor.marca("pelea", "pedida")
 	Game.marcar_entrando_en_pelea()   # le he pegado: quieto hasta que se abra (o me digan que no)
 	Game.avisar_impacto(global_position)   # y el compañero que este cerca, tambien (ver Game.impacto_ajeno)
 	Net.peleas.solicitar_pelea(get_meta("net_id"))

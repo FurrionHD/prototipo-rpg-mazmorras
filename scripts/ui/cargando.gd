@@ -135,6 +135,7 @@ func piso_montado() -> void:
 		await get_tree().process_frame
 		buenos = buenos + 1 if get_process_delta_time() < FOTOGRAMA_FLUIDO else 0
 	print("[carga] piso listo en %d ms" % (Time.get_ticks_msec() - t0))
+	Medidor.medida("carga_piso_espera_fluido", float(Time.get_ticks_msec() - t0))
 	Game.salir_modal(_TOKEN_PISO)
 	_cubierto = false
 	_reteniendo = false

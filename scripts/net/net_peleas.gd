@@ -79,6 +79,7 @@ func solicitar_pelea(id: int) -> void:
 func _pedir_pelea(id: int, lugar: String) -> void:
 	if not Net.es_host:
 		return
+	Medidor.marca("pelea", "sala_recibe")
 	_encaminar_pelea(id, lugar, multiplayer.get_remote_sender_id())
 
 
@@ -97,6 +98,7 @@ func _encaminar_pelea(id: int, lugar: String, quien: int) -> void:
 # Le llega al dueño CLIENTE del piso (reenviada por el host).
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_pelea_dueno(id: int, lugar: String, para: int) -> void:
+	Medidor.marca("pelea", "dueno_recibe")
 	if Net._mi_lugar != lugar or not Net._soy_dueno:
 		return
 	_resolver_pelea(id, para, lugar)
@@ -249,6 +251,7 @@ func pelea_fuera_de_mi_pc(nodo: Node, emboscada: bool) -> bool:
 func _rel_respuesta_pelea(para: int, ids: Array, emboscada: bool, anfitrion: int = 0) -> void:
 	if not Net.es_host:
 		return
+	Medidor.marca("pelea", "sala_respuesta")
 	_entregar_pelea(para, ids, emboscada, anfitrion)
 
 
@@ -354,6 +357,7 @@ func _pelea_rechazada(para: int, ids: Array, emboscada: bool) -> void:
 # Corre en EL QUE ATACA (o al que embisten): el host le dice que su pelea la ejecuta 'ejecutor'.
 @rpc("any_peer", "call_remote", "reliable")
 func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
+	Medidor.marca("pelea", "cliente_ejecutor")
 	_llega_pelea(ids, emboscada, 0, ejecutor)
 
 
@@ -362,6 +366,7 @@ func _pelea_en_ejecutor(ids: Array, emboscada: bool, ejecutor: int) -> void:
 # los bichos para que la monte el, como siempre: nunca queda peor que antes.
 @rpc("any_peer", "call_remote", "reliable")
 func _abre_mi_pelea(ids: Array, emboscada: bool, fichas: Array, vel: float = 1.0) -> void:
+	Medidor.marca("pelea", "trabajador_abre")
 	var quien := multiplayer.get_remote_sender_id()
 	_pelea_humano = quien
 	var nodos: Array = []
@@ -1157,6 +1162,7 @@ func ocupado_en_pelea() -> bool:
 func unirme_a_la_pelea_de(id: int) -> void:
 	if not Net.activo:
 		return
+	Medidor.marca("pelea_compa", "pido_unirme")
 	# Ya estoy en una pelea (la mia o espejando otra): una pantalla de combate por maquina.
 	if Game.combate_activo() or ocupado_en_pelea():
 		return
@@ -1267,6 +1273,7 @@ func _mi_formacion() -> Array:
 # Corre en EL ANFITRION: alguien quiere entrar en mi pelea, con la ficha de su personaje.
 @rpc("any_peer", "call_remote", "reliable")
 func _pedir_unirme(fichas: Array) -> void:
+	Medidor.marca("pelea_compa", "anfitrion_recibe_union")
 	var quien := multiplayer.get_remote_sender_id()
 	var p: Node = _pantalla_combate()
 	# NO LA EJECUTO YO, SOLO LA VEO (playtest 08/10, "le doy a atacar y me dice esta pelea no esta disponible"): la
@@ -1405,6 +1412,7 @@ func _union_denegada(motivo: String = "Esa pelea ya no está disponible.") -> vo
 # que mande las fichas. Con ellos se sabe a quien muevo yo cuando el anfitrion pide una accion.
 @rpc("any_peer", "call_remote", "reliable")
 func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
+	Medidor.marca("pelea", "union_ok")
 	_fichas_mandadas_a = 0
 	# NO PUEDO ABRIR EL ESPEJO (me ha caido otra pelea encima mientras llegaba este). Mis personajes YA
 	# estan dentro de la suya: hay que decirle que me saque, o la pelea se quedaria esperando turnos mios
@@ -1424,6 +1432,11 @@ func _union_ok(id: int, roster: Dictionary, idxs: Array) -> void:
 	Game.soltar_casteo_en_vuelo()
 	_pelea_sigo = id
 	_pelea_anfitrion = multiplayer.get_remote_sender_id()
+	# Fin de la medida: la pantalla ya esta abierta (el que pego y el compañero que se une)
+	Medidor.marca("pelea", "pantalla_abierta")   # siempre: tambien cuando la pelea la empezo el enemigo
+	for tramo in ["pelea", "pelea_compa"]:
+		if Medidor.abierto(tramo):
+			Medidor.cerrar(tramo, "pantalla")
 	Game.anunciar_mi_zona(_pelea_anfitrion)   # los de mi piso la ven desde fuera (y entra el que pille dentro)
 	_mis_huecos.clear()
 	for i in mini(idxs.size(), _mis_en_pelea.size()):

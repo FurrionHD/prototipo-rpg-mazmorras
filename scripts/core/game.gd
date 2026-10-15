@@ -1391,6 +1391,7 @@ func avisar_impacto(pos: Vector2) -> void:
 func impacto_ajeno(emisor: int, pos: Vector2) -> void:
 	if _active_layer != null or combate_activo() or Net.peleas.ocupado_en_pelea() or entrando_en_pelea():
 		return
+	Medidor.empezar("pelea_compa", "impacto_ajeno")
 	var yo: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	var piso: Node = get_tree().get_first_node_in_group("dungeon_floor")
 	if yo == null or piso == null or piso.get("gen") == null:
