@@ -3,7 +3,9 @@
 #  se lo lleva. Carga la partida de referencia en un piso, anda en circulo y mide TIME_PROCESS / TIME_PHYSICS_PROCESS
 #  de media; luego apaga por turnos cada pieza (HUD, jugador, enemigos, niebla, el resto del piso) y mira cuanto baja.
 #  Sin ventana el dibujo no cuenta: esto mide SOLO el codigo.
-#    godot --headless --path . res://tools/medir_fotograma.tscn -- --piso 5
+#    godot --headless --path . res://tools/medir_fotograma.tscn -- --piso 5 > salida.txt
+# OJO: la salida a un FICHERO, nunca por una tuberia (| grep): por tuberia cada print espera y el guardado salia en
+# 15-22 ms cuando cuesta 4.
 # No es una prueba (no esta en la bateria): es una herramienta de medida.
 # ============================================================
 extends Node
@@ -122,6 +124,50 @@ func _medir_guardado() -> void:
 	if not bd.abrir(ruta):
 		print("[FOTOGRAMA] no se pudo abrir la BD de prueba")
 		return
+	# QUIEN SE LLEVA EL PASO A FILAS: tarea a tarea (paso(0) hace una y vuelve), sumado por campo / clase de objeto.
+	var v := BDFilas.Volcado.new(Game.exportar_partida(), ids)
+	var por: Dictionary = {}
+	var t_ant: int = Time.get_ticks_usec()
+	while true:
+		var acabado: bool = v.paso(0)
+		var ahora: int = Time.get_ticks_usec()
+		var tarea: Array = v._cola[v._i - 1] if v._i > 0 and v._i <= v._cola.size() else ["fin"]
+		var k: String = str(tarea[0])
+		if tarea[0] in ["campo", "sub", "cont", "arr"]:
+			k += " " + str(tarea[1])
+		elif tarea[0] == "obj":
+			var o: Resource = tarea[1]
+			k += " " + (o.get_script().resource_path.get_file() if o.get_script() != null else o.get_class())
+		var e: Array = por.get(k, [0, 0])
+		e[0] += ahora - t_ant
+		e[1] += 1
+		por[k] = e
+		t_ant = Time.get_ticks_usec()
+		if acabado:
+			break
+	var claves: Array = por.keys()
+	claves.sort_custom(func(a, b): return por[a][0] > por[b][0])
+	for c in claves.slice(0, 18):
+		print("[FOTOGRAMA]   a filas: %-40s %7.2f ms  (%d)" % [c, por[c][0] / 1000.0, por[c][1]])
+	# ¿El atajo del texto contado da LO MISMO? Las filas de una foto con un Ids calentado contra uno nuevo.
+	var foto: SaveData = Game.exportar_partida()
+	var caliente := BDFilas.Ids.new()
+	BDFilas.a_filas(Game.exportar_partida(), caliente)
+	var fa: Dictionary = BDFilas.a_filas(foto, caliente)
+	var fb: Dictionary = BDFilas.a_filas(foto, BDFilas.Ids.new())
+	var dif: int = 0
+	for parte in ["campos", "contables"]:
+		for k2 in fa[parte]:
+			if not fb[parte].has(k2) or str(fb[parte][k2]) != str(fa[parte][k2]):
+				dif += 1
+				if dif <= 5:
+					print("[FOTOGRAMA] DIFIERE %s %s: %s / %s" % [parte, str(k2).left(120), str(fa[parte][k2]).left(80), str(fb[parte].get(k2, "<falta>")).left(80)])
+		for k2 in fb[parte]:
+			if not fa[parte].has(k2):
+				dif += 1
+				if dif <= 10:
+					print("[FOTOGRAMA] SOLO SIN ATAJO %s %s" % [parte, str(k2).left(160)])
+	print("[FOTOGRAMA] atajo contado: %d diferencias" % dif)
 	for k in 4:
 		var t0: int = Time.get_ticks_usec()
 		var datos: SaveData = Game.exportar_partida()

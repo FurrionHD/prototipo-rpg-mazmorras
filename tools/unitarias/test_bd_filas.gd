@@ -147,3 +147,26 @@ func test_monton_en_tres_conserva_su_n() -> void:
 	var de_vuelta: SaveData = ResourceLoader.load(ruta, "", ResourceLoader.CACHE_MODE_IGNORE)
 	igual(int(de_vuelta.almacen_materiales[0].n), 42, "el n vuelve del .tres")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(ruta))
+
+
+# EL ATAJO DEL TEXTO CONTADO (1C, 16/10): el texto de cada material se reaprovecha por lo que ES (ruta, calidad, talla),
+# porque Monton.a_lista hace copias nuevas en cada exportar. Con un Ids que ya ha guardado antes tienen que salir
+# EXACTAMENTE las mismas filas que con uno nuevo; y un material con metadatos sueltos no toma el atajo.
+func test_atajo_del_texto_contado_da_lo_mismo() -> void:
+	var s := SaveData.new()
+	s.almacen_materiales = [_mat(ACERO, MaterialItem.Calidad.NORMAL), _mat(ACERO, MaterialItem.Calidad.PURO),
+		_mat(ACERO, MaterialItem.Calidad.NORMAL, 31.4), _cri(2, Cristal.Calidad.INTACTO)]
+	var raro := _mat(ACERO, MaterialItem.Calidad.NORMAL)
+	raro.set_meta("marca", 7)
+	s.almacen_materiales.append(raro)
+	var caliente := BDFilas.Ids.new()
+	# Calentarlo con COPIAS iguales (otras instancias, como hace a_lista en cada exportar)
+	var antes := SaveData.new()
+	antes.almacen_materiales = [_mat(ACERO, MaterialItem.Calidad.NORMAL), _mat(ACERO, MaterialItem.Calidad.PURO),
+		_mat(ACERO, MaterialItem.Calidad.NORMAL, 31.4), _cri(2, Cristal.Calidad.INTACTO)]
+	BDFilas.a_filas(antes, caliente)
+	cierto(caliente.contable_txt.size() >= 4, "el atajo aprende los 4 textos")
+	var fa: Dictionary = BDFilas.a_filas(s, caliente)
+	var fb: Dictionary = BDFilas.a_filas(s, BDFilas.Ids.new())
+	igual(fa["contables"], fb["contables"], "mismas filas contadas con atajo y sin el")
+	igual(BDFilas._clave_texto(raro), "", "con metadatos no hay atajo")

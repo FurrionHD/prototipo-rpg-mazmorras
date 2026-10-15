@@ -48,6 +48,9 @@ class Ids:
 	# El texto de cada material/cristal contado, por instancia: son VALORES (nadie los cambia tras
 	# crearlos), asi que se calcula UNA vez y no en cada guardado (20.000 en su mundo).
 	var contable: Dictionary = {}   # instance_id -> texto
+	# Y por lo que ES (ruta + calidad + talla, ver _clave_texto): Monton.a_lista hace COPIAS nuevas en cada exportar,
+	# asi que por instancia no acertaba nunca y el baul se pasaba entero a texto cada 2 s (optimizacion 1C, 16/10).
+	var contable_txt: Dictionary = {}   # clave -> texto
 
 	func nuevo() -> String:
 		var id := "o%d" % siguiente
@@ -227,7 +230,13 @@ static func _contar(ruta: String, v: Array, desde: int, cuantos: int, ctx: Dicti
 			var iid: int = it.get_instance_id()
 			txt = ids.contable.get(iid, "")
 			if txt == "":
-				txt = var_to_str(_cosa(it, ctx))
+				var k: String = _clave_texto(it)
+				if k != "":
+					txt = ids.contable_txt.get(k, "")
+				if txt == "":
+					txt = var_to_str(_cosa(it, ctx))
+					if k != "":
+						ids.contable_txt[k] = txt
 			nuevos[iid] = txt
 		else:
 			# Algo que no es un material en una lista de materiales: no se pierde, va tal cual
@@ -237,6 +246,21 @@ static func _contar(ruta: String, v: Array, desde: int, cuantos: int, ctx: Dicti
 		# Un MONTON cuenta lo que lleva (Monton, fase 1A de la optimizacion); un objeto suelto, uno.
 		cuenta[clave] = int(cuenta.get(clave, 0)) + (maxi(1, int(it.n)) if (it is MaterialItem or it is Cristal) else 1)
 	return hasta >= v.size()
+
+
+# Lo que decide el texto de un material / cristal contado: sus campos (_campos, sin la n). Con METADATOS sueltos
+# ("" = sin clave) se calcula siempre: van en el texto y aqui no se ven. El material tiene que ser del proyecto
+# (su texto es la ruta); si no, tambien se calcula.
+static func _clave_texto(it: Resource) -> String:
+	if not it.get_meta_list().is_empty():
+		return ""
+	if it is MaterialItem:
+		var m := it as MaterialItem
+		if m.data == null or not m.data.resource_path.begins_with("res://") or m.data.resource_path.contains("::"):
+			return ""
+		return "m|%s|%d|%s" % [m.data.resource_path, int(m.calidad), var_to_str(m.cm)]
+	var c := it as Cristal
+	return "c|%d|%d" % [c.categoria, int(c.calidad)]
 
 
 # Un Resource dentro de un valor: referencia al proyecto, o su fila de objeto.
